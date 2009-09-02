@@ -116,17 +116,76 @@ if test "$ac_cv_enmabal_prefix" != ""; then
   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],[use smb_mecons])],AC_MSG_RESULT([yes]),AC_MSG_FAILURE([no]))
 fi
 
+# building the documentation
+have_latex=1
 AC_CHECK_PROGS(LATEX,[latex])
+if test x"$LATEX"x == xx; then
+  have_latex=0
+fi
 AC_CHECK_PROGS(BIBTEX,[bibtex])
+if test x"$BIBTEX"x == xx; then
+  have_latex=0
+fi
 AC_CHECK_PROGS(DVIPS,[dvips]) 
-AC_CHECK_PROGS(DVIPDFT,[dvipdft dvipdfm]) 
+if test x"$DVIPS"x == xx; then
+  have_latex=0
+fi
 AC_CHECK_PROGS(GNUPLOT,[gnuplot]) 
+if test x"$GNUPLOT"x == xx; then
+  have_latex=0
+fi
 AC_CHECK_PROGS(DIA,[dia]) 
+if test x"$DIA"x == xx; then
+  have_latex=0
+fi
 AC_CHECK_PROGS(FIG2DEV,[fig2dev]) 
+if test x"$FIG2DEV"x == xx; then
+  have_latex=0
+fi
 AC_CHECK_PROGS(PS2EPSI,[ps2epsi]) 
+if test x"$PS2EPSI"x == xx; then
+  have_latex=0
+fi
 AC_CHECK_PROGS(SED,[sed])
-AM_CONDITIONAL([DO_DOC_PS],  [test "$DVIPS" != ""])
-AM_CONDITIONAL([DO_DOC_PDF], [test "$DVIPDFT" != ""])
+if test x"$SED"x == xx; then
+  have_latex=0
+fi
+AC_CHECK_PROGS(DVIPDFT,[dvipdft dvipdfm])
+
+# build postscript documentation
+do_doc_ps=0
+AC_MSG_CHECKING([whether postscript documentation should be built])
+AC_ARG_ENABLE(doc-ps, AS_HELP_STRING([--enable-doc-ps],[build postscript documentation]),
+[case "${enableval}" in
+ yes)  if test $have_latex == 0; then
+          AC_MSG_RESULT([no])
+          AC_MSG_WARN([did not find all the required tools])
+       else
+          AC_MSG_RESULT([yes])
+          do_doc_ps=1
+       fi;;
+ no)   AC_MSG_RESULT([no]);;
+ *) AC_MSG_ERROR(bad value ${enableval} for --enable-doc-ps) ;;
+esac],[AC_MSG_RESULT([no])])
+AM_CONDITIONAL([DO_DOC_PS],  [test $do_doc_ps == 1])
+
+# build pdf documentation
+do_doc_pdf=0
+AC_MSG_CHECKING([whether PDF documentation should be built])
+AC_ARG_ENABLE(doc-pdf, AS_HELP_STRING([--enable-doc-pdf],[build PDF documentation]),
+[case "${enableval}" in
+ yes)  if test $have_latex == 0 || test x"$DVIPDFT"x == xx; then
+          AC_MSG_RESULT([no])
+          AC_MSG_WARN([did not find all the required tools])
+       else
+          AC_MSG_RESULT([yes])
+          do_doc_pdf=1
+       fi;;
+ no)   AC_MSG_RESULT([no]);;
+ *) AC_MSG_ERROR(bad value ${enableval} for --enable-pdf) ;;
+esac],[AC_MSG_RESULT([no])])
+AM_CONDITIONAL([DO_DOC_PDF],  [test $do_doc_pdf == 1])
+
 
 # some options
 AC_MSG_CHECKING([whether profilng is enabled])
@@ -191,5 +250,5 @@ AC_CONFIG_FILES([Makefile m4macros/Makefile \
                 doc/ug/Makefile doc/ug/figs/Makefile \
                 doc/num/Makefile doc/num/figs/Makefile doc/num/gnu/Makefile \
                 doc/tut/Makefile])
-AC_OUTPUT([doc/glimmer.tex doc/common/version.tex])
+AC_OUTPUT([doc/common/version.tex])
 #AC_OUTPUT([glimmer-config src/fortran/glimmer_vers.F90.in])
