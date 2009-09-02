@@ -1,0 +1,49 @@
+\begin{document}
+\frontmatter
+\title{GLIMMER {\glimmerver} Documentation}
+\author{Magnus Hagdorn\thanks{Magnus.Hagdorn@ed.ac.uk}, Ian
+  Rutt\thanks{I.C.Rutt@bristol.ac.uk}, Tony Payne\thanks{A.J.Payne@bristol.ac.uk} 
+  and Felix Hebeler\thanks{fhebeler@geo.unizh.ch}}
+\maketitle
+\tableofcontents
+
+\ifthenelse{\boolean{html}}
+{
+\Configure{graphics*} 
+         {eps} 
+         {\Needs{"convert \csname Gin@base\endcsname.eps 
+                               \csname Gin@base\endcsname.png"}% 
+          \Picture[pict]{\csname Gin@base\endcsname.png}% 
+         } 
+
+}
+{}
+
+\mainmatter
+\chapter{User Guide}
+\newcommand{\dir}{ug}
+\input{\dir/ug.tex}
+
+\chapter{Tutorial}
+\renewcommand{\dir}{tut}
+\input{\dir/tut.tex}
+
+\chapter{Numerics}
+\renewcommand{\dir}{num}
+\input{\dir/num.tex}
+
+\chapter{Developer Guide}
+\renewcommand{\dir}{dg}
+\input{\dir/dg.tex}
+
+
+\appendix
+\renewcommand{\dir}{ug}
+\chapter{netCDF Variables}
+\input{\dir/varlist.tex}
+\chapter{The GLIMMER API}
+\input{\dir/glum_api.tex}
+\input{\dir/glide_api.tex}
+\input{\dir/glint_api.tex}
+\bibliography{glimmer}
+\end{document}

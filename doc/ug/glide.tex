@@ -1,0 +1,267 @@
+\section{GLIDE}
+GLIDE is the actual ice sheet model. GLIDE comprises three procedures which initialise the model, perform a single time step and finalise the model. The GLIDE configuration file is described in Section \ref{ug.sec.config}. The GLIDE API is described in Appendix \ref{ug.sec.glide_api}. The simple example driver explains how to write a simple climate driver for GLIDE. Download the example from the GLIMMER website or from CVS:
+\begin{verbatim}
+cvs -d:pserver:anonymous@forge.nesc.ac.uk:/cvsroot/glimmer login
+cvs -z3 -d:pserver:anonymous@forge.nesc.ac.uk:/cvsroot/glimmer co glimmer-example
+\end{verbatim}
+
+\subsection{Configuration}\label{ug.sec.config}
+The format of the configuration files is similar to Windows \texttt{.ini} files and contains sections. Each section contains key, values pairs.
+\begin{itemize}
+\item Empty lines, or lines starting with a \texttt{\#}, \texttt{;} or \texttt{!} are ignored.
+\item A new section starts with the the section name enclose with square brackets, e.g. \texttt{[grid]}.
+\item Keys are separated from their associated values by a \texttt{=} or \texttt{:}.
+\end{itemize}
+Sections and keys are case sensitive and may contain white space. However, the configuration parser is very simple and thus the number of spaces within a key or section name also matters. Sensible defaults are used when a specific key is not found.
+
+
+\begin{center}
+  \tablefirsthead{%
+    \hline
+  }
+  \tablehead{%
+    \hline
+    \multicolumn{2}{|l|}{\emph{\small continued from previous page}}\\
+    \hline
+  }
+  \tabletail{%
+    \hline
+    \multicolumn{2}{|r|}{\emph{\small continued on next page}}\\
+    \hline}
+  \tablelasttail{\hline}
+  \begin{supertabular*}{\textwidth}{@{\extracolsep{\fill}}|l|p{9cm}|}
+%%%% GRID
+    \hline
+    \multicolumn{2}{|l|}{\texttt{[grid]}}\\
+    \hline
+    \multicolumn{2}{|p{0.95\textwidth}|}{Define model grid. Maybe we should make this optional and read grid specifications from input netCDF file (if present). Certainly, the input netCDF files should be checked (but presently are not) if grid specifications are compatible.}\\
+    \hline
+    \texttt{ewn} & (integer) number of nodes in $x$--direction\\
+    \texttt{nsn} & (integer) number of nodes in $y$--direction\\
+    \texttt{upn} & (integer) number of nodes in $z$--direction\\
+    \texttt{dew} & (real) node spacing in $x$--direction (m)\\
+    \texttt{dns} & (real) node spacing in $y$--direction (m)\\
+    \texttt{sigma\_file} & (string) Name of file containing $\sigma$ coordinates. Alternatively, the sigma levels may be specified using the \texttt{[sigma]} section decribed below. If no sigma coordinates are specified explicitly, they are calculated using the formula 
+    $$\sigma_i=\frac{1-(x_i+1)^{-n}}{1-2^{-n}}\quad\mbox{with}\quad x_i=\frac{\sigma_i-1}{\sigma_n-1}, n=2.$$ We should probably allow $n$ to be a run--time parameter.\\
+    \hline
+%%%% SIGMA
+    \hline
+    \multicolumn{2}{|l|}{\texttt{[sigma]}}\\
+    \hline
+    \multicolumn{2}{|p{0.95\textwidth}|}{Define the sigma levels used in the vertical discretization. This is an alternative to using a separate file (specified in section \texttt{[grid]} above). If neither is used, the levels are calculated as described above. \emph{\bf This does not work in version 1.0.0 --- a bugfix will be incorporated into v.1.0.2.}}\\
+    \hline
+    \texttt{sigma\_levels} & (real) list of sigma levels, in ascending order, separated by spaces. These run between 0.0 and 1.0 \\
+    \hline
+%%%% TIME
+    \hline
+    \multicolumn{2}{|l|}{\texttt{[time]}}\\
+    \hline
+    \multicolumn{2}{|p{0.95\textwidth}|}{Configure time steps, etc. Update intervals should probably become absolute values rather than related to the main time step when we introduce variable time steps.}\\
+    \hline
+    \texttt{tstart} & (real) Start time of the model in years\\
+    \texttt{tend} & (real) End time of the model in years\\
+    \texttt{dt} & (real) size of time step in years\\
+    \texttt{ntem} & (real) time step multiplier setting the ice temperature update interval\\
+    \texttt{nvel} & (real) time step multiplier setting the velocity update interval\\
+    \hline
+%%%% Options
+    \hline
+    \multicolumn{2}{|l|}{\texttt{[options]}}\\
+    \hline
+    \multicolumn{2}{|p{0.95\textwidth}|}{Parameters set in this section determine how various components of the ice sheet model are treated. Defaults are indicated in bold.}\\
+    \hline
+    \texttt{ioparams} & (string) name of file containing netCDF I/O configuration. The main configuration file is searched for I/O related sections if no file name is given (default).\\
+    \texttt{temperature} & 
+    \begin{tabular}[t]{cl}
+      0 & isothermal\\
+      {\bf 1} & full \\
+    \end{tabular}\\
+    \texttt{flow\_law} & 
+    \begin{tabular}[t]{cl}
+      {\bf 0} & Patterson and Budd\\
+      1 & Patterson and Budd (temp=-10degC)\\
+      2 & const $10^{-16}$a$^{-1}$Pa$^{-n}$\\
+    \end{tabular}\\
+    \texttt{basal\_water} & 
+    \begin{tabular}[t]{cl}
+      0 & local water balance\\
+      1 & local water balance + const flux \\
+      {\bf 2} & none\\
+    \end{tabular}\\
+    \texttt{marine\_margin} & 
+    \begin{tabular}[t]{cp{\linewidth}}
+      0 & ignore marine margin\\
+      {\bf 1} & Set thickness to zero if floating\\
+      2 & Set thickness to zero if relaxed bedrock is below a given depth\\
+      3 & Lose fraction of ice when edge cell\\
+      4 & Set thickness to zero if present-day bedrock is below a given depth\\
+    \end{tabular}\\
+    \texttt{slip\_coeff} & 
+    \begin{tabular}[t]{cl}
+      {\bf 0} & zero \\
+      1 & set to a non--zero constant everywhere\\
+      2 & set constant where the ice base is melting\\
+      0 & $\propto$ basal water\\
+    \end{tabular}\\
+    \texttt{evolution} & 
+    \begin{tabular}[t]{cl}
+      {\bf 0} & pseudo-diffusion\\
+      1 & ADI scheme \\
+      2 & diffusion \\
+    \end{tabular}\\
+    \texttt{vertical\_integration} & 
+    \begin{tabular}[t]{cl}
+      {\bf 0} & standard\\
+      1 & obey upper BC\\
+    \end{tabular}\\
+    \texttt{topo\_is\_relaxed} &  
+    \begin{tabular}[t]{cp{\linewidth}}
+      {\bf 0} & relaxed topography is read from a separate variable\\
+      1 & first time slice of input topography is assumed to be relaxed\\
+      2 & first time slice of input topography is assumed to be in isostatic
+      equilibrium with ice thickness. \\
+    \end{tabular}\\
+    \texttt{periodic\_ew} & 
+    \begin{tabular}[t]{cp{\linewidth}}
+      {\bf 0} & switched off\\
+      1 & periodic lateral EW boundary conditions (i.e. run model on torus)\\
+    \end{tabular}\\
+    \texttt{hotstart} &
+     Hotstart the model if set to 1. This option only affects the way the initial temperature and flow factor distribution is calculated.\\
+    \hline
+%%%%
+    \hline
+    \multicolumn{2}{|l|}{\texttt{[parameters]}}\\
+    \hline
+    \multicolumn{2}{|p{0.95\textwidth}|}{Set various parameters.}\\
+    \hline
+    \texttt{log\_level} & (integer) set to a value between 0, no messages, and 6, all messages are displayed to stdout. By default messages are only logged to file.\\
+    \texttt{ice\_limit} & (real) below this limit ice is only accumulated; ice dynamics are switched on once the ice thickness is above this value.\\
+    \texttt{marine\_limit} & (real) all ice is assumed lost once water depths reach this value (for \texttt{marine\_margin}=2 or 4 in \texttt{[options]} above). Note, water depth is negative. \\
+    \texttt{calving\_fraction} & (real) fraction of ice lost due to calving. \\
+    \texttt{geothermal} & (real) constant geothermal heat flux.\\
+    \texttt{flow\_factor} & (real) the flow law is enhanced with this factor \\
+    \texttt{hydro\_time} & (real) basal hydrology time constant \\
+    \texttt{isos\_time} & (real) isostasy time constant \\
+    \texttt{basal\_tract\_const} & constant basal traction parameter. You can load a nc file with a variable called \texttt{soft} if you want a specially variying bed softness parameter. \\
+    \texttt{basal\_tract} & (real(5)) basal traction factors. Basal traction is set to $B=\tanh(W)$ where the parameters
+      \begin{tabular}{cp{\linewidth}}
+       (1) & width of the $\tanh$ curve\\
+       (2) & $W$ at midpoint of $\tanh$ curve [m]\\
+       (3) & $B$ minimum [ma$^{-1}$Pa$^{-1}$] \\
+       (4) & $B$ maximum [ma$^{-1}$Pa$^{-1}$] \\
+       (5) & multiplier for marine sediments \\
+     \end{tabular}\\
+    \hline
+%%%%
+    \hline
+    \multicolumn{2}{|l|}{\texttt{[isostasy]}}\\
+    \hline
+    \multicolumn{2}{|p{0.95\textwidth}|}{Isostatic adjustment is only enabled if this section is present in the configuration file. The options described control isostasy model.}\\
+    \hline
+    \texttt{lithosphere} & \begin{tabular}[t]{cp{\linewidth}} 
+      {\bf 0} & local lithosphere, equilibrium bedrock depression is found using Archimedes' principle \\
+      1 & elastic lithosphere, flexural rigidity is taken into account
+    \end{tabular} \\
+    \texttt{asthenosphere} & \begin{tabular}[t]{cp{\linewidth}}
+      {\bf 0} & fluid mantle, isostatic adjustment happens instantaneously \\
+      1 & relaxing mantle, mantle is approximated by a half-space \\
+    \end{tabular} \\    
+    \texttt{relaxed\_tau} & characteristic time constant of relaxing mantle (default: 4000.a) \\
+    \texttt{update} & lithosphere update period (default: 500.a) \\
+    \hline
+%%%%
+    \hline
+    \multicolumn{2}{|l|}{\texttt{[projection]}}\\
+    \hline
+    \multicolumn{2}{|p{0.95\textwidth}|}{Specify map projection. The reader is
+    referred to Snyder J.P. (1987) \emph{Map Projections - a working manual.} USGS 
+        Professional Paper 1395. }\\
+    \hline
+    \texttt{type} & This is a string that specifies the projection type
+    (\texttt{LAEA}, \texttt{AEA}, \texttt{LCC} or \texttt{STERE}). \\
+    \texttt{centre\_longitude} & Central longitude in degrees east \\
+    \texttt{centre\_latitude} & Central latitude in degrees north \\
+    \texttt{false\_easting} & False easting in meters \\
+    \texttt{false\_northing} & False northing in meters \\
+    \texttt{standard\_parallel} & Location of standard parallel(s) in degrees
+    north. Up to two standard parallels may be specified (depending on the
+    projection). \\
+    \texttt{scale\_factor} & non-dimensional. Only relevant for the Stereographic projection.  \\
+%%%%
+    \hline
+    \multicolumn{2}{|l|}{\texttt{[elastic lithosphere]}}\\
+    \hline
+    \multicolumn{2}{|p{0.95\textwidth}|}{Set up parameters of the elastic lithosphere.}\\
+    \hline
+    \texttt{flexural\_rigidity} & flexural rigidity of the lithosphere (default: 0.24e25)\\
+    \hline
+    \hline
+    \multicolumn{2}{|l|}{\texttt{[GTHF]}}\\
+    \hline
+    \multicolumn{2}{|p{0.95\textwidth}|}{Switch on lithospheric temperature and geothermal heat calculation.}\\
+    \hline
+    \texttt{num\_dim} & can be either \texttt{1} for 1D calculations or 3 for 3D calculations.\\
+    \texttt{nlayer} & number of vertical layers (default: 20). \\
+    \texttt{surft} & initial surface temperature (default 2$^\circ$C).\\
+    \texttt{rock\_base} & depth below sea-level at which geothermal heat gradient is applied (default: -5000m).\\
+    \texttt{numt} & number time steps for spinning up GTHF calculations (default: 0).\\
+    \texttt{rho} & The density of lithosphere (default: 3300kg m$^{-3}$).\\
+    \texttt{shc} & specific heat capcity of lithosphere (default: 1000J kg$^{-1}$ K$^{-1}$).\\
+    \texttt{con} & thermal conductivity of lithosphere (3.3 W m$^{-1}$ K$^{-1}$).\\    
+    \hline
+  \end{supertabular*}
+\end{center}
+
+NetCDF I/O can be configured in the main configuration file or in a separate file (see \texttt{ioparams} in the \texttt{[options]} section). Any number of input and output files can be specified. Input files are processed in the same order they occur in the configuration file, thus potentially overwriting priviously loaded fields.
+
+\begin{center}
+  \tablefirsthead{%
+    \hline
+  }
+  \tablehead{%
+    \hline
+    \multicolumn{2}{|l|}{\emph{\small continued from previous page}}\\
+    \hline
+  }
+  \tabletail{%
+    \hline
+    \multicolumn{2}{|r|}{\emph{\small continued on next page}}\\
+    \hline}
+  \tablelasttail{\hline}
+  \begin{supertabular*}{\textwidth}{@{\extracolsep{\fill}}|l|p{11cm}|}
+%%%% defaults
+    \hline
+    \multicolumn{2}{|l|}{\texttt{[CF default]}}\\
+    \hline
+    \multicolumn{2}{|p{0.95\textwidth}|}{This section contains metadata describing the experiment. Any of these parameters can be modified in the \texttt{[output]} section. The model automatically attaches a time stamp and the model version to the netCDF output file.}\\
+    \hline
+    \texttt{title}& Title of the experiment\\
+    \texttt{institution} & Institution at which the experiment was run\\
+    \texttt{references} & References that might be useful\\
+    \texttt{comment} & A comment, further describing the experiment\\
+    \hline
+%%%% 
+    \hline
+    \multicolumn{2}{|l|}{\texttt{[CF input]}}\\
+    \hline
+    \multicolumn{2}{|p{0.95\textwidth}|}{Any number of input files can be specified. They are processed in the order they occur in the configuration file, potentially overriding previously loaded variables.}\\
+    \hline
+    \texttt{name}& The name of the netCDF file to be read. Typically netCDF files end with \texttt{.nc}.\\
+    \texttt{time}& The time slice to be read from the netCDF file. The first time slice is read by default.\\
+    \hline
+%%%% 
+    \hline
+    \multicolumn{2}{|l|}{\texttt{[CF output]}}\\
+    \hline
+    \multicolumn{2}{|p{0.95\textwidth}|}{This section of the netCDF parameter file controls how often selected  variables are written to file.}\\
+    \hline
+    \texttt{name} & The name of the output netCDF file. Typically netCDF files end with \texttt{.nc}.\\
+    \texttt{start} & Start writing to file when this time is reached (default: first time slice).\\
+    \texttt{stop} & Stop writin to file when this time is reached (default: last time slice). \\
+    \texttt{frequency} & The time interval in years, determining how often selected variables are written to file.\\
+    \texttt{variables} & List of variables to be written to file. See Appendix \ref{ug.sec.varlist} for a list of known variables. Names should be separated by at least one space. The variable names are case sensitive. Variable \texttt{hot} selects all variables necessary for a hotstart.\\
+    \hline
+  \end{supertabular*}
+\end{center}
+

@@ -20,7 +20,7 @@ AC_SUBST(GLIMMER_MINOR_VERSION)
 AC_SUBST(GLIMMER_MICRO_VERSION)
 AC_SUBST(GLIMMER_VERSION)
 
-AC_CONFIG_SRCDIR([glimmer-config.in])
+AC_CONFIG_SRCDIR([glimmer-cism-config.in])
 
 AC_PROG_RANLIB
 
@@ -116,6 +116,18 @@ if test "$ac_cv_enmabal_prefix" != ""; then
   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],[use smb_mecons])],AC_MSG_RESULT([yes]),AC_MSG_FAILURE([no]))
 fi
 
+AC_CHECK_PROGS(LATEX,[latex])
+AC_CHECK_PROGS(BIBTEX,[bibtex])
+AC_CHECK_PROGS(DVIPS,[dvips]) 
+AC_CHECK_PROGS(DVIPDFT,[dvipdft dvipdfm]) 
+AC_CHECK_PROGS(GNUPLOT,[gnuplot]) 
+AC_CHECK_PROGS(DIA,[dia]) 
+AC_CHECK_PROGS(FIG2DEV,[fig2dev]) 
+AC_CHECK_PROGS(PS2EPSI,[ps2epsi]) 
+AC_CHECK_PROGS(SED,[sed])
+AM_CONDITIONAL([DO_DOC_PS],  [test "$DVIPS" != ""])
+AM_CONDITIONAL([DO_DOC_PDF], [test "$DVIPDFT" != ""])
+
 # some options
 AC_MSG_CHECKING([whether profilng is enabled])
 AC_ARG_ENABLE(profile, AS_HELP_STRING([--enable-profile],[Turn on profiling]),
@@ -174,6 +186,10 @@ esac],[AC_MSG_RESULT([no])])
 #AC_SUBST(GLIMMER_SVN_VERS)
 #AM_CONDITIONAL([HAVE_SVN],[test "$have_svn_entries" == "yes"])
 
-AC_CONFIG_FILES([Makefile m4macros/Makefile])
-AC_OUTPUT
+AC_CONFIG_FILES([Makefile m4macros/Makefile \
+                doc/Makefile doc/common/Makefile doc/dg/Makefile doc/dg/figures/Makefile \
+                doc/ug/Makefile doc/ug/figs/Makefile \
+                doc/num/Makefile doc/num/figs/Makefile doc/num/gnu/Makefile \
+                doc/tut/Makefile])
+AC_OUTPUT([doc/glimmer.tex doc/common/version.tex])
 #AC_OUTPUT([glimmer-config src/fortran/glimmer_vers.F90.in])
