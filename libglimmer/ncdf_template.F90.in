@@ -1,0 +1,315 @@
+! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! +                                                           +
+! +  ncdf_template.f90 - part of the GLIMMER ice model        + 
+! +                                                           +
+! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! 
+! Copyright (C) 2004 GLIMMER contributors - see COPYRIGHT file 
+! for list of contributors.
+!
+! This program is free software; you can redistribute it and/or 
+! modify it under the terms of the GNU General Public License as 
+! published by the Free Software Foundation; either version 2 of 
+! the License, or (at your option) any later version.
+!
+! This program is distributed in the hope that it will be useful, 
+! but WITHOUT ANY WARRANTY; without even the implied warranty of 
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+! GNU General Public License for more details.
+!
+! You should have received a copy of the GNU General Public License 
+! along with this program; if not, write to the Free Software 
+! Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 
+! 02111-1307 USA
+!
+! GLIMMER is maintained by:
+!
+! Ian Rutt
+! School of Geographical Sciences
+! University of Bristol
+! University Road
+! Bristol
+! BS8 1SS
+! UK
+!
+! email: <i.c.rutt@bristol.ac.uk> or <ian.rutt@physics.org>
+!
+! GLIMMER is hosted on berliOS.de:
+!
+! https://developer.berlios.de/projects/glimmer-cism/
+!
+! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+#define NCO outfile%nc
+#define NCI infile%nc
+
+!GENVAR_HAVE_AVG!
+
+module NAME_io
+  !*FD template for creating subsystem specific I/O routines
+  !*FD written by Magnus Hagdorn, 2004
+
+  !GENVAR_HOT!
+
+contains
+
+  !*****************************************************************************
+  ! netCDF output
+  !*****************************************************************************
+  subroutine NAME_io_createall(model,data,outfiles)
+    !*FD open all netCDF files for output
+    use DATAMOD
+    use glide_types
+    use glimmer_ncdf
+    use glimmer_ncio
+    implicit none
+    type(glide_global_type) :: model
+    type(DATATYPE), optional :: data
+    type(glimmer_nc_output),optional,pointer :: outfiles
+    
+    ! local variables
+    type(glimmer_nc_output), pointer :: oc
+
+    if (present(outfiles)) then
+       oc => outfiles
+    else
+       oc=>model%funits%out_first
+    end if
+
+    do while(associated(oc))
+       if (present(data)) then
+          call NAME_io_create(oc,model,data)
+       else
+          call NAME_io_create(oc,model)
+       end if
+       oc=>oc%next
+    end do
+  end subroutine NAME_io_createall
+
+  subroutine NAME_io_writeall(data,model,atend,outfiles,time)
+    !*FD if necessary write to netCDF files
+    use DATAMOD
+    use glide_types
+    use glimmer_ncdf
+    use glimmer_ncio
+    implicit none
+    type(DATATYPE) :: data
+    type(glide_global_type) :: model
+    logical, optional :: atend
+    type(glimmer_nc_output),optional,pointer :: outfiles
+    real(sp),optional :: time
+
+    ! local variables
+    type(glimmer_nc_output), pointer :: oc
+    logical :: forcewrite=.false.
+
+    if (present(outfiles)) then
+       oc => outfiles
+    else
+       oc=>model%funits%out_first
+    end if
+
+    if (present(atend)) then
+       forcewrite = atend
+    end if
+
+    do while(associated(oc))
+#ifdef HAVE_AVG
+       if (oc%do_averages) then
+          call NAME_avg_accumulate(oc,data,model)
+       end if
+#endif
+       call glimmer_nc_checkwrite(oc,model,forcewrite,time)
+       if (oc%nc%just_processed) then
+          ! write standard variables
+          call NAME_io_write(oc,data)
+#ifdef HAVE_AVG
+          if (oc%do_averages) then
+             call NAME_avg_reset(oc,data)
+          end if
+#endif
+       end if
+       oc=>oc%next
+    end do
+  end subroutine NAME_io_writeall
+  
+  subroutine NAME_io_create(outfile,model,data)
+    use glide_types
+    use DATAMOD
+    use glimmer_ncdf
+    use glimmer_map_types
+    use glimmer_log
+    implicit none
+    type(glimmer_nc_output), pointer :: outfile
+    type(glide_global_type) :: model
+    type(DATATYPE), optional :: data
+
+    integer status,varid,pos
+
+    !GENVAR_DIMS!
+
+    NCO%vars = ' '//trim(NCO%vars)//' '
+    ! expanding hotstart variables
+    pos = index(NCO%vars,' hot ') 
+    if (pos.ne.0) then
+       NCO%vars = NCO%vars(:pos)//NCO%vars(pos+4:)
+       NCO%hotstart = .true.
+    end if
+    if (NCO%hotstart) then
+       NCO%vars = trim(NCO%vars)//hotvars
+    end if
+    ! checking if we need to handle time averages
+    pos = index(NCO%vars,AVG_SUFF)
+    if (pos.ne.0) then
+       outfile%do_averages = .True.
+    end if    
+
+    !GENVAR_VARDEF!
+  end subroutine NAME_io_create
+
+  subroutine NAME_io_write(outfile,data)
+    use DATAMOD
+    use glimmer_ncdf
+    use paramets
+    use glimmer_scales
+    implicit none
+    type(glimmer_nc_output), pointer :: outfile
+    !*FD structure containg output netCDF descriptor
+    type(DATATYPE) :: data
+    !*FD the model instance
+
+    ! local variables
+    real tavgf
+    integer status, varid
+    integer up
+     
+    tavgf = outfile%total_time
+    if (tavgf.ne.0.) then
+       tavgf = 1./tavgf
+    end if
+
+    ! write variables
+    !GENVAR_WRITE!
+  end subroutine NAME_io_write
+
+  !*****************************************************************************
+  ! netCDF input
+  !*****************************************************************************  
+  subroutine NAME_io_readall(data,model)
+    !*FD read from netCDF file
+    use DATAMOD
+    use glide_types
+    use glimmer_ncio
+    use glimmer_ncdf
+    implicit none
+    type(DATATYPE) :: data
+    type(glide_global_type) :: model
+
+    ! local variables
+    type(glimmer_nc_input), pointer :: ic    
+
+    ic=>model%funits%in_first
+    do while(associated(ic))
+       call glimmer_nc_checkread(ic,model)
+       if (ic%nc%just_processed) then
+          call NAME_io_read(ic,data)
+       end if
+       ic=>ic%next
+    end do
+  end subroutine NAME_io_readall
+
+  subroutine NAME_io_read(infile,data,scale_vars)
+    !*FD read variables from a netCDF file
+    use glimmer_log
+    use glimmer_ncdf
+    use DATAMOD
+    use paramets
+    use glimmer_scales
+    implicit none
+    type(glimmer_nc_input), pointer :: infile
+    !*FD structure containg output netCDF descriptor
+    type(DATATYPE) :: data
+    !*FD the model instance
+    logical,optional :: scale_vars
+    !*FD Specifies whether fields should be scaled by factors when read in.
+
+    ! local variables
+    integer status,varid
+    integer up
+    logical :: scale=.true.
+
+    ! Deal with optional argument
+    if (present(scale_vars)) scale=scale_vars
+   
+    ! read variables
+    !GENVAR_READ!
+  end subroutine NAME_io_read
+
+  subroutine NAME_io_checkdim(infile,model,data)
+    !*FD check if dimension sizes in file match dims of model
+    use glimmer_log
+    use glimmer_ncdf
+    use glide_types
+    use DATAMOD
+    implicit none
+    type(glimmer_nc_input), pointer :: infile
+    !*FD structure containg output netCDF descriptor
+    type(glide_global_type) :: model
+    type(DATATYPE), optional :: data
+
+    integer status,dimid,dimsize
+    character(len=150) message
+
+    ! check dimensions
+    !GENVAR_CHECKDIM!
+  end subroutine NAME_io_checkdim
+
+  !*****************************************************************************
+  ! calculating time averages
+  !*****************************************************************************  
+#ifdef HAVE_AVG
+  subroutine NAME_avg_accumulate(outfile,data,model)
+    use glide_types
+    use DATAMOD
+    use glimmer_ncdf
+    implicit none
+    type(glimmer_nc_output), pointer :: outfile
+    !*FD structure containg output netCDF descriptor
+    type(glide_global_type) :: model
+    type(DATATYPE) :: data
+
+    ! local variables
+    real :: factor
+    integer status, varid
+
+    ! increase total time
+    outfile%total_time = outfile%total_time + model%numerics%tinc
+    factor = model%numerics%tinc
+
+    !GENVAR_CALCAVG!
+  end subroutine NAME_avg_accumulate
+
+  subroutine NAME_avg_reset(outfile,data)
+    use DATAMOD
+    use glimmer_ncdf
+    implicit none
+    type(glimmer_nc_output), pointer :: outfile
+    !*FD structure containg output netCDF descriptor
+    type(DATATYPE) :: data
+
+    ! local variables
+    integer status, varid
+
+    ! reset total time
+    outfile%total_time = 0.
+
+    !GENVAR_RESETAVG!
+  end subroutine NAME_avg_reset
+#endif
+
+  !*********************************************************************
+  ! lots of accessor subroutines follow
+  !*********************************************************************
+  !GENVAR_ACCESSORS!
+
+end module NAME_io

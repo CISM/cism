@@ -1,4 +1,7 @@
 2009-09-03 Magnus Hagdorn
+ * libglimmer/Makefile.am: add targets for libglimmer-IO.a
+
+2009-09-03 Magnus Hagdorn
  * configure.in: add new subdirectory
  * libglimmer/Makefile.am: handle new subdirectory
  * libglimmer/solve/SLAP/Makefile.am: handle dependencies, run SLAP test

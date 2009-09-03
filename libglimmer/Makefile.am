@@ -6,9 +6,9 @@ endif
 
 SUBDIRS = $(BLAS_DIR) solve
 
-lib_LIBRARIES = libglimmer.a
-bin_PROGRAMS  =  
-check_PROGRAMS = test_config test_integrate test_commandline
+lib_LIBRARIES = libglimmer.a libglimmer-IO.a
+bin_PROGRAMS  =  nc2config
+check_PROGRAMS = test_config test_integrate test_commandline test_ts test_writestats
 
 
 EXTRA_DIST = f90_dep.mak 
@@ -24,13 +24,24 @@ libglimmer_a_SOURCES = glimmer_vers.F90 glimmer_commandline.F90 \
                        glimmer_map_trans.F90
 nodist_libglimmer_a_SOURCES = glimmer_vers.F90
 
+libglimmer_IO_a_SOURCES = glimmer_anomcouple.F90 glimmer_filenames.F90 glimmer_ncdf.F90 \
+                          glimmer_ts.F90 \
+                          glimmer_writestats.F90 ncdf_utils.F90 test_ts.F90 \
+                          test_writestats.F90 writestats.c writestats.h cfortran.h 
+
+nc2config_SOURCES = nc2config.F90
+nc2config_LDADD = libglimmer-IO.a libglimmer.a $(NETCDF_LDFLAGS) $(HDF5_LDFLAGS) $(NETCDF_LIBS)
+
 test_config_SOURCES = test_config.F90 glimmer_config.F90 glimmer_log.F90
 test_integrate_SOURCES = test_integrate.F90 glimmer_global.F90 \
                          glimmer_physcon.F90 glimmer_integrate.F90
 test_commandline_SOURCES = test_commandline.F90 glimmer_commandline.F90
+test_ts_SOURCES = glimmer_ts.F90 glimmer_log.F90 test_ts.F90
+test_writestats_SOURCES = test_writestats.F90 glimmer_writestats.F90 writestats.c writestats.h cfortran.h
 
 AM_FCFLAGS = $(NETCDF_CPPFLAGS) $(HDF5_CPPFLAGS)
 LDADD = $(NETCDF_LDFLAGS) $(HDF5_LDFLAGS) $(NETCDF_LIBS)
+AM_CFLAGS=$(CFORTRAN_CFLAGS)
 
 # handling subversion versioning
 if HAVE_SVN
@@ -48,3 +59,4 @@ f90_dep.mak:	$(srcdir)/*.F90 $(BUILT_SOURCES) glimmer_vers.F90
 		$(PYTHON) $(top_srcdir)/scripts/f90_dependencies.py -o $@ $^
 
 -include f90_dep.mak
+
