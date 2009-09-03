@@ -207,15 +207,15 @@ AC_ARG_ENABLE(command-line, AS_HELP_STRING([--enable-command-line],[Turn on comm
  *) AC_MSG_ERROR(bad value ${enableval} for --enable-command-line) ;;
 esac],[AC_MSG_RESULT([no])])
 
-AC_MSG_CHECKING([whether extended restarts are enabled])
-AC_ARG_ENABLE(restarts, AS_HELP_STRING([--enable-restarts],[Build extended restart code]),
-[case "${enableval}" in
- yes)  AC_DEFINE(RESTARTS,1,[Define to 1 if you want to enable extended restarts])
-       AC_MSG_RESULT([yes]);;	
- no)   AC_MSG_RESULT([no]);;
- *) AC_MSG_ERROR(bad value ${enableval} for --enable-restarts) ;;
-esac],[AC_MSG_RESULT([no])])
-AM_CONDITIONAL([BUILD_RESTARTS],[test "$enable_restarts" == "yes"])
+#AC_MSG_CHECKING([whether extended restarts are enabled])
+#AC_ARG_ENABLE(restarts, AS_HELP_STRING([--enable-restarts],[Build extended restart code]),
+#[case "${enableval}" in
+# yes)  AC_DEFINE(RESTARTS,1,[Define to 1 if you want to enable extended restarts])
+#       AC_MSG_RESULT([yes]);;	
+# no)   AC_MSG_RESULT([no]);;
+# *) AC_MSG_ERROR(bad value ${enableval} for --enable-restarts) ;;
+#esac],[AC_MSG_RESULT([no])])
+#AM_CONDITIONAL([BUILD_RESTARTS],[test "$enable_restarts" == "yes"])
 
 AC_MSG_CHECKING([whether the build is single precision])
 AC_ARG_ENABLE(sp, AS_HELP_STRING([--enable-sp],[Build code as single precision]),
@@ -237,18 +237,19 @@ esac],[AC_MSG_RESULT([no])])
 #AM_CONDITIONAL([RUN_TESTS], [test "$enable_tests" == "yes"])
 
 # Checking if sources are from subversion
-#AC_CHECK_FILE($srcdir/src/fortran/.svn/entries,have_svn_entries="yes",have_svn_entries="no")
-#GLIMMER_SVN_VERS=""
-#if test "$have_svn_entries" == "yes"; then
-#   GLIMMER_SVN_VERS=" svn_vers_string"
-#fi
-#AC_SUBST(GLIMMER_SVN_VERS)
-#AM_CONDITIONAL([HAVE_SVN],[test "$have_svn_entries" == "yes"])
+AC_CHECK_FILE($srcdir/libglimmer/.svn/entries,have_svn_entries="yes",have_svn_entries="no")
+GLIMMER_SVN_VERS=""
+if test "$have_svn_entries" == "yes"; then
+   GLIMMER_SVN_VERS=" svn_vers_string"
+fi
+AC_SUBST(GLIMMER_SVN_VERS)
+AM_CONDITIONAL([HAVE_SVN],[test "$have_svn_entries" == "yes"])
 
-AC_CONFIG_FILES([Makefile m4macros/Makefile \
+AC_CONFIG_FILES([Makefile m4macros/Makefile scripts/Makefile \
+                libglimmer/Makefile \
                 doc/Makefile doc/common/Makefile doc/dg/Makefile doc/dg/figures/Makefile \
                 doc/ug/Makefile doc/ug/figs/Makefile \
                 doc/num/Makefile doc/num/figs/Makefile doc/num/gnu/Makefile \
                 doc/tut/Makefile])
 AC_OUTPUT([doc/common/version.tex])
-#AC_OUTPUT([glimmer-config src/fortran/glimmer_vers.F90.in])
+AC_OUTPUT([glimmer-config libglimmer/glimmer_vers.F90.in])
