@@ -1,3 +1,5 @@
+SUBDIRS = solve
+
 lib_LIBRARIES = libglimmer.a
 bin_PROGRAMS  =  
 check_PROGRAMS = test_config test_integrate test_commandline

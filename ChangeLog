@@ -1,4 +1,9 @@
 2009-09-03 Magnus Hagdorn
+ * configure.in: add new directories
+ * libglimmer/Makefile.am: decent into new subdirectory
+ * add vanilla SLAP library
+
+2009-09-03 Magnus Hagdorn
  * Makefile.am: add new sub-directories
  * configure.in: uncomment restart facility, handle new directories
  * add scripts
