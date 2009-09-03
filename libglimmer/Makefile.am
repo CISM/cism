@@ -1,4 +1,10 @@
-SUBDIRS = solve
+if EXT_BLAS
+ BLAS_DIR =
+else
+ BLAS_DIR = blas
+endif
+
+SUBDIRS = $(BLAS_DIR) solve
 
 lib_LIBRARIES = libglimmer.a
 bin_PROGRAMS  =  

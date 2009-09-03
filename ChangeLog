@@ -1,4 +1,11 @@
 2009-09-03 Magnus Hagdorn
+ * configure.in: add new subdirectory
+ * libglimmer/Makefile.am: handle new subdirectory
+ * libglimmer/solve/SLAP/Makefile.am: handle dependencies, run SLAP test
+ * libglimmer/blas: added reference implementation of BLAS required for
+   SLAP from netlib
+
+2009-09-03 Magnus Hagdorn
  * configure.in: add new directories
  * libglimmer/Makefile.am: decent into new subdirectory
  * add vanilla SLAP library

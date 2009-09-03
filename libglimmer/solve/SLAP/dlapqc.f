@@ -573,14 +573,15 @@ C
       INTEGER ITMP(N), IDIAG(N)
       DOUBLE PRECISION FACTOR, A(NELTMX)
       DOUBLE PRECISION F(N), SOLN(N), DSUM(N)
-      REAL RAND, DUMMY
+      REAL RAND
+      INTEGER DUMMY
 C
 C         Start by setting the random number generator seed.
 C         This is done for reproducablility in debuggin.  Remove
 C         the seed seeting call for production testing.
 C
 C***FIRST EXECUTABLE STATEMENT  DRMGEN
-      DUMMY = 16381.0
+      DUMMY = 16381
       ISEED = RAND( DUMMY )
       IERR = 0
       DO 10 I = 1, N
@@ -701,12 +702,13 @@ C            n with out any repetitions.
 C***ROUTINES CALLED  RAND
 C***END PROLOGUE
       IMPLICIT DOUBLE PRECISION(A-H,O-Z)
-      REAL RAND, DUMMY
+      REAL RAND
+      INTEGER DUMMY
       INTEGER N, M, INDX(M)
 C
 C..       Check the input
 C***FIRST EXECUTABLE STATEMENT  DMPL
-      DUMMY = 0.0
+      DUMMY = 0
       IF( N*M.LT.0 .OR. M.GT.N ) RETURN
 C
 C..       Set the indeicies.      
