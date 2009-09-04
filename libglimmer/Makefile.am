@@ -13,7 +13,7 @@ CLEANFILES = $(BUILT_SOURCES) glimmer_vers.F90 f90_dep.mak
 libglimmer_la_SOURCES = glimmer_vers.F90 glimmer_commandline.F90 \
                        glimmer_global.F90 glimmer_utils.F90\
                        glimmer_log.F90 glimmer_paramets.F90 glimmer_physcon.F90 kelvin.F90 \
-                       profile.F90  \
+                       profile.F90  glimmer_searchcircle.F90 \
                        glimmer_coordinates.F90 \
                        glimmer_integrate.F90 \
                        glimmer_map_CFproj.F90 glimmer_map_proj4.F90 \

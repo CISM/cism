@@ -1,4 +1,10 @@
 2009-09-04 Magnus Hagdorn
+ * Makefile.am: add new subdirectory
+ * configure.in: handle new directories
+ * libglimmer/Makefile.am: forgot a file
+ * add eis driver and example setups
+
+2009-09-04 Magnus Hagdorn
  * Makefile.am: distribute new file
  * configure.in: handle new directories
  * tests/Makefile.am: ditto
