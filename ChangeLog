@@ -1,4 +1,7 @@
 2009-09-04 Magnus Hagdorn
+ * added EISMINT-3 greenland example
+
+2009-09-04 Magnus Hagdorn
  * Makefile.am: add new subdirectory
  * configure.in: handle new directories
  * libglimmer/Makefile.am: forgot a file
