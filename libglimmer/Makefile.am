@@ -1,11 +1,3 @@
-#if EXT_BLAS
-# BLAS_DIR =
-#else
-# BLAS_DIR = blas
-#endif
-
-SUBDIRS = $(BLAS_DIR)
-
 lib_LTLIBRARIES = libglimmer.la libglimmer-IO.la
 bin_PROGRAMS  =  nc2config
 check_PROGRAMS = test_config test_integrate test_commandline test_ts test_writestats

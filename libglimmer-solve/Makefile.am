@@ -1,9 +1,17 @@
-SUBDIRS = SLAP
+if EXT_BLAS
+ BLAS_DIR =
+ BLAS_LIB = 
+else
+ BLAS_DIR = blas
+ BLAS_LIB = blas/libblas.la
+endif
+
+SUBDIRS = SLAP $(BLAS_DIR)
 
 lib_LTLIBRARIES = libglimmer-solve.la
 
 libglimmer_solve_la_SOURCES = glimmer_sparse.F90
-libglimmer_solve_la_LIBADD = SLAP/libslap.la
+libglimmer_solve_la_LIBADD = SLAP/libslap.la $(BLAS_LIB)
 nodist_include_HEADERS := $(wildcard *.mod)
 
 AM_FCFLAGS = -I../libglimmer

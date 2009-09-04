@@ -247,8 +247,9 @@ AC_SUBST(GLIMMER_SVN_VERS)
 AM_CONDITIONAL([HAVE_SVN],[test "$have_svn_entries" == "yes"])
 
 AC_CONFIG_FILES([Makefile m4macros/Makefile scripts/Makefile \
-                libglimmer/Makefile libglimmer/blas/Makefile \
-                libglimmer-solve/Makefile libglimmer-solve/SLAP/Makefile\
+                libglimmer/Makefile \
+                libglimmer-solve/Makefile libglimmer-solve/SLAP/Makefile \
+                libglimmer-solve/blas/Makefile
                 libglide/Makefile \
                 doc/Makefile doc/common/Makefile doc/dg/Makefile doc/dg/figures/Makefile \
                 doc/ug/Makefile doc/ug/figs/Makefile \

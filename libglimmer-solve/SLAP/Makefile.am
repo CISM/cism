@@ -1,7 +1,7 @@
 if EXT_BLAS
   BLAS = $(BLAS_LIBS)
 else
-  BLAS = ../../blas/libglimmer-blas.a
+  BLAS = ../blas/libblas.la
 endif
 
 noinst_LTLIBRARIES = libslap.la

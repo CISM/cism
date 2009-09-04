@@ -1,4 +1,13 @@
 2009-09-04 Magnus Hagdorn
+ * configure.in: move internal blas around to libglimmer-solve
+ * libglide/Makefile.am: undo rearrangement since dep tracker is fixed
+ * libglimmer/Makefile.am: blas directory is removed
+ * libglimmer-solve/Makefile.am: optionally build internal blas and link to
+   libglimmer-solve.a
+ * libglimmer-solve/SLAP/Makefile.am: fix bug
+ * move libglimmer/blas to libglimmer-solve/blas
+
+2009-09-04 Magnus Hagdorn
  * libglide/Makefile.am: tell the f90 dependency tracker to use libtool
  * libglimmer/Makefile.am: fix bugs
  * libglimmer-solve/Makefile.am: add dependency tracker
