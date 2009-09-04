@@ -1,4 +1,8 @@
 2009-09-04 Magnus Hagdorn
+ * Makefile.am: add new subdirectory
+ * configure.in: create new Makefiles
+
+2009-09-04 Magnus Hagdorn
  * configure.in: move internal blas around to libglimmer-solve
  * libglide/Makefile.am: undo rearrangement since dep tracker is fixed
  * libglimmer/Makefile.am: blas directory is removed
