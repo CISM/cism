@@ -1,1 +1,1 @@
-SUBDIRS = eis EISMINT-3
+SUBDIRS = eis EISMINT-3 glint

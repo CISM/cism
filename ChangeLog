@@ -1,6 +1,12 @@
 2009-09-04 Magnus Hagdorn
  * Makefile.am: add new subdirectory
  * configure.in: handle new directories
+ * libglint/Makefile.am: forgot a file
+ * add glint examples
+
+2009-09-04 Magnus Hagdorn
+ * Makefile.am: add new subdirectory
+ * configure.in: handle new directories
  * EISMINT-3/src/Makefile.am: link to the correct libs
  * add libglint and EISMINT3 examples
 

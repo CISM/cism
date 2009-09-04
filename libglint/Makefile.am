@@ -15,7 +15,8 @@ libglint_la_SOURCES = glimmer_daily_pdd.F90 glimmer_pdd.F90 \
                       glint_interp.F90 glint_global_grid.F90 \
                       glint_precip_param.F90 glint_mbal.F90 glint_constants.F90\
                       glint_mbal_coupling.F90 glint_mbal_io.F90 \
-                      glint_smb.F90 glint_mpinterp.F90 glint_commandline.F90
+                      glint_smb.F90 glint_mpinterp.F90 glint_commandline.F90 \
+                      glint_global_interp.F90
 
 AM_FCFLAGS = -I../libglimmer -I../libglide
 
