@@ -1,4 +1,9 @@
 2009-09-04 Magnus Hagdorn
+ * Makefile.am: add new subdirectory
+ * configure.in: create new Makefile
+ * libglide: populate libglide
+
+2009-09-04 Magnus Hagdorn
  * doc/Makefile.am: only build figures if documentation is built
  * libglimmer/Makefile.am: forgot to the ncdf template
  * libglimmer/solve/Makefile.am: add sparse matrix handler

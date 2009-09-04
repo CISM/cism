@@ -1,0 +1,363 @@
+#[]
+#dimensions:    time, level, y1, x1
+#units:         
+#long_name:     
+#data:          
+#factor:        
+
+# setup for code generator
+[VARSET]
+# prefix of the generated module
+name:     glide
+# f90 type containing all necessary data
+datatype: glide_global_type   
+# module where type is defined
+datamod:  glide_types     
+
+[x0]
+dimensions:    x0
+units:         meter
+long_name:     Cartisian x-coordinate, velocity grid
+standard_name: projection_x_coordinate
+dimlen:        model%general%ewn-1
+
+[y0]
+dimensions:    y0
+units:         meter
+long_name:     Cartisian y-coordinate, velocity grid
+standard_name: projection_y_coordinate
+dimlen:        model%general%nsn-1
+
+[x1]
+dimensions:    x1
+units:         meter
+long_name:     Cartisian x-coordinate
+standard_name: projection_x_coordinate
+dimlen:        model%general%ewn
+
+[y1]
+dimensions:    y1
+units:         meter
+long_name:     Cartisian y-coordinate
+standard_name: projection_y_coordinate
+dimlen:        model%general%nsn
+
+[level]
+dimensions:    level
+units:         1
+long_name:     sigma layers
+standard_name: land_ice_sigma_coordinate
+formula_terms: sigma: level topo: topg thick: thk
+dimlen:        model%general%upn
+
+[lithoz]
+dimensions:    lithoz
+units:         meter
+long_name:     vertical coordinate of lithosphere layer
+dimlen:        model%lithot%nlayer
+
+[lat]
+dimensions:    time, y1, x1
+units:         degreeN
+long_name:     Latitude
+data:          data%climate%lati
+load:          1
+hot:           1
+standard_name: latitude
+
+[lon]
+dimensions:    time, y1, x1
+units:         degreeE
+long_name:     Longitude
+data:          data%climate%loni
+load:          1
+standard_name: longitude
+
+[relx]
+dimensions:    time, y1, x1
+units:         meter
+long_name:     relaxed bedrock topography
+data:          data%isos%relx
+factor:        thk0
+load:          1
+hot:           1
+coordinates:   lon lat
+
+[eus]
+dimensions:    time
+units:         meter
+long_name:     global average sea level
+data:          data%climate%eus
+factor:        thk0
+standard_name: global_average_sea_level_change
+
+[slc]
+dimensions:    time, y1, x1
+units:         meter
+long_name:     isostatic adjustment
+data:          data%isos%relx-data%geometry%topg
+factor:        thk0
+standard_name: bedrock_altitude_change_due_to_isostatic_adjustment
+coordinates:   lon lat
+
+[uflx]
+dimensions:    time, y0, x0
+units:         meter2/year
+long_name:     flux in x direction
+data:          data%velocity%uflx
+factor:        scale2d_f2
+
+[vflx]
+dimensions:    time, y0, x0
+units:         meter2/year
+long_name:     flux in x direction
+data:          data%velocity%vflx
+factor:        scale2d_f2
+
+[diffu]
+dimensions:    time, y0, x0
+units:         meter2/year
+long_name:     apparent diffusivity
+data:          data%velocity%diffu
+factor:        scale2d_f4
+
+[btrc]
+dimensions:    time, y0, x0
+units:         meter/pascal/year
+long_name:     basal slip coefficient
+data:          data%velocity%btrc
+factor:        scale2d_f6
+
+[soft]
+dimensions:    time, y0, x0
+units:         meter/pascal/year
+long_name:     bed softness parameter
+data:          data%velocity%bed_softness
+factor:        scale2d_f6
+load:          1
+
+[ubas]
+dimensions:    time, y0, x0
+units:         meter/year
+long_name:     basal slip velocity in x direction
+data:          data%velocity%ubas
+factor:        scale2d_f5
+standard_name: land_ice_basal_x_velocity
+load:          1
+average:       1
+
+[vbas]
+dimensions:    time, y0, x0
+units:         meter/year
+long_name:     basal slip velocity in y direction
+data:          data%velocity%vbas
+factor:        scale2d_f5
+standard_name: land_ice_basal_y_velocity
+load:          1
+average:       1
+
+[taux]
+dimensions:    time, y0, x0
+units:         kilopascal
+long_name:     basal shear stress in x direction
+data:          data%velocity%tau_x
+factor:        1e-3*thk0*thk0/len0
+
+[tauy]
+dimensions:    time, y0, x0
+units:         kilopascal
+long_name:     basal shear stress in y direction
+data:          data%velocity%tau_y
+factor:        1e-3*thk0*thk0/len0
+
+[thk]
+dimensions:    time, y1, x1
+units:         meter
+long_name:     ice thickness
+data:          data%geometry%thck
+factor:        thk0
+standard_name: land_ice_thickness
+hot:           1
+coordinates:   lon lat
+
+[calving]
+dimensions:    time, y1, x1
+units:         meter
+long_name:     ice margin calving
+data:          data%climate%calving
+factor:        thk0
+coordinates:   lon lat
+
+[ivol]
+dimensions:    time
+units:         km3
+factor:        thk0*len0*len0*1.e-9
+long_name:     ice volume
+data:          data%geometry%ivol
+
+[iarea]
+dimensions:    time
+units:         km2
+long_name:     area covered by ice 
+factor:        len0*len0*1.e-6
+data:          data%geometry%iarea
+
+[thkmask]
+dimensions:    time, y1, x1
+long_name:     mask
+units:         1
+data:          data%geometry%thkmask
+type:          int
+coordinates:   lon lat
+
+[usurf]
+dimensions:    time, y1, x1
+units:         meter
+long_name:     ice upper surface elevation
+data:          data%geometry%usrf
+factor:        thk0
+load:          1
+standard_name: surface_altitude
+coordinates:   lon lat
+
+[lsurf]
+dimensions:    time, y1, x1
+units:         meter
+long_name:     ice lower surface elevation
+data:          data%geometry%lsrf
+factor:        thk0
+coordinates:   lon lat
+
+[topg]
+dimensions:    time, y1, x1
+units:         meter
+long_name:     bedrock topography
+data:          data%geometry%topg
+factor:        thk0
+load:          1
+standard_name: bedrock_altitude
+hot:           1
+coordinates:   lon lat
+
+[acab]
+dimensions:    time, y1, x1
+units:         meter/year
+long_name:     accumulation, ablation rate
+data:          data%climate%acab
+factor:        scale2d_f1
+standard_name: land_ice_surface_specific_mass_balance
+coordinates:   lon lat
+average:       1
+
+[bheatflx]
+dimensions:    time, y1, x1
+units:         watt/meter2
+long_name:     basal heat flux
+data:          data%temper%bheatflx
+load:          1
+hot:           1
+coordinates:   lon lat
+
+[bmlt]
+dimensions:    time, y1, x1
+units:         meter/year
+long_name:     basal melt rate
+data:          data%temper%bmlt
+factor:        scale2d_f1
+standard_name: land_ice_basal_melt_rate
+hot:           1
+coordinates:   lon lat
+average:       1
+
+[bwat]
+dimensions:    time, y1, x1
+units:         meter
+long_name:     basal water depth
+data:          data%temper%bwat
+factor:        thk0
+hot:           1
+coordinates:   lon lat
+
+[artm]
+dimensions:    time, y1, x1
+units:         degree_Celsius
+long_name:     annual mean air temperature
+data:          data%climate%artm
+standard_name: surface_temperature
+cell_methods:  time: mean
+coordinates:   lon lat
+
+[btemp]
+dimensions:    time, y1, x1
+units:         degree_Celsius
+long_name:     basal ice temperature
+data:          data%temper%temp(data%general%upn,1:data%general%ewn,1:data%general%nsn)
+standard_name: land_ice_temperature
+coordinates:   lon lat
+
+[dusrfdtm]
+dimensions:    time, y1, x1
+units:         meter/year
+long_name:     rate of upper ice surface elevation change
+data:          data%geomderv%dusrfdtm
+factor:        scale2d_f1
+coordinates:   lon lat
+
+[uvel]
+dimensions:    time, level, y0, x0
+units:         meter/year
+long_name:     ice velocity in x direction
+data:          data%velocity%uvel(up,:,:)
+factor:        scale3d_f1
+standard_name: land_ice_x_velocity
+
+[vvel]
+dimensions:    time, level, y0, x0
+units:         meter/year
+long_name:     ice velocity in y direction
+data:          data%velocity%vvel(up,:,:)
+factor:        scale3d_f1
+standard_name: land_ice_y_velocity
+
+[wvel]
+dimensions:    time, level, y1, x1
+units:         meter/year
+long_name:     vertical ice velocity
+data:          data%velocity%wvel(up,:,:)
+factor:        scale3d_f7
+standard_name: land_ice_z_velocity
+coordinates:   lon lat
+
+[wgrd]
+dimensions:    time, level, y1, x1
+units:         meter/year
+long_name:     Vertical grid velocity 
+data:          data%velocity%wgrd(up,:,:)
+factor:        scale3d_f7
+coordinates:   lon lat
+
+[flwa]
+dimensions:    time, level, y1, x1
+units:         pascal/year
+long_name:     Pre-exponential flow law parameter
+data:          data%temper%flwa(up,:,:)
+factor:        scale3d_f8
+hot:           1
+coordinates:   lon lat
+
+[temp]
+dimensions:    time, level, y1, x1
+units:         degree_Celsius
+long_name:     ice temperature
+data:          data%temper%temp(up,1:data%general%ewn,1:data%general%nsn)
+standard_name: land_ice_temperature
+hot:           1
+coordinates:   lon lat
+
+[litho_temp]
+dimensions:    time, lithoz, y1, x1
+units:         degree_Celsius
+long_name:     lithosphere temperature
+data:          data%lithot%temp
+hot:           1
+coordinates:   lon lat
