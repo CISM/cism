@@ -1,4 +1,12 @@
 2009-09-04 Magnus Hagdorn
+ * Makefile.am: add new directory
+ * bootstrap: look for libtool
+ * configure.in: use libtool to build libraries
+ * libglide/Makefile.am: use libtool
+ * libglimmer/Makefile.am: ditto
+ * move libglimmer/solve to libglimmer-solve
+
+2009-09-04 Magnus Hagdorn
  * Makefile.am: add new subdirectory
  * configure.in: create new Makefile
  * libglide: populate libglide

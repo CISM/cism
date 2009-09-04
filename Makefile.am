@@ -1,1 +1,1 @@
-SUBDIRS = doc scripts libglimmer libglide
+SUBDIRS = doc scripts libglimmer libglimmer-solve libglide

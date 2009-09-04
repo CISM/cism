@@ -22,13 +22,14 @@ AC_SUBST(GLIMMER_VERSION)
 
 AC_CONFIG_SRCDIR([glimmer-cism-config.in])
 
-AC_PROG_RANLIB
-
 # save compiler flags, autoconf will change them later
 glimmer_FCFLAGS=$FCFLAGS
 glimmer_FFLAGS=$FFLAGS
 AC_DEFINE_UNQUOTED(GLIMMER_FCFLAGS,"${glimmer_FCFLAGS}",[fortran compiler flags the model is configured with])
 
+# we are building fortran libraries so, let's make them static
+AC_DISABLE_SHARED
+AC_PROG_LIBTOOL
 AC_PROG_CC
 AC_PROG_FC
 AC_PROG_F77
@@ -247,7 +248,7 @@ AM_CONDITIONAL([HAVE_SVN],[test "$have_svn_entries" == "yes"])
 
 AC_CONFIG_FILES([Makefile m4macros/Makefile scripts/Makefile \
                 libglimmer/Makefile libglimmer/blas/Makefile \
-                libglimmer/solve/Makefile libglimmer/solve/SLAP/Makefile\
+                libglimmer-solve/Makefile libglimmer-solve/SLAP/Makefile\
                 libglide/Makefile \
                 doc/Makefile doc/common/Makefile doc/dg/Makefile doc/dg/figures/Makefile \
                 doc/ug/Makefile doc/ug/figs/Makefile \
