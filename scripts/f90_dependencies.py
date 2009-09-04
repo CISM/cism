@@ -128,15 +128,15 @@ def print_dot(out,files,modules,onlymod=0):
                         out.write( '\t%s -> %s ;\n'%(r['name'],modules[mod]))
     out.write( '}\n'    )
 
-def print_makefile(out,files,modules):
+def print_makefile(out,files,modules,obj_ext):
     "print Makefile dependencies"
 
     for r in files:
-        out.write("%s.o:\t\t"%os.path.splitext(r['realname'])[0])
+        out.write("%s%s:\t\t"%(os.path.splitext(r['realname'])[0],obj_ext))
         for mod in r['uses']:
             if mod in modules.keys():
                 if modules[mod] != r['realname']:
-                    out.write("%s.o "%os.path.splitext(modules[mod])[0])
+                    out.write("%s%s "%(os.path.splitext(modules[mod])[0],obj_ext))
         for inc in r['includes']:
             out.write("%s "%inc)
         out.write("%s\n"%r['realname'])
@@ -150,12 +150,13 @@ def usage():
     print '  -d, --dot\n\tchange output format to dot (default is Makefile dependencies)'
     print '  -p file, --process=file\n\tonly processes dependencies for file (more than one can be specified)'
     print '  -m, --mod\n\tonly process modules (only honour when producing dot)'
+    print '  -l, --libtool\n\tproduce output to be used by libtool'
     print '  -o file, --output=file\n\twrite to file (default: stdout'
 
 if __name__ == '__main__':
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:],'hdmo:p:',['help','dot','mod','output=','process='])
+        opts, args = getopt.getopt(sys.argv[1:],'hdmo:p:l',['help','dot','mod','output=','process=','libtool'])
     except getopt.GetoptError:
         # print usage and exit
         usage()
@@ -170,6 +171,7 @@ if __name__ == '__main__':
     mod = 0
     outfile = sys.stdout
     process = []
+    obj_ext = '.o'
     for o,a in opts:
         if o in ('-h', '--help'):
             usage()
@@ -182,6 +184,8 @@ if __name__ == '__main__':
             process.append(a)
         if o in ('-o', '--output'):
             outfile = open(a,'w')
+        if o in ('-l', '--libtool'):
+            obj_ext = '.lo'
 
     f90files = []
     modnames = {}
@@ -200,6 +204,6 @@ if __name__ == '__main__':
             mod = 0
         print_dot(outfile,f90files,modnames,mod)
     else:
-        print_makefile(outfile,f90files,modrnames)
+        print_makefile(outfile,f90files,modrnames,obj_ext)
 
     outfile.close()

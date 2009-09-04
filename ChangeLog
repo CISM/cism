@@ -1,4 +1,10 @@
 2009-09-04 Magnus Hagdorn
+ * libglide/Makefile.am: tell the f90 dependency tracker to use libtool
+ * libglimmer/Makefile.am: fix bugs
+ * libglimmer-solve/Makefile.am: add dependency tracker
+ * scripts/f90_dependencies.py: add option to produce output for libtool
+
+2009-09-04 Magnus Hagdorn
  * Makefile.am: add new directory
  * bootstrap: look for libtool
  * configure.in: use libtool to build libraries

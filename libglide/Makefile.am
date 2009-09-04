@@ -34,6 +34,6 @@ glide_io.F90:	glide_vars.def ../libglimmer/ncdf_template.F90.in
 
 
 f90_dep.mak:	$(srcdir)/*.F90 $(BUILT_SOURCES)
-		$(PYTHON) $(top_srcdir)/scripts/f90_dependencies.py -o $@ $^
+		$(PYTHON) $(top_srcdir)/scripts/f90_dependencies.py -l -o $@ $^
 
 -include f90_dep.mak
