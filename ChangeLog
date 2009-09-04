@@ -1,4 +1,10 @@
 2009-09-04 Magnus Hagdorn
+ * Makefile.am: distribute new file
+ * configure.in: handle new directories
+ * tests/Makefile.am: ditto
+ * add EISMINT 1 and 2 tests
+
+2009-09-04 Magnus Hagdorn
  * Makefile.am: add new subdirectory
  * configure.in: create new Makefiles
 

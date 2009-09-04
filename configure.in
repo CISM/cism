@@ -251,6 +251,9 @@ AC_CONFIG_FILES([Makefile m4macros/Makefile scripts/Makefile \
                 libglimmer-solve/Makefile libglimmer-solve/SLAP/Makefile \
                 libglimmer-solve/blas/Makefile
                 libglide/Makefile tests/Makefile \
+                tests/EISMINT/Makefile tests/EISMINT/src/Makefile tests/EISMINT/benchmarks/Makefile \
+                tests/EISMINT/EISMINT-1/Makefile  tests/EISMINT/EISMINT-2/Makefile \
+                tests/EISMINT/isos/Makefile  tests/EISMINT/lin-non_lin/Makefile \
                 tests/exact-isothermal/Makefile tests/exact-isothermal/src/Makefile \
                 tests/exact-isothermal/matlab/Makefile tests/exact-isothermal/scripts/Makefile\
                 doc/Makefile doc/common/Makefile doc/dg/Makefile doc/dg/figures/Makefile \

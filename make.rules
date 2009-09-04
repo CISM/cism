@@ -1,0 +1,5 @@
+.config.nc:
+	@GLIMMER_PREFIX@/bin/glide_launch.py --prefix @GLIMMER_PREFIX@ $(LAUNCH_OPTIONS) @SGE_OPTS@ $<
+
+graphics:	$(graphics)
+data:		$(data)

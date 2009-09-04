@@ -1,1 +1,1 @@
-SUBDIRS = exact-isothermal
+SUBDIRS = EISMINT exact-isothermal
