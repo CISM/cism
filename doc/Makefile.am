@@ -1,13 +1,15 @@
 if DO_DOC_PDF
  pdf_doc = glimmer.pdf
+ dirs = dg ug num tut common 
 endif
 if DO_DOC_PS
  ps_doc = glimmer.ps
+ dirs = dg ug num tut common 
 endif
 doc_DATA = $(ps_doc) $(pdf_doc)
 docdir = $(prefix)/doc
 dist_doc_DATA = $(doc_DATA)
-SUBDIRS = dg ug num tut common 
+SUBDIRS = $(dirs)
 
 EXTRA_DIST = dg.tex dg_pdf.tex dg_ps.tex glimmer.tex glimmer_pdf.tex \
              glimmer_ps.tex num.tex num_pdf.tex num_ps.tex ug.tex ug_pdf.tex \

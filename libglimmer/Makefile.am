@@ -11,6 +11,11 @@ bin_PROGRAMS  =  nc2config
 check_PROGRAMS = test_config test_integrate test_commandline test_ts test_writestats
 
 
+variable_DATA = ncdf_template.F90.in
+variabledir = $(pkgdatadir)
+dist_variable_DATA = $(variable_DATA)
+
+nodist_include_HEADERS := $(wildcard *.mod)
 EXTRA_DIST = f90_dep.mak 
 CLEANFILES = $(BUILT_SOURCES) glimmer_vers.F90 f90_dep.mak
 libglimmer_a_SOURCES = glimmer_vers.F90 glimmer_commandline.F90 \
@@ -25,7 +30,7 @@ libglimmer_a_SOURCES = glimmer_vers.F90 glimmer_commandline.F90 \
 nodist_libglimmer_a_SOURCES = glimmer_vers.F90
 
 libglimmer_IO_a_SOURCES = glimmer_anomcouple.F90 glimmer_filenames.F90 glimmer_ncdf.F90 \
-                          glimmer_ts.F90 \
+                          glimmer_ts.F90 glimmer_config.F90 \
                           glimmer_writestats.F90 ncdf_utils.F90 test_ts.F90 \
                           test_writestats.F90 writestats.c writestats.h cfortran.h 
 
