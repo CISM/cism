@@ -2,7 +2,7 @@ bin_PROGRAMS = verif_glide
 lib_LTLIBRARIES = libverif.la
 
 variable_DATA = verif_vars.def
-variabledir = $(datadir)/glimmer
+variabledir = $(pkgdatadir)
 dist_variable_DATA = $(variable_DATA)
 
 nodist_include_HEADERS := $(wildcard *.mod)

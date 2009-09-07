@@ -7,7 +7,7 @@ m4_define([glimmer_micro_version], [1])
 m4_define([glimmer_version],
 	[glimmer_major_version.glimmer_minor_version.glimmer_micro_version])
 
-AC_INIT([GLIMMER],[glimmer_version],[glimmer-cism-devel@lists.berlios.de])
+AC_INIT([GLIMMER-CISM],[glimmer_version],[glimmer-cism-devel@lists.berlios.de])
 AC_CONFIG_HEADERS(config.inc)
 AM_INIT_AUTOMAKE
 
@@ -265,4 +265,4 @@ AC_CONFIG_FILES([Makefile m4macros/Makefile scripts/Makefile \
                 doc/num/Makefile doc/num/figs/Makefile doc/num/gnu/Makefile \
                 doc/tut/Makefile])
 AC_OUTPUT([doc/common/version.tex])
-AC_OUTPUT([glimmer-config libglimmer/glimmer_vers.F90.in])
+AC_OUTPUT([glimmer-cism-config libglimmer/glimmer_vers.F90.in])

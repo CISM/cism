@@ -8,7 +8,6 @@ if DO_DOC_PS
 endif
 doc_DATA = $(ps_doc) $(pdf_doc)
 docdir = $(prefix)/doc
-dist_doc_DATA = $(doc_DATA)
 SUBDIRS = $(dirs)
 
 EXTRA_DIST = dg.tex dg_pdf.tex dg_ps.tex glimmer.tex glimmer_pdf.tex \

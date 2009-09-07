@@ -1,3 +1,15 @@
+2009-09-07 Magnus Hagdorn
+ * Makefile.am: forgot sub directory
+ * configure.in: rename package to glimmer-cism
+ * doc/Makefile.am: do not distribute generated docs
+ * doc/dg/figures/Makefile.am: do not distribute images
+ * doc/num/figs/Makefile.am: ditto
+ * doc/num/gnu/Makefile.am: ditto
+ * doc/ug/figs/Makefile.am: ditto
+ * doc/ug/Makefile.am: fix paths
+ * example-drivers/glint/src/Makefile.am: fix bug
+ * tests/exact-isothermal/src/Makefile.am:  rename installation directory
+
 2009-09-04 Magnus Hagdorn
  * Makefile.am: add new subdirectory
  * configure.in: handle new directories
