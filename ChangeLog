@@ -1,4 +1,9 @@
 2009-09-07 Magnus Hagdorn
+ * doc/common/Makefile.am: forgot to distribute file
+ * doc/num/figs/Makefile.am: ditto
+ * doc/ug/varlist.tex: include list of variables
+
+2009-09-07 Magnus Hagdorn
  * Makefile.am: forgot sub directory
  * configure.in: rename package to glimmer-cism
  * doc/Makefile.am: do not distribute generated docs
