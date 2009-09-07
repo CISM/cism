@@ -1,4 +1,13 @@
 2009-09-07 Magnus Hagdorn
+ * libglimmer/glimmer_vers.F90.in.in: version numbers are no longer stored in
+   a module, but accessed through accessors to avoid unnessary recompilations
+ * libglide/glide.F90: call new accessor to get version
+ * libglide/glimmer_ncparams.F90: ditto
+ * libglimmer/Makefile.am: pass top source directory to version script
+ * libglimmer/createSVNVersion.sh: run svnversion on top source dir
+ * libglimmer/glimmer_global.F90: do not load version numbers
+
+2009-09-07 Magnus Hagdorn
  * doc/common/Makefile.am: forgot to distribute file
  * doc/num/figs/Makefile.am: ditto
  * doc/ug/varlist.tex: include list of variables

@@ -40,7 +40,7 @@ AM_CFLAGS=$(CFORTRAN_CFLAGS)
 # handling subversion versioning
 if HAVE_SVN
 svnversion.sed::
-		$(srcdir)/createSVNVersion.sh
+		$(srcdir)/createSVNVersion.sh $(top_srcdir)
 glimmer_vers.F90:	svnversion.sed glimmer_vers.F90.in
 		sed -f svnversion.sed glimmer_vers.F90.in > glimmer_vers.F90
 else

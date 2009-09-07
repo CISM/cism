@@ -115,7 +115,9 @@ contains
     implicit none
     type(glide_global_type) :: model        !*FD model instance
 
-    call write_log(glimmer_version)
+    character(len=100), external :: glimmer_version_char
+
+    call write_log(trim(glimmer_version_char()))
 
     ! initialise scales
     call glimmer_init_scales
