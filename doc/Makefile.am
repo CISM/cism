@@ -18,6 +18,14 @@ CLEANFILES = *~ *.aux *.dvi *.log *.out *.toc *.bbl *blg *.html \
              glimmer_html.4ct  glimmer_html.4tc  glimmer_html.css  glimmer_html.idv  \
              glimmer_html.lg  glimmer_html.tmp  glimmer_html.xref
 
+editdoxy = sed -e 's|@top_srcdir[@]|$(top_srcdir)|g' \
+               -e 's|@GLIMMER_VERSION[@]|$(GLIMMER_VERSION)|g' \
+               -e 's|@PACKAGE_NAME[@]|$(PACKAGE_NAME)|g'
+include $(top_srcdir)/m4macros/amdoxygen.am
+
+glimmer-cism.cfg:	$(srcdir)/glimmer-cism.cfg.in Makefile
+			$(editdoxy) '$(srcdir)/$@.in' >$@
+
 www::	glimmer.tex
 	install -d www
 	htlatex glimmer_html "html,3,info" "" " -d./www/ -m 644 "
