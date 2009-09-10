@@ -44,16 +44,22 @@
 #include "config.inc"
 #endif
 
+!> handling time series
+!!
+!! \author Magnus Hagdorn
+!! \date 2006
+!! this module provides support for reading in tabulated ASCII data such as
+!! time series. The data can then be accessed through functions which
+!! interpolated the data.
 module glimmer_ts
-  !*FD Handling time series
 
+  !> time series derived type
   type glimmer_tseries
-     !*FD time series type
-     integer :: numt=0                    !*FD number of times in time series
-     integer :: numv=1                    !*FD number of values per time
-     integer :: current=1                 !*FD current position in ts
-     real, dimension(:), pointer :: times=>NULL() !*FD array holding times
-     real, dimension(:,:), pointer :: values=>NULL()!*FD array holding values
+     integer :: numt=0                              !< number of times in time series
+     integer :: numv=1                              !< number of values per time
+     integer :: current=1                           !< current position in ts
+     real, dimension(:), pointer :: times=>NULL()   !< array holding times
+     real, dimension(:,:), pointer :: values=>NULL()!< array holding values
   end type glimmer_tseries
 
   interface glimmer_ts_step
@@ -81,13 +87,13 @@ contains
 !MH!#undef RST_GLIMMER_TS
 !MH!#endif
   
+  !> read tabulated ASCII file
   subroutine glimmer_read_ts(ts,fname,numv)
-    !*FD read time series from file
     use glimmer_log
     implicit none
-    type(glimmer_tseries) :: ts           !*FD time series data
-    character(len=*), intent(in) :: fname !*FD read from this file
-    integer, intent(in),optional :: numv  !*FD number of values per time
+    type(glimmer_tseries) :: ts           !< time series data
+    character(len=*), intent(in) :: fname !< read from this file
+    integer, intent(in),optional :: numv  !< number of values per time
     
     ! local variables
     real :: d1,d2,fact=1.
@@ -147,13 +153,13 @@ contains
     close(99)
   end subroutine glimmer_read_ts
 
+  !> interpolate time series by stepping
   subroutine glimmer_ts_step_array(ts,time,value)
-    !*FD interpolate time series by stepping
     use glimmer_log
     implicit none
-    type(glimmer_tseries) :: ts     !*FD time series data
-    real, intent(in)      :: time   !*FD time value to get
-    real, dimension(:)    :: value  !*FD interpolated value
+    type(glimmer_tseries) :: ts     !< time series data
+    real, intent(in)      :: time   !< time value to get
+    real, dimension(:)    :: value  !< interpolated value
        
     integer i
 
@@ -171,13 +177,13 @@ contains
     value = ts%values(:,i)
   end subroutine glimmer_ts_step_array
 
+  !> interpolate time series by stepping
   subroutine glimmer_ts_step_scalar(ts,time,value)
-    !*FD interpolate time series by stepping
     use glimmer_log
     implicit none
-    type(glimmer_tseries) :: ts     !*FD time series data
-    real, intent(in)      :: time   !*FD time value to get
-    real                  :: value  !*FD interpolated value
+    type(glimmer_tseries) :: ts     !< time series data
+    real, intent(in)      :: time   !< time value to get
+    real                  :: value  !< interpolated value
        
     integer i
 
@@ -190,14 +196,14 @@ contains
 
     value = ts%values(1,i)
   end subroutine glimmer_ts_step_scalar
-  
+ 
+  !> linear interpolate time series 
   subroutine glimmer_ts_linear_array(ts,time,value)
-    !*FD linear interpolate time series
     use glimmer_log
     implicit none
-    type(glimmer_tseries) :: ts     !*FD time series data
-    real, intent(in)      :: time   !*FD time value to get
-    real, dimension(:)    :: value  !*FD interpolated value
+    type(glimmer_tseries) :: ts     !< time series data
+    real, intent(in)      :: time   !< time value to get
+    real, dimension(:)    :: value  !< interpolated value
        
     integer i
     real,dimension(size(value)) :: slope
@@ -217,13 +223,13 @@ contains
     end if
   end subroutine glimmer_ts_linear_array
 
+  !> linear interpolate time series
   subroutine glimmer_ts_linear_scalar(ts,time,value)
-    !*FD linear interpolate time series
     use glimmer_log
     implicit none
-    type(glimmer_tseries) :: ts     !*FD time series data
-    real, intent(in)      :: time   !*FD time value to get
-    real                  :: value  !*FD interpolated value
+    type(glimmer_tseries) :: ts     !< time series data
+    real, intent(in)      :: time   !< time value to get
+    real                  :: value  !< interpolated value
        
     integer i
     real :: slope
@@ -239,12 +245,11 @@ contains
     end if
   end subroutine glimmer_ts_linear_scalar
   
-
+  !> get find the index
   function get_i(ts,time)
-    !*FD get index
     implicit none
-    type(glimmer_tseries) :: ts     !*FD time series data
-    real, intent(in)      :: time   !*FD time value to get
+    type(glimmer_tseries) :: ts     !< time series data
+    real, intent(in)      :: time   !< time value to get
     integer get_i
     integer upper,lower
 
