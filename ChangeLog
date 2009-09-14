@@ -1,3 +1,8 @@
+2009-09-14 Magnus Hagdorn
+ * README: document new make target to build tar-ball of html docs
+ * doc/Makefile.am: new target to build tar-ball of html docs which
+   can be uploaded to berliOS (or elsewhere)
+
 2009-09-10 Magnus Hagdorn
  * libglimmer/glimmer_ts.F90: change documentation strings to doxygen
 

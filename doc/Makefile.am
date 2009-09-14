@@ -26,12 +26,25 @@ include $(top_srcdir)/m4macros/amdoxygen.am
 glimmer-cism.cfg:	$(srcdir)/glimmer-cism.cfg.in Makefile
 			$(editdoxy) '$(srcdir)/$@.in' >$@
 
-www::	glimmer.tex
+glimmer_html::	glimmer.tex
 	install -d www
 	htlatex glimmer_html "html,3,info" "" " -d./www/ -m 644 "
 	$(BIBTEX) glimmer_html
 	htlatex glimmer_html "html,3,info" "" " -d./www/ -m 644 "
 	find $(SUBDIRS) -name '*.png' -exec install -m 644 -D {} ./www/{} \;
+
+
+
+WWW_DIR = docs
+www::	doxygen-run glimmer_html doxygen-run
+	rm -rf $(WWW_DIR)
+	install -d $(WWW_DIR)/$(GLIMMER_VERSION)/API
+	install -d $(WWW_DIR)/$(GLIMMER_VERSION)/manual
+	cp -a doxygen/html/* $(WWW_DIR)/$(GLIMMER_VERSION)/API
+	cp -a www/* $(WWW_DIR)/$(GLIMMER_VERSION)/manual
+	cd $(WWW_DIR) && ln -s $(GLIMMER_VERSION) current
+	tar cvzf $(PACKAGE)-doc.$(GLIMMER_VERSION).tar.gz $(WWW_DIR)
+	rm -rf $(WWW_DIR)
 
 .tex.dvi::
 	$(LATEX) $<

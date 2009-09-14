@@ -50,6 +50,9 @@ supplying the --enable-doc-pdf and/or --enable-doc-ps. If you have doxygen
 installed you can build the API documentation by running make doxygen-doc
 in the doc directory.
 
+Running make www will produce a tar ball containing html versions of the
+manual and the API documentation.
+
 References:
 ==========
 
