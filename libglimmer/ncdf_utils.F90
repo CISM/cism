@@ -2,11 +2,10 @@
 #include "config.inc"
 #endif
 
+!> This code provides a simple interface to create and then add
+!! to a netcdf file containing time-slices of a single 2D field,
+!! for use in debugging.
 module ncdf_utils
-
-  !*FD This code provides a simple interface to create and then add
-  !*FD to a netcdf file containing time-slices of a single 2D field,
-  !*FD for use in debugging.
   
   use netcdf
   use glimmer_global
@@ -23,13 +22,13 @@ contains
 
   subroutine ncdf_utils_create(handle,fname,varname,d1name,d2name,d1,d2)
 
-    type(ncdf_utils_type),intent(out) :: handle !*FD Netcdf file handles
-    character(*),         intent(in) :: fname   !*FD File name
-    character(*),         intent(in) :: varname !*FD Variable name
-    character(*),         intent(in) :: d1name  !*FD Name of first dimension
-    character(*),         intent(in) :: d2name  !*FD Name of second dimension
-    real(sp),dimension(:),intent(in) :: d1      !*FD Dimension 1
-    real(sp),dimension(:),intent(in) :: d2      !*FD Dimension 2
+    type(ncdf_utils_type),intent(out) :: handle !< Netcdf file handles
+    character(*),         intent(in) :: fname   !< File name
+    character(*),         intent(in) :: varname !< Variable name
+    character(*),         intent(in) :: d1name  !< Name of first dimension
+    character(*),         intent(in) :: d2name  !< Name of second dimension
+    real(sp),dimension(:),intent(in) :: d1      !< Dimension 1
+    real(sp),dimension(:),intent(in) :: d2      !< Dimension 2
 
     integer :: ncerr,d1id,d2id
 

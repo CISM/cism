@@ -45,9 +45,9 @@
 #include "config.inc"
 #endif
 
+!> Module containing utility code for GLIMMER.
 module glimmer_utils
 
-  !*FD Module containing utility code for GLIMMER.
 
   use glimmer_global
 
@@ -63,17 +63,16 @@ module glimmer_utils
 
 contains
 
+  !> Returns the value of a 1D array location,checking first for the boundaries.
+  !!
+  !! the location is wrapped around the array boundaries until it falls within the array
+  !! \author The value of the location in question.
   real(rk) function array_bcs1d(array,i)
-
-    !*FD Returns the value of a 1D array
-    !*FD location,checking first for the boundaries.
-    !*FD Note that this function is aliased as {\tt array\_bcs}.
-    !*RV The value of the location in question.
 
     ! Arguments
 
-    real(rk),dimension(:),intent(in) :: array !*FD The array to be indexed.
-    integer,intent(in)               :: i     !*FD The location to be extracted.
+    real(rk),dimension(:),intent(in) :: array !< The array to be indexed.
+    integer,intent(in)               :: i     !< The location to be extracted.
 
     ! Internal variables
 
@@ -100,16 +99,18 @@ contains
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  !> Returns the value of a 1D array location,checking first for the boundaries.
+  !!
+  !! the location is wrapped around the array boundaries until it falls within the array
+  !! as array_bcs1d but for polar boundary conditions
+  !! \author The value of the location in question.
   real(rk) function array_bcs_lats(array,i)
 
-    !*FD As {\tt array\_bcs1d}, but adapted
-    !*FD for dealing with polar boundary conditions.
-    !*RV The value of the location in question.
 
     ! Arguments
 
-    real(rk),dimension(:),intent(in) :: array !*FD The array to be indexed.
-    integer,intent(in) :: i !*FD The location to be extracted.
+    real(rk),dimension(:),intent(in) :: array !< The array to be indexed.
+    integer,intent(in) :: i !< The location to be extracted.
 
     ! Internal variables
 
@@ -137,17 +138,17 @@ contains
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  !> Returns the value of an array 
+  !! location, checking first for the boundaries. 
+  !! Over-the-pole boundary conditions are implemented here.
+  !! \return The value of the location specified.
   real(rk) function array_bcs2d(array,i,j)
-
-    !*FD Returns the value of an array 
-    !*FD location, checking first for the boundaries. 
-    !*FD Over-the-pole boundary conditions are implemented here.
-    !*RV The value of the location specified.
 
     ! Arguments
 
-    real(rk),dimension(:,:),intent(in) :: array !*FD Array to be indexed
-    integer,intent(in) :: i,j !*FD The location to be extracted
+    real(rk),dimension(:,:),intent(in) :: array !< Array to be indexed
+    integer,intent(in) :: i !< The location to be extracted    
+    integer,intent(in) :: j !< The location to be extracted
 
     ! Internal variables
 
@@ -186,14 +187,15 @@ contains
 
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  !> Adjusts array location indicies
+  !! so that they fall within the domain.
   subroutine fix_bcs2d(i,j,nx,ny)
 
-    !*FD Adjusts array location indicies
-    !*FD so that they fall within the domain.
 
-    integer,intent(inout) :: i,j !*FD The location of interest
-    integer,intent(in) :: nx,ny  !*FD The size of the domain (number
-                                 !*FD of points in each direction)
+    integer,intent(inout) :: i !< The location of interest
+    integer,intent(inout) :: j !< The location of interest
+    integer,intent(in) :: nx  !< The size of the domain (number of points in each direction)
+    integer,intent(in) :: ny  !< The size of the domain (number of points in each direction)
 
     if ((i>=1).and.(i<=nx).and.(j>=1).and.(j<=ny)) return
 
@@ -219,16 +221,15 @@ contains
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  !> Checks that two arrays are of the same size.
   subroutine check_conformal_2d_real(array1,array2,label)
 
     use glimmer_log
 
-    !*FD Checks that two arrays
-    !*FD are of the same size. Aliased as {\tt check\_conformal}.
 
-    real(rk),dimension(:,:),intent(in) :: array1,array2 !*FD The arrays to be checked
-    character(*),intent(in),optional :: label !*FD Optional label, to facilitate 
-                                              !*FD bug tracking if the check fails.
+    real(rk),dimension(:,:),intent(in) :: array1 !< The array 1 to be checked
+    real(rk),dimension(:,:),intent(in) :: array2 !< The array 2 to be checked
+    character(*),intent(in),optional :: label    !< Optional label, to facilitate bug tracking if the check fails.
 
     if ((size(array1,1)/=size(array2,1)).or.(size(array1,2)/=size(array2,2))) then
       if (present(label)) then
@@ -242,20 +243,21 @@ contains
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  !> compute horizontal sum for each vertical level
+  !!
+  !! Calculates the sum of a given three-dimensional field at each
+  !! level. The vertical coordinate of the input is the first index of
+  !! the array.
+  !! \return
+  !! A one-dimensional array of the same size as the first dimension of
+  !! inp is returned, containing the sum of inp for 
+  !! each level.
   function hsum(inp)
 
-    !*FD Calculates the sum of a given three-dimensional field at each
-    !*FD level. The vertical coordinate of the input is the first index of
-    !*FD the array.
-    !*RV A one-dimensional array of the same size as the first dimension of
-    !*RV \texttt{inp} is returned, containing the sum of \texttt{inp} for 
-    !*RV each level.
 
     implicit none
 
-    real(dp),dimension(:,:,:),intent(in) :: inp !*FD The input array. The first
-                                                !*FD index is the vertical, the other
-                                                !*FD two horizontal.
+    real(dp),dimension(:,:,:),intent(in) :: inp !< The input array. The first index is the vertical, the othe two horizontal.
     real(dp),dimension(size(inp,dim=1))  :: hsum
   
     integer up
@@ -268,20 +270,20 @@ contains
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  !> compute horizontal sum of a 2x2 horizontal mesh for each vertical level
+  !!
+  !! Calculates the sum of a given three-dimensional field at each
+  !! level. The vertical coordinate of the input is the first index of
+  !! the array.
+  !! \return
+  !! A one-dimensional array of the same size as the first dimension of
+  !! inp is returned, containing the sum of inp for 
+  !! each level.  
   function hsum4(inp)
-
-    !*FD Calculates the sum of a given three-dimensional field at each
-    !*FD level. The vertical coordinate of the input is the first index of
-    !*FD the array.
-    !*RV A one-dimensional array of the same size as the first dimension of
-    !*RV \texttt{inp} is returned, containing the sum of \texttt{inp} for 
-    !*RV each level.
 
     implicit none
 
-    real(dp),dimension(:,:,:),intent(in) :: inp !*FD The input array. The first
-                                                !*FD index is the vertical, the other
-                                                !*FD two horizontal.
+    real(dp),dimension(:,:,:),intent(in) :: inp !< The input array. The first index is the vertical, the other two horizontal.
     real(dp),dimension(size(inp,dim=1))  :: hsum4
   
     hsum4(:) = inp(:,1,1) + inp(:,2,1) + inp(:,1,2) + inp(:,2,2)
@@ -290,18 +292,19 @@ contains
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  !> Calculates the sum of a given two-dimensional field along one axis.
+  !! Within GLIMMER, this function calculates the mean vertical profile
+  !! in a 2D vertical slice. 
+  !! \return
+  !! A one-dimensional array of the same size as the first dimension of
+  !! inp is returned, containing the sum of inp for 
+  !! each row.
   function lsum(inp)
 
-    !*FD Calculates the sum of a given two-dimensional field along one axis.
-    !*FD Within GLIMMER, this function calculates the mean vertical profile
-    !*FD in a 2D vertical slice. 
-    !*RV A one-dimensional array of the same size as the first dimension of
-    !*RV \texttt{inp} is returned, containing the sum of \texttt{inp} for 
-    !*RV each row.
 
     implicit none
 
-    real(dp),dimension(:,:), intent(in) :: inp !*FD Input array
+    real(dp),dimension(:,:), intent(in) :: inp !< Input array
     real(dp),dimension(size(inp,dim=1)) :: lsum
     
     lsum = sum(inp(:,:),dim=2)
@@ -310,16 +313,16 @@ contains
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  !> Tridiagonal solver. All input/output arrays should have the 
+  !! same number of elements.
   subroutine tridiag(a,b,c,x,y)
 
-    !*FD Tridiagonal solver. All input/output arrays should have the 
-    !*FD same number of elements.
 
-    real(dp),dimension(:) :: a !*FD Lower diagonal; a(1) is ignored.
-    real(dp),dimension(:) :: b !*FD Centre diagonal
-    real(dp),dimension(:) :: c !*FD Upper diagonal; c(n) is ignored.
-    real(dp),dimension(:) :: x !*FD Unknown vector
-    real(dp),dimension(:) :: y !*FD Right-hand side
+    real(dp),dimension(:) :: a !< Lower diagonal; a(1) is ignored.
+    real(dp),dimension(:) :: b !< Centre diagonal
+    real(dp),dimension(:) :: c !< Upper diagonal; c(n) is ignored.
+    real(dp),dimension(:) :: x !< Unknown vector
+    real(dp),dimension(:) :: y !< Right-hand side
 
     real(dp),dimension(size(a)) :: aa
     real(dp),dimension(size(a)) :: bb

@@ -44,21 +44,22 @@
 #include "config.inc"
 #endif
 
+!> module for profiling programs
+!! \author Magnus Hagdorn
+!! \date January 2005
 module profile
-  !*FD Magnus Hagdorn
-  !*FD January 2005
-  !*FD module for profiling programs
 
   integer, private :: current_unit = 200
   integer, private,parameter :: max_prof = 100
 
+  !> the profiling type
   type profile_type
-     integer :: profile_unit=0  !*FD file unit to be written to
-     real :: start_time         !*FD CPU time at start of log
-     integer :: nump=0          !*FD number of profiles
+     integer :: profile_unit=0  !< file unit to be written to
+     real :: start_time         !< CPU time at start of log
+     integer :: nump=0          !< number of profiles
 
-     real, dimension(max_prof) :: pstart,ptotal      !*FD for each log store start and totals
-     character(len=50), dimension(max_prof) :: pname !*FD name for each profile
+     real, dimension(max_prof) :: pstart,ptotal      !< for each log store start and totals
+     character(len=50), dimension(max_prof) :: pname !< name for each profile
   end type profile_type
 
   !MAKE_RESTART
@@ -76,11 +77,11 @@ contains
 !MH!#undef RST_PROFILE
 !MH!#endif
   
+  !> initialise a profile
   subroutine profile_init(prof,name)
-    !*FD initialise a profile
     implicit none
-    type(profile_type), intent(out) :: prof !*FD structure storing profile definitions
-    character(len=*), intent(in) :: name    !*FD name of file
+    type(profile_type), intent(out) :: prof !< structure storing profile definitions
+    character(len=*), intent(in) :: name    !< name of file
     ! local variables
     character(len=8)  :: date
     character(len=10) :: time    
@@ -94,12 +95,12 @@ contains
          date(1:4),date(5:6),date(7:8),time(1:2),time(3:4),time(5:10)
   end subroutine profile_init
   
+  !> register a new series of meassurements
   function profile_register(prof,msg)
-    !*FD register a new series of meassurements
     use glimmer_log
     implicit none
-    type(profile_type) :: prof !*FD structure storing profile definitions
-    character(len=*), intent(in) :: msg
+    type(profile_type) :: prof !< structure storing profile definitions
+    character(len=*), intent(in) :: msg !< the message to be associated
     integer profile_register
 
     prof%nump = prof%nump+1
@@ -111,32 +112,32 @@ contains
     prof%pname(prof%nump) = trim(msg)
   end function profile_register
 
+  !> start profiling
   subroutine profile_start(prof,profn)
-    !*FD start profiling
     implicit none
-    type(profile_type) :: prof !*FD structure storing profile definitions
-    integer, intent(in) :: profn
+    type(profile_type) :: prof !< structure storing profile definitions
+    integer, intent(in) :: profn !< the profile ID
     
     call cpu_time(prof%pstart(profn))
   end subroutine profile_start
 
+  !> stop profiling
   subroutine profile_stop(prof,profn)
-    !*FD stop profiling
     implicit none
-    type(profile_type)  :: prof !*FD structure storing profile definitions
-    integer, intent(in) :: profn
+    type(profile_type)  :: prof !< structure storing profile definitions
+    integer, intent(in) :: profn !< the profile ID
     
     real t
     call cpu_time(t)
     prof%ptotal(profn) = prof%ptotal(profn) + t-prof%pstart(profn)
   end subroutine profile_stop
 
+  !> log a message to profile
   subroutine profile_log(prof,profn,msg)
-    !*FD log a message to profile
     implicit none
-    type(profile_type)           :: prof !*FD structure storing profile definitions
-    integer, intent(in) :: profn
-    character(len=*), intent(in), optional :: msg     !*FD message to be written to profile
+    type(profile_type)           :: prof !< structure storing profile definitions
+    integer, intent(in) :: profn !< the profile ID
+    character(len=*), intent(in), optional :: msg     !< message to be written to profile
 
     real t
 
@@ -150,10 +151,10 @@ contains
     prof%pstart(profn) = 0.
   end subroutine profile_log
 
+  !> close profile
   subroutine profile_close(prof)
-    !*FD close profile
     implicit none
-    type(profile_type), intent(in) :: prof !*FD structure storing profile definitions
+    type(profile_type), intent(in) :: prof !< structure storing profile definitions
     ! local variables
     character(len=8)  :: date
     character(len=10) :: time    

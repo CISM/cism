@@ -44,20 +44,21 @@
 #include "config.inc"
 #endif
 
+!> improved algorithm for integrating a 2 dimensional array over large circles
+!! this used for calculating continentality
+!!
+!! \author Magnus Hagdorn
 module searchcircle
   
-  !*FD improved algorithm for integrating a 2 dimensional array over large circles
-  !*FD this used for calculating continentality
-
   type searchdata
      logical :: initialised = .false.
-     integer :: radius                              ! search radius
-     integer, pointer, dimension(:) :: ipos         ! positions on quater circle which will be moved along
-     integer :: istart, jstart                      ! starting position of grid to be processed, will default to usally 1
-     integer :: isize, jsize                        ! size of array to be processed
+     integer :: radius                              !< search radius
+     integer, pointer, dimension(:) :: ipos         !< positions on quater circle which will be moved along
+     integer :: istart, jstart                      !< starting position of grid to be processed, will default to usally 1
+     integer :: isize, jsize                        !< size of array to be processed
      real :: total_area
-     real, pointer, dimension(:,:) :: sarray        ! array to be searched (expanded to include outside points
-     real, pointer, dimension(:,:) :: weight        ! reciprocal weights
+     real, pointer, dimension(:,:) :: sarray        !< array to be searched (expanded to include outside points
+     real, pointer, dimension(:,:) :: weight        !< reciprocal weights
   end type searchdata
 
   !MAKE_RESTART
@@ -75,13 +76,15 @@ contains
 !MH!#undef RST_GLIMMER_SEARCHCIRCLE
 !MH!#endif
 
+  !> initialise search circle data structure
+  !!
+  !! \return initialised data type
   function sc_initdata(radius,istart,jstart,isize,jsize,searchgrid)
     implicit none
-    integer, intent(in) :: radius                ! radius of search radius
-    integer, intent(in) :: istart,jstart         ! starting position of grid to be processed
-    integer, intent(in) :: isize,jsize           ! size of array to be processed
-    real, dimension(:,:), optional :: searchgrid ! used for determining bounds of grid to be searched
-                                                 ! if not present, the bounds are assumed to be the same as the resultgrid
+    integer, intent(in) :: radius                !< radius of search radius
+    integer, intent(in) :: istart,jstart         !< starting position of grid to be processed
+    integer, intent(in) :: isize,jsize           !< size of array to be processed
+    real, dimension(:,:), optional :: searchgrid !< used for determining bounds of grid to be searched if not present, the bounds are assumed to be the same as the resultgrid
     
     type(searchdata) :: sc_initdata
 
@@ -207,15 +210,14 @@ contains
   end function sc_initdata
 
 
-  ! BUG in here somewhere
-  ! cony does not match at boundary.
-  ! no idea what is going on...
-
+  !> do the search
+  !!
+  !! \bug cony does not match at boundary. no idea what is going on...
   subroutine sc_search(sdata,searchgrid,resultgrid)
     implicit none
-    type(searchdata) :: sdata
-    real, dimension(:,:), intent(in) :: searchgrid
-    real, dimension(:,:), intent(out) :: resultgrid
+    type(searchdata) :: sdata !< the search circle type
+    real, dimension(:,:), intent(in) :: searchgrid !< the input mesh
+    real, dimension(:,:), intent(out) :: resultgrid !< the result mesh
 
     ! local variables
     integer i,j,ii,jj,intrad

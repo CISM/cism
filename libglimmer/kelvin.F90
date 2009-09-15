@@ -44,29 +44,20 @@
 #include "config.inc"
 #endif
 
+!> module for calculating zeroth order Kelvin functions and their derivatives.
+!! Both single and double precision versions are provided
+!!
+!! \author Magnus Hagdorn
+!! \date June 2000
+
 module kelvin
 
-  !*FD Magnus Hagdorn, June 2000
-  !*FD
-  !*FD module for calculating zeroth order Kelvin functions and their derivatives
-  !*FD both single and double precision versions are provided
-  !*FD functions: set_kelvin(tolerance, j_max)
-  !*FD            ber(x)
-  !*FD            bei(x)
-  !*FD            ker((x)
-  !*FD            kei((x)
-  !*FD            dber((x)
-  !*FD            dbei((x)
-  !*FD            dker((x)
-  !*FD            dkei((x)
-
-
-  integer, private, parameter :: sp=selected_real_kind(6)   ! integer storing kind value for variables with a precision of at least 6 digits (single precision)
-  integer, private, parameter :: dp=selected_real_kind(15)  ! integer storing kind value for variables with a precision of at least 15 digits (double precision)
-  real(kind=dp), private, parameter :: gamma=0.577215664901532860606512d0 ! Euler's constant
-  real(kind=dp), private, parameter :: pi=3.14159265358979323846264338328d0 !pi
-  integer, private :: j_max = 40
-  real(kind=dp), private :: tolerance=1.d-10
+  integer, private, parameter :: sp=selected_real_kind(6)   !< integer storing kind value for variables with a precision of at least 6 digits (single precision)
+  integer, private, parameter :: dp=selected_real_kind(15)  !< integer storing kind value for variables with a precision of at least 15 digits (double precision)
+  real(kind=dp), private, parameter :: gamma=0.577215664901532860606512d0 !< Euler's constant
+  real(kind=dp), private, parameter :: pi=3.14159265358979323846264338328d0 !< pi
+  integer, private :: j_max = 40 !< maximum number of iterations
+  real(kind=dp), private :: tolerance=1.d-10 !< the tolerance
 
   interface ber
      module procedure d_ber, s_ber
@@ -95,6 +86,7 @@ module kelvin
   end interface
 
 contains
+  !> set tolerance and maximum number of iterations
   subroutine set_kelvin(tol, jmax)
     implicit none
     real(kind=dp), intent(in) :: tol

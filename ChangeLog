@@ -1,4 +1,8 @@
 2009-09-15 Magnus Hagdorn
+ * convert some more comments in another bunch of files to doxygen strings
+ * libglimmer/glimmer_ncdf.F90: move second module to glimmer_scales.F90
+
+2009-09-15 Magnus Hagdorn
  * convert comments in a bunch of files to doxygen strings
 
 2009-09-14 Magnus Hagdorn

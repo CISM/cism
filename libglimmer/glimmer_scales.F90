@@ -1,7 +1,6 @@
-
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
-! +  glimmer_paramets.f90 - part of the GLIMMER ice model     + 
+! +  glimmer_scales.f90 - part of the GLIMMER ice model       + 
 ! +                                                           +
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! 
@@ -45,41 +44,53 @@
 #include "config.inc"
 #endif
 
-!> model scaling constants
-module paramets
+!> this module holds scales for various fields
+module glimmer_scales
 
-  use glimmer_global, only : sp, dp
-  use physcon, only : scyr
+  use glimmer_global, only : dp
 
-  implicit none; save
-
-  real(dp), parameter :: thk0 = 2000.0d0          ! m
-  real(dp), parameter :: len0 = 200.0d3        ! m
-  real(dp), parameter :: vel0 = 500.0 / scyr    ! m yr^{-1} converted to S.I. units
-  !real(dp), parameter :: vis0 = 5.70d-18 / scyr  ! yr^{-1} Pa^{-3} converted to S.I. units
-  real(dp), parameter :: vis0 = 1d-16 / scyr 
-  real(dp), parameter :: acc0 = thk0 * vel0 / len0  ! m s^{-1} 
-  ! ** for zero order model real(dp), parameter :: tim0 = thk0 / acc0      ! s
-  real(dp), parameter :: tim0 = len0 / vel0      ! s
-  real(dp) :: tau0                        ! Pa note cannot define here as f90 wont allow
-                                          ! parameters with noninteger powers in - look
-                                          ! in initial in blah.f90 (not sure this applies now...)
-
-  real(sp), parameter :: conv = tim0 / scyr
+  real(dp) :: scale2d_f1, scale2d_f2, scale2d_f3, scale2d_f4, scale2d_f5, scale2d_f6, scale2d_f7, scale2d_f8, scale2d_f9
+  real(dp) :: scale3d_f1, scale3d_f2, scale3d_f3, scale3d_f4, scale3d_f5, scale3d_f6, scale3d_f7, scale3d_f8
 
 !MH!  !MAKE_RESTART
 !MH!#ifdef RESTARTS
-!MH!#define RST_PARAMETS
+!MH!#define RST_GLIMMER_SCALES
 !MH!#include "glimmer_rst_head.inc"
-!MH!#undef RST_PARAMETS
-!MH!#endif
-!MH!
-!MH!#ifdef RESTARTS
-!MH!contains
-!MH!
-!MH!#define RST_PARAMETS
-!MH!#include "glimmer_rst_body.inc"
-!MH!#undef RST_PARAMETS
+!MH!#undef RST_GLIMMER_SCALES
 !MH!#endif
 
-end module paramets
+contains
+
+!MH!#ifdef RESTARTS
+!MH!#define RST_GLIMMER_SCALES
+!MH!#include "glimmer_rst_body.inc"
+!MH!#undef RST_GLIMMER_SCALES
+!MH!#endif
+
+  !> calculate scale factors (can't have non-integer powers)
+  subroutine glimmer_init_scales
+    use physcon, only : scyr, gn
+    use paramets, only : thk0, tim0, vel0, vis0, len0, tau0, acc0
+    implicit none
+
+    scale2d_f1 = scyr * thk0 / tim0
+    scale2d_f2 = scyr * vel0 * thk0
+    scale2d_f3 = vel0 / (vis0 * len0)
+    scale2d_f4 = vel0 * scyr * len0
+    scale2d_f5 = scyr * vel0
+    scale2d_f6 = scyr * vel0 * len0 / (thk0**2)
+    scale2d_f7 = tau0
+    scale2d_f8 = tau0 * len0 / (scyr * vel0)
+    scale2d_f9 = scyr * acc0
+
+    scale3d_f1 = scyr * vel0
+    scale3d_f2 = vis0 * (vel0/len0)**(gn - 1)
+    scale3d_f3 = scyr * thk0
+    scale3d_f4 = vel0/(vis0*len0)
+    scale3d_f5 = 1.0d0/scale3d_f2**(1.0/gn)
+    scale3d_f6 = scale3d_f4**(1.0/gn)
+    scale3d_f7 = scyr * thk0/tim0
+    scale3d_f8 = vis0*scyr
+  end subroutine glimmer_init_scales
+end module glimmer_scales
+
