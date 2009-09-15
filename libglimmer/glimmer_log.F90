@@ -44,45 +44,43 @@
 #include "config.inc"
 #endif
 
+!> module providing file logging and error/message handling
+!!
+!! Six levels of message/error are defined:
+!! - Diagnostic messages
+!! - Timestep enumeration and related information
+!! - Information messages
+!! - Warning messages
+!! - Error messages
+!! - Fatal error messages
+!!
+!! These are numbered 1--6, with increasing severity, and the level of
+!! message output may be set to output all messages, only those above a particular 
+!! severity, or none at all. It should be noted that even if all messages are
+!! turned off, the model will still halt if it encounters a fatal
+!! error!
+!! 
+!! The other point to note is that when calling the messaging routines,
+!! the numerical identifier of a message level should be replaced by the
+!! appropriate parameter:
+!! - GM_DIAGNOSTIC
+!! - GM_TIMESTEP
+!! - GM_INFO
+!! - GM_WARNING
+!! - GM_ERROR
+!! - GM_FATAL
 module glimmer_log
-  !*FD module providing file logging and error/message handling
-  !*FD Six levels of message/error are defined:
-  !*FD \begin{itemize}
-  !*FD \item Diagnostic messages
-  !*FD \item Timestep enumeration and related information
-  !*FD \item Information messages
-  !*FD \item Warning messages
-  !*FD \item Error messages
-  !*FD \item Fatal error messages
-  !*FD \end{itemize}
-  !*FD These are numbered 1--6, with increasing severity, and the level of
-  !*FD message output may be set to output all messages, only those above a particular 
-  !*FD severity, or none at all. It should be noted that even if all messages are
-  !*FD turned off, the model will still halt if it encounters a fatal
-  !*FD error!
-  !*FD 
-  !*FD The other point to note is that when calling the messaging routines,
-  !*FD the numerical identifier of a message level should be replaced by the
-  !*FD appropriate parameter:
-  !*FD \begin{itemize}
-  !*FD \item \texttt{GM\_DIAGNOSTIC}
-  !*FD \item \texttt{GM\_TIMESTEP}
-  !*FD \item \texttt{GM\_INFO}
-  !*FD \item \texttt{GM\_WARNING}
-  !*FD \item \texttt{GM\_ERROR}
-  !*FD \item \texttt{GM\_FATAL}
-  !*FD \end{itemize}
 
   use glimmer_global, only : fname_length,dirsep
 
-  integer,parameter :: GM_DIAGNOSTIC = 1 !*FD Numerical identifier for diagnostic messages.
-  integer,parameter :: GM_TIMESTEP   = 2 !*FD Numerical identifier for timestep messages.
-  integer,parameter :: GM_INFO       = 3 !*FD Numerical identifier for information messages.
-  integer,parameter :: GM_WARNING    = 4 !*FD Numerical identifier for warning messages.
-  integer,parameter :: GM_ERROR      = 5 !*FD Numerical identifier for (non-fatal) error messages.
-  integer,parameter :: GM_FATAL      = 6 !*FD Numerical identifier for fatal error messages.
+  integer,parameter :: GM_DIAGNOSTIC = 1 !< Numerical identifier for diagnostic messages.
+  integer,parameter :: GM_TIMESTEP   = 2 !< Numerical identifier for timestep messages.
+  integer,parameter :: GM_INFO       = 3 !< Numerical identifier for information messages.
+  integer,parameter :: GM_WARNING    = 4 !< Numerical identifier for warning messages.
+  integer,parameter :: GM_ERROR      = 5 !< Numerical identifier for (non-fatal) error messages.
+  integer,parameter :: GM_FATAL      = 6 !< Numerical identifier for fatal error messages.
 
-  integer, parameter            :: GM_levels = 6
+  integer, parameter            :: GM_levels = 6 !< the number of logging levels
   logical, private, dimension(GM_levels) :: gm_show = .false.
 
   character(len=*), parameter, dimension(0:GM_levels), private :: msg_prefix = (/ &
@@ -92,17 +90,17 @@ module glimmer_log
        '               ', &
        '* WARNING:     ', &
        '* ERROR:       ', &
-       '* FATAL ERROR :' /)
+       '* FATAL ERROR :' /) !< array containing log level names
 
 
-  character(len=fname_length),private :: glimmer_logname !*FD name of log file
-  integer,private :: glimmer_unit=6                      !*FD log unit
+  character(len=fname_length),private :: glimmer_logname !< name of log file
+  integer,private :: glimmer_unit=6                      !< log unit
 
 contains
+  !> derives name of log file from file name by stripping directories and appending .log
   function logname(fname)
-    !*FD derives name of log file from file name by stripping directories and appending .log
     implicit none
-    character(len=*), intent(in) :: fname
+    character(len=*), intent(in) :: fname !< the file name
     character(len=fname_length) :: logname
     
     character(len=*), parameter :: suffix='.log'
@@ -114,12 +112,12 @@ contains
        logname = trim(fname)//suffix
     end if
   end function logname
-  
+    
+  !> opens log file
   subroutine open_log(unit,fname)
-    !*FD opens log file
     implicit none
-    integer, optional          :: unit   !*FD file unit to use
-    character(len=*), optional :: fname  !*FD name of log file
+    integer, optional          :: unit   !< file unit to use
+    character(len=*), optional :: fname  !< name of log file
 
     ! local variables
     character(len=8) :: date
@@ -145,13 +143,13 @@ contains
     call write_log_div
   end subroutine open_log
 
+  !> write to log
   subroutine write_log(message,type,file,line)
-    !*FD write to log
     implicit none
-    integer,intent(in),optional          :: type    !*FD Type of error to be generated (see list above).
-    character(len=*),intent(in)          :: message !*FD message to be written
-    character(len=*),intent(in),optional :: file    !*FD the name of the file which triggered the message
-    integer,intent(in),optional          :: line    !*FD the line number at the which the message was triggered
+    integer,intent(in),optional          :: type    !< Type of error to be generated (see list above).
+    character(len=*),intent(in)          :: message !< message to be written
+    character(len=*),intent(in),optional :: file    !< the name of the file which triggered the message
+    integer,intent(in),optional          :: line    !< the line number at the which the message was triggered
 
     ! local variables
     character(len=250) :: msg
@@ -187,14 +185,14 @@ contains
     end if
   end subroutine write_log
 
+  !> start a new section
   subroutine write_log_div
-    !*FD start a new section
     implicit none
     write(glimmer_unit,*) '*******************************************************************************'
   end subroutine write_log_div
 
+  !> close log file
   subroutine close_log
-    !*FD close log file
     implicit none
     ! local variables
     character(len=8) :: date
@@ -209,16 +207,16 @@ contains
     close(glimmer_unit)
   end subroutine close_log
 
+  !> synchronise log to disk
   subroutine sync_log
-    !*FD synchronise log to disk
     implicit none
     close(glimmer_unit)
     open(unit=glimmer_unit,file=glimmer_logname, position="append", status='old')
   end subroutine sync_log
 
+  !> Sets the output message level.
   subroutine glimmer_set_msg_level(level)
-    !*FD Sets the output message level.
-    integer, intent(in) :: level !*FD The message level (6 is all messages; 0 is no messages). 
+    integer, intent(in) :: level !< The message level (6 is all messages; 0 is no messages). 
     integer :: i
 
     do i=1,GM_levels
@@ -231,8 +229,8 @@ contains
 
   end subroutine glimmer_set_msg_level
 
+  !> return glimmer log unit
   function glimmer_get_logunit()
-    !*FD return glimmer log unit
     implicit none
     integer glimmer_get_logunit
 

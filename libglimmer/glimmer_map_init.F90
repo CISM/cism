@@ -44,9 +44,8 @@
 #include "config.inc"
 #endif
 
+!> initialise map projection routines
 module glimmer_map_init
-
-  !*FD Contains initialisation routines 
 
   use glimmer_map_types
 
@@ -54,15 +53,16 @@ module glimmer_map_init
 
 contains
 
+  !> read projection configuration from file
   subroutine glimmap_readconfig(proj,config,dx,dy)
-    !*FD read projection configuration from file
     use glimmer_config
     use glimmer_log
     use glimmer_global
     implicit none
-    type(glimmap_proj),intent(inout) :: proj !*FD The projection parameters to be initialised
-    type(ConfigSection), pointer :: config !*FD structure holding sections of configuration file 
-    real(dp),intent(in) :: dx,dy
+    type(glimmap_proj),intent(inout) :: proj !< The projection parameters to be initialised
+    type(ConfigSection), pointer :: config   !< structure holding sections of configuration file 
+    real(dp),intent(in) :: dx                !< grid resolution in x
+    real(dp),intent(in) :: dy                !< grid resolution in y
 
     ! local variables
     type(ConfigSection), pointer :: section
@@ -188,10 +188,11 @@ contains
 
   !-------------------------------------------------------------------------
 
+  !> print projection info to log
   subroutine glimmap_printproj(proj)
     use glimmer_log
 
-    type(glimmap_proj),intent(in) :: proj
+    type(glimmap_proj),intent(in) :: proj !< the projection
 
     character(len=100) :: message
 
@@ -265,6 +266,8 @@ contains
 
   !-------------------------------------------------------------------------
 
+  !> Defines a projection from scratch, and initialises 
+  !! the other elements appropriately.
   subroutine glimmap_proj_define(cfp,ptype, &
        longitude_of_central_meridian, &
        latitude_of_projection_origin, &
@@ -274,20 +277,17 @@ contains
        standard_parallel, &
        standard_parallel_2)
 
-    !*FD Defines a projection from scratch, and initialises 
-    !*FD the other elements appropriately.
-
     use glimmer_log
 
-    type(glimmap_proj),intent(inout) :: cfp 
-    integer,intent(in) :: ptype
-    real(rk),intent(in) :: longitude_of_central_meridian
-    real(rk),intent(in) :: latitude_of_projection_origin
-    real(rk),intent(in) :: false_easting
-    real(rk),intent(in) :: false_northing
-    real(rk),optional,intent(in) :: scale_factor_at_proj_origin
-    real(rk),optional,intent(in) :: standard_parallel
-    real(rk),optional,intent(in) :: standard_parallel_2
+    type(glimmap_proj),intent(inout) :: cfp                      !< the projection data type
+    integer,intent(in) :: ptype                                  !< the projection ID
+    real(rk),intent(in) :: longitude_of_central_meridian         !< the longitude of the central meridian
+    real(rk),intent(in) :: latitude_of_projection_origin         !< the latitude of the projection origin
+    real(rk),intent(in) :: false_easting                         !< false easting
+    real(rk),intent(in) :: false_northing                        !< false northing
+    real(rk),optional,intent(in) :: scale_factor_at_proj_origin  !< scale factor
+    real(rk),optional,intent(in) :: standard_parallel            !< standard parallel 1
+    real(rk),optional,intent(in) :: standard_parallel_2          !< standard parallel 2
 
 
     if (associated(cfp%laea))  deallocate(cfp%laea)
@@ -357,6 +357,7 @@ contains
 
   end subroutine glimmap_proj_define
 
+  !> initialise Lambert azimuthal equal area projection
   subroutine glimmap_laea_init(params)
 
     type(proj_laea),intent(inout) :: params
@@ -377,7 +378,7 @@ contains
   end subroutine glimmap_laea_init
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
+  !> initialise Lambert azimuthal equal area projection
   subroutine glimmap_aea_init(params)
 
     type(proj_aea),intent(inout) :: params
@@ -395,6 +396,7 @@ contains
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  !> initialise Lambert conformal conic projection
   subroutine glimmap_lcc_init(params)
 
     type(proj_lcc),intent(inout) :: params
@@ -416,6 +418,7 @@ contains
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  !> initialise stereographic projection
   subroutine glimmap_stere_init(params)
 
     use glimmer_log

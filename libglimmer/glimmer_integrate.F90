@@ -44,41 +44,44 @@
 #include "config.inc"
 #endif
 
+!> integration of functions using Romberg integration
 module glimmer_integrate
-  !*FD integration of functions
 
   use glimmer_global, only : dp,sp
 
   private :: dp, sp
 
+  !> interface to integration routines
   interface romberg_int
      module procedure sromberg_int, sromberg_int_prms, dromberg_int, dromberg_int_prms
   end interface
 
 contains
 
+  !> single precision function to perform Romberg Integration on function. 
+  !!
+  !! The precision of the routine is 
+  !! determined by the value of \texttt{ord}, an internal variable. 
+  !!
+  !! This routine is an implementation of ACM algorithm 60, by F. L. Bauer.
+  !! (Comm. ACM, vol. 4, issue 6, June 1961).
   recursive real(sp) function sromberg_int(fct,lgr,rgr)
 
-    !*FD Function to perform Romberg Integration on function \texttt{fct}, between
-    !*FD limits \texttt{lgr} and \texttt{rgr}. The precision of the routine is 
-    !*FD determined by the value of \texttt{ord}, an internal variable. 
-    !*FD
-    !*FD This routine is an implementation of ACM algorithm 60, by F. L. Bauer.
-    !*FD (Comm. ACM, vol. 4, issue 6, June 1961).
 
     implicit none
 
-    interface 
+    interface
+       !> function to be integrated
        function fct(x)
          use glimmer_global, only : sp
          implicit none
-         real(sp), intent(in) :: x
-         real(sp) :: fct
+         real(sp), intent(in) :: x !< the argument
+         real(sp) :: fct          
        end function fct
     end interface
     
-    real(sp),intent(in) :: lgr    !*FD Lower bound
-    real(sp),intent(in) :: rgr    !*FD Upper bound
+    real(sp),intent(in) :: lgr    !< Lower bound
+    real(sp),intent(in) :: rgr    !< Upper bound
     integer,parameter :: ord = 6
 
     real(sp),dimension(ord+1) :: t
@@ -114,31 +117,31 @@ contains
   end function sromberg_int
 
 
+  !> single precision function to perform Romberg Integration on function. 
+  !!
+  !! The precision of the routine is 
+  !! determined by the value of \texttt{ord}, an internal variable. 
+  !!
+  !! This routine is an implementation of ACM algorithm 60, by F. L. Bauer.
+  !! (Comm. ACM, vol. 4, issue 6, June 1961).
   recursive real(sp) function sromberg_int_prms(fct,lgr,rgr,params)
-
-    !*FD Function to perform Romberg Integration on function \texttt{fct}, between
-    !*FD limits \texttt{lgr} and \texttt{rgr}. \texttt{params} is an array 
-    !*FD passed to the function containing parameters. The precision of the routine is 
-    !*FD determined by the value of \texttt{ord}, an internal variable. 
-    !*FD
-    !*FD This routine is an implementation of ACM algorithm 60, by F. L. Bauer.
-    !*FD (Comm. ACM, vol. 4, issue 6, June 1961).
 
     implicit none
 
     interface 
+       !> function to be integrated
        function fct(x,params)
          use glimmer_global, only : sp
          implicit none
-         real(sp), intent(in) :: x
-         real(sp), intent(in), dimension(:) :: params
+         real(sp), intent(in) :: x !< the argument
+         real(sp), intent(in), dimension(:) :: params !< an array of function parameters
          real(sp) :: fct
        end function fct
     end interface
     
-    real(sp),intent(in) :: lgr    !*FD Lower bound
-    real(sp),intent(in) :: rgr    !*FD Upper bound
-    real(sp),intent(in),dimension(:) :: params !*FD parameters for function
+    real(sp),intent(in) :: lgr    !< Lower bound
+    real(sp),intent(in) :: rgr    !< Upper bound
+    real(sp),intent(in),dimension(:) :: params !< parameters for function
     integer,parameter :: ord = 6
 
     real(sp),dimension(ord+1) :: t
@@ -173,28 +176,29 @@ contains
 
   end function sromberg_int_prms
 
+  !> double precision function to perform Romberg Integration on function. 
+  !!
+  !! The precision of the routine is 
+  !! determined by the value of \texttt{ord}, an internal variable. 
+  !!
+  !! This routine is an implementation of ACM algorithm 60, by F. L. Bauer.
+  !! (Comm. ACM, vol. 4, issue 6, June 1961).
   recursive real(dp) function dromberg_int(fct,lgr,rgr)
-
-    !*FD Function to perform Romberg Integration on function \texttt{fct}, between
-    !*FD limits \texttt{lgr} and \texttt{rgr}. The precision of the routine is 
-    !*FD determined by the value of \texttt{ord}, an internal variable. 
-    !*FD
-    !*FD This routine is an implementation of ACM algorithm 60, by F. L. Bauer.
-    !*FD (Comm. ACM, vol. 4, issue 6, June 1961).
 
     implicit none
 
     interface 
+       !> function to be integrated
        function fct(x)
          use glimmer_global, only : dp
          implicit none
-         real(dp), intent(in) :: x
+         real(dp), intent(in) :: x !< the argument
          real(dp) :: fct
        end function fct
     end interface
     
-    real(dp),intent(in) :: lgr    !*FD Lower bound
-    real(dp),intent(in) :: rgr    !*FD Upper bound
+    real(dp),intent(in) :: lgr    !< Lower bound
+    real(dp),intent(in) :: rgr    !< Upper bound
     integer,parameter :: ord = 6
 
     real(dp),dimension(ord+1) :: t
@@ -230,31 +234,32 @@ contains
   end function dromberg_int
 
 
+  !> double precision function to perform Romberg Integration on function. 
+  !!
+  !! The precision of the routine is 
+  !! determined by the value of \texttt{ord}, an internal variable. 
+  !!
+  !! This routine is an implementation of ACM algorithm 60, by F. L. Bauer.
+  !! (Comm. ACM, vol. 4, issue 6, June 1961).
   recursive real(dp) function dromberg_int_prms(fct,lgr,rgr,params)
 
-    !*FD Function to perform Romberg Integration on function \texttt{fct}, between
-    !*FD limits \texttt{lgr} and \texttt{rgr}. \texttt{params} is an array 
-    !*FD passed to the function containing parameters. The precision of the routine is 
-    !*FD determined by the value of \texttt{ord}, an internal variable. 
-    !*FD
-    !*FD This routine is an implementation of ACM algorithm 60, by F. L. Bauer.
-    !*FD (Comm. ACM, vol. 4, issue 6, June 1961).
 
     implicit none
 
     interface 
+       !> the function to be integrated
        function fct(x,params)
          use glimmer_global, only : dp
          implicit none
-         real(dp), intent(in) :: x
-         real(dp), intent(in), dimension(:) :: params
+         real(dp), intent(in) :: x !< the argument
+         real(dp), intent(in), dimension(:) :: params !< an array of function parameters
          real(dp) :: fct
        end function fct
     end interface
     
-    real(dp),intent(in) :: lgr    !*FD Lower bound
-    real(dp),intent(in) :: rgr    !*FD Upper bound
-    real(dp),intent(in),dimension(:) :: params !*FD parameters for function
+    real(dp),intent(in) :: lgr    !< Lower bound
+    real(dp),intent(in) :: rgr    !< Upper bound
+    real(dp),intent(in),dimension(:) :: params !< parameters for function
     integer,parameter :: ord = 6
 
     real(dp),dimension(ord+1) :: t

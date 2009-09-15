@@ -44,58 +44,41 @@
 #include "config.inc"
 #endif
 
+!> Module holding global variables for Glimmer. Holds real-type
+!! kind values, and other global code parameters.
 module glimmer_global
 
-  !*FD Module holding global variables for Glimmer. Holds real-type
-  !*FD kind values, and other global code parameters.
 
-  integer,parameter :: sp = kind(1.0) 
+  integer,parameter :: sp = kind(1.0)  !< Single precision --- Fortran single-precision real-type kind value.
   
-  !*FD Single precision --- Fortran single-precision real-type kind 
-  !*FD value. Used internally.
-  !*FD
-  !*FD Note that if the code is being compiled with forced typing (e.g. with 
-  !*FD the -r8 flag), then this parameter may need to be set in agreement with 
-  !*FD that.
+  ! Note that if the code is being compiled with forced typing (e.g. with 
+  ! the -r8 flag), then this parameter may need to be set in agreement with 
+  ! that.
 
-  integer,parameter :: dp = kind(1.0d0) 
+  integer,parameter :: dp = kind(1.0d0) !< Double precision --- Fortran double-precision real-type kind value
   
-  !*FD Double precision --- Fortran double-precision real-type kind 
-  !*FD value. Used internally.
-  !*FD
-  !*FD Note that if the code is being compiled with forced typing (e.g. with
-  !*FD the -r8 flag), then this parameter may need to be set in agreement
-  !*FD with that
+  ! Note that if the code is being compiled with forced typing (e.g. with
+  ! the -r8 flag), then this parameter may need to be set in agreement
+  ! with that
 
 #ifdef GLIMMER_SP
 
-  integer,parameter :: rk=sp
+  integer,parameter :: rk=sp !< Precision of glimmer module --- the general Fortran real-type kind value for the Glimmer module and its interfaces.
 
 #else
 
-  integer,parameter :: rk=dp
+  integer,parameter :: rk=dp !< Precision of glimmer module --- the general Fortran real-type kind value for the Glimmer module and its interfaces.
 
 #endif
 
-  !*FD Precision of glimmer module --- the general Fortran real-type kind value 
-  !*FD for the Glimmer module and its interfaces.
-  !*FD
-  !*FD Note that if the code is being compiled with forced typing (e.g. with 
-  !*FD the -r8 flag), then this parameter must be set in agreement with that. 
 
-  integer,parameter :: fname_length=100
+  integer,parameter :: fname_length=100 !< Specifies the length of character string variables used to hold filenames.
 
-  !*FD Specifies the length of character string variables used to
-  !*FD hold filenames.
+  character, parameter :: dirsep = '/' !< directory separator
 
-  character, parameter :: dirsep = '/'
-  !*FD directory separator
-
-  character, parameter :: linefeed = achar(10)
-  character, parameter :: char_ret = achar(13)
-  character(2), parameter :: cr_lf = char_ret//linefeed
+  character, parameter :: linefeed = achar(10)          !< ASCII linefeed
+  character, parameter :: char_ret = achar(13)          !< ASCII carriage-return
+  character(2), parameter :: cr_lf = char_ret//linefeed !< default newline appropriate for UNIX-type systems
   character, parameter :: endline = linefeed
-  !*FD ASCII linefeed and carriage-return characters,
-  !*FD and set up default newline appropriate for UNIX-type systems
 
 end module glimmer_global

@@ -44,14 +44,15 @@
 #include "config.inc"
 #endif
 
+!> Holds derived types and subroutines
+!! necessary for handling map projections.
+!!
+!! Most of the component
+!! names of the various derived types are self-explanatory.
+!! Note that this doesn't currently interface with the proj4
+!! library in anyway, it simply handles NetCDF data and projection
+!! parameters in an appropriate format.
 module glimmer_map_CFproj
-
-  !*FD Holds derived types and subroutines
-  !*FD necessary for handling map projections. Most of the component
-  !*FD names of the various derived types are self-explanatory.
-  !*FD Note that this doesn't currently interface with the proj4
-  !*FD library in anyway, it simply handles NetCDF data and projection
-  !*FD parameters in an appropriate format.
 
   use glimmer_map_types
 
@@ -66,11 +67,11 @@ contains
   ! public functions
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+  !> Read projection from a given netCDF file, returning
+  !! an instance of type glimmap_proj.
+  !!
+  !! \return Derived type instance containing projection parameters
   function glimmap_CFGetProj(ncid)
-
-    !*FD Read projection from a given netCDF file, returning
-    !*FD an instance of type \texttt{glimmap\_proj}.
-    !*FDRV Derived type instance containing projection parameters
 
     use netcdf
     use glimmer_log
@@ -79,7 +80,7 @@ contains
     implicit none
 
     type(glimmap_proj) :: glimmap_CFGetProj
-    integer, intent(in) :: ncid                !*FD Handle of the file to be read.
+    integer, intent(in) :: ncid                !< Handle of the file to be read.
     
     !local variables
     integer status
@@ -139,18 +140,17 @@ contains
 
   !-------------------------------------------------------------------------
 
+  !> write projection to a netCDF file.
   subroutine glimmap_CFPutProj(ncid,mapid,proj)
-
-    !*FD write projection to a netCDF file.
 
     use netcdf
     use glimmer_log
 
     implicit none
 
-    type(glimmap_proj) :: proj   !*FD Projection to be written.
-    integer, intent(in) :: ncid             !*FD Handle of netCDF file.
-    integer, intent(in) :: mapid            !*FD Handle of map projection in netCDF file.
+    type(glimmap_proj) :: proj   !< Projection to be written.
+    integer, intent(in) :: ncid  !< Handle of netCDF file.
+    integer, intent(in) :: mapid !< Handle of map projection in netCDF file.
 
     if (.not.glimmap_allocated(proj)) then
        call write_log('No known projection found!',GM_WARNING)
@@ -178,12 +178,13 @@ contains
   ! private readers
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+  !> get parameters for stereographic projection
   function CFproj_get_stere(ncid,mapid)
     use netcdf
     implicit none
     type(proj_stere), pointer :: CFproj_get_stere
-    integer, intent(in) :: ncid
-    integer, intent(in) :: mapid
+    integer, intent(in) :: ncid   !< Handle of netCDF file.
+    integer, intent(in) :: mapid  !< Handle of map projection in netCDF file.
     
     integer status
 
@@ -201,13 +202,14 @@ contains
 
   end function CFproj_get_stere
 
+  !> get parameters for polar stereographic projection
   function CFproj_get_stere_polar(ncid,mapid)
     use netcdf
     use glimmer_log
     implicit none
     type(proj_stere), pointer :: CFproj_get_stere_polar
-    integer, intent(in) :: ncid
-    integer, intent(in) :: mapid
+    integer, intent(in) :: ncid   !< Handle of netCDF file.
+    integer, intent(in) :: mapid  !< Handle of map projection in netCDF file.
     
     integer status
     real dummy
@@ -240,12 +242,13 @@ contains
     end if
   end function CFproj_get_stere_polar
 
+  !> get parameters for Lambert azimuthal equal area projection
   function CFproj_get_laea(ncid,mapid)
     use netcdf
     implicit none
     type(proj_laea), pointer :: CFproj_get_laea
-    integer, intent(in) :: ncid
-    integer, intent(in) :: mapid
+    integer, intent(in) :: ncid   !< Handle of netCDF file.
+    integer, intent(in) :: mapid  !< Handle of map projection in netCDF file.
     
     integer status
     allocate(CFproj_get_laea)
@@ -259,12 +262,13 @@ contains
     call nc_errorhandle(__FILE__,__LINE__,status)
   end function CFproj_get_laea
 
+  !> get parameters for Albers conical equal area projection
   function CFproj_get_aea(ncid,mapid)
     use netcdf
     implicit none
     type(proj_aea), pointer :: CFproj_get_aea
-    integer, intent(in) :: ncid
-    integer, intent(in) :: mapid
+    integer, intent(in) :: ncid   !< Handle of netCDF file.
+    integer, intent(in) :: mapid  !< Handle of map projection in netCDF file.
     
     integer status
     allocate(CFproj_get_aea)
@@ -280,12 +284,13 @@ contains
     call nc_errorhandle(__FILE__,__LINE__,status)
   end function CFproj_get_aea
 
+  !> get parameters for Lambert conformal conic projection
   function CFproj_get_lcc(ncid,mapid)
     use netcdf
     implicit none
     type(proj_lcc), pointer :: CFproj_get_lcc
-    integer, intent(in) :: ncid
-    integer, intent(in) :: mapid
+    integer, intent(in) :: ncid   !< Handle of netCDF file.
+    integer, intent(in) :: mapid  !< Handle of map projection in netCDF file.
     
     integer status
     allocate(CFproj_get_lcc)
@@ -304,12 +309,13 @@ contains
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   ! private subroutines to write projection info
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !> put parameters for stereographic projection
   subroutine CFproj_put_stere(ncid,mapid,stere)
     use netcdf
     implicit none
-    type(proj_stere), pointer :: stere
-    integer, intent(in) :: ncid
-    integer, intent(in) :: mapid
+    type(proj_stere), pointer :: stere !< the derived type containing projection parameters
+    integer, intent(in) :: ncid        !< Handle of netCDF file.
+    integer, intent(in) :: mapid       !< Handle of map projection in netCDF file.
 
     integer status
 
@@ -343,12 +349,13 @@ contains
     call nc_errorhandle(__FILE__,__LINE__,status)
   end subroutine CFproj_put_stere
 
+  !> put parameters for Lambert azimuthal equal area projection
   subroutine CFproj_put_laea(ncid,mapid,laea)
     use netcdf
     implicit none
-    type(proj_laea), pointer :: laea
-    integer, intent(in) :: ncid
-    integer, intent(in) :: mapid
+    type(proj_laea), pointer :: laea !< the derived type containing projection parameters
+    integer, intent(in) :: ncid      !< Handle of netCDF file.
+    integer, intent(in) :: mapid     !< Handle of map projection in netCDF file.
 
     integer status
 
@@ -364,12 +371,13 @@ contains
     call nc_errorhandle(__FILE__,__LINE__,status)
   end subroutine CFproj_put_laea
 
+  !> put parameters for Albers conical equal area projection
   subroutine CFproj_put_aea(ncid,mapid,aea)
     use netcdf
     implicit none
-    type(proj_aea), pointer :: aea
-    integer, intent(in) :: ncid
-    integer, intent(in) :: mapid
+    type(proj_aea), pointer :: aea !< the derived type containing projection parameters
+    integer, intent(in) :: ncid    !< Handle of netCDF file.
+    integer, intent(in) :: mapid   !< Handle of map projection in netCDF file.
 
     integer status
 
@@ -387,12 +395,13 @@ contains
     call nc_errorhandle(__FILE__,__LINE__,status)
   end subroutine CFproj_put_aea
 
+  !> put parameters for Lambert conformal conic projection
   subroutine CFproj_put_lcc(ncid,mapid,lcc)
     use netcdf
     implicit none
-    type(proj_lcc), pointer :: lcc
-    integer, intent(in) :: ncid
-    integer, intent(in) :: mapid
+    type(proj_lcc), pointer :: lcc !< the derived type containing projection parameters
+    integer, intent(in) :: ncid    !< Handle of netCDF file.
+    integer, intent(in) :: mapid   !< Handle of map projection in netCDF file.
 
     integer status
 

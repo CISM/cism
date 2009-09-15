@@ -1,3 +1,6 @@
+2009-09-15 Magnus Hagdorn
+ * convert comments in a bunch of files to doxygen strings
+
 2009-09-14 Magnus Hagdorn
  * README: document new make target to build tar-ball of html docs
  * doc/Makefile.am: new target to build tar-ball of html docs which

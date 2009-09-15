@@ -44,99 +44,101 @@
 #include "config.inc"
 #endif
 
+!> This module contains derived types.
+!!
+!! \todo move math constants to constants module
 module glimmer_map_types
-
-  !*FD New combined map-projection handling code for GLIMMER:
-  !*FD This module contains derived types.
 
   use glimmer_global, only: rk
 
   implicit none
 
+  !> derived type holding all know map projections. This simulates inheritance
   type glimmap_proj
      logical :: found = .false.
-     type(proj_laea),  pointer :: laea  => NULL() !*FD Pointer to Lambert azimuthal equal area type
-     type(proj_aea),   pointer :: aea   => NULL() !*FD Pointer to Albers equal area conic type
-     type(proj_lcc),   pointer :: lcc   => NULL() !*FD Pointer to Lambert conic conformal type
-     type(proj_stere), pointer :: stere => NULL() !*FD Pointer to Stereographic type
+     type(proj_laea),  pointer :: laea  => NULL() !< Pointer to Lambert azimuthal equal area type
+     type(proj_aea),   pointer :: aea   => NULL() !< Pointer to Albers equal area conic type
+     type(proj_lcc),   pointer :: lcc   => NULL() !< Pointer to Lambert conic conformal type
+     type(proj_stere), pointer :: stere => NULL() !< Pointer to Stereographic type
   end type glimmap_proj
 
   !-------------------------------------------------------------
 
+  !> Lambert Azimuthal Equal Area
   type proj_laea
-     !*FD Lambert Azimuthal Equal Area
-     real(rk) :: longitude_of_central_meridian
-     real(rk) :: latitude_of_projection_origin
-     real(rk) :: false_easting
-     real(rk) :: false_northing
-     real(rk) :: sinp    !*FD Sine of latitude_of_projection_origin
-     real(rk) :: cosp    !*FD Cosine of latitude_of_projection_origin
-     integer :: pole !*FD Set to 1 for N pole, -1 for S pole, 0 otherwise
+     real(rk) :: longitude_of_central_meridian  !< longitude of central meridian
+     real(rk) :: latitude_of_projection_origin  !< latitude of projection origin
+     real(rk) :: false_easting                  !< false easting
+     real(rk) :: false_northing                 !< false northing
+     real(rk) :: sinp                           !< Sine of latitude_of_projection_origin
+     real(rk) :: cosp                           !< Cosine of latitude_of_projection_origin
+     integer :: pole                            !< Set to 1 for N pole, -1 for S pole, 0 otherwise
   end type proj_laea
 
   !-------------------------------------------------------------
 
+  !> Albers Equal-Area Conic
   type proj_aea
-     !*FD Albers Equal-Area Conic
-     real(rk),dimension(2) :: standard_parallel
-     real(rk) :: longitude_of_central_meridian
-     real(rk) :: latitude_of_projection_origin
-     real(rk) :: false_easting
-     real(rk) :: false_northing
-     real(rk) :: rho0 !*FD Convenience constant
-     real(rk) :: rho0_R !*FD Convenience constant (is rho0/EQ_RAD)
-     real(rk) :: c    !*FD Convenience constant
-     real(rk) :: n    !*FD Convenience constant
-     real(rk) :: i_n  !*FD Convenience constant (inverse of n)
+     real(rk),dimension(2) :: standard_parallel !< two standard parallels
+     real(rk) :: longitude_of_central_meridian  !< longitude of central meridian
+     real(rk) :: latitude_of_projection_origin  !< latitude of projection origin
+     real(rk) :: false_easting                  !< false easting
+     real(rk) :: false_northing                 !< false northing
+     real(rk) :: rho0                           !< Convenience constant
+     real(rk) :: rho0_R                         !< Convenience constant (is rho0/EQ_RAD)
+     real(rk) :: c                              !< Convenience constant
+     real(rk) :: n                              !< Convenience constant
+     real(rk) :: i_n                            !< Convenience constant (inverse of n)
   end type proj_aea
 
   !-------------------------------------------------------------
 
+  !> Lambert Conic Conformal
   type proj_lcc
-     !*FD Lambert Conic Conformal
-     real(rk),dimension(2) :: standard_parallel
-     real(rk) :: longitude_of_central_meridian
-     real(rk) :: latitude_of_projection_origin
-     real(rk) :: false_easting
-     real(rk) :: false_northing
-     real(rk) :: rho0 !*FD Convenience constant
-     real(rk) :: f    !*FD Convenience constant
-     real(rk) :: n    !*FD Convenience constant
-     real(rk) :: i_n  !*FD Convenience constant (inverse of n)
+     real(rk),dimension(2) :: standard_parallel !< two standard parallels
+     real(rk) :: longitude_of_central_meridian  !< longitude of central meridian
+     real(rk) :: latitude_of_projection_origin  !< latitude of projection origin
+     real(rk) :: false_easting                  !< false easting
+     real(rk) :: false_northing                 !< false northing
+     real(rk) :: rho0                           !< Convenience constant
+     real(rk) :: f                              !< Convenience constant
+     real(rk) :: n                              !< Convenience constant
+     real(rk) :: i_n                            !< Convenience constant (inverse of n)
   end type proj_lcc
 
   !-------------------------------------------------------------
 
+  !> Stereographic projection derived type 
   type proj_stere
-     !*FD Stereographic projection derived type 
-     real(rk) :: longitude_of_central_meridian          
-     real(rk) :: latitude_of_projection_origin          
-     real(rk) :: scale_factor_at_proj_origin = 0. 
-     real(rk) :: standard_parallel = 0.                 
-     real(rk) :: false_easting          
-     real(rk) :: false_northing
-     integer :: pole  !*FD Set to 1 for N pole, -1 for S pole, 0 otherwise
-     logical :: equatorial !*FD Set true if equatorial aspect
-     real(rk) :: k0 !*FD scale factor or std par converted to scale factor
-     real(rk) :: ik0 !*FD inverse of k0
-     real(rk) :: sinp,cosp !*FD sin and cos of latitude_of_projection_origin
+     real(rk) :: longitude_of_central_meridian    !< longitude of central meridian        
+     real(rk) :: latitude_of_projection_origin    !< latitude of projection origin         
+     real(rk) :: scale_factor_at_proj_origin = 0. !< scale factor at origin 
+     real(rk) :: standard_parallel = 0.           !< a standard parallel
+     real(rk) :: false_easting                    !< false easting
+     real(rk) :: false_northing                   !< false northing
+     integer :: pole                              !< Set to 1 for N pole, -1 for S pole, 0 otherwise
+     logical :: equatorial                        !< Set true if equatorial aspect
+     real(rk) :: k0                               !< scale factor or std par converted to scale factor
+     real(rk) :: ik0                              !< inverse of k0
+     real(rk) :: sinp                             !< sin of latitude_of_projection_origin
+     real(rk) :: cosp                             !< cos of latitude_of_projection_origin
   end type proj_stere
 
   ! Global mapping parameters ----------------------------------
 
-  real(rk),parameter :: pi         = 3.141592654    !*FD The value of $\pi$.
-  real(rk),parameter :: M_PI_4     = pi/4           !*FD The value of $\pi/4$.
-  real(rk),parameter :: M_PI_2     = pi/2           !*FD The value of $\pi/2$.
-  real(rk),parameter :: D2R        = pi/180.0       !*FD Degrees-to-radians conversion factor.
-  real(rk),parameter :: R2D        = 180.0/pi       !*FD Radians-to-degrees conversion factor.
-  real(rk),parameter :: EQ_RAD     = 6.37e6         !*FD Radius of the earth (m)
-  real(rk),parameter :: i_EQ_RAD   = 1.0_rk/EQ_RAD  !*FD Inverse radius of the earth (m^-1)
-  real(rk),parameter :: CONV_LIMIT = 1.0e-8         !*FD Convergence limit (a small number).
+  real(rk),parameter :: pi         = 3.141592654    !< The value of $\pi$.
+  real(rk),parameter :: M_PI_4     = pi/4           !< The value of $\pi/4$.
+  real(rk),parameter :: M_PI_2     = pi/2           !< The value of $\pi/2$.
+  real(rk),parameter :: D2R        = pi/180.0       !< Degrees-to-radians conversion factor.
+  real(rk),parameter :: R2D        = 180.0/pi       !< Radians-to-degrees conversion factor.
+  real(rk),parameter :: EQ_RAD     = 6.37e6         !< Radius of the earth (m)
+  real(rk),parameter :: i_EQ_RAD   = 1.0_rk/EQ_RAD  !< Inverse radius of the earth (m^-1)
+  real(rk),parameter :: CONV_LIMIT = 1.0e-8         !< Convergence limit (a small number).
 
-  integer, parameter :: GMAP_LAEA=1
-  integer, parameter :: GMAP_AEA=2
-  integer, parameter :: GMAP_LCC=3
-  integer, parameter :: GMAP_STERE=4
+  integer, parameter :: GMAP_LAEA=1  !< ID for Lambert azimuthal equal area projection
+  integer, parameter :: GMAP_AEA=2   !< ID for Lambert azimuthal equal area projection
+  integer, parameter :: GMAP_LCC=3   !< ID for Lambert conformal conic projection
+  integer, parameter :: GMAP_STERE=4 !< ID for stereographic projection
 
 !MH!  !MAKE_RESTART
 !MH!#ifdef RESTARTS
@@ -153,9 +155,8 @@ contains
 !MH!#undef RST_GLIMMER_MAP_TYPES
 !MH!#endif
 
+  !> return true if structure contains a known projection
   function glimmap_allocated(proj)
-
-    !*FD return true if structure contains a known projection
 
     implicit none
     type(glimmap_proj) :: proj
@@ -164,11 +165,10 @@ contains
     glimmap_allocated = proj%found
   end function glimmap_allocated
 
+  !> This is incomplete diagnostics code to output full
+  !! content of projection type. Only does
+  !! Stereographic projections so far.
   subroutine glimmap_diag(proj)
-
-    !*FD This is incomplete diagnostics code to output full
-    !*FD content of projection type. Only does
-	!*FD Stereographic projections so far.
 
     use glimmer_log
 
@@ -182,6 +182,7 @@ contains
 
   end subroutine glimmap_diag
 
+  !> print out parameters of Stereographic projection
   subroutine glimmap_diag_stere(params)
 
     use glimmer_log

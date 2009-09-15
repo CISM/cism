@@ -1,49 +1,53 @@
 
+!> Module to handle setting a working directory for glimmer
+!!
+!! \author Ian Rutt
+!! \date May 2007
 module glimmer_filenames
 
-  !*FD Module to handle setting a working directory for glimmer
 
   use glimmer_global,only: dirsep
 
   implicit none
 
-  character(200) :: workingdir = ''
-  !*FD Working directory for all file operations. Absolute paths are unaffected
+  character(200) :: workingdir = '' !< Working directory for all file operations. Absolute paths are unaffected
 
 contains
 
+  !> se the working directory
   subroutine glimmer_set_path(path)
 
     use glimmer_log
 
-    character(*),intent(in) :: path
+    character(len=*),intent(in) :: path !< the path
 
     workingdir=path
     call write_log('Set GLIMMER working dir to :'//trim(workingdir))
 
   end subroutine glimmer_set_path
 
+  !> append path to working dir
   character(200) function process_path(path)
 
-    character(*),intent(in) :: path
+    character(*),intent(in) :: path !< the path to be appended
 
     character(200) :: alpath
 
     alpath=adjustl(path)
 
     if (alpath(1:1)/=dirsep.and.trim(workingdir)/='') then
-       process_path=trim(workingdir)//'/'//alpath
+       process_path=trim(workingdir)//dirsep//alpath
     else
        process_path=alpath
     end if
 
   end function process_path
 
+  !> returns the next free file unit between 20 and 100
   integer function get_free_unit()
 
     use glimmer_log
 
-    !*FD returns the next free file unit between 20 and 100
 
     integer :: unit
     logical :: op

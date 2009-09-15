@@ -44,6 +44,7 @@
 #include "config.inc"
 #endif
 
+!> convert between projections
 module glimmer_map_trans
 
   use glimmer_map_types
@@ -56,23 +57,23 @@ module glimmer_map_trans
 
 contains
 
+  !> Convert lat-long coordinates to grid coordinates.
+  !!
+  !! The subroutine returns the x-y coordinates as real values,
+  !! non-integer values indicating a position between grid-points.
   subroutine glimmap_ll_to_xy(lon,lat,x,y,proj,grid)
-
-    !*FD Convert lat-long coordinates to grid coordinates. Note that
-    !*FD The subroutine returns the x-y coordinates as real values,
-    !*FD non-integer values indicating a position between grid-points.
 
     use glimmer_log
     use glimmer_coordinates
 
     implicit none
 
-    real(rk),intent(in)  :: lon !*FD The location of the point in lat-lon space (Longitude)
-    real(rk),intent(in)  :: lat !*FD The location of the point in lat-lon space (Latitude)
-    real(rk),intent(out) :: x   !*FD The location of the point in $x$-$y$ space ($x$ coordinate)
-    real(rk),intent(out) :: y   !*FD The location of the point in $x$-$y$ space ($y$ coordinate)
-    type(glimmap_proj),    intent(in) :: proj !*FD The projection being used
-    type(coordsystem_type),intent(in) :: grid !*FD the grid definition
+    real(rk),intent(in)  :: lon !< The location of the point in lat-lon space (Longitude)
+    real(rk),intent(in)  :: lat !< The location of the point in lat-lon space (Latitude)
+    real(rk),intent(out) :: x   !< The location of the point in x-y space (x coordinate)
+    real(rk),intent(out) :: y   !< The location of the point in x-y space (y coordinate)
+    type(glimmap_proj),    intent(in) :: proj !< The projection being used
+    type(coordsystem_type),intent(in) :: grid !< the grid definition
 
     real(rk) :: xx,yy ! These are real-space distances in meters
 
@@ -96,23 +97,24 @@ contains
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  !> Convert grid coordinates to lat-lon coordinates. 
+  !!
+  !! The subroutine returns the lat-lon coordinates as real values,
+  !! non-integer values indicating a position between grid-points.
   subroutine glimmap_xy_to_ll(lon,lat,x,y,proj,grid)
 
-    !*FD Convert grid coordinates to lat-lon coordinates. The 
-    !*FD subroutine returns the lat-lon coordinates as real values,
-    !*FD non-integer values indicating a position between grid-points.
 
     use glimmer_log
     use glimmer_coordinates
 
     implicit none
 
-    real(rk),intent(out) :: lon !*FD The location of the point in lat-lon space (Longitude)
-    real(rk),intent(out) :: lat !*FD The location of the point in lat-lon space (Latitude)
-    real(rk),intent(in)  :: x   !*FD The location of the point in $x$-$y$ space ($x$ coordinate)
-    real(rk),intent(in)  :: y   !*FD The location of the point in $x$-$y$ space ($y$ coordinate)
-    type(glimmap_proj),    intent(in) :: proj !*FD The projection being used
-    type(coordsystem_type),intent(in) :: grid !*FD the grid definition
+    real(rk),intent(out) :: lon !< The location of the point in lat-lon space (Longitude)
+    real(rk),intent(out) :: lat !< The location of the point in lat-lon space (Latitude)
+    real(rk),intent(in)  :: x   !< The location of the point in x-y space (x coordinate)
+    real(rk),intent(in)  :: y   !< The location of the point in x-y space (y coordinate)
+    type(glimmap_proj),    intent(in) :: proj !< The projection being used
+    type(coordsystem_type),intent(in) :: grid !< the grid definition
 
     real(rk) :: xx,yy ! These are real-space distances in meters
 
@@ -142,17 +144,17 @@ contains
   ! Lambert azimuthal equal area projection
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  !> Forward transformation: lat-lon -> x-y of Lambert azimuthal equal area projection
   subroutine glimmap_laea(lon,lat,x,y,params)
 
-    !*FD Forward transformation: lat-lon -> x-y
 
     use glimmer_log
 
-    real(rk),intent(in)  :: lon
-    real(rk),intent(in)  :: lat
-    real(rk),intent(out) :: x
-    real(rk),intent(out) :: y
-    type(proj_laea),intent(in) :: params
+    real(rk),intent(in)  :: lon !< longitude
+    real(rk),intent(in)  :: lat !< latitude
+    real(rk),intent(out) :: x   !< x
+    real(rk),intent(out) :: y   !< y
+    type(proj_laea),intent(in) :: params !< projection parameters
 
     real(rk) :: sin_lat,cos_lat,sin_lon,cos_lon,c,dlon,dlat,tmp,k
     character(80) :: errtxt
@@ -193,15 +195,16 @@ contains
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  !> Inverse transformation: lat-lon -> x-y of Lambert azimuthal equal area projection
   subroutine glimmap_ilaea(lon,lat,x,y,params)
 
     use glimmer_log
 
-    real(rk),intent(out) :: lon
-    real(rk),intent(out) :: lat
-    real(rk),intent(in)  :: x
-    real(rk),intent(in)  :: y
-    type(proj_laea),intent(in) :: params
+    real(rk),intent(out) :: lon !< longitude
+    real(rk),intent(out) :: lat !< latitude
+    real(rk),intent(in)  :: x   !< x
+    real(rk),intent(in)  :: y   !< y
+    type(proj_laea),intent(in) :: params !< projection parameters
 
     real(rk) :: rho,c,sin_c,cos_c,xx,yy
     character(80) :: errtxt
@@ -243,13 +246,14 @@ contains
   ! Albers equal area conic projection
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  !> Forward transformation: lat-lon -> x-y of Albers equal area conic projection
   subroutine glimmap_aea(lon,lat,x,y,params)
 
-    real(rk),intent(in)  :: lon
-    real(rk),intent(in)  :: lat
-    real(rk),intent(out) :: x
-    real(rk),intent(out) :: y
-    type(proj_aea),intent(in) :: params
+    real(rk),intent(in)  :: lon !< longitude
+    real(rk),intent(in)  :: lat !< latitude
+    real(rk),intent(out) :: x   !< x
+    real(rk),intent(out) :: y   !< y
+    type(proj_aea),intent(in) :: params !< projection parameters
 
     real(rk) :: dlon,theta,sint,cost,rho
 
@@ -275,13 +279,14 @@ contains
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  !> Inverse transformation: lat-lon -> x-y of Albers equal area conic projection
   subroutine glimmap_iaea(lon,lat,x,y,params)
 
-    real(rk),intent(out) :: lon
-    real(rk),intent(out) :: lat
-    real(rk),intent(in)  :: x
-    real(rk),intent(in)  :: y
-    type(proj_aea),intent(in) :: params
+    real(rk),intent(out) :: lon !< longitude
+    real(rk),intent(out) :: lat !< latitude
+    real(rk),intent(in)  :: x   !< x
+    real(rk),intent(in)  :: y   !< y
+    type(proj_aea),intent(in) :: params !< projection parameters
 
     real(rk) :: xx,yy,rho,theta
 
@@ -308,13 +313,14 @@ contains
   ! Lambert conformal conic projection
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  !> Forward transformation: lat-lon -> x-y of Lambert conformal conic projection
   subroutine glimmap_lcc(lon,lat,x,y,params)
 
-    real(rk),intent(in)  :: lon
-    real(rk),intent(in)  :: lat
-    real(rk),intent(out) :: x
-    real(rk),intent(out) :: y
-    type(proj_lcc),intent(in) :: params
+    real(rk),intent(in)  :: lon !< longitude
+    real(rk),intent(in)  :: lat !< latitude
+    real(rk),intent(out) :: x   !< x
+    real(rk),intent(out) :: y   !< y
+    type(proj_lcc),intent(in) :: params !< projection parameters
 
     real(rk) :: dlon,rho,theta,sint,cost
 
@@ -339,13 +345,14 @@ contains
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  !> Inverse transformation: lat-lon -> x-y of Lambert conformal conic projection
   subroutine glimmap_ilcc(lon,lat,x,y,params)
 
-    real(rk),intent(out) :: lon
-    real(rk),intent(out) :: lat
-    real(rk),intent(in)  :: x
-    real(rk),intent(in)  :: y
-    type(proj_lcc),intent(in) :: params
+    real(rk),intent(out) :: lon !< longitude
+    real(rk),intent(out) :: lat !< latitude
+    real(rk),intent(in)  :: x   !< x
+    real(rk),intent(in)  :: y   !< y
+    type(proj_lcc),intent(in) :: params !< projection parameters
 
     real(rk) :: xx,yy,rho,theta
 
@@ -377,15 +384,16 @@ contains
   ! Stereographic projection
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  !> Forward transformation: lat-lon -> x-y of Stereographic projection
   subroutine glimmap_stere(lon,lat,x,y,params)
 
     use glimmer_log
 
-    real(rk),intent(in)  :: lon
-    real(rk),intent(in)  :: lat
-    real(rk),intent(out) :: x
-    real(rk),intent(out) :: y
-    type(proj_stere),intent(in) :: params
+    real(rk),intent(in)  :: lon !< longitude
+    real(rk),intent(in)  :: lat !< latitude
+    real(rk),intent(out) :: x   !< x
+    real(rk),intent(out) :: y   !< y
+    type(proj_stere),intent(in) :: params !< projection parameters
 
     real(rk) :: dlon,k,dlat,slat,clat,slon,clon
     character(80) :: errtxt
@@ -430,13 +438,14 @@ contains
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  !> Inverse transformation: lat-lon -> x-y of Stereographic projection
   subroutine glimmap_istere(lon,lat,x,y,params)
 
-    real(rk),intent(out) :: lon
-    real(rk),intent(out) :: lat
-    real(rk),intent(in)  :: x
-    real(rk),intent(in)  :: y
-    type(proj_stere),intent(in) :: params
+    real(rk),intent(out) :: lon !< longitude
+    real(rk),intent(out) :: lat !< latitude
+    real(rk),intent(in)  :: x   !< x
+    real(rk),intent(in)  :: y   !< y
+    type(proj_stere),intent(in) :: params !< projection parameters
 
     real(rk) :: xx,yy,rho,c,sinc,cosc
 
@@ -477,17 +486,18 @@ contains
   ! Utility routines
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  !> transform from grid to space
   subroutine grid2space(x,y,gx,gy,coordsys)
 
     use glimmer_coordinates
 
     implicit none
 
-    real(rk),intent(out) :: x  !*FD x-location in real space
-    real(rk),intent(out) :: y  !*FD y-location in real space
-    real(rk),intent(in)  :: gx !*FD x-location in grid space
-    real(rk),intent(in)  :: gy !*FD y-location in grid space
-    type(coordsystem_type), intent(in) :: coordsys  !*FD coordinate system
+    real(rk),intent(out) :: x  !< x-location in real space
+    real(rk),intent(out) :: y  !< y-location in real space
+    real(rk),intent(in)  :: gx !< x-location in grid space
+    real(rk),intent(in)  :: gy !< y-location in grid space
+    type(coordsystem_type), intent(in) :: coordsys  !< coordinate system
 
     x=coordsys%origin%pt(1) + real(gx - 1)*coordsys%delta%pt(1)
     y=coordsys%origin%pt(2) + real(gy - 1)*coordsys%delta%pt(2)
@@ -496,17 +506,18 @@ contains
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  !> convert from space to grid
   subroutine space2grid(x,y,gx,gy,coordsys)
 
     use glimmer_coordinates
 
     implicit none
 
-    real(rk),intent(in)  :: x  !*FD x-location in real space
-    real(rk),intent(in)  :: y  !*FD y-location in real space
-    real(rk),intent(out) :: gx !*FD x-location in grid space
-    real(rk),intent(out) :: gy !*FD y-location in grid space
-    type(coordsystem_type), intent(in) :: coordsys  !*FD coordinate system
+    real(rk),intent(in)  :: x  !< x-location in real space
+    real(rk),intent(in)  :: y  !< y-location in real space
+    real(rk),intent(out) :: gx !< x-location in grid space
+    real(rk),intent(out) :: gy !< y-location in grid space
+    type(coordsystem_type), intent(in) :: coordsys  !< coordinate system
 
     gx = 1.0 + (x - coordsys%origin%pt(1))/coordsys%delta%pt(1)
     gy = 1.0 + (y - coordsys%origin%pt(2))/coordsys%delta%pt(2)
@@ -515,15 +526,14 @@ contains
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  !> Calculates the sin and cos of an angle.
   subroutine sincos(a,s,c)
-
-    !*FD Calculates the sin and cos of an angle.
 
     implicit none
 
-    real(rk),intent(in)  :: a !*FD Input value (radians).
-    real(rk),intent(out) :: s !*FD sin(\texttt{a})
-    real(rk),intent(out) :: c !*FD cos(\texttt{a})
+    real(rk),intent(in)  :: a !< Input value (radians).
+    real(rk),intent(out) :: s !< sin(a)
+    real(rk),intent(out) :: c !< cos(a)
 
     s = sin (a)
     c = cos (a)
@@ -532,13 +542,12 @@ contains
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  !> Normalises a value of longitude to the range starting at min degrees.
+  !! \return The normalised value of longitude.
   real(rk) function loncorrect(lon,minimum)
 
-    !*FD Normalises a value of longitude to the range starting at min degrees.
-    !*RV The normalised value of longitude.
-
-    real(rk),intent(in) :: lon     !*FD The longitude under consideration (degrees east)
-    real(rk),intent(in) :: minimum !*FD The lower end of the output range (degrees east)
+    real(rk),intent(in) :: lon     !< The longitude under consideration (degrees east)
+    real(rk),intent(in) :: minimum !< The lower end of the output range (degrees east)
 
     real(rk) :: maximum
 
@@ -557,16 +566,14 @@ contains
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  !> compute \f$\sqrt{x^2+y^2}\f$
   real(rk) function hypot(x,y)
 
-    !*FD This is an implementation of a standard C library function, 
-    !*FD returning the value of $\sqrt{x^2+y^2}$.
-    !*RV Returns the value of $\sqrt{x^2+y^2}$.
 
     implicit none
 
-    real(rk),intent(in) :: x !*FD One input value
-    real(rk),intent(in) :: y !*FD Another input value
+    real(rk),intent(in) :: x !< One input value
+    real(rk),intent(in) :: y !< Another input value
 
     hypot=sqrt(x*x+y*y)
 

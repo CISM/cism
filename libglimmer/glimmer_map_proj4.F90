@@ -44,10 +44,9 @@
 #include "config.inc"
 #endif
 
+!> Generates proj4 strings from projection data type.
+!! Not used in GLIMMER at present.
 module glimmer_map_proj4
-
-  !*FD Generates proj4 strings from projection data type.
-  !*FD Not used in GLIMMER at present.
 
   use glimmer_map_types
 
@@ -60,11 +59,10 @@ module glimmer_map_proj4
 
 contains
 
+  !> Returns a proj4 parameter string for a given set of projection parameters
+  !! \return Pointer to array of projection parameter strings
   function glimmap_proj4(proj)
     
-    !*FD Returns a proj4 parameter string for a given set of projection parameters
-    !*FDRV Pointer to array of projection parameter strings
-
     use glimmer_log
 
     implicit none
@@ -97,6 +95,7 @@ contains
   ! private converters to proj4 strings
   !------------------------------------------------------------------
 
+  !> Returns a proj4 parameter string for a stereographic projection
   function glimmap_proj4_stere(stere)
     implicit none
     character(len=proj4len), dimension(:), pointer :: glimmap_proj4_stere
@@ -119,6 +118,7 @@ contains
     write(glimmap_proj4_stere(6),*) 'y_0=',stere%false_northing
   end function glimmap_proj4_stere
 
+  !> Returns a proj4 parameter string for a Lambert azimuthal equal area projection
   function glimmap_proj4_laea(laea)
     implicit none
     character(len=proj4len), dimension(:), pointer :: glimmap_proj4_laea
@@ -132,6 +132,7 @@ contains
     write(glimmap_proj4_laea(5),*) 'y_0=',laea%false_northing
   end function glimmap_proj4_laea
 
+  !> Returns a proj4 parameter string for a Lambert azimuthal equal area projection
   function glimmap_proj4_aea(aea)
     implicit none
     character(len=proj4len), dimension(:), pointer :: glimmap_proj4_aea
@@ -147,6 +148,7 @@ contains
     write(glimmap_proj4_aea(7),*) 'y_0=',aea%false_northing
   end function glimmap_proj4_aea
 
+  !> Returns a proj4 parameter string for a Lambert conformal conic projection
   function glimmap_proj4_lcc(lcc)
     implicit none
     character(len=proj4len), dimension(:), pointer :: glimmap_proj4_lcc
