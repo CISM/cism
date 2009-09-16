@@ -70,8 +70,6 @@ if __name__ == '__main__':
     parser.add_option("-r", "--results", help="name of file where timing info is stored (default: results)", metavar="RESULTS", default="results")
     parser.add_option("-s", "--submit-sge",action="store_true",default=False,help="submit job to Sun Grid Engine")
     parser.add_option("-o", "--submit-options",default="",help="set additional options for cluster submission")
-    parser.add_option("--prefix",help="GLIMMER prefix",metavar="PFX")
-    parser.add_option("--src",action="store_true",default=False,help="assume prefix is source directory")
     (options, args) = parser.parse_args()
 
 
@@ -83,28 +81,16 @@ if __name__ == '__main__':
     config = ConfigParser.ConfigParser()
     config.readfp(open(configname))
 
-    if options.model == None:
-        model = get_runtype(config)
-    else:
-        model = options.model
-    if options.prefix!=None:
-        if options.src:
-            prefix = os.path.join(options.prefix,'src','fortran')
-        else:
-            prefix = os.path.join(options.prefix,'bin')
-    else:
-        prefix = os.path.abspath(os.path.dirname(sys.argv[0]))
+    prefix = os.path.abspath(os.path.dirname(sys.argv[0]))
     p = prefix.split(os.sep)[-1]
     sge_script = ''
     if p == 'bin':
         sge_script = os.path.abspath(os.path.join(prefix,'..','share','glimmer'))
-    elif p == 'python':
-        sge_script = prefix
-        prefix = os.path.abspath(os.path.join(prefix,'..','fortran'))
-    elif p == 'fortran':
-        sge_script = os.path.abspath(os.path.join(prefix,'..','python'))
     sge_script = os.path.join(sge_script,'qsub_glide.sh')
-    model = os.path.join(prefix,model)
+    if options.model == None:
+        model = os.path.join(prefix,get_runtype(config))
+    else:
+        model = options.model
 
     if not os.path.isfile(model):
         sys.stderr.write("Cannot find model executable %s"%model)

@@ -1,3 +1,15 @@
+2009-09-16 Magnus Hagdorn
+ * configure.in: user can specify if they want to use the SGE to submit jobs
+   when running tests/examples
+ * make.rules: find the correct model to run
+ * scripts/glide_launch.py: simplify selection of model
+ * scripts/qsub_glide.sh: pass environment to SGE job
+ * tests/EISMINT/EISMINT-1/Makefile.am: select simple_glide binary
+ * tests/EISMINT/EISMINT-2/Makefile.am: ditto
+ * tests/EISMINT/benchmarks/Makefile.am: ditto
+ * tests/EISMINT/isos/Makefile.am: ditto
+ * tests/EISMINT/lin-non_lin/Makefile.am: ditto
+
 2009-09-15 Magnus Hagdorn
  * convert some more comments in another bunch of files to doxygen strings
  * libglimmer/glimmer_ncdf.F90: move second module to glimmer_scales.F90

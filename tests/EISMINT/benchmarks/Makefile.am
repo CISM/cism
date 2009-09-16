@@ -9,5 +9,7 @@ EXTRA_DIST = b1.config  b2.config  b3.config  b4.config  b5.config  b6.config
 MOSTLYCLEANFILES = $(graphics)
 CLEANFILES = $(data) $(graphics) $(BUILT_SOURCES)
 
+MODEL_BINARY=$(top_builddir)/tests/EISMINT/src/simple_glide
+
 include $(top_srcdir)/make.rules
 

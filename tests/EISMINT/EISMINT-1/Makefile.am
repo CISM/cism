@@ -9,6 +9,8 @@ EXTRA_DIST = e1-fm.1.config  e1-fm.2.config  e1-fm.3.config  e1-mm.1.config  e1-
 MOSTLYCLEANFILES = $(graphics)
 CLEANFILES = $(data) $(graphics) $(BUILT_SOURCES)
 
+MODEL_BINARY=$(top_builddir)/tests/EISMINT/src/simple_glide
+
 include $(top_srcdir)/make.rules
 
 .nc.ps:

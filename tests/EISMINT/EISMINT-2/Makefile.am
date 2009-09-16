@@ -9,6 +9,8 @@ EXTRA_DIST = e2.a.config  e2.b.config  e2.c.config  e2.d.config  e2.f.config  e2
 MOSTLYCLEANFILES = $(graphics)
 CLEANFILES = $(data) $(graphics) $(BUILT_SOURCES)
 
+MODEL_BINARY=$(top_builddir)/tests/EISMINT/src/simple_glide
+
 e2.b.nc:        e2.a.nc
 e2.c.nc:        e2.a.nc
 e2.d.nc:        e2.a.nc
