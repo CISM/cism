@@ -19,6 +19,8 @@ program verifglide
   use glimmer_config          ! module for handling configuration files
   use verif
   use verif_io
+  use glimmer_commandline
+  use glimmer_writestats_module
   implicit none
 
   ! some variables
@@ -27,22 +29,25 @@ program verifglide
 
   type(verif_type) :: veri
 
-  character(len=50) :: fname  ! name of paramter file
   real(kind=rk) time ! current time
+  real(kind=dp) t1,t2
+  integer clock,clock_rate
   
-  ! Ask for configuration file
-  write(*,*) 'Enter name of GLIDE configuration file to be read'
-  read(*,*) fname
+  call glimmer_GetCommandline()
   
   ! start logging
-  call open_log(unit=50)
+  call open_log(unit=50, fname=logname(commandline_configname))
   
   ! read configuration
-  call ConfigRead(fname,config)
+  call ConfigRead(commandline_configname,config)
   call glide_config(model,config)
   call verif_config(config,veri)
   call verif_printconfig(veri)
   call CheckSections(config)
+
+  ! start timing
+  call system_clock(clock,clock_rate)
+  t1 = real(clock,kind=dp)/real(clock_rate,kind=dp)
 
   ! initialise test setup
   call verif_init(model, veri)
@@ -77,4 +82,9 @@ program verifglide
 
   ! finalise GLIDE
   call glide_finalise(model)
+  call system_clock(clock,clock_rate)
+  t2 = real(clock,kind=dp)/real(clock_rate,kind=dp)
+  call glimmer_writestats(commandline_resultsname,commandline_configname,t2-t1)
+  call close_log
+
 end program verifglide

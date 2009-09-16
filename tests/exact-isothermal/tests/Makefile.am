@@ -19,7 +19,7 @@ png:		vole_c.png vole_d.png errors.png time.png $(subst nc,png,$(all_tests))
 errors.ps:	$(all_tests)
 		$(PYTHON) $(top_srcdir)/src/python/plot_errors.py $^ $@
 
-time.ps:	results
+time.ps:	data
 		$(PYTHON) $(top_srcdir)/src/python/plot_time.py $^ $@
 
 vole_b.ps:	$(test_b)
@@ -31,13 +31,13 @@ vole_c.ps:	$(test_c)
 vole_d.ps:	$(test_d)
 		$(PYTHON) $(top_srcdir)/src/python/plot_vol.py $^ $@
 
-results:	$(all_tests)
+data:		$(all_tests)
 
 %.ps:	%.nc
 	$(PYTHON) $(top_srcdir)/src/python/plot_diff.py -T-1 $< $@
 
-%.nc:	$(top_srcdir)/data/template.config
-	$(PYTHON) $(top_srcdir)/src/python/run_verif.py -f $* $(top_srcdir)/data/template.config
+%.nc:	$(top_srcdir)/tests/exact-isothermal/tests/template.config
+	$(PYTHON) $(top_srcdir)/tests/exact-isothermal/scripts/run_verif.py -f $* $<
 
 %.png:	%.ps
 	$(CONVERT) -trim $< $@

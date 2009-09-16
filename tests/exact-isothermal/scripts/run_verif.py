@@ -53,7 +53,7 @@ def find_model(path):
     comm = sys.argv[0]
     if comm != '':
         comm = os.path.dirname(comm.split()[0])
-        model = os.path.join(comm,'..','fortran',MODEL_BINARY)
+        model = os.path.join(comm,'..','src',MODEL_BINARY)
         if os.path.exists(model):
             return model
     raise RuntimeError, 'Could not find model binary'
@@ -110,42 +110,21 @@ def create_config(experiment, solver, gridsize, timestep, tname):
 
     return config_name
 
-def get_lock(f):
-    """Wait until we get lock for file f."""
-
-    got_lock = False
-    while not got_lock:
-        try:
-            fcntl.lockf(f,(fcntl.LOCK_EX|fcntl.LOCK_NB))
-        except IOError:
-            got_lock=False
-            time.sleep(1)
-        else:
-            got_lock=True
-
-def release_lock(f):
-    """Release lock for file f."""
-
-    fcntl.lockf(f,fcntl.LOCK_UN)
-
-def get_gmtdate():
-    """Get current date."""
-
-    d = time.gmtime()
-    return '%d-%d-%d_%d:%d'%(d[0],d[1],d[2],d[3],d[4])
-
 if __name__ == '__main__':
 
     # setup options
     parser = optparse.OptionParser(usage = "usage: %prog [options] template_file")
-    parser.add_option('-e','--experiment',default='B',metavar='TEST',type='choice',choices=TEST_CONFIGURATION.keys(),help='select test scenario (default: B)')
-    parser.add_option('-s','--solver',default='lin',metavar='SOLVER',type='choice',choices=SOLVERS.keys(),help='select solver (default: lin)')
-    parser.add_option('-g','--gridsize',default=20,metavar='DELTAX',type='int',help='grid spacing in km (default: 20)')
-    parser.add_option('-t','--timestep',default=10.,metavar='DELTAT',type='float',help='time step in a (default: 10)')
+    parser.add_option('--experiment',default='B',metavar='TEST',type='choice',choices=TEST_CONFIGURATION.keys(),help='select test scenario (default: B)')
+    parser.add_option('--solver',default='lin',metavar='SOLVER',type='choice',choices=SOLVERS.keys(),help='select solver (default: lin)')
+    parser.add_option('--gridsize',default=20,metavar='DELTAX',type='int',help='grid spacing in km (default: 20)')
+    parser.add_option('--timestep',default=10.,metavar='DELTAT',type='float',help='time step in a (default: 10)')
     parser.add_option('-f','--file',metavar='SPEC',help='an alternative way of setting up the model. The SPEC string takes the following format: test_EXP_SOLVER_Xkm_Ta where EXP is the experiment (see -e), SOLVER the solver (see -s), X the gridspacing in km (see -g) and T the time step in years (see -t)')
     group = optparse.OptionGroup(parser,"Options used for running the model.")
     group.add_option('--only-configure',action="store_true",default=False,help="only produce model configuration file.")
     group.add_option('--path-to-model',help="path to model binary")
+    parser.add_option("-r", "--results", help="name of file where timing info is stored (default: results)", metavar="RESULTS", default="results")
+    parser.add_option("-s", "--submit-sge",action="store_true",default=False,help="submit job to Sun Grid Engine")
+    parser.add_option("-o", "--submit-options",default="",help="set additional options for cluster submission")
     parser.add_option_group(group)
     
     (options, args) = parser.parse_args()
@@ -177,27 +156,24 @@ if __name__ == '__main__':
 
     model = find_model(options.path_to_model)
 
-    # open results file
-    results_name = 'results'
-    if os.path.exists(results_name):
-        status = open(results_name,'a')
-    else:
-        status = open(results_name,'a')
-        get_lock(status)
-        status.write('#cfg_file\tusr_time\tsys_time\tdate\n')
-        release_lock(status)
 
-    # run model
-    prog = os.popen(model,'w')
-    prog.write(configname)
-    prog.close()
+    if not os.path.isfile(model):
+        sys.stderr.write("Cannot find model executable %s"%model)
+        sys.exit(0)
+    prog = "%s -r %s %s"%(model,options.results,configname)
 
-    t = os.times()
+    if options.submit_sge:
+        if not os.path.isfile(sge_script):
+            sys.stderr.write("Cannot find model submission script %s"%sge_script)
+            sys.exit(0)
+        prog = "qsub %s %s %s"%(options.submit_options,sge_script,prog)
 
-    # get lock
-    get_lock(status)
-    status.write('%s\t%f\t%f\t%s\n'%(configname,t[2],t[3],get_gmtdate()))
+#    try:
+#        retcode = subprocess.call(prog,shell=True)
+#        if retcode < 0:
+#            sys.stderr.write("glide model %s was terminated by signal %d\n"%(model,-retcode))
+#    except OSError, e:
+#        sys.stderr.write("Execution failed: %s\n"%e)
+    print os.popen(prog,'r').read()
 
-    # release lock
-    release_lock(status)
-    status.close()
+

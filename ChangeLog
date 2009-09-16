@@ -1,4 +1,13 @@
 2009-09-16 Magnus Hagdorn
+ * tests/Makefile.am: decent into subdirs when generating data
+ * tests/exact-isothermal/Makefile.am: decent into subdirs
+ * tests/exact-isothermal/scripts/run_verif.py: updated script to be analogous
+   to glide_launch.py
+ * tests/exact-isothermal/src/verif_glide.F90: use glimmer commandline parser
+   and glimmer timer
+ * tests/exact-isothermal/tests/Makefile.am: fix Makefile
+
+2009-09-16 Magnus Hagdorn
  * configure.in: user can specify if they want to use the SGE to submit jobs
    when running tests/examples
  * make.rules: find the correct model to run
