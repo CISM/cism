@@ -279,7 +279,7 @@ AC_CONFIG_FILES([Makefile m4macros/Makefile scripts/Makefile \
                 tests/exact-isothermal/matlab/Makefile tests/exact-isothermal/scripts/Makefile \
                 tests/exact-isothermal/tests/Makefile \
                 example-drivers/eis/Makefile example-drivers/eis/src/Makefile \
-                example-drivers/eis/fenscan/Makefile \
+                example-drivers/eis/fenscan/Makefile example-drivers/EISMINT-3/EISMINT-3/Makefile \
                 example-drivers/EISMINT-3/Makefile example-drivers/EISMINT-3/src/Makefile \
                 example-drivers/glint/Makefile example-drivers/glint/src/Makefile \
                 doc/Makefile doc/common/Makefile doc/dg/Makefile doc/dg/figures/Makefile \

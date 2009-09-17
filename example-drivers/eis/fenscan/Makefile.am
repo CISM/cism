@@ -9,5 +9,7 @@ EXTRA_DIST = fenscan.config fenscan-gthf.config europe.20km.nc mb2.data temp-exp
 MOSTLYCLEANFILES = $(graphics)
 CLEANFILES = $(data) $(graphics) $(BUILT_SOURCES)
 
+MODEL_BINARY=$(top_builddir)/example-drivers/eis/src/eis_glide
+
 include $(top_srcdir)/make.rules
 

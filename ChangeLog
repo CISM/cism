@@ -1,3 +1,13 @@
+2009-09-17 Magnus Hagdorn
+ * configure.in: add new Makefile
+ * example-drivers/Makefile.am: add a data target
+ * example-drivers/EISMINT-3/Makefile.am: ditto
+ * example-drivers/eis/Makefile.am: ditto
+ * example-drivers/EISMINT-3/EISMINT-3/Makefile.am: new - run example
+ * example-drivers/EISMINT-3/EISMINT-3/e3gl_steady.config: rename output file
+   so make can figure out if it needs to do something
+ * example-drivers/eis/fenscan/Makefile.am: specify binary to run
+
 2009-09-16 Magnus Hagdorn
  * tests/Makefile.am: decent into subdirs when generating data
  * tests/exact-isothermal/Makefile.am: decent into subdirs
