@@ -1,4 +1,9 @@
 2009-09-17 Magnus Hagdorn
+ * tests/exact-isothermal/scripts/run_verif.py: handle commandline similarly
+   to glide_lauch.py
+ * tests/exact-isothermal/tests/Makefile.am: specify what binary to use
+
+2009-09-17 Magnus Hagdorn
  * configure.in: add new Makefile
  * example-drivers/Makefile.am: add a data target
  * example-drivers/EISMINT-3/Makefile.am: ditto

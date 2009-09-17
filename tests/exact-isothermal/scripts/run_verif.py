@@ -121,10 +121,10 @@ if __name__ == '__main__':
     parser.add_option('-f','--file',metavar='SPEC',help='an alternative way of setting up the model. The SPEC string takes the following format: test_EXP_SOLVER_Xkm_Ta where EXP is the experiment (see -e), SOLVER the solver (see -s), X the gridspacing in km (see -g) and T the time step in years (see -t)')
     group = optparse.OptionGroup(parser,"Options used for running the model.")
     group.add_option('--only-configure',action="store_true",default=False,help="only produce model configuration file.")
-    group.add_option('--path-to-model',help="path to model binary")
-    parser.add_option("-r", "--results", help="name of file where timing info is stored (default: results)", metavar="RESULTS", default="results")
-    parser.add_option("-s", "--submit-sge",action="store_true",default=False,help="submit job to Sun Grid Engine")
-    parser.add_option("-o", "--submit-options",default="",help="set additional options for cluster submission")
+    group.add_option("-m", "--model", help="name of model binary to be launched", metavar="BINARY")
+    group.add_option("-r", "--results", help="name of file where timing info is stored (default: results)", metavar="RESULTS", default="results")
+    group.add_option("-s", "--submit-sge",action="store_true",default=False,help="submit job to Sun Grid Engine")
+    group.add_option("-o", "--submit-options",default="",help="set additional options for cluster submission")
     parser.add_option_group(group)
     
     (options, args) = parser.parse_args()
@@ -154,8 +154,16 @@ if __name__ == '__main__':
         print 'Create configuration file %s.config'%base_name
         sys.exit(0)
 
-    model = find_model(options.path_to_model)
-
+    prefix = os.path.abspath(os.path.dirname(sys.argv[0]))
+    p = prefix.split(os.sep)[-1]
+    sge_script = ''
+    if p == 'bin':
+        sge_script = os.path.abspath(os.path.join(prefix,'..','share','glimmer'))
+    sge_script = os.path.join(sge_script,'qsub_glide.sh')
+    if options.model == None:
+        model = os.path.join(prefix,MODEL_BINARY)
+    else:
+        model = options.model
 
     if not os.path.isfile(model):
         sys.stderr.write("Cannot find model executable %s"%model)

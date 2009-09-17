@@ -37,7 +37,7 @@ data:		$(all_tests)
 	$(PYTHON) $(top_srcdir)/src/python/plot_diff.py -T-1 $< $@
 
 %.nc:	$(top_srcdir)/tests/exact-isothermal/tests/template.config
-	$(PYTHON) $(top_srcdir)/tests/exact-isothermal/scripts/run_verif.py -f $* $<
+	$(PYTHON) $(top_srcdir)/tests/exact-isothermal/scripts/run_verif.py -m ../src/verif_glide -f $* $<
 
 %.png:	%.ps
 	$(CONVERT) -trim $< $@
