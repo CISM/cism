@@ -2,7 +2,11 @@
  * libglide/glide.F90: Fixed bug with basal heat flux - field read from
    file was being overridden with constant value. Reordered code, but
    still not ideal, as overriding will happen the other way round now.
-
+ * doc/num/temp_solve.tex: Added a file with the beginnings of a new, more
+   detailed description of the temperature solver (something I was
+   working on last year, but didn't finish). Not integrated into the main
+   docs yet.
+	
 2009-09-28 Magnus Hagdorn
  * example-drivers/EISMINT-3/src/eismint3_glide.F90: setup config file directory
  * example-drivers/eis/src/eis_glide.F90: ditto
