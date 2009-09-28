@@ -508,7 +508,7 @@ contains
        ! Acquire a file unit, and open the file
        lunit = get_free_unit()
        errfname = trim(process_path('slap_dump.txt'))
-       open(lunit,file=errfname)
+       open(lunit,file=errfname,status='unknown')
 
        ! Output data to file
        call dcpplt(model%pcgdwk%pcgsize(1), &

@@ -1,7 +1,7 @@
 lib_LTLIBRARIES = libglimmer.la libglimmer-IO.la
 bin_PROGRAMS  =  nc2config
-check_PROGRAMS = test_config test_integrate test_commandline test_ts test_writestats
-
+check_PROGRAMS = test_config test_integrate test_commandline test_ts test_writestats test_filenames
+TESTS = test_filenames
 
 variable_DATA = ncdf_template.F90.in
 variabledir = $(pkgdatadir)
@@ -32,6 +32,7 @@ test_integrate_SOURCES = test_integrate.F90
 test_commandline_SOURCES = test_commandline.F90
 test_ts_SOURCES = test_ts.F90
 test_writestats_SOURCES = test_writestats.F90
+test_filenames_SOURCES = test_filenames.F90
 
 AM_FCFLAGS = $(NETCDF_CPPFLAGS) $(HDF5_CPPFLAGS)
 LDADD = libglimmer-IO.la libglimmer.la $(NETCDF_LDFLAGS) $(HDF5_LDFLAGS) $(NETCDF_LIBS)

@@ -49,7 +49,7 @@ module glimmer_config
   !*FD written by Magnus Hagdorn, May 2004
   !*FD everything is a singly linked list
 
-  use glimmer_global, only : dp
+  use glimmer_global, only : dp, msg_length
   private :: handle_section, handle_value, InsertSection, InsertValue, dp
 
   integer, parameter :: namelen=50
@@ -118,7 +118,7 @@ contains
     logical there
     integer unit,ios,linenr
     character(len=linelen) :: line
-    character(len=100) :: message
+    character(len=msg_length) :: message
 
     inquire (exist=there,file=fname)
     if (.not.there) then
@@ -805,7 +805,7 @@ contains
 
     ! local variables
     integer i
-    character(len=100) :: message
+    character(len=msg_length) :: message
 
     do i=1,linelen
        if (line(i:i).eq.']') then
@@ -829,7 +829,7 @@ contains
 
     ! local variables
     integer i
-    character(len=100) :: message
+    character(len=msg_length) :: message
     do i=1,linelen
        if (line(i:i).eq.'=' .or. line(i:i).eq.':') then
           exit

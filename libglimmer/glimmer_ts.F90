@@ -90,6 +90,7 @@ contains
   !> read tabulated ASCII file
   subroutine glimmer_read_ts(ts,fname,numv)
     use glimmer_log
+    use glimmer_global, only : msg_length
     implicit none
     type(glimmer_tseries) :: ts           !< time series data
     character(len=*), intent(in) :: fname !< read from this file
@@ -98,7 +99,7 @@ contains
     ! local variables
     real :: d1,d2,fact=1.
     integer i,j,ios
-    character(len=100) :: message
+    character(len=msg_length) :: message
 
     if (present(numv)) then
        ts%numv = numv

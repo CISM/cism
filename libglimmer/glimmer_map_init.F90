@@ -191,10 +191,11 @@ contains
   !> print projection info to log
   subroutine glimmap_printproj(proj)
     use glimmer_log
+    use glimmer_global, only : msg_length
 
     type(glimmap_proj),intent(in) :: proj !< the projection
 
-    character(len=100) :: message
+    character(len=msg_length) :: message
 
     call write_log('Projection')
     call write_log('----------')

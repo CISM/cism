@@ -67,12 +67,15 @@ contains
    subroutine eis_temp_config(config,temp)
     !*FD get temperature configuration from config file
     use glimmer_config
+    use glimmer_filenames, only : filenames_inputname
     implicit none
     type(eis_temp_type)           :: temp     !*FD ela data
     type(ConfigSection), pointer :: config  !*FD structure holding sections of configuration file   
     ! local variables
     type(ConfigSection), pointer :: section
 
+    temp%fname=''
+    
     call GetSection(config,section,'EIS Temperature')
     if (associated(section)) then
        call GetValue(section,'temp_file',temp%fname)
@@ -84,6 +87,9 @@ contains
           call GetValue(section,'order',temp%torder)
        end if
        call GetValue(section,'lapse_rate',temp%lapse_rate)
+       if (trim(temp%fname).ne.'') then
+          temp%fname = trim(filenames_inputname(temp%fname))
+       end if
     end if
   end subroutine eis_temp_config
 
@@ -117,7 +123,7 @@ contains
     use glide_types
     use paramets, only: thk0
     implicit none
-    type(eis_temp_type)     :: temp  !*FD ela data
+    type(eis_temp_type)     :: temp  !*FD temp data
 
     call glimmer_read_ts(temp%temp_ts,temp%fname,temp%torder)
     allocate(temp%tvalue(temp%torder))

@@ -206,7 +206,7 @@ contains
     use glimmer_log
 
     type(anomaly_coupling),intent(inout) :: params !*FD Parameters to be initialised
-    character(100) :: message
+    character(len=msg_length) :: message
 
     call write_log_div
     
@@ -286,7 +286,7 @@ contains
     real(sp) :: interval
     
     ! Open file
-    status=nf90_open(process_path(fname),NF90_NOWRITE,ncid)
+    status=nf90_open(filenames_inputname(process_path(fname)),NF90_NOWRITE,ncid)
     call nc_errorhandle(__FILE__,__LINE__,status)
 
     ! Look for required variable

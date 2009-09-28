@@ -83,7 +83,7 @@ module glimmer_coordinates
   end interface
 
 #ifdef DEBUG_COORDS
-  character(len=100), private :: message
+  character(len=msg_length), private :: message
 #endif
   !NO_RESTART message
   !MAKE_RESTART

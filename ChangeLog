@@ -1,3 +1,28 @@
+2009-09-28 Magnus Hagdorn
+ * example-drivers/EISMINT-3/src/eismint3_glide.F90: setup config file directory
+ * example-drivers/eis/src/eis_glide.F90: ditto
+ * tests/EISMINT/src/simple_glide.F90: ditto
+ * example-drivers/eis/src/eis_ela.F90: prepend config file directory to input
+   file name
+ * example-drivers/eis/src/eis_slc.F90: ditto
+ * example-drivers/eis/src/eis_temp.F90: ditto
+ * libglide/glide_setup.F90: ditto
+ * libglide/glimmer_ncparams.F90: ditto
+ * libglimmer/glimmer_anomcouple.F90: ditto
+ * libglide/glide_thck.F90: change open mode of error file
+ * libglimmer/Makefile.am: add new test
+ * libglimmer/glimmer_config.F90: use parameter to specify maximum message length
+ * libglimmer/glimmer_coordinates.F90: ditto
+ * libglimmer/glimmer_log.F90: ditto
+ * libglimmer/glimmer_map_init.F90: ditto
+ * libglimmer/glimmer_map_types.F90: ditto
+ * libglimmer/glimmer_ts.F90: ditto
+ * libglimmer/glimmer_filenames.F90: add procedures to extract path to config
+   file and to prepend config file path to a file name
+ * libglimmer/glimmer_global.F90: add parameter specifying maximum message
+   length
+ * libglimmer/test_filenames.F90: test new functionality in glimmer_filenames
+
 2009-09-17 Magnus Hagdorn
  * tests/exact-isothermal/scripts/run_verif.py: handle commandline similarly
    to glide_lauch.py

@@ -186,9 +186,10 @@ contains
   subroutine glimmap_diag_stere(params)
 
     use glimmer_log
+    use glimmer_global, only : msg_length
 
     type(proj_stere) :: params
-    character(80) :: message
+    character(len=msg_length) :: message
     
     call write_log('***** Stereographic *****')
     write(message,*)'longitude_of_central_meridian:', params%longitude_of_central_meridian

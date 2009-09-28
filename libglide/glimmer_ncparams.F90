@@ -196,6 +196,7 @@ contains
     use glimmer_ncdf
     use glimmer_config
     use glimmer_log
+    use glimmer_filenames, only : filenames_inputname
     implicit none
     type(ConfigSection), pointer :: section
     type(glimmer_nc_input), pointer :: input
@@ -212,5 +213,8 @@ contains
     if (handle_input%nc%filename(1:1).eq.' ') then
        call write_log('Error, no file name specified [netCDF input]',GM_FATAL)
     end if
+    
+    handle_input%nc%filename = trim(filenames_inputname(handle_input%nc%filename))
+
   end function handle_input
 end module glimmer_ncparams

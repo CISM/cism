@@ -54,6 +54,7 @@ program simple_glide
   use glimmer_config
   use glimmer_commandline
   use glimmer_writestats_module
+  use glimmer_filenames, only : filenames_init
   implicit none
 
   type(glide_global_type) :: model        ! model instance
@@ -68,6 +69,9 @@ program simple_glide
   ! start logging
   call open_log(unit=50, fname=logname(commandline_configname))
   
+  ! setup paths
+  call filenames_init(commandline_configname)
+
   ! read configuration
   call ConfigRead(commandline_configname,config)
 

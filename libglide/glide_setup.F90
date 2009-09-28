@@ -445,6 +445,7 @@ contains
   subroutine handle_grid(section, model)
     use glimmer_config
     use glide_types
+    use glimmer_filenames
     implicit none
     type(ConfigSection), pointer :: section
     type(glide_global_type)  :: model
@@ -458,7 +459,11 @@ contains
 
     ! We set this flag to one to indicate we've got a sigfile name.
     ! A warning/error is generated if sigma levels are specified in some other way
-    if (trim(model%funits%sigfile)/='') model%options%which_sigma=1
+    ! and mangle the name
+    if (trim(model%funits%sigfile)/='') then
+       model%funits%sigfile = filenames_inputname(model%funits%sigfile)
+       model%options%which_sigma=1
+    end if
 
   end subroutine handle_grid
 

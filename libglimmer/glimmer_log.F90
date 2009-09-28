@@ -145,6 +145,7 @@ contains
 
   !> write to log
   subroutine write_log(message,type,file,line)
+    use glimmer_global, only : msg_length
     implicit none
     integer,intent(in),optional          :: type    !< Type of error to be generated (see list above).
     character(len=*),intent(in)          :: message !< message to be written
@@ -152,7 +153,7 @@ contains
     integer,intent(in),optional          :: line    !< the line number at the which the message was triggered
 
     ! local variables
-    character(len=250) :: msg
+    character(len=msg_length) :: msg
     integer :: local_type
     character(len=6) :: line_num
 
@@ -168,9 +169,9 @@ contains
     ! constructing message
     if (present(file) .and. present(line)) then
        write(line_num,'(I6)')line
-       write(msg,*) trim(msg_prefix(local_type))//' (',trim(file),':',trim(adjustl(line_num)),') '//message
+       write(msg,*) trim(msg_prefix(local_type))//' (',trim(file),':',trim(adjustl(line_num)),') '//trim(message)
     else
-       write(msg,*) trim(msg_prefix(local_type))//' '//message
+       write(msg,*) trim(msg_prefix(local_type))//' '//trim(message)
     end if
     ! messages are always written to file log
     write(glimmer_unit,*) trim(msg)

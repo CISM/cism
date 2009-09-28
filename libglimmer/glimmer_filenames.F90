@@ -6,15 +6,73 @@
 module glimmer_filenames
 
 
-  use glimmer_global,only: dirsep
+  use glimmer_global,only: dirsep,fname_length
 
   implicit none
 
-  character(200) :: workingdir = '' !< Working directory for all file operations. Absolute paths are unaffected
+  character(fname_length) :: workingdir = '' !< Working directory for all file operations. Absolute paths are unaffected
+  character(fname_length) :: configdir = ''  !< the directory where the config file lives and possibly other input files
 
 contains
 
-  !> se the working directory
+  !> initialise the config directory
+  !!
+  !! \author Magnus Hagdorn
+  !! \date September 2009
+  subroutine filenames_init(cname)
+    implicit none
+    character(len=*), intent(in) :: cname !< the configuration file name include path
+
+    ! local variables
+    integer pos
+    
+    ! find the last directory separator, the remaining bit is the filename
+    pos = scan(trim(cname),dirsep,back=.true.)
+    if (pos.gt.0) then
+       configdir = cname(:pos)
+    end if
+
+  end subroutine filenames_init
+
+  !> prepend path to filename
+  !!
+  !! \author Magnus Hagdorn
+  !! \date September 2009
+  !!
+  !! first check if name starts with a dir sparator if so don't change name, 
+  !! then check if file exists in present working directory if so do not modify file. if it doesn't exist
+  !! prepend config dir
+  !! \return modified file name
+  function filenames_inputname(infile)
+    implicit none
+    character(len=*), intent(in) :: infile
+    character(len=fname_length) :: filenames_inputname
+
+    logical :: fexist
+
+    filenames_inputname = trim(infile)
+
+    ! check if configdir exists
+    if (len(trim(configdir)) .eq. 0) then
+       return
+    end if
+    ! check if path is absolute
+    !! \todo figure out absolute paths for windows    
+    if (infile(1:1).eq.dirsep) then
+       return
+    else
+       inquire(file=infile,exist=fexist)
+       ! check if the file exists in the local directory
+       if (fexist) then
+          return
+       else
+          filenames_inputname = trim(configdir)//trim(infile)
+       end if
+    end if
+  end function filenames_inputname
+
+
+  !> set the working directory
   subroutine glimmer_set_path(path)
 
     use glimmer_log

@@ -76,11 +76,15 @@ contains
   subroutine eis_ela_config(config,ela)
     !*FD get ELA configuration from config file
     use glimmer_config
+    use glimmer_filenames, only : filenames_inputname
     implicit none
     type(eis_ela_type)           :: ela     !*FD ela data
     type(ConfigSection), pointer :: config  !*FD structure holding sections of configuration file   
     ! local variables
     type(ConfigSection), pointer :: section
+
+    ela%ew_fname = ''
+    ela%fname = ''
 
     call GetSection(config,section,'EIS ELA')
     if (associated(section)) then
@@ -93,6 +97,12 @@ contains
        call GetValue(section,'ela_a',ela%ela_a)
        call GetValue(section,'ela_b',ela%ela_b)
        call GetValue(section,'ela_c',ela%ela_c)
+       if (trim(ela%fname).ne.'') then
+          ela%fname = trim(filenames_inputname(ela%fname))
+       end if
+       if (trim(ela%ew_fname).ne.'') then
+          ela%ew_fname = trim(filenames_inputname(ela%ew_fname))
+       end if
     end if
   end subroutine eis_ela_config
     

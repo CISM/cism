@@ -62,15 +62,21 @@ contains
   subroutine eis_slc_config(config,slc)
     !*FD get SLC configuration from config file
     use glimmer_config
+    use glimmer_filenames, only : filenames_inputname
     implicit none
     type(eis_slc_type)           :: slc     !*FD slc data
     type(ConfigSection), pointer :: config  !*FD structure holding sections of configuration file   
     ! local variables
     type(ConfigSection), pointer :: section
 
+    slc%fname=''
+
     call GetSection(config,section,'EIS SLC')
     if (associated(section)) then
        call GetValue(section,'slc_file',slc%fname)
+       if (trim(slc%fname).ne.'') then
+          slc%fname = trim(filenames_inputname(slc%fname))
+       end if
     end if
   end subroutine eis_slc_config
 
