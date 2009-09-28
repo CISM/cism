@@ -137,7 +137,10 @@ contains
 
     ! initialise bed softness to uniform parameter
     model%velocity%bed_softness = model%velowk%btrac_const
-    
+
+    ! set uniform basal heat flux
+    model%temper%bheatflx = model%paramets%geot
+
     ! load sigma file
     call glide_load_sigma(model,dummyunit)
 
@@ -157,9 +160,6 @@ contains
     case(2) ! Supplied topography is in equilibrium
        call isos_relaxed(model)
     end select
-
-    ! set uniform basal heat flux
-    model%temper%bheatflx = model%paramets%geot
 
     ! open all output files
     call openall_out(model)

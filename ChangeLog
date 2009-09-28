@@ -1,3 +1,8 @@
+2009-09-28 Ian Rutt
+ * libglide/glide.F90: Fixed bug with basal heat flux - field read from
+   file was being overridden with constant value. Reordered code, but
+   still not ideal, as overriding will happen the other way round now.
+
 2009-09-28 Magnus Hagdorn
  * example-drivers/EISMINT-3/src/eismint3_glide.F90: setup config file directory
  * example-drivers/eis/src/eis_glide.F90: ditto
