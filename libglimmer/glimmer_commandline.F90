@@ -50,7 +50,7 @@
 #define GETARG  getarg
 #endif
 
-
+!> parsing common command line arguments
 module glimmer_commandline
 
   use glimmer_global, only:fname_length

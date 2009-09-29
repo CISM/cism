@@ -1,3 +1,8 @@
+2009-09-29 Magnus Hagdorn
+ * libglimmer/glimmer_commandline.F90: add doxygen strings
+ * libglimmer/glimmer_config.F90: ditto
+ * libglimmer/glimmer_ts.F90: minor fix
+
 2009-09-28 Ian Rutt
  * libglide/glide.F90: Fixed bug with basal heat flux - field read from
    file was being overridden with constant value. Reordered code, but

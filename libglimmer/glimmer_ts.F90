@@ -48,6 +48,7 @@
 !!
 !! \author Magnus Hagdorn
 !! \date 2006
+!!
 !! this module provides support for reading in tabulated ASCII data such as
 !! time series. The data can then be accessed through functions which
 !! interpolated the data.

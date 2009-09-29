@@ -44,47 +44,68 @@
 #include "config.inc"
 #endif
 
+!> configuration file parser
+!!
+!! \author Magnus Hagdorn
+!! \date May 2004
+!!
+!! procedures used to parse configuration files. The file syntax is similar to
+!! MS Windows style ini files or files that can be parsed using the Python
+!! configuration file parser module. 
+!!
+!! The file is split up into sections. Each section appears in [] brackets. 
+!! Each section can contain a number of key, value pairs. Key, value pairs are
+!! separated by : or =.
+!! 
+!! Strings starting with any of the following characters are ignored 
+!! (comments): !, # or ;
+!!
+!! The sections are stored in a linked list. The key-value pairs of each section
+!! are also stored in linked lists. The module provides accessors to query the
+!! data structure.
 module glimmer_config
-  !*FD configuration file parser
-  !*FD written by Magnus Hagdorn, May 2004
-  !*FD everything is a singly linked list
 
   use glimmer_global, only : dp, msg_length
   private :: handle_section, handle_value, InsertSection, InsertValue, dp
 
-  integer, parameter :: namelen=50
-  integer, parameter :: valuelen=200
-  integer, parameter :: linelen=250
-
+  integer, parameter :: namelen=50                 !< the maximum length of key or section
+  integer, parameter :: valuelen=200               !< the maximum length of a value
+  integer, parameter :: linelen=valuelen+namelen+1 !< the maximum length of a line
+  
+  !> derived type defining a key-value pair
   type ConfigValue
-     character(len=namelen) :: name = ''
-     character(len=valuelen) :: value
-     type(ConfigValue), pointer :: next=>NULL()
+     character(len=namelen) :: name = ''         !< the key
+     character(len=valuelen) :: value            !< the value
+     type(ConfigValue), pointer :: next=>NULL()  !< pointer to the next key-value pair
   end type ConfigValue
 
+  !> derived type defining a configuration section 
   type ConfigSection
-     character(len=namelen) :: name = ''
-     logical :: used = .false.
-     type(ConfigValue), pointer :: values=>NULL()
-     type(ConfigSection), pointer :: next=>NULL()
+     character(len=namelen) :: name = ''           !< the section name
+     logical :: used = .false.                     !< flag used to check if section is used
+     type(ConfigValue), pointer :: values=>NULL()  !< pointer to the first key-value pair
+     type(ConfigSection), pointer :: next=>NULL()  !< pointer to the next section
   end type ConfigSection
 
+  !> This type exists so that we can have
+  !! arrays of config data, since f90 doesn't
+  !! allow arrays of pointers
   type ConfigData
-     !*FD This type exists so that we can have
-     !*FD arrays of config data, since f90 doesn't
-     !*FD allow arrays of pointers
      type(ConfigSection), pointer :: config=>null()
   end type ConfigData
 
+  !> generic interface for the get accessor
   interface GetValue
      module procedure GetValueDouble, GetValueReal, GetValueInt, GetValueChar, GetValueLogical, &
           GetValueDoubleArray, GetValueRealArray, GetValueIntArray, GetValueCharArray
   end interface
 
+  !> generic interface for the set accessor
   interface ConfigSetValue
      module procedure ConfigSetValueData, ConfigSetValueSec
   end interface
 
+  !> generic interface for the combine procedure
   interface ConfigCombine
      module procedure ConfigCombineData, ConfigCombineSec, ConfigCombineDataSec, ConfigCombineSecData
   end interface
@@ -104,13 +125,12 @@ contains
 !MH!#undef RST_GLIMMER_CONFIG
 !MH!#endif
 
+  !> read a configuration file
   subroutine ConfigRead(fname,config)
-    !*FD read configuration file
     use glimmer_log
     implicit none
-    character(len=*), intent(in) :: fname
-    !*FD name of configuration file
-    type(ConfigSection), pointer :: config
+    character(len=*), intent(in) :: fname   !< the name of the file to be read
+    type(ConfigSection), pointer :: config  !< on return this pointer will point to the first section
 
     ! local variables
     type(ConfigSection), pointer :: this_section
@@ -166,9 +186,10 @@ contains
     return
   end subroutine ConfigRead
 
+  !> print contents of file
   subroutine PrintConfig(config)
     implicit none
-    type(ConfigSection), pointer :: config
+    type(ConfigSection), pointer :: config !< pointer to the first section to be printed
 
     type(ConfigSection), pointer :: sec
     type(ConfigValue), pointer ::  val
@@ -186,11 +207,13 @@ contains
     end do
   end subroutine PrintConfig
 
+  !> serialise config data structure to string
+  !! \author Ian Rutt
   subroutine ConfigAsString(config,string)
     use glimmer_global, only: endline
     implicit none
-    type(ConfigSection), pointer :: config
-    character(*),intent(out) :: string
+    type(ConfigSection), pointer :: config !< pointer to first section
+    character(*),intent(out) :: string     !< on completion this string will hold the conents of the config data structure
 
     type(ConfigSection), pointer :: sec
     type(ConfigValue), pointer ::  val
@@ -209,28 +232,32 @@ contains
     end do
   end subroutine ConfigAsString
 
+  !> Either overwrite a given key-value pair,
+  !! or create a new one
+  !! \author Ian Rutt
   subroutine ConfigSetValueData(config,secname,valname,value,tag)
-    !*FD Either overwrite a given key-value pair,
-    !*FD or create a new one
 
-    type(ConfigData) :: config
-    character(*) :: secname,valname,value
-    character(*),optional :: tag
+    type(ConfigData) :: config               !< 
+    character(len=*), intent(in) :: secname  !< name of the section
+    character(len=*), intent(in) :: valname  !< name of the key
+    character(len=*), intent(in) :: value    !< the value
+    character(len=*), intent(in), optional :: tag !< an identifier used to distinguish sections that occur a number of times,e.g. [CF output]       
 
     call ConfigSetValueSec(config%config,secname,valname,value,tag)
 
   end subroutine ConfigSetValueData
 
+  !> Either overwrite a given key-value pair,
+  !! or create a new one
+  !! \author Ian Rutt
   subroutine ConfigSetValueSec(config,secname,valname,value,tag)
-    !*FD Either overwrite a given key-value pair,
-    !*FD or create a new one
-    !*FD tag is a label that you can give to a particular config section
-    !*FD allowing the identification of the right section when
-    !*FD several with the same name are present (e.g. [CF output])
 
-    type(ConfigSection), pointer :: config
-    character(*) :: secname,valname,value
-    character(*),optional :: tag
+    type(ConfigSection), pointer :: config    !< pointer to the first section
+    character(len=*), intent(in) :: secname  !< name of the section
+    character(len=*), intent(in) :: valname  !< name of the key
+    character(len=*), intent(in) :: value    !< the value
+    character(len=*), intent(in), optional :: tag !< an identifier used to distinguish sections that occur a number of times,e.g. [CF output]       
+
     type(ConfigSection), pointer :: found
     type(ConfigSection), pointer :: newsec
     type(ConfigValue), pointer :: val
@@ -303,9 +330,9 @@ contains
 
   end subroutine ConfigSetValueSec
 
+  !> Add the contents of config2 to config1, overwriting if necessary
+  !! \author Ian Rutt
   subroutine ConfigCombineDataSec(config1,config2)
-    !*FD Add the contents of config2 to config1,
-    !*FD overwriting if necessary
 
     type(ConfigData) :: config1
     type(ConfigSection),pointer :: config2
@@ -314,9 +341,9 @@ contains
 
   end subroutine ConfigCombineDataSec
 
+  !> Add the contents of config2 to config1, overwriting if necessary
+  !! \author Ian Rutt
   subroutine ConfigCombineSecData(config1,config2)
-    !*FD Add the contents of config2 to config1,
-    !*FD overwriting if necessary
 
     type(ConfigSection),pointer :: config1
     type(ConfigData) :: config2
@@ -326,9 +353,9 @@ contains
   end subroutine ConfigCombineSecData
 
 
+  !> Add the contents of config2 to config1, overwriting if necessary
+  !! \author Ian Rutt
   subroutine ConfigCombineData(config1,config2)
-    !*FD Add the contents of config2 to config1,
-    !*FD overwriting if necessary
 
     type(ConfigData) :: config1
     type(ConfigData) :: config2
@@ -337,9 +364,9 @@ contains
 
   end subroutine ConfigCombineData
 
+  !> Add the contents of config2 to config1, overwriting if necessary
+  !! \author Ian Rutt
   subroutine ConfigCombineSec(config1,config2)
-    !*FD Add the contents of config2 to config1,
-    !*FD overwriting if necessary
 
     type(ConfigSection), pointer :: config1
     type(ConfigSection), pointer :: config2
@@ -375,10 +402,14 @@ contains
 
   end subroutine ConfigCombineSec
 
+  !> check if section has specified tag
+  !! \author Ian Rutt
+  !!
+  !! a tag is jus a special key value pair
   logical function ConfigSectionHasTag(section,tag)
     
-    type(ConfigSection), pointer :: section
-    character(*) :: tag
+    type(ConfigSection), pointer :: section !< pointer to section
+    character(len=*),intent(in) :: tag  !< the name of the tag
     character(200) :: testtag
 
     ConfigSectionHasTag=.false.
@@ -390,11 +421,14 @@ contains
 
   end function ConfigSectionhasTag
 
+  !> check if section has a particular key-value pair
+  !! \author Ian Rutt
   logical function ConfigSectionHasValue(section,valname,val)
 
-    type(ConfigSection), pointer :: section
+    type(ConfigSection), pointer :: section  !< pointer to the section to be checked
     type(ConfigValue), pointer :: thisval
-    character(*) :: valname,val
+    character(len=*), intent(in) :: valname  !< the name of the key
+    character(len=*), intent(inout) :: val   !< the value
 
     ConfigSectionHasValue=.false.
     val=''
@@ -415,12 +449,13 @@ contains
  
   end function ConfigSectionHasValue
 
+  !> find a return section
+  !! \author Magnus Hagdorn
   subroutine GetSection(config,found,name)
-    !*FD Find and return section with name
     implicit none
-    type(ConfigSection), pointer :: config
-    type(ConfigSection), pointer :: found
-    character(len=*),intent(in) :: name
+    type(ConfigSection), pointer :: config  !< pointer to the first section
+    type(ConfigSection), pointer :: found  
+    character(len=*),intent(in) :: name     !< the name of the section to be found
 
     found=>config
     do while(associated(found))
@@ -432,8 +467,8 @@ contains
     end do
   end subroutine GetSection
 
+  !> traverse linked list and check that all sections have been used
   subroutine CheckSections(config)
-    !*FD traverse linked list and check that all sections have been used
     use glimmer_log
     implicit none
     type(ConfigSection), pointer :: config
@@ -450,14 +485,14 @@ contains
     end do
   end subroutine CheckSections
 
+  !> get double array value
   subroutine GetValueDoubleArray(section,name,val,numval)
-    !*FD get real array value
     use glimmer_log
     implicit none
-    type(ConfigSection), pointer :: section
-    character(len=*),intent(in) :: name
-    real(kind=dp), pointer, dimension(:) :: val
-    integer,intent(in), optional :: numval
+    type(ConfigSection), pointer :: section     !< the section from which the value is loaded
+    character(len=*),intent(in) :: name         !< the name of the key
+    real(kind=dp), pointer, dimension(:) :: val !< on exit this will hold the values
+    integer,intent(in), optional :: numval      !< maximum number of values to be read
 
     ! local variables
     character(len=valuelen) :: value,tmp
@@ -508,14 +543,14 @@ contains
 
   end subroutine GetValueDoubleArray
 
+  !> get real array value
   subroutine GetValueRealArray(section,name,val,numval)
-    !*FD get real array value
     use glimmer_log
     implicit none
-    type(ConfigSection), pointer :: section
-    character(len=*),intent(in) :: name
-    real, pointer, dimension(:) :: val
-    integer,intent(in), optional :: numval
+    type(ConfigSection), pointer :: section !< the section from which the value is loaded
+    character(len=*),intent(in) :: name     !< the name of the key
+    real, pointer, dimension(:) :: val      !< on exit this will hold the values
+    integer,intent(in), optional :: numval  !< maximum number of values to be read
 
     ! local variables
     character(len=valuelen) :: value,tmp
@@ -567,14 +602,15 @@ contains
 
   end subroutine GetValueRealArray
 
+  !> get integer value array
   subroutine GetValueIntArray(section,name,val,numval)
     !*FD get integer array value
     use glimmer_log
     implicit none
-    type(ConfigSection), pointer :: section
-    character(len=*),intent(in) :: name
-    integer, pointer, dimension(:) :: val
-    integer,intent(in), optional :: numval
+    type(ConfigSection), pointer :: section !< the section from which the value is loaded
+    character(len=*),intent(in) :: name     !< the name of the key
+    integer, pointer, dimension(:) :: val   !< on exit this will hold the value
+    integer,intent(in), optional :: numval  !< maximum number of values to be read
 
     ! local variables
     character(len=valuelen) :: value,tmp
@@ -626,14 +662,14 @@ contains
 
   end subroutine GetValueIntArray
 
+  !> get character array value
   subroutine GetValueCharArray(section,name,val,numval)
-    !*FD get character array value
     use glimmer_log
     implicit none
-    type(ConfigSection), pointer :: section
-    character(len=*),intent(in) :: name
-    character(len=80), pointer, dimension(:) :: val
-    integer,intent(in), optional :: numval
+    type(ConfigSection), pointer :: section         !< the section from which the value is loaded
+    character(len=*),intent(in) :: name             !< the name of the key
+    character(len=80), pointer, dimension(:) :: val !< on exit this will hold the values
+    integer,intent(in), optional :: numval          !< maximum number of values to be read
 
     ! local variables
     character(len=valuelen) :: value
@@ -684,12 +720,12 @@ contains
 
   end subroutine GetValueCharArray
 
+  !> get real value
   subroutine GetValueReal(section,name,val)
-    !*FD get real value
     implicit none
-    type(ConfigSection), pointer :: section
-    character(len=*),intent(in) :: name
-    real :: val
+    type(ConfigSection), pointer :: section !< the section from which the value is loaded
+    character(len=*),intent(in) :: name     !< the name of the key
+    real, intent(inout) :: val              !< the value
 
     ! local variables
     character(len=valuelen) :: value
@@ -705,12 +741,12 @@ contains
     end if
   end subroutine GetValueReal
 
+  !> get double value
   subroutine GetValueDouble(section,name,val)
-    !*FD get double value
     implicit none
-    type(ConfigSection), pointer :: section
-    character(len=*),intent(in) :: name
-    real(kind=dp) :: val
+    type(ConfigSection), pointer :: section !< the section from which the value is loaded
+    character(len=*),intent(in) :: name     !< the name of the key
+    real(kind=dp), intent(inout) :: val     !< the value
 
     ! local variables
     character(len=valuelen) :: value
@@ -726,12 +762,12 @@ contains
     end if
   end subroutine GetValueDouble
 
+  !> get integer value
   subroutine GetValueInt(section,name,val)
-    !*FD get integer value
     implicit none
-    type(ConfigSection), pointer :: section
-    character(len=*),intent(in) :: name
-    integer :: val
+    type(ConfigSection), pointer :: section !< the section from which the value is loaded
+    character(len=*),intent(in) :: name     !< the name of the key
+    integer, intent(inout) :: val           !< the value
 
     ! local variables
     character(len=valuelen) :: value
@@ -747,12 +783,12 @@ contains
     end if
   end subroutine GetValueInt
 
+  !> get character value
   subroutine GetValueChar(section,name,val)
-    !*FD get character value
     implicit none
-    type(ConfigSection), pointer :: section
-    character(len=*),intent(in) :: name
-    character(len=*) :: val
+    type(ConfigSection), pointer :: section !< the section from which the value is loaded
+    character(len=*),intent(in) :: name     !< the name of the key
+    character(len=*), intent(inout) :: val  !< the value
     
     type(ConfigValue), pointer :: value
 
@@ -766,12 +802,12 @@ contains
     end do
   end subroutine GetValueChar
 
+  !> get logical value
   subroutine GetValueLogical(section,name,val)
-    !*FD get logical value
     implicit none
-    type(ConfigSection), pointer :: section
-    character(len=*),intent(in) :: name
-    logical :: val
+    type(ConfigSection), pointer :: section !< the section from which the value is loaded
+    character(len=*),intent(in) :: name     !< the name of the key
+    logical, intent(inout) :: val           !< the value
 
     ! local variables
     character(len=valuelen) :: value
@@ -796,12 +832,13 @@ contains
   ! private procedures
   !==================================================================================
 
+  !> handle line in file containing a section
   subroutine handle_section(linenr,line,section)
     use glimmer_log
     implicit none
-    integer, intent(in) :: linenr
-    character(len=*) :: line
-    type(ConfigSection), pointer :: section
+    integer, intent(in) :: linenr            !< the line number
+    character(len=*), intent(in) :: line     !< buffer containing the line
+    type(ConfigSection), pointer :: section  !< pointer to place where new section should be inserted
 
     ! local variables
     integer i
@@ -820,12 +857,13 @@ contains
     call InsertSection(trim(adjustl(line(2:i-1))),section)
   end subroutine handle_section
   
+  !> handle line in file containing a key-value pair
   subroutine handle_value(linenr,line,value)
     use glimmer_log
     implicit none
-    integer, intent(in) :: linenr
-    character(len=*) :: line
-    type(ConfigValue), pointer :: value
+    integer, intent(in) :: linenr        !< the line number
+    character(len=*), intent(in) :: line !< buffer containing the line
+    type(ConfigValue), pointer :: value  !< pointer to value linked list where value should be added
 
     ! local variables
     integer i
@@ -843,11 +881,12 @@ contains
     call InsertValue(trim(adjustl(line(:i-1))), trim(adjustl(line(i+1:))),value)
   end subroutine handle_value
 
+  !> add a new section
   subroutine InsertSection(name,section)
     !*FD add a new section
     implicit none
-    character(len=*), intent(in) :: name
-    type(ConfigSection), pointer :: section
+    character(len=*), intent(in) :: name    !< name of new section
+    type(ConfigSection), pointer :: section !< on entry the element of linked list after which the new element is inserted, on exit: the new element
     type(ConfigSection), pointer :: new_sec
 
     allocate(new_sec)
@@ -862,11 +901,12 @@ contains
     section=>new_sec
   end subroutine InsertSection
 
+  !> insert a key-value pair
   subroutine InsertValue(name,val,value)
-    !*FD add a new value
     implicit none
-    character(len=*), intent(in) :: name, val
-    type(ConfigValue), pointer :: value
+    character(len=*), intent(in) :: name !< the key
+    character(len=*), intent(in) :: val  !< the value
+    type(ConfigValue), pointer :: value  !< on entry the element after which the new value should be added, on exit pointer the new element
     type(ConfigValue), pointer :: new_value
 
     allocate(new_value)
