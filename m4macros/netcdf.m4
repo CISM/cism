@@ -14,7 +14,7 @@
 #   HAVE_NETCDF4 is also defined.
 #
 #   This macro will set the following variables
-#   NETCDF_LIBS NETCDF_CPPFLAGS NETCDF_LDFLAGS
+#   NETCDF_LIBS NETCDF_CPPFLAGS NETCDF_FCFLAGS NETCDF_LDFLAGS
 #
 # LICENSE
 #
@@ -52,11 +52,14 @@ AC_REQUIRE([ACX_HDF5])
 acx_netcdf_ok=no
 
 CPPFLAGSsave=$CPPFLAGS
+FCFLAGSsave=$FCFLAGS
 LIBSsave=$LIBS
 LDFLAGSsave=$LDFLAGS
+# initialise outputs
 NETCDF_LIBS=""
 NETCDF_LDFLAGS=""
 NETCDF_CPPFLAGS=""
+NETCDF_FCFLAGS=""
 
 AC_ARG_WITH(netcdf,
   [AS_HELP_STRING([--with-netcdf],[root directory path where NETCDF is installed. (defaults to /usr/local or /usr if not found in /usr/local)])],
@@ -69,22 +72,43 @@ AC_MSG_CHECKING([for netcdf])
 AC_MSG_RESULT($with_netcdf)
 AS_IF([test "x$with_netcdf" != xno],
       [ 
-        # sort out the library
-        NETCDF_LDFLAGS=""
+	netcdf_inc_path=""
+	netcdf_lib_path=""
+        # check if with_netcdf is a path and if so setup various search paths
+        if test -d "$with_netcdf"; then
+          netcdf_inc_path="$with_netcdf"/include
+          netcdf_lib_path="$with_netcdf"/lib
+        fi
+        # check whether we should use a non standard include path
+        AC_ARG_WITH(netcdf-include,
+          [AS_HELP_STRING([--with-netcdf-include],[path to where netcdf header files can be found])],
+          [
+           if test -d "$withval"; then
+               netcdf_inc_path=$withval
+           else
+               AC_MSG_ERROR([Cannot find directory "$withval"])
+           fi
+          ])
+
         # check whether we should use a non standard library path
         AC_ARG_WITH(netcdf-lib,
           [AS_HELP_STRING([--with-netcdf-lib],[path to where netcdf library files can be found])],
           [
-           if test -d "$with_netcdf"; then
-               NETCDF_LDFLAGS=-L"$with_netcdf"/lib
+           if test -d "$withval"; then
+               netcdf_lib_path="$withval"
            else
-               AC_MSG_ERROR([Cannot find directory "$with_netcdf"/lib])
+               AC_MSG_ERROR([Cannot find directory "$withval"])
            fi
           ])
+
+        NETCDF_CPPFLAGS=-I"$netcdf_inc_path"
+        NETCDF_LDFLAGS=-L"$netcdf_lib_path"
+
 	# check for libraries
 	LDFLAGS="$LDFLAGS $NETCDF_LDFLAGS $HDF5_LDFLAGS"
         # we always need to link to the C libraries, so let's look for them
         AC_LANG_PUSH(C)
+        CPPFLAGS="$CPPFLAGS $NETCDF_CPPFLAGS"
 	AC_CHECK_LIB(netcdf,nc_inq_libvers,[acx_netcdf_ok=yes; NETCDF_LIBS="-lnetcdf"],[acx_netcdf_ok=no],[$HDF5_LIBS])
         AC_LANG_POP([C])
 
@@ -92,15 +116,7 @@ AS_IF([test "x$with_netcdf" != xno],
         # figure out how to use netcdf from various languages
         AC_LANG_CASE(
         [C],[
-        if test -d "$with_netcdf"; then
-          NETCDF_CPPFLAGS=-I"$with_netcdf"/include
-        fi
-        # check whether we should use a non standard include path
-        AC_ARG_WITH(netcdf-include,
-          [AS_HELP_STRING([--with-netcdf-include],[path to where netcdf header files can be found])],
-          [NETCDF_CPPFLAGS=-I"$withval"])
 	# check for header files
-	CPPFLAGS="$CPPFLAGS $NETCDF_CPPFLAGS"
 	AC_CHECK_HEADER([netcdf.h],[acx_netcdf_ok=yes],[acx_netcdf_ok=no])
         ],
         [C++],[AC_MSG_INFO([C++ not checked for yet])],
@@ -110,22 +126,12 @@ AS_IF([test "x$with_netcdf" != xno],
         ],
         [Fortran],[
         AC_SEARCH_LIBS(NF_INQ_LIBVERS,netcdff,[acx_netcdf_ok=yes],[acx_netcdf_ok=no; AC_MSG_ERROR(cannot find netCDF fortran library)])
-        NETCDF_LIBS=$LIBS
         AC_REQUIRE([AX_F90_MODULE_FLAG])
-        NETCDF_CPPFLAGS="$ax_cv_f90_modflag"/usr/include
-        if test -d "$with_netcdf"; then
-          NETCDF_CPPFLAGS="$ax_cv_f90_modflag$with_netcdf"/include
-        fi
-        # check whether we should use a non standard include path
-        AC_ARG_WITH(netcdf-include,
-          [AS_HELP_STRING([--with-netcdf-include],[path to where netcdf header files can be found])],
-          [NETCDF_CPPFLAGS="$ax_cv_f90_modflag$withval"])
-        FCFLAGSsave=$FCFLAGS
-        FCFLAGS="$NETCDF_CPPFLAGS"
+        NETCDF_FCFLAGS="$ax_cv_f90_modflag$netcdf_inc_path"
+	FCFLAGS="$FCFLAGS $NETCDF_FCFLAGS"
         AC_MSG_CHECKING([for f90 netCDF interface])
         AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],[use netcdf])],[acx_netcdf_ok=yes; AC_MSG_RESULT([yes])],
                                                              [acx_netcdf_ok=no; AC_MSG_RESULT([no])])
-        FCFLAGS=$FCFLAGSsave
         ])
 
 	# check if netCDF4 API is available
@@ -138,12 +144,9 @@ AS_IF([test "x$with_netcdf" != xno],
            [C++],[AC_CHECK_FUNC(nc_inq_grps,[acx_netcdf4_ok=yes;AC_MSG_RESULT([yes])],[AC_MSG_RESULT([no])]) ], 
            [Fortran 77],[AC_CHECK_FUNC(nf_inq_grps,[acx_netcdf4_ok=yes;AC_MSG_RESULT([yes])],[AC_MSG_RESULT([no])]) ],
            [Fortran],[
-            FCFLAGSsave=$FCFLAGS
-            FCFLAGS="$NETCDF_CPPFLAGS"
             AC_MSG_CHECKING([for nf90_inq_grps])
             AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],[use netcdf;i=nf90_inq_grps(id1,id2,id3)])],[acx_netcdf4_ok=yes; AC_MSG_RESULT([yes])],
                                                                  [acx_netcdf4_ok=no; AC_MSG_RESULT([no])])
-            FCFLAGS=$FCFLAGSsave
            ])
         fi
         if test x"$acx_netcdf4_ok" = xyes; then
@@ -153,12 +156,14 @@ AS_IF([test "x$with_netcdf" != xno],
 AC_SUBST(NETCDF_LIBS)
 AC_SUBST(NETCDF_LDFLAGS)
 AC_SUBST(NETCDF_CPPFLAGS)
+AC_SUBST(NETCDF_FCFLAGS)
 
 # reset variables to original values
 CPPFLAGS=$CPPFLAGSsave
 LIBS=$LIBSsave
 LDFLAGS=$LDFLAGSsave
-  
+FCFLAGS=$FCFLAGSsave
+
 # Finally, execute ACTION-IF-FOUND/ACTION-IF-NOT-FOUND:
 if test x"$acx_netcdf_ok" = xyes; then
         ifelse([$1],,AC_DEFINE(HAVE_NETCDF,1,[Define if you have the NETCDF library.]),[$1])

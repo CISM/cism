@@ -1,3 +1,7 @@
+2009-09-30 Magnus Hagdorn
+ * m4macros/netcdf.m4: fix bug when location of netCDF lib is specified
+   manually
+
 2009-09-29 Magnus Hagdorn
  * libglimmer/glimmer_commandline.F90: add doxygen strings
  * libglimmer/glimmer_config.F90: ditto
