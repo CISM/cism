@@ -38,7 +38,10 @@ FCFLAGS=$glimmer_FCFLAGS
 FFLAGS=$glimmer_FFLAGS
 AC_LANG(Fortran)
 AC_FC_SRCEXT(f90)
+# get the correct flag to set module include path
 AX_F90_MODULE_FLAG
+F90_MODFLAG=$ax_cv_f90_modflag
+AC_SUBST(F90_MODFLAG)
 
 # checking for f2003 command line parser
 AC_MSG_CHECKING([for f2003 command line parser])

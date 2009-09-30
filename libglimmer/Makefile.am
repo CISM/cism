@@ -34,7 +34,7 @@ test_ts_SOURCES = test_ts.F90
 test_writestats_SOURCES = test_writestats.F90
 test_filenames_SOURCES = test_filenames.F90
 
-AM_FCFLAGS = $(NETCDF_CPPFLAGS) $(HDF5_CPPFLAGS)
+AM_FCFLAGS = $(NETCDF_FCFLAGS)
 LDADD = libglimmer-IO.la libglimmer.la $(NETCDF_LDFLAGS) $(HDF5_LDFLAGS) $(NETCDF_LIBS)
 AM_CFLAGS=$(CFORTRAN_CFLAGS)
 

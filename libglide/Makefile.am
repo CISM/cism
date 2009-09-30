@@ -23,9 +23,9 @@ libglide_la_SOURCES = glide.F90 glide_setup.F90 glide_types.F90 glide_temp.F90 \
 test_setup_SOURCES = test_setup.F90
 test_setup_LDADD = libglide.la ../libglimmer/libglimmer.la ../libglimmer/libglimmer-IO.la $(NETCDF_LDFLAGS) $(HDF5_LDFLAGS) $(NETCDF_LIBS)
 
-AM_FCFLAGS = -I../libglimmer -I../libglimmer-solve
+AM_FCFLAGS = $(F90_MODFLAG)../libglimmer $(F90_MODFLAG)../libglimmer-solve
 
-#AM_FCFLAGS = $(NETCDF_CPPFLAGS) $(HDF5_CPPFLAGS)
+#AM_FCFLAGS = $(NETCDF_FCFLAGS)
 #LDADD = $(NETCDF_LDFLAGS) $(HDF5_LDFLAGS) $(NETCDF_LIBS)
 #AM_CFLAGS=$(CFORTRAN_CFLAGS)
 

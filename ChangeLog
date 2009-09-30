@@ -1,4 +1,19 @@
 2009-09-30 Magnus Hagdorn
+ * configure.in: export fortran compiler flag which sets the module search
+   path
+ * example-drivers/EISMINT-3/src/Makefile.am: use new variable containing
+   fortran compiler flag for module search path and use correct variable
+   for fortran netcdf module search path
+ * example-drivers/eis/src/Makefile.am: ditto
+ * example-drivers/glint/src/Makefile.am: ditto
+ * libglide/Makefile.am: ditto
+ * libglimmer/Makefile.am: ditto
+ * libglimmer-solve/Makefile.am: ditto
+ * libglint/Makefile.am: ditto
+ * tests/EISMINT/src/Makefile.am: ditto
+ * tests/exact-isothermal/src/Makefile.am: ditto
+
+2009-09-30 Magnus Hagdorn
  * m4macros/netcdf.m4: bah, introduced bug when no particular directory is
    specified - fixed now 
 
