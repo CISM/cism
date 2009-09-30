@@ -1,4 +1,8 @@
 2009-09-30 Magnus Hagdorn
+ * m4macros/netcdf.m4: bah, introduced bug when no particular directory is
+   specified - fixed now 
+
+2009-09-30 Magnus Hagdorn
  * m4macros/netcdf.m4: fix bug when location of netCDF lib is specified
    manually
 
