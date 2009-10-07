@@ -67,18 +67,47 @@ AC_MSG_CHECKING([for hdf5])
 AC_MSG_RESULT($with_hdf5)
 AS_IF([test "x$with_hdf5" != xno],
       [ 
-	# sort out the library
+	hdf5_inc_path=""
+	hdf5_lib_path=""
+        # check if with_hdf5 is a path and if so setup various search paths
         if test -d "$with_hdf5"; then
-          HDF5_LDFLAGS=-L"$with_hdf5"/lib
-        fi        
+          hdf5_inc_path="$with_hdf5"/include
+          hdf5_lib_path="$with_hdf5"/lib
+        fi
+        # check whether we should use a non standard include path
+        AC_ARG_WITH(hdf5-include,
+          [AS_HELP_STRING([--with-hdf5-include],[path to where hdf5 header files can be found])],
+          [
+           if test -d "$withval"; then
+               hdf5_inc_path=$withval
+           else
+               AC_MSG_ERROR([Cannot find directory "$withval"])
+           fi
+          ])
+
         # check whether we should use a non standard library path
         AC_ARG_WITH(hdf5-lib,
           [AS_HELP_STRING([--with-hdf5-lib],[path to where hdf5 library files can be found])],
-          [HDF5_LDFLAGS=-L"$withval"])
+          [
+           if test -d "$withval"; then
+               hdf5_lib_path="$withval"
+           else
+               AC_MSG_ERROR([Cannot find directory "$withval"])
+           fi
+          ])
+        
+        if test x"$hdf5_inc_path"x != xx ; then
+           HDF5_CPPFLAGS=-I"$hdf5_inc_path"
+        fi
+        if test x"$hdf5_lib_path"x != xx ; then
+           HDF5_LDFLAGS=-L"$hdf5_lib_path"
+        fi
+
 	# check for libraries
 	LDFLAGS="$LDFLAGS $HDF5_LDFLAGS"
         # we always need to link to the C libraries, so let's look for them
         AC_LANG_PUSH([C])
+        CPPFLAGS="$CPPFLAGS $HDF5_CPPFLAGS"
 	AC_CHECK_LIB(hdf5,H5open,[acx_hdf5_ok=yes; HDF5_LIBS="-lhdf5"],[acx_hdf5_ok=no])
 	AC_CHECK_LIB(hdf5_hl,H5Dclose,[acx_hdf5_ok=yes; HDF5_LIBS="$HDF5_LIBS -lhdf5_hl"],[acx_hdf5_ok=no],[$HDF5_LIBS])
         AC_LANG_POP([C])
@@ -86,16 +115,6 @@ AS_IF([test "x$with_hdf5" != xno],
         # figure out how to use HDF5 from various languages
         AC_LANG_CASE(
         [C],[
-        if test -d "$with_hdf5"; then
-          HDF5_LDFLAGS=-L"$with_hdf5"/lib
-          HDF5_CPPFLAGS=-I"$with_hdf5"/include
-        fi
-        # check whether we should use a non standard include path
-        AC_ARG_WITH(hdf5-include,
-          [AS_HELP_STRING([--with-hdf5-include],[path to where hdf5 header files can be found])],
-          [HDF5_CPPFLAGS=-I"$withval"])
-	# check for header files
-	CPPFLAGS="$CPPFLAGS $HDF5_CPPFLAGS"
 	AC_CHECK_HEADER([hdf5.h],[acx_hdf5_ok=yes],[acx_hdf5_ok=no])
 	AC_CHECK_HEADER([hdf5_hl.h],[acx_hdf5_ok=yes],[acx_hdf5_ok=no],[AC_INCLUDES_DEFAULT 
                                                                         #include <hdf5.h>])

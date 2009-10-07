@@ -110,10 +110,11 @@ AS_IF([test "x$with_netcdf" != xno],
 
 	# check for libraries
 	LDFLAGS="$LDFLAGS $NETCDF_LDFLAGS $HDF5_LDFLAGS"
+        LIBS="$HDF5_LIBS"
         # we always need to link to the C libraries, so let's look for them
         AC_LANG_PUSH(C)
         CPPFLAGS="$CPPFLAGS $NETCDF_CPPFLAGS"
-        AC_SEARCH_LIBS(nc_inq_libvers,netcdf,[acx_netcdf_ok=yes],[acx_netcdf_ok=no;AC_MSG_ERROR(cannot find netCDF C library)],[$HDF5_LIBS])
+        AC_SEARCH_LIBS(nc_inq_libvers,netcdf,[acx_netcdf_ok=yes],[acx_netcdf_ok=no;AC_MSG_ERROR(cannot find netCDF C library)])
         AC_LANG_POP([C])
 
         # figure out how to use netcdf from various languages

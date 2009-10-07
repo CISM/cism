@@ -83,7 +83,7 @@ if __name__ == '__main__':
 
     prefix = os.path.abspath(os.path.dirname(sys.argv[0]))
     p = prefix.split(os.sep)[-1]
-    sge_script = ''
+    sge_script = prefix
     if p == 'bin':
         sge_script = os.path.abspath(os.path.join(prefix,'..','share','glimmer'))
     sge_script = os.path.join(sge_script,'qsub_glide.sh')
@@ -93,7 +93,7 @@ if __name__ == '__main__':
         model = options.model
 
     if not os.path.isfile(model):
-        sys.stderr.write("Cannot find model executable %s"%model)
+        sys.stderr.write("Cannot find model executable %s\n"%model)
         sys.exit(0)
     prog = "%s -r %s %s"%(model,options.results,configname)
 

@@ -156,7 +156,7 @@ if __name__ == '__main__':
 
     prefix = os.path.abspath(os.path.dirname(sys.argv[0]))
     p = prefix.split(os.sep)[-1]
-    sge_script = ''
+    sge_script = os.path.abspath(os.path.join(prefix,'..','..','..','scripts'))
     if p == 'bin':
         sge_script = os.path.abspath(os.path.join(prefix,'..','share','glimmer'))
     sge_script = os.path.join(sge_script,'qsub_glide.sh')
@@ -172,7 +172,7 @@ if __name__ == '__main__':
 
     if options.submit_sge:
         if not os.path.isfile(sge_script):
-            sys.stderr.write("Cannot find model submission script %s"%sge_script)
+            sys.stderr.write("Cannot find model submission script %s\n"%sge_script)
             sys.exit(0)
         prog = "qsub %s %s %s"%(options.submit_options,sge_script,prog)
 

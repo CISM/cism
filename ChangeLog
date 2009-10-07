@@ -1,3 +1,11 @@
+2009-10-07 Magnus Hagdorn
+ * libglint/Makefile.am: forgot to add module directory
+ * m4macros/hdf5.m4: improved hdf5 detector, it's similar to the netcdf one
+ * m4macros/netcdf.m4: change how HDF5 libraries are handled
+ * scripts/glide_launch.py: fix location of SGE submission script
+ * tests/exact-isothermal/scripts/run_verif.py: ditto
+ * tests/exact-isothermal/tests/Makefile.am: add SGE options
+
 2009-09-30 Magnus Hagdorn
  * configure.in: export fortran compiler flag which sets the module search
    path
