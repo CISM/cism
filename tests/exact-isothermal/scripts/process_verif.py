@@ -4,8 +4,7 @@
 #
 # process results from verif tests
 
-import Numeric, Scientific.IO.NetCDF, pygsl, sys
-from PyGMT import round_up,round_down
+import numpy, Scientific.IO.NetCDF, pygsl, sys,math
 from pygsl import histogram
 
 def process(fname):
@@ -18,13 +17,16 @@ def process(fname):
     # extract errors
     ncf = Scientific.IO.NetCDF.NetCDFFile(fname)
     diff = ncf.variables['thke'][-1,:,:] - ncf.variables['thk'][-1,:,:]
-    centre = (Numeric.shape(diff)[0]-1)/2
+    centre = (numpy.shape(diff)[0]-1)/2
     dome_e = diff[centre,centre]
-    diff = Numeric.ravel(diff)
+    diff = numpy.ravel(diff)
     max_e = max(diff)
     min_e = min(diff)
+    if (abs(max_e-min_e) < 1e-10):
+        max_e=max_e+5e-10
+        min_e=min_e-5e-10
     hist = histogram.histogram(100)
-    hist.set_ranges_uniform(round_down(min_e),round_up(max_e))
+    hist.set_ranges_uniform(math.floor(min_e),math.ceil(max_e))
     for e in diff.tolist():
         hist.increment(e)
     mean_e = hist.mean()

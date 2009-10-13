@@ -5,35 +5,46 @@
 # plot difference between numeric and exact solution
 
 import os.path
-import PyCF,PyGMT, sys, Numeric
+import pylab, matplotlib
+import Scientific.IO.NetCDF
+import numpy.ma
+from optparse import OptionParser
 
 
 if __name__ == '__main__':
 
-    parser = PyCF.CFOptParser()
-    parser.width = 12.5
-    parser.time()
-    parser.plot()
-    opts = PyCF.CFOptions(parser,2)
+    usage = """usage: %prog [options] file.nc
 
-    infile = opts.cffile()
-    time = opts.times(infile)
+plot difference between exact and simulated solution at specified time"""
 
-    exact = infile.getvar('thke')
-    diff = infile.getvar('thk').getGMTgrid(time)
-    diff.data = Numeric.transpose(infile.file.variables['thk'][time,:,:] - infile.file.variables['thke'][time,:,:])
+    parser = OptionParser(usage=usage)
+    parser.add_option("-o","--output",metavar="FILE",help="write image to file. image type is determined by file suffix")
+    parser.add_option("-T","--time-slice",metavar="T",default=-1,type='int',help="extract data for time slice T")
+    (options, args) = parser.parse_args()
 
-    plot = opts.plot()
-    plot.defaults['LABEL_FONT_SIZE']='12p'
-    plot.defaults['ANOT_FONT_SIZE']='10p'
-    bigarea = PyGMT.AreaXY(plot,size=[30,30])
+    if len(args)!=1:
+        parser.error('Expecting one input file')
 
-    area = PyCF.CFArea(bigarea,infile,pos=[0.,3.],size=opts.options.width)
-    area.raw_image(infile,time,diff,'../data/error.cpt')
-    area.contour(exact,[0.01],'-W2/0/0/0',time)
-    area.coordsystem()
-    PyGMT.colourkey(area,'../data/error.cpt',title='H@-num@--H@-exact@-',pos=[0.,-1.75],size=[opts.options.width,.75],args='-L')
+    infile = Scientific.IO.NetCDF.NetCDFFile(args[0],'r')
+    diff = infile.variables['thk'][options.time_slice,:,:] - infile.variables['thke'][options.time_slice,:,:]
+    mask = numpy.where(infile.variables['thk'][options.time_slice,:,:] + infile.variables['thke'][options.time_slice,:,:] > 0, False, True)
+    diff = numpy.ma.array(diff,mask=mask)
+    extent = [infile.variables['x1'][0]/1000.,infile.variables['x1'][-1]/1000.,
+                           infile.variables['y1'][0]/1000.,infile.variables['y1'][-1]/1000.]
+    #()
 
-    bigarea.text([opts.options.width/2.,opts.options.width+4.],"Experiment %s"%infile.title,textargs='20 0 0 CM')
+    pylab.title("Experiment %s"%infile.title)
+    pylab.imshow(diff,origin='lower',
+                 norm=matplotlib.colors.Normalize(vmin=-200,vmax=200),
+                 cmap=matplotlib.cm.RdBu_r,
+                 extent=extent)
+    pylab.colorbar()
+    pylab.contour(diff,extent=extent,colors='k')
 
-    plot.close()
+    pylab.contour(infile.variables['thk'][options.time_slice,:,:],[0],colors='grey',extent=extent)
+
+    if options.output!=None:
+        pylab.savefig(options.output)
+    else:
+        pylab.show()
+    

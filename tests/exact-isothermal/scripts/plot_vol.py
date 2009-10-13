@@ -5,8 +5,9 @@
 # plot relative volume errors
 
 
-import Numeric, Scientific.IO.NetCDF
-import PyGMT, PyCF,sys
+import Scientific.IO.NetCDF
+import pylab
+from optparse import OptionParser
 
 def parse_title(title):
     """Parse title string."""
@@ -22,58 +23,51 @@ def parse_title(title):
 
 def calc_verror(cffile):
 
-    verror = (cffile.file.variables['ivol'][:]-cffile.file.variables['ivole'][:])/cffile.file.variables['ivole'][:]
+    verror = (cffile.variables['ivol'][:]-cffile.variables['ivole'][:])/cffile.variables['ivole'][:]
     verror[0] = 0.
     return verror
 
 if __name__ == '__main__':
 
-    innames = sys.argv[1:-1]
-    outname = sys.argv[-1]
+    usage = """usage: %prog [options] file1.nc [filen.nc]
+
+plot relative volume error as a function of time"""
+
+    parser = OptionParser(usage=usage)
+    parser.add_option("-o","--output",metavar="FILE",help="write image to file. image type is determined by file suffix")
+    (options, args) = parser.parse_args()
+
+    if len(args)<1:
+        parser.error('Expecting at least one file')
+
 
     # start plotting
-    plot = PyGMT.Canvas(outname,size='A4')
-    plot.defaults['LABEL_FONT_SIZE']='12p'
-    plot.defaults['ANOT_FONT_SIZE']='10p'
-    
-    key_y=2.5
-    ysize = 7.
-    dy = 1.
-    
-    bigarea = PyGMT.AreaXY(plot,size=[30,30])
-    vol_err = PyGMT.AutoXY(bigarea,pos=[0.,key_y+dy],size=[15,ysize])
-    vol_err.xlabel = 'time [ka]'
-    vol_err.ylabel = 'relative volume error'
-    vol_err.axis = 'WeSn'
-    
-    s_keyarea = PyGMT.KeyArea(bigarea,pos=[0.,-0.8],size=[5,key_y])
-    s_keyarea.num=[1,7]
+    pylab.figure(1)
+    vol_err = pylab.subplot(111)
+    vol_err.set_xlabel = 'time [ka]'
+    vol_err.set_ylabel = 'relative volume error'
 
-    e_keyarea = PyGMT.KeyArea(bigarea,pos=[5.,-0.8],size=[10.,key_y])
-    e_keyarea.num=[2,7]
+    styles = {'non-lin':'-','lin':':','ADI':'--'}
+    colours = ['red','green','blue','cyan','yellow','orange','magenta','pink']
 
     plotted = {}
-
     i = 0
-    styles = {'non-lin':'','lin':'to','ADI':'ta'}
-    colours = ['255/0/0','0/255/0','0/0/255','0/255/255','255/0/255','255/255/0','127/0/0','0/127/0','0/0/127','0/127/127','127/0/127','127/127/0']
-    for f in innames:
-        cffile = PyCF.CFloadfile(f)
+    for f in args:
+        cffile = Scientific.IO.NetCDF.NetCDFFile(f,'r')
         (exp_name,solver,dx,dt) = parse_title(cffile.title)
-        title = '@~D@~x=%skm, @~D@~t=%sa'%(dx,dt)
+        title = 'dx=%skm, dt=%sa'%(dx,dt)
         if title not in plotted:
-            plotted[title] = i
-            e_keyarea.plot_line(title,'3/%s'%(colours[i]))
-            i = i+1
-        vol_err.line('-W3/%s%s'%(colours[plotted[title]],styles[solver]),cffile.time(None),calc_verror(cffile))
+             plotted[title] = i
+             i = i+1
+             label = title
+        else:
+            label = None
+        vol_err.plot(cffile.variables['time'][:],calc_verror(cffile),ls=styles[solver],color=colours[plotted[title]],label=label)
         cffile.close()
-
-    for s in styles:
-        s_keyarea.plot_line(s,'3/0/0/0%s'%styles[s])
-
-    vol_err.finalise()
-    vol_err.coordsystem()
-
-    bigarea.text([7.5,ysize+2*dy+key_y],"Experiment %s"%exp_name,textargs='20 0 0 CM')
     
-    plot.close()
+    vol_err.legend()
+
+    if options.output!=None:
+        pylab.savefig(options.output)
+    else:
+        pylab.show()

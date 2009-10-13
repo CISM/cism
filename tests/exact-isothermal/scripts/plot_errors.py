@@ -5,8 +5,9 @@
 # plot absolute dome and max errors
 
 
-import Numeric, Scientific.IO.NetCDF
-import PyGMT, PyCF,sys
+import numpy, Scientific.IO.NetCDF
+import pylab
+from optparse import OptionParser
 
 def parse_title(title):
     """Parse title string."""
@@ -22,70 +23,59 @@ def parse_title(title):
 
 if __name__ == '__main__':
 
-    innames = sys.argv[1:-1]
-    outname = sys.argv[-1]
+    usage = """usage: %prog [options] file1.nc [filen.nc]
 
-    # start plotting
-    plot = PyGMT.Canvas(outname,size='A4')
-    plot.defaults['LABEL_FONT_SIZE']='12p'
-    plot.defaults['ANOT_FONT_SIZE']='10p'
-    
-    key_y=2.5
-    ysize = 7.
-    dy = 1.
-    
-    bigarea = PyGMT.AreaXY(plot,size=[30,30])
+plot model errors as function of grid spacing"""
 
-    area_dome = PyGMT.AutoXY(bigarea,pos=[0.,key_y+dy],size=[15,ysize],logx=True)
-    area_dome.xlabel = '@~D@~x [km]'
-    area_dome.ylabel = 'absolute dome error [m]'
-    area_dome.axis = 'WeSn'
+    parser = OptionParser(usage=usage)
+    parser.add_option("-o","--output",metavar="FILE",help="write image to file. image type is determined by file suffix")
+    (options, args) = parser.parse_args()
 
-    area_max = PyGMT.AutoXY(bigarea,pos=[0.,ysize+2*dy+key_y],size=[15,ysize],logx=True)
-    area_max.xlabel = '@~D@~x [km]'
-    area_max.ylabel = 'absolute maximum error [m]'
-    area_max.axis = 'Wesn'
-    
-    s_keyarea = PyGMT.KeyArea(bigarea,pos=[0.,-0.8],size=[5,key_y])
-    s_keyarea.num=[1,7]
-
-    e_keyarea = PyGMT.KeyArea(bigarea,pos=[5.,-0.8],size=[10.,key_y])
-    e_keyarea.num=[2,7]
-
-    plotted = {}
-
-    i = 0
-    styles = {'non-lin':'','lin':'to','ADI':'ta'}
-    colours = ['255/0/0','0/255/0','0/0/255','0/255/255','255/0/255','255/255/0','127/0/0','0/127/0','0/0/127','0/127/127','127/0/127','127/127/0']
+    if len(args)<1:
+        parser.error('Expecting at least one file')
 
     runs = {}
 
     # load data
-    for f in innames:
-        cffile = PyCF.CFloadfile(f)
+    for f in args:
+        cffile = Scientific.IO.NetCDF.NetCDFFile(f,'r')
         (exp_name,solver,dx,dt) = parse_title(cffile.title)
         if solver not in runs:
             runs[solver] = {}
         if exp_name not in runs[solver]:
             runs[solver][exp_name]={}
-        diff = cffile.file.variables['thke'][-1,:,:] - cffile.file.variables['thk'][-1,:,:]
-        centre = (Numeric.shape(diff)[0]-1)/2
+        diff = cffile.variables['thke'][-1,:,:] - cffile.variables['thk'][-1,:,:]
+        centre = (numpy.shape(diff)[0]-1)/2
         dome_e = diff[centre,centre]
-        diff = Numeric.ravel(diff)
+        diff = numpy.ravel(diff)
         max_e = max(abs(diff))
         runs[solver][exp_name][int(dx)] = [dome_e,max_e]
         cffile.close()
 
-    # plot data
+    # start plotting
+    pylab.figure(1)
+
+    area_dome = pylab.subplot(211)
+    area_dome.set_xlabel("dx [km]")
+    area_dome.set_ylabel("absolute dome error [m]")
+
+    area_max = pylab.subplot(212)
+    area_max.set_xlabel("dx [km]")
+    area_max.set_ylabel("absolute maximum error [m]")
+
+    styles = {'non-lin':'-','lin':':','ADI':'--'}
+    colours = ['red','green','blue','cyan','yellow','orange','magenta','pink']
+
     done_grid = {}
     i = 0
     for s in runs:
-        s_keyarea.plot_line(s,'3/0/0/0%s'%styles[s])
         for e in runs[s]:
             if e not in done_grid:
                 done_grid[e] = i
                 i = i + 1
-                e_keyarea.plot_line('test %s'%e,'3/%s'%(colours[done_grid[e]]))
+                title = e
+            else:
+                title = None
 
             dx = runs[s][e].keys()
             dx.sort()
@@ -98,16 +88,13 @@ if __name__ == '__main__':
                 error_max.append(runs[s][e][x][1])
 
             # plot line
-            area_dome.line('-W3/%s%s'%(colours[done_grid[e]],styles[s]),dx,error_dome)
-            area_dome.plotsymbol(dx,error_dome,size=0.1,args='-W1/%s'%(colours[done_grid[e]]))
+            area_dome.plot(dx,error_dome,ls=styles[s],color=colours[done_grid[e]],label=title)
+            area_max.plot(dx,error_max,color=colours[done_grid[e]])
 
-            area_max.line('-W3/%s%s'%(colours[done_grid[e]],styles[s]),dx,error_max)
-            area_max.plotsymbol(dx,error_max,size=0.1,args='-W1/%s'%(colours[done_grid[e]]))
 
-    area_dome.finalise()
-    area_dome.coordsystem()
+    area_dome.legend()
 
-    area_max.finalise()
-    area_max.coordsystem()    
-
-    plot.close()
+    if options.output!=None:
+        pylab.savefig(options.output)
+    else:
+        pylab.show()

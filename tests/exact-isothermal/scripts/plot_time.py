@@ -6,7 +6,8 @@
 
 
 import os.path
-import PyGMT, sys
+import pylab
+from optparse import OptionParser
 
 def parse_title(title):
     """Parse title string."""
@@ -21,8 +22,21 @@ def parse_title(title):
 
 if __name__ == '__main__':
 
-    inname = sys.argv[1]
-    outname = sys.argv[2]
+    usage = """usage: %prog [options] [RESULTS]
+
+parse RESULTS file and plot model runtimes"""
+
+    parser = OptionParser(usage=usage)
+    parser.add_option("-o","--output",metavar="FILE",help="write image to file. image type is determined by file suffix")
+    (options, args) = parser.parse_args()
+
+    if len(args)>1:
+        parser.error('Expecting at most one results file')
+    elif len(args)==1:        
+        inname = args[0]
+    else:
+        inname = 'results'
+
 
     # parse results file
     runs = {}
@@ -44,46 +58,30 @@ if __name__ == '__main__':
             runs[solver][exp_name]={}
         runs[solver][exp_name][dx] = [time,dt]
 
+
     # start plotting
-    plot = PyGMT.Canvas(outname,size='A4')
-    plot.defaults['LABEL_FONT_SIZE']='12p'
-    plot.defaults['ANOT_FONT_SIZE']='10p'
+    pylab.figure(1)
+    area_dt = pylab.subplot(211)
+    area_dt.set_xlabel("dx [km]")
+    area_dt.set_ylabel("dt [a]")
     
-    key_y=2.5
-    ysize = 7.
-    dy = 1.
-    
-    bigarea = PyGMT.AreaXY(plot,size=[30,30])
+    area_rt = pylab.subplot(212)
+    area_rt.set_xlabel("dx [km]")
+    area_rt.set_ylabel("run time [s]")
 
-    area_dt = PyGMT.AutoXY(bigarea,pos=[0.,key_y+dy],size=[15,ysize],logx=True,logy=True)
-    area_dt.xlabel = '@~D@~x [km]'
-    area_dt.ylabel = '@~D@~t [a]'
-    area_dt.axis = 'WeSn'
+    styles = {'non-lin':'-','lin':':','ADI':'--'}
+    colours = ['red','green','blue','cyan','yellow','orange','magenta','pink']
 
-    area_rt = PyGMT.AutoXY(bigarea,pos=[0.,ysize+2*dy+key_y],size=[15,ysize],logx=True,logy=True)
-    area_rt.xlabel = '@~D@~x [km]'
-    area_rt.ylabel = 'run time [s]'
-    area_rt.axis = 'Wesn'
-    
-    s_keyarea = PyGMT.KeyArea(bigarea,pos=[0.,-0.8],size=[5,key_y])
-    s_keyarea.num=[1,7]
-
-    e_keyarea = PyGMT.KeyArea(bigarea,pos=[5.,-0.8],size=[10.,key_y])
-    e_keyarea.num=[2,7]
-
-    styles = {'non-lin':'','lin':'to','ADI':'ta'}
-    colours = ['255/0/0','0/255/0','0/0/255','0/255/255','255/0/255','255/255/0','127/0/0','0/127/0','0/0/127','0/127/127','127/0/127','127/127/0']
-
-    # plot data
     done_grid = {}
     i = 0
     for s in runs:
-        s_keyarea.plot_line(s,'3/0/0/0%s'%styles[s])
         for e in runs[s]:
             if e not in done_grid:
                 done_grid[e] = i
                 i = i + 1
-                e_keyarea.plot_line('test %s'%e,'3/%s'%(colours[done_grid[e]]))
+                title = e
+            else:
+                title = None
 
             dx = runs[s][e].keys()
             dx.sort()
@@ -95,16 +93,13 @@ if __name__ == '__main__':
                 dt.append(runs[s][e][x][1])
 
             # plot line
-            area_rt.line('-W3/%s%s'%(colours[done_grid[e]],styles[s]),dx,rt)
-            area_rt.plotsymbol(dx,rt,size=0.1,args='-W1/%s'%(colours[done_grid[e]]))
+            area_rt.semilogy(dx,rt,ls=styles[s],color=colours[done_grid[e]],label=title)
+            area_dt.plot(dx,dt,ls=styles[s],color=colours[done_grid[e]])
 
-            area_dt.line('-W3/%s%s'%(colours[done_grid[e]],styles[s]),dx,dt)
-            area_dt.plotsymbol(dx,dt,size=0.1,args='-W1/%s'%(colours[done_grid[e]]))            
+    area_rt.legend()
+
+    if options.output!=None:
+        pylab.savefig(options.output)
+    else:
+        pylab.show()
     
-    area_dt.finalise()
-    area_dt.coordsystem()
-
-    area_rt.finalise()
-    area_rt.coordsystem()    
-
-    plot.close()

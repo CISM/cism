@@ -1,3 +1,12 @@
+2009-10-13 Magnus Hagdorn
+ * tests/exact-isothermal/scripts/plot_diff.py: reimplemented using matplotlib
+   and numpy
+ * tests/exact-isothermal/scripts/plot_errors.py: ditto
+ * tests/exact-isothermal/scripts/plot_time.py: ditto
+ * tests/exact-isothermal/scripts/plot_vol.py: ditto
+ * tests/exact-isothermal/scripts/process_verif.py: ditto
+ * tests/exact-isothermal/tests/Makefile.am: call new visualisation programs
+
 2009-10-07 Magnus Hagdorn
  * libglint/Makefile.am: forgot to add module directory
  * m4macros/hdf5.m4: improved hdf5 detector, it's similar to the netcdf one
