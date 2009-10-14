@@ -408,7 +408,7 @@ class PrintNC_template(PrintVars):
     def print_var_read(self,var):
         """Write single variable block to stream for reading netCDF data."""
 
-        if 'load' in var and not is_dimvar(var):
+        if 'load' in var:
             if var['load'].lower() in ['1','true','t']:
                 dims = string.split(var['dimensions'],',')
                 dims.reverse()

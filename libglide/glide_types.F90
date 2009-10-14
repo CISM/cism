@@ -80,6 +80,10 @@ module glide_types
     type(coordsystem_type) :: ice_grid  !*FD coordinate system of the ice grid
     type(coordsystem_type) :: velo_grid !*FD coordinate system of the velocity grid
 
+    real(sp), dimension(:),pointer :: x0 => null() !original x0 grid 
+    real(sp), dimension(:),pointer :: y0 => null() !original y0 grid
+    real(sp), dimension(:),pointer :: x1 => null() !original x1 grid
+    real(sp), dimension(:),pointer :: y1 => null() !original y1 grid
   end type glide_general
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -635,6 +639,10 @@ contains
 
     ! Allocate appropriately
 
+    allocate(model%general%x0(ewn-1))!; model%general%x0 = 0.0
+    allocate(model%general%y0(nsn-1))!; model%general%y0 = 0.0
+    allocate(model%general%x1(ewn))!; model%general%x1 = 0.0
+    allocate(model%general%y1(nsn))!; model%general%y1 = 0.0
     allocate(model%temper%temp(upn,0:ewn+1,0:nsn+1)); model%temper%temp = 0.0
     call coordsystem_allocate(model%general%ice_grid, upn, model%temper%flwa)
     call coordsystem_allocate(model%general%ice_grid, model%temper%bheatflx)
@@ -721,6 +729,11 @@ contains
     !*FD deallocate model arrays
     implicit none
     type(glide_global_type),intent(inout) :: model
+
+    deallocate(model%general%x0) 
+    deallocate(model%general%y0) 
+    deallocate(model%general%x1) 
+    deallocate(model%general%y1) 
 
     deallocate(model%temper%temp)
     deallocate(model%temper%flwa)

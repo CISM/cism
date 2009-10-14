@@ -1,4 +1,12 @@
 2009-10-14 Magnus Hagdorn
+ * libglide/glide_nc_custom.F90: handle coordinate values
+ * libglide/glide_types.F90: add arrays for storing coordinate values
+ * libglide/glide_vars.def: improve CF standard compliance
+ * libglide/glimmer_ncio.F90: check if the number of vertical levels is as
+   expected, bump CF version number to 1.3
+ * scripts/generate_ncvars.py: load some dimension variables
+
+2009-10-14 Magnus Hagdorn
  * libglimmer/glimmer_paramets.F90: rename module
  * scripts/generate_ncvars.py, lots of .F90: rename module
 
