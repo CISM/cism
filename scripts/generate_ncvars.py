@@ -22,7 +22,7 @@
 
 import ConfigParser, sys, time, string,re, os.path
 
-NOATTRIB = ['name','dimensions','dimlen','data','factor','load','hot','type','average']
+NOATTRIB = ['name','dimensions','dimlen','data','factor','load','hot','type','average','coordinates']
 hotvars = []
 dimensions = {}
 module = {}
@@ -315,6 +315,9 @@ class PrintNC_template(PrintVars):
         if not is_dimvar(var):
             self.stream.write("%s    if (glimmap_allocated(model%%projection)) then\n"%(spaces*' '))
             self.stream.write("%s       status = nf90_put_att(NCO%%id, %s, 'grid_mapping',glimmer_nc_mapvarname)\n"%(spaces*' ',idstring))
+            attrib='coordinates'
+            if attrib in var:
+                self.stream.write("%s       status = nf90_put_att(NCO%%id, %s, '%s', '%s')\n"%(spaces*' ',idstring,attrib,var[attrib]))
             self.stream.write("%s    end if\n"%(spaces*' '))
             self.stream.write("%s  end if\n"%(spaces*' '))
         else:

@@ -2,7 +2,7 @@ lib_LTLIBRARIES = libglide.la
 bin_PROGRAMS  =  
 check_PROGRAMS = test_setup
 
-variable_DATA = glide_vars.def time_vars.def
+variable_DATA = glide_vars.def glide_lithot_vars.def time_vars.def
 variabledir = $(pkgdatadir)
 dist_variable_DATA = $(variable_DATA)
 
@@ -13,7 +13,7 @@ CLEANFILES = $(BUILT_SOURCES) f90_dep.mak
 
 libglide_la_SOURCES = glide.F90 glide_setup.F90 glide_types.F90 glide_temp.F90 \
                       glide_thck.F90 glide_velo.F90 glide_mask.F90 \
-                      glide_stop.F90 glide_io.F90 glide_nc_custom.F90 \
+                      glide_stop.F90 glide_io.F90 glide_lithot_io.F90 glide_nc_custom.F90 \
                       isostasy.F90 isostasy_el.F90 isostasy_setup.F90 \
                       isostasy_types.F90 glide_lithot.F90 glide_lithot3d.F90 \
                       glide_lithot1d.F90 glide_profile.F90 glimmer_routing.F90 \
@@ -30,7 +30,7 @@ AM_FCFLAGS = $(F90_MODFLAG)../libglimmer $(F90_MODFLAG)../libglimmer-solve
 #AM_CFLAGS=$(CFORTRAN_CFLAGS)
 
 #some special rules for automatically generating ncdf src code
-glide_io.F90:	glide_vars.def ../libglimmer/ncdf_template.F90.in
+%_io.F90:	%_vars.def ../libglimmer/ncdf_template.F90.in
 		$(PYTHON) $(top_srcdir)/scripts/generate_ncvars.py $^
 
 

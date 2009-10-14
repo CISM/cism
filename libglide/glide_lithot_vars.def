@@ -1,0 +1,29 @@
+#[]
+#dimensions:    time, level, y1, x1
+#units:         
+#long_name:     
+#data:          
+#factor:        
+
+# setup for code generator
+[VARSET]
+# prefix of the generated module
+name:     glide_lithot
+# f90 type containing all necessary data
+datatype: glide_global_type   
+# module where type is defined
+datamod:  glide_types     
+
+[lithoz]
+dimensions:    lithoz
+units:         meter
+long_name:     vertical coordinate of lithosphere layer
+dimlen:        model%lithot%nlayer
+
+[litho_temp]
+dimensions:    time, lithoz, y1, x1
+units:         degree_Celsius
+long_name:     lithosphere temperature
+data:          data%lithot%temp
+hot:           1
+coordinates:   lon lat

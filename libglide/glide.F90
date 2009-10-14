@@ -51,6 +51,7 @@ module glide
   use glide_stop
   use glide_nc_custom
   use glide_io
+  use glide_lithot_io
   use glide_lithot
   use glide_profile
   use glimmer_config
@@ -151,6 +152,11 @@ contains
     ! Write projection info to log
     call glimmap_printproj(model%projection)
 
+    ! read lithot if required
+    if (model%options%gthf.gt.0) then
+       call glide_lithot_io_readall(model,model)
+    end if
+
     ! handle relaxed/equilibrium topo
     ! Initialise isostasy first
     call init_isostasy(model)
@@ -171,6 +177,7 @@ contains
     call init_temp(model)
     call init_thck(model)
     if (model%options%gthf.gt.0) then
+       call glide_lithot_io_createall(model)
        call init_lithot(model)
     end if
 
@@ -305,7 +312,12 @@ contains
        nw=.false.
     end if
 
-    if (.not. nw) call glide_io_writeall(model,model)
+    if (.not. nw) then
+       call glide_io_writeall(model,model)
+       if (model%options%gthf.gt.0) then
+          call glide_lithot_io_writeall(model,model)
+       end if
+    end if
 
     ! ------------------------------------------------------------------------ 
     ! Calculate flow evolution by various different methods

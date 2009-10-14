@@ -57,6 +57,7 @@ contains
     use glimmer_log
     use glide_types
     use glide_io
+    use glide_lithot_io
     use profile
     implicit none
     type(glide_global_type) :: model        !*FD model instance
@@ -67,6 +68,9 @@ contains
     if (present(crash)) then
        if (crash) then
           call glide_io_writeall(model,model,.true.)
+          if (model%options%gthf.gt.0) then
+             call glide_lithot_io_writeall(model,model,.true.)
+          end if
        end if
     end if
 

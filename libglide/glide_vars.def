@@ -57,12 +57,6 @@ standard_name: land_ice_sigma_coordinate
 positive:      down
 dimlen:        model%general%upn
 
-[lithoz]
-dimensions:    lithoz
-units:         meter
-long_name:     vertical coordinate of lithosphere layer
-dimlen:        model%lithot%nlayer
-
 [lat]
 dimensions:    time, y1, x1
 units:         degreeN
@@ -332,7 +326,6 @@ units:         meter/year
 long_name:     vertical ice velocity
 data:          data%velocity%wvel(up,:,:)
 factor:        scale3d_f7
-standard_name: land_ice_z_velocity
 coordinates:   lon lat
 
 [wgrd]
@@ -358,13 +351,5 @@ units:         degree_Celsius
 long_name:     ice temperature
 data:          data%temper%temp(up,1:data%general%ewn,1:data%general%nsn)
 standard_name: land_ice_temperature
-hot:           1
-coordinates:   lon lat
-
-[litho_temp]
-dimensions:    time, lithoz, y1, x1
-units:         degree_Celsius
-long_name:     lithosphere temperature
-data:          data%lithot%temp
 hot:           1
 coordinates:   lon lat

@@ -185,7 +185,7 @@ contains
     NCO%define_mode=.TRUE.
 
     ! writing meta data
-    status = nf90_put_att(NCO%id, NF90_GLOBAL, 'Conventions', "CF-1.3")
+    status = nf90_put_att(NCO%id, NF90_GLOBAL, 'Conventions', "CF-1.4")
     call nc_errorhandle(__FILE__,__LINE__,status)
     status = nf90_put_att(NCO%id, NF90_GLOBAL,'title',trim(outfile%metadata%title))
     call nc_errorhandle(__FILE__,__LINE__,status)

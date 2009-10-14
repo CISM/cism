@@ -1,4 +1,16 @@
 2009-10-14 Magnus Hagdorn
+ * libglide/glide_lithot_vars.def: new variable definition file for lithot
+   variables
+ * libglide/Makefile.am: add new file
+ * libglide/glide.F90: optionally handle lithot I/O
+ * libglide/glide_stop.F90: ditto
+ * libglide/glide_vars.def: take out lithot variables, fix standard name of
+   of wvel variable
+ * libglide/glimmer_ncio.F90: bump convention to 1.4
+ * scripts/generate_ncvars.py: only output coordinate attribute if mapping
+   is available
+
+2009-10-14 Magnus Hagdorn
  * libglide/glide_nc_custom.F90: handle coordinate values
  * libglide/glide_types.F90: add arrays for storing coordinate values
  * libglide/glide_vars.def: improve CF standard compliance
