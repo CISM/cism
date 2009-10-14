@@ -46,7 +46,7 @@
 #endif
 
 !> model scaling constants
-module paramets
+module glimmer_paramets
 
   use glimmer_global, only : sp, dp
   use physcon, only : scyr
@@ -82,4 +82,4 @@ module paramets
 !MH!#undef RST_PARAMETS
 !MH!#endif
 
-end module paramets
+end module glimmer_paramets

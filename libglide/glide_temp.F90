@@ -81,7 +81,7 @@ contains
   subroutine init_temp(model)
     !*FD initialise temperature module
     use physcon, only : rhoi, shci, coni, scyr, grav, gn, lhci, rhow
-    use paramets, only : tim0, thk0, acc0, len0, vis0, vel0
+    use glimmer_paramets, only : tim0, thk0, acc0, len0, vis0, vel0
     use glimmer_global, only : dp 
     use glimmer_log
     implicit none
@@ -198,7 +198,7 @@ contains
 
     use glimmer_utils, only: hsum4,tridiag
     use glimmer_global, only : dp
-    use paramets,       only : thk0
+    use glimmer_paramets,       only : thk0
     use glide_velo
     use glide_thck
     use glide_mask
@@ -934,7 +934,7 @@ contains
   subroutine calcbwat(model,which,bmlt,bwat,thck,topg,btem,floater)
 
     use glimmer_global, only : dp 
-    use paramets, only : thk0
+    use glimmer_paramets, only : thk0
     use glide_thck
     implicit none
 
@@ -1191,7 +1191,7 @@ contains
 
     use glimmer_global, only : dp !, upn
     use physcon, only : rhoi, grav, pmlt 
-    use paramets, only : thk0
+    use glimmer_paramets, only : thk0
 
     implicit none 
 
@@ -1211,7 +1211,7 @@ contains
 
     use glimmer_global, only : dp
     use physcon, only : rhoi, grav, pmlt 
-    use paramets, only : thk0
+    use glimmer_paramets, only : thk0
 
     implicit none 
 

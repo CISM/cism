@@ -97,7 +97,7 @@ contains
 
   subroutine eis_init_slc(slc)
     !*FD initialise SLC forcing
-    use paramets, only: thk0
+    use glimmer_paramets, only: thk0
     implicit none
     type(eis_slc_type)           :: slc     !*FD slc data
     

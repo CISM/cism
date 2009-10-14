@@ -141,7 +141,7 @@ contains
   subroutine eis_init_ela(ela,model)
     !*FD initialise ELA forcing
     use glide_types
-    use paramets, only: thk0, acc0, scyr
+    use glimmer_paramets, only: thk0, acc0, scyr
     implicit none
     type(eis_ela_type)      :: ela   !*FD ela data
     type(glide_global_type) :: model !*FD model instance
@@ -167,7 +167,7 @@ contains
   subroutine eis_calc_ela(ela,model)
     !*FD calculate latitude dependence of ELA field
     use glide_types
-    use paramets, only: thk0
+    use glimmer_paramets, only: thk0
     implicit none
     type(eis_ela_type)      :: ela   !*FD ela data
     type(glide_global_type) :: model !*FD model instance

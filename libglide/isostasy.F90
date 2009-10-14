@@ -60,7 +60,7 @@ contains
     !*FD initialise isostasy calculations
     use glide_types
     use physcon,  only: scyr
-    use paramets, only: tim0
+    use glimmer_paramets, only: tim0
     implicit none
     type(glide_global_type) :: model
 

@@ -150,7 +150,7 @@ contains
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   subroutine init_rbel(rbel, a)
     !*FD initialise elastic lithosphere calculations
-    use paramets, only: len0
+    use glimmer_paramets, only: len0
     use physcon, only: rhom,grav
     use kelvin
     implicit none

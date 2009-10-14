@@ -69,7 +69,7 @@ contains
     use glide
     use glide_setup
     use glide_io
-    use paramets
+    use glimmer_paramets
     use glint_io
     use glint_mbal_io
     use glint_climate

@@ -458,7 +458,7 @@ class PrintNC_template(PrintVars):
             # get
             self.stream.write("  subroutine %s_get_%s(data,outarray)\n"%(module['name'],var['name']))
             self.stream.write("    use glimmer_scales\n")
-            self.stream.write("    use paramets\n")
+            self.stream.write("    use glimmer_paramets\n")
             self.stream.write("    use %s\n"%module['datamod'])
             self.stream.write("    implicit none\n")
             self.stream.write("    type(%s) :: data\n"%module['datatype'])
@@ -477,7 +477,7 @@ class PrintNC_template(PrintVars):
             if len(var['data'].split('data'))<3:
                 self.stream.write("  subroutine %s_set_%s(data,inarray)\n"%(module['name'],var['name']))
                 self.stream.write("    use glimmer_scales\n")
-                self.stream.write("    use paramets\n")
+                self.stream.write("    use glimmer_paramets\n")
                 self.stream.write("    use %s\n"%module['datamod'])
                 self.stream.write("    implicit none\n")
                 self.stream.write("    type(%s) :: data\n"%module['datatype'])

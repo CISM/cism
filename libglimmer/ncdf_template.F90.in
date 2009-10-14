@@ -170,7 +170,7 @@ contains
   subroutine NAME_io_write(outfile,data)
     use DATAMOD
     use glimmer_ncdf
-    use paramets
+    use glimmer_paramets
     use glimmer_scales
     implicit none
     type(glimmer_nc_output), pointer :: outfile
@@ -223,7 +223,7 @@ contains
     use glimmer_log
     use glimmer_ncdf
     use DATAMOD
-    use paramets
+    use glimmer_paramets
     use glimmer_scales
     implicit none
     type(glimmer_nc_input), pointer :: infile

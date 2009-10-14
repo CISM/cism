@@ -1,3 +1,7 @@
+2009-10-14 Magnus Hagdorn
+ * libglimmer/glimmer_paramets.F90: rename module
+ * scripts/generate_ncvars.py, lots of .F90: rename module
+
 2009-10-13 Magnus Hagdorn
  * tests/exact-isothermal/scripts/plot_diff.py: reimplemented using matplotlib
    and numpy

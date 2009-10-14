@@ -53,7 +53,7 @@ contains
   subroutine init_lithot(model)
     use glide_types
     use glide_setup
-    use paramets, only: tim0
+    use glimmer_paramets, only: tim0
     use glimmer_log
     use glide_lithot1d
     use glide_lithot3d

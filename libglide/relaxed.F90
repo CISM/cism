@@ -57,7 +57,7 @@ program relaxed
   use glimmer_setup
   use glimmer_cfproj
   use netcdf
-  use paramets, only: len0
+  use glimmer_paramets, only: len0
   implicit none
 
   ! File-handling stuff

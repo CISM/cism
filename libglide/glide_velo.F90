@@ -53,7 +53,7 @@ module glide_velo
   use glide_types
   use glimmer_global, only : dp
   use physcon, only : rhoi, grav, gn
-  use paramets, only : thk0, len0, vis0, vel0, acc0
+  use glimmer_paramets, only : thk0, len0, vis0, vel0, acc0
 
   private vertintg, patebudd
 

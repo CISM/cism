@@ -56,7 +56,7 @@ contains
   subroutine init_lithot3d(model)
     use glide_types
     use glide_setup
-    use paramets, only: len0,tim0
+    use glimmer_paramets, only: len0,tim0
     implicit none
     type(glide_global_type),intent(inout) :: model       !*FD model instance
 

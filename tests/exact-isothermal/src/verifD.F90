@@ -76,7 +76,7 @@ contains
     !*FD initialise test case D
     use glide_types
     use physcon
-    use paramets
+    use glimmer_paramets
     use glimmer_log
     implicit none
     
@@ -146,7 +146,7 @@ contains
   subroutine verifD_update(model, veri, time, exact_h, mb)
     !*FD calculate exact ice thickness and mass balance
     use glide_types
-    use paramets, only: scyr, len0
+    use glimmer_paramets, only: scyr, len0
     implicit none
     type(glide_global_type)   :: model !*FD model instance
     type(verifD_type)        :: veri  !*FD structure holding test setup

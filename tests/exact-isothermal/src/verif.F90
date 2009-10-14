@@ -90,7 +90,7 @@ contains
   subroutine verif_initthk(model, veri)
     !*FD calculate exact ice thickness and mass balance
     use glide_types
-    use paramets, only : thk0
+    use glimmer_paramets, only : thk0
     implicit none
     type(glide_global_type)   :: model !*FD model instance
     type(verif_type)          :: veri  !*FD structure holding test setup

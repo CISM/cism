@@ -107,7 +107,7 @@ contains
   subroutine eis_init_cony(cony,model)
     !*FD initialise cony forcing
     use glide_types
-    use paramets, only: len0
+    use glimmer_paramets, only: len0
     implicit none
     type(eis_cony_type)     :: cony  !*FD cony data
     type(glide_global_type) :: model !*FD model instance

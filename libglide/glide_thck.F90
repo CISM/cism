@@ -765,7 +765,7 @@ contains
     !*FD the temperature solver only.
 
     use glimmer_global, only : dp, sp
-    use paramets, only : conv
+    use glimmer_paramets, only : conv
 
     implicit none 
 

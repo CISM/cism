@@ -76,7 +76,7 @@ contains
   subroutine glide_nc_filldvars(outfile,model)
     use glide_types
     use glimmer_ncdf
-    use paramets, only : len0
+    use glimmer_paramets, only : len0
     implicit none
     type(glimmer_nc_output), pointer :: outfile
     type(glide_global_type) :: model

@@ -67,7 +67,7 @@ contains
     use glide_setup
     use glimmer_log
     use physcon, only: rhoi,rhow
-    use paramets, only: thk0
+    use glimmer_paramets, only: thk0
 
     implicit none
 

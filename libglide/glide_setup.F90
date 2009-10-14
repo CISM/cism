@@ -114,7 +114,7 @@ contains
     !*FD scale parameters
     use glide_types
     use physcon,  only: scyr, gn
-    use paramets, only: thk0,tim0,len0, tau0, vel0, vis0, acc0
+    use glimmer_paramets, only: thk0,tim0,len0, tau0, vel0, vis0, acc0
     implicit none
     type(glide_global_type)  :: model !*FD model instance
 

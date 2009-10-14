@@ -792,7 +792,7 @@ contains
   ! some accessor functions
   function get_dew(model)
     !*FD return scaled x node spacing
-    use paramets, only : len0
+    use glimmer_paramets, only : len0
     implicit none
     real(dp) :: get_dew
     type(glide_global_type) :: model
@@ -802,7 +802,7 @@ contains
 
   function get_dns(model)
     !*FD return scaled y node spacing
-    use paramets, only : len0
+    use glimmer_paramets, only : len0
     implicit none
     real(dp) :: get_dns
     type(glide_global_type) :: model
