@@ -1,3 +1,9 @@
+2009-10-15 Magnus Hagdorn
+ * example-drivers/EISMINT-3/EISMINT-3/EISMINT3GL.input.nc: make CF compliant
+ * example-drivers/eis/fenscan/europe.20km.nc: ditto
+ * tests/EISMINT/EISMINT-2/mound.nc: ditto
+ * tests/EISMINT/EISMINT-2/trough.nc: ditto
+
 2009-10-14 Magnus Hagdorn
  * libglide/glide_lithot_vars.def: new variable definition file for lithot
    variables
