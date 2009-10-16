@@ -1,4 +1,9 @@
 2009-10-16 Magnus Hagdorn
+ * libglimmer/unittest_glimmer_deriv.F90: fix indentation
+ * libglimmer/glimmer_deriv.F90: ditto
+ * libglimmer/xls.F90: ditto
+
+2009-10-16 Magnus Hagdorn
  * libglimmer/unittest_glimmer_deriv.F90: copied from lanl branch, renamed 
    name space
  * libglimmer/glimmer_deriv.F90: ditto
