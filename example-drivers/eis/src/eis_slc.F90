@@ -83,10 +83,11 @@ contains
   subroutine eis_slc_printconfig(slc)
     !*FD print configuration to log
     use glimmer_log
+    use glimmer_global, only : msg_length
     implicit none
     type(eis_slc_type)           :: slc     !*FD slc data
     ! local variables
-    character(len=100) :: message
+    character(len=msg_length) :: message
 
     call write_log('EIS SLC')
     call write_log('-------')

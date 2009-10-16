@@ -52,7 +52,6 @@ module glimmer_ncio
   !*FD written by Magnus Hagdorn, 2004
 
   use glimmer_ncdf
-  integer,parameter,private :: msglen=200
   
 contains
   !*****************************************************************************
@@ -124,7 +123,7 @@ contains
     ! local variables
     integer :: status,timedimid,ntime,timeid
     real(sp),dimension(1) :: last_time
-    character(len=msglen) :: message
+    character(len=msg_length) :: message
 
     ! open existing netCDF file
     status = nf90_open(process_path(NCO%filename),NF90_WRITE,NCO%id)
@@ -168,7 +167,7 @@ contains
     ! local variables
     integer status
     integer mapid
-    character(len=msglen) message
+    character(len=msg_length) message
 
     ! create new netCDF file
     status = nf90_create(process_path(NCO%filename),NF90_CLOBBER,NCO%id)
@@ -236,7 +235,7 @@ contains
     logical forcewrite
     real(sp),optional :: time
 
-    character(len=msglen) :: message
+    character(len=msg_length) :: message
     integer status
     real(sp) :: sub_time
 
@@ -335,7 +334,7 @@ contains
     integer dimsize, dimid, varid
     real, dimension(2) :: delta
     integer status    
-    character(len=msglen) message
+    character(len=msg_length) message
     
     real,parameter :: small = 1.e-6
 
@@ -444,7 +443,7 @@ contains
     real(sp),optional :: time
     !*FD Optional alternative time
 
-    character(len=msglen) :: message
+    character(len=msg_length) :: message
     real(sp) :: sub_time
 
     if (present(time)) then

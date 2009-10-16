@@ -96,10 +96,11 @@ contains
   subroutine eis_temp_printconfig(temp)
     !*FD print configuration to log
     use glimmer_log
+    use glimmer_global, only : msg_length
     implicit none
     type(eis_temp_type)      :: temp   !*FD temperature data
     ! local variables
-    character(len=100) :: message
+    character(len=msg_length) :: message
     call write_log('EIS Temperature')
     call write_log('---------------')
     write(message,*) 'temperature file  : ',trim(temp%fname)

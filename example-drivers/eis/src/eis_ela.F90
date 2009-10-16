@@ -109,10 +109,11 @@ contains
   subroutine eis_ela_printconfig(ela)
     !*FD print configuration to log
     use glimmer_log
+    use glimmer_global, only : msg_length
     implicit none
     type(eis_ela_type)      :: ela   !*FD ela data
     ! local variables
-    character(len=100) :: message
+    character(len=msg_length) :: message
     call write_log('EIS ELA')
     call write_log('-------')
     write(message,*) 'ELA file     : ',trim(ela%fname)

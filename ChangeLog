@@ -1,4 +1,11 @@
 2009-10-16 Magnus Hagdorn
+ * example-drivers/eis/src/eis_ela.F90: use parameter for internal message
+   buffer size
+ * example-drivers/eis/src/eis_slc.F90: ditto
+ * example-drivers/eis/src/eis_temp.F90: ditto
+ * libglide/glimmer_ncio.F90: ditto
+
+2009-10-16 Magnus Hagdorn
  * libglide/glide.F90: use derivative module
  * libglide/glide_thck.F90: ditto, remove old code
 
