@@ -1,14 +1,60 @@
+! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! +                                                           +
+! +  glimmer_deriv.f90 - part of the Glimmer-CISM ice model   + 
+! +                                                           +
+! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! 
+! Copyright (C) 2004-9 Glimmer-CISM contributors - see COPYRIGHT file 
+! for list of contributors.
+!
+! This program is free software; you can redistribute it and/or 
+! modify it under the terms of the GNU General Public License as 
+! published by the Free Software Foundation; either version 2 of 
+! the License, or (at your option) any later version.
+!
+! This program is distributed in the hope that it will be useful, 
+! but WITHOUT ANY WARRANTY; without even the implied warranty of 
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+! GNU General Public License for more details.
+!
+! You should have received a copy of the GNU General Public License 
+! along with this program; if not, write to the Free Software 
+! Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 
+! 02111-1307 USA
+!
+! The Glimmer-CISM maintainer is:
+!
+! Ian Rutt
+! School of the Environment and Society
+! Swansea University
+! Singleton Park
+! Swansea
+! SA2 8PP
+! UK
+!
+! email: <i.c.rutt@swansea.ac.uk> or <ian.rutt@physics.org>
+!
+! Glimmer-CISM is hosted on berliOS.de:
+!
+! https://developer.berlios.de/projects/glimmer-cism/
+!
+! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 #ifdef HAVE_CONFIG_H
 #include "config.inc"
 #endif
 
-!*FD This module contains functions for computing derivatives numerically, both
-!*FD for a single value and for an entire field.
-!*FD Note that this module is written with the first index in a matrix corresponding
-!*FD to the x (east-west) coordinate.  If this is not the case (i.e. if the first
-!*FD index corresponds to the y (north-south) coordinate), then transposition
-!*FD will be necessary.  Simply ask for the y-derivative when you mean to ask for
-!*FD the x-derivative, and vice versa.
+!> This module contains functions for computing derivatives numerically, both
+!! for a single value and for an entire field.
+!!
+!! \author Tim Bocek
+!! \date 2008-10-15
+!!
+!! Note that this module is written with the first index in a matrix corresponding
+!! to the x (east-west) coordinate.  If this is not the case (i.e. if the first
+!! index corresponds to the y (north-south) coordinate), then transposition
+!! will be necessary.  Simply ask for the y-derivative when you mean to ask for
+!! the x-derivative, and vice versa.
 module glimmer_deriv
 
   use glimmer_global, only: sp, dp
@@ -17,25 +63,27 @@ module glimmer_deriv
   !------------------------------------------------------------------
 contains
 
-  !*FD Computes derivative with respect to x at a given point.
-  !*FD Applies periodic boundary conditions if needed.
+  !> Computes derivative with respect to x at a given point.
+  !! Applies periodic boundary conditions if needed.
   function dfdx_2d(f, i, j, delta)
     implicit none
-    real(dp), dimension(:,:), intent(in) :: f
-    integer, intent(in) :: i,j
-    real(dp), intent(in) :: delta
+    real(dp), dimension(:,:), intent(in) :: f !< field to be derived
+    integer, intent(in) :: i                  !< first index at which derivative is taken
+    integer, intent(in) :: j                  !< second index at which derivative is taken
+    real(dp), intent(in) :: delta             !< grid spacing in x-direction
     real(dp) :: dfdx_2d
 
     dfdx_2d = (-.5/delta)*f(i-1, j) + (.5/delta)*f(i+1, j)
     !write(*,*), i, j, f(i,j), ip1, im1, delta, dfdx_2d
   end function dfdx_2d
 
-  !*FD Computes derivative with respect to y at a given point
+  !> Computes derivative with respect to y at a given point
   function dfdy_2d(f, i, j, delta)
     implicit none
-    real(dp), dimension(:,:), intent(in) :: f
-    integer, intent(in) :: i,j
-    real(dp), intent(in) :: delta
+    real(dp), dimension(:,:), intent(in) :: f !< field to be derived
+    integer, intent(in) :: i                  !< first index at which derivative is taken
+    integer, intent(in) :: j                  !< second index at which derivative is taken
+    real(dp), intent(in) :: delta             !< grid spacing in y-direction
     real(dp) :: dfdy_2d
 
     integer :: jp1, jm1
@@ -47,79 +95,88 @@ contains
     dfdy_2d = (-.5/delta)*f(i, j-1) + (.5/delta)*f(i, j+1)
   end function dfdy_2d
 
-  !*FD Computes derivative with respect to x at the equivalent
-  !*FD point on a staggered grid.
+  !> Computes derivative with respect to x at the equivalent
+  !! point on a staggered grid.
   function dfdx_2d_stag(f, i, j, delta)
     implicit none
-    real(dp), dimension(:,:), intent(in) :: f
-    integer, intent(in) :: i,j
-    real(dp), intent(in) :: delta
+    real(dp), dimension(:,:), intent(in) :: f !< field to be derived
+    integer, intent(in) :: i                  !< first index at which derivative is taken
+    integer, intent(in) :: j                  !< second index at which derivative is taken
+    real(dp), intent(in) :: delta             !< grid spacing in x-direction
     real(dp) :: dfdx_2d_stag
     dfdx_2d_stag = (f(i+1, j) + f(i+1, j+1) - f(i, j) - f(i, j+1))/(2*delta) 
   end function dfdx_2d_stag
 
-  !*FD Computes derivative with respect to y at the equivalent
-  !*FD point on a staggered grid.
+  !> Computes derivative with respect to y at the equivalent
+  !! point on a staggered grid.
   function dfdy_2d_stag(f, i, j, delta)
     implicit none
-    real(dp), dimension(:,:), intent(in) :: f
-    integer, intent(in) :: i,j
-    real(dp), intent(in) :: delta
+    real(dp), dimension(:,:), intent(in) :: f !< field to be derived
+    integer, intent(in) :: i                  !< first index at which derivative is taken
+    integer, intent(in) :: j                  !< second index at which derivative is taken
+    real(dp), intent(in) :: delta             !< grid spacing in y-direction
     real(dp) :: dfdy_2d_stag
     dfdy_2d_stag = (f(i, j+1) + f(i+1, j+1) - f(i,j) - f(i+1, j))/(2*delta)
   end function dfdy_2d_stag
 
-  !*FD Computes derivative with respect to x at the given point
-  !*FD using an upwind method (suitable for maximum boundaries)
+  !> Computes derivative with respect to x at the given point
+  !! using an upwind method (suitable for maximum boundaries)
   function dfdx_2d_upwind(f, i, j, delta)
     implicit none
-    real(dp), dimension(:,:), intent(in) :: f
-    integer, intent(in) :: i,j
-    real(dp), intent(in) :: delta
+    real(dp), dimension(:,:), intent(in) :: f !< field to be derived
+    integer, intent(in) :: i                  !< first index at which derivative is taken
+    integer, intent(in) :: j                  !< second index at which derivative is taken
+    real(dp), intent(in) :: delta             !< grid spacing in x-direction
     real(dp) :: dfdx_2d_upwind
     dfdx_2d_upwind = (.5 * f(i-2,j) - 2 * f(i-1, j) + 1.5 * f(i, j))/delta
   end function dfdx_2d_upwind
 
-  !*FD Computes derivative with respect to y at the given point
-  !*FD using an upwind method (suitable for maximum boundaries)
+  !> Computes derivative with respect to y at the given point
+  !! using an upwind method (suitable for maximum boundaries)
   function dfdy_2d_upwind(f, i, j, delta)
     implicit none
-    real(dp), dimension(:,:), intent(in) :: f
-    integer, intent(in) :: i,j
-    real(dp), intent(in) :: delta
+    real(dp), dimension(:,:), intent(in) :: f !< field to be derived
+    integer, intent(in) :: i                  !< first index at which derivative is taken
+    integer, intent(in) :: j                  !< second index at which derivative is taken
+    real(dp), intent(in) :: delta             !< grid spacing in y-direction
     real(dp) :: dfdy_2d_upwind
     dfdy_2d_upwind = (.5 * f(i,j-2) - 2 * f(i, j-1) + 1.5 * f(i, j))/delta
   end function dfdy_2d_upwind
 
-  !*FD Computes derivative with respect to x at the given point
-  !*FD using a downwind method (suitable for minimum boundaries)
+  !> Computes derivative with respect to x at the given point
+  !! using a downwind method (suitable for minimum boundaries)
   function dfdx_2d_downwind(f, i, j, delta)
     implicit none
-    real(dp), dimension(:,:), intent(in) :: f
-    integer, intent(in) :: i,j
-    real(dp), intent(in) :: delta
+    real(dp), dimension(:,:), intent(in) :: f !< field to be derived
+    integer, intent(in) :: i                  !< first index at which derivative is taken
+    integer, intent(in) :: j                  !< second index at which derivative is taken
+    real(dp), intent(in) :: delta             !< grid spacing in x-direction
     real(dp) :: dfdx_2d_downwind
     dfdx_2d_downwind = (-1.5 * f(i, j) + 2 * f(i+1, j) - .5 * f(i+2, j))/delta
   end function dfdx_2d_downwind
 
-  !*FD Computes derivative with respect to y at the given point
-  !*FD using a downwind method (suitable for minimum boundaries)
+  !> Computes derivative with respect to y at the given point
+  !! using a downwind method (suitable for minimum boundaries)
   function dfdy_2d_downwind(f, i, j, delta)
     implicit none
-    real(dp), dimension(:,:), intent(in) :: f
-    integer, intent(in) :: i,j
-    real(dp), intent(in) :: delta
+    real(dp), dimension(:,:), intent(in) :: f !< field to be derived
+    integer, intent(in) :: i                  !< first index at which derivative is taken
+    integer, intent(in) :: j                  !< second index at which derivative is taken
+    real(dp), intent(in) :: delta             !< grid spacing in y-direction
     real(dp) :: dfdy_2d_downwind
     dfdy_2d_downwind = (-1.5 * f(i, j) + 2 * f(i, j+1) - .5 * f(i, j+2))/delta
   end function dfdy_2d_downwind
 
-  !*FD Computes derivative fields of the given function.
+  !> Computes derivative fields of the given function.
   subroutine df_field_2d(f, deltax, deltay, out_dfdx, out_dfdy, periodic_x, periodic_y, direction_x, direction_y)
     implicit none
-    real(dp), dimension(:, :), intent(in) :: f
-    real(dp), intent(in) :: deltax, deltay
-    real(dp), dimension(:, :), intent(out) :: out_dfdx, out_dfdy
-    real(dp), dimension(:, :), intent(in), optional  :: direction_x, direction_y
+    real(dp), dimension(:, :), intent(in) :: f                      !< field to be derived
+    real(dp), intent(in) :: deltax                                  !< grid spacing in x direction
+    real(dp), intent(in) :: deltay                                  !< grid spacing in y direction
+    real(dp), dimension(:, :), intent(out) :: out_dfdx              !< derivatives in x direction
+    real(dp), dimension(:, :), intent(out) :: out_dfdy              !< derivatives in y direction
+    real(dp), dimension(:, :), intent(in), optional  :: direction_x !< x-direction used for upwind derivatives
+    real(dp), dimension(:, :), intent(in), optional  :: direction_y !< y-direction used for upwind derivatives
 
     logical :: upwind !Whether or not directions for upwinding were provided
 
@@ -134,6 +191,8 @@ contains
     ny = size(f, 2)
 
     upwind = present(direction_x) .and. present(direction_y)
+
+    !! \todo refactor this, put the if (upwind) test outside the loop
 
     !For now, we'll use the function calls defined above.
     !Later on we might want to refactor?
@@ -179,16 +238,20 @@ contains
 
   end subroutine df_field_2d
 
-  !*FD Computes derivative fields of the given function.  Places the result
-  !*FD on a staggered grid.  If periodic in one dimension is set, that 
-  !*FD dimension for derivatives must be the same size as the value's dimension.
-  !*FD Otherwise, it should be one less
+  !> Computes derivative fields of the given function.  Places the result
+  !! on a staggered grid.  If periodic in one dimension is set, that 
+  !! dimension for derivatives must be the same size as the value's dimension.
+  !! Otherwise, it should be one less
+  !! \todo enable periodic boundary conditions
   subroutine df_field_2d_staggered(f, deltax, deltay, out_dfdx, out_dfdy, periodic_x, periodic_y)
     implicit none
-    real(dp), dimension(:, :), intent(in) :: f
-    real(dp), intent(in) :: deltax, deltay
-    real(dp), dimension(:, :), intent(out) :: out_dfdx, out_dfdy
-    logical :: periodic_x, periodic_y
+    real(dp), dimension(:, :), intent(in) :: f                      !< field to be derived
+    real(dp), intent(in) :: deltax                                  !< grid spacing in x direction
+    real(dp), intent(in) :: deltay                                  !< grid spacing in y direction
+    real(dp), dimension(:, :), intent(out) :: out_dfdx              !< derivatives in x direction
+    real(dp), dimension(:, :), intent(out) :: out_dfdy              !< derivatives in y direction
+    logical :: periodic_x                                           !< flag for periodic BC in x
+    logical :: periodic_y                                           !< flag for periodic BC in y
 
     integer :: nx, ny, x, y
 
@@ -235,50 +298,58 @@ contains
   !First Derivative Estimates, Second Order, 3D
   !------------------------------------------------------------------
 
-  !*FD Computes derivative with respect to x at a given point
+  !> Computes derivative with respect to x at a given point
   function dfdx_3d(f, i, j, k, delta)
     implicit none
-    real(dp), dimension(:,:,:), intent(in) :: f
-    integer, intent(in) :: i,j,k
-    real(dp), intent(in) :: delta
+    real(dp), dimension(:,:,:), intent(in) :: f !< field to be derived
+    integer, intent(in) :: i                    !< first index at which derivative is taken
+    integer, intent(in) :: j                    !< second index at which derivative is taken
+    integer, intent(in) :: k                    !< third index at which derivative is taken
+    real(dp), intent(in) :: delta               !< grid spacing in x-direction
     real(dp) :: dfdx_3d
     dfdx_3d = (-.5/delta)*f(k, i-1, j)  + (.5/delta)*f(k, i+1, j)
   end function dfdx_3d
 
-  !*FD Computes derivative with respect to y at a given point
+  !> Computes derivative with respect to y at a given point
   function dfdy_3d(f, i, j, k, delta)
     implicit none
-    real(dp), dimension(:,:,:), intent(in) :: f
-    integer, intent(in) :: i,j,k
-    real(dp), intent(in) :: delta
+    real(dp), dimension(:,:,:), intent(in) :: f !< field to be derived
+    integer, intent(in) :: i                    !< first index at which derivative is taken
+    integer, intent(in) :: j                    !< second index at which derivative is taken
+    integer, intent(in) :: k                    !< third index at which derivative is taken
+    real(dp), intent(in) :: delta               !< grid spacing in y-direction
     real(dp) :: dfdy_3d
     dfdy_3d = (-.5/delta)*f(k, i, j-1) + (.5/delta)*f(k, i, j+1)
   end function dfdy_3d
 
 
 
-  !*FD Computes derivative with respect to z at a given point
-  !*FD where the Z axis uses an irregular grid defined by \ittext{deltas}.
-  !*FD This derivative is given by the formula:
-  function dfdz_3d_irregular(f, i, j, k, dz)
+  !> Computes derivative with respect to z at a given point
+  !! where the Z axis uses an irregular grid defined by deltas.
+  !! This derivative is given by the formula:
+  function dfdz_3d_irregular(f, i, j, k, deltas)
     implicit none
-    real(dp), dimension(:,:,:), intent(in) :: f
-    integer, intent(in) :: i,j,k
-    real(dp), dimension(:), intent(in) :: dz
+    real(dp), dimension(:,:,:), intent(in) :: f  !< field to be derived
+    integer, intent(in) :: i                     !< first index at which derivative is taken
+    integer, intent(in) :: j                     !< second index at which derivative is taken
+    integer, intent(in) :: k                     !< third index at which derivative is taken
+    real(dp), dimension(:), intent(in) :: deltas !< vertical sigma levels
     real(dp) :: dfdz_3d_irregular
 
-    dfdz_3d_irregular = f(k-1,i,j)*(dz(k) - dz(k+1))/((dz(k) - dz(k-1))*(dz(k+1)-dz(k-1))) + &
-         f(k,  i,j)*(dz(k+1)-2*dz(k)+dz(k-1))/((dz(k)-dz(k-1))*(dz(k+1)-dz(k))) + &
-         f(k+1,i,j)*(dz(k)-dz(k-1))/((dz(k+1)-dz(k))*(dz(K+1)-dz(k-1)))
+    dfdz_3d_irregular = f(k-1,i,j)*(deltas(k) - deltas(k+1))/((deltas(k) - deltas(k-1))*(deltas(k+1)-deltas(k-1))) + &
+         f(k,  i,j)*(deltas(k+1)-2*deltas(k)+deltas(k-1))/((deltas(k)-deltas(k-1))*(deltas(k+1)-deltas(k))) + &
+         f(k+1,i,j)*(deltas(k)-deltas(k-1))/((deltas(k+1)-deltas(k))*(deltas(K+1)-deltas(k-1)))
   end function dfdz_3d_irregular
 
-  !*FD Computes derivative with respect to z at a given point using an upwinding
-  !*FD scheme.  The Z axis uses an irregular grid defined by \iittext{deltas}.
+  !> Computes derivative with respect to z at a given point using an upwinding
+  !! scheme.  The Z axis uses an irregular grid defined by deltas.
   function dfdz_3d_upwind_irregular(f, i, j, k, deltas)
     implicit none
-    real(dp), dimension(:,:,:), intent(in) :: f
-    integer, intent(in) :: i,j,k
-    real(dp), dimension(:), intent(in) :: deltas
+    real(dp), dimension(:,:,:), intent(in) :: f  !< field to be derived
+    integer, intent(in) :: i                     !< first index at which derivative is taken
+    integer, intent(in) :: j                     !< second index at which derivative is taken
+    integer, intent(in) :: k                     !< third index at which derivative is taken
+    real(dp), dimension(:), intent(in) :: deltas !< vertical sigma levels
     real(dp) :: dfdz_3d_upwind_irregular
     real(dp) :: zkMinusZkm1, zkMinusZkm2, zkm1MinusZkm2
     zkMinusZkm1 = deltas(k) - deltas(k-1)
@@ -290,13 +361,15 @@ contains
          f(k,   i, j) * (2*deltas(k) - deltas(k-1) - deltas(k-2)) / (zkMinusZkm1 * zkMinusZkm2)
   end function dfdz_3d_upwind_irregular
 
-  !*FD Computes derivative with respect to z at a given point using a downwinding
-  !*FD scheme.  The Z axis uses an irregular grid defined by \iittext{deltas}.
+  !> Computes derivative with respect to z at a given point using a downwinding
+  !! scheme.  The Z axis uses an irregular grid defined by \iittext{deltas}.
   function dfdz_3d_downwind_irregular(f, i, j, k, deltas)
     implicit none
-    real(dp), dimension(:,:,:), intent(in) :: f
-    integer, intent(in) :: i,j,k
-    real(dp), dimension(:), intent(in) :: deltas
+    real(dp), dimension(:,:,:), intent(in) :: f  !< field to be derived
+    integer, intent(in) :: i                     !< first index at which derivative is taken
+    integer, intent(in) :: j                     !< second index at which derivative is taken
+    integer, intent(in) :: k                     !< third index at which derivative is taken
+    real(dp), dimension(:), intent(in) :: deltas !< vertical sigma levels
     real(dp) :: dfdz_3d_downwind_irregular
     real(dp) :: zkp1MinusZk, zkp2MinusZk, zkp2MinusZkp1
     zkp1MinusZk = deltas(k+1) - deltas(k)
@@ -308,88 +381,105 @@ contains
          f(k+2, i, j) * zkp1MinusZk / (zkp2MinusZkp1 * zkp2MinusZk)
   end function dfdz_3d_downwind_irregular
 
-  !*FD Computes derivative with respect to x at the equivalent
-  !*FD point on a staggered grid.
+  !> Computes derivative with respect to x at the equivalent
+  !! point on a staggered grid.
   function dfdx_3d_stag(f, i, j, k, delta)
     implicit none
-    real(dp), dimension(:,:,:), intent(in) :: f
-    integer, intent(in) :: i,j,k
-    real(dp), intent(in) :: delta
+    real(dp), dimension(:,:,:), intent(in) :: f !< field to be derived
+    integer, intent(in) :: i                    !< first index at which derivative is taken
+    integer, intent(in) :: j                    !< second index at which derivative is taken
+    integer, intent(in) :: k                    !< third index at which derivative is taken
+    real(dp), intent(in) :: delta               !< grid spacing in x-direction
     real(dp) :: dfdx_3d_stag
     dfdx_3d_stag = (f(k, i+1, j) + f(k, i+1, j+1) - f(k, i, j) - f(k, i, j+1))/(2*delta) 
   end function dfdx_3d_stag
 
-  !*FD Computes derivative with respect to y at the equivalent
-  !*FD point on a staggered grid.
+  !> Computes derivative with respect to y at the equivalent
+  !! point on a staggered grid.
   function dfdy_3d_stag(f, i, j, k, delta)
     implicit none
-    real(dp), dimension(:,:,:), intent(in) :: f
-    integer, intent(in) :: i,j,k
-    real(dp), intent(in) :: delta
+    real(dp), dimension(:,:,:), intent(in) :: f !< field to be derived
+    integer, intent(in) :: i                    !< first index at which derivative is taken
+    integer, intent(in) :: j                    !< second index at which derivative is taken
+    integer, intent(in) :: k                    !< third index at which derivative is taken
+    real(dp), intent(in) :: delta               !< grid spacing in y-direction
     real(dp) :: dfdy_3d_stag
     dfdy_3d_stag = (f(k, i, j+1) + f(k, i+1, j+1) - f(k, i, j) - f(k, i+1, j))/(2*delta)
   end function dfdy_3d_stag
 
-  !*FD Computes derivative with respect to x at the given point
-  !*FD using an upwind method (suitable for maximum boundaries)
+  !> Computes derivative with respect to x at the given point
+  !! using an upwind method (suitable for maximum boundaries)
   function dfdx_3d_upwind(f, i, j, k, delta)
     implicit none
-    real(dp), dimension(:,:,:), intent(in) :: f
-    integer, intent(in) :: i,j,k
-    real(dp), intent(in) :: delta
+    real(dp), dimension(:,:,:), intent(in) :: f !< field to be derived
+    integer, intent(in) :: i                    !< first index at which derivative is taken
+    integer, intent(in) :: j                    !< second index at which derivative is taken
+    integer, intent(in) :: k                    !< third index at which derivative is taken
+    real(dp), intent(in) :: delta               !< grid spacing in x-direction
     real(dp) :: dfdx_3d_upwind
     dfdx_3d_upwind = (.5 * f(k, i-2, j) - 2 * f(k, i-1, j) + 1.5 * f(k, i, j))/delta
   end function dfdx_3d_upwind
 
-  !*FD Computes derivative with respect to y at the given point
-  !*FD using an upwind method (suitable for maximum boundaries)
+  !> Computes derivative with respect to y at the given point
+  !! using an upwind method (suitable for maximum boundaries)
   function dfdy_3d_upwind(f, i, j, k, delta)
     implicit none
-    real(dp), dimension(:,:,:), intent(in) :: f
-    integer, intent(in) :: i,j,k
-    real(dp), intent(in) :: delta
+    real(dp), dimension(:,:,:), intent(in) :: f !< field to be derived
+    integer, intent(in) :: i                    !< first index at which derivative is taken
+    integer, intent(in) :: j                    !< second index at which derivative is taken
+    integer, intent(in) :: k                    !< third index at which derivative is taken
+    real(dp), intent(in) :: delta               !< grid spacing in y-direction
     real(dp) :: dfdy_3d_upwind
     dfdy_3d_upwind = (.5 * f(k, i, j-2) - 2 * f(k, i, j-1) + 1.5 * f(k, i, j))/delta
   end function dfdy_3d_upwind
 
-  !*FD Computes derivative with respect to x at the given point
-  !*FD using a downwind method (suitable for minimum boundaries)
+  !> Computes derivative with respect to x at the given point
+  !! using a downwind method (suitable for minimum boundaries)
   function dfdx_3d_downwind(f, i, j, k, delta)
     implicit none
-    real(dp), dimension(:,:,:), intent(in) :: f
-    integer, intent(in) :: i,j, k
-    real(dp), intent(in) :: delta
+    real(dp), dimension(:,:,:), intent(in) :: f !< field to be derived
+    integer, intent(in) :: i                    !< first index at which derivative is taken
+    integer, intent(in) :: j                    !< second index at which derivative is taken
+    integer, intent(in) :: k                    !< third index at which derivative is taken
+    real(dp), intent(in) :: delta               !< grid spacing in x-direction
     real(dp) :: dfdx_3d_downwind
     dfdx_3d_downwind = (-1.5 * f(k, i, j) + 2 * f(k, i+1, j) - .5 * f(k, i+2, j))/delta
   end function dfdx_3d_downwind
 
-  !*FD Computes derivative with respect to y at the given point
-  !*FD using a downwind method (suitable for minimum boundaries)
+  !> Computes derivative with respect to y at the given point
+  !! using a downwind method (suitable for minimum boundaries)
   function dfdy_3d_downwind(f, i, j, k, delta)
     implicit none
-    real(dp), dimension(:,:,:), intent(in) :: f
-    integer, intent(in) :: i,j,k
-    real(dp), intent(in) :: delta
+    real(dp), dimension(:,:,:), intent(in) :: f !< field to be derived
+    integer, intent(in) :: i                    !< first index at which derivative is taken
+    integer, intent(in) :: j                    !< second index at which derivative is taken
+    integer, intent(in) :: k                    !< third index at which derivative is taken
+    real(dp), intent(in) :: delta               !< grid spacing in y-direction
     real(dp) :: dfdy_3d_downwind
     dfdy_3d_downwind = (-1.5 * f(k, i, j) + 2 * f(k, i, j+1) - .5 * f(k, i, j+2))/delta
   end function dfdy_3d_downwind
 
-  !*FD Computes derivative fields of the given function.
-  !*FD The z axis is computed on an irregular grid.
-  subroutine df_field_3d(f, deltax, deltay, deltaz, out_dfdx, out_dfdy, out_dfdz, &
+  !> Computes derivative fields of the given function.
+  !! The z axis is computed on an irregular grid.
+  !!
+  !! Field containing the direction that derivatives should be upwinded in.
+  !! If 0, centered differences are used.  If negative, then upwinded
+  !! derivatives (approaching from the negative side) are used.  If
+  !! positive, then downwinded derivatives (approaching from the positive
+  !! side) are used.
+  subroutine df_field_3d(f, deltax, deltay, deltas, out_dfdx, out_dfdy, out_dfdz, &
        direction_x, direction_y)
     implicit none
-    real(dp), dimension(:, :, :), intent(in) :: f
-    real(dp), intent(in) :: deltax, deltay
-    real(dp), dimension(:), intent(in) :: deltaz
-    real(dp), dimension(:, :, :), intent(out) :: out_dfdx, out_dfdy, out_dfdz
+    real(dp), dimension(:, :, :), intent(in) :: f          !< field to be derived
+    real(dp), intent(in) :: deltax                         !< grid spacing in x-direction
+    real(dp), intent(in) :: deltay                         !< grid spacing in y-direction
+    real(dp), dimension(:), intent(in) :: deltas           !< vertical sigma levels
+    real(dp), dimension(:, :, :), intent(out) :: out_dfdx  !< derivatives in x direction
+    real(dp), dimension(:, :, :), intent(out) :: out_dfdy  !< derivatives in y direction
+    real(dp), dimension(:, :, :), intent(out) :: out_dfdz  !< derivatives in z direction
 
-    !Field containing the direction that derivatives should be upwinded in.
-    !If 0, centered differences are used.  If negative, then upwinded
-    !derivatives (approaching from the negative side) are used.  If
-    !positive, then downwinded derivatives (approaching from the positive
-    !side) are used.
-    real(dp), dimension(:,:), optional :: direction_x, direction_y
+    real(dp), dimension(:,:), optional :: direction_x      !< x-direction used for upwind derivatives
+    real(dp), dimension(:,:), optional :: direction_y      !< y-direction used for upwind derivatives
 
 
     integer :: grad_x, grad_y !Sign of the gradient, used for determining upwinding
@@ -446,11 +536,11 @@ contains
                 out_dfdy(z, x, y) = dfdy_3d(f, x, y, z, deltay)
              end if
              if (z == 1) then
-                out_dfdz(z, x, y) = dfdz_3d_downwind_irregular(f, x, y, z, deltaz)
+                out_dfdz(z, x, y) = dfdz_3d_downwind_irregular(f, x, y, z, deltas)
              else if (z == nz) then
-                out_dfdz(z, x, y) = dfdz_3d_upwind_irregular(f, x, y, z, deltaz)
+                out_dfdz(z, x, y) = dfdz_3d_upwind_irregular(f, x, y, z, deltas)
              else
-                out_dfdz(z, x, y) = dfdz_3d_irregular(f, x, y, z, deltaz)
+                out_dfdz(z, x, y) = dfdz_3d_irregular(f, x, y, z, deltas)
              end if
           end do
        end do
@@ -458,17 +548,20 @@ contains
 
   end subroutine df_field_3d
 
-  !*FD Computes the derivative fields of the given function.  The X and Y
-  !*FD derivatives are computed on a staggered grid.  The Z derivative
-  !*FD is computed on a nonstaggered but irregular grid.  This means that,
-  !*FD if an array of dimensions (n1, n2, n3), the output arrays should
-  !*FD be of size (n1 - 1, n2 - 1, n3)
-  subroutine df_field_3d_stag(f, deltax, deltay, deltaz, out_dfdx, out_dfdy, out_dfdz)
+  !> Computes the derivative fields of the given function.  The X and Y
+  !! derivatives are computed on a staggered grid.  The Z derivative
+  !! is computed on a nonstaggered but irregular grid.  This means that,
+  !! if an array of dimensions (n1, n2, n3), the output arrays should
+  !! be of size (n1 - 1, n2 - 1, n3)
+  subroutine df_field_3d_stag(f, deltax, deltay, deltas, out_dfdx, out_dfdy, out_dfdz)
     implicit none
-    real(dp), dimension(:, :, :), intent(in) :: f
-    real(dp), intent(in) :: deltax, deltay
-    real(dp), dimension(:), intent(in) :: deltaz
-    real(dp), dimension(:, :, :), intent(out) :: out_dfdx, out_dfdy, out_dfdz
+    real(dp), dimension(:, :, :), intent(in) :: f          !< field to be derived
+    real(dp), intent(in) :: deltax                         !< grid spacing in x-direction
+    real(dp), intent(in) :: deltay                         !< grid spacing in y-direction
+    real(dp), dimension(:), intent(in) :: deltas           !< vertical sigma levels
+    real(dp), dimension(:, :, :), intent(out) :: out_dfdx  !< derivatives in x direction
+    real(dp), dimension(:, :, :), intent(out) :: out_dfdy  !< derivatives in y direction
+    real(dp), dimension(:, :, :), intent(out) :: out_dfdz  !< derivatives in z direction
 
     real(dp), dimension(4) :: zDerivs !Temporarily holds derivatives in Z to average
     integer :: nx, ny, nz, x, y, z
@@ -493,20 +586,20 @@ contains
              !derivatives horizontally around the point requested
              !and averaging the results
              if (z == 1) then
-                zDerivs(1) = dfdz_3d_downwind_irregular(f, x, y, z, deltaz)
-                zDerivs(2) = dfdz_3d_downwind_irregular(f, x+1, y, z, deltaz)
-                zDerivs(3) = dfdz_3d_downwind_irregular(f, x, y+1, z, deltaz)
-                zDerivs(4) = dfdz_3d_downwind_irregular(f, x+1, y+1, z, deltaz)
+                zDerivs(1) = dfdz_3d_downwind_irregular(f, x, y, z, deltas)
+                zDerivs(2) = dfdz_3d_downwind_irregular(f, x+1, y, z, deltas)
+                zDerivs(3) = dfdz_3d_downwind_irregular(f, x, y+1, z, deltas)
+                zDerivs(4) = dfdz_3d_downwind_irregular(f, x+1, y+1, z, deltas)
              else if (z == nz) then
-                zDerivs(1) = dfdz_3d_upwind_irregular(f, x, y, z, deltaz)
-                zDerivs(2) = dfdz_3d_upwind_irregular(f, x+1, y, z, deltaz)
-                zDerivs(3) = dfdz_3d_upwind_irregular(f, x, y+1, z, deltaz)
-                zDerivs(4) = dfdz_3d_upwind_irregular(f, x+1, y+1, z, deltaz)
+                zDerivs(1) = dfdz_3d_upwind_irregular(f, x, y, z, deltas)
+                zDerivs(2) = dfdz_3d_upwind_irregular(f, x+1, y, z, deltas)
+                zDerivs(3) = dfdz_3d_upwind_irregular(f, x, y+1, z, deltas)
+                zDerivs(4) = dfdz_3d_upwind_irregular(f, x+1, y+1, z, deltas)
              else
-                zDerivs(1) = dfdz_3d_irregular(f, x, y, z, deltaz)
-                zDerivs(2) = dfdz_3d_irregular(f, x+1, y, z, deltaz)
-                zDerivs(3) = dfdz_3d_irregular(f, x, y+1, z, deltaz)
-                zDerivs(4) = dfdz_3d_irregular(f, x+1, y+1, z, deltaz)
+                zDerivs(1) = dfdz_3d_irregular(f, x, y, z, deltas)
+                zDerivs(2) = dfdz_3d_irregular(f, x+1, y, z, deltas)
+                zDerivs(3) = dfdz_3d_irregular(f, x, y+1, z, deltas)
+                zDerivs(4) = dfdz_3d_irregular(f, x+1, y+1, z, deltas)
              end if
              out_dfdz(x, y, z) = (zDerivs(1) + zDerivs(2) + zDerivs(3) + zDerivs(4)) / 4
           end do
@@ -519,65 +612,81 @@ contains
   !Second Derivative Estimates, Second Order
   !------------------------------------------------------------------
 
-  !*FD Computes 2nd derivative with respect to x at the given point
+  !> Computes 2nd derivative with respect to x at the given point
   function d2fdx2_2d(f, i, j, delta)
     implicit none
-    real(dp), dimension(:,:), intent(in) :: f
-    integer, intent(in) :: i,j
-    real(dp), intent(in) :: delta
+    real(dp), dimension(:,:), intent(in) :: f !< field to be derived
+    integer, intent(in) :: i                  !< first index at which derivative is taken
+    integer, intent(in) :: j                  !< second index at which derivative is taken
+    real(dp), intent(in) :: delta             !< grid spacing in x-direction
     real(dp) :: d2fdx2_2d     
     d2fdx2_2d = (f(i+1,j) + f(i-1,j) - 2 * f(i, j))/(delta*delta)
   end function d2fdx2_2d
 
+  !> Computes 2nd derivatives with respect to x at the given point
+  !! using an downwind method (suitable for maximum boundaries)
   function d2fdx2_2d_downwind(f,i,j,delta)
     implicit none
-    real(dp), dimension(:,:), intent(in) :: f
-    integer, intent(in) :: i,j
-    real(dp), intent(in) :: delta
+    real(dp), dimension(:,:), intent(in) :: f !< field to be derived
+    integer, intent(in) :: i                  !< first index at which derivative is taken
+    integer, intent(in) :: j                  !< second index at which derivative is taken
+    real(dp), intent(in) :: delta             !< grid spacing in x-direction
     real(dp) :: d2fdx2_2d_downwind   
 
     d2fdx2_2d_downwind = (3*f(i, j) - 7*f(i+1, j) + 5*f(i+2, j) - f(i+3, j)) / (2*delta**2)
 
   end function d2fdx2_2d_downwind
 
+  !> Computes 2nd derivatives with respect to x at the given point
+  !! using an upwind method (suitable for maximum boundaries)
   function d2fdx2_2d_upwind(f,i,j,delta)
     implicit none
-    real(dp), dimension(:,:), intent(in) :: f
-    integer, intent(in) :: i,j
-    real(dp), intent(in) :: delta
+    real(dp), dimension(:,:), intent(in) :: f !< field to be derived
+    integer, intent(in) :: i                  !< first index at which derivative is taken
+    integer, intent(in) :: j                  !< second index at which derivative is taken
+    real(dp), intent(in) :: delta             !< grid spacing in x-direction
     real(dp) :: d2fdx2_2d_upwind 
 
     d2fdx2_2d_upwind = (3*f(i, j) - 7*f(i-1, j) + 5*f(i-2, j) - f(i-3, j)) / (2*delta**2)
 
   end function d2fdx2_2d_upwind
 
+  !> Computes 2nd derivatives with respect to y at the given point
+  !! using an downwind method (suitable for maximum boundaries)
   function d2fdy2_2d_downwind(f,i,j,delta)
     implicit none
-    real(dp), dimension(:,:), intent(in) :: f
-    integer, intent(in) :: i,j
-    real(dp), intent(in) :: delta
+    real(dp), dimension(:,:), intent(in) :: f !< field to be derived
+    integer, intent(in) :: i                  !< first index at which derivative is taken
+    integer, intent(in) :: j                  !< second index at which derivative is taken
+    real(dp), intent(in) :: delta             !< grid spacing in y-direction
     real(dp) :: d2fdy2_2d_downwind   
 
     d2fdy2_2d_downwind = (3*f(i, j) - 7*f(i, j+1) + 5*f(i, j+2) - f(i, j+3)) / (2*delta**2)
 
   end function d2fdy2_2d_downwind
 
+  !> Computes 2nd derivatives with respect to y at the given point
+  !! using an upwind method (suitable for maximum boundaries)
   function d2fdy2_2d_upwind(f,i,j,delta)
     implicit none
-    real(dp), dimension(:,:), intent(in) :: f
-    integer, intent(in) :: i,j
-    real(dp), intent(in) :: delta
+    real(dp), dimension(:,:), intent(in) :: f !< field to be derived
+    integer, intent(in) :: i                  !< first index at which derivative is taken
+    integer, intent(in) :: j                  !< second index at which derivative is taken
+    real(dp), intent(in) :: delta             !< grid spacing in y-direction
     real(dp) :: d2fdy2_2d_upwind 
 
     d2fdy2_2d_upwind = (3*f(i, j) - 7*f(i, j-1) + 5*f(i, j-2) - f(i, j-3)) / (2*delta**2)
 
   end function d2fdy2_2d_upwind
 
+  !> Computes second derivative with respect to x at the equivalent
+  !! point on a staggered grid.
   function d2fdx2_2d_stag(f, i, j, delta)
     implicit none
-    real(dp), dimension(:,:), intent(in) :: f
-    integer, intent(in) :: i,j
-    real(dp), intent(in) :: delta
+    real(dp), dimension(:,:), intent(in) :: f !< field to be derived
+    integer, intent(in) :: i                  !< first index at which derivative is taken
+    integer, intent(in) :: j                  !< second index at which derivative is taken
+    real(dp), intent(in) :: delta             !< grid spacing in x-direction
     real(dp) :: d2fdx2_2d_stag
 
     !This formula can be derived using two central differences
@@ -587,41 +696,51 @@ contains
     d2fdx2_2d_stag = sum(f(i+2, j:j+1) + f(i-1, j:j+1) - f(i+1, j:j+1) - f(i, j:j+1))/(4*delta**2)
   end function d2fdx2_2d_stag
 
+  !> Computes second derivative with respect to x at the given point
+  !! using a downwind method (suitable for minimum boundaries)
   function d2fdx2_2d_stag_downwind(f, i, j, delta)
     implicit none
-    real(dp), dimension(:,:), intent(in) :: f
-    integer, intent(in) :: i,j
-    real(dp), intent(in) :: delta
+    real(dp), dimension(:,:), intent(in) :: f !< field to be derived
+    integer, intent(in) :: i                  !< first index at which derivative is taken
+    integer, intent(in) :: j                  !< second index at which derivative is taken
+    real(dp), intent(in) :: delta             !< grid spacing in x-direction
     real(dp) :: d2fdx2_2d_stag_downwind
 
     d2fdx2_2d_stag_downwind = sum(3*f(i, j:j+1) - 7*f(i+1, j:j+1) + 5*f(i+2, j:j+1) - f(i+3, j:j+1)) / (4*delta**2)
   end function d2fdx2_2d_stag_downwind
 
+  !> Computes second derivative with respect to x at the given point
+  !! using a upwind method (suitable for minimum boundaries)
   function d2fdx2_2d_stag_upwind(f, i, j, delta)
     implicit none
-    real(dp), dimension(:,:), intent(in) :: f
-    integer, intent(in) :: i,j
-    real(dp), intent(in) :: delta
+    real(dp), dimension(:,:), intent(in) :: f !< field to be derived
+    integer, intent(in) :: i                  !< first index at which derivative is taken
+    integer, intent(in) :: j                  !< second index at which derivative is taken
+    real(dp), intent(in) :: delta             !< grid spacing in x-direction
     real(dp) :: d2fdx2_2d_stag_upwind
 
     d2fdx2_2d_stag_upwind = sum(-3*f(i+1, j:j+1) + 7*f(i, j:j+1) - 5*f(i-1, j:j+1) + f(i-2, j:j+1)) / (4*delta**2)
   end function d2fdx2_2d_stag_upwind
 
-  !*FD Computes 2nd derivative with respect to y at the given point
+  !> Computes 2nd derivative with respect to y at the given point
   function d2fdy2_2d(f, i, j, delta)
     implicit none
-    real(dp), dimension(:,:), intent(in) :: f
-    integer, intent(in) :: i,j
-    real(dp), intent(in) :: delta
+    real(dp), dimension(:,:), intent(in) :: f !< field to be derived
+    integer, intent(in) :: i                  !< first index at which derivative is taken
+    integer, intent(in) :: j                  !< second index at which derivative is taken
+    real(dp), intent(in) :: delta             !< grid spacing in y-direction
     real(dp) :: d2fdy2_2d
     d2fdy2_2d = (f(i, j+1) + f(i, j-1) - 2 * f(i, j))/(delta*delta)
   end function d2fdy2_2d
 
+  !> Computes second derivative with respect to y at the equivalent
+  !! point on a staggered grid.
   function d2fdy2_2d_stag(f, i, j, delta)
     implicit none
-    real(dp), dimension(:,:), intent(in) :: f
-    integer, intent(in) :: i,j
-    real(dp), intent(in) :: delta
+    real(dp), dimension(:,:), intent(in) :: f !< field to be derived
+    integer, intent(in) :: i                  !< first index at which derivative is taken
+    integer, intent(in) :: j                  !< second index at which derivative is taken
+    real(dp), intent(in) :: delta             !< grid spacing in y-direction
     real(dp) :: d2fdy2_2d_stag
 
     !This formula can be derived using two central differences
@@ -631,34 +750,44 @@ contains
     d2fdy2_2d_stag = sum(f(i:i+1, j+2) + f(i:i+1, j-1) - f(i:i+1, j+1) - f(i:i+1, j))/(4*delta**2)
   end function d2fdy2_2d_stag
 
+  !> Computes second derivative with respect to y at the given point
+  !! using a downwind method (suitable for minimum boundaries)
   function d2fdy2_2d_stag_downwind(f, i, j, delta)
     implicit none
-    real(dp), dimension(:,:), intent(in) :: f
-    integer, intent(in) :: i,j
-    real(dp), intent(in) :: delta
+    real(dp), dimension(:,:), intent(in) :: f !< field to be derived
+    integer, intent(in) :: i                  !< first index at which derivative is taken
+    integer, intent(in) :: j                  !< second index at which derivative is taken
+    real(dp), intent(in) :: delta             !< grid spacing in y-direction
     real(dp) :: d2fdy2_2d_stag_downwind
 
     d2fdy2_2d_stag_downwind = sum(3*f(i:i+1, j) - 7*f(i:i+1, j+1) + 5*f(i:i+1, j+2) - f(i:i+1, j+3)) / (4*delta**2)
   end function d2fdy2_2d_stag_downwind
 
+  !> Computes second derivative with respect to y at the given point
+  !! using a upwind method (suitable for minimum boundaries)
   function d2fdy2_2d_stag_upwind(f, i, j, delta)
     implicit none
-    real(dp), dimension(:,:), intent(in) :: f
-    integer, intent(in) :: i,j
-    real(dp), intent(in) :: delta
+    real(dp), dimension(:,:), intent(in) :: f !< field to be derived
+    integer, intent(in) :: i                  !< first index at which derivative is taken
+    integer, intent(in) :: j                  !< second index at which derivative is taken
+    real(dp), intent(in) :: delta             !< grid spacing in y-direction
     real(dp) :: d2fdy2_2d_stag_upwind
 
     d2fdy2_2d_stag_upwind = sum(-3*f(i:i+1, j+1) + 7*f(i:i+1, j) - 5*f(i:i+1, j-1) + f(i:i+1, j-2)) / (4*delta**2)
   end function d2fdy2_2d_stag_upwind
 
 
+  !> Computes second derivative fields of the given function.
   subroutine d2f_field(f, deltax, deltay, d2fdx2, d2fdy2, direction_x, direction_y)
     implicit none 
+    real(dp), dimension(:, :), intent(in) :: f                      !< field to be derived
+    real(dp), intent(in) :: deltax                                  !< grid spacing in x direction
+    real(dp), intent(in) :: deltay                                  !< grid spacing in y direction
+    real(dp), dimension(:, :), intent(out) :: d2fdx2                !< derivatives in x direction
+    real(dp), dimension(:, :), intent(out) ::    d2fdy2             !< derivatives in y direction
+    real(dp), dimension(:, :), intent(in), optional  :: direction_x !< x-direction used for upwind derivatives
+    real(dp), dimension(:, :), intent(in), optional  :: direction_y !< y-direction used for upwind derivatives
 
-    real(dp), intent(out), dimension(:,:) :: d2fdx2, d2fdy2
-    real(dp), intent(in), dimension(:,:) :: f
-    real(dp), intent(in) :: deltax, deltay
-    real(dp), intent(in), dimension(:,:), optional :: direction_x, direction_y
     integer :: i,j
 
     do i = 1,size(f,1)
@@ -703,14 +832,23 @@ contains
     end do
   end subroutine d2f_field
 
-  !TODO: Rewrite this using the existing derivative machinery
+  
+  !> Computes derivative fields of the given function.  Places the result
+  !! on a staggered grid.  If periodic in one dimension is set, that 
+  !! dimension for derivatives must be the same size as the value's dimension.
+  !! Otherwise, it should be one less
+  !! \todo Rewrite this using the existing derivative machinery
+  !! \todo enable periodic boundary conditions
   subroutine d2f_field_stag(f, deltax, deltay, d2fdx2, d2fdy2, periodic_x, periodic_y)
     implicit none 
 
-    real(dp), intent(out), dimension(:,:) :: d2fdx2, d2fdy2
-    real(dp), intent(in), dimension(:,:) :: f
-    real(dp), intent(in) :: deltax, deltay
-    logical :: periodic_x, periodic_y
+    real(dp), dimension(:, :), intent(in) :: f                      !< field to be derived
+    real(dp), intent(in) :: deltax                                  !< grid spacing in x direction
+    real(dp), intent(in) :: deltay                                  !< grid spacing in y direction
+    real(dp), dimension(:, :), intent(out) :: d2fdx2                !< derivatives in x direction
+    real(dp), dimension(:, :), intent(out) ::    d2fdy2             !< derivatives in y direction
+    logical :: periodic_x                                           !< flag for periodic BC in x
+    logical :: periodic_y                                           !< flag for periodic BC in y
 
     real(dp) :: dewsq4, dnssq4
     integer :: ew,ns
@@ -961,53 +1099,65 @@ contains
 
   end subroutine d2f_field_stag
 
-  !*FD Computes derivative taken first w.r.t x, then to y at the given point.
+  !> Computes derivative taken first w.r.t x, then to y at the given point.
   function d2fdxy_3d(f, i, j, k, delta_x, delta_y)
     implicit none
-    real(dp), dimension(:,:,:), intent(in) :: f
-    integer, intent(in) :: i,j,k
-    real(dp), intent(in) :: delta_x, delta_y
+    real(dp), dimension(:,:,:), intent(in) :: f !< field to be derived
+    integer, intent(in) :: i                    !< first index at which derivative is taken
+    integer, intent(in) :: j                    !< second index at which derivative is taken
+    integer, intent(in) :: k                    !< third index at which derivative is taken
+    real(dp), intent(in) :: delta_x             !< grid spacing in x direction
+    real(dp), intent(in) :: delta_y             !< grid spacing in y direction
+
     real(dp) :: d2fdxy_3d
 
     d2fdxy_3d = (f(k, i-1, j-1) - f(k, i-1, j+1) - f(k, i+1, j-1) + f(k, i+1, j+1))/(4*delta_x*delta_y) 
   end function d2fdxy_3d
 
-  function d2fdxz_3d(f, i, j, k, delta_x, dz)
+  !> Computes derivative taken first w.r.t x, then to z at the given point.
+  function d2fdxz_3d(f, i, j, k, delta_x, deltas)
     implicit none
-    real(dp), dimension(:,:,:), intent(in) :: f
-    integer, intent(in) :: i,j,k
-    real(dp), intent(in) :: delta_x
-    real(dp), dimension(:), intent(in) :: dz
+    real(dp), dimension(:,:,:), intent(in) :: f  !< field to be derived
+    integer, intent(in) :: i                     !< first index at which derivative is taken
+    integer, intent(in) :: j                     !< second index at which derivative is taken
+    integer, intent(in) :: k                     !< third index at which derivative is taken
+    real(dp), intent(in) :: delta_x              !< grid spacing in x direction
+    real(dp), dimension(:), intent(in) :: deltas !< vertical sigma levels
     real(dp) :: d2fdxz_3d
 
     d2fdxz_3d = (.5/delta_x) * ( &
-         (f(k-1, i+1, j) - f(k-1, i-1, j)) * (dz(k) - dz(k+1)) / ( (dz(k) - dz(k-1)) * (dz(k+1) - dz(k-1)) ) + &
-         (f(k,   i+1, j) - f(k,   i-1, j)) * (dz(k+1) + dz(k-1) - 2*dz(k)) / ( (dz(k) - dz(k-1)) * (dz(k+1) - dz(k)) ) + &
-         (f(k+1, i+1, j) - f(k+1, i-1, j)) * (dz(k) - dz(k-1)) / ( (dz(k+1) - dz(k)) * (dz(k+1) - dz(k-1)) ) )
+         (f(k-1, i+1, j) - f(k-1, i-1, j)) * (deltas(k) - deltas(k+1)) / ( (deltas(k) - deltas(k-1)) * (deltas(k+1) - deltas(k-1)) ) + &
+         (f(k,   i+1, j) - f(k,   i-1, j)) * (deltas(k+1) + deltas(k-1) - 2*deltas(k)) / ( (deltas(k) - deltas(k-1)) * (deltas(k+1) - deltas(k)) ) + &
+         (f(k+1, i+1, j) - f(k+1, i-1, j)) * (deltas(k) - deltas(k-1)) / ( (deltas(k+1) - deltas(k)) * (deltas(k+1) - deltas(k-1)) ) )
   end function d2fdxz_3d
 
-  function d2fdyz_3d(f, i, j, k, delta_x, dz)
+  !> Computes derivative taken first w.r.t y, then to z at the given point.
+  function d2fdyz_3d(f, i, j, k, delta_y, deltas)
     implicit none
-    real(dp), dimension(:,:,:), intent(in) :: f
-    integer, intent(in) :: i,j,k
-    real(dp), intent(in) :: delta_x
-    real(dp), dimension(:), intent(in) :: dz
+    real(dp), dimension(:,:,:), intent(in) :: f  !< field to be derived
+    integer, intent(in) :: i                     !< first index at which derivative is taken
+    integer, intent(in) :: j                     !< second index at which derivative is taken
+    integer, intent(in) :: k                     !< third index at which derivative is taken
+    real(dp), intent(in) :: delta_y              !< grid spacing in y direction
+    real(dp), dimension(:), intent(in) :: deltas !< vertical sigma levels
     real(dp) :: d2fdyz_3d
 
-    d2fdyz_3d = (.5/delta_x) * ( &
-         (f(k-1, i, j+1) - f(k-1, i, j-1)) * (dz(k) - dz(k+1)) / ( (dz(k) - dz(k-1)) * (dz(k+1) - dz(k-1)) ) + &
-         (f(k,   i, j+1) - f(k,   i, j-1)) * (dz(k+1) + dz(k-1) - 2*dz(k)) / ( (dz(k) - dz(k-1)) * (dz(k+1) - dz(k)) ) + &
-         (f(k+1, i, j+1) - f(k+1, i, j-1)) * (dz(k) - dz(k-1)) / ( (dz(k+1) - dz(k)) * (dz(k+1) - dz(k-1)) ) )
+    d2fdyz_3d = (.5/delta_y) * ( &
+         (f(k-1, i, j+1) - f(k-1, i, j-1)) * (deltas(k) - deltas(k+1)) / ( (deltas(k) - deltas(k-1)) * (deltas(k+1) - deltas(k-1)) ) + &
+         (f(k,   i, j+1) - f(k,   i, j-1)) * (deltas(k+1) + deltas(k-1) - 2*deltas(k)) / ( (deltas(k) - deltas(k-1)) * (deltas(k+1) - deltas(k)) ) + &
+         (f(k+1, i, j+1) - f(k+1, i, j-1)) * (deltas(k) - deltas(k-1)) / ( (deltas(k+1) - deltas(k)) * (deltas(k+1) - deltas(k-1)) ) )
   end function d2fdyz_3d
 
-  !*FD Computes derivative with respect to z at a given point
-  !*FD where the Z axis uses an irregular grid defined by \ittext{deltas}.
-  !*FD This derivative is given by the formula:
+  !> Computes second derivative with respect to z at a given point
+  !! where the Z axis uses an irregular grid defined by \ittext{deltas}.
+  !! This derivative is given by the formula:
   function d2fdz2_3d_irregular(f, i, j, k, deltas)
     implicit none
-    real(dp), dimension(:,:,:), intent(in) :: f
-    integer, intent(in) :: i,j,k
-    real(dp), dimension(:), intent(in) :: deltas
+    real(dp), dimension(:,:,:), intent(in) :: f  !< field to be derived
+    integer, intent(in) :: i                     !< first index at which derivative is taken
+    integer, intent(in) :: j                     !< second index at which derivative is taken
+    integer, intent(in) :: k                     !< third index at which derivative is taken
+    real(dp), dimension(:), intent(in) :: deltas !< vertical sigma levels
     real(dp) :: d2fdz2_3d_irregular
     real(dp) :: zkMinusZkp1, zkMinusZkm1, zkp1MinusZkm1, zkp1MinusZk
 
