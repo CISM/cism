@@ -1,4 +1,8 @@
 2009-10-16 Magnus Hagdorn
+ * libglide/glide.F90: use derivative module
+ * libglide/glide_thck.F90: ditto, remove old code
+
+2009-10-16 Magnus Hagdorn
  * libglimmer/glimmer_deriv.F90: slight clean up, reformat comments to 
    doxygen
  * libglimmer/unittest_glimmer_deriv.F90: updated copyright notice

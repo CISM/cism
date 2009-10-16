@@ -208,6 +208,7 @@ contains
     use glide_setup
     use glide_temp
     use glide_mask
+    use glimmer_deriv, only : df_field_2d_staggered
     implicit none
 
     type(glide_global_type) :: model        !*FD model instance
@@ -228,17 +229,18 @@ contains
          model%general%  ewn, &
          model%general%  nsn)
 
-    call geomders(model%numerics, &
-         model%geometry% usrf, &
-         model%geomderv% stagthck,&
-         model%geomderv% dusrfdew, &
-         model%geomderv% dusrfdns)
+    call df_field_2d_staggered(model%geometry%usrf, &
+         model%numerics%dew, model%numerics%dns, &
+         model%geomderv%dusrfdew, & 
+         model%geomderv%dusrfdns, &
+         .false., .false.)
 
-    call geomders(model%numerics, &
-         model%geometry% thck, &
-         model%geomderv% stagthck,&
-         model%geomderv% dthckdew, &
-         model%geomderv% dthckdns)
+    call df_field_2d_staggered(model%geometry%thck, &
+         model%numerics%dew, model%numerics%dns, &
+         model%geomderv%dthckdew, & 
+         model%geomderv%dthckdns, &
+         .false., .false.)
+
 #ifdef PROFILING
     call glide_prof_stop(model,model%glide_prof%geomderv)
 #endif

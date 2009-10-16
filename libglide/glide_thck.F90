@@ -49,7 +49,7 @@ module glide_thck
   use glide_types
 
   private
-  public :: init_thck, thck_nonlin_evolve, thck_lin_evolve, stagvarb, geomders, timeders, stagleapthck
+  public :: init_thck, thck_nonlin_evolve, thck_lin_evolve, stagvarb, timeders, stagleapthck
 
 #ifdef DEBUG_PICARD
   ! debugging Picard iteration
@@ -154,6 +154,7 @@ contains
     use glimmer_global, only : dp
     use glide_velo
     use glide_setup
+    use glimmer_deriv, only : df_field_2d_staggered 
     implicit none
     ! subroutine arguments
     type(glide_global_type) :: model
@@ -197,17 +198,17 @@ contains
                model%general%  ewn, &
                model%general%  nsn)
 
-          call geomders(model%numerics, &
-               model%geometry% usrf, &
-               model%geomderv% stagthck,&
-               model%geomderv% dusrfdew, &
-               model%geomderv% dusrfdns)
+          call df_field_2d_staggered(model%geometry%usrf, &
+               model%numerics%dew, model%numerics%dns, &
+               model%geomderv%dusrfdew, & 
+               model%geomderv%dusrfdns, &
+               .false., .false.)
 
-          call geomders(model%numerics, &
-               model%geometry% thck, &
-               model%geomderv% stagthck,&
-               model%geomderv% dthckdew, &
-               model%geomderv% dthckdns)
+          call df_field_2d_staggered(model%geometry%thck, &
+               model%numerics%dew, model%numerics%dns, &
+               model%geomderv%dthckdew, & 
+               model%geomderv%dthckdns, &
+               .false., .false.)
 
           call slipvelo(model,                &
                2,                             &
@@ -553,192 +554,6 @@ contains
     end if
 
   end subroutine putpcgc
-  
-!---------------------------------------------------------------------------------
-
-  subroutine geomders(numerics,ipvr,stagthck,opvrew,opvrns)
-
-    use glimmer_global, only : dp
-
-    implicit none 
-
-    type(glide_numerics) :: numerics
-    real(dp), intent(out), dimension(:,:) :: opvrew, opvrns
-    real(dp), intent(in), dimension(:,:) :: ipvr, stagthck
-
-    real(dp) :: dew2, dns2 
-    integer :: ew,ns,ewn,nsn
-
-    ! Obviously we don't need to do this every time,
-    ! but will do so for the moment.
-    dew2 = 1.d0/(2.0d0 * numerics%dew)
-    dns2 = 1.d0/(2.0d0 * numerics%dns)
-    ewn=size(ipvr,1)
-    nsn=size(ipvr,2)
-
-    do ns=1,nsn-1
-       do ew = 1,ewn-1
-          if (stagthck(ew,ns) /= 0.0d0) then
-             opvrew(ew,ns) = (ipvr(ew+1,ns+1)+ipvr(ew+1,ns)-ipvr(ew,ns)-ipvr(ew,ns+1)) * dew2
-             opvrns(ew,ns) = (ipvr(ew+1,ns+1)+ipvr(ew,ns+1)-ipvr(ew,ns)-ipvr(ew+1,ns)) * dns2
-          else
-             opvrew(ew,ns) = 0.
-             opvrns(ew,ns) = 0.
-          end if
-       end do
-    end do
-    
-  end subroutine geomders
-
-!---------------------------------------------------------------------------------
-
-  subroutine geom2ders(model,ipvr,stagthck,opvrew,opvrns)
-
-    use glimmer_global, only : dp ! ew, ewn, ns, nsn
-!    use numerics, only : dew, dns
-
-    implicit none 
-
-    type(glide_global_type) :: model
-    real(dp), intent(out), dimension(:,:) :: opvrew, opvrns
-    real(dp), intent(in), dimension(:,:) :: ipvr, stagthck
-
-    real(dp) :: dewsq4, dnssq4
-    integer :: ew,ns
-
-    integer :: pt(2)
-
-    dewsq4 = 4.0d0 * model%numerics%dew * model%numerics%dew
-    dnssq4 = 4.0d0 * model%numerics%dns * model%numerics%dns
- 
-    do ns = 2, model%general%nsn-2
-      do ew = 2, model%general%ewn-2
-        if (stagthck(ew,ns) .gt. 0.0d0) then
-          opvrew(ew,ns) = centerew(ew,ns)
-          opvrns(ew,ns) = centerns(ew,ns)
-        else
-          opvrew(ew,ns) = 0.0d0
-          opvrns(ew,ns) = 0.0d0
-        end if
-      end do
-    end do
-
-! *** 2nd order boundaries using upwinding
-
-    do ew = 1, model%general%ewn-1, model%general%ewn-2
-
-      pt = whichway(ew)
-
-      do ns = 2, model%general%nsn-2 
-        if (stagthck(ew,ns) .gt. 0.0d0) then
-          opvrew(ew,ns) = boundyew(pt,ns)
-          opvrns(ew,ns) = centerns(ew,ns)
-        else
-          opvrew(ew,ns) = 0.0d0
-          opvrns(ew,ns) = 0.0d0
-        end if
-      end do
-
-    end do
-
-    do ns = 1, model%general%nsn-1, model%general%nsn-2
-
-      pt = whichway(ns)
-
-      do ew = 2, model%general%ewn-2  
-        if (stagthck(ew,ns) .gt. 0.0d0) then
-          opvrew(ew,ns) = centerew(ew,ns)
-          opvrns(ew,ns) = boundyns(pt,ew)
-        else
-          opvrew(ew,ns) = 0.0d0
-          opvrns(ew,ns) = 0.0d0
-        end if
-      end do
-
-    end do
-
-    do ns = 1, model%general%nsn-1, model%general%nsn-2
-      do ew = 1, model%general%ewn-1, model%general%ewn-2
-        if (stagthck(ew,ns) .gt. 0.0d0) then
-          pt = whichway(ew)
-          opvrew(ew,ns) = boundyew(pt,ns)
-          pt = whichway(ns)
-          opvrns(ew,ns) = boundyns(pt,ew)
-        else
-          opvrew(ew,ns) = 0.0d0
-          opvrns(ew,ns) = 0.0d0
-        end if
-      end do
-    end do
-
-  contains
-
-    function centerew(ew,ns)
-
-      implicit none
-
-      real(dp) :: centerew
-      integer ns,ew
-
-      centerew = (sum(ipvr(ew+2,ns:ns+1)) + sum(ipvr(ew-1,ns:ns+1)) - &
-                  sum(ipvr(ew+1,ns:ns+1)) - sum(ipvr(ew,ns:ns+1))) / dewsq4
-    
-    end function centerew 
-
-    function centerns(ew,ns)
-
-      implicit none
-
-      real(dp) :: centerns
-      integer ns,ew
-
-      centerns = (sum(ipvr(ew:ew+1,ns+2)) + sum(ipvr(ew:ew+1,ns-1)) - &
-                  sum(ipvr(ew:ew+1,ns+1)) - sum(ipvr(ew:ew+1,ns))) / dnssq4
-  
-    end function centerns 
-
-    function boundyew(pt,ns)
-
-      implicit none
-
-      integer, intent(in) :: pt(2)
-      real(dp) :: boundyew
-      integer ns
-
-      boundyew = pt(1) * (3.0d0 * sum(ipvr(pt(2),ns:ns+1)) - 7.0d0 * sum(ipvr(pt(2)+pt(1),ns:ns+1)) + &
-                 5.0d0 * sum(ipvr(pt(2)+2*pt(1),ns:ns+1)) - sum(ipvr(pt(2)+3*pt(1),ns:ns+1))) / dewsq4
-
-    end function boundyew
-
-    function boundyns(pt,ew)
-
-      implicit none
-
-      integer, intent(in) :: pt(2)
-      real(dp) :: boundyns
-      integer ew
-
-      boundyns = pt(1) * (3.0d0 * sum(ipvr(ew:ew+1,pt(2))) - 7.0d0 * sum(ipvr(ew:ew+1,pt(2)+pt(1))) + &
-                 5.0d0 * sum(ipvr(ew:ew+1,pt(2)+2*pt(1))) - sum(ipvr(ew:ew+1,pt(2)+3*pt(1)))) / dnssq4
-
-    end function boundyns
-
-    function whichway(i)
-
-      implicit none
-
-      integer, intent(in) :: i
-      integer :: whichway(2) 
-
-      if (i == 1) then 
-        whichway = (/1,1/)
-      else
-        whichway = (/-1,i+1/)
-      end if
-
-    end function whichway
-
-  end subroutine geom2ders
 
 !---------------------------------------------------------------------------------
 
