@@ -1,3 +1,10 @@
+2009-10-16 Magnus Hagdorn
+ * libglimmer/unittest_glimmer_deriv.F90: copied from lanl branch, renamed 
+   name space
+ * libglimmer/glimmer_deriv.F90: ditto
+ * libglimmer/xls.F90: copied from lanl
+ * libglimmer/Makefile.am: add glimmer_deriv.F90 to libglimmer
+
 2009-10-15 Magnus Hagdorn
  * libglide/Makefile.am: fix out-of-dir build bugs
 
