@@ -123,7 +123,29 @@ AS_IF([test "x$with_netcdf" != xno],
 	# check for header files
 	AC_CHECK_HEADER([netcdf.h],[acx_netcdf_ok=yes],[acx_netcdf_ok=no])
         ],
-        [C++],[AC_MSG_INFO([C++ not checked for yet])],
+        [C++],[
+	# check for C++ header files
+	AC_CHECK_HEADER([netcdfcpp.h],[acx_netcdf_ok=yes],[acx_netcdf_ok=no])
+	LIBS="-lnetcdf_c++ $LIBS"
+	AC_MSG_CHECKING([for netCDF C++ library])
+	AC_LINK_IFELSE([
+                AC_LANG_PROGRAM(
+                    [[
+@%:@include <netcdfcpp.h>
+                    ]],
+                    [[
+NcError err_handler;
+                    ]]
+                )],
+                [
+                acx_netcdf_ok=yes
+                AC_MSG_RESULT([yes])
+                ],
+                [
+                acx_netcdf_ok=no
+                AC_MSG_RESULT([no])                ]
+            )
+	],
         [Fortran 77],[
         AC_SEARCH_LIBS(NF_INQ_LIBVERS,netcdff,[acx_netcdf_ok=yes],[acx_netcdf_ok=no;AC_MSG_ERROR(cannot find netCDF fortran library)])
         ],
@@ -148,7 +170,7 @@ AS_IF([test "x$with_netcdf" != xno],
            AC_MSG_RESULT()
            AC_LANG_CASE(
            [C],[ AC_CHECK_FUNC(nc_inq_grps,[acx_netcdf4_ok=yes;AC_MSG_RESULT([yes])],[AC_MSG_RESULT([no])]) ], 
-           [C++],[AC_CHECK_FUNC(nc_inq_grps,[acx_netcdf4_ok=yes;AC_MSG_RESULT([yes])],[AC_MSG_RESULT([no])]) ], 
+           [C++],[AC_MSG_NOTICE([C++ not checked for yet])], 
            [Fortran 77],[AC_CHECK_FUNC(nf_inq_grps,[acx_netcdf4_ok=yes;AC_MSG_RESULT([yes])],[AC_MSG_RESULT([no])]) ],
            [Fortran],[
             AC_MSG_CHECKING([for nf90_inq_grps])

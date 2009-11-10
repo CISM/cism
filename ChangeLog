@@ -1,3 +1,11 @@
+2009-11-10 Magnus Hagdorn
+ * Makefile.am: add new subdirectory
+ * configure.in: check for C++ compiler and C++ bindings to netCDF
+ * m4macros/netcdf.m4: implemented check for C++ netCDF bindings
+ * utils/Makefile.am: compile new program
+ * utils/compare.cpp: add new utility which tests if two netCDF files
+   are reasonably identical
+
 2009-10-16 Magnus Hagdorn
  * example-drivers/eis/src/eis_ela.F90: use parameter for internal message
    buffer size

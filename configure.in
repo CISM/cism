@@ -31,6 +31,7 @@ AC_DEFINE_UNQUOTED(GLIMMER_FCFLAGS,"${glimmer_FCFLAGS}",[fortran compiler flags 
 AC_DISABLE_SHARED
 AC_PROG_LIBTOOL
 AC_PROG_CC
+AC_PROG_CXX
 AC_PROG_FC
 AC_PROG_F77
 AC_PROG_EGREP
@@ -106,6 +107,16 @@ ACX_BLAS([ac_gl_have_blas=1])
 AM_CONDITIONAL(EXT_BLAS,test "$ac_gl_have_blas" == 1)
 
 # checking for netCDF
+AC_LANG_PUSH([C++])
+ac_gl_have_netcdf_cxx=0
+ACX_NETCDF([ac_gl_have_netcdf_cxx=1],[])
+NETCDF_CXX_LIBS=$NETCDF_LIBS
+AC_SUBST(NETCDF_CXX_LIBS)
+if test "$ac_gl_have_netcdf_cxx" != 1; then
+  AC_MSG_WARN([Cannot build netCDF compare utility because C++ bindings to netCDF are not available])
+fi
+AM_CONDITIONAL(BUILD_COMPARE, test "$ac_gl_have_netcdf_cxx" == 1)
+AC_LANG_POP([C++])
 ACX_NETCDF([],[AC_MSG_ERROR(cannot find netCDF fortran library)])
 
 # checking for ENMABAL
@@ -271,7 +282,7 @@ AC_SUBST(GLIMMER_SVN_VERS)
 AM_CONDITIONAL([HAVE_SVN],[test "$have_svn_entries" == "yes"])
 
 AC_CONFIG_FILES([Makefile m4macros/Makefile scripts/Makefile \
-                libglimmer/Makefile \
+                utils/Makefile libglimmer/Makefile \
                 libglimmer-solve/Makefile libglimmer-solve/SLAP/Makefile \
                 libglimmer-solve/blas/Makefile libglint/Makefile \
                 libglide/Makefile tests/Makefile example-drivers/Makefile \
