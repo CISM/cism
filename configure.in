@@ -43,6 +43,8 @@ AC_FC_SRCEXT(f90)
 AX_F90_MODULE_FLAG
 F90_MODFLAG=$ax_cv_f90_modflag
 AC_SUBST(F90_MODFLAG)
+AX_F90_NO_LINE_LIMIT_FLAG
+FCFLAGS="$FCFLAGS $ax_cv_f90_ff_nolimit"
 
 # checking for f2003 command line parser
 AC_MSG_CHECKING([for f2003 command line parser])

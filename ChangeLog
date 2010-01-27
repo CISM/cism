@@ -1,3 +1,8 @@
+2010-01-27 Magnus Hagdorn
+ * configure.in: use new macro to figure out how to disable free form line length limit
+ * m4macros/ax_f90_no_line_limit_flag.m4: new macro to find flag to disable free form
+   line length limit
+
 2009-11-10 Magnus Hagdorn
  * Makefile.am: add new subdirectory
  * configure.in: check for C++ compiler and C++ bindings to netCDF
