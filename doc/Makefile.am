@@ -1,10 +1,10 @@
 if DO_DOC_PDF
  pdf_doc = glimmer.pdf
- dirs = dg ug num tut common 
+ dirs = dg ug num tut common doclets
 endif
 if DO_DOC_PS
  ps_doc = glimmer.ps
- dirs = dg ug num tut common 
+ dirs = dg ug num tut common doclets
 endif
 doc_DATA = $(ps_doc) $(pdf_doc)
 docdir = $(prefix)/doc

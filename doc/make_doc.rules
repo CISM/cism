@@ -23,6 +23,8 @@
 		$(SED) 's#psfile=#psfile=gnu_#' $*.pslatex > .tmp
 		mv $*.ps gnu_$*.ps
 		mv .tmp  $@
+%.eps:		%.svg
+		$(INKSCAPE) -z -f $< -E $@
 
 CLEANFILES = $(BUILT_SOURCES) *.pslatex *.dvi *.pstex *.pstex_t *.eps *.ps
 

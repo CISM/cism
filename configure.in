@@ -163,6 +163,10 @@ AC_CHECK_PROGS(PS2EPSI,[ps2epsi])
 if test x"$PS2EPSI"x == xx; then
   have_latex=0
 fi
+AC_CHECK_PROGS(INKSCAPE, [inkscape])
+if test x"$INKSCAPE"x == xx; then
+  have_latex=0
+fi
 AC_CHECK_PROGS(SED,[sed])
 if test x"$SED"x == xx; then
   have_latex=0
@@ -301,6 +305,7 @@ AC_CONFIG_FILES([Makefile m4macros/Makefile scripts/Makefile \
                 doc/Makefile doc/common/Makefile doc/dg/Makefile doc/dg/figures/Makefile \
                 doc/ug/Makefile doc/ug/figs/Makefile \
                 doc/num/Makefile doc/num/figs/Makefile doc/num/gnu/Makefile \
+                doc/doclets/Makefile doc/doclets/figs/Makefile \
                 doc/tut/Makefile])
 AC_OUTPUT([doc/common/version.tex])
 AC_OUTPUT([glimmer-cism-config libglimmer/glimmer_vers.F90.in])

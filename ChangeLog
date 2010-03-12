@@ -1,3 +1,20 @@
+2010-03-12 Magnus Hagdorn
+ * configure.in: look for inkscape, add new Makefiles
+ * doc/Makefile.am: add new subdirectory
+ * doc/dg_pdf.tex: use macro to define where common directory is
+ * doc/dg_ps.tex: ditto
+ * doc/glimmer_pdf.tex: ditto
+ * doc/glimmer_ps.tex: ditto
+ * doc/num_pdf.tex: ditto
+ * doc/num_ps.tex: ditto
+ * doc/tut_pdf.tex: ditto
+ * doc/tut_ps.tex: ditto
+ * doc/ug_pdf.tex: ditto
+ * doc/ug_ps.tex: ditto
+ * doc/common/definitions.tex: ditto
+ * doc/make_doc.rules: add rule for generating eps from svg file
+ * doc/doclets: add document describing glimmer-cism branches for 2010
+
 2010-01-27 Magnus Hagdorn
  * configure.in: use new macro to figure out how to disable free form line length limit
  * m4macros/ax_f90_no_line_limit_flag.m4: new macro to find flag to disable free form
