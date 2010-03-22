@@ -28,13 +28,11 @@
 
 The diagram above illustrates the relationship among various existing branches and branches to be created. We have the following plans:
 \begin{enumerate}
-\item create a preview snapshot of the Glimmer-CISM-lanl branch in February
-\item Magnus Hagdorn will merge the Glimmer-CISM-lanl branch into Glimmer-CISM2-trunk after it has been finalised. The Glimmer-CISM-lanl branch will cease to be active.
-\item make a release of Glimmer-CISM2-trunk which includes the higher order physics. This will become Glimmer-CISM-1.8-stable series. Aim for a release in time for EGU in May.
-\item merge Glimmer-CISM2-trunk into Glimmer-CISM-2-refactoring so that it contains the higher order physics. Continue refactoring. This should happen after version 1.8 has been released
-\item Once we are happy with the refactoring merge it back into Glimmer-CISM-2-trunk. Glimmer-CISM-2-refactoring will become inactive. This might happen in autumn?
-\item Once we are ready, create a new stable series containing higher order physics and refactored code.
-\item Bill will update the version of Glimmer used by CCSM to the latest version in the 1.0 series.
+\item {\bf April 2010} merge Bill's changes on the GC2-gcm branch into GC2-trunk and make a GC-1.6 release. This series of stable releases will be integrated into CCSM.
+\item {\bf End of April 2010} merge GC-lanl-trunk into GC2-trunk and make a GC-1.8 release. This series of stable releases will contain the higher order physics but no parallelisation
+\item {\bf Summer 2010} finish refactoring of shallow ice glimmer and merge GC2-refactoring into GC2-trunk. 
+\item refactor higher order parts of Glimmer-CISM. Once ready make GC-2.0 release.
+\item create new GC2-parallel branch and merge in differences between GC-lanl-parallel and GC-lanl-trunk. The parallel branches will remain private for now.
 \end{enumerate}
 
 \end{document}

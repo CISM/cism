@@ -1,3 +1,7 @@
+2010-03-22 Magnus Hagdorn
+ * doc/doclets/figs/gc-branches.svg: updated to reflect latest plans
+ * doc/doclets/gc-branches.tex: ditto
+
 2010-03-12 Magnus Hagdorn
  * configure.in: look for inkscape, add new Makefiles
  * doc/Makefile.am: add new subdirectory
