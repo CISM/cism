@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script.
 
 dnl set version
 m4_define([glimmer_major_version], [1])
-m4_define([glimmer_minor_version], [9])
+m4_define([glimmer_minor_version], [5])
 m4_define([glimmer_micro_version], [1])
 m4_define([glimmer_version],
 	[glimmer_major_version.glimmer_minor_version.glimmer_micro_version])

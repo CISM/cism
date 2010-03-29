@@ -1,3 +1,6 @@
+2010-03-29 Magnus Hagdorn
+ * configure.in: change version to 1.5.1
+
 2010-03-22 Magnus Hagdorn
  * doc/doclets/figs/gc-branches.svg: updated to reflect latest plans
  * doc/doclets/gc-branches.tex: ditto
