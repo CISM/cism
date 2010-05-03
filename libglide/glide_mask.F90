@@ -202,5 +202,12 @@ contains
 
     is_marine_ice_edge = (iand(mask,glide_mask_marine_edge) .gt. 0 .and. mask.gt.0)
   end function is_marine_ice_edge
+  
+  logical elemental function is_grounding_line(mask)
+    !*FD returns .true. if node is grounding line
+    implicit none
+    integer, intent(in) :: mask 
 
+    is_grounding_line = mask.eq.glide_mask_grounding_line
+  end function is_grounding_line
 end module glide_mask

@@ -519,7 +519,15 @@ module glide_types
      integer :: isos_water
      integer :: isos
   end type glide_prof_type
-
+  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  type glide_phaml
+    real(dp),dimension(:,:),pointer :: uphaml => null()
+    real(dp),dimension(:,:),pointer :: init_phaml => null()
+    real(dp),dimension(:,:),pointer :: rs_phaml => null()
+    !maybe put the x/y vectors here too just for simplicity
+  end type glide_phaml
+  
+  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   type glide_global_type
     type(glide_general)  :: general
     type(glide_options)  :: options
@@ -536,10 +544,11 @@ module glide_types
     type(glide_thckwk)   :: thckwk
     type(glide_tempwk)   :: tempwk
     type(glide_paramets) :: paramets
-    type(glimmap_proj) :: projection
+    type(glimmap_proj)   :: projection
     type(profile_type)   :: profile
     type(glide_prof_type) :: glide_prof
     type(isos_type)      :: isos
+    type(glide_phaml)    :: phaml
   end type glide_global_type
 
 !MH!  !MAKE_RESTART
@@ -722,7 +731,11 @@ contains
 
     ! allocate isostasy grids
     call isos_allocate(model%isos,ewn,nsn)
-
+    
+    !allocate phaml variables
+    call coordsystem_allocate(model%general%ice_grid, model%phaml%init_phaml)
+    call coordsystem_allocate(model%general%ice_grid, model%phaml%rs_phaml)
+    call coordsystem_allocate(model%general%ice_grid, model%phaml%uphaml)
   end subroutine glide_allocarr
 
   subroutine glide_deallocarr(model)
@@ -800,6 +813,11 @@ contains
     ! allocate isostasy grids
     call isos_deallocate(model%isos)
 
+    !deallocate phaml variables
+    deallocate(model%phaml%init_phaml)
+    deallocate(model%phaml%rs_phaml)    
+    deallocate(model%phaml%uphaml)
+    
   end subroutine glide_deallocarr
 
   ! some accessor functions

@@ -353,3 +353,24 @@ data:          data%temper%temp(up,1:data%general%ewn,1:data%general%nsn)
 standard_name: land_ice_temperature
 hot:           1
 coordinates:   lon lat
+
+
+[init_phaml]
+dimensions:    time, y1, x1
+units:         meter
+long_name:     phaml initial conditions
+data:          data%phaml%init_phaml
+standard_name: phaml_initial_conditions
+load:          1
+hot:           0
+coordinates:   lon lat
+
+[phaml]
+dimensions:    time, y1, x1
+units:         meter
+long_name:     phaml true solution
+data:          data%phaml%uphaml
+standard_name: phaml_solution
+load:          1
+hot:           0
+coordinates:   lon lat
