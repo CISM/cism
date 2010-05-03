@@ -1,3 +1,6 @@
+2010-05-03 Magnus Hagdorn
+ * Makefile.am: install glimmer-cism-config
+
 2010-03-29 Magnus Hagdorn
  * configure.in: change version to 1.5.1
 
