@@ -173,8 +173,8 @@ module phaml_support
         do i=0,nx-1
             do j=0,ny-1
                 bmark=0
-                node1ew = j+1
-                node1ns = i+1
+                node1ew = i+1
+                node1ns = j+1
                 if (has_ice(model%geometry%thkmask(node1ew,node1ns)) .eqv. .true.) then
                     bmark=model%geometry%thkmask(node1ew,node1ns)!3
                 end if
