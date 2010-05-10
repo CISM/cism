@@ -30,7 +30,7 @@ e2.g-comp.ps:	e2.g.nc
 e2.h-comp.ps:	e2.h.nc
 	@GLIMMER_PREFIX@/bin/plotEISMINT2stats.py -e H $^ $@
 
-include $(top_srcdir)/make.rules
+-include $(top_builddir)/make.rules
 
 .nc.ps:
 	@GLIMMER_PREFIX@/bin/plotEISMINT.py -T -1  -p ../PyCF/eismint.prof $< $@

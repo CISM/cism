@@ -1,4 +1,19 @@
 2010-05-10 Magnus Hagdorn
+ * configure.in: create new file
+ * make.rules.in: configure now generates make.rules with correct SGE options
+ * example-drivers/eis/fenscan/fenscan.config: hot file should store variables
+   in double precision
+ * example-drivers/eis/fenscan/fenscan-gthf.config: ditto
+ * tests/EISMINT/EISMINT-2/e2.[afik].config: ditto
+ * example-drivers/eis/fenscan/Makefile.am: include correct make rules
+ * example-drivers/EISMINT-3/EISMINT-3/Makefile.am: ditto
+ * tests/EISMINT/benchmarks/Makefile.am: ditto
+ * tests/EISMINT/EISMINT-1/Makefile.am: ditto
+ * tests/EISMINT/EISMINT-2/Makefile.am: ditto
+ * tests/EISMINT/isos/Makefile.am: ditto
+ * tests/EISMINT/lin-non_lin/Makefile.am: ditto
+
+2010-05-10 Magnus Hagdorn
  * merged glimmer-cism-gcm r1460:HEAD
 
 2010-05-09 William Lipscomb

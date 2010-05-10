@@ -11,5 +11,5 @@ CLEANFILES = $(data) $(graphics) $(BUILT_SOURCES)
 
 MODEL_BINARY=$(top_builddir)/example-drivers/eis/src/eis_glide
 
-include $(top_srcdir)/make.rules
+-include $(top_builddir)/make.rules
 

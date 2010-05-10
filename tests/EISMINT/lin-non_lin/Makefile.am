@@ -29,4 +29,4 @@ e2-bvel.ps:	$(runs)
 	@GLIMMER_PREFIX@/bin/glide_launch.py --prefix @GLIMMER_PREFIX@ $<
 	bash move_data.sh picard_info.data $*.piccard
 
-include $(top_srcdir)/make.rules
+-include $(top_builddir)/make.rules

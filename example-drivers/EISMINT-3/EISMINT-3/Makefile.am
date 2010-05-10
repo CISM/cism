@@ -9,4 +9,4 @@ CLEANFILES = $(data) $(graphics) $(BUILT_SOURCES)
 
 MODEL_BINARY=$(top_builddir)/example-drivers/EISMINT-3/src/eismint3_glide
 
-include $(top_srcdir)/make.rules
+-include $(top_builddir)/make.rules

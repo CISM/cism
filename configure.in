@@ -307,5 +307,6 @@ AC_CONFIG_FILES([Makefile m4macros/Makefile scripts/Makefile \
                 doc/num/Makefile doc/num/figs/Makefile doc/num/gnu/Makefile \
                 doc/doclets/Makefile doc/doclets/figs/Makefile \
                 doc/tut/Makefile])
+AC_OUTPUT([make.rules])
 AC_OUTPUT([doc/common/version.tex])
 AC_OUTPUT([glimmer-cism-config libglimmer/glimmer_vers.F90.in])
