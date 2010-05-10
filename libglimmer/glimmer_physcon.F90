@@ -46,7 +46,7 @@
 #endif
 
 !> Contains physical constants required by the ice model.
-module physcon
+module glimmer_physcon
 
 
   use glimmer_global, only : dp,sp
@@ -87,4 +87,4 @@ module physcon
   real(dp),parameter :: pmlt = 9.7456d-8         !< Factor for dependence of melting point on pressure (K Pa<SUP>-1</SUP>)
   real(dp),parameter :: trpt = 273.15d0          !< Triple point of water (K)
 
-end module physcon
+end module glimmer_physcon

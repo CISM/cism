@@ -166,8 +166,8 @@ program glint_example
        climate%climate_tstep, &
        (/commandline_configname/), &
        orog=orog_out, &
-       ice_frac=ice_frac, &
        albedo=albedo, &
+       ice_frac=ice_frac, &
        orog_longs=lons_orog, &
        orog_lats=lats_orog, &
        daysinyear=climate%days_in_year)
@@ -197,6 +197,10 @@ program glint_example
      time=time+climate%climate_tstep
      if (time>climate%total_years*climate%hours_in_year) exit
   end do
+
+!lipscomb - debug - Print time so as to have something to watch while the code runs
+     if (mod(real(time),8760.) < 0.01)   &
+         print*, 'time (yr) =', real(time)/8760.
 
   ! Finalise/tidy up everything ------------------------------------------------------------
 

@@ -92,8 +92,13 @@ contains
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  subroutine glint_downscaling(instance,g_temp,g_temp_range,g_precip,g_orog,g_zonwind, &
-       g_merwind,g_humid,g_lwdown,g_swdown,g_airpress,orogflag)
+  subroutine glint_downscaling(instance,                  &
+                               g_temp,     g_temp_range,  &
+                               g_precip,   g_orog,        &
+                               g_zonwind,  g_merwind,     &
+                               g_humid,    g_lwdown,      &
+                               g_swdown,   g_airpress,    &
+                               orogflag)
 
     use glint_interp
 
@@ -129,6 +134,160 @@ contains
          call interp_wind_to_local(instance%lgrid,g_zonwind,g_merwind,instance%downs,instance%xwind,instance%ywind)
 
   end subroutine glint_downscaling
+
+  !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+  subroutine glint_downscaling_ccsm (instance,            &
+                                     qice_g,     tsfc_g,  &
+                                     topo_g,     gmask)
+ 
+    use glimmer_paramets, only: thk0
+
+    use glint_type, only: glint_instance
+    use glint_interp, only: interp_to_local
+
+    ! Downscale fields from the global grid (with multiple elevation classes)
+    ! to the local grid.
+    ! 
+    ! This routine is used for downscaling when the surface mass balance is
+    ! computed in the CCSM land surface model.
+
+    type(glint_instance), intent(inout) :: instance
+    real(dp),dimension(:,:,:),intent(in) :: qice_g       ! Surface mass balance (m)
+    real(dp),dimension(:,:,:),intent(in) :: tsfc_g       ! Surface temperature (C)
+    real(dp),dimension(:,:,:),intent(in) :: topo_g       ! Surface elevation (m)
+    integer ,dimension(:,:),  intent(in),optional :: gmask ! = 1 where global data are valid
+                                                           ! = 0 elsewhere
+
+    real(dp), parameter :: maskval = 0.0_dp    ! value written to masked out gridcells
+
+    integer ::       &
+       nec,          &      ! number of elevation classes
+       i, j, n,      &      ! indices 
+       nxl, nyl             ! local grid dimensions
+ 
+    real(dp), dimension(:,:,:), allocatable ::   &
+       qice_l,    &! interpolation of global mass balance to local grid
+       tsfc_l,    &! interpolation of global sfc temperature to local grid
+       topo_l      ! interpolation of global topography in each elev class to local grid
+
+    real(dp) :: fact, usrf
+
+    real(dp), parameter :: lapse = 0.0065_dp   ! atm lapse rate, deg/m
+                                               ! used only for extrapolating temperature outside
+                                               !  the range provided by the climate model
+    nec = size(qice_g,3)
+    nxl = instance%lgrid%size%pt(1)
+    nyl = instance%lgrid%size%pt(2)
+
+    allocate(qice_l(nxl,nyl,nec))
+    allocate(tsfc_l(nxl,nyl,nec))
+    allocate(topo_l(nxl,nyl,nec))
+
+!   Downscale global fields for each elevation class to local grid.
+
+    if (present(gmask)) then   ! set local field = maskval where the global field is masked out
+                               ! (i.e., where instance%downs%lmask = 0).
+       do n = 1, nec
+          call interp_to_local(instance%lgrid, qice_g(:,:,n), instance%downs, localdp=qice_l(:,:,n), &
+                               gmask = gmask, maskval=maskval)
+          call interp_to_local(instance%lgrid, tsfc_g(:,:,n), instance%downs, localdp=tsfc_l(:,:,n), &
+                               gmask = gmask, maskval=maskval)
+          call interp_to_local(instance%lgrid, topo_g(:,:,n), instance%downs, localdp=topo_l(:,:,n), &
+                               gmask = gmask, maskval=maskval)
+       enddo
+
+    else    ! global field values are assumed to be valid everywhere
+
+       do n = 1, nec
+          call interp_to_local(instance%lgrid, qice_g(:,:,n), instance%downs, localdp=qice_l(:,:,n))
+          call interp_to_local(instance%lgrid, tsfc_g(:,:,n), instance%downs, localdp=tsfc_l(:,:,n))
+          call interp_to_local(instance%lgrid, topo_g(:,:,n), instance%downs, localdp=topo_l(:,:,n))
+       enddo
+
+    endif
+
+#ifdef GLC_DEBUG
+    write (stdout,*) ' ' 
+    write (stdout,*) 'Interpolate fields to local grid'
+    write (stdout,*) 'Global cell =', itest, jjtest
+    do n = 1, nec
+       write(stdout,*) n, topo_g(itest,jjtest, n)
+    enddo
+
+    do j = 1, nyl
+    do i = 1, nxl
+        if ( (instance%downs%xloc(i,j,1) == itest .and. instance%downs%yloc(i,j,1) == jjtest) .or.  &
+             (instance%downs%xloc(i,j,2) == itest .and. instance%downs%yloc(i,j,2) == jjtest) .or.  &
+             (instance%downs%xloc(i,j,3) == itest .and. instance%downs%yloc(i,j,3) == jjtest) .or.  &
+             (instance%downs%xloc(i,j,4) == itest .and. instance%downs%yloc(i,j,4) == jjtest) ) then
+            write(stdout,*) i, j, thk0 * instance%model%geometry%usrf(i,j)
+        endif
+    enddo
+    enddo
+    
+    i = itest_local
+    j = jtest_local
+    write (stdout,*) ' ' 
+    write (stdout,*) 'Interpolated to local cells: i, j =', i, j
+    do n = 1, nec
+       write (stdout,*) ' '
+       write (stdout,*) 'n =', n
+       write (stdout,*) 'qice_l =', qice_l(i,j,n)
+       write (stdout,*) 'tsfc_l =', tsfc_l(i,j,n)
+       write (stdout,*) 'topo_l =', topo_l(i,j,n)
+    enddo
+#endif
+
+!   Interpolate tsfc and qice to local topography using values in the neighboring 
+!    elevation classes.
+!   If the local topography is outside the bounds of the global elevations classes,
+!    extrapolate the temperature using the prescribed lapse rate.
+
+    do j = 1, nyl
+    do i = 1, nxl
+
+       usrf = instance%model%geometry%usrf(i,j) * thk0   ! actual sfc elevation (m)
+
+       if (usrf <= topo_l(i,j,1)) then
+          instance%acab(i,j) = qice_l(i,j,1)
+          instance%artm(i,j) = tsfc_l(i,j,1) + lapse*(topo_l(i,j,1)-usrf)
+       elseif (usrf > topo_l(i,j,nec)) then
+          instance%acab(i,j) = qice_l(i,j,nec)
+          instance%artm(i,j) = tsfc_l(i,j,nec) - lapse*(usrf-topo_l(i,j,nec))
+       else
+          do n = 2, nec
+             if (usrf > topo_l(i,j,n-1) .and. usrf <= topo_l(i,j,n)) then
+                fact = (topo_l(i,j,n) - usrf) / (topo_l(i,j,n) - topo_l(i,j,n-1)) 
+                instance%acab(i,j) = fact*qice_l(i,j,n-1) + (1._dp-fact)*qice_l(i,j,n)
+                instance%artm(i,j) = fact*tsfc_l(i,j,n-1) + (1._dp-fact)*tsfc_l(i,j,n)
+                exit
+             endif
+          enddo
+       endif   ! usrf
+
+#ifdef GLC_DEBUG
+          if (i==itest_local .and. j==jtest_local) then
+             n = 4  
+             write (stdout,*) ' '
+             write (stdout,*) 'Interpolated values, i, j, n =', i, j, n
+             write (stdout,*) 'usrf =', usrf
+             write (stdout,*) 'acab =', instance%acab(i,j)
+             write (stdout,*) 'artm =', instance%artm(i,j)
+             write (stdout,*) 'topo(n-1) =', topo_l(i,j,n-1)
+             write (stdout,*) 'topo(n) =', topo_l(i,j,n)
+             write (stdout,*) 'qice(n-1) =', qice_l(i,j,n-1)
+             write (stdout,*) 'qice(n) =', qice_l(i,j,n)
+             write (stdout,*) 'tsfc(n-1) =', tsfc_l(i,j,n-1)
+             write (stdout,*) 'tsfc(n) =', tsfc_l(i,j,n)
+             write (stdout,*) 'fact = ', (topo_l(i,j,n) - usrf) / (topo_l(i,j,n) - topo_l(i,j,n-1)) 
+          endif
+#endif
+
+    enddo  ! i
+    enddo  ! j
+
+  end subroutine glint_downscaling_ccsm
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

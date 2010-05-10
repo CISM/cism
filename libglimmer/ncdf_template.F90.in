@@ -49,6 +49,8 @@ module NAME_io
   !*FD template for creating subsystem specific I/O routines
   !*FD written by Magnus Hagdorn, 2004
 
+  private :: get_xtype
+
   !GENVAR_HOT!
 
 contains
@@ -139,6 +141,8 @@ contains
     use glimmer_ncdf
     use glimmer_map_types
     use glimmer_log
+    use glimmer_paramets
+    use glimmer_scales
     implicit none
     type(glimmer_nc_output), pointer :: outfile
     type(glide_global_type) :: model
@@ -218,7 +222,7 @@ contains
     end do
   end subroutine NAME_io_readall
 
-  subroutine NAME_io_read(infile,data,scale_vars)
+  subroutine NAME_io_read(infile,data)
     !*FD read variables from a netCDF file
     use glimmer_log
     use glimmer_ncdf
@@ -230,17 +234,12 @@ contains
     !*FD structure containg output netCDF descriptor
     type(DATATYPE) :: data
     !*FD the model instance
-    logical,optional :: scale_vars
-    !*FD Specifies whether fields should be scaled by factors when read in.
 
     ! local variables
     integer status,varid
     integer up
-    logical :: scale=.true.
+    real(dp) :: scaling_factor
 
-    ! Deal with optional argument
-    if (present(scale_vars)) scale=scale_vars
-   
     ! read variables
     !GENVAR_READ!
   end subroutine NAME_io_read
@@ -306,6 +305,27 @@ contains
     !GENVAR_RESETAVG!
   end subroutine NAME_avg_reset
 #endif
+
+  !*********************************************************************
+  ! some private procedures
+  !*********************************************************************
+
+  !> apply default type to be used in netCDF file
+  integer function get_xtype(outfile,xtype)
+    use glimmer_ncdf
+    implicit none
+    type(glimmer_nc_output), pointer :: outfile !< derived type holding information about output file
+    integer, intent(in) :: xtype                !< the external netCDF type
+
+    get_xtype = xtype
+    
+    if (xtype.eq.NF90_REAL .and. outfile%default_xtype.eq.NF90_DOUBLE) then
+       get_xtype = NF90_DOUBLE
+    end if
+    if (xtype.eq.NF90_DOUBLE .and. outfile%default_xtype.eq.NF90_REAL) then
+       get_xtype = NF90_REAL
+    end if
+  end function get_xtype
 
   !*********************************************************************
   ! lots of accessor subroutines follow

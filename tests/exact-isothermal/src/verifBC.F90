@@ -68,7 +68,7 @@ contains
   subroutine verifBC_init(model, veri)
     !*FD initialise test cases B and C
     use glide_types
-    use physcon
+    use glimmer_physcon
     use glimmer_paramets
     use glimmer_log
     implicit none

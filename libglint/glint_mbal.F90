@@ -111,6 +111,10 @@ contains
     ! Also check we have a valid value of which
 
     select case(which)
+    ! Note: Mass balance timestep and accum time are typically assumed to be one year.
+!lipscomb - to do - Allow mbal accum time to be set in config file, so we can do 5-day smoke tests.
+    case(0)
+       params%tstep=years2hours   ! mbal tstep = 1 year
     case(1)
        allocate(params%annual_pdd)
        call glimmer_pdd_init(params%annual_pdd,config)

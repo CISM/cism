@@ -59,7 +59,7 @@ contains
   
   subroutine init_elastic(rbel, deltax)
     !*FD initialise elastic lithosphere calculations
-    use physcon, only : pi
+    use glimmer_physcon, only : pi
     implicit none
     type(isostasy_elastic) :: rbel     !*FD structure holding elastic litho data    
     real(kind=dp), intent(in) :: deltax        !*FD grid spacing
@@ -151,7 +151,7 @@ contains
   subroutine init_rbel(rbel, a)
     !*FD initialise elastic lithosphere calculations
     use glimmer_paramets, only: len0
-    use physcon, only: rhom,grav
+    use glimmer_physcon, only: rhom,grav
     use kelvin
     implicit none
     type(isostasy_elastic) :: rbel     !*FD structure holding elastic litho data

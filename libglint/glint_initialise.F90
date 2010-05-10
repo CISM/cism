@@ -55,7 +55,11 @@ module glint_initialise
 
 contains
 
-  subroutine glint_i_initialise(config,instance,grid,grid_orog,mbts,idts,need_winds,enmabal,force_start,force_dt)
+  subroutine glint_i_initialise(config,      instance,   &
+                                grid,        grid_orog,  &
+                                mbts,        idts,       &
+                                need_winds,  enmabal,    &
+                                force_start, force_dt)
 
     !*FD Initialise a GLINT ice model instance
 
@@ -86,27 +90,27 @@ contains
 
     ! initialise model
 
-    call glide_config(instance%model,config)
+    call glide_config(instance%model, config)
     call glide_initialise(instance%model)
-    instance%ice_tstep=get_tinc(instance%model)*years2hours
-    instance%glide_time=instance%model%numerics%tstart
-    idts=instance%ice_tstep
- 
+    instance%ice_tstep = get_tinc(instance%model)*years2hours
+    instance%glide_time = instance%model%numerics%tstart
+    idts = instance%ice_tstep
+
     ! read glint configuration
 
-    call glint_i_readconfig(instance,config)    
+    call glint_i_readconfig(instance, config)    
     call glint_i_printconfig(instance)    
  
     ! create glint variables for the glide output files
-    call glint_io_createall(instance%model,data=instance)
+    call glint_io_createall(instance%model, data=instance)
 
     ! create instantaneous glint variables
-    call openall_out(instance%model,outfiles=instance%out_first)
-    call glint_mbal_io_createall(instance%model,data=instance,outfiles=instance%out_first)
+    call openall_out(instance%model, outfiles=instance%out_first)
+    call glint_mbal_io_createall(instance%model, data=instance, outfiles=instance%out_first)
 
     ! fill dimension variables
     call glide_nc_fillall(instance%model)
-    call glide_nc_fillall(instance%model,outfiles=instance%out_first)
+    call glide_nc_fillall(instance%model, outfiles=instance%out_first)
 
     ! Check we've used all the config sections
 
@@ -115,28 +119,40 @@ contains
     ! New grid and downscaling
 
     instance%lgrid = coordsystem_new(0.d0, 0.d0, &
-         get_dew(instance%model), &
-         get_dns(instance%model), &
-         get_ewn(instance%model), &
-         get_nsn(instance%model))
+                                     get_dew(instance%model), &
+                                     get_dns(instance%model), &
+                                     get_ewn(instance%model), &
+                                     get_nsn(instance%model))
 
-    call new_downscale(instance%downs,instance%model%projection,grid, &
-         instance%lgrid,mpint=(instance%use_mpint==1))    ! Initialise the downscaling
+    call new_downscale(instance%downs, instance%model%projection, grid, &
+                       instance%lgrid, mpint=(instance%use_mpint==1))
 
-    call glint_i_allocate(instance,grid%nx,grid%ny,grid_orog%nx,grid_orog%ny)           ! Allocate arrays appropriately
+    ! Allocate arrays appropriately
+
+    call glint_i_allocate(instance, grid%nx, grid%ny, grid_orog%nx, grid_orog%ny)
+
+    ! Read data and initialise climate
+
     call glint_i_readdata(instance)
-    call new_upscale(instance%ups,grid,instance%model%projection, &
-         instance%out_mask,instance%lgrid) ! Initialise upscaling parameters
-    call new_upscale(instance%ups_orog,grid_orog,instance%model%projection, &
-         instance%out_mask,instance%lgrid) ! Initialise upscaling parameters
 
-    call calc_coverage(instance%lgrid, &                         ! Calculate coverage map
-                       instance%ups,  &             
-                       grid,          &
+    ! New upscaling
+
+    call new_upscale(instance%ups, grid, instance%model%projection, &
+                     instance%out_mask,  instance%lgrid) ! Initialise upscaling parameters
+    call new_upscale(instance%ups_orog, grid_orog, instance%model%projection, &
+                     instance%out_mask, instance%lgrid) ! Initialise upscaling parameters
+
+    ! Calculate coverage map
+
+    call calc_coverage(instance%lgrid, &
+                       instance%ups,   &             
+                       grid,           &
                        instance%out_mask, &
                        instance%frac_coverage)
 
-    call calc_coverage(instance%lgrid, &                         ! Calculate coverage map for orog
+    ! Calculate coverage map for orog
+
+    call calc_coverage(instance%lgrid, &               
                        instance%ups_orog,  &             
                        grid_orog,     &
                        instance%out_mask, &
@@ -145,24 +161,42 @@ contains
     ! initialise the mass-balance accumulation
 
     call glint_mbc_init(instance%mbal_accum, &
-         instance%lgrid, &
-         config,instance%whichacab, &
-         instance%snowd,instance%siced, &
-         instance%lgrid%size%pt(1), &
-         instance%lgrid%size%pt(2), &
-         real(instance%lgrid%delta%pt(1),rk))
+                        instance%lgrid, &
+                        config,         &
+                        instance%whichacab, &
+                        instance%snowd, &
+                        instance%siced, &
+                        instance%lgrid%size%pt(1), &
+                        instance%lgrid%size%pt(2), &
+                        real(instance%lgrid%delta%pt(1),rk))
+
     instance%mbal_tstep=instance%mbal_accum%mbal%tstep
     mbts=instance%mbal_tstep
 
     instance%next_time = force_start-force_dt+instance%mbal_tstep
 
+#ifdef GLC_DEBUG
+    write (6,*) 'Called glint_mbc_init'
+    write (6,*) 'mbal tstep =', mbts
+    write (6,*) 'next_time =', instance%next_time
+    write (6,*) 'start_time =', instance%mbal_accum%start_time
+#endif
+
     ! Mass-balance accumulation length
 
-    if (instance%mbal_accum_time==-1) then
+    if (instance%mbal_accum_time == -1) then
        instance%mbal_accum_time = max(instance%ice_tstep,instance%mbal_tstep)
+#ifdef GLC_DEBUG
+!Set mbal_accum_time = mbal_tstep
+!lipscomb - Uncomment for short runs?
+! to do - Make it easy to run Glimmer/Glint for ~5 days, e.g. for CCSM smoke tests,
+!         with all major components exercised. 
+!!       instance%mbal_accum_time = instance%mbal_tstep
+!!       write(6,*) 'WARNING: Seting mbal_accum_time =', instance%mbal_accum_time
+#endif
     end if
 
-    if (instance%mbal_accum_time<instance%mbal_tstep) then
+    if (instance%mbal_accum_time < instance%mbal_tstep) then
        call write_log('Mass-balance accumulation timescale must be as '//&
             'long as mass-balance time-step',GM_FATAL,__FILE__,__LINE__)
     end if
@@ -178,7 +212,7 @@ contains
             'timestep must divide into one another',GM_FATAL,__FILE__,__LINE__)
     end if
 
-    if (instance%ice_tstep_multiply/=1.and.mod(instance%mbal_accum_time,int(years2hours))/=0.0) then
+    if (instance%ice_tstep_multiply/=1 .and. mod(instance%mbal_accum_time,int(years2hours))/=0.0) then
        call write_log('For ice time-step multiplication, mass-balance accumulation timescale '//&
             'must be an integer number of years',GM_FATAL,__FILE__,__LINE__)
     end if
@@ -191,26 +225,28 @@ contains
        instance%n_icetstep = instance%ice_tstep_multiply
     end if
 
+!This was commented out because it destroys exact restart
+!lipscomb - to do - Find another way to set thk to snowd?
     ! Copy snow-depth to thickness if no thickness is present
 
-    allocate(thk(get_ewn(instance%model),get_nsn(instance%model)))
-    call glide_get_thk(instance%model,thk)
-    where (instance%snowd>0.0.and.thk==0.0)
-       thk=instance%snowd
-    elsewhere
-       thk=thk
-    endwhere
-    call glide_set_thk(instance%model,thk)
-    deallocate(thk)
+!!    allocate(thk(get_ewn(instance%model),get_nsn(instance%model)))
+!!    call glide_get_thk(instance%model,thk)
+!!    where (instance%snowd>0.0 .and. thk==0.0)
+!!       thk=instance%snowd
+!!    elsewhere
+!!       thk=thk
+!!    endwhere
+!!    call glide_set_thk(instance%model,thk)
+!!    deallocate(thk)
 
-    call glide_io_writeall(instance%model,instance%model)
-    call glint_io_writeall(instance,instance%model)
-    call glint_mbal_io_writeall(instance,instance%model,outfiles=instance%out_first)
+    call glide_io_writeall(instance%model, instance%model)
+    call glint_io_writeall(instance, instance%model)
+    call glint_mbal_io_writeall(instance, instance%model, outfiles=instance%out_first)
 
-    if (instance%whichprecip==2) need_winds=.true.
-    if (instance%whichacab==3) then
-       need_winds=.true.
-       enmabal=.true.
+    if (instance%whichprecip == 2) need_winds=.true.
+    if (instance%whichacab == 3) then
+       need_winds = .true.
+       enmabal = .true.
     end if
 
   end subroutine glint_i_initialise

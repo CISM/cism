@@ -101,6 +101,8 @@ module glimmer_ncdf
      integer :: timecounter=1                             !< time counter
      real :: total_time                                   !< accumulate time steps (used for taking time averages)
 
+     integer :: default_xtype = NF90_REAL                 !< the default external type for storing flointing point values
+
      logical :: do_averages = .False.                     !< set to .True. if we need to handle averages
      
      type(glimmer_nc_meta) :: metadata                    !< structure holding metadata

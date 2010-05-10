@@ -1,3 +1,106 @@
+2010-05-10 Magnus Hagdorn
+ * merged glimmer-cism-gcm r1460:HEAD
+
+2010-05-09 William Lipscomb
+ More code cleanup:  Removed most '!lipscomb' comments, and put ifdefs around
+	debugging write statements.  The remaining comments indicate where I have
+	questions or where there is still work to do.  At this point the code is
+	ready to be merged into the glimmer-cism2 trunk.
+ * libglide/glide.F90
+ * libglide/glide_setup.F90
+ * libglide/glimmer_ncio.F90
+ * libglide/glide_types.F90
+ * libglide/glide_temp.F90
+ * libglide/glide_diagnostics.F90
+ * libglimmer/glimmer_paramets.F90
+ * libglimmer/glimmer_log.F90
+ * libglimmer/nc2config.F90
+ * libglint/glint_timestep.F90
+ * libglint/glint_initialise.F90
+ * libglint/glint_interp.F90
+ * libglint/glint_global_grid.F90
+ * libglint/glint_mbal.F90
+ * libglint/glint_mbal_coupling.F90
+ * libglint/glint_climate.F90
+ * libglint/glint_global_interp.F90
+ * libglint/glint_type.F90
+ * libglint/glint_main.F90
+
+2010-05-07 Magnus Hagdorn
+ * libglide/glide_lithot_vars.def: swap around definitions to reduce diff with
+   trunk
+ * libglide/glide_vars.def: ditto
+
+2010-05-06 William Lipscomb
+ General code cleanup, plus the following specific changes:
+ * libglint/glint_main.F90: added subroutines glint_allocate_arrays_ccsm,
+	accumulate_averages_ccsm, calculate_averages_ccsm
+ * libglint/glint_timestep.F90: added ccsm_smb flag and related logic
+ * libglint/glint_interp.F90: added local mask (lmask) for type downscale
+ * libglint/glint_climate.F90: added subroutine glint_downscaling_ccsm
+ * libglint/glint_mbal_coupling.F90: added subroutine glint_accumulate_ccsm
+ * libglint/glint_type.F90: added subroutine glint_i_upscaled_fields_ccsm
+ * libglint/glint_global_interp.F90: moved the new CCSM upscaling and downscaling
+	subroutines to modules containing similar non-CCSM subroutines
+ * libglint/glint_initialise.F90: minor changes
+ * libglint/glint_vars.def: changed 'mask' to 'outmask', added 'inmask';
+	inmask is true where global input data are valid
+ * libglint/glint.F90: deleted (was previously renamed to glint_main.F90)
+ * libglide/glide_vars.def: removed duplicate 'hot' variables
+ * libglide/glide_lithot_vars.def: removed duplicate 'hot' variables
+	
+2010-05-03 William Lipscomb
+ * Changed the list of output fields returned to CCSM: removed ice thickness (gthck),
+   split runoff into ice and liquid components (grofi and grofl).  These files are
+   affected:
+ * libglint/glint_global_interp.F90
+ * libglint/glint_main.F90
+ * libglint/glint_timestep.F90
+
+2010-05-03 William Lipscomb
+ Many changes required for coupling with CCSM:
+ * libglimmer/glimmer_log.F90: new subroutine set_glimmer_unit
+ * libglimmer/nc2config.F90: changed stdout to l_stdout to avoid conflict with CCSM
+ * libglimmer/glimmer_paramets.F90: added variables for debugging
+ * libglide/glide.F90: added a comment
+ * libglide/glide_setup.F90: set there=.false. before inquire
+ * libglide/glimmer_ncio.F90: set model%numerics%tstart to value in hotstart file
+ * libglint/glint_main.F90: many changes associated with passing CCSM fields to
+	and from Glimmer
+ * libglint/glint_initialise.F90: minor stuff for debugging
+ * libglint/glint_global_grid.F90: added global mask for type global_grid
+ * libglint/glint_interp.F90: added local mask (lmask) for type downscale
+ * libglint/glint_mbal.F90: Added case(0) for whichacab (sfc mass balance from GCM)
+ * libglint/glint_mbal_coupling.F90: mods associated with getting SMB from GCM
+ * libglint/glint_timestep.F90: many changes associated with passing CCSM fields
+	to and from Glimmer
+ * libglint/glint_type.F90: added option whichacab = 0 (sfc mass balance from GCM)
+ * libglint/glint_global_interp.F90: added routines for upscaling and downscaling
+	CCSM fields between global and local grids
+	
+2010-03-23 Magnus Hagdorn
+ * scripts/generate_ncvars.py: write to log when input variables are scaled
+ * utils/compare.cpp: attempt to apply scales to netCDF files when present
+   before comparing variables
+
+2010-03-19 Magnus Hagdorn
+ * scripts/generate_ncvars.py: fix bug with scaling factors
+
+2010-02-26 Magnus Hagdorn
+ * libglimmer/ncdf_template.F90.in: load modules containing scales, declare
+   variable for scales
+ * scripts/generate_ncvars.py: store scaleing factors in netCDF attribute, 
+   only apply scaling factors if they are not attached to the variable
+
+2010-02-25 Magnus Hagdorn
+ * doc/ug/glide.tex: document new option
+ * libglide/glimmer_ncio.F90: use default float type for time variable
+ * libglide/glimmer_ncparams.F90: add option to change default float type
+ * libglimmer/glimmer_ncdf.F90: define default float type for netCDF variables
+ * libglimmer/ncdf_template.F90.in: add function which applies default float
+   type where required
+ * scripts/generate_ncvars.py: use default float type for all FP variables
+
 2010-05-03 Magnus Hagdorn
  * Makefile.am: install glimmer-cism-config
 

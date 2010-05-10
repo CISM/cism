@@ -88,7 +88,7 @@ end module test_int
 program test_integrate
   !*FD test numerical integration schemes
   use test_int
-  use physcon, only : pi
+  use glimmer_physcon, only : pi
   use glimmer_global, only : sp,dp
   use glimmer_integrate
   implicit none

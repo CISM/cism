@@ -66,7 +66,7 @@ contains
     use glide_io
     use glide_setup
     use glimmer_log
-    use physcon, only: rhoi,rhow
+    use glimmer_physcon, only: rhoi,rhow
     use glimmer_paramets, only: thk0
 
     implicit none
@@ -173,7 +173,7 @@ contains
 
     use glide_types
     use glide_io
-    use physcon, only: rhoi,rhow
+    use glimmer_physcon, only: rhoi,rhow
 
     type(eismint3_climate) :: climate      !*FD structure holding EISMINT3 climate
     type(glide_global_type) :: model       !*FD model instance

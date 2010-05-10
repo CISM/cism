@@ -226,6 +226,9 @@ module glide_types
     real(dp),dimension(:,:),pointer :: topg => null() 
     !*FD The elevation of the topography, divided by \texttt{thk0}.
 
+    real(dp),dimension(:,:,:),pointer :: age => null()
+    !*FD The age of a given ice layer, divided by \texttt{tim0}.
+
     integer, dimension(:,:),pointer :: mask => null()
     !*FD Set to zero for all points where $\mathtt{thck}=0$, otherwise non-zero.
     !*FD the non-zero points are numbered in sequence from the bottom left to the 
@@ -401,6 +404,8 @@ module glide_types
                                                      !*FD vertical spacing of 
                                                      !*FD model levels
     integer :: profile_period = 100            !*FD profile frequency
+    integer :: ndiag = 1000                    !*FD diagnostic frequency
+
   end type glide_numerics
 
 
@@ -620,6 +625,7 @@ contains
     !*FD \item \texttt{lsrf(ewn,nsn))}
     !*FD \item \texttt{topg(ewn,nsn))}
     !*FD \item \texttt{mask(ewn,nsn))}
+    !*FD \item \texttt{age(ewn,nsn))}
     !*FD \end{itemize}
 
     !*FD In \texttt{model\%thckwk}:
@@ -706,6 +712,7 @@ contains
     call coordsystem_allocate(model%general%ice_grid, model%geometry%topg)
     call coordsystem_allocate(model%general%ice_grid, model%geometry%mask)
     call coordsystem_allocate(model%general%ice_grid, model%geometry%thkmask)
+    call coordsystem_allocate(model%general%ice_grid, upn, model%geometry%age)
 
     allocate(model%thckwk%olds(ewn,nsn,model%thckwk%nwhich))
     model%thckwk%olds = 0.0d0
@@ -801,7 +808,7 @@ contains
     deallocate(model%geometry%topg)
     deallocate(model%geometry%mask)
     deallocate(model%geometry%thkmask)
-
+    deallocate(model%geometry%age)
     deallocate(model%thckwk%olds)
     deallocate(model%thckwk%oldthck)
     deallocate(model%thckwk%oldthck2)

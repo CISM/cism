@@ -67,7 +67,7 @@ contains
   subroutine glide_set_mask(model)
     use glide_types
     use glimmer_global, only : dp
-    use physcon, only : rhoi, rhoo
+    use glimmer_physcon, only : rhoi, rhoo
     implicit none
     type(glide_global_type) :: model        !*FD model instance
 

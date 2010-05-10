@@ -52,7 +52,7 @@ module glide_velo
 
   use glide_types
   use glimmer_global, only : dp
-  use physcon, only : rhoi, grav, gn
+  use glimmer_physcon, only : rhoi, grav, gn
   use glimmer_paramets, only : thk0, len0, vis0, vel0, acc0
 
   private vertintg, patebudd
@@ -68,7 +68,7 @@ contains
 
   subroutine init_velo(model)
     !*FD initialise velocity module
-    use physcon, only : arrmll, arrmlh, gascon, actenl, actenh,scyr 
+    use glimmer_physcon, only : arrmll, arrmlh, gascon, actenl, actenh,scyr 
     implicit none
     type(glide_global_type) :: model
 
@@ -739,7 +739,7 @@ contains
     !*FD \textbf{I'm unsure how this ties in with the documentation, since}
     !*FD \texttt{fiddle}\ \textbf{is set to 3.0. This needs checking} 
 
-    use physcon, only : pmlt
+    use glimmer_physcon, only : pmlt
 
     implicit none
 
@@ -965,7 +965,7 @@ contains
     !*FD temperature, $T_0$ is the triple point of water, $\rho$ is the ice density, and 
     !*FD $\Phi$ is the (constant) rate of change of melting point temperature with pressure.
 
-    use physcon, only : trpt
+    use glimmer_physcon, only : trpt
 
     implicit none
 
@@ -1083,7 +1083,7 @@ contains
 
   subroutine calc_basal_shear(model)
     !*FD calculate basal shear stress: tau_{x,y} = -ro_i*g*H*d(H+h)/d{x,y}
-    use physcon, only : rhoi,grav
+    use glimmer_physcon, only : rhoi,grav
     implicit none
     type(glide_global_type) :: model        !*FD model instance
 

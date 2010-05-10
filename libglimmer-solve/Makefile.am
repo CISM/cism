@@ -16,7 +16,7 @@ nodist_include_HEADERS := $(wildcard *.mod)
 
 AM_FCFLAGS = $(F90_MODFLAG)../libglimmer
 
-f90_dep.mak:	$(srcdir)/*.F90 $(BUILT_SOURCES) glimmer_vers.F90
+f90_dep.mak:	$(srcdir)/*.F90 $(BUILT_SOURCES) $(top_srcdir)/libglimmer/glimmer_vers.F90
 		$(PYTHON) $(top_srcdir)/scripts/f90_dependencies.py -l -o $@ $^
 
 -include f90_dep.mak

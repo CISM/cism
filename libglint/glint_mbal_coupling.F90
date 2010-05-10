@@ -161,8 +161,9 @@ contains
 
   ! +++++++++++++++++++++++++++++++++++++++++++++++++
 
-  subroutine glint_accumulate(params,time,artm,arng,prcp,snowd,siced,xwind,ywind,local_orog, &
-       thck,humidity,SWdown,LWdown,Psurf)
+  subroutine glint_accumulate(params, time,     artm,    arng,    prcp,       &
+                              snowd,  siced,    xwind,   ywind,   local_orog, &
+                              thck,   humidity, SWdown,  LWdown,  Psurf)
 
     type(glint_mbc)  :: params
     integer :: time
@@ -205,8 +206,6 @@ contains
 
     params%av_count=params%av_count+1
 
-    ! Call mass-balance
-
     call glint_mbal_calc(params%mbal,artm,arng,prcp,(local_orog>0.0.or.thck>0.0),params%snowd, &
          params%siced,ablt,acab,thck,xwind,ywind,humidity,SWdown,LWdown,Psurf) 
 
@@ -234,6 +233,45 @@ contains
 
   ! +++++++++++++++++++++++++++++++++++++++++++++++++
 
+  subroutine glint_accumulate_ccsm(params, time, acab, artm)
+
+    type(glint_mbc)  :: params
+    integer :: time
+
+    real(sp),dimension(:,:),intent(in), optional :: acab   ! Surface mass balance (m/s)
+    real(sp),dimension(:,:),intent(inout) :: artm          ! Mean air temperature (degC)
+
+    ! Things to do the first time
+
+    if (params%new_accum) then
+
+       params%new_accum = .false.
+       params%av_count  = 0
+
+       ! Initialise
+
+       params%acab_save = 0.0
+       params%artm_save = 0.0
+       params%start_time = time
+
+    end if
+
+    params%av_count = params%av_count + 1
+
+    ! Accumulate
+
+    params%acab_save = params%acab_save + acab
+    params%artm_save = params%artm_save + artm
+
+    ! Copy instantaneous fields
+
+    params%acab = acab
+    params%artm = artm
+
+  end subroutine glint_accumulate_ccsm
+
+  ! +++++++++++++++++++++++++++++++++++++++++++++++++
+
   subroutine glint_get_mbal(params,artm,prcp,ablt,acab,snowd,siced,dt)
 
     use glint_constants, only: hours2years
@@ -248,17 +286,17 @@ contains
     integer,                intent(in)    :: dt     !*FD accumulation time in hours
 
     if (.not.params%new_accum) then
-       params%artm_save=params%artm_save/real(params%av_count)
+       params%artm_save = params%artm_save/real(params%av_count)
     end if
 
     params%new_accum=.true.
 
-    artm=params%artm_save
-    prcp=params%prcp_save/real(dt*hours2years,sp)
-    ablt=params%ablt_save/real(dt*hours2years,sp)
-    acab=params%acab_save/real(dt*hours2years,sp)
-    snowd=params%snowd
-    siced=params%siced
+    artm  = params%artm_save
+    prcp  = params%prcp_save/real(dt*hours2years,sp)
+    ablt  = params%ablt_save/real(dt*hours2years,sp)
+    acab  = params%acab_save/real(dt*hours2years,sp)
+    snowd = params%snowd
+    siced = params%siced
 
     where (snowd<0.0) snowd=0.0
     where (siced<0.0) siced=0.0

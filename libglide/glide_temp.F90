@@ -80,7 +80,7 @@ contains
 
   subroutine init_temp(model)
     !*FD initialise temperature module
-    use physcon, only : rhoi, shci, coni, scyr, grav, gn, lhci, rhow
+    use glimmer_physcon, only : rhoi, shci, coni, scyr, grav, gn, lhci, rhow
     use glimmer_paramets, only : tim0, thk0, acc0, len0, vis0, vel0
     use glimmer_global, only : dp 
     use glimmer_log
@@ -249,31 +249,34 @@ contains
     case(1) ! Do full temperature solution ---------------------------------------------
 
 
+!lipscomb - restart mod - These routines are now called at the end of tstep_p3, so that wgrd
+!                         can be written to the hotstart file and used for restart.
+                         
        ! Calculate time-derivatives of thickness and upper surface elevation ------------
 
-       call timeders(model%thckwk,   &
-            model%geometry%thck,     &
-            model%geomderv%dthckdtm, &
-            model%geometry%mask,     &
-            model%numerics%time,     &
-            1)
+!!       call timeders(model%thckwk,   &
+!!            model%geometry%thck,     &
+!!            model%geomderv%dthckdtm, &
+!!            model%geometry%mask,     &
+!!            model%numerics%time,     &
+!!            1)
 
-       call timeders(model%thckwk,   &
-            model%geometry%usrf,     &
-            model%geomderv%dusrfdtm, &
-            model%geometry%mask,     &
-            model%numerics%time,     &
-            2)
+!!       call timeders(model%thckwk,   &
+!!            model%geometry%usrf,     &
+!!            model%geomderv%dusrfdtm, &
+!!            model%geometry%mask,     &
+!!            model%numerics%time,     &
+!!            2)
 
        ! Calculate the vertical velocity of the grid ------------------------------------
 
-       call gridwvel(model%numerics%sigma,  &
-            model%numerics%thklim, &
-            model%velocity%uvel,   &
-            model%velocity%vvel,   &
-            model%geomderv,        &
-            model%geometry%thck,   &
-            model%velocity%wgrd)
+!!       call gridwvel(model%numerics%sigma,  &
+!!            model%numerics%thklim, &
+!!            model%velocity%uvel,   &
+!!            model%velocity%vvel,   &
+!!            model%geomderv,        &
+!!            model%geometry%thck,   &
+!!            model%velocity%wgrd)
 
        ! Calculate the actual vertical velocity; method depends on whichwvel ------------
 
@@ -770,7 +773,7 @@ contains
   subroutine finddisp(model,thck,stagthck,dusrfdew,dusrfdns,flwa)
 
     use glimmer_global, only : dp
-    use physcon, only : gn
+    use glimmer_physcon, only : gn
 
     implicit none
 
@@ -1190,7 +1193,7 @@ contains
     !*FD Returns the pressure melting point of water (degC)
 
     use glimmer_global, only : dp !, upn
-    use physcon, only : rhoi, grav, pmlt 
+    use glimmer_physcon, only : rhoi, grav, pmlt 
     use glimmer_paramets, only : thk0
 
     implicit none 
@@ -1210,7 +1213,7 @@ contains
   subroutine calcpmptb(pmptemp,thck)
 
     use glimmer_global, only : dp
-    use physcon, only : rhoi, grav, pmlt 
+    use glimmer_physcon, only : rhoi, grav, pmlt 
     use glimmer_paramets, only : thk0
 
     implicit none 

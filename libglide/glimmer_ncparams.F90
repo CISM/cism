@@ -157,12 +157,13 @@ contains
     type(glimmer_nc_output), pointer :: handle_output
     real, intent(in) :: start_yr
     character(*),intent(in) :: configstring
-    character(10) :: mode_str
+    character(10) :: mode_str,xtype_str
 
     handle_output=>add(output)
     
     handle_output%next_write = start_yr
     mode_str=''
+    xtype_str = 'real'
 
     ! get filename
     call GetValue(section,'name',handle_output%nc%filename)
@@ -171,6 +172,7 @@ contains
     call GetValue(section,'frequency',handle_output%freq)
     call GetValue(section,'variables',handle_output%nc%vars)
     call GetValue(section,'mode',mode_str)
+    call GetValue(section,'xtype',xtype_str)
 
     ! handle mode field
     if (trim(mode_str)=='append'.or.trim(mode_str)=='APPEND') then
@@ -178,6 +180,15 @@ contains
     else
        handle_output%append = .false.
     end if
+
+    ! handle xtype field
+    if (trim(xtype_str)=='real'.or.trim(xtype_str)=='REAL') then
+       handle_output%default_xtype = NF90_REAL
+    else if (trim(xtype_str)=='double'.or.trim(xtype_str)=='DOUBLE') then
+       handle_output%default_xtype = NF90_DOUBLE
+    else
+       call write_log('Error, unknown xtype, must be real or double [netCDF output]',GM_FATAL)
+    end if  
 
     ! add config data
     handle_output%metadata%config=trim(configstring)

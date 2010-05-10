@@ -14,13 +14,22 @@ datatype: glint_instance
 # module where type is defined
 datamod:  glint_type 
 
-[mask]
+#lipscomb mod: Changed mask to outmask
+[outmask]
 dimensions:    time, y1, x1
 units:         1
-long_name:     upscaling and downscaling mask
+long_name:     upscaling mask
 data:          data%out_mask
 load:          1
 hot:           1
+coordinates:   lon lat
+
+#lipscomb mod: Added inmask
+[inmask]
+dimensions:    time, y1, x1
+units:         1
+long_name:     downscaling mask
+data:          data%downs%lmask
 coordinates:   lon lat
 
 [arng]

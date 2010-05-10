@@ -52,7 +52,7 @@ module glimmer_daily_pdd
   !*FD PDD factors are no longer converted to ice equivalent.
 
   use glimmer_global
-  use physcon, only : pi,scyr,rhow,rhoi
+  use glimmer_physcon, only : pi,scyr,rhow,rhoi
 
   implicit none
 
@@ -97,7 +97,7 @@ contains
 
   subroutine glimmer_daily_pdd_init(params,config)
 
-    use physcon, only : rhow, rhoi
+    use glimmer_physcon, only : rhow, rhoi
     use glimmer_config
   
     type(glimmer_daily_pdd_params) :: params

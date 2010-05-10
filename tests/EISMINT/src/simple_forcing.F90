@@ -253,7 +253,7 @@ contains
     use glimmer_global, only:rk
     use glide_types
     use glimmer_paramets, only : len0, acc0, scyr
-    use physcon, only : pi
+    use glimmer_physcon, only : pi
     implicit none
     type(simple_climate) :: climate         !*FD structure holding climate info
     type(glide_global_type) :: model        !*FD model instance
@@ -309,7 +309,7 @@ contains
     use glide_types
     use glimmer_global, only:rk
     use glimmer_paramets, only : len0
-    use physcon, only : pi
+    use glimmer_physcon, only : pi
     implicit none
     type(simple_climate) :: climate         !*FD structure holding climate info
     type(glide_global_type) :: model        !*FD model instance

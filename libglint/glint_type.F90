@@ -96,8 +96,8 @@ module glint_type
 
      ! Locally calculated climate/mass-balance fields ------------
 
-     real(sp),dimension(:,:),pointer :: ablt => null() !*FD Annual ablation.
-     real(sp),dimension(:,:),pointer :: acab => null() !*FD Annual mass-balance.
+     real(sp),dimension(:,:),pointer :: ablt => null() !*FD Annual ablation
+     real(sp),dimension(:,:),pointer :: acab => null() !*FD Annual mass-balance
 
      ! Arrays to accumulate mass-balance quantities --------------
 
@@ -123,6 +123,7 @@ module glint_type
 
      !*FD Which mass-balance scheme: 
      !*FD \begin{description}
+     !*FD \item[0] Receive surface mass balance from climate model
      !*FD \item[1] PDD mass-balance model
      !*FD \item[2] Accumulation only 
      !*FD \item[3] RAPID energy balance model
@@ -247,8 +248,8 @@ contains
     ! Then reallocate and zero...
     ! Global input fields
 
-    allocate(instance%artm(ewn,nsn));        instance%artm = 0.0
-    allocate(instance%arng(ewn,nsn));        instance%arng = 0.0
+    allocate(instance%artm(ewn,nsn));        instance%artm        = 0.0
+    allocate(instance%arng(ewn,nsn));        instance%arng        = 0.0
     allocate(instance%prcp(ewn,nsn));        instance%prcp        = 0.0
     allocate(instance%snowd(ewn,nsn));       instance%snowd       = 0.0
     allocate(instance%siced(ewn,nsn));       instance%siced       = 0.0
@@ -273,7 +274,7 @@ contains
 
     ! Output mask
 
-    allocate(instance%out_mask(ewn,nsn)); instance%out_mask = 1.0
+    allocate(instance%out_mask(ewn,nsn)); instance%out_mask = 1
 
   end subroutine glint_i_allocate
 
@@ -424,7 +425,11 @@ contains
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  subroutine get_i_upscaled_fields(instance,orog,albedo,ice_frac,veg_frac,snowice_frac,snowveg_frac,snow_depth)
+  subroutine get_i_upscaled_fields(instance,                    &
+                                   orog,         albedo,        &
+                                   ice_frac,     veg_frac,      &
+                                   snowice_frac, snowveg_frac,  &
+                                   snow_depth)
 
     !*FD Upscales and returns certain fields
     !*FD 
@@ -523,6 +528,188 @@ contains
     temp => null()
 
   end subroutine get_i_upscaled_fields
+
+  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+  subroutine get_i_upscaled_fields_ccsm(instance,    nec,      &
+                                        nxl,         nyl,      &
+                                        nxg,         nyg,      &
+                                        gfrac,       gtopo,    &
+                                        grofi,       grofl,    &
+                                        ghflx)
+
+    ! Upscale fields from the local grid to the global grid (with multiple elevation classes).
+    ! The upscaled fields are passed to the CCSM land surface model, which has the option
+    !  of updating the fractional area and surface elevation of glaciated gridcells.
+
+    use glimmer_paramets, only: thk0
+    use glimmer_log
+
+    ! Arguments ----------------------------------------------------------------------------
+ 
+    type(glint_instance),     intent(in)  :: instance      ! the model instance
+    integer,                  intent(in)  :: nec           ! number of elevation classes
+    integer,                  intent(in)  :: nxl,nyl       ! local grid dimensions 
+    integer,                  intent(in)  :: nxg,nyg       ! global grid dimensions 
+
+    real(dp),dimension(nxg,nyg,nec),intent(out) :: gfrac   ! ice-covered fraction [0,1]
+    real(dp),dimension(nxg,nyg,nec),intent(out) :: gtopo   ! surface elevation (m)
+    real(dp),dimension(nxg,nyg,nec),intent(out) :: grofi   ! ice runoff (calving) flux (kg/m^2/s)
+    real(dp),dimension(nxg,nyg,nec),intent(out) :: grofl   ! liquid runoff (basal melt) flux (kg/m^2/s)
+    real(dp),dimension(nxg,nyg,nec),intent(out) :: ghflx   ! heat flux (m)
+ 
+    ! Internal variables ----------------------------------------------------------------------
+ 
+    real(dp),dimension(nxl,nyl) :: local_field
+    real(dp),dimension(nxl,nyl) :: local_topo   ! local surface elevation (m)
+    real(dp),dimension(nxl,nyl) :: local_thck   ! local ice thickness (m)
+    real(dp), parameter :: min_thck = 1.0_dp    ! min thickness (m) for setting gfrac = 1
+
+    integer :: i, j            ! indices
+ 
+    integer :: il, jl, ig, jg
+
+!lipscomb - to do - Read topomax from CCSM data file at initialization
+    real(dp), dimension(nec) :: topomax   ! upper elevation limit of each class
+
+    ! Given the value of nec, specify the upper and lower elevation boundaries of each class.
+    ! Note: These must be consistent with the values in the GCM.  Better to pass as an argument.
+    if (nec == 1) then
+       topomax = (/ 0._dp, 10000._dp, 10000._dp, 10000._dp, 10000._dp, 10000._dp,  &
+                           10000._dp, 10000._dp, 10000._dp, 10000._dp, 10000._dp /)
+    elseif (nec == 3) then
+       topomax = (/ 0._dp,  1000._dp,  2000._dp, 10000._dp, 10000._dp, 10000._dp,  &
+                           10000._dp, 10000._dp, 10000._dp, 10000._dp, 10000._dp /)
+    elseif (nec == 5) then
+       topomax = (/ 0._dp,   500._dp,  1000._dp,  1500._dp,  2000._dp, 10000._dp,  &
+                           10000._dp, 10000._dp, 10000._dp, 10000._dp, 10000._dp /)
+    elseif (nec == 10) then
+       topomax = (/ 0._dp,   200._dp,   400._dp,   700._dp,  1000._dp,  1300._dp,  &
+                            1600._dp,  2000._dp,  2500._dp,  3000._dp, 10000._dp /)
+    else
+#ifdef GLC_DEBUG
+       write(stdout,*) 'nec =', nec
+#endif
+       call write_log('ERROR: Current supported values of nec (no. of elevation classes) are 1, 3, 5, or 10', &
+                       GM_FATAL,__FILE__,__LINE__)
+    endif
+
+    local_topo(:,:) = thk0 * instance%model%geometry%usrf(:,:)
+    local_thck(:,:) = thk0 * instance%model%geometry%thck(:,:)
+        
+#ifdef GLC_DEBUG
+       ig = itest
+       jg = jjtest
+       il = itest_local
+       jl = jtest_local
+       write(stdout,*) 'In get_i_upscaled_fields_ccsm'
+       write(stdout,*) 'il, jl =', il, jl
+       write(stdout,*) 'ig, jg =', ig, jg
+       write(stdout,*) 'nxl, nyl =', nxl,nyl
+       write(stdout,*) 'nxg, nyg =', nxg,nyg
+       write(stdout,*) 'topo =', local_topo(il,jl) 
+       write(stdout,*) 'thck =', local_thck(il,jl) 
+       write(stdout,*) 'local out_mask =', instance%out_mask(il,jl)
+#endif
+
+    ! temporary field: = 1 where ice thickness exceeds threshold, else = 0
+
+    do j = 1, nyl
+    do i = 1, nxl
+       if (local_thck(i,j) > min_thck) then
+          local_field(i,j) = 1._dp
+       else
+          local_field(i,j) = 0._dp
+       endif
+    enddo
+    enddo
+
+    ! ice fraction
+
+    call mean_to_global_mec(instance%ups,                       &
+                            nxl,                nyl,            &
+                            nxg,                nyg,            &
+                            nec,                topomax,        &
+                            local_field,        gfrac,          &
+                            local_topo,         instance%out_mask)
+
+    ! surface elevation
+
+    call mean_to_global_mec(instance%ups,                   &
+                            nxl,                 nyl,       &
+                            nxg,                 nyg,       &
+                            nec,                 topomax,   &
+                            local_topo,          gtopo,     &
+                            local_topo,          instance%out_mask)
+
+!lipscomb - to do - Copy the appropriate fields into local_field array
+
+    ! ice runoff
+
+    local_field(:,:) = 0._dp
+
+    call mean_to_global_mec(instance%ups,                   &
+                            nxl,                 nyl,       &
+                            nxg,                 nyg,       &
+                            nec,                 topomax,   &
+                            local_field,         grofi,     &
+                            local_topo,          instance%out_mask)
+
+    ! liquid runoff
+
+    local_field(:,:) = 0._dp
+
+    call mean_to_global_mec(instance%ups,                   &
+                            nxl,                 nyl,       &
+                            nxg,                 nyg,       &
+                            nec,                 topomax,   &
+                            local_field,         grofl,     &
+                            local_topo,          instance%out_mask)
+
+    ! heat flux
+
+    local_field(:,:) = 0._dp
+
+    call mean_to_global_mec(instance%ups,                   &
+                            nxl,                 nyl,       &
+                            nxg,                 nyg,       &
+                            nec,                 topomax,   &
+                            local_field,         ghflx,     &
+                            local_topo,          instance%out_mask)
+ 
+#ifdef GLC_DEBUG
+!       write(stdout,*) ' '
+!       write(stdout,*) 'global ifrac:'
+!       do n = 1, nec
+!          write(stdout,*) n, gfrac(ig, jg, n)
+!       enddo
+
+!       write(stdout,*) ' '
+!       write(stdout,*) 'global gtopo:'
+!       do n = 1, nec
+!          write(stdout,*) n, gtopo(ig, jg, n)
+!       enddo
+
+!       write(stdout,*) ' '
+!       write(stdout,*) 'global grofi:'
+!       do n = 1, nec
+!          write(stdout,*) n, grofi(ig, jg, n)
+!       enddo
+
+!       write(stdout,*) ' '
+!       write(stdout,*) 'global grofl:'
+!       do n = 1, nec
+!          write(stdout,*) n, grofl(ig, jg, n)
+!       enddo
+
+!       write(stdout,*) ' '
+!       write(stdout,*) 'global ghflx:'
+!       do n = 1, nec
+!          write(stdout,*) n, ghflx(ig, jg, n)
+!       enddo
+#endif
+
+  end subroutine get_i_upscaled_fields_ccsm
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

@@ -106,10 +106,7 @@ class Variables(dict):
                     vardef_avg['cell_methods'] = '%s time: mean over years'%vardef_avg['cell_methods']
                 else:
                     vardef_avg['cell_methods'] = 'time: mean over years'
-                if 'factor' in vardef_avg:
-                    vardef_avg['factor'] = '(%s)*tavgf'%vardef_avg['factor']
-                else:
-                    vardef_avg['factor'] = 'tavgf'
+                vardef_avg['avg_factor'] = 'tavgf'
                 # and add to dictionary
                 self.__setitem__('%s_%s'%(v,AVERAGE_SUFFIX),vardef_avg)
                 
@@ -299,13 +296,15 @@ class PrintNC_template(PrintVars):
             spaces=3
             self.stream.write("    if (.not.outfile%append) then\n")
         self.stream.write("%s    call write_log('Creating variable %s')\n"%(spaces*' ',var['name']))
-        self.stream.write("%s    status = nf90_def_var(NCO%%id,'%s',NF90_%s,(/%s/),%s)\n"%(spaces*' ',
-                                                                                           var['name'],
-                                                                                           var['type'].upper(),
-                                                                                           dimstring,
-                                                                                           idstring
-                                                                                           ))
+        self.stream.write("%s    status = nf90_def_var(NCO%%id,'%s',get_xtype(outfile,NF90_%s),(/%s/),%s)\n"%(spaces*' ',
+                                                                                                              var['name'],
+                                                                                                              var['type'].upper(), 
+                                                                                                              dimstring,
+                                                                                                              idstring
+                                                                                                              ))
         self.stream.write("%s    call nc_errorhandle(__FILE__,__LINE__,status)\n"%(spaces*' '))
+        if 'factor' in var:
+            self.stream.write("%s    status = nf90_put_att(NCO%%id, %s, 'scale_factor',(%s))\n"%(spaces*' ',idstring,var['factor']))
         for attrib in var:
             if attrib not in NOATTRIB:
                 self.stream.write("%s    status = nf90_put_att(NCO%%id, %s, '%s', '%s')\n"%(spaces*' ',
@@ -392,10 +391,9 @@ class PrintNC_template(PrintVars):
                 self.stream.write("       do up=1,NCO%nlevel\n")
 
                         
-            if 'factor' in var:
-                data = '(%s)*(%s)'%(var['factor'], var['data'])
-            else:
-                data = var['data']
+            data = var['data']
+            if 'avg_factor' in var:
+                data = '%s*(%s)'%(var['avg_factor'],data)
             self.stream.write("%s       status = nf90_put_var(NCO%%id, varid, &\n%s            %s, (/%s/))\n"%(spaces,
                                                                                                                spaces,data, dimstring))
             self.stream.write("%s       call nc_errorhandle(__FILE__,__LINE__,status)\n"%(spaces))
@@ -440,8 +438,20 @@ class PrintNC_template(PrintVars):
                 self.stream.write("%s       status = nf90_get_var(NCI%%id, varid, &\n%s            %s, (/%s/))\n"%(spaces,
                                                                                                                spaces,var['data'], dimstring))
                 self.stream.write("%s       call nc_errorhandle(__FILE__,__LINE__,status)\n"%(spaces))
+                self.stream.write("%s       status = nf90_get_att(NCI%%id, varid,'scale_factor',scaling_factor)\n"%(spaces))
+                self.stream.write("%s       if (status.ne.NF90_NOERR) then\n"%(spaces))
                 if 'factor' in var:
-                    self.stream.write("%s       if (scale) then\n%s       %s = %s/(%s)\n%s       end if\n"%(spaces,spaces,var['data'],var['data'],var['factor'],spaces))
+                    self.stream.write("%s          scaling_factor = 1.0d0/(%s)\n"%(spaces,var['factor']))
+                else:
+                    self.stream.write("%s          scaling_factor = 1.0d0\n"%(spaces))
+                if 'factor' in var:
+                    self.stream.write("%s       else\n"%(spaces))
+                    self.stream.write("%s          scaling_factor = scaling_factor/(%s)\n"%(spaces,var['factor']))
+                self.stream.write("%s       end if\n"%(spaces))
+                self.stream.write("%s       if (abs(scaling_factor-1.0d0).gt.1.d-17) then\n"%(spaces))
+                self.stream.write("%s          call write_log(\"scaling %s\",GM_DIAGNOSTIC)\n"%(spaces,var['name']))
+                self.stream.write("%s          %s = %s*scaling_factor\n"%(spaces,var['data'],var['data']))
+                self.stream.write("%s       end if\n"%(spaces))
 
                 if  'level' in dims:
                     self.stream.write("       end do\n")

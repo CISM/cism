@@ -75,7 +75,7 @@ contains
   subroutine verifD_init(model, veri)
     !*FD initialise test case D
     use glide_types
-    use physcon
+    use glimmer_physcon
     use glimmer_paramets
     use glimmer_log
     implicit none
@@ -176,7 +176,7 @@ contains
 
   function calc_hp(veri,r,t)
     !*FD calculate perturbed ice thickness
-    use physcon, only : pi
+    use glimmer_physcon, only : pi
     implicit none
     type(verifD_type)    :: veri !*FD structure holding test setup
     real(rk), intent(in) :: r    !*FD radius (m)
@@ -209,7 +209,7 @@ contains
 
   function calc_mc(veri,r,t)
     !*FD massbalance 1
-    use physcon, only : pi
+    use glimmer_physcon, only : pi
     implicit none
     type(verifD_type)    :: veri !*FD structure holding test setup
     real(rk), intent(in) :: r    !*FD radius (m)
@@ -232,7 +232,7 @@ contains
 
   function calc_ms(veri,r)
     !*FD steady state mass balance
-    use physcon, only : scyr
+    use glimmer_physcon, only : scyr
     implicit none
     type(verifD_type)    :: veri !*FD structure holding test setup
     real(rk), intent(in) :: r    !*FD radius (m)
@@ -256,7 +256,7 @@ contains
 
   function getgp(veri,r)
     !*FD helper routine
-    use physcon, only : pi
+    use glimmer_physcon, only : pi
     implicit none
     type(verifD_type)    :: veri !*FD structure holding test setup
     real(rk), intent(in) :: r    !*FD radius (m)
@@ -272,7 +272,7 @@ contains
 
   function getddr(veri,r,t)
     !*FD calculate derivatives
-    use physcon, only : pi
+    use glimmer_physcon, only : pi
     implicit none
     type(verifD_type)    :: veri !*FD structure holding test setup
     real(rk), intent(in) :: r    !*FD radius (m)

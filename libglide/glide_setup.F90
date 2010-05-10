@@ -113,7 +113,7 @@ contains
   subroutine glide_scale_params(model)
     !*FD scale parameters
     use glide_types
-    use physcon,  only: scyr, gn
+    use glimmer_physcon,  only: scyr, gn
     use glimmer_paramets, only: thk0,tim0,len0, tau0, vel0, vis0, acc0
     implicit none
     type(glide_global_type)  :: model !*FD model instance
@@ -283,7 +283,7 @@ contains
     !*FD by considering whether it is floating or not.
 
     use glimmer_global, only : dp
-    use physcon, only : rhoi, rhoo
+    use glimmer_physcon, only : rhoi, rhoo
 
     implicit none
 
@@ -310,7 +310,7 @@ contains
     !*FD equal to the topographic height, or sea-level, whichever is higher.
 
     use glimmer_global, only : dp, sp
-    use physcon, only : rhoi, rhoo
+    use glimmer_physcon, only : rhoi, rhoo
     use glide_mask
     implicit none
 
@@ -411,6 +411,7 @@ contains
           model%numerics%sigma(up) = glide_calc_sigma(real(up-1)/real(upn-1),2.)
        end do
     case(1)
+       there = .false.
        inquire (exist=there,file=process_path(model%funits%sigfile))
        if (.not.there) then
           call write_log('Sigma levels file: '//trim(process_path(model%funits%sigfile))// &
@@ -506,6 +507,8 @@ contains
     call GetValue(section,'ntem',model%numerics%ntem)
     call GetValue(section,'nvel',model%numerics%nvel)
     call GetValue(section,'profile',model%numerics%profile_period)
+    call GetValue(section,'ndiag',model%numerics%ndiag)
+
   end subroutine handle_time
   
   subroutine print_time(model)
@@ -528,6 +531,8 @@ contains
     write(message,*) 'velo dt factor    : ',model%numerics%nvel
     call write_log(message)
     write(message,*) 'profile frequency : ',model%numerics%profile_period
+    call write_log(message)
+    write(message,*) 'diag frequency    : ',model%numerics%ndiag
     call write_log(message)
     call write_log('')
   end subroutine print_time

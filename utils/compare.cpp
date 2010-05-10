@@ -171,6 +171,14 @@ int main(int argc, char **argv)
     namesBP[ii] = fpB.get_var(ii)->name();
   }
 
+  // Change the error behavior of the netCDF C++ API by creating an
+  // NcError object. Until it is destroyed, this NcError object will
+  // ensure that the netCDF C++ API silently returns error codes on
+  // any failure, and leaves any other error handling to the calling
+  // program. In the case of this example, we just exit with an
+  // NC_ERR error code.
+  NcError err(NcError::silent_nonfatal);
+
   // -------------------------------------------------------------
   // Determine which variables in A are also
   // present in B, then for those that are, compare them
@@ -249,12 +257,22 @@ int varComp(NcVar *A, NcVar *B, double dMinAbs, int iMaxUlps)
     if (numValsA!=numValsB) 
 	return ERRSIZE;
 
+    // Check if variables are scaled
+    double ScaleA = 1.0;
+    NcAtt* ScaleFactorA;
+    if ((ScaleFactorA=A->get_att("scale_factor")))
+      ScaleA = ScaleFactorA->as_double(0);
+    double ScaleB = 1.0;
+    NcAtt* ScaleFactorB;
+    if ((ScaleFactorB=B->get_att("scale_factor")))
+      ScaleB = ScaleFactorB->as_double(0);
+
     // Compare individual values
     int errcatch=0;
     for (int ii=0; ii<numValsA; ++ii) {
       // local copy of the values
-      double Aval = AvalsP->as_double(ii);
-      double Bval = BvalsP->as_double(ii);
+      double Aval = ScaleA*AvalsP->as_double(ii);
+      double Bval = ScaleB*BvalsP->as_double(ii);
       // if equal, then happy days
       if (Aval == Bval) {
 	continue;
@@ -290,6 +308,8 @@ int varComp(NcVar *A, NcVar *B, double dMinAbs, int iMaxUlps)
     
     free(AvalsP);
     free(BvalsP);
+    free(ScaleFactorA);
+    free(ScaleFactorB);
 
     return errcatch*ERRVALS;
 }

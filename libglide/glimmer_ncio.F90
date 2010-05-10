@@ -206,7 +206,7 @@ contains
     call nc_errorhandle(__FILE__,__LINE__,status)
     !     time -- Model time
     call write_log('Creating variable time')
-    status = nf90_def_var(NCO%id,'time',NF90_FLOAT,(/NCO%timedim/),NCO%timevar)
+    status = nf90_def_var(NCO%id,'time',outfile%default_xtype,(/NCO%timedim/),NCO%timevar)
     call nc_errorhandle(__FILE__,__LINE__,status)
     status = nf90_put_att(NCO%id, NCO%timevar, 'long_name', 'Model time')
     status = nf90_put_att(NCO%id, NCO%timevar, 'standard_name', 'time')
@@ -446,6 +446,9 @@ contains
     character(len=msg_length) :: message
     real(sp) :: sub_time
 
+    integer :: pos  ! to identify restart files
+    real(rk) :: restart_time   ! time of restart (yr)
+
     if (present(time)) then
        sub_time=time
     else
@@ -455,6 +458,18 @@ contains
     if (infile%current_time.le.infile%nt) then
        if (.not.NCI%just_processed) then
           call write_log_div
+          ! Reset model%numerics%tstart if reading a restart file
+          write(message,*) 'Check for restart:', trim(infile%nc%filename)
+          call write_log(message)
+          pos = index(infile%nc%filename,'restart')
+!lipscomb - to do - Allow for other strings (e.g., 'hot') to identify restart files?
+          if (pos.ne.0) then   ! get the start time based on the current time slice
+             restart_time = real(infile%times(infile%current_time))  ! years
+             model%numerics%tstart = restart_time
+             model%numerics%time = restart_time
+             write(message,*) 'Restart: New tstart =', model%numerics%tstart
+             call write_log(message)
+          endif
           write(message,*) 'Reading time slice ',infile%current_time,'(',infile%times(infile%current_time),') from file ', &
                trim(process_path(NCI%filename)), ' at time ', sub_time
           call write_log(message)

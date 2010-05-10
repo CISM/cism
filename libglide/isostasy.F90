@@ -59,7 +59,7 @@ contains
   subroutine init_isostasy(model)
     !*FD initialise isostasy calculations
     use glide_types
-    use physcon,  only: scyr
+    use glimmer_physcon,  only: scyr
     use glimmer_paramets, only: tim0
     implicit none
     type(glide_global_type) :: model
@@ -76,7 +76,7 @@ contains
   
   subroutine isos_icewaterload(model)
     !*FD calculate surface load factors due to water and ice distribution
-    use physcon
+    use glimmer_physcon
     use glide_types
     implicit none
     type(glide_global_type) :: model

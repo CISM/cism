@@ -49,7 +49,7 @@
 module glimmer_paramets
 
   use glimmer_global, only : sp, dp
-  use physcon, only : scyr
+  use glimmer_physcon, only : scyr
 
   implicit none; save
 
@@ -66,6 +66,15 @@ module glimmer_paramets
                                           ! in initial in blah.f90 (not sure this applies now...)
 
   real(sp), parameter :: conv = tim0 / scyr
+
+! some parameters for debugging
+   integer, parameter ::   &
+      itest = 133, jtest = 84,  &          ! in Greenland (FV2), lat 67.3 N, lon 330 E
+                  jjtest = 97 - jtest,  &  ! reversed for N to S indexing (FV2, ny = 96)
+      itest_local = 60, jtest_local = 54   ! Greenland 20 deg grid, initial usrf = 491 m
+
+   integer, parameter :: idiag = 30, jdiag = 50  ! point for diagnostic output
+   integer, parameter :: stdout = 6
 
 !MH!  !MAKE_RESTART
 !MH!#ifdef RESTARTS

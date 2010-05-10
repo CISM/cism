@@ -46,12 +46,15 @@
 
 module glint_interp
 
-  !*FD Downscaling and upscaling
-  !*FD routines for use in GLIMMER.
+  !*FD Downscaling and upscaling routines for use in GLIMMER.
 
   use glimmer_global
   use glimmer_map_types
   use glint_mpinterp
+
+#ifdef GLC_DEBUG
+  use glimmer_paramets, only: stdout, itest, jtest, jjtest, itest_local, jtest_local
+#endif
 
   implicit none
 
@@ -80,6 +83,8 @@ module glint_interp
      real(rk),dimension(:,:),pointer :: costheta => NULL()  !*FD coses of grid angle relative to north.
      type(mpinterp) :: mpint !*FD Parameters for mean-preserving interpolation
      logical :: use_mpint = .false. !*FD set true if we're using mean-preserving interpolation
+     integer,dimension(:,:),pointer :: lmask => null()  !*FD mask = 1 where downscaling is valid 
+                                                        !*FD mask = 0 elsewhere
 
   end type downscale
 
@@ -155,10 +160,14 @@ contains
     call coordsystem_allocate(lgrid,downs%xin)
     call coordsystem_allocate(lgrid,downs%yin)
     call coordsystem_allocate(lgrid,upsm)
-  
+    call coordsystem_allocate(lgrid,downs%lmask)
+
     ! index local boxes
 
-    call index_local_boxes(downs%xloc,downs%yloc,downs%xfrac,downs%yfrac,ggrid,proj,lgrid)
+    call index_local_boxes(downs%xloc,  downs%yloc,   &
+                           downs%xfrac, downs%yfrac,  &
+                           ggrid, proj, lgrid,        &
+                           downs%lmask )
 
     ! Calculate grid angle
 
@@ -230,10 +239,12 @@ contains
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  subroutine interp_to_local(lgrid,global,downs,localsp,localdp,localrk,global_fn,z_constrain)
+  subroutine interp_to_local (lgrid,     global,      downs,   &
+                              localsp,   localdp,     localrk, &
+                              global_fn, z_constrain,          &
+                              gmask,     maskval)
 
-    !*FD Interpolate a global scalar field
-    !*FD onto a projected grid. 
+    !*FD Interpolate a global scalar field onto a projected grid. 
     !*FD 
     !*FD This uses a simple bilinear interpolation, which assumes
     !*FD that the global grid boxes are rectangular - i.e. it works
@@ -241,6 +252,15 @@ contains
     !*FD
     !*FD Either localsp or localdp must be present (or both), depending
     !*FD which precision output is required.
+
+! Cell indexing for (xloc,yloc) is as follows:
+!
+!       4---------3
+!       |         |
+!       |         |
+!       |         |
+!       1---------2
+!
 
     use glimmer_utils
     use glimmer_coordinates
@@ -261,6 +281,8 @@ contains
                                                                !*FD In these circumstances, \texttt{global}
                                                                !*FD may be of any size, and its contents are irrelevant.
     logical,optional :: z_constrain
+    integer, dimension(:,:), intent(in),optional  :: gmask     !*FD = 1 where global data are valid, else = 0
+    real(dp), intent(in), optional                :: maskval   !*FD Value to write for masked-out cells 
 
     ! Local variable declarations
 
@@ -270,6 +292,13 @@ contains
     real(rk), dimension(size(global,1),size(global,2)) :: g_loc
     logical,  dimension(size(global,1),size(global,2)) :: zeros
     logical :: zc
+
+    integer :: x1, x2, x3, x4
+    integer :: y1, y2, y3, y4
+
+#ifdef GLC_DEBUG
+    integer :: n
+#endif
 
     if (present(z_constrain)) then
        zc=z_constrain
@@ -294,26 +323,113 @@ contains
     do i=1,lgrid%size%pt(1)
        do j=1,lgrid%size%pt(2)
 
+#ifdef GLC_DEBUG
+!          if (i==itest_local .and. j==jtest_local) then
+!              write(stdout,*) ' '
+!              write(stdout,*) 'Interpolating, i, j, lmask = ', i, j, downs%lmask(i,j)
+!              write(stdout,*) 'xloc, yloc:'
+!              do n = 1, 4
+!                 write(stdout,*) downs%xloc(i,j,n), downs%yloc(i,j,n)
+!              enddo
+!          endif
+#endif
+
           ! Compile the temporary array f from adjacent points 
 
-          if (present(global_fn)) then
-             f(1)=global_fn(downs%xloc(i,j,1),downs%yloc(i,j,1))
-             f(2)=global_fn(downs%xloc(i,j,2),downs%yloc(i,j,2))
-             f(3)=global_fn(downs%xloc(i,j,3),downs%yloc(i,j,3))
-             f(4)=global_fn(downs%xloc(i,j,4),downs%yloc(i,j,4))
-          else
-             if (downs%use_mpint) then
-                f(1)=g_loc(downs%xloc(i,j,1),downs%yloc(i,j,1))
-                f(2)=g_loc(downs%xloc(i,j,2),downs%yloc(i,j,2))
-                f(3)=g_loc(downs%xloc(i,j,3),downs%yloc(i,j,3))
-                f(4)=g_loc(downs%xloc(i,j,4),downs%yloc(i,j,4))
+!lipscomb - to do - This could be handled more efficiently by precomputing arrays that
+!  specify which neighbor gridcell supplies values in each masked-out global gridcell.
+ 
+          if (present(gmask) .and. present(maskval)) then
+
+             if (downs%lmask(i,j) == 0) then
+
+                f(1) = maskval
+                f(2) = maskval
+                f(3) = maskval
+                f(4) = maskval
+
              else
-                f(1)=global(downs%xloc(i,j,1),downs%yloc(i,j,1))
-                f(2)=global(downs%xloc(i,j,2),downs%yloc(i,j,2))
-                f(3)=global(downs%xloc(i,j,3),downs%yloc(i,j,3))
-                f(4)=global(downs%xloc(i,j,4),downs%yloc(i,j,4))
+
+                x1 = downs%xloc(i,j,1); y1 = downs%yloc(i,j,1)
+                x2 = downs%xloc(i,j,2); y2 = downs%yloc(i,j,2)
+                x3 = downs%xloc(i,j,3); y3 = downs%yloc(i,j,3)
+                x4 = downs%xloc(i,j,4); y4 = downs%yloc(i,j,4)
+
+                ! if a gridcell is masked out, try to assign a value from a
+                ! neighbor that is not masked out
+
+                if (gmask(x1,y1) /= 0) then
+                   f(1) = global(x1,y1)
+                elseif (gmask(x2,y2) /= 0) then
+                   f(1) = global(x2,y2)
+                elseif (gmask(x4,y4) /= 0) then
+                   f(1) = global(x4,y4)
+                elseif  (gmask(x3,y3) /= 0) then
+                   f(1) = global(x3,y3)
+                else
+                   f(1) = maskval
+                endif
+
+                if (gmask(x2,y2) /= 0) then
+                   f(2) = global(x2,y2)
+                elseif (gmask(x1,y1) /= 0) then
+                   f(2) = global(x1,y1)
+                elseif (gmask(x3,y3) /= 0) then
+                   f(2) = global(x3,y3)
+                elseif  (gmask(x4,y4) /= 0) then
+                   f(2) = global(x4,y4)
+                else
+                   f(2) = maskval
+                endif
+
+                if (gmask(x3,y3) /= 0) then
+                   f(3) = global(x3,y3)
+                elseif (gmask(x4,y4) /= 0) then
+                   f(3) = global(x4,y4)
+                elseif (gmask(x2,y2) /= 0) then
+                   f(3) = global(x2,y2)
+                elseif  (gmask(x1,y1) /= 0) then
+                   f(3) = global(x1,y1)
+                else
+                   f(3) = maskval
+                endif
+
+                if (gmask(x4,y4) /= 0) then
+                   f(4) = global(x4,y4)
+                elseif (gmask(x3,y3) /= 0) then
+                   f(4) = global(x3,y3)
+                elseif (gmask(x1,y1) /= 0) then
+                   f(4) = global(x1,y1)
+                elseif  (gmask(x2,y2) /= 0) then
+                   f(4) = global(x2,y2)
+                else
+                   f(4) = maskval
+                endif
+
+             endif    ! lmask = 0
+
+          else        ! gmask and maskval not present
+
+             if (present(global_fn)) then
+                f(1)=global_fn(downs%xloc(i,j,1),downs%yloc(i,j,1))
+                f(2)=global_fn(downs%xloc(i,j,2),downs%yloc(i,j,2))
+                f(3)=global_fn(downs%xloc(i,j,3),downs%yloc(i,j,3))
+                f(4)=global_fn(downs%xloc(i,j,4),downs%yloc(i,j,4))
+             else
+                if (downs%use_mpint) then
+                   f(1)=g_loc(downs%xloc(i,j,1),downs%yloc(i,j,1))
+                   f(2)=g_loc(downs%xloc(i,j,2),downs%yloc(i,j,2))
+                   f(3)=g_loc(downs%xloc(i,j,3),downs%yloc(i,j,3))
+                   f(4)=g_loc(downs%xloc(i,j,4),downs%yloc(i,j,4))
+                else
+                   f(1)=global(downs%xloc(i,j,1),downs%yloc(i,j,1))
+                   f(2)=global(downs%xloc(i,j,2),downs%yloc(i,j,2))
+                   f(3)=global(downs%xloc(i,j,3),downs%yloc(i,j,3))
+                   f(4)=global(downs%xloc(i,j,4),downs%yloc(i,j,4))
+                end if
              end if
-          end if
+
+          endif  ! gmask and maskval present
 
           ! Apply the bilinear interpolation
 
@@ -577,6 +693,174 @@ contains
 
   end subroutine mean_to_global_dp
 
+  !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+  subroutine mean_to_global_mec(ups,                &
+                                nxl,      nyl,      &
+                                nxg,      nyg,      &
+                                nec,      topomax,  &
+                                local,    global,   &
+                                ltopo,    mask)
+ 
+    ! Upscale from the local domain to a global domain with multiple elevation classes
+    ! by areal averaging.
+    !
+    ! This subroutine is adapted from subroutine mean_to_global in GLIMMER.
+    ! The difference is that local topography is upscaled to multiple elevation classes
+    !  in each global grid cell.
+    !
+    ! Note: This method is not the inverse of the interp_to_local routine.
+    ! Also note that each local grid cell is weighted equally.
+    ! In the future we will probably want to use the CCSM coupler for upscaling.
+ 
+    use glimmer_log
+
+    ! Arguments
+ 
+    type(upscale),            intent(in)    :: ups     ! upscaling indexing data
+    integer,                  intent(in)    :: nxl,nyl ! local grid dimensions 
+    integer,                  intent(in)    :: nxg,nyg ! global grid dimensions 
+    integer,                  intent(in)    :: nec     ! number of elevation classes 
+    real(dp),dimension(0:nec),intent(in)    :: topomax ! max elevation in each class 
+    real(dp),dimension(nxl,nyl),  intent(in)      :: local   ! data on local grid
+    real(dp),dimension(nxg,nyg,nec),intent(out)   :: global  ! data on global grid
+    real(dp),dimension(nxl,nyl),  intent(in)      :: ltopo   ! surface elevation on local grid (m)
+    integer, dimension(nxl,nyl),intent(in),optional :: mask ! mask for upscaling
+
+    ! Internal variables
+ 
+    integer ::  &
+       i, j, n,    &! indices
+       ig, jg       ! indices
+
+    integer, dimension(nxl,nyl) ::  &
+        tempmask,    &! temporary mask
+        gboxec        ! elevation class into which local data is upscaled
+
+    integer, dimension(nxg,nyg,nec) ::  &
+        gnumloc       ! no. of local cells within each global cell in each elevation class
+
+
+    integer :: il, jl
+    real(dp) :: lsum, gsum
+ 
+    if (present(mask)) then
+       tempmask(:,:) = mask(:,:)
+    else
+       tempmask(:,:) = 1
+    endif
+ 
+    ! Compute global elevation class for each local grid cell
+    ! Also compute number of local cells within each global cell in each elevation class
+
+    gboxec(:,:) = 0
+    gnumloc(:,:,:) = 0
+
+    do n = 1, nec
+       do j = 1, nyl
+       do i = 1, nxl
+          if (ltopo(i,j) >= topomax(n-1) .and. ltopo(i,j) < topomax(n)) then
+             gboxec(i,j) = n
+             if (tempmask(i,j)==1) then
+                ig = ups%gboxx(i,j)
+                jg = ups%gboxy(i,j)
+                gnumloc(ig,jg,n) = gnumloc(ig,jg,n) + 1
+             endif
+          endif
+       enddo
+       enddo
+    enddo
+
+    global(:,:,:) = 0._dp
+
+
+    do j = 1, nyl
+    do i = 1, nxl
+       ig = ups%gboxx(i,j)
+       jg = ups%gboxy(i,j)
+       n = gboxec(i,j)
+       if (n==0) then
+#ifdef GLC_DEBUG
+          write(stdout,*) 'Upscaling error: local topography out of bounds'
+          write(stdout,*) 'i, j, topo:', i, j, ltopo(i,j)
+          write(stdout,*) 'topomax(0) =', topomax(0)
+#endif
+          call write_log('Upscaling error: local topography out of bounds', &
+               GM_FATAL,__FILE__,__LINE__)
+       endif
+
+#ifdef GLC_DEBUG
+       if (i==itest_local .and. j==jtest_local) then
+          write(stdout,*) ' '
+          write(stdout,*) 'il, jl =', i, j
+          write(stdout,*) 'ig, jg, n =', ig, jg, n
+          write(stdout,*) 'Old global val =', global(ig,jg,n)
+          write(stdout,*) 'local, mask =', local(i,j), tempmask(i,j)
+       endif
+#endif
+       global(ig,jg,n) = global(ig,jg,n) + local(i,j)*tempmask(i,j)
+
+#ifdef GLC_DEBUG
+       if (i==itest_local .and. j==jtest_local) then
+          write(stdout,*) 'New global val =', global(ig,jg,n)
+       endif
+#endif
+
+    enddo
+    enddo
+ 
+    do n = 1, nec
+       do j = 1, nyg
+       do i = 1, nxg
+          if (gnumloc(i,j,n) /= 0) then
+             global(i,j,n) = global(i,j,n) / gnumloc(i,j,n)
+          else
+             global(i,j,n) = 0._dp
+          endif
+       enddo
+       enddo
+    enddo
+
+    ! conservation check
+
+    lsum = 0._dp
+    do j = 1, nyl
+    do i = 1, nxl
+       lsum = lsum + local(i,j)*tempmask(i,j)
+    enddo    
+    enddo
+
+    gsum = 0._dp
+    do n = 1, nec
+    do j = 1, nyg
+    do i = 1, nxg
+       gsum = gsum + global(i,j,n)*gnumloc(i,j,n)
+    enddo
+    enddo
+    enddo
+
+    if (abs(lsum) > 1.e-10_dp) then
+       if (abs(gsum-lsum)/abs(lsum) > 1.e-10_dp) then 
+#ifdef GLC_DEBUG
+          write(stdout,*) 'local and global sums disagree'
+          write (stdout,*) 'lsum, gsum =', lsum, gsum 
+#endif
+          call write_log('Upscaling error: local and glocal sums disagree', &
+               GM_FATAL,__FILE__,__LINE__)
+       endif
+    else  ! lsum is close to zero
+       if (abs(gsum-lsum) > 1.e-10_dp) then
+#ifdef GLC_DEBUG
+          write(stdout,*) 'local and global sums disagree'
+          write (stdout,*) 'lsum, gsum =', lsum, gsum 
+#endif
+          call write_log('Upscaling error: local and glocal sums disagree', &
+               GM_FATAL,__FILE__,__LINE__)
+       endif
+    endif
+
+  end subroutine mean_to_global_mec
+  
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   real(rk) function bilinear_interp(xp,yp,f)
@@ -654,7 +938,7 @@ contains
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  subroutine index_local_boxes(xloc,yloc,xfrac,yfrac,ggrid,proj,lgrid)
+  subroutine index_local_boxes (xloc, yloc, xfrac, yfrac, ggrid, proj, lgrid, lmask)
 
     !*FD Indexes the corners of the
     !*FD global grid box in which each local grid box sits.
@@ -671,11 +955,25 @@ contains
     type(global_grid),        intent(in)  :: ggrid       !*FD Global grid to be used
     type(glimmap_proj),       intent(in)  :: proj        !*FD Projection to be used
     type(coordsystem_type),   intent(in)  :: lgrid       !*FD Local grid
+    integer, dimension(:,:),  intent(out) :: lmask  !*FD Mask of local cells for which interpolation is valid
 
     ! Internal variables
 
     integer :: i,j,il,jl,temp
     real(rk) :: ilon,jlat,xa,ya,xb,yb,xc,yc,xd,yd
+
+#ifdef GLC_DEBUG
+    integer :: nx, ny, nxg, nyg, n
+    nx = lgrid%size%pt(1)
+    ny = lgrid%size%pt(2)
+    nxg = size(ggrid%mask,1)
+    nyg = size(ggrid%mask,2)
+
+    write(stdout,*) ' '
+    write(stdout,*) 'nx,  ny =', nx, ny
+    write(stdout,*) 'nxg, nyg =', nxg, nyg
+    write(stdout,*) 'Indexing local boxes'
+#endif
 
     do i=1,lgrid%size%pt(1)
        do j=1,lgrid%size%pt(2)
@@ -737,6 +1035,17 @@ contains
 
           endif
 
+#ifdef GLC_DEBUG
+          if (i==itest_local .and. j==jtest_local) then
+             write(stdout,*) ' '
+             write(stdout,*) 'Index local boxes, i, j =', i, j
+             write(stdout,*) 'xloc, yloc'
+             do n = 1, 4
+                write(stdout,*) xloc(i,j,n), yloc(i,j,n)
+             enddo
+          endif
+#endif
+
           ! Now, find out where each of those points is on the projected
           ! grid, and calculate fractional displacements accordingly
 
@@ -748,8 +1057,44 @@ contains
           call calc_fractional(xfrac(i,j),yfrac(i,j),real(i,rk),real(j,rk), &
                xa,ya,xb,yb,xc,yc,xd,yd)
 
+          ! If all four global gridcells surrounding this local gridcell
+          ! are masked out, then mask out the local gridcell
+
+          if ( (ggrid%mask(xloc(i,j,1),yloc(i,j,1)) == 0) .and.  &
+               (ggrid%mask(xloc(i,j,2),yloc(i,j,2)) == 0) .and.  &
+               (ggrid%mask(xloc(i,j,3),yloc(i,j,3)) == 0) .and.  &
+               (ggrid%mask(xloc(i,j,4),yloc(i,j,4)) == 0) ) then
+             lmask(i,j) = 0
+          else
+             lmask(i,j) = 1
+          endif
+
        enddo
     enddo
+
+#ifdef GLC_DEBUG
+          write(stdout,*) ' '
+          write(stdout,*) 'Mask in neighborhood of i, j = ', itest_local, jtest_local
+          do j = jtest_local-1, jtest_local+1
+             write(stdout,*) lmask(itest_local-1:itest_local+1,j)
+          enddo
+
+          write(stdout,*) ' '
+          write(stdout,*) 'Global mask near Greenland'
+          do j = 1, 20
+             write(stdout,150) ggrid%mask(nxg-29:nxg,j)
+          enddo
+
+          write(stdout,*) ' '
+          write(stdout,*) 'Local mask'
+          do j = ny, 1, -1
+             write(stdout,200) lmask(1:nx,j)
+          enddo
+
+  100     format(144i2)
+  150     format(30i2)
+  200     format(76i2)
+#endif
 
   end subroutine index_local_boxes
 
@@ -993,6 +1338,26 @@ contains
 
     y=(yp-ya-x*(yb-ya))/(yd+x*(yc-yd-yb+ya)-ya)
 
+#ifdef GLC_DEBUG
+! Could use the following code if points are degenerate (a=b, c=d, etc.)
+!    if (abs(a) > small) then
+!       x=(-b-sqrt(b**2-4*a*c))/(2*a)
+!    elseif (abs(b) > small) then
+!       x=-c/b
+!    else
+!       x=0._rk
+!    endif
+!
+!    if (abs(yd+x*(yc-yd-yb+ya)-ya) > small) then
+!       y=(yp-ya-x*(yb-ya))/(yd+x*(yc-yd-yb+ya)-ya)
+!    else
+!       y=0._rk
+!    endif
+#endif
+
   end subroutine calc_fractional
+
+  !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 
 end module glint_interp

@@ -425,7 +425,8 @@ NetCDF I/O can be configured in the main configuration file or in a separate fil
     \texttt{start} & Start writing to file when this time is reached (default: first time slice).\\
     \texttt{stop} & Stop writin to file when this time is reached (default: last time slice). \\
     \texttt{frequency} & The time interval in years, determining how often selected variables are written to file.\\
-    \texttt{variables} & List of variables to be written to file. See Appendix~\ref{app:variables} for a list of known variables. Names should be separated by at least one space. The variable names are case sensitive. Variable \texttt{hot} selects all variables necessary for a hotstart.\\
+    \texttt{xtype} & Set the floating point representation used in netCDF file. \texttt{xtype} can be one of \texttt{real}, \texttt{double} (default: \texttt{real}).
+    \texttt{variables} & List of variables to be written to file. See Appendix \ref{ug.sec.varlist} for a list of known variables. Names should be separated by at least one space. The variable names are case sensitive. Variable \texttt{hot} selects all variables necessary for a hotstart.\\
     \hline
   \end{supertabular*}
 \end{center}

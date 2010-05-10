@@ -238,4 +238,28 @@ contains
     glimmer_get_logunit = glimmer_unit
   end function glimmer_get_logunit
   
+  subroutine set_glimmer_unit(unit)
+
+  ! This subroutine should be called when the log file is already open, but glimmer_unit
+  ! needs to be set to a desired value (e.g. for CCSM coupled runs).
+
+    implicit none
+    integer, optional          :: unit   !*FD file unit to use
+
+    ! local variables
+    character(len=8) :: date
+    character(len=10) :: time
+
+    if (present(unit)) then
+       glimmer_unit = unit
+    end if
+
+    call date_and_time(date,time)
+    call write_log_div
+    write(unit=glimmer_unit,fmt="(a,a4,'-',a2,'-',a2,' ',a2,':',a2,':',a6)") &
+         ' Started logging at ',&
+         date(1:4),date(5:6),date(7:8),time(1:2),time(3:4),time(5:10)
+    call write_log_div
+  end subroutine set_glimmer_unit
+
 end module glimmer_log

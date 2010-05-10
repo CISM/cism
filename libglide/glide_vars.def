@@ -63,7 +63,6 @@ units:         degreeN
 long_name:     latitude
 data:          data%climate%lati
 load:          1
-hot:           1
 standard_name: latitude
 
 [lon]
@@ -177,6 +176,7 @@ units:         meter
 long_name:     ice thickness
 data:          data%geometry%thck
 factor:        thk0
+load:          1
 standard_name: land_ice_thickness
 hot:           1
 coordinates:   lon lat
@@ -210,6 +210,7 @@ units:         1
 data:          data%geometry%thkmask
 type:          int
 coordinates:   lon lat
+hot:           1
 
 [usurf]
 dimensions:    time, y1, x1
@@ -311,6 +312,7 @@ long_name:     ice velocity in x direction
 data:          data%velocity%uvel(up,:,:)
 factor:        scale3d_f1
 standard_name: land_ice_x_velocity
+hot:           1
 
 [vvel]
 dimensions:    time, level, y0, x0
@@ -319,6 +321,7 @@ long_name:     ice velocity in y direction
 data:          data%velocity%vvel(up,:,:)
 factor:        scale3d_f1
 standard_name: land_ice_y_velocity
+hot:           1
 
 [wvel]
 dimensions:    time, level, y1, x1
@@ -335,6 +338,7 @@ long_name:     Vertical grid velocity
 data:          data%velocity%wgrd(up,:,:)
 factor:        scale3d_f7
 coordinates:   lon lat
+hot:           1
 
 [flwa]
 dimensions:    time, level, y1, x1

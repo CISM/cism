@@ -65,7 +65,7 @@ program nc2config
   implicit none
 
   character(100) :: infile, outfile
-  logical :: stdout = .true.
+  logical :: l_stdout = .true.
   character(10000) :: config
   integer :: status,ncid,attlen,unit,i,ellen
   integer numargs,nfiles
@@ -96,7 +96,7 @@ program nc2config
                  stop
               end if
               call GETARG(i,outfile)
-              stdout = .false.
+              l_stdout = .false.
            case default
               write(*,*) 'Unkown option ',trim(argument)
               call usage()
@@ -121,7 +121,7 @@ program nc2config
      write(*,'(a)') infile
      write(*,*) 'Enter name of output file:'
      write(*,'(a)') outfile
-     stdout=.false.
+     l_stdout=.false.
   end if
 
   ! Open file and look for appropriate attribute
@@ -143,7 +143,7 @@ program nc2config
 
   ellen=len(endline)
 
-  if (stdout) then
+  if (l_stdout) then
      unit=6
   else
      unit=20
