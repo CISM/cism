@@ -1,3 +1,6 @@
+2010-05-11 Magnus Hagdorn
+ * m4macros/glimmer.m4: fix macro to look for new config script
+
 2010-05-10 Magnus Hagdorn
  * configure.in: create new file
  * make.rules.in: configure now generates make.rules with correct SGE options

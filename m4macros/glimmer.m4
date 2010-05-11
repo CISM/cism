@@ -19,11 +19,11 @@ AC_DEFUN([AM_PATH_GLIMMER],
   if test x$glimmer_config_prefix != x ; then
        glimmer_config_args="$glimmer_config_args --prefix=$glimmer_config_prefix"
        if test x${GLIMMER_CONFIG+set} != xset ; then
-          GLIMMER_CONFIG=$glimmer_config_prefix/bin/glimmer-config
+          GLIMMER_CONFIG=$glimmer_config_prefix/bin/glimmer-cism-config
        fi
   fi
 
-  AC_PATH_PROG(GLIMMER_CONFIG, glimmer-config, no)
+  AC_PATH_PROG(GLIMMER_CONFIG, glimmer-cism-config, no)
   if ! test -x "$GLIMMER_CONFIG"; then
     GLIMMER_CONFIG="no"
   fi
@@ -73,7 +73,7 @@ AC_DEFUN([AM_PATH_GLIMMER],
   else
       AC_MSG_RESULT([no])
       if test "$GLIMMER_CONFIG" = "no" ; then
-          echo "*** Could not find glimmer-config. Either add the directory where glimmer-config is installed"
+          echo "*** Could not find glimmer-cism-config. Either add the directory where glimmer-cism-config is installed"
           echo "*** in your PATH or run configure with the --glimmer_prefix option."
       else
           echo "*** Found glimmer version $glimmer_config_major_version.$glimmer_config_minor_version.$glimmer_config_micro_version which is too old"
