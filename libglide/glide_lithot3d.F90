@@ -66,8 +66,10 @@ contains
     ! allocate memory for 3D code
     ewn=model%general%ewn
     nsn=model%general%nsn
-    call new_sparse_matrix((model%lithot%nlayer-1)*ewn*nsn*7+ewn*nsn+1,model%lithot%fd_coeff)
-    call new_sparse_matrix((model%lithot%nlayer-1)*ewn*nsn*7+ewn*nsn+1,model%lithot%fd_coeff_slap)
+    call new_sparse_matrix(ewn*nsn*model%lithot%nlayer, &
+                          (model%lithot%nlayer-1)*ewn*nsn*7+ewn*nsn+1,model%lithot%fd_coeff)
+    call new_sparse_matrix(ewn*nsn*model%lithot%nlayer, &
+                           (model%lithot%nlayer-1)*ewn*nsn*7+ewn*nsn+1,model%lithot%fd_coeff_slap)
     allocate(model%lithot%rhs(model%lithot%nlayer*ewn*nsn))
     allocate(model%lithot%answer(model%lithot%nlayer*ewn*nsn))
     model%lithot%mxnelt = 20 * model%lithot%nlayer*ewn*nsn
@@ -138,7 +140,7 @@ contains
 
     ! convert from SLAP Triad to SLAP Column format
     call copy_sparse_matrix(model%lithot%fd_coeff,model%lithot%fd_coeff_slap)
-    call ds2y(model%general%nsn*model%general%ewn*model%lithot%nlayer,model%lithot%fd_coeff_slap%n, &
+    call ds2y(model%general%nsn*model%general%ewn*model%lithot%nlayer,model%lithot%fd_coeff_slap%nonzeros, &
          model%lithot%fd_coeff_slap%col,model%lithot%fd_coeff_slap%row,model%lithot%fd_coeff_slap%val, 0)
 
     ! initialise result vector
@@ -191,7 +193,7 @@ contains
 
     ! solve matrix equation
     call dslucs(model%general%nsn*model%general%ewn*model%lithot%nlayer, model%lithot%rhs, model%lithot%answer, &
-         model%lithot%fd_coeff_slap%n, model%lithot%fd_coeff_slap%col,model%lithot%fd_coeff_slap%row, &
+         model%lithot%fd_coeff_slap%nonzeros, model%lithot%fd_coeff_slap%col,model%lithot%fd_coeff_slap%row, &
          model%lithot%fd_coeff_slap%val, isym,itol,tol,itmax,iter,err,ierr,0, &
          model%lithot%rwork, model%lithot%mxnelt, model%lithot%iwork, model%lithot%mxnelt)
 

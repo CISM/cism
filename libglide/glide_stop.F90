@@ -45,12 +45,84 @@
 #endif
 
 module glide_stop
+
+  use glide_types
+  use glimmer_log
+  use remap_glamutils
+  use fo_upwind_advect, only : fo_upwind_advect_final
+
+  implicit none
   !*FD module containing finalisation of glide
   !*FD this subroutine had to be split out from glide.f90 to avoid
   !*FD circular dependencies
+  !*FD Updated by Tim Bocek to allow for several models to be
+  !*FD registered and finalized with a single call without needing
+  !*FD the model at call time
+
+  integer, parameter :: max_models = 32
+
+  type pmodel_type
+    !*FD Contains a pointer to a model
+    !*FD This is a hack to get around Fortran's lack of arrays of pointers
+    type(glide_global_type), pointer :: p => null()
+  end type pmodel_type
+
+  !*FD Pointers to all registered models
+  !*FD This has a fixed size at compile time
+  type(pmodel_type), dimension(max_models), save :: registered_models
 
 contains
-  
+
+!EIB! register and finalise_all not present in gc2, are present in lanl, therefore added here
+  subroutine register_model(model)
+    !*FD Registers a model, ensuring that it is finalised in the case of an error
+    type(glide_global_type), target :: model
+    integer :: i
+
+    do i = 1, max_models
+      if (.not. associated(registered_models(i)%p)) then
+         registered_models(i)%p => model
+         model%model_id = i
+         return
+      end if
+    end do
+    call write_log("Model was not registered, did you instantiate too many instances?", GM_FATAL)
+  end subroutine
+
+  subroutine deregister_model(model)
+    !*FD Removes a model from the registry.  Normally this should only be done
+    !*FD glide_finalise is called on the model, and is done automatically by
+    !*FD that function
+    type(glide_global_type) :: model
+
+    if (model%model_id < 1 .or. model%model_id > max_models) then
+        call write_log("Attempting to deregister a non-allocated model", GM_WARNING) 
+    else
+        registered_models(model%model_id)%p => null()
+        model%model_id = 0
+    end if
+  end subroutine
+
+  subroutine glide_finalise_all(crash_arg)
+    !*FD Finalises all models in the model registry
+    logical, optional :: crash_arg
+    
+    logical :: crash
+    integer :: i
+
+    if (present(crash_arg)) then
+        crash = crash_arg
+    else
+        crash = .false.
+    end if
+
+    do i = 1,max_models
+        if (associated(registered_models(i)%p)) then
+            call glide_finalise(registered_models(i)%p, crash)
+        end if
+    end do 
+  end subroutine
+
   subroutine glide_finalise(model,crash)
     !*FD finalise GLIDE model instance
     use glimmer_ncio
@@ -68,16 +140,32 @@ contains
     if (present(crash)) then
        if (crash) then
           call glide_io_writeall(model,model,.true.)
+          !EIB! from gc2, not sure necessary
           if (model%options%gthf.gt.0) then
              call glide_lithot_io_writeall(model,model,.true.)
           end if
+          !EIB!
        end if
     end if
 
     call closeall_in(model)
     call closeall_out(model)
-    
+
+    ! *sfp* Note that a finalization routine, "glam_velo_fordsiapstr_final", for the PP HO core needs 
+    ! to be written, added to "glam_strs2.F90", and called from "glide_stop".
+  
+    ! finalization for incremental remapping advection scheme 
+    if (model%options%whichevol== EVOL_INC_REMAP ) then
+        call horizontal_remap_final(model%remap_wk)
+    endif 
+
+   ! finalization for first-order upwinding advection scheme
+    if (model%options%whichevol== EVOL_FO_UPWIND ) then
+        call fo_upwind_advect_final()
+    endif
+
     call glide_deallocarr(model)
+    call deregister_model(model)
 
     ! write some statistics
     call write_log('Some Stats')

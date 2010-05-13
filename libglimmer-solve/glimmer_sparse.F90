@@ -45,17 +45,30 @@
 #endif
 
 module glimmer_sparse
-  use glimmer_global
-  type sparse_matrix_type
-     !*FD sparse matrix type
-     integer n                                              !*FD number of elements
-     integer, dimension(:), pointer :: col => NULL()        !*FD column index
-     integer, dimension(:), pointer :: row => NULL()        !*FD row index
-     real(kind=dp), dimension(:), pointer :: val => NULL()  !*FD values
-  end type sparse_matrix_type
+  use glimmer_global, only: sp, dp
+  use glimmer_sparse_type
+  use glimmer_sparse_slap
+  use glimmer_sparse_umfpack
+  use glimmer_sparse_pardiso
+  implicit none
 
-  ! size of sparse matrix 
-  integer, parameter, private :: chunksize=1000
+  type sparse_solver_options
+        type(sparse_solver_options_base) :: base
+        type(slap_solver_options) :: slap
+        type(umf_solver_options)  :: umf
+        type(pardiso_solver_options)  :: pardiso
+  end type
+
+  type sparse_solver_workspace
+        type(slap_solver_workspace), pointer :: slap => null()
+        type(umf_solver_workspace),  pointer :: umf  => null()
+        type(pardiso_solver_workspace),  pointer :: pardiso  => null()
+  end type
+
+  integer, parameter :: SPARSE_SOLVER_BICG = 0
+  integer, parameter :: SPARSE_SOLVER_GMRES = 1
+  integer, parameter :: SPARSE_SOLVER_UMF = 2
+  integer, parameter :: SPARSE_SOLVER_PARDISO = 3
 
 !EIB!  !MAKE_RESTART
 !EIB!#ifdef RESTARTS
@@ -72,120 +85,346 @@ contains
 !EIB!#undef RST_GLIMMER_SPARSE
 !EIB!#endif
 
-  subroutine new_sparse_matrix(n,mat)
-    !*FD create a new sparse matrix
-    implicit none
-    integer, intent(in) :: n          !*FD initial size of matrix
-    type(sparse_matrix_type) :: mat   !*FD matrix
-    
-    if (.not.associated(mat%col)) then
-       allocate(mat%row(n))
-       allocate(mat%col(n))
-       allocate(mat%val(n))
-    else
-       if (size(mat%row).lt.n) then
-          call del_sparse_matrix(mat)
-          allocate(mat%row(n))
-          allocate(mat%col(n))
-          allocate(mat%val(n))
-       end if
-    end if
-    mat%n = 0
-  end subroutine new_sparse_matrix
+    subroutine sparse_solver_default_options(method, opt)
+        integer, intent(in) :: method
+        type(sparse_solver_options) :: opt
 
-  subroutine copy_sparse_matrix(inmat,outmat)
-    !*FD copy a sparse matrix
-    implicit none
-    type(sparse_matrix_type) :: inmat  !*FD matrix to be copied
-    type(sparse_matrix_type) :: outmat !*FD result matrix
+        opt%base%method = method
+        opt%base%tolerance  = 1e-11
+        opt%base%maxiters = 200
 
-    call new_sparse_matrix(inmat%n,outmat)
-    outmat%row(:) = inmat%row(:)
-    outmat%col(:) = inmat%col(:)
-    outmat%val(:) = inmat%val(:)
-    outmat%n = inmat%n
-  end subroutine copy_sparse_matrix
+        !Solver specific options
+        if (method == SPARSE_SOLVER_BICG) then
+            call slap_default_options(opt%slap, opt%base) 
 
-  subroutine grow_sparse_matrix(matrix)
-    !*FD grow sparse matrix
-    implicit none
-    type(sparse_matrix_type) :: matrix !*FD matrix
+        else if (method == SPARSE_SOLVER_GMRES) then
+            call slap_default_options(opt%slap, opt%base)
+            opt%slap%use_gmres = .true.
 
-    integer, dimension(:), pointer :: newrow,newcol
-    real(kind=dp), dimension(:), pointer :: newval
-    integer oldsize
+        else if (method == SPARSE_SOLVER_UMF) then
+            call umf_default_options(opt%umf)
 
-    oldsize = size(matrix%val)
-    
-    allocate(newrow(chunksize+oldsize))
-    allocate(newcol(chunksize+oldsize))
-    allocate(newval(chunksize+oldsize))
+        else if (method == SPARSE_SOLVER_PARDISO) then
+            call pardiso_default_options(opt%pardiso)
+        else 
+            !call glide_finalise_all(.true.)
+            call write_log("Invalid sparse matrix option used.", GM_FATAL)
+        end if
+    end subroutine
 
-    newcol(1:oldsize) = matrix%col(:)
-    newrow(1:oldsize) = matrix%row(:)
-    newval(1:oldsize) = matrix%val(:)
+    subroutine sparse_allocate_workspace(matrix, options, workspace, max_nonzeros_arg)
+        !*FD Allocate solver workspace.  This needs to be done once
+        !*FD (when the maximum number of nonzero entries is first known)
+        !*FD This function need not be safe to call on already allocated memory
+        !*FD
+        !*FD Note that the max_nonzeros argument must be optional, and if
+        !*FD it is not supplied the current number of nonzeroes must be used.
+        type(sparse_matrix_type) :: matrix
+        type(sparse_solver_options) :: options
+        type(sparse_solver_workspace) :: workspace
+        integer, optional :: max_nonzeros_arg
+        integer :: max_nonzeros
+        
+        if (present(max_nonzeros_arg)) then
+            max_nonzeros = max_nonzeros_arg
+        else
+            max_nonzeros = matrix%nonzeros
+        end if
 
-    deallocate(matrix%col)
-    deallocate(matrix%row)
-    deallocate(matrix%val)
+        if (options%base%method == SPARSE_SOLVER_BICG .or. &
+            options%base%method == SPARSE_SOLVER_GMRES) then
+            allocate(workspace%slap)
+            call slap_allocate_workspace(matrix, options%slap, workspace%slap, max_nonzeros)
 
-    matrix%col => newcol
-    matrix%row => newrow
-    matrix%val => newval
+        else if (options%base%method == SPARSE_SOLVER_UMF) then
+            allocate(workspace%umf)
+            call umf_allocate_workspace(matrix, options%umf, workspace%umf, max_nonzeros)
+        else if (options%base%method == SPARSE_SOLVER_PARDISO) then
+            allocate(workspace%pardiso)
+            call pardiso_allocate_workspace(matrix, options%pardiso, workspace%pardiso, max_nonzeros)
+        end if
+    end subroutine sparse_allocate_workspace
 
-  end subroutine grow_sparse_matrix
+    subroutine sparse_solver_preprocess(matrix, options, workspace)
+        !*FD Performs any preprocessing needed to be performed on the slap
+        !*FD matrix.  Workspace must have already been allocated. 
+        !*FD This function should be safe to call more than once.
+        !*FD
+        !*FD It is an error to call this function on a workspace without
+        !*FD allocated memory
+        !*FD
+        !*FD In general slap_allocate_workspace should perform any actions
+        !*FD that depend on the *size* of the slap matrix, and
+        !*FD sprase_solver_preprocess should perform any actions that depend
+        !*FD upon the *contents* of the slap matrix.
+        type(sparse_matrix_type) :: matrix
+        type(sparse_solver_options) :: options
+        type(sparse_solver_workspace) :: workspace
 
-  subroutine del_sparse_matrix(matrix)
-    !*FD delete sparse matrix
-    implicit none
-    type(sparse_matrix_type) :: matrix !*FD matrix
+        if (options%base%method == SPARSE_SOLVER_BICG .or. &
+            options%base%method == SPARSE_SOLVER_GMRES) then
+            call slap_solver_preprocess(matrix, options%slap, workspace%slap)
 
-    deallocate(matrix%col)
-    deallocate(matrix%row)
-    deallocate(matrix%val)
-  end subroutine del_sparse_matrix
+        else if (options%base%method == SPARSE_SOLVER_UMF) then
+            call umf_solver_preprocess(matrix, options%umf, workspace%umf)
 
-  subroutine print_sparse(matrix, unit)
-    !*FD print sparse matrix
-    implicit none
-    type(sparse_matrix_type) :: matrix !*FD matrix
-    integer, intent(in) :: unit        !*FD unit to be printed to
+        else if (options%base%method == SPARSE_SOLVER_PARDISO) then
+            call pardiso_solver_preprocess(matrix, options%pardiso, workspace%pardiso)
+        end if
 
-    integer i
-    do i = 1, matrix%n
-       write(unit,*) matrix%col(i), matrix%row(i), matrix%val(i)
-    end do
-  end subroutine print_sparse
+    end subroutine sparse_solver_preprocess
 
-  subroutine sparse_matrix_vec_prod(matrix, vec, res)
-    !*FD sparse matrix vector product
-    implicit none
-    type(sparse_matrix_type) :: matrix                !*FD matrix
-    real(kind=dp), intent(in), dimension(:) :: vec    !*FD input vector
-    real(kind=dp), intent(out), dimension(:) :: res   !*FD result vector
+    function sparse_solve(matrix, rhs, solution, options, workspace,err,niters, verbose)
+        !*FD Solves the linear system, and reports status information.
+        !*FD This function returns an error code that should be zero if the
+        !*FD call succeeded and nonzero if it failed.  No additional error codes
+        !*FD are defined.  Although this function reports back the final error
+        !*FD and the number of iterations needed to converge, these should *not*
+        !*FD be relied upon as not every slap linear solver may report them.
+        type(sparse_matrix_type), intent(inout) :: matrix 
+        !*FD Sparse matrix to solve.  This is inout because the slap solver
+        !*FD may have to do some re-arranging of the matrix.
+        
+        real(kind=dp), dimension(:), intent(inout) :: rhs 
+        !*FD Right hand side of the solution vector
+        
+        real(kind=dp), dimension(:), intent(inout) :: solution 
+        !*FD Solution vector, containing an initial guess.
 
-    integer i
+        type(sparse_solver_options), intent(in) :: options
+        !*FD Options such as convergence criteria
+        
+        type(sparse_solver_workspace), intent(inout) :: workspace
+        !*FD Internal solver workspace
+        
+        real(kind=dp), intent(out) :: err
+        !*FD Final solution error
+        
+        integer, intent(out) :: niters
+        !*FD Number of iterations required to reach the solution
 
-    res = 0.
-    do i=1,matrix%n
-       res(matrix%col(i)) = res(matrix%col(i)) + vec(matrix%row(i))*matrix%val(i)
-    end do
-  end subroutine sparse_matrix_vec_prod
+        logical, optional, intent(in) :: verbose
+        !*FD If present and true, this argument may cause diagnostic information
+        !*FD to be printed by the solver (not every solver may implement this).
+        
+        integer :: sparse_solve
 
-  subroutine sparse_insert_val(matrix, i, j, val)
-    !*FD insert value into sparse matrix
-    implicit none
-    type(sparse_matrix_type) :: matrix !*FD matrix
-    integer, intent(in) :: i,j         !*FD column and row
-    real(kind=dp), intent(in) :: val   !*FD value
+        logical :: verbose_var
 
-    matrix%n =  matrix%n + 1
-    matrix%col(matrix%n) = i
-    matrix%row(matrix%n) = j
-    matrix%val(matrix%n) = val
+        verbose_var = .false.
+        if (present(verbose)) then
+            verbose_var = verbose
+        end if
 
-    if (matrix%n .eq. size(matrix%val)) then
-       call grow_sparse_matrix(matrix)
-    end if
-  end subroutine sparse_insert_val
+        if (options%base%method == SPARSE_SOLVER_BICG .or. &
+            options%base%method == SPARSE_SOLVER_GMRES) then
+            sparse_solve = slap_solve(matrix, rhs, solution, options%slap, workspace%slap, err, niters, verbose_var)
+
+        else if (options%base%method == SPARSE_SOLVER_UMF) then
+            sparse_solve = umf_solve(matrix, rhs, solution, options%umf, workspace%umf, err, niters, verbose_var)
+
+        else if (options%base%method == SPARSE_SOLVER_PARDISO) then
+            sparse_solve = pardiso_solve(matrix, rhs, solution, options%pardiso,&
+                                         workspace%pardiso, err,niters, verbose_var)
+        end if
+    end function sparse_solve
+
+    subroutine sparse_solver_postprocess(matrix, options, workspace)
+        type(sparse_matrix_type) :: matrix
+        type(sparse_solver_options) :: options
+        type(sparse_solver_workspace) :: workspace
+
+        if (options%base%method == SPARSE_SOLVER_BICG .or. &
+            options%base%method == SPARSE_SOLVER_GMRES) then
+            call slap_solver_postprocess(matrix, options%slap, workspace%slap)
+
+        else if (options%base%method == SPARSE_SOLVER_UMF) then
+            call umf_solver_postprocess(matrix, options%umf, workspace%umf)
+
+        else if (options%base%method == SPARSE_SOLVER_PARDISO) then
+            call pardiso_solver_postprocess(matrix, options%pardiso, workspace%pardiso)
+
+        end if
+    end subroutine
+
+    subroutine sparse_destroy_workspace(matrix, options, workspace)
+        !*FD Deallocates all working memory for the slap linear solver.
+        !*FD This need *not* be safe to call of an unallocated workspace
+        !*FD No slap solver should call this automatically.
+        type(sparse_matrix_type) :: matrix
+        type(sparse_solver_options) :: options
+        type(sparse_solver_workspace) :: workspace
+        
+        if (options%base%method == SPARSE_SOLVER_BICG .or. &
+            options%base%method == SPARSE_SOLVER_GMRES) then
+            call slap_destroy_workspace(matrix, options%slap, workspace%slap)
+            deallocate(workspace%slap)
+
+        else if (options%base%method == SPARSE_SOLVER_UMF) then
+            call umf_destroy_workspace(matrix, options%umf, workspace%umf)
+            deallocate(workspace%umf)
+
+        else if (options%base%method == SPARSE_SOLVER_PARDISO) then
+            call pardiso_destroy_workspace(matrix, options%pardiso, workspace%pardiso)
+            deallocate(workspace%pardiso)
+        end if
+
+    end subroutine sparse_destroy_workspace
+
+    subroutine sparse_interpret_error(options, error_code, error_string)
+        !*FD takes an error code output from slap_solve and interprets it.
+        !*FD error_string must be an optional argument.
+        !*FD If it is not provided, the error is printed to standard out
+        !*FD instead of being put in the string
+        type(sparse_solver_options) :: options
+        integer :: error_code
+        character(*), optional, intent(out) :: error_string
+        character(256) :: tmp_error_string
+        
+        if (options%base%method == SPARSE_SOLVER_BICG .or. &
+            options%base%method == SPARSE_SOLVER_GMRES) then
+            call slap_interpret_error(error_code, tmp_error_string)
+
+        else if (options%base%method == SPARSE_SOLVER_UMF) then
+            call umf_interpret_error(error_code, tmp_error_string)
+
+        else if (options%base%method == SPARSE_SOLVER_PARDISO) then
+            call pardiso_interpret_error(error_code, tmp_error_string)
+        end if
+
+
+        if (present(error_string)) then
+            error_string = tmp_error_string
+        else
+            write(*,*) tmp_error_string
+        endif
+    end subroutine sparse_interpret_error
+
+    subroutine sparse_easy_solve(matrix, rhs, answer, err, iter, method_arg, calling_file, calling_line)
+        !This subroutine wraps the basic (though probably the most inefficient)
+        !workflow to solve a sparse matrix using the sparse matrix solver
+        !framework.  It handles errors gracefully, and reports back the
+        !iterations required and the error estimate in the case of an iterative
+        !solver.  At the very least it is an encapsulated example of how to
+        !use the sparse solver routines, and is easy enough to drop in your
+        !code if you don't care about allocating and deallocating workspace
+        !every single timestep.
+
+        type(sparse_matrix_type) :: matrix
+        real(dp), dimension(:) :: rhs
+        real(dp), dimension(:) :: answer
+        
+        real(dp), intent(out) :: err
+        integer, intent(out) :: iter
+        
+        integer, optional, intent(in) :: method_arg
+
+        character(*), optional :: calling_file
+        integer, optional :: calling_line
+
+        type(sparse_solver_options) :: opt
+        type(sparse_solver_workspace) :: wk
+
+        integer :: ierr
+        integer :: method
+
+        if (present(method_arg)) then
+            method = method_arg
+        else
+            method = SPARSE_SOLVER_BICG
+        endif
+
+        call sparse_solver_default_options(method, opt)
+        call sparse_allocate_workspace(matrix, opt, wk)
+        call sparse_solver_preprocess(matrix, opt, wk)
+
+        ierr = sparse_solve(matrix, rhs, answer, opt, wk, err, iter, .false.)
+       
+        call sparse_solver_postprocess(matrix, opt, wk)
+
+        if (ierr /= 0) then
+            if (present(calling_file) .and. present(calling_line)) then
+                call handle_sparse_error(matrix, opt, ierr, calling_file, calling_line)
+            else
+                call handle_sparse_error(matrix, opt, ierr, __FILE__, __LINE__)
+            end if
+        end if
+
+        call sparse_destroy_workspace(matrix, opt, wk)
+
+    end subroutine sparse_easy_solve
+
+    subroutine handle_sparse_error(matrix, solver_options, error, error_file, error_line, time)
+        !Checks a sparse error flag and, if an error occurred, log it to
+        !the GLIMMER log file.  This does not stop Glimmer, it just writes
+        !to the log
+        !use glide_stop
+        use glimmer_log
+        use glimmer_filenames
+        
+        integer :: error
+        integer, optional :: error_line
+        character(*), optional :: error_file
+        real(dp), optional :: time
+
+        type(sparse_matrix_type) :: matrix
+        type(sparse_solver_options) :: solver_options
+        integer :: isym
+        integer :: lunit
+        integer :: i
+
+        character(512) :: message
+        character(128) :: errfname
+        character(256) :: errdesc
+
+        !If no error happened, this routine should be a nop
+        if (error == 0 .OR. error == 2 .OR. error == 6) return
+
+        !Aquire a file unit, and open the file
+        lunit = get_free_unit()
+        errfname = trim(process_path('sparse_dump.txt'))
+        open(lunit,file=errfname)
+
+        if (matrix%symmetric) then
+            isym = 1
+        else
+            isym = 0
+        end if
+
+        !Output sparse matrix data to the file
+        call dcpplt(matrix%order, matrix%nonzeros, matrix%row, matrix%col, matrix%val,&
+                    isym, lunit)
+
+        write(lunit,*) '***Sparse matrix structure ends.  Value listing begins'
+        do i=1,matrix%nonzeros
+            write(lunit,*) matrix%val(i)
+        end do
+
+        !Close unit and finish off
+        close(lunit)
+        
+        !Grab the error message from the sparse solver
+        call sparse_interpret_error(solver_options, error, errdesc)
+
+        !construct the error message and write it to the log file
+        if (present(time)) then
+            write(message, *)'Sparse matrix error at time: ', time, &
+                             'Error description: ', errdesc, &
+                             'Data dumped to ', trim(errfname)
+        else
+            write(message, *)'Sparse matrix error. Error description: ', errdesc, &
+                             'Data dumped to ', trim(errfname)
+        end if
+
+        write(*,*)message
+
+        !call glide_finalise_all(.true.)
+
+        if (present(error_file) .and. present(error_line)) then
+            call write_log(trim(errdesc), GM_FATAL, error_file, error_line)
+        else
+            call write_log(trim(errdesc), GM_FATAL, __FILE__, __LINE__)
+        end if
+    end subroutine handle_sparse_error
+
 end module glimmer_sparse

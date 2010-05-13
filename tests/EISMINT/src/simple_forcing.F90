@@ -268,7 +268,12 @@ contains
     nsct = real(model%general%nsn+1) / 2.0
     grid = model%numerics%dew * len0
 
-    periodic_bc = real(1-model%options%periodic_ew)
+    !EIB!periodic_bc = real(1-model%options%periodic_ew)
+    if (model%options%periodic_ew) then
+       periodic_bc = real(0)
+    else
+       periodic_bc = real(1)
+    end if
 
     select case(climate%eismint_type)
     case(1)
@@ -324,7 +329,12 @@ contains
     nsct = real(model%general%nsn+1) / 2.0
     grid = model%numerics%dew * len0
 
-    periodic_bc = real(1-model%options%periodic_ew)
+    !EIB!periodic_bc = real(1-model%options%periodic_ew)
+    if (model%options%periodic_ew) then
+       periodic_bc = real(0)
+    else
+       periodic_bc = real(1)
+    end if
 
     select case(climate%eismint_type)
     case(1)

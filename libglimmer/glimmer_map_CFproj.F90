@@ -62,7 +62,9 @@ module glimmer_map_CFproj
   public  glimmap_CFGetProj,glimmap_CFPutProj
 
 contains
-  
+ 
+    !EIB! added use glimmer_ncdf to access nc_errorhandle, not sure if/when it
+    !moved
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   ! public functions
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -76,6 +78,7 @@ contains
     use netcdf
     use glimmer_log
     use glimmer_map_init
+    use glimmer_ncdf
 
     implicit none
 
@@ -181,6 +184,7 @@ contains
   !> get parameters for stereographic projection
   function CFproj_get_stere(ncid,mapid)
     use netcdf
+    use glimmer_ncdf
     implicit none
     type(proj_stere), pointer :: CFproj_get_stere
     integer, intent(in) :: ncid   !< Handle of netCDF file.
@@ -206,6 +210,7 @@ contains
   function CFproj_get_stere_polar(ncid,mapid)
     use netcdf
     use glimmer_log
+    use glimmer_ncdf
     implicit none
     type(proj_stere), pointer :: CFproj_get_stere_polar
     integer, intent(in) :: ncid   !< Handle of netCDF file.
@@ -245,6 +250,7 @@ contains
   !> get parameters for Lambert azimuthal equal area projection
   function CFproj_get_laea(ncid,mapid)
     use netcdf
+    use glimmer_ncdf
     implicit none
     type(proj_laea), pointer :: CFproj_get_laea
     integer, intent(in) :: ncid   !< Handle of netCDF file.
@@ -265,6 +271,7 @@ contains
   !> get parameters for Albers conical equal area projection
   function CFproj_get_aea(ncid,mapid)
     use netcdf
+    use glimmer_ncdf
     implicit none
     type(proj_aea), pointer :: CFproj_get_aea
     integer, intent(in) :: ncid   !< Handle of netCDF file.
@@ -287,6 +294,7 @@ contains
   !> get parameters for Lambert conformal conic projection
   function CFproj_get_lcc(ncid,mapid)
     use netcdf
+    use glimmer_ncdf
     implicit none
     type(proj_lcc), pointer :: CFproj_get_lcc
     integer, intent(in) :: ncid   !< Handle of netCDF file.
@@ -312,6 +320,7 @@ contains
   !> put parameters for stereographic projection
   subroutine CFproj_put_stere(ncid,mapid,stere)
     use netcdf
+    use glimmer_ncdf
     implicit none
     type(proj_stere), pointer :: stere !< the derived type containing projection parameters
     integer, intent(in) :: ncid        !< Handle of netCDF file.
@@ -352,6 +361,7 @@ contains
   !> put parameters for Lambert azimuthal equal area projection
   subroutine CFproj_put_laea(ncid,mapid,laea)
     use netcdf
+    use glimmer_ncdf
     implicit none
     type(proj_laea), pointer :: laea !< the derived type containing projection parameters
     integer, intent(in) :: ncid      !< Handle of netCDF file.
@@ -374,6 +384,7 @@ contains
   !> put parameters for Albers conical equal area projection
   subroutine CFproj_put_aea(ncid,mapid,aea)
     use netcdf
+    use glimmer_ncdf
     implicit none
     type(proj_aea), pointer :: aea !< the derived type containing projection parameters
     integer, intent(in) :: ncid    !< Handle of netCDF file.
@@ -398,6 +409,7 @@ contains
   !> put parameters for Lambert conformal conic projection
   subroutine CFproj_put_lcc(ncid,mapid,lcc)
     use netcdf
+    use glimmer_ncdf
     implicit none
     type(proj_lcc), pointer :: lcc !< the derived type containing projection parameters
     integer, intent(in) :: ncid    !< Handle of netCDF file.

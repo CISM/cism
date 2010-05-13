@@ -61,9 +61,9 @@ def search_file(name):
                 result['uses'].append(module)
             continue
         # finding include statements
-        pos = string.find(l,'include')
+        pos = string.find(l,'include ')
         if pos is not -1:
-            pos = pos+len('include')
+            pos = pos+len('include ')
             include = string.strip(l[pos:])
             if string.find(include,'<') is not -1:
                 continue

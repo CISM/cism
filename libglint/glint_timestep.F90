@@ -92,7 +92,8 @@ contains
     use glint_io
     use glint_mbal_io
     use glint_climate
-    use glint_routing
+    !EIB! use glint_routing
+    use glimmer_routing
     use glimmer_log
     use glimmer_physcon, only: rhow,rhoi
     use glide_mask, only: glide_mask_ocean
@@ -362,7 +363,9 @@ contains
           instance%glide_time=instance%glide_time+instance%model%numerics%tinc
           call glide_tstep_p1(instance%model,instance%glide_time)
           call glide_tstep_p2(instance%model)
-          call glide_tstep_p3(instance%model,no_write=.true.)
+          !EIB! difference in call between gc2 and lanl
+          call glide_tstep_p3(instance%model)
+          !EIB! call glide_tstep_p3(instance%model,no_write=.true.)
 
           ! Add the calved ice to the ablation field
 

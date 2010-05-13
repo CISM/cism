@@ -10,7 +10,9 @@ SUBDIRS = SLAP $(BLAS_DIR)
 
 lib_LTLIBRARIES = libglimmer-solve.la
 
-libglimmer_solve_la_SOURCES = glimmer_sparse.F90
+libglimmer_solve_la_SOURCES = glimmer_sparse.F90 glimmer_sparse_type.F90 \
+			      glimmer_sparse_slap.F90 glimmer_sparse_umfpack.F90 \
+			      glimmer_sparse_pardiso.F90
 libglimmer_solve_la_LIBADD = SLAP/libslap.la $(BLAS_LIB)
 nodist_include_HEADERS := $(wildcard *.mod)
 

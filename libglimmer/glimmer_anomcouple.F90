@@ -51,6 +51,7 @@ module glimmer_anomcouple
   !*FD is done linearly, precipitation proportionally.
 
   use glimmer_global
+  use glimmer_ncdf, only: nc_errorhandle  !EIB! from lanl
 
   implicit none
 
@@ -156,7 +157,7 @@ contains
              end do
           end do
        else
-          anomprcp=max(rawprcp-prcpm+prcpr,0.0)
+          anomprcp=max(rawprcp-prcpm+prcpr,0D0)
        end if
     else
        anomprcp=rawprcp
@@ -286,6 +287,7 @@ contains
     real(sp) :: interval
     
     ! Open file
+    !EIB lanl!status=nf90_open(process_path(fname),NF90_NOWRITE,ncid)
     status=nf90_open(filenames_inputname(process_path(fname)),NF90_NOWRITE,ncid)
     call nc_errorhandle(__FILE__,__LINE__,status)
 

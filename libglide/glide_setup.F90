@@ -44,14 +44,16 @@
 #include "config.inc"
 #endif
 
-module glide_setup
+#include "glide_mask.inc"
 
+module glide_setup
+  use glimmer_global, only: dp
   !*FD Contains general routines for initialisation, etc, called
   !*FD from the top-level glimmer subroutines.
 
   private
   public :: glide_readconfig, glide_printconfig, glide_scale_params, &
-       glide_calclsrf, glide_marinlim, glide_load_sigma, glide_maskthck, &
+       glide_calclsrf, glide_load_sigma, &
        glide_read_sigma, glide_calc_sigma
 
 contains
@@ -82,6 +84,12 @@ contains
     if (associated(section)) then
        call handle_options(section, model)
     end if
+    !read options for higher-order computation
+    call GetSection(config,section,'ho_options')
+    if (associated(section)) then
+        call handle_ho_options(section, model)
+    end if
+
     ! read parameters
     call GetSection(config,section,'parameters')
     if (associated(section)) then
@@ -114,11 +122,9 @@ contains
     !*FD scale parameters
     use glide_types
     use glimmer_physcon,  only: scyr, gn
-    use glimmer_paramets, only: thk0,tim0,len0, tau0, vel0, vis0, acc0
+    use glimmer_paramets, only: thk0,tim0,len0, vel0, vis0, acc0
     implicit none
     type(glide_global_type)  :: model !*FD model instance
-
-    tau0 = (vel0/(vis0*len0))**(1.0/gn)
 
     model%numerics%ntem = model%numerics%ntem * model%numerics%tinc
     model%numerics%nvel = model%numerics%nvel * model%numerics%tinc
@@ -161,122 +167,6 @@ contains
 !-------------------------------------------------------------------------
 
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-  subroutine glide_maskthck(whichthck,crita,critb,dom,pointno,totpts,empty)
-    
-    !*FD Calculates the contents of the mask array.
-
-    use glimmer_global, only : dp, sp 
-
-    implicit none
-
-    !-------------------------------------------------------------------------
-    ! Subroutine arguments
-    !-------------------------------------------------------------------------
-
-    integer,                intent(in)  :: whichthck  !*FD Option determining
-                                                      !*FD which method to use.
-    real(dp),dimension(:,:),intent(in)  :: crita      !*FD Ice thickness
-    real(sp),dimension(:,:),intent(in)  :: critb      !*FD Mass balance
-    integer, dimension(:),  intent(out) :: dom        
-    integer, dimension(:,:),intent(out) :: pointno    !*FD Output mask
-    integer,                intent(out) :: totpts     !*FD Total number of points
-    logical,                intent(out) :: empty      !*FD Set if no mask points set.
-
-    !-------------------------------------------------------------------------
-    ! Internal variables
-    !-------------------------------------------------------------------------
-
-    integer,dimension(size(crita,2),2) :: band
-    logical,dimension(size(crita,2))   :: full
-    integer :: covtot 
-    integer :: ew,ns,ewn,nsn
-
-    !-------------------------------------------------------------------------
-
-    ewn=size(crita,1) ; nsn=size(crita,2)
-
-    pointno = 0
-    covtot  = 0 
-
-    !-------------------------------------------------------------------------
-
-    do ns = 1,nsn
-
-      full(ns) = .false.
-
-      do ew = 1,ewn
-        if ( thckcrit(crita(max(1,ew-1):min(ewn,ew+1),max(1,ns-1):min(nsn,ns+1)),critb(ew,ns)) ) then
-
-          covtot = covtot + 1
-          pointno(ew,ns) = covtot 
-
-          if ( .not. full(ns) ) then
-            band(ns,1) = ew
-            full(ns)   = .true.
-          else
-            band(ns,2) = ew
-          end if
-               
-        end if
-      end do
-    end do
-  
-    totpts = covtot
-                                             
-    dom(1:2) = (/ewn,1/); empty = .true.
-
-    do ns = 1,nsn
-           
-      if (full(ns)) then
-
-        if (empty) then
-          empty  = .false.
-          dom(3) = ns
-        end if
-        dom(4) = ns
-        dom(1) = min0(dom(1),band(ns,1))
-        dom(2) = max0(dom(2),band(ns,2))
-      end if
-    end do
-
-  contains
-
-    logical function thckcrit(ca,cb)
-
-      implicit none
-
-      real(dp),dimension(:,:),intent(in) :: ca 
-      real(sp),               intent(in) :: cb
-
-      select case (whichthck)
-      case(5)
-
-        ! whichthck=5 is not a 'known case'
-
-        if ( ca(2,2) > 0.0d0 .or. cb > 0.0) then
-          thckcrit = .true.
-        else
-          thckcrit = .false.
-        end if
-
-      case default
-
-        ! If the thickness in the region under consideration
-        ! or the mass balance is positive, thckcrit is .true.
-
-        if ( any((ca(:,:) > 0.0d0)) .or. cb > 0.0 ) then
-          thckcrit = .true.
-        else
-          thckcrit = .false.
-        end if
-
-      end select
-
-    end function thckcrit
-
-  end subroutine glide_maskthck
-
   subroutine glide_calclsrf(thck,topg,eus,lsrf)
 
     !*FD Calculates the elevation of the lower surface of the ice, 
@@ -303,83 +193,6 @@ contains
 
 !-------------------------------------------------------------------------
 
-  subroutine glide_marinlim(which,thck,relx,topg,mask,mlimit,calving_fraction,eus,ablation_field)
-
-    !*FD Removes non-grounded ice, according to one of two altenative
-    !*FD criteria, and sets upper surface of non-ice-covered points 
-    !*FD equal to the topographic height, or sea-level, whichever is higher.
-
-    use glimmer_global, only : dp, sp
-    use glimmer_physcon, only : rhoi, rhoo
-    use glide_mask
-    implicit none
-
-    !---------------------------------------------------------------------
-    ! Subroutine arguments
-    !---------------------------------------------------------------------
-
-    integer,                intent(in)    :: which   !*FD Option to choose ice-removal method
-                                                     !*FD \begin{description}
-                                                     !*FD \item[0] Set thickness to zero if 
-                                                     !*FD relaxed bedrock is below a given level.
-                                                     !*FD \item[1] Set thickness to zero if
-                                                     !*FD ice is floating.
-                                                     !*FD \end{description}
-    real(dp),dimension(:,:),intent(inout) :: thck    !*FD Ice thickness (scaled)
-    real(dp),dimension(:,:),intent(in)    :: relx    !*FD Relaxed topography (scaled)
-    real(dp),dimension(:,:),intent(in)    :: topg    !*FD Present bedrock topography (scaled)
-    integer, dimension(:,:),pointer       :: mask    !*FD grid type mask
-    real(dp)                              :: mlimit  !*FD Lower limit on topography elevation for
-                                                     !*FD ice to be present (scaled). Used with 
-                                                     !*FD $\mathtt{which}=0$.
-    real(dp), intent(in) :: calving_fraction         !*FD fraction of ice lost when calving Used with 
-                                                     !*FD $\mathtt{which}=3$.
-    real, intent(inout) :: eus                       !*FD eustatic sea level
-    real(sp),dimension(:,:),intent(inout) :: ablation_field 
-
-    integer ew,ns
-    real(dp), parameter :: con = - rhoi / rhoo
-    !---------------------------------------------------------------------
-
-    ablation_field=0.0
-
-    select case (which)
-        
-    case(1) ! Set thickness to zero if ice is floating
-      where (is_float(mask))
-        ablation_field=thck
-        thck = 0.0d0
-      end where
-
-    case(2) ! Set thickness to zero if relaxed bedrock is below a 
-       ! given level
-       where (relx <= mlimit+eus)
-          ablation_field=thck
-          thck = 0.0d0
-       end where
-
-    case(3) ! remove fraction of ice when floating
-       do ns = 2,size(thck,2)-1
-          do ew = 2,size(thck,1)-1
-             if (is_calving(mask(ew,ns))) then
-                ablation_field(ew,ns)=(1.0-calving_fraction)*thck(ew,ns)
-                thck(ew,ns) =  calving_fraction*thck(ew,ns)
-                !mask(ew,ns) = glide_mask_ocean
-             end if
-          end do
-       end do
-
-    case(4) ! Set thickness to zero at marine edge if present
-            ! bedrock is below a given level
-       where (is_marine_ice_edge(mask).and.topg<mlimit+eus)
-          ablation_field=thck
-          thck = 0.0d0
-       end where
-
-    end select
-
-  end subroutine glide_marinlim
-
   subroutine glide_load_sigma(model,unit)
 
     !*FD Loads a file containing
@@ -387,6 +200,7 @@ contains
     use glide_types
     use glimmer_log
     use glimmer_filenames
+    use glimmer_global, only: dp
     implicit none
 
     ! Arguments
@@ -399,6 +213,7 @@ contains
 
     integer :: up,upn
     logical :: there
+    real(dp) :: level
 
     ! Beginning of code
 
@@ -408,10 +223,14 @@ contains
     case(0)
        call write_log('Calculating sigma levels')
        do up=1,upn
-          model%numerics%sigma(up) = glide_calc_sigma(real(up-1)/real(upn-1),2.)
+          !EIB! - from glimmer-cism2/glimmer-cism-lanl
+          !model%numerics%sigma(up) = glide_calc_sigma(real(up-1)/real(upn-1),2.)
+          !EIB! - replaced with glimmer-cism-lanl/trunk
+          level = real(up-1)/real(upn-1)
+          model%numerics%sigma(up) = glide_find_level(level, model%options%which_sigma_builtin, up, upn)
        end do
     case(1)
-       there = .false.
+       there = .false. !EIB! does not appear in glimmer-cism-lanl/trunk
        inquire (exist=there,file=process_path(model%funits%sigfile))
        if (.not.there) then
           call write_log('Sigma levels file: '//trim(process_path(model%funits%sigfile))// &
@@ -419,7 +238,7 @@ contains
        end if
        call write_log('Reading sigma file: '//process_path(model%funits%sigfile))
        open(unit,file=process_path(model%funits%sigfile))
-       read(unit,'(f5.2)',err=10,end=10) (model%numerics%sigma(up), up=1,upn)
+       read(unit,'(f9.7)',err=10,end=10) (model%numerics%sigma(up), up=1,upn)
        close(unit)
     case(2)
        call write_log('Using sigma levels from main configuration file')
@@ -431,13 +250,51 @@ contains
     
   end subroutine glide_load_sigma
 
+  function glide_find_level(level, scheme, up, upn)
+
+  !Returns the sigma coordinate of one level using a specific builtin scheme
+
+    use glide_types
+    use glimmer_global, only: dp
+    real(dp) :: level
+    integer  :: scheme, up, upn
+    real(dp) :: glide_find_level
+
+    select case(scheme)
+      case (SIGMA_BUILTIN_DEFAULT)
+        glide_find_level = glide_calc_sigma(level,2D0)
+      case (SIGMA_BUILTIN_EVEN)
+        glide_find_level = level
+      case (SIGMA_BUILTIN_PATTYN)
+        if (up == 1) then
+          glide_find_level = 0
+        else if (up == upn) then
+          glide_find_level = 1
+        else
+           glide_find_level = glide_calc_sigma_pattyn(level)
+        end if
+    end select
+     
+  end function glide_find_level
+
   function glide_calc_sigma(x,n)
+      use glimmer_global, only:dp
       implicit none
-      real :: glide_calc_sigma,x,n
+      real(dp) :: glide_calc_sigma,x,n
       
       glide_calc_sigma = (1-(x+1)**(-n))/(1-2**(-n))
-    end function glide_calc_sigma
+  end function glide_calc_sigma
 
+  !Implements an alternate set of sigma levels that encourages better
+  !convergance for higher-order velocities
+  function glide_calc_sigma_pattyn(x)
+        use glimmer_global, only:dp
+        implicit none
+        real(dp) :: glide_calc_sigma_pattyn, x
+
+      glide_calc_sigma_pattyn=(-2.5641025641D-4)*(41D0*x)**2+3.5256410256D-2*(41D0*x)-&
+                               8.0047080075D-13
+end function glide_calc_sigma_pattyn
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   ! private procedures
@@ -457,6 +314,7 @@ contains
     call GetValue(section,'dew',model%numerics%dew)
     call GetValue(section,'dns',model%numerics%dns)
     call GetValue(section,'sigma_file',model%funits%sigfile)
+    call GetValue(section,'sigma_builtin',model%options%which_sigma_builtin)
 
     ! We set this flag to one to indicate we've got a sigfile name.
     ! A warning/error is generated if sigma levels are specified in some other way
@@ -473,7 +331,7 @@ contains
     use glimmer_log
     implicit none
     type(glide_global_type)  :: model
-    character(len=100) :: message
+    character(len=512) :: message
 
 
     call write_log('Grid specification')
@@ -556,15 +414,47 @@ contains
     call GetValue(section,'topo_is_relaxed',model%options%whichrelaxed)
     call GetValue(section,'hotstart',model%options%hotstart)
     call GetValue(section,'periodic_ew',model%options%periodic_ew)
+    !EIB! following call from gc2, not sure its still needed
     call GetValue(section,'basal_mass_balance',model%options%basal_mbal)
+    !EIB! from glimmer-cism-lanl/trunk
+    call GetValue(section,'periodic_ns',model%options%periodic_ns)
+    call GetValue(section,'diagnostic_run',model%options%diagnostic_run)
+    !EIB! skipping plume for now
+    !call GetValue(section, 'use_plume',model%options%use_plume)
   end subroutine handle_options
-  
+
+    !Higher order options
+  subroutine handle_ho_options(section, model)
+    use glimmer_config
+    use glide_types
+    implicit none
+    type(ConfigSection), pointer :: section
+    type(glide_global_type) :: model
+    
+    call GetValue(section, 'diagnostic_scheme',  model%options%which_ho_diagnostic)
+    call GetValue(section, 'prognostic_scheme',  model%options%which_ho_prognostic)
+    call GetValue(section, 'basal_stress_input', model%options%which_ho_beta_in)
+    call GetValue(section, 'basal_stress_type',  model%options%which_ho_bstress)
+    call GetValue(section, 'guess_specified',    model%velocity_hom%is_velocity_valid)
+    call GetValue(section, 'which_ho_source',    model%options%which_ho_source)
+    call GetValue(section, 'include_thin_ice',   model%options%ho_include_thinice)
+!whl - added Price-Payne higher-order (glam) options
+    call GetValue(section, 'which_ho_babc',      model%options%which_ho_babc)
+    call GetValue(section, 'which_ho_efvs',      model%options%which_ho_efvs)
+    call GetValue(section, 'which_ho_resid',     model%options%which_ho_resid)
+    !*sfp* added options for type of dissipation and bmelt calc. in temperature calc.
+    call GetValue(section, 'which_disp',         model%options%which_disp)
+    call GetValue(section, 'which_bmelt',        model%options%which_bmelt)
+    call GetValue(section, 'which_ho_sparse',    model%options%which_ho_sparse)
+    call GetValue(section, 'which_ho_sparse_fallback', model%options%which_ho_sparse_fallback)
+  end subroutine handle_ho_options
+
   subroutine print_options(model)
     use glide_types
     use glimmer_log
     implicit none
     type(glide_global_type)  :: model
-    character(len=100) :: message
+    character(len=500) :: message
 
     ! local variables
     character(len=*), dimension(0:1), parameter :: temperature = (/ &
@@ -574,30 +464,93 @@ contains
          'Patterson and Budd               ', &
          'Patterson and Budd (temp=-10degC)', &
          'const 1e-16a^-1Pa^-n             ' /)
-    character(len=*), dimension(0:2), parameter :: basal_water = (/ &
+    character(len=*), dimension(0:3), parameter :: basal_water = (/ &
          'local water balance', &
          'local + const flux ', &
+         'flux calculation   ', &
          'none               ' /)
-    character(len=*), dimension(0:4), parameter :: marine_margin = (/ &
-         'ignore            ', &
-         'no ice shelf      ', &
-         'threshold         ', &
-         'const calving rate', &
-         'edge threshold    '/)
+    character(len=*), dimension(0:7), parameter :: marine_margin = (/ &
+         'ignore              ', &
+         'no ice shelf        ', &
+         'threshold           ', &
+         'const calving rate  ', &
+         'edge threshold      ', &
+         'van der Veen        ', &
+         'Pattyn Grnd Line    ', &
+         'Huybrechts Greenland'/)
     character(len=*), dimension(0:5), parameter :: slip_coeff = (/ &
-         'zero           ', &
-         'const          ', &
-         'const if bwat>0', &
-         '~basal water   ', &
-         '~basal melt    ', &
-         'const if T>Tpmp'/)
-    character(len=*), dimension(0:2), parameter :: evolution = (/ &
-         'pseudo-diffusion', &
-         'ADI scheme      ', &
-         'diffusion       ' /)
+         'zero        ', &
+         'const       ', &
+         'const if T>0', &
+         '~basal water', &
+         '~basal melt ', &
+         'taub^3      ' /)
+    character(len=*), dimension(0:4), parameter :: evolution = (/ &
+         'pseudo-diffusion                      ', &
+         'ADI scheme                            ', &
+         'iterated diffusion                    ', &
+         'remap thickness                       ', &   ! *sfp** added
+         '1st order upwind                      ' /)   ! *sfp** added for summer modeling school 
     character(len=*), dimension(0:1), parameter :: vertical_integration = (/ &
          'standard     ', &
          'obey upper BC' /)
+    character(len=*), dimension(0:3), parameter :: ho_diagnostic = (/ &
+         'Do not compute higher-order velocities', &
+         'Pattyn 2003 (on A-grid)               ', &
+         'Pattyn 2003 (on B-grid)               ', &
+         'Payne/Price (on B-grid)               ' /)    !*sfp** added
+    character(len=*), dimension(0:3), parameter :: ho_prognostic = (/ &
+         'Evolve ice with SIA only', &
+         'Pattyn scheme           ', &
+         'Pollard scheme          ', &
+         'Bueler scheme           ' /)
+    character(len=*), dimension(0:4), parameter :: ho_beta_in = (/ &
+         'All NaN (ice glued to bed)', &
+         '1/soft                    ', &
+         '1/btrc                    ', &
+         'beta field from input     ', &
+         'slip ratio (ISMIP-HOM F)  '/)
+    character(len=*), dimension(0:1), parameter :: ho_bstress = (/ &
+         'Linear bed (betasquared)', &
+         'Plastic bed (tau0)      ' /)
+
+!whl - added Price-Payne higher-order (glam) options
+    character(len=*), dimension(0:5), parameter :: ho_whichbabc = (/ &
+         'constant betasquared    ', &
+         'simple pattern          ', &
+         'as till yield stress    ', &
+         'circular ice shelf      ', &
+         'frozen bed              ', &
+         'B^2 passed from CISM    ' /)
+    character(len=*), dimension(0:1), parameter :: ho_whichefvs = (/ &
+         'from eff strain rate     ', &
+         'constant value           ' /)
+    character(len=*), dimension(0:2), parameter :: ho_whichresid = (/ &
+         'max value               ', &
+         'max value ignoring ubas ', &
+         'mean value              ' /)
+    character(len=*), dimension(0:2), parameter :: ho_whichsource = (/ &
+         'vertically averaged     ', &
+         'vertically explicit     ', &
+         'shelf front disabled    '/)
+    !*sfp* added the next two for HO temperature calcs
+    character(len=*), dimension(0:2), parameter :: dispwhich = (/ &
+         '0-order SIA                       ', &
+         '1-st order model (Blatter-Pattyn) ', &
+         '1-st order depth-integrated (SSA) ' /)
+    character(len=*), dimension(0:2), parameter :: bmeltwhich = (/ &
+         '0-order SIA                      ', &
+         '1-st order model (Blatter-Pattyn)', &
+         '1-st order depth-integrated (SSA)' /)
+    character(len=*), dimension(0:3), parameter :: ho_whichsparse = (/ &
+         'BiCG with LU precondition       ', &
+         'GMRES with LU precondition      ', &
+         'UMFPACK Unsymmetric Multifrontal',&
+         'PARDISO Parllel Direct Method   '/)
+    !EIB! not currently using plume
+    !character(len=*),dimension(0:1), parameter :: use_plume = (/ &
+    !     'Use glimmer for bmlt (floating ice)      ', &
+    !     'Use plume model for bmlt (floating ice)  ' /)
     character(len=*), dimension(0:1), parameter :: b_mbal = (/ &
          'not in continutity eqn', &
          'in continutity eqn    ' /)
@@ -649,8 +602,8 @@ contains
     if (model%options%whichrelaxed.eq.1) then
        call write_log('First topo time slice is relaxed')
     end if
-    if (model%options%periodic_ew.eq.1) then
-       if (model%options%whichevol.eq.1) then
+    if (model%options%periodic_ew) then
+       if (model%options%whichevol .eq. EVOL_ADI) then
           call write_log('Periodic boundary conditions not implemented in ADI scheme',GM_FATAL)
        end if
        call write_log('Periodic EW lateral boundary condition')
@@ -659,6 +612,91 @@ contains
     if (model%options%hotstart.eq.1) then
        call write_log('Hotstarting model')
     end if
+
+    !HO options
+    call write_log("***Higher-order options:")
+    if (model%options%which_ho_diagnostic < 0 .or. model%options%which_ho_diagnostic >= size(ho_diagnostic)) then
+        call write_log('Error, diagnostic_scheme out of range', GM_FATAL)
+    end if
+    write(message,*) 'ho_diagnostic           :',model%options%which_ho_diagnostic, &
+                       ho_diagnostic(model%options%which_ho_diagnostic)
+    call write_log(message)
+    
+    if (model%options%which_ho_prognostic < 0 .or. model%options%which_ho_prognostic >= size(ho_prognostic)) then
+        call write_log('Error, prognostic_scheme out of range', GM_FATAL)
+    end if
+    write(message,*) 'ho_prognostic           :',model%options%which_ho_prognostic, &
+                       ho_prognostic(model%options%which_ho_prognostic)
+    call write_log(message)
+    
+    if (model%options%which_ho_beta_in < 0 .or. model%options%which_ho_beta_in >= size(ho_beta_in)) then
+        call write_log('Error, basal_stress_input out of range', GM_FATAL)
+    end if
+    write(message,*) 'basal_stress_input      :',model%options%which_ho_beta_in, &
+                       ho_beta_in(model%options%which_ho_beta_in)
+    call write_log(message)
+
+    if (model%options%which_ho_bstress < 0 .or. model%options%which_ho_bstress >= size(ho_bstress)) then
+        call write_log('Error, basal_stress_input out of range', GM_FATAL)
+    end if
+    write(message,*) 'basal_stress_type       :',model%options%which_ho_bstress, &
+                       ho_bstress(model%options%which_ho_bstress)
+    call write_log(message)
+
+    if (model%options%which_ho_source < 0 .or. model%options%which_ho_source >= size(ho_whichsource)) then
+        call write_log('Error, which_ho_source out of range', GM_FATAL)
+    end if
+    write(message,*) 'ice_shelf_source_term   :',model%options%which_ho_source, &
+                       ho_whichsource(model%options%which_ho_source)
+    call write_log(message)
+
+!whl - added Payne-Price higher-order (glam) options
+    write(message,*) 'ho_whichbabc          :',model%options%which_ho_babc,  &
+                      ho_whichbabc(model%options%which_ho_babc)
+    call write_log(message)
+    if (model%options%which_ho_babc < 0 .or. model%options%which_ho_babc >= size(ho_whichbabc)) then
+        call write_log('Error, HO basal BC input out of range', GM_FATAL)
+    end if
+    write(message,*) 'ho_whichefvs          :',model%options%which_ho_efvs,  &
+                      ho_whichefvs(model%options%which_ho_efvs)
+    call write_log(message)
+    if (model%options%which_ho_efvs < 0 .or. model%options%which_ho_efvs >= size(ho_whichefvs)) then
+        call write_log('Error, HO effective viscosity input out of range', GM_FATAL)
+    end if
+    write(message,*) 'ho_whichresid         :',model%options%which_ho_resid,  &
+                      ho_whichresid(model%options%which_ho_resid)
+    call write_log(message)
+    if (model%options%which_ho_resid < 0 .or. model%options%which_ho_resid >= size(ho_whichresid)) then
+        call write_log('Error, HO residual input out of range', GM_FATAL)
+    end if
+    !*sfp* added the next two for HO T calc
+    write(message,*) 'dispwhich         :',model%options%which_disp,  &
+                      dispwhich(model%options%which_disp)
+    call write_log(message)
+    if (model%options%which_disp < 0 .or. model%options%which_disp >= size(dispwhich)) then
+        call write_log('Error, which dissipation input out of range', GM_FATAL)
+    end if
+    write(message,*) 'bmeltwhich         :',model%options%which_bmelt,  &
+                      bmeltwhich(model%options%which_bmelt)
+    call write_log(message)
+    if (model%options%which_bmelt < 0 .or. model%options%which_bmelt >= size(bmeltwhich)) then
+        call write_log('Error, which bmelt input out of range', GM_FATAL)
+    end if
+    !EIB! not using yet
+    !write(message,*) 'use_plume         :',model%options%use_plume,  &
+    !                  use_plume(model%options%use_plume)
+    !call write_log(message)
+    !if (model%options%use_plume < 0 .or. model%options%use_plume >= size(bmeltwhich)) then
+    !    call write_log('Error, use_plume input out of range', GM_FATAL)
+    !end if
+    write(message,*) 'ho_whichsparse        :',model%options%which_ho_sparse,  &
+                      ho_whichsparse(model%options%which_ho_sparse)
+    call write_log(message)
+    if (model%options%which_ho_sparse < 0 .or. model%options%which_ho_sparse >= size(ho_whichsparse)) then
+        call write_log('Error, HO sparse solver input out of range', GM_FATAL)
+    end if
+
+
     call write_log('')
   end subroutine print_options
 
@@ -681,7 +719,8 @@ contains
     call GetValue(section,'marine_limit',model%numerics%mlimit)
     call GetValue(section,'calving_fraction',model%numerics%calving_fraction)
     call GetValue(section,'geothermal',model%paramets%geot)
-    call GetValue(section,'flow_factor',model%paramets%fiddle)
+    call GetValue(section,'flow_factor',model%paramets%flow_factor)
+    call GetValue(section,'default_flwa',model%paramets%default_flwa)
     call GetValue(section,'hydro_time',model%paramets%hydtim)
     call GetValue(section,'basal_tract',temp,5)
     if (associated(temp)) then
@@ -691,7 +730,12 @@ contains
     call GetValue(section,'basal_tract_const',model%paramets%btrac_const)
     call GetValue(section,'basal_tract_max',model%paramets%btrac_max)
     call GetValue(section,'basal_tract_slope',model%paramets%btrac_slope)
-    call GetValue(section,'basal_water_smoothing',model%paramets%bwat_smooth)
+    !EIB! from glimmer-cism2/glimmer-cism-lanl
+    !call GetValue(section,'basal_water_smoothing',model%paramets%bwat_smooth)
+    !EIB! from glimmer-cism-lanl/trunk
+    call GetValue(section,'stressin',model%climate%stressin)
+    call GetValue(section,'stressout',model%climate%stressout)
+    call GetValue(section,'sliding_constant',model%climate%slidconst)
   end subroutine handle_parameters
 
   subroutine print_parameters(model)
@@ -713,7 +757,7 @@ contains
     end if
     write(message,*) 'geothermal heat flux  : ',model%paramets%geot
     call write_log(message)
-    write(message,*) 'flow enhancement      : ',model%paramets%fiddle
+    write(message,*) 'flow enhancement      : ',model%paramets%flow_factor
     call write_log(message)
     write(message,*) 'basal hydro time const: ',model%paramets%hydtim
     call write_log(message)
@@ -739,8 +783,9 @@ contains
        write(message,*) '                        ',model%paramets%bpar(5)
        call write_log(message)
     end if
-    write(message,*) 'basal water field smoothing strength: ',model%paramets%bwat_smooth
-    call write_log(message)
+    !EIB! from glimmer-cism2/glimmer-cism-lanl
+    !write(message,*) 'basal water field smoothing strength: ',model%paramets%bwat_smooth
+    !call write_log(message)
     call write_log('')
   end subroutine print_parameters
 

@@ -56,72 +56,109 @@ module glimmer_ncdf
   use glimmer_global, only: fname_length
   use netcdf
 
-  integer, parameter :: glimmer_nc_meta_len = 100 !< maximum length for meta data
-  character(len=*), parameter :: glimmer_nc_mapvarname = 'mapping' !< name of the grid mapping variable
-  real, parameter :: glimmer_nc_max_time=1.e10 !< maximum time that can be written
+  integer, parameter :: glimmer_nc_meta_len = 100
+  !*FD maximum length for meta data
+  character(len=*), parameter :: glimmer_nc_mapvarname = 'mapping'
+  !*FD name of the grid mapping variable
+  real, parameter :: glimmer_nc_max_time=1.e10
+  !*FD maximum time that can be written
 
   !> Data structure holding netCDF file description
   type glimmer_nc_stat
+     !*FD Data structure holding netCDF file description
 
-     logical :: define_mode = .TRUE.               !< set to .TRUE. when we are in define mode
-     logical :: just_processed = .FALSE.           !< set to .TRUE. if the file was used during the last time step
-     real :: processsed_time = 0.0                 !< the time when the file was last processed
-     character(len=fname_length) :: filename = " " !< name of netCDF file
-     integer id                                    !< id of netCDF file
+     logical :: define_mode = .TRUE.
+     !*FD set to .TRUE. when we are in define mode
+     logical :: just_processed = .FALSE.
+     !*FD set to .TRUE. if the file was used during the last time step
+     real :: processsed_time = 0.0
+     !*FD the time when the file was last processed
+     character(len=fname_length) :: filename = " "
+     !*FD name of netCDF file
+     integer id
+     !*FD id of netCDF file
 
-     integer :: nlevel = 0                         !< size of vertical coordinate
+     integer :: nlevel = 0
+     !*FD size of vertical coordinate
 
-     integer timedim                               !< id of time dimension
-     integer timevar                               !< id of time variable 
-     character(len=310) vars                       !< string containing variables to be processed
-     logical :: hotstart = .false.                 !< Set to true if we're writing a hotstart file
-     character(len=310) vars_copy                  !< string containing variables to be processed (retained copy)
+     integer timedim
+     !*FD id of time dimension
+     integer timevar
+     !*FD id of time variable 
+     character(len=310) vars
+     !*FD string containing variables to be processed
+     logical :: hotstart = .false.
+     !*FD Set to true if we're writing a hotstart file
+     character(len=310) vars_copy
+     !*FD string containing variables to be processed (retained copy)
   end type glimmer_nc_stat     
 
-  !> Data structure holding netCDF meta data, see CF user guide
   type glimmer_nc_meta
+     !*FD Data structure holding netCDF meta data, see CF user guide
      
-     character(len=glimmer_nc_meta_len) :: title = ''       !< title of netCDF file
-     character(len=glimmer_nc_meta_len) :: institution = '' !< where the data was produced
-     character(len=glimmer_nc_meta_len) :: references = ''  !< list of references
-     character(len=glimmer_nc_meta_len) :: source = ''      !< this string will hold the GLIMMER version
-     character(len=glimmer_nc_meta_len) :: history = ''     !< netCDF file history string
-     character(len=glimmer_nc_meta_len) :: comment = ''     !< some comments
-     character(len=10000) :: config = ''                    !< the contents of the glide config file
+     character(len=glimmer_nc_meta_len) :: title = ''
+     !*FD title of netCDF file
+     character(len=glimmer_nc_meta_len) :: institution = ''
+     !*FD where the data was produced
+     character(len=glimmer_nc_meta_len) :: references = ''
+     !*FD list of references
+     character(len=glimmer_nc_meta_len) :: source = ''
+     !*FD this string will hold the GLIMMER version
+     character(len=glimmer_nc_meta_len) :: history = ''
+     !*FD netCDF file history string
+     character(len=glimmer_nc_meta_len) :: comment = ''
+     !*FD some comments
+     character(len=10000) :: config = ''
+     !*FD the contents of the glide config file
   end type glimmer_nc_meta
 
-  !> element of linked list describing netCDF output file
   type glimmer_nc_output
+     !*FD element of linked list describing netCDF output file
      !NO_RESTART previous
 
-     type(glimmer_nc_stat) :: nc                          !< structure containg file info
-     real :: freq=1000                                    !< frequency at which data is written to file
-     real :: next_write=0                                 !< next time step at which data is dumped
-     real :: end_write=glimmer_nc_max_time                !< stop writing after this year
-     integer :: timecounter=1                             !< time counter
-     real :: total_time                                   !< accumulate time steps (used for taking time averages)
+     type(glimmer_nc_stat) :: nc
+     !*FD structure containg file info
+     real :: freq=1000
+     !*FD frequency at which data is written to file
+     real :: next_write=0
+     !*FD next time step at which data is dumped
+     real :: end_write=glimmer_nc_max_time
+     !*FD stop writing after this year
+     integer :: timecounter=1
+     !*FD time counter
+     real :: total_time
+     !*FD accumulate time steps (used for taking time averages)
 
      integer :: default_xtype = NF90_REAL                 !< the default external type for storing flointing point values
+     logical :: do_averages = .False. !*FD set to .True. if we need to handle averages
 
-     logical :: do_averages = .False.                     !< set to .True. if we need to handle averages
-     
-     type(glimmer_nc_meta) :: metadata                    !< structure holding metadata
+     type(glimmer_nc_meta) :: metadata
+     !*FD structure holding metadata
 
-     type(glimmer_nc_output), pointer :: next=>NULL()     !< next element in list
-     type(glimmer_nc_output), pointer :: previous=>NULL() !< previous element in list
-     logical :: append = .false.                          !< Set to true if we are appending onto an existing file.
+     type(glimmer_nc_output), pointer :: next=>NULL()
+     !*FD next element in list
+     type(glimmer_nc_output), pointer :: previous=>NULL()
+     !*FD previous element in list
+     logical :: append = .false.
+     !*FD Set to true if we are appending onto an existing file.
   end type glimmer_nc_output
 
-  !> element of linked list describing netCDF input file
   type glimmer_nc_input
+     !*FD element of linked list describing netCDF input file
      !NO_RESTART previous
-     type(glimmer_nc_stat) :: nc                          !< structure containg file info
-     integer, pointer, dimension(:) :: times => NULL()    !< pointer to array holding times
-     integer                        :: nt, current_time=1 !< number of elements in times and current time index
-     integer                        :: get_time_slice = 1 !< -1 if all times should be loaded, > 0 to load particular slice and then close file
+     type(glimmer_nc_stat) :: nc
+     !*FD structure containg file info
+     integer, pointer, dimension(:) :: times => NULL()     
+     !*FD pointer to array holding times
+     integer                        :: nt, current_time=1
+     !*FDnumber of elements in times and current time index
+     integer                        :: get_time_slice = 1     
+     !*FD -1 if all times should be loaded, > 0 to load particular slice and then close file
 
-     type(glimmer_nc_input), pointer :: next=>NULL()      !< next element in list
-     type(glimmer_nc_input), pointer :: previous=>NULL()  !< previous element in list
+     type(glimmer_nc_input), pointer :: next=>NULL()
+     !*FD next element in list
+     type(glimmer_nc_input), pointer :: previous=>NULL()
+     !*FD previous element in list
   end type glimmer_nc_input
 
   interface delete
@@ -147,10 +184,8 @@ contains
 !MH!#undef RST_GLIMMER_NCDF
 !MH!#endif
 
-  !> remove output file from linked list
-  !!
-  !! \return pointer to the next element in the linked list or NULL()
   function delete_output(oc, cf)
+    !*FD remove element from linked list
     use glimmer_log
     implicit none
     type(glimmer_nc_output), pointer :: delete_output
@@ -269,7 +304,9 @@ contains
   !> for debugging print all output files in linked list
   recursive subroutine nc_print_output(output)
 
-    type(glimmer_nc_output),pointer :: output !< the first element in linled list
+    !*FD For debugging
+
+    type(glimmer_nc_output),pointer :: output
 
     if (.not.associated(output)) then
        Print*,'*** Output section not associated'
@@ -285,10 +322,9 @@ contains
     
   end subroutine nc_print_output
 
-  !> print file stats
   subroutine nc_print_stat(stat)
 
-    type(glimmer_nc_stat) :: stat !< the stats type
+    type(glimmer_nc_stat) :: stat
 
     print*,'define_mode:    ',stat%define_mode
     print*,'just_processed: ',stat%just_processed
@@ -329,13 +365,13 @@ contains
 
   end subroutine nc_repair_outpoint
 
-  !> Sets up previous points in the linked list correctly
-  !!
-  !! This is needed after a restart, as trying to save both
-  !! next and previous pointers would cause problems
   subroutine nc_repair_inpoint(input)
 
     implicit none
+
+    !*FD Sets up previous points in the linked list correctly
+    !*FD This is needed after a restart, as trying to save both
+    !*FD next and previous pointers would cause problems
 
     type(glimmer_nc_input),pointer :: input
     type(glimmer_nc_input),pointer :: most_recent
@@ -353,12 +389,11 @@ contains
     end do
 
   end subroutine nc_repair_inpoint
-  
-  !> Adds a prefix to all the filenames stored in the linked list.
-  !! Used for restarts.
+
   subroutine nc_prefix_outfiles(output,prefix)
 
-    implicit none
+    !*FD Adds a prefix to all the filenames stored in the linked list.
+    !*FD Used for restarts.
 
     type(glimmer_nc_output),pointer :: output
     character(*) :: prefix
@@ -374,18 +409,74 @@ contains
 
   end subroutine nc_prefix_outfiles
 
+   subroutine nc_errorhandle(file,line,status)
+        !*FD handle netCDF error
+        use netcdf
+        use glimmer_log
+        implicit none
+        character(len=*), intent(in) :: file
+        !*FD name of f90 file error occured in
+        integer, intent(in) :: line
+        !*FD line number error occured at
+        integer, intent(in) :: status
+        !*FD netCDF return value
+  
+        if (status.ne.NF90_NOERR) then
+            call write_log(nf90_strerror(status),type=GM_FATAL,file=file,line=line)
+        end if
+    end subroutine nc_errorhandle
+
 end module glimmer_ncdf
 
-!> handle netCDF error
-subroutine nc_errorhandle(file,line,status)
-  use netcdf
-  use glimmer_log
-  implicit none
-  character(len=*), intent(in) :: file !< name of f90 file error occured in
-  integer, intent(in) :: line          !< line number error occured at
-  integer, intent(in) :: status        !< netCDF return value
-  
-  if (status.ne.NF90_NOERR) then
-     call write_log(nf90_strerror(status),type=GM_FATAL,file=file,line=line)
-  end if
-end subroutine nc_errorhandle
+module glimmer_scales
+  !*FD this module holds scales for various fields
+
+  use glimmer_global, only : dp
+
+  real(dp) :: scale2d_f1, scale2d_f2, scale2d_f3, scale2d_f4, scale2d_f5, scale2d_f6, scale2d_f7, scale2d_f8, scale2d_f9
+  real(dp) :: scale3d_f1, scale3d_f2, scale3d_f3, scale3d_f4, scale3d_f5, scale3d_f6, scale3d_f7, scale3d_f8, scale3d_f9
+
+!EIB!  !MAKE_RESTART
+!EIB!#ifdef RESTARTS
+!EIB!#define RST_GLIMMER_SCALES
+!EIB!#include "glimmer_rst_head.inc"
+!EIB!#undef RST_GLIMMER_SCALES
+!EIB!#endif
+
+contains
+
+!EIB!#ifdef RESTARTS
+!EIB!#define RST_GLIMMER_SCALES
+!EIB!#include "glimmer_rst_body.inc"
+!EIB!#undef RST_GLIMMER_SCALES
+!EIB!#endif
+
+  subroutine glimmer_init_scales
+    !*FD calculate scale factors (can't have non-integer powers)
+    use glimmer_physcon, only : scyr, gn
+    use glimmer_paramets, only : thk0, tim0, vel0, vis0, len0, acc0
+    implicit none
+
+    scale2d_f1 = scyr * thk0 / tim0
+    scale2d_f2 = scyr * vel0 * thk0
+    scale2d_f3 = vel0 / (vis0 * len0)
+    scale2d_f4 = vel0 * scyr * len0
+    scale2d_f5 = scyr * vel0
+    scale2d_f6 = scyr * vel0 * len0 / (thk0**2)
+    scale2d_f7 = (vel0/(vis0*len0))**(1.0/gn)
+    scale2d_f8 = (vel0/(vis0*len0))**(1.0/gn) * len0 / (scyr * vel0)
+    scale2d_f9 = scyr * acc0
+
+    scale3d_f1 = scyr * vel0
+    scale3d_f2 = vis0 * (vel0/len0)**(gn - 1)
+    scale3d_f3 = scyr * thk0
+    scale3d_f4 = vel0/(vis0*len0)
+    scale3d_f5 = 1.0d0/scale3d_f2**(1.0/gn)
+    scale3d_f6 = scale3d_f4**(1.0/gn)
+    scale3d_f7 = scyr * thk0/tim0
+    scale3d_f8 = vis0*scyr
+    scale3d_f9 = 1.0d0
+  end subroutine glimmer_init_scales
+end module glimmer_scales
+
+

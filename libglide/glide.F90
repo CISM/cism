@@ -44,6 +44,8 @@
 #include "config.inc"
 #endif
 
+#include "glide_mask.inc"
+
 module glide
   !*FD the top-level GLIDE module
 
@@ -55,6 +57,7 @@ module glide
   use glide_lithot
   use glide_profile
   use glimmer_config
+  use glimmer_global
 
 #ifdef GLC_DEBUG
     use glimmer_paramets, only: itest, jtest, thk0
@@ -110,6 +113,7 @@ contains
     use glide_setup
     use glimmer_ncio
     use glide_velo
+    use glide_velo_higher
     use glide_thck
     use glide_temp
     use glimmer_log
@@ -118,10 +122,19 @@ contains
     use glide_mask
     use isostasy
     use glimmer_map_init
+    use glide_ground
+
+    ! *sfp** added
+    use glam_strs2, only : glam_velo_fordsiapstr_init
+    use remap_glamutils, only : horizontal_remap_init
+
+    ! *sfp** added for summer modeling school
+    use fo_upwind_advect, only : fo_upwind_advect_init
 
     implicit none
     type(glide_global_type) :: model        !*FD model instance
 
+    integer :: i,j
     character(len=100), external :: glimmer_version_char
 
 #ifdef GLC_DEBUG
@@ -132,6 +145,7 @@ contains
 
     ! initialise scales
     call glimmer_init_scales
+    call initnan !Initialize the NAN representation, hack to get smart compilers like gfortran to divide by zero
 
     ! scale parameters
     call glide_scale_params(model)
@@ -149,7 +163,10 @@ contains
     ! initialise bed softness to uniform parameter
     model%velocity%bed_softness = model%velowk%btrac_const
 
-    ! set uniform basal heat flux
+    !Initialize boundary condition fields to be NaN everywhere 
+    model%geometry%marine_bc_normal = NaN
+    
+    ! set uniform basal heat flux 
     model%temper%bheatflx = model%paramets%geot
 
     ! load sigma file
@@ -157,10 +174,8 @@ contains
 
     ! open all input files
     call openall_in(model)
-
     ! and read first time slice
     call glide_io_readall(model,model)
-
     ! Write projection info to log
     call glimmap_printproj(model%projection)
 
@@ -170,7 +185,7 @@ contains
             model%geometry%thck(itest,jtest), model%geometry%thck(itest,jtest)*thk0
 #endif
 
-    ! read lithot if required
+    ! read lithot if required !EIB! from gc2
     if (model%options%gthf.gt.0) then
        call glide_lithot_io_readall(model,model)
     end if
@@ -185,6 +200,7 @@ contains
        call isos_relaxed(model)
     end select
 
+
     ! open all output files
     call openall_out(model)
     ! create glide variables
@@ -194,14 +210,52 @@ contains
     call init_velo(model)
     call init_temp(model)
     call init_thck(model)
+    call glide_initialise_backstress(model%geometry%thck,&
+                                     model%climate%backstressmap,&
+                                     model%climate%backstress, &
+                                     model%climate%stressin, &
+                                     model%climate%stressout)
     if (model%options%gthf.gt.0) then
        call glide_lithot_io_createall(model)
        call init_lithot(model)
     end if
 
+    if (model%options%which_ho_diagnostic == HO_DIAG_PATTYN_UNSTAGGERED .or. &
+        model%options%which_ho_diagnostic == HO_DIAG_PATTYN_STAGGERED) then
+
+        call init_velo_hom_pattyn(model)
+
+    end if
+
+    ! *sfp** added; initialization of Payne/Price HO dynamics subroutine ... name can change once agreed on
+    if (model%options%which_ho_diagnostic == HO_DIAG_PP ) then
+
+        call glam_velo_fordsiapstr_init(model%general%ewn,    model%general%nsn,  &
+                                        model%general%upn,                        &
+                                        model%numerics%dew,   model%numerics%dns, &
+                                        model%numerics%sigma, model%numerics%stagsigma)
+    end if
+
+    ! *sfp** added; initialization of LANL incremental remapping subroutine for thickness evolution
+    if (model%options%whichevol== EVOL_INC_REMAP ) then
+
+        call horizontal_remap_init( model%remap_wk, model%general%ewn, model%general%nsn, &
+                                    model%options%periodic_ew, model%options%periodic_ns )
+
+    endif 
+
+    ! *sfp** added for summer modeling school
+    if (model%options%whichevol== EVOL_FO_UPWIND ) then
+
+        call fo_upwind_advect_init( model%general%ewn, model%general%nsn )
+
+    endif
+
     ! initialise ice age
-    ! This is a placeholder; currently the ice age is not computed.  
-    !lipscomb - to do - Compute and advect the ice age.
+    ! !EIB gc2! This is a placeholder; currently the ice age is not computed.  
+    ! !EIB gc2! lipscomb - to do - Compute and advect the ice age.
+    ! !EIB lanl! Currently the ice age is only computed for remapping transport
+    ! !EIB lanl! (whichevol = 3 or 4)
     model%geometry%age(:,:,:) = 0._dp
 
     if (model%options%hotstart.ne.1) then
@@ -210,23 +264,43 @@ contains
     end if
 
     ! calculate mask
-    if (model%options%hotstart.ne.1) then  ! setting the mask destroys exact restart
-       call glide_set_mask(model)
-    end if
+    call glide_set_mask(model%numerics, model%geometry%thck, model%geometry%topg, &
+                        model%general%ewn, model%general%nsn, model%climate%eus, &
+                        model%geometry%thkmask, model%geometry%iarea, model%geometry%ivol)
+
+    call calc_iareaf_iareag(model%numerics%dew,model%numerics%dns, & 
+                            model%geometry%iarea, model%geometry%thkmask, &
+                            model%geometry%iareaf, model%geometry%iareag)
+
+    !calculate the normal at the marine margin
+    call glide_marine_margin_normal(model%geometry%thck, model%geometry%thkmask, model%geometry%marine_bc_normal)
+
+    !EIB! old way
+    ! calculate mask
+    !if (model%options%hotstart.ne.1) then  ! setting the mask destroys exact restart
+    !   call glide_set_mask(model)
+    !end if
 
     ! and calculate lower and upper ice surface
     call glide_calclsrf(model%geometry%thck, model%geometry%topg, model%climate%eus,model%geometry%lsrf)
     model%geometry%usrf = model%geometry%thck + model%geometry%lsrf
 
+    !EIB! from gc2 - keep?
     ! initialise thckwk variables; used in timeders subroutine
     model%thckwk%olds(:,:,1) = model%geometry%thck(:,:)
     model%thckwk%olds(:,:,2) = model%geometry%usrf(:,:)
+    !EIB!
 
     ! initialise profile
 #ifdef PROFILING
     call glide_prof_init(model)
 #endif
 
+    ! register the newly created model so that it can be finalised in the case
+    ! of an error without needing to pass the whole thing around to every
+    ! function that might cause an error
+    call register_model(model)
+    
 #ifdef GLC_DEBUG
        write(6,*) ' '
        write(6,*) 'End of glide_init'
@@ -246,17 +320,19 @@ contains
   
   subroutine glide_tstep_p1(model,time)
     !*FD Performs first part of time-step of an ice model instance.
-    !*FD Calculate temperature evolution
+    !*FD calculate velocity and temperature
     use glimmer_global, only : rk
     use glide_thck
     use glide_velo
     use glide_setup
     use glide_temp
     use glide_mask
-    use glimmer_deriv, only : df_field_2d_staggered
+    use glide_deriv, only : df_field_2d_staggered
     use glimmer_paramets, only: tim0
     use glimmer_physcon, only: scyr
-
+    use glide_thckmask
+    use glide_grids
+    
     implicit none
 
     type(glide_global_type) :: model        !*FD model instance
@@ -281,6 +357,10 @@ contains
 #ifdef PROFILING
     call glide_prof_start(model,model%glide_prof%geomderv)
 #endif
+
+    call geometry_derivs(model)
+    
+    !EIB! from gc2 - think this was all replaced by geometry_derivs??
     call stagvarb(model%geometry% thck, &
          model%geomderv% stagthck,&
          model%general%  ewn, &
@@ -297,7 +377,8 @@ contains
          model%geomderv%dthckdew, & 
          model%geomderv%dthckdns, &
          .false., .false.)
-
+    !EIB!
+    
 #ifdef PROFILING
     call glide_prof_stop(model,model%glide_prof%geomderv)
 #endif
@@ -305,9 +386,14 @@ contains
 #ifdef PROFILING
     call glide_prof_start(model,model%glide_prof%ice_mask1)
 #endif
-    call glide_maskthck(0, &                                    !magi a hack, someone explain what whichthck=5 does
+    !EIB! call veries between lanl and gc2, this is lanl version
+    !magi a hack, someone explain what whichthck=5 does
+    !call glide_maskthck(0, &       
+    call glide_maskthck( &       
          model%geometry% thck,      &
          model%climate%  acab,      &
+         .true.,                    &
+         model%numerics%thklim,     &
          model%geometry% dom,       &
          model%geometry% mask,      &
          model%geometry% totpts,    &
@@ -346,18 +432,45 @@ contains
 
 !----------------------------------------------------------------------------- 
 
-  subroutine glide_tstep_p2(model)
+  !EIB! lanl version of call
+  subroutine glide_tstep_p2(model,no_write)
     !*FD Performs second part of time-step of an ice model instance.
-    !*FD Calculate thickness evolution
+    !*FD write data and move ice
     use glide_thck
     use glide_velo
+    use glide_ground
     use glide_setup
     use glide_temp
     use glide_mask
     use isostasy
+
+    ! *sfp** driver module/subroutines for Payne/Price HO dynamics and LANL inc. remapping for dH/dt 
+    ! Modeled after similar routines in "glide_thck"
+    use glam, only: inc_remap_driver
+
+    ! *sfp** added for summer modeling school
+    use fo_upwind_advect, only: fo_upwind_advect_driver
+
+    ! *sfp* added so that stress tensor is populated w/ HO stress fields
+    use stress_hom, only: glide_stress
+
     implicit none
 
     type(glide_global_type) :: model        !*FD model instance
+    logical,optional :: no_write
+
+    logical nw
+
+    ! ------------------------------------------------------------------------ 
+    ! write to netCDF file
+    ! ------------------------------------------------------------------------ 
+    if (present(no_write)) then
+       nw=no_write
+    else
+       nw=.false.
+    end if 
+
+    if (.not. nw) call glide_io_writeall(model,model)
 
     ! ------------------------------------------------------------------------ 
     ! Calculate flow evolution by various different methods
@@ -365,19 +478,32 @@ contains
 #ifdef PROFILING
     call glide_prof_start(model,model%glide_prof%ice_evo)
 #endif
+
+    !EIB! case number(gc2) vs name(lanl)
     select case(model%options%whichevol)
-    case(0) ! Use precalculated uflx, vflx -----------------------------------
+    case(EVOL_PSEUDO_DIFF) ! Use precalculated uflx, vflx -----------------------------------
 
        call thck_lin_evolve(model,model%temper%newtemps)
 
-    case(1) ! Use explicit leap frog method with uflx,vflx -------------------
+    case(EVOL_ADI) ! Use explicit leap frog method with uflx,vflx -------------------
 
        call stagleapthck(model,model%temper%newtemps)
 
-    case(2) ! Use non-linear calculation that incorporates velocity calc -----
+    case(EVOL_DIFFUSION) ! Use non-linear calculation that incorporates velocity calc -----
 
        call thck_nonlin_evolve(model,model%temper%newtemps)
 
+    case(EVOL_INC_REMAP) ! Use incremental remapping scheme for advecting ice thickness ---
+            ! (Temperature is advected by glide_temp)
+
+       call inc_remap_driver( model )
+       call glide_stress( model )       !*sfp* added for populating stress tensor w/ HO fields
+
+    ! *sfp** added for summer modeling school
+    case(EVOL_FO_UPWIND) ! Use first order upwind scheme for mass transport
+
+       call fo_upwind_advect_driver( model )
+ 
     end select
 #ifdef PROFILING
     call glide_prof_stop(model,model%glide_prof%ice_evo)
@@ -389,25 +515,69 @@ contains
 #ifdef PROFILING
     call glide_prof_start(model,model%glide_prof%ice_mask2)
 #endif
-    call glide_set_mask(model)
+    call glide_set_mask(model%numerics, model%geometry%thck, model%geometry%topg, &
+                        model%general%ewn, model%general%nsn, model%climate%eus, &
+                        model%geometry%thkmask, model%geometry%iarea, model%geometry%ivol)
+    !EIB! old call
+    !call glide_set_mask(model)
+    
 #ifdef PROFILING
     call glide_prof_stop(model,model%glide_prof%ice_mask2)
 #endif
+
+    !calculate the normal at the marine margin
+    call glide_marine_margin_normal(model%geometry%thck, model%geometry%thkmask, model%geometry%marine_bc_normal)
+    !calculate the grounding line flux after the mask is correct
+    call calc_gline_flux(model%geomderv%stagthck,model%velocity%surfvel, &
+    model%geometry%thkmask,model%ground%gline_flux, model%velocity%ubas, &
+    model%velocity%vbas, model%numerics%dew)
 
     ! ------------------------------------------------------------------------ 
     ! Remove ice which is either floating, or is present below prescribed
     ! depth, depending on value of whichmarn
     ! ------------------------------------------------------------------------ 
-    call glide_marinlim(model%options%  whichmarn, &
-         model%geometry% thck,      &
-         model%isos% relx,      &
+    call glide_marinlim(model%options%whichmarn, &
+         model%geometry%thck,      &
+         model%isos%relx,      &
          model%geometry%topg,   &
+         model%temper%flwa,   &
+         model%numerics%sigma,   &
          model%geometry%thkmask,    &
          model%numerics%mlimit,     &
          model%numerics%calving_fraction, &
          model%climate%eus,         &
-         model%climate%calving)
+         model%climate%calving,  &
+         model%climate%backstress, &
+         model%climate%tempanmly, &
+         model%numerics%dew,    &
+         model%numerics%dns, &
+         model%climate%backstressmap, &
+         model%climate%stressout, &
+         model%climate%stressin, &
+         model%ground, &
+         model%general%nsn, &
+         model%general%ewn, &
+         model%geometry%usrf)
+    !EIB! old way
+    !call glide_marinlim(model%options%  whichmarn, &
+    !     model%geometry% thck,      &
+    !     model%isos% relx,      &
+    !     model%geometry%topg,   &
+    !     model%geometry%thkmask,    &
+    !     model%numerics%mlimit,     &
+    !     model%numerics%calving_fraction, &
+    !     model%climate%eus,         &
+    !     model%climate%calving)
 
+    !EIB! added
+    !issues with ice shelf, calling it again fixes the mask
+    call glide_set_mask(model%numerics, model%geometry%thck, model%geometry%topg, &
+                        model%general%ewn, model%general%nsn, model%climate%eus, &
+                        model%geometry%thkmask, model%geometry%iarea, model%geometry%ivol)
+    
+    call calc_iareaf_iareag(model%numerics%dew,model%numerics%dns, & 
+                            model%geometry%iarea, model%geometry%thkmask, &
+                            model%geometry%iareaf, model%geometry%iareag)
     ! ------------------------------------------------------------------------
     ! update ice/water load if necessary
     ! ------------------------------------------------------------------------
@@ -429,9 +599,10 @@ contains
     call calc_basal_shear(model)
   end subroutine glide_tstep_p2
 
-!----------------------------------------------------------------------------- 
-
-  subroutine glide_tstep_p3(model, no_write)
+  !EIB! call difference: lanl p2(model, no_write), p3(model)
+  !EIB!                  gc2  p2(model), p3(model, no_write)
+  !EIB! should both p2 and p3 be consitent?
+  subroutine glide_tstep_p3(model)
     !*FD Performs third part of time-step of an ice model instance:
     !*FD calculate isostatic adjustment and upper and lower ice surface
     use isostasy
@@ -442,9 +613,6 @@ contains
     implicit none
     type(glide_global_type) :: model        !*FD model instance
     
-    logical,optional, intent(in) :: no_write
-    logical nw
-
 #ifdef GLC_DEBUG
     integer :: k
     integer :: i, j, upn 
@@ -476,176 +644,175 @@ contains
                         model%climate%eus,   model%geometry%lsrf)
     model%geometry%usrf = max(0.d0,model%geometry%thck + model%geometry%lsrf)
 
-       ! For exact restart, compute wgrd here and write it to the hotstart file.
-       ! (This is easier than writing thckwk quantities to the restart file.)
-
-       ! Calculate time-derivatives of thickness and upper surface elevation ------------
-
-       call timeders(model%thckwk,   &
-            model%geometry%thck,     &
-            model%geomderv%dthckdtm, &
-            model%geometry%mask,     &
-            model%numerics%time,     &
-            1)
-
-       call timeders(model%thckwk,   &
-            model%geometry%usrf,     &
-            model%geomderv%dusrfdtm, &
-            model%geometry%mask,     &
-            model%numerics%time,     &
-            2)
-
-       ! Calculate the vertical velocity of the grid ------------------------------------
-
-       call gridwvel(model%numerics%sigma,  &
-            model%numerics%thklim, &
-            model%velocity%uvel,   &
-            model%velocity%vvel,   &
-            model%geomderv,        &
-            model%geometry%thck,   &
-            model%velocity%wgrd)
-
-#ifdef GLC_DEBUG
-       i = itest
-       j = jtest
-       write(6,*) ' '
-       write(6,*) 'Before restart write, i, j, thck =', i, j, model%geometry%thck(i,j)
-       write(6,300) k, model%geometry%thck(i,j)
-       write(6,*) ' '
-       write(6,*) 'k, temperature'
-       do k = 1, upn
-            write(6,300) k, model%temper%temp(k,i,j)
-       enddo
-  300  format(i3, Z24.20)
-#endif
-
-    ! ------------------------------------------------------------------------ 
-    ! write to netCDF file
-    ! ------------------------------------------------------------------------ 
-
-    if (present(no_write)) then
-       nw=no_write
-    else
-       nw=.false.
-    end if
-
-    if (.not. nw) then
-       call glide_io_writeall(model,model)
-       if (model%options%gthf.gt.0) then
-          call glide_lithot_io_writeall(model,model)
-       end if
-    end if
+    !EIB! from gc2, not sure if it needs to be here, comment out for now, just in case
+!EIB!   ! Calculate time-derivatives of thickness and upper surface elevation ------------
+!EIB!
+!EIB!       call timeders(model%thckwk,   &
+!EIB!            model%geometry%thck,     &
+!EIB!            model%geomderv%dthckdtm, &
+!EIB!            model%geometry%mask,     &
+!EIB!            model%numerics%time,     &
+!EIB!            1)
+!EIB!
+!EIB!       call timeders(model%thckwk,   &
+!EIB!            model%geometry%usrf,     &
+!EIB!            model%geomderv%dusrfdtm, &
+!EIB!            model%geometry%mask,     &
+!EIB!            model%numerics%time,     &
+!EIB!            2)
+!EIB!
+!EIB!       ! Calculate the vertical velocity of the grid ------------------------------------
+!EIB!
+!EIB!       call gridwvel(model%numerics%sigma,  &
+!EIB!            model%numerics%thklim, &
+!EIB!            model%velocity%uvel,   &
+!EIB!            model%velocity%vvel,   &
+!EIB!            model%geomderv,        &
+!EIB!            model%geometry%thck,   &
+!EIB!            model%velocity%wgrd)
+!EIB!
+!EIB!#ifdef GLC_DEBUG
+!EIB!       i = itest
+!EIB!       j = jtest
+!EIB!       write(6,*) ' '
+!EIB!       write(6,*) 'Before restart write, i, j, thck =', i, j, model%geometry%thck(i,j)
+!EIB!       write(6,300) k, model%geometry%thck(i,j)
+!EIB!       write(6,*) ' '
+!EIB!       write(6,*) 'k, temperature'
+!EIB!       do k = 1, upn
+!EIB!            write(6,300) k, model%temper%temp(k,i,j)
+!EIB!       enddo
+!EIB!  300  format(i3, Z24.20)
+!EIB!#endif
+!EIB!
+!EIB!    ! ------------------------------------------------------------------------ 
+!EIB!    ! write to netCDF file
+!EIB!    ! ------------------------------------------------------------------------ 
+!EIB!
+!EIB!    if (present(no_write)) then
+!EIB!       nw=no_write
+!EIB!    else
+!EIB!       nw=.false.
+!EIB!    end if
+!EIB!
+!EIB!    if (.not. nw) then
+!EIB!       call glide_io_writeall(model,model)
+!EIB!       if (model%options%gthf.gt.0) then
+!EIB!          call glide_lithot_io_writeall(model,model)
+!EIB!       end if
+!EIB!    end if
+!EIB!
 
     ! increment time counter
     model%numerics%timecounter = model%numerics%timecounter + 1
 
   end subroutine glide_tstep_p3
 
-!----------------------------------------------------------------------------- 
-
-!MH!  subroutine glide_write_mod_rst(rfile)
-!MH!
-!MH!    use glimmer_log
-!MH!    use glimmer_restart_common
-!MH!
-!MH!#ifdef RESTARTS
-!MH!    use glide_types
-!MH!    use isostasy_types
-!MH!#endif
-!MH!
-!MH!    type(restart_file) :: rfile      !*FD Open restart file 
-!MH!
-!MH!#ifdef RESTARTS
-!MH!    call glide_types_modrsw(rfile)
-!MH!    call isostasy_types_modrsw(rfile)
-!MH!#else
-!MH!    call write_log('No restart code available - rebuild GLIMMER with --enable-restarts',GM_FATAL)
-!MH!#endif
-!MH!
-!MH!  end subroutine glide_write_mod_rst
-!MH!
-!MH!  !-------------------------------------------------------------------
-!MH!
-!MH!  subroutine glide_read_mod_rst(rfile)
-!MH!
-!MH!    use glimmer_log
-!MH!    use glimmer_restart_common
-!MH!
-!MH!#ifdef RESTARTS
-!MH!    use glide_types
-!MH!    use isostasy_types
-!MH!#endif
-!MH!
-!MH!    type(restart_file) :: rfile      !*FD Open restart file 
-!MH!
-!MH!#ifdef RESTARTS
-!MH!    call glide_types_modrsr(rfile)
-!MH!    call isostasy_types_modrsr(rfile)
-!MH!#else
-!MH!    call write_log('No restart code available - rebuild GLIMMER with --enable-restarts',GM_FATAL)
-!MH!#endif
-!MH!
-!MH!  end subroutine glide_read_mod_rst
-!MH!
-!MH!  !-------------------------------------------------------------------
-!MH!
-!MH!  subroutine glide_write_restart(model,rfile)
-!MH!
-!MH!    use glimmer_log
-!MH!    use glimmer_restart
-!MH!    use glimmer_restart_common
-!MH!    implicit none
-!MH!
-!MH!    type(glide_global_type) :: model !*FD model instance
-!MH!    type(restart_file) :: rfile      !*FD Open restart file     
-!MH!
-!MH!#ifdef RESTARTS
-!MH!    call glimmer_write_mod_rst(rfile)
-!MH!    call glide_write_mod_rst(rfile)
-!MH!    call rsw_glide_global_type(rfile,model)
-!MH!#else
-!MH!    call write_log('No restart code available - rebuild GLIMMER with --enable-restarts',GM_FATAL)
-!MH!#endif
-!MH!
-!MH!  end subroutine glide_write_restart
-
-!MH!  !-------------------------------------------------------------------
-!MH!
-!MH!  subroutine glide_read_restart(model,rfile,prefix)
-!MH!
-!MH!    use glimmer_log
-!MH!    use glimmer_restart
-!MH!    use glimmer_restart_common
-!MH!    use glimmer_ncdf
-!MH!    use glimmer_ncio
-!MH!    implicit none
-!MH!
-!MH!    type(glide_global_type) :: model !*FD model instance
-!MH!    type(restart_file) :: rfile      !*FD Open restart file 
-!MH!    character(*),optional,intent(in) :: prefix !*FD prefix for new output files
-!MH!
-!MH!    character(40) :: pf
-!MH!
-!MH!    if (present(prefix)) then
-!MH!       pf = prefix
-!MH!    else
-!MH!       pf = 'RESTART_'
-!MH!    end if
-!MH!
-!MH!#ifdef RESTARTS
-!MH!    call glimmer_read_mod_rst(rfile)
-!MH!    call glide_read_mod_rst(rfile)
-!MH!    call rsr_glide_global_type(rfile,model)
-!MH!    call nc_repair_outpoint(model%funits%out_first)
-!MH!    call nc_repair_inpoint(model%funits%in_first)
-!MH!    call nc_prefix_outfiles(model%funits%out_first,trim(pf))
-!MH!    call openall_out(model)
-!MH!    call glide_io_createall(model)
-!MH!    call glide_nc_fillall(model)
-!MH!#else
-!MH!    call write_log('No restart code available - rebuild GLIMMER with --enable-restarts',GM_FATAL)
-!MH!#endif
-!MH!
-!MH!  end subroutine glide_read_restart
+  !-------------------------------------------------------------------
+!EIB! not ready for restarts yet
+!EIB!  subroutine glide_write_mod_rst(rfile)
+!EIB!
+!EIB!    use glimmer_log
+!EIB!    use glimmer_restart_common
+!EIB!
+!EIB!#ifdef RESTARTS
+!EIB!    use glide_types
+!EIB!    use isostasy_types
+!EIB!#endif
+!EIB!
+!EIB!    type(restart_file) :: rfile      !*FD Open restart file 
+!EIB!
+!EIB!#ifdef RESTARTS
+!EIB!    call glide_types_modrsw(rfile)
+!EIB!    call isostasy_types_modrsw(rfile)
+!EIB!#else
+!EIB!    call write_log('No restart code available - rebuild GLIMMER with --enable-restarts',GM_FATAL)
+!EIB!#endif
+!EIB!
+!EIB!  end subroutine glide_write_mod_rst
+!EIB!
+!EIB!  !-------------------------------------------------------------------
+!EIB!
+!EIB!  subroutine glide_read_mod_rst(rfile)
+!EIB!
+!EIB!    use glimmer_log
+!EIB!    use glimmer_restart_common
+!EIB!
+!EIB!#ifdef RESTARTS
+!EIB!    use glide_types
+!EIB!    use isostasy_types
+!EIB!#endif
+!EIB!
+!EIB!    type(restart_file) :: rfile      !*FD Open restart file 
+!EIB!
+!EIB!#ifdef RESTARTS
+!EIB!    call glide_types_modrsr(rfile)
+!EIB!    call isostasy_types_modrsr(rfile)
+!EIB!#else
+!EIB!    call write_log('No restart code available - rebuild GLIMMER with --enable-restarts',GM_FATAL)
+!EIB!#endif
+!EIB!
+!EIB!  end subroutine glide_read_mod_rst
+!EIB!
+!EIB!  !-------------------------------------------------------------------
+!EIB!
+!EIB!  subroutine glide_write_restart(model,rfile)
+!EIB!
+!EIB!    use glimmer_log
+!EIB!    use glimmer_restart
+!EIB!    use glimmer_restart_common
+!EIB!    implicit none
+!EIB!
+!EIB!    type(glide_global_type) :: model !*FD model instance
+!EIB!    type(restart_file) :: rfile      !*FD Open restart file     
+!EIB!
+!EIB!#ifdef RESTARTS
+!EIB!    call glimmer_write_mod_rst(rfile)
+!EIB!    call glide_write_mod_rst(rfile)
+!EIB!    call rsw_glide_global_type(rfile,model)
+!EIB!#else
+!EIB!    call write_log('No restart code available - rebuild GLIMMER with --enable-restarts',GM_FATAL)
+!EIB!#endif
+!EIB!
+!EIB!  end subroutine glide_write_restart
+!EIB!
+!EIB!  !-------------------------------------------------------------------
+!EIB!
+!EIB!  subroutine glide_read_restart(model,rfile,prefix)
+!EIB!
+!EIB!    use glimmer_log
+!EIB!    use glimmer_restart
+!EIB!    use glimmer_restart_common
+!EIB!    use glimmer_ncdf
+!EIB!    use glimmer_ncio
+!EIB!    implicit none
+!EIB!
+!EIB!    type(glide_global_type) :: model !*FD model instance
+!EIB!    type(restart_file) :: rfile      !*FD Open restart file 
+!EIB!    character(*),optional,intent(in) :: prefix !*FD prefix for new output files
+!EIB!
+!EIB!    character(40) :: pf
+!EIB!
+!EIB!    if (present(prefix)) then
+!EIB!       pf = prefix
+!EIB!    else
+!EIB!       pf = 'RESTART_'
+!EIB!    end if
+!EIB!
+!EIB!#ifdef RESTARTS
+!EIB!    call glimmer_read_mod_rst(rfile)
+!EIB!    call glide_read_mod_rst(rfile)
+!EIB!    call rsr_glide_global_type(rfile,model)
+!EIB!    call nc_repair_outpoint(model%funits%out_first)
+!EIB!    call nc_repair_inpoint(model%funits%in_first)
+!EIB!    call nc_prefix_outfiles(model%funits%out_first,trim(pf))
+!EIB!    call openall_out(model)
+!EIB!    call glide_io_createall(model)
+!EIB!    call glide_nc_fillall(model)
+!EIB!#else
+!EIB!    call write_log('No restart code available - rebuild GLIMMER with --enable-restarts',GM_FATAL)
+!EIB!#endif
+!EIB!
+!EIB!  end subroutine glide_read_restart
 
 end module glide

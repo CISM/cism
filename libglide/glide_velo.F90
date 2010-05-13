@@ -103,11 +103,11 @@ contains
 
     model%velowk%depthw = (/ ((model%numerics%sigma(up+1)+model%numerics%sigma(up)) / 2.0d0, up=1,upn-1), 0.0d0 /)
 
-    model%velowk%fact = (/ model%paramets%fiddle * arrmlh / vis0, &   ! Value of a when T* is above -263K
-         model%paramets%fiddle * arrmll / vis0, &                     ! Value of a when T* is below -263K
+    model%velowk%fact = (/ model%paramets%flow_factor* arrmlh / vis0, &   ! Value of a when T* is above -263K
+         model%paramets%flow_factor* arrmll / vis0, &                     ! Value of a when T* is below -263K
          -actenh / gascon,        &                                   ! Value of -Q/R when T* is above -263K
          -actenl / gascon/)                                           ! Value of -Q/R when T* is below -263K
-    
+   
     model%velowk%watwd  = model%paramets%bpar(1) / model%paramets%bpar(2)
     model%velowk%watct  = model%paramets%bpar(2) 
     model%velowk%trcmin = model%paramets%bpar(3) / scyr
@@ -121,6 +121,67 @@ contains
     model%velowk%c(4)   = model%velowk%watct * 4.0d0 / thk0 
 
   end subroutine init_velo
+#if 0
+  subroutine velo_compute_strain_rates(strain_zx, strain_zy, 
+                                       stagthck, dusrfdew, dusrfdns, sigma, 
+                                       flwa, ho_stress_zx, ho_stress_zy)
+    !*FD Computes the strain rates \epsilon_{zx} and \epsilon{zy} using the
+    !*FD formula:
+    !*FD \epsilon_{zi}(\sigma) = A(\sigma)(-\rho g H \sigma \frac{\partial s}{\partial i} - HO_i)^n
+    !*FD No vertical integration is done at this point
+    
+    ewn = size(strain_zx, 2)
+    nsn = size(strain_zx, 3)
+    upn = size(strain_zx, 1)
+
+    !TODO: Make this work with rescaling!!
+    !TODO: Vectorize
+    do i = 1, upn
+      do j = 1, ewn
+        do k = 1, nsn
+          !Compute everything inside the exponentiation
+          !(we factor out -rhoi*g*H*\sigma so it's only computed once
+          zx = -rhoi*g*sigma(i)*stagthck(j,k)
+          zy = zx*dusrfdns(j,k)
+          zx = zx*dusrfdew(j,k)
+
+          !Add higher-order stresses if they were provided
+          if (present(ho_stress_zx) .and. present(ho_stress_zy)) then
+            zx = zx - ho_stress_zx(i,j,k)
+            zy = zy - ho_stress_zy(i,j,k)
+          end if
+
+          !Exponentiate and finish computation
+          zx = A(i,j,k)*zx**gn
+          zy = A(i,j,k)*zy**gn
+
+          strain_zx(i,j,k) = zx
+          strain_zy(i,j,k) = zy
+        end do
+      end do
+    end do
+  end subroutine
+
+  
+  !*FD Integrates the strain rates to compute both the 3d velocity fields and the
+  !*FD vertically averaged velocities
+  subroutine velo_integrate_strain(strain_zx, strain_zy, ubas, vbas,
+    !Find the 3d velocity field by vertically integrating the strain rate from
+    !the base up
+    call vertint_output3d(strain_zx, uvel, sigma, .false., ubas)
+    call vertint_output3d(strain_zy, vvel, sigma, .false., vbas)
+    
+    !Normally, we have \epsilon_{xz} = \frac{1}{2}(\frac{\partial u}{\partial z} + \frac{\partial w}{\partial x})
+    !However, we assume that $u_z >> w_x$ by assuming simple shear deformation.
+    !This gives us $u_z$ = 2\epsilon_{xz}
+    !This 2 is pulled out of the integral.  We correct for it here.
+    uvel = 2*uvel
+    vvel = 2*vvel
+    
+       
+  end subroutine
+#endif
+  
 
   !*****************************************************************************
   ! new velo functions come here
@@ -130,8 +191,8 @@ contains
     
     !*FD this routine calculates the part of the vertically averaged velocity 
     !*FD field which solely depends on the temperature
+    !*FD (The integral in eq. 3.22d)
 
-    use glimmer_utils, only : hsum4
     implicit none
 
     !------------------------------------------------------------------------------------
@@ -153,9 +214,10 @@ contains
        do ew = 1,ewn-1
           if (stagthck(ew,ns) /= 0.0d0) then
              
-             hrzflwa = hsum4(flwa(:,ew:ew+1,ns:ns+1))  
+             hrzflwa = flwa(:,ew,ns) + flwa(:,ew,ns+1) + flwa(:,ew+1,ns) + flwa(:,ew+1,ns+1)
              intflwa(upn) = 0.0d0
 
+             !Perform inner integration.
              do up = upn-1, 1, -1
                 intflwa(up) = intflwa(up+1) + velowk%depth(up) * (hrzflwa(up)+hrzflwa(up+1))
              end do
@@ -198,10 +260,10 @@ contains
 
   !*****************************************************************************
 
-  subroutine velo_calc_velo(velowk,stagthck,dusrfdew,dusrfdns,flwa,diffu,ubas,vbas,uvel,vvel,uflx,vflx)
+  subroutine velo_calc_velo(velowk,stagthck,dusrfdew,dusrfdns,flwa,diffu,ubas,vbas,uvel,vvel,uflx,vflx,&
+  surfvel)
 
     !*FD calculate 3D horizontal velocity field and 2D flux field from diffusivity
-    use glimmer_utils, only : hsum4
     implicit none
 
     !------------------------------------------------------------------------------------
@@ -219,6 +281,7 @@ contains
     real(dp),dimension(:,:,:),intent(out)   :: vvel
     real(dp),dimension(:,:),  intent(out)   :: uflx
     real(dp),dimension(:,:),  intent(out)   :: vflx
+    real(dp),dimension(:,:,:), intent(out)    :: surfvel
     !------------------------------------------------------------------------------------
     ! Internal variables
     !------------------------------------------------------------------------------------
@@ -239,7 +302,7 @@ contains
              uvel(upn,ew,ns) = ubas(ew,ns)
              vvel(upn,ew,ns) = vbas(ew,ns)
 
-             hrzflwa = hsum4(flwa(:,ew:ew+1,ns:ns+1))  
+             hrzflwa = flwa(:,ew,ns) + flwa(:,ew,ns+1) + flwa(:,ew+1,ns) + flwa(:,ew+1,ns+1)
 
              factor = velowk%dintflwa(ew,ns)*stagthck(ew,ns)
              if (factor /= 0.0d0) then
@@ -266,6 +329,9 @@ contains
           end if
        end do
     end do
+    
+    !calc surface velocity from the u and v velocties
+    surfvel(:,:,:) = (uvel(:,:,:)**2 + vvel(:,:,:)**2)**(1.0/2.0)
   end subroutine velo_calc_velo
 
   !*****************************************************************************
@@ -366,8 +432,6 @@ contains
     !*FD Performs the velocity calculation. This subroutine is called with
     !*FD different values of \texttt{flag}, depending on exactly what we want to calculate.
 
-    use glimmer_utils, only : hsum4
-
     implicit none
 
     !------------------------------------------------------------------------------------
@@ -421,7 +485,7 @@ contains
 
             ! Get column profile of Glenn's A
 
-            hrzflwa = hsum4(flwa(:,ew:ew+1,ns:ns+1))
+            hrzflwa = flwa(:,ew,ns) + flwa(:,ew,ns+1) + flwa(:,ew+1,ns) + flwa(:,ew+1,ns+1)
 
             ! Calculate coefficient for integration
 
@@ -469,7 +533,7 @@ contains
         do ew = 1,ewn
           if (stagthck(ew,ns) /= 0.0d0) then
 
-            hrzflwa = hsum4(flwa(:,ew:ew+1,ns:ns+1))  
+            hrzflwa = flwa(:,ew,ns) + flwa(:,ew,ns+1) + flwa(:,ew+1,ns) + flwa(:,ew+1,ns+1)
             intflwa(upn) = 0.0d0
 
             do up = upn-1, 1, -1
@@ -506,7 +570,7 @@ contains
             uvel(upn,ew,ns) = ubas(ew,ns)
             vvel(upn,ew,ns) = vbas(ew,ns)
 
-            hrzflwa = hsum4(flwa(:,ew:ew+1,ns:ns+1))  
+            hrzflwa = flwa(:,ew,ns) + flwa(:,ew,ns+1) + flwa(:,ew+1,ns) + flwa(:,ew+1,ns+1)
 
             if (velowk%dintflwa(ew,ns) /= 0.0d0) then
                const(2) = c * diffu(ew,ns) / velowk%dintflwa(ew,ns)/stagthck(ew,ns)
@@ -550,8 +614,6 @@ contains
     !*FD \]
     !*FD Compare this with equation A1 in {\em Payne and Dongelmans}.
 
-    use glimmer_utils, only: hsum4 
-
     implicit none 
 
     !------------------------------------------------------------------------------------
@@ -590,10 +652,10 @@ contains
       do ew = 2,ewn-1
         if (thck(ew,ns) > thklim) then
           wgrd(:,ew,ns) = geomderv%dusrfdtm(ew,ns) - sigma * geomderv%dthckdtm(ew,ns) + & 
-                      (hsum4(uvel(:,ew-1:ew,ns-1:ns)) * &
+                      ((uvel(:,ew-1,ns-1) + uvel(:,ew-1,ns) + uvel(:,ew,ns-1) + uvel(:,ew,ns)) * &
                       (sum(geomderv%dusrfdew(ew-1:ew,ns-1:ns)) - sigma * &
                        sum(geomderv%dthckdew(ew-1:ew,ns-1:ns))) + &
-                       hsum4(vvel(:,ew-1:ew,ns-1:ns)) * &
+                       (vvel(:,ew-1,ns-1) + vvel(:,ew-1,ns) + vvel(:,ew,ns-1) + vvel(:,ew,ns)) * &
                       (sum(geomderv%dusrfdns(ew-1:ew,ns-1:ns)) - sigma * &
                        sum(geomderv%dthckdns(ew-1:ew,ns-1:ns)))) / 16.0d0
         else
@@ -611,14 +673,12 @@ contains
     !*FD Calculates the vertical velocity field, which is returned in \texttt{wvel}.
     !*FD This is found by doing this integration:
     !*FD \[
-    !*FD w(\sigma)=\int_{1}^{\sigma}\left[\frac{\partial \mathbf{U}}{\partial \sigma}
+    !*FD w(\sigma)=-\int_{1}^{\sigma}\left[\frac{\partial \mathbf{U}}{\partial \sigma}
     !*FD (\sigma) \cdot (\nabla s - \sigma \nabla H) +H\nabla \cdot \mathbf{U}(\sigma)\right]d\sigma
     !*FD + w(1)
     !*FD \]
     !*FD (This is equation 13 in {\em Payne and Dongelmans}.) Note that this is only 
     !*FD done if the thickness is greater than the threshold given by \texttt{numerics\%thklim}.
-
-    use glimmer_utils, only : hsum4 
 
     implicit none
 
@@ -695,8 +755,8 @@ contains
           !cons(5) = (thck(ew-1,ns)+2.0d0*thck(ew,ns)+thck(ew+1,ns)) * dew16
           !cons(6) = (thck(ew,ns-1)+2.0d0*thck(ew,ns)+thck(ew,ns+1)) * dns16
 
-          velowk%suvel = hsum4(uvel(:,ew-1:ew,ns-1:ns))
-          velowk%svvel = hsum4(vvel(:,ew-1:ew,ns-1:ns))
+          velowk%suvel(:) = uvel(:,ew-1,ns-1) + uvel(:,ew-1,ns) + uvel(:,ew,ns-1) + uvel(:,ew,ns)
+          velowk%svvel(:) = vvel(:,ew-1,ns-1) + vvel(:,ew-1,ns) + vvel(:,ew,ns-1) + vvel(:,ew,ns)
 
           ! Loop over each model level, starting from the bottom ----------------------
 
@@ -729,110 +789,6 @@ contains
     model%velocity%wvel(:,1,:)                  = model%velocity%wvel(:,model%general%ewn-1,:)
     model%velocity%wvel(:,model%general%ewn,:) = model%velocity%wvel(:,2,:)
   end subroutine wvel_ew
-
-!------------------------------------------------------------------------------------------
-
-  subroutine calcflwa(numerics,velowk,fiddle,flwa,temp,thck,flag)
-
-    !*FD Calculates Glenn's $A$ over the three-dimensional domain,
-    !*FD using one of three possible methods.
-    !*FD \textbf{I'm unsure how this ties in with the documentation, since}
-    !*FD \texttt{fiddle}\ \textbf{is set to 3.0. This needs checking} 
-
-    use glimmer_physcon, only : pmlt
-
-    implicit none
-
-    !------------------------------------------------------------------------------------
-    ! Subroutine arguments
-    !------------------------------------------------------------------------------------
-
-    type(glide_numerics),     intent(in)    :: numerics  !*FD Derived type containing
-                                                           !*FD model numerics parameters
-    type(glide_velowk),       intent(inout) :: velowk    !*FD Derived type containing
-                                                           !*FD work arrays for this module
-    real(dp),                   intent(in)    :: fiddle    !*FD Tuning parameter for the
-                                                           !*FD Paterson-Budd relationship
-    real(dp),dimension(:,:,:),  intent(out)   :: flwa      !*FD The calculated values of $A$
-    real(dp),dimension(:,0:,0:),intent(in)    :: temp      !*FD The 3D temperature field
-    real(dp),dimension(:,:),    intent(in)    :: thck      !*FD The ice thickness
-    integer,                    intent(in)    :: flag      !*FD Flag to select the method
-                                                           !*FD of calculation:
-    !*FD \begin{description}
-    !*FD \item[0] {\em Paterson and Budd} relationship.
-    !*FD \item[1] {\em Paterson and Budd} relationship, with temperature set to
-    !*FD -5$^{\circ}$C.
-    !*FD \item[2] Set constant, {\em but not sure how this works at the moment\ldots}
-    !*FD \end{description}
-
-    !------------------------------------------------------------------------------------
-    ! Internal variables
-    !------------------------------------------------------------------------------------
-
-    real(dp), parameter :: fact = grav * rhoi * pmlt * thk0
-    real(dp), parameter :: contemp = -5.0d0  
-    real(dp), dimension(size(numerics%sigma)) :: tempcor
-
-    integer :: ew,ns,up,ewn,nsn,upn
-
-    !------------------------------------------------------------------------------------
-    
-    upn=size(flwa,1) ; ewn=size(flwa,2) ; nsn=size(flwa,3)
-
-    !------------------------------------------------------------------------------------
-
-    select case(flag)
-    case(0)
-
-      ! This is the Paterson and Budd relationship
-
-      do ns = 1,nsn
-        do ew = 1,ewn
-          if (thck(ew,ns) > numerics%thklim) then
-            
-            ! Calculate the corrected temperature
-
-            tempcor = min(0.0d0, temp(:,ew,ns) + thck(ew,ns) * fact * numerics%sigma)
-            tempcor = max(-50.0d0, tempcor)
-
-            ! Calculate Glenn's A
-
-            call patebudd(tempcor,flwa(:,ew,ns),velowk%fact) 
-          else
-            flwa(:,ew,ns) = fiddle
-          end if
-        end do
-      end do
-
-    case(1)
-
-      ! This is the Paterson and Budd relationship, but with the temperature held constant
-      ! at -5 deg C
-
-      do ns = 1,nsn
-        do ew = 1,ewn
-          if (thck(ew,ns) > numerics%thklim) then
-
-            ! Calculate Glenn's A with a fixed temperature.
-
-            call patebudd((/(contemp, up=1,upn)/),flwa(:,ew,ns),velowk%fact) 
-          else
-            flwa(:,ew,ns) = fiddle
-          end if
-        end do
-      end do
-
-    case default 
-
-      ! Set A equal to the value of fiddle. According to the documentation, this
-      ! option means A=10^-16 yr^-1 Pa^-n, but I'm not sure how this squares with
-      ! the value of fiddle, which is currently set to three.
-
-      flwa = fiddle
-  
-    end select
-
-  end subroutine calcflwa 
 
 !------------------------------------------------------------------------------------------
 
@@ -941,63 +897,13 @@ contains
 
   end function vertintg
 
-
-!------------------------------------------------------------------------------------------
-
-  subroutine patebudd(tempcor,calcga,fact)
-
-    !*FD Calculates the value of Glenn's $A$ for the temperature values in a one-dimensional
-    !*FD array. The input array is usually a vertical temperature profile. The equation used
-    !*FD is from \emph{Paterson and Budd} [1982]:
-    !*FD \[
-    !*FD A(T^{*})=a \exp \left(\frac{-Q}{RT^{*}}\right)
-    !*FD \]
-    !*FD This is equation 9 in {\em Payne and Dongelmans}. $a$ is a constant of proportionality,
-    !*FD $Q$ is the activation energy for for ice creep, and $R$ is the universal gas constant.
-    !*FD The pressure-corrected temperature, $T^{*}$ is given by:
-    !*FD \[
-    !*FD T^{*}=T-T_{\mathrm{pmp}}+T_0
-    !*FD \] 
-    !*FD \[
-    !*FD T_{\mathrm{pmp}}=T_0-\sigma \rho g H \Phi
-    !*FD \]
-    !*FD $T$ is the ice temperature, $T_{\mathrm{pmp}}$ is the pressure melting point 
-    !*FD temperature, $T_0$ is the triple point of water, $\rho$ is the ice density, and 
-    !*FD $\Phi$ is the (constant) rate of change of melting point temperature with pressure.
-
-    use glimmer_physcon, only : trpt
-
-    implicit none
-
-    !------------------------------------------------------------------------------------
-    ! Subroutine arguments
-    !------------------------------------------------------------------------------------
-
-    real(dp),dimension(:), intent(in)    :: tempcor  !*FD Input temperature profile. This is 
-                                                     !*FD {\em not} $T^{*}$, as it has $T_0$
-                                                     !*FD added to it later on; rather it is
-                                                     !*FD $T-T_{\mathrm{pmp}}$.
-    real(dp),dimension(:), intent(out)   :: calcga   !*FD The output values of Glenn's $A$.
-    real(dp),dimension(4), intent(in)    :: fact     !*FD Constants for the calculation. These
-                                                     !*FD are set when the velo module is initialised
-
-    !------------------------------------------------------------------------------------
-
-    ! Actual calculation is done here - constants depend on temperature -----------------
-
-    where (tempcor >= -10.0d0)         
-      calcga = fact(1) * exp(fact(3) / (tempcor + trpt))
-    elsewhere
-      calcga = fact(2) * exp(fact(4) / (tempcor + trpt))
-    end where
-
-  end subroutine patebudd
-
 !------------------------------------------------------------------------------------------
 
   subroutine calc_btrc(model,flag,btrc)
     !*FD Calculate the value of $B$ used for basal sliding calculations.
     use glimmer_global, only : dp 
+    use glimmer_physcon, only : rhoo, rhoi
+    use glimmer_paramets, only : len0, thk0, scyr, vel0
     implicit none
 
     type(glide_global_type) :: model        !*FD model instance
@@ -1010,14 +916,21 @@ contains
 
     real(dp) :: stagbwat 
     integer :: ew,ns,nsn,ewn
+    real :: Asl = 1.8d-10 !in units N^-3 yr^-1 m^8 for case(5)
+    real :: Z !accounts for reduced basal traction due to pressure of
+              !subglacial water for case(5)
+    real :: tau !basal shear stress
 
+    !scaling
+    real :: tau_factor = 1e-3*thk0*thk0/len0
+    !real :: tau_factor = 1.0
     !------------------------------------------------------------------------------------
 
     ewn=model%general%ewn
     nsn=model%general%nsn
 
     !------------------------------------------------------------------------------------
-
+    Asl = model%climate%slidconst
     select case(flag)
     case(1)
        ! constant everywhere
@@ -1065,13 +978,31 @@ contains
        ! constant where basal temperature equal to pressure melting point
        ! This is the actual EISMINT condition, which may not be the same
        ! as case(2) above, depending on the hydrology
-       do ns = 1,nsn-1
-          do ew = 1,ewn-1
-             if (abs(model%temper%stagbpmp(ew,ns) - model%temper%stagbtemp(ew,ns))<0.001) then
-                btrc(ew,ns) = model%velocity%bed_softness(ew,ns)
+
+       ! increases with the third power of the basal shear stress, from
+       ! Huybrechts
+       do ns = 1, nsn-1
+         do ew = 1, ewn-1
+           if ((model%geomderv%stagthck(ew,ns) * thk0) > model%numerics%thklim) then 
+             if((model%geomderv%stagtopg(ew,ns)*thk0) > (model%climate%eus*thk0)) then
+               Z = model%geomderv%stagthck(ew,ns)*thk0
              else
-                btrc(ew,ns) = 0.0d0
-             end if
+               Z = model%geomderv%stagthck(ew,ns)*thk0 + rhoi*((model%geomderv%stagtopg(ew,ns) *thk0 &
+                   - model%climate%eus*thk0)/ rhoo)
+   
+             end if 
+              
+            if(Z <= model%numerics%thklim) then !avoid division by zero
+                Z = model%numerics%thklim
+            end if 
+            
+             tau = ((tau_factor*model%velocity%tau_x(ew,ns))**2 +&
+             (model%velocity%tau_y(ew,ns)*tau_factor)**2)**(1.0/2.0)
+             
+             btrc(ew,ns) = (Asl*(tau)**2)/Z !assuming that that btrc is later
+                                             !multiplied again by the basal shear stress
+       
+           end if  
           end do
        end do
     case default
