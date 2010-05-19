@@ -208,7 +208,7 @@ contains
     !     time -- Model time
     call write_log('Creating variable time')
     !EIB! lanl version
-    status = nf90_def_var(NCO%id,'time',NF90_FLOAT,(/NCO%timedim/),NCO%timevar)
+    !status = nf90_def_var(NCO%id,'time',NF90_FLOAT,(/NCO%timedim/),NCO%timevar)
     !EIB! gc2 version
     status = nf90_def_var(NCO%id,'time',outfile%default_xtype,(/NCO%timedim/),NCO%timevar)
     !EIB! pick one and consistant
