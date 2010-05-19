@@ -3,7 +3,7 @@ bin_PROGRAMS  =  eismint3_glide
 nodist_include_HEADERS := $(wildcard *.mod)
 EXTRA_DIST = f90_dep.mak eismint3_vars.def
 BUILT_SOURCES = eismint3_io.F90
-CLEANFILES = $(BUILT_SOURCES) f90_dep.mak
+CLEANFILES = $(BUILT_SOURCES) f90_dep.mak $(wildcard *.mod)
 
 
 

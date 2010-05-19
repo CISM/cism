@@ -7,7 +7,7 @@ dist_variable_DATA = $(variable_DATA)
 nodist_include_HEADERS := $(wildcard *.mod)
 EXTRA_DIST = f90_dep.mak 
 BUILT_SOURCES = glint_io.F90 glint_mbal_io.F90
-CLEANFILES = $(BUILT_SOURCES) f90_dep.mak
+CLEANFILES = $(BUILT_SOURCES) f90_dep.mak $(wildcard *.mod)
 
 libglint_la_SOURCES = glimmer_daily_pdd.F90 glimmer_pdd.F90 \
                       glint_climate.F90 glint_initialise.F90 glint_io.F90 \

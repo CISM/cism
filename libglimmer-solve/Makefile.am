@@ -9,6 +9,7 @@ endif
 SUBDIRS = SLAP $(BLAS_DIR)
 
 lib_LTLIBRARIES = libglimmer-solve.la
+CLEANFILES = $(BUILT_SOURCES) f90_dep.mak $(wildcard *.mod)
 
 libglimmer_solve_la_SOURCES = glimmer_sparse.F90 glimmer_sparse_type.F90 \
 			      glimmer_sparse_slap.F90 glimmer_sparse_umfpack.F90 \
