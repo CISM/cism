@@ -1,3 +1,8 @@
+2010-05-19 Ian Rutt
+ * libglimmer/glimmer_ncdf.F90: removed almost-duplicate definition of
+	glimmer_scales from merged code, and reconciled with definition in
+	libglimmer/glimmer_scales.F90.
+
 2010-05-10 Magnus Hagdorn
  * merged glimmer-cism-gcm r1460:HEAD
 
