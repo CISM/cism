@@ -23,7 +23,7 @@ libglide_la_SOURCES = glide.F90 glide_setup.F90 glide_types.F90 glide_temp.F90 \
 		      glide_grids.F90 glide_stress.F90 glide_ground.F90 glide_vertint.F90\
 		      glide_thckmask.F90 glide_velo_higher.F90 xls.f90 ice3d_lib.F90 \
 		      remap_advection.F90 remap_glamutils.F90 \
-		      glide_mask.inc glide_nan.inc
+		      glide_mask.inc glide_nan.inc glide_bwater.F90
 
 
 test_setup_SOURCES = test_setup.F90

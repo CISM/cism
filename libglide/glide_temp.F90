@@ -232,7 +232,7 @@ contains
     use glide_thck
     use glide_mask
     use glide_grids
-    !use glide_bwater !EIB! skipping for now?
+    use glide_bwater !EIB! skipping for now?
     use glimmer_physcon, only: rhoi, shci, coni   ! for temperature smoothing
 
     implicit none
@@ -523,17 +523,17 @@ contains
 
        ! Calculate basal water depth ------------------------------------------------
 
-       !EIB! skipping bwater for now
-       !call calcbwat(model, &
-       !     model%options%whichbwat, &
-       !     model%temper%bmlt, &
-       !     model%temper%bwat, &
-       !     model%temper%bwatflx, &
-       !     model%geometry%thck, &
-       !     model%geometry%topg, &
-       !     model%temper%temp(model%general%upn,:,:), &
-       !     GLIDE_IS_FLOAT(model%geometry%thkmask), &
-       !     model%tempwk%wphi)
+       !JCC - Using lan's bwater calculation routines.
+       call calcbwat(model, &
+            model%options%whichbwat, &
+            model%temper%bmlt, &
+            model%temper%bwat, &
+            model%temper%bwatflx, &
+            model%geometry%thck, &
+            model%geometry%topg, &
+            model%temper%temp(model%general%upn,:,:), &
+            GLIDE_IS_FLOAT(model%geometry%thkmask), &
+            model%tempwk%wphi)
 
        !EIB! rest of case not present in lanl
        ! Transform basal temperature and pressure melting point onto velocity grid -
