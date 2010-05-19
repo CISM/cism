@@ -44,6 +44,8 @@
 #include "config.inc"
 #endif
 
+#include "glide_mask.inc"
+
 module glint_timestep
   !*FD timestep of a GLINT instance
 
@@ -96,7 +98,6 @@ contains
     use glimmer_routing
     use glimmer_log
     use glimmer_physcon, only: rhow,rhoi
-    use glide_mask, only: glide_mask_ocean
 
     implicit none
 
@@ -331,7 +332,7 @@ contains
 
           ! Set acab to zero for ocean cells (bed below sea level, no ice present)
 
-          where (instance%model%geometry%thkmask == glide_mask_ocean)
+          where (instance%model%geometry%thkmask == GLIDE_MASK_OCEAN)
              instance%acab = 0.0
           endwhere
 

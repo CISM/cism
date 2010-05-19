@@ -50,21 +50,6 @@ module glide_mask
     use glimmer_global, only : dp, sp, NaN
   !*FD masking ice thicknesses
 
-!EIB! from glimmer-cism2/glimmer-cism-lanl
-!EIB! needed by glide_lithot1d -> haven't merged yet
-  integer, parameter :: glide_mask_ocean          = -2
-  integer, parameter :: glide_mask_land           = -1
-  integer, parameter :: glide_mask_boundary       = 0
-  integer, parameter :: glide_mask_thin_ice       = 1
-  integer, parameter :: glide_mask_interior       = 2
-  integer, parameter :: glide_mask_shelf          = 4
-  integer, parameter :: glide_mask_stream         = 8
-  integer, parameter :: glide_mask_grounding_line = 16
-  integer, parameter :: glide_mask_stream_margin  = 32
-  integer, parameter :: glide_mask_land_margin    = 64
-  integer, parameter :: glide_mask_shelf_front    = 128
-  integer, parameter :: glide_mask_marine_edge    = 256
-
 contains
   subroutine glide_set_mask(numerics, thck, topg, ewn, nsn, eus, mask, iarea, ivol)
     use glide_types
@@ -156,83 +141,6 @@ contains
        end do
     end do
   end subroutine glide_set_mask
-
-!EIB! from glimmer-cism2/glimmer-cism-lanl
-!EIB! needed by glide_lithot1d -> haven't merged yet
-  logical elemental function is_ocean(mask)
-    !*FD returns .true. if node is ocean
-    implicit none
-    integer, intent(in) :: mask 
-
-    is_ocean = mask.eq.glide_mask_ocean
-  end function is_ocean
-
-  logical elemental function is_land(mask)
-    !*FD returns .true. if node is land
-    implicit none
-    integer, intent(in) :: mask 
-
-    is_land = mask.eq.glide_mask_land
-  end function is_land
-
-  logical elemental function has_ice(mask)
-    !*FD returns .true. if node contains ice
-    implicit none
-    integer, intent(in) :: mask 
-
-    has_ice = mask .gt. 0
-  end function has_ice
-
-  logical elemental function is_thin(mask)
-    !*FD returns .true. if node is below dynamic limit
-    implicit none
-    integer, intent(in) :: mask
-
-    is_thin = (iand(mask,glide_mask_thin_ice) .gt. 0 .and. mask.gt.0)
-  end function is_thin
-
-  logical elemental function is_float(mask)
-    !*FD returns .true. if node is floating
-    implicit none
-    integer, intent(in) :: mask
-
-    is_float = (iand(mask,glide_mask_shelf) .gt. 0 .and. mask.gt.0)
-  end function is_float
-
-  logical elemental function is_ground(mask)
-    !*FD returns .true. if node is grounded ice
-    implicit none
-    integer, intent(in) :: mask
-
-    is_ground = (iand(mask,glide_mask_interior) .gt. 0 .and. mask.gt.0)
-  end function is_ground
-
-  logical elemental function is_calving(mask)
-    !*FD return .true. if node is at the shelf front
-    implicit none
-    integer, intent(in) :: mask
-
-    is_calving = (iand(mask,glide_mask_shelf_front) .gt. 0 .and. mask.gt.0)
-  end function is_calving
-
-  logical elemental function is_marine_ice_edge(mask)
-    !*FD return .true. if node is at edge of ice and topgraphy is
-    !*FD below sea-level
-    implicit none
-    integer, intent(in) :: mask
-
-    is_marine_ice_edge = (iand(mask,glide_mask_marine_edge) .gt. 0 .and. mask.gt.0)
-  end function is_marine_ice_edge
-  
-  logical elemental function is_grounding_line(mask)
-    !*FD returns .true. if node is grounding line
-    implicit none
-    integer, intent(in) :: mask 
-
-    is_grounding_line = mask.eq.glide_mask_grounding_line
-  end function is_grounding_line
-
-!EIB! back to new stuff
 
   subroutine augment_kinbc_mask(mask, kinbcmask)
     !*FD Augments the Glide mask with the location of kinematic (dirichlet) boundary

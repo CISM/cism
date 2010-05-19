@@ -31,3 +31,5 @@ f90_dep.mak:	$(srcdir)/*.F90 $(BUILT_SOURCES)
 		$(PYTHON) $(top_srcdir)/scripts/f90_dependencies.py -l -o $@ $^
 
 -include f90_dep.mak
+
+glide_mask.inc : $(top_srcdir)/libglide/glide_mask.inc

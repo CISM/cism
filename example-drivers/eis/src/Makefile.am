@@ -36,3 +36,5 @@ f90_dep.mak:	$(srcdir)/*.F90 $(BUILT_SOURCES)
 # target, there is only a eis_glide.o target which never depends on
 # the other targets, so it builds early and is missing it's .mod files
 eis_glide.o : eis_glide.lo
+
+glide_mask.inc : $(top_srcdir)/libglide/glide_mask.inc

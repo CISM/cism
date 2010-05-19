@@ -94,6 +94,7 @@ contains
     use glimmer_paramets, only : tim0, thk0, acc0, len0, vis0, vel0, tau0_glam
     use glimmer_global, only : dp 
     use glimmer_log
+    use glide_bwater, only : find_dt_wat
     implicit none
     type(glide_global_type),intent(inout) :: model       !*FD Ice model parameters.
 
@@ -225,14 +226,13 @@ contains
     !*FD Calculates the ice temperature, according to one
     !*FD of several alternative methods.
 
-    use glimmer_utils, only: hsum4,tridiag !EIB! lanl does not use hsum4
+    use glimmer_utils, only: tridiag
     use glimmer_global, only : dp
     use glimmer_paramets,       only : thk0
     use glide_velo
     use glide_thck
-    use glide_mask
     use glide_grids
-    use glide_bwater !EIB! skipping for now?
+    use glide_bwater
     use glimmer_physcon, only: rhoi, shci, coni   ! for temperature smoothing
 
     implicit none
@@ -384,9 +384,6 @@ contains
                 + model%velocity_hom%uvel(:,ew-1,ns) + model%velocity_hom%uvel(:,ew,ns-1) + model%velocity_hom%uvel(:,ew,ns) )
              model%tempwk%hadv_v(:,ew,ns) = model%tempwk%advconst(2) * ( model%velocity_hom%vvel(:,ew-1,ns-1) &
                 + model%velocity_hom%vvel(:,ew-1,ns) + model%velocity_hom%vvel(:,ew,ns-1) + model%velocity_hom%vvel(:,ew,ns) )
-             !EIB! old way
-             !model%tempwk%hadv_u(:,ew,ns) = model%tempwk%advconst(1) * hsum4(model%velocity%uvel(:,ew-1:ew,ns-1:ns))
-             !model%tempwk%hadv_v(:,ew,ns) = model%tempwk%advconst(2) * hsum4(model%velocity%vvel(:,ew-1:ew,ns-1:ns))
           end do
        end do
 
@@ -415,13 +412,13 @@ contains
                
                 call findvtri(model,ew,ns,subd,diag,supd,diagadvt, &
                      weff, &
-                     is_float(model%geometry%thkmask(ew,ns)))
+                     GLIDE_IS_FLOAT(model%geometry%thkmask(ew,ns)))
 
                 call findvtri_init(model,ew,ns,subd,diag,supd,weff,model%temper%temp(:,ew,ns), &
-                     model%geometry%thck(ew,ns),is_float(model%geometry%thkmask(ew,ns)))
+                     model%geometry%thck(ew,ns),GLIDE_IS_FLOAT(model%geometry%thkmask(ew,ns)))
 
                 call findvtri_rhs(model,ew,ns,model%climate%artm(ew,ns),iteradvt,rhsd, &
-                     is_float(model%geometry%thkmask(ew,ns)))
+                     GLIDE_IS_FLOAT(model%geometry%thkmask(ew,ns)))
                 
                 prevtemp = model%temper%temp(:,ew,ns)
 
@@ -461,10 +458,10 @@ contains
 
                    call findvtri(model,ew,ns,subd,diag,supd,diagadvt, &
                         weff, &
-                        is_float(model%geometry%thkmask(ew,ns)))
+                        GLIDE_IS_FLOAT(model%geometry%thkmask(ew,ns)))
 
                    call findvtri_rhs(model,ew,ns,model%climate%artm(ew,ns),iteradvt,rhsd, &
-                        is_float(model%geometry%thkmask(ew,ns)))
+                        GLIDE_IS_FLOAT(model%geometry%thkmask(ew,ns)))
 
                    prevtemp = model%temper%temp(:,ew,ns)
 
@@ -490,9 +487,9 @@ contains
        ! set temperature of thin ice to the air temperature and set ice free nodes to zero
        do ns = 1,model%general%nsn
           do ew = 1,model%general%ewn
-             if (is_thin(model%geometry%thkmask(ew,ns))) then
+             if (GLIDE_IS_THIN(model%geometry%thkmask(ew,ns))) then
                 model%temper%temp(:,ew,ns) = min(0.0d0,dble(model%climate%artm(ew,ns)))
-             else if (model%geometry%thkmask(ew,ns)<0) then
+             else if (GLIDE_NO_ICE(model%geometry%thkmask(ew,ns))) then
                 model%temper%temp(:,ew,ns) = min(0.0d0,dble(model%climate%artm(ew,ns)))
                 !EIB old!model%temper%temp(:,ew,ns) = 0.0d0
              end if
@@ -519,11 +516,11 @@ contains
             model%velocity%ubas, &
             model%velocity%vbas, &
             model%temper%bmlt, &
-            is_float(model%geometry%thkmask))
+            GLIDE_IS_FLOAT(model%geometry%thkmask))
 
        ! Calculate basal water depth ------------------------------------------------
 
-       !JCC - Using lan's bwater calculation routines.
+       !JCC - Using lanl's bwater calculation routines.
        call calcbwat(model, &
             model%options%whichbwat, &
             model%temper%bmlt, &
@@ -1453,21 +1450,6 @@ contains
   end subroutine patebudd
 
   !-----------------------------------------------------------------------------------
-
-  !EIB! from gc2
-  subroutine find_dt_wat(dttem,estimate,dt_wat,nwat)
-    
-    implicit none
-    
-    real(dp), intent(out) :: dt_wat
-    integer, intent(out) :: nwat
-    real(dp), intent(in) :: dttem, estimate
-    
-    nwat = int(dttem/estimate) + 1
-    dt_wat = dttem / nwat
-
-  end subroutine find_dt_wat
-
 
   !EIB! frm gc2
   subroutine calcbpmp(model,thck,bpmp)

@@ -51,7 +51,6 @@ contains
     use glimmer_physcon, only : rhoi, rhoo, grav, gn
     use glide_vertint, only : vertint_output2d
     use glimmer_paramets, only: thk0
-    use glide_mask
     implicit none
 
     !---------------------------------------------------------------------
@@ -121,7 +120,7 @@ contains
              if (GLIDE_IS_CALVING(mask(ew,ns))) then
                 ablation_field(ew,ns)=(1.0-calving_fraction)*thck(ew,ns)
                 thck(ew,ns) =  calving_fraction*thck(ew,ns)
-                !mask(ew,ns) = glide_mask_ocean
+                !mask(ew,ns) = ior(mask(ew,ns), GLIDE_MASK_OCEAN)
              end if
           end do
        end do
@@ -249,7 +248,6 @@ contains
   !simple subroutine to calculate the flux at the grounding line
   subroutine calc_gline_flux(stagthk, surfvel, mask, gline_flux, ubas, vbas, &
   dew)
-    use glide_mask
     implicit none
     integer, dimension(:,:),pointer       :: mask    !*FD grid type mask
     real(dp),dimension(:,:),intent(in) :: stagthk    !*FD Ice thickness (scaled)
@@ -358,7 +356,6 @@ contains
 !-------------------------------------------------------------------------
   !Loops through the mask and does the interpolation for all the grounding lines
   subroutine update_ground_line(ground, topg, thck, eus, dew, dns, ewn, nsn, mask)
-     use glide_mask
      implicit none
      type(glide_grnd) :: ground        !*FD ground instance
      real(dp),dimension(:,:),intent(in)    :: topg    !*FD Present bedrock topography (scaled)

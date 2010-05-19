@@ -270,28 +270,6 @@ contains
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  !> compute horizontal sum of a 2x2 horizontal mesh for each vertical level
-  !!
-  !! Calculates the sum of a given three-dimensional field at each
-  !! level. The vertical coordinate of the input is the first index of
-  !! the array.
-  !! \return
-  !! A one-dimensional array of the same size as the first dimension of
-  !! inp is returned, containing the sum of inp for 
-  !! each level.  
-  function hsum4(inp)
-
-    implicit none
-
-    real(dp),dimension(:,:,:),intent(in) :: inp !< The input array. The first index is the vertical, the other two horizontal.
-    real(dp),dimension(size(inp,dim=1))  :: hsum4
-  
-    hsum4(:) = inp(:,1,1) + inp(:,2,1) + inp(:,1,2) + inp(:,2,2)
-
-  end function hsum4
-
-!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
   !> Calculates the sum of a given two-dimensional field along one axis.
   !! Within GLIMMER, this function calculates the mean vertical profile
   !! in a 2D vertical slice. 
