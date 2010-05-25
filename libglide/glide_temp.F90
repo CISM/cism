@@ -45,6 +45,9 @@
 ! "velocity%vvel" were replaced with "velocity_hom%uvel" and "velocity_hom%vvel".
 ! Note that dissip and basal melt calcs still need to be updated to account for
 ! higher-order stress and velocity fields.
+! JCC - Turn some of these changes into if-else statements so the
+! "velocity_hom%uvel" and "velocity_hom%vvel" are only used when higher-order
+! physics are on.
 
 #ifdef HAVE_CONFIG_H
 #include "config.inc"
@@ -81,8 +84,6 @@
 module glide_temp
 
   use glide_types
-
-  private :: find_dt_wat
 
   logical, parameter :: l_smooth_temp = .false.  ! if true, apply Laplacian smoothing
 
@@ -154,11 +155,6 @@ contains
          VERT_ADV*tim0 * acc0 * model%numerics%dttem / coni, &
          ( tau0_glam * vel0 / len0 ) / ( rhoi * shci ) * ( model%numerics%dttem * tim0 ) /)  
          !*sfp* added last term to vector above for use in HO & SSA dissip. cacl
-    !EIB! old way
-    !model%tempwk%cons = (/ 2.0d0 * tim0 * model%numerics%dttem * coni / (2.0d0 * rhoi * shci * thk0**2), &
-    !     model%numerics%dttem / 2.0d0, &
-    !     VERT_DIFF*2.0d0 * tim0 * model%numerics%dttem / (thk0 * rhoi * shci), &
-    !     VERT_ADV*tim0 * acc0 * model%numerics%dttem / coni /)
 
     model%tempwk%c1 = STRAIN_HEAT *(model%numerics%sigma * rhoi * grav * thk0**2 / len0)**p1 * &
          2.0d0 * vis0 * model%numerics%dttem * tim0 / (16.0d0 * rhoi * shci)
@@ -184,11 +180,6 @@ contains
          tim0 * thk0**2 * vel0 * grav * rhoi / (4.0d0 * thk0 * len0 * rhoi * lhci), &
          tim0 * vel0 * tau0_glam / (4.0d0 * thk0 * rhoi * lhci) /)      
          !*sfp* added the last term in the vect above for HO and SSA dissip. calc. 
-    !EIB! old way
-    !model%tempwk%f = (/ tim0 * coni / (thk0**2 * lhci * rhoi), &
-    !     tim0 / (thk0 * lhci * rhoi), &
-    !     tim0 * thk0 * rhoi * shci /  (thk0 * tim0 * model%numerics%dttem * lhci * rhoi), &
-    !     tim0 * thk0**2 * vel0 * grav * rhoi / (4.0d0 * thk0 * len0 * rhoi * lhci) /)
 
     ! setting up some factors for sliding contrib to basal heat flux
     model%tempwk%slide_f = (/ VERT_DIFF * grav * thk0 * model%numerics%dttem/ shci, & ! vert diffusion
@@ -308,56 +299,108 @@ contains
             model%geometry%mask,     &
             model%numerics%time,     &
             2)
-
-       ! Calculate the vertical velocity of the grid ------------------------------------
-
-       call gridwvel(model%numerics%sigma,  &
-            model%numerics%thklim, &
-            model%velocity_hom%uvel,   &
-            model%velocity_hom%vvel,   &
-            model%geomderv,        &
-            model%geometry%thck,   &
-            model%velocity%wgrd)
-
-       ! Calculate the actual vertical velocity; method depends on whichwvel ------------
-
-       select case(model%options%whichwvel)
-       case(0) 
-
-          ! Usual vertical integration
-
-          call wvelintg(model%velocity_hom%uvel,                        &
-               model%velocity_hom%vvel,                        &
-               model%geomderv,                             &
-               model%numerics,                             &
-               model%velowk,                               &
-               model%velocity%wgrd(model%general%upn,:,:), &
-               model%geometry%thck,                        &
-               model%temper%bmlt,                          &
-               model%velocity%wvel)
-
-       case(1)
-
-          ! Vertical integration constrained so kinematic upper BC obeyed.
-
-          call wvelintg(model%velocity_hom%uvel,                        &
-               model%velocity_hom%vvel,                        &
-               model%geomderv,                             &
-               model%numerics,                             &
-               model%velowk,                               &
-               model%velocity%wgrd(model%general%upn,:,:), &
-               model%geometry%thck,                        &
-               model%temper%  bmlt,                        &
-               model%velocity%wvel)
-
-          call chckwvel(model%numerics,                             &
-               model%geomderv,                             &
-               model%velocity_hom%uvel(1,:,:),                 &
-               model%velocity_hom%vvel(1,:,:),                 &
-               model%velocity%wvel,                        &
-               model%geometry%thck,                        &
-               model%climate% acab)
-       end select
+       !JCC - Don't use the ho velo fields unless we're using ho physics
+       if (model%options%which_ho_diagnostic .EQ. 0 ) then
+          ! Calculate the vertical velocity of the grid ------------------------------------
+    
+          call gridwvel(model%numerics%sigma,  &
+                model%numerics%thklim, &
+                model%velocity%uvel,   &
+                model%velocity%vvel,   &
+                model%geomderv,        &
+                model%geometry%thck,   &
+                model%velocity%wgrd)
+    
+          ! Calculate the actual vertical velocity; method depends on whichwvel ------------
+    
+          select case(model%options%whichwvel)
+          case(0) 
+    
+              ! Usual vertical integration
+    
+              call wvelintg(model%velocity%uvel,                        &
+                  model%velocity%vvel,                        &
+                  model%geomderv,                             &
+                  model%numerics,                             &
+                  model%velowk,                               &
+                  model%velocity%wgrd(model%general%upn,:,:), &
+                  model%geometry%thck,                        &
+                  model%temper%bmlt,                          &
+                  model%velocity%wvel)
+    
+          case(1)
+    
+              ! Vertical integration constrained so kinematic upper BC obeyed.
+    
+              call wvelintg(model%velocity%uvel,                        &
+                  model%velocity%vvel,                        &
+                  model%geomderv,                             &
+                  model%numerics,                             &
+                  model%velowk,                               &
+                  model%velocity%wgrd(model%general%upn,:,:), &
+                  model%geometry%thck,                        &
+                  model%temper%  bmlt,                        &
+                  model%velocity%wvel)
+    
+              call chckwvel(model%numerics,                             &
+                  model%geomderv,                             &
+                  model%velocity%uvel(1,:,:),                 &
+                  model%velocity%vvel(1,:,:),                 &
+                  model%velocity%wvel,                        &
+                  model%geometry%thck,                        &
+                  model%climate% acab)
+          end select
+       else ! using ho physics
+          ! Calculate the vertical velocity of the grid ------------------------------------
+    
+          call gridwvel(model%numerics%sigma,  &
+                model%numerics%thklim, &
+                model%velocity_hom%uvel,   &
+                model%velocity_hom%vvel,   &
+                model%geomderv,        &
+                model%geometry%thck,   &
+                model%velocity%wgrd)
+    
+          ! Calculate the actual vertical velocity; method depends on whichwvel ------------
+    
+          select case(model%options%whichwvel)
+          case(0) 
+    
+              ! Usual vertical integration
+    
+              call wvelintg(model%velocity_hom%uvel,                        &
+                  model%velocity_hom%vvel,                        &
+                  model%geomderv,                             &
+                  model%numerics,                             &
+                  model%velowk,                               &
+                  model%velocity%wgrd(model%general%upn,:,:), &
+                  model%geometry%thck,                        &
+                  model%temper%bmlt,                          &
+                  model%velocity%wvel)
+    
+          case(1)
+    
+              ! Vertical integration constrained so kinematic upper BC obeyed.
+    
+              call wvelintg(model%velocity_hom%uvel,                        &
+                  model%velocity_hom%vvel,                        &
+                  model%geomderv,                             &
+                  model%numerics,                             &
+                  model%velowk,                               &
+                  model%velocity%wgrd(model%general%upn,:,:), &
+                  model%geometry%thck,                        &
+                  model%temper%  bmlt,                        &
+                  model%velocity%wvel)
+    
+              call chckwvel(model%numerics,                             &
+                  model%geomderv,                             &
+                  model%velocity_hom%uvel(1,:,:),                 &
+                  model%velocity_hom%vvel(1,:,:),                 &
+                  model%velocity%wvel,                        &
+                  model%geometry%thck,                        &
+                  model%climate% acab)
+          end select
+       end if ! model%options%which_ho_diagnostic .EQ. 0
        ! apply periodic ew BC
        if (model%options%periodic_ew) then
           call wvel_ew(model)
@@ -368,7 +411,7 @@ contains
        !*MH model%tempwk%dissip   = 0.0d0  is also set to zero in finddisp
        ! ----------------------------------------------------------------------------------
 
-       call finddisp(model,          &
+      call finddisp(model,          &
             model%geometry%thck,     &
             model%options%which_disp,&
             model%velocity_hom%efvs, &
@@ -376,16 +419,29 @@ contains
             model%geomderv%dusrfdew, &
             model%geomderv%dusrfdns, &
             model%temper%flwa)
-
-       ! translate velo field
-       do ns = 2,model%general%nsn-1
-          do ew = 2,model%general%ewn-1
-             model%tempwk%hadv_u(:,ew,ns) = model%tempwk%advconst(1) * ( model%velocity_hom%uvel(:,ew-1,ns-1) &
-                + model%velocity_hom%uvel(:,ew-1,ns) + model%velocity_hom%uvel(:,ew,ns-1) + model%velocity_hom%uvel(:,ew,ns) )
-             model%tempwk%hadv_v(:,ew,ns) = model%tempwk%advconst(2) * ( model%velocity_hom%vvel(:,ew-1,ns-1) &
-                + model%velocity_hom%vvel(:,ew-1,ns) + model%velocity_hom%vvel(:,ew,ns-1) + model%velocity_hom%vvel(:,ew,ns) )
+    
+       !JCC - Don't use ho velocity fields unless we're using the ho model
+       if (model%options%which_ho_diagnostic .EQ. 0 ) then
+          ! translate velo field
+          do ns = 2,model%general%nsn-1
+              do ew = 2,model%general%ewn-1
+                model%tempwk%hadv_u(:,ew,ns) = model%tempwk%advconst(1) * ( model%velocity%uvel(:,ew-1,ns-1) &
+                    + model%velocity%uvel(:,ew-1,ns) + model%velocity%uvel(:,ew,ns-1) + model%velocity%uvel(:,ew,ns) )
+                model%tempwk%hadv_v(:,ew,ns) = model%tempwk%advconst(2) * ( model%velocity%vvel(:,ew-1,ns-1) &
+                    + model%velocity%vvel(:,ew-1,ns) + model%velocity%vvel(:,ew,ns-1) + model%velocity%vvel(:,ew,ns) )
+              end do
           end do
-       end do
+      else ! Using ho physics
+          ! translate velo field
+          do ns = 2,model%general%nsn-1
+              do ew = 2,model%general%ewn-1
+                model%tempwk%hadv_u(:,ew,ns) = model%tempwk%advconst(1) * ( model%velocity_hom%uvel(:,ew-1,ns-1) &
+                    + model%velocity_hom%uvel(:,ew-1,ns) + model%velocity_hom%uvel(:,ew,ns-1) + model%velocity_hom%uvel(:,ew,ns) )
+                model%tempwk%hadv_v(:,ew,ns) = model%tempwk%advconst(2) * ( model%velocity_hom%vvel(:,ew-1,ns-1) &
+                    + model%velocity_hom%vvel(:,ew-1,ns) + model%velocity_hom%vvel(:,ew,ns-1) + model%velocity_hom%vvel(:,ew,ns) )
+              end do
+          end do
+      end if ! model%options%which_ho_diagnostic .EQ. 0
 
        call hadvall(model, &
             model%temper%temp, &
@@ -490,8 +546,9 @@ contains
              if (GLIDE_IS_THIN(model%geometry%thkmask(ew,ns))) then
                 model%temper%temp(:,ew,ns) = min(0.0d0,dble(model%climate%artm(ew,ns)))
              else if (GLIDE_NO_ICE(model%geometry%thkmask(ew,ns))) then
-                model%temper%temp(:,ew,ns) = min(0.0d0,dble(model%climate%artm(ew,ns)))
-                !EIB old!model%temper%temp(:,ew,ns) = 0.0d0
+                !JCC - one of these
+                !model%temper%temp(:,ew,ns) = min(0.0d0,dble(model%climate%artm(ew,ns)))
+                model%temper%temp(:,ew,ns) = 0.0d0
              end if
           end do
        end do
@@ -535,17 +592,17 @@ contains
        !EIB! rest of case not present in lanl
        ! Transform basal temperature and pressure melting point onto velocity grid -
 
-       call stagvarb(model%temper%temp(model%general%upn,1:model%general%ewn,1:model%general%nsn), &
-            model%temper%stagbtemp ,&
-            model%general%  ewn, &
-            model%general%  nsn)
-       
-       call calcbpmp(model,model%geometry%thck,model%temper%bpmp)
-
-       call stagvarb(model%temper%bpmp, &
-            model%temper%stagbpmp ,&
-            model%general%  ewn, &
-            model%general%  nsn)
+!        call stagvarb(model%temper%temp(model%general%upn,1:model%general%ewn,1:model%general%nsn), &
+!             model%temper%stagbtemp ,&
+!             model%general%  ewn, &
+!             model%general%  nsn)
+!        
+!        call calcbpmp(model,model%geometry%thck,model%temper%bpmp)
+! 
+!        call stagvarb(model%temper%bpmp, &
+!             model%temper%stagbpmp ,&
+!             model%general%  ewn, &
+!             model%general%  nsn)
 
     case(2) ! Do something else, unspecified ---------------------------------------
 
@@ -743,19 +800,19 @@ contains
     ! for grounded ice, a heat flux is applied
     ! for floating ice, temperature held constant
 
-    if (float) then
+     if (float) then
 
        supd(model%general%upn) = 0.0d0
        subd(model%general%upn) = 0.0d0
        diag(model%general%upn) = 1.0d0
 
-    else 
-
-       supd(model%general%upn) = 0.0d0 
-       subd(model%general%upn) = -0.5*fact(1)/(model%tempwk%dupn**2)
-       diag(model%general%upn) = 1.0d0 - subd(model%general%upn) + diagadvt(model%general%upn)
-
-    end if
+     else 
+ 
+        supd(model%general%upn) = 0.0d0 
+        subd(model%general%upn) = -0.5*fact(1)/(model%tempwk%dupn**2)
+        diag(model%general%upn) = 1.0d0 - subd(model%general%upn) + diagadvt(model%general%upn)
+ 
+     end if
 
   end subroutine findvtri
 
@@ -1043,12 +1100,6 @@ contains
                 !*sfp* changed this so that 'slterm' is multiplied by f(4) const. above ONLY for the 0-order SIA case,
                 ! since for the HO and SSA cases a diff. const. needs to be used
 
-                ! OLD version
-!                newmlt = model%tempwk%f(4) * slterm - model%tempwk%f(2)*model%temper%bheatflx(ew,ns) + model%tempwk%f(3) * &
-!                     model%tempwk%dupc(model%general%upn) * &
-!                     thck(ew,ns) * model%tempwk%dissip(model%general%upn,ew,ns)
-
-                ! NEW version
                 newmlt = slterm - model%tempwk%f(2)*model%temper%bheatflx(ew,ns) + model%tempwk%f(3) * &
                      model%tempwk%dupc(model%general%upn) * &
                      thck(ew,ns) * model%tempwk%dissip(model%general%upn,ew,ns)
