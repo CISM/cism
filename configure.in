@@ -104,14 +104,12 @@ dnl Checking for python
 AM_PATH_PYTHON([2.3],,[AC_MSG_RESULT(need at least python 2.3)])
 
 # checking for BLAS library
-ac_gl_have_blas=0
-ACX_BLAS([ac_gl_have_blas=1])
-AM_CONDITIONAL(EXT_BLAS,test "$ac_gl_have_blas" == 1)
+ACX_BLAS
+AM_CONDITIONAL(EXT_BLAS,test x"$acx_blas_ok" = xyes)
 
 # checking for LAPACK library (required for PARDISO)
-ac_gl_have_lapack=0
-ACX_BLAS([ac_gl_have_lapack=1])
-AM_CONDITIONAL(EXT_LAPACK,test "$ac_gl_have_lapack" == 1)
+ACX_LAPACK
+AM_CONDITIONAL(EXT_LAPACK,test x"$acx_lapack_ok" = xyes)
 
 # checking for GOMP library (required for some builds of PARDISO)
 AC_ARG_WITH(gomp,AS_HELP_STRING([--with-gomp],[how to link external GOMP (OpenMP) library]),[ac_cv_gomp=$withval])
@@ -144,7 +142,7 @@ if test "$ac_cv_umfpack_prefix" != ""; then
         LDFLAGS="$LDFLAGS -L$ac_cv_umfpack_prefix/Lib"
         FCFLAGS="$FCFLAGS -DHAVE_UMFPACK" 
         
-        if test "$ac_cv_haveblas" == 0; then
+        if test x"$acx_blas_ok" != xyes; then
             AC_MSG_ERROR([
 Using UMFPACK requires use of an external BLAS library.  
 Please use the --with-blas flag and try again.
@@ -190,17 +188,17 @@ fi
 #PARDISO
 if test "$ac_cv_pardiso_prefix" != ""; then
             AC_MSG_RESULT([Using Pardiso to solve sparse linear systems, (located at $ac_cv_pardiso_prefix)])
-            if test "$ac_cv_haveblas" == 0; then
+            if test x"$acx_blas_ok" != xyes; then
                 AC_MSG_ERROR([
 Using Pardiso requires use of an external BLAS library.  
 Please use the --with-blas flag and try again.
 If you are not sure what to do here but have BLAS installed in a standard location, try --with-blas=-lblas])
             fi
 
-            if test "$ac_cv_havelapack" == 0; then
+            if test x"$acx_lapack_ok" != xyes; then
                 AC_MSG_ERROR([
 Using Pardiso requires use of an external LAPACK library.  
-Please use the --with-blas flag and try again.
+Please use the --with-lapack flag and try again.
 If you are not sure what to do here but have LAPACK installed in a standard location, try --with-lapack=-llapack])
             fi
 
@@ -212,10 +210,16 @@ If the following Pardiso check fails, please use the --with-gomp flag and try ag
 
 
             AC_MSG_CHECKING(for Pardiso)
-            FCFLAGS="$FCFLAGS -DHAVE_PARDISO"
-            LDFLAGS="$LDFLAGS -L$ac_cv_pardiso_prefix -lpardiso"
-            AC_CHECK_LIB([pardiso],[pardiso], , AC_MSG_ERROR([Libpardiso not found.]))
+            pardiso_save_LIBS="$LIBS"
+            PARDISO_LIBS="-L$ac_cv_pardiso_prefix -lpardiso"
+            LIBS="$BLAS_LIBS $LAPACK_LIBS $PARDISO_LIBS $LIBS $FLIBS"
+            AC_CHECK_LIB([pardiso],[pardiso], , AC_MSG_ERROR([libpardiso not found.]))
+            LIBS="$pardiso_save_LIBS"
+
+            AC_DEFINE(HAVE_PARDISO,1,[Define if you have the PARDISO library.])
 fi
+
+AC_SUBST(PARDISO_LIBS)
 
 AM_CONDITIONAL(UMFPACK, test "$ac_cv_umfpack_prefix" != "")
 AM_CONDITIONAL(PARDISO, test "$ac_cv_pardiso_prefix" != "")

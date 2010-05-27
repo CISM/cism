@@ -34,9 +34,9 @@
 !
 ! email: <i.c.rutt@bristol.ac.uk> or <ian.rutt@physics.org>
 !
-! GLIMMER is hosted on berliOS.de:
+! GLIMMER is hosted on NeSCForge:
 !
-! https://developer.berlios.de/projects/glimmer-cism/
+! http://forge.nesc.ac.uk/projects/glimmer/
 !
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -69,20 +69,22 @@ module simple_forcing
      !*FD EISMINT amplitude of mass balance time-dep climate forcing
   end type simple_climate
 
-!MH!  !MAKE_RESTART
-!MH!#ifdef RESTARTS
-!MH!#define RST_SIMPLE_FORCING
-!MH!#include "glimmer_rst_head.inc"
-!MH!#undef RST_SIMPLE_FORCING
-!MH!#endif
+  !MAKE_RESTART
+#ifdef RESTARTS
+#define RST_SIMPLE_FORCING
+!JCC - no restarts yet
+!#include "glimmer_rst_head.inc"
+#undef RST_SIMPLE_FORCING
+#endif
 
 contains
 
-!MH!#ifdef RESTARTS
-!MH!#define RST_SIMPLE_FORCING
-!MH!#include "glimmer_rst_body.inc"
-!MH!#undef RST_SIMPLE_FORCING
-!MH!#endif
+#ifdef RESTARTS
+#define RST_SIMPLE_FORCING
+!JCC - no restarts yet
+!#include "glimmer_rst_body.inc"
+#undef RST_SIMPLE_FORCING
+#endif
 
   subroutine simple_initialise(climate,config)
     !*FD initialise simple climate model
@@ -107,6 +109,8 @@ contains
     case(3)
        climate%nmsb(1) = climate%nmsb(1) / (acc0 * scyr)
        climate%nmsb(2) = climate%nmsb(2) / (acc0 * scyr)
+    case(4)
+       climate%nmsb(1) = climate%nmsb(1) / (acc0 * scyr)
     end select
        
   end subroutine simple_initialise
@@ -183,8 +187,45 @@ contains
           dummy=>NULL()
        end if
        return
-    end if    
+    end if
+    
+    call GetSection(config,section,'ISMIP-HOM-A')
+    if (associated(section)) then
+        return
+    end if
 
+    !mismip tests
+    call GetSection(config,section,'MISMIP-1')
+    if (associated(section)) then
+       climate%eismint_type = 4
+       dummy=>NULL()
+       call GetValue(section,'temperature',dummy,2)
+       if (associated(dummy)) then
+           climate%airt = dummy
+           deallocate(dummy)
+           dummy=>NULL()
+       end if
+       call GetValue(section,'massbalance',dummy,3)
+       if (associated(dummy)) then
+           climate%nmsb = dummy
+           deallocate(dummy)
+           dummy=>NULL()
+       end if
+       return
+    end if
+    !exact verification
+    call GetSection(config,section,'EXACT')
+    if (associated(section)) then
+       climate%eismint_type = 5
+       dummy=>NULL()
+       call GetValue(section,'temperature',dummy,2)
+       if (associated(dummy)) then
+           climate%airt = dummy
+           deallocate(dummy)
+           dummy=>NULL()
+       end if
+       return
+    end if
     call write_log('No EISMINT forcing selected',GM_FATAL)
   end subroutine simple_readconfig
 
@@ -268,11 +309,10 @@ contains
     nsct = real(model%general%nsn+1) / 2.0
     grid = model%numerics%dew * len0
 
-    !EIB!periodic_bc = real(1-model%options%periodic_ew)
     if (model%options%periodic_ew) then
-       periodic_bc = real(0)
+        periodic_bc = 0
     else
-       periodic_bc = real(1)
+        periodic_bc = 1
     end if
 
     select case(climate%eismint_type)
@@ -305,7 +345,13 @@ contains
              dist = grid * sqrt(periodic_bc*(real(ew) - ewct)**2 + (real(ns) - nsct)**2)
              model%climate%acab(ew,ns) = min(climate%nmsb(1), climate%nmsb(2) * (rel - dist))
           end do
-       end do       
+       end do
+    case(4)
+       !mismip 1
+       model%climate%acab = climate%nmsb(1)
+    case(5)
+       !verification 
+       call exact_surfmass(climate,model,time,1.0,climate%airt(2))
     end select
   end subroutine simple_massbalance
 
@@ -329,11 +375,10 @@ contains
     nsct = real(model%general%nsn+1) / 2.0
     grid = model%numerics%dew * len0
 
-    !EIB!periodic_bc = real(1-model%options%periodic_ew)
     if (model%options%periodic_ew) then
-       periodic_bc = real(0)
+        periodic_bc = 0
     else
-       periodic_bc = real(1)
+        periodic_bc = 1
     end if
 
     select case(climate%eismint_type)
@@ -361,7 +406,91 @@ contains
              dist = grid * sqrt(periodic_bc*(real(ew) - ewct)**2 + (real(ns) - nsct)**2)
              model%climate%artm(ew,ns) = climate%airt(1)+climate%airt(2) * dist
           end do
-       end do       
+       end do
+    case(4)
+       model%climate%artm = climate%airt(1)
+    case(5)
+       !call both massbalance and surftemp at the same time to save computing time. 
+       call exact_surfmass(climate,model,time,0.0,climate%airt(2))
     end select
   end subroutine simple_surftemp
+  
+  !which_call - simple_surftemp(0)/simple_massbalance(1)/both(2)
+  !which_test - test f(0)/test g(1)/exact(2)
+  subroutine exact_surfmass(climate,model,time,which_call,which_test)
+    use glide_types
+    use testsFG
+    implicit none
+    type(simple_climate) :: climate         !*FD structure holding climate info
+    type(glide_global_type) :: model        !*FD model instance
+    real(kind=rk), intent(in) :: time                !*FD current time
+    real(sp), intent(in) :: which_test                !*FD  Which exact test (F=0,G=1)
+    real(sp), intent(in) :: which_call                !*FD  0 = surface temp, 1= mass balance
+    integer  :: ns,ew,lev,center
+    !verification
+    real(dp) ::  t, r, z, x, y                       !in variables
+    real(dp) ::  H, TT, U, w, Sig, M, Sigc        !out variables
+    real(dp) :: H_0
+    center = (model%general%ewn - 1)*.5
+    if (which_call .eq. 0.0 .or. which_call .eq. 2.0) then
+        !point by point call to the function 
+        do ns = 1,model%general%nsn
+            do ew = 1,model%general%ewn
+                x = (ew - center)*model%numerics%dew
+                y = (ns - center)*model%numerics%dns
+                r = sqrt(x**2 + y**2)
+                do lev = 1, model%general%upn
+                    z = model%geometry%thck(ew,ns)*model%numerics%sigma(lev)
+                    !the function only returns values within the radius
+                    if(r>0.0 .and. r<L) then
+                        if (which_test .eq. 0.0) then
+                            call testF(r,z,H,TT,U,w,Sig,M,Sigc)
+                        else if (which_test .eq. 1.0) then
+                            call testG(time,r,z,H,TT,U,w,Sig,M,Sigc)
+                        else if (which_test .eq. 2.0) then
+                            !H_0 = H0
+                            H_0 = model%geometry%thck(center,center)
+                            !TT = 0.0
+                            TT = model%tempwk%dissip(lev,ew,ns)
+                            call model_exact(time,r,z,model%geometry%thck(ew,ns),H_0,TT,U,w,Sig,M,Sigc)
+                        end if
+                        model%tempwk%compheat(lev,ew,ns) = -Sigc*SperA*1.0e6 ! (10^(-3) deg mK/a) (*10^3)
+                    else
+                        model%tempwk%compheat(lev,ew,ns) = 0.0
+                    end if
+                end do
+            end do
+        end do
+    else if (which_call .eq. 1.0 .or. which_call .eq. 2.0) then
+        do ns = 1,model%general%nsn
+            do ew = 1,model%general%ewn
+                x = (ew - center)*model%numerics%dew
+                y = (ns - center)*model%numerics%dns
+                r = sqrt(x**2 + y**2)
+                z = model%geometry%thck(ew,ns)
+                !the function only returns values within the radius
+                if(r>0.0 .and. r<L) then
+                    if (which_test .eq. 0.0) then
+                        call testF(r,z,H,TT,U,w,Sig,M,Sigc)
+                    else if (which_test .eq. 1.0) then
+                        call testG(time,r,z,H,TT,U,w,Sig,M,Sigc)
+                    else if (which_test .eq. 2.0) then
+                        H_0 = H0 !H_0 = model%geometry%thck(center,center)
+                        TT = 0.0 !TT = model%tempwk%dissip(lev,ew,ns)
+                        call model_exact(time,r,z,model%geometry%thck(ew,ns),H_0,TT,U,w,Sig,M,Sigc)
+                    end if
+                    model%climate%acab(ew,ns) = M*SperA  !m/a
+                else
+                    if(r .eq. 0.0) then
+                        model%climate%acab(ew,ns) = 0.0
+                        !model%climate%acab(ew,ns) = H0 - model%geometry%thck(center,center) !set it back to H0
+                    else
+                        model%climate%acab(ew,ns) = -0.1  !outside the glacier we use .1 m ablation as specified in the paper
+                    end if
+                end if
+            end do
+        end do
+    end if
+  end subroutine exact_surfmass
+  
 end module simple_forcing
