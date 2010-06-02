@@ -139,8 +139,8 @@ AC_LANG_POP(C)
 #UMFPACK
 if test "$ac_cv_umfpack_prefix" != ""; then
         AC_MSG_RESULT([Using Umfpack to solve sparse linear systems (located at $ac_cv_umfpack_prefix)])
-        LDFLAGS="$LDFLAGS -L$ac_cv_umfpack_prefix/Lib"
-        FCFLAGS="$FCFLAGS -DHAVE_UMFPACK" 
+        UMFPACK_LIBS="-L$ac_cv_umfpack_prefix"
+        AC_DEFINE(HAVE_UMFPACK,1,[Define if you have the UMFPACK library.])
         
         if test x"$acx_blas_ok" != xyes; then
             AC_MSG_ERROR([
@@ -148,6 +148,10 @@ Using UMFPACK requires use of an external BLAS library.
 Please use the --with-blas flag and try again.
 If you are not sure what to do here but have BLAS installed in a standard location, try --with-blas=-lblas])
         fi
+
+        umfpack_save_LIBS="$LIBS"
+        LIBS="$BLAS_LIBS $LAPACK_LIBS $UMFPACK_LIBS $LIBS $FLIBS"
+
 
         #We should have already checked for BLAS, so we'll get on with checking 
 	#for AMD and UMFPACK
@@ -165,13 +169,20 @@ If you are not sure what to do here but have BLAS installed in a standard locati
         AC_CHECK_LIB([amd], [amd_l_valid], , 
                      AC_MSG_ERROR([Libamd not found. required to use --with-umfpack.  See http://www.cise.ufl.edu/research/sparse/umfpack]))
                     
-        AC_CHECK_LIB([umfpack], [main], ,  AC_MSG_ERROR([Libumfpack not found.]), [-lamd])
+        AC_CHECK_LIB([umfpack], [main], ,  AC_MSG_ERROR([Libumfpack not found.]), [$UMFPACK_LIBS -lamd])
         AC_LANG_POP(C)
 
         #A peculiarity of UMFPACK is that we need an *object* file (not a library) 
 	#with the fortran77 bindings.  I'm going to say that this should be placed 
 	#in the same directory as libumfpack (e.g. in the lib directory).  Check for that.
-        LDFLAGS="$LDFLAGS $ac_cv_umfpack_prefix/Lib/umf4_f77wrapper.o"
+        UMFPACK_LIBS="$UMFPACK_LIBS  $ac_cv_umfpack_prefix/umf4_f77wrapper.o -lumfpack -lamd"
+        LIBS="$BLAS_LIBS $LAPACK_LIBS $UMFPACK_LIBS $umfpack_save_LIBS $FLIBS"
+        # TODO: There's a better way to do this: check if we can link libs individually
+        AC_MSG_CHECKING(for UMFPACK F77 bindings)
+        AC_LINK_IFELSE(AC_LANG_PROGRAM([],[]), AC_MSG_RESULT(yes), 
+                       [AC_MSG_RESULT(no)
+                        UMFPACK_LIBS="$UMFPACK_LIBS -lcholmod -lcamd -lcolamd -lccolamd -lmetis"])
+        LIBS="$BLAS_LIBS $LAPACK_LIBS $UMFPACK_LIBS $umfpack_save_LIBS $FLIBS"
         AC_MSG_CHECKING(for UMFPACK F77 bindings)
         AC_LINK_IFELSE(AC_LANG_PROGRAM([],[]), AC_MSG_RESULT(yes), 
                        [AC_MSG_RESULT(no)
@@ -183,6 +194,7 @@ libumfpack.  This is not done with a standard UMFPACK install.
 If you downloaded a binary distribution of Umfpack, you may 
 need to obtain the source at: 
 http://www.cise.ufl.edu/research/sparse/umfpack.])])
+        LIBS="$umfpack_save_LIBS"
 fi
 
 #PARDISO
@@ -220,6 +232,7 @@ If the following Pardiso check fails, please use the --with-gomp flag and try ag
 fi
 
 AC_SUBST(PARDISO_LIBS)
+AC_SUBST(UMFPACK_LIBS)
 
 AM_CONDITIONAL(UMFPACK, test "$ac_cv_umfpack_prefix" != "")
 AM_CONDITIONAL(PARDISO, test "$ac_cv_pardiso_prefix" != "")

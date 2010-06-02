@@ -1,3 +1,7 @@
+#ifdef HAVE_CONFIG_H
+#include "config.inc"
+#endif
+
 module glimmer_sparse_umfpack
     !*FD This module builds on the glimmer_umf module to provide an easy
     !*FD interface to SLAP.  The SLAP interface is intended to be both
