@@ -604,8 +604,8 @@ contains
 !             model%general%  ewn, &
 !             model%general%  nsn)
 
-    case(2) ! Do something else, unspecified ---------------------------------------
-
+!    case(2) ! Do something else, unspecified ---------------------------------------
+!
 !       do ns = 1,model%general%nsn
 !          do ew = 1,model%general%ewn
 !             model%temper%temp(:,ew,ns) = dmin1(0.0d0,dble(model%climate%artm(ew,ns))) * (1.0d0 - model%numerics%sigma)

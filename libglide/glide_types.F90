@@ -95,6 +95,7 @@ module glide_types
   !Constants that describe the options available
   integer, parameter :: TEMP_SURFACE_AIR_TEMP = 0
   integer, parameter :: TEMP_FULL_SOLUTION = 1
+  integer, parameter :: TEMP_STEADY = 2
 
   integer, parameter :: FLWA_PATTERSON_BUDD = 0
   integer, parameter :: FLWA_PATTERSON_BUDD_CONST_TEMP = 1

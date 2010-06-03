@@ -461,8 +461,8 @@ end function glide_calc_sigma_pattyn
     ! local variables
     character(len=*), dimension(0:2), parameter :: temperature = (/ &
          'isothermal', &
-         'steady', &
-         'full      '/)
+         'full', &
+         'steady    '/)
     character(len=*), dimension(0:2), parameter :: flow_law = (/ &
          'Patterson and Budd               ', &
          'Patterson and Budd (temp=-10degC)', &
