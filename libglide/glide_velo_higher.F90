@@ -113,6 +113,9 @@ contains
         !Compute the normal vectors to the marine margin for the staggered grid
         call glide_marine_margin_normal(model%geomderv%stagthck, geom_mask_stag, latbc_norms_stag)
 
+        ! save the final mask to 'dynbcmask' for exporting to netCDF output file
+        model%velocity_hom%dynbcmask = geom_mask_stag
+
         if (model%options%which_ho_diagnostic == HO_DIAG_PATTYN_STAGGERED) then
 #ifdef VERY_VERBOSE
             write(*,*)"Running Pattyn staggered"

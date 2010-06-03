@@ -170,6 +170,7 @@ module glide_types
     !*FD \item[0] Set column to surface air temperature
     !*FD \item[1] Do full temperature solution (also find vertical velocity
     !*FD and apparent vertical velocity)
+    !*FD \item[2] Do NOTHING - hold temperatures constant at initial value  
     !*FD \end{description}
 
     integer :: whichflwa = 0
@@ -579,6 +580,7 @@ module glide_types
     
     !*FD A mask that specifies where the velocity being read in should be held constant as a dirichlet condition
     integer, dimension(:,:), pointer    :: kinbcmask => null()
+    integer, dimension(:,:), pointer    :: dynbcmask => null()
   end type glide_velocity_hom
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -1055,6 +1057,7 @@ contains
     call coordsystem_allocate(model%general%velo_grid, model%velocity_hom%velmask)
     call coordsystem_allocate(model%general%velo_grid, upn, model%velocity_hom%velnorm)
     call coordsystem_allocate(model%general%velo_grid, model%velocity_hom%kinbcmask)
+    call coordsystem_allocate(model%general%velo_grid, model%velocity_hom%dynbcmask)
 
     call coordsystem_allocate(model%general%ice_grid, model%climate%acab)
     call coordsystem_allocate(model%general%ice_grid, model%climate%acab_tavg)
@@ -1229,6 +1232,7 @@ contains
     deallocate(model%velocity_hom%velmask)
     deallocate(model%velocity_hom%velnorm)
     deallocate(model%velocity_hom%kinbcmask)
+    deallocate(model%velocity_hom%dynbcmask)
 
     deallocate(model%climate%acab)
     deallocate(model%climate%acab_tavg)

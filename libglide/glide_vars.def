@@ -409,6 +409,15 @@ data:         data%velocity_hom%kinbcmask(:,:)
 type:         int
 load:         1
 
+[dynbcmask]
+dimensions:   time, y0, x0
+units:        1
+long_name:    2d array of higher-order model boundary condition mask values
+data:         data%velocity_hom%dynbcmask
+type:         int
+load:         0
+hot:          0
+
 [velnormhom]
 dimensions:    time, level, y1, x1
 units:         meter/year

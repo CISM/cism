@@ -606,13 +606,18 @@ contains
 
     case(2) ! Do something else, unspecified ---------------------------------------
 
-       do ns = 1,model%general%nsn
-          do ew = 1,model%general%ewn
-             model%temper%temp(:,ew,ns) = dmin1(0.0d0,dble(model%climate%artm(ew,ns))) * (1.0d0 - model%numerics%sigma)
-             call corrpmpt(model%temper%temp(:,ew,ns),model%geometry%thck(ew,ns),model%temper%bwat(ew,ns),&
-                  model%numerics%sigma,model%general%upn)
-          end do
-       end do
+!       do ns = 1,model%general%nsn
+!          do ew = 1,model%general%ewn
+!             model%temper%temp(:,ew,ns) = dmin1(0.0d0,dble(model%climate%artm(ew,ns))) * (1.0d0 - model%numerics%sigma)
+!             call corrpmpt(model%temper%temp(:,ew,ns),model%geometry%thck(ew,ns),model%temper%bwat(ew,ns),&
+!                  model%numerics%sigma,model%general%upn)
+!          end do
+!       end do
+
+
+    case(2) ! *sfp* stealing this un-used option ... 
+
+        ! DO NOTHING. That is, hold T const. at initially assigned value
 
     end select
 
