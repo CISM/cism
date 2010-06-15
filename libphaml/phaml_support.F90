@@ -6,16 +6,11 @@
 
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#ifdef HAVE_CONFIG_H
-#include "config.inc"
-#endif
-
-#include "glide_mask.inc"
 module phaml_support
 !    use phaml
 !    use phaml_user_mod
 !    implicit none
-
+contains
     !------------------------------------------------------------------------------
     !SUBROUTINE: is_ice_edge
     !ARGUMENTS: model (glimmer), ew, ns
@@ -137,7 +132,7 @@ module phaml_support
     ! compiler dependent.  That call may need to be changed, or may not be
     ! supported at all, on some compilers.
     !------------------------------------------------------------------------------
-    subroutine make_poly_file(model)
+    subroutine make_ice_poly_file(model)
         use glide
         use glide_mask
         implicit none
@@ -194,7 +189,6 @@ module phaml_support
                 else
                     node_table(node1ns, node1ew,1) = -1
                 end if
-                !write(21,*) count, xvals(node1ns), yvals(node1ew), bmark
             end do
         end do
         write(*,*) 'Writing Vertices'
@@ -221,7 +215,6 @@ module phaml_support
                     (node_table(node2ns,node2ew,1).ge. 0)) then
                     call get_bmark(model,node1ew,node1ns,node2ew,node2ns,bmark)
                     count = count + 1
-                    !write(22,*) count,node_table(node1ns,node1ew,1),node_table(node2ns,node2ew,1),bmark
                     edge_table(count,1) = node_table(node1ns,node1ew,1)
                     edge_table(count,2) = node_table(node2ns,node2ew,1)
                     edge_table(count,3) = bmark
@@ -240,7 +233,6 @@ module phaml_support
                     (node_table(node2ns,node2ew,1).ge. 0)) then
                     call get_bmark(model,node1ew,node1ns,node2ew,node2ns,bmark)
                     count = count + 1
-                    !write(22,*) count,node_table(node1ns,node1ew,1),node_table(node2ns,node2ew,1),bmark
                     edge_table(count,1) = node_table(node1ns,node1ew,1)
                     edge_table(count,2) = node_table(node2ns,node2ew,1)
                     edge_table(count,3) = bmark
@@ -259,7 +251,6 @@ module phaml_support
                     (node_table(node2ns,node2ew,1).ge. 0)) then
                     call get_bmark(model,node1ew,node1ns,node2ew,node2ns,bmark)
                     count = count + 1
-                    !write(22,*) count,node_table(node1ns,node1ew,1),node_table(node2ns,node2ew,1),bmark
                     edge_table(count,1) = node_table(node1ns,node1ew,1)
                     edge_table(count,2) = node_table(node2ns,node2ew,1)
                     edge_table(count,3) = bmark
@@ -280,7 +271,6 @@ module phaml_support
                         (node_table(j+2,i+2,1).lt. 0)) then
                         call get_bmark(model,node1ew,node1ns,node2ew,node2ns,bmark)
                         count = count + 1
-                        !write(22,*) count,node_table(node1ns,node1ew,1),node_table(node2ns,node2ew,1),bmark
                         edge_table(count,1) = node_table(node1ns,node1ew,1)
                         edge_table(count,2) = node_table(node2ns,node2ew,1)
                         edge_table(count,3) = bmark
@@ -303,144 +293,132 @@ module phaml_support
         ! NOTE: THIS IS COMPILER DEPENDENT.  You may need to change this statement.
         status = System("triangle -neqj mesh.poly")
     
-    end subroutine make_poly_file
+    end subroutine make_ice_poly_file
 
+    
+    
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+subroutine make_full_poly_file(model)
+    use glide
+    use glide_mask
+    implicit none   
+    integer :: nx, ny, node1ew,node1ns,node2ew,node2ns
+    real :: dx,dy,xmin,xmax,ymin,ymax    
+    integer :: i, j, count, bmark,status
+    type(glide_global_type) :: model
+    integer, dimension(:), allocatable :: xvals,yvals
+    integer, dimension(:,:),pointer :: mask
+    
+    !this is to change the grid type later.  not current used.
 
+    !grid variables
+    nx = get_ewn(model)
+    ny = get_nsn(model)
+    xmin = 0
+    dx = get_dew(model)
+    ymin = 0
+    dy = get_dns(model)!model%numerics%dns
+    !for testing
+    xmax = nx*dx
+    ymax = ny*dy
+    
+    allocate( xvals(nx) )
+    allocate( yvals(ny) )
+    
+    !just for ease
+    !mask = model%geometry%mask
+    ! values for the grid lines   
+    do i=0,nx-1
+       xvals(i+1) = dx*i
+    end do
+    
+    do i=0,ny-1
+       yvals(i+1) = dy*i
+    end do
+    
+    ! write a .poly file with the grid of nodes, boundary edges, and bmark
+    
+    open(unit=21,file="mesh.poly",status="replace")
+    
+
+    write(*,*) 'Writing Vertices'
+    write(21,*) (nx)*(ny), 2, 0, 1
+    count = 0
+    do i=0,nx-1
+        do j=0,ny-1
+            bmark=0
+            node1ew = j+1
+            node1ns = i+1
+            !write(*,*) model%geometry%thkmask(node1ew,node1ns)
+            if (has_ice(model%geometry%thkmask(node1ew,node1ns)) .eqv. .true.) then 
+                bmark=3
+            end if
+            if (is_grounding_line(model%geometry%thkmask(node1ew,node1ns)) .eqv. .true.) then 
+                bmark=5
+            end if
+            count = count + 1
+            write(21,*) count, xvals(node1ns), yvals(node1ew), bmark
+        end do
+    end do
+    
+    write(*,*) 'Writing Edges'
+    count = 0
+    !number of edges = (nx-1)*ny + (ny-1)*nx + (ny-1)*(nx-1)
+    write(21,*) (nx-1)*ny + (ny-1)*nx + (ny-1)*(nx-1), 1
+    !write edges connecting columns (vertical)
+    do i=0,nx-1
+        do j=0,ny-2
+            bmark=0
+            node1ns = j + 1
+            node1ew = i + 1
+            node2ns = j + 2
+            node2ew = i + 1
+            call get_bmark(model,node1ew,node1ns,node2ew,node2ns,bmark)
+            count = count + 1
+            write(21,*) count,i*nx+j+1,i*nx+j+2,bmark
+        end do
+    end do
+    !write edges connecting rows (horizontal)
+    do i=0,nx-2
+        do j=0,ny-1
+            bmark=0
+            node1ns = j + 1
+            node1ew = i + 1
+            node2ns = j + 1
+            node2ew = i + 2
+            call get_bmark(model,node1ew,node1ns,node2ew,node2ns,bmark)
+            count = count + 1
+            write(21,*) count,i*nx+j+1,(i+1)*nx+j+1,bmark
+        end do
+    end do
+    !write cross edges    
+    do i=0,nx-2
+        do j=0,ny-2
+            bmark=0
+            node1ns = j + 1
+            node1ew = i + 1
+            node2ns = j + 2
+            node2ew = i + 2
+            call get_bmark(model,node1ew,node1ns,node2ew,node2ns,bmark)
+            count = count + 1
+            write(21,*) count,i*nx+j+1,(i+1)*nx+j+2,bmark
+        end do
+    end do    
+    write(21,*) 0
+    close(unit=21)
+    
+    !deallocate the dynamic arrays
+    deallocate( xvals )
+    deallocate( yvals )
+    ! run triangle
+    ! NOTE: THIS IS COMPILER DEPENDENT.  You may need to change this statement.
+    status = System("triangle -neqj mesh.poly")
+
+end subroutine make_full_poly_file
 !---------------------------------------------------------------------------
 end module phaml_support
 
 
 
-
-
-module phaml_user_mod
-    !----------------------------------------------------
-    ! This module contains user global data, and functions for formatting
-    !
-    !----------------------------------------------------
-    use global
-    use phaml
-    implicit none
-    
-    integer, save :: gnsn, gewn, gdns, gdew, num_arrays
-    real(my_real), save, allocatable, dimension(:,:) :: uphaml
-    !real(my_real), save, allocatable, dimension(:) :: uphaml_one
-contains
-    subroutine user_init(ewn,nsn,dew,dns)
-        implicit none
-        integer, intent(in) :: nsn,ewn
-        real(my_real), intent(in) :: dns,dew
-        gnsn = nsn  !ny
-        gewn = ewn  !nx
-        gdns = dns  !dy
-        gdew = dew  !dx
-        !this defines how many arrays are passed in update_usermod
-        num_arrays = 1
-        !allocate(uphaml(gewn, gnsn))
-        !allocate(uphaml_one(gewn*gnsn))
-    end subroutine user_init
-    
-    subroutine array_init()
-        !if (size(uphaml) .le. 0) then
-            allocate(uphaml(gewn, gnsn))
-        !end if
-    end subroutine array_init
-    
-    subroutine array_deinit()
-        if (size(uphaml) > 0) then
-            deallocate(uphaml)
-            !deallocate(uphaml_one)
-        end if
-    end subroutine array_deinit
-    !-------------------------------------------------------------------------
-    subroutine concat_arrays(array1, array2, retarray)
-        implicit none
-        real(my_real), intent(in),dimension(:) :: array1,array2
-        real(my_real), intent(out),dimension(:) :: retarray
-        integer :: i,maxind
-        
-        maxind = size(array1) + size(array2)
-        do i=1, maxind
-            retarray(i) = array1(i)
-            retarray(maxind + i) = array2(i)
-        end do
-    end subroutine concat_arrays
-    !-------------------------------------------------------------------------        
-    subroutine split_arrays(array1, array2, retarray, maxind)
-        implicit none
-        real(my_real), intent(out),dimension(:) :: array1,array2
-        real(my_real), intent(in),dimension(:) :: retarray
-        integer, intent(in) :: maxind
-        integer :: i
-        
-        do i=1, maxind
-            array1(i) = retarray(i)
-            array2(i) = retarray(maxind + i)
-        end do
-    end subroutine split_arrays
-    !-------------------------------------------------------------------------    
-    subroutine reshape_array_to_one(twod,oned)
-        implicit none
-        real(my_real), intent(in),dimension(:,:) :: twod
-        real(my_real), intent(out),dimension(:) :: oned
-        integer :: r,c
-        
-         do r=0,gnsn-1
-            do c=0,gewn-1
-               oned(gewn*r+c+1) = twod(c+1,r+1)
-            end do
-        end do
-    end subroutine reshape_array_to_one
-    !-------------------------------------------------------------------------    
-    subroutine reshape_array_to_two(twod,oned)
-        implicit none
-        real(my_real), intent(out),dimension(:,:) :: twod
-        real(my_real), intent(in),dimension(:) :: oned
-        integer :: count,r,c
-        
-        do count=0,size(oned) - 1
-            r = count/gewn + 1
-            c = int(Mod(count,gewn)) + 1
-            twod(c,r) = real(oned(count+1))        
-        end do
-    end subroutine reshape_array_to_two
-    
-    !------------------------------------------------------------------------------
-    !SUBROUTINE: get_xyarrays
-    !ARGUMENTS: model (glimmer), x, y 
-    !DESCRIPTION:
-    !------------------------------------------------------------------------------
-    subroutine get_xyarrays(x,y)
-        implicit none
-        real(my_real), intent(inout) :: x(:),y(:)
-        integer :: count,r,c
-
-        count = 1
-        !populate the arrays with the xy coordinates
-        do r=0,gnsn-1
-            do c=0,gewn-1
-               x(count) = REAL(c*gdew)
-               y(count) = REAL(r*gdns)
-               count = count + 1
-            end do
-        end do
-    end subroutine get_xyarrays
-    
-    
-    !these two functions get you the array indices to 
-    !access the 2d grid given the x,y coordinates in the domain
-    integer function getew(x)
-        implicit none
-        real(my_real), intent(in) :: x
-        getew = int((x/gdew)) + 1
-    end function getew
-    
-    integer function getns(y)
-        implicit none
-        real(my_real), intent(in) :: y
-        getns = int((y/gdns)) + 1
-    end function getns
-    
-end module phaml_user_mod
 
 

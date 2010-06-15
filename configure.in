@@ -133,6 +133,40 @@ if test "$ac_cv_enmabal_prefix" != ""; then
   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],[use smb_mecons])],AC_MSG_RESULT([yes]),AC_MSG_FAILURE([no]))
 fi
 
+
+# checking for MPI library
+ACX_MPI()
+
+#phaml needs mpi as well
+# checking for PHAML
+AC_ARG_WITH(phaml,AS_HELP_STRING([--with-phaml],[location PHAML library]),[ac_cv_phaml_prefix=$withval])
+if test "$ac_cv_phaml_prefix" != ""; then
+  LIBS="$LIBS -L$ac_cv_phaml_prefix/lib -lphaml"
+  #AC_SEARCH_LIBS([phaml_create],[phaml],,AC_MSG_ERROR([Can not find PHAML Library]))
+  FCFLAGS="$FCFLAGS -I$ac_cv_phaml_prefix/modules -I$ac_cv_phaml_prefix/src -L$ac_cv_phaml_prefix/lib"
+  AC_MSG_RESULT(phaml location: $ac_cv_phaml_prefix)
+  AC_MSG_CHECKING([for PHAML interface])
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([],[use phaml])],AC_MSG_RESULT([yes]),AC_MSG_FAILURE([Can not link to PHAML Library]))
+fi
+AM_CONDITIONAL(USE_PHAML, test "$ac_cv_phaml_prefix" != "")
+AC_SUBST(ac_cv_phaml_prefix)
+AM_COND_IF([USE_PHAML],[AC_CONFIG_FILES([libphaml/Makefile])])
+
+
+# checking for PHAML graphics
+AC_ARG_WITH(phaml-graphics,AS_HELP_STRING([--with-phaml-graphics],[location F90GL library]),[ac_cv_phaml_graphics_prefix=$withval])
+if test "$ac_cv_phaml_graphics_prefix" != ""; then
+  LIBS="$LIBS -L$ac_cv_phaml_graphics_prefix/lib -lf90glut -lf90GLU -lf90GL"
+  #AC_SEARCH_LIBS([phaml_create],[phaml],,AC_MSG_ERROR([Can not find PHAML Library]))
+  FCFLAGS="$FCFLAGS -I$ac_cv_phaml_graphics_prefix/include -L$ac_cv_phaml_graphics_prefix/lib"
+  AC_MSG_RESULT(F90GL location: $ac_cv_phaml_graphics_prefix)
+  AC_MSG_CHECKING([for F90GL interface])
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([],[use opengl_gl])],AC_MSG_RESULT([yes]),AC_MSG_FAILURE([Can not link to PHAML Library]))
+fi
+AM_CONDITIONAL(USE_PHAML_GRAPHICS, test "$ac_cv_phaml_graphics_prefix" != "")
+AC_SUBST(ac_cv_phaml_graphics_prefix)
+
+
 # building the documentation
 have_latex=1
 AC_CHECK_PROGS(LATEX,[latex])
