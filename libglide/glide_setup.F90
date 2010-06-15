@@ -519,7 +519,7 @@ end function glide_calc_sigma_pattyn
     character(len=*), dimension(0:5), parameter :: ho_whichbabc = (/ &
          'constant betasquared    ', &
          'simple pattern          ', &
-         'as till yield stress    ', &
+         'till yield stress       ', &
          'circular ice shelf      ', &
          'frozen bed              ', &
          'B^2 passed from CISM    ' /)

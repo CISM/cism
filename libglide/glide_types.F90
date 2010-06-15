@@ -294,7 +294,7 @@ module glide_types
     !*FD \begin{description}
     !*FD \item[0] constant value (hardcoded in, useful for debugging)
     !*FD \item[1] simple pattern ("     ")
-    !*FD \item[2] beta^2 as proxy for till yield stress
+    !*FD \item[2] use till yield stress from basal proc model
     !*FD \item[3] circular ice shelf
     !*FD \item[4] no slip everywhere
     !*FD \item[5] beta^2 field passed in from CISM
