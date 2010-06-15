@@ -516,8 +516,6 @@ end function glide_calc_sigma_pattyn
     character(len=*), dimension(0:1), parameter :: ho_bstress = (/ &
          'Linear bed (betasquared)', &
          'Plastic bed (tau0)      ' /)
-
-!whl - added Price-Payne higher-order (glam) options
     character(len=*), dimension(0:5), parameter :: ho_whichbabc = (/ &
          'constant betasquared    ', &
          'simple pattern          ', &
