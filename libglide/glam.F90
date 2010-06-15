@@ -84,6 +84,8 @@ module glam
 
     end subroutine inc_remap_driver 
 
+        ! NOTE finalization routine, to be written for PP HO core needs to be written (e.g.
+        ! glam_velo_fordsiapstr_final( ) ), added to glam_strs2.F90, and called from glide_stop.F90
 
 !***********************************************************************
 end module glam
