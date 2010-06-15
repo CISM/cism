@@ -27,6 +27,7 @@ contains
         
         call user_init(get_ewn(cism_model),get_nsn(cism_model), &
         get_dew(cism_model),get_dns(cism_model),1)
+        write(*,*) 'phaml_init'
     end subroutine phaml_init
 
 !-------------------------------------------------------------------------
