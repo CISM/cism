@@ -4,7 +4,7 @@
 ! +                                                           +
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! 
-! Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010
+! Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010
 ! Glimmer-CISM contributors - see AUTHORS file for list of contributors
 !
 ! This file is part of Glimmer-CISM.
@@ -51,7 +51,8 @@ module glide
 
 contains
 
-  subroutine glide_config(model,config)
+  subroutine glide_config(model,config,fileunit)
+
     !*FD read glide configuration from file and print it to the log
     use glide_setup
     use isostasy
@@ -60,16 +61,26 @@ contains
     use glimmer_map_init
     use glimmer_filenames
     implicit none
-    type(glide_global_type) :: model        !*FD model instance
-    type(ConfigSection), pointer :: config  !*FD structure holding sections of configuration file
+
+    type(glide_global_type) :: model          !*FD model instance
+    type(ConfigSection), pointer  :: config   !*FD structure holding sections of configuration file
+    integer, intent(in), optional :: fileunit !*FD fileunit for reading config file 
 
     type(ConfigSection), pointer :: ncconfig
-   
+    integer :: unit
+
+    unit = 99
+    if (present(fileunit)) then
+       unit = fileunit
+    endif
+
     ! read configuration file
     call glide_readconfig(model,config)
     call glide_printconfig(model)
+
     ! Read alternate sigma levels from config file, if necessary
     call glide_read_sigma(model,config)
+
     ! read isostasy configuration file
     call isos_readconfig(model%isos,config)
     call isos_printconfig(model%isos)
@@ -79,6 +90,7 @@ contains
     ! **** for backwards compatibility. It will be deleted soon.
     ! **** (You have been warned!)
     ! **** N.B. Here, dew and dns are unscaled - i.e. real distances in m
+
     call glimmap_readconfig(model%projection,config, &
          model%numerics%dew, &
          model%numerics%dns)
@@ -87,9 +99,10 @@ contains
     if (trim(model%funits%ncfile).eq.'') then
        ncconfig => config
     else
-       call ConfigRead(process_path(model%funits%ncfile),ncconfig)
+       call ConfigRead(process_path(model%funits%ncfile), ncconfig, unit)
     end if
     call glimmer_nc_readparams(model,ncconfig)
+
   end subroutine glide_config
 
   subroutine glide_initialise(model)

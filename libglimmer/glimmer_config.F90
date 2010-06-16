@@ -4,6 +4,9 @@
 ! +                                                           +
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
+! This code is taken from the Generic Mapping Tools and was 
+! converted into Fortran 90 by Ian Rutt.
+!
 ! Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010
 ! Glimmer-CISM contributors - see AUTHORS file for list of contributors
 !
@@ -101,12 +104,14 @@ module glimmer_config
 contains
 
   !> read a configuration file
-  subroutine ConfigRead(fname,config)
+  subroutine ConfigRead(fname,config,fileunit)
+
     use glimmer_log
-    use shr_file_mod, only : shr_file_getunit, shr_file_freeunit
     implicit none
-    character(len=*), intent(in) :: fname   !< the name of the file to be read
-    type(ConfigSection), pointer :: config  !< on return this pointer will point to the first section
+
+    character(len=*), intent(in) :: fname    !< the name of the file to be read
+    type(ConfigSection), pointer :: config   !< on return this pointer will point to the first section
+    integer, optional,intent(in) :: fileunit !< if supplied, open this unit
 
     ! local variables
     type(ConfigSection), pointer :: this_section
@@ -121,7 +126,11 @@ contains
        call write_log('Cannot open configuration file '//trim(fname),GM_FATAL)
     end if
     
-    unit = shr_file_getUnit()
+    unit = 99
+    if (present(fileunit)) then
+       unit = fileunit
+    endif
+
     open(unit,file=trim(fname),status='old')
     ios=0
     linenr=0
@@ -159,8 +168,9 @@ contains
        linenr = linenr + 1
     end do
     close(unit)
-    call shr_file_freeunit (unit)
+
     return
+
   end subroutine ConfigRead
 
   !> print contents of file

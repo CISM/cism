@@ -4,7 +4,7 @@
 ! +                                                            +
 ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! 
-! Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010
+! Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010
 ! Glimmer-CISM contributors - see AUTHORS file for list of contributors
 !
 ! This file is part of Glimmer-CISM.
@@ -47,7 +47,7 @@ contains
                                 mbts,        idts,       &
                                 need_winds,  enmabal,    &
                                 force_start, force_dt,   &
-                                gcm_restart)
+                                gcm_restart, gcm_fileunit)
 
     !*FD Initialise a GLINT ice model instance
 
@@ -71,16 +71,23 @@ contains
     integer,               intent(out)   :: idts        !*FD ice dynamics time-step (hours)
     logical,               intent(inout) :: need_winds  !*FD Set if this instance needs wind input
     logical,               intent(inout) :: enmabal     !*FD Set if this instance uses the energy balance mass-bal model
-    integer,               intent(in)    :: force_start !*FD The glint forcing start time (hours)
-    integer,               intent(in)    :: force_dt    !*FD The glint forcing time step (hours)
-    logical,     optional, intent(in)    :: gcm_restart !*FD Logical flag to read from a hotstart file
+    integer,               intent(in)    :: force_start !*FD glint forcing start time (hours)
+    integer,               intent(in)    :: force_dt    !*FD glint forcing time step (hours)
+    logical,     optional, intent(in)    :: gcm_restart !*FD logical flag to read from a hotstart file
+    integer,     optional, intent(in)    :: gcm_fileunit!*FD fileunit for reading config files
 
     ! Internal
     real(sp),dimension(:,:),allocatable :: thk
+    integer :: fileunit
+
+    fileunit = 99
+    if (present(gcm_fileunit)) then
+       fileunit = gcm_fileunit
+    endif
 
     ! initialise model
 
-    call glide_config(instance%model, config)
+    call glide_config(instance%model, config, fileunit)
 
     ! if this is a continuation run, then set up to read restart
     ! (currently assumed to be a CESM restart file)

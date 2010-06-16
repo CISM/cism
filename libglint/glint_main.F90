@@ -4,7 +4,7 @@
 ! +                                                           +
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! 
-! Copyright (C) 2007, 2008, 2009, 2010
+! Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010
 ! Glimmer-CISM contributors - see AUTHORS file for list of contributors
 !
 ! This file is part of Glimmer-CISM.
@@ -74,9 +74,12 @@ module glint_main
      integer  :: tstep_mbal = 1        !*FD Mass-balance timestep (hours)
      integer  :: start_time            !*FD Time of first call to glint (hours)
      integer  :: time_step             !*FD Calling timestep of global model (hours)
-     logical  :: gcm_smb = .false.     !*FD If true, receive surface mass balance from GCM 
+
+     ! Parameters that can be set by the GCM calling Glint
+     logical  :: gcm_smb = .false.     !*FD If true, receive surface mass balance from the GCM 
      logical  :: gcm_restart = .false. !*FD If true, hotstart the model from a GCM restart file
-   
+     integer  :: gcm_fileunit = 99     !*FD Fileunit specified by GCM for reading config files
+ 
      ! Averaging parameters -------------------------------------
 
      integer  :: av_start_time = 0   !*FD Holds the value of time from 
@@ -186,7 +189,7 @@ contains
                               gfrac,        gtopo,        &
                               grofi,        grofl,        &
                               ghflx,        gmask,        &
-                              gcm_restart)
+                              gcm_restart,  gcm_fileunit)
 
     !*FD Initialises the model
 
@@ -240,6 +243,8 @@ contains
     integer, dimension(:,:),  optional,intent(in)  :: gmask       !*FD mask = 1 where global data are valid
     logical,                  optional,intent(in)  :: gcm_restart ! logical flag to hotstart from a GCM restart file
                                                                   ! (currently assumed to be CESM)
+    integer,                  optional,intent(in)  :: gcm_fileunit! fileunit for reading config files
+
     ! Internal variables -----------------------------------------------------------------------
 
     type(ConfigSection), pointer :: global_config, instance_config, section  ! configuration stuff
@@ -256,7 +261,7 @@ contains
                gfrac_temp, gtopo_temp, grofi_temp, grofl_temp, ghflx_temp    ! Temporary output arrays
     integer :: n
     integer :: nec       ! number of elevation classes
-    real(rk) :: timeyr   ! time in years
+    real(rk):: timeyr    ! time in years
 
 #ifdef GLC_DEBUG
     integer :: j, ii, jj
@@ -286,6 +291,11 @@ contains
     params%gcm_restart = .false.
     if (present(gcm_restart)) then
        params%gcm_restart = gcm_restart
+    endif
+
+    params%gcm_fileunit = 99
+    if (present(gcm_fileunit)) then
+       params%gcm_fileunit = gcm_fileunit
     endif
 
     nec = 1
@@ -399,7 +409,8 @@ contains
     ! ---------------------------------------------------------------
 
     if (size(paramfile) == 1) then
-       call ConfigRead(process_path(paramfile(1)), global_config)    ! Load the configuration file into the linked list
+       ! Load the configuration file into the linked list
+       call ConfigRead(process_path(paramfile(1)), global_config,params%gcm_fileunit)    
        call glint_readconfig(global_config, params%ninstances, config_fnames, paramfile) ! Parse the list
     else
        params%ninstances = size(paramfile)
@@ -425,7 +436,7 @@ contains
 
     do i=1,params%ninstances
 
-       call ConfigRead(process_path(config_fnames(i)),instance_config)
+       call ConfigRead(process_path(config_fnames(i)),instance_config,params%gcm_fileunit)
        if (present(extraconfigs)) then
           if (size(extraconfigs)>=i) then
              call ConfigCombine(instance_config,extraconfigs(i))
@@ -437,7 +448,7 @@ contains
                                mbts(i),            idts(i),              &
                                params%need_winds,  params%enmabal,       &
                                params%start_time,  params%time_step,     &
-                               params%gcm_restart)
+                               params%gcm_restart, params%gcm_fileunit )
 
        params%total_coverage = params%total_coverage + params%instances(i)%frac_coverage
        params%total_cov_orog = params%total_cov_orog + params%instances(i)%frac_cov_orog
