@@ -4,9 +4,6 @@
 ! +                                                           +
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-! This code is taken from the Generic Mapping Tools and was 
-! converted into Fortran 90 by Ian Rutt.
-!
 ! Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010
 ! Glimmer-CISM contributors - see AUTHORS file for list of contributors
 !

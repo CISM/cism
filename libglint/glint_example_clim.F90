@@ -4,7 +4,7 @@
 ! +                                                              +
 ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! 
-! Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010
+! Copyright (C) 2005, 2006, 2010
 ! Glimmer-CISM contributors - see AUTHORS file for list of contributors
 !
 ! This file is part of Glimmer-CISM.
@@ -748,3 +748,4 @@ contains
   end subroutine fixbounds
 
 end module glint_example_clim
+, 

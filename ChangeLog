@@ -1,4 +1,8 @@
 2010-06-16 Magnus Hagdorn
+ * update copyright years to the years where the files were modified according
+   to svn log
+
+2010-06-16 Magnus Hagdorn
  * Makefile.am: conditionally add libphaml directory
  * configure.in: always generate libphaml/Makefile
 
