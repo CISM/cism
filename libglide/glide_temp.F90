@@ -1,41 +1,28 @@
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
-! +  glimmer_temp.f90 - part of the GLIMMER ice model         + 
+! +  glimmer_temp.f90 - part of the Glimmer-CISM ice model    + 
 ! +                                                           +
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! 
-! Copyright (C) 2004 GLIMMER contributors - see COPYRIGHT file 
-! for list of contributors.
+! Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010
+! Glimmer-CISM contributors - see AUTHORS file for list of contributors
 !
-! This program is free software; you can redistribute it and/or 
-! modify it under the terms of the GNU General Public License as 
-! published by the Free Software Foundation; either version 2 of 
-! the License, or (at your option) any later version.
+! This file is part of Glimmer-CISM.
 !
-! This program is distributed in the hope that it will be useful, 
-! but WITHOUT ANY WARRANTY; without even the implied warranty of 
-! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+! Glimmer-CISM is free software: you can redistribute it and/or modify
+! it under the terms of the GNU General Public License as published by
+! the Free Software Foundation, either version 2 of the License, or (at
+! your option) any later version.
+!
+! Glimmer-CISM is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ! GNU General Public License for more details.
 !
-! You should have received a copy of the GNU General Public License 
-! along with this program; if not, write to the Free Software 
-! Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 
-! 02111-1307 USA
+! You should have received a copy of the GNU General Public License
+! along with Glimmer-CISM.  If not, see <http://www.gnu.org/licenses/>.
 !
-! GLIMMER is maintained by:
-!
-! Ian Rutt
-! School of Geographical Sciences
-! University of Bristol
-! University Road
-! Bristol
-! BS8 1SS
-! UK
-!
-! email: <i.c.rutt@bristol.ac.uk> or <ian.rutt@physics.org>
-!
-! GLIMMER is hosted on berliOS.de:
-!
+! Glimmer-CISM is hosted on BerliOS.de:
 ! https://developer.berlios.de/projects/glimmer-cism/
 !
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -58,7 +45,7 @@
 #define HORIZ_ADV 1.
 #endif
 ! vertical advection
-#ifdef NO_VERICAL_ADVECTION
+#ifdef NO_VERTICAL_ADVECTION
 #define VERT_ADV 0.
 #else
 #define VERT_ADV 1.
@@ -247,36 +234,6 @@ contains
        end do
 
     case(1) ! Do full temperature solution ---------------------------------------------
-
-
-!lipscomb - restart mod - These routines are now called at the end of tstep_p3, so that wgrd
-!                         can be written to the hotstart file and used for restart.
-                         
-       ! Calculate time-derivatives of thickness and upper surface elevation ------------
-
-!!       call timeders(model%thckwk,   &
-!!            model%geometry%thck,     &
-!!            model%geomderv%dthckdtm, &
-!!            model%geometry%mask,     &
-!!            model%numerics%time,     &
-!!            1)
-
-!!       call timeders(model%thckwk,   &
-!!            model%geometry%usrf,     &
-!!            model%geomderv%dusrfdtm, &
-!!            model%geometry%mask,     &
-!!            model%numerics%time,     &
-!!            2)
-
-       ! Calculate the vertical velocity of the grid ------------------------------------
-
-!!       call gridwvel(model%numerics%sigma,  &
-!!            model%numerics%thklim, &
-!!            model%velocity%uvel,   &
-!!            model%velocity%vvel,   &
-!!            model%geomderv,        &
-!!            model%geometry%thck,   &
-!!            model%velocity%wgrd)
 
        ! Calculate the actual vertical velocity; method depends on whichwvel ------------
 

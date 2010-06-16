@@ -17,28 +17,28 @@ datamod:  glint_type
 [x0]
 dimensions:    x0
 units:         meter
-long_name:     Cartisian x-coordinate, velocity grid
+long_name:     Cartesian x-coordinate, velocity grid
 standard_name: projection_x_coordinate
 dimlen:        model%general%ewn-1
 
 [y0]
 dimensions:    y0
 units:         meter
-long_name:     Cartisian y-coordinate, velocity grid
+long_name:     Cartesian y-coordinate, velocity grid
 standard_name: projection_y_coordinate
 dimlen:        model%general%nsn-1
 
 [x1]
 dimensions:    x1
 units:         meter
-long_name:     Cartisian x-coordinate
+long_name:     Cartesian x-coordinate
 standard_name: projection_x_coordinate
 dimlen:        data%model%general%ewn
 
 [y1]
 dimensions:    y1
 units:         meter
-long_name:     Cartisian y-coordinate
+long_name:     Cartesian y-coordinate
 standard_name: projection_y_coordinate
 dimlen:        data%model%general%nsn
 

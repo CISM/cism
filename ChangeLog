@@ -1,4 +1,25 @@
 2010-06-15 William Lipscomb
+ * Checked in the contents of the CESM source_glimmer-cism directory.
+ * These include most of the *F90 and *vars_def files in the libglimmer,
+   libglimmer-solve, libglide, and libglint directories (but not the 
+   files that are programs, since these will not compile in CESM).
+ * I updated the copyright notice in all the files I checked in.
+   The dates are listed as "2004, 2005, 2006, 2007, 2008, 2009, 2010".
+   Magnus has offered to go through each file and include only years
+   during which the files changed.
+ * I also implemented several changes suggested by Rupert Gladstone to
+   make the GCM interfaces cleaner and more generic.  A more extensive
+   redesign of the Glint/GCM interfaces will likely follow this summer.	 
+ * I removed the old restart code, which Magnus had already commented out.
+   The current code restarts exactly using hotstart files.	
+ * I made various other minor changes too numerous to mention.
+ * Remaining tasks are commented 'TO DO'.  The most important task is to
+   correctly upscale the fields passed back to the coupler.	 	 	 
+ * I have not yet checked that the modified code will build.  To do this,
+   I first need to get the code to configure and build with the changes
+   Magnus made a few weeks ago.
+   	
+2010-06-15 William Lipscomb
  * moved glint_example_clim.F90 from example_drivers/glint/src to libglint
   (This module is not a driver, and it is needed for the CESM build.)
 

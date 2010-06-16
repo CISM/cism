@@ -1,41 +1,28 @@
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
-! +  glint_main.f90 - part of the GLIMMER ice model           + 
+! +  glint_main.f90 - part of the Glimmer-CISM ice model      + 
 ! +                                                           +
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! 
-! Copyright (C) 2004 GLIMMER contributors - see COPYRIGHT file 
-! for list of contributors.
+! Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010
+! Glimmer-CISM contributors - see AUTHORS file for list of contributors
 !
-! This program is free software; you can redistribute it and/or 
-! modify it under the terms of the GNU General Public License as 
-! published by the Free Software Foundation; either version 2 of 
-! the License, or (at your option) any later version.
+! This file is part of Glimmer-CISM.
 !
-! This program is distributed in the hope that it will be useful, 
-! but WITHOUT ANY WARRANTY; without even the implied warranty of 
-! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+! Glimmer-CISM is free software: you can redistribute it and/or modify
+! it under the terms of the GNU General Public License as published by
+! the Free Software Foundation, either version 2 of the License, or (at
+! your option) any later version.
+!
+! Glimmer-CISM is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ! GNU General Public License for more details.
 !
-! You should have received a copy of the GNU General Public License 
-! along with this program; if not, write to the Free Software 
-! Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 
-! 02111-1307 USA
+! You should have received a copy of the GNU General Public License
+! along with Glimmer-CISM.  If not, see <http://www.gnu.org/licenses/>.
 !
-! GLIMMER is maintained by:
-!
-! Ian Rutt
-! School of Geographical Sciences
-! University of Bristol
-! University Road
-! Bristol
-! BS8 1SS
-! UK
-!
-! email: <i.c.rutt@bristol.ac.uk> or <ian.rutt@physics.org>
-!
-! GLIMMER is hosted on berliOS.de:
-!
+! Glimmer-CISM is hosted on BerliOS.de:
 ! https://developer.berlios.de/projects/glimmer-cism/
 !
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -84,10 +71,12 @@ module glint_main
 
      ! Global model parameters ----------------------------------
 
-     integer  :: tstep_mbal = 1      !*FD Mass-balance timestep (hours)
-     integer  :: start_time          !*FD Time of first call to glint (hours)
-     integer  :: time_step           !*FD Calling timestep of global model (hours)
-
+     integer  :: tstep_mbal = 1        !*FD Mass-balance timestep (hours)
+     integer  :: start_time            !*FD Time of first call to glint (hours)
+     integer  :: time_step             !*FD Calling timestep of global model (hours)
+     logical  :: gcm_smb = .false.     !*FD If true, receive surface mass balance from GCM 
+     logical  :: gcm_restart = .false. !*FD If true, hotstart the model from a GCM restart file
+   
      ! Averaging parameters -------------------------------------
 
      integer  :: av_start_time = 0   !*FD Holds the value of time from 
@@ -95,7 +84,8 @@ module glint_main
      integer  :: av_steps      = 0   !*FD Holds the number of times glimmer has 
                                      !*FD been called in current round of averaging.
      integer  :: next_av_start = 0   !*FD Time when we expect next averaging to start
-     logical  :: new_av        = .true. !*FD Set to true if the next correct call starts a new averaging round
+     logical  :: new_av     = .true. !*FD Set to true if the next correct call starts a new averaging round
+
      ! Averaging arrays -----------------------------------------
 
      real(rk),pointer,dimension(:,:) :: g_av_precip  => null()  !*FD globally averaged precip
@@ -109,10 +99,9 @@ module glint_main
      real(rk),pointer,dimension(:,:) :: g_av_lwdown  => null()  !*FD globally averaged downwelling longwave (W/m$^2$)
      real(rk),pointer,dimension(:,:) :: g_av_swdown  => null()  !*FD globally averaged downwelling shortwave (W/m$^2$)
      real(rk),pointer,dimension(:,:) :: g_av_airpress => null() !*FD globally averaged surface air pressure (Pa)
-     real(rk),pointer,dimension(:,:,:) :: g_av_qice => null()   ! globally averaged surface mass balance (kg m-2 s-1)
+     real(rk),pointer,dimension(:,:,:) :: g_av_qsmb => null()   ! globally averaged surface mass balance (kg m-2 s-1)
      real(rk),pointer,dimension(:,:,:) :: g_av_tsfc => null()   ! globally averaged surface temperature (deg C)
      real(rk),pointer,dimension(:,:,:) :: g_av_topo => null()   ! globally averaged surface elevation   (m)
-     integer  	      	      	       :: glc_nec = 1  	        ! number of elevation classes
 
      ! Fractional coverage information --------------------------
 
@@ -146,23 +135,17 @@ module glint_main
   private glint_allocate_arrays
   private glint_readconfig,calc_bounds,check_init_args
 
-!MH!  !MAKE_RESTART
-!MH!#ifdef RESTARTS
-!MH!#define RST_GLINT_MAIN
-!MH!#include "glimmer_rst_head.inc"
-!MH!#undef RST_GLINT_MAIN
-!MH!#endif
-
     !---------------------------------------------------------------------------------------
-    ! Some notes on coupling to the Community Climate System Model (CCSM):
+    ! Some notes on coupling to the Community Earth System Model (CESM).  These may be applicable
+    ! for coupling to other GCMs:
     !
-    ! If ccsm_smb is true, then Glint receives three fields from the CCSM coupler on a global grid
+    ! If gcm_smb is true, then Glint receives three fields from the CESM coupler on a global grid
     ! in each of several elevation classes:
-    !   qice = surface mass balance (kg/m^2/s)
+    !   qsmb = surface mass balance (kg/m^2/s)
     !   tsfc = surface ground temperature (deg C)
     !   topo = surface elevation (m)
-    ! Both qice and tsfc are computed in the CCSM land model.
-    ! Five fields are returned to CCSM on the global grid for each elevation class:
+    ! Both qsmb and tsfc are computed in the CESM land model.
+    ! Five fields are returned to CESM on the global grid for each elevation class:
     !   gfrac = fractional ice coverage
     !   gtopo = surface elevation (m)
     !   grofi = ice runoff (i.e., calving) (kg/m^2/s)
@@ -171,28 +154,20 @@ module glint_main
     ! The land model has the option to update its ice coverage and surface elevation, given
     ! the fields returned from Glint.
     !
-    ! If ccsm_smb is false, then the CCSM wrapper that calls Glint receives three fields of the same name
-    ! from the coupler, but the meanings of qice and tsfc are different:
-    !   qice = net precipitation (kg/m^2/s)
+    ! If gcm_smb is false, then the CESM wrapper that calls Glint receives three fields of the same name
+    ! from the coupler, but the meanings of qsmb and tsfc are different:
+    !   qsmb = net precipitation (kg/m^2/s)
     !   tsfc = 2-m air temperature (deg C)
     !   topo = surface elevation (m)
     ! These fields are received for a single elevation class.  The precip and 2-m temperature are
     ! sent to Glint as inputs to a daily PDD scheme.  Glint does not return values for gfrac, 
     ! gtopo, etc., and the land model will not update its ice coverage and surface elevation.
     ! 
-    ! Glimmer-CISM will normally be coupled to CCSM with ccsm_smb = T.
+    ! Glimmer-CISM will normally be coupled to CESM with gcm_smb = T.
     ! The PDD option is included for comparison to other models with PDD schemes.
-    !
-    ! It is hoped that other GCMs will be able to adopt a similar Glint interface.
     !---------------------------------------------------------------------------------------
 
 contains
-
-!MH!#ifdef RESTARTS
-!MH!#define RST_GLINT_MAIN
-!MH!#include "glimmer_rst_body.inc"
-!MH!#undef RST_GLINT_MAIN
-!MH!#endif
 
   subroutine initialise_glint(params,                     &
                               lats,         longs,        &
@@ -207,10 +182,11 @@ contains
                               output_flag,  daysinyear,   &
                               snow_model,   ice_dt,       &
                               extraconfigs, start_time,   &
-                              ccsm_smb_in,                &
+                              gcm_nec,      gcm_smb,      &
                               gfrac,        gtopo,        &
                               grofi,        grofl,        &
-                              ghflx,        gmask)
+                              ghflx,        gmask,        &
+                              gcm_restart)
 
     !*FD Initialises the model
 
@@ -254,14 +230,16 @@ contains
     type(ConfigData),dimension(:),optional ::  extraconfigs !*FD Additional configuration information - overwrites
                                                                   !*FD config data read from files
     integer,                optional,intent(in)    :: start_time  !*FD Time of first call to glint (hours)
-    logical,                  optional,intent(in)  :: ccsm_smb_in !*FD true if getting sfc mass balance from CCSM
+    integer,                  optional,intent(in)  :: gcm_nec     !*FD number of elevation classes for GCM input
+    logical,                  optional,intent(in)  :: gcm_smb     !*FD true if getting sfc mass balance from a GCM
     real(rk),dimension(:,:,:),optional,intent(out) :: gfrac       !*FD ice fractional area [0,1]
     real(rk),dimension(:,:,:),optional,intent(out) :: gtopo       !*FD surface elevation (m)
     real(rk),dimension(:,:,:),optional,intent(out) :: grofi       !*FD ice runoff (kg/m^2/s = mm H2O/s)
     real(rk),dimension(:,:,:),optional,intent(out) :: grofl       !*FD liquid runoff (kg/m^2/s = mm H2O/s)
     real(rk),dimension(:,:,:),optional,intent(out) :: ghflx       !*FD heat flux (W/m^2, positive down)
     integer, dimension(:,:),  optional,intent(in)  :: gmask       !*FD mask = 1 where global data are valid
-
+    logical,                  optional,intent(in)  :: gcm_restart ! logical flag to hotstart from a GCM restart file
+                                                                  ! (currently assumed to be CESM)
     ! Internal variables -----------------------------------------------------------------------
 
     type(ConfigSection), pointer :: global_config, instance_config, section  ! configuration stuff
@@ -276,32 +254,14 @@ contains
 
     real(rk),dimension(:,:,:),allocatable ::   &
                gfrac_temp, gtopo_temp, grofi_temp, grofl_temp, ghflx_temp    ! Temporary output arrays
-    integer :: nec       ! number of elevation classes
-    integer :: nxg, nyg  ! global grid dimensions
-    integer :: nxl, nyl  ! local grid dimensions
     integer :: n
-    logical :: ccsm_smb  ! true if getting sfc mass balance from CCSM    
+    integer :: nec       ! number of elevation classes
     real(rk) :: timeyr   ! time in years
 
 #ifdef GLC_DEBUG
     integer :: j, ii, jj
     write(stdout,*) 'Starting initialise_glint'
 #endif
-
-    ! Initialisation for coupled runs using CCSM
- 
-    if (present(ccsm_smb_in)) then
-       ccsm_smb = ccsm_smb_in
-    else
-       ccsm_smb = .false.
-    endif
-
-    if (ccsm_smb) then
-       nxg = size(gfrac,1)
-       nyg = size(gfrac,2)
-       nec = size(gfrac,3)
-       params%glc_nec = nec
-    endif
 
     ! Initialise start time and calling model time-step ----------------------------------------
     ! We ignore t=0 by default 
@@ -315,6 +275,23 @@ contains
     end if
 
     params%next_av_start = params%start_time
+
+    ! Initialisation for runs where the surface mass balance is received from a GCM
+ 
+    params%gcm_smb = .false.
+    if (present(gcm_smb)) then
+       params%gcm_smb = gcm_smb
+    endif
+
+    params%gcm_restart = .false.
+    if (present(gcm_restart)) then
+       params%gcm_restart = gcm_restart
+    endif
+
+    nec = 1
+    if (present(gcm_nec)) then
+       nec = gcm_nec
+    endif
 
 #ifdef GLC_DEBUG
     write(stdout,*) 'time_step =', params%time_step
@@ -331,15 +308,14 @@ contains
 #ifdef GLC_DEBUG
        write(stdout,*) 'Initialize global grid'
        write(stdout,*) 'present =', present(gmask)
-       call flush(stdout)
 #endif
 
     ! Initialise main global grid --------------------------------------------------------------
 
     if (present(gmask)) then
-       call new_global_grid(params%g_grid, longs, lats, lonb=lonb, latb=latb, mask=gmask)
+       call new_global_grid(params%g_grid, longs, lats, lonb=lonb, latb=latb, nec=nec, mask=gmask)
     else
-       call new_global_grid(params%g_grid, longs, lats, lonb=lonb, latb=latb)
+       call new_global_grid(params%g_grid, longs, lats, lonb=lonb, latb=latb, nec=nec)
     endif
 
 #ifdef GLC_DEBUG
@@ -376,10 +352,10 @@ contains
 
     ! Allocate arrays -----------------------------------------------
 
-!lipscomb - to do - not sure the following routine needs to be called for CCSM runs
+!lipscomb - TO DO - The following arrays may not be needed for gcm_smb runs
     call glint_allocate_arrays(params)
 
-    if (ccsm_smb) call glint_allocate_arrays_ccsm(params)
+    if (params%gcm_smb) call glint_allocate_arrays_gcm(params)
 
     ! Initialise arrays ---------------------------------------------
 
@@ -395,8 +371,8 @@ contains
     params%g_av_swdown  = 0.0
     params%g_av_airpress = 0.0
 
-    if (ccsm_smb) then
-       params%g_av_qice    = 0.0
+    if (params%gcm_smb) then
+       params%g_av_qsmb    = 0.0
        params%g_av_tsfc    = 0.0
        params%g_av_topo    = 0.0
     endif
@@ -460,7 +436,8 @@ contains
                                params%g_grid,      params%g_grid_orog,   &
                                mbts(i),            idts(i),              &
                                params%need_winds,  params%enmabal,       &
-                               params%start_time,  params%time_step)
+                               params%start_time,  params%time_step,     &
+                               params%gcm_restart)
 
        params%total_coverage = params%total_coverage + params%instances(i)%frac_coverage
        params%total_cov_orog = params%total_cov_orog + params%instances(i)%frac_cov_orog
@@ -544,12 +521,12 @@ contains
     allocate(svf_temp (params%g_grid%nx, params%g_grid%ny))
     allocate(sd_temp  (params%g_grid%nx, params%g_grid%ny))
 
-    if (ccsm_smb) then
-       allocate(gfrac_temp(nxg,nyg,nec))
-       allocate(gtopo_temp(nxg,nyg,nec))
-       allocate(grofi_temp(nxg,nyg,nec))
-       allocate(grofl_temp(nxg,nyg,nec))
-       allocate(ghflx_temp(nxg,nyg,nec))
+    if (params%gcm_smb) then
+       allocate(gfrac_temp(params%g_grid%nx,params%g_grid%ny,params%g_grid%nec))
+       allocate(gtopo_temp(params%g_grid%nx,params%g_grid%ny,params%g_grid%nec))
+       allocate(grofi_temp(params%g_grid%nx,params%g_grid%ny,params%g_grid%nec))
+       allocate(grofl_temp(params%g_grid%nx,params%g_grid%ny,params%g_grid%nec))
+       allocate(ghflx_temp(params%g_grid%nx,params%g_grid%ny,params%g_grid%nec))
     endif
 
 #ifdef GLC_DEBUG
@@ -594,20 +571,18 @@ contains
             snow_depth = splice_field(snow_depth,sd_temp,params%instances(i)%frac_coverage, &
             params%cov_normalise)
 
-       if (ccsm_smb) then
+       if (params%gcm_smb) then
 
-          nxl = params%instances(i)%lgrid%size%pt(1)
-          nyl = params%instances(i)%lgrid%size%pt(2)
+!lipscomb - TO DO - These temp arrays are not currently upscaled correctly
+          call get_i_upscaled_fields_gcm(params%instances(i), params%g_grid%nec,  &
+                                         params%instances(i)%lgrid%size%pt(1),    &
+                                         params%instances(i)%lgrid%size%pt(2),    &
+                                         params%g_grid%nx,    params%g_grid%ny,   &
+                                         gfrac_temp,          gtopo_temp,         &
+                                         grofi_temp,          grofl_temp,         &
+                                         ghflx_temp)
 
-!lipscomb - to do - Compute these temporary arrays in the subroutine call
-          call get_i_upscaled_fields_ccsm(params%instances(i), nec,          &
-                                          nxl,                 nyl,          &
-                                          nxg,                 nyg,          &
-                                          gfrac_temp,          gtopo_temp,   &
-                                          grofi_temp,          grofl_temp,   &
-                                          ghflx_temp)
-
-          do n = 1, nec
+          do n = 1, params%g_grid%nec
 
              if (present(gfrac))    &
                 gfrac(:,:,n) = splice_field(gfrac(:,:,n),                      &
@@ -641,14 +616,14 @@ contains
 
           enddo  ! nec
 
-       endif     ! ccsm_smb
+       endif     ! gcm_smb
 
     end do
 
     ! Deallocate
 
     deallocate(orog_temp, alb_temp, if_temp, vf_temp, sif_temp, svf_temp,sd_temp)
-    if (ccsm_smb) deallocate(gfrac_temp, gtopo_temp, grofi_temp, grofl_temp, ghflx_temp)
+    if (params%gcm_smb) deallocate(gfrac_temp, gtopo_temp, grofi_temp, grofl_temp, ghflx_temp)
 
     ! Sort out snow_model flag
 
@@ -681,8 +656,7 @@ contains
                    water_in,       water_out,       &
                    total_water_in, total_water_out, &
                    ice_volume,     ice_tstep,       &
-                   ccsm_smb_in,                     &
-                   qice,           tsfc,            &
+                   qsmb,           tsfc,            &
                    topo,           gfrac,           &
                    gtopo,          grofi,           &
                    grofl,          ghflx)
@@ -736,8 +710,7 @@ contains
     real(rk),               optional,intent(inout) :: ice_volume      !*FD Total ice volume (m$^3$)
     logical,                optional,intent(out)   :: ice_tstep       !*FD Set when an ice-timestep has been done, and
                                                                       !*FD water balance information is available
-    logical,                  optional,intent(in)    :: ccsm_smb_in   ! true if getting sfc mass balance from CCSM
-    real(rk),dimension(:,:,:),optional,intent(in)    :: qice          ! flux of glacier ice (kg/m^2/s)
+    real(rk),dimension(:,:,:),optional,intent(in)    :: qsmb          ! flux of glacier ice (kg/m^2/s)
     real(rk),dimension(:,:,:),optional,intent(in)    :: tsfc          ! surface ground temperature (deg C)
     real(rk),dimension(:,:,:),optional,intent(in)    :: topo          ! surface elevation (m)
     real(rk),dimension(:,:,:),optional,intent(inout) :: gfrac         ! ice fractional area [0,1]
@@ -773,13 +746,6 @@ contains
        grofl_temp    ,&! grofl for a single instance
        ghflx_temp      ! ghflx for a single instance
 
-    integer ::    &
-        nxl, nyl,     &! local grid dimensions
-        nxg, nyg,     &! global grid dimensions
-        nec            ! no. of elevation classes
-
-    logical :: ccsm_smb  ! true if getting sfc mass balance from CCSM
-
 #ifdef GLC_DEBUG
 !       write (stdout,*) 'In subroutine glint, current time (hr) =', time
 !       write (stdout,*) 'av_start_time =', params%av_start_time
@@ -804,20 +770,6 @@ contains
           call write_log(message,GM_FATAL,__FILE__,__LINE__)
        end if
     end if
-
-    ! Set CCSM variables
-
-    if (present(ccsm_smb_in)) then
-       ccsm_smb = ccsm_smb_in
-    else
-       ccsm_smb = .false.
-    endif
-
-    if (ccsm_smb) then
-       nxg = size(qice,1)
-       nyg = size(qice,2)
-       nec = size(qice,3)
-    endif
 
     ! Check input fields are correct ----------------------------------------------------------------
 
@@ -848,7 +800,7 @@ contains
                              humid,   lwdown,  &
                              swdown,  airpress)
 
-    if (ccsm_smb) call accumulate_averages_ccsm(params, qice, tsfc, topo)
+    if (params%gcm_smb) call accumulate_averages_gcm(params, qsmb, tsfc, topo)
 
     ! Increment step counter
 
@@ -890,12 +842,12 @@ contains
        allocate(sd_temp(size(orog,1),size(orog,2)))
        allocate(wout_temp(size(orog,1),size(orog,2)))
        allocate(win_temp(size(orog,1),size(orog,2)))
-       if (ccsm_smb) then
-          allocate(gfrac_temp(nxg,nyg,nec))
-          allocate(gtopo_temp(nxg,nyg,nec))
-          allocate(grofi_temp(nxg,nyg,nec))
-          allocate(grofl_temp(nxg,nyg,nec))
-          allocate(ghflx_temp(nxg,nyg,nec))
+       if (params%gcm_smb) then
+          allocate(gfrac_temp(params%g_grid%nx,params%g_grid%ny,params%g_grid%nec))
+          allocate(gtopo_temp(params%g_grid%nx,params%g_grid%ny,params%g_grid%nec))
+          allocate(grofi_temp(params%g_grid%nx,params%g_grid%ny,params%g_grid%nec))
+          allocate(grofl_temp(params%g_grid%nx,params%g_grid%ny,params%g_grid%nec))
+          allocate(ghflx_temp(params%g_grid%nx,params%g_grid%ny,params%g_grid%nec))
        endif
 
        ! Populate output flag derived type
@@ -934,7 +886,7 @@ contains
        ! since last model timestep.
 
        call calculate_averages(params)
-       if (ccsm_smb) call calculate_averages_ccsm(params)
+       if (params%gcm_smb) call calculate_averages_gcm(params)
 
        ! Calculate total accumulated precipitation - multiply
        ! by time since last model timestep
@@ -952,11 +904,11 @@ contains
            write(stdout,*) 'av_steps =', real(params%av_steps,rk)
            write(stdout,*) 'tstep_mbal (hr) =', params%tstep_mbal
            write(stdout,*) 'i, j =', i, j
-           if (ccsm_smb) then
-            do n = 1, nec
+           if (params%gcm_smb) then
+            do n = 1, params%g_grid%nec
               write (stdout,*) ' '
               write (stdout,*) 'n =', n
-              write (stdout,*) 'g_av_qice (kg m-2 s-1) =', params%g_av_qice(i,j,n)
+              write (stdout,*) 'g_av_qsmb (kg m-2 s-1) =', params%g_av_qsmb(i,j,n)
               write (stdout,*) 'g_av_tsfc (Celsius) =',    params%g_av_tsfc(i,j,n)
               write (stdout,*) 'g_av_topo (m) =',          params%g_av_topo(i,j,n)
             enddo
@@ -965,20 +917,20 @@ contains
 #endif
 
        ! Calculate total surface mass balance - multiply by time since last model timestep
-       ! Note on units: We want g_av_qice to have units of m per time step.
+       ! Note on units: We want g_av_qsmb to have units of m per time step.
        ! Divide by 1000 to convert from mm to m.
        ! Multiply by 3600 to convert from 1/s to 1/hr.  (tstep_mbal has units of hours)
 
-       if (ccsm_smb) &
-          params%g_av_qice(:,:,:) = params%g_av_qice(:,:,:) * params%tstep_mbal * hours2seconds / 1000._rk
+       if (params%gcm_smb) &
+          params%g_av_qsmb(:,:,:) = params%g_av_qsmb(:,:,:) * params%tstep_mbal * hours2seconds / 1000._rk
 
        ! Do a timestep for each instance
 
        do i=1,params%ninstances
 
-          if (ccsm_smb) then
+          if (params%gcm_smb) then
 
-             !lipscomb - to do - Make some of these arguments optional?
+             !lipscomb - TO DO - Make some of these arguments optional?
 
              call glint_i_tstep(time,      params%instances(i),          &
                   params%g_av_temp,        params%g_temp_range,          &
@@ -994,8 +946,8 @@ contains
                   twin_temp,               twout_temp,                   &
                   icevol_temp,             out_f,                        &
                   .true.,                  icets,                        &
-                  ccsm_smb_in = ccsm_smb,                                &
-                  qice_g = params%g_av_qice, tsfc_g = params%g_av_tsfc,  &
+                  gcm_smb_in = params%gcm_smb,                           &
+                  qsmb_g = params%g_av_qsmb, tsfc_g = params%g_av_tsfc,  &
                   topo_g = params%g_av_topo, gmask  = params%g_grid%mask,&
                   gfrac  = gfrac_temp,       gtopo  = gtopo_temp,        &
                   grofi  = grofi_temp,       grofl  = grofl_temp,        &
@@ -1067,24 +1019,22 @@ contains
 
           ! Upscale the output to elevation classes on the global grid
 
-          if (ccsm_smb) then
+          if (params%gcm_smb) then
 
-             nxl = params%instances(i)%lgrid%size%pt(1)
-             nyl = params%instances(i)%lgrid%size%pt(2)
-
-             call get_i_upscaled_fields_ccsm(params%instances(i), nec,          &
-                                             nxl,                 nyl,          &
-                                             nxg,                 nyg,          &
-                                             gfrac_temp,          gtopo_temp,   &
-                                             grofi_temp,          grofl_temp,   &
-                                             ghflx_temp )
+             call get_i_upscaled_fields_gcm(params%instances(i), params%g_grid%nec, &
+                                            params%instances(i)%lgrid%size%pt(1),   &
+                                            params%instances(i)%lgrid%size%pt(2),   &
+                                            params%g_grid%nx,    params%g_grid%ny,  &
+                                            gfrac_temp,          gtopo_temp,        &
+                                            grofi_temp,          grofl_temp,        &
+                                            ghflx_temp )
 
 #ifdef GLC_DEBUG
              ig = itest
              jg = jjtest
              write(stdout,*) ' '
              write(stdout,*) 'After upscaling:'
-             do n = 1, nec
+             do n = 1, params%g_grid%nec
                write(stdout,*) ' '
                write(stdout,*) 'n =', n
                write(stdout,*) 'gfrac(n) =', gfrac(ig,jg,n)
@@ -1097,7 +1047,7 @@ contains
 
           ! Add this contribution to the global output
 
-             do n = 1, nec
+             do n = 1, params%g_grid%nec
 
                 gfrac(:,:,n) = splice_field(gfrac(:,:,n),                      &
                                             gfrac_temp(:,:,n),                 &
@@ -1126,7 +1076,7 @@ contains
 
              enddo   ! nec
 
-          endif   ! ccsm_smb
+          endif   ! gcm_smb
 
           ! write ice sheet diagnostics
           if (mod(params%instances(i)%model%numerics%timecounter,  &
@@ -1163,8 +1113,8 @@ contains
        params%g_temp_range = 0.0
        params%g_max_temp   = -1000.0
        params%g_min_temp   = 1000.0
-       if (ccsm_smb) then
-          params%g_av_qice    = 0.0
+       if (params%gcm_smb) then
+          params%g_av_qsmb    = 0.0
           params%g_av_tsfc    = 0.0
           params%g_av_topo    = 0.0
        endif
@@ -1174,7 +1124,7 @@ contains
        params%next_av_start = time+params%time_step
 
        deallocate(albedo_temp,if_temp,vf_temp,sif_temp,svf_temp,sd_temp,wout_temp,win_temp,orog_out_temp)
-       if (ccsm_smb) deallocate(gfrac_temp, gtopo_temp, grofi_temp, grofl_temp, ghflx_temp)
+       if (params%gcm_smb) deallocate(gfrac_temp, gtopo_temp, grofi_temp, grofl_temp, ghflx_temp)
 
     endif
 
@@ -1182,14 +1132,16 @@ contains
 
   !===================================================================
 
-  subroutine end_glint(params)
+  subroutine end_glint(params,close_logfile)
 
     !*FD perform tidying-up operations for glimmer
     use glint_initialise
     use glimmer_log
     implicit none
 
-    type(glint_params),intent(inout) :: params          !*FD parameters for this run
+    type(glint_params),intent(inout) :: params          ! parameters for this run
+    logical, intent(in), optional    :: close_logfile   ! if true, then close the log file
+                                                        ! (GCM may do this elsewhere)                                  
 
     integer i
 
@@ -1199,10 +1151,11 @@ contains
        call glint_i_end(params%instances(i))
     enddo
 
-!lipscomb - to do - figure out a clean way to handle this
-! Currently, the close_log command must be commented out for CCSM runs
-
-    call close_log
+    if (present(close_logfile)) then
+       if (close_logfile) call close_log
+    else
+          call close_log
+    endif
 
   end subroutine end_glint
 
@@ -1245,139 +1198,6 @@ contains
 
   !=====================================================
 
-!MH!  subroutine glint_write_mod_rst(rfile)
-!MH!
-!MH!    use glimmer_log
-!MH!    use glimmer_restart_common
-!MH!
-!MH!#ifdef RESTARTS
-!MH!    use glint_global_grid
-!MH!    use glint_interp
-!MH!    use glint_mbal_coupling
-!MH!    use glint_mbal
-!MH!    use glint_smb
-!MH!    use glint_type
-!MH!#endif
-!MH!
-!MH!    type(restart_file) :: rfile      !*FD Open restart file 
-!MH!
-!MH!#ifdef RESTARTS
-!MH!    call glint_main_modrsw(rfile)
-!MH!    call glint_global_grid_modrsw(rfile)
-!MH!    call glint_interp_modrsw(rfile)
-!MH!    call glint_mbal_coupling_modrsw(rfile)
-!MH!    call glint_mbal_modrsw(rfile)
-!MH!    call glint_smb_modrsw(rfile)
-!MH!    call glint_type_modrsw(rfile)
-!MH!#else
-!MH!    call write_log('No restart code available - rebuild GLIMMER with --enable-restarts',GM_FATAL)
-!MH!#endif
-!MH!
-!MH!  end subroutine glint_write_mod_rst
-!MH!
-!MH!  !=====================================================
-!MH!
-!MH!  subroutine glint_read_mod_rst(rfile)
-!MH!
-!MH!    use glimmer_log
-!MH!    use glimmer_restart_common
-!MH!
-!MH!#ifdef RESTARTS
-!MH!    use glint_global_grid
-!MH!    use glint_interp
-!MH!    use glint_mbal_coupling
-!MH!    use glint_mbal
-!MH!    use glint_smb
-!MH!    use glint_type
-!MH!#endif
-!MH!
-!MH!    type(restart_file) :: rfile      !*FD Open restart file 
-!MH!
-!MH!#ifdef RESTARTS
-!MH!    call glint_main_modrsr(rfile)
-!MH!    call glint_global_grid_modrsr(rfile)
-!MH!    call glint_interp_modrsr(rfile)
-!MH!    call glint_mbal_coupling_modrsr(rfile)
-!MH!    call glint_mbal_modrsr(rfile)
-!MH!    call glint_smb_modrsr(rfile)
-!MH!    call glint_type_modrsr(rfile)
-!MH!#else
-!MH!    call write_log('No restart code available - rebuild GLIMMER with --enable-restarts',GM_FATAL)
-!MH!#endif
-!MH!    
-!MH!  end subroutine glint_read_mod_rst
-!MH!
-!MH!  !-------------------------------------------------------------------
-!MH!
-!MH!  subroutine glint_write_restart(model,rfile)
-!MH!
-!MH!    use glimmer_log
-!MH!    use glimmer_restart
-!MH!    use glimmer_restart_common
-!MH!    use glide
-!MH!    implicit none
-!MH!
-!MH!    type(glint_params) :: model !*FD model instance
-!MH!    type(restart_file) :: rfile !*FD Open restart file     
-!MH!
-!MH!#ifdef RESTARTS
-!MH!    call glimmer_write_mod_rst(rfile)
-!MH!    call glide_write_mod_rst(rfile)
-!MH!    call glint_write_mod_rst(rfile)
-!MH!    call rsw_glint_params(rfile,model)
-!MH!#else
-!MH!    call write_log('No restart code available - rebuild GLIMMER with --enable-restarts',GM_FATAL)
-!MH!#endif
-!MH!
-!MH!  end subroutine glint_write_restart
-!MH!
-!MH!  !-------------------------------------------------------------------
-!MH!
-!MH!  subroutine glint_read_restart(model,rfile,prefix)
-!MH!
-!MH!    use glimmer_log
-!MH!    use glimmer_restart
-!MH!    use glimmer_restart_common
-!MH!    use glide
-!MH!    use glint_io
-!MH!    use glint_mbal_io
-!MH!    use glimmer_ncio
-!MH!    implicit none
-!MH!
-!MH!    type(glint_params) :: model !*FD model instance
-!MH!    type(restart_file) :: rfile !*FD Open restart file  
-!MH!    integer :: i
-!MH!    character(*),optional,intent(in) :: prefix !*FD prefix for new output files
-!MH!
-!MH!    character(40) :: pf
-!MH!
-!MH!    if (present(prefix)) then
-!MH!       pf = prefix
-!MH!    else
-!MH!       pf = 'RESTART_'
-!MH!    end if
-!MH!
-!MH!#ifdef RESTARTS
-!MH!    call glimmer_read_mod_rst(rfile)
-!MH!    call glide_read_mod_rst(rfile)
-!MH!    call glint_read_mod_rst(rfile)
-!MH!    call rsr_glint_params(rfile,model)
-!MH!    do i=1,model%ninstances
-!MH!       call nc_repair_outpoint(model%instances(i)%model%funits%out_first)
-!MH!       call nc_repair_inpoint(model%instances(i)%model%funits%in_first)
-!MH!       call nc_prefix_outfiles(model%instances(i)%model%funits%out_first,trim(pf))
-!MH!       call openall_out(model%instances(i)%model)
-!MH!       call glide_io_createall(model%instances(i)%model)
-!MH!       call glint_io_createall(model%instances(i)%model)
-!MH!       call glint_mbal_io_createall(model%instances(i)%model)
-!MH!       call glide_nc_fillall(model%instances(i)%model)
-!MH!    end do
-!MH!#else
-!MH!    call write_log('No restart code available - rebuild GLIMMER with --enable-restarts',GM_FATAL)
-!MH!#endif
-!MH!
-!MH!  end subroutine glint_read_restart
-
   !----------------------------------------------------------------------
   ! PRIVATE INTERNAL GLIMMER SUBROUTINES FOLLOW.............
   !----------------------------------------------------------------------
@@ -1411,21 +1231,21 @@ contains
 
   !========================================================
 
-  subroutine glint_allocate_arrays_ccsm(params)
+  subroutine glint_allocate_arrays_gcm(params)
 
-    !*FD allocates glimmer arrays for CCSM input fields
+    !*FD allocates glimmer arrays for GCM input fields
 
     implicit none
 
     type(glint_params),intent(inout) :: params !*FD ice model parameters
 
-    ! input fields from CCSM
+    ! input fields from GCM
 
-    allocate(params%g_av_qice (params%g_grid%nx, params%g_grid%ny, params%glc_nec))
-    allocate(params%g_av_tsfc (params%g_grid%nx, params%g_grid%ny, params%glc_nec))
-    allocate(params%g_av_topo (params%g_grid%nx, params%g_grid%ny, params%glc_nec))
+    allocate(params%g_av_qsmb (params%g_grid%nx, params%g_grid%ny, params%g_grid%nec))
+    allocate(params%g_av_tsfc (params%g_grid%nx, params%g_grid%ny, params%g_grid%nec))
+    allocate(params%g_av_topo (params%g_grid%nx, params%g_grid%ny, params%g_grid%nec))
 
-  end subroutine glint_allocate_arrays_ccsm
+  end subroutine glint_allocate_arrays_gcm
 
   !========================================================
 
@@ -1692,20 +1512,20 @@ contains
 
   !========================================================
 
-  subroutine accumulate_averages_ccsm(params, qice, tsfc, topo)
+  subroutine accumulate_averages_gcm(params, qsmb, tsfc, topo)
 
     type(glint_params),              intent(inout) :: params   !*FD parameters for this run
-    real(rk),dimension(:,:,:),optional,intent(in)  :: qice     ! flux of glacier ice (kg/m^2/s)
+    real(rk),dimension(:,:,:),optional,intent(in)  :: qsmb     ! flux of glacier ice (kg/m^2/s)
     real(rk),dimension(:,:,:),optional,intent(in)  :: tsfc     ! surface ground temperature (C)
     real(rk),dimension(:,:,:),optional,intent(in)  :: topo     ! surface elevation (m)
 
-    if (present(qice)) params%g_av_qice(:,:,:) = params%g_av_qice(:,:,:) + qice(:,:,:)
+    if (present(qsmb)) params%g_av_qsmb(:,:,:) = params%g_av_qsmb(:,:,:) + qsmb(:,:,:)
     if (present(tsfc)) params%g_av_tsfc(:,:,:) = params%g_av_tsfc(:,:,:) + tsfc(:,:,:)
     if (present(topo)) params%g_av_topo(:,:,:) = params%g_av_topo(:,:,:) + topo(:,:,:)
 
-!lipscomb - to do - No need to accumulate topo?
+!lipscomb - TO DO - No need to accumulate topo?
 
-  end subroutine accumulate_averages_ccsm
+  end subroutine accumulate_averages_gcm
 
   !========================================================
 
@@ -1728,16 +1548,16 @@ contains
 
   !========================================================
 
-  subroutine calculate_averages_ccsm(params)
+  subroutine calculate_averages_gcm(params)
 
     type(glint_params),              intent(inout) :: params   !*FD parameters for this run
 
-!lipscomb - to do - Do not average topo?  Remove 'rk' here?
-    params%g_av_qice(:,:,:) = params%g_av_qice(:,:,:) / real(params%av_steps,rk)
+!lipscomb - TO DO - Do not average topo?  Remove 'rk' here?
+    params%g_av_qsmb(:,:,:) = params%g_av_qsmb(:,:,:) / real(params%av_steps,rk)
     params%g_av_tsfc(:,:,:) = params%g_av_tsfc(:,:,:) / real(params%av_steps,rk)
     params%g_av_topo(:,:,:) = params%g_av_topo(:,:,:) / real(params%av_steps,rk)
 
-  end subroutine calculate_averages_ccsm
+  end subroutine calculate_averages_gcm
 
   !========================================================
 

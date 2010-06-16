@@ -1,41 +1,28 @@
-! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-! +                                                           +
-! +  glint_initialise.f90 - part of the GLIMMER ice model     + 
-! +                                                           +
-! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! +                                                            +
+! +  glint_initialise.f90 - part of the Glimmer-CISM ice model + 
+! +                                                            +
+! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! 
-! Copyright (C) 2004 GLIMMER contributors - see COPYRIGHT file 
-! for list of contributors.
+! Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010
+! Glimmer-CISM contributors - see AUTHORS file for list of contributors
 !
-! This program is free software; you can redistribute it and/or 
-! modify it under the terms of the GNU General Public License as 
-! published by the Free Software Foundation; either version 2 of 
-! the License, or (at your option) any later version.
+! This file is part of Glimmer-CISM.
 !
-! This program is distributed in the hope that it will be useful, 
-! but WITHOUT ANY WARRANTY; without even the implied warranty of 
-! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+! Glimmer-CISM is free software: you can redistribute it and/or modify
+! it under the terms of the GNU General Public License as published by
+! the Free Software Foundation, either version 2 of the License, or (at
+! your option) any later version.
+!
+! Glimmer-CISM is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ! GNU General Public License for more details.
 !
-! You should have received a copy of the GNU General Public License 
-! along with this program; if not, write to the Free Software 
-! Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 
-! 02111-1307 USA
+! You should have received a copy of the GNU General Public License
+! along with Glimmer-CISM.  If not, see <http://www.gnu.org/licenses/>.
 !
-! GLIMMER is maintained by:
-!
-! Ian Rutt
-! School of Geographical Sciences
-! University of Bristol
-! University Road
-! Bristol
-! BS8 1SS
-! UK
-!
-! email: <i.c.rutt@bristol.ac.uk> or <ian.rutt@physics.org>
-!
-! GLIMMER is hosted on berliOS.de:
-!
+! Glimmer-CISM is hosted on BerliOS.de:
 ! https://developer.berlios.de/projects/glimmer-cism/
 !
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -59,7 +46,8 @@ contains
                                 grid,        grid_orog,  &
                                 mbts,        idts,       &
                                 need_winds,  enmabal,    &
-                                force_start, force_dt)
+                                force_start, force_dt,   &
+                                gcm_restart)
 
     !*FD Initialise a GLINT ice model instance
 
@@ -71,6 +59,7 @@ contains
     use glide
     use glimmer_log
     use glint_constants
+    use glc_io
     implicit none
 
     ! Arguments
@@ -84,6 +73,7 @@ contains
     logical,               intent(inout) :: enmabal     !*FD Set if this instance uses the energy balance mass-bal model
     integer,               intent(in)    :: force_start !*FD The glint forcing start time (hours)
     integer,               intent(in)    :: force_dt    !*FD The glint forcing time step (hours)
+    logical,     optional, intent(in)    :: gcm_restart !*FD Logical flag to read from a hotstart file
 
     ! Internal
     real(sp),dimension(:,:),allocatable :: thk
@@ -91,6 +81,25 @@ contains
     ! initialise model
 
     call glide_config(instance%model, config)
+
+    ! if this is a continuation run, then set up to read restart
+    ! (currently assumed to be a CESM restart file)
+
+    if (present(gcm_restart)) then
+
+      ! CESM-ize the glint output names
+      ! (Need a different suffix if using another GCM)
+      call glc_io_create_suffix_cesm(instance%model)
+
+      if (gcm_restart) then
+
+         ! read the hotstart file
+         call glc_io_read_restart(instance%model)
+         instance%model%options%hotstart = 1
+
+      endif
+    endif
+
     call glide_initialise(instance%model)
     instance%ice_tstep = get_tinc(instance%model)*years2hours
     instance%glide_time = instance%model%numerics%tstart
@@ -188,8 +197,7 @@ contains
        instance%mbal_accum_time = max(instance%ice_tstep,instance%mbal_tstep)
 #ifdef GLC_DEBUG
 !Set mbal_accum_time = mbal_tstep
-!lipscomb - Uncomment for short runs?
-! to do - Make it easy to run Glimmer/Glint for ~5 days, e.g. for CCSM smoke tests,
+! lipscomb - TO DO - Make it easy to run Glimmer/Glint for ~5 days, e.g. for CESM smoke tests,
 !         with all major components exercised. 
 !!       instance%mbal_accum_time = instance%mbal_tstep
 !!       write(6,*) 'WARNING: Seting mbal_accum_time =', instance%mbal_accum_time
@@ -226,7 +234,7 @@ contains
     end if
 
 !This was commented out because it destroys exact restart
-!lipscomb - to do - Find another way to set thk to snowd?
+!lipscomb - TO DO - Find another way to set thk to snowd?
     ! Copy snow-depth to thickness if no thickness is present
 
 !!    allocate(thk(get_ewn(instance%model),get_nsn(instance%model)))

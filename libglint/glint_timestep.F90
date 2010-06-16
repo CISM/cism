@@ -1,41 +1,28 @@
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
-! +  glint_timestep.f90 - part of the GLIMMER ice model       + 
+! +  glint_timestep.f90 - part of the Glimmer-CISM ice model  + 
 ! +                                                           +
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! 
-! Copyright (C) 2004 GLIMMER contributors - see COPYRIGHT file 
-! for list of contributors.
+! Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010
+! Glimmer-CISM contributors - see AUTHORS file for list of contributors
 !
-! This program is free software; you can redistribute it and/or 
-! modify it under the terms of the GNU General Public License as 
-! published by the Free Software Foundation; either version 2 of 
-! the License, or (at your option) any later version.
+! This file is part of Glimmer-CISM.
 !
-! This program is distributed in the hope that it will be useful, 
-! but WITHOUT ANY WARRANTY; without even the implied warranty of 
-! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+! Glimmer-CISM is free software: you can redistribute it and/or modify
+! it under the terms of the GNU General Public License as published by
+! the Free Software Foundation, either version 2 of the License, or (at
+! your option) any later version.
+!
+! Glimmer-CISM is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ! GNU General Public License for more details.
 !
-! You should have received a copy of the GNU General Public License 
-! along with this program; if not, write to the Free Software 
-! Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 
-! 02111-1307 USA
+! You should have received a copy of the GNU General Public License
+! along with Glimmer-CISM.  If not, see <http://www.gnu.org/licenses/>.
 !
-! GLIMMER is maintained by:
-!
-! Ian Rutt
-! School of Geographical Sciences
-! University of Bristol
-! University Road
-! Bristol
-! BS8 1SS
-! UK
-!
-! email: <i.c.rutt@bristol.ac.uk> or <ian.rutt@physics.org>
-!
-! GLIMMER is hosted on berliOS.de:
-!
+! Glimmer-CISM is hosted on BerliOS.de:
 ! https://developer.berlios.de/projects/glimmer-cism/
 !
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -68,8 +55,8 @@ contains
                            t_win,           t_wout,         &
                            ice_vol,         out_f,          &
                            orogflag,        ice_tstep,      &
-                           ccsm_smb_in,                     &
-                           qice_g,          tsfc_g,         &
+                           gcm_smb_in,                      &
+                           qsmb_g,          tsfc_g,         &
                            topo_g,          gmask,          &
                            gfrac,           gtopo,          &
                            grofi,           grofl,          &
@@ -79,11 +66,9 @@ contains
     !*FD Note that input quantities here are accumulated/average totals since the
     !*FD last call.
     !
-    ! to do - 
-    ! This code will need to be altered to take account of the 
-    ! energy-balance mass-balance model when it is completed.
+    ! TO DO - The interface requires many arguments that may not be needed.
     ! Some of these arguments (e.g., zonwind, merwind, humid, lwdown, swdown, airpress)
-    ! should probably be made optional.
+    ! should be made optional.
     
     use glide
     use glide_setup
@@ -92,7 +77,7 @@ contains
     use glint_io
     use glint_mbal_io
     use glint_climate
-    use glint_routing
+    use glimmer_routing
     use glimmer_log
     use glimmer_physcon, only: rhow,rhoi
     use glide_mask, only: glide_mask_ocean
@@ -132,8 +117,8 @@ contains
     type(output_flags),     intent(in)   :: out_f        !*FD Flags to tell us whether to do output   
     logical,                intent(in)   :: orogflag     !*FD Set if we have new global orog
     logical,                intent(out)  :: ice_tstep    !*FD Set if we have done an ice time step
-    logical,                  optional,intent(in)  :: ccsm_smb_in ! true if getting sfc mass balance from CCSM
-    real(rk),dimension(:,:,:),optional,intent(in)  :: qice_g    ! Depth of new ice (m)
+    logical,                  optional,intent(in)  :: gcm_smb_in ! true if getting sfc mass balance from a GCM
+    real(rk),dimension(:,:,:),optional,intent(in)  :: qsmb_g    ! Depth of new ice (m)
     real(rk),dimension(:,:,:),optional,intent(in)  :: tsfc_g    ! Surface temperature (C)
     real(rk),dimension(:,:,:),optional,intent(in)  :: topo_g    ! Surface elevation (m)
     integer, dimension(:,:),  optional,intent(in)  :: gmask     ! = 1 where global data are valid, else = 0
@@ -161,12 +146,11 @@ contains
     integer :: j, ii, jj, nx, ny, il, jl
 #endif
 
-    logical :: ccsm_smb   ! true if getting sfc mass balance from CCSM
+    logical :: gcm_smb   ! true if getting sfc mass balance from a GCM
 
-    if (present(ccsm_smb_in)) then
-       ccsm_smb = ccsm_smb_in
-    else
-       ccsm_smb = .false.
+    gcm_smb = .false.
+    if (present(gcm_smb_in)) then
+       gcm_smb = gcm_smb_in
     endif
 
     ! Zero outputs
@@ -200,10 +184,10 @@ contains
     ! Downscale input fields from global to local grid
     ! This subroutine computes instance%acab and instance%artm, the key inputs to GLIDE.
 
-    if (ccsm_smb) then
-       call glint_downscaling_ccsm (instance,              &
-                                    qice_g,      tsfc_g,   &
-                                    topo_g,      gmask)
+    if (gcm_smb) then
+       call glint_downscaling_gcm (instance,              &
+                                   qsmb_g,      tsfc_g,   &
+                                   topo_g,      gmask)
     else
        call glint_downscaling(instance,                  &
                               g_temp,     g_temp_range,  &
@@ -224,7 +208,7 @@ contains
     call glint_remove_bath(instance%local_orog,1,1)
 
 
-    if (.not. ccsm_smb) then
+    if (.not. gcm_smb) then
 
        ! ------------------------------------------------------------------------  
        ! Adjust the surface temperatures using the lapse-rate, by reducing to
@@ -239,18 +223,16 @@ contains
 
        call glint_calc_precip(instance)
 
-    endif   ! not ccsm_smb
+    endif   ! not gcm_smb
 
     ! Get ice thickness ----------------------------------------
-
-!lipscomb -  Note that thck_temp is single-precision. [to do - does this matter for exact restart?] 
 
     call glide_get_thk(instance%model,thck_temp)
 
     ! Do accumulation --------------------------------------------------------
 
-    if (ccsm_smb) then
-       call glint_accumulate_ccsm(instance%mbal_accum, time, instance%acab, instance%artm)
+    if (gcm_smb) then
+       call glint_accumulate_gcm(instance%mbal_accum, time, instance%acab, instance%artm)
     else
        call glint_accumulate(instance%mbal_accum, time, instance%artm, instance%arng, instance%prcp, &
                              instance%snowd, instance%siced, instance%xwind, instance%ywind, &
@@ -366,7 +348,7 @@ contains
 
           ! Add the calved ice to the ablation field
 
-!lipscomb - to do - Calving still needs to be added to the ice runoff.
+!lipscomb - TO DO - Calving needs to be added to the ice runoff.
 !                   Also add basal melting (bmlt) to the liquid runoff.
 
           call glide_get_calving(instance%model, calve_temp)
@@ -437,7 +419,7 @@ contains
 
        ! Now water output (i.e. ablation) - and do routing
 
-!lipscomb - to do - Modify (or skip?) the following for SMB option
+!lipscomb - TO DO - Modify (or skip?) the following for gcm_smb option
 
        if (out_f%water_out) then
           call coordsystem_allocate(instance%lgrid, upscale_temp)
