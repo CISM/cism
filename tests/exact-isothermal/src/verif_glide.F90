@@ -43,7 +43,7 @@ program verifglide
   use verif
   use verif_io
   use glimmer_commandline
-  use glimmer_writestats_module
+  use glimmer_writestats
   implicit none
 
   ! some variables
@@ -107,7 +107,7 @@ program verifglide
   call glide_finalise(model)
   call system_clock(clock,clock_rate)
   t2 = real(clock,kind=dp)/real(clock_rate,kind=dp)
-  call glimmer_writestats(commandline_resultsname,commandline_configname,t2-t1)
+  call glimmer_write_stats(commandline_resultsname,commandline_configname,t2-t1)
   call close_log
 
 end program verifglide

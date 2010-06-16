@@ -42,7 +42,7 @@ program glint_ebm_ex
   use glint_global_interp
   use glint_ebm_ex_clim
   use glint_commandline
-  use glimmer_writestats_module
+  use glimmer_writestats
   implicit none
 
   ! Program variables -------------------------------------------------------------------
@@ -207,7 +207,7 @@ program glint_ebm_ex
   call end_glint(ice_sheet)
   call system_clock(clock,clock_rate)
   t2 = real(clock,kind=dp)/real(clock_rate,kind=dp)
-  call glimmer_writestats(commandline_resultsname,commandline_configname,t2-t1)
+  call glimmer_write_stats(commandline_resultsname,commandline_configname,t2-t1)
 
 100 format(f9.5)
 101 format(e12.5)

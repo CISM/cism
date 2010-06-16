@@ -42,7 +42,7 @@ program glint_example
   use glint_global_interp
   use glint_example_clim
   use glint_commandline
-  use glimmer_writestats_module
+  use glimmer_writestats
   implicit none
 
   ! Program variables -------------------------------------------------------------------
@@ -185,16 +185,18 @@ program glint_example
      if (time>climate%total_years*climate%hours_in_year) exit
   end do
 
-!lipscomb - debug - Print time so as to have something to watch while the code runs
+#ifdef GLC_DEBUG
+     ! Print time so as to have something to watch while the code runs
      if (mod(real(time),8760.) < 0.01)   &
          print*, 'time (yr) =', real(time)/8760.
+#endif
 
   ! Finalise/tidy up everything ------------------------------------------------------------
 
   call end_glint(ice_sheet)
   call system_clock(clock,clock_rate)
   t2 = real(clock,kind=dp)/real(clock_rate,kind=dp)
-  call glimmer_writestats(commandline_resultsname,commandline_configname,t2-t1)
+  call glimmer_write_stats(commandline_resultsname,commandline_configname,t2-t1)
 
 100 format(f9.5)
 101 format(e12.5)

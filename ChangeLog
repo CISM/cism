@@ -1,3 +1,19 @@
+2011-06-16 William Lipscomb
+  * I had previously changed the name of glimmer_writestats_module to glimmer_writestats
+    to satisfy the CESM convention that module and file names should agree.
+    I had also changed subroutine glimmer_writestats to glimmer_write_stats so that it
+    would not conflict with the new module name.
+    With this commit I changed use statements and subroutine calls in various modules accordingly.
+  * Commented out references to CESM restart code in glint_initialise.F90.
+    Will find a more flexible solution later.
+  * Changed Makefile.am in libglint and example_drivers/glint/src, to reflect that
+    glint_example_clim.F90 has been moved to libglint
+	
+2010-06-16 William Lipscomb
+  * Remove use of CESM shared code in glimmer_config.F90.
+    (This code was used to specify a fileunit for reading config files.)
+    Instead, pass the desired fileunit in argument lists.
+	
 2010-06-16 Magnus Hagdorn
  * update copyright years to the years where the files were modified according
    to svn log

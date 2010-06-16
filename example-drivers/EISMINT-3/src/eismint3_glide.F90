@@ -43,7 +43,7 @@ program eismint3_glide
   use eismint3_forcing
   use eismint3_io
   use glimmer_commandline
-  use glimmer_writestats_module
+  use glimmer_writestats
   use glimmer_filenames, only : filenames_init
   implicit none
 
@@ -94,7 +94,7 @@ program eismint3_glide
   call glide_finalise(model)
   call system_clock(clock,clock_rate)
   t2 = real(clock,kind=dp)/real(clock_rate,kind=dp)
-  call glimmer_writestats(commandline_resultsname,commandline_configname,t2-t1)
+  call glimmer_write_stats(commandline_resultsname,commandline_configname,t2-t1)
   call close_log
 
 end program eismint3_glide

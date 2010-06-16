@@ -40,7 +40,7 @@ program simple_glide
   use glimmer_log
   use glimmer_config
   use glimmer_commandline
-  use glimmer_writestats_module
+  use glimmer_writestats
   use glimmer_filenames, only : filenames_init
   implicit none
 
@@ -93,7 +93,7 @@ program simple_glide
   call glide_finalise(model)
   call system_clock(clock,clock_rate)
   t2 = real(clock,kind=dp)/real(clock_rate,kind=dp)
-  call glimmer_writestats(commandline_resultsname,commandline_configname,t2-t1)
+  call glimmer_write_stats(commandline_resultsname,commandline_configname,t2-t1)
   call close_log
 
 end program simple_glide

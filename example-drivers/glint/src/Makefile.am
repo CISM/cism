@@ -7,7 +7,7 @@ CLEANFILES = $(BUILT_SOURCES) f90_dep.mak
 
 
 
-glint_example_SOURCES = glint_example.F90 glint_example_clim.F90
+glint_example_SOURCES = glint_example.F90
 glex_ebm_SOURCES = glex_ebm.F90 glex_ebm_clim.F90
 
 LDADD = $(top_builddir)/libglint/libglint.la  $(top_builddir)/libglide/libglide.la \

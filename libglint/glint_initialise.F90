@@ -59,7 +59,8 @@ contains
     use glide
     use glimmer_log
     use glint_constants
-    use glc_io
+!!    use glc_io   !lipscomb - TO DO - use ifdef for coupled CESM runs?
+
     implicit none
 
     ! Arguments
@@ -94,14 +95,15 @@ contains
 
     if (present(gcm_restart)) then
 
+!lipscomb - TO DO - use ifdef for coupled CESM runs?
       ! CESM-ize the glint output names
       ! (Need a different suffix if using another GCM)
-      call glc_io_create_suffix_cesm(instance%model)
+!!      call glc_io_create_suffix_cesm(instance%model)
 
       if (gcm_restart) then
 
          ! read the hotstart file
-         call glc_io_read_restart(instance%model)
+!!         call glc_io_read_restart(instance%model)
          instance%model%options%hotstart = 1
 
       endif
