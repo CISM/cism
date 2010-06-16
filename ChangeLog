@@ -1,3 +1,7 @@
+2010-06-16 Magnus Hagdorn
+ * Makefile.am: conditionally add libphaml directory
+ * configure.in: always generate libphaml/Makefile
+
 2010-06-15 William Lipscomb
  * Checked in the contents of the CESM source_glimmer-cism directory.
  * These include most of the *F90 and *vars_def files in the libglimmer,

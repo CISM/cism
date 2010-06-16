@@ -150,7 +150,7 @@ if test "$ac_cv_phaml_prefix" != ""; then
 fi
 AM_CONDITIONAL(USE_PHAML, test "$ac_cv_phaml_prefix" != "")
 AC_SUBST(ac_cv_phaml_prefix)
-AM_COND_IF([USE_PHAML],[AC_CONFIG_FILES([libphaml/Makefile])])
+AC_CONFIG_FILES([libphaml/Makefile])
 
 
 # checking for PHAML graphics
