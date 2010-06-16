@@ -1,3 +1,7 @@
+2010-06-15 William Lipscomb
+ * moved glint_example_clim.F90 from example_drivers/glint/src to libglint
+  (This module is not a driver, and it is needed for the CESM build.)
+
 2010-05-11 Magnus Hagdorn
  * m4macros/glimmer.m4: fix macro to look for new config script
 
