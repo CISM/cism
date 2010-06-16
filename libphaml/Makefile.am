@@ -1,13 +1,16 @@
 FC = $(MPIFC)
 
-bin_PROGRAMS =  phaml_slave simple_phaml 
-lib_LTLIBRARIES = libphaml_user_mod.la libphaml_support.la  \
-     libphaml_example.la libphaml_pde.la
-     
+#bin_PROGRAMS =  phaml_slave simple_phaml 
+ 
 if USE_PHAML_GRAPHICS
-	bin_PROGRAMS += phaml_graphics	
+	bin_PROGRAMS = phaml_slave simple_phaml phaml_graphics
+else
+    bin_PROGRAMS =  phaml_slave simple_phaml 
 endif
 
+lib_LTLIBRARIES = libphaml_user_mod.la libphaml_support.la  \
+     libphaml_example.la libphaml_pde.la
+    
 nodist_include_HEADERS := $(wildcard *.mod)
 EXTRA_DIST = f90_dep.mak 
 CLEANFILES = $(BUILT_SOURCES) f90_dep.mak $(wildcard *.mod)

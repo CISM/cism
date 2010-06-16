@@ -147,10 +147,11 @@ if test "$ac_cv_phaml_prefix" != ""; then
   AC_MSG_RESULT(phaml location: $ac_cv_phaml_prefix)
   AC_MSG_CHECKING([for PHAML interface])
   AC_LINK_IFELSE([AC_LANG_PROGRAM([],[use phaml])],AC_MSG_RESULT([yes]),AC_MSG_FAILURE([Can not link to PHAML Library]))
+  AC_CONFIG_FILES([libphaml/Makefile])
 fi
 AM_CONDITIONAL(USE_PHAML, test "$ac_cv_phaml_prefix" != "")
 AC_SUBST(ac_cv_phaml_prefix)
-AC_CONFIG_FILES([libphaml/Makefile])
+
 
 
 # checking for PHAML graphics
