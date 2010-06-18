@@ -161,9 +161,9 @@ AC_SUBST(ac_cv_phaml_prefix)
 # checking for PHAML graphics
 AC_ARG_WITH(phaml-graphics,AS_HELP_STRING([--with-phaml-graphics],[location F90GL library]),[ac_cv_phaml_graphics_prefix=$withval])
 if test "$ac_cv_phaml_graphics_prefix" != ""; then
-  LIBS="$LIBS -L$ac_cv_phaml_graphics_prefix/lib -lf90glut -lf90GLU -lf90GL"
+  LIBS="$LIBS -L$ac_cv_phaml_graphics_prefix/lib -L/usr/X11R6/lib -lXaw -lXt -lXmu -lXi -lX11 -lXext -lm -lf90glut -lf90GLU -lf90GL -lglut -lGLU -lGL"
   #AC_SEARCH_LIBS([phaml_create],[phaml],,AC_MSG_ERROR([Can not find PHAML Library]))
-  FCFLAGS="$FCFLAGS -I$ac_cv_phaml_graphics_prefix/include -L$ac_cv_phaml_graphics_prefix/lib"
+  FCFLAGS="$FCFLAGS -I$ac_cv_phaml_graphics_prefix/include/GL -L$ac_cv_phaml_graphics_prefix/lib -L/usr/X11R6/lib -I/usr/include/GL"
   AC_MSG_RESULT(F90GL location: $ac_cv_phaml_graphics_prefix)
   AC_MSG_CHECKING([for F90GL interface])
   AC_LINK_IFELSE([AC_LANG_PROGRAM([],[use opengl_gl])],AC_MSG_RESULT([yes]),AC_MSG_FAILURE([Can not link to PHAML Library]))

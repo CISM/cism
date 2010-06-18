@@ -47,6 +47,7 @@ subroutine pdecoefs(x,y,cxx,cxy,cyy,cx,cy,c,rs)
     real(my_real), intent(in) :: x,y
     real(my_real), intent(out) :: cxx(:,:),cxy(:,:),cyy(:,:),cx(:,:),cy(:,:), &
                                   c(:,:),rs(:)
+    write(*,*) 'pdecoefs'                                  
     !----------------------------------------------------
     ! Begin executable code
     if(modnum .eq. 1) then 
@@ -109,6 +110,7 @@ subroutine bconds(x,y,bmark,itype,c,rs)
     !----------------------------------------------------
     ! Begin executable code
     ! Dirichlet boundary conditions
+    write(*,*) 'bconds'
     if(modnum .eq. 1) then 
         call example_bconds(x,y,bmark,itype,c,rs)
     else
@@ -141,14 +143,13 @@ function iconds(x,y,comp,eigen)
     integer, intent(in) :: comp,eigen
     real(my_real) :: ret_value
     real(my_real) :: iconds
-    integer :: ew, ns
-    
-    if(modnum .eq. 1) then 
-        iconds = example_iconds(x,y,comp,eigen)
+    write(*,*) 'iconds'
+    if(modnum .eq. 1) then
+        ret_value = example_iconds(x,y,comp,eigen)
     else
-        iconds = 0
+        ret_value = 0.0
     end if
-
+    iconds = ret_value
 end function iconds
 
 !-------------------------------------------------------------------------
@@ -375,7 +376,7 @@ subroutine update_usermod(phaml_solution)
     integer :: iparam(5)
     real(my_real),allocatable,dimension(:) :: rparam
     logical, save :: first_call = .true.
-    
+    write(*,*) 'update_usermod'
     if(modnum .eq. 1) then 
         call example_update_usermod(phaml_solution) 
     else

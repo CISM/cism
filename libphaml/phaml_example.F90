@@ -1,10 +1,32 @@
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
-! +  phaml_example.f90 - part of the GLIMMER ice model         + 
+! +  phaml_example.F90 - part of the Glimmer-CISM ice model      + 
 ! +                                                           +
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
+! 
+! Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010
+! Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!
+! This file is part of Glimmer-CISM.
+!
+! Glimmer-CISM is free software: you can redistribute it and/or modify
+! it under the terms of the GNU General Public License as published by
+! the Free Software Foundation, either version 2 of the License, or (at
+! your option) any later version.
+!
+! Glimmer-CISM is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! GNU General Public License for more details.
+!
+! You should have received a copy of the GNU General Public License
+! along with Glimmer-CISM.  If not, see <http://www.gnu.org/licenses/>.
+!
+! Glimmer-CISM is hosted on BerliOS.de:
+! https://developer.berlios.de/projects/glimmer-cism/
+!
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 
 module phaml_example
   use glide_types
@@ -27,7 +49,6 @@ contains
         
         call user_init(get_ewn(cism_model),get_nsn(cism_model), &
         get_dew(cism_model),get_dns(cism_model),1)
-        write(*,*) 'phaml_init'
     end subroutine phaml_init
 
 !-------------------------------------------------------------------------
@@ -139,11 +160,10 @@ contains
         !generate the mesh file
         call make_ice_poly_file(cism_model)
         !set the mesh and create the phaml solution
-        call phaml_create(phaml_solution,nproc=1,update_umod=.true., &
+        call phaml_create(phaml_solution,nproc=2,update_umod=.true., &
             triangle_files="mesh.1", &
-            !spawn_form=DEBUG_SLAVE, &
-            draw_grid_who=NO_ONE)
-            
+            spawn_form=NORMAL_SPAWN, &!DEBUG_BOTH, &
+            draw_grid_who=MASTER)!NO_ONE)
         !set the initial conditions array    
         uphaml = cism_model%phaml%uphaml
         
@@ -151,19 +171,19 @@ contains
         !update usermod must be called at least twice before iconds
         !can be set with phaml_solve_pde
         call update_usermod(phaml_solution)
-        
+        write(*,*) 'phaml_solve'
         !solve the pde
         call phaml_solve_pde(phaml_solution,            &
-                         draw_grid_when=NEVER,          &
+                         draw_grid_when=PHASES, &!NEVER,          &
                          pause_at_start=.false.,        &
                          pause_after_phases=.false.,    &
-                         !task = SOLVE_ONLY,            &   !these two options make it
-                         !max_refsolveloop= 1,          &   !solve just one iteration
+                         task = SOLVE_ONLY,            &   !these two options make it
+                         max_refsolveloop= 1,          &   !solve just one iteration
                          mg_cycles=20,                  &
                          mg_tol=MG_NO_TOL,              &
                          print_header_who=NO_ONE,       &
                          print_trailer_who=NO_ONE)
-                         
+        write(*,*) 'donequ'                         
         !put the solution in the uphaml variable                 
         call phaml_getsolution(phaml_solution, cism_model%phaml%uphaml)
         !close the phaml session

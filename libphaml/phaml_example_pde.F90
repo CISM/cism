@@ -1,10 +1,33 @@
 
-!-------------------------------------------------------------------------
-!-------------------------------------------------------------------------
-!-------------------------------------------------------------------------
-!-------------------------------------------------------------------------
-!-------------------------------------------------------------------------
-!-------------------------------------------------------------------------
+! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! +                                                           +
+! +  phaml_example_pde.F90 - part of the Glimmer-CISM ice model+ 
+! +                                                           +
+! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! 
+! Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010
+! Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!
+! This file is part of Glimmer-CISM.
+!
+! Glimmer-CISM is free software: you can redistribute it and/or modify
+! it under the terms of the GNU General Public License as published by
+! the Free Software Foundation, either version 2 of the License, or (at
+! your option) any later version.
+!
+! Glimmer-CISM is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! GNU General Public License for more details.
+!
+! You should have received a copy of the GNU General Public License
+! along with Glimmer-CISM.  If not, see <http://www.gnu.org/licenses/>.
+!
+! Glimmer-CISM is hosted on BerliOS.de:
+! https://developer.berlios.de/projects/glimmer-cism/
+!
+! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 module phaml_example_pde
     !----------------------------------------------------
     ! This file contains the user supplied external subroutines that define
@@ -79,6 +102,7 @@ contains
         integer, intent(out) :: itype(:)
         real(my_real), intent(out) :: c(:,:),rs(:)
         integer :: ew,ns
+        real :: middle
         !----------------------------------------------------
         ! Non-module procedures used are:
         
@@ -97,19 +121,18 @@ contains
         ! Begin executable code
         ! Dirichlet boundary conditions
         itype = DIRICHLET    
-        ew = getew(x)
-        ns = getns(y)
         rs(1) = 0.0_my_real
-        if (is_grounding_line(bmark)) then
-           rs(1) = 0.0_my_real
-           if(uphaml(ew,ns) .gt. 0) then
-               rs(1) = uphaml(ew,ns)
-           end if
-        !elseif (has_ice(bmark) .eqv. .true.) then
-        !   rs(1) = 0.0_my_real
-        endif
-    
         c = 0.0_my_real
+        !if(is_grounding_line(bmark)) then
+        !    rs(1) = 1.0_my_real
+        !end if
+        middle = REAL(gdew*(gewn*0.5))
+        if (abs(x-y)< gdew*.2 .and. &
+            (x .gt. middle) .and. &
+            (y .gt. middle)) then
+            rs=1.0_my_real
+        end if
+
     
     end subroutine example_bconds
     
@@ -136,15 +159,17 @@ contains
         !maps an x, y to nearest integer r,c value for array lookup
         ew = getew(x)
         ns = getns(y)
-        
+        write(*,*) ew
         !----------------------------------------------------
         ! Begin executable code
-        !if (uphaml(ew,ns) .gt. 0) then
-        !    write(*,*) 'iconds:'
-        !    write(*,*) uphaml(ew,ns)
-        !end if
-        ret_value = uphaml(ew,ns)
-        iconds = ret_value
+        ret_value = 0.0
+        if (uphaml(ew,ns) .gt. 0.0) then
+            ret_value = uphaml(ew,ns)
+            write(*,*) 'iconds:'
+            write(*,*) ret_value
+        end if
+        
+        example_iconds = ret_value
     
     end function example_iconds
     
@@ -165,7 +190,7 @@ contains
         ! Begin executable code
         
         !trues = x**2 + y**2
-        trues = huge(0.0_my_real) !return 0 since we don't know
+        example_trues = 0.0_my_real !return 0 since we don't know
     
     end function example_trues
     
@@ -186,7 +211,7 @@ contains
         !----------------------------------------------------
         ! Begin executable code
         
-        truexs = huge(0.0_my_real)
+        example_truexs = 0.0_my_real
     
     end function example_truexs
     
@@ -207,7 +232,7 @@ contains
         !----------------------------------------------------
         ! Begin executable code
         
-        trueys = huge(0.0_my_real)
+        example_trueys = 0.0_my_real
     
     end function example_trueys
     
@@ -247,8 +272,8 @@ contains
         integer :: boundary_npiece
         !----------------------------------------------------
         ! Begin executable code
-        
-        boundary_npiece = 0
+        !write(*,*) 'boundary_npiece'
+        example_boundary_npiece = 0
     
     end function example_boundary_npiece
     
@@ -283,7 +308,7 @@ contains
         
         ! Identity function
         
-        phaml_integral_kernel = 1.0
+        example_phaml_integral_kernel = 1.0
     
     end function example_phaml_integral_kernel
     
@@ -294,7 +319,7 @@ contains
         
         ! Dummy version, assume infinitely differentiable everywhere.
         
-        regularity = huge(0.0_my_real)
+        example_regularity = 0.0_my_real
     
     end function example_regularity
 
