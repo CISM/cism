@@ -21,7 +21,7 @@ AM_FCFLAGS = $(NETCDF_FCFLAGS) $(F90_MODFLAG)$(top_builddir)/libglimmer-solve $(
 #some special rules for automatically generating ncdf src code
 verif_io.F90:	verif_vars.def $(top_srcdir)/libglimmer/ncdf_template.F90.in
 		$(PYTHON) $(top_srcdir)/scripts/generate_ncvars.py $^
-f90_dep.mak:	$(verif_glide_SOURCES) $(libverif_la_SOURCES)
+f90_dep.mak:	$(SOURCES)
 		$(PYTHON) $(top_srcdir)/scripts/f90_dependencies.py -l -o $@ $^
 
 -include f90_dep.mak

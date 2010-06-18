@@ -27,6 +27,10 @@ glimmer_FCFLAGS=$FCFLAGS
 glimmer_FFLAGS=$FFLAGS
 AC_DEFINE_UNQUOTED(GLIMMER_FCFLAGS,"${glimmer_FCFLAGS}",[fortran compiler flags the model is configured with])
 
+if test x"$F77"x == xx ; then
+  export F77=$FC
+fi
+
 # we are building fortran libraries so, let's make them static
 AC_DISABLE_SHARED
 AC_PROG_LIBTOOL
@@ -342,6 +346,7 @@ AC_CONFIG_FILES([Makefile m4macros/Makefile scripts/Makefile \
                 doc/num/Makefile doc/num/figs/Makefile doc/num/gnu/Makefile \
                 doc/doclets/Makefile doc/doclets/figs/Makefile \
                 doc/tut/Makefile])
-AC_OUTPUT([make.rules])
-AC_OUTPUT([doc/common/version.tex])
-AC_OUTPUT([glimmer-cism-config libglimmer/glimmer_vers.F90.in])
+AC_CONFIG_FILES([make.rules])
+AC_CONFIG_FILES([doc/common/version.tex])
+AC_CONFIG_FILES([glimmer-cism-config libglimmer/glimmer_vers.F90.in])
+AC_OUTPUT
