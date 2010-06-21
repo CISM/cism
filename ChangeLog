@@ -1,3 +1,6 @@
+2011-06-21 Magnus Hagdorn
+ * scripts/qsub_glide.sh: undo last change which broke it
+
 2011-06-17 Magnus Hagdorn
  * configure.in: set F77 to FC if not set; fix generation of files
  * tests/exact-isothermal/src/Makefile.am: minor change
