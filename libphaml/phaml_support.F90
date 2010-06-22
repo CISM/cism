@@ -37,7 +37,7 @@ module phaml_support
 contains
     !------------------------------------------------------------------------------
     !SUBROUTINE: is_ice_edge
-    !ARGUMENTS: model (glimmer), ew, ns
+    !ARGUMENTS: model (glimmer), ew, ns, ret
     !DESCRIPTION:
     !   ew, ns is a point in the model. The function checks the four adjacent
     !   points on the mask.  if (ew,ns) has ice, but one of the adjacent points
@@ -127,34 +127,29 @@ contains
         bmark=0 ! default value
         if ((has_ice(model%geometry%thkmask(ew1,ns1)) .eqv. .true.) .and. &
             (has_ice(model%geometry%thkmask(ew2,ns2)) .eqv. .true.)) then 
-            bmark=model%geometry%thkmask(ew1,ns1) !3
+            bmark=model%geometry%thkmask(ew1,ns1) 
         end if
         if ((is_grounding_line(model%geometry%thkmask(ew1,ns1)) .eqv. .true.) .and. &
             (is_grounding_line(model%geometry%thkmask(ew2,ns2)) .eqv. .true.)) then 
-            bmark=model%geometry%thkmask(ew1,ns1)!5
+            bmark=model%geometry%thkmask(ew1,ns1)
         end if
         call is_ice_edge(model,ew1,ns1,ret1)
         call is_ice_edge(model,ew2,ns2,ret2)
         if (ret1 .and. ret2) then  
             bmark=glide_mask_grounding_line !model%geometry%thkmask(ew1,ns1)
         end if
-        !get_bmark = bmark
-        !return
     end subroutine get_bmark
     
     !------------------------------------------------------------------------------
-    !SUBROUTINE: make_poly_file
+    !SUBROUTINE: make_ice_poly_file
     !ARGUMENTS: model (glimmer)
     !DESCRIPTION:
-    ! This subroutine creates a node file for an nx X ny grid on the rectangular
-    ! domain (xmin,xmax) X (ymin,ymax), and runs triangle to create the
-    ! required .node, .ele, .neigh and .edge files.
+    ! This subroutine creates a poly file for an ice sheet by using the CISM mask 
+    ! variable to add only nodes which have ice.
+    ! bmark is set to be the mask value at that node.
     !
-    ! bmark is set to be
-    !
-    ! Running triangle uses the common extension "call system", which is
-    ! compiler dependent.  That call may need to be changed, or may not be
-    ! supported at all, on some compilers.
+    ! Running triangle is compiler dependent.  That call may need to be changed, 
+    ! or may not be supported at all, on some compilers.
     !------------------------------------------------------------------------------
     subroutine make_ice_poly_file(model)
         use glide
@@ -195,10 +190,10 @@ contains
                 node1ew = i+1
                 node1ns = j+1
                 if (has_ice(model%geometry%thkmask(node1ew,node1ns)) .eqv. .true.) then
-                    bmark=model%geometry%thkmask(node1ew,node1ns)!3
+                    bmark=model%geometry%thkmask(node1ew,node1ns)
                 end if
                 if (is_grounding_line(model%geometry%thkmask(node1ew,node1ns)) .eqv. .true.) then 
-                    bmark=model%geometry%thkmask(node1ew,node1ns)!5
+                    bmark=model%geometry%thkmask(node1ew,node1ns)
                 end if
                 ret = .false.
                 call is_ice_edge(model,node1ew,node1ns,ret)
@@ -321,124 +316,127 @@ contains
 
     
     
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-subroutine make_full_poly_file(model)
-    use glide
-    use glide_mask
-    implicit none   
-    integer :: nx, ny, node1ew,node1ns,node2ew,node2ns
-    real :: dx,dy,xmin,xmax,ymin,ymax    
-    integer :: i, j, count, bmark,status
-    type(glide_global_type) :: model
-    integer, dimension(:), allocatable :: xvals,yvals
-    integer, dimension(:,:),pointer :: mask
+    !------------------------------------------------------------------------------
+    !SUBROUTINE: make_full_poly_file
+    !ARGUMENTS: model (glimmer)
+    !DESCRIPTION:
+    ! This subroutine creates a node file for an nx X ny grid on the rectangular
+    ! domain (xmin,xmax) X (ymin,ymax), and runs triangle to create the
+    ! required .node, .ele, .neigh and .edge files.
+    !
+    ! bmark is set to be the mask value at that node
+    !
+    ! Running triangle is compiler dependent.  That call may need to be changed, 
+    ! or may not be supported at all on some compilers.
+    !------------------------------------------------------------------------------
+    subroutine make_full_poly_file(model)
+        use glide
+        use glide_mask
+        implicit none   
+        integer :: nx, ny, node1ew,node1ns,node2ew,node2ns
+        real :: dx,dy,xmin,xmax,ymin,ymax    
+        integer :: i, j, count, bmark,status
+        type(glide_global_type) :: model
+        integer, dimension(:), allocatable :: xvals,yvals
+        integer, dimension(:,:),pointer :: mask
+        
+        !this is to change the grid type later.  not current used.
     
-    !this is to change the grid type later.  not current used.
-
-    !grid variables
-    nx = get_ewn(model)
-    ny = get_nsn(model)
-    xmin = 0
-    dx = get_dew(model)
-    ymin = 0
-    dy = get_dns(model)!model%numerics%dns
-    !for testing
-    xmax = nx*dx
-    ymax = ny*dy
-    
-    allocate( xvals(nx) )
-    allocate( yvals(ny) )
-    
-    !just for ease
-    !mask = model%geometry%mask
-    ! values for the grid lines   
-    do i=0,nx-1
-       xvals(i+1) = dx*i
-    end do
-    
-    do i=0,ny-1
-       yvals(i+1) = dy*i
-    end do
-    
-    ! write a .poly file with the grid of nodes, boundary edges, and bmark
-    
-    open(unit=21,file="mesh.poly",status="replace")
-    
-
-    write(*,*) 'Writing Vertices'
-    write(21,*) (nx)*(ny), 2, 0, 1
-    count = 0
-    do i=0,nx-1
-        do j=0,ny-1
-            bmark=0
-            node1ew = j+1
-            node1ns = i+1
-            !write(*,*) model%geometry%thkmask(node1ew,node1ns)
-            if (has_ice(model%geometry%thkmask(node1ew,node1ns)) .eqv. .true.) then 
-                bmark=3
-            end if
-            if (is_grounding_line(model%geometry%thkmask(node1ew,node1ns)) .eqv. .true.) then 
-                bmark=5
-            end if
-            count = count + 1
-            write(21,*) count, xvals(node1ns), yvals(node1ew), bmark
+        !grid variables
+        nx = get_ewn(model)
+        ny = get_nsn(model)
+        xmin = 0
+        dx = get_dew(model)
+        ymin = 0
+        dy = get_dns(model)!model%numerics%dns
+        !for testing
+        xmax = nx*dx
+        ymax = ny*dy
+        
+        allocate( xvals(nx) )
+        allocate( yvals(ny) )
+        
+        do i=0,nx-1
+           xvals(i+1) = dx*i
         end do
-    end do
+        
+        do i=0,ny-1
+           yvals(i+1) = dy*i
+        end do
+        
+        ! write a .poly file with the grid of nodes, boundary edges, and bmark
+        
+        open(unit=21,file="mesh.poly",status="replace")
+        
     
-    write(*,*) 'Writing Edges'
-    count = 0
-    !number of edges = (nx-1)*ny + (ny-1)*nx + (ny-1)*(nx-1)
-    write(21,*) (nx-1)*ny + (ny-1)*nx + (ny-1)*(nx-1), 1
-    !write edges connecting columns (vertical)
-    do i=0,nx-1
-        do j=0,ny-2
-            bmark=0
-            node1ns = j + 1
-            node1ew = i + 1
-            node2ns = j + 2
-            node2ew = i + 1
-            call get_bmark(model,node1ew,node1ns,node2ew,node2ns,bmark)
-            count = count + 1
-            write(21,*) count,i*nx+j+1,i*nx+j+2,bmark
+        write(*,*) 'Writing Vertices'
+        write(21,*) (nx)*(ny), 2, 0, 1
+        count = 0
+        do i=0,nx-1
+            do j=0,ny-1
+                bmark=0
+                node1ew = j+1
+                node1ns = i+1
+                bmark=model%geometry%thkmask(node1ew,node1ns)
+                count = count + 1
+                write(21,*) count, xvals(node1ns), yvals(node1ew), bmark
+            end do
         end do
-    end do
-    !write edges connecting rows (horizontal)
-    do i=0,nx-2
-        do j=0,ny-1
-            bmark=0
-            node1ns = j + 1
-            node1ew = i + 1
-            node2ns = j + 1
-            node2ew = i + 2
-            call get_bmark(model,node1ew,node1ns,node2ew,node2ns,bmark)
-            count = count + 1
-            write(21,*) count,i*nx+j+1,(i+1)*nx+j+1,bmark
+        
+        write(*,*) 'Writing Edges'
+        count = 0
+        !number of edges = (nx-1)*ny + (ny-1)*nx + (ny-1)*(nx-1)
+        write(21,*) (nx-1)*ny + (ny-1)*nx + (ny-1)*(nx-1), 1
+        !write edges connecting columns (vertical)
+        do i=0,nx-1
+            do j=0,ny-2
+                bmark=0
+                node1ns = j + 1
+                node1ew = i + 1
+                node2ns = j + 2
+                node2ew = i + 1
+                call get_bmark(model,node1ew,node1ns,node2ew,node2ns,bmark)
+                count = count + 1
+                write(21,*) count,i*nx+j+1,i*nx+j+2,bmark
+            end do
         end do
-    end do
-    !write cross edges    
-    do i=0,nx-2
-        do j=0,ny-2
-            bmark=0
-            node1ns = j + 1
-            node1ew = i + 1
-            node2ns = j + 2
-            node2ew = i + 2
-            call get_bmark(model,node1ew,node1ns,node2ew,node2ns,bmark)
-            count = count + 1
-            write(21,*) count,i*nx+j+1,(i+1)*nx+j+2,bmark
+        !write edges connecting rows (horizontal)
+        do i=0,nx-2
+            do j=0,ny-1
+                bmark=0
+                node1ns = j + 1
+                node1ew = i + 1
+                node2ns = j + 1
+                node2ew = i + 2
+                call get_bmark(model,node1ew,node1ns,node2ew,node2ns,bmark)
+                count = count + 1
+                write(21,*) count,i*nx+j+1,(i+1)*nx+j+1,bmark
+            end do
         end do
-    end do    
-    write(21,*) 0
-    close(unit=21)
+        !write cross edges    
+        do i=0,nx-2
+            do j=0,ny-2
+                bmark=0
+                node1ns = j + 1
+                node1ew = i + 1
+                node2ns = j + 2
+                node2ew = i + 2
+                call get_bmark(model,node1ew,node1ns,node2ew,node2ns,bmark)
+                count = count + 1
+                write(21,*) count,i*nx+j+1,(i+1)*nx+j+2,bmark
+            end do
+        end do    
+        write(21,*) 0
+        close(unit=21)
+        
+        !deallocate the dynamic arrays
+        deallocate( xvals )
+        deallocate( yvals )
+        ! run triangle
+        ! NOTE: THIS IS COMPILER DEPENDENT.  You may need to change this statement.
+        status = System("triangle -neqj mesh.poly")
     
-    !deallocate the dynamic arrays
-    deallocate( xvals )
-    deallocate( yvals )
-    ! run triangle
-    ! NOTE: THIS IS COMPILER DEPENDENT.  You may need to change this statement.
-    status = System("triangle -neqj mesh.poly")
-
-end subroutine make_full_poly_file
+    end subroutine make_full_poly_file
 !---------------------------------------------------------------------------
 end module phaml_support
 

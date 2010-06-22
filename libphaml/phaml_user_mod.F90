@@ -75,7 +75,13 @@ contains
             !deallocate(uphaml_one)
         end if
     end subroutine array_close
-    !-------------------------------------------------------------------------
+    !------------------------------------------------------------------------------
+    !SUBROUTINE: combine_arrays
+    !ARGUMENTS: array1, array2, retarray
+    !DESCRIPTION:
+    ! Given two arrays(array1, array2) this function simply concatenates the two 
+    ! together as one array.
+    !------------------------------------------------------------------------------       
     subroutine combine_arrays(array1, array2, retarray)
         implicit none
         real(my_real), intent(in),dimension(:) :: array1,array2
@@ -88,7 +94,13 @@ contains
             retarray(maxind + i) = array2(i)
         end do
     end subroutine combine_arrays
-    !-------------------------------------------------------------------------        
+    !------------------------------------------------------------------------------
+    !SUBROUTINE: split_arrays
+    !ARGUMENTS: array1, array2, retarray, maxind
+    !DESCRIPTION:
+    ! Given a single array(retarray) this functions splits it based off of the maxind
+    ! variable and puts the data back into two individual arrays.
+    !------------------------------------------------------------------------------       
     subroutine split_arrays(array1, array2, retarray, maxind)
         implicit none
         real(my_real), intent(out),dimension(:) :: array1,array2
@@ -101,7 +113,13 @@ contains
             array2(i) = retarray(maxind + i)
         end do
     end subroutine split_arrays
-    !-------------------------------------------------------------------------    
+    !------------------------------------------------------------------------------
+    !SUBROUTINE: reshape_array_to_one
+    !ARGUMENTS: twod, oned
+    !DESCRIPTION:
+    ! This function takes a two dimensional vector and reshapes it to a single one 
+    ! dimensional vector based off of the CISM grid properties. 
+    !------------------------------------------------------------------------------
     subroutine reshape_array_to_one(twod,oned)
         implicit none
         real(my_real), intent(in),dimension(:,:) :: twod
@@ -114,7 +132,13 @@ contains
             end do
         end do
     end subroutine reshape_array_to_one
-    !-------------------------------------------------------------------------    
+    !------------------------------------------------------------------------------
+    !SUBROUTINE: reshape_array_to_two
+    !ARGUMENTS: twod, oned
+    !DESCRIPTION:
+    ! This function takes a one dimensional vector and reshapes it to a two 
+    ! dimensional vector based off of the CISM grid properties. 
+    !------------------------------------------------------------------------------  
     subroutine reshape_array_to_two(twod,oned)
         implicit none
         real(my_real), intent(out),dimension(:,:) :: twod
@@ -130,8 +154,10 @@ contains
     
     !------------------------------------------------------------------------------
     !SUBROUTINE: get_xyarrays
-    !ARGUMENTS: model (glimmer), x, y 
+    !ARGUMENTS: x, y 
     !DESCRIPTION:
+    ! This subroutine returns x and y vectors of all the nodes in the CISM grid.  
+    ! This is needed in order to get the solution from phaml.
     !------------------------------------------------------------------------------
     subroutine get_xyarrays(x,y)
         implicit none
@@ -150,15 +176,28 @@ contains
     end subroutine get_xyarrays
     
     
-    !these two functions get you the array indices to 
-    !access the 2d grid given the x,y quadrature coordinates in the domain
-    !not safe to use for every x,y
+    
+    !------------------------------------------------------------------------------
+    !SUBROUTINE: getew
+    !ARGUMENTS: x
+    !DESCRIPTION:
+    ! This subroutine simply truncates an x by the east/west distance to the nearest
+    ! corresponding grid point in CISM.  NOTE: The points in the mesh are not
+    ! quadrature and you can not use this function there without losing accuracy.
+    !------------------------------------------------------------------------------
     integer function getew(x)
         implicit none
         real(my_real), intent(in) :: x
         getew = int((x/gdew)) + 1
     end function getew
-    
+    !------------------------------------------------------------------------------
+    !SUBROUTINE: getns
+    !ARGUMENTS: y
+    !DESCRIPTION:
+    ! This subroutine simply truncates a y by the north/south distance to the nearest
+    ! corresponding grid point in CISM.  NOTE: The points in the mesh are not
+    ! quadrature and you can not use this function there without losing accuracy.
+    !------------------------------------------------------------------------------
     integer function getns(y)
         implicit none
         real(my_real), intent(in) :: y

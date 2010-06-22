@@ -164,7 +164,6 @@ contains
         if (uphaml(ew,ns) .gt. 0.0) then
             ret_value = uphaml(ew,ns)
         end if
-        write(*,*) 'iconds'
         example_iconds = ret_value
     
     end function example_iconds

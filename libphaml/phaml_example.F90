@@ -32,7 +32,15 @@ module phaml_example
 contains
 !need to specify which phaml module
 !phaml_example is 1
-!-------------------------------------------------------------------------
+    !------------------------------------------------------------------------------
+    !SUBROUTINE: phaml_init
+    !ARGUMENTS: cism_model, phaml_solution
+    !DESCRIPTION:
+    ! This subroutine initializes the user_mod variables before the phaml run.
+    ! Technically, the phaml solution isn't needed, but in the future there might
+    ! be other things which need to be initialized.  It is important to call 
+    ! the user_close subroutine when finished.
+    !------------------------------------------------------------------------------
     subroutine phaml_init(cism_model,phaml_solution)
         use phaml
         use phaml_user_mod
@@ -47,7 +55,13 @@ contains
 
 !-------------------------------------------------------------------------
 
-!-------------------------------------------------------------------------
+    !------------------------------------------------------------------------------
+    !SUBROUTINE: phaml_setup
+    !ARGUMENTS: cism_model, phaml_solution
+    !DESCRIPTION:
+    ! This subroutine is if a nonlinear type of solution is desired where you want
+    ! to initialize the problem without solving or closing the solution.
+    !------------------------------------------------------------------------------
     subroutine phaml_setup(cism_model,phaml_solution)
         use phaml
         use phaml_user_mod
@@ -95,7 +109,13 @@ contains
 !-------------------------------------------------------------------------
     
 
-!-------------------------------------------------------------------------
+    !------------------------------------------------------------------------------
+    !SUBROUTINE: phaml_lin_evolve
+    !ARGUMENTS: cism_model, phaml_solution
+    !DESCRIPTION:
+    ! This subroutine is if a linear type of solution is desired where you have
+    ! initialized the problem but have not solved it yet. or closing the solution.
+    !------------------------------------------------------------------------------
     subroutine phaml_lin_evolve(cism_model,phaml_solution)
         use phaml
         use phaml_user_mod
@@ -120,6 +140,13 @@ contains
 
 !-------------------------------------------------------------------------
 
+    !------------------------------------------------------------------------------
+    !SUBROUTINE: phaml_nonlin_evolve
+    !ARGUMENTS: cism_model, phaml_solution
+    !DESCRIPTION:
+    ! This subroutine is for a nonlinear type of solution where you have
+    ! initialized the problem but have not solved it yet. or closing the solution.
+    !------------------------------------------------------------------------------
 !-------------------------------------------------------------------------
     subroutine phaml_nonlin_evolve(cism_model,phaml_solution)
         use phaml
@@ -144,8 +171,16 @@ contains
     end subroutine phaml_nonlin_evolve
 
 !-------------------------------------------------------------------------
-!this creates the mesh and evolves, then returns the solution
-!-------------------------------------------------------------------------
+
+    !------------------------------------------------------------------------------
+    !SUBROUTINE: phaml_evolve
+    !ARGUMENTS: cism_model, phaml_solution
+    !DESCRIPTION:
+    ! Once the init function has been called this function will create the mesh,
+    ! initialize the problem, solve it, then store the data in the phaml custom
+    ! type in the CISM model.  After this is finished the phaml_close subroutine
+    ! must be called.
+    !------------------------------------------------------------------------------
     subroutine phaml_evolve(cism_model,phaml_solution)
         use phaml
         use phaml_user_mod
@@ -154,16 +189,17 @@ contains
         implicit none
         type(phaml_solution_type) :: phaml_solution
         type(glide_global_type) :: cism_model
-        
         !initialise phaml and the variables needed for solution
         !call phaml_init(cism_model,phaml_solution)
         !generate the mesh file
         call make_ice_poly_file(cism_model)
+        
         !set the mesh and create the phaml solutiony
-        call phaml_create(phaml_solution,nproc=2,update_umod=.true., &
+        call phaml_create(phaml_solution,nproc=1,update_umod=.true., &
             triangle_files="mesh.1", &
-            !spawn_form=DEBUG_SLAVE, &!DEBUG_BOTH, &
+            spawn_form=DEBUG_SLAVE, &!DEBUG_BOTH, &
             draw_grid_who=NO_ONE)
+            
         !set the initial conditions array    
         uphaml = cism_model%phaml%uphaml
         !set the initial conditions
@@ -173,14 +209,14 @@ contains
         write(*,*) 'phaml_solve'
         !solve the pde
         call phaml_solve_pde(phaml_solution,                      &
-                 task=SET_INITIAL,          &
-                 refterm=KEEP_NELEM,        &
-                 max_eq=3200,              &
-                 error_estimator=INITIAL_CONDITION, &
-                 print_header_who=NO_ONE,   &
-                 print_trailer_who=NO_ONE,  &
-                 degree=3,                  &
-                 draw_grid_when=NEVER)
+                         task=SET_INITIAL,          &
+                         refterm=KEEP_NELEM,        &
+                         max_eq=3200,              &
+                         error_estimator=INITIAL_CONDITION, &
+                         print_header_who=NO_ONE,   &
+                         print_trailer_who=NO_ONE,  &
+                         degree=3,                  &
+                         draw_grid_when=NEVER)
         call phaml_solve_pde(phaml_solution,            &
                          draw_grid_when=NEVER,          &
                          pause_at_start=.false.,        &
@@ -200,6 +236,16 @@ contains
     end subroutine phaml_evolve
 
 !-------------------------------------------------------------------------
+    
+    !------------------------------------------------------------------------------
+    !SUBROUTINE: phaml_getsolution
+    !ARGUMENTS: phaml_solution, uout
+    !DESCRIPTION:
+    ! In order to get the solution of the pde an x and y vector must be passed to
+    ! the phaml_evaluate function and the corresponding solution is returned in a u
+    ! vector.  This function takes care of creating those arrays and reshaping them 
+    ! to a 2d array which it returns in uout.
+    !------------------------------------------------------------------------------
     subroutine phaml_getsolution(phaml_solution, uout)
         use phaml
         use phaml_user_mod
@@ -224,6 +270,14 @@ contains
         deallocate(u)
     end subroutine phaml_getsolution
 !-------------------------------------------------------------------------
+    
+    !------------------------------------------------------------------------------
+    !SUBROUTINE: phaml_close
+    !ARGUMENTS: phaml_solution
+    !DESCRIPTION:
+    ! This subroutine simply destroys the phaml solution instance as well as 
+    ! deallocating all of the user data.
+    !------------------------------------------------------------------------------
     subroutine phaml_close(phaml_solution)
         use phaml
         use phaml_user_mod
@@ -238,5 +292,4 @@ contains
 !-------------------------------------------------------------------------
 
 
-!---------------------------------------------------------------------------
 end module phaml_example

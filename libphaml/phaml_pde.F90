@@ -163,7 +163,7 @@ function iconds(x,y,comp,eigen)
     integer, intent(in) :: comp,eigen
     real(my_real) :: ret_value
     real(my_real) :: iconds
-    write(*,*) 'iconds1'
+
     if(modnum .eq. 1) then
         ret_value = example_iconds(x,y,comp,eigen)
     else
