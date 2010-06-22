@@ -133,11 +133,10 @@ contains
             rs=1.0_my_real
         end if
 
-    
     end subroutine example_bconds
     
     !-------------------------------------------------------------------------
-    real function example_iconds(x,y,comp,eigen)
+    function example_iconds(x,y,comp,eigen)
         !----------------------------------------------------
         ! This routine returns the initial condition for a time dependent problem.
         ! It can also be used for the initial guess for a nonlinear problem, or
@@ -153,28 +152,25 @@ contains
         real(my_real), intent(in) :: x,y
         integer, intent(in) :: comp,eigen
         real(my_real) :: ret_value
-        real(my_real) :: iconds
+        real(my_real) :: example_iconds
         integer :: ew, ns
         
         !maps an x, y to nearest integer r,c value for array lookup
         ew = getew(x)
         ns = getns(y)
-        write(*,*) ew
         !----------------------------------------------------
         ! Begin executable code
         ret_value = 0.0
         if (uphaml(ew,ns) .gt. 0.0) then
             ret_value = uphaml(ew,ns)
-            write(*,*) 'iconds:'
-            write(*,*) ret_value
         end if
-        
+        write(*,*) 'iconds'
         example_iconds = ret_value
     
     end function example_iconds
     
     !-------------------------------------------------------------------------
-    real function example_trues(x,y,comp,eigen) ! real (my_real)
+    function example_trues(x,y,comp,eigen) ! real (my_real)
         !----------------------------------------------------
         ! This is the true solution of the differential equation, if known.
         ! comp,eigen is which solution to use from a coupled system of PDEs or multiple
@@ -185,7 +181,7 @@ contains
         ! Dummy arguments
         real(my_real), intent(in) :: x,y
         integer, intent(in) :: comp,eigen
-        real (my_real) :: trues
+        real (my_real) :: example_trues
         !----------------------------------------------------
         ! Begin executable code
         
@@ -195,7 +191,7 @@ contains
     end function example_trues
     
     !-------------------------------------------------------------------------
-    real function example_truexs(x,y,comp,eigen) ! real (my_real)
+    function example_truexs(x,y,comp,eigen) ! real (my_real)
         !----------------------------------------------------
         ! This is the x derivative of the true solution of the differential
         ! equation, if known.
@@ -207,7 +203,7 @@ contains
         ! Dummy arguments
         real(my_real), intent(in) :: x,y
         integer, intent(in) :: comp,eigen
-        real (my_real) :: truexs
+        real (my_real) :: example_truexs
         !----------------------------------------------------
         ! Begin executable code
         
@@ -216,7 +212,7 @@ contains
     end function example_truexs
     
     !-------------------------------------------------------------------------
-    real function example_trueys(x,y,comp,eigen) ! real (my_real)
+    function example_trueys(x,y,comp,eigen) ! real (my_real)
         !----------------------------------------------------
         ! This is the y derivative of the true solution of the differential
         ! equation, if known.
@@ -228,7 +224,7 @@ contains
         ! Dummy arguments
         real(my_real), intent(in) :: x,y
         integer, intent(in) :: comp,eigen
-        real (my_real) :: trueys
+        real (my_real) :: example_trueys
         !----------------------------------------------------
         ! Begin executable code
         
@@ -260,7 +256,7 @@ contains
     end subroutine example_boundary_point
     
     !-------------------------------------------------------------------------
-    integer function example_boundary_npiece(hole)
+    function example_boundary_npiece(hole)
         !----------------------------------------------------
         ! This routine gives the number of pieces in the boundary definition.
         ! If boundary_npiece <= 0 the domain is given by triangle data files.
@@ -269,7 +265,7 @@ contains
         !----------------------------------------------------
         ! Dummy arguments
         integer, intent(in) :: hole
-        integer :: boundary_npiece
+        integer :: example_boundary_npiece
         !----------------------------------------------------
         ! Begin executable code
         !write(*,*) 'boundary_npiece'
@@ -304,7 +300,7 @@ contains
     function example_phaml_integral_kernel(kernel,x,y)
         integer, intent(in) :: kernel
         real(my_real), intent(in) :: x,y
-        real(my_real) :: phaml_integral_kernel
+        real(my_real) :: example_phaml_integral_kernel
         
         ! Identity function
         
@@ -315,7 +311,7 @@ contains
     !-------------------------------------------------------------------------
     function example_regularity(x,y)
         real(my_real), intent(in) :: x(3),y(3)
-        real(my_real) :: regularity
+        real(my_real) :: example_regularity
         
         ! Dummy version, assume infinitely differentiable everywhere.
         
@@ -334,55 +330,36 @@ contains
         type(phaml_solution_type), intent(in) :: phaml_solution
         integer :: iparam(6)
         real(my_real),allocatable,dimension(:) :: rparam
-        logical, save :: first_call = .true.
+     
         
         !the slaves need the globals passed first so that the allocate
         !for rparam has the values for the size.  This means after
         !phaml_create another call to update_usermod must be made
-        if (first_call) then
-            allocate(rparam(1))
-            iparam(1) = gnsn
-            iparam(2) = gewn
-            iparam(3) = gdns
-            iparam(4) = gdew
-            iparam(5) = num_arrays
-            iparam(6) = modnum
-            call master_to_slaves(phaml_solution,iparam,rparam)
-            gnsn = iparam(1)
-            gewn = iparam(2)
-            gdns = iparam(3)
-            gdew = iparam(4)
-            num_arrays = iparam(5)
-            modnum = iparam(6)
-            deallocate(rparam)
-            call array_init()
-            first_call = .false.
-        else
-            allocate(rparam(gnsn*gewn*num_arrays))
-            iparam(1) = gnsn
-            iparam(2) = gewn
-            iparam(3) = gdns
-            iparam(4) = gdew
-            iparam(5) = num_arrays
-            iparam(6) = modnum
-            !if more arrays are needed reshape and combine
-            call reshape_array_to_one(uphaml,rparam)
-            !Call the routine that performs the actual exchange.   
-            call master_to_slaves(phaml_solution,iparam,rparam)
-            gnsn = iparam(1)
-            gewn = iparam(2)
-            gdns = iparam(3)
-            gdew = iparam(4)
-            num_arrays = iparam(5)
-            modnum = iparam(6)
-            if(num_arrays .eq. 1) then
-                call reshape_array_to_two(uphaml,rparam)
-            end if
-            !an else should be added here to handle passing more than one array
-            !using the concat_arrays, split_arrays function in combination with the
-            !combine and separate functions.
-            deallocate(rparam)
+        
+        allocate(rparam(gnsn*gewn*num_arrays))
+        iparam(1) = gnsn
+        iparam(2) = gewn
+        iparam(3) = gdns
+        iparam(4) = gdew
+        iparam(5) = num_arrays
+        iparam(6) = modnum
+        !if more arrays are needed reshape and combine
+        call reshape_array_to_one(uphaml,rparam)
+        !Call the routine that performs the actual exchange.   
+        call master_to_slaves(phaml_solution,iparam,rparam)
+        gnsn = iparam(1)
+        gewn = iparam(2)
+        gdns = iparam(3)
+        gdew = iparam(4)
+        num_arrays = iparam(5)
+        modnum = iparam(6)
+        if(num_arrays .eq. 1) then
+            call reshape_array_to_two(uphaml,rparam)
         end if
+        !an else should be added here to handle passing more than one array
+        !using the concat_arrays, split_arrays function in combination with the
+        !combine and separate functions.
+        deallocate(rparam)
     end subroutine example_update_usermod
 
 end module phaml_example_pde

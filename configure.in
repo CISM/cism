@@ -167,6 +167,7 @@ if test "$ac_cv_phaml_graphics_prefix" != ""; then
   AC_MSG_RESULT(F90GL location: $ac_cv_phaml_graphics_prefix)
   AC_MSG_CHECKING([for F90GL interface])
   AC_LINK_IFELSE([AC_LANG_PROGRAM([],[use opengl_gl])],AC_MSG_RESULT([yes]),AC_MSG_FAILURE([Can not link to PHAML Library]))
+  AC_SUBST([phaml_graphics], ['phaml_graphics${EXEEXT}'])
 fi
 AM_CONDITIONAL(USE_PHAML_GRAPHICS, test "$ac_cv_phaml_graphics_prefix" != "")
 AC_SUBST(ac_cv_phaml_graphics_prefix)

@@ -1,11 +1,32 @@
 
-!-------------------------------------------------------------------------
-!-------------------------------------------------------------------------
-!-------------------------------------------------------------------------
-!-------------------------------------------------------------------------
-!-------------------------------------------------------------------------
-!-------------------------------------------------------------------------
-
+! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! +                                                           +
+! +  phaml_pde.F90 - part of the Glimmer-CISM ice model+ 
+! +                                                           +
+! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! 
+! Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010
+! Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!
+! This file is part of Glimmer-CISM.
+!
+! Glimmer-CISM is free software: you can redistribute it and/or modify
+! it under the terms of the GNU General Public License as published by
+! the Free Software Foundation, either version 2 of the License, or (at
+! your option) any later version.
+!
+! Glimmer-CISM is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! GNU General Public License for more details.
+!
+! You should have received a copy of the GNU General Public License
+! along with Glimmer-CISM.  If not, see <http://www.gnu.org/licenses/>.
+!
+! Glimmer-CISM is hosted on BerliOS.de:
+! https://developer.berlios.de/projects/glimmer-cism/
+!
+! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 !----------------------------------------------------
 ! This file contains the user supplied external subroutines that define
@@ -47,7 +68,7 @@ subroutine pdecoefs(x,y,cxx,cxy,cyy,cx,cy,c,rs)
     real(my_real), intent(in) :: x,y
     real(my_real), intent(out) :: cxx(:,:),cxy(:,:),cyy(:,:),cx(:,:),cy(:,:), &
                                   c(:,:),rs(:)
-    write(*,*) 'pdecoefs'                                  
+                          
     !----------------------------------------------------
     ! Begin executable code
     if(modnum .eq. 1) then 
@@ -110,7 +131,6 @@ subroutine bconds(x,y,bmark,itype,c,rs)
     !----------------------------------------------------
     ! Begin executable code
     ! Dirichlet boundary conditions
-    write(*,*) 'bconds'
     if(modnum .eq. 1) then 
         call example_bconds(x,y,bmark,itype,c,rs)
     else
@@ -143,7 +163,7 @@ function iconds(x,y,comp,eigen)
     integer, intent(in) :: comp,eigen
     real(my_real) :: ret_value
     real(my_real) :: iconds
-    write(*,*) 'iconds'
+    write(*,*) 'iconds1'
     if(modnum .eq. 1) then
         ret_value = example_iconds(x,y,comp,eigen)
     else
@@ -373,32 +393,37 @@ subroutine update_usermod(phaml_solution)
     use phaml_user_mod
     implicit none
     type(phaml_solution_type), intent(in) :: phaml_solution
-    integer :: iparam(5)
+    integer :: iparam(6)
     real(my_real),allocatable,dimension(:) :: rparam
     logical, save :: first_call = .true.
-    write(*,*) 'update_usermod'
-    if(modnum .eq. 1) then 
-        call example_update_usermod(phaml_solution) 
+
+    !the slaves need the globals passed first so that the allocate
+    !for rparam has the values for the size.  This means after
+    !phaml_create another call to update_usermod must be made
+    
+    !this also means the modnum won't be known in the slaves so the first call
+    !variables must be the same for all modules
+    if (first_call) then
+        allocate(rparam(1))
+        iparam(1) = gnsn
+        iparam(2) = gewn
+        iparam(3) = gdns
+        iparam(4) = gdew
+        iparam(5) = num_arrays
+        iparam(6) = modnum
+        call master_to_slaves(phaml_solution,iparam,rparam)
+        gnsn = iparam(1)
+        gewn = iparam(2)
+        gdns = iparam(3)
+        gdew = iparam(4)
+        num_arrays = iparam(5)
+        modnum = iparam(6)
+        deallocate(rparam)
+        call array_init()
+        first_call = .false.
     else
-        !the slaves need the globals passed first so that the allocate
-        !for rparam has the values for the size.  This means after
-        !phaml_create another call to update_usermod must be made
-        if (first_call) then
-            allocate(rparam(1))
-            iparam(1) = gnsn
-            iparam(2) = gewn
-            iparam(3) = gdns
-            iparam(4) = gdew
-            iparam(5) = num_arrays
-            call master_to_slaves(phaml_solution,iparam,rparam)
-            gnsn = iparam(1)
-            gewn = iparam(2)
-            gdns = iparam(3)
-            gdew = iparam(4)
-            num_arrays = iparam(5)
-            deallocate(rparam)
-            call array_init()
-            first_call = .false.
+        if(modnum .eq. 1) then 
+            call example_update_usermod(phaml_solution) 
         else
             allocate(rparam(gnsn*gewn*num_arrays))
             iparam(1) = gnsn
@@ -406,6 +431,7 @@ subroutine update_usermod(phaml_solution)
             iparam(3) = gdns
             iparam(4) = gdew
             iparam(5) = num_arrays
+            iparam(6) = modnum
             call reshape_array_to_one(uphaml,rparam)
             !Call the routine that performs the actual exchange.   
             call master_to_slaves(phaml_solution,iparam,rparam)
@@ -414,6 +440,7 @@ subroutine update_usermod(phaml_solution)
             gdns = iparam(3)
             gdew = iparam(4)
             num_arrays = iparam(5)
+            modnum = iparam(6)
             if(num_arrays .eq. 1) then
                 call reshape_array_to_two(uphaml,rparam)
             end if

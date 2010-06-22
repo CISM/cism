@@ -28,13 +28,7 @@
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
-module phaml_example
-  use glide_types
-  use glimmer_global
-  use phaml
-  use phaml_user_mod
-  implicit none
-  
+module phaml_example  
 contains
 !need to specify which phaml module
 !phaml_example is 1
@@ -103,6 +97,9 @@ contains
 
 !-------------------------------------------------------------------------
     subroutine phaml_lin_evolve(cism_model,phaml_solution)
+        use phaml
+        use phaml_user_mod
+        use glide_types
         type(phaml_solution_type) :: phaml_solution
         type(glide_global_type) :: cism_model
         
@@ -125,6 +122,9 @@ contains
 
 !-------------------------------------------------------------------------
     subroutine phaml_nonlin_evolve(cism_model,phaml_solution)
+        use phaml
+        use phaml_user_mod
+        use glide_types
         type(phaml_solution_type) :: phaml_solution
         type(glide_global_type) :: cism_model
         
@@ -159,31 +159,40 @@ contains
         !call phaml_init(cism_model,phaml_solution)
         !generate the mesh file
         call make_ice_poly_file(cism_model)
-        !set the mesh and create the phaml solution
+        !set the mesh and create the phaml solutiony
         call phaml_create(phaml_solution,nproc=2,update_umod=.true., &
             triangle_files="mesh.1", &
-            spawn_form=NORMAL_SPAWN, &!DEBUG_BOTH, &
-            draw_grid_who=MASTER)!NO_ONE)
+            !spawn_form=DEBUG_SLAVE, &!DEBUG_BOTH, &
+            draw_grid_who=NO_ONE)
         !set the initial conditions array    
         uphaml = cism_model%phaml%uphaml
-        
         !set the initial conditions
         !update usermod must be called at least twice before iconds
         !can be set with phaml_solve_pde
         call update_usermod(phaml_solution)
         write(*,*) 'phaml_solve'
         !solve the pde
+        call phaml_solve_pde(phaml_solution,                      &
+                 task=SET_INITIAL,          &
+                 refterm=KEEP_NELEM,        &
+                 max_eq=3200,              &
+                 error_estimator=INITIAL_CONDITION, &
+                 print_header_who=NO_ONE,   &
+                 print_trailer_who=NO_ONE,  &
+                 degree=3,                  &
+                 draw_grid_when=NEVER)
         call phaml_solve_pde(phaml_solution,            &
-                         draw_grid_when=PHASES, &!NEVER,          &
+                         draw_grid_when=NEVER,          &
                          pause_at_start=.false.,        &
                          pause_after_phases=.false.,    &
+                         print_error_who=MASTER, & 
                          task = SOLVE_ONLY,            &   !these two options make it
                          max_refsolveloop= 1,          &   !solve just one iteration
                          mg_cycles=20,                  &
                          mg_tol=MG_NO_TOL,              &
                          print_header_who=NO_ONE,       &
                          print_trailer_who=NO_ONE)
-        write(*,*) 'donequ'                         
+        write(*,*) 'done'                         
         !put the solution in the uphaml variable                 
         call phaml_getsolution(phaml_solution, cism_model%phaml%uphaml)
         !close the phaml session

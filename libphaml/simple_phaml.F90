@@ -71,13 +71,14 @@ program simple_phaml
     !does the evaluation and places the
     !solution in cism_model%phaml%uphaml
     call phaml_evolve(cism_model,phaml_solution)
-    !close and free variables
-    call phaml_close(phaml_solution)
+    
     
     call glide_io_writeall(cism_model,cism_model)
     time = time + get_tinc(cism_model)
     cism_model%numerics%time = time
     
     call glide_finalise(cism_model)
+    !close and free variables
+    call phaml_close(phaml_solution)
     
 end program simple_phaml

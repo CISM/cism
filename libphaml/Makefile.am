@@ -1,16 +1,13 @@
 FC = $(MPIFC)
 
-#bin_PROGRAMS =  phaml_slave phaml_graphics simple_phaml 
- 
-if USE_PHAML_GRAPHICS
-	bin_PROGRAMS = phaml_slave simple_phaml phaml_graphics
-else
-    bin_PROGRAMS =  phaml_slave simple_phaml 
-endif
+
+bin_PROGRAMS = phaml_slave simple_phaml $(phaml_graphics)
+
 
 lib_LTLIBRARIES = libphaml_user_mod.la libphaml_support.la  \
      libphaml_example.la libphaml_pde.la
-    
+EXTRA_PROGRAMS = phaml_graphics
+
 nodist_include_HEADERS := $(wildcard *.mod)
 EXTRA_DIST = f90_dep.mak 
 CLEANFILES = $(BUILT_SOURCES) f90_dep.mak $(wildcard *.mod)
@@ -47,8 +44,9 @@ phaml_slave_LDADD = $(ac_cv_phaml_prefix)/lib/libphaml.a \
 if USE_PHAML_GRAPHICS
     phaml_graphics_SOURCES = $(ac_cv_phaml_prefix)/src/graphmain.f90
     phaml_graphics_LDADD = $(ac_cv_phaml_prefix)/lib/libphaml.a	\
-    $(MPILIBS) libphaml_pde.la
+        $(MPILIBS) libphaml_pde.la
 endif
+
 ##############################################################
 #a simple driver program
 simple_phaml_SOURCES = simple_phaml.F90
