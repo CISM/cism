@@ -1,0 +1,21 @@
+The documentation contained here relates to the PHAML/GLIMMER interface.
+The files are as follows:
+-----------------------------
+I---Overview.pdf - This file explains the different software components,
+       data structures, and how they interact with each other.
+
+II--Setup.pdf - This contains 5 sections with different instructions.
+      -Appendix A - Setup deals with how to get, compile, 
+           and install PHAML with CISM as well as the optional
+           GUI libraries
+      -Appendix B - GLIMMER-CISM / PHAML usage shows how to 
+           use the phaml_modules from within CISM
+      -Appendix C - Adding Modules / Drivers explains how to
+           add new phaml_modules and drivers into the build system
+      -Appendix D - PHAML NETCDF Variables just lists the current
+           variables in the custom phaml type in CISM
+      -Appendix E - Libphaml Functions lists all of the functions
+           within the library 
+
+III-phaml_user_guide.pdf - The user guide for PHAML which can also
+      be downloaded from the website: http://math.nist.gov/phaml/

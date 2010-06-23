@@ -28,20 +28,26 @@
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
-
+!------------------------------------------------------------------------------
+! This module contains user global data, and functions for formatting
+!------------------------------------------------------------------------------
 module phaml_user_mod
-    !----------------------------------------------------
-    ! This module contains user global data, and functions for formatting
-    !
-    !----------------------------------------------------
     use global
     use phaml
     implicit none
 
-
     integer, save :: gnsn, gewn, gdns, gdew, num_arrays, modnum
     real(my_real), save, allocatable, dimension(:,:) :: uphaml
 contains        
+    !------------------------------------------------------------------------------
+    !SUBROUTINE: user_init
+    !ARGUMENTS: ewn,nsn,dew,dns,modn
+    !DESCRIPTION:
+    ! This subroutine sets all of the mandatory fields in the user module.  The 
+    ! num_arrays is set to 1 by default but can be changed if more than one array
+    ! needs to be stored in the usermod.  This will require altering the array_init,
+    ! as well as the update_usermod function specific to the module.
+    !------------------------------------------------------------------------------       
     subroutine user_init(ewn,nsn,dew,dns,modn)
         implicit none
         integer, intent(in) :: nsn,ewn,modn
@@ -56,23 +62,36 @@ contains
         !allocate(uphaml(gewn, gnsn))
         !allocate(uphaml_one(gewn*gnsn))
     end subroutine user_init
-    
+    !------------------------------------------------------------------------------
+    !SUBROUTINE: user_close
+    !ARGUMENTS: 
+    !DESCRIPTION:
+    ! This simply calls any functions that might be needed to free memory or end 
+    ! the use of the user module.  Currently, only the arrays need to be deallocated.
+    !------------------------------------------------------------------------------
     subroutine user_close()
-        if (size(uphaml) > 0) then
-            deallocate(uphaml)
-        end if
+        call array_close()
     end subroutine user_close
-    
+    !------------------------------------------------------------------------------
+    !SUBROUTINE: array_init
+    !ARGUMENTS: 
+    !DESCRIPTION:
+    ! A subroutine to allocate the arrays.
+    !------------------------------------------------------------------------------
     subroutine array_init()
         !if (size(uphaml) .le. 0) then
             allocate(uphaml(gewn, gnsn))
         !end if
     end subroutine array_init
-    
+    !------------------------------------------------------------------------------
+    !SUBROUTINE: array_close
+    !ARGUMENTS: 
+    !DESCRIPTION:
+    ! This simply deallocates any dynamic arrays within the usermodule.
+    !------------------------------------------------------------------------------       
     subroutine array_close()
         if (size(uphaml) > 0) then
             deallocate(uphaml)
-            !deallocate(uphaml_one)
         end if
     end subroutine array_close
     !------------------------------------------------------------------------------

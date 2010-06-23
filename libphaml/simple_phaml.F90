@@ -27,7 +27,14 @@
 !
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-
+!------------------------------------------------------------------------------
+!PROGRAM: simple_phaml
+!DESCRIPTION: 
+! This is a very basic driver program only using the minimal amount of CISM
+! code necessary in order to read in config files and instantiate the model. 
+! The purpose is to show how phaml modules can be used within CISM code as an
+! example.
+!------------------------------------------------------------------------------
 program simple_phaml
     use glimmer_global, only:rk ! precision of the model
     use glide                   ! main glide module
@@ -71,7 +78,6 @@ program simple_phaml
     !does the evaluation and places the
     !solution in cism_model%phaml%uphaml
     call phaml_evolve(cism_model,phaml_solution)
-    
     
     call glide_io_writeall(cism_model,cism_model)
     time = time + get_tinc(cism_model)

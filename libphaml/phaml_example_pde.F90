@@ -156,6 +156,7 @@ contains
         integer :: ew, ns
         
         !maps an x, y to nearest integer r,c value for array lookup
+        !in general, DO NOT use these functions in this way
         ew = getew(x)
         ns = getns(y)
         !----------------------------------------------------
