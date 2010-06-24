@@ -1,0 +1,126 @@
+%% Subpackage: thesisreport.sty for use with the isuthesis package.
+%%
+%% LaTeX document package `isuthesis', for use with LaTeX2e.
+%% This is a package that is used with the report class to
+%%   create a thesis at Iowa State University.
+%%
+%% COPYRIGHT 1997, by Joe Struss (jastruss@iastate.edu)
+%%
+%% Copying of part or all of any file in the isuthesis.sty package
+%% including isumacros.sty, thesisreport.sty and isuthesis.sty
+%% is allowed under the following conditions only:
+%% (1) You may freely distribute unchanged copies of the files. Please
+%%     include the any or all documentation when you do so.
+%% (2) You may modify a renamed copy of any file, but only for personal
+%%     use or use within an organization.
+%% (3) You may copy fragments from the files, for personal use or for use
+%%     in a macro package for distribution, as long as credit is given
+%%     where credit is due.
+%%
+%% You are NOT ALLOWED to take money for the distribution or use of
+%% these files or modified versions or fragments thereof, except for
+%% a nominal charge for copying etc.
+%%
+%Standard Report class changes;  JAS 10/95-3/96
+%  Part -standard (change Huge and huge to Large
+\renewcommand{\part}{\cleardoublepage
+                 %\thispagestyle{plain} - remove to get rid of page #
+                 \if@twocolumn
+                     \onecolumn
+                     \@tempswatrue  
+                   \else
+                     \@tempswafalse
+                 \fi
+                 \hbox{}\vfil
+                 \secdef\@part\@spart}
+
+\def\@part[#1]#2{%
+    \ifnum \c@secnumdepth >-2\relax
+      \refstepcounter{part}%
+      \addcontentsline{toc}{part}{\partname \thepart\hspace{1em}#1}%
+    \else
+      \addcontentsline{toc}{part}{#1}%
+    \fi
+    \markboth{}{}
+    {\centering
+     \interlinepenalty \@M
+     \reset@font
+     \ifnum \c@secnumdepth >-2\relax
+       \Large\bfseries \partname~\thepart
+       \par
+       \vskip 20\p@
+     \fi
+     \Large \bfseries #2\par}%
+    \@endpart}
+\def\@spart#1{%   
+    {\centering
+     \interlinepenalty \@M  
+     \reset@font
+     \Large \bfseries #1\par}%
+    \@endpart}
+\def\@endpart{\vfil\newpage
+              \if@twoside
+                \hbox{}%
+                \thispagestyle{empty}%
+                \newpage
+              \fi
+              \if@tempswa
+                \twocolumn
+              \fi} 
+
+%  Chapter
+\renewcommand{\chapter}{\if@openright\cleardoublepage\else\clearpage\fi
+                    \thispagestyle{threepartheadings}%
+                    \global\@topnum\z@
+                    \@afterindentfalse
+                    \secdef\@chapter\@schapter}
+
+\def\@makechapterhead#1{%             % Heading for \chapter command.
+  \vspace*{50\p@}%                    % Space at top of text page
+  {\centering \reset@font \large\bfseries  % JAS, huge to large (removal and spaces)
+    \ifnum \c@secnumdepth >\m@ne      % IF secnumdepth > -1
+        \interlinepenalty\@M
+        \if@singleappendix
+           \thechapter
+        \else
+        \@chapapp \thechapter \fi \fi %   print 'Chapter' and number
+    ~~~#1\par
+    \nobreak                          % TeX penalty to prevent page break.
+    \vskip 40pt}}                     % Space between title and tex.
+
+\def\@makeschapterhead#1{%              Heading for \chapter* command
+  \vspace*{50\p@}%                    % Space at top of page
+  {\reset@font \centering \large \bfseries
+    \interlinepenalty\@M
+    ~~~#1\par\nobreak % JAS Huge to large, Title, TeX penalty to prevent page break
+    \vskip 40\p@                      % Space between title and tex.
+  }}
+
+% Sections, subsections, subsubsections
+\renewcommand{\section}{\@startsection {section}{1}{\z@}%
+                                   {-3.5ex \@plus -1ex \@minus -.2ex}%
+                                   {2.3ex \@plus.2ex}%
+                                   {\reset@font\large\bfseries}}
+ % JAS: Large to large
+\renewcommand{\subsection}{\@startsection{subsection}{2}{\z@}%
+                                     {-3.25ex\@plus -1ex \@minus -.2ex}%
+                                     {1.5ex \@plus .2ex}%
+                         {\reset@font\normalsize\bfseries \hskip 0.0 in}}
+ % JAS: large to normalsize; added 0.0 cm \hskip
+\renewcommand{\subsubsection}{\@startsection{subsubsection}{3}{\z@}%
+                                     {-3.25ex\@plus -1ex \@minus -.2ex}%
+                                     {1.5ex \@plus .2ex}%
+                             {\reset@font\normalsize\bfseries \hskip 0.25 in}}
+ % JAS no change; added .25 in \hskip
+
+% Paragraph and subparagraph (JAS -reformulation)
+%   (basically the same as subsection and subsubsection)
+\renewcommand\paragraph{\@startsection{paragraph}{4}{\z@}%
+                                    {3.25ex \@plus1ex \@minus.2ex}%
+                                    {-1em}%
+                                    {\normalfont\normalsize\bfseries \hskip 0.25 in}}
+\renewcommand\subparagraph{\@startsection{subparagraph}{5}{\parindent}%
+                                       {3.25ex \@plus1ex \@minus .2ex}%
+                                       {-1em}%
+                                      {\normalfont\normalsize\bfseries \hskip 0.25 in}}
+

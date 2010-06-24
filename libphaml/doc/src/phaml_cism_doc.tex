@@ -1,0 +1,140 @@
+%Thesis template, last hacked by Chap Alex (May 2007)
+%This template was built via LaTex => DVI => PDF
+%if necessary, you can import the dvi2pdf.tco file
+%to get the right build (it's included).
+
+%divpdfm is the dvi=>pdf engine
+\documentclass [12 pt]{report}
+\input{macros}
+\usepackage{fancybox}% I use it for framing definitions
+\usepackage{isuthesis}
+
+%authoryear produces [Alex 995] citations, with references 
+%in bibliography (no corresponding citations in refs)
+
+%number produces [1] citations, with corresponding 
+%citation numbers next to refs in bibliography
+
+\usepackage[authoryear]{natbib}	
+
+%\usepackage{hyperref}
+%%%%%%%%%%%%5
+%\usepackage{amsmath}
+%\usepackage{verbatim}
+%\usepackage{rotating}
+%\usepackage{graphicx}
+%\usepackage{subfigure}%for side-by-side figs
+%\usepackage{multirow}	%for multirow stuff in tables
+
+%\usepackage{nicefrac}	%for slanty 3/4 type fracs
+%%%%%%%%%%%%%%%%%%%%%%%
+
+\usepackage{amsmath}
+\usepackage{verbatim}
+\usepackage{rotating}
+\usepackage{graphicx}
+\usepackage{subfigure}%for side-by-side figs
+\usepackage{multirow}	%for multirow stuff in tables
+
+\usepackage{nicefrac}	%for slanty 3/4 type fracs
+\usepackage{supertabular}
+
+\usepackage{amsfonts}
+\usepackage{amsthm}
+\usepackage{ifthen}
+\usepackage{url}
+\usepackage{listings}
+%this handy little package puts bookmarks in your thesis.
+%there are a ton of parameters, check it out. (hyperref)
+%it hyperlinks all your \ref commands to the object it
+%references and adds the bookmarks tab to the pdf file
+%as well.  
+%comment out to remove
+
+\usepackage[pdftitle={\mytitle}, 
+            pdfauthor={\me},
+            pdfkeywords={chocolate,
+             			 peanut butter,
+             			 graham crackers,
+             			 marshmallow},  
+            pdfstartview=FitH,   
+            pdfpagemode={None}]{hyperref} 	%gives bookmarks in pdf file
+
+
+%any files inside {} below will be compiled, rest
+%will not.  separate multiple files with commas
+%ex.  
+%\includeonly{abstract, acknow, chapter2} will 
+%build only those files into .pdf file
+%note:  only files inserted via \include{} are
+%affected by this.  
+%=========== include only ======================
+%===============================================
+
+
+%=============== comment this out to eliminate section, subsection numbering
+\alternate
+%==================================================================
+
+
+\parindent 12pt
+\bibliographystyle{plainnat}
+\renewcommand{\bibname}{BIBLIOGRAPHY}
+
+\begin{document}
+
+%--------------- title section -------------------------
+\include{titletocmas}
+%-------------------------------------------------------
+
+%--------------- abstract, acknowldgements -------------
+%-------------------------------------------------------
+
+%---------------table of contents ----------------------
+\tableofcontents
+%-------------------------------------------------------
+
+%--------------- list of figs, tables ------------------
+\listoftables
+\listoffigures
+%-------------------------------------------------------
+
+\newpage
+
+\textheight 8.5in %8.5+.5headsep=9in. This leaves 1 in margin in the thesis body
+\pagenumbering{arabic}
+\pagestyle{myheadings}
+
+
+%------------ main body section -----------------------
+\include{chapter1}
+\include{chapter2}
+\include{chapter3}
+\include{chapter4}
+\include{chapter5}
+\include{chapter6}
+%-------------------------------------------------------
+
+
+%------------- appendix section ------------------------
+% uncomment this to add appendices to paper
+\input{appendices}
+%-------------------------------------------------------
+
+
+%------------ bibliography section ---------------------
+%This will remove "APPENDIX" from the Bibliography title:
+\unappendixtitle
+
+%Include bibliograpy in the Table of Contents
+\addcontentsline{toc}{chapter}{BIBLIOGRAPHY}
+\bibliography{References}
+%-------------------------------------------------------
+%the bibliography must be compiled separately.  So if a new source is added must run
+%latex Thesis.tex
+%bibtex Thesis.tex
+%then compile like normal
+
+
+\end{document}
+

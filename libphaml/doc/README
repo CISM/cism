@@ -19,3 +19,5 @@ II--Setup.pdf - This contains 5 sections with different instructions.
 
 III-phaml_user_guide.pdf - The user guide for PHAML which can also
       be downloaded from the website: http://math.nist.gov/phaml/
+
+The entire Overivew/setup file can be built within the source directory by using a command line and executing "pdflatex phaml_cism_doc.tex", then "bibtex phaml_cism_doc", and then executing "pdflatex phaml_cism_doc.tex" another couple of times.
