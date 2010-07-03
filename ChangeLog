@@ -1,4 +1,8 @@
 2011-07-02 William Lipscomb
+  * Moved glimmer_restart_gcm.F90 from libglimmer to libglide.
+    Required because of dependency on glide_types
+     	
+2011-07-02 William Lipscomb
   * Various changes to make the Glimmer-CISM source code consistent with the latest 
     version of CESM:
   * Removed ifdefs and replaced them with 'if (GLC_DEBUG)' since ifdefs are highly
