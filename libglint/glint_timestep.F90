@@ -141,10 +141,7 @@ contains
     real(sp),dimension(:,:),pointer :: calve_temp   => null() ! temporary array for calving flux
     real(rk) :: start_volume,end_volume,flux_fudge
     integer :: i
-
-#ifdef GLC_DEBUG
     integer :: j, ii, jj, nx, ny, il, jl
-#endif
 
     logical :: gcm_smb   ! true if getting sfc mass balance from a GCM
 
@@ -161,11 +158,11 @@ contains
     if (present(grofl)) grofl(:,:,:) = 0._rk
     if (present(ghflx)) ghflx(:,:,:) = 0._rk
 
-#ifdef GLC_DEBUG
-    write(stdout,*) ' '
-    write(stdout,*) 'In glint_i_tstep, time =', time
-    write(stdout,*) 'next_time =', instance%next_time
-#endif
+    if (GLC_DEBUG) then
+       write(stdout,*) ' '
+       write(stdout,*) 'In glint_i_tstep, time =', time
+       write(stdout,*) 'next_time =', instance%next_time
+    endif
 
     ! Check whether we're doing anything this time.
 
@@ -246,14 +243,14 @@ contains
     t_win=0.0       ; t_wout=0.0
     g_water_out=0.0 ; g_water_in=0.0
 
-#ifdef GLC_DEBUG
-    write(stdout,*) ' '
-    write(stdout,*) 'Check for ice dynamics timestep'
-    write(stdout,*) 'time =', time
-    write(stdout,*) 'start_time =', instance%mbal_accum%start_time
-    write(stdout,*) 'mbal_step =', instance%mbal_tstep
-    write(stdout,*) 'mbal_accum_time =', instance%mbal_accum_time
-#endif
+    if (GLC_DEBUG) then
+       write(stdout,*) ' '
+       write(stdout,*) 'Check for ice dynamics timestep'
+       write(stdout,*) 'time =', time
+       write(stdout,*) 'start_time =', instance%mbal_accum%start_time
+       write(stdout,*) 'mbal_step =', instance%mbal_tstep
+       write(stdout,*) 'mbal_accum_time =', instance%mbal_accum_time
+    endif
 
     ! ------------------------------------------------------------------------  
     ! ICE TIMESTEP begins HERE ***********************************************
@@ -287,9 +284,9 @@ contains
 
        do i = 1, instance%n_icetstep
 
-#ifdef GLC_DEBUG
-          write (stdout,*) 'GLIDE timestep, iteration =', i
-#endif
+          if (GLC_DEBUG) then
+             write (stdout,*) 'GLIDE timestep, iteration =', i
+          endif
 
           ! Calculate the initial ice volume (scaled and converted to water equivalent)
           call glide_get_thk(instance%model,thck_temp)
@@ -326,13 +323,13 @@ contains
           call glide_set_acab(instance%model, instance%acab*real(rhow/rhoi))
           call glide_set_artm(instance%model, instance%artm)
 
-#ifdef GLC_DEBUG
+          if (GLC_DEBUG) then
              il = itest_local
              jl = jtest_local
              write (stdout,*) ' '
              write (stdout,*) 'After glide_set_acab, glide_set_artm: i, j =', il, jl
              write (stdout,*) 'acab (m/y), artm (C) =', instance%acab(il,jl), instance%artm(il,jl)
-#endif
+          endif
 
           ! Adjust glint acab and ablt for output
  

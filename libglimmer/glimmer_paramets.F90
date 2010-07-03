@@ -58,6 +58,9 @@ module glimmer_paramets
 
    integer, parameter :: idiag = 30, jdiag = 50  ! point for diagnostic output
 
+! logical flag to turn on special DEBUG output (related to test points), false by default
+   logical :: GLC_DEBUG = .false.
+
 ! scaling parameters
 ! TO DO - Remove these at some point?
 

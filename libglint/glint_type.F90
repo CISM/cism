@@ -542,10 +542,7 @@ contains
     integer :: i, j            ! indices
  
     integer :: il, jl, ig, jg
-
-#ifdef GLC_DEBUG
     character(len=100) :: message
-#endif
 
 !lipscomb - TO DO - Read topomax from data file at initialization
     real(dp), dimension(0:nec) :: topomax   ! upper elevation limit of each class
@@ -565,10 +562,10 @@ contains
        topomax = (/ 0._dp,   200._dp,   400._dp,   700._dp,  1000._dp,  1300._dp,  &
                             1600._dp,  2000._dp,  2500._dp,  3000._dp, 10000._dp /)
     else
-#ifdef GLC_DEBUG
-       write(message,'(a6,i3)') 'nec =', nec
-       call write_log(trim(message), GM_DIAGNOSTIC)
-#endif
+       if (GLC_DEBUG) then 
+          write(message,'(a6,i3)') 'nec =', nec
+          call write_log(trim(message), GM_DIAGNOSTIC)
+       endif
        call write_log('ERROR: Current supported values of nec (no. of elevation classes) are 1, 3, 5, or 10', &
                        GM_FATAL,__FILE__,__LINE__)
     endif
@@ -576,7 +573,7 @@ contains
     local_topo(:,:) = thk0 * instance%model%geometry%usrf(:,:)
     local_thck(:,:) = thk0 * instance%model%geometry%thck(:,:)
         
-#ifdef GLC_DEBUG
+    if (GLC_DEBUG) then
        ig = itest
        jg = jjtest
        il = itest_local
@@ -589,7 +586,7 @@ contains
        write(stdout,*) 'topo =', local_topo(il,jl) 
        write(stdout,*) 'thck =', local_thck(il,jl) 
        write(stdout,*) 'local out_mask =', instance%out_mask(il,jl)
-#endif
+    endif
 
     ! temporary field: = 1 where ice thickness exceeds threshold, else = 0
 
@@ -656,7 +653,7 @@ contains
                             local_field,         ghflx,     &
                             local_topo,          instance%out_mask)
  
-#ifdef GLC_DEBUG
+    if (GLC_DEBUG) then
 !       write(stdout,*) ' '
 !       write(stdout,*) 'global ifrac:'
 !       do n = 1, nec
@@ -686,7 +683,7 @@ contains
 !       do n = 1, nec
 !          write(stdout,*) n, ghflx(ig, jg, n)
 !       enddo
-#endif
+    endif
 
   end subroutine get_i_upscaled_fields_gcm
 

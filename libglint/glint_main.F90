@@ -43,10 +43,7 @@ module glint_main
   use glimmer_anomcouple
   use glimmer_paramets, only: idiag, jdiag
   use glide_diagnostics
-
-#ifdef GLC_DEBUG
   use glimmer_paramets, only: itest, jtest, jjtest, stdout  
-#endif
 
   ! ------------------------------------------------------------
   ! GLIMMER_PARAMS derived type definition
@@ -76,10 +73,12 @@ module glint_main
      integer  :: time_step             !*FD Calling timestep of global model (hours)
 
      ! Parameters that can be set by the GCM calling Glint
+
      logical  :: gcm_smb = .false.     !*FD If true, receive surface mass balance from the GCM 
      logical  :: gcm_restart = .false. !*FD If true, hotstart the model from a GCM restart file
+     character(fname_length) :: gcm_restart_file   !*FD Name of restart file
      integer  :: gcm_fileunit = 99     !*FD Fileunit specified by GCM for reading config files
- 
+   
      ! Averaging parameters -------------------------------------
 
      integer  :: av_start_time = 0   !*FD Holds the value of time from 
@@ -172,24 +171,25 @@ module glint_main
 
 contains
 
-  subroutine initialise_glint(params,                     &
-                              lats,         longs,        &
-                              time_step,    paramfile,    &
-                              latb,         lonb,         &
-                              orog,         albedo,       &
-                              ice_frac,     veg_frac,     &
-                              snowice_frac, snowveg_frac, &
-                              snow_depth,                 &
-                              orog_lats,    orog_longs,   &
-                              orog_latb,    orog_lonb,    &
-                              output_flag,  daysinyear,   &
-                              snow_model,   ice_dt,       &
-                              extraconfigs, start_time,   &
-                              gcm_nec,      gcm_smb,      &
-                              gfrac,        gtopo,        &
-                              grofi,        grofl,        &
-                              ghflx,        gmask,        &
-                              gcm_restart,  gcm_fileunit)
+  subroutine initialise_glint(params,                         &
+                              lats,         longs,            &
+                              time_step,    paramfile,        &
+                              latb,         lonb,             &
+                              orog,         albedo,           &
+                              ice_frac,     veg_frac,         &
+                              snowice_frac, snowveg_frac,     &
+                              snow_depth,                     &
+                              orog_lats,    orog_longs,       &
+                              orog_latb,    orog_lonb,        &
+                              output_flag,  daysinyear,       &
+                              snow_model,   ice_dt,           &
+                              extraconfigs, start_time,       &
+                              gcm_nec,      gcm_smb,          &
+                              gfrac,        gtopo,            &
+                              grofi,        grofl,            &
+                              ghflx,        gmask,            &
+                              gcm_restart,  gcm_restart_file, &
+                              gcm_debug,    gcm_fileunit)
 
     !*FD Initialises the model
 
@@ -242,7 +242,9 @@ contains
     real(rk),dimension(:,:,:),optional,intent(out) :: ghflx       !*FD heat flux (W/m^2, positive down)
     integer, dimension(:,:),  optional,intent(in)  :: gmask       !*FD mask = 1 where global data are valid
     logical,                  optional,intent(in)  :: gcm_restart ! logical flag to hotstart from a GCM restart file
+    character(*),             optional, intent(in) :: gcm_restart_file ! hotstart filename for a GCM restart
                                                                   ! (currently assumed to be CESM)
+    logical,                  optional,intent(in)  :: gcm_debug   ! logical flag from GCM to output debug information
     integer,                  optional,intent(in)  :: gcm_fileunit! fileunit for reading config files
 
     ! Internal variables -----------------------------------------------------------------------
@@ -262,11 +264,15 @@ contains
     integer :: n
     integer :: nec       ! number of elevation classes
     real(rk):: timeyr    ! time in years
-
-#ifdef GLC_DEBUG
     integer :: j, ii, jj
-    write(stdout,*) 'Starting initialise_glint'
-#endif
+
+    if (present(gcm_debug)) then
+       GLC_DEBUG = gcm_debug
+    endif
+
+    if (GLC_DEBUG) then
+       write(stdout,*) 'Starting initialise_glint'
+    endif
 
     ! Initialise start time and calling model time-step ----------------------------------------
     ! We ignore t=0 by default 
@@ -293,6 +299,11 @@ contains
        params%gcm_restart = gcm_restart
     endif
 
+    params%gcm_restart_file = ''
+    if (present(gcm_restart_file)) then
+       params%gcm_restart_file = gcm_restart_file
+    endif
+
     params%gcm_fileunit = 99
     if (present(gcm_fileunit)) then
        params%gcm_fileunit = gcm_fileunit
@@ -303,11 +314,11 @@ contains
        nec = gcm_nec
     endif
 
-#ifdef GLC_DEBUG
-    write(stdout,*) 'time_step =', params%time_step
-    write(stdout,*) 'start_time =', params%start_time
-    write(stdout,*) 'next_av_start =', params%next_av_start
-#endif
+    if (GLC_DEBUG) then
+       write(stdout,*) 'time_step =', params%time_step
+       write(stdout,*) 'start_time =', params%start_time
+       write(stdout,*) 'next_av_start =', params%next_av_start
+    endif
 
     ! Initialise year-length -------------------------------------------------------------------
 
@@ -315,10 +326,10 @@ contains
        call glint_set_year_length(daysinyear)
     end if
 
-#ifdef GLC_DEBUG
+    if (GLC_DEBUG) then
        write(stdout,*) 'Initialize global grid'
        write(stdout,*) 'present =', present(gmask)
-#endif
+    endif
 
     ! Initialise main global grid --------------------------------------------------------------
 
@@ -328,26 +339,26 @@ contains
        call new_global_grid(params%g_grid, longs, lats, lonb=lonb, latb=latb, nec=nec)
     endif
 
-#ifdef GLC_DEBUG
-    write (stdout,*) ' ' 
-    write (stdout,*) 'time_step (hr)  =', params%time_step
-    write (stdout,*) 'start_time (hr) =', params%start_time
-    write (stdout,*) 'Called new_global_grid '
-    write (stdout,*) 'g_grid%nx =', params%g_grid%nx
-    write (stdout,*) 'g_grid%ny =', params%g_grid%ny
-    write (stdout,*) ' '
-    write (stdout,*) 'g_grid%lons =', params%g_grid%lons
-    write (stdout,*) ' '
-    write (stdout,*) 'g_grid%lats =', params%g_grid%lats
-    write (stdout,*) ' '
-    write (stdout,*) 'g_grid%lon_bound =', params%g_grid%lon_bound
-    write (stdout,*) ' '
-    write (stdout,*) 'g_grid%lat_bound =', params%g_grid%lat_bound
-    do j = 5, 10
-       write (stdout,*)
-       write (stdout,*) 'j, g_grid%mask =', j, params%g_grid%mask(:,j)
-    enddo
-#endif
+    if (GLC_DEBUG) then
+       write (stdout,*) ' ' 
+       write (stdout,*) 'time_step (hr)  =', params%time_step
+       write (stdout,*) 'start_time (hr) =', params%start_time
+       write (stdout,*) 'Called new_global_grid '
+       write (stdout,*) 'g_grid%nx =', params%g_grid%nx
+       write (stdout,*) 'g_grid%ny =', params%g_grid%ny
+       write (stdout,*) ' '
+       write (stdout,*) 'g_grid%lons =', params%g_grid%lons
+       write (stdout,*) ' '
+       write (stdout,*) 'g_grid%lats =', params%g_grid%lats
+       write (stdout,*) ' '
+       write (stdout,*) 'g_grid%lon_bound =', params%g_grid%lon_bound
+       write (stdout,*) ' '
+       write (stdout,*) 'g_grid%lat_bound =', params%g_grid%lat_bound
+       do j = 5, 10
+          write (stdout,*)
+          write (stdout,*) 'j, g_grid%mask =', j, params%g_grid%mask(:,j)
+       enddo
+    endif
 
     ! Initialise orography grid ------------------------------------
 
@@ -398,10 +409,10 @@ contains
     params%cov_normalise = 0.0
     params%cov_norm_orog = 0.0
 
-#ifdef GLC_DEBUG
+    if (GLC_DEBUG) then
        write(stdout,*) 'Read paramfile'
        write(stdout,*) 'paramfile =', paramfile
-#endif
+    endif
 
     ! ---------------------------------------------------------------
     ! Determine how many instances there are, according to what
@@ -410,7 +421,7 @@ contains
 
     if (size(paramfile) == 1) then
        ! Load the configuration file into the linked list
-       call ConfigRead(process_path(paramfile(1)), global_config,params%gcm_fileunit)    
+       call ConfigRead(process_path(paramfile(1)), global_config, params%gcm_fileunit)    
        call glint_readconfig(global_config, params%ninstances, config_fnames, paramfile) ! Parse the list
     else
        params%ninstances = size(paramfile)
@@ -421,10 +432,10 @@ contains
     allocate(params%instances(params%ninstances))
     allocate(mbts(params%ninstances), idts(params%ninstances))
 
-#ifdef GLC_DEBUG
-    write(stdout,*) 'Number of instances =', params%ninstances
-    write(stdout,*) 'Read config files and initialize each instance'
-#endif
+    if (GLC_DEBUG) then
+       write(stdout,*) 'Number of instances =', params%ninstances
+       write(stdout,*) 'Read config files and initialize each instance'
+    endif
     ! ---------------------------------------------------------------
     ! Read config files, and initialise instances accordingly
     ! ---------------------------------------------------------------
@@ -436,19 +447,20 @@ contains
 
     do i=1,params%ninstances
 
-       call ConfigRead(process_path(config_fnames(i)),instance_config,params%gcm_fileunit)
+       call ConfigRead(process_path(config_fnames(i)),instance_config, params%gcm_fileunit)
        if (present(extraconfigs)) then
           if (size(extraconfigs)>=i) then
              call ConfigCombine(instance_config,extraconfigs(i))
           end if
        end if
  
-      call glint_i_initialise(instance_config,     params%instances(i),  &
-                               params%g_grid,      params%g_grid_orog,   &
-                               mbts(i),            idts(i),              &
-                               params%need_winds,  params%enmabal,       &
-                               params%start_time,  params%time_step,     &
-                               params%gcm_restart, params%gcm_fileunit )
+      call glint_i_initialise(instance_config,     params%instances(i),     &
+                               params%g_grid,      params%g_grid_orog,      &
+                               mbts(i),            idts(i),                 &
+                               params%need_winds,  params%enmabal,          &
+                               params%start_time,  params%time_step,        &
+                               params%gcm_restart, params%gcm_restart_file, &
+                               params%gcm_fileunit )
 
        params%total_coverage = params%total_coverage + params%instances(i)%frac_coverage
        params%total_cov_orog = params%total_cov_orog + params%instances(i)%frac_cov_orog
@@ -458,9 +470,9 @@ contains
 
        ! Write initial diagnostics for this instance
        timeyr = real(params%start_time/8760.)
-#ifdef GLC_DEBUG
-       write(stdout,*) 'Write model diagnostics, time =', timeyr
-#endif
+       if (GLC_DEBUG) then
+          write(stdout,*) 'Write model diagnostics, time =', timeyr
+       endif
        call glide_write_diag(params%instances(i)%model, timeyr, idiag, jdiag)
 
        ! Initialise anomaly coupling
@@ -485,12 +497,12 @@ contains
        ice_dt = check_mbts(idts)
     end if
 
-#ifdef GLC_DEBUG
+    if (GLC_DEBUG) then
        write(stdout,*) 'tstep_mbal =', params%tstep_mbal
        write(stdout,*) 'start_time =', params%start_time
        write(stdout,*) 'time_step =',  params%time_step
        if (present(ice_dt)) write(stdout,*) 'ice_dt =', ice_dt
-#endif
+    endif
 
     ! Check time-steps divide into one another appropriately.
 
@@ -540,9 +552,9 @@ contains
        allocate(ghflx_temp(params%g_grid%nx,params%g_grid%ny,params%g_grid%nec))
     endif
 
-#ifdef GLC_DEBUG
-    write(stdout,*) 'Upscale and splice the initial fields'
-#endif
+    if (GLC_DEBUG) then
+       write(stdout,*) 'Upscale and splice the initial fields'
+    endif
 
     ! Get initial fields from instances, splice together and return
 
@@ -745,10 +757,7 @@ contains
     real(rk),dimension(:,:),pointer :: temp
     real(rk) :: yearfrac
     real(rk) :: timeyr   ! time in years
-
-#ifdef GLC_DEBUG
     integer :: j, ig, jg
-#endif
 
     real(rk), dimension(:,:,:), allocatable ::   &
        gfrac_temp    ,&! gfrac for a single instance
@@ -757,13 +766,13 @@ contains
        grofl_temp    ,&! grofl for a single instance
        ghflx_temp      ! ghflx for a single instance
 
-#ifdef GLC_DEBUG
+    if (GLC_DEBUG) then
 !       write (stdout,*) 'In subroutine glint, current time (hr) =', time
 !       write (stdout,*) 'av_start_time =', params%av_start_time
 !       write (stdout,*) 'next_av_start =', params%next_av_start
 !       write (stdout,*) 'new_av =', params%new_av
 !       write (stdout,*) 'tstep_mbal =', params%tstep_mbal
-#endif
+    endif
 
     ! Check we're expecting a call now --------------------------------------------------------------
 
@@ -908,24 +917,24 @@ contains
 
        params%g_temp_range=(params%g_max_temp-params%g_min_temp)/2.0
 
-#ifdef GLC_DEBUG
-           i = itest
-           j = jjtest
-           write(stdout,*) 'Take a mass balance timestep, time (hr) =', time
-           write(stdout,*) 'av_steps =', real(params%av_steps,rk)
-           write(stdout,*) 'tstep_mbal (hr) =', params%tstep_mbal
-           write(stdout,*) 'i, j =', i, j
-           if (params%gcm_smb) then
-            do n = 1, params%g_grid%nec
-              write (stdout,*) ' '
-              write (stdout,*) 'n =', n
-              write (stdout,*) 'g_av_qsmb (kg m-2 s-1) =', params%g_av_qsmb(i,j,n)
-              write (stdout,*) 'g_av_tsfc (Celsius) =',    params%g_av_tsfc(i,j,n)
-              write (stdout,*) 'g_av_topo (m) =',          params%g_av_topo(i,j,n)
-            enddo
-           endif
-           write(stdout,*) 'call glint_i_tstep'
-#endif
+       if (GLC_DEBUG) then
+          i = itest
+          j = jjtest
+          write(stdout,*) 'Take a mass balance timestep, time (hr) =', time
+          write(stdout,*) 'av_steps =', real(params%av_steps,rk)
+          write(stdout,*) 'tstep_mbal (hr) =', params%tstep_mbal
+          write(stdout,*) 'i, j =', i, j
+          if (params%gcm_smb) then
+             do n = 1, params%g_grid%nec
+                write (stdout,*) ' '
+                write (stdout,*) 'n =', n
+                write (stdout,*) 'g_av_qsmb (kg m-2 s-1) =', params%g_av_qsmb(i,j,n)
+                write (stdout,*) 'g_av_tsfc (Celsius) =',    params%g_av_tsfc(i,j,n)
+                write (stdout,*) 'g_av_topo (m) =',          params%g_av_topo(i,j,n)
+             enddo
+          endif
+          write(stdout,*) 'call glint_i_tstep'
+       endif
 
        ! Calculate total surface mass balance - multiply by time since last model timestep
        ! Note on units: We want g_av_qsmb to have units of m per time step.
@@ -983,10 +992,10 @@ contains
 
            endif
 
-#ifdef GLC_DEBUG
+          if (GLC_DEBUG) then
              write(stdout,*) 'Finished glc_glint_ice tstep, instance =', i
              write(stdout,*) 'Upscale fields to global grid'
-#endif
+          endif
 
           ! Add this contribution to the output orography
 
@@ -1040,21 +1049,21 @@ contains
                                             grofi_temp,          grofl_temp,        &
                                             ghflx_temp )
 
-#ifdef GLC_DEBUG
-             ig = itest
-             jg = jjtest
-             write(stdout,*) ' '
-             write(stdout,*) 'After upscaling:'
-             do n = 1, params%g_grid%nec
-               write(stdout,*) ' '
-               write(stdout,*) 'n =', n
-               write(stdout,*) 'gfrac(n) =', gfrac(ig,jg,n)
-               write(stdout,*) 'gtopo(n) =', gtopo(ig,jg,n)
-!!               write(stdout,*) 'grofi(n) =', grofi(ig,jg,n)
-!!               write(stdout,*) 'grofl(n) =', grofl(ig,jg,n)
-!!               write(stdout,*) 'ghflx(n) =', ghflx(ig,jg,n)
-             enddo
-#endif
+             if (GLC_DEBUG) then
+                ig = itest
+                jg = jjtest
+                write(stdout,*) ' '
+                write(stdout,*) 'After upscaling:'
+                do n = 1, params%g_grid%nec
+                  write(stdout,*) ' '
+                  write(stdout,*) 'n =', n
+                  write(stdout,*) 'gfrac(n) =', gfrac(ig,jg,n)
+                  write(stdout,*) 'gtopo(n) =', gtopo(ig,jg,n)
+!!                  write(stdout,*) 'grofi(n) =', grofi(ig,jg,n)
+!!                  write(stdout,*) 'grofl(n) =', grofl(ig,jg,n)
+!!                  write(stdout,*) 'ghflx(n) =', ghflx(ig,jg,n)
+                enddo
+             endif
 
           ! Add this contribution to the global output
 
@@ -1093,9 +1102,9 @@ contains
           if (mod(params%instances(i)%model%numerics%timecounter,  &
                   params%instances(i)%model%numerics%ndiag)==0)  then
              timeyr = time / (days_in_year*24.d0) 
-#ifdef GLC_DEBUG
-             write(stdout,*) 'Write diagnostics, time (yr)=', timeyr     
-#endif
+             if (GLC_DEBUG) then
+                write(stdout,*) 'Write diagnostics, time (yr)=', timeyr     
+             endif
              call glide_write_diag(params%instances(i)%model, timeyr, idiag, jdiag)
           endif
 

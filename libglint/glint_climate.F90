@@ -194,37 +194,37 @@ contains
 
     endif
 
-#ifdef GLC_DEBUG
-    write (stdout,*) ' ' 
-    write (stdout,*) 'Interpolate fields to local grid'
-    write (stdout,*) 'Global cell =', itest, jjtest
-    do n = 1, nec
-       write(stdout,*) n, topo_g(itest,jjtest, n)
-    enddo
+    if (GLC_DEBUG) then
+       write (stdout,*) ' ' 
+       write (stdout,*) 'Interpolate fields to local grid'
+       write (stdout,*) 'Global cell =', itest, jjtest
+       do n = 1, nec
+          write(stdout,*) n, topo_g(itest,jjtest, n)
+       enddo
 
-    do j = 1, nyl
-    do i = 1, nxl
-        if ( (instance%downs%xloc(i,j,1) == itest .and. instance%downs%yloc(i,j,1) == jjtest) .or.  &
-             (instance%downs%xloc(i,j,2) == itest .and. instance%downs%yloc(i,j,2) == jjtest) .or.  &
-             (instance%downs%xloc(i,j,3) == itest .and. instance%downs%yloc(i,j,3) == jjtest) .or.  &
-             (instance%downs%xloc(i,j,4) == itest .and. instance%downs%yloc(i,j,4) == jjtest) ) then
-            write(stdout,*) i, j, thk0 * instance%model%geometry%usrf(i,j)
-        endif
-    enddo
-    enddo
+       do j = 1, nyl
+       do i = 1, nxl
+           if ( (instance%downs%xloc(i,j,1) == itest .and. instance%downs%yloc(i,j,1) == jjtest) .or.  &
+                (instance%downs%xloc(i,j,2) == itest .and. instance%downs%yloc(i,j,2) == jjtest) .or.  &
+                (instance%downs%xloc(i,j,3) == itest .and. instance%downs%yloc(i,j,3) == jjtest) .or.  &
+                (instance%downs%xloc(i,j,4) == itest .and. instance%downs%yloc(i,j,4) == jjtest) ) then
+               write(stdout,*) i, j, thk0 * instance%model%geometry%usrf(i,j)
+           endif
+       enddo
+       enddo
     
-    i = itest_local
-    j = jtest_local
-    write (stdout,*) ' ' 
-    write (stdout,*) 'Interpolated to local cells: i, j =', i, j
-    do n = 1, nec
-       write (stdout,*) ' '
-       write (stdout,*) 'n =', n
-       write (stdout,*) 'qsmb_l =', qsmb_l(i,j,n)
-       write (stdout,*) 'tsfc_l =', tsfc_l(i,j,n)
-       write (stdout,*) 'topo_l =', topo_l(i,j,n)
-    enddo
-#endif
+       i = itest_local
+       j = jtest_local
+       write (stdout,*) ' ' 
+       write (stdout,*) 'Interpolated to local cells: i, j =', i, j
+       do n = 1, nec
+          write (stdout,*) ' '
+          write (stdout,*) 'n =', n
+          write (stdout,*) 'qsmb_l =', qsmb_l(i,j,n)
+          write (stdout,*) 'tsfc_l =', tsfc_l(i,j,n)
+          write (stdout,*) 'topo_l =', topo_l(i,j,n)
+       enddo
+    endif
 
 !   Interpolate tsfc and qsmb to local topography using values in the neighboring 
 !    elevation classes.
@@ -253,7 +253,7 @@ contains
           enddo
        endif   ! usrf
 
-#ifdef GLC_DEBUG
+       if (GLC_DEBUG) then
           if (i==itest_local .and. j==jtest_local) then
              n = 4  
              write (stdout,*) ' '
@@ -269,7 +269,7 @@ contains
              write (stdout,*) 'tsfc(n) =', tsfc_l(i,j,n)
              write (stdout,*) 'fact = ', (topo_l(i,j,n) - usrf) / (topo_l(i,j,n) - topo_l(i,j,n-1)) 
           endif
-#endif
+       endif
 
     enddo  ! i
     enddo  ! j

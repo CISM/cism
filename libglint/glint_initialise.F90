@@ -42,12 +42,13 @@ module glint_initialise
 
 contains
 
-  subroutine glint_i_initialise(config,      instance,   &
-                                grid,        grid_orog,  &
-                                mbts,        idts,       &
-                                need_winds,  enmabal,    &
-                                force_start, force_dt,   &
-                                gcm_restart, gcm_fileunit)
+  subroutine glint_i_initialise(config,           instance,         &
+                                grid,             grid_orog,        &
+                                mbts,             idts,             &
+                                need_winds,       enmabal,          &
+                                force_start,      force_dt,         &
+                                gcm_restart,      gcm_restart_file, &
+                                gcm_config_unit)
 
     !*FD Initialise a GLINT ice model instance
 
@@ -59,52 +60,57 @@ contains
     use glide
     use glimmer_log
     use glint_constants
-!!    use glc_io   !lipscomb - TO DO - use ifdef for coupled CESM runs?
-
+    use glimmer_restart_gcm
     implicit none
 
     ! Arguments
-    type(ConfigSection), pointer         :: config      !*FD structure holding sections of configuration file   
-    type(glint_instance),  intent(inout) :: instance    !*FD The instance being initialised.
-    type(global_grid),     intent(in)    :: grid        !*FD Global grid to use
-    type(global_grid),     intent(in)    :: grid_orog   !*FD Global grid to use for orography
-    integer,               intent(out)   :: mbts        !*FD mass-balance time-step (hours)
-    integer,               intent(out)   :: idts        !*FD ice dynamics time-step (hours)
-    logical,               intent(inout) :: need_winds  !*FD Set if this instance needs wind input
-    logical,               intent(inout) :: enmabal     !*FD Set if this instance uses the energy balance mass-bal model
-    integer,               intent(in)    :: force_start !*FD glint forcing start time (hours)
-    integer,               intent(in)    :: force_dt    !*FD glint forcing time step (hours)
-    logical,     optional, intent(in)    :: gcm_restart !*FD logical flag to read from a hotstart file
-    integer,     optional, intent(in)    :: gcm_fileunit!*FD fileunit for reading config files
+    type(ConfigSection), pointer         :: config           !*FD structure holding sections of configuration file   
+    type(glint_instance),  intent(inout) :: instance         !*FD The instance being initialised.
+    type(global_grid),     intent(in)    :: grid             !*FD Global grid to use
+    type(global_grid),     intent(in)    :: grid_orog        !*FD Global grid to use for orography
+    integer,               intent(out)   :: mbts             !*FD mass-balance time-step (hours)
+    integer,               intent(out)   :: idts             !*FD ice dynamics time-step (hours)
+    logical,               intent(inout) :: need_winds       !*FD Set if this instance needs wind input
+    logical,               intent(inout) :: enmabal          !*FD Set if this instance uses the energy balance
+                                                             !    mass-bal model
+    integer,               intent(in)    :: force_start      !*FD glint forcing start time (hours)
+    integer,               intent(in)    :: force_dt         !*FD glint forcing time step (hours)
+    logical,     optional, intent(in)    :: gcm_restart      !*FD logical flag to read from a hotstart file
+    character(*),optional, intent(in)    :: gcm_restart_file !*FD hotstart filename for restart
+    integer,     optional, intent(in)    :: gcm_config_unit  !*FD fileunit for reading config files
 
     ! Internal
     real(sp),dimension(:,:),allocatable :: thk
-    integer :: fileunit
+    integer :: config_fileunit, restart_fileunit
 
-    fileunit = 99
-    if (present(gcm_fileunit)) then
-       fileunit = gcm_fileunit
+    config_fileunit = 99
+    if (present(gcm_config_unit)) then
+       config_fileunit = gcm_config_unit
     endif
 
     ! initialise model
 
-    call glide_config(instance%model, config, fileunit)
+    call glide_config(instance%model, config, config_fileunit)
 
     ! if this is a continuation run, then set up to read restart
     ! (currently assumed to be a CESM restart file)
 
     if (present(gcm_restart)) then
 
-!lipscomb - TO DO - use ifdef for coupled CESM runs?
-      ! CESM-ize the glint output names
-      ! (Need a different suffix if using another GCM)
-!!      call glc_io_create_suffix_cesm(instance%model)
-
       if (gcm_restart) then
 
-         ! read the hotstart file
-!!         call glc_io_read_restart(instance%model)
-         instance%model%options%hotstart = 1
+         if (present(gcm_restart_file)) then
+
+            ! read the hotstart file
+            call glimmer_read_restart_gcm(instance%model, gcm_restart_file)
+            instance%model%options%hotstart = 1
+ 
+         else
+
+            call write_log('Missing gcm_restart_file when gcm_restart is true',&
+                           GM_FATAL,__FILE__,__LINE__)
+
+         endif
 
       endif
     endif
@@ -193,24 +199,24 @@ contains
 
     instance%next_time = force_start-force_dt+instance%mbal_tstep
 
-#ifdef GLC_DEBUG
-    write (6,*) 'Called glint_mbc_init'
-    write (6,*) 'mbal tstep =', mbts
-    write (6,*) 'next_time =', instance%next_time
-    write (6,*) 'start_time =', instance%mbal_accum%start_time
-#endif
+    if (GLC_DEBUG) then
+       write (6,*) 'Called glint_mbc_init'
+       write (6,*) 'mbal tstep =', mbts
+       write (6,*) 'next_time =', instance%next_time
+       write (6,*) 'start_time =', instance%mbal_accum%start_time
+    endif
 
     ! Mass-balance accumulation length
 
     if (instance%mbal_accum_time == -1) then
        instance%mbal_accum_time = max(instance%ice_tstep,instance%mbal_tstep)
-#ifdef GLC_DEBUG
+       if (GLC_DEBUG) then
 !Set mbal_accum_time = mbal_tstep
 ! lipscomb - TO DO - Make it easy to run Glimmer/Glint for ~5 days, e.g. for CESM smoke tests,
 !         with all major components exercised. 
-!!       instance%mbal_accum_time = instance%mbal_tstep
-!!       write(6,*) 'WARNING: Seting mbal_accum_time =', instance%mbal_accum_time
-#endif
+!!          instance%mbal_accum_time = instance%mbal_tstep
+!!          write(6,*) 'WARNING: Seting mbal_accum_time =', instance%mbal_accum_time
+       endif
     end if
 
     if (instance%mbal_accum_time < instance%mbal_tstep) then

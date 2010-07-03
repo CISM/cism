@@ -37,7 +37,7 @@ contains
     !*FD Writes diagnostic output
  
     use glimmer_log
-    use glimmer_paramets, only: thk0, len0, vel0, tim0
+    use glimmer_paramets, only: thk0, len0, vel0, tim0, GLC_DEBUG
     use glimmer_physcon, only: scyr
     use glide_types
  
@@ -314,16 +314,16 @@ contains
              call write_log(trim(message), type = GM_DIAGNOSTIC)
           enddo
 
-#ifdef GLC_DEBUG
-          do k = 1, upn-1
-             spd = sqrt(model%velocity%uvel(k,i,j)**2   &
-                      + model%velocity%vvel(k,i,j)**2) * vel0*scyr
+          if (GLC_DEBUG) then
+             do k = 1, upn-1
+                spd = sqrt(model%velocity%uvel(k,i,j)**2   &
+                         + model%velocity%vvel(k,i,j)**2) * vel0*scyr
 
-             write (message,'(i4,Z24.20,Z24.20)')  &
-                k, spd, model%temper%temp(k,i,j)
-             call write_log(trim(message), type = GM_DIAGNOSTIC)
-          enddo
-#endif
+                write (message,'(i4,Z24.20,Z24.20)')  &
+                   k, spd, model%temper%temp(k,i,j)
+                call write_log(trim(message), type = GM_DIAGNOSTIC)
+             enddo
+          endif
  
        endif  ! idiag and jdiag in bounds
     endif     ! idiag and jdiag present

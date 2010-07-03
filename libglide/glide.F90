@@ -42,10 +42,7 @@ module glide
   use glide_lithot
   use glide_profile
   use glimmer_config
-
-#ifdef GLC_DEBUG
-    use glimmer_paramets, only: itest, jtest, thk0
-#endif
+  use glimmer_paramets, only: itest, jtest, thk0, GLC_DEBUG
 
   integer, private, parameter :: dummyunit=99
 
@@ -125,9 +122,7 @@ contains
 !lipscomb - TO DO - build glimmer_vers file or put this character elsewhere?
     character(len=100), external :: glimmer_version_char
 
-#ifdef GLC_DEBUG
-  integer :: i, j, k
-#endif
+    integer :: i, j, k
 
     call write_log(trim(glimmer_version_char()))
 
@@ -165,11 +160,11 @@ contains
     ! Write projection info to log
     call glimmap_printproj(model%projection)
 
-#ifdef GLC_DEBUG
-    write(6,*) 'Opened input files'
-    write(6,*) 'i, j, thck, thck(m):', itest, jtest, &
-            model%geometry%thck(itest,jtest), model%geometry%thck(itest,jtest)*thk0
-#endif
+    if (GLC_DEBUG) then
+       write(6,*) 'Opened input files'
+       write(6,*) 'i, j, thck, thck(m):', itest, jtest, &
+               model%geometry%thck(itest,jtest), model%geometry%thck(itest,jtest)*thk0
+    endif
 
     ! read lithot if required
     if (model%options%gthf.gt.0) then
@@ -228,7 +223,7 @@ contains
     call glide_prof_init(model)
 #endif
 
-#ifdef GLC_DEBUG
+    if (GLC_DEBUG) then
        write(6,*) ' '
        write(6,*) 'End of glide_init'
        i = itest
@@ -241,7 +236,7 @@ contains
             write(6,300) k, model%temper%temp(k,i,j)
        enddo
   300  format(i3, Z24.20)
-#endif
+    endif
 
   end subroutine glide_initialise
   
@@ -269,12 +264,12 @@ contains
 
     model%thckwk%oldtime = model%numerics%time - (model%numerics%dt * tim0/scyr)
 
-#ifdef GLC_DEBUG
-    write(6,*) ' '
-    write(6,*) 'time =', model%numerics%time
-    write(6,*) 'tinc =', model%numerics%tinc
-    write(6,*) 'oldtime =', model%thckwk%oldtime
-#endif
+    if (GLC_DEBUG) then
+       write(6,*) ' '
+       write(6,*) 'time =', model%numerics%time
+       write(6,*) 'tinc =', model%numerics%tinc
+       write(6,*) 'oldtime =', model%thckwk%oldtime
+    endif
 
     ! ------------------------------------------------------------------------ 
     ! Calculate various derivatives...
@@ -445,17 +440,16 @@ contains
     
     logical,optional, intent(in) :: no_write
     logical nw
+    integer :: i, j, k, upn 
 
-#ifdef GLC_DEBUG
-    integer :: k
-    integer :: i, j, upn 
-    upn = model%general%upn
+    if (GLC_DEBUG) then
+       upn = model%general%upn
 
-    i = itest
-    j = jtest
-    write(6,*) ' '
-    write(6,*) 'Starting tstep_p3, i, j, thck =', i, j, model%geometry%thck(i,j)
-#endif
+       i = itest
+       j = jtest
+       write(6,*) ' '
+       write(6,*) 'Starting tstep_p3, i, j, thck =', i, j, model%geometry%thck(i,j)
+    endif
 
     ! ------------------------------------------------------------------------ 
     ! Calculate isostasy
@@ -506,19 +500,19 @@ contains
             model%geometry%thck,   &
             model%velocity%wgrd)
 
-#ifdef GLC_DEBUG
-       i = itest
-       j = jtest
-       write(6,*) ' '
-       write(6,*) 'Before restart write, i, j, thck =', i, j, model%geometry%thck(i,j)
-       write(6,300) k, model%geometry%thck(i,j)
-       write(6,*) ' '
-       write(6,*) 'k, temperature'
-       do k = 1, upn
-            write(6,300) k, model%temper%temp(k,i,j)
-       enddo
-  300  format(i3, Z24.20)
-#endif
+       if (GLC_DEBUG) then
+          i = itest
+          j = jtest
+          write(6,*) ' '
+          write(6,*) 'Before restart write, i, j, thck =', i, j, model%geometry%thck(i,j)
+          write(6,300) k, model%geometry%thck(i,j)
+          write(6,*) ' '
+          write(6,*) 'k, temperature'
+          do k = 1, upn
+               write(6,300) k, model%temper%temp(k,i,j)
+          enddo
+  300     format(i3, Z24.20)
+       endif
 
     ! ------------------------------------------------------------------------ 
     ! write to netCDF file

@@ -1,3 +1,12 @@
+2011-07-02 William Lipscomb
+  * Various changes to make the Glimmer-CISM source code consistent with the latest 
+    version of CESM:
+  * Removed ifdefs and replaced them with 'if (GLC_DEBUG)' since ifdefs are highly
+    discouraged in CESM code.  May remove some of these later.
+  * Added new module glimmer_restart_gcm	
+  * Modified the procedure for reading and writing restarts such that there are
+    no gcm dependencies in the Glimmer-CISM source code.
+ 	    
 2011-06-21 Magnus Hagdorn
  * scripts/qsub_glide.sh: undo last change which broke it
 
