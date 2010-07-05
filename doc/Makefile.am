@@ -1,10 +1,10 @@
 if DO_DOC_PDF
  pdf_doc = glimmer.pdf
- dirs = dg ug num tut common doclets
+ dirs = dg ug num tut common doclets ext
 endif
 if DO_DOC_PS
  ps_doc = glimmer.ps
- dirs = dg ug num tut common doclets
+ dirs = dg ug num tut common doclets ext
 endif
 doc_DATA = $(ps_doc) $(pdf_doc)
 docdir = $(prefix)/doc
@@ -12,7 +12,8 @@ SUBDIRS = $(dirs)
 
 EXTRA_DIST = dg.tex dg_pdf.tex dg_ps.tex glimmer.tex glimmer_pdf.tex \
              glimmer_ps.tex num.tex num_pdf.tex num_ps.tex ug.tex ug_pdf.tex \
-             ug_ps.tex tut_pdf.tex tut_ps.tex tut.tex glimmer.bib
+             ug_ps.tex tut_pdf.tex tut_ps.tex tut.tex \
+             ext.tex ext_ps.tex ext_pdf.tex glimmer.bib
 
 CLEANFILES = *~ *.aux *.dvi *.log *.out *.toc *.bbl *blg *.html \
              glimmer_html.4ct  glimmer_html.4tc  glimmer_html.css  glimmer_html.idv  \

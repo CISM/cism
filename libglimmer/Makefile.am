@@ -38,6 +38,7 @@ test_filenames_SOURCES = test_filenames.F90
 AM_FCFLAGS = $(NETCDF_FCFLAGS)
 LDADD = libglimmer-IO.la libglimmer.la $(NETCDF_LDFLAGS) $(HDF5_LDFLAGS) $(NETCDF_LIBS)
 AM_CFLAGS=$(CFORTRAN_CFLAGS)
+AM_LDFLAGS=-all-static
 
 # handling subversion versioning
 if HAVE_SVN

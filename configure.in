@@ -32,7 +32,6 @@ if test x"$F77"x == xx ; then
 fi
 
 # we are building fortran libraries so, let's make them static
-AC_DISABLE_SHARED
 AC_PROG_LIBTOOL
 AC_PROG_CC
 AC_PROG_CXX
@@ -105,7 +104,40 @@ FCFLAGS="$FCFLAGS"
 FFLAGS="$FFLAGS"
 
 dnl Checking for python
-AM_PATH_PYTHON([2.3],,[AC_MSG_RESULT(need at least python 2.3)])
+build_python=1
+AC_MSG_CHECKING(if we should build python bindings)
+AC_ARG_ENABLE(python, AS_HELP_STRING([--disable-python], [Do not build Python modules]),
+ [case "${enableval}" in
+   yes) build_python=1  
+        AC_MSG_RESULT([yes]);;
+   no)  build_python=0
+        AC_MSG_RESULT([no])  ;;
+   *) AC_MSG_ERROR(bad value ${enableval} for --disable-python) ;;
+ esac],[AC_MSG_RESULT([yes])])
+if test "$build_python" == 1; then
+  AC_PYTHON_DEVEL([>= '2.3'])
+  proj_ok=no
+  AC_LANG_PUSH([C])
+  AC_CHECK_HEADER(projects.h,proj_ok=yes,proj_ok=no)
+  if test x"$proj_ok"x != xyesx; then
+    build_python=0
+  fi	
+  AC_SEARCH_LIBS(pj_fwd,proj,proj_ok=yes,proj_ok=no)
+  if test x"$proj_ok"x != xyesx; then
+    build_python=0
+  fi
+  if test "$build_python" == "0"; then
+    AC_MSG_WARN(libproj unusable)
+  fi
+  AC_LANG_POP([C])
+fi
+if test "$build_python" == "1"; then
+  AM_PATH_PYTHON([2.3],,[AC_MSG_RESULT(need at least python 2.3)])
+  AX_PYTHON_MODULE(numpy,[build_python=0])
+else
+  AC_MSG_WARN(not building python extension)
+fi
+AM_CONDITIONAL([BUILD_PYTHON], [test "$build_python" == "1"])
 
 # checking for BLAS library
 ac_gl_have_blas=0
@@ -307,15 +339,32 @@ esac],[AC_MSG_RESULT([no])])
 #AM_CONDITIONAL([RUN_TESTS], [test "$enable_tests" == "yes"])
 
 dnl checking if model runs should be submitted to SGE
-SGE_OPTS=""
+m4_pattern_allow([^AM_SGE_OPTS$])
+AM_SGE_OPTS=""
 AC_MSG_CHECKING([whether model runs should be submitted to SGE])
 AC_ARG_WITH(sge-jobs,AS_HELP_STRING([--with-sge-jobs],[use Sun Grid Engine to run models]),[
-  SGE_OPTS="-s"
+  AM_SGE_OPTS="-s"
+  SGE_OPTS=""
   if test x"$with_sge_jobs"x != xyesx; then
-    SGE_OPTS="$SGE_OPTS -o \"$with_sge_jobs\""
+    AM_SGE_OPTS="$AM_SGE_OPTS -o"
+    SGE_OPTS="\"$with_sge_jobs\""
   fi 
   AC_MSG_RESULT([$withval])],[AC_MSG_RESULT([no])])
+AC_SUBST(AM_SGE_OPTS)
 AC_SUBST(SGE_OPTS)
+
+dnl checking which extensions should be built
+build_extension_erosion="false"
+AC_MSG_CHECKING([whether extension: erosion shoukd be built])
+AC_ARG_ENABLE(extension-erosion,AS_HELP_STRING([--enable-extension-erosion],[Build Glimmer-CISM with extension erosion]),
+[case "${enableval}" in
+ yes)  build_extension_erosion="true"
+       AC_MSG_RESULT([yes]);;	
+ no)   AC_MSG_RESULT([no]);;
+ *) AC_MSG_ERROR(bad value ${enableval} for --enable-enable-extension-erosion) ;;
+esac],[AC_MSG_RESULT([no])])
+AM_CONDITIONAL([BUILD_EXT_EROSION],[test "$build_extension_erosion" == "true"])
+AC_SUBST(build_extension_erosion)
 
 # Checking if sources are from subversion
 AC_CHECK_FILE($srcdir/libglimmer/.svn/entries,have_svn_entries="yes",have_svn_entries="no")
@@ -330,13 +379,18 @@ AC_CONFIG_FILES([Makefile m4macros/Makefile scripts/Makefile \
                 utils/Makefile libglimmer/Makefile \
                 libglimmer-solve/Makefile libglimmer-solve/SLAP/Makefile \
                 libglimmer-solve/blas/Makefile libglint/Makefile \
-                libglide/Makefile tests/Makefile example-drivers/Makefile \
+                libglide/Makefile tests/Makefile example-drivers/Makefile extensions/Makefile \
+                extensions/erosion/Makefile extensions/erosion/src/Makefile \
+                extensions/erosion/tests/Makefile extensions/erosion/scripts/Makefile \
+                libphaml/Makefile \
                 tests/EISMINT/Makefile tests/EISMINT/src/Makefile tests/EISMINT/benchmarks/Makefile \
                 tests/EISMINT/EISMINT-1/Makefile  tests/EISMINT/EISMINT-2/Makefile \
                 tests/EISMINT/isos/Makefile  tests/EISMINT/lin-non_lin/Makefile \
                 tests/exact-isothermal/Makefile tests/exact-isothermal/src/Makefile \
                 tests/exact-isothermal/matlab/Makefile tests/exact-isothermal/scripts/Makefile \
                 tests/exact-isothermal/tests/Makefile \
+                PyGC/Makefile PyGC/PyGC/Makefile PyGC/PyGC/IO/Makefile PyGC/src/Makefile PyGC/progs/Makefile \
+                PyGC/data/Makefile \
                 example-drivers/eis/Makefile example-drivers/eis/src/Makefile \
                 example-drivers/eis/fenscan/Makefile example-drivers/EISMINT-3/EISMINT-3/Makefile \
                 example-drivers/EISMINT-3/Makefile example-drivers/EISMINT-3/src/Makefile \
@@ -345,9 +399,8 @@ AC_CONFIG_FILES([Makefile m4macros/Makefile scripts/Makefile \
                 doc/ug/Makefile doc/ug/figs/Makefile \
                 doc/num/Makefile doc/num/figs/Makefile doc/num/gnu/Makefile \
                 doc/doclets/Makefile doc/doclets/figs/Makefile \
-                doc/tut/Makefile])
-AC_CONFIG_FILES([libphaml/Makefile])
-AC_CONFIG_FILES([make.rules])
+                doc/tut/Makefile doc/ext/Makefile \
+                doc/ext/erosion/Makefile doc/ext/erosion/figs/Makefile doc/ext/erosion/gnu/Makefile])
 AC_CONFIG_FILES([doc/common/version.tex])
 AC_CONFIG_FILES([glimmer-cism-config libglimmer/glimmer_vers.F90.in])
 AC_OUTPUT

@@ -1,4 +1,7 @@
 2010-07-05 Magnus Hagdorn
+ * merged 1661:1812 of glimmer-cism-extensions branch
+ 
+2010-07-05 Magnus Hagdorn
  * configure.in: always generate libphaml/Makefile so sources get distributed;
    bump version to 1.7.1
  * libphaml/Makefile.am: do not distribute external files

@@ -15,6 +15,7 @@ libglimmer_solve_la_LIBADD = SLAP/libslap.la $(BLAS_LIB)
 nodist_include_HEADERS := $(wildcard *.mod)
 
 AM_FCFLAGS = $(F90_MODFLAG)../libglimmer
+AM_LDFLAGS=-all-static
 
 f90_dep.mak:	$(srcdir)/*.F90 $(BUILT_SOURCES) $(top_srcdir)/libglimmer/glimmer_vers.F90
 		$(PYTHON) $(top_srcdir)/scripts/f90_dependencies.py -l -o $@ $^

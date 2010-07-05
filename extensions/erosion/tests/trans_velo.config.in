@@ -1,0 +1,39 @@
+# testing transport
+
+[EISMINT-2]
+
+[grid]
+# grid sizes
+ewn = NUM
+nsn = NUM
+upn = 11
+dew = DELTA_GRID.
+dns = DELTA_GRID.
+
+[time]
+tend = 20000.
+dt = 5.
+ntem = 1.
+nvel = 1.
+niso = 1.
+
+[Erosion]
+ntime = NTIME
+grid_factor = GRID_FACTOR
+
+[Transport]
+
+[CF default]
+title: DGRIDkm, NTIMEx5a, xGRID_FACTOR
+comment: simple transport
+
+
+[CF output]
+name: trans_velo.DGRIDkm-NTIME-GRID_FACTOR.nc
+frequency: 100
+variables: seds1
+
+[CF input]
+name: velo.DGRIDkm.nc
+time: 1
+

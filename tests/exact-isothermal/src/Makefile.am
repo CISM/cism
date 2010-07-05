@@ -17,6 +17,7 @@ verif_glide_LDADD = $(top_builddir)/libglide/libglide.la $(top_builddir)/libglim
                     $(NETCDF_LDFLAGS) $(HDF5_LDFLAGS) $(NETCDF_LIBS) $(BLAS_LIBS)
 
 AM_FCFLAGS = $(NETCDF_FCFLAGS) $(F90_MODFLAG)$(top_builddir)/libglimmer-solve $(F90_MODFLAG)$(top_builddir)/libglide $(F90_MODFLAG)$(top_builddir)/libglimmer
+AM_LDFLAGS=-all-static
 
 #some special rules for automatically generating ncdf src code
 verif_io.F90:	verif_vars.def $(top_srcdir)/libglimmer/ncdf_template.F90.in

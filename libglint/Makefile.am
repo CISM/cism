@@ -19,6 +19,7 @@ libglint_la_SOURCES = glimmer_daily_pdd.F90 glimmer_pdd.F90 \
                       glint_global_interp.F90 glint_example_clim.F90
 
 AM_FCFLAGS = $(F90_MODFLAG)../libglimmer $(F90_MODFLAG)../libglide $(F90_MODFLAG)../libglimmer-solve $(NETCDF_FCFLAGS)
+AM_LDFLAGS=-all-static
 
 #some special rules for automatically generating ncdf src code
 glint_io.F90:	glint_vars.def ../libglimmer/ncdf_template.F90.in

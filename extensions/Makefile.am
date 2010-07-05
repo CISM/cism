@@ -1,0 +1,4 @@
+SUBDIRS=
+if BUILD_EXT_EROSION
+SUBDIRS += erosion
+endif
