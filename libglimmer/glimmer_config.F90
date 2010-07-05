@@ -27,7 +27,6 @@
 !
 ! Glimmer-CISM is hosted on BerliOS.de:
 ! https://developer.berlios.de/projects/glimmer-cism/
-! https://developer.berlios.de/projects/glimmer-cism/
 !
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
