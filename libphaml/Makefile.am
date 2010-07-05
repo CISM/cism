@@ -1,12 +1,14 @@
 FC = $(MPIFC)
 
+if USE_PHAML_GRAPHICS
+   PHAML_GRAPHICS = phaml_graphics
+endif
 
-bin_PROGRAMS = phaml_slave simple_phaml $(phaml_graphics)
+bin_PROGRAMS = phaml_slave simple_phaml $(PHAML_GRAPHICS)
 
 
 lib_LTLIBRARIES = libphaml_user_mod.la libphaml_support.la  \
      libphaml_example.la libphaml_pde.la
-EXTRA_PROGRAMS = phaml_graphics
 
 nodist_include_HEADERS := $(wildcard *.mod)
 EXTRA_DIST = f90_dep.mak 
@@ -35,17 +37,15 @@ libphaml_pde_la_LIBADD = libphaml_user_mod.la \
     $(top_builddir)/libglimmer/libglimmer.la
 
 #this slave program must be compiled for phaml to work
-phaml_slave_SOURCES = $(ac_cv_phaml_prefix)/src/slave.f90 
+nodist_phaml_slave_SOURCES = $(ac_cv_phaml_prefix)/src/slave.f90 
 phaml_slave_LDADD = $(ac_cv_phaml_prefix)/lib/libphaml.a \
     $(MPILIBS) libphaml_pde.la
      
 
 #this builds the graphics slave
-if USE_PHAML_GRAPHICS
-    phaml_graphics_SOURCES = $(ac_cv_phaml_prefix)/src/graphmain.f90
-    phaml_graphics_LDADD = $(ac_cv_phaml_prefix)/lib/libphaml.a	\
+nodist_phaml_graphics_SOURCES = $(ac_cv_phaml_prefix)/src/graphmain.f90
+phaml_graphics_LDADD = $(ac_cv_phaml_prefix)/lib/libphaml.a	\
         $(MPILIBS) libphaml_pde.la
-endif
 
 ##############################################################
 #a simple driver program
