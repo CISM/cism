@@ -1,3 +1,7 @@
+2010-07-06 Magnus Hagdorn
+ * libphaml/Makefile.am: build only a single phaml library
+ * libphaml/phaml_support.F90: make it work with intel compiler
+
 2010-07-05 Magnus Hagdorn
  * update copyright notices
 

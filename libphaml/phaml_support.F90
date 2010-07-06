@@ -164,6 +164,7 @@ contains
         !node_table addressed x,y, stores node number  and is -1 if not included, also bmark
         integer, dimension(:,:,:), allocatable :: node_table
         integer, dimension(:,:), allocatable :: edge_table   
+        integer, external :: system
         character string*2
     
         
@@ -339,6 +340,7 @@ contains
         type(glide_global_type) :: model
         integer, dimension(:), allocatable :: xvals,yvals
         integer, dimension(:,:),pointer :: mask
+        integer, external :: system
         
         !this is to change the grid type later.  not current used.
     
