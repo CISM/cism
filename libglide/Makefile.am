@@ -9,7 +9,7 @@ dist_variable_DATA = $(variable_DATA)
 nodist_include_HEADERS := $(wildcard *.mod)
 EXTRA_DIST = f90_dep.mak $(RESTART_INC_INS)
 BUILT_SOURCES = glide_io.F90  glide_lithot_io.F90
-CLEANFILES = $(BUILT_SOURCES) f90_dep.mak
+CLEANFILES = $(BUILT_SOURCES) f90_dep.mak *.mod
 
 libglide_la_SOURCES = glide.F90 glide_setup.F90 glide_types.F90 glide_temp.F90 \
                       glide_thck.F90 glide_velo.F90 glide_mask.F90 \
@@ -19,12 +19,12 @@ libglide_la_SOURCES = glide.F90 glide_setup.F90 glide_types.F90 glide_temp.F90 \
                       glide_lithot1d.F90 glide_profile.F90 glide_diagnostics.F90 \
                       glimmer_routing.F90 glimmer_ncio.F90 glimmer_ncparams.F90  \
                       glimmer_restart_gcm.F90
+libglide_la_LDFLAGS=-all-static
 
 test_setup_SOURCES = test_setup.F90
 test_setup_LDADD = libglide.la ../libglimmer/libglimmer.la ../libglimmer/libglimmer-IO.la $(NETCDF_LDFLAGS) $(HDF5_LDFLAGS) $(NETCDF_LIBS)
 
 AM_FCFLAGS = $(F90_MODFLAG)../libglimmer $(F90_MODFLAG)../libglimmer-solve $(NETCDF_FCFLAGS)
-AM_LDFLAGS=-all-static
 
 #AM_FCFLAGS = $(NETCDF_FCFLAGS)
 #LDADD = $(NETCDF_LDFLAGS) $(HDF5_LDFLAGS) $(NETCDF_LIBS)
@@ -35,7 +35,5 @@ AM_LDFLAGS=-all-static
 		$(PYTHON) $(top_srcdir)/scripts/generate_ncvars.py $^
 
 
-f90_dep.mak:	$(srcdir)/*.F90 $(BUILT_SOURCES)
-		$(PYTHON) $(top_srcdir)/scripts/f90_dependencies.py -l -o $@ $^
-
 -include f90_dep.mak
+-include $(top_builddir)/make.rules

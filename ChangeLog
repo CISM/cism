@@ -1,4 +1,11 @@
 2010-07-06 Magnus Hagdorn
+ * make.rules.in: add rule to figure out dependencies
+ * */Makfile.am: remove module files, use rule in make.rules to build file
+   containing dependencies; only apply static flag to our own libraries and
+   link program dynamically
+ * scripts/f90_dependencies.py: fix bug
+
+2010-07-06 Magnus Hagdorn
  * libphaml/Makefile.am: build only a single phaml library
  * libphaml/phaml_support.F90: make it work with intel compiler
 

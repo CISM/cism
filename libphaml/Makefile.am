@@ -47,8 +47,5 @@ AM_FCFLAGS = $(NETCDF_FCFLAGS) $(F90_MODFLAG)$(top_builddir)/libglimmer-solve \
     $(F90_MODFLAG)$(top_builddir)/libglide $(F90_MODFLAG)$(top_builddir)/libglimmer
 
 
-f90_dep.mak:	$(srcdir)/*.F90 $(BUILT_SOURCES)
-		$(PYTHON) $(top_srcdir)/scripts/f90_dependencies.py -l -o $@ $^
-
 -include f90_dep.mak
-
+-include $(top_builddir)/make.rules

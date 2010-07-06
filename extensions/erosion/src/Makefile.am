@@ -9,7 +9,7 @@ dist_variable_DATA = $(variable_DATA)
 nodist_include_HEADERS := $(wildcard *.mod)
 EXTRA_DIST = f90_dep.mak
 BUILT_SOURCES = erosion_io.F90
-CLEANFILES = $(BUILT_SOURCES) f90_dep.mak
+CLEANFILES = $(BUILT_SOURCES) f90_dep.mak *.mod
 
 liberosion_la_SOURCES = erosion.F90 erosion_types.F90 erosion_setup.F90 erosion_io.F90 \
                        erosion_advect.F90 geometry.F90 runge_kutta.F90  erosion_transport.F90 \
@@ -41,7 +41,5 @@ test_advect_FCFLAGS = $(NETCDF_FCFLAGS)
 erosion_io.F90:	erosion_vars.def $(top_srcdir)/libglimmer/ncdf_template.F90.in
 		$(PYTHON) $(top_srcdir)/scripts/generate_ncvars.py $^
 
-f90_dep.mak:	$(srcdir)/*.F90 $(BUILT_SOURCES)
-		$(PYTHON) $(top_srcdir)/scripts/f90_dependencies.py -l -o $@ $^
-
 -include f90_dep.mak
+-include $(top_builddir)/make.rules

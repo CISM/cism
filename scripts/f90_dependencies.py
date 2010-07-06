@@ -165,7 +165,7 @@ if __name__ == '__main__':
         usage()
         sys.exit(2)
    
-    if len(args) < 2:
+    if len(args) < 1:
         # print usage and exit
         usage()
         sys.exit(2)

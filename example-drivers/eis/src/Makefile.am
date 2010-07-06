@@ -8,10 +8,11 @@ dist_variable_DATA = $(variable_DATA)
 nodist_include_HEADERS := $(wildcard *.mod)
 EXTRA_DIST = f90_dep.mak
 BUILT_SOURCES = eis_io.F90
-CLEANFILES = $(BUILT_SOURCES) f90_dep.mak
+CLEANFILES = $(BUILT_SOURCES) f90_dep.mak *.mod
 
 libglimmer_eis_la_SOURCES = eis_forcing.F90 eis_ela.F90 eis_temp.F90 eis_slc.F90 eis_cony.F90 \
                        eis_io.F90 eis_types.F90
+libglimmer_eis_la_LDFLAGS=-all-static
 
 eis_glide_SOURCES = eis_glide.F90 
 eis_glide_LDADD = libglimmer-eis.la $(top_builddir)/libglide/libglide.la $(top_builddir)/libglimmer-solve/libglimmer-solve.la \
@@ -19,14 +20,10 @@ eis_glide_LDADD = libglimmer-eis.la $(top_builddir)/libglide/libglide.la $(top_b
                     $(NETCDF_LDFLAGS) $(HDF5_LDFLAGS) $(NETCDF_LIBS) $(BLAS_LIBS)
 
 AM_FCFLAGS = $(NETCDF_FCFLAGS) $(F90_MODFLAG)$(top_builddir)/libglimmer-solve $(F90_MODFLAG)$(top_builddir)/libglide $(F90_MODFLAG)$(top_builddir)/libglimmer
-AM_LDFLAGS=-all-static
-
 
 #some special rules for automatically generating ncdf src code
 eis_io.F90:	eis_vars.def $(top_srcdir)/libglimmer/ncdf_template.F90.in
 		$(PYTHON) $(top_srcdir)/scripts/generate_ncvars.py $^
 
-f90_dep.mak:	$(srcdir)/*.F90 $(BUILT_SOURCES)
-		$(PYTHON) $(top_srcdir)/scripts/f90_dependencies.py -l -o $@ $^
-
 -include f90_dep.mak
+-include $(top_builddir)/make.rules

@@ -7,7 +7,7 @@ dist_variable_DATA = $(variable_DATA)
 nodist_include_HEADERS := $(wildcard *.mod)
 EXTRA_DIST = f90_dep.mak 
 BUILT_SOURCES = glint_io.F90 glint_mbal_io.F90
-CLEANFILES = $(BUILT_SOURCES) f90_dep.mak
+CLEANFILES = $(BUILT_SOURCES) f90_dep.mak *.mod
 
 libglint_la_SOURCES = glimmer_daily_pdd.F90 glimmer_pdd.F90 \
                       glint_climate.F90 glint_initialise.F90 glint_io.F90 \
@@ -17,9 +17,9 @@ libglint_la_SOURCES = glimmer_daily_pdd.F90 glimmer_pdd.F90 \
                       glint_mbal_coupling.F90 glint_mbal_io.F90 \
                       glint_smb.F90 glint_mpinterp.F90 glint_commandline.F90 \
                       glint_global_interp.F90 glint_example_clim.F90
+libglint_la_LDFLAGS=-all-static
 
 AM_FCFLAGS = $(F90_MODFLAG)../libglimmer $(F90_MODFLAG)../libglide $(F90_MODFLAG)../libglimmer-solve $(NETCDF_FCFLAGS)
-AM_LDFLAGS=-all-static
 
 #some special rules for automatically generating ncdf src code
 glint_io.F90:	glint_vars.def ../libglimmer/ncdf_template.F90.in
@@ -28,7 +28,5 @@ glint_mbal_io.F90:	glint_mbal_vars.def ../libglimmer/ncdf_template.F90.in
 		$(PYTHON) $(top_srcdir)/scripts/generate_ncvars.py $^
 
 
-f90_dep.mak:	$(srcdir)/*.F90 $(BUILT_SOURCES)
-		$(PYTHON) $(top_srcdir)/scripts/f90_dependencies.py -l -o $@ $^
-
 -include f90_dep.mak
+-include $(top_builddir)/make.rules
