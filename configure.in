@@ -169,41 +169,6 @@ if test "$ac_cv_enmabal_prefix" != ""; then
   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],[use smb_mecons])],AC_MSG_RESULT([yes]),AC_MSG_FAILURE([no]))
 fi
 
-
-# checking for MPI library
-ACX_MPI()
-
-#phaml needs mpi as well
-# checking for PHAML
-AC_ARG_WITH(phaml,AS_HELP_STRING([--with-phaml],[location PHAML library]),[ac_cv_phaml_prefix=$withval])
-if test "$ac_cv_phaml_prefix" != ""; then
-  LIBS="$LIBS -L$ac_cv_phaml_prefix/lib -lphaml"
-  #AC_SEARCH_LIBS([phaml_create],[phaml],,AC_MSG_ERROR([Can not find PHAML Library]))
-  FCFLAGS="$FCFLAGS -I$ac_cv_phaml_prefix/modules -I$ac_cv_phaml_prefix/src -L$ac_cv_phaml_prefix/lib"
-  AC_MSG_RESULT(phaml location: $ac_cv_phaml_prefix)
-  AC_MSG_CHECKING([for PHAML interface])
-  AC_LINK_IFELSE([AC_LANG_PROGRAM([],[use phaml])],AC_MSG_RESULT([yes]),AC_MSG_FAILURE([Can not link to PHAML Library]))
-fi
-AM_CONDITIONAL(USE_PHAML, test "$ac_cv_phaml_prefix" != "")
-AC_SUBST(ac_cv_phaml_prefix)
-
-
-
-# checking for PHAML graphics
-AC_ARG_WITH(phaml-graphics,AS_HELP_STRING([--with-phaml-graphics],[location F90GL library]),[ac_cv_phaml_graphics_prefix=$withval])
-if test "$ac_cv_phaml_graphics_prefix" != ""; then
-  LIBS="$LIBS -L$ac_cv_phaml_graphics_prefix/lib -L/usr/X11R6/lib -lXaw -lXt -lXmu -lXi -lX11 -lXext -lm -lf90glut -lf90GLU -lf90GL -lglut -lGLU -lGL"
-  #AC_SEARCH_LIBS([phaml_create],[phaml],,AC_MSG_ERROR([Can not find PHAML Library]))
-  FCFLAGS="$FCFLAGS -I$ac_cv_phaml_graphics_prefix/include/GL -L$ac_cv_phaml_graphics_prefix/lib -L/usr/X11R6/lib -I/usr/include/GL"
-  AC_MSG_RESULT(F90GL location: $ac_cv_phaml_graphics_prefix)
-  AC_MSG_CHECKING([for F90GL interface])
-  AC_LINK_IFELSE([AC_LANG_PROGRAM([],[use opengl_gl])],AC_MSG_RESULT([yes]),AC_MSG_FAILURE([Can not link to PHAML Library]))
-  AC_SUBST([phaml_graphics], ['phaml_graphics${EXEEXT}'])
-fi
-AM_CONDITIONAL(USE_PHAML_GRAPHICS, test "$ac_cv_phaml_graphics_prefix" != "")
-AC_SUBST(ac_cv_phaml_graphics_prefix)
-
-
 # building the documentation
 have_latex=1
 AC_CHECK_PROGS(LATEX,[latex])
@@ -354,17 +319,61 @@ AC_SUBST(AM_SGE_OPTS)
 AC_SUBST(SGE_OPTS)
 
 dnl checking which extensions should be built
+# erosion module
 build_extension_erosion="false"
-AC_MSG_CHECKING([whether extension: erosion shoukd be built])
+AC_MSG_CHECKING([whether extension: erosion should be built])
 AC_ARG_ENABLE(extension-erosion,AS_HELP_STRING([--enable-extension-erosion],[Build Glimmer-CISM with extension erosion]),
 [case "${enableval}" in
  yes)  build_extension_erosion="true"
        AC_MSG_RESULT([yes]);;	
  no)   AC_MSG_RESULT([no]);;
- *) AC_MSG_ERROR(bad value ${enableval} for --enable-enable-extension-erosion) ;;
+ *) AC_MSG_ERROR(bad value ${enableval} for --enable-extension-erosion) ;;
 esac],[AC_MSG_RESULT([no])])
 AM_CONDITIONAL([BUILD_EXT_EROSION],[test "$build_extension_erosion" == "true"])
 AC_SUBST(build_extension_erosion)
+
+# checking for PHAML
+AC_MSG_CHECKING([whether extension: libphaml should be built])
+PHAML_PREFIX=""
+AC_ARG_WITH(phaml,AS_HELP_STRING([--with-phaml],[location of PHAML library]),[PHAML_PREFIX=$withval])
+PHAML_GRAPHICS_PREFIX=""
+AC_ARG_WITH(phaml-graphics,AS_HELP_STRING([--with-phaml-graphics],[location F90GL library]),[PHAML_GRAPHICS_PREFIX=$withval])
+if test "$PHAML_PREFIX" != ""; then
+  AC_MSG_RESULT([yes])
+  ACX_MPI()
+  LIBS_save=$LIBS
+  LDFLAGS_save=$LDFLAGS
+  FCFLAGS_save=$FCFLAGS
+  LIBS="$LIBS -lphaml"
+  LDFLAGS="$LDFLAGS -L$PHAML_PREFIX/lib"
+  FCFLAGS="$FCFLAGS -I$PHAML_PREFIX/modules -I$PHAML_PREFIX/src -L$PHAML_PREFIX/lib"
+  AC_MSG_RESULT(phaml location: $PHAML_PREFIX)
+  AC_MSG_CHECKING([for PHAML interface])
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([],[use phaml])],AC_MSG_RESULT([yes]),AC_MSG_FAILURE([Can not link to PHAML Library]))
+
+  AC_MSG_CHECKING([whether libphaml extension should be built with graphics support])
+  if test "$PHAML_GRAPHICS_PREFIX" != ""; then
+    AC_MSG_RESULT([yes])
+    LIBS="$LIBS -L$PHAML_GRAPHICS_PREFIX/lib -L/usr/X11R6/lib -lXaw -lXt -lXmu -lXi -lX11 -lXext -lm -lf90glut -lf90GLU -lf90GL -lglut -lGLU -lGL"
+    FCFLAGS="$FCFLAGS -I$PHAML_GRAPHICS_PREFIX/include/GL -L$PHAML_GRAPHICS_PREFIX/lib -L/usr/X11R6/lib -I/usr/include/GL"
+    AC_MSG_RESULT(F90GL location: $PHAML_GRAPHICS_PREFIX)
+    AC_MSG_CHECKING([for F90GL interface])
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([],[use opengl_gl])],AC_MSG_RESULT([yes]),AC_MSG_FAILURE([Can not link to PHAML Library]))
+    AC_SUBST([phaml_graphics], ['phaml_graphics${EXEEXT}'])
+  else
+    AC_MSG_RESULT([no])
+  fi
+
+  LIBS=$LIBS_save
+  LDFLAGS=$LDFLAGS_save
+  FCFLAGS=$FCFLAGS_save
+else
+ AC_MSG_RESULT([no])
+fi
+AM_CONDITIONAL(BUILD_EXT_PHAML, test "$PHAML_PREFIX" != "")
+AM_CONDITIONAL(USE_PHAML_GRAPHICS, test "$PHAML_GRAPHICS_PREFIX" != "")
+AC_SUBST(PHAML_PREFIX)
+AC_SUBST(PHAML_GRAPHICS_PREFIX)
 
 # Checking if sources are from subversion
 AC_CHECK_FILE($srcdir/libglimmer/.svn/entries,have_svn_entries="yes",have_svn_entries="no")
@@ -382,7 +391,7 @@ AC_CONFIG_FILES([Makefile m4macros/Makefile scripts/Makefile \
                 libglide/Makefile tests/Makefile example-drivers/Makefile extensions/Makefile \
                 extensions/erosion/Makefile extensions/erosion/src/Makefile \
                 extensions/erosion/tests/Makefile extensions/erosion/scripts/Makefile \
-                libphaml/Makefile \
+                extensions/libphaml/Makefile \
                 tests/EISMINT/Makefile tests/EISMINT/src/Makefile tests/EISMINT/benchmarks/Makefile \
                 tests/EISMINT/EISMINT-1/Makefile  tests/EISMINT/EISMINT-2/Makefile \
                 tests/EISMINT/isos/Makefile  tests/EISMINT/lin-non_lin/Makefile \

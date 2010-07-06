@@ -1,4 +1,14 @@
 2010-07-06 Magnus Hagdorn
+ * Makefile.am: removed optional compilation of libphaml
+ * configure.in: move code for enabling libphaml next to other extensions;
+   and tidy it up a bit; not sure if the graphics bit still works since I
+   didn't get the dependencies to work
+ * extensions/Makefile.am: optionally decend into libphaml subdirectory
+ * libphaml moved to extensions/libphaml
+ * extensions/libphaml/Makefile.am: use new macros to figure out how to
+   compile it
+
+2010-07-06 Magnus Hagdorn
  * make.rules.in: add rule to figure out dependencies
  * */Makfile.am: remove module files, use rule in make.rules to build file
    containing dependencies; only apply static flag to our own libraries and

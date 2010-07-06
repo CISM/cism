@@ -10,6 +10,9 @@ lib_LTLIBRARIES = libglide-phaml.la
 
 libglide_phaml_la_LDFLAGS=-all-static
 AM_LIBTOOLFLAGS="--tag=FC"
+AM_FCFLAGS = $(NETCDF_FCFLAGS) $(F90_MODFLAG)$(top_builddir)/libglimmer-solve \
+    $(F90_MODFLAG)$(top_builddir)/libglide $(F90_MODFLAG)$(top_builddir)/libglimmer \
+    $(F90_MODFLAG)$(PHAML_PREFIX)/modules $(F90_MODFLAG)$(PHAML_PREFIX)/src
 
 nodist_include_HEADERS := $(wildcard *.mod)
 EXTRA_DIST = f90_dep.mak 
@@ -21,31 +24,27 @@ libglide_phaml_la_SOURCES = phaml_user_mod.F90 phaml_support.F90 phaml_example.F
 
 
 #this slave program must be compiled for phaml to work
-nodist_phaml_slave_SOURCES = $(ac_cv_phaml_prefix)/src/slave.f90 
-phaml_slave_LDADD = $(ac_cv_phaml_prefix)/lib/libphaml.a \
+nodist_phaml_slave_SOURCES = $(PHAML_PREFIX)/src/slave.f90 
+phaml_slave_LDADD = $(PHAML_PREFIX)/lib/libphaml.a \
     $(MPILIBS) libglide-phaml.la
 
 
 #this builds the graphics slave
-nodist_phaml_graphics_SOURCES = $(ac_cv_phaml_prefix)/src/graphmain.f90
-phaml_graphics_LDADD = $(ac_cv_phaml_prefix)/lib/libphaml.a	\
-        $(MPILIBS) libglide-phaml.la
+nodist_phaml_graphics_SOURCES = $(PHAML_PREFIX)/src/graphmain.f90
+phaml_graphics_LDADD = $(PHAML_PREFIX)/lib/libphaml.a	\
+        $(MPILIBS) libglide-phaml.la \
+        -L/usr/X11R6/lib -lXaw -lXt -lXmu -lXi -lX11 -lXext -lm -lf90glut -lf90GLU -lf90GL -lglut -lGLU -lGL
 
 ##############################################################
 #a simple driver program
 simple_phaml_SOURCES = simple_phaml.F90
-simple_phaml_LDADD =  $(ac_cv_phaml_prefix)/lib/libphaml.a \
+simple_phaml_LDADD =  $(PHAML_PREFIX)/lib/libphaml.a \
     $(top_builddir)/libglide/libglide.la \
     $(top_builddir)/libglimmer-solve/libglimmer-solve.la \
     $(top_builddir)/libglimmer/libglimmer-IO.la \
     $(top_builddir)/libglimmer/libglimmer.la \
-    $(NETCDF_LDFLAGS) $(NETCDF_LIBS) $(ac_cv_phaml_prefix)/lib/libphaml.a $(MPILIBS) \
-    libglide-phaml.la
-
-
-AM_FCFLAGS = $(NETCDF_FCFLAGS) $(F90_MODFLAG)$(top_builddir)/libglimmer-solve \
-    $(F90_MODFLAG)$(top_builddir)/libglide $(F90_MODFLAG)$(top_builddir)/libglimmer
-
+    $(NETCDF_LDFLAGS) $(NETCDF_LIBS) $(MPILIBS) \
+    libglide-phaml.la $(PHAML_PREFIX)/lib/libphaml.a 
 
 -include f90_dep.mak
 -include $(top_builddir)/make.rules
