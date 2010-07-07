@@ -1,4 +1,4 @@
-\subsection{Sediment Transport}\label{erosion.sec.full_trans}
+\section{Sediment Transport}\label{erosion.sec.full_trans}
 Ice sheets and glaciers modify their beds by eroding it, transporting sediments within a basal ice layer and a deformable bed and depositing these sediments again. These processes leave a wealth of geological data once the ice sheet has disappeared. Modelling these processes adds to our understanding of the cryospherice system. The model can be tested by comparing model output with geological observations. As usual there are feedback mechanisms between various subsystems.
 
 There are three possible basal boundary conditions. The most simple boundary condition is when the ice is frozen to the bed which can be hard bed rock or frozen sediments (see Fig. \ref{erosion.fig.velos}A). In this case ice moves through internal deformation driven by gravity only.  The second boundary condition occurs when the ice sheet resting on hard bedrock is melting. In this case basal d\'ecollement occurs and the ice sheet can slide over the bed (see Fig. \ref{erosion.fig.velos}B). Empirical sliding laws usually take the form
@@ -63,7 +63,7 @@ The sediment flux $Q_{\text{sed}}$ is then
   Q_{\text{sed}}=z_a\overline{v}_{\text{sed}}=\int_{z_a}^0v_{\text{sed}}(z)dz=\int_{z_a}^0\int_{z_a}^z\dot\epsilon(z') dz'dz
 \end{equation}
 where $\overline{v}_{\text{sed}}$ is the average velocity in the deforming sediment layer.
-\subsubsection{Simplifications}
+\subsection{Simplifications}
 The effective pressure at the ice base, $N_0=p_{\text{ice}}-p_{\text{water}}$, depends on the basal hydrology which we currently do not simulate. This omission forces us to make some simplifying assumptions. Assuming values of $\phi$ and $c$ for a typical till (see Table \ref{erosion.tab.typical_till}) and basal shear stress of about 100kPa, sediment deformation only occurs when the effective pressure is less than 145kPa \citep{Paterson1994}. This value fits well with effective pressures between 20 and 200kPa calculated by \citet{Boulton1996a}. In \citet{Boulton1996} constant effective pressure is assumed with values of 50kPa and 100kPa.
 
 Assuming the sediment is relatively well drained, the potential gradient $dN/dz=N_z=\text{const}$ is the typical gravitational gradient of about 10kPam$^{-1}$ \citep{Boulton1996a}. Finally, the basal shear stress is given by the ice sheet model and depends on the ice thickness and surface slope \citep{Paterson1994}:
@@ -156,7 +156,7 @@ The integrals over the flow law which need to be evaluated to get the sliding ve
 
 The sediment velocity $v_{\text{sed}}(z_{\text{seds}})$ could be used for the erosion calculation described in Section \ref{erosion.sec.hb}.
 
-\subsubsection{The Sediment Model}
+\subsection{The Sediment Model}
 The simplifications described above suggest a simple subglacial sediment model with 3 layers and 2 boundaries. The 3 layers are
 \begin{enumerate}
 \item \textbf{basal ice layer:} a thin layer of ice which carries debris gained
@@ -180,9 +180,9 @@ Sediment erosion/deposition and transport are a consequence of the applied basal
 constant. Excess sediment in this layer is lost to the underlying deformable soft bed (case 1, Fig. \ref{erosion.fig.ice_sed_model}). In a similar manner sediment is transferred from the deformable to the non--deformable soft bed layer when the maximum thickness of the deforming layer, given by Equation \eqref{erosion.eq.sed_thick_param}, is exceeded (case 2, Fig.\ref{erosion.fig.ice_sed_model}).
 \item[Transport:] of sediment can occur in the dirty basal ice and in the deforming soft bed layer. The transport velocity in the basal ice layer is equal to the basal ice velocity, whereas the transport velocity in the deforming soft bed is given by Equation \eqref{erosion.eq.tillflux}.
 \end{description}
-Numerical treatment of the sediment transport is described in detail in the next subsection.
+Numerical treatment of the sediment transport is described in detail in the next section.
 
-\subsubsection{Numerical Advection of Sediments}
+\subsection{Numerical Advection of Sediments}
 Considering the flux of sediments through the sides of a small test volume and the continuity equation we have
 \begin{equation}
   \label{erosion.eq.continuity_eqn}

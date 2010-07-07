@@ -1,6 +1,6 @@
 This package provides an addon library to \href{http://developer.berlios.de/projects/glimmer-cism/}{Glimmer-CISM} which provides a bedrock erosion and sediment transport component. Drivers are provided for EISMINT type forcing and the EIS driver. You can use \texttt{erosion} with your own climate drivers (see Section \ref{erosion.sec.using_it}).
 
-\subsection{Model Configuration}
+\section{Model Configuration}
 Add a selection of the follwing configuration options to your GLIDE configuration file to enable and control erosion and sediment transport.
 \begin{center}
   \tablefirsthead{%
@@ -52,7 +52,7 @@ Add a selection of the follwing configuration options to your GLIDE configuratio
   \end{supertabular*}
 \end{center}
 
-\subsection{Using the Library}\label{erosion.sec.using_it}
+\section{Using the Library}\label{erosion.sec.using_it}
 The \texttt{erosion} module provides a number of subroutines which can be used to add erosion/sediment transport to an ice sheet model based on GLIMMER. Have a look at the EISMINT driver \texttt{simple\_erosion.f90}.
 
 All variables associated with the module are stored in a derived type. Similarly to GLIDE you will need to declare a variable of that derived type:
@@ -73,7 +73,7 @@ Finally, the model is shut down before GLIDE is shut down with
 call er_finalise(er)
 \end{verbatim}
 
-%\subsection{Visualisation}\label{erosion.sec.vis_it}
+%\section{Visualisation}\label{erosion.sec.vis_it}
 %\texttt{erosion} comes with a number of python scripts for visualising sediments.
 %
 %\begin{pycf}{plot\_seds.py -T-1 -pprof --not\_p  fenscan.nc sediments.ps}{\dir/figs/sediments.eps}

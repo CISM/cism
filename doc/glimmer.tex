@@ -1,6 +1,6 @@
 \begin{document}
 \frontmatter
-\title{GLIMMER {\glimmerver} Documentation}
+\title{Glimmer-CISM {\glimmerver} Documentation}
 \author{Magnus Hagdorn\thanks{Magnus.Hagdorn@ed.ac.uk}, Ian
   Rutt\thanks{I.C.Rutt@bristol.ac.uk}, Tony Payne\thanks{A.J.Payne@bristol.ac.uk} 
   and Felix Hebeler\thanks{fhebeler@geo.unizh.ch}}
@@ -20,6 +20,7 @@
 {}
 
 \mainmatter
+\part{User Documentation}
 \chapter{User Guide}
 \newcommand{\dir}{ug}
 \input{\dir/ug.tex}
@@ -28,18 +29,20 @@
 \renewcommand{\dir}{tut}
 \input{\dir/tut.tex}
 
+\part{Developer Documentation}
+
 \chapter{Numerics}
 \renewcommand{\dir}{num}
 \input{\dir/num.tex}
-
-\renewcommand{\dir}{ext}
-\input{\dir/ext.tex}
 
 \chapter{Developer Guide}
 \renewcommand{\dir}{dg}
 \input{\dir/dg.tex}
 
+\renewcommand{\dir}{ext}
+\input{\dir/ext.tex}
 
+\part{Appendix}
 \appendix
 \renewcommand{\dir}{ug}
 \chapter{netCDF Variables}

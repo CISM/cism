@@ -7,7 +7,7 @@
 
 \ifthenelse{\boolean{have_erosion}}{\setboolean{have_ext}{true}}{}
 
-\ifthenelse{\boolean{have_ext}} {\chapter{Glimmer-CISM Extensions}}
+\ifthenelse{\boolean{have_ext}} {\part{Glimmer-CISM Extensions}}
 
 \ifthenelse{\boolean{have_erosion}} {
       \renewcommand{\dir}{\olddir/erosion}

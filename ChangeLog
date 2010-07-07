@@ -1,3 +1,11 @@
+2010-07-07 Magnus Hagdorn
+ * doc/glimmer.tex: rearrange documentation, introduce parts
+ * doc/ext/ext.tex.in: turn chapter into a part
+ * doc/ext/erosion/erosion.tex: move headings up one level
+ * doc/ext/erosion/theory.tex: ditto
+ * doc/ext/erosion/transport.tex: ditto
+ * doc/ext/erosion/ug.tex: ditto
+
 2010-07-06 Magnus Hagdorn
  * Makefile.am: removed optional compilation of libphaml
  * configure.in: move code for enabling libphaml next to other extensions;
