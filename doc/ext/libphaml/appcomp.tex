@@ -1,5 +1,5 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Introduction}
+\subsection{Introduction}
 This appendix presents some compilation notes for the Fortran source files, these can be found in the \href{http://developer.berlios.de/projects/glimmer-cism/}{Glimmer-CISM2} project on the Berlios SVN server.  These include the following files:
 \href{http://svn.berlios.de/svnroot/repos/glimmer-cism/glimmer-cism2/libphaml/phaml\_user\_mod.F90}{phaml\_user\_mod.F90},
 \href{http://svn.berlios.de/svnroot/repos/glimmer-cism/glimmer-cism2/libphaml/phaml\_support.F90}{phaml\_support.F90},
@@ -13,8 +13,8 @@ These instructions all assume a POSIX-compatible system.  Although all of the so
 
 All projects require make to build.  For the following instructions, the assumption will be made that a global programs directory exists at /usr/bin.  If the target system does not have this, then it is necessary to register the installation directory with the system globally so that other programs can find it.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Triangle}
-\subsection{Compiling/Installing}
+\subsection{Triangle}
+\subsubsection{Compiling/Installing}
 Triangle must be compiled separate from PHAML and installed.  This process is straightforward.  A program called showme is also compiled and can be installed.  It allows you to view the mesh files that Triangle generates which is useful for testing purposes.
 
 \begin{framecode}{6in}
@@ -28,12 +28,12 @@ cp showme /usr/bin
 \end{framecode}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{PHAML}
+\subsection{PHAML}
 
-\subsection{Getting PHAML}
+\subsubsection{Getting PHAML}
 PHAML can be downloaded as an archive from the website \cite{PHAML:website}, and then unarchived into a directory anywhere on the system.
 
-\subsection{Compiling PHAML}
+\subsubsection{Compiling PHAML}
 
 PHAML is relatively easy to compile if all the library dependencies are satisfied.  The list of dependencies as well as instructions for additional libraries are at the end of this section.  The PHAML user guide \cite{phamldoc} has an excellent section covering setting up some of these libraries and dependencies as well.  The Quickstart guide is a must read before attempting any serious PHAML work.  A lot more detail is also provided on individual software packages that can be used and the benefits they can provide.  These instructions will now assume that the minimum requirements are met.
 

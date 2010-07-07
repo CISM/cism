@@ -1,26 +1,26 @@
-\chapter{VERIFICATION} \label{ch:verification}
+\section{VERIFICATION} \label{ch:verification}
 
 
 In any field of research verification is of the utmost importance.  The goal being to not only guarantee that the work you have done is correct, but to also know the work can be reliably extended.  In this work the verification relies heavily on the individual testing of GLIMMER-CISM and PHAML.  Once the components are sure the mapping between them can be tested, and then further research can be conducted using the combination.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{GLIMMER-CISM}\label{sec:chp5cism}
+\subsection{GLIMMER-CISM}\label{sec:chp5cism}
 
 The discussion about verification for GLIMMER-CISM is really a discussion about how it implements the shallow-ice approximation (SIA), how accurate SIA is overall, compensations that exist for the SIA, the staggered grid type that GLIMMER-CISM uses, and modifications made to the standard SIA in GLIMMER-CISM
 
 Verification issues are compounded by the fact that when working with glaciers inter-model comparisons are essential due to the complex and insolvable nature of the equations that govern the ice flow.  This means making adjustments, approximations, and compromises is a must, and each model must decide which features it deems more important for the goal at hand.  The output must then be compared to other model runs and theoretical expected results for portions of the simulation.  This means that very specific tests must be defined for models to run and compare for a small detailed result that can be theoretically justified.
 
-\subsection{The Shallow-Ice Approximation}
+\subsubsection{The Shallow-Ice Approximation}
 
 Due to the complex nature of non-Newtonian fluids, of which ice is, ice-sheets have historically been simulated with what is known as the shallow-ice approximation (SIA).  This approximation, as its name implies, models an ice sheet as if it were shallow.  This allows the equations to be reduced down to rather simple equations in two directions that need to be solved.  The SIA has been shown to only be effective within a certain ratio of the size of the ice sheet to ice depth and is better over longer periods of time. %with a grid size of whatever based on the depth of the ice.(reference) 
 
 %grid size min/max
 
-\subsection{Exact Solutions}
+\subsubsection{Exact Solutions}
 
 The SIA can not be verified by itself, but whether the code implementing it is programmed correctly can be verified-both in the uncoupled \citep{bueler:2005} and thermo-mechanically coupled cases.\citep{bueler:2007}  This method tests the equations by the method of manufactured solutions where a compensatory heating and accumulation are added to the SIA equations in order to balance them so the only variable in the simulation is the application of the equations.  This method should produce the same basic results as the EISMINT tests. This verification technique has not been fully tested with GLIMMER-CISM.  Correctness of the SIA implementation in GLIMMER-CISM is taken mainly from intermodel comparison, specifically the EISMINT experiments. 
 
-\subsection{EISMINT}
+\subsubsection{EISMINT}
 
 Several models using the SIA have been tested with the EISMINT (European Ice Sheet Modeling INiTiative) tests, which is a framework designed with very specific experiments in order to allow glacial models to compare results, find uncertainties, and enhance the understanding of the simulations.  The EISMINT tests and results are well documented and GLIMMER-CISM's results are also published according to the specifications. \citep{Huybrechts:1996}\citep{glimmerdoc} 
 
@@ -29,7 +29,7 @@ Several other intermodel comparison tests exist for ice-sheet models which exami
 %GLIMMER-CISM has an excellent record with the SIA and it's results are goooooooooooooooooooooooooooood.
 
 
-\subsection{Known Issues}
+\subsubsection{Known Issues}
 
 There are many issues with the SIA, and this is to be expected given the simplification of the equations.  The SIA works very well for large ice sheets, especially in the interior, over long periods of time.  The shortcoming is that it does rather poorly in understanding short-term ice-sheet physics.  Aggravating this issue is the problem of discrete finite difference methods of solving the SIA equations which can lead to many round off errors and inaccuracies that can propagate into larger issues over time.\citep{Bergetal2006b}
 
@@ -38,11 +38,11 @@ There are many issues with the SIA, and this is to be expected given the simplif
 Recently there have been many advances in compensating for some of these shortcomings.  For instance, using a special technique to calculate where the grounding line is between two nodes has been used to drastically increase the accuracy of grounding line migration. \citet{2004JF000202,Pattyn2006JGR}  This technique was further developed to calculate the flux of the ice-sheet at the grounding line and ensure that the ice margin moved approximately the same regardless of the grid resolution used for the finite difference approximation. \citep{Pollard:2009}  The hope though is that many of these types of compensations won't be needed with a better model approximation and more accurate tools.
 
 
-\subsection{Higher Order Model}
+\subsubsection{Higher Order Model}
 
 Currently, GLIMMER-CISM has a new first-order model that is being tested and used in different simulation scenarios.  This model should fix many of the issues associated with the shallow-ice approximation.  This model should allow for much greater accuracy and more dynamic movement of the ice from ice-shelves, streams, grounding line migration, etc.  A first-order approximation should allow GLIMMER-CISM to explore many new possibilities and test newer hypotheses which were previously impossible with the SIA.  Unfortunately, some of these tests will again need to rely on inter-model comparison which will require other ice-sheet models to catch up.  These advancements come at a cost of complexity-both at a theoretical level and implementation level.
 
-\subsection{ISMIP-HOM}
+\subsubsection{ISMIP-HOM}
 
 The ISMIP-HOM (Ice Sheet Model Intercomparison Project - Higher Order Models) tests have been completed for the first-order model of GLIMMER-CISM.  The results compare favorably to other higher-order models in the experiment with a bias towards high velocities, but always within a standard deviation of the other models.\citep{Bocek:2009}  These results are encouraging that the model serves as a good basis moving forward.
 
@@ -50,7 +50,7 @@ The ISMIP-HOM (Ice Sheet Model Intercomparison Project - Higher Order Models) te
 %Many interesting results could come out of coupling this model with PHAML for certain operations.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{PHAML}\label{sec:chp5phaml}
+\subsection{PHAML}\label{sec:chp5phaml}
 
 PHAML is a very sophisticated piece of software that allows for many different approaches to a problem and for specifying when a problem has been solved.  Many of these are covered in chapter \ref{ch:overview}.  Formal verification testing then becomes much more complicated since you're relying on many different libraries as well as implementing a vast array of methods for numerical approximation.
 
@@ -59,7 +59,7 @@ Since PHAML uses hp-adaptivity it can be much harder to analytically understand 
 
 There are no formal verification tests published on PHAML, but PHAML has been extensively tested and the techniques it uses as well as the software implementation within PHAML are proven.  Many 2D hp-FEM tests for accuracy are proposed by the author of PHAML, and PHAML holds within the standard margin of error. \citet{mitchell:2d}
 
-\subsection{Analytical Solution}
+\subsubsection{Analytical Solution}
 
 Although no extensive verification testing is being done with PHAML since that is beyond the scope of this thesis, a simple comparison and error analysis have been done on a Laplacian example where an analytical solution is known to exist.  The example is of a unit square from $(0,0)$ to $(1,1)$ where the side boundary $y=1$ is held at a value of one and the three other sides are held at zero giving Dirichlet boundary conditions.  This is shown in figure \ref{fig:laplace_square}.
 
@@ -107,11 +107,11 @@ The level of accuracy for PHAML's solution against the analytical solution of th
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \newpage
 
-\section{GLIMMER-CISM/PHAML Together}\label{sec:chp5phamlcism}
+\subsection{GLIMMER-CISM/PHAML Together}\label{sec:chp5phamlcism}
 
 Given the acceptability of a solution from PHAML and the ice dynamics in GLIMMER-CISM, the necessary verification deals with assuring that they communicate correctly, input and output data is mapped appropriately, and that the interface is flexible to allow change in both of the applications in future versions.
 
-\subsection{Data Mapping}
+\subsubsection{Data Mapping}
 
 In order to test the communication and data mapping a simple Laplace PDE and Poisson were run with the two together.  For clarity, and for demonstrating that the outputs are identical, the GLIMMER-CISM NetCDF image and the OpenGL output from PHAML are compared for each.
 
@@ -129,6 +129,6 @@ For the Poisson example a source function was set to one on the diagonal where t
   
 \addfigure{poisgl}{1.0}{Poisson Test: Results of a Poisson simulation viewed in OpenGL}{A Poisson simulation with source and boundary at x=y=1 viewed in OpenGL.  The order of steps from top left is initial condition, 1 timestep, 20 timesteps, then 50 timesteps.}{fig:poisgl}
 
-\subsection{Flexibility}
+\subsubsection{Flexibility}
 
 As previously mentioned the simplicity of how PHAML is called within each module adds some complexity to using the library, but direct access to all of the functionality in PHAML is available.  This makes the modules extremely flexible for any type of problem.  Also, since each module can define its own set of PHAML callbacks, there is no restriction on the problem definition.  Thus, any changes in either CISM or PHAML can be handled in the future.

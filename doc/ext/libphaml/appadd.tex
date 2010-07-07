@@ -1,10 +1,10 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Introduction}\label{sec:addintro}
+\subsection{Introduction}\label{sec:addintro}
 
 The build system for GLIMMER-CISM is extensive and great care needs to be taken in order to ensure that everything is compiled correctly.  This appendix demonstrates how a new phaml\_module.F90 file and phaml\_module\_pde.F90 file can be added to the build system after they have been created.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Adding Modules}\label{sec:addmod}
+\subsection{Adding Modules}\label{sec:addmod}
 
 When adding a module the file `Makefile.am' in the libphaml directory will need to be edited in order to add the new file to the build process and tell the system the necessary dependencies the module requires.  We'll assume the file to be edited is named `phaml\_module.F90'.  The first things that will have to happen is adding the library to be created to the `lib\_LTLIBRARIES' variable at the top of the `Makefile.am' file.  It will look like:
 
@@ -44,7 +44,7 @@ use phaml_module_pde
 \end{framecode}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Adding Drivers}\label{sec:adddrive}
+\subsection{Adding Drivers}\label{sec:adddrive}
 
 Sometimes it might be desired to add a driver as a very simplistic version of the GLIMMER-CISM model where only certain portions of the model are used in order to test a new PHAML module.  This process is outlined by the `simple\_phaml' binary that is built.  Like the libraries, the binary must first be added to the list of binaries to create.  The assumption is made that there exists a file phaml\_driver.F90 being used for this program.
 

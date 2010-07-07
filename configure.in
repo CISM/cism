@@ -207,6 +207,14 @@ AC_CHECK_PROGS(SED,[sed])
 if test x"$SED"x == xx; then
   have_latex=0
 fi
+AC_CHECK_PROGS(PDF2PS,[pdf2ps])
+if test x"PDF2PS"x == xx; then
+  have_latex=0
+fi
+AC_CHECK_PROGS(CONVERT,[convert])
+if test x"convert"x == xx; then
+  have_latex=0
+fi
 AC_CHECK_PROGS(DVIPDFT,[dvipdft dvipdfm])
 
 # build postscript documentation
@@ -333,6 +341,7 @@ AM_CONDITIONAL([BUILD_EXT_EROSION],[test "$build_extension_erosion" == "true"])
 AC_SUBST(build_extension_erosion)
 
 # checking for PHAML
+build_extension_libphaml="false"
 AC_MSG_CHECKING([whether extension: libphaml should be built])
 PHAML_PREFIX=""
 AC_ARG_WITH(phaml,AS_HELP_STRING([--with-phaml],[location of PHAML library]),[PHAML_PREFIX=$withval])
@@ -367,6 +376,7 @@ if test "$PHAML_PREFIX" != ""; then
   LIBS=$LIBS_save
   LDFLAGS=$LDFLAGS_save
   FCFLAGS=$FCFLAGS_save
+  build_extension_libphaml="true"
 else
  AC_MSG_RESULT([no])
 fi
@@ -374,6 +384,7 @@ AM_CONDITIONAL(BUILD_EXT_PHAML, test "$PHAML_PREFIX" != "")
 AM_CONDITIONAL(USE_PHAML_GRAPHICS, test "$PHAML_GRAPHICS_PREFIX" != "")
 AC_SUBST(PHAML_PREFIX)
 AC_SUBST(PHAML_GRAPHICS_PREFIX)
+AC_SUBST(build_extension_libphaml)
 
 # Checking if sources are from subversion
 AC_CHECK_FILE($srcdir/libglimmer/.svn/entries,have_svn_entries="yes",have_svn_entries="no")
@@ -409,7 +420,9 @@ AC_CONFIG_FILES([Makefile m4macros/Makefile scripts/Makefile \
                 doc/num/Makefile doc/num/figs/Makefile doc/num/gnu/Makefile \
                 doc/doclets/Makefile doc/doclets/figs/Makefile \
                 doc/tut/Makefile doc/ext/Makefile \
-                doc/ext/erosion/Makefile doc/ext/erosion/figs/Makefile doc/ext/erosion/gnu/Makefile])
+                doc/ext/erosion/Makefile doc/ext/erosion/figs/Makefile doc/ext/erosion/gnu/Makefile \
+                doc/ext/libphaml/Makefile doc/ext/libphaml/figures/Makefile \
+                doc/ext/libphaml/figures/png/Makefile doc/ext/libphaml/figures/pdf/Makefile])
 AC_CONFIG_FILES([doc/common/version.tex])
 AC_CONFIG_FILES([glimmer-cism-config libglimmer/glimmer_vers.F90.in])
 AC_OUTPUT

@@ -1,4 +1,18 @@
 2010-07-07 Magnus Hagdorn
+ * configure.in: generate Makfile for building phaml documentation
+ * doc/glimmer.bib: add phaml references
+ * doc/glimmer.tex: add Time Wylie to list of authors
+ * doc/make_doc.rules: add rules to turn pdf and png files to eps
+ * doc/common/definitions.tex: define booleans controlling extensions here
+ * doc/common/packages.tex: add fancybox
+ * doc/ext/selected_ext.tex.in: only handle setting of booleans
+ * doc/ext/libphaml: copied from extensions/libphaml/doc/src
+ * doc/ext/Makefile.am: handle new directory
+ * doc/ext/ext-app.tex: add file containing extensions appendices
+ * doc/ext/ext.tex: add file including various extensions
+ * extensions/libphaml/doc: removed
+
+2010-07-07 Magnus Hagdorn
  * doc/glimmer.tex: rearrange documentation, introduce parts
  * doc/ext/ext.tex.in: turn chapter into a part
  * doc/ext/erosion/erosion.tex: move headings up one level

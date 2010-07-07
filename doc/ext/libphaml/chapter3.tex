@@ -1,13 +1,13 @@
-\chapter{DATA STRUCTURES}\label{ch:modelinput}
+\section{DATA STRUCTURES}\label{ch:modelinput}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Introduction}\label{sec:chp3intro}
+\subsection{Introduction}\label{sec:chp3intro}
 
 Important to any software system are the data structures which guide the flow and storage of the information which the software needs.  This is increasingly important when dealing with a modeling simulation where the method in which the data is stored directly affects how it can be used and how useful the data stored is.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{NetCDF}\label{sec:chp3netcdf}
+\subsection{NetCDF}\label{sec:chp3netcdf}
 
 The input and output data format that GLIMMER-CISM uses is NetCDF (network Common Data Form) which is commonly used for modeling applications of this nature.  Technically it is ``a set of interfaces for array-oriented data access" and is widely used in scientific research due the modularity of the framework and the number of accessible libraries provided for it. \citep{NetCDF:website}
 
@@ -16,7 +16,7 @@ NetCDF allows for any array-based data to be stored in a single file which can e
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\section{Poly Files}\label{sec:chp3poly}
+\subsection{Poly Files}\label{sec:chp3poly}
 
 Triangle uses poly (polygon) files to represent a 2-dimensional PSLG (Planar Straight Line Graph).  The file format is straightforward for a graph representation.  There are minor variations that can be made to the format, but for the purpose of this project the output of the file is as follows.
 
@@ -44,7 +44,7 @@ Triangle uses poly (polygon) files to represent a 2-dimensional PSLG (Planar Str
 The endpoints for edges are the vertex numbers of the vertices listed in the file.  Each edge and vertex must have a unique number identifying them.  Holes are also allowed in the PSLG, but for the scope of this work, no examples with holes were used.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Mapping}\label{sec:chp3map}
+\subsection{Mapping}\label{sec:chp3map}
 
 
 The transformation between the NetCDF format and the poly one is straightforward.  This is simply taking a grid and transforming it into a mesh datatype.  For the solver, only the ice-sheet is desired and therefore the entire grid is not used.  GLIMMER-CISM stores a mask at each timestep which specifies what each node in the graph represents.  This mask tells the user whether it is ice, grounded, ocean, land, a grounding line, or other important features of an ice sheet.  These are represented as bits in a byte that are turned on or off.  Thus, when generating the mesh each node is checked and if it has ice it can be added to the poly file.  
@@ -56,7 +56,7 @@ Each node must have a unique identifier (as outlined in the specifications above
 Mapping the data back to NetCDF is also done directly due to the built in functionality in PHAML which allows you to specify a point and get the interpolated data from the mesh there.  Thus, all the resulting data can be accessed by some data manipulation and reshaping arrays to go in between the mesh and NetCDF.  These procedures are outlined more thoroughly in the following chapter which discusses the additions and files directly. 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsection{Examples}
+\subsubsection{Examples}
 
 Creating an accurate representation is straightforward for a smooth ice sheet.  An ideal glacier, as shown in \ref{fig:inglacierf}, can yield a smooth mesh with no anomalies.  More intricate glaciers though may have adjacent nodes that are connected even though they shouldn't be.  Examples of these types of issues are demonstrated in Greenland (fig \ref{fig:greenmesh}) and Antarctica (fig \ref{fig:ant}). 
 
@@ -75,7 +75,7 @@ Many resolution based artifacts will also exist around the edges of Antarctica d
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsection{Improved Generation Techniques}
+\subsubsection{Improved Generation Techniques}
 
 Clearly shown by the examples \ref{fig:greenmesh} and \ref{fig:antmesh}, the mesh generation technique can create unintended anomalies.  As mentioned, resolution becomes an issue when trying to correctly generate the mesh. Often there are adjacent nodes that are both grounding line nodes but should not be directly connected.  This causes the resulting mesh to be larger or irregular in certain areas as small islands become part of the main mesh or jagged grounding lines become smoother.  This effect can be lessened by taking a higher resolution grid to begin with so that there is less distance between the nodes.  Although this works, these anomalies are always possible and it requires having a higher resolution grid in the areas which are not as important.
 

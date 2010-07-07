@@ -3,7 +3,7 @@ This appendix describes the functions that are provided in the phaml\_example mo
 
 These are wrappers to ease the use of PHAML and to setup all initial conditions and make sure everything is properly handled with PHAML and the other modules needed.  Please see the guide for the native PHAML functions. \citep{phamldoc} 
 
-\section{Main Module}\label{sec:libfuncmain}
+\subsection{Main Module}\label{sec:libfuncmain}
 
 \begin{itemize}
 \item \textbf{phaml\_init} - This subroutine simply sets the needed variables for the usermod module to work.  It does not instantiate the phaml\_solution.
@@ -14,9 +14,9 @@ These are wrappers to ease the use of PHAML and to setup all initial conditions 
 \item \textbf{phaml\_close} - This destroys the phaml session variable as well as deallocates the variables used in usermod.
 \end{itemize}
 
-\section{PHAML Callbacks}\label{sec:libphamlcall}
+\subsection{PHAML Callbacks}\label{sec:libphamlcall}
 
-This section lists the subroutines and functions that PHAML relies on and must be present in order for it to define the PDE and to find a solution.  Given the type of solution desired, many of them don't need to be used, but they must all still exist even if returning zero.  Please refer to the manual for more detailed descriptions, special circumstances, arguments, and examples.  \citep{phamldoc}
+This subsection lists the subroutines and functions that PHAML relies on and must be present in order for it to define the PDE and to find a solution.  Given the type of solution desired, many of them don't need to be used, but they must all still exist even if returning zero.  Please refer to the manual for more detailed descriptions, special circumstances, arguments, and examples.  \citep{phamldoc}
 
 \begin{itemize}
 \item \textbf{pdecoefs} - This subroutine returns the coefficient and right hand side of the PDE at the point (x,y). 
@@ -64,7 +64,7 @@ This section lists the subroutines and functions that PHAML relies on and must b
 %\end{center}
 %\end{table}
 
-\section{Support Module}\label{sec:libfuncsupp}
+\subsection{Support Module}\label{sec:libfuncsupp}
 
 These subroutines are independent of PHAML and are simply support functions needed by the various PHAML modules that can be created.  There is a possibility that some of them may need to be modified depending on a particular simulation need, but in general should be applicable to most situations.
 
@@ -75,11 +75,11 @@ These subroutines are independent of PHAML and are simply support functions need
 \item \textbf{make\_full\_poly\_file} - This subroutine generates the mesh file that PHAML loads by using the full domain space.  A rectangular grid will always be output.  The function writes out the .poly file and then calls Triangle in order to process it for use by PHAML.  
 \end{itemize}
 
-\section{Usermod Module}\label{sec:libfuncuser}
+\subsection{Usermod Module}\label{sec:libfuncuser}
 
 The usermod module is a set of variables and routines that are used or might be used from within the PHAML callbacks.  Any data coming from GLIMMER-CISM would need to be set in one of these variables and then could be used in a callback.  All the data must be passed on to PHAML's slaves though the function `update\_usermod' that is in the set of PHAML callbacks.  These callbacks can be tricky and are explained further in section \ref{sec:libphamlcall}.  The usermod module is addressed in chapter \ref{ch:softintegration} section \ref{sec:ch4usermod}.
 
-\subsection{The functions}
+\subsubsection{The functions}
 
 \begin{itemize}
 \item \textbf{user\_init} - This function sets up the initial data for the usermod module.
@@ -95,7 +95,7 @@ The usermod module is a set of variables and routines that are used or might be 
 \item \textbf{getns} - Given a y in absolute coordinates, this divides it by the `dns' and truncates it into an integer in order to return the nearest ns coordinate for the grid.
 \end{itemize}
 
-\subsection{The variables}
+\subsubsection{The variables}
 
 \begin{itemize}
 \item \textbf{gnsn} - The number of nodes in the north/south direction of the grid.

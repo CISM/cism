@@ -1,5 +1,5 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Example Code}\label{sec:examplecode}
+\subsection{Example Code}\label{sec:examplecode}
 
 The example code for PHAML demonstrates calling the phaml\_xxxx modules from within the ice-sheet model and how to start new solutions.  This is the standard way most of the libraries for GLIMMER-CISM are used.  This requires loading everything the model requires and running through the full set of calculations on the ice-sheet.  The calls to PHAML will be one small part of the overall simulation process.  Therefore, the example code is demonstrative of the smaller piece of code that would be in a larger module.
 
@@ -59,12 +59,12 @@ phaml_close(phaml_solution)
 \end{verbatim}
 \end{framecode}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Standalone Code}
+\subsection{Standalone Code}
 
 GLIMMER-CISM provides an excellent framework for doing small scale simulations by using a basic set of libraries.  This is a good way to work with PHAML as well since you can integrate it with GLIMMER-CISM for simple tests without the overhead of the entire model.  There is an simple example driver like this included in the libphaml source files aptly named \href{http://svn.berlios.de/svnroot/repos/glimmer-cism/glimmer-cism2/libphaml/simple\_phaml.F90}{simple\_phaml.F90}. 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Debugging Options}
+\subsection{Debugging Options}
 
 PHAML provides options to hand running code over to a debugger so that slaves can be monitored separately from the master.  These are very useful when handling usermod variables or when using many slaves on different processors.  
 
