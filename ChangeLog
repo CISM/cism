@@ -1,4 +1,7 @@
 2010-07-07 Magnus Hagdorn
+ * doc/ext/libphaml/libphaml-app.tex: including the various files for appendices
+
+2010-07-07 Magnus Hagdorn
  * configure.in: generate Makfile for building phaml documentation
  * doc/glimmer.bib: add phaml references
  * doc/glimmer.tex: add Time Wylie to list of authors
