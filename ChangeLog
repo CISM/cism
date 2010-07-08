@@ -1,3 +1,6 @@
+2010-07-08 Magnus Hagdorn
+ * example-drivers/eis/src/eis_ela.F90: fix bug in mass balance computation
+
 2010-07-07 Magnus Hagdorn
  * doc/ext/libphaml/libphaml-app.tex: including the various files for appendices
 

@@ -232,7 +232,8 @@ contains
           return
        end if
     else
-       z = 0
+       calc_mb = 0
+       return
     end if
     z = z - ela
     zmax = mzmax - (mzmax - czmax)*cony
