@@ -1,5 +1,4 @@
 lib_LTLIBRARIES = liberosion.la
-bin_PROGRAMS  = simple_erosion eis_erosion
 check_PROGRAMS = test_rk4 test_geometry test_advect test_interpolate2d
 
 variable_DATA = erosion_vars.def
@@ -15,22 +14,12 @@ liberosion_la_SOURCES = erosion.F90 erosion_types.F90 erosion_setup.F90 erosion_
                        erosion_advect.F90 geometry.F90 runge_kutta.F90  erosion_transport.F90 \
                        glimmer_interpolate2d.F90 erosion_sediment.F90 advect_2ndmo.F90  erosion_transport_type.F90  
 
-simple_erosion_SOURCES = simple_erosion.F90
-eis_erosion_SOURCES = eis_erosion.F90
 test_interpolate2d_SOURCES = test_interpolate2d.F90
 test_geometry_SOURCES = test_geometry.F90
 test_rk4_SOURCES = test_rk4.F90
 test_advect_SOURCES = test_advect.F90
 
 LDADD = liberosion.la $(top_builddir)/libglimmer-solve/libglimmer-solve.la \
-                    $(top_builddir)/libglimmer/libglimmer-IO.la $(top_builddir)/libglimmer/libglimmer.la \
-                    $(NETCDF_LDFLAGS) $(HDF5_LDFLAGS) $(NETCDF_LIBS) $(BLAS_LIBS)
-simple_erosion_LDADD = liberosion.la $(top_builddir)/tests/EISMINT/src/libglimmer-simple.la  \
-                       $(top_builddir)/libglide/libglide.la $(top_builddir)/libglimmer-solve/libglimmer-solve.la \
-                       $(top_builddir)/libglimmer/libglimmer-IO.la $(top_builddir)/libglimmer/libglimmer.la \
-                       $(NETCDF_LDFLAGS) $(HDF5_LDFLAGS) $(NETCDF_LIBS) $(BLAS_LIBS)
-eis_erosion_LDADD = liberosion.la $(top_builddir)/example-drivers/eis/src/libglimmer-eis.la \
-                    $(top_builddir)/libglide/libglide.la $(top_builddir)/libglimmer-solve/libglimmer-solve.la \
                     $(top_builddir)/libglimmer/libglimmer-IO.la $(top_builddir)/libglimmer/libglimmer.la \
                     $(NETCDF_LDFLAGS) $(HDF5_LDFLAGS) $(NETCDF_LIBS) $(BLAS_LIBS)
 AM_FCFLAGS = $(F90_MODFLAG)$(top_builddir)/libglide $(F90_MODFLAG)$(top_builddir)/libglimmer-solve $(F90_MODFLAG)$(top_builddir)/libglimmer \

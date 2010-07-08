@@ -401,11 +401,12 @@ AC_CONFIG_FILES([Makefile m4macros/Makefile scripts/Makefile \
                 libglimmer-solve/blas/Makefile libglint/Makefile \
                 libglide/Makefile tests/Makefile example-drivers/Makefile extensions/Makefile \
                 extensions/erosion/Makefile extensions/erosion/src/Makefile \
-                extensions/erosion/tests/Makefile extensions/erosion/scripts/Makefile \
+                extensions/erosion/scripts/Makefile \
                 extensions/libphaml/Makefile \
                 tests/EISMINT/Makefile tests/EISMINT/src/Makefile tests/EISMINT/benchmarks/Makefile \
                 tests/EISMINT/EISMINT-1/Makefile  tests/EISMINT/EISMINT-2/Makefile \
                 tests/EISMINT/isos/Makefile  tests/EISMINT/lin-non_lin/Makefile \
+                tests/EISMINT/erosion/Makefile \
                 tests/exact-isothermal/Makefile tests/exact-isothermal/src/Makefile \
                 tests/exact-isothermal/matlab/Makefile tests/exact-isothermal/scripts/Makefile \
                 tests/exact-isothermal/tests/Makefile \
