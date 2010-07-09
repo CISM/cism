@@ -3,6 +3,7 @@ graphics = europe.20km.eps fenscan_is-17.eps fenscan-gthf_is-17.eps fenscan_bvel
 data = fenscan.nc fenscan-gthf.nc 
 if BUILD_EXT_EROSION
  data += fenscan-erosion.nc
+ graphics += fenscan-seds.eps
 endif
 
 BUILT_SOURCES = 
@@ -31,3 +32,6 @@ profile-20.eps:		fenscan.hot.nc
 
 profile-comp.eps:	fenscan.hot.nc fenscan-gthf.hot.nc
 			$(plotGCProfile) -p prof_a.data --not_projected -v is -v bheatflx -v bmlt -t -20 --size 3 3.5 $^ -o $@
+
+fenscan-seds.eps:	fenscan-erosion.nc
+			$(plotGCseds) -T -1 --legend v $^ -o $@

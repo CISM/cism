@@ -45,6 +45,10 @@ parser.region()
 parser.plot()
 opts = PyGC.GCOptions(parser,1)
 
+if opts.options.colourmap != None:
+    erosioncpt = opts.options.colourmap
+else:
+    erosioncpt = 'erosion.cpt'
 
 infile = opts.gcfile()
 
@@ -72,7 +76,7 @@ if opts.options.land:
 
 
 # plot the data
-cmap = PyGC.GCcolourmap(infile.getvar("seds3"),filename='erosion.cpt')
+cmap = PyGC.GCcolourmap(infile.getvar("seds3"),filename=erosioncpt)
 norm,cmap = cmap.norm,cmap.colourmap
 title = 'change in sediment thickness [m]'
 

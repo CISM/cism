@@ -1,4 +1,9 @@
 2010-07-09 Magnus Hagdorn
+ * extra_rules.am: add macro to plot sediments
+ * example-drivers/eis/fenscan/Makefile.am: plot final sediment thickness
+ * extensions/erosion/scripts/plotGCseds: use CLI option to specify colourmap
+
+2010-07-09 Magnus Hagdorn
  * rename make.rules.in to extra_rules.am
  * Makefile.am: remove rule to build make.rules
  * doc/ext/Makefile.am: distribute missing files
