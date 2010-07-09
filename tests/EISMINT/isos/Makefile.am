@@ -17,4 +17,4 @@ spots.ps:	isos.llfa.nc isos.llra.nc isos.elfa.nc isos.elra.nc
 profile.ps:	isos.llfa.nc isos.llra.nc isos.elfa.nc isos.elra.nc
 	@GLIMMER_PREFIX@/bin/plotProfile.py -t 18  -v topg -p ../PyCF/eismint.prof $^ $@
 
--include $(top_builddir)/make.rules
+include $(top_srcdir)/extra_rules.am

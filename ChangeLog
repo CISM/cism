@@ -1,4 +1,30 @@
 2010-07-09 Magnus Hagdorn
+ * rename make.rules.in to extra_rules.am
+ * Makefile.am: remove rule to build make.rules
+ * doc/ext/Makefile.am: distribute missing files
+ * doc/ext/erosion/Makefile.am: ditto
+ * doc/ext/erosion/figs/Makefile.am: ditto
+ * doc/ext/libphaml/Makefile.am: ditto
+ * example-drivers/EISMINT-3/EISMINT-3/Makefile.am: include automake fragment
+   extra_rules.am directly
+ * example-drivers/eis/fenscan/Makefile.am: ditto
+ * example-drivers/eis/src/Makefile.am: ditto
+ * extensions/erosion/src/Makefile.am: ditto 
+ * extensions/libphaml/Makefile.am: ditto
+ * src/gc2-dist/libglide/Makefile.am: ditto
+ * libglimmer/Makefile.am: ditto
+ * libglimmer-solve/Makefile.am: ditto
+ * libglint/Makefile.am: ditto
+ * tests/EISMINT/EISMINT-1/Makefile.am: ditto
+ * tests/EISMINT/EISMINT-2/Makefile.am: ditto
+ * tests/EISMINT/benchmarks/Makefile.am: ditto
+ * tests/EISMINT/erosion/Makefile.am: ditto
+ * tests/EISMINT/isos/Makefile.am: ditto
+ * tests/EISMINT/lin-non_lin/Makefile.am: ditto
+ * tests/EISMINT/src/Makefile.am: ditto
+ * tests/exact-isothermal/src/Makefile.am: ditto
+
+2010-07-09 Magnus Hagdorn
  * ./doc/*/Makefile.am: do not distribute built graphics
 
 2010-07-08 Magnus Hagdorn

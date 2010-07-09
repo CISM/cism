@@ -29,5 +29,5 @@ e2.g-comp.eps:	e2.g.nc
 e2.h-comp.eps:	e2.h.nc
 	$(plotEISMINT2stats) -e H $^ -o $@
 
--include $(top_builddir)/make.rules
+include $(top_srcdir)/extra_rules.am
 

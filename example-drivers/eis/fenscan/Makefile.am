@@ -14,7 +14,7 @@ CLEANFILES = $(data) $(graphics) $(BUILT_SOURCES)
 
 MODEL_BINARY=$(top_builddir)/example-drivers/eis/src/eis_glide
 
--include $(top_builddir)/make.rules
+include $(top_srcdir)/extra_rules.am
 
 fenscan-erosion.nc:	fenscan-erosion.config
 			$(PYTHON) $(top_srcdir)/scripts/glide_launch.py $(LAUNCH_OPTIONS) -m $(top_builddir)/example-drivers/eis/src/eis_erosion @AM_SGE_OPTS@ $(SGE_OPTS) $<

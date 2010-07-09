@@ -7,4 +7,4 @@ data = $(subst config,nc,$(TEST_CONFIGS))
 
 MODEL_BINARY=$(top_builddir)/tests/EISMINT/src/simple_erosion
 
--include $(top_builddir)/make.rules
+include $(top_srcdir)/extra_rules.am

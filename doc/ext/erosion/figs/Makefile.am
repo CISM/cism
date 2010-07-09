@@ -1,5 +1,5 @@
 graphics = ice_velo.eps erosion_layers.eps pressure_stress_strain.eps plot_basal.eps
-EXTRA_DIST = ice_velo.fig erosion_layers.fig pressure_stress_strain.fig 
+EXTRA_DIST = ice_velo.fig erosion_layers.fig pressure_stress_strain.fig plot_basal.py
 BUILT_SOURCES = $(graphics)
 
 plot_basal.eps:	plot_basal.py

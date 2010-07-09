@@ -8,7 +8,9 @@ plotGCvar = PYTHONPATH=$(top_builddir)/PyGC/src/.libs:$(top_srcdir)/PyGC/:$$PYTH
 plotGCProfile = PYTHONPATH=$(top_builddir)/PyGC/src/.libs:$(top_srcdir)/PyGC/:$$PYTHONPATH $(top_srcdir)/PyGC/progs/plotGCProfile
 plotEISMINT2stats = PYTHONPATH=$(top_builddir)/PyGC/src/.libs:$(top_srcdir)/PyGC/:$$PYTHONPATH $(top_srcdir)/PyGC/progs/plotEISMINT2stats -d $(top_srcdir)/PyGC/data/eismint2.data --size=4 3
 
-f90_dep.mak:	$(SOURCES)
+f90_dep_sources ?= $(SOURCES)
+
+f90_dep.mak:	$(f90_dep_sources)
 		$(PYTHON) $(top_srcdir)/scripts/f90_dependencies.py -l -o $@ $^
 
-.SUFFIXES:	.config
+SUFFIXES = .config

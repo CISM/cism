@@ -46,5 +46,7 @@ simple_phaml_LDADD =  $(PHAML_PREFIX)/lib/libphaml.a \
     $(NETCDF_LDFLAGS) $(NETCDF_LIBS) $(MPILIBS) \
     libglide-phaml.la $(PHAML_PREFIX)/lib/libphaml.a 
 
+f90_dep_sources = $(libglide_phaml_la_SOURCES)
+
 -include f90_dep.mak
--include $(top_builddir)/make.rules
+include $(top_srcdir)/extra_rules.am

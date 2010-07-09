@@ -52,4 +52,4 @@ glimmer_vers.F90:	glimmer_vers.F90.in
 endif
 
 -include f90_dep.mak
--include $(top_builddir)/make.rules
+include $(top_srcdir)/extra_rules.am

@@ -29,4 +29,4 @@ glint_mbal_io.F90:	glint_mbal_vars.def ../libglimmer/ncdf_template.F90.in
 
 
 -include f90_dep.mak
--include $(top_builddir)/make.rules
+include $(top_srcdir)/extra_rules.am

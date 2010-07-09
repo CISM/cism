@@ -34,4 +34,4 @@ eis_io.F90:	eis_vars.def $(top_srcdir)/libglimmer/ncdf_template.F90.in
 		$(PYTHON) $(top_srcdir)/scripts/generate_ncvars.py $^
 
 -include f90_dep.mak
--include $(top_builddir)/make.rules
+include $(top_srcdir)/extra_rules.am

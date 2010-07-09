@@ -10,7 +10,7 @@ CLEANFILES = $(data) $(graphics) $(BUILT_SOURCES)
 
 MODEL_BINARY=$(top_builddir)/example-drivers/EISMINT-3/src/eismint3_glide
 
--include $(top_builddir)/make.rules
+include $(top_srcdir)/extra_rules.am
 
 topo.eps:	EISMINT3GL.input.nc
 		$(plotGCvar) -v topg --legend=v $^ -o $@

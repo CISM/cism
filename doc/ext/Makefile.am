@@ -8,7 +8,7 @@ endif
 
 
 BUILT_SOURCES = selected_ext.tex
-EXTRA_DIST = ext.tex ext-app.tex
+EXTRA_DIST = ext.tex ext-app.tex selected_ext.tex.in
 
 editext = sed -e 's|@build_extension_erosion[@]|$(build_extension_erosion)|g' \
               -e 's|@build_extension_libphaml[@]|$(build_extension_libphaml)|g'

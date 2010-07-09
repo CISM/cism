@@ -36,4 +36,4 @@ AM_FCFLAGS = $(F90_MODFLAG)../libglimmer $(F90_MODFLAG)../libglimmer-solve $(NET
 
 
 -include f90_dep.mak
--include $(top_builddir)/make.rules
+include $(top_srcdir)/extra_rules.am
