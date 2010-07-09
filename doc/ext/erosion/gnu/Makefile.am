@@ -1,6 +1,6 @@
 graphics = stress-strain.eps stress-strain-fit.eps
 
-EXTRA_DIST = stress-strain.gp fit.gp stress-strain-fit.gp stress-strain.data $(graphics)
+EXTRA_DIST = stress-strain.gp fit.gp stress-strain-fit.gp stress-strain.data 
 
 BUILT_SOURCES = $(graphics)
 

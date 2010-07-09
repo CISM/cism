@@ -1,3 +1,6 @@
+2010-07-09 Magnus Hagdorn
+ * ./doc/*/Makefile.am: do not distribute built graphics
+
 2010-07-08 Magnus Hagdorn
  * Makefile.am: change order of sub-directories
  * configure.in: remove one directory, add another

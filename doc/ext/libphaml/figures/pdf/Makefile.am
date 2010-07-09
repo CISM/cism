@@ -1,6 +1,6 @@
 graphics = flow.eps  func.eps  laplace_square.eps
 
-EXTRA_DIST = flow.pdf  func.pdf  laplace_square.pdf $(graphics)
+EXTRA_DIST = flow.pdf  func.pdf  laplace_square.pdf
 
 BUILT_SOURCES = $(graphics)
 
