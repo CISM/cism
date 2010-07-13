@@ -1,3 +1,10 @@
+2010-07-13 Magnus Hagdorn
+ * extra_rules.am: add rules to do some more plotting
+ * PyGC/PyGC/GC_colourmap.py: fix path to colourmaps when run from source dir
+ * example-drivers/eis/fenscan/Makefile.am: do some more plotting
+ * extensions/erosion/scripts/plotGCSedsProfile: new program to plot a
+   sediment profile
+ 
 2010-07-09 Magnus Hagdorn
  * extra_rules.am: add macro to plot sediments
  * example-drivers/eis/fenscan/Makefile.am: plot final sediment thickness

@@ -25,9 +25,9 @@ __all__=['GCcolourmap']
 
 import os,numpy
 import colorsys
+import sys,os.path
 
-
-GC_sharedir = "data"
+GC_sharedir = os.path.join(os.path.dirname(sys.argv[0]),"..","data")
 try:
     from GC_autoconf import *
 except:
