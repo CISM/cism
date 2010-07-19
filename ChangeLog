@@ -1,5 +1,13 @@
 2010-07-19 Magnus Hagdorn
  * extra_rules.am: add rules to do some more plotting
+ * PyGC/PyGC/IO/GC_loadfile.py: fix bug with temperature profile in lithosphere
+ * PyGC/progs/plotGCSpot: add program to plot vertical profiles at a particular
+   location
+ * PyGC/progs/Makefile.am: distribute new program
+ * example-drivers/eis/fenscan/Makefile.am: do some more plotting
+
+2010-07-19 Magnus Hagdorn
+ * extra_rules.am: add rules to do some more plotting
  * PyGC/progs/plotGCSpotTS: add program to plot variable at one location through
    time
  * PyGC/progs/Makefile.am: distribute new program

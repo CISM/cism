@@ -656,7 +656,11 @@ class GCvariable(object):
         (tarray,t) = GCchecklist(time,self.file.variables['time'])
         (larray,l) = GCchecklist(level,self.file.variables['level'])
 
-        if 'level' not in self.file.variables[self.name].dimensions:
+        if 'level' in self.file.variables[self.name].dimensions:
+            (larray,l) = GCchecklist(level,self.file.variables['level'])
+        elif 'lithoz' in self.file.variables[self.name].dimensions:
+            (larray,l) = GCchecklist(level,self.file.variables['lithoz'])
+        else:
             larray = False
             l = 0
 

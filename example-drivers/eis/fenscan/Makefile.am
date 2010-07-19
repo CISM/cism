@@ -1,4 +1,4 @@
-graphics = europe.20km.eps fenscan_is-17.eps fenscan-gthf_is-17.eps fenscan_bvel-17.eps fenscan-gthf_bvel-17.eps profile-20.eps profile-comp.eps profileTs.eps
+graphics = europe.20km.eps fenscan_is-17.eps fenscan-gthf_is-17.eps fenscan_bvel-17.eps fenscan-gthf_bvel-17.eps profile-20.eps profile-comp.eps profileTs.eps fenscan-spotTS.eps fenscan-spot.eps
 
 data = fenscan.nc fenscan-gthf.nc 
 if BUILD_EXT_EROSION
@@ -42,5 +42,8 @@ fenscan-seds.eps:	fenscan-erosion.nc
 fenscan-seds_prof.eps:	fenscan-erosion.nc
 			$(plotGCSedsProfile) -p $(srcdir)/prof_a.data --not_projected -t 0 -e $(top_srcdir)/PyGC/data/stages $^ -o $@
 
-fenscan-spot.eps:	$(data)
+fenscan-spotTS.eps:	$(data)
 			$(plotGCSpotTS) --ij 40 70 -v thk -v slc $(data) -o $@
+
+fenscan-spot.eps:	fenscan.2000a.nc
+			$(plotGCSpot) --ij 40 70 --ij 80 80 --pmt -t -20 -v temp -v uvel $^ -o $@
