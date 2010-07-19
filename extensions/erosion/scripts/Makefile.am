@@ -1,4 +1,4 @@
-python_progs = plotGCseds 
+python_progs = plotGCseds plotGCSedsProfile
 bin_SCRIPTS = $(python_progs)
 
 cpt_DATA = erosion.cpt

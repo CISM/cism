@@ -41,3 +41,6 @@ fenscan-seds.eps:	fenscan-erosion.nc
 
 fenscan-seds_prof.eps:	fenscan-erosion.nc
 			$(plotGCSedsProfile) -p $(srcdir)/prof_a.data --not_projected -t 0 -e $(top_srcdir)/PyGC/data/stages $^ -o $@
+
+fenscan-spot.eps:	$(data)
+			$(plotGCSpotTS) --ij 40 70 -v thk -v slc $(data) -o $@

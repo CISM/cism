@@ -1,3 +1,11 @@
+2010-07-19 Magnus Hagdorn
+ * extra_rules.am: add rules to do some more plotting
+ * PyGC/progs/plotGCSpotTS: add program to plot variable at one location through
+   time
+ * PyGC/progs/Makefile.am: distribute new program
+ * extensions/erosion/scripts/Makefile.am: ditto
+ * example-drivers/eis/fenscan/Makefile.am: do some more plotting
+ 
 2010-07-13 Magnus Hagdorn
  * extra_rules.am: add rules to do some more plotting
  * PyGC/PyGC/GC_colourmap.py: fix path to colourmaps when run from source dir

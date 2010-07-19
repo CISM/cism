@@ -10,6 +10,7 @@ plotGCProfileTS = PYTHONPATH=$(top_builddir)/PyGC/src/.libs:$(top_srcdir)/PyGC/:
 plotEISMINT2stats = PYTHONPATH=$(top_builddir)/PyGC/src/.libs:$(top_srcdir)/PyGC/:$$PYTHONPATH $(top_srcdir)/PyGC/progs/plotEISMINT2stats -d $(top_srcdir)/PyGC/data/eismint2.data --size=4 3
 plotGCseds =  PYTHONPATH=$(top_builddir)/PyGC/src/.libs:$(top_srcdir)/PyGC/:$$PYTHONPATH $(top_srcdir)/extensions/erosion/scripts/plotGCseds --colourmap=$(top_srcdir)/extensions/erosion/scripts/erosion.cpt
 plotGCSedsProfile = PYTHONPATH=$(top_builddir)/PyGC/src/.libs:$(top_srcdir)/PyGC/:$$PYTHONPATH $(top_srcdir)/extensions/erosion/scripts/plotGCSedsProfile
+plotGCSpotTS = PYTHONPATH=$(top_builddir)/PyGC/src/.libs:$(top_srcdir)/PyGC/:$$PYTHONPATH $(top_srcdir)/PyGC/progs/plotGCSpotTS
 
 f90_dep_sources ?= $(SOURCES)
 
