@@ -36,6 +36,13 @@ except:
     have_basemap=False
 import numpy,math
 
+def makeMask(mask,rgba):
+    a = numpy.zeros(list(mask.shape)+[4])
+    for i in range(0,3):
+        a[:,:,i] = rgba[i]
+    a[:,:,3] = numpy.where(mask,rgba[3],0)
+    return a
+
 # creating option parser
 parser = PyGC.GCOptParser()
 parser.variable()
@@ -144,6 +151,23 @@ if plot_geo_coord:
     b.drawparallels(lats,labels=[1,1,0,1])
     b.drawmeridians(longs,labels=[1,1,0,1])
 
+# plot mask
+if opts.options.mask:
+    mask = numpy.array(infile.getvar('thkmask').get2Dfield(time),int)
+    adjustedMask = numpy.where(mask<0,0,mask)
+
+    thin = makeMask(adjustedMask&1==1,[1.,1.,1.,0.7])
+    m.imshow(thin,origin='lower',extent=extent)
+
+    shelf = makeMask(adjustedMask&4==4,[0,0,1,0.8])
+    m.imshow(shelf,origin='lower',extent=extent)
+
+    interior = makeMask(adjustedMask&2==2,[1,1,1,0.8])
+    m.imshow(interior,origin='lower',extent=extent)
+
+    grounding = makeMask(adjustedMask&16,[0,0,0,1])
+    m.imshow(grounding,origin='lower',extent=extent)
+    
 # plot time stamp
 if opts.options.timestamp:
     m.add_artist(AnchoredText('%.2fka'%infile.time(time),loc=4))

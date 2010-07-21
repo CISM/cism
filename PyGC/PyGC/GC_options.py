@@ -99,6 +99,7 @@ class GCOptParser(optparse.OptionParser):
         self.add_option("-i","--illuminate",metavar='VAR',type="choice",dest='illuminate',choices=['thk','topg','usurf','is'],help="illuminate surface using gradient of ['thk','topg','usurf','is']")
         self.add_option("--vectors",metavar='VAR',type="choice",choices=['vel','bvel'],help="plot velocity vectors of ['vel','bvel']")
         self.add_option("--land",action="store_true", dest="land",default=False,help="Indicate area above SL")
+        self.add_option("--mask",action="store_true",default=False,help="Indicate ice thickness mask")
         self.add_option("--no-geo-coords",action="store_false",dest="geo_coord",default=True,help="do not plot geographic coordinate system")
         try:
             self.add_option("--colourmap",type="string",dest="colourmap",help="name of GMT cpt file to be used (autogenerate one when set to None)")
