@@ -70,7 +70,7 @@ contains
   !> calculate scale factors (can't have non-integer powers)
   subroutine glimmer_init_scales
     use glimmer_physcon, only : scyr, gn
-    use glimmer_paramets, only : thk0, tim0, vel0, vis0, len0, tau0, acc0
+    use glimmer_paramets, only : thk0, tim0, vel0, vis0, len0, tau0, acc0, tau0_glam
     implicit none
 
     scale2d_f1 = scyr * thk0 / tim0
@@ -91,7 +91,7 @@ contains
     scale3d_f6 = scale3d_f4**(1.0/gn)
     scale3d_f7 = scyr * thk0/tim0
     scale3d_f8 = vis0*scyr
-    scale3d_f9 = 1.0d0
+    scale3d_f9 = tau0_glam
   end subroutine glimmer_init_scales
 end module glimmer_scales
 
