@@ -1,41 +1,28 @@
-! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-! +                                                           +
-! +  glint_example_clim.f90 - part of the GLIMMER ice model   + 
-! +                                                           +
-! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! +                                                              +
+! +  glint_example_clim.f90 - part of the Glimmer-CISM ice model +
+! +                                                              +
+! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! 
-! Copyright (C) 2004 GLIMMER contributors - see COPYRIGHT file 
-! for list of contributors.
+! Copyright (C) 2005, 2006, 2010
+! Glimmer-CISM contributors - see AUTHORS file for list of contributors
 !
-! This program is free software; you can redistribute it and/or 
-! modify it under the terms of the GNU General Public License as 
-! published by the Free Software Foundation; either version 2 of 
-! the License, or (at your option) any later version.
+! This file is part of Glimmer-CISM.
 !
-! This program is distributed in the hope that it will be useful, 
-! but WITHOUT ANY WARRANTY; without even the implied warranty of 
-! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+! Glimmer-CISM is free software: you can redistribute it and/or modify
+! it under the terms of the GNU General Public License as published by
+! the Free Software Foundation, either version 2 of the License, or (at
+! your option) any later version.
+!
+! Glimmer-CISM is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ! GNU General Public License for more details.
 !
-! You should have received a copy of the GNU General Public License 
-! along with this program; if not, write to the Free Software 
-! Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 
-! 02111-1307 USA
+! You should have received a copy of the GNU General Public License
+! along with Glimmer-CISM.  If not, see <http://www.gnu.org/licenses/>.
 !
-! GLIMMER is maintained by:
-!
-! Ian Rutt
-! School of Geographical Sciences
-! University of Bristol
-! University Road
-! Bristol
-! BS8 1SS
-! UK
-!
-! email: <i.c.rutt@bristol.ac.uk> or <ian.rutt@physics.org>
-!
-! GLIMMER is hosted on berliOS.de:
-!
+! Glimmer-CISM is hosted on BerliOS.de:
 ! https://developer.berlios.de/projects/glimmer-cism/
 !
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -234,7 +221,7 @@ contains
     use netcdf
     use glimmer_log
 
-    !*FD Constructs a global grid data type from file
+   !*FD Constructs a global grid data type from file
 
     character(*),intent(in)       :: fname
     type(global_grid),intent(out) :: ggrid
@@ -255,7 +242,7 @@ contains
     ncerr = nf90_open(fname,0,ncid)
     call handle_err(ncerr,__LINE__)
 
-    ! Look for desired dimenion names - the standard name attribute is the
+    ! Look for desired dimension names - the standard name attribute is the
     ! place to look.
     call ncdf_find_var(ncid,(/'longitude'/),lon_varn,lon_id,lon_nd)
     call ncdf_find_var(ncid,(/'latitude' /),lat_varn,lat_id,lat_nd)
@@ -284,7 +271,7 @@ contains
     call handle_err(ncerr,__LINE__)
 
     ! NB we are ignoring cell boundaries here.
-    ! So, now construct global grid type
+    ! Construct global grid type
     call new_global_grid(ggrid,real(lons,rk),real(lats,rk),correct=.false.)
 
     ! Close file
@@ -358,12 +345,14 @@ contains
 
        ! Loop over attributes
        do ia = 1,natts
+          an = ''
           ncerr = nf90_inq_attname(ncid, iv, ia, an)
           call handle_err(ncerr,__LINE__)
 
           ! If standard name, get value and check 
           ! against targets in turn
-          if (trim(an)=='standard_name') then
+          if (trim(an)=='standard_name' .or. trim(an)=='long_name') then
+             sn = ''
              ncerr = nf90_get_att(ncid, iv, an, sn)
              call handle_err(ncerr,__LINE__)
              do in = 1,nsn
@@ -399,7 +388,7 @@ contains
     use netcdf
     use glimmer_log
 
-    character(*)                  :: filename,varname
+    character(*), intent(in)      :: filename,varname
     real(rk),dimension(:),pointer :: array
     character(*),optional,intent(out) :: units
 
@@ -460,7 +449,7 @@ contains
 
     use netcdf
 
-    character(*)                    :: filename,varname
+    character(*), intent(in)        :: filename,varname
     real(rk),dimension(:,:),pointer :: array
 
     integer  :: ncerr     ! NetCDF error 
@@ -507,7 +496,7 @@ contains
 
     use netcdf
 
-    character(*)                      :: filename,varname
+    character(*), intent(in)          :: filename,varname
     real(rk),dimension(:,:,:),pointer :: array
 
     integer  :: ncerr     ! NetCDF error 
@@ -759,3 +748,4 @@ contains
   end subroutine fixbounds
 
 end module glint_example_clim
+ 

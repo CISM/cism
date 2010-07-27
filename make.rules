@@ -1,5 +1,0 @@
-.config.nc:
-	$(PYTHON) $(top_srcdir)/scripts/glide_launch.py $(LAUNCH_OPTIONS) -m $(MODEL_BINARY) @SGE_OPTS@ $<
-
-#graphics:	$(graphics)
-data:		$(data)

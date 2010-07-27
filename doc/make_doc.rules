@@ -25,7 +25,11 @@
 		mv .tmp  $@
 %.eps:		%.svg
 		$(INKSCAPE) -z -f $< -E $@
+%.ps:		%.pdf
+		$(PDF2PS) $< $@
+%.eps:		%.png
+		$(CONVERT) $< $@
 
 CLEANFILES = $(BUILT_SOURCES) *.pslatex *.dvi *.pstex *.pstex_t *.eps *.ps
 
-SUFFIXES = .fig .pstex .pstex_t .eps .dia .gp .pslatex .ps
+SUFFIXES = .fig .pstex .pstex_t .eps .dia .gp .pslatex .ps .pdf .png

@@ -1,4 +1,5 @@
 data = e3gl_steady.nc
+graphics = topo.eps
 
 BUILT_SOURCES = 
 
@@ -9,4 +10,7 @@ CLEANFILES = $(data) $(graphics) $(BUILT_SOURCES)
 
 MODEL_BINARY=$(top_builddir)/example-drivers/EISMINT-3/src/eismint3_glide
 
-include $(top_srcdir)/make.rules
+include $(top_srcdir)/extra_rules.am
+
+topo.eps:	EISMINT3GL.input.nc
+		$(plotGCvar) -v topg --legend=v $^ -o $@

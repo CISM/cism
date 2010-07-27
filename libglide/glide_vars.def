@@ -17,7 +17,7 @@ datamod:  glide_types
 [x0]
 dimensions:    x0
 units:         meter
-long_name:     Cartisian x-coordinate, velocity grid
+long_name:     Cartesian x-coordinate, velocity grid
 #axis: X
 #standard_name: projection_x_coordinate
 data:          data%general%x0
@@ -26,7 +26,7 @@ dimlen:        model%general%ewn-1
 [y0]
 dimensions:    y0
 units:         meter
-long_name:     Cartisian y-coordinate, velocity grid
+long_name:     Cartesian y-coordinate, velocity grid
 axis:          Y
 data:          data%general%y0
 dimlen:        model%general%nsn-1
@@ -34,7 +34,7 @@ dimlen:        model%general%nsn-1
 [x1]
 dimensions:    x1
 units:         meter
-long_name:     Cartisian x-coordinate
+long_name:     Cartesian x-coordinate
 axis: X
 data:          data%general%x1
 dimlen:        model%general%ewn
@@ -43,7 +43,7 @@ load:1
 [y1]
 dimensions:    y1
 units:         meter
-long_name:     Cartisian y-coordinate
+long_name:     Cartesian y-coordinate
 axis:          Y
 data:          data%general%y1
 dimlen:        model%general%nsn

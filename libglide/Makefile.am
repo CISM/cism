@@ -23,8 +23,10 @@ libglide_la_SOURCES = glide.F90 glide_setup.F90 glide_types.F90 glide_temp.F90 \
 		      glide_grids.F90 glide_stress.F90 glide_ground.F90 glide_vertint.F90\
 		      glide_thckmask.F90 glide_velo_higher.F90 xls.f90 ice3d_lib.F90 \
 		      remap_advection.F90 remap_glamutils.F90 \
-		      glide_mask.inc glide_nan.inc glide_bwater.F90
+		      glide_mask.inc glide_nan.inc glide_bwater.F90 \
+                      glimmer_restart_gcm.F90 
 
+libglide_la_LDFLAGS=-all-static
 
 test_setup_SOURCES = test_setup.F90
 test_setup_LDADD = libglide.la ../libglimmer/libglimmer.la ../libglimmer/libglimmer-IO.la $(NETCDF_LDFLAGS) $(HDF5_LDFLAGS) $(NETCDF_LIBS)
@@ -39,8 +41,9 @@ AM_FCFLAGS = $(F90_MODFLAG)../libglimmer $(F90_MODFLAG)../libglimmer-solve $(NET
 %_io.F90:	$(srcdir)/%_vars.def $(top_srcdir)/libglimmer/ncdf_template.F90.in
 		$(PYTHON) $(top_srcdir)/scripts/generate_ncvars.py $^
 
-
-f90_dep.mak:	$(srcdir)/*.F90 $(BUILT_SOURCES)
-		$(PYTHON) $(top_srcdir)/scripts/f90_dependencies.py -l -o $@ $^
+f90_dep_sources = $(srcdir)/*.F90 $(BUILT_SOURCES)
 
 -include f90_dep.mak
+
+include $(top_srcdir)/extra_rules.am
+

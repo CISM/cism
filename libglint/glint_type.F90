@@ -1,41 +1,28 @@
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
-! +  glint_type.f90 - part of the GLIMMER ice model           + 
+! +  glint_type.f90 - part of the Glimmer-CISM ice model      + 
 ! +                                                           +
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! 
-! Copyright (C) 2004 GLIMMER contributors - see COPYRIGHT file 
-! for list of contributors.
+! Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010
+! Glimmer-CISM contributors - see AUTHORS file for list of contributors
 !
-! This program is free software; you can redistribute it and/or 
-! modify it under the terms of the GNU General Public License as 
-! published by the Free Software Foundation; either version 2 of 
-! the License, or (at your option) any later version.
+! This file is part of Glimmer-CISM.
 !
-! This program is distributed in the hope that it will be useful, 
-! but WITHOUT ANY WARRANTY; without even the implied warranty of 
-! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+! Glimmer-CISM is free software: you can redistribute it and/or modify
+! it under the terms of the GNU General Public License as published by
+! the Free Software Foundation, either version 2 of the License, or (at
+! your option) any later version.
+!
+! Glimmer-CISM is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ! GNU General Public License for more details.
 !
-! You should have received a copy of the GNU General Public License 
-! along with this program; if not, write to the Free Software 
-! Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 
-! 02111-1307 USA
+! You should have received a copy of the GNU General Public License
+! along with Glimmer-CISM.  If not, see <http://www.gnu.org/licenses/>.
 !
-! GLIMMER is maintained by:
-!
-! Ian Rutt
-! School of Geographical Sciences
-! University of Bristol
-! University Road
-! Bristol
-! BS8 1SS
-! UK
-!
-! email: <i.c.rutt@bristol.ac.uk> or <ian.rutt@physics.org>
-!
-! GLIMMER is hosted on berliOS.de:
-!
+! Glimmer-CISM is hosted on BerliOS.de:
 ! https://developer.berlios.de/projects/glimmer-cism/
 !
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -181,20 +168,7 @@ module glint_type
      logical :: ice_vol      !*FD Set if we need to calculate the total ice volume
   end type output_flags
 
-!MH!  !MAKE_RESTART
-!MH!#ifdef RESTARTS
-!MH!#define RST_GLINT_TYPE
-!MH!#include "glimmer_rst_head.inc"
-!MH!#undef RST_GLINT_TYPE
-!MH!#endif
-
 contains
-
-!MH!#ifdef RESTARTS
-!MH!#define RST_GLINT_TYPE
-!MH!#include "glimmer_rst_body.inc"
-!MH!#undef RST_GLINT_TYPE
-!MH!#endif
 
   subroutine glint_i_allocate(instance,nxg,nyg,nxgo,nygo)
 
@@ -531,15 +505,15 @@ contains
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  subroutine get_i_upscaled_fields_ccsm(instance,    nec,      &
-                                        nxl,         nyl,      &
-                                        nxg,         nyg,      &
-                                        gfrac,       gtopo,    &
-                                        grofi,       grofl,    &
-                                        ghflx)
+  subroutine get_i_upscaled_fields_gcm(instance,    nec,      &
+                                       nxl,         nyl,      &
+                                       nxg,         nyg,      &
+                                       gfrac,       gtopo,    &
+                                       grofi,       grofl,    &
+                                       ghflx)
 
     ! Upscale fields from the local grid to the global grid (with multiple elevation classes).
-    ! The upscaled fields are passed to the CCSM land surface model, which has the option
+    ! The upscaled fields are passed to the GCM land surface model, which has the option
     !  of updating the fractional area and surface elevation of glaciated gridcells.
 
     use glimmer_paramets, only: thk0
@@ -568,9 +542,10 @@ contains
     integer :: i, j            ! indices
  
     integer :: il, jl, ig, jg
+    character(len=100) :: message
 
-!lipscomb - to do - Read topomax from CCSM data file at initialization
-    real(dp), dimension(nec) :: topomax   ! upper elevation limit of each class
+!lipscomb - TO DO - Read topomax from data file at initialization
+    real(dp), dimension(0:nec) :: topomax   ! upper elevation limit of each class
 
     ! Given the value of nec, specify the upper and lower elevation boundaries of each class.
     ! Note: These must be consistent with the values in the GCM.  Better to pass as an argument.
@@ -588,7 +563,8 @@ contains
                             1600._dp,  2000._dp,  2500._dp,  3000._dp, 10000._dp /)
     else
 #ifdef GLC_DEBUG
-       write(stdout,*) 'nec =', nec
+          write(message,'(a6,i3)') 'nec =', nec
+          call write_log(trim(message), GM_DIAGNOSTIC)
 #endif
        call write_log('ERROR: Current supported values of nec (no. of elevation classes) are 1, 3, 5, or 10', &
                        GM_FATAL,__FILE__,__LINE__)
@@ -602,7 +578,7 @@ contains
        jg = jjtest
        il = itest_local
        jl = jtest_local
-       write(stdout,*) 'In get_i_upscaled_fields_ccsm'
+       write(stdout,*) 'In get_i_upscaled_fields_gcm'
        write(stdout,*) 'il, jl =', il, jl
        write(stdout,*) 'ig, jg =', ig, jg
        write(stdout,*) 'nxl, nyl =', nxl,nyl
@@ -642,7 +618,7 @@ contains
                             local_topo,          gtopo,     &
                             local_topo,          instance%out_mask)
 
-!lipscomb - to do - Copy the appropriate fields into local_field array
+!lipscomb - TO DO - Copy the appropriate fields into local_field array
 
     ! ice runoff
 
@@ -709,7 +685,7 @@ contains
 !       enddo
 #endif
 
-  end subroutine get_i_upscaled_fields_ccsm
+  end subroutine get_i_upscaled_fields_gcm
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

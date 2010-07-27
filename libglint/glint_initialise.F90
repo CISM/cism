@@ -1,41 +1,28 @@
-! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-! +                                                           +
-! +  glint_initialise.f90 - part of the GLIMMER ice model     + 
-! +                                                           +
-! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! +                                                            +
+! +  glint_initialise.f90 - part of the Glimmer-CISM ice model + 
+! +                                                            +
+! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! 
-! Copyright (C) 2004 GLIMMER contributors - see COPYRIGHT file 
-! for list of contributors.
+! Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010
+! Glimmer-CISM contributors - see AUTHORS file for list of contributors
 !
-! This program is free software; you can redistribute it and/or 
-! modify it under the terms of the GNU General Public License as 
-! published by the Free Software Foundation; either version 2 of 
-! the License, or (at your option) any later version.
+! This file is part of Glimmer-CISM.
 !
-! This program is distributed in the hope that it will be useful, 
-! but WITHOUT ANY WARRANTY; without even the implied warranty of 
-! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+! Glimmer-CISM is free software: you can redistribute it and/or modify
+! it under the terms of the GNU General Public License as published by
+! the Free Software Foundation, either version 2 of the License, or (at
+! your option) any later version.
+!
+! Glimmer-CISM is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ! GNU General Public License for more details.
 !
-! You should have received a copy of the GNU General Public License 
-! along with this program; if not, write to the Free Software 
-! Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 
-! 02111-1307 USA
+! You should have received a copy of the GNU General Public License
+! along with Glimmer-CISM.  If not, see <http://www.gnu.org/licenses/>.
 !
-! GLIMMER is maintained by:
-!
-! Ian Rutt
-! School of Geographical Sciences
-! University of Bristol
-! University Road
-! Bristol
-! BS8 1SS
-! UK
-!
-! email: <i.c.rutt@bristol.ac.uk> or <ian.rutt@physics.org>
-!
-! GLIMMER is hosted on berliOS.de:
-!
+! Glimmer-CISM is hosted on BerliOS.de:
 ! https://developer.berlios.de/projects/glimmer-cism/
 !
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -55,11 +42,13 @@ module glint_initialise
 
 contains
 
-  subroutine glint_i_initialise(config,      instance,   &
-                                grid,        grid_orog,  &
-                                mbts,        idts,       &
-                                need_winds,  enmabal,    &
-                                force_start, force_dt)
+  subroutine glint_i_initialise(config,           instance,         &
+                                grid,             grid_orog,        &
+                                mbts,             idts,             &
+                                need_winds,       enmabal,          &
+                                force_start,      force_dt,         &
+                                gcm_restart,      gcm_restart_file, &
+                                gcm_config_unit)
 
     !*FD Initialise a GLINT ice model instance
 
@@ -71,26 +60,61 @@ contains
     use glide
     use glimmer_log
     use glint_constants
+    use glimmer_restart_gcm
     implicit none
 
     ! Arguments
-    type(ConfigSection), pointer         :: config      !*FD structure holding sections of configuration file   
-    type(glint_instance),  intent(inout) :: instance    !*FD The instance being initialised.
-    type(global_grid),     intent(in)    :: grid        !*FD Global grid to use
-    type(global_grid),     intent(in)    :: grid_orog   !*FD Global grid to use for orography
-    integer,               intent(out)   :: mbts        !*FD mass-balance time-step (hours)
-    integer,               intent(out)   :: idts        !*FD ice dynamics time-step (hours)
-    logical,               intent(inout) :: need_winds  !*FD Set if this instance needs wind input
-    logical,               intent(inout) :: enmabal     !*FD Set if this instance uses the energy balance mass-bal model
-    integer,               intent(in)    :: force_start !*FD The glint forcing start time (hours)
-    integer,               intent(in)    :: force_dt    !*FD The glint forcing time step (hours)
+    type(ConfigSection), pointer         :: config           !*FD structure holding sections of configuration file   
+    type(glint_instance),  intent(inout) :: instance         !*FD The instance being initialised.
+    type(global_grid),     intent(in)    :: grid             !*FD Global grid to use
+    type(global_grid),     intent(in)    :: grid_orog        !*FD Global grid to use for orography
+    integer,               intent(out)   :: mbts             !*FD mass-balance time-step (hours)
+    integer,               intent(out)   :: idts             !*FD ice dynamics time-step (hours)
+    logical,               intent(inout) :: need_winds       !*FD Set if this instance needs wind input
+    logical,               intent(inout) :: enmabal          !*FD Set if this instance uses the energy balance
+                                                             !    mass-bal model
+    integer,               intent(in)    :: force_start      !*FD glint forcing start time (hours)
+    integer,               intent(in)    :: force_dt         !*FD glint forcing time step (hours)
+    logical,     optional, intent(in)    :: gcm_restart      !*FD logical flag to read from a hotstart file
+    character(*),optional, intent(in)    :: gcm_restart_file !*FD hotstart filename for restart
+    integer,     optional, intent(in)    :: gcm_config_unit  !*FD fileunit for reading config files
 
     ! Internal
     real(sp),dimension(:,:),allocatable :: thk
+    integer :: config_fileunit, restart_fileunit
+
+    config_fileunit = 99
+    if (present(gcm_config_unit)) then
+       config_fileunit = gcm_config_unit
+    endif
 
     ! initialise model
 
-    call glide_config(instance%model, config)
+    call glide_config(instance%model, config, config_fileunit)
+
+    ! if this is a continuation run, then set up to read restart
+    ! (currently assumed to be a CESM restart file)
+
+    if (present(gcm_restart)) then
+
+      if (gcm_restart) then
+
+         if (present(gcm_restart_file)) then
+
+            ! read the hotstart file
+            call glimmer_read_restart_gcm(instance%model, gcm_restart_file)
+            instance%model%options%hotstart = 1
+ 
+         else
+
+            call write_log('Missing gcm_restart_file when gcm_restart is true',&
+                           GM_FATAL,__FILE__,__LINE__)
+
+         endif
+
+      endif
+    endif
+
     call glide_initialise(instance%model)
     instance%ice_tstep = get_tinc(instance%model)*years2hours
     instance%glide_time = instance%model%numerics%tstart
@@ -176,10 +200,10 @@ contains
     instance%next_time = force_start-force_dt+instance%mbal_tstep
 
 #ifdef GLC_DEBUG
-    write (6,*) 'Called glint_mbc_init'
-    write (6,*) 'mbal tstep =', mbts
-    write (6,*) 'next_time =', instance%next_time
-    write (6,*) 'start_time =', instance%mbal_accum%start_time
+       write (6,*) 'Called glint_mbc_init'
+       write (6,*) 'mbal tstep =', mbts
+       write (6,*) 'next_time =', instance%next_time
+       write (6,*) 'start_time =', instance%mbal_accum%start_time
 #endif
 
     ! Mass-balance accumulation length
@@ -188,11 +212,10 @@ contains
        instance%mbal_accum_time = max(instance%ice_tstep,instance%mbal_tstep)
 #ifdef GLC_DEBUG
 !Set mbal_accum_time = mbal_tstep
-!lipscomb - Uncomment for short runs?
-! to do - Make it easy to run Glimmer/Glint for ~5 days, e.g. for CCSM smoke tests,
+! lipscomb - TO DO - Make it easy to run Glimmer/Glint for ~5 days, e.g. for CESM smoke tests,
 !         with all major components exercised. 
-!!       instance%mbal_accum_time = instance%mbal_tstep
-!!       write(6,*) 'WARNING: Seting mbal_accum_time =', instance%mbal_accum_time
+!!          instance%mbal_accum_time = instance%mbal_tstep
+!!          write(6,*) 'WARNING: Seting mbal_accum_time =', instance%mbal_accum_time
 #endif
     end if
 
@@ -226,7 +249,7 @@ contains
     end if
 
 !This was commented out because it destroys exact restart
-!lipscomb - to do - Find another way to set thk to snowd?
+!lipscomb - TO DO - Find another way to set thk to snowd?
     ! Copy snow-depth to thickness if no thickness is present
 
 !!    allocate(thk(get_ewn(instance%model),get_nsn(instance%model)))

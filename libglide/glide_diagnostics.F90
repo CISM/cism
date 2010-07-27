@@ -1,41 +1,28 @@
-! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-! +                                                           +
-! +  glide_diagnostics.f90 - part of the GLIMMER ice model    + 
-! +                                                           +
-! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-! 
-! Copyright (C) 2004 GLIMMER contributors - see COPYRIGHT file 
-! for list of contributors.
+! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! +                                                             +
+! +  glide_diagnostics.f90 - part of the Glimmer-CISM ice model + 
+! +                                                             +
+! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-! This program is free software; you can redistribute it and/or 
-! modify it under the terms of the GNU General Public License as 
-! published by the Free Software Foundation; either version 2 of 
-! the License, or (at your option) any later version.
+! Copyright (C) 2010
+! Glimmer-CISM contributors - see AUTHORS file for list of contributors
 !
-! This program is distributed in the hope that it will be useful, 
-! but WITHOUT ANY WARRANTY; without even the implied warranty of 
-! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+! This file is part of Glimmer-CISM.
+!
+! Glimmer-CISM is free software: you can redistribute it and/or modify
+! it under the terms of the GNU General Public License as published by
+! the Free Software Foundation, either version 2 of the License, or (at
+! your option) any later version.
+!
+! Glimmer-CISM is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ! GNU General Public License for more details.
 !
-! You should have received a copy of the GNU General Public License 
-! along with this program; if not, write to the Free Software 
-! Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 
-! 02111-1307 USA
+! You should have received a copy of the GNU General Public License
+! along with Glimmer-CISM.  If not, see <http://www.gnu.org/licenses/>.
 !
-! GLIMMER is maintained by:
-!
-! Ian Rutt
-! School of Geographical Sciences
-! University of Bristol
-! University Road
-! Bristol
-! BS8 1SS
-! UK
-!
-! email: <i.c.rutt@bristol.ac.uk> or <ian.rutt@physics.org>
-!
-! GLIMMER is hosted on berliOS.de:
-!
+! Glimmer-CISM is hosted on BerliOS.de:
 ! https://developer.berlios.de/projects/glimmer-cism/
 !
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -328,14 +315,14 @@ contains
           enddo
 
 #ifdef GLC_DEBUG
-          do k = 1, upn-1
-             spd = sqrt(model%velocity%uvel(k,i,j)**2   &
-                      + model%velocity%vvel(k,i,j)**2) * vel0*scyr
+             do k = 1, upn-1
+                spd = sqrt(model%velocity%uvel(k,i,j)**2   &
+                         + model%velocity%vvel(k,i,j)**2) * vel0*scyr
 
-             write (message,'(i4,Z24.20,Z24.20)')  &
-                k, spd, model%temper%temp(k,i,j)
-             call write_log(trim(message), type = GM_DIAGNOSTIC)
-          enddo
+                write (message,'(i4,Z24.20,Z24.20)')  &
+                   k, spd, model%temper%temp(k,i,j)
+                call write_log(trim(message), type = GM_DIAGNOSTIC)
+             enddo
 #endif
  
        endif  ! idiag and jdiag in bounds

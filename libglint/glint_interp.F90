@@ -1,41 +1,28 @@
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
-! +  glint_interp.f90 - part of the GLIMMER ice model         + 
+! +  glint_interp.f90 - part of the Glimmer-CISM ice model    + 
 ! +                                                           +
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! 
-! Copyright (C) 2004 GLIMMER contributors - see COPYRIGHT file 
-! for list of contributors.
+! Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010
+! Glimmer-CISM contributors - see AUTHORS file for list of contributors
 !
-! This program is free software; you can redistribute it and/or 
-! modify it under the terms of the GNU General Public License as 
-! published by the Free Software Foundation; either version 2 of 
-! the License, or (at your option) any later version.
+! This file is part of Glimmer-CISM.
 !
-! This program is distributed in the hope that it will be useful, 
-! but WITHOUT ANY WARRANTY; without even the implied warranty of 
-! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+! Glimmer-CISM is free software: you can redistribute it and/or modify
+! it under the terms of the GNU General Public License as published by
+! the Free Software Foundation, either version 2 of the License, or (at
+! your option) any later version.
+!
+! Glimmer-CISM is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ! GNU General Public License for more details.
 !
-! You should have received a copy of the GNU General Public License 
-! along with this program; if not, write to the Free Software 
-! Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 
-! 02111-1307 USA
+! You should have received a copy of the GNU General Public License
+! along with Glimmer-CISM.  If not, see <http://www.gnu.org/licenses/>.
 !
-! GLIMMER is maintained by:
-!
-! Ian Rutt
-! School of Geographical Sciences
-! University of Bristol
-! University Road
-! Bristol
-! BS8 1SS
-! UK
-!
-! email: <i.c.rutt@bristol.ac.uk> or <ian.rutt@physics.org>
-!
-! GLIMMER is hosted on berliOS.de:
-!
+! Glimmer-CISM is hosted on BerliOS.de:
 ! https://developer.berlios.de/projects/glimmer-cism/
 !
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -51,11 +38,11 @@ module glint_interp
   use glimmer_global
   use glimmer_map_types
   use glint_mpinterp
-
 #ifdef GLC_DEBUG
-  use glimmer_paramets, only: stdout, itest, jtest, jjtest, itest_local, jtest_local
+  use glimmer_paramets, only: stdout, itest, jtest, jjtest, itest_local, &
+                              jtest_local
 #endif
-
+  
   implicit none
 
   type downscale
@@ -106,20 +93,7 @@ module glint_interp
      module procedure mean_to_global_sp,mean_to_global_dp
   end interface
 
-!MH!  !MAKE_RESTART
-!MH!#ifdef RESTARTS
-!MH!#define RST_GLINT_INTERP
-!MH!#include "glimmer_rst_head.inc"
-!MH!#undef RST_GLINT_INTERP
-!MH!#endif
-
 contains
-
-!MH!#ifdef RESTARTS
-!MH!#define RST_GLINT_INTERP
-!MH!#include "glimmer_rst_body.inc"
-!MH!#undef RST_GLINT_INTERP
-!MH!#endif
 
   subroutine new_downscale(downs,proj,ggrid,lgrid,mpint)
 
@@ -296,10 +270,6 @@ contains
     integer :: x1, x2, x3, x4
     integer :: y1, y2, y3, y4
 
-#ifdef GLC_DEBUG
-    integer :: n
-#endif
-
     if (present(z_constrain)) then
        zc=z_constrain
     else
@@ -323,21 +293,10 @@ contains
     do i=1,lgrid%size%pt(1)
        do j=1,lgrid%size%pt(2)
 
-#ifdef GLC_DEBUG
-!          if (i==itest_local .and. j==jtest_local) then
-!              write(stdout,*) ' '
-!              write(stdout,*) 'Interpolating, i, j, lmask = ', i, j, downs%lmask(i,j)
-!              write(stdout,*) 'xloc, yloc:'
-!              do n = 1, 4
-!                 write(stdout,*) downs%xloc(i,j,n), downs%yloc(i,j,n)
-!              enddo
-!          endif
-#endif
-
           ! Compile the temporary array f from adjacent points 
 
-!lipscomb - to do - This could be handled more efficiently by precomputing arrays that
-!  specify which neighbor gridcell supplies values in each masked-out global gridcell.
+!lipscomb - TO DO - This could be handled more efficiently by precomputing arrays that specify
+!                   which neighbor gridcell supplies values in each masked-out global gridcell.
  
           if (present(gmask) .and. present(maskval)) then
 
@@ -711,9 +670,12 @@ contains
     !
     ! Note: This method is not the inverse of the interp_to_local routine.
     ! Also note that each local grid cell is weighted equally.
-    ! In the future we will probably want to use the CCSM coupler for upscaling.
+    ! In the future we may want to use the CESM coupler for upscaling.
  
     use glimmer_log
+#ifdef GLC_DEBUG
+!jw check    use glimmer_paramets, only: itest, jtest, jjtest, itest_local, jtest_local, stdout
+#endif
 
     ! Arguments
  
@@ -773,7 +735,6 @@ contains
 
     global(:,:,:) = 0._dp
 
-
     do j = 1, nyl
     do i = 1, nxl
        ig = ups%gboxx(i,j)
@@ -781,30 +742,15 @@ contains
        n = gboxec(i,j)
        if (n==0) then
 #ifdef GLC_DEBUG
-          write(stdout,*) 'Upscaling error: local topography out of bounds'
-          write(stdout,*) 'i, j, topo:', i, j, ltopo(i,j)
-          write(stdout,*) 'topomax(0) =', topomax(0)
+             write(stdout,*) 'Upscaling error: local topography out of bounds'
+             write(stdout,*) 'i, j, ltopo:', i, j, ltopo(i,j)
+             write(stdout,*) 'topomax =', topomax(:)
 #endif
           call write_log('Upscaling error: local topography out of bounds', &
                GM_FATAL,__FILE__,__LINE__)
        endif
 
-#ifdef GLC_DEBUG
-       if (i==itest_local .and. j==jtest_local) then
-          write(stdout,*) ' '
-          write(stdout,*) 'il, jl =', i, j
-          write(stdout,*) 'ig, jg, n =', ig, jg, n
-          write(stdout,*) 'Old global val =', global(ig,jg,n)
-          write(stdout,*) 'local, mask =', local(i,j), tempmask(i,j)
-       endif
-#endif
        global(ig,jg,n) = global(ig,jg,n) + local(i,j)*tempmask(i,j)
-
-#ifdef GLC_DEBUG
-       if (i==itest_local .and. j==jtest_local) then
-          write(stdout,*) 'New global val =', global(ig,jg,n)
-       endif
-#endif
 
     enddo
     enddo
@@ -842,8 +788,8 @@ contains
     if (abs(lsum) > 1.e-10_dp) then
        if (abs(gsum-lsum)/abs(lsum) > 1.e-10_dp) then 
 #ifdef GLC_DEBUG
-          write(stdout,*) 'local and global sums disagree'
-          write (stdout,*) 'lsum, gsum =', lsum, gsum 
+             write(stdout,*) 'local and global sums disagree'
+             write (stdout,*) 'lsum, gsum =', lsum, gsum 
 #endif
           call write_log('Upscaling error: local and glocal sums disagree', &
                GM_FATAL,__FILE__,__LINE__)
@@ -851,8 +797,8 @@ contains
     else  ! lsum is close to zero
        if (abs(gsum-lsum) > 1.e-10_dp) then
 #ifdef GLC_DEBUG
-          write(stdout,*) 'local and global sums disagree'
-          write (stdout,*) 'lsum, gsum =', lsum, gsum 
+             write(stdout,*) 'local and global sums disagree'
+             write (stdout,*) 'lsum, gsum =', lsum, gsum 
 #endif
           call write_log('Upscaling error: local and glocal sums disagree', &
                GM_FATAL,__FILE__,__LINE__)
@@ -961,18 +907,18 @@ contains
 
     integer :: i,j,il,jl,temp
     real(rk) :: ilon,jlat,xa,ya,xb,yb,xc,yc,xd,yd
+    integer :: nx, ny, nxg, nyg, n
 
 #ifdef GLC_DEBUG
-    integer :: nx, ny, nxg, nyg, n
-    nx = lgrid%size%pt(1)
-    ny = lgrid%size%pt(2)
-    nxg = size(ggrid%mask,1)
-    nyg = size(ggrid%mask,2)
+       nx = lgrid%size%pt(1)
+       ny = lgrid%size%pt(2)
+       nxg = size(ggrid%mask,1)
+       nyg = size(ggrid%mask,2)
 
-    write(stdout,*) ' '
-    write(stdout,*) 'nx,  ny =', nx, ny
-    write(stdout,*) 'nxg, nyg =', nxg, nyg
-    write(stdout,*) 'Indexing local boxes'
+       write(stdout,*) ' '
+       write(stdout,*) 'nx,  ny =', nx, ny
+       write(stdout,*) 'nxg, nyg =', nxg, nyg
+       write(stdout,*) 'Indexing local boxes'
 #endif
 
     do i=1,lgrid%size%pt(1)
@@ -1035,17 +981,6 @@ contains
 
           endif
 
-#ifdef GLC_DEBUG
-          if (i==itest_local .and. j==jtest_local) then
-             write(stdout,*) ' '
-             write(stdout,*) 'Index local boxes, i, j =', i, j
-             write(stdout,*) 'xloc, yloc'
-             do n = 1, 4
-                write(stdout,*) xloc(i,j,n), yloc(i,j,n)
-             enddo
-          endif
-#endif
-
           ! Now, find out where each of those points is on the projected
           ! grid, and calculate fractional displacements accordingly
 
@@ -1073,27 +1008,27 @@ contains
     enddo
 
 #ifdef GLC_DEBUG
-          write(stdout,*) ' '
-          write(stdout,*) 'Mask in neighborhood of i, j = ', itest_local, jtest_local
-          do j = jtest_local-1, jtest_local+1
-             write(stdout,*) lmask(itest_local-1:itest_local+1,j)
-          enddo
+       write(stdout,*) ' '
+       write(stdout,*) 'Mask in neighborhood of i, j = ', itest_local, jtest_local
+       do j = jtest_local-1, jtest_local+1
+          write(stdout,*) lmask(itest_local-1:itest_local+1,j)
+       enddo
 
-          write(stdout,*) ' '
-          write(stdout,*) 'Global mask near Greenland'
-          do j = 1, 20
-             write(stdout,150) ggrid%mask(nxg-29:nxg,j)
-          enddo
+       write(stdout,*) ' '
+       write(stdout,*) 'Global mask near Greenland'
+       do j = 1, 20
+          write(stdout,150) ggrid%mask(nxg-29:nxg,j)
+       enddo
 
-          write(stdout,*) ' '
-          write(stdout,*) 'Local mask'
-          do j = ny, 1, -1
-             write(stdout,200) lmask(1:nx,j)
-          enddo
+       write(stdout,*) ' '
+       write(stdout,*) 'Local mask'
+       do j = ny, 1, -1
+          write(stdout,200) lmask(1:nx,j)
+       enddo
 
-  100     format(144i2)
-  150     format(30i2)
-  200     format(76i2)
+  100  format(144i2)
+  150  format(30i2)
+  200  format(76i2)
 #endif
 
   end subroutine index_local_boxes
@@ -1340,19 +1275,19 @@ contains
 
 #ifdef GLC_DEBUG
 ! Could use the following code if points are degenerate (a=b, c=d, etc.)
-!    if (abs(a) > small) then
-!       x=(-b-sqrt(b**2-4*a*c))/(2*a)
-!    elseif (abs(b) > small) then
-!       x=-c/b
-!    else
-!       x=0._rk
-!    endif
+!       if (abs(a) > small) then
+!          x=(-b-sqrt(b**2-4*a*c))/(2*a)
+!       elseif (abs(b) > small) then
+!          x=-c/b
+!       else
+!          x=0._rk
+!       endif
 !
-!    if (abs(yd+x*(yc-yd-yb+ya)-ya) > small) then
-!       y=(yp-ya-x*(yb-ya))/(yd+x*(yc-yd-yb+ya)-ya)
-!    else
-!       y=0._rk
-!    endif
+!       if (abs(yd+x*(yc-yd-yb+ya)-ya) > small) then
+!          y=(yp-ya-x*(yb-ya))/(yd+x*(yc-yd-yb+ya)-ya)
+!       else
+!          y=0._rk
+!       endif
 #endif
 
   end subroutine calc_fractional

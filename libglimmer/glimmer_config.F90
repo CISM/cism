@@ -1,41 +1,31 @@
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! +                                                           +
+! +  glimmer_config.f90 - part of the Glimmer-CISM ice model  + 
+! +                                                           +
+! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
 ! This code is taken from the Generic Mapping Tools and was 
 ! converted into Fortran 90 by Ian Rutt.
 !
-! Original code (in C) Copyright (c) 1991-2003 by P. Wessel and W. H. F. Smith
+! Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010
+! Glimmer-CISM contributors - see AUTHORS file for list of contributors
 !
-! Partial translation into Fortran 90 (c) 2004 Ian C. Rutt
+! This file is part of Glimmer-CISM.
 !
-! This program is free software; you can redistribute it and/or 
-! modify it under the terms of the GNU General Public License as 
-! published by the Free Software Foundation; either version 2 of 
-! the License, or (at your option) any later version.
+! Glimmer-CISM is free software: you can redistribute it and/or modify
+! it under the terms of the GNU General Public License as published by
+! the Free Software Foundation, either version 2 of the License, or (at
+! your option) any later version.
 !
-! This program is distributed in the hope that it will be useful, 
-! but WITHOUT ANY WARRANTY; without even the implied warranty of 
-! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+! Glimmer-CISM is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ! GNU General Public License for more details.
 !
-! You should have received a copy of the GNU General Public License 
-! along with this program; if not, write to the Free Software 
-! Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 
-! 02111-1307 USA
+! You should have received a copy of the GNU General Public License
+! along with Glimmer-CISM.  If not, see <http://www.gnu.org/licenses/>.
 !
-! GLIMMER is maintained by:
-!
-! Ian Rutt
-! School of Geographical Sciences
-! University of Bristol
-! University Road
-! Bristol
-! BS8 1SS
-! UK
-!
-! email: <i.c.rutt@bristol.ac.uk> or <ian.rutt@physics.org>
-!
-! GLIMMER is hosted on berliOS.de:
-!
+! Glimmer-CISM is hosted on BerliOS.de:
 ! https://developer.berlios.de/projects/glimmer-cism/
 !
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -110,27 +100,17 @@ module glimmer_config
      module procedure ConfigCombineData, ConfigCombineSec, ConfigCombineDataSec, ConfigCombineSecData
   end interface
 
-!MH!  !MAKE_RESTART
-!MH!#ifdef RESTARTS
-!MH!#define RST_GLIMMER_CONFIG
-!MH!#include "glimmer_rst_head.inc"
-!MH!#undef RST_GLIMMER_CONFIG
-!MH!#endif
-
 contains
 
-!MH!#ifdef RESTARTS
-!MH!#define RST_GLIMMER_CONFIG
-!MH!#include "glimmer_rst_body.inc"
-!MH!#undef RST_GLIMMER_CONFIG
-!MH!#endif
-
   !> read a configuration file
-  subroutine ConfigRead(fname,config)
+  subroutine ConfigRead(fname,config,fileunit)
+
     use glimmer_log
     implicit none
-    character(len=*), intent(in) :: fname   !< the name of the file to be read
-    type(ConfigSection), pointer :: config  !< on return this pointer will point to the first section
+
+    character(len=*), intent(in) :: fname    !< the name of the file to be read
+    type(ConfigSection), pointer :: config   !< on return this pointer will point to the first section
+    integer, optional,intent(in) :: fileunit !< if supplied, open this unit
 
     ! local variables
     type(ConfigSection), pointer :: this_section
@@ -145,7 +125,11 @@ contains
        call write_log('Cannot open configuration file '//trim(fname),GM_FATAL)
     end if
     
-    unit=99
+    unit = 99
+    if (present(fileunit)) then
+       unit = fileunit
+    endif
+
     open(unit,file=trim(fname),status='old')
     ios=0
     linenr=0
@@ -183,7 +167,9 @@ contains
        linenr = linenr + 1
     end do
     close(unit)
+
     return
+
   end subroutine ConfigRead
 
   !> print contents of file

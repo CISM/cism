@@ -1,3 +1,31 @@
+! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! +                                                           +
+! +  glint_mpinterp.f90 - part of the Glimmer-CISM ice model  + 
+! +                                                           +
+! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! 
+! Copyright (C) 2007, 2008, 2009, 2010
+! Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!
+! This file is part of Glimmer-CISM.
+!
+! Glimmer-CISM is free software: you can redistribute it and/or modify
+! it under the terms of the GNU General Public License as published by
+! the Free Software Foundation, either version 2 of the License, or (at
+! your option) any later version.
+!
+! Glimmer-CISM is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! GNU General Public License for more details.
+!
+! You should have received a copy of the GNU General Public License
+! along with Glimmer-CISM.  If not, see <http://www.gnu.org/licenses/>.
+!
+! Glimmer-CISM is hosted on BerliOS.de:
+! https://developer.berlios.de/projects/glimmer-cism/
+!
+! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 #ifdef HAVE_CONFIG_H
 #include "config.inc"
@@ -32,21 +60,8 @@ module glint_mpinterp
 
   private
   public mpinterp,new_mpinterp,mean_preserve_interp
-!MH!  !MAKE_RESTART
-
-!MH!#ifdef RESTARTS
-!MH!#define RST_GLINT_MPINTERP
-!MH!#include "glimmer_rst_head.inc"
-!MH!#undef RST_GLINT_MPINTERP
-!MH!#endif
 
 contains
-
-!MH!#ifdef RESTARTS
-!MH!#define RST_GLINT_MPINTERP
-!MH!#include "glimmer_rst_body.inc"
-!MH!#undef RST_GLINT_MPINTERP
-!MH!#endif
 
   subroutine new_mpinterp(params,grid)
 
@@ -125,40 +140,12 @@ contains
     allocate(lons(params%nx),lonb(0:params%nx))
     allocate(lats(params%ny),latb(0:params%ny))
 
-    ! Copy lats and lons
-    lons = grid%lons*pi/180.0_dp
-    lonb(0:params%nx) = grid%lon_bound(1:params%nx+1)*pi/180.0_dp
-    lats = grid%lats*pi/180.0_dp
-    latb(0:params%ny) = grid%lat_bound(1:params%ny+1)*pi/180.0_dp
-
-    ! Calculate longitudinal grid-spacings
-    dx1(1) = lonb(0)-lons(params%nx)
-    dx2(1) = lons(1)-lonb(0)+2.0*pi
-    dx3(1) = lonb(1)-lons(1)
-    dx4(1) = lons(2)-lonb(1)
-    do i=2,params%nx-1
-       dx1(i) = lonb(i-1)-lons(i-1)
-       dx2(i) = lons(i)  -lonb(i-1)
-       dx3(i) = lonb(i)  -lons(i)
-       dx4(i) = lons(i+1)-lonb(i)
-    end do
-    dx1(params%nx) = lonb(params%nx-1)-lons(params%nx-1)
-    dx2(params%nx) = lons(params%nx)  -lonb(params%nx-1)
-    dx3(params%nx) = lonb(params%nx)  -lons(params%nx)
-    dx4(params%nx) = lons(1)-lonb(params%nx)+2.0*pi
-
-    ! Calculate latitudinal grid-spacings
-    dy1(1) = pi-lats(1)-latb(0)
-    dy2(1) = latb(0)   -lats(1)
-    dy3(1) = lats(1)   -latb(1)
-    dy4(1) = latb(1)   -lats(2)
-    do j=2,params%ny-1
-       dy1(j) = lats(j-1)-latb(j-1)
-       dy2(j) = latb(j-1)-lats(j)
-       dy3(j) = lats(j)  -latb(j)
-       dy4(j) = latb(j)  -lats(j+1)
-    end do
-    dy1(params%ny) = lats(params%ny-1)-latb(params%ny-1)
+! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! +                                                           +
+! +  xls.f90 - part of the Glimmer-CISM ice model             + 
+! +                                                           +
+! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! 
     dy2(params%ny) = latb(params%ny-1)-lats(params%ny)
     dy3(params%ny) = lats(params%ny)  -latb(params%ny)
     dy4(params%ny) = latb(params%ny)  +pi+lats(params%ny)

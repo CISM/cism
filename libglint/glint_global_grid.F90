@@ -1,41 +1,28 @@
-! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-! +                                                           +
-! +  glint_global_grid.f90 - part of the GLIMMER ice model    + 
-! +                                                           +
-! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! +                                                             +
+! +  glint_global_grid.f90 - part of the Glimmer-CISM ice model + 
+! +                                                             +
+! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! 
-! Copyright (C) 2004 GLIMMER contributors - see COPYRIGHT file 
-! for list of contributors.
+! Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010
+! Glimmer-CISM contributors - see AUTHORS file for list of contributors
 !
-! This program is free software; you can redistribute it and/or 
-! modify it under the terms of the GNU General Public License as 
-! published by the Free Software Foundation; either version 2 of 
-! the License, or (at your option) any later version.
+! This file is part of Glimmer-CISM.
 !
-! This program is distributed in the hope that it will be useful, 
-! but WITHOUT ANY WARRANTY; without even the implied warranty of 
-! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+! Glimmer-CISM is free software: you can redistribute it and/or modify
+! it under the terms of the GNU General Public License as published by
+! the Free Software Foundation, either version 2 of the License, or (at
+! your option) any later version.
+!
+! Glimmer-CISM is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ! GNU General Public License for more details.
 !
-! You should have received a copy of the GNU General Public License 
-! along with this program; if not, write to the Free Software 
-! Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 
-! 02111-1307 USA
+! You should have received a copy of the GNU General Public License
+! along with Glimmer-CISM.  If not, see <http://www.gnu.org/licenses/>.
 !
-! GLIMMER is maintained by:
-!
-! Ian Rutt
-! School of Geographical Sciences
-! University of Bristol
-! University Road
-! Bristol
-! BS8 1SS
-! UK
-!
-! email: <i.c.rutt@bristol.ac.uk> or <ian.rutt@physics.org>
-!
-! GLIMMER is hosted on berliOS.de:
-!
+! Glimmer-CISM is hosted on BerliOS.de:
 ! https://developer.berlios.de/projects/glimmer-cism/
 !
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -65,6 +52,7 @@ module glint_global_grid
 
      integer :: nx = 0  !*FD Number of points in the $x$-direction.
      integer :: ny = 0  !*FD Number of points in the $y$-direction.
+     integer :: nec = 1 !*FD Number of elevation classes
 
      ! Locations of grid-points ---------------------------------
 
@@ -106,10 +94,6 @@ module glint_global_grid
      module procedure grid_nequiv
   end interface
 
-  interface assignment(=)
-     module procedure grid_assign
-  end interface
-
   interface operator(>)
      module procedure grid_greater_than
   end interface
@@ -122,35 +106,23 @@ module glint_global_grid
      module procedure grid_alloc_2d,grid_alloc_3d
   end interface
 
-!MH!  !MAKE_RESTART
-!MH!#ifdef RESTARTS
-!MH!#define RST_GLINT_GLOBAL_GRID
-!MH!#include "glimmer_rst_head.inc"
-!MH!#undef RST_GLINT_GLOBAL_GRID
-!MH!#endif
-
 contains
 
-!MH!#ifdef RESTARTS
-!MH!#define RST_GLINT_GLOBAL_GRID
-!MH!#include "glimmer_rst_body.inc"
-!MH!#undef RST_GLINT_GLOBAL_GRID
-!MH!#endif
-
-  subroutine new_global_grid(grid, lons, lats, lonb, latb, radius, correct, mask)
+  subroutine new_global_grid(grid, lons, lats, lonb, latb, radius, correct, nec, mask)
 
     use glimmer_log
 
     !*FD Initialises a new global grid type
 
-    type(global_grid),             intent(inout) :: grid !*FD The grid to be initialised
-    real(rk),dimension(:),         intent(in)    :: lons !*FD Longitudinal positions of grid-points (degrees)
-    real(rk),dimension(:),         intent(in)    :: lats !*FD Latitudinal positions of grid-points (degrees)
-    real(rk),dimension(:),optional,intent(in)    :: lonb !*FD Longitudinal boundaries of grid-boxes (degrees)
-    real(rk),dimension(:),optional,intent(in)    :: latb !*FD Latitudinal boundaries of grid-boxes (degrees)
-    real(rk),             optional,intent(in)    :: radius !*FD The radius of the Earth (m)
-    logical,              optional,intent(in)    :: correct !*FD Set to correct for boundaries (default is .true.)
-    integer,dimension(:,:),optional,intent(in)   :: mask 
+    type(global_grid),              intent(inout) :: grid !*FD The grid to be initialised
+    real(rk),dimension(:),          intent(in)    :: lons !*FD Longitudinal positions of grid-points (degrees)
+    real(rk),dimension(:),          intent(in)    :: lats !*FD Latitudinal positions of grid-points (degrees)
+    real(rk),dimension(:), optional,intent(in)    :: lonb !*FD Longitudinal boundaries of grid-boxes (degrees)
+    real(rk),dimension(:), optional,intent(in)    :: latb !*FD Latitudinal boundaries of grid-boxes (degrees)
+    real(rk),              optional,intent(in)    :: radius  !*FD  The radius of the Earth (m)
+    logical,               optional,intent(in)    :: correct !*FD  Set to correct for boundaries (default is .true.)
+    integer,               optional,intent(in)    :: nec     !*FD  Number of elevation classes    
+    integer,dimension(:,:),optional,intent(in)    :: mask    !*FD  Mask indicating where global data are valid 
 
     ! Internal variables
 
@@ -248,6 +220,14 @@ contains
        grid%mask(:,:) = 1   ! assume global data are valid everywhere 
     endif
 
+    ! Set number of elevation classes
+
+    if (present(nec)) then
+       grid%nec = nec
+    else
+       grid%nec = 1
+    endif 
+
   end subroutine new_global_grid
 
   !-----------------------------------------------------------------------------
@@ -261,7 +241,9 @@ contains
 
     ! Copy dimensions
 
-    out%nx = in%nx ; out%ny = in%ny
+    out%nx  = in%nx
+    out%ny  = in%ny
+    out%nec = in%nec
 
     ! Check to see if arrays are allocated, then deallocate and
     ! reallocate accordingly.
@@ -294,14 +276,17 @@ contains
 
   !-----------------------------------------------------------------------------
 
-  subroutine get_grid_dims(grid,nx,ny)
+  subroutine get_grid_dims(grid,nx,ny,nec)
 
     type(global_grid),intent(in)  :: grid
     integer,intent(out) :: nx,ny
+    integer,intent(out), optional :: nec
 
     nx=grid%nx
     ny=grid%ny
 
+    if (present(nec)) nec=grid%nec
+ 
   end subroutine get_grid_dims
 
   !-----------------------------------------------------------------------------
@@ -322,8 +307,9 @@ contains
     print*,'Grid parameters:'
     print*,'----------------'
     print*
-    print*,'nx=',grid%nx
-    print*,'ny=',grid%ny
+    print*,'nx=', grid%nx
+    print*,'ny=', grid%ny
+    print*,'nec=',grid%nec
     if (.not.ng) then
        print*
        print*,'longitudes:'
@@ -533,49 +519,6 @@ contains
 
   !-------------------------------------------------------------
 
-!lipscomb - to do - Is this subroutine needed? Seems identical to copy_global_grid.
-
-  subroutine grid_assign(a,b)
-
-    type(global_grid),intent(out) :: a
-    type(global_grid),intent(in)  :: b
-
-    ! Copy sizes
-
-    a%nx=b%nx
-    a%ny=b%ny
-
-    ! deallocate arrays
-
-    if (associated(a%lats))      deallocate(a%lats)
-    if (associated(a%lons))      deallocate(a%lons)
-    if (associated(a%lat_bound)) deallocate(a%lat_bound)
-    if (associated(a%lon_bound)) deallocate(a%lon_bound)
-    if (associated(a%box_areas)) deallocate(a%box_areas)
-    if (associated(a%mask))      deallocate(a%mask)
-
-    ! reallocate arrays
-
-    allocate(a%lats(size(b%lats)))
-    allocate(a%lons(size(b%lons)))
-    allocate(a%lat_bound(size(b%lat_bound)))
-    allocate(a%lon_bound(size(b%lon_bound)))
-    allocate(a%box_areas(size(b%box_areas,1),size(b%box_areas,2)))
-    allocate(a%mask(size(b%mask,1),size(b%mask,2)))
-
-    ! Copy contents
-
-    a%lats=b%lats
-    a%lons=b%lons
-    a%lat_bound=b%lat_bound
-    a%lon_bound=b%lon_bound
-    a%box_areas=b%box_areas
-    a%mask=b%mask
-
-  end subroutine grid_assign
-
-  !-------------------------------------------------------------
-
   logical function grid_equiv(a,b)
 
     type(global_grid),intent(in)  :: a,b
@@ -586,7 +529,7 @@ contains
        return
     end if
 
-    if (a%nx.ne.b%nx.or.a%ny.ne.b%ny) then
+    if (a%nx.ne.b%nx .or. a%ny.ne.b%ny .or. a%nec.ne.b%nec) then
        grid_equiv=.false.
        return
     end if
@@ -594,9 +537,9 @@ contains
     ! N.B. Only checks grid-box centres and not boundaries
 
     if (any(a%lats.ne.b%lats).or. &
-         any(a%lons.ne.b%lons).or. &
-         any(a%mask.ne.b%mask).or. &
-         any(a%box_areas.ne.b%box_areas)) then
+        any(a%lons.ne.b%lons).or. &
+        any(a%mask.ne.b%mask).or. &
+        any(a%box_areas.ne.b%box_areas)) then
        grid_equiv=.false.
        return
     end if

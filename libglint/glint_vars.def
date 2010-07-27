@@ -77,7 +77,6 @@ long_name:     snow depth
 data:          data%snowd
 standard_name: surface_snow_thickness
 load:          1
-hot:           1
 coordinates:   lon lat
 
 [siced]
@@ -86,5 +85,4 @@ units:         meter
 long_name:     superimposed ice depth
 data:          data%siced
 load:          1
-hot:           1
 coordinates:   lon lat

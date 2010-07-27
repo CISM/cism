@@ -11,6 +11,7 @@ BUILT_SOURCES = verif_io.F90
 CLEANFILES = $(BUILT_SOURCES) f90_dep.mak $(wildcard *.mod)
 
 libverif_la_SOURCES = verif.F90 verifBC.F90 verifD.F90 verif_io.F90
+libverif_la_LDFLAGS=-all-static
 verif_glide_SOURCES = verif_glide.F90
 verif_glide_LDADD = $(top_builddir)/libglide/libglide.la $(top_builddir)/libglimmer-solve/libglimmer-solve.la \
                     $(top_builddir)/libglimmer/libglimmer-IO.la $(top_builddir)/libglimmer/libglimmer.la libverif.la \
@@ -22,9 +23,6 @@ AM_FCFLAGS = $(NETCDF_FCFLAGS) $(F90_MODFLAG)$(top_builddir)/libglimmer-solve $(
 verif_io.F90:	verif_vars.def $(top_srcdir)/libglimmer/ncdf_template.F90.in
 		$(PYTHON) $(top_srcdir)/scripts/generate_ncvars.py $^
 
-f90_dep.mak:	$(verif_glide_SOURCES) $(libverif_la_SOURCES)
-		$(PYTHON) $(top_srcdir)/scripts/f90_dependencies.py -l -o $@ $^
-
 -include f90_dep.mak
 
 # this fixes the build order: f90_dep.mak has .lo for verif_glide.o
@@ -33,3 +31,4 @@ f90_dep.mak:	$(verif_glide_SOURCES) $(libverif_la_SOURCES)
 # the other targets, so it builds early and is missing it's .mod files
 verif_glide.o : verif_glide.lo
 
+include $(top_srcdir)/extra_rules.am

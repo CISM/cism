@@ -1,7 +1,231 @@
+2010-07-19 Magnus Hagdorn
+ * PyGC/PyGC/GC_options.py: add new option
+ * progs/plotGCvar: add option to overlay plot with ice thickness mask
+
+2010-07-19 Magnus Hagdorn
+ * extra_rules.am: add rules to do some more plotting
+ * PyGC/PyGC/IO/GC_loadfile.py: fix bug with temperature profile in lithosphere
+ * PyGC/progs/plotGCSpot: add program to plot vertical profiles at a particular
+   location
+ * PyGC/progs/Makefile.am: distribute new program
+ * example-drivers/eis/fenscan/Makefile.am: do some more plotting
+
+2010-07-19 Magnus Hagdorn
+ * extra_rules.am: add rules to do some more plotting
+ * PyGC/progs/plotGCSpotTS: add program to plot variable at one location through
+   time
+ * PyGC/progs/Makefile.am: distribute new program
+ * extensions/erosion/scripts/Makefile.am: ditto
+ * example-drivers/eis/fenscan/Makefile.am: do some more plotting
+ 
+2010-07-13 Magnus Hagdorn
+ * extra_rules.am: add rules to do some more plotting
+ * PyGC/PyGC/GC_colourmap.py: fix path to colourmaps when run from source dir
+ * example-drivers/eis/fenscan/Makefile.am: do some more plotting
+ * extensions/erosion/scripts/plotGCSedsProfile: new program to plot a
+   sediment profile
+ 
+2010-07-09 Magnus Hagdorn
+ * extra_rules.am: add macro to plot sediments
+ * example-drivers/eis/fenscan/Makefile.am: plot final sediment thickness
+ * extensions/erosion/scripts/plotGCseds: use CLI option to specify colourmap
+
+2010-07-09 Magnus Hagdorn
+ * rename make.rules.in to extra_rules.am
+ * Makefile.am: remove rule to build make.rules
+ * doc/ext/Makefile.am: distribute missing files
+ * doc/ext/erosion/Makefile.am: ditto
+ * doc/ext/erosion/figs/Makefile.am: ditto
+ * doc/ext/libphaml/Makefile.am: ditto
+ * example-drivers/EISMINT-3/EISMINT-3/Makefile.am: include automake fragment
+   extra_rules.am directly
+ * example-drivers/eis/fenscan/Makefile.am: ditto
+ * example-drivers/eis/src/Makefile.am: ditto
+ * extensions/erosion/src/Makefile.am: ditto 
+ * extensions/libphaml/Makefile.am: ditto
+ * src/gc2-dist/libglide/Makefile.am: ditto
+ * libglimmer/Makefile.am: ditto
+ * libglimmer-solve/Makefile.am: ditto
+ * libglint/Makefile.am: ditto
+ * tests/EISMINT/EISMINT-1/Makefile.am: ditto
+ * tests/EISMINT/EISMINT-2/Makefile.am: ditto
+ * tests/EISMINT/benchmarks/Makefile.am: ditto
+ * tests/EISMINT/erosion/Makefile.am: ditto
+ * tests/EISMINT/isos/Makefile.am: ditto
+ * tests/EISMINT/lin-non_lin/Makefile.am: ditto
+ * tests/EISMINT/src/Makefile.am: ditto
+ * tests/exact-isothermal/src/Makefile.am: ditto
+
+2010-07-09 Magnus Hagdorn
+ * ./doc/*/Makefile.am: do not distribute built graphics
+
+2010-07-08 Magnus Hagdorn
+ * Makefile.am: change order of sub-directories
+ * configure.in: remove one directory, add another
+ * example-drivers/eis/fenscan/fenscan-erosion.config: moved from erosion
+   directory, adjusted to use the same forcing as the other Fennoscandian 
+   examples
+ * example-drivers/eis/src/eis_erosion.F90: added sediment cover
+ * example-drivers/eis/src/eis_erosion.F90: moved from erosion directory
+ * example-drivers/eis/src/Makefile.am: optionally build eis_erosion driver
+ * extensions/erosion/Makefile.am: remove tests directory
+ * extensions/erosion/src/Makefile.am: only build library
+ * tests/EISMINT/Makefile.am: add new directory
+ * tests/EISMINT/erosion: moved tests from erosion directory
+ * tests/EISMINT/src/simple_erosion.F90: moved from erosion directory
+ * tests/EISMINT/src/Makefile.am: optionally build erosion EISMINT driver
+
+2010-07-08 Magnus Hagdorn
+ * example-drivers/eis/src/eis_ela.F90: fix bug in mass balance computation
+
+2010-07-07 Magnus Hagdorn
+ * doc/ext/libphaml/libphaml-app.tex: including the various files for appendices
+
+2010-07-07 Magnus Hagdorn
+ * configure.in: generate Makfile for building phaml documentation
+ * doc/glimmer.bib: add phaml references
+ * doc/glimmer.tex: add Time Wylie to list of authors
+ * doc/make_doc.rules: add rules to turn pdf and png files to eps
+ * doc/common/definitions.tex: define booleans controlling extensions here
+ * doc/common/packages.tex: add fancybox
+ * doc/ext/selected_ext.tex.in: only handle setting of booleans
+ * doc/ext/libphaml: copied from extensions/libphaml/doc/src
+ * doc/ext/Makefile.am: handle new directory
+ * doc/ext/ext-app.tex: add file containing extensions appendices
+ * doc/ext/ext.tex: add file including various extensions
+ * extensions/libphaml/doc: removed
+
+2010-07-07 Magnus Hagdorn
+ * doc/glimmer.tex: rearrange documentation, introduce parts
+ * doc/ext/ext.tex.in: turn chapter into a part
+ * doc/ext/erosion/erosion.tex: move headings up one level
+ * doc/ext/erosion/theory.tex: ditto
+ * doc/ext/erosion/transport.tex: ditto
+ * doc/ext/erosion/ug.tex: ditto
+
+2010-07-06 Magnus Hagdorn
+ * Makefile.am: removed optional compilation of libphaml
+ * configure.in: move code for enabling libphaml next to other extensions;
+   and tidy it up a bit; not sure if the graphics bit still works since I
+   didn't get the dependencies to work
+ * extensions/Makefile.am: optionally decend into libphaml subdirectory
+ * libphaml moved to extensions/libphaml
+ * extensions/libphaml/Makefile.am: use new macros to figure out how to
+   compile it
+
+2010-07-06 Magnus Hagdorn
+ * make.rules.in: add rule to figure out dependencies
+ * */Makfile.am: remove module files, use rule in make.rules to build file
+   containing dependencies; only apply static flag to our own libraries and
+   link program dynamically
+ * scripts/f90_dependencies.py: fix bug
+
+2010-07-06 Magnus Hagdorn
+ * libphaml/Makefile.am: build only a single phaml library
+ * libphaml/phaml_support.F90: make it work with intel compiler
+
+2010-07-05 Magnus Hagdorn
+ * update copyright notices
+
+2010-07-05 Magnus Hagdorn
+ * merged 1661:1812 of glimmer-cism-extensions branch
+ 
+2010-07-05 Magnus Hagdorn
+ * configure.in: always generate libphaml/Makefile so sources get distributed;
+   bump version to 1.7.1
+ * libphaml/Makefile.am: do not distribute external files
+
+2010-07-02 William Lipscomb
+  * Moved glimmer_restart_gcm.F90 from libglimmer to libglide.
+    Required because of dependency on glide_types
+     	
+2010-07-02 William Lipscomb
+  * Various changes to make the Glimmer-CISM source code consistent with the latest 
+    version of CESM:
+  * Removed ifdefs and replaced them with 'if (GLC_DEBUG)' since ifdefs are highly
+    discouraged in CESM code.  May remove some of these later.
+  * Added new module glimmer_restart_gcm	
+  * Modified the procedure for reading and writing restarts such that there are
+    no gcm dependencies in the Glimmer-CISM source code.
+ 	    
+2010-06-21 Magnus Hagdorn
+ * scripts/qsub_glide.sh: undo last change which broke it
+
+2010-06-17 Magnus Hagdorn
+ * configure.in: set F77 to FC if not set; fix generation of files
+ * tests/exact-isothermal/src/Makefile.am: minor change
+
+2010-06-16 William Lipscomb
+  * I had previously changed the name of glimmer_writestats_module to glimmer_writestats
+    to satisfy the CESM convention that module and file names should agree.
+    I had also changed subroutine glimmer_writestats to glimmer_write_stats so that it
+    would not conflict with the new module name.
+    With this commit I changed use statements and subroutine calls in various modules accordingly.
+  * Commented out references to CESM restart code in glint_initialise.F90.
+    Will find a more flexible solution later.
+  * Changed Makefile.am in libglint and example_drivers/glint/src, to reflect that
+    glint_example_clim.F90 has been moved to libglint
+	
+2010-06-16 William Lipscomb
+  * Remove use of CESM shared code in glimmer_config.F90.
+    (This code was used to specify a fileunit for reading config files.)
+    Instead, pass the desired fileunit in argument lists.
+	
+2010-06-16 Magnus Hagdorn
+ * update copyright years to the years where the files were modified according
+   to svn log
+
+2010-06-16 Magnus Hagdorn
+ * Makefile.am: conditionally add libphaml directory
+ * configure.in: always generate libphaml/Makefile
+
+2010-06-15 William Lipscomb
+ * Checked in the contents of the CESM source_glimmer-cism directory.
+ * These include most of the *F90 and *vars_def files in the libglimmer,
+   libglimmer-solve, libglide, and libglint directories (but not the 
+   files that are programs, since these will not compile in CESM).
+ * I updated the copyright notice in all the files I checked in.
+   The dates are listed as "2004, 2005, 2006, 2007, 2008, 2009, 2010".
+   Magnus has offered to go through each file and include only years
+   during which the files changed.
+ * I also implemented several changes suggested by Rupert Gladstone to
+   make the GCM interfaces cleaner and more generic.  A more extensive
+   redesign of the Glint/GCM interfaces will likely follow this summer.	 
+ * I removed the old restart code, which Magnus had already commented out.
+   The current code restarts exactly using hotstart files.	
+ * I made various other minor changes too numerous to mention.
+ * Remaining tasks are commented 'TO DO'.  The most important task is to
+   correctly upscale the fields passed back to the coupler.	 	 	 
+ * I have not yet checked that the modified code will build.  To do this,
+   I first need to get the code to configure and build with the changes
+   Magnus made a few weeks ago.
+   	
+2010-06-15 William Lipscomb
+ * moved glint_example_clim.F90 from example_drivers/glint/src to libglint
+  (This module is not a driver, and it is needed for the CESM build.)
+
 2010-05-19 Ian Rutt
  * libglimmer/glimmer_ncdf.F90: removed almost-duplicate definition of
 	glimmer_scales from merged code, and reconciled with definition in
 	libglimmer/glimmer_scales.F90.
+
+2010-05-11 Magnus Hagdorn
+ * m4macros/glimmer.m4: fix macro to look for new config script
+
+2010-05-10 Magnus Hagdorn
+ * configure.in: create new file
+ * make.rules.in: configure now generates make.rules with correct SGE options
+ * example-drivers/eis/fenscan/fenscan.config: hot file should store variables
+   in double precision
+ * example-drivers/eis/fenscan/fenscan-gthf.config: ditto
+ * tests/EISMINT/EISMINT-2/e2.[afik].config: ditto
+ * example-drivers/eis/fenscan/Makefile.am: include correct make rules
+ * example-drivers/EISMINT-3/EISMINT-3/Makefile.am: ditto
+ * tests/EISMINT/benchmarks/Makefile.am: ditto
+ * tests/EISMINT/EISMINT-1/Makefile.am: ditto
+ * tests/EISMINT/EISMINT-2/Makefile.am: ditto
+ * tests/EISMINT/isos/Makefile.am: ditto
+ * tests/EISMINT/lin-non_lin/Makefile.am: ditto
 
 2010-05-10 Magnus Hagdorn
  * merged glimmer-cism-gcm r1460:HEAD

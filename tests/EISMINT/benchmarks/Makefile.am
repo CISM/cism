@@ -11,5 +11,5 @@ CLEANFILES = $(data) $(graphics) $(BUILT_SOURCES)
 
 MODEL_BINARY=$(top_builddir)/tests/EISMINT/src/simple_glide
 
-include $(top_srcdir)/make.rules
+include $(top_srcdir)/extra_rules.am
 

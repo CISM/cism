@@ -1,41 +1,28 @@
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
-! +  glint_climate.f90 - part of the GLIMMER ice model        + 
+! +  glint_climate.f90 - part of the Glimmer-CISM ice model   + 
 ! +                                                           +
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! 
-! Copyright (C) 2004 GLIMMER contributors - see COPYRIGHT file 
-! for list of contributors.
+! Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010
+! Glimmer-CISM contributors - see AUTHORS file for list of contributors
 !
-! This program is free software; you can redistribute it and/or 
-! modify it under the terms of the GNU General Public License as 
-! published by the Free Software Foundation; either version 2 of 
-! the License, or (at your option) any later version.
+! This file is part of Glimmer-CISM.
 !
-! This program is distributed in the hope that it will be useful, 
-! but WITHOUT ANY WARRANTY; without even the implied warranty of 
-! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+! Glimmer-CISM is free software: you can redistribute it and/or modify
+! it under the terms of the GNU General Public License as published by
+! the Free Software Foundation, either version 2 of the License, or (at
+! your option) any later version.
+!
+! Glimmer-CISM is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ! GNU General Public License for more details.
 !
-! You should have received a copy of the GNU General Public License 
-! along with this program; if not, write to the Free Software 
-! Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 
-! 02111-1307 USA
+! You should have received a copy of the GNU General Public License
+! along with Glimmer-CISM.  If not, see <http://www.gnu.org/licenses/>.
 !
-! GLIMMER is maintained by:
-!
-! Ian Rutt
-! School of Geographical Sciences
-! University of Bristol
-! University Road
-! Bristol
-! BS8 1SS
-! UK
-!
-! email: <i.c.rutt@bristol.ac.uk> or <ian.rutt@physics.org>
-!
-! GLIMMER is hosted on berliOS.de:
-!
+! Glimmer-CISM is hosted on BerliOS.de:
 ! https://developer.berlios.de/projects/glimmer-cism/
 !
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -137,9 +124,9 @@ contains
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  subroutine glint_downscaling_ccsm (instance,            &
-                                     qice_g,     tsfc_g,  &
-                                     topo_g,     gmask)
+  subroutine glint_downscaling_gcm (instance,            &
+                                    qsmb_g,     tsfc_g,  &
+                                    topo_g,     gmask)
  
     use glimmer_paramets, only: thk0
 
@@ -150,10 +137,10 @@ contains
     ! to the local grid.
     ! 
     ! This routine is used for downscaling when the surface mass balance is
-    ! computed in the CCSM land surface model.
+    ! computed in the GCM land surface model.
 
     type(glint_instance), intent(inout) :: instance
-    real(dp),dimension(:,:,:),intent(in) :: qice_g       ! Surface mass balance (m)
+    real(dp),dimension(:,:,:),intent(in) :: qsmb_g       ! Surface mass balance (m)
     real(dp),dimension(:,:,:),intent(in) :: tsfc_g       ! Surface temperature (C)
     real(dp),dimension(:,:,:),intent(in) :: topo_g       ! Surface elevation (m)
     integer ,dimension(:,:),  intent(in),optional :: gmask ! = 1 where global data are valid
@@ -167,7 +154,7 @@ contains
        nxl, nyl             ! local grid dimensions
  
     real(dp), dimension(:,:,:), allocatable ::   &
-       qice_l,    &! interpolation of global mass balance to local grid
+       qsmb_l,    &! interpolation of global mass balance to local grid
        tsfc_l,    &! interpolation of global sfc temperature to local grid
        topo_l      ! interpolation of global topography in each elev class to local grid
 
@@ -176,11 +163,11 @@ contains
     real(dp), parameter :: lapse = 0.0065_dp   ! atm lapse rate, deg/m
                                                ! used only for extrapolating temperature outside
                                                !  the range provided by the climate model
-    nec = size(qice_g,3)
+    nec = size(qsmb_g,3)
     nxl = instance%lgrid%size%pt(1)
     nyl = instance%lgrid%size%pt(2)
 
-    allocate(qice_l(nxl,nyl,nec))
+    allocate(qsmb_l(nxl,nyl,nec))
     allocate(tsfc_l(nxl,nyl,nec))
     allocate(topo_l(nxl,nyl,nec))
 
@@ -189,7 +176,7 @@ contains
     if (present(gmask)) then   ! set local field = maskval where the global field is masked out
                                ! (i.e., where instance%downs%lmask = 0).
        do n = 1, nec
-          call interp_to_local(instance%lgrid, qice_g(:,:,n), instance%downs, localdp=qice_l(:,:,n), &
+          call interp_to_local(instance%lgrid, qsmb_g(:,:,n), instance%downs, localdp=qsmb_l(:,:,n), &
                                gmask = gmask, maskval=maskval)
           call interp_to_local(instance%lgrid, tsfc_g(:,:,n), instance%downs, localdp=tsfc_l(:,:,n), &
                                gmask = gmask, maskval=maskval)
@@ -200,7 +187,7 @@ contains
     else    ! global field values are assumed to be valid everywhere
 
        do n = 1, nec
-          call interp_to_local(instance%lgrid, qice_g(:,:,n), instance%downs, localdp=qice_l(:,:,n))
+          call interp_to_local(instance%lgrid, qsmb_g(:,:,n), instance%downs, localdp=qsmb_l(:,:,n))
           call interp_to_local(instance%lgrid, tsfc_g(:,:,n), instance%downs, localdp=tsfc_l(:,:,n))
           call interp_to_local(instance%lgrid, topo_g(:,:,n), instance%downs, localdp=topo_l(:,:,n))
        enddo
@@ -208,38 +195,38 @@ contains
     endif
 
 #ifdef GLC_DEBUG
-    write (stdout,*) ' ' 
-    write (stdout,*) 'Interpolate fields to local grid'
-    write (stdout,*) 'Global cell =', itest, jjtest
-    do n = 1, nec
-       write(stdout,*) n, topo_g(itest,jjtest, n)
-    enddo
+       write (stdout,*) ' ' 
+       write (stdout,*) 'Interpolate fields to local grid'
+       write (stdout,*) 'Global cell =', itest, jjtest
+       do n = 1, nec
+          write(stdout,*) n, topo_g(itest,jjtest, n)
+       enddo
 
-    do j = 1, nyl
-    do i = 1, nxl
-        if ( (instance%downs%xloc(i,j,1) == itest .and. instance%downs%yloc(i,j,1) == jjtest) .or.  &
-             (instance%downs%xloc(i,j,2) == itest .and. instance%downs%yloc(i,j,2) == jjtest) .or.  &
-             (instance%downs%xloc(i,j,3) == itest .and. instance%downs%yloc(i,j,3) == jjtest) .or.  &
-             (instance%downs%xloc(i,j,4) == itest .and. instance%downs%yloc(i,j,4) == jjtest) ) then
-            write(stdout,*) i, j, thk0 * instance%model%geometry%usrf(i,j)
-        endif
-    enddo
-    enddo
+       do j = 1, nyl
+       do i = 1, nxl
+           if ( (instance%downs%xloc(i,j,1) == itest .and. instance%downs%yloc(i,j,1) == jjtest) .or.  &
+                (instance%downs%xloc(i,j,2) == itest .and. instance%downs%yloc(i,j,2) == jjtest) .or.  &
+                (instance%downs%xloc(i,j,3) == itest .and. instance%downs%yloc(i,j,3) == jjtest) .or.  &
+                (instance%downs%xloc(i,j,4) == itest .and. instance%downs%yloc(i,j,4) == jjtest) ) then
+               write(stdout,*) i, j, thk0 * instance%model%geometry%usrf(i,j)
+           endif
+       enddo
+       enddo
     
-    i = itest_local
-    j = jtest_local
-    write (stdout,*) ' ' 
-    write (stdout,*) 'Interpolated to local cells: i, j =', i, j
-    do n = 1, nec
-       write (stdout,*) ' '
-       write (stdout,*) 'n =', n
-       write (stdout,*) 'qice_l =', qice_l(i,j,n)
-       write (stdout,*) 'tsfc_l =', tsfc_l(i,j,n)
-       write (stdout,*) 'topo_l =', topo_l(i,j,n)
-    enddo
+       i = itest_local
+       j = jtest_local
+       write (stdout,*) ' ' 
+       write (stdout,*) 'Interpolated to local cells: i, j =', i, j
+       do n = 1, nec
+          write (stdout,*) ' '
+          write (stdout,*) 'n =', n
+          write (stdout,*) 'qsmb_l =', qsmb_l(i,j,n)
+          write (stdout,*) 'tsfc_l =', tsfc_l(i,j,n)
+          write (stdout,*) 'topo_l =', topo_l(i,j,n)
+       enddo
 #endif
 
-!   Interpolate tsfc and qice to local topography using values in the neighboring 
+!   Interpolate tsfc and qsmb to local topography using values in the neighboring 
 !    elevation classes.
 !   If the local topography is outside the bounds of the global elevations classes,
 !    extrapolate the temperature using the prescribed lapse rate.
@@ -250,16 +237,16 @@ contains
        usrf = instance%model%geometry%usrf(i,j) * thk0   ! actual sfc elevation (m)
 
        if (usrf <= topo_l(i,j,1)) then
-          instance%acab(i,j) = qice_l(i,j,1)
+          instance%acab(i,j) = qsmb_l(i,j,1)
           instance%artm(i,j) = tsfc_l(i,j,1) + lapse*(topo_l(i,j,1)-usrf)
        elseif (usrf > topo_l(i,j,nec)) then
-          instance%acab(i,j) = qice_l(i,j,nec)
+          instance%acab(i,j) = qsmb_l(i,j,nec)
           instance%artm(i,j) = tsfc_l(i,j,nec) - lapse*(usrf-topo_l(i,j,nec))
        else
           do n = 2, nec
              if (usrf > topo_l(i,j,n-1) .and. usrf <= topo_l(i,j,n)) then
                 fact = (topo_l(i,j,n) - usrf) / (topo_l(i,j,n) - topo_l(i,j,n-1)) 
-                instance%acab(i,j) = fact*qice_l(i,j,n-1) + (1._dp-fact)*qice_l(i,j,n)
+                instance%acab(i,j) = fact*qsmb_l(i,j,n-1) + (1._dp-fact)*qsmb_l(i,j,n)
                 instance%artm(i,j) = fact*tsfc_l(i,j,n-1) + (1._dp-fact)*tsfc_l(i,j,n)
                 exit
              endif
@@ -276,8 +263,8 @@ contains
              write (stdout,*) 'artm =', instance%artm(i,j)
              write (stdout,*) 'topo(n-1) =', topo_l(i,j,n-1)
              write (stdout,*) 'topo(n) =', topo_l(i,j,n)
-             write (stdout,*) 'qice(n-1) =', qice_l(i,j,n-1)
-             write (stdout,*) 'qice(n) =', qice_l(i,j,n)
+             write (stdout,*) 'qsmb(n-1) =', qsmb_l(i,j,n-1)
+             write (stdout,*) 'qsmb(n) =', qsmb_l(i,j,n)
              write (stdout,*) 'tsfc(n-1) =', tsfc_l(i,j,n-1)
              write (stdout,*) 'tsfc(n) =', tsfc_l(i,j,n)
              write (stdout,*) 'fact = ', (topo_l(i,j,n) - usrf) / (topo_l(i,j,n) - topo_l(i,j,n-1)) 
@@ -287,7 +274,7 @@ contains
     enddo  ! i
     enddo  ! j
 
-  end subroutine glint_downscaling_ccsm
+  end subroutine glint_downscaling_gcm
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
