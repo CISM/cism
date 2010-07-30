@@ -11,7 +11,7 @@ test_c = test_C_non-lin_50km_5.00a.nc test_C_lin_50km_5.00a.nc \
 test_d = test_D_non-lin_50km_5.00a.nc test_D_lin_50km_5.00a.nc \
          test_D_non-lin_20km_1.00a.nc test_D_lin_20km_1.00a.nc
 
-CLEANFILES = $(all_tests)
+CLEANFILES = $(all_tests) *.jid
 
 all_tests = $(test_b) $(test_c) $(test_d)
 

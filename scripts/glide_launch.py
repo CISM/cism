@@ -24,8 +24,9 @@
 # a handy python script which will launch glide and record the execution time of the model
 
 import os,sys,ConfigParser,os.path,optparse
+import subprocess
 
-usage = """%prog [options] config_file
+usage = """%prog [options] config_file [dependent netCDF file]
 launch glide and record execution time of the model. The model binary can be
 either set using the environment variable GLIDE_MODEL or is automatically
 determined from the config file.
@@ -76,8 +77,11 @@ if __name__ == '__main__':
     (options, args) = parser.parse_args()
 
 
-    if len(args) == 1:
+    dep = None
+    if len(args)  > 0:
         configname = args[0]
+        if len(args) > 1:
+            dep = args[1]
     else:
         parser.error("no configuration file specified")
 
@@ -100,16 +104,32 @@ if __name__ == '__main__':
         sys.exit(0)
     prog = "%s -r %s %s"%(model,options.results,configname)
 
+    jobid = None
+    if dep!=None:
+        jobid = int(open('%s.jid'%os.path.splitext(dep)[0],'r').readline())
+
     if options.submit_sge:
         if not os.path.isfile(sge_script):
             sys.stderr.write("Cannot find model submission script %s"%sge_script)
             sys.exit(0)
-        prog = "qsub %s %s %s"%(options.submit_options,sge_script,prog)
+        if jobid != None:
+            qsub = "qsub -hold_jid %d"%jobid
+        else:
+            qsub = "qsub"
+        prog = "%s %s %s %s"%(qsub,options.submit_options,sge_script,prog)
 
-#    try:
-#        retcode = subprocess.call(prog,shell=True)
-#        if retcode < 0:
-#            sys.stderr.write("glide model %s was terminated by signal %d\n"%(model,-retcode))
-#    except OSError, e:
-#        sys.stderr.write("Execution failed: %s\n"%e)
-    print os.popen(prog,'r').read()
+    try:
+        process = subprocess.Popen(prog,shell=True,stdout=subprocess.PIPE)
+    except OSError, e:
+        sys.stderr.write("Execution failed: %s\n"%e)
+
+    retcode = process.wait()
+    if retcode != 0:
+        sys.stderr.write("glide model %s was terminated by signal %d\n"%(model,retcode))
+
+    jobid = 1
+    if options.submit_sge:
+        sge_out = process.stdout.readline().split()
+        jobid = int(sge_out[2])
+    open('%s.jid'%os.path.splitext(os.path.basename(configname))[0],'w').write('%d\n'%jobid)
+            

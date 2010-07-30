@@ -1,3 +1,20 @@
+2010-07-30 Magnus Hagdorn
+ * extra_rules.am: pass all dependencies to glide launcher
+ * PyGC/data/Makefile.am: add new file
+ * PyGC/data/eismint.prof: add file containing profile for EISMINT plots
+ * example-drivers/EISMINT-3/EISMINT-3/Makefile.am: remove jid files
+ * example-drivers/eis/fenscan/Makefile.am: ditto
+ * tests/EISMINT/EISMINT-1/Makefile.am: ditto
+ * tests/EISMINT/EISMINT-2/Makefile.am: ditto
+ * tests/EISMINT/benchmarks/Makefile.am: ditto
+ * /tests/EISMINT/erosion/Makefile.am: ditto
+ * tests/EISMINT/isos/Makefile.am: remove jid files; add some plotting
+ * tests/EISMINT/lin-non_lin/Makefile.am: ditto
+ * tests/exact-isothermal/tests/Makefile.am: ditto
+ * scripts/glide_launch.py: use subprocess module to start glide; when
+   submitting jobs to SGE figure out if job depends on completion of
+   another and store job ID in file
+
 2010-07-19 Magnus Hagdorn
  * PyGC/PyGC/GC_options.py: add new option
  * progs/plotGCvar: add option to overlay plot with ice thickness mask

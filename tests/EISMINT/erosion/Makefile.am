@@ -5,6 +5,8 @@ EXTRA_DIST = topo.nc $(TEST_CONFIGS)
 
 data = $(subst config,nc,$(TEST_CONFIGS))
 
+CLEANFILES = $(data) $(graphics) *.jid $(BUILT_SOURCES)
+
 MODEL_BINARY=$(top_builddir)/tests/EISMINT/src/simple_erosion
 
 include $(top_srcdir)/extra_rules.am

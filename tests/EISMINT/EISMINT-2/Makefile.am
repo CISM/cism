@@ -6,7 +6,7 @@ BUILT_SOURCES =
 EXTRA_DIST = e2.a.config  e2.b.config  e2.c.config  e2.d.config  e2.f.config  e2.g.config  e2.h.config  e2.i.config  e2.j.config  e2.k.config  e2.l.config mound.nc trough.nc
 
 MOSTLYCLEANFILES = $(graphics)
-CLEANFILES = $(data) $(graphics) $(BUILT_SOURCES)
+CLEANFILES = $(data) $(graphics) *.jid $(BUILT_SOURCES)
 
 MODEL_BINARY=$(top_builddir)/tests/EISMINT/src/simple_glide
 

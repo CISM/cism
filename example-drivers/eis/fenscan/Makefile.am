@@ -11,7 +11,7 @@ BUILT_SOURCES =
 EXTRA_DIST = fenscan.config fenscan-gthf.config fenscan-erosion.config europe.20km.nc mb2.data temp-exp.model specmap.data prof_a.data
 
 MOSTLYCLEANFILES = $(graphics)
-CLEANFILES = $(data) $(graphics) $(BUILT_SOURCES)
+CLEANFILES = $(data) $(graphics) *.jid $(BUILT_SOURCES)
 
 MODEL_BINARY=$(top_builddir)/example-drivers/eis/src/eis_glide
 

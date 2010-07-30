@@ -1,5 +1,5 @@
 %.nc:	%.config
-	$(PYTHON) $(top_srcdir)/scripts/glide_launch.py $(LAUNCH_OPTIONS) -m $(MODEL_BINARY) @AM_SGE_OPTS@ $(SGE_OPTS) $<
+	$(PYTHON) $(top_srcdir)/scripts/glide_launch.py $(LAUNCH_OPTIONS) -m $(MODEL_BINARY) @AM_SGE_OPTS@ $(SGE_OPTS) $^
 
 graphics:	$(graphics)
 data:		$(data)
