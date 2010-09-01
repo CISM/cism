@@ -1,3 +1,7 @@
+2010-09-01 Magnus Hagdorn
+ * PyGC/progs/plotEISMINT2stats: print legend if more than one file is
+   specified on command line
+
 2010-07-30 Magnus Hagdorn
  * extra_rules.am: pass all dependencies to glide launcher
  * PyGC/data/Makefile.am: add new file
