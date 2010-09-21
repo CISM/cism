@@ -1,3 +1,7 @@
+2010-09-21 Magnus Hagdorn
+ * example-drivers/eis/src/Makefile.am: find include file
+ * libglint/Makefile.am: ditto
+
 2010-07-19 Magnus Hagdorn
  * PyGC/PyGC/GC_options.py: add new option
  * progs/plotGCvar: add option to overlay plot with ice thickness mask
