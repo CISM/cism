@@ -4,6 +4,17 @@
 graphics:	$(graphics)
 data:		$(data)
 
+compare-%:	%.nc
+	@if [ ! -e $(top_srcdir)/tests/golden_std/$(shell basename $(CURDIR))/$^ ];then \
+	mkdir -p $(top_srcdir)/tests/golden_std/$(shell basename $(CURDIR)) ;\
+	echo "Reference file does not exist, download from berlios"; \
+	wget --directory-prefix=$(top_srcdir)/tests/golden_std/$(shell basename $(CURDIR)) ftp://ftp.berlios.de/pub/glimmer-cism/$(shell basename $(CURDIR))/$^ ; \
+	fi ;\
+	if $(top_builddir)/utils/compare $(top_srcdir)/tests/golden_std/$(shell basename $(CURDIR))/$^ $^ -a 1e-8; then \
+	echo "test passed"; \
+	else echo "test failed"; \
+	fi	
+
 plotGCvar = PYTHONPATH=$(top_builddir)/PyGC/src/.libs:$(top_srcdir)/PyGC/:$$PYTHONPATH $(top_srcdir)/PyGC/progs/plotGCvar
 plotGCProfile = PYTHONPATH=$(top_builddir)/PyGC/src/.libs:$(top_srcdir)/PyGC/:$$PYTHONPATH $(top_srcdir)/PyGC/progs/plotGCProfile
 plotGCProfileTS = PYTHONPATH=$(top_builddir)/PyGC/src/.libs:$(top_srcdir)/PyGC/:$$PYTHONPATH $(top_srcdir)/PyGC/progs/plotGCProfileTS
