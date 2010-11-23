@@ -5,12 +5,11 @@ graphics:	$(graphics)
 data:		$(data)
 
 compare-%:	%.nc
-	@if [ ! -e $(top_srcdir)/tests/golden_std/$(shell basename $(CURDIR))/$^ ];then \
-	mkdir -p $(top_srcdir)/tests/golden_std/$(shell basename $(CURDIR)) ;\
-	echo "Reference file does not exist, download from berlios"; \
-	wget --directory-prefix=$(top_srcdir)/tests/golden_std/$(shell basename $(CURDIR)) ftp://ftp.berlios.de/pub/glimmer-cism/$(shell basename $(CURDIR))/$^ ; \
+	@if [ ! -e $(GOLDEN_STD_PREFIX)/$(shell basename $(CURDIR))/$^ ];then \
+	echo "Reference file does not exist, download files from ftp.berlios.de/pub/glimmer-cism"; \
+	echo "and point configure to this directory --with-golden-std=/path/to/files"; \
 	fi ;\
-	if $(top_builddir)/utils/compare $(top_srcdir)/tests/golden_std/$(shell basename $(CURDIR))/$^ $^ -a 1e-8; then \
+	if $(top_builddir)/utils/compare $(GOLDEN_STD_PREFIX)/$(shell basename $(CURDIR))/$^ $^ -a 1e-8; then \
 	echo "test passed"; \
 	else echo "test failed"; \
 	fi	
