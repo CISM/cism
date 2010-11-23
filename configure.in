@@ -311,6 +311,12 @@ esac],[AC_MSG_RESULT([no])])
 #esac],[AC_MSG_RESULT([no])])
 #AM_CONDITIONAL([RUN_TESTS], [test "$enable_tests" == "yes"])
 
+AC_MSG_CHECKING([whether location of golden standard files is specified])	
+AC_ARG_WITH(golden_std,AS_HELP_STRING([--with-golden_std],[location of golden_std]),[GOLDEN_STD_PREFIX=$withval])
+AC_MSG_RESULT(golden_std location: $GOLDEN_STD_PREFIX)
+AC_SUBST(GOLDEN_STD_DIR)
+
+
 dnl checking if model runs should be submitted to SGE
 m4_pattern_allow([^AM_SGE_OPTS$])
 AM_SGE_OPTS=""
