@@ -5,11 +5,12 @@ graphics:	$(graphics)
 data:		$(data)
 
 compare-%:	%.nc
-	@if [ ! -e $(GOLDEN_STD_PREFIX)/$(shell basename $(CURDIR))/$^ ];then \
+	@if [ ! -e $(GOLDEN_STD_PREFIX)/$(rel_builddir)/$^ ];then \
 	echo "Reference file does not exist, download files from ftp.berlios.de/pub/glimmer-cism"; \
 	echo "and point configure to this directory --with-golden-std=/path/to/files"; \
+	exit -1; \
 	fi ;\
-	if $(top_builddir)/utils/compare $(GOLDEN_STD_PREFIX)/$(shell basename $(CURDIR))/$^ $^ -a 1e-8; then \
+	if $(top_builddir)/utils/compare $(GOLDEN_STD_PREFIX)/$(rel_builddir)/$^ $^ -a 1e-8; then \
 	echo "test passed"; \
 	else echo "test failed"; \
 	fi	
@@ -22,6 +23,9 @@ plotGCseds =  PYTHONPATH=$(top_builddir)/PyGC/src/.libs:$(top_srcdir)/PyGC/:$$PY
 plotGCSedsProfile = PYTHONPATH=$(top_builddir)/PyGC/src/.libs:$(top_srcdir)/PyGC/:$$PYTHONPATH $(top_srcdir)/extensions/erosion/scripts/plotGCSedsProfile
 plotGCSpotTS = PYTHONPATH=$(top_builddir)/PyGC/src/.libs:$(top_srcdir)/PyGC/:$$PYTHONPATH $(top_srcdir)/PyGC/progs/plotGCSpotTS
 plotGCSpot = PYTHONPATH=$(top_builddir)/PyGC/src/.libs:$(top_srcdir)/PyGC/:$$PYTHONPATH $(top_srcdir)/PyGC/progs/plotGCSpot
+
+# the following macro produces the current build path relative to the toplevel build directory
+rel_builddir = $(subst  $(abspath $(top_builddir))/,,$(CURDIR))
 
 f90_dep_sources ?= $(SOURCES)
 

@@ -1,3 +1,7 @@
+2010-11-24 Magnus Hagdorn
+ * extra_rules.am: add macro to find relative builddir path; use it to find
+   gold standard files
+
 2010-09-01 Magnus Hagdorn
  * PyGC/progs/plotEISMINT2stats: print legend if more than one file is
    specified on command line
