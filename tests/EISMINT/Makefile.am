@@ -9,7 +9,7 @@ graphics::
 		  (cd $$dir && $(MAKE) $@); \
 		done
 
-data::
+check-data::
 		list='$(tests)'; for dir in $$list; do \
 		  (cd $$dir && $(MAKE) $@); \
 		done
