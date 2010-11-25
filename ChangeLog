@@ -1,3 +1,6 @@
+2010-11-25 Sarah Shannon
+ * extra_rules.am: add check-data rule to compare tests to gold standards
+
 2010-11-24 Magnus Hagdorn
  * extra_rules.am: add macro to find relative builddir path; use it to find
    gold standard files
