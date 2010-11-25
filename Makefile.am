@@ -14,3 +14,8 @@ data::
           (cd $$dir && $(MAKE) $@); \
         done
 
+check-data::
+
+	list='$(datadir)'; for dir in $$list; do \
+          (cd $$dir && $(MAKE) $@); \
+        done
