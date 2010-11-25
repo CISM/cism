@@ -4,3 +4,8 @@ data::
 		list='$(SUBDIRS)'; for dir in $$list; do \
 		  (cd $$dir && $(MAKE) $@); \
 		done
+
+check-data::
+		list='$(SUBDIRS)'; for dir in $$list; do \
+		  (cd $$dir && $(MAKE) $@); \
+		done
