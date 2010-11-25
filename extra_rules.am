@@ -4,7 +4,7 @@
 graphics:	$(graphics)
 data:		$(data)
 
-compare-%:	%.nc
+compare-%:	%.nc	
 	@if [ ! -e $(GOLDEN_STD_PREFIX)/$(rel_builddir)/$^ ];then \
 	echo "Reference file does not exist, download files from ftp.berlios.de/pub/glimmer-cism"; \
 	echo "and point configure to this directory --with-golden-std=/path/to/files"; \
@@ -14,6 +14,9 @@ compare-%:	%.nc
 	echo "test passed"; \
 	else echo "test failed"; \
 	fi	
+
+check-data:	
+	@$(foreach data,$(data), make compare-$(basename $(data));)
 
 plotGCvar = PYTHONPATH=$(top_builddir)/PyGC/src/.libs:$(top_srcdir)/PyGC/:$$PYTHONPATH $(top_srcdir)/PyGC/progs/plotGCvar
 plotGCProfile = PYTHONPATH=$(top_builddir)/PyGC/src/.libs:$(top_srcdir)/PyGC/:$$PYTHONPATH $(top_srcdir)/PyGC/progs/plotGCProfile
