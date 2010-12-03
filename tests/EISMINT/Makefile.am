@@ -4,6 +4,12 @@ if BUILD_EXT_EROSION
  SUBDIRS += erosion
 endif
 
+data::
+		list='$(tests)'; for dir in $$list; do \
+		(cd $$dir && $(MAKE) $@); \
+		done
+ 
+
 graphics::
 		list='$(tests)'; for dir in $$list; do \
 		  (cd $$dir && $(MAKE) $@); \
