@@ -5,18 +5,25 @@ graphics:	$(graphics)
 data:		$(data)
 
 compare-%:	%.nc	
-	@if [ ! -e $(GOLDEN_STD_PREFIX)/$(rel_builddir)/$^ ];then \
+	@if [ ! -e $(GOLD_STD_PREFIX)/$(rel_builddir)/$^ ];then \
 	echo "Reference file does not exist, download files from ftp.berlios.de/pub/glimmer-cism"; \
-	echo "and point configure to this directory --with-golden-std=/path/to/files"; \
+	echo "and point configure to this directory --with-gold-std=/path/to/files"; \
 	exit -1; \
 	fi ;\
-	if $(top_builddir)/utils/compare $(GOLDEN_STD_PREFIX)/$(rel_builddir)/$^ $^ -a 1e-8; then \
+	if $(top_builddir)/utils/compare $(GOLD_STD_PREFIX)/$(rel_builddir)/$^ $^ -a 1e-8; then \
 	echo "test passed"; \
 	else echo "test failed"; \
 	fi	
 
 check-data:	
 	@$(foreach data,$(data), make compare-$(basename $(data));)
+
+dist-gold-standard::
+	@find $(top_builddir)/tests/*/*/*.nc -size +100 -print > test_filenames  
+	@tar -cvzf gold-standard_$(distdir).tgz -T test_filenames   
+	@rm test_filenames 
+	@echo "Output of tests compressed to" gold-standard_$(distdir).tgz
+
 
 plotGCvar = PYTHONPATH=$(top_builddir)/PyGC/src/.libs:$(top_srcdir)/PyGC/:$$PYTHONPATH $(top_srcdir)/PyGC/progs/plotGCvar
 plotGCProfile = PYTHONPATH=$(top_builddir)/PyGC/src/.libs:$(top_srcdir)/PyGC/:$$PYTHONPATH $(top_srcdir)/PyGC/progs/plotGCProfile
