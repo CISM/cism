@@ -1,3 +1,7 @@
+2010-12-03 Sarah Shannon
+ * extra_rules.am: add dist-gold-standard rule to create a tar file of test data	
+ * Makefile.am: ditto
+	
 2010-11-25 Sarah Shannon
  * extra_rules.am: add check-data rule to compare tests to gold standards
 
