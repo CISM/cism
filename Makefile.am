@@ -15,7 +15,12 @@ data::
         done
 
 check-data::
-
 	list='$(datadir)'; for dir in $$list; do \
           (cd $$dir && $(MAKE) $@); \
         done
+
+dist-gold-standard::
+	@find $(top_builddir)/tests/*/*/*.nc -size +100 -print > test_filenames  
+	@tar -cvzf gold-standard_$(distdir).tgz -T test_filenames   
+	@rm test_filenames 
+	@echo "Output of tests compressed to" gold-standard_$(distdir).tgz
