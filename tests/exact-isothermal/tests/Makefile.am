@@ -40,4 +40,4 @@ results:	$(all_tests)
 %.nc:	$(top_srcdir)/tests/exact-isothermal/tests/template.config
 	$(PYTHON) $(top_srcdir)/tests/exact-isothermal/scripts/run_verif.py -m ../src/verif_glide @SGE_OPTS@ -f $* $<
 
-
+include $(top_srcdir)/extra_rules.am

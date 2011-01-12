@@ -1,8 +1,18 @@
+tests = EISMINT-3
 SUBDIRS = src EISMINT-3
 
 data::
-	(cd EISMINT-3 && $(MAKE) $@)
+		list='$(tests)'; for dir in $$list; do \
+		(cd $$dir && $(MAKE) $@); \
+		done
+
+check-data::
+		list='$(tests)'; for dir in $$list; do \
+		  (cd $$dir && $(MAKE) $@); \
+		done
 
 dist-gold-standard::
-	(cd EISMINT-3 && $(MAKE) $@)
+		list='$(tests)'; for dir in $$list; do \
+		  (cd $$dir && $(MAKE) $@); \
+		done
 

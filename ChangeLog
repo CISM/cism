@@ -1,3 +1,18 @@
+2011-01-12 Magnus Hagdorn
+ * Makefile.am: remove gold standard distribution directory once tar-balled
+ * configure.in: make sure path to gold standard is absolute
+ * extra_rules.am: report missing files; make sure data to be compared has been
+   computed; only create directory if files are to be copied, use hard links
+   rather than copy the files
+ * example-drivers/Makefile.am: add a check-data target
+ * example-drivers/EISMINT-3/Makefile.am: ditto
+ * tests/EISMINT/EISMINT-1/Makefile.am: specify which data files are required
+   for gold standard
+ * tests/EISMINT/EISMINT-2/Makefile.am: ditto
+ * tests/exact-isothermal/Makefile.am: add a check-data and dist-gold-standard
+   target
+ * tests/exact-isothermal/tests/Makefile.am: include extra_rules.am
+
 2010-12-03 Sarah Shannon
  * extra_rules.am: add dist-gold-standard rule to create a tar file of test data	
  * Makefile.am: ditto

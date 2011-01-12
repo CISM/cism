@@ -23,5 +23,5 @@ dist-gold-standard::
 	list='$(datadir)'; for dir in $$list; do \
           (cd $$dir && $(MAKE) $@); \
         done ; \
-	tar -cvzf $(PACKAGE)-gold-$(VERSION).tar.gz $(top_builddir)/$(PACKAGE)-gold-$(VERSION)  
+	tar -czf $(PACKAGE)-gold-$(VERSION).tar.gz $(PACKAGE)-gold-$(VERSION)  && rm -rf $(PACKAGE)-gold-$(VERSION)
 	echo "Output of tests compressed to" $(PACKAGE)-gold-$(VERSION).tar.gz

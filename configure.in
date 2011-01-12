@@ -313,7 +313,7 @@ esac],[AC_MSG_RESULT([no])])
 
 #specify the directory where the gold standard files are located
 AC_MSG_CHECKING([whether location of gold standard files are specified])	
-AC_ARG_WITH(gold_std,AS_HELP_STRING([--with-gold-std],[location of gold_std]),[GOLD_STD_PREFIX=$withval])
+AC_ARG_WITH(gold_std,AS_HELP_STRING([--with-gold-std],[location of gold_std]),[GOLD_STD_PREFIX=$(readlink -f $withval)])
 AC_MSG_RESULT(gold_std location: $GOLD_STD_PREFIX)
 AC_SUBST(GOLD_STD_PREFIX)
 

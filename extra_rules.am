@@ -6,7 +6,7 @@ data:		$(data)
 
 compare-%:	%.nc	
 	@if [ ! -e $(GOLD_STD_PREFIX)/$(rel_builddir)/$< ];then \
-	echo "Reference file does not exist, download files from ftp.berlios.de/pub/glimmer-cism"; \
+	echo "Reference file $(GOLD_STD_PREFIX)/$(rel_builddir)/$< does not exist, download files from ftp.berlios.de/pub/glimmer-cism"; \
 	echo "and point configure to this directory --with-gold-std=/path/to/files"; \
 	exit -1; \
 	fi ;\
@@ -15,12 +15,14 @@ compare-%:	%.nc
 	else echo "$< failed"; \
 	fi	
 
-check-data:	
-	make $(patsubst %.nc, compare-%, $(data))
+check-data:	$(gold_standard_data)
+	make $(patsubst %.nc, compare-%, $^)
 
-dist-gold-standard: 
-	@mkdir -p $(top_builddir)/$(PACKAGE)-gold-$(VERSION)/$(rel_builddir)
-	$(foreach data,$(data), cp $(data) $(top_builddir)/$(PACKAGE)-gold-$(VERSION)/$(rel_builddir);) 
+dist-gold-standard:	$(gold_standard_data)
+	@if [ -n "$(gold_standard_data)" ]; then \
+	mkdir -p $(top_builddir)/$(PACKAGE)-gold-$(VERSION)/$(rel_builddir); \
+	for f in $^; do ln -f $$f $(top_builddir)/$(PACKAGE)-gold-$(VERSION)/$(rel_builddir)/$$f;done; \
+	fi
 
 plotGCvar = PYTHONPATH=$(top_builddir)/PyGC/src/.libs:$(top_srcdir)/PyGC/:$$PYTHONPATH $(top_srcdir)/PyGC/progs/plotGCvar
 plotGCProfile = PYTHONPATH=$(top_builddir)/PyGC/src/.libs:$(top_srcdir)/PyGC/:$$PYTHONPATH $(top_srcdir)/PyGC/progs/plotGCProfile
