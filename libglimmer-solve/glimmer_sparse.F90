@@ -52,10 +52,19 @@ module glimmer_sparse
         type(pardiso_solver_workspace),  pointer :: pardiso  => null()
   end type
 
-  integer, parameter :: SPARSE_SOLVER_BICG = 0
-  integer, parameter :: SPARSE_SOLVER_GMRES = 1
-  integer, parameter :: SPARSE_SOLVER_UMF = 2
-  integer, parameter :: SPARSE_SOLVER_PARDISO = 3
+    integer, parameter :: HO_NONLIN_PICARD = 0
+    integer, parameter :: HO_NONLIN_JFNK = 1
+
+    integer, parameter :: SPARSE_SOLVER_BICG = 0
+    integer, parameter :: SPARSE_SOLVER_GMRES = 1
+    integer, parameter :: SPARSE_SOLVER_UMF = 2
+    ! This Trilinos solver uses sparse_easy_solve infrastructure
+    integer, parameter :: SPARSE_SOLVER_TRILINOS = 3
+    ! This Trilinos solver does not go through sparse_easy_solve
+    ! to save on dealing with two sparse matrix formats
+    integer, parameter :: STANDALONE_TRILINOS_SOLVER = 4
+    ! JCC - This was 3 but it conflicted with SPARSE_SOLVER_TRILINOS
+    integer, parameter :: SPARSE_SOLVER_PARDISO = 5
 
 !EIB!  !MAKE_RESTART
 !EIB!#ifdef RESTARTS
@@ -287,7 +296,8 @@ contains
         endif
     end subroutine sparse_interpret_error
 
-    subroutine sparse_easy_solve(matrix, rhs, answer, err, iter, method_arg, calling_file, calling_line)
+    subroutine sparse_easy_solve(matrix, rhs, answer, err, iter, method_arg, &
+                                 calling_file, calling_line, nonlinear_solver )
         !This subroutine wraps the basic (though probably the most inefficient)
         !workflow to solve a sparse matrix using the sparse matrix solver
         !framework.  It handles errors gracefully, and reports back the
@@ -305,6 +315,7 @@ contains
         integer, intent(out) :: iter
         
         integer, optional, intent(in) :: method_arg
+        integer, optional, intent(in) :: nonlinear_solver
 
         character(*), optional :: calling_file
         integer, optional :: calling_line

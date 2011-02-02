@@ -116,8 +116,8 @@ contains
     use glide_velo_higher
     use glide_thck
     use glide_temp
+    use glissade_temp
     use glimmer_log
-    use glide_mask
     use glimmer_scales
     use glide_mask
     use isostasy
@@ -130,6 +130,9 @@ contains
 
     ! *sfp** added for summer modeling school
     use fo_upwind_advect, only : fo_upwind_advect_init
+
+    !*mb* added 
+    use glam_Basal_Proc, only : Basal_Proc_init
 
     implicit none
     type(glide_global_type) :: model        !*FD model instance
@@ -208,8 +211,15 @@ contains
 
     ! initialise glide components
     call init_velo(model)
-    call init_temp(model)
+
+    if (model%options%whichtemp == TEMP_REMAP_ADV) then
+       call glissade_init_temp(model)
+    else
+       call glide_init_temp(model)
+    endif
+
     call init_thck(model)
+
     call glide_initialise_backstress(model%geometry%thck,&
                                      model%climate%backstressmap,&
                                      model%climate%backstress, &
@@ -233,14 +243,28 @@ contains
         call glam_velo_fordsiapstr_init(model%general%ewn,    model%general%nsn,  &
                                         model%general%upn,                        &
                                         model%numerics%dew,   model%numerics%dns, &
-                                        model%numerics%sigma, model%numerics%stagsigma)
+                                        model%numerics%sigma)
     end if
 
     ! *sfp** added; initialization of LANL incremental remapping subroutine for thickness evolution
     if (model%options%whichevol== EVOL_INC_REMAP ) then
 
-        call horizontal_remap_init( model%remap_wk, model%general%ewn, model%general%nsn, &
-                                    model%options%periodic_ew, model%options%periodic_ns )
+        if (model%options%whichtemp == TEMP_REMAP_ADV) then ! Use IR to advect temperature
+
+           call horizontal_remap_init( model%remap_wk,    &
+                                       model%numerics%dew, model%numerics%dns,  &
+                                       model%general%ewn,  model%general%nsn,   &
+                                       model%options%periodic_ew, model%options%periodic_ns, &
+                                       model%general%upn, model%numerics%sigma )
+
+        else  ! Use IR to transport thickness only
+
+           call horizontal_remap_init( model%remap_wk,    &
+                                       model%numerics%dew, model%numerics%dns,  &
+                                       model%general%ewn,  model%general%nsn, &
+                                       model%options%periodic_ew, model%options%periodic_ns)
+
+        endif ! whichtemp
 
     endif 
 
@@ -251,6 +275,14 @@ contains
 
     endif
 
+    ! *mb* added; initialization of basal proc. module
+    if (model%options%which_bmod == BAS_PROC_FULLCALC .or. &
+        model%options%which_bmod == BAS_PROC_FASTCALC) then
+        
+        call Basal_Proc_init (model%general%ewn, model%general%nsn,model%basalproc,     &
+                              model%numerics%ntem)
+    end if      
+
     ! initialise ice age
     ! !EIB gc2! This is a placeholder; currently the ice age is not computed.  
     ! !EIB gc2! lipscomb - to do - Compute and advect the ice age.
@@ -260,7 +292,7 @@ contains
 
     if (model%options%hotstart.ne.1) then
        ! initialise Glen's flow parameter A using an isothermal temperature distribution
-       call timeevoltemp(model,0)
+       call glide_temp_driver(model,0)
     end if
 
     ! calculate mask
@@ -268,7 +300,7 @@ contains
                         model%general%ewn, model%general%nsn, model%climate%eus, &
                         model%geometry%thkmask, model%geometry%iarea, model%geometry%ivol)
 
-    call calc_iareaf_iareag(model%numerics%dew,model%numerics%dns, & 
+    call calc_iareaf_iareag(model%numerics%dew,model%numerics%dns, &
                             model%geometry%iarea, model%geometry%thkmask, &
                             model%geometry%iareaf, model%geometry%iareag)
 
@@ -326,13 +358,17 @@ contains
     use glide_velo
     use glide_setup
     use glide_temp
+    use glissade_temp
     use glide_mask
     use glide_deriv, only : df_field_2d_staggered
     use glimmer_paramets, only: tim0
     use glimmer_physcon, only: scyr
     use glide_thckmask
     use glide_grids
-    
+
+    ! *mb* added for basal proc module  
+    use glam_Basal_Proc, only : Basal_Proc_driver
+
     implicit none
 
     type(glide_global_type) :: model        !*FD model instance
@@ -416,8 +452,24 @@ contains
     call glide_prof_start(model,model%glide_prof%temperature)
 #endif
     if ( model%numerics%tinc >  mod(model%numerics%time,model%numerics%ntem)) then
-       call timeevoltemp(model, model%options%whichtemp)
+
+       if (model%options%whichtemp == TEMP_REMAP_ADV) then 
+
+         ! Vert diffusion and strain heating only; no advection
+         ! Remapping routine is used to advect temperature in glide_tstep_p2
+
+         call glissade_temp_driver(model)
+
+       else
+
+         ! standard Glide driver, including temperature advection
+
+         call glide_temp_driver(model, model%options%whichtemp)
+
+       endif
+
        model%temper%newtemps = .true.
+
     end if
 #ifdef PROFILING
     call glide_prof_stop(model,model%glide_prof%temperature)
@@ -427,6 +479,17 @@ contains
     ! Calculate basal traction factor
     ! ------------------------------------------------------------------------ 
     call calc_btrc(model,model%options%whichbtrc,model%velocity%btrc)
+
+    ! ------------------------------------------------------------------------ 
+    ! Calculate basal shear strength from Basal Proc module, if necessary
+    ! ------------------------------------------------------------------------    
+    if (model%options%which_bmod == BAS_PROC_FULLCALC .or. &
+        model%options%which_bmod == BAS_PROC_FASTCALC) then
+        call Basal_Proc_driver (model%general%ewn,model%general%nsn,model%general%upn,       &
+                                model%numerics%ntem,model%velocity_hom%uvel(model%general%upn,:,:), &
+                                model%velocity_hom%vvel(model%general%upn,:,:), &
+                                model%options%which_bmod,model%temper%bmlt,model%basalproc)
+    end if
 
   end subroutine glide_tstep_p1
 
@@ -494,9 +557,10 @@ contains
        call thck_nonlin_evolve(model,model%temper%newtemps)
 
     case(EVOL_INC_REMAP) ! Use incremental remapping scheme for advecting ice thickness ---
-            ! (Temperature is advected by glide_temp)
+                         ! (and temperature too, if whichtemp = TEMP_REMAP_ADV)
 
        call inc_remap_driver( model )
+
        call glide_stress( model )       !*sfp* added for populating stress tensor w/ HO fields
 
     ! *sfp** added for summer modeling school
@@ -527,6 +591,11 @@ contains
 
     !calculate the normal at the marine margin
     call glide_marine_margin_normal(model%geometry%thck, model%geometry%thkmask, model%geometry%marine_bc_normal)
+    !calculate the grounding line flux after the mask is correct
+    call calc_gline_flux(model%geomderv%stagthck,model%velocity%surfvel, &
+    model%geometry%thkmask,model%ground%gline_flux, model%velocity%ubas, &
+    model%velocity%vbas, model%numerics%dew)
+
     !calculate the grounding line flux after the mask is correct
     call calc_gline_flux(model%geomderv%stagthck,model%velocity%surfvel, &
     model%geometry%thkmask,model%ground%gline_flux, model%velocity%ubas, &
@@ -574,11 +643,12 @@ contains
     call glide_set_mask(model%numerics, model%geometry%thck, model%geometry%topg, &
                         model%general%ewn, model%general%nsn, model%climate%eus, &
                         model%geometry%thkmask, model%geometry%iarea, model%geometry%ivol)
-    
-    call calc_iareaf_iareag(model%numerics%dew,model%numerics%dns, & 
+
+    call calc_iareaf_iareag(model%numerics%dew,model%numerics%dns, &
                             model%geometry%iarea, model%geometry%thkmask, &
                             model%geometry%iareaf, model%geometry%iareag)
-    ! ------------------------------------------------------------------------
+
+! ------------------------------------------------------------------------
     ! update ice/water load if necessary
     ! ------------------------------------------------------------------------
 #ifdef PROFILING
@@ -597,6 +667,7 @@ contains
     
     ! basal shear stress calculations
     call calc_basal_shear(model)
+
   end subroutine glide_tstep_p2
 
   !EIB! call difference: lanl p2(model, no_write), p3(model)

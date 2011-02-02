@@ -1,6 +1,7 @@
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
 ! +  glimmer_temp.f90 - part of the Glimmer-CISM ice model    + 
+! +  glide_temp.f90 - part of the GLIMMER ice model           +
 ! +                                                           +
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! 
@@ -27,14 +28,21 @@
 !
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+! JCC - Turn some of these changes into if-else statements so the
+! "velocity_hom%uvel" and "velocity_hom%vvel" are only used when higher-order
+! physics are on.
+!
+!whl - Dec. 2010: Moved several subroutines (finddisp, corrpmpt, calcpmpt, calcpmptb,
+!       calcflwa, patebudd) to a new module, glide_temp_utils.
+!      Those subroutines can then be called from an alternate temperature driver
+!       without using glide_temp.
+!      Also removed subroutines swappnt, swapbndt, and temperature_smoothing,
+!       which were not being used.
 ! *sfp* this version contains hacks to replace SIA calc horiz vel fields 
 ! with their higher-order counterparts. That is, all "velocity%uvel" and
 ! "velocity%vvel" were replaced with "velocity_hom%uvel" and "velocity_hom%vvel".
 ! Note that dissip and basal melt calcs still need to be updated to account for
 ! higher-order stress and velocity fields.
-! JCC - Turn some of these changes into if-else statements so the
-! "velocity_hom%uvel" and "velocity_hom%vvel" are only used when higher-order
-! physics are on.
 
 #ifdef HAVE_CONFIG_H
 #include "config.inc"
@@ -49,18 +57,21 @@
 #else
 #define VERT_DIFF 1.
 #endif
+
 ! horizontal advection
 #ifdef NO_HORIZONTAL_ADVECTION
 #define HORIZ_ADV 0.
 #else
 #define HORIZ_ADV 1.
 #endif
+
 ! vertical advection
 #ifdef NO_VERTICAL_ADVECTION
 #define VERT_ADV 0.
 #else
 #define VERT_ADV 1.
 #endif
+
 ! strain heating
 #ifdef NO_STRAIN_HEAT
 #define STRAIN_HEAT 0.
@@ -72,11 +83,12 @@ module glide_temp
 
   use glide_types
 
-  logical, parameter :: l_smooth_temp = .false.  ! if true, apply Laplacian smoothing
-
 contains
 
-  subroutine init_temp(model)
+!------------------------------------------------------------------------------------
+
+  subroutine glide_init_temp(model)
+
     !*FD initialise temperature module
     use glimmer_physcon, only : rhoi, shci, coni, scyr, grav, gn, lhci, rhow
     use glimmer_paramets, only : tim0, thk0, acc0, len0, vis0, vel0, tau0_glam
@@ -194,24 +206,26 @@ contains
           !     0.5d0 * model%tempwk%dt_wat / model%numerics%dew, 0.5d0 * model%tempwk%dt_wat / model%numerics%dns /)
           
        end select
-       !EIB! from lanl
-       model%temper%temp = -10.0
-  end subroutine init_temp
-    
+       ! JCC - was in LANL but not in parallel
+       !      model%temper%temp = -10.0
 
-  subroutine timeevoltemp(model,which)
+  end subroutine glide_init_temp
+
+!****************************************************    
+
+  subroutine glide_temp_driver(model,whichtemp)
 
     !*FD Calculates the ice temperature, according to one
     !*FD of several alternative methods.
 
     use glimmer_utils, only: tridiag
     use glimmer_global, only : dp
-    use glimmer_paramets,       only : thk0
+    use glimmer_paramets, only : thk0
     use glide_velo
     use glide_thck
     use glide_grids
     use glide_bwater
-    use glimmer_physcon, only: rhoi, shci, coni   ! for temperature smoothing
+    use glide_temp_utils
 
     implicit none
 
@@ -220,7 +234,7 @@ contains
     !------------------------------------------------------------------------------------
 
     type(glide_global_type),intent(inout) :: model       !*FD Ice model parameters.
-    integer,                  intent(in)    :: which       !*FD Flag to choose method.
+    integer,                intent(in)    :: whichtemp   !*FD Flag to choose method.
 
     !------------------------------------------------------------------------------------
     ! Internal variables
@@ -239,23 +253,12 @@ contains
 
     real(dp), dimension(size(model%numerics%sigma)) :: weff
 
-    ! for temperature smoothing
-    real(dp), parameter :: kdiff = coni/(rhoi*shci)* 1.0e5_dp  ! numerical diffusivity
-                           ! coni/(rhoi*shci) = physical diffusivity
-
-    real(dp), dimension(model%general%ewn,model%general%nsn) :: workh   ! work array for thickness
-    real(dp), dimension(model%general%ewn,model%general%nsn) :: workt   ! work array for temperature 
-
-    integer :: k
-
     !------------------------------------------------------------------------------------
     ! ewbc/nsbc set the type of boundary condition aplied at the end of
     ! the domain. a value of 0 implies zero gradient.
     !------------------------------------------------------------------------------------
-    ! Calculate the ice thickness according to different methods
-    !------------------------------------------------------------------------------------
 
-    select case(which)
+    select case(whichtemp)
 
     case(0) ! Set column to surface air temperature -------------------------------------
 
@@ -266,7 +269,6 @@ contains
        end do
 
     case(1) ! Do full temperature solution ---------------------------------------------
-
 
 !lipscomb - restart mod - These routines are now called at the end of tstep_p3, so that wgrd
 !                         can be written to the hotstart file and used for restart.
@@ -389,6 +391,58 @@ contains
           end select
        end if ! model%options%which_ho_diagnostic .EQ. 0
 
+       ! Calculate the vertical velocity of the grid ------------------------------------
+
+       call gridwvel(model%numerics%sigma,  &
+            model%numerics%thklim, &
+            model%velocity_hom%uvel,   &
+            model%velocity_hom%vvel,   &
+            model%geomderv,        &
+            model%geometry%thck,   &
+            model%velocity%wgrd)
+
+       ! Calculate the actual vertical velocity; method depends on whichwvel ------------
+
+       select case(model%options%whichwvel)
+
+       case(0) 
+
+          ! Usual vertical integration
+
+          call wvelintg(model%velocity_hom%uvel,           &
+               model%velocity_hom%vvel,                    &
+               model%geomderv,                             &
+               model%numerics,                             &
+               model%velowk,                               &
+               model%velocity%wgrd(model%general%upn,:,:), &
+               model%geometry%thck,                        &
+               model%temper%bmlt,                          &
+               model%velocity%wvel)
+
+       case(1)
+
+          ! Vertical integration constrained so kinematic upper BC obeyed.
+
+          call wvelintg(model%velocity_hom%uvel,           &
+               model%velocity_hom%vvel,                    &
+               model%geomderv,                             &
+               model%numerics,                             &
+               model%velowk,                               &
+               model%velocity%wgrd(model%general%upn,:,:), &
+               model%geometry%thck,                        &
+               model%temper%  bmlt,                        &
+               model%velocity%wvel)
+
+          call chckwvel(model%numerics,                    &
+               model%geomderv,                             &
+               model%velocity_hom%uvel(1,:,:),             &
+               model%velocity_hom%vvel(1,:,:),             &
+               model%velocity%wvel,                        &
+               model%geometry%thck,                        &
+               model%climate% acab)
+
+       end select   ! whichwvel
+
        ! apply periodic ew BC
        if (model%options%periodic_ew) then
           call wvel_ew(model)
@@ -399,7 +453,7 @@ contains
        !*MH model%tempwk%dissip   = 0.0d0  is also set to zero in finddisp
        ! ----------------------------------------------------------------------------------
 
-      call finddisp(model,          &
+       call finddisp(model,          &
             model%geometry%thck,     &
             model%options%which_disp,&
             model%velocity_hom%efvs, &
@@ -438,6 +492,7 @@ contains
        ! zeroth iteration
        iter = 0
        tempresid = 0.0d0
+
        do ns = 2,model%general%nsn-1
           do ew = 2,model%general%ewn-1
              if(model%geometry%thck(ew,ns)>model%numerics%thklim) then
@@ -447,7 +502,7 @@ contains
                    weff = 0.0d0
                 end if
 
-                call hadvpnt(iteradvt,                               &
+                call hadvpnt(iteradvt,                       &
                      diagadvt,                               &
                      model%temper%temp(:,ew-2:ew+2,ns),      &
                      model%temper%temp(:,ew,ns-2:ns+2),      &
@@ -463,20 +518,23 @@ contains
 
                 call findvtri_rhs(model,ew,ns,model%climate%artm(ew,ns),iteradvt,rhsd, &
                      GLIDE_IS_FLOAT(model%geometry%thkmask(ew,ns)))
-                
-                prevtemp = model%temper%temp(:,ew,ns)
+
+                prevtemp(:) = model%temper%temp(:,ew,ns)
 
                 call tridiag(subd(1:model%general%upn), &
-                     diag(1:model%general%upn), &
-                     supd(1:model%general%upn), &
-                     model%temper%temp(1:model%general%upn,ew,ns), &
-                     rhsd(1:model%general%upn))
+                             diag(1:model%general%upn), &
+                             supd(1:model%general%upn), &
+                             model%temper%temp(1:model%general%upn,ew,ns), &
+                             rhsd(1:model%general%upn))
 
-                call corrpmpt(model%temper%temp(:,ew,ns),model%geometry%thck(ew,ns),model%temper%bwat(ew,ns), &
-                     model%numerics%sigma,model%general%upn)
-
+                call corrpmpt(model%temper%temp(:,ew,ns),     &
+                              model%geometry%thck(ew,ns),     &
+                              model%temper%bwat(ew,ns),       &
+                              model%numerics%sigma,           &
+                              model%general%upn)
 
                 tempresid = max(tempresid,maxval(abs(model%temper%temp(:,ew,ns)-prevtemp(:))))
+
              endif
           end do
        end do
@@ -507,7 +565,7 @@ contains
                    call findvtri_rhs(model,ew,ns,model%climate%artm(ew,ns),iteradvt,rhsd, &
                         GLIDE_IS_FLOAT(model%geometry%thkmask(ew,ns)))
 
-                   prevtemp = model%temper%temp(:,ew,ns)
+                   prevtemp(:) = model%temper%temp(:,ew,ns)
 
                    call tridiag(subd(1:model%general%upn), &
                         diag(1:model%general%upn), &
@@ -515,10 +573,15 @@ contains
                         model%temper%temp(1:model%general%upn,ew,ns), &
                         rhsd(1:model%general%upn))
 
-                   call corrpmpt(model%temper%temp(:,ew,ns),model%geometry%thck(ew,ns),model%temper%bwat(ew,ns), &
-                        model%numerics%sigma,model%general%upn)
+                   call corrpmpt(model%temper%temp(:,ew,ns),     &
+                                 model%geometry%thck(ew,ns),     &
+                                 model%temper%bwat(ew,ns),       &
+                                 model%numerics%sigma,           &
+                                 model%general%upn)
 
-                   tempresid = max(tempresid,maxval(abs(model%temper%temp(:,ew,ns)-prevtemp(:))))
+
+                   tempresid = max(tempresid, maxval(abs(model%temper%temp(:,ew,ns)-prevtemp(:))))
+
                 endif
              end do
           end do
@@ -579,6 +642,7 @@ contains
 
        !EIB! rest of case not present in lanl
        ! Transform basal temperature and pressure melting point onto velocity grid -
+!    case(2) ! *sfp* stealing this un-used option ... 
 
 !        call stagvarb(model%temper%temp(model%general%upn,1:model%general%ewn,1:model%general%nsn), &
 !             model%temper%stagbtemp ,&
@@ -607,44 +671,27 @@ contains
 
         ! DO NOTHING. That is, hold T const. at initially assigned value
 
-    end select
-
-    ! Optional temperature smoothing 
- 
-    if (l_smooth_temp) then   ! smooth temperatures 
-       do k = 1, model%general%upn-1 
- 
-          ! layer thickness and temperature 
-          workh(:,:) = model%geometry%thck(:,:) * model%velowk%dups(k) 
-          workt(:,:) = model%temper%temp(k,1:model%general%ewn,1:model%general%nsn) 
- 
-          call temperature_smoothing (model%general%ewn,  model%general%nsn,  &
-                                      model%numerics%dew, model%numerics%dns, & 
-                                      model%numerics%dt,  kdiff,              & 
-                                      workh(:,:),         workt(:,:)) 
- 
-          model%temper%temp(k,1:model%general%ewn,1:model%general%nsn) = workt(:,:) 
- 
-       enddo   ! k 
-    endif      ! l_smooth_temp 
+    end select   ! whichtemp
 
     ! Calculate Glenn's A --------------------------------------------------------
 
-    call calcflwa(model%numerics,        &
-                  model%temper%flwa,     &
-                  model%temper%temp,     &
-                  model%geometry%thck,   &
-                  model%paramets%flow_factor, &
+    call calcflwa(model%numerics%sigma,        &
+                  model%numerics%thklim,       &
+                  model%temper%flwa,           &
+                  model%temper%temp(:,1:model%general%ewn,1:model%general%nsn), &
+                  model%geometry%thck,         &
+                  model%paramets%flow_factor,  &
                   model%paramets%default_flwa, &
                   model%options%whichflwa) 
 
     ! Output some information ----------------------------------------------------
+
 #ifdef DEBUG
     print *, "* temp ", model%numerics%time, iter, model%temper%niter, &
          real(model%temper%temp(model%general%upn,model%general%ewn/2+1,model%general%nsn/2+1))
 #endif
 
-  end subroutine timeevoltemp
+  end subroutine glide_temp_driver
 
   !-------------------------------------------------------------------------
 
@@ -769,6 +816,10 @@ contains
 
     real(dp) :: fact(3)
 
+! These constants are precomputed:
+! model%tempwk%cons(1) = 2.0d0 * tim0 * model%numerics%dttem * coni / (2.0d0 * rhoi * shci * thk0**2)
+! model%tempwk%cons(2) = model%numerics%dttem / 2.0d0 
+
     fact(1) = VERT_DIFF*model%tempwk%cons(1) / model%geometry%thck(ew,ns)**2
     fact(2) = VERT_ADV*model%tempwk%cons(2) / model%geometry%thck(ew,ns)    
     
@@ -809,6 +860,8 @@ contains
 
   end subroutine findvtri
 
+  !-------------------------------------------------------------------------
+
   subroutine findvtri_init(model,ew,ns,subd,diag,supd,weff,temp,thck,float)
     !*FD called during first iteration to set inittemp
     use glimmer_global, only : dp
@@ -838,6 +891,10 @@ contains
        ! sliding contribution to basal heat flux
        slterm = 0.
        slide_count = 0
+
+       !whl - BUG! - The following expression for taub*ubas is valid only for the SIA
+       !             Need a different expression for HO dynamics
+
        ! only include sliding contrib if temperature node is surrounded by sliding velo nodes
        do nsp = ns-1,ns
           do ewp = ew-1,ew
@@ -864,9 +921,13 @@ contains
             - model%tempwk%initadvt(model%general%upn,ew,ns)  &
             + model%tempwk%dissip(model%general%upn,ew,ns)
     end if
+
   end subroutine findvtri_init
 
+  !-----------------------------------------------------------------------
+
   subroutine findvtri_rhs(model,ew,ns,artm,iteradvt,rhsd,float)
+
     !*FD RHS of temperature tri-diag system
     use glimmer_global, only : dp, sp 
     implicit none
@@ -885,139 +946,15 @@ contains
        rhsd(model%general%upn) = model%tempwk%inittemp(model%general%upn,ew,ns) - iteradvt(model%general%upn)
     end if
     rhsd(2:model%general%upn-1) = model%tempwk%inittemp(2:model%general%upn-1,ew,ns) - iteradvt(2:model%general%upn-1)
+
   end subroutine findvtri_rhs
+
   !-----------------------------------------------------------------------
-
-  subroutine finddisp(model,thck,whichdisp,efvs,stagthck,dusrfdew,dusrfdns,flwa)
-
-    use glimmer_global, only : dp
-    use glimmer_physcon, only : gn
-
-    implicit none
-
-    type(glide_global_type) :: model
-    real(dp), dimension(:,:), intent(in) :: thck, stagthck, dusrfdew, dusrfdns
-    real(dp), dimension(:,:,:), intent(in) :: flwa, efvs
-    integer, intent(in) :: whichdisp
-
-    integer, parameter :: p1 = gn + 1  
-    integer :: ew, ns
-    integer :: iew, ins    !*sfp* for HO and SSA dissip. calc.
-
-    real(dp) :: c2 
-
-    !*sfp* The next 2 declarations needed for HO and SSA dissip. calc. ... only needed 
-    ! for internal work, so not clear if it is necessary to declare/allocate them elsewhere 
-    real(dp) :: c4                         
-    real (kind = dp), dimension(model%general%upn) :: c5     
-
-    select case( whichdisp ) 
-
-    case( SIA_DISP )
-    !*sfp* 0-order SIA case only 
-    ! two methods of doing this. 
-    ! 1. find dissipation at u-pts and then average
-    ! 2. find dissipation at H-pts by averaging quantities from u-pts
-    ! 2. works best for eismint divide (symmetry) but 1 likely to be better for full expts
-
-
-    model%tempwk%dissip = 0.0d0
-    
-    do ns = 2, model%general%nsn-1
-       do ew = 2, model%general%ewn-1
-          if (thck(ew,ns) > model%numerics%thklim) then
-             
-             c2 = (0.25*sum(stagthck(ew-1:ew,ns-1:ns)) * dsqrt((0.25*sum(dusrfdew(ew-1:ew,ns-1:ns)))**2 &
-                  + (0.25*sum(dusrfdns(ew-1:ew,ns-1:ns)))**2))**p1
-             
-             model%tempwk%dissip(:,ew,ns) = c2 * model%tempwk%c1 * ( &
-                  flwa(:,ew-1,ns-1) + flwa(:,ew-1,ns+1) + flwa(:,ew+1,ns+1) + flwa(:,ew+1,ns-1) + &
-                  2*(flwa(:,ew-1,ns)+flwa(:,ew+1,ns)+flwa(:,ew,ns-1)+flwa(:,ew,ns+1)) + &
-                  4*flwa(:,ew,ns))             
-          end if
-       end do
-    end do
-    !the compensatory heating(compheat) is initialized to zero and allows
-    !for modifying the calculated dissip.  This is needed for exact verification tests,
-    !model%tempwk%dissip = model%tempwk%dissip + model%tempwk%compheat 
-
-    case( FIRSTORDER_DISP )
-    !*sfp* 1st-order, NON-depth integrated SIA case only (Pattyn, Payne-Price models) 
-    ! NOTE: this needs tau and efvs (3d arrays), which are the eff. stress and the eff. visc. calculated
-    ! from and/or consistent with the HO model. For simplicity, tau can be calculated from: tau = 2*efvs*eps_eff,
-    ! where eps_eff is the eff. strain rate. Further, eps_eff can be calculated from the efvs according to a 
-    ! re-arrangement of: efvs = 1/2 * ( 1 / A(T) )^(1/n) * eps_eff^((1-n)/n), in which case only the efvs and rate
-    ! factor arrays need to be passed in for this calculation.
-    model%tempwk%dissip = 0.0d0
-    do ns = 1, model%general%nsn
-       do ew = 1, model%general%ewn
-          if (thck(ew,ns) > model%numerics%thklim) then
-            c5 = 0.0d0
-                if ( sum( efvs(:,ew,ns) ) .ne. 0.0d0) then
-
-                ! (1) use space in c5 vector to store dissip terms that actually apply at midpoints of vert coord vector 
-                ! (i.e. on staggered vertical grid) ...
-
-                ! NOTE: efvs is defined w/ vert grid dims of upn, but in glam it only has vert dim of upn-1
-                ! because values apply at cell centers in vert. Need to rectify this w/ PB&J HO code, but for
-                ! now the simple fix is that we store efvs in only the first (1:upn-1,:,:) locations of the 3d array.
-       
-                ! Note that this is also still a hack in that we only calc. dissip values for cells 2:upn-1, and
-                ! the dissip value at 1 and upn are obtained by extrapolation.           
-
-                    c5(2:model%general%upn) = c5(2:model%general%upn) + model%velocity_hom%tau%scalar(:,ew,ns)**2 / &
-                                              efvs(1:model%general%upn-1,ew,ns)
-
-                ! (2) average these to points that correspond to vert grid spaces up(2:upn-1) ...  
-                    c5(2:model%general%upn-1) = ( c5(3:model%general%upn) + c5(2:model%general%upn-1) ) / 2.0d0
-
-                !! (3) extrapolate values at up=1 and up=upn by assuming linear gradient and const grid spacing
-                !    c5(1) = c5(2) + ( c5(2) - c5(3) )   
-                !    c5(upn) = c5(upn-1) + ( c5(upn-1) - c5(upn-2) )
-
-                ! (3) extrapolate values at up=1 and up=upn by using second-order, one-sided diffs. to approx. gradient
-                    c5(1) = c5(2) - ( -3.0d0*c5(2) + 4.0d0*c5(3) - c5(4) ) / 2.0d0
-                    c5(model%general%upn) = c5(model%general%upn-1) + ( 3.0d0*c5(model%general%upn-1) - &
-                                            4.0d0*c5(model%general%upn-2) + c5(model%general%upn-3) ) / 2.0d0
-
-                    if ( c5(1) .lt. 0.0d0 ) then; c5(1) = 0.0d0; end if      ! gaurd against extrapolated dissip. term < 0 
-
-                end if
-            model%tempwk%dissip(:,ew,ns) = c5 * model%tempwk%cons(5)
-          end if
-       end do
-    end do
-
-!   case( SSA_DISP )     !!! Waiting for an SSA solver !!!
-!    !*sfp* 1st-order, depth-integrated case only (SSA model) 
-!    ! NOTE: this needs taus and efvss (2d arrays), which are depth-integrated and averaged 
-!    ! effective stress and effective viscosity fields calculated from and/or consistent
-!    ! with the SSA model.
-!
-!    model%tempwk%dissip = 0.0d0
-!    do ns = 2, model%general%nsn-1
-!       do ew = 2, model%general%ewn-1
-!          if (thck(ew,ns) > model%numerics%thklim) then
-!            c4 = 0.0d0
-!            do ins = ns-1,ns; do iew = ew-1,ew; 
-!                if (efvss(iew,ins) .ne. 0.0d0) then                     
-!                    c4 = c4 + taus(iew,ins)**2 / efvss(iew,ins)
-!                end if; 
-!            end do; end do
-!            model%tempwk%dissip(:,ew,ns) = c4 * model%tempwk%cons(5)
-!          end if
-!       end do
-!    end do
-
-    end select
-
-  end subroutine finddisp
-
-  !-----------------------------------------------------------------------------------
 
   subroutine calcbmlt(model,whichbmelt,temp,thck,stagthck,dusrfdew,dusrfdns,ubas,vbas,bmlt,floater)
 
     use glimmer_global, only : dp 
+    use glide_temp_utils, only: calcpmpt
 
     implicit none 
 
@@ -1030,9 +967,8 @@ contains
 
     real(dp), dimension(size(model%numerics%sigma)) :: pmptemp
     real(dp) :: slterm, newmlt
-
  
-    integer :: ewp, nsp,up,ew,ns
+    integer :: ewp, nsp, up, ew, ns
 
     do ns = 2, model%general%nsn-1
        do ew = 2, model%general%ewn-1
@@ -1066,10 +1002,19 @@ contains
                         ! so that for now, basal vel at upn is multiplied by basal stress at upn-1 to get frictional
                         ! heating term. This may not be entirely correct ... 
                              slterm = slterm - &
-                                ( model%velocity_hom%tau%xz(model%general%upn-1,ewp,nsp) * &
-                                  model%velocity_hom%uvel(model%general%upn,ewp,nsp) + &
-                                  model%velocity_hom%tau%yz(model%general%upn-1,ewp,nsp) * &
-                                  model%velocity_hom%vvel(model%general%upn,ewp,nsp) )
+                                
+                                !! NEW version: uses consistent basal tractions                
+                                ( -model%velocity_hom%btraction(1,ewp,nsp) * &
+                                   model%velocity_hom%uvel(model%general%upn,ewp,nsp)  &
+                                  -model%velocity_hom%btraction(2,ewp,nsp) * &
+                                   model%velocity_hom%vvel(model%general%upn,ewp,nsp) )
+                                
+                                !!!! OLD version: uses HO basal shear stress calc. from FD                
+                                !( model%velocity_hom%tau%xz(model%general%upn-1,ewp,nsp) * &
+                                !  model%velocity_hom%uvel(model%general%upn,ewp,nsp) + &
+                                !  model%velocity_hom%tau%yz(model%general%upn-1,ewp,nsp) * &
+                                !  model%velocity_hom%vvel(model%general%upn,ewp,nsp) )
+
                         end do
                     end do
 
@@ -1093,9 +1038,15 @@ contains
                 !*sfp* changed this so that 'slterm' is multiplied by f(4) const. above ONLY for the 0-order SIA case,
                 ! since for the HO and SSA cases a diff. const. needs to be used
 
-                newmlt = slterm - model%tempwk%f(2)*model%temper%bheatflx(ew,ns) + model%tempwk%f(3) * &
-                     model%tempwk%dupc(model%general%upn) * &
-                     thck(ew,ns) * model%tempwk%dissip(model%general%upn,ew,ns)
+                ! OLD version
+!                newmlt = model%tempwk%f(4) * slterm - model%tempwk%f(2)*model%temper%bheatflx(ew,ns) + model%tempwk%f(3) * &
+!                     model%tempwk%dupc(model%general%upn) * &
+!                     thck(ew,ns) * model%tempwk%dissip(model%general%upn,ew,ns)
+
+                ! NEW version (sfp)
+                newmlt = slterm - model%tempwk%f(2)*model%temper%bheatflx(ew,ns)   &
+                        + model%tempwk%f(3) * model%tempwk%dupc(model%general%upn) * &
+                          thck(ew,ns) * model%tempwk%dissip(model%general%upn,ew,ns)
 
                 up = model%general%upn - 1
 
@@ -1135,6 +1086,7 @@ contains
     end do
 
     ! apply periodic BC
+
     if (model%options%periodic_ew) then
        do ns = 2,model%general%nsn-1
           bmlt(1,ns) = bmlt(model%general%ewn-1,ns)
@@ -1144,378 +1096,6 @@ contains
   end subroutine calcbmlt
 
 !-------------------------------------------------------------------
-  subroutine corrpmpt(temp,thck,bwat,sigma,upn)
 
-    use glimmer_global, only : dp
-
-    implicit none 
-
-    real(dp), dimension(:), intent(inout) :: temp
-    real(dp), intent(in) :: thck, bwat
-    integer,intent(in) :: upn
-    real(dp),dimension(:),intent(in) :: sigma
-
-    real(dp), dimension(:) :: pmptemp(size(temp))
-
-    ! corrects a temperature column for melting point effects
-    ! 1. if temperature at any point in column is above pressure melting point then 
-    ! set temperature to pressure melting point 
-    ! 2. if bed is wet set basal temperature to pressure melting point 
-
-    call calcpmpt(pmptemp,thck,sigma)
-
-    temp = dmin1(temp,pmptemp)
-
-    if (bwat > 0.0d0) temp(upn) = pmptemp(upn)
-
-  end subroutine corrpmpt
-
-  !-------------------------------------------------------------------
-
-  subroutine calcpmpt(pmptemp,thck,sigma)
-
-    !*FD Returns the pressure melting point of water (degC)
-
-    use glimmer_global, only : dp !, upn
-    use glimmer_physcon, only : rhoi, grav, pmlt 
-    use glimmer_paramets, only : thk0
-
-    implicit none 
-
-    real(dp), dimension(:), intent(out) :: pmptemp
-    real(dp), intent(in) :: thck
-    real(dp),intent(in),dimension(:) :: sigma
-
-    real(dp), parameter :: fact = - grav * rhoi * pmlt * thk0
-
-    pmptemp = fact * thck * sigma
-
-  end subroutine calcpmpt
-
-  !-------------------------------------------------------------------
-
-  subroutine calcpmptb(pmptemp,thck)
-
-    use glimmer_global, only : dp
-    use glimmer_physcon, only : rhoi, grav, pmlt 
-    use glimmer_paramets, only : thk0
-
-    implicit none 
-
-    real(dp), intent(out) :: pmptemp
-    real(dp), intent(in) :: thck
-
-    real(dp), parameter :: fact = - grav * rhoi * pmlt * thk0
-
-    pmptemp = fact * thck 
-
-  end subroutine calcpmptb
-
-  !-------------------------------------------------------------------
-
-  subroutine swchpnt(a,b,c,d,e)
-
-    implicit none 
-
-    integer, intent(inout) :: a, b, c 
-    integer, intent(in) :: d, e
-
-    if (a == d) then
-       a = e
-       b = d
-       c = -1
-    else
-       a = d
-       b = e
-       c = 1
-    end if
-
-  end subroutine swchpnt
-
-  !-------------------------------------------------------------------
-
-  subroutine swapbndt(bc,a,b,c,d)
-
-    use glimmer_global, only : dp
-
-    implicit none
-
-    real(dp), intent(out), dimension(:,:) :: a, c
-    real(dp), intent(in), dimension(:,:) :: b, d
-    integer, intent(in) :: bc
-
-    if (bc == 0) then
-       a = b
-       c = d
-    end if
-
-  end subroutine swapbndt
-
-!-------------------------------------------------------------------
-!lipscomb - new subroutine for smoothing temperatures
- 
-  subroutine temperature_smoothing (ewn,      nsn,    &
-                                    dew,      dns,    &
-                                    dt,       kdiff,  &
-                                    hice,     tice)
- 
-!-------------------------------------------------------------------
-! Smooth temperatures using Laplacian operator:
-!
-! dT/dt = (1/h)*K*del2(hT) where K = numerical diffusivity
-!                                  = coni/rhoi*shci * enhancement factor
-! 
-! Actually, K should have a factor of [len0]^2 in the denominator, but
-! this is cancelled by a factor of [len0]^2 in the Laplacian operator.
-!
-! Setting the enhancement factor to 1.0 gives the physical diffusivity,
-! which in most cases is negligible.
-!
-! Note: This subroutine assumes that the outer layer of cells has no ice
-!        or is a ghost layer.
-!       Temperatures are updated for i = 2 to ewn-1 and for j = 2 to nsn-1.
-!
-! Author: William Lipscomb, LANL
-!-------------------------------------------------------------------
- 
-    ! Input-output variables
- 
-    integer, intent(in) ::   &
-         ewn, nsn       ! no. of grid points in EW and NS directions
- 
-    real(dp), intent(in) ::   &
-         dew, dns,     &! grid cell dimensions
-         dt,           &! time step
-         kdiff          ! diffusivity
- 
-    real(dp), dimension(ewn,nsn), intent(in) ::   &
-         hice           ! ice layer thickness
- 
-    real(dp), dimension(ewn,nsn), intent(inout) ::   &
-         tice           ! ice layer temperature
- 
-    ! Local variables
- 
-    integer ::  i, j
- 
-    real(dp), parameter ::   &
-         c0 = 0.0_dp
- 
-    real(dp), dimension(ewn,nsn) ::    &
-         fx, fy          ! fluxes across cell edges
- 
-    real(dp) ::   &
-         flxcnv          ! flux convergence
- 
-    ! Compute flux of h*T across each cell edge (apart from factor of dt * kdiff)
- 
-    do j = 1, nsn-1
-       do i = 1, ewn-1
-          fx(i,j) = min(hice(i,j), hice(i+1,j)) * (tice(i,j) - tice(i+1,j)) / dew
-          fy(i,j) = min(hice(i,j), hice(i,j+1)) * (tice(i,j) - tice(i,j+1)) / dns
-       enddo
-    enddo
- 
-    ! Compute new temperatures
- 
-    do j = 2, nsn-1
-       do i = 2, ewn-1
-          if (hice(i,j) > c0) then
-             flxcnv = (fx(i-1,j) - fx(i,j) + fy(i,j-1) - fy(i,j)) * dt * kdiff
-             tice(i,j) = (hice(i,j)*tice(i,j) + flxcnv) / hice(i,j)
-          else
-             flxcnv = c0
-          endif
-    ! Bug check
-          if (abs(flxcnv) > abs(hice(i,j)*tice(i,j))) then
-             write(6,*) 'Excessive flux: i, j, hice, tice, flxcnv:',   &
-                         i, j, hice(i,j), tice(i,j), flxcnv
-             stop
-          endif
-       enddo
-    enddo
- 
-    end subroutine temperature_smoothing
-
-!------------------------------------------------------------------------------------------
-
-  subroutine calcflwa(numerics,flwa,temp,thck,flow_factor,default_flwa_arg,flag)
-
-    !*FD Calculates Glenn's $A$ over the three-dimensional domain,
-    !*FD using one of three possible methods.
-
-    use glimmer_physcon
-    use glimmer_paramets, only : thk0, vis0
-
-    implicit none
-
-    !------------------------------------------------------------------------------------
-    ! Subroutine arguments
-    !------------------------------------------------------------------------------------
-
-    type(glide_numerics),     intent(in)    :: numerics  !*FD Derived type containing
-                                                           !*FD model numerics parameters
-    real(dp),dimension(:,:,:),  intent(out)   :: flwa      !*FD The calculated values of $A$
-    real(dp),dimension(:,0:,0:),intent(in)    :: temp      !*FD The 3D temperature field
-    real(dp),dimension(:,:),    intent(in)    :: thck      !*FD The ice thickness
-    real(dp)                                  :: flow_factor !*FD Fudge factor in arrhenius relationship
-    real(dp),                   intent(in)    :: default_flwa_arg !*FD Glen's A to use in isothermal case 
-    integer,                    intent(in)    :: flag      !*FD Flag to select the method
-                                                           !*FD of calculation:
-    !*FD \begin{description}
-    !*FD \item[0] {\em Paterson and Budd} relationship.
-    !*FD \item[1] {\em Paterson and Budd} relationship, with temperature set to
-    !*FD -5$^{\circ}$C.
-    !*FD \item[2] Set constant, {\em but not sure how this works at the moment\ldots}
-    !*FD \end{description}
-
-    !------------------------------------------------------------------------------------
-    ! Internal variables
-    !------------------------------------------------------------------------------------
-
-    real(dp), parameter :: fact = grav * rhoi * pmlt * thk0
-    real(dp), parameter :: contemp = -5.0d0
-    real(dp) :: default_flwa
-    real(dp), dimension(size(numerics%sigma)) :: tempcor
-    real(dp),dimension(4) :: arrfact
-    integer :: ew,ns,up,ewn,nsn,upn
-
-    !------------------------------------------------------------------------------------
-    
-    default_flwa = flow_factor * default_flwa_arg / (vis0*scyr) 
-
-    upn=size(flwa,1) ; ewn=size(flwa,2) ; nsn=size(flwa,3)
-
-    !------------------------------------------------------------------------------------
-    !write(*,*)"Default flwa = ",default_flwa
-    arrfact = (/ flow_factor * arrmlh / vis0, &   ! Value of a when T* is above -263K
-                 flow_factor * arrmll / vis0, &   ! Value of a when T* is below -263K
-                 -actenh / gascon,        &       ! Value of -Q/R when T* is above -263K
-                 -actenl / gascon/)               ! Value of -Q/R when T* is below -263K
- 
-    select case(flag)
-    case(FLWA_PATTERSON_BUDD)
-
-      ! This is the Paterson and Budd relationship
-
-      do ns = 1,nsn
-        do ew = 1,ewn
-          if (thck(ew,ns) > numerics%thklim) then
-            
-            ! Calculate the corrected temperature
-
-            tempcor = min(0.0d0, temp(:,ew,ns) + thck(ew,ns) * fact * numerics%sigma)
-            tempcor = max(-50.0d0, tempcor)
-
-            ! Calculate Glenn's A
-
-            call patebudd(tempcor,flwa(:,ew,ns),arrfact) 
-          else
-            flwa(:,ew,ns) = default_flwa
-          end if
-        end do
-      end do
-
-    case(FLWA_PATTERSON_BUDD_CONST_TEMP)
-
-      ! This is the Paterson and Budd relationship, but with the temperature held constant
-      ! at -5 deg C
-
-      do ns = 1,nsn
-        do ew = 1,ewn
-          if (thck(ew,ns) > numerics%thklim) then
-
-            ! Calculate Glenn's A with a fixed temperature.
-
-            call patebudd((/(contemp, up=1,upn)/),flwa(:,ew,ns),arrfact) 
-          else
-            flwa(:,ew,ns) = default_flwa
-          end if
-        end do
-      end do
-
-    case(FLWA_CONST_FLWA) 
-
-      flwa = default_flwa
-  
-    end select
-
-  end subroutine calcflwa 
-
-!------------------------------------------------------------------------------------------
-
-  subroutine patebudd(tempcor,calcga,fact)
-
-    !*FD Calculates the value of Glenn's $A$ for the temperature values in a one-dimensional
-    !*FD array. The input array is usually a vertical temperature profile. The equation used
-    !*FD is from \emph{Paterson and Budd} [1982]:
-    !*FD \[
-    !*FD A(T^{*})=a \exp \left(\frac{-Q}{RT^{*}}\right)
-    !*FD \]
-    !*FD This is equation 9 in {\em Payne and Dongelmans}. $a$ is a constant of proportionality,
-    !*FD $Q$ is the activation energy for for ice creep, and $R$ is the universal gas constant.
-    !*FD The pressure-corrected temperature, $T^{*}$ is given by:
-    !*FD \[
-    !*FD T^{*}=T-T_{\mathrm{pmp}}+T_0
-    !*FD \] 
-    !*FD \[
-    !*FD T_{\mathrm{pmp}}=T_0-\sigma \rho g H \Phi
-    !*FD \]
-    !*FD $T$ is the ice temperature, $T_{\mathrm{pmp}}$ is the pressure melting point 
-    !*FD temperature, $T_0$ is the triple point of water, $\rho$ is the ice density, and 
-    !*FD $\Phi$ is the (constant) rate of change of melting point temperature with pressure.
-
-    use glimmer_physcon, only : trpt
-
-    implicit none
-
-    !------------------------------------------------------------------------------------
-    ! Subroutine arguments
-    !------------------------------------------------------------------------------------
-
-    real(dp),dimension(:), intent(in)    :: tempcor  !*FD Input temperature profile. This is 
-                                                     !*FD {\em not} $T^{*}$, as it has $T_0$
-                                                     !*FD added to it later on; rather it is
-                                                     !*FD $T-T_{\mathrm{pmp}}$.
-    real(dp),dimension(:), intent(out)   :: calcga   !*FD The output values of Glenn's $A$.
-    real(dp),dimension(4), intent(in)    :: fact     !*FD Constants for the calculation. These
-                                                     !*FD are set when the velo module is initialised
-
-    !------------------------------------------------------------------------------------
-
-    ! Actual calculation is done here - constants depend on temperature -----------------
-
-    where (tempcor >= -10.0d0)         
-      calcga = fact(1) * exp(fact(3) / (tempcor + trpt))
-    elsewhere
-      calcga = fact(2) * exp(fact(4) / (tempcor + trpt))
-    end where
-
-  end subroutine patebudd
-
-  !-----------------------------------------------------------------------------------
-
-  !EIB! frm gc2
-  subroutine calcbpmp(model,thck,bpmp)
-
-    ! Calculate the pressure melting point at the base of the ice sheet
-
-    type(glide_global_type) :: model
-    real(dp), dimension(:,:), intent(in)  :: thck
-    real(dp), dimension(:,:), intent(out) :: bpmp
-
-    integer :: ew,ns
-
-    bpmp = 0.0
-
-    do ns = 2, model%general%nsn-1
-       do ew = 2, model%general%ewn-1
-          call calcpmptb(bpmp(ew,ns),thck(ew,ns))
-       end do
-    end do
-
-  end subroutine calcbpmp
-
- 
 end module glide_temp
 

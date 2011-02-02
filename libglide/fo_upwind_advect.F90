@@ -10,6 +10,7 @@ module fo_upwind_advect
     use glimmer_paramets, only: sp, dp, len0, thk0, tim0, vel0, tim0, acc0, scyr
     use glide_types
     use glide_velo_higher  
+!    use glide_thck
 
     private
     public :: fo_upwind_advect_init, fo_upwind_advect_driver, fo_upwind_advect_final
@@ -76,9 +77,15 @@ module fo_upwind_advect
 
         type(glide_global_type), intent(inout) :: model
 
-        ! get velocities and fluxes from HO dynamic subroutines
-        ! ('run_ho_diagnostic' lives in 'glide_velo_higher.F90')
-        call run_ho_diagnostic(model)   
+        ! Compute the new geometry derivatives for this time step
+!        call geometry_derivs(model)
+!        call geometry_derivs_unstag(model)
+
+        print *, ' '
+        print *, '(dH/dt using first-order upwinding)'
+        print *, 'time = ', model%numerics%time
+
+        call run_ho_diagnostic(model)   ! get velocities and fluxes from HO dynamic subroutines
 
         ! driver subroutine for 1st-order advection scheme (lives below)
         call fo_upwind_advect_main( model%geometry%thck,    model%geomderv%stagthck,    &
@@ -194,7 +201,7 @@ module fo_upwind_advect
 
     thck = thck_old + ( 1 / (dns * dew) * flux_net ) * dt + (acab * dt)
 
-!    ! debugging
+    ! debugging
 !    print *, ' '
 !    print *, 'net volume change = ', sum( (thck-thck_old)*mask )*thk0 *dew*dns*len0**2 
 !    print *, 'net calving flux = ', sum( thck * (1.0d0-mask) )*thk0*dew*dns*len0**2
@@ -203,7 +210,7 @@ module fo_upwind_advect
 !    print *, 'mean dH/dt = ', sum( (thck-thck_old)*mask )*thk0 / sum(mask) / (dt*tim0) * scyr
 !    print *, 'sum of flux change (should be ~0) = ', sum( flux_net*vel0*thk0*len0 ) 
 !    print *, ' '
-!!    pause
+!    pause
 
     thck = thck * mask               ! remove any mass advected outside of initial domain
 
