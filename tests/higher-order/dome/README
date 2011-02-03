@@ -49,3 +49,4 @@ configuration file that specifies netCDF files (with names ending ".nc") are
 to be written in the current directory, they will get moved to the "scratch"
 subdirectory after they are written.
 
+(last edited on 2-3-11 by SFP)

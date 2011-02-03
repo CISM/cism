@@ -7,6 +7,8 @@
 # 3. Move any additional files written by Glimmer to the "scratch" subdirectory.
 # Written by Glen Granzow at the University of Montana on April 13, 2010
 
+# Slight alterations by SFP on 2-3-11 for Glimmer-CISM 2.0 relase
+
 import sys, os, glob, shutil, numpy
 from netCDF import *
 from math import sqrt
