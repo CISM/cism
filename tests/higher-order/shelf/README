@@ -6,6 +6,11 @@ experiments.
 Confined Shelf Experiment
 =========================
 
+Note that this test case has been slightly altered from its previous form. 
+That is, the setup is now consistent with tests 3 & 4 from the more "simple"
+(i.e. not Ross) EISMINT-shelf test cases. More info on these can be found at:
+http://homepages.vub.ac.be/~phuybrec/eismint/iceshelf.html
+
 To run the confined shelf experiment, enter the following on a terminal 
 command line:
 
