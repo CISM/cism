@@ -1178,7 +1178,18 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
 
   case(1)       ! set the eff visc to some const value 
 
-    efvs = 1.0_dp
+!   *sfp* changed default setting for linear viscosity so that the value of the rate
+!   factor is taken into account
+!    efvs = 1.0_dp
+  do ns = 2,nsn-1
+      do ew = 2,ewn-1
+       if (thck(ew,ns) > 0.0_dp) then
+        efvs(1:upn-1,ew,ns) = 0.5_dp * flwa(1:upn-1,ew,ns)**(-1.0_dp)
+        else
+           efvs(:,ew,ns) = effstrminsq ! if the point is associated w/ no ice, set to min value
+       end if
+      end do
+  end do
 
   end select
 
@@ -2356,8 +2367,8 @@ subroutine bodyset(ew,  ns,  up,           &
     ! That is achieved in the following if construct ...
 
 !    if( cc < 10 )then   ! use this to "pre-condition" the shelf BC w/ the simple, 1d version
-    if( cc >= 0 )then   ! use this to use only the 1d version
-!    if( cc > 1000000 )then   ! use this to go straight to the full 2d version of the bc
+!    if( cc >= 0 )then   ! use this to use only the 1d version
+    if( cc > 1000000 )then   ! use this to go straight to the full 2d version of the bc
 
     ! --------------------------------------------------------------------------------------
     ! (1) source term (strain rate at shelf/ocean boundary) from Weertman's analytical solution 
