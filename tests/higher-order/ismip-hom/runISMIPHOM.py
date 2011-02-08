@@ -41,6 +41,7 @@ if __name__ == '__main__':
   parser.add_option('-r','--run',dest='executable',default='simple_glide',help='Set path to the GLIMMER executable (defaults to simple_glide)')
   parser.add_option('-p','--prefix',dest='prefix',default='glm1',help='Prefix to use for model output files (defaults to glm1)')
   parser.add_option('-f','--format-only',dest='format_only',action='store_true',help='Generate the config and NetCDF input files only')
+  parser.add_option('-q','--periodic',dest='periodic',type='int',help='if specified then use OLD version of periodic bcs')
   options, args = parser.parse_args()
 # If the user didn't specify a list of experiments or domain sizes, run the whole suite
   if options.experiments == None: options.experiments = defaultExperiments
@@ -68,12 +69,17 @@ if __name__ == '__main__':
         nx = ny = options.horizontal_grid_size
         configParser.set('grid','ewn',str(nx))
         configParser.set('grid','nsn',str(ny))
+# *sfp* Added option to run on 3x peridoc domain (to avoid issues w/ periodic bcs)
+      if options.periodic == None:
+        factor = 3    
+      else:
+        factor = 1    
 #     Set the grid spacing in the horizontal directions
 #     Glimmer's periodic boundary conditions seem to be messed up so
 #     the grids used here are something of a hack.
 #     They were copied from a previous script (verify.py)
-      dx = size*1000/(nx-1)
-      dy = size*1000/(ny-1)
+      dx = size*1000/(nx-1)*factor
+      dy = size*1000/(ny-1)*factor
       configParser.set('grid','dew',str(dx))
       configParser.set('grid','dns',str(dy))
 #     Specify the netCDF input and output filenames
@@ -148,7 +154,7 @@ if __name__ == '__main__':
         a0 = 100
         sigma2 = 10000**2
 
-      omega = 2*pi / (size*1000)
+      omega = 2*pi / (size*1000)      
       for y in yy:
         row = list()
         for x in xx:
@@ -200,12 +206,25 @@ if __name__ == '__main__':
           data = [(netCDFfile.variables[v[0]],v[1]) for v in variables]
 
 #         Write a "standard" ISMIP-HOM file (example file name: "glm1a020.txt") in the "output" subdirectory 
+          nx0 = nx - 1
+          ny0 = ny - 1
+
           ISMIP_HOMfilename = os.path.join('output',options.prefix+experiment+'%03d'%size+'.txt')
           ISMIP_HOMfile = open(ISMIP_HOMfilename,'w')
-          for i in range(nx-2):
-            x = float(i)/(nx-3)   # In a more perfect world: x = (i+0.5)/(nx-2)
-            for j in range(ny-2):
-              y = float(j)/(ny-3) # In a more perfect world: y = (j+0.5)/(ny-2)
+#          for i in range(nx-2):
+          for i in range( nx0/factor-1, nx0/factor-1+nx0/factor+1 ):
+
+#            x = float(i)/(nx-3)   # In a more perfect world: x = (i+0.5)/(nx-2)
+            x = float(i)/(nx0/factor)
+            x = x - float(nx0/factor-1) / float(nx0/factor)  
+
+#            for j in range(ny-2):
+            for j in range( ny0/factor-1, ny0/factor-1+ny0/factor+1 ):
+
+#              y = float(j)/(ny-3) # In a more perfect world: y = (j+0.5)/(ny-2)
+              y = float(j)/(ny0/factor)
+              y = y - float(ny0/factor-1) / float(ny0/factor) 
+
               if netCDF_module == 'Scientific.IO.NetCDF':
                 if experiment in ('a','c'):
                   ISMIP_HOMfile.write('\t'.join(map(str,[x,y]+[v[0,level,j,i][0] for (v,level) in data]))+'\n')
