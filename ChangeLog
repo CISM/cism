@@ -1,3 +1,9 @@
+2011-02-09 Magnus Hagdorn
+ * PyGC/PyGC/GC_options.py: make var method public
+ * PyGC/progs/Makefile.am: add new program
+ * PyGC/progs/compareGCvar: new program to display difference in a variable
+   between two files
+ 
 2011-01-12 Magnus Hagdorn
  * Makefile.am: remove gold standard distribution directory once tar-balled
  * configure.in: make sure path to gold standard is absolute

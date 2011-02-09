@@ -86,7 +86,7 @@ class GCOptParser(optparse.OptionParser):
         group.add_option("--slc",dest='slcfile',metavar="FILE",type="string",help="Name of file containing SLC forcing")
         self.add_option_group(group)
 
-    def __var(self):
+    def var(self):
         # variable options
         self.add_option("-v","--variable",metavar='NAME',action='append',type="string",dest='vars',help="variable to be processed (this option can be used more than once), append _avg to get the vertically integrated average")
         self.add_option("-l","--level",metavar="LEV",type='int',dest='level',help='level to be plotted')
@@ -113,13 +113,13 @@ class GCOptParser(optparse.OptionParser):
     def variable(self):
         """Variable option."""
 
-        self.__var()
+        self.var()
         self.var_options()
         
     def spot(self):
         """Spot options."""
 
-        self.__var()
+        self.var()
         self.add_option("--ij",dest='ij',metavar="I J",type="int",nargs=2,action='append',help="node to be plotted (this option can be used more than once)")
 
     def profile_file(self,plist=False):
@@ -140,7 +140,7 @@ class GCOptParser(optparse.OptionParser):
         vars: set to False if only profile is needed"""
 
         if vars:
-            self.__var()
+            self.var()
         self.profile_file()
         self.add_option("--showpmp",action="store_true", dest="showpmp",default=False,help='Indicate pressure melting point of ice (only used for temperatures)')
         try:
