@@ -38,6 +38,9 @@ module glide_stop
   use remap_glamutils
   use fo_upwind_advect, only : fo_upwind_advect_final
 
+  ! *mb* added
+  use glam_Basal_Proc, only : Basal_Proc_final
+
   implicit none
   !*FD module containing finalisation of glide
   !*FD this subroutine had to be split out from glide.f90 to avoid
@@ -150,6 +153,12 @@ contains
     if (model%options%whichevol== EVOL_FO_UPWIND ) then
         call fo_upwind_advect_final()
     endif
+
+    ! *mb* added; finalization of Basal Proc module
+    if (model%options%which_bmod == BAS_PROC_FULLCALC .or. &
+        model%options%which_bmod == BAS_PROC_FASTCALC) then
+        call Basal_Proc_final (model%basalproc)
+    end if  
 
     call glide_deallocarr(model)
     call deregister_model(model)

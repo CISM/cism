@@ -43,8 +43,10 @@ module glint_main
   use glimmer_anomcouple
 #ifdef GLC_DEBUG
   use glide_diagnostics
-  use glimmer_paramets, only: itest, jtest, jjtest, stdout  
+  use glimmer_paramets, only: itest, jtest, jjtest, stdout, idiag, jdiag
 #endif
+
+  use glide_diagnostics
 
   ! ------------------------------------------------------------
   ! GLIMMER_PARAMS derived type definition
@@ -259,12 +261,12 @@ contains
                                            svf_temp,  sd_temp, alb_temp      ! Temporary output arrays
     integer,dimension(:),allocatable :: mbts,idts ! Array of mass-balance and ice dynamics timesteps
     logical :: anomaly_check ! Set if we've already initialised anomaly coupling
+    real(rk) :: timeyr       ! time in years
 
     real(rk),dimension(:,:,:),allocatable ::   &
                gfrac_temp, gtopo_temp, grofi_temp, grofl_temp, ghflx_temp    ! Temporary output arrays
     integer :: n
     integer :: nec       ! number of elevation classes
-    real(rk):: timeyr    ! time in years
     integer :: j, ii, jj
 
 #ifdef GLC_DEBUG
@@ -1105,7 +1107,7 @@ contains
 #endif
           endif
 
-       enddo
+       enddo    ! ninstances
 
        ! Scale output water fluxes to be in mm/s
 

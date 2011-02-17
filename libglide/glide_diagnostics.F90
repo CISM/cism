@@ -32,13 +32,12 @@ module glide_diagnostics
   ! Author: William Lipscomb, LANL 
  
 contains
- 
   subroutine glide_write_diag (model, time, idiag, jdiag)
     !*FD Writes diagnostic output
  
     use glimmer_log
     use glimmer_paramets, only: thk0, len0, vel0, tim0
-    use glimmer_physcon, only: scyr
+    use glimmer_physcon, only: scyr, rhoi, shci
     use glide_types
  
     implicit none
@@ -51,18 +50,15 @@ contains
          tot_area,       &    ! total ice area (km^2)
          tot_volume,     &    ! total ice volume (km^3)
          tot_energy,     &    ! total ice energy (J)
-         tot_age,        &    ! sum of volume*age
          max_thck,       &    ! max ice thickness (m)
          min_temp,       &    ! min ice temperature (deg C)
          mean_thck,      &    ! mean ice thickness (m)
          mean_temp,      &    ! mean ice temperature (deg C)
-         mean_age,       &    ! mean ice age (yr)
          max_spd_sfc,    &    ! max surface ice speed (m/yr)
          max_spd_bas,    &    ! max basal ice speed (m/yr)
          thck,           &    ! thickness
-         spd,            &    ! speed
-         age                  ! age
- 
+         spd                  ! speed
+
     integer :: i, j, k,            &
                imin, jmin, kmin,   &
                imax, jmax, kmax,   &
@@ -77,6 +73,7 @@ contains
     nsn = model%general%nsn
     upn = model%general%upn
  
+    ! If running HO 
     !-----------------------------------------------------------------
     ! Compute and write global diagnostics
     !-----------------------------------------------------------------
@@ -91,22 +88,22 @@ contains
  
     ! total ice area
  
-    tot_area = 0._dp
+    tot_area = 0.d0
     do j = 1, nsn
        do i = 1, ewn
           if (model%geometry%thck(i,j) > model%numerics%thklim) then
-             tot_area = tot_area + 1.0_dp
+             tot_area = tot_area + 1.0d0
           endif
        enddo
     enddo
     tot_area = tot_area * model%numerics%dew * model%numerics%dns * len0**2
     write(message,'(a25,e24.16)') 'Total ice area (km^2)     ',   &
-                                   tot_area*1.0e-6_dp   ! convert to km^2
+                                   tot_area*1.0d-6   ! convert to km^2
     call write_log(trim(message), type = GM_DIAGNOSTIC)
  
     ! total ice volume
  
-    tot_volume = 0._dp
+    tot_volume = 0.d0
     do j = 1, nsn
        do i = 1, ewn
           if (model%geometry%thck(i,j) > model%numerics%thklim) then
@@ -117,19 +114,21 @@ contains
     tot_volume = tot_volume * model%numerics%dew * model%numerics%dns  &
                * thk0 * len0**2
     write(message,'(a25,e24.16)') 'Total ice volume (km^3)  ',   &
-                                   tot_volume*1.0e-9_dp   ! convert to km^3
+                                   tot_volume*1.0d-9   ! convert to km^3
     call write_log(trim(message), type = GM_DIAGNOSTIC)
  
     ! total ice energy relative to T = 0 deg C
  
-    tot_energy = 0._dp
-    do j = 1, nsn
+    tot_energy = 0.d0
+
+    if (size(model%temper%temp,1) == upn+1) then  ! staggered temps
+       do j = 1, nsn
        do i = 1, ewn
           if (model%geometry%thck(i,j) > model%numerics%thklim) then
-             thck = model%geometry%thck(i,j)
              do k = 1, upn-1
-                tot_energy = tot_energy  &
-                     + thck * model%velowk%dups(k) * model%temper%temp(k,i,j)
+                tot_energy = tot_energy +   &
+                             model%geometry%thck(i,j) * model%temper%temp(k,i,j) *   &
+                             (model%numerics%sigma(k+1) - model%numerics%sigma(k))
              enddo
           endif
        enddo
@@ -141,27 +140,40 @@ contains
     
     ! total sum of volume * age
  
-    tot_age = 0._dp
-    do j = 1, nsn
+    ! tot_age = 0._dp ! JCC - Removed in parallel
+    else   ! unstaggered temps
+       do j = 1, nsn
        do i = 1, ewn
           if (model%geometry%thck(i,j) > model%numerics%thklim) then
-             thck = model%geometry%thck(i,j)
-             do k = 1,upn-1
-                tot_age = tot_age  &
-                     + thck * model%velowk%dups(k) * model%geometry%age(k,i,j)
+             ! upper half-layer, T = upper sfc temp
+             tot_energy = tot_energy +   &
+                          model%geometry%thck(i,j) * model%temper%temp(1,i,j) *   &
+                          0.5d0 * model%numerics%sigma(2)
+             do k = 2, upn-1
+                tot_energy = tot_energy +   &
+                             model%geometry%thck(i,j) * model%temper%temp(k,i,j) *   &
+                             0.5d0*(model%numerics%sigma(k+1) - model%numerics%sigma(k-1))
              enddo
+             ! lower half-layer, T = lower sfc temp
+             tot_energy = tot_energy +   &
+                          model%geometry%thck(i,j) * model%temper%temp(upn,i,j) *   &
+                          0.5d0 * (1.0d0 - model%numerics%sigma(upn-1))
           endif
        enddo
-    enddo
-    tot_age = tot_age * model%numerics%dew * model%numerics%dns  &
-               * thk0 * len0**2 * tim0/scyr
- 
+       enddo
+    endif
+
+    tot_energy = tot_energy * model%numerics%dew * model%numerics%dns  &
+               * thk0 * len0**2 * rhoi * shci
+    write(message,'(a25,e24.16)') 'Total ice energy (J)     ', tot_energy
+    call write_log(trim(message), type = GM_DIAGNOSTIC)
+    
     ! mean thickness
  
     if (tot_area > eps) then
        mean_thck = tot_volume/tot_area
     else
-       mean_thck = 0._dp
+       mean_thck = 0.d0
     endif
     write(message,'(a25,f24.16)') 'Mean thickness (m)       ', mean_thck
     call write_log(trim(message), type = GM_DIAGNOSTIC)
@@ -170,7 +182,7 @@ contains
  
     imax = 0
     jmax = 0
-    max_thck = 0._dp
+    max_thck = 0.d0
     do j = 1, nsn
        do i = 1, ewn
           if (model%geometry%thck(i,j) > max_thck) then
@@ -187,16 +199,16 @@ contains
     ! mean temperature
  
     if (tot_volume > eps) then
-       mean_temp = tot_energy/tot_volume
+       mean_temp = tot_energy/ (rhoi*shci*tot_volume)
     else
-       mean_temp = 0._dp
+       mean_temp = 0.d0
     endif
     write(message,'(a25,f24.16)') 'Mean temperature (C)     ', mean_temp
     call write_log(trim(message), type = GM_DIAGNOSTIC)
  
     ! min temperature
  
-    min_temp =  999._dp
+    min_temp =  9999.d0
     do j = 1, nsn
        do i = 1, ewn
           do k = 1, upn-1
@@ -215,24 +227,30 @@ contains
  
     ! mean age
  
-    if (tot_age > eps) then
-       mean_age = tot_age/tot_volume
-    else
-       mean_age = 0._dp
-    endif
-    write(message,'(a25,f24.16)') 'Mean ice age (yr)        ', mean_age
+!     if (tot_age > eps) then ! JCC - Removed in parallel
+!        mean_age = tot_age/tot_volume
+!     else
+!        mean_age = 0._dp
+!     endif
+!     write(message,'(a25,f24.16)') 'Mean ice age (yr)        ', mean_age
     call write_log(trim(message), type = GM_DIAGNOSTIC)
  
     ! max surface speed
     ! Note: uvel and vvel not defined at i = ewn, j = nsn
     imax = 0
     jmax = 0
-    max_spd_sfc = 0._dp
-    k = 1
+    max_spd_sfc = 0.d0
     do j = 1, nsn-1
        do i = 1, ewn-1
-          spd = sqrt(model%velocity%uvel(k,i,j)**2   &
-                   + model%velocity%vvel(k,i,j)**2)
+
+          !Note: HO velocities are stored in a separate type, velocity_hom
+          if (model%options%which_ho_diagnostic  /= 0) then
+             spd = sqrt(model%velocity_hom%uvel(1,i,j)**2   &
+                      + model%velocity_hom%vvel(1,i,j)**2)
+          else
+             spd = sqrt(model%velocity%uvel(1,i,j)**2   &
+                      + model%velocity%vvel(1,i,j)**2)
+          endif
           if (model%geometry%thck(i,j) > eps .and. spd > max_spd_sfc) then
              max_spd_sfc = spd
              imax = i
@@ -248,11 +266,16 @@ contains
  
     imax = 0
     jmax = 0
-    max_spd_bas = 0._dp
+    max_spd_bas = 0.d0
     do j = 1, nsn-1
        do i = 1, ewn-1
-          spd = sqrt(model%velocity%ubas(i,j)**2   &
-                   + model%velocity%vbas(i,j)**2)
+          if (model%options%which_ho_diagnostic  /= 0) then
+             spd = sqrt(model%velocity_hom%uvel(upn,i,j)**2   &
+                      + model%velocity_hom%vvel(upn,i,j)**2)
+          else
+             spd = sqrt(model%velocity%uvel(upn,i,j)**2   &
+                      + model%velocity%vvel(upn,i,j)**2)
+          endif
           if (model%geometry%thck(i,j) > eps .and. spd > max_spd_bas) then
              max_spd_bas = spd
              imax = i
@@ -298,19 +321,22 @@ contains
           call write_log(trim(message), type = GM_DIAGNOSTIC)
  
           call write_log(' ')
-          write(message,'(a52)')   &
-               'Layer    Speed (m/yr)  Temperature (C)     Age (yr) '
+          write(message,'(a50)')   &
+               'Level     Speed (m/yr)             Temperature (C)'
           call write_log(trim(message), type = GM_DIAGNOSTIC)
  
+          do k = 1, upn
 
-          do k = 1, upn-1
-             spd = sqrt(model%velocity%uvel(k,i,j)**2   &
-                      + model%velocity%vvel(k,i,j)**2) * vel0*scyr
+             if (model%options%which_ho_diagnostic  /= 0) then
+                spd = sqrt(model%velocity_hom%uvel(k,i,j)**2   &
+                         + model%velocity_hom%vvel(k,i,j)**2)
+             else
+                spd = sqrt(model%velocity%uvel(k,i,j)**2   &
+                         + model%velocity%vvel(k,i,j)**2)
+             endif
+             spd = spd * vel0*scyr
              write (message,'(i4,2f24.16)')  &
                 k, spd, model%temper%temp(k,i,j)
-!             age = model%geometry%age(k,i,j)*tim0/scyr  ! uncomment when age is computed
-!             write (message,'(i4,3f24.16)')  &
-!                k, spd, model%temper%temp(k,i,j), age
              call write_log(trim(message), type = GM_DIAGNOSTIC)
           enddo
 

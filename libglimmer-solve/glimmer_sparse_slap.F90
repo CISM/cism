@@ -188,6 +188,15 @@ contains
             end if
         end do zero_check
 
+
+	!----------------------------------------------
+	! RN_20091102: An example of calls to Trilinos solvers
+	!#ifdef HAVE_TRILINOS
+	!call helloworld()
+	!#endif
+	!----------------------------------------------
+
+
         if (allzeros) then
             err = 0
             ierr = 0

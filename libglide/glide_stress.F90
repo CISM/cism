@@ -43,16 +43,16 @@ module stress_hom
 
 
     subroutine calcstrsstr( ewn,  nsn,  upn,  &
-                       dew,        dns,       &
-                       sigma,      stagsigma, &  
-                       thck,                  &
-                       dusrfdew,   dusrfdns,  &
-                       dthckdew,   dthckdns,  &
-                       uvel,       vvel,      &
-                       efvs,                  &
-                       tauxx,      tauyy,     &
-                       tauxy,      tau,       &
-                       tauxz,      tauyz )
+                            dew,        dns,       &
+                            sigma,      stagsigma, &  
+                            thck,                  &
+                            dusrfdew,   dusrfdns,  &
+                            dthckdew,   dthckdns,  &
+                            uvel,       vvel,      &
+                            efvs,                  &
+                            tauxx,      tauyy,     &
+                            tauxy,      tau,       &
+                            tauxz,      tauyz )
 
         use glimmer_paramets, only : tau0_glam
 
@@ -64,21 +64,22 @@ module stress_hom
         real (kind = dp), intent(in), dimension(:)     :: sigma, stagsigma
         real (kind = dp), intent(in), dimension(:,:,:) :: efvs, uvel, vvel
         real (kind = dp), intent(in), dimension(:,:) :: thck, dusrfdew, &
-                                                dusrfdns, dthckdew, dthckdns
+                                                        dusrfdns, dthckdew, dthckdns
 
         real (kind = dp), intent(out), dimension(:,:,:) :: tauxx, tauyy, tauxy, &
-                                                   tauxz, tauyz, tau
+                                                           tauxz, tauyz, tau
         !*sfp* local vars
         integer :: ew, ns, up
         real (kind = dp), parameter :: f1 = len0 / thk0
-        integer, dimension(2) :: mew, mns
         real (kind = dp) :: dew2, dew4, dns2, dns4
-        real (kind = dp), dimension(upn) :: dup, dupm        
+        real (kind = dp), dimension(upn-1) :: dup, dupm        
 
         !*sfp* note that these are already defined and used in glam_strs2. If needed by PB&J 
+
         ! stress calc routine as well, consider moving the up-scope 
-        dup = (/ ( (sigma(2)-sigma(1)), up = 1, upn) /)
-        dupm = - 0.25_dp / dup
+
+        dup(1:upn-1) = sigma(2:upn) - sigma(1:upn-1)
+        dupm(:) = - 0.25_dp / dup(:)
         dew2 = 2.0_dp * dew; dns2 = 2.0_dp * dns        ! *sp* 2x the standard grid spacing
         dew4 = 4.0_dp * dew; dns4 = 4.0_dp * dns        ! *sp* 4x the standard grid spacing
 
@@ -86,21 +87,25 @@ module stress_hom
             do ew = 2,ewn-1;
 
             if (thck(ew,ns) > 0.0_dp) then
-                tauxz(1:upn-1,ew,ns) = vertideriv(upn, hsum(uvel(:,ew-1:ew,ns-1:ns)), thck(ew,ns), dupm)
-                tauyz(1:upn-1,ew,ns) = vertideriv(upn, hsum(vvel(:,ew-1:ew,ns-1:ns)), thck(ew,ns), dupm)
-                tauxx(1:upn-1,ew,ns) = horizderiv(upn,  stagsigma,                &
+
+                tauxz(1:upn-1,ew,ns) = vertideriv(upn, hsum(uvel(:,ew-1:ew,ns-1:ns)), &
+                                                  thck(ew,ns), dupm(1:upn-1))
+                tauyz(1:upn-1,ew,ns) = vertideriv(upn, hsum(vvel(:,ew-1:ew,ns-1:ns)), &
+                                                  thck(ew,ns), dupm(1:upn-1))
+
+                tauxx(1:upn-1,ew,ns) = horizderiv(upn,  stagsigma,       &
                               sum(uvel(:,ew-1:ew,ns-1:ns),3), &
                               dew4, tauxz(:,ew,ns),           &
                               sum(dusrfdew(ew-1:ew,ns-1:ns)), &
                               sum(dthckdew(ew-1:ew,ns-1:ns)))
 
-                tauyy(1:upn-1,ew,ns) = horizderiv(upn,  stagsigma,                &
+                tauyy(1:upn-1,ew,ns) = horizderiv(upn,  stagsigma,       &
                               sum(vvel(:,ew-1:ew,ns-1:ns),2), &
                               dns4, tauyz(:,ew,ns),           &
                               sum(dusrfdns(ew-1:ew,ns-1:ns)), &
                               sum(dthckdns(ew-1:ew,ns-1:ns)))
 
-                tauxy(1:upn-1,ew,ns) = horizderiv(upn,  stagsigma,                &
+                tauxy(1:upn-1,ew,ns) = horizderiv(upn,  stagsigma,       &
                               sum(uvel(:,ew-1:ew,ns-1:ns),2), &
                               dns4, tauxz(:,ew,ns),           &
                               sum(dusrfdns(ew-1:ew,ns-1:ns)), &
@@ -123,11 +128,11 @@ module stress_hom
             end do
         end do
 
-        tauxz = f1 * efvs * tauxz !* tau0_glam
-        tauyz = f1 * efvs * tauyz !* tau0_glam
+        tauxz = f1 * efvs * tauxz     !* tau0_glam
+        tauyz = f1 * efvs * tauyz     !* tau0_glam
         tauxx = 2.0_dp * efvs * tauxx !* tau0_glam
         tauyy = 2.0_dp * efvs * tauyy !* tau0_glam
-        tauxy = efvs * tauxy !* tau0_glam
+        tauxy = efvs * tauxy          !* tau0_glam
 
         !*sfp* expanding this in terms of viscosity and velocity gradients, I've confirmed that 
         ! one gets the same thing as if one took Tau_eff = N_eff * Eps_eff, where Eps_eff is the 
@@ -156,7 +161,7 @@ module stress_hom
         !may be implicit in the vert indices ( "arb(2:upn) - varb(1:upn-1)" ) and
         !the fact that up=1 at the sfc and up=upn at the bed ??? 
 
-        vertideriv(1:upn-1) = dupm * (varb(2:upn) - varb(1:upn-1)) / thck
+        vertideriv(1:upn-1) = dupm(1:upn-1) * (varb(2:upn) - varb(1:upn-1)) / thck
 
         return
 

@@ -88,6 +88,11 @@ contains
        model%options%gthf = 1
        call handle_gthf(section, model)
     end if
+    ! read till parameters
+    call GetSection(config,section,'till_options')
+    if (associated(section)) then
+       call handle_till_options(section, model)
+    end if
   end subroutine glide_readconfig
 
   subroutine glide_printconfig(model)
@@ -103,6 +108,7 @@ contains
     call print_options(model)
     call print_parameters(model)
     call print_gthf(model)
+    call print_till_options(model)
   end subroutine glide_printconfig
     
   subroutine glide_scale_params(model)
@@ -207,17 +213,15 @@ contains
     ! Beginning of code
 
     upn=model%general%upn
-
     select case(model%options%which_sigma)
+
     case(0)
        call write_log('Calculating sigma levels')
        do up=1,upn
-          !EIB! - from glimmer-cism2/glimmer-cism-lanl
-          !model%numerics%sigma(up) = glide_calc_sigma(real(up-1)/real(upn-1),2.)
-          !EIB! - replaced with glimmer-cism-lanl/trunk
-          level = real(up-1)/real(upn-1)
+          level = real(up-1,kind=dp)/real(upn-1,kind=dp)
           model%numerics%sigma(up) = glide_find_level(level, model%options%which_sigma_builtin, up, upn)
        end do
+
     case(1)
        there = .false. !EIB! does not appear in glimmer-cism-lanl/trunk
        inquire (exist=there,file=process_path(model%funits%sigfile))
@@ -229,10 +233,17 @@ contains
        open(unit,file=process_path(model%funits%sigfile))
        read(unit,'(f9.7)',err=10,end=10) (model%numerics%sigma(up), up=1,upn)
        close(unit)
+
     case(2)
        call write_log('Using sigma levels from main configuration file')
+
     end select
+
+    model%numerics%stagsigma(1:upn-1) =   &
+            (model%numerics%sigma(1:upn-1) + model%numerics%sigma(2:upn)) / 2.0_dp
+
     call print_sigma(model)
+
     return
 
 10  call write_log('something wrong with sigma coord file',GM_FATAL)
@@ -355,7 +366,8 @@ end function glide_calc_sigma_pattyn
     call GetValue(section,'nvel',model%numerics%nvel)
     call GetValue(section,'profile',model%numerics%profile_period)
     call GetValue(section,'ndiag',model%numerics%ndiag)
-
+    call GetValue(section,'idiag',model%numerics%idiag)
+    call GetValue(section,'jdiag',model%numerics%jdiag)
   end subroutine handle_time
   
   subroutine print_time(model)
@@ -395,6 +407,7 @@ end function glide_calc_sigma_pattyn
     call GetValue(section,'ioparams',model%funits%ncfile)
     call GetValue(section,'temperature',model%options%whichtemp)
     call GetValue(section,'flow_law',model%options%whichflwa)
+    call GetValue(section,'basal_proc',model%options%which_bmod)
     call GetValue(section,'basal_water',model%options%whichbwat)
     call GetValue(section,'marine_margin',model%options%whichmarn)
     call GetValue(section,'slip_coeff',model%options%whichbtrc)
@@ -427,13 +440,14 @@ end function glide_calc_sigma_pattyn
     call GetValue(section, 'guess_specified',    model%velocity_hom%is_velocity_valid)
     call GetValue(section, 'which_ho_source',    model%options%which_ho_source)
     call GetValue(section, 'include_thin_ice',   model%options%ho_include_thinice)
-!whl - added Price-Payne higher-order (glam) options
+    !whl - added Price-Payne higher-order (glam) options
     call GetValue(section, 'which_ho_babc',      model%options%which_ho_babc)
     call GetValue(section, 'which_ho_efvs',      model%options%which_ho_efvs)
     call GetValue(section, 'which_ho_resid',     model%options%which_ho_resid)
     !*sfp* added options for type of dissipation and bmelt calc. in temperature calc.
     call GetValue(section, 'which_disp',         model%options%which_disp)
     call GetValue(section, 'which_bmelt',        model%options%which_bmelt)
+    call GetValue(section, 'which_ho_nonlinear', model%options%which_ho_nonlinear)
     call GetValue(section, 'which_ho_sparse',    model%options%which_ho_sparse)
     call GetValue(section, 'which_ho_sparse_fallback', model%options%which_ho_sparse_fallback)
   end subroutine handle_ho_options
@@ -446,19 +460,26 @@ end function glide_calc_sigma_pattyn
     character(len=500) :: message
 
     ! local variables
-    character(len=*), dimension(0:2), parameter :: temperature = (/ &
-         'isothermal', &
-         'full      ', &
-         'steady    '/)
+    character(len=*), dimension(0:3), parameter :: temperature = (/ &
+         'isothermal         ', &
+         'full               ', &
+         'steady             ', &
+         'remapping advection' /)  !whl - whichtemp mod - new option
     character(len=*), dimension(0:2), parameter :: flow_law = (/ &
-         'Patterson and Budd               ', &
-         'Patterson and Budd (temp=-10degC)', &
+         'Paterson and Budd                ', &
+         'Paterson and Budd (temp=-10degC) ', &
          'const 1e-16a^-1Pa^-n             ' /)
-    character(len=*), dimension(0:3), parameter :: basal_water = (/ &
-         'local water balance', &
-         'local + const flux ', &
-         'flux calculation   ', &
-         'none               ' /)
+  !*mb* added options for basal processes model       
+    character(len=*), dimension(0:2), parameter :: which_bmod = (/ &
+         'Basal proc mod disabled '  , &
+         'Basal proc, high res.   '   , &
+         'Basal proc, fast calc.  ' /)
+    character(len=*), dimension(0:4), parameter :: basal_water = (/ &
+         'local water balance   ', &
+         'local + const flux    ', &
+         'none                  ', &
+         'From basal proc model ', &
+         'Constant value (=10m) '/)
     character(len=*), dimension(0:7), parameter :: marine_margin = (/ &
          'ignore              ', &
          'no ice shelf        ', &
@@ -503,16 +524,18 @@ end function glide_calc_sigma_pattyn
     character(len=*), dimension(0:1), parameter :: ho_bstress = (/ &
          'Linear bed (betasquared)', &
          'Plastic bed (tau0)      ' /)
-    character(len=*), dimension(0:5), parameter :: ho_whichbabc = (/ &
-         'constant betasquared    ', &
-         'simple pattern          ', &
-         'till yield stress       ', &
-         'circular ice shelf      ', &
-         'frozen bed              ', &
-         'B^2 passed from CISM    ' /)
+    character(len=*), dimension(0:7), parameter :: ho_whichbabc = (/ &
+         'constant B^2                           ', &
+         'simple pattern of B^2                  ', &
+         'till yield stress (Picard)             ', &
+         'circular ice shelf                     ', &
+         'no slip (using large B^2)              ', &
+         'B^2 passed from CISM                   ', &
+         'no slip (Dirichlet implementation)     ', &
+         'till yield stress (Newton)             ' /)
     character(len=*), dimension(0:1), parameter :: ho_whichefvs = (/ &
-         'from eff strain rate     ', &
-         'constant value           ' /)
+         'from eff strain rate    ', &
+         'constant value          ' /)
     character(len=*), dimension(0:2), parameter :: ho_whichresid = (/ &
          'max value               ', &
          'max value ignoring ubas ', &
@@ -527,22 +550,23 @@ end function glide_calc_sigma_pattyn
          '1-st order model (Blatter-Pattyn) ', &
          '1-st order depth-integrated (SSA) ' /)
     character(len=*), dimension(0:2), parameter :: bmeltwhich = (/ &
-         '0-order SIA                      ', &
-         '1-st order model (Blatter-Pattyn)', &
-         '1-st order depth-integrated (SSA)' /)
-    character(len=*), dimension(0:3), parameter :: ho_whichsparse = (/ &
+         '0-order SIA                       ', &
+         '1-st order model (Blatter-Pattyn) ', &
+         '1-st order depth-integrated (SSA) ' /)
+    character(len=*), dimension(0:1), parameter :: which_ho_nonlinear = (/ &
+         'use standard Picard iteration  ', &
+         'use JFNK                       '/)
+    character(len=*), dimension(0:5), parameter :: ho_whichsparse = (/ &
          'BiCG with LU precondition       ', &
          'GMRES with LU precondition      ', &
-         'UMFPACK Unsymmetric Multifrontal',&
+         'UMFPACK Unsymmetric Multifrontal', &
+         'Compatible Trilinos interface   ', &
+         'Standalone Trilinos interface   ', &
          'PARDISO Parllel Direct Method   '/)
-    !EIB! not currently using plume
-    !character(len=*),dimension(0:1), parameter :: use_plume = (/ &
-    !     'Use glimmer for bmlt (floating ice)      ', &
-    !     'Use plume model for bmlt (floating ice)  ' /)
+
     character(len=*), dimension(0:1), parameter :: b_mbal = (/ &
          'not in continutity eqn', &
          'in continutity eqn    ' /)
-
     call write_log('GLIDE options')
     call write_log('-------------')
     write(message,*) 'I/O parameter file      : ',trim(model%funits%ncfile)
@@ -556,6 +580,11 @@ end function glide_calc_sigma_pattyn
        call write_log('Error, flow_law out of range',GM_FATAL)
     end if
     write(message,*) 'flow law                : ',model%options%whichflwa,flow_law(model%options%whichflwa)
+    call write_log(message)
+    if (model%options%which_bmod.lt.0 .or. model%options%which_bmod.ge.size(which_bmod)) then
+       call write_log('Error, basal_proc out of range',GM_FATAL)
+    end if
+    write(message,*) 'basal_proc              : ',model%options%which_bmod,which_bmod(model%options%which_bmod)
     call write_log(message)
     if (model%options%whichbwat.lt.0 .or. model%options%whichbwat.ge.size(basal_water)) then
        call write_log('Error, basal_water out of range',GM_FATAL)
@@ -638,50 +667,51 @@ end function glide_calc_sigma_pattyn
                        ho_whichsource(model%options%which_ho_source)
     call write_log(message)
 
-!whl - added Payne-Price higher-order (glam) options
-    write(message,*) 'ho_whichbabc          :',model%options%which_ho_babc,  &
+    write(message,*) 'ho_whichbabc            :',model%options%which_ho_babc,  &
                       ho_whichbabc(model%options%which_ho_babc)
     call write_log(message)
     if (model%options%which_ho_babc < 0 .or. model%options%which_ho_babc >= size(ho_whichbabc)) then
         call write_log('Error, HO basal BC input out of range', GM_FATAL)
     end if
-    write(message,*) 'ho_whichefvs          :',model%options%which_ho_efvs,  &
+    write(message,*) 'ho_whichefvs            :',model%options%which_ho_efvs,  &
                       ho_whichefvs(model%options%which_ho_efvs)
     call write_log(message)
     if (model%options%which_ho_efvs < 0 .or. model%options%which_ho_efvs >= size(ho_whichefvs)) then
         call write_log('Error, HO effective viscosity input out of range', GM_FATAL)
     end if
-    write(message,*) 'ho_whichresid         :',model%options%which_ho_resid,  &
+    write(message,*) 'ho_whichresid           :',model%options%which_ho_resid,  &
                       ho_whichresid(model%options%which_ho_resid)
     call write_log(message)
     if (model%options%which_ho_resid < 0 .or. model%options%which_ho_resid >= size(ho_whichresid)) then
         call write_log('Error, HO residual input out of range', GM_FATAL)
     end if
     !*sfp* added the next two for HO T calc
-    write(message,*) 'dispwhich         :',model%options%which_disp,  &
+    write(message,*) 'dispwhich               :',model%options%which_disp,  &
                       dispwhich(model%options%which_disp)
     call write_log(message)
     if (model%options%which_disp < 0 .or. model%options%which_disp >= size(dispwhich)) then
         call write_log('Error, which dissipation input out of range', GM_FATAL)
     end if
-    write(message,*) 'bmeltwhich         :',model%options%which_bmelt,  &
+    write(message,*) 'bmeltwhich              :',model%options%which_bmelt,  &
                       bmeltwhich(model%options%which_bmelt)
     call write_log(message)
     if (model%options%which_bmelt < 0 .or. model%options%which_bmelt >= size(bmeltwhich)) then
         call write_log('Error, which bmelt input out of range', GM_FATAL)
     end if
-    !EIB! not using yet
-    !write(message,*) 'use_plume         :',model%options%use_plume,  &
-    !                  use_plume(model%options%use_plume)
-    !call write_log(message)
-    !if (model%options%use_plume < 0 .or. model%options%use_plume >= size(bmeltwhich)) then
-    !    call write_log('Error, use_plume input out of range', GM_FATAL)
-    !end if
-    write(message,*) 'ho_whichsparse        :',model%options%which_ho_sparse,  &
+    write(message,*) 'which_ho_nonlinear       :',model%options%which_ho_nonlinear,  &
+                      which_ho_nonlinear(model%options%which_ho_nonlinear)
+    call write_log(message)
+    if (model%options%which_ho_nonlinear < 0 .or. model%options%which_ho_nonlinear >= size(which_ho_nonlinear)) then
+        call write_log('Error, HO nonlinear solution input out of range', GM_FATAL)
+    end if
+    write(message,*) 'ho_whichsparse          :',model%options%which_ho_sparse,  &
                       ho_whichsparse(model%options%which_ho_sparse)
     call write_log(message)
     if (model%options%which_ho_sparse < 0 .or. model%options%which_ho_sparse >= size(ho_whichsparse)) then
         call write_log('Error, HO sparse solver input out of range', GM_FATAL)
+    end if
+    if (model%options%whichtemp == TEMP_REMAP_ADV .and. model%options%whichevol /= EVOL_INC_REMAP) then
+        call write_log('Error, must use remapping for thickness evolution if remapping temperature', GM_FATAL)
     end if
 
 
@@ -776,6 +806,73 @@ end function glide_calc_sigma_pattyn
     !call write_log(message)
     call write_log('')
   end subroutine print_parameters
+
+!Till options
+  subroutine handle_till_options(section,model)
+    use glimmer_config
+    use glide_types
+    implicit none
+    type(ConfigSection), pointer :: section
+    type(glide_global_type) :: model
+
+    if (model%options%which_bmod.eq.1) then
+        call GetValue(section, 'fric',  model%basalproc%fric)
+        call GetValue(section, 'etillo',  model%basalproc%etillo)
+        call GetValue(section, 'No',  model%basalproc%No)
+        call GetValue(section, 'Comp',  model%basalproc%Comp)
+        call GetValue(section, 'Cv',  model%basalproc%Cv)
+        call GetValue(section, 'Kh',  model%basalproc%Kh)
+    else if (model%options%which_bmod.eq.2) then
+        call GetValue(section, 'aconst',  model%basalproc%aconst)
+        call GetValue(section, 'bconst',  model%basalproc%bconst)
+    end if
+    if (model%options%which_bmod.gt.0) then
+        call GetValue(section, 'Zs',  model%basalproc%Zs)
+        call GetValue(section, 'tnodes',  model%basalproc%tnodes)
+        call GetValue(section, 'till_hot', model%basalproc%till_hot)
+    end if  
+
+  end subroutine handle_till_options    
+
+    subroutine print_till_options(model)
+    use glide_types
+    use glimmer_log
+    implicit none
+    type(glide_global_type)  :: model
+    character(len=100) :: message
+
+if (model%options%which_bmod.gt.0) then 
+    call write_log('Till options')
+    call write_log('----------')
+    if (model%options%which_bmod.eq.1) then
+        write(message,*) 'Internal friction           : ',model%basalproc%fric
+        call write_log(message)
+        write(message,*) 'Reference void ratio        : ',model%basalproc%etillo
+        call write_log(message)
+        write(message,*) 'Reference effective Stress  : ',model%basalproc%No
+        call write_log(message)
+        write(message,*) 'Compressibility             : ',model%basalproc%Comp
+        call write_log(message)
+        write(message,*) 'Diffusivity                 : ',model%basalproc%Cv
+        call write_log(message)
+        write(message,*) 'Hyd. conductivity           : ',model%basalproc%Kh
+        call write_log(message)
+    end if
+    if (model%options%which_bmod.eq.2) then
+       write(message,*) 'aconst  : ',model%basalproc%aconst
+       call write_log(message)
+       write(message,*) 'bconst  : ',model%basalproc%aconst
+       call write_log(message)
+    end if
+       write(message,*) 'Solid till thickness : ',model%basalproc%Zs
+       call write_log(message)
+       write(message,*) 'Till nodes number : ',model%basalproc%tnodes
+       call write_log(message)
+       write(message,*) 'till_hot  :',model%basalproc%till_hot
+    call write_log(message)
+
+   end if
+  end subroutine print_till_options
 
   ! Sigma levels
   subroutine handle_sigma(section, model)

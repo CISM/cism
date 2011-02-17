@@ -274,12 +274,14 @@ contains
             call run_ho_diagnostic(model)                          
        end if
 
-       if (model%options%which_ho_prognostic == HO_PROG_SIAONLY) then
        ! get new thicknesses
-            call thck_evolve(model,model%velocity%diffu, model%velocity%diffu, .true.,model%geometry%thck,model%geometry%thck)
+       if (model%options%which_ho_prognostic == HO_PROG_SIAONLY) then
+
+            call thck_evolve(model,   model%velocity%diffu, model%velocity%diffu, &
+                             first_p, model%geometry%thck,  model%geometry%thck)
+
        else if (model%options%which_ho_prognostic == HO_PROG_PATTYN) then
             
-
             call thck_evolve(model,model%velocity_hom%diffu_x, model%velocity_hom%diffu_y, .true.,& 
                   model%geometry%thck, model%geometry%thck)
     

@@ -42,7 +42,13 @@ contains
             do ew = 1,ewn-1
 
                 !If any of our staggering points are shelf front, ignore zeros when staggering
-                if (any(GLIDE_IS_CALVING(mask(ew:ew+1, ns:ns+1)))) then
+                !if (any(GLIDE_IS_CALVING(mask(ew:ew+1, ns:ns+1)))) then
+
+                !Use the "only nonzero thickness" staggering criterion for ALL marginal ice. For
+                ! reasons that are not entirely clear, this corrects an error whereby the land ice 
+                ! margin is defined incorrectly as existing one grid cell too far inland from where 
+                ! it should be.  
+                if (any(GLIDE_HAS_ICE(mask(ew:ew+1,ns:ns+1)))) then
                     n = 0
                     tot = 0
     
@@ -92,10 +98,10 @@ contains
                     .or. (usrf(ew+1,ns+1) >= usrf(ew,ns+1) .and. ipvr(ew,ns+1) >=thklim/thk0))) then
                         opvr(ew,ns) = 0.0
                 
-                !Standard Staggering
-                else
-                        opvr(ew,ns) = (ipvr(ew+1,ns) + ipvr(ew,ns+1) + &
-                               ipvr(ew+1,ns+1) + ipvr(ew,ns)) / 4.0d0
+!                !Standard Staggering   !! Not needed if only-nonzero-thickness staggering scheme is used
+!                else
+!                        opvr(ew,ns) = (ipvr(ew+1,ns) + ipvr(ew,ns+1) + &
+!                               ipvr(ew+1,ns+1) + ipvr(ew,ns)) / 4.0d0
                 end if
   
         end do

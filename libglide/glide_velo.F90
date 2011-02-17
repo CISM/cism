@@ -55,7 +55,7 @@ contains
 
   subroutine init_velo(model)
     !*FD initialise velocity module
-    use glimmer_physcon, only : arrmll, arrmlh, gascon, actenl, actenh,scyr 
+    use glimmer_physcon, only : arrmll, arrmlh, gascon, actenl, actenh, scyr, pi 
     implicit none
     type(glide_global_type) :: model
 
@@ -95,17 +95,18 @@ contains
          -actenh / gascon,        &                                   ! Value of -Q/R when T* is above -263K
          -actenl / gascon/)                                           ! Value of -Q/R when T* is below -263K
    
-    model%velowk%watwd  = model%paramets%bpar(1) / model%paramets%bpar(2)
-    model%velowk%watct  = model%paramets%bpar(2) 
+    model%velowk%watwd  = model%paramets%bpar(1)
+    model%velowk%watct  = model%paramets%bpar(2)
     model%velowk%trcmin = model%paramets%bpar(3) / scyr
     model%velowk%trcmax = model%paramets%bpar(4) / scyr
     model%velowk%marine = model%paramets%bpar(5)
     model%velowk%trcmax = model%velowk%trcmax / model%velowk%trc0
-    model%velowk%trcmin = model%velowk%trcmin / model%velowk%trc0
-    model%velowk%c(1)   = (model%velowk%trcmax - model%velowk%trcmin) / 2.0d0 + model%velowk%trcmin
+    model%velowk%trcmin = model%velowk%trcmin / model%velowk%trc0  
+    model%velowk%c(1)   = (model%velowk%trcmax + model%velowk%trcmin) / 2.0d0 
     model%velowk%c(2)   = (model%velowk%trcmax - model%velowk%trcmin) / 2.0d0
-    model%velowk%c(3)   = model%velowk%watwd * thk0 / 4.0d0
-    model%velowk%c(4)   = model%velowk%watct * 4.0d0 / thk0 
+    model%velowk%c(3)   = (thk0 * pi) / model%velowk%watwd  
+    model%velowk%c(4)   = pi*(model%velowk%watct / model%velowk%watwd)
+   
 
   end subroutine init_velo
 #if 0
@@ -938,8 +939,10 @@ contains
        do ns = 1,nsn-1
           do ew = 1,ewn-1
              if (0.0d0 < model%temper%stagbwat(ew,ns)) then
-                btrc(ew,ns) = model%velowk%c(2) * tanh(model%velowk%c(3) * &
-                     (stagbwat - model%velowk%c(4))) + model%velowk%c(1)
+               
+                btrc(ew,ns) = model%velowk%c(1) + model%velowk%c(2) * tanh(model%velowk%c(3) * &
+                     model%temper%stagbwat(ew,ns) - model%velowk%c(4))
+                
                 if (0.0d0 > sum(model%isos%relx(ew:ew+1,ns:ns+1))) then
                    btrc(ew,ns) = btrc(ew,ns) * model%velowk%marine  
                 end if
