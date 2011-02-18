@@ -48,10 +48,11 @@ if __name__ == '__main__':
   if options.sizes == None: options.sizes = defaultSizes
 
 # *sfp* Added option to run on 3x peridoc domain (to avoid issues w/ periodic bcs)
-  if options.periodic == None:
-      factor = 3    
-  else:
-      factor = 1    
+#  if options.periodic == None:
+#      factor = 3    
+#  else:
+#      factor = 1    
+  factor = 1    
 
 # Loop over the experiments requested on the command line
   for experiment in options.experiments:
@@ -125,7 +126,6 @@ if __name__ == '__main__':
 
 #     Generate the ice thickness, bed topography, and (sometimes) 
 #     basal friction coefficient for the experiment
-
 
       thickness  = list()
       topography = list()
@@ -208,31 +208,31 @@ if __name__ == '__main__':
           data = [(netCDFfile.variables[v[0]],v[1]) for v in variables]
 
 #         Write a "standard" ISMIP-HOM file (example file name: "glm1a020.txt") in the "output" subdirectory 
-          nx0 = nx - 1
-          ny0 = ny - 1
 
-          if factor == 5:
-            factor2 = 2
-            factor3 = 0
-          else:
-            factor2 = 1
-            factor3 = 1
+#          nx0 = nx - 1
+#          ny0 = ny - 1
+#          if factor == 5:
+#            factor2 = 2
+#            factor3 = 0
+#          else:
+#            factor2 = 1
+#            factor3 = 1
 
           ISMIP_HOMfilename = os.path.join('output',options.prefix+experiment+'%03d'%size+'.txt')
           ISMIP_HOMfile = open(ISMIP_HOMfilename,'w')
-#          for i in range(nx-2):
-          for i in range( factor2*nx0/factor-factor3, factor2*nx0/factor-factor3 + nx0/factor+1 ):
+          for i in range(nx-2):
+#          for i in range( factor2*nx0/factor-factor3, factor2*nx0/factor-factor3 + nx0/factor+1 ):
 
-#            x = float(i)/(nx-3)   # In a more perfect world: x = (i+0.5)/(nx-2)
-            x = float(i)/(factor2*nx0/factor)
-            x = x - float(nx0/factor-factor3) / float(nx0/factor) 
+            x = float(i)/(nx-3)   # In a more perfect world: x = (i+0.5)/(nx-2)
+#            x = float(i)/(factor2*nx0/factor)
+#            x = x - float(nx0/factor-factor3) / float(nx0/factor) 
 
-#            for j in range(ny-2):
-            for j in range( factor2*ny0/factor-factor3, factor2*ny0/factor-factor3 + ny0/factor+1 ):
+            for j in range(ny-2):
+#            for j in range( factor2*ny0/factor-factor3, factor2*ny0/factor-factor3 + ny0/factor+1 ):
 
-#              y = float(j)/(ny-3) # In a more perfect world: y = (j+0.5)/(ny-2)
-              y = float(j)/(factor2*ny0/factor)
-              y = y - float(ny0/factor-factor3) / float(ny0/factor) 
+              y = float(j)/(ny-3) # In a more perfect world: y = (j+0.5)/(ny-2)
+#              y = float(j)/(factor2*ny0/factor)
+#              y = y - float(ny0/factor-factor3) / float(ny0/factor) 
 
               if netCDF_module == 'Scientific.IO.NetCDF':
                 if experiment in ('a','c'):

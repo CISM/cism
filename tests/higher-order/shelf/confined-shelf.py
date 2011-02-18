@@ -77,9 +77,9 @@ thk  = numpy.zeros([1,ny,nx],dtype='float32')
 beta = numpy.empty([1,ny-1,nx-1],dtype='float32')
 kbc  = numpy.zeros([1,ny,nx],dtype='int')
 zero = numpy.zeros([1,nz,ny-1,nx-1],dtype='float32')
+
 thk[0,4:-2,2:-2] = 500.  # *SFP* changed to be in line w/ EISMINT-shelf tests 3&4 
-beta[0,:,:] = 9.96921e+36
-beta[0,2:nx-2,2:ny-2] = 0
+beta[0,:,:] = 0 
 kbc[0,ny-3:,:]  = 1
 
 #if not periodic_ew:    *SFP* removed periodic option

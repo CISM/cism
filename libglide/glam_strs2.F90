@@ -429,7 +429,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 ! jfl 20100412: residual for v comp: Fv= A(u^k-1,v^k-1)v^k-1 - b(u^k-1,v^k-1)  
 !==============================================================================
 
-!     call res_vect( matrix, vk_1, rhsd, size(rhsd), counter, g_flag, L2square, whichsparse ) ! JCC - No Trilinos support yet
+     call res_vect( matrix, vk_1, rhsd, size(rhsd), counter, g_flag, L2square, whichsparse ) ! JCC - No Trilinos support yet
 
       L2norm  = L2square
       F(1:pcgsize(1)) = vk_1(:)
@@ -510,7 +510,8 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 !    print *, 'L2 with/without ghost (k)= ', counter, &
 !              sqrt(DOT_PRODUCT(F,F)), L2norm
 !    if (counter .le. 2) NL_target = NL_tol * L2norm
-    if (counter == 1) NL_target = NL_tol * L2norm
+!    if (counter == 1) NL_target = NL_tol * L2norm
+    if (counter == 1) NL_target = 1.0d-4 
 
 !==============================================================================
 ! RN_20100129: Option to load Trilinos matrix directly bypassing sparse_easy_solve
@@ -2366,9 +2367,9 @@ subroutine bodyset(ew,  ns,  up,           &
     ! when the solution has converged a bit, we switch to the more realistic implementation (option 2).
     ! That is achieved in the following if construct ...
 
-!    if( cc < 10 )then   ! use this to "pre-condition" the shelf BC w/ the simple, 1d version
+    if( cc < 5 )then   ! use this to "pre-condition" the shelf BC w/ the simple, 1d version
 !    if( cc >= 0 )then   ! use this to use only the 1d version
-    if( cc > 1000000 )then   ! use this to go straight to the full 2d version of the bc
+!    if( cc > 1000000 )then   ! use this to go straight to the full 2d version of the bc
 
     ! --------------------------------------------------------------------------------------
     ! (1) source term (strain rate at shelf/ocean boundary) from Weertman's analytical solution 
@@ -4487,6 +4488,140 @@ function scalebasalbc( coeffblock, bcflag, lateralboundry, beta, efvs )
   return
 
 end function scalebasalbc   
+
+!  Subroutine for calculation of residual vect using L2norm. 
+!  uvec is either u^k-1 or v^k-1 on input and Av-b or Cu-d on output
+!  Written by J.F. Lemeiux
+subroutine res_vect ( matrix, uvec, bvec, nu, counter, g_flag, L2square, whatsparse)
+
+
+use glimmer_paramets, only : dp
+use glimmer_sparse_type
+use glimmer_sparse
+use glide_mask
+
+implicit none
+
+integer :: i, j, counter, nu, nele, whatsparse ! nu: size of uvec and bvec
+integer, dimension(nu), intent(in) :: g_flag ! 0 :reg cell
+                                             ! 1 :top ghost, 2 :base ghost
+
+type(sparse_matrix_type),  intent(in) :: matrix
+
+real (kind = dp), dimension(nu), intent(in) :: bvec
+real (kind = dp), dimension(nu), intent(inout) :: uvec
+real (kind = dp), dimension(nu) :: Au_b_wig
+real (kind = dp), intent(out) :: L2square
+! 
+real (kind = dp) :: scale_ghosts = 0.0d0
+
+! calculate residual vector of the u OR v component
+
+      Au_b_wig = 0d0 ! regular+ghost cells
+
+!      if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
+
+        do nele = 1, matrix%nonzeros
+
+           i = matrix%row(nele)
+           j = matrix%col(nele)
+           Au_b_wig(i) = Au_b_wig(i) + matrix%val(nele) * uvec(j)
+
+        enddo
+
+!      else
+!        call matvecwithtrilinos(uvec, Au_b_wig);
+!      endif
+
+      do i = 1, nu
+         Au_b_wig(i) = Au_b_wig(i) - bvec(i)
+      enddo
+
+      uvec = Au_b_wig
+
+! AGS: Residual norm includes scaling to decrease importance of ghost values
+! By calling it a redefinition of an inner product, it is kosher.
+      L2square = 0.0
+      do i = 1, nu
+         if (g_flag(i) .eq. 0) then
+            L2square = L2square + Au_b_wig(i) * Au_b_wig(i)
+         else
+            L2square = L2square + scale_ghosts * Au_b_wig(i) * Au_b_wig(i)
+         endif
+      end do
+
+      return
+
+end subroutine res_vect
+
+subroutine output_res( ewn, nsn, upn, uindx, counter, nu, reswrapped, u_or_v)
+! This routine can be used for debugging and evalution of the nonlinear 
+! numerical scheme (Picard iteration...and later Newton). It unwraps the 
+! residual on the grid, either for the u comp (u_or_v = 1) or the 
+! v comp (u_or_v = 2).
+! Written by J.F. Lemeiux
+
+use glimmer_paramets, only : dp
+use netcdf
+
+  implicit none
+
+  integer, intent(in) :: ewn, nsn, upn, counter, nu, u_or_v
+  integer, dimension(ewn-1,nsn-1), intent(in) :: uindx
+  real (kind = dp), dimension(nu), intent(in) :: reswrapped
+  real (kind = dp), dimension(ewn-1,nsn-1, upn) :: resgrid
+
+  integer, dimension(2) :: loc
+  integer :: ew, ns, up, upl, nc_id, ns_id, ew_id, up_id, res_id, status
+  integer :: dimids(3)
+
+  character filename*30
+
+      do ns = 1,nsn-1 !had to flip indices in matrix because of netcdf
+         do ew = 1,ewn-1
+            if (uindx(ew,ns) /= 0) then
+               loc(:) = (uindx(ew,ns) - 1) * (upn + 2) + 1 + (/ 1, upn /)
+! loc is the same as given by the function getlocrange in glam_str2.F90
+               resgrid(ew,ns,:) = abs(reswrapped(loc(1):loc(2)))
+            else
+!               resgrid(ew,ns,:) = -999d0 ! no ice
+               resgrid(ew,ns,:) = -1d0 ! no ice
+            end if
+         end do
+      end do
+
+      if ( u_or_v .eq. 1) then
+         write (filename, '("res_ucomp_k",i2.2,".nc")') counter
+      elseif ( u_or_v .eq. 2) then
+         write (filename, '("res_vcomp_k",i2.2,".nc")') counter
+      endif
+
+      call check(nf90_create(filename, NF90_CLOBBER, nc_id))
+      call check(nf90_def_dim(nc_id,'n-s',nsn-1,ns_id))
+      call check(nf90_def_dim(nc_id,'e-w',ewn-1,ew_id))
+      call check(nf90_def_dim(nc_id,'up',upn,up_id))
+
+      dimids(3) = up_id
+      dimids(1) = ew_id
+      dimids(2) = ns_id
+
+      call check(nf90_def_var(nc_id,'residual',NF90_DOUBLE, dimids, res_id))
+      call check( nf90_enddef(nc_id) )
+      call check(nf90_put_var(nc_id,res_id,resgrid))
+      call check(nf90_close(nc_id))
+
+end subroutine output_res
+
+subroutine check(status_code)
+      use netcdf
+      integer,intent(in) :: status_code
+
+      if (status_code /= 0) then
+         write(*,*) 'fatal netcdf error:',nf90_strerror(status_code)
+         stop
+      end if
+end subroutine check
+
 
 !***********************************************************************
 
