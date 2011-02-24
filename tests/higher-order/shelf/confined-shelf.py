@@ -75,7 +75,7 @@ netCDFfile.createVariable('y0','f',('y0',))[:] = (dy/2 + y[:-1]).tolist()
 # Calculate values for the required variables.
 thk  = numpy.zeros([1,ny,nx],dtype='float32')
 beta = numpy.empty([1,ny-1,nx-1],dtype='float32')
-kbc  = numpy.zeros([1,ny,nx],dtype='int')
+kbc  = numpy.zeros([1,ny-1,nx-1],dtype='int')
 zero = numpy.zeros([1,nz,ny-1,nx-1],dtype='float32')
 
 thk[0,4:-2,2:-2] = 500.  # *SFP* changed to be in line w/ EISMINT-shelf tests 3&4 
@@ -83,12 +83,12 @@ beta[0,:,:] = 0
 kbc[0,ny-3:,:]  = 1
 
 #if not periodic_ew:    *SFP* removed periodic option
-kbc[0,:,:3] = 1
+kbc[0,:,:2] = 1
 kbc[0,:,nx-3:] = 1
 
 # Create the required variables in the netCDF file.
 netCDFfile.createVariable('thk',      'f',('time','y1','x1'))[:] = thk.tolist()
-netCDFfile.createVariable('kinbcmask','i',('time','y1','x1'))[:] = kbc.tolist()
+netCDFfile.createVariable('kinbcmask','i',('time','y0','x0'))[:] = kbc.tolist()
 netCDFfile.createVariable('topg',     'f',('time','y1','x1'))[:] = ny*[nx*[-2000]]
 netCDFfile.createVariable('beta',     'f',('time','y0','x0'))[:] = beta.tolist()
 netCDFfile.createVariable('uvelhom',  'f',('time','level','y0','x0'))[:] = zero.tolist()
