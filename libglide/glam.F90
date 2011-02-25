@@ -46,6 +46,10 @@ module glam
 
         ! Compute higher-order ice velocities
 
+        print *, ' '
+        print *, '(dH/dt using incremental remapping)'
+        print *, 'time = ', model%numerics%time
+
         call run_ho_diagnostic(model)   ! in glide_velo_higher.F90
 
         ! Use incremental remapping algorithm to evolve the ice thickness
