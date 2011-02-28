@@ -91,7 +91,7 @@ contains
 
     !*FD initialise temperature module
     use glimmer_physcon, only : rhoi, shci, coni, scyr, grav, gn, lhci, rhow
-    use glimmer_paramets, only : tim0, thk0, acc0, len0, vis0, vel0, tau0_glam
+    use glimmer_paramets, only : tim0, thk0, acc0, len0, vis0, vel0, tau0
     use glimmer_global, only : dp 
     use glimmer_log
     use glide_bwater, only : find_dt_wat
@@ -152,7 +152,7 @@ contains
          model%numerics%dttem / 2.0d0, &
          VERT_DIFF*2.0d0 * tim0 * model%numerics%dttem / (thk0 * rhoi * shci), &
          VERT_ADV*tim0 * acc0 * model%numerics%dttem / coni, &
-         ( tau0_glam * vel0 / len0 ) / ( rhoi * shci ) * ( model%numerics%dttem * tim0 ) /)  
+         ( tau0 * vel0 / len0 ) / ( rhoi * shci ) * ( model%numerics%dttem * tim0 ) /)  
          !*sfp* added last term to vector above for use in HO & SSA dissip. cacl
 
     model%tempwk%c1 = STRAIN_HEAT *(model%numerics%sigma * rhoi * grav * thk0**2 / len0)**p1 * &
@@ -177,7 +177,7 @@ contains
          tim0 / (thk0 * lhci * rhoi), &
          tim0 * thk0 * rhoi * shci /  (thk0 * tim0 * model%numerics%dttem * lhci * rhoi), &
          tim0 * thk0**2 * vel0 * grav * rhoi / (4.0d0 * thk0 * len0 * rhoi * lhci), &
-         tim0 * vel0 * tau0_glam / (4.0d0 * thk0 * rhoi * lhci) /)      
+         tim0 * vel0 * tau0 / (4.0d0 * thk0 * rhoi * lhci) /)      
          !*sfp* added the last term in the vect above for HO and SSA dissip. calc. 
 
     ! setting up some factors for sliding contrib to basal heat flux

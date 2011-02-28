@@ -79,23 +79,14 @@ module glimmer_paramets
 #endif
 
   ! *sfp* defined these to convert scales to values used by GLAM
-  real(dp), parameter :: tau0_glam = rhoi*grav*thk0                   ! stress scale in GLAM ( Pa )  
-  real(dp), parameter :: vis0_glam = tau0_glam**(-gn) * (vel0/len0)   ! rate factor scale in GLAM ( Pa^-3 s^-1 )
-  real(dp), parameter :: evs0 = tau0_glam * (vel0/len0)               ! eff. visc. scale in GLAM ( Pa s )
+  real(dp), parameter :: tau0 = rhoi*grav*thk0                   ! stress scale in GLAM ( Pa )  
+  real(dp), parameter :: vis0_glam = tau0**(-gn) * (vel0/len0)   ! rate factor scale in GLAM ( Pa^-3 s^-1 )
+  real(dp), parameter :: evs0 = tau0 * (vel0/len0)               ! eff. visc. scale in GLAM ( Pa s )
 
 
   real(dp), parameter :: acc0 = thk0 * vel0 / len0  ! m s^{-1} 
   ! ** for zero order model real(dp), parameter :: tim0 = thk0 / acc0      ! s
   real(dp), parameter :: tim0 = len0 / vel0      ! s
-  real(dp) :: tau0 = (vel0/(vis0*len0))**(1.0/gn)
-
-!  real(dp) :: tau0                        ! Pa note cannot define here as f90 wont allow
-!                                          ! parameters with noninteger powers in - look
-!                                          ! in initial in blah.f90 (not sure this applies now...)
-
-!whl - to do - remove lambda0
-  real(dp), parameter :: lambda0 = 80.0d3 / len0    ! basal topo/friction parameter for ismip-hom tests 
-
   real(sp), parameter :: conv = tim0 / scyr
 
 end module glimmer_paramets

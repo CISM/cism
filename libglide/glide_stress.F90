@@ -54,7 +54,7 @@ module stress_hom
                             tauxy,      tau,       &
                             tauxz,      tauyz )
 
-        use glimmer_paramets, only : tau0_glam
+        use glimmer_paramets, only : tau0
 
         implicit none
 
@@ -128,17 +128,17 @@ module stress_hom
             end do
         end do
 
-        tauxz = f1 * efvs * tauxz     !* tau0_glam
-        tauyz = f1 * efvs * tauyz     !* tau0_glam
-        tauxx = 2.0_dp * efvs * tauxx !* tau0_glam
-        tauyy = 2.0_dp * efvs * tauyy !* tau0_glam
-        tauxy = efvs * tauxy          !* tau0_glam
+        tauxz = f1 * efvs * tauxz     !* tau0
+        tauyz = f1 * efvs * tauyz     !* tau0
+        tauxx = 2.0_dp * efvs * tauxx !* tau0
+        tauyy = 2.0_dp * efvs * tauyy !* tau0
+        tauxy = efvs * tauxy          !* tau0
 
         !*sfp* expanding this in terms of viscosity and velocity gradients, I've confirmed that 
         ! one gets the same thing as if one took Tau_eff = N_eff * Eps_eff, where Eps_eff is the 
         ! 1st order approx. to the 2nd strain-rate invariant (outlined in model description document).
 
-        tau = sqrt(tauxz**2 + tauyz**2 + tauxx**2 + tauyy**2 + tauxx*tauyy + tauxy**2) !* tau0_glam
+        tau = sqrt(tauxz**2 + tauyz**2 + tauxx**2 + tauyy**2 + tauxx*tauyy + tauxy**2) !* tau0
 
         return
 

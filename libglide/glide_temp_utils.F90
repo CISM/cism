@@ -149,7 +149,7 @@ contains
                                                 efvs(1:model%general%upn-1,ew,ns)
              endif
 
-             !Note: model%tempwk%cons(5) = (tau0_glam*vel0/len0) / (rhoi*shci) * (model%numerics%dttem*tim0)
+             !Note: model%tempwk%cons(5) = (tau0*vel0/len0) / (rhoi*shci) * (model%numerics%dttem*tim0)
 
              model%tempwk%dissip(:,ew,ns) = c5(:) * model%tempwk%cons(5)
 

@@ -72,7 +72,7 @@ contains
 
     !*FD initialise temperature module
     use glimmer_physcon, only : rhoi, shci, coni, scyr, grav, gn, lhci, rhow
-    use glimmer_paramets, only : tim0, thk0, len0, vis0, vel0, tau0_glam
+    use glimmer_paramets, only : tim0, thk0, len0, vis0, vel0, tau0
     use glimmer_global, only : dp 
     use glimmer_log
 
@@ -131,7 +131,7 @@ contains
 !!         VERT_DIFF*2.0d0 * tim0 * model%numerics%dttem / (thk0 * rhoi * shci), &
 !!         VERT_ADV*tim0 * acc0 * model%numerics%dttem / coni, &
 !!         0.0d0, &   !whl - no vertical advection
-!!         ( tau0_glam * vel0 / len0 ) / ( rhoi * shci ) * ( model%numerics%dttem * tim0 ) /)  
+!!         ( tau0 * vel0 / len0 ) / ( rhoi * shci ) * ( model%numerics%dttem * tim0 ) /)  
          !*sfp* added last term to vector above for use in HO & SSA dissip. cacl
 
 !whl - The factor of 2 in the numerator in the original code can be traced to a missing factor of 0.5
@@ -141,7 +141,7 @@ contains
 !!    model%tempwk%cons(1) = 2.0d0 * tim0 * model%numerics%dttem * coni / (2.0d0 * rhoi * shci * thk0**2)
     model%tempwk%cons(1) = tim0 * model%numerics%dttem * coni / (2.0d0 * rhoi * shci * thk0**2)
 
-    model%tempwk%cons(5) = (tau0_glam * vel0 / len0 ) / (rhoi * shci) * (model%numerics%dttem * tim0)
+    model%tempwk%cons(5) = (tau0 * vel0 / len0 ) / (rhoi * shci) * (model%numerics%dttem * tim0)
 
 !whl - Note: stagsigma here instead of sigma
     model%tempwk%c1(1:model%general%upn-1) =   &
@@ -153,7 +153,7 @@ contains
                         tim0 / (thk0 * lhci * rhoi), &
                         tim0 * thk0 * rhoi * shci /  (thk0 * tim0 * model%numerics%dttem * lhci * rhoi), &
                         tim0 * thk0**2 * vel0 * grav * rhoi / (4.0d0 * thk0 * len0 * rhoi * lhci), &
-                        tim0 * vel0 * tau0_glam / (4.0d0 * thk0 * rhoi * lhci) /)      
+                        tim0 * vel0 * tau0 / (4.0d0 * thk0 * rhoi * lhci) /)      
                         !*sfp* added the last term in the vect above for HO and SSA dissip. calc. 
 
     select case(model%options%whichbwat)

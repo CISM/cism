@@ -14,7 +14,7 @@ module glam_strs2
 
 use glimmer_paramets, only : dp
 use glimmer_physcon,  only : gn, rhoi, rhoo, grav, pi, scyr
-use glimmer_paramets, only : thk0, len0, vel0, vis0, vis0_glam, tim0, evs0, tau0_glam
+use glimmer_paramets, only : thk0, len0, vel0, vis0, vis0_glam, tim0, evs0, tau0
 use glimmer_log,      only : write_log
 use glide_mask
 use glimmer_sparse_type
@@ -2394,7 +2394,7 @@ subroutine bodyset(ew,  ns,  up,           &
     ! --------------------------------------------------------------------------------------
     ! (2) source term (strain rate at shelf/ocean boundary) from MacAyeal depth-ave solution. 
     ! --------------------------------------------------------------------------------------
-    source = (rhoi*grav*stagthck(ew,ns)*thk0) / tau0_glam / 2.0_dp * ( 1.0_dp - rhoi / rhoo )
+    source = (rhoi*grav*stagthck(ew,ns)*thk0) / tau0 / 2.0_dp * ( 1.0_dp - rhoi / rhoo )
 
     ! terms after "/" below count number of non-zero efvs cells ... needed for averaging of the efvs at boundary 
     source = source / ( sum(local_efvs, local_efvs > 1.0d-12) / &
@@ -3873,11 +3873,11 @@ subroutine calcbetasquared (whichbabc,               &
     case(2)     ! take input value for till yield stress and force betasquared to be implemented such
                 ! that plastic-till sliding behavior is enforced (see additional notes in documentation).
 
-!      betasquared = minTauf*tau0_glam / dsqrt( (thisvel*vel0*scyr)**2 + (othervel*vel0*scyr)**2 + (smallnum)**2 )
+!      betasquared = minTauf*tau0 / dsqrt( (thisvel*vel0*scyr)**2 + (othervel*vel0*scyr)**2 + (smallnum)**2 )
 
 !! *sfp* This hack for use w/ the basal processes test case, although as of Oct. 2010, it is working well
 !! enough to just apply the yield stress basal bc everywhere in the domain.
-!      betasquared = minTauf(1:ewn-9,:)*tau0_glam / dsqrt( (thisvel(1:ewn-9,:)*vel0*scyr)**2 + &
+!      betasquared = minTauf(1:ewn-9,:)*tau0 / dsqrt( (thisvel(1:ewn-9,:)*vel0*scyr)**2 + &
 !                    (othervel(1:ewn-9,:)*vel0*scyr)**2 + (smallnum)**2 )
 !      betasquared(ewn-8:ewn-1,:) = 5.0d0
 
@@ -3885,7 +3885,7 @@ subroutine calcbetasquared (whichbabc,               &
 !! rather than holding/applying a constant B^2. This necessary so that till module dynamics do not control the sliding 
 !! at the downstream end of the domain, which we want to remain constant (we want it to remain slipper, as if it were
 !! an active ice plain, regardless of the till dynamics in the ice stream proper)
-      betasquared(1:ewn-9,:) = minTauf(1:ewn-9,:)*tau0_glam / dsqrt( (thisvel(1:ewn-9,:)*vel0*scyr)**2 + &
+      betasquared(1:ewn-9,:) = minTauf(1:ewn-9,:)*tau0 / dsqrt( (thisvel(1:ewn-9,:)*vel0*scyr)**2 + &
                     (othervel(1:ewn-9,:)*vel0*scyr)**2 + (smallnum)**2 )
       betasquared(ewn-8:ewn-1,:) = 1.0d3 / dsqrt( (thisvel(ewn-8:ewn-1,:)*vel0*scyr)**2 + &
                     (othervel(ewn-8:ewn-1,:)*vel0*scyr)**2 + (smallnum)**2 )
@@ -3913,7 +3913,7 @@ subroutine calcbetasquared (whichbabc,               &
 
   ! convert whatever the specified value is to dimensional units of (Pa s m^-1 ) 
   ! and then non-dimensionalize using PP dyn core specific scaling.
-  betasquared = ( betasquared * scyr ) / ( tau0_glam * tim0 / len0 )
+  betasquared = ( betasquared * scyr ) / ( tau0 * tim0 / len0 )
 
 end subroutine calcbetasquared
 
@@ -3953,7 +3953,7 @@ subroutine plasticbediteration( ewn, nsn, uvel0, vvel0, btraction, minTauf, &
 
     !! *sfp* the following is a hack to allow the new plastic bed implementation to be used with 
     !! the basal processes test case
-    !tau(ewn-8:ewn-1,:) = 1.0d3 / tau0_glam 
+    !tau(ewn-8:ewn-1,:) = 1.0d3 / tau0 
 
 !    print *, 'inside plastic bed iteration subroutine (near top)'
 
@@ -3965,7 +3965,7 @@ subroutine plasticbediteration( ewn, nsn, uvel0, vvel0, btraction, minTauf, &
 !    c = 5.0d3 / (1.0d3/scyr)                ! "c" has unitis Pa * a/m (like B^2); choose value so that c*u is 
                                             ! approx equal to expected yield stress.
                                             ! here: 5000 Pa / (1000 m/a) = 5 Pa * a / m = 1.57e8 Pa * s / m
-!    c = c * vel0 / tau0_glam                     ! non-dimensionalize c                                        
+!    c = c * vel0 / tau0                     ! non-dimensionalize c                                        
 
 !    c = 1.0d-10
 !    c = 1.0d-5
@@ -3979,7 +3979,7 @@ subroutine plasticbediteration( ewn, nsn, uvel0, vvel0, btraction, minTauf, &
 !    c = 1.0d5
 !    c = 1.0d8 
 
-    big_C = 1.0d8 / tau0_glam           ! regularization constant to allow small motion on boundary; dim value in Pa / tau0 
+    big_C = 1.0d8 / tau0           ! regularization constant to allow small motion on boundary; dim value in Pa / tau0 
 
     gamma = 1.0d0 / big_C
 

@@ -2,7 +2,7 @@ module glam_Basal_Proc
 	
 	
 use glide_types
-use glimmer_paramets, only : dp,sp,vel0,tau0_glam,thk0,tim0
+use glimmer_paramets, only : dp,sp,vel0,tau0,thk0,tim0
 use glimmer_physcon,  only : grav, rhow, rhos, scyr
 use glimmer_log,      only : write_log
 
@@ -42,7 +42,7 @@ contains
     if (basalproc%till_hot.eq.1) then
     
        !From restart file, the following variables are known: basalproc%u, basalproc%minTauf and basalproc%etill
-       basalproc%minTauf=basalproc%minTauf*tau0_glam
+       basalproc%minTauf=basalproc%minTauf*tau0
        por=basalproc%etill/(1+basalproc%etill)
        dy=basalproc%Zs*(1+basalproc%etill(:,:,1:basalproc%tnodes-1))/(basalproc%tnodes-1)
        stagHwater=0.0
@@ -54,7 +54,7 @@ contains
        
     else if (basalproc%till_hot.eq.0) then
 
-       basalproc%minTauf=basalproc%minTauf*tau0_glam
+       basalproc%minTauf=basalproc%minTauf*tau0
        N(:,:,1)=basalproc%minTauf/basalproc%fric
        do i=2,basalproc%tnodes
           N(:,:,i)=N(:,:,1)
@@ -147,7 +147,7 @@ contains
 	call stag2norm(ewn,nsn,stagHwater,basalproc%Hwater)
 	print*,'ENDING WITH mean Tauf=',sum(basalproc%minTauf)/((ewn-1)*(nsn-1))
 	! Scale minTauf
-	basalproc%minTauf=basalproc%minTauf/tau0_glam
+	basalproc%minTauf=basalproc%minTauf/tau0
 
 
  
