@@ -419,7 +419,7 @@ load:         0
 hot:          0
 
 [velnormhom]
-dimensions:    time, level, y1, x1
+dimensions:    time, level, y0, x0
 units:         meter/year
 long_name:     Ice velocity magnitude according to higher-order model
 data:          data%velocity_hom%velnorm(up,:,:)
