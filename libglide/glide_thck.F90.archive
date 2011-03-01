@@ -40,7 +40,6 @@ module glide_thck
   use glimmer_sparse
   use glimmer_sparse_type
   use glide_grids
-  use glide_deriv           !*sfp* added
 
   !DEBUG ONLY, these should be deleted eventually
   use glide_stop
@@ -147,6 +146,14 @@ contains
           stop
        end if
 
+       if (model%options%which_ho_prognostic == HO_PROG_SIAONLY) then
+       ! get new thicknesses
+            call thck_evolve(model,model%velocity%diffu, model%velocity%diffu, .true.,model%geometry%thck,model%geometry%thck)
+       else if (model%options%which_ho_prognostic == HO_PROG_PATTYN) then
+            call thck_evolve(model,model%velocity_hom%diffu_x, model%velocity_hom%diffu_y, .true.,& 
+                  model%geometry%thck, model%geometry%thck)
+    
+       end if
        !EIB! old? from gc2
        !call thck_evolve(model,.true.,model%geometry%thck,model%geometry%thck)
 
@@ -267,6 +274,18 @@ contains
             call run_ho_diagnostic(model)                          
        end if
 
+       ! get new thicknesses
+       if (model%options%which_ho_prognostic == HO_PROG_SIAONLY) then
+
+            call thck_evolve(model,   model%velocity%diffu, model%velocity%diffu, &
+                             first_p, model%geometry%thck,  model%geometry%thck)
+
+       else if (model%options%which_ho_prognostic == HO_PROG_PATTYN) then
+            
+            call thck_evolve(model,model%velocity_hom%diffu_x, model%velocity_hom%diffu_y, .true.,& 
+                  model%geometry%thck, model%geometry%thck)
+    
+       end if
           !EIB! old way
           ! get new thicknesses
           !call thck_evolve(model,first_p,model%thckwk%oldthck,model%geometry%thck)

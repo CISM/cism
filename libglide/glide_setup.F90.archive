@@ -115,9 +115,11 @@ contains
     !*FD scale parameters
     use glide_types
     use glimmer_physcon,  only: scyr, gn
-    use glimmer_paramets, only: thk0,tim0,len0, vel0, vis0, acc0
+    use glimmer_paramets, only: thk0,tim0,len0, tau0, vel0, vis0, acc0
     implicit none
     type(glide_global_type)  :: model !*FD model instance
+
+!    tau0 = (vel0/(vis0*len0))**(1.0/gn)
 
     model%numerics%ntem = model%numerics%ntem * model%numerics%tinc
     model%numerics%nvel = model%numerics%nvel * model%numerics%tinc
@@ -432,12 +434,17 @@ end function glide_calc_sigma_pattyn
     type(glide_global_type) :: model
     
     call GetValue(section, 'diagnostic_scheme',  model%options%which_ho_diagnostic)
+    call GetValue(section, 'prognostic_scheme',  model%options%which_ho_prognostic)
+    call GetValue(section, 'basal_stress_input', model%options%which_ho_beta_in)
+    call GetValue(section, 'basal_stress_type',  model%options%which_ho_bstress)
     call GetValue(section, 'guess_specified',    model%velocity_hom%is_velocity_valid)
     call GetValue(section, 'which_ho_source',    model%options%which_ho_source)
     call GetValue(section, 'include_thin_ice',   model%options%ho_include_thinice)
+    !whl - added Price-Payne higher-order (glam) options
     call GetValue(section, 'which_ho_babc',      model%options%which_ho_babc)
     call GetValue(section, 'which_ho_efvs',      model%options%which_ho_efvs)
     call GetValue(section, 'which_ho_resid',     model%options%which_ho_resid)
+    !*sfp* added options for type of dissipation and bmelt calc. in temperature calc.
     call GetValue(section, 'which_disp',         model%options%which_disp)
     call GetValue(section, 'which_bmelt',        model%options%which_bmelt)
     call GetValue(section, 'which_ho_nonlinear', model%options%which_ho_nonlinear)
@@ -498,9 +505,25 @@ end function glide_calc_sigma_pattyn
     character(len=*), dimension(0:1), parameter :: vertical_integration = (/ &
          'standard     ', &
          'obey upper BC' /)
-    character(len=*), dimension(0:1), parameter :: ho_diagnostic = (/ &
+    character(len=*), dimension(0:3), parameter :: ho_diagnostic = (/ &
          'Do not compute higher-order velocities', &
+         'Pattyn 2003 (on A-grid)               ', &
+         'Pattyn 2003 (on B-grid)               ', &
          'Payne/Price (on B-grid)               ' /)    !*sfp** added
+    character(len=*), dimension(0:3), parameter :: ho_prognostic = (/ &
+         'Evolve ice with SIA only', &
+         'Pattyn scheme           ', &
+         'Pollard scheme          ', &
+         'Bueler scheme           ' /)
+    character(len=*), dimension(0:4), parameter :: ho_beta_in = (/ &
+         'All NaN (ice glued to bed)', &
+         '1/soft                    ', &
+         '1/btrc                    ', &
+         'beta field from input     ', &
+         'slip ratio (ISMIP-HOM F)  '/)
+    character(len=*), dimension(0:1), parameter :: ho_bstress = (/ &
+         'Linear bed (betasquared)', &
+         'Plastic bed (tau0)      ' /)
     character(len=*), dimension(0:7), parameter :: ho_whichbabc = (/ &
          'constant B^2                           ', &
          'simple pattern of B^2                  ', &
@@ -616,6 +639,27 @@ end function glide_calc_sigma_pattyn
                        ho_diagnostic(model%options%which_ho_diagnostic)
     call write_log(message)
     
+    if (model%options%which_ho_prognostic < 0 .or. model%options%which_ho_prognostic >= size(ho_prognostic)) then
+        call write_log('Error, prognostic_scheme out of range', GM_FATAL)
+    end if
+    write(message,*) 'ho_prognostic           :',model%options%which_ho_prognostic, &
+                       ho_prognostic(model%options%which_ho_prognostic)
+    call write_log(message)
+    
+    if (model%options%which_ho_beta_in < 0 .or. model%options%which_ho_beta_in >= size(ho_beta_in)) then
+        call write_log('Error, basal_stress_input out of range', GM_FATAL)
+    end if
+    write(message,*) 'basal_stress_input      :',model%options%which_ho_beta_in, &
+                       ho_beta_in(model%options%which_ho_beta_in)
+    call write_log(message)
+
+    if (model%options%which_ho_bstress < 0 .or. model%options%which_ho_bstress >= size(ho_bstress)) then
+        call write_log('Error, basal_stress_input out of range', GM_FATAL)
+    end if
+    write(message,*) 'basal_stress_type       :',model%options%which_ho_bstress, &
+                       ho_bstress(model%options%which_ho_bstress)
+    call write_log(message)
+
     if (model%options%which_ho_source < 0 .or. model%options%which_ho_source >= size(ho_whichsource)) then
         call write_log('Error, which_ho_source out of range', GM_FATAL)
     end if

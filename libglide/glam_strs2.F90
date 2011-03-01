@@ -217,12 +217,12 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
                                  beta,                   &
                                  uvel,     vvel,         &
                                  uflx,     vflx,         &
-                                 efvs, tstep )
+                                 efvs )
 
 
   implicit none
 
-  integer, intent(in) :: ewn, nsn, upn, tstep  ! JFL to be removed
+  integer, intent(in) :: ewn, nsn, upn
   integer, dimension(:,:),   intent(inout)  :: umask
   ! NOTE: 'inout' status to 'umask' should be changed to 'in' at some point, 
   ! but for now this allows for some minor internal hacks to CISM-defined mask  
@@ -658,12 +658,12 @@ subroutine JFNK                 (ewn,      nsn,    upn,  &
                                  beta,                   & 
                                  uvel,     vvel,         &
                                  uflx,     vflx,         &
-                                 efvs, tstep )
+                                 efvs )
 
 
   implicit none
 
-  integer, intent(in) :: ewn, nsn, upn, tstep
+  integer, intent(in) :: ewn, nsn, upn
   integer, dimension(:,:),   intent(inout)  :: umask  !*sfp* replaces the prev., internally calc. mask
                                                       ! ... 'inout' status allows for a minor alteration
                                                       ! to cism defined mask, which don't necessarily 

@@ -95,7 +95,7 @@ module glide_types
   integer, parameter :: EVOL_ADI = 1
   integer, parameter :: EVOL_DIFFUSION = 2
   integer, parameter :: EVOL_INC_REMAP = 3
-  integer, parameter :: EVOL_FO_UPWIND = 4 
+  integer, parameter :: EVOL_FO_UPWIND = 4  ! *sfp** added for summer modeling school
 
   integer, parameter :: SIGMA_BUILTIN_DEFAULT = 0 !Use default Sigma coordinate spacing
   integer, parameter :: SIGMA_BUILTIN_EVEN = 1 !Use an evenly spaced Sigma coordinate
@@ -108,7 +108,26 @@ module glide_types
   integer, parameter :: BWATER_CONST = 4       !*mb* Constant thickness of water, e.g., to force Tpmp.
 
   integer, parameter :: HO_DIAG_NONE = 0
-  integer, parameter :: HO_DIAG_PP = 1 
+  integer, parameter :: HO_DIAG_PATTYN_UNSTAGGERED = 1
+  integer, parameter :: HO_DIAG_PATTYN_STAGGERED = 2
+  integer, parameter :: HO_DIAG_PP = 3 ! *sfp** added
+
+  integer, parameter :: HO_PROG_SIAONLY = 0
+  integer, parameter :: HO_PROG_PATTYN = 1
+  integer, parameter :: HO_PROG_POLLARD = 2
+  integer, parameter :: HO_PROG_BUELER = 3
+
+!  integer, parameter :: HO_NONLIN_PICARD = 0    !*sfp* these are now defined in 'glimmer_sparse.F90'
+!  integer, parameter :: HO_NONLIN_JFNK = 1
+
+  integer, parameter :: HO_BETA_ALL_NAN = 0
+  integer, parameter :: HO_BETA_USE_SOFT = 1
+  integer, parameter :: HO_BETA_USE_BTRC = 2
+  integer, parameter :: HO_BETA_USE_BETA = 3
+  integer, parameter :: HO_BETA_SLIP_RATIO = 4
+
+  integer, parameter :: HO_BSTRESS_LINEAR = 0
+  integer, parameter :: HO_BSTRESS_PLASTIC = 1
 
   integer, parameter :: HO_EFVS_FULL = 0
   integer, parameter :: HO_EFVS_CONSTANT = 1
@@ -119,6 +138,7 @@ module glide_types
     !*FD \item[1] constant value
     !*FD \item[2] minimum value
 
+  !*sfp* added the next two groups for HO T calcs.
   integer, parameter :: SIA_DISP = 0
   integer, parameter :: FIRSTORDER_DISP = 1
   integer, parameter :: SSA_DISP = 2
@@ -242,8 +262,40 @@ module glide_types
     !*FD Higher-order velocity computation scheme
     !*FD \begin{description}
     !*FD \item[0] Do not compute higher-order velocity estimate
-    !*FD \item[1] higher-order velocites from Payn/Price 1st order dyn
+    !*FD \item[1] Compute higher-order velocity estimate using Pattyn's model
     !*FD \end{description}
+
+    integer :: which_ho_prognostic = 0
+    !*FD Higher-order prognostic scheme.  Note that this flag applies only when
+    !*FD using Glimmer's existing ice evolution functions; new evolution methods
+    !*FD may be added that do not use the diffusive scheme.  In other words,
+    !*FD this flag states how to transform the HO velocities into diffusion and
+    !*FD basal velocity fields.
+    !*FD \begin{description}
+    !*FD \item[0] Do not not use higher-order velocities prognostically; compute
+    !*FD          and output them but use SIA to evolve the ice
+    !*FD \item[1] Pattyn scheme (compute higher-order diffusivities only)
+    !*FD \item[2] Pollard scheme (Not implemented yet)
+    !*FD \item[3] Bueler scheme (Not implemented yet)
+    !*FD \end{description}
+
+    integer :: which_ho_beta_in = 0
+    !*FD Flag that indicates how to compute beta, the higher-order basal stress
+    !*FD coefficient
+    !*FD \begin{description}
+    !*FD \item[0] Set to NaN everywhere (no sliding, ice glued to the bed)
+    !*FD \item[1] Set to 1/soft (default)
+    !*FD \item[2] Set to 1/btrc (re-computed at each time step)
+    !*FD \item[3] Set to beta field of input netcdf file
+    !*FD \end{description}
+
+    integer :: which_ho_bstress = 0
+    !*FD Flag that indicates which sliding law to use in higher-order velocity
+    !*FD computations
+    !*FD \begin{description}
+    !*FD \item[0] Linear sliding law, $\tau_b = \beta u_b$
+    !*FD \item[1] Plastic till sliding law, 
+    !*FD $\tau_{b,i} = -\tau_c \frac{v_i}{\lVert v \rVert}
 
     ! options for using the Payne/Price higher-order dynamical core
     integer :: which_ho_babc = 4
