@@ -12,10 +12,8 @@ module glam
     use glimmer_paramets, only : vis0, vis0_glam
     use glimmer_physcon, only :
     use glide_mask
-
     use remap_advection, only: horizontal_remap
     use remap_glamutils
-
     use glide_velo_higher
     use glide_thck
 
@@ -70,10 +68,10 @@ module glam
 
            call horizontal_remap_in (model%remap_wk,          model%numerics%dt,                     &
                                      model%geometry%thck(1:model%general%ewn-1,1:model%general%nsn-1),  &
-                                     model%velocity_hom%uflx, model%velocity_hom%vflx,               &
+                                     model%velocity%uflx, model%velocity%vflx,               &
                                      model%geomderv%stagthck, model%numerics%thklim,                 &
                                      model%options%periodic_ew, model%options%periodic_ns,           &
-                                     model%velocity_hom%uvel, model%velocity_hom%vvel,               &
+                                     model%velocity%uvel, model%velocity%uvel,               &
                                      model%temper%temp  (1:model%general%upn-1,                      &
                                                          1:model%general%ewn-1,1:model%general%nsn-1) &
                                      )
@@ -115,7 +113,7 @@ module glam
 
            call horizontal_remap_in (model%remap_wk,          model%numerics%dt,                     &
                                      model%geometry%thck(1:model%general%ewn-1,1:model%general%nsn-1),    &
-                                     model%velocity_hom%uflx, model%velocity_hom%vflx,               &
+                                     model%velocity%uflx, model%velocity%vflx,               &
                                      model%geomderv%stagthck, model%numerics%thklim,                 &
                                      model%options%periodic_ew,             model%options%periodic_ns)
 

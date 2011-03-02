@@ -432,7 +432,7 @@ end function glide_calc_sigma_pattyn
     type(glide_global_type) :: model
     
     call GetValue(section, 'diagnostic_scheme',  model%options%which_ho_diagnostic)
-    call GetValue(section, 'guess_specified',    model%velocity_hom%is_velocity_valid)
+    call GetValue(section, 'guess_specified',    model%velocity%is_velocity_valid)
     call GetValue(section, 'which_ho_source',    model%options%which_ho_source)
     call GetValue(section, 'include_thin_ice',   model%options%ho_include_thinice)
     call GetValue(section, 'which_ho_babc',      model%options%which_ho_babc)

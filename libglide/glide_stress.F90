@@ -7,11 +7,11 @@ module stress_hom
     use glide_types
 
     private
-    public :: glide_stress  
+    public :: glide_calcstrsstr  
 
     contains
 
-    subroutine glide_stress( model )
+    subroutine glide_calcstrsstr( model )
 
         type(glide_global_type) :: model
 
@@ -26,11 +26,11 @@ module stress_hom
                        model%geometry%thck,                                                 &
                        model%geomderv%dusrfdew,   model%geomderv%dusrfdns,                  &
                        model%geomderv%dthckdew,   model%geomderv%dthckdns,                  &
-                       model%velocity_hom%uvel,       model%velocity_hom%vvel,              &
-                       model%velocity_hom%efvs,                                             &
-                       model%velocity_hom%tau%xx,      model%velocity_hom%tau%yy,           &
-                       model%velocity_hom%tau%xy,      model%velocity_hom%tau%scalar,       &
-                       model%velocity_hom%tau%xz,      model%velocity_hom%tau%yz )
+                       model%velocity%uvel,       model%velocity%vvel,                      &
+                       model%stress%efvs,                                                   &
+                       model%stress%tau%xx,      model%stress%tau%yy,                       &
+                       model%stress%tau%xy,      model%stress%tau%scalar,                   &
+                       model%stress%tau%xz,      model%stress%tau%yz )
 
 !        case( HO_STRESSCALC_PBJ )
 
@@ -39,7 +39,7 @@ module stress_hom
 
 !        end select
 
-    end subroutine glide_stress
+    end subroutine glide_calcstrsstr
 
 
     subroutine calcstrsstr( ewn,  nsn,  upn,  &

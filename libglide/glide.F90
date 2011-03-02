@@ -479,8 +479,8 @@ contains
     if (model%options%which_bmod == BAS_PROC_FULLCALC .or. &
         model%options%which_bmod == BAS_PROC_FASTCALC) then
         call Basal_Proc_driver (model%general%ewn,model%general%nsn,model%general%upn,       &
-                                model%numerics%ntem,model%velocity_hom%uvel(model%general%upn,:,:), &
-                                model%velocity_hom%vvel(model%general%upn,:,:), &
+                                model%numerics%ntem,model%velocity%uvel(model%general%upn,:,:), &
+                                model%velocity%vvel(model%general%upn,:,:), &
                                 model%options%which_bmod,model%temper%bmlt,model%basalproc)
     end if
 
@@ -500,15 +500,9 @@ contains
     use glide_mask
     use isostasy
 
-    ! *sfp** driver module/subroutines for Payne/Price HO dynamics and LANL inc. remapping for dH/dt 
-    ! Modeled after similar routines in "glide_thck"
+    ! *sfp* driver module/subroutines for Payne/Price HO dynamics and LANL inc. remapping for dH/dt 
     use glam, only: inc_remap_driver
-
-    ! *sfp** added for summer modeling school
     use fo_upwind_advect, only: fo_upwind_advect_driver
-
-    ! *sfp* added so that stress tensor is populated w/ HO stress fields
-    use stress_hom, only: glide_stress
 
     implicit none
 
@@ -554,14 +548,13 @@ contains
 
        call inc_remap_driver( model )
 
-       call glide_stress( model )       !*sfp* added for populating stress tensor w/ HO fields
-
     ! *sfp** added for summer modeling school
     case(EVOL_FO_UPWIND) ! Use first order upwind scheme for mass transport
 
        call fo_upwind_advect_driver( model )
  
     end select
+
 #ifdef PROFILING
     call glide_prof_stop(model,model%glide_prof%ice_evo)
 #endif

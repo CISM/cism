@@ -243,10 +243,9 @@ contains
     do j = 1, nsn-1
        do i = 1, ewn-1
 
-          !Note: HO velocities are stored in a separate type, velocity_hom
           if (model%options%which_ho_diagnostic  /= 0) then
-             spd = sqrt(model%velocity_hom%uvel(1,i,j)**2   &
-                      + model%velocity_hom%vvel(1,i,j)**2)
+             spd = sqrt(model%velocity%uvel(1,i,j)**2   &
+                      + model%velocity%vvel(1,i,j)**2)
           else
              spd = sqrt(model%velocity%uvel(1,i,j)**2   &
                       + model%velocity%vvel(1,i,j)**2)
@@ -270,8 +269,8 @@ contains
     do j = 1, nsn-1
        do i = 1, ewn-1
           if (model%options%which_ho_diagnostic  /= 0) then
-             spd = sqrt(model%velocity_hom%uvel(upn,i,j)**2   &
-                      + model%velocity_hom%vvel(upn,i,j)**2)
+             spd = sqrt(model%velocity%uvel(upn,i,j)**2   &
+                      + model%velocity%vvel(upn,i,j)**2)
           else
              spd = sqrt(model%velocity%uvel(upn,i,j)**2   &
                       + model%velocity%vvel(upn,i,j)**2)
@@ -328,8 +327,8 @@ contains
           do k = 1, upn
 
              if (model%options%which_ho_diagnostic  /= 0) then
-                spd = sqrt(model%velocity_hom%uvel(k,i,j)**2   &
-                         + model%velocity_hom%vvel(k,i,j)**2)
+                spd = sqrt(model%velocity%uvel(k,i,j)**2   &
+                         + model%velocity%vvel(k,i,j)**2)
              else
                 spd = sqrt(model%velocity%uvel(k,i,j)**2   &
                          + model%velocity%vvel(k,i,j)**2)

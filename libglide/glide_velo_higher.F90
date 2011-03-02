@@ -21,6 +21,7 @@ module glide_velo_higher
     use glide_grids, only: stagvarb
     use glide_mask
     use glide_grids
+
     implicit none
     
 contains
@@ -30,8 +31,10 @@ contains
     !model right now because the analysis on what needs to be passed has yet to
     !be done.
     subroutine run_ho_diagnostic(model)
+
         use glide_thckmask
         use glide_mask
+        use stress_hom, only : glide_calcstrsstr
         
         type(glide_global_type),intent(inout) :: model
         !For HO masking
@@ -49,14 +52,14 @@ contains
                                 geom_mask_stag) 
 
         !Augment masks with kinematic boundary condition info
-        call augment_kinbc_mask(model%geometry%thkmask, model%velocity_hom%kinbcmask)
-        call augment_kinbc_mask(geom_mask_stag, model%velocity_hom%kinbcmask)
+        call augment_kinbc_mask(model%geometry%thkmask, model%velocity%kinbcmask)
+        call augment_kinbc_mask(geom_mask_stag, model%velocity%kinbcmask)
 
         !Compute the normal vectors to the marine margin for the staggered grid
         call glide_marine_margin_normal(model%geomderv%stagthck, geom_mask_stag, latbc_norms_stag)
 
         ! save the final mask to 'dynbcmask' for exporting to netCDF output file
-        model%velocity_hom%dynbcmask = geom_mask_stag
+        model%velocity%dynbcmask = geom_mask_stag
 
 
         if (model%options%which_ho_diagnostic == HO_DIAG_PP) then
@@ -74,7 +77,7 @@ contains
                                         model%geomderv%dlsrfdew, model%geomderv%dlsrfdns,           & 
                                         model%geomderv%stagthck, model%temper%flwa*vis0/vis0_glam,  &
                                         model%basalproc%minTauf,                                    & 
-                                        model%velocity_hom%btraction,                               & 
+                                        model%velocity%btraction,                               & 
                                         geom_mask_stag,                                             &
                                         model%options%which_ho_babc,                                &
                                         model%options%which_ho_efvs,                                &
@@ -83,10 +86,10 @@ contains
                                         model%options%which_ho_sparse,                              &
                                         model%options%periodic_ew,                                  &
                                         model%options%periodic_ns,                                  &
-                                        model%velocity_hom%beta,                                    & 
-                                        model%velocity_hom%uvel, model%velocity_hom%vvel,           &
-                                        model%velocity_hom%uflx, model%velocity_hom%vflx,           &
-                                        model%velocity_hom%efvs )
+                                        model%velocity%beta,                                    & 
+                                        model%velocity%uvel, model%velocity%vvel,           &
+                                        model%velocity%uflx, model%velocity%vflx,           &
+                                        model%stress%efvs )
 
           else if ( model%options%which_ho_nonlinear == HO_NONLIN_JFNK ) then ! JFNK (solver in development...)
 
@@ -101,7 +104,7 @@ contains
                                         model%geomderv%dlsrfdew, model%geomderv%dlsrfdns,           & 
                                         model%geomderv%stagthck, model%temper%flwa*vis0/vis0_glam,  &
                                         model%basalproc%minTauf,                                    & 
-                                        model%velocity_hom%btraction,                               & 
+                                        model%velocity%btraction,                               & 
                                         geom_mask_stag,                                             &
                                         model%options%which_ho_babc,                                &
                                         model%options%which_ho_efvs,                                &
@@ -110,20 +113,24 @@ contains
                                         model%options%which_ho_sparse,                              &
                                         model%options%periodic_ew,                                  &
                                         model%options%periodic_ns,                                  &
-                                        model%velocity_hom%beta,                                    & 
-                                        model%velocity_hom%uvel, model%velocity_hom%vvel,           &
-                                        model%velocity_hom%uflx, model%velocity_hom%vflx,           &
-                                        model%velocity_hom%efvs )
+                                        model%velocity%beta,                                    & 
+                                        model%velocity%uvel, model%velocity%vvel,           &
+                                        model%velocity%uflx, model%velocity%vflx,           &
+                                        model%stress%efvs )
            else
               call write_log('Invalid which_ho_nonlinear option.',GM_FATAL)
            end if
 
         end if
+
         !Compute the velocity norm - this is independant of the methods used to compute the u and v components so
         !we put it out here
-        model%velocity_hom%velnorm = sqrt(model%velocity_hom%uvel**2 + model%velocity_hom%vvel**2)
-        model%velocity_hom%is_velocity_valid = .true.
+        model%velocity%velnorm = sqrt(model%velocity%uvel**2 + model%velocity%vvel**2)
+        model%velocity%is_velocity_valid = .true.
         
+        ! similarly, calculate stress tensor components
+        call glide_calcstrsstr( model )
+
     end subroutine
 
 end module glide_velo_higher

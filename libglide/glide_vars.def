@@ -18,8 +18,7 @@ datamod:  glide_types
 dimensions:    x0
 units:         meter
 long_name:     Cartesian x-coordinate, velocity grid
-#axis: X
-#standard_name: projection_x_coordinate
+axis:          X
 data:          data%general%x0
 dimlen:        model%general%ewn-1
 
@@ -57,6 +56,14 @@ standard_name: land_ice_sigma_coordinate
 #formula_terms: sigma: level topo: topg thick: thk
 positive:      down
 dimlen:        model%general%upn
+
+[staglevel]
+dimensions:    staglevel
+units:         1
+long_name:     stag sigma layers
+standard_name: land_ice_stag_sigma_coordinate
+positive:      down
+dimlen:        model%general%upn-1
 
 [lithoz]
 dimensions:    lithoz
@@ -149,7 +156,7 @@ load:          1
 dimensions:    time, y0, x0
 units:         unknown
 long_name:     higher-order bed stress coefficient
-data:          data%velocity_hom%beta
+data:          data%velocity%beta
 factor:        scale2d_f6
 load:          1
 
@@ -177,14 +184,14 @@ average:       1
 dimensions:    time, y0, x0
 units:         kilopascal
 long_name:     basal shear stress in x direction
-data:          data%velocity%tau_x
+data:          data%stress%tau_x
 factor:        1e-3*thk0*thk0/len0
 
 [tauy]
 dimensions:    time, y0, x0
 units:         kilopascal
 long_name:     basal shear stress in y direction
-data:          data%velocity%tau_y
+data:          data%stress%tau_y
 factor:        1e-3*thk0*thk0/len0
 
 [thk]
@@ -387,7 +394,7 @@ hot:           1
 dimensions:    time, level, y0, x0
 units:         meter/year
 long_name:     ice velocity in x direction according to higher order model
-data:          data%velocity_hom%uvel(up,:,:)
+data:          data%velocity%uvel(up,:,:)
 factor:        scale3d_f1
 standard_name: land_ice__x_velocity
 load:          1
@@ -396,16 +403,24 @@ load:          1
 dimensions:    time, level, y0, x0
 units:         meter/year
 long_name:     ice velocity in y direction according to higher order model
-data:          data%velocity_hom%vvel(up,:,:)
+data:          data%velocity%vvel(up,:,:)
 factor:        scale3d_f1
 standard_name: land_ice_y_velocity
 load:          1
+
+[wvelhom]
+dimensions:    time, level, y1, x1
+units:         meter/year
+long_name:     vertical ice velocity
+data:          data%velocity%wvel(up,:,:)
+factor:        scale3d_f7
+coordinates:   lon lat
 
 [kinbcmask]
 dimensions:   time, y0, x0
 units:        1
 long_name:    Mask of locations where uvelhom, vvelhom value should be held
-data:         data%velocity_hom%kinbcmask(:,:)
+data:         data%velocity%kinbcmask(:,:)
 type:         int
 load:         1
 
@@ -413,7 +428,7 @@ load:         1
 dimensions:   time, y0, x0
 units:        1
 long_name:    2d array of higher-order model boundary condition mask values
-data:         data%velocity_hom%dynbcmask
+data:         data%velocity%dynbcmask
 type:         int
 load:         0
 hot:          0
@@ -422,23 +437,23 @@ hot:          0
 dimensions:    time, level, y0, x0
 units:         meter/year
 long_name:     Ice velocity magnitude according to higher-order model
-data:          data%velocity_hom%velnorm(up,:,:)
+data:          data%velocity%velnorm(up,:,:)
 factor:        scale3d_f1
 coordinates:   lon lat
 
-#Vertical shear stresses, required for ISMIP-HOM intercomparison
+# higher-order vertical shear stresses, required for ISMIP-HOM intercomparison
 [tau_xz]
-dimensions: time, level, y0, x0
+dimensions: time, staglevel, y1, x1
 units:      kPa
 long_name:  X component vertical shear stress
-data:       data%velocity_hom%tau%xz(up,:,:)
+data:       data%stress%tau%xz(up,:,:)
 factor:     scale3d_f9
 
 [tau_yz]
-dimensions: time, level, y0, x0
+dimensions: time, staglevel, y1, x1
 units:      kPa
 long_name:  Y component vertical shear stress
-data:       data%velocity_hom%tau%yz(up,:,:)
+data:       data%stress%tau%yz(up,:,:)
 factor:     scale3d_f9
 
 [wvel]

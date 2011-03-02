@@ -145,7 +145,7 @@ contains
                 ! temp and dissip are colocated with eff stress and eff viscosity.
 
                  c5(1:model%general%upn-1) = c5(1:model%general%upn-1)                      &
-                                            +  model%velocity_hom%tau%scalar(:,ew,ns)**2 /  &
+                                            +  model%stress%tau%scalar(:,ew,ns)**2 /  &
                                                 efvs(1:model%general%upn-1,ew,ns)
              endif
 
@@ -175,7 +175,7 @@ contains
                 ! Note that this is also still a hack in that we only calc. dissip values for cells 2:upn-1, and
                 ! the dissip value at 1 and upn are obtained by extrapolation.           
 
-                    c5(2:model%general%upn) = c5(2:model%general%upn) + model%velocity_hom%tau%scalar(:,ew,ns)**2 / &
+                    c5(2:model%general%upn) = c5(2:model%general%upn) + model%stress%tau%scalar(:,ew,ns)**2 / &
                                               efvs(1:model%general%upn-1,ew,ns)
 
                 ! (2) average these to points that correspond to vert grid spaces up(2:upn-1) ...  

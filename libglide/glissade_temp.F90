@@ -231,7 +231,7 @@ contains
     call finddisp( model,                   &
                    model%geometry%thck,     &
                    model%options%which_disp,&
-                   model%velocity_hom%efvs, &
+                   model%stress%efvs, &
                    model%geomderv%stagthck, &
                    model%geomderv%dusrfdew, &
                    model%geomderv%dusrfdns, &
@@ -242,7 +242,7 @@ contains
     call calcbfric( model,                        &
                     model%options%which_bmelt,      &
                     model%geometry%thck,          &
-                    model%velocity_hom%btraction, &
+                    model%velocity%btraction, &
                     model%geomderv%dusrfdew,      &
                     model%geomderv%dusrfdns,      &
                     model%velocity%ubas,          &
@@ -627,10 +627,10 @@ contains
                    if (abs(model%velocity%ubas(ewp,nsp)) > 1.0d-6 .or.   &
                        abs(model%velocity%vbas(ewp,nsp)) > 1.0d-6) then
                       slide_count = slide_count + 1
-                      slterm = slterm + model%velocity_hom%btraction(1,ewp,nsp) * &
-                                        model%velocity_hom%uvel(model%general%upn,ewp,nsp) &
-                                      + model%velocity_hom%btraction(2,ewp,nsp) * &
-                                        model%velocity_hom%vvel(model%general%upn,ewp,nsp) 
+                      slterm = slterm + model%velocity%btraction(1,ewp,nsp) * &
+                                        model%velocity%uvel(model%general%upn,ewp,nsp) &
+                                      + model%velocity%btraction(2,ewp,nsp) * &
+                                        model%velocity%vvel(model%general%upn,ewp,nsp) 
                    end if
                 end do
                 end do

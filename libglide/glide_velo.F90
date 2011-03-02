@@ -986,8 +986,8 @@ contains
                 Z = model%numerics%thklim
             end if 
             
-             tau = ((tau_factor*model%velocity%tau_x(ew,ns))**2 +&
-             (model%velocity%tau_y(ew,ns)*tau_factor)**2)**(1.0/2.0)
+             tau = ((tau_factor*model%stress%tau_x(ew,ns))**2 +&
+             (model%stress%tau_y(ew,ns)*tau_factor)**2)**(1.0/2.0)
              
              btrc(ew,ns) = (Asl*(tau)**2)/Z !assuming that that btrc is later
                                              !multiplied again by the basal shear stress
@@ -1009,9 +1009,9 @@ contains
     type(glide_global_type) :: model        !*FD model instance
 
 
-    model%velocity%tau_x = -rhoi*grav*model%geomderv%stagthck
-    model%velocity%tau_y = model%velocity%tau_x * model%geomderv%dusrfdns
-    model%velocity%tau_x = model%velocity%tau_x * model%geomderv%dusrfdew
+    model%stress%tau_x = -rhoi*grav*model%geomderv%stagthck
+    model%stress%tau_y = model%stress%tau_x * model%geomderv%dusrfdns
+    model%stress%tau_x = model%stress%tau_x * model%geomderv%dusrfdew
   end subroutine calc_basal_shear
 
 end module glide_velo
