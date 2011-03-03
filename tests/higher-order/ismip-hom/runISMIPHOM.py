@@ -194,15 +194,15 @@ if __name__ == '__main__':
         if exitCode == 0:
 #         Extract the output data for comparison to the other models
           if experiment == 'a': # Get the following (variable,level)'s
-            variables = [('uvelhom',0),('vvelhom',0),('wvel',0),('tau_xz',-1),('tau_yz',-1)]
+            variables = [('uvel',0),('vvel',0),('wvel',0),('tau_xz',-1),('tau_yz',-1)]
           if experiment == 'b':
-            variables = [('uvelhom',0),('wvel',0),('tau_xz',-1)]
+            variables = [('uvel',0),('wvel',0),('tau_xz',-1)]
           if experiment == 'c':
-            variables = [('uvelhom',0),('vvelhom',0),('wvel',0),('uvelhom',-1),('vvelhom',-1),('tau_xz',-1),('tau_yz',-1)]
+            variables = [('uvel',0),('vvel',0),('wvel',0),('uvel',-1),('vvel',-1),('tau_xz',-1),('tau_yz',-1)]
           if experiment == 'd':
-            variables = [('uvelhom',0),('wvel',0),('uvelhom',-1),('tau_xz',-1)]
+            variables = [('uvel',0),('wvel',0),('uvel',-1),('tau_xz',-1)]
           if experiment == 'f':
-            variables = [('usurf',None),('uvelhom',0),('vvelhom',0),('wvel',0)]
+            variables = [('usurf',None),('uvel',0),('vvel',0),('wvel',0)]
 #         Open the netCDF file that was written by Glimmer
           netCDFfile = NetCDFFile(filename+'.out.nc','r')
           data = [(netCDFfile.variables[v[0]],v[1]) for v in variables]

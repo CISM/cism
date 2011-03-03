@@ -390,36 +390,10 @@ factor:        scale3d_f1
 standard_name: land_ice_y_velocity
 hot:           1
 
-[uvelhom]
-dimensions:    time, level, y0, x0
-units:         meter/year
-long_name:     ice velocity in x direction according to higher order model
-data:          data%velocity%uvel(up,:,:)
-factor:        scale3d_f1
-standard_name: land_ice__x_velocity
-load:          1
-
-[vvelhom]
-dimensions:    time, level, y0, x0
-units:         meter/year
-long_name:     ice velocity in y direction according to higher order model
-data:          data%velocity%vvel(up,:,:)
-factor:        scale3d_f1
-standard_name: land_ice_y_velocity
-load:          1
-
-[wvelhom]
-dimensions:    time, level, y1, x1
-units:         meter/year
-long_name:     vertical ice velocity
-data:          data%velocity%wvel(up,:,:)
-factor:        scale3d_f7
-coordinates:   lon lat
-
 [kinbcmask]
 dimensions:   time, y0, x0
 units:        1
-long_name:    Mask of locations where uvelhom, vvelhom value should be held
+long_name:    Mask of locations where uvel, vvel value should be held
 data:         data%velocity%kinbcmask(:,:)
 type:         int
 load:         1
@@ -433,7 +407,7 @@ type:         int
 load:         0
 hot:          0
 
-[velnormhom]
+[velnorm]
 dimensions:    time, level, y0, x0
 units:         meter/year
 long_name:     Ice velocity magnitude according to higher-order model

@@ -48,7 +48,7 @@ def cmap_discretize(cmap, N):
 # Read the Glimmer output file
 filename = os.path.join('output','ross.out.nc')
 inputfile1 = NetCDFFile(filename,'r')
-velnormhom = numpy.array(inputfile1.variables['velnormhom'][0,0,2:-2,2:-2])
+velnorm = numpy.array(inputfile1.variables['velnorm'][0,0,2:-2,2:-2])
 inputfile1.close()
 
 if options.use_mask:
@@ -90,8 +90,8 @@ for line in inputfile4:
       if lat < y[j+1]: break
     alpha = (lon-x[i])/(x[i+1]-x[i])
     beta  = (lat-y[j])/(y[j+1]-y[j])
-    v = (1-alpha)*((1-beta)*velnormhom[j,i]  +beta*velnormhom[j+1,i]) \
-       +   alpha *((1-beta)*velnormhom[j,i+1]+beta*velnormhom[j+1,i+1])
+    v = (1-alpha)*((1-beta)*velnorm[j,i]  +beta*velnorm[j+1,i]) \
+       +   alpha *((1-beta)*velnorm[j,i+1]+beta*velnorm[j+1,i+1])
     if v != 0:
       latitude.append(lat)
       longitude.append(lon)
@@ -113,7 +113,7 @@ sigma = 30
 X2 = sum([((v1-v2)/sigma)**2 for v1,v2 in zip(riggs_velocity,glimmer_velocity)])
 print
 print 'Chi-squared for',len(riggs_velocity),'points is', X2
-print 'The maximum velocity from Glimmer/CISM is', numpy.max(velnormhom)
+print 'The maximum velocity from Glimmer/CISM is', numpy.max(velnorm)
 print 'The maximum velocity from the RIGGS data is', max(riggs_velocity)
 
 # Create a scatter plot
@@ -137,7 +137,7 @@ x = x[:1] + list(midx) + x[-1:]
 y = y[:1] + list(midy) + y[-1:]
 x,y = numpy.meshgrid(x,y)
 # Set plot parameters
-vmax = numpy.max(velnormhom)
+vmax = numpy.max(velnorm)
 if options.vmax > 0:
   vmax = options.vmax
 norm  = colors.Normalize(0,vmax)
@@ -147,9 +147,9 @@ if options.ncontours > 1:
   cmap = cmap_discretize(cmap, options.ncontours)
   ticks = numpy.arange(options.ncontours+1) * vmax/options.ncontours
 if options.use_mask:
-  velnormhom = numpy.ma.masked_array(velnormhom,mask==1)
+  velnorm = numpy.ma.masked_array(velnorm,mask==1)
 # Make the actual plot
-pyplot.pcolor(x,y,velnormhom,norm=norm,cmap=cmap)
+pyplot.pcolor(x,y,velnorm,norm=norm,cmap=cmap)
 if plot_discarded_points:
   pyplot.scatter(lon0,lat0,s=50,c='white')
 pyplot.scatter(longitude,latitude,s=50,c=riggs_velocity,norm=norm,cmap=cmap)

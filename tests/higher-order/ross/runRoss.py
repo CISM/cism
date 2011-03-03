@@ -225,8 +225,8 @@ if create_files:
   beta  = netCDFfile.createVariable('beta','f',('time','y0','x0'))
   uvelbc = netCDFfile.createVariable('uvelbc','f',('time','level','y0','x0'))
   vvelbc = netCDFfile.createVariable('vvelbc','f',('time','level','y0','x0'))
-  uvelhom = netCDFfile.createVariable('uvelhom','f',('time','level','y0','x0'))
-  vvelhom = netCDFfile.createVariable('vvelhom','f',('time','level','y0','x0'))
+  uvel = netCDFfile.createVariable('uvel','f',('time','level','y0','x0'))
+  vvel = netCDFfile.createVariable('vvel','f',('time','level','y0','x0'))
   kinbcmask = netCDFfile.createVariable('kinbcmask','i',('time','y1','x1'))
   
   time[0] = 0
@@ -239,8 +239,8 @@ if create_files:
   thk [:] = thickness
   topg[:] = -seabed
   beta[:] = numpy.zeros((ny-1,nx-1),dtype='float32')
-  uvelhom[:] = numpy.array(nz*[velocity2[:-1,:-1]])
-  vvelhom[:] = numpy.array(nz*[velocity1[:-1,:-1]])
+  uvel[:] = numpy.array(nz*[velocity2[:-1,:-1]])
+  vvel[:] = numpy.array(nz*[velocity1[:-1,:-1]])
   mask = numpy.logical_and(velocity==0,numpy.logical_or(mask1==1,mask3==1))
   mask[0,:-1] = True
   mask[:-1,0] = True

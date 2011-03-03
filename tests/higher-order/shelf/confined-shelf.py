@@ -91,8 +91,8 @@ netCDFfile.createVariable('thk',      'f',('time','y1','x1'))[:] = thk.tolist()
 netCDFfile.createVariable('kinbcmask','i',('time','y0','x0'))[:] = kbc.tolist()
 netCDFfile.createVariable('topg',     'f',('time','y1','x1'))[:] = ny*[nx*[-2000]]
 netCDFfile.createVariable('beta',     'f',('time','y0','x0'))[:] = beta.tolist()
-netCDFfile.createVariable('uvelhom',  'f',('time','level','y0','x0'))[:] = zero.tolist()
-netCDFfile.createVariable('vvelhom',  'f',('time','level','y0','x0'))[:] = zero.tolist()
+netCDFfile.createVariable('uvel',  'f',('time','level','y0','x0'))[:] = zero.tolist()
+netCDFfile.createVariable('vvel',  'f',('time','level','y0','x0'))[:] = zero.tolist()
 
 netCDFfile.close()
 
