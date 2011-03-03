@@ -131,6 +131,63 @@ contains
         ! similarly, calculate stress tensor components
         call glide_calcstrsstr( model )
 
+        ! calculate vertical velocity 
+        call calcwvel( model, model%options%whichtemp )
+
     end subroutine
+
+    !*sfp* copy of code in glide_temp for calc. vert vel. If using HO, this will now be done here
+    !*sfp* and not in glide_temp. If NOT calling HO velocity calc, still done in glide_temp
+    subroutine calcwvel( model, whichtemp )
+
+        use glide_velo, only : gridwvel, wvelintg, chckwvel
+
+        implicit none
+    
+        type(glide_global_type),intent(inout) :: model       
+        integer,                intent(in)    :: whichtemp 
+
+        ! Calculate the vertical velocity of the grid ------------------------------------
+        call gridwvel(model%numerics%sigma,  &
+              model%numerics%thklim, &
+              model%velocity%uvel,   &
+              model%velocity%vvel,   &
+              model%geomderv,        &
+              model%geometry%thck,   &
+              model%velocity%wgrd)
+         ! Calculate the actual vertical velocity; method depends on whichwvel ------------
+        select case(model%options%whichwvel)
+         case(0)
+            ! Usual vertical integration
+            call wvelintg(model%velocity%uvel,                        &
+                model%velocity%vvel,                        &
+                model%geomderv,                             &
+                model%numerics,                             &
+                model%velowk,                               &
+                model%velocity%wgrd(model%general%upn,:,:), &
+                model%geometry%thck,                        &
+                model%temper%bmlt,                          &
+                model%velocity%wvel)
+         case(1)
+            ! Vertical integration constrained so kinematic upper BC obeyed.
+            call wvelintg(model%velocity%uvel,                        &
+                model%velocity%vvel,                        &
+                model%geomderv,                             &
+                model%numerics,                             &
+                model%velowk,                               &
+                model%velocity%wgrd(model%general%upn,:,:), &
+                model%geometry%thck,                        &
+                model%temper%  bmlt,                        &
+                model%velocity%wvel)
+            call chckwvel(model%numerics,                             &
+                model%geomderv,                             &
+                model%velocity%uvel(1,:,:),                 &
+                model%velocity%vvel(1,:,:),                 &
+                model%velocity%wvel,                        &
+                model%geometry%thck,                        &
+                model%climate% acab)
+        end select
+
+    end subroutine calcwvel
 
 end module glide_velo_higher

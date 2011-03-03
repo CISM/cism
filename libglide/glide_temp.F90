@@ -213,7 +213,7 @@ contains
 
 !****************************************************    
 
-  subroutine glide_temp_driver(model,whichtemp)
+  subroutine glide_temp_driver(model,whichtemp,which_ho_diagnostic)
 
     !*FD Calculates the ice temperature, according to one
     !*FD of several alternative methods.
@@ -233,8 +233,9 @@ contains
     ! Subroutine arguments
     !------------------------------------------------------------------------------------
 
-    type(glide_global_type),intent(inout) :: model       !*FD Ice model parameters.
-    integer,                intent(in)    :: whichtemp   !*FD Flag to choose method.
+    type(glide_global_type),intent(inout) :: model                  !*FD Ice model parameters.
+    integer,                intent(in)    :: whichtemp              !*FD Flag to choose method.
+    integer,                intent(in)    :: which_ho_diagnostic 
 
     !------------------------------------------------------------------------------------
     ! Internal variables
@@ -291,21 +292,23 @@ contains
 
           ! Calculate the vertical velocity of the grid ------------------------------------
     
-          call gridwvel(model%numerics%sigma,  &
-                model%numerics%thklim, &
-                model%velocity%uvel,   &
-                model%velocity%vvel,   &
-                model%geomderv,        &
-                model%geometry%thck,   &
-                model%velocity%wgrd)
+       call gridwvel(model%numerics%sigma,  &
+            model%numerics%thklim, &
+            model%velocity%uvel,   &
+            model%velocity%vvel,   &
+            model%geomderv,        &
+            model%geometry%thck,   &
+             model%velocity%wgrd)
     
-          ! Calculate the actual vertical velocity; method depends on whichwvel ------------
-    
+       ! Calculate the actual vertical velocity; method depends on whichwvel ------------
+       ! *sfp* Addded the if clause here so that this calc only gets done if has NOT
+       ! *sfp* already been done at the end of the HO velocity calculation. If using HO
+       ! *sfp* velocity calc, then this has already been done at the end of call to
+       ! *sfp* 'run_ho_diagnostic' in glide_velo_higher. 
+       if( which_ho_diagnostic > 0 )then
           select case(model%options%whichwvel)
           case(0) 
-    
               ! Usual vertical integration
-    
               call wvelintg(model%velocity%uvel,                        &
                   model%velocity%vvel,                        &
                   model%geomderv,                             &
@@ -317,9 +320,7 @@ contains
                   model%velocity%wvel)
     
           case(1)
-    
               ! Vertical integration constrained so kinematic upper BC obeyed.
-    
               call wvelintg(model%velocity%uvel,                        &
                   model%velocity%vvel,                        &
                   model%geomderv,                             &
@@ -329,7 +330,6 @@ contains
                   model%geometry%thck,                        &
                   model%temper%  bmlt,                        &
                   model%velocity%wvel)
-    
               call chckwvel(model%numerics,                             &
                   model%geomderv,                             &
                   model%velocity%uvel(1,:,:),                 &
@@ -338,59 +338,7 @@ contains
                   model%geometry%thck,                        &
                   model%climate% acab)
           end select
-
-       ! Calculate the vertical velocity of the grid ------------------------------------
-
-       call gridwvel(model%numerics%sigma,  &
-            model%numerics%thklim, &
-            model%velocity%uvel,   &
-            model%velocity%vvel,   &
-            model%geomderv,        &
-            model%geometry%thck,   &
-            model%velocity%wgrd)
-
-       ! Calculate the actual vertical velocity; method depends on whichwvel ------------
-
-       select case(model%options%whichwvel)
-
-       case(0) 
-
-          ! Usual vertical integration
-
-          call wvelintg(model%velocity%uvel,           &
-               model%velocity%vvel,                    &
-               model%geomderv,                             &
-               model%numerics,                             &
-               model%velowk,                               &
-               model%velocity%wgrd(model%general%upn,:,:), &
-               model%geometry%thck,                        &
-               model%temper%bmlt,                          &
-               model%velocity%wvel)
-
-       case(1)
-
-          ! Vertical integration constrained so kinematic upper BC obeyed.
-
-          call wvelintg(model%velocity%uvel,           &
-               model%velocity%vvel,                    &
-               model%geomderv,                             &
-               model%numerics,                             &
-               model%velowk,                               &
-               model%velocity%wgrd(model%general%upn,:,:), &
-               model%geometry%thck,                        &
-               model%temper%  bmlt,                        &
-               model%velocity%wvel)
-
-          call chckwvel(model%numerics,                    &
-               model%geomderv,                             &
-               model%velocity%uvel(1,:,:),             &
-               model%velocity%vvel(1,:,:),             &
-               model%velocity%wvel,                        &
-               model%geometry%thck,                        &
-               model%climate% acab)
-
-       end select   ! whichwvel
-
+       end if
        ! apply periodic ew BC
        if (model%options%periodic_ew) then
           call wvel_ew(model)

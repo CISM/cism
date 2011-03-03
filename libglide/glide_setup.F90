@@ -432,6 +432,7 @@ end function glide_calc_sigma_pattyn
     type(glide_global_type) :: model
     
     call GetValue(section, 'diagnostic_scheme',  model%options%which_ho_diagnostic)
+    call GetValue(section, 'prognostic_scheme', model%options%which_ho_prognostic)
     call GetValue(section, 'guess_specified',    model%velocity%is_velocity_valid)
     call GetValue(section, 'which_ho_source',    model%options%which_ho_source)
     call GetValue(section, 'include_thin_ice',   model%options%ho_include_thinice)
@@ -501,6 +502,9 @@ end function glide_calc_sigma_pattyn
     character(len=*), dimension(0:1), parameter :: ho_diagnostic = (/ &
          'Do not compute higher-order velocities', &
          'Payne/Price (on B-grid)               ' /)    !*sfp** added
+    character(len=*), dimension(0:1), parameter :: ho_prognostic = (/ &
+         'Evolve ice with SIA only', &
+         'Pattyn scheme ' /)
     character(len=*), dimension(0:7), parameter :: ho_whichbabc = (/ &
          'constant B^2                           ', &
          'simple pattern of B^2                  ', &
@@ -615,7 +619,14 @@ end function glide_calc_sigma_pattyn
     write(message,*) 'ho_diagnostic           :',model%options%which_ho_diagnostic, &
                        ho_diagnostic(model%options%which_ho_diagnostic)
     call write_log(message)
-    
+
+    if (model%options%which_ho_prognostic < 0 .or. model%options%which_ho_prognostic >= size(ho_prognostic)) then
+        call write_log('Error, prognostic_scheme out of range', GM_FATAL)
+    end if
+    write(message,*) 'ho_prognostic :',model%options%which_ho_prognostic, &
+                        ho_prognostic(model%options%which_ho_prognostic)
+    call write_log(message)    
+
     if (model%options%which_ho_source < 0 .or. model%options%which_ho_source >= size(ho_whichsource)) then
         call write_log('Error, which_ho_source out of range', GM_FATAL)
     end if

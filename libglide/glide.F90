@@ -285,7 +285,7 @@ contains
 
     if (model%options%hotstart.ne.1) then
        ! initialise Glen's flow parameter A using an isothermal temperature distribution
-       call glide_temp_driver(model,0)
+       call glide_temp_driver(model,0,0)
     end if
 
     ! calculate mask
@@ -457,7 +457,7 @@ contains
 
          ! standard Glide driver, including temperature advection
 
-         call glide_temp_driver(model, model%options%whichtemp)
+         call glide_temp_driver(model, model%options%whichtemp, model%options%which_ho_diagnostic)
 
        endif
 
@@ -702,64 +702,62 @@ contains
                         model%climate%eus,   model%geometry%lsrf)
     model%geometry%usrf = max(0.d0,model%geometry%thck + model%geometry%lsrf)
 
-    !EIB! from gc2, not sure if it needs to be here, comment out for now, just in case
-!EIB!   ! Calculate time-derivatives of thickness and upper surface elevation ------------
-!EIB!
-!EIB!       call timeders(model%thckwk,   &
-!EIB!            model%geometry%thck,     &
-!EIB!            model%geomderv%dthckdtm, &
-!EIB!            model%geometry%mask,     &
-!EIB!            model%numerics%time,     &
-!EIB!            1)
-!EIB!
-!EIB!       call timeders(model%thckwk,   &
-!EIB!            model%geometry%usrf,     &
-!EIB!            model%geomderv%dusrfdtm, &
-!EIB!            model%geometry%mask,     &
-!EIB!            model%numerics%time,     &
-!EIB!            2)
-!EIB!
-!EIB!       ! Calculate the vertical velocity of the grid ------------------------------------
-!EIB!
-!EIB!       call gridwvel(model%numerics%sigma,  &
-!EIB!            model%numerics%thklim, &
-!EIB!            model%velocity%uvel,   &
-!EIB!            model%velocity%vvel,   &
-!EIB!            model%geomderv,        &
-!EIB!            model%geometry%thck,   &
-!EIB!            model%velocity%wgrd)
-!EIB!
-!EIB!#ifdef GLC_DEBUG
-!EIB!       i = itest
-!EIB!       j = jtest
-!EIB!       write(6,*) ' '
-!EIB!       write(6,*) 'Before restart write, i, j, thck =', i, j, model%geometry%thck(i,j)
-!EIB!       write(6,300) k, model%geometry%thck(i,j)
-!EIB!       write(6,*) ' '
-!EIB!       write(6,*) 'k, temperature'
-!EIB!       do k = 1, upn
-!EIB!            write(6,300) k, model%temper%temp(k,i,j)
-!EIB!       enddo
-!EIB!  300  format(i3, Z24.20)
-!EIB!#endif
-!EIB!
-!EIB!    ! ------------------------------------------------------------------------ 
-!EIB!    ! write to netCDF file
-!EIB!    ! ------------------------------------------------------------------------ 
-!EIB!
-!EIB!    if (present(no_write)) then
-!EIB!       nw=no_write
-!EIB!    else
-!EIB!       nw=.false.
-!EIB!    end if
-!EIB!
-!EIB!    if (.not. nw) then
-!EIB!       call glide_io_writeall(model,model)
-!EIB!       if (model%options%gthf.gt.0) then
-!EIB!          call glide_lithot_io_writeall(model,model)
-!EIB!       end if
-!EIB!    end if
-!EIB!
+! Calculate time-derivatives of thickness and upper surface elevation ------------
+
+       call timeders(model%thckwk,   &
+            model%geometry%thck,     &
+            model%geomderv%dthckdtm, &
+            model%geometry%mask,     &
+            model%numerics%time,     &
+            1)
+
+       call timeders(model%thckwk,   &
+            model%geometry%usrf,     &
+            model%geomderv%dusrfdtm, &
+            model%geometry%mask,     &
+            model%numerics%time,     &
+            2)
+
+       ! Calculate the vertical velocity of the grid ------------------------------------
+
+       call gridwvel(model%numerics%sigma,  &
+            model%numerics%thklim, &
+            model%velocity%uvel,   &
+            model%velocity%vvel,   &
+            model%geomderv,        &
+            model%geometry%thck,   &
+            model%velocity%wgrd)
+
+#ifdef GLC_DEBUG
+       i = itest
+       j = jtest
+       write(6,*) ' '
+       write(6,*) 'Before restart write, i, j, thck =', i, j, model%geometry%thck(i,j)
+       write(6,300) k, model%geometry%thck(i,j)
+       write(6,*) ' '
+       write(6,*) 'k, temperature'
+       do k = 1, upn
+            write(6,300) k, model%temper%temp(k,i,j)
+       enddo
+  300  format(i3, Z24.20)
+#endif
+
+    !--------------------------------------------------------------------- 
+    ! write to netCDF file
+    ! ------------------------------------------------------------------------ 
+
+    if (present(no_write)) then
+       nw=no_write
+    else
+       nw=.false.
+    end if
+
+    if (.not. nw) then
+       call glide_io_writeall(model,model)
+       if (model%options%gthf.gt.0) then
+          call glide_lithot_io_writeall(model,model)
+       end if
+    end if
 
     ! increment time counter
     model%numerics%timecounter = model%numerics%timecounter + 1

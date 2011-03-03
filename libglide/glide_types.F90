@@ -110,6 +110,9 @@ module glide_types
   integer, parameter :: HO_DIAG_NONE = 0
   integer, parameter :: HO_DIAG_PP = 1 
 
+  integer, parameter :: HO_PROG_SIAONLY = 0
+  integer, parameter :: HO_PROG_PATTYN = 1
+ 
   integer, parameter :: HO_EFVS_FULL = 0
   integer, parameter :: HO_EFVS_CONSTANT = 1
   integer, parameter :: HO_EFVS_MINIMUM = 2
@@ -242,7 +245,19 @@ module glide_types
     !*FD Higher-order velocity computation scheme
     !*FD \begin{description}
     !*FD \item[0] Do not compute higher-order velocity estimate
-    !*FD \item[1] higher-order velocites from Payn/Price 1st order dyn
+    !*FD \item[1] higher-order velocites from Payne/Price 1st order dyn
+    !*FD \end{description}
+
+    integer :: which_ho_prognostic = 0
+    !*FD Higher-order prognostic scheme. Note that this flag applies only when
+    !*FD using Glimmer's existing ice evolution functions; new evolution methods
+    !*FD may be added that do not use the diffusive scheme. In other words,
+    !*FD this flag states how to transform the HO velocities into diffusion and
+    !*FD basal velocity fields.
+    !*FD \begin{description}
+    !*FD \item[0] Do not not use higher-order velocities prognostically; compute
+    !*FD and output them but use SIA to evolve the ice
+    !*FD \item[1] Pattyn scheme (compute higher-order diffusivities only)
     !*FD \end{description}
 
     ! options for using the Payne/Price higher-order dynamical core
@@ -510,8 +525,8 @@ module glide_types
     real(dp),dimension(:,:)  ,pointer :: uflx  => null() !*FD 
     real(dp),dimension(:,:)  ,pointer :: vflx  => null() !*FD 
     real(dp),dimension(:,:)  ,pointer :: diffu => null() !*FD 
-!    real(dp),dimension(:,:)  ,pointer :: diffu_x => null() !*sfp* moved from velocity_hom deriv type
-!    real(dp),dimension(:,:)  ,pointer :: diffu_y => null() !*sfp* but not currently used anywhere
+    real(dp),dimension(:,:)  ,pointer :: diffu_x => null() !*sfp* moved from velocity_hom deriv type
+    real(dp),dimension(:,:)  ,pointer :: diffu_y => null() 
     real(dp),dimension(:,:)  ,pointer :: total_diffu => null() !*FD total diffusivity
     real(dp),dimension(:,:)  ,pointer :: ubas  => null() !*FD 
     real(dp),dimension(:,:)  ,pointer :: ubas_tavg  => null()
@@ -1041,8 +1056,8 @@ contains
     call coordsystem_allocate(model%general%velo_grid, model%velocity%uflx)
     call coordsystem_allocate(model%general%velo_grid, model%velocity%vflx)
     call coordsystem_allocate(model%general%velo_grid, model%velocity%diffu)
-!    call coordsystem_allocate(model%general%velo_grid, model%velocity%diffu_x) *sfp* not currently used
-!    call coordsystem_allocate(model%general%velo_grid, model%velocity%diffu_y)
+    call coordsystem_allocate(model%general%velo_grid, model%velocity%diffu_x)
+    call coordsystem_allocate(model%general%velo_grid, model%velocity%diffu_y)
     call coordsystem_allocate(model%general%velo_grid, model%velocity%total_diffu)
     call coordsystem_allocate(model%general%velo_grid, model%velocity%bed_softness)
     call coordsystem_allocate(model%general%velo_grid, model%velocity%btrc)
@@ -1221,8 +1236,8 @@ contains
     deallocate(model%velocity%uflx)
     deallocate(model%velocity%vflx)
     deallocate(model%velocity%diffu)
-!    deallocate(model%velocity%diffu_x) !*sfp* not currently used
-!    deallocate(model%velocity%diffu_y)
+    deallocate(model%velocity%diffu_x)
+    deallocate(model%velocity%diffu_y)
     deallocate(model%velocity%total_diffu)
     deallocate(model%velocity%bed_softness)
     deallocate(model%velocity%btrc)

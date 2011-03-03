@@ -147,6 +147,14 @@ contains
           stop
        end if
 
+
+       if (model%options%which_ho_prognostic == HO_PROG_SIAONLY) then
+       ! get new thicknesses
+          call thck_evolve(model,model%velocity%diffu, model%velocity%diffu, .true.,model%geometry%thck,model%geometry%thck)
+       else if (model%options%which_ho_prognostic == HO_PROG_PATTYN) then
+          call thck_evolve(model,model%velocity%diffu_x, model%velocity%diffu_y, .true.,&
+                            model%geometry%thck, model%geometry%thck)
+       end if
        !EIB! old? from gc2
        !call thck_evolve(model,.true.,model%geometry%thck,model%geometry%thck)
 
@@ -266,6 +274,16 @@ contains
             call geometry_derivs_unstag(model)
             call run_ho_diagnostic(model)                          
        end if
+
+       ! get new thicknesses
+       if (model%options%which_ho_prognostic == HO_PROG_SIAONLY) then
+ 
+           call thck_evolve(model, model%velocity%diffu, model%velocity%diffu, &
+                            first_p, model%geometry%thck, model%geometry%thck)
+       else if (model%options%which_ho_prognostic == HO_PROG_PATTYN) then
+           call thck_evolve(model,model%velocity%diffu_x, model%velocity%diffu_y, .true.,&
+                            model%geometry%thck, model%geometry%thck)
+       end if          
 
           !EIB! old way
           ! get new thicknesses
