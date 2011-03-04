@@ -290,8 +290,16 @@ contains
             model%numerics%time,     &
             2)
 
-          ! Calculate the vertical velocity of the grid ------------------------------------
+       ! Calculate the vertical velocity of the grid ------------------------------------
     
+       ! Calculate the actual vertical velocity; method depends on whichwvel ------------
+
+       ! *sfp* Added the if clause here so that this calc only gets done if has NOT
+       ! *sfp* already been done at the end of the HO velocity calculation. If using HO
+       ! *sfp* velocity calc, then this has already been done at the end of call to
+       ! *sfp* 'run_ho_diagnostic' in glide_velo_higher. 
+       if( which_ho_diagnostic == 0 )then
+
        call gridwvel(model%numerics%sigma,  &
             model%numerics%thklim, &
             model%velocity%uvel,   &
@@ -300,13 +308,8 @@ contains
             model%geometry%thck,   &
              model%velocity%wgrd)
     
-       ! Calculate the actual vertical velocity; method depends on whichwvel ------------
-       ! *sfp* Addded the if clause here so that this calc only gets done if has NOT
-       ! *sfp* already been done at the end of the HO velocity calculation. If using HO
-       ! *sfp* velocity calc, then this has already been done at the end of call to
-       ! *sfp* 'run_ho_diagnostic' in glide_velo_higher. 
-       if( which_ho_diagnostic > 0 )then
           select case(model%options%whichwvel)
+
           case(0) 
               ! Usual vertical integration
               call wvelintg(model%velocity%uvel,                        &
