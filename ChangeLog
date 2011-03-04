@@ -1,3 +1,7 @@
+2011-03-04 Magnus Hagdorn
+ * tests/EISMINT/EISMINT-1/*.config: add output file with 1000a output freq
+ * tests/EISMINT/EISMINT-2/*.config: ditto
+
 2011-02-09 Magnus Hagdorn
  * PyGC/PyGC/GC_options.py: make var method public
  * PyGC/progs/Makefile.am: add new program
