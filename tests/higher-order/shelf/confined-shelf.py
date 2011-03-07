@@ -76,23 +76,45 @@ netCDFfile.createVariable('y0','f',('y0',))[:] = (dy/2 + y[:-1]).tolist()
 thk  = numpy.zeros([1,ny,nx],dtype='float32')
 beta = numpy.empty([1,ny-1,nx-1],dtype='float32')
 kbc  = numpy.zeros([1,ny-1,nx-1],dtype='int')
+acab = numpy.zeros([1,ny,nx],dtype='float32') # *sfp* added acab field for prog. runs 
+temp = numpy.zeros([1,nz,ny,nx],dtype='float32') 
 zero = numpy.zeros([1,nz,ny-1,nx-1],dtype='float32')
+
+uvelhom = numpy.zeros([1,nz,ny-1,nx-1],dtype='float32')
+vvelhom = numpy.zeros([1,nz,ny-1,nx-1],dtype='float32')
 
 thk[0,4:-2,2:-2] = 500.  # *SFP* changed to be in line w/ EISMINT-shelf tests 3&4 
 beta[0,:,:] = 0 
-kbc[0,ny-3:,:]  = 1
+
+acab[:] = 0.25
+acab[0,ny-3:,:]  = 0    # zero out accum at edges to avoid buildup where u=0
+acab[0,:,:3] = 0
+acab[0,:,nx-3:] = 0
+
+temp[:] = -10.0        
 
 #if not periodic_ew:    *SFP* removed periodic option
-kbc[0,:,:2] = 1
-kbc[0,:,nx-3:] = 1
+kbc[0,ny-4:,:]  = 1
+kbc[0,:,:3] = 1
+kbc[0,:,nx-4:] = 1
+
+for i in range(nx-2):
+  x = float( i ) / (nx-2) - 0.5  
+  vvelhom[0,:,ny-4,i] = -1.5e3 * 1/(2*3.141592654*0.125) * numpy.exp( -x**2 / (2*0.125**2) )
 
 # Create the required variables in the netCDF file.
 netCDFfile.createVariable('thk',      'f',('time','y1','x1'))[:] = thk.tolist()
+netCDFfile.createVariable('acab',     'f',('time','y1','x1'))[:] = acab.tolist()
+netCDFfile.createVariable('temp',     'f',('time','level','y1','x1'))[:] = temp.tolist()
 netCDFfile.createVariable('kinbcmask','i',('time','y0','x0'))[:] = kbc.tolist()
 netCDFfile.createVariable('topg',     'f',('time','y1','x1'))[:] = ny*[nx*[-2000]]
 netCDFfile.createVariable('beta',     'f',('time','y0','x0'))[:] = beta.tolist()
-netCDFfile.createVariable('uvel',  'f',('time','level','y0','x0'))[:] = zero.tolist()
-netCDFfile.createVariable('vvel',  'f',('time','level','y0','x0'))[:] = zero.tolist()
+netCDFfile.createVariable('uvelhom',  'f',('time','level','y0','x0'))[:] = zero.tolist()
+
+# *sfp* first option below adds ice stream vel profile for kin bc at upstream end
+# *sfp* ... comment out for standard test case
+#netCDFfile.createVariable('vvelhom',  'f',('time','level','y0','x0'))[:] = vvelhom.tolist()
+netCDFfile.createVariable('vvelhom',  'f',('time','level','y0','x0'))[:] = zero.tolist()
 
 netCDFfile.close()
 
