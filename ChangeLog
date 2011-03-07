@@ -1,3 +1,8 @@
+2011-03-07 Magnus Hagdorn
+ * example-drivers/eis/Makefile.am: decent into test directories for various
+   test run related rules
+ * extensions/erosion/src/Makefile.am: make sure erosion lib is static only
+
 2011-03-04 Magnus Hagdorn
  * tests/EISMINT/EISMINT-1/*.config: add output file with 1000a output freq
  * tests/EISMINT/EISMINT-2/*.config: ditto

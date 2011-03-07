@@ -13,6 +13,7 @@ CLEANFILES = $(BUILT_SOURCES) f90_dep.mak *.mod
 liberosion_la_SOURCES = erosion.F90 erosion_types.F90 erosion_setup.F90 erosion_io.F90 \
                        erosion_advect.F90 geometry.F90 runge_kutta.F90  erosion_transport.F90 \
                        glimmer_interpolate2d.F90 erosion_sediment.F90 advect_2ndmo.F90  erosion_transport_type.F90  
+liberosion_la_LDFLAGS = -all-static
 
 test_interpolate2d_SOURCES = test_interpolate2d.F90
 test_geometry_SOURCES = test_geometry.F90
