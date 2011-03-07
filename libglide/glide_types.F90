@@ -518,7 +518,7 @@ module glide_types
     !*FD Holds the velocity fields in 2D and 3D. At least some of these fields
     real(dp),dimension(:,:,:),pointer :: uvel  => null() !*FD 3D $x$-velocity.
     real(dp),dimension(:,:,:),pointer :: vvel  => null() !*FD 3D $y$-velocity.
-    real(dp),dimension(:,:,:),pointer   :: velnorm => null()
+    real(dp),dimension(:,:,:),pointer :: velnorm => null()
     real(dp),dimension(:,:,:),pointer :: wvel  => null() !*FD 3D $z$-velocity.
     real(dp),dimension(:,:,:),pointer :: wgrd  => null() !*FD 3D grid vertical velocity.
     real(dp),dimension(:,:,:),pointer :: surfvel => null() !Surface velocity
@@ -1071,18 +1071,17 @@ contains
     call coordsystem_allocate(model%general%velo_grid, model%velocity%kinbcmask)
     call coordsystem_allocate(model%general%velo_grid, model%velocity%dynbcmask)
 
-    call coordsystem_allocate(model%general%ice_grid, upn, model%stress%tau%scalar)
-    call coordsystem_allocate(model%general%ice_grid, upn, model%stress%tau%xz)
-    call coordsystem_allocate(model%general%ice_grid, upn, model%stress%tau%yz)
-    call coordsystem_allocate(model%general%ice_grid, upn, model%stress%tau%xx)
-    call coordsystem_allocate(model%general%ice_grid, upn, model%stress%tau%yy)
-    call coordsystem_allocate(model%general%ice_grid, upn, model%stress%tau%xy)
-    call coordsystem_allocate(model%general%ice_grid, upn, model%stress%efvs)
+    call coordsystem_allocate(model%general%ice_grid, upn-1, model%stress%tau%scalar)
+    call coordsystem_allocate(model%general%ice_grid, upn-1, model%stress%tau%xz)
+    call coordsystem_allocate(model%general%ice_grid, upn-1, model%stress%tau%yz)
+    call coordsystem_allocate(model%general%ice_grid, upn-1, model%stress%tau%xx)
+    call coordsystem_allocate(model%general%ice_grid, upn-1, model%stress%tau%yy)
+    call coordsystem_allocate(model%general%ice_grid, upn-1, model%stress%tau%xy)
+    call coordsystem_allocate(model%general%ice_grid, upn-1, model%stress%efvs)
     call coordsystem_allocate(model%general%velo_grid, model%stress%tau_x)
     call coordsystem_allocate(model%general%velo_grid, model%stress%tau_y)
 !    call coordsystem_allocate(model%general%velo_grid, upn, model%stress%gdsx) !*sfp* not currently used anywhere
 !    call coordsystem_allocate(model%general%velo_grid, upn, model%stress%gdsy)
-
 
     call coordsystem_allocate(model%general%ice_grid, model%climate%acab)
     call coordsystem_allocate(model%general%ice_grid, model%climate%acab_tavg)

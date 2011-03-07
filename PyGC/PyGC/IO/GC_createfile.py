@@ -144,6 +144,7 @@ if __name__ == '__main__':
     cffile.createDimension('y0',numy-1)
     cffile.createDimension('y1',numy)
     cffile.createDimension('level',1)
+    cffile.createDimension('staglevel',1)
     cffile.createDimension('lithoz',1)
     cffile.createDimension('time',None)
 
@@ -161,7 +162,7 @@ if __name__ == '__main__':
 
    
     for v in cffile.vars:
-         if 'spot' not in v and v not in ['VARSET','level','x0','y0','x1','y1']:
+         if 'spot' not in v and v not in ['VARSET','level','staglevel','x0','y0','x1','y1']:
              print 'Creating variable %s'%v
              var = cffile.createVariable(v)
 

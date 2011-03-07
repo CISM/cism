@@ -53,6 +53,8 @@ module glam
         ! Use incremental remapping algorithm to evolve the ice thickness
         ! (and optionally, temperature and other tracers)
 
+        if( model%numerics%tend > model%numerics%tstart)then
+
         if (model%options%whichtemp == TEMP_REMAP_ADV) then   ! Use IR to advect temperature
                                                               ! (and other tracers, if present)
 
@@ -137,7 +139,8 @@ module glam
                                       model%climate%acab, model%numerics%dt )
 
         endif   ! whichtemp
-
+      endif     ! if tend > tstart
+      
     end subroutine inc_remap_driver
 
         ! NOTE finalization routine, to be written for PP HO core needs to be written (e.g.

@@ -15,11 +15,6 @@ module stress_hom
 
         type(glide_global_type) :: model
 
-!        select case( model%options%which_ho_stresscalc )    !*sfp* still need to alter glide_types and glide_setup
-                                                             ! to include these options
-
-!        case( HO_STRESSCALC_PP )
-
             call calcstrsstr(model%general%ewn,  model%general%nsn,  model%general%upn,     &
                        model%numerics%dew,       model%numerics%dns,                        &
                        model%numerics%sigma,     model%numerics%stagsigma,                  & 
@@ -32,15 +27,7 @@ module stress_hom
                        model%stress%tau%xy,      model%stress%tau%scalar,                   &
                        model%stress%tau%xz,      model%stress%tau%yz )
 
-!        case( HO_STRESSCALC_PBJ )
-
-            !*sfp* need to fill this w/ PB&J HO stress calc. scheme and add appropriate
-            ! subroutines below.
-
-!        end select
-
     end subroutine glide_calcstrsstr
-
 
     subroutine calcstrsstr( ewn,  nsn,  upn,  &
                             dew,        dns,       &
@@ -76,8 +63,7 @@ module stress_hom
 
         !*sfp* note that these are already defined and used in glam_strs2. If needed by PB&J 
 
-        ! stress calc routine as well, consider moving the up-scope 
-
+        ! stress calc routine as well, consider moving these up-scope 
         dup(1:upn-1) = sigma(2:upn) - sigma(1:upn-1)
         dupm(:) = - 0.25_dp / dup(:)
         dew2 = 2.0_dp * dew; dns2 = 2.0_dp * dns        ! *sp* 2x the standard grid spacing
@@ -88,24 +74,21 @@ module stress_hom
 
             if (thck(ew,ns) > 0.0_dp) then
 
-                tauxz(1:upn-1,ew,ns) = vertideriv(upn, hsum(uvel(:,ew-1:ew,ns-1:ns)), &
+                tauxz(:,ew,ns) = vertideriv(upn, hsum(uvel(:,ew-1:ew,ns-1:ns)), &
                                                   thck(ew,ns), dupm(1:upn-1))
-                tauyz(1:upn-1,ew,ns) = vertideriv(upn, hsum(vvel(:,ew-1:ew,ns-1:ns)), &
+                tauyz(:,ew,ns) = vertideriv(upn, hsum(vvel(:,ew-1:ew,ns-1:ns)), &
                                                   thck(ew,ns), dupm(1:upn-1))
-
-                tauxx(1:upn-1,ew,ns) = horizderiv(upn,  stagsigma,       &
+                tauxx(:,ew,ns) = horizderiv(upn,  stagsigma,       &
                               sum(uvel(:,ew-1:ew,ns-1:ns),3), &
                               dew4, tauxz(:,ew,ns),           &
                               sum(dusrfdew(ew-1:ew,ns-1:ns)), &
                               sum(dthckdew(ew-1:ew,ns-1:ns)))
-
-                tauyy(1:upn-1,ew,ns) = horizderiv(upn,  stagsigma,       &
+                tauyy(:,ew,ns) = horizderiv(upn,  stagsigma,       &
                               sum(vvel(:,ew-1:ew,ns-1:ns),2), &
                               dns4, tauyz(:,ew,ns),           &
                               sum(dusrfdns(ew-1:ew,ns-1:ns)), &
                               sum(dthckdns(ew-1:ew,ns-1:ns)))
-
-                tauxy(1:upn-1,ew,ns) = horizderiv(upn,  stagsigma,       &
+                tauxy(:,ew,ns) = horizderiv(upn,  stagsigma,       &
                               sum(uvel(:,ew-1:ew,ns-1:ns),2), &
                               dns4, tauxz(:,ew,ns),           &
                               sum(dusrfdns(ew-1:ew,ns-1:ns)), &
@@ -116,29 +99,26 @@ module stress_hom
                               sum(dusrfdew(ew-1:ew,ns-1:ns)), &
                               sum(dthckdew(ew-1:ew,ns-1:ns)))
             else
-
                 tauxz(:,ew,ns) = 0.0_dp
                 tauyz(:,ew,ns) = 0.0_dp
                 tauxx(:,ew,ns) = 0.0_dp
                 tauyy(:,ew,ns) = 0.0_dp
                 tauxy(:,ew,ns) = 0.0_dp
-
             end if
 
             end do
         end do
 
-        tauxz = f1 * efvs * tauxz     !* tau0
-        tauyz = f1 * efvs * tauyz     !* tau0
-        tauxx = 2.0_dp * efvs * tauxx !* tau0
-        tauyy = 2.0_dp * efvs * tauyy !* tau0
-        tauxy = efvs * tauxy          !* tau0
+        tauxz = f1 * efvs * tauxz     
+        tauyz = f1 * efvs * tauyz     
+        tauxx = 2.0_dp * efvs * tauxx 
+        tauyy = 2.0_dp * efvs * tauyy 
+        tauxy = efvs * tauxy          
 
         !*sfp* expanding this in terms of viscosity and velocity gradients, I've confirmed that 
         ! one gets the same thing as if one took Tau_eff = N_eff * Eps_eff, where Eps_eff is the 
         ! 1st order approx. to the 2nd strain-rate invariant (outlined in model description document).
-
-        tau = sqrt(tauxz**2 + tauyz**2 + tauxx**2 + tauyy**2 + tauxx*tauyy + tauxy**2) !* tau0
+        tau = sqrt(tauxz**2 + tauyz**2 + tauxx**2 + tauyy**2 + tauxx*tauyy + tauxy**2)
 
         return
 
@@ -160,16 +140,13 @@ module stress_hom
         !there should be a '-' in front of this expression ... or, negative sign
         !may be implicit in the vert indices ( "arb(2:upn) - varb(1:upn-1)" ) and
         !the fact that up=1 at the sfc and up=upn at the bed ??? 
-
         vertideriv(1:upn-1) = dupm(1:upn-1) * (varb(2:upn) - varb(1:upn-1)) / thck
 
         return
 
    end function vertideriv
 
-
-
-    function horizderiv( upn,     stagsigma,   &
+   function horizderiv( upn,     stagsigma,   &
                          varb,    grid,        &
                          dvarbdz, dusrfdx, dthckdx)
 
@@ -191,8 +168,7 @@ module stress_hom
 
    end function horizderiv
 
-
-    function hsum(inp)
+   function hsum(inp)
 
       implicit none
 
@@ -203,6 +179,6 @@ module stress_hom
 
       return
 
-    end function hsum
+   end function hsum
 
 end module stress_hom

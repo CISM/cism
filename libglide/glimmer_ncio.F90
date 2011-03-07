@@ -212,8 +212,9 @@ contains
        call glimmap_CFPutProj(NCO%id,mapid,model%projection)
     end if
 
-    ! setting the size of the level dimension
+    ! setting the size of the level and staglevel dimension
     NCO%nlevel = model%general%upn
+    NCO%nstaglevel = model%general%upn-1
   end subroutine glimmer_nc_createfile
 
   subroutine glimmer_nc_checkwrite(outfile,model,forcewrite,time)
@@ -356,8 +357,9 @@ contains
     infile%nt=dimsize
     status = nf90_get_var(NCI%id,NCI%timevar,infile%times)
 
-    ! setting the size of the level dimension
+    ! setting the size of the level and staglevel dimension
     NCI%nlevel = model%general%upn
+    NCI%nstaglevel = model%general%upn-1
 
     ! checking if dimensions and grid spacing are the same as in the configuration file
     ! x1
