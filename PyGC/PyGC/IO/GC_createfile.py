@@ -166,5 +166,4 @@ if __name__ == '__main__':
              print 'Creating variable %s'%v
              var = cffile.createVariable(v)
 
-
     cffile.close()
