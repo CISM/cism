@@ -1,5 +1,5 @@
 tests = benchmarks EISMINT-1 EISMINT-2 isos lin-non_lin
-SUBDIRS = $(tests)
+SUBDIRS = src $(tests)
 if BUILD_EXT_EROSION
  SUBDIRS += erosion
 endif
