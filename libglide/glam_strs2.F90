@@ -502,7 +502,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 ! jfl 20100412: residual for u comp: Fu= C(u^k-1,v^k-1)u^k-1 - d(u^k-1,v^k-1)  
 !==============================================================================
 
-!     call res_vect( matrix, uk_1, rhsd, size(rhsd), counter, g_flag, L2square, whichsparse ) ! JCC - No Trilinos support yet
+    call res_vect( matrix, uk_1, rhsd, size(rhsd), counter, g_flag, L2square, whichsparse ) ! JCC - No Trilinos support yet
 
     L2norm = sqrt(L2norm + L2square)
     F(pcgsize(1)+1:2*pcgsize(1)) = uk_1(:) ! F = [ Fv, Fu ]
@@ -1567,7 +1567,7 @@ subroutine calc_F (ewn, nsn, upn, stagsigma, counter,            &
     
       vectp = vtp
 
-!     call res_vect(matrixA, vectp, rhsd, nu1, counter, g_flag, L2square, whatsparse)!rhsd = b ! JCC - No Trilinos support yet
+    call res_vect(matrixA, vectp, rhsd, nu1, counter, g_flag, L2square, whatsparse)!rhsd = b ! JCC - No Trilinos support yet
     L2norm = L2square
 
     F(1:nu1) = vectp ! Fv
@@ -1603,7 +1603,7 @@ subroutine calc_F (ewn, nsn, upn, stagsigma, counter,            &
     
       vectp = utp
 
-!     call res_vect(matrixC, vectp, rhsd, nu1, counter, g_flag, L2square, whatsparse)!rhsd = d ! JCC - No Trilinos support yet
+    call res_vect(matrixC, vectp, rhsd, nu1, counter, g_flag, L2square, whatsparse)!rhsd = d ! JCC - No Trilinos support yet
     L2norm = sqrt(L2norm + L2square)
 
     F(nu1+1:nu2) = vectp ! Fu
