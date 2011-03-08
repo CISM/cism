@@ -9,7 +9,7 @@ EXTRA_DIST = e1-fm.1.config  e1-fm.2.config  e1-fm.3.config  e1-mm.1.config  e1-
 MOSTLYCLEANFILES = $(graphics)
 CLEANFILES = $(data) $(graphics) $(BUILT_SOURCES)
 
-MODEL_BINARY=$(top_builddir)/example_drivers/simple_glide/src/simple_glide
+MODEL_BINARY=$(top_builddir)/example-drivers/simple_glide/src/simple_glide
 
 include $(top_srcdir)/extra_rules.am
 
