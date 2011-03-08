@@ -25,7 +25,7 @@ libglide_la_SOURCES = glide.F90 glide_setup.F90 glide_types.F90 glide_temp.F90 \
         		      remap_advection.F90 remap_glamutils.F90 \
         		      glide_mask.inc glide_nan.inc glide_bwater.F90 \
                       glimmer_restart_gcm.F90 glissade_temp.F90 \
-                      glam_Basal_Proc.F90
+                      glam_Basal_Proc.F90 fgmresD.f90
 
 libglide_la_LDFLAGS=-all-static
 

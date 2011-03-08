@@ -879,8 +879,8 @@ subroutine JFNK                 (ewn,      nsn,    upn,  &
 
  10   CONTINUE
       
-!       call fgmres (2*pcgsize(1),img,rhs,dx,itenb,vv,wk,wk1,wk2, &
-!                    tol,maxiteGMRES,iout,icode,tot_its) ! JCC - No Trilinos support yet
+       call fgmres (2*pcgsize(1),img,rhs,dx,itenb,vv,wk,wk1,wk2, &
+                    tol,maxiteGMRES,iout,icode,tot_its) ! JCC - No Trilinos support yet
 
       IF ( icode == 1 ) THEN   ! precond step: use of Picard linear solver
                                ! wk2 = P^-1*wk1
