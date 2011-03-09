@@ -140,140 +140,9 @@ fi
 AM_CONDITIONAL([BUILD_PYTHON], [test "$build_python" == "1"])
 
 # checking for BLAS library
-ACX_BLAS
-AM_CONDITIONAL(EXT_BLAS,test x"$acx_blas_ok" = xyes)
-
-# checking for LAPACK library (required for PARDISO)
-ACX_LAPACK
-AM_CONDITIONAL(EXT_LAPACK,test x"$acx_lapack_ok" = xyes)
-
-# checking for GOMP library (required for some builds of PARDISO)
-AC_ARG_WITH(gomp,AS_HELP_STRING([--with-gomp],[how to link external GOMP (OpenMP) library]),[ac_cv_gomp=$withval])
-ac_cv_havegomp=0
-if test "$ac_cv_gomp" != ""; then
-  LIBS="$LIBS $ac_cv_gomp"
-  AC_MSG_CHECKING([for GOMP])
-  AC_LINK_IFELSE([AC_LANG_PROGRAM([],[])],ac_cv_havegomp=1,ac_cv_havegomp=0)
-  if test "$ac_cv_havegomp" == 1; then
-    AC_MSG_RESULT([yes])
-  else
-    AC_MSG_RESULT([no])
-    AC_MSG_ERROR([A GOMP library was specified but could not be linked against])
-  fi
-fi
-AM_CONDITIONAL(EXT_GOMP,test "$ac_cv_havegomp" == 1)
-
-#Checking for alternate linear solvers
-AC_ARG_WITH(umfpack,AS_HELP_STRING([--with-umfpack],[Optional location of umfpack linear solver]),[ac_cv_umfpack_prefix=$withval])
-AC_ARG_WITH(pardiso,AS_HELP_STRING([--with-pardiso],[Optional location of pardiso linear solver]),[ac_cv_pardiso_prefix=$withval])
-
-#Call AC_CHECK_LIB for C librarieswith no arguments so the macro gets expanded here
-AC_LANG_PUSH(C)
-AC_CHECK_LIB([],[main])
-AC_LANG_POP(C)
-
-#UMFPACK
-if test "$ac_cv_umfpack_prefix" != ""; then
-        AC_MSG_RESULT([Using Umfpack to solve sparse linear systems (located at $ac_cv_umfpack_prefix)])
-        UMFPACK_LIBS="-L$ac_cv_umfpack_prefix"
-        AC_DEFINE(HAVE_UMFPACK,1,[Define if you have the UMFPACK library.])
-        
-        if test x"$acx_blas_ok" != xyes; then
-            AC_MSG_ERROR([
-Using UMFPACK requires use of an external BLAS library.  
-Please use the --with-blas flag and try again.
-If you are not sure what to do here but have BLAS installed in a standard location, try --with-blas=-lblas])
-        fi
-
-        umfpack_save_LIBS="$LIBS"
-        LIBS="$BLAS_LIBS $LAPACK_LIBS $UMFPACK_LIBS $LIBS $FLIBS"
-
-
-        #We should have already checked for BLAS, so we'll get on with checking 
-	#for AMD and UMFPACK
-        #AMD is one of UMFPACK'S dependancies.  This means that the user needs to 
-	#be careful: if UMFPACK is compiled with an external BLAS, then Glimmer will 
-	#need to be as well.
-        #TODO: Relax this restriction?  Is there any advantage to NOT compiling 
-	#Glimmer with external BLAS?
-
-        #Note that this assumes that AMD is installed to one of the standard library 
-	#directories or to the same place as UMFPACK!!!
-        #To check these libraries, we need to use C, not Fortran, because of 
-	#C-to-fortran linking issues that will be resolved below.
-        AC_LANG_PUSH(C)
-        AC_CHECK_LIB([amd], [amd_l_valid], , 
-                     AC_MSG_ERROR([Libamd not found. required to use --with-umfpack.  See http://www.cise.ufl.edu/research/sparse/umfpack]))
-                    
-        AC_CHECK_LIB([umfpack], [main], ,  AC_MSG_ERROR([Libumfpack not found.]), [$UMFPACK_LIBS -lamd])
-        AC_LANG_POP(C)
-
-        #A peculiarity of UMFPACK is that we need an *object* file (not a library) 
-	#with the fortran77 bindings.  I'm going to say that this should be placed 
-	#in the same directory as libumfpack (e.g. in the lib directory).  Check for that.
-        UMFPACK_LIBS="$UMFPACK_LIBS  $ac_cv_umfpack_prefix/umf4_f77wrapper.o -lumfpack -lamd"
-        LIBS="$BLAS_LIBS $LAPACK_LIBS $UMFPACK_LIBS $umfpack_save_LIBS $FLIBS"
-        # TODO: There's a better way to do this: check if we can link libs individually
-        AC_MSG_CHECKING(for UMFPACK F77 bindings)
-        AC_LINK_IFELSE(AC_LANG_PROGRAM([],[]), AC_MSG_RESULT(yes), 
-                       [AC_MSG_RESULT(no)
-                        UMFPACK_LIBS="$UMFPACK_LIBS -lcholmod -lcamd -lcolamd -lccolamd -lmetis"])
-        LIBS="$BLAS_LIBS $LAPACK_LIBS $UMFPACK_LIBS $umfpack_save_LIBS $FLIBS"
-        AC_MSG_CHECKING(for UMFPACK F77 bindings)
-        AC_LINK_IFELSE(AC_LANG_PROGRAM([],[]), AC_MSG_RESULT(yes), 
-                       [AC_MSG_RESULT(no)
-                        AC_MSG_ERROR([
-In order to use UFMPACK you need to compile umf4_f77wrapper.c 
-(located in the Demo subdirectory of the source distribution) 
-and place the resulting object file in the same directory as 
-libumfpack.  This is not done with a standard UMFPACK install.  
-If you downloaded a binary distribution of Umfpack, you may 
-need to obtain the source at: 
-http://www.cise.ufl.edu/research/sparse/umfpack.])])
-        LIBS="$umfpack_save_LIBS"
-fi
-
-#PARDISO
-if test "$ac_cv_pardiso_prefix" != ""; then
-            AC_MSG_RESULT([Using Pardiso to solve sparse linear systems, (located at $ac_cv_pardiso_prefix)])
-            if test x"$acx_blas_ok" != xyes; then
-                AC_MSG_ERROR([
-Using Pardiso requires use of an external BLAS library.  
-Please use the --with-blas flag and try again.
-If you are not sure what to do here but have BLAS installed in a standard location, try --with-blas=-lblas])
-            fi
-
-            if test x"$acx_lapack_ok" != xyes; then
-                AC_MSG_ERROR([
-Using Pardiso requires use of an external LAPACK library.  
-Please use the --with-lapack flag and try again.
-If you are not sure what to do here but have LAPACK installed in a standard location, try --with-lapack=-llapack])
-            fi
-
-            if test "$ac_cv_havegomp" == 0; then
-                AC_MSG_WARN([
-Some parallel builds of Pardiso requires use of the GOMP library.  
-If the following Pardiso check fails, please use the --with-gomp flag and try again.])
-            fi
-
-
-            AC_MSG_CHECKING(for Pardiso)
-            pardiso_save_LIBS="$LIBS"
-            PARDISO_LIBS="-L$ac_cv_pardiso_prefix -lpardiso"
-            LIBS="$BLAS_LIBS $LAPACK_LIBS $PARDISO_LIBS $LIBS $FLIBS"
-            AC_CHECK_LIB([pardiso],[pardiso], , AC_MSG_ERROR([libpardiso not found.]))
-            LIBS="$pardiso_save_LIBS"
-
-            AC_DEFINE(HAVE_PARDISO,1,[Define if you have the PARDISO library.])
-fi
-
-AC_SUBST(PARDISO_LIBS)
-AC_SUBST(UMFPACK_LIBS)
-
-AM_CONDITIONAL(UMFPACK, test "$ac_cv_umfpack_prefix" != "")
-AM_CONDITIONAL(PARDISO, test "$ac_cv_pardiso_prefix" != "")
-
-#AC_LANG_POP(Fortran)
+ac_gl_have_blas=0
+ACX_BLAS([ac_gl_have_blas=1])
+AM_CONDITIONAL(EXT_BLAS,test "$ac_gl_have_blas" == 1)
 
 # checking for netCDF
 AC_LANG_PUSH([C++])
@@ -442,6 +311,12 @@ esac],[AC_MSG_RESULT([no])])
 #esac],[AC_MSG_RESULT([no])])
 #AM_CONDITIONAL([RUN_TESTS], [test "$enable_tests" == "yes"])
 
+#specify the directory where the gold standard files are located
+AC_MSG_CHECKING([whether location of gold standard files are specified])
+AC_ARG_WITH(gold_std,AS_HELP_STRING([--with-gold-std],[location of gold_std]),[GOLD_STD_PREFIX=$(readlink -f $withval)])
+AC_MSG_RESULT(gold_std location: $GOLD_STD_PREFIX)
+AC_SUBST(GOLD_STD_PREFIX)
+
 dnl checking if model runs should be submitted to SGE
 m4_pattern_allow([^AM_SGE_OPTS$])
 AM_SGE_OPTS=""
@@ -534,23 +409,20 @@ AC_CONFIG_FILES([Makefile m4macros/Makefile scripts/Makefile \
                 extensions/erosion/Makefile extensions/erosion/src/Makefile \
                 extensions/erosion/scripts/Makefile \
                 extensions/libphaml/Makefile \
-                tests/EISMINT/Makefile tests/EISMINT/src/Makefile \
-		tests/EISMINT/benchmarks/Makefile \
+                tests/EISMINT/Makefile tests/EISMINT/benchmarks/Makefile \
                 tests/EISMINT/EISMINT-1/Makefile  tests/EISMINT/EISMINT-2/Makefile \
                 tests/EISMINT/isos/Makefile  tests/EISMINT/lin-non_lin/Makefile \
                 tests/EISMINT/erosion/Makefile \
                 tests/exact-isothermal/Makefile tests/exact-isothermal/src/Makefile \
-                tests/exact-isothermal/matlab/Makefile \
-		tests/exact-isothermal/scripts/Makefile \
+                tests/exact-isothermal/matlab/Makefile tests/exact-isothermal/scripts/Makefile \
                 tests/exact-isothermal/tests/Makefile \
                 PyGC/Makefile PyGC/PyGC/Makefile PyGC/PyGC/IO/Makefile PyGC/src/Makefile PyGC/progs/Makefile \
                 PyGC/data/Makefile \
                 example-drivers/eis/Makefile example-drivers/eis/src/Makefile \
-                example-drivers/eis/fenscan/Makefile \
-		example-drivers/EISMINT-3/EISMINT-3/Makefile \
-                example-drivers/EISMINT-3/Makefile \
-		example-drivers/EISMINT-3/src/Makefile \
+                example-drivers/eis/fenscan/Makefile example-drivers/EISMINT-3/EISMINT-3/Makefile \
+                example-drivers/EISMINT-3/Makefile example-drivers/EISMINT-3/src/Makefile \
                 example-drivers/glint/Makefile example-drivers/glint/src/Makefile \
+                example-drivers/simple_glide/Makefile example-drivers/simple_glide/src/Makefile \
                 doc/Makefile doc/common/Makefile doc/dg/Makefile doc/dg/figures/Makefile \
                 doc/ug/Makefile doc/ug/figs/Makefile \
                 doc/num/Makefile doc/num/figs/Makefile doc/num/gnu/Makefile \

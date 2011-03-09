@@ -9,7 +9,7 @@ EXTRA_DIST = isos.elfa.config  isos.elra.config  isos.llfa.config  isos.llra.con
 MOSTLYCLEANFILES = $(graphics)
 CLEANFILES = $(data) $(graphics) $(BUILT_SOURCES)
 
-MODEL_BINARY=$(top_builddir)/tests/EISMINT/src/simple_glide
+MODEL_BINARY=$(top_builddir)/example-drivers/simple_glide/src/simple_glide
 
 spots.ps:	isos.llfa.nc isos.llra.nc isos.elfa.nc isos.elra.nc
 	@GLIMMER_PREFIX@/bin/plotSpot.py --ij 15 15 --ij 15 22 --ij 15 27 -vtopg $^ $@

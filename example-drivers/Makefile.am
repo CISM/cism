@@ -1,4 +1,4 @@
-SUBDIRS = eis EISMINT-3 glint
+SUBDIRS = eis EISMINT-3 glint simple_glide
 tests = eis EISMINT-3
 
 data::

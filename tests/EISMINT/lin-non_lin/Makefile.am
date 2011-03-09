@@ -11,7 +11,7 @@ EXTRA_DIST = l-10a.config  l-20a.config  l-5a.config  nl-10a.config  nl-20a.conf
 MOSTLYCLEANFILES = $(graphics)
 CLEANFILES = $(data) $(graphics) $(BUILT_SOURCES)
 
-MODEL_BINARY=$(top_builddir)/tests/EISMINT/src/simple_glide
+MODEL_BINARY=$(top_builddir)/example-drivers/simple_glide/src/simple_glide
 
 e2-comp.ps:	$(runs)
 	@GLIMMER_PREFIX@/bin/plotEISMINT2stats.py -e H $^ $@
