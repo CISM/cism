@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 # This script runs ISMIP-HOM experiments using Glimmer-CISM.
 # Output files are written in the "output" subdirectory.
 # The script loops over experiments performing the following three steps:
@@ -205,7 +206,7 @@ if __name__ == '__main__':
             variables = [('usurf',None),('uvel',0),('vvel',0),('wvel',0)]
 #         Open the netCDF file that was written by Glimmer
           netCDFfile = NetCDFFile(filename+'.out.nc','r')
-          data = [(netCDFfile.variables[v[0]],v[1]) for v in variables]
+          data = [(netCDFfile.variables[v[0]],v[1],netCDFfile.variables[v[0]].scale_factor) for v in variables]
 
 #         Write a "standard" ISMIP-HOM file (example file name: "glm1a020.txt") in the "output" subdirectory 
 
@@ -236,18 +237,18 @@ if __name__ == '__main__':
 
               if netCDF_module == 'Scientific.IO.NetCDF':
                 if experiment in ('a','c'):
-                  ISMIP_HOMfile.write('\t'.join(map(str,[x,y]+[v[0,level,j,i][0] for (v,level) in data]))+'\n')
+                  ISMIP_HOMfile.write('\t'.join(map(str,[x,y]+[v[0,level,j,i][0]*scale_factor for (v,level,scale_factor) in data]))+'\n')
                 if experiment in ('b','d','e'):
-                  ISMIP_HOMfile.write('\t'.join(map(str,[x]+[v[0,level,ny/2,i][0] for (v,level) in data]))+'\n')
+                  ISMIP_HOMfile.write('\t'.join(map(str,[x]+[v[0,level,ny/2,i][0]*scale_factor for (v,level,scale_factor) in data]))+'\n')
                 elif experiment == 'f':
-                  ISMIP_HOMfile.write('\t'.join(map(str,[x,y,data[0][0][-1,j,i][0]]+[v[-1,level,j,i][0] for (v,level) in data[1:]]))+'\n')
+                  ISMIP_HOMfile.write('\t'.join(map(str,[x,y,data[0][0][-1,j,i][0]]+[v[-1,level,j,i][0]*scale_factor for (v,level,scale_factor) in data[1:]]))+'\n')
               else:
                 if experiment in ('a','c'):
-                  ISMIP_HOMfile.write('\t'.join(map(str,[x,y]+[v[0,level,j,i] for (v,level) in data]))+'\n')
+                  ISMIP_HOMfile.write('\t'.join(map(str,[x,y]+[v[0,level,j,i]*scale_factor for (v,level,scale_factor) in data]))+'\n')
                 if experiment in ('b','d','e'):
-                  ISMIP_HOMfile.write('\t'.join(map(str,[x]+[v[0,level,ny/2,i] for (v,level) in data]))+'\n')
+                  ISMIP_HOMfile.write('\t'.join(map(str,[x]+[v[0,level,ny/2,i]*scale_factor for (v,level,scale_factor) in data]))+'\n')
                 elif experiment == 'f':
-                  ISMIP_HOMfile.write('\t'.join(map(str,[x,y,data[0][0][-1,j,i]]+[v[-1,level,j,i] for (v,level) in data[1:]]))+'\n')
+                  ISMIP_HOMfile.write('\t'.join(map(str,[x,y,data[0][0][-1,j,i]]+[v[-1,level,j,i]*scale_factor for (v,level,scale_factor) in data[1:]]))+'\n')
           ISMIP_HOMfile.close()
           netCDFfile.close()
 
