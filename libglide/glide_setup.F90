@@ -504,7 +504,7 @@ end function glide_calc_sigma_pattyn
          'Payne/Price (on B-grid)               ' /)    !*sfp** added
     character(len=*), dimension(0:1), parameter :: ho_prognostic = (/ &
          'Evolve ice with SIA only', &
-         'Pattyn scheme ' /)
+         'Pattyn scheme           ' /)
     character(len=*), dimension(0:7), parameter :: ho_whichbabc = (/ &
          'constant B^2                           ', &
          'simple pattern of B^2                  ', &
