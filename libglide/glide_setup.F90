@@ -494,14 +494,14 @@ end function glide_calc_sigma_pattyn
          'pseudo-diffusion                      ', &
          'ADI scheme                            ', &
          'iterated diffusion                    ', &
-         'remap thickness                       ', &   ! *sfp** added
-         '1st order upwind                      ' /)   ! *sfp** added for summer modeling school 
+         'remap thickness                       ', &   
+         '1st order upwind                      ' /)   
     character(len=*), dimension(0:1), parameter :: vertical_integration = (/ &
          'standard     ', &
          'obey upper BC' /)
     character(len=*), dimension(0:1), parameter :: ho_diagnostic = (/ &
          'Do not compute higher-order velocities', &
-         'Payne/Price (on B-grid)               ' /)    !*sfp** added
+         'Payne/Price (on B-grid)               ' /)    
     character(len=*), dimension(0:1), parameter :: ho_prognostic = (/ &
          'Evolve ice with SIA only', &
          'Pattyn scheme           ' /)
@@ -525,7 +525,6 @@ end function glide_calc_sigma_pattyn
          'vertically averaged     ', &
          'vertically explicit     ', &
          'shelf front disabled    '/)
-    !*sfp* added the next two for HO temperature calcs
     character(len=*), dimension(0:2), parameter :: dispwhich = (/ &
          '0-order SIA                       ', &
          '1-st order model (Blatter-Pattyn) ', &
@@ -652,7 +651,6 @@ end function glide_calc_sigma_pattyn
     if (model%options%which_ho_resid < 0 .or. model%options%which_ho_resid >= size(ho_whichresid)) then
         call write_log('Error, HO residual input out of range', GM_FATAL)
     end if
-    !*sfp* added the next two for HO T calc
     write(message,*) 'dispwhich               :',model%options%which_disp,  &
                       dispwhich(model%options%which_disp)
     call write_log(message)

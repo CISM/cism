@@ -294,7 +294,6 @@ module glide_types
     !*FD \item[2] mean value
     !*FD \begin{description}
 
-    !*sfp* added
     integer :: which_disp = 0
     !*FD Flag that indicates method for computing the dissipation during the temperature calc.
     !*FD \begin{description}
@@ -303,7 +302,6 @@ module glide_types
     !*FD \item[2] for 1-st order depth-integrated solution (SSA)
     !*FD \end{description}
 
-    !*sfp* added
     integer :: which_bmelt = 0
     !*FD Flag that indicates method for computing the frictional melt rate terms during temperature calc.
     !*FD \begin{description}

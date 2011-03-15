@@ -123,15 +123,9 @@ contains
     use isostasy
     use glimmer_map_init
     use glide_ground
-
-    ! *sfp** added
     use glam_strs2, only : glam_velo_fordsiapstr_init
     use remap_glamutils, only : horizontal_remap_init
-
-    ! *sfp** added for summer modeling school
     use fo_upwind_advect, only : fo_upwind_advect_init
-
-    !*mb* added 
     use glam_Basal_Proc, only : Basal_Proc_init
 
     implicit none
@@ -230,7 +224,6 @@ contains
        call init_lithot(model)
     end if
 
-    ! *sfp** added; initialization of Payne/Price HO dynamics subroutine ... name can change once agreed on
     if (model%options%which_ho_diagnostic == HO_DIAG_PP ) then
 
         call glam_velo_fordsiapstr_init(model%general%ewn,    model%general%nsn,  &
@@ -239,7 +232,6 @@ contains
                                         model%numerics%sigma)
     end if
 
-    ! *sfp** added; initialization of LANL incremental remapping subroutine for thickness evolution
     if (model%options%whichevol== EVOL_INC_REMAP ) then
 
         if (model%options%whichtemp == TEMP_REMAP_ADV) then ! Use IR to advect temperature
@@ -261,7 +253,6 @@ contains
 
     endif 
 
-    ! *sfp** added for summer modeling school
     if (model%options%whichevol== EVOL_FO_UPWIND ) then
 
         call fo_upwind_advect_init( model%general%ewn, model%general%nsn )
@@ -500,7 +491,7 @@ contains
     use glide_mask
     use isostasy
 
-    ! *sfp* driver module/subroutines for Payne/Price HO dynamics and LANL inc. remapping for dH/dt 
+    ! driver module/subroutines for Payne/Price HO dynamics and LANL inc. remapping for dH/dt 
     use glam, only: inc_remap_driver
     use fo_upwind_advect, only: fo_upwind_advect_driver
 
@@ -548,7 +539,6 @@ contains
 
        call inc_remap_driver( model )
 
-    ! *sfp** added for summer modeling school
     case(EVOL_FO_UPWIND) ! Use first order upwind scheme for mass transport
 
        call fo_upwind_advect_driver( model )
