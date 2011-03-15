@@ -264,7 +264,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
   real (kind = dp), save, dimension(2) :: resid     ! vector for storing u resid and v resid 
   real (kind = dp) :: plastic_resid_norm = 0.0d0    ! norm of residual used in Newton-based plastic bed iteration
 
-  integer, parameter :: cmax = 100                  ! max no. of iterations
+  integer, parameter :: cmax = 300                  ! max no. of iterations
   integer :: counter, linit                         ! iteation counter, ???
   character(len=100) :: message                     ! error message
 
