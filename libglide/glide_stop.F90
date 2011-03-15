@@ -154,7 +154,7 @@ contains
         call fo_upwind_advect_final()
     endif
 
-    ! *mb* added; finalization of Basal Proc module
+    ! finalization of Basal Proc module
     if (model%options%which_bmod == BAS_PROC_FULLCALC .or. &
         model%options%which_bmod == BAS_PROC_FASTCALC) then
         call Basal_Proc_final (model%basalproc)
