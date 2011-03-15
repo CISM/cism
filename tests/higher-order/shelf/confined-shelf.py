@@ -98,9 +98,10 @@ kbc[0,ny-4:,:]  = 1
 kbc[0,:,:3] = 1
 kbc[0,:,nx-4:] = 1
 
+# *SFP* calculate stream profile for upstream end
 for i in range(nx-2):
-  x = float( i ) / (nx-2) - 0.5  
-  vvelhom[0,:,ny-4,i] = -1.5e3 * 1/(2*3.141592654*0.125) * numpy.exp( -x**2 / (2*0.125**2) )
+  x = float( i ) / (nx-2) - 0.5
+  vvelhom[0,:,ny-5,i] = -1.5e3 * 1/(2*3.141592654*0.125) * numpy.exp( -x**2 / (2*0.125**2) )
 
 # Create the required variables in the netCDF file.
 netCDFfile.createVariable('thk',      'f',('time','y1','x1'))[:] = thk.tolist()
