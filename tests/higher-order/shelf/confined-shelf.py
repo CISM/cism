@@ -80,8 +80,8 @@ acab = numpy.zeros([1,ny,nx],dtype='float32') # *sfp* added acab field for prog.
 temp = numpy.zeros([1,nz,ny,nx],dtype='float32') 
 zero = numpy.zeros([1,nz,ny-1,nx-1],dtype='float32')
 
-uvelhom = numpy.zeros([1,nz,ny-1,nx-1],dtype='float32')
-vvelhom = numpy.zeros([1,nz,ny-1,nx-1],dtype='float32')
+uvel = numpy.zeros([1,nz,ny-1,nx-1],dtype='float32')
+vvel = numpy.zeros([1,nz,ny-1,nx-1],dtype='float32')
 
 thk[0,4:-2,2:-2] = 500.  # *SFP* changed to be in line w/ EISMINT-shelf tests 3&4 
 beta[0,:,:] = 0 
@@ -101,7 +101,7 @@ kbc[0,:,nx-4:] = 1
 # *SFP* calculate stream profile for upstream end
 for i in range(nx-2):
   x = float( i ) / (nx-2) - 0.5
-  vvelhom[0,:,ny-5,i] = -1.5e3 * 1/(2*3.141592654*0.125) * numpy.exp( -x**2 / (2*0.125**2) )
+  vvel[0,:,ny-4,i] = -1.5e3 * 1/(2*3.141592654*0.125) * numpy.exp( -x**2 / (2*0.125**2) )
 
 # Create the required variables in the netCDF file.
 netCDFfile.createVariable('thk',      'f',('time','y1','x1'))[:] = thk.tolist()
@@ -110,12 +110,12 @@ netCDFfile.createVariable('temp',     'f',('time','level','y1','x1'))[:] = temp.
 netCDFfile.createVariable('kinbcmask','i',('time','y0','x0'))[:] = kbc.tolist()
 netCDFfile.createVariable('topg',     'f',('time','y1','x1'))[:] = ny*[nx*[-2000]]
 netCDFfile.createVariable('beta',     'f',('time','y0','x0'))[:] = beta.tolist()
-netCDFfile.createVariable('uvelhom',  'f',('time','level','y0','x0'))[:] = zero.tolist()
+netCDFfile.createVariable('uvel',  'f',('time','level','y0','x0'))[:] = zero.tolist()
 
 # *sfp* first option below adds ice stream vel profile for kin bc at upstream end
 # *sfp* ... comment out for standard test case
-#netCDFfile.createVariable('vvelhom',  'f',('time','level','y0','x0'))[:] = vvelhom.tolist()
-netCDFfile.createVariable('vvelhom',  'f',('time','level','y0','x0'))[:] = zero.tolist()
+#netCDFfile.createVariable('vvel',  'f',('time','level','y0','x0'))[:] = vvel.tolist()
+netCDFfile.createVariable('vvel',  'f',('time','level','y0','x0'))[:] = zero.tolist()
 
 netCDFfile.close()
 
