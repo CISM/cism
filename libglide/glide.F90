@@ -349,8 +349,6 @@ contains
     use glimmer_physcon, only: scyr
     use glide_thckmask
     use glide_grids
-
-    ! *mb* added for basal proc module  
     use glam_Basal_Proc, only : Basal_Proc_driver
 
     implicit none

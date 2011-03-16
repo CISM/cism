@@ -90,7 +90,7 @@ module fo_upwind_advect
         ! driver subroutine for 1st-order advection scheme (lives below)
         call fo_upwind_advect_main( model%geometry%thck,    model%geomderv%stagthck,    &
                                     model%climate%acab,     model%numerics%dt,          &
-                                    model%velocity%uflx,model%velocity%vflx,    &
+                                    model%velocity%uflx,    model%velocity%vflx,        &
                                     model%general%ewn,      model%general%nsn,          &
                                     model%numerics%dew,     model%numerics%dns )
 
