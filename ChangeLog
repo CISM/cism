@@ -1,3 +1,6 @@
+2011-03-16 Magnus Hagdorn
+ * libglimmer/glimmer_searchcircle.F90: simplify search circle computations
+
 2011-03-07 Magnus Hagdorn
  * example-drivers/eis/Makefile.am: decent into test directories for various
    test run related rules

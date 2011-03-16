@@ -111,74 +111,18 @@ contains
     end do
     sc_initdata%total_area = 1.+4.*area(radius)
 
-    ! complaining if search circle does not fit
-    if (si_size .lt. 2*radius+2 .and. sj_size .lt. 2*radius+2) then
-       ! internal sums
-       sc_initdata%weight(1+radius:isize-radius, 1+radius:jsize-radius) = sc_initdata%total_area
-       do j=jstart,jstart+jsize-1
-          !left
-          do i=istart,istart+radius-1
-             area_temp = 0.
-             do jj=max(sj_start,j-radius),min(sj_end,j+radius)
-                intrad = int(sqrt(real(radius*radius-(jj-j)*(jj-j))))
-                do ii=max(si_start,i-intrad),min(si_end,i+intrad)
-                   area_temp = area_temp + 1.
-                end do
+    do j=jstart,jstart+jsize-1
+       do i=istart,istart+isize-1
+          area_temp = 0.
+          do jj=max(sj_start,j-radius),min(sj_end,j+radius)
+             intrad = int(sqrt(real(radius*radius-(jj-j)*(jj-j))))
+             do ii=max(si_start,i-intrad),min(si_end,i+intrad)
+                area_temp = area_temp + 1.
              end do
-             sc_initdata%weight(i-istart+1,j-jstart+1) = area_temp
           end do
-          !right
-          do i=istart+isize-1-radius,istart+isize-1
-             area_temp = 0.
-             do jj=max(sj_start,j-radius),min(sj_end,j+radius)
-                intrad = int(sqrt(real(radius*radius-(jj-j)*(jj-j))))
-                do ii=max(si_start,i-intrad),min(si_end,i+intrad)
-                   area_temp = area_temp + 1.
-                end do
-             end do
-             sc_initdata%weight(i-istart+1,j-jstart+1) = area_temp
-          end do
+          sc_initdata%weight(i-istart+1,j-jstart+1) = area_temp
        end do
-       ! lower
-       do j=jstart,jstart+radius-1
-          do i=istart+radius,istart+isize-1-radius
-             area_temp = 0.
-             do jj=max(sj_start,j-radius),min(sj_end,j+radius)
-                intrad = int(sqrt(real(radius*radius-(jj-j)*(jj-j))))
-                do ii=max(si_start,i-intrad),min(si_end,i+intrad)
-                   area_temp = area_temp + 1.
-                end do
-             end do
-             sc_initdata%weight(i-istart+1,j-jstart+1) = area_temp
-          end do
-       end do
-       ! upper
-       do j=jstart+jsize-1-radius,jstart+jsize-1
-          do i=istart+radius,istart+isize-1-radius
-             area_temp = 0.
-             do jj=max(sj_start,j-radius),min(sj_end,j+radius)
-                intrad = int(sqrt(real(radius*radius-(jj-j)*(jj-j))))
-                do ii=max(si_start,i-intrad),min(si_end,i+intrad)
-                   area_temp = area_temp + 1.
-                end do
-             end do
-             sc_initdata%weight(i-istart+1,j-jstart+1) = area_temp
-          end do
-       end do
-    else
-       do j=jstart,jstart+jsize-1
-          do i=istart,istart+isize-1
-             area_temp = 0.
-             do jj=max(sj_start,j-radius),min(sj_end,j+radius)
-                intrad = int(sqrt(real(radius*radius-(jj-j)*(jj-j))))
-                do ii=max(si_start,i-intrad),min(si_end,i+intrad)
-                   area_temp = area_temp + 1.
-                end do
-             end do
-             sc_initdata%weight(i-istart+1,j-jstart+1) = area_temp
-          end do
-       end do
-    end if
+    end do
 
     sc_initdata%weight = sc_initdata%total_area/sc_initdata%weight
 
