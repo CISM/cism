@@ -43,7 +43,7 @@ module glide_thck
   use glide_deriv           !*sfp* added
 
   !DEBUG ONLY, these should be deleted eventually
-  use glide_stop
+!  use glide_stop   *sfp* if active, causes circular ref error when built w/ fo_upwind code
   use xls
   use glide_io
   private
@@ -142,10 +142,11 @@ contains
             call run_ho_diagnostic(model)                          
        end if
 
-       if (model%options%diagnostic_run == 1) then
-          call glide_finalise_all(.true.)
-          stop
-       end if
+! *sfp* not needed anymore? Causes circular ref error when building w/ fo_upwind code
+!       if (model%options%diagnostic_run == 1) then
+!          call glide_finalise_all(.true.)
+!          stop
+!       end if
 
 
        if (model%options%which_ho_prognostic == HO_PROG_SIAONLY) then
@@ -354,7 +355,7 @@ contains
 
     use glide_setup, only: glide_calclsrf
     use glimmer_global, only : dp
-    use glide_stop
+!    use glide_stop   *sfp* if active, causes circular ref error when built w/ fo_upwind code
     use glimmer_log
 #if DEBUG
     use glimmer_paramets, only: vel0, thk0
