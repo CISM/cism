@@ -58,13 +58,10 @@ module glimmer_sparse
     integer, parameter :: SPARSE_SOLVER_BICG = 0
     integer, parameter :: SPARSE_SOLVER_GMRES = 1
     integer, parameter :: SPARSE_SOLVER_UMF = 2
-    ! This Trilinos solver uses sparse_easy_solve infrastructure
-    integer, parameter :: SPARSE_SOLVER_TRILINOS = 3
+    integer, parameter :: SPARSE_SOLVER_PARDISO = 3
     ! This Trilinos solver does not go through sparse_easy_solve
-    ! to save on dealing with two sparse matrix formats
+    !   because it has a different sparse matrix format
     integer, parameter :: STANDALONE_TRILINOS_SOLVER = 4
-    ! JCC - This was 3 but it conflicted with SPARSE_SOLVER_TRILINOS
-    integer, parameter :: SPARSE_SOLVER_PARDISO = 5
 
 !EIB!  !MAKE_RESTART
 !EIB!#ifdef RESTARTS
@@ -102,6 +99,9 @@ contains
 
         else if (method == SPARSE_SOLVER_PARDISO) then
             call pardiso_default_options(opt%pardiso)
+        ! Temporary error message to warn of option change. Can be removed soon: AGS 4/11
+        else if (method == 5) then
+            call write_log("Pardiso has changed to sparse option 3.", GM_FATAL)
         else 
             !call glide_finalise_all(.true.)
             call write_log("Invalid sparse matrix option used.", GM_FATAL)

@@ -392,6 +392,31 @@ AC_SUBST(PHAML_PREFIX)
 AC_SUBST(PHAML_GRAPHICS_PREFIX)
 AC_SUBST(build_extension_libphaml)
 
+#Checking for Trilinos
+  AC_ARG_WITH(trilinos,AS_HELP_STRING([--with-trilinos],[Optional location of trilinos solvers]),[ac_cv_trilinos_prefix=$withval])
+if test "$ac_cv_trilinos_prefix" != ""; then
+        AC_MSG_RESULT([Using Trilinos to solve sparse linear systems, (located at $ac_cv_trilinos_prefix)])
+
+  # automate findingof trilinos libraries, used by Makefile.Trilinos.export
+  TRILINOS_PREFIX="$ac_cv_trilinos_prefix"
+  AC_SUBST(TRILINOS_PREFIX)
+
+  TRILINOS_LDLIBS_SUBST="$TRILINOS_LDLIBS"
+  AC_SUBST(TRILINOS_LDLIBS_SUBST)
+
+  f95string=`$FC -v 2>&1`
+  fs=`echo $f95string |$EGREP "aix"`
+  if test "$fs" != "" ; then
+   FCFLAGS="$FCFLAGS -WF,-DTRILINOS -WF,-DGLIMMER_MPI "
+  else
+    FCFLAGS="$FCFLAGS -DTRILINOS -DGLIMMER_MPI "
+  fi
+  CXXFLAGS="$CXXFLAGS $CPPFLAGS -DTRILINOS -DGLIMMER_MPI -I$ac_cv_trilinos_prefix/include"
+  LDFLAGS="$LDFLAGS -L$ac_cv_trilinos_prefix/lib"
+fi
+  AM_CONDITIONAL(TRILINOS, test "$ac_cv_trilinos_prefix" != "")
+# end trilinos section
+
 # Checking if sources are from subversion
 AC_CHECK_FILE($srcdir/libglimmer/.svn/entries,have_svn_entries="yes",have_svn_entries="no")
 GLIMMER_SVN_VERS=""
@@ -402,6 +427,7 @@ AC_SUBST(GLIMMER_SVN_VERS)
 AM_CONDITIONAL([HAVE_SVN],[test "$have_svn_entries" == "yes"])
 
 AC_CONFIG_FILES([Makefile m4macros/Makefile scripts/Makefile \
+                libglimmer-trilinos/Makefile.Trilinos.export libglimmer-trilinos/Makefile \
                 utils/Makefile libglimmer/Makefile \
                 libglimmer-solve/Makefile libglimmer-solve/SLAP/Makefile \
                 libglimmer-solve/blas/Makefile libglint/Makefile \

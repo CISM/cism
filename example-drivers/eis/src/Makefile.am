@@ -1,7 +1,11 @@
 lib_LTLIBRARIES = libglimmer-eis.la
+if TRILINOS
+bin_PROGRAMS  =  
+else
 bin_PROGRAMS  =  eis_glide
 if BUILD_EXT_EROSION
  bin_PROGRAMS += eis_erosion
+endif
 endif
 
 variable_DATA = eis_vars.def
@@ -17,11 +21,11 @@ libglimmer_eis_la_SOURCES = eis_forcing.F90 eis_ela.F90 eis_temp.F90 eis_slc.F90
                        eis_io.F90 eis_types.F90
 libglimmer_eis_la_LDFLAGS=-all-static
 
-eis_glide_SOURCES = eis_glide.F90 
+eis_glide_SOURCES = eis_glide.F90
 eis_glide_LDADD = libglimmer-eis.la $(top_builddir)/libglide/libglide.la $(top_builddir)/libglimmer-solve/libglimmer-solve.la \
                     $(top_builddir)/libglimmer/libglimmer-IO.la $(top_builddir)/libglimmer/libglimmer.la \
                     $(NETCDF_LDFLAGS) $(HDF5_LDFLAGS) $(NETCDF_LIBS) $(BLAS_LIBS) $(LAPACK_LIBS) $(PARDISO_LIBS) $(UMFPACK_LIBS)
-eis_erosion_SOURCES = eis_erosion.F90
+eis_erosion_SOURCES = eis_erosion.F90 
 eis_erosion_LDADD = libglimmer-eis.la $(top_builddir)/extensions/erosion/src/liberosion.la $(top_builddir)/libglide/libglide.la \
                     $(top_builddir)/libglimmer-solve/libglimmer-solve.la $(top_builddir)/libglimmer/libglimmer-IO.la $(top_builddir)/libglimmer/libglimmer.la \
                     $(NETCDF_LDFLAGS) $(HDF5_LDFLAGS) $(NETCDF_LIBS) $(BLAS_LIBS)

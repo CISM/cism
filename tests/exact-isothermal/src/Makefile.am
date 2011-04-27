@@ -1,4 +1,8 @@
+if TRILINOS
+bin_PROGRAMS = 
+else
 bin_PROGRAMS = verif_glide
+endif
 lib_LTLIBRARIES = libverif.la
 
 variable_DATA = verif_vars.def

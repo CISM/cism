@@ -91,13 +91,6 @@ implicit none
   integer, dimension(:), allocatable :: pcgcoluv, pcgrowuv, pcgcolvu, pcgrowvu
   integer :: ct, ct2
 
-!RN_20100125: The following are for Trilinos:
-  ! This flag switches between: 
-  !  0: load Triad format and call Trilinos through sparse_easy_solve
-  !  1: load directly into Trilinos format, skipping Triad matrix altogether
-  !     Note: only option 1 will work for distributed fortran fill
-!  integer :: load_directly_into_trilinos = 1
-
   !*sfp* NOTE: these redefined here so that they are "in scope" and can avoid being passed as args
   integer :: whatsparse ! needed for putpgcg()
   integer :: nonlinear  ! flag for indicating type of nonlinar iteration (Picard vs. JFNK)
@@ -336,20 +329,27 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 ! RN_20100129: Option to load Trilinos matrix directly bypassing sparse_easy_solve
 !==============================================================================
 
+#ifdef TRILINOS
   if (whatsparse == STANDALONE_TRILINOS_SOLVER) then
      ! AGS: Get partition -- later this will be known by distributed glimmer
-!      call dopartition(pcgsize(1), mySize) ! JCC - No Trilinos support yet
+     call dopartition(pcgsize(1), mySize) 
      allocate(myIndices(mySize))
-!      call getpartition(mySize, myIndices) ! JCC - No Trilinos support yet
+     call getpartition(mySize, myIndices) 
 
      ! Now send this partition to Trilinos initialization routines
-!      call inittrilinos(20, mySize, myIndices) ! JCC - No Trilinos support yet
+     call inittrilinos(20, mySize, myIndices) 
 
      !No Triad matrix needed in this case -- save on memory alloc
      pcgsize(2) = 1
 
      deallocate(myIndices)
   endif
+#else
+  if (whatsparse == STANDALONE_TRILINOS_SOLVER) then
+         write(*,*) 'Error: Trilinos sparse solver requires Trilinos build'
+         stop
+  endif
+#endif
 
 !==============================================================================
 ! RN_20100126: End of the block
@@ -429,7 +429,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 ! jfl 20100412: residual for v comp: Fv= A(u^k-1,v^k-1)v^k-1 - b(u^k-1,v^k-1)  
 !==============================================================================
 
-     call res_vect( matrix, vk_1, rhsd, size(rhsd), counter, g_flag, L2square, whichsparse ) ! JCC - No Trilinos support yet
+     call res_vect( matrix, vk_1, rhsd, size(rhsd), counter, g_flag, L2square, whichsparse ) 
 
       L2norm  = L2square
       F(1:pcgsize(1)) = vk_1(:)
@@ -442,10 +442,10 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 
   if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
      call sparse_easy_solve(matrix, rhsd, answer, err, iter, whichsparse)
+#ifdef TRILINOS
   else
-!      call solvewithtrilinos(rhsd, answer, linearSolveTime) ! JCC - No Trilinos support yet
-     totalLinearSolveTime = totalLinearSolveTime + linearSolveTime
-!     write(*,*) 'Total linear solve time so far', totalLinearSolveTime
+     call solvewithtrilinos(rhsd, answer, linearSolveTime) 
+#endif
   endif
 
 !==============================================================================
@@ -502,7 +502,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 ! jfl 20100412: residual for u comp: Fu= C(u^k-1,v^k-1)u^k-1 - d(u^k-1,v^k-1)  
 !==============================================================================
 
-    call res_vect( matrix, uk_1, rhsd, size(rhsd), counter, g_flag, L2square, whichsparse ) ! JCC - No Trilinos support yet
+    call res_vect( matrix, uk_1, rhsd, size(rhsd), counter, g_flag, L2square, whichsparse ) 
 
     L2norm = sqrt(L2norm + L2square)
     F(pcgsize(1)+1:2*pcgsize(1)) = uk_1(:) ! F = [ Fv, Fu ]
@@ -519,10 +519,10 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 
   if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
      call sparse_easy_solve(matrix, rhsd, answer, err, iter, whichsparse)
+#ifdef TRILINOS
   else
-!      call solvewithtrilinos(rhsd, answer, linearSolveTime) ! JCC - No Trilinos support yet
-     totalLinearSolveTime = totalLinearSolveTime + linearSolveTime
-!     write(*,*) 'Total linear solve time so far', totalLinearSolveTime
+     call solvewithtrilinos(rhsd, answer, linearSolveTime) 
+#endif
   endif
 
 !==============================================================================
@@ -750,8 +750,7 @@ subroutine JFNK                 (ewn,      nsn,    upn,  &
 
   ! *sfp** if a point from the 2d array 'mask' is associated with non-zero ice thickness,
   !      either a boundary or interior point, give it a unique number. If not, give it a zero			 
-  uindx = indxvelostr(ewn, nsn, upn,  &
-                      umask,pcgsize(1))
+  uindx = indxvelostr(ewn, nsn, upn, umask,pcgsize(1))
 
   allocate(tvel(upn,ewn-1,nsn-1)) 
   tvel = 0.0_dp
@@ -766,20 +765,22 @@ subroutine JFNK                 (ewn,      nsn,    upn,  &
 ! RN_20100129: Option to load Trilinos matrix directly bypassing sparse_easy_solve
 !==============================================================================
 
+#ifdef TRILINOS
   if (whatsparse == STANDALONE_TRILINOS_SOLVER) then
      ! AGS: Get partition -- later this will be known by distributed glimmer
-!      call dopartition(pcgsize(1), mySize) ! JCC - No Trilinos support yet
+     call dopartition(pcgsize(1), mySize) 
      allocate(myIndices(mySize))
-!      call getpartition(mySize, myIndices) ! JCC - No Trilinos support yet
+     call getpartition(mySize, myIndices) 
 
      ! Now send this partition to Trilinos initialization routines
-!      call inittrilinos(25, mySize, myIndices) ! JCC - No Trilinos support yet
+     call inittrilinos(25, mySize, myIndices) 
 
      ! Triad sparse matrix not used in this case, so save on memory
      pcgsize(2) = 1
 
      deallocate(myIndices)
   endif
+#endif
 
 !==============================================================================
 ! RN_20100126: End of the block
@@ -880,7 +881,7 @@ subroutine JFNK                 (ewn,      nsn,    upn,  &
  10   CONTINUE
       
        call fgmres (2*pcgsize(1),img,rhs,dx,itenb,vv,wk,wk1,wk2, &
-                    tol,maxiteGMRES,iout,icode,tot_its) ! JCC - No Trilinos support yet
+                    tol,maxiteGMRES,iout,icode,tot_its) 
 
       IF ( icode == 1 ) THEN   ! precond step: use of Picard linear solver
                                ! wk2 = P^-1*wk1
@@ -1454,11 +1455,11 @@ subroutine apply_precond( matrixA, matrixC, nu1, nu2, wk1, wk2, whichsparse )
       vectp(:) = wk1(1:nu1) ! rhs for precond v
       if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
          call sparse_easy_solve(matrixA, vectp, answer, err, iter, whichsparse, nonlinear_solver = nonlinear)
+#ifdef TRILINOS
       else
-!          call restoretrilinosmatrix(0); ! JCC - No Trilinos support yet
-!          call solvewithtrilinos(vectp, answer, linearSolveTime) ! JCC - No Trilinos support yet
-         totalLinearSolveTime = totalLinearSolveTime + linearSolveTime
-!         write(*,*) 'Total linear solve time so far', totalLinearSolveTime
+         call restoretrilinosmatrix(0); 
+         call solvewithtrilinos(vectp, answer, linearSolveTime) 
+#endif
       endif
       wk2(1:nu1) = answer(:)
 
@@ -1468,11 +1469,11 @@ subroutine apply_precond( matrixA, matrixC, nu1, nu2, wk1, wk2, whichsparse )
       vectp(:) = wk1(nu1+1:nu2) ! rhs for precond u
       if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
          call sparse_easy_solve(matrixC, vectp, answer, err, iter, whichsparse, nonlinear_solver = nonlinear)
+#ifdef TRILINOS
       else
-!          call restoretrilinosmatrix(1); ! JCC - No Trilinos support yet
-!          call solvewithtrilinos(vectp, answer, linearSolveTime) ! JCC - No Trilinos support yet
-         totalLinearSolveTime = totalLinearSolveTime + linearSolveTime
-!         write(*,*) 'Total linear solve time so far', totalLinearSolveTime
+         call restoretrilinosmatrix(1); 
+         call solvewithtrilinos(vectp, answer, linearSolveTime) 
+#endif
       endif
       wk2(nu1+1:nu2) = answer(:)
 
@@ -1561,13 +1562,15 @@ subroutine calc_F (ewn, nsn, upn, stagsigma, counter,            &
 
     if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
       call form_matrix ( matrixA ) ! to get A(utp,vtp)
+#ifdef TRILINOS
     else
-!       call savetrilinosmatrix(0); ! JCC - No Trilinos support yet
+      call savetrilinosmatrix(0); 
+#endif
     end if
     
       vectp = vtp
 
-    call res_vect(matrixA, vectp, rhsd, nu1, counter, g_flag, L2square, whatsparse)!rhsd = b ! JCC - No Trilinos support yet
+    call res_vect(matrixA, vectp, rhsd, nu1, counter, g_flag, L2square, whatsparse)!rhsd = b 
     L2norm = L2square
 
     F(1:nu1) = vectp ! Fv
@@ -1597,13 +1600,15 @@ subroutine calc_F (ewn, nsn, upn, stagsigma, counter,            &
 
     if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
       call form_matrix ( matrixC ) ! to get C(utp,vtp)
+#ifdef TRILINOS
     else
-!       call savetrilinosmatrix(1); ! JCC - No Trilinos support yet
+      call savetrilinosmatrix(1); 
+#endif
     end if
     
       vectp = utp
 
-    call res_vect(matrixC, vectp, rhsd, nu1, counter, g_flag, L2square, whatsparse)!rhsd = d ! JCC - No Trilinos support yet
+    call res_vect(matrixC, vectp, rhsd, nu1, counter, g_flag, L2square, whatsparse)!rhsd = d 
     L2norm = sqrt(L2norm + L2square)
 
     F(nu1+1:nu2) = vectp ! Fu
@@ -4377,13 +4382,15 @@ subroutine putpcgc(value,col,row,pt)
           pcgrow(ct) = row
           ct = ct + 1
         end if
+#ifdef TRILINOS
     else
         ! Option to load entry directly into Trilinos sparse matrix 
         if (value /= 0.0d0) then
            !AGS: If we find that sparsity changes inside a time step,
            !     consider adding entry even for value==0.
-!            call putintotrilinosmatrix(row, col, value) ! JCC - No Trilinos support yet
+           call putintotrilinosmatrix(row, col, value) 
         end if
+#endif
     end if
  
  
@@ -4419,6 +4426,7 @@ subroutine putpcgc(value,col,row,pt)
           end if
       end if
 
+#ifdef TRILINOS
     else    ! if storing matrix entires directly in Trilinos sparse format
 
       ! *sfp* NOTE: that this option does not allow for storing offidag terms at present
@@ -4427,9 +4435,10 @@ subroutine putpcgc(value,col,row,pt)
         if (value /= 0.0d0) then
            !AGS: If we find that sparsity changes inside a time step,
            !     consider adding entry even for value==0.
-!          call putintotrilinosmatrix(row, col, value) ! JCC - No Trilinos support yet
+         call putintotrilinosmatrix(row, col, value) 
         end if
       end if
+#endif
 
     end if  ! end of "if using Triad or Trilinos storage format" construct
  
@@ -4519,7 +4528,7 @@ real (kind = dp) :: scale_ghosts = 0.0d0
 
       Au_b_wig = 0d0 ! regular+ghost cells
 
-!      if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
+     if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
 
         do nele = 1, matrix%nonzeros
 
@@ -4529,9 +4538,11 @@ real (kind = dp) :: scale_ghosts = 0.0d0
 
         enddo
 
-!      else
-!        call matvecwithtrilinos(uvec, Au_b_wig);
-!      endif
+#ifdef TRILINOS
+     else
+       call matvecwithtrilinos(uvec, Au_b_wig);
+#endif
+     endif
 
       do i = 1, nu
          Au_b_wig(i) = Au_b_wig(i) - bvec(i)

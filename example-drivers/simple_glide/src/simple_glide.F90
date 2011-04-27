@@ -54,10 +54,9 @@ program simple_glide
 #include <f90papi.h>
 #endif
 
-#ifdef HAVE_MPI
+#ifdef GLIMMER_MPI
 #include <mpif.h>
-
-  integer npes,ierr,iam,lengthofconfigname
+  integer nproc,ierr,irank
 #endif
 
   type(glide_global_type) :: model        ! model instance
@@ -78,33 +77,12 @@ program simple_glide
   ret = gptlstart ('total')
 #endif
 
-#ifdef HAVE_MPI
+#ifdef GLIMMER_MPI
  call MPI_Init(ierr)
- call MPI_Comm_size(MPI_COMM_WORLD,npes,ierr)
- call MPI_Comm_rank(MPI_COMM_WORLD,iam,ierr)
-
-!! RN_20100115: An attempt to do MPI in Fortran
-!if (iam .eq. 0) then
-!  write(*,*), 'i am in here'
-!  call glimmer_GetCommandline()
-!  lengthofconfigname = len_trim(commandline_configname)
-!  write(*,*), 'configname: ', commandline_configname
-!  call MPI_Bcast(lengthofconfigname, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-!  ! send commandline_configname
-!  call MPI_Bcast(commandline_configname, lengthofconfigname, MPI_CHARACTER, 0, MPI_COMM_WORLD, ierr)
-!else
-!  write(*,*) "hello from ", iam
-!! receive commandline_configname
-!  call MPI_Bcast(lengthofconfigname, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-!  call MPI_Bcast(commandline_configname, lengthofconfigname, MPI_CHARACTER, 0, MPI_COMM_WORLD, ierr)
-!  write(*,*), 'configname: ', commandline_configname  
-!endif  
-!#else
-!  call glimmer_GetCommandline()
-
+! call MPI_Comm_size(MPI_COMM_WORLD,nproc,ierr)
+! call MPI_Comm_rank(MPI_COMM_WORLD,irank,ierr)
 #endif
   call glimmer_GetCommandline()
-
 
 
   ! start logging
@@ -159,7 +137,7 @@ program simple_glide
   call glimmer_write_stats(commandline_resultsname,commandline_configname,t2-t1)
   call close_log
 
-#ifdef HAVE_MPI
+#ifdef GLIMMER_MPI
  call MPI_Finalize(ierr)
 #endif
 

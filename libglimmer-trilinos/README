@@ -1,0 +1,36 @@
+AGS:08/04/2010
+AGS:04/27/2011
+
+The cpp directory is currently used to interface to the
+Trilinos linear solvers. These files are only compiled
+when glimmer is configured  --with-trilinos. A library
+called   libglimmertrilinos.a  is the result, and is linked
+into simple_glide_trilinos.
+
+*  which_ho_sparse = 4
+This uses trilinosLinearSolver.cpp (and matrixInterface.cpp)
+and is the implementation where the entries in the matrix
+are loaded directly into the Trilinos (Epetra_CrsMatrix)
+format. The hook to this is in putpcgc in glam_strs2.F90.
+
+In both cases, the options that control the linear solver
+methods are read from an input file called   strat1.xml.
+The full list of options is documented on the Trilinos
+web pages. Click on the Stratimikos package, documentation
+of the Trilinos version that you are using, and then the
+link to Stratimikos::DefaultLinearSolverBuilder.
+
+http://trilinos.sandia.gov/packages/docs/r10.4/packages/stratimikos/doc/html/classStratimikos_1_1DefaultLinearSolverBuilder.html
+
+
+More...As of today, before a distributed fortran code
+exists for parallelization of the matrix-loading phase,
+the parallelism is only over the matrix solve. Each
+processor redundantly runs the fortran code and 
+loads entries for the entire matrix. Both implementation
+here work by partitioning the matrix rows in parallel
+in the simplest way. Each processor ignores the matrix
+rows that it does not own. The final result, which is
+also distributed, is broadcast to all processors before
+returning it to the fortran code.
+

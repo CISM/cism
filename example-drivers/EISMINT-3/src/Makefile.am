@@ -1,13 +1,15 @@
+if TRILINOS
+bin_PROGRAMS  = 
+else
 bin_PROGRAMS  =  eismint3_glide
+endif
 
 nodist_include_HEADERS := $(wildcard *.mod)
 EXTRA_DIST = f90_dep.mak eismint3_vars.def
 BUILT_SOURCES = eismint3_io.F90
 CLEANFILES = $(BUILT_SOURCES) f90_dep.mak $(wildcard *.mod)
 
-
-
-eismint3_glide_SOURCES = eismint3_glide.F90 eismint3_forcing.F90 eismint3_types.F90 eismint3_io.F90
+eismint3_glide_SOURCES = eismint3_glide.F90 eismint3_forcing.F90 eismint3_types.F90 eismint3_io.F90 $(CPP_SRC)
 eismint3_glide_LDADD = $(top_builddir)/libglint/libglint.la  $(top_builddir)/libglide/libglide.la \
                        $(top_builddir)/libglimmer-solve/libglimmer-solve.la \
                        $(top_builddir)/libglimmer/libglimmer-IO.la $(top_builddir)/libglimmer/libglimmer.la \

@@ -1,4 +1,9 @@
+if TRILINOS
+bin_PROGRAMS  =  
+else
 bin_PROGRAMS  =  glint_example glex_ebm
+endif
+
 
 nodist_include_HEADERS := $(wildcard *.mod)
 EXTRA_DIST = f90_dep.mak
@@ -6,7 +11,7 @@ BUILT_SOURCES =
 CLEANFILES = $(BUILT_SOURCES) f90_dep.mak $(wildcard *.mod)
 
 glint_example_SOURCES = glint_example.F90
-glex_ebm_SOURCES = glex_ebm.F90 glex_ebm_clim.F90
+glex_ebm_SOURCES = glex_ebm.F90 glex_ebm_clim.F90 
 
 LDADD = $(top_builddir)/libglint/libglint.la  $(top_builddir)/libglide/libglide.la \
         $(top_builddir)/libglimmer-solve/libglimmer-solve.la \
