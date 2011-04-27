@@ -6,4 +6,4 @@
 
 @TRILINOS_TRUE@include @TRILINOS_PREFIX@/include/Makefile.export.Trilinos
 
-@TRILINOS_TRUE@TRILINOS_LIBS_ALL = $(top_builddir)/libglimmer-trilinos/libglimmertrilinos.a  $(Trilinos_LIBRARIES)  $(Trilinos_TPL_LIBRARIES) @TRILINOS_LDLIBS_SUBST@
+@TRILINOS_TRUE@TRILINOS_LIBS_ALL = $(top_builddir)/libglimmer-trilinos/libglimmertrilinos.la  $(Trilinos_LIBRARIES)  $(Trilinos_TPL_LIBRARIES)
