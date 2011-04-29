@@ -13,11 +13,16 @@
 #include "Thyra_EpetraThyraWrappers.hpp"
 #include "Thyra_EpetraLinearOp.hpp"
 
-// Define global variables.
-static Teuchos::RCP<TrilinosMatrix_Interface> interface;
-
-static Teuchos::RCP<Epetra_CrsMatrix> savedMatrix_A;
-static Teuchos::RCP<Epetra_CrsMatrix> savedMatrix_C;
+// Define variables that are global to this file.
+Teuchos::RCP<TrilinosMatrix_Interface> interface;
+Teuchos::RCP<Epetra_CrsMatrix> savedMatrix_A;
+Teuchos::RCP<Epetra_CrsMatrix> savedMatrix_C;
+Teuchos::RCP<Epetra_Vector> soln;
+Teuchos::RCP<Teuchos::ParameterList> pl;
+Teuchos::RCP<Teuchos::FancyOStream> out;
+Teuchos::RCP<Thyra::LinearOpWithSolveBase<double> > lows;
+Teuchos::RCP<Thyra::LinearOpWithSolveFactoryBase<double> > lowsFactory;
+Teuchos::RCP<const Thyra::LinearOpBase<double> > thyraOper;
 
 extern "C" {
   //================================================================
@@ -41,8 +46,22 @@ extern "C" {
     Teuchos::RCP<const Epetra_Map> rowMap = 
       Teuchos::rcp(new Epetra_Map(-1,mySize,myIndicies,1,comm) );
 
+    soln = Teuchos::rcp(new Epetra_Vector(*rowMap));
+    pl = Teuchos::getParametersFromXmlFile("strat1.xml");
+
+    out = Teuchos::VerboseObjectBase::getDefaultOStream();
+
     // Create an interface that holds a CrsMatrix instance and some useful methods.
     interface = Teuchos::rcp(new TrilinosMatrix_Interface(rowMap, bandwidth, comm));
+
+    Stratimikos::DefaultLinearSolverBuilder linearSolverBuilder;
+    linearSolverBuilder.setParameterList(pl);
+    lowsFactory = linearSolverBuilder.createLinearSolveStrategy("");
+    lowsFactory->setOStream(out);
+    lowsFactory->setVerbLevel(Teuchos::VERB_LOW);
+
+    lows=Teuchos::null;
+    thyraOper=Teuchos::null;
   }
 
   //============================================================
@@ -121,82 +140,28 @@ extern "C" {
 #else
   void solvewithtrilinos_(double* rhs, double* answer, double& elapsedTime) {
 #endif
-    //cout << " ======================================" << endl;
-    //cout << " IN SOLVE()" << endl;
-
-    // RN_20100211: Start timing
-    Teuchos::Time linearTime("LinearTime");
-    linearTime.start();
+    //Teuchos::Time linearTime("LinearTime"); linearTime.start();
 
     // Lock in sparsity pattern
     if (!interface->isSparsitySet()) interface->finalizeSparsity();
 
-    const Epetra_Map& map = interface->getRowMap(); 
-
-/*
-    int numMyElements = map.NumMyElements();
-    int *myGlobalElements = new int[numMyElements];
-    map.MyGlobalElements(&myGlobalElements[0]);
-
-    Epetra_Vector b(map);
-
-    // Inserting values into the rhs: "-1" for Fortran to C Numbering
-    double *myGlobalValues = new double[numMyElements];
-    for (int j=0; j<numMyElements; ++j) {
-      myGlobalValues[j] = rhs[myGlobalElements[j] -1 ];
-    }
-    ierr = b.ReplaceGlobalValues(numMyElements, &myGlobalValues[0],
-				 &myGlobalElements[0]);
-
-*/
-    Epetra_Vector x(map);
-
-    Teuchos::ParameterList paramList;
-
-    Teuchos::RCP<Teuchos::ParameterList>
-      paramList1 = Teuchos::rcp(&paramList, false);
-    Teuchos::updateParametersFromXmlFile("strat1.xml", paramList1.get() );
-
-    Teuchos::RCP<Teuchos::FancyOStream>
-      out = Teuchos::VerboseObjectBase::getDefaultOStream();
-
-    Stratimikos::DefaultLinearSolverBuilder linearSolverBuilder;
-
- //   Teuchos::RCP<Epetra_Vector> epetraRhs = Teuchos::rcp(&b, false);
-    Teuchos::RCP<Epetra_Vector> epetraSol = Teuchos::rcp(&x, false);
-
-
+    Teuchos::RCP<Epetra_Vector> epetraSol = soln;
     Teuchos::RCP<Epetra_Vector> epetraRhs = interface->getPartitionedVec(rhs);
 
-    Teuchos::RCP<const Thyra::LinearOpBase<double> >
-      thyraOper = Thyra::epetraLinearOp(interface->getOperator());
+    thyraOper = Thyra::epetraLinearOp(interface->getOperator());
     Teuchos::RCP<Thyra::VectorBase<double> >
       thyraRhs = Thyra::create_Vector(epetraRhs, thyraOper->range() );
     Teuchos::RCP<Thyra::VectorBase<double> >
       thyraSol = Thyra::create_Vector(epetraSol, thyraOper->domain() );
 
-    linearSolverBuilder.setParameterList(Teuchos::rcp(&paramList, false) );
-
-    Teuchos::RCP<Thyra::LinearOpWithSolveFactoryBase<double> >
-      lowsFactory = linearSolverBuilder.createLinearSolveStrategy("");
-
-    lowsFactory->setOStream(out);
-    lowsFactory->setVerbLevel(Teuchos::VERB_LOW);
-
-    Teuchos::RCP<Thyra::LinearOpWithSolveBase<double> >
-      lows = Thyra::linearOpWithSolve(*lowsFactory, thyraOper);
+    lows = Thyra::linearOpWithSolve(*lowsFactory, thyraOper);
 
     Thyra::SolveStatus<double>
       status = Thyra::solve(*lows, Thyra::NOTRANS, *thyraRhs, &*thyraSol);
 
-    thyraSol = Teuchos::null;
+    interface->spreadVector(*soln, answer);
 
-    interface->spreadVector(x, answer);
-
-    //elapsedTime = linearTime.stop();
-    //*out << "Total time elapsed for calling Solve(): " << elapsedTime << endl;
-
-    //cout << " ======================================" << endl;
+    //elapsedTime = linearTime.stop();*out << "Total time elapsed for calling Solve(): " << elapsedTime << endl;
   }
 
 #ifdef _xlC_
