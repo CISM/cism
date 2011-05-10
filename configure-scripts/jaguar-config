@@ -5,7 +5,7 @@
   CC="cc -O2" CXX="CC -O2 --diag_suppress 554,111,611" \
   --disable-python \
   --with-netcdf=/opt/cray/netcdf/4.0.1.1/netcdf-pgi \
-  TRILINOS_LDLIBS="/opt/pgi/10.3.0/linux86-64/10.3/lib/f90main.o" \
+  EXTRA_LDLIBS="/opt/pgi/10.3.0/linux86-64/10.3/lib/f90main.o" \
   --with-trilinos=/ccs/proj/cli043/trilinos/NOX_BUILD-FAST 
 
 

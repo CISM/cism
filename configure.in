@@ -394,6 +394,11 @@ AC_SUBST(PHAML_PREFIX)
 AC_SUBST(PHAML_GRAPHICS_PREFIX)
 AC_SUBST(build_extension_libphaml)
 
+# Extra libraries can be added by user at configure time 
+# This is used on Jaguar to add   f90main.o  for successful linking with CXX
+EXTRA_LDLIBS_SUBST="$EXTRA_LDLIBS"
+AC_SUBST(EXTRA_LDLIBS_SUBST)
+
 #Checking for Trilinos
   AC_ARG_WITH(trilinos,AS_HELP_STRING([--with-trilinos],[Optional location of trilinos solvers]),[ac_cv_trilinos_prefix=$withval])
 if test "$ac_cv_trilinos_prefix" != ""; then
@@ -402,9 +407,6 @@ if test "$ac_cv_trilinos_prefix" != ""; then
   # automate findingof trilinos libraries, used by Makefile.Trilinos.export
   TRILINOS_PREFIX="$ac_cv_trilinos_prefix"
   AC_SUBST(TRILINOS_PREFIX)
-
-  TRILINOS_LDLIBS_SUBST="$TRILINOS_LDLIBS"
-  AC_SUBST(TRILINOS_LDLIBS_SUBST)
 
   f95string=`$FC -v 2>&1`
   fs=`echo $f95string |$EGREP "aix"`

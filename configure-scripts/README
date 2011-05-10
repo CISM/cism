@@ -1,0 +1,12 @@
+
+These are sample configure scripts for glimmer that are working
+for users on various platforms. These are templates that
+can guide users -- they are not meant to be used as is. 
+In particular, paths to netcdf and Trilinos will likely need
+to be modified. In addition, the build will depend on
+what modules are loaded and what environment variables 
+(such as FC and LD_LIBRARY_PATH) are set.
+
+These scripts are stored in this configure-scripts directory,
+but are designed to run from the top-level glimmer directory.
+
