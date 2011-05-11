@@ -47,7 +47,19 @@ extern "C" {
       Teuchos::rcp(new Epetra_Map(-1,mySize,myIndicies,1,comm) );
 
     soln = Teuchos::rcp(new Epetra_Vector(*rowMap));
-    pl = Teuchos::getParametersFromXmlFile("strat1.xml");
+    try { // Check that the parameter list is valid at the top
+      pl = Teuchos::getParametersFromXmlFile("trilinosOptions.xml");
+
+      Teuchos::ParameterList validPL("Valid List");;
+      validPL.sublist("Stratimikos"); validPL.sublist("Piro");
+      pl->validateParameters(validPL, 0);
+    }
+    catch (std::exception& e) {
+      cout << "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n" 
+           << e.what() << "\nExiting: Invalid trilinosOptions.xml file."
+           << "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" << endl;
+      exit(1);
+    }
 
     out = Teuchos::VerboseObjectBase::getDefaultOStream();
 
@@ -55,7 +67,7 @@ extern "C" {
     interface = Teuchos::rcp(new TrilinosMatrix_Interface(rowMap, bandwidth, comm));
 
     Stratimikos::DefaultLinearSolverBuilder linearSolverBuilder;
-    linearSolverBuilder.setParameterList(pl);
+    linearSolverBuilder.setParameterList(Teuchos::sublist(pl, "Stratimikos"));
     lowsFactory = linearSolverBuilder.createLinearSolveStrategy("");
     lowsFactory->setOStream(out);
     lowsFactory->setVerbLevel(Teuchos::VERB_LOW);
