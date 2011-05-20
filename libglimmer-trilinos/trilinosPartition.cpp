@@ -27,6 +27,15 @@ extern "C" {
 #endif
 
 #ifdef GLIMMER_MPI
+    // On Linux, Jaguar, the MPI_Init in Fortran is recopgnized by C++
+    // On Bill's Mac, it is not, so this extra MPI_Init is needed
+    int flag;
+    MPI_Initialized(&flag);
+    if (!flag) {
+      int    argc;
+      char** argv;
+      MPI_Init(&argc, &argv);
+    }
     Epetra_MpiComm comm(MPI_COMM_WORLD);
 #else
     Epetra_SerialComm comm;
