@@ -3902,7 +3902,7 @@ subroutine calcbetasquared (whichbabc,               &
 
     case(4)    ! frozen (u=v=0) ice-bed interface
 
-      betasquared = 1.0d8
+      betasquared = 1.0d10
 
     case(5)    ! use value passed in externally from CISM (NOTE not dimensional when passed in) 
 
