@@ -17,12 +17,14 @@ simple_glide_SOURCES = simple_glide.F90 trickLibtool.cpp
 simple_glide_LDADD = libglimmer-simple.la $(top_builddir)/libglide/libglide.la $(top_builddir)/libglimmer-solve/libglimmer-solve.la \
                     $(top_builddir)/libglimmer/libglimmer-IO.la $(top_builddir)/libglimmer/libglimmer.la \
                     $(NETCDF_LDFLAGS) $(HDF5_LDFLAGS) $(NETCDF_LIBS) $(BLAS_LIBS) $(LAPACK_LIBS) \
-                    $(PARDISO_LIBS) $(UMFPACK_LIBS)  $(TRILINOS_LIBS) $(FCLIBS) 
+                    $(PARDISO_LIBS) $(UMFPACK_LIBS)  $(TRILINOS_LIBS) $(FCLIBS) $(FLIBS)
+# NOTE: On above line, FCLIBS and FLIBS are mostly redundant. Depending on
+# the libtool version, there might not be FCLIBS, so FLIBS will fill in.
 
 simple_erosion_SOURCES = simple_erosion.F90 trickLibtool.cpp
 simple_erosion_LDADD = libglimmer-simple.la  $(top_builddir)/extensions/erosion/src/liberosion.la $(top_builddir)/libglide/libglide.la \
                     $(top_builddir)/libglimmer-solve/libglimmer-solve.la $(top_builddir)/libglimmer/libglimmer-IO.la $(top_builddir)/libglimmer/libglimmer.la \
-                    $(NETCDF_LDFLAGS) $(HDF5_LDFLAGS) $(NETCDF_LIBS) $(BLAS_LIBS) $(TRILINOS_LIBS) $(FCLIBS) 
+                    $(NETCDF_LDFLAGS) $(HDF5_LDFLAGS) $(NETCDF_LIBS) $(BLAS_LIBS) $(TRILINOS_LIBS) $(FCLIBS) $(FLIBS)
 
 AM_FCFLAGS = $(NETCDF_FCFLAGS) $(F90_MODFLAG)$(top_builddir)/libglimmer-solve $(F90_MODFLAG)$(top_builddir)/libglide $(F90_MODFLAG)$(top_builddir)/libglimmer \
              $(F90_MODFLAG)$(top_builddir)/extensions/erosion/src/

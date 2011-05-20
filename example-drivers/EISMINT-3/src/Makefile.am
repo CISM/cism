@@ -13,7 +13,7 @@ eismint3_glide_LDADD = $(top_builddir)/libglint/libglint.la  $(top_builddir)/lib
                        $(top_builddir)/libglimmer-solve/libglimmer-solve.la \
                        $(top_builddir)/libglimmer/libglimmer-IO.la $(top_builddir)/libglimmer/libglimmer.la \
                        $(NETCDF_LDFLAGS) $(HDF5_LDFLAGS) $(NETCDF_LIBS) $(BLAS_LIBS) $(LAPACK_LIBS) $(PARDISO_LIBS) $(UMFPACK_LIBS)\
-                       $(TRILINOS_LIBS) $(FCLIBS)    
+                       $(TRILINOS_LIBS) $(FCLIBS) $(FLIBS)
 
 AM_FCFLAGS = $(NETCDF_FCFLAGS)  $(F90_MODFLAG)$(top_builddir)/libglimmer-solve $(F90_MODFLAG)$(top_builddir)/libglide \
              $(F90_MODFLAG)$(top_builddir)/libglimmer $(F90_MODFLAG)$(top_builddir)/libglint

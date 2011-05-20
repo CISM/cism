@@ -44,6 +44,8 @@ AC_LANG(Fortran)
 AC_FC_SRCEXT(f90)
 # Define FCLIBS for fortran libraries needed for CXX linking
 AC_FC_LIBRARY_LDFLAGS
+# Define FLIBS for fortran libraries needed for CXX linking 
+AC_F77_LIBRARY_LDFLAGS
 # get the correct flag to set module include path
 AX_F90_MODULE_FLAG
 F90_MODFLAG=$ax_cv_f90_modflag
