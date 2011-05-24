@@ -160,6 +160,29 @@ data:          data%velocity%beta
 factor:        scale2d_f6
 load:          1
 
+[tauf]
+dimensions:    time, y0, x0
+units:         Pa
+long_name:     higher-order basal yield stress
+data:          data%basalproc%minTauf
+factor:        scale3d_f9
+load:          1
+hot:           1
+
+[btractx]
+dimensions:    time, y0, x0
+units:         Pa
+long_name:     consistent basal traction (x-direction comp)
+data:          data%velocity%btraction(1,:,:)
+factor:        scale3d_f9
+
+[btracty]
+dimensions:    time, y0, x0
+units:         Pa
+long_name:     consistent basal traction (y-direction comp)
+data:          data%velocity%btraction(2,:,:)
+factor:        scale3d_f9
+
 [ubas]
 dimensions:    time, y0, x0
 units:         meter/year
