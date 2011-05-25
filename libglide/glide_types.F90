@@ -286,7 +286,7 @@ module glide_types
     !*FD \item[0] compute from effective strain rate
     !*FD \item[1] constant value
 
-    integer :: which_ho_resid = 0
+    integer :: which_ho_resid = 3
     !*FD Flag that indicates method for computing residual in PP dyn core: 
     !*FD \begin{description}
     !*FD \item[0] maxval 

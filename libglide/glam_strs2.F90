@@ -268,6 +268,9 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
   integer :: iter, pic
   integer , dimension(:), allocatable :: g_flag ! jfl flag for ghost cells
 
+  ! variables for when to stop outer loop when using Picard for nonlinear iteration 
+  real (kind = dp) :: outer_it_criterion, outer_it_target
+
   ! AGS: partition information for distributed solves
   integer, allocatable, dimension(:) :: myIndices
   integer :: mySize = -1
@@ -392,9 +395,21 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
   ! Picard iteration; continue iterating until resid falls below specified tolerance
   ! or the max no. of iterations is exceeded
 
-  do while ( L2norm .ge. NL_target .and. counter < cmax)    ! use L2 norm for resid calculation
-  !do while ( maxval(resid) > minres .and. counter < cmax)   ! standard residual calculation
-  !do while ( resid(1) > minres .and. counter < cmax)        ! standard residual (for 1d solutions where d*/dy=0) 
+  do while ( outer_it_criterion .ge. outer_it_target .and. counter < cmax)    ! use L2 norm for resid calculation
+
+  ! choose outer loop stopping criterion
+  if( counter > 1 )then
+  if( whichresid == 3 )then
+    outer_it_criterion = L2norm
+    outer_it_target = NL_target
+  else
+    outer_it_criterion = maxval(resid)
+    outer_it_target = minres   
+  end if
+  else
+    outer_it_criterion = 1.0d10
+    outer_it_target = 1.0d-12
+  end if
 
     ! calc effective viscosity using previously calc vel. field
     call findefvsstr(ewn,  nsn,  upn,      &
