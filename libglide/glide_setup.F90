@@ -517,10 +517,11 @@ end function glide_calc_sigma_pattyn
     character(len=*), dimension(0:1), parameter :: ho_whichefvs = (/ &
          'from eff strain rate    ', &
          'constant value          ' /)
-    character(len=*), dimension(0:2), parameter :: ho_whichresid = (/ &
+    character(len=*), dimension(0:3), parameter :: ho_whichresid = (/ &
          'max value               ', &
          'max value ignoring ubas ', &
-         'mean value              ' /)
+         'mean value              ', &
+         'L2 norm of Ax-b=resid   ' /)
     character(len=*), dimension(0:2), parameter :: ho_whichsource = (/ &
          'vertically averaged     ', &
          'vertically explicit     ', &

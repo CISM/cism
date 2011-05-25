@@ -375,8 +375,11 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
   print *, ' '
   print *, 'Running Payne/Price higher-order dynamics solver'
   print *, ' '
-!  print *, 'iter #     uvel resid         vvel resid       target resid'
-  print *, 'iter #     resid (L2 norm)       target resid'
+  if( whichresid == 3 )then
+    print *, 'iter #     resid (L2 norm)       target resid'
+  else
+    print *, 'iter #     uvel resid         vvel resid       target resid'
+  end if
   print *, ' '
 
   ! ****************************************************************************************
@@ -596,11 +599,15 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 
 !    ! output the iteration status: iteration number, max residual, and location of max residual
 !    ! (send output to the screen or to the log file, per whichever line is commented out) 
-!    print '(i4,3g20.6)', counter, resid(1), resid(2), minres
-!    !write(message,'(" * strs ",i3,3g20.6)') counter, resid(1), resid(2), minres
-!    !call write_log (message)
-
-    print '(i4,3g20.6)', counter, L2norm, NL_target    ! Output when using L2norm for convergence
+    if( whichresid == 3 )then
+        print '(i4,3g20.6)', counter, L2norm, NL_target    ! Output when using L2norm for convergence
+        !write(message,'(i4,3g20.6)') counter, L2norm, NL_target
+        !call write_log (message)
+    else
+        print '(i4,3g20.6)', counter, resid(1), resid(2), minres
+        !write(message,'(" * strs ",i3,3g20.6)') counter, resid(1), resid(2), minres
+        !call write_log (message)
+    end if
 
     counter = counter + 1   ! advance the iteration counter
 

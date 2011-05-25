@@ -292,6 +292,7 @@ module glide_types
     !*FD \item[0] maxval 
     !*FD \item[1] maxval ignoring basal velocity 
     !*FD \item[2] mean value
+    !*FD \item[3] L2 norm of system residual, Ax-b=resid
     !*FD \begin{description}
 
     integer :: which_disp = 0

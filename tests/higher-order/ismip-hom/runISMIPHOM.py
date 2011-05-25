@@ -191,6 +191,7 @@ if __name__ == '__main__':
         print 'Running',options.executable,'for experiment',experiment.upper(),'with domain size',size,'km'
         exitCode = os.system('echo '+filename+'.config'+' | '+options.executable)
 #        exitCode = os.system('mpirun -np 6 ./simple_glide '+filename+'.config')
+#        exitCode = os.system('aprun -n6 ./simple_glide '+filename+'.config')       % mpi run on Jaguar
 
         if exitCode == 0:
 #         Extract the output data for comparison to the other models
