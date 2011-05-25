@@ -42,18 +42,17 @@ if __name__ == '__main__':
   parser.add_option('-r','--run',dest='executable',default='simple_glide',help='Set path to the GLIMMER executable (defaults to simple_glide)')
   parser.add_option('-p','--prefix',dest='prefix',default='glm1',help='Prefix to use for model output files (defaults to glm1)')
   parser.add_option('-f','--format-only',dest='format_only',action='store_true',help='Generate the config and NetCDF input files only')
-  parser.add_option('-q','--periodic',dest='periodic',type='int',help='if specified then use OLD version of periodic bcs')
+  parser.add_option('-q','--periodic',dest='periodic',type='int',help='if specified then use NEW version of periodic bcs')
   options, args = parser.parse_args()
 # If the user didn't specify a list of experiments or domain sizes, run the whole suite
   if options.experiments == None: options.experiments = defaultExperiments
   if options.sizes == None: options.sizes = defaultSizes
 
 # *sfp* Added option to run on 3x peridoc domain (to avoid issues w/ periodic bcs)
-#  if options.periodic == None:
-#      factor = 3    
-#  else:
-#      factor = 1    
-  factor = 1    
+  if options.periodic == None:
+      factor = 1    
+  else:
+      factor = 3    
 
 # Loop over the experiments requested on the command line
   for experiment in options.experiments:
@@ -64,7 +63,7 @@ if __name__ == '__main__':
       if experiment == 'f': 
         if size != 100 or len(options.sizes) > 1:
           print 'NOTE: Experiment f uses a domain size of 100 km only'
-        size = 100
+          size = 100
 
 #     Create a configuration file by copying an existing example
       configParser = ConfigParser.SafeConfigParser()
@@ -182,7 +181,14 @@ if __name__ == '__main__':
       elif experiment in ('c','d'):
         thk [:] = ny*[nx*[1000]]
         topg[:] = ny*[zz]
-        beta[:] = basalFriction[:-1]
+        if options.periodic == None:
+          beta[:] = basalFriction[:-1]
+        else:
+          beta[:] = basalFriction[:-1]
+          beta[0,ny-3:,:] = 100000 
+          beta[0,nx-3:] = 100000 
+          beta[0,0:2,:] = 100000 
+          beta[0,:,0:2] = 100000 
       netCDFfile.close()
 
       if not options.format_only:
@@ -211,30 +217,40 @@ if __name__ == '__main__':
 
 #         Write a "standard" ISMIP-HOM file (example file name: "glm1a020.txt") in the "output" subdirectory 
 
-#          nx0 = nx - 1
-#          ny0 = ny - 1
-#          if factor == 5:
-#            factor2 = 2
-#            factor3 = 0
-#          else:
-#            factor2 = 1
-#            factor3 = 1
+          nx0 = nx - 1
+          ny0 = ny - 1
+          if factor == 5:
+            factor2 = 2
+            factor3 = 0
+          else:
+            factor2 = 1
+            factor3 = 1
 
           ISMIP_HOMfilename = os.path.join('output',options.prefix+experiment+'%03d'%size+'.txt')
           ISMIP_HOMfile = open(ISMIP_HOMfilename,'w')
-          for i in range(nx-2):
-#          for i in range( factor2*nx0/factor-factor3, factor2*nx0/factor-factor3 + nx0/factor+1 ):
 
-            x = float(i)/(nx-3)   # In a more perfect world: x = (i+0.5)/(nx-2)
-#            x = float(i)/(factor2*nx0/factor)
-#            x = x - float(nx0/factor-factor3) / float(nx0/factor) 
+          if options.periodic == None:
+            rangenx = range(nx-2)
+            rangeny = range(ny-2)
+          else:
+            rangenx = range( factor2*nx0/factor-factor3, factor2*nx0/factor-factor3 + nx0/factor+1 )
+            rangeny = range( factor2*ny0/factor-factor3, factor2*ny0/factor-factor3 + ny0/factor+1 )
 
-            for j in range(ny-2):
-#            for j in range( factor2*ny0/factor-factor3, factor2*ny0/factor-factor3 + ny0/factor+1 ):
+          for i in rangenx:
 
-              y = float(j)/(ny-3) # In a more perfect world: y = (j+0.5)/(ny-2)
-#              y = float(j)/(factor2*ny0/factor)
-#              y = y - float(ny0/factor-factor3) / float(ny0/factor) 
+            if options.periodic == None:
+              x = float(i)/(nx-3)   # In a more perfect world: x = (i+0.5)/(nx-2)
+            else:
+              x = float(i)/(factor2*nx0/factor)
+              x = x - float(nx0/factor-factor3) / float(nx0/factor) 
+
+            for j in rangeny:
+
+              if options.periodic == None:
+                y = float(j)/(ny-3) # In a more perfect world: y = (j+0.5)/(ny-2)
+              else:              
+                y = float(j)/(factor2*ny0/factor)
+                y = y - float(ny0/factor-factor3) / float(ny0/factor) 
 
               if netCDF_module == 'Scientific.IO.NetCDF':
                 if experiment in ('a','c'):
