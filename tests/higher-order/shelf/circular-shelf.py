@@ -32,6 +32,14 @@ else:
   print '\nUsage:  python circular-shelf.py [FILE.CONFIG] [-b|--smooth-beta] [-d|--dirichlet-center] [-s|--sloped]\n'
   sys.exit(0)
 
+# Check to see if #procs specified, relevant when running the code in parallel.
+# If not, serial run (#procs==1) is performed. To run in parallel, the configure
+# file must be specifed, but the nu,ber of processors does not
+if len(sys.argv) > 2:
+    nprocs = sys.argv[2]
+else:
+  nprocs = '1'
+
 # Create a netCDF file according to the information in the config file.
 parser = ConfigParser()
 parser.read(configfile)
@@ -115,7 +123,10 @@ netCDFfile.close()
 
 # Run Glimmer
 print 'Running Glimmer/CISM'
-os.system('echo '+configfile+' | simple_glide')
+if len(sys.argv) > 2:
+   os.system('aprun -n'+nprocs+' ./simple_glide '+configfile+'')  # support for MPI runs is here
+else:
+   os.system('echo '+configfile+' | simple_glide')
 
 # Clean up by moving extra files written by Glimmer to the "scratch" subdirectory
 # Look for files with extension "txt", "log", or "nc"

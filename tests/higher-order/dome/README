@@ -24,6 +24,10 @@ Unlike in previous releases, there is only one configuration file which uses
 the Payne/Price higher-order dynamical core (the Pattyn/Bocek/Johnson higher-
 order core, while still present in the code, is no longer supported).
 
+If there are problems with running in serial on a multcore machine, try
+
+dome.py dome.config 1 
+
 The script performs the following three steps:
 1. Create a netCDF input file for Glimmer.
 2. Run Glimmer, creating a netCDF output file.
