@@ -5,7 +5,16 @@ an ice sheet with an parabolic "dome" shape on a flat base.  To run the
 experiment, enter the following on a terminal command line:
 
 For a serial job: python dome.py dome.config
-For a parallel job: dome.py dome.config number_of_processors
+
+For a parallel job: dome.py dome.config number_of_processors, for example:
+
+dome.py dome.config 8 
+
+... will run the test case on 8 processors.
+
+Note that parallel support in the current "dome.py" script may be machine specific
+and you may need to make minor alterations to the relevant lines of code there, 
+e.g. grep for the phrase "MPI" (the current lines work for running on Jaguar at ORNL).
 
 If you want to run in parallel, the configuration file and number of processors 
 must be specified (but can be 1). If no parameters are specified, the code will 

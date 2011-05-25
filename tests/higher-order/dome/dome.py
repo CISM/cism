@@ -87,7 +87,7 @@ netCDFfile.close()
 # Run Glimmer
 print 'Running Glimmer/CISM'
 if len(sys.argv) > 2:
-   os.system('aprun -n'+nprocs+' ./simple_glide '+configfile+'')
+   os.system('aprun -n'+nprocs+' ./simple_glide '+configfile+'')  # support for MPI runs is here
 else:
    os.system('echo '+configfile+' | simple_glide')
 
