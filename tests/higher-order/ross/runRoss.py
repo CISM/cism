@@ -17,7 +17,7 @@ import ConfigParser
 from netCDF import *
 
 create_files = True 
-run_glimmer  = True 
+run_glimmer  = False
 executable   = 'simple_glide'
 fake_shelf   = False
 verbose      = False

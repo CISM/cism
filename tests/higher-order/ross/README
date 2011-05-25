@@ -28,7 +28,20 @@ STEP 1. Run Glimmer/CISM by invoking the runRoss.py script:
 
 python runRoss.py
 
-This step runs Glimmer using parameters specified in the ross.config file.
+Currently, the default settings are for this command to simply build the necessary
+input files in the "./output" subdirectory. To run the code in serial, use
+
+./simple_glide ross.config
+
+To run in parallel use, e.g., 
+
+mpirun -np 6 ./simple_glide ross.config	  # linux cluster example
+
+or
+
+aprun -n6 ./simple_glide ross.config      # cray cluster example
+
+This step will run Glimmer using parameters specified in the ross.config file.
 
 STEP 2. Plot the results by invoking the plotRoss.py script:
 
