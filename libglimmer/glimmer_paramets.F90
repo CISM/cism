@@ -81,7 +81,7 @@ module glimmer_paramets
   ! *sfp* defined these to convert scales to values used by GLAM
   real(dp), parameter :: tau0 = rhoi*grav*thk0                   ! stress scale in GLAM ( Pa )  
   real(dp), parameter :: vis0_glam = tau0**(-gn) * (vel0/len0)   ! rate factor scale in GLAM ( Pa^-3 s^-1 )
-  real(dp), parameter :: evs0 = tau0 * (vel0/len0)               ! eff. visc. scale in GLAM ( Pa s )
+  real(dp), parameter :: evs0 = tau0 / (vel0/len0)               ! eff. visc. scale in GLAM ( Pa s )
 
 
   real(dp), parameter :: acc0 = thk0 * vel0 / len0  ! m s^{-1} 
