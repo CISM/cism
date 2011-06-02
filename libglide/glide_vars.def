@@ -478,7 +478,6 @@ data:          data%velocity%surfvel(up,:,:)
 factor:        scale3d_f1
 coordinates:   lon lat
 
-
 [flwa]
 dimensions:    time, level, y1, x1
 units:         pascal/year
@@ -486,6 +485,15 @@ long_name:     Pre-exponential flow law parameter
 data:          data%temper%flwa(up,:,:)
 factor:        scale3d_f8
 hot:           1
+coordinates:   lon lat
+
+[efvs]
+dimensions:    time, staglevel, y1, x1
+units:         Pascal * years
+long_name:     effective viscosity               
+data:          data%stress%efvs(up,:,:)
+factor:        scale3d_f10
+hot:           0
 coordinates:   lon lat
 
 [temp]
