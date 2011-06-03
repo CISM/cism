@@ -503,6 +503,7 @@ long_name:     ice temperature
 data:          data%temper%temp(up,1:data%general%ewn,1:data%general%nsn)
 standard_name: land_ice_temperature
 hot:           1
+load:          1
 coordinates:   lon lat
 
 [litho_temp]
