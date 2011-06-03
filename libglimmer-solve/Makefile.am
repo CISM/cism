@@ -18,7 +18,7 @@ libglimmer_solve_la_LIBADD = SLAP/libslap.la $(BLAS_LIB)
 libglimmer_solve_la_LDFLAGS=-all-static
 nodist_include_HEADERS := $(wildcard *.mod)
 
-AM_FCFLAGS = $(F90_MODFLAG)../libglimmer
+AM_FCFLAGS = $(FC_MODINC)../libglimmer
 
 -include f90_dep.mak
 include $(top_srcdir)/extra_rules.am

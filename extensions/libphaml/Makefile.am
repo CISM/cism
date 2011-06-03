@@ -10,9 +10,9 @@ lib_LTLIBRARIES = libglide-phaml.la
 
 libglide_phaml_la_LDFLAGS=-all-static
 AM_LIBTOOLFLAGS="--tag=FC"
-AM_FCFLAGS = $(NETCDF_FCFLAGS) $(F90_MODFLAG)$(top_builddir)/libglimmer-solve \
-    $(F90_MODFLAG)$(top_builddir)/libglide $(F90_MODFLAG)$(top_builddir)/libglimmer \
-    $(F90_MODFLAG)$(PHAML_PREFIX)/modules $(F90_MODFLAG)$(PHAML_PREFIX)/src
+AM_FCFLAGS = $(NETCDF_FCFLAGS) $(FC_MODINC)$(top_builddir)/libglimmer-solve \
+    $(FC_MODINC)$(top_builddir)/libglide $(FC_MODINC)$(top_builddir)/libglimmer \
+    $(FC_MODINC)$(PHAML_PREFIX)/modules $(FC_MODINC)$(PHAML_PREFIX)/src
 
 nodist_include_HEADERS := $(wildcard *.mod)
 EXTRA_DIST = f90_dep.mak 

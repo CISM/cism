@@ -1,4 +1,5 @@
 SUBDIRS = matlab src scripts tests
+ 
 EXTRA_DIST = README
 
 data::

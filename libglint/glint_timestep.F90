@@ -1,3 +1,6 @@
+#ifdef xlfFortran
+@PROCESS ALIAS_SIZE(107374182)
+#endif
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
 ! +  glint_timestep.f90 - part of the Glimmer-CISM ice model  + 

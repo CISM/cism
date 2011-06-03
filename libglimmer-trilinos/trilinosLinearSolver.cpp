@@ -12,6 +12,7 @@
 #include "Thyra_LinearOpWithSolveFactoryHelpers.hpp"
 #include "Thyra_EpetraThyraWrappers.hpp"
 #include "Thyra_EpetraLinearOp.hpp"
+#include "config.inc"
 
 // Define variables that are global to this file.
 Teuchos::RCP<TrilinosMatrix_Interface> interface;
@@ -30,12 +31,7 @@ extern "C" {
   // RN_20091215: This needs to be called only once in the beginning
   // to set up the problem.
   //================================================================
-
-#ifdef _xlC_
-  void inittrilinos(int& bandwidth, int& mySize, int* myIndicies) {
-#else
-  void inittrilinos_(int& bandwidth, int& mySize, int* myIndicies) {
-#endif
+  void FC_FUNC(inittrilinos,INITTRILINOS) (int& bandwidth, int& mySize, int* myIndicies) {
 
 #ifdef GLIMMER_MPI
     // On Linux, Jaguar, the MPI_Init in Fortran is recopgnized by C++
@@ -88,11 +84,10 @@ extern "C" {
   //============================================================
   // RN_20091118: This is to update the matrix with new entries.
   //============================================================
-#ifdef _xlC_
-  void putintotrilinosmatrix(int& rowInd, int& colInd, double& val) {
-#else
-  void putintotrilinosmatrix_(int& rowInd, int& colInd, double& val) {
-#endif
+
+  void FC_FUNC(putintotrilinosmatrix,PUTINTOTRILINOSMATRIX)
+	       (int& rowInd, int& colInd, double& val) {
+
 
     const Epetra_Map& map = interface->getRowMap();
     // If this row is not owned on this processor, then do nothing
@@ -156,11 +151,10 @@ extern "C" {
   //========================================================
   // RN_20091118: This is to make calls to Trilinos solvers.
   //========================================================
-#ifdef _xlC_
-  void solvewithtrilinos(double* rhs, double* answer, double& elapsedTime) {
-#else
-  void solvewithtrilinos_(double* rhs, double* answer, double& elapsedTime) {
-#endif
+
+  void FC_FUNC(solvewithtrilinos,SOLVEWITHTRILINOS)
+	       (double* rhs, double* answer, double& elapsedTime) {
+
     //Teuchos::Time linearTime("LinearTime"); linearTime.start();
 
     // Lock in sparsity pattern
@@ -185,11 +179,8 @@ extern "C" {
     //elapsedTime = linearTime.stop();*out << "Total time elapsed for calling Solve(): " << elapsedTime << endl;
   }
 
-#ifdef _xlC_
-  void savetrilinosmatrix(int* i) {
-#else
-  void savetrilinosmatrix_(int* i) {
-#endif
+  void FC_FUNC(savetrilinosmatrix,SAVETRILINOSMATRIX) (int* i) {
+
     if (!interface->isSparsitySet()) interface->finalizeSparsity();
     if (*i==0)
       savedMatrix_A = Teuchos::rcp(new Epetra_CrsMatrix(*(interface->getOperator())));
@@ -199,11 +190,8 @@ extern "C" {
       assert(false);
   }
 
-#ifdef _xlC_
-  void restoretrilinosmatrix(int* i) {
-#else
-  void restoretrilinosmatrix_(int* i) {
-#endif
+
+  void FC_FUNC(restoretrilinosmatrix,RESTORTRILINOSMATRIX) (int* i) {
     if (*i==0)
       interface->updateOperator(savedMatrix_A); 
     else if (*i==1)
@@ -212,11 +200,10 @@ extern "C" {
       assert(false);
   }
 
-#ifdef _xlC_
-  void matvecwithtrilinos(double* x, double* answer) {
-#else
-  void matvecwithtrilinos_(double* x, double* answer) {
-#endif
+
+  void FC_FUNC(matvecwithtrilinos,MATVECWITHTRILINOS)
+	       (double* x, double* answer) {
+
     const Epetra_Map& map = interface->getRowMap(); 
     Teuchos::RCP<Epetra_Vector> epetra_x = interface->getPartitionedVec(x);
     Epetra_Vector y(map);

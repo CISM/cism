@@ -1,3 +1,20 @@
+FCDEFAULT_INCLUDES = $(DEFAULT_INCLUDES)
+PPFCCOMPILE = $(FC) $(FCDEFS) $(FCDEFAULT_INCLUDES) $(FCINCLUDES) $(AM_FCCPPFLAGS) $(FCCPPFLAGS) $(AM_FCFLAGS) $(FCFLAGS)
+LTPPFCCOMPILE = $(LIBTOOL) --tag=FC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(PPFCCOMPILE)
+
+# Treat all .f, .f90, and .F90 files as preprocessed Fortran.
+.f90.o:
+	$(PPFCCOMPILE) -c -o $@ $(FCFLAGS_f90) $<
+.f.o:
+	$(PPFCCOMPILE) -c -o $@ $(FCFLAGS_f) $<
+.F90.o:
+	$(PPFCCOMPILE) -c -o $@ $(FCFLAGS_F90) $<
+
+# Remove module files upon make clean:
+clean-local: clean-modules
+clean-modules:
+	test -z "$(FC_MODEXT)" || $(RM) *.$(FC_MODEXT)
+
 %.nc:	%.config
 	$(PYTHON) $(top_srcdir)/scripts/glide_launch.py $(LAUNCH_OPTIONS) -m $(MODEL_BINARY) @AM_SGE_OPTS@ $(SGE_OPTS) $^
 
@@ -42,3 +59,5 @@ f90_dep.mak:	$(f90_dep_sources)
 		$(PYTHON) $(top_srcdir)/scripts/f90_dependencies.py -l -o $@ $^
 
 SUFFIXES = .config
+
+

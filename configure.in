@@ -9,6 +9,7 @@ m4_define([glimmer_version],
 
 AC_INIT([GLIMMER-CISM],[glimmer_version],[glimmer-cism-devel@lists.berlios.de])
 AC_CONFIG_HEADERS(config.inc)
+AC_CONFIG_MACRO_DIR([m4macros])
 AM_INIT_AUTOMAKE
 
 GLIMMER_MAJOR_VERSION=glimmer_major_version
@@ -30,82 +31,15 @@ AC_DEFINE_UNQUOTED(GLIMMER_FCFLAGS,"${glimmer_FCFLAGS}",[fortran compiler flags 
 if test x"$F77"x == xx ; then
   export F77=$FC
 fi
-
 # we are building fortran libraries so, let's make them static
 AC_PROG_LIBTOOL
+
 AC_PROG_CC
 AC_PROG_CXX
 AC_PROG_FC
 AC_PROG_F77
 AC_PROG_EGREP
-FCFLAGS=$glimmer_FCFLAGS
-FFLAGS=$glimmer_FFLAGS
-AC_LANG(Fortran)
-AC_FC_SRCEXT(f90)
-# Define FCLIBS for fortran libraries needed for CXX linking
-AC_FC_LIBRARY_LDFLAGS
-# Define FLIBS for fortran libraries needed for CXX linking 
-AC_F77_LIBRARY_LDFLAGS
-# get the correct flag to set module include path
-AX_F90_MODULE_FLAG
-F90_MODFLAG=$ax_cv_f90_modflag
-AC_SUBST(F90_MODFLAG)
-AX_F90_NO_LINE_LIMIT_FLAG
-FCFLAGS="$FCFLAGS $ax_cv_f90_ff_nolimit"
 
-# checking for f2003 command line parser
-AC_MSG_CHECKING([for f2003 command line parser])
-AC_LINK_IFELSE([AC_LANG_PROGRAM([],
-               [i=command_argument_count()
-                call get_command_argument(i)  ])],
-               [AC_DEFINE(HAVE_2003ARGS,,[defined if you have fortran 2003 intrinsics for parsing command line])
-                AC_MSG_RESULT(yes)], [AC_MSG_RESULT(no)])
-
-# which Fortran compiler are we running?
-AC_MSG_CHECKING([which fortran compiler])
-f95v="no idea"
-f95string=`$FC -V 2>&1`
-f95_preprocessor="-fpp"
-# testing for SUN f95 compiler
-fs=`echo $f95string |$EGREP "Sun|Forte"`
-if test "$fs" != "" ; then
-  f95v="SUN f95"
-  CFORTRAN_CFLAGS=-DsunFortran
-fi
-# testing for NAG f95 compiler
-fs=`echo $f95string |$EGREP "NAGWare"`
-if test "$fs" != "" ; then
-  f95v="NAGWare f95"
-  CFORTRAN_CFLAGS=-DNAGf90Fortran
-fi
-# testing for INTEL ifort compiler
-fs=`echo $f95string |$EGREP "Intel"`
-if test "$fs" != "" ; then
-  f95v="Intel ifort"
-  CFORTRAN_CFLAGS=-DpgiFortran
-fi
-# testing for gfortran
-f95string=`$FC -v 2>&1`
-fs=`echo $f95string |$EGREP "gcc"`
-if test "$fs" != "" ; then
-  f95v="gfortran"
-  f95_preprocessor="-x f95-cpp-input"
-  CFORTRAN_CFLAGS=-DpgiFortran
-fi
-# testing for Portland group
-f95string=`$FC -V 2>&1`
-fs=`echo $f95string |$EGREP "Portland"`
-if test "$fs" != "" ; then
-  f95v="Portland pgf90"
-  f95_preprocessor="-Mpreprocess"
-  CFORTRAN_CFLAGS=-DpgiFortran
-fi
-AC_SUBST(CFORTRAN_CFLAGS)
-
-AC_MSG_RESULT([$f95v])
-
-FCFLAGS="$FCFLAGS"
-FFLAGS="$FFLAGS"
 
 dnl Checking for python
 build_python=1
@@ -143,6 +77,86 @@ else
 fi
 AM_CONDITIONAL([BUILD_PYTHON], [test "$build_python" == "1"])
 
+
+
+
+FCFLAGS=$glimmer_FCFLAGS
+FFLAGS=$glimmer_FFLAGS
+AC_LANG(Fortran)
+AC_FC_SRCEXT(f90)
+# Define FCLIBS for fortran libraries needed for CXX linking
+AC_FC_LIBRARY_LDFLAGS
+AC_FC_PP_DEFINE
+
+AC_FC_MODULE_EXTENSION
+# Define FLIBS for fortran libraries needed for CXX linking 
+AC_F77_LIBRARY_LDFLAGS
+# get the correct flag to set module include path
+#AX_F90_MODULE_FLAG
+#F90_MODFLAG=$ax_cv_f90_modflag
+#AC_SUBST(F90_MODFLAG)
+AC_FC_MODULE_FLAG
+
+#AX_F90_NO_LINE_LIMIT_FLAG
+#FCFLAGS="$FCFLAGS $ax_cv_f90_ff_nolimit"
+
+# checking for f2003 command line parser
+AC_MSG_CHECKING([for f2003 command line parser])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([],
+               [i=command_argument_count()
+                call get_command_argument(i)  ])],
+               [AC_DEFINE(HAVE_2003ARGS,,[defined if you have fortran 2003 intrinsics for parsing command line])
+                AC_MSG_RESULT(yes)], [AC_MSG_RESULT(no)])
+
+# which Fortran compiler are we running?
+
+AC_LANG_PUSH(Fortran)
+AX_FC_VERSION()
+
+f95string="$ac_fc_version_output"
+f95_preprocessor="-fpp"
+
+fs=`echo $f95string |$EGREP "XL Fortran"`
+if test "$fs" != "" ; then
+  f95v="IBM xlf"
+  CPPFLAGS="$CPPFLAGS -DxlfFortran"
+fi
+# testing for SUN f95 compiler
+fs=`echo $f95string |$EGREP "Sun|Forte"`
+if test "$fs" != "" ; then
+  f95v="SUN f95"
+  CPPFLAGS="$CPPFLAGS -DsunFortran"
+fi
+# testing for NAG f95 compiler
+fs=`echo $f95string |$EGREP "NAGWare"`
+if test "$fs" != "" ; then
+  f95v="NAGWare f95"
+  CPPFLAGS="$CPPFLAGS -DNAGf90Fortran"
+fi
+# testing for INTEL ifort compiler
+fs=`echo $f95string |$EGREP "Intel"`
+if test "$fs" != "" ; then
+  f95v="Intel ifort"
+  CPPFLAGS="$CPPFLAGS -DpgiFortran"
+fi
+# testing for gfortran
+fs=`echo $f95string |$EGREP "gcc"`
+if test "$fs" != "" ; then
+  f95v="gfortran"
+  f95_preprocessor="-x f95-cpp-input"
+  CPPFLAGS="$CPPFLAGS -DpgiFortran"
+fi
+# testing for Portland group
+fs=`echo $f95string |$EGREP "Portland"`
+if test "$fs" != "" ; then
+  f95v="Portland pgf90"
+  f95_preprocessor="-Mpreprocess"
+  CPPFLAGS="$CPPFLAGS -DpgiFortran"
+fi
+
+
+AC_MSG_RESULT([$f95v])
+AC_FC_WRAPPERS
 # checking for BLAS library
 ac_gl_have_blas=0
 ACX_BLAS([ac_gl_have_blas=1])
@@ -410,14 +424,8 @@ if test "$ac_cv_trilinos_prefix" != ""; then
   TRILINOS_PREFIX="$ac_cv_trilinos_prefix"
   AC_SUBST(TRILINOS_PREFIX)
 
-  f95string=`$FC -v 2>&1`
-  fs=`echo $f95string |$EGREP "aix"`
-  if test "$fs" != "" ; then
-   FCFLAGS="$FCFLAGS -WF,-DTRILINOS -WF,-DGLIMMER_MPI "
-  else
-    FCFLAGS="$FCFLAGS -DTRILINOS -DGLIMMER_MPI "
-  fi
-  CXXFLAGS="$CXXFLAGS $CPPFLAGS -DTRILINOS -DGLIMMER_MPI -I$ac_cv_trilinos_prefix/include"
+  CPPFLAGS="$CPPFLAGS -DTRILINOS -DGLIMMER_MPI "
+  CXXFLAGS="$CXXFLAGS -I$ac_cv_trilinos_prefix/include"
   LDFLAGS="$LDFLAGS -L$ac_cv_trilinos_prefix/lib"
 fi
   AM_CONDITIONAL(TRILINOS, test "$ac_cv_trilinos_prefix" != "")
@@ -431,6 +439,19 @@ if test "$have_svn_entries" == "yes"; then
 fi
 AC_SUBST(GLIMMER_SVN_VERS)
 AM_CONDITIONAL([HAVE_SVN],[test "$have_svn_entries" == "yes"])
+
+
+
+FCCPPFLAGS=$(echo $CPPFLAGS | sed 's/-D/ $(FC_DEFINE)/g')
+FCDEFS=$(echo $DEFS | sed 's/-D/ $(FC_DEFINE)/g')
+#echo "FCCPPFLAGS=$FCCPPFLAGS"
+#echo "FCDEFS=$FCDEFS"
+AC_SUBST(FCCPPFLAGS)
+AC_SUBST(FCDEFS)
+
+
+
+
 
 AC_CONFIG_FILES([Makefile m4macros/Makefile scripts/Makefile \
                 libglimmer-trilinos/Makefile.Trilinos.export libglimmer-trilinos/Makefile \

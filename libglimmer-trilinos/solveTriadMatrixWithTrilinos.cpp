@@ -29,17 +29,13 @@
 #include "Thyra_LinearOpWithSolveFactoryHelpers.hpp"
 #include "Thyra_EpetraThyraWrappers.hpp"
 #include "Thyra_EpetraLinearOp.hpp"
+#include "config.inc"
 
 extern "C" {
-
-#ifdef _xlC_
-  void solvetriadmatrixwithtrilinos(int& nnz, int& order, int* row, 
-              int* col, double* val, double* rhs, double* solution) {
-#else
-  void solvetriadmatrixwithtrilinos_(int& nnz, int& order, int* row, 
-              int* col, double* val, double* rhs, double* solution) {
-#endif
-
+  void FC_FUNC(solvetriadmatrixwithtrilinos,SOLVETRIADMATRIXWITHTRILINOS)
+              (int& nnz, int& order, int* row, 
+              int* col, double* val, double* rhs, double* solution) 
+{
     try{
     
 #ifdef GLIMMER_MPI

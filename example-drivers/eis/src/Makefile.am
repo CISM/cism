@@ -31,8 +31,8 @@ eis_erosion_LDADD = libglimmer-eis.la $(top_builddir)/extensions/erosion/src/lib
                     $(NETCDF_LDFLAGS) $(HDF5_LDFLAGS) $(NETCDF_LIBS) $(BLAS_LIBS) \
                     $(TRILINOS_LIBS) $(FCLIBS) $(FLIBS)
 
-AM_FCFLAGS = $(NETCDF_FCFLAGS) $(F90_MODFLAG)$(top_builddir)/libglimmer-solve $(F90_MODFLAG)$(top_builddir)/libglide $(F90_MODFLAG)$(top_builddir)/libglimmer \
-             $(F90_MODFLAG)$(top_builddir)/extensions/erosion/src/ -I$(top_srcdir)/libglide
+AM_FCFLAGS = $(NETCDF_FCFLAGS) $(FC_MODINC)$(top_builddir)/libglimmer-solve $(FC_MODINC)$(top_builddir)/libglide $(FC_MODINC)$(top_builddir)/libglimmer \
+             $(FC_MODINC)$(top_builddir)/extensions/erosion/src/ -I$(top_srcdir)/libglide
 
 #some special rules for automatically generating ncdf src code
 eis_io.F90:	eis_vars.def $(top_srcdir)/libglimmer/ncdf_template.F90.in

@@ -22,8 +22,8 @@ test_advect_SOURCES = test_advect.F90
 LDADD = liberosion.la $(top_builddir)/libglimmer-solve/libglimmer-solve.la \
                     $(top_builddir)/libglimmer/libglimmer-IO.la $(top_builddir)/libglimmer/libglimmer.la \
                     $(NETCDF_LDFLAGS) $(HDF5_LDFLAGS) $(NETCDF_LIBS) $(BLAS_LIBS)
-AM_FCFLAGS = $(F90_MODFLAG)$(top_builddir)/libglide $(F90_MODFLAG)$(top_builddir)/libglimmer-solve $(F90_MODFLAG)$(top_builddir)/libglimmer \
-             $(F90_MODFLAG)$(top_builddir)/tests/EISMINT/src $(F90_MODFLAG)$(top_builddir)/example-drivers/eis/src
+AM_FCFLAGS = $(FC_MODINC)$(top_builddir)/libglide $(FC_MODINC)$(top_builddir)/libglimmer-solve $(FC_MODINC)$(top_builddir)/libglimmer \
+             $(FC_MODINC)$(top_builddir)/tests/EISMINT/src $(FC_MODINC)$(top_builddir)/example-drivers/eis/src
 test_advect_FCFLAGS = $(NETCDF_FCFLAGS)
 
 #some special rules for automatically generating ncdf src code

@@ -4,6 +4,7 @@ if BUILD_PYTHON
   SUBDIRS += PyGC
 endif
 
+ 
 EXTRA_DIST = glimmer-cism-config.in
 bin_SCRIPTS=glimmer-cism-config
 
