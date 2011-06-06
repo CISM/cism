@@ -47,6 +47,15 @@ module glimmer_sparse_pardiso
     end type pardiso_solver_options
 
 contains
+
+    subroutine check_pardiso()
+#ifndef HAVE_PARDISO
+        write(*,*)"ERROR: PARDISO direct solver method was requested but CISM"
+        write(*,*)"       was not compiled with PARDISO support."
+        stop
+#endif
+    end subroutine
+
     subroutine pardiso_default_options(opt)
         !*FD Populates a sparse_solver_options (defined above) with default
         !*FD options.  This is necessary because different solvers may define
@@ -55,7 +64,6 @@ contains
         !*FD values in a generic way.
         implicit none
         type(pardiso_solver_options), intent(inout) :: opt
-
         ! TODO: bring these in from configuration
         opt%mtype = 11
         opt%solver = 0
@@ -78,6 +86,9 @@ contains
         type(pardiso_solver_options),intent(inout) :: options
         type(pardiso_solver_workspace),intent(inout) :: workspace
         integer, optional :: max_nonzeros_arg
+
+        call check_pardiso()
+
 #ifdef HAVE_PARDISO
         !...Check license of the solver and initialize the solver
         call pardisoinit(workspace%pt, options%mtype, options%solver,&
@@ -161,6 +172,7 @@ contains
         else
            mesglvl = 0
         end if
+
 
 #ifdef HAVE_PARDISO
         ! This is a hack, needed to check the state of the solver, seems
