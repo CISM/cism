@@ -166,6 +166,12 @@ contains
                               1.0d0 + 0.5d0 * model%tempwk%dt_wat * model%paramets%hydtim, &
                               0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0 /) 
        case(1)
+
+       case(3)
+
+         write(*,*)"ERROR: Current release does not support use of the basal processes module."
+         write(*,*)"       Re-run code with alternate option selected for 'whichbwat'."
+         stop
           
     end select
   

@@ -182,7 +182,7 @@ contains
                model%geometry%thck(itest,jtest), model%geometry%thck(itest,jtest)*thk0
 #endif
 
-    ! read lithot if required !EIB! from gc2
+    ! read lithot if required
     if (model%options%gthf.gt.0) then
        call glide_lithot_io_readall(model,model)
     end if
@@ -263,15 +263,18 @@ contains
     if (model%options%which_bmod == BAS_PROC_FULLCALC .or. &
         model%options%which_bmod == BAS_PROC_FASTCALC) then
         
-        call Basal_Proc_init (model%general%ewn, model%general%nsn,model%basalproc,     &
-                              model%numerics%ntem)
+!        call Basal_Proc_init (model%general%ewn, model%general%nsn,model%basalproc,     &
+!                              model%numerics%ntem)
+    write(*,*)"ERROR: Basal processes module is not supported in this release of CISM."
+    stop
+
     end if      
 
     ! initialise ice age
-    ! !EIB gc2! This is a placeholder; currently the ice age is not computed.  
-    ! !EIB gc2! lipscomb - to do - Compute and advect the ice age.
-    ! !EIB lanl! Currently the ice age is only computed for remapping transport
-    ! !EIB lanl! (whichevol = 3 or 4)
+    !! This is a placeholder; currently the ice age is not computed.  
+    !! lipscomb - to do - Compute and advect the ice age.
+    !! Currently the ice age is only computed for remapping transport
+    !! (whichevol = 3 or 4)
     model%geometry%age(:,:,:) = 0._dp
 
     if (model%options%hotstart.ne.1) then
@@ -291,7 +294,6 @@ contains
     !calculate the normal at the marine margin
     call glide_marine_margin_normal(model%geometry%thck, model%geometry%thkmask, model%geometry%marine_bc_normal)
 
-    !EIB! old way
     ! calculate mask
     !if (model%options%hotstart.ne.1) then  ! setting the mask destroys exact restart
     !   call glide_set_mask(model)
@@ -301,11 +303,9 @@ contains
     call glide_calclsrf(model%geometry%thck, model%geometry%topg, model%climate%eus,model%geometry%lsrf)
     model%geometry%usrf = model%geometry%thck + model%geometry%lsrf
 
-    !EIB! from gc2 - keep?
     ! initialise thckwk variables; used in timeders subroutine
     model%thckwk%olds(:,:,1) = model%geometry%thck(:,:)
     model%thckwk%olds(:,:,2) = model%geometry%usrf(:,:)
-    !EIB!
 
     ! initialise profile
 #ifdef PROFILING
@@ -467,17 +467,18 @@ contains
     ! ------------------------------------------------------------------------    
     if (model%options%which_bmod == BAS_PROC_FULLCALC .or. &
         model%options%which_bmod == BAS_PROC_FASTCALC) then
-        call Basal_Proc_driver (model%general%ewn,model%general%nsn,model%general%upn,       &
-                                model%numerics%ntem,model%velocity%uvel(model%general%upn,:,:), &
-                                model%velocity%vvel(model%general%upn,:,:), &
-                                model%options%which_bmod,model%temper%bmlt,model%basalproc)
+!        call Basal_Proc_driver (model%general%ewn,model%general%nsn,model%general%upn,       &
+!                                model%numerics%ntem,model%velocity%uvel(model%general%upn,:,:), &
+!                                model%velocity%vvel(model%general%upn,:,:), &
+!                                model%options%which_bmod,model%temper%bmlt,model%basalproc)
+    write(*,*)"ERROR: Basal processes module is not supported in this release of CISM."
+    stop
     end if
 
   end subroutine glide_tstep_p1
 
 !----------------------------------------------------------------------------- 
 
-  !EIB! lanl version of call
   subroutine glide_tstep_p2(model,no_write)
     !*FD Performs second part of time-step of an ice model instance.
     !*FD write data and move ice
@@ -518,7 +519,6 @@ contains
     call glide_prof_start(model,model%glide_prof%ice_evo)
 #endif
 
-    !EIB! case number(gc2) vs name(lanl)
     select case(model%options%whichevol)
     case(EVOL_PSEUDO_DIFF) ! Use precalculated uflx, vflx -----------------------------------
 
@@ -556,8 +556,6 @@ contains
     call glide_set_mask(model%numerics, model%geometry%thck, model%geometry%topg, &
                         model%general%ewn, model%general%nsn, model%climate%eus, &
                         model%geometry%thkmask, model%geometry%iarea, model%geometry%ivol)
-    !EIB! old call
-    !call glide_set_mask(model)
     
 #ifdef PROFILING
     call glide_prof_stop(model,model%glide_prof%ice_mask2)
@@ -601,18 +599,7 @@ contains
          model%general%nsn, &
          model%general%ewn, &
          model%geometry%usrf)
-    !EIB! old way
-    !call glide_marinlim(model%options%  whichmarn, &
-    !     model%geometry% thck,      &
-    !     model%isos% relx,      &
-    !     model%geometry%topg,   &
-    !     model%geometry%thkmask,    &
-    !     model%numerics%mlimit,     &
-    !     model%numerics%calving_fraction, &
-    !     model%climate%eus,         &
-    !     model%climate%calving)
 
-    !EIB! added
     !issues with ice shelf, calling it again fixes the mask
     call glide_set_mask(model%numerics, model%geometry%thck, model%geometry%topg, &
                         model%general%ewn, model%general%nsn, model%climate%eus, &
@@ -644,9 +631,6 @@ contains
 
   end subroutine glide_tstep_p2
 
-  !EIB! call difference: lanl p2(model, no_write), p3(model)
-  !EIB!                  gc2  p2(model), p3(model, no_write)
-  !EIB! should both p2 and p3 be consitent?
   subroutine glide_tstep_p3(model, no_write)
     !*FD Performs third part of time-step of an ice model instance:
     !*FD calculate isostatic adjustment and upper and lower ice surface

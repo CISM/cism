@@ -593,8 +593,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
                      beta, btraction,             &
                      counter, 1 )
 
-    call plasticbediteration( ewn, nsn, uvel(upn,:,:), tvel(upn,:,:), btraction, minTauf, &
-                              plastic_coeff_lhs, plastic_coeff_rhs, plastic_rhs, plastic_resid )
+    call plasticbediteration( ) 
 
     ! apply unstable manifold correction to converged velocities
     uvel = mindcrshstr(1,whichresid,uvel,counter,resid(1))
@@ -2310,7 +2309,14 @@ subroutine bodyset(ew,  ns,  up,           &
                 bcflag = (/1,1/)              ! flag for specififed stress at bed: Tau_zx = betasquared * u_bed,
                                               ! where betasquared is MacAyeal-type traction parameter
            elseif( whichbabc == 7 )then
+
+                write(*,*)"ERROR: This option is not supported in the current release of CISM."
+                write(*,*)"       A future release will support use of Newton iteration on " 
+                write(*,*)"       plastic till basal BC."
+                stop
+
                 bcflag = (/1,2/)              ! plastic bed iteration using Newton implementation
+ 
            end if   
 
            locplusup = loc(1) + up + 1   ! advance the sparse matrix / rhs row vector index by 1 ...
@@ -2519,7 +2525,14 @@ subroutine bodyset(ew,  ns,  up,           &
                 bcflag = (/1,1/)              ! flag for specififed stress at bed: Tau_zx = betasquared * u_bed,
                                               ! where betasquared is MacAyeal-type traction parameter
            elseif( whichbabc == 7 )then
-                bcflag = (/1,2/)              ! plastic bed iteration (new)
+
+                write(*,*)"ERROR: This option is not supported in the current release of CISM."
+                write(*,*)"       A future release will support use of Newton iteration on " 
+                write(*,*)"       plastic till basal BC."
+                stop
+
+                bcflag = (/1,2/)              ! plastic bed iteration using Newton implementation
+
            end if
            
            locplusup = loc(1) + up + 1   ! advance the sparse matrix / rhs row vector index by 1 ...
@@ -3895,27 +3908,16 @@ subroutine calcbetasquared (whichbabc,               &
         betasquared(ew,ns) = 10.0d1 
       end do; end do
 
-!      betasquared = betasquared / dsqrt( (thisvel*vel0*scyr)**2 + (othervel*vel0*scyr)**2 + (smallnum)**2 )
 
     case(2)     ! take input value for till yield stress and force betasquared to be implemented such
                 ! that plastic-till sliding behavior is enforced (see additional notes in documentation).
 
+      !!! NOTE: Eventually, this option will provide the till yield stress as calculate from the basal processes
+      !!! submodel. Currently, to enable sliding over plastic till, simple specify the value of "betasquared" as 
+      !!! if it were the till yield stress (in units of Pascals).
 !      betasquared = minTauf*tau0 / dsqrt( (thisvel*vel0*scyr)**2 + (othervel*vel0*scyr)**2 + (smallnum)**2 )
 
-!! *sfp* This hack for use w/ the basal processes test case, although as of Oct. 2010, it is working well
-!! enough to just apply the yield stress basal bc everywhere in the domain.
-!      betasquared = minTauf(1:ewn-9,:)*tau0 / dsqrt( (thisvel(1:ewn-9,:)*vel0*scyr)**2 + &
-!                    (othervel(1:ewn-9,:)*vel0*scyr)**2 + (smallnum)**2 )
-!      betasquared(ewn-8:ewn-1,:) = 5.0d0
-
-!! *sfp* similar version to above, but holds a constant yield stress for the downstream portion of the domain 
-!! rather than holding/applying a constant B^2. This necessary so that till module dynamics do not control the sliding 
-!! at the downstream end of the domain, which we want to remain constant (we want it to remain slipper, as if it were
-!! an active ice plain, regardless of the till dynamics in the ice stream proper)
-      betasquared(1:ewn-9,:) = minTauf(1:ewn-9,:)*tau0 / dsqrt( (thisvel(1:ewn-9,:)*vel0*scyr)**2 + &
-                    (othervel(1:ewn-9,:)*vel0*scyr)**2 + (smallnum)**2 )
-      betasquared(ewn-8:ewn-1,:) = 1.0d3 / dsqrt( (thisvel(ewn-8:ewn-1,:)*vel0*scyr)**2 + &
-                    (othervel(ewn-8:ewn-1,:)*vel0*scyr)**2 + (smallnum)**2 )
+      betasquared = betasquared / dsqrt( (thisvel*vel0*scyr)**2 + (othervel*vel0*scyr)**2 + (smallnum)**2 )
 
     case(3)     ! circular ice shelf: set B^2 ~ 0 except for at center, where B^2 >> 0 to enforce u,v=0 there
 
@@ -3936,6 +3938,8 @@ subroutine calcbetasquared (whichbabc,               &
         betasquared = 1.0d10
       end where
 
+    ! NOTE: cases (6) and (7) are handled external to this subroutine
+
   end select
 
   ! convert whatever the specified value is to dimensional units of (Pa s m^-1 ) 
@@ -3946,193 +3950,10 @@ end subroutine calcbetasquared
 
 !***********************************************************************
 
-subroutine plasticbediteration( ewn, nsn, uvel0, vvel0, btraction, minTauf, &
-                            plastic_coeff_lhs, plastic_coeff_rhs, plastic_rhs, plastic_resid )
+subroutine plasticbediteration( )  
 
-    implicit none
-
-    integer, intent(in) :: ewn, nsn
-
-    real (kind = dp), intent(in), dimension(:,:) :: uvel0, vvel0
-
-    real (kind = dp), intent(in), dimension(:,:,:) :: btraction
-
-    real (kind = dp), intent(in), dimension(ewn-1,nsn-1) :: minTauf      
-
-    real (kind = dp), intent(out), dimension(2,ewn-1,nsn-1) :: plastic_coeff_lhs
-    real (kind = dp), intent(out), dimension(2,ewn-1,nsn-1) :: plastic_coeff_rhs
-    real (kind = dp), intent(out), dimension(2,ewn-1,nsn-1) :: plastic_rhs
-    real (kind = dp), intent(inout), dimension(1,ewn-1,nsn-1) :: plastic_resid
-
-
-    real (kind = dp), dimension(ewn-1,nsn-1) :: gamma, beta, tau
-
-    real (kind = dp) :: c, big_C, relax
-    real (kind = dp) :: F11, F12, F21, F22, M11, M12, M21, M22, h1, h2, IM11, IM12, IM21, IM22, &
-                        L11, L12, L21, L22, K11, K12, K21, K22, det, rhs1, rhs2, alpha, &
-                        theta, maxx, plastic_residx, plastic_residy, sigma_x0, sigma_y0
-
-    integer :: ew, ns, countstuck, countslip
-
-    countstuck = 0; countslip = 0; sigma_x0 = 0; sigma_y0 = 0
-
-    tau = minTauf
-
-    !! *sfp* the following is a hack to allow the new plastic bed implementation to be used with 
-    !! the basal processes test case
-    !tau(ewn-8:ewn-1,:) = 1.0d3 / tau0 
-
-!    print *, 'inside plastic bed iteration subroutine (near top)'
-
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    ! initialize some values
-
-    relax = 1.0d0       ! r.elaxation factor
-
-!    c = 5.0d3 / (1.0d3/scyr)                ! "c" has unitis Pa * a/m (like B^2); choose value so that c*u is 
-                                            ! approx equal to expected yield stress.
-                                            ! here: 5000 Pa / (1000 m/a) = 5 Pa * a / m = 1.57e8 Pa * s / m
-!    c = c * vel0 / tau0                     ! non-dimensionalize c                                        
-
-!    c = 1.0d-10
-!    c = 1.0d-5
-!    c = 1.0d-3 
-!    c = 1.0d-2      ! c < 1 needed for n=1 cases
-
-    c = 1.0d0      ! c >= 1 needed for n=3 cases
-
-!    c = 1.0d1
-!    c = 1.0d3
-!    c = 1.0d5
-!    c = 1.0d8 
-
-    big_C = 1.0d8 / tau0           ! regularization constant to allow small motion on boundary; dim value in Pa / tau0 
-
-    gamma = 1.0d0 / big_C
-
-     !! simple test case
-
-!    tau = 100.0d3 / tau0      !! yield stress in Pa (NOTE that this eventually needs to be passed in) !!
-!    tau(3:ewn-3,3:nsn-3) = 7.5d3 / tau0
-!    tau(5:ewn-5,5:nsn-5) = 5.0d3 / tau0
-!    tau(8:ewn-8,8:nsn-8) = 2.0d3 / tau0
-
-!      tau = 1.0d10 / tau0    !! ice stream analytical soln test case
-!      tau(3:ewn-3,3:nsn-3) = 6.5d3 / tau0
-
-!!      do ew=1, ewn-1; do ns=4, nsn-4
-!      do ew=1, ewn-1; do ns=8-1, nsn-8+1
-!!      do ew=1, ewn-1; do ns=16-3, nsn-16+3
-!!        tau(ew,ns) = 5.0d3 / tau0
-!        tau(ew,ns) = 6.50d3 / tau0
-!      end do; end do
-
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    ! loop through and calc. vel. bc based on conditional
-    do ns=1, nsn-1
-        do ew=1, ewn-1
-
-            ! calculate sigma^t vector 
-            sigma_x0 = -btraction(1,ew,ns)
-            sigma_y0 = -btraction(2,ew,ns)
-
-            beta(ew,ns) = sqrt( (sigma_x0 + c*uvel0(ew,ns))**2 + (sigma_y0 + c*vvel0(ew,ns))**2 )
-
-            plastic_residx = max( tau(ew,ns), beta(ew,ns) ) * sigma_x0 - tau(ew,ns) * (sigma_x0 + &
-                             c*uvel0(ew,ns))
-
-            plastic_residy = max( tau(ew,ns), beta(ew,ns) ) * sigma_y0 - tau(ew,ns) * (sigma_y0 + &
-                             c*vvel0(ew,ns))
-
-            plastic_resid(1,ew,ns) = sqrt( plastic_residx**2 + plastic_residy**2 )
-
-            ! if at or below yield stress, set boundary vels to 0 
-            if( beta(ew,ns) <= ( tau(ew,ns)*(1.0d0 + c*gamma(ew,ns)) ) )then
-
-!                print *, 'inside of plastic bed iteration loop (stuck nodes)'
-                countstuck = countstuck + 1
-
-                plastic_coeff_lhs(1,ew,ns) = big_C
-                plastic_coeff_lhs(2,ew,ns) = big_C
-                plastic_coeff_rhs(1,ew,ns) = 0.0d0
-                plastic_coeff_rhs(2,ew,ns) = 0.0d0
-                plastic_rhs(1,ew,ns) = 0.0d0
-                plastic_rhs(2,ew,ns) = 0.0d0
-
-            ! if above yield stress, solve for boundary vels
-            elseif( beta(ew,ns) > ( tau(ew,ns)*(1.0d0 + c*gamma(ew,ns)) ) )then
-
-!                print *, 'inside of plastic bed iteration loop (slipping nodes)'
-                countslip = countslip + 1
-
-                ! prefactor to matrix "M"
-                theta = tau(ew,ns) / beta(ew,ns)
-
-                ! max vel test in denom of several terms 
-                maxx = maxval( (/ tau(ew,ns), sqrt( sigma_x0**2 + sigma_y0**2 ) /) )
-
-                ! prefactor to matrix "F"
-                alpha = 1.0d0 / ( beta(ew,ns) * maxx )
-
-                ! entries to 2x2 matrix "F"
-                F11 = alpha * sigma_x0 * ( sigma_x0 + c*uvel0(ew,ns) )
-                F12 = alpha * sigma_x0 * ( sigma_y0 + c*vvel0(ew,ns) )
-                F21 = alpha * sigma_y0 * ( sigma_x0 + c*uvel0(ew,ns) )
-                F22 = alpha * sigma_y0 * ( sigma_y0 + c*vvel0(ew,ns) )
-
-                ! entries to 2x2 matrix "M"
-                M11 = theta * ( 1.0d0 - F11 )
-                M12 = - theta * F12
-                M21 = - theta * F21
-                M22 = theta * ( 1.0d0 - F22 )
-
-
-                ! entries to 2x2 matrix "I - M"
-                IM11 = 1.0d0 - M11
-                IM12 = -M12
-                IM21 = -M21
-                IM22 = 1.0d0 - M22
-
-                ! entries to vector "h"
-                h1 = tau(ew,ns) / maxx * sigma_x0
-                h2 = tau(ew,ns) / maxx * sigma_y0
-
-                ! entries to inverse matrix, K = (I-M)^(-1)
-                det = IM11*IM22 - IM12*IM21
-                K11 = IM22 / det
-                K12 = -IM12 / det
-                K21 = -IM21 / det
-                K22 = IM11 / det
-
-                ! entries to inverse matrix, L = ((I-M)^(-1)-I)
-                L11 = c * (K11 - 1.0d0)
-                L12 = c * K12
-                L21 = c * K21
-                L22 = c * (K22 - 1.0d0)
-
-                ! calculate rhs vector components (NEW values, to be added on to existing RHS for u, v solns
-                ! and later divided by N_eff 
-                rhs1 = ( K11*h1 + K12*h2 )
-                rhs2 = ( K21*h1 + K22*h2 )
-
-                ! compile coeff. to send out of subroutine for new solution, which are the coeff. that go with u(2,2,2) 
-                ! (in coeff. matrix on the LHS) (-L11), and v(2,2,2) (in summation RHS) (-L22) when solving for u 
-                ! (and vice versa when solving for v). In each case, these get divided by the effective viscosity (???)
-
-                plastic_coeff_lhs(1,ew,ns) = L11
-                plastic_coeff_lhs(2,ew,ns) = L22
-                plastic_coeff_rhs(1,ew,ns) = -L12
-                plastic_coeff_rhs(2,ew,ns) = -L21
-                plastic_rhs(1,ew,ns) = -rhs1
-                plastic_rhs(2,ew,ns) = -rhs2
-
-            end if
-
-        end do
-    end do
-
-!    print *, '# stuck nodes = ', countstuck
-!    print *, '# slip nodes = ', countslip 
+    !!! NOTE: This subroutine is under development, in support of  Newton-type iteration on a plastic-till
+    !!!       basal boundary condition. It will supported in a future release of CISM.
 
 end subroutine plasticbediteration
 

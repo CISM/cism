@@ -92,7 +92,12 @@ contains
 
     case(BWATER_BASAL_PROC)
     !Normalized basal water 
-    bwat=model%basalproc%Hwater/thk0
+
+!    bwat=model%basalproc%Hwater/thk0
+    write(*,*)"ERROR: Current release does not support use of the basal processes module."
+    write(*,*)"       Re-run code with alternate option selected for 'whichbwat'."
+    stop
+
 
     case(BWATER_CONST)
     !Use a constant thickness of water, to force Tpmp. Normalized too.

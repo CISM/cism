@@ -221,7 +221,7 @@ contains
        end do
 
     case(1)
-       there = .false. !EIB! does not appear in glimmer-cism-lanl/trunk
+       there = .false. 
        inquire (exist=there,file=process_path(model%funits%sigfile))
        if (.not.there) then
           call write_log('Sigma levels file: '//trim(process_path(model%funits%sigfile))// &
@@ -414,13 +414,10 @@ end function glide_calc_sigma_pattyn
     call GetValue(section,'topo_is_relaxed',model%options%whichrelaxed)
     call GetValue(section,'hotstart',model%options%hotstart)
     call GetValue(section,'periodic_ew',model%options%periodic_ew)
-    !EIB! following call from gc2, not sure its still needed
     call GetValue(section,'basal_mass_balance',model%options%basal_mbal)
-    !EIB! from glimmer-cism-lanl/trunk
     call GetValue(section,'periodic_ns',model%options%periodic_ns)
     call GetValue(section,'diagnostic_run',model%options%diagnostic_run)
-    !EIB! skipping plume for now
-    !call GetValue(section, 'use_plume',model%options%use_plume)
+    !call GetValue(section, 'use_plume',model%options%use_plume)   !! For future releases
   end subroutine handle_options
 
     !Higher order options
@@ -714,9 +711,6 @@ end function glide_calc_sigma_pattyn
     call GetValue(section,'basal_tract_const',model%paramets%btrac_const)
     call GetValue(section,'basal_tract_max',model%paramets%btrac_max)
     call GetValue(section,'basal_tract_slope',model%paramets%btrac_slope)
-    !EIB! from glimmer-cism2/glimmer-cism-lanl
-    !call GetValue(section,'basal_water_smoothing',model%paramets%bwat_smooth)
-    !EIB! from glimmer-cism-lanl/trunk
     call GetValue(section,'stressin',model%climate%stressin)
     call GetValue(section,'stressout',model%climate%stressout)
     call GetValue(section,'sliding_constant',model%climate%slidconst)
@@ -767,9 +761,6 @@ end function glide_calc_sigma_pattyn
        write(message,*) '                        ',model%paramets%bpar(5)
        call write_log(message)
     end if
-    !EIB! from glimmer-cism2/glimmer-cism-lanl
-    !write(message,*) 'basal water field smoothing strength: ',model%paramets%bwat_smooth
-    !call write_log(message)
     call write_log('')
   end subroutine print_parameters
 

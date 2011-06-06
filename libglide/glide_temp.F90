@@ -205,6 +205,12 @@ contains
           !     0.25d0 * model%tempwk%dt_wat / model%numerics%dew, 0.25d0 * model%tempwk%dt_wat / model%numerics%dns, &
           !     0.5d0 * model%tempwk%dt_wat / model%numerics%dew, 0.5d0 * model%tempwk%dt_wat / model%numerics%dns /)
           
+       case(3)
+
+          write(*,*)"ERROR: Current release does not support use of the basal processes module."
+          write(*,*)"       Re-run code with alternate option selected for 'whichbwat'."
+          stop
+
        end select
        ! JCC - was in LANL but not in parallel
        !      model%temper%temp = -10.0

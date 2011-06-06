@@ -266,18 +266,12 @@ module glide_types
     !*FD \begin{description}
     !*FD \item[0] constant value (hardcoded in, useful for debugging)
     !*FD \item[1] simple pattern ("     ")
-    !*FD \item[2] use till yield stress from basal proc model
-    !*FD \item[3] circular ice shelf
-    !*FD \item[4] no slip everywhere
-    !*FD \item[5] beta^2 field passed in from CISM
-    !*FD \item[0] constant value (hardcoded in, useful for debugging)
-    !*FD \item[1] simple pattern (hardcoded in, .... )
-    !*FD \item[2] use till yield stress from basal proc model (Picard-type iteration)
+    !*FD \item[2] use till yield stress (Picard-type iteration)
     !*FD \item[3] circular ice shelf
     !*FD \item[4] no slip everywhere (using stress basal bc and large value for B^2)
     !*FD \item[5] beta^2 field passed in from CISM
     !*FD \item[6] no slip everywhere (using Dirichlet, no slip basal bc)
-    !*FD \item[7] use till yield stress from basal proc model (Newton-type iteration)
+    !*FD \item[7] use till yield stress (Newton-type iteration)
     !*FD \end{description}
 
     integer :: which_ho_efvs = 0
@@ -324,7 +318,8 @@ module glide_types
     !*FD \item[0] Biconjugate Gradient, Incomplete LU Preconditioner
     !*FD \item[1] GMRES, Incomplete LU Preconditioner
     !*FD \item[2] Unsymmetric multifrontal direct solver
-    !*FD \item[3] interface to Trilinos
+    !*FD \item[3] PARDISO direct solver
+    !*FD \item[4] standalone interface to Trilinos
     !*FD \end{description}
 
     integer :: which_ho_sparse_fallback = -1
@@ -377,8 +372,7 @@ module glide_types
 
     integer :: diagnostic_run = 0
 
-    !EIB! skip for now
-    !integer :: use_plume = 0
+    !integer :: use_plume = 0   !! Option to be supported in future releases
     !*FD \begin{description}
     !*FD \item[0] standard bmlt calculation
     !*FD \item[1] use plume to calculate bmlt
@@ -602,11 +596,9 @@ module glide_types
     real(dp),dimension(:,:),  pointer :: stagbwat => null() !*FD Basal water depth in velo grid
     real(dp),dimension(:,:),  pointer :: bmlt => null() !*FD Basal melt-rate
     real(dp),dimension(:,:),  pointer :: bmlt_tavg => null() !*FD Basal melt-rate
-    !EIB! present in gc2, not sure if still needed
     real(dp),dimension(:,:),  pointer :: stagbtemp => null() !*FD Basal temperature on velo grid
     real(dp),dimension(:,:),  pointer :: bpmp => null() !*FD Basal pressure melting point
     real(dp),dimension(:,:),  pointer :: stagbpmp => null() !*FD Basal pressure melting point on velo grid
-    !EIB!
     real(dp),dimension(:,:),  pointer :: bfricflx => null() !*FD basal heat flux from friction
     real(dp),dimension(:,:),  pointer :: ucondflx => null() !*FD conductive heat flux at upper sfc
     real(dp),dimension(:,:),  pointer :: lcondflx => null() !*FD conductive heat flux at lower sfc
@@ -1018,12 +1010,10 @@ contains
     call coordsystem_allocate(model%general%velo_grid, model%temper%stagbwat)
     call coordsystem_allocate(model%general%ice_grid, model%temper%bmlt)
     call coordsystem_allocate(model%general%ice_grid, model%temper%bmlt_tavg)
-    !EIB! from gc2, not sure still needed
     call coordsystem_allocate(model%general%velo_grid, model%temper%stagbtemp)
     call coordsystem_allocate(model%general%ice_grid, model%temper%bpmp)
     call coordsystem_allocate(model%general%ice_grid, model%temper%bwatflx)
     call coordsystem_allocate(model%general%velo_grid, model%temper%stagbpmp)
-    !EIB!
     call coordsystem_allocate(model%general%ice_grid, model%temper%bfricflx)
     call coordsystem_allocate(model%general%ice_grid, model%temper%ucondflx)
     call coordsystem_allocate(model%general%ice_grid, model%temper%lcondflx)
@@ -1212,11 +1202,9 @@ contains
     deallocate(model%temper%ucondflx)
     deallocate(model%temper%lcondflx)
     deallocate(model%temper%dissipcol)
-    !EIB! allocated from gc2 portion
     deallocate(model%temper%stagbtemp)
     deallocate(model%temper%bpmp)
     deallocate(model%temper%stagbpmp)
-    !EIB!
     deallocate(model%ground%gl_ns)
     deallocate(model%ground%gl_ew)
     deallocate(model%ground%gline_flux)
@@ -1317,10 +1305,6 @@ contains
     deallocate(model%thckwk%float)
     deallocate(model%numerics%sigma)
     deallocate(model%numerics%stagsigma)
-    
-    !EIB! old
-    !deallocate(model%pcgdwk%pcgrow,model%pcgdwk%pcgcol,model%pcgdwk%pcgval,model%pcgdwk%rhsd,model%pcgdwk%answ)
-    !EIB! new
     deallocate(model%pcgdwk%rhsd,model%pcgdwk%answ)
     call del_sparse_matrix(model%pcgdwk%matrix)
 
