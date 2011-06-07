@@ -87,9 +87,10 @@ netCDFfile.close()
 # Run Glimmer
 print 'Running Glimmer/CISM'
 if len(sys.argv) > 2:
-   os.system('aprun -n'+nprocs+' ./simple_glide '+configfile+'')  # support for MPI runs is here
+   #os.system('aprun -n'+nprocs+' ./simple_glide '+configfile+'')  # support for MPI runs is here
+   os.system('mpirun -np '+nprocs+' ./simple_glide '+configfile+'') 
 else:
-   os.system('echo '+configfile+' | simple_glide')
+   os.system('echo '+configfile+' | ./simple_glide')
 
 # Clean up by moving extra files written by Glimmer to the "scratch" subdirectory
 # Look for files with extension "txt", "log", or "nc"
