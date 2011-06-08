@@ -43,6 +43,7 @@ if __name__ == '__main__':
   parser.add_option('-p','--prefix',dest='prefix',default='glm1',help='Prefix to use for model output files (defaults to glm1)')
   parser.add_option('-f','--format-only',dest='format_only',action='store_true',help='Generate the config and NetCDF input files only')
   parser.add_option('-q','--periodic',dest='periodic',type='int',help='if specified then use NEW version of periodic bcs')
+  parser.add_option('-m','--parallel',dest='parallel',type='int',help='if specified then execture run in parallel')
   options, args = parser.parse_args()
 # If the user didn't specify a list of experiments or domain sizes, run the whole suite
   if options.experiments == None: options.experiments = defaultExperiments
@@ -195,9 +196,11 @@ if __name__ == '__main__':
 
 #       Run Glimmer (NOTE two options here. 2nd line commented out allows for parallel MPI runs)
         print 'Running',options.executable,'for experiment',experiment.upper(),'with domain size',size,'km'
-        exitCode = os.system('echo '+filename+'.config'+' | '+options.executable)
-#        exitCode = os.system('mpirun -np 6 ./simple_glide '+filename+'.config')
-#        exitCode = os.system('aprun -n6 ./simple_glide '+filename+'.config')       # mpi run on Jaguar
+        if options.parallel != None:
+           #exitCode = os.system('aprun -n6 ./simple_glide '+filename+'.config')  # support for MPI runs is here
+           exitCode = os.system('mpirun -np 6 ./simple_glide '+filename+'.config')
+        else:
+           exitCode = os.system('echo '+filename+'.config'+' | '+options.executable)
 
         if exitCode == 0:
 #         Extract the output data for comparison to the other models
