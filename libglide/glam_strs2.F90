@@ -2092,7 +2092,8 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
          GLIDE_IS_COMP_DOMAIN_BND(mask(ew,ns)) .and. .not. &
          GLIDE_IS_MARGIN(mask(ew,ns)) .and. .not. &
          GLIDE_IS_DIRICHLET_BOUNDARY(mask(ew,ns)) .and. .not. &
-         GLIDE_IS_CALVING(mask(ew,ns) ) ) &
+         GLIDE_IS_CALVING(mask(ew,ns) ) .and. .not. &
+         GLIDE_IS_THIN(mask(ew,ns) ) ) &
     then
 !    print *, 'In main body ... ew, ns = ', ew, ns
 ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -2143,7 +2144,8 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
 ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     elseif ( GLIDE_IS_CALVING( mask(ew,ns) ) .and. .not. &
              GLIDE_IS_COMP_DOMAIN_BND(mask(ew,ns) ) .and. .not. &
-             GLIDE_IS_DIRICHLET_BOUNDARY(mask(ew,ns)) ) &
+             GLIDE_IS_DIRICHLET_BOUNDARY(mask(ew,ns)) .and. .not. &
+             GLIDE_IS_THIN(mask(ew,ns) ) ) &
     then
 !    print *, 'At a SHELF boundary ... ew, ns = ', ew, ns
 ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -2185,7 +2187,8 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
 
 ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     elseif ( GLIDE_HAS_ICE(mask(ew,ns)) .and. ( GLIDE_IS_DIRICHLET_BOUNDARY(mask(ew,ns)) .or. &
-             GLIDE_IS_COMP_DOMAIN_BND(mask(ew,ns)) ) .or. GLIDE_IS_LAND_MARGIN(mask(ew,ns))) &
+             GLIDE_IS_COMP_DOMAIN_BND(mask(ew,ns)) ) .or. GLIDE_IS_LAND_MARGIN(mask(ew,ns)) .or. &
+             GLIDE_IS_THIN(mask(ew,ns)) ) &
     then
 !    print *, 'At a NON-SHELF boundary ... ew, ns = ', ew, ns
 ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
