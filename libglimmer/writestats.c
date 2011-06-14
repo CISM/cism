@@ -27,7 +27,6 @@
 
  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 
-#include "cfortran.h"
 #include "writestats.h"
 #include "config.inc"
 
@@ -42,13 +41,13 @@
 #include <string.h>
 #include <fcntl.h>
 
-FCALLSCSUB3(gc_writestats,GF_WRITESTATS,gf_writestats,STRING,STRING,DOUBLE)
+
 
 #define CFG_LEN 35
 #define BUFFER_LEN 400
 #define PERM_FILE (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
 
-void gc_writestats(const char *resname, const char *cfgname, double wallTime)
+void FC_FUNC(gf_writestats,GF_WRITESTATS) (const char *resname, const char *cfgname, double wallTime)
 {
   struct tms runtime; 
   clock_t clck;
