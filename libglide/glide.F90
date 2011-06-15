@@ -31,6 +31,8 @@
 #include "config.inc"
 #endif
 
+#include "glide_mask.inc"
+
 module glide
   !*FD the top-level GLIDE module
 
@@ -42,7 +44,11 @@ module glide
   use glide_lithot
   use glide_profile
   use glimmer_config
-  use glimmer_paramets, only: itest, jtest, thk0, GLC_DEBUG
+  use glimmer_global
+
+#ifdef GLC_DEBUG
+    use glimmer_paramets, only: itest, jtest, thk0
+#endif
 
   integer, private, parameter :: dummyunit=99
 
@@ -107,14 +113,20 @@ contains
     use glide_setup
     use glimmer_ncio
     use glide_velo
+    use glide_velo_higher
     use glide_thck
     use glide_temp
+    use glissade_temp
     use glimmer_log
-    use glide_mask
     use glimmer_scales
     use glide_mask
     use isostasy
     use glimmer_map_init
+    use glide_ground
+    use glam_strs2, only : glam_velo_fordsiapstr_init
+    use remap_glamutils, only : horizontal_remap_init
+    use fo_upwind_advect, only : fo_upwind_advect_init
+    use glam_Basal_Proc, only : Basal_Proc_init
 
     implicit none
     type(glide_global_type) :: model        !*FD model instance
@@ -122,12 +134,15 @@ contains
 !lipscomb - TO DO - build glimmer_vers file or put this character elsewhere?
     character(len=100), external :: glimmer_version_char
 
+#ifdef GLC_DEBUG
     integer :: i, j, k
+#endif
 
     call write_log(trim(glimmer_version_char()))
 
     ! initialise scales
     call glimmer_init_scales
+    call initnan !Initialize the NAN representation, hack to get smart compilers like gfortran to divide by zero
 
     ! scale parameters
     call glide_scale_params(model)
@@ -145,7 +160,10 @@ contains
     ! initialise bed softness to uniform parameter
     model%velocity%bed_softness = model%velowk%btrac_const
 
-    ! set uniform basal heat flux
+    !Initialize boundary condition fields to be NaN everywhere 
+    model%geometry%marine_bc_normal = NaN
+    
+    ! set uniform basal heat flux 
     model%temper%bheatflx = model%paramets%geot
 
     ! load sigma file
@@ -153,18 +171,16 @@ contains
 
     ! open all input files
     call openall_in(model)
-
     ! and read first time slice
     call glide_io_readall(model,model)
-
     ! Write projection info to log
     call glimmap_printproj(model%projection)
 
-    if (GLC_DEBUG) then
+#ifdef GLC_DEBUG
        write(6,*) 'Opened input files'
        write(6,*) 'i, j, thck, thck(m):', itest, jtest, &
                model%geometry%thck(itest,jtest), model%geometry%thck(itest,jtest)*thk0
-    endif
+#endif
 
     ! read lithot if required
     if (model%options%gthf.gt.0) then
@@ -181,6 +197,7 @@ contains
        call isos_relaxed(model)
     end select
 
+
     ! open all output files
     call openall_out(model)
     ! create glide variables
@@ -188,27 +205,99 @@ contains
 
     ! initialise glide components
     call init_velo(model)
-    call init_temp(model)
+
+    if (model%options%whichtemp == TEMP_REMAP_ADV) then
+       call glissade_init_temp(model)
+    else
+       call glide_init_temp(model)
+    endif
+
     call init_thck(model)
+
+    call glide_initialise_backstress(model%geometry%thck,&
+                                     model%climate%backstressmap,&
+                                     model%climate%backstress, &
+                                     model%climate%stressin, &
+                                     model%climate%stressout)
     if (model%options%gthf.gt.0) then
        call glide_lithot_io_createall(model)
        call init_lithot(model)
     end if
 
+    if (model%options%which_ho_diagnostic == HO_DIAG_PP ) then
+
+        call glam_velo_fordsiapstr_init(model%general%ewn,    model%general%nsn,  &
+                                        model%general%upn,                        &
+                                        model%numerics%dew,   model%numerics%dns, &
+                                        model%numerics%sigma)
+    end if
+
+    if (model%options%whichevol== EVOL_INC_REMAP ) then
+
+        if (model%options%whichtemp == TEMP_REMAP_ADV) then ! Use IR to advect temperature
+
+           call horizontal_remap_init( model%remap_wk,    &
+                                       model%numerics%dew, model%numerics%dns,  &
+                                       model%general%ewn,  model%general%nsn,   &
+                                       model%options%periodic_ew, model%options%periodic_ns, &
+                                       model%general%upn, model%numerics%sigma )
+
+        else  ! Use IR to transport thickness only
+
+           call horizontal_remap_init( model%remap_wk,    &
+                                       model%numerics%dew, model%numerics%dns,  &
+                                       model%general%ewn,  model%general%nsn, &
+                                       model%options%periodic_ew, model%options%periodic_ns)
+
+        endif ! whichtemp
+
+    endif 
+
+    if (model%options%whichevol== EVOL_FO_UPWIND ) then
+
+        call fo_upwind_advect_init( model%general%ewn, model%general%nsn )
+
+    endif
+
+    ! *mb* added; initialization of basal proc. module
+    if (model%options%which_bmod == BAS_PROC_FULLCALC .or. &
+        model%options%which_bmod == BAS_PROC_FASTCALC) then
+        
+!        call Basal_Proc_init (model%general%ewn, model%general%nsn,model%basalproc,     &
+!                              model%numerics%ntem)
+    write(*,*)"ERROR: Basal processes module is not supported in this release of CISM."
+    stop
+
+    end if      
+
     ! initialise ice age
-    ! This is a placeholder; currently the ice age is not computed.  
-    !lipscomb - TO DO - Compute and advect the ice age.
+    !! This is a placeholder; currently the ice age is not computed.  
+    !! lipscomb - to do - Compute and advect the ice age.
+    !! Currently the ice age is only computed for remapping transport
+    !! (whichevol = 3 or 4)
     model%geometry%age(:,:,:) = 0._dp
 
     if (model%options%hotstart.ne.1) then
        ! initialise Glen's flow parameter A using an isothermal temperature distribution
-       call timeevoltemp(model,0)
+       call glide_temp_driver(model,0,0)
     end if
 
     ! calculate mask
-    if (model%options%hotstart.ne.1) then  ! setting the mask destroys exact restart
-       call glide_set_mask(model)
-    end if
+    call glide_set_mask(model%numerics, model%geometry%thck, model%geometry%topg, &
+                        model%general%ewn, model%general%nsn, model%climate%eus, &
+                        model%geometry%thkmask, model%geometry%iarea, model%geometry%ivol)
+
+    call calc_iareaf_iareag(model%numerics%dew,model%numerics%dns, &
+                            model%geometry%iarea, model%geometry%thkmask, &
+                            model%geometry%iareaf, model%geometry%iareag)
+
+    !calculate the normal at the marine margin
+    call glide_marine_margin_normal(model%geometry%thck, model%geometry%thkmask, model%geometry%marine_bc_normal)
+
+    ! calculate mask
+    !if (model%options%hotstart.ne.1) then  ! setting the mask destroys exact restart
+    !   call glide_set_mask(model)
+    !end if
 
     ! and calculate lower and upper ice surface
     call glide_calclsrf(model%geometry%thck, model%geometry%topg, model%climate%eus,model%geometry%lsrf)
@@ -223,7 +312,12 @@ contains
     call glide_prof_init(model)
 #endif
 
-    if (GLC_DEBUG) then
+    ! register the newly created model so that it can be finalised in the case
+    ! of an error without needing to pass the whole thing around to every
+    ! function that might cause an error
+    call register_model(model)
+    
+#ifdef GLC_DEBUG
        write(6,*) ' '
        write(6,*) 'End of glide_init'
        i = itest
@@ -236,22 +330,26 @@ contains
             write(6,300) k, model%temper%temp(k,i,j)
        enddo
   300  format(i3, Z24.20)
-    endif
+#endif
 
   end subroutine glide_initialise
   
   subroutine glide_tstep_p1(model,time)
     !*FD Performs first part of time-step of an ice model instance.
-    !*FD Calculate temperature evolution
+    !*FD calculate velocity and temperature
     use glimmer_global, only : rk
     use glide_thck
     use glide_velo
     use glide_setup
     use glide_temp
+    use glissade_temp
     use glide_mask
-    use glimmer_deriv, only : df_field_2d_staggered
+    use glide_deriv, only : df_field_2d_staggered
     use glimmer_paramets, only: tim0
     use glimmer_physcon, only: scyr
+    use glide_thckmask
+    use glide_grids
+    use glam_Basal_Proc, only : Basal_Proc_driver
 
     implicit none
 
@@ -264,12 +362,12 @@ contains
 
     model%thckwk%oldtime = model%numerics%time - (model%numerics%dt * tim0/scyr)
 
-    if (GLC_DEBUG) then
+#ifdef GLC_DEBUG
        write(6,*) ' '
        write(6,*) 'time =', model%numerics%time
        write(6,*) 'tinc =', model%numerics%tinc
        write(6,*) 'oldtime =', model%thckwk%oldtime
-    endif
+#endif
 
     ! ------------------------------------------------------------------------ 
     ! Calculate various derivatives...
@@ -277,6 +375,10 @@ contains
 #ifdef PROFILING
     call glide_prof_start(model,model%glide_prof%geomderv)
 #endif
+
+    call geometry_derivs(model)
+    
+    !EIB! from gc2 - think this was all replaced by geometry_derivs??
     call stagvarb(model%geometry% thck, &
          model%geomderv% stagthck,&
          model%general%  ewn, &
@@ -293,7 +395,8 @@ contains
          model%geomderv%dthckdew, & 
          model%geomderv%dthckdns, &
          .false., .false.)
-
+    !EIB!
+    
 #ifdef PROFILING
     call glide_prof_stop(model,model%glide_prof%geomderv)
 #endif
@@ -301,9 +404,14 @@ contains
 #ifdef PROFILING
     call glide_prof_start(model,model%glide_prof%ice_mask1)
 #endif
-    call glide_maskthck(0, &                                    !magi a hack, someone explain what whichthck=5 does
+    !EIB! call veries between lanl and gc2, this is lanl version
+    !magi a hack, someone explain what whichthck=5 does
+    !call glide_maskthck(0, &       
+    call glide_maskthck( &       
          model%geometry% thck,      &
          model%climate%  acab,      &
+         .true.,                    &
+         model%numerics%thklim,     &
          model%geometry% dom,       &
          model%geometry% mask,      &
          model%geometry% totpts,    &
@@ -326,8 +434,24 @@ contains
     call glide_prof_start(model,model%glide_prof%temperature)
 #endif
     if ( model%numerics%tinc >  mod(model%numerics%time,model%numerics%ntem)) then
-       call timeevoltemp(model, model%options%whichtemp)
+
+       if (model%options%whichtemp == TEMP_REMAP_ADV) then 
+
+         ! Vert diffusion and strain heating only; no advection
+         ! Remapping routine is used to advect temperature in glide_tstep_p2
+
+         call glissade_temp_driver(model)
+
+       else
+
+         ! standard Glide driver, including temperature advection
+
+         call glide_temp_driver(model, model%options%whichtemp, model%options%which_ho_diagnostic)
+
+       endif
+
        model%temper%newtemps = .true.
+
     end if
 #ifdef PROFILING
     call glide_prof_stop(model,model%glide_prof%temperature)
@@ -338,22 +462,55 @@ contains
     ! ------------------------------------------------------------------------ 
     call calc_btrc(model,model%options%whichbtrc,model%velocity%btrc)
 
+    ! ------------------------------------------------------------------------ 
+    ! Calculate basal shear strength from Basal Proc module, if necessary
+    ! ------------------------------------------------------------------------    
+    if (model%options%which_bmod == BAS_PROC_FULLCALC .or. &
+        model%options%which_bmod == BAS_PROC_FASTCALC) then
+!        call Basal_Proc_driver (model%general%ewn,model%general%nsn,model%general%upn,       &
+!                                model%numerics%ntem,model%velocity%uvel(model%general%upn,:,:), &
+!                                model%velocity%vvel(model%general%upn,:,:), &
+!                                model%options%which_bmod,model%temper%bmlt,model%basalproc)
+    write(*,*)"ERROR: Basal processes module is not supported in this release of CISM."
+    stop
+    end if
+
   end subroutine glide_tstep_p1
 
 !----------------------------------------------------------------------------- 
 
-  subroutine glide_tstep_p2(model)
+  subroutine glide_tstep_p2(model,no_write)
     !*FD Performs second part of time-step of an ice model instance.
-    !*FD Calculate thickness evolution
+    !*FD write data and move ice
     use glide_thck
     use glide_velo
+    use glide_ground
     use glide_setup
     use glide_temp
     use glide_mask
     use isostasy
+
+    ! driver module/subroutines for Payne/Price HO dynamics and LANL inc. remapping for dH/dt 
+    use glam, only: inc_remap_driver
+    use fo_upwind_advect, only: fo_upwind_advect_driver
+
     implicit none
 
     type(glide_global_type) :: model        !*FD model instance
+    logical,optional :: no_write
+
+    logical nw
+
+    ! ------------------------------------------------------------------------ 
+    ! write to netCDF file
+    ! ------------------------------------------------------------------------ 
+    if (present(no_write)) then
+       nw=no_write
+    else
+       nw=.false.
+    end if 
+
+    if (.not. nw) call glide_io_writeall(model,model)
 
     ! ------------------------------------------------------------------------ 
     ! Calculate flow evolution by various different methods
@@ -361,20 +518,31 @@ contains
 #ifdef PROFILING
     call glide_prof_start(model,model%glide_prof%ice_evo)
 #endif
+
     select case(model%options%whichevol)
-    case(0) ! Use precalculated uflx, vflx -----------------------------------
+    case(EVOL_PSEUDO_DIFF) ! Use precalculated uflx, vflx -----------------------------------
 
        call thck_lin_evolve(model,model%temper%newtemps)
 
-    case(1) ! Use explicit leap frog method with uflx,vflx -------------------
+    case(EVOL_ADI) ! Use explicit leap frog method with uflx,vflx -------------------
 
        call stagleapthck(model,model%temper%newtemps)
 
-    case(2) ! Use non-linear calculation that incorporates velocity calc -----
+    case(EVOL_DIFFUSION) ! Use non-linear calculation that incorporates velocity calc -----
 
        call thck_nonlin_evolve(model,model%temper%newtemps)
 
+    case(EVOL_INC_REMAP) ! Use incremental remapping scheme for advecting ice thickness ---
+                         ! (and temperature too, if whichtemp = TEMP_REMAP_ADV)
+
+       call inc_remap_driver( model )
+
+    case(EVOL_FO_UPWIND) ! Use first order upwind scheme for mass transport
+
+       call fo_upwind_advect_driver( model )
+ 
     end select
+
 #ifdef PROFILING
     call glide_prof_stop(model,model%glide_prof%ice_evo)
 #endif
@@ -385,26 +553,63 @@ contains
 #ifdef PROFILING
     call glide_prof_start(model,model%glide_prof%ice_mask2)
 #endif
-    call glide_set_mask(model)
+    call glide_set_mask(model%numerics, model%geometry%thck, model%geometry%topg, &
+                        model%general%ewn, model%general%nsn, model%climate%eus, &
+                        model%geometry%thkmask, model%geometry%iarea, model%geometry%ivol)
+    
 #ifdef PROFILING
     call glide_prof_stop(model,model%glide_prof%ice_mask2)
 #endif
+
+    !calculate the normal at the marine margin
+    call glide_marine_margin_normal(model%geometry%thck, model%geometry%thkmask, model%geometry%marine_bc_normal)
+    !calculate the grounding line flux after the mask is correct
+    call calc_gline_flux(model%geomderv%stagthck,model%velocity%surfvel, &
+    model%geometry%thkmask,model%ground%gline_flux, model%velocity%ubas, &
+    model%velocity%vbas, model%numerics%dew)
+
+    !calculate the grounding line flux after the mask is correct
+    call calc_gline_flux(model%geomderv%stagthck,model%velocity%surfvel, &
+    model%geometry%thkmask,model%ground%gline_flux, model%velocity%ubas, &
+    model%velocity%vbas, model%numerics%dew)
 
     ! ------------------------------------------------------------------------ 
     ! Remove ice which is either floating, or is present below prescribed
     ! depth, depending on value of whichmarn
     ! ------------------------------------------------------------------------ 
-    call glide_marinlim(model%options%  whichmarn, &
-         model%geometry% thck,      &
-         model%isos% relx,      &
+    call glide_marinlim(model%options%whichmarn, &
+         model%geometry%thck,      &
+         model%isos%relx,      &
          model%geometry%topg,   &
+         model%temper%flwa,   &
+         model%numerics%sigma,   &
          model%geometry%thkmask,    &
          model%numerics%mlimit,     &
          model%numerics%calving_fraction, &
          model%climate%eus,         &
-         model%climate%calving)
+         model%climate%calving,  &
+         model%climate%backstress, &
+         model%climate%tempanmly, &
+         model%numerics%dew,    &
+         model%numerics%dns, &
+         model%climate%backstressmap, &
+         model%climate%stressout, &
+         model%climate%stressin, &
+         model%ground, &
+         model%general%nsn, &
+         model%general%ewn, &
+         model%geometry%usrf)
 
-    ! ------------------------------------------------------------------------
+    !issues with ice shelf, calling it again fixes the mask
+    call glide_set_mask(model%numerics, model%geometry%thck, model%geometry%topg, &
+                        model%general%ewn, model%general%nsn, model%climate%eus, &
+                        model%geometry%thkmask, model%geometry%iarea, model%geometry%ivol)
+
+    call calc_iareaf_iareag(model%numerics%dew,model%numerics%dns, &
+                            model%geometry%iarea, model%geometry%thkmask, &
+                            model%geometry%iareaf, model%geometry%iareag)
+
+! ------------------------------------------------------------------------
     ! update ice/water load if necessary
     ! ------------------------------------------------------------------------
 #ifdef PROFILING
@@ -423,9 +628,8 @@ contains
     
     ! basal shear stress calculations
     call calc_basal_shear(model)
-  end subroutine glide_tstep_p2
 
-!----------------------------------------------------------------------------- 
+  end subroutine glide_tstep_p2
 
   subroutine glide_tstep_p3(model, no_write)
     !*FD Performs third part of time-step of an ice model instance:
@@ -438,18 +642,17 @@ contains
     implicit none
     type(glide_global_type) :: model        !*FD model instance
     
-    logical,optional, intent(in) :: no_write
+    logical, optional, intent(in) :: no_write
     logical nw
+#ifdef GLC_DEBUG
     integer :: i, j, k, upn 
-
-    if (GLC_DEBUG) then
        upn = model%general%upn
 
        i = itest
        j = jtest
        write(6,*) ' '
        write(6,*) 'Starting tstep_p3, i, j, thck =', i, j, model%geometry%thck(i,j)
-    endif
+#endif
 
     ! ------------------------------------------------------------------------ 
     ! Calculate isostasy
@@ -471,10 +674,7 @@ contains
                         model%climate%eus,   model%geometry%lsrf)
     model%geometry%usrf = max(0.d0,model%geometry%thck + model%geometry%lsrf)
 
-       ! For exact restart, compute wgrd here and write it to the hotstart file.
-       ! (This is easier than writing thckwk quantities to the restart file.)
-
-       ! Calculate time-derivatives of thickness and upper surface elevation ------------
+! Calculate time-derivatives of thickness and upper surface elevation ------------
 
        call timeders(model%thckwk,   &
             model%geometry%thck,     &
@@ -500,21 +700,21 @@ contains
             model%geometry%thck,   &
             model%velocity%wgrd)
 
-       if (GLC_DEBUG) then
-          i = itest
-          j = jtest
-          write(6,*) ' '
-          write(6,*) 'Before restart write, i, j, thck =', i, j, model%geometry%thck(i,j)
-          write(6,300) k, model%geometry%thck(i,j)
-          write(6,*) ' '
-          write(6,*) 'k, temperature'
-          do k = 1, upn
-               write(6,300) k, model%temper%temp(k,i,j)
-          enddo
-  300     format(i3, Z24.20)
-       endif
+#ifdef GLC_DEBUG
+       i = itest
+       j = jtest
+       write(6,*) ' '
+       write(6,*) 'Before restart write, i, j, thck =', i, j, model%geometry%thck(i,j)
+       write(6,300) k, model%geometry%thck(i,j)
+       write(6,*) ' '
+       write(6,*) 'k, temperature'
+       do k = 1, upn
+            write(6,300) k, model%temper%temp(k,i,j)
+       enddo
+  300  format(i3, Z24.20)
+#endif
 
-    ! ------------------------------------------------------------------------ 
+    !--------------------------------------------------------------------- 
     ! write to netCDF file
     ! ------------------------------------------------------------------------ 
 
@@ -536,6 +736,6 @@ contains
 
   end subroutine glide_tstep_p3
 
-!----------------------------------------------------------------------------- 
+  !-------------------------------------------------------------------
 
 end module glide

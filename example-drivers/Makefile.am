@@ -1,17 +1,7 @@
-SUBDIRS = eis EISMINT-3 glint
+SUBDIRS = eis EISMINT-3 glint simple_glide
 tests = eis EISMINT-3
 
 data::
-		list='$(tests)'; for dir in $$list; do \
-		(cd $$dir && $(MAKE) $@); \
-		done
-
-check-data::
-		list='$(tests)'; for dir in $$list; do \
-		  (cd $$dir && $(MAKE) $@); \
-		done
-
-dist-gold-standard::
 		list='$(tests)'; for dir in $$list; do \
 		  (cd $$dir && $(MAKE) $@); \
 		done

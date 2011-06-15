@@ -1,19 +1,20 @@
-graphics = profile.eps #spots.eps 
+#if BUILD_GRAPHICS
+#  graphics = spots.ps profile.ps
+#endif
 data = isos.llfa.nc isos.llra.nc isos.elfa.nc isos.elra.nc
 BUILT_SOURCES = 
 
 EXTRA_DIST = isos.elfa.config  isos.elra.config  isos.llfa.config  isos.llra.config
 
 MOSTLYCLEANFILES = $(graphics)
-CLEANFILES = $(data) $(graphics) *.jid $(BUILT_SOURCES)
+CLEANFILES = $(data) $(graphics) $(BUILT_SOURCES)
 
-MODEL_BINARY=$(top_builddir)/tests/EISMINT/src/simple_glide
+MODEL_BINARY=$(top_builddir)/example-drivers/simple_glide/src/simple_glide
 
-#spots.eps:	isos.llfa.nc isos.llra.nc isos.elfa.nc isos.elra.nc
-#		$(plotGCSpot) --ij 15 15  -vtopg $^ -o $@
-#		$(plotGCSpot) --ij 15 15 --ij 15 22 --ij 15 27 -vtopg $^ -o $@
+spots.ps:	isos.llfa.nc isos.llra.nc isos.elfa.nc isos.elra.nc
+	@GLIMMER_PREFIX@/bin/plotSpot.py --ij 15 15 --ij 15 22 --ij 15 27 -vtopg $^ $@
 
-profile.eps:	isos.llfa.nc isos.llra.nc isos.elfa.nc isos.elra.nc
-		$(plotGCProfile) -t 18  -v topg -p $(top_srcdir)/PyGC/data/eismint.prof $^ -o $@
+profile.ps:	isos.llfa.nc isos.llra.nc isos.elfa.nc isos.elra.nc
+	@GLIMMER_PREFIX@/bin/plotProfile.py -t 18  -v topg -p ../PyCF/eismint.prof $^ $@
 
 include $(top_srcdir)/extra_rules.am

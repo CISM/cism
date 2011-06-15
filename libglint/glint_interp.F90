@@ -38,8 +38,10 @@ module glint_interp
   use glimmer_global
   use glimmer_map_types
   use glint_mpinterp
+#ifdef GLC_DEBUG
   use glimmer_paramets, only: stdout, itest, jtest, jjtest, itest_local, &
-                              jtest_local, GLC_DEBUG
+                              jtest_local
+#endif
   
   implicit none
 
@@ -671,7 +673,9 @@ contains
     ! In the future we may want to use the CESM coupler for upscaling.
  
     use glimmer_log
+#ifdef GLC_DEBUG
 !jw check    use glimmer_paramets, only: itest, jtest, jjtest, itest_local, jtest_local, stdout
+#endif
 
     ! Arguments
  
@@ -737,11 +741,11 @@ contains
        jg = ups%gboxy(i,j)
        n = gboxec(i,j)
        if (n==0) then
-          if (GLC_DEBUG) then
+#ifdef GLC_DEBUG
              write(stdout,*) 'Upscaling error: local topography out of bounds'
              write(stdout,*) 'i, j, ltopo:', i, j, ltopo(i,j)
              write(stdout,*) 'topomax =', topomax(:)
-          endif
+#endif
           call write_log('Upscaling error: local topography out of bounds', &
                GM_FATAL,__FILE__,__LINE__)
        endif
@@ -783,19 +787,19 @@ contains
 
     if (abs(lsum) > 1.e-10_dp) then
        if (abs(gsum-lsum)/abs(lsum) > 1.e-10_dp) then 
-          if (GLC_DEBUG) then
+#ifdef GLC_DEBUG
              write(stdout,*) 'local and global sums disagree'
              write (stdout,*) 'lsum, gsum =', lsum, gsum 
-          endif
+#endif
           call write_log('Upscaling error: local and glocal sums disagree', &
                GM_FATAL,__FILE__,__LINE__)
        endif
     else  ! lsum is close to zero
        if (abs(gsum-lsum) > 1.e-10_dp) then
-          if (GLC_DEBUG) then
+#ifdef GLC_DEBUG
              write(stdout,*) 'local and global sums disagree'
              write (stdout,*) 'lsum, gsum =', lsum, gsum 
-          endif
+#endif
           call write_log('Upscaling error: local and glocal sums disagree', &
                GM_FATAL,__FILE__,__LINE__)
        endif
@@ -905,7 +909,7 @@ contains
     real(rk) :: ilon,jlat,xa,ya,xb,yb,xc,yc,xd,yd
     integer :: nx, ny, nxg, nyg, n
 
-    if (GLC_DEBUG) then
+#ifdef GLC_DEBUG
        nx = lgrid%size%pt(1)
        ny = lgrid%size%pt(2)
        nxg = size(ggrid%mask,1)
@@ -915,7 +919,7 @@ contains
        write(stdout,*) 'nx,  ny =', nx, ny
        write(stdout,*) 'nxg, nyg =', nxg, nyg
        write(stdout,*) 'Indexing local boxes'
-    endif
+#endif
 
     do i=1,lgrid%size%pt(1)
        do j=1,lgrid%size%pt(2)
@@ -1003,7 +1007,7 @@ contains
        enddo
     enddo
 
-    if (GLC_DEBUG) then
+#ifdef GLC_DEBUG
        write(stdout,*) ' '
        write(stdout,*) 'Mask in neighborhood of i, j = ', itest_local, jtest_local
        do j = jtest_local-1, jtest_local+1
@@ -1025,7 +1029,7 @@ contains
   100  format(144i2)
   150  format(30i2)
   200  format(76i2)
-    endif
+#endif
 
   end subroutine index_local_boxes
 
@@ -1269,7 +1273,7 @@ contains
 
     y=(yp-ya-x*(yb-ya))/(yd+x*(yc-yd-yb+ya)-ya)
 
-    if (GLC_DEBUG) then
+#ifdef GLC_DEBUG
 ! Could use the following code if points are degenerate (a=b, c=d, etc.)
 !       if (abs(a) > small) then
 !          x=(-b-sqrt(b**2-4*a*c))/(2*a)
@@ -1284,7 +1288,7 @@ contains
 !       else
 !          y=0._rk
 !       endif
-    endif
+#endif
 
   end subroutine calc_fractional
 

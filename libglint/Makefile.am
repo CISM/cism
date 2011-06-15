@@ -5,9 +5,10 @@ variabledir = $(pkgdatadir)
 dist_variable_DATA = $(variable_DATA)
 
 nodist_include_HEADERS := $(wildcard *.mod)
+ 
 EXTRA_DIST = f90_dep.mak 
 BUILT_SOURCES = glint_io.F90 glint_mbal_io.F90
-CLEANFILES = $(BUILT_SOURCES) f90_dep.mak *.mod
+CLEANFILES = $(BUILT_SOURCES) f90_dep.mak $(wildcard *.mod)
 
 libglint_la_SOURCES = glimmer_daily_pdd.F90 glimmer_pdd.F90 \
                       glint_climate.F90 glint_initialise.F90 glint_io.F90 \
@@ -19,7 +20,7 @@ libglint_la_SOURCES = glimmer_daily_pdd.F90 glimmer_pdd.F90 \
                       glint_global_interp.F90 glint_example_clim.F90
 libglint_la_LDFLAGS=-all-static
 
-AM_FCFLAGS = $(F90_MODFLAG)../libglimmer $(F90_MODFLAG)../libglide $(F90_MODFLAG)../libglimmer-solve $(NETCDF_FCFLAGS)
+AM_FCFLAGS = -I$(top_srcdir)/libglide $(FC_MODINC)../libglimmer $(FC_MODINC)../libglide $(FC_MODINC)../libglimmer-solve $(NETCDF_FCFLAGS)
 
 #some special rules for automatically generating ncdf src code
 glint_io.F90:	glint_vars.def ../libglimmer/ncdf_template.F90.in
@@ -29,4 +30,7 @@ glint_mbal_io.F90:	glint_mbal_vars.def ../libglimmer/ncdf_template.F90.in
 
 
 -include f90_dep.mak
+
+glide_mask.inc : $(top_srcdir)/libglide/glide_mask.inc
+
 include $(top_srcdir)/extra_rules.am

@@ -1,3 +1,6 @@
+#ifdef xlfFortran
+@PROCESS ALIAS_SIZE(107374182)
+#endif
 ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                            +
 ! +  glint_initialise.f90 - part of the Glimmer-CISM ice model + 
@@ -199,24 +202,24 @@ contains
 
     instance%next_time = force_start-force_dt+instance%mbal_tstep
 
-    if (GLC_DEBUG) then
+#ifdef GLC_DEBUG
        write (6,*) 'Called glint_mbc_init'
        write (6,*) 'mbal tstep =', mbts
        write (6,*) 'next_time =', instance%next_time
        write (6,*) 'start_time =', instance%mbal_accum%start_time
-    endif
+#endif
 
     ! Mass-balance accumulation length
 
     if (instance%mbal_accum_time == -1) then
        instance%mbal_accum_time = max(instance%ice_tstep,instance%mbal_tstep)
-       if (GLC_DEBUG) then
+#ifdef GLC_DEBUG
 !Set mbal_accum_time = mbal_tstep
 ! lipscomb - TO DO - Make it easy to run Glimmer/Glint for ~5 days, e.g. for CESM smoke tests,
 !         with all major components exercised. 
 !!          instance%mbal_accum_time = instance%mbal_tstep
 !!          write(6,*) 'WARNING: Seting mbal_accum_time =', instance%mbal_accum_time
-       endif
+#endif
     end if
 
     if (instance%mbal_accum_time < instance%mbal_tstep) then

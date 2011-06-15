@@ -194,7 +194,7 @@ contains
 
     endif
 
-    if (GLC_DEBUG) then
+#ifdef GLC_DEBUG
        write (stdout,*) ' ' 
        write (stdout,*) 'Interpolate fields to local grid'
        write (stdout,*) 'Global cell =', itest, jjtest
@@ -224,7 +224,7 @@ contains
           write (stdout,*) 'tsfc_l =', tsfc_l(i,j,n)
           write (stdout,*) 'topo_l =', topo_l(i,j,n)
        enddo
-    endif
+#endif
 
 !   Interpolate tsfc and qsmb to local topography using values in the neighboring 
 !    elevation classes.
@@ -253,7 +253,7 @@ contains
           enddo
        endif   ! usrf
 
-       if (GLC_DEBUG) then
+#ifdef GLC_DEBUG
           if (i==itest_local .and. j==jtest_local) then
              n = 4  
              write (stdout,*) ' '
@@ -269,7 +269,7 @@ contains
              write (stdout,*) 'tsfc(n) =', tsfc_l(i,j,n)
              write (stdout,*) 'fact = ', (topo_l(i,j,n) - usrf) / (topo_l(i,j,n) - topo_l(i,j,n-1)) 
           endif
-       endif
+#endif
 
     enddo  ! i
     enddo  ! j

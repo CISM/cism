@@ -115,6 +115,7 @@ contains
     else
        write(*,*) 'Enter name of GLIDE configuration file to be read'
        read(*,'(a)') commandline_configname
+!       commandline_configname = 'hump.config'
     end if
   end subroutine glimmer_GetCommandline
 

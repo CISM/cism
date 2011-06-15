@@ -39,6 +39,7 @@ module glimmer_ncio
   !*FD written by Magnus Hagdorn, 2004
 
   use glimmer_ncdf
+  integer,parameter,private :: msglen=200
   
 contains
   !*****************************************************************************
@@ -110,7 +111,7 @@ contains
     ! local variables
     integer :: status,timedimid,ntime,timeid
     real(sp),dimension(1) :: last_time
-    character(len=msg_length) :: message
+    character(len=msglen) :: message
 
     ! open existing netCDF file
     status = nf90_open(process_path(NCO%filename),NF90_WRITE,NCO%id)
@@ -154,7 +155,7 @@ contains
     ! local variables
     integer status
     integer mapid
-    character(len=msg_length) message
+    character(len=msglen) message
 
     ! create new netCDF file
     status = nf90_create(process_path(NCO%filename),NF90_CLOBBER,NCO%id)
@@ -193,7 +194,11 @@ contains
     call nc_errorhandle(__FILE__,__LINE__,status)
     !     time -- Model time
     call write_log('Creating variable time')
+    !EIB! lanl version
+    !status = nf90_def_var(NCO%id,'time',NF90_FLOAT,(/NCO%timedim/),NCO%timevar)
+    !EIB! gc2 version
     status = nf90_def_var(NCO%id,'time',outfile%default_xtype,(/NCO%timedim/),NCO%timevar)
+    !EIB! pick one and consistant
     call nc_errorhandle(__FILE__,__LINE__,status)
     status = nf90_put_att(NCO%id, NCO%timevar, 'long_name', 'Model time')
     status = nf90_put_att(NCO%id, NCO%timevar, 'standard_name', 'time')
@@ -207,8 +212,9 @@ contains
        call glimmap_CFPutProj(NCO%id,mapid,model%projection)
     end if
 
-    ! setting the size of the level dimension
+    ! setting the size of the level and staglevel dimension
     NCO%nlevel = model%general%upn
+    NCO%nstaglevel = model%general%upn-1
   end subroutine glimmer_nc_createfile
 
   subroutine glimmer_nc_checkwrite(outfile,model,forcewrite,time)
@@ -222,7 +228,7 @@ contains
     logical forcewrite
     real(sp),optional :: time
 
-    character(len=msg_length) :: message
+    character(len=msglen) :: message
     integer status
     real(sp) :: sub_time
 
@@ -321,7 +327,7 @@ contains
     integer dimsize, dimid, varid
     real, dimension(2) :: delta
     integer status    
-    character(len=msg_length) message
+    character(len=msglen) message
     
     real,parameter :: small = 1.e-6
 
@@ -351,8 +357,9 @@ contains
     infile%nt=dimsize
     status = nf90_get_var(NCI%id,NCI%timevar,infile%times)
 
-    ! setting the size of the level dimension
+    ! setting the size of the level and staglevel dimension
     NCI%nlevel = model%general%upn
+    NCI%nstaglevel = model%general%upn-1
 
     ! checking if dimensions and grid spacing are the same as in the configuration file
     ! x1
@@ -394,7 +401,7 @@ contains
             delta(2)-delta(1),model%numerics%dns*len0
        call write_log(message,type=GM_FATAL)
     end if
-      
+    
   ! Check that the number of vertical layers is the same, though it's asking for trouble
   ! to check whether the spacing is the same (don't want to put that burden on setup,
   ! plus f.p. compare has been known to cause problems here)
@@ -430,7 +437,7 @@ contains
     real(sp),optional :: time
     !*FD Optional alternative time
 
-    character(len=msg_length) :: message
+    character(len=msglen) :: message
     real(sp) :: sub_time
 
     integer :: pos  ! to identify restart files
@@ -445,6 +452,7 @@ contains
     if (infile%current_time.le.infile%nt) then
        if (.not.NCI%just_processed) then
           call write_log_div
+          !EIB! added form gc2, needed?
           ! Reset model%numerics%tstart if reading a restart file
           write(message,*) 'Check for restart:', trim(infile%nc%filename)
           call write_log(message)
@@ -456,6 +464,7 @@ contains
              write(message,*) 'Restart: New tstart =', model%numerics%tstart
              call write_log(message)
           endif
+          !EIB! end add
           write(message,*) 'Reading time slice ',infile%current_time,'(',infile%times(infile%current_time),') from file ', &
                trim(process_path(NCI%filename)), ' at time ', sub_time
           call write_log(message)

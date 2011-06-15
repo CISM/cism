@@ -1,3 +1,6 @@
+#ifdef xlfFortran
+@PROCESS ALIAS_SIZE(107374182)
+#endif
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
 ! +  glint_timestep.f90 - part of the Glimmer-CISM ice model  + 
@@ -30,6 +33,8 @@
 #ifdef HAVE_CONFIG_H
 #include "config.inc"
 #endif
+
+#include "glide_mask.inc"
 
 module glint_timestep
   !*FD timestep of a GLINT instance
@@ -77,10 +82,10 @@ contains
     use glint_io
     use glint_mbal_io
     use glint_climate
+    !EIB! use glint_routing
     use glimmer_routing
     use glimmer_log
     use glimmer_physcon, only: rhow,rhoi
-    use glide_mask, only: glide_mask_ocean
 
     implicit none
 
@@ -158,11 +163,11 @@ contains
     if (present(grofl)) grofl(:,:,:) = 0._rk
     if (present(ghflx)) ghflx(:,:,:) = 0._rk
 
-    if (GLC_DEBUG) then
+#ifdef GLC_DEBUG
        write(stdout,*) ' '
        write(stdout,*) 'In glint_i_tstep, time =', time
        write(stdout,*) 'next_time =', instance%next_time
-    endif
+#endif
 
     ! Check whether we're doing anything this time.
 
@@ -243,14 +248,14 @@ contains
     t_win=0.0       ; t_wout=0.0
     g_water_out=0.0 ; g_water_in=0.0
 
-    if (GLC_DEBUG) then
+#ifdef GLC_DEBUG
        write(stdout,*) ' '
        write(stdout,*) 'Check for ice dynamics timestep'
        write(stdout,*) 'time =', time
        write(stdout,*) 'start_time =', instance%mbal_accum%start_time
        write(stdout,*) 'mbal_step =', instance%mbal_tstep
        write(stdout,*) 'mbal_accum_time =', instance%mbal_accum_time
-    endif
+#endif
 
     ! ------------------------------------------------------------------------  
     ! ICE TIMESTEP begins HERE ***********************************************
@@ -284,9 +289,9 @@ contains
 
        do i = 1, instance%n_icetstep
 
-          if (GLC_DEBUG) then
+#ifdef GLC_DEBUG
              write (stdout,*) 'GLIDE timestep, iteration =', i
-          endif
+#endif
 
           ! Calculate the initial ice volume (scaled and converted to water equivalent)
           call glide_get_thk(instance%model,thck_temp)
@@ -309,7 +314,7 @@ contains
 
           ! Set acab to zero for ocean cells (bed below sea level, no ice present)
 
-          where (instance%model%geometry%thkmask == glide_mask_ocean)
+          where (instance%model%geometry%thkmask == GLIDE_MASK_OCEAN)
              instance%acab = 0.0
           endwhere
 
@@ -323,13 +328,13 @@ contains
           call glide_set_acab(instance%model, instance%acab*real(rhow/rhoi))
           call glide_set_artm(instance%model, instance%artm)
 
-          if (GLC_DEBUG) then
+#ifdef GLC_DEBUG
              il = itest_local
              jl = jtest_local
              write (stdout,*) ' '
              write (stdout,*) 'After glide_set_acab, glide_set_artm: i, j =', il, jl
              write (stdout,*) 'acab (m/y), artm (C) =', instance%acab(il,jl), instance%artm(il,jl)
-          endif
+#endif
 
           ! Adjust glint acab and ablt for output
  
@@ -341,7 +346,9 @@ contains
           instance%glide_time=instance%glide_time+instance%model%numerics%tinc
           call glide_tstep_p1(instance%model,instance%glide_time)
           call glide_tstep_p2(instance%model)
-          call glide_tstep_p3(instance%model,no_write=.true.)
+          !EIB! difference in call between gc2 and lanl
+          call glide_tstep_p3(instance%model)
+          !EIB! call glide_tstep_p3(instance%model,no_write=.true.)
 
           ! Add the calved ice to the ablation field
 

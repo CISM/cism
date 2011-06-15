@@ -31,6 +31,8 @@
 #include "config.inc"
 #endif
 
+!EIB! was glint_routing in gc2
+
 module glimmer_routing
 
   use glimmer_global,only: rk,sp
@@ -374,5 +376,6 @@ contains
 
   end subroutine q_sort_index
 
+  !EIB! was glint_routing in gc2
 end module glimmer_routing
 

@@ -43,7 +43,7 @@ AC_CACHE_CHECK([fortran 90 flag for removing limit of number of columns in free 
 ax_cv_f90_ff_nolimit,
 [AC_LANG_PUSH(Fortran)
 ax_cv_f90_ff_nolimit="not found"
-for ax_flag in "" "-ffree-line-length-none" ; do
+for ax_flag in "" "-ffree-line-length-none" "-Mextend"; do
   if test "$ax_cv_f90_ff_nolimit" = "not found" ; then
     ax_save_FCFLAGS="$FCFLAGS"
     FCFLAGS="$ax_save_FCFLAGS ${ax_flag}"
