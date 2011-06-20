@@ -137,6 +137,6 @@ fi
 
 $LIBTOOLIZE --force || exit $?
 $AUTOHEADER || exit $?
-$AUTOMAKE --foreign --add-missing || exit $?
+$AUTOMAKE -a -c --foreign --add-missing || exit $?
 $AUTOCONF || exit $?
 
