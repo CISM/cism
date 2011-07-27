@@ -4,7 +4,7 @@ module glide_bwater
 
 contains
   subroutine calcbwat(model,which,bmlt,bwat,bwatflx,thck,topg,btem,floater,wphi)
-
+    use parallel
     use glimmer_global, only : dp 
     use glimmer_paramets, only : thk0
     use glide_thck
@@ -84,6 +84,7 @@ contains
     ! Case added by Jesse Johnson 11/15/08
     ! Steady state routing of basal water using flux calculation
     case(BWATER_FLUX)
+      call not_parallel(__FILE__,__LINE__)
 
       call effective_pressure(bwat,c_effective_pressure,N)
       call pressure_wphi(thck,topg,N,wphi,model%numerics%thklim,floater)
@@ -106,7 +107,8 @@ contains
     case default
       bwat = 0.0d0
     end select
-
+    call parallel_halo(bwat) !same as model%temper%bwat
+    
     ! now also calculate basal water in velocity (staggered) coord system
     call stagvarb(model%temper%bwat, &
          model%temper%stagbwat ,&

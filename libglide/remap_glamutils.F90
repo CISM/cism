@@ -247,8 +247,9 @@ module remap_glamutils
 !     wk%hm_ir(:,:,1) = 1.0_dp
 !     wk%tarea_ir = 1.0_dp / ( wk%dew_ir * wk%dns_ir )
 ! JCC - Above used for periodic, disabled.
-      call write_xls("uflx.txt", uflx)
-      call write_xls("vflx.txt", vflx)
+      !JEFF Can't call these in single-processor mode, because gathers variable.  Can switch to parallel_print if output required.
+      ! call write_xls("uflx.txt", uflx)
+      ! call write_xls("vflx.txt", vflx)
 
     endif
 

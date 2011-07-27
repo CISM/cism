@@ -601,7 +601,7 @@ contains
     !*FD -\sigma\left(\frac{\partial H}{\partial t}+\mathbf{U}\cdot\nabla H\right)
     !*FD \]
     !*FD Compare this with equation A1 in {\em Payne and Dongelmans}.
-
+    use parallel
     implicit none 
 
     !------------------------------------------------------------------------------------
@@ -651,7 +651,7 @@ contains
         end if
       end do
     end do
-
+    call parallel_halo(wgrd)
   end subroutine gridwvel
 
 !------------------------------------------------------------------------------------------
@@ -667,7 +667,7 @@ contains
     !*FD \]
     !*FD (This is equation 13 in {\em Payne and Dongelmans}.) Note that this is only 
     !*FD done if the thickness is greater than the threshold given by \texttt{numerics\%thklim}.
-
+    use parallel
     implicit none
 
     !------------------------------------------------------------------------------------
@@ -764,7 +764,7 @@ contains
         end if
       end do
     end do
-
+    call parallel_halo(wvel)
   end subroutine wvelintg
 
   subroutine wvel_ew(model)
@@ -784,7 +784,7 @@ contains
 
     !*FD Constrain the vertical velocity field to obey a kinematic upper boundary 
     !*FD condition.
-
+    use parallel
     use glimmer_global, only : sp 
 
     implicit none
@@ -839,7 +839,7 @@ contains
          end if
       end do
     end do
-
+    call parallel_halo(wvel)
   end subroutine chckwvel
 
 !------------------------------------------------------------------------------------------
@@ -1002,12 +1002,32 @@ contains
 
   end subroutine calc_btrc
 
+#ifdef JEFFORIG
   subroutine calc_basal_shear(model)
     !*FD calculate basal shear stress: tau_{x,y} = -ro_i*g*H*d(H+h)/d{x,y}
     use glimmer_physcon, only : rhoi,grav
     implicit none
     type(glide_global_type) :: model        !*FD model instance
 
+
+    model%velocity%tau_x = -rhoi*grav*model%geomderv%stagthck
+    model%velocity%tau_y = model%velocity%tau_x * model%geomderv%dusrfdns
+    model%velocity%tau_x = model%velocity%tau_x * model%geomderv%dusrfdew
+  end subroutine calc_basal_shear
+#endif
+
+  subroutine calc_basal_shear(stagthck, dusrfdew, dusrfdns, tau_x, tau_y)
+    !*FD calculate basal shear stress: tau_{x,y} = -ro_i*g*H*d(H+h)/d{x,y}
+    use glimmer_physcon, only : rhoi,grav
+    implicit none
+    real(dp),dimension(:,:),intent(in) :: stagthck    !*FD Ice thickness (scaled)
+    real (dp),dimension(:,:),intent(in) :: dusrfdew, dusrfdns
+    real(dp),dimension(:,:),intent(out) :: tau_x
+    real(dp),dimension(:,:),intent(out) :: tau_y
+
+    tau_x = -rhoi*grav*stagthck
+    tau_y = tau_x * dusrfdns
+    tau_x = tau_x * dusrfdew
 
     model%stress%tau_x = -rhoi*grav*model%geomderv%stagthck
     model%stress%tau_y = model%stress%tau_x * model%geomderv%dusrfdns

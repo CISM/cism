@@ -78,27 +78,41 @@ contains
 !EIB!#undef RST_GLIMMER_SPARSE
 !EIB!#endif
 
-    subroutine sparse_solver_default_options(method, opt)
+    subroutine sparse_solver_default_options(method, opt, nonlinear)
+		use parallel
         integer, intent(in) :: method
+        integer, optional, intent(in) :: nonlinear    !*sfp* Picard vs. JFNK flag 
         type(sparse_solver_options) :: opt
 
         opt%base%method = method
         opt%base%tolerance  = 1e-11
         opt%base%maxiters = 200
+        if ( present(nonlinear) )then
+            if (nonlinear .eq. HO_NONLIN_PICARD) opt%base%tolerance  = 1e-11 ! Picard
+            if (nonlinear .eq. HO_NONLIN_JFNK) opt%base%tolerance  = 1e-03 ! JFNK
+        else
+            opt%base%tolerance  = 1e-11 ! Picard
+        end if
 
         !Solver specific options
         if (method == SPARSE_SOLVER_BICG) then
+            call not_parallel(__FILE__,__LINE__)
             call slap_default_options(opt%slap, opt%base) 
 
         else if (method == SPARSE_SOLVER_GMRES) then
+!           call not_parallel(__FILE__,__LINE__)
             call slap_default_options(opt%slap, opt%base)
             opt%slap%use_gmres = .true.
 
         else if (method == SPARSE_SOLVER_UMF) then
+            call not_parallel(__FILE__,__LINE__)
             call umf_default_options(opt%umf)
 
         else if (method == SPARSE_SOLVER_PARDISO) then
+			call not_parallel(__FILE__, __LINE__)
+
             call pardiso_default_options(opt%pardiso)
+
         ! Temporary error message to warn of option change. Can be removed soon: AGS 4/11
         else if (method == 5) then
             call write_log("Pardiso has changed to sparse option 3.", GM_FATAL)
@@ -109,6 +123,7 @@ contains
     end subroutine
 
     subroutine sparse_allocate_workspace(matrix, options, workspace, max_nonzeros_arg)
+      use parallel
         !*FD Allocate solver workspace.  This needs to be done once
         !*FD (when the maximum number of nonzero entries is first known)
         !*FD This function need not be safe to call on already allocated memory
@@ -129,15 +144,25 @@ contains
 
         if (options%base%method == SPARSE_SOLVER_BICG .or. &
             options%base%method == SPARSE_SOLVER_GMRES) then
+!           call not_parallel(__FILE__,__LINE__)
             allocate(workspace%slap)
             call slap_allocate_workspace(matrix, options%slap, workspace%slap, max_nonzeros)
 
         else if (options%base%method == SPARSE_SOLVER_UMF) then
+            call not_parallel(__FILE__,__LINE__)
             allocate(workspace%umf)
             call umf_allocate_workspace(matrix, options%umf, workspace%umf, max_nonzeros)
+
+        else if (options%base%method == SPARSE_SOLVER_TRILINOS) then
+            allocate(workspace%trilinos)
+            call trilinos_allocate_workspace(matrix, options%trilinos, &
+                                      workspace%trilinos, max_nonzeros)
+
         else if (options%base%method == SPARSE_SOLVER_PARDISO) then
+			call not_parallel(__FILE__,__LINE__)
             allocate(workspace%pardiso)
             call pardiso_allocate_workspace(matrix, options%pardiso, workspace%pardiso, max_nonzeros)
+
         end if
     end subroutine sparse_allocate_workspace
 
@@ -166,8 +191,8 @@ contains
 
         else if (options%base%method == SPARSE_SOLVER_PARDISO) then
             call pardiso_solver_preprocess(matrix, options%pardiso, workspace%pardiso)
-        end if
 
+        end if
     end subroutine sparse_solver_preprocess
 
     function sparse_solve(matrix, rhs, solution, options, workspace,err,niters, verbose)
@@ -325,6 +350,7 @@ contains
 
         integer :: ierr
         integer :: method
+        integer :: nonlinear
 
         if (present(method_arg)) then
             method = method_arg
@@ -332,7 +358,13 @@ contains
             method = SPARSE_SOLVER_BICG
         endif
 
-        call sparse_solver_default_options(method, opt)
+        if (present(nonlinear_solver)) then
+            nonlinear = nonlinear_solver
+        else
+            nonlinear = HO_NONLIN_PICARD  
+        endif
+
+        call sparse_solver_default_options(method, opt, nonlinear)
         call sparse_allocate_workspace(matrix, opt, wk)
         call sparse_solver_preprocess(matrix, opt, wk)
 

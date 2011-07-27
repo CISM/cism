@@ -8,6 +8,7 @@ contains
     !*FD Calculates the contents of the mask array.
 
     use glimmer_global, only : dp, sp 
+    use parallel
 
     !-------------------------------------------------------------------------
     ! Subroutine arguments
@@ -48,6 +49,7 @@ contains
       full(ns) = .false.
 
       do ew = 1,ewn
+        if (.not.distributed_owner(ew,ewn,ns,nsn)) cycle
         if ( thckcrit(thck(max(1,ew-1):min(ewn,ew+1),max(1,ns-1):min(nsn,ns+1)),massb(ew,ns)) ) then
 
           covtot = covtot + 1

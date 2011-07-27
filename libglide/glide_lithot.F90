@@ -96,6 +96,7 @@ contains
   end subroutine init_lithot    
 
   subroutine spinup_lithot(model)
+    use parallel
     use glide_types
     use glimmer_log
     use glide_mask
@@ -106,7 +107,7 @@ contains
 
     if (model%options%hotstart.ne.1 .and. model%lithot%numt .gt. 0) then
        call write_log('Spinning up GTHF calculations',type=GM_INFO)
-
+       call not_parallel(__FILE__,__LINE__)
        do t=1,model%lithot%numt
           call calc_lithot(model)
        end do

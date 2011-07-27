@@ -45,6 +45,7 @@ module isostasy
 contains
   subroutine init_isostasy(model)
     !*FD initialise isostasy calculations
+    use parallel
     use glide_types
     use glimmer_physcon,  only: scyr
     use glimmer_paramets, only: tim0
@@ -52,6 +53,7 @@ contains
     type(glide_global_type) :: model
 
     if (model%isos%lithosphere .eq. 1) then
+       call not_parallel(__FILE__,__LINE__)
        call init_elastic(model%isos%rbel,model%numerics%dew)
     end if
     model%isos%next_calc = model%numerics%tstart

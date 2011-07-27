@@ -61,6 +61,7 @@ contains
   end subroutine glide_nc_fillall
 
   subroutine glide_nc_filldvars(outfile,model)
+    use parallel
     use glide_types
     use glimmer_ncdf
     use glimmer_paramets, only : len0
@@ -69,66 +70,73 @@ contains
     type(glide_global_type) :: model
 
     integer i,status,varid
+    real(sp),dimension(model%general%ewn-1) :: x0
+    real(sp),dimension(model%general%ewn) :: x1
+    real(sp),dimension(model%general%nsn-1) :: y0
+    real(sp),dimension(model%general%nsn) :: y1
 
     ! check if we are still in define mode and if so leave it
     if (NCO%define_mode) then
-       status = nf90_enddef(NCO%id)
+       status = parallel_enddef(NCO%id)
        call nc_errorhandle(__FILE__,__LINE__,status)
        NCO%define_mode = .FALSE.
     end if
 
     if (associated(model%funits%in_first)) then
-    status = nf90_inq_varid(NCO%id,'x1',varid)
-       status=nf90_put_var(NCO%id,varid,model%general%x1)
+       status = parallel_inq_varid(NCO%id,'x1',varid)
+       status = distributed_put_var(NCO%id,varid,model%general%x1)
        call nc_errorhandle(__FILE__,__LINE__,status)
-    status = nf90_inq_varid(NCO%id,'y1',varid)
-       status=nf90_put_var(NCO%id,varid,model%general%y1)
+       status = parallel_inq_varid(NCO%id,'y1',varid)
+       status= distributed_put_var(NCO%id,varid,model%general%y1)
        call nc_errorhandle(__FILE__,__LINE__,status)
-
-    !create the x0 and y0 grids from x1 and y1
-    status = nf90_inq_varid(NCO%id,'x0',varid)
-    do i=1, model%general%ewn-1
-      status=nf90_put_var(NCO%id,varid,(model%general%x1(i)+model%general%x1(i+1))/2.0,(/i/))
+       !create the x0 and y0 grids from x1 and y1
+       status = parallel_inq_varid(NCO%id,'x0',varid)
+       do i=1, model%general%ewn-1
+          x0(i) = (model%general%x1(i)+model%general%x1(i+1))/2.0
+       end do
+       status=distributed_put_var(NCO%id,varid,x0)
        call nc_errorhandle(__FILE__,__LINE__,status)
-    end do
-    status = nf90_inq_varid(NCO%id,'y0',varid)
-    do i=1, model%general%nsn-1
-       status=nf90_put_var(NCO%id,varid,(model%general%y1(i)+model%general%y1(i+1))/2.0,(/i/))
+       status = parallel_inq_varid(NCO%id,'y0',varid)
+       do i=1, model%general%nsn-1
+          y0(i) = (model%general%y1(i)+model%general%y1(i+1))/2.0
+       end do
+       status = distributed_put_var(NCO%id,varid,y0)
        call nc_errorhandle(__FILE__,__LINE__,status)
-    end do
     
     else if(.not. associated(model%funits%in_first)) then
-
-    ! filling coordinate variables
-    status = nf90_inq_varid(NCO%id,'x0',varid)
-    do i=1, model%general%ewn-1
-       status=nf90_put_var(NCO%id,varid,((i-0.5)*model%numerics%dew*len0),(/i/))
+       ! filling coordinate variables
+       status = parallel_inq_varid(NCO%id,'x0',varid)
+       do i=1, model%general%ewn-1
+          x0(i) = ((i-0.5)*model%numerics%dew*len0)
+       end do
+       status=distributed_put_var(NCO%id,varid,x0)
        call nc_errorhandle(__FILE__,__LINE__,status)
-    end do
-    status = nf90_inq_varid(NCO%id,'y0',varid)
-    do i=1, model%general%nsn-1
-       status=nf90_put_var(NCO%id,varid,(i-0.5)*model%numerics%dns*len0,(/i/))
+       status = parallel_inq_varid(NCO%id,'y0',varid)
+       do i=1, model%general%nsn-1
+          y0(i) = (i-0.5)*model%numerics%dns*len0
+       end do
+       status=distributed_put_var(NCO%id,varid,y0)
        call nc_errorhandle(__FILE__,__LINE__,status)
-    end do
-    status = nf90_inq_varid(NCO%id,'x1',varid)
-    do i=1, model%general%ewn
-       status=nf90_put_var(NCO%id,varid,(i-1.)*model%numerics%dew*len0,(/i/))
+       status = parallel_inq_varid(NCO%id,'x1',varid)
+       do i=1, model%general%ewn
+          x1(i) = (i-1.)*model%numerics%dew*len0
+       end do
+       status=distributed_put_var(NCO%id,varid,x1)
        call nc_errorhandle(__FILE__,__LINE__,status)
-    end do
-    status = nf90_inq_varid(NCO%id,'y1',varid)
-    do i=1, model%general%nsn
-       status=nf90_put_var(NCO%id,varid,(i-1.)*model%numerics%dns*len0,(/i/))
+       status = parallel_inq_varid(NCO%id,'y1',varid)
+       do i=1, model%general%nsn
+          y1(i) = (i-1.)*model%numerics%dns*len0
+       end do
+       status=distributed_put_var(NCO%id,varid,y1)
        call nc_errorhandle(__FILE__,__LINE__,status)
-    end do
     end if
-
-    status = nf90_inq_varid(NCO%id,'level',varid)
-    status=nf90_put_var(NCO%id,varid,model%numerics%sigma)
+    status = parallel_inq_varid(NCO%id,'level',varid)
+    status = parallel_put_var(NCO%id,varid,model%numerics%sigma)
     call nc_errorhandle(__FILE__,__LINE__,status)
 
     !*sfp* added for HO stress fields, which are staggered in the vertical
-    status = nf90_inq_varid(NCO%id,'staglevel',varid)
-    status=nf90_put_var(NCO%id,varid,model%numerics%stagsigma)
+    status = parallel_inq_varid(NCO%id,'staglevel',varid)
+    status = parallel_put_var(NCO%id,varid,model%numerics%stagsigma)
     call nc_errorhandle(__FILE__,__LINE__,status)
 !    do i=1, model%general%upn-1
 !        status=nf90_put_var(NCO%id,varid,(model%numerics%sigma(i)+model%numerics%sigma(i+1))/2.0,(/i/))
@@ -136,8 +144,8 @@ contains
 !    end do
 
     if (model%options%gthf.gt.0) then
-       status = nf90_inq_varid(NCO%id,'lithoz',varid)
-       status=nf90_put_var(NCO%id,varid,model%lithot%deltaz)
+       status = parallel_inq_varid(NCO%id,'lithoz',varid)
+       status= parallel_put_var(NCO%id,varid,model%lithot%deltaz)
        call nc_errorhandle(__FILE__,__LINE__,status)
     end if
   end subroutine glide_nc_filldvars

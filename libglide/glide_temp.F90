@@ -233,6 +233,8 @@ contains
     use glide_bwater
     use glide_temp_utils
 
+    use parallel
+
     implicit none
 
     !------------------------------------------------------------------------------------
@@ -269,6 +271,8 @@ contains
 
     case(0) ! Set column to surface air temperature -------------------------------------
 
+       ! JEFF - Ok for distributed since using air temperature at grid point to initialize.
+
        do ns = 1,model%general%nsn
           do ew = 1,model%general%ewn
              model%temper%temp(:,ew,ns) = dmin1(0.0d0,dble(model%climate%artm(ew,ns)))
@@ -280,6 +284,9 @@ contains
 !lipscomb - restart mod - These routines are now called at the end of tstep_p3, so that wgrd
 !                         can be written to the hotstart file and used for restart.
                          
+       ! JEFF - Concerned about halos and these derivatives.
+       call not_parallel(__FILE__, __LINE__)
+
        ! Calculate time-derivatives of thickness and upper surface elevation ------------
 
        call timeders(model%thckwk,   &

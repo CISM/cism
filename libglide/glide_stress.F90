@@ -15,6 +15,7 @@ module stress_hom
 
         type(glide_global_type) :: model
 
+#ifdef JEFFORIG
             call calcstrsstr(model%general%ewn,  model%general%nsn,  model%general%upn,     &
                        model%numerics%dew,       model%numerics%dns,                        &
                        model%numerics%sigma,     model%numerics%stagsigma,                  & 
@@ -26,7 +27,18 @@ module stress_hom
                        model%stress%tau%xx,      model%stress%tau%yy,                       &
                        model%stress%tau%xy,      model%stress%tau%scalar,                   &
                        model%stress%tau%xz,      model%stress%tau%yz )
-
+#endif
+            call calcstrsstr(model%general%ewn,  model%general%nsn,  model%general%upn,     &
+                       model%numerics%dew,       model%numerics%dns,                        &
+                       model%numerics%sigma,     model%numerics%stagsigma,                  &
+                       gathered_thck,                                                 &
+                       gathered_dusrfdew,   gathered_dusrfdns,                  &
+                       gathered_dthckdew,   gathered_dthckdns,                  &
+                       gathered_uvel,       gathered_vvel,              &
+                       gathered_efvs,                                             &
+                       gathered_tauxx,      gathered_tauyy,           &
+                       gathered_tauxy,      gathered_tauscalar,       &
+                       gathered_tauxz,      gathered_tauyz )
     end subroutine glide_calcstrsstr
 
     subroutine calcstrsstr( ewn,  nsn,  upn,  &

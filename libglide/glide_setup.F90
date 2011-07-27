@@ -221,17 +221,19 @@ contains
        end do
 
     case(1)
-       there = .false. 
-       inquire (exist=there,file=process_path(model%funits%sigfile))
+       if (main_task) inquire (exist=there,file=process_path(model%funits%sigfile))
+       call broadcast(there)
        if (.not.there) then
           call write_log('Sigma levels file: '//trim(process_path(model%funits%sigfile))// &
                ' does not exist',GM_FATAL)
        end if
        call write_log('Reading sigma file: '//process_path(model%funits%sigfile))
+       if (main_task) then
        open(unit,file=process_path(model%funits%sigfile))
        read(unit,'(f9.7)',err=10,end=10) (model%numerics%sigma(up), up=1,upn)
        close(unit)
-
+       end if
+       call broadcast(model%numerics%sigma)
     case(2)
        call write_log('Using sigma levels from main configuration file')
 
@@ -290,9 +292,9 @@ contains
         implicit none
         real(dp) :: glide_calc_sigma_pattyn, x
 
-      glide_calc_sigma_pattyn=(-2.5641025641D-4)*(41D0*x)**2+3.5256410256D-2*(41D0*x)-&
-                               8.0047080075D-13
-end function glide_calc_sigma_pattyn
+        glide_calc_sigma_pattyn=(-2.5641025641D-4)*(41D0*x)**2+3.5256410256D-2*(41D0*x)-&
+          8.0047080075D-13
+  end function glide_calc_sigma_pattyn
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   ! private procedures

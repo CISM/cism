@@ -31,7 +31,7 @@ contains
     !model right now because the analysis on what needs to be passed has yet to
     !be done.
     subroutine run_ho_diagnostic(model)
-
+      use parallel
         use glide_thckmask
         use glide_mask
         use stress_hom, only : glide_calcstrsstr
@@ -93,31 +93,10 @@ contains
 
           else if ( model%options%which_ho_nonlinear == HO_NONLIN_JFNK ) then ! JFNK (solver in development...)
 
-            call JFNK                  ( model%general%ewn,       model%general%nsn,                 &
-                                        model%general%upn,                                          &
-                                        model%numerics%dew,      model%numerics%dns,                &
-                                        model%numerics%sigma,    model%numerics%stagsigma,          &
-                                        model%geometry%thck,     model%geometry%usrf,               &
-                                        model%geometry%lsrf,     model%geometry%topg,               &
-                                        model%geomderv%dthckdew, model%geomderv%dthckdns,           &
-                                        model%geomderv%dusrfdew, model%geomderv%dusrfdns,           &
-                                        model%geomderv%dlsrfdew, model%geomderv%dlsrfdns,           & 
-                                        model%geomderv%stagthck, model%temper%flwa*vis0/vis0_glam,  &
-                                        model%basalproc%minTauf,                                    & 
-                                        model%velocity%btraction,                               & 
-                                        geom_mask_stag,                                             &
-                                        model%options%which_ho_babc,                                &
-                                        model%options%which_ho_efvs,                                &
-                                        model%options%which_ho_resid,                               &
-                                        model%options%which_ho_nonlinear,                           &
-                                        model%options%which_ho_sparse,                              &
-                                        model%options%periodic_ew,                                  &
-                                        model%options%periodic_ns,                                  &
-                                        model%velocity%beta,                                    & 
-                                        model%velocity%uvel, model%velocity%vvel,           &
-                                        model%velocity%uflx, model%velocity%vflx,           &
-                                        model%stress%efvs )
-           else
+! noxsolve could eventually go here 
+            call JFNK                  (model, geom_mask_stag, tstep) 
+
+          else
               call write_log('Invalid which_ho_nonlinear option.',GM_FATAL)
            end if
 

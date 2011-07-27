@@ -53,6 +53,7 @@ contains
   !! \author Magnus Hagdorn
   !! \date April 2009
   subroutine glimmer_GetCommandline()
+    use parallel
     implicit none
 
     integer numargs,nfiles
@@ -64,6 +65,7 @@ contains
     ! defaults
     commandline_resultsname = 'results'
 
+    if (main_task) then
     ! get number of arguments and file names
     numargs = NARGS()
     ! reconstruct command line to store commandline_history
@@ -116,6 +118,7 @@ contains
        write(*,*) 'Enter name of GLIDE configuration file to be read'
        read(*,'(a)') commandline_configname
 !       commandline_configname = 'hump.config'
+    end if
     end if
   end subroutine glimmer_GetCommandline
 

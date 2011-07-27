@@ -906,6 +906,22 @@ module glide_types
 
   end type glide_global_type
 
+! for JFNK, NOX in Trilinos
+  type ,public :: pass_through
+
+    type(glide_global_type)  :: model
+    integer ,dimension(:,:) ,allocatable :: ui 
+    integer ,dimension(:,:) ,allocatable :: um 
+    real(kind = dp) ,dimension(:,:) ,allocatable :: d2thckcross
+    real(kind = dp) ,dimension(:,:) ,allocatable :: d2usrfcross
+    integer ,dimension(2) :: pcgsize
+    integer ,dimension(:) ,allocatable :: gxf
+    real(kind = dp)  :: L2norm
+    type(sparse_matrix_type)  :: matrixA
+    type(sparse_matrix_type)  :: matrixC
+
+  end type pass_through
+
 contains
 
   subroutine glide_allocarr(model)

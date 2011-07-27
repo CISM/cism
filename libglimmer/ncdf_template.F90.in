@@ -159,6 +159,7 @@ contains
   end subroutine NAME_io_create
 
   subroutine NAME_io_write(outfile,data)
+    use parallel
     use DATAMOD
     use glimmer_ncdf
     use glimmer_paramets
@@ -211,6 +212,7 @@ contains
 
   subroutine NAME_io_read(infile,data)
     !*FD read variables from a netCDF file
+    use parallel
     use glimmer_log
     use glimmer_ncdf
     use DATAMOD
@@ -233,6 +235,7 @@ contains
 
   subroutine NAME_io_checkdim(infile,model,data)
     !*FD check if dimension sizes in file match dims of model
+    use parallel
     use glimmer_log
     use glimmer_ncdf
     use glide_types
@@ -255,6 +258,7 @@ contains
   !*****************************************************************************  
 #ifdef HAVE_AVG
   subroutine NAME_avg_accumulate(outfile,data,model)
+    use parallel
     use glide_types
     use DATAMOD
     use glimmer_ncdf
@@ -276,6 +280,7 @@ contains
   end subroutine NAME_avg_accumulate
 
   subroutine NAME_avg_reset(outfile,data)
+    use parallel
     use DATAMOD
     use glimmer_ncdf
     implicit none

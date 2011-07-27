@@ -115,6 +115,7 @@ contains
     
     !*FD Computes derivative fields of the given function.
     subroutine df_field_2d(f, deltax, deltay, out_dfdx, out_dfdy, periodic_x, periodic_y, direction_x, direction_y)
+      use parallel
         implicit none
         real(dp), dimension(:, :), intent(in) :: f
         real(dp), intent(in) :: deltax, deltay
@@ -176,6 +177,8 @@ contains
                         
             end do  
         end do
+        call parallel_halo(out_dfdx)
+        call parallel_halo(out_dfdy)
         
     end subroutine
 
@@ -653,6 +656,7 @@ contains
    
 
     subroutine d2f_field(f, deltax, deltay, d2fdx2, d2fdy2, direction_x, direction_y)
+      use parallel
         implicit none 
 
         real(dp), intent(out), dimension(:,:) :: d2fdx2, d2fdy2
@@ -701,6 +705,8 @@ contains
                 end if
             end do
         end do
+        call parallel_halo(d2fdx2)
+        call parallel_halo(d2fdy2)
     end subroutine d2f_field
 
     !TODO: Rewrite this using the existing derivative machinery

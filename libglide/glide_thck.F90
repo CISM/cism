@@ -77,8 +77,10 @@ contains
 
 #ifdef DEBUG_PICARD
     call write_log('Logging Picard iterations')
-    open(picard_unit,name='picard_info.data',status='unknown')
-    write(picard_unit,*) '#time    max_iter'
+    if (main_task) then
+       open(picard_unit,name='picard_info.data',status='unknown')
+       write(picard_unit,*) '#time    max_iter'
+    end if
 #endif
 
     ! allocate memory for ADI scheme
@@ -669,7 +671,7 @@ subroutine geometry_derivs(model)
     !TODO: Turn this on and off conditionally based on whether the computation
     !is requred
     
-    !Compute seond derivatives
+    !Compute second derivatives
     !TODO: maybe turn this on and off conditionally?
     call d2f_field_stag(model%geometry%usrf, model%numerics%dew, model%numerics%dns, &
                         model%geomderv%d2usrfdew2, model%geomderv%d2usrfdns2, &
@@ -692,8 +694,8 @@ subroutine geometry_derivs_unstag(model)
    real(dp), dimension(model%general%ewn, model%general%nsn) :: direction_x, direction_y
 
    call upwind_from_mask(model%geometry%thkmask, direction_x, direction_y)
-   call write_xls("direction_x_unstag.txt", direction_x)
-   call write_xls("direction_y_unstag.txt", direction_y)
+   ! call write_xls("direction_x_unstag.txt", direction_x)
+   ! call write_xls("direction_y_unstag.txt", direction_y)
    !Compute first derivatives of geometry
    call df_field_2d(model%geometry%usrf, model%numerics%dew, model%numerics%dns, &
                     model%geomderv%dusrfdew_unstag, model%geomderv%dusrfdns_unstag, &

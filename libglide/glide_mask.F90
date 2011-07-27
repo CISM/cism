@@ -38,7 +38,8 @@ module glide_mask
   !*FD masking ice thicknesses
 
 contains
-  subroutine glide_set_mask(numerics, thck, topg, ewn, nsn, eus, mask, iarea, ivol)
+  subroutine glide_set_mask(numerics, thck, topg, ewn, nsn, eus, mask, iarea, ivol,exec_serial)
+    use parallel
     use glide_types
     use glimmer_physcon, only : rhoi, rhoo
     implicit none
@@ -49,14 +50,24 @@ contains
     real(sp), intent(in) :: eus !Sea level
     integer, dimension(:,:), intent(inout) :: mask !Output mask
     real(dp), intent(inout), optional :: ivol, iarea !Area and volume of ice
+    logical, optional :: exec_serial  !JEFF If executing in serial in MPI program.
 
     ! local variables
     integer ew,ns
     real(dp), parameter :: con = - rhoi / rhoo
+    logical :: exec_serial_flag
 
     !Create an array to "fake" the boundaries of the mask so that boundary
     !finding can work even on the boundaries of the real mask.
     integer, dimension(0:ewn+1,0:nsn+1) :: maskWithBounds;
+
+    !JEFF Handle exec_serial optional parameter
+    if ( present(exec_serial) ) then
+       exec_serial_flag = exec_serial
+    else
+       ! Default to off
+       exec_serial_flag = .FALSE.
+    endif
 
     mask = 0
     if (present(iarea)) then
@@ -85,7 +96,7 @@ contains
     endwhere
 
     if (present(iarea) .and. present(ivol)) then
-        call get_area_vol(thck, numerics%dew, numerics%dns, iarea, ivol)
+        call get_area_vol(thck, numerics%dew, numerics%dns, iarea, ivol, exec_serial_flag)
     end if
 
     maskWithBounds = 0
@@ -122,11 +133,17 @@ contains
           end if
 
          !Mark domain boundaries
-         if (ns == 1 .or. ns == nsn .or. ew == 1 .or. ew == ewn) then
+         !if (ns == 1 .or. ns == nsn .or. ew == 1 .or. ew == ewn) then
+         if (parallel_boundary(ew,ewn,ns,nsn)) then
             mask(ew, ns) = ior(mask(ew, ns), GLIDE_MASK_COMP_DOMAIN_BND)
          end if
        end do
     end do
+
+    !JEFF Don't call halo update if running in serial mode
+    if (.NOT. exec_serial_flag) then
+       call parallel_halo(mask)
+    endif
   end subroutine glide_set_mask
 
   subroutine augment_kinbc_mask(mask, kinbcmask)
@@ -152,15 +169,18 @@ contains
     endwhere
   end subroutine
 
-  subroutine get_area_vol(thck, dew, dns, iarea, ivol)
+  subroutine get_area_vol(thck, dew, dns, iarea, ivol, exec_serial)
+    use parallel
+    implicit none
     real(dp), dimension(:,:) :: thck
     real(dp) :: dew, dns
     real(dp) :: iarea, ivol
+    logical :: exec_serial
 
     integer :: i,j
 
-    do i = 1, size(thck,1)
-        do j = 2, size(thck,2)
+    do i = 1+lhalo, size(thck,1)-uhalo
+        do j = 1+lhalo, size(thck,2)-uhalo
             if (thck(i,j) > 0) then
                 iarea = iarea + 1
                 ivol = ivol + thck(i,j)
@@ -171,6 +191,9 @@ contains
     iarea = iarea  * dew * dns
     ivol = ivol * dew * dns
     
+    if (.NOT. exec_serial) then
+       call global_sum(iarea,ivol)
+    endif
   end subroutine get_area_vol
  
   subroutine calc_iareaf_iareag(dew, dns, iarea, mask, iareaf, iareag)
@@ -200,7 +223,8 @@ contains
     
   end subroutine calc_iareaf_iareag
 
-    subroutine glide_marine_margin_normal(thck, mask, marine_bc_normal)
+    subroutine glide_marine_margin_normal(thck, mask, marine_bc_normal, exec_serial)
+      use parallel
         use glimmer_physcon, only:pi
         implicit none
         !*FD This subroutine derives from the given mask the normal to an ice shelf
@@ -208,18 +232,28 @@ contains
         real(dp), dimension(:,:), intent(in) :: thck
         integer, dimension(:,:), intent(in) :: mask
         real(dp), dimension(:,:), intent(out) :: marine_bc_normal
+        logical, optional :: exec_serial  !JEFF If executing in serial in MPI program.
 
         integer :: i, j, dx, dy, k
+        logical :: exec_serial_flag
 
         real(dp), dimension(size(thck,1), size(thck,2)) :: direction_x, direction_y
         
         real(dp), dimension(-1:1, -1:1) :: angle_lookup
 
+	    !JEFF Handle exec_serial optional parameter
+	    if ( present(exec_serial) ) then
+	       exec_serial_flag = exec_serial
+	    else
+	       ! Default to off
+	       exec_serial_flag = .FALSE.
+	    endif
+
                 !direction_y =    -1       0       1        !direction_x = 
         angle_lookup(-1, :) = (/ 3*pi/4,   pi/2,   pi/4 /)  !-1
         angle_lookup( 0, :) = (/   pi,     0D0,  2*pi   /)  ! 0
         angle_lookup( 1, :) = (/ 5*pi/4, 3*pi/2, 7*pi/4 /)  ! 1
-        call upwind_from_mask(mask, direction_x, direction_y)
+        call upwind_from_mask(mask, direction_x, direction_y, exec_serial_flag)
 
         !Set up a thickness variable with "ghost cells" so that we don't go out
         !of bounds with the vectorized operation below
@@ -273,7 +307,9 @@ contains
                 end if
             end do
         end do
-        
+        if (.NOT. exec_serial_flag) then
+           call parallel_halo(marine_bc_normal)
+        endif
     end subroutine
 
     function calc_normal_45deg(thck3x3)
@@ -368,11 +404,22 @@ contains
     !derivative routine.  Uses centered differencing everywhere except for the
     !marine ice margin, where upwinding and downwinding is used to avoid
     !differencing across the boundary.
-    subroutine upwind_from_mask(mask, direction_x, direction_y)
+    subroutine upwind_from_mask(mask, direction_x, direction_y, exec_serial)
+      use parallel
         integer, dimension(:,:), intent(in) :: mask
         double precision, dimension(:,:), intent(out) :: direction_x, direction_y
+        logical, optional :: exec_serial  !JEFF If executing in serial in MPI program.
 
         integer :: i,j
+        logical :: exec_serial_flag
+
+	    !JEFF Handle exec_serial optional parameter
+	    if ( present(exec_serial) ) then
+	       exec_serial_flag = exec_serial
+	    else
+	       ! Default to off
+	       exec_serial_flag = .FALSE.
+	    endif
 
         direction_x = 0
         direction_y = 0
@@ -444,6 +491,11 @@ contains
                 end if
             end do
         end do
+
+        if (.NOT. exec_serial_flag) then
+	        call parallel_halo(direction_x)
+	        call parallel_halo(direction_y)
+	    endif
     end subroutine
 
 end module glide_mask

@@ -8,10 +8,15 @@
 ! include macros for glide mask definitions
 #include "glide_mask.inc"
 #include "config.inc"
+
+!GlobalIDs are for distributed TRILINOS variable IDs
+#define globalIDs
+
 !***********************************************************************
 module glam_strs2
 !***********************************************************************
 
+use iso_c_binding
 use glimmer_paramets, only : dp
 use glimmer_physcon,  only : gn, rhoi, rhoo, grav, pi, scyr
 use glimmer_paramets, only : thk0, len0, vel0, vis0, vis0_glam, tim0, evs0, tau0
@@ -19,7 +24,7 @@ use glimmer_log,      only : write_log
 use glide_mask
 use glimmer_sparse_type
 use glimmer_sparse
-use glide_types
+use glide_types, only : glide_global_type, pass_through
 
 implicit none
 
@@ -83,7 +88,7 @@ implicit none
   real (kind = dp), dimension(:,:,:,:), allocatable :: ghostbvel
 
   ! variables for use in sparse matrix calculation
-  real (kind = dp), dimension(:), allocatable :: pcgval, rhsd 
+  real (kind = dp), dimension(:), allocatable :: pcgval, rhsd, rhsx
   integer, dimension(:), allocatable :: pcgcol, pcgrow
   integer, dimension(2) :: pcgsize
   ! additional storage needed for off diagonal blocks when using JFNK for nonlinear iteration 
@@ -99,6 +104,14 @@ implicit none
 
   real (kind = dp) :: linearSolveTime = 0
   real (kind = dp) :: totalLinearSolveTime = 0 ! total linear solve time
+
+  ! AGS: partition information for distributed solves
+  ! JEFF: Moved to module-level scope for globalIDs
+  integer, allocatable, dimension(:) :: myIndices
+  integer :: mySize = -1
+
+  ! JEFF: Debugging Output Variables
+  integer :: overallloop = 1
 
 !***********************************************************************
 
@@ -211,7 +224,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
                                  uvel,     vvel,         &
                                  uflx,     vflx,         &
                                  efvs )
-
+  use parallel
 
   implicit none
 
@@ -258,7 +271,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
   real (kind = dp) :: plastic_resid_norm = 0.0d0    ! norm of residual used in Newton-based plastic bed iteration
 
   integer, parameter :: cmax = 300                  ! max no. of iterations
-  integer :: counter, linit                         ! iteation counter, ???
+  integer :: counter, linit                         ! iteration counter, ???
   character(len=100) :: message                     ! error message
 
   ! variables used for incorporating generic wrapper to sparse solver
@@ -271,9 +284,10 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
   ! variables for when to stop outer loop when using Picard for nonlinear iteration 
   real (kind = dp) :: outer_it_criterion, outer_it_target
 
-  ! AGS: partition information for distributed solves
-  integer, allocatable, dimension(:) :: myIndices
-  integer :: mySize = -1
+  ! variables for debugging output JEFF
+  character(3) :: loopnum
+  character(3) :: looptime
+  real (kind = dp) :: multiplier
 
   ! RN_20100125: assigning value for whatsparse, which is needed for putpcgc()
   whatsparse = whichsparse
@@ -301,6 +315,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 !! The quick check of whether or not this is the Ross experiment is to look
 !! at the domain size.
  if( ewn == 151 .and. nsn == 115 )then
+    call not_parallel(__FILE__, __LINE__)
     do ns=1,nsn-1; do ew=1,ewn-1
         if( umask(ew,ns) == 21 .or. umask(ew,ns) == 5 )then
             umask(ew,ns) = 73
@@ -334,18 +349,51 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 
 #ifdef TRILINOS
   if (whatsparse == STANDALONE_TRILINOS_SOLVER) then
+#ifdef globalIDs
+     if (main_task) write(*,*) "Using GlobalIDs..."
+	 ! JEFF: Define myIndices in terms of globalIDs
+     allocate(myIndices(pcgsize(1)))  ! myIndices is an integer vector with a unique ID for each layer for ice grid points
+     call distributed_create_partition(ewn, nsn, (upn + 2) , uindx, pcgsize(1), myIndices)  ! Uses uindx mask to determine ice grid points.
+     mySize = pcgsize(1)  ! Set variable for inittrilinos
+
+     !write(*,*) "GlobalIDs myIndices..."
+     !write(*,*) "pcgsize = ", pcgsize(1)
+     !write(*,*) "myIndices = ", myIndices
+     !call parallel_stop(__FILE__, __LINE__)
+#else
      ! AGS: Get partition -- later this will be known by distributed glimmer
      call dopartition(pcgsize(1), mySize) 
      allocate(myIndices(mySize))
      call getpartition(mySize, myIndices) 
 
+     if (distributed_execution) then
+         if (main_task) write(*,*) "Distributed Version cannot be run without globalIDs.  Stopping."
+         call not_parallel(__FILE__, __LINE__)  ! Fatal if running without GlobalIDs in MPI
+     endif
+
+     !write(*,*) "Trilinos Generated Partition Map myIndices..."
+     !write(*,*) "pcgsize = ", pcgsize(1), " mySize = ", mySize
+     !write(*,*) "myIndices = ", myIndices
+     !call parallel_stop(__FILE__, __LINE__)
+#endif
+
      ! Now send this partition to Trilinos initialization routines
      call inittrilinos(20, mySize, myIndices) 
+
+     ! Set if need full solution vector returned or just owned portion
+#ifdef globalIDs
+     ! We default Trilinos to return full solution vector.
+     ! Per AGS, for both distributed and serial globalIDs cases, we must return just owned portion in order to prevent a permutation of the results.
+     ! This was built into parallel_set_trilinos_return_vect that handled the difference between _single and _mpi versions.
+     call returnownedvector()
+!     call parallel_set_trilinos_return_vect
+#endif
 
      !No Triad matrix needed in this case -- save on memory alloc
      pcgsize(2) = 1
 
-     deallocate(myIndices)
+     ! JEFF: deallocate myIndices after the solve loop, because used in translation between globalIDs and local indices
+     ! deallocate(myIndices)
   endif
 #else
   if (whatsparse == STANDALONE_TRILINOS_SOLVER) then
@@ -395,21 +443,40 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
   ! Picard iteration; continue iterating until resid falls below specified tolerance
   ! or the max no. of iterations is exceeded
 
+  !JEFF Guarantees at least one loop
+  outer_it_criterion = 1.0
+  outer_it_target = 0.0
+
   do while ( outer_it_criterion .ge. outer_it_target .and. counter < cmax)    ! use L2 norm for resid calculation
 
   ! choose outer loop stopping criterion
   if( counter > 1 )then
-  if( whichresid == 3 )then
-    outer_it_criterion = L2norm
-    outer_it_target = NL_target
-  else
-    outer_it_criterion = maxval(resid)
-    outer_it_target = minres   
-  end if
+    if( whichresid == 3 )then
+      outer_it_criterion = L2norm
+      outer_it_target = NL_target
+    else
+      outer_it_criterion = maxval(resid)
+      outer_it_target = minres   
+    end if
   else
     outer_it_criterion = 1.0d10
     outer_it_target = 1.0d-12
   end if
+
+#ifdef JEFFTEST
+    !JEFF Debugging Output to see what differences in final vvel and tvel.
+    write(loopnum,'(i3.3)') counter
+    write(Looptime, '(i3.3)') overallloop
+    loopnum = trim(loopnum)  ! Trying to get rid of spaces in name.
+    Looptime = trim(Looptime)
+    call distributed_print("uvel_ov"//Looptime//"_pic"//loopnum//"_tsk", uvel)
+
+    call distributed_print("vvel_ov"//Looptime//"_pic"//loopnum//"_tsk", vvel)
+
+    ! call dumpvels("Before findefvsstr", uvel, vvel)
+
+    call distributed_print("preefvs_ov"//Looptime//"_pic"//loopnum//"_tsk", efvs)
+#endif
 
     ! calc effective viscosity using previously calc vel. field
     call findefvsstr(ewn,  nsn,  upn,      &
@@ -446,11 +513,11 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 !==============================================================================
 ! jfl 20100412: residual for v comp: Fv= A(u^k-1,v^k-1)v^k-1 - b(u^k-1,v^k-1)  
 !==============================================================================
+    !JEFF - The multiplication Ax is done across all nodes, but Ax - b is only computed locally, so L2square needs to be summed.
+    call res_vect( matrix, vk_1, rhsd, size(rhsd), counter, g_flag, L2square, whichsparse ) 
 
-     call res_vect( matrix, vk_1, rhsd, size(rhsd), counter, g_flag, L2square, whichsparse ) 
-
-      L2norm  = L2square
-      F(1:pcgsize(1)) = vk_1(:)
+    L2norm  = L2square
+    F(1:pcgsize(1)) = vk_1(:)
       
 !   call output_res(ewn,nsn,upn,uindx,counter,size(vk_1),vk_1, 2) ! JFL
 
@@ -463,6 +530,8 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 #ifdef TRILINOS
   else
      call solvewithtrilinos(rhsd, answer, linearSolveTime) 
+     totalLinearSolveTime = totalLinearSolveTime + linearSolveTime
+     ! write(*,*) 'Total linear solve time so far', totalLinearSolveTime
 #endif
   endif
 
@@ -484,10 +553,14 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 ! implement periodic boundary conditions in y (if flagged)
 ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     if( periodic_ns )then
+        call not_parallel(__FILE__, __LINE__)
+
         tvel(:,:,nsn-1) = tvel(:,:,2)
         tvel(:,:,1) = tvel(:,:,nsn-2)
     end if
     if( periodic_ew )then
+        call not_parallel(__FILE__, __LINE__)
+
         tvel(:,ewn-1,:) = tvel(:,2,:)
         tvel(:,1,:) = tvel(:,ewn-2,:)
     end if
@@ -540,6 +613,8 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 #ifdef TRILINOS
   else
      call solvewithtrilinos(rhsd, answer, linearSolveTime) 
+     totalLinearSolveTime = totalLinearSolveTime + linearSolveTime
+     ! write(*,*) 'Total linear solve time so far', totalLinearSolveTime
 #endif
   endif
 
@@ -593,24 +668,37 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
                      beta, btraction,             &
                      counter, 1 )
 
-    call plasticbediteration( ) 
+    !JEFF Commented out plasticbediteration() per Steve Price. December 2010
+    ! call plasticbediteration( ewn, nsn, uvel(upn,:,:), tvel(upn,:,:), btraction, minTauf, &
+    !                          plastic_coeff_lhs, plastic_coeff_rhs, plastic_rhs, plastic_resid )
+    ! New call plasticbediteration()
 
     ! apply unstable manifold correction to converged velocities
     uvel = mindcrshstr(1,whichresid,uvel,counter,resid(1))
     vvel = mindcrshstr(2,whichresid,tvel,counter,resid(2))
 
+    ! coordinate halos for updated uvel and vvel
+    call staggered_parallel_halo(uvel)
+    call staggered_parallel_halo(vvel)
+
 ! implement periodic boundary conditions in x (if flagged)
 ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     if( periodic_ns )then
+        call not_parallel(__FILE__, __LINE__)
+
         uvel(:,:,nsn-1) = uvel(:,:,2)
         uvel(:,:,1) = uvel(:,:,nsn-2)
     end if
     if( periodic_ew )then
+        call not_parallel(__FILE__, __LINE__)
+
         uvel(:,ewn-1,:) = uvel(:,2,:)
         uvel(:,1,:) = uvel(:,ewn-2,:)
     end if
 ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
+    if (this_rank == 0) then
+        ! Can't use main_task flag because main_task is true for all processors in case of parallel_single
 !    ! output the iteration status: iteration number, max residual, and location of max residual
 !    ! (send output to the screen or to the log file, per whichever line is commented out) 
     if( whichresid == 3 )then
@@ -634,8 +722,8 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
   call ghost_postprocess( ewn, nsn, upn, uindx, uk_1, vk_1, &
                           ughost, vghost )
 
-  do ns = 1,nsn-1
-      do ew = 1,ewn-1
+  do ns = 1+staggered_lhalo,size(umask,2)-staggered_uhalo
+      do ew = 1+staggered_lhalo,size(umask,1)-staggered_uhalo
       ! calc. fluxes from converged vel. fields (needed for input to thickness evolution subroutine)
          if (umask(ew,ns) > 0) then
              uflx(ew,ns) = vertintg(upn, sigma, uvel(:,ew,ns)) * stagthck(ew,ns)
@@ -643,6 +731,22 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
          end if
       end do
   end do
+
+  !JEFF: Coordinate halos
+  !JEFF: umask is marked as INOUT and is updated for the Ross Ice Shelf experiment, but for no other, so don't update halos
+  !JEFF: btraction and efvs are calculated in this routine, but only for "owned" grid cells, so update halos to get neighboring values.
+  !JEFF: uvel, vvel, uflx, and vflx are calculated in this routine, but only for "owned" grid cells, so update halos to get neighboring values.
+  call parallel_halo(btraction)
+  call parallel_halo(efvs)
+  call parallel_halo(uvel)
+  call parallel_halo(vvel)
+  call parallel_halo(uflx)
+  call parallel_halo(vflx)
+
+  ! JEFF: Deallocate myIndices which is used to intialize Trilinos
+  if (whatsparse == STANDALONE_TRILINOS_SOLVER) then
+     deallocate(myIndices)
+  endif
 
   ! de-allocation sparse matrix solution variables 
   deallocate(tvel)
@@ -652,76 +756,81 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
   deallocate(answer)
   deallocate(uk_1, vk_1, F, g_flag) ! jfl 
 
+  !JEFF Debugging output
+  overallloop = overallloop + 1
+
   return
 
 end subroutine glam_velo_fordsiapstr
 
 !***********************************************************************
 
-subroutine JFNK                 (ewn,      nsn,    upn,  &
-                                 dew,      dns,          &
-                                 sigma,    stagsigma,    &
-                                 thck,     usrf,         &
-                                 lsrf,     topg,         &
-                                 dthckdew, dthckdns,     &
-                                 dusrfdew, dusrfdns,     & 
-                                 dlsrfdew, dlsrfdns,     &
-                                 stagthck, flwa,         & 
-                                 mintauf,                & 
-                                 btraction,              & 
-                                 umask,                  & 
-                                 whichbabc,              &
-                                 whichefvs,              &
-                                 whichresid,             &
-                                 whichnonlinear,         &
-                                 whichsparse,            &
-                                 periodic_ew,periodic_ns,&
-                                 beta,                   & 
-                                 uvel,     vvel,         &
-                                 uflx,     vflx,         &
-                                 efvs )
+subroutine JFNK                 (model,umask,tstep)
 
+  use parallel
+
+  use iso_c_binding 
+  use glide_types, only : glide_global_type, pass_through
 
   implicit none
 
-  integer, intent(in) :: ewn, nsn, upn
+  type(glide_global_type) ,intent(inout) :: model
+
   integer, dimension(:,:),   intent(inout)  :: umask  !*sfp* replaces the prev., internally calc. mask
                                                       ! ... 'inout' status allows for a minor alteration
                                                       ! to cism defined mask, which don't necessarily 
                                                       ! associate all/any boundaries as a unique mask value.
-  real (kind = dp), intent(in) :: dew, dns
+  integer, intent(in) :: tstep
 
-  real (kind = dp), dimension(:),     intent(in)  :: sigma, stagsigma
-  real (kind = dp), dimension(:,:),   intent(in)  :: thck, usrf, lsrf, topg
-  real (kind = dp), dimension(:,:),   intent(in)  :: dthckdew, dthckdns
-  real (kind = dp), dimension(:,:),   intent(in)  :: dusrfdew, dusrfdns
-  real (kind = dp), dimension(:,:),   intent(in)  :: dlsrfdew, dlsrfdns
-  real (kind = dp), dimension(:,:),   intent(in)  :: stagthck
-  real (kind = dp), dimension(:,:),   intent(in)  :: minTauf
-  real (kind = dp), dimension(:,:,:), intent(inout) :: btraction            ! consistent basal traction array
-  real (kind = dp), dimension(:,:,:), intent(in)  :: flwa
+! new glide_global_type variables for everything needed to pass thru trilinos NOX to calc_F as a pointer.
+  type(pass_through) ,target  :: resid_object
+  type(pass_through) ,pointer :: fptr=>NULL()
+  type(c_ptr)                 :: c_ptr_to_object
+
+!KJE for NOX
+  integer(c_int) :: xk_size
+  real (kind = dp), dimension(:), allocatable :: xk_1, xk_1_plus
+  real (kind = dp), dimension(:), allocatable :: vectx
+  integer ,dimension(:) ,allocatable :: gx_flag, g_flag
+
+! split off of derived types
+! intent(in)
+  integer :: ewn, nsn, upn
+  real (kind = dp) :: dew, dns
+
+  real (kind = dp), dimension(:)     ,pointer :: sigma, stagsigma
+  real (kind = dp), dimension(:,:)   ,pointer :: thck, usrf, lsrf, topg
+  real (kind = dp), dimension(:,:)   ,pointer :: dthckdew, dthckdns
+  real (kind = dp), dimension(:,:)   ,pointer :: dusrfdew, dusrfdns
+  real (kind = dp), dimension(:,:)   ,pointer :: dlsrfdew, dlsrfdns
+  real (kind = dp), dimension(:,:)   ,pointer :: stagthck
+  real (kind = dp), dimension(:,:,:) ,pointer :: flwa
+  real (kind = dp), dimension(:,:)   ,pointer :: minTauf
+  real (kind = dp), dimension(:,:,:) ,pointer :: btraction            ! consistent basal traction array
   
   !*sfp* This is the betasquared field from CISM (externally specified), and should eventually
   ! take the place of the subroutine 'calcbetasquared' below (for now, using this value instead
   ! will simply be included as another option within that subroutine) 
-  real (kind = dp), dimension(:,:),   intent(in)  :: beta 
+  real (kind = dp), dimension(:,:)  ,pointer :: beta 
 
-  integer, intent(in) :: whichbabc
-  integer, intent(in) :: whichefvs
-  integer, intent(in) :: whichresid
-  integer, intent(in) :: whichnonlinear
-  integer, intent(in) :: whichsparse
-  logical, intent(in) :: periodic_ew, periodic_ns
+  integer :: whichbabc
+  integer :: whichefvs
+  integer :: whichresid
+  integer :: whichsparse
+  integer :: whichnonlinear
+  logical :: periodic_ew, periodic_ns
 
-  real (kind = dp), dimension(:,:,:), intent(out) :: uvel, vvel
-  real (kind = dp), dimension(:,:),   intent(out) :: uflx, vflx
-  real (kind = dp), dimension(:,:,:), intent(out) :: efvs
+! intent(out)
+  real (kind = dp), dimension(:,:,:) ,pointer :: uvel, vvel
+  real (kind = dp), dimension(:,:)   ,pointer :: uflx, vflx
+  real (kind = dp), dimension(:,:,:) ,pointer :: efvs
 
   integer :: ew, ns, up, nele, k
 
   real (kind = dp), parameter :: NL_tol = 1.0d-06
 
-  integer, parameter :: kmax = 100, img = 20, img1 = img+1
+  integer, parameter :: img = 20, img1 = img+1
+  integer :: kmax = 1000
   character(len=100) :: message
 
 !*sfp* needed to incorporate generic wrapper to solver
@@ -734,11 +843,64 @@ subroutine JFNK                 (ewn,      nsn,    upn,  &
   real (kind = dp) :: L2norm, L2norm_wig, tol, gamma_l, epsilon,NL_target
   real (kind = dp) :: crap
   integer :: tot_its, itenb, maxiteGMRES, iout, icode
-  integer , dimension(:), allocatable :: g_flag ! jfl flag for ghost cells
 
-  ! AGS: partition information for distributed solves
-  integer, allocatable, dimension(:) :: myIndices
-  integer :: mySize = -1
+!  interface
+!    subroutine noxsolve(vectorSize,vector,v_container) bind(C,name='noxsolve')
+!      use iso_c_binding
+!          integer(c_int)                :: vectorSize
+!          real(c_double)  ,dimension(*) :: vector
+!          type(c_ptr)                   :: v_container
+!      end subroutine noxsolve
+!
+!    subroutine noxinit(vectorSize,vector,comm,v_container) bind(C,name='noxinit')
+!      use iso_c_binding
+!          integer(c_int)                :: vectorSize,comm
+!          real(c_double)  ,dimension(*) :: vector
+!          type(c_ptr)                   :: v_container
+!      end subroutine noxinit
+!
+!      subroutine noxfinish() bind(C,name='noxfinish')
+!       use iso_c_binding
+!      end subroutine noxfinish
+!  end interface
+
+  ewn = model%general%ewn
+  nsn = model%general%nsn
+  upn = model%general%upn
+  dew = model%numerics%dew
+  dns = model%numerics%dns
+  sigma => model%numerics%sigma(:)
+  stagsigma => model%numerics%stagsigma(:)
+  thck => model%geometry%thck(:,:)
+  usrf => model%geometry%usrf(:,:)
+  lsrf => model%geometry%lsrf(:,:)
+  topg => model%geometry%topg(:,:)
+  dthckdew => model%geomderv%dthckdew(:,:)
+  dthckdns => model%geomderv%dthckdns(:,:)
+  dusrfdew => model%geomderv%dusrfdew(:,:)
+  dusrfdns => model%geomderv%dusrfdns(:,:)
+  dlsrfdew => model%geomderv%dlsrfdew(:,:)
+  dlsrfdns => model%geomderv%dlsrfdns(:,:)
+  stagthck => model%geomderv%stagthck(:,:)
+  flwa => model%temper%flwa(:,:,:)
+  mintauf => model%basalproc%minTauf(:,:)
+  btraction = model%velocity_hom%btraction(:,:,:)
+  whichbabc = model%options%which_ho_babc
+  whichefvs = model%options%which_ho_efvs
+  whichresid = model%options%which_ho_resid
+  whichsparse = model%options%which_ho_sparse
+  whichnonlinear = model%options%which_ho_nonlinear
+  periodic_ew = model%options%periodic_ew
+  periodic_ns = model%options%periodic_ns
+  beta => model%velocity_hom%beta(:,:)
+
+  uvel => model%velocity_hom%uvel(:,:,:)
+  vvel => model%velocity_hom%vvel(:,:,:)
+  uflx => model%velocity_hom%uflx(:,:)
+  vflx => model%velocity_hom%vflx(:,:)
+  efvs => model%velocity_hom%efvs(:,:,:)
+
+  flwa(:,:,:)=flwa(:,:,:)*vis0/vis0_glam
 
   ! RN_20100125: assigning value for whatsparse, which is needed for putpcgc()
   whatsparse = whichsparse
@@ -753,6 +915,12 @@ subroutine JFNK                 (ewn,      nsn,    upn,  &
   call geom2derscros(dew, dns, thck, stagthck, d2thckdewdns)
   call geom2derscros(dew, dns, usrf, stagthck, d2usrfdewdns)
 
+  ! put d2's into model derived type structure to eventually go into resid_object
+  model%geomderv%d2thckdew2 = d2thckdew2
+  model%geomderv%d2thckdns2 = d2thckdns2
+  model%geomderv%d2usrfdew2 = d2usrfdew2
+  model%geomderv%d2usrfdns2 = d2usrfdns2
+
   ! *sfp** make a 2d array identifying if the associated point has zero thickness,
   !      has non-zero thickness and is interior, or has non-zero thickness
   !      and is along a boundary
@@ -761,11 +929,6 @@ subroutine JFNK                 (ewn,      nsn,    upn,  &
   ! below w/ subroutine but commented out) to allow for a tweak to the CISM calculated mask (adds
   ! in an unique number for ANY arbritray boundary, be it land, water, or simply at the edge of
   ! the calculation domain). 
-  !
-  ! As of late July 2009, call to this function should no longer be necessary, as the mask and 
-  ! code here have been altered so that the general mask can be used for flagging the appropriate
-  ! boundary conditions.
-  ! call maskvelostr(ewn, nsn, thck, stagthck, umask)
 
   allocate(uindx(ewn-1,nsn-1))
 
@@ -775,6 +938,7 @@ subroutine JFNK                 (ewn,      nsn,    upn,  &
 
   allocate(tvel(upn,ewn-1,nsn-1)) 
   tvel = 0.0_dp
+  L2norm = 1.0d20
  
   ! *sfp** allocate space for variables used by 'mindcrash' function
   allocate(corr(upn,ewn-1,nsn-1,2,2),usav(upn,ewn-1,nsn-1,2))
@@ -782,24 +946,59 @@ subroutine JFNK                 (ewn,      nsn,    upn,  &
   ! *sfp** an initial guess at the size of the sparse matrix
   pcgsize(2) = pcgsize(1) * 20
 
+  ! Structure to become NOX implementation for JFNK solve
+  xk_size=2*pcgsize(1)
+
 !==============================================================================
 ! RN_20100129: Option to load Trilinos matrix directly bypassing sparse_easy_solve
 !==============================================================================
 
 #ifdef TRILINOS
   if (whatsparse == STANDALONE_TRILINOS_SOLVER) then
+#ifdef globalIDs
+     if (main_task) write(*,*) "Using GlobalIDs..."
+	 ! JEFF: Define myIndices in terms of globalIDs
+     allocate(myIndices(pcgsize(1)))  ! myIndices is an integer vector with a unique ID for each layer for ice grid points
+     call distributed_create_partition(ewn, nsn, (upn + 2) , uindx, pcgsize(1), myIndices)  ! Uses uindx mask to determine ice grid points.
+     mySize = pcgsize(1)  ! Set variable for inittrilinos
+
+     !write(*,*) "GlobalIDs myIndices..."
+     !write(*,*) "pcgsize = ", pcgsize(1)
+     !write(*,*) "myIndices = ", myIndices
+     !call parallel_stop(__FILE__, __LINE__)
+#else
      ! AGS: Get partition -- later this will be known by distributed glimmer
      call dopartition(pcgsize(1), mySize) 
      allocate(myIndices(mySize))
      call getpartition(mySize, myIndices) 
 
-     ! Now send this partition to Trilinos initialization routines
-     call inittrilinos(25, mySize, myIndices) 
+     if (distributed_execution) then
+         if (main_task) write(*,*) "Distributed Version cannot be run without globalIDs.  Stopping."
+         call not_parallel(__FILE__, __LINE__)  ! Fatal if running without GlobalIDs in MPI
+     endif
+
+     !write(*,*) "Trilinos Generated Partition Map myIndices..."
+     !write(*,*) "pcgsize = ", pcgsize(1), " mySize = ", mySize
+     !write(*,*) "myIndices = ", myIndices
+     !call parallel_stop(__FILE__, __LINE__)
+#endif
+
+     call inittrilinos(25, mySize, myIndices)
+
+     ! Set if need full solution vector returned or just owned portion
+#ifdef globalIDs
+     ! We default Trilinos to return full solution vector.
+     ! Per AGS, for both distributed and serial globalIDs cases, we must return just owned portion in order to prevent a permutation of the results.
+     ! This was built into parallel_set_trilinos_return_vect that handled the difference between _single and _mpi versions.
+     call returnownedvector()
+!     call parallel_set_trilinos_return_vect
+#endif
 
      ! Triad sparse matrix not used in this case, so save on memory
      pcgsize(2) = 1
 
-     deallocate(myIndices)
+     ! JEFF: deallocate myIndices after the solve loop, because used in translation between globalIDs and local indices
+     ! deallocate(myIndices)
   endif
 #endif
 
@@ -807,8 +1006,12 @@ subroutine JFNK                 (ewn,      nsn,    upn,  &
 ! RN_20100126: End of the block
 !==============================================================================
 
+  ! For NOX JFNK
+  allocate( vectx(2*pcgsize(1)), xk_1(2*pcgsize(1)), xk_1_plus(2*pcgsize(1)), gx_flag(2*pcgsize(1)) )
+  ! allocate( uk_1(pcgsize(1)), vk_1(pcgsize(1)), g_flag(pcgsize(1)))
+
   ! *sfp** allocate space matrix variables
-  allocate (pcgrow(pcgsize(2)),pcgcol(pcgsize(2)),rhsd(pcgsize(1)), &
+  allocate (pcgrow(pcgsize(2)),pcgcol(pcgsize(2)), rhsd(pcgsize(1)), rhsx(2*pcgsize(1)), &
             pcgval(pcgsize(2)))
   allocate(matrixA%row(pcgsize(2)), matrixA%col(pcgsize(2)), &
             matrixA%val(pcgsize(2)), answer(pcgsize(1)))
@@ -820,49 +1023,60 @@ subroutine JFNK                 (ewn,      nsn,    upn,  &
   !*sfp* allocation for storage of (block matrix) off diagonal terms in coeff sparse matrix
   ! (these terms are usually sent to the RHS and treated as a source term in the operator splitting
   ! done in the standard Picard iteration)
-  allocate (pcgrowuv(pcgsize(2)),pcgcoluv(pcgsize(2)),pcgvaluv(pcgsize(2)))
-  allocate (pcgrowvu(pcgsize(2)),pcgcolvu(pcgsize(2)),pcgvalvu(pcgsize(2)))
+  allocate(pcgrowuv(pcgsize(2)),pcgcoluv(pcgsize(2)),pcgvaluv(pcgsize(2)))
+  allocate(pcgrowvu(pcgsize(2)),pcgcolvu(pcgsize(2)),pcgvalvu(pcgsize(2)))
   allocate(matrixAuv%row(pcgsize(2)),matrixAuv%col(pcgsize(2)),matrixAuv%val(pcgsize(2)))
   allocate(matrixAvu%row(pcgsize(2)),matrixAvu%col(pcgsize(2)),matrixAvu%val(pcgsize(2)))
 
   allocate( uk_1(pcgsize(1)), vk_1(pcgsize(1)),g_flag(pcgsize(1)) )
-  allocate( vectp(pcgsize(1)), uk_1_plus(pcgsize(1)), vk_1_plus(pcgsize(1)))
-  allocate( F(2*pcgsize(1)), F_plus(2*pcgsize(1)), dx(2*pcgsize(1)))
-  allocate( wk1(2*pcgsize(1)), wk2(2*pcgsize(1)), rhs(2*pcgsize(1)))
-  allocate( vv(2*pcgsize(1),img1), wk(2*pcgsize(1), img))
+  allocate( vectp(pcgsize(1)), uk_1_plus(pcgsize(1)), vk_1_plus(pcgsize(1)) )
+  allocate( F(2*pcgsize(1)), F_plus(2*pcgsize(1)), dx(2*pcgsize(1)) )
+  allocate( wk1(2*pcgsize(1)), wk2(2*pcgsize(1)), rhs(2*pcgsize(1)) )
+  allocate( vv(2*pcgsize(1),img1), wk(2*pcgsize(1), img) )
 
-  call ghost_preprocess( ewn, nsn, upn, uindx, ughost, vghost, &
-                         uk_1, vk_1, uvel, vvel, g_flag) ! jfl_20100430
+  call init_resid_type(resid_object, model, uindx, umask, d2thckdewdns, d2usrfdewdns, &
+                       pcgsize, gx_flag, matrixA, matrixC, L2norm, ewn, nsn)
+  fptr => resid_object
+  c_ptr_to_object = c_loc(fptr)
+
+  call ghost_preprocess_jfnk( ewn, nsn, upn, uindx, ughost, vghost, &
+                         xk_1, uvel, vvel, gx_flag, pcgsize(1)) ! jfl_20100430
 
   print *, ' '
   print *, 'Running Payne/Price higher-order dynamics with JFNK solver' 
+
+  calcoffdiag = .false.    ! save off diag matrix components
 
 !==============================================================================
 ! Beginning of Newton loop. Solves F(x) = 0 for x where x = [v, u] and
 !                                                       F = [Fv(u,v), Fu(u,v)] 
 !==============================================================================
 
-  do k = 1, kmax
-
+! UNCOMMENT these lines to switch to NOX's JFNK
+! AGS: To Do:  send in distributed xk_1, or myIndices array, for distributed nox
+  call noxinit(xk_size, xk_1, 1, c_ptr_to_object)
+  call noxsolve(xk_size, xk_1, c_ptr_to_object)
+  call noxfinish()
+  kmax = 0     ! turn off native JFNK below
 !==============================================================================
 ! calculate F(u^k-1,v^k-1)
 !==============================================================================
 
-    calcoffdiag = .true.    ! save off diag matrix components
+  ! This do loop is only used for SLAP.  Do not parallelize.
+  do k = 1, kmax
+    call not_parallel(__FILE__, __LINE__)
 
-    call calc_F (ewn, nsn, upn, stagsigma, k,                    &
-                 whichefvs, efvs, uvel, vvel,                    &
-                 dew, dns, sigma, thck,                          &
-                 dusrfdew, dthckdew, d2usrfdew2, d2thckdew2,     &
-                 dusrfdns, dthckdns, d2usrfdns2, d2thckdns2,     &
-                 d2usrfdewdns, d2thckdewdns, dlsrfdew, dlsrfdns, &
-                 stagthck, whichbabc,            &
-                 uindx, umask,                                   &
-                 lsrf, topg, minTauf, flwa, beta, btraction,     &
-                 vk_1, uk_1, pcgsize(1), 2*pcgsize(1), g_flag,   &
-                 F, L2norm, matrixA, matrixC )
+!    calcoffdiag = .true.    ! save off diag matrix components
+!    calcoffdiag = .false.    ! save off diag matrix components
 
-    calcoffdiag = .false.    ! next time calling calc_F, DO NOT save off diag matrix components
+    call calc_F (xk_1, F, xk_size, c_ptr_to_object)
+
+    call c_f_pointer(c_ptr_to_object,fptr) ! convert C ptr to F ptr
+    L2norm = fptr%L2norm
+    matrixA = fptr%matrixA
+    matrixC = fptr%matrixC
+
+!   calcoffdiag = .false.    ! next time calling calc_F, DO NOT save off diag matrix components
 
     L2norm_wig = sqrt(DOT_PRODUCT(F,F)) ! with ghost
 
@@ -870,94 +1084,64 @@ subroutine JFNK                 (ewn,      nsn,    upn,  &
 ! -define nonlinear target (if k=1)
 ! -check at all k if target is reached
 !==============================================================================
+    if (k .eq. 1) NL_target = NL_tol * (L2norm_wig + 1.0e-2)
 
-!      print *, 'target with L2norm with or without ghost?'
+    print *, 'L2 w/ghost (k)= ',k,L2norm_wig,L2norm
 
-    if (k .eq. 1) NL_target = NL_tol * L2norm
-
-    print *, 'L2 with, without ghost (k)= ', k, L2norm_wig, L2norm
-
-    if (L2norm .lt. NL_target) exit ! nonlinear convergence criterion
+    if (L2norm_wig .lt. NL_target) exit ! nonlinear convergence criterion
 
 !==============================================================================
 ! solve J(u^k-1,v^k-1)dx = -F(u^k-1,v^k-1) with fgmres, dx = [dv, du]  
 !==============================================================================
+    rhs = -1d0*F
 
-      rhs = -1d0*F
+    dx  = 0d0 ! initial guess
 
-      dx  = 0d0 ! initial guess
+    call forcing_term (k, L2norm_wig, gamma_l)
 
-      call forcing_term (k, L2norm_wig, gamma_l)
+    tol = gamma_l * L2norm_wig ! setting the tolerance for fgmres
 
-      tol = gamma_l * L2norm_wig ! setting the tolerance for fgmres
+    epsilon = 1d-07 ! for J*vector approximation
 
-      epsilon = 1d-07 ! for J*vector approximation
-
-      maxiteGMRES = 300
+    maxiteGMRES = 300
       
-      iout   = 0    ! set  higher than 0 to have res(ite)
+    iout   = 0    ! set  higher than 0 to have res(ite)
 
-      icode = 0
+    icode = 0
 
- 10   CONTINUE
+ 10 CONTINUE
       
-       call fgmres (2*pcgsize(1),img,rhs,dx,itenb,vv,wk,wk1,wk2, &
-                    tol,maxiteGMRES,iout,icode,tot_its) 
+      call fgmres (2*pcgsize(1),img,rhs,dx,itenb,vv,wk,wk1,wk2, &
+                   tol,maxiteGMRES,iout,icode,tot_its)
 
       IF ( icode == 1 ) THEN   ! precond step: use of Picard linear solver
                                ! wk2 = P^-1*wk1
-
-      call apply_precond ( matrixA, matrixC, pcgsize(1), 2*pcgsize(1), &
-                           wk1, wk2, whichsparse ) 
-
-      GOTO 10
-
+        call apply_precond_nox( wk2, wk1, xk_size, c_ptr_to_object )
+        GOTO 10
       ELSEIF ( icode >= 2 ) THEN  ! matvec step: Jacobian free approach
                                   ! J*wk1 ~ wk2 = (F_plus - F)/epsilon
          
 ! form  v^k-1_plus = v^k-1 + epsilon*wk1v. We use solver_postprocess to 
 ! transform vk_1_plus from a vector to a 3D field. (same idea for u^k-1_plus)
-
-         vectp(:) = wk1(1:pcgsize(1)) ! for v
-         vk_1_plus = vk_1 + epsilon*vectp
-
-         call solver_postprocess( ewn, nsn, upn, 2, uindx, &
-                                  vk_1_plus, vvel, ghostbvel )
-
-         vectp(:) = wk1(pcgsize(1)+1:2*pcgsize(1)) ! for u
-         uk_1_plus = uk_1 + epsilon*vectp
-
-         call solver_postprocess( ewn, nsn, upn, 1, uindx, &
-                                  uk_1_plus, uvel, ghostbvel )
+        vectx(:) = wk1(1:2*pcgsize(1)) ! for v and u
+        xk_1_plus = xk_1 + epsilon*vectx
 
 ! form F(x + epsilon*wk1) = F(u^k-1 + epsilon*wk1u, v^k-1 + epsilon*wk1v)
-
-    call calc_F (ewn, nsn, upn, stagsigma, k,                    &
-                 whichefvs, efvs, uvel, vvel,                    &
-                 dew, dns, sigma, thck,                          &
-                 dusrfdew, dthckdew, d2usrfdew2, d2thckdew2,     &
-                 dusrfdns, dthckdns, d2usrfdns2, d2thckdns2,     &
-                 d2usrfdewdns, d2thckdewdns, dlsrfdew, dlsrfdns, &
-                 stagthck, whichbabc,            &
-                 uindx, umask,                                   &
-                 lsrf, topg, minTauf, flwa, beta, btraction,     &
-                 vk_1_plus, uk_1_plus, pcgsize(1), 2*pcgsize(1), g_flag, &
-                 F_plus, crap, matrixtp, matrixtp )
+        call calc_F (xk_1_plus, F_plus, xk_size, c_ptr_to_object)
 
 ! put approximation of J*wk1 in wk2
 
-          wk2 =  ( F_plus - F ) / epsilon
+        wk2 =  ( F_plus - F ) / epsilon
 
-         GOTO 10
+        GOTO 10
       ENDIF
 
 !------------------------------------------------------------------------
 ! End of FGMRES method    
 !------------------------------------------------------------------------
-
       if (tot_its .eq. maxiteGMRES) then
-         print *,'WARNING: FGMRES has not converged'
-         stop
+        print *,'WARNING: FGMRES has not converged'
+        stop
       endif
 
 ! icode = 0 means that fgmres has finished and sol contains the app. solution
@@ -965,24 +1149,19 @@ subroutine JFNK                 (ewn,      nsn,    upn,  &
 !------------------------------------------------------------------------
 ! Update solution vectors (x^k = x^k-1 + dx) and 3D fields 
 !------------------------------------------------------------------------
-
-      vk_1 = vk_1 + dx(1:pcgsize(1)) 
-      uk_1 = uk_1 + dx(pcgsize(1)+1:2*pcgsize(1))
-      ! in fact vk and uk but we use vk_1 and uk_1 to save memory
-
-      call solver_postprocess( ewn, nsn, upn, 2, uindx, vk_1, vvel, ghostbvel )
-      call solver_postprocess( ewn, nsn, upn, 1, uindx, uk_1, uvel, ghostbvel )
-
+      xk_1 = xk_1 + dx(1:2*pcgsize(1))
 ! WATCHOUT FOR PERIODIC BC      
-
   end do
 
-  call ghost_postprocess( ewn, nsn, upn, uindx, uk_1, vk_1, &
-                          ughost, vghost )
+! (need to update these values from fptr%uvel,vvel,stagthck etc)
+  call solver_postprocess_jfnk( ewn, nsn, upn, uindx, xk_1, vvel, uvel, ghostbvel, pcgsize(1) )
+  call ghost_postprocess_jfnk( ewn, nsn, upn, uindx, xk_1, ughost, vghost, pcgsize(1) )
 
-  do ns = 1,nsn-1
-      do ew = 1,ewn-1 
-      ! calc. fluxes from converged vel. fields (needed for input to thickness evolution subroutine)
+  print*,"Solution vector norm after JFNK = " ,sqrt(DOT_PRODUCT(xk_1,xk_1))
+
+  do ns = 1+staggered_lhalo,size(umask,2)-staggered_uhalo
+      do ew = 1+staggered_lhalo,size(umask,1)-staggered_uhalo
+      ! *sfp** calc. fluxes from converged vel. fields (for input to thickness evolution subroutine)
          if (umask(ew,ns) > 0) then
              uflx(ew,ns) = vertintg(upn, sigma, uvel(:,ew,ns)) * stagthck(ew,ns)
              vflx(ew,ns) = vertintg(upn, sigma, vvel(:,ew,ns)) * stagthck(ew,ns)
@@ -990,10 +1169,15 @@ subroutine JFNK                 (ewn,      nsn,    upn,  &
       end do
   end do
 
+  ! JEFF: Deallocate myIndices which is used to intialize Trilinos
+  if (whatsparse == STANDALONE_TRILINOS_SOLVER) then
+     deallocate(myIndices)
+  endif
+
   ! *sfp* de-allocation of sparse matrix solution variables 
   deallocate(tvel)
   deallocate(uindx,corr,usav)
-  deallocate(pcgval,pcgrow,pcgcol,rhsd)
+  deallocate(pcgval,pcgrow,pcgcol,rhsd, rhsx)
   deallocate(pcgvaluv,pcgrowuv,pcgcoluv)
   deallocate(pcgvalvu,pcgrowvu,pcgcolvu)
   deallocate(matrixA%row, matrixA%col, matrixA%val)
@@ -1001,14 +1185,19 @@ subroutine JFNK                 (ewn,      nsn,    upn,  &
   deallocate(matrixAvu%row, matrixAvu%col, matrixAvu%val)
   deallocate(matrixC%row, matrixC%col, matrixC%val)
   deallocate(matrixtp%row, matrixtp%col, matrixtp%val)
-  deallocate(uk_1, vk_1, g_flag)
-  deallocate(answer, dx, vectp, uk_1_plus, vk_1_plus )
+!  deallocate(uk_1, vk_1, xk_1, g_flag, gx_flag)
+  deallocate(answer, dx, vectp, uk_1_plus, vk_1_plus, xk_1_plus, gx_flag )
   deallocate(F, F_plus)
   deallocate(wk1, wk2)
   deallocate(vv, wk)
 
-  return
+  model%velocity_hom%uvel = uvel
+  model%velocity_hom%vvel = vvel
+  model%velocity_hom%uflx = uflx
+  model%velocity_hom%vflx = vflx
+  model%velocity_hom%efvs = efvs
 
+  return
 end subroutine JFNK
 
 !***********************************************************************
@@ -1017,7 +1206,7 @@ function indxvelostr(ewn,  nsn,  upn,  &
                      mask, pointno)
 !if a point from the 2d array 'mask' is associated with non-zero ice thickness, 
 ! (either a boundary or interior point) give it a unique number. If not, give it a zero.
-
+  use parallel
   implicit none
 
   integer, intent(in) :: ewn, nsn, upn
@@ -1029,8 +1218,8 @@ function indxvelostr(ewn,  nsn,  upn,  &
 
   pointno = 1
 
-  do ew = 1,ewn-1
-      do ns = 1,nsn-1
+  do ew = 1+staggered_lhalo,size(mask,1)-staggered_uhalo
+     do ns = 1+staggered_lhalo,size(mask,2)-staggered_uhalo
         if ( GLIDE_HAS_ICE( mask(ew,ns) ) ) then
           indxvelostr(ew,ns) = pointno
           pointno = pointno + 1
@@ -1059,6 +1248,7 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
                        mask)
 
   ! calculate the eff. visc.    
+  use parallel
   implicit none
 
   integer, intent(in) :: ewn, nsn, upn
@@ -1080,12 +1270,23 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
   ! This is the factor 1/4(X0/H0)^2 in front of the term ((dv/dz)^2+(du/dz)^2) 
   real (kind = dp), parameter :: f1 = 0.25_dp * (len0 / thk0)**2
 
+
   select case(whichefvs)
 
   case(0)       ! calculate eff. visc. using eff. strain rate
 
-
+ 
   if (1 == counter) then
+
+!  if (main_task) then
+!    print *, 'nsn=', nsn
+!    print *, 'ewn=', ewn
+!    print *, 'uvel shape =', shape(uvel)
+!    print *, 'vvel shape =', shape(vvel)
+!    print *, 'thck shape =', shape(thck)
+!    print *, 'efvs shape =', shape(efvs)
+!    print *, 'flwafact shape =', shape(flwafact)
+!  endif
 
 !whl - If temp and flwa live on the staggered vertical grid (like the effective viscosity),
 !      then the size of flwa is (upn-1), and vertical averaging of flwa is not needed here.
@@ -1123,7 +1324,8 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
   do ns = 2,nsn-1
       do ew = 2,ewn-1
         if (thck(ew,ns) > 0.0_dp) then
-
+    ! The hsum() is on the unstaggered grid picking up the four points.  
+    ! Then there is a derivative in the vertical direction.  
             ugradup = vertideriv(upn, hsum(uvel(:,ew-1:ew,ns-1:ns)), thck(ew,ns))
             vgradup = vertideriv(upn, hsum(vvel(:,ew-1:ew,ns-1:ns)), thck(ew,ns))
 
@@ -1207,7 +1409,7 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
   do ns = 2,nsn-1
       do ew = 2,ewn-1
        if (thck(ew,ns) > 0.0_dp) then
-        efvs(1:upn-1,ew,ns) = 0.5_dp * flwa(1:upn-1,ew,ns)**(-1.0_dp)
+           efvs(1:upn-1,ew,ns) = 0.5_dp * flwa(1:upn-1,ew,ns)**(-1.0_dp)
         else
            efvs(:,ew,ns) = effstrminsq ! if the point is associated w/ no ice, set to min value
        end if
@@ -1216,8 +1418,16 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
 
   end select
 
-  return
+! JEFF Halo does NOT verify, because used a staggered array to hold unstaggered data.  The unstaggered data fits because remove two rows and columns of data.
+! The current parallel_halo(efvs) routine won't update a staggered array.
+! I think it is OK, so I'm passing for now.
+!  if (.NOT. parallel_halo_verify(efvs)) then
+!      ! efvs is an unstaggered grid in an staggered declaration.  Steve Price said he reused the variable from the other core.
+!      write(*,*) "Halo Verify failed for findefvstr()"
+!      call parallel_stop(__FILE__, __LINE__)
+!  endif
 
+  return
 end subroutine findefvsstr
 
 !***********************************************************************
@@ -1286,6 +1496,8 @@ end function getlocrange
 
 function getlocationarray(ewn, nsn, upn,  &
                           mask )
+    use parallel
+
     implicit none
 
     integer, intent(in) :: ewn, nsn, upn
@@ -1295,8 +1507,8 @@ function getlocationarray(ewn, nsn, upn,  &
 
     cumsum = 0
 
-    do ew=1,ewn-1
-        do ns=1,nsn-1
+    do ew=1+staggered_lhalo,size(mask,1)-staggered_uhalo
+        do ns=1+staggered_lhalo,size(mask,2)-staggered_uhalo
         if ( GLIDE_HAS_ICE( mask(ew,ns) ) ) then
             cumsum = cumsum + ( upn + 2 )
             getlocationarray(ew,ns) = cumsum
@@ -1316,11 +1528,141 @@ end function getlocationarray
 
 !***********************************************************************
 
+function getdistributedlocationarray(ewn, nsn, upn, mask )
+	! Returns an array with the variable ID bases for each ice grid point.  If a point (ew,ns) doesn't have ice, then it has 0.
+	! This uses globalIDs and includes the ID bases for the halos in the array.
+	! This ID array uses the same IDs used to initialize Trilinos myIndices.
+	! JEFF 11/23/10
+    use parallel
+
+    implicit none
+
+    integer, intent(in) :: ewn, nsn, upn
+    integer, dimension(:,:), intent(in) :: mask
+    integer, dimension(ewn-1,nsn-1) :: getdistributedlocationarray
+    integer :: ew, ns
+
+    do ew=1,size(mask,1)
+        do ns=1,size(mask,2)
+	        if ( GLIDE_HAS_ICE( mask(ew,ns) ) ) then
+	            getdistributedlocationarray(ew,ns) = parallel_globalID(ns, ew, upn + 2)  ! Extra two layers for ghost layers
+	        else
+	            getdistributedlocationarray(ew,ns) = 0
+	        end if
+        end do
+    end do
+
+    return
+end function getdistributedlocationarray
+
+!***********************************************************************
+
+function slapsolvstr(ewn, nsn, upn, &
+                     vel, uindx, its, answer )
+
+! *sp* routine to solve Ax=b sparse matrix problem 
+
+  implicit none
+
+  integer, intent(in) :: ewn, nsn, upn
+  real (kind = dp), dimension(:,:,:), intent(in) :: vel
+  integer, dimension(:,:), intent(in) :: uindx
+
+  real (kind = dp), dimension(:), intent(out) :: answer
+
+  real (kind = dp), dimension(size(vel,1),size(vel,2),size(vel,3)) :: slapsolvstr
+  integer, intent(inout) :: its
+
+  integer :: ew, ns
+
+  real (kind = dp), dimension(:), allocatable :: rwork
+  integer, dimension(:), allocatable :: iwork
+
+  real (kind = dp), parameter :: tol = 1.0e-12_dp
+  real (kind = dp) :: err
+
+  integer, parameter :: isym = 0, itol = 2, itmax = 100
+  integer, dimension(2) :: loc
+  integer :: iter, ierr, mxnelt
+
+! ** move to values subr   
+
+  pcgsize(2) = ct - 1
+
+  call ds2y(pcgsize(1),pcgsize(2),pcgrow,pcgcol,pcgval,isym)
+
+!** plot the matrix to check that it has the correct form
+!call dcpplt(pcgsize(1),pcgsize(2),pcgrow,pcgcol,pcgval,isym,ulog)      
+
+  mxnelt = 60 * pcgsize(1); allocate(rwork(mxnelt),iwork(mxnelt))
+
+!**     solve the problem using the SLAP package routines     
+!**     -------------------------------------------------
+!**     n ... order of matrix a (in)
+!**     b ... right hand side vector (in)                        
+!**     x ... initial quess/final solution vector (in/out)                        
+!**     nelt ... number of non-zeroes in A (in)
+!**     ia, ja ... sparse matrix format of A (in)
+!**     a ... matrix held in SLAT column format (in)
+!**     isym ... storage method (0 is complete) (in)
+!**     itol ... convergence criteria (2 recommended) (in)                     
+!**     tol ... criteria for convergence (in)
+!**     itmax ... maximum number of iterations (in)
+!**     iter ... returned number of iterations (out)
+!**     err ... error estimate of solution (out)
+!**     ierr ... returned error message (0 is ok) (out)
+!**     iunit ... unit for error writes during iteration (0 no write) (in)
+!**     rwork ... workspace for SLAP routines (in)
+!**     mxnelt ... maximum array and vector sizes (in)
+!**     iwork ... workspace for SLAP routines (in)
+
+! *sp* initial estimate for vel. field?
+  do ns = 1,nsn-1
+  do ew = 1,ewn-1
+   if (uindx(ew,ns) /= 0) then
+    loc = getlocrange(upn, uindx(ew,ns))
+    answer(loc(1):loc(2)) = vel(:,ew,ns)
+    answer(loc(1)-1) = vel(1,ew,ns)
+    answer(loc(2)+1) = vel(upn,ew,ns)
+   end if
+  end do
+  end do
+
+  call dslucs(pcgsize(1),rhsd,answer,pcgsize(2),pcgrow,pcgcol,pcgval, &
+              isym,itol,tol,itmax,iter,err,ierr,0,rwork,mxnelt,iwork,mxnelt)
+
+  if (ierr .ne. 0) then
+    print *, 'pcg error ', ierr, itmax, iter, tol, err
+    ! stop
+  end if
+
+  deallocate(rwork,iwork)
+
+  do ns = 1,nsn-1
+  do ew = 1,ewn-1
+     if (uindx(ew,ns) /= 0) then
+       loc = getlocrange(upn, uindx(ew,ns))
+       slapsolvstr(:,ew,ns) = answer(loc(1):loc(2))
+     else
+       slapsolvstr(:,ew,ns) = 0.0d0
+     end if
+  end do
+  end do
+
+  its = its + iter
+
+  return
+
+end function slapsolvstr
+
+! *****************************************************************************
+
 subroutine solver_preprocess( ewn, nsn, upn, uindx, matrix, answer, vel )
 
   ! Puts sparse matrix variables in SLAP triad format into "matrix" derived type, 
   ! so that it can be passed to the generic solver wrapper, "sparse_easy_solve". 
   ! Takes place of the old, explicit solver interface to SLAP linear solver.
+  use parallel
 
   implicit none
 
@@ -1345,13 +1687,16 @@ subroutine solver_preprocess( ewn, nsn, upn, uindx, matrix, answer, vel )
 
   ! Initial estimate for vel. field; take from 3d array and put into
   ! the format of a solution vector.
-  do ns = 1,nsn-1
-    do ew = 1,ewn-1
+  do ns = 1+staggered_lhalo,size(uindx,2)-staggered_uhalo
+   do ew = 1+staggered_lhalo,size(uindx,1)-staggered_uhalo
         if (uindx(ew,ns) /= 0) then
             loc = getlocrange(upn, uindx(ew,ns))
             answer(loc(1):loc(2)) = vel(:,ew,ns)
             answer(loc(1)-1) = vel(1,ew,ns)
             answer(loc(2)+1) = vel(upn,ew,ns)
+
+            !JEFF Verifying Trilinos Input
+            ! write(*,*) "Initial answer at (", ew, ", ", ns, ") = ", answer(loc(1)-1:loc(2)+1)
         end if
     end do
   end do
@@ -1363,6 +1708,7 @@ end subroutine solver_preprocess
 subroutine solver_postprocess( ewn, nsn, upn, pt, uindx, answrapped, ansunwrapped, ghostbvel )
 
   ! Unwrap the vels from the solution vector and place into a 3d array.
+  use parallel
 
   implicit none
 
@@ -1370,13 +1716,13 @@ subroutine solver_postprocess( ewn, nsn, upn, pt, uindx, answrapped, ansunwrappe
   integer, dimension(:,:), intent(in) :: uindx
   real (kind = dp), dimension(:), intent(in) :: answrapped
   real (kind = dp), dimension(upn,ewn-1,nsn-1), intent(out) :: ansunwrapped
-  real (kind = dp), dimension(:,:,:,:), intent(inout) :: ghostbvel
+  real (kind = dp), dimension(:,:,:,:), intent(inout) :: ghostbvel   
 
   integer, dimension(2) :: loc
   integer :: ew, ns
 
-  do ns = 1,nsn-1
-      do ew = 1,ewn-1
+  do ns = 1+staggered_lhalo,size(uindx,2)-staggered_uhalo
+      do ew = 1+staggered_lhalo,size(uindx,1)-staggered_uhalo
           if (uindx(ew,ns) /= 0) then
             loc = getlocrange(upn, uindx(ew,ns))
             ansunwrapped(:,ew,ns) = answrapped(loc(1):loc(2))
@@ -1389,6 +1735,44 @@ subroutine solver_postprocess( ewn, nsn, upn, pt, uindx, answrapped, ansunwrappe
   end do
 
 end subroutine solver_postprocess
+
+!***********************************************************************
+
+subroutine solver_postprocess_jfnk( ewn, nsn, upn, uindx, answrapped, ansunwrappedv, &
+                                    ansunwrappedu, ghostbvel, pcg1 )
+
+   ! Unwrap the vels from the solution vector and place into a 3d array.
+   use parallel
+
+   implicit none
+
+   integer :: pcg1
+   integer, intent(in) :: ewn, nsn, upn
+   integer, dimension(:,:), intent(in) :: uindx
+   real (kind = dp), dimension(:), intent(in) :: answrapped
+   real (kind = dp), dimension(upn,ewn-1,nsn-1), intent(out) :: ansunwrappedv, ansunwrappedu
+   real (kind = dp), dimension(:,:,:,:), intent(inout) :: ghostbvel
+
+   integer, dimension(2) :: loc
+   integer :: ew, ns
+
+   do ns = 1+staggered_lhalo,size(uindx,2)-staggered_uhalo
+       do ew = 1+staggered_lhalo,size(uindx,1)-staggered_uhalo
+           if (uindx(ew,ns) /= 0) then
+             loc = getlocrange(upn, uindx(ew,ns))
+             ansunwrappedv(:,ew,ns) = answrapped(loc(1):loc(2))
+             ansunwrappedu(:,ew,ns) = answrapped(pcg1+loc(1):pcg1+loc(2))
+             !! save the fictitious basal velocities for basal traction calculation !!
+             ghostbvel(2,:,ew,ns) = answrapped( loc(2)-1:loc(2)+1 )
+             ghostbvel(1,:,ew,ns) = answrapped( pcg1+loc(2)-1:pcg1+loc(2)+1 )
+           else
+             ansunwrappedv(:,ew,ns) = 0.0d0
+             ansunwrappedu(:,ew,ns) = 0.0d0
+           end if
+       end do
+   end do
+end subroutine solver_postprocess_jfnk
+
 
 !***********************************************************************
 
@@ -1480,6 +1864,8 @@ subroutine apply_precond( matrixA, matrixC, nu1, nu2, wk1, wk2, whichsparse )
       else
          call restoretrilinosmatrix(0); 
          call solvewithtrilinos(vectp, answer, linearSolveTime) 
+         totalLinearSolveTime = totalLinearSolveTime + linearSolveTime
+         write(*,*) 'Total linear solve time so far', totalLinearSolveTime
 #endif
       endif
       wk2(1:nu1) = answer(:)
@@ -1494,6 +1880,8 @@ subroutine apply_precond( matrixA, matrixC, nu1, nu2, wk1, wk2, whichsparse )
       else
          call restoretrilinosmatrix(1); 
          call solvewithtrilinos(vectp, answer, linearSolveTime) 
+         totalLinearSolveTime = totalLinearSolveTime + linearSolveTime
+         write(*,*) 'Total linear solve time so far', totalLinearSolveTime
 #endif
       endif
       wk2(nu1+1:nu2) = answer(:)
@@ -1502,53 +1890,178 @@ end subroutine apply_precond
 
 !***********************************************************************
 
-subroutine calc_F (ewn, nsn, upn, stagsigma, counter,            &
-                 whichefvs, efvs, uvel, vvel,                    &
-                 dew, dns, sigma, thck,                          &
-                 dusrfdew, dthckdew, d2usrfdew2, d2thckdew2,     &
-                 dusrfdns, dthckdns, d2usrfdns2, d2thckdns2,     &
-                 d2usrfdewdns, d2thckdewdns, dlsrfdew, dlsrfdns, &
-                 stagthck, whichbabc,                            &
-                 uindx, umask,                                   &
-                 lsrf, topg, minTauf, flwa, beta, btraction,     &
-                 vtp, utp, nu1, nu2, g_flag,                     &
-                 F, L2norm, matrixA, matrixC)
+subroutine apply_precond_nox( wk2_nox, wk1_nox, xk_size, c_ptr_to_object )  bind(C, name='apply_precond_nox')
 
-  ! Calculates either F(x) or F(x+epsilon*vect) for the JFNK method
-  ! Recall that x=[v,u]
-  ! vtp is either v^k-1 or v^k-1+epsilon*vect_v (same idea for utp)
+  ! Apply preconditioner operator for JFNK solver through NOX: wk2 = P^-1 *wk1 
+  ! The preconditioner operator is in fact taken from the Picard solver
+  ! There is a splitting of the v (A matrix) and u (C matrix) equations
+  ! Each component is solved to a loose tolerance (as opposed to Picard)
 
   implicit none
 
-  integer, intent(in) :: ewn, nsn, upn, counter, whichbabc, whichefvs
-  integer, intent(in) :: nu1, nu2
-  integer, dimension(nu1), intent(in) :: g_flag ! 0 :reg cell
-                                                ! 1 :top ghost, 2 :base ghost
-  integer, dimension(:,:), intent(in) :: uindx, umask
+! variables coming through from NOX
+  integer(c_int) ,intent(in) ,value  :: xk_size
+  real (c_double) ,intent(in)        :: wk1_nox(xk_size)
+  real (c_double) ,intent(out)       :: wk2_nox(xk_size)
+  type(pass_through) ,pointer        :: fptr=>NULL()
+  type(c_ptr) ,intent(inout)         :: c_ptr_to_object
 
-  type(sparse_matrix_type), intent(inout) :: matrixA, matrixC
+  integer :: nu1, nu2, whichsparse
+  integer :: iter
+  type(sparse_matrix_type) :: matrixA, matrixC
+  real (kind = dp), dimension(xk_size) :: wk1
+  real (kind = dp), dimension(xk_size) :: wk2
+  real (kind = dp), allocatable, dimension(:) :: answer, vectp
+  real (kind = dp) :: err
+
+  call c_f_pointer(c_ptr_to_object,fptr) ! convert C ptr to F ptr= resid_object
+
+  matrixA = fptr%matrixA
+  matrixC = fptr%matrixC
+  whichsparse = fptr%model%options%which_ho_sparse
+  pcgsize = fptr%pcgsize
+           
+  nu1 = pcgsize(1)
+  nu2 = 2*pcgsize(1)
+  allocate ( answer(nu1) )
+  allocate ( vectp(nu1) )
+  wk1  = wk1_nox
+
+! ID as a test
+!  wk2_nox  = wk1
+
+! precondition v component 
+       
+      answer = 0d0 ! initial guess
+      vectp(:) = wk1(1:nu1) ! rhs for precond v
+      if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
+         call sparse_easy_solve(matrixA, vectp, answer, err, iter, whichsparse, nonlinear_solver = nonlinear)
+      else
+         call restoretrilinosmatrix(0);
+         call solvewithtrilinos(vectp, answer, linearSolveTime)
+         totalLinearSolveTime = totalLinearSolveTime + linearSolveTime
+!         write(*,*) 'Total linear solve time so far', totalLinearSolveTime
+      endif
+      wk2(1:nu1) = answer(:)
+
+! precondition u component 
+       
+      answer = 0d0 ! initial guess
+      vectp(:) = wk1(nu1+1:nu2) ! rhs for precond u
+      if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
+         call sparse_easy_solve(matrixC, vectp, answer, err, iter, whichsparse, nonlinear_solver = nonlinear)
+      else
+         call restoretrilinosmatrix(1);
+         call solvewithtrilinos(vectp, answer, linearSolveTime)
+         totalLinearSolveTime = totalLinearSolveTime + linearSolveTime
+!         write(*,*) 'Total linear solve time so far', totalLinearSolveTime
+      endif
+      wk2(nu1+1:nu2) = answer(:)
+
+  wk2_nox  = wk2
+
+end subroutine apply_precond_nox
+
+!***********************************************************************
+
+ subroutine calc_F (xtp, F, xk_size, c_ptr_to_object) bind(C, name='calc_F')
+
+  ! Calculates either F(x) or F(x+epsilon*vect) for the JFNK method
+  ! Recall that x=[v,u]
+  ! xtp is both vtp and utp in one vector
+
+  use iso_c_binding  
+  use glide_types ,only : glide_global_type, pass_through
+  use parallel
+
+  implicit none
+
+   integer(c_int) ,intent(in) ,value  :: xk_size
+   real(c_double)  ,intent(in)        :: xtp(xk_size)
+   real(c_double)  ,intent(out)       :: F(xk_size)
+   type(pass_through) ,pointer        :: fptr=>NULL()
+   type(c_ptr) ,intent(inout)         :: c_ptr_to_object
+
+  integer :: ewn, nsn, upn, counter, whichbabc, whichefvs, i
+  integer  ,dimension(2)   :: pcgsize
+  integer  ,dimension(:) ,allocatable :: gxf ! 0 :reg cell
+  integer  ,dimension(:,:) ,allocatable :: ui, um
+  real (kind = dp) :: dew, dns
+  real (kind = dp), dimension(:)  ,pointer :: sigma, stagsigma
+  real (kind = dp), dimension(:,:) ,pointer :: thck, dusrfdew, dthckdew, dusrfdns, dthckdns, &
+                                         dlsrfdew, dlsrfdns, stagthck, lsrf, topg, minTauf, beta
+  real (kind = dp), dimension(:,:) ,pointer ::  d2usrfdew2, d2thckdew2, d2usrfdns2, d2thckdns2
+  real (kind = dp), dimension(:,:,:) ,pointer :: efvs, btraction
+  real (kind = dp), dimension(:,:,:) ,pointer :: uvel, vvel, flwa
+  type(sparse_matrix_type) :: matrixA, matrixC
+  real (kind = dp), dimension(:) ,allocatable :: vectx
+  real (kind = dp), dimension(:) ,allocatable :: vectp
 
   real (kind = dp) :: L2square
-  real (kind = dp), intent(out):: L2norm
-  real (kind = dp), dimension(nu1) :: vectp
-  real (kind = dp), dimension(nu1), intent(in) :: vtp, utp
-  real (kind = dp), dimension(nu2), intent(out) :: F
-  real (kind = dp), intent(in) :: dew, dns    
-  real (kind = dp), dimension(:), intent(in) :: sigma, stagsigma
+!  real (kind = dp), intent(inout):: L2norm
+  real (kind = dp) :: L2norm
 
-  real (kind = dp), dimension(:,:), intent(in) :: thck,               &
-                                                  dusrfdew, dthckdew, & 
-                                                  d2usrfdew2, d2thckdew2, &
-                                                  dusrfdns, dthckdns, &
-                                                  d2usrfdns2, d2thckdns2, &
-                                                  d2usrfdewdns, d2thckdewdns,&
-                                                  dlsrfdew, dlsrfdns, &
-                                                  stagthck, lsrf, topg, &
-                                                  minTauf, beta
-
-  real (kind = dp), dimension(:,:,:), intent(inout) :: efvs, btraction
-  real (kind = dp), dimension(:,:,:), intent(in) :: uvel, vvel, flwa
+  call c_f_pointer(c_ptr_to_object,fptr) ! convert C ptr to F ptr= resid_object
            
+  ewn = fptr%model%general%ewn
+  nsn = fptr%model%general%nsn
+  upn = fptr%model%general%upn
+  whichbabc = fptr%model%options%which_ho_babc
+  whichefvs = fptr%model%options%which_ho_efvs
+  dew = fptr%model%numerics%dew
+  dns = fptr%model%numerics%dns
+  sigma => fptr%model%numerics%sigma(:)
+  stagsigma => fptr%model%numerics%stagsigma(:)
+  thck => fptr%model%geometry%thck(:,:)
+  lsrf => fptr%model%geometry%lsrf(:,:)
+  topg => fptr%model%geometry%topg (:,:)
+  stagthck => fptr%model%geomderv%stagthck(:,:)
+  dthckdew => fptr%model%geomderv%dthckdew(:,:)
+  dthckdns => fptr%model%geomderv%dthckdns(:,:)
+  dusrfdew => fptr%model%geomderv%dusrfdew(:,:)
+  dusrfdns => fptr%model%geomderv%dusrfdns(:,:)
+  dlsrfdew => fptr%model%geomderv%dlsrfdew(:,:)
+  dlsrfdns => fptr%model%geomderv%dlsrfdns(:,:)
+  d2thckdew2 => fptr%model%geomderv%d2thckdew2(:,:)
+  d2thckdns2 => fptr%model%geomderv%d2thckdns2(:,:)
+  d2usrfdew2 => fptr%model%geomderv%d2usrfdew2(:,:)
+  d2usrfdns2 => fptr%model%geomderv%d2usrfdns2(:,:)
+  minTauf => fptr%model%basalproc%minTauf(:,:)
+  beta => fptr%model%velocity_hom%beta(:,:)
+!intent (inout) terms
+  btraction => fptr%model%velocity_hom%btraction(:,:,:)
+  flwa => fptr%model%temper%flwa(:,:,:)
+  efvs => fptr%model%velocity_hom%efvs(:,:,:)
+  uvel => fptr%model%velocity_hom%uvel(:,:,:)
+  vvel => fptr%model%velocity_hom%vvel(:,:,:)
+  L2norm = fptr%L2norm
+
+  allocate( ui(ewn-1,nsn-1), um(ewn-1,nsn-1) )
+  ui= fptr%ui
+  um = fptr%um
+
+  pcgsize = fptr%pcgsize
+  allocate( gxf(pcgsize(1)) )
+
+  gxf = fptr%gxf
+! temporary to test JFNK -  need to take out
+  counter = 1
+
+  d2usrfdewdns = fptr%d2usrfcross
+  d2thckdewdns = fptr%d2thckcross
+
+  matrixA = fptr%matrixA
+  matrixC = fptr%matrixC
+  allocate( vectp( pcgsize(1)) )
+  allocate( vectx(2*pcgsize(1)) )
+
+  call solver_postprocess_jfnk( ewn, nsn, upn, ui, &
+                                xtp, vvel, uvel, ghostbvel, pcgsize(1) )
+
+    ! coordinate halos for updated uvel and vvel
+    call staggered_parallel_halo(uvel)
+    call staggered_parallel_halo(vvel)
+
     call findefvsstr(ewn,  nsn,  upn,       &
                      stagsigma,  counter,  &
                      whichefvs,  efvs,     &
@@ -1556,7 +2069,7 @@ subroutine calc_F (ewn, nsn, upn, stagsigma, counter,            &
                      flwa,       thck,     &
                      dusrfdew,   dthckdew, &
                      dusrfdns,   dthckdns, &
-                     umask)
+                     um)
 
 !==============================================================================
 ! jfl 20100412: residual for v comp: Fv= A(utp,vtp)vtp - b(utp,vtp)  
@@ -1575,7 +2088,7 @@ subroutine calc_F (ewn, nsn, upn, stagsigma, counter,            &
                      d2usrfdewdns,d2thckdewdns,   &
                      dlsrfdew,    dlsrfdns,       &
                      stagthck,    whichbabc,      &
-                     uindx,       umask,          &
+                     ui,       um,          &
                      lsrf,        topg,           &
                      minTauf,     flwa,           &
                      beta, btraction,             &
@@ -1589,13 +2102,13 @@ subroutine calc_F (ewn, nsn, upn, stagsigma, counter,            &
 #endif
     end if
     
-      vectp = vtp
+    vectp = xtp(1:pcgsize(1))
 
-    call res_vect(matrixA, vectp, rhsd, nu1, counter, g_flag, L2square, whatsparse)!rhsd = b 
-    L2norm = L2square
+    call res_vect(matrixA, vectp, rhsd, pcgsize(1), counter, gxf, L2square, whatsparse)
+    L2norm=L2square
 
-    F(1:nu1) = vectp ! Fv
-      
+    F(1:pcgsize(1)) = vectp(1:pcgsize(1)) 
+
 !==============================================================================
 ! jfl 20100412: residual for u comp: Fu= C(utp,vtp)utp - d(utp,vtp)  
 !==============================================================================
@@ -1612,12 +2125,13 @@ subroutine calc_F (ewn, nsn, upn, stagsigma, counter,            &
                      d2usrfdewdns,d2thckdewdns,   &
                      dlsrfdew,    dlsrfdns,       &
                      stagthck,    whichbabc,      &
-                     uindx,       umask,          &
+                     ui,       um,          &
                      lsrf,        topg,           &
                      minTauf,     flwa,           &
                      beta, btraction,             &
                      counter, 0 )
 
+    rhsx(pcgsize(1)+1:2*pcgsize(1)) = rhsd ! Fv
 
     if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
       call form_matrix ( matrixC ) ! to get C(utp,vtp)
@@ -1627,12 +2141,33 @@ subroutine calc_F (ewn, nsn, upn, stagsigma, counter,            &
 #endif
     end if
     
-      vectp = utp
+    vectp(1:pcgsize(1)) = xtp(pcgsize(1)+1:2*pcgsize(1))
 
-    call res_vect(matrixC, vectp, rhsd, nu1, counter, g_flag, L2square, whatsparse)!rhsd = d 
+    call res_vect(matrixC, vectp, rhsd, pcgsize(1), counter, gxf, L2square, whatsparse)
     L2norm = sqrt(L2norm + L2square)
 
-    F(nu1+1:nu2) = vectp ! Fu
+    F(pcgsize(1)+1:2*pcgsize(1)) = vectp(1:pcgsize(1)) 
+
+!      vectx = xtp 
+!
+!   call res_vect_jfnk(matrixA, matrixC, vectx, rhsx, pcgsize(1), 2*pcgsize(1), gxf, L2square, whatsparse)
+!    L2norm = L2square
+!    F = vectx 
+
+
+    call solver_postprocess_jfnk( ewn, nsn, upn, ui, xtp, vvel, uvel, ghostbvel, pcgsize(1) )
+
+
+  fptr%model%velocity_hom%btraction => btraction(:,:,:)
+  fptr%model%velocity_hom%btraction => btraction(:,:,:)
+  fptr%model%temper%flwa => flwa(:,:,:)
+  fptr%model%velocity_hom%efvs => efvs(:,:,:)
+  fptr%model%velocity_hom%uvel => uvel(:,:,:)
+  fptr%model%velocity_hom%vvel => vvel(:,:,:)
+
+  fptr%L2norm = L2norm
+  fptr%matrixA = matrixA
+  fptr%matrixC = matrixC
 
 end subroutine calc_F
 
@@ -1644,6 +2179,8 @@ subroutine ghost_preprocess( ewn, nsn, upn, uindx, ughost, vghost, &
 ! puts vel values in  uk_1, vk_1 (including ghost values) and creates the
 ! ghost flag vector. uk_1, vk_1 and the ghost flag vector are used for 
 ! the residual calculation (jfl 20100430)
+
+  use parallel
 
   implicit none
 
@@ -1659,8 +2196,8 @@ subroutine ghost_preprocess( ewn, nsn, upn, uindx, ughost, vghost, &
 
   g_flag = 0
 
-  do ns = 1,nsn-1
-   do ew = 1,ewn-1
+  do ns = 1+staggered_lhalo,size(uindx,2)-staggered_uhalo
+   do ew = 1+staggered_lhalo,size(uindx,1)-staggered_uhalo
         if (uindx(ew,ns) /= 0) then
             loc = getlocrange(upn, uindx(ew,ns))
             uk_1(loc(1):loc(2)) = uvel(:,ew,ns)
@@ -1681,11 +2218,57 @@ end subroutine ghost_preprocess
 
 !***********************************************************************
 
+ subroutine ghost_preprocess_jfnk( ewn, nsn, upn, uindx, ughost, vghost, &
+                              xk_1, uvel, vvel, gx_flag, pcg1)
+
+ ! puts vel values in  xk_1 (including ghost values) and creates the
+ ! ghost flag vector. xk_1 and the ghost flag vector are used for
+ ! the residual calculation (jfl 20100430), adapted to combine uk, vk (kje 20101002)
+   use parallel
+
+   implicit none
+
+   integer, intent(in) :: ewn, nsn, upn
+   integer, dimension(:,:), intent(in) :: uindx
+   integer, dimension(:), intent(out) :: gx_flag
+   real (kind = dp), dimension(2,ewn-1,nsn-1), intent(in) ::ughost,vghost
+   real (kind = dp), dimension(:,:,:), intent(in) :: uvel, vvel
+   real (kind = dp), dimension(:), intent(out) :: xk_1
+
+   integer :: ew, ns, pcg1
+   integer, dimension(2) :: loc
+   
+   gx_flag = 0
+   
+   do ns = 1+staggered_lhalo,size(uindx,2)-staggered_uhalo
+    do ew = 1+staggered_lhalo,size(uindx,1)-staggered_uhalo
+         if (uindx(ew,ns) /= 0) then
+             loc = getlocrange(upn, uindx(ew,ns))
+             xk_1(pcg1+loc(1):pcg1+loc(2)) = uvel(:,ew,ns)
+             xk_1(pcg1+loc(1)-1)      = ughost(1,ew,ns) ! ghost at top
+             xk_1(pcg1+loc(2)+1)      = ughost(2,ew,ns) ! ghost at base
+
+             xk_1(loc(1):loc(2)) = vvel(:,ew,ns)
+             xk_1(loc(1)-1)      = vghost(1,ew,ns) ! ghost at top
+             xk_1(loc(2)+1)      = vghost(2,ew,ns) ! ghost at base
+
+! independent of u and v
+             gx_flag(loc(1)-1) = 1 ! ghost at top
+             gx_flag(loc(2)+1) = 2 ! ghost at base 
+         end if
+     end do
+   end do
+ 
+ end subroutine ghost_preprocess_jfnk
+
+!***********************************************************************
+
 subroutine ghost_postprocess( ewn, nsn, upn, uindx, uk_1, vk_1, &
                               ughost, vghost )
 
 ! puts ghost values (which are now in  uk_1 and vk_1) into ughost and 
 ! vghost so that they can be used fro the next time step (jfl 20100430)
+  use parallel
 
   implicit none
 
@@ -1697,8 +2280,8 @@ subroutine ghost_postprocess( ewn, nsn, upn, uindx, uk_1, vk_1, &
   integer :: ew, ns
   integer, dimension(2) :: loc
 
-  do ns = 1,nsn-1
-      do ew = 1,ewn-1
+  do ns = 1+staggered_lhalo,size(uindx,2)-staggered_uhalo
+      do ew = 1+staggered_lhalo,size(uindx,1)-staggered_uhalo
           if (uindx(ew,ns) /= 0) then
             loc = getlocrange(upn, uindx(ew,ns))
             ughost(1,ew,ns) = uk_1(loc(1)-1) ! ghost at top
@@ -1713,16 +2296,54 @@ subroutine ghost_postprocess( ewn, nsn, upn, uindx, uk_1, vk_1, &
           end if
       end do
   end do
-
 end subroutine ghost_postprocess
+
+!***********************************************************************
+
+ subroutine ghost_postprocess_jfnk( ewn, nsn, upn, uindx, xk_1, &
+                               ughost, vghost, pcg1 )
+
+ ! puts ghost values (which are now in  uk_1 and vk_1) into ughost and
+ ! vghost so that they can be used fro the next time step (jfl 20100430)
+ ! update to use combined uk and vk = xk (kje 20101003)
+   use parallel
+
+   implicit none
+
+   integer, intent(in) :: ewn, nsn, upn, pcg1
+   integer, dimension(:,:), intent(in) :: uindx
+   real (kind = dp), dimension(:), intent(in) :: xk_1
+   real (kind = dp), dimension(2,ewn-1,nsn-1), intent(out) :: ughost,vghost
+   
+   integer :: ew, ns
+   integer, dimension(2) :: loc
+   
+   do ns = 1+staggered_lhalo,size(uindx,2)-staggered_uhalo
+       do ew = 1+staggered_lhalo,size(uindx,1)-staggered_uhalo
+           if (uindx(ew,ns) /= 0) then
+             loc = getlocrange(upn, uindx(ew,ns))
+             ughost(1,ew,ns) = xk_1(pcg1+loc(1)-1) ! ghost at top
+             ughost(2,ew,ns) = xk_1(pcg1+loc(2)+1) ! ghost at base
+             vghost(1,ew,ns) = xk_1(loc(1)-1) ! ghost at top
+             vghost(2,ew,ns) = xk_1(loc(2)+1) ! ghost at base
+           else 
+             ughost(1,ew,ns) = 0d0
+             ughost(2,ew,ns) = 0d0
+             vghost(1,ew,ns) = 0d0
+             vghost(2,ew,ns) = 0d0
+           end if
+       end do
+   end do
+ end subroutine ghost_postprocess_jfnk
 
 !***********************************************************************
 
 function mindcrshstr(pt,whichresid,vel,counter,resid)
 
   ! Function to perform 'unstable manifold correction' (see Hindmarsch and Payne, 1996,
-  ! "Time-step limits for stable solutions of the ice-sheet equation", Annals of 
+  ! "Time-step limits for stable solutions of the ice-sheet equation", Annals of
   ! Glaciology, 23, p.74-85)
+  use parallel
 
   implicit none
 
@@ -1740,10 +2361,11 @@ function mindcrshstr(pt,whichresid,vel,counter,resid)
   real (kind = dp), intrinsic :: abs, acos
 
   integer, dimension(2), save :: new = 1, old = 2
-  integer :: locat(3)
+  !JEFF integer :: locat(3)
 
   integer :: nr
   integer, dimension(size(vel,1),size(vel,2),size(vel,3)) :: vel_ne_0
+  real (kind = dp) :: sum_vel_ne_0
 
   if (counter == 1) then
     usav(:,:,:,pt) = 0.0d0
@@ -1777,10 +2399,10 @@ function mindcrshstr(pt,whichresid,vel,counter,resid)
   end if
 
   !*sfp* Old version
-  if (new(pt) == 1) then; old(pt) = 1; new(pt) = 2; else; old(pt) = 1; new(pt) = 2; end if  
+  if (new(pt) == 1) then; old(pt) = 1; new(pt) = 2; else; old(pt) = 1; new(pt) = 2; end if
 
   !*sfp* correction from Carl Gladdish
-  !if (new(pt) == 1) then; old(pt) = 1; new(pt) = 2; else; old(pt) = 2; new(pt) = 1; end if   
+  !if (new(pt) == 1) then; old(pt) = 1; new(pt) = 2; else; old(pt) = 2; new(pt) = 1; end if
 
   select case (whichresid)
 
@@ -1792,14 +2414,17 @@ function mindcrshstr(pt,whichresid,vel,counter,resid)
 
    case(0)
     resid = maxval( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
-    locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
+    resid = parallel_reduce_max(resid)
+    !JEFF locat is only used in diagnostic print statement below.
+    !locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
 
    case(1)
     nr = size( vel, dim=1 ) ! number of grid points in vertical ...
     resid = maxval( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ),  &
                         MASK = vel .ne. 0.0_dp)
-    locat = maxloc( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ),  &
-            MASK = vel .ne. 0.0_dp)
+    resid = parallel_reduce_max(resid)
+    !JEFF locat = maxloc( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ),  &
+    !JEFF        MASK = vel .ne. 0.0_dp)
 
    case(2)
     nr = size( vel, dim=1 )
@@ -1807,8 +2432,14 @@ function mindcrshstr(pt,whichresid,vel,counter,resid)
     where ( vel .ne. 0.0_dp ) vel_ne_0 = 1
 
     ! include basal velocities in resid. calculation when using MEAN
+    ! JEFF Compute sums across nodes in order to compute mean.
     resid = sum( abs((usav(:,:,:,pt) - vel ) / vel ), &
-            MASK = vel .ne. 0.0_dp) / sum( vel_ne_0 )
+            MASK = vel .ne. 0.0_dp)
+    resid = parallel_reduce_sum(resid)
+    sum_vel_ne_0 = sum( vel_ne_0 )
+    sum_vel_ne_0 = parallel_reduce_sum(sum_vel_ne_0)
+
+    resid = resid / sum_vel_ne_0
 
     ! ignore basal velocities in resid. calculation when using MEAN
     ! resid = sum( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ),   &
@@ -1816,13 +2447,13 @@ function mindcrshstr(pt,whichresid,vel,counter,resid)
 
     ! NOTE that the location of the max residual is somewhat irrelevent here
     !      since we are using the mean resid for convergence testing
-    locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
+    ! locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
 
   end select
 
     usav(:,:,:,pt) = vel
 
-    ! Additional debugging line, useful when trying to determine if convergence is being consistently 
+    ! Additional debugging line, useful when trying to determine if convergence is being consistently
     ! help up by the residual at one or a few particular locations in the domain.
     !print '("* ",i3,g20.6,3i6,g20.6)', counter, resid, locat, vel(locat(1),locat(2),locat(3))*vel0
 
@@ -1835,26 +2466,26 @@ end function mindcrshstr
 function mindcrshstr2(pt,whichresid,vel,counter,resid)
 
   ! Function to perform 'unstable manifold correction' (see Hindmarsch and Payne, 1996,
-  ! "Time-step limits for stable solutions of the ice-sheet equation", Annals of 
+  ! "Time-step limits for stable solutions of the ice-sheet equation", Annals of  
   ! Glaciology, 23, p.74-85)
-
+  
   ! Alternate unstable manifold scheme, based on DeSmedt, Pattyn, and De Goen, J. Glaciology 2010
   ! Written by Carl Gladdish
-
+  
   implicit none
-
+  
   real (kind = dp), intent(in), dimension(:,:,:) :: vel
   integer, intent(in) :: counter, pt, whichresid 
   real (kind = dp), intent(out) :: resid
-
+  
   real (kind = dp), dimension(size(vel,1),size(vel,2),size(vel,3)) :: mindcrshstr2
-
+  
   integer, parameter :: start_umc = 3
   real (kind=dp), parameter :: cvg_accel = 2.0_dp
   real (kind = dp), parameter :: small = 1.0e-16_dp
-
+  
   real (kind=dp) in_prod, len_new, len_old, mean_rel_diff, sig_rel_diff
-  real (kind=dp) :: theta
+  real (kind=dp) :: theta 
   real (kind = dp), intrinsic :: abs, acos
   
   integer, dimension(2), save :: new = 1, old = 2
@@ -1863,20 +2494,20 @@ function mindcrshstr2(pt,whichresid,vel,counter,resid)
   integer :: nr
   integer,      dimension(size(vel,1),size(vel,2),size(vel,3)) :: vel_ne_0
   real(kind=dp),dimension(size(vel,1),size(vel,2),size(vel,3)) :: rel_diff
-
+  
   if (counter == 1) then
     usav(:,:,:,pt) = 0.0d0
     corr(:,:,:,:,:) = 0.0d0
   end if
-
-  corr(:,:,:,new(pt),pt) = vel - usav(:,:,:,pt)           
-
+  
+  corr(:,:,:,new(pt),pt) = vel - usav(:,:,:,pt)
+  
   if (counter >= start_umc) then
   
   in_prod = sum( corr(:,:,:,new(pt),pt) * corr(:,:,:,old(pt),pt) )
   len_new = sqrt(sum( corr(:,:,:,new(pt),pt) * corr(:,:,:,new(pt),pt) ))
   len_old = sqrt(sum( corr(:,:,:,old(pt),pt) * corr(:,:,:,old(pt),pt) ))
- 
+  
   theta = acos( in_prod / (len_new * len_old + small) )
     
    if (theta  < (1.0/8.0)*pi) then
@@ -1885,18 +2516,18 @@ function mindcrshstr2(pt,whichresid,vel,counter,resid)
    else if(theta < (19.0/20.0)*pi) then
         mindcrshstr2 = vel
 !        print *, theta/pi, 'standard correction'
-   else 
+   else
         mindcrshstr2 = usav(:,:,:,pt) + (1.0/cvg_accel) * corr(:,:,:,new(pt),pt)
 !        print *, theta/pi, 'decreasing correction'
    end if
-
-  else 
-
-    mindcrshstr2 = vel;
- !   print *, 'Not attempting adjustment to correction'  
    
+  else
+  
+    mindcrshstr2 = vel;
+ !   print *, 'Not attempting adjustment to correction'
+     
   end if
-
+  
 
   ! now swap slots for storing the previous correction
   if (new(pt) == 1) then
@@ -1916,10 +2547,10 @@ function mindcrshstr2(pt,whichresid,vel,counter,resid)
 
   select case (whichresid)
 
-  ! options for residual calculation method, as specified in configuration file 
+  ! options for residual calculation method, as specified in configuration file
   ! (see additional notes in "higher-order options" section of documentation)
-  ! case(0): use max of abs( vel_old - vel ) / vel ) 
-  ! case(1): use max of abs( vel_old - vel ) / vel ) but ignore basal vels 
+  ! case(0): use max of abs( vel_old - vel ) / vel )
+  ! case(1): use max of abs( vel_old - vel ) / vel ) but ignore basal vels
   ! case(2): use mean of abs( vel_old - vel ) / vel )
 
    case(0)
@@ -1927,7 +2558,7 @@ function mindcrshstr2(pt,whichresid,vel,counter,resid)
     vel_ne_0 = 0
     where ( mindcrshstr2 .ne. 0.0_dp )
         vel_ne_0 = 1
-        rel_diff = abs((usav(:,:,:,pt) - mindcrshstr2) / mindcrshstr2) & 
+        rel_diff = abs((usav(:,:,:,pt) - mindcrshstr2) / mindcrshstr2) &
                            * usav_avg(pt)/sqrt(sum(usav_avg ** 2.0))
     end where
 
@@ -1971,7 +2602,7 @@ function mindcrshstr2(pt,whichresid,vel,counter,resid)
 
   usav(:,:,:,pt) = mindcrshstr2
 
-    ! Additional debugging line, useful when trying to determine if convergence is being consistently 
+    ! Additional debugging line, useful when trying to determine if convergence is being consistently
     ! held up by the residual at one or a few particular locations in the domain.
 !    print '("* ",i3,g20.6,3i6,g20.6)', counter, resid, locat, vel(locat(1),locat(2),locat(3))*vel0
 
@@ -2002,6 +2633,8 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
   ! Main subroutine for determining coefficients that go into the LHS matrix A 
   ! in the expression Au = b. Calls numerous other subroutines, including boundary
   ! condition subroutines, which determin "b".
+
+  use parallel
 
   implicit none
 
@@ -2059,13 +2692,31 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                         othervel(upn,:,:),      &
                         minTauf, beta,          &
                         betasquared )
+! intent(out) betasquared
 
-  do ns = 1,nsn-1
-    do ew = 1,ewn-1
+  ! Note loc_array is defined only for non-halo ice grid points.
+  ! JEFFLOC returns an array with starting indices into solution vector for each ice grid point.
+#ifdef globalIDs
+  loc_array = getdistributedlocationarray(ewn, nsn, upn, mask)
+#else
+  !JEFF - Want some way to notify user that cannot run without GlobalIDs when running distributed.  
+  !JEFF - But this method of not_parallel is just annoying.
+  !call not_parallel(__FILE__, __LINE__)
+  loc_array = getlocationarray(ewn, nsn, upn, mask)
+#endif
+!  !!!!!!!!! useful for debugging !!!!!!!!!!!!!!
+!    print *, 'loc_array = '
+!    print *, loc_array
+!    pause
 
+  ! JEFFLOC Why are these do loops reversed from normal.  Bigger question is do I need to restrict to non-halo grid points?
+  do ns = 1+staggered_lhalo,size(mask,2)-staggered_uhalo
+    do ew = 1+staggered_lhalo,size(mask,1)-staggered_uhalo
      ! Calculate the depth-averaged value of the rate factor, needed below when applying an ice shelf
      ! boundary condition (complicated code so as not to include funny values at boundaries ...
      ! ... kind of a mess and could be redone or made into a function or subroutine).
+     ! SUM has the definition SUM(ARRAY, DIM, MASK) MASK is either scalar or the same shape as ARRAY
+     ! JEFFLOC Concerned about the edges at (ew+1, ns), (ew, ns+1), and (ew+1,ns+1)
      flwabar = ( sum( flwa(:,ew,ns), 1, flwa(1,ew,ns)*vis0_glam < 1.0d-10 )/real(upn) + &
                sum( flwa(:,ew,ns+1), 1, flwa(1,ew,ns+1)*vis0_glam < 1.0d-10 )/real(upn)  + &
                sum( flwa(:,ew+1,ns), 1, flwa(1,ew+1,ns)*vis0_glam < 1.0d-10 )/real(upn)  + &
@@ -2074,16 +2725,6 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                sum( flwa(:,ew,ns+1)/flwa(:,ew,ns+1), 1, flwa(1,ew,ns+1)*vis0_glam < 1.0d-10 )/real(upn) + &
                sum( flwa(:,ew+1,ns)/flwa(:,ew+1,ns), 1, flwa(1,ew+1,ns)*vis0 < 1.0d-10 )/real(upn) + &
                sum( flwa(:,ew+1,ns+1)/flwa(:,ew+1,ns+1), 1, flwa(1,ew+1,ns+1)*vis0_glam < 1.0d-10 )/real(upn) )
-
-
-    if( ns == 1 .and. ew == 1 ) then
-           loc_array = getlocationarray(ewn, nsn, upn, mask )
-    end if
-
-!  !!!!!!!!! useful for debugging !!!!!!!!!!!!!!
-!    print *, 'loc_array = '
-!    print *, loc_array
-!    pause
 
     loc(1) = loc_array(ew,ns)
 
@@ -2121,8 +2762,12 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
             ! we simply use the closest values. This could probably be improved upon at some point
             ! by extrpolating values for efvs at the sfc and bed using one-sided diffs, and it is not clear
             ! how important this simplfication is.
+            !JEFFLOC indshift() returns three-element shift index for up, ew, and ns respectively.
+            !JEFFLOC It does get passed loc_array, but it doesn't use it.  Further, the shifts can be at most 1 unit in any direction.
             shift = indshift( 0, ew, ns, up, ewn, nsn, upn, loc_array, stagthck(ew-1:ew+1,ns-1:ns+1) )
 
+			!JEFFLOC As long as not accessing halo ice points, then won't shift off of halo of size at least 1.
+			!JEFFLOC Completed scan on 11/23.  Testing change of definition of loc_array.
             call bodyset(ew,  ns,  up,        &
                          ewn, nsn, upn,       &
                          dew,      dns,       &
@@ -2356,7 +3001,7 @@ subroutine bodyset(ew,  ns,  up,           &
         ! NOTE that in the following expression, the "-" sign on the crosshoriz terms, 
         ! which results from moving them from the LHS over to the RHS, has been moved
         ! inside of "croshorizmainbc_lat".
-        rhsd(locplusup) = sum( croshorizmainbc_lat(dew,           dns,           &
+        rhsd(distributed_globalID_to_localindex(locplusup)) = sum( croshorizmainbc_lat(dew,           dns,           &
                                                    slopex,        slopey,        &
                                                    dsigmadew(up), dsigmadns(up), &
                                                    pt,            2,             &
@@ -2364,7 +3009,7 @@ subroutine bodyset(ew,  ns,  up,           &
                                                    oneortwo,      twoorone,      &
                                                    onesideddiff,                 &
                                                    normal,fwdorbwd)              &
-                                                 * local_othervel ) / scalebabc
+                                                 * local_othervel ) /scalebabc
 
         if( nonlinear == HO_NONLIN_JFNK .and. calcoffdiag )then
             storeoffdiag = .true.
@@ -2430,7 +3075,7 @@ subroutine bodyset(ew,  ns,  up,           &
     ! --------------------------------------------------------------------------------------
     ! (2) source term (strain rate at shelf/ocean boundary) from MacAyeal depth-ave solution. 
     ! --------------------------------------------------------------------------------------
-    source = (rhoi*grav*stagthck(ew,ns)*thk0) / tau0 / 2.0_dp * ( 1.0_dp - rhoi / rhoo )
+    source = (rhoi*grav*stagthck(ew,ns)*thk0) / tau0_glam / 2.0_dp * ( 1.0_dp - rhoi / rhoo )
 
     ! terms after "/" below count number of non-zero efvs cells ... needed for averaging of the efvs at boundary 
     source = source / ( sum(local_efvs, local_efvs > 1.0d-12) / &
@@ -2458,7 +3103,7 @@ subroutine bodyset(ew,  ns,  up,           &
     ! NOTE that in the following expression, the "-" sign on the crosshoriz terms, 
     ! which results from moving them from the LHS over to the RHS, has been moved
     ! inside of "croshorizmainbc_lat".
-    rhsd(locplusup) = sum( croshorizmainbc_lat(dew,           dns,            &
+    rhsd(distributed_globalID_to_localindex(locplusup)) = sum( croshorizmainbc_lat(dew,           dns,            &
                                                slopex,        slopey,         &
                                                dsigmadew(up), dsigmadns(up),  &
                                                pt,            1,              &
@@ -2494,12 +3139,12 @@ subroutine bodyset(ew,  ns,  up,           &
      ! which results from moving them from the LHS over to the RHS, is explicit and 
      ! hast NOT been moved inside of "croshorizmin" (as is the case for the analogous
      ! boundary condition routines).
-
      ! NOTE that in the following expression, the "-" sign on the crosshoriz terms, 
      ! which results from moving them from the LHS over to the RHS, is explicit and 
      ! hast NOT been moved inside of "croshorizmin" (as is the case for the analogous
      ! boundary condition routines).
-     rhsd(locplusup) = thisdusrfdx(ew,ns) - sum(croshorizmain(pt,up,local_efvs) * local_othervel)
+     rhsd(distributed_globalID_to_localindex(locplusup)) = thisdusrfdx(ew,ns) - &
+                                         sum(croshorizmain(pt,up,local_efvs) * local_othervel)
 
      if( nonlinear == HO_NONLIN_JFNK .and. calcoffdiag )then
          storeoffdiag = .true.
@@ -2572,7 +3217,7 @@ subroutine bodyset(ew,  ns,  up,           &
 
      if( bcflag(2) == 2 )then
 
-          rhsd(locplusup) = sum( croshorizmainbc(dew,           dns,            &
+          rhsd(distributed_globalID_to_localindex(locplusup)) = sum( croshorizmainbc(dew,           dns,            &
                                              slopex,        slopey,         &
                                              dsigmadew(up), dsigmadns(up),  &
                                              pt,            bcflag,         &
@@ -2601,7 +3246,7 @@ subroutine bodyset(ew,  ns,  up,           &
 
      else if( bcflag(2) /= 2 )then
 
-          rhsd(locplusup) = sum( croshorizmainbc(dew,           dns,            &
+          rhsd(distributed_globalID_to_localindex(locplusup)) = sum( croshorizmainbc(dew,           dns,            &
                                              slopex,        slopey,         &
                                              dsigmadew(up), dsigmadns(up),  &
                                              pt,            bcflag,         &
@@ -2666,7 +3311,7 @@ subroutine valueset(local_value)
   real (kind = dp), intent(in) :: local_value
 
   call putpcgc(1.0_dp,locplusup,locplusup)
-  rhsd(locplusup) = local_value
+  rhsd(distributed_globalID_to_localindex(locplusup)) = local_value
 
   return
 
@@ -3536,7 +4181,6 @@ end function horiztermds
 subroutine fillsprsemain(inp,locplusup,ptindx,up,pt)
 
   ! scatter coefficients from 3x3x3 block "g" onto sparse matrix row
-  ! scatter coefficients from 3x3x3 block "g" onto sparse matrix row
   implicit none
 
   real (kind = dp), dimension(3,3,3), intent(in):: inp
@@ -3956,7 +4600,7 @@ end subroutine calcbetasquared
 subroutine plasticbediteration( )  
 
     !!! NOTE: This subroutine is under development, in support of  Newton-type iteration on a plastic-till
-    !!!       basal boundary condition. It will supported in a future release of CISM.
+    !!!       basal boundary condition. It will be supported in a future release of CISM.
 
 end subroutine plasticbediteration
 
@@ -4235,6 +4879,9 @@ subroutine putpcgc(value,col,row,pt)
            !AGS: If we find that sparsity changes inside a time step,
            !     consider adding entry even for value==0.
            call putintotrilinosmatrix(row, col, value) 
+
+           !JEFF: Verify matrix matches for globalIDs case
+           ! call verify_trilinos_rowcolval(row, col, value)
         end if
 #endif
     end if
@@ -4296,6 +4943,114 @@ end subroutine putpcgc
 
 !***********************************************************************
 
+  subroutine distributed_create_partition(ewn, nsn, upstride, mask, mySize, myIndices)
+  	! distributed_create_partition builds myIndices ID vector for Trilinos using (ns,ew) coordinates in mask
+  	! ewn, nsn, are bounds for mask (including halos).
+  	! upstride is the total number of vertical layers including any ghosts
+  	! mask is ice mask with non-zero values for cells with ice.
+  	! mySize is number of elements in myIndices
+  	! myIndices is integer vector in which IDs are def
+	  use parallel
+
+ 	  implicit none
+
+	  integer, intent(in) :: ewn, nsn, upstride
+	  integer, intent(in), dimension(:,:) :: mask
+	  integer, intent(in) :: mySize
+	  integer, intent(out), dimension(:) :: myIndices
+
+	  integer :: ew, ns, pointno
+	  integer :: glblID, upindx, slnindx
+
+
+      ! Step through mask, but exclude halo
+	  do ew = 1+staggered_lhalo,size(mask,1)-staggered_uhalo
+	     do ns = 1+staggered_lhalo,size(mask,2)-staggered_uhalo
+	        if ( mask(ew,ns) /= 0 ) then
+	          pointno = mask(ew,ns)  ! Note that pointno starts at value 1.  If we step through correctly then consecutive values
+	          ! write(*,*) "pointno = ", pointno
+	          ! first layer ID is set from parallel_globalID, rest by incrementing through layers
+	          glblID = parallel_globalID(ns, ew, upstride)
+	          ! write(*,*) "global ID (ew, ns) = (", ew, ",", ns, ") ", glblID
+	          upindx = 0
+	          do slnindx = (pointno - 1) * upstride + 1, pointno * upstride
+	              ! slnindx is offset into myIndices for current ice cell's layers. upindx is offset from current globalID.
+  	              myIndices(slnindx) = glblID + upindx
+  	              upindx = upindx + 1
+  	              ! write(*,*) "myIndices offset = ", slnindx
+	          end do
+	        endif
+	      end do
+	  end do
+
+	  return
+  end subroutine
+
+!***********************************************************************
+
+  function distributed_globalID_to_localindex(globalID)
+  	! distributed_globalID_to_localindex searches myIndices ID vector for given globalID and returns the corresponding index.
+  	! This converts a globalID to its position in the solution vector.
+  	! This is required for setting rhsd which is indexed by the solution vector index.
+  	! myIndices is assumed to be a module-level variable which holds the local processor's ID partition list.
+  	! This function will work for both globalIDs and regular partitions.
+  	! In the latter case it is redundant, because the ID will be at the same index, so it is just an identity function.
+  	! JEFF 11/2010
+	  use parallel
+
+ 	  implicit none
+
+	  integer, intent(in) :: globalID
+
+	  integer :: distributed_globalID_to_localindex, lindex
+
+#ifdef globalIDs
+      ! linear search from beginning of myIndices.
+      ! Inefficient.  There could be some ordering of myIndices that would enable us to us a binary search.  Not certain at this time.
+	  do lindex = 1, size(myIndices)
+	     if ( myIndices(lindex) == globalID ) then
+	     	distributed_globalID_to_localindex = lindex
+	     	return
+	     endif
+	  end do
+
+	  ! If get to here, then no match found.  Return -1 to cause bounds check error.
+	  write(*,*) "Error in distributed_globalID_to_localindex().  GlobalID to match = ", globalID
+	  write(*,*) "MyIndices vector = "
+	  write(*,*) myIndices
+
+	  distributed_globalID_to_localindex = -1
+	  return
+#else
+      distributed_globalID_to_localindex = globalID
+      return
+#endif
+
+  end function distributed_globalID_to_localindex
+
+!***********************************************************************
+
+  subroutine verify_trilinos_rowcolval(row, col, value)
+     ! Translates back globalID row and col values to their original grid values and outputs the set
+     ! For verification of the matrix passed to Trilinos.
+     ! JEFF November 2010
+     integer, intent(in) :: row, col
+     real (kind = dp), intent(in) :: value
+     integer :: locrow, loccol
+
+#ifdef globalIDs
+     locrow = distributed_globalID_to_localindex(row)
+     loccol = distributed_globalID_to_localindex(col)
+#else
+     locrow = row
+     loccol = col
+#endif
+
+     write (*,*) "Row = ", locrow, " Col = ", loccol, " Value = ", value
+  end subroutine verify_trilinos_rowcolval
+
+!***********************************************************************
+
 function scalebasalbc( coeffblock, bcflag, lateralboundry, beta, efvs )
 
   ! *sfp* This function is used to scale the matrix coeffs and rhs vector coeff
@@ -4344,141 +5099,84 @@ function scalebasalbc( coeffblock, bcflag, lateralboundry, beta, efvs )
 
 end function scalebasalbc   
 
-!  Subroutine for calculation of residual vect using L2norm. 
-!  uvec is either u^k-1 or v^k-1 on input and Av-b or Cu-d on output
-!  Written by J.F. Lemeiux
-subroutine res_vect ( matrix, uvec, bvec, nu, counter, g_flag, L2square, whatsparse)
+!***********************************************************************
 
-
-use glimmer_paramets, only : dp
-use glimmer_sparse_type
-use glimmer_sparse
-use glide_mask
-
-implicit none
-
-integer :: i, j, counter, nu, nele, whatsparse ! nu: size of uvec and bvec
-integer, dimension(nu), intent(in) :: g_flag ! 0 :reg cell
-                                             ! 1 :top ghost, 2 :base ghost
-
-type(sparse_matrix_type),  intent(in) :: matrix
-
-real (kind = dp), dimension(nu), intent(in) :: bvec
-real (kind = dp), dimension(nu), intent(inout) :: uvec
-real (kind = dp), dimension(nu) :: Au_b_wig
-real (kind = dp), intent(out) :: L2square
-! 
-real (kind = dp) :: scale_ghosts = 0.0d0
-
-! calculate residual vector of the u OR v component
-
-      Au_b_wig = 0d0 ! regular+ghost cells
-
-     if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
-
-        do nele = 1, matrix%nonzeros
-
-           i = matrix%row(nele)
-           j = matrix%col(nele)
-           Au_b_wig(i) = Au_b_wig(i) + matrix%val(nele) * uvec(j)
-
-        enddo
-
-#ifdef TRILINOS
-     else
-       call matvecwithtrilinos(uvec, Au_b_wig);
-#endif
-     endif
-
-      do i = 1, nu
-         Au_b_wig(i) = Au_b_wig(i) - bvec(i)
-      enddo
-
-      uvec = Au_b_wig
-
-! AGS: Residual norm includes scaling to decrease importance of ghost values
-! By calling it a redefinition of an inner product, it is kosher.
-      L2square = 0.0
-      do i = 1, nu
-         if (g_flag(i) .eq. 0) then
-            L2square = L2square + Au_b_wig(i) * Au_b_wig(i)
-         else
-            L2square = L2square + scale_ghosts * Au_b_wig(i) * Au_b_wig(i)
-         endif
-      end do
-
-      return
-
-end subroutine res_vect
-
-subroutine output_res( ewn, nsn, upn, uindx, counter, nu, reswrapped, u_or_v)
-! This routine can be used for debugging and evalution of the nonlinear 
-! numerical scheme (Picard iteration...and later Newton). It unwraps the 
-! residual on the grid, either for the u comp (u_or_v = 1) or the 
-! v comp (u_or_v = 2).
-! Written by J.F. Lemeiux
-
-use glimmer_paramets, only : dp
-use netcdf
-
+subroutine init_resid_type(resid_object, model, uindx, umask, &
+     d2thckdewdns, d2usrfdewdns, pcgsize, gx_flag, matrixA, matrixC, L2norm, ewn, nsn)
+  
+  use iso_c_binding 
+  use glide_types, only : glide_global_type, pass_through
+  use glimmer_sparse_type, only : sparse_matrix_type
+  
   implicit none
+  
+  type(glide_global_type)  ,intent(in) :: model
+  type(sparse_matrix_type) ,intent(in) :: matrixA, matrixC
+  
+  integer :: i, j
+  integer                   ,intent(in) :: ewn, nsn
+  integer, dimension(2)     ,intent(in) :: pcgsize
+  integer                   ,intent(in) :: gx_flag(2*pcgsize(1)) ! 0 :reg cell
+  integer                   ,intent(in) :: uindx(ewn-1,nsn-1), umask(ewn-1,nsn-1)
+  real (kind = dp)          ,intent(in) :: L2norm
+  real (kind = dp)          ,intent(in) :: d2thckdewdns(ewn-1,nsn-1), d2usrfdewdns(ewn-1,nsn-1)
+  
+  type(pass_through)     ,intent(out) :: resid_object
+  
+  allocate(resid_object%ui(ewn-1,nsn-1) )
+  allocate(resid_object%um(ewn-1,nsn-1) ) 
+  allocate(resid_object%d2thckcross(ewn-1,nsn-1) )
+  allocate(resid_object%d2usrfcross(ewn-1,nsn-1) ) 
+  allocate(resid_object%gxf( 2*pcgsize(1) ) )
+  
+  resid_object%model%general%ewn = model%general%ewn
+  resid_object%model%general%nsn = model%general%nsn
+  resid_object%model%general%upn = model%general%upn
+  resid_object%model%numerics%dew = model%numerics%dew
+  resid_object%model%numerics%dns = model%numerics%dns
+  resid_object%model%numerics%sigma => model%numerics%sigma(:)
+  resid_object%model%numerics%stagsigma => model%numerics%stagsigma(:)
+  resid_object%model%geometry%thck => model%geometry%thck(:,:)
+  resid_object%model%geometry%lsrf => model%geometry%lsrf(:,:)
+  resid_object%model%geometry%topg => model%geometry%topg(:,:)
+  resid_object%model%geomderv%dthckdew => model%geomderv%dthckdew(:,:)
+  resid_object%model%geomderv%dthckdns => model%geomderv%dthckdns(:,:)
+  resid_object%model%geomderv%dusrfdew => model%geomderv%dusrfdew(:,:)
+  resid_object%model%geomderv%dusrfdns => model%geomderv%dusrfdns(:,:)
+  resid_object%model%geomderv%dlsrfdew => model%geomderv%dlsrfdew(:,:)
+  resid_object%model%geomderv%dlsrfdns => model%geomderv%dlsrfdns(:,:)
+  resid_object%model%geomderv%d2thckdew2 => model%geomderv%d2thckdew2(:,:) 
+  resid_object%model%geomderv%d2thckdns2 => model%geomderv%d2thckdns2(:,:) 
+  resid_object%model%geomderv%d2usrfdew2 => model%geomderv%d2usrfdew2(:,:) 
+  resid_object%model%geomderv%d2usrfdns2 => model%geomderv%d2usrfdns2(:,:) 
+  resid_object%model%geomderv%stagthck => model%geomderv%stagthck(:,:)
+  resid_object%model%temper%flwa => model%temper%flwa(:,:,:)
+  resid_object%model%basalproc%minTauf => model%basalproc%minTauf(:,:)
+  resid_object%model%velocity_hom%btraction => model%velocity_hom%btraction(:,:,:)
+  resid_object%model%options%which_ho_babc = model%options%which_ho_babc
+  resid_object%model%options%which_ho_efvs = model%options%which_ho_efvs
+  resid_object%model%options%which_ho_sparse = model%options%which_ho_sparse
+  resid_object%model%velocity_hom%beta => model%velocity_hom%beta(:,:)
+  do i = 1, ewn-1 
+   do j = 1, nsn-1 
+    resid_object%ui(i,j)  = uindx(i,j)
+    resid_object%um(i,j)  = umask(i,j)
+    resid_object%d2thckcross(i,j) = d2thckdewdns(i,j) 
+    resid_object%d2usrfcross(i,j) = d2usrfdewdns(i,j) 
+   end do
+  end do
+  resid_object%pcgsize = pcgsize
+  do i = 1, 2*pcgsize(1)
+   resid_object%gxf(i) = gx_flag(i)
+  end do
+  resid_object%L2norm = L2norm
+  resid_object%matrixA = matrixA
+  resid_object%matrixC = matrixC
+  resid_object%model%velocity_hom%efvs => model%velocity_hom%efvs(:,:,:)
+  resid_object%model%velocity_hom%uvel => model%velocity_hom%uvel(:,:,:)
+  resid_object%model%velocity_hom%vvel => model%velocity_hom%vvel(:,:,:)
 
-  integer, intent(in) :: ewn, nsn, upn, counter, nu, u_or_v
-  integer, dimension(ewn-1,nsn-1), intent(in) :: uindx
-  real (kind = dp), dimension(nu), intent(in) :: reswrapped
-  real (kind = dp), dimension(ewn-1,nsn-1, upn) :: resgrid
-
-  integer, dimension(2) :: loc
-  integer :: ew, ns, up, upl, nc_id, ns_id, ew_id, up_id, res_id, status
-  integer :: dimids(3)
-
-  character filename*30
-
-      do ns = 1,nsn-1 !had to flip indices in matrix because of netcdf
-         do ew = 1,ewn-1
-            if (uindx(ew,ns) /= 0) then
-               loc(:) = (uindx(ew,ns) - 1) * (upn + 2) + 1 + (/ 1, upn /)
-! loc is the same as given by the function getlocrange in glam_str2.F90
-               resgrid(ew,ns,:) = abs(reswrapped(loc(1):loc(2)))
-            else
-!               resgrid(ew,ns,:) = -999d0 ! no ice
-               resgrid(ew,ns,:) = -1d0 ! no ice
-            end if
-         end do
-      end do
-
-      if ( u_or_v .eq. 1) then
-         write (filename, '("res_ucomp_k",i2.2,".nc")') counter
-      elseif ( u_or_v .eq. 2) then
-         write (filename, '("res_vcomp_k",i2.2,".nc")') counter
-      endif
-
-      call check(nf90_create(filename, NF90_CLOBBER, nc_id))
-      call check(nf90_def_dim(nc_id,'n-s',nsn-1,ns_id))
-      call check(nf90_def_dim(nc_id,'e-w',ewn-1,ew_id))
-      call check(nf90_def_dim(nc_id,'up',upn,up_id))
-
-      dimids(3) = up_id
-      dimids(1) = ew_id
-      dimids(2) = ns_id
-
-      call check(nf90_def_var(nc_id,'residual',NF90_DOUBLE, dimids, res_id))
-      call check( nf90_enddef(nc_id) )
-      call check(nf90_put_var(nc_id,res_id,resgrid))
-      call check(nf90_close(nc_id))
-
-end subroutine output_res
-
-subroutine check(status_code)
-      use netcdf
-      integer,intent(in) :: status_code
-
-      if (status_code /= 0) then
-         write(*,*) 'fatal netcdf error:',nf90_strerror(status_code)
-         stop
-      end if
-end subroutine check
-
+end subroutine init_resid_type
 
 !***********************************************************************
 
