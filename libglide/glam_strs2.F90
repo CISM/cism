@@ -699,21 +699,22 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 
     if (this_rank == 0) then
         ! Can't use main_task flag because main_task is true for all processors in case of parallel_single
-!    ! output the iteration status: iteration number, max residual, and location of max residual
-!    ! (send output to the screen or to the log file, per whichever line is commented out) 
-    if( whichresid == 3 )then
-        print '(i4,3g20.6)', counter, L2norm, NL_target    ! Output when using L2norm for convergence
-        !write(message,'(i4,3g20.6)') counter, L2norm, NL_target
-        !call write_log (message)
-    else
-        print '(i4,3g20.6)', counter, resid(1), resid(2), minres
-        !write(message,'(" * strs ",i3,3g20.6)') counter, resid(1), resid(2), minres
-        !call write_log (message)
-    end if
+        ! output the iteration status: iteration number, max residual, and location of max residual
+        ! (send output to the screen or to the log file, per whichever line is commented out) 
+        if( whichresid == 3 )then
+            print '(i4,3g20.6)', counter, L2norm, NL_target    ! Output when using L2norm for convergence
+            !write(message,'(i4,3g20.6)') counter, L2norm, NL_target
+            !call write_log (message)
+        else
+            print '(i4,3g20.6)', counter, resid(1), resid(2), minres
+            !write(message,'(" * strs ",i3,3g20.6)') counter, resid(1), resid(2), minres
+            !call write_log (message)
+        end if
 
-    counter = counter + 1   ! advance the iteration counter
+        counter = counter + 1   ! advance the iteration counter
+    endif
 
-  end do
+  end do 
 
   ! ****************************************************************************************
   ! END of Picard iteration
@@ -765,7 +766,7 @@ end subroutine glam_velo_fordsiapstr
 
 !***********************************************************************
 
-subroutine JFNK                 (model,umask,tstep)
+subroutine JFNK                 (model,umask)
 
   use parallel
 
@@ -780,7 +781,6 @@ subroutine JFNK                 (model,umask,tstep)
                                                       ! ... 'inout' status allows for a minor alteration
                                                       ! to cism defined mask, which don't necessarily 
                                                       ! associate all/any boundaries as a unique mask value.
-  integer, intent(in) :: tstep
 
 ! new glide_global_type variables for everything needed to pass thru trilinos NOX to calc_F as a pointer.
   type(pass_through) ,target  :: resid_object
@@ -884,7 +884,7 @@ subroutine JFNK                 (model,umask,tstep)
   stagthck => model%geomderv%stagthck(:,:)
   flwa => model%temper%flwa(:,:,:)
   mintauf => model%basalproc%minTauf(:,:)
-  btraction = model%velocity_hom%btraction(:,:,:)
+  btraction = model%velocity%btraction(:,:,:)
   whichbabc = model%options%which_ho_babc
   whichefvs = model%options%which_ho_efvs
   whichresid = model%options%which_ho_resid
@@ -892,13 +892,13 @@ subroutine JFNK                 (model,umask,tstep)
   whichnonlinear = model%options%which_ho_nonlinear
   periodic_ew = model%options%periodic_ew
   periodic_ns = model%options%periodic_ns
-  beta => model%velocity_hom%beta(:,:)
+  beta => model%velocity%beta(:,:)
 
-  uvel => model%velocity_hom%uvel(:,:,:)
-  vvel => model%velocity_hom%vvel(:,:,:)
-  uflx => model%velocity_hom%uflx(:,:)
-  vflx => model%velocity_hom%vflx(:,:)
-  efvs => model%velocity_hom%efvs(:,:,:)
+  uvel => model%velocity%uvel(:,:,:)
+  vvel => model%velocity%vvel(:,:,:)
+  uflx => model%velocity%uflx(:,:)
+  vflx => model%velocity%vflx(:,:)
+  efvs => model%stress%efvs(:,:,:)
 
   flwa(:,:,:)=flwa(:,:,:)*vis0/vis0_glam
 
@@ -1191,11 +1191,11 @@ subroutine JFNK                 (model,umask,tstep)
   deallocate(wk1, wk2)
   deallocate(vv, wk)
 
-  model%velocity_hom%uvel = uvel
-  model%velocity_hom%vvel = vvel
-  model%velocity_hom%uflx = uflx
-  model%velocity_hom%vflx = vflx
-  model%velocity_hom%efvs = efvs
+  model%velocity%uvel = uvel
+  model%velocity%vvel = vvel
+  model%velocity%uflx = uflx
+  model%velocity%vflx = vflx
+  model%stress%efvs = efvs
 
   return
 end subroutine JFNK
@@ -2027,13 +2027,13 @@ end subroutine apply_precond_nox
   d2usrfdew2 => fptr%model%geomderv%d2usrfdew2(:,:)
   d2usrfdns2 => fptr%model%geomderv%d2usrfdns2(:,:)
   minTauf => fptr%model%basalproc%minTauf(:,:)
-  beta => fptr%model%velocity_hom%beta(:,:)
+  beta => fptr%model%velocity%beta(:,:)
 !intent (inout) terms
-  btraction => fptr%model%velocity_hom%btraction(:,:,:)
+  btraction => fptr%model%velocity%btraction(:,:,:)
   flwa => fptr%model%temper%flwa(:,:,:)
-  efvs => fptr%model%velocity_hom%efvs(:,:,:)
-  uvel => fptr%model%velocity_hom%uvel(:,:,:)
-  vvel => fptr%model%velocity_hom%vvel(:,:,:)
+  efvs => fptr%model%stress%efvs(:,:,:)
+  uvel => fptr%model%velocity%uvel(:,:,:)
+  vvel => fptr%model%velocity%vvel(:,:,:)
   L2norm = fptr%L2norm
 
   allocate( ui(ewn-1,nsn-1), um(ewn-1,nsn-1) )
@@ -2158,12 +2158,12 @@ end subroutine apply_precond_nox
     call solver_postprocess_jfnk( ewn, nsn, upn, ui, xtp, vvel, uvel, ghostbvel, pcgsize(1) )
 
 
-  fptr%model%velocity_hom%btraction => btraction(:,:,:)
-  fptr%model%velocity_hom%btraction => btraction(:,:,:)
+  fptr%model%velocity%btraction => btraction(:,:,:)
+  fptr%model%velocity%btraction => btraction(:,:,:)
   fptr%model%temper%flwa => flwa(:,:,:)
-  fptr%model%velocity_hom%efvs => efvs(:,:,:)
-  fptr%model%velocity_hom%uvel => uvel(:,:,:)
-  fptr%model%velocity_hom%vvel => vvel(:,:,:)
+  fptr%model%stress%efvs => efvs(:,:,:)
+  fptr%model%velocity%uvel => uvel(:,:,:)
+  fptr%model%velocity%vvel => vvel(:,:,:)
 
   fptr%L2norm = L2norm
   fptr%matrixA = matrixA
@@ -3075,7 +3075,7 @@ subroutine bodyset(ew,  ns,  up,           &
     ! --------------------------------------------------------------------------------------
     ! (2) source term (strain rate at shelf/ocean boundary) from MacAyeal depth-ave solution. 
     ! --------------------------------------------------------------------------------------
-    source = (rhoi*grav*stagthck(ew,ns)*thk0) / tau0_glam / 2.0_dp * ( 1.0_dp - rhoi / rhoo )
+    source = (rhoi*grav*stagthck(ew,ns)*thk0) / tau0 / 2.0_dp * ( 1.0_dp - rhoi / rhoo )
 
     ! terms after "/" below count number of non-zero efvs cells ... needed for averaging of the efvs at boundary 
     source = source / ( sum(local_efvs, local_efvs > 1.0d-12) / &
@@ -5152,11 +5152,11 @@ subroutine init_resid_type(resid_object, model, uindx, umask, &
   resid_object%model%geomderv%stagthck => model%geomderv%stagthck(:,:)
   resid_object%model%temper%flwa => model%temper%flwa(:,:,:)
   resid_object%model%basalproc%minTauf => model%basalproc%minTauf(:,:)
-  resid_object%model%velocity_hom%btraction => model%velocity_hom%btraction(:,:,:)
+  resid_object%model%velocity%btraction => model%velocity%btraction(:,:,:)
   resid_object%model%options%which_ho_babc = model%options%which_ho_babc
   resid_object%model%options%which_ho_efvs = model%options%which_ho_efvs
   resid_object%model%options%which_ho_sparse = model%options%which_ho_sparse
-  resid_object%model%velocity_hom%beta => model%velocity_hom%beta(:,:)
+  resid_object%model%velocity%beta => model%velocity%beta(:,:)
   do i = 1, ewn-1 
    do j = 1, nsn-1 
     resid_object%ui(i,j)  = uindx(i,j)
@@ -5172,9 +5172,9 @@ subroutine init_resid_type(resid_object, model, uindx, umask, &
   resid_object%L2norm = L2norm
   resid_object%matrixA = matrixA
   resid_object%matrixC = matrixC
-  resid_object%model%velocity_hom%efvs => model%velocity_hom%efvs(:,:,:)
-  resid_object%model%velocity_hom%uvel => model%velocity_hom%uvel(:,:,:)
-  resid_object%model%velocity_hom%vvel => model%velocity_hom%vvel(:,:,:)
+  resid_object%model%stress%efvs => model%stress%efvs(:,:,:)
+  resid_object%model%velocity%uvel => model%velocity%uvel(:,:,:)
+  resid_object%model%velocity%vvel => model%velocity%vvel(:,:,:)
 
 end subroutine init_resid_type
 

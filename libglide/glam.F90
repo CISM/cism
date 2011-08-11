@@ -84,12 +84,12 @@ module glam
         ! JEFF Glue Code to serialize
         ! Glue code to gather the distributed variables back to main_task processor.
         ! These are outputs from run_ho_diagnostic and are gathered presuming they will be used
-        call distributed_gather_var(model%velocity_hom%efvs, gathered_efvs)
-        call distributed_gather_var(model%velocity_hom%uvel, gathered_uvel)
-        call distributed_gather_var(model%velocity_hom%vvel, gathered_vvel)
-        call distributed_gather_var(model%velocity_hom%uflx, gathered_uflx)
-        call distributed_gather_var(model%velocity_hom%vflx, gathered_vflx)
-        call distributed_gather_var(model%velocity_hom%velnorm, gathered_velnorm)
+        call distributed_gather_var(model%stress%efvs, gathered_efvs)
+        call distributed_gather_var(model%velocity%uvel, gathered_uvel)
+        call distributed_gather_var(model%velocity%vvel, gathered_vvel)
+        call distributed_gather_var(model%velocity%uflx, gathered_uflx)
+        call distributed_gather_var(model%velocity%vflx, gathered_vflx)
+        call distributed_gather_var(model%velocity%velnorm, gathered_velnorm)
 
         !Verifying that distributed_gather is working.
         ! call distributed_print("uvel_distributed", model%velocity_hom%uvel)
@@ -144,6 +144,7 @@ module glam
 	                                     gathered_thck(1:model%general%ewn-1,1:model%general%nsn-1),  &
 	                                     gathered_uflx, gathered_vflx,               &
 	                                     gathered_stagthck, model%numerics%thklim,                 &
+                                             model%options%periodic_ew,             model%options%periodic_ns, &
 	                                     gathered_uvel, gathered_vvel,               &
 	                                     gathered_temp  (1:model%general%upn-1,                        &
 	                                                         1:model%general%ewn-1,1:model%general%nsn-1))
@@ -269,9 +270,9 @@ module glam
                                              model%general%ewn,         model%general%nsn,         &
                                              model%general%upn-1,       model%numerics%sigma,      &
                                              nghost_transport,          ntracer_transport,         &
-                                             model%velocity_hom%uvel(:,:,:) * vel0,                &
-                                             model%velocity_hom%vvel(:,:,:) * vel0,                &
-                                             model%geometry%thck(:,:),                             &
+                                             gathered_uvel(:,:,:) * vel0,                &
+                                             gathered_vvel(:,:,:) * vel0,                &
+                                             gathered_thck(:,:),                             &
                                              model%temper%temp(1:model%general%upn-1,:,:) )
 
            else  ! Use IR to transport thickness only
@@ -287,9 +288,9 @@ module glam
                                              model%general%ewn,         model%general%nsn,         &
                                              model%general%upn-1,       model%numerics%sigma,      &
                                              nghost_transport,          1,                         &
-                                             model%velocity_hom%uvel(:,:,:) * vel0,                &
-                                             model%velocity_hom%vvel(:,:,:) * vel0,                &
-                                             model%geometry%thck(:,:))
+                                             gathered_uvel(:,:,:) * vel0,                &
+                                             gathered_vvel(:,:,:) * vel0,                &
+                                             gathered_thck(:,:))
 
            endif  ! whichtemp
 

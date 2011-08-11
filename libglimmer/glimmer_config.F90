@@ -104,8 +104,6 @@ contains
 
   !> read a configuration file
   subroutine ConfigRead(fname,config,fileunit)
-
-  subroutine ConfigRead(fname,config)
     !*FD read configuration file
     use parallel
     use glimmer_log

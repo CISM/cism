@@ -1029,9 +1029,10 @@ contains
     tau_y = tau_x * dusrfdns
     tau_x = tau_x * dusrfdew
 
-    model%stress%tau_x = -rhoi*grav*model%geomderv%stagthck
-    model%stress%tau_y = model%stress%tau_x * model%geomderv%dusrfdns
-    model%stress%tau_x = model%stress%tau_x * model%geomderv%dusrfdew
+    !JEFF Are these replaced by the three lines above? They are not compiling.  7/28/11 
+    ! model%stress%tau_x = -rhoi*grav*model%geomderv%stagthck
+    ! model%stress%tau_y = model%stress%tau_x * model%geomderv%dusrfdns
+    ! model%stress%tau_x = model%stress%tau_x * model%geomderv%dusrfdew
   end subroutine calc_basal_shear
 
 end module glide_velo

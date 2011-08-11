@@ -545,7 +545,7 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  type glide_stress      
+  type glide_stress_t      
 
     type(glide_tensor) :: tau
     real(dp),dimension(:,:,:),pointer :: efvs => null()
@@ -555,7 +555,7 @@ module glide_types
 !    real(dp),dimension(:,:,:)  ,pointer :: gdsx => null() !*FD basal shear stress, x-dir
 !    real(dp),dimension(:,:,:)  ,pointer :: gdsy => null() !*FD basal shear stress, y-dir
 
-  end type glide_stress      
+  end type glide_stress_t      
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -882,7 +882,7 @@ module glide_types
     type(glide_geometry) :: geometry
     type(glide_geomderv) :: geomderv
     type(glide_velocity) :: velocity
-    type(glide_stress) :: stress   
+    type(glide_stress_t) :: stress   
     type(glide_climate)  :: climate
     type(glide_temper)   :: temper
     type(glide_lithot_type) :: lithot

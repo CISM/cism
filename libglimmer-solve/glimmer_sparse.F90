@@ -153,11 +153,6 @@ contains
             allocate(workspace%umf)
             call umf_allocate_workspace(matrix, options%umf, workspace%umf, max_nonzeros)
 
-        else if (options%base%method == SPARSE_SOLVER_TRILINOS) then
-            allocate(workspace%trilinos)
-            call trilinos_allocate_workspace(matrix, options%trilinos, &
-                                      workspace%trilinos, max_nonzeros)
-
         else if (options%base%method == SPARSE_SOLVER_PARDISO) then
 			call not_parallel(__FILE__,__LINE__)
             allocate(workspace%pardiso)

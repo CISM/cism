@@ -320,6 +320,7 @@ contains
     use glimmer_log
     use glimmer_paramets, only: len0
     use glimmer_filenames
+    use parallel
     implicit none
     type(glimmer_nc_input), pointer :: infile
     !*FD structure containg input netCDF descriptor

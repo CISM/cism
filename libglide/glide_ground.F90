@@ -69,7 +69,8 @@ contains
     real(dp),dimension(:,:),intent(in)    :: topg    !*FD Present bedrock topography (scaled)
     real(dp),dimension(:,:,:),intent(in)  :: flwa    !*FD Vertically averaged ice hardness
     real(dp),dimension(:)    ,intent(in)  :: levels    !*FD Vertically averaged ice hardness
-    integer, dimension(:,:),pointer       :: mask    !*FD grid type mask
+    !JEFF removing pointer attribute integer, dimension(:,:),pointer       :: mask    !*FD grid type mask
+    integer, dimension(:,:)       :: mask    !*FD grid type mask
     real(dp)                              :: mlimit  !*FD Lower limit on topography elevation for
                                                      !*FD ice to be present (scaled). Used with 
                                                      !*FD $\mathtt{which}=0$.
@@ -249,7 +250,8 @@ contains
   subroutine calc_gline_flux(stagthk, surfvel, mask, gline_flux, ubas, vbas, &
   dew)
     implicit none
-    integer, dimension(:,:),pointer       :: mask    !*FD grid type mask
+    !JEFF removing pointer attribute integer, dimension(:,:),pointer       :: mask    !*FD grid type mask
+    integer, dimension(:,:)       :: mask    !*FD grid type mask
     real(dp),dimension(:,:),intent(in) :: stagthk    !*FD Ice thickness (scaled)
     real(dp),dimension(:,:,:), intent(in) :: surfvel !*FD Surface velocity
     real(dp),dimension(:,:), intent(inout) :: gline_flux !*FD Grounding Line flux
@@ -363,7 +365,8 @@ contains
      real, intent(in) :: eus                       !*FD eustatic sea level
      real(dp), intent(in) ::  dew, dns
      integer, intent(in) ::  ewn, nsn
-     integer, dimension(:,:),pointer :: mask    !*FD grid type mask
+     !JEFF remove pointer attribute integer, dimension(:,:),pointer :: mask    !*FD grid type mask
+     integer, dimension(:,:) :: mask    !*FD grid type mask
      integer ew,ns,jns,jew,j1ns,j1ew
      real(sp) :: xg                        !grounding line
      !this is assuming the grounding line is the last grounded pt on the mask

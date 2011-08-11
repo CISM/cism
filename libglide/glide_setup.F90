@@ -194,6 +194,8 @@ contains
     use glimmer_log
     use glimmer_filenames
     use glimmer_global, only: dp
+    use parallel
+
     implicit none
 
     ! Arguments

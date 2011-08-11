@@ -269,7 +269,7 @@ contains
            call horizontal_remap_init( model%remap_wk,    &
                                        model%numerics%dew, model%numerics%dns,  &
                                        global_ewn,  global_nsn, &
-                                       model%options%periodic_ew, model%options%periodic_ns))
+                                       model%options%periodic_ew, model%options%periodic_ns)
         endif ! whichtemp
 
     endif 
@@ -577,12 +577,12 @@ contains
        ! These gathers effective just create variables of the correct size to hold the values.
        ! If I had a better mechanism, then I could just create the variables locally,
        ! then distribute at the end.
-       call distributed_gather_var(model%velocity_hom%tau%xx, gathered_tauxx)
-       call distributed_gather_var(model%velocity_hom%tau%yy, gathered_tauyy)
-       call distributed_gather_var(model%velocity_hom%tau%xy, gathered_tauxy)
-       call distributed_gather_var(model%velocity_hom%tau%scalar, gathered_tauscalar)
-       call distributed_gather_var(model%velocity_hom%tau%xz, gathered_tauxz)
-       call distributed_gather_var(model%velocity_hom%tau%yz, gathered_tauyz)
+       call distributed_gather_var(model%stress%tau%xx, gathered_tauxx)
+       call distributed_gather_var(model%stress%tau%yy, gathered_tauyy)
+       call distributed_gather_var(model%stress%tau%xy, gathered_tauxy)
+       call distributed_gather_var(model%stress%tau%scalar, gathered_tauscalar)
+       call distributed_gather_var(model%stress%tau%xz, gathered_tauxz)
+       call distributed_gather_var(model%stress%tau%yz, gathered_tauyz)
 
        if (main_task) then
           call glide_stress( model )       !*sfp* added for populating stress tensor w/ HO fields
@@ -772,8 +772,8 @@ contains
 #ifdef JEFFORIG
     call calc_basal_shear(model)
 #endif
-    call distributed_gather_var(model%velocity%tau_x, gathered_tau_x)
-    call distributed_gather_var(model%velocity%tau_y, gathered_tau_y)
+    call distributed_gather_var(model%stress%tau_x, gathered_tau_x)
+    call distributed_gather_var(model%stress%tau_y, gathered_tau_y)
 
     if (main_task) then
 	    call calc_basal_shear(gathered_stagthck, &

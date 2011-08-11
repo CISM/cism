@@ -12,6 +12,7 @@ module stress_hom
     contains
 
     subroutine glide_calcstrsstr( model )
+        use parallel
 
         type(glide_global_type) :: model
 

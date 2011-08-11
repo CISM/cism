@@ -94,7 +94,7 @@ contains
           else if ( model%options%which_ho_nonlinear == HO_NONLIN_JFNK ) then ! JFNK (solver in development...)
 
 ! noxsolve could eventually go here 
-            call JFNK                  (model, geom_mask_stag, tstep) 
+            call JFNK                  (model, geom_mask_stag) 
 
           else
               call write_log('Invalid which_ho_nonlinear option.',GM_FATAL)
