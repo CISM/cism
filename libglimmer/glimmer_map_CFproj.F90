@@ -42,6 +42,7 @@
 module glimmer_map_CFproj
 
   use glimmer_map_types
+  use glimmer_ncdf, only: nc_errorhandle
 
   implicit none
 
@@ -169,6 +170,7 @@ contains
   !> get parameters for stereographic projection
   function CFproj_get_stere(ncid,mapid)
     use parallel
+
     implicit none
     type(proj_stere), pointer :: CFproj_get_stere
     integer, intent(in) :: ncid   !< Handle of netCDF file.
@@ -194,6 +196,7 @@ contains
   function CFproj_get_stere_polar(ncid,mapid)
     use parallel
     use glimmer_log
+
     implicit none
     type(proj_stere), pointer :: CFproj_get_stere_polar
     integer, intent(in) :: ncid   !< Handle of netCDF file.
@@ -233,6 +236,7 @@ contains
   !> get parameters for Lambert azimuthal equal area projection
   function CFproj_get_laea(ncid,mapid)
     use parallel
+
     implicit none
     type(proj_laea), pointer :: CFproj_get_laea
     integer, intent(in) :: ncid   !< Handle of netCDF file.

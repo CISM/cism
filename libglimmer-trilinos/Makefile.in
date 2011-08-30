@@ -68,11 +68,15 @@ am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(variabledir)"
 libLTLIBRARIES_INSTALL = $(INSTALL)
 LTLIBRARIES = $(lib_LTLIBRARIES)
 libglimmertrilinos_la_LIBADD =
-am__libglimmertrilinos_la_SOURCES_DIST = trilinosLinearSolver.cpp \
-	matrixInterface.cpp trilinosPartition.cpp
+am__libglimmertrilinos_la_SOURCES_DIST = solveTriadMatrixWithTrilinos.cpp \
+                                trilinosLinearSolver.cpp \
+                                matrixInterface.cpp \
+                                trilinosPartition.cpp \
+                                trilinosNoxSolver.cpp \
+                                trilinosModelEvaluator.cpp
 @TRILINOS_TRUE@am_libglimmertrilinos_la_OBJECTS =  \
-@TRILINOS_TRUE@	trilinosLinearSolver.lo matrixInterface.lo \
-@TRILINOS_TRUE@	trilinosPartition.lo
+@TRILINOS_TRUE@	solveTriadMatrixWithTrilinos.lo trilinosLinearSolver.lo matrixInterface.lo \
+@TRILINOS_TRUE@	trilinosPartition.lo trilinosNoxSolver.lo trilinosModelEvaluator.lo
 libglimmertrilinos_la_OBJECTS = $(am_libglimmertrilinos_la_OBJECTS)
 @TRILINOS_TRUE@am_libglimmertrilinos_la_rpath = -rpath $(libdir)
 DEFAULT_INCLUDES = -I. -I$(top_builddir)@am__isrc@
@@ -310,11 +314,13 @@ top_srcdir = @top_srcdir@
 @TRILINOS_TRUE@CLEANFILES = $(BUILT_SOURCES) 
 @TRILINOS_TRUE@libglimmertrilinos_la_SOURCES = trilinosLinearSolver.cpp \
 @TRILINOS_TRUE@                                matrixInterface.cpp \
-@TRILINOS_TRUE@                                trilinosPartition.cpp
-
+@TRILINOS_TRUE@                                trilinosPartition.cpp \
+@TRILINOS_TRUE@                                solveTriadMatrixWithTrilinos.cpp \
+@TRILINOS_TRUE@                                trilinosNoxSolver.cpp \
+@TRILINOS_TRUE@                                trilinosModelEvaluator.cpp
 
 #solveTriadMatrixWithTrilinos.cpp !No Longer Used
-@TRILINOS_TRUE@libglimmertrilinos_la_DEPENDENCIES = matrixInterface.hpp
+@TRILINOS_TRUE@libglimmertrilinos_la_DEPENDENCIES = matrixInterface.hpp trilinosModelEvaluator.hpp
 
 #ALL_SRC= $(libglimmertrilinos_la_SOURCES)
 @TRILINOS_TRUE@AM_FCFLAGS = $(CXXFLAGS) $(NETCDF_CPPFLAGS) $(HDF5_CPPFLAGS)

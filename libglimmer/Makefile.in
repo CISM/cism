@@ -86,7 +86,7 @@ libglimmer_IO_la_LINK = $(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(FCLD) $(AM_FCFLAGS) $(FCFLAGS) \
 	$(libglimmer_IO_la_LDFLAGS) $(LDFLAGS) -o $@
 libglimmer_la_LIBADD =
-am_libglimmer_la_OBJECTS = glimmer_vers.lo glimmer_commandline.lo \
+am_libglimmer_la_OBJECTS = glimmer_vers.lo parallel_mpi.lo glimmer_commandline.lo \
 	glimmer_global.lo glimmer_utils.lo glimmer_log.lo \
 	glimmer_paramets.lo glimmer_physcon.lo kelvin.lo profile.lo \
 	glimmer_searchcircle.lo glimmer_coordinates.lo \
@@ -394,7 +394,7 @@ dist_variable_DATA = $(variable_DATA)
 nodist_include_HEADERS := $(wildcard *.mod)
 EXTRA_DIST = f90_dep.mak 
 CLEANFILES = $(BUILT_SOURCES) glimmer_vers.F90 f90_dep.mak $(wildcard *.mod)
-libglimmer_la_SOURCES = glimmer_vers.F90 glimmer_commandline.F90 \
+libglimmer_la_SOURCES = glimmer_vers.F90 parallel_mpi.F90 glimmer_commandline.F90 \
                        glimmer_global.F90 glimmer_utils.F90\
                        glimmer_log.F90 glimmer_paramets.F90 glimmer_physcon.F90 kelvin.F90 \
                        profile.F90  glimmer_searchcircle.F90 \

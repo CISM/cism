@@ -79,7 +79,7 @@ contains
 !EIB!#endif
 
     subroutine sparse_solver_default_options(method, opt, nonlinear)
-		use parallel
+        use parallel
         integer, intent(in) :: method
         integer, optional, intent(in) :: nonlinear    !*sfp* Picard vs. JFNK flag 
         type(sparse_solver_options) :: opt
@@ -123,7 +123,7 @@ contains
     end subroutine
 
     subroutine sparse_allocate_workspace(matrix, options, workspace, max_nonzeros_arg)
-      use parallel
+        use parallel
         !*FD Allocate solver workspace.  This needs to be done once
         !*FD (when the maximum number of nonzero entries is first known)
         !*FD This function need not be safe to call on already allocated memory

@@ -9,13 +9,17 @@ dist_variable_DATA = $(variable_DATA)
 BUILT_SOURCES = 
 CLEANFILES = $(BUILT_SOURCES) 
 
-libglimmertrilinos_la_SOURCES = trilinosLinearSolver.cpp \
+libglimmertrilinos_la_SOURCES = solveTriadMatrixWithTrilinos.cpp \
+                                trilinosLinearSolver.cpp \
                                 matrixInterface.cpp \
-                                trilinosPartition.cpp
+                                trilinosPartition.cpp \
+                                trilinosNoxSolver.cpp \
+                                trilinosModelEvaluator.cpp
 
-#solveTriadMatrixWithTrilinos.cpp !No Longer Used
+libglimmertrilinos_la_DEPENDENCIES = matrixInterface.hpp \
+                                 trilinosModelEvaluator.hpp
 
-libglimmertrilinos_la_DEPENDENCIES = matrixInterface.hpp
+
 
 #ALL_SRC= $(libglimmertrilinos_la_SOURCES)
 

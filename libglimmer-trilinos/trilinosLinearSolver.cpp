@@ -25,6 +25,8 @@ Teuchos::RCP<Thyra::LinearOpWithSolveBase<double> > lows;
 Teuchos::RCP<Thyra::LinearOpWithSolveFactoryBase<double> > lowsFactory;
 Teuchos::RCP<const Thyra::LinearOpBase<double> > thyraOper;
 
+bool returnGlobalVec = true;
+
 extern "C" {
   //================================================================
   //================================================================
@@ -80,6 +82,8 @@ extern "C" {
     lows=Teuchos::null;
     thyraOper=Teuchos::null;
   }
+
+  void returnownedvector_() { returnGlobalVec = false;}
 
   //============================================================
   // RN_20091118: This is to update the matrix with new entries.

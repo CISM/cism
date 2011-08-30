@@ -11,7 +11,7 @@ EXTRA_DIST = f90_dep.mak $(RESTART_INC_INS)
 BUILT_SOURCES = glide_io.F90  glide_lithot_io.F90
 CLEANFILES = $(BUILT_SOURCES) f90_dep.mak $(wildcard *.mod)
 
-libglide_la_SOURCES = glide.F90 glide_setup.F90 glide_types.F90 glide_temp.F90 \
+libglide_la_SOURCES = glide.F90 glide_setup.F90 glide_types.F90 res_vect.F90 glide_temp.F90 \
                       glide_temp_utils.F90 glide_thck.F90 glide_velo.F90 glide_mask.F90 \
                       glide_stop.F90 glide_io.F90 glide_lithot_io.F90 glide_nc_custom.F90 \
                       isostasy.F90 isostasy_el.F90 isostasy_setup.F90 \
@@ -24,7 +24,7 @@ libglide_la_SOURCES = glide.F90 glide_setup.F90 glide_types.F90 glide_temp.F90 \
         		      glide_thckmask.F90 glide_velo_higher.F90 xls.f90 \
         		      remap_advection.F90 remap_glamutils.F90 \
         		      glide_mask.inc glide_nan.inc glide_bwater.F90 \
-                      glimmer_restart_gcm.F90 glissade_temp.F90 \
+                      glimmer_restart_gcm.F90 glissade_remap.F90 glissade_transport.F90 glissade_temp.F90 \
                       glam_Basal_Proc.F90 fgmresD.f90
 
 libglide_la_LDFLAGS=-all-static

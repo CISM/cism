@@ -1,6 +1,6 @@
 #include "Teuchos_ConfigDefs.hpp"
 
-#ifdef GLIMMER_MPI
+#ifdef HAVE_MPI
 #include "mpi.h"
 #include "Epetra_MpiComm.h"
 #else
@@ -29,32 +29,29 @@
 #include "Thyra_LinearOpWithSolveFactoryHelpers.hpp"
 #include "Thyra_EpetraThyraWrappers.hpp"
 #include "Thyra_EpetraLinearOp.hpp"
-#include "config.inc"
 
 extern "C" {
-  void FC_FUNC(solvetriadmatrixwithtrilinos,SOLVETRIADMATRIXWITHTRILINOS)
-              (int& nnz, int& order, int* row, 
-              int* col, double* val, double* rhs, double* solution) 
-{
+
+  void solvetriadmatrixwithtrilinos_(int& nnz, int& order, int* row, 
+              int* col, double* val, double* rhs, double* solution) {
+
     try{
     
-#ifdef GLIMMER_MPI
+#ifdef HAVE_MPI
     Epetra_MpiComm Comm(MPI_COMM_WORLD);
 #else
     Epetra_SerialComm Comm;
 #endif
     
-    int i, j, ierr;
-    int MyPID = Comm.MyPID();
-    bool verbose = (MyPID == 0);
+    int j, ierr;
     Epetra_Map RowMap(order, 0, Comm);
     int NumMyElements = RowMap.NumMyElements();
     int *MyGlobalElements = new int[NumMyElements];
     RowMap.MyGlobalElements(&MyGlobalElements[0]);
 
-#ifdef GLIMMER_MPI
-    int nPEs;
-    MPI_Comm_size(MPI_COMM_WORLD, &nPEs);
+#ifdef HAVE_MPI
+    int tasks;
+    MPI_Comm_size(MPI_COMM_WORLD, &tasks);
 #endif
 
     int anEst = nnz / order + 1;
@@ -66,7 +63,7 @@ extern "C" {
 	assert(ierr >= 0);
       }
     }
-    
+
     ierr = A.FillComplete();
     assert(ierr == 0);
     
@@ -136,6 +133,8 @@ extern "C" {
     //    A.Multiply(false, x, temp);
     //    temp.Update(-1, b, 1);
     //    temp.Norm2(&residualNorm);
+
+    //    cout << "Residual Norm: " << residualNorm << endl;
 
     Epetra_LocalMap localMap(order, 0, Comm);
     Epetra_Vector xExtra(localMap); // local vector in each processor

@@ -520,6 +520,7 @@ contains
     ! driver module/subroutines for Payne/Price HO dynamics and LANL inc. remapping for dH/dt 
     use glam, only: inc_remap_driver
     use fo_upwind_advect, only: fo_upwind_advect_driver
+    use stress_hom, only : glide_calcstrsstr
 
     implicit none
 
@@ -585,7 +586,7 @@ contains
        call distributed_gather_var(model%stress%tau%yz, gathered_tauyz)
 
        if (main_task) then
-          call glide_stress( model )       !*sfp* added for populating stress tensor w/ HO fields
+          call glide_calcstrsstr( model )       !*sfp* added for populating stress tensor w/ HO fields
        endif
 
        call parallel_barrier   ! Other tasks hold here until main_task completes
