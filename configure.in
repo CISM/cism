@@ -319,6 +319,15 @@ AC_ARG_ENABLE(sp, AS_HELP_STRING([--enable-sp],[Build code as single precision])
  *) AC_MSG_ERROR(bad value ${enableval} for --enable-sp) ;;
 esac],[AC_MSG_RESULT([no])])
 
+AC_MSG_CHECKING([whether the build is parallel MPI])
+AC_ARG_ENABLE(mpi, AS_HELP_STRING([--enable-mpi],[Build code as parallel MPI]),
+[case "${enableval}" in
+ yes)  AC_MSG_RESULT([yes]);;    
+ no)   AC_MSG_RESULT([no]);;
+ *) AC_MSG_ERROR(bad value ${enableval} for --enable-mpi) ;;
+esac],[AC_MSG_RESULT([no])])
+AM_CONDITIONAL(DISTRIBUTED, test "$enable_mpi" == "yes")
+
 # should we run the tests
 #AC_MSG_CHECKING([whether we should run the tests])
 #AC_ARG_ENABLE(tests, AS_HELP_STRING([--enable-tests],[Run short tests]),

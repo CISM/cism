@@ -7,11 +7,11 @@ variable_DATA = ncdf_template.F90.in
 variabledir = $(pkgdatadir)
 dist_variable_DATA = $(variable_DATA)
 
-# if DISTRIBUTED
+if DISTRIBUTED
    parallel_src = parallel_mpi.F90
-# else
-#   parallel_src = parallel_single.F90
-# endif
+else
+   parallel_src = parallel_single.F90
+endif
 
 nodist_include_HEADERS := $(wildcard *.mod)
 EXTRA_DIST = f90_dep.mak 

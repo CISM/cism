@@ -7,6 +7,8 @@
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_XMLParameterListHelpers.hpp"
 
+#include "config.inc"
+
 using namespace std;
 using Teuchos::RCP;
 using Teuchos::rcp;
@@ -23,7 +25,7 @@ static bool printProc;
 
 
 extern "C" {
-void noxinit_( int* nelems, double* statevector,
+void FC_FUNC(noxinit,NOXINIT) ( int* nelems, double* statevector,
                int* mpi_comm_ignored, void* blackbox_res)
 {
 
@@ -64,7 +66,7 @@ void noxinit_( int* nelems, double* statevector,
 }
 
 /****************************************************/
-void noxsolve_(int* nelems, double* statevector, void* blackbox_res)
+void FC_FUNC(noxsolve,NOXSOLVE) (int* nelems, double* statevector, void* blackbox_res)
 {
   try {
     TEST_FOR_EXCEPTION(Nsolver==Teuchos::null, logic_error, 
@@ -88,7 +90,7 @@ void noxsolve_(int* nelems, double* statevector, void* blackbox_res)
 }
 
 /****************************************************/ 
-void noxfinish_()
+void FC_FUNC(noxfinish,NOXFINISH) (void)
 {
  if (printProc) cout << "NOXFinish called" << endl;
 

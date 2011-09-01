@@ -21,10 +21,10 @@ fi
 #
 ./configure \
 --prefix=${PREFIX_DIR} \
-CFLAGS="-O2 -qcpluscmt" \
+CFLAGS="-O2 -qcpluscmt -L/contrib/netcdf/deprecated/netcdf-4.1.2_seq/lib -lnetcdf" \
 CXXFLAGS="-O2 -qmaxmem=-1 -qminimaltoc -qrtti=all" \
-FCFLAGS="-O2 -qmaxmem=-1 -WF,-C! -qalias_size=107374182" \
-F77FLAGS="-O2 -qmaxmem=-1 -WF,-C!" \
+FCFLAGS="-O2 -qmaxmem=-1 -WF,-C! -qalias_size=107374182 -L/contrib/netcdf/deprecated/netcdf-4.1.2_seq/lib -lnetcdf -lnetcdff -I/contrib/netcdf/deprecated/netcdf-4.1.2_seq/include/" \
+F77FLAGS="-O2 -qmaxmem=-1 -WF,-C! -L/contrib/netcdf/deprecated/netcdf-4.1.2_seq/lib -lnetcdf -lnetcdff" \
 FC=mpxlf95_r  \
 F90=mpxlf95_r \
 F77=mpxlf_r \
@@ -33,6 +33,6 @@ CXX=mpCC_r  \
 LDFLAGS="-lm -btextpsize:64k -bdatapsize:64k -bstackpsize:64k -bbigtoc" \
 LIBS="-lC_r -lxlf90_r" \
 --with-trilinos=/contrib/trilinos/10.6.2 \
---with-netcdf=/contrib/netcdf-4.1.2_seq \
---with-blas=-lblas   
+--with-blas=-lblas \
+--enable-mpi="no"
 

@@ -83,7 +83,7 @@ extern "C" {
     thyraOper=Teuchos::null;
   }
 
-  void returnownedvector_() { returnGlobalVec = false;}
+  void FC_FUNC(returnownedvector,RETURNOWNEDVECTOR)(void) { returnGlobalVec = false;}
 
   //============================================================
   // RN_20091118: This is to update the matrix with new entries.

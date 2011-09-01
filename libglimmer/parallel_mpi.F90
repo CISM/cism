@@ -352,7 +352,7 @@ contains
        endif
        allocate(global_values(minval(bounds(1,:)):maxval(bounds(2,:)),&
             minval(bounds(3,:)):maxval(bounds(4,:))))
-       global_values(:,:) = 0
+       global_values(:,:) = .false.
        allocate(displs(tasks+1))
        allocate(recvcounts(tasks))
        recvcounts(:) = (bounds(2,:)-bounds(1,:)+1)*(bounds(4,:)-bounds(3,:)+1)
