@@ -20,7 +20,7 @@ units:         meter
 long_name:     Cartesian x-coordinate, velocity grid
 axis:          X
 data:          data%general%x0
-dimlen:        model%general%ewn-1
+dimlen:        global_ewn-1
 
 [y0]
 dimensions:    y0
@@ -28,7 +28,7 @@ units:         meter
 long_name:     Cartesian y-coordinate, velocity grid
 axis:          Y
 data:          data%general%y0
-dimlen:        model%general%nsn-1
+dimlen:        global_nsn-1
 
 [x1]
 dimensions:    x1
@@ -36,7 +36,7 @@ units:         meter
 long_name:     Cartesian x-coordinate
 axis: X
 data:          data%general%x1
-dimlen:        model%general%ewn
+dimlen:        global_ewn
 load:1
 
 [y1]
@@ -45,7 +45,7 @@ units:         meter
 long_name:     Cartesian y-coordinate
 axis:          Y
 data:          data%general%y1
-dimlen:        model%general%nsn
+dimlen:        global_nsn
 load:1
 
 [level]

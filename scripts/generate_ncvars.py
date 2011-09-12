@@ -290,7 +290,7 @@ class PrintNC_template(PrintVars):
         if not is_dimvar(var):
             spaces=3
             self.stream.write("    pos = index(NCO%%vars,' %s ')\n"%var['name'])
-            self.stream.write("    status = nf90_inq_varid(NCO%%id,'%s',varid)\n"%var['name'])
+            self.stream.write("    status = parallel_inq_varid(NCO%%id,'%s',varid)\n"%var['name'])
             self.stream.write("    if (pos.ne.0) then\n")
             self.stream.write("      NCO%%vars(pos+1:pos+%d) = '%s'\n"%(len(var['name']),len(var['name'])*' '))
             self.stream.write("    end if\n")
@@ -299,7 +299,7 @@ class PrintNC_template(PrintVars):
             spaces=3
             self.stream.write("    if (.not.outfile%append) then\n")
         self.stream.write("%s    call write_log('Creating variable %s')\n"%(spaces*' ',var['name']))
-        self.stream.write("%s    status = nf90_def_var(NCO%%id,'%s',get_xtype(outfile,NF90_%s),(/%s/),%s)\n"%(spaces*' ',
+        self.stream.write("%s    status = parallel_def_var(NCO%%id,'%s',get_xtype(outfile,NF90_%s),(/%s/),%s)\n"%(spaces*' ',
                                                                                                               var['name'],
                                                                                                               var['type'].upper(), 
                                                                                                               dimstring,
@@ -307,19 +307,19 @@ class PrintNC_template(PrintVars):
                                                                                                               ))
         self.stream.write("%s    call nc_errorhandle(__FILE__,__LINE__,status)\n"%(spaces*' '))
         if 'factor' in var:
-            self.stream.write("%s    status = nf90_put_att(NCO%%id, %s, 'scale_factor',(%s))\n"%(spaces*' ',idstring,var['factor']))
+            self.stream.write("%s    status = parallel_put_att(NCO%%id, %s, 'scale_factor',(%s))\n"%(spaces*' ',idstring,var['factor']))
         for attrib in var:
             if attrib not in NOATTRIB:
-                self.stream.write("%s    status = nf90_put_att(NCO%%id, %s, '%s', '%s')\n"%(spaces*' ',
+                self.stream.write("%s    status = parallel_put_att(NCO%%id, %s, '%s', '%s')\n"%(spaces*' ',
                                                                                             idstring,
                                                                                             attrib,
                                                                                             var[attrib]))
         if not is_dimvar(var):
             self.stream.write("%s    if (glimmap_allocated(model%%projection)) then\n"%(spaces*' '))
-            self.stream.write("%s       status = nf90_put_att(NCO%%id, %s, 'grid_mapping',glimmer_nc_mapvarname)\n"%(spaces*' ',idstring))
+            self.stream.write("%s       status = parallel_put_att(NCO%%id, %s, 'grid_mapping',glimmer_nc_mapvarname)\n"%(spaces*' ',idstring))
             attrib='coordinates'
             if attrib in var:
-                self.stream.write("%s       status = nf90_put_att(NCO%%id, %s, '%s', '%s')\n"%(spaces*' ',idstring,attrib,var[attrib]))
+                self.stream.write("%s       status = parallel_put_att(NCO%%id, %s, '%s', '%s')\n"%(spaces*' ',idstring,attrib,var[attrib]))
             self.stream.write("%s    end if\n"%(spaces*' '))
             self.stream.write("%s  end if\n"%(spaces*' '))
         else:
@@ -339,12 +339,12 @@ class PrintNC_template(PrintVars):
         for d in dims:
             if dimensions[d]!='-1': # create a new dimension
                 self.stream.write("    if (.not.outfile%append) then\n")
-                self.stream.write("       status = nf90_def_dim(NCO%%id,'%s',%s,%s)\n"%(d,dimensions[d],dimid(d)))
+                self.stream.write("       status = parallel_def_dim(NCO%%id,'%s',%s,%s)\n"%(d,dimensions[d],dimid(d)))
                 self.stream.write("    else\n")
-                self.stream.write("       status = nf90_inq_dimid(NCO%%id,'%s',%s)\n"%(d,dimid(d)))
+                self.stream.write("       status = parallel_inq_dimid(NCO%%id,'%s',%s)\n"%(d,dimid(d)))
                 self.stream.write("    endif\n")
             else:
-                self.stream.write("    status = nf90_inq_dimid(NCO%%id,'%s',%s)\n"%(d,dimid(d)))
+                self.stream.write("    status = parallel_inq_dimid(NCO%%id,'%s',%s)\n"%(d,dimid(d)))
             self.stream.write("    call nc_errorhandle(__FILE__,__LINE__,status)\n")
 
     def print_checkdims(self):
@@ -354,9 +354,9 @@ class PrintNC_template(PrintVars):
         dims.sort()
         for d in dims:
             if dimensions[d]!='-1':
-                self.stream.write("    status = nf90_inq_dimid(NCI%%id,'%s',dimid)\n"%(d))
+                self.stream.write("    status = parallel_inq_dimid(NCI%%id,'%s',dimid)\n"%(d))
                 self.stream.write("    if (dimid.gt.0) then\n")
-                self.stream.write("       status = nf90_inquire_dimension(NCI%id,dimid,len=dimsize)\n")
+                self.stream.write("       status = parallel_inquire_dimension(NCI%id,dimid,len=dimsize)\n")
                 self.stream.write("       if (dimsize.ne.%s) then\n"%dimensions[d])
                 self.stream.write("          write(message,*) 'Error, reading file ',trim(NCI%%filename),' size %s does not match: ', &\n               %s\n"%(d,dimensions[d]))
                 self.stream.write("          call write_log(message,GM_FATAL)\n")
@@ -373,7 +373,7 @@ class PrintNC_template(PrintVars):
             dims.reverse()
             for i in range(0,len(dims)):
                 dims[i] = dims[i].strip()
-            self.stream.write("    status = nf90_inq_varid(NCO%%id,'%s',varid)\n"%var['name'])
+            self.stream.write("    status = parallel_inq_varid(NCO%%id,'%s',varid)\n"%var['name'])
             self.stream.write("    if (status .eq. nf90_noerr) then\n")
             
             dimstring = ''
@@ -405,9 +405,9 @@ class PrintNC_template(PrintVars):
                 self.stream.write("       do up=1,NCO%nstaglevel\n")
                         
             data = var['data']
-            if 'avg_factor' in var:
-                data = '%s*(%s)'%(var['avg_factor'],data)
-            self.stream.write("%s       status = nf90_put_var(NCO%%id, varid, &\n%s            %s, (/%s/))\n"%(spaces,
+            if 'factor' in var:
+                data = '(%s)*(%s)'%(var['factor'],data)
+            self.stream.write("%s       status = distributed_put_var(NCO%%id, varid, &\n%s            %s, (/%s/))\n"%(spaces,
                                                                                                                spaces,data, dimstring))
             self.stream.write("%s       call nc_errorhandle(__FILE__,__LINE__,status)\n"%(spaces))
 
@@ -433,7 +433,7 @@ class PrintNC_template(PrintVars):
                 dims.reverse()
                 for i in range(0,len(dims)):
                     dims[i] = dims[i].strip()
-                self.stream.write("    status = nf90_inq_varid(NCI%%id,'%s',varid)\n"%var['name'])
+                self.stream.write("    status = parallel_inq_varid(NCI%%id,'%s',varid)\n"%var['name'])
                 self.stream.write("    if (status .eq. nf90_noerr) then\n")
                 self.stream.write("       call write_log('  Loading %s')\n"%var['name'])
                 dimstring = ''
@@ -462,10 +462,10 @@ class PrintNC_template(PrintVars):
                     spaces = ' '*3
                     self.stream.write("       do up=1,NCO%nstaglevel\n")
 
-                self.stream.write("%s       status = nf90_get_var(NCI%%id, varid, &\n%s            %s, (/%s/))\n"%(spaces,
+                self.stream.write("%s       status = distributed_get_var(NCI%%id, varid, &\n%s            %s, (/%s/))\n"%(spaces,
                                                                                                                spaces,var['data'], dimstring))
                 self.stream.write("%s       call nc_errorhandle(__FILE__,__LINE__,status)\n"%(spaces))
-                self.stream.write("%s       status = nf90_get_att(NCI%%id, varid,'scale_factor',scaling_factor)\n"%(spaces))
+                self.stream.write("%s       status = parallel_get_att(NCI%%id, varid,'scale_factor',scaling_factor)\n"%(spaces))
                 self.stream.write("%s       if (status.ne.NF90_NOERR) then\n"%(spaces))
                 if 'factor' in var:
                     self.stream.write("%s          scaling_factor = 1.0d0/(%s)\n"%(spaces,var['factor']))
@@ -543,7 +543,7 @@ class PrintNC_template(PrintVars):
             avgname = '%s_%s'%(var['name'],AVERAGE_SUFFIX)
             avgdata = '%s_%s'%(var['data'],AVERAGE_SUFFIX)
             self.stream.write("    ! accumulate %s\n"%var['name'])
-            self.stream.write("    status = nf90_inq_varid(NCO%%id,'%s',varid)\n"%avgname)
+            self.stream.write("    status = parallel_inq_varid(NCO%%id,'%s',varid)\n"%avgname)
             self.stream.write("    if (status .eq. nf90_noerr) then\n")
             self.stream.write("       %s = %s + factor * %s\n"%(avgdata,avgdata,var['data']))
             self.stream.write("    end if\n\n")
@@ -555,7 +555,7 @@ class PrintNC_template(PrintVars):
             avgname = '%s_%s'%(var['name'],AVERAGE_SUFFIX)
             avgdata = '%s_%s'%(var['data'],AVERAGE_SUFFIX)
             self.stream.write("    ! reset %s\n"%var['name'])
-            self.stream.write("    status = nf90_inq_varid(NCO%%id,'%s',varid)\n"%avgname)
+            self.stream.write("    status = parallel_inq_varid(NCO%%id,'%s',varid)\n"%avgname)
             self.stream.write("    if (status .eq. nf90_noerr) then\n")
             self.stream.write("       %s = 0.\n"%avgdata)
             self.stream.write("    end if\n\n")

@@ -132,7 +132,7 @@ contains
        unit = fileunit
     endif
 
-    open(unit,file=trim(fname),status='old')
+    if (main_task) open(unit,file=trim(fname),status='old')
     ios=0
     linenr=0
     config=>NULL()

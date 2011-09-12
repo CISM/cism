@@ -34,6 +34,7 @@
 program simple_glide
   !*FD This is a simple GLIDE test driver. It can be used to run
   !*FD the EISMINT test cases
+  use parallel
   use glimmer_global, only:rk
   use glide
   use simple_forcing
@@ -54,11 +55,6 @@ program simple_glide
 #include <f90papi.h>
 #endif
 
-#ifdef GLIMMER_MPI
-#include <mpif.h>
-  integer nproc,ierr,irank
-#endif
-
   type(glide_global_type) :: model        ! model instance
   type(simple_climate) :: climate         ! climate
   type(ConfigSection), pointer :: config  ! configuration stuff
@@ -67,6 +63,8 @@ program simple_glide
   integer clock,clock_rate,ret
 
   integer :: tstep_count
+
+  call parallel_initialise
 
   ! start gptl
 #ifdef GPTL
@@ -77,11 +75,6 @@ program simple_glide
   ret = gptlstart ('total')
 #endif
 
-#ifdef GLIMMER_MPI
- call MPI_Init(ierr)
-! call MPI_Comm_size(MPI_COMM_WORLD,nproc,ierr)
-! call MPI_Comm_rank(MPI_COMM_WORLD,irank,ierr)
-#endif
   call glimmer_GetCommandline()
 
 
@@ -120,10 +113,94 @@ program simple_glide
      ! override masking stuff for now
 
      tstep_count = tstep_count + 1
+#ifdef JEFFORIG
+!JEFF commenting out during the first pass through.  There's several direct model references and file writes in glide_write_diag.
      if (mod(tstep_count, model%numerics%ndiag) == 0) then
         call glide_write_diag(model, time, model%numerics%idiag, &
                                            model%numerics%jdiag )
      endif
+#endif
+
+     ! Redistribute calls here to spread the data back out.
+     call distributed_scatter_var(model%stress%efvs, gathered_efvs)
+     call distributed_scatter_var(model%velocity%uvel, gathered_uvel)
+     call distributed_scatter_var(model%velocity%vvel, gathered_vvel)
+     call distributed_scatter_var(model%velocity%uflx, gathered_uflx)
+     call distributed_scatter_var(model%velocity%vflx, gathered_vflx)
+     call distributed_scatter_var(model%velocity%velnorm, gathered_velnorm)
+     call distributed_scatter_var(model%geometry%thck, gathered_thck)
+     call distributed_scatter_var(model%geomderv%stagthck, gathered_stagthck)
+     call distributed_scatter_var(model%climate%acab, gathered_acab)
+     call distributed_scatter_var(model%temper%temp, gathered_temp)
+     call distributed_scatter_var(model%geomderv%dusrfdew, gathered_dusrfdew)
+     call distributed_scatter_var(model%geomderv%dusrfdns, gathered_dusrfdns)
+     call distributed_scatter_var(model%geomderv%dthckdew, gathered_dthckdew)
+     call distributed_scatter_var(model%geomderv%dthckdns, gathered_dthckdns)
+     call distributed_scatter_var(model%stress%tau%xx, gathered_tauxx)
+     call distributed_scatter_var(model%stress%tau%yy, gathered_tauyy)
+     call distributed_scatter_var(model%stress%tau%xy, gathered_tauxy)
+     call distributed_scatter_var(model%stress%tau%scalar, gathered_tauscalar)
+     call distributed_scatter_var(model%stress%tau%xz, gathered_tauxz)
+     call distributed_scatter_var(model%stress%tau%yz, gathered_tauyz)
+     call distributed_scatter_var(model%geometry%topg, gathered_topg)
+     call distributed_scatter_var(model%geometry%thkmask, gathered_thkmask)
+     call distributed_scatter_var(model%geometry%marine_bc_normal, gathered_marine_bc_normal)
+     call distributed_scatter_var(model%velocity%surfvel, gathered_surfvel)
+     call distributed_scatter_var(model%ground%gline_flux, gathered_gline_flux)
+     call distributed_scatter_var(model%velocity%ubas, gathered_ubas)
+     call distributed_scatter_var(model%velocity%vbas, gathered_vbas)
+     call distributed_scatter_var(model%isos%relx, gathered_relx)
+     call distributed_scatter_var(model%temper%flwa, gathered_flwa)
+     call distributed_scatter_var(model%climate%calving, gathered_calving)
+     call distributed_scatter_var(model%climate%backstress, gathered_backstress)
+     call distributed_scatter_var(model%geometry%usrf, gathered_usrf)
+     call distributed_scatter_var(model%climate%backstressmap, gathered_backstressmap)
+     call distributed_scatter_var(model%stress%tau_x, gathered_tau_x)
+     call distributed_scatter_var(model%stress%tau_y, gathered_tau_y)
+     call distributed_scatter_var(model%geometry%lsrf, gathered_lsrf)
+
+     !After scattering, then update nsn and ewn back to local values
+     model%general%ewn = local_ewn
+     model%general%nsn = local_nsn
+
+     ! Redistribute calls here to spread the data back out.
+     call parallel_halo(model%stress%efvs)
+     call parallel_halo(model%velocity%uvel)
+     call parallel_halo(model%velocity%vvel)
+     call parallel_halo(model%velocity%uflx)
+     call parallel_halo(model%velocity%vflx)
+     call parallel_halo(model%velocity%velnorm)
+     call parallel_halo(model%geometry%thck)
+     call parallel_halo(model%geomderv%stagthck)
+     call parallel_halo(model%climate%acab)
+     call parallel_halo(model%geomderv%dusrfdew)
+     call parallel_halo(model%geomderv%dusrfdns)
+     call parallel_halo(model%geomderv%dthckdew)
+     call parallel_halo(model%geomderv%dthckdns)
+     call parallel_halo(model%stress%tau%xx)
+     call parallel_halo(model%stress%tau%yy)
+     call parallel_halo(model%stress%tau%xy)
+     call parallel_halo(model%stress%tau%scalar)
+     call parallel_halo(model%stress%tau%xz)
+     call parallel_halo(model%stress%tau%yz)
+     call parallel_halo(model%geometry%topg)
+     call parallel_halo(model%geometry%thkmask)
+     call parallel_halo(model%geometry%marine_bc_normal)
+     call parallel_halo(model%velocity%surfvel)
+     call parallel_halo(model%ground%gline_flux)
+     call parallel_halo(model%velocity%ubas)
+     call parallel_halo(model%velocity%vbas)
+     call parallel_halo(model%isos%relx)
+     call parallel_halo(model%temper%flwa)
+     call parallel_halo(model%climate%calving)
+     call parallel_halo(model%climate%backstress)
+     call parallel_halo(model%geometry%usrf)
+     call parallel_halo(model%climate%backstressmap)
+     call parallel_halo(model%stress%tau_x)
+     call parallel_halo(model%stress%tau_y)
+     call parallel_halo(model%geometry%lsrf)
+
+     call parallel_halo_temperature(model%temper%temp)
 
      time = time + model%numerics%tinc
      call simple_massbalance(climate,model,time)
@@ -136,10 +213,7 @@ program simple_glide
   t2 = real(clock,kind=dp)/real(clock_rate,kind=dp)
   call glimmer_write_stats(commandline_resultsname,commandline_configname,t2-t1)
   call close_log
-
-#ifdef GLIMMER_MPI
- call MPI_Finalize(ierr)
-#endif
+  call parallel_finalise
 
   ! stop gptl
 #ifdef GPTL

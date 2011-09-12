@@ -123,6 +123,7 @@ contains
   end subroutine NAME_io_writeall
   
   subroutine NAME_io_create(outfile,model,data)
+    use parallel
     use glide_types
     use DATAMOD
     use glimmer_ncdf
