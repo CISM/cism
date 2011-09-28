@@ -514,7 +514,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 ! jfl 20100412: residual for v comp: Fv= A(u^k-1,v^k-1)v^k-1 - b(u^k-1,v^k-1)  
 !==============================================================================
     !JEFF - The multiplication Ax is done across all nodes, but Ax - b is only computed locally, so L2square needs to be summed.
-    call res_vect( matrix, vk_1, rhsd, size(rhsd), counter, g_flag, L2square, whichsparse ) 
+    call res_vect( matrix, vk_1, rhsd, size(rhsd), g_flag, L2square, whichsparse ) 
 
     L2norm  = L2square
     F(1:pcgsize(1)) = vk_1(:)
@@ -593,7 +593,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 ! jfl 20100412: residual for u comp: Fu= C(u^k-1,v^k-1)u^k-1 - d(u^k-1,v^k-1)  
 !==============================================================================
 
-    call res_vect( matrix, uk_1, rhsd, size(rhsd), counter, g_flag, L2square, whichsparse ) 
+    call res_vect( matrix, uk_1, rhsd, size(rhsd), g_flag, L2square, whichsparse ) 
 
     L2norm = sqrt(L2norm + L2square)
     F(pcgsize(1)+1:2*pcgsize(1)) = uk_1(:) ! F = [ Fv, Fu ]
@@ -710,10 +710,9 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
             !write(message,'(" * strs ",i3,3g20.6)') counter, resid(1), resid(2), minres
             !call write_log (message)
         end if
-
-        counter = counter + 1   ! advance the iteration counter
     endif
 
+    counter = counter + 1   ! advance the iteration counter
   end do 
 
   ! ****************************************************************************************
@@ -2104,7 +2103,7 @@ end subroutine apply_precond_nox
     
     vectp = xtp(1:pcgsize(1))
 
-    call res_vect(matrixA, vectp, rhsd, pcgsize(1), counter, gxf, L2square, whatsparse)
+    call res_vect(matrixA, vectp, rhsd, pcgsize(1),  gxf, L2square, whatsparse)
     L2norm=L2square
 
     F(1:pcgsize(1)) = vectp(1:pcgsize(1)) 
@@ -2143,7 +2142,7 @@ end subroutine apply_precond_nox
     
     vectp(1:pcgsize(1)) = xtp(pcgsize(1)+1:2*pcgsize(1))
 
-    call res_vect(matrixC, vectp, rhsd, pcgsize(1), counter, gxf, L2square, whatsparse)
+    call res_vect(matrixC, vectp, rhsd, pcgsize(1), gxf, L2square, whatsparse)
     L2norm = sqrt(L2norm + L2square)
 
     F(pcgsize(1)+1:2*pcgsize(1)) = vectp(1:pcgsize(1)) 

@@ -38,8 +38,10 @@ real (kind = dp) :: scale_ghosts = 0.0d0
 
         enddo
 
+#ifdef TRILINOS
       else 
         call matvecwithtrilinos(uvec, Au_b_wig);
+#endif
       endif 
 
       do i = 1, nu
@@ -117,10 +119,12 @@ real (kind = dp) :: scale_ghosts = 0.0d0
 
         enddo
 
+#ifdef TRILINOS
       else
 
         call matvecwithtrilinos(uvec(1:nu1), Au_b_wig);
         call matvecwithtrilinos(uvec(nu1+1:nu2), Cv_d_wig);
+#endif
       endif
 
       do i = 1, nu1

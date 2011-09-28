@@ -164,8 +164,11 @@ extern "C" {
     // Lock in sparsity pattern
     if (!interface->isSparsitySet()) interface->finalizeSparsity();
 
+    const Epetra_Map& map = interface->getRowMap(); 
     Teuchos::RCP<Epetra_Vector> epetraSol = soln;
-    Teuchos::RCP<Epetra_Vector> epetraRhs = interface->getPartitionedVec(rhs);
+    Teuchos::RCP<Epetra_Vector> epetraRhs;
+    if (returnGlobalVec) epetraRhs = interface->getPartitionedVec(rhs);
+    else                 epetraRhs = Teuchos::rcp(new Epetra_Vector(View, map, rhs));
 
     thyraOper = Thyra::epetraLinearOp(interface->getOperator());
     Teuchos::RCP<Thyra::VectorBase<double> >
@@ -178,13 +181,13 @@ extern "C" {
     Thyra::SolveStatus<double>
       status = Thyra::solve(*lows, Thyra::NOTRANS, *thyraRhs, &*thyraSol);
 
-    interface->spreadVector(*soln, answer);
+    if (returnGlobalVec) interface->spreadVector(*soln, answer);
+    else                 soln->ExtractCopy(answer);
 
-    //elapsedTime = linearTime.stop();*out << "Total time elapsed for calling Solve(): " << elapsedTime << endl;
+    //elapsedTime = linearTime.stop(); *out << "Total time elapsed for calling Solve(): " << elapsedTime << endl;
   }
 
   void FC_FUNC(savetrilinosmatrix,SAVETRILINOSMATRIX) (int* i) {
-
     if (!interface->isSparsitySet()) interface->finalizeSparsity();
     if (*i==0)
       savedMatrix_A = Teuchos::rcp(new Epetra_CrsMatrix(*(interface->getOperator())));
@@ -197,22 +200,26 @@ extern "C" {
 
   void FC_FUNC(restoretrilinosmatrix,RESTORTRILINOSMATRIX) (int* i) {
     if (*i==0)
-      interface->updateOperator(savedMatrix_A); 
+      interface->updateOperator(savedMatrix_A);
     else if (*i==1)
-      interface->updateOperator(savedMatrix_C); 
+      interface->updateOperator(savedMatrix_C);
     else
       assert(false);
   }
 
-
   void FC_FUNC(matvecwithtrilinos,MATVECWITHTRILINOS)
 	       (double* x, double* answer) {
-
     const Epetra_Map& map = interface->getRowMap(); 
-    Teuchos::RCP<Epetra_Vector> epetra_x = interface->getPartitionedVec(x);
+
+    Teuchos::RCP<Epetra_Vector> epetra_x;
+    if (returnGlobalVec) epetra_x  = interface->getPartitionedVec(x);
+    else                 epetra_x  = Teuchos::rcp(new Epetra_Vector(View, map, x));
+
     Epetra_Vector y(map);
     interface->getOperator()->Multiply(false, *epetra_x, y);
-    interface->spreadVector(y, answer);
+
+    if (returnGlobalVec) interface->spreadVector(y, answer);
+    else                 y.ExtractCopy(answer);
   }
 
 } // extern"C"

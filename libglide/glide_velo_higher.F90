@@ -108,9 +108,12 @@ contains
         model%velocity%is_velocity_valid = .true.
         
         ! similarly, calculate stress tensor components
-        call glide_calcstrsstr( model )
+        ! JEFF Distributed Merge - glide_calcstrsstr called later in serial section in glide.F90 
+        ! call glide_calcstrsstr( model )
 
         ! calculate vertical velocity 
+        ! JEFF Distributed Merge - the calls in calcwvel have been previously parallelized.
+        ! Also there is no dependency on the output of glide_calcstrsstr() which calcs tau.
         call calcwvel( model, model%options%whichtemp )
 
     end subroutine
@@ -120,6 +123,7 @@ contains
     subroutine calcwvel( model, whichtemp )
 
         use glide_velo, only : gridwvel, wvelintg, chckwvel
+        use parallel 
 
         implicit none
     

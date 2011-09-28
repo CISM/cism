@@ -842,6 +842,9 @@ contains
 	    call glide_calclsrf(gathered_thck, gathered_topg, model%climate%eus, gathered_lsrf)
 	    gathered_usrf = max(0.d0,gathered_thck + gathered_lsrf)
 
+#ifdef JEFFORIG
+       ! These three calls are in glide_temp in the full-temperature section replaced by Bill's new temperature code.
+       ! Commenting out until I hear otherwise.
        call timeders(model%thckwk,   &
             model%geometry%thck,     &
             model%geomderv%dthckdtm, &
@@ -865,6 +868,7 @@ contains
             model%geomderv,        &
             model%geometry%thck,   &
             model%velocity%wgrd)
+#endif
 
 #ifdef GLC_DEBUG
        i = itest
@@ -880,22 +884,25 @@ contains
   300  format(i3, Z24.20)
 #endif
 
-    !--------------------------------------------------------------------- 
-    ! write to netCDF file
-    ! ------------------------------------------------------------------------ 
+#ifdef JEFFORIG
+       ! I think this is an aggregated operation, so delay until after completion of _p3()
+       !--------------------------------------------------------------------- 
+       ! write to netCDF file
+       ! ------------------------------------------------------------------------ 
 
-    if (present(no_write)) then
-       nw=no_write
-    else
-       nw=.false.
-    end if
-
-    if (.not. nw) then
-       call glide_io_writeall(model,model)
-       if (model%options%gthf.gt.0) then
-          call glide_lithot_io_writeall(model,model)
+       if (present(no_write)) then
+          nw=no_write
+       else
+          nw=.false.
        end if
-    end if
+   
+       if (.not. nw) then
+          call glide_io_writeall(model,model)
+          if (model%options%gthf.gt.0) then
+             call glide_lithot_io_writeall(model,model)
+          end if
+       end if
+#endif
     endif ! end main_task
 
     call parallel_barrier   ! Other tasks hold here until main_task completes
