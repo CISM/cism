@@ -842,67 +842,7 @@ contains
 	    call glide_calclsrf(gathered_thck, gathered_topg, model%climate%eus, gathered_lsrf)
 	    gathered_usrf = max(0.d0,gathered_thck + gathered_lsrf)
 
-#ifdef JEFFORIG
-       ! These three calls are in glide_temp in the full-temperature section replaced by Bill's new temperature code.
-       ! Commenting out until I hear otherwise.
-       call timeders(model%thckwk,   &
-            model%geometry%thck,     &
-            model%geomderv%dthckdtm, &
-            model%geometry%mask,     &
-            model%numerics%time,     &
-            1)
-
-       call timeders(model%thckwk,   &
-            model%geometry%usrf,     &
-            model%geomderv%dusrfdtm, &
-            model%geometry%mask,     &
-            model%numerics%time,     &
-            2)
-
-       ! Calculate the vertical velocity of the grid ------------------------------------
-
-       call gridwvel(model%numerics%sigma,  &
-            model%numerics%thklim, &
-            model%velocity%uvel,   &
-            model%velocity%vvel,   &
-            model%geomderv,        &
-            model%geometry%thck,   &
-            model%velocity%wgrd)
-#endif
-
-#ifdef GLC_DEBUG
-       i = itest
-       j = jtest
-       write(6,*) ' '
-       write(6,*) 'Before restart write, i, j, thck =', i, j, model%geometry%thck(i,j)
-       write(6,300) k, model%geometry%thck(i,j)
-       write(6,*) ' '
-       write(6,*) 'k, temperature'
-       do k = 1, upn
-            write(6,300) k, model%temper%temp(k,i,j)
-       enddo
-  300  format(i3, Z24.20)
-#endif
-
-#ifdef JEFFORIG
-       ! I think this is an aggregated operation, so delay until after completion of _p3()
-       !--------------------------------------------------------------------- 
-       ! write to netCDF file
-       ! ------------------------------------------------------------------------ 
-
-       if (present(no_write)) then
-          nw=no_write
-       else
-          nw=.false.
-       end if
-   
-       if (.not. nw) then
-          call glide_io_writeall(model,model)
-          if (model%options%gthf.gt.0) then
-             call glide_lithot_io_writeall(model,model)
-          end if
-       end if
-#endif
+		! Moved Bill Lipscomb's geomdervs and gridwvel out of _p3(), because they are parallel operations.
     endif ! end main_task
 
     call parallel_barrier   ! Other tasks hold here until main_task completes
@@ -911,6 +851,82 @@ contains
     model%numerics%timecounter = model%numerics%timecounter + 1
 
   end subroutine glide_tstep_p3
+
+  !-------------------------------------------------------------------
+
+  subroutine glide_tstep_postp3(model, no_write)
+    !* This routine does the parallel routines and output that was in _p3()
+    !* _p3() is executed in serial on main node.  These are parallel operations.
+    !* Jeff Nichols, created for Bill Lipscomb September 2011
+    use parallel
+
+    use glide_setup
+    use glide_velo, only: gridwvel
+    use glide_thck, only: timeders
+
+    implicit none
+    type(glide_global_type) :: model        !*FD model instance
+
+    logical, optional, intent(in) :: no_write
+    logical nw
+
+    ! These three calls are in glide_temp in the full-temperature section replaced by Bill's new temperature code.
+    ! Commenting out until I hear otherwise.
+    call timeders(model%thckwk,   &
+            model%geometry%thck,     &
+            model%geomderv%dthckdtm, &
+            model%geometry%mask,     &
+            model%numerics%time,     &
+            1)
+
+    call timeders(model%thckwk,   &
+            model%geometry%usrf,     &
+            model%geomderv%dusrfdtm, &
+            model%geometry%mask,     &
+            model%numerics%time,     &
+            2)
+
+    ! Calculate the vertical velocity of the grid ------------------------------------
+
+    call gridwvel(model%numerics%sigma,  &
+            model%numerics%thklim, &
+            model%velocity%uvel,   &
+            model%velocity%vvel,   &
+            model%geomderv,        &
+            model%geometry%thck,   &
+            model%velocity%wgrd)
+
+#ifdef GLC_DEBUG
+    i = itest
+    j = jtest
+    write(6,*) ' '
+    write(6,*) 'Before restart write, i, j, thck =', i, j, model%geometry%thck(i,j)
+    write(6,300) k, model%geometry%thck(i,j)
+    write(6,*) ' '
+    write(6,*) 'k, temperature'
+    do k = 1, upn
+         write(6,300) k, model%temper%temp(k,i,j)
+    enddo
+300  format(i3, Z24.20)
+#endif
+
+    !---------------------------------------------------------------------
+    ! write to netCDF file
+    ! ------------------------------------------------------------------------
+
+    if (present(no_write)) then
+       nw=no_write
+    else
+       nw=.false.
+    end if
+   
+    if (.not. nw) then
+       call glide_io_writeall(model,model)
+       if (model%options%gthf.gt.0) then
+          call glide_lithot_io_writeall(model,model)
+       end if
+    end if
+  end subroutine glide_tstep_postp3
 
   !-------------------------------------------------------------------
 

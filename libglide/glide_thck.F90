@@ -729,12 +729,13 @@ end subroutine
 
     use glimmer_global, only : dp, sp
     use glimmer_paramets, only : conv
+    use parallel
 
     implicit none 
 
     type(glide_thckwk) :: thckwk    !*FD Derived-type containing work data
-    real(dp), intent(out), dimension(:,:) :: opvr  !*FD Input field
-    real(dp), intent(in),  dimension(:,:) :: ipvr  !*FD Output (derivative) field
+    real(dp), intent(out), dimension(:,:) :: opvr  !*FD Input field.  JN: Output field?
+    real(dp), intent(in),  dimension(:,:) :: ipvr  !*FD Output (derivative) field.  JN Input field?
     real(sp), intent(in)                  :: time  !*FD current time
     integer,  intent(in),  dimension(:,:) :: mask  !*FD mask for calculation
     integer,  intent(in)                  :: which !*FD selector for stored field
@@ -759,6 +760,7 @@ end subroutine
       thckwk%oldtime = time
     end if
 
+    call parallel_halo(opvr)
   end subroutine timeders
 
 !---------------------------------------------------------------------------------

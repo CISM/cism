@@ -202,6 +202,9 @@ program simple_glide
 
      call parallel_halo_temperature(model%temper%temp)
 
+     ! Perform parallel operations for restart files
+     call glide_tstep_postp3(model)
+
      time = time + model%numerics%tinc
      call simple_massbalance(climate,model,time)
      call simple_surftemp(climate,model,time)     
