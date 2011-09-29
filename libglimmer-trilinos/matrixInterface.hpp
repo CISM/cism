@@ -31,7 +31,6 @@ public:
   bool isSparsitySet() const;
   int bandwidth() const;
   int matrixOrder() const;
-  const Epetra_Map& getFullMap() const;
   const Epetra_Map& getRowMap() const;
   Teuchos::RCP<Epetra_CrsMatrix>& getOperator();
 

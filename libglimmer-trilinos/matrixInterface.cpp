@@ -13,10 +13,12 @@ TrilinosMatrix_Interface::TrilinosMatrix_Interface
   isFillCompleted_ = false;
 
   // create map of full vector
+/*
   fullMap_ =  Teuchos::rcp(new Epetra_LocalMap(matrixOrder_, 1, comm));
 
   import_r2f = Teuchos::rcp(new Epetra_Import(*fullMap_, *rowMap_));
   import_f2r = Teuchos::rcp(new Epetra_Import(*rowMap_, *fullMap_));
+*/
 }
 
 // Destructor
@@ -27,7 +29,6 @@ TrilinosMatrix_Interface::~TrilinosMatrix_Interface() {
 bool TrilinosMatrix_Interface::isSparsitySet() const {return isFillCompleted_;}
 int TrilinosMatrix_Interface::bandwidth() const {return bandwidth_;}
 int TrilinosMatrix_Interface::matrixOrder() const {return matrixOrder_;}
-const Epetra_Map& TrilinosMatrix_Interface::getFullMap() const {return *fullMap_;}
 const Epetra_Map& TrilinosMatrix_Interface::getRowMap() const {return *rowMap_;}
 Teuchos::RCP<Epetra_CrsMatrix>& TrilinosMatrix_Interface::getOperator() {return operator_;}
 
@@ -47,6 +48,9 @@ void TrilinosMatrix_Interface::updateOperator(Teuchos::RCP<Epetra_CrsMatrix> new
 
 Teuchos::RCP<Epetra_Vector> TrilinosMatrix_Interface::getPartitionedVec(double *fullRhs)
 {
+  if (fullMap_== Teuchos::null) fullMap_ =  Teuchos::rcp(new Epetra_LocalMap(matrixOrder_, 1, comm_));
+  if (import_f2r == Teuchos::null) import_f2r = Teuchos::rcp(new Epetra_Import(*rowMap_, *fullMap_));
+
   Teuchos::RCP<Epetra_Vector> rhs_EV
     = Teuchos::rcp(new Epetra_Vector(*rowMap_));
   Epetra_Vector fullRhs_EV(View, *fullMap_, fullRhs); 
@@ -56,6 +60,9 @@ Teuchos::RCP<Epetra_Vector> TrilinosMatrix_Interface::getPartitionedVec(double *
 
 void TrilinosMatrix_Interface::spreadVector(const Epetra_Vector& vec, double* fullVec)
 {
+  if (fullMap_== Teuchos::null) fullMap_ =  Teuchos::rcp(new Epetra_LocalMap(matrixOrder_, 1, comm_));
+  if (import_r2f == Teuchos::null) import_r2f = Teuchos::rcp(new Epetra_Import(*fullMap_, *rowMap_));
+
   Epetra_Vector fullVec_EV(View, *fullMap_, fullVec); 
   fullVec_EV.Import(vec, *import_r2f, Insert);
 }

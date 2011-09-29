@@ -14,11 +14,11 @@ trilinosModelEvaluator::trilinosModelEvaluator (
 			     : N(N_), comm(comm_), blackbox_res(blackbox_res_)
 {
   
-  cout << "In TrilinosModelEvaluator constructor:" << endl;
+//  cout << "In TrilinosModelEvaluator constructor:" << endl;
   xMap = Teuchos::rcp(new Epetra_Map(-1, N, 0, comm));
 
-  cout << "  proc  = " << comm.MyPID() <<  ",  N = " << N 
-       << ",  Ntot = " << xMap->NumGlobalElements() << endl;
+//  cout << "  proc  = " << comm.MyPID() <<  ",  N = " << N 
+//       << ",  Ntot = " << xMap->NumGlobalElements() << endl;
 
   xVec = Teuchos::rcp(new Epetra_Vector(Copy, *xMap, statevector));
 

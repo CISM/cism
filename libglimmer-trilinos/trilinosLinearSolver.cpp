@@ -12,6 +12,13 @@
 #include "Thyra_LinearOpWithSolveFactoryHelpers.hpp"
 #include "Thyra_EpetraThyraWrappers.hpp"
 #include "Thyra_EpetraLinearOp.hpp"
+
+#ifdef GLIMMER_MPI
+#include "Teuchos_DefaultMpiComm.hpp"
+#else
+#include "Teuchos_DefaultSerialComm.hpp"
+#endif
+
 #include "config.inc"
 
 // Define variables that are global to this file.
@@ -46,20 +53,22 @@ extern "C" {
           MPI_Init(&argc, &argv);
        }
     Epetra_MpiComm comm(MPI_COMM_WORLD);
+    Teuchos::MpiComm<int> tcomm(Teuchos::opaqueWrapper(MPI_COMM_WORLD));
 #else
     Epetra_SerialComm comm;
+    Teuchos::SerialComm<int> tcomm;
 #endif
 
     Teuchos::RCP<const Epetra_Map> rowMap = 
       Teuchos::rcp(new Epetra_Map(-1,mySize,myIndicies,1,comm) );
 
     soln = Teuchos::rcp(new Epetra_Vector(*rowMap));
-    try { // Check that the parameter list is valid at the top
-      pl = Teuchos::getParametersFromXmlFile("trilinosOptions.xml");
 
-      Teuchos::ParameterList validPL("Valid List");;
-      validPL.sublist("Stratimikos"); validPL.sublist("Piro");
-      pl->validateParameters(validPL, 0);
+    // Read parameter list once
+    try { 
+       pl = Teuchos::rcp(new Teuchos::ParameterList("Stratimikos"));
+       Teuchos::updateParametersFromXmlFileAndBroadcast("trilinosOptions.xml", pl.get(), tcomm);
+       //Teuchos::updateParametersFromXmlFile("strat1.xml", pl.get());
     }
     catch (std::exception& e) {
       cout << "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n" 
@@ -193,6 +202,10 @@ extern "C" {
       savedMatrix_A = Teuchos::rcp(new Epetra_CrsMatrix(*(interface->getOperator())));
     else if (*i==1)
       savedMatrix_C = Teuchos::rcp(new Epetra_CrsMatrix(*(interface->getOperator())));
+    else if (*i==2) {
+      savedMatrix_A = Teuchos::rcp(new Epetra_CrsMatrix(*(interface->getOperator())));
+      savedMatrix_C = Teuchos::rcp(new Epetra_CrsMatrix(*(interface->getOperator())));
+  }
     else
       assert(false);
   }
