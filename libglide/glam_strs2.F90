@@ -883,7 +883,7 @@ subroutine JFNK                 (model,umask)
   stagthck => model%geomderv%stagthck(:,:)
   flwa => model%temper%flwa(:,:,:)
   mintauf => model%basalproc%minTauf(:,:)
-  btraction = model%velocity%btraction(:,:,:)
+  btraction => model%velocity%btraction(:,:,:)
   whichbabc = model%options%which_ho_babc
   whichefvs = model%options%which_ho_efvs
   whichresid = model%options%which_ho_resid
@@ -2157,7 +2157,6 @@ end subroutine apply_precond_nox
     call solver_postprocess_jfnk( ewn, nsn, upn, ui, xtp, vvel, uvel, ghostbvel, pcgsize(1) )
 
 
-  fptr%model%velocity%btraction => btraction(:,:,:)
   fptr%model%velocity%btraction => btraction(:,:,:)
   fptr%model%temper%flwa => flwa(:,:,:)
   fptr%model%stress%efvs => efvs(:,:,:)
