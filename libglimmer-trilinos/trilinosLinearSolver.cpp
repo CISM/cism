@@ -51,7 +51,7 @@ extern "C" {
           MPI_Init(&argc, &argv);
        }
     Epetra_MpiComm comm(MPI_COMM_WORLD);
-    Teuchos::MpiComm<int> tcomm(Teuchos::opaqueWrapper(MPI_COMM_WORLD));
+    Teuchos::MpiComm<int> tcomm(Teuchos::opaqueWrapper((MPI_Comm) MPI_COMM_WORLD));
 #else
     Epetra_SerialComm comm;
     Teuchos::SerialComm<int> tcomm;

@@ -37,7 +37,7 @@ void FC_FUNC(noxinit,NOXINIT) ( int* nelems, double* statevector,
   Comm_=rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
   Epetra_Comm& Comm=*Comm_;
   printProc = (Comm_->MyPID() == 0);
-  Teuchos::MpiComm<int> tcomm(Teuchos::opaqueWrapper(MPI_COMM_WORLD));
+  Teuchos::MpiComm<int> tcomm(Teuchos::opaqueWrapper((MPI_Comm) MPI_COMM_WORLD));
   
   if (printProc) cout << "NOXINIT CALLED    for nelem=" << *nelems << endl;
 
