@@ -385,7 +385,8 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
      ! We default Trilinos to return full solution vector.
      ! Per AGS, for both distributed and serial globalIDs cases, we must return just owned portion in order to prevent a permutation of the results.
      ! This was built into parallel_set_trilinos_return_vect that handled the difference between _single and _mpi versions.
-     call returnownedvector()
+     ! AGS: no longer needed, now the default
+     ! call returnownedvector()
 !     call parallel_set_trilinos_return_vect
 #endif
 
@@ -989,7 +990,8 @@ subroutine JFNK                 (model,umask)
      ! We default Trilinos to return full solution vector.
      ! Per AGS, for both distributed and serial globalIDs cases, we must return just owned portion in order to prevent a permutation of the results.
      ! This was built into parallel_set_trilinos_return_vect that handled the difference between _single and _mpi versions.
-     call returnownedvector()
+     ! AGS: no longer needed, now the default
+     ! call returnownedvector()
 !     call parallel_set_trilinos_return_vect
 #endif
 
@@ -2040,7 +2042,7 @@ end subroutine apply_precond_nox
   um = fptr%um
 
   pcgsize = fptr%pcgsize
-  allocate( gxf(pcgsize(1)) )
+  allocate( gxf(2*pcgsize(1)) )
 
   gxf = fptr%gxf
 ! temporary to test JFNK -  need to take out

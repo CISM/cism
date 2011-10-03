@@ -37,8 +37,6 @@ public:
   // Mutators
   void finalizeSparsity(); // Call FillComplet to lock in sparsity pattern
   void updateOperator(Teuchos::RCP<Epetra_CrsMatrix> newOperator);
-  Teuchos::RCP<Epetra_Vector> getPartitionedVec(double *fullRhs);
-  void spreadVector(const Epetra_Vector& vec, double* fullVec);
 
 private:
   bool isFillCompleted_; // to indicate if operator_ is "FillComplete()"ed
@@ -47,8 +45,5 @@ private:
   const Epetra_Comm& comm_;
   Teuchos::RCP<Epetra_CrsMatrix> operator_;
   Teuchos::RCP<const Epetra_Map> rowMap_;
-  Teuchos::RCP<Epetra_Map> fullMap_;
-  Teuchos::RCP<Epetra_Import> import_r2f; // row to full
-  Teuchos::RCP<Epetra_Import> import_f2r; // full to row
 };
 #endif

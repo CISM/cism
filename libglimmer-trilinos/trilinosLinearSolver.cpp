@@ -32,8 +32,6 @@ Teuchos::RCP<Thyra::LinearOpWithSolveBase<double> > lows;
 Teuchos::RCP<Thyra::LinearOpWithSolveFactoryBase<double> > lowsFactory;
 Teuchos::RCP<const Thyra::LinearOpBase<double> > thyraOper;
 
-bool returnGlobalVec = true;
-
 extern "C" {
   //================================================================
   //================================================================
@@ -66,9 +64,12 @@ extern "C" {
 
     // Read parameter list once
     try { 
-       pl = Teuchos::rcp(new Teuchos::ParameterList("Stratimikos"));
+       pl = Teuchos::rcp(new Teuchos::ParameterList("Trilinos Options"));
        Teuchos::updateParametersFromXmlFileAndBroadcast("trilinosOptions.xml", pl.get(), tcomm);
-       //Teuchos::updateParametersFromXmlFile("strat1.xml", pl.get());
+
+       Teuchos::ParameterList validPL("Valid List");;
+       validPL.sublist("Stratimikos"); validPL.sublist("Piro");
+       pl->validateParameters(validPL, 0);
     }
     catch (std::exception& e) {
       cout << "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n" 
@@ -91,8 +92,6 @@ extern "C" {
     lows=Teuchos::null;
     thyraOper=Teuchos::null;
   }
-
-  void FC_FUNC(returnownedvector,RETURNOWNEDVECTOR)(void) { returnGlobalVec = false;}
 
   //============================================================
   // RN_20091118: This is to update the matrix with new entries.
@@ -176,8 +175,7 @@ extern "C" {
     const Epetra_Map& map = interface->getRowMap(); 
     Teuchos::RCP<Epetra_Vector> epetraSol = soln;
     Teuchos::RCP<Epetra_Vector> epetraRhs;
-    if (returnGlobalVec) epetraRhs = interface->getPartitionedVec(rhs);
-    else                 epetraRhs = Teuchos::rcp(new Epetra_Vector(View, map, rhs));
+    epetraRhs = Teuchos::rcp(new Epetra_Vector(View, map, rhs));
 
     thyraOper = Thyra::epetraLinearOp(interface->getOperator());
     Teuchos::RCP<Thyra::VectorBase<double> >
@@ -190,8 +188,7 @@ extern "C" {
     Thyra::SolveStatus<double>
       status = Thyra::solve(*lows, Thyra::NOTRANS, *thyraRhs, &*thyraSol);
 
-    if (returnGlobalVec) interface->spreadVector(*soln, answer);
-    else                 soln->ExtractCopy(answer);
+    soln->ExtractCopy(answer);
 
     //elapsedTime = linearTime.stop(); *out << "Total time elapsed for calling Solve(): " << elapsedTime << endl;
   }
@@ -225,14 +222,12 @@ extern "C" {
     const Epetra_Map& map = interface->getRowMap(); 
 
     Teuchos::RCP<Epetra_Vector> epetra_x;
-    if (returnGlobalVec) epetra_x  = interface->getPartitionedVec(x);
-    else                 epetra_x  = Teuchos::rcp(new Epetra_Vector(View, map, x));
+    epetra_x  = Teuchos::rcp(new Epetra_Vector(View, map, x));
 
     Epetra_Vector y(map);
     interface->getOperator()->Multiply(false, *epetra_x, y);
 
-    if (returnGlobalVec) interface->spreadVector(y, answer);
-    else                 y.ExtractCopy(answer);
+    y.ExtractCopy(answer);
   }
 
 } // extern"C"

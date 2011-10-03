@@ -84,9 +84,6 @@
           <Parameter name="Parameters" type="bool" value="0"/>
           <Parameter name="Details" type="bool" value="0"/>
           <Parameter name="Linear Solver Details" type="bool" value="0"/>
-          <Parameter name="Stepper Iteration" type="bool" value="1"/>
-          <Parameter name="Stepper Details" type="bool" value="1"/>
-          <Parameter name="Stepper Parameters" type="bool" value="1"/>
         </ParameterList>
       </ParameterList>
       <ParameterList name="Status Tests">

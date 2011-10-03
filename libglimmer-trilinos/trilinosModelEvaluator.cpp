@@ -91,7 +91,6 @@ void trilinosModelEvaluator::evalModel(const InArgs& inArgs, const OutArgs& outA
   if (f != Teuchos::null) {
     f->PutScalar(0.0);
     calc_F(x->Values(), f->Values(), N, blackbox_res);
-
     //f->Norm2(&nrm);
     //cout << "AGS  Resid norm in eval_model total " << nrm << endl;
   }

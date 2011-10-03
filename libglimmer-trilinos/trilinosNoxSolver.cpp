@@ -41,13 +41,27 @@ void FC_FUNC(noxinit,NOXINIT) ( int* nelems, double* statevector,
   
   if (printProc) cout << "NOXINIT CALLED    for nelem=" << *nelems << endl;
 
-  paramList = rcp(new Teuchos::ParameterList);
 
+    try { // Check that the parameter list is valid at the top
+      RCP<Teuchos::ParameterList> pl =
+        rcp(new Teuchos::ParameterList("Trilinos Options for NOX"));
+      Teuchos::updateParametersFromXmlFileAndBroadcast(
+                             "trilinosOptions.xml", pl.get(),tcomm);
+ 
+      Teuchos::ParameterList validPL("Valid List");;
+      validPL.sublist("Stratimikos"); validPL.sublist("Piro");
+      pl->validateParameters(validPL, 0);
+      paramList = Teuchos::sublist(pl,"Piro",true);
+    }
+    catch (std::exception& e) {
+      cout << "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
+           << e.what() << "\nExiting: Invalid trilinosOptions.xml file."
+           << "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" << endl;
+      exit(1);
+    }
   
-  Teuchos::updateParametersFromXmlFileAndBroadcast("input.xml", paramList.get(),tcomm);
   paramList->set("Lean Matrix Free",true); // Saves some GMRES steps
-  if (printProc)
-  cout << "NOXInit: param list from input.xml is:\n" << *paramList << endl;
+  if (printProc) cout << "NOXInit: param list is: (delete this debug line)\n" << *paramList << endl;
 
   model = rcp(new trilinosModelEvaluator(*nelems, statevector, Comm, blackbox_res));
     
