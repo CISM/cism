@@ -85,12 +85,10 @@ am__base_list = \
 am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(variabledir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
 libglimmertrilinos_la_LIBADD =
-am__libglimmertrilinos_la_SOURCES_DIST =  \
-	solveTriadMatrixWithTrilinos.cpp trilinosLinearSolver.cpp \
+am__libglimmertrilinos_la_SOURCES_DIST = trilinosLinearSolver.cpp \
 	matrixInterface.cpp trilinosPartition.cpp \
 	trilinosNoxSolver.cpp trilinosModelEvaluator.cpp
 @TRILINOS_TRUE@am_libglimmertrilinos_la_OBJECTS =  \
-@TRILINOS_TRUE@	solveTriadMatrixWithTrilinos.lo \
 @TRILINOS_TRUE@	trilinosLinearSolver.lo matrixInterface.lo \
 @TRILINOS_TRUE@	trilinosPartition.lo trilinosNoxSolver.lo \
 @TRILINOS_TRUE@	trilinosModelEvaluator.lo
@@ -329,7 +327,7 @@ top_srcdir = @top_srcdir@
 @TRILINOS_TRUE@dist_variable_DATA = $(variable_DATA)
 @TRILINOS_TRUE@BUILT_SOURCES = 
 @TRILINOS_TRUE@CLEANFILES = $(BUILT_SOURCES) 
-@TRILINOS_TRUE@libglimmertrilinos_la_SOURCES = solveTriadMatrixWithTrilinos.cpp \
+@TRILINOS_TRUE@libglimmertrilinos_la_SOURCES = \
 @TRILINOS_TRUE@                                trilinosLinearSolver.cpp \
 @TRILINOS_TRUE@                                matrixInterface.cpp \
 @TRILINOS_TRUE@                                trilinosPartition.cpp \
@@ -423,7 +421,6 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/matrixInterface.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/solveTriadMatrixWithTrilinos.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/trilinosLinearSolver.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/trilinosModelEvaluator.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/trilinosNoxSolver.Plo@am__quote@

@@ -9,7 +9,7 @@ dist_variable_DATA = $(variable_DATA)
 BUILT_SOURCES = 
 CLEANFILES = $(BUILT_SOURCES) 
 
-libglimmertrilinos_la_SOURCES = solveTriadMatrixWithTrilinos.cpp \
+libglimmertrilinos_la_SOURCES = \
                                 trilinosLinearSolver.cpp \
                                 matrixInterface.cpp \
                                 trilinosPartition.cpp \
