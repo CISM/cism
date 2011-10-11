@@ -18,6 +18,8 @@ module parallel
 
   ! distributed grid
   integer,save :: global_ewn,global_nsn,local_ewn,local_nsn,own_ewn,own_nsn
+  integer,save :: global_col_offset, global_row_offset
+
   integer,save :: ewlb,ewub,nslb,nsub
   integer,save :: east,north,south,west
 
@@ -1018,11 +1020,37 @@ contains
           end if
        end if
     end do
+
     if (ewtasks*nstasks/=tasks) call parallel_stop(__FILE__,__LINE__)
 
     ! Store critical value for creating global IDs.  Defines grid distribution.
     ProcsEW = ewtasks
 
+    ! For globalID calculations determine processor's global grid index offsets
+    ! sum block sizes for row blocks preceding this_rank
+    ! Do not include halo offsets in global calculations
+    ! (There are ProcsEW processors per row.)
+    global_col_offset = 0
+    do ewrank=0,mod(this_rank, ProcsEW)-1
+      rewtasks = 1/real(ewtasks,8)
+      ewlb = nint(ewrank*global_ewn*rewtasks)+1
+      ewub = nint((ewrank+1)*global_ewn*rewtasks)
+      own_ewn = ewub-ewlb+1
+      global_col_offset = global_col_offset + own_ewn
+    enddo
+
+    ! sum block sizes for column blocks preceding this_rank
+    ! (Integer division required for this_rank/ProcsEW)
+    global_row_offset = 0
+    do nsrank=0,(this_rank/ProcsEW)-1
+      rnstasks = 1/real(nstasks,8)
+      nslb = nint(nsrank*global_nsn*rnstasks)+1
+      nsub = nint((nsrank+1)*global_nsn*rnstasks)
+      own_nsn = nsub-nslb+1
+      global_row_offset = global_row_offset + own_nsn
+    enddo
+
+    ! Set local processor's grid indices, including halo offsets
     ewrank = mod(this_rank,ewtasks)
     rewtasks = 1/real(ewtasks,8)
     ewlb = nint(ewrank*global_ewn*rewtasks)+1-lhalo
@@ -1061,7 +1089,14 @@ contains
     endif
 
     ! Print grid geometry
-    write(*,*) "Process ", this_rank, " EW = ", local_ewn, " NS = ", local_nsn
+    write(*,*) "Process ", this_rank, " Total = ", tasks, " ewtasks = ", ewtasks, " nstasks = ", nstasks
+    write(*,*) "Process ", this_rank, " ewrank = ", ewrank, " nsrank = ", nsrank
+    write(*,*) "Process ", this_rank, " l_ewn = ", local_ewn, " o_ewn = ", own_ewn
+    write(*,*) "Process ", this_rank, " l_nsn = ", local_nsn, " o_nsn = ", own_nsn
+    write(*,*) "Process ", this_rank, " ewlb = ", ewlb, " ewub = ", ewub
+    write(*,*) "Process ", this_rank, " nslb = ", nslb, " nsub = ", nsub
+    write(*,*) "Process ", this_rank, " east = ", east, " west = ", west
+    write(*,*) "Process ", this_rank, " north = ", north, " south = ", south
   end subroutine
 
   function distributed_owner(ew,ewn,ns,nsn)
@@ -2231,10 +2266,8 @@ contains
 
     maxID = global_ewn * global_nsn * upstride
 
-    global_row = (locns - uhalo) + this_rank/ProcsEW * own_nsn
-    	! Integer division required for this_rank/ProcsEW
-    global_col = (locew - lhalo) + mod(this_rank, ProcsEW) * own_ewn
-        ! There are ProcsEW processors per row.
+    global_row = (locns - uhalo) + global_row_offset
+    global_col = (locew - lhalo) + global_col_offset
 
     global_ID = ((global_row - 1) * global_ewn + (global_col - 1)) * upstride + 1
 

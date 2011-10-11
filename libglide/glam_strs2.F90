@@ -2095,6 +2095,8 @@ end subroutine apply_precond_nox
                      beta, btraction,             &
                      counter, 0 )
 
+    rhsx(1:pcgsize(1)) = rhsd ! Fv
+
     if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
       call form_matrix ( matrixA ) ! to get A(utp,vtp)
 #ifdef TRILINOS
