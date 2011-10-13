@@ -1321,11 +1321,12 @@ contains
     return
   end function
 
-  subroutine parallel_set_trilinos_return_vect
+  ! Support removed October 2011
+  ! subroutine parallel_set_trilinos_return_vect
     ! Trilinos can return the full solution to each node or just the owned portion
     ! For parallel_single mode the full solution is expected
     ! This is the default value, so no action is required.
-  end subroutine
+  ! end subroutine
 
   subroutine parallel_show_minmax(label,values)
     implicit none

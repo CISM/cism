@@ -3140,11 +3140,12 @@ contains
     return
   end function
 
-  subroutine parallel_set_trilinos_return_vect
+  ! Andy removed support for returnownedvector in October 2011.
+  ! subroutine parallel_set_trilinos_return_vect
     ! Trilinos can return the full solution to each node or just the owned portion
     ! For parallel_mpi mode only the owned portion is expected
-    call returnownedvector()  ! in trilinosLinearSolver.cpp
-  end subroutine
+  !  call returnownedvector()  ! in trilinosLinearSolver.cpp
+  ! end subroutine
 
   subroutine parallel_show_minmax(label,values)
     use mpi
