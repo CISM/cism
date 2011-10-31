@@ -8,6 +8,7 @@ module glam
     ! and thickness evolution using LANL incremental remapping (see "remap_advection.F90" for 
     ! documentation)
 
+    use parallel
     use glide_types
     use glimmer_paramets, only : vis0, vis0_glam
     use glimmer_physcon, only :
@@ -55,9 +56,11 @@ module glam
 
         ! Compute higher-order ice velocities
 
-        print *, ' '
-        print *, '(dH/dt using incremental remapping)'
-        print *, 'time = ', model%numerics%time
+        if (main_task) then
+           print *, ' '
+           print *, '(dH/dt using incremental remapping)'
+           print *, 'time = ', model%numerics%time
+        endif
 
         call run_ho_diagnostic(model)   ! in glide_velo_higher.F90
 
