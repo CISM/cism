@@ -23,6 +23,13 @@ module parallel
   integer,save :: ewlb,ewub,nslb,nsub
   integer,save :: east,north,south,west
 
+  ! common work space
+  integer,dimension(4),save :: d_gs_mybounds
+  integer,dimension(:,:),allocatable,save :: d_gs_bounds
+
+  ! distributed gather flow control parameter
+  integer,parameter :: max_gather_block_size = 64 ! max and default
+
   ! global IDs
   integer,save :: ProcsEW
 
@@ -263,34 +270,38 @@ contains
     integer,dimension(:,:),allocatable,intent(inout) :: global_values
 
     integer :: i,ierror,j,k
-    integer,dimension(4) :: mybounds
     integer,dimension(:),allocatable :: displs,recvcounts
-    integer,dimension(:,:),allocatable :: bounds
     integer,dimension(:),allocatable :: recvbuf
     integer,dimension(:,:),allocatable :: sendbuf
 
-    ! begin
-    mybounds(1) = ewlb+lhalo
-    mybounds(2) = ewub-uhalo
-    mybounds(3) = nslb+lhalo
-    mybounds(4) = nsub-uhalo
-    if (main_task) then
-       allocate(bounds(4,tasks))
-    else
-       allocate(bounds(1,1))
-    end if
-    call mpi_gather(mybounds,4,mpi_integer,bounds,4,mpi_integer,&
-         main_rank,comm,ierror)
+    ! first time
+    if (.not. allocated(d_gs_bounds)) then
+       if (main_task) then
+          allocate(d_gs_bounds(4,tasks))
+       else
+          allocate(d_gs_bounds(1,1))
+       endif
+
+       d_gs_mybounds(1) = ewlb+lhalo
+       d_gs_mybounds(2) = ewub-uhalo
+       d_gs_mybounds(3) = nslb+lhalo
+       d_gs_mybounds(4) = nsub-uhalo
+       call fc_gather_int(d_gs_mybounds,4,mpi_integer,d_gs_bounds,4,&
+          mpi_integer,main_rank,comm)
+    endif
+
     if (main_task) then
        if (allocated(global_values)) then
           deallocate(global_values)
        endif
-       allocate(global_values(minval(bounds(1,:)):maxval(bounds(2,:)),&
-            minval(bounds(3,:)):maxval(bounds(4,:))))
+       allocate(global_values(&
+                 minval(d_gs_bounds(1,:)):maxval(d_gs_bounds(2,:)),&
+                 minval(d_gs_bounds(3,:)):maxval(d_gs_bounds(4,:))))
        global_values(:,:) = 0
        allocate(displs(tasks+1))
        allocate(recvcounts(tasks))
-       recvcounts(:) = (bounds(2,:)-bounds(1,:)+1)*(bounds(4,:)-bounds(3,:)+1)
+       recvcounts(:) = (d_gs_bounds(2,:)-d_gs_bounds(1,:)+1) &
+                      *(d_gs_bounds(4,:)-d_gs_bounds(3,:)+1)
        displs(1) = 0
        do i = 1,tasks
           displs(i+1) = displs(i)+recvcounts(i)
@@ -305,15 +316,18 @@ contains
        allocate(recvcounts(1))
        allocate(recvbuf(1))
     end if
-    allocate(sendbuf(mybounds(1):mybounds(2),mybounds(3):mybounds(4)))
+    allocate(sendbuf(d_gs_mybounds(1):d_gs_mybounds(2),&
+                     d_gs_mybounds(3):d_gs_mybounds(4)))
     sendbuf(:,:) = values(1+lhalo:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
-    call mpi_gatherv(sendbuf,size(sendbuf),mpi_integer,&
-         recvbuf,recvcounts,displs,mpi_integer,main_rank,comm,ierror)
+    call fc_gatherv_int(sendbuf,size(sendbuf),mpi_integer,&
+       recvbuf,recvcounts,displs,mpi_integer,main_rank,comm)
     if (main_task) then
        do i = 1,tasks
-          global_values(bounds(1,i):bounds(2,i),bounds(3,i):bounds(4,i)) = &
-               reshape(recvbuf(displs(i)+1:displs(i+1)), &
-               (/bounds(2,i)-bounds(1,i)+1,bounds(4,i)-bounds(3,i)+1/))
+          global_values(d_gs_bounds(1,i):d_gs_bounds(2,i),&
+                        d_gs_bounds(3,i):d_gs_bounds(4,i)) = &
+             reshape(recvbuf(displs(i)+1:displs(i+1)), &
+                     (/d_gs_bounds(2,i)-d_gs_bounds(1,i)+1,&
+                       d_gs_bounds(4,i)-d_gs_bounds(3,i)+1/))
        end do
     end if
     ! automatic deallocation
@@ -330,34 +344,38 @@ contains
     logical,dimension(:,:),allocatable,intent(inout) :: global_values
 
     integer :: i,ierror,j,k
-    integer,dimension(4) :: mybounds
     integer,dimension(:),allocatable :: displs,recvcounts
-    integer,dimension(:,:),allocatable :: bounds
     logical,dimension(:),allocatable :: recvbuf
     logical,dimension(:,:),allocatable :: sendbuf
 
-    ! begin
-    mybounds(1) = ewlb+lhalo
-    mybounds(2) = ewub-uhalo
-    mybounds(3) = nslb+lhalo
-    mybounds(4) = nsub-uhalo
-    if (main_task) then
-       allocate(bounds(4,tasks))
-    else
-       allocate(bounds(1,1))
-    end if
-    call mpi_gather(mybounds,4,mpi_integer,bounds,4,mpi_integer,&
-         main_rank,comm,ierror)
+    ! first time
+    if (.not. allocated(d_gs_bounds)) then
+       if (main_task) then
+          allocate(d_gs_bounds(4,tasks))
+       else
+          allocate(d_gs_bounds(1,1))
+       endif
+
+       d_gs_mybounds(1) = ewlb+lhalo
+       d_gs_mybounds(2) = ewub-uhalo
+       d_gs_mybounds(3) = nslb+lhalo
+       d_gs_mybounds(4) = nsub-uhalo
+       call fc_gather_int(d_gs_mybounds,4,mpi_integer,d_gs_bounds,4,&
+          mpi_integer,main_rank,comm)
+    endif
+
     if (main_task) then
        if (allocated(global_values)) then
           deallocate(global_values)
        endif
-       allocate(global_values(minval(bounds(1,:)):maxval(bounds(2,:)),&
-            minval(bounds(3,:)):maxval(bounds(4,:))))
-       global_values(:,:) = .false.
+       allocate(global_values(&
+                 minval(d_gs_bounds(1,:)):maxval(d_gs_bounds(2,:)),&
+                 minval(d_gs_bounds(3,:)):maxval(d_gs_bounds(4,:))))
+       global_values(:,:) = 0
        allocate(displs(tasks+1))
        allocate(recvcounts(tasks))
-       recvcounts(:) = (bounds(2,:)-bounds(1,:)+1)*(bounds(4,:)-bounds(3,:)+1)
+       recvcounts(:) = (d_gs_bounds(2,:)-d_gs_bounds(1,:)+1)&
+                      *(d_gs_bounds(4,:)-d_gs_bounds(3,:)+1)
        displs(1) = 0
        do i = 1,tasks
           displs(i+1) = displs(i)+recvcounts(i)
@@ -372,15 +390,18 @@ contains
        allocate(recvcounts(1))
        allocate(recvbuf(1))
     end if
-    allocate(sendbuf(mybounds(1):mybounds(2),mybounds(3):mybounds(4)))
+    allocate(sendbuf(d_gs_mybounds(1):d_gs_mybounds(2),&
+                     d_gs_mybounds(3):d_gs_mybounds(4)))
     sendbuf(:,:) = values(1+lhalo:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
-    call mpi_gatherv(sendbuf,size(sendbuf),mpi_logical,&
-         recvbuf,recvcounts,displs,mpi_logical,main_rank,comm,ierror)
+    call fc_gatherv_log(sendbuf,size(sendbuf),mpi_logical,&
+         recvbuf,recvcounts,displs,mpi_logical,main_rank,comm)
     if (main_task) then
        do i = 1,tasks
-          global_values(bounds(1,i):bounds(2,i),bounds(3,i):bounds(4,i)) = &
-               reshape(recvbuf(displs(i)+1:displs(i+1)), &
-               (/bounds(2,i)-bounds(1,i)+1,bounds(4,i)-bounds(3,i)+1/))
+          global_values(d_gs_bounds(1,i):d_gs_bounds(2,i),&
+                        d_gs_bounds(3,i):d_gs_bounds(4,i)) = &
+             reshape(recvbuf(displs(i)+1:displs(i+1)), &
+                     (/d_gs_bounds(2,i)-d_gs_bounds(1,i)+1,&
+                       d_gs_bounds(4,i)-d_gs_bounds(3,i)+1/))
        end do
     end if
     ! automatic deallocation
@@ -397,34 +418,38 @@ contains
     real(4),dimension(:,:),allocatable,intent(inout) :: global_values
 
     integer :: i,ierror,j,k
-    integer,dimension(4) :: mybounds
     integer,dimension(:),allocatable :: displs,recvcounts
-    integer,dimension(:,:),allocatable :: bounds
     real(4),dimension(:),allocatable :: recvbuf
     real(4),dimension(:,:),allocatable :: sendbuf
 
-    ! begin
-    mybounds(1) = ewlb+lhalo
-    mybounds(2) = ewub-uhalo
-    mybounds(3) = nslb+lhalo
-    mybounds(4) = nsub-uhalo
-    if (main_task) then
-       allocate(bounds(4,tasks))
-    else
-       allocate(bounds(1,1))
-    end if
-    call mpi_gather(mybounds,4,mpi_integer,bounds,4,mpi_integer,&
-         main_rank,comm,ierror)
+    ! first time
+    if (.not. allocated(d_gs_bounds)) then
+       if (main_task) then
+          allocate(d_gs_bounds(4,tasks))
+       else
+          allocate(d_gs_bounds(1,1))
+       endif
+
+       d_gs_mybounds(1) = ewlb+lhalo
+       d_gs_mybounds(2) = ewub-uhalo
+       d_gs_mybounds(3) = nslb+lhalo
+       d_gs_mybounds(4) = nsub-uhalo
+       call fc_gather_int(d_gs_mybounds,4,mpi_integer,d_gs_bounds,4,&
+          mpi_integer,main_rank,comm)
+    endif
+
     if (main_task) then
        if (allocated(global_values)) then
           deallocate(global_values)
        endif
-       allocate(global_values(minval(bounds(1,:)):maxval(bounds(2,:)),&
-            minval(bounds(3,:)):maxval(bounds(4,:))))
+       allocate(global_values(&
+                 minval(d_gs_bounds(1,:)):maxval(d_gs_bounds(2,:)),&
+                 minval(d_gs_bounds(3,:)):maxval(d_gs_bounds(4,:))))
        global_values(:,:) = 0
        allocate(displs(tasks+1))
        allocate(recvcounts(tasks))
-       recvcounts(:) = (bounds(2,:)-bounds(1,:)+1)*(bounds(4,:)-bounds(3,:)+1)
+       recvcounts(:) = (d_gs_bounds(2,:)-d_gs_bounds(1,:)+1) &
+                      *(d_gs_bounds(4,:)-d_gs_bounds(3,:)+1)
        displs(1) = 0
        do i = 1,tasks
           displs(i+1) = displs(i)+recvcounts(i)
@@ -439,15 +464,18 @@ contains
        allocate(recvcounts(1))
        allocate(recvbuf(1))
     end if
-    allocate(sendbuf(mybounds(1):mybounds(2),mybounds(3):mybounds(4)))
+    allocate(sendbuf(d_gs_mybounds(1):d_gs_mybounds(2),&
+                     d_gs_mybounds(3):d_gs_mybounds(4)))
     sendbuf(:,:) = values(1+lhalo:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
-    call mpi_gatherv(sendbuf,size(sendbuf),mpi_real4,&
-         recvbuf,recvcounts,displs,mpi_real4,main_rank,comm,ierror)
+    call fc_gatherv_real4(sendbuf,size(sendbuf),mpi_real4,&
+       recvbuf,recvcounts,displs,mpi_real4,main_rank,comm)
     if (main_task) then
        do i = 1,tasks
-          global_values(bounds(1,i):bounds(2,i),bounds(3,i):bounds(4,i)) = &
-               reshape(recvbuf(displs(i)+1:displs(i+1)), &
-               (/bounds(2,i)-bounds(1,i)+1,bounds(4,i)-bounds(3,i)+1/))
+          global_values(d_gs_bounds(1,i):d_gs_bounds(2,i),&
+                        d_gs_bounds(3,i):d_gs_bounds(4,i)) = &
+             reshape(recvbuf(displs(i)+1:displs(i+1)), &
+                     (/d_gs_bounds(2,i)-d_gs_bounds(1,i)+1,&
+                       d_gs_bounds(4,i)-d_gs_bounds(3,i)+1/))
        end do
     end if
     ! automatic deallocation
@@ -464,34 +492,40 @@ contains
     real(4),dimension(:,:,:),allocatable,intent(inout) :: global_values
 
     integer :: i,ierror,j,k
-    integer,dimension(4) :: mybounds
     integer,dimension(:),allocatable :: displs,recvcounts
-    integer,dimension(:,:),allocatable :: bounds
     real(4),dimension(:),allocatable :: recvbuf
     real(4),dimension(:,:,:),allocatable :: sendbuf
 
-    ! begin
-    mybounds(1) = ewlb+lhalo
-    mybounds(2) = ewub-uhalo
-    mybounds(3) = nslb+lhalo
-    mybounds(4) = nsub-uhalo
-    if (main_task) then
-       allocate(bounds(4,tasks))
-    else
-       allocate(bounds(1,1))
-    end if
-    call mpi_gather(mybounds,4,mpi_integer,bounds,4,mpi_integer,&
-         main_rank,comm,ierror)
+    ! first time
+    if (.not. allocated(d_gs_bounds)) then
+       if (main_task) then
+          allocate(d_gs_bounds(4,tasks))
+       else
+          allocate(d_gs_bounds(1,1))
+       endif
+
+       d_gs_mybounds(1) = ewlb+lhalo
+       d_gs_mybounds(2) = ewub-uhalo
+       d_gs_mybounds(3) = nslb+lhalo
+       d_gs_mybounds(4) = nsub-uhalo
+       call fc_gather_int(d_gs_mybounds,4,mpi_integer,d_gs_bounds,4,&
+          mpi_integer,main_rank,comm)
+    endif
+
     if (main_task) then
        if (allocated(global_values)) then
           deallocate(global_values)
        endif
-       allocate(global_values(size(values,1),minval(bounds(1,:)):maxval(bounds(2,:)),&
-            minval(bounds(3,:)):maxval(bounds(4,:))))
+       allocate(global_values(&
+                 size(values,1),&
+                 minval(d_gs_bounds(1,:)):maxval(d_gs_bounds(2,:)),&
+                 minval(d_gs_bounds(3,:)):maxval(d_gs_bounds(4,:))))
        global_values(:,:,:) = 0
        allocate(displs(tasks+1))
        allocate(recvcounts(tasks))
-       recvcounts(:) = (bounds(2,:)-bounds(1,:)+1)*(bounds(4,:)-bounds(3,:)+1)*size(values,1)
+       recvcounts(:) = (d_gs_bounds(2,:)-d_gs_bounds(1,:)+1)&
+                      *(d_gs_bounds(4,:)-d_gs_bounds(3,:)+1)&
+                      *size(values,1)
        displs(1) = 0
        do i = 1,tasks
           displs(i+1) = displs(i)+recvcounts(i)
@@ -506,15 +540,21 @@ contains
        allocate(recvcounts(1))
        allocate(recvbuf(1))
     end if
-    allocate(sendbuf(size(values,1),mybounds(1):mybounds(2),mybounds(3):mybounds(4)))
+    allocate(sendbuf(size(values,1),&
+                     d_gs_mybounds(1):d_gs_mybounds(2),&
+                     d_gs_mybounds(3):d_gs_mybounds(4)))
     sendbuf(:,:,:) = values(:,1+lhalo:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
-    call mpi_gatherv(sendbuf,size(sendbuf),mpi_real4,&
-         recvbuf,recvcounts,displs,mpi_real4,main_rank,comm,ierror)
+    call fc_gatherv_real4(sendbuf,size(sendbuf),mpi_real4,&
+       recvbuf,recvcounts,displs,mpi_real4,main_rank,comm)
     if (main_task) then
        do i = 1,tasks
-          global_values(:,bounds(1,i):bounds(2,i),bounds(3,i):bounds(4,i)) = &
-               reshape(recvbuf(displs(i)+1:displs(i+1)), &
-               (/size(values,1),bounds(2,i)-bounds(1,i)+1,bounds(4,i)-bounds(3,i)+1/))
+          global_values(:,&
+                        d_gs_bounds(1,i):d_gs_bounds(2,i),&
+                        d_gs_bounds(3,i):d_gs_bounds(4,i)) = &
+             reshape(recvbuf(displs(i)+1:displs(i+1)), &
+                     (/size(values,1),&
+                       d_gs_bounds(2,i)-d_gs_bounds(1,i)+1,&
+                       d_gs_bounds(4,i)-d_gs_bounds(3,i)+1/))
        end do
     end if
     ! automatic deallocation
@@ -531,34 +571,38 @@ contains
     real(8),dimension(:,:),allocatable,intent(inout) :: global_values
 
     integer :: i,ierror,j,k
-    integer,dimension(4) :: mybounds
     integer,dimension(:),allocatable :: displs,recvcounts
-    integer,dimension(:,:),allocatable :: bounds
     real(8),dimension(:),allocatable :: recvbuf
     real(8),dimension(:,:),allocatable :: sendbuf
 
-    ! begin
-    mybounds(1) = ewlb+lhalo
-    mybounds(2) = ewub-uhalo
-    mybounds(3) = nslb+lhalo
-    mybounds(4) = nsub-uhalo
-    if (main_task) then
-       allocate(bounds(4,tasks))
-    else
-       allocate(bounds(1,1))
-    end if
-    call mpi_gather(mybounds,4,mpi_integer,bounds,4,mpi_integer,&
-         main_rank,comm,ierror)
+    ! first time
+    if (.not. allocated(d_gs_bounds)) then
+       if (main_task) then
+          allocate(d_gs_bounds(4,tasks))
+       else
+          allocate(d_gs_bounds(1,1))
+       endif
+
+       d_gs_mybounds(1) = ewlb+lhalo
+       d_gs_mybounds(2) = ewub-uhalo
+       d_gs_mybounds(3) = nslb+lhalo
+       d_gs_mybounds(4) = nsub-uhalo
+       call fc_gather_int(d_gs_mybounds,4,mpi_integer,d_gs_bounds,4,&
+          mpi_integer,main_rank,comm)
+    endif
+
     if (main_task) then
        if (allocated(global_values)) then
           deallocate(global_values)
        endif
-       allocate(global_values(minval(bounds(1,:)):maxval(bounds(2,:)),&
-            minval(bounds(3,:)):maxval(bounds(4,:))))
+       allocate(global_values(&
+                 minval(d_gs_bounds(1,:)):maxval(d_gs_bounds(2,:)),&
+                 minval(d_gs_bounds(3,:)):maxval(d_gs_bounds(4,:))))
        global_values(:,:) = 0
        allocate(displs(tasks+1))
        allocate(recvcounts(tasks))
-       recvcounts(:) = (bounds(2,:)-bounds(1,:)+1)*(bounds(4,:)-bounds(3,:)+1)
+       recvcounts(:) = (d_gs_bounds(2,:)-d_gs_bounds(1,:)+1)&
+                      *(d_gs_bounds(4,:)-d_gs_bounds(3,:)+1)
        displs(1) = 0
        do i = 1,tasks
           displs(i+1) = displs(i)+recvcounts(i)
@@ -573,15 +617,18 @@ contains
        allocate(recvcounts(1))
        allocate(recvbuf(1))
     end if
-    allocate(sendbuf(mybounds(1):mybounds(2),mybounds(3):mybounds(4)))
+    allocate(sendbuf(d_gs_mybounds(1):d_gs_mybounds(2),&
+                     d_gs_mybounds(3):d_gs_mybounds(4)))
     sendbuf(:,:) = values(1+lhalo:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
-    call mpi_gatherv(sendbuf,size(sendbuf),mpi_real8,&
-         recvbuf,recvcounts,displs,mpi_real8,main_rank,comm,ierror)
+    call fc_gatherv_real8(sendbuf,size(sendbuf),mpi_real8,&
+       recvbuf,recvcounts,displs,mpi_real8,main_rank,comm)
     if (main_task) then
        do i = 1,tasks
-          global_values(bounds(1,i):bounds(2,i),bounds(3,i):bounds(4,i)) = &
-               reshape(recvbuf(displs(i)+1:displs(i+1)), &
-               (/bounds(2,i)-bounds(1,i)+1,bounds(4,i)-bounds(3,i)+1/))
+          global_values(d_gs_bounds(1,i):d_gs_bounds(2,i),&
+                        d_gs_bounds(3,i):d_gs_bounds(4,i)) = &
+             reshape(recvbuf(displs(i)+1:displs(i+1)), &
+                     (/d_gs_bounds(2,i)-d_gs_bounds(1,i)+1,&
+                       d_gs_bounds(4,i)-d_gs_bounds(3,i)+1/))
        end do
     end if
     ! automatic deallocation
@@ -598,34 +645,40 @@ contains
     real(8),dimension(:,:,:),allocatable,intent(inout) :: global_values
 
     integer :: i,ierror,j,k
-    integer,dimension(4) :: mybounds
     integer,dimension(:),allocatable :: displs,recvcounts
-    integer,dimension(:,:),allocatable :: bounds
     real(8),dimension(:),allocatable :: recvbuf
     real(8),dimension(:,:,:),allocatable :: sendbuf
 
-    ! begin
-    mybounds(1) = ewlb+lhalo
-    mybounds(2) = ewub-uhalo
-    mybounds(3) = nslb+lhalo
-    mybounds(4) = nsub-uhalo
-    if (main_task) then
-       allocate(bounds(4,tasks))
-    else
-       allocate(bounds(1,1))
-    end if
-    call mpi_gather(mybounds,4,mpi_integer,bounds,4,mpi_integer,&
-         main_rank,comm,ierror)
+    ! first time
+    if (.not. allocated(d_gs_bounds)) then
+       if (main_task) then
+          allocate(d_gs_bounds(4,tasks))
+       else
+          allocate(d_gs_bounds(1,1))
+       endif
+
+       d_gs_mybounds(1) = ewlb+lhalo
+       d_gs_mybounds(2) = ewub-uhalo
+       d_gs_mybounds(3) = nslb+lhalo
+       d_gs_mybounds(4) = nsub-uhalo
+       call fc_gather_int(d_gs_mybounds,4,mpi_integer,d_gs_bounds,4,&
+          mpi_integer,main_rank,comm)
+    endif
+
     if (main_task) then
        if (allocated(global_values)) then
           deallocate(global_values)
        endif
-       allocate(global_values(size(values,1),minval(bounds(1,:)):maxval(bounds(2,:)),&
-            minval(bounds(3,:)):maxval(bounds(4,:))))
+       allocate(global_values(&
+                 size(values,1),&
+                 minval(d_gs_bounds(1,:)):maxval(d_gs_bounds(2,:)),&
+                 minval(d_gs_bounds(3,:)):maxval(d_gs_bounds(4,:))))
        global_values(:,:,:) = 0
        allocate(displs(tasks+1))
        allocate(recvcounts(tasks))
-       recvcounts(:) = (bounds(2,:)-bounds(1,:)+1)*(bounds(4,:)-bounds(3,:)+1)*size(values,1)
+       recvcounts(:) = (d_gs_bounds(2,:)-d_gs_bounds(1,:)+1)&
+                      *(d_gs_bounds(4,:)-d_gs_bounds(3,:)+1)&
+                      *size(values,1)
        displs(1) = 0
        do i = 1,tasks
           displs(i+1) = displs(i)+recvcounts(i)
@@ -640,15 +693,21 @@ contains
        allocate(recvcounts(1))
        allocate(recvbuf(1))
     end if
-    allocate(sendbuf(size(values,1),mybounds(1):mybounds(2),mybounds(3):mybounds(4)))
+    allocate(sendbuf(size(values,1),&
+                     d_gs_mybounds(1):d_gs_mybounds(2),&
+                     d_gs_mybounds(3):d_gs_mybounds(4)))
     sendbuf(:,:,:) = values(:,1+lhalo:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
-    call mpi_gatherv(sendbuf,size(sendbuf),mpi_real8,&
-         recvbuf,recvcounts,displs,mpi_real8,main_rank,comm,ierror)
+    call fc_gatherv_real8(sendbuf,size(sendbuf),mpi_real8,&
+       recvbuf,recvcounts,displs,mpi_real8,main_rank,comm)
     if (main_task) then
        do i = 1,tasks
-          global_values(:,bounds(1,i):bounds(2,i),bounds(3,i):bounds(4,i)) = &
-               reshape(recvbuf(displs(i)+1:displs(i+1)), &
-               (/size(values,1),bounds(2,i)-bounds(1,i)+1,bounds(4,i)-bounds(3,i)+1/))
+          global_values(:,&
+                        d_gs_bounds(1,i):d_gs_bounds(2,i),&
+                        d_gs_bounds(3,i):d_gs_bounds(4,i)) = &
+             reshape(recvbuf(displs(i)+1:displs(i+1)), &
+                     (/size(values,1),&
+                       d_gs_bounds(2,i)-d_gs_bounds(1,i)+1,&
+                       d_gs_bounds(4,i)-d_gs_bounds(3,i)+1/))
        end do
     end if
     ! automatic deallocation
@@ -688,8 +747,8 @@ contains
     else
        allocate(bounds(1,1))
     end if
-    call mpi_gather(mybounds,4,mpi_integer,bounds,4,mpi_integer,&
-         main_rank,comm,ierror)
+    call fc_gather_int(mybounds,4,mpi_integer,bounds,4,&
+       mpi_integer,main_rank,comm)
     if (main_task) then
        allocate(global_values(minval(bounds(1,:)):maxval(bounds(2,:)),&
             minval(bounds(3,:)):maxval(bounds(4,:))))
@@ -758,8 +817,8 @@ contains
     else
        call parallel_stop(__FILE__,__LINE__)
     end if
-    call mpi_gather(mybounds,2,mpi_integer,bounds,2,mpi_integer,&
-         main_rank,comm,ierror)
+    call fc_gather_int(mybounds,2,mpi_integer,bounds,2,&
+       mpi_integer,main_rank,comm)
     if (main_task) then
        allocate(global_values(minval(bounds(1,:)):maxval(bounds(2,:))))
        global_values(:) = 0
@@ -822,8 +881,8 @@ contains
     else
        allocate(bounds(1,1))
     end if
-    call mpi_gather(mybounds,4,mpi_integer,bounds,4,mpi_integer,&
-         main_rank,comm,ierror)
+    call fc_gather_int(mybounds,4,mpi_integer,bounds,4,&
+       mpi_integer,main_rank,comm)
     if (main_task) then
        allocate(global_values(minval(bounds(1,:)):maxval(bounds(2,:)),&
             minval(bounds(3,:)):maxval(bounds(4,:))))
@@ -890,8 +949,8 @@ contains
     else
        allocate(bounds(1,1))
     end if
-    call mpi_gather(mybounds,4,mpi_integer,bounds,4,mpi_integer,&
-         main_rank,comm,ierror)
+    call fc_gather_int(mybounds,4,mpi_integer,bounds,4,&
+       mpi_integer,main_rank,comm)
     if (main_task) then
        allocate(global_values(minval(bounds(1,:)):maxval(bounds(2,:)),&
             minval(bounds(3,:)):maxval(bounds(4,:))))
@@ -958,8 +1017,8 @@ contains
     else
        allocate(bounds(1,1))
     end if
-    call mpi_gather(mybounds,4,mpi_integer,bounds,4,mpi_integer,&
-         main_rank,comm,ierror)
+    call fc_gather_int(mybounds,4,mpi_integer,bounds,4,&
+       mpi_integer,main_rank,comm)
     if (main_task) then
        allocate(global_values(minval(bounds(1,:)):maxval(bounds(2,:)),&
             minval(bounds(3,:)):maxval(bounds(4,:)),size(values,3)))
@@ -1020,7 +1079,6 @@ contains
           end if
        end if
     end do
-
     if (ewtasks*nstasks/=tasks) call parallel_stop(__FILE__,__LINE__)
 
     ! Store critical value for creating global IDs.  Defines grid distribution.
@@ -1133,8 +1191,8 @@ contains
     else
        allocate(bounds(1,1))
     end if
-    call mpi_gather(mybounds,4,mpi_integer,bounds,4,mpi_integer,&
-         main_rank,comm,ierror)
+    call fc_gather_int(mybounds,4,mpi_integer,bounds,4,&
+       mpi_integer,main_rank,comm)
     if (main_task) then
        allocate(global_values(minval(bounds(1,:)):maxval(bounds(2,:)),&
             minval(bounds(3,:)):maxval(bounds(4,:))))
@@ -1154,8 +1212,8 @@ contains
     end if
     allocate(sendbuf(mybounds(1):mybounds(2),mybounds(3):mybounds(4)))
     sendbuf(:,:) = values(1+lhalo:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
-    call mpi_gatherv(sendbuf,size(sendbuf),mpi_integer,&
-         recvbuf,recvcounts,displs,mpi_integer,main_rank,comm,ierror)
+    call fc_gatherv_int(sendbuf,size(sendbuf),mpi_integer,&
+       recvbuf,recvcounts,displs,mpi_integer,main_rank,comm)
     if (main_task) then
        do i = 1,tasks
           global_values(bounds(1,i):bounds(2,i),bounds(3,i):bounds(4,i)) = &
@@ -1209,8 +1267,8 @@ contains
     else
        allocate(bounds(1,1))
     end if
-    call mpi_gather(mybounds,4,mpi_integer,bounds,4,mpi_integer,&
-         main_rank,comm,ierror)
+    call fc_gather_int(mybounds,4,mpi_integer,bounds,4,&
+       mpi_integer,main_rank,comm)
     if (main_task) then
        allocate(global_values(minval(bounds(1,:)):maxval(bounds(2,:)),&
             minval(bounds(3,:)):maxval(bounds(4,:))))
@@ -1230,8 +1288,8 @@ contains
     end if
     allocate(sendbuf(mybounds(1):mybounds(2),mybounds(3):mybounds(4)))
     sendbuf(:,:) = values(1+lhalo:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
-    call mpi_gatherv(sendbuf,size(sendbuf),mpi_real8,&
-         recvbuf,recvcounts,displs,mpi_real8,main_rank,comm,ierror)
+    call fc_gatherv_real8(sendbuf,size(sendbuf),mpi_real8,&
+       recvbuf,recvcounts,displs,mpi_real8,main_rank,comm)
     if (main_task) then
        do i = 1,tasks
           global_values(bounds(1,i):bounds(2,i),bounds(3,i):bounds(4,i)) = &
@@ -1285,8 +1343,8 @@ contains
     else
        allocate(bounds(1,1))
     end if
-    call mpi_gather(mybounds,4,mpi_integer,bounds,4,mpi_integer,&
-         main_rank,comm,ierror)
+    call fc_gather_int(mybounds,4,mpi_integer,bounds,4,&
+       mpi_integer,main_rank,comm)
     if (main_task) then
        allocate(global_values(size(values,1),minval(bounds(1,:)):maxval(bounds(2,:)),&
             minval(bounds(3,:)):maxval(bounds(4,:))))
@@ -1307,8 +1365,8 @@ contains
     allocate(sendbuf(size(values,1),mybounds(1):mybounds(2),mybounds(3):mybounds(4)))
     sendbuf(:,:,:) = values(:,1+lhalo:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
     sendbuf(:,mybounds(1):mybounds(2),mybounds(3):mybounds(4)) = sendbuf(:,mybounds(1):mybounds(2),mybounds(3):mybounds(4))
-    call mpi_gatherv(sendbuf,size(sendbuf),mpi_real8,&
-         recvbuf,recvcounts,displs,mpi_real8,main_rank,comm,ierror)
+    call fc_gatherv_real8(sendbuf,size(sendbuf),mpi_real8,&
+       recvbuf,recvcounts,displs,mpi_real8,main_rank,comm)
     if (main_task) then
        do i = 1,tasks
           global_values(:,bounds(1,i):bounds(2,i),bounds(3,i):bounds(4,i)) = &
@@ -1371,8 +1429,8 @@ contains
     else
        allocate(bounds(1,1))
     end if
-    call mpi_gather(mybounds,4,mpi_integer,bounds,4,mpi_integer,&
-         main_rank,comm,ierror)
+    call fc_gather_int(mybounds,4,mpi_integer,bounds,4,&
+       mpi_integer,main_rank,comm)
     if (main_task) then
        allocate(global_values(minval(bounds(1,:)):maxval(bounds(2,:)),&
             minval(bounds(3,:)):maxval(bounds(4,:))))
@@ -1392,8 +1450,8 @@ contains
     end if
     allocate(sendbuf(mybounds(1):mybounds(2),mybounds(3):mybounds(4)))
     sendbuf(:,:) = values(1+lhalo:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
-    call mpi_gatherv(sendbuf,size(sendbuf),mpi_integer,&
-         recvbuf,recvcounts,displs,mpi_integer,main_rank,comm,ierror)
+    call fc_gatherv_int(sendbuf,size(sendbuf),mpi_integer,&
+       recvbuf,recvcounts,displs,mpi_integer,main_rank,comm)
     if (main_task) then
        do i = 1,tasks
           global_values(bounds(1,i):bounds(2,i),bounds(3,i):bounds(4,i)) = &
@@ -1455,8 +1513,8 @@ contains
     else
        call parallel_stop(__FILE__,__LINE__)
     end if
-    call mpi_gather(mybounds,2,mpi_integer,bounds,2,mpi_integer,&
-         main_rank,comm,ierror)
+    call fc_gather_int(mybounds,2,mpi_integer,bounds,2,&
+       mpi_integer,main_rank,comm)
     if (main_task) then
        allocate(global_values(minval(bounds(1,:)):maxval(bounds(2,:))))
        global_values(:) = 0
@@ -1473,8 +1531,8 @@ contains
        allocate(recvcounts(1))
        allocate(recvbuf(1))
     end if
-    call mpi_gatherv(values,size(values),mpi_real4,recvbuf,recvcounts,&
-         displs,mpi_real4,main_rank,comm,ierror)
+    call fc_gatherv_real4(values,size(values),mpi_real4,&
+       recvbuf,recvcounts,displs,mpi_real4,main_rank,comm)
     if (main_task) then
        do i = 1,tasks
           global_values(bounds(1,i):bounds(2,i)) = &
@@ -1521,8 +1579,8 @@ contains
     else
        allocate(bounds(1,1))
     end if
-    call mpi_gather(mybounds,4,mpi_integer,bounds,4,mpi_integer,&
-         main_rank,comm,ierror)
+    call fc_gather_int(mybounds,4,mpi_integer,bounds,4,&
+       mpi_integer,main_rank,comm)
     if (main_task) then
        allocate(global_values(minval(bounds(1,:)):maxval(bounds(2,:)),&
             minval(bounds(3,:)):maxval(bounds(4,:))))
@@ -1542,8 +1600,8 @@ contains
     end if
     allocate(sendbuf(mybounds(1):mybounds(2),mybounds(3):mybounds(4)))
     sendbuf(:,:) = values(1+lhalo:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
-    call mpi_gatherv(sendbuf,size(sendbuf),mpi_real4,&
-         recvbuf,recvcounts,displs,mpi_real4,main_rank,comm,ierror)
+    call fc_gatherv_real4(sendbuf,size(sendbuf),mpi_real4,&
+       recvbuf,recvcounts,displs,mpi_real4,main_rank,comm)
     if (main_task) then
        do i = 1,tasks
           global_values(bounds(1,i):bounds(2,i),bounds(3,i):bounds(4,i)) = &
@@ -1591,8 +1649,8 @@ contains
     else
        allocate(bounds(1,1))
     end if
-    call mpi_gather(mybounds,4,mpi_integer,bounds,4,mpi_integer,&
-         main_rank,comm,ierror)
+    call fc_gather_int(mybounds,4,mpi_integer,bounds,4,&
+       mpi_integer,main_rank,comm)
     if (main_task) then
        allocate(global_values(minval(bounds(1,:)):maxval(bounds(2,:)),&
             minval(bounds(3,:)):maxval(bounds(4,:))))
@@ -1612,8 +1670,8 @@ contains
     end if
     allocate(sendbuf(mybounds(1):mybounds(2),mybounds(3):mybounds(4)))
     sendbuf(:,:) = values(1+lhalo:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
-    call mpi_gatherv(sendbuf,size(sendbuf),mpi_real8,&
-         recvbuf,recvcounts,displs,mpi_real8,main_rank,comm,ierror)
+    call fc_gatherv_real8(sendbuf,size(sendbuf),mpi_real8,&
+       recvbuf,recvcounts,displs,mpi_real8,main_rank,comm)
     if (main_task) then
        do i = 1,tasks
           global_values(bounds(1,i):bounds(2,i),bounds(3,i):bounds(4,i)) = &
@@ -1662,8 +1720,8 @@ contains
     else
        allocate(bounds(1,1))
     end if
-    call mpi_gather(mybounds,4,mpi_integer,bounds,4,mpi_integer,&
-         main_rank,comm,ierror)
+    call fc_gather_int(mybounds,4,mpi_integer,bounds,4,&
+       mpi_integer,main_rank,comm)
     if (main_task) then
        allocate(global_values(minval(bounds(1,:)):maxval(bounds(2,:)),&
             minval(bounds(3,:)):maxval(bounds(4,:)),nz))
@@ -1684,8 +1742,8 @@ contains
     end if
     allocate(sendbuf(mybounds(1):mybounds(2),mybounds(3):mybounds(4),nz))
     sendbuf(:,:,:) = values(1+lhalo:local_ewn-uhalo,1+lhalo:local_nsn-uhalo,:)
-    call mpi_gatherv(sendbuf,size(sendbuf),mpi_real8,&
-         recvbuf,recvcounts,displs,mpi_real8,main_rank,comm,ierror)
+    call fc_gatherv_real8(sendbuf,size(sendbuf),mpi_real8,&
+       recvbuf,recvcounts,displs,mpi_real8,main_rank,comm)
     if (main_task) then
        do i = 1,tasks
           global_values(bounds(1,i):bounds(2,i),bounds(3,i):bounds(4,i),:) = &
@@ -1710,29 +1768,31 @@ contains
     integer,dimension(:,:),allocatable,intent(inout) :: global_values  ! only used on main_task
 
     integer :: i,ierror,j,k
-    integer,dimension(4) :: mybounds
     integer,dimension(:),allocatable :: displs,sendcounts
-    integer,dimension(:,:),allocatable :: bounds
     integer,dimension(:),allocatable :: sendbuf
     integer,dimension(:,:),allocatable :: recvbuf
 
-    ! begin
-    mybounds(1) = ewlb+lhalo
-    mybounds(2) = ewub-uhalo
-    mybounds(3) = nslb+lhalo
-    mybounds(4) = nsub-uhalo
-    if (main_task) then
-       allocate(bounds(4,tasks))
-    else
-       allocate(bounds(1,1))
-    end if
-    call mpi_gather(mybounds,4,mpi_integer,bounds,4,mpi_integer,&
-         main_rank,comm,ierror)
+    ! first time
+    if (.not. allocated(d_gs_bounds)) then
+       if (main_task) then
+          allocate(d_gs_bounds(4,tasks))
+       else
+          allocate(d_gs_bounds(1,1))
+       endif
+
+       d_gs_mybounds(1) = ewlb+lhalo
+       d_gs_mybounds(2) = ewub-uhalo
+       d_gs_mybounds(3) = nslb+lhalo
+       d_gs_mybounds(4) = nsub-uhalo
+       call fc_gather_int(d_gs_mybounds,4,mpi_integer,d_gs_bounds,4,&
+          mpi_integer,main_rank,comm)
+    endif
 
     if (main_task) then
        allocate(displs(tasks+1))
        allocate(sendcounts(tasks))
-       sendcounts(:) = (bounds(2,:)-bounds(1,:)+1)*(bounds(4,:)-bounds(3,:)+1)
+       sendcounts(:) = (d_gs_bounds(2,:)-d_gs_bounds(1,:)+1)&
+                      *(d_gs_bounds(4,:)-d_gs_bounds(3,:)+1)
        displs(1) = 0
        do i = 1,tasks
           displs(i+1) = displs(i)+sendcounts(i)
@@ -1740,16 +1800,18 @@ contains
        allocate(sendbuf(displs(tasks+1)))
 
        do i = 1,tasks
-          sendbuf(displs(i)+1:displs(i+1)) = reshape(&
-               global_values(bounds(1,i):bounds(2,i),bounds(3,i):bounds(4,i)),&
-               (/displs(i+1)-displs(i)/))
+          sendbuf(displs(i)+1:displs(i+1)) = &
+             reshape(global_values(d_gs_bounds(1,i):d_gs_bounds(2,i),&
+                                   d_gs_bounds(3,i):d_gs_bounds(4,i)),&
+                                   (/displs(i+1)-displs(i)/))
        end do
     else
        allocate(displs(1))
        allocate(sendcounts(1))
        allocate(sendbuf(1))
     end if
-    allocate(recvbuf(mybounds(1):mybounds(2),mybounds(3):mybounds(4)))
+    allocate(recvbuf(d_gs_mybounds(1):d_gs_mybounds(2),&
+                     d_gs_mybounds(3):d_gs_mybounds(4)))
     call mpi_scatterv(sendbuf,sendcounts,displs,mpi_integer,&
          recvbuf,size(recvbuf),mpi_integer,main_rank,comm,ierror)
     values(1+lhalo:local_ewn-uhalo,1+lhalo:local_nsn-uhalo) = recvbuf(:,:)
@@ -1769,29 +1831,31 @@ contains
     logical,dimension(:,:),allocatable,intent(inout) :: global_values  ! only used on main_task
 
     integer :: i,ierror,j,k
-    integer,dimension(4) :: mybounds
     integer,dimension(:),allocatable :: displs,sendcounts
-    integer,dimension(:,:),allocatable :: bounds
     logical,dimension(:),allocatable :: sendbuf
     logical,dimension(:,:),allocatable :: recvbuf
 
-    ! begin
-    mybounds(1) = ewlb+lhalo
-    mybounds(2) = ewub-uhalo
-    mybounds(3) = nslb+lhalo
-    mybounds(4) = nsub-uhalo
-    if (main_task) then
-       allocate(bounds(4,tasks))
-    else
-       allocate(bounds(1,1))
-    end if
-    call mpi_gather(mybounds,4,mpi_integer,bounds,4,mpi_integer,&
-         main_rank,comm,ierror)
+    ! first time
+    if (.not. allocated(d_gs_bounds)) then
+       if (main_task) then
+          allocate(d_gs_bounds(4,tasks))
+       else
+          allocate(d_gs_bounds(1,1))
+       endif
+
+       d_gs_mybounds(1) = ewlb+lhalo
+       d_gs_mybounds(2) = ewub-uhalo
+       d_gs_mybounds(3) = nslb+lhalo
+       d_gs_mybounds(4) = nsub-uhalo
+       call fc_gather_int(d_gs_mybounds,4,mpi_integer,d_gs_bounds,4,&
+          mpi_integer,main_rank,comm)
+    endif
 
     if (main_task) then
        allocate(displs(tasks+1))
        allocate(sendcounts(tasks))
-       sendcounts(:) = (bounds(2,:)-bounds(1,:)+1)*(bounds(4,:)-bounds(3,:)+1)
+       sendcounts(:) = (d_gs_bounds(2,:)-d_gs_bounds(1,:)+1)&
+                      *(d_gs_bounds(4,:)-d_gs_bounds(3,:)+1)
        displs(1) = 0
        do i = 1,tasks
           displs(i+1) = displs(i)+sendcounts(i)
@@ -1799,16 +1863,18 @@ contains
        allocate(sendbuf(displs(tasks+1)))
 
        do i = 1,tasks
-          sendbuf(displs(i)+1:displs(i+1)) = reshape(&
-               global_values(bounds(1,i):bounds(2,i),bounds(3,i):bounds(4,i)),&
-               (/displs(i+1)-displs(i)/))
+          sendbuf(displs(i)+1:displs(i+1)) = &
+             reshape(global_values(d_gs_bounds(1,i):d_gs_bounds(2,i),&
+                                   d_gs_bounds(3,i):d_gs_bounds(4,i)),&
+                                   (/displs(i+1)-displs(i)/))
        end do
     else
        allocate(displs(1))
        allocate(sendcounts(1))
        allocate(sendbuf(1))
     end if
-    allocate(recvbuf(mybounds(1):mybounds(2),mybounds(3):mybounds(4)))
+    allocate(recvbuf(d_gs_mybounds(1):d_gs_mybounds(2),&
+                     d_gs_mybounds(3):d_gs_mybounds(4)))
     call mpi_scatterv(sendbuf,sendcounts,displs,mpi_logical,&
          recvbuf,size(recvbuf),mpi_logical,main_rank,comm,ierror)
     values(1+lhalo:local_ewn-uhalo,1+lhalo:local_nsn-uhalo) = recvbuf(:,:)
@@ -1828,29 +1894,31 @@ contains
     real(4),dimension(:,:),allocatable,intent(inout) :: global_values  ! only used on main_task
 
     integer :: i,ierror,j,k
-    integer,dimension(4) :: mybounds
     integer,dimension(:),allocatable :: displs,sendcounts
-    integer,dimension(:,:),allocatable :: bounds
     real(4),dimension(:),allocatable :: sendbuf
     real(4),dimension(:,:),allocatable :: recvbuf
 
-    ! begin
-    mybounds(1) = ewlb+lhalo
-    mybounds(2) = ewub-uhalo
-    mybounds(3) = nslb+lhalo
-    mybounds(4) = nsub-uhalo
-    if (main_task) then
-       allocate(bounds(4,tasks))
-    else
-       allocate(bounds(1,1))
-    end if
-    call mpi_gather(mybounds,4,mpi_integer,bounds,4,mpi_integer,&
-         main_rank,comm,ierror)
+    ! first time
+    if (.not. allocated(d_gs_bounds)) then
+       if (main_task) then
+          allocate(d_gs_bounds(4,tasks))
+       else
+          allocate(d_gs_bounds(1,1))
+       endif
+
+       d_gs_mybounds(1) = ewlb+lhalo
+       d_gs_mybounds(2) = ewub-uhalo
+       d_gs_mybounds(3) = nslb+lhalo
+       d_gs_mybounds(4) = nsub-uhalo
+       call fc_gather_int(d_gs_mybounds,4,mpi_integer,d_gs_bounds,4,&
+          mpi_integer,main_rank,comm)
+    endif
 
     if (main_task) then
        allocate(displs(tasks+1))
        allocate(sendcounts(tasks))
-       sendcounts(:) = (bounds(2,:)-bounds(1,:)+1)*(bounds(4,:)-bounds(3,:)+1)
+       sendcounts(:) = (d_gs_bounds(2,:)-d_gs_bounds(1,:)+1)&
+                      *(d_gs_bounds(4,:)-d_gs_bounds(3,:)+1)
        displs(1) = 0
        do i = 1,tasks
           displs(i+1) = displs(i)+sendcounts(i)
@@ -1858,16 +1926,18 @@ contains
        allocate(sendbuf(displs(tasks+1)))
 
        do i = 1,tasks
-          sendbuf(displs(i)+1:displs(i+1)) = reshape(&
-               global_values(bounds(1,i):bounds(2,i),bounds(3,i):bounds(4,i)),&
-               (/displs(i+1)-displs(i)/))
+          sendbuf(displs(i)+1:displs(i+1)) = &
+             reshape(global_values(d_gs_bounds(1,i):d_gs_bounds(2,i),&
+                     d_gs_bounds(3,i):d_gs_bounds(4,i)),&
+                     (/displs(i+1)-displs(i)/))
        end do
     else
        allocate(displs(1))
        allocate(sendcounts(1))
        allocate(sendbuf(1))
     end if
-    allocate(recvbuf(mybounds(1):mybounds(2),mybounds(3):mybounds(4)))
+    allocate(recvbuf(d_gs_mybounds(1):d_gs_mybounds(2),&
+                     d_gs_mybounds(3):d_gs_mybounds(4)))
     call mpi_scatterv(sendbuf,sendcounts,displs,mpi_real4,&
          recvbuf,size(recvbuf),mpi_real4,main_rank,comm,ierror)
     values(1+lhalo:local_ewn-uhalo,1+lhalo:local_nsn-uhalo) = recvbuf(:,:)
@@ -1887,29 +1957,31 @@ contains
     real(4),dimension(:,:,:),allocatable,intent(inout) :: global_values  ! only used on main_task
 
     integer :: i,ierror,j,k
-    integer,dimension(4) :: mybounds
     integer,dimension(:),allocatable :: displs,sendcounts
-    integer,dimension(:,:),allocatable :: bounds
     real(4),dimension(:),allocatable :: sendbuf
     real(4),dimension(:,:,:),allocatable :: recvbuf
 
-    ! begin
-    mybounds(1) = ewlb+lhalo
-    mybounds(2) = ewub-uhalo
-    mybounds(3) = nslb+lhalo
-    mybounds(4) = nsub-uhalo
-    if (main_task) then
-       allocate(bounds(4,tasks))
-    else
-       allocate(bounds(1,1))
-    end if
-    call mpi_gather(mybounds,4,mpi_integer,bounds,4,mpi_integer,&
-         main_rank,comm,ierror)
+    ! first time
+    if (.not. allocated(d_gs_bounds)) then
+       if (main_task) then
+          allocate(d_gs_bounds(4,tasks))
+       else
+          allocate(d_gs_bounds(1,1))
+       endif
+
+       d_gs_mybounds(1) = ewlb+lhalo
+       d_gs_mybounds(2) = ewub-uhalo
+       d_gs_mybounds(3) = nslb+lhalo
+       d_gs_mybounds(4) = nsub-uhalo
+       call fc_gather_int(d_gs_mybounds,4,mpi_integer,d_gs_bounds,4,&
+          mpi_integer,main_rank,comm)
+    endif
 
     if (main_task) then
        allocate(displs(tasks+1))
        allocate(sendcounts(tasks))
-       sendcounts(:) = (bounds(2,:)-bounds(1,:)+1)*(bounds(4,:)-bounds(3,:)+1)*size(values,1)
+       sendcounts(:) = (d_gs_bounds(2,:)-d_gs_bounds(1,:)+1)&
+                      *(d_gs_bounds(4,:)-d_gs_bounds(3,:)+1)*size(values,1)
        displs(1) = 0
        do i = 1,tasks
           displs(i+1) = displs(i)+sendcounts(i)
@@ -1917,15 +1989,20 @@ contains
        allocate(sendbuf(displs(tasks+1)))
 
        do i = 1,tasks
-          sendbuf(displs(i)+1:displs(i+1)) = reshape(global_values(:,bounds(1,i):bounds(2,i),bounds(3,i):bounds(4,i)),&
-                                                     (/displs(i+1)-displs(i)/))
+          sendbuf(displs(i)+1:displs(i+1)) = &
+             reshape(global_values(:,&
+                                   d_gs_bounds(1,i):d_gs_bounds(2,i),&
+                                   d_gs_bounds(3,i):d_gs_bounds(4,i)),&
+                                   (/displs(i+1)-displs(i)/))
        end do
     else
        allocate(displs(1))
        allocate(sendcounts(1))
        allocate(sendbuf(1))
     end if
-    allocate(recvbuf(size(values,1),mybounds(1):mybounds(2),mybounds(3):mybounds(4)))
+    allocate(recvbuf(size(values,1),&
+                     d_gs_mybounds(1):d_gs_mybounds(2),&
+                     d_gs_mybounds(3):d_gs_mybounds(4)))
     call mpi_scatterv(sendbuf,sendcounts,displs,mpi_real4,&
          recvbuf,size(recvbuf),mpi_real4,main_rank,comm,ierror)
     values(:,1+lhalo:local_ewn-uhalo,1+lhalo:local_nsn-uhalo) = recvbuf(:,:,:)
@@ -1945,29 +2022,31 @@ contains
     real(8),dimension(:,:),allocatable,intent(inout) :: global_values  ! only used on main_task
 
     integer :: i,ierror,j,k
-    integer,dimension(4) :: mybounds
     integer,dimension(:),allocatable :: displs,sendcounts
-    integer,dimension(:,:),allocatable :: bounds
     real(8),dimension(:),allocatable :: sendbuf
     real(8),dimension(:,:),allocatable :: recvbuf
 
-    ! begin
-    mybounds(1) = ewlb+lhalo
-    mybounds(2) = ewub-uhalo
-    mybounds(3) = nslb+lhalo
-    mybounds(4) = nsub-uhalo
-    if (main_task) then
-       allocate(bounds(4,tasks))
-    else
-       allocate(bounds(1,1))
-    end if
-    call mpi_gather(mybounds,4,mpi_integer,bounds,4,mpi_integer,&
-         main_rank,comm,ierror)
+    ! first time
+    if (.not. allocated(d_gs_bounds)) then
+       if (main_task) then
+          allocate(d_gs_bounds(4,tasks))
+       else
+          allocate(d_gs_bounds(1,1))
+       endif
+
+       d_gs_mybounds(1) = ewlb+lhalo
+       d_gs_mybounds(2) = ewub-uhalo
+       d_gs_mybounds(3) = nslb+lhalo
+       d_gs_mybounds(4) = nsub-uhalo
+       call fc_gather_int(d_gs_mybounds,4,mpi_integer,d_gs_bounds,4,&
+          mpi_integer,main_rank,comm)
+    endif
 
     if (main_task) then
        allocate(displs(tasks+1))
        allocate(sendcounts(tasks))
-       sendcounts(:) = (bounds(2,:)-bounds(1,:)+1)*(bounds(4,:)-bounds(3,:)+1)
+       sendcounts(:) = (d_gs_bounds(2,:)-d_gs_bounds(1,:)+1)&
+                      *(d_gs_bounds(4,:)-d_gs_bounds(3,:)+1)
        displs(1) = 0
        do i = 1,tasks
           displs(i+1) = displs(i)+sendcounts(i)
@@ -1975,16 +2054,18 @@ contains
        allocate(sendbuf(displs(tasks+1)))
 
        do i = 1,tasks
-          sendbuf(displs(i)+1:displs(i+1)) = reshape(&
-               global_values(bounds(1,i):bounds(2,i),bounds(3,i):bounds(4,i)),&
-               (/displs(i+1)-displs(i)/))
+          sendbuf(displs(i)+1:displs(i+1)) = &
+             reshape(global_values(d_gs_bounds(1,i):d_gs_bounds(2,i),&
+                                   d_gs_bounds(3,i):d_gs_bounds(4,i)),&
+                                   (/displs(i+1)-displs(i)/))
        end do
     else
        allocate(displs(1))
        allocate(sendcounts(1))
        allocate(sendbuf(1))
     end if
-    allocate(recvbuf(mybounds(1):mybounds(2),mybounds(3):mybounds(4)))
+    allocate(recvbuf(d_gs_mybounds(1):d_gs_mybounds(2),&
+                     d_gs_mybounds(3):d_gs_mybounds(4)))
     call mpi_scatterv(sendbuf,sendcounts,displs,mpi_real8,&
          recvbuf,size(recvbuf),mpi_real8,main_rank,comm,ierror)
     values(1+lhalo:local_ewn-uhalo,1+lhalo:local_nsn-uhalo) = recvbuf(:,:)
@@ -2006,9 +2087,7 @@ contains
     logical :: deallocmem
 
     integer :: i,ierror,j,k
-    integer,dimension(4) :: mybounds
     integer,dimension(:),allocatable :: displs,sendcounts
-    integer,dimension(:,:),allocatable :: bounds
     real(8),dimension(:),allocatable :: sendbuf
     real(8),dimension(:,:,:),allocatable :: recvbuf
 
@@ -2018,23 +2097,28 @@ contains
        deallocmem = .true.
     endif
 
-    ! begin
-    mybounds(1) = ewlb+lhalo
-    mybounds(2) = ewub-uhalo
-    mybounds(3) = nslb+lhalo
-    mybounds(4) = nsub-uhalo
-    if (main_task) then
-       allocate(bounds(4,tasks))
-    else
-       allocate(bounds(1,1))
-    end if
-    call mpi_gather(mybounds,4,mpi_integer,bounds,4,mpi_integer,&
-         main_rank,comm,ierror)
+    ! first time
+    if (.not. allocated(d_gs_bounds)) then
+       if (main_task) then
+          allocate(d_gs_bounds(4,tasks))
+       else
+          allocate(d_gs_bounds(1,1))
+       endif
+
+       d_gs_mybounds(1) = ewlb+lhalo
+       d_gs_mybounds(2) = ewub-uhalo
+       d_gs_mybounds(3) = nslb+lhalo
+       d_gs_mybounds(4) = nsub-uhalo
+       call fc_gather_int(d_gs_mybounds,4,mpi_integer,d_gs_bounds,4,&
+          mpi_integer,main_rank,comm)
+    endif
 
     if (main_task) then
        allocate(displs(tasks+1))
        allocate(sendcounts(tasks))
-       sendcounts(:) = (bounds(2,:)-bounds(1,:)+1)*(bounds(4,:)-bounds(3,:)+1)*size(values,1)
+       sendcounts(:) = (d_gs_bounds(2,:)-d_gs_bounds(1,:)+1)&
+                      *(d_gs_bounds(4,:)-d_gs_bounds(3,:)+1)&
+                      *size(values,1)
        displs(1) = 0
        do i = 1,tasks
           displs(i+1) = displs(i)+sendcounts(i)
@@ -2042,15 +2126,20 @@ contains
        allocate(sendbuf(displs(tasks+1)))
 
        do i = 1,tasks
-          sendbuf(displs(i)+1:displs(i+1)) = reshape(global_values(:,bounds(1,i):bounds(2,i),bounds(3,i):bounds(4,i)),&
-                                                     (/displs(i+1)-displs(i)/))
+          sendbuf(displs(i)+1:displs(i+1)) = &
+             reshape(global_values(:,&
+                                   d_gs_bounds(1,i):d_gs_bounds(2,i),&
+                                   d_gs_bounds(3,i):d_gs_bounds(4,i)),&
+                                   (/displs(i+1)-displs(i)/))
        end do
     else
        allocate(displs(1))
        allocate(sendcounts(1))
        allocate(sendbuf(1))
     end if
-    allocate(recvbuf(size(values,1),mybounds(1):mybounds(2),mybounds(3):mybounds(4)))
+    allocate(recvbuf(size(values,1),&
+                     d_gs_mybounds(1):d_gs_mybounds(2),&
+                     d_gs_mybounds(3):d_gs_mybounds(4)))
     call mpi_scatterv(sendbuf,sendcounts,displs,mpi_real8,&
          recvbuf,size(recvbuf),mpi_real8,main_rank,comm,ierror)
     values(:,1+lhalo:local_ewn-uhalo,1+lhalo:local_nsn-uhalo) = recvbuf(:,:,:)
@@ -3714,5 +3803,669 @@ contains
         a(:,ewedgebase:size(a,2),1+nsedgebase) = nrecv(:,ewedgebase:size(a,2),1)
     endif
   end subroutine
+
+! Following routines imported from the Community Earth System Model
+! (models/utils/mct/mpeu.m_FcComms.F90)
+!BOP -------------------------------------------------------------------
+!
+! !IROUTINE: fc_gather_int - Gather an array of type integer
+!
+! !DESCRIPTION:
+! This routine gathers a {\em distributed} array of type {\em integer} 
+! to the {\tt root} process. Explicit handshaking messages are uesd
+! to control the number of processes communicating with the root
+! at any one time.
+!
+! If flow_cntl optional parameter 
+!    < 0 : use MPI_Gather
+!    >= 0: use point-to-point with handshaking messages and 
+!          preposting receive requests up to 
+!          max(min(1,flow_cntl),max_gather_block_size) 
+!          ahead if optional flow_cntl parameter is present.
+!          Otherwise, fc_gather_flow_cntl is used in its place.
+!    Default value is max_gather_block_size.
+! !INTERFACE:
+!
+  subroutine fc_gather_int (sendbuf, sendcnt, sendtype, &
+                            recvbuf, recvcnt, recvtype, &
+                            root, comm, flow_cntl )
+!
+! !USES:
+!
+      use mpi
+
+!
+! !INPUT PARAMETERS: 
+!
+      integer,               intent(in)  :: sendbuf(*)
+      integer,               intent(in)  :: sendcnt
+      integer,               intent(in)  :: sendtype
+      integer,               intent(in)  :: recvcnt
+      integer,               intent(in)  :: recvtype
+      integer,               intent(in)  :: root
+      integer,               intent(in)  :: comm
+      integer, optional,     intent(in)  :: flow_cntl
+
+! !OUTPUT PARAMETERS: 
+!
+      integer,               intent(out) :: recvbuf(*)
+
+!EOP ___________________________________________________________________
+
+   integer :: signal
+   logical :: fc_gather         ! use explicit flow control?
+   integer :: gather_block_size ! number of preposted receive requests
+
+   integer :: mytid, mysize, mtag, p, i, count, displs
+   integer :: preposts, head, tail
+   integer :: rcvid(max_gather_block_size)
+   integer :: status(MPI_STATUS_SIZE)
+   integer :: ier ! MPI error code
+
+   signal = 1
+   if ( present(flow_cntl) ) then
+      if (flow_cntl >= 0) then
+         gather_block_size = min(max(1,flow_cntl),max_gather_block_size)
+         fc_gather = .true.
+      else
+         fc_gather = .false.
+      endif
+   else
+      gather_block_size = max(1,max_gather_block_size)
+      fc_gather = .true.
+   endif
+
+   if (fc_gather) then
+ 
+      call mpi_comm_rank (comm, mytid, ier)
+      call mpi_comm_size (comm, mysize, ier)
+      mtag = 0
+      if (root .eq. mytid) then
+
+         ! prepost gather_block_size irecvs, and start receiving data
+         preposts = min(mysize-1, gather_block_size)
+         head = 0
+         count = 0
+         do p=0, mysize-1
+            if (p .ne. root) then
+               if (recvcnt > 0) then
+                  count = count + 1
+                  if (count > preposts) then
+                     tail = mod(head,preposts) + 1
+                     call mpi_wait (rcvid(tail), status, ier)
+                  end if
+                  head = mod(head,preposts) + 1
+                  displs = p*recvcnt
+                  call mpi_irecv ( recvbuf(displs+1), recvcnt, &
+                                   recvtype, p, mtag, comm, rcvid(head), &
+                                   ier )
+                  call mpi_send ( signal, 1, recvtype, p, mtag, comm, ier )
+               end if
+            end if
+         end do
+
+         ! copy local data
+         displs = mytid*recvcnt
+         do i=1,sendcnt
+            recvbuf(displs+i) = sendbuf(i)
+         enddo
+
+         ! wait for final data
+         do i=1,min(count,preposts)
+            call mpi_wait (rcvid(i), status, ier)
+         enddo
+
+      else
+
+         if (sendcnt > 0) then
+            call mpi_recv ( signal, 1, sendtype, root, mtag, comm, &
+                            status, ier )
+            call mpi_send ( sendbuf, sendcnt, sendtype, root, mtag, &
+                            comm, ier )
+         end if
+
+      endif
+
+   else
+ 
+      call mpi_gather (sendbuf, sendcnt, sendtype, &
+                       recvbuf, recvcnt, recvtype, &
+                       root, comm, ier)
+   endif
+
+   return
+  end subroutine fc_gather_int
+
+!BOP -------------------------------------------------------------------
+!
+! !IROUTINE: fc_gatherv_int - Gather an array of type integer
+!
+! !DESCRIPTION:
+! This routine gathers a {\em distributed} array of type {\em integer} 
+! to the {\tt root} process. Explicit handshaking messages are uesd
+! to control the number of processes communicating with the root
+! at any one time.
+!
+! If flow_cntl optional parameter 
+!    < 0 : use MPI_Gatherv
+!    >= 0: use point-to-point with handshaking messages and 
+!          preposting receive requests up to 
+!          max(min(1,flow_cntl),max_gather_block_size) 
+!          ahead if optional flow_cntl parameter is present.
+!          Otherwise, fc_gather_flow_cntl is used in its place.
+!    Default value is max_gather_block_size.
+! !INTERFACE:
+!
+   subroutine fc_gatherv_int (sendbuf, sendcnt, sendtype, &
+                              recvbuf, recvcnts, displs, recvtype, &
+                              root, comm, flow_cntl )
+!
+! !USES:
+!
+      use mpi
+
+!
+! !INPUT PARAMETERS: 
+!
+      integer,               intent(in)  :: sendbuf(*)
+      integer,               intent(in)  :: sendcnt
+      integer,               intent(in)  :: sendtype
+      integer, dimension(:), intent(in)  :: recvcnts
+      integer, dimension(:), intent(in)  :: displs
+      integer,               intent(in)  :: recvtype
+      integer,               intent(in)  :: root
+      integer,               intent(in)  :: comm
+      integer, optional,     intent(in)  :: flow_cntl
+
+! !OUTPUT PARAMETERS: 
+!
+      integer,               intent(out) :: recvbuf(*)
+
+!EOP ___________________________________________________________________
+
+   integer :: signal
+   logical :: fc_gather         ! use explicit flow control?
+   integer :: gather_block_size ! number of preposted receive requests
+
+   integer :: mytid, mysize, mtag, p, q, i, count
+   integer :: preposts, head, tail
+   integer :: rcvid(max_gather_block_size)
+   integer :: status(MPI_STATUS_SIZE)
+   integer :: ier ! MPI error code
+
+   signal = 1
+   if ( present(flow_cntl) ) then
+      if (flow_cntl >= 0) then
+         gather_block_size = min(max(1,flow_cntl),max_gather_block_size)
+         fc_gather = .true.
+      else
+        fc_gather = .false.
+      endif
+   else
+      gather_block_size = max(1,max_gather_block_size)
+      fc_gather = .true.
+   endif
+
+   if (fc_gather) then
+ 
+      call mpi_comm_rank (comm, mytid, ier)
+      call mpi_comm_size (comm, mysize, ier)
+      mtag = 0
+      if (root .eq. mytid) then
+
+         ! prepost gather_block_size irecvs, and start receiving data
+         preposts = min(mysize-1, gather_block_size)
+         head = 0
+         count = 0
+         do p=0, mysize-1
+            if (p .ne. root) then
+               q = p+1
+               if (recvcnts(q) > 0) then
+                  count = count + 1
+                  if (count > preposts) then
+                     tail = mod(head,preposts) + 1
+                     call mpi_wait (rcvid(tail), status, ier)
+                  end if
+                  head = mod(head,preposts) + 1
+                  call mpi_irecv ( recvbuf(displs(q)+1), recvcnts(q), &
+                                   recvtype, p, mtag, comm, rcvid(head), &
+                                   ier )
+                  call mpi_send ( signal, 1, recvtype, p, mtag, comm, ier )
+               end if
+            end if
+         end do
+
+         ! copy local data
+         q = mytid+1
+         do i=1,sendcnt
+            recvbuf(displs(q)+i) = sendbuf(i)
+         enddo
+
+         ! wait for final data
+         do i=1,min(count,preposts)
+            call mpi_wait (rcvid(i), status, ier)
+         enddo
+
+      else
+
+         if (sendcnt > 0) then
+            call mpi_recv ( signal, 1, sendtype, root, mtag, comm, &
+                            status, ier )
+            call mpi_send ( sendbuf, sendcnt, sendtype, root, mtag, &
+                            comm, ier )
+         end if
+
+     endif
+
+   else
+ 
+      call mpi_gatherv (sendbuf, sendcnt, sendtype, &
+                        recvbuf, recvcnts, displs, recvtype, &
+                        root, comm, ier)
+
+   endif
+
+   return
+
+  end subroutine fc_gatherv_int
+
+!BOP -------------------------------------------------------------------
+!
+! !IROUTINE: fc_gatherv_real4 - Gather an array of type real*4
+!
+! !DESCRIPTION:
+! This routine gathers a {\em distributed} array of type {\em real*4} to
+! the {\tt root} process. Explicit handshaking messages are uesd
+! to control the number of processes communicating with the root
+! at any one time.
+!
+! If flow_cntl optional parameter 
+!    < 0 : use MPI_Gatherv
+!    >= 0: use point-to-point with handshaking messages and 
+!          preposting receive requests up to 
+!          max(min(1,flow_cntl),max_gather_block_size) 
+!          ahead if optional flow_cntl parameter is present.
+!          Otherwise, fc_gather_flow_cntl is used in its place.
+!    Default value is max_gather_block_size.
+! !INTERFACE:
+!
+   subroutine fc_gatherv_real4 (sendbuf, sendcnt, sendtype, &
+                                recvbuf, recvcnts, displs, recvtype, &
+                                root, comm, flow_cntl )
+!
+! !USES:
+!
+      use mpi
+
+!
+! !INPUT PARAMETERS: 
+!
+      real(4),               intent(in)  :: sendbuf(*)
+      integer,               intent(in)  :: sendcnt
+      integer,               intent(in)  :: sendtype
+      integer, dimension(:), intent(in)  :: recvcnts
+      integer, dimension(:), intent(in)  :: displs
+      integer,               intent(in)  :: recvtype
+      integer,               intent(in)  :: root
+      integer,               intent(in)  :: comm
+      integer, optional,     intent(in)  :: flow_cntl
+
+! !OUTPUT PARAMETERS: 
+!
+      real(4),               intent(out) :: recvbuf(*)
+
+!EOP ___________________________________________________________________
+
+   real(4) :: signal
+   logical :: fc_gather         ! use explicit flow control?
+   integer :: gather_block_size ! number of preposted receive requests
+
+   integer :: mytid, mysize, mtag, p, q, i, count
+   integer :: preposts, head, tail
+   integer :: rcvid(max_gather_block_size)
+   integer :: status(MPI_STATUS_SIZE)
+   integer :: ier ! MPI error code
+
+   signal = 1.0
+   if ( present(flow_cntl) ) then
+      if (flow_cntl >= 0) then
+         gather_block_size = min(max(1,flow_cntl),max_gather_block_size)
+         fc_gather = .true.
+      else
+         fc_gather = .false.
+      endif
+   else
+      gather_block_size = max(1,max_gather_block_size)
+      fc_gather = .true.
+   endif
+
+   if (fc_gather) then
+ 
+      call mpi_comm_rank (comm, mytid, ier)
+      call mpi_comm_size (comm, mysize, ier)
+      mtag = 0
+      if (root .eq. mytid) then
+
+         ! prepost gather_block_size irecvs, and start receiving data
+         preposts = min(mysize-1, gather_block_size)
+         head = 0
+         count = 0
+         do p=0, mysize-1
+            if (p .ne. root) then
+               q = p+1
+               if (recvcnts(q) > 0) then
+                  count = count + 1
+                  if (count > preposts) then
+                     tail = mod(head,preposts) + 1
+                     call mpi_wait (rcvid(tail), status, ier)
+                  end if
+                  head = mod(head,preposts) + 1
+                  call mpi_irecv ( recvbuf(displs(q)+1), recvcnts(q), &
+                                   recvtype, p, mtag, comm, rcvid(head), &
+                                   ier )
+                  call mpi_send ( signal, 1, recvtype, p, mtag, comm, ier )
+               end if
+            end if
+         end do
+
+         ! copy local data
+         q = mytid+1
+         do i=1,sendcnt
+            recvbuf(displs(q)+i) = sendbuf(i)
+         enddo
+
+         ! wait for final data
+         do i=1,min(count,preposts)
+            call mpi_wait (rcvid(i), status, ier)
+         enddo
+
+      else
+
+         if (sendcnt > 0) then
+            call mpi_recv ( signal, 1, sendtype, root, mtag, comm, &
+                            status, ier )
+            call mpi_send ( sendbuf, sendcnt, sendtype, root, mtag, &
+                            comm, ier )
+         end if
+
+      endif
+
+   else
+ 
+      call mpi_gatherv (sendbuf, sendcnt, sendtype, &
+                        recvbuf, recvcnts, displs, recvtype, &
+                        root, comm, ier)
+
+   endif
+
+   return
+
+  end subroutine fc_gatherv_real4
+
+!BOP -------------------------------------------------------------------
+!
+! !IROUTINE: fc_gatherv_real8 - Gather an array of type real*4
+!
+! !DESCRIPTION:
+! This routine gathers a {\em distributed} array of type {\em real*8} to
+! the {\tt root} process. Explicit handshaking messages are uesd
+! to control the number of processes communicating with the root
+! at any one time.
+!
+! If flow_cntl optional parameter 
+!    < 0 : use MPI_Gatherv
+!    >= 0: use point-to-point with handshaking messages and 
+!          preposting receive requests up to 
+!          max(min(1,flow_cntl),max_gather_block_size) 
+!          ahead if optional flow_cntl parameter is present.
+!          Otherwise, fc_gather_flow_cntl is used in its place.
+!    Default value is max_gather_block_size.
+! !INTERFACE:
+!
+   subroutine fc_gatherv_real8 (sendbuf, sendcnt, sendtype, &
+                                recvbuf, recvcnts, displs, recvtype, &
+                                root, comm, flow_cntl )
+!
+! !USES:
+!
+      use mpi
+
+!
+! !INPUT PARAMETERS: 
+!
+      real(8),               intent(in)  :: sendbuf(*)
+      integer,               intent(in)  :: sendcnt
+      integer,               intent(in)  :: sendtype
+      integer, dimension(:), intent(in)  :: recvcnts
+      integer, dimension(:), intent(in)  :: displs
+      integer,               intent(in)  :: recvtype
+      integer,               intent(in)  :: root
+      integer,               intent(in)  :: comm
+      integer, optional,     intent(in)  :: flow_cntl
+
+! !OUTPUT PARAMETERS: 
+!
+      real(8),               intent(out) :: recvbuf(*)
+
+!EOP ___________________________________________________________________
+
+   real(8) :: signal
+   logical :: fc_gather         ! use explicit flow control?
+   integer :: gather_block_size ! number of preposted receive requests
+
+   integer :: mytid, mysize, mtag, p, q, i, count
+   integer :: preposts, head, tail
+   integer :: rcvid(max_gather_block_size)
+   integer :: status(MPI_STATUS_SIZE)
+   integer :: ier ! MPI error code
+
+   signal = 1.0
+   if ( present(flow_cntl) ) then
+      if (flow_cntl >= 0) then
+         gather_block_size = min(max(1,flow_cntl),max_gather_block_size)
+         fc_gather = .true.
+      else
+         fc_gather = .false.
+      endif
+   else
+      gather_block_size = max(1,max_gather_block_size)
+      fc_gather = .true.
+   endif
+
+   if (fc_gather) then
+ 
+      call mpi_comm_rank (comm, mytid, ier)
+      call mpi_comm_size (comm, mysize, ier)
+      mtag = 0
+      if (root .eq. mytid) then
+
+         ! prepost gather_block_size irecvs, and start receiving data
+         preposts = min(mysize-1, gather_block_size)
+         head = 0
+         count = 0
+         do p=0, mysize-1
+            if (p .ne. root) then
+               q = p+1
+               if (recvcnts(q) > 0) then
+                  count = count + 1
+                  if (count > preposts) then
+                     tail = mod(head,preposts) + 1
+                     call mpi_wait (rcvid(tail), status, ier)
+                  end if
+                  head = mod(head,preposts) + 1
+                  call mpi_irecv ( recvbuf(displs(q)+1), recvcnts(q), &
+                                   recvtype, p, mtag, comm, rcvid(head), &
+                                   ier )
+                  call mpi_send ( signal, 1, recvtype, p, mtag, comm, ier )
+               end if
+            end if
+         end do
+
+         ! copy local data
+         q = mytid+1
+         do i=1,sendcnt
+            recvbuf(displs(q)+i) = sendbuf(i)
+         enddo
+
+         ! wait for final data
+         do i=1,min(count,preposts)
+            call mpi_wait (rcvid(i), status, ier)
+         enddo
+
+      else
+
+         if (sendcnt > 0) then
+            call mpi_recv ( signal, 1, sendtype, root, mtag, comm, &
+                            status, ier )
+            call mpi_send ( sendbuf, sendcnt, sendtype, root, mtag, &
+                            comm, ier )
+         end if
+
+      endif
+
+   else
+ 
+      call mpi_gatherv (sendbuf, sendcnt, sendtype, &
+                        recvbuf, recvcnts, displs, recvtype, &
+                        root, comm, ier)
+
+   endif
+
+   return
+
+  end subroutine fc_gatherv_real8
+
+!BOP -------------------------------------------------------------------
+!
+! !IROUTINE: fc_gatherv_log - Gather an array of type logical
+!
+! !DESCRIPTION:
+! This routine gathers a {\em distributed} array of type {\em logical} 
+! to the {\tt root} process. Explicit handshaking messages are uesd
+! to control the number of processes communicating with the root
+! at any one time.
+!
+! If flow_cntl optional parameter 
+!    < 0 : use MPI_Gatherv
+!    >= 0: use point-to-point with handshaking messages and 
+!          preposting receive requests up to 
+!          max(min(1,flow_cntl),max_gather_block_size) 
+!          ahead if optional flow_cntl parameter is present.
+!          Otherwise, fc_gather_flow_cntl is used in its place.
+!    Default value is max_gather_block_size.
+! !INTERFACE:
+!
+   subroutine fc_gatherv_log (sendbuf, sendcnt, sendtype, &
+                              recvbuf, recvcnts, displs, recvtype, &
+                              root, comm, flow_cntl )
+!
+! !USES:
+!
+      use mpi
+
+!
+! !INPUT PARAMETERS: 
+!
+      logical,               intent(in)  :: sendbuf(*)
+      integer,               intent(in)  :: sendcnt
+      integer,               intent(in)  :: sendtype
+      integer, dimension(:), intent(in)  :: recvcnts
+      integer, dimension(:), intent(in)  :: displs
+      integer,               intent(in)  :: recvtype
+      integer,               intent(in)  :: root
+      integer,               intent(in)  :: comm
+      integer, optional,     intent(in)  :: flow_cntl
+
+! !OUTPUT PARAMETERS: 
+!
+      logical,               intent(out) :: recvbuf(*)
+
+!EOP ___________________________________________________________________
+
+   logical :: signal
+   logical :: fc_gather         ! use explicit flow control?
+   integer :: gather_block_size ! number of preposted receive requests
+
+   integer :: mytid, mysize, mtag, p, q, i, count
+   integer :: preposts, head, tail
+   integer :: rcvid(max_gather_block_size)
+   integer :: status(MPI_STATUS_SIZE)
+   integer :: ier ! MPI error code
+
+   signal = .true.
+   if ( present(flow_cntl) ) then
+      if (flow_cntl >= 0) then
+         gather_block_size = min(max(1,flow_cntl),max_gather_block_size)
+         fc_gather = .true.
+      else
+        fc_gather = .false.
+      endif
+   else
+      gather_block_size = max(1,max_gather_block_size)
+      fc_gather = .true.
+   endif
+
+   if (fc_gather) then
+ 
+      call mpi_comm_rank (comm, mytid, ier)
+      call mpi_comm_size (comm, mysize, ier)
+      mtag = 0
+      if (root .eq. mytid) then
+
+         ! prepost gather_block_size irecvs, and start receiving data
+         preposts = min(mysize-1, gather_block_size)
+         head = 0
+         count = 0
+         do p=0, mysize-1
+            if (p .ne. root) then
+               q = p+1
+               if (recvcnts(q) > 0) then
+                  count = count + 1
+                  if (count > preposts) then
+                     tail = mod(head,preposts) + 1
+                     call mpi_wait (rcvid(tail), status, ier)
+                  end if
+                  head = mod(head,preposts) + 1
+                  call mpi_irecv ( recvbuf(displs(q)+1), recvcnts(q), &
+                                   recvtype, p, mtag, comm, rcvid(head), &
+                                   ier )
+                  call mpi_send ( signal, 1, recvtype, p, mtag, comm, ier )
+               end if
+            end if
+         end do
+
+         ! copy local data
+         q = mytid+1
+         do i=1,sendcnt
+            recvbuf(displs(q)+i) = sendbuf(i)
+         enddo
+
+         ! wait for final data
+         do i=1,min(count,preposts)
+            call mpi_wait (rcvid(i), status, ier)
+         enddo
+
+      else
+
+         if (sendcnt > 0) then
+            call mpi_recv ( signal, 1, sendtype, root, mtag, comm, &
+                            status, ier )
+            call mpi_send ( sendbuf, sendcnt, sendtype, root, mtag, &
+                            comm, ier )
+         end if
+
+     endif
+
+   else
+ 
+      call mpi_gatherv (sendbuf, sendcnt, sendtype, &
+                        recvbuf, recvcnts, displs, recvtype, &
+                        root, comm, ier)
+
+   endif
+
+   return
+
+  end subroutine fc_gatherv_log
 
 end module parallel
