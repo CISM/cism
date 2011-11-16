@@ -31,7 +31,6 @@ contains
     !model right now because the analysis on what needs to be passed has yet to
     !be done.
     subroutine run_ho_diagnostic(model)
-      use parallel
         use glide_thckmask
         use glide_mask
         use stress_hom, only : glide_calcstrsstr
@@ -115,7 +114,6 @@ contains
         ! JEFF Distributed Merge - the calls in calcwvel have been previously parallelized.
         ! Also there is no dependency on the output of glide_calcstrsstr() which calcs tau.
         call calcwvel( model, model%options%whichtemp )
-
     end subroutine
 
     !*sfp* copy of code in glide_temp for calc. vert vel. If using HO, this will now be done here

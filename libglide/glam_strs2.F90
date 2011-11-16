@@ -485,7 +485,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
     outer_it_target = 1.0d-12
   end if
 
-!#ifdef JEFFTEST
+#ifdef JEFFTEST
     !JEFF Debugging Output to see what differences in final vvel and tvel.
     write(loopnum,'(i3.3)') counter
     write(Looptime, '(i3.3)') overallloop
@@ -498,7 +498,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
     ! call dumpvels("Before findefvsstr", uvel, vvel)
 
     ! call distributed_print("preefvs_ov"//Looptime//"_pic"//loopnum//"_tsk", efvs)
-!#endif
+#endif
 
     ! calc effective viscosity using previously calc vel. field
     call findefvsstr(ewn,  nsn,  upn,      &
@@ -694,31 +694,9 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
     ! call plasticbediteration( ewn, nsn, uvel(upn,:,:), tvel(upn,:,:), btraction, minTauf, &
     !                          plastic_coeff_lhs, plastic_coeff_rhs, plastic_rhs, plastic_resid )
 
-#ifdef JEFFTEST
-    !JEFF Debugging Output to see what differences in final vvel and tvel.
-    write(loopnum,'(i3.3)') counter
-    write(Looptime, '(i3.3)') overallloop
-    loopnum = trim(loopnum)  ! Trying to get rid of spaces in name.
-    Looptime = trim(Looptime)
-    call distributed_print("uvelb_ov"//Looptime//"_pic"//loopnum//"_tsk", uvel)
-
-    call distributed_print("vvelb_ov"//Looptime//"_pic"//loopnum//"_tsk", vvel)
-#endif
-
     ! apply unstable manifold correction to converged velocities
     uvel = mindcrshstr(1,whichresid,uvel,counter,resid(1))
     vvel = mindcrshstr(2,whichresid,tvel,counter,resid(2))
-
-#ifdef JEFFTEST
-    !JEFF Debugging Output to see what differences in final vvel and tvel.
-    write(loopnum,'(i3.3)') counter
-    write(Looptime, '(i3.3)') overallloop
-    loopnum = trim(loopnum)  ! Trying to get rid of spaces in name.
-    Looptime = trim(Looptime)
-    call distributed_print("uvelc_ov"//Looptime//"_pic"//loopnum//"_tsk", uvel)
-
-    call distributed_print("vvelc_ov"//Looptime//"_pic"//loopnum//"_tsk", vvel)
-#endif
 
     ! coordinate halos for updated uvel and vvel
     call staggered_parallel_halo(uvel)
@@ -726,19 +704,8 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 
     ! Calculated the residual after halo updates.  
     ! Separated because vvel and uvel have to be updated first.
-    call resid_calc(1,whichresid,uvel,resid(1))
-    call resid_calc(2,whichresid,vvel,resid(2))
-
-#ifdef JEFFTEST
-    !JEFF Debugging Output to see what differences in final vvel and tvel.
-    write(loopnum,'(i3.3)') counter
-    write(Looptime, '(i3.3)') overallloop
-    loopnum = trim(loopnum)  ! Trying to get rid of spaces in name.
-    Looptime = trim(Looptime) 
-    call distributed_print("uveld_ov"//Looptime//"_pic"//loopnum//"_tsk", uvel)
-    
-    call distributed_print("vveld_ov"//Looptime//"_pic"//loopnum//"_tsk", vvel)
-#endif
+    !call resid_calc(1,whichresid,uvel,resid(1))
+    !call resid_calc(2,whichresid,vvel,resid(2))
 
     !call dumpvels("After mindcrsh", uvel, vvel)
 
@@ -804,6 +771,13 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
   call parallel_halo(vvel)
   call parallel_halo(uflx)
   call parallel_halo(vflx)
+
+#ifdef JEFFTEST    !JEFF Debugging Output to see what differences in final vvel and tvel.
+    write(CurrTimeLoopStr, '(i3.3)') CurrTimeLoop
+    call distributed_print("uvel_post_ov"//CurrTimeLoopStr//"_tsk", uvel)
+
+    call distributed_print("vvel_post_ov"//CurrTimeLoopStr//"_tsk", vvel)
+#endif
 
   ! JEFF: Deallocate myIndices which is used to intialize Trilinos
   if (whatsparse == STANDALONE_TRILINOS_SOLVER) then
@@ -2428,8 +2402,8 @@ function mindcrshstr(pt,whichresid,vel,counter,resid)
 
   integer, dimension(2), save :: new = 1, old = 2
   !JEFF integer :: locat(3)
+  integer ew, ns, nr
 
-  integer :: nr
   integer, dimension(size(vel,1),size(vel,2),size(vel,3)) :: vel_ne_0
   real (kind = dp) :: sum_vel_ne_0
 
@@ -2441,23 +2415,39 @@ function mindcrshstr(pt,whichresid,vel,counter,resid)
 
   if (counter > 1) then
 
-    where (acos((corr(:,:,:,new(pt),pt) * corr(:,:,:,old(pt),pt)) / &
-          (abs(corr(:,:,:,new(pt),pt)) * abs(corr(:,:,:,old(pt),pt)) + small)) > &
-           ssthres .and. corr(:,:,:,new(pt),pt) - corr(:,:,:,old(pt),pt) /= 0.0_dp )
-
-      mindcrshstr = usav(:,:,:,pt) + &
-                    corr(:,:,:,new(pt),pt) * abs(corr(:,:,:,old(pt),pt)) / &
-                    abs(corr(:,:,:,new(pt),pt) - corr(:,:,:,old(pt),pt))
-
+!    where (acos((corr(:,:,:,new(pt),pt) * corr(:,:,:,old(pt),pt)) / &
+!          (abs(corr(:,:,:,new(pt),pt)) * abs(corr(:,:,:,old(pt),pt)) + small)) > &
+!           ssthres .and. corr(:,:,:,new(pt),pt) - corr(:,:,:,old(pt),pt) /= 0.0_dp )
+!
+!      mindcrshstr = usav(:,:,:,pt) + &
+!                    corr(:,:,:,new(pt),pt) * abs(corr(:,:,:,old(pt),pt)) / &
+!                    abs(corr(:,:,:,new(pt),pt) - corr(:,:,:,old(pt),pt))
+!
 !      mindcrshstr = vel; ! jfl uncomment this and comment out line above
 !                         ! to avoid the unstable manifold correction
+!
+!    elsewhere
+!
+!      mindcrshstr = vel;
+!
+!    end where
 
-    elsewhere
-
-      mindcrshstr = vel;
-
-    end where
-
+    ! JEFF Replace where clause with explicit, owned variables for each processor.
+    do ns = 1 + staggered_lhalo, size(vel, 3) - staggered_uhalo
+        do ew = 1 + staggered_lhalo, size(vel, 2) - staggered_uhalo
+            do nr = 1, size(vel, 1)
+                if (acos((corr(nr,ew,ns,new(pt),pt) * corr(nr,ew,ns,old(pt),pt)) / &
+                       (abs(corr(nr,ew,ns,new(pt),pt)) * abs(corr(nr,ew,ns,old(pt),pt)) + small)) > &
+                      ssthres .and. corr(nr,ew,ns,new(pt),pt) - corr(nr,ew,ns,old(pt),pt) /= 0.0_dp) then
+                    mindcrshstr(nr,ew,ns) = usav(nr,ew,ns,pt) + &
+                        corr(nr,ew,ns,new(pt),pt) * abs(corr(nr,ew,ns,old(pt),pt)) / &
+                            abs(corr(nr,ew,ns,new(pt),pt) - corr(nr,ew,ns,old(pt),pt))
+                else
+                    mindcrshstr(nr,ew,ns) = vel(nr,ew,ns)
+                endif
+            enddo
+        enddo
+    enddo
   else
 
     mindcrshstr = vel;
@@ -2465,59 +2455,96 @@ function mindcrshstr(pt,whichresid,vel,counter,resid)
   end if
 
   !*sfp* Old version
-  if (new(pt) == 1) then; old(pt) = 1; new(pt) = 2; else; old(pt) = 1; new(pt) = 2; end if
+  ! if (new(pt) == 1) then; old(pt) = 1; new(pt) = 2; else; old(pt) = 1; new(pt) = 2; end if
 
   !*sfp* correction from Carl Gladdish
-  !if (new(pt) == 1) then; old(pt) = 1; new(pt) = 2; else; old(pt) = 2; new(pt) = 1; end if
+  if (new(pt) == 1) then; old(pt) = 1; new(pt) = 2; else; old(pt) = 2; new(pt) = 1; end if
 
-!  select case (whichresid)
-!
-!  ! options for residual calculation method, as specified in configuration file
-!  ! (see additional notes in "higher-order options" section of documentation)
-!  ! case(0): use max of abs( vel_old - vel ) / vel )
-!  ! case(1): use max of abs( vel_old - vel ) / vel ) but ignore basal vels
-!  ! case(2): use mean of abs( vel_old - vel ) / vel )
-!
-!   case(0)
-!    resid = maxval( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
-!    resid = parallel_reduce_max(resid)
-!    !JEFF locat is only used in diagnostic print statement below.
-!    !locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
-!
-!   case(1)
-!    nr = size( vel, dim=1 ) ! number of grid points in vertical ...
-!    resid = maxval( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ),  &
-!                        MASK = vel .ne. 0.0_dp)
-!    resid = parallel_reduce_max(resid)
-!    !JEFF locat = maxloc( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ),  &
-!    !JEFF        MASK = vel .ne. 0.0_dp)
-!
-!   case(2)
-!    nr = size( vel, dim=1 )
-!    vel_ne_0 = 0
-!    where ( vel .ne. 0.0_dp ) vel_ne_0 = 1
-!
-!    ! include basal velocities in resid. calculation when using MEAN
-!    ! JEFF Compute sums across nodes in order to compute mean.
-!    resid = sum( abs((usav(:,:,:,pt) - vel ) / vel ), &
-!            MASK = vel .ne. 0.0_dp)
-!    resid = parallel_reduce_sum(resid)
-!    sum_vel_ne_0 = sum( vel_ne_0 )
-!    sum_vel_ne_0 = parallel_reduce_sum(sum_vel_ne_0)
-!
-!    resid = resid / sum_vel_ne_0
-!
-!    ! ignore basal velocities in resid. calculation when using MEAN
-!    ! resid = sum( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ),   &
-!    !           MASK = vel .ne. 0.0_dp) / sum( vel_ne_0(1:nr-1,:,:) )
-!
-!    ! NOTE that the location of the max residual is somewhat irrelevent here
-!    !      since we are using the mean resid for convergence testing
-!    ! locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
-!
-!  end select
-!
-!    usav(:,:,:,pt) = vel
+  resid = 0.0_dp
+
+  ! JEFF Temporary debugging.  In addition to L2 norm, compute the supnorm.
+    ! resid = maxval( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
+    do ns = 1 + staggered_lhalo, size(vel, 3) - staggered_uhalo
+        do ew = 1 + staggered_lhalo, size(vel, 2) - staggered_uhalo
+            do nr = 1, size(vel, 1)
+                if (vel(nr,ew,ns) .ne. 0.0_dp) then
+                    resid = max(resid, abs(usav(nr,ew,ns,pt) - vel(nr,ew,ns)) / vel(nr,ew,ns))
+                endif
+            enddo
+        enddo
+    enddo
+
+    resid = parallel_reduce_max(resid)
+
+  select case (whichresid)
+  ! options for residual calculation method, as specified in configuration file
+  ! (see additional notes in "higher-order options" section of documentation)
+  ! case(0): use max of abs( vel_old - vel ) / vel )
+  ! case(1): use max of abs( vel_old - vel ) / vel ) but ignore basal vels
+  ! case(2): use mean of abs( vel_old - vel ) / vel )
+
+   case(0)
+    ! resid = maxval( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
+    do ns = 1 + staggered_lhalo, size(vel, 3) - staggered_uhalo
+        do ew = 1 + staggered_lhalo, size(vel, 2) - staggered_uhalo
+            do nr = 1, size(vel, 1)
+                if (vel(nr,ew,ns) .ne. 0.0_dp) then
+                    resid = max(resid, abs(usav(nr,ew,ns,pt) - vel(nr,ew,ns)) / vel(nr,ew,ns))
+                endif
+            enddo
+        enddo
+    enddo
+
+    resid = parallel_reduce_max(resid)
+    !JEFF locat is only used in diagnostic print statement below.
+    !locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
+
+   case(1)
+    ! nr = size( vel, dim=1 ) ! number of grid points in vertical ...
+    ! resid = maxval( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ), MASK = vel .ne. 0.0_dp)
+    do ns = 1 + staggered_lhalo, size(vel, 3) - staggered_uhalo
+        do ew = 1 + staggered_lhalo, size(vel, 2) - staggered_uhalo
+            do nr = 1, size(vel, 1) - 1
+                if (vel(nr,ew,ns) .ne. 0.0_dp) then
+                    resid = max(resid, abs(usav(nr,ew,ns,pt) - vel(nr,ew,ns)) / vel(nr,ew,ns))
+                endif
+            enddo
+        enddo
+    enddo
+
+    resid = parallel_reduce_max(resid)
+    !JEFF locat = maxloc( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ),  &
+    !JEFF        MASK = vel .ne. 0.0_dp)
+
+   case(2)
+    call not_parallel(__FILE__, __LINE__)
+    ! JEFF This has not been translated to parallel.
+    nr = size( vel, dim=1 )
+    vel_ne_0 = 0
+    where ( vel .ne. 0.0_dp ) vel_ne_0 = 1
+
+    ! include basal velocities in resid. calculation when using MEAN
+    ! JEFF Compute sums across nodes in order to compute mean.
+    resid = sum( abs((usav(:,:,:,pt) - vel ) / vel ), &
+            MASK = vel .ne. 0.0_dp)
+
+    resid = parallel_reduce_sum(resid)
+    sum_vel_ne_0 = sum( vel_ne_0 )
+    sum_vel_ne_0 = parallel_reduce_sum(sum_vel_ne_0)
+
+    resid = resid / sum_vel_ne_0
+
+    ! ignore basal velocities in resid. calculation when using MEAN
+    ! resid = sum( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ),   &
+    !           MASK = vel .ne. 0.0_dp) / sum( vel_ne_0(1:nr-1,:,:) )
+
+    ! NOTE that the location of the max residual is somewhat irrelevent here
+    !      since we are using the mean resid for convergence testing
+    ! locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
+
+  end select
+
+    usav(:,:,:,pt) = vel
 
     ! Additional debugging line, useful when trying to determine if convergence is being consistently
     ! help up by the residual at one or a few particular locations in the domain.
@@ -2538,6 +2565,7 @@ function mindcrshstr2(pt,whichresid,vel,counter,resid)
   ! Alternate unstable manifold scheme, based on DeSmedt, Pattyn, and De Goen, J. Glaciology 2010
   ! Written by Carl Gladdish
   
+  use parallel  ! Use of WHERE statements is causing inconsistencies on the halos in parallel.  Rewrite like mindcrshstr()
   implicit none
   
   real (kind = dp), intent(in), dimension(:,:,:) :: vel
@@ -2561,6 +2589,8 @@ function mindcrshstr2(pt,whichresid,vel,counter,resid)
   integer,      dimension(size(vel,1),size(vel,2),size(vel,3)) :: vel_ne_0
   real(kind=dp),dimension(size(vel,1),size(vel,2),size(vel,3)) :: rel_diff
   
+  call not_parallel(__FILE__, __LINE__)
+
   if (counter == 1) then
     usav(:,:,:,pt) = 0.0d0
     corr(:,:,:,:,:) = 0.0d0

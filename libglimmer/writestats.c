@@ -63,6 +63,12 @@ void FC_FUNC(gf_writestats,GF_WRITESTATS) (const char *resname, const char *cfgn
   struct flock fl = { F_WRLCK, SEEK_SET, 0,       0,     0 };
   off_t fileLength;
 
+  /* Jeff: Trim the file name on Jaguar, because spaces are embedded otherwise. */
+  char resfname[CFG_LEN+1];
+  strncpy(resfname, resname, CFG_LEN);
+  i = 0;
+  while (isalnum(resfname[i]) && i < CFG_LEN) i++;
+  resfname[i] = '\0';
 
   /* get user and system time */
   clck = times(&runtime);
@@ -86,7 +92,7 @@ void FC_FUNC(gf_writestats,GF_WRITESTATS) (const char *resname, const char *cfgn
   snprintf(hdrBuffer,BUFFER_LEN,"%*s %9s %9s %-8s %-16s %-10s %-6s %-10s %s\n",-CFG_LEN,"#cfg_file","wall_time","usr_time","sys_time","date","host","arch","version","FCFLAGS");
 
   /* open output file */
-  if ((fd = open(resname, O_CREAT|O_WRONLY|O_SYNC,PERM_FILE)) == -1) {
+  if ((fd = open(resfname, O_CREAT|O_WRONLY|O_SYNC,PERM_FILE)) == -1) {
     perror("opening result file");
     printf("%s\n",outBuffer);
     return;

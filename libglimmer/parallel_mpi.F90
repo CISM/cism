@@ -1147,14 +1147,16 @@ contains
     endif
 
     ! Print grid geometry
-    write(*,*) "Process ", this_rank, " Total = ", tasks, " ewtasks = ", ewtasks, " nstasks = ", nstasks
-    write(*,*) "Process ", this_rank, " ewrank = ", ewrank, " nsrank = ", nsrank
-    write(*,*) "Process ", this_rank, " l_ewn = ", local_ewn, " o_ewn = ", own_ewn
-    write(*,*) "Process ", this_rank, " l_nsn = ", local_nsn, " o_nsn = ", own_nsn
-    write(*,*) "Process ", this_rank, " ewlb = ", ewlb, " ewub = ", ewub
-    write(*,*) "Process ", this_rank, " nslb = ", nslb, " nsub = ", nsub
-    write(*,*) "Process ", this_rank, " east = ", east, " west = ", west
-    write(*,*) "Process ", this_rank, " north = ", north, " south = ", south
+    !write(*,*) "Process ", this_rank, " Total = ", tasks, " ewtasks = ", ewtasks, " nstasks = ", nstasks
+    !write(*,*) "Process ", this_rank, " ewrank = ", ewrank, " nsrank = ", nsrank
+    !write(*,*) "Process ", this_rank, " l_ewn = ", local_ewn, " o_ewn = ", own_ewn
+    !write(*,*) "Process ", this_rank, " l_nsn = ", local_nsn, " o_nsn = ", own_nsn
+    !write(*,*) "Process ", this_rank, " ewlb = ", ewlb, " ewub = ", ewub
+    !write(*,*) "Process ", this_rank, " nslb = ", nslb, " nsub = ", nsub
+    !write(*,*) "Process ", this_rank, " east = ", east, " west = ", west
+    !write(*,*) "Process ", this_rank, " north = ", north, " south = ", south
+    !write(*,*) "Process ", this_rank, " ew_vars = ", own_ewn, " ns_vars = ", own_nsn
+    call distributed_print_grid(own_ewn, own_nsn)
   end subroutine
 
   function distributed_owner(ew,ewn,ns,nsn)
@@ -1165,6 +1167,46 @@ contains
     distributed_owner = (ew>lhalo.and.ew<=local_ewn-uhalo.and.&
          ns>lhalo.and.ns<=local_nsn-uhalo)
   end function
+
+  subroutine distributed_print_grid(l_ewn,l_nsn)
+    ! Gathers and prints the overall grid layout by processor counts.
+    use mpi
+    implicit none
+
+    integer :: l_ewn, l_nsn
+    integer :: i,j,curr_count
+    integer,dimension(2) :: mybounds
+    integer,dimension(:,:),allocatable :: bounds
+
+    ! begin
+    mybounds(1) = l_ewn
+    mybounds(2) = l_nsn
+
+    if (main_task) then
+       allocate(bounds(2,tasks))
+    else
+       allocate(bounds(1,1))
+    end if
+    call fc_gather_int(mybounds,2,mpi_integer,bounds,2,mpi_integer,main_rank,comm)
+    if (main_task) then
+       do i = 1,tasks
+          if (bounds(1,i) .ne. -1) then
+             ! total up number of processors with matching distribution
+             curr_count = 1
+             do j = i+1,tasks
+                if ((bounds(1,i) .eq. bounds(1,j)) .and. (bounds(2,i) .eq. bounds(2,j))) then
+                   ! if matching current distribution, increment counter
+                   curr_count = curr_count + 1
+                   bounds(1,j) = -1  ! mark so not counted later
+                   bounds(2,j) = -1
+                endif
+             enddo
+             write(*,*) "Layout(EW,NS) = ", bounds(1,i), bounds(2,i), " total procs = ", curr_count
+          endif
+       end do
+    end if
+    ! automatic deallocation
+  end subroutine
 
   subroutine distributed_print_integer_2d(name,values)
     use mpi
