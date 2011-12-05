@@ -28,7 +28,6 @@ use glide_types, only : glide_global_type, pass_through
 
 implicit none
 
-  integer, save :: locplusup
   logical, save :: lateralboundry = .false.
   integer, dimension(6), save :: loc_latbc
 
@@ -108,6 +107,7 @@ implicit none
   ! AGS: partition information for distributed solves
   ! JEFF: Moved to module-level scope for globalIDs
   integer, allocatable, dimension(:) :: myIndices
+  integer, allocatable, dimension(:,:,:) :: loc2_array
   integer :: mySize = -1
 
   ! JEFF: Debugging Output Variables
@@ -701,11 +701,6 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
     ! coordinate halos for updated uvel and vvel
     call staggered_parallel_halo(uvel)
     call staggered_parallel_halo(vvel)
-
-    ! Calculated the residual after halo updates.  
-    ! Separated because vvel and uvel have to be updated first.
-    !call resid_calc(1,whichresid,uvel,resid(1))
-    !call resid_calc(2,whichresid,vvel,resid(2))
 
     !call dumpvels("After mindcrsh", uvel, vvel)
 
@@ -1533,66 +1528,81 @@ end function getlocrange
 
 !***********************************************************************
 
-function getlocationarray(ewn, nsn, upn,  &
-                          mask )
-    use parallel
+function getlocationarray(ewn, nsn, upn, mask, indxmask)
+  use parallel
 
-    implicit none
+  implicit none
 
-    integer, intent(in) :: ewn, nsn, upn
-    integer, dimension(:,:), intent(in) :: mask
-    integer, dimension(ewn-1,nsn-1) :: getlocationarray, temparray
-    integer :: cumsum, ew, ns
+  integer, intent(in) :: ewn, nsn, upn
+  integer, dimension(:,:), intent(in) :: mask
+  integer, dimension(:,:), intent(in) :: indxmask
+  integer, dimension(ewn-1,nsn-1,2) :: getlocationarray
+  integer :: ew, ns
 
-    cumsum = 0
+#ifdef globalIDs
+  ! Returns in (:,:,1) the variable ID bases for each ice grid point.  
+  ! If a point (ew,ns) doesn't have ice, then it has 0.
+  ! This uses globalIDs and includes the ID bases for the halos in the array.
+  ! This ID array uses the same IDs used to initialize Trilinos myIndices.
+  ! JEFF 11/23/10
 
-    do ew=1+staggered_lhalo,size(mask,1)-staggered_uhalo
-        do ns=1+staggered_lhalo,size(mask,2)-staggered_uhalo
-        if ( GLIDE_HAS_ICE( mask(ew,ns) ) ) then
-            cumsum = cumsum + ( upn + 2 )
-            getlocationarray(ew,ns) = cumsum
-            temparray(ew,ns) = upn + 2
-        else
-            getlocationarray(ew,ns) = 0
-            temparray(ew,ns) = 1
-        end if
-        end do
+  do ew=1,size(mask,1)
+    do ns=1,size(mask,2)
+      if ( GLIDE_HAS_ICE( mask(ew,ns) ) ) then
+        getlocationarray(ew,ns,1) = parallel_globalID(ns, ew, upn + 2)  ! Extra two layers for ghost layers
+      else
+        getlocationarray(ew,ns,1) = 0
+      end if
     end do
+  end do
 
-    getlocationarray = ( getlocationarray + 1 ) - temparray
+  ! Returns in (:,:,2) the local index base for each ice grid point 
+  !  (same indices as those used in myIndices)
+  ! If a point (ew,ns) doesn't have ice, then value is set to 0.
+  ! If a point (ew,ns) is in the halo, value is also set to 0.
+  ! ewn, nsn, are bounds for indxmask (including halos).
+  ! upn+2 is the total number of vertical layers including any ghosts
+  ! indxmask is ice mask with non-zero values for cells with ice.
+  ! PW 12/1/11, logic modelled after distributed_create_partition
+
+  ! initialize to zero (in order to set halo and ice-free cells to zero)
+  getlocationarray(:,:,2) = 0
+
+  ! Step through indxmask, but exclude halo
+  do ew = 1+staggered_lhalo,size(indxmask,1)-staggered_uhalo
+    do ns = 1+staggered_lhalo,size(indxmask,2)-staggered_uhalo
+      if ( indxmask(ew,ns) /= 0 ) then
+        getlocationarray(ew,ns,2) = (indxmask(ew,ns) - 1) * (upn+2) + 1
+      endif
+    end do
+  end do
+
+#else
+  integer, dimension(ewn-1,nsn-1) :: temparray
+  integer :: cumsum
+
+  cumsum = 0
+
+  do ew=1+staggered_lhalo,size(mask,1)-staggered_uhalo
+    do ns=1+staggered_lhalo,size(mask,2)-staggered_uhalo
+      if ( GLIDE_HAS_ICE( mask(ew,ns) ) ) then
+        cumsum = cumsum + ( upn + 2 )
+        getlocationarray(ew,ns,1) = cumsum
+        temparray(ew,ns) = upn + 2
+      else
+        getlocationarray(ew,ns,1) = 0
+        temparray(ew,ns) = 1
+      end if
+    end do
+  end do
+
+  getlocationarray(:,:,1) = ( getlocationarray(:,:,1) + 1 ) - temparray
+  getlocationarray(:,:,2) = getlocationarray(:,:,1)
+#endif
 
     return
 
 end function getlocationarray
-
-!***********************************************************************
-
-function getdistributedlocationarray(ewn, nsn, upn, mask )
-	! Returns an array with the variable ID bases for each ice grid point.  If a point (ew,ns) doesn't have ice, then it has 0.
-	! This uses globalIDs and includes the ID bases for the halos in the array.
-	! This ID array uses the same IDs used to initialize Trilinos myIndices.
-	! JEFF 11/23/10
-    use parallel
-
-    implicit none
-
-    integer, intent(in) :: ewn, nsn, upn
-    integer, dimension(:,:), intent(in) :: mask
-    integer, dimension(ewn-1,nsn-1) :: getdistributedlocationarray
-    integer :: ew, ns
-
-    do ew=1,size(mask,1)
-        do ns=1,size(mask,2)
-	        if ( GLIDE_HAS_ICE( mask(ew,ns) ) ) then
-	            getdistributedlocationarray(ew,ns) = parallel_globalID(ns, ew, upn + 2)  ! Extra two layers for ghost layers
-	        else
-	            getdistributedlocationarray(ew,ns) = 0
-	        end if
-        end do
-    end do
-
-    return
-end function getdistributedlocationarray
 
 !***********************************************************************
 
@@ -2708,92 +2718,6 @@ end function mindcrshstr2
 
 !***********************************************************************
 
-subroutine resid_calc(pt,whichresid,vel,resid)
-! Moved the residual calculation out of mindcrshstr().  mindcrsh updates uvel and vvel and computes the residual.  By separating
-! out the residual calculation then can update the halos before calculating the residual.
-! Jeff October 23, 2011
-  use parallel
-
-  implicit none
-
-  real (kind = dp), intent(in), dimension(:,:,:) :: vel
-  integer, intent(in) :: pt, whichresid
-  real (kind = dp), intent(out) :: resid
-
-  real (kind = dp), intrinsic :: abs
-
-  integer, dimension(2), save :: new = 1, old = 2
-  integer :: locat(3)
-
-  integer :: nr
-  integer,      dimension(size(vel,1),size(vel,2),size(vel,3)) :: vel_ne_0
-  real (kind = dp) :: sum_vel_ne_0
-
-  !*sfp* Old version
-  if (new(pt) == 1) then; old(pt) = 1; new(pt) = 2; else; old(pt) = 1; new(pt) = 2; end if
-
-  !*sfp* correction from Carl Gladdish
-  !if (new(pt) == 1) then; old(pt) = 1; new(pt) = 2; else; old(pt) = 2; new(pt) = 1; end if
-
-  select case (whichresid)
-
-  ! options for residual calculation method, as specified in configuration file
-  ! (see additional notes in "higher-order options" section of documentation)
-  ! case(0): use max of abs( vel_old - vel ) / vel )
-  ! case(1): use max of abs( vel_old - vel ) / vel ) but ignore basal vels
-  ! case(2): use mean of abs( vel_old - vel ) / vel )
-
-  ! JEFF Note that because using MASK, then halos are included in the residual calculations.
-   case(0)
-    resid = maxval( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
-    resid = parallel_reduce_max(resid)
-    !JEFF locat is only used in diagnostic print statement below.
-    !locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
-
-   case(1)
-    nr = size( vel, dim=1 ) ! number of grid points in vertical ...
-    resid = maxval( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ),  &
-                        MASK = vel .ne. 0.0_dp)
-    resid = parallel_reduce_max(resid)
-    !JEFF locat = maxloc( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ),  &
-    !JEFF        MASK = vel .ne. 0.0_dp)
-
-   case(2)
-    nr = size( vel, dim=1 )
-    vel_ne_0 = 0
-    where ( vel .ne. 0.0_dp ) vel_ne_0 = 1
-
-    ! include basal velocities in resid. calculation when using MEAN
-    ! JEFF Compute sums across nodes in order to compute mean.
-    resid = sum( abs((usav(:,:,:,pt) - vel ) / vel ), &
-            MASK = vel .ne. 0.0_dp)
-    resid = parallel_reduce_sum(resid)
-    sum_vel_ne_0 = sum( vel_ne_0 )
-    sum_vel_ne_0 = parallel_reduce_sum(sum_vel_ne_0)
-
-    resid = resid / sum_vel_ne_0
-
-    ! ignore basal velocities in resid. calculation when using MEAN
-    ! resid = sum( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ),   &
-    !           MASK = vel .ne. 0.0_dp) / sum( vel_ne_0(1:nr-1,:,:) )
-
-    ! NOTE that the location of the max residual is somewhat irrelevent here
-    !      since we are using the mean resid for convergence testing
-    ! locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
-
-  end select
-
-  usav(:,:,:,pt) = vel
-
-  ! Additional debugging line, useful when trying to determine if convergence is being consistently
-  ! help up by the residual at one or a few particular locations in the domain.
-  ! print '("* ",g20.6,3i6,g20.6)', resid, locat, vel(locat(1),locat(2),locat(3))*vel0
-
-  return
-end subroutine resid_calc
-
-!***********************************************************************
-
 subroutine findcoefstr(ewn,  nsn,   upn,            &
                        dew,  dns,   sigma,          &
                        pt,          efvs,           &
@@ -2849,8 +2773,8 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
   real (kind = dp), dimension(upn) :: boundaryvel
   real (kind = dp) :: flwabar
 
-  integer, dimension(ewn-1,nsn-1) :: loc_array
-  integer, dimension(6) :: loc
+  integer, dimension(6,2) :: loc2
+  integer, dimension(2) :: loc2plusup
   integer, dimension(3) :: shift
   integer :: ew, ns, up, up_start
 
@@ -2876,19 +2800,13 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                         betasquared )
 ! intent(out) betasquared
 
-  ! Note loc_array is defined only for non-halo ice grid points.
+  ! Note loc2_array is defined only for non-halo ice grid points.
   ! JEFFLOC returns an array with starting indices into solution vector for each ice grid point.
-#ifdef globalIDs
-  loc_array = getdistributedlocationarray(ewn, nsn, upn, mask)
-#else
-  !JEFF - Want some way to notify user that cannot run without GlobalIDs when running distributed.  
-  !JEFF - But this method of not_parallel is just annoying.
-  !call not_parallel(__FILE__, __LINE__)
-  loc_array = getlocationarray(ewn, nsn, upn, mask)
-#endif
+  allocate(loc2_array(ewn-1,nsn-1,2))
+  loc2_array = getlocationarray(ewn, nsn, upn, mask, uindx)
 !  !!!!!!!!! useful for debugging !!!!!!!!!!!!!!
-!    print *, 'loc_array = '
-!    print *, loc_array
+!    print *, 'loc2_array = '
+!    print *, loc2_array
 !    pause
 
   ! JEFFLOC Why are these do loops reversed from normal.  Bigger question is do I need to restrict to non-halo grid points?
@@ -2908,7 +2826,7 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                sum( flwa(:,ew+1,ns)/flwa(:,ew+1,ns), 1, flwa(1,ew+1,ns)*vis0_glam < 1.0d-10 )/real(upn) + &
                sum( flwa(:,ew+1,ns+1)/flwa(:,ew+1,ns+1), 1, flwa(1,ew+1,ns+1)*vis0_glam < 1.0d-10 )/real(upn) )
 
-    loc(1) = loc_array(ew,ns)
+    loc2(1,:) = loc2_array(ew,ns,:)
 
 ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     if ( GLIDE_HAS_ICE(mask(ew,ns)) .and. .not. &
@@ -2931,10 +2849,10 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                          d2thckdewdns(ew,ns))
 
         ! get index of cardinal neighbours
-        loc(2) = loc_array(ew+1,ns)
-        loc(3) = loc_array(ew-1,ns)
-        loc(4) = loc_array(ew,ns+1)
-        loc(5) = loc_array(ew,ns-1)
+        loc2(2,:) = loc2_array(ew+1,ns,:)
+        loc2(3,:) = loc2_array(ew-1,ns,:)
+        loc2(4,:) = loc2_array(ew,ns+1,:)
+        loc2(5,:) = loc2_array(ew,ns-1,:)
 
         ! this loop fills coeff. for all vertical layers at index ew,ns (including sfc. and bed bcs)
         do up = up_start, upn
@@ -2945,16 +2863,16 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
             ! by extrpolating values for efvs at the sfc and bed using one-sided diffs, and it is not clear
             ! how important this simplfication is.
             !JEFFLOC indshift() returns three-element shift index for up, ew, and ns respectively.
-            !JEFFLOC It does get passed loc_array, but it doesn't use it.  Further, the shifts can be at most 1 unit in any direction.
-            shift = indshift( 0, ew, ns, up, ewn, nsn, upn, loc_array, stagthck(ew-1:ew+1,ns-1:ns+1) )
+            !JEFFLOC It does get passed loc2_array, but it doesn't use it.  Further, the shifts can be at most 1 unit in any direction.
+            shift = indshift( 0, ew, ns, up, ewn, nsn, upn, loc2_array(:,:,1), stagthck(ew-1:ew+1,ns-1:ns+1) )
 
 			!JEFFLOC As long as not accessing halo ice points, then won't shift off of halo of size at least 1.
-			!JEFFLOC Completed scan on 11/23.  Testing change of definition of loc_array.
+			!JEFFLOC Completed scan on 11/23.  Testing change of definition of loc2_array.
             call bodyset(ew,  ns,  up,        &
                          ewn, nsn, upn,       &
                          dew,      dns,       &
-                         pt,       loc_array, &
-                         loc,      stagthck,  &
+                         pt,       loc2_array,&
+                         loc2,     stagthck,  &
                          thisdusrfdx,         &
                          dusrfdew, dusrfdns,  &
                          dlsrfdew, dlsrfdns,  &
@@ -2990,14 +2908,14 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
            lateralboundry = .true.
            shift = indshift(  1, ew, ns, up,                   &
                                ewn, nsn, upn,                  &
-                               loc_array,                      &
+                               loc2_array(:,:,1),              &
                                stagthck(ew-1:ew+1,ns-1:ns+1) )
 
             call bodyset(ew,  ns,  up,        &
                          ewn, nsn, upn,       &
                          dew,      dns,       &
-                         pt,       loc_array, &
-                         loc,      stagthck,  &
+                         pt,       loc2_array,&
+                         loc2,     stagthck,  &
                          thisdusrfdx,         &
                          dusrfdew, dusrfdns,  &
                          dlsrfdew, dlsrfdns,  &
@@ -3023,13 +2941,15 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
         ! Put specified value for vel on rhs. NOTE that this is NOT zero by default 
         ! unless the initial guess is zero. It will be set to whatever the initial value 
         ! for the vel at location up,ew,ns is in the initial array!
-        locplusup = loc(1)
-        call valueset(0.0_dp)
-        locplusup = loc(1) + upn + 1
-        call valueset(0.0_dp)
+        loc2plusup = loc2(1,:)
+        call valueset(0.0_dp, loc2plusup)
+
+        loc2plusup = loc2(1,:) + upn + 1
+        call valueset(0.0_dp, loc2plusup)
+
         do up = up_start, upn
-           locplusup = loc(1) + up
-           call valueset( thisvel(up,ew,ns) )     ! vel at margin set to initial value 
+           loc2plusup = loc2(1,:) + up
+           call valueset( thisvel(up,ew,ns), loc2plusup )     ! vel at margin set to initial value 
 !           call valueset( 0.0_dp )                ! vel at margin set to 0 
         end do
 
@@ -3037,6 +2957,8 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
 
     end do;     ! ew 
   end do        ! ns
+
+  deallocate(loc2_array)
 
   return
 
@@ -3047,8 +2969,8 @@ end subroutine findcoefstr
 subroutine bodyset(ew,  ns,  up,           &
                    ewn, nsn, upn,          &
                    dew,      dns,          &
-                   pt,       loc_array,    &
-                   loc,      stagthck,     &
+                   pt,       loc2_array,   &
+                   loc2,     stagthck,     &
                    thisdusrfdx,            &
                    dusrfdew, dusrfdns,     &
                    dlsrfdew, dlsrfdns,     &
@@ -3070,8 +2992,8 @@ subroutine bodyset(ew,  ns,  up,           &
   integer, intent(in) :: ew, ns, up
   real (kind = dp), intent(in) :: dew, dns
   integer, intent(in) :: pt, whichbabc, assembly
-  integer, dimension(ewn-1,nsn-1), intent(in) :: loc_array
-  integer, dimension(6), intent(in) :: loc
+  integer, dimension(ewn-1,nsn-1,2), intent(in) :: loc2_array
+  integer, dimension(6,2), intent(in) :: loc2
 
   real (kind = dp), dimension(:,:), intent(in) :: stagthck
   real (kind = dp), dimension(:,:), intent(in) :: dusrfdew, dusrfdns
@@ -3108,7 +3030,9 @@ subroutine bodyset(ew,  ns,  up,           &
 
   real (kind = dp) :: scalebabc
 
-  locplusup = loc(1) + up
+  integer, dimension(2) :: loc2plusup
+
+  loc2plusup = loc2(1,:) + up
 
   if( lateralboundry )then
 
@@ -3119,16 +3043,16 @@ subroutine bodyset(ew,  ns,  up,           &
   ! should contain sfc/bed slope components, e.g. (-ds/dx, -ds/dy, 1) or (db/dx, db/dy, -1)
      source = 0.0_dp
 
-     call getlatboundinfo( ew,  ns,  up,                            &
-                           ewn, nsn, upn,                           &
-                           stagthck(ew-1:ew+1, ns-1:ns+1),          &
-                           loc_array, fwdorbwd, normal, loc_latbc)
+     call getlatboundinfo( ew,  ns,  up,                                 &
+                           ewn, nsn, upn,                                &
+                           stagthck(ew-1:ew+1, ns-1:ns+1),               &
+                           loc2_array(:,:,1), fwdorbwd, normal, loc_latbc)
 
      if( up == 1 .or. up == upn )then
 
         if( up == 1 )then                ! specify necessary variables and flags for free sfc
            bcflag = (/1,0/)
-           locplusup = loc(1) + up - 1   ! reverse the sparse matrix / rhs vector row index by 1 ...
+           loc2plusup = loc2(1,:) + up - 1   ! reverse the sparse matrix / rhs vector row index by 1 ...
            slopex = -dusrfdew(ew,ns); slopey = -dusrfdns(ew,ns); nz = 1.0_dp
         else                             ! specify necessary variables and flags for basal bc
    
@@ -3149,7 +3073,7 @@ subroutine bodyset(ew,  ns,  up,           &
  
            end if   
 
-           locplusup = loc(1) + up + 1   ! advance the sparse matrix / rhs row vector index by 1 ...
+           loc2plusup = loc2(1,:) + up + 1   ! advance the sparse matrix / rhs row vector index by 1 ...
            slopex = dlsrfdew(ew,ns); slopey = dlsrfdns(ew,ns); nz = -1.0_dp
 
         end if
@@ -3175,7 +3099,7 @@ subroutine bodyset(ew,  ns,  up,           &
 
         ! put the coeff. for the b.c. equation in the same place as the prev. equation
         ! (w.r.t. cols), on a new row ...
-        call fillsprsebndy( g, locplusup, loc_latbc, up, normal, pt )
+        call fillsprsebndy( g, loc2plusup(1), loc_latbc, up, normal, pt )
 
         ! NOTE that in the following expression, the "-" sign on the crosshoriz terms, 
         ! which results from moving them from the LHS over to the RHS, has been moved
@@ -3183,7 +3107,7 @@ subroutine bodyset(ew,  ns,  up,           &
         ! NOTE that in the following expression, the "-" sign on the crosshoriz terms, 
         ! which results from moving them from the LHS over to the RHS, has been moved
         ! inside of "croshorizmainbc_lat".
-        rhsd(distributed_globalID_to_localindex(locplusup)) = sum( croshorizmainbc_lat(dew,           dns,           &
+        rhsd(loc2plusup(2)) = sum( croshorizmainbc_lat(dew,           dns,           &
                                                    slopex,        slopey,        &
                                                    dsigmadew(up), dsigmadns(up), &
                                                    pt,            2,             &
@@ -3203,7 +3127,7 @@ subroutine bodyset(ew,  ns,  up,           &
                                 oneortwo,      twoorone,      & 
                                 onesideddiff,                 &
                                  normal,fwdorbwd) / scalebabc 
-            call fillsprsebndy( h, locplusup, loc_latbc, up, normal, pt ) 
+            call fillsprsebndy( h, loc2plusup(1), loc_latbc, up, normal, pt ) 
             storeoffdiag = .false.
         end if     
 
@@ -3211,7 +3135,7 @@ subroutine bodyset(ew,  ns,  up,           &
 
     ! If in main body and at ice/ocean boundary, calculate depth-averaged stress
     ! due to sea water, bc normal vector components should be boundary normal 
-    locplusup = loc(1) + up
+    loc2plusup = loc2(1,:) + up
 
     ! for this bc, the normal vector components are not the sfc/bed slopes but are taken
     ! from a normal to the shelf front in map view (x,y plane); slopex,slopey are simply renamed here 
@@ -3280,12 +3204,12 @@ subroutine bodyset(ew,  ns,  up,           &
 
     ! put the coeff. for the b.c. equation in the same place as the prev. equation
     ! (w.r.t. cols), on a new row ...
-    call fillsprsebndy( g, locplusup, loc_latbc, up, normal, pt )
+    call fillsprsebndy( g, loc2plusup(1), loc_latbc, up, normal, pt )
 
     ! NOTE that in the following expression, the "-" sign on the crosshoriz terms, 
     ! which results from moving them from the LHS over to the RHS, has been moved
     ! inside of "croshorizmainbc_lat".
-    rhsd(distributed_globalID_to_localindex(locplusup)) = sum( croshorizmainbc_lat(dew,           dns,            &
+    rhsd(loc2plusup(2)) = sum( croshorizmainbc_lat(dew,           dns,            &
                                                slopex,        slopey,         &
                                                dsigmadew(up), dsigmadns(up),  &
                                                pt,            1,              &
@@ -3305,7 +3229,7 @@ subroutine bodyset(ew,  ns,  up,           &
                                  oneortwo,      twoorone,       &
                                  onesideddiff,                  &
                                  normal,        fwdorbwd)
-         call fillsprsebndy( h, locplusup, loc_latbc, up, normal, pt )
+         call fillsprsebndy( h, loc2plusup(1), loc_latbc, up, normal, pt )
          storeoffdiag = .false.
      end if
 
@@ -3316,7 +3240,7 @@ subroutine bodyset(ew,  ns,  up,           &
 
      g = normhorizmain(pt,up,local_efvs)
      g(:,2,2) = g(:,2,2) + vertimain(hsum(local_efvs),up)
-     call fillsprsemain(g,locplusup,loc,up,pt)
+     call fillsprsemain(g,loc2plusup(1),loc2(:,1),up,pt)
      ! NOTE that in the following expression, the "-" sign on the crosshoriz terms, 
      ! which results from moving them from the LHS over to the RHS, is explicit and 
      ! hast NOT been moved inside of "croshorizmin" (as is the case for the analogous
@@ -3325,13 +3249,13 @@ subroutine bodyset(ew,  ns,  up,           &
      ! which results from moving them from the LHS over to the RHS, is explicit and 
      ! hast NOT been moved inside of "croshorizmin" (as is the case for the analogous
      ! boundary condition routines).
-     rhsd(distributed_globalID_to_localindex(locplusup)) = thisdusrfdx(ew,ns) - &
+     rhsd(loc2plusup(2)) = thisdusrfdx(ew,ns) - &
                                          sum(croshorizmain(pt,up,local_efvs) * local_othervel)
 
      if( nonlinear == HO_NONLIN_JFNK .and. calcoffdiag )then
          storeoffdiag = .true.
          h = croshorizmain(pt,up,local_efvs)   
-         call fillsprsemain(h,locplusup,loc,up,pt)
+         call fillsprsemain(h,loc2plusup(1),loc2(:,1),up,pt)
          storeoffdiag = .false.
      end if     
 
@@ -3344,7 +3268,7 @@ subroutine bodyset(ew,  ns,  up,           &
 
         if( up == 1 )then                ! specify necessary variables and flags for free sfc
            bcflag = (/1,0/)
-           locplusup = loc(1) + up - 1   ! reverse the sparse matrix / rhs vector row index by 1 ...
+           loc2plusup = loc2(1,:) + up - 1   ! reverse the sparse matrix / rhs vector row index by 1 ...
            slopex = -dusrfdew(ew,ns); slopey = -dusrfdns(ew,ns); nz = 1.0_dp
         else                             ! specify necessary variables and flags for basal bc
 
@@ -3365,7 +3289,7 @@ subroutine bodyset(ew,  ns,  up,           &
 
            end if
            
-           locplusup = loc(1) + up + 1   ! advance the sparse matrix / rhs row vector index by 1 ...
+           loc2plusup = loc2(1,:) + up + 1   ! advance the sparse matrix / rhs row vector index by 1 ...
            slopex = dlsrfdew(ew,ns); slopey = dlsrfdns(ew,ns); nz = -1.0_dp
         
         end if
@@ -3391,7 +3315,7 @@ subroutine bodyset(ew,  ns,  up,           &
 
      ! put the coeff. for the b.c. equation in the same place as the prev. equation
      ! (w.r.t. cols), on a new row ...
-     call fillsprsemain(g,locplusup,loc,up,pt)
+     call fillsprsemain(g,loc2plusup(1),loc2(:,1),up,pt)
 
      ! NOTE that in the following expression, the "-" sign on the crosshoriz terms, 
      ! which results from moving them from the LHS over to the RHS, has been moved
@@ -3399,7 +3323,7 @@ subroutine bodyset(ew,  ns,  up,           &
 
      if( bcflag(2) == 2 )then
 
-          rhsd(distributed_globalID_to_localindex(locplusup)) = sum( croshorizmainbc(dew,           dns,            &
+          rhsd(loc2plusup(2)) = sum( croshorizmainbc(dew,           dns,            &
                                              slopex,        slopey,         &
                                              dsigmadew(up), dsigmadns(up),  &
                                              pt,            bcflag,         &
@@ -3422,13 +3346,13 @@ subroutine bodyset(ew,  ns,  up,           &
                                  dup(up),       local_othervel, &
                                  local_efvs,                    &
                                  oneortwo, twoorone, g_cros ) / scalebabc
-             call fillsprsemain(h,locplusup,loc,up,pt)
+             call fillsprsemain(h,loc2plusup(1),loc2(:,1),up,pt)
              storeoffdiag = .false.
          end if
 
      else if( bcflag(2) /= 2 )then
 
-          rhsd(distributed_globalID_to_localindex(locplusup)) = sum( croshorizmainbc(dew,           dns,            &
+          rhsd(loc2plusup(2)) = sum( croshorizmainbc(dew,           dns,            &
                                              slopex,        slopey,         &
                                              dsigmadew(up), dsigmadns(up),  &
                                              pt,            bcflag,         &
@@ -3446,7 +3370,7 @@ subroutine bodyset(ew,  ns,  up,           &
                                  dup(up),       local_othervel, &
                                  local_efvs,                    &
                                  oneortwo, twoorone, g_cros ) / scalebabc
-             call fillsprsemain(h,locplusup,loc,up,pt)
+             call fillsprsemain(h,loc2plusup(1),loc2(:,1),up,pt)
              storeoffdiag = .false.
          end if
 
@@ -3484,16 +3408,17 @@ end subroutine bodyset
 
 !***********************************************************************
 
-subroutine valueset(local_value)
+subroutine valueset(local_value, loc2plusup)
 
   ! plugs given value into the right location in the rhs vector of matrix equation Ax=rhs
 
   implicit none
 
   real (kind = dp), intent(in) :: local_value
+  integer, dimension(2), intent(in) :: loc2plusup
 
-  call putpcgc(1.0_dp,locplusup,locplusup)
-  rhsd(distributed_globalID_to_localindex(locplusup)) = local_value
+  call putpcgc(1.0_dp,loc2plusup(1),loc2plusup(1))
+  rhsd(loc2plusup(2)) = local_value
 
   return
 
@@ -5125,11 +5050,11 @@ end subroutine putpcgc
 
 !***********************************************************************
 
-  subroutine distributed_create_partition(ewn, nsn, upstride, mask, mySize, myIndices)
-  	! distributed_create_partition builds myIndices ID vector for Trilinos using (ns,ew) coordinates in mask
-  	! ewn, nsn, are bounds for mask (including halos).
+  subroutine distributed_create_partition(ewn, nsn, upstride, indxmask, mySize, myIndices)
+  	! distributed_create_partition builds myIndices ID vector for Trilinos using (ns,ew) coordinates in indxmask
+  	! ewn, nsn, are bounds for indxmask (including halos).
   	! upstride is the total number of vertical layers including any ghosts
-  	! mask is ice mask with non-zero values for cells with ice.
+  	! indxmask is ice mask with non-zero values for cells with ice.
   	! mySize is number of elements in myIndices
   	! myIndices is integer vector in which IDs are def
 	  use parallel
@@ -5137,19 +5062,18 @@ end subroutine putpcgc
  	  implicit none
 
 	  integer, intent(in) :: ewn, nsn, upstride
-	  integer, intent(in), dimension(:,:) :: mask
+	  integer, intent(in), dimension(:,:) :: indxmask
 	  integer, intent(in) :: mySize
 	  integer, intent(out), dimension(:) :: myIndices
 
 	  integer :: ew, ns, pointno
 	  integer :: glblID, upindx, slnindx
 
-
-      ! Step through mask, but exclude halo
-	  do ew = 1+staggered_lhalo,size(mask,1)-staggered_uhalo
-	     do ns = 1+staggered_lhalo,size(mask,2)-staggered_uhalo
-	        if ( mask(ew,ns) /= 0 ) then
-	          pointno = mask(ew,ns)  ! Note that pointno starts at value 1.  If we step through correctly then consecutive values
+      ! Step through indxmask, but exclude halo
+	  do ew = 1+staggered_lhalo,size(indxmask,1)-staggered_uhalo
+	     do ns = 1+staggered_lhalo,size(indxmask,2)-staggered_uhalo
+	        if ( indxmask(ew,ns) /= 0 ) then
+	          pointno = indxmask(ew,ns)  ! Note that pointno starts at value 1.  If we step through correctly then consecutive values
 	          ! write(*,*) "pointno = ", pointno
 	          ! first layer ID is set from parallel_globalID, rest by incrementing through layers
 	          glblID = parallel_globalID(ns, ew, upstride)
@@ -5171,38 +5095,68 @@ end subroutine putpcgc
 !***********************************************************************
 
   function distributed_globalID_to_localindex(globalID)
-  	! distributed_globalID_to_localindex searches myIndices ID vector for given globalID and returns the corresponding index.
-  	! This converts a globalID to its position in the solution vector.
-  	! This is required for setting rhsd which is indexed by the solution vector index.
+  	! distributed_globalID_to_localindex converts a globalID to its position in the solution vector. 
+        ! It is a utility function that is not currently used, but retained for future debugging capability.
+  	! The function searches loc2_array(:,:,1) for the globalID closest to the 
+        ! given globalID, then uses this difference and loc2_array(:,:,2) for the same ew,ns coordinates
+        ! to calculate (and return) the corresponding index.
+        ! Result is checked using myIndices.
+  	! loc2_array is assumed to be a module-level variable set by the routine getlocationarray.
   	! myIndices is assumed to be a module-level variable which holds the local processor's ID partition list.
   	! This function will work for both globalIDs and regular partitions.
   	! In the latter case it is redundant, because the ID will be at the same index, so it is just an identity function.
-  	! JEFF 11/2010
+  	! Original implementation using myIndices, and then fast inverse, by JEFF 11/2010 and 11/2011
+        ! Current loc2_array-based implementation by PW 12/2011
 	  use parallel
 
  	  implicit none
 
 	  integer, intent(in) :: globalID
 
-	  integer :: distributed_globalID_to_localindex, lindex
+	  integer :: distributed_globalID_to_localindex
 
 #ifdef globalIDs
+      !JEFF integer :: GlobalIDsGet ! C++ function with return value
+          integer :: ew, ns
+          integer :: minew, minns
+          integer :: curdiff, mindiff
+          integer :: lindex
+
+      ! loc2_array-based search
+          minew = 1
+          minns = 1
+          mindiff = globalID
+          do ns = 1+staggered_lhalo,size(loc2_array,2)-staggered_uhalo
+            do ew = 1+staggered_lhalo,size(loc2_array,1)-staggered_uhalo
+              curdiff = globalID-loc2_array(ew,ns,1)
+              if ((curdiff >= 0) .and. (curdiff < mindiff)) then
+                mindiff = globalID-loc2_array(ew,ns,1)
+                minew = ew
+                minns = ns
+              endif
+            enddo
+          enddo
+          lindex = loc2_array(minew,minns,2) + mindiff
+
+          if ( myIndices(lindex) == globalID ) then
+            distributed_globalID_to_localindex = lindex
+            return
+          else
+            write(*,*) "Error in distributed_globalID_to_localindex()."
+            write(*,*) "GlobalID to match = ", globalID
+            write(*,*) "GlobalID found = ", myIndices(lindex), "(lindex = ",lindex,")"
+            stop
+          endif
+
       ! linear search from beginning of myIndices.
       ! Inefficient.  There could be some ordering of myIndices that would enable us to us a binary search.  Not certain at this time.
-	  do lindex = 1, size(myIndices)
-	     if ( myIndices(lindex) == globalID ) then
-	     	distributed_globalID_to_localindex = lindex
-	     	return
-	     endif
-	  end do
+      !JEFF    do lindex = 1, size(myIndices)
+      !JEFF	     if ( myIndices(lindex) == globalID ) then
+      !JEFF	     	distributed_globalID_to_localindex = lindex
+      !JEFF	     	return
+      !JEFF	     endif
+      !JEFF	  end do
 
-	  ! If get to here, then no match found.  Return -1 to cause bounds check error.
-	  write(*,*) "Error in distributed_globalID_to_localindex().  GlobalID to match = ", globalID
-	  write(*,*) "MyIndices vector = "
-	  write(*,*) myIndices
-
-	  distributed_globalID_to_localindex = -1
-	  return
 #else
       distributed_globalID_to_localindex = globalID
       return
