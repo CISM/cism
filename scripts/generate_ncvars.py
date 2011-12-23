@@ -460,7 +460,7 @@ class PrintNC_template(PrintVars):
                 if  'staglevel' in dims:
                     # handle 3D fields
                     spaces = ' '*3
-                    self.stream.write("       do up=1,NCO%nstaglevel\n")
+                    self.stream.write("       do up=1,NCI%nstaglevel\n")
 
                 self.stream.write("%s       status = distributed_get_var(NCI%%id, varid, &\n%s            %s, (/%s/))\n"%(spaces,
                                                                                                                spaces,var['data'], dimstring))
