@@ -3838,7 +3838,7 @@ function vertimainbcos(thck, bcflag, dup, efvs, betasquared, g_vert, nz, plastic
     g_vert = 0.0_dp
 
     ! for higher-order FREE SURFACE B.C. for x ('which'=1) or y ('which'=2) direction ...
-    if( bcflag(1) == 1 )then
+    if( bcflag(1) == 1 .and. bcflag(2) == 0 )then
 
 !           c = nz / thck / (2*dup) * (len0**2 / thk0**2)   ! value of coefficient
            c = nz / thck / (2*dup) * (len0**2 / thk0**2) * ( sum( efvs(1,:,:) ) / 4.0_dp ) ! value of coefficient
@@ -3855,7 +3855,7 @@ function vertimainbcos(thck, bcflag, dup, efvs, betasquared, g_vert, nz, plastic
    end if
 
    ! for higher-order BASAL B.C. w/ specified basal traction, add on the necessary source term ...
-   if( bcflag(2) == 1 )then
+   if( bcflag(1) == 1 .and. bcflag(2) == 1 )then
 
 !           c = nz / thck / (2*dup) * (len0**2 / thk0**2)   ! value of coefficient
            c = nz / thck / (2*dup) * (len0**2 / thk0**2) * ( sum( efvs(2,:,:) ) / 4.0_dp ) ! value of coefficient
@@ -4025,7 +4025,7 @@ function normhorizmainbcos(dew,       dns,      &
     ! NOTE that this handles the case for specified stress at the bed as well, as we 
     ! simply pass in a different value for the normal vector (slope) components (still
     ! called "dusrfdns", "dusrfdew" here, but args passed in are different).
-    if( bcflag(1) == 1 )then
+    if( bcflag(1) == 1 .and. bcflag(2) == 0 )then
 
            ! first, coeff. that go with du/dsigma, and thus are associated 
            ! with u(1,2,2) and u(3,2,2) ...
@@ -4041,15 +4041,11 @@ function normhorizmainbcos(dew,       dns,      &
            ! next, coeff. that go with du/dxhat and du/dyhat terms ...
 !           c = fourorone(which) * dusrfdew / (2*dew)
            c = fourorone(which) * dusrfdew / (2*dew) * ( sum( efvs(1,:,:) ) / 4.0_dp )
-!           g(2,3,2) = c
-!           g(2,1,2) = -c
            g(1,3,2) = c
            g(1,1,2) = -c
 
 !           c = oneorfour(which) * dusrfdns / (2*dns)
            c = oneorfour(which) * dusrfdns / (2*dns) * ( sum( efvs(1,:,:) ) / 4.0_dp )
-!           g(2,2,3) = c
-!           g(2,2,1) = -c
            g(1,2,3) = c
            g(1,2,1) = -c
 
@@ -4057,7 +4053,7 @@ function normhorizmainbcos(dew,       dns,      &
 
     ! higher-order, specified traction basal bc, must use fwd rather than bwd one-sided 
     ! diff in vertical direction
-    if( bcflag(2) == 1 )then
+    if( bcflag(1) == 1 .and. bcflag(2) == 1 )then
 
            ! first, coeff. that go with du/dsigma, and thus are associated 
            ! with u(1,2,2) and u(3,2,2) ...
@@ -4073,15 +4069,11 @@ function normhorizmainbcos(dew,       dns,      &
            ! next, coeff. that go with du/dxhat and du/dyhat terms ...
 !           c = fourorone(which) * dusrfdew / (2*dew)
            c = fourorone(which) * dusrfdew / (2*dew) * ( sum( efvs(2,:,:) ) / 4.0_dp )
-!           g(2,3,2) = c
-!           g(2,1,2) = -c
            g(3,3,2) = c
            g(3,1,2) = -c
 
 !           c = oneorfour(which) * dusrfdns / (2*dns)
            c = oneorfour(which) * dusrfdns / (2*dns) * ( sum( efvs(2,:,:) ) / 4.0_dp )
-!           g(2,2,3) = c
-!           g(2,2,1) = -c
            g(3,2,3) = c
            g(3,2,1) = -c
 
@@ -4242,7 +4234,7 @@ function croshorizmainbcos(dew,       dns,       &
     ! NOTE that this handles the case for specified stress at the bed as well, as we 
     ! simply pass in a different value for the normal vector (slope) components (still
     ! called "dusrfdns", "dusrfdew" here, but args passed in are different).
-    if( bcflag(1) == 1 )then
+    if( bcflag(1) == 1 .and. bcflag(2) == 0 )then
 
            ! first, coeff. that go with du/dsigma, and thus are associated
            ! with u(1,2,2) and u(3,2,2) ...
@@ -4258,16 +4250,12 @@ function croshorizmainbcos(dew,       dns,       &
            ! next, coeff. that go with du/dxhat and du/dyhat terms ...
 !           c = - oneortwo(which) * dusrfdns / (2*dew)
            c = - oneortwo(which) * dusrfdns / (2*dew) * ( sum( efvs(1,:,:) ) / 4.0_dp )
-!           g(2,3,2) = c
-!           g(2,1,2) = -c
            g(1,3,2) = c
            g(1,1,2) = -c
 
 
 !           c = - twoorone(which) * dusrfdew / (2*dns)
            c = - twoorone(which) * dusrfdew / (2*dns) * ( sum( efvs(1,:,:) ) / 4.0_dp )
-!           g(2,2,3) = c
-!           g(2,2,1) = -c
            g(1,2,3) = c
            g(1,2,1) = -c
 
@@ -4275,7 +4263,7 @@ function croshorizmainbcos(dew,       dns,       &
 
     ! higher-order, specified traction basal bc, must use fwd rather than bwd one-sided 
     ! diff in vertical direction
-    if( bcflag(2) == 1 )then
+    if( bcflag(1) == 1 .and. bcflag(2) == 1 )then
 
            ! first, coeff. that go with du/dsigma, and thus are associated
            ! with u(1,2,2) and u(3,2,2) ...
@@ -4291,16 +4279,12 @@ function croshorizmainbcos(dew,       dns,       &
            ! next, coeff. that go with du/dxhat and du/dyhat terms ...
 !           c = - oneortwo(which) * dusrfdns / (2*dew)
            c = - oneortwo(which) * dusrfdns / (2*dew) * ( sum( efvs(2,:,:) ) / 4.0_dp )
-!           g(2,3,2) = c
-!           g(2,1,2) = -c
            g(3,3,2) = c
            g(3,1,2) = -c
 
 
 !           c = - twoorone(which) * dusrfdew / (2*dns)
            c = - twoorone(which) * dusrfdew / (2*dns) * ( sum( efvs(2,:,:) ) / 4.0_dp )
-!           g(2,2,3) = c
-!           g(2,2,1) = -c
            g(3,2,3) = c
            g(3,2,1) = -c
 
@@ -4711,26 +4695,26 @@ subroutine fillsprsemain(inp,locplusup,ptindx,up,pt,osshift)
 
   ! insert entries to "g" that are on same level
   call putpcgc(inp(2,2,2),ptindx(1)+up+osshift,locplusup,pt)
-  call putpcgc(inp(2,3,2),ptindx(2)+up,locplusup,pt)
-  call putpcgc(inp(2,1,2),ptindx(3)+up,locplusup,pt)
-  call putpcgc(inp(2,2,3),ptindx(4)+up,locplusup,pt)
-  call putpcgc(inp(2,2,1),ptindx(5)+up,locplusup,pt)
+  call putpcgc(inp(2,3,2),ptindx(2)+up+osshift,locplusup,pt)
+  call putpcgc(inp(2,1,2),ptindx(3)+up+osshift,locplusup,pt)
+  call putpcgc(inp(2,2,3),ptindx(4)+up+osshift,locplusup,pt)
+  call putpcgc(inp(2,2,1),ptindx(5)+up+osshift,locplusup,pt)
 
   ! add points for level above (that is, points in "g"  with a LARGER first index,
   ! which correspond to grid points that are CLOSER TO THE BED than at current level)
   call putpcgc(inp(3,2,2),ptindx(1)+up+1+osshift,locplusup,pt)
-  call putpcgc(inp(3,3,2),ptindx(2)+up+1,locplusup,pt)
-  call putpcgc(inp(3,1,2),ptindx(3)+up+1,locplusup,pt)
-  call putpcgc(inp(3,2,3),ptindx(4)+up+1,locplusup,pt)
-  call putpcgc(inp(3,2,1),ptindx(5)+up+1,locplusup,pt)
+  call putpcgc(inp(3,3,2),ptindx(2)+up+1+osshift,locplusup,pt)
+  call putpcgc(inp(3,1,2),ptindx(3)+up+1+osshift,locplusup,pt)
+  call putpcgc(inp(3,2,3),ptindx(4)+up+1+osshift,locplusup,pt)
+  call putpcgc(inp(3,2,1),ptindx(5)+up+1+osshift,locplusup,pt)
 
   ! add points for level below (that is, points in "g" with a SMALLER first index,
   ! which correspond to grid points that are CLOSER TO THE SURFACE than at current level) 
   call putpcgc(inp(1,2,2),ptindx(1)+up-1+osshift,locplusup,pt)
-  call putpcgc(inp(1,3,2),ptindx(2)+up-1,locplusup,pt)
-  call putpcgc(inp(1,1,2),ptindx(3)+up-1,locplusup,pt)
-  call putpcgc(inp(1,2,3),ptindx(4)+up-1,locplusup,pt)
-  call putpcgc(inp(1,2,1),ptindx(5)+up-1,locplusup,pt)
+  call putpcgc(inp(1,3,2),ptindx(2)+up-1+osshift,locplusup,pt)
+  call putpcgc(inp(1,1,2),ptindx(3)+up-1+osshift,locplusup,pt)
+  call putpcgc(inp(1,2,3),ptindx(4)+up-1+osshift,locplusup,pt)
+  call putpcgc(inp(1,2,1),ptindx(5)+up-1+osshift,locplusup,pt)
 
   return
 
