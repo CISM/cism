@@ -1,0 +1,39 @@
+
+./configure \
+ FC=ftn   F77=ftn   \
+ CC=cc  CXX=CC \
+ CXXFLAGS="-O2 --diag_suppress 554,111,611" \
+ CPPFLAGS="-DHAVE_MPI -DMPICH_IGNORE_CXX_SEEK" \
+ FCFLAGS="-Mfree -O2" \
+ F77FLAGS="-Mfixed" \
+ CFLAGS="-O2" \
+ --disable-python \
+ --disable-shared \
+ --with-netcdf=$CRAY_NETCDF_DIR \
+ EXTRA_LDLIBS="/opt/pgi/11.7.0/linux86-64/11.7/lib/f90main.o" \
+ --with-trilinos=/global/u1/s/sprice/trilinos-10.6.4 \
+ --enable-mpi="yes" \
+ --with-blas=-lsci_pgi \
+# --prefix="/global/u2/w/worleyph/SCISM/seacism_trunk_wc/"
+
+# additional notes from Pat W.
+
+# modules that need to be loaded first:
+
+# module load netcdf
+# module load python
+# sh  ./configure-scripts/hopper-config
+# (edit config.status: see comment #3 below)
+# sh config.status
+# gmake
+
+# 1) Need to change --prefix=XXX  (or just delete it?)
+# 2) --with-blas=-lsci_pgi  is probably not necessary if you build Trilinos with sci_pgi
+# 3) Modify lines 1082 and 1093 of config.status, replacing 
+# 
+# -lxpmem by /opt/cray/xpmem/0.1-2.0301.25333.20.2.gem/lib64/libxpmem.a
+# 
+# -lugni by /opt/cray/ugni/2.1-1.0301.2967. 10.23.gem/lib64/libugni.a
+# 
+# -ludreg by /opt/cray/udreg/2.2-1.0301.2966.16.2.gem/lib64/libudreg.a
+
