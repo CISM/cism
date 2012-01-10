@@ -22,7 +22,7 @@
   --with-trilinos=/ccs/proj/cli054/trilinos-10.8.4-interlagos/NOX_BUILD-FAST \
   --with-blas=-lsci_pgi \
   --enable-mpi="yes" \
-  --prefix="/tmp/work/4ue/seacism"
+#  --prefix="/tmp/work/4ue/seacism"
 
 #worked with the following environment on 12/15/2011:
 #Currently Loaded Modulefiles from these commands:
