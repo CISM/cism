@@ -5603,30 +5603,38 @@ function scalebasalbc( coeffblock, bcflag, lateralboundry, beta, efvs )
   real (kind = dp) :: scale, scalebasalbc 
 
     if( nonlinear == 1 )then
-        if( bcflag(1) == 1 )then
 
-           ! use the dominant terms in the coeff associated with the velocity under consideration
-           !scale = beta / ( sum( efvs(2,:,:) ) / 4.0_dp ) * (len0 / thk0)
+!!! *SFP* Setting default scaling of basal bc row for JFNK to NO scaling
+!
+!        if( bcflag(1) == 1 )then
+!
+!           ! use the dominant terms in the coeff associated with the velocity under consideration
+!           !scale = beta / ( sum( efvs(2,:,:) ) / 4.0_dp ) * (len0 / thk0) !! old version for ghost cell bc implementation
+!           scale = beta / * (len0 / thk0)				   !! new version, consistent w/ one-side diff bc implementation
+!
+!           ! Use the magnitude of the coeff associated with the vert stress gradients. 
+!           ! NOTE that relevant coeffs are stored in diff parts of block depending 
+!           ! on type of boudnary     
+!           !if( lateralboundry )then
+!           !    scale = abs( coeffblock(3,3,3) );  
+!           !else
+!           !    scale = abs( coeffblock(3,2,2) );     
+!           !end if                
+!
+!           if( scale .le. 0.0d0 )then
+!            scale = 1.0d0
+!           end if
+!
+!        else
+!
+!            scale = 1.0d0
+!
+!        end if
+!
+!    else
 
-           ! Use the magnitude of the coeff associated with the vert stress gradients. 
-           ! NOTE that relevant coeffs are stored in diff parts of block depending 
-           ! on type of boudnary     
-           if( lateralboundry )then
-               scale = abs( coeffblock(3,3,3) );  
-           else
-               scale = abs( coeffblock(3,2,2) );     
-           end if                
-
-           if( scale .le. 0.0d0 )then
-            scale = 1.0d0
-           end if
-
-        else
-            scale = 1.0d0
-        end if
-
-    else
         scale = 1.0d0
+
     end if
 
     scalebasalbc = scale
