@@ -128,7 +128,7 @@ subroutine dumpvels(name, uvel, vvel)
     character(*) :: name
     real (kind = dp), dimension(:,:,:), intent(inout) :: uvel, vvel  ! horiz vel components: u(z), v(z)
 
-    if (distributed_execution) then
+    if (distributed_execution()) then
        if (this_rank == 0) then
            write(*,*) name, "Proc 0 uvel & vvel (1,7:8,16:17)", uvel(1,7:8,16:17), vvel(1,7:8,16:17)
        else
@@ -385,7 +385,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
      allocate(myIndices(mySize))
      call getpartition(mySize, myIndices) 
 
-     if (distributed_execution) then
+     if (distributed_execution()) then
          if (main_task) write(*,*) "Distributed Version cannot be run without globalIDs.  Stopping."
          call not_parallel(__FILE__, __LINE__)  ! Fatal if running without GlobalIDs in MPI
      endif
@@ -1002,7 +1002,7 @@ subroutine JFNK                 (model,umask)
      allocate(myIndices(mySize))
      call getpartition(mySize, myIndices) 
 
-     if (distributed_execution) then
+     if (distributed_execution()) then
          if (main_task) write(*,*) "Distributed Version cannot be run without globalIDs.  Stopping."
          call not_parallel(__FILE__, __LINE__)  ! Fatal if running without GlobalIDs in MPI
      endif
