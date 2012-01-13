@@ -32,6 +32,11 @@ Teuchos::RCP<Thyra::LinearOpWithSolveBase<double> > lows;
 Teuchos::RCP<Thyra::LinearOpWithSolveFactoryBase<double> > lowsFactory;
 Teuchos::RCP<const Thyra::LinearOpBase<double> > thyraOper;
 
+// Ability to write out matrices to a file requires these lines
+#include "EpetraExt_RowMatrixOut.h"
+#include "EpetraExt_MultiVectorOut.h"
+static int solvecount=0;
+
 extern "C" {
   //================================================================
   //================================================================
@@ -184,6 +189,23 @@ extern "C" {
       thyraSol = Thyra::create_Vector(epetraSol, thyraOper->domain() );
 
     lows = Thyra::linearOpWithSolve(*lowsFactory, thyraOper);
+
+    // Uncomment following block to Dump out two matrices Avv, Auu. 
+    // This function is called twice per Picard iter, which is twice
+    // per outer GMRES step for Newton solves, so writing at 
+    // solvecount==1 is first system, solvecount==51 is 26th Picard iter.
+/*
+    
+    solvecount++; 
+    if (solvecount==51) {
+      EpetraExt::RowMatrixToMatlabFile("matrix51", *interface->getOperator());
+      EpetraExt::MultiVectorToMatlabFile("vector51", *epetraRhs);
+    }
+    if (solvecount==52) {
+      EpetraExt::RowMatrixToMatlabFile("matrix52", *interface->getOperator());
+      EpetraExt::MultiVectorToMatlabFile("vector52", *epetraRhs);
+    }
+*/
 
     Thyra::SolveStatus<double>
       status = Thyra::solve(*lows, Thyra::NOTRANS, *thyraRhs, &*thyraSol);
