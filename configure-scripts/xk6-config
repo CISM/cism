@@ -1,7 +1,7 @@
 # install script for Jaguar-interlagos: 12/2011
 # build instructions for top level directory 
 # (1) module load subversion netcdf/4.1.2 p-netcdf/1.2.0
-# (2) don't bootstrap
+# (2) ./bootstrap
 # (3) find . -exec touch -r configure {} +
 # (4) configure-scripts/xk6-config (this file)
 # (5) make
@@ -22,7 +22,7 @@
   --with-trilinos=/ccs/proj/cli054/trilinos-10.8.4-interlagos/NOX_BUILD-FAST \
   --with-blas=-lsci_pgi \
   --enable-mpi="yes" \
-#  --prefix="/tmp/work/4ue/seacism"
+  --prefix="/$HOME/seacism"
 
 #worked with the following environment on 12/15/2011:
 #Currently Loaded Modulefiles from these commands:

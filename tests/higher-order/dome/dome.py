@@ -94,7 +94,7 @@ else:
 
 # Clean up by moving extra files written by Glimmer to the "scratch" subdirectory
 # Look for files with extension "txt", "log", or "nc"
-for files in glob.glob('*.txt')+glob.glob('*.log')+glob.glob('*.nc'):
+for files in glob.glob('*.txt')+glob.glob('*.log'):
 # Delete any files already in scratch with these filenames 
   if files in os.listdir('scratch'):
     os.remove(os.path.join('scratch',files))

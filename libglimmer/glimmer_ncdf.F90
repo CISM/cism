@@ -67,6 +67,7 @@ module glimmer_ncdf
 
      integer :: nlevel = 0
      integer :: nstaglevel = 0
+     integer :: nstagwbndlevel = 0
      !*FD size of vertical and stag vertical coordinate
 
      integer timedim
@@ -302,6 +303,7 @@ contains
     print*,'id:             ',stat%id
     print*,'nlevel:         ',stat%nlevel
     print*,'nstaglevel:     ',stat%nstaglevel
+    print*,'nstagwbndlevel: ',stat%nstagwbndlevel
     print*,'timedim:        ',stat%timedim
     print*,'timevar:        ',stat%timevar
     print*,'vars:           ',trim(stat%vars)
@@ -395,6 +397,73 @@ contains
             call write_log(nf90_strerror(status),type=GM_FATAL,file=file,line=line)
         end if
     end subroutine nc_errorhandle
+
+    subroutine check_for_tempstag(whichtemp,nc)
+      !*FD check for the need to output tempstag and update the output variables if needed.
+      ! When IR is used to evolve temperature, the temperature grid has an extra
+      ! layer.  In that case, the netCDF output file should include a variable
+      ! called tempstag(0:nz) instead of temp(1:nz). This subroutine is added for
+      ! convenience to allow the variable "temp" to be specified in the config
+      ! file in all cases and have it converted to "tempstag" when appropriate.
+      ! MJH Nov. 2010
+
+      use glimmer_log
+
+      implicit none
+      integer, intent(in) :: whichtemp
+      type(glimmer_nc_stat) :: nc 
+
+      ! Locals
+      integer :: i
+
+      ! Check if tempstag should be output
+      ! \todo If both temp and tempstag are specfied, should one be removed?
+      ! \todo Modify this to work if multiple output files are specified?
+      ! \todo Allow hotstarts to read/write the appropriate temp variable from the
+      ! netcdf file - this should propbably be handled in glide_io_create where the
+      ! hotvars are expanded
+
+      !print *, "Original varstring:", varstring
+      if (whichtemp .eq. 3) then !3) then !3) then !TEMP_REMAP_ADV) then
+          ! We want temp to become tempstag 
+          i = index(nc%vars, " temp ")
+          if (i .gt. 0) then
+            ! temp was specified - change it to tempstag
+            ! If temp is listed more than once, this just changes the first instance
+            nc%vars = nc%vars(1:i-1) // " tempstag " // nc%vars(i+6:len(nc%vars))
+            call write_log('Temperature remapping option uses temperature on a staggered grid.' // &
+              '  The netCDF output variable "temp" has been changed to "tempstag".' )
+          endif
+          ! Now check if flwa needs to be changed to flwastag
+          i = index(nc%vars, " flwa ") ! Look for flwa
+          if (i .gt. 0) then
+            ! flwa was specified - change to flwastag
+            nc%vars = nc%vars(1:i-1) // " flwastag " // nc%vars(i+6:len(nc%vars))
+            call write_log('Temperature remapping option uses flwa on a staggered grid.' // &
+            '  The netCDF output variable "flwa" has been changed to "flwastag".' )
+          endif
+      else  ! whichtemp is not IR
+          ! We want tempstag to become temp
+          i = index(nc%vars, " tempstag ")
+          if (i .gt. 0) then
+            !Change tempstag to temp
+            nc%vars = nc%vars(1:i-1) // " temp " // nc%vars(i+10:len(nc%vars))
+            call write_log('The netCDF output variable "tempstag" should only be used when remapping temperature.' // &
+              '  The netCDF output variable "tempstag" has been changed to "temp".' )
+          endif
+          ! We want flwastag to become flwa
+          i = index(nc%vars, " flwastag ")
+          if (i .gt. 0) then
+            !Change flwastag to flwa
+            nc%vars = nc%vars(1:i-1) // " flwa " // nc%vars(i+10:len(nc%vars))
+            call write_log('The netCDF output variable "flwastag" should only be used when remapping temperature.' // &
+              '  The netCDF output variable "flwastag" has been changed to "flwa".' )
+          endif
+      endif  !whichtemp == 3
+      ! Copy any changes to vars_copy
+      nc%vars_copy = nc%vars
+    end subroutine check_for_tempstag
+
 
 end module glimmer_ncdf
 

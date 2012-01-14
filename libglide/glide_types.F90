@@ -91,6 +91,7 @@ module glide_types
 
   !...etc, don't have time to do all of these now
 
+  integer, parameter :: EVOL_NO_THICKNESS = -1
   integer, parameter :: EVOL_PSEUDO_DIFF = 0
   integer, parameter :: EVOL_ADI = 1
   integer, parameter :: EVOL_DIFFUSION = 2
@@ -193,7 +194,7 @@ module glide_types
     !*FD \item[0] No action 
     !*FD \item[1] Set thickness to zero if floating 
     !*FD \item[2] Set thickness to zero if relaxed bedrock is more 
-    !*FD than certain water depth  
+    !*FD than certain water depth (variable "mlimit" in glide_types)  
     !*FD \item[3] Lose fraction of ice when edge cell
     !*FD \end{description}
 
@@ -690,6 +691,7 @@ module glide_types
     real(dp),dimension(:),pointer :: sigma => null() !*FD Sigma values for vertical spacing of 
                                                      !*FD model levels
     real(dp),dimension(:),pointer :: stagsigma => null() !*FD Staggered values of sigma (layer midpts)
+    real(dp),dimension(:),pointer :: stagwbndsigma => null() !*FD Staggered values of sigma (layer midpts) with boundaries
 
     integer :: profile_period = 100            !*FD profile frequency
     integer :: ndiag = 9999999                 !*FD diagnostic frequency
@@ -1042,13 +1044,16 @@ contains
 !whl - Since there is no temperature advection in glide_temp, the extra rows and 
 !      columns (0, ewn+1, nsn+1) in the horizontal are not needed.
     if (model%options%whichtemp == TEMP_REMAP_ADV) then
-       allocate(model%temper%temp(0:upn,1:ewn,1:nsn)); model%temper%temp = 0.0
+       allocate(model%temper%temp(0:upn,1:ewn,1:nsn))
        call coordsystem_allocate(model%general%ice_grid, upn-1, model%temper%flwa)
     else
-       allocate(model%temper%temp(upn,0:ewn+1,0:nsn+1)); model%temper%temp = 0.0
+       allocate(model%temper%temp(upn,0:ewn+1,0:nsn+1))
        call coordsystem_allocate(model%general%ice_grid, upn, model%temper%flwa)
     endif
-
+    ! MJH set these to physically unrealistic values so we can tell later if values have been read in
+    model%temper%temp = -999.0d0
+    model%temper%flwa = -999.0d0
+ 
     allocate(model%lithot%temp(1:ewn,1:nsn,model%lithot%nlayer)); model%lithot%temp = 0.0
     call coordsystem_allocate(model%general%ice_grid, model%lithot%mask)
 
@@ -1157,6 +1162,7 @@ contains
 
     !whl - to do - might be useful to change to (0:upn)
     allocate(model%numerics%stagsigma(upn-1))
+    allocate(model%numerics%stagwbndsigma(0:upn))  !MJH added (0:upn) as separate variable
 
     ! allocate memory for grounding line
     allocate (model%ground%gl_ew(ewn-1,nsn))
@@ -1321,6 +1327,7 @@ contains
     deallocate(model%thckwk%float)
     deallocate(model%numerics%sigma)
     deallocate(model%numerics%stagsigma)
+    deallocate(model%numerics%stagwbndsigma)
     deallocate(model%pcgdwk%rhsd,model%pcgdwk%answ)
     call del_sparse_matrix(model%pcgdwk%matrix)
 

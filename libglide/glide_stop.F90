@@ -145,7 +145,8 @@ contains
     ! to be written, added to "glam_strs2.F90", and called from "glide_stop".
   
     ! finalization for incremental remapping advection scheme 
-    if (model%options%whichevol== EVOL_INC_REMAP ) then
+    if ((model%options%whichevol== EVOL_INC_REMAP ) .or.  &
+        (model%options%whichevol== EVOL_NO_THICKNESS )) then 
         call horizontal_remap_final(model%remap_wk)
     endif 
 

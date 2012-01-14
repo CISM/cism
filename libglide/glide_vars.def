@@ -65,6 +65,14 @@ standard_name: land_ice_stag_sigma_coordinate
 positive:      down
 dimlen:        model%general%upn-1
 
+[stagwbndlevel]
+dimensions:    stagwbndlevel
+units:         1
+long_name:     stag sigma layers with boundaries
+standard_name: land_ice_stag_sigma_coordinate_with_bnd
+positive:      down
+dimlen:        model%general%upn+1
+
 [lithoz]
 dimensions:    lithoz
 units:         meter
@@ -228,6 +236,17 @@ standard_name: land_ice_thickness
 hot:           1
 coordinates:   lon lat
 
+[stagthk]
+dimensions:    time, y0, x0
+units:         meter
+long_name:     staggered ice thickness
+data:          data%geomderv%stagthck
+factor:        thk0
+standard_name: stag_land_ice_thickness
+load:          0
+hot:           0
+coordinates:   lon lat
+
 [calving]
 dimensions:    time, y1, x1
 units:         meter
@@ -322,6 +341,7 @@ factor:        scale2d_f1
 standard_name: land_ice_surface_specific_mass_balance
 coordinates:   lon lat
 average:       1
+load:          1
 
 [bheatflx]
 dimensions:    time, y1, x1
@@ -369,6 +389,7 @@ data:          data%climate%artm
 standard_name: surface_temperature
 cell_methods:  time: mean
 coordinates:   lon lat
+load:          1
 
 [btemp]
 dimensions:    time, y1, x1
@@ -487,6 +508,18 @@ factor:        scale3d_f8
 hot:           1
 coordinates:   lon lat
 
+[flwastag]
+dimensions:    time, staglevel, y1, x1
+units:         pascal/year
+long_name:     Pre-exponential flow law parameter
+data:          data%temper%flwa(up,:,:)
+factor:        scale3d_f8
+# hot=0 because we do not want the stag version to be in the hotvars definition - the conversion to stag happens if needed in check_for_tempstag
+hot:           0
+# but we do want it loadable in case flwa is listed as hot.
+load:          1
+coordinates:   lon lat
+
 [efvs]
 dimensions:    time, staglevel, y1, x1
 units:         Pascal * years
@@ -503,6 +536,17 @@ long_name:     ice temperature
 data:          data%temper%temp(up,1:data%general%ewn,1:data%general%nsn)
 standard_name: land_ice_temperature
 hot:           1
+load:          1
+coordinates:   lon lat
+
+[tempstag]
+dimensions:    time, stagwbndlevel, y1, x1
+units:         degree_Celsius
+long_name:     ice temperature on staggered vertical levels with boundaries
+data:          data%temper%temp(up,1:data%general%ewn,1:data%general%nsn)
+standard_name: land_ice_temperature_stag
+# hot=0 because we do not want the stag version to be in the hotvars definition - the conversion to stag happens if needed in check_for_tempstag
+hot:           0
 load:          1
 coordinates:   lon lat
 

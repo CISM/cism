@@ -101,6 +101,8 @@ AC_FC_MODULE_FLAG
 #FCFLAGS="$FCFLAGS $ax_cv_f90_ff_nolimit"
 
 # checking for f2003 command line parser
+# 
+AC_FC_SRCEXT(f90)
 AC_MSG_CHECKING([for f2003 command line parser])
 AC_LINK_IFELSE([AC_LANG_PROGRAM([],
                [i=command_argument_count()
@@ -340,7 +342,8 @@ AM_CONDITIONAL(DISTRIBUTED, test "$enable_mpi" == "yes")
 
 #specify the directory where the gold standard files are located
 AC_MSG_CHECKING([whether location of gold standard files are specified])
-AC_ARG_WITH(gold_std,AS_HELP_STRING([--with-gold-std],[location of gold_std]),[GOLD_STD_PREFIX=$(readlink -f $withval)])
+AC_ARG_WITH(gold_std,AS_HELP_STRING([--with-gold-std],[location of gold_std]),
+              [GOLD_STD_PREFIX=$withval])
 AC_MSG_RESULT(gold_std location: $GOLD_STD_PREFIX)
 AC_SUBST(GOLD_STD_PREFIX)
 
@@ -478,6 +481,7 @@ AC_CONFIG_FILES([Makefile m4macros/Makefile scripts/Makefile \
                 tests/exact-isothermal/Makefile tests/exact-isothermal/src/Makefile \
                 tests/exact-isothermal/matlab/Makefile tests/exact-isothermal/scripts/Makefile \
                 tests/exact-isothermal/tests/Makefile \
+                tests/higher-order/Makefile tests/higher-order/dome/Makefile tests/higher-order/shelf/Makefile \
                 PyGC/Makefile PyGC/PyGC/Makefile PyGC/PyGC/IO/Makefile PyGC/src/Makefile PyGC/progs/Makefile \
                 PyGC/data/Makefile \
                 example-drivers/eis/Makefile example-drivers/eis/src/Makefile \

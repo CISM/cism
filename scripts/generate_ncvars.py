@@ -389,7 +389,9 @@ class PrintNC_template(PrintVars):
                 #*sfp* added to deal w/ writing of vars associated w/ stag vert coord 
                 elif dims[i] == 'staglevel':
                     dimstring = dimstring + 'up'
-
+                #*MJH* added to deal w/ writing of vars associated w/ stag vert coord w/bnd
+                elif dims[i] == 'stagwbndlevel':
+                    dimstring = dimstring + 'up+1'  # goes to index up+1
                 else:
                     dimstring = dimstring + '1'
                 
@@ -404,6 +406,12 @@ class PrintNC_template(PrintVars):
                 spaces = ' '*3
                 self.stream.write("       do up=1,NCO%nstaglevel\n")
                         
+            #*MJH* added to handle writing of vars associated w/ stag vert coord w/ bnd
+            if  'stagwbndlevel' in dims:
+                # handle 3D fields
+                spaces = ' '*3
+                self.stream.write("       do up=0,NCO%nstagwbndlevel\n")  # starts with index 0
+
             data = var['data']
             if 'factor' in var:
                 data = '(%s)*(%s)'%(var['factor'],data)
@@ -416,6 +424,10 @@ class PrintNC_template(PrintVars):
 
             #*sfp* added to handle writing of vars associated w/ stag vert coord
             if  'staglevel' in dims:
+                self.stream.write("       end do\n")
+
+            #*MJH* added to handle writing of vars associated w/ stag vert coord w/ bnd
+            if  'stagwbndlevel' in dims:
                 self.stream.write("       end do\n")
 
             # remove self since it's not time dependent
@@ -448,6 +460,9 @@ class PrintNC_template(PrintVars):
                     #*sfp* added to deal w/ writing of vars associated w/ stag vert coord 
                     elif dims[i] == 'staglevel':
                         dimstring = dimstring + 'up'
+                    #*MJH* added to deal w/ writing of vars associated w/ stag vert coord w/ bnd
+                    elif dims[i] == 'stagwbndlevel':
+                        dimstring = dimstring + 'up+1'   # goes to index up+1
                     else:
                         dimstring = dimstring + '1'
 
@@ -461,6 +476,12 @@ class PrintNC_template(PrintVars):
                     # handle 3D fields
                     spaces = ' '*3
                     self.stream.write("       do up=1,NCI%nstaglevel\n")
+
+                #*MJH* added to handle writing of vars associated w/ stag vert coord w/ bnd
+                if  'stagwbndlevel' in dims:
+                    # handle 3D fields
+                    spaces = ' '*3
+                    self.stream.write("       do up=0,NCI%nstagwbndlevel\n")  # starts at index 0
 
                 self.stream.write("%s       status = distributed_get_var(NCI%%id, varid, &\n%s            %s, (/%s/))\n"%(spaces,
                                                                                                                spaces,var['data'], dimstring))
@@ -485,6 +506,10 @@ class PrintNC_template(PrintVars):
 
                 #*sfp* added to handle writing of vars associated w/ stag vert coord
                 if  'staglevel' in dims:
+                    self.stream.write("       end do\n")
+
+                #*MJH* added to handle writing of vars associated w/ stag vert coord w/ bnd
+                if  'stagwbndlevel' in dims:
                     self.stream.write("       end do\n")
                 
                 self.stream.write("    end if\n\n")

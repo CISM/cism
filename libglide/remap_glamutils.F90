@@ -533,7 +533,7 @@ module remap_glamutils
        ! These are the coordinates to which we remap in the vertical.
        !-----------------------------------------------------------------
 
-       zi1(:,:,1) = 0.d0
+       zi2(:,:,1) = 0.d0
        do k = 2, upn-1
           zi2(:,:,k) = sigma(k)
        enddo

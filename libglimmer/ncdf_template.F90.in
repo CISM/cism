@@ -150,6 +150,9 @@ contains
     if (NCO%hotstart) then
        NCO%vars = trim(NCO%vars)//hotvars
     end if
+    ! MJH Convert temp and flwa to versions on stag grid, if needed
+    ! This check is inserted here because those two variables are part of hotvars
+    call check_for_tempstag(model%options%whichtemp,NCO)
     ! checking if we need to handle time averages
     pos = index(NCO%vars,AVG_SUFF)
     if (pos.ne.0) then

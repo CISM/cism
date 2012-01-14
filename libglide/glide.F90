@@ -210,11 +210,13 @@ contains
     ! initialise glide components
     call init_velo(model)
 
+    ! MJH: Initialize temperature field - this needs to happen after input file is
+    ! read so we can assign artm (which could possibly be read in) if temp has not been input.
     if (model%options%whichtemp == TEMP_REMAP_ADV) then
        call glissade_init_temp(model)
     else
        call glide_init_temp(model)
-    endif
+    endif 
 
     call init_thck(model)
 
@@ -237,10 +239,8 @@ contains
                                         model%numerics%sigma)
     end if
 
-!whl - Subroutine horizontal_remap_init is not needed for the new remapping scheme.
-
-    ! *sfp** added; initialization of LANL incremental remapping subroutine for thickness evolution
-    if (model%options%whichevol== EVOL_INC_REMAP ) then
+    if ((model%options%whichevol == EVOL_INC_REMAP ) .or. &
+       (model%options%whichevol == EVOL_NO_THICKNESS)) then
 
         if (model%options%whichtemp == TEMP_REMAP_ADV) then ! Use IR to advect temperature
 
@@ -300,10 +300,11 @@ contains
     !! (whichevol = 3 or 4)
     model%geometry%age(:,:,:) = 0._dp
 
-    if (model%options%hotstart.ne.1) then
-       ! initialise Glen's flow parameter A using an isothermal temperature distribution
-       call glide_temp_driver(model,0,0)
-    end if
+!MJH moved flwa init to glide_init_temp/glissade_init_temp
+!    if (model%options%hotstart.ne.1) then
+!       ! initialise Glen's flow parameter A using an isothermal temperature distribution
+!       call glide_temp_driver(model,0,0)
+!    end if       
 
     ! calculate mask
     call glide_set_mask(model%numerics, model%geometry%thck, model%geometry%topg, &
@@ -529,6 +530,10 @@ contains
 
     logical nw
 
+    ! temporary variables needed to reset geometry for the EVOL_NO_THICKNESS option
+    real (kind = dp), dimension(model%general%ewn,model%general%nsn) :: thck_old
+    real (kind = dp), dimension(model%general%ewn-1,model%general%nsn-1) :: stagthck_old
+
     ! ------------------------------------------------------------------------ 
     ! write to netCDF file
     ! ------------------------------------------------------------------------ 
@@ -563,8 +568,16 @@ contains
        call not_parallel(__FILE__,__LINE__)
        call thck_nonlin_evolve(model,model%temper%newtemps)
 
-    case(EVOL_INC_REMAP) ! Use incremental remapping scheme for advecting ice thickness ---
+    case(EVOL_INC_REMAP, EVOL_NO_THICKNESS) ! Use incremental remapping scheme for advecting ice thickness ---
                          ! (and temperature too, if whichtemp = TEMP_REMAP_ADV)
+                         ! MJH: I put the no thickness evolution option here so that it is still possible 
+                         ! (but not required) to use IR to advect temperature when thickness evolution is turned off.
+
+       if (model%options%whichevol .eq. EVOL_NO_THICKNESS) then
+               ! store old thickness
+               thck_old = model%geometry%thck
+               stagthck_old = model%geomderv%stagthck
+       endif
 
        call inc_remap_driver( model )
 
@@ -594,8 +607,8 @@ contains
     case(EVOL_FO_UPWIND) ! Use first order upwind scheme for mass transport
        call not_parallel(__FILE__,__LINE__)
        call fo_upwind_advect_driver( model )
- 
-    end select
+
+end select
 
 #ifdef PROFILING
     call glide_prof_stop(model,model%glide_prof%ice_evo)

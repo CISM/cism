@@ -75,12 +75,13 @@ contains
     use glimmer_paramets, only : tim0, thk0, len0, vis0, vel0, tau0
     use glimmer_global, only : dp 
     use glimmer_log
+    use glide_temp_utils, only : calcflwa
 
     implicit none
     type(glide_global_type),intent(inout) :: model       !*FD Ice model parameters.
 
     integer, parameter :: p1 = gn + 1  
-    integer up
+    integer up, ns, ew
     real(dp) :: estimate
 
 !whl - Note vertical dimensions here.  Dissipation is computed for each of (upn-1) layers.
@@ -174,7 +175,43 @@ contains
          stop
           
     end select
-  
+ 
+
+
+      !MJH: Initialize ice temperature.============
+      !This block of code is identical to that in glide_init_temp
+      if (model%temper%temp(1,1,1) .lt. -273.15) then
+          ! temp array still has initialized values - no values have been read in. 
+          ! Initialize ice temperature to air temperature (for each column). 
+          do ns = 1,model%general%nsn
+             do ew = 1,model%general%ewn
+                model%temper%temp(:,ew,ns) = dmin1(0.0d0,dble(model%climate%artm(ew,ns)))
+             end do
+          end do
+      else
+          ! Values have been read in - do nothing
+      endif
+
+      ! MJH: Calculate initial value of flwa
+      ! If flwa is loaded (e.g. hotstart), use the flwa field in the input file instead
+      ! Note: Implementing flwa initialization in this way, I don't think hotstart=1 does anything. 
+!      if (model%options%hotstart .ne. 1) then
+       if (model%temper%flwa(1,1,1) .lt. 0.0) then
+        call write_log("No initial flwa supplied - calculating initial flwa.")
+        ! Calculate Glenn's A --------------------------------------------------------   
+        call calcflwa(model%numerics%sigma,        &
+                      model%numerics%thklim,       &
+                      model%temper%flwa,           &
+                      model%temper%temp(:,1:model%general%ewn,1:model%general%nsn), &
+                      model%geometry%thck,         &
+                      model%paramets%flow_factor,  &
+                      model%paramets%default_flwa, &
+                      model%options%whichflwa) 
+       endif
+!       endif
+
+
+ 
   end subroutine glissade_init_temp
 
 !****************************************************    
@@ -468,6 +505,7 @@ contains
 
     real(dp) :: pmptempb  ! pressure melting temp at bed
     real(dp) :: fact
+    real(dp) :: dsigbot  ! bottom layter thicknes in sigma coords.
 
     ! set surface temperature
 
@@ -538,23 +576,45 @@ contains
               ! (conductive flux, geothermal flux, and basal friction)
               ! Note: Heat fluxes are positive down, so slterm <= 0 and bheatflx <= 0.
 
-          ! matrix elements corresponding to dT/dsigma
-          ! 0.5 is a Crank-Nicolson factor
-
-          subd(model%general%upn+1) = -0.5d0 / (1.0d0 - model%numerics%stagsigma(model%general%upn-1))
-          supd(model%general%upn+1) =  0.0d0 
-          diag(model%general%upn+1) = -subd(model%general%upn+1)
-
           ! Note: The heat source due to basal sliding (bfricflx) is computed in subroutine calcbfric.
           ! Also note that bheatflx is generally <= 0, since defined as positive down.
 
-          model%tempwk%inittemp(model%general%upn,ew,ns) =    &
-                - model%temper%temp(model%general%upn-1,ew,ns) * subd(model%general%upn+1)  &
-                - model%temper%temp(model%general%upn,  ew,ns) * diag(model%general%upn+1)  &
-                - model%geometry%thck(ew,ns)*thk0/coni * model%temper%bheatflx(ew,ns) & ! geothermal (H/k)*G
-                + model%geometry%thck(ew,ns)*thk0/coni * model%temper%bfricflx(ew,ns)   ! sliding (H/k)*taub*ub
+          ! calculate dsigma for the bottom layer between the basal boundary and the temp. point above
+          dsigbot = (1.0d0 - model%numerics%stagsigma(model%general%upn-1))                                                                  
 
+          ! =====Backward Euler flux basal boundary condition=====
+           ! MJH: If Crank-Nicolson is desired for the b.c., it is necessary to
+           ! ensure that the i.c. temperature for the boundary satisfies the
+           ! b.c. - otherwise oscillations will occur because the C-N b.c. only
+           ! specifies the basal flux averaged over two consecutive time steps.
+          subd(model%general%upn+1) = -1.0d0
+          supd(model%general%upn+1) =  0.0d0 
+          diag(model%general%upn+1) = 1.0d0 
+
+          model%tempwk%inittemp(model%general%upn,ew,ns) =    &
+             (model%temper%bfricflx(ew,ns)  - model%temper%bheatflx(ew,ns)) &
+             * dsigbot * model%geometry%thck(ew,ns) * thk0 / coni
           rhsd(model%general%upn+1) = model%tempwk%inittemp(model%general%upn,ew,ns)
+          
+         ! =====Basal boundary using heat equation with specified flux====
+         ! MJH: These coefficients are based on those used in the old temperature code (eqns. 3.60-3.62 in the documentation).
+         ! The implementation assumes the basal fluxes are the same at both time steps (lagged).
+         ! The flux b.c. above was determined to be preferable, but this is left
+         ! as an alternative.  It gives similar, but slightly different results.
+         ! Because this formulation uses C-N time averaging, it results
+         ! in a slight oscillation.
+         !subd(model%general%upn+1) = -fact / dsigbot**2                                                                                     
+         !supd(model%general%upn+1) =  0.0d0                                                                                                 
+         !diag(model%general%upn+1) = 1.0d0 + fact / dsigbot**2       
+         !model%tempwk%inittemp(model%general%upn,ew,ns) =    &   
+         !       model%temper%temp(model%general%upn-1,ew,ns) * fact / dsigbot**2  &
+         !       + model%temper%temp(model%general%upn,  ew,ns)  &
+         !       * (1.0d0 - fact/dsigbot**2)   &   
+         !       - fact *2.0d0 * & 
+         !       model%geometry%thck(ew,ns) * thk0 / coni / dsigbot *  &
+         !       (model%temper%bheatflx(ew,ns) & ! geothermal (H/k)*G
+         !       - model%temper%bfricflx(ew,ns) )  ! sliding (H/k)*taub*ub.
+         !rhsd(model%general%upn+1) = model%tempwk%inittemp(model%general%upn,ew,ns)
 
        endif   ! melting or frozen
 

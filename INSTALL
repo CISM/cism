@@ -1,6 +1,6 @@
 
 Glimmer COMPILE file
-===================
+====================
 
 This version of the code has been sucessfully tested under the following 
 compilers: Compaq Visual Fortran on Windows, the Intel, NAGWare and 
@@ -30,7 +30,7 @@ copied from the data directory into the working directory.
 
 
 Compiling under Unix/Linux:
-==========================
+===========================
 
 The ice sheet model now uses the GNU auto tools. Compiling the sources from a 
 tarball distribution follows the usual sequence of commands:
@@ -89,7 +89,7 @@ Depending on your setup you might need to modify the submission script:
 src/python/qsub_glide.sh
 
 Tests
-=====
+======
 There are a few very basic tests in the tests directory. The idea is that these
 tests should be very short so that it does not take too long to run these.
 You can run the tests by running configure with the the flag --enable-tests.

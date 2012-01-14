@@ -134,14 +134,20 @@ contains
     status = parallel_put_var(NCO%id,varid,model%numerics%sigma)
     call nc_errorhandle(__FILE__,__LINE__,status)
 
-    !*sfp* added for HO stress fields, which are staggered in the vertical
+!!    !*sfp* added for HO stress fields, which are staggered in the vertical
     status = parallel_inq_varid(NCO%id,'staglevel',varid)
     status = parallel_put_var(NCO%id,varid,model%numerics%stagsigma)
     call nc_errorhandle(__FILE__,__LINE__,status)
+
 !    do i=1, model%general%upn-1
 !        status=nf90_put_var(NCO%id,varid,(model%numerics%sigma(i)+model%numerics%sigma(i+1))/2.0,(/i/))
 !        call nc_errorhandle(__FILE__,__LINE__,status)
 !    end do
+
+! MJH needed to output temp on stag grid w/ bnd
+    status = parallel_inq_varid(NCO%id,'stagwbndlevel',varid)
+    status=parallel_put_var(NCO%id,varid,model%numerics%stagwbndsigma)
+    call nc_errorhandle(__FILE__,__LINE__,status)
 
     if (model%options%gthf.gt.0) then
        status = parallel_inq_varid(NCO%id,'lithoz',varid)

@@ -243,6 +243,10 @@ contains
 
     model%numerics%stagsigma(1:upn-1) =   &
             (model%numerics%sigma(1:upn-1) + model%numerics%sigma(2:upn)) / 2.0_dp
+    !MJH Setup stagwbndsigma, adding the boundaries to stagsigma
+    model%numerics%stagwbndsigma(1:upn-1) = model%numerics%stagsigma(1:upn-1)
+    model%numerics%stagwbndsigma(0) = 0.0
+    model%numerics%stagwbndsigma(upn) = 1.0        
 
     call print_sigma(model)
 
@@ -491,7 +495,8 @@ contains
          '~basal water', &
          '~basal melt ', &
          'taub^3      ' /)
-    character(len=*), dimension(0:4), parameter :: evolution = (/ &
+    character(len=*), dimension(-1:4), parameter :: evolution = (/ &
+         'no thickness evolution                ', &
          'pseudo-diffusion                      ', &
          'ADI scheme                            ', &
          'iterated diffusion                    ', &
@@ -583,7 +588,7 @@ contains
     end if
     write(message,*) 'slip_coeff              : ', model%options%whichbtrc, slip_coeff(model%options%whichbtrc)
     call write_log(message)
-    if (model%options%whichevol.lt.0 .or. model%options%whichevol.ge.size(evolution)) then
+    if (model%options%whichevol.lt.-1 .or. model%options%whichevol.ge.(size(evolution)-1)) then
        call write_log('Error, evolution out of range',GM_FATAL)
     end if
     write(message,*) 'evolution               : ', model%options%whichevol, evolution(model%options%whichevol)
@@ -677,8 +682,9 @@ contains
     if (model%options%which_ho_sparse < 0 .or. model%options%which_ho_sparse >= size(ho_whichsparse)) then
         call write_log('Error, HO sparse solver input out of range', GM_FATAL)
     end if
-    if (model%options%whichtemp == TEMP_REMAP_ADV .and. model%options%whichevol /= EVOL_INC_REMAP) then
-        call write_log('Error, must use remapping for thickness evolution if remapping temperature', GM_FATAL)
+    if ((model%options%whichtemp == TEMP_REMAP_ADV .and. model%options%whichevol /= EVOL_INC_REMAP) .and. &
+        (model%options%whichtemp == TEMP_REMAP_ADV .and. model%options%whichevol /= EVOL_NO_THICKNESS)) then
+        call write_log('Error, must use remapping for thickness evolution (or no thickness evolution) if remapping temperature', GM_FATAL)
     end if
 
 

@@ -30,7 +30,7 @@
 #include "config.inc"
 
 #ifdef HAVE_2003ARGS
-#define NARGS   command_argument_count
+#define NARGS   command_argument_count()
 #define GETARG  get_command_argument
 #else
 #define NARGS   iargc
@@ -58,7 +58,9 @@ contains
 
     integer numargs,nfiles
     integer :: i
+#ifndef HAVE_2003ARGS
     integer, external :: iargc
+#endif
     character(len=100) :: argument
     integer, dimension(100) :: argumentIdx
     
@@ -67,7 +69,7 @@ contains
 
     if (main_task) then
     ! get number of arguments and file names
-    numargs = NARGS()
+    numargs = NARGS
     ! reconstruct command line to store commandline_history
     call GETARG(0,commandline_history)
     do i=1,numargs

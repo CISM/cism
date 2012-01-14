@@ -47,7 +47,7 @@ implicit none
   ! code converges much better when this value is made larger.
   real (kind = dp), parameter :: effstrminsq = (1.0e-20_dp * tim0)**2
 
-  real (kind = dp) :: p1, p2    ! variants of Glen's "n" (e.g. n, (1-n)/n)
+  real (kind = dp) :: p1, p2, p3    ! variants of Glen's "n" (e.g. n, (1-n)/n)
   real (kind = dp) :: dew2, dns2, dew4, dns4
 
   ! combinations of coeffs. used in momentum balance calcs
@@ -95,11 +95,13 @@ implicit none
   integer, dimension(:), allocatable :: pcgcoluv, pcgrowuv, pcgcolvu, pcgrowvu
   integer :: ct, ct2
 
-  !*sfp* NOTE: these redefined here so that they are "in scope" and can avoid being passed as args
+!*sfp* NOTE: these redefined here so that they are "in scope" and can avoid being passed as args
   integer :: whatsparse ! needed for putpgcg()
   integer :: nonlinear  ! flag for indicating type of nonlinar iteration (Picard vs. JFNK)
+
   logical, save :: storeoffdiag = .false. ! true only if using JFNK solver and block, off diag coeffs needed
   logical, save :: calcoffdiag = .false. 
+  logical, save :: inisoln = .false.      ! true only if a converged solution (velocity fields) exists
 
   real (kind = dp) :: linearSolveTime = 0
   real (kind = dp) :: totalLinearSolveTime = 0 ! total linear solve time
@@ -174,8 +176,10 @@ subroutine glam_velo_fordsiapstr_init( ewn,   nsn,   upn,    &
 
     ! p1 = -1/n   - used with rate factor in eff. visc. def.
     ! p2 = (1-n)/2n   - used with eff. strain rate in eff. visc. def. 
+    ! p3 = (1-n)/n
     p1 = -1.0_dp / real(gn,dp)
     p2 = (1.0_dp - real(gn,dp)) / (2.0_dp * real(gn,dp))
+    p3 = (1.0_dp - real(gn,dp)) / real(gn,dp)
 
     dew2 = 2.0_dp * dew; dns2 = 2.0_dp * dns        ! 2x the standard grid spacing
     dew4 = 4.0_dp * dew; dns4 = 4.0_dp * dns        ! 4x the standard grid spacing
@@ -440,7 +444,10 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
   resid = 1.0_dp
   counter = 1
   L2norm = 1.0d20
-  linit = 0
+
+  ! intialize outer loop test vars
+  outer_it_criterion = 1.0
+  outer_it_target = 0.0
 
   if (main_task) then
      ! print some info to the screen to update on iteration progress
@@ -739,6 +746,8 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
     counter = counter + 1   ! advance the iteration counter
   end do 
 
+  inisoln = .true.
+
   ! ****************************************************************************************
   ! END of Picard iteration
   ! ****************************************************************************************
@@ -861,6 +870,7 @@ subroutine JFNK                 (model,umask)
 
   integer, parameter :: img = 20, img1 = img+1
   integer :: kmax = 1000
+
   character(len=100) :: message
 
 !*sfp* needed to incorporate generic wrapper to solver
@@ -1093,7 +1103,7 @@ end if
   call noxfinish()
   kmax = 0     ! turn off native JFNK below
 !==============================================================================
-! calculate F(u^k-1,v^k-1)
+! JFNK loop: calculate F(u^k-1,v^k-1)
 !==============================================================================
 
   ! This do loop is only used for SLAP.  Do not parallelize.
@@ -1184,12 +1194,50 @@ end if
 ! Update solution vectors (x^k = x^k-1 + dx) and 3D fields 
 !------------------------------------------------------------------------
       xk_1 = xk_1 + dx(1:2*pcgsize(1))
-! WATCHOUT FOR PERIODIC BC      
+    ! call fraction of assembly routines, passing current vel estimates (w/o manifold
+    ! correction!) to calculate consistent basal tractions
+    call findcoefstr(ewn,  nsn,   upn,            &
+                     dew,  dns,   sigma,          &
+                     2,           efvs,           &
+                     vvel,        uvel,           &
+                     thck,        dusrfdns,       &
+                     dusrfdew,    dthckdew,       &
+                     d2usrfdew2,  d2thckdew2,     &
+                     dusrfdns,    dthckdns,       &
+                     d2usrfdns2,  d2thckdns2,     &
+                     d2usrfdewdns,d2thckdewdns,   &
+                     dlsrfdew,    dlsrfdns,       &
+                     stagthck,    whichbabc,      &
+                     uindx,       umask,          &
+                     lsrf,        topg,           &
+                     minTauf,     flwa,           &
+                     beta, btraction,             &
+                     k, 1 )
+   call findcoefstr(ewn,  nsn,   upn,             &
+                     dew,  dns,   sigma,          &
+                     1,           efvs,           &
+                     uvel,        vvel,           &
+                     thck,        dusrfdew,       &
+                     dusrfdew,    dthckdew,       &
+                     d2usrfdew2,  d2thckdew2,     &
+                     dusrfdns,    dthckdns,       &
+                     d2usrfdns2,  d2thckdns2,     &
+                     d2usrfdewdns,d2thckdewdns,   &
+                     dlsrfdew,    dlsrfdns,       &
+                     stagthck,    whichbabc,      &
+                     uindx,       umask,          &
+                     lsrf,        topg,           &
+                     minTauf,     flwa,           &
+                     beta, btraction,             &
+                     k, 1 )
+
   end do
 
 ! (need to update these values from fptr%uvel,vvel,stagthck etc)
   call solver_postprocess_jfnk( ewn, nsn, upn, uindx, xk_1, vvel, uvel, ghostbvel, pcgsize(1) )
   call ghost_postprocess_jfnk( ewn, nsn, upn, uindx, xk_1, ughost, vghost, pcgsize(1) )
+
+  inisoln = .true.
 
   print*,"Solution vector norm after JFNK = " ,sqrt(DOT_PRODUCT(xk_1,xk_1))
 
@@ -1304,12 +1352,6 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
   ! This is the factor 1/4(X0/H0)^2 in front of the term ((dv/dz)^2+(du/dz)^2) 
   real (kind = dp), parameter :: f1 = 0.25_dp * (len0 / thk0)**2
 
-
-  select case(whichefvs)
-
-  case(0)       ! calculate eff. visc. using eff. strain rate
-
- 
   if (1 == counter) then
 
 !  if (main_task) then
@@ -1352,8 +1394,11 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
        end do
 
      end if   ! present(flwa_vstag)
-
   endif       ! counter
+
+  select case(whichefvs)
+
+  case(0)       ! calculate eff. visc. using eff. strain rate
 
   do ns = 2,nsn-1
       do ew = 2,ewn-1
@@ -1405,7 +1450,7 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
     ! (e.g. how it is done in the Pattyn model). The issues w/ the capping approach are 
     ! discussed (w.r.t. sea ice model) in: Lemieux and Tremblay, JGR, VOL. 114, C05009, 
     ! doi:10.1029/2008JC005017, 2009). Long term, the capping version should probably be
-    ! available as a config file option or possibly removed altogether.   
+    !  available as a config file option or possibly removed altogether.   
 
     ! Old "capping" scheme       ! these lines must be active to use the "capping" scheme for the efvs calc
 !            where (effstr < effstrminsq)
@@ -1439,11 +1484,12 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
 
 !   *sfp* changed default setting for linear viscosity so that the value of the rate
 !   factor is taken into account
-!    efvs = 1.0_dp
   do ns = 2,nsn-1
       do ew = 2,ewn-1
        if (thck(ew,ns) > 0.0_dp) then
-           efvs(1:upn-1,ew,ns) = 0.5_dp * flwa(1:upn-1,ew,ns)**(-1.0_dp)
+! KJE code used to have this
+!       efvs(1:upn-1,ew,ns) = 0.5_dp * flwa(1:upn-1,ew,ns)**(-1.0_dp)
+        efvs(1:upn-1,ew,ns) = flwafact(1:upn-1,ew,ns)
         else
            efvs(:,ew,ns) = effstrminsq ! if the point is associated w/ no ice, set to min value
        end if
@@ -3154,23 +3200,31 @@ subroutine bodyset(ew,  ns,  up,           &
     ! when the solution has converged a bit, we switch to the more realistic implementation (option 2).
     ! That is achieved in the following if construct ...
 
-    if( cc < 5 )then   ! use this to "pre-condition" the shelf BC w/ the simple, 1d version
-!    if( cc >= 0 )then   ! use this to use only the 1d version
-!    if( cc > 1000000 )then   ! use this to go straight to the full 2d version of the bc
+    if( cc < 2 .and. .not. inisoln )then  ! This should be the default option for the shelf BC source term.
+                                          ! If no previous guess for the eff. visc. exists, this option
+                                          ! uses the 1d version of the BC for one iteration in order to 
+                                          ! "precondition" the soln for the next iteration. W/o this option
+                                          ! active, the 2d version of the BC fails, presumably because of
+                                          ! eff. visc. terms in the denom. of the source term which are either
+                                          ! too large (inf) or to small (~0).
+
+! These options are primarily for debugging the shelf BC source term
+!    if( cc >= 0 )then        ! - use this to use only the 1d version
+!    if( cc > 1000000 )then   ! - use this to go straight to the full 2d version of the bc
 
     ! --------------------------------------------------------------------------------------
     ! (1) source term (strain rate at shelf/ocean boundary) from Weertman's analytical solution 
     ! --------------------------------------------------------------------------------------
     ! See eq. 2, Pattyn+, 2006, JGR v.111; eq. 8, Vieli&Payne, 2005, JGR v.110). Note that this 
     ! contains the 1d assumption that ice is not spreading lateraly !(assumes dv/dy = 0 for u along flow)
-    source = abar*vis0_glam * ( 1.0_dp/4.0_dp * rhoi * grav * stagthck(ew,ns)*thk0 * ( 1.0_dp - rhoi/rhoo))**3.0_dp
+    source = abar * vis0_glam * ( 1.0_dp/4.0_dp * rhoi * grav * stagthck(ew,ns)*thk0 * ( 1.0_dp - rhoi/rhoo))**3.0_dp
 
     ! multiply by 4 so that case where v=0, du/dy = 0, LHS gives: du/dx = du/dx|_shelf 
     ! (i.e. LHS = 4*du/dx, requires 4*du/dx_shelf)
     source = source * 4.0_dp
 
     ! split source based on the boundary normal orientation and non-dimensinoalize
-    ! Note that it is not really appropriate to apply option (1) to 1d flow, since terms other than du/dx in 
+    ! Note that it is not really appropriate to apply option (1) to 2d flow, since terms other than du/dx in 
     ! eff. strain rate are ignored. For 2d flow, should use option (2) below. 
      source = source * normal(pt)
      source = source * tim0 ! make source term non-dim
@@ -4671,7 +4725,8 @@ subroutine calcbetasquared (whichbabc,               &
       !!! if it were the till yield stress (in units of Pascals).
 !      betasquared = minTauf*tau0 / dsqrt( (thisvel*vel0*scyr)**2 + (othervel*vel0*scyr)**2 + (smallnum)**2 )
 
-      betasquared = betasquared / dsqrt( (thisvel*vel0*scyr)**2 + (othervel*vel0*scyr)**2 + (smallnum)**2 )
+      betasquared = ( beta * scyr * vel0 * len0 / (thk0**2) ) &
+                    / dsqrt( (thisvel*vel0*scyr)**2 + (othervel*vel0*scyr)**2 + (smallnum)**2 )
 
     case(3)     ! circular ice shelf: set B^2 ~ 0 except for at center, where B^2 >> 0 to enforce u,v=0 there
 

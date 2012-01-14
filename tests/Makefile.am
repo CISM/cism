@@ -1,4 +1,4 @@
-SUBDIRS = EISMINT exact-isothermal
+SUBDIRS = EISMINT exact-isothermal higher-order
 
 data::
 		list='$(SUBDIRS)'; for dir in $$list; do \

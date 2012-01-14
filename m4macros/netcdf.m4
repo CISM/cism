@@ -148,7 +148,7 @@ NcError err_handler;
 	],
         [Fortran 77],[
         AC_SEARCH_LIBS(NF_INQ_LIBVERS,netcdff netcdf,[acx_netcdf_ok=yes],[acx_netcdf_ok=no;AC_MSG_ERROR(cannot find netCDF fortran library)])
-        ],
+        ], 
         [Fortran],[
         AC_SEARCH_LIBS(NF_INQ_LIBVERS,netcdff netcdf,[acx_netcdf_ok=yes],[acx_netcdf_ok=no; AC_MSG_ERROR(cannot find netCDF fortran library)])
         AC_REQUIRE([AX_F90_MODULE_FLAG])
@@ -157,6 +157,7 @@ NcError err_handler;
         else
            NETCDF_FCFLAGS="$ax_cv_f90_modflag/usr/include"
         fi
+        AC_FC_SRCEXT(f90)
 	FCFLAGS="$FCFLAGS $NETCDF_FCFLAGS"
         AC_MSG_CHECKING([for f90 netCDF interface])
         AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],[use netcdf])],[acx_netcdf_ok=yes; AC_MSG_RESULT([yes])],

@@ -1,9 +1,15 @@
-# install script for Jaguar system with Trilinos:  AGS 05/2011
+# install script for serial version on Jaguar system with Trilinos:  AGS 05/2011
+# build instructions for top level directory KJE 8/2011
+# (1) ./bootstrap
+# (2) find . -exec touch -r configure {} +
+# (3) configure-scripts/jaguar-config-serial (this file)
+# (4) make
 # build instructions for top level directory KJE 8/2011
 # don't bootstrap
 # find . -exec touch -r configure {} +
 # configure-scripts/jaguar-config (this file)
 # make
+#
 #
 ./configure \
   FC=ftn   F77=ftn   \
@@ -19,7 +25,6 @@
   EXTRA_LDLIBS="/opt/pgi/10.3.0/linux86-64/10.3/lib/f90main.o" \
   --with-trilinos=/ccs/proj/cli043/trilinos/NOX_BUILD-FAST \
   --enable-mpi="no"
-
 
 # These no longer appear to be needed.
 #LDFLAGS="-pgcpplibs -L/opt/cray/hdf5/1.8.3.1/hdf5-pgi/lib -L/sw/xt5/parmetis/3.1.1/cnl2.2_pgi9.0.4/lib" \

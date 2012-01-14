@@ -1,3 +1,13 @@
+2012-01-13 Kate Evans
+ * Merged trunk changes since the branch was made.
+ * Tested with dome 120 and gis 5km. Bit for bit for first several steps  
+ * Can do ./bootstrap on jaguar now
+
+2011-08-25 Bill Sacks
+ * removed obsolete bf-config from top-level directory (use
+   configure-scripts/bf-config instead)
+ * Testing done: ensured that configure-scripts/bf-config works properly
+	
 2010-09-21 Magnus Hagdorn
  * example-drivers/eis/src/Makefile.am: find include file
  * libglint/Makefile.am: ditto
