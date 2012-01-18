@@ -1194,6 +1194,11 @@ end if
 ! Update solution vectors (x^k = x^k-1 + dx) and 3D fields 
 !------------------------------------------------------------------------
       xk_1 = xk_1 + dx(1:2*pcgsize(1))
+
+! (need to update these values from fptr%uvel,vvel,stagthck etc)
+  call solver_postprocess_jfnk( ewn, nsn, upn, uindx, xk_1, vvel, uvel, ghostbvel, pcgsize(1) )
+  call ghost_postprocess_jfnk( ewn, nsn, upn, uindx, xk_1, ughost, vghost, pcgsize(1) )
+
     ! call fraction of assembly routines, passing current vel estimates (w/o manifold
     ! correction!) to calculate consistent basal tractions
     call findcoefstr(ewn,  nsn,   upn,            &
@@ -1232,10 +1237,6 @@ end if
                      k, 1 )
 
   end do
-
-! (need to update these values from fptr%uvel,vvel,stagthck etc)
-  call solver_postprocess_jfnk( ewn, nsn, upn, uindx, xk_1, vvel, uvel, ghostbvel, pcgsize(1) )
-  call ghost_postprocess_jfnk( ewn, nsn, upn, uindx, xk_1, ughost, vghost, pcgsize(1) )
 
   inisoln = .true.
 
