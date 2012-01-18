@@ -2880,6 +2880,9 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                          othervel(up-1+shift(1):up+1+shift(1),  &
                          ew-1+shift(2):ew+1+shift(2),  &
                          ns-1+shift(3):ns+1+shift(3)), &
+                         thisvel(up-1+shift(1):up+1+shift(1),  &
+                         ew-1+shift(2):ew+1+shift(2),  &
+                         ns-1+shift(3):ns+1+shift(3)), &
                          betasquared(ew,ns),           &
                          btraction,                    &
                          whichbabc, assembly )
@@ -2921,6 +2924,9 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                          dlsrfdew, dlsrfdns,  &
                          efvs(up-1+shift(1):up+shift(1),ew:ew+1,ns:ns+1),  &
                          othervel(up-1+shift(1):up+1+shift(1),  &
+                         ew-1+shift(2):ew+1+shift(2),  &
+                         ns-1+shift(3):ns+1+shift(3)), &
+                         thisvel(up-1+shift(1):up+1+shift(1),  &
                          ew-1+shift(2):ew+1+shift(2),  &
                          ns-1+shift(3):ns+1+shift(3)), &
                          betasquared(ew,ns),           &
@@ -2976,10 +2982,10 @@ subroutine bodyset(ew,  ns,  up,           &
                    dlsrfdew, dlsrfdns,     &
                    local_efvs,             &
                    local_othervel,         &
+                   local_thisvel,          &
                    betasquared,            &
                    btraction,              &
                    whichbabc, assembly,    &
-                   local_thisvel,          &
                    abar, cc)
 
   ! This subroutine does the bulk of the work in calling the appropriate discretiztion routines,
@@ -3003,9 +3009,9 @@ subroutine bodyset(ew,  ns,  up,           &
   ! "local_othervel" is the other vel component (i.e. u when v is being calc and vice versa),
   ! which is taken as a known value (terms involving it are moved to the RHS and treated as sources)
   real (kind = dp), dimension(3,3,3), intent(in) :: local_othervel
+  real (kind = dp), dimension(3,3,3), intent(in) :: local_thisvel
   real (kind = dp), intent(in) :: betasquared
   real (kind = dp), dimension(:,:,:), intent(inout) :: btraction
-  real (kind = dp), intent(in), optional :: local_thisvel
   real (kind = dp), intent(in), optional :: abar
   integer, intent(in), optional :: cc
 
@@ -3443,17 +3449,26 @@ subroutine bodyset(ew,  ns,  up,           &
       ! layers that are needed to cacluate the basal traction (as opposed to all vert levels 1:upn).
       if( assembly == 1 )then
 
-      select case( pt )
-         case(1)
-           g_vel_lhs(:,:,:) = ghostbvel(1,:,ew-1:ew+1,ns-1:ns+1)
-           g_vel_rhs(:,:,:) = ghostbvel(2,:,ew-1:ew+1,ns-1:ns+1)
-         case(2)
-           g_vel_lhs(:,:,:) = ghostbvel(2,:,ew-1:ew+1,ns-1:ns+1)
-           g_vel_rhs(:,:,:) = ghostbvel(1,:,ew-1:ew+1,ns-1:ns+1)
-       end select
+!      select case( pt )
+!         case(1)
+!           g_vel_lhs(:,:,:) = ghostbvel(1,:,ew-1:ew+1,ns-1:ns+1)
+!           g_vel_rhs(:,:,:) = ghostbvel(2,:,ew-1:ew+1,ns-1:ns+1)
+!         case(2)
+!           g_vel_lhs(:,:,:) = ghostbvel(2,:,ew-1:ew+1,ns-1:ns+1)
+!           g_vel_rhs(:,:,:) = ghostbvel(1,:,ew-1:ew+1,ns-1:ns+1)
+!       end select
 
-       btraction(pt,ew,ns) = sum( (g_norm+g_vert)*g_vel_lhs*thk0/len0*sum(local_efvs(2,:,:))/4.0d0 ) &
-                           - sum( g_cros*g_vel_rhs*thk0/len0*sum(local_efvs(2,:,:))/4.0d0 )
+!!xx NEW bc implementation does not need ghost vels for traction calculation
+           g_vel_lhs(:,:,:) = local_thisvel(:,:,:)
+           g_vel_rhs(:,:,:) = local_othervel(:,:,:)
+
+!       btraction(pt,ew,ns) = sum( (g_norm+g_vert)*g_vel_lhs*thk0/len0*sum(local_efvs(2,:,:))/4.0d0 ) &
+!                           - sum( g_cros*g_vel_rhs*thk0/len0*sum(local_efvs(2,:,:))/4.0d0 )
+
+!!xx NEW bc implementation uses diff. scales, since efvs is now explicitly attached to the bc coeffs 
+!!XX ... as opposed to being divided out in old implementation) 
+       btraction(pt,ew,ns) = sum( (g_norm+g_vert)*g_vel_lhs*thk0/len0 ) &
+                           - sum( g_cros*g_vel_rhs*thk0/len0 )
 
      end if
 
@@ -3865,6 +3880,11 @@ function vertimainbcos(thck, bcflag, dup, efvs, betasquared, g_vert, nz, plastic
            vertimainbcos(2) = 4.0d0*c
            vertimainbcos(3) = -3.0d0*c
 
+            ! this is the part of the vertimain coeff. block that we want to keep for calc
+            ! of boundary tractions (note that it DOES NOT include terms from boundary forcing)
+            ! NOTE that here we do this BEFORE adding in the sliding coefficient, as in the standard
+            ! expression for the BC, this term is on the RHS.
+            g_vert(:,2,2) = vertimainbcos
 
            ! this is the part of the vertimain coeff. block that we want to keep for calc
            ! of boundary tractions (note that it DOES NOT include terms from boundary forcing)
