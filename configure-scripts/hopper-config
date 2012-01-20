@@ -14,7 +14,6 @@
  --with-trilinos=/global/u1/s/sprice/trilinos-10.6.4 \
  --enable-mpi="yes" \
  --with-blas=-lsci_pgi \
-# --prefix="/global/u2/w/worleyph/SCISM/seacism_trunk_wc/"
 
 # additional notes from Pat W.
 
@@ -33,7 +32,7 @@
 # 
 # -lxpmem by /opt/cray/xpmem/0.1-2.0301.25333.20.2.gem/lib64/libxpmem.a
 # 
-# -lugni by /opt/cray/ugni/2.1-1.0301.2967. 10.23.gem/lib64/libugni.a
+# -lugni by /opt/cray/ugni/2.1-1.0301.2967.10.23.gem/lib64/libugni.a
 # 
 # -ludreg by /opt/cray/udreg/2.2-1.0301.2966.16.2.gem/lib64/libudreg.a
 
