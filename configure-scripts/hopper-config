@@ -25,7 +25,7 @@
 # sh  ./configure-scripts/hopper-config
 # (edit config.status: see comment #3 below)
 # sh config.status
-# (edit libglimmer-trilinos/Makefile.Trilinos.export.in to remove '$(Trilinos_TPL_LIBRARIES)')
+# (edit Makefile.Trilinos.export.in and Makefile.Trilinos.export in libglimmer-trilinos to remove '$(Trilinos_TPL_LIBRARIES)')
 # gmake
 
 # 1) Need to change --prefix=XXX  (or just delete it?)
