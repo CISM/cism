@@ -1211,12 +1211,22 @@ end if
 !------------------------------------------------------------------------
       xk_1 = xk_1 + dx(1:2*pcgsize(1))
 
+ end do
+
 ! (need to update these values from fptr%uvel,vvel,stagthck etc)
   call solver_postprocess_jfnk( ewn, nsn, upn, uindx, xk_1, vvel, uvel, ghostbvel, pcgsize(1) )
   call ghost_postprocess_jfnk( ewn, nsn, upn, uindx, xk_1, ughost, vghost, pcgsize(1) )
 
     ! call fraction of assembly routines, passing current vel estimates (w/o manifold
     ! correction!) to calculate consistent basal tractions
+    !
+    ! *SFP* NOTE that if wanting to use basal tractions for the Newton method of converging on a
+    ! coulomb-friction basasl BC, must update basal tractions estimate at EACH nonlinear iteration.
+    ! In this case, the following two calls need to sit INSIDE of the do loop above. They are left
+    ! out here because the current implementation of NOX skips to the end of this do loop, in order
+    ! to skip JFs original implementation of JFNK (and jumping out of the do loop means these calls
+    ! are skipped if they are inside of the do loop).
+    !
     call findcoefstr(ewn,  nsn,   upn,            &
                      dew,  dns,   sigma,          &
                      2,           efvs,           &
@@ -1251,8 +1261,6 @@ end if
                      minTauf,     flwa,           &
                      beta, btraction,             &
                      k, 1 )
-
-  end do
 
   inisoln = .true.
 
