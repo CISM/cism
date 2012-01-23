@@ -43,7 +43,8 @@ extern "C" {
   // RN_20091215: This needs to be called only once in the beginning
   // to set up the problem.
   //================================================================
-  void FC_FUNC(inittrilinos,INITTRILINOS) (int& bandwidth, int& mySize, int* myIndicies) {
+  void FC_FUNC(inittrilinos,INITTRILINOS) (int& bandwidth, int& mySize,
+               int* myIndicies, double* myX, double* myY, double* myZ) {
 
 #ifdef GLIMMER_MPI
     // On Linux, Jaguar, the MPI_Init in Fortran is recopgnized by C++
@@ -65,6 +66,8 @@ extern "C" {
     Teuchos::RCP<const Epetra_Map> rowMap = 
       Teuchos::rcp(new Epetra_Map(-1,mySize,myIndicies,1,comm) );
 
+    cout << "AGS initTrilinos: Proc " << comm.MyPID() << " mySize= " << mySize << "  globalSize= " << rowMap->NumGlobalElements() << endl;
+
     soln = Teuchos::rcp(new Epetra_Vector(*rowMap));
 
     // Read parameter list once
@@ -81,6 +84,19 @@ extern "C" {
            << e.what() << "\nExiting: Invalid trilinosOptions.xml file."
            << "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" << endl;
       exit(1);
+    }
+
+    // Set the coordinate position of the nodes for ML for repartitioning (important for #procs > 100s)
+    if (pl->sublist("Stratimikos").isParameter("Preconditioner Type")) {
+       if ("ML" == pl->sublist("Stratimikos").get<string>("Preconditioner Type")) {
+         Teuchos::ParameterList& mlList =
+            pl->sublist("Stratimikos").sublist("Preconditioner Types").sublist("ML").sublist("ML Settings");
+         mlList.set("x-coordinates",myX);
+         mlList.set("y-coordinates",myY);
+         mlList.set("z-coordinates",myZ);
+         mlList.set("PDE equations", 1);
+//for (int i=0; i<mySize; i++) cout << myX[i] << "  " <<  myY[i] << "  " << myZ[i] << " Proc " << comm.MyPID() << "  XXX " << i << endl;
+       }
     }
 
     out = Teuchos::VerboseObjectBase::getDefaultOStream();

@@ -36,6 +36,7 @@ cmake -D CMAKE_INSTALL_PREFIX:PATH=. \
       -D Trilinos_ENABLE_NOX:BOOL=ON \
       -D Trilinos_ENABLE_Stratimikos:BOOL=ON \
       -D Trilinos_ENABLE_Thyra:BOOL=ON \
+      -D Trilinos_ENABLE_Zoltan:BOOL=ON \
       -D Trilinos_ENABLE_Piro:BOOL=ON \
 \
       -D Belos_ENABLE_TEUCHOS_TIME_MONITOR:BOOL=ON \

@@ -109,6 +109,7 @@ implicit none
   ! AGS: partition information for distributed solves
   ! JEFF: Moved to module-level scope for globalIDs
   integer, allocatable, dimension(:) :: myIndices
+  real (kind = dp), allocatable, dimension(:) :: myX, myY, myZ
   integer, allocatable, dimension(:,:,:) :: loc2_array
   integer :: mySize = -1
 
@@ -376,7 +377,10 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
      if (main_task) write(*,*) "Using GlobalIDs..."
 	 ! JEFF: Define myIndices in terms of globalIDs
      allocate(myIndices(pcgsize(1)))  ! myIndices is an integer vector with a unique ID for each layer for ice grid points
-     call distributed_create_partition(ewn, nsn, (upn + 2) , uindx, pcgsize(1), myIndices)  ! Uses uindx mask to determine ice grid points.
+     allocate(myX(pcgsize(1))) ! Coordinates of nodes, used by ML preconditioner
+     allocate(myY(pcgsize(1))) 
+     allocate(myZ(pcgsize(1))) 
+     call distributed_create_partition(ewn, nsn, (upn + 2) , uindx, pcgsize(1), myIndices, myX, myY, myZ)  ! Uses uindx mask to determine ice grid points.
      mySize = pcgsize(1)  ! Set variable for inittrilinos
 
      !write(*,*) "GlobalIDs myIndices..."
@@ -387,6 +391,9 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
      ! AGS: Get partition -- later this will be known by distributed glimmer
      call dopartition(pcgsize(1), mySize) 
      allocate(myIndices(mySize))
+     allocate(myX(1)) ! Coordinates (only set for globalIDs)
+     allocate(myY(1)) 
+     allocate(myZ(1)) 
      call getpartition(mySize, myIndices) 
 
      if (distributed_execution()) then
@@ -401,7 +408,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 #endif
 
      ! Now send this partition to Trilinos initialization routines
-     call inittrilinos(20, mySize, myIndices) 
+     call inittrilinos(20, mySize, myIndices, myX, myY, myZ) 
 
      ! Set if need full solution vector returned or just owned portion
 #ifdef globalIDs
@@ -786,6 +793,9 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
   ! JEFF: Deallocate myIndices which is used to intialize Trilinos
   if (whatsparse == STANDALONE_TRILINOS_SOLVER) then
      deallocate(myIndices)
+     deallocate(myX)
+     deallocate(myY)
+     deallocate(myZ)
   endif
 
   ! de-allocation sparse matrix solution variables 
@@ -999,7 +1009,10 @@ subroutine JFNK                 (model,umask)
      if (main_task) write(*,*) "Using GlobalIDs..."
 	 ! JEFF: Define myIndices in terms of globalIDs
      allocate(myIndices(pcgsize(1)))  ! myIndices is an integer vector with a unique ID for each layer for ice grid points
-     call distributed_create_partition(ewn, nsn, (upn + 2) , uindx, pcgsize(1), myIndices)  ! Uses uindx mask to determine ice grid points.
+     allocate(myX(pcgsize(1))) ! Coordinates of nodes, used by ML preconditioner
+     allocate(myY(pcgsize(1))) 
+     allocate(myZ(pcgsize(1))) 
+     call distributed_create_partition(ewn, nsn, (upn + 2) , uindx, pcgsize(1), myIndices, myX, myY, myZ)  ! Uses uindx mask to determine ice grid points.
      mySize = pcgsize(1)  ! Set variable for inittrilinos
 
      !write(*,*) "GlobalIDs myIndices..."
@@ -1010,6 +1023,9 @@ subroutine JFNK                 (model,umask)
      ! AGS: Get partition -- later this will be known by distributed glimmer
      call dopartition(pcgsize(1), mySize) 
      allocate(myIndices(mySize))
+     allocate(myX(1)) ! Coordinates (only set for globalIDs)
+     allocate(myY(1)) 
+     allocate(myZ(1)) 
      call getpartition(mySize, myIndices) 
 
      if (distributed_execution()) then
@@ -1023,7 +1039,7 @@ subroutine JFNK                 (model,umask)
      !call parallel_stop(__FILE__, __LINE__)
 #endif
 
-     call inittrilinos(25, mySize, myIndices)
+     call inittrilinos(25, mySize, myIndices, myX, myY, myZ)
 
      ! Set if need full solution vector returned or just owned portion
 #ifdef globalIDs
@@ -1255,6 +1271,9 @@ end if
   ! JEFF: Deallocate myIndices which is used to intialize Trilinos
   if (whatsparse == STANDALONE_TRILINOS_SOLVER) then
      deallocate(myIndices)
+     deallocate(myX)
+     deallocate(myY)
+     deallocate(myZ)
   endif
 
   ! *sfp* de-allocation of sparse matrix solution variables 
@@ -5106,7 +5125,7 @@ end subroutine putpcgc
 
 !***********************************************************************
 
-  subroutine distributed_create_partition(ewn, nsn, upstride, indxmask, mySize, myIndices)
+  subroutine distributed_create_partition(ewn, nsn, upstride, indxmask, mySize, myIndices, myX, myY, myZ)
   	! distributed_create_partition builds myIndices ID vector for Trilinos using (ns,ew) coordinates in indxmask
   	! ewn, nsn, are bounds for indxmask (including halos).
   	! upstride is the total number of vertical layers including any ghosts
@@ -5121,6 +5140,7 @@ end subroutine putpcgc
 	  integer, intent(in), dimension(:,:) :: indxmask
 	  integer, intent(in) :: mySize
 	  integer, intent(out), dimension(:) :: myIndices
+	  real (kind = dp),  intent(out), dimension(:) :: myX, myY, myZ
 
 	  integer :: ew, ns, pointno
 	  integer :: glblID, upindx, slnindx
@@ -5138,6 +5158,10 @@ end subroutine putpcgc
 	          do slnindx = (pointno - 1) * upstride + 1, pointno * upstride
 	              ! slnindx is offset into myIndices for current ice cell's layers. upindx is offset from current globalID.
   	              myIndices(slnindx) = glblID + upindx
+                      ! Return coordinates for nodes. Assumes structured with dx=1,dy=1,dz=1.0e6
+                      myX(slnindx) = (ewlb+ew) * 1.0
+                      myY(slnindx) = (nslb+ns) * 1.0
+                      myZ(slnindx) = upindx * 1.0e-6
   	              upindx = upindx + 1
   	              ! write(*,*) "myIndices offset = ", slnindx
 	          end do
