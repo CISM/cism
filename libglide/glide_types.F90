@@ -683,6 +683,7 @@ module glide_types
     real(dp) :: dt     =    0.0
     real(dp) :: dttem  =    0.0
     real(sp) :: nshlf  =    0.0
+    integer  :: subcyc =    1
 
     integer  :: timecounter = 0   !*FD count time steps
     

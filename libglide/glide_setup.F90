@@ -368,6 +368,7 @@ contains
     call GetValue(section,'tstart',model%numerics%tstart)
     call GetValue(section,'tend',model%numerics%tend)
     call GetValue(section,'dt',model%numerics%tinc)
+    call GetValue(section,'subcyc',model%numerics%subcyc)
     call GetValue(section,'ntem',model%numerics%ntem)
     call GetValue(section,'nvel',model%numerics%nvel)
     call GetValue(section,'profile',model%numerics%profile_period)
