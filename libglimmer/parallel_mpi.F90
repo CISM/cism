@@ -371,7 +371,7 @@ contains
        allocate(global_values(&
                  minval(d_gs_bounds(1,:)):maxval(d_gs_bounds(2,:)),&
                  minval(d_gs_bounds(3,:)):maxval(d_gs_bounds(4,:))))
-       global_values(:,:) = 0
+       global_values(:,:) = .false.
        allocate(displs(tasks+1))
        allocate(recvcounts(tasks))
        recvcounts(:) = (d_gs_bounds(2,:)-d_gs_bounds(1,:)+1)&

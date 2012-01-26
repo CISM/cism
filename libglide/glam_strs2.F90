@@ -783,13 +783,13 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
   call parallel_halo(uflx)
   call parallel_halo(vflx)
 
-#ifdef JEFFTEST    !JEFF Debugging Output to see what differences in final vvel and tvel.
+#ifdef JEFFTEST    
+  !JEFF Debugging Output to see what differences in final vvel and tvel.
     write(CurrTimeLoopStr, '(i3.3)') CurrTimeLoop
     call distributed_print("uvel_post_ov"//CurrTimeLoopStr//"_tsk", uvel)
 
     call distributed_print("vvel_post_ov"//CurrTimeLoopStr//"_tsk", vvel)
 #endif
-
   ! JEFF: Deallocate myIndices which is used to intialize Trilinos
   if (whatsparse == STANDALONE_TRILINOS_SOLVER) then
      deallocate(myIndices)
@@ -1114,10 +1114,13 @@ end if
 
 ! UNCOMMENT these lines to switch to NOX's JFNK
 ! AGS: To Do:  send in distributed xk_1, or myIndices array, for distributed nox
+#ifdef TRILINOS 
   call noxinit(xk_size, xk_1, 1, c_ptr_to_object)
   call noxsolve(xk_size, xk_1, c_ptr_to_object)
   call noxfinish()
   kmax = 0     ! turn off native JFNK below
+#endif
+
 !==============================================================================
 ! JFNK loop: calculate F(u^k-1,v^k-1)
 !==============================================================================
@@ -2059,11 +2062,13 @@ subroutine apply_precond_nox( wk2_nox, wk1_nox, xk_size, c_ptr_to_object )  bind
       vectp(:) = wk1(1:nu1) ! rhs for precond v
       if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
          call sparse_easy_solve(matrixA, vectp, answer, err, iter, whichsparse, nonlinear_solver = nonlinear)
+#ifdef TRILINOS
       else
          call restoretrilinosmatrix(0);
          call solvewithtrilinos(vectp, answer, linearSolveTime)
          totalLinearSolveTime = totalLinearSolveTime + linearSolveTime
 !         write(*,*) 'Total linear solve time so far', totalLinearSolveTime
+#endif
       endif
       wk2(1:nu1) = answer(:)
 
@@ -2073,11 +2078,13 @@ subroutine apply_precond_nox( wk2_nox, wk1_nox, xk_size, c_ptr_to_object )  bind
       vectp(:) = wk1(nu1+1:nu2) ! rhs for precond u
       if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
          call sparse_easy_solve(matrixC, vectp, answer, err, iter, whichsparse, nonlinear_solver = nonlinear)
+#ifdef TRILINOS
       else
          call restoretrilinosmatrix(1);
          call solvewithtrilinos(vectp, answer, linearSolveTime)
          totalLinearSolveTime = totalLinearSolveTime + linearSolveTime
 !         write(*,*) 'Total linear solve time so far', totalLinearSolveTime
+#endif
       endif
       wk2(nu1+1:nu2) = answer(:)
 

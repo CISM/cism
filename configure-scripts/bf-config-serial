@@ -5,7 +5,7 @@
 
 module load python
 export PATH=/contrib/libtool/2.4/bin:/contrib/automake/1.11.1/bin:/contrib/autoconf/2.67/bin:$PATH
-#./bootstrap
+./bootstrap
 
 export OMP_NUM_THREADS=1
 export MP_EUILIB=ip
@@ -17,7 +17,7 @@ export MP_PROCS=1
 if [[ $1 != "" ]]; then 
    PREFIX_DIR=$1
 else
-   PREFIX_DIR="/ptmp/jedwards/glimmer-cism/install"
+   PREFIX_DIR="/ptmp/evanskj/seacism/install"
 fi
 
 #
@@ -35,5 +35,6 @@ CXX=xlC_r  \
 LDFLAGS="-lm -btextpsize:64k -bdatapsize:64k -bstackpsize:64k -bbigtoc" \
 LIBS="-lC_r -lxlf90_r" \
 --with-netcdf=/usr/local \
+--enable-mpi="no" \
 --with-blas=-lblas   
 
