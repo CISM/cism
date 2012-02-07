@@ -413,8 +413,8 @@ class PrintNC_template(PrintVars):
                 self.stream.write("       do up=0,NCO%nstagwbndlevel\n")  # starts with index 0
 
             data = var['data']
-            if 'factor' in var:
-                data = '(%s)*(%s)'%(var['factor'],data)
+            if 'avg_factor' in var:
+                data = '(%s)*(%s)'%(var['avg_factor'],data)
             self.stream.write("%s       status = distributed_put_var(NCO%%id, varid, &\n%s            %s, (/%s/))\n"%(spaces,
                                                                                                                spaces,data, dimstring))
             self.stream.write("%s       call nc_errorhandle(__FILE__,__LINE__,status)\n"%(spaces))
