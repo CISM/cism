@@ -125,6 +125,7 @@ module parallel
      module procedure distributed_put_var_real4_2d
      module procedure distributed_put_var_real8_2d
      module procedure distributed_put_var_real8_3d
+     module procedure parallel_put_var_real4
      module procedure parallel_put_var_real8
   end interface
 #endif
