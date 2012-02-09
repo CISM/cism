@@ -4736,6 +4736,10 @@ subroutine calcbetasquared (whichbabc,               &
   real (kind = dp) :: alpha, dx, thck_gl, betalow, betahigh, roughness
   integer :: ew, ns
 
+  ! Note that the dimensional scale (tau0 / vel0 / scyr) is used here for making the basal traction coeff.
+  ! betasquared dimensional, within the subroutine, and then non-dimensional again before being sent back out
+  ! for use in the code. This scale is the same as scale scale2d_f7 defined in libglimmer/glimmer_scales.F90.
+
   select case(whichbabc)
 
     case(0)     ! constant value; useful for debugging and test cases
@@ -4760,7 +4764,7 @@ subroutine calcbetasquared (whichbabc,               &
       !!! if it were the till yield stress (in units of Pascals).
 !      betasquared = minTauf*tau0 / dsqrt( (thisvel*vel0*scyr)**2 + (othervel*vel0*scyr)**2 + (smallnum)**2 )
 
-      betasquared = ( beta * scyr * vel0 * len0 / (thk0**2) ) &
+      betasquared = ( beta * ( tau0 / vel0 / scyr  ) ) &
                     / dsqrt( (thisvel*vel0*scyr)**2 + (othervel*vel0*scyr)**2 + (smallnum)**2 )
 
     case(3)     ! circular ice shelf: set B^2 ~ 0 except for at center, where B^2 >> 0 to enforce u,v=0 there
@@ -4775,7 +4779,7 @@ subroutine calcbetasquared (whichbabc,               &
     case(5)    ! use value passed in externally from CISM (NOTE not dimensional when passed in) 
 
       ! scale CISM input value to dimensional units of (Pa yrs 1/m)
-      betasquared = beta * scyr * vel0 * len0 / (thk0**2)
+      betasquared = beta * ( tau0 / vel0 / scyr )
 
       ! this is a check for NaNs, which indicate, and are replaced by no slip
       where ( betasquared /= betasquared )
@@ -4788,7 +4792,7 @@ subroutine calcbetasquared (whichbabc,               &
 
   ! convert whatever the specified value is to dimensional units of (Pa s m^-1 ) 
   ! and then non-dimensionalize using PP dyn core specific scaling.
-  betasquared = ( betasquared * scyr ) / ( tau0 * tim0 / len0 )
+  betasquared = betasquared / ( tau0 / vel0 / scyr )
 
 end subroutine calcbetasquared
 

@@ -165,7 +165,7 @@ dimensions:    time, y0, x0
 units:         unknown
 long_name:     higher-order bed stress coefficient
 data:          data%velocity%beta
-factor:        scale2d_f6
+factor:        scale2d_f7
 load:          1
 
 [tauf]
