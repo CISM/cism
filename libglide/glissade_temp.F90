@@ -359,13 +359,13 @@ contains
 
              ! total dissipation in column
 
-             model%temper%dissipcol = 0.0d0
+             model%temper%dissipcol(ew, ns) = 0.0d0
              do up = 1, upn-1
-                model%temper%dissipcol = model%temper%dissipcol + &
+                model%temper%dissipcol(ew, ns) = model%temper%dissipcol(ew, ns) + &
                                          model%tempwk%dissip(up,ew,ns)  &
                                         * (model%numerics%sigma(up+1) - model%numerics%sigma(up))  
              enddo 
-             model%temper%dissipcol = model%temper%dissipcol     &
+             model%temper%dissipcol(ew, ns) = model%temper%dissipcol(ew, ns)     &
                                      * thk0*model%geometry%thck(ew,ns)*rhoi*shci / (tim0*model%numerics%dttem)  
 
              ! Verify that the net input of energy into the column is equal to the change in
