@@ -1,4 +1,5 @@
 
+
 !***********************************************************************
 module glam         
 !***********************************************************************
@@ -105,7 +106,8 @@ module glam
         call distributed_gather_var(model%geometry%thck, gathered_thck)
         call distributed_gather_var(model%geomderv%stagthck, gathered_stagthck)
         call distributed_gather_var(model%climate%acab, gathered_acab)
-        call distributed_gather_var(model%temper%temp, gathered_temp)
+        call distributed_gather_var(model%temper%temp, gathered_temp, &
+                                    lbound(model%temper%temp,1), ubound(model%temper%temp,1))
 
 
 !whl - Note to Jeff - Introduced a choice here between old and new remapping schemes.

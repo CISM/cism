@@ -482,7 +482,7 @@ contains
     ! automatic deallocation
   end subroutine
 
-  subroutine distributed_gather_var_real4_3d(values, global_values)
+  subroutine distributed_gather_var_real4_3d(values, global_values, ld1, ud1)
     ! JEFF Gather a distributed variable back to main_task node
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task will store the variable.
@@ -491,8 +491,9 @@ contains
     implicit none
     real(4),dimension(:,:,:),intent(in) :: values
     real(4),dimension(:,:,:),allocatable,intent(inout) :: global_values
+    integer,optional,intent(in) :: ld1, ud1
 
-    integer :: i,ierror,j,k
+    integer :: i,ierror,j,k,d1l,d1u
     integer,dimension(:),allocatable :: displs,recvcounts
     real(4),dimension(:),allocatable :: recvbuf
     real(4),dimension(:,:,:),allocatable :: sendbuf
@@ -517,10 +518,23 @@ contains
        if (allocated(global_values)) then
           deallocate(global_values)
        endif
-       allocate(global_values(&
-                 size(values,1),&
-                 minval(d_gs_bounds(1,:)):maxval(d_gs_bounds(2,:)),&
-                 minval(d_gs_bounds(3,:)):maxval(d_gs_bounds(4,:))))
+       if (present(ld1)) then
+         d1l = ld1
+       else
+         d1l = 1
+       endif
+       if (present(ud1)) then
+         d1u = ud1
+       else
+         d1u = size(values,1)-(d1l-1)
+       endif
+       if (size(values,1) /= d1u-d1l+1) then
+          write(*,*) "size(values,1) .ne. d1u-d1l+1 in gather call"
+          call parallel_stop(__FILE__, __LINE__)
+       endif
+       allocate(global_values(d1l:d1u,&
+                              minval(d_gs_bounds(1,:)):maxval(d_gs_bounds(2,:)),&
+                              minval(d_gs_bounds(3,:)):maxval(d_gs_bounds(4,:))))
        global_values(:,:,:) = 0
        allocate(displs(tasks+1))
        allocate(recvcounts(tasks))
@@ -635,7 +649,7 @@ contains
     ! automatic deallocation
   end subroutine
 
-  subroutine distributed_gather_var_real8_3d(values, global_values)
+  subroutine distributed_gather_var_real8_3d(values, global_values, ld1, ud1)
     ! JEFF Gather a distributed variable back to main_task node
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task will store the variable.
@@ -644,8 +658,9 @@ contains
     implicit none
     real(8),dimension(:,:,:),intent(in) :: values
     real(8),dimension(:,:,:),allocatable,intent(inout) :: global_values
+    integer,optional,intent(in) :: ld1, ud1
 
-    integer :: i,ierror,j,k
+    integer :: i,ierror,j,k,d1l,d1u
     integer,dimension(:),allocatable :: displs,recvcounts
     real(8),dimension(:),allocatable :: recvbuf
     real(8),dimension(:,:,:),allocatable :: sendbuf
@@ -670,10 +685,23 @@ contains
        if (allocated(global_values)) then
           deallocate(global_values)
        endif
-       allocate(global_values(&
-                 size(values,1),&
-                 minval(d_gs_bounds(1,:)):maxval(d_gs_bounds(2,:)),&
-                 minval(d_gs_bounds(3,:)):maxval(d_gs_bounds(4,:))))
+       if (present(ld1)) then
+         d1l = ld1
+       else
+         d1l = 1
+       endif
+       if (present(ud1)) then
+         d1u = ud1
+       else
+         d1u = size(values,1)-(d1l-1)
+       endif
+       if (size(values,1) /= d1u-d1l+1) then
+          write(*,*) "size(values,1) .ne. d1u-d1l+1 in gather call"
+          call parallel_stop(__FILE__, __LINE__)
+       endif
+       allocate(global_values(d1l:d1u,&
+                              minval(d_gs_bounds(1,:)):maxval(d_gs_bounds(2,:)),&
+                              minval(d_gs_bounds(3,:)):maxval(d_gs_bounds(4,:))))
        global_values(:,:,:) = 0
        allocate(displs(tasks+1))
        allocate(recvcounts(tasks))
