@@ -3185,7 +3185,7 @@ subroutine bodyset(ew,  ns,  up,           &
         rhsd(loc2plusup(2)) = sum( croshorizmainbc_lat(dew,           dns,           &
                                                    slopex,        slopey,        &
                                                    dsigmadew(up), dsigmadns(up), &
-                                                   pt,            2,             &
+                                                   pt,            1,             &
                                                    dup(up),       local_othervel,&
                                                    oneortwo,      twoorone,      &
                                                    onesideddiff,                 &
@@ -3197,7 +3197,7 @@ subroutine bodyset(ew,  ns,  up,           &
             h = -croshorizmainbc_lat(dew,           dns,           & 
                                 slopex,        slopey,        &
                                 dsigmadew(up), dsigmadns(up), & 
-                                pt,            2,             & 
+                                pt,            1,             & 
                                 dup(up),       local_othervel,& 
                                 oneortwo,      twoorone,      & 
                                 onesideddiff,                 &
@@ -4472,8 +4472,8 @@ function normhorizmainbc_lat(dew,       dns,   &
     if( normal(1) .eq. 0.0_dp )then     ! centered in x ...
 
            c = fourorone(which) * dusrfdew / (2*dew)
-           g(2,3,2) = c * whichbc(what)
-           g(2,1,2) = -c * whichbc(what)
+           g(2,3,2) = c
+           g(2,1,2) = -c
 
     elseif( normal(1) .ne. 0.0_dp )then     ! forward/backward in x ...
 
@@ -4492,8 +4492,8 @@ function normhorizmainbc_lat(dew,       dns,   &
                                        ! (NOTE that y coeff. are stored in g(1,:,:) )
 
            c = oneorfour(which) * dusrfdns / (2*dns)
-           g(1,2,3) = c * whichbc(what)
-           g(1,2,1) = -c * whichbc(what)
+           g(1,2,3) = c
+           g(1,2,1) = -c
 
     elseif( normal(2) .ne. 0.0_dp) then ! forward/backward in y ...
 
