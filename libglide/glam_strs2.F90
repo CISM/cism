@@ -468,7 +468,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
      end if
      print *, ' '
   endif
- 
+
   ! ****************************************************************************************
   ! START of Picard iteration
   ! ****************************************************************************************
@@ -621,7 +621,6 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
                      beta, btraction,             &
                      counter, 0 )
 
-
     ! put vels and coeffs from 3d arrays into sparse vector format
     call solver_preprocess( ewn, nsn, upn, uindx, matrix, answer, uvel )
 
@@ -658,9 +657,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 ! RN_20100129: End of the block
 !==============================================================================
 
-
     uk_1 = answer ! jfl for residual calculation
-
 
     ! put vels and coeffs from sparse vector format (soln) back into 3d arrays
     call solver_postprocess( ewn, nsn, upn, 1, uindx, answer, uvel, ghostbvel )
@@ -709,6 +706,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
     !                          plastic_coeff_lhs, plastic_coeff_rhs, plastic_rhs, plastic_resid )
 
     ! apply unstable manifold correction to converged velocities
+
     uvel = mindcrshstr(1,whichresid,uvel,counter,resid(1))
     vvel = mindcrshstr(2,whichresid,tvel,counter,resid(2))
 
@@ -2471,7 +2469,7 @@ end subroutine ghost_postprocess
 
 function mindcrshstr(pt,whichresid,vel,counter,resid)
 
-  ! Function to perform 'unstable manifold correction' (see Hindmarsch and Payne, 1996,
+  ! Function to perform 'unstable manifold correction' (see Hindmarsh and Payne, 1996,
   ! "Time-step limits for stable solutions of the ice-sheet equation", Annals of
   ! Glaciology, 23, p.74-85)
   use parallel
@@ -2502,7 +2500,7 @@ function mindcrshstr(pt,whichresid,vel,counter,resid)
     usav(:,:,:,pt) = 0.0d0
   end if
 
-  corr(:,:,:,new(pt),pt) = vel - usav(:,:,:,pt)
+  corr(:,:,:,new(pt),pt) = vel(:,:,:) - usav(:,:,:,pt)  ! changed
 
   if (counter > 1) then
 
@@ -2522,6 +2520,9 @@ function mindcrshstr(pt,whichresid,vel,counter,resid)
 !      mindcrshstr = vel;
 !
 !    end where
+
+!whl - bug fix - need to initialize mindcrshstr to avoid bad boundary values
+    mindcrshstr(:,:,:) = 0.0d0
 
     ! JEFF Replace where clause with explicit, owned variables for each processor.
     do ns = 1 + staggered_lhalo, size(vel, 3) - staggered_uhalo
