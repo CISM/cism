@@ -3074,15 +3074,19 @@ function vertimainbc(thck, bcflag, dup, efvs, betasquared, g_vert, nz, plastic_c
 
     real (kind = dp) :: c
     real (kind = dp), dimension(3) :: vertimainbc
+    real (kind = dp) :: bar     
 
     c = 0.0_dp
     g_vert = 0.0_dp
+
+    ! averaging number for eff. visc. at domain edges
+    bar = sum( (efvs(1,:,:)/efvs(1,:,:)), efvs(1,:,:) > effstrminsq ) 
 
     ! for higher-order FREE SURFACE B.C. for x ('which'=1) or y ('which'=2) direction ...
     if( bcflag(1) == 1 )then
 
 !           c = nz / thck / (2*dup) * (len0**2 / thk0**2)   ! value of coefficient
-           c = nz / thck / (2*dup) * (len0**2 / thk0**2) * ( sum( efvs(1,:,:) ) / 4.0_dp )   ! value of coefficient
+           c = nz / thck / (2*dup) * (len0**2 / thk0**2) * ( sum( efvs(1,:,:), efvs(1,:,:) > effstrminsq ) / bar )   ! value of coefficient
 
            vertimainbc(:) = 0.0_dp
            vertimainbc(3) = -c
@@ -3670,15 +3674,21 @@ function normhorizmainbc_lat(dew,       dns,   &
     real (kind = dp), intent(in), dimension(2) :: oneorfour, fourorone, normal, fwdorbwd
     real (kind = dp), intent(in), dimension(3) :: onesideddiff
     real (kind = dp), intent(in), dimension(:,:,:) :: efvs
+    integer, intent(in) :: which, what
 
     real (kind = dp), dimension(3,3,3) :: normhorizmainbc_lat
     real (kind = dp), dimension(3,3,3) :: g
     real (kind = dp), dimension(2) :: whichbc
     real (kind = dp) :: c
-
-    integer, intent(in) :: which, what
+    real (kind = dp) :: bar, efvsbar
 
     c = 0.0_dp; g(:,:,:) = 0.0_dp; whichbc = (/ 0.0_dp, 1.0_dp /)
+
+    ! averaging number for eff. visc. at domain edges
+    bar = sum( (efvs(:,:,:)/efvs(:,:,:)), efvs(:,:,:) > effstrminsq ) 
+
+    ! average visc. to use in coeff. calc.
+    efvsbar = sum( efvs(:,:,:), efvs(:,:,:) > effstrminsq ) / bar    
 
     ! for higher-order FREE SURFACE B.C. for x ('which'=1) or y ('which'=2) direction ...
     ! (also applies to basal stress bc) 
@@ -3687,29 +3697,29 @@ function normhorizmainbc_lat(dew,       dns,   &
     ! ...note that these are stored in an empty column of 'g' (a corner column) so that we don't 
     ! overwrite these values in the case of fwd/bwd horiz. diffs., which require 3 spaces
     c = ( fourorone(which) * dusrfdew * dsigmadew    &
-            + oneorfour(which) * dusrfdns * dsigmadns )/(2*dup)
+            + oneorfour(which) * dusrfdns * dsigmadns )/(2*dup) * efvsbar 
     g(3,3,3) = -c * whichbc(what)
     g(1,3,3) = c * whichbc(what)
 
     if( normal(1) .eq. 0.0_dp )then     ! centered in x ...
 
 !           c = fourorone(which) * dusrfdew / (2*dew)
-           c = fourorone(which) * dusrfdew / (2*dew) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = fourorone(which) * dusrfdew / (2*dew) * efvsbar 
            g(2,3,2) = c
            g(2,1,2) = -c
 
     elseif( normal(1) .ne. 0.0_dp )then     ! forward/backward in x ...
 
 !           c = fourorone(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdew / (2*dew)
-           c = fourorone(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdew / (2*dew) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = fourorone(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdew / (2*dew) * efvsbar 
            g(2,2-int(fwdorbwd(1)),2) = c
 
 !           c = fourorone(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdew / (2*dew)
-           c = fourorone(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdew / (2*dew) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = fourorone(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdew / (2*dew) * efvsbar 
            g(2,2,2) = c
 
 !           c = fourorone(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdew / (2*dew)
-           c = fourorone(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdew / (2*dew) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = fourorone(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdew / (2*dew) * efvsbar
            g(2,2+int(fwdorbwd(1)),2) = c
 
     end if
@@ -3718,22 +3728,22 @@ function normhorizmainbc_lat(dew,       dns,   &
                                        ! (NOTE that y coeff. are stored in g(1,:,:) )
 
 !           c = oneorfour(which) * dusrfdns / (2*dns)
-           c = oneorfour(which) * dusrfdns / (2*dns) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = oneorfour(which) * dusrfdns / (2*dns) * efvsbar
            g(1,2,3) = c
            g(1,2,1) = -c
 
     elseif( normal(2) .ne. 0.0_dp) then ! forward/backward in y ...
 
 !           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdns / (2*dns)
-           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdns / (2*dns) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdns / (2*dns) * efvsbar
            g(1,2,2-int(fwdorbwd(2))) = c
 
 !           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdns / (2*dns)
-           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdns / (2*dns) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdns / (2*dns) * efvsbar
            g(1,2,2) = c
 
 !           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdns / (2*dns)
-           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdns / (2*dns) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdns / (2*dns) * efvsbar
            g(1,2,2+int(fwdorbwd(2))) = c
 
     end if
@@ -3776,6 +3786,14 @@ function croshorizmainbc_lat (dew,       dns,               &
 
     integer, dimension(2) :: inormal
 
+    real (kind = dp) :: bar, efvsbar
+
+    ! averaging number for eff. visc. at domain edges
+    bar = sum( (efvs(:,:,:)/efvs(:,:,:)), efvs(:,:,:) > effstrminsq ) 
+
+    ! average visc. to use in coeff. calc.
+    efvsbar = sum( efvs(:,:,:), efvs(:,:,:) > effstrminsq ) / bar    
+
     c = 0.0_dp
     g(:,:,:) = 0.0_dp
     gvert = 0.0_dp
@@ -3787,14 +3805,14 @@ function croshorizmainbc_lat (dew,       dns,               &
 !    c = ( - twoorone(which) * dusrfdew * dsigmadns   &
 !              - oneortwo(which) * dusrfdns * dsigmadew )/(2*dup)
     c = ( - twoorone(which) * dusrfdew * dsigmadns   &
-              - oneortwo(which) * dusrfdns * dsigmadew )/(2*dup) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+              - oneortwo(which) * dusrfdns * dsigmadew )/(2*dup) * efvsbar
     gvert(3) = -c * whichbc(what)
     gvert(1) = c * whichbc(what)
 
     if( normal(1) .eq. 0.0_dp )then        ! centered in x ...
 
 !           c = -oneortwo(which) * dusrfdns / (2*dew)
-           c = -oneortwo(which) * dusrfdns / (2*dew) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = -oneortwo(which) * dusrfdns / (2*dew) * efvsbar
            g(2,3,2) = c
            g(2,1,2) = -c
 
@@ -3802,15 +3820,15 @@ function croshorizmainbc_lat (dew,       dns,               &
                                            ! (NOTE that x coeff. are stored in g(2,:,:) )
 
 !           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdns / (2*dew)
-           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdns / (2*dew) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdns / (2*dew) * efvsbar
            g(2,2-int(fwdorbwd(1)),2) = c
 
 !           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdns / (2*dew)
-           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdns / (2*dew) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdns / (2*dew) * efvsbar
            g(2,2,2) = c
 
 !           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdns / (2*dew)
-           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdns / (2*dew) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdns / (2*dew) * efvsbar
            g(2,2+int(fwdorbwd(1)),2) = c
 
     end if
@@ -3819,22 +3837,22 @@ function croshorizmainbc_lat (dew,       dns,               &
                                        ! (NOTE that y coeff. are stored in g(1,:,:) )
 
 !           c = -twoorone(which) * dusrfdew / (2*dns)
-           c = -twoorone(which) * dusrfdew / (2*dns) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = -twoorone(which) * dusrfdew / (2*dns) * efvsbar
            g(1,2,3) = c
            g(1,2,1) = -c
 
     elseif( normal(2) .ne. 0.0_dp )then ! forward/backward in y ...
 
 !           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdew / (2*dns)
-           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdew / (2*dns) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdew / (2*dns) * efvsbar
            g(1,2,2-int(fwdorbwd(2))) = c
 
 !           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdew / (2*dns)
-           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdew / (2*dns) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdew / (2*dns) * efvsbar
            g(1,2,2) = c
 
 !           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdew / (2*dns)
-           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdew / (2*dns) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdew / (2*dns) * efvsbar
            g(1,2,2+int(fwdorbwd(2))) = c
 
     end if
