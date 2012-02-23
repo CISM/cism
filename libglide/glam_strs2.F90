@@ -948,6 +948,7 @@ subroutine JFNK                 (model,umask)
   vflx => model%velocity%vflx(:,:)
   efvs => model%stress%efvs(:,:,:)
 
+!whl - Could someone explain why this line is here and whether it is still needed?
   flwa(:,:,:)=flwa(:,:,:)*vis0/vis0_glam
 
   ! RN_20100125: assigning value for whatsparse, which is needed for putpcgc()
@@ -1307,6 +1308,11 @@ end if
   model%velocity%uflx = uflx
   model%velocity%vflx = vflx
   model%stress%efvs = efvs
+
+!whl - BUG FIX: Resetting flwa to the correct value.  (Above it was set to flwa*vis0/vis0_glam.)
+!      To do: Rewrite the subroutine so that no rescaling is needed.
+  flwa(:,:,:)=flwa(:,:,:) / (vis0/vis0_glam)
+
 
   return
 end subroutine JFNK
