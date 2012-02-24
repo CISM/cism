@@ -66,7 +66,7 @@ void FC_FUNC(noxinit,NOXINIT) ( int* nelems, double* statevector,
       RCP<Teuchos::ParameterList> pl =
         rcp(new Teuchos::ParameterList("Trilinos Options for NOX"));
       Teuchos::updateParametersFromXmlFileAndBroadcast(
-                             "trilinosOptions.xml", pl.ptr(),tcomm);
+                             "trilinosOptions.xml", pl.get(),tcomm);
  
       Teuchos::ParameterList validPL("Valid List");;
       validPL.sublist("Stratimikos"); validPL.sublist("Piro");
@@ -136,7 +136,7 @@ void FC_FUNC(noxinit,NOXINIT) ( int* nelems, double* statevector,
 void FC_FUNC(noxsolve,NOXSOLVE) (int* nelems, double* statevector, void* blackbox_res)
 {
   try {
-    TEUCHOS_TEST_FOR_EXCEPTION(Nsolver==Teuchos::null, logic_error, 
+    TEST_FOR_EXCEPTION(Nsolver==Teuchos::null, logic_error, 
                           "Exception: noxsolve called with solver=null: \n"
        << "You either did not call noxinit first, or called noxfinish already");
     if (printProc) cout << "NOXSolve called" << endl;

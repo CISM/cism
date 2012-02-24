@@ -75,7 +75,7 @@ public:
   int ApplyInverse(const Epetra_MultiVector& V, Epetra_MultiVector& Y) const;
 
   // Trivial implemetations
-  int SetUseTranspose(bool UseTranspose) { TEUCHOS_TEST_FOR_EXCEPT(UseTranspose); return 0;};
+  int SetUseTranspose(bool UseTranspose) { TEST_FOR_EXCEPT(UseTranspose); return 0;};
   int Apply(const Epetra_MultiVector& X, Epetra_MultiVector& Y) const 
     { throw "No Apply() in TrilinosPreconditioner";};
   double NormInf() const { throw "NO NormInf Implemented in trilinosPrecon";};
