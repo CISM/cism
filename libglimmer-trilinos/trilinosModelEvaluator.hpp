@@ -4,6 +4,7 @@
 #include "Teuchos_RCP.hpp"
 #include "EpetraExt_ModelEvaluator.h"
 #include "Epetra_Map.h"
+#include "Epetra_LocalMap.h"
 #include "Epetra_Comm.h"
 #include "Epetra_Operator.h"
 
@@ -30,6 +31,11 @@ public:
   RCP<const Epetra_Vector> get_x_init() const;
 
   RCP<EpetraExt::ModelEvaluator::Preconditioner> create_WPrec() const;
+
+  //! Parameter setting functions for LOCA continuation
+  RCP<const Epetra_Map> get_p_map(int l) const;
+  RCP<const Epetra_Vector> get_p_init(int l) const;
+  RCP<const  Teuchos::Array<std::string> >  get_p_names(int l) const;
   
   //! Create InArgs
   InArgs createInArgs() const;
@@ -52,6 +58,9 @@ private:
   const Epetra_Comm& comm;
   void* blackbox_res;
   RCP<Epetra_Operator> precOp;
+
+  RCP<Epetra_Map> pMap;
+  RCP<Epetra_Vector> pVec;
 };
 
 
@@ -66,7 +75,7 @@ public:
   int ApplyInverse(const Epetra_MultiVector& V, Epetra_MultiVector& Y) const;
 
   // Trivial implemetations
-  int SetUseTranspose(bool UseTranspose) { TEST_FOR_EXCEPT(UseTranspose); return 0;};
+  int SetUseTranspose(bool UseTranspose) { TEUCHOS_TEST_FOR_EXCEPT(UseTranspose); return 0;};
   int Apply(const Epetra_MultiVector& X, Epetra_MultiVector& Y) const 
     { throw "No Apply() in TrilinosPreconditioner";};
   double NormInf() const { throw "NO NormInf Implemented in trilinosPrecon";};

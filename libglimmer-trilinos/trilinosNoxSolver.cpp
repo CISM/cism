@@ -1,5 +1,6 @@
 // Trilinos Objects
 #include "Piro_Epetra_NOXSolver.hpp"
+#include "Piro_Epetra_LOCASolver.hpp"
 #include "trilinosModelEvaluator.hpp"
 
 #include "Epetra_MpiComm.h"
@@ -16,7 +17,7 @@ using Teuchos::RCP;
 using Teuchos::rcp;
 
 // Objects that are global to the file
-static RCP<Piro::Epetra::NOXSolver> Nsolver;
+static RCP<EpetraExt::ModelEvaluator> Nsolver;
 static RCP<trilinosModelEvaluator> model;
 static RCP<Teuchos::ParameterList> paramList;
 static RCP<Epetra_MpiComm> Comm_;
@@ -24,6 +25,26 @@ static RCP<Epetra_MpiComm> Comm_;
 static EpetraExt::ModelEvaluator::InArgs inArgs;
 static EpetraExt::ModelEvaluator::OutArgs outArgs;
 static bool printProc;
+static int timeStep=1; // time step counter
+// Use continuation instead of straight Newton for this many time steps:
+
+void setCismLocaDefaults(Teuchos::ParameterList& locaList) {
+  Teuchos::ParameterList& predList = locaList.sublist("Predictor");
+  Teuchos::ParameterList& stepperList = locaList.sublist("Stepper");
+  Teuchos::ParameterList& stepSizeList = locaList.sublist("Step Size");
+
+  // If not set in XML list, set these defaults instead
+  (void) predList.get("Method","Constant");
+  (void) stepperList.get("Continuation Method","Natural");
+  (void) stepperList.get("Continuation Parameter","Effstrmin Factor");
+  (void) stepperList.get("Initial Value",10.0);
+  (void) stepperList.get("Max Steps",10);
+  (void) stepperList.get("Max Value",100.0); // not used
+  (void) stepperList.get("Min Value",0.0); // Important!!
+
+  (void) stepSizeList.get("Initial Step Size",-3.0); // Important!!
+  (void) stepSizeList.get("Aggressiveness",2.0); // Important!!
+}
 
 
 extern "C" {
@@ -41,12 +62,11 @@ void FC_FUNC(noxinit,NOXINIT) ( int* nelems, double* statevector,
   
   if (printProc) cout << "NOXINIT CALLED    for nelem=" << *nelems << endl;
 
-
     try { // Check that the parameter list is valid at the top
       RCP<Teuchos::ParameterList> pl =
         rcp(new Teuchos::ParameterList("Trilinos Options for NOX"));
       Teuchos::updateParametersFromXmlFileAndBroadcast(
-                             "trilinosOptions.xml", pl.get(),tcomm);
+                             "trilinosOptions.xml", pl.ptr(),tcomm);
  
       Teuchos::ParameterList validPL("Valid List");;
       validPL.sublist("Stratimikos"); validPL.sublist("Piro");
@@ -65,7 +85,27 @@ void FC_FUNC(noxinit,NOXINIT) ( int* nelems, double* statevector,
 
   model = rcp(new trilinosModelEvaluator(*nelems, statevector, Comm, blackbox_res));
     
-  Nsolver = rcp(new Piro::Epetra::NOXSolver(paramList, model));
+  // Logic to see if we want to use LOCA continuation or NOX single steady solve
+  // Turn on LOCA by having a LOCA sublist OR setting "CISM: Number of Time Steps To Use LOCA"
+  bool useLoca=false;
+  // If LOCA sublist exists, defaults to using it for 1 time step; but can be set in XML.
+  int numStepsToUseLOCA = 0;
+  if (paramList->isSublist("LOCA"))
+    numStepsToUseLOCA = paramList->get("CISM: Number of Time Steps To Use LOCA",1);
+  else 
+    numStepsToUseLOCA = paramList->get("CISM: Number of Time Steps To Use LOCA",0);
+
+  if (timeStep <= numStepsToUseLOCA) useLoca=true;
+
+  if (useLoca) if (printProc)
+    cout << "\nUsing LOCA continuation for first " << numStepsToUseLOCA << "  time steps." << endl;
+
+  if (useLoca) {
+    setCismLocaDefaults(paramList->sublist("LOCA"));
+    Nsolver = rcp(new Piro::Epetra::LOCASolver(paramList, model));
+  }
+  else
+    Nsolver = rcp(new Piro::Epetra::NOXSolver(paramList, model));
 
   inArgs=Nsolver->createInArgs();
   outArgs=Nsolver->createOutArgs();
@@ -75,6 +115,16 @@ void FC_FUNC(noxinit,NOXINIT) ( int* nelems, double* statevector,
   RCP<Epetra_Vector> xout = rcp(new Epetra_Vector(*xmap));
 
   outArgs.set_g(0,xout);
+
+  // Set up parameter vector for continuation runs
+  if (useLoca) {
+    RCP<const Epetra_Map> pmap = Nsolver->get_p_map(0);
+    RCP<Epetra_Vector> pvec = rcp(new Epetra_Vector(*pmap));
+    inArgs.set_p(0, pvec);
+  }
+
+  // Time step counter: just for deciding whether to use continuation on relaxatin param
+  timeStep++;
 
  } //end try block
   catch (std::exception& e) { cout << e.what() << endl; exit(1); }
@@ -86,7 +136,7 @@ void FC_FUNC(noxinit,NOXINIT) ( int* nelems, double* statevector,
 void FC_FUNC(noxsolve,NOXSOLVE) (int* nelems, double* statevector, void* blackbox_res)
 {
   try {
-    TEST_FOR_EXCEPTION(Nsolver==Teuchos::null, logic_error, 
+    TEUCHOS_TEST_FOR_EXCEPTION(Nsolver==Teuchos::null, logic_error, 
                           "Exception: noxsolve called with solver=null: \n"
        << "You either did not call noxinit first, or called noxfinish already");
     if (printProc) cout << "NOXSolve called" << endl;

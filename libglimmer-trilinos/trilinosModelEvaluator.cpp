@@ -3,6 +3,7 @@
 extern "C" {
   void calc_F(double* x, double* f, int N, void* bb);
   void apply_precond_nox(double* x, double* y, int n, void* bb);
+  void reset_effstrmin(const double* esm);
 }
 /*******************************************************************************/
 /*******************************************************************************/
@@ -14,20 +15,16 @@ trilinosModelEvaluator::trilinosModelEvaluator (
 			     : N(N_), comm(comm_), blackbox_res(blackbox_res_)
 {
   
-//  cout << "In TrilinosModelEvaluator constructor:" << endl;
   xMap = Teuchos::rcp(new Epetra_Map(-1, N, 0, comm));
-
-//  cout << "  proc  = " << comm.MyPID() <<  ",  N = " << N 
-//       << ",  Ntot = " << xMap->NumGlobalElements() << endl;
-
   xVec = Teuchos::rcp(new Epetra_Vector(Copy, *xMap, statevector));
 
   precOp = Teuchos::rcp(new trilinosPreconditioner(N, xVec, xMap, blackbox_res));
+
+  pMap = Teuchos::rcp(new Epetra_LocalMap(1, 0, comm));
+  pVec = Teuchos::rcp(new Epetra_Vector(*pMap));
 }
 
 /*******************************************************************************/
-// NTS: Assuming that x, f and g all have the same map for all entries.
-// This is silly, but sufficient for now.
 // Return solution vector map
 Teuchos::RCP<const Epetra_Map> trilinosModelEvaluator::get_x_map() const{
   return xMap;
@@ -50,6 +47,19 @@ trilinosModelEvaluator::create_WPrec() const
   return Teuchos::rcp(new EpetraExt::ModelEvaluator::Preconditioner(precOp,true));
 }
 
+Teuchos::RCP<const Epetra_Map> trilinosModelEvaluator::get_p_map(int l) const{
+  return pMap;
+}
+Teuchos::RCP<const Epetra_Vector> trilinosModelEvaluator::get_p_init(int l) const{
+  return pVec;
+}
+Teuchos::RCP<const  Teuchos::Array<std::string> >  trilinosModelEvaluator::get_p_names(int l) const{
+    RCP<Teuchos::Array<std::string> > p_names =
+      rcp(new Teuchos::Array<std::string>(1) );
+    (*p_names)[0] = "Effstrmin Factor";
+
+  return p_names;
+}
 
 /*******************************************************************************/
 // Create InArgs
@@ -58,7 +68,7 @@ EpetraExt::ModelEvaluator::InArgs trilinosModelEvaluator::createInArgs() const{
 
   inArgs.setModelEvalDescription(this->description());
   inArgs.setSupports(IN_ARG_x,true);
-  inArgs.set_Np(0);
+  inArgs.set_Np(1);
   return inArgs;
 }
 
@@ -67,7 +77,7 @@ EpetraExt::ModelEvaluator::InArgs trilinosModelEvaluator::createInArgs() const{
 EpetraExt::ModelEvaluator::OutArgs trilinosModelEvaluator::createOutArgs() const{
   OutArgsSetup outArgs;
   outArgs.setModelEvalDescription(this->description());
-  outArgs.set_Np_Ng(0, 0);
+  outArgs.set_Np_Ng(1, 0);
   outArgs.setSupports(OUT_ARG_f,true);
   outArgs.setSupports(OUT_ARG_WPrec, true);
 
@@ -78,12 +88,15 @@ EpetraExt::ModelEvaluator::OutArgs trilinosModelEvaluator::createOutArgs() const
 // Evaluate model on InArgs
 void trilinosModelEvaluator::evalModel(const InArgs& inArgs, const OutArgs& outArgs) const{
 
-  //double nrm;
   // Get the solution vector x from inArgs and residual vector from outArgs
   RCP<const Epetra_Vector> x = inArgs.get_x();
   RCP<Epetra_Vector> f = outArgs.get_f();
   
   if (x == Teuchos::null) throw "trilinosModelEvaluator::evalModel: x was NOT specified!";
+
+  // Check if a "Effminstr Factor" parameter is being set by LOCA
+  Teuchos::RCP<const Epetra_Vector> p_in = inArgs.get_p(0);
+  if (p_in.get()) reset_effstrmin(&(*p_in)[0]);
 
   // Save the current solution, which makes it initial guess for next nonlienar solve
   *xVec = *x;
@@ -91,8 +104,6 @@ void trilinosModelEvaluator::evalModel(const InArgs& inArgs, const OutArgs& outA
   if (f != Teuchos::null) {
     f->PutScalar(0.0);
     calc_F(x->Values(), f->Values(), N, blackbox_res);
-    //f->Norm2(&nrm);
-    //cout << "AGS  Resid norm in eval_model total " << nrm << endl;
   }
 
   RCP<Epetra_Operator> WPrec = outArgs.get_WPrec();

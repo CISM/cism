@@ -54,7 +54,24 @@
   <ParameterList name="Piro">
     <Parameter name="Jacobian Operator" type="string" value="Matrix-Free"/>
     <Parameter name="Matrix-Free Perturbation" type="double" value="1.0e-4"/>
-    <Parameter name="CISM: Number of Time Steps To Use LOCA" type="int" value="0"/>
+    <Parameter name="CISM: Number of Time Steps To Use LOCA" type="int" value="1"/>
+    <ParameterList name="LOCA">
+      <ParameterList name="Predictor">
+	<Parameter  name="Method" type="string" value="Constant"/>
+      </ParameterList>
+      <ParameterList name="Stepper">
+	<Parameter  name="Continuation Method" type="string" value="Natural"/>
+	<Parameter  name="Initial Value" type="double" value="20.0"/>
+	<Parameter  name="Continuation Parameter" type="string" value="Effstrmin Factor"/>
+	<Parameter  name="Max Steps" type="int" value="20"/>
+	<Parameter  name="Max Value" type="double" value="100.0"/>
+	<Parameter  name="Min Value" type="double" value="0.0"/>
+      </ParameterList>
+      <ParameterList name="Step Size">
+	<Parameter  name="Initial Step Size" type="double" value="-3.0"/>
+	<Parameter  name="Aggressiveness" type="double" value="1.0"/>
+      </ParameterList>
+    </ParameterList>
     <ParameterList name="NOX">
       <ParameterList name="Direction">
         <Parameter name="Method" type="string" value="Newton"/>
