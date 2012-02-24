@@ -318,9 +318,13 @@ contains
 
 !lipscomb - restart mod - These routines are now called at the end of tstep_p3, so that wgrd
 !                         can be written to the hotstart file and used for restart.
+!whl - Note to Pat: Jeff uncommented these subroutines.  They should be removed (assuming
+!      they are working corectly at the end of tstep_p3).  Let me know if you have questions.
+
                          
        ! JEFF - Concerned about halos and these derivatives.
-       call not_parallel(__FILE__, __LINE__)
+!whl - I was able to run these routines on one processor.
+!!!       call not_parallel(__FILE__, __LINE__)
 
        ! Calculate time-derivatives of thickness and upper surface elevation ------------
 

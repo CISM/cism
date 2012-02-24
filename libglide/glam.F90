@@ -15,12 +15,14 @@ module glam
     use glimmer_physcon, only :
     use glide_mask
 
-!whl - to do - remove these two modules, replace by glissade_transport and glissade_remap
-    use remap_advection, only: horizontal_remap
-    use remap_glamutils
-
+!whl - This is the new transport driver (for upwind or remapping)
     use glissade_transport, only: glissade_transport_driver,  &
                                   nghost_transport, ntracer_transport
+
+!whl - to do - When the new remapping routines (glissade_transport and glissade_remap)
+!              are known to be working, we can remove remap_advection and remap_glamutils
+    use remap_advection, only: horizontal_remap
+    use remap_glamutils
 
     use glide_velo_higher
     use glide_thck
@@ -32,8 +34,10 @@ module glam
 
     ! NOTE: Relevant initializtion routines are in the init section of "glide.F90" 
 
-!whl - temporary; remove later
-    logical, parameter :: old_remapping = .true.  ! if true, then revert to older remapping scheme
+!whl - temporary; remove later when the new scheme is the default
+    logical, parameter :: old_remapping = .true.  ! if false, then use new remapping scheme
+                                                  ! if true, revert to older remapping scheme
+    logical, parameter :: write_verbose = .false. ! if true, write state variable fields to log file
 
     contains
 
@@ -50,6 +54,11 @@ module glam
 !         integer ::         & 
 !           ntrace_ir       ,&! number of tracers to be remapped
 !           nghost_ir         ! number of ghost cells used in remapping scheme
+
+!whl - debug
+        integer :: i, j
+        integer, parameter :: idiag=10, jdiag=15
+
         ! Compute the new geometry derivatives for this time step
 
         call geometry_derivs(model)
@@ -59,11 +68,37 @@ module glam
 
         if (main_task) then
            print *, ' '
-           print *, '(dH/dt using incremental remapping)'
-           print *, 'time = ', model%numerics%time
+           print *, 'Compute higher-order ice velocities, time =', model%numerics%time
         endif
 
         call run_ho_diagnostic(model)   ! in glide_velo_higher.F90
+
+        if (main_task) then
+           print *, ' '
+           print *, 'Compute dH/dt'
+        endif
+
+!whl - diagnostics for debugging. Remove later.
+        if (write_verbose) then
+           write(50,*) ' '
+           write(50,*) 'After run_ho_diagnostic:'
+           write(50,*) 'Sfc velocity field (model%velocity%uvel):'
+!!           do k = 1, model%general%upn
+           do k = 1, 1
+              write(50,*) ' '
+              write(50,*) 'uvel, k =', k
+              write(50,*) ' '
+              do j = size(model%velocity%uvel,3), 1, -1
+                 write(50,'(17e12.4)') model%velocity%uvel(k,1:17,j)
+              enddo
+              write(50,*) ' '
+              write(50,*) 'vvel, k =', k
+              write(50,*) ' '
+              do j = size(model%velocity%vvel,3), 1, -1
+                 write(50,'(17e12.4)') model%velocity%vvel(k,1:17,j)
+              enddo
+           enddo
+        endif
 
 #ifdef JEFFTEST
         ! JEFF Test code to confirm that distributed_gather and distributed_scatter are indeed inverses.
@@ -85,6 +120,9 @@ module glam
 
         call parallel_barrier  ! Other procs hang out here waiting for test to complete on main_task.
 
+!whl - When the transport is fully parallel, these gathers will not be needed.
+!      But we do need to update the thickness, tracers, and velocity in halo cells.
+ 
         ! JEFF Glue Code to serialize
         ! Glue code to gather the distributed variables back to main_task processor.
         ! These are outputs from run_ho_diagnostic and are gathered presuming they will be used
@@ -115,12 +153,12 @@ module glam
 !      The new scheme is better designed for distributed parallelism.
 !      Old remapping scheme to be removed after the new scheme has been implemented in parallel and tested.
 
-      if( model%numerics%tend > model%numerics%tstart)then
+      if( model%numerics%tend > model%numerics%tstart) then
         if (old_remapping) then
 
            if (main_task) then
 
-            ! Use incremental remapping algorithm to evolve the ice thickness
+            ! Use older incremental remapping algorithm to evolve the ice thickness
             ! (and optionally, temperature and other tracers)
 
             if (model%options%whichtemp == TEMP_REMAP_ADV) then   ! Use IR to advect temperature
@@ -149,10 +187,10 @@ module glam
                                          gathered_thck(1:model%general%ewn-1,1:model%general%nsn-1),  &
                                          gathered_uflx, gathered_vflx,               &
                                          gathered_stagthck, model%numerics%thklim,                 &
-                                             model%options%periodic_ew,             model%options%periodic_ns, &
+                                         model%options%periodic_ew,             model%options%periodic_ns, &
                                          gathered_uvel, gathered_vvel,               &
                                          gathered_temp  (1:model%general%upn-1,                        &
-                                                             1:model%general%ewn-1,1:model%general%nsn-1))
+                                                         1:model%general%ewn-1,1:model%general%nsn-1))
 
                ! Remap temperature and fractional thickness for each layer
                ! (This subroutine lives in module remap_advection)
@@ -248,6 +286,12 @@ module glam
                 call horizontal_remap_out(model%remap_wk, gathered_thck,                 &
                                            gathered_acab, model%numerics%dt )
 
+!whl - debug - Gather temperature for optional diagnostics.
+                if (write_verbose) then
+                   write(50,*) 'Gather temperature'
+                   call distributed_gather_var(model%temper%temp, gathered_temp,  &
+                                               lbound(model%temper%temp,1), ubound(model%temper%temp,1))
+                endif
 
             endif   ! whichtemp
 
@@ -260,7 +304,7 @@ module glam
 
         else   ! new remapping scheme
 
-!whl - Note to Jeff - Add halo updates here for thck, temp, uvel and vvel.
+!whl - Note to Jeff - Need halo updates here for thck, temp (and any other advected tracers), uvel and vvel.
 !                     If nhalo >= 2, then no halo updates should be needed inside glissade_transport_driver.
 
            ! Halo updates for thickness and tracers.
@@ -277,6 +321,15 @@ module glam
 !           call ice_HaloUpdate (vvel,               halo_info,     &
 !                                field_loc_NEcorner, field_type_vector)
 
+!whl - The new remapping routines assume that the thickness array has horizontal dimensions 
+!      equal to model%general%ewn and nsn (as defined at initialization).
+!      Above, Jeff redefined model%general%ewn = global_ewn, model%general%nsn = global_nsn.
+!      This is *not* correct for the new remapping, so I redefined the dimensions here.
+!      When the code is fully parallel, the following two lines should be unnecessary.
+
+           model%general%ewn = size(model%geometry%thck,1)  !whl - just for the call to glissade_transport_driver
+           model%general%nsn = size(model%geometry%thck,2)
+
            if (model%options%whichtemp == TEMP_REMAP_ADV) then  ! Use IR to transport thickness, temperature
                                                                 ! (and other tracers, if present)
 
@@ -285,9 +338,9 @@ module glam
                                              model%general%ewn,         model%general%nsn,         &
                                              model%general%upn-1,       model%numerics%sigma,      &
                                              nghost_transport,          ntracer_transport,         &
-                                             gathered_uvel(:,:,:) * vel0,                &
-                                             gathered_vvel(:,:,:) * vel0,                &
-                                             gathered_thck(:,:),                             &
+                                             model%velocity%uvel(:,:,:) * vel0,                    &
+                                             model%velocity%vvel(:,:,:) * vel0,                    &
+                                             model%geometry%thck(:,:),                             &
                                              model%temper%temp(1:model%general%upn-1,:,:) )
 
            else  ! Use IR to transport thickness only
@@ -302,35 +355,67 @@ module glam
                                              model%numerics%dew * len0, model%numerics%dns * len0, &
                                              model%general%ewn,         model%general%nsn,         &
                                              model%general%upn-1,       model%numerics%sigma,      &
-                                             nghost_transport,          1,                         &
-                                             gathered_uvel(:,:,:) * vel0,                &
-                                             gathered_vvel(:,:,:) * vel0,                &
-                                             gathered_thck(:,:))
+                                             nghost_transport,          1,                         &           
+                                             model%velocity%uvel(:,:,:) * vel0,                &
+                                             model%velocity%vvel(:,:,:) * vel0,                &
+                                             model%geometry%thck(:,:))
 
            endif  ! whichtemp
 
-!whl - Note to Jeff - Do we want to do any halo updates after the transport is done?
+!whl - Gather new thck and temp for optional diagnostics.
+           if (write_verbose) then
+              write(50,*) 'Gather thickness and temperature'
+              call distributed_gather_var(model%geometry%thck, gathered_thck)
+              call distributed_gather_var(model%temper%temp, gathered_temp,  &
+                                          lbound(model%temper%temp,1), ubound(model%temper%temp,1))
+           endif
+
+
+!whl -     Reset model%general%ewn and nsn to the global values.  
+!          These were temporarily set to the local values before the new remapping was called.
+!          The following two lines should be removed when the code is fully distributed.
+
+           model%general%ewn = global_ewn
+           model%general%nsn = global_nsn
+
+!whl - Note to Jeff - Think about whether we should do any halo updates after the transport is done.
 
         endif  ! old v. new remapping
 
-!whl - for testing - remove later
-!whl - debug
-!        integer :: i, j
-!        integer, parameter :: idiag=10, jdiag=10
-!        i = idiag
-!        j = jdiag
-!        write(50,*) ' '
-!        write(50,*), 'After remap_out, i, j, thck =', i, j, model%geometry%thck(i,j)
-!        write(50,*) ' '
-!        write(50,*), 'Temps:'
-!        do k = 1, model%general%upn
-!          write(50,*) k, model%temper%temp(k,i,j)
-!        enddo
-!        write(50,*) ' '
-!        write(50,*) 'Full thickness field, E half:'
-!        do j = model%general%nsn, 1, -1
-!          write(50,'(16f10.6)') model%geometry%thck(1:16,j)
-!        enddo
+!whl - optional diagnostics - remove later
+!whl - write gathered_thck and temp, since the old remapping scheme does not update the local arrays
+
+        if (write_verbose) then
+           write(50,*) ' '
+           write(50,*) 'After transport:'
+           write(50,*) ' '
+           write(50,*) 'Gathered thickness field (gathered_thck):'
+           write(50,*) ' '
+           do j = size(gathered_thck,2), 1, -1
+              write(50,'(16e12.4)') gathered_thck(1:16,j)
+           enddo
+           write(50,*) ' '
+           write(50,*) 'Gathered temperature field (gathered_temp):'
+!!          do k = 0, model%general%upn
+           k = model%general%upn-1
+              write(50,*) ' '
+              write(50,*) 'temp, k =', k
+              write(50,*) ' '
+              do j = size(gathered_temp,3), 1, -1
+                 write(50,'(16e12.4)') gathered_temp(k,1:16,j)
+              enddo
+!!          enddo
+
+           i = idiag
+           j = jdiag
+           write(50,*) ' '
+           write(50,*), 'gathered_thck:', i-2, j-2, gathered_thck(i-2,j-2)
+           write(50,*) ' '
+           write(50,*), 'column temps:'
+           do k = 1, model%general%upn
+             write(50,*) k, gathered_temp(k,i-2,j-2)
+           enddo
+         endif   ! write_verbose
 
       endif     ! if tend > tstart
 

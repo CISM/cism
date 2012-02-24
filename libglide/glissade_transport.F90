@@ -21,11 +21,10 @@
       use glimmer_global, only: dp
       use glimmer_log
       use glissade_remap, only: glissade_horizontal_remap, make_remap_mask, puny
-!whl - Note to Jeff - no halo updates, but parallel code needed for global sums
+
+!whl - Note to Jeff - no halo updates, but parallel code is needed for global sums
 !!      use parallel 
 
-!whl - remove later
-      use glimmer_paramets, only: thk0
 !
 !EOP
 !
@@ -190,12 +189,6 @@
          upwind_transport = .false.
       endif
 
-!whl - convert thickness to m
-!Note: This is not really necessary, but do this for now to minimize roundoff differences
-!      in comparison to old remapping scheme
-
-      thck(:,:) = thck(:,:) * thk0
-
 !---!-------------------------------------------------------------------
 !---! Prepare for remapping.
 !---! Initialize, update ghost cells, fill tracer arrays.
@@ -233,6 +226,8 @@
 
          if (present(age) .and. ntracer >= 2) tracer(:,:,2,k) = age(k,:,:)
 
+         !whl - Other tracer fields could be added here
+
       enddo
 
     !-------------------------------------------------------------------
@@ -262,7 +257,8 @@
 
          do k = 1, nlyr
 
-            ! Average corner velocities at interfaces to edge velocities at layer midpoints.
+            ! Average corner velocities at layer interfaces to 
+            ! edge velocities at layer midpoints.
       
             do j = jlo-1, jhi
             do i = ilo-1, ihi
@@ -318,7 +314,6 @@
       ! Define a mask: = 1 where ice is present, = 0 otherwise         
       ! The mask is used to prevent tracer values in cells without ice from
       !  being used to compute tracer gradients.
-      ! Compute here to avoid recomputing for each layer.
       !-------------------------------------------------------------------
 
          call make_remap_mask (nx,           ny,                 &
@@ -402,6 +397,7 @@
 
          if (present(temp)) temp(k,:,:) = tracer(:,:,1,k)
          if (present(age) .and. ntracer >= 2) age(k,:,:) = tracer(:,:,2,k)
+         !whl - Could add more tracer fields here
 
       enddo
 
@@ -415,6 +411,7 @@
          ! Compute final values of globally conserved quantities.
          ! Assume gridcells of equal area, ice of uniform density.
 
+!whl - Note to Jeff: Insert global sums here
          msum_final = sum (thck(:,:))  ! local for now
 !         msum_final = global_sum (thck(:,:))  
 
@@ -423,7 +420,7 @@
 !            mtsum_final(nt) =  global_sum (tracer(:,:,nt,k) * thck_layer(:,:,k))
          enddo
 
-!whl - Note to Jeff: Call this routine from master proc only
+!whl - Note to Jeff: Call this routine from the master proc only
 !         if (my_task == master_task) then
             call global_conservation (msum_init,     msum_final,      &
                                       l_stop,        ntracer,         &
@@ -435,12 +432,6 @@
 !         endif
 
       endif                     ! conservation_check
-
-!whl - convert thickness back to scaled units
-!Note: This is not really necessary, but do this for now to minimize roundoff differences
-!      in comparison to old remapping scheme
-
-      thck(:,:) = thck(:,:) / thk0
 
       end subroutine glissade_transport_driver
 
@@ -721,7 +712,6 @@
       real (kind=dp), dimension(nx,ny),         &
          intent(in)::     &
          uee, vnn             ! cell edge velocities
-
 !
 !EOP
 !

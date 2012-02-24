@@ -250,7 +250,7 @@
 !         depend = (0 0 ...)
 ! has_dependents = (F F ...)
 !
-! To simplify the code, these arrays have been removed throughout.
+! But to simplify the code, these arrays have been removed throughout.
 !
 ! Also, CISM assumes that the U grid (for velocity) is smaller than the
 ! T grid (for scalars).  If the T grid has dimensions (nx,ny), then the
@@ -263,10 +263,6 @@
 ! only one halo row to the north and east.
 !
 ! For both the T and U grids, the local cells have dimensions (ilo:ihi,jlo:jhi),
-! where ilo = 1+nghost, ihi = nx-nghost
-!       jlo = 1+nghost, jhi = ny-nghost
-!
-! The locally owned cells on the U grid have dimensions (ilo:ihi,jlo:jhi),
 ! where ilo = 1+nghost, ihi = nx-nghost
 !       jlo = 1+nghost, jhi = ny-nghost
 !
@@ -313,6 +309,7 @@
 ! !USES:
 !
 !!      use parallel   ! not needed if nghost >= 2
+!                      ! (provided that halos are updated before this routine is called)
 !
 ! !INPUT/OUTPUT PARAMETERS:
 !
@@ -333,7 +330,7 @@
          indxi, indxj     ! compressed i/j indices
 
       ! Note dimensions of uvel and vvel
-      ! This is the Glimmer-CISM convention: Ugrid is smaller than T grid
+      ! This is the CISM convention: U grid is smaller than T grid
       real (kind=dp), intent(in), dimension(nx_block-1,ny_block-1) ::   &
          uvel       ,&! x-component of velocity (m/s)
          vvel         ! y-component of velocity (m/s)
@@ -350,7 +347,7 @@
     !  computed in advance (e.g., by taking the divergence of the 
     !  velocity field) and passed to locate_triangles.  The departure 
     !  regions are adjusted to obtain the desired area.
-    ! If false, edgearea is computed in locate_triangles and passed out.
+    ! If false, edgearea_e and edgearea_n are computed in locate_triangles and passed out.
     !-------------------------------------------------------------------
 
       real (kind=dp), dimension(nx_block,ny_block), intent(inout) ::   &
@@ -481,12 +478,11 @@
 
       xav(:,:) = 0.d0
       yav(:,:) = 0.d0
-!!!       These formulas would be used on a rectangular grid
-!!!       with dimensions (dxt, dyt):  
-!!!       xxav(:,:) = dxt(:,:)**2 / 12.d0
-!!!       yyav(i,j) = dyt(:,:)**2 / 12.d0
-      xxav(:,:) = 1.d0/12.d0
-      yyav(:,:) = 1.d0/12.d0
+      xxav(:,:) = 1.d0 / 12.d0  ! These are the scaled values, valid if dxt = dyt = 1
+      yyav(:,:) = 1.d0 / 12.d0
+!!      xxav(:,:) = dxt(:,:)**2 / 12.d0  ! These would be used if dimensional values 
+!!      yyav(:,:) = dyt(:,:)**2 / 12.d0  ! of dxt and dyt were passed to construct_fields
+
       xyav(:,:) = 0.d0
 
       l_stop = .false.
@@ -494,16 +490,15 @@
       if (present(integral_order_in)) then
          integral_order = integral_order_in
       else
-         integral_order = 2
+         integral_order = 2  ! exact for integrating quadratic functions
       endif
 
       if (present(dp_midpt_in)) then
          dp_midpt = dp_midpt_in
       else
-!whl - to do - set default to true
-!              (false for now to agree with old remapping code)
-!!         dp_midpt = .true.
-         dp_midpt = .false.
+!whl - Set to true for increased accuracy
+!    - Set to false for closer agreement with the old remapping code
+         dp_midpt = .true.
       endif
 
       if (present(prescribed_area_in)) then
@@ -512,6 +507,9 @@
          prescribed_area = .false.
       endif
 
+      ! These arrays are passed to construct_fields in lieu of the dimensional
+      ! values of dxt, dyt, htn, and hte.
+      ! 
       worka(:,:) = 1.d0
       workb(:,:) = 1.d0
       workc(:,:) = 1.d0
@@ -523,12 +521,8 @@
       jlo = 1 + nghost
       jhi = ny_block - nghost
 
-    !------------------------------------------------------------------- 
-    ! Compute masks and count ice cells.
-    ! Masks are used to prevent tracer values in cells without ice from
-    !  being used to compute tracer gradients.
-    !------------------------------------------------------------------- 
-
+!      print*, 'ilo, ihi =', ilo, ihi
+!      print*, 'jlo, jhi =', jlo, jhi
 
     !-------------------------------------------------------------------
     ! Construct linear fields, limiting gradients to preserve monotonicity.
@@ -561,7 +555,7 @@
 
       if (nghost==1) then
 
-!whl - Note to Jeff - Replace with appropriate glimmer-cism calls.
+!whl - Note to Jeff - Replace with appropriate cism calls.
 
          ! departure points
 !         call ice_HaloUpdate (dpx,                halo_info, &
@@ -587,7 +581,7 @@
 !         call ice_timer_stop(timer_bound)
 
       endif  ! nghost
-       
+
     !-------------------------------------------------------------------
     ! Given velocity field at cell corners, compute departure points
     ! of trajectories.
@@ -909,7 +903,7 @@
     !
     ! These integral conditions are satisfied for linear fields if we
     ! stipulate the following:
-    ! (1) The mean mass, mass, is equal to the mass at the cell centroid.
+    ! (1) The mean mass is equal to the mass at the cell centroid.
     ! (2) The mean value trcr1 of type 1 tracers is equal to the value
     !     at the center of mass.
     ! (3) The mean value trcr2 of type 2 tracers is equal to the value
@@ -1298,7 +1292,18 @@
          ! Check for values out of bounds (more than one grid cell away)
          if (dpx(i,j) < -htn(i,j) .or. dpx(i,j) > htn(i+1,j) .or.   &
              dpy(i,j) < -hte(i,j) .or. dpy(i,j) > hte(i,j+1)) then
-            l_stop = .true.
+
+!whl - debug
+!             print*, ' '
+!             print*, 'dt =', dt
+!             print*, 'i, j =', i, j
+!             print*, 'dpx, dpy =', dpx(i,j), dpy(i,j)
+!             print*, 'hte, htn =', hte(i,j), htn(i,j)
+!             print*, 'bad departure points'
+
+!whl - There are some bad velocity points at the corner of the domain.
+!      Ignore these for now since they do no harm.  (Thickness in this region = 0)
+!!!            l_stop = .true.
             istop = i
             jstop = j
          endif

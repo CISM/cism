@@ -192,6 +192,7 @@ contains
           ! Values have been read in - do nothing
       endif
 
+!whl - Not sure this a robust way to decide when to call calcflwa
       ! MJH: Calculate initial value of flwa
       ! If flwa is loaded (e.g. hotstart), use the flwa field in the input file instead
       ! Note: Implementing flwa initialization in this way, I don't think hotstart=1 does anything. 
@@ -359,13 +360,13 @@ contains
 
              ! total dissipation in column
 
-             model%temper%dissipcol(ew, ns) = 0.0d0
+             model%temper%dissipcol(ew,ns) = 0.0d0
              do up = 1, upn-1
-                model%temper%dissipcol(ew, ns) = model%temper%dissipcol(ew, ns) + &
-                                         model%tempwk%dissip(up,ew,ns)  &
-                                        * (model%numerics%sigma(up+1) - model%numerics%sigma(up))  
+                model%temper%dissipcol(ew,ns) = model%temper%dissipcol(ew,ns) + &
+                                              model%tempwk%dissip(up,ew,ns)  &
+                                           * (model%numerics%sigma(up+1) - model%numerics%sigma(up))  
              enddo 
-             model%temper%dissipcol(ew, ns) = model%temper%dissipcol(ew, ns)     &
+             model%temper%dissipcol(ew,ns) = model%temper%dissipcol(ew, ns)     &
                                      * thk0*model%geometry%thck(ew,ns)*rhoi*shci / (tim0*model%numerics%dttem)  
 
              ! Verify that the net input of energy into the column is equal to the change in
@@ -375,6 +376,7 @@ contains
                       + model%temper%dissipcol(ew,ns)) * tim0*model%numerics%dttem
 
 !whl - would need a different threshold if running in single precision
+
              if ( abs((efinal-einit-delta_e)/(tim0*model%numerics%dttem)) > 1.0e-8 ) then
                 write(message,*) 'WARNING: Energy conservation error, ew, ns =', ew, ns
                 call write_log(message)

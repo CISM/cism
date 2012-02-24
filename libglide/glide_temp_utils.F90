@@ -86,7 +86,7 @@ contains
     ! for internal work, so not clear if it is necessary to declare/allocate them elsewhere 
     real(dp) :: c4                         
     real (kind = dp), dimension(model%general%upn) :: c5     
-
+    
     select case( whichdisp ) 
 
     case( SIA_DISP )
@@ -108,7 +108,8 @@ contains
              model%tempwk%dissip(:,ew,ns) = c2 * model%tempwk%c1(:) * ( &
                   flwa(:,ew-1,ns-1) + flwa(:,ew-1,ns+1) + flwa(:,ew+1,ns+1) + flwa(:,ew+1,ns-1) + &
                   2*(flwa(:,ew-1,ns)+flwa(:,ew+1,ns)+flwa(:,ew,ns-1)+flwa(:,ew,ns+1)) + &
-                  4*flwa(:,ew,ns))             
+                  4*flwa(:,ew,ns)) 
+
           end if
        end do
     end do
@@ -364,7 +365,6 @@ contains
         do ew = 1,ewn
           if (thck(ew,ns) > thklim) then
             
-
             ! Calculate the corrected temperature
 
             tempcor(:) = min(0.0d0, temp(:,ew,ns) + thck(ew,ns) * fact * sigma(:))
@@ -373,6 +373,7 @@ contains
             ! Calculate Glenn's A
 
             call patebudd(tempcor(:), flwa(:,ew,ns), arrfact) 
+
           else
             flwa(:,ew,ns) = default_flwa
           end if
@@ -391,6 +392,7 @@ contains
             ! Calculate Glenn's A with a fixed temperature.
 
             call patebudd((/(contemp, up=1,upn)/),flwa(:,ew,ns),arrfact) 
+
           else
             flwa(:,ew,ns) = default_flwa
           end if
