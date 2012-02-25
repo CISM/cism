@@ -262,7 +262,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
   real (kind = dp), save, dimension(2) :: resid     ! vector for storing u resid and v resid 
   real (kind = dp) :: plastic_resid_norm = 0.0d0    ! norm of residual used in Newton-based plastic bed iteration
 
-  integer, parameter :: cmax = 100                  ! max no. of iterations
+  integer, parameter :: cmax = 200                  ! max no. of iterations
   integer :: counter                                ! iteration counter
   character(len=100) :: message                     ! error message
 
@@ -2557,6 +2557,7 @@ subroutine bodyset(ew,  ns,  up,           &
     ! terms after "/" below count number of non-zero efvs cells ... needed for averaging of the efvs at boundary 
 !!x    source = source / ( sum(local_efvs, local_efvs > 1.0d-12) / &
 !!x            sum( (local_efvs/local_efvs), local_efvs > 1.0d-12 ) )
+!!x NOTE: moving viscosity terms into the rhs matrix coeffs.
 
     source = source * normal(pt) ! partition according to normal vector at lateral boundary
                                  ! NOTE that source term is already non-dim here 
@@ -3216,6 +3217,15 @@ function vertimainbcos(thck, bcflag, dup, efvs, betasquared, g_vert, nz, plastic
 
     real (kind = dp) :: c
     real (kind = dp), dimension(3) :: vertimainbcos
+    real (kind = dp) :: bar_sfc, bar_bed, efvsbar_bed, efvsbar_sfc
+
+     ! averaging number for eff. visc. at domain edges
+    bar_sfc = sum( (efvs(1,:,:)/efvs(1,:,:)), efvs(1,:,:) > effstrminsq )
+    bar_bed = sum( (efvs(2,:,:)/efvs(2,:,:)), efvs(2,:,:) > effstrminsq )
+
+    ! average visc. to use in coeff. calc.
+    efvsbar_sfc = sum( efvs(1,:,:), efvs(1,:,:) > effstrminsq ) / bar_sfc
+    efvsbar_bed = sum( efvs(2,:,:), efvs(2,:,:) > effstrminsq ) / bar_bed
 
     c = 0.0_dp
     g_vert = 0.0_dp
@@ -3224,7 +3234,7 @@ function vertimainbcos(thck, bcflag, dup, efvs, betasquared, g_vert, nz, plastic
     if( bcflag(1) == 1 .and. bcflag(2) == 0 )then
 
 !           c = nz / thck / (2*dup) * (len0**2 / thk0**2)   ! value of coefficient
-           c = nz / thck / (2*dup) * (len0**2 / thk0**2) * ( sum( efvs(1,:,:) ) / 4.0_dp ) ! value of coefficient
+           c = nz / thck / (2*dup) * (len0**2 / thk0**2) * efvsbar_sfc 
 
            vertimainbcos(:) = 0.0_dp
            vertimainbcos(1) = 3.0d0*c
@@ -3241,7 +3251,7 @@ function vertimainbcos(thck, bcflag, dup, efvs, betasquared, g_vert, nz, plastic
    if( bcflag(1) == 1 .and. bcflag(2) == 1 )then
 
 !           c = nz / thck / (2*dup) * (len0**2 / thk0**2)   ! value of coefficient
-           c = nz / thck / (2*dup) * (len0**2 / thk0**2) * ( sum( efvs(2,:,:) ) / 4.0_dp ) ! value of coefficient
+           c = nz / thck / (2*dup) * (len0**2 / thk0**2) * efvsbar_bed 
 
            vertimainbcos(:) = 0.0_dp
            vertimainbcos(1) = -1.0d0*c
@@ -3848,9 +3858,18 @@ function normhorizmainbcos_lat(dew,       dns,   &
     real (kind = dp), dimension(3,3,3) :: normhorizmainbcos_lat
     real (kind = dp), dimension(3,3,3) :: g
     real (kind = dp), dimension(2) :: whichbc
-
     real (kind = dp) :: c
+    real (kind = dp) :: bar, bar_sfc, bar_bed, efvsbar, efvsbar_bed, efvsbar_sfc
 
+     ! averaging number for eff. visc. at domain edges
+    bar_sfc = sum( (efvs(1,:,:)/efvs(1,:,:)), efvs(1,:,:) > effstrminsq )
+    bar_bed = sum( (efvs(2,:,:)/efvs(2,:,:)), efvs(2,:,:) > effstrminsq )
+    bar = sum( (efvs(:,:,:)/efvs(:,:,:)), efvs(:,:,:) > effstrminsq )
+
+    ! average visc. to use in coeff. calc.
+    efvsbar_sfc = sum( efvs(1,:,:), efvs(1,:,:) > effstrminsq ) / bar_sfc
+    efvsbar_bed = sum( efvs(2,:,:), efvs(2,:,:) > effstrminsq ) / bar_bed
+    efvsbar = sum( efvs(:,:,:), efvs(:,:,:) > effstrminsq ) / bar
 
     c = 0.0_dp; g(:,:,:) = 0.0_dp; whichbc = (/ 0.0_dp, 1.0_dp /)
 
@@ -3865,7 +3884,7 @@ function normhorizmainbcos_lat(dew,       dns,   &
     if( bcflag(1) == 1 .and. bcflag(2) == 0 )then
 
            c = ( fourorone(which) * dusrfdew * dsigmadew   &
-               + oneorfour(which) * dusrfdns * dsigmadns )/(2*dup) * ( sum( efvs(1,:,:) ) / 4.0_dp )
+               + oneorfour(which) * dusrfdns * dsigmadns )/(2*dup) * efvsbar_sfc
 
            g(1,3,3) = 3.0d0*c
            g(2,3,3) = -4.0d0*c
@@ -3873,19 +3892,19 @@ function normhorizmainbcos_lat(dew,       dns,   &
 
      if( normal(1) .eq. 0.0_dp )then     ! centered in x ...
 
-           c = fourorone(which) * dusrfdew / (2*dew) * ( sum( efvs(1,:,:) ) / 4.0_dp )
+           c = fourorone(which) * dusrfdew / (2*dew) * efvsbar_sfc 
            g(2,3,2) = c 
            g(2,1,2) = -c 
 
      elseif( normal(1) .ne. 0.0_dp )then     ! forward/backward in x ...
 
-           c = fourorone(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdew / (2*dew) * ( sum( efvs(1,:,:) ) / 4.0_dp )
+           c = fourorone(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdew / (2*dew) * efvsbar_sfc
            g(2,2-int(fwdorbwd(1)),2) = c
 
-           c = fourorone(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdew / (2*dew) * ( sum( efvs(1,:,:) ) / 4.0_dp )
+           c = fourorone(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdew / (2*dew) * efvsbar_sfc
            g(2,2,2) = c
 
-           c = fourorone(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdew / (2*dew) * ( sum( efvs(1,:,:) ) / 4.0_dp )
+           c = fourorone(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdew / (2*dew) * efvsbar_sfc
            g(2,2+int(fwdorbwd(1)),2) = c
 
     end if
@@ -3893,19 +3912,19 @@ function normhorizmainbcos_lat(dew,       dns,   &
     if( normal(2) .eq. 0.0_dp ) then   ! centered in y ... 
                                        ! (NOTE that y coeff. are stored in g(1,:,:) )
 
-           c = oneorfour(which) * dusrfdns / (2*dns)
+           c = oneorfour(which) * dusrfdns / (2*dns) * efvsbar_sfc
            g(1,2,3) = c
            g(1,2,1) = -c 
 
     elseif( normal(2) .ne. 0.0_dp) then ! forward/backward in y ...
 
-           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdns / (2*dns) * ( sum( efvs(1,:,:) ) / 4.0_dp )
+           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdns / (2*dns) * efvsbar_sfc
            g(1,2,2-int(fwdorbwd(2))) = c
 
-           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdns / (2*dns) * ( sum( efvs(1,:,:) ) / 4.0_dp )
+           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdns / (2*dns) * efvsbar_sfc
            g(1,2,2) = c
 
-           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdns / (2*dns) * ( sum( efvs(1,:,:) ) / 4.0_dp )
+           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdns / (2*dns) * efvsbar_sfc
            g(1,2,2+int(fwdorbwd(2))) = c
 
     end if
@@ -3914,7 +3933,7 @@ function normhorizmainbcos_lat(dew,       dns,   &
     elseif( bcflag(1) == 1 .and. bcflag(2) == 1 )then
 
            c = ( fourorone(which) * dusrfdew * dsigmadew   &
-               + oneorfour(which) * dusrfdns * dsigmadns )/(2*dup) * ( sum( efvs(2,:,:) ) / 4.0_dp )
+               + oneorfour(which) * dusrfdns * dsigmadns )/(2*dup) * efvsbar_bed
 
            g(1,3,3) = -1.0d0*c
            g(2,3,3) = 4.0d0*c
@@ -3922,19 +3941,19 @@ function normhorizmainbcos_lat(dew,       dns,   &
 
      if( normal(1) .eq. 0.0_dp )then     ! centered in x ...
 
-           c = fourorone(which) * dusrfdew / (2*dew) * ( sum( efvs(2,:,:) ) / 4.0_dp )
+           c = fourorone(which) * dusrfdew / (2*dew) * efvsbar_bed
            g(2,3,2) = c 
            g(2,1,2) = -c
 
      elseif( normal(1) .ne. 0.0_dp )then     ! forward/backward in x ...
 
-           c = fourorone(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdew / (2*dew) * ( sum( efvs(2,:,:) ) / 4.0_dp )
+           c = fourorone(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdew / (2*dew) * efvsbar_bed
            g(2,2-int(fwdorbwd(1)),2) = c
 
-           c = fourorone(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdew / (2*dew) * ( sum( efvs(2,:,:) ) / 4.0_dp )
+           c = fourorone(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdew / (2*dew) * efvsbar_bed
            g(2,2,2) = c
 
-           c = fourorone(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdew / (2*dew) * ( sum( efvs(2,:,:) ) / 4.0_dp )
+           c = fourorone(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdew / (2*dew) * efvsbar_bed
            g(2,2+int(fwdorbwd(1)),2) = c
 
      end if
@@ -3942,19 +3961,19 @@ function normhorizmainbcos_lat(dew,       dns,   &
      if( normal(2) .eq. 0.0_dp ) then   ! centered in y ... 
                                        ! (NOTE that y coeff. are stored in g(1,:,:) )
 
-           c = oneorfour(which) * dusrfdns / (2*dns) * ( sum( efvs(2,:,:) ) / 4.0_dp )
+           c = oneorfour(which) * dusrfdns / (2*dns) * efvsbar_bed
            g(1,2,3) = c
            g(1,2,1) = -c
 
      elseif( normal(2) .ne. 0.0_dp) then ! forward/backward in y ...
 
-           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdns / (2*dns) * ( sum( efvs(2,:,:) ) / 4.0_dp )
+           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdns / (2*dns) * efvsbar_bed
            g(1,2,2-int(fwdorbwd(2))) = c
 
-           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdns / (2*dns) * ( sum( efvs(2,:,:) ) / 4.0_dp )
+           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdns / (2*dns) * efvsbar_bed
            g(1,2,2) = c
 
-           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdns / (2*dns) * ( sum( efvs(2,:,:) ) / 4.0_dp )
+           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdns / (2*dns) * efvsbar_bed
            g(1,2,2+int(fwdorbwd(2))) = c
 
      end if
@@ -3967,25 +3986,25 @@ function normhorizmainbcos_lat(dew,       dns,   &
     ! ...note that these are stored in an empty column of 'g' (a corner column) so that we don't 
     ! overwrite these values in the case of fwd/bwd horiz. diffs., which require 3 spaces
     c = ( fourorone(which) * dusrfdew * dsigmadew    &
-            + oneorfour(which) * dusrfdns * dsigmadns )/(2*dup) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+            + oneorfour(which) * dusrfdns * dsigmadns )/(2*dup) * efvsbar
     g(3,3,3) = -c * whichbc(what)
     g(1,3,3) = c * whichbc(what)
 
     if( normal(1) .eq. 0.0_dp )then     ! centered in x ...
 
-           c = fourorone(which) * dusrfdew / (2*dew) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = fourorone(which) * dusrfdew / (2*dew) * efvsbar
            g(2,3,2) = c 
            g(2,1,2) = -c 
 
     elseif( normal(1) .ne. 0.0_dp )then     ! forward/backward in x ...
 
-           c = fourorone(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdew / (2*dew) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = fourorone(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdew / (2*dew) * efvsbar
            g(2,2-int(fwdorbwd(1)),2) = c
 
-           c = fourorone(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdew / (2*dew) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = fourorone(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdew / (2*dew) * efvsbar
            g(2,2,2) = c
 
-           c = fourorone(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdew / (2*dew) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = fourorone(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdew / (2*dew) * efvsbar
            g(2,2+int(fwdorbwd(1)),2) = c
 
     end if
@@ -3993,19 +4012,19 @@ function normhorizmainbcos_lat(dew,       dns,   &
     if( normal(2) .eq. 0.0_dp ) then   ! centered in y ... 
                                        ! (NOTE that y coeff. are stored in g(1,:,:) )
 
-           c = oneorfour(which) * dusrfdns / (2*dns) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = oneorfour(which) * dusrfdns / (2*dns) * efvsbar
            g(1,2,3) = c
            g(1,2,1) = -c 
 
     elseif( normal(2) .ne. 0.0_dp) then ! forward/backward in y ...
 
-           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdns / (2*dns) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdns / (2*dns) * efvsbar
            g(1,2,2-int(fwdorbwd(2))) = c
 
-           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdns / (2*dns) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdns / (2*dns) * efvsbar
            g(1,2,2) = c
 
-           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdns / (2*dns) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdns / (2*dns) * efvsbar
            g(1,2,2+int(fwdorbwd(2))) = c
 
     end if
@@ -4045,12 +4064,22 @@ function croshorizmainbcos_lat (dew,       dns,       &
     integer, intent(in), dimension(:) :: bcflag     
     integer, intent(in) :: which, what
 
+    integer, dimension(3) :: inormal
     real (kind = dp), dimension(3,3,3) :: g, g_temp, croshorizmainbcos_lat
     real (kind = dp), dimension(3) :: gvert
     real (kind = dp), dimension(2) :: whichbc
     real (kind = dp) :: c
+    real (kind = dp) :: bar, bar_sfc, bar_bed, efvsbar, efvsbar_bed, efvsbar_sfc
 
-    integer, dimension(3) :: inormal
+     ! averaging number for eff. visc. at domain edges
+    bar_sfc = sum( (efvs(1,:,:)/efvs(1,:,:)), efvs(1,:,:) > effstrminsq )
+    bar_bed = sum( (efvs(2,:,:)/efvs(2,:,:)), efvs(2,:,:) > effstrminsq )
+    bar = sum( (efvs(:,:,:)/efvs(:,:,:)), efvs(:,:,:) > effstrminsq )
+
+    ! average visc. to use in coeff. calc.
+    efvsbar_sfc = sum( efvs(1,:,:), efvs(1,:,:) > effstrminsq ) / bar_sfc
+    efvsbar_bed = sum( efvs(2,:,:), efvs(2,:,:) > effstrminsq ) / bar_bed
+    efvsbar = sum( efvs(:,:,:), efvs(:,:,:) > effstrminsq ) / bar
 
     c = 0.0_dp
     g = 0.0_dp
@@ -4063,27 +4092,27 @@ function croshorizmainbcos_lat (dew,       dns,       &
     if( bcflag(1) == 1 .and. bcflag(2) == 0 )then
 
      c = ( - twoorone(which) * dusrfdew * dsigmadns   &
-              - oneortwo(which) * dusrfdns * dsigmadew )/(2*dup) * ( sum( efvs(1,:,:) ) / 4.0_dp )
+              - oneortwo(which) * dusrfdns * dsigmadew )/(2*dup) * efvsbar_sfc
      gvert(1) = 3.0d0*c
      gvert(2) = -4.0d0*c
      gvert(3) = 1.0d0*c
 
     if( normal(1) .eq. 0.0_dp )then        ! centered in x ...
 
-           c = -oneortwo(which) * dusrfdns / (2*dew) * ( sum( efvs(1,:,:) ) / 4.0_dp )
+           c = -oneortwo(which) * dusrfdns / (2*dew) * efvsbar_sfc
            g(2,3,2) = c
            g(2,1,2) = -c
  
     elseif( normal(1) .ne. 0.0_dp )then    ! forward/backward in x ...
                                            ! (NOTE that x coeff. are stored in g(2,:,:) )
 
-           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdns / (2*dew) * ( sum( efvs(1,:,:) ) / 4.0_dp )
+           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdns / (2*dew) * efvsbar_sfc
            g(2,2-int(fwdorbwd(1)),2) = c
 
-           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdns / (2*dew) * ( sum( efvs(1,:,:) ) / 4.0_dp )
+           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdns / (2*dew) * efvsbar_sfc
            g(2,2,2) = c
 
-           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdns / (2*dew) * ( sum( efvs(1,:,:) ) / 4.0_dp )
+           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdns / (2*dew) * efvsbar_sfc
            g(2,2+int(fwdorbwd(1)),2) = c
 
     end if
@@ -4091,19 +4120,19 @@ function croshorizmainbcos_lat (dew,       dns,       &
     if( normal(2) .eq. 0.0_dp )then    ! centered in y ...
                                        ! (NOTE that y coeff. are stored in g(1,:,:) )
 
-           c = -twoorone(which) * dusrfdew / (2*dns) * ( sum( efvs(1,:,:) ) / 4.0_dp )
+           c = -twoorone(which) * dusrfdew / (2*dns) * efvsbar_sfc
            g(1,2,3) = c
            g(1,2,1) = -c
 
     elseif( normal(2) .ne. 0.0_dp )then ! forward/backward in y ...
 
-           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdew / (2*dns) * ( sum( efvs(1,:,:) ) / 4.0_dp )
+           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdew / (2*dns) * efvsbar_sfc
            g(1,2,2-int(fwdorbwd(2))) = c
 
-           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdew / (2*dns) * ( sum( efvs(1,:,:) ) / 4.0_dp )
+           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdew / (2*dns) * efvsbar_sfc
            g(1,2,2) = c
 
-           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdew / (2*dns) * ( sum( efvs(1,:,:) ) / 4.0_dp )
+           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdew / (2*dns) * efvsbar_sfc
            g(1,2,2+int(fwdorbwd(2))) = c
 
     end if
@@ -4113,27 +4142,27 @@ function croshorizmainbcos_lat (dew,       dns,       &
     elseif( bcflag(1) == 1 .and. bcflag(2) == 1 )then
 
     c = ( - twoorone(which) * dusrfdew * dsigmadns   &
-              - oneortwo(which) * dusrfdns * dsigmadew )/(2*dup) * ( sum( efvs(2,:,:) ) / 4.0_dp )
+              - oneortwo(which) * dusrfdns * dsigmadew )/(2*dup) * efvsbar_bed
     gvert(1) = -1.0d0*c
     gvert(2) = 4.0d0*c
     gvert(3) = -3.0d0*c
 
     if( normal(1) .eq. 0.0_dp )then        ! centered in x ...
 
-           c = -oneortwo(which) * dusrfdns / (2*dew) * ( sum( efvs(2,:,:) ) / 4.0_dp )
+           c = -oneortwo(which) * dusrfdns / (2*dew) * efvsbar_bed
            g(2,3,2) = c
            g(2,1,2) = -c
 
     elseif( normal(1) .ne. 0.0_dp )then    ! forward/backward in x ...
                                            ! (NOTE that x coeff. are stored in g(2,:,:) )
 
-           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdns / (2*dew) * ( sum( efvs(2,:,:) ) / 4.0_dp )
+           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdns / (2*dew) * efvsbar_bed
            g(2,2-int(fwdorbwd(1)),2) = c
 
-           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdns / (2*dew) * ( sum( efvs(2,:,:) ) / 4.0_dp )
+           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdns / (2*dew) * efvsbar_bed
            g(2,2,2) = c
 
-           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdns / (2*dew) * ( sum( efvs(2,:,:) ) / 4.0_dp )
+           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdns / (2*dew) * efvsbar_bed
            g(2,2+int(fwdorbwd(1)),2) = c
 
     end if
@@ -4141,18 +4170,18 @@ function croshorizmainbcos_lat (dew,       dns,       &
     if( normal(2) .eq. 0.0_dp )then    ! centered in y ...
                                        ! (NOTE that y coeff. are stored in g(1,:,:) )
 
-           c = -twoorone(which) * dusrfdew / (2*dns) * ( sum( efvs(2,:,:) ) / 4.0_dp )
+           c = -twoorone(which) * dusrfdew / (2*dns) * efvsbar_bed
            g(1,2,3) = c
            g(1,2,1) = -c
 
     elseif( normal(2) .ne. 0.0_dp )then ! forward/backward in y ...
-            c = -twoorone(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdew / (2*dns) * ( sum( efvs(2,:,:) ) / 4.0_dp )
+            c = -twoorone(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdew / (2*dns) * efvsbar_bed
            g(1,2,2-int(fwdorbwd(2))) = c
 
-           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdew / (2*dns) * ( sum( efvs(2,:,:) ) / 4.0_dp )
+           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdew / (2*dns) * efvsbar_bed
            g(1,2,2) = c
 
-           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdew / (2*dns) * ( sum( efvs(2,:,:) ) / 4.0_dp )
+           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdew / (2*dns) * efvsbar_bed
            g(1,2,2+int(fwdorbwd(2))) = c
 
     end if
@@ -4169,20 +4198,20 @@ function croshorizmainbcos_lat (dew,       dns,       &
 
     if( normal(1) .eq. 0.0_dp )then        ! centered in x ...
 
-           c = -oneortwo(which) * dusrfdns / (2*dew) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = -oneortwo(which) * dusrfdns / (2*dew) * efvsbar
            g(2,3,2) = c
            g(2,1,2) = -c
 
     elseif( normal(1) .ne. 0.0_dp )then    ! forward/backward in x ...
                                            ! (NOTE that x coeff. are stored in g(2,:,:) )
 
-           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdns / (2*dew) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdns / (2*dew) * efvsbar
            g(2,2-int(fwdorbwd(1)),2) = c
 
-           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdns / (2*dew) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdns / (2*dew) * efvsbar
            g(2,2,2) = c
 
-           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdns / (2*dew) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdns / (2*dew) * efvsbar
            g(2,2+int(fwdorbwd(1)),2) = c
 
     end if
@@ -4190,19 +4219,19 @@ function croshorizmainbcos_lat (dew,       dns,       &
     if( normal(2) .eq. 0.0_dp )then    ! centered in y ...
                                        ! (NOTE that y coeff. are stored in g(1,:,:) )
 
-           c = -twoorone(which) * dusrfdew / (2*dns) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = -twoorone(which) * dusrfdew / (2*dns) * efvsbar
            g(1,2,3) = c
            g(1,2,1) = -c
 
     elseif( normal(2) .ne. 0.0_dp )then ! forward/backward in y ...
 
-           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdew / (2*dns) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdew / (2*dns) * efvsbar
            g(1,2,2-int(fwdorbwd(2))) = c
 
-           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdew / (2*dns) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdew / (2*dns) * efvsbar
            g(1,2,2) = c
 
-           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdew / (2*dns) * ( sum( efvs(:,:,:) ) / 8.0_dp )
+           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdew / (2*dns) * efvsbar
            g(1,2,2+int(fwdorbwd(2))) = c
 
     end if
@@ -4669,11 +4698,9 @@ subroutine fillsprsebndyos(inp,locplusup,ptindx,up,normal,pt,osshift)
 !           call putpcgc(inp(3,3,3),ptindx(5)+up+1,locplusup,pt)
            call putpcgc(inp(2+osshift,3,3),ptindx(5)+up+2*osshift,locplusup,pt)
                 checkinp(2+osshift,3,3) = 0
-           call putpcgc(inp(1,2,3),ptindx(4)+up+osshift,locplusup,pt)
+           call putpcgc(inp(1,2,3),ptindx(4)+up,locplusup,pt)
                 checkinp(1,2,3) = 0
-
     else                                ! at boundary w/ normal [0,1]
-
 !           call putpcgc(inp(1,3,3),ptindx(4)+up-1,locplusup,pt)
            call putpcgc(inp(2,3,3),ptindx(4)+up+osshift,locplusup,pt)
 !           call putpcgc(inp(2,3,3)+inp(1,2,3),ptindx(4)+up,locplusup,pt)
@@ -4681,10 +4708,9 @@ subroutine fillsprsebndyos(inp,locplusup,ptindx,up,normal,pt,osshift)
 !           call putpcgc(inp(3,3,3),ptindx(4)+up+1,locplusup,pt)
            call putpcgc(inp(2+osshift,3,3),ptindx(4)+up+2*osshift,locplusup,pt)
            call putpcgc(inp(1,2,1),ptindx(5)+up,locplusup,pt)
-
     end if
 
-    call putpcgc(inp(1,2,2),ptindx(1)+up+osshift,locplusup,pt)
+    call putpcgc(inp(1,2,2),ptindx(1)+up,locplusup,pt)
          checkinp(1,2,2) = 0
 !    print *, 'sum of coeff block = ', sum( abs(checkinp) )
 
@@ -4692,14 +4718,20 @@ subroutine fillsprsebndyos(inp,locplusup,ptindx,up,normal,pt,osshift)
 
   if( normal(2) == 0.0_dp )then            ! at boundary normal to x, centered diffs in y 
         if( normal(1) == -1.0_dp )then     ! at boundary w/ normal [-1,0]
-           call putpcgc(inp(1,3,3),ptindx(3)+up-1,locplusup,pt)
-           call putpcgc( inp(2,3,3)+inp(2,1,2),ptindx(3)+up,locplusup,pt)
-           call putpcgc(inp(3,3,3),ptindx(3)+up+1,locplusup,pt)
+!           call putpcgc(inp(1,3,3),ptindx(3)+up-1,locplusup,pt)
+           call putpcgc(inp(2,3,3),ptindx(3)+up+osshift,locplusup,pt)
+!           call putpcgc( inp(2,3,3)+inp(2,1,2),ptindx(3)+up,locplusup,pt)
+           call putpcgc( inp(2-osshift,3,3)+inp(2,1,2),ptindx(3)+up,locplusup,pt)
+!           call putpcgc(inp(3,3,3),ptindx(3)+up+1,locplusup,pt)
+           call putpcgc(inp(2+osshift,3,3),ptindx(3)+up+2*osshift,locplusup,pt)
            call putpcgc(inp(2,3,2),ptindx(2)+up,locplusup,pt)
         else                                 ! at boundary w/ normal [1,0]
-           call putpcgc(inp(1,3,3),ptindx(2)+up-1,locplusup,pt)
-           call putpcgc( inp(2,3,3)+inp(2,3,2),ptindx(2)+up,locplusup,pt)
-           call putpcgc(inp(3,3,3),ptindx(2)+up+1,locplusup,pt)
+!           call putpcgc(inp(1,3,3),ptindx(2)+up-1,locplusup,pt)
+           call putpcgc(inp(2,3,3),ptindx(2)+up+osshift,locplusup,pt)
+!           call putpcgc( inp(2,3,3)+inp(2,3,2),ptindx(2)+up,locplusup,pt)
+           call putpcgc( inp(2-osshift,3,3)+inp(2,3,2),ptindx(2)+up,locplusup,pt)
+!           call putpcgc(inp(3,3,3),ptindx(2)+up+1,locplusup,pt)
+           call putpcgc(inp(2+osshift,3,3),ptindx(2)+up+2*osshift,locplusup,pt)
            call putpcgc(inp(2,1,2),ptindx(3)+up,locplusup,pt)
     end if
     call putpcgc(inp(2,2,2),ptindx(1)+up,locplusup,pt)
@@ -4708,17 +4740,23 @@ subroutine fillsprsebndyos(inp,locplusup,ptindx,up,normal,pt,osshift)
    ! at corners where only one-side diffs. apply
   if( normal(1) .gt. 0.0_dp .and. normal(2) .ne. 0.0_dp )then
     if( normal(2) .gt. 0.0_dp )then      ! corner w/ normal [ 1/sqrt(2), 1/sqrt(2) ]
-           call putpcgc(inp(1,3,3),ptindx(2)+up-1,locplusup,pt)
-           call putpcgc(inp(3,3,3),ptindx(2)+up+1,locplusup,pt)
-           call putpcgc(inp(2,3,3)+inp(2,3,2)+inp(1,2,3),ptindx(2)+up,locplusup,pt)
+!           call putpcgc(inp(1,3,3),ptindx(2)+up-1,locplusup,pt)
+           call putpcgc(inp(2,3,3),ptindx(2)+up+osshift,locplusup,pt)
+!           call putpcgc(inp(2,3,3)+inp(2,3,2)+inp(1,2,3),ptindx(2)+up,locplusup,pt)
+           call putpcgc(inp(2-osshift,3,3)+inp(2,3,2)+inp(1,2,3),ptindx(2)+up,locplusup,pt)
+!           call putpcgc(inp(3,3,3),ptindx(2)+up+1,locplusup,pt)
+           call putpcgc(inp(2+osshift,3,3),ptindx(2)+up+2*osshift,locplusup,pt)
            call putpcgc(inp(2,2,2),ptindx(1)+up,locplusup,pt)
            call putpcgc(inp(1,2,2),ptindx(6)+up,locplusup,pt)
            call putpcgc(inp(1,2,1),ptindx(5)+up,locplusup,pt)
            call putpcgc(inp(2,1,2),ptindx(3)+up,locplusup,pt)
     else                                 ! corner w/ normal [ 1/sqrt(2), -1/sqrt(2) ]
-           call putpcgc(inp(1,3,3),ptindx(2)+up-1,locplusup,pt)
-           call putpcgc(inp(3,3,3),ptindx(2)+up+1,locplusup,pt)
-           call putpcgc(inp(2,3,3)+inp(1,2,1)+inp(2,3,2),ptindx(2)+up,locplusup,pt)
+!           call putpcgc(inp(1,3,3),ptindx(2)+up-1,locplusup,pt)
+           call putpcgc(inp(2,3,3),ptindx(2)+up+osshift,locplusup,pt)
+!           call putpcgc(inp(2,3,3)+inp(1,2,1)+inp(2,3,2),ptindx(2)+up,locplusup,pt)
+           call putpcgc(inp(2-osshift,3,3)+inp(1,2,1)+inp(2,3,2),ptindx(2)+up,locplusup,pt)
+!           call putpcgc(inp(3,3,3),ptindx(2)+up+1,locplusup,pt)
+           call putpcgc(inp(2+osshift,3,3),ptindx(2)+up+2*osshift,locplusup,pt)
            call putpcgc(inp(2,2,2),ptindx(1)+up,locplusup,pt)
            call putpcgc(inp(2,1,2),ptindx(3)+up,locplusup,pt)
            call putpcgc(inp(1,2,2),ptindx(6)+up,locplusup,pt)
@@ -4728,17 +4766,23 @@ subroutine fillsprsebndyos(inp,locplusup,ptindx,up,normal,pt,osshift)
 
   if( normal(1) .lt. 0.0_dp .and. normal(2) .ne. 0.0_dp )then
     if( normal(2) .gt. 0.0_dp )then       ! corner w/ normal [ -1/sqrt(2), 1/sqrt(2) ]
-           call putpcgc(inp(1,3,3),ptindx(3)+up-1,locplusup,pt)
-           call putpcgc(inp(3,3,3),ptindx(3)+up+1,locplusup,pt)
-           call putpcgc(inp(2,3,3)+inp(1,2,3)+inp(2,1,2),ptindx(3)+up,locplusup,pt)
+!           call putpcgc(inp(1,3,3),ptindx(3)+up-1,locplusup,pt)
+           call putpcgc(inp(2,3,3),ptindx(3)+up+osshift,locplusup,pt)
+!           call putpcgc(inp(2,3,3)+inp(1,2,3)+inp(2,1,2),ptindx(3)+up,locplusup,pt)
+           call putpcgc(inp(2-osshift,3,3)+inp(1,2,3)+inp(2,1,2),ptindx(3)+up,locplusup,pt)
+!           call putpcgc(inp(3,3,3),ptindx(3)+up+1,locplusup,pt)
+           call putpcgc(inp(2+osshift,3,3),ptindx(3)+up+2*osshift,locplusup,pt)
            call putpcgc(inp(2,2,2),ptindx(1)+up,locplusup,pt)
            call putpcgc(inp(2,3,2),ptindx(2)+up,locplusup,pt)
            call putpcgc(inp(1,2,2),ptindx(6)+up,locplusup,pt)
            call putpcgc(inp(1,2,1),ptindx(5)+up,locplusup,pt)
     else                                  ! corner w/ normal [ -1/sqrt(2), -1/sqrt(2) ]
-           call putpcgc(inp(1,3,3),ptindx(3)+up-1,locplusup,pt)
-           call putpcgc(inp(3,3,3),ptindx(3)+up+1,locplusup,pt)
-           call putpcgc(inp(2,3,3)+inp(2,1,2)+inp(1,2,1),ptindx(3)+up,locplusup,pt)
+!           call putpcgc(inp(1,3,3),ptindx(3)+up-1,locplusup,pt)
+           call putpcgc(inp(2,3,3),ptindx(3)+up+osshift,locplusup,pt)
+!           call putpcgc(inp(2,3,3)+inp(2,1,2)+inp(1,2,1),ptindx(3)+up,locplusup,pt)
+           call putpcgc(inp(2-osshift,3,3)+inp(2,1,2)+inp(1,2,1),ptindx(3)+up,locplusup,pt)
+!           call putpcgc(inp(3,3,3),ptindx(3)+up+1,locplusup,pt)
+           call putpcgc(inp(2-osshift,3,3),ptindx(3)+up+2*osshift,locplusup,pt)
            call putpcgc(inp(2,2,2),ptindx(1)+up,locplusup,pt)
            call putpcgc(inp(1,2,2),ptindx(6)+up,locplusup,pt)
            call putpcgc(inp(2,3,2),ptindx(2)+up,locplusup,pt)
