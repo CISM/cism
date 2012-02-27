@@ -91,7 +91,34 @@ zero = numpy.zeros([1,nz,ny-1,nx-1],dtype='float32')
 uvel = numpy.zeros([1,nz,ny-1,nx-1],dtype='float32')
 vvel = numpy.zeros([1,nz,ny-1,nx-1],dtype='float32')
 
-thk[0,4:-2,2:-2] = 500.  # *SFP* changed to be in line w/ EISMINT-shelf tests 3&4 
+# *SFP* changed to be in line w/ EISMINT-shelf tests 3&4 
+
+# shelf bc applied at bottom (DEFAULT FOR TEST CASE - other options below for testing bcs)
+thk[0,4:-2,2:-2] = 500.     
+kbc[0,ny-4:,:]  = 1
+kbc[0,:,:3] = 1
+kbc[0,:,nx-4:] = 1
+
+# shelf bc applied at top    
+#thk[0,2:-4,2:-2] = 500.     
+#kbc[0,:3,:]  = 1
+#kbc[0,:,:3] = 1
+#kbc[0,:,nx-4:] = 1
+
+# shelf bc applied at right     ! NOTE that shelf is wider slightly wider in ns than in ew direction  
+#thk[0,2:-2,2:-4] = 500.     
+#kbc[0,:,:3]  = 1
+#kbc[0,:3,:] = 1
+#kbc[0,ny-4:,:] = 1
+
+# shelf bc applied at left     ! NOTE that shelf is wider slightly wider in ns than in ew direction  
+#thk[0,2:-2,4:-2] = 500.     
+#kbc[0,:,nx-4:]  = 1
+#kbc[0,:3,:] = 1
+#kbc[0,ny-4:,:] = 1
+
+#if not periodic_ew:    *SFP* removed periodic option
+
 beta[0,:,:] = 0 
 
 acab[:] = 0.25
@@ -100,11 +127,6 @@ acab[0,:,:3] = 0
 acab[0,:,nx-3:] = 0
 
 temp[:] = -10.0        
-
-#if not periodic_ew:    *SFP* removed periodic option
-kbc[0,ny-4:,:]  = 1
-kbc[0,:,:3] = 1
-kbc[0,:,nx-4:] = 1
 
 # *SFP* calculate stream profile for upstream end
 for i in range(nx-2):
