@@ -295,7 +295,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
   real (kind = dp), save, dimension(2) :: resid     ! vector for storing u resid and v resid 
   real (kind = dp) :: plastic_resid_norm = 0.0d0    ! norm of residual used in Newton-based plastic bed iteration
 
-  integer, parameter :: cmax = 300                  ! max no. of iterations
+  integer, parameter :: cmax = 100                  ! max no. of iterations
   integer :: counter, linit                         ! iteration counter, ???
   character(len=100) :: message                     ! error message
 
@@ -3230,7 +3230,7 @@ subroutine bodyset(ew,  ns,  up,           &
                + vertimainbcos( stagthck(ew,ns),bcflag,dup(up),local_efvs,betasquared, &
                              g_vert, nz, plastic_coeff=plastic_coeff_lhs(pt,ew,ns) )
 
-	!! scale basal bc coeffs when using JFNK solver 
+        !! scale basal bc coeffs when using JFNK solver 
         scalebabc = scalebasalbc( g, bcflag, lateralboundry, betasquared, local_efvs )
         g = g / scalebabc
 
@@ -3305,7 +3305,7 @@ subroutine bodyset(ew,  ns,  up,           &
     ! when the solution has converged a bit, we switch to the more realistic implementation (option 2).
     ! That is achieved in the following if construct ...
 
-!    if( cc < 2 .and. .not. inisoln )then  ! This should be the default option for the shelf BC source term.
+!    if( cc < 5 .and. .not. inisoln )then  ! This should be the default option for the shelf BC source term.
                                           ! If no previous guess for the eff. visc. exists, this option
                                           ! uses the 1d version of the BC for one iteration in order to 
                                           ! "precondition" the soln for the next iteration. W/o this option
@@ -3409,17 +3409,14 @@ subroutine bodyset(ew,  ns,  up,           &
 !!xx Replace ghost cells w/ one-sided diffs at sfc/basal indices.
 !!xx This if construct skips the normal discretization for the RHS and LHS for the sfc and basal indices
      if( up /= upn .and. up /= 1 )then
-
          g = normhorizmain(pt,up,local_efvs)
          g(:,2,2) = g(:,2,2) + vertimain(hsum(local_efvs),up)
-
          call fillsprsemain(g,loc2plusup(1),loc2(:,1),up,pt,0)
          ! NOTE that in the following expression, the "-" sign on the crosshoriz terms,
          ! which results from moving them from the LHS over to the RHS, is explicit and
          ! hast NOT been moved inside of "croshorizmin" (as is the case for the analogous
          ! boundary condition routines).
          rhsd(loc2plusup(2)) = thisdusrfdx(ew,ns) - sum(croshorizmain(pt,up,local_efvs) * local_othervel)
-
      end if
 
 !!xx Replace ghost cells w/ one-sided diffs at sfc/basal indices.
@@ -4017,13 +4014,15 @@ function vertimainbcos(thck, bcflag, dup, efvs, betasquared, g_vert, nz, plastic
     efvsbar_sfc = sum( efvs(1,:,:), efvs(1,:,:) > effstrminsq ) / bar_sfc
     efvsbar_bed = sum( efvs(2,:,:), efvs(2,:,:) > effstrminsq ) / bar_bed
 
+    ! make the following lines active to turn OFF the visc. dependence in the LHS matrix coeffs.
+    !efvsbar_sfc = 1.0d0; efvsbar_bed = 1.0d0
+
     c = 0.0_dp
     g_vert = 0.0_dp
 
     ! for higher-order FREE SURFACE B.C. for x ('which'=1) or y ('which'=2) direction ...
     if( bcflag(1) == 1 .and. bcflag(2) == 0 )then
 
-!           c = nz / thck / (2*dup) * (len0**2 / thk0**2)   ! value of coefficient
            c = nz / thck / (2*dup) * (len0**2 / thk0**2) * efvsbar_sfc
 
            vertimainbcos(:) = 0.0_dp
@@ -4040,7 +4039,6 @@ function vertimainbcos(thck, bcflag, dup, efvs, betasquared, g_vert, nz, plastic
    ! for higher-order BASAL B.C. w/ specified basal traction, add on the necessary source term ...
    if( bcflag(1) == 1 .and. bcflag(2) == 1 )then
 
-!           c = nz / thck / (2*dup) * (len0**2 / thk0**2)   ! value of coefficient
            c = nz / thck / (2*dup) * (len0**2 / thk0**2) * efvsbar_bed
 
            vertimainbcos(:) = 0.0_dp
@@ -4058,10 +4056,10 @@ function vertimainbcos(thck, bcflag, dup, efvs, betasquared, g_vert, nz, plastic
            ! of boundary tractions (note that it DOES NOT include terms from boundary forcing)
 
             ! last set of terms is mean visc. of ice nearest to the bed
-!            vertimainbcos(3) = vertimainbcos(3)   &
-!                           + ( betasquared / ( sum( efvs(2,:,:) ) / 4.0_dp ) ) * (len0 / thk0)
             vertimainbcos(3) = vertimainbcos(3)   &
-                           + betasquared * (len0 / thk0)
+                           + ( betasquared / efvsbar_bed ) * (len0 / thk0)
+!            vertimainbcos(3) = vertimainbcos(3)   &
+!                           + betasquared * (len0 / thk0)
 
     end if
 
@@ -4071,7 +4069,7 @@ function vertimainbcos(thck, bcflag, dup, efvs, betasquared, g_vert, nz, plastic
 
              ! last set of terms is mean visc. of ice nearest to the bed
             vertimainbcos(2) = vertimainbcos(2)   &
-                           + ( plastic_coeff / ( sum( efvs(2,:,:) ) / 4.0_dp ) ) * (len0 / thk0)
+                           + ( plastic_coeff / efvsbar_bed ) * (len0 / thk0)
     end if
 
     ! for higher-order BASAL B.C. U=V=0, in x ('which'=1) or y ('which'=2) direction ...
@@ -4289,7 +4287,7 @@ function normhorizmainbc_lat(dew,       dns,   &
                              dusrfdew,  dusrfdns,  &
                              dsigmadew, dsigmadns, &
                              which,     what,      &
-                             dup,                  &
+                             dup,       efvs,      &
                              oneorfour, fourorone, &
                              onesideddiff,         &
                              normal,    fwdorbwd)
@@ -4312,15 +4310,26 @@ function normhorizmainbc_lat(dew,       dns,   &
     real (kind = dp), intent(in) :: dusrfdew, dusrfdns, dsigmadew, dsigmadns, dup
     real (kind = dp), intent(in), dimension(2) :: oneorfour, fourorone, normal, fwdorbwd
     real (kind = dp), intent(in), dimension(3) :: onesideddiff
+    real (kind = dp), intent(in), dimension(2,2,2) :: efvs
 
     real (kind = dp), dimension(3,3,3) :: normhorizmainbc_lat
     real (kind = dp), dimension(3,3,3) :: g
     real (kind = dp), dimension(2) :: whichbc
     real (kind = dp) :: c
+    real (kind = dp) :: bar, efvsbar
 
     integer, intent(in) :: which, what
 
     c = 0.0_dp; g(:,:,:) = 0.0_dp; whichbc = (/ 0.0_dp, 1.0_dp /)
+
+    ! averaging number for eff. visc. at domain edges
+    bar = sum( (efvs(:,:,:)/efvs(:,:,:)), efvs(:,:,:) > effstrminsq )
+
+    ! average visc. to use in coeff. calc.
+    efvsbar = sum( efvs(:,:,:), efvs(:,:,:) > effstrminsq ) / bar
+
+    ! make the following lines active to turn OFF the visc. dependence in the LHS matrix coeffs.
+!    efvsbar = 1.0d0; 
 
     ! for higher-order FREE SURFACE B.C. for x ('which'=1) or y ('which'=2) direction ...
     ! (also applies to basal stress bc)
@@ -4329,25 +4338,25 @@ function normhorizmainbc_lat(dew,       dns,   &
     ! ...note that these are stored in an empty column of 'g' (a corner column) so that we don't
     ! overwrite these values in the case of fwd/bwd horiz. diffs., which require 3 spaces
     c = ( fourorone(which) * dusrfdew * dsigmadew    &
-            + oneorfour(which) * dusrfdns * dsigmadns )/(2*dup)
+            + oneorfour(which) * dusrfdns * dsigmadns )/(2*dup) * efvsbar
     g(3,3,3) = -c * whichbc(what)
     g(1,3,3) = c * whichbc(what)
 
     if( normal(1) .eq. 0.0_dp )then     ! centered in x ...
 
-           c = fourorone(which) * dusrfdew / (2*dew)
+           c = fourorone(which) * dusrfdew / (2*dew) * efvsbar
            g(2,3,2) = c
            g(2,1,2) = -c
 
     elseif( normal(1) .ne. 0.0_dp )then     ! forward/backward in x ...
 
-           c = fourorone(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdew / (2*dew)
+           c = fourorone(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdew / (2*dew) * efvsbar
            g(2,2-int(fwdorbwd(1)),2) = c
 
-           c = fourorone(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdew / (2*dew)
+           c = fourorone(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdew / (2*dew) * efvsbar
            g(2,2,2) = c
 
-           c = fourorone(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdew / (2*dew)
+           c = fourorone(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdew / (2*dew) * efvsbar
            g(2,2+int(fwdorbwd(1)),2) = c
 
     end if
@@ -4355,19 +4364,19 @@ function normhorizmainbc_lat(dew,       dns,   &
     if( normal(2) .eq. 0.0_dp ) then   ! centered in y ...
                                        ! (NOTE that y coeff. are stored in g(1,:,:) )
 
-           c = oneorfour(which) * dusrfdns / (2*dns)
+           c = oneorfour(which) * dusrfdns / (2*dns) * efvsbar
            g(1,2,3) = c
            g(1,2,1) = -c
 
     elseif( normal(2) .ne. 0.0_dp) then ! forward/backward in y ...
 
-           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdns / (2*dns)
+           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdns / (2*dns) * efvsbar
            g(1,2,2-int(fwdorbwd(2))) = c
 
-           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdns / (2*dns)
+           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdns / (2*dns) * efvsbar
            g(1,2,2) = c
 
-           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdns / (2*dns)
+           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdns / (2*dns) * efvsbar
            g(1,2,2+int(fwdorbwd(2))) = c
 
     end if
@@ -4427,6 +4436,9 @@ function normhorizmainbcos_lat(dew,       dns,   &
     efvsbar_sfc = sum( efvs(1,:,:), efvs(1,:,:) > effstrminsq ) / bar_sfc
     efvsbar_bed = sum( efvs(2,:,:), efvs(2,:,:) > effstrminsq ) / bar_bed
     efvsbar = sum( efvs(:,:,:), efvs(:,:,:) > effstrminsq ) / bar
+
+    ! make the following lines active to turn OFF the visc. dependence in the LHS matrix coeffs.
+!    efvsbar = 1.0d0; efvsbar_sfc = 1.0d0; efvsbar_bed = 1.0d0
 
     c = 0.0_dp; g(:,:,:) = 0.0_dp; whichbc = (/ 0.0_dp, 1.0_dp /)
 
@@ -4851,7 +4863,7 @@ function croshorizmainbc_lat (dew,       dns,       &
     real (kind = dp), intent(in), dimension(3) :: onesideddiff
     real (kind = dp), intent(in) :: dusrfdew, dusrfdns, dsigmadew, dsigmadns, dup
     real (kind = dp), intent(in), dimension(3,3,3) :: local_othervel
-    real (kind = dp), intent(in), dimension(:,:,:) :: efvs
+    real (kind = dp), intent(in), dimension(2,2,2) :: efvs
 
     integer, intent(in) :: which, what
 
@@ -4870,6 +4882,9 @@ function croshorizmainbc_lat (dew,       dns,       &
     ! average visc. to use in coeff. calc.
     efvsbar = sum( efvs(:,:,:), efvs(:,:,:) > effstrminsq ) / bar
 
+    ! make the following lines active to turn OFF the visc. dependence in the LHS matrix coeffs.
+!    efvsbar = 1.0d0; 
+
     c = 0.0_dp
     g(:,:,:) = 0.0_dp
     gvert = 0.0_dp
@@ -4878,8 +4893,6 @@ function croshorizmainbc_lat (dew,       dns,       &
 
     ! first, coeff. that go with du/dsigma, and thus are associated with u(1,2,2) and u(3,2,2)
     ! ... note that these are stored in a separate vector (to avoid being overwritten if stored in normal 'g')
-!    c = ( - twoorone(which) * dusrfdew * dsigmadns   &
-!              - oneortwo(which) * dusrfdns * dsigmadew )/(2*dup)
     c = ( - twoorone(which) * dusrfdew * dsigmadns   &
               - oneortwo(which) * dusrfdns * dsigmadew )/(2*dup) * efvsbar
     gvert(3) = -c * whichbc(what)
@@ -4887,7 +4900,6 @@ function croshorizmainbc_lat (dew,       dns,       &
 
     if( normal(1) .eq. 0.0_dp )then        ! centered in x ...
 
-!           c = -oneortwo(which) * dusrfdns / (2*dew)
            c = -oneortwo(which) * dusrfdns / (2*dew) * efvsbar
            g(2,3,2) = c
            g(2,1,2) = -c
@@ -4895,15 +4907,12 @@ function croshorizmainbc_lat (dew,       dns,       &
     elseif( normal(1) .ne. 0.0_dp )then    ! forward/backward in x ...
                                            ! (NOTE that x coeff. are stored in g(2,:,:) )
 
-!           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdns / (2*dew)
            c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdns / (2*dew) * efvsbar
            g(2,2-int(fwdorbwd(1)),2) = c
 
-!           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdns / (2*dew)
            c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdns / (2*dew) * efvsbar
            g(2,2,2) = c
 
-!           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdns / (2*dew)
            c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdns / (2*dew) * efvsbar
            g(2,2+int(fwdorbwd(1)),2) = c
 
@@ -4912,22 +4921,18 @@ function croshorizmainbc_lat (dew,       dns,       &
     if( normal(2) .eq. 0.0_dp )then    ! centered in y ...
                                        ! (NOTE that y coeff. are stored in g(1,:,:) )
 
-!           c = -twoorone(which) * dusrfdew / (2*dns)
            c = -twoorone(which) * dusrfdew / (2*dns) * efvsbar
            g(1,2,3) = c
            g(1,2,1) = -c
 
     elseif( normal(2) .ne. 0.0_dp )then ! forward/backward in y ...
 
-!           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdew / (2*dns)
            c = -twoorone(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdew / (2*dns) * efvsbar
            g(1,2,2-int(fwdorbwd(2))) = c
 
-!           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdew / (2*dns)
            c = -twoorone(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdew / (2*dns) * efvsbar
            g(1,2,2) = c
 
-!           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdew / (2*dns)
            c = -twoorone(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdew / (2*dns) * efvsbar
            g(1,2,2+int(fwdorbwd(2))) = c
 
@@ -5002,6 +5007,9 @@ function croshorizmainbcos_lat (dew,       dns,       &
     efvsbar_sfc = sum( efvs(1,:,:), efvs(1,:,:) > effstrminsq ) / bar_sfc
     efvsbar_bed = sum( efvs(2,:,:), efvs(2,:,:) > effstrminsq ) / bar_bed
     efvsbar = sum( efvs(:,:,:), efvs(:,:,:) > effstrminsq ) / bar
+
+    ! make the following lines active to turn OFF the visc. dependence in the LHS matrix coeffs.
+!    efvsbar = 1.0d0; efvsbar_sfc = 1.0d0; efvsbar_bed = 1.0d0
 
     c = 0.0_dp
     g = 0.0_dp
@@ -5113,7 +5121,7 @@ function croshorizmainbcos_lat (dew,       dns,       &
     ! coeff. that go with du/dsigma, and thus are associated with u(1,2,2) and u(3,2,2)
     ! ... note that these are stored in a separate vector (to avoid being overwritten if stored in normal 'g')
     c = ( - twoorone(which) * dusrfdew * dsigmadns   &
-              - oneortwo(which) * dusrfdns * dsigmadew )/(2*dup)
+              - oneortwo(which) * dusrfdns * dsigmadew )/(2*dup) * efvsbar
     gvert(3) = -c * whichbc(what)
     gvert(1) = c * whichbc(what)
 
