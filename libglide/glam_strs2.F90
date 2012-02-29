@@ -2657,7 +2657,7 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
     enddo
   else
 
-    usav(:,:,:,pt) = vel;
+    usav(:,:,:,pt) = vel
 
   end if
 
