@@ -506,7 +506,7 @@ contains
 
 !----------------------------------------------------------------------------- 
 
-  subroutine glide_tstep_p2(model,no_write)
+  subroutine glide_tstep_p2(model)
     !*FD Performs second part of time-step of an ice model instance.
     !*FD write data and move ice
     use parallel
@@ -526,24 +526,10 @@ contains
     implicit none
 
     type(glide_global_type) :: model        !*FD model instance
-    logical,optional :: no_write
-
-    logical nw
 
     ! temporary variables needed to reset geometry for the EVOL_NO_THICKNESS option
     real (kind = dp), dimension(model%general%ewn,model%general%nsn) :: thck_old
     real (kind = dp), dimension(model%general%ewn-1,model%general%nsn-1) :: stagthck_old
-
-    ! ------------------------------------------------------------------------ 
-    ! write to netCDF file
-    ! ------------------------------------------------------------------------ 
-    if (present(no_write)) then
-       nw=no_write
-    else
-       nw=.false.
-    end if 
-
-    if (.not. nw) call glide_io_writeall(model,model)
 
     ! ------------------------------------------------------------------------ 
     ! Calculate flow evolution by various different methods
