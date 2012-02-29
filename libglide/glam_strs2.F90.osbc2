@@ -5180,7 +5180,7 @@ function croshorizmainbcos_lat (dew,       dns,       &
     inormal(3) = 0                                      !! default shift is 0
     if( bcflag(1) == 1 .and. bcflag(2) == 0 )then       !! at the surface
         inormal(3) = -1
-    elseif( bcflag(1) == 1 .and. bcflag(1) == 0 )then   !! at the bed
+    elseif( bcflag(1) == 1 .and. bcflag(2) == 1 )then   !! at the bed
         inormal(3) = 1
     endif
 
