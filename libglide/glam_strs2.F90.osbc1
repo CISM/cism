@@ -3141,6 +3141,9 @@ subroutine bodyset(ew,  ns,  up,           &
 
   integer, dimension(2) :: loc2plusup
 
+  g = 0.0d0; h = 0.0d0
+  slopex = 0.0d0; slopey = 0.0d0
+
   loc2plusup = loc2(1,:) + up
 
   if( lateralboundry )then
@@ -3186,6 +3189,9 @@ subroutine bodyset(ew,  ns,  up,           &
            slopex = dlsrfdew(ew,ns); slopey = dlsrfdns(ew,ns); nz = -1.0_dp
 
         end if
+
+!        !! Hack to avoid bad sfc and basal bc normal vectors !!
+        slopex = 0.0d0; slopey = 0.0d0
 
         g = normhorizmainbc_lat(dew,           dns,             &
                                 slopex,        slopey,          &
@@ -3430,6 +3436,9 @@ subroutine bodyset(ew,  ns,  up,           &
            slopex = dlsrfdew(ew,ns); slopey = dlsrfdns(ew,ns); nz = -1.0_dp
         
         end if
+
+!        !! Hack to avoid bad sfc and basal bc normal vectors !!
+        slopex = 0.0d0; slopey = 0.0d0
 
 !!xx OLD method, using ghost cells
 !     g = normhorizmainbc(dew,           dns,     &

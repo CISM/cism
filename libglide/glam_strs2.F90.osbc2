@@ -3141,6 +3141,9 @@ subroutine bodyset(ew,  ns,  up,           &
 
   integer, dimension(2) :: loc2plusup
 
+  g = 0.0d0; h = 0.0d0
+  slopex = 0.0d0; slopey = 0.0d0
+
   loc2plusup = loc2(1,:) + up
 
   if( lateralboundry )then
@@ -3198,6 +3201,9 @@ subroutine bodyset(ew,  ns,  up,           &
            slopex = dlsrfdew(ew,ns); slopey = dlsrfdns(ew,ns); nz = -1.0_dp
 
         end if
+
+!        !! Hack to avoid bad sfc and basal bc normal vectors !!
+        slopex = 0.0d0; slopey = 0.0d0
 
 !!x        g = normhorizmainbc_lat(dew,           dns,             &
 !!x                                slopex,        slopey,          &
@@ -3472,6 +3478,9 @@ subroutine bodyset(ew,  ns,  up,           &
            slopex = dlsrfdew(ew,ns); slopey = dlsrfdns(ew,ns); nz = -1.0_dp
         
         end if
+
+!        !! Hack to avoid bad sfc and basal bc normal vectors !!
+        slopex = 0.0d0; slopey = 0.0d0
 
 !!xx OLD method, using ghost cells
 !     g = normhorizmainbc(dew,           dns,     &
@@ -5188,7 +5197,7 @@ function croshorizmainbcos_lat (dew,       dns,       &
     g_temp(2+inormal(3),2+inormal(1),:) = g(1,2,:)                   ! shift layer in g block layer 1 (in temp storage)
 
     ! sum coeffs. that are in same column and flatten so that all coeff. are on level (2,:,:)
-    croshorizmainbcos_lat(2,:,:) = croshorizmainbcos_lat(2,:,:) + g_temp(2,:,:)
+    croshorizmainbcos_lat(:,:,:) = croshorizmainbcos_lat(:,:,:) + g_temp(:,:,:)
 
     ! set remaining coeff. on this level to to 0 ...
     croshorizmainbcos_lat(1,:,:) = 0.0_dp
