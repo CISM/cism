@@ -3137,7 +3137,7 @@ subroutine bodyset(ew,  ns,  up,           &
 
   integer, dimension(2) :: bcflag  ! indicates choice of sfc and basal bcs ...
 
-  real (kind = dp) :: scalebabc
+  real (kind = dp) :: scalebabc = 1.0d0
 
   integer, dimension(2) :: loc2plusup
 
@@ -3237,8 +3237,8 @@ subroutine bodyset(ew,  ns,  up,           &
                              g_vert, nz, plastic_coeff=plastic_coeff_lhs(pt,ew,ns) )
 
         !! scale basal bc coeffs when using JFNK solver 
-        scalebabc = scalebasalbc( g, bcflag, lateralboundry, betasquared, local_efvs )
-        g = g / scalebabc
+!        scalebabc = scalebasalbc( g, bcflag, lateralboundry, betasquared, local_efvs )
+!        g = g / scalebabc
 
         ! put the coeff. for the b.c. equation in the same place as the prev. equation
         ! (w.r.t. cols), on a new row ...
@@ -3479,7 +3479,7 @@ subroutine bodyset(ew,  ns,  up,           &
         
         end if
 
-!        !! Hack to avoid bad sfc and basal bc normal vectors !!
+        !! Hack to avoid bad sfc and basal bc normal vectors !!
         slopex = 0.0d0; slopey = 0.0d0
 
 !!xx OLD method, using ghost cells
@@ -3514,18 +3514,16 @@ subroutine bodyset(ew,  ns,  up,           &
 
 
      !! scale basal bc coeffs when using JFNK solver
-     scalebabc = scalebasalbc( g, bcflag, lateralboundry, betasquared, local_efvs )
-     g = g / scalebabc
+!     scalebabc = scalebasalbc( g, bcflag, lateralboundry, betasquared, local_efvs )
+!     g = g / scalebabc
 
      ! put the coeff. for the b.c. equation in the same place as the prev. equation
      ! (w.r.t. cols), on a new row ...
 !!xx call fillsprsemain(g,loc2plusup(1),loc2(:,1),up,pt)
-
 !!xx Replace ghost cells w/ one-sided diffs at sfc/basal indices.
 !!xx This section shifts the LHS matrix coeffs back on to the main diagonal (as opposed to staggered
 !!xx off the diag, which was necessary for the ghost cell implementation)
      if( up == 1 .or. up == upn )then
-       !loc2plusup(1) = loc2(1,1) + up  !!xx need to reset this index since we want the bc on the actual row
        loc2plusup = loc2(1,:) + up  !!xx need to reset this index since we want the bc on the actual row
                                        !!xx coinciding with the boundary at up=1
         if( up == 1 )then
@@ -4065,10 +4063,10 @@ function vertimainbcos(thck, bcflag, dup, efvs, betasquared, g_vert, nz, plastic
            ! of boundary tractions (note that it DOES NOT include terms from boundary forcing)
 
             ! last set of terms is mean visc. of ice nearest to the bed
-            vertimainbcos(3) = vertimainbcos(3)   &
-                           + ( betasquared / efvsbar_bed ) * (len0 / thk0)
 !            vertimainbcos(3) = vertimainbcos(3)   &
-!                           + betasquared * (len0 / thk0)
+!                           + ( betasquared / efvsbar_bed ) * (len0 / thk0)
+            vertimainbcos(3) = vertimainbcos(3)   &
+                           + betasquared * (len0 / thk0)
 
     end if
 
@@ -4221,7 +4219,6 @@ function normhorizmainbcos(dew,       dns,      &
     ! simply pass in a different value for the normal vector (slope) components (still
     ! called "dusrfdns", "dusrfdew" here, but args passed in are different).
     if( bcflag(1) == 1 .and. bcflag(2) == 0 )then
-
 
            ! first, coeff. that go with du/dsigma, and thus are associated
            ! with u(1,2,2) and u(3,2,2) ...
@@ -4436,6 +4433,8 @@ function normhorizmainbcos_lat(dew,       dns,   &
     real (kind = dp) :: c
     real (kind = dp) :: bar, bar_sfc, bar_bed, efvsbar, efvsbar_bed, efvsbar_sfc
 
+    logical :: debug = .false.
+
      ! averaging number for eff. visc. at domain edges
     bar_sfc = sum( (efvs(1,:,:)/efvs(1,:,:)), efvs(1,:,:) > effstrminsq )
     bar_bed = sum( (efvs(2,:,:)/efvs(2,:,:)), efvs(2,:,:) > effstrminsq )
@@ -4610,6 +4609,31 @@ function normhorizmainbcos_lat(dew,       dns,   &
     end if
 
     normhorizmainbcos_lat = g
+
+    !! debug lines
+!    debug = .true.
+    if( debug )then
+    print *, ' ---- normhorizmainbcos_lat debug output ---- '
+    print *, ' '
+    print *, 'slopex, slopey  = ', dusrfdew, dusrfdns
+    print *, ' '
+    print *, 'layer 1 of final coeff. block: ', normhorizmainbcos_lat(1,1:3,3)
+    print *, 'layer 1 of final coeff. block: ', normhorizmainbcos_lat(1,1:3,2)
+    print *, 'layer 1 of final coeff. block: ', normhorizmainbcos_lat(1,1:3,1)
+    print *, ' '
+    print *, 'layer 2 of final coeff. block: ', normhorizmainbcos_lat(2,1:3,3)
+    print *, 'layer 2 of final coeff. block: ', normhorizmainbcos_lat(2,1:3,2)
+    print *, 'layer 2 of final coeff. block: ', normhorizmainbcos_lat(2,1:3,1)
+    print *, ' '
+    print *, 'layer 3 of final coeff. block: ', normhorizmainbcos_lat(3,1:3,3)
+    print *, 'layer 3 of final coeff. block: ', normhorizmainbcos_lat(3,1:3,2)
+    print *, 'layer 3 of final coeff. block: ', normhorizmainbcos_lat(3,1:3,1)
+    print *, ' '
+    print *, 'gvert = ', g(:,3,3)
+    print *, 'y coeffs = ', g(1,2,:)
+    print *, 'x coeffs = ', g(2,:,2)
+    print *, ' '
+    end if
 
     return
 
@@ -5007,6 +5031,8 @@ function croshorizmainbcos_lat (dew,       dns,       &
     real (kind = dp) :: c
     real (kind = dp) :: bar, bar_sfc, bar_bed, efvsbar, efvsbar_bed, efvsbar_sfc
 
+    logical :: debug = .false.
+
      ! averaging number for eff. visc. at domain edges
     bar_sfc = sum( (efvs(1,:,:)/efvs(1,:,:)), efvs(1,:,:) > effstrminsq )
     bar_bed = sum( (efvs(2,:,:)/efvs(2,:,:)), efvs(2,:,:) > effstrminsq )
@@ -5199,11 +5225,33 @@ function croshorizmainbcos_lat (dew,       dns,       &
     ! sum coeffs. that are in same column and flatten so that all coeff. are on level (2,:,:)
     croshorizmainbcos_lat(:,:,:) = croshorizmainbcos_lat(:,:,:) + g_temp(:,:,:)
 
-    ! set remaining coeff. on this level to to 0 ...
-    croshorizmainbcos_lat(1,:,:) = 0.0_dp
-
     ! account for vertical terms stored seperately and temporarily in 'gvert'
     croshorizmainbcos_lat(:,2+inormal(1),2+inormal(2)) = croshorizmainbcos_lat(:,2+inormal(1),2+inormal(2)) + gvert(:)
+
+    !! debug lines
+!    debug = .true.
+    if( debug )then
+    print *, ' ---- croshorizmainbcos_lat debug output ---- '
+    print *, 'inormal(x,y,z) = ', inormal
+    print *, 'slopex, slopey  = ', dusrfdew, dusrfdns
+    print *, ' '
+    print *, 'layer 1 of final coeff. block: ', croshorizmainbcos_lat(1,1:3,3)
+    print *, 'layer 1 of final coeff. block: ', croshorizmainbcos_lat(1,1:3,2)
+    print *, 'layer 1 of final coeff. block: ', croshorizmainbcos_lat(1,1:3,1)
+    print *, ' '
+    print *, 'layer 2 of final coeff. block: ', croshorizmainbcos_lat(2,1:3,3)
+    print *, 'layer 2 of final coeff. block: ', croshorizmainbcos_lat(2,1:3,2)
+    print *, 'layer 2 of final coeff. block: ', croshorizmainbcos_lat(2,1:3,1)
+    print *, ' '
+    print *, 'layer 3 of final coeff. block: ', croshorizmainbcos_lat(3,1:3,3)
+    print *, 'layer 3 of final coeff. block: ', croshorizmainbcos_lat(3,1:3,2)
+    print *, 'layer 3 of final coeff. block: ', croshorizmainbcos_lat(3,1:3,1)
+    print *, ' '
+    print *, 'gvert = ', gvert
+    print *, 'y coeffs = ', g(1,2,:)
+    print *, 'x coeffs = ', g(2,:,2)
+    print *, ' '
+    end if
 
     return
 
@@ -5526,7 +5574,7 @@ subroutine fillsprsebndyos(inp,locplusup,ptindx,up,normal,pt,osshift)
 !           call putpcgc(inp(3,3,3),ptindx(5)+up+1,locplusup,pt)
            call putpcgc(inp(2+osshift,3,3),ptindx(5)+up+2*osshift,locplusup,pt)
                 checkinp(2+osshift,3,3) = 0
-           call putpcgc(inp(1,2,3),ptindx(4)+up,locplusup,pt)
+           call putpcgc(inp(1,2,3),ptindx(4)+up+osshift,locplusup,pt)
                 checkinp(1,2,3) = 0
     else                                ! at boundary w/ normal [0,1]
 !           call putpcgc(inp(1,3,3),ptindx(4)+up-1,locplusup,pt)
@@ -5535,10 +5583,10 @@ subroutine fillsprsebndyos(inp,locplusup,ptindx,up,normal,pt,osshift)
            call putpcgc(inp(2-osshift,3,3)+inp(1,2,3),ptindx(4)+up,locplusup,pt)
 !           call putpcgc(inp(3,3,3),ptindx(4)+up+1,locplusup,pt)
            call putpcgc(inp(2+osshift,3,3),ptindx(4)+up+2*osshift,locplusup,pt)
-           call putpcgc(inp(1,2,1),ptindx(5)+up,locplusup,pt)
+           call putpcgc(inp(1,2,1),ptindx(5)+up+osshift,locplusup,pt)
     end if
 
-    call putpcgc(inp(1,2,2),ptindx(1)+up,locplusup,pt)
+    call putpcgc(inp(1,2,2),ptindx(1)+up+osshift,locplusup,pt)
          checkinp(1,2,2) = 0
 !    print *, 'sum of coeff block = ', sum( abs(checkinp) )
 
@@ -5552,7 +5600,7 @@ subroutine fillsprsebndyos(inp,locplusup,ptindx,up,normal,pt,osshift)
            call putpcgc( inp(2-osshift,3,3)+inp(2,1,2),ptindx(3)+up,locplusup,pt)
 !           call putpcgc(inp(3,3,3),ptindx(3)+up+1,locplusup,pt)
            call putpcgc(inp(2+osshift,3,3),ptindx(3)+up+2*osshift,locplusup,pt)
-           call putpcgc(inp(2,3,2),ptindx(2)+up,locplusup,pt)
+           call putpcgc(inp(2,3,2),ptindx(2)+up+osshift,locplusup,pt)
         else                                 ! at boundary w/ normal [1,0]
 !           call putpcgc(inp(1,3,3),ptindx(2)+up-1,locplusup,pt)
            call putpcgc(inp(2,3,3),ptindx(2)+up+osshift,locplusup,pt)
@@ -5560,9 +5608,9 @@ subroutine fillsprsebndyos(inp,locplusup,ptindx,up,normal,pt,osshift)
            call putpcgc( inp(2-osshift,3,3)+inp(2,3,2),ptindx(2)+up,locplusup,pt)
 !           call putpcgc(inp(3,3,3),ptindx(2)+up+1,locplusup,pt)
            call putpcgc(inp(2+osshift,3,3),ptindx(2)+up+2*osshift,locplusup,pt)
-           call putpcgc(inp(2,1,2),ptindx(3)+up,locplusup,pt)
+           call putpcgc(inp(2,1,2),ptindx(3)+up+osshift,locplusup,pt)
     end if
-    call putpcgc(inp(2,2,2),ptindx(1)+up,locplusup,pt)
+    call putpcgc(inp(2,2,2),ptindx(1)+up+osshift,locplusup,pt)
   end if
 
    ! at corners where only one-side diffs. apply
@@ -5574,10 +5622,10 @@ subroutine fillsprsebndyos(inp,locplusup,ptindx,up,normal,pt,osshift)
            call putpcgc(inp(2-osshift,3,3)+inp(2,3,2)+inp(1,2,3),ptindx(2)+up,locplusup,pt)
 !           call putpcgc(inp(3,3,3),ptindx(2)+up+1,locplusup,pt)
            call putpcgc(inp(2+osshift,3,3),ptindx(2)+up+2*osshift,locplusup,pt)
-           call putpcgc(inp(2,2,2),ptindx(1)+up,locplusup,pt)
-           call putpcgc(inp(1,2,2),ptindx(6)+up,locplusup,pt)
-           call putpcgc(inp(1,2,1),ptindx(5)+up,locplusup,pt)
-           call putpcgc(inp(2,1,2),ptindx(3)+up,locplusup,pt)
+           call putpcgc(inp(2,2,2),ptindx(1)+up+osshift,locplusup,pt)
+           call putpcgc(inp(1,2,2),ptindx(6)+up+osshift,locplusup,pt)
+           call putpcgc(inp(1,2,1),ptindx(5)+up+osshift,locplusup,pt)
+           call putpcgc(inp(2,1,2),ptindx(3)+up+osshift,locplusup,pt)
     else                                 ! corner w/ normal [ 1/sqrt(2), -1/sqrt(2) ]
 !           call putpcgc(inp(1,3,3),ptindx(2)+up-1,locplusup,pt)
            call putpcgc(inp(2,3,3),ptindx(2)+up+osshift,locplusup,pt)
@@ -5585,10 +5633,10 @@ subroutine fillsprsebndyos(inp,locplusup,ptindx,up,normal,pt,osshift)
            call putpcgc(inp(2-osshift,3,3)+inp(1,2,1)+inp(2,3,2),ptindx(2)+up,locplusup,pt)
 !           call putpcgc(inp(3,3,3),ptindx(2)+up+1,locplusup,pt)
            call putpcgc(inp(2+osshift,3,3),ptindx(2)+up+2*osshift,locplusup,pt)
-           call putpcgc(inp(2,2,2),ptindx(1)+up,locplusup,pt)
-           call putpcgc(inp(2,1,2),ptindx(3)+up,locplusup,pt)
-           call putpcgc(inp(1,2,2),ptindx(6)+up,locplusup,pt)
-           call putpcgc(inp(1,2,3),ptindx(4)+up,locplusup,pt)
+           call putpcgc(inp(2,2,2),ptindx(1)+up+osshift,locplusup,pt)
+           call putpcgc(inp(2,1,2),ptindx(3)+up+osshift,locplusup,pt)
+           call putpcgc(inp(1,2,2),ptindx(6)+up+osshift,locplusup,pt)
+           call putpcgc(inp(1,2,3),ptindx(4)+up+osshift,locplusup,pt)
     end if
   end if
 
@@ -5600,21 +5648,21 @@ subroutine fillsprsebndyos(inp,locplusup,ptindx,up,normal,pt,osshift)
            call putpcgc(inp(2-osshift,3,3)+inp(1,2,3)+inp(2,1,2),ptindx(3)+up,locplusup,pt)
 !           call putpcgc(inp(3,3,3),ptindx(3)+up+1,locplusup,pt)
            call putpcgc(inp(2+osshift,3,3),ptindx(3)+up+2*osshift,locplusup,pt)
-           call putpcgc(inp(2,2,2),ptindx(1)+up,locplusup,pt)
-           call putpcgc(inp(2,3,2),ptindx(2)+up,locplusup,pt)
-           call putpcgc(inp(1,2,2),ptindx(6)+up,locplusup,pt)
-           call putpcgc(inp(1,2,1),ptindx(5)+up,locplusup,pt)
+           call putpcgc(inp(2,2,2),ptindx(1)+up+osshift,locplusup,pt)
+           call putpcgc(inp(2,3,2),ptindx(2)+up+osshift,locplusup,pt)
+           call putpcgc(inp(1,2,2),ptindx(6)+up+osshift,locplusup,pt)
+           call putpcgc(inp(1,2,1),ptindx(5)+up+osshift,locplusup,pt)
     else                                  ! corner w/ normal [ -1/sqrt(2), -1/sqrt(2) ]
 !           call putpcgc(inp(1,3,3),ptindx(3)+up-1,locplusup,pt)
            call putpcgc(inp(2,3,3),ptindx(3)+up+osshift,locplusup,pt)
 !           call putpcgc(inp(2,3,3)+inp(2,1,2)+inp(1,2,1),ptindx(3)+up,locplusup,pt)
            call putpcgc(inp(2-osshift,3,3)+inp(2,1,2)+inp(1,2,1),ptindx(3)+up,locplusup,pt)
 !           call putpcgc(inp(3,3,3),ptindx(3)+up+1,locplusup,pt)
-           call putpcgc(inp(2-osshift,3,3),ptindx(3)+up+2*osshift,locplusup,pt)
-           call putpcgc(inp(2,2,2),ptindx(1)+up,locplusup,pt)
-           call putpcgc(inp(1,2,2),ptindx(6)+up,locplusup,pt)
-           call putpcgc(inp(2,3,2),ptindx(2)+up,locplusup,pt)
-           call putpcgc(inp(1,2,3),ptindx(4)+up,locplusup,pt)
+           call putpcgc(inp(2+osshift,3,3),ptindx(3)+up+2*osshift,locplusup,pt)
+           call putpcgc(inp(2,2,2),ptindx(1)+up+osshift,locplusup,pt)
+           call putpcgc(inp(1,2,2),ptindx(6)+up+osshift,locplusup,pt)
+           call putpcgc(inp(2,3,2),ptindx(2)+up+osshift,locplusup,pt)
+           call putpcgc(inp(1,2,3),ptindx(4)+up+osshift,locplusup,pt)
     end if
   end if
 
@@ -5622,7 +5670,7 @@ subroutine fillsprsebndyos(inp,locplusup,ptindx,up,normal,pt,osshift)
 
 end subroutine fillsprsebndyos
 
-!***********************************************************************
+!**********************************************************************
 
 subroutine getlatboundinfo( ew, ns, up, ewn, nsn, upn,  &
                            thck, loc_array,             &
@@ -5636,7 +5684,6 @@ subroutine getlatboundinfo( ew, ns, up, ewn, nsn, upn,  &
   integer, intent(in) :: ewn, nsn, upn
   integer, dimension(ewn-1,nsn-1), intent(in) :: loc_array
   real (kind = dp), dimension(3,3), intent(in) :: thck
-
   real (kind = dp), dimension(2), intent(out) :: fwdorbwd, normal
   integer, dimension(6), intent(out) :: loc_latbc
 
@@ -6439,11 +6486,11 @@ function scalebasalbc( coeffblock, bcflag, lateralboundry, beta, efvs )
 !           end if                
 !
 !           if( scale .le. 0.0d0 )then
-            scale = 1.0d0
-!           end if
-
-!        else
 !            scale = 1.0d0
+!           end if
+!
+!        else
+            scale = 1.0d0
         end if
 
     else
