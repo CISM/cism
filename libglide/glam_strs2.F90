@@ -45,8 +45,8 @@ implicit none
   ! regularization constant for eff. strain rate to avoid infinite visc.
   ! NOTE: would be good to explore how small this really needs to be, as 
   ! code converges much better when this value is made larger.
-  real (kind = dp), parameter :: effstrminsq_target = (1.0e-20_dp * tim0)**2
-  real (kind = dp) :: effstrminsq = effstrminsq_target
+  real (kind = dp), parameter :: effstrminsq = (1.0e-20_dp * tim0)**2
+  real (kind = dp) :: homotopy = 0.0
 
   real (kind = dp) :: p1, p2, p3    ! variants of Glen's "n" (e.g. n, (1-n)/n)
   real (kind = dp) :: dew2, dns2, dew4, dns4
@@ -1504,7 +1504,7 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
     ! horiz grid, even though it does not). 
 
             ! Below, p2=(1-n)/2n. The 1/2 is from taking the sqr root of the squared eff. strain rate
-            efvs(1:upn-1,ew,ns) = flwafact(1:upn-1,ew,ns) * effstr**p2
+            efvs(1:upn-1,ew,ns) = flwafact(1:upn-1,ew,ns) * effstr**p2 + homotopy
 !            efvs(:,ew,ns) = flwafact(:,ew,ns) * effstr**p2
 
         else
@@ -2102,9 +2102,14 @@ subroutine reset_effstrmin (esm_factor) bind(C, name='reset_effstrmin')
   real (c_double), intent(in):: esm_factor
  
   ! esm_factor of 0 leads to desired target. Valid values are [0,10]
-  effstrminsq = effstrminsq_target * 10.0**(2.0 * esm_factor)
-
-  ! print *,'EFFSTRMINSQ ',effstrminsq, effstrminsq_target, esm_factor
+!  effstrminsq = effstrminsq_target * 10.0**(2.0 * esm_factor)
+  
+  ! Homotopy parameter needs to be zero when esm_factor hits zero
+  if (esm_factor > 1.0e-10) then
+    homotopy = 10**( esm_factor - 9.0 )
+  else
+    homotopy = 0.0;
+  endif
 
 end subroutine reset_effstrmin
 
