@@ -3192,6 +3192,9 @@ subroutine bodyset(ew,  ns,  up,           &
 
         end if
 
+!        !! Hack to avoid bad sfc and basal bc normal vectors !!
+        slopex = 0.0d0; slopey = 0.0d0
+
         g = normhorizmainbc_lat(dew,           dns,             &
                                 slopex,        slopey,          &
                                 dsigmadew(up), dsigmadns(up),   &

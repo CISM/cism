@@ -3437,9 +3437,6 @@ subroutine bodyset(ew,  ns,  up,           &
         
         end if
 
-!        !! Hack to avoid bad sfc and basal bc normal vectors !!
-        slopex = 0.0d0; slopey = 0.0d0
-
 !!xx OLD method, using ghost cells
 !     g = normhorizmainbc(dew,           dns,     &
 !                         slopex,        slopey,  &
