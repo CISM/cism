@@ -66,7 +66,14 @@ extern "C" {
     Teuchos::RCP<const Epetra_Map> rowMap = 
       Teuchos::rcp(new Epetra_Map(-1,mySize,myIndicies,1,comm) );
 
-    cout << "AGS initTrilinos: Proc " << comm.MyPID() << " mySize= " << mySize << "  globalSize= " << rowMap->NumGlobalElements() << endl;
+    // Diagnostic output for partitioning
+    int minSize, maxSize;
+    comm.MinAll(&mySize, &minSize, 1);
+    comm.MaxAll(&mySize, &maxSize, 1);
+    if (comm.MyPID()==0) 
+      cout << "\nPartition Info in init_trilinos: Total nodes = " << rowMap->NumGlobalElements()
+           << "  Max = " << maxSize << "  Min = " << minSize 
+           << "  Ave = " << rowMap->NumGlobalElements() / comm.NumProc() << endl;
 
     soln = Teuchos::rcp(new Epetra_Vector(*rowMap));
 

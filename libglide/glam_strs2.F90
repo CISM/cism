@@ -1131,7 +1131,7 @@ end if
 !    calcoffdiag = .true.    ! save off diag matrix components
 !    calcoffdiag = .false.    ! save off diag matrix components
 
-    call calc_F (xk_1, F, xk_size, c_ptr_to_object)
+    call calc_F (xk_1, F, xk_size, c_ptr_to_object, 0)
 
     call c_f_pointer(c_ptr_to_object,fptr) ! convert C ptr to F ptr
     L2norm = fptr%L2norm
@@ -1189,7 +1189,7 @@ end if
         xk_1_plus = xk_1 + epsilon*vectx
 
 ! form F(x + epsilon*wk1) = F(u^k-1 + epsilon*wk1u, v^k-1 + epsilon*wk1v)
-        call calc_F (xk_1_plus, F_plus, xk_size, c_ptr_to_object)
+        call calc_F (xk_1_plus, F_plus, xk_size, c_ptr_to_object, 1)
 
 ! put approximation of J*wk1 in wk2
 
@@ -2115,7 +2115,7 @@ end subroutine reset_effstrmin
 
 !***********************************************************************
 
- subroutine calc_F (xtp, F, xk_size, c_ptr_to_object) bind(C, name='calc_F')
+ subroutine calc_F (xtp, F, xk_size, c_ptr_to_object, ispert) bind(C, name='calc_F')
 
   ! Calculates either F(x) or F(x+epsilon*vect) for the JFNK method
   ! Recall that x=[v,u]
@@ -2128,6 +2128,8 @@ end subroutine reset_effstrmin
   implicit none
 
    integer(c_int) ,intent(in) ,value  :: xk_size
+! ispert is 0 for base calculations, 1 for perturbed calculations
+   integer(c_int) ,intent(in) ,value  :: ispert 
    real(c_double)  ,intent(in)        :: xtp(xk_size)
    real(c_double)  ,intent(out)       :: F(xk_size)
    type(pass_through) ,pointer        :: fptr=>NULL()
@@ -2251,7 +2253,9 @@ end subroutine reset_effstrmin
       call form_matrix ( matrixA ) ! to get A(utp,vtp)
 #ifdef TRILINOS
     else
-      call savetrilinosmatrix(0); 
+      if (ispert == 0) then
+        call savetrilinosmatrix(0); 
+      endif
 #endif
     end if
     
@@ -2290,7 +2294,9 @@ end subroutine reset_effstrmin
       call form_matrix ( matrixC ) ! to get C(utp,vtp)
 #ifdef TRILINOS
     else
-      call savetrilinosmatrix(1); 
+      if (ispert == 0) then
+        call savetrilinosmatrix(1); 
+      endif
 #endif
     end if
     

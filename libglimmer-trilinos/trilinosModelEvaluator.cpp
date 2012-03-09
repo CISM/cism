@@ -1,7 +1,7 @@
 #include "trilinosModelEvaluator.hpp"
 
 extern "C" {
-  void calc_F(double* x, double* f, int N, void* bb);
+  void calc_F(double* x, double* f, int N, void* bb, int ispert);
   void apply_precond_nox(double* x, double* y, int n, void* bb);
   void reset_effstrmin(const double* esm);
 }
@@ -90,7 +90,7 @@ void trilinosModelEvaluator::evalModel(const InArgs& inArgs, const OutArgs& outA
 
   // Get the solution vector x from inArgs and residual vector from outArgs
   RCP<const Epetra_Vector> x = inArgs.get_x();
-  RCP<Epetra_Vector> f = outArgs.get_f();
+  EpetraExt::ModelEvaluator::Evaluation<Epetra_Vector> f = outArgs.get_f();
   
   if (x == Teuchos::null) throw "trilinosModelEvaluator::evalModel: x was NOT specified!";
 
@@ -102,8 +102,12 @@ void trilinosModelEvaluator::evalModel(const InArgs& inArgs, const OutArgs& outA
   *xVec = *x;
 
   if (f != Teuchos::null) {
+    // Check if this is a perturbed eval. Glimmer only saves off matrices for unperturbed case.
+    int ispert =0;
+    if  (f.getType() == EpetraExt::ModelEvaluator::EVAL_TYPE_APPROX_DERIV) ispert=1;
+
     f->PutScalar(0.0);
-    calc_F(x->Values(), f->Values(), N, blackbox_res);
+    calc_F(x->Values(), f->Values(), N, blackbox_res, ispert);
   }
 
   RCP<Epetra_Operator> WPrec = outArgs.get_WPrec();
