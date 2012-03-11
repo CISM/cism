@@ -5,6 +5,12 @@ module parallel
 
   integer,parameter :: lhalo = 0
   integer,parameter :: uhalo = 0
+
+  integer,parameter :: staggered_whalo = lhalo
+  integer,parameter :: staggered_shalo = lhalo
+  integer,parameter :: staggered_ehalo = uhalo
+  integer,parameter :: staggered_nhalo = uhalo
+
   logical,parameter :: main_task = .true.
   integer,parameter :: this_rank = 0
   integer,parameter :: tasks = 1
@@ -55,9 +61,6 @@ module parallel
   real(8),dimension(:,:),allocatable :: gathered_tau_x   ! Calculated in calc_basal_shear()
   real(8),dimension(:,:),allocatable :: gathered_tau_y   ! Calculated in calc_basal_shear()
   real(8),dimension(:,:),allocatable :: gathered_lsrf   ! Used in glide_marinlim()
-
-  integer,parameter :: staggered_lhalo = lhalo
-  integer,parameter :: staggered_uhalo = 0
 
   interface broadcast
      module procedure broadcast_character

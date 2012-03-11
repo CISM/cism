@@ -31,6 +31,11 @@ module parallel
   integer,parameter :: uhalo = 0
   integer,parameter :: main_rank = 0
 
+  integer,parameter :: staggered_whalo = lhalo
+  integer,parameter :: staggered_shalo = lhalo
+  integer,parameter :: staggered_ehalo = uhalo
+  integer,parameter :: staggered_nhalo = uhalo
+
   logical,save :: main_task
   integer,save :: comm,tasks,this_rank
 
@@ -81,14 +86,14 @@ module parallel
   real(8),dimension(:,:),allocatable :: gathered_tau_y   ! Calculated in calc_basal_shear()
   real(8),dimension(:,:),allocatable :: gathered_lsrf   ! Used in glide_marinlim()
 
-  integer,parameter :: staggered_lhalo = lhalo
-  integer,parameter :: staggered_uhalo = 0
-
   interface broadcast
      module procedure broadcast_character
      module procedure broadcast_integer
      module procedure broadcast_integer_1d
      module procedure broadcast_logical
+     module procedure broadcast_real4
+     module procedure broadcast_real4_1d
+     module procedure broadcast_real8     
      module procedure broadcast_real8_1d
   end interface
 
@@ -130,6 +135,15 @@ module parallel
   end interface
 #endif
 
+  interface distributed_scatter_var
+     module procedure distributed_scatter_var_integer_2d
+     module procedure distributed_scatter_var_logical_2d
+     module procedure distributed_scatter_var_real4_2d
+     module procedure distributed_scatter_var_real4_3d
+     module procedure distributed_scatter_var_real8_2d
+     module procedure distributed_scatter_var_real8_3d
+  end interface
+
 #ifndef __PGI
   interface parallel_def_var
      module procedure parallel_def_var_dimids
@@ -146,15 +160,6 @@ module parallel
      module procedure parallel_get_att_real8_1d
   end interface
 #endif
-
-  interface distributed_scatter_var
-     module procedure distributed_scatter_var_integer_2d
-     module procedure distributed_scatter_var_logical_2d
-     module procedure distributed_scatter_var_real4_2d
-     module procedure distributed_scatter_var_real4_3d
-     module procedure distributed_scatter_var_real8_2d
-     module procedure distributed_scatter_var_real8_3d
-  end interface
 
 #ifndef __PGI
   interface parallel_get_var
@@ -210,7 +215,7 @@ contains
     ! begin
     n = len(c)
     call mpi_bcast(c,n,mpi_character,main_rank,comm,ierror)
-  end subroutine
+  end subroutine broadcast_character
 
   subroutine broadcast_integer(i)
     use mpi
@@ -218,7 +223,7 @@ contains
     integer :: i,ierror
     ! begin
     call mpi_bcast(i,1,mpi_integer,main_rank,comm,ierror)
-  end subroutine
+  end subroutine broadcast_integer
 
   subroutine broadcast_integer_1d(a)
     implicit none
@@ -227,7 +232,7 @@ contains
     if (tasks >= 2) then
        call not_parallel(__FILE__, __LINE__)
     endif 
-  end subroutine
+  end subroutine broadcast_integer_1d
 
   subroutine broadcast_logical(l)
     use mpi
@@ -236,12 +241,42 @@ contains
     integer :: ierror
     ! begin
     call mpi_bcast(l,1,mpi_logical,main_rank,comm,ierror)
-  end subroutine
+  end subroutine broadcast_logical
+
+  subroutine broadcast_real4(r)
+    use mpi
+    implicit none
+    integer :: ierror
+    real(4) :: r
+    ! begin
+    call mpi_bcast(r,1,mpi_real4,main_rank,comm,ierror)
+  end subroutine broadcast_real4
+
+  subroutine broadcast_real4_1d(a)
+    implicit none
+    real(4),dimension(:) :: a
+  end subroutine broadcast_real4_1d
+
+  subroutine broadcast_real8(r)
+    use mpi
+    implicit none
+    integer :: ierror
+    real(8) :: r
+    ! begin
+    call mpi_bcast(r,1,mpi_real8,main_rank,comm,ierror)
+  end subroutine broadcast_real8
 
   subroutine broadcast_real8_1d(a)
     implicit none
     real(8),dimension(:) :: a
-  end subroutine
+  end subroutine broadcast_real8_1d
+
+  function distributed_execution()
+     ! Returns if running distributed or not.
+     logical distributed_execution
+
+     distributed_execution = .false.
+  end function distributed_execution
 
 #ifndef __PGI
   function distributed_get_var_integer_2d(ncid,varid,values,start)
@@ -253,7 +288,7 @@ contains
     ! begin
     ! if (main_task)
     distributed_get_var_integer_2d = nf90_get_var(ncid,varid,values(:,:),start)
-  end function
+  end function distributed_get_var_integer_2d
 
   function distributed_get_var_real4_1d(ncid,varid,values,start)
     implicit none
@@ -264,7 +299,7 @@ contains
     ! begin
     ! if (main_task)
     distributed_get_var_real4_1d = nf90_get_var(ncid,varid,values(:),start)
-  end function
+  end function distributed_get_var_real4_1d
 
   function distributed_get_var_real4_2d(ncid,varid,values,start)
     implicit none
@@ -275,7 +310,7 @@ contains
     ! begin
     ! if (main_task)
     distributed_get_var_real4_2d = nf90_get_var(ncid,varid,values(:,:),start)
-  end function
+  end function distributed_get_var_real4_2d
 
   function distributed_get_var_real8_2d(ncid,varid,values,start)
     implicit none
@@ -286,7 +321,7 @@ contains
     ! begin
     ! if (main_task)
     distributed_get_var_real8_2d = nf90_get_var(ncid,varid,values(:,:),start)
-  end function
+  end function distributed_get_var_real8_2d
 
   function distributed_get_var_real8_3d(ncid,varid,values,start)
     implicit none
@@ -297,15 +332,8 @@ contains
     ! begin
     ! if (main_task)
     distributed_get_var_real8_3d = nf90_get_var(ncid,varid,values(:,:,:),start)
-  end function
+  end function distributed_get_var_real8_3d
 #endif
-
-  function distributed_execution()
-     ! Returns if running distributed or not.
-     logical distributed_execution
-
-     distributed_execution = .false.
-  end function
 
   subroutine distributed_gather_var_integer_2d(values, global_values)
     ! JEFF Gather a distributed variable back to main_task node
@@ -323,7 +351,7 @@ contains
     allocate(global_values(size(values,1), size(values,2)))
 
     global_values(:,:) = values(:,:)
-  end subroutine
+  end subroutine distributed_gather_var_integer_2d
 
   subroutine distributed_gather_var_logical_2d(values, global_values)
     ! JEFF Gather a distributed variable back to main_task node
@@ -341,7 +369,7 @@ contains
     allocate(global_values(size(values,1), size(values,2)))
 
     global_values(:,:) = values(:,:)
-  end subroutine
+  end subroutine distributed_gather_var_logical_2d
 
   subroutine distributed_gather_var_real4_2d(values, global_values)
     ! JEFF Gather a distributed variable back to main_task node
@@ -360,7 +388,7 @@ contains
     allocate(global_values(size(values,1), size(values,2)))
 
     global_values(:,:) = values(:,:)
-  end subroutine
+  end subroutine distributed_gather_var_real4_2d
 
   subroutine distributed_gather_var_real4_3d(values, global_values, ld1, ud1)
     ! JEFF Gather a distributed variable back to main_task node
@@ -395,7 +423,7 @@ contains
     allocate(global_values(d1l:d1u, size(values,2), size(values,3)))
 
     global_values(dl1:d1u,:,:) = values(1:size(values,1),:,:)
-  end subroutine
+  end subroutine distributed_gather_var_real4_3d
 
   subroutine distributed_gather_var_real8_2d(values, global_values)
     ! JEFF Gather a distributed variable back to main_task node
@@ -414,7 +442,7 @@ contains
     allocate(global_values(size(values,1), size(values,2)))
 
     global_values(:,:) = values(:,:)
-  end subroutine
+  end subroutine distributed_gather_var_real8_2d
 
   subroutine distributed_gather_var_real8_3d(values, global_values, ld1, ud1)
     ! JEFF Gather a distributed variable back to main_task node
@@ -450,7 +478,7 @@ contains
     allocate(global_values(d1l:d1u, size(values,2), size(values,3)))
 
     global_values(d1l:d1u,:,:) = values(1:size(values,1),:,:)
-  end subroutine
+  end subroutine distributed_gather_var_real8_3d
 
   subroutine distributed_grid(ewn,nsn)
     implicit none
@@ -475,7 +503,7 @@ contains
 !    endif
     ! Print grid geometry
     write(*,*) "Process ", this_rank, " EW = ", local_ewn, " NS = ", local_nsn
-  end subroutine
+  end subroutine distributed_grid
 
   function distributed_owner(ew,ewn,ns,nsn)
     implicit none
@@ -487,7 +515,7 @@ contains
     if (tasks >= 2) then
        ! Do nothing
     endif 
-  end function
+  end function distributed_owner
 
   subroutine distributed_print_integer_2d(name,values)
     implicit none
@@ -516,7 +544,7 @@ contains
        end do
     end if
     close(u)
-  end subroutine
+  end subroutine distributed_print_integer_2d
 
   subroutine distributed_print_real8_2d(name,values)
     implicit none
@@ -545,7 +573,7 @@ contains
        end do
     end if
     close(u)
-  end subroutine
+  end subroutine distributed_print_real8_2d
 
   subroutine distributed_print_real8_3d(name,values)
     implicit none
@@ -574,7 +602,7 @@ contains
        end do
     end if
     close(u)
-  end subroutine
+  end subroutine distributed_print_real8_3d
 
 #ifndef __PGI
   function distributed_put_var_integer_2d(ncid,varid,values,start)
@@ -586,7 +614,7 @@ contains
     ! begin
     if (main_task) distributed_put_var_integer_2d = nf90_put_var(ncid,varid,values,start)
     call broadcast(distributed_put_var_integer_2d)
-  end function
+  end function distributed_put_var_integer_2d
 
   function distributed_put_var_real4_1d(ncid,varid,values)
     implicit none
@@ -596,7 +624,7 @@ contains
     ! begin
     if (main_task) distributed_put_var_real4_1d = nf90_put_var(ncid,varid,values)
     call broadcast(distributed_put_var_real4_1d)
-  end function
+  end function distributed_put_var_real4_1d
 
   function distributed_put_var_real4_2d(ncid,varid,values,start)
     implicit none
@@ -607,7 +635,7 @@ contains
     ! begin
     if (main_task) distributed_put_var_real4_2d = nf90_put_var(ncid,varid,values,start)
     call broadcast(distributed_put_var_real4_2d)
-  end function
+  end function distributed_put_var_real4_2d
 
   function distributed_put_var_real8_2d(ncid,varid,values,start)
     implicit none
@@ -618,7 +646,7 @@ contains
     ! begin
     if (main_task) distributed_put_var_real8_2d = nf90_put_var(ncid,varid,values,start)
     call broadcast(distributed_put_var_real8_2d)
-  end function
+  end function distributed_put_var_real8_2d
 
   function distributed_put_var_real8_3d(ncid,varid,values,start)
     implicit none
@@ -629,7 +657,7 @@ contains
     ! begin
     if (main_task) distributed_put_var_real8_3d = nf90_put_var(ncid,varid,values,start)
     call broadcast(distributed_put_var_real8_3d)
-  end function
+  end function distributed_put_var_real8_3d
 #endif
 
   subroutine distributed_scatter_var_integer_2d(values, global_values)
@@ -646,7 +674,7 @@ contains
 
     deallocate(global_values)
     ! automatic deallocation
-  end subroutine
+  end subroutine distributed_scatter_var_integer_2d
 
   subroutine distributed_scatter_var_logical_2d(values, global_values)
     ! JEFF Scatter a variable on the main_task node back to the distributed
@@ -662,7 +690,7 @@ contains
 
     deallocate(global_values)
     ! automatic deallocation
-  end subroutine
+  end subroutine distributed_scatter_var_logical_2d
 
   subroutine distributed_scatter_var_real4_2d(values, global_values)
     ! JEFF Scatter a variable on the main_task node back to the distributed
@@ -678,7 +706,7 @@ contains
 
     deallocate(global_values)
     ! automatic deallocation
-  end subroutine
+  end subroutine distributed_scatter_var_real4_2d
 
   subroutine distributed_scatter_var_real4_3d(values, global_values)
     ! JEFF Scatter a variable on the main_task node back to the distributed
@@ -694,7 +722,7 @@ contains
 
     deallocate(global_values)
     ! automatic deallocation
-  end subroutine
+  end subroutine distributed_scatter_var_real4_3d
 
   subroutine distributed_scatter_var_real8_2d(values, global_values)
     ! JEFF Scatter a variable on the main_task node back to the distributed
@@ -710,7 +738,7 @@ contains
 
     deallocate(global_values)
     ! automatic deallocation
-  end subroutine
+  end subroutine distributed_scatter_var_real8_2d
 
   subroutine distributed_scatter_var_real8_3d(values, global_values, deallocflag)
     ! JEFF Scatter a variable on the main_task node back to the distributed
@@ -734,7 +762,7 @@ contains
 
     if (deallocmem) deallocate(global_values)
     ! automatic deallocation
-  end subroutine
+  end subroutine distributed_scatter_var_real8_3d
 
   subroutine global_sum(x,y)
     implicit none
@@ -744,7 +772,7 @@ contains
         ! Do nothing.  x and y are two values to be summed across all distributed nodes.
         ! In parallel_single model, their local sums should remain unchanged.
     endif 
-  end subroutine
+  end subroutine global_sum
 
   subroutine not_parallel(file,line)
     implicit none
@@ -752,7 +780,7 @@ contains
     character(len=*) :: file
     ! begin
     write(0,*) "WARNING: not parallel in ",file," at line ",line
-  end subroutine
+  end subroutine not_parallel
 
   subroutine parallel_barrier
     implicit none
@@ -762,7 +790,7 @@ contains
        ! parallel_barrier is called in serial portion of distributed.
        ! In parallel_single mode this is ignorable
     endif 
-  end subroutine
+  end subroutine parallel_barrier
 
   function parallel_boundary(ew,ewn,ns,nsn)
     implicit none
@@ -770,7 +798,7 @@ contains
     integer :: ew,ewn,ns,nsn
     ! begin
     parallel_boundary = (ew==1.or.ew==ewn.or.ns==1.or.ns==nsn)
-  end function
+  end function parallel_boundary
 
 #ifndef __PGI
   function parallel_close(ncid)
@@ -779,7 +807,7 @@ contains
     ! begin
     if (main_task) parallel_close = nf90_close(ncid)
     call broadcast(parallel_close)
-  end function
+  end function parallel_close
 #endif
 
 #ifndef __PGI
@@ -791,7 +819,7 @@ contains
     if (main_task) parallel_create = nf90_create(path,cmode,ncid)
     call broadcast(parallel_create)
     call broadcast(ncid)
-  end function
+  end function parallel_create
 #endif
 
 #ifndef __PGI
@@ -804,7 +832,7 @@ contains
     if (main_task) parallel_def_dim = nf90_def_dim(ncid,name,len,dimid)
     call broadcast(parallel_def_dim)
     call broadcast(dimid)
-  end function
+  end function parallel_def_dim
 #endif
 
 #ifndef __PGI
@@ -818,7 +846,7 @@ contains
          nf90_def_var(ncid,name,xtype,dimids,varid)
     call broadcast(parallel_def_var_dimids)
     call broadcast(varid)
-  end function
+  end function parallel_def_var_dimids
 
   function parallel_def_var_nodimids(ncid,name,xtype,varid)
     implicit none
@@ -829,7 +857,7 @@ contains
          nf90_def_var(ncid,name,xtype,varid)
     call broadcast(parallel_def_var_nodimids)
     call broadcast(varid)
-  end function
+  end function parallel_def_var_nodimids
 #endif
 
 #ifndef __PGI
@@ -839,7 +867,7 @@ contains
     ! begin
     if (main_task) parallel_enddef = nf90_enddef(ncid)
     call broadcast(parallel_enddef)
-  end function
+  end function parallel_enddef
 #endif
 
   subroutine parallel_finalise
@@ -848,7 +876,7 @@ contains
     integer :: ierror 
     ! begin 
     call mpi_finalize(ierror)
-  end subroutine
+  end subroutine parallel_finalise
 
 #ifndef __PGI
   function parallel_get_att_character(ncid,varid,name,values)
@@ -860,7 +888,7 @@ contains
          nf90_get_att(ncid,varid,name,values)
     call broadcast(parallel_get_att_character)
     call broadcast(values)
-  end function
+  end function parallel_get_att_character
 
   function parallel_get_att_real4(ncid,varid,name,values)
     implicit none
@@ -870,7 +898,7 @@ contains
     ! begin
     if (main_task) parallel_get_att_real4 = &
          nf90_get_att(ncid,varid,name,values)
-  end function
+  end function parallel_get_att_real4
 
   function parallel_get_att_real4_1d(ncid,varid,name,values)
     implicit none
@@ -880,7 +908,7 @@ contains
     ! begin
     if (main_task) parallel_get_att_real4_1d = &
          nf90_get_att(ncid,varid,name,values)
-  end function
+  end function parallel_get_att_real4_1d
 
   function parallel_get_att_real8(ncid,varid,name,values)
     implicit none
@@ -890,7 +918,7 @@ contains
     ! begin
     if (main_task) parallel_get_att_real8 = &
          nf90_get_att(ncid,varid,name,values)
-  end function
+  end function parallel_get_att_real8
 
   function parallel_get_att_real8_1d(ncid,varid,name,values)
     implicit none
@@ -900,7 +928,7 @@ contains
     ! begin
     if (main_task) parallel_get_att_real8_1d = &
          nf90_get_att(ncid,varid,name,values)
-  end function
+  end function parallel_get_att_real8_1d
 #endif
 
 #ifndef __PGI
@@ -911,7 +939,7 @@ contains
     ! begin
     if (main_task) parallel_get_var_integer_1d = &
          nf90_get_var(ncid,varid,values)
-  end function
+  end function parallel_get_var_integer_1d
 
   function parallel_get_var_real4_1d(ncid,varid,values)
     implicit none
@@ -920,7 +948,7 @@ contains
     ! begin
     if (main_task) parallel_get_var_real4_1d = &
          nf90_get_var(ncid,varid,values)
-  end function
+  end function parallel_get_var_real4_1d
 #endif
 
   function parallel_globalID(locns, locew, upstride)
@@ -947,7 +975,7 @@ contains
 
 	!return value
 	parallel_globalID = global_ID
-  end function
+  end function parallel_globalID
 
   subroutine parallel_halo_integer_2d(a)
     implicit none
@@ -956,7 +984,7 @@ contains
     if (tasks >= 2) then
 		! Do nothing
 	endif 
-  end subroutine
+  end subroutine parallel_halo_integer_2d
 
   subroutine parallel_halo_logical_2d(a)
     implicit none
@@ -965,7 +993,7 @@ contains
     if (tasks >= 2) then
 		! Do nothing
 	endif
-  end subroutine
+  end subroutine parallel_halo_logical_2d
 
   subroutine parallel_halo_real4_2d(a)
     implicit none
@@ -974,7 +1002,7 @@ contains
     if (tasks >= 2) then
 		! Do nothing
 	endif
-  end subroutine
+  end subroutine parallel_halo_real4_2d
 
   subroutine parallel_halo_real8_2d(a)
     implicit none
@@ -983,7 +1011,7 @@ contains
     if (tasks >= 2) then
 		! Do nothing
 	endif 
-  end subroutine
+  end subroutine parallel_halo_real8_2d
 
   subroutine parallel_halo_real8_3d(a)
     implicit none
@@ -992,7 +1020,7 @@ contains
     if (tasks >= 2) then
 		! Do nothing
 	endif 
-  end subroutine
+  end subroutine parallel_halo_real8_3d
 
   subroutine parallel_halo_temperature(a)
     !JEFF This routine is for updating the halo for the variable model%temper%temp.
@@ -1004,7 +1032,7 @@ contains
     if (tasks >= 2) then
 		! Do nothing
 	endif
-  end subroutine
+  end subroutine parallel_halo_temperature
 
   function parallel_halo_verify_integer_2d(a)
     implicit none
@@ -1016,7 +1044,7 @@ contains
 	endif 
 
 	parallel_halo_verify_integer_2d = .TRUE.
-  end function
+  end function parallel_halo_verify_integer_2d
 
   function parallel_halo_verify_real8_2d(a)
     implicit none
@@ -1028,7 +1056,7 @@ contains
 	endif 
 
 	parallel_halo_verify_real8_2d = .TRUE.
-  end function
+  end function parallel_halo_verify_real8_2d
 
   function parallel_halo_verify_real8_3d(a)
     implicit none
@@ -1040,7 +1068,7 @@ contains
 	endif 
 
 	parallel_halo_verify_real8_3d = .TRUE.
-  end function
+  end function parallel_halo_verify_real8_3d
 
   subroutine parallel_initialise
     use mpi 
@@ -1052,25 +1080,25 @@ contains
     call mpi_comm_size(comm,tasks,ierror)
     call mpi_comm_rank(comm,this_rank,ierror)
     main_task = .true. !JEFF For parallel_single, each node duplicates all of the calculations.
-  end subroutine
+  end subroutine parallel_initialise
 
-  subroutine parallel_print_integer_2d(name,a)
+  subroutine parallel_print_integer_2d(name,values)
     implicit none
     character(*) :: name
-    integer,dimension(:,:) :: a
+    integer,dimension(:,:) :: values
     
     integer,parameter :: u = 33
     integer :: i,j
     ! begin
     open(unit=u,file=name//".txt",form="formatted",status="replace")
-    do j = 1,size(a,2)
-       do i = 1,size(a,1)
-          write(u,*) j,i,a(i,j)
+    do j = 1,size(values,2)
+       do i = 1,size(values,1)
+          write(u,*) j,i,values(i,j)
        end do
        write(u,'()')
     end do
     close(u)
-  end subroutine
+  end subroutine parallel_print_integer_2d
 
 #ifndef __PGI
   function parallel_inq_attname(ncid,varid,attnum,name)
@@ -1082,7 +1110,7 @@ contains
          nf90_inq_attname(ncid,varid,attnum,name)
     call broadcast(parallel_inq_attname)
     call broadcast(name)
-  end function
+  end function parallel_inq_attname
 #endif
 
 #ifndef __PGI
@@ -1094,7 +1122,7 @@ contains
     if (main_task) parallel_inq_dimid = nf90_inq_dimid(ncid,name,dimid)
     call broadcast(parallel_inq_dimid)
     call broadcast(dimid)
-  end function
+  end function parallel_inq_dimid
 #endif
 
 #ifndef __PGI
@@ -1106,7 +1134,7 @@ contains
     if (main_task) parallel_inq_varid = nf90_inq_varid(ncid,name,varid)
     call broadcast(parallel_inq_varid)
     call broadcast(varid)
-  end function
+  end function parallel_inq_varid
 #endif
 
 #ifndef __PGI
@@ -1117,7 +1145,7 @@ contains
     if (main_task) parallel_inquire = nf90_inquire(ncid,nvariables=nvariables)
     call broadcast(parallel_inquire)
     call broadcast(nvariables)
-  end function
+  end function parallel_inquire
 #endif
 
 #ifndef __PGI
@@ -1144,7 +1172,7 @@ contains
        call broadcast(l)
        len = l
     end if
-  end function
+  end function parallel_inquire_dimension
 #endif
 
 #ifndef __PGI
@@ -1182,7 +1210,7 @@ contains
        call broadcast(na)
        natts = na
     end if
-  end function
+  end function parallel_inquire_variable
 #endif
 
 #ifndef __PGI
@@ -1193,44 +1221,44 @@ contains
     ! begin
     if (main_task) parallel_open = nf90_open(path,mode,ncid)
     call broadcast(parallel_open)
-  end function
+  end function parallel_open
 #endif
 
-  subroutine parallel_print_real8_2d(name,a)
+  subroutine parallel_print_real8_2d(name,values)
     implicit none
     character(*) :: name
-    real(8),dimension(:,:) :: a
+    real(8),dimension(:,:) :: values
     
     integer,parameter :: u = 33
     integer :: i,j
     ! begin
     open(unit=u,file=name//".txt",form="formatted",status="replace")
-    do j = 1,size(a,2)
-       do i = 1,size(a,1)
-          write(u,*) j,i,a(i,j)
+    do j = 1,size(values,2)
+       do i = 1,size(values,1)
+          write(u,*) j,i,values(i,j)
        end do
        write(u,'()')
     end do
     close(u)
-  end subroutine
+  end subroutine parallel_print_real8_2d
 
-  subroutine parallel_print_real8_3d(name,a)
+  subroutine parallel_print_real8_3d(name,values)
     implicit none
     character(*) :: name
-    real(8),dimension(:,:,:) :: a
+    real(8),dimension(:,:,:) :: values
     
     integer,parameter :: u = 33
     integer :: i,j
     ! begin
     open(unit=u,file=name//".txt",form="formatted",status="replace")
-    do j = 1,size(a,3)
-       do i = 1,size(a,2)
-          write(u,'(2i6,100g15.5e3)') j,i,a(:,i,j)
+    do j = 1,size(values,3)
+       do i = 1,size(values,2)
+          write(u,'(2i6,100g15.5e3)') j,i,values(:,i,j)
        end do
        write(u,'()')
     end do
     close(u)
-  end subroutine
+  end subroutine parallel_print_real8_3d
 
 #ifndef __PGI
   function parallel_put_att_character(ncid,varid,name,values)
@@ -1240,7 +1268,7 @@ contains
     ! begin
     if (main_task) parallel_put_att_character = nf90_put_att(ncid,varid,name,values)
     call broadcast(parallel_put_att_character)
-  end function
+  end function parallel_put_att_character
 
   function parallel_put_att_real4(ncid,varid,name,values)
     implicit none
@@ -1250,7 +1278,7 @@ contains
     ! begin
     if (main_task) parallel_put_att_real4 = nf90_put_att(ncid,varid,name,values)
     call broadcast(parallel_put_att_real4)
-  end function
+  end function parallel_put_att_real4
 
   function parallel_put_att_real4_1d(ncid,varid,name,values)
     implicit none
@@ -1260,7 +1288,7 @@ contains
     ! begin
     if (main_task) parallel_put_att_real4_1d = nf90_put_att(ncid,varid,name,values)
     call broadcast(parallel_put_att_real4_1d)
-  end function
+  end function parallel_put_att_real4_1d
 
   function parallel_put_att_real8(ncid,varid,name,values)
     implicit none
@@ -1270,7 +1298,7 @@ contains
     ! begin
     if (main_task) parallel_put_att_real8 = nf90_put_att(ncid,varid,name,values)
     call broadcast(parallel_put_att_real8)
-  end function
+  end function parallel_put_att_real8
 
   function parallel_put_att_real8_1d(ncid,varid,name,values)
     implicit none
@@ -1280,7 +1308,7 @@ contains
     ! begin
     if (main_task) parallel_put_att_real8_1d = nf90_put_att(ncid,varid,name,values)
     call broadcast(parallel_put_att_real8_1d)
-  end function
+  end function parallel_put_att_real8_1d
 #endif
 
 #ifndef __PGI
@@ -1293,7 +1321,7 @@ contains
     if (main_task) parallel_put_var_real4 = &
          nf90_put_var(ncid,varid,values,start)
     call broadcast(parallel_put_var_real4)
-  end function
+  end function parallel_put_var_real4
 
   function parallel_put_var_real8(ncid,varid,values,start)
     implicit none
@@ -1304,7 +1332,7 @@ contains
     if (main_task) parallel_put_var_real8 = &
          nf90_put_var(ncid,varid,values,start)
     call broadcast(parallel_put_var_real8)
-  end function
+  end function parallel_put_var_real8
 
   function parallel_put_var_real8_1d(ncid,varid,values,start)
     implicit none
@@ -1320,7 +1348,7 @@ contains
        end if
     end if
     call broadcast(parallel_put_var_real8_1d)
-  end function
+  end function parallel_put_var_real8_1d
 #endif
 
 #ifndef __PGI
@@ -1330,7 +1358,7 @@ contains
     ! begin
     if (main_task) parallel_redef = nf90_redef(ncid)
     call broadcast(parallel_redef)
-  end function
+  end function parallel_redef
 #endif
 
   function parallel_reduce_sum(x)
@@ -1342,7 +1370,7 @@ contains
 
     parallel_reduce_sum = x
     return
-  end function
+  end function parallel_reduce_sum
 
   function parallel_reduce_max(x)
     ! Max x across all of the nodes.
@@ -1353,14 +1381,14 @@ contains
 
     parallel_reduce_max = x
     return
-  end function
+  end function parallel_reduce_max
 
   ! Support removed October 2011
   ! subroutine parallel_set_trilinos_return_vect
     ! Trilinos can return the full solution to each node or just the owned portion
     ! For parallel_single mode the full solution is expected
     ! This is the default value, so no action is required.
-  ! end subroutine
+  ! end subroutine parallel_set_trilinos_return_vect
 
   subroutine parallel_show_minmax(label,values)
     implicit none
@@ -1368,7 +1396,7 @@ contains
     real(8),dimension(:,:,:) :: values
     ! begin
     print *,label,minval(values),maxval(values)
-  end subroutine
+  end subroutine parallel_show_minmax
 
   subroutine parallel_stop(file,line)
     implicit none
@@ -1377,7 +1405,7 @@ contains
     write(0,*) "STOP in ",file," at line ",line
     stop
     ! write(0,*) "RUNNING in parallel_single mode, so STOP IGNORED."
-  end subroutine
+  end subroutine parallel_stop
 
 #ifndef __PGI
   function parallel_sync(ncid)
@@ -1386,17 +1414,8 @@ contains
     ! begin
     if (main_task) parallel_sync = nf90_sync(ncid)
     call broadcast(parallel_sync)
-  end function
+  end function parallel_sync
 #endif
-
-  subroutine parallel_temp_halo(a)
-    implicit none
-    real(8),dimension(:,:,:) :: a
-
-    if (tasks >= 2) then
-       call not_parallel(__FILE__, __LINE__)
-    endif 
-  end subroutine
 
   subroutine parallel_velo_halo(a)
     implicit none
@@ -1405,9 +1424,9 @@ contains
     if (tasks >= 2) then
        call not_parallel(__FILE__, __LINE__)
     endif 
-  end subroutine
+  end subroutine parallel_velo_halo
 
-    subroutine staggered_parallel_halo(a)
+  subroutine staggered_parallel_halo(a)
     implicit none
     real(8),dimension(:,:,:) :: a
 
@@ -1421,6 +1440,6 @@ contains
     if (tasks >= 2) then
 	! Do nothing
     endif
-  end subroutine
+  end subroutine staggered_parallel_halo
 
 end module parallel

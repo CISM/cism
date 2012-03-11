@@ -6,12 +6,17 @@ module parallel
   integer,parameter :: DEBUG_LEVEL = 1 
 	! If > 0, then debug code executed.  Added for parallel_halo_verify()
 
-  integer,parameter :: lhalo = 2
   integer,parameter :: main_rank = 0
+  integer,parameter :: lhalo = 2
   integer,parameter :: uhalo = 2
 
-  integer,parameter :: staggered_lhalo = lhalo
-  integer,parameter :: staggered_uhalo = uhalo-1
+  !for staggered grid, left, bottom, right, and top halo widths
+  ! (eventually, different values for processes with cells on left 
+  !  and bottom of global domain)
+  integer,parameter :: staggered_whalo = lhalo
+  integer,parameter :: staggered_shalo = lhalo
+  integer,parameter :: staggered_ehalo = uhalo-1
+  integer,parameter :: staggered_nhalo = uhalo-1
 
   logical,save :: main_task
   integer,save :: comm,tasks,this_rank
@@ -189,7 +194,7 @@ contains
     ! begin
     n = len(c)
     call mpi_bcast(c,n,mpi_character,main_rank,comm,ierror)
-  end subroutine
+  end subroutine broadcast_character
 
   subroutine broadcast_integer(i)
     use mpi
@@ -197,7 +202,7 @@ contains
     integer :: i,ierror
     ! begin
     call mpi_bcast(i,1,mpi_integer,main_rank,comm,ierror)
-  end subroutine
+  end subroutine broadcast_integer
 
   subroutine broadcast_integer_1d(a)
     use mpi
@@ -206,7 +211,7 @@ contains
     integer :: ierror
     ! begin
     call mpi_bcast(a,size(a),mpi_integer,main_rank,comm,ierror)
-  end subroutine
+  end subroutine broadcast_integer_1d
 
   subroutine broadcast_logical(l)
     use mpi
@@ -215,7 +220,7 @@ contains
     integer :: ierror
     ! begin
     call mpi_bcast(l,1,mpi_logical,main_rank,comm,ierror)
-  end subroutine
+  end subroutine broadcast_logical
 
   subroutine broadcast_real4(r)
     use mpi
@@ -224,7 +229,7 @@ contains
     real(4) :: r
     ! begin
     call mpi_bcast(r,1,mpi_real4,main_rank,comm,ierror)
-  end subroutine
+  end subroutine broadcast_real4
 
   subroutine broadcast_real4_1d(a)
     use mpi
@@ -233,7 +238,7 @@ contains
     integer :: ierror
     ! begin
     call mpi_bcast(a,size(a),mpi_real4,main_rank,comm,ierror)
-  end subroutine
+  end subroutine broadcast_real4_1d
 
   subroutine broadcast_real8(r)
     use mpi
@@ -242,7 +247,7 @@ contains
     real(8) :: r
     ! begin
     call mpi_bcast(r,1,mpi_real8,main_rank,comm,ierror)
-  end subroutine
+  end subroutine broadcast_real8
 
   subroutine broadcast_real8_1d(a)
     use mpi
@@ -251,14 +256,14 @@ contains
     integer :: ierror
     ! begin
     call mpi_bcast(a,size(a),mpi_real8,main_rank,comm,ierror)
-  end subroutine
+  end subroutine broadcast_real8_1d
 
   function distributed_execution()
      ! Returns if running distributed or not.
      logical distributed_execution
 
      distributed_execution = .true.
-  end function
+  end function distributed_execution
 
   subroutine distributed_gather_var_integer_2d(values, global_values)
     ! JEFF Gather a distributed variable back to main_task node
@@ -332,7 +337,7 @@ contains
        end do
     end if
     ! automatic deallocation
-  end subroutine
+  end subroutine distributed_gather_var_integer_2d
 
   subroutine distributed_gather_var_logical_2d(values, global_values)
     ! JEFF Gather a distributed variable back to main_task node
@@ -406,7 +411,7 @@ contains
        end do
     end if
     ! automatic deallocation
-  end subroutine
+  end subroutine distributed_gather_var_logical_2d
 
   subroutine distributed_gather_var_real4_2d(values, global_values)
     ! JEFF Gather a distributed variable back to main_task node
@@ -480,7 +485,7 @@ contains
        end do
     end if
     ! automatic deallocation
-  end subroutine
+  end subroutine distributed_gather_var_real4_2d
 
   subroutine distributed_gather_var_real4_3d(values, global_values, ld1, ud1)
     ! JEFF Gather a distributed variable back to main_task node
@@ -573,7 +578,7 @@ contains
        end do
     end if
     ! automatic deallocation
-  end subroutine
+  end subroutine distributed_gather_var_real4_3d
 
   subroutine distributed_gather_var_real8_2d(values, global_values)
     ! JEFF Gather a distributed variable back to main_task node
@@ -647,7 +652,7 @@ contains
        end do
     end if
     ! automatic deallocation
-  end subroutine
+  end subroutine distributed_gather_var_real8_2d
 
   subroutine distributed_gather_var_real8_3d(values, global_values, ld1, ud1)
     ! JEFF Gather a distributed variable back to main_task node
@@ -740,7 +745,7 @@ contains
        end do
     end if
     ! automatic deallocation
-  end subroutine
+  end subroutine distributed_gather_var_real8_3d
 
   function distributed_get_var_integer_2d(ncid,varid,values,start)
     use mpi
@@ -808,7 +813,7 @@ contains
          recvbuf,size(recvbuf),mpi_integer,main_rank,comm,ierror)
     values(:,:) = recvbuf(:size(values,1),:size(values,2))
     !automatic deallocation
-  end function
+  end function distributed_get_var_integer_2d
 
   function distributed_get_var_real4_1d(ncid,varid,values,start)
     use mpi
@@ -874,7 +879,7 @@ contains
     call mpi_scatterv(sendbuf,sendcounts,displs,mpi_real4,&
          values,size(values),mpi_real4,main_rank,comm,ierror)
     !automatic deallocation
-  end function
+  end function distributed_get_var_real4_1d
 
   function distributed_get_var_real4_2d(ncid,varid,values,start)
     use mpi
@@ -942,7 +947,7 @@ contains
          recvbuf,size(recvbuf),mpi_real4,main_rank,comm,ierror)
     values(:,:) = recvbuf(:size(values,1),:size(values,2))
     !automatic deallocation
-  end function
+  end function distributed_get_var_real4_2d
 
   function distributed_get_var_real8_2d(ncid,varid,values,start)
     use mpi
@@ -1010,7 +1015,7 @@ contains
          recvbuf,size(recvbuf),mpi_real8,main_rank,comm,ierror)
     values(:,:) = recvbuf(:size(values,1),:size(values,2))
     !automatic deallocation
-  end function
+  end function distributed_get_var_real8_2d
 
   function distributed_get_var_real8_3d(ncid,varid,values,start)
     use mpi
@@ -1079,7 +1084,7 @@ contains
          recvbuf,size(recvbuf),mpi_real8,main_rank,comm,ierror)
     values(:,:,:) = recvbuf(:size(values,1),:size(values,2),:)
     !automatic deallocation
-  end function
+  end function distributed_get_var_real8_3d
 
   subroutine distributed_grid(ewn,nsn)
     implicit none
@@ -1154,14 +1159,14 @@ contains
     own_nsn = local_nsn-lhalo-uhalo
     nsn = local_nsn
 
-    east = this_rank-1
-    if ((east/ewtasks<this_rank/ewtasks).or.(east<0)) east = east+ewtasks
-    west = this_rank+1
-    if (west/ewtasks>this_rank/ewtasks) west = west-ewtasks
-    north = this_rank-ewtasks
-    if (north<0) north = north+tasks
-    south = this_rank+ewtasks
-    if (south>=tasks) south = south-tasks
+    west = this_rank-1
+    if ((west/ewtasks<this_rank/ewtasks).or.(west<0)) west = west+ewtasks
+    east = this_rank+1
+    if (east/ewtasks>this_rank/ewtasks) east = east-ewtasks
+    south = this_rank-ewtasks
+    if (south<0) south = south+tasks
+    north = this_rank+ewtasks
+    if (north>=tasks) north = north-tasks
 
     ! Check that haven't split up the problem too much.  Idea is that do not want halos overlapping in either dimension.
     ! local_* - lhalo - uhalo is the actual number of non-halo cells on a processor.
@@ -1186,7 +1191,7 @@ contains
     !write(*,*) "Process ", this_rank, " north = ", north, " south = ", south
     !write(*,*) "Process ", this_rank, " ew_vars = ", own_ewn, " ns_vars = ", own_nsn
     call distributed_print_grid(own_ewn, own_nsn)
-  end subroutine
+  end subroutine distributed_grid
 
   function distributed_owner(ew,ewn,ns,nsn)
     implicit none
@@ -1195,7 +1200,7 @@ contains
     ! begin
     distributed_owner = (ew>lhalo.and.ew<=local_ewn-uhalo.and.&
          ns>lhalo.and.ns<=local_nsn-uhalo)
-  end function
+  end function distributed_owner
 
   subroutine distributed_print_grid(l_ewn,l_nsn)
     ! Gathers and prints the overall grid layout by processor counts.
@@ -1235,7 +1240,7 @@ contains
        end do
     end if
     ! automatic deallocation
-  end subroutine
+  end subroutine distributed_print_grid
 
   subroutine distributed_print_integer_2d(name,values)
     use mpi
@@ -1311,7 +1316,7 @@ contains
        close(u)
     end if
     ! automatic deallocation
-  end subroutine
+  end subroutine distributed_print_integer_2d
 
   subroutine distributed_print_real8_2d(name,values)
     use mpi
@@ -1387,7 +1392,7 @@ contains
        close(u)
     end if
     ! automatic deallocation
-  end subroutine
+  end subroutine distributed_print_real8_2d
 
   subroutine distributed_print_real8_3d(name,values)
     use mpi
@@ -1464,7 +1469,7 @@ contains
        close(u)
     end if
     ! automatic deallocation
-  end subroutine
+  end subroutine distributed_print_real8_3d
 
   function distributed_put_var_integer_2d(ncid,varid,values,start)
     use mpi
@@ -1534,7 +1539,7 @@ contains
     end if
     call broadcast(distributed_put_var_integer_2d)
     !automatic deallocation
-  end function
+  end function distributed_put_var_integer_2d
 
   function distributed_put_var_real4_1d(ncid,varid,values)
     use mpi
@@ -1614,7 +1619,7 @@ contains
     end if
     call broadcast(distributed_put_var_real4_1d)
     !automatic deallocation
-  end function
+  end function distributed_put_var_real4_1d
 
   function distributed_put_var_real4_2d(ncid,varid,values,start)
     use mpi
@@ -1684,7 +1689,7 @@ contains
     end if
     call broadcast(distributed_put_var_real4_2d)
     !automatic deallocation
-  end function
+  end function distributed_put_var_real4_2d
 
   function distributed_put_var_real8_2d(ncid,varid,values,start)
     use mpi
@@ -1754,7 +1759,7 @@ contains
     end if
     call broadcast(distributed_put_var_real8_2d)
     !automatic deallocation
-  end function
+  end function distributed_put_var_real8_2d
 
   function distributed_put_var_real8_3d(ncid,varid,values,start)
     use mpi
@@ -1826,7 +1831,7 @@ contains
     end if
     call broadcast(distributed_put_var_real8_3d)
     !automatic deallocation
-  end function
+  end function distributed_put_var_real8_3d
 
   subroutine distributed_scatter_var_integer_2d(values, global_values)
     ! JEFF Scatter a variable on the main_task node back to the distributed
@@ -1889,7 +1894,7 @@ contains
 
     deallocate(global_values)
     ! automatic deallocation
-  end subroutine
+  end subroutine distributed_scatter_var_integer_2d
 
   subroutine distributed_scatter_var_logical_2d(values, global_values)
     ! JEFF Scatter a variable on the main_task node back to the distributed
@@ -1952,7 +1957,7 @@ contains
 
     deallocate(global_values)
     ! automatic deallocation
-  end subroutine
+  end subroutine distributed_scatter_var_logical_2d
 
   subroutine distributed_scatter_var_real4_2d(values, global_values)
     ! JEFF Scatter a variable on the main_task node back to the distributed
@@ -2015,7 +2020,7 @@ contains
 
     deallocate(global_values)
     ! automatic deallocation
-  end subroutine
+  end subroutine distributed_scatter_var_real4_2d
 
   subroutine distributed_scatter_var_real4_3d(values, global_values)
     ! JEFF Scatter a variable on the main_task node back to the distributed
@@ -2080,7 +2085,7 @@ contains
 
     deallocate(global_values)
     ! automatic deallocation
-  end subroutine
+  end subroutine distributed_scatter_var_real4_3d
 
   subroutine distributed_scatter_var_real8_2d(values, global_values)
     ! JEFF Scatter a variable on the main_task node back to the distributed
@@ -2143,7 +2148,7 @@ contains
 
     deallocate(global_values)
     ! automatic deallocation
-  end subroutine
+  end subroutine distributed_scatter_var_real8_2d
 
   subroutine distributed_scatter_var_real8_3d(values, global_values, deallocflag)
     ! JEFF Scatter a variable on the main_task node back to the distributed
@@ -2217,7 +2222,7 @@ contains
 
     if (deallocmem) deallocate(global_values)
     ! automatic deallocation
-  end subroutine
+  end subroutine distributed_scatter_var_real8_3d
 
   subroutine global_sum(x,y)
     use mpi
@@ -2232,7 +2237,7 @@ contains
     call mpi_allreduce(sendbuf,recvbuf,2,mpi_real8,mpi_sum,comm,ierror)
     x = recvbuf(1)
     y = recvbuf(2)
-  end subroutine
+  end subroutine global_sum
 
   subroutine not_parallel(file,line)
     implicit none
@@ -2240,7 +2245,7 @@ contains
     character(len=*) :: file
     ! begin
     call parallel_stop(file,line)
-  end subroutine
+  end subroutine not_parallel
 
   subroutine parallel_barrier
     use mpi
@@ -2248,7 +2253,7 @@ contains
     integer :: ierror
     ! begin
     call mpi_barrier(comm,ierror)
-  end subroutine
+  end subroutine parallel_barrier
 
   function parallel_boundary(ew,ewn,ns,nsn)
     implicit none
@@ -2259,7 +2264,7 @@ contains
          (ewub>global_ewn.and.ew==ewn-uhalo).or.&
          (nslb<1.and.ns==1+lhalo).or.&
          (nsub>global_nsn.and.ns==nsn-uhalo)
-  end function
+  end function parallel_boundary
 
   function parallel_close(ncid)
     implicit none
@@ -2267,7 +2272,7 @@ contains
     ! begin
     if (main_task) parallel_close = nf90_close(ncid)
     call broadcast(parallel_close)
-  end function
+  end function parallel_close
 
   function parallel_create(path,cmode,ncid)
     implicit none
@@ -2277,7 +2282,7 @@ contains
     if (main_task) parallel_create = nf90_create(path,cmode,ncid)
     call broadcast(parallel_create)
     call broadcast(ncid)
-  end function
+  end function parallel_create
     
   function parallel_def_dim(ncid,name,len,dimid)
     use netcdf
@@ -2288,7 +2293,7 @@ contains
     if (main_task) parallel_def_dim = nf90_def_dim(ncid,name,len,dimid)
     call broadcast(parallel_def_dim)
     call broadcast(dimid)
-  end function
+  end function parallel_def_dim
 
   function parallel_def_var_dimids(ncid,name,xtype,dimids,varid)
     implicit none
@@ -2300,7 +2305,7 @@ contains
          nf90_def_var(ncid,name,xtype,dimids,varid)
     call broadcast(parallel_def_var_dimids)
     call broadcast(varid)
-  end function
+  end function parallel_def_var_dimids
 
   function parallel_def_var_nodimids(ncid,name,xtype,varid)
     implicit none
@@ -2311,7 +2316,7 @@ contains
          nf90_def_var(ncid,name,xtype,varid)
     call broadcast(parallel_def_var_nodimids)
     call broadcast(varid)
-  end function
+  end function parallel_def_var_nodimids
 
   function parallel_enddef(ncid)
     implicit none
@@ -2319,7 +2324,7 @@ contains
     ! begin
     if (main_task) parallel_enddef = nf90_enddef(ncid)
     call broadcast(parallel_enddef)
-  end function
+  end function parallel_enddef
 
   subroutine parallel_finalise
     use mpi
@@ -2327,7 +2332,7 @@ contains
     integer :: ierror
     ! begin
     call mpi_finalize(ierror)
-  end subroutine
+  end subroutine parallel_finalise
 
   function parallel_get_att_character(ncid,varid,name,values)
     implicit none
@@ -2338,7 +2343,7 @@ contains
          nf90_get_att(ncid,varid,name,values)
     call broadcast(parallel_get_att_character)
     call broadcast(values)
-  end function
+  end function parallel_get_att_character
 
   function parallel_get_att_real4(ncid,varid,name,values)
     implicit none
@@ -2350,7 +2355,7 @@ contains
          nf90_get_att(ncid,varid,name,values)
     call broadcast(parallel_get_att_real4)
     call broadcast(values)
-  end function
+  end function parallel_get_att_real4
 
   function parallel_get_att_real4_1d(ncid,varid,name,values)
     implicit none
@@ -2362,7 +2367,7 @@ contains
          nf90_get_att(ncid,varid,name,values)
     call broadcast(parallel_get_att_real4_1d)
     call broadcast(values)
-  end function
+  end function parallel_get_att_real4_1d
 
   function parallel_get_att_real8(ncid,varid,name,values)
     implicit none
@@ -2374,7 +2379,7 @@ contains
          nf90_get_att(ncid,varid,name,values)
     call broadcast(parallel_get_att_real8)
     call broadcast(values)
-  end function
+  end function parallel_get_att_real8
 
   function parallel_get_att_real8_1d(ncid,varid,name,values)
     implicit none
@@ -2386,7 +2391,7 @@ contains
          nf90_get_att(ncid,varid,name,values)
     call broadcast(parallel_get_att_real8_1d)
     call broadcast(values)
-  end function
+  end function parallel_get_att_real8_1d
 
   function parallel_get_var_integer_1d(ncid,varid,values)
     implicit none
@@ -2397,7 +2402,7 @@ contains
          nf90_get_var(ncid,varid,values)
     call broadcast(parallel_get_var_integer_1d)
     call broadcast(values)
-  end function
+  end function parallel_get_var_integer_1d
 
   function parallel_get_var_real4_1d(ncid,varid,values)
     implicit none
@@ -2408,11 +2413,11 @@ contains
          nf90_get_var(ncid,varid,values)
     call broadcast(parallel_get_var_real4_1d)
     call broadcast(values)
-  end function
+  end function parallel_get_var_real4_1d
 
   function parallel_globalID(locns, locew, upstride)
     ! Returns a unique ID for a given row and column reference that is identical across all processors.
-    ! For instance if Proc 2: (17,16) is the same global cell as Proc 3: (17,1), then the globalID will be the same for both.
+    ! For instance if Proc 0: (17,16) is the same global cell as Proc 3: (17,1), then the globalID will be the same for both.
     ! These IDs are spaced upstride apart.  upstride = number of vertical layers.  Typically (upn) + number of ghost layers (2 = top and bottom)
     integer,intent(IN) :: locns, locew, upstride
     integer :: parallel_globalID
@@ -2420,13 +2425,8 @@ contains
     ! locew is local EW (col) grid index
     integer :: global_row, global_col, global_ID
     character(len=40) :: local_coord
-    ! JEFFTESTING What I'm going to try is rather than assigning from NE corner as (1,1),
-    ! subtract the calculated ID from the max available ID in order to move (1,1) to the lower left corner.
-    integer :: maxID
 
-    maxID = global_ewn * global_nsn * upstride
-
-    global_row = (locns - uhalo) + global_row_offset
+    global_row = (locns - lhalo) + global_row_offset
     global_col = (locew - lhalo) + global_col_offset
 
     global_ID = ((global_row - 1) * global_ewn + (global_col - 1)) * upstride + 1
@@ -2437,7 +2437,7 @@ contains
 
     !return value
     parallel_globalID = global_ID
-  end function
+  end function parallel_globalID
 
   subroutine parallel_halo_integer_2d(a)
     use mpi
@@ -2445,10 +2445,10 @@ contains
     integer,dimension(:,:) :: a
     
     integer :: erequest,ierror,nrequest,srequest,wrequest
-    integer,dimension(lhalo,local_nsn-lhalo-uhalo) :: erecv,wsend
-    integer,dimension(uhalo,local_nsn-lhalo-uhalo) :: esend,wrecv
-    integer,dimension(local_ewn,lhalo) :: nrecv,ssend
-    integer,dimension(local_ewn,uhalo) :: nsend,srecv
+    integer,dimension(lhalo,local_nsn-lhalo-uhalo) :: esend,wrecv
+    integer,dimension(uhalo,local_nsn-lhalo-uhalo) :: erecv,wsend
+    integer,dimension(local_ewn,lhalo) :: nsend,srecv
+    integer,dimension(local_ewn,uhalo) :: nrecv,ssend
 
     ! begin
 
@@ -2471,27 +2471,27 @@ contains
     call mpi_irecv(nrecv,size(nrecv),mpi_integer,north,north,&
          comm,nrequest,ierror)
 
-    esend(:,:) = a(1+lhalo:1+lhalo+uhalo-1,1+lhalo:local_nsn-uhalo)
+    esend(:,:) = &
+      a(local_ewn-uhalo-lhalo+1:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
     call mpi_send(esend,size(esend),mpi_integer,east,this_rank,comm,ierror)
-    wsend(:,:) = &
-         a(local_ewn-lhalo-uhalo+1:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
+    wsend(:,:) = a(1+lhalo:1+lhalo+uhalo-1,1+lhalo:local_nsn-uhalo)
     call mpi_send(wsend,size(wsend),mpi_integer,west,this_rank,comm,ierror)
 
     call mpi_wait(wrequest,mpi_status_ignore,ierror)
-    a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = wrecv(:,:)
+    a(:lhalo,1+lhalo:local_nsn-uhalo) = wrecv(:,:)
     call mpi_wait(erequest,mpi_status_ignore,ierror)
-    a(:lhalo,1+lhalo:local_nsn-uhalo) = erecv(:,:)
+    a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = erecv(:,:)
 
-    nsend(:,:) = a(:,1+lhalo:1+lhalo+uhalo-1)
+    nsend(:,:) = a(:,local_nsn-uhalo-lhalo+1:local_nsn-uhalo)
     call mpi_send(nsend,size(nsend),mpi_integer,north,this_rank,comm,ierror)
-    ssend(:,:) = a(:,local_nsn-lhalo-uhalo+1:local_nsn-uhalo)
+    ssend(:,:) = a(:,1+lhalo:1+lhalo+uhalo-1)
     call mpi_send(ssend,size(ssend),mpi_integer,south,this_rank,comm,ierror)
 
     call mpi_wait(srequest,mpi_status_ignore,ierror)
-    a(:,local_nsn-uhalo+1:) = srecv(:,:)
+    a(:,:lhalo) = srecv(:,:)
     call mpi_wait(nrequest,mpi_status_ignore,ierror)
-    a(:,:lhalo) = nrecv(:,:)
-  end subroutine
+    a(:,local_nsn-uhalo+1:) = nrecv(:,:)
+  end subroutine parallel_halo_integer_2d
 
   subroutine parallel_halo_logical_2d(a)
     use mpi
@@ -2499,10 +2499,10 @@ contains
     logical,dimension(:,:) :: a
 
     integer :: erequest,ierror,nrequest,srequest,wrequest
-    logical,dimension(lhalo,local_nsn-lhalo-uhalo) :: erecv,wsend
-    logical,dimension(uhalo,local_nsn-lhalo-uhalo) :: esend,wrecv
-    logical,dimension(local_ewn,lhalo) :: nrecv,ssend
-    logical,dimension(local_ewn,uhalo) :: nsend,srecv
+    logical,dimension(lhalo,local_nsn-lhalo-uhalo) :: esend,wrecv
+    logical,dimension(uhalo,local_nsn-lhalo-uhalo) :: erecv,wsend
+    logical,dimension(local_ewn,lhalo) :: nsend,srecv
+    logical,dimension(local_ewn,uhalo) :: nrecv,ssend
 
     ! begin
 
@@ -2525,27 +2525,27 @@ contains
     call mpi_irecv(nrecv,size(nrecv),mpi_logical,north,north,&
          comm,nrequest,ierror)
 
-    esend(:,:) = a(1+lhalo:1+lhalo+uhalo-1,1+lhalo:local_nsn-uhalo)
+    esend(:,:) = &
+         a(local_ewn-uhalo-lhalo+1:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
     call mpi_send(esend,size(esend),mpi_logical,east,this_rank,comm,ierror)
-    wsend(:,:) = &
-         a(local_ewn-lhalo-uhalo+1:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
+    wsend(:,:) = a(1+lhalo:1+lhalo+uhalo-1,1+lhalo:local_nsn-uhalo)
     call mpi_send(wsend,size(wsend),mpi_logical,west,this_rank,comm,ierror)
 
     call mpi_wait(wrequest,mpi_status_ignore,ierror)
-    a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = wrecv(:,:)
+    a(:lhalo,1+lhalo:local_nsn-uhalo) = wrecv(:,:)
     call mpi_wait(erequest,mpi_status_ignore,ierror)
-    a(:lhalo,1+lhalo:local_nsn-uhalo) = erecv(:,:)
+    a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = erecv(:,:)
 
-    nsend(:,:) = a(:,1+lhalo:1+lhalo+uhalo-1)
+    nsend(:,:) = a(:,local_nsn-uhalo-lhalo+1:local_nsn-uhalo)
     call mpi_send(nsend,size(nsend),mpi_logical,north,this_rank,comm,ierror)
-    ssend(:,:) = a(:,local_nsn-lhalo-uhalo+1:local_nsn-uhalo)
+    ssend(:,:) = a(:,1+lhalo:1+lhalo+uhalo-1)
     call mpi_send(ssend,size(ssend),mpi_logical,south,this_rank,comm,ierror)
 
     call mpi_wait(srequest,mpi_status_ignore,ierror)
-    a(:,local_nsn-uhalo+1:) = srecv(:,:)
+    a(:,:lhalo) = srecv(:,:)
     call mpi_wait(nrequest,mpi_status_ignore,ierror)
-    a(:,:lhalo) = nrecv(:,:)
-  end subroutine
+    a(:,local_nsn-uhalo+1:) = nrecv(:,:)
+  end subroutine parallel_halo_logical_2d
 
   subroutine parallel_halo_real4_2d(a)
     use mpi
@@ -2553,10 +2553,10 @@ contains
     real(4),dimension(:,:) :: a
 
     integer :: erequest,ierror,nrequest,srequest,wrequest
-    real(4),dimension(lhalo,local_nsn-lhalo-uhalo) :: erecv,wsend
-    real(4),dimension(uhalo,local_nsn-lhalo-uhalo) :: esend,wrecv
-    real(4),dimension(local_ewn,lhalo) :: nrecv,ssend
-    real(4),dimension(local_ewn,uhalo) :: nsend,srecv
+    real(4),dimension(lhalo,local_nsn-lhalo-uhalo) :: esend,wrecv
+    real(4),dimension(uhalo,local_nsn-lhalo-uhalo) :: erecv,wsend
+    real(4),dimension(local_ewn,lhalo) :: nsend,srecv
+    real(4),dimension(local_ewn,uhalo) :: nrecv,ssend
 
     ! begin
 
@@ -2579,27 +2579,27 @@ contains
     call mpi_irecv(nrecv,size(nrecv),mpi_real4,north,north,&
          comm,nrequest,ierror)
 
-    esend(:,:) = a(1+lhalo:1+lhalo+uhalo-1,1+lhalo:local_nsn-uhalo)
+    esend(:,:) = &
+         a(local_ewn-uhalo-lhalo+1:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
     call mpi_send(esend,size(esend),mpi_real4,east,this_rank,comm,ierror)
-    wsend(:,:) = &
-         a(local_ewn-lhalo-uhalo+1:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
+    wsend(:,:) = a(1+lhalo:1+lhalo+uhalo-1,1+lhalo:local_nsn-uhalo)
     call mpi_send(wsend,size(wsend),mpi_real4,west,this_rank,comm,ierror)
 
     call mpi_wait(wrequest,mpi_status_ignore,ierror)
-    a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = wrecv(:,:)
+    a(:lhalo,1+lhalo:local_nsn-uhalo) = wrecv(:,:)
     call mpi_wait(erequest,mpi_status_ignore,ierror)
-    a(:lhalo,1+lhalo:local_nsn-uhalo) = erecv(:,:)
+    a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = erecv(:,:)
 
-    nsend(:,:) = a(:,1+lhalo:1+lhalo+uhalo-1)
+    nsend(:,:) = a(:,local_nsn-uhalo-lhalo+1:local_nsn-uhalo)
     call mpi_send(nsend,size(nsend),mpi_real4,north,this_rank,comm,ierror)
-    ssend(:,:) = a(:,local_nsn-lhalo-uhalo+1:local_nsn-uhalo)
+    ssend(:,:) = a(:,1+lhalo:1+lhalo+uhalo-1)
     call mpi_send(ssend,size(ssend),mpi_real4,south,this_rank,comm,ierror)
 
     call mpi_wait(srequest,mpi_status_ignore,ierror)
-    a(:,local_nsn-uhalo+1:) = srecv(:,:)
+    a(:,:lhalo) = srecv(:,:)
     call mpi_wait(nrequest,mpi_status_ignore,ierror)
-    a(:,:lhalo) = nrecv(:,:)
-  end subroutine
+    a(:,local_nsn-uhalo+1:) = nrecv(:,:)
+  end subroutine parallel_halo_real4_2d
 
   subroutine parallel_halo_real8_2d(a)
     use mpi
@@ -2607,10 +2607,10 @@ contains
     real(8),dimension(:,:) :: a
     
     integer :: erequest,ierror,nrequest,srequest,wrequest
-    real(8),dimension(lhalo,local_nsn-lhalo-uhalo) :: erecv,wsend
-    real(8),dimension(uhalo,local_nsn-lhalo-uhalo) :: esend,wrecv
-    real(8),dimension(local_ewn,lhalo) :: nrecv,ssend
-    real(8),dimension(local_ewn,uhalo) :: nsend,srecv
+    real(8),dimension(lhalo,local_nsn-lhalo-uhalo) :: esend,wrecv
+    real(8),dimension(uhalo,local_nsn-lhalo-uhalo) :: erecv,wsend
+    real(8),dimension(local_ewn,lhalo) :: nsend,srecv
+    real(8),dimension(local_ewn,uhalo) :: nrecv,ssend
 
     ! begin
 
@@ -2633,27 +2633,27 @@ contains
     call mpi_irecv(nrecv,size(nrecv),mpi_real8,north,north,&
          comm,nrequest,ierror)
 
-    esend(:,:) = a(1+lhalo:1+lhalo+uhalo-1,1+lhalo:local_nsn-uhalo)
+    esend(:,:) = &
+         a(local_ewn-uhalo-lhalo+1:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
     call mpi_send(esend,size(esend),mpi_real8,east,this_rank,comm,ierror)
-    wsend(:,:) = &
-         a(local_ewn-lhalo-uhalo+1:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
+    wsend(:,:) = a(1+lhalo:1+lhalo+uhalo-1,1+lhalo:local_nsn-uhalo)
     call mpi_send(wsend,size(wsend),mpi_real8,west,this_rank,comm,ierror)
 
     call mpi_wait(wrequest,mpi_status_ignore,ierror)
-    a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = wrecv(:,:)
+    a(:lhalo,1+lhalo:local_nsn-uhalo) = wrecv(:,:)
     call mpi_wait(erequest,mpi_status_ignore,ierror)
-    a(:lhalo,1+lhalo:local_nsn-uhalo) = erecv(:,:)
+    a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = erecv(:,:)
 
-    nsend(:,:) = a(:,1+lhalo:1+lhalo+uhalo-1)
+    nsend(:,:) = a(:,local_nsn-uhalo-lhalo+1:local_nsn-uhalo)
     call mpi_send(nsend,size(nsend),mpi_real8,north,this_rank,comm,ierror)
-    ssend(:,:) = a(:,local_nsn-lhalo-uhalo+1:local_nsn-uhalo)
+    ssend(:,:) = a(:,1+lhalo:1+lhalo+uhalo-1)
     call mpi_send(ssend,size(ssend),mpi_real8,south,this_rank,comm,ierror)
 
     call mpi_wait(srequest,mpi_status_ignore,ierror)
-    a(:,local_nsn-uhalo+1:) = srecv(:,:)
+    a(:,:lhalo) = srecv(:,:)
     call mpi_wait(nrequest,mpi_status_ignore,ierror)
-    a(:,:lhalo) = nrecv(:,:)
-  end subroutine
+    a(:,local_nsn-uhalo+1:) = nrecv(:,:)
+  end subroutine parallel_halo_real8_2d
 
   subroutine parallel_halo_real8_3d(a)
     use mpi
@@ -2661,10 +2661,10 @@ contains
     real(8),dimension(:,:,:) :: a
     
     integer :: erequest,ierror,one,nrequest,srequest,wrequest
-    real(8),dimension(size(a,1),lhalo,local_nsn-lhalo-uhalo) :: erecv,wsend
-    real(8),dimension(size(a,1),uhalo,local_nsn-lhalo-uhalo) :: esend,wrecv
-    real(8),dimension(size(a,1),local_ewn,lhalo) :: nrecv,ssend
-    real(8),dimension(size(a,1),local_ewn,uhalo) :: nsend,srecv
+    real(8),dimension(size(a,1),lhalo,local_nsn-lhalo-uhalo) :: esend,wrecv
+    real(8),dimension(size(a,1),uhalo,local_nsn-lhalo-uhalo) :: erecv,wsend
+    real(8),dimension(size(a,1),local_ewn,lhalo) :: nsend,srecv
+    real(8),dimension(size(a,1),local_ewn,uhalo) :: nrecv,ssend
 
     ! begin
 
@@ -2687,27 +2687,27 @@ contains
     call mpi_irecv(nrecv,size(nrecv),mpi_real8,north,north,&
          comm,nrequest,ierror)
 
-    esend(:,:,:) = a(:,1+lhalo:1+lhalo+uhalo-1,1+lhalo:local_nsn-uhalo)
+    esend(:,:,:) = &
+         a(:,local_ewn-uhalo-lhalo+1:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
     call mpi_send(esend,size(esend),mpi_real8,east,this_rank,comm,ierror)
-    wsend(:,:,:) = &
-         a(:,local_ewn-lhalo-uhalo+1:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
+    wsend(:,:,:) = a(:,1+lhalo:1+lhalo+uhalo-1,1+lhalo:local_nsn-uhalo)
     call mpi_send(wsend,size(wsend),mpi_real8,west,this_rank,comm,ierror)
 
     call mpi_wait(wrequest,mpi_status_ignore,ierror)
-    a(:,local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = wrecv(:,:,:)
+    a(:,:lhalo,1+lhalo:local_nsn-uhalo) = wrecv(:,:,:)
     call mpi_wait(erequest,mpi_status_ignore,ierror)
-    a(:,:lhalo,1+lhalo:local_nsn-uhalo) = erecv(:,:,:)
+    a(:,local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = erecv(:,:,:)
 
-    nsend(:,:,:) = a(:,:,1+lhalo:1+lhalo+uhalo-1)
+    nsend(:,:,:) = a(:,:,local_nsn-uhalo-lhalo+1:local_nsn-uhalo)
     call mpi_send(nsend,size(nsend),mpi_real8,north,this_rank,comm,ierror)
-    ssend(:,:,:) = a(:,:,local_nsn-lhalo-uhalo+1:local_nsn-uhalo)
+    ssend(:,:,:) = a(:,:,1+lhalo:1+lhalo+uhalo-1)
     call mpi_send(ssend,size(ssend),mpi_real8,south,this_rank,comm,ierror)
 
     call mpi_wait(srequest,mpi_status_ignore,ierror)
-    a(:,:,local_nsn-uhalo+1:) = srecv(:,:,:)
+    a(:,:,:lhalo) = srecv(:,:,:)
     call mpi_wait(nrequest,mpi_status_ignore,ierror)
-    a(:,:,:lhalo) = nrecv(:,:,:)
-  end subroutine
+    a(:,:,local_nsn-uhalo+1:) = nrecv(:,:,:)
+  end subroutine parallel_halo_real8_3d
 
   subroutine parallel_halo_temperature(a)
     !JEFF This routine is for updating the halo for the variable model%temper%temp.
@@ -2718,10 +2718,10 @@ contains
     real(8),dimension(:,:,:) :: a
 
     integer :: erequest,ierror,one,nrequest,srequest,wrequest
-    real(8),dimension(size(a,1),lhalo,local_nsn-lhalo-uhalo) :: erecv,wsend
-    real(8),dimension(size(a,1),uhalo,local_nsn-lhalo-uhalo) :: esend,wrecv
-    real(8),dimension(size(a,1),local_ewn,lhalo) :: nrecv,ssend
-    real(8),dimension(size(a,1),local_ewn,uhalo) :: nsend,srecv
+    real(8),dimension(size(a,1),lhalo,local_nsn-lhalo-uhalo) :: esend,wrecv
+    real(8),dimension(size(a,1),uhalo,local_nsn-lhalo-uhalo) :: erecv,wsend
+    real(8),dimension(size(a,1),local_ewn,lhalo) :: nsend,srecv
+    real(8),dimension(size(a,1),local_ewn,uhalo) :: nrecv,ssend
 
     ! begin
     call mpi_irecv(wrecv,size(wrecv),mpi_real8,west,west,&
@@ -2733,32 +2733,32 @@ contains
     call mpi_irecv(nrecv,size(nrecv),mpi_real8,north,north,&
          comm,nrequest,ierror)
 
-    esend(:,:,:) = a(:,1+lhalo:1+lhalo+uhalo-1,1+lhalo:local_nsn-uhalo)
+    esend(:,:,:) = &
+      a(:,local_ewn-uhalo-lhalo+1:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
     call mpi_send(esend,size(esend),mpi_real8,east,this_rank,comm,ierror)
-    wsend(:,:,:) = &
-         a(:,local_ewn-lhalo-uhalo+1:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
+    wsend(:,:,:) = a(:,1+lhalo:1+lhalo+uhalo-1,1+lhalo:local_nsn-uhalo)
     call mpi_send(wsend,size(wsend),mpi_real8,west,this_rank,comm,ierror)
 
     call mpi_wait(wrequest,mpi_status_ignore,ierror)
-    !JEFF Put an upper bound on middle index to prevent overrunning index
-    a(:,local_ewn-uhalo+1:local_ewn-uhalo+2,1+lhalo:local_nsn-uhalo) = wrecv(:,:,:)
-    call mpi_wait(erequest,mpi_status_ignore,ierror)
     !JEFF Change middle index to put halo into correct place for temperature.
-    a(:,2:lhalo+1,1+lhalo:local_nsn-uhalo) = erecv(:,:,:)
+    a(:,2:lhalo+1,1+lhalo:local_nsn-uhalo) = wrecv(:,:,:)
+    call mpi_wait(erequest,mpi_status_ignore,ierror)
+    !JEFF Put an upper bound on middle index to prevent overrunning index
+    a(:,local_ewn-uhalo+1:local_ewn-uhalo+2,1+lhalo:local_nsn-uhalo) = erecv(:,:,:)
 
-    !JEFF Change middle to move one index further in
-    nsend(:,:,:) = a(:,2:local_ewn+1,1+lhalo:1+lhalo+uhalo-1)
+    nsend(:,:,:) = a(:,:,local_nsn-uhalo-lhalo+1:local_nsn-uhalo)
     call mpi_send(nsend,size(nsend),mpi_real8,north,this_rank,comm,ierror)
-    ssend(:,:,:) = a(:,:,local_nsn-lhalo-uhalo+1:local_nsn-uhalo)
+    !JEFF Change middle to move one index further in
+    ssend(:,:,:) = a(:,2:local_ewn+1,1+lhalo:1+lhalo+uhalo-1)
     call mpi_send(ssend,size(ssend),mpi_real8,south,this_rank,comm,ierror)
 
     call mpi_wait(srequest,mpi_status_ignore,ierror)
-    !JEFF Limit last index to size of halo and middle to one index further in
-    a(:,2:local_ewn+1,local_nsn-uhalo+1:local_nsn) = srecv(:,:,:)
-    call mpi_wait(nrequest,mpi_status_ignore,ierror)
     !JEFF Change middle to move one index further in
-    a(:,2:local_ewn+1,:lhalo) = nrecv(:,:,:)
-  end subroutine
+    a(:,2:local_ewn+1,:lhalo) = srecv(:,:,:)
+    call mpi_wait(nrequest,mpi_status_ignore,ierror)
+    !JEFF Limit last index to size of halo and middle to one index further in
+    a(:,2:local_ewn+1,local_nsn-uhalo+1:local_nsn) = nrecv(:,:,:)
+  end subroutine parallel_halo_temperature
 
   function parallel_halo_verify_integer_2d(a)
     use mpi
@@ -2766,10 +2766,10 @@ contains
     integer,dimension(:,:) :: a
 
     integer :: erequest,ierror,nrequest,srequest,wrequest
-    integer,dimension(lhalo,local_nsn-lhalo-uhalo) :: erecv,wsend
-    integer,dimension(uhalo,local_nsn-lhalo-uhalo) :: esend,wrecv
-    integer,dimension(local_ewn,lhalo) :: nrecv,ssend
-    integer,dimension(local_ewn,uhalo) :: nsend,srecv
+    integer,dimension(lhalo,local_nsn-lhalo-uhalo) :: esend,wrecv
+    integer,dimension(uhalo,local_nsn-lhalo-uhalo) :: erecv,wsend
+    integer,dimension(local_ewn,lhalo) :: nsend,srecv
+    integer,dimension(local_ewn,uhalo) :: nrecv,ssend
     logical :: notverify_flag
     logical :: parallel_halo_verify_integer_2d
 
@@ -2794,27 +2794,28 @@ contains
     call mpi_irecv(nrecv,size(nrecv),mpi_integer,north,north,&
          comm,nrequest,ierror)
 
-    esend(:,:) = a(1+lhalo:1+lhalo+uhalo-1,1+lhalo:local_nsn-uhalo)
+    esend(:,:) = &
+         a(local_ewn-uhalo-lhalo+1:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
     call mpi_send(esend,size(esend),mpi_integer,east,this_rank,comm,ierror)
-    wsend(:,:) = &
-         a(local_ewn-lhalo-uhalo+1:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
+    wsend(:,:) = a(1+lhalo:1+lhalo+uhalo-1,1+lhalo:local_nsn-uhalo)
     call mpi_send(wsend,size(wsend),mpi_integer,west,this_rank,comm,ierror)
 
     call mpi_wait(wrequest,mpi_status_ignore,ierror)
     ! ANY True if any value is true (LOGICAL)
-    notverify_flag = ANY(a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) /= wrecv(:,:))
+    notverify_flag = ANY(a(:lhalo,1+lhalo:local_nsn-uhalo) /= wrecv(:,:))
     call mpi_wait(erequest,mpi_status_ignore,ierror)
-    notverify_flag = notverify_flag .OR. ANY(a(:lhalo,1+lhalo:local_nsn-uhalo) /= erecv(:,:))
+    notverify_flag = notverify_flag .OR. &
+      ANY(a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) /= erecv(:,:))
 
-    nsend(:,:) = a(:,1+lhalo:1+lhalo+uhalo-1)
+    nsend(:,:) = a(:,local_nsn-uhalo-lhalo+1:local_nsn-uhalo)
     call mpi_send(nsend,size(nsend),mpi_integer,north,this_rank,comm,ierror)
-    ssend(:,:) = a(:,local_nsn-lhalo-uhalo+1:local_nsn-uhalo)
+    ssend(:,:) = a(:,1+lhalo:1+lhalo+uhalo-1)
     call mpi_send(ssend,size(ssend),mpi_integer,south,this_rank,comm,ierror)
 
     call mpi_wait(srequest,mpi_status_ignore,ierror)
-    notverify_flag = notverify_flag .OR. ANY(a(:,local_nsn-uhalo+1:) /= srecv(:,:))
+    notverify_flag = notverify_flag .OR. ANY(a(:,:lhalo) /= srecv(:,:))
     call mpi_wait(nrequest,mpi_status_ignore,ierror)
-    notverify_flag = notverify_flag .OR. ANY(a(:,:lhalo) /= nrecv(:,:))
+    notverify_flag = notverify_flag .OR. ANY(a(:,local_nsn-uhalo+1:) /= nrecv(:,:))
 
     ! if notverify_flag is TRUE, then there was some difference detected
     if (notverify_flag) then
@@ -2823,7 +2824,7 @@ contains
     endif
 
     parallel_halo_verify_integer_2d = .NOT. notverify_flag  ! return if verified (True) or not verified (False)
-  end function
+  end function parallel_halo_verify_integer_2d
 
   function parallel_halo_verify_real8_2d(a)
     use mpi
@@ -2831,10 +2832,10 @@ contains
     real(8),dimension(:,:) :: a
     
     integer :: erequest,ierror,nrequest,srequest,wrequest
-    real(8),dimension(lhalo,local_nsn-lhalo-uhalo) :: erecv,wsend
-    real(8),dimension(uhalo,local_nsn-lhalo-uhalo) :: esend,wrecv
-    real(8),dimension(local_ewn,lhalo) :: nrecv,ssend
-    real(8),dimension(local_ewn,uhalo) :: nsend,srecv
+    real(8),dimension(lhalo,local_nsn-lhalo-uhalo) :: esend,wrecv
+    real(8),dimension(uhalo,local_nsn-lhalo-uhalo) :: erecv,wsend
+    real(8),dimension(local_ewn,lhalo) :: nsend,srecv
+    real(8),dimension(local_ewn,uhalo) :: nrecv,ssend
     logical :: notverify_flag
     logical :: parallel_halo_verify_real8_2d
 
@@ -2859,26 +2860,27 @@ contains
     call mpi_irecv(nrecv,size(nrecv),mpi_real8,north,north,&
          comm,nrequest,ierror)
 
-    esend(:,:) = a(1+lhalo:1+lhalo+uhalo-1,1+lhalo:local_nsn-uhalo)
+    esend(:,:) = &
+         a(local_ewn-uhalo-lhalo+1:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
     call mpi_send(esend,size(esend),mpi_real8,east,this_rank,comm,ierror)
-    wsend(:,:) = &
-         a(local_ewn-lhalo-uhalo+1:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
+    wsend(:,:) = a(1+lhalo:1+lhalo+uhalo-1,1+lhalo:local_nsn-uhalo)
     call mpi_send(wsend,size(wsend),mpi_real8,west,this_rank,comm,ierror)
 
     call mpi_wait(wrequest,mpi_status_ignore,ierror)
-    notverify_flag = ANY(a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) /= wrecv(:,:))
+    notverify_flag = ANY(a(:lhalo,1+lhalo:local_nsn-uhalo) /= wrecv(:,:))
     call mpi_wait(erequest,mpi_status_ignore,ierror)
-    notverify_flag = notverify_flag .OR. ANY(a(:lhalo,1+lhalo:local_nsn-uhalo) /= erecv(:,:))
+    notverify_flag = notverify_flag .OR. &
+      ANY(a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) /= erecv(:,:))
 
-    nsend(:,:) = a(:,1+lhalo:1+lhalo+uhalo-1)
+    nsend(:,:) = a(:,local_nsn-uhalo-lhalo+1:local_nsn-uhalo)
     call mpi_send(nsend,size(nsend),mpi_real8,north,this_rank,comm,ierror)
-    ssend(:,:) = a(:,local_nsn-lhalo-uhalo+1:local_nsn-uhalo)
+    ssend(:,:) = a(:,1+lhalo:1+lhalo+uhalo-1)
     call mpi_send(ssend,size(ssend),mpi_real8,south,this_rank,comm,ierror)
 
     call mpi_wait(srequest,mpi_status_ignore,ierror)
-    notverify_flag = notverify_flag .OR. ANY(a(:,local_nsn-uhalo+1:) /= srecv(:,:))
+    notverify_flag = notverify_flag .OR. ANY(a(:,:lhalo) /= srecv(:,:))
     call mpi_wait(nrequest,mpi_status_ignore,ierror)
-    notverify_flag = notverify_flag .OR. ANY(a(:,:lhalo) /= nrecv(:,:))
+    notverify_flag = notverify_flag .OR. ANY(a(:,local_nsn-uhalo+1:) /= nrecv(:,:))
 
     if (notverify_flag) then
          write(*,*) "Halo Verify FAILED on processor ", this_rank
@@ -2886,7 +2888,7 @@ contains
     endif
 
     parallel_halo_verify_real8_2d = .NOT. notverify_flag
-  end function
+  end function parallel_halo_verify_real8_2d
 
   function parallel_halo_verify_real8_3d(a)
     use mpi
@@ -2894,10 +2896,10 @@ contains
     real(8),dimension(:,:,:) :: a
     
     integer :: erequest,ierror,one,nrequest,srequest,wrequest
-    real(8),dimension(size(a,1),lhalo,local_nsn-lhalo-uhalo) :: erecv,wsend
-    real(8),dimension(size(a,1),uhalo,local_nsn-lhalo-uhalo) :: esend,wrecv
-    real(8),dimension(size(a,1),local_ewn,lhalo) :: nrecv,ssend
-    real(8),dimension(size(a,1),local_ewn,uhalo) :: nsend,srecv
+    real(8),dimension(size(a,1),lhalo,local_nsn-lhalo-uhalo) :: esend,wrecv
+    real(8),dimension(size(a,1),uhalo,local_nsn-lhalo-uhalo) :: erecv,wsend
+    real(8),dimension(size(a,1),local_ewn,lhalo) :: nsend,srecv
+    real(8),dimension(size(a,1),local_ewn,uhalo) :: nrecv,ssend
     logical :: notverify_flag
     logical :: parallel_halo_verify_real8_3d
 
@@ -2922,26 +2924,27 @@ contains
     call mpi_irecv(nrecv,size(nrecv),mpi_real8,north,north,&
          comm,nrequest,ierror)
 
-    esend(:,:,:) = a(:,1+lhalo:1+lhalo+uhalo-1,1+lhalo:local_nsn-uhalo)
+    esend(:,:,:) = &
+         a(:,local_ewn-uhalo-lhalo+1:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
     call mpi_send(esend,size(esend),mpi_real8,east,this_rank,comm,ierror)
-    wsend(:,:,:) = &
-         a(:,local_ewn-lhalo-uhalo+1:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
+    wsend(:,:,:) = a(:,1+lhalo:1+lhalo+uhalo-1,1+lhalo:local_nsn-uhalo)
     call mpi_send(wsend,size(wsend),mpi_real8,west,this_rank,comm,ierror)
 
     call mpi_wait(wrequest,mpi_status_ignore,ierror)
-    notverify_flag = ANY(a(:,local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) /= wrecv(:,:,:))
+    notverify_flag = ANY(a(:,:lhalo,1+lhalo:local_nsn-uhalo) /= wrecv(:,:,:))
     call mpi_wait(erequest,mpi_status_ignore,ierror)
-    notverify_flag = notverify_flag .OR. ANY(a(:,:lhalo,1+lhalo:local_nsn-uhalo) /= erecv(:,:,:))
+    notverify_flag = notverify_flag .OR. &
+      ANY(a(:,local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) /= erecv(:,:,:))
 
-    nsend(:,:,:) = a(:,:,1+lhalo:1+lhalo+uhalo-1)
+    nsend(:,:,:) = a(:,:,local_nsn-uhalo-lhalo+1:local_nsn-uhalo)
     call mpi_send(nsend,size(nsend),mpi_real8,north,this_rank,comm,ierror)
-    ssend(:,:,:) = a(:,:,local_nsn-lhalo-uhalo+1:local_nsn-uhalo)
+    ssend(:,:,:) = a(:,:,1+lhalo:1+lhalo+uhalo-1)
     call mpi_send(ssend,size(ssend),mpi_real8,south,this_rank,comm,ierror)
 
     call mpi_wait(srequest,mpi_status_ignore,ierror)
-    notverify_flag = notverify_flag .OR. ANY(a(:,:,local_nsn-uhalo+1:) /= srecv(:,:,:))
+    notverify_flag = notverify_flag .OR. ANY(a(:,:,:lhalo) /= srecv(:,:,:))
     call mpi_wait(nrequest,mpi_status_ignore,ierror)
-    notverify_flag = notverify_flag .OR. ANY(a(:,:,:lhalo) /= nrecv(:,:,:))
+    notverify_flag = notverify_flag .OR. ANY(a(:,:,local_nsn-uhalo+1:) /= nrecv(:,:,:))
 
     if (notverify_flag) then
          write(*,*) "Halo Verify FAILED on processor ", this_rank
@@ -2949,7 +2952,7 @@ contains
     endif
 
     parallel_halo_verify_real8_3d = .NOT. notverify_flag
-  end function
+  end function parallel_halo_verify_real8_3d
 
   subroutine parallel_initialise
     use mpi
@@ -2961,7 +2964,7 @@ contains
     call mpi_comm_size(comm,tasks,ierror)
     call mpi_comm_rank(comm,this_rank,ierror)
     main_task = (this_rank==main_rank)
-  end subroutine
+  end subroutine parallel_initialise
 
   function parallel_inq_attname(ncid,varid,attnum,name)
     implicit none
@@ -2972,7 +2975,7 @@ contains
          nf90_inq_attname(ncid,varid,attnum,name)
     call broadcast(parallel_inq_attname)
     call broadcast(name)
-  end function
+  end function parallel_inq_attname
 
   function parallel_inq_dimid(ncid,name,dimid)
     implicit none
@@ -2982,7 +2985,7 @@ contains
     if (main_task) parallel_inq_dimid = nf90_inq_dimid(ncid,name,dimid)
     call broadcast(parallel_inq_dimid)
     call broadcast(dimid)
-  end function
+  end function parallel_inq_dimid
 
   function parallel_inq_varid(ncid,name,varid)
     implicit none
@@ -2992,7 +2995,7 @@ contains
     if (main_task) parallel_inq_varid = nf90_inq_varid(ncid,name,varid)
     call broadcast(parallel_inq_varid)
     call broadcast(varid)
-  end function
+  end function parallel_inq_varid
 
   function parallel_inquire(ncid,nvariables)
     implicit none
@@ -3001,7 +3004,7 @@ contains
     if (main_task) parallel_inquire = nf90_inquire(ncid,nvariables=nvariables)
     call broadcast(parallel_inquire)
     call broadcast(nvariables)
-  end function
+  end function parallel_inquire
 
   function parallel_inquire_dimension(ncid,dimid,name,len)
     implicit none
@@ -3026,7 +3029,7 @@ contains
        call broadcast(l)
        len = l
     end if
-  end function
+  end function parallel_inquire_dimension
 
   function parallel_inquire_variable(ncid,varid,name,ndims,dimids,natts)
     implicit none
@@ -3062,7 +3065,7 @@ contains
        call broadcast(na)
        natts = na
     end if
-  end function
+  end function parallel_inquire_variable
 
   function parallel_open(path,mode,ncid)
     implicit none
@@ -3071,7 +3074,7 @@ contains
     ! begin
     if (main_task) parallel_open = nf90_open(path,mode,ncid)
     call broadcast(parallel_open)
-  end function
+  end function parallel_open
 
   subroutine parallel_print_all(name,values)
     implicit none
@@ -3099,7 +3102,7 @@ contains
           close(u)
        end if
     end do
-  end subroutine
+  end subroutine parallel_print_all
 
   subroutine parallel_print_integer_2d(name,values)
     implicit none
@@ -3125,7 +3128,7 @@ contains
 
     call parallel_barrier  ! Only the main_task writes the variable.  Rest wait here.
     ! automatic deallocation
-  end subroutine
+  end subroutine parallel_print_integer_2d
 
   subroutine parallel_print_real8_2d(name,values)
     implicit none
@@ -3150,7 +3153,7 @@ contains
     end if
 
     call parallel_barrier  ! Only the main_task writes the variable.  Rest wait here.
-  end subroutine
+  end subroutine parallel_print_real8_2d
 
   subroutine parallel_print_real8_3d(name,values)
     implicit none
@@ -3175,7 +3178,7 @@ contains
     end if
 
     call parallel_barrier  ! Only the main_task writes the variable.  Rest wait here.
-  end subroutine
+  end subroutine parallel_print_real8_3d
 
   function parallel_put_att_character(ncid,varid,name,values)
     implicit none
@@ -3184,7 +3187,7 @@ contains
     ! begin
     if (main_task) parallel_put_att_character = nf90_put_att(ncid,varid,name,values)
     call broadcast(parallel_put_att_character)
-  end function
+  end function parallel_put_att_character
 
   function parallel_put_att_real4(ncid,varid,name,values)
     implicit none
@@ -3194,7 +3197,7 @@ contains
     ! begin
     if (main_task) parallel_put_att_real4 = nf90_put_att(ncid,varid,name,values)
     call broadcast(parallel_put_att_real4)
-  end function
+  end function parallel_put_att_real4
 
   function parallel_put_att_real4_1d(ncid,varid,name,values)
     implicit none
@@ -3204,7 +3207,7 @@ contains
     ! begin
     if (main_task) parallel_put_att_real4_1d = nf90_put_att(ncid,varid,name,values)
     call broadcast(parallel_put_att_real4_1d)
-  end function
+  end function parallel_put_att_real4_1d
 
   function parallel_put_att_real8(ncid,varid,name,values)
     implicit none
@@ -3214,7 +3217,7 @@ contains
     ! begin
     if (main_task) parallel_put_att_real8 = nf90_put_att(ncid,varid,name,values)
     call broadcast(parallel_put_att_real8)
-  end function
+  end function parallel_put_att_real8
 
   function parallel_put_att_real8_1d(ncid,varid,name,values)
     implicit none
@@ -3224,7 +3227,7 @@ contains
     ! begin
     if (main_task) parallel_put_att_real8_1d = nf90_put_att(ncid,varid,name,values)
     call broadcast(parallel_put_att_real8_1d)
-  end function
+  end function parallel_put_att_real8_1d
 
   function parallel_put_var_real4(ncid,varid,values,start)
     implicit none
@@ -3235,7 +3238,7 @@ contains
     if (main_task) parallel_put_var_real4 = &
          nf90_put_var(ncid,varid,values,start)
     call broadcast(parallel_put_var_real4)
-  end function
+  end function parallel_put_var_real4
 
   function parallel_put_var_real8(ncid,varid,values,start)
     implicit none
@@ -3246,7 +3249,7 @@ contains
     if (main_task) parallel_put_var_real8 = &
          nf90_put_var(ncid,varid,values,start)
     call broadcast(parallel_put_var_real8)
-  end function
+  end function parallel_put_var_real8
 
   function parallel_put_var_real8_1d(ncid,varid,values,start)
     implicit none
@@ -3262,7 +3265,7 @@ contains
        end if
     end if
     call broadcast(parallel_put_var_real8_1d)
-  end function
+  end function parallel_put_var_real8_1d
 
   function parallel_redef(ncid)
     implicit none
@@ -3270,7 +3273,7 @@ contains
     ! begin
     if (main_task) parallel_redef = nf90_redef(ncid)
     call broadcast(parallel_redef)
-  end function
+  end function parallel_redef
 
   function parallel_reduce_sum(x)
     use mpi
@@ -3284,7 +3287,7 @@ contains
     call mpi_allreduce(sendbuf,recvbuf,1,mpi_real8,mpi_sum,comm,ierror)
     parallel_reduce_sum = recvbuf
     return
-  end function
+  end function parallel_reduce_sum
 
   function parallel_reduce_max(x)
     use mpi
@@ -3298,14 +3301,14 @@ contains
     call mpi_allreduce(sendbuf,recvbuf,1,mpi_real8,mpi_max,comm,ierror)
     parallel_reduce_max = recvbuf
     return
-  end function
+  end function parallel_reduce_max
 
   ! Andy removed support for returnownedvector in October 2011.
   ! subroutine parallel_set_trilinos_return_vect
     ! Trilinos can return the full solution to each node or just the owned portion
     ! For parallel_mpi mode only the owned portion is expected
   !  call returnownedvector()  ! in trilinosLinearSolver.cpp
-  ! end subroutine
+  ! end subroutine parallel_set_trilinos_return_vect
 
   subroutine parallel_show_minmax(label,values)
     use mpi
@@ -3316,14 +3319,14 @@ contains
     integer :: ierror
     real(8) :: allmin,allmax,mymin,mymax
     ! begin
-    mymin = minval(values(:,lhalo:size(values,2)-uhalo,&
-         lhalo:size(values,3)-uhalo))
-    mymax = maxval(values(:,lhalo:size(values,2)-uhalo,&
-         lhalo:size(values,3)-uhalo))
+    mymin = minval(values(:,1+lhalo:size(values,2)-uhalo,&
+         1+lhalo:size(values,3)-uhalo))
+    mymax = maxval(values(:,1+lhalo:size(values,2)-uhalo,&
+         1+lhalo:size(values,3)-uhalo))
     call mpi_reduce(mymin,allmin,1,mpi_real8,mpi_min,main_rank,comm,ierror)
     call mpi_reduce(mymax,allmax,1,mpi_real8,mpi_max,main_rank,comm,ierror)
     if (main_task) print *,label,allmin,allmax
-  end subroutine
+  end subroutine parallel_show_minmax
 
   subroutine parallel_stop(file,line)
     use mpi
@@ -3335,7 +3338,7 @@ contains
     if (main_task) write(0,*) "PARALLEL STOP in ",file," at line ",line
     call mpi_finalize(ierror)
     stop "PARALLEL STOP"
-  end subroutine
+  end subroutine parallel_stop
 
   function parallel_sync(ncid)
     implicit none
@@ -3343,247 +3346,62 @@ contains
     ! begin
     if (main_task) parallel_sync = nf90_sync(ncid)
     call broadcast(parallel_sync)
-  end function
+  end function parallel_sync
 
-  subroutine parallel_temp_halo(a)
-    use mpi
-    implicit none
-    real(8),dimension(:,:,:) :: a !(:,local_ewn+2,local_nsn+2)
-    
-    integer :: erequest,ierror,one,nrequest,srequest,wrequest
-    real(8),dimension(size(a,1),lhalo+1,local_nsn-lhalo-uhalo) :: erecv,wsend
-    real(8),dimension(size(a,1),uhalo+1,local_nsn-lhalo-uhalo) :: esend,wrecv
-    real(8),dimension(size(a,1),local_ewn+2,lhalo+1) :: nrecv,ssend
-    real(8),dimension(size(a,1),local_ewn+2,uhalo+1) :: nsend,srecv
-    ! begin
-    call mpi_irecv(wrecv,size(wrecv),mpi_real8,west,west,&
-         comm,wrequest,ierror)
-    call mpi_irecv(erecv,size(erecv),mpi_real8,east,east,&
-         comm,erequest,ierror)
-    call mpi_irecv(srecv,size(srecv),mpi_real8,south,south,&
-         comm,srequest,ierror)
-    call mpi_irecv(nrecv,size(nrecv),mpi_real8,north,north,&
-         comm,nrequest,ierror)
-
-    esend(:,:,:) = a(:,2+lhalo:2+lhalo+uhalo,2+lhalo:local_nsn-uhalo+1)
-    call mpi_send(esend,size(esend),mpi_real8,east,this_rank,comm,ierror)
-    wsend(:,:,:) = a(:,local_ewn-lhalo-uhalo+1:local_ewn-uhalo+2,&
-         2+lhalo:local_nsn-uhalo+1)
-    call mpi_send(wsend,size(wsend),mpi_real8,west,this_rank,comm,ierror)
-
-    call mpi_wait(wrequest,mpi_status_ignore,ierror)
-    a(:,local_ewn-uhalo+2:,2+lhalo:local_nsn-uhalo+1) = wrecv(:,:,:)
-    call mpi_wait(erequest,mpi_status_ignore,ierror)
-    a(:,:lhalo+1,2+lhalo:local_nsn-uhalo+1) = erecv(:,:,:)
-
-    nsend(:,:,:) = a(:,:,1+lhalo+1:1+lhalo+uhalo+1)
-    call mpi_send(nsend,size(nsend),mpi_real8,north,this_rank,comm,ierror)
-    ssend(:,:,:) = a(:,:,local_nsn-lhalo-uhalo+1:local_nsn-uhalo+2)
-    call mpi_send(ssend,size(ssend),mpi_real8,south,this_rank,comm,ierror)
-
-    call mpi_wait(srequest,mpi_status_ignore,ierror)
-    a(:,:,local_nsn-uhalo+2:) = srecv(:,:,:)
-    call mpi_wait(nrequest,mpi_status_ignore,ierror)
-    a(:,:,:lhalo+1) = nrecv(:,:,:)
-  end subroutine
-
+!PW used only in periodic_boundaries routine
+!PW needs to be reworked?
   subroutine parallel_velo_halo(a)
     use mpi
     implicit none
     real(8),dimension(:,:) :: a
 
-    integer :: ierror,srequest,wrequest
-    real(8),dimension(size(a,2)-lhalo-uhalo+1) :: esend,wrecv
-    real(8),dimension(size(a,1)-lhalo) :: nsend,srecv
+    integer :: ierror,nrequest,erequest
+    real(8),dimension(size(a,2)-lhalo-uhalo+1) :: wsend,erecv
+    real(8),dimension(size(a,1)-lhalo) :: ssend,nrecv
 
     ! begin
     if (size(a,1)/=local_ewn-1.or.size(a,2)/=local_nsn-1) &
          call parallel_stop(__FILE__,__LINE__)
 
-    call mpi_irecv(wrecv,size(wrecv),mpi_real8,west,west,&
-         comm,wrequest,ierror)
-    call mpi_irecv(srecv,size(srecv),mpi_real8,south,south,&
-         comm,srequest,ierror)
+    call mpi_irecv(erecv,size(erecv),mpi_real8,east,east,&
+         comm,erequest,ierror)
+    call mpi_irecv(nrecv,size(nrecv),mpi_real8,north,north,&
+         comm,nrequest,ierror)
 
-    esend(:) = a(1+lhalo,1+lhalo:size(a,2)-uhalo+1)
-    call mpi_send(esend,size(esend),mpi_real8,east,this_rank,comm,ierror)
-    call mpi_wait(wrequest,mpi_status_ignore,ierror)
-    a(size(a,1),1+lhalo:size(a,2)-uhalo+1) = wrecv(:)
+    wsend(:) = a(1+lhalo,1+lhalo:size(a,2)-uhalo+1)
+    call mpi_send(wsend,size(wsend),mpi_real8,west,this_rank,comm,ierror)
+    call mpi_wait(erequest,mpi_status_ignore,ierror)
+    a(size(a,1),1+lhalo:size(a,2)-uhalo+1) = erecv(:)
 
-    nsend(:) = a(1+lhalo:,1+lhalo)
-    call mpi_send(nsend,size(nsend),mpi_real8,north,this_rank,comm,ierror)
-    call mpi_wait(srequest,mpi_status_ignore,ierror)
-    a(1+lhalo:,size(a,2)) = srecv(:)
-  end subroutine
-
-  subroutine staggered_1toEnd_parallel_halo(a)
-    use mpi
-    implicit none
-    real(8),dimension(:,:,:) :: a
-    integer, parameter :: minhalosize = 1, maxhalosize = 2, haloshift = 2
-
-    ! Wrote to assign halo=2 to the top edges.  Also reordered to read 1..N West to East and South to North,
-    ! because the debugger indicated this was the correct case. It was not.  So, while this got the halos correct,
-    ! it messed up the orientation.
-
-    !JEFF Implements a staggered halo update with North and Eastern processors owning the staggered rows and columns.
-    ! Remember that the grid is laid out from the NE, then the upper right corner is assigned to this_rank = 0.
-    ! It's western nbhr is task_id = 1, proceeding rowwise and starting from the eastern edge.
-    ! The eastern edge of the easternmost processors is assigned to the westernmost processor on the same row.
-    ! Likewise for the other edges.
-    ! What is required for correct calculations is vel(:,ew-1:ew,ns-1:ns), so correct info is needed from NW.
-    ! (It turns out that ns=1 is northernmost point.  Likewise, ew=1 is the easternmost point increasing westward.)
-    ! Communications DO NOT wrap around at the edges.
-
-    ! Note that a is staggered, so it is one smaller in both dimensions than unstaggered arrays.  Each processor
-    ! allocates a staggered array as one smaller in index than unstaggered.
-
-    ! Updated 4/15/11 to exchange according to the spatial layout of the processors which is different than the grid
-    ! layout.  The spatial layout has proc 0 in NW corner, increasing processors to E first, then down a row towards S.
-    ! The processors still have their north, south, east, and west processors from the grid layout, so this is confusing.
-    ! Also the owned content is always offset by 2 on the N and W edges.  The staggered edges are owned by the NW processor.
-
-    ! integer :: erequest,ierror,one,nrequest,srequest,wrequest
-    integer :: ierror,nrequest,srequest,erequest,wrequest
-    real(8),dimension(size(a,1),minhalosize,size(a,3)-minhalosize-maxhalosize) :: erecv,wsend
-    real(8),dimension(size(a,1),maxhalosize,size(a,3)-minhalosize-maxhalosize) :: esend,wrecv
-    real(8),dimension(size(a,1),size(a,2),maxhalosize) :: nrecv,ssend
-    real(8),dimension(size(a,1),size(a,2),minhalosize) :: nsend,srecv
-    integer :: ewedgebase, nsedgebase
-
-    ! begin
-
-    ! Confirm staggered array
-    if (size(a,2)/=local_ewn-1.or.size(a,3)/=local_nsn-1) then
-         write(*,*) "staggered_parallel_halo() requires staggered arrays."
-         call parallel_stop(__FILE__,__LINE__)
-    endif
-
-    ! Prepost expected receives
-
-    ! Only receive from west if interior to grid
-    if (this_rank > east) then
-        call mpi_irecv(wrecv,size(wrecv),mpi_real8,west,west,comm,wrequest,ierror)
-    endif
-
-    ! Only receive from east if interior to grid
-    if (this_rank < west) then
-        call mpi_irecv(erecv,size(erecv),mpi_real8,east,east,comm,erequest,ierror)
-    endif
-
-    ! Only receive from south if interior to grid
-    if (this_rank < south) then
-        call mpi_irecv(srecv,size(srecv),mpi_real8,south,south,comm,srequest,ierror)
-    endif
-
-    ! Only receive from north if interior to grid
-    if (this_rank > north) then
-        call mpi_irecv(nrecv,size(nrecv),mpi_real8,north,north,comm,nrequest,ierror)
-    endif
-
-    ! Only send east if interior to grid
-    if (this_rank < west) then
-        if (this_rank < south) then ! If a processor is at the bottom edge of the grid it has one fewer rows
-           nsedgebase = 1
-        else
-           nsedgebase = 2
-        endif
-
-        esend(:,:,1:size(a,3)-haloshift-nsedgebase) = &
-            a(:,size(a,2)-haloshift:size(a,2)-haloshift+(maxhalosize-1),1+haloshift:size(a,3)-nsedgebase)
-        call mpi_send(esend,size(esend),mpi_real8,east,this_rank,comm,ierror)
-    endif
-
-    ! Only send west if interior to grid
-    if (this_rank > east) then
-        if (this_rank < south) then
-           nsedgebase = 1
-        else
-           nsedgebase = 2
-        endif
-
-        wsend(:,1,1:size(a,3)-haloshift-nsedgebase) = &
-            a(:,1+haloshift,1+haloshift:size(a,3)-nsedgebase)
-        call mpi_send(wsend,size(wsend),mpi_real8,west,this_rank,comm,ierror)
-    endif
-
-    ! Only receive from west if interior to grid
-    if (this_rank > east) then
-        if (this_rank < south) then
-           nsedgebase = 1
-        else
-           nsedgebase = 2
-        endif
-
-        call mpi_wait(wrequest,mpi_status_ignore,ierror)
-        a(:,1:maxhalosize,1+haloshift:size(a,3)-nsedgebase) = &
-            wrecv(:,:,1:size(a,3)-haloshift-nsedgebase)
-    endif
-
-    ! Only receive from east if interior to grid
-    if (this_rank < west) then
-        if (this_rank < south) then
-           nsedgebase = 1
-        else
-           nsedgebase = 2
-        endif
-
-        call mpi_wait(erequest,mpi_status_ignore,ierror)
-
-        a(:,size(a,2),1+haloshift:size(a,3)-nsedgebase) = &
-            erecv(:,1,1:size(a,3)-haloshift-nsedgebase)
-    endif
-
-    ! Only send north if interior to grid
-    if (this_rank > north) then
-        nsend(:,:,1) = a(:,:,1+haloshift)
-        call mpi_send(nsend,size(nsend),mpi_real8,north,this_rank,comm,ierror)
-    endif
-
-    ! Only send south if interior to grid
-    if (this_rank < south) then
-        ssend(:,:,:) = a(:,:,size(a,3)-haloshift:size(a,3)-haloshift+(maxhalosize-1))
-        call mpi_send(ssend,size(ssend),mpi_real8,south,this_rank,comm,ierror)
-    endif
-
-    ! Only receive from south if interior to grid
-    if (this_rank < south) then
-        call mpi_wait(srequest,mpi_status_ignore,ierror)
-        a(:,:,size(a,3)) = srecv(:,:,1)
-    endif
-
-    ! Only receive from north if interior to grid
-    if (this_rank > north) then
-        call mpi_wait(nrequest,mpi_status_ignore,ierror)
-        a(:,:,1:maxhalosize) = nrecv(:,:,:)
-    endif
-  end subroutine
+    ssend(:) = a(1+lhalo:,1+lhalo)
+    call mpi_send(ssend,size(ssend),mpi_real8,south,this_rank,comm,ierror)
+    call mpi_wait(nrequest,mpi_status_ignore,ierror)
+    a(1+lhalo:,size(a,2)) = nrecv(:)
+  end subroutine parallel_velo_halo
 
   subroutine staggered_parallel_halo(a)
     use mpi
     implicit none
     real(8),dimension(:,:,:) :: a
-    integer, parameter :: minhalosize = 1, maxhalosize = 2, haloshift = 2
 
-    !JEFF Implements a staggered halo update with North and Eastern processors owning the staggered rows and columns.
-    ! Remember that the grid is laid out from the NE, then the upper right corner is assigned to this_rank = 0.
-    ! It's western nbhr is task_id = 1, proceeding rowwise and starting from the eastern edge.
-    ! The eastern edge of the easternmost processors is assigned to the westernmost processor on the same row.
-    ! Likewise for the other edges.
-    ! What is required for correct calculations is vel(:,ew-1:ew,ns-1:ns), so correct info is needed from NW.
-    ! (It turns out that ns=1 is northernmost point.  Likewise, ew=1 is the easternmost point increasing westward.)
-    ! Communications DO NOT wrap around at the edges.
+    ! Implements a staggered grid halo update.
+    ! As the grid is staggered, the array 'a' is one smaller in both dimensions than an unstaggered array.
 
-    ! Note that a is staggered, so it is one smaller in both dimensions than unstaggered arrays.  Each processor
-    ! allocates a staggered array as one smaller in index than unstaggered.
+    ! The grid is laid out from the SW, and the lower left corner is assigned to this_rank = 0.
+    ! It's eastern nbhr is task_id = 1, proceeding rowwise and starting from the western edge.
+    ! The South-most processes own one additional row of stagggered variables on the southern edge
+    ! and have one less 'southern' halo row than other processes. Likewise, the West-most processes own one 
+    ! additional column of staggered variables on the western edge and have one less 'western' halo column. 
+    ! This is implemented by a modification to the staggered_lhalo value on these processes. 
+
+    ! Maintaining global boundary conditions are not addressed within this routine (yet).
 
     ! integer :: erequest,ierror,one,nrequest,srequest,wrequest
     integer :: ierror,nrequest,srequest,erequest,wrequest
-    real(8),dimension(size(a,1),maxhalosize,size(a,3)-minhalosize-maxhalosize) :: erecv,wsend
-    real(8),dimension(size(a,1),minhalosize,size(a,3)-minhalosize-maxhalosize) :: esend,wrecv
-    real(8),dimension(size(a,1),size(a,2),maxhalosize) :: nrecv,ssend
-    real(8),dimension(size(a,1),size(a,2),minhalosize) :: nsend,srecv
-    integer :: ewedgebase, nsedgebase
+    real(8),dimension(size(a,1),staggered_whalo,size(a,3)-staggered_shalo-staggered_nhalo) :: esend,wrecv
+    real(8),dimension(size(a,1),staggered_ehalo,size(a,3)-staggered_shalo-staggered_nhalo) :: erecv,wsend
+    real(8),dimension(size(a,1),size(a,2),staggered_shalo) :: nsend,srecv
+    real(8),dimension(size(a,1),size(a,2),staggered_nhalo) :: nrecv,ssend
 
     ! begin
 
@@ -3595,285 +3413,85 @@ contains
 
     ! Prepost expected receives
 
-    ! Only receive from west if interior to grid
-    if (this_rank < west) then
-        call mpi_irecv(wrecv,size(wrecv),mpi_real8,west,west,comm,wrequest,ierror)
-    endif
-
     ! Only receive from east if interior to grid
-    if (this_rank > east) then
-        call mpi_irecv(erecv,size(erecv),mpi_real8,east,east,comm,erequest,ierror)
+    if (this_rank < east) then
+      call mpi_irecv(erecv,size(erecv),mpi_real8,east,east,comm,erequest,ierror)
     endif
 
-    ! Only receive from south if interior to grid
-    if (this_rank < south) then
-        call mpi_irecv(srecv,size(srecv),mpi_real8,south,south,comm,srequest,ierror)
+    ! Only receive from west if interior to grid
+    if (this_rank > west) then
+      call mpi_irecv(wrecv,size(wrecv),mpi_real8,west,west,comm,wrequest,ierror)
     endif
 
     ! Only receive from north if interior to grid
-    if (this_rank > north) then
-        call mpi_irecv(nrecv,size(nrecv),mpi_real8,north,north,comm,nrequest,ierror)
+    if (this_rank < north) then
+      call mpi_irecv(nrecv,size(nrecv),mpi_real8,north,north,comm,nrequest,ierror)
     endif
 
-    ! Only send east if interior to grid
-    if (this_rank > east) then
-        if (this_rank < south) then ! If a processor is at the bottom edge of the grid it has one fewer rows
-           nsedgebase = 1
-        else
-           nsedgebase = 2
-        endif
-
-        esend(:,1,1:size(a,3)-haloshift-nsedgebase) = &
-            a(:,1+haloshift,1+haloshift:size(a,3)-nsedgebase)
-        call mpi_send(esend,size(esend),mpi_real8,east,this_rank,comm,ierror)
+    ! Only receive from south if interior to grid
+    if (this_rank > south) then
+      call mpi_irecv(srecv,size(srecv),mpi_real8,south,south,comm,srequest,ierror)
     endif
 
     ! Only send west if interior to grid
-    if (this_rank < west) then
-        if (this_rank < south) then ! If a processor is at the bottom edge of the grid it has one fewer rows
-           nsedgebase = 1
-        else
-           nsedgebase = 2
-        endif
-
-        wsend(:,:,1:size(a,3)-haloshift-nsedgebase) = &
-            a(:,size(a,2)-haloshift:size(a,2)-haloshift+(maxhalosize-1),1+haloshift:size(a,3)-nsedgebase)
-        call mpi_send(wsend,size(wsend),mpi_real8,west,this_rank,comm,ierror)
-    endif
-
-    ! Only receive from east if interior to grid
-    if (this_rank > east) then
-        if (this_rank < south) then
-           nsedgebase = 1
-        else
-           nsedgebase = 2
-        endif
-
-        call mpi_wait(erequest,mpi_status_ignore,ierror)
-        a(:,1:maxhalosize,1+haloshift:size(a,3)-nsedgebase) = &
-            erecv(:,1:maxhalosize,1:size(a,3)-haloshift-nsedgebase)
-    endif
-
-    ! Only receive from west if interior to grid
-    if (this_rank < west) then
-        if (this_rank < south) then
-           nsedgebase = 1
-        else
-           nsedgebase = 2
-        endif
-
-        call mpi_wait(wrequest,mpi_status_ignore,ierror)
-        a(:,size(a,2),1+haloshift:size(a,3)-nsedgebase) = &
-            wrecv(:,1,1:size(a,3)-haloshift-nsedgebase)
-    endif
-
-    ! Only send north if interior to grid
-    if (this_rank > north) then
-        nsend(:,:,1) = a(:,:,1+haloshift)
-        call mpi_send(nsend,size(nsend),mpi_real8,north,this_rank,comm,ierror)
-    endif
-
-    ! Only send south if interior to grid
-    if (this_rank < south) then
-        ssend(:,:,:) = a(:,:,size(a,3)-haloshift:size(a,3)-haloshift+(maxhalosize-1))
-        call mpi_send(ssend,size(ssend),mpi_real8,south,this_rank,comm,ierror)
-    endif
-
-    ! Only receive from south if interior to grid
-    if (this_rank < south) then
-        call mpi_wait(srequest,mpi_status_ignore,ierror)
-        a(:,:,size(a,3)) = srecv(:,:,1)
-    endif
-
-    ! Only receive from north if interior to grid
-    if (this_rank > north) then
-        call mpi_wait(nrequest,mpi_status_ignore,ierror)
-        a(:,:,1:maxhalosize) = nrecv(:,:,:)
-    endif
-  end subroutine
-
-  subroutine staggered_offset_parallel_halo(a)
-    use mpi
-    implicit none
-    real(8),dimension(:,:,:) :: a
-    integer, parameter :: minhalosize = 1, maxhalosize = 2, haloshift = 2
-
-    !JEFF Implements a staggered halo update with North and Eastern processors owning the staggered rows and columns.
-    ! Remember that the grid is laid out from the NE, then the upper right corner is assigned to this_rank = 0.
-    ! It's western nbhr is task_id = 1, proceeding rowwise and starting from the eastern edge.
-    ! The eastern edge of the easternmost processors is assigned to the westernmost processor on the same row.
-    ! Likewise for the other edges.
-    ! What is required for correct calculations is vel(:,ew-1:ew,ns-1:ns), so correct info is needed from NW.
-    ! (It turns out that ns=1 is northernmost point.  Likewise, ew=1 is the easternmost point increasing westward.)
-    ! Communications DO NOT wrap around at the edges.
-
-    ! Note that a is staggered, so it is one smaller in both dimensions than unstaggered arrays.  Each processor
-    ! allocates a staggered array as one smaller in index than unstaggered.
-
-    ! integer :: erequest,ierror,one,nrequest,srequest,wrequest
-    integer :: ierror,nrequest,srequest,erequest,wrequest
-    real(8),dimension(size(a,1),minhalosize,size(a,3)-minhalosize-maxhalosize) :: erecv,wsend
-    real(8),dimension(size(a,1),maxhalosize,size(a,3)-minhalosize-maxhalosize) :: esend,wrecv
-    real(8),dimension(size(a,1),size(a,2),minhalosize) :: nrecv,ssend
-    real(8),dimension(size(a,1),size(a,2),maxhalosize) :: nsend,srecv
-    integer :: ewedgebase, nsedgebase
-
-    ! begin
-
-    ! Confirm staggered array
-    if (size(a,2)/=local_ewn-1.or.size(a,3)/=local_nsn-1) then
-         write(*,*) "staggered_parallel_halo() requires staggered arrays."
-         call parallel_stop(__FILE__,__LINE__)
-    endif
-
-    ! Prepost expected receives
-
-    ! Only receive from west if interior to grid
-    if (this_rank < west) then
-        call mpi_irecv(wrecv,size(wrecv),mpi_real8,west,west,comm,wrequest,ierror)
-    endif
-
-    ! Only receive from east if interior to grid
-    if (this_rank > east) then
-        call mpi_irecv(erecv,size(erecv),mpi_real8,east,east,comm,erequest,ierror)
-    endif
-
-    ! Only receive from south if interior to grid
-    if (this_rank < south) then
-        call mpi_irecv(srecv,size(srecv),mpi_real8,south,south,comm,srequest,ierror)
-    endif
-
-    ! Only receive from north if interior to grid
-    if (this_rank > north) then
-        call mpi_irecv(nrecv,size(nrecv),mpi_real8,north,north,comm,nrequest,ierror)
+    if (this_rank > west) then
+      wsend(:,:,1:size(a,3)-staggered_shalo-staggered_nhalo) = &
+        a(:,1+staggered_whalo:1+staggered_whalo+staggered_ehalo-1, &
+            1+staggered_shalo:size(a,3)-staggered_nhalo)
+      call mpi_send(wsend,size(wsend),mpi_real8,west,this_rank,comm,ierror)
     endif
 
     ! Only send east if interior to grid
-    if (this_rank < west) then
-        if (this_rank < south) then ! If a processor is at the bottom edge of the grid it has one fewer rows
-           nsedgebase = 0
-        else
-           nsedgebase = 1
-        endif
-
-        if (this_rank < west) then ! If a processor is at the left edge of the grid it has one fewer columns
-           ewedgebase = 0
-        else
-           ewedgebase = 1
-        endif
-
-        esend(:,:,1:size(a,3)-haloshift-nsedgebase) = &
-            a(:,ewedgebase+haloshift:ewedgebase+haloshift+maxhalosize-1,nsedgebase+haloshift:size(a,3)-haloshift)
-        call mpi_send(esend,size(esend),mpi_real8,east,this_rank,comm,ierror)
-    endif
-
-    ! Only send west if interior to grid
-    if (this_rank < west) then
-        if (this_rank < south) then
-           nsedgebase = 0
-        else
-           nsedgebase = 1
-        endif
-
-        wsend(:,1,1:size(a,3)-2*haloshift-nsedgebase+1) = &
-            a(:,size(a,2)-haloshift,nsedgebase+haloshift:size(a,3)-haloshift)
-        call mpi_send(wsend,size(wsend),mpi_real8,west,this_rank,comm,ierror)
-    endif
-
-    ! Only receive from west if interior to grid
-    if (this_rank < west) then
-        if (this_rank < south) then
-           nsedgebase = 0
-        else
-           nsedgebase = 1
-        endif
-
-        call mpi_wait(wrequest,mpi_status_ignore,ierror)
-        a(:,size(a,2)-haloshift+1:size(a,2),nsedgebase+haloshift:size(a,3)-haloshift) = &
-            wrecv(:,:,1:size(a,3)-2*haloshift-nsedgebase+1)
+    if (this_rank < east) then
+      esend(:,:,1:size(a,3)-staggered_shalo-staggered_nhalo) = &
+        a(:,size(a,2)-staggered_ehalo-staggered_whalo+1:size(a,2)-staggered_ehalo, &
+            1+staggered_shalo:size(a,3)-staggered_nhalo)
+      call mpi_send(esend,size(esend),mpi_real8,east,this_rank,comm,ierror)
     endif
 
     ! Only receive from east if interior to grid
-    if (this_rank > east) then
-        if (this_rank < south) then
-           nsedgebase = 0
-        else
-           nsedgebase = 1
-        endif
-
-        if (this_rank < west) then
-           ewedgebase = 1
-        else
-           ewedgebase = 2
-           a(:,1,:) = -1.0E9  ! Put in a bad value in the unused column to detect if invalid use of halo
-        endif
-
-        call mpi_wait(erequest,mpi_status_ignore,ierror)
-        a(:,ewedgebase,nsedgebase+haloshift:size(a,3)-haloshift) = &
-            erecv(:,1,1:size(a,3)-2*haloshift-nsedgebase+1)
+    if (this_rank < east) then
+      call mpi_wait(erequest,mpi_status_ignore,ierror)
+      a(:,size(a,2)-staggered_ehalo+1:size(a,2), &
+          1+staggered_shalo:size(a,3)-staggered_nhalo) = &
+          erecv(:,:,1:size(a,3)-staggered_shalo-staggered_nhalo)
     endif
 
-    ! Only send north if interior to grid
-    if (this_rank > north) then
-        if (this_rank < south) then
-           nsedgebase = 0
-        else
-           nsedgebase = 1
-        endif
-
-        if (this_rank < west) then
-           ewedgebase = 1
-        else
-           ewedgebase = 2
-        endif
-
-        nsend(:,ewedgebase:size(a,2),:) = a(:,ewedgebase:size(a,2),nsedgebase+haloshift:nsedgebase+haloshift+maxhalosize-1)
-        call mpi_send(nsend,size(nsend),mpi_real8,north,this_rank,comm,ierror)
+    ! Only receive from west if interior to grid
+    if (this_rank > west) then
+      call mpi_wait(wrequest,mpi_status_ignore,ierror)
+      a(:,1:staggered_whalo, &
+          1+staggered_shalo:size(a,3)-staggered_nhalo) = &
+          wrecv(:,:,1:size(a,3)-staggered_shalo-staggered_nhalo)
     endif
 
     ! Only send south if interior to grid
-    if (this_rank < south) then
-        if (this_rank < west) then
-           ewedgebase = 1
-        else
-           ewedgebase = 2
-        endif
-
-        ssend(:,ewedgebase:size(a,2),1) = a(:,ewedgebase:size(a,2),size(a,3)-haloshift)
-        call mpi_send(ssend,size(ssend),mpi_real8,south,this_rank,comm,ierror)
+    if (this_rank > south) then
+      ssend(:,:,:) = &
+        a(:,:,1+staggered_shalo:1+staggered_shalo+staggered_nhalo-1)
+      call mpi_send(ssend,size(ssend),mpi_real8,south,this_rank,comm,ierror)
     endif
 
-    ! Only receive from south if interior to grid
-    if (this_rank < south) then
-        if (this_rank < west) then
-           ewedgebase = 1
-        else
-           ewedgebase = 2
-        endif
-
-        call mpi_wait(srequest,mpi_status_ignore,ierror)
-        a(:,ewedgebase:size(a,2),size(a,3)-maxhalosize+1:size(a,3)) = srecv(:,ewedgebase:size(a,2),:)
+    ! Only send north if interior to grid
+    if (this_rank < north) then
+      nsend(:,:,:) = &
+        a(:,:,size(a,3)-staggered_nhalo-staggered_shalo+1:size(a,3)-staggered_nhalo)
+      call mpi_send(nsend,size(nsend),mpi_real8,north,this_rank,comm,ierror)
     endif
 
     ! Only receive from north if interior to grid
-    if (this_rank > north) then
-        if (this_rank < south) then
-           nsedgebase = 0
-        else
-           a(:,:,1) = -1.0E9  ! Put in a bad value in the unused row to detect if invalid use of halo
-           nsedgebase = 1
-        endif
-
-        if (this_rank < west) then
-           ewedgebase = 1
-        else
-           ewedgebase = 2
-        endif
-
-        call mpi_wait(nrequest,mpi_status_ignore,ierror)
-        a(:,ewedgebase:size(a,2),1+nsedgebase) = nrecv(:,ewedgebase:size(a,2),1)
+    if (this_rank < north) then
+      call mpi_wait(nrequest,mpi_status_ignore,ierror)
+      a(:,:,size(a,3)-staggered_nhalo+1:size(a,3)) = nrecv(:,:,:)
     endif
-  end subroutine
+
+    ! Only receive from south if interior to grid
+    if (this_rank > south) then
+      call mpi_wait(srequest,mpi_status_ignore,ierror)
+      a(:,:,1:staggered_shalo) = srecv(:,:,:)
+    endif
+
+  end subroutine staggered_parallel_halo
 
 ! Following routines imported from the Community Earth System Model
 ! (models/utils/mct/mpeu.m_FcComms.F90)

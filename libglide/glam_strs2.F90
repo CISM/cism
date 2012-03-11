@@ -765,8 +765,8 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
   call ghost_postprocess( ewn, nsn, upn, uindx, uk_1, vk_1, &
                           ughost, vghost )
 
-  do ns = 1+staggered_lhalo,size(umask,2)-staggered_uhalo
-      do ew = 1+staggered_lhalo,size(umask,1)-staggered_uhalo
+  do ns = 1+staggered_shalo,size(umask,2)-staggered_nhalo
+      do ew = 1+staggered_whalo,size(umask,1)-staggered_ehalo
       ! calc. fluxes from converged vel. fields (needed for input to thickness evolution subroutine)
          if (umask(ew,ns) > 0) then
              uflx(ew,ns) = vertintg(upn, sigma, uvel(:,ew,ns)) * stagthck(ew,ns)
@@ -1268,8 +1268,8 @@ end if
 
   print*,"Solution vector norm after JFNK = " ,sqrt(DOT_PRODUCT(xk_1,xk_1))
 
-  do ns = 1+staggered_lhalo,size(umask,2)-staggered_uhalo
-      do ew = 1+staggered_lhalo,size(umask,1)-staggered_uhalo
+  do ns = 1+staggered_shalo,size(umask,2)-staggered_nhalo
+      do ew = 1+staggered_whalo,size(umask,1)-staggered_ehalo
       ! *sfp** calc. fluxes from converged vel. fields (for input to thickness evolution subroutine)
          if (umask(ew,ns) > 0) then
              uflx(ew,ns) = vertintg(upn, sigma, uvel(:,ew,ns)) * stagthck(ew,ns)
@@ -1334,8 +1334,8 @@ function indxvelostr(ewn,  nsn,  upn,  &
 
   pointno = 1
 
-  do ew = 1+staggered_lhalo,size(mask,1)-staggered_uhalo
-     do ns = 1+staggered_lhalo,size(mask,2)-staggered_uhalo
+  do ew = 1+staggered_whalo,size(mask,1)-staggered_ehalo
+     do ns = 1+staggered_shalo,size(mask,2)-staggered_nhalo
         if ( GLIDE_HAS_ICE( mask(ew,ns) ) ) then
           indxvelostr(ew,ns) = pointno
           pointno = pointno + 1
@@ -1649,8 +1649,8 @@ function getlocationarray(ewn, nsn, upn, mask, indxmask)
   getlocationarray(:,:,2) = 0
 
   ! Step through indxmask, but exclude halo
-  do ew = 1+staggered_lhalo,size(indxmask,1)-staggered_uhalo
-    do ns = 1+staggered_lhalo,size(indxmask,2)-staggered_uhalo
+  do ew = 1+staggered_whalo,size(indxmask,1)-staggered_ehalo
+    do ns = 1+staggered_shalo,size(indxmask,2)-staggered_nhalo
       if ( indxmask(ew,ns) /= 0 ) then
         getlocationarray(ew,ns,2) = (indxmask(ew,ns) - 1) * (upn+2) + 1
       endif
@@ -1663,8 +1663,8 @@ function getlocationarray(ewn, nsn, upn, mask, indxmask)
 
   cumsum = 0
 
-  do ew=1+staggered_lhalo,size(mask,1)-staggered_uhalo
-    do ns=1+staggered_lhalo,size(mask,2)-staggered_uhalo
+  do ew=1+staggered_whalo,size(mask,1)-staggered_ehalo
+    do ns=1+staggered_shalo,size(mask,2)-staggered_nhalo
       if ( GLIDE_HAS_ICE( mask(ew,ns) ) ) then
         cumsum = cumsum + ( upn + 2 )
         getlocationarray(ew,ns,1) = cumsum
@@ -1816,8 +1816,8 @@ subroutine solver_preprocess( ewn, nsn, upn, uindx, matrix, answer, vel )
 
   ! Initial estimate for vel. field; take from 3d array and put into
   ! the format of a solution vector.
-  do ns = 1+staggered_lhalo,size(uindx,2)-staggered_uhalo
-   do ew = 1+staggered_lhalo,size(uindx,1)-staggered_uhalo
+  do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
+   do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
         if (uindx(ew,ns) /= 0) then
             loc = getlocrange(upn, uindx(ew,ns))
             answer(loc(1):loc(2)) = vel(:,ew,ns)
@@ -1850,8 +1850,8 @@ subroutine solver_postprocess( ewn, nsn, upn, pt, uindx, answrapped, ansunwrappe
   integer, dimension(2) :: loc
   integer :: ew, ns
 
-  do ns = 1+staggered_lhalo,size(uindx,2)-staggered_uhalo
-      do ew = 1+staggered_lhalo,size(uindx,1)-staggered_uhalo
+  do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
+      do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
           if (uindx(ew,ns) /= 0) then
             loc = getlocrange(upn, uindx(ew,ns))
             ansunwrapped(:,ew,ns) = answrapped(loc(1):loc(2))
@@ -1885,8 +1885,8 @@ subroutine solver_postprocess_jfnk( ewn, nsn, upn, uindx, answrapped, ansunwrapp
    integer, dimension(2) :: loc
    integer :: ew, ns
 
-   do ns = 1+staggered_lhalo,size(uindx,2)-staggered_uhalo
-       do ew = 1+staggered_lhalo,size(uindx,1)-staggered_uhalo
+   do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
+       do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
            if (uindx(ew,ns) /= 0) then
              loc = getlocrange(upn, uindx(ew,ns))
              ansunwrappedv(:,ew,ns) = answrapped(loc(1):loc(2))
@@ -2354,8 +2354,8 @@ subroutine ghost_preprocess( ewn, nsn, upn, uindx, ughost, vghost, &
 
   g_flag = 0
 
-  do ns = 1+staggered_lhalo,size(uindx,2)-staggered_uhalo
-   do ew = 1+staggered_lhalo,size(uindx,1)-staggered_uhalo
+  do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
+   do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
         if (uindx(ew,ns) /= 0) then
             loc = getlocrange(upn, uindx(ew,ns))
             uk_1(loc(1):loc(2)) = uvel(:,ew,ns)
@@ -2398,8 +2398,8 @@ end subroutine ghost_preprocess
    
    gx_flag = 0
    
-   do ns = 1+staggered_lhalo,size(uindx,2)-staggered_uhalo
-    do ew = 1+staggered_lhalo,size(uindx,1)-staggered_uhalo
+   do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
+    do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
          if (uindx(ew,ns) /= 0) then
              loc = getlocrange(upn, uindx(ew,ns))
              xk_1(pcg1+loc(1):pcg1+loc(2)) = uvel(:,ew,ns)
@@ -2438,8 +2438,8 @@ subroutine ghost_postprocess( ewn, nsn, upn, uindx, uk_1, vk_1, &
   integer :: ew, ns
   integer, dimension(2) :: loc
 
-  do ns = 1+staggered_lhalo,size(uindx,2)-staggered_uhalo
-      do ew = 1+staggered_lhalo,size(uindx,1)-staggered_uhalo
+  do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
+      do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
           if (uindx(ew,ns) /= 0) then
             loc = getlocrange(upn, uindx(ew,ns))
             ughost(1,ew,ns) = uk_1(loc(1)-1) ! ghost at top
@@ -2476,8 +2476,8 @@ end subroutine ghost_postprocess
    integer :: ew, ns
    integer, dimension(2) :: loc
    
-   do ns = 1+staggered_lhalo,size(uindx,2)-staggered_uhalo
-       do ew = 1+staggered_lhalo,size(uindx,1)-staggered_uhalo
+   do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
+       do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
            if (uindx(ew,ns) /= 0) then
              loc = getlocrange(upn, uindx(ew,ns))
              ughost(1,ew,ns) = xk_1(pcg1+loc(1)-1) ! ghost at top
@@ -2545,8 +2545,8 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
    case(0)
     ! resid = maxval( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
     resid = 0.0_dp
-    do ns = 1 + staggered_lhalo, size(vel, 3) - staggered_uhalo
-      do ew = 1 + staggered_lhalo, size(vel, 2) - staggered_uhalo
+    do ns = 1 + staggered_shalo, size(vel, 3) - staggered_nhalo
+      do ew = 1 + staggered_whalo, size(vel, 2) - staggered_ehalo
         do nr = 1, size(vel, 1)
           if (vel(nr,ew,ns) .ne. 0.0_dp) then
             resid = max(resid, abs(usav(nr,ew,ns,pt) - vel(nr,ew,ns)) / vel(nr,ew,ns))
@@ -2563,8 +2563,8 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
     ! nr = size( vel, dim=1 ) ! number of grid points in vertical ...
     ! resid = maxval( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ), MASK = vel .ne. 0.0_dp)
     resid = 0.0_dp
-    do ns = 1 + staggered_lhalo, size(vel, 3) - staggered_uhalo
-      do ew = 1 + staggered_lhalo, size(vel, 2) - staggered_uhalo
+    do ns = 1 + staggered_shalo, size(vel, 3) - staggered_nhalo
+      do ew = 1 + staggered_whalo, size(vel, 2) - staggered_ehalo
         do nr = 1, size(vel, 1) - 1
           if (vel(nr,ew,ns) .ne. 0.0_dp) then
             resid = max(resid, abs(usav(nr,ew,ns,pt) - vel(nr,ew,ns)) / vel(nr,ew,ns))
@@ -2607,8 +2607,8 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
    case(3)
     ! resid = maxval( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
     resid = 0.0_dp
-    do ns = 1 + staggered_lhalo, size(vel, 3) - staggered_uhalo
-      do ew = 1 + staggered_lhalo, size(vel, 2) - staggered_uhalo
+    do ns = 1 + staggered_shalo, size(vel, 3) - staggered_nhalo
+      do ew = 1 + staggered_whalo, size(vel, 2) - staggered_ehalo
         do nr = 1, size(vel, 1)
           if (vel(nr,ew,ns) .ne. 0.0_dp) then
             resid = max(resid, abs(usav(nr,ew,ns,pt) - vel(nr,ew,ns)) / vel(nr,ew,ns))
@@ -2651,8 +2651,8 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
   if (counter > 1) then
 
     ! Replace where clause with explicit, owned variables for each processor.
-    do ns = 1 + staggered_lhalo, size(vel, 3) - staggered_uhalo
-      do ew = 1 + staggered_lhalo, size(vel, 2) - staggered_uhalo
+    do ns = 1 + staggered_shalo, size(vel, 3) - staggered_nhalo
+      do ew = 1 + staggered_whalo, size(vel, 2) - staggered_ehalo
         do nr = 1, size(vel, 1)
           temp_vel = vel(nr,ew,ns)
           if (acos((corr(nr,ew,ns,new(pt),pt) * corr(nr,ew,ns,old(pt),pt)) / &
@@ -2930,8 +2930,8 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
 !    pause
 
   ! JEFFLOC Why are these do loops reversed from normal.  Bigger question is do I need to restrict to non-halo grid points?
-  do ns = 1+staggered_lhalo,size(mask,2)-staggered_uhalo
-    do ew = 1+staggered_lhalo,size(mask,1)-staggered_uhalo
+  do ns = 1+staggered_shalo,size(mask,2)-staggered_nhalo
+    do ew = 1+staggered_whalo,size(mask,1)-staggered_ehalo
      ! Calculate the depth-averaged value of the rate factor, needed below when applying an ice shelf
      ! boundary condition (complicated code so as not to include funny values at boundaries ...
      ! ... kind of a mess and could be redone or made into a function or subroutine).
@@ -5207,8 +5207,8 @@ end subroutine putpcgc
 	  integer :: glblID, upindx, slnindx
 
       ! Step through indxmask, but exclude halo
-	  do ew = 1+staggered_lhalo,size(indxmask,1)-staggered_uhalo
-	     do ns = 1+staggered_lhalo,size(indxmask,2)-staggered_uhalo
+	  do ew = 1+staggered_whalo,size(indxmask,1)-staggered_ehalo
+	     do ns = 1+staggered_shalo,size(indxmask,2)-staggered_nhalo
 	        if ( indxmask(ew,ns) /= 0 ) then
 	          pointno = indxmask(ew,ns)  ! Note that pointno starts at value 1.  If we step through correctly then consecutive values
 	          ! write(*,*) "pointno = ", pointno
@@ -5267,8 +5267,8 @@ end subroutine putpcgc
           minew = 1
           minns = 1
           mindiff = globalID
-          do ns = 1+staggered_lhalo,size(loc2_array,2)-staggered_uhalo
-            do ew = 1+staggered_lhalo,size(loc2_array,1)-staggered_uhalo
+          do ns = 1+staggered_shalo,size(loc2_array,2)-staggered_nhalo
+            do ew = 1+staggered_whalo,size(loc2_array,1)-staggered_ehalo
               curdiff = globalID-loc2_array(ew,ns,1)
               if ((curdiff >= 0) .and. (curdiff < mindiff)) then
                 mindiff = globalID-loc2_array(ew,ns,1)
