@@ -590,6 +590,12 @@ contains
 
        call parallel_barrier   ! Other tasks hold here until main_task completes
 
+       if (model%options%whichevol .eq. EVOL_NO_THICKNESS) then
+               ! reset old thickness
+               model%geometry%thck = thck_old
+               model%geomderv%stagthck = stagthck_old
+       endif
+
     case(EVOL_FO_UPWIND) ! Use first order upwind scheme for mass transport
        call not_parallel(__FILE__,__LINE__)
        call fo_upwind_advect_driver( model )
