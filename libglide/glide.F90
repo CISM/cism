@@ -531,6 +531,11 @@ contains
     real (kind = dp), dimension(model%general%ewn,model%general%nsn) :: thck_old
     real (kind = dp), dimension(model%general%ewn-1,model%general%nsn-1) :: stagthck_old
 
+    ! temporary gathered version of thk_old and stagthck_old
+    ! Note that allocation of these occurs inside of calls to "distributed_gather_var( )" below
+    real(8),dimension(:,:),allocatable :: gathered_thck_old
+    real(8),dimension(:,:),allocatable :: gathered_stagthck_old
+
     ! ------------------------------------------------------------------------ 
     ! Calculate flow evolution by various different methods
     ! ------------------------------------------------------------------------ 
@@ -584,6 +589,10 @@ contains
        call distributed_gather_var(model%stress%tau%xz, gathered_tauxz)
        call distributed_gather_var(model%stress%tau%yz, gathered_tauyz)
 
+       ! gather up the old distributed thck fields and store them to temp arrays
+       call distributed_gather_var(model%geometry%thck, gathered_thck_old)
+       call distributed_gather_var(model%geomderv%stagthck, gathered_stagthck_old)
+
        if (main_task) then
           call glide_calcstrsstr( model )       !*sfp* added for populating stress tensor w/ HO fields
        endif
@@ -591,10 +600,13 @@ contains
        call parallel_barrier   ! Other tasks hold here until main_task completes
 
        if (model%options%whichevol .eq. EVOL_NO_THICKNESS) then
-               ! reset old thickness
-               model%geometry%thck = thck_old
-               model%geomderv%stagthck = stagthck_old
+              ! reset gathered_thck arrays back to prev. stored values
+              gathered_thck = gathered_thck_old
+              gathered_stagthck = gathered_stagthck_old
        endif
+
+       deallocate(gathered_thck_old)
+       deallocate(gathered_stagthck_old)
 
     case(EVOL_FO_UPWIND) ! Use first order upwind scheme for mass transport
        call not_parallel(__FILE__,__LINE__)
