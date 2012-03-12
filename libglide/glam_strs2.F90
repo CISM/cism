@@ -1334,8 +1334,8 @@ function indxvelostr(ewn,  nsn,  upn,  &
 
   pointno = 1
 
-  do ew = 1+staggered_whalo,size(mask,1)-staggered_ehalo
-     do ns = 1+staggered_shalo,size(mask,2)-staggered_nhalo
+  do ns = 1+staggered_shalo,size(mask,2)-staggered_nhalo
+     do ew = 1+staggered_whalo,size(mask,1)-staggered_ehalo
         if ( GLIDE_HAS_ICE( mask(ew,ns) ) ) then
           indxvelostr(ew,ns) = pointno
           pointno = pointno + 1
@@ -1649,8 +1649,8 @@ function getlocationarray(ewn, nsn, upn, mask, indxmask)
   getlocationarray(:,:,2) = 0
 
   ! Step through indxmask, but exclude halo
-  do ew = 1+staggered_whalo,size(indxmask,1)-staggered_ehalo
-    do ns = 1+staggered_shalo,size(indxmask,2)-staggered_nhalo
+  do ns = 1+staggered_shalo,size(indxmask,2)-staggered_nhalo
+    do ew = 1+staggered_whalo,size(indxmask,1)-staggered_ehalo
       if ( indxmask(ew,ns) /= 0 ) then
         getlocationarray(ew,ns,2) = (indxmask(ew,ns) - 1) * (upn+2) + 1
       endif
@@ -1663,8 +1663,8 @@ function getlocationarray(ewn, nsn, upn, mask, indxmask)
 
   cumsum = 0
 
-  do ew=1+staggered_whalo,size(mask,1)-staggered_ehalo
-    do ns=1+staggered_shalo,size(mask,2)-staggered_nhalo
+  do ns=1+staggered_shalo,size(mask,2)-staggered_nhalo
+    do ew=1+staggered_whalo,size(mask,1)-staggered_ehalo
       if ( GLIDE_HAS_ICE( mask(ew,ns) ) ) then
         cumsum = cumsum + ( upn + 2 )
         getlocationarray(ew,ns,1) = cumsum
@@ -2929,7 +2929,7 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
 !    print *, loc2_array
 !    pause
 
-  ! JEFFLOC Why are these do loops reversed from normal.  Bigger question is do I need to restrict to non-halo grid points?
+  ! JEFFLOC Do I need to restrict to non-halo grid points?
   do ns = 1+staggered_shalo,size(mask,2)-staggered_nhalo
     do ew = 1+staggered_whalo,size(mask,1)-staggered_ehalo
      ! Calculate the depth-averaged value of the rate factor, needed below when applying an ice shelf
@@ -5207,8 +5207,8 @@ end subroutine putpcgc
 	  integer :: glblID, upindx, slnindx
 
       ! Step through indxmask, but exclude halo
-	  do ew = 1+staggered_whalo,size(indxmask,1)-staggered_ehalo
-	     do ns = 1+staggered_shalo,size(indxmask,2)-staggered_nhalo
+          do ns = 1+staggered_shalo,size(indxmask,2)-staggered_nhalo
+             do ew = 1+staggered_whalo,size(indxmask,1)-staggered_ehalo
 	        if ( indxmask(ew,ns) /= 0 ) then
 	          pointno = indxmask(ew,ns)  ! Note that pointno starts at value 1.  If we step through correctly then consecutive values
 	          ! write(*,*) "pointno = ", pointno
