@@ -1626,8 +1626,8 @@ function getlocationarray(ewn, nsn, upn, mask, indxmask)
   ! This ID array uses the same IDs used to initialize Trilinos myIndices.
   ! JEFF 11/23/10
 
-  do ew=1,size(mask,1)
-    do ns=1,size(mask,2)
+  do ns=1,size(mask,2)
+    do ew=1,size(mask,1)
       if ( GLIDE_HAS_ICE( mask(ew,ns) ) ) then
         getlocationarray(ew,ns,1) = parallel_globalID(ns, ew, upn + 2)  ! Extra two layers for ghost layers
       else
@@ -4793,7 +4793,7 @@ subroutine calcbetasquared (whichbabc,               &
 
       betasquared = 1.0d4
 
-      do ew=1, ewn-1; do ns=5, nsn-5
+      do ns=5, nsn-5; do ew=1, ewn-1; 
         betasquared(ew,ns) = 10.0d1 
       end do; end do
 
