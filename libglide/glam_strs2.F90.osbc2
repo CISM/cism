@@ -364,6 +364,9 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 
   ! allocate space for variables used by 'mindcrash' function (unstable manifold correction)
   allocate(corr(upn,ewn-1,nsn-1,2,2),usav(upn,ewn-1,nsn-1,2))
+  ! and initialize them
+  corr = 0.0_dp
+  usav = 0.0_dp
 
   ! make an initial guess at the size of the sparse matrix
   pcgsize(2) = pcgsize(1) * 20
@@ -708,8 +711,9 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 
     ! apply unstable manifold correction to converged velocities
 
-    uvel = mindcrshstr(1,whichresid,uvel,counter,resid(1))
-    vvel = mindcrshstr(2,whichresid,tvel,counter,resid(2))
+    call mindcrshstr(1,whichresid,uvel,counter,resid(1))
+    vvel = tvel
+    call mindcrshstr(2,whichresid,vvel,counter,resid(2))
 
     ! coordinate halos for updated uvel and vvel
     call staggered_parallel_halo(uvel)
@@ -761,8 +765,8 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
   call ghost_postprocess( ewn, nsn, upn, uindx, uk_1, vk_1, &
                           ughost, vghost )
 
-  do ns = 1+staggered_lhalo,size(umask,2)-staggered_uhalo
-      do ew = 1+staggered_lhalo,size(umask,1)-staggered_uhalo
+  do ns = 1+staggered_shalo,size(umask,2)-staggered_nhalo
+      do ew = 1+staggered_whalo,size(umask,1)-staggered_ehalo
       ! calc. fluxes from converged vel. fields (needed for input to thickness evolution subroutine)
          if (umask(ew,ns) > 0) then
              uflx(ew,ns) = vertintg(upn, sigma, uvel(:,ew,ns)) * stagthck(ew,ns)
@@ -986,13 +990,8 @@ subroutine JFNK                 (model,umask)
   !      either a boundary or interior point, give it a unique number. If not, give it a zero			 
   uindx = indxvelostr(ewn, nsn, upn, umask,pcgsize(1))
 
-  allocate(tvel(upn,ewn-1,nsn-1)) 
-  tvel = 0.0_dp
   L2norm = 1.0d20
  
-  ! *sfp** allocate space for variables used by 'mindcrash' function
-  allocate(corr(upn,ewn-1,nsn-1,2,2),usav(upn,ewn-1,nsn-1,2))
-
   ! *sfp** an initial guess at the size of the sparse matrix
   pcgsize(2) = pcgsize(1) * 20
 
@@ -1269,8 +1268,8 @@ end if
 
   print*,"Solution vector norm after JFNK = " ,sqrt(DOT_PRODUCT(xk_1,xk_1))
 
-  do ns = 1+staggered_lhalo,size(umask,2)-staggered_uhalo
-      do ew = 1+staggered_lhalo,size(umask,1)-staggered_uhalo
+  do ns = 1+staggered_shalo,size(umask,2)-staggered_nhalo
+      do ew = 1+staggered_whalo,size(umask,1)-staggered_ehalo
       ! *sfp** calc. fluxes from converged vel. fields (for input to thickness evolution subroutine)
          if (umask(ew,ns) > 0) then
              uflx(ew,ns) = vertintg(upn, sigma, uvel(:,ew,ns)) * stagthck(ew,ns)
@@ -1288,8 +1287,7 @@ end if
   endif
 
   ! *sfp* de-allocation of sparse matrix solution variables 
-  deallocate(tvel)
-  deallocate(uindx,corr,usav)
+  deallocate(uindx)
   deallocate(pcgval,pcgrow,pcgcol,rhsd, rhsx)
   deallocate(pcgvaluv,pcgrowuv,pcgcoluv)
   deallocate(pcgvalvu,pcgrowvu,pcgcolvu)
@@ -1336,8 +1334,8 @@ function indxvelostr(ewn,  nsn,  upn,  &
 
   pointno = 1
 
-  do ew = 1+staggered_lhalo,size(mask,1)-staggered_uhalo
-     do ns = 1+staggered_lhalo,size(mask,2)-staggered_uhalo
+  do ns = 1+staggered_shalo,size(mask,2)-staggered_nhalo
+      do ew = 1+staggered_whalo,size(mask,1)-staggered_ehalo
         if ( GLIDE_HAS_ICE( mask(ew,ns) ) ) then
           indxvelostr(ew,ns) = pointno
           pointno = pointno + 1
@@ -1628,8 +1626,8 @@ function getlocationarray(ewn, nsn, upn, mask, indxmask)
   ! This ID array uses the same IDs used to initialize Trilinos myIndices.
   ! JEFF 11/23/10
 
-  do ew=1,size(mask,1)
-    do ns=1,size(mask,2)
+  do ns=1,size(mask,2)
+    do ew=1,size(mask,1)
       if ( GLIDE_HAS_ICE( mask(ew,ns) ) ) then
         getlocationarray(ew,ns,1) = parallel_globalID(ns, ew, upn + 2)  ! Extra two layers for ghost layers
       else
@@ -1651,8 +1649,8 @@ function getlocationarray(ewn, nsn, upn, mask, indxmask)
   getlocationarray(:,:,2) = 0
 
   ! Step through indxmask, but exclude halo
-  do ew = 1+staggered_lhalo,size(indxmask,1)-staggered_uhalo
-    do ns = 1+staggered_lhalo,size(indxmask,2)-staggered_uhalo
+  do ns = 1+staggered_shalo,size(indxmask,2)-staggered_nhalo
+    do ew = 1+staggered_whalo,size(indxmask,1)-staggered_ehalo
       if ( indxmask(ew,ns) /= 0 ) then
         getlocationarray(ew,ns,2) = (indxmask(ew,ns) - 1) * (upn+2) + 1
       endif
@@ -1665,8 +1663,8 @@ function getlocationarray(ewn, nsn, upn, mask, indxmask)
 
   cumsum = 0
 
-  do ew=1+staggered_lhalo,size(mask,1)-staggered_uhalo
-    do ns=1+staggered_lhalo,size(mask,2)-staggered_uhalo
+  do ns=1+staggered_shalo,size(mask,2)-staggered_nhalo
+    do ew=1+staggered_whalo,size(mask,1)-staggered_ehalo
       if ( GLIDE_HAS_ICE( mask(ew,ns) ) ) then
         cumsum = cumsum + ( upn + 2 )
         getlocationarray(ew,ns,1) = cumsum
@@ -1818,8 +1816,8 @@ subroutine solver_preprocess( ewn, nsn, upn, uindx, matrix, answer, vel )
 
   ! Initial estimate for vel. field; take from 3d array and put into
   ! the format of a solution vector.
-  do ns = 1+staggered_lhalo,size(uindx,2)-staggered_uhalo
-   do ew = 1+staggered_lhalo,size(uindx,1)-staggered_uhalo
+  do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
+   do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
         if (uindx(ew,ns) /= 0) then
             loc = getlocrange(upn, uindx(ew,ns))
             answer(loc(1):loc(2)) = vel(:,ew,ns)
@@ -1852,8 +1850,8 @@ subroutine solver_postprocess( ewn, nsn, upn, pt, uindx, answrapped, ansunwrappe
   integer, dimension(2) :: loc
   integer :: ew, ns
 
-  do ns = 1+staggered_lhalo,size(uindx,2)-staggered_uhalo
-      do ew = 1+staggered_lhalo,size(uindx,1)-staggered_uhalo
+  do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
+      do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
           if (uindx(ew,ns) /= 0) then
             loc = getlocrange(upn, uindx(ew,ns))
             ansunwrapped(:,ew,ns) = answrapped(loc(1):loc(2))
@@ -1887,8 +1885,8 @@ subroutine solver_postprocess_jfnk( ewn, nsn, upn, uindx, answrapped, ansunwrapp
    integer, dimension(2) :: loc
    integer :: ew, ns
 
-   do ns = 1+staggered_lhalo,size(uindx,2)-staggered_uhalo
-       do ew = 1+staggered_lhalo,size(uindx,1)-staggered_uhalo
+   do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
+       do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
            if (uindx(ew,ns) /= 0) then
              loc = getlocrange(upn, uindx(ew,ns))
              ansunwrappedv(:,ew,ns) = answrapped(loc(1):loc(2))
@@ -2345,8 +2343,8 @@ subroutine ghost_preprocess( ewn, nsn, upn, uindx, ughost, vghost, &
 
   g_flag = 0
 
-  do ns = 1+staggered_lhalo,size(uindx,2)-staggered_uhalo
-   do ew = 1+staggered_lhalo,size(uindx,1)-staggered_uhalo
+  do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
+   do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
         if (uindx(ew,ns) /= 0) then
             loc = getlocrange(upn, uindx(ew,ns))
             uk_1(loc(1):loc(2)) = uvel(:,ew,ns)
@@ -2389,8 +2387,8 @@ end subroutine ghost_preprocess
    
    gx_flag = 0
    
-   do ns = 1+staggered_lhalo,size(uindx,2)-staggered_uhalo
-    do ew = 1+staggered_lhalo,size(uindx,1)-staggered_uhalo
+   do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
+    do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
          if (uindx(ew,ns) /= 0) then
              loc = getlocrange(upn, uindx(ew,ns))
              xk_1(pcg1+loc(1):pcg1+loc(2)) = uvel(:,ew,ns)
@@ -2429,8 +2427,8 @@ subroutine ghost_postprocess( ewn, nsn, upn, uindx, uk_1, vk_1, &
   integer :: ew, ns
   integer, dimension(2) :: loc
 
-  do ns = 1+staggered_lhalo,size(uindx,2)-staggered_uhalo
-      do ew = 1+staggered_lhalo,size(uindx,1)-staggered_uhalo
+  do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
+      do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
           if (uindx(ew,ns) /= 0) then
             loc = getlocrange(upn, uindx(ew,ns))
             ughost(1,ew,ns) = uk_1(loc(1)-1) ! ghost at top
@@ -2467,8 +2465,8 @@ end subroutine ghost_postprocess
    integer :: ew, ns
    integer, dimension(2) :: loc
    
-   do ns = 1+staggered_lhalo,size(uindx,2)-staggered_uhalo
-       do ew = 1+staggered_lhalo,size(uindx,1)-staggered_uhalo
+   do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
+       do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
            if (uindx(ew,ns) /= 0) then
              loc = getlocrange(upn, uindx(ew,ns))
              ughost(1,ew,ns) = xk_1(pcg1+loc(1)-1) ! ghost at top
@@ -2487,7 +2485,7 @@ end subroutine ghost_postprocess
 
 !***********************************************************************
 
-function mindcrshstr(pt,whichresid,vel,counter,resid)
+subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
 
   ! Function to perform 'unstable manifold correction' (see Hindmarsh and Payne, 1996,
   ! "Time-step limits for stable solutions of the ice-sheet equation", Annals of
@@ -2496,18 +2494,18 @@ function mindcrshstr(pt,whichresid,vel,counter,resid)
 
   implicit none
 
-  real (kind = dp), intent(in), dimension(:,:,:) :: vel
+  real (kind = dp), intent(inout), dimension(:,:,:) :: vel
   integer, intent(in) :: counter, pt, whichresid
 
   real (kind = dp), intent(out) :: resid
-
-  real (kind = dp), dimension(size(vel,1),size(vel,2),size(vel,3)) :: mindcrshstr
 
   real (kind = dp), parameter :: ssthres = 5.0_dp * pi / 6.0_dp, &
                                  critlimit = 10.0_dp / (scyr * vel0), &
                                  small = 1.0e-16_dp
 
   real (kind = dp), intrinsic :: abs, acos
+
+  real (kind = dp) :: temp_vel
 
   integer, dimension(2), save :: new = 1, old = 2
   !JEFF integer :: locat(3)
@@ -2516,77 +2514,14 @@ function mindcrshstr(pt,whichresid,vel,counter,resid)
   integer, dimension(size(vel,1),size(vel,2),size(vel,3)) :: vel_ne_0
   real (kind = dp) :: sum_vel_ne_0
 
+! Note: usav and corr initialized to zero upon allocation; following probably
+! not necessary, but occurs only once (per nonlinear solve)
   if (counter == 1) then
     usav(:,:,:,pt) = 0.0d0
+    corr(:,:,:,old(pt),pt) = 0.0d0
   end if
 
-  corr(:,:,:,new(pt),pt) = vel(:,:,:) - usav(:,:,:,pt)  ! changed
-
-  if (counter > 1) then
-
-!    where (acos((corr(:,:,:,new(pt),pt) * corr(:,:,:,old(pt),pt)) / &
-!          (abs(corr(:,:,:,new(pt),pt)) * abs(corr(:,:,:,old(pt),pt)) + small)) > &
-!           ssthres .and. corr(:,:,:,new(pt),pt) - corr(:,:,:,old(pt),pt) /= 0.0_dp )
-!
-!      mindcrshstr = usav(:,:,:,pt) + &
-!                    corr(:,:,:,new(pt),pt) * abs(corr(:,:,:,old(pt),pt)) / &
-!                    abs(corr(:,:,:,new(pt),pt) - corr(:,:,:,old(pt),pt))
-!
-!      mindcrshstr = vel; ! jfl uncomment this and comment out line above
-!                         ! to avoid the unstable manifold correction
-!
-!    elsewhere
-!
-!      mindcrshstr = vel;
-!
-!    end where
-
-!whl - bug fix - need to initialize mindcrshstr to avoid bad boundary values
-    mindcrshstr(:,:,:) = 0.0d0
-
-    ! JEFF Replace where clause with explicit, owned variables for each processor.
-    do ns = 1 + staggered_lhalo, size(vel, 3) - staggered_uhalo
-        do ew = 1 + staggered_lhalo, size(vel, 2) - staggered_uhalo
-            do nr = 1, size(vel, 1)
-                if (acos((corr(nr,ew,ns,new(pt),pt) * corr(nr,ew,ns,old(pt),pt)) / &
-                       (abs(corr(nr,ew,ns,new(pt),pt)) * abs(corr(nr,ew,ns,old(pt),pt)) + small)) > &
-                      ssthres .and. corr(nr,ew,ns,new(pt),pt) - corr(nr,ew,ns,old(pt),pt) /= 0.0_dp) then
-                    mindcrshstr(nr,ew,ns) = usav(nr,ew,ns,pt) + &
-                        corr(nr,ew,ns,new(pt),pt) * abs(corr(nr,ew,ns,old(pt),pt)) / &
-                            abs(corr(nr,ew,ns,new(pt),pt) - corr(nr,ew,ns,old(pt),pt))
-                else
-                    mindcrshstr(nr,ew,ns) = vel(nr,ew,ns)
-                endif
-            enddo
-        enddo
-    enddo
-  else
-
-    mindcrshstr = vel;
-
-  end if
-
-  !*sfp* Old version
-  ! if (new(pt) == 1) then; old(pt) = 1; new(pt) = 2; else; old(pt) = 1; new(pt) = 2; end if
-
-  !*sfp* correction from Carl Gladdish
-  if (new(pt) == 1) then; old(pt) = 1; new(pt) = 2; else; old(pt) = 2; new(pt) = 1; end if
-
-  resid = 0.0_dp
-
-  ! JEFF Temporary debugging.  In addition to L2 norm, compute the supnorm.
-    ! resid = maxval( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
-    do ns = 1 + staggered_lhalo, size(vel, 3) - staggered_uhalo
-        do ew = 1 + staggered_lhalo, size(vel, 2) - staggered_uhalo
-            do nr = 1, size(vel, 1)
-                if (vel(nr,ew,ns) .ne. 0.0_dp) then
-                    resid = max(resid, abs(usav(nr,ew,ns,pt) - vel(nr,ew,ns)) / vel(nr,ew,ns))
-                endif
-            enddo
-        enddo
-    enddo
-
-    resid = parallel_reduce_max(resid)
+  ! RESIDUAL CALCULATION
 
   select case (whichresid)
   ! options for residual calculation method, as specified in configuration file
@@ -2594,43 +2529,47 @@ function mindcrshstr(pt,whichresid,vel,counter,resid)
   ! case(0): use max of abs( vel_old - vel ) / vel )
   ! case(1): use max of abs( vel_old - vel ) / vel ) but ignore basal vels
   ! case(2): use mean of abs( vel_old - vel ) / vel )
+  ! case(3): use max of abs( vel_old - vel ) / vel ) (in addition to L2 norm calculated externally)
 
    case(0)
     ! resid = maxval( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
-    do ns = 1 + staggered_lhalo, size(vel, 3) - staggered_uhalo
-        do ew = 1 + staggered_lhalo, size(vel, 2) - staggered_uhalo
-            do nr = 1, size(vel, 1)
-                if (vel(nr,ew,ns) .ne. 0.0_dp) then
-                    resid = max(resid, abs(usav(nr,ew,ns,pt) - vel(nr,ew,ns)) / vel(nr,ew,ns))
-                endif
-            enddo
+    resid = 0.0_dp
+    do ns = 1 + staggered_shalo, size(vel, 3) - staggered_nhalo
+      do ew = 1 + staggered_whalo, size(vel, 2) - staggered_ehalo
+        do nr = 1, size(vel, 1)
+          if (vel(nr,ew,ns) .ne. 0.0_dp) then
+            resid = max(resid, abs(usav(nr,ew,ns,pt) - vel(nr,ew,ns)) / vel(nr,ew,ns))
+          endif
         enddo
+      enddo
     enddo
 
     resid = parallel_reduce_max(resid)
-    !JEFF locat is only used in diagnostic print statement below.
+    !locat is only used in diagnostic print statement below.
     !locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
 
    case(1)
     ! nr = size( vel, dim=1 ) ! number of grid points in vertical ...
     ! resid = maxval( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ), MASK = vel .ne. 0.0_dp)
-    do ns = 1 + staggered_lhalo, size(vel, 3) - staggered_uhalo
-        do ew = 1 + staggered_lhalo, size(vel, 2) - staggered_uhalo
-            do nr = 1, size(vel, 1) - 1
-                if (vel(nr,ew,ns) .ne. 0.0_dp) then
-                    resid = max(resid, abs(usav(nr,ew,ns,pt) - vel(nr,ew,ns)) / vel(nr,ew,ns))
-                endif
-            enddo
+    resid = 0.0_dp
+    do ns = 1 + staggered_shalo, size(vel, 3) - staggered_nhalo
+      do ew = 1 + staggered_whalo, size(vel, 2) - staggered_ehalo
+        do nr = 1, size(vel, 1) - 1
+          if (vel(nr,ew,ns) .ne. 0.0_dp) then
+            resid = max(resid, abs(usav(nr,ew,ns,pt) - vel(nr,ew,ns)) / vel(nr,ew,ns))
+          endif
         enddo
+      enddo
     enddo
 
     resid = parallel_reduce_max(resid)
-    !JEFF locat = maxloc( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ),  &
-    !JEFF        MASK = vel .ne. 0.0_dp)
+    !locat = maxloc( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ),  &
+    !        MASK = vel .ne. 0.0_dp)
 
    case(2)
     call not_parallel(__FILE__, __LINE__)
-    ! JEFF This has not been translated to parallel.
+    !JEFF This has not been translated to parallel.
+    resid = 0.0_dp
     nr = size( vel, dim=1 )
     vel_ne_0 = 0
     where ( vel .ne. 0.0_dp ) vel_ne_0 = 1
@@ -2654,17 +2593,85 @@ function mindcrshstr(pt,whichresid,vel,counter,resid)
     !      since we are using the mean resid for convergence testing
     ! locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
 
+   case(3)
+    ! resid = maxval( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
+    resid = 0.0_dp
+    do ns = 1 + staggered_shalo, size(vel, 3) - staggered_nhalo
+      do ew = 1 + staggered_whalo, size(vel, 2) - staggered_ehalo
+        do nr = 1, size(vel, 1)
+          if (vel(nr,ew,ns) .ne. 0.0_dp) then
+            resid = max(resid, abs(usav(nr,ew,ns,pt) - vel(nr,ew,ns)) / vel(nr,ew,ns))
+          endif
+        enddo
+      enddo
+    enddo
+
+    resid = parallel_reduce_max(resid)
+    !locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
+
   end select
+
+  ! Additional debugging line, useful when trying to determine if convergence is being consistently
+  ! help up by the residual at one or a few particular locations in the domain.
+  !print '("* ",i3,g20.6,3i6,g20.6)', counter, resid, locat, vel(locat(1),locat(2),locat(3))*vel0
+
+  ! SAVE VELOCITY AND CALCULATE CORRECTION
+
+  corr(:,:,:,new(pt),pt) = vel(:,:,:) - usav(:,:,:,pt)  ! changed
+
+!  if (counter > 1) then
+!    where (acos((corr(:,:,:,new(pt),pt) * corr(:,:,:,old(pt),pt)) / &
+!          (abs(corr(:,:,:,new(pt),pt)) * abs(corr(:,:,:,old(pt),pt)) + small)) > &
+!           ssthres .and. corr(:,:,:,new(pt),pt) - corr(:,:,:,old(pt),pt) /= 0.0_dp )
+!      mindcrshstr = usav(:,:,:,pt) + &
+!                    corr(:,:,:,new(pt),pt) * abs(corr(:,:,:,old(pt),pt)) / &
+!                    abs(corr(:,:,:,new(pt),pt) - corr(:,:,:,old(pt),pt))
+!!      mindcrshstr = vel; ! jfl uncomment this and comment out line above
+!!                         ! to avoid the unstable manifold correction
+!    elsewhere
+!      mindcrshstr = vel;
+!    end where
+!  else
+!    mindcrshstr = vel;
+!  end if
+!  usav(:,:,:,pt) = vel
+!  vel = mindcrshstr
+
+  if (counter > 1) then
+
+    ! Replace where clause with explicit, owned variables for each processor.
+    do ns = 1 + staggered_shalo, size(vel, 3) - staggered_nhalo
+      do ew = 1 + staggered_whalo, size(vel, 2) - staggered_ehalo
+        do nr = 1, size(vel, 1)
+          temp_vel = vel(nr,ew,ns)
+          if (acos((corr(nr,ew,ns,new(pt),pt) * corr(nr,ew,ns,old(pt),pt)) / &
+               (abs(corr(nr,ew,ns,new(pt),pt)) * abs(corr(nr,ew,ns,old(pt),pt)) + small)) > &
+              ssthres .and. corr(nr,ew,ns,new(pt),pt) - corr(nr,ew,ns,old(pt),pt) /= 0.0_dp) then
+            vel(nr,ew,ns) = usav(nr,ew,ns,pt) + &
+                corr(nr,ew,ns,new(pt),pt) * abs(corr(nr,ew,ns,old(pt),pt)) / &
+                    abs(corr(nr,ew,ns,new(pt),pt) - corr(nr,ew,ns,old(pt),pt))
+          endif
+          usav(nr,ew,ns,pt) = temp_vel
+        enddo
+      enddo
+    enddo
+  else
 
     usav(:,:,:,pt) = vel
 
-    ! Additional debugging line, useful when trying to determine if convergence is being consistently
-    ! help up by the residual at one or a few particular locations in the domain.
-    !print '("* ",i3,g20.6,3i6,g20.6)', counter, resid, locat, vel(locat(1),locat(2),locat(3))*vel0
+  end if
+
+  ! UPDATE POINTERS
+
+  !*sfp* Old version
+  ! if (new(pt) == 1) then; old(pt) = 1; new(pt) = 2; else; old(pt) = 1; new(pt) = 2; end if
+
+  !*sfp* correction from Carl Gladdish
+  if (new(pt) == 1) then; old(pt) = 1; new(pt) = 2; else; old(pt) = 2; new(pt) = 1; end if
 
   return
 
-end function mindcrshstr
+end subroutine mindcrshstr
 
 !***********************************************************************
 
@@ -2912,8 +2919,8 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
 !    pause
 
   ! JEFFLOC Why are these do loops reversed from normal.  Bigger question is do I need to restrict to non-halo grid points?
-  do ns = 1+staggered_lhalo,size(mask,2)-staggered_uhalo
-    do ew = 1+staggered_lhalo,size(mask,1)-staggered_uhalo
+  do ns = 1+staggered_shalo,size(mask,2)-staggered_nhalo
+    do ew = 1+staggered_whalo,size(mask,1)-staggered_ehalo
      ! Calculate the depth-averaged value of the rate factor, needed below when applying an ice shelf
      ! boundary condition (complicated code so as not to include funny values at boundaries ...
      ! ... kind of a mess and could be redone or made into a function or subroutine).
@@ -5917,7 +5924,7 @@ subroutine calcbetasquared (whichbabc,               &
 
       betasquared = 1.0d4
 
-      do ew=1, ewn-1; do ns=5, nsn-5
+      do ns=5, nsn-5; do ew=1, ewn-1 
         betasquared(ew,ns) = 10.0d1 
       end do; end do
 
@@ -6331,8 +6338,8 @@ end subroutine putpcgc
 	  integer :: glblID, upindx, slnindx
 
       ! Step through indxmask, but exclude halo
-	  do ew = 1+staggered_lhalo,size(indxmask,1)-staggered_uhalo
-	     do ns = 1+staggered_lhalo,size(indxmask,2)-staggered_uhalo
+	  do ns = 1+staggered_shalo,size(indxmask,2)-staggered_nhalo
+	      do ew = 1+staggered_whalo,size(indxmask,1)-staggered_ehalo
 	        if ( indxmask(ew,ns) /= 0 ) then
 	          pointno = indxmask(ew,ns)  ! Note that pointno starts at value 1.  If we step through correctly then consecutive values
 	          ! write(*,*) "pointno = ", pointno
@@ -6391,8 +6398,8 @@ end subroutine putpcgc
           minew = 1
           minns = 1
           mindiff = globalID
-          do ns = 1+staggered_lhalo,size(loc2_array,2)-staggered_uhalo
-            do ew = 1+staggered_lhalo,size(loc2_array,1)-staggered_uhalo
+          do ns = 1+staggered_shalo,size(loc2_array,2)-staggered_nhalo
+            do ew = 1+staggered_whalo,size(loc2_array,1)-staggered_ehalo
               curdiff = globalID-loc2_array(ew,ns,1)
               if ((curdiff >= 0) .and. (curdiff < mindiff)) then
                 mindiff = globalID-loc2_array(ew,ns,1)
