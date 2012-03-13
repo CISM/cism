@@ -5,7 +5,7 @@
 # module load netcdf/4.1.2 	(note that default netcdf lib won't work)
 # module load python
 #
-# (2) execture this configure script using:
+# (2) execute this configure script using:
 # sh  ./configure-scripts/hopper-config
 #
 # (3) minor correction to Makefiles in libglimmer-trilinos dir:
