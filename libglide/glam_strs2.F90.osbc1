@@ -4333,11 +4333,12 @@ function croshorizmainbc(dew,       dns,       &
 
      end if
 
+     ! NOTE: here we define 'g_cros' FIRST, because we want the value w/o the plastic
+     ! bed coeff. included (needed for estimate of basal traction in plastic bed iteration)
+     g_cros = g
+
      if( bcflag(2) == 2 )then        ! add on coeff. associated w/ plastic bed iteration
 
-         ! NOTE: here we define 'g_cros' FIRST, because we want the value w/o the plastic
-         ! bed coeff. included (needed for estimate of basal traction in plastic bed iteration)
-         g_cros = g
          g(2,2,2) = g(2,2,2) + plastic_coeff / ( sum( efvs(2,:,:) ) / 4.0_dp ) * (len0 / thk0)
 
      end if
@@ -4470,11 +4471,12 @@ function croshorizmainbcos(dew,       dns,       &
 
      end if
 
+     ! NOTE: here we define 'g_cros' FIRST, because we want the value w/o the plastic
+     ! bed coeff. included (needed for estimate of basal traction in plastic bed iteration)
+     g_cros = g
+
      if( bcflag(2) == 2 )then        ! add on coeff. associated w/ plastic bed iteration
 
-         ! NOTE: here we define 'g_cros' FIRST, because we want the value w/o the plastic
-         ! bed coeff. included (needed for estimate of basal traction in plastic bed iteration)
-         g_cros = g
          g(2,2,2) = g(2,2,2) + plastic_coeff / ( sum( efvs(2,:,:) ) / 4.0_dp ) * (len0 / thk0)
 
      end if
