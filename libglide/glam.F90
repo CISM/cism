@@ -362,14 +362,11 @@ module glam
 
            endif  ! whichtemp
 
-!whl - Gather new thck and temp for optional diagnostics.
-           if (write_verbose) then
-              write(50,*) 'Gather thickness and temperature'
-              call distributed_gather_var(model%geometry%thck, gathered_thck)
-              call distributed_gather_var(model%temper%temp, gathered_temp,  &
-                                          lbound(model%temper%temp,1), ubound(model%temper%temp,1))
-           endif
-
+!whl - Gather new thck and temp.
+           write(50,*) 'Gather thickness and temperature'
+           call distributed_gather_var(model%geometry%thck, gathered_thck)
+           call distributed_gather_var(model%temper%temp, gathered_temp,  &
+                                       lbound(model%temper%temp,1), ubound(model%temper%temp,1))
 
 !whl -     Reset model%general%ewn and nsn to the global values.  
 !          These were temporarily set to the local values before the new remapping was called.
