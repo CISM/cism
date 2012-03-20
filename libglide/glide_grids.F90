@@ -32,7 +32,7 @@ contains
     real(dp), intent(in), dimension(:,:) :: ipvr
     
     real(dp), intent(in), dimension(:,:) :: usrf
-    real(dp) :: thklim
+    real(dp), intent(in) :: thklim
     integer, intent(in), dimension(:,:) :: mask
     
     integer :: ewn,nsn,ew,ns,n
@@ -51,20 +51,19 @@ contains
                 if (any(GLIDE_HAS_ICE(mask(ew:ew+1,ns:ns+1)))) then
                     n = 0
                     tot = 0
-    
-                    if (abs(ipvr(ew,ns)) > 1e-10) then
+                    if (abs(ipvr(ew,ns)) > thklim )then
                         tot = tot + ipvr(ew,ns)
                         n   = n   + 1
                     end if
-                    if (abs(ipvr(ew+1,ns)) > 1e-10) then
+                    if (abs(ipvr(ew+1,ns)) > thklim )then
                         tot = tot + ipvr(ew+1,ns)
                         n   = n   + 1
                     end if
-                    if (abs(ipvr(ew,ns+1)) > 1e-10) then
+                    if (abs(ipvr(ew,ns+1)) > thklim )then
                         tot = tot + ipvr(ew,ns+1)
                         n   = n   + 1
                     end if
-                    if (abs(ipvr(ew+1,ns+1)) > 1e-10) then
+                    if (abs(ipvr(ew+1,ns+1)) > thklim )then
                         tot = tot + ipvr(ew+1,ns+1)
                         n   = n   + 1
                     end if
