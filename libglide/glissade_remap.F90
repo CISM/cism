@@ -613,8 +613,7 @@
       edge = 'east'
       call locate_triangles(nx_block,          ny_block,           &
                             ilo, ihi,          jlo, jhi,           &
-                            nghost,            edge,               &
-                            icellsng (:),                          &
+                            edge,              icellsng (:),       &
                             indxing(:,:),      indxjng(:,:),       &
                             dpx  (:,:),        dpy (:,:),          &
                             dxu  (:,:),        dyu (:,:),          &
@@ -657,8 +656,7 @@
       edge = 'north'
       call locate_triangles(nx_block,          ny_block,           &
                             ilo, ihi,          jlo, jhi,           &
-                            nghost,            edge,               &
-                            icellsng (:),                          &
+                            edge,              icellsng (:),       &
                             indxing(:,:),      indxjng(:,:),       &
                             dpx  (:,:),        dpy (:,:),          &
                             dxu  (:,:),        dyu (:,:),          &
@@ -700,7 +698,8 @@
 !whl - Note to Jeff: It would be good to write the processor number here
       if (l_stop) then
          write(message,*) 'Aborting, my task = ?'
-         call write_log(message,GM_FATAL)
+!whl - Note to Pat: Uncomment this line when we are satisfied it won't be called often.
+!!         call write_log(message,GM_FATAL)
       endif
 
       end subroutine glissade_horizontal_remap
@@ -838,7 +837,7 @@
       integer, intent(in) ::   &
          nx_block, ny_block  ,&! block dimensions
          ilo,ihi,jlo,jhi     ,&! beginning and end of physical domain
-         nghost              ,&! number of ghost cells
+         nghost              ,&! number of ghost cell layers
          ntracer             ,&! number of tracers in use
          icells                ! number of cells with mass
 
@@ -1058,7 +1057,7 @@
       integer, intent(in) ::   &
           nx_block, ny_block,&! block dimensions
           ilo,ihi,jlo,jhi ,&! beginning and end of physical domain
-          nghost              ! number of ghost cells
+          nghost              ! number of ghost cell layers
 
       real (kind=dp), dimension (nx_block,ny_block),   &
            intent (in) ::   &
@@ -1227,7 +1226,7 @@
       integer, intent(in) ::   &
          nx_block, ny_block,&! block dimensions
          ilo,ihi,jlo,jhi,   &! beginning and end of physical domain
-         nghost              ! number of ghost cells
+         nghost              ! number of ghost cell layers
 
       real (kind=dp), intent(in) ::   &
          dt               ! time step (s)
@@ -1280,11 +1279,13 @@
       dpx(:,:) = 0.d0
       dpy(:,:) = 0.d0
 
-!whl - Changed upper limits
-!!      do j = jlo-nghost+1, jhi+nghost-1
-!!      do i = ilo-nghost+1, ihi+nghost-1
-      do j = jlo-1, jhi
-      do i = ilo-1, ihi
+      ! Note: If nghost = 1, then this loop will include all vertices of all locally owned cells,
+      !         including halo values along the west and south edges of the domain.
+      !       If nghost = 2, then this loop includes an additional layer of cells around the domain,
+      !         as needed if we are using the midpoint correction method.
+
+      do j = jlo-nghost, jhi+nghost-1
+      do i = ilo-nghost, ihi+nghost-1
 
          dpx(i,j) = -dt*uvel(i,j)
          dpy(i,j) = -dt*vvel(i,j)
@@ -1301,9 +1302,7 @@
 !             print*, 'hte, htn =', hte(i,j), htn(i,j)
 !             print*, 'bad departure points'
 
-!whl - There are some bad velocity points at the corner of the domain.
-!      Ignore these for now since they do no harm.  (Thickness in this region = 0)
-!!!            l_stop = .true.
+            l_stop = .true.
             istop = i
             jstop = j
          endif
@@ -1327,18 +1326,14 @@
          return
       endif
 
-!Note: Need nghost >= 2 to do this correction, which uses ghost cell velocities.
-!      The velocity arrays have dimensions (ilo-nghost:ihi+nghost-1,
-!                                          (jlo-nghost:jhi+nghost-1)
-!      So if nghost = 1, the upper array bounds are ihi and jhi.
+!Note: Need nghost >= 2 to do this correction, which requires velocities
+!      for vertices with indices (ilo-2) and (jlo-2).
  
-      if (dp_midpt) then   ! find dep pts using corrected midpt velocity 
+      if (dp_midpt .and. nghost>= 2) then   ! find dep pts using corrected midpt velocity 
 
-!whl - Changed upper limits
-!!       do j = jlo-nghost+1, jhi+nghost-1
-!!       do i = ilo-nghost+1, ihi+nghost-1
        do j = jlo-1, jhi
        do i = ilo-1, ihi
+
          if (uvel(i,j)/=0.d0 .or. vvel(i,j)/=0.d0) then
  
     !-------------------------------------------------------------------
@@ -1427,8 +1422,7 @@
 !
       subroutine locate_triangles (nx_block,        ny_block,   &
                                    ilo, ihi,        jlo, jhi,   &
-                                   nghost,          edge,       &
-                                   icells,                      &
+                                   edge,            icells,     &
                                    indxi,           indxj,      &
                                    dpx,             dpy,        &
                                    dxu,             dyu,        &
@@ -1455,8 +1449,7 @@
 !
       integer, intent(in) ::   &
          nx_block, ny_block,&! block dimensions
-         ilo,ihi,jlo,jhi   ,&! beginning and end of physical domain
-         nghost              ! number of ghost cells
+         ilo,ihi,jlo,jhi     ! beginning and end of physical domain
 
       character (len=5), intent(in) ::   &
          edge             ! 'north' or 'east'
@@ -1609,6 +1602,8 @@
     ! Initialize
     !-------------------------------------------------------------------
 
+      dx(:,:) = 0.d0
+      dy(:,:) = 0.d0
       areafac_c(:,:) = 0.d0
       areafac_l(:,:) = 0.d0
       areafac_r(:,:) = 0.d0
@@ -1634,11 +1629,12 @@
       if (trim(edge) == 'north') then
 
          ! loop size
+         ! Note: The loop is over all north edges that border one or more locally owned grid
+         !  cells. This includes the north edges of cells with index (jlo-1), which are the south
+         !  edges of cells with index (jlo).
 
          ib = ilo
          ie = ihi 
-!whl - changed jb
-!!         jb = jlo - nghost            ! lowest j index is a ghost cell
          jb = jlo - 1            ! lowest j index is a ghost cell
          je = jhi
 
@@ -1670,9 +1666,10 @@
       else                      ! east edge
 
          ! loop size
+         ! Note: The loop is over all east edges that border one or more locally owned grid
+         !  cells. This includes the east edges of cells with index (ilo-1), which are the west
+         !  edges of cells with index (ilo).
 
-!whl - changed ib
-!!         ib = ilo - nghost            ! lowest i index is a ghost cell
          ib = ilo - 1            ! lowest i index is a ghost cell
          ie = ihi
          jb = jlo
@@ -1750,14 +1747,13 @@
       endif          ! prescribed_area
 
     !-------------------------------------------------------------------
-    ! Scale the departure points
+    ! Scale the departure points.
+    ! Note: This loop must include all vertices of all edges for which
+    !       fluxes are computed.
     !-------------------------------------------------------------------
 
-!whl - changed lower limits
-!!      do j = 1, je
-!!      do i = 1, ie
-      do j = jb, je
-      do i = ib, ie
+      do j = jlo-1, jhi
+      do i = ilo-1, ihi
          dx(i,j) = dpx(i,j) / dxu(i,j)
          dy(i,j) = dpy(i,j) / dyu(i,j)
       enddo
