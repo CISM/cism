@@ -1,25 +1,21 @@
 #ifndef GLIDE_MASK_INC
 
-!Bits 1:0 - Ice presence (0 if no ice)
-!NOTE: If bit 2 is activated, bit 1 must be activated
+!Bits 1:0 - Ice presence (0 if no ice). NOTE: If bit 2 is activated, bit 1 must be activated
 #define GLIDE_MASK_HAS_ICE             1
 #define GLIDE_MASK_THIN_ICE            3
 #define GLIDE_ICE_PRESENCE_BITS        3
 
-!Bits 4:2 - Type of base (Land or ocean - grounding line has both bits on)
-!The 16 bit specifies grounding line - I am setting this up so that those points are treated as grounded
-!as well.
+!Bits 4:2 - Type of base (Land or ocean - grounding line has both bits on). The 16 bit specifies grounding line, 
+! set up so that those points are treated as grounded)
 #define GLIDE_MASK_LAND                4
 #define GLIDE_MASK_OCEAN               8
 #define GLIDE_MASK_GROUNDING_LINE      16 
 #define GLIDE_BASE_TYPE_BITS           28
 
-!Bit 5: Identifies a margin (jump from zero to nonzero thickness)
-!The type of margin is determined by whether the ice here is grounded or floating.
+!Bit 5: Identifies a margin (jump from zero to nonzero thickness). Margin type determined by whether ice grounded or floating.
 #define GLIDE_MASK_MARGIN 32
 
-!Bit 6: Identifies a dirichlet condition
-!The velocity at points marked with this bit should be held constant.
+!Bit 6: Identifies a dirichlet condition. The velocity at points marked with this bit should be held constant.
 #define GLIDE_MASK_DIRICHLET_BC 64
 
 !Bit 7: Identifies a computational domain boundary.  These are normally just activated on the edges of the domain,
@@ -27,7 +23,6 @@
 #define GLIDE_MASK_COMP_DOMAIN_BND 128 
 
 !Checks for an iceless square
-
 !Checks for open ocean with no ice
 #define GLIDE_IS_OCEAN(mask)       (iand(mask, GLIDE_MASK_OCEAN) == GLIDE_MASK_OCEAN .and. GLIDE_NO_ICE(mask))
 
@@ -78,6 +73,14 @@
 !Checks whether we are at the edge of the computational domain *and* there is ice in this square
 #define GLIDE_IS_COMP_DOMAIN_BND(mask)    (iand(mask, 129) == 129)
 
+! other common combinations:
+!11 = 8 + 3		! thin floating ice
+!21 = 20 + 1 	 	! non-thin ice grounding line
+!23 = 20 + 3 	 	! thin ice grounding line
+!39 = 32 + 4 + 3	! land margin with thin ice
+!43 = 32 + 8 + 3	! calving margin with thin ice
+!55 = 37 + 17 + 1	! g.l. land margin with non-thin ice
+!57 = 37 + 17 + 3	! g.l. land margin with thin ice
 
 #endif
 
