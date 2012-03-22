@@ -4027,8 +4027,10 @@ function vertimainbcos(thck, bcflag, dup, efvs, betasquared, g_vert, nz, plastic
            ! of boundary tractions (note that it DOES NOT include terms from boundary forcing)
 
             ! last set of terms is mean visc. of ice nearest to the bed
+!            vertimainbcos(3) = vertimainbcos(3)   &
+!                           + ( betasquared / efvsbar_bed ) * (len0 / thk0)
             vertimainbcos(3) = vertimainbcos(3)   &
-                           + ( betasquared / efvsbar_bed ) * (len0 / thk0)
+                           + ( betasquared ) * (len0 / thk0)
 
     end if
 
@@ -4036,8 +4038,10 @@ function vertimainbcos(thck, bcflag, dup, efvs, betasquared, g_vert, nz, plastic
     if( bcflag(2) == 2 )then
 
              ! last set of terms is mean visc. of ice nearest to the bed
+!            vertimainbcos(2) = vertimainbcos(2)   &
+!                           + ( plastic_coeff / efvsbar_bed ) * (len0 / thk0)
             vertimainbcos(2) = vertimainbcos(2)   &
-                           + ( plastic_coeff / efvsbar_bed ) * (len0 / thk0)
+                           + ( plastic_coeff ) * (len0 / thk0)
     end if
 
     ! for higher-order BASAL B.C. U=V=0, in x ('which'=1) or y ('which'=2) direction ...
