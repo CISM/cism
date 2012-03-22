@@ -51,19 +51,19 @@ contains
                 if (any(GLIDE_HAS_ICE(mask(ew:ew+1,ns:ns+1)))) then
                     n = 0
                     tot = 0
-                    if (abs(ipvr(ew,ns)) > thklim )then
+                    if (abs(ipvr(ew,ns)) > 0.0d0  )then
                         tot = tot + ipvr(ew,ns)
                         n   = n   + 1
                     end if
-                    if (abs(ipvr(ew+1,ns)) > thklim )then
+                    if (abs(ipvr(ew+1,ns)) > 0.0d0  )then
                         tot = tot + ipvr(ew+1,ns)
                         n   = n   + 1
                     end if
-                    if (abs(ipvr(ew,ns+1)) > thklim )then
+                    if (abs(ipvr(ew,ns+1)) > 0.0d0  )then
                         tot = tot + ipvr(ew,ns+1)
                         n   = n   + 1
                     end if
-                    if (abs(ipvr(ew+1,ns+1)) > thklim )then
+                    if (abs(ipvr(ew+1,ns+1)) > 0.0d0  )then
                         tot = tot + ipvr(ew+1,ns+1)
                         n   = n   + 1
                     end if
