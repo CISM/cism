@@ -260,11 +260,17 @@
             ! Average corner velocities at layer interfaces to 
             ! edge velocities at layer midpoints.
       
-            do j = jlo-1, jhi
-            do i = ilo-1, ihi
-               uee(i,j) = 0.5d0 * (uvel(k,i,j)   + uvel(k,i,j-1)    &
+            do j = jlo, jhi
+            do i = ilo-1, ihi   ! include west edge of local domain
+               uee(i,j) = 0.5d0 * (uvel(k,  i,j) + uvel(k,  i,j-1)    &
                                  + uvel(k+1,i,j) + uvel(k+1,i,j-1))
-               vnn(i,j) = 0.5d0 * (vvel(k,i,j)   + vvel(k,i-1,j)    &
+            enddo
+            enddo
+
+
+            do j = jlo-1, jhi   ! include south edge of local domain
+            do i = ilo, ihi
+               vnn(i,j) = 0.5d0 * (vvel(k,  i,j) + vvel(k,  i-1,j)    &
                                  + vvel(k+1,i,j) + vvel(k+1,i-1,j))
             enddo
             enddo
