@@ -35,6 +35,7 @@
 !
       use glimmer_global, only: dp
       use glimmer_log
+      use parallel
 !
 !EOP
 !
@@ -308,8 +309,7 @@
 !       
 ! !USES:
 !
-!!      use parallel   ! not needed if nghost >= 2
-!                      ! (provided that halos are updated before this routine is called)
+      use parallel
 !
 ! !INPUT/OUTPUT PARAMETERS:
 !
@@ -499,6 +499,9 @@
 !whl - Set to true for increased accuracy
 !    - Set to false for closer agreement with the old remapping code
          dp_midpt = .true.
+!pw++
+!pw         dp_midpt = .false.
+!pw--
       endif
 
       if (present(prescribed_area_in)) then
@@ -515,7 +518,7 @@
       workc(:,:) = 1.d0
       workd(:,:) = 1.d0
 
-!whl - Note to Jeff: pass these in as arguments or compute appropriately 
+!whl Pass these in as arguments or compute appropriately 
       ilo = 1 + nghost
       ihi = nx_block - nghost
       jlo = 1 + nghost
@@ -549,40 +552,6 @@
                             tx    (:,:,:),       ty  (:,:,:))
 
     !-------------------------------------------------------------------
-    ! Ghost cell updates
-    ! If nghost >= 2, these calls are not needed
-    !-------------------------------------------------------------------
-
-      if (nghost==1) then
-
-!whl - Note to Jeff - Replace with appropriate cism calls.
-
-         ! departure points
-!         call ice_HaloUpdate (dpx,                halo_info, &
-!                              field_loc_NEcorner, field_type_vector)
-!         call ice_HaloUpdate (dpy,                halo_info, &
-!                              field_loc_NEcorner, field_type_vector)
-
-         ! mass field
-!         call ice_HaloUpdate (mc,               halo_info, &
-!                              field_loc_center, field_type_scalar)
-!         call ice_HaloUpdate (mx,               halo_info, &
-!                              field_loc_center, field_type_vector)
-!         call ice_HaloUpdate (my,               halo_info, &
-!                              field_loc_center, field_type_vector)
-
-         ! tracer fields
-!         call ice_HaloUpdate (tc,               halo_info, &
-!                              field_loc_center, field_type_scalar)
-!         call ice_HaloUpdate (tx,               halo_info, &
-!                              field_loc_center, field_type_vector)
-!         call ice_HaloUpdate (ty,               halo_info, &
-!                              field_loc_center, field_type_vector)
-!         call ice_timer_stop(timer_bound)
-
-      endif  ! nghost
-
-    !-------------------------------------------------------------------
     ! Given velocity field at cell corners, compute departure points
     ! of trajectories.
     !-------------------------------------------------------------------
@@ -596,11 +565,33 @@
                             dpx   (:,:),      dpy (:,:),         &
                             dp_midpt,         l_stop)
 
-!whl - Note to Jeff: It would be good to write the processor number here
       if (l_stop) then
-         write(message,*) 'Aborting, my task = ?'
+         write(message,*) 'Aborting (task = ',this_rank,')'
          call write_log(message,GM_FATAL)
       endif
+
+    !-------------------------------------------------------------------
+    ! Ghost cell updates
+    ! If nghost >= 2, these calls are not needed
+    !-------------------------------------------------------------------
+
+      if (nghost==1) then
+
+         ! mass field
+         call parallel_halo(mc)
+         call parallel_halo(mx)
+         call parallel_halo(my)
+
+         ! tracer fields
+         call parallel_halo(tc)
+         call parallel_halo(tx)
+         call parallel_halo(ty)
+
+         ! departure points
+         call parallel_halo(dpx)
+         call parallel_halo(dpy)
+
+      endif  ! nghost
 
     !-------------------------------------------------------------------
     ! Transports for east cell edges.
@@ -695,11 +686,9 @@
                           mtflxe(:,:,:),      mtflxn(:,:,:),     &
                           trcr  (:,:,:) )
 
-!whl - Note to Jeff: It would be good to write the processor number here
       if (l_stop) then
-         write(message,*) 'Aborting, my task = ?'
-!whl - Note to Pat: Uncomment this line when we are satisfied it won't be called often.
-!!         call write_log(message,GM_FATAL)
+         write(message,*) 'Aborting (task = ',this_rank,')'
+         call write_log(message,GM_FATAL)
       endif
 
       end subroutine glissade_horizontal_remap
@@ -1313,6 +1302,8 @@
       if (l_stop) then
          i = istop
          j = jstop
+         write (message,*) 'Process:',this_rank
+         call write_log(message)
          write (message,*) 'Remap, departure points out of bounds:, i, j =', i, j
          call write_log(message)
          write (message,*) 'dpx, dpy =', dpx(i,j), dpy(i,j)
@@ -3280,6 +3271,8 @@
          j = jstop
          w1 = mflxe(i,j) - mflxe(i-1,j)   &
             + mflxn(i,j) - mflxn(i,j-1)
+         write (message,*) 'Process:',this_rank
+         call write_log(message)
          write (message,*) 'Remap, negative ice thickness, i, j =', i, j
          call write_log(message)    
          write (message,*) 'Old thickness =', mass(i,j) + w1*tarear

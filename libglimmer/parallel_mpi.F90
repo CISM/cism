@@ -164,6 +164,11 @@ module parallel
      module procedure parallel_halo_verify_real8_3d
   end interface
 
+  interface staggered_parallel_halo
+     module procedure staggered_parallel_halo_real8_2d
+     module procedure staggered_parallel_halo_real8_3d
+  end interface
+
   interface parallel_print
      ! Writes a parallel (same on all processors) variable to file by just writing from main_task
      module procedure parallel_print_integer_2d
@@ -2224,19 +2229,16 @@ contains
     ! automatic deallocation
   end subroutine distributed_scatter_var_real8_3d
 
-  subroutine global_sum(x,y)
+  subroutine global_sum(x)
     use mpi
     implicit none
-    real(8) :: x,y
+    real(8),dimension(:) :: x
     
     integer :: ierror
-    real(8),dimension(2) :: recvbuf,sendbuf
+    real(8),dimension(size(x)) :: sum
     ! begin
-    sendbuf(1) = x
-    sendbuf(2) = y
-    call mpi_allreduce(sendbuf,recvbuf,2,mpi_real8,mpi_sum,comm,ierror)
-    x = recvbuf(1)
-    y = recvbuf(2)
+    call mpi_allreduce(x,sum,size(x),mpi_real8,mpi_sum,comm,ierror)
+    x(:) = sum(:)
   end subroutine global_sum
 
   subroutine not_parallel(file,line)
@@ -3379,7 +3381,121 @@ contains
     a(1+lhalo:,size(a,2)) = nrecv(:)
   end subroutine parallel_velo_halo
 
-  subroutine staggered_parallel_halo(a)
+  subroutine staggered_parallel_halo_real8_2d(a)
+    use mpi
+    implicit none
+    real(8),dimension(:,:) :: a
+
+    ! Implements a staggered grid halo update.
+    ! As the grid is staggered, the array 'a' is one smaller in both dimensions than an unstaggered array.
+
+    ! The grid is laid out from the SW, and the lower left corner is assigned to this_rank = 0.
+    ! It's eastern nbhr is task_id = 1, proceeding rowwise and starting from the western edge.
+    ! The South-most processes own one additional row of stagggered variables on the southern edge
+    ! and have one less 'southern' halo row than other processes. Likewise, the West-most processes own one 
+    ! additional column of staggered variables on the western edge and have one less 'western' halo column. 
+    ! This is implemented by a modification to the staggered_lhalo value on these processes. 
+
+    ! Maintaining global boundary conditions are not addressed within this routine (yet).
+
+    ! integer :: erequest,ierror,one,nrequest,srequest,wrequest
+    integer :: ierror,nrequest,srequest,erequest,wrequest
+    real(8),dimension(staggered_whalo,size(a,2)-staggered_shalo-staggered_nhalo) :: esend,wrecv
+    real(8),dimension(staggered_ehalo,size(a,2)-staggered_shalo-staggered_nhalo) :: erecv,wsend
+    real(8),dimension(size(a,1),staggered_shalo) :: nsend,srecv
+    real(8),dimension(size(a,1),staggered_nhalo) :: nrecv,ssend
+
+    ! begin
+
+    ! Confirm staggered array
+    if (size(a,1)/=local_ewn-1.or.size(a,2)/=local_nsn-1) then
+         write(*,*) "staggered_parallel_halo() requires staggered arrays."
+         call parallel_stop(__FILE__,__LINE__)
+    endif
+
+    ! Prepost expected receives
+
+    ! Only receive from east if interior to grid
+    if (this_rank < east) then
+      call mpi_irecv(erecv,size(erecv),mpi_real8,east,east,comm,erequest,ierror)
+    endif
+
+    ! Only receive from west if interior to grid
+    if (this_rank > west) then
+      call mpi_irecv(wrecv,size(wrecv),mpi_real8,west,west,comm,wrequest,ierror)
+    endif
+
+    ! Only receive from north if interior to grid
+    if (this_rank < north) then
+      call mpi_irecv(nrecv,size(nrecv),mpi_real8,north,north,comm,nrequest,ierror)
+    endif
+
+    ! Only receive from south if interior to grid
+    if (this_rank > south) then
+      call mpi_irecv(srecv,size(srecv),mpi_real8,south,south,comm,srequest,ierror)
+    endif
+
+    ! Only send west if interior to grid
+    if (this_rank > west) then
+      wsend(:,1:size(a,2)-staggered_shalo-staggered_nhalo) = &
+        a(1+staggered_whalo:1+staggered_whalo+staggered_ehalo-1, &
+            1+staggered_shalo:size(a,2)-staggered_nhalo)
+      call mpi_send(wsend,size(wsend),mpi_real8,west,this_rank,comm,ierror)
+    endif
+
+    ! Only send east if interior to grid
+    if (this_rank < east) then
+      esend(:,1:size(a,2)-staggered_shalo-staggered_nhalo) = &
+        a(size(a,1)-staggered_ehalo-staggered_whalo+1:size(a,1)-staggered_ehalo, &
+            1+staggered_shalo:size(a,2)-staggered_nhalo)
+      call mpi_send(esend,size(esend),mpi_real8,east,this_rank,comm,ierror)
+    endif
+
+    ! Only receive from east if interior to grid
+    if (this_rank < east) then
+      call mpi_wait(erequest,mpi_status_ignore,ierror)
+      a(size(a,1)-staggered_ehalo+1:size(a,1), &
+          1+staggered_shalo:size(a,2)-staggered_nhalo) = &
+          erecv(:,1:size(a,2)-staggered_shalo-staggered_nhalo)
+    endif
+
+    ! Only receive from west if interior to grid
+    if (this_rank > west) then
+      call mpi_wait(wrequest,mpi_status_ignore,ierror)
+      a(1:staggered_whalo, &
+          1+staggered_shalo:size(a,2)-staggered_nhalo) = &
+          wrecv(:,1:size(a,2)-staggered_shalo-staggered_nhalo)
+    endif
+
+    ! Only send south if interior to grid
+    if (this_rank > south) then
+      ssend(:,:) = &
+        a(:,1+staggered_shalo:1+staggered_shalo+staggered_nhalo-1)
+      call mpi_send(ssend,size(ssend),mpi_real8,south,this_rank,comm,ierror)
+    endif
+
+    ! Only send north if interior to grid
+    if (this_rank < north) then
+      nsend(:,:) = &
+        a(:,size(a,2)-staggered_nhalo-staggered_shalo+1:size(a,2)-staggered_nhalo)
+      call mpi_send(nsend,size(nsend),mpi_real8,north,this_rank,comm,ierror)
+    endif
+
+    ! Only receive from north if interior to grid
+    if (this_rank < north) then
+      call mpi_wait(nrequest,mpi_status_ignore,ierror)
+      a(:,size(a,2)-staggered_nhalo+1:size(a,2)) = nrecv(:,:)
+    endif
+
+    ! Only receive from south if interior to grid
+    if (this_rank > south) then
+      call mpi_wait(srequest,mpi_status_ignore,ierror)
+      a(:,1:staggered_shalo) = srecv(:,:)
+    endif
+
+  end subroutine staggered_parallel_halo_real8_2d
+
+  subroutine staggered_parallel_halo_real8_3d(a)
     use mpi
     implicit none
     real(8),dimension(:,:,:) :: a
@@ -3491,7 +3607,7 @@ contains
       a(:,:,1:staggered_shalo) = srecv(:,:,:)
     endif
 
-  end subroutine staggered_parallel_halo
+  end subroutine staggered_parallel_halo_real8_3d
 
 ! Following routines imported from the Community Earth System Model
 ! (models/utils/mct/mpeu.m_FcComms.F90)

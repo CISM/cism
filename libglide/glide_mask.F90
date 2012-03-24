@@ -174,7 +174,7 @@ contains
     implicit none
     real(dp), dimension(:,:) :: thck
     real(dp) :: dew, dns
-    real(dp) :: iarea, ivol
+    real(dp) :: iarea, ivol, sum(2)
     logical :: exec_serial
 
     integer :: i,j
@@ -192,7 +192,11 @@ contains
     ivol = ivol * dew * dns
     
     if (.NOT. exec_serial) then
-       call global_sum(iarea,ivol)
+       sum(1) = iarea
+       sum(2) = ivol
+       call global_sum(sum)
+       iarea = sum(1)
+       ivol  = sum(2)
     endif
   end subroutine get_area_vol
  
@@ -493,9 +497,9 @@ contains
         end do
 
         if (.NOT. exec_serial_flag) then
-	        call parallel_halo(direction_x)
-	        call parallel_halo(direction_y)
-	    endif
+            call parallel_halo(direction_x)
+            call parallel_halo(direction_y)
+        endif
     end subroutine
 
 end module glide_mask

@@ -22,8 +22,7 @@
       use glimmer_log
       use glissade_remap, only: glissade_horizontal_remap, make_remap_mask, puny
 
-!whl - Note to Jeff - no halo updates, but parallel code is needed for global sums
-!!      use parallel 
+      use parallel 
 
 !
 !EOP
@@ -161,13 +160,9 @@
       logical, parameter ::     &
          conservation_check = .true. ! if true, check global conservation
 
-      real (kind=dp) ::     &
-         msum_init      ,&! initial global ice mass
-         msum_final       ! final global ice mass
-
-      real (kind=dp), dimension(ntracer) ::     &
-         mtsum_init     ,&! initial global ice mass*tracer
-         mtsum_final      ! final global ice mass*tracer
+      real (kind=dp), dimension(0:ntracer) ::     &
+         mtsum_init     ,&! initial global ice mass and global ice mass*tracer
+         mtsum_final      ! final global ice mass and global ice mass*tracer
 
       logical ::     &
          l_stop            ! if true, abort the model
@@ -236,18 +231,19 @@
 
       if (conservation_check) then
 
-!whl - Note to Jeff: Replace with appropriate global sums.
-
          ! Compute initial values of globally conserved quantities.
          ! Assume gridcells of equal area, ice of uniform density.
 
-         msum_init = sum (thck(:,:))  ! local for now
-!         msum_init = global_sum (thck(:,:))  
-
-         do nt = 1, ntracer
-            mtsum_init(nt) =  sum (tracer(:,:,nt,:) * thck_layer(:,:,:))  ! local for now
-!            mtsum_init(nt) =  global_sum (tracer(:,:,nt,:) * thck_layer(:,:,:))
+         mtsum_init(:) = 0.0_dp
+         do j = jlo, jhi
+         do i = ilo, ihi
+            mtsum_init(0) = mtsum_init(0) + thck(i,j)  ! local for now
+            do nt = 1, ntracer
+               mtsum_init(nt) =  mtsum_init(nt) + sum(tracer(i,j,nt,:) * thck_layer(i,j,:))
+            enddo
          enddo
+         enddo
+         call global_sum(mtsum_init)
 
       endif                     ! conservation_check
       
@@ -417,25 +413,26 @@
          ! Compute final values of globally conserved quantities.
          ! Assume gridcells of equal area, ice of uniform density.
 
-!whl - Note to Jeff: Insert global sums here
-         msum_final = sum (thck(:,:))  ! local for now
-!         msum_final = global_sum (thck(:,:))  
-
-         do nt = 1, ntracer
-            mtsum_final(nt) =  sum (tracer(:,:,nt,:) * thck_layer(:,:,:))  ! local for now
-!            mtsum_final(nt) =  global_sum (tracer(:,:,nt,k) * thck_layer(:,:,k))
+         mtsum_final(:) = 0.0_dp
+         do j = jlo, jhi
+         do i = ilo, ihi
+            mtsum_final(0) = mtsum_final(0) + thck(i,j)  ! local for now
+            do nt = 1, ntracer
+               mtsum_final(nt) =  mtsum_final(nt) + sum(tracer(i,j,nt,:) * thck_layer(i,j,:))
+            enddo
          enddo
+         enddo
+         call global_sum(mtsum_final)
 
-!whl - Note to Jeff: Call this routine from the master proc only
-!         if (my_task == master_task) then
-            call global_conservation (msum_init,     msum_final,      &
+         if (main_task) then
+            call global_conservation (mtsum_init(0), mtsum_final(0),  &
                                       l_stop,        ntracer,         &
-                                      mtsum_init(:), mtsum_final(:))
+                                      mtsum_init(1:ntracer), mtsum_final(1:ntracer))
             if (l_stop) then
                write(message,*) 'Aborting'
                call write_log(message,GM_FATAL)
             endif
-!         endif
+         endif
 
       endif                     ! conservation_check
 

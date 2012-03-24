@@ -182,6 +182,11 @@ module parallel
      module procedure parallel_halo_verify_real8_3d
   end interface
 
+  interface staggered_parallel_halo
+     module procedure staggered_parallel_halo_real8_2d
+     module procedure staggered_parallel_halo_real8_3d
+  end interface
+
   interface parallel_print
      module procedure parallel_print_integer_2d
      module procedure parallel_print_real8_2d
@@ -764,10 +769,10 @@ contains
     ! automatic deallocation
   end subroutine distributed_scatter_var_real8_3d
 
-  subroutine global_sum(x,y)
+  subroutine global_sum(x)
     implicit none
-    real(8) :: x,y
-
+    real(8),dimension(:) :: x
+    
     if (tasks >= 2) then
         ! Do nothing.  x and y are two values to be summed across all distributed nodes.
         ! In parallel_single model, their local sums should remain unchanged.
@@ -1426,20 +1431,22 @@ contains
     endif 
   end subroutine parallel_velo_halo
 
-  subroutine staggered_parallel_halo(a)
+  subroutine staggered_parallel_halo_real8_2d(a)
     implicit none
-    real(8),dimension(:,:,:) :: a
-
-    !JEFF Implements a one-sided (staggered) halo update spreading information from the NW to the SE.
-    !Remember that the grid is laid out from the NE, then the upper right corner is assigned to task_id = 1.
-    !It's western nbhr is task_id = 2, proceeding rowwise and starting from the eastern edge.
-    ! What is required for correct calculations is vel(:,ew-1:ew,ns-1:ns), so correct info is needed from NW.
-    ! (WAIT, is ns=1 northernmost or southernmost point?  If southernmost, then I need to reverse.)
-    ! Communications DO NOT wrap around at the edges.
+    real(8),dimension(:,:) :: a
 
     if (tasks >= 2) then
 	! Do nothing
     endif
-  end subroutine staggered_parallel_halo
+  end subroutine staggered_parallel_halo_real8_2d
+
+  subroutine staggered_parallel_halo_real8_3d(a)
+    implicit none
+    real(8),dimension(:,:,:) :: a
+
+    if (tasks >= 2) then
+	! Do nothing
+    endif
+  end subroutine staggered_parallel_halo_real8_3d
 
 end module parallel
