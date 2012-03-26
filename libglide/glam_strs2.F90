@@ -781,10 +781,10 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
   !JEFF: uvel, vvel, uflx, and vflx are calculated in this routine, but only for "owned" grid cells, so update halos to get neighboring values.
   call parallel_halo(btraction)
   call parallel_halo(efvs)
-  call parallel_halo(uvel)
-  call parallel_halo(vvel)
-  call parallel_halo(uflx)
-  call parallel_halo(vflx)
+  !call staggered_parallel_halo(uvel) (called earlier)
+  !call staggered_parallel_halo(vvel) (called earlier)
+  call staggered_parallel_halo(uflx)
+  call staggered_parallel_halo(vflx)
 
 #ifdef JEFFTEST    
   !JEFF Debugging Output to see what differences in final vvel and tvel.
@@ -1302,16 +1302,23 @@ end if
   deallocate(wk1, wk2)
   deallocate(vv, wk)
 
-  model%velocity%uvel = uvel
-  model%velocity%vvel = vvel
-  model%velocity%uflx = uflx
-  model%velocity%vflx = vflx
-  model%stress%efvs = efvs
+ !model%velocity%uvel = uvel
+ !model%velocity%vvel = vvel
+ !model%velocity%uflx = uflx
+ !model%velocity%vflx = vflx
+ !model%stress%efvs = efvs
+ !PW following are needed for glam_velo_fordsiapstr - putting here until can be convinced
+ !   that they are not needed (or that they should be delayed until later)
+  call parallel_halo(btraction)
+  call parallel_halo(efvs)
+  call staggered_parallel_halo(uvel)
+  call staggered_parallel_halo(vvel)
+  call staggered_parallel_halo(uflx)
+  call staggered_parallel_halo(vflx)
 
 !whl - BUG FIX: Resetting flwa to the correct value.  (Above it was set to flwa*vis0/vis0_glam.)
 !      To do: Rewrite the subroutine so that no rescaling is needed.
   flwa(:,:,:)=flwa(:,:,:) / (vis0/vis0_glam)
-
 
   return
 end subroutine JFNK

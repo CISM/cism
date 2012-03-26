@@ -113,55 +113,6 @@ program simple_glide
      ! override masking stuff for now
 
      tstep_count = tstep_count + 1
-#ifdef JEFFORIG
-!JEFF commenting out during the first pass through.  There's several direct model references and file writes in glide_write_diag.
-     if (mod(tstep_count, model%numerics%ndiag) == 0) then
-        call glide_write_diag(model, time, model%numerics%idiag, &
-                                           model%numerics%jdiag )
-     endif
-#endif
-
-     ! Redistribute calls here to spread the data back out.
-     call distributed_scatter_var(model%stress%efvs, gathered_efvs)
-     call distributed_scatter_var(model%velocity%uvel, gathered_uvel)
-     call distributed_scatter_var(model%velocity%vvel, gathered_vvel)
-     call distributed_scatter_var(model%velocity%uflx, gathered_uflx)
-     call distributed_scatter_var(model%velocity%vflx, gathered_vflx)
-     call distributed_scatter_var(model%velocity%velnorm, gathered_velnorm)
-     call distributed_scatter_var(model%geometry%thck, gathered_thck)
-     call distributed_scatter_var(model%geomderv%stagthck, gathered_stagthck)
-     call distributed_scatter_var(model%climate%acab, gathered_acab)
-     call distributed_scatter_var(model%temper%temp, gathered_temp)
-     call distributed_scatter_var(model%geomderv%dusrfdew, gathered_dusrfdew)
-     call distributed_scatter_var(model%geomderv%dusrfdns, gathered_dusrfdns)
-     call distributed_scatter_var(model%geomderv%dthckdew, gathered_dthckdew)
-     call distributed_scatter_var(model%geomderv%dthckdns, gathered_dthckdns)
-     call distributed_scatter_var(model%stress%tau%xx, gathered_tauxx)
-     call distributed_scatter_var(model%stress%tau%yy, gathered_tauyy)
-     call distributed_scatter_var(model%stress%tau%xy, gathered_tauxy)
-     call distributed_scatter_var(model%stress%tau%scalar, gathered_tauscalar)
-     call distributed_scatter_var(model%stress%tau%xz, gathered_tauxz)
-     call distributed_scatter_var(model%stress%tau%yz, gathered_tauyz)
-     call distributed_scatter_var(model%geometry%topg, gathered_topg)
-     call distributed_scatter_var(model%geometry%thkmask, gathered_thkmask)
-     call distributed_scatter_var(model%geometry%marine_bc_normal, gathered_marine_bc_normal)
-     call distributed_scatter_var(model%velocity%surfvel, gathered_surfvel)
-     call distributed_scatter_var(model%ground%gline_flux, gathered_gline_flux)
-     call distributed_scatter_var(model%velocity%ubas, gathered_ubas)
-     call distributed_scatter_var(model%velocity%vbas, gathered_vbas)
-     call distributed_scatter_var(model%isos%relx, gathered_relx)
-     call distributed_scatter_var(model%temper%flwa, gathered_flwa)
-     call distributed_scatter_var(model%climate%calving, gathered_calving)
-     call distributed_scatter_var(model%climate%backstress, gathered_backstress)
-     call distributed_scatter_var(model%geometry%usrf, gathered_usrf)
-     call distributed_scatter_var(model%climate%backstressmap, gathered_backstressmap)
-     call distributed_scatter_var(model%stress%tau_x, gathered_tau_x)
-     call distributed_scatter_var(model%stress%tau_y, gathered_tau_y)
-     call distributed_scatter_var(model%geometry%lsrf, gathered_lsrf)
-
-     !After scattering, then update nsn and ewn back to local values
-     model%general%ewn = local_ewn
-     model%general%nsn = local_nsn
 
      ! Redistribute calls here to spread the data back out.
      call parallel_halo(model%stress%efvs)

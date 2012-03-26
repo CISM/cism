@@ -201,7 +201,6 @@ contains
        call isos_relaxed(model)
     end select
 
-
     ! open all output files
     call openall_out(model)
     ! create glide variables
@@ -531,11 +530,6 @@ contains
     real (kind = dp), dimension(model%general%ewn,model%general%nsn) :: thck_old
     real (kind = dp), dimension(model%general%ewn-1,model%general%nsn-1) :: stagthck_old
 
-    ! temporary gathered version of thk_old and stagthck_old
-    ! Note that allocation of these occurs inside of calls to "distributed_gather_var( )" below
-    real(8),dimension(:,:),allocatable :: gathered_thck_old
-    real(8),dimension(:,:),allocatable :: gathered_stagthck_old
-
     ! ------------------------------------------------------------------------ 
     ! Calculate flow evolution by various different methods
     ! ------------------------------------------------------------------------ 
@@ -565,48 +559,35 @@ contains
                          ! (but not required) to use IR to advect temperature when thickness evolution is turned off.
 
        if (model%options%whichevol .eq. EVOL_NO_THICKNESS) then
-               ! store old thickness
-               thck_old = model%geometry%thck
-               stagthck_old = model%geomderv%stagthck
+          ! store old thickness
+          thck_old = model%geometry%thck
+          stagthck_old = model%geomderv%stagthck
        endif
 
        call inc_remap_driver( model )
 
-       !JEFF Gathers required for glide_stress
-       call distributed_gather_var(model%geomderv%dusrfdew, gathered_dusrfdew)
-       call distributed_gather_var(model%geomderv%dusrfdns, gathered_dusrfdns)
-       call distributed_gather_var(model%geomderv%dthckdew, gathered_dthckdew)
-       call distributed_gather_var(model%geomderv%dthckdns, gathered_dthckdns)
+       !Halo updates required for inputs to glide_stress?
+       call staggered_parallel_halo(model%geomderv%dusrfdew)
+       call staggered_parallel_halo(model%geomderv%dusrfdns)
+       call staggered_parallel_halo(model%geomderv%dthckdew)
+       call staggered_parallel_halo(model%geomderv%dthckdns)
+       ! call parallel_halo(model%geometry%thck) in inc_remap_driver
+       ! call staggered_parallel_halo(model%velocity%uvel) in inc_remap_driver
+       ! call staggered_parallel_halo(model%velocity%vvel) in inc_remap_driver
+       call parallel_halo(model%stress%efvs)
 
-       ! Tau is calculated in glide_stress and initialized in glide_types.
-       ! These gathers effective just create variables of the correct size to hold the values.
-       ! If I had a better mechanism, then I could just create the variables locally,
-       ! then distribute at the end.
-       call distributed_gather_var(model%stress%tau%xx, gathered_tauxx)
-       call distributed_gather_var(model%stress%tau%yy, gathered_tauyy)
-       call distributed_gather_var(model%stress%tau%xy, gathered_tauxy)
-       call distributed_gather_var(model%stress%tau%scalar, gathered_tauscalar)
-       call distributed_gather_var(model%stress%tau%xz, gathered_tauxz)
-       call distributed_gather_var(model%stress%tau%yz, gathered_tauyz)
-
-       ! gather up the old distributed thck fields and store them to temp arrays
-       call distributed_gather_var(model%geometry%thck, gathered_thck_old)
-       call distributed_gather_var(model%geomderv%stagthck, gathered_stagthck_old)
-
-       if (main_task) then
-          call glide_calcstrsstr( model )       !*sfp* added for populating stress tensor w/ HO fields
-       endif
-
-       call parallel_barrier   ! Other tasks hold here until main_task completes
+       !Tau is calculated in glide_stress and initialized in glide_types.
+       call glide_calcstrsstr( model )       !*sfp* added for populating stress tensor w/ HO fields
+       !Includes halo updates of 
+       ! model%stress%tau%xx, model%stress%tau%yy, model%stress%tau%xy,
+       ! model%stress%tau%scalar, model%stress%tau%xz, model%stress%tau%yz
+       !at end of call
 
        if (model%options%whichevol .eq. EVOL_NO_THICKNESS) then
-              ! reset gathered_thck arrays back to prev. stored values
-              gathered_thck = gathered_thck_old
-              gathered_stagthck = gathered_stagthck_old
+          ! restore old thickness
+          model%geometry%thck = thck_old
+          model%geomderv%stagthck = stagthck_old
        endif
-
-       deallocate(gathered_thck_old)
-       deallocate(gathered_stagthck_old)
 
     case(EVOL_FO_UPWIND) ! Use first order upwind scheme for mass transport
        call not_parallel(__FILE__,__LINE__)
@@ -625,63 +606,55 @@ end select
     call glide_prof_start(model,model%glide_prof%ice_mask2)
 #endif
 
-#ifdef JEFFORIG
+    !Halo updates required for inputs to glide_set_mask?
+    ! call parallel_halo(model%geometry%thck) in inc_remap_driver
+    call parallel_halo(model%geometry%topg)
+
     call glide_set_mask(model%numerics, model%geometry%thck, model%geometry%topg, &
                         model%general%ewn, model%general%nsn, model%climate%eus, &
                         model%geometry%thkmask, model%geometry%iarea, model%geometry%ivol)
-#endif
-    call distributed_gather_var(model%geometry%topg, gathered_topg)
-    call distributed_gather_var(model%geometry%thkmask, gathered_thkmask)
+    !Includes a halo update of model%geometry%thkmask at end of call
 
-    if (main_task) then
-	   call glide_set_mask(model%numerics, gathered_thck, gathered_topg, &
-                        model%general%ewn, model%general%nsn, model%climate%eus, &
-                        gathered_thkmask, model%geometry%iarea, model%geometry%ivol, exec_serial=.TRUE.)
-    endif
-
-    call parallel_barrier   ! Other tasks hold here until main_task completes
 #ifdef PROFILING
     call glide_prof_stop(model,model%glide_prof%ice_mask2)
 #endif
 
-    !calculate the normal at the marine margin
-    call distributed_gather_var(model%geometry%marine_bc_normal, gathered_marine_bc_normal)
+    !Halo updates required for inputs to glide_set_mask?
+    ! call parallel_halo(model%geometry%thck) in inc_remap_driver
+    ! call parallel_halo(model%geometry%thkmask) in previous glide_set_mask call
 
-#ifdef JEFFORIG
     call glide_marine_margin_normal(model%geometry%thck, model%geometry%thkmask, model%geometry%marine_bc_normal)
-#endif
+    !Includes a halo update of model%geometry%marine_bc_normal at end of call
 
-    if (main_task) then
-       call glide_marine_margin_normal(gathered_thck, gathered_thkmask, gathered_marine_bc_normal, exec_serial=.TRUE.)
-    endif
+    !Halo updates required for inputs to calc_gline_flux?
+    call staggered_parallel_halo(model%geomderv%stagthck)
+    call staggered_parallel_halo(model%velocity%surfvel)
+    ! call parallel_halo(model%geometry%thkmask) in earlier glide_set_mask call
+    call staggered_parallel_halo(model%velocity%ubas)
+    call staggered_parallel_halo(model%velocity%vbas)
+    ! call parallel_halo(model%ground%gline_flux) - halo update not required for correctness
 
-    call parallel_barrier   ! Other tasks hold here until main_task completes
-
-    !calculate the grounding line flux after the mask is correct
-    call distributed_gather_var(model%velocity%surfvel, gathered_surfvel)
-    call distributed_gather_var(model%ground%gline_flux, gathered_gline_flux)
-    call distributed_gather_var(model%velocity%ubas, gathered_ubas)
-    call distributed_gather_var(model%velocity%vbas, gathered_vbas)
-
-#ifdef JEFFORIG
     !calculate the grounding line flux after the mask is correct
     call calc_gline_flux(model%geomderv%stagthck,model%velocity%surfvel, &
                          model%geometry%thkmask,model%ground%gline_flux, model%velocity%ubas, &
                          model%velocity%vbas, model%numerics%dew)
-#endif
-    if (main_task) then
-       call calc_gline_flux(gathered_stagthck, gathered_surfvel, &
-                         gathered_thkmask, gathered_gline_flux, gathered_ubas, &
-                         gathered_vbas, model%numerics%dew)
-    endif
-
-    call parallel_barrier   ! Other tasks hold here until main_task completes
+    !Includes a halo update of model%ground%gline_flux at end of call
 
     ! ------------------------------------------------------------------------ 
     ! Remove ice which is either floating, or is present below prescribed
     ! depth, depending on value of whichmarn
     ! ------------------------------------------------------------------------ 
-#ifdef JEFFORIG
+
+    !Halo updates required for inputs to glide_marinlim?
+    !(Note: case specific, so push into glide_marinlim?)
+    ! call parallel_halo(model%geometry%thck) in inc_remap_driver
+    call parallel_halo(model%isos%relx)
+    ! call parallel_halo(model%geometry%topg) before previous set_glide_mask
+    call parallel_halo(model%temper%flwa)
+    ! call parallel_halo(model%geometry%thkmask) in previous glide_set_mask call
+    call parallel_halo(model%climate%backstress)
+    ! call parallel_halo(model%geometry%usrf) not actually used
+
     call glide_marinlim(model%options%whichmarn, &
          model%geometry%thck,      &
          model%isos%relx,      &
@@ -702,69 +675,34 @@ end select
          model%climate%stressin, &
          model%ground, &
          model%general%nsn, &
-         model%general%ewn, &
-         model%geometry%usrf)
-#endif
-    call distributed_gather_var(model%isos%relx, gathered_relx)
-    call distributed_gather_var(model%temper%flwa, gathered_flwa)
-    call distributed_gather_var(model%climate%calving, gathered_calving)
-    call distributed_gather_var(model%climate%backstress, gathered_backstress)
-    call distributed_gather_var(model%geometry%usrf, gathered_usrf)
-    call distributed_gather_var(model%climate%backstressmap, gathered_backstressmap)
+         model%general%ewn)
+         ! model%geometry%usrf) not used in routine
 
-    if (main_task) then
-       call glide_marinlim(model%options%whichmarn, &
-         gathered_thck,      &
-         gathered_relx,      &
-         gathered_topg,   &
-         gathered_flwa,   &
-         model%numerics%sigma,   &
-         gathered_thkmask,    &
-         model%numerics%mlimit,     &
-         model%numerics%calving_fraction, &
-         model%climate%eus,         &
-         gathered_calving,  &
-         gathered_backstress, &
-         model%climate%tempanmly, &
-         model%numerics%dew,    &
-         model%numerics%dns, &
-         gathered_backstressmap, &
-         model%climate%stressout, &
-         model%climate%stressin, &
-         model%ground, &
-         model%general%nsn, &
-         model%general%ewn, &
-         gathered_usrf)
-    endif
-
-    call parallel_barrier   ! Other tasks hold here until main_task completes
+    !Includes halo updates of model%geometry%thck and model%climate%calving
+    ! and of model%climate%backstress), when needed
+    !Note that halo updates for 
+    ! model%geometry%thkmask not needed in current implementation of case 3
+    ! model%climate%eus needed only for disabled case 6
+    ! model%ground components needed only for disabled case 6
 
     !issues with ice shelf, calling it again fixes the mask
-#ifdef JEFFORIG
+
+    !Halo updates required for inputs to glide_set_mask?
+    ! call parallel_halo(model%geometry%thck) within glide_marinlim
+    ! call parallel_halo(model%geometry%topg) before previous call to glide_set_mask
+
     call glide_set_mask(model%numerics, model%geometry%thck, model%geometry%topg, &
                         model%general%ewn, model%general%nsn, model%climate%eus, &
                         model%geometry%thkmask, model%geometry%iarea, model%geometry%ivol)
-#endif
-    if (main_task) then
-	   call glide_set_mask(model%numerics, gathered_thck, gathered_topg, &
-                        model%general%ewn, model%general%nsn, model%climate%eus, &
-                        gathered_thkmask, model%geometry%iarea, model%geometry%ivol, exec_serial=.TRUE.)
-    endif
+    !Includes a halo update of model%geometry%thkmask at end of call
 
-    call parallel_barrier   ! Other tasks hold here until main_task completes
+    !Halo updates required for inputs to calc_iareaf_iareag?
+    ! call parallel_halo(model%geometry%thkmask) in previous glide_set_mask call
 
-#ifdef JEFFORIG
     call calc_iareaf_iareag(model%numerics%dew,model%numerics%dns, &
                             model%geometry%iarea, model%geometry%thkmask, &
                             model%geometry%iareaf, model%geometry%iareag)
-#endif
-    if (main_task) then
-	    call calc_iareaf_iareag(model%numerics%dew,model%numerics%dns, &
-	                            model%geometry%iarea, gathered_thkmask, &
-	                            model%geometry%iareaf, model%geometry%iareag)
-    endif
-
-    call parallel_barrier   ! Other tasks hold here until main_task completes
+    !No output requiring halo update (though global_sum called in routine)
 
     ! ------------------------------------------------------------------------
     ! update ice/water load if necessary
@@ -787,21 +725,18 @@ end select
 #endif
     
     ! basal shear stress calculations
-#ifdef JEFFORIG
-    call calc_basal_shear(model)
-#endif
-    call distributed_gather_var(model%stress%tau_x, gathered_tau_x)
-    call distributed_gather_var(model%stress%tau_y, gathered_tau_y)
 
-    if (main_task) then
-	    call calc_basal_shear(gathered_stagthck, &
-	                          gathered_dusrfdew, &
-	                          gathered_dusrfdns, &
-	                          gathered_tau_x, &
-	                          gathered_tau_y)
-    endif
+    !Halo updates required for inputs to glide_set_mask?
+    ! call staggered_parallel_halo(model%geomderv%stagthck) prior to calc_gline_flux
+    ! call staggered_parallel_halo(model%geomderv%dusrfdew) prior to glide_calcstrsstr
+    ! call staggered_parallel_halo(model%geomderv%dusrfdns) prior to glide_calcstrsstr
 
-    call parallel_barrier   ! Other tasks hold here until main_task completes
+    call calc_basal_shear(model%geomderv%stagthck, &
+                          model%geomderv%dusrfdew, &
+                          model%geomderv%dusrfdns, &
+                          model%stress%tau_x, &
+                          model%stress%tau_y)
+    !Includes a halo update of model%stress%tau_x and model%stress%tau_y at end of call
 
   end subroutine glide_tstep_p2
 
@@ -848,21 +783,17 @@ end select
     ! ------------------------------------------------------------------------
     ! calculate upper and lower ice surface
     ! ------------------------------------------------------------------------
-#ifdef JEFFORIG
-    call glide_calclsrf(model%geometry%thck, model%geometry%topg, model%climate%eus, model%geometry%lsrf)
-    model%geometry%usrf = max(0.d0,model%geometry%thck + model%geometry%lsrf)
-#endif
-    call distributed_gather_var(model%geometry%lsrf, gathered_lsrf)
 
 ! Calculate time-derivatives of thickness and upper surface elevation ------------
-    if (main_task) then
-	    call glide_calclsrf(gathered_thck, gathered_topg, model%climate%eus, gathered_lsrf)
-	    gathered_usrf = max(0.d0,gathered_thck + gathered_lsrf)
+    !Halo updates required for inputs to glide_calcsrf?
+    ! call parallel_halo(model%geometry%thck) within glide_marinlim
+    ! call parallel_halo(model%geometry%topg) before previous call to glide_set_mask
 
-		! Moved Bill Lipscomb's geomdervs and gridwvel out of _p3(), because they are parallel operations.
-    endif ! end main_task
+    call glide_calclsrf(model%geometry%thck, model%geometry%topg, model%climate%eus, model%geometry%lsrf)
+    !If input halos are up to date, halo update for model%geometry%lsrf should not be necessary
 
-    call parallel_barrier   ! Other tasks hold here until main_task completes
+    model%geometry%usrf = max(0.d0,model%geometry%thck + model%geometry%lsrf)
+    !If input halos are up to date, halo update for model%geometry%usrf should not be necessary
 
     ! increment time counter
     model%numerics%timecounter = model%numerics%timecounter + 1

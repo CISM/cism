@@ -5,6 +5,7 @@ module stress_hom
 
     use glimmer_paramets, only : dp
     use glide_types
+    use parallel
 
     private
     public :: glide_calcstrsstr  
@@ -12,34 +13,21 @@ module stress_hom
     contains
 
     subroutine glide_calcstrsstr( model )
-        use parallel
 
         type(glide_global_type) :: model
 
-#ifdef JEFFORIG
-            call calcstrsstr(model%general%ewn,  model%general%nsn,  model%general%upn,     &
-                       model%numerics%dew,       model%numerics%dns,                        &
-                       model%numerics%sigma,     model%numerics%stagsigma,                  & 
-                       model%geometry%thck,                                                 &
-                       model%geomderv%dusrfdew,   model%geomderv%dusrfdns,                  &
-                       model%geomderv%dthckdew,   model%geomderv%dthckdns,                  &
-                       model%velocity%uvel,       model%velocity%vvel,                      &
-                       model%stress%efvs,                                                   &
-                       model%stress%tau%xx,      model%stress%tau%yy,                       &
-                       model%stress%tau%xy,      model%stress%tau%scalar,                   &
-                       model%stress%tau%xz,      model%stress%tau%yz )
-#endif
-            call calcstrsstr(model%general%ewn,  model%general%nsn,  model%general%upn,     &
-                       model%numerics%dew,       model%numerics%dns,                        &
-                       model%numerics%sigma,     model%numerics%stagsigma,                  &
-                       gathered_thck,                                                 &
-                       gathered_dusrfdew,   gathered_dusrfdns,                  &
-                       gathered_dthckdew,   gathered_dthckdns,                  &
-                       gathered_uvel,       gathered_vvel,              &
-                       gathered_efvs,                                             &
-                       gathered_tauxx,      gathered_tauyy,           &
-                       gathered_tauxy,      gathered_tauscalar,       &
-                       gathered_tauxz,      gathered_tauyz )
+        call calcstrsstr(model%general%ewn,  model%general%nsn,  model%general%upn, &
+                         model%numerics%dew,       model%numerics%dns,              &
+                         model%numerics%sigma,     model%numerics%stagsigma,        & 
+                         model%geometry%thck,                                       &
+                         model%geomderv%dusrfdew,   model%geomderv%dusrfdns,        &
+                         model%geomderv%dthckdew,   model%geomderv%dthckdns,        &
+                         model%velocity%uvel,       model%velocity%vvel,            &
+                         model%stress%efvs,                                         &
+                         model%stress%tau%xx,      model%stress%tau%yy,             &
+                         model%stress%tau%xy,      model%stress%tau%scalar,         &
+                         model%stress%tau%xz,      model%stress%tau%yz )
+
     end subroutine glide_calcstrsstr
 
     subroutine calcstrsstr( ewn,  nsn,  upn,  &
@@ -133,6 +121,12 @@ module stress_hom
         ! 1st order approx. to the 2nd strain-rate invariant (outlined in model description document).
         tau = sqrt(tauxz**2 + tauyz**2 + tauxx**2 + tauyy**2 + tauxx*tauyy + tauxy**2)
 
+        call parallel_halo(tauxx)
+        call parallel_halo(tauyy)
+        call parallel_halo(tauxy)
+        call parallel_halo(tauxz)
+        call parallel_halo(tauyz)
+        call parallel_halo(tau)
         return
 
     end subroutine calcstrsstr

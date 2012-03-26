@@ -232,18 +232,27 @@ module glam
 
            endif    ! main_task
 
-           call parallel_barrier   ! Other tasks hold here until main_task completes
+           !scatter thck (and temp) back to other processes
+           call distributed_scatter_var(model%geometry%thck, gathered_thck)
+           if (model%options%whichtemp == TEMP_REMAP_ADV) then
+             call distributed_scatter_var(model%temper%temp, gathered_temp)
+             !If advecting other tracers, add scatter here
+           endif
+
+           !After scattering, reset nsn and ewn to distributed values
+           model%general%ewn = local_ewn
+           model%general%nsn = local_nsn
 
         else   ! new remapping scheme
 
 !whl Need halo updates here for thck, temp (and any other advected tracers), uvel and vvel.
 !    If nhalo >= 2, then no halo updates should be needed inside glissade_transport_driver.
 
-           ! Halo updates for thickness and tracers.
-
-           call parallel_halo(model%geometry%thck)
+!PW FOLLOWING NECESSARY?
+           ! Halo updates for velocities, thickness and tracers
            call staggered_parallel_halo(model%velocity%uvel)
            call staggered_parallel_halo(model%velocity%vvel)
+           call parallel_halo(model%geometry%thck)
 
            if (model%options%whichtemp == TEMP_REMAP_ADV) then  ! Use IR to transport thickness, temperature
                                                                 ! (and other tracers, if present)
@@ -259,9 +268,6 @@ module glam
                                              model%velocity%vvel(:,:,:) * vel0,                    &
                                              model%geometry%thck(:,:),                             &
                                              model%temper%temp(1:model%general%upn-1,:,:) )
-             call parallel_halo(model%temper%temp)
-             call parallel_halo(model%geometry%thck)
-             !If advecting other tracers, add parallel_halo update here
 
            else  ! Use IR to transport thickness only
                  ! Note: In glissade_transport_driver, the ice thickness is transported layer by layer,
@@ -279,36 +285,25 @@ module glam
                                              model%velocity%uvel(:,:,:) * vel0,                &
                                              model%velocity%vvel(:,:,:) * vel0,                &
                                              model%geometry%thck(:,:))
-              call parallel_halo(model%geometry%thck)
 
            endif  ! whichtemp
 
-!whl - When code is fully parallel, these gathers will not be needed.
- 
-           ! Glue code to gather the distributed variables back to main_task processor.
-           ! These are outputs from run_ho_diagnostic and are gathered presuming they will be used
-           call distributed_gather_var(model%stress%efvs, gathered_efvs)
-           call distributed_gather_var(model%velocity%uvel, gathered_uvel)
-           call distributed_gather_var(model%velocity%vvel, gathered_vvel)
-           call distributed_gather_var(model%velocity%uflx, gathered_uflx)
-           call distributed_gather_var(model%velocity%vflx, gathered_vflx)
-           call distributed_gather_var(model%velocity%velnorm, gathered_velnorm)
-
-           !Gather vars used or updated by previous remap routines.
-           call distributed_gather_var(model%geometry%thck, gathered_thck)
-           call distributed_gather_var(model%geomderv%stagthck, gathered_stagthck)
-           call distributed_gather_var(model%climate%acab, gathered_acab)
-           call distributed_gather_var(model%temper%temp, gathered_temp, &
-                                       lbound(model%temper%temp,1), ubound(model%temper%temp,1))
-
-           !After gathering, then update nsn and ewn to full values (and zero halos?)
-           model%general%ewn = global_ewn
-           model%general%nsn = global_nsn
-
+           if (write_verbose) then
+              call distributed_gather_var(model%geometry%thck, gathered_thck)
+              call distributed_gather_var(model%temper%temp, gathered_temp, &
+                                          lbound(model%temper%temp,1), ubound(model%temper%temp,1))
+           endif
         endif  ! old v. new remapping
 
+        !Update halos of modified fields
+        call parallel_halo(model%geometry%thck)
+        if (model%options%whichtemp == TEMP_REMAP_ADV) then
+           call parallel_halo(model%temper%temp)
+           !If advecting other tracers, add parallel_halo update here
+        endif
+
 !whl - optional diagnostics - remove later
-!whl - write gathered_thck and temp, since the old remapping scheme does not update the local arrays
+!whl - write gathered_thck and temp
 
         if ((write_verbose) .and. (main_task)) then
            write(50,*) ' '

@@ -200,31 +200,52 @@ contains
     endif
   end subroutine get_area_vol
  
-  subroutine calc_iareaf_iareag(dew, dns, iarea, mask, iareaf, iareag)
+  subroutine calc_iareaf_iareag(dew, dns, iarea, mask, iareaf, iareag, exec_serial)
     
+    use parallel
     implicit none
     real(dp), intent(in) :: dew, dns
     real(dp), intent(in) :: iarea
     real(dp), intent(out) :: iareaf, iareag
     integer, dimension(:,:), intent(in) :: mask 
+    logical, optional :: exec_serial  ! If executing in serial in MPI program.
+
     integer :: i,j
+    logical :: exec_serial_flag
+    real(dp) :: sum(2)
  
+    ! Handle exec_serial optional parameter
+    if ( present(exec_serial) ) then
+      exec_serial_flag = exec_serial
+    else
+      ! Default to off
+      exec_serial_flag = .FALSE.
+    endif
+
     iareaf = 0.0
     iareag = 0.0 
 
-    do i = 1, size(mask,1)
-        do j = 2, size(mask,2)
-            if (GLIDE_IS_FLOAT(mask(i,j))) then
-            iareaf = iareaf + 1
-            else if(GLIDE_IS_GROUND_OR_GNDLINE(mask(i,j))) then
-            iareag = iareag + 1
-            end if
-        end do
+    do j = 1+lhalo, size(mask,2)-uhalo
+      do i = 1+lhalo, size(mask,1)-uhalo
+        if (GLIDE_IS_FLOAT(mask(i,j))) then
+          iareaf = iareaf + 1
+        else if(GLIDE_IS_GROUND_OR_GNDLINE(mask(i,j))) then
+          iareag = iareag + 1
+        end if
+      end do
     end do
 
     iareaf = iareaf  * dew * dns
     iareag = iareag  * dew * dns
     
+    if (.NOT. exec_serial_flag) then
+       sum(1) = iareaf
+       sum(2) = iareag
+       call global_sum(sum)
+       iareaf = sum(1)
+       iareag = sum(2)
+    endif
+
   end subroutine calc_iareaf_iareag
 
     subroutine glide_marine_margin_normal(thck, mask, marine_bc_normal, exec_serial)

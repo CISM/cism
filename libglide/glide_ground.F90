@@ -14,6 +14,7 @@
 module glide_ground
   use glide_types
   use glimmer_global
+  use parallel
   implicit none
 contains
   
@@ -40,7 +41,8 @@ contains
 !-------------------------------------------------------------------------
 
   subroutine glide_marinlim(which,thck,relx,topg,flwa,levels,mask,mlimit,calving_fraction,eus,ablation_field,backstress, & 
-                 tempanmly,dew,dns,backstressmap,stressout,stressin,ground,nsn,ewn,usrf)
+                 tempanmly,dew,dns,backstressmap,stressout,stressin,ground,nsn,ewn)
+!usrf not used   tempanmly,dew,dns,backstressmap,stressout,stressin,ground,nsn,ewn,usrf)
 
 
     !*FD Removes non-grounded ice, according to one of two altenative
@@ -89,7 +91,7 @@ contains
     real(sp) :: tempanmly
     real(dp), intent(in) ::  dew,dns
     integer, intent(in) ::  nsn,ewn
-    real(dp),dimension(:,:),intent(in)    :: usrf    !*FD usrf
+!   real(dp),dimension(:,:),intent(in)    :: usrf    !*FD usrf (NOT USED)
     logical, dimension(:,:), intent(in)   :: backstressmap !*FD map of the
                                                            !*FD backstresses for the initial map
     integer ew,ns
@@ -107,141 +109,155 @@ contains
         ablation_field=thck
         thck = 0.0d0
       end where
+      call parallel_halo(ablation_field)
+      call parallel_halo(thck)
 
     case(2) ! Set thickness to zero if relaxed bedrock is below a 
-       ! given level
-       where (relx <= mlimit+eus)
-          ablation_field=thck
-          thck = 0.0d0
-       end where
+      ! given level
+      where (relx <= mlimit+eus)
+         ablation_field=thck
+         thck = 0.0d0
+      end where
+      call parallel_halo(ablation_field)
+      call parallel_halo(thck)
     
     case(3) ! remove fraction of ice when floating
-       do ns = 2,size(thck,2)-1
-          do ew = 2,size(thck,1)-1
-             if (GLIDE_IS_CALVING(mask(ew,ns))) then
-                ablation_field(ew,ns)=(1.0-calving_fraction)*thck(ew,ns)
-                thck(ew,ns) =  calving_fraction*thck(ew,ns)
-                !mask(ew,ns) = ior(mask(ew,ns), GLIDE_MASK_OCEAN)
-             end if
-          end do
-       end do
+      do ns = 2,size(thck,2)-1
+        do ew = 2,size(thck,1)-1
+          if (GLIDE_IS_CALVING(mask(ew,ns))) then
+            ablation_field(ew,ns)=(1.0-calving_fraction)*thck(ew,ns)
+            thck(ew,ns) =  calving_fraction*thck(ew,ns)
+            !mask(ew,ns) = ior(mask(ew,ns), GLIDE_MASK_OCEAN)
+          end if
+        end do
+      end do
+      call parallel_halo(ablation_field)
+      call parallel_halo(thck)
+      ! if uncomment above mask update, then call parallel_halo(mask)
 
     case(4) ! Set thickness to zero at marine edge if present
             ! bedrock is below a given level
-       where (GLIDE_IS_MARINE_ICE_EDGE(mask).and.topg<mlimit+eus)
-          ablation_field=thck
-          thck = 0.0d0
-       end where
+      where (GLIDE_IS_MARINE_ICE_EDGE(mask).and.topg<mlimit+eus)
+        ablation_field=thck
+        thck = 0.0d0
+      end where
+      call parallel_halo(ablation_field)
+      call parallel_halo(thck)
+
     case(5) ! Relation based on computing the horizontal stretching
             ! of the unconfined ice shelf (\dot \epsilon_{xx}) and multiplying by H.
             ! 
-        do ns = 2, size(backstress,2)-1
-           do ew = 2, size(backstress,1)-1
-                if(.not. backstressmap(ew,ns)) then
-                   !should be > -1.0 if using log10
-                   if (tempanmly > 0.0) then
-                      backstress(ew,ns) = stressout
-                   else
-                      !backstress(ew,ns) = stressout + (1-stressout)*log10(-tempanmly)
-                      !( 1-exp(tempanmly))
-                      backstress(ew,ns) = stressout + (1-stressout)*abs(tempanmly/9.2)
-                      ! backstress(ew,ns) =sigmabout + (1-sigmabout)*atan(-tempanmly)/(pi/2)
-                     
-                   end if
-                else
-                   !should be > -1.0 if using log10
-                   if (tempanmly > 0.0) then
-                      backstress(ew,ns) = stressin
-                   else
-                     backstress(ew,ns) = stressin + (1-stressin)*abs(tempanmly/9.2)
-                      !backstress(ew,ns) =stressin + (1-stressin)*log10(-tempanmly)
-
-                     
-                     !backstress(ew,ns) =sigmabin + (1-sigmabin)*atan(-tempanmly)/(pi/2)
-                     
-                   end if
-                end if
-           end do
-        end do 
+      do ns = 2, size(backstress,2)-1
+        do ew = 2, size(backstress,1)-1
+          if(.not. backstressmap(ew,ns)) then
+            !should be > -1.0 if using log10
+            if (tempanmly > 0.0) then
+              backstress(ew,ns) = stressout
+            else
+              !backstress(ew,ns) = stressout + (1-stressout)*log10(-tempanmly)
+              !( 1-exp(tempanmly))
+              backstress(ew,ns) = stressout + (1-stressout)*abs(tempanmly/9.2)
+              ! backstress(ew,ns) =sigmabout + (1-sigmabout)*atan(-tempanmly)/(pi/2)
+            end if
+          else
+            !should be > -1.0 if using log10
+            if (tempanmly > 0.0) then
+              backstress(ew,ns) = stressin
+            else
+              backstress(ew,ns) = stressin + (1-stressin)*abs(tempanmly/9.2)
+              !backstress(ew,ns) =stressin + (1-stressin)*log10(-tempanmly)
+              !backstress(ew,ns) =sigmabin + (1-sigmabin)*atan(-tempanmly)/(pi/2)
+            end if
+          end if
+        end do
+      end do 
         
-        !do ns = 2, size(backstress,2)-1
-        !   do ew = 2, size(backstress,1)-1
-        !where (backstressmap) 
-        !    if (tempanmly > 0.0) then
-        !      backstress(ew,ns) = sigmabin
-        !    else
-            !backstress = sigmabin + (1-sigmabin)*abs(tempanmly/9.2)
-        !      backstress(ew,ns) =sigmabin + (1-sigmabin)*( 1-exp(tempanmly))
-        !    end if 
-        !   end do
-       ! end do
-        !end where 
+      !do ns = 2, size(backstress,2)-1
+      !   do ew = 2, size(backstress,1)-1
+      !where (backstressmap) 
+      !    if (tempanmly > 0.0) then
+      !      backstress(ew,ns) = sigmabin
+      !    else
+          !backstress = sigmabin + (1-sigmabin)*abs(tempanmly/9.2)
+      !      backstress(ew,ns) =sigmabin + (1-sigmabin)*( 1-exp(tempanmly))
+      !    end if 
+      !   end do
+      ! end do
+      !end where 
         
-        where(backstress > 1.0)
-          backstress = 1.0
-        end where
+      where(backstress > 1.0)
+        backstress = 1.0
+      end where
            
-           do ns = 2,size(thck,2)-1
-              do ew = 2,size(thck,1)-1
-                 if (GLIDE_IS_GROUNDING_LINE(mask(ew,ns))) then
-                    call vertint_output2d(flwa(:,ew-1:ew,ns-1:ns),A, levels * thck(ew,ns))
-                    ablation_field(ew,ns)= ((dew*dns)/(50.0d3)**2)* theta * A(2,2) * (sigmaxx * &
-                    thck(ew,ns)  * (1 - backstress(ew,ns))) ** gn
-                    if ((thck(ew,ns) - ablation_field(ew,ns)) >= 0.0) then
-                      thck(ew,ns) = thck(ew,ns) - ablation_field(ew,ns) 
-                    else 
-                      ablation_field(ew,ns) = thck(ew,ns)
-                      thck(ew,ns) = 0.0d0
-                      
-                    end if
-                end if
-              end do
-           end do
+      do ns = 2,size(thck,2)-1
+        do ew = 2,size(thck,1)-1
+          if (GLIDE_IS_GROUNDING_LINE(mask(ew,ns))) then
+            call vertint_output2d(flwa(:,ew-1:ew,ns-1:ns),A, levels * thck(ew,ns))
+            ablation_field(ew,ns)= ((dew*dns)/(50.0d3)**2)* theta * A(2,2) * (sigmaxx * &
+            thck(ew,ns)  * (1 - backstress(ew,ns))) ** gn
+            if ((thck(ew,ns) - ablation_field(ew,ns)) >= 0.0) then
+              thck(ew,ns) = thck(ew,ns) - ablation_field(ew,ns) 
+            else 
+              ablation_field(ew,ns) = thck(ew,ns)
+              thck(ew,ns) = 0.0d0
+            end if
+          end if
+        end do
+      end do
           
-          !where (GLIDE_IS_FLOAT(mask).and.relx<mlimit+eus)
-          !    ablation_field=thck
-          !    thck = 0.0d0
-          ! end where
+      !where (GLIDE_IS_FLOAT(mask).and.relx<mlimit+eus)
+      !    ablation_field=thck
+      !    thck = 0.0d0
+      ! end where
           
-          !remove all ice that is outside of a single grid layer of floating ice
-          !adjacent to the grounding line
-          do ns = 2,size(thck,2)-1
-             do ew = 2,size(thck,1)-1
-               if (GLIDE_IS_FLOAT(mask(ew,ns)) .and. .not. backstressmap(ew,ns))then 
+      !remove all ice that is outside of a single grid layer of floating ice
+      !adjacent to the grounding line
+      do ns = 2,size(thck,2)-1
+        do ew = 2,size(thck,1)-1
+          if (GLIDE_IS_FLOAT(mask(ew,ns)) .and. .not. backstressmap(ew,ns))then 
           
-                 if ((.not. GLIDE_IS_GROUNDING_LINE(mask(ew-1,ns))) &
-                  .and. (.not. GLIDE_IS_GROUNDING_LINE(mask(ew+1,ns))) .and. &
-                  (.not. GLIDE_IS_GROUNDING_LINE(mask(ew,ns-1))) .and. &
-                  (.not. GLIDE_IS_GROUNDING_LINE(mask(ew,ns+1)))) then
-                       ablation_field(ew,ns) = thck(ew,ns)
-                       
-                       thck(ew,ns) = 0.0
-                 end if
-               end if
-             end do
-           end do
+            if ((.not. GLIDE_IS_GROUNDING_LINE(mask(ew-1,ns))) &
+                 .and. (.not. GLIDE_IS_GROUNDING_LINE(mask(ew+1,ns))) .and. &
+                 (.not. GLIDE_IS_GROUNDING_LINE(mask(ew,ns-1))) .and. &
+                 (.not. GLIDE_IS_GROUNDING_LINE(mask(ew,ns+1)))) then
+              ablation_field(ew,ns) = thck(ew,ns)
+              thck(ew,ns) = 0.0
+            end if
+          end if
+        end do
+      end do
+      call parallel_halo(backstress)
+      call parallel_halo(ablation_field)
+      call parallel_halo(thck)
+
     case(6)
-       call update_ground_line(ground, topg, thck, eus, dew, dns, ewn, nsn, mask)
-       where (GLIDE_IS_FLOAT(mask))
+      ! not serial as far as I can tell as well; for parallelization, issues
+      ! arise from components of ground being updated, and corresponding halos
+      ! also need to be updated? Waiting until serial fixes are implemented
+      call not_parallel(__FILE__, __LINE__) ! not serial as far as I can tell as well
+      call update_ground_line(ground, topg, thck, eus, dew, dns, ewn, nsn, mask)
+      where (GLIDE_IS_FLOAT(mask))
         ablation_field=thck
         thck = 0.0d0
-       end where
+      end where
+      call parallel_halo(ablation_field)
+      call parallel_halo(thck)
     
     !Huybrechts grounding line scheme for Greenland initialization
     case(7)
-       if(eus > -80.0) then
-       where(relx <= 2.0*eus)
-      
+      if(eus > -80.0) then
+        where(relx <= 2.0*eus)
           ablation_field=thck
           thck = 0.0d0
-       end where
-       elseif(eus <= -80.0) then
-       where ( relx <= (2.0*eus - 0.25*(eus + 80.0)**2.0))
+        end where
+      elseif(eus <= -80.0) then
+        where ( relx <= (2.0*eus - 0.25*(eus + 80.0)**2.0))
           ablation_field = thck
           thck = 0.0d0
-       end where
-       end if
-
+        end where
+      end if
+      call parallel_halo(ablation_field)
+      call parallel_halo(thck)
 
     end select
   end subroutine glide_marinlim
@@ -264,13 +280,13 @@ contains
     !to be using both the ice grid and the velo grid.
     ewn = size(gline_flux, 1)
     nsn = size(gline_flux, 2)
-
-    
        
     where (GLIDE_IS_GROUNDING_LINE(mask))
          gline_flux = stagthk * ((4.0/5.0)* surfvel(1,:,:) + &
          (ubas**2.0 + vbas**2.0)**(1.0/2.0))  * dew  
     end where
+
+    call parallel_halo(gline_flux)
   end subroutine calc_gline_flux
 
 !-------------------------------------------------------------------------
