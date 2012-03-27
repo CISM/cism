@@ -275,4 +275,52 @@ extern "C" {
     y.ExtractCopy(answer);
   }
 
+
+  //============================================================
+  // Functionality here is for FEM fills. These differ in that 
+  // contributions to matrix entried can come in multiple parts,
+  // so we need to ZeroOut and SumInto the matris, instead of 
+  // Replace matrix entries.
+  //
+  // This first attempt will not work in parallel -- we need to
+  // add functionality to deal with off-processor contributions.
+  //============================================================
+
+  void FC_FUNC(zeroouttrilinosmatrix,ZEROOUTTRILINOSMATRIX)() {
+    // Zero out matrix. Don't do anything for first call, when matrix is empty.
+    if (interface->isSparsitySet()) {
+      Epetra_CrsMatrix& matrix = *(interface->getOperator());
+      matrix.PutScalar(0.0);
+    }
+  }
+
+  void FC_FUNC(sumintotrilinosmatrix,SUMINTOTRILINOSMATRIX)
+	       (int& rowInd, int& numEntries, int* colInd, double* val) {
+
+    const Epetra_Map& map = interface->getRowMap();
+
+    Epetra_CrsMatrix& matrix = *(interface->getOperator());
+
+//    cout << "XXXX " << rowInd << "  " << numEntries << "  " << colInd[0] << "  " << val[0] << endl;
+
+    if (!interface->isSparsitySet()) {
+      // The matrix has not been "FillComplete()"ed. First fill of time step.
+      // Inserted values at this stage will be summed together later
+      int ierr = matrix.InsertGlobalValues(rowInd, numEntries, val, colInd);
+      if (ierr<0) {cout << "Error Code for " << rowInd << "  " << colInd[0] << "  = ("<< ierr <<")"<<endl; exit(1);}
+      else if (ierr>0) cout << "Warning Code for " << rowInd << "  " << colInd[0] << "  = ("<< ierr <<")"<<endl;
+    }
+    else {
+      // Subsequent matrix fills of each time step.
+      int ierr = matrix.SumIntoGlobalValues(rowInd, numEntries, val, colInd);
+    
+      TEST_FOR_EXCEPTION(ierr != 0, std::logic_error,
+	 "Error: Trilinos matrix has detected a new entry (" 
+             << rowInd << ", " << colInd[0] << ", " << val[0] 
+             << ")\n\t that did not exist before.");
+    }
+  }
+
+  //============================================================
+
 } // extern"C"
