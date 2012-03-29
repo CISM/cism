@@ -147,6 +147,7 @@ extern "C" {
       thyraOper=Teuchos::null;
     }
     TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, success);
+    if (!success) exit(1);
   }
 
   //============================================================
@@ -180,6 +181,7 @@ extern "C" {
     }
    }
    TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, success);
+   if (!success) exit(1);
   }
 
   //========================================================
@@ -230,6 +232,7 @@ extern "C" {
     //elapsedTime = linearTime.stop(); *out << "Total time elapsed for calling Solve(): " << elapsedTime << endl;
    }
    TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, success);
+   if (!success) exit(1);
   }
 
 
@@ -248,6 +251,7 @@ extern "C" {
       assert(false);
    }
    TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, success);
+   if (!success) exit(1);
   }
 
 
@@ -261,6 +265,7 @@ extern "C" {
       assert(false);
    }
    TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, success);
+   if (!success) exit(1);
   }
 
   void FC_FUNC(matvecwithtrilinos,MATVECWITHTRILINOS)
@@ -277,6 +282,7 @@ extern "C" {
     y.ExtractCopy(answer);
    }
    TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, success);
+   if (!success) exit(1);
   }
 
 
@@ -299,6 +305,7 @@ extern "C" {
     }
    }
    TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, success);
+   if (!success) exit(1);
   }
 
   void FC_FUNC(sumintotrilinosmatrix,SUMINTOTRILINOSMATRIX)
@@ -329,6 +336,7 @@ extern "C" {
     }
    }
    TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, success);
+   if (!success) exit(1);
   }
 
   void linSolveDetails(Thyra::SolveStatus<double>& status) {

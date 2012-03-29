@@ -27,6 +27,7 @@ trilinosModelEvaluator::trilinosModelEvaluator (
     pVec = Teuchos::rcp(new Epetra_Vector(*pMap));
   }
   TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, succeeded);
+  if (!succeeded) exit(1);
 }
 
 /*******************************************************************************/
@@ -136,6 +137,7 @@ int trilinosPreconditioner::ApplyInverse(const Epetra_MultiVector& X, Epetra_Mul
     apply_precond_nox(Y(0)->Values(), X(0)->Values(), N, blackbox_res);
   }
   TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, succeeded);
+  if (!succeeded) exit(1);
 
   return 0;
 }

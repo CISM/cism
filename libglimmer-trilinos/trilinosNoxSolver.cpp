@@ -130,6 +130,7 @@ void FC_FUNC(noxinit,NOXINIT) ( int* nelems, double* statevector,
 
  } //end try block
   TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, succeeded);
+  if (!succeeded) exit(1);
 }
 
 /****************************************************/
@@ -152,6 +153,7 @@ void FC_FUNC(noxsolve,NOXSOLVE) (int* nelems, double* statevector, void* blackbo
     for (int i=0; i<*nelems; i++) statevector[i] = (*xout)[i];
   }
   TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, succeeded);
+  if (!succeeded) exit(1);
 
 }
 
