@@ -7,6 +7,7 @@
 #include "Teuchos_RCP.hpp"
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_XMLParameterListHelpers.hpp"
+#include "Teuchos_StandardCatchMacros.hpp"
 
 #include "Teuchos_DefaultMpiComm.hpp"
 
@@ -52,6 +53,7 @@ void FC_FUNC(noxinit,NOXINIT) ( int* nelems, double* statevector,
                int* mpi_comm_ignored, void* blackbox_res)
 {
 
+ bool succeeded=true;
  try {
 
   // Build the epetra communicator
@@ -127,14 +129,13 @@ void FC_FUNC(noxinit,NOXINIT) ( int* nelems, double* statevector,
   timeStep++;
 
  } //end try block
-  catch (std::exception& e) { cout << e.what() << endl; exit(1); }
-  catch (const char *s) { cout << s << endl; exit(1); }
-  catch (...) { cout << "Caught unknown exception!" << endl; exit(1); }
+  TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, succeeded);
 }
 
 /****************************************************/
 void FC_FUNC(noxsolve,NOXSOLVE) (int* nelems, double* statevector, void* blackbox_res)
 {
+  bool succeeded=true;
   try {
     TEST_FOR_EXCEPTION(Nsolver==Teuchos::null, logic_error, 
                           "Exception: noxsolve called with solver=null: \n"
@@ -150,9 +151,7 @@ void FC_FUNC(noxsolve,NOXSOLVE) (int* nelems, double* statevector, void* blackbo
 
     for (int i=0; i<*nelems; i++) statevector[i] = (*xout)[i];
   }
-  catch (std::exception& e) { cout << e.what() << endl; exit(1); }
-  catch (const char *s) { cout << s << endl; exit(1); }
-  catch (...) { cout << "Caught unknown exception!" << endl; exit(1); }
+  TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, succeeded);
 
 }
 

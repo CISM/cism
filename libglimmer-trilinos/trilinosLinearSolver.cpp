@@ -7,6 +7,8 @@
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_XMLParameterListHelpers.hpp"
 #include "Teuchos_Time.hpp"
+#include "Teuchos_StandardCatchMacros.hpp"
+
 
 #include "Stratimikos_DefaultLinearSolverBuilder.hpp"
 #include "Thyra_LinearOpWithSolveFactoryHelpers.hpp"
@@ -21,7 +23,16 @@
 
 #include "config.inc"
 
+// Uncomment this #define to write out linear system
+//#define WRITE_OUT_LINEAR_SYSTEM
+#ifdef WRITE_OUT_LINEAR_SYSTEM
+#include "EpetraExt_RowMatrixOut.h"
+#include "EpetraExt_MultiVectorOut.h"
+int solvecount=0;
+#endif
+
 // Define variables that are global to this file.
+// If this were a C++ class, these would be member data.
 Teuchos::RCP<TrilinosMatrix_Interface> interface;
 Teuchos::RCP<Epetra_CrsMatrix> savedMatrix_A;
 Teuchos::RCP<Epetra_CrsMatrix> savedMatrix_C;
@@ -31,17 +42,21 @@ Teuchos::RCP<Teuchos::FancyOStream> out;
 Teuchos::RCP<Thyra::LinearOpWithSolveBase<double> > lows;
 Teuchos::RCP<Thyra::LinearOpWithSolveFactoryBase<double> > lowsFactory;
 Teuchos::RCP<const Thyra::LinearOpBase<double> > thyraOper;
+bool success = true;
 
-// Ability to write out matrices to a file requires these lines
-#include "EpetraExt_RowMatrixOut.h"
-#include "EpetraExt_MultiVectorOut.h"
-static int solvecount=0;
+int linearSolveCount=0, linearSolveSuccessCount=0, linearSolveIters_last=0,  linearSolveIters_total=0;
+double linearSolveAchievedTol;
+bool printDetails=true; // Need to set in input file.
 
 extern "C" {
+
+  // Prototype for locally called function
+  void linSolveDetails(Thyra::SolveStatus<double>& status);
+
   //================================================================
   //================================================================
-  // RN_20091215: This needs to be called only once in the beginning
-  // to set up the problem.
+  // RN_20091215: This needs to be called only once per time step
+  // in the beginning to set up the problem.
   //================================================================
   void FC_FUNC(inittrilinos,INITTRILINOS) (int& bandwidth, int& mySize,
                int* myIndicies, double* myX, double* myY, double* myZ) {
@@ -92,33 +107,46 @@ extern "C" {
            << "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" << endl;
       exit(1);
     }
-
-    // Set the coordinate position of the nodes for ML for repartitioning (important for #procs > 100s)
-    if (pl->sublist("Stratimikos").isParameter("Preconditioner Type")) {
-       if ("ML" == pl->sublist("Stratimikos").get<string>("Preconditioner Type")) {
-         Teuchos::ParameterList& mlList =
-            pl->sublist("Stratimikos").sublist("Preconditioner Types").sublist("ML").sublist("ML Settings");
-         mlList.set("x-coordinates",myX);
-         mlList.set("y-coordinates",myY);
-         mlList.set("z-coordinates",myZ);
-         mlList.set("PDE equations", 1);
-//for (int i=0; i<mySize; i++) cout << myX[i] << "  " <<  myY[i] << "  " << myZ[i] << " Proc " << comm.MyPID() << "  XXX " << i << endl;
-       }
+    catch (...) {
+      cout << "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n" 
+           << "\nExiting: Invalid trilinosOptions.xml file."
+           << "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" << endl;
+      exit(1);
     }
 
-    out = Teuchos::VerboseObjectBase::getDefaultOStream();
+    try { 
+      // Set the coordinate position of the nodes for ML for repartitioning (important for #procs > 100s)
+      if (pl->sublist("Stratimikos").isParameter("Preconditioner Type")) {
+         if ("ML" == pl->sublist("Stratimikos").get<string>("Preconditioner Type")) {
+           Teuchos::ParameterList& mlList =
+              pl->sublist("Stratimikos").sublist("Preconditioner Types").sublist("ML").sublist("ML Settings");
+           mlList.set("x-coordinates",myX);
+           mlList.set("y-coordinates",myY);
+           mlList.set("z-coordinates",myZ);
+           mlList.set("PDE equations", 1);
+         }
+      }
 
-    // Create an interface that holds a CrsMatrix instance and some useful methods.
-    interface = Teuchos::rcp(new TrilinosMatrix_Interface(rowMap, bandwidth, comm));
+      out = Teuchos::VerboseObjectBase::getDefaultOStream();
 
-    Stratimikos::DefaultLinearSolverBuilder linearSolverBuilder;
-    linearSolverBuilder.setParameterList(Teuchos::sublist(pl, "Stratimikos"));
-    lowsFactory = linearSolverBuilder.createLinearSolveStrategy("");
-    lowsFactory->setOStream(out);
-    lowsFactory->setVerbLevel(Teuchos::VERB_LOW);
+      // Reset counters every time step: can remove these lines to have averages over entire run
+      linearSolveIters_total = 0;
+      linearSolveCount=0;
+      linearSolveSuccessCount = 0;
 
-    lows=Teuchos::null;
-    thyraOper=Teuchos::null;
+      // Create an interface that holds a CrsMatrix instance and some useful methods.
+      interface = Teuchos::rcp(new TrilinosMatrix_Interface(rowMap, bandwidth, comm));
+
+      Stratimikos::DefaultLinearSolverBuilder linearSolverBuilder;
+      linearSolverBuilder.setParameterList(Teuchos::sublist(pl, "Stratimikos"));
+      lowsFactory = linearSolverBuilder.createLinearSolveStrategy("");
+      lowsFactory->setOStream(out);
+      lowsFactory->setVerbLevel(Teuchos::VERB_LOW);
+
+      lows=Teuchos::null;
+      thyraOper=Teuchos::null;
+    }
+    TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, success);
   }
 
   //============================================================
@@ -128,10 +156,10 @@ extern "C" {
   void FC_FUNC(putintotrilinosmatrix,PUTINTOTRILINOSMATRIX)
 	       (int& rowInd, int& colInd, double& val) {
 
-
+  try {
     const Epetra_Map& map = interface->getRowMap();
     // If this row is not owned on this processor, then do nothing
-    if (!map.MyGID(rowInd)) return;
+    if (!map.MyGID(rowInd)) { cout << "AGS: Logic Problem. Trilinos getting unowned row." << endl; return; }
 
     Epetra_CrsMatrix& matrix = *(interface->getOperator());
 
@@ -144,48 +172,14 @@ extern "C" {
     else {
       // Subsequent matrix fills of each time step.
       int ierr = matrix.ReplaceGlobalValues(rowInd, 1, &val, &colInd);
-    
-      if (ierr != 0) { // Sparsity pattern has changed. Create fresh matrix
-	cout << "Warning: Trilinos matrix has detected a new entry (" 
-             << rowInd << ", " << colInd << ", " << val 
-             << ")\n\t that did not exist before. A new matrix will be formed!"
-             << "\n\t This is expensive, and we should figure out why this is"
-             << "\n\t happening and avoid it! -AGS" << endl;
 
-	int matrixSize = interface->matrixOrder();
-	int bandwidth = interface->bandwidth();
-	
-	Teuchos::RCP<Epetra_CrsMatrix> newMatrix =
-	  Teuchos::rcp(new Epetra_CrsMatrix(Copy, map, bandwidth) );
-	
-	int numEntries;
-	double *values = new double[bandwidth];
-	int *indices = new int[bandwidth];
-	
-	// Copy the old matrix to the new matrix.
-	for (int j=0; j<matrixSize; ++j) {
-	  if (map.MyGID(j) ) {
-	    int aNumber = bandwidth;
-	    ierr = matrix.ExtractGlobalRowCopy(j, aNumber, numEntries,
-						values, indices);
-	    assert(ierr >= 0);
-	    ierr = newMatrix->InsertGlobalValues(j, numEntries, &(values[0]),
-						 &(indices[0]) );
-	    assert(ierr >= 0);
-	  }
-	}
-	
-	// Insert the new entry.
-	if (map.MyGID(rowInd) ) {
-	  ierr = newMatrix->InsertGlobalValues(rowInd, 1, &val, &colInd);
-	}
-
-	interface->updateOperator(newMatrix);
-	
-	delete[] values;
-	delete[] indices;
-      }
+      TEST_FOR_EXCEPTION(ierr != 0, std::logic_error,
+	 "Error: Trilinos matrix has detected a new entry (" 
+             << rowInd << ", " << colInd << ", " << val
+             << ")\n\t that did not exist before.");
     }
+   }
+   TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, success);
   }
 
   //========================================================
@@ -194,7 +188,7 @@ extern "C" {
 
   void FC_FUNC(solvewithtrilinos,SOLVEWITHTRILINOS)
 	       (double* rhs, double* answer, double& elapsedTime) {
-
+   try {
     //Teuchos::Time linearTime("LinearTime"); linearTime.start();
 
     // Lock in sparsity pattern
@@ -217,28 +211,30 @@ extern "C" {
     // This function is called twice per Picard iter, which is twice
     // per outer GMRES step for Newton solves, so writing at 
     // solvecount==1 is first system, solvecount==51 is 26th Picard iter.
-/*
     
+#ifdef WRITE_OUT_LINEAR_SYSTEM
     solvecount++; 
-    if (solvecount==51) {
-      EpetraExt::RowMatrixToMatlabFile("matrix51", *interface->getOperator());
-      EpetraExt::MultiVectorToMatlabFile("vector51", *epetraRhs);
+    if (solvecount==1) {
+      EpetraExt::RowMatrixToMatrixMarketFile("matrix1", *interface->getOperator());
+      EpetraExt::MultiVectorToMatrixMarketFile("vector1", *epetraRhs);
     }
-    if (solvecount==52) {
-      EpetraExt::RowMatrixToMatlabFile("matrix52", *interface->getOperator());
-      EpetraExt::MultiVectorToMatlabFile("vector52", *epetraRhs);
-    }
-*/
+#endif
 
     Thyra::SolveStatus<double>
       status = Thyra::solve(*lows, Thyra::NOTRANS, *thyraRhs, &*thyraSol);
 
+    if (printDetails) linSolveDetails(status);
+
     soln->ExtractCopy(answer);
 
     //elapsedTime = linearTime.stop(); *out << "Total time elapsed for calling Solve(): " << elapsedTime << endl;
+   }
+   TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, success);
   }
 
+
   void FC_FUNC(savetrilinosmatrix,SAVETRILINOSMATRIX) (int* i) {
+   try {
     if (!interface->isSparsitySet()) interface->finalizeSparsity();
     if (*i==0)
       savedMatrix_A = Teuchos::rcp(new Epetra_CrsMatrix(*(interface->getOperator())));
@@ -247,23 +243,29 @@ extern "C" {
     else if (*i==2) {
       savedMatrix_A = Teuchos::rcp(new Epetra_CrsMatrix(*(interface->getOperator())));
       savedMatrix_C = Teuchos::rcp(new Epetra_CrsMatrix(*(interface->getOperator())));
-  }
+    }
     else
       assert(false);
+   }
+   TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, success);
   }
 
 
   void FC_FUNC(restoretrilinosmatrix,RESTORTRILINOSMATRIX) (int* i) {
+   try {
     if (*i==0)
       interface->updateOperator(savedMatrix_A);
     else if (*i==1)
       interface->updateOperator(savedMatrix_C);
     else
       assert(false);
+   }
+   TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, success);
   }
 
   void FC_FUNC(matvecwithtrilinos,MATVECWITHTRILINOS)
 	       (double* x, double* answer) {
+   try {
     const Epetra_Map& map = interface->getRowMap(); 
 
     Teuchos::RCP<Epetra_Vector> epetra_x;
@@ -273,6 +275,8 @@ extern "C" {
     interface->getOperator()->Multiply(false, *epetra_x, y);
 
     y.ExtractCopy(answer);
+   }
+   TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, success);
   }
 
 
@@ -287,16 +291,20 @@ extern "C" {
   //============================================================
 
   void FC_FUNC(zeroouttrilinosmatrix,ZEROOUTTRILINOSMATRIX)() {
+   try {
     // Zero out matrix. Don't do anything for first call, when matrix is empty.
     if (interface->isSparsitySet()) {
       Epetra_CrsMatrix& matrix = *(interface->getOperator());
       matrix.PutScalar(0.0);
     }
+   }
+   TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, success);
   }
 
   void FC_FUNC(sumintotrilinosmatrix,SUMINTOTRILINOSMATRIX)
 	       (int& rowInd, int& numEntries, int* colInd, double* val) {
 
+   try {
     const Epetra_Map& map = interface->getRowMap();
 
     Epetra_CrsMatrix& matrix = *(interface->getOperator());
@@ -318,6 +326,42 @@ extern "C" {
 	 "Error: Trilinos matrix has detected a new entry (" 
              << rowInd << ", " << colInd[0] << ", " << val[0] 
              << ")\n\t that did not exist before.");
+    }
+   }
+   TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, success);
+  }
+
+  void linSolveDetails(Thyra::SolveStatus<double>& status) {
+    ++linearSolveCount;
+    bool haveData=false;
+    if (status.extraParameters != Teuchos::null) {
+      if (status.extraParameters->isParameter("Belos/Iteration Count")) {
+        linearSolveIters_last = status.extraParameters->get<int>("Belos/Iteration Count");
+        linearSolveIters_total += linearSolveIters_last;
+        haveData=true;
+      }
+      if (status.extraParameters->isParameter("Belos/Achieved Tolerance"))
+        linearSolveAchievedTol = status.extraParameters->get<double>("Belos/Achieved Tolerance");
+      if (status.extraParameters->isParameter("AztecOO/Iteration Count")) {
+        linearSolveIters_last = status.extraParameters->get<int>("AztecOO/Iteration Count");
+        linearSolveIters_total += linearSolveIters_last;
+        haveData=true;
+      }
+      if (status.extraParameters->isParameter("AztecOO/Achieved Tolerance"))
+        linearSolveAchievedTol = status.extraParameters->get<double>("AztecOO/Achieved Tolerance");
+
+      if (haveData) {
+        *out <<  "Precon Linear Solve ";
+        if (status.solveStatus == Thyra::SOLVE_STATUS_CONVERGED)
+         {*out <<  "Succeeded: "; ++linearSolveSuccessCount;}
+        else  *out <<  "Failed: ";
+        *out << std::setprecision(3) 
+             << linearSolveAchievedTol << " drop in " 
+             << linearSolveIters_last << " its (avg: " 
+             << linearSolveIters_total / (double) linearSolveCount << " its/slv, " 
+             << 100.0* linearSolveSuccessCount / (double) linearSolveCount << "\% success)"
+             << endl;
+      }
     }
   }
 

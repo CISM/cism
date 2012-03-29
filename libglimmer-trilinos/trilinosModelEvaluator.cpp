@@ -1,4 +1,6 @@
 #include "trilinosModelEvaluator.hpp"
+#include "Teuchos_StandardCatchMacros.hpp"
+
 
 extern "C" {
   void calc_F(double* x, double* f, int N, void* bb, int ispert);
@@ -14,14 +16,17 @@ trilinosModelEvaluator::trilinosModelEvaluator (
                             const Epetra_Comm& comm_, void* blackbox_res_)
 			     : N(N_), comm(comm_), blackbox_res(blackbox_res_)
 {
-  
-  xMap = Teuchos::rcp(new Epetra_Map(-1, N, 0, comm));
-  xVec = Teuchos::rcp(new Epetra_Vector(Copy, *xMap, statevector));
+  bool succeeded=true;
+  try {
+    xMap = Teuchos::rcp(new Epetra_Map(-1, N, 0, comm));
+    xVec = Teuchos::rcp(new Epetra_Vector(Copy, *xMap, statevector));
 
-  precOp = Teuchos::rcp(new trilinosPreconditioner(N, xVec, xMap, blackbox_res));
+    precOp = Teuchos::rcp(new trilinosPreconditioner(N, xVec, xMap, blackbox_res));
 
-  pMap = Teuchos::rcp(new Epetra_LocalMap(1, 0, comm));
-  pVec = Teuchos::rcp(new Epetra_Vector(*pMap));
+    pMap = Teuchos::rcp(new Epetra_LocalMap(1, 0, comm));
+    pVec = Teuchos::rcp(new Epetra_Vector(*pMap));
+  }
+  TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, succeeded);
 }
 
 /*******************************************************************************/
@@ -126,7 +131,11 @@ trilinosPreconditioner::trilinosPreconditioner (
 
 int trilinosPreconditioner::ApplyInverse(const Epetra_MultiVector& X, Epetra_MultiVector& Y) const
 {
-  apply_precond_nox(Y(0)->Values(), X(0)->Values(), N, blackbox_res);
+  bool succeeded=true;
+  try {
+    apply_precond_nox(Y(0)->Values(), X(0)->Values(), N, blackbox_res);
+  }
+  TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, succeeded);
 
   return 0;
 }
