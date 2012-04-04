@@ -645,16 +645,18 @@ subroutine geometry_derivs(model)
     
    call df_field_2d_staggered(model%geometry%usrf, &
                               model%numerics%dew, model%numerics%dns, &
-                              model%geomderv%dusrfdew, & 
+                              model%geomderv%dusrfdew, &
                               model%geomderv%dusrfdns, &
-                              .false., .false.)
+                              model%geometry%thck,     &
+                              model%numerics%thklim )
 
    call df_field_2d_staggered(model%geometry%thck, &
                               model%numerics%dew, model%numerics%dns, &
                               model%geomderv%dthckdew, &
                               model%geomderv%dthckdns, &
-                              .false., .false.)
-   
+                              model%geometry%thck,     &
+                              model%numerics%thklim )
+ 
     !Make sure that the derivatives are 0 where staggered thickness is 0
     where (model%geomderv%stagthck == 0)
            model%geomderv%dusrfdew = 0
