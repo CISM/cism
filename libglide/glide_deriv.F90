@@ -69,6 +69,146 @@ contains
         dfdy_2d_stag = (f(i, j+1) + f(i+1, j+1) - f(i,j) - f(i+1, j))/(2*delta)
     end function dfdy_2d_stag
 
+    function dfdx_2d_stag_os(f_in, i, j, delta, thck, thklim )
+    !*SFP* altered/expaned version of above function that uses approx. one-sided
+    ! diffs at physical domain edges so as not to overesimate grads there.
+        implicit none
+        real(dp), dimension(:,:), intent(in) :: f_in, thck
+        integer, intent(in) :: i, j
+        real(dp), intent(in) :: delta, thklim
+        real(dp) :: dfdx_2d_stag_os
+
+        real(dp), dimension(2,2) :: f_array, thck_array
+        real(dp), dimension(1:size(f_in,1),1:size(f_in,2)) :: f
+        real(dp) :: f_min
+
+        ! initialize vars/arrays to zeros
+        dfdx_2d_stag_os = 0.0d0; f_array = 0.0d0; f_min = 0.0d0
+
+        f = f_in
+
+        where( thck .le. thklim )
+            f = 0
+        end where
+
+        f_array(1,1) = f(i,j); f_array(2,1) = f(i+1,j); f_array(1,2) = f(i,j+1); f_array(2,2) = f(i+1,j+1);
+
+        if( sum( f_array/ f_array, MASK = f_array .ne. 0.0d0 ) == 4.0 )then
+        ! normal differencing for interior points
+            dfdx_2d_stag_os = (f(i+1,j) + f(i+1,j+1) - f(i,j) - f(i,j+1))/(2*delta)
+        elseif( sum( f_array/ f_array, MASK = f_array .ne. 0.0d0 ) == 3.0 )then
+        ! corner; use 2x next closest value
+            if( f(i,j) .eq. f_min )then     ! southwest corner point missing: apply value from s.e. point
+                dfdx_2d_stag_os = ( f(i+1,j+1) + f(i+1,j) - 2.0*f(i,j+1) )/(2*delta)
+            elseif( f(i+1,j) .eq. f_min )then ! southeast corner point missing: apply value from s.w. point
+                dfdx_2d_stag_os = ( 2.0*f(i+1,j+1) - f(i,j) - f(i,j+1) )/(2*delta)
+            elseif( f(i,j+1) .eq. f_min )then ! northwest corner point missing: apply value from n.e. point
+                dfdx_2d_stag_os = ( f(i+1,j+1) + f(i+1,j) - 2.0*f(i,j))/(2*delta)
+            elseif( f(i+1,j+1) .eq. f_min )then ! northeast corner point missing: apply value from n.w. point
+                dfdx_2d_stag_os = ( 2.0*f(i+1,j) - f(i,j) - f(i,j+1) )/(2*delta)
+            endif
+        elseif( sum( f_array/ f_array, MASK = f_array .ne. 0.0d0 ) == 2.0 )then
+        ! side; back up and take gradient from points one set of cells in OR use only the single set of
+        ! cells available along the differencing direction 
+            if( f(i,j) .eq. f_min .and. f(i,j+1) .eq. f_min )then   ! west cells empty
+                dfdx_2d_stag_os = (f(i+2,j) + f(i+2,j+1) - f(i+1,j+1) - f(i+1,j))/(2*delta)
+            elseif( f(i+1,j) .eq. f_min .and. f(i+1,j+1) .eq. f_min )then   ! east cells empty
+                dfdx_2d_stag_os = (f(i,j) + f(i,j+1) - f(i-1,j) - f(i-1,j+1))/(2*delta)
+            elseif( f(i,j+1) .eq. f_min .and. f(i+1,j+1) .eq. f_min )then   ! north cells empty
+                dfdx_2d_stag_os = (f(i+1,j) - f(i,j) )/(delta)
+            elseif( f(i,j) .eq. f_min .and. f(i+1,j) .eq. f_min )then   ! south cells empty
+                dfdx_2d_stag_os = (f(i+1,j+1) - f(i,j+1) )/(delta)
+            endif
+        elseif( sum( f_array/ f_array, MASK = f_array .ne. 0.0d0 ) == 1.0 )then
+        ! isolated; treat by assuming it is part of a 3 block for which the rest of the values are not contained in
+        ! the local 2x2 block with indices i:i+1, j:j+1 
+            if( f(i,j) .ne. f_min .and.  f(i+1,j) .eq. f_min .and. f(i+1,j+1) .eq. f_min .and. f(i,j+1) .eq. f_min)then
+            ! a northeast corner
+                dfdx_2d_stag_os = ( f(i,j) - f(i-1,j) ) / (delta)
+            elseif( f(i,j) .eq. f_min .and.  f(i+1,j) .ne. f_min .and. f(i+1,j+1) .eq. f_min .and. f(i,j+1) .eq. f_min)then
+            ! a northwest corner
+                dfdx_2d_stag_os = ( f(i+2,j) - f(i+1,j) ) / (delta)
+            elseif( f(i,j) .eq. f_min .and.  f(i+1,j) .eq. f_min .and. f(i+1,j+1) .ne. f_min .and. f(i,j+1) .eq. f_min)then
+            ! a southwest corner
+                dfdx_2d_stag_os = ( f(i+2,j+1) - f(i+1,j+1) ) / (delta)
+            elseif( f(i,j) .eq. f_min .and.  f(i+1,j) .eq. f_min .and. f(i+1,j+1) .eq. f_min .and. f(i,j+1) .ne. f_min)then
+            ! a southeast corner
+                dfdx_2d_stag_os = ( f(i,j+1) - f(i-1,j+1) ) / (delta)
+            endif
+        endif
+
+    end function dfdx_2d_stag_os
+
+    function dfdy_2d_stag_os(f_in, i, j, delta, thck, thklim )
+    !*SFP* altered/expaned version of above function that uses approx. one-sided
+    ! diffs at physical domain edges so as not to overesimate grads there.
+        implicit none
+        real(dp), dimension(:,:), intent(in) :: f_in, thck
+        integer, intent(in) :: i, j
+        real(dp), intent(in) :: delta, thklim
+        real(dp) :: dfdy_2d_stag_os
+
+        real(dp), dimension(2,2) :: f_array, thck_array
+        real(dp), dimension(1:size(f_in,1),1:size(f_in,2)) :: f
+        real(dp) :: f_min
+
+        ! initialize to zeros
+        dfdy_2d_stag_os = 0.0d0; f_array = 0.0d0; f_min = 0.0d0
+
+        f = f_in
+
+        where( thck .le. thklim )
+            f = 0
+        end where
+
+        f_array(1,1) = f(i,j); f_array(2,1) = f(i+1,j); f_array(1,2) = f(i,j+1); f_array(2,2) = f(i+1,j+1);
+
+        if( sum( f_array/ f_array, MASK = f_array .ne. 0.0d0 ) == 4.0 )then
+        ! normal differencing for interior points
+            dfdy_2d_stag_os = (f(i,j+1) + f(i+1,j+1) - f(i,j) - f(i+1,j))/(2*delta)
+        elseif( sum( f_array/ f_array, MASK = f_array .ne. 0.0d0 ) == 3.0 )then
+        ! corner; use 2x next closest value
+            if( f(i,j) .eq. f_min )then     ! southwest corner point missing: apply value from s.e. point
+                dfdy_2d_stag_os = (f(i,j+1) + f(i+1,j+1) - 2.0*f(i+1,j))/(2*delta)
+            elseif( f(i+1,j) .eq. f_min )then ! southeast corner point missing: apply value from s.w. point
+                dfdy_2d_stag_os = (f(i,j+1) + f(i+1,j+1) - 2.0*f(i,j))/(2*delta)
+            elseif( f(i,j+1) .eq. f_min )then ! northwest corner point missing: apply value from n.e. point
+                dfdy_2d_stag_os = ( 2.0*f(i+1,j+1) - f(i,j) - f(i+1,j))/(2*delta)
+            elseif( f(i+1,j+1) .eq. f_min )then ! northeast corner point missing: apply value from n.w. point
+                dfdy_2d_stag_os = ( 2.0*f(i,j+1) - f(i,j) - f(i+1,j))/(2*delta)
+            endif
+        elseif( sum( f_array/ f_array, MASK = f_array .ne. 0.0d0 ) == 2.0 )then
+        ! side; back up and take gradient from points one set of cells in OR use only the single set of
+        ! cells available along the differencing direction 
+            if( f(i,j) .eq. f_min .and. f(i,j+1) .eq. f_min )then   ! west cells empty
+                dfdy_2d_stag_os = (f(i+1,j+1) - f(i+1, j))/(delta)
+            elseif( f(i+1,j) .eq. f_min .and. f(i+1,j+1) .eq. f_min )then   ! east cells empty
+                dfdy_2d_stag_os = (f(i,j+1) - f(i,j) )/(delta)
+            elseif( f(i,j+1) .eq. f_min .and. f(i+1,j+1) .eq. f_min )then   ! north cells empty
+                dfdy_2d_stag_os = (f(i,j) + f(i+1,j) - f(i,j-1) - f(i+1,j-1))/(2*delta)
+            elseif( f(i,j) .eq. f_min .and. f(i+1,j) .eq. f_min )then   ! south cells empty
+                dfdy_2d_stag_os = (f(i,j+2) + f(i+1,j+2) - f(i,j+1) - f(i+1,j+1))/(2*delta)
+            endif
+        elseif( sum( f_array/ f_array, MASK = f_array .ne. 0.0d0 ) == 1.0 )then
+        ! isolated; treat by assuming it is part of a 3 block for which the rest of the values are not contained within
+        ! the local 2x2 block with indices i:i+1, j:j+1 
+            if( f(i,j) .ne. f_min .and.  f(i+1,j) .eq. f_min .and. f(i+1,j+1) .eq. f_min .and. f(i,j+1) .eq. f_min )then
+            ! a northeast corner
+                dfdy_2d_stag_os = ( f(i,j) - f(i,j-1) ) / (delta)
+            elseif( f(i,j) .eq. f_min .and.  f(i+1,j) .ne. f_min .and. f(i+1,j+1) .eq. f_min .and. f(i,j+1) .eq. f_min )then
+            ! a northwest corner
+                dfdy_2d_stag_os = ( f(i+1,j) - f(i+1,j-1) ) / (delta)
+            elseif( f(i,j) .eq. f_min .and.  f(i+1,j) .eq. f_min .and. f(i+1,j+1) .ne. f_min .and. f(i,j+1) .eq. f_min )then
+            ! a southwest corner
+                dfdy_2d_stag_os = ( f(i+1,j+2) - f(i+1,j+1) ) / (delta)
+            elseif( f(i,j) .eq. f_min .and.  f(i+1,j) .eq. f_min .and. f(i+1,j+1) .eq. f_min .and. f(i,j+1) .ne. f_min )then
+            ! a southeast corner
+                dfdy_2d_stag_os = ( f(i,j+2) - f(i,j+1) ) / (delta)
+            endif
+        endif
+
+    end function dfdy_2d_stag_os
+
     !*FD Computes derivative with respect to x at the given point
     !*FD using an upwind method (suitable for maximum boundaries)
     function dfdx_2d_upwind(f, i, j, delta)
@@ -186,28 +326,37 @@ contains
     !*FD on a staggered grid.  If periodic in one dimension is set, that 
     !*FD dimension for derivatives must be the same size as the value's dimension.
     !*FD Otherwise, it should be one less
-        subroutine df_field_2d_staggered(f, deltax, deltay, out_dfdx, out_dfdy, periodic_x, periodic_y)
-                implicit none
-        real(dp), dimension(:, :), intent(in) :: f
-        real(dp), intent(in) :: deltax, deltay
+    subroutine df_field_2d_staggered(f, deltax, deltay, out_dfdx, out_dfdy, thck, thklim )
+        implicit none
+        real(dp), dimension(:, :), intent(in) :: f, thck
+        real(dp), intent(in) :: deltax, deltay, thklim
         real(dp), dimension(:, :), intent(out) :: out_dfdx, out_dfdy
-        logical :: periodic_x, periodic_y
         
         integer :: nx, ny, x, y
         
         !Get the size of the field we're working with
         nx = size(f, 1)
         ny = size(f, 2)
+
+        ! intialize to zeros
+        out_dfdx = 0.0d0
+        out_dfdy = 0.0d0
         
-        !For now, we'll use the function calls defined above.
-        !Later on we might want to refactor?    
-                do x = 1, nx - 1 !We go to nx - 1 because we're using a staggered grid
-                        do y = 1, ny - 1
-                                out_dfdx(x,y) = dfdx_2d_stag(f, x, y, deltax)
-                                out_dfdy(x,y) = dfdy_2d_stag(f, x, y, deltay)
-                        end do
-                end do
-                
+        ! *SFP* old subroutine calls, commented out below but still available, 
+        ! use centered diffs on normal thck / surf grids but do nothing special at lateral
+        ! boundaries where centered diffs might give unreasonable values (e.g., due to jumping
+        ! from a region of non-zero to zero thickness / elevation). New calls access new 
+        ! subroutines which attempt to correct for this if/when possible using approx., first-order
+        ! accurate one-sided diffs.
+        do x = 1, nx - 1 !We go to nx - 1 because we're using a staggered grid
+            do y = 1, ny - 1
+!                out_dfdx(x,y) = dfdx_2d_stag(f, x, y, deltax)		!*SFP* old call
+!                out_dfdy(x,y) = dfdy_2d_stag(f, x, y, deltay)		!*SFP* old call
+                out_dfdx(x,y) = dfdx_2d_stag_os(f, x, y, deltax, thck, thklim )
+                out_dfdy(x,y) = dfdy_2d_stag_os(f, x, y, deltay, thck, thklim )
+            end do
+        end do
+
 !               !Deal with periodic boundary conditions.  We will do so by
 !               !providing another set of values at the end of each dimension
 !               !that contains the derivative of the value off the edge of the
