@@ -96,7 +96,7 @@ contains
     endwhere
 
     if (present(iarea) .and. present(ivol)) then
-        call get_area_vol(thck, numerics%dew, numerics%dns, iarea, ivol, exec_serial_flag)
+        call get_area_vol(thck, numerics%dew, numerics%dns, numerics%thklim, iarea, ivol, exec_serial_flag)
     end if
 
     maskWithBounds = 0
@@ -169,11 +169,11 @@ contains
     endwhere
   end subroutine
 
-  subroutine get_area_vol(thck, dew, dns, iarea, ivol, exec_serial)
+  subroutine get_area_vol(thck, dew, dns, thklim, iarea, ivol, exec_serial)
     use parallel
     implicit none
     real(dp), dimension(:,:) :: thck
-    real(dp) :: dew, dns
+    real(dp) :: dew, dns, thklim
     real(dp) :: iarea, ivol, sum(2)
     logical :: exec_serial
 
@@ -181,7 +181,7 @@ contains
 
     do i = 1+lhalo, size(thck,1)-uhalo
         do j = 1+lhalo, size(thck,2)-uhalo
-            if (thck(i,j) > 0) then
+            if (thck(i,j) > thklim ) then
                 iarea = iarea + 1
                 ivol = ivol + thck(i,j)
             end if
