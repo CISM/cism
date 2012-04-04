@@ -72,35 +72,37 @@ contains
                     else
                         opvr(ew,ns) = 0
                     end if
+
                 !The following cases relate to Anne LeBroque's fix for nunataks
                 !ew,ns cell is ice free:
-                else if (ipvr(ew,ns) <= thklim/thk0 .and. &
-                   ((usrf(ew,ns) >= usrf(ew+1,ns) .and. ipvr(ew+1,ns) >= thklim/thk0) &
-                    .or. (usrf(ew,ns) >= usrf(ew,ns+1) .and. ipvr(ew,ns+1) >= thklim/thk0))) then
+                else if (ipvr(ew,ns) <= thklim .and. &
+                   ((usrf(ew,ns) >= usrf(ew+1,ns) .and. ipvr(ew+1,ns) >= thklim) &
+                    .or. (usrf(ew,ns) >= usrf(ew,ns+1) .and. ipvr(ew,ns+1) >= thklim))) then
                         opvr(ew,ns) = 0.0
 
                 !ew+1,ns cell is ice free:
-                else if (ipvr(ew+1,ns) <= thklim/thk0 .and. &
-                    ((usrf(ew+1,ns) >= usrf(ew,ns) .and. ipvr(ew,ns) >= thklim/thk0) &
-                    .or. (usrf(ew+1,ns) >= usrf(ew+1,ns+1) .and. ipvr(ew+1,ns+1) >= thklim/thk0))) then
+                else if (ipvr(ew+1,ns) <= thklim .and. &
+                    ((usrf(ew+1,ns) >= usrf(ew,ns) .and. ipvr(ew,ns) >= thklim) &
+                    .or. (usrf(ew+1,ns) >= usrf(ew+1,ns+1) .and. ipvr(ew+1,ns+1) >= thklim))) then
                         opvr(ew,ns) = 0.0
     
                 !ew,ns+1 cell is ice free:
-                else if (ipvr(ew,ns+1) <= thklim/thk0 .and. &
-                    ((usrf(ew,ns+1) >= usrf(ew,ns) .and. ipvr(ew,ns) >= thklim/thk0) &
-                    .or. (usrf(ew,ns+1) >= usrf(ew+1,ns+1) .and. ipvr(ew+1,ns+1) >= thklim/thk0))) then
+                else if (ipvr(ew,ns+1) <= thklim .and. &
+                    ((usrf(ew,ns+1) >= usrf(ew,ns) .and. ipvr(ew,ns) >= thklim) &
+                    .or. (usrf(ew,ns+1) >= usrf(ew+1,ns+1) .and. ipvr(ew+1,ns+1) >= thklim))) then
                         opvr(ew,ns) = 0.0
     
                 !ew+1,ns+1 cell is ice free:
-                else if (ipvr(ew+1,ns+1) <= thklim/thk0 .and. &
-                    ((usrf(ew+1,ns+1) >= usrf(ew+1,ns) .and. ipvr(ew+1,ns) >=thklim/thk0) &
-                    .or. (usrf(ew+1,ns+1) >= usrf(ew,ns+1) .and. ipvr(ew,ns+1) >=thklim/thk0))) then
+                else if (ipvr(ew+1,ns+1) <= thklim .and. &
+                    ((usrf(ew+1,ns+1) >= usrf(ew+1,ns) .and. ipvr(ew+1,ns) >=thklim) &
+                    .or. (usrf(ew+1,ns+1) >= usrf(ew,ns+1) .and. ipvr(ew,ns+1) >=thklim))) then
                         opvr(ew,ns) = 0.0
-                
+               
 !                !Standard Staggering   !! Not needed if only-nonzero-thickness staggering scheme is used
 !                else
 !                        opvr(ew,ns) = (ipvr(ew+1,ns) + ipvr(ew,ns+1) + &
 !                               ipvr(ew+1,ns+1) + ipvr(ew,ns)) / 4.0d0
+
                 end if
   
         end do
