@@ -412,13 +412,17 @@ contains
          model%numerics%dew, model%numerics%dns, &
          model%geomderv%dusrfdew, & 
          model%geomderv%dusrfdns, &
-         .false., .false.)
+        model%geometry%thck,     &
+        model%numerics%thklim )
 
     call df_field_2d_staggered(model%geometry%thck, &
          model%numerics%dew, model%numerics%dns, &
          model%geomderv%dthckdew, & 
          model%geomderv%dthckdns, &
-         .false., .false.)
+        model%geometry%thck,     &
+        model%numerics%thklim )
+
+
     !EIB!
     
 #ifdef PROFILING
