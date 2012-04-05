@@ -9,7 +9,7 @@
 
 module glide_velo_higher
     !Includes for the higher-order velocity computations that this calls out to
-    use glam_strs2, only: glam_velo_fordsiapstr, JFNK, umask
+    use glam_strs2, only: glam_velo_fordsiapstr, JFNK
 
     !globals
     use glimmer_global, only : dp

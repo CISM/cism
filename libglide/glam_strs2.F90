@@ -40,7 +40,6 @@ implicit none
   real (kind = dp), allocatable, dimension(:),         save :: dup, dupm
 
   integer, dimension(:,:), allocatable :: uindx
-  integer, dimension(:,:), allocatable :: umask
 
   ! regularization constant for eff. strain rate to avoid infinite visc.
   ! NOTE: would be good to explore how small this really needs to be, as 
@@ -191,8 +190,6 @@ subroutine glam_velo_fordsiapstr_init( ewn,   nsn,   upn,    &
 
     allocate (d2thckdew2(ewn-1,nsn-1),d2thckdns2(ewn-1,nsn-1),d2thckdewdns(ewn-1,nsn-1), &
               d2usrfdew2(ewn-1,nsn-1),d2usrfdns2(ewn-1,nsn-1),d2usrfdewdns(ewn-1,nsn-1))
-
-    allocate(umask(ewn-1,nsn-1))
 
     allocate(flwafact(1:upn-1,ewn,nsn))  ! NOTE: the vert dim here must agree w/ that of 'efvs'
 
@@ -1623,34 +1620,30 @@ function getlocationarray(ewn, nsn, upn, mask, indxmask)
   integer, intent(in) :: ewn, nsn, upn
   integer, dimension(:,:), intent(in) :: mask
   integer, dimension(:,:), intent(in) :: indxmask
-  integer, dimension(ewn-1,nsn-1,2) :: getlocationarray
+  integer, dimension(ewn,nsn,2) :: getlocationarray
   integer :: ew, ns
 
 #ifdef globalIDs
-  ! Returns in (:,:,1) the variable ID bases for each ice grid point.  
-  ! If a point (ew,ns) doesn't have ice, then it has 0.
-  ! This uses globalIDs and includes the ID bases for the halos in the array.
-  ! This ID array uses the same IDs used to initialize Trilinos myIndices.
-  ! JEFF 11/23/10
+  ! Returns in (:,:,1) the global ID bases for each grid point, including 
+  ! halos and those without ice
+  ! Since the code checks elsewhere whether ice occurs at a given grid point, 
+  ! this information is not encoded here. For the local indices (see below)
+  ! the mask information is used since ice-free grid points are not indexed
+  ! locally
 
-  do ns=1,size(mask,2)
-    do ew=1,size(mask,1)
-      if ( GLIDE_HAS_ICE( mask(ew,ns) ) ) then
-        getlocationarray(ew,ns,1) = parallel_globalID(ns, ew, upn + 2)  ! Extra two layers for ghost layers
-      else
-        getlocationarray(ew,ns,1) = 0
-      end if
+  do ns=1,nsn
+    do ew=1,ewn
+      getlocationarray(ew,ns,1) = parallel_globalID(ns, ew, upn + 2)  ! Extra two layers for ghost layers
     end do
   end do
 
   ! Returns in (:,:,2) the local index base for each ice grid point 
   !  (same indices as those used in myIndices)
+  ! indxmask is ice mask with non-zero values for cells with ice.
   ! If a point (ew,ns) doesn't have ice, then value is set to 0.
   ! If a point (ew,ns) is in the halo, value is also set to 0.
-  ! ewn, nsn, are bounds for indxmask (including halos).
   ! upn+2 is the total number of vertical layers including any ghosts
-  ! indxmask is ice mask with non-zero values for cells with ice.
-  ! PW 12/1/11, logic modelled after distributed_create_partition
+  ! (logic modelled after distributed_create_partition)
 
   ! initialize to zero (in order to set halo and ice-free cells to zero)
   getlocationarray(:,:,2) = 0
@@ -1665,10 +1658,13 @@ function getlocationarray(ewn, nsn, upn, mask, indxmask)
   end do
 
 #else
-  integer, dimension(ewn-1,nsn-1) :: temparray
+  integer, dimension(ewn,nsn) :: temparray
   integer :: cumsum
 
+  ! initialize to zero
   cumsum = 0
+  temparray = 0
+  getlocationarry = 0
 
   do ns=1+staggered_shalo,size(mask,2)-staggered_nhalo
     do ew=1+staggered_whalo,size(mask,1)-staggered_ehalo
@@ -2929,7 +2925,7 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
 
   ! Note loc2_array is defined only for non-halo ice grid points.
   ! JEFFLOC returns an array with starting indices into solution vector for each ice grid point.
-  allocate(loc2_array(ewn-1,nsn-1,2))
+  allocate(loc2_array(ewn,nsn,2))
   loc2_array = getlocationarray(ewn, nsn, upn, mask, uindx)
 !  !!!!!!!!! useful for debugging !!!!!!!!!!!!!!
 !    print *, 'loc2_array = '
@@ -3119,7 +3115,7 @@ subroutine bodyset(ew,  ns,  up,           &
   integer, intent(in) :: ew, ns, up
   real (kind = dp), intent(in) :: dew, dns
   integer, intent(in) :: pt, whichbabc, assembly
-  integer, dimension(ewn-1,nsn-1,2), intent(in) :: loc2_array
+  integer, dimension(ewn,nsn,2), intent(in) :: loc2_array
   integer, dimension(6,2), intent(in) :: loc2
 
   real (kind = dp), dimension(:,:), intent(in) :: stagthck
@@ -4562,7 +4558,7 @@ subroutine getlatboundinfo( ew, ns, up, ewn, nsn, upn,  &
 
   integer, intent(in) :: ew, ns, up
   integer, intent(in) :: ewn, nsn, upn
-  integer, dimension(ewn-1,nsn-1), intent(in) :: loc_array
+  integer, dimension(ewn,nsn), intent(in) :: loc_array
   real (kind = dp), dimension(3,3), intent(in) :: thck
 
   real (kind = dp), dimension(2), intent(out) :: fwdorbwd, normal
@@ -4669,7 +4665,7 @@ function indshift( which, ew, ns, up, ewn, nsn, upn, loc_array, thck )
 
   integer, intent(in) :: which
   integer, intent(in) :: ew, ns, up, ewn, nsn, upn
-  integer, dimension(ewn-1,nsn-1), intent(in) :: loc_array
+  integer, dimension(ewn,nsn), intent(in) :: loc_array
   real (kind = dp), dimension(3,3), intent(in) :: thck
 
   integer, dimension(3) :: indshift
@@ -5196,7 +5192,6 @@ end subroutine putpcgc
 
   subroutine distributed_create_partition(ewn, nsn, upstride, indxmask, mySize, myIndices, myX, myY, myZ)
   	! distributed_create_partition builds myIndices ID vector for Trilinos using (ns,ew) coordinates in indxmask
-  	! ewn, nsn, are bounds for indxmask (including halos).
   	! upstride is the total number of vertical layers including any ghosts
   	! indxmask is ice mask with non-zero values for cells with ice.
   	! mySize is number of elements in myIndices
@@ -5275,8 +5270,12 @@ end subroutine putpcgc
           minew = 1
           minns = 1
           mindiff = globalID
-          do ns = 1+staggered_shalo,size(loc2_array,2)-staggered_nhalo
-            do ew = 1+staggered_whalo,size(loc2_array,1)-staggered_ehalo
+!          do ns = 1+staggered_shalo,size(loc2_array,2)-staggered_nhalo
+!            do ew = 1+staggered_whalo,size(loc2_array,1)-staggered_ehalo
+          ! loc2_array(:,:,1) defined for all ew,ns, 
+          ! while loc2_array(:,:,2) == 0 for halos and ice-free loactions
+          do ns = 1,size(loc2_array,2)
+            do ew = 1,size(loc2_array,1)
               curdiff = globalID-loc2_array(ew,ns,1)
               if ((curdiff >= 0) .and. (curdiff < mindiff)) then
                 mindiff = globalID-loc2_array(ew,ns,1)

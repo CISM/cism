@@ -2428,10 +2428,12 @@ contains
     integer :: global_row, global_col, global_ID
     character(len=40) :: local_coord
 
-    global_row = (locns - lhalo) + global_row_offset
-    global_col = (locew - lhalo) + global_col_offset
+    ! including global domain halo adds lhalo to offsets
+    global_row = (locns - lhalo) + (global_row_offset + lhalo)
+    global_col = (locew - lhalo) + (global_col_offset + lhalo)
 
-    global_ID = ((global_row - 1) * global_ewn + (global_col - 1)) * upstride + 1
+    ! including global domain halo adds (lhalo + uhalo) to global_ewn
+    global_ID = ((global_row - 1) * (global_ewn +lhalo + uhalo) + (global_col - 1)) * upstride + 1
 
     ! JEFF Testing Code
     ! write(local_coord, "A13,I10.1,A2,I10.1,A1") " (NS, EW) = (", locns, ", ", locew, ")"
