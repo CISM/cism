@@ -350,10 +350,10 @@ contains
         ! accurate one-sided diffs.
         do x = 1, nx - 1 !We go to nx - 1 because we're using a staggered grid
             do y = 1, ny - 1
-!                out_dfdx(x,y) = dfdx_2d_stag(f, x, y, deltax)		!*SFP* old call
-!                out_dfdy(x,y) = dfdy_2d_stag(f, x, y, deltay)		!*SFP* old call
-                out_dfdx(x,y) = dfdx_2d_stag_os(f, x, y, deltax, thck, thklim )
-                out_dfdy(x,y) = dfdy_2d_stag_os(f, x, y, deltay, thck, thklim )
+                out_dfdx(x,y) = dfdx_2d_stag(f, x, y, deltax) !*SFP* old call
+                out_dfdy(x,y) = dfdy_2d_stag(f, x, y, deltay) !*SFP* old call
+!                out_dfdx(x,y) = dfdx_2d_stag_os(f, x, y, deltax, thck, thklim )
+!                out_dfdy(x,y) = dfdy_2d_stag_os(f, x, y, deltay, thck, thklim )
             end do
         end do
 
