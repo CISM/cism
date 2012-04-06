@@ -1,4 +1,5 @@
 #include <iostream>
+#include "Teuchos_TestForException.hpp"
 #include "matrixInterface.hpp"
 
 // Constructor
@@ -29,7 +30,9 @@ Teuchos::RCP<Epetra_CrsMatrix>& TrilinosMatrix_Interface::getOperator() {return 
 void TrilinosMatrix_Interface::finalizeSparsity() {
   isFillCompleted_ = true;
   int ierr = operator_->FillComplete();
-  assert (ierr==0);
+  TEST_FOR_EXCEPTION(ierr != 0, std::logic_error,
+     "Error: Trilinos Fill Complete  returned nozero error code ( " << ierr << " )\n");
+
 }
 
 // Update the operator and also the corresponding row map.

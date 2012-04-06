@@ -31,6 +31,9 @@
 int solvecount=0;
 #endif
 
+// Turn this on to check validity of sparse matrix entries
+#define CHECK_FOR_ROGUE_COLUMNS
+
 // Define variables that are global to this file.
 // If this were a C++ class, these would be member data.
 Teuchos::RCP<TrilinosMatrix_Interface> interface;
@@ -52,6 +55,7 @@ extern "C" {
 
   // Prototype for locally called function
   void linSolveDetails(Thyra::SolveStatus<double>& status);
+  void check_for_rogue_columns( Epetra_CrsMatrix& mat);
 
   //================================================================
   //================================================================
@@ -80,6 +84,10 @@ extern "C" {
 
     Teuchos::RCP<const Epetra_Map> rowMap = 
       Teuchos::rcp(new Epetra_Map(-1,mySize,myIndicies,1,comm) );
+
+    TEST_FOR_EXCEPTION(!rowMap->UniqueGIDs(), std::logic_error,
+       "Error: inittrilinos, myIndices array needs to have Unique entries" 
+        << " across all processor.");
 
     // Diagnostic output for partitioning
     int minSize, maxSize;
@@ -158,21 +166,25 @@ extern "C" {
 	       (int& rowInd, int& colInd, double& val) {
 
   try {
+    int ierr;
     const Epetra_Map& map = interface->getRowMap();
-    // If this row is not owned on this processor, then do nothing
-    if (!map.MyGID(rowInd)) { cout << "AGS: Logic Problem. Trilinos getting unowned row." << endl; return; }
+    // If this row is not owned on this processor, then throw error
+    TEST_FOR_EXCEPTION(!map.MyGID(rowInd), std::logic_error,
+       "Error: Trilinos matrix has detected an invalide row entry (row=" 
+        << rowInd << ",col=" << colInd << ",val=" << val << ").\n");
 
     Epetra_CrsMatrix& matrix = *(interface->getOperator());
 
     if (!interface->isSparsitySet()) {
+
       // The matrix has not been "FillComplete()"ed. First fill of time step.
-      int ierr = matrix.InsertGlobalValues(rowInd, 1, &val, &colInd);
+      ierr = matrix.InsertGlobalValues(rowInd, 1, &val, &colInd);
       if (ierr<0) {cout << "Error Code for " << rowInd << "  " << colInd << "  = ("<< ierr <<")"<<endl; exit(1);}
       else if (ierr>0) cout << "Warning Code for " << rowInd << "  " << colInd << "  = ("<< ierr <<")"<<endl;
     }
     else {
       // Subsequent matrix fills of each time step.
-      int ierr = matrix.ReplaceGlobalValues(rowInd, 1, &val, &colInd);
+       ierr = matrix.ReplaceGlobalValues(rowInd, 1, &val, &colInd);
 
       TEST_FOR_EXCEPTION(ierr != 0, std::logic_error,
 	 "Error: Trilinos matrix has detected a new entry (" 
@@ -194,7 +206,12 @@ extern "C" {
     //Teuchos::Time linearTime("LinearTime"); linearTime.start();
 
     // Lock in sparsity pattern
-    if (!interface->isSparsitySet()) interface->finalizeSparsity();
+    if (!interface->isSparsitySet()) {
+      interface->finalizeSparsity();
+#ifdef CHECK_FOR_ROGUE_COLUMNS
+      check_for_rogue_columns(*interface->getOperator());
+#endif
+    }
 
     const Epetra_Map& map = interface->getRowMap(); 
     Teuchos::RCP<Epetra_Vector> epetraSol = soln;
@@ -238,7 +255,12 @@ extern "C" {
 
   void FC_FUNC(savetrilinosmatrix,SAVETRILINOSMATRIX) (int* i) {
    try {
-    if (!interface->isSparsitySet()) interface->finalizeSparsity();
+    if (!interface->isSparsitySet()) {
+      interface->finalizeSparsity();
+#ifdef CHECK_FOR_ROGUE_COLUMNS
+      check_for_rogue_columns(*interface->getOperator());
+#endif
+    }
     if (*i==0)
       savedMatrix_A = Teuchos::rcp(new Epetra_CrsMatrix(*(interface->getOperator())));
     else if (*i==1)
@@ -316,8 +338,6 @@ extern "C" {
 
     Epetra_CrsMatrix& matrix = *(interface->getOperator());
 
-//    cout << "XXXX " << rowInd << "  " << numEntries << "  " << colInd[0] << "  " << val[0] << endl;
-
     if (!interface->isSparsitySet()) {
       // The matrix has not been "FillComplete()"ed. First fill of time step.
       // Inserted values at this stage will be summed together later
@@ -370,6 +390,33 @@ extern "C" {
              << 100.0* linearSolveSuccessCount / (double) linearSolveCount << "\% success)"
              << endl;
       }
+    }
+  }
+
+  /* Debugging utility to check if columns have been Inserted into the 
+   * matrix that do not correspond to a row on any processor
+   */
+  void check_for_rogue_columns( Epetra_CrsMatrix& mat) {
+    // Set up rowVector of 0s and column vector of 1s
+    const Epetra_Map& rowMap = mat.RowMap();
+    const Epetra_Map& colMap = mat.ColMap();
+    Epetra_Vector rowVec(rowMap); rowVec.PutScalar(0.0);
+    Epetra_Vector colVec(colMap); colVec.PutScalar(1.0);
+    Epetra_Import importer(colMap, rowMap);
+
+    // Overwrite colVec 1s with rowVec 0s 
+    colVec.Import(rowVec, importer, Insert);
+
+    // Check that all 1s have been overwritten
+    double nrm=0.0;
+    colVec.Norm1(&nrm); // nrm = number of columns not overwritten by rows
+
+    // If any rogue columns, exit now (or just get nans later)
+    if (nrm>=1.0) {
+      *out << "ERROR: Column map has " << nrm 
+           << " rogue entries that are not associated with any row." << endl;
+       rowMap.Comm().Barrier();
+       exit(-3);
     }
   }
 
