@@ -30,7 +30,7 @@ module glam
     implicit none
     private
 
-    public :: inc_remap_driver
+    public :: inc_remap_driver, old_remapping
 
     ! NOTE: Relevant initializtion routines are in the init section of "glide.F90" 
 

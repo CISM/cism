@@ -37,6 +37,7 @@ module glide_stop
   use glimmer_log
   use remap_glamutils
   use fo_upwind_advect, only : fo_upwind_advect_final
+  use glam, only : old_remapping
 
   ! *mb* added
   use glam_Basal_Proc, only : Basal_Proc_final
@@ -147,7 +148,9 @@ contains
     ! finalization for incremental remapping advection scheme 
     if ((model%options%whichevol== EVOL_INC_REMAP ) .or.  &
         (model%options%whichevol== EVOL_NO_THICKNESS )) then 
+      if (old_remapping) then
         call horizontal_remap_final(model%remap_wk)
+      endif 
     endif 
 
    ! finalization for first-order upwinding advection scheme

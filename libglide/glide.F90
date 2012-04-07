@@ -45,6 +45,7 @@ module glide
   use glide_profile
   use glimmer_config
   use glimmer_global
+  use glam, only : old_remapping
 
 #ifdef GLC_DEBUG
     use glimmer_paramets, only: itest, jtest, thk0
@@ -240,6 +241,7 @@ contains
 
     if ((model%options%whichevol == EVOL_INC_REMAP ) .or. &
        (model%options%whichevol == EVOL_NO_THICKNESS)) then
+      if (old_remapping) then
 
         if (model%options%whichtemp == TEMP_REMAP_ADV) then ! Use IR to advect temperature
 
@@ -271,6 +273,7 @@ contains
                                        model%options%periodic_ew, model%options%periodic_ns)
         endif ! whichtemp
 
+      endif 
     endif 
 
     ! *sfp** added for summer modeling school
