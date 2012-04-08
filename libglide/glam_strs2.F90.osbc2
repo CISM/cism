@@ -1665,7 +1665,7 @@ function getlocationarray(ewn, nsn, upn, mask, indxmask)
   ! initialize to zero
   cumsum = 0
   temparray = 0
-  getlocationarry = 0
+  getlocationarray = 0
 
   do ns=1+staggered_shalo,size(mask,2)-staggered_nhalo
     do ew=1+staggered_whalo,size(mask,1)-staggered_ehalo
