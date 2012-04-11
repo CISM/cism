@@ -36,6 +36,11 @@
 !! \date January 2005
 module profile
 
+#if (defined CCSMCOUPLED || defined CESMTIMERS)
+  use perf_mod
+  use parallel
+#endif
+
   integer, private :: current_unit = 200
   integer, private,parameter :: max_prof = 100
 
@@ -56,6 +61,7 @@ contains
     implicit none
     type(profile_type), intent(out) :: prof !< structure storing profile definitions
     character(len=*), intent(in) :: name    !< name of file
+#if (! defined CCSMCOUPLED && ! defined CESMTIMERS)
     ! local variables
     character(len=8)  :: date
     character(len=10) :: time    
@@ -67,6 +73,11 @@ contains
     open(unit=prof%profile_unit,file=name,status='unknown')
     write(unit=prof%profile_unit,fmt="(a,a4,'-',a2,'-',a2,' ',a2,':',a2,':',a6)") '# Started profile on ',&
          date(1:4),date(5:6),date(7:8),time(1:2),time(3:4),time(5:10)
+#endif
+
+#if (! defined CCSMCOUPLED && defined CESMTIMERS)
+    call t_initf("perf_in", mpicom=comm, MasterTask=main_task)
+#endif
   end subroutine profile_init
   
   !> register a new series of meassurements
@@ -92,7 +103,11 @@ contains
     type(profile_type) :: prof !< structure storing profile definitions
     integer, intent(in) :: profn !< the profile ID
     
+#if (! defined CCSMCOUPLED && ! defined CESMTIMERS)
     call cpu_time(prof%pstart(profn))
+#else
+    call t_startf(prof%pname(profn))
+#endif
   end subroutine profile_start
 
   !> stop profiling
@@ -101,9 +116,14 @@ contains
     type(profile_type)  :: prof !< structure storing profile definitions
     integer, intent(in) :: profn !< the profile ID
     
+#if (! defined CCSMCOUPLED && ! defined CESMTIMERS)
     real t
+
     call cpu_time(t)
     prof%ptotal(profn) = prof%ptotal(profn) + t-prof%pstart(profn)
+#else
+    call t_stopf(prof%pname(profn))
+#endif
   end subroutine profile_stop
 
   !> log a message to profile
@@ -113,6 +133,7 @@ contains
     integer, intent(in) :: profn !< the profile ID
     character(len=*), intent(in), optional :: msg     !< message to be written to profile
 
+#if (! defined CCSMCOUPLED && ! defined CESMTIMERS)
     real t
 
     call cpu_time(t)
@@ -123,12 +144,14 @@ contains
     end if
     prof%ptotal(profn) = 0.
     prof%pstart(profn) = 0.
+#endif
   end subroutine profile_log
 
   !> close profile
   subroutine profile_close(prof)
     implicit none
     type(profile_type), intent(in) :: prof !< structure storing profile definitions
+#if (! defined CCSMCOUPLED && ! defined CESMTIMERS)
     ! local variables
     character(len=8)  :: date
     character(len=10) :: time    
@@ -140,5 +163,11 @@ contains
     write(unit=prof%profile_unit,fmt="(a,a4,'-',a2,'-',a2,' ',a2,':',a2,':',a6)") '# Finished profile on ',&
          date(1:4),date(5:6),date(7:8),time(1:2),time(3:4),time(5:10)
     close(prof%profile_unit)
+#endif
+
+#if (! defined CCSMCOUPLED && defined CESMTIMERS)
+    call t_prf('seacism_timing')
+    call t_finalizef ()
+#endif
   end subroutine profile_close
 end module profile
