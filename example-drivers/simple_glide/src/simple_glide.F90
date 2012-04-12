@@ -48,13 +48,6 @@ program simple_glide
 
   implicit none
 
-#ifdef GPTL
-#include <gptl.inc>
-#endif
-#ifdef PAPI
-#include <f90papi.h>
-#endif
-
   type(glide_global_type) :: model        ! model instance
   type(simple_climate) :: climate         ! climate
   type(ConfigSection), pointer :: config  ! configuration stuff
@@ -66,17 +59,7 @@ program simple_glide
 
   call parallel_initialise
 
-  ! start gptl
-#ifdef GPTL
-  ret = gptlsetoption (gptlprint_method,gptlfull_tree)
-  ret = gptlsetoption (PAPI_FP_OPS, 1)
-  ret = gptlsetutr (gptlnanotime)
-  ret = gptlinitialize ()
-  ret = gptlstart ('total')
-#endif
-
   call glimmer_GetCommandline()
-
 
   ! start logging
   call open_log(unit=50, fname=logname(commandline_configname))
@@ -91,7 +74,15 @@ program simple_glide
   call system_clock(clock,clock_rate)
   t1 = real(clock,kind=dp)/real(clock_rate,kind=dp)
 
+#if (defined CCSMCOUPLED || defined CESMTIMERS)
+  ! initialise profiling
+  call glide_prof_init(model)
+#endif
+
+  call t_startf('simple glide')
+
   ! initialise GLIDE
+  call t_startf('glide initialization')
   call glide_config(model,config)
   call simple_initialise(climate,config)
   call glide_initialise(model)
@@ -103,18 +94,28 @@ program simple_glide
   call simple_massbalance(climate,model,time)
   call simple_surftemp(climate,model,time)
   call spinup_lithot(model)
+  call t_stopf('glide initialization')
 
   tstep_count = 0
 
   do while(time.le.model%numerics%tend)
+    call t_startf('glide_tstep_p1')
      call glide_tstep_p1(model,time)
-     call glide_tstep_p2(model)
-     call glide_tstep_p3(model)
-     ! override masking stuff for now
+    call t_stopf('glide_tstep_p1')
 
+    call t_startf('glide_tstep_p2')
+     call glide_tstep_p2(model)
+    call t_stopf('glide_tstep_p2')
+
+    call t_startf('glide_tstep_p3')
+     call glide_tstep_p3(model)
+    call t_stopf('glide_tstep_p3')
+
+     ! override masking stuff for now
      tstep_count = tstep_count + 1
 
      ! Redistribute calls here to spread the data back out.
+    call t_startf('simple_glide_halo_upd')
      call parallel_halo(model%stress%efvs)
      call parallel_halo(model%velocity%uvel)
      call parallel_halo(model%velocity%vvel)
@@ -156,14 +157,25 @@ program simple_glide
      else
         call parallel_halo_temperature(model%temper%temp)
      endif
+    call t_stopf('simple_glide_halo_upd')
 
      ! Perform parallel operations for restart files
+    call t_startf('glide_tstep_postp3')
      call glide_tstep_postp3(model)
+    call t_stopf('glide_tstep_postp3')
 
      time = time + model%numerics%tinc
+
+    call t_startf('simple_massbalance')
      call simple_massbalance(climate,model,time)
+    call t_stopf('simple_massbalance')
+
+    call t_startf('simple_surftemp')
      call simple_surftemp(climate,model,time)     
+    call t_stopf('simple_surftemp')
   end do
+
+  call t_stopf('simple glide')
 
   ! finalise GLIDE
   call glide_finalise(model)
@@ -173,11 +185,4 @@ program simple_glide
   call close_log
   call parallel_finalise
 
-  ! stop gptl
-#ifdef GPTL
-  ret = gptlstop ('total')
-  ret = gptlpr (0)
-  ret = gptlfinalize ()
-#endif
-  
 end program simple_glide

@@ -334,7 +334,7 @@ contains
     model%thckwk%olds(:,:,2) = model%geometry%usrf(:,:)
 
     ! initialise profile
-#ifdef PROFILING
+#if (defined PROFILING && ! defined CCSMCOUPLED && ! defined CESMTIMERS)
     call glide_prof_init(model)
 #endif
 
@@ -428,13 +428,9 @@ contains
 
     !EIB!
     
-#ifdef PROFILING
     call glide_prof_stop(model,model%glide_prof%geomderv)
-#endif
 
-#ifdef PROFILING
     call glide_prof_start(model,model%glide_prof%ice_mask1)
-#endif
     !TREY This sets local values of dom, mask, totpts, and empty
     !EIB! call veries between lanl and gc2, this is lanl version
     !magi a hack, someone explain what whichthck=5 does
@@ -448,9 +444,7 @@ contains
          model%geometry% mask,      &
          model%geometry% totpts,    &
          model%geometry% empty)
-#ifdef PROFILING
     call glide_prof_stop(model,model%glide_prof%ice_mask1)
-#endif
 
     ! ------------------------------------------------------------------------ 
     ! calculate geothermal heat flux
@@ -463,9 +457,7 @@ contains
     ! ------------------------------------------------------------------------ 
     ! Calculate temperature evolution and Glenn's A, if necessary
     ! ------------------------------------------------------------------------ 
-#ifdef PROFILING
     call glide_prof_start(model,model%glide_prof%temperature)
-#endif
     if ( model%numerics%tinc >  mod(model%numerics%time,model%numerics%ntem)) then
 
        if (model%options%whichtemp == TEMP_REMAP_ADV) then 
@@ -486,9 +478,7 @@ contains
        model%temper%newtemps = .true.
 
     end if
-#ifdef PROFILING
     call glide_prof_stop(model,model%glide_prof%temperature)
-#endif
 
     ! ------------------------------------------------------------------------ 
     ! Calculate basal traction factor
@@ -540,9 +530,7 @@ contains
     ! ------------------------------------------------------------------------ 
     ! Calculate flow evolution by various different methods
     ! ------------------------------------------------------------------------ 
-#ifdef PROFILING
     call glide_prof_start(model,model%glide_prof%ice_evo)
-#endif
 
     select case(model%options%whichevol)
     case(EVOL_PSEUDO_DIFF) ! Use precalculated uflx, vflx -----------------------------------
@@ -602,16 +590,12 @@ contains
 
 end select
 
-#ifdef PROFILING
     call glide_prof_stop(model,model%glide_prof%ice_evo)
-#endif
 
     ! ------------------------------------------------------------------------
     ! get new mask
     ! ------------------------------------------------------------------------
-#ifdef PROFILING
     call glide_prof_start(model,model%glide_prof%ice_mask2)
-#endif
 
     !Halo updates required for inputs to glide_set_mask?
     ! call parallel_halo(model%geometry%thck) in inc_remap_driver
@@ -622,9 +606,7 @@ end select
                         model%geometry%thkmask, model%geometry%iarea, model%geometry%ivol)
     !Includes a halo update of model%geometry%thkmask at end of call
 
-#ifdef PROFILING
     call glide_prof_stop(model,model%glide_prof%ice_mask2)
-#endif
 
     !Halo updates required for inputs to glide_set_mask?
     ! call parallel_halo(model%geometry%thck) in inc_remap_driver
@@ -714,9 +696,7 @@ end select
     ! ------------------------------------------------------------------------
     ! update ice/water load if necessary
     ! ------------------------------------------------------------------------
-#ifdef PROFILING
     call glide_prof_start(model,model%glide_prof%isos_water)
-#endif
     if (model%isos%do_isos) then
        !JEFF the isos_icewaterload() is passed the entire model, so I don't know what gathered variables it needs.
        call not_parallel(__FILE__, __LINE__)
@@ -727,9 +707,7 @@ end select
           model%isos%new_load = .true.
        end if
     end if
-#ifdef PROFILING
     call glide_prof_stop(model,model%glide_prof%isos_water)
-#endif
     
     ! basal shear stress calculations
 
@@ -774,18 +752,14 @@ end select
     ! ------------------------------------------------------------------------ 
     ! Calculate isostasy
     ! ------------------------------------------------------------------------ 
-#ifdef PROFILING
     call glide_prof_start(model,model%glide_prof%isos)
-#endif
     if (model%isos%do_isos) then
        !JEFF the isos_isostasy() is passed the entire model, so I don't know what gathered variables it needs.
        call not_parallel(__FILE__, __LINE__)
 
        call isos_isostasy(model)
     end if
-#ifdef PROFILING
     call glide_prof_stop(model,model%glide_prof%isos)
-#endif
 
     ! ------------------------------------------------------------------------
     ! calculate upper and lower ice surface

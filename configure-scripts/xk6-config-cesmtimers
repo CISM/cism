@@ -10,7 +10,7 @@
   FC=ftn  F77=ftn   \
   CC=cc  CXX=CC \
   CXXFLAGS="-O2 --diag_suppress 554,111,611 " \
-  CPPFLAGS="-I../libgptl -I../../../libgptl -DHAVE_MPI -DMPICH_IGNORE_CXX_SEEK -DPROFILING -DCESMTIMERS" \
+  CPPFLAGS="-I../libgptl -I../../../libgptl -DHAVE_MPI -DMPICH_IGNORE_CXX_SEEK -DCESMTIMERS" \
   FCFLAGS="-Mfree -O2 -tp bulldozer-64,istanbul-64 " \
   F77FLAGS="-Mfixed -tp bulldozer-64,istanbul-64 " \
   CFLAGS="-O2 -tp bulldozer-64,istanbul-64 " \

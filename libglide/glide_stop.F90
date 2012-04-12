@@ -173,7 +173,7 @@ contains
     call write_log(message)
 
     ! close profile
-#ifdef PROFILING
+#if (defined PROFILING || defined CCSMCOUPLED || defined CESMTIMERS)
     call profile_close(model%profile)
 #endif
 

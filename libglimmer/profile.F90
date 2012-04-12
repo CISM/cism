@@ -61,13 +61,15 @@ contains
     implicit none
     type(profile_type), intent(out) :: prof !< structure storing profile definitions
     character(len=*), intent(in) :: name    !< name of file
-#if (! defined CCSMCOUPLED && ! defined CESMTIMERS)
     ! local variables
     character(len=8)  :: date
     character(len=10) :: time    
 
     prof%profile_unit = current_unit
     current_unit = current_unit + 1
+#if (defined PROFILING && ! defined CCSMCOUPLED && ! defined CESMTIMERS)
+    prof%pstart(:) = 0.
+    prof%ptotal(:) = 0.
     call cpu_time(prof%start_time)
     call date_and_time (date, time)
     open(unit=prof%profile_unit,file=name,status='unknown')
@@ -86,6 +88,7 @@ contains
     implicit none
     type(profile_type) :: prof !< structure storing profile definitions
     character(len=*), intent(in) :: msg !< the message to be associated
+#if (defined PROFILING || defined CCSMCOUPLED || defined CESMTIMERS)
     integer profile_register
 
     prof%nump = prof%nump+1
@@ -95,6 +98,7 @@ contains
     end if
     profile_register = prof%nump
     prof%pname(prof%nump) = trim(msg)
+#endif
   end function profile_register
 
   !> start profiling
@@ -103,9 +107,11 @@ contains
     type(profile_type) :: prof !< structure storing profile definitions
     integer, intent(in) :: profn !< the profile ID
     
-#if (! defined CCSMCOUPLED && ! defined CESMTIMERS)
+#if (defined PROFILING && ! defined CCSMCOUPLED && ! defined CESMTIMERS)
     call cpu_time(prof%pstart(profn))
-#else
+#endif
+
+#if (defined CCSMCOUPLED || defined CESMTIMERS)
     call t_startf(prof%pname(profn))
 #endif
   end subroutine profile_start
@@ -116,12 +122,14 @@ contains
     type(profile_type)  :: prof !< structure storing profile definitions
     integer, intent(in) :: profn !< the profile ID
     
-#if (! defined CCSMCOUPLED && ! defined CESMTIMERS)
+#if (defined PROFILING && ! defined CCSMCOUPLED && ! defined CESMTIMERS)
     real t
 
     call cpu_time(t)
     prof%ptotal(profn) = prof%ptotal(profn) + t-prof%pstart(profn)
-#else
+#endif
+
+#if (defined CCSMCOUPLED || defined CESMTIMERS)
     call t_stopf(prof%pname(profn))
 #endif
   end subroutine profile_stop
@@ -133,7 +141,7 @@ contains
     integer, intent(in) :: profn !< the profile ID
     character(len=*), intent(in), optional :: msg     !< message to be written to profile
 
-#if (! defined CCSMCOUPLED && ! defined CESMTIMERS)
+#if (defined PROFILING && ! defined CCSMCOUPLED && ! defined CESMTIMERS)
     real t
 
     call cpu_time(t)
@@ -151,7 +159,7 @@ contains
   subroutine profile_close(prof)
     implicit none
     type(profile_type), intent(in) :: prof !< structure storing profile definitions
-#if (! defined CCSMCOUPLED && ! defined CESMTIMERS)
+#if (defined PROFILING && ! defined CCSMCOUPLED && ! defined CESMTIMERS)
     ! local variables
     character(len=8)  :: date
     character(len=10) :: time    
@@ -170,4 +178,21 @@ contains
     call t_finalizef ()
 #endif
   end subroutine profile_close
+
+#if (! defined CCSMCOUPLED && ! defined CESMTIMERS)
+   subroutine t_startf(event, handle)
+   integer,parameter :: SHR_KIND_I8 = selected_int_kind (13) ! 8 byte integer
+   character(len=*), intent(in) :: event  
+   integer(shr_kind_i8), optional :: handle
+   return
+   end subroutine t_startf
+
+   subroutine t_stopf(event, handle)
+   integer,parameter :: SHR_KIND_I8 = selected_int_kind (13) ! 8 byte integer
+   character(len=*), intent(in) :: event  
+   integer(shr_kind_i8), optional :: handle
+   return
+   end subroutine t_stopf
+#endif
+
 end module profile

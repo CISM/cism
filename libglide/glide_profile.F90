@@ -44,18 +44,22 @@ contains
 
     if (model%profile%profile_unit .eq. 0) then
        call profile_init(model%profile,'glide.profile')
+#if (defined PROFILING && ! defined CCSMCOUPLED && ! defined CESMTIMERS)
        write(model%profile%profile_unit,*) '# take a profile every ',model%numerics%profile_period,' time steps'
+#endif
     end if
 
     ! registering glide profiles
-    model%glide_prof%geomderv    = profile_register(model%profile,'horizontal derivatives')
-    model%glide_prof%hvelos      = profile_register(model%profile,'horizontal velocities')
-    model%glide_prof%ice_mask1   = profile_register(model%profile,'ice mask 1')
-    model%glide_prof%temperature = profile_register(model%profile,'temperature')
-    model%glide_prof%ice_evo     = profile_register(model%profile,'ice evolution')
-    model%glide_prof%ice_mask2   = profile_register(model%profile,'ice mask 2')
-    model%glide_prof%isos_water  = profile_register(model%profile,'isostasy water')
-    model%glide_prof%isos        = profile_register(model%profile,'isostasy')
+    if (model%glide_prof%geomderv == -1) then
+      model%glide_prof%geomderv    = profile_register(model%profile,'horizontal derivatives')
+      model%glide_prof%hvelos      = profile_register(model%profile,'horizontal velocities')
+      model%glide_prof%ice_mask1   = profile_register(model%profile,'ice mask 1')
+      model%glide_prof%temperature = profile_register(model%profile,'temperature')
+      model%glide_prof%ice_evo     = profile_register(model%profile,'ice evolution')
+      model%glide_prof%ice_mask2   = profile_register(model%profile,'ice mask 2')
+      model%glide_prof%isos_water  = profile_register(model%profile,'isostasy water')
+      model%glide_prof%isos        = profile_register(model%profile,'isostasy')
+    endif
   end subroutine glide_prof_init
   
   subroutine glide_prof_start(model,profn)
