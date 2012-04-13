@@ -245,14 +245,7 @@ contains
 
         if (model%options%whichtemp == TEMP_REMAP_ADV) then ! Use IR to advect temperature
 
-#ifdef JEFFORIG
-           call horizontal_remap_init( model%remap_wk,    &
-                                       model%numerics%dew, model%numerics%dns,  &
-                                       model%general%ewn,  model%general%nsn,   &
-                                       model%options%periodic_ew, model%options%periodic_ns, &
-                                       model%general%upn,  model%numerics%sigma )    
-#endif
-           !JEFF In distributed, horizontal remapping is serialized, so it needs to be initialized with full grid size
+           !old horizontal remapping is serialized, so it needs to be initialized with full grid size
            call horizontal_remap_init( model%remap_wk,    &
                                        model%numerics%dew, model%numerics%dns,  &
                                        global_ewn,  global_nsn,   &
@@ -260,13 +253,7 @@ contains
                                        model%general%upn,  model%numerics%sigma )
 
         else  ! Use IR to transport thickness only
-#ifdef JEFFORIG
-           call horizontal_remap_init( model%remap_wk,    &
-                                       model%numerics%dew, model%numerics%dns,  &
-                                       model%general%ewn,  model%general%nsn, &
-                                       model%options%periodic_ew, model%options%periodic_ns))
-#endif
-           !JEFF In distributed, horizontal remapping is serialized, so it needs to be initialized with full grid size
+           !old horizontal remapping is serialized, so it needs to be initialized with full grid size
            call horizontal_remap_init( model%remap_wk,    &
                                        model%numerics%dew, model%numerics%dns,  &
                                        global_ewn,  global_nsn, &
@@ -399,9 +386,7 @@ contains
     ! ------------------------------------------------------------------------ 
     ! Calculate various derivatives...
     ! ------------------------------------------------------------------------     
-#ifdef PROFILING
     call glide_prof_start(model,model%glide_prof%geomderv)
-#endif
 
     call geometry_derivs(model)
     
@@ -465,13 +450,17 @@ contains
          ! Vert diffusion and strain heating only; no advection
          ! Remapping routine is used to advect temperature in glide_tstep_p2
 
+        call t_startf('glissade_temp_driver')
          call glissade_temp_driver(model)
+        call t_stopf('glissade_temp_driver')
 
        else
 
          ! standard Glide driver, including temperature advection
 
+        call t_startf('glide_temp_driver')
          call glide_temp_driver(model, model%options%whichtemp, model%options%which_ho_diagnostic)
+        call t_stopf('glide_temp_driver')
 
        endif
 
@@ -559,7 +548,9 @@ contains
           stagthck_old = model%geomderv%stagthck
        endif
 
+      call t_startf('inc_remap_driver')
        call inc_remap_driver( model )
+      call t_stopf('inc_remap_driver')
 
        !Halo updates required for inputs to glide_stress?
        call staggered_parallel_halo(model%geomderv%dusrfdew)
@@ -801,6 +792,7 @@ end select
 
     ! These three calls are in glide_temp in the full-temperature section replaced by Bill's new temperature code.
     ! Commenting out until I hear otherwise.
+   call t_startf('postp3_timeders')
     call timeders(model%thckwk,   &
             model%geometry%thck,     &
             model%geomderv%dthckdtm, &
@@ -814,9 +806,11 @@ end select
             model%geometry%mask,     &
             model%numerics%time,     &
             2)
+   call t_stopf('postp3_timeders')
 
     ! Calculate the vertical velocity of the grid ------------------------------------
 
+   call t_startf('postp3_gridwvel')
     call gridwvel(model%numerics%sigma,  &
             model%numerics%thklim, &
             model%velocity%uvel,   &
@@ -824,6 +818,7 @@ end select
             model%geomderv,        &
             model%geometry%thck,   &
             model%velocity%wgrd)
+   call t_stopf('postp3_gridwvel')
 
 #ifdef GLC_DEBUG
     i = itest
@@ -850,9 +845,13 @@ end select
     end if
    
     if (.not. nw) then
+      call t_startf('glide_io_writeall')
        call glide_io_writeall(model,model)
+      call t_stopf('glide_io_writeall')
        if (model%options%gthf.gt.0) then
+         call t_startf('glide_lithot_io_writeall')
           call glide_lithot_io_writeall(model,model)
+         call t_stopf('glide_lithot_io_writeall')
        end if
     end if
   end subroutine glide_tstep_postp3

@@ -71,7 +71,9 @@ module glam
            print *, 'Compute higher-order ice velocities, time =', model%numerics%time
         endif
 
+       call t_startf('run_ho_diagnostic')
         call run_ho_diagnostic(model)   ! in glide_velo_higher.F90
+       call t_stopf('run_ho_diagnostic')
 
         if (main_task) then
            print *, ' '
@@ -114,6 +116,7 @@ module glam
 
            ! Glue code to gather the distributed variables back to main_task processor.
            ! These are outputs from run_ho_diagnostic and are gathered presuming they will be used
+          call t_startf('old_remap_gathers')
            call distributed_gather_var(model%stress%efvs, gathered_efvs)
            call distributed_gather_var(model%velocity%uvel, gathered_uvel)
            call distributed_gather_var(model%velocity%vvel, gathered_vvel)
@@ -131,6 +134,7 @@ module glam
            !After gathering, then update nsn and ewn to full values (and zero halos?)
            model%general%ewn = global_ewn
            model%general%nsn = global_nsn
+          call t_stopf('old_remap_gathers')
 
            if (main_task) then
 
@@ -149,6 +153,7 @@ module glam
                ! Do not advect temp(0), since fixed at artm
                ! At least for now, do not advect temp(upn) either.
 
+              call t_startf('horizontal_remap_in')
                call horizontal_remap_in (model%remap_wk,          model%numerics%dt,                     &
                                          gathered_thck(1:model%general%ewn-1,1:model%general%nsn-1),  &
                                          gathered_uflx, gathered_vflx,               &
@@ -157,9 +162,11 @@ module glam
                                          gathered_uvel, gathered_vvel,               &
                                          gathered_temp  (1:model%general%upn-1,                        &
                                                          1:model%general%ewn-1,1:model%general%nsn-1))
+              call t_stopf('horizontal_remap_in')
 
                ! Remap temperature and fractional thickness for each layer
 
+              call t_startf('horizontal_remap')
                model%remap_wk%dt_ir = model%remap_wk%dt_ir / model%numerics%subcyc
                do sc = 1 , model%numerics%subcyc
                   write(*,*) 'Processing subcycling step: ',sc
@@ -180,34 +187,42 @@ module glam
                   enddo
                enddo
                model%remap_wk%dt_ir = model%remap_wk%dt_ir * model%numerics%subcyc
+              call t_stopf('horizontal_remap')
 
                ! Interpolate tracers back to sigma coordinates
                ! sigma is "Sigma values for vertical spacing of model levels" which is the same on all nodes.
                ! Rest of parameters vertical_remap are relative to remap_wk, so no gathering required.
+              call t_startf('vertical_remap')
                call vertical_remap( model%general%ewn-1,     model%general%nsn-1,               &
                                     model%general%upn,       ntrace_ir,                         &
                                     model%numerics%sigma,    model%remap_wk%thck_ir(:,:,:),     &
                                     model%remap_wk%trace_ir)
+              call t_stopf('vertical_remap')
 
                 ! gathered_thck and gathered_temp updated in this procedure.  
                 ! put output from inc. remapping code back into format that model wants
-                call horizontal_remap_out(model%remap_wk, gathered_thck,                 &
-                                          gathered_acab, model%numerics%dt,              &
-                                          gathered_temp(1:model%general%upn-1,:,:) )
+              call t_startf('horizontal_remap_out')
+               call horizontal_remap_out(model%remap_wk, gathered_thck,                 &
+                                         gathered_acab, model%numerics%dt,              &
+                                         gathered_temp(1:model%general%upn-1,:,:) )
+              call t_stopf('horizontal_remap_out')
 
             else  ! Use IR to transport thickness only
                 ! call inc. remapping code for thickness advection (i.e. dH/dt calcualtion)
 
                 ! put relevant model variables into a format that inc. remapping code wants
 
+              call t_startf('horizontal_remap_in')
                call horizontal_remap_in (model%remap_wk, model%numerics%dt,                             &
                                          gathered_thck(1:model%general%ewn-1,1:model%general%nsn-1),    &
                                          gathered_uflx, gathered_vflx,               &
                                          gathered_stagthck, model%numerics%thklim,   &
                                          model%options%periodic_ew, model%options%periodic_ns)
+              call t_stopf('horizontal_remap_in')
 
                 ! All variables going into horizontal_remap are relative to remap_wk, so no gathering required.
                 ! call inc. remapping code for thickness advection (i.e. dH/dt calcualtion)
+              call t_startf('horizontal_remap')
                 model%remap_wk%dt_ir = model%remap_wk%dt_ir / model%numerics%subcyc
                 do sc = 1 , model%numerics%subcyc
                    write(*,*) 'Processing subcycling step: ',sc
@@ -222,22 +237,27 @@ module glam
                                           model%remap_wk%hm_ir,       model%remap_wk%tarear_ir)
                 enddo
                 model%remap_wk%dt_ir = model%remap_wk%dt_ir * model%numerics%subcyc
+              call t_stopf('horizontal_remap')
 
                 ! gathered_thck is updated in this procedure
                 ! put output from inc. remapping code back into format that model wants
-                call horizontal_remap_out( model%remap_wk, gathered_thck,   &
-                                           gathered_acab, model%numerics%dt )
+              call t_startf('horizontal_remap_out')
+               call horizontal_remap_out( model%remap_wk, gathered_thck,   &
+                                          gathered_acab, model%numerics%dt )
+              call t_stopf('horizontal_remap_out')
 
             endif   ! whichtemp
 
            endif    ! main_task
 
+          call t_startf('old_remap_scatters')
            !scatter thck (and temp) back to other processes
            call distributed_scatter_var(model%geometry%thck, gathered_thck)
            if (model%options%whichtemp == TEMP_REMAP_ADV) then
              call distributed_scatter_var(model%temper%temp, gathered_temp)
              !If advecting other tracers, add scatter here
            endif
+          call t_stopf('old_remap_scatters')
 
            !After scattering, reset nsn and ewn to distributed values
            model%general%ewn = local_ewn
@@ -250,15 +270,20 @@ module glam
 
 !PW FOLLOWING NECESSARY?
            ! Halo updates for velocities, thickness and tracers
+          call t_startf('new_remap_halo_upds')
            call staggered_parallel_halo(model%velocity%uvel)
            call staggered_parallel_halo(model%velocity%vvel)
            call parallel_halo(model%geometry%thck)
+           if (model%options%whichtemp == TEMP_REMAP_ADV) then
+              !If advecting other tracers, add parallel_halo update here
+              call parallel_halo(model%temper%temp)
+           endif
+          call t_stopf('new_remap_halo_upds')
 
+          call t_startf('glissade_transport_driver')
            if (model%options%whichtemp == TEMP_REMAP_ADV) then  ! Use IR to transport thickness, temperature
                                                                 ! (and other tracers, if present)
 
-              !If advecting other tracers, add parallel_halo update here
-              call parallel_halo(model%temper%temp)
               call glissade_transport_driver(model%numerics%dt * tim0,                             &  
                                              model%numerics%dew * len0, model%numerics%dns * len0, &
                                              model%general%ewn,         model%general%nsn,         &
@@ -287,6 +312,7 @@ module glam
                                              model%geometry%thck(:,:))
 
            endif  ! whichtemp
+          call t_stopf('glissade_transport_driver')
 
            if (write_verbose) then
               call distributed_gather_var(model%geometry%thck, gathered_thck)
@@ -296,11 +322,13 @@ module glam
         endif  ! old v. new remapping
 
         !Update halos of modified fields
+       call t_startf('after_remap_haloupds')
         call parallel_halo(model%geometry%thck)
         if (model%options%whichtemp == TEMP_REMAP_ADV) then
            call parallel_halo(model%temper%temp)
            !If advecting other tracers, add parallel_halo update here
         endif
+       call t_stopf('after_remap_haloupds')
 
 !whl - optional diagnostics - remove later
 !whl - write gathered_thck and temp

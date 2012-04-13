@@ -54,6 +54,7 @@ program simple_glide
   real(kind=rk) time
   real(kind=dp) t1,t2
   integer clock,clock_rate,ret
+  character*3 suffix
 
   integer :: tstep_count
 
@@ -82,7 +83,7 @@ program simple_glide
   call t_startf('simple glide')
 
   ! initialise GLIDE
-  call t_startf('glide initialization')
+    call t_startf('glide initialization')
   call glide_config(model,config)
   call simple_initialise(climate,config)
   call glide_initialise(model)
@@ -94,28 +95,38 @@ program simple_glide
   call simple_massbalance(climate,model,time)
   call simple_surftemp(climate,model,time)
   call spinup_lithot(model)
-  call t_stopf('glide initialization')
+    call t_stopf('glide initialization')
 
   tstep_count = 0
 
+  suffix = '_t1'
   do while(time.le.model%numerics%tend)
-    call t_startf('glide_tstep_p1')
+     if (tstep_count > 0) suffix = '   '
+     call t_startf('glide_tstep'//suffix)
+
+       call t_startf('glide_tstep_p1'//suffix)
+       if (tstep_count == 0) call t_adj_detailf(+10)
      call glide_tstep_p1(model,time)
-    call t_stopf('glide_tstep_p1')
+       if (tstep_count == 0) call t_adj_detailf(-10)
+       call t_stopf('glide_tstep_p1'//suffix)
 
-    call t_startf('glide_tstep_p2')
+       call t_startf('glide_tstep_p2'//suffix)
+       if (tstep_count == 0) call t_adj_detailf(+10)
      call glide_tstep_p2(model)
-    call t_stopf('glide_tstep_p2')
+       if (tstep_count == 0) call t_adj_detailf(-10)
+       call t_stopf('glide_tstep_p2'//suffix)
 
-    call t_startf('glide_tstep_p3')
+       call t_startf('glide_tstep_p3'//suffix)
+       if (tstep_count == 0) call t_adj_detailf(+10)
      call glide_tstep_p3(model)
-    call t_stopf('glide_tstep_p3')
+       if (tstep_count == 0) call t_adj_detailf(-10)
+       call t_stopf('glide_tstep_p3'//suffix)
 
      ! override masking stuff for now
      tstep_count = tstep_count + 1
 
      ! Redistribute calls here to spread the data back out.
-    call t_startf('simple_glide_halo_upd')
+       call t_startf('simple_glide_halo_upd'//suffix)
      call parallel_halo(model%stress%efvs)
      call parallel_halo(model%velocity%uvel)
      call parallel_halo(model%velocity%vvel)
@@ -157,22 +168,21 @@ program simple_glide
      else
         call parallel_halo_temperature(model%temper%temp)
      endif
-    call t_stopf('simple_glide_halo_upd')
+       call t_stopf('simple_glide_halo_upd'//suffix)
 
      ! Perform parallel operations for restart files
-    call t_startf('glide_tstep_postp3')
+       call t_startf('glide_tstep_postp3'//suffix)
+       if (tstep_count == 1) call t_adj_detailf(+10)
      call glide_tstep_postp3(model)
-    call t_stopf('glide_tstep_postp3')
+       if (tstep_count == 1) call t_adj_detailf(-10)
+       call t_stopf('glide_tstep_postp3'//suffix)
 
      time = time + model%numerics%tinc
 
-    call t_startf('simple_massbalance')
      call simple_massbalance(climate,model,time)
-    call t_stopf('simple_massbalance')
-
-    call t_startf('simple_surftemp')
      call simple_surftemp(climate,model,time)     
-    call t_stopf('simple_surftemp')
+
+     call t_stopf('glide_tstep'//suffix)
   end do
 
   call t_stopf('simple glide')

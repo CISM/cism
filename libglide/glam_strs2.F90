@@ -24,7 +24,7 @@ use glimmer_log,      only : write_log
 use glide_mask
 use glimmer_sparse_type
 use glimmer_sparse
-use glide_types, only : glide_global_type, pass_through
+use glide_types
 
 implicit none
 
@@ -311,6 +311,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
   character(3) :: looptime
   real (kind = dp) :: multiplier
 
+ call t_startf("PICARD_pre")
   ! RN_20100125: assigning value for whatsparse, which is needed for putpcgc()
   whatsparse = whichsparse
 
@@ -470,9 +471,11 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
      print *, ' '
   endif
 
+ call t_stopf("PICARD_pre")
   ! ****************************************************************************************
   ! START of Picard iteration
   ! ****************************************************************************************
+ call t_startf("PICARD_iter")
 
   call ghost_preprocess( ewn, nsn, upn, uindx, ughost, vghost, &
                          uk_1, vk_1, uvel, vvel, g_flag) ! jfl_20100430
@@ -485,6 +488,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
   outer_it_target = 0.0
 
   do while ( outer_it_criterion .ge. outer_it_target .and. counter < cmax)    ! use L2 norm for resid calculation
+ call t_startf("PICARD_in_iter")
 
   ! choose outer loop stopping criterion
   if( counter > 1 )then
@@ -551,7 +555,9 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 ! jfl 20100412: residual for v comp: Fv= A(u^k-1,v^k-1)v^k-1 - b(u^k-1,v^k-1)  
 !==============================================================================
     !JEFF - The multiplication Ax is done across all nodes, but Ax - b is only computed locally, so L2square needs to be summed.
+ call t_startf("PICARD_res_vect")
     call res_vect( matrix, vk_1, rhsd, size(rhsd), g_flag, L2square, whichsparse ) 
+ call t_stopf("PICARD_res_vect")
 
     L2norm  = L2square
     F(1:pcgsize(1)) = vk_1(:)
@@ -562,6 +568,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 ! RN_20100129: Option to load Trilinos matrix directly bypassing sparse_easy_solve
 !==============================================================================
 
+ call t_startf("PICARD_solvea")
   if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
      call sparse_easy_solve(matrix, rhsd, answer, err, iter, whichsparse)
 #ifdef TRILINOS
@@ -571,6 +578,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
      ! write(*,*) 'Total linear solve time so far', totalLinearSolveTime
 #endif
   endif
+ call t_stopf("PICARD_solvea")
 
 !==============================================================================
 ! RN_20100129: End of the block
@@ -629,7 +637,9 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 ! jfl 20100412: residual for u comp: Fu= C(u^k-1,v^k-1)u^k-1 - d(u^k-1,v^k-1)  
 !==============================================================================
 
+ call t_startf("PICARD_res_vect")
     call res_vect( matrix, uk_1, rhsd, size(rhsd), g_flag, L2square, whichsparse ) 
+ call t_stopf("PICARD_res_vect")
 
     L2norm = sqrt(L2norm + L2square)
     F(pcgsize(1)+1:2*pcgsize(1)) = uk_1(:) ! F = [ Fv, Fu ]
@@ -644,6 +654,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 ! RN_20100129: Option to load Trilinos matrix directly bypassing sparse_easy_solve
 !==============================================================================
 
+ call t_startf("PICARD_solveb")
   if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
      call sparse_easy_solve(matrix, rhsd, answer, err, iter, whichsparse)
 #ifdef TRILINOS
@@ -653,6 +664,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
      ! write(*,*) 'Total linear solve time so far', totalLinearSolveTime
 #endif
   endif
+ call t_stopf("PICARD_solveb")
 
 !==============================================================================
 ! RN_20100129: End of the block
@@ -708,9 +720,11 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 
     ! apply unstable manifold correction to converged velocities
 
+ call t_startf("PICARD_mindcrsh")
     call mindcrshstr(1,whichresid,uvel,counter,resid(1))
     vvel = tvel
     call mindcrshstr(2,whichresid,vvel,counter,resid(2))
+ call t_stopf("PICARD_mindcrsh")
 
     ! coordinate halos for updated uvel and vvel
     call staggered_parallel_halo(uvel)
@@ -751,6 +765,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
     endif
 
     counter = counter + 1   ! advance the iteration counter
+ call t_stopf("PICARD_in_iter")
   end do 
 
   inisoln = .true.
@@ -758,7 +773,9 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
   ! ****************************************************************************************
   ! END of Picard iteration
   ! ****************************************************************************************
+ call t_stopf("PICARD_iter")
 
+ call t_startf("PICARD_post")
   call ghost_postprocess( ewn, nsn, upn, uindx, uk_1, vk_1, &
                           ughost, vghost )
 
@@ -808,6 +825,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 
   !JEFF Debugging output
   overallloop = overallloop + 1
+ call t_stopf("PICARD_post")
 
   return
 
@@ -914,6 +932,7 @@ subroutine JFNK                 (model,umask)
 !      end subroutine noxfinish
 !  end interface
 
+ call t_startf("JFNK_pre")
   ewn = model%general%ewn
   nsn = model%general%nsn
   upn = model%general%upn
@@ -1102,6 +1121,7 @@ if (main_task) then
 end if
 
   calcoffdiag = .false.    ! save off diag matrix components
+ call t_stopf("JFNK_pre")
 
 !==============================================================================
 ! Beginning of Newton loop. Solves F(x) = 0 for x where x = [v, u] and
@@ -1111,9 +1131,15 @@ end if
 ! UNCOMMENT these lines to switch to NOX's JFNK
 ! AGS: To Do:  send in distributed xk_1, or myIndices array, for distributed nox
 #ifdef TRILINOS 
+ call t_startf("JFNK_noxinit")
   call noxinit(xk_size, xk_1, 1, c_ptr_to_object)
+ call t_stopf("JFNK_noxinit")
+ call t_startf("JFNK_noxsolve")
   call noxsolve(xk_size, xk_1, c_ptr_to_object)
+ call t_stopf("JFNK_noxsolve")
+ call t_startf("JFNK_noxfinish")
   call noxfinish()
+ call t_stopf("JFNK_noxfinish")
   kmax = 0     ! turn off native JFNK below
 #endif
 
@@ -1123,6 +1149,7 @@ end if
 
   ! This do loop is only used for SLAP.  Do not parallelize.
   do k = 1, kmax
+   call t_startf("JFNK_SLAP")
     call not_parallel(__FILE__, __LINE__)
 
 !    calcoffdiag = .true.    ! save off diag matrix components
@@ -1210,8 +1237,10 @@ end if
 !------------------------------------------------------------------------
       xk_1 = xk_1 + dx(1:2*pcgsize(1))
 
+  call t_stopf("JFNK_SLAP")
  end do
 
+ call t_startf("JFNK_post")
 ! (need to update these values from fptr%uvel,vvel,stagthck etc)
   call solver_postprocess_jfnk( ewn, nsn, upn, uindx, xk_1, vvel, uvel, ghostbvel, pcgsize(1) )
   call ghost_postprocess_jfnk( ewn, nsn, upn, uindx, xk_1, ughost, vghost, pcgsize(1) )
@@ -1316,6 +1345,7 @@ end if
 !whl - BUG FIX: Resetting flwa to the correct value.  (Above it was set to flwa*vis0/vis0_glam.)
 !      To do: Rewrite the subroutine so that no rescaling is needed.
   flwa(:,:,:)=flwa(:,:,:) / (vis0/vis0_glam)
+ call t_stopf("JFNK_post")
 
   return
 end subroutine JFNK
@@ -2157,6 +2187,7 @@ end subroutine reset_effstrmin
 !  real (kind = dp), intent(inout):: L2norm
   real (kind = dp) :: L2norm
 
+ call t_startf("Calc_F")
   call c_f_pointer(c_ptr_to_object,fptr) ! convert C ptr to F ptr= resid_object
            
   ewn = fptr%model%general%ewn
@@ -2264,7 +2295,9 @@ end subroutine reset_effstrmin
     
     vectp = xtp(1:pcgsize(1))
 
+ call t_startf("Calc_F_res_vect")
     call res_vect(matrixA, vectp, rhsd, pcgsize(1),  gxf, L2square, whatsparse)
+ call t_stopf("Calc_F_res_vect")
     L2norm=L2square
 
     F(1:pcgsize(1)) = vectp(1:pcgsize(1)) 
@@ -2305,7 +2338,9 @@ end subroutine reset_effstrmin
     
     vectp(1:pcgsize(1)) = xtp(pcgsize(1)+1:2*pcgsize(1))
 
+ call t_startf("Calc_F_res_vect")
     call res_vect(matrixC, vectp, rhsd, pcgsize(1), gxf, L2square, whatsparse)
+ call t_stopf("Calc_F_res_vect")
     L2norm = sqrt(L2norm + L2square)
 
     F(pcgsize(1)+1:2*pcgsize(1)) = vectp(1:pcgsize(1)) 
@@ -2319,7 +2354,6 @@ end subroutine reset_effstrmin
 
     call solver_postprocess_jfnk( ewn, nsn, upn, ui, xtp, vvel, uvel, ghostbvel, pcgsize(1) )
 
-
   fptr%model%velocity%btraction => btraction(:,:,:)
   fptr%model%temper%flwa => flwa(:,:,:)
   fptr%model%stress%efvs => efvs(:,:,:)
@@ -2329,6 +2363,7 @@ end subroutine reset_effstrmin
   fptr%L2norm = L2norm
   fptr%matrixA = matrixA
   fptr%matrixC = matrixC
+ call t_stopf("Calc_F")
 
 end subroutine calc_F
 

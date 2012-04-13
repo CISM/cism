@@ -141,7 +141,9 @@ contains
        !Calculate higher-order velocities if the user asked for them
        if (model%options%which_ho_diagnostic /= 0 ) then
             call geometry_derivs_unstag(model)
+           call t_startf('run_ho_diagnostic2')
             call run_ho_diagnostic(model)                          
+           call t_stopf('run_ho_diagnostic2')
        end if
 
 ! *sfp* not needed anymore? Causes circular ref error when building w/ fo_upwind code

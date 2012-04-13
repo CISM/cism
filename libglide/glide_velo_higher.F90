@@ -65,6 +65,7 @@ contains
 
           if ( model%options%which_ho_nonlinear == HO_NONLIN_PICARD ) then ! Picard (standard solver)
 
+           call t_startf('glam_velo_fordsiapstr')
             call glam_velo_fordsiapstr( model%general%ewn,       model%general%nsn,                 &
                                         model%general%upn,                                          &
                                         model%numerics%dew,      model%numerics%dns,                &
@@ -89,11 +90,14 @@ contains
                                         model%velocity%uvel, model%velocity%vvel,           &
                                         model%velocity%uflx, model%velocity%vflx,           &
                                         model%stress%efvs )
+           call t_stopf('glam_velo_fordsiapstr')
 
           else if ( model%options%which_ho_nonlinear == HO_NONLIN_JFNK ) then ! JFNK (solver in development...)
 
 ! noxsolve could eventually go here 
+           call t_startf('JFNK')
             call JFNK                  (model, geom_mask_stag) 
+           call t_stopf('JFNK')
 
           else
               call write_log('Invalid which_ho_nonlinear option.',GM_FATAL)
@@ -113,7 +117,9 @@ contains
         ! calculate vertical velocity 
         ! JEFF Distributed Merge - the calls in calcwvel have been previously parallelized.
         ! Also there is no dependency on the output of glide_calcstrsstr() which calcs tau.
+       call t_startf('calcwvel')
         call calcwvel( model, model%options%whichtemp )
+       call t_stopf('calcwvel')
     end subroutine
 
     !*sfp* copy of code in glide_temp for calc. vert vel. If using HO, this will now be done here
