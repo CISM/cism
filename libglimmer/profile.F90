@@ -88,7 +88,6 @@ contains
     implicit none
     type(profile_type) :: prof !< structure storing profile definitions
     character(len=*), intent(in) :: msg !< the message to be associated
-#if (defined PROFILING || defined CCSMCOUPLED || defined CESMTIMERS)
     integer profile_register
 
     prof%nump = prof%nump+1
@@ -98,7 +97,6 @@ contains
     end if
     profile_register = prof%nump
     prof%pname(prof%nump) = trim(msg)
-#endif
   end function profile_register
 
   !> start profiling
@@ -174,7 +172,7 @@ contains
 #endif
 
 #if (! defined CCSMCOUPLED && defined CESMTIMERS)
-    call t_prf('seacism_timing')
+    call t_prf('seacism_timing',num_outpe=1,global_stats=.true.)
     call t_finalizef ()
 #endif
   end subroutine profile_close
@@ -193,6 +191,11 @@ contains
    integer(shr_kind_i8), optional :: handle
    return
    end subroutine t_stopf
+
+   subroutine t_adj_detailf(detail_adjustment)
+   integer, intent(in) :: detail_adjustment
+   return
+   end subroutine t_adj_detailf
 #endif
 
 end module profile
