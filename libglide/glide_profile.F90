@@ -50,16 +50,14 @@ contains
     end if
 
     ! registering glide profiles
-    if (model%glide_prof%geomderv == -1) then
-      model%glide_prof%geomderv    = profile_register(model%profile,'horizontal derivatives')
-      model%glide_prof%hvelos      = profile_register(model%profile,'horizontal velocities')
-      model%glide_prof%ice_mask1   = profile_register(model%profile,'ice mask 1')
-      model%glide_prof%temperature = profile_register(model%profile,'temperature')
-      model%glide_prof%ice_evo     = profile_register(model%profile,'ice evolution')
-      model%glide_prof%ice_mask2   = profile_register(model%profile,'ice mask 2')
-      model%glide_prof%isos_water  = profile_register(model%profile,'isostasy water')
-      model%glide_prof%isos        = profile_register(model%profile,'isostasy')
-    endif
+    model%glide_prof%geomderv    = profile_register(model%profile,'horizontal derivatives')
+    model%glide_prof%hvelos      = profile_register(model%profile,'horizontal velocities')
+    model%glide_prof%ice_mask1   = profile_register(model%profile,'ice mask 1')
+    model%glide_prof%temperature = profile_register(model%profile,'temperature')
+    model%glide_prof%ice_evo     = profile_register(model%profile,'ice evolution')
+    model%glide_prof%ice_mask2   = profile_register(model%profile,'ice mask 2')
+    model%glide_prof%isos_water  = profile_register(model%profile,'isostasy water')
+    model%glide_prof%isos        = profile_register(model%profile,'isostasy')
   end subroutine glide_prof_init
   
   subroutine glide_prof_start(model,profn)

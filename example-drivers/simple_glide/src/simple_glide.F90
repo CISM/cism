@@ -75,10 +75,8 @@ program simple_glide
   call system_clock(clock,clock_rate)
   t1 = real(clock,kind=dp)/real(clock_rate,kind=dp)
 
-#if (defined CCSMCOUPLED || defined CESMTIMERS)
   ! initialise profiling
-  call glide_prof_init(model)
-#endif
+  call profile_init(model%profile,'glide.profile')
 
   call t_startf('simple glide')
 

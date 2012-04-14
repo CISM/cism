@@ -860,14 +860,14 @@ module glide_types
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   type glide_prof_type
-     integer :: geomderv = -1
-     integer :: hvelos = -1
-     integer :: ice_mask1 = -1
-     integer :: temperature = -1
-     integer :: ice_evo = -1
-     integer :: ice_mask2 = -1
-     integer :: isos_water = -1
-     integer :: isos = -1
+     integer :: geomderv
+     integer :: hvelos
+     integer :: ice_mask1
+     integer :: temperature
+     integer :: ice_evo
+     integer :: ice_mask2
+     integer :: isos_water
+     integer :: isos
   end type glide_prof_type
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   type glide_phaml

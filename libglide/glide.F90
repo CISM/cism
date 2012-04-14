@@ -320,10 +320,8 @@ contains
     model%thckwk%olds(:,:,1) = model%geometry%thck(:,:)
     model%thckwk%olds(:,:,2) = model%geometry%usrf(:,:)
 
-    ! initialise profile
-#if (defined PROFILING && ! defined CCSMCOUPLED && ! defined CESMTIMERS)
+    ! initialise standard glide profiling
     call glide_prof_init(model)
-#endif
 
     ! register the newly created model so that it can be finalised in the case
     ! of an error without needing to pass the whole thing around to every
