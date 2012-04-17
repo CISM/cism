@@ -1,7 +1,7 @@
 # install script for Jaguar-interlagos: 12/2011
 # build instructions for top level directory 
 # (1) module load subversion netcdf/4.1.2 p-netcdf/1.2.0
-# (2) module swap pgi pgi/11.10.0  ** note must use this version right now KJE 4/16/12**
+# (2) module swap pgi pgi/11.10.0
 # (3) ./bootstrap
 # (4) find . -exec touch -r configure {} +
 # (5) configure-scripts/xk6-config (this file)
@@ -11,7 +11,7 @@
   FC=ftn  F77=ftn   \
   CC=cc  CXX=CC \
   CXXFLAGS="-O2 --diag_suppress 554,111,611" \
-  CPPFLAGS="-DHAVE_MPI -DMPICH_IGNORE_CXX_SEEK" \
+  CPPFLAGS="-D_USE_MPI_WITH_SLAP" \
   FCFLAGS="-Mfree -O2" \
   F77FLAGS="-Mfixed" \
   CFLAGS="-O2 -tp bulldozer-64,istanbul-64" \
@@ -20,11 +20,11 @@
   --disable-shared \
   --with-netcdf=$NETCDF_DIR \
   EXTRA_LDLIBS="/opt/pgi/11.10.0/linux86-64/11.10/lib/f90main.o" \
-  --with-trilinos=/ccs/proj/cli054/trilinos-10.8.4-interlagos/NOX_BUILD-FAST \
   --with-blas=-lsci_pgi \
-  --enable-mpi="yes" \
-  --prefix="$HOME/seacism"
+  --prefix="$HOME/seacism" \
 
+
+#  CPPFLAGS="-DHAVE_MPI -DMPICH_IGNORE_CXX_SEEK -D_USE_MPI_WITH_SLAP" \
 #worked with the following environment on 4/16/2012
 #Currently Loaded Modulefiles from these commands:
 
@@ -43,3 +43,4 @@
 # 13) xt-asyncpe/5.05                           28) netcdf/4.1.2
 # 14) atp/1.4.1                                 29) p-netcdf/1.2.0
 # 15) PrgEnv-pgi/4.0.30
+~                                                        
