@@ -439,6 +439,13 @@ contains
     global_values(d1l:d1u,:,:) = values(1:size(values,1),:,:)
   end subroutine distributed_gather_var_real8_3d
 
+  function distributed_isparallel()
+     implicit none
+     logical :: distributed_isparallel
+
+     distributed_isparallel = .false.
+  end function distributed_isparallel
+
   function distributed_owner(ew,ewn,ns,nsn)
     implicit none
     logical :: distributed_owner

@@ -510,6 +510,13 @@ contains
     write(*,*) "Process ", this_rank, " EW = ", local_ewn, " NS = ", local_nsn
   end subroutine distributed_grid
 
+  function distributed_isparallel()
+     implicit none
+     logical :: distributed_isparallel
+
+     distributed_isparallel = .true.
+  end function distributed_isparallel
+
   function distributed_owner(ew,ewn,ns,nsn)
     implicit none
     logical :: distributed_owner

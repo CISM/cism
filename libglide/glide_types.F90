@@ -1004,6 +1004,7 @@ contains
     !*FD \end{itemize}
 
     use glimmer_log
+    use parallel
 
     implicit none
 
@@ -1044,10 +1045,18 @@ contains
 !      is defined at the upper surface (k = 0) and lower surface (k = upn).
 !whl - Since there is no temperature advection in glide_temp, the extra rows and 
 !      columns (0, ewn+1, nsn+1) in the horizontal are not needed.
-    if (model%options%whichtemp == TEMP_REMAP_ADV) then
+!JEFF TEMP_FULL is the original Glimmer advection scheme for temperature.  It adds an extra row and column around the edges.
+    if (model%options%whichtemp /= TEMP_FULL) then
        allocate(model%temper%temp(0:upn,1:ewn,1:nsn))
        call coordsystem_allocate(model%general%ice_grid, upn-1, model%temper%flwa)
     else
+       !JEFF We decided to not support the wide temperature array for parallel.  Kept for serial compatibility.
+       if ( distributed_isparallel() ) then
+          write(*,*) "temperature == 1 is not supported in parallel execution"
+          ! Calling not_parallel will cause abort
+          call not_parallel(__FILE__, __LINE__)
+       end if
+
        allocate(model%temper%temp(upn,0:ewn+1,0:nsn+1))
        call coordsystem_allocate(model%general%ice_grid, upn, model%temper%flwa)
     endif

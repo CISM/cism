@@ -1091,6 +1091,13 @@ contains
     !automatic deallocation
   end function distributed_get_var_real8_3d
 
+  function distributed_isparallel()
+     implicit none
+     logical :: distributed_isparallel
+
+     distributed_isparallel = .true.
+  end function distributed_isparallel
+
   subroutine distributed_grid(ewn,nsn)
     implicit none
     integer :: ewn,nsn

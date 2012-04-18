@@ -161,11 +161,7 @@ program simple_glide
      call parallel_halo(model%stress%tau_y)
      call parallel_halo(model%geometry%lsrf)
 
-     if (model%options%whichtemp == TEMP_REMAP_ADV) then
-        call parallel_halo(model%temper%temp)
-     else
-        call parallel_halo_temperature(model%temper%temp)
-     endif
+     call parallel_halo(model%temper%temp)
        call t_stopf('simple_glide_halo_upd'//suffix)
 
      ! Perform parallel operations for restart files
