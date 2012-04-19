@@ -1,0 +1,8 @@
+cd ~/BISICLES/code/exec2D
+make driver MPI=TRUE OPT=FALSE DEBUG=FALSE
+cd  ~/BISICLES/code/interface
+make -f GNUmakefile.hopper libs MPI=TRUE OPT=FALSE DEBUG=FALSE
+cd ~/glimmer-cism2/branches/seacism/libdycore
+make -f Makefile.hopper libDyCoreToGlimmer.a
+cd ~/glimmer-cism2/branches/seacism/example-drivers/simple_bisicles/src
+make -f Makefile.hopper simple_bisicles
