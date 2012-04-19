@@ -142,7 +142,7 @@ subroutine dumpvels(name, uvel, vvel)
     else
        write(*,*) name, "Parallel uvel & vvel (1,5:6,15:16)", uvel(1,5:6,15:16), vvel(1,5:6,15:16)
     endif 
-end subroutine
+end subroutine dumpvels
 
 subroutine glam_velo_fordsiapstr_init( ewn,   nsn,   upn,    &
                                        dew,   dns,           &

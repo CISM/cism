@@ -212,10 +212,10 @@ contains
 
     ! MJH: Initialize temperature field - this needs to happen after input file is
     ! read so we can assign artm (which could possibly be read in) if temp has not been input.
-    if (model%options%whichtemp == TEMP_REMAP_ADV) then
-       call glissade_init_temp(model)
+    if (model%options%whichtemp == TEMP_GLIMMER) then
+       call glide_init_temp(model)  ! temperature lives at layer intefaces
     else
-       call glide_init_temp(model)
+       call glissade_init_temp(model)  ! temperature lives at layer centers
     endif 
 
     call init_thck(model)
@@ -443,22 +443,22 @@ contains
     call glide_prof_start(model,model%glide_prof%temperature)
     if ( model%numerics%tinc >  mod(model%numerics%time,model%numerics%ntem)) then
 
-       if (model%options%whichtemp == TEMP_REMAP_ADV) then 
+       if (model%options%whichtemp == TEMP_GLIMMER) then 
+
+         ! Glimmer temp driver, including temperature advection
+
+        call t_startf('glide_temp_driver')
+         call glide_temp_driver(model, model%options%whichtemp, model%options%which_ho_diagnostic)
+        call t_stopf('glide_temp_driver')
+
+       else  ! either TEMP_REMAP_ADV, or a simple option like TEMP_SURFACE_AIR_TEMP
 
          ! Vert diffusion and strain heating only; no advection
          ! Remapping routine is used to advect temperature in glide_tstep_p2
 
         call t_startf('glissade_temp_driver')
-         call glissade_temp_driver(model)
+         call glissade_temp_driver(model, model%options%whichtemp)
         call t_stopf('glissade_temp_driver')
-
-       else
-
-         ! standard Glide driver, including temperature advection
-
-        call t_startf('glide_temp_driver')
-         call glide_temp_driver(model, model%options%whichtemp, model%options%which_ho_diagnostic)
-        call t_stopf('glide_temp_driver')
 
        endif
 

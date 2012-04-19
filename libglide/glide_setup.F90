@@ -455,7 +455,10 @@ contains
   subroutine print_options(model)
     use glide_types
     use glimmer_log
+    use parallel
+
     implicit none
+
     type(glide_global_type)  :: model
     character(len=500) :: message
 
@@ -555,58 +558,89 @@ contains
     character(len=*), dimension(0:1), parameter :: b_mbal = (/ &
          'not in continutity eqn', &
          'in continutity eqn    ' /)
+
     call write_log('GLIDE options')
     call write_log('-------------')
+
     write(message,*) 'I/O parameter file      : ',trim(model%funits%ncfile)
     call write_log(message)
+
     if (model%options%whichtemp.lt.0 .or. model%options%whichtemp.ge.size(temperature)) then
        call write_log('Error, temperature out of range',GM_FATAL)
     end if
     write(message,*) 'temperature calculation : ',model%options%whichtemp,temperature(model%options%whichtemp)
     call write_log(message)
+
+!whl - The old Glimmer temperature scheme is supported only for single-processor runs.
+    if (model%options%whichtemp.eq.TEMP_GLIMMER .and. distributed_execution()) then
+       call write_log('Error, Glimmer temperature scheme (temperature = TEMP_GLIMMER) &
+                       not supported for distributed parallel runs',GM_FATAL)
+    end if
+
+    if ((model%options%whichtemp == TEMP_REMAP_ADV .and. model%options%whichevol /= EVOL_INC_REMAP) .and. &
+        (model%options%whichtemp == TEMP_REMAP_ADV .and. model%options%whichevol /= EVOL_NO_THICKNESS)) then
+        call write_log('Error, must use remapping for thickness evolution (or no thickness evolution) if remapping temperature', GM_FATAL)
+    end if
+
     if (model%options%whichflwa.lt.0 .or. model%options%whichflwa.ge.size(flow_law)) then
        call write_log('Error, flow_law out of range',GM_FATAL)
     end if
+
     write(message,*) 'flow law                : ',model%options%whichflwa,flow_law(model%options%whichflwa)
     call write_log(message)
+
     if (model%options%which_bmod.lt.0 .or. model%options%which_bmod.ge.size(which_bmod)) then
        call write_log('Error, basal_proc out of range',GM_FATAL)
     end if
+
     write(message,*) 'basal_proc              : ',model%options%which_bmod,which_bmod(model%options%which_bmod)
     call write_log(message)
+
     if (model%options%whichbwat.lt.0 .or. model%options%whichbwat.ge.size(basal_water)) then
        call write_log('Error, basal_water out of range',GM_FATAL)
     end if
+
     write(message,*) 'basal_water             : ',model%options%whichbwat,basal_water(model%options%whichbwat)
     call write_log(message)
+
     if (model%options%whichmarn.lt.0 .or. model%options%whichmarn.ge.size(marine_margin)) then
        call write_log('Error, marine_margin out of range',GM_FATAL)
     end if
     write(message,*) 'marine_margin           : ', model%options%whichmarn, marine_margin(model%options%whichmarn)
     call write_log(message)
+
     if (model%options%whichbtrc.lt.0 .or. model%options%whichbtrc.ge.size(slip_coeff)) then
        call write_log('Error, slip_coeff out of range',GM_FATAL)
     end if
+
     write(message,*) 'slip_coeff              : ', model%options%whichbtrc, slip_coeff(model%options%whichbtrc)
     call write_log(message)
+
     if (model%options%whichevol.lt.-1 .or. model%options%whichevol.ge.(size(evolution)-1)) then
        call write_log('Error, evolution out of range',GM_FATAL)
     end if
+
     write(message,*) 'evolution               : ', model%options%whichevol, evolution(model%options%whichevol)
     call write_log(message)
+
     if (model%options%whichwvel.lt.0 .or. model%options%whichwvel.ge.size(vertical_integration)) then
        call write_log('Error, vertical_integration out of range',GM_FATAL)
     end if
+
     write(message,*) 'vertical_integration    : ',model%options%whichwvel,vertical_integration(model%options%whichwvel)
     call write_log(message)
+
     if (model%options%basal_mbal.lt.0 .or. model%options%basal_mbal.ge.size(b_mbal)) then
        call write_log('Error, basal_mass_balance out of range',GM_FATAL)
     end if
+
     write(message,*) 'basal_mass_balance      : ',model%options%basal_mbal,b_mbal(model%options%basal_mbal)
     call write_log(message)
+
     if (model%options%whichrelaxed.eq.1) then
        call write_log('First topo time slice is relaxed')
     end if
+
     if (model%options%periodic_ew) then
        if (model%options%whichevol .eq. EVOL_ADI) then
           call write_log('Periodic boundary conditions not implemented in ADI scheme',GM_FATAL)
@@ -614,6 +648,7 @@ contains
        call write_log('Periodic EW lateral boundary condition')
        call write_log('  Slightly cheated with how temperature is implemented.',GM_WARNING)
     end if
+
     if (model%options%hotstart.eq.1) then
        call write_log('Hotstarting model')
     end if
@@ -623,6 +658,7 @@ contains
     if (model%options%which_ho_diagnostic < 0 .or. model%options%which_ho_diagnostic >= size(ho_diagnostic)) then
         call write_log('Error, diagnostic_scheme out of range', GM_FATAL)
     end if
+
     write(message,*) 'ho_diagnostic           :',model%options%which_ho_diagnostic, &
                        ho_diagnostic(model%options%which_ho_diagnostic)
     call write_log(message)
@@ -630,6 +666,7 @@ contains
     if (model%options%which_ho_prognostic < 0 .or. model%options%which_ho_prognostic >= size(ho_prognostic)) then
         call write_log('Error, prognostic_scheme out of range', GM_FATAL)
     end if
+
     write(message,*) 'ho_prognostic :',model%options%which_ho_prognostic, &
                         ho_prognostic(model%options%which_ho_prognostic)
     call write_log(message)    
@@ -637,6 +674,7 @@ contains
     if (model%options%which_ho_source < 0 .or. model%options%which_ho_source >= size(ho_whichsource)) then
         call write_log('Error, which_ho_source out of range', GM_FATAL)
     end if
+
     write(message,*) 'ice_shelf_source_term   :',model%options%which_ho_source, &
                        ho_whichsource(model%options%which_ho_source)
     call write_log(message)
@@ -644,50 +682,52 @@ contains
     write(message,*) 'ho_whichbabc            :',model%options%which_ho_babc,  &
                       ho_whichbabc(model%options%which_ho_babc)
     call write_log(message)
+
     if (model%options%which_ho_babc < 0 .or. model%options%which_ho_babc >= size(ho_whichbabc)) then
         call write_log('Error, HO basal BC input out of range', GM_FATAL)
     end if
     write(message,*) 'ho_whichefvs            :',model%options%which_ho_efvs,  &
                       ho_whichefvs(model%options%which_ho_efvs)
     call write_log(message)
+
     if (model%options%which_ho_efvs < 0 .or. model%options%which_ho_efvs >= size(ho_whichefvs)) then
         call write_log('Error, HO effective viscosity input out of range', GM_FATAL)
     end if
     write(message,*) 'ho_whichresid           :',model%options%which_ho_resid,  &
                       ho_whichresid(model%options%which_ho_resid)
     call write_log(message)
+
     if (model%options%which_ho_resid < 0 .or. model%options%which_ho_resid >= size(ho_whichresid)) then
         call write_log('Error, HO residual input out of range', GM_FATAL)
     end if
     write(message,*) 'dispwhich               :',model%options%which_disp,  &
                       dispwhich(model%options%which_disp)
     call write_log(message)
+
     if (model%options%which_disp < 0 .or. model%options%which_disp >= size(dispwhich)) then
         call write_log('Error, which dissipation input out of range', GM_FATAL)
     end if
     write(message,*) 'bmeltwhich              :',model%options%which_bmelt,  &
                       bmeltwhich(model%options%which_bmelt)
     call write_log(message)
+
     if (model%options%which_bmelt < 0 .or. model%options%which_bmelt >= size(bmeltwhich)) then
         call write_log('Error, which bmelt input out of range', GM_FATAL)
     end if
     write(message,*) 'which_ho_nonlinear       :',model%options%which_ho_nonlinear,  &
                       which_ho_nonlinear(model%options%which_ho_nonlinear)
     call write_log(message)
+
     if (model%options%which_ho_nonlinear < 0 .or. model%options%which_ho_nonlinear >= size(which_ho_nonlinear)) then
         call write_log('Error, HO nonlinear solution input out of range', GM_FATAL)
     end if
     write(message,*) 'ho_whichsparse          :',model%options%which_ho_sparse,  &
                       ho_whichsparse(model%options%which_ho_sparse)
     call write_log(message)
+
     if (model%options%which_ho_sparse < 0 .or. model%options%which_ho_sparse >= size(ho_whichsparse)) then
         call write_log('Error, HO sparse solver input out of range', GM_FATAL)
     end if
-    if ((model%options%whichtemp == TEMP_REMAP_ADV .and. model%options%whichevol /= EVOL_INC_REMAP) .and. &
-        (model%options%whichtemp == TEMP_REMAP_ADV .and. model%options%whichevol /= EVOL_NO_THICKNESS)) then
-        call write_log('Error, must use remapping for thickness evolution (or no thickness evolution) if remapping temperature', GM_FATAL)
-    end if
-
 
     call write_log('')
   end subroutine print_options

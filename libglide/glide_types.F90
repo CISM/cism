@@ -81,7 +81,7 @@ module glide_types
 
   !Constants that describe the options available
   integer, parameter :: TEMP_SURFACE_AIR_TEMP = 0
-  integer, parameter :: TEMP_FULL = 1
+  integer, parameter :: TEMP_GLIMMER = 1
   integer, parameter :: TEMP_STEADY = 2
   integer, parameter :: TEMP_REMAP_ADV = 3
 
@@ -1039,28 +1039,37 @@ contains
     call coordsystem_allocate(model%general%ice_grid, model%temper%lcondflx)
     call coordsystem_allocate(model%general%ice_grid, model%temper%dissipcol)
 
-!whl - For whichtemp = TEMP_REMAP_ADV, temperature and flow factor live on the staggered
-!      vertical grid.  In this case, temperature and flwa are defined at the
-!      midpoint of each of layers 1:upn-1.  The temperature (but not flwa)
-!      is defined at the upper surface (k = 0) and lower surface (k = upn).
-!whl - Since there is no temperature advection in glide_temp, the extra rows and 
-!      columns (0, ewn+1, nsn+1) in the horizontal are not needed.
-!JEFF TEMP_FULL is the original Glimmer advection scheme for temperature.  It adds an extra row and column around the edges.
-    if (model%options%whichtemp /= TEMP_FULL) then
-       allocate(model%temper%temp(0:upn,1:ewn,1:nsn))
-       call coordsystem_allocate(model%general%ice_grid, upn-1, model%temper%flwa)
-    else
+!whl - In the old Glimmer code (whichtemp = TEMP_GLIMMER), temperature and 
+!       flow factor live on the unstaggered vertical grid, and extra rows and columns 
+!       (with indices 0:ewn+1, 0:nsn+1) are needed.
+!whl - In the newer Glissade code, temperature and flow factor live on the 
+!       staggered vertical grid, with temperature and flwa defined at the
+!       center of each layer k = 1:upn-1.  The temperature (but not flwa)
+!       is defined at the upper surface (k = 0) and lower surface (k = upn).
+!      The distributed code uses the Glissade convention.
+!       The old Glimmer convention is supported only for single-processor runs.
+
+    if (model%options%whichtemp == TEMP_GLIMMER) then
+
+!whl - I put a similar check in glide_setup.F90, based on distributed_execution().
+!      Which is correct?
+
        !JEFF We decided to not support the wide temperature array for parallel.  Kept for serial compatibility.
-       if ( distributed_isparallel() ) then
-          write(*,*) "temperature == 1 is not supported in parallel execution"
-          ! Calling not_parallel will cause abort
-          call not_parallel(__FILE__, __LINE__)
-       end if
+!       if ( distributed_isparallel() ) then
+!          write(*,*) "temperature == 1 is not supported in parallel execution"
+!          ! Calling not_parallel will cause abort
+!          call not_parallel(__FILE__, __LINE__)
+!       end if
 
        allocate(model%temper%temp(upn,0:ewn+1,0:nsn+1))
        call coordsystem_allocate(model%general%ice_grid, upn, model%temper%flwa)
+    else
+       allocate(model%temper%temp(0:upn,1:ewn,1:nsn))
+       call coordsystem_allocate(model%general%ice_grid, upn-1, model%temper%flwa)
     endif
-    ! MJH set these to physically unrealistic values so we can tell later if values have been read in
+
+    ! MJH set these to physically unrealistic values so we can tell later if 
+    !  arrays were initialized correctly
     model%temper%temp = -999.0d0
     model%temper%flwa = -999.0d0
  

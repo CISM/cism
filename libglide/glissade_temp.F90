@@ -66,9 +66,8 @@ contains
 
   subroutine glissade_init_temp (model)
 
-    ! initialization subroutine for the case whichtemp = TEMP_REMAP_ADV,
-    !      with a vertically staggered temperature that is advected elsewhere
-    !      (i.e., not here or in glide_temp)
+    ! initialization subroutine for the case that temperature lives on the
+    !      vertically staggered grid (i.e., at layer centers)
 
     !*FD initialise temperature module
     use glimmer_physcon, only : rhoi, shci, coni, scyr, grav, gn, lhci, rhow
@@ -211,13 +210,12 @@ contains
        endif
 !       endif
 
-
  
   end subroutine glissade_init_temp
 
 !****************************************************    
 
-  subroutine glissade_temp_driver(model)
+  subroutine glissade_temp_driver(model, whichtemp)
 
     ! Calculates the ice temperature 
 
@@ -236,7 +234,8 @@ contains
     ! Subroutine arguments
     !------------------------------------------------------------------------------------
 
-    type(glide_global_type),intent(inout) :: model       !*FD Ice model parameters.
+    type(glide_global_type),intent(inout) :: model       ! Ice model parameters.
+    integer,                intent(in)    :: whichtemp    ! Flag to choose method.
 
     !------------------------------------------------------------------------------------
     ! Internal variables
@@ -257,45 +256,59 @@ contains
 
     upn = model%general%upn
 
-    ! local column calculation
-    ! No horizontal or vertical advection; vertical diffusion and strain heating only.
-    ! Temperatures are vertically staggered relative to velocities.  That is, the temperature is
-    !  defined at the midpoint of each layer (and at the top and bottom surfaces).
+    select case(whichtemp)
 
-    ! Set Tstagsigma (= stagsigma except that it has values at the top and bottom surfaces).
+    case(0) ! Set column to surface air temperature -------------------------------------
 
-    Tstagsigma(0) = 0.d0
-    Tstagsigma(1:model%general%upn-1) = model%numerics%stagsigma(1:model%general%upn-1)
-    Tstagsigma(model%general%upn) = 1.d0
+       ! JEFF - Ok for distributed since using air temperature at grid point to initialize.
 
-    model%tempwk%inittemp = 0.0d0
+       do ns = 1,model%general%nsn
+          do ew = 1,model%general%ewn
+             model%temper%temp(:,ew,ns) = dmin1(0.0d0,dble(model%climate%artm(ew,ns)))
+          end do
+       end do
 
-    ! Calculate interior heat dissipation -------------------------------------
+    case(1) ! Local column calculation
 
-    call finddisp( model,                   &
-                   model%geometry%thck,     &
-                   model%options%which_disp,&
-                   model%stress%efvs, &
-                   model%geomderv%stagthck, &
-                   model%geomderv%dusrfdew, &
-                   model%geomderv%dusrfdns, &
-                   model%temper%flwa)
+            ! No horizontal or vertical advection; vertical diffusion and strain heating only.
+            ! Temperatures are vertically staggered relative to velocities.  
+            ! That is, the temperature is defined at the midpoint of each layer 
+            ! (and at the top and bottom surfaces).
 
-    ! Calculate heating from basal friction -----------------------------------
+            ! Set Tstagsigma (= stagsigma except that it has values at the top and bottom surfaces).
 
-    call calcbfric( model,                        &
-                    model%options%which_bmelt,      &
-                    model%geometry%thck,          &
-                    model%velocity%btraction, &
-                    model%geomderv%dusrfdew,      &
-                    model%geomderv%dusrfdns,      &
-                    model%velocity%ubas,          &
-                    model%velocity%vbas,          &
-                    GLIDE_IS_FLOAT(model%geometry%thkmask) )
+       Tstagsigma(0) = 0.d0
+       Tstagsigma(1:model%general%upn-1) = model%numerics%stagsigma(1:model%general%upn-1)
+       Tstagsigma(model%general%upn) = 1.d0
 
-    ! Note: No iteration is needed here since we are doing a local tridiagonal solve without advection.
+       model%tempwk%inittemp = 0.0d0
 
-    do ns = 2,model%general%nsn-1
+       ! Calculate interior heat dissipation -------------------------------------
+
+       call finddisp( model,                   &
+                      model%geometry%thck,     &
+                      model%options%which_disp,&
+                      model%stress%efvs, &
+                      model%geomderv%stagthck, &
+                      model%geomderv%dusrfdew, &
+                      model%geomderv%dusrfdns, &
+                      model%temper%flwa)
+
+       ! Calculate heating from basal friction -----------------------------------
+
+       call calcbfric( model,                        &
+                       model%options%which_bmelt,      &
+                       model%geometry%thck,          &
+                       model%velocity%btraction, &
+                       model%geomderv%dusrfdew,      &
+                       model%geomderv%dusrfdns,      &
+                       model%velocity%ubas,          &
+                       model%velocity%vbas,          &
+                       GLIDE_IS_FLOAT(model%geometry%thkmask) )
+
+       ! Note: No iteration is needed here since we are doing a local tridiagonal solve without advection.
+
+       do ns = 2,model%general%nsn-1
        do ew = 2,model%general%ewn-1
           if(model%geometry%thck(ew,ns) > model%numerics%thklim) then
 
@@ -407,10 +420,10 @@ contains
 
           endif  ! thck > thklim
        end do    ! ew
-    end do       ! ns
+       end do    ! ns
 
-    ! set temperature of thin ice to the air temperature and set ice-free nodes to zero
-    do ns = 1,model%general%nsn
+       ! set temperature of thin ice to the air temperature and set ice-free nodes to zero
+       do ns = 1,model%general%nsn
        do ew = 1,model%general%ewn
 
           if (GLIDE_IS_THIN(model%geometry%thkmask(ew,ns))) then
@@ -422,58 +435,65 @@ contains
           end if
 
        end do
-    end do
+       end do
 
-    ! apply periodic ew BC
-    if (model%options%periodic_ew) then
-        model%temper%temp(:,0,:) = model%temper%temp(:,model%general%ewn-2,:)
-        model%temper%temp(:,1,:) = model%temper%temp(:,model%general%ewn-1,:)
-        model%temper%temp(:,model%general%ewn,:) = model%temper%temp(:,2,:)
-        model%temper%temp(:,model%general%ewn+1,:) = model%temper%temp(:,3,:)
-    end if
+!whl - In distributed code, periodic BCs will be handled by halo updates
+       ! apply periodic ew BC
+!       if (model%options%periodic_ew) then
+!           model%temper%temp(:,0,:) = model%temper%temp(:,model%general%ewn-2,:)
+!           model%temper%temp(:,1,:) = model%temper%temp(:,model%general%ewn-1,:)
+!           model%temper%temp(:,model%general%ewn,:) = model%temper%temp(:,2,:)
+!           model%temper%temp(:,model%general%ewn+1,:) = model%temper%temp(:,3,:)
+!       end if
 
-    ! Calculate basal melt rate
-    ! Temperature above the pressure melting point are reset to Tpmp,
-    !  with excess heat contributing to melting.
+       ! Calculate basal melt rate
+       ! Temperature above the pressure melting point are reset to Tpmp,
+       !  with excess heat contributing to melting.
 
-    call glissade_calcbmlt( model,                     &
-                            model%options%which_bmelt, &
-                            model%temper%temp,         &
-                            Tstagsigma,                &
-                            model%geometry%thck,       &
-                            model%geomderv%stagthck,   &
-                            model%geomderv%dusrfdew,   &
-                            model%geomderv%dusrfdns,   &
-                            model%velocity%ubas,       &
-                            model%velocity%vbas,       &
-                            model%temper%bmlt,         &
-                            GLIDE_IS_FLOAT(model%geometry%thkmask))
+       call glissade_calcbmlt( model,                     &
+                               model%options%which_bmelt, &
+                               model%temper%temp,         &
+                               Tstagsigma,                &
+                               model%geometry%thck,       &
+                               model%geomderv%stagthck,   &
+                               model%geomderv%dusrfdew,   &
+                               model%geomderv%dusrfdns,   &
+                               model%velocity%ubas,       &
+                               model%velocity%vbas,       &
+                               model%temper%bmlt,         &
+                               GLIDE_IS_FLOAT(model%geometry%thkmask))
 
-    !whl - to do - Should ice thickness be reduced as a result of basal melting?
+       !whl - to do - Should ice thickness be reduced as a result of basal melting?
 
-    ! Calculate basal water depth ------------------------------------------------
+       ! Calculate basal water depth ------------------------------------------------
 
-    call calcbwat( model,                     &
-                   model%options%whichbwat,   &
-                   model%temper%bmlt,         &
-                   model%temper%bwat,         &
-                   model%temper%bwatflx,      &
-                   model%geometry%thck,       &
-                   model%geometry%topg,       &
-                   model%temper%temp(model%general%upn,:,:), &
-                   GLIDE_IS_FLOAT(model%geometry%thkmask),   &
-                   model%tempwk%wphi)
+       call calcbwat( model,                     &
+                      model%options%whichbwat,   &
+                      model%temper%bmlt,         &
+                      model%temper%bwat,         &
+                      model%temper%bwatflx,      &
+                      model%geometry%thck,       &
+                      model%geometry%topg,       &
+                      model%temper%temp(model%general%upn,:,:), &
+                      GLIDE_IS_FLOAT(model%geometry%thkmask),   &
+                      model%tempwk%wphi)
 
-    ! Calculate Glenn's A --------------------------------------------------------
+       ! Calculate Glenn's A --------------------------------------------------------
 
-    call calcflwa(model%numerics%stagsigma,    &
-                  model%numerics%thklim,       &
-                  model%temper%flwa,           &
-                  model%temper%temp(1:model%general%upn-1,:,:),  &
-                  model%geometry%thck,         &
-                  model%paramets%flow_factor,  &
-                  model%paramets%default_flwa, &
-                  model%options%whichflwa) 
+       call calcflwa(model%numerics%stagsigma,    &
+                     model%numerics%thklim,       &
+                     model%temper%flwa,           &
+                     model%temper%temp(1:model%general%upn-1,:,:),  &
+                     model%geometry%thck,         &
+                     model%paramets%flow_factor,  &
+                     model%paramets%default_flwa, &
+                     model%options%whichflwa) 
+
+   case(2) ! do nothing
+
+   	   !whl - Should the do-nothing option have a different case number, such as 0 or -1?
+
+   end select
 
   end subroutine glissade_temp_driver
 

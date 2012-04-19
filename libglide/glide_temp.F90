@@ -304,6 +304,9 @@ contains
 
     select case(whichtemp)
 
+    !whl - In distributed code, case 0 is now handled by glissade_temp_driver.
+    !      But leaving this option in glide_temp_driver in case it's ever needed.
+ 
     case(0) ! Set column to surface air temperature -------------------------------------
 
        ! JEFF - Ok for distributed since using air temperature at grid point to initialize.
@@ -314,7 +317,7 @@ contains
           end do
        end do
 
-    case(1) ! Do full temperature solution ---------------------------------------------
+    case(1) ! Do full temperature solution as in Glimmer---------------------------------
 
 !lipscomb - restart mod - These routines are now called at the end of tstep_p3, so that wgrd
 !                         can be written to the hotstart file and used for restart.
@@ -352,12 +355,12 @@ contains
        ! *sfp* 'run_ho_diagnostic' in glide_velo_higher. 
        if( which_ho_diagnostic == 0 )then
 
-       call gridwvel(model%numerics%sigma,  &
-            model%numerics%thklim, &
-            model%velocity%uvel,   &
-            model%velocity%vvel,   &
-            model%geomderv,        &
-            model%geometry%thck,   &
+          call gridwvel(model%numerics%sigma,  &
+             model%numerics%thklim, &
+             model%velocity%uvel,   &
+             model%velocity%vvel,   &
+             model%geomderv,        &
+             model%geometry%thck,   &
              model%velocity%wgrd)
     
           select case(model%options%whichwvel)
@@ -591,36 +594,10 @@ contains
             GLIDE_IS_FLOAT(model%geometry%thkmask), &
             model%tempwk%wphi)
 
-       !EIB! rest of case not present in lanl
-       ! Transform basal temperature and pressure melting point onto velocity grid -
-!    case(2) ! *sfp* stealing this un-used option ... 
-
-!        call stagvarb(model%temper%temp(model%general%upn,1:model%general%ewn,1:model%general%nsn), &
-!             model%temper%stagbtemp ,&
-!             model%general%  ewn, &
-!             model%general%  nsn)
-!        
-!        call calcbpmp(model,model%geometry%thck,model%temper%bpmp)
-! 
-!        call stagvarb(model%temper%bpmp, &
-!             model%temper%stagbpmp ,&
-!             model%general%  ewn, &
-!             model%general%  nsn)
-
-!    case(2) ! Do something else, unspecified ---------------------------------------
-!
-!       do ns = 1,model%general%nsn
-!          do ew = 1,model%general%ewn
-!             model%temper%temp(:,ew,ns) = dmin1(0.0d0,dble(model%climate%artm(ew,ns))) * (1.0d0 - model%numerics%sigma)
-!             call corrpmpt(model%temper%temp(:,ew,ns),model%geometry%thck(ew,ns),model%temper%bwat(ew,ns),&
-!                  model%numerics%sigma,model%general%upn)
-!          end do
-!       end do
-
-
     case(2) ! *sfp* stealing this un-used option ... 
 
         ! DO NOTHING. That is, hold T const. at initially assigned value
+        !whl - Should the do-nothing option have a different case number, such as 0 or -1? 
 
     end select   ! whichtemp
 

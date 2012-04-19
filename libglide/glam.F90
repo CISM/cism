@@ -80,32 +80,6 @@ module glam
            print *, 'Compute dH/dt'
         endif
 
-!whl - diagnostics for debugging. Remove later.
-        if ((write_verbose) .and. (main_task)) then
-           write(50,*) ' '
-           write(50,*) 'After run_ho_diagnostic:'
-           write(50,*) 'Sfc velocity field (model%velocity%uvel):'
-!!           do k = 1, model%general%upn
-           do k = 1, 1
-              write(50,*) ' '
-              write(50,*) 'uvel, k =', k
-              write(50,*) ' '
-              do j = size(model%velocity%uvel,3), 1, -1
-              do i = size(model%velocity%uvel,2), 1, -1
-                 write(50,'(i4,1x,i4,1x,e12.4)') i, j, model%velocity%uvel(k,i,j)
-              enddo
-              enddo
-              write(50,*) ' '
-              write(50,*) 'vvel, k =', k
-              write(50,*) ' '
-              do j = size(model%velocity%vvel,3), 1, -1
-              do i = size(model%velocity%vvel,2), 1, -1
-                 write(50,'(i4,1x,i4,1x,e12.4)') i, j, model%velocity%vvel(k,i,j)
-              enddo
-              enddo
-           enddo
-        endif
-
 !whl   Introduced a choice here between old and new remapping schemes.
 !      The old scheme requires gathering data to the main processor.
 !      The new scheme is better designed for distributed parallelism.
@@ -314,21 +288,27 @@ module glam
            endif  ! whichtemp
           call t_stopf('glissade_transport_driver')
 
+!whl - Remove these gathers later
            if (write_verbose) then
               call distributed_gather_var(model%geometry%thck, gathered_thck)
               call distributed_gather_var(model%temper%temp, gathered_temp, &
                                           lbound(model%temper%temp,1), ubound(model%temper%temp,1))
            endif
+
         endif  ! old v. new remapping
 
         !Update halos of modified fields
        call t_startf('after_remap_haloupds')
         call parallel_halo(model%geometry%thck)
-        if (model%options%whichtemp == TEMP_REMAP_ADV) then
+
+        if (model%options%whichtemp /= TEMP_GLIMMER) then   ! Glimmer temperature arrays have 
+                                                            ! extra horizontal dimensions; not supported
+                                                            ! for halo updates
            call parallel_halo(model%temper%temp)
-           !If advecting other tracers, add parallel_halo update here
         endif
        call t_stopf('after_remap_haloupds')
+
+        !If advecting other tracers, add parallel_halo update here
 
 !whl - optional diagnostics - remove later
 !whl - write gathered_thck and temp
