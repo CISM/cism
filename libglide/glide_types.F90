@@ -385,6 +385,17 @@ module glide_types
     !*FD \item[1] Basal melt rate included in continuity equation
     !*FD \end{description}
 
+    ! parameters to store external dycore options/information -- Doug Ranken 04/20/12
+    integer :: external_dycore_type = 0  
+    !*FD Flag to select an external dynamic core.
+    !*FD \begin{description}
+    !*FD \item[0] Do not use an external dynamic core
+    !*FD \item[1] Use the BISICLES external dynamic core
+    !*FD \end{description}
+
+    character(fname_length) :: dycore_input_file=''
+    !FD Name of a file containing external dycore settings.
+
   end type glide_options
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
