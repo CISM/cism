@@ -77,6 +77,12 @@ contains
         call handle_ho_options(section, model)
     end if
 
+     !read options for computation using an external dycore -- Doug Ranken 04/20/12
+    call GetSection(config,section,'external_dycore_options')
+    if (associated(section)) then
+        call handle_dycore_options(section, model)
+    end if
+
     ! read parameters
     call GetSection(config,section,'parameters')
     if (associated(section)) then
@@ -451,6 +457,20 @@ contains
     call GetValue(section, 'which_ho_sparse',    model%options%which_ho_sparse)
     call GetValue(section, 'which_ho_sparse_fallback', model%options%which_ho_sparse_fallback)
   end subroutine handle_ho_options
+
+  ! Handles external dycore options -- Doug Ranken 03/26/12
+  subroutine handle_dycore_options(section, model)
+    use glimmer_config
+    use glide_types
+    implicit none
+    type(ConfigSection), pointer :: section
+    type(glide_global_type) :: model
+    
+    call GetValue(section, 'external_dycore_type', model%options%external_dycore_type)
+    call GetValue(section, 'dycore_input_file',  model%options%dycore_input_file)
+    print *,"In handle_dycore_options, type_code, input file = ", &
+             model%options%external_dycore_type,model%options%dycore_input_file 
+  end subroutine handle_dycore_options
 
   subroutine print_options(model)
     use glide_types
