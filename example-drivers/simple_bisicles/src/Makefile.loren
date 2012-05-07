@@ -159,33 +159,26 @@ DIST_SOURCES = $(libglimmer_simple_la_SOURCES) \
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
-ACLOCAL = ${SHELL} /global/u1/r/ranken/glimmer-cism2/branches/seacism/missing --run aclocal-1.11
-AMTAR = ${SHELL} /global/u1/r/ranken/glimmer-cism2/branches/seacism/missing --run tar
+ACLOCAL = ${SHELL} /home/dan/code/seacism/missing --run aclocal-1.11
+AMTAR = ${SHELL} /home/dan/code/seacism/missing --run tar
 AM_SGE_OPTS = 
 AR = ar
-AUTOCONF = ${SHELL} /global/u1/r/ranken/glimmer-cism2/branches/seacism/missing --run autoconf
-AUTOHEADER = ${SHELL} /global/u1/r/ranken/glimmer-cism2/branches/seacism/missing --run autoheader
-AUTOMAKE = ${SHELL} /global/u1/r/ranken/glimmer-cism2/branches/seacism/missing --run automake-1.11
-
-AWK = nawk
-BIBTEX = 
-BLAS_LIBS =  -lblas
+AUTOCONF = ${SHELL} /home/dan/code/seacism/missing --run autoconf
+AUTOHEADER = ${SHELL} /home/dan/code/seacism/missing --run autoheader
+AUTOMAKE = ${SHELL} /home/dan/code/seacism/missing --run automake-1.11
+AWK = gawk
+BIBTEX = bibtex
+BLAS_LIBS = -lblas
 CC = gcc
-CCDEPMODE = depmode=aix
-CFLAGS = -O2 -qcpluscmt
+CCDEPMODE = depmode=gcc3
+CFLAGS = -g -O2
 CONVERT = convert
-CPP = cc -E
-CPPFLAGS =  
-
-#CXX = mpCC_r
-#CXX = xlC_r
+CPP = gcc -E
+CPPFLAGS = 
 CXX = g++
-
-CXXCPP = $(CXX) -E
-#CXXDEPMODE = depmode=aix
-CXXDEPMODE = depmode=none
-
-#CXXFLAGS = -O2 -qmaxmem=-1 -qminimaltoc -qrtti=all
+CXXCPP = g++ -E
+CXXDEPMODE = depmode=gcc3
+CXXFLAGS = -g -O2
 CYGPATH_W = echo
 DEFS = -DHAVE_CONFIG_H
 DEPDIR = .deps
@@ -194,20 +187,20 @@ DLLTOOL = false
 DOXYGEN_PAPER_SIZE = 
 DSYMUTIL = 
 DUMPBIN = 
-DVIPDFT = 
-DVIPS = 
+DVIPDFT = dvipdft
+DVIPS = dvips
 DX_CONFIG = glimmer-cism.cfg
 DX_DOCDIR = doxygen-doc
-DX_DOT = 
-DX_DOXYGEN = 
+DX_DOT = /usr/bin/dot
+DX_DOXYGEN = /usr/bin/doxygen
 DX_DVIPS = 
 DX_EGREP = 
-DX_ENV =  SRCDIR='.' PROJECT='Glimmer-CISM' DOCDIR='doxygen-doc' VERSION='1.7.1' HAVE_DOT='NO' GENERATE_MAN='NO' GENERATE_RTF='NO' GENERATE_XML='NO' GENERATE_HTMLHELP='NO' GENERATE_CHI='NO' GENERATE_HTML='NO' GENERATE_LATEX='NO'
+DX_ENV =  SRCDIR='.' PROJECT='Glimmer-CISM' DOCDIR='doxygen-doc' VERSION='1.7.1' PERL_PATH='/usr/bin/perl' HAVE_DOT='YES' DOT_PATH='/usr/bin' GENERATE_MAN='NO' GENERATE_RTF='NO' GENERATE_XML='NO' GENERATE_HTMLHELP='NO' GENERATE_CHI='NO' GENERATE_HTML='YES' GENERATE_LATEX='NO'
 DX_FLAG_chi = 0
 DX_FLAG_chm = 0
-DX_FLAG_doc = 0
-DX_FLAG_dot = 0
-DX_FLAG_html = 0
+DX_FLAG_doc = 1
+DX_FLAG_dot = 1
+DX_FLAG_html = 1
 DX_FLAG_man = 0
 DX_FLAG_pdf = 0
 DX_FLAG_ps = 0
@@ -219,87 +212,63 @@ DX_MAKEINDEX =
 DX_PDFLATEX = 
 DX_PERL = /usr/bin/perl
 DX_PROJECT = Glimmer-CISM
-ECHO_C = \c
-ECHO_N = 
+ECHO_C = 
+ECHO_N = -n
 ECHO_T = 
-EGREP = /usr/local/bin/grep -E
+EGREP = /bin/grep -E
 EXEEXT = 
 EXTRA_LDLIBS_SUBST = 
 F77 = gfortran
 FC = gfortran
-FCCPPFLAGS = $(FC_DEFINE)HAVE_MPI  $(FC_DEFINE)MPICH_IGNORE_CXX_SEEK  $(FC_DEFINE)pgiFortran  $(FC_DEFINE)TRILINOS  $(FC_DEFINE)GLIMMER_MPI
+FCCPPFLAGS = 
 FCDEFS = 
-#FCFLAGS = -O2 -qmaxmem=-1 -WF,-C! -qalias_size=107374182
-FCFLAGS = -Mfree -O2
+FCFLAGS = -g -ffree-line-length-none -ffree-form -DNO_RESCALE
 FCFLAGS_F = 
 FCFLAGS_f90 = 
-#FCLIBS =  -lm -llapi_r -L/usr/lpp/ppe.poe/lib/threads -L/usr/lpp/ppe.poe/lib -L/lib/threads -lmpi_r -lxlf90 -L/usr/lpp/xlf/lib -lxlopt -lxlf -lxlomp_ser -lpthreads
-FCLIBS =  -L/opt/cray/udreg/2.3.1-1.0400.3911.5.13.gem/lib64 -L/opt/cray/ugni/2.3-1.0400.4127.5.20.gem/lib64 -L/opt/cray/pmi/3.0.0-1.0000.8661.28.2807.gem/lib64 -L/opt/cray/dmapp/3.2.1-1.0400.3965.10.63.gem/lib64 -L/opt/cray/xpmem/0.1-2.0400.30792.5.6.gem/lib64 -L/opt/cray/mpt/5.4.4/xt/gemini/mpich2-pgi/109/lib -L/opt/cray/mpt/5.4.4/xt/gemini/sma/lib64 -L/opt/xt-libsci/11.0.05/pgi/109/mc12/lib -L/opt/cray/hdf5/1.8.6/pgi/109/lib -L/opt/cray/netcdf/4.1.2/pgi/109/lib -L/opt/cray/xe-sysroot/4.0.36.securitypatch.20120130/usr/lib64 -L/opt/cray/xe-sysroot/4.0.36.securitypatch.20120130/lib64 -L/opt/cray/xe-sysroot/4.0.36.securitypatch.20120130/usr/lib/alps -L/usr/lib/alps -L/opt/pgi/11.9.0/linux86-64/11.9/lib -L/usr/lib64 -L/usr/lib64/gcc/x86_64-suse-linux/4.3 -L/opt/cray/atp/1.4.2/lib/ -lAtpSigHandler -lnetcdff_pgi -lnetcdf_pgi -lhdf5hl_fortran_pgi -lhdf5_hl_pgi -lhdf5_fortran_pgi -lhdf5_pgi -lz -lscicpp_pgi -lsci_pgi_mp -lmpichf90_pgi -lmpich_pgi -lmpl -lsma -lxpmem -ldmapp -lugni -lpmi -lalpslli -lalpsutil -ludreg -lpthread -lzceh -lstdmpz -lCmpz -lpgmp -lpgf90 -lpgf90_rpm1 -lpgf902 -lpgf90rtl -lpgftnrtl -lnspgc -lpgc -lrt -lm
-
+FCLIBS =  -L/usr/lib/gcc/x86_64-linux-gnu/4.4.5 -L/usr/lib/gcc/x86_64-linux-gnu/4.4.5/../../../../lib -L/lib/../lib -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/4.4.5/../../.. -L/usr/lib/x86_64-linux-gnu -lgfortranbegin -lgfortran -lm
 FC_DEFINE = -D
 FC_MODEXT = mod
 FC_MODINC = -I
 FFLAGS = 
-FGREP = /usr/bin/grep -F
-FIG2DEV = 
-FLIBS =  -L/opt/cray/udreg/2.3.1-1.0400.3911.5.13.gem/lib64 -L/opt/cray/ugni/2.3-1.0400.4127.5.20.gem/lib64 -L/opt/cray/pmi/3.0.0-1.0000.8661.28.2807.gem/lib64 -L/opt/cray/dmapp/3.2.1-1.0400.3965.10.63.gem/lib64 -L/opt/cray/xpmem/0.1-2.0400.30792.5.6.gem/lib64 -L/opt/cray/mpt/5.4.4/xt/gemini/mpich2-pgi/109/lib -L/opt/cray/mpt/5.4.4/xt/gemini/sma/lib64 -L/opt/xt-libsci/11.0.05/pgi/109/mc12/lib -L/opt/cray/hdf5/1.8.6/pgi/109/lib -L/opt/cray/netcdf/4.1.2/pgi/109/lib -L/opt/cray/xe-sysroot/4.0.36.securitypatch.20120130/usr/lib64 -L/opt/cray/xe-sysroot/4.0.36.securitypatch.20120130/lib64 -L/opt/cray/xe-sysroot/4.0.36.securitypatch.20120130/usr/lib/alps -L/usr/lib/alps -L/opt/pgi/11.9.0/linux86-64/11.9/lib -L/usr/lib64 -L/usr/lib64/gcc/x86_64-suse-linux/4.3 -L/opt/cray/atp/1.4.2/lib/ -lAtpSigHandler -lnetcdff_pgi -lnetcdf_pgi -lhdf5hl_fortran_pgi -lhdf5_hl_pgi -lhdf5_fortran_pgi -lhdf5_pgi -lz -lscicpp_pgi -lsci_pgi_mp -lmpichf90_pgi -lmpich_pgi -lmpl -lsma -lxpmem -ldmapp -lugni -lpmi -lalpslli -lalpsutil -ludreg -lpthread -lzceh -lstdmpz -lCmpz -lpgmp -lpgf90 -lpgf90_rpm1 -lpgf902 -lpgf90rtl -lpgftnrtl -lnspgc -lpgc -lrt -lm
-
+FGREP = /bin/grep -F
+FIG2DEV = fig2dev
+FLIBS =  -L/usr/lib/gcc/x86_64-linux-gnu/4.4.5 -L/usr/lib/gcc/x86_64-linux-gnu/4.4.5/../../../../lib -L/lib/../lib -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/4.4.5/../../.. -L/usr/lib/x86_64-linux-gnu -lgfortranbegin -lgfortran -lm
 GLIMMER_MAJOR_VERSION = 1
 GLIMMER_MICRO_VERSION = 1
 GLIMMER_MINOR_VERSION = 7
 GLIMMER_SVN_VERS =  svn_vers_string
 GLIMMER_VERSION = 1.7.1
-GNUPLOT = 
+GNUPLOT = gnuplot
 GOLD_STD_PREFIX = 
-GREP = /usr/local/bin/grep
-
-#HDF5 = /contrib/hdf5-1.8.5-mpi
-## from Chombo Make.defs.bluefire:
-#HDFINCFLAGS   = -I$(HDF5)/include -DH5_USE_16_API
-#HDFLIBFLAGS   = -L$(HDF5)/lib -lhdf5 -lz
-#HDFMPIINCFLAGS   = -I$(HDF5)/include -DH5_USE_16_API
-#HDFMPILIBFLAGS   = -L$(HDF5)/lib -lhdf5 -lz
-#
-#HDF5_INCFLAGS = $(HDFINCFLAGS) $(HDFMPIINCFLAGS)
-#HDF5_LDFLAGS = $(HDFINCFLAGS) $(HDFMPILIBFLAGS)
-#
-#HDF5_CPPFLAGS =
-#HDF5_LIBS = 
-
-HDF5_CPPFLAGS = 
-HDF5_LDFLAGS = 
-HDF5_LIBS = -lhdf5 -lhdf5_hl -L/opt/cray/hdf5-parallel/1.8.6/pgi/109/lib -lhdf5_hl_pgi_parallel -lhdf5_pgi_parallel
-
+GREP = /bin/grep
+HDF5_CPPFLAGS = -DCH_USE_HDF5 -I/usr/local/hdf5/hdf5-1.6.9-serial/include 
+HDF5_LDFLAGS = -L/usr/local/hdf5/hdf5-1.6.9-serial/lib 
+HDF5_LIBS = -lhdf5_hl -lhdf5 -lz 
 INKSCAPE = 
 INSTALL = /usr/bin/install -c
 INSTALL_DATA = ${INSTALL} -m 644
 INSTALL_PROGRAM = ${INSTALL}
 INSTALL_SCRIPT = ${INSTALL}
 INSTALL_STRIP_PROGRAM = $(install_sh) -c -s
-LATEX = 
-#LD = /usr/bin/ld
-#LDFLAGS = -lm -btextpsize:64k -bdatapsize:64k -bstackpsize:64k -bbigtoc
-LD = /usr/bin/X11/ld -m elf_x86_64
-#LDFLAGS =  -L/global/homes/s/sprice/trilinos-10.6.4/lib
-LDFLAGS = -L/global/homes/s/sprice/trilinos-10.10.1/lib
-
+LATEX = latex
+LD = /usr/bin/ld -m elf_x86_64
+LDFLAGS = 
 LIBOBJS = 
 LIBS = 
 LIBTOOL = $(SHELL) $(top_builddir)/libtool
 LIPO = 
 LN_S = ln -s
 LTLIBOBJS = 
-MAKEINFO = ${SHELL} /global/homes/r/ranken/code/glimmer-cism2/branches/seacism/missing --run makeinfo
+MAKEINFO = ${SHELL} /home/dan/code/seacism/missing --run makeinfo
 MANIFEST_TOOL = :
-MKDIR_P = /usr/local/bin/mkdir -p
+MKDIR_P = /bin/mkdir -p
 MPIFC = 
 MPILIBS = 
-
-NETCDF_CPPFLAGS = -I/opt/cray/netcdf/4.1.2/include
-NETCDF_CXX_LIBS = -lnetcdf_c++ -lhdf5 -lhdf5_hl
-NETCDF_FCFLAGS = -I /opt/cray/netcdf/4.1.2/include
-NETCDF_LDFLAGS = -L/opt/cray/netcdf/4.1.2/lib
-NETCDF_LIBS = -lhdf5 -lhdf5_hl
+NETCDF_CPPFLAGS = -I/usr/local/netcdf/include
+NETCDF_CXX_LIBS = -lnetcdf_c++ -lnetcdf 
+NETCDF_FCFLAGS = -I /usr/local/netcdf/include
+NETCDF_LDFLAGS = -L/usr/local/netcdf/lib
+NETCDF_LIBS = -lnetcdf 
 NM = /usr/bin/nm -B
 NMEDIT = 
 OBJDUMP = objdump
@@ -329,20 +298,20 @@ PYTHON_PREFIX =
 PYTHON_SITE_PKG = 
 PYTHON_VERSION = 
 RANLIB = ranlib
-SED = /usr/bin/sed
+SED = /bin/sed
 SET_MAKE = 
 SGE_OPTS = 
-SHELL = /bin/sh
+SHELL = /bin/bash
 STRIP = strip
-TRILINOS_PREFIX = /global/homes/s/sprice/trilinos-10.6.4
+TRILINOS_PREFIX = 
 VERSION = 1.7.1
-abs_builddir = /global/homes/r/ranken/code/glimmer-cism2/branches/seacism/example-drivers/simple_glide/src
-abs_srcdir = /global/homes/r/ranken/code/glimmer-cism2/branches/seacism/example-drivers/simple_glide/src
-abs_top_builddir = /global/homes/r/ranken/code/glimmer-cism2/branches/seacism
-abs_top_srcdir = /global/homes/r/ranken/code/glimmer-cism2/branches/seacism
+abs_builddir = /home/dan/code/seacism/example-drivers/simple_bisicles/src
+abs_srcdir = /home/dan/code/seacism/example-drivers/simple_bisicles/src
+abs_top_builddir = /home/dan/code/seacism
+abs_top_srcdir = /home/dan/code/seacism
 ac_ct_AR = ar
-ac_ct_CC = cc
-ac_ct_CXX = 
+ac_ct_CC = gcc
+ac_ct_CXX = g++
 ac_ct_DUMPBIN = 
 ac_ct_F77 = 
 ac_ct_FC = 
@@ -374,7 +343,7 @@ host_vendor = unknown
 htmldir = ${docdir}
 includedir = ${prefix}/include
 infodir = ${datarootdir}/info
-install_sh = ${SHELL} /global/homes/r/ranken/code/glimmer-cism2/branches/seacism/install-sh
+install_sh = ${SHELL} /home/dan/code/seacism/install-sh
 libdir = ${exec_prefix}/lib
 libexecdir = ${exec_prefix}/libexec
 localedir = ${datarootdir}/locale
@@ -386,7 +355,7 @@ pdfdir = ${docdir}
 phaml_graphics = 
 pkgpyexecdir = 
 pkgpythondir = 
-prefix = /usr/local
+prefix = /home/dan/code/seacism
 program_transform_name = s,x,x,
 psdir = ${docdir}
 pyexecdir = 
@@ -422,7 +391,7 @@ DYCORE_LIBS = -L$(libdycore_DIR)/BISICLES -lDyCoreToGlimmer \
 
 simple_bisicles_LDADD = libglimmer-simple.la $(top_builddir)/libglide/libglide.la $(top_builddir)/libglimmer-solve/libglimmer-solve.la \
                     $(top_builddir)/libglimmer/libglimmer-IO.la $(top_builddir)/libglimmer/libglimmer.la \
-                    $(NETCDF_LDFLAGS) $(HDF5_LDFLAGS) $(BLAS_LIBS) $(LAPACK_LIBS) \
+                    $(NETCDF_LDFLAGS) $(NETCDF_LIBS) $(HDF5_LDFLAGS) $(BLAS_LIBS) $(LAPACK_LIBS) \
                     $(PARDISO_LIBS) $(UMFPACK_LIBS)  $(TRILINOS_LIBS) $(FCLIBS) $(FLIBS) $(DYCORE_LIBS) \
 		    $(HDF5_LIBS)	
 
