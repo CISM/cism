@@ -3,6 +3,7 @@
 # (1) module load subversion netcdf/4.1.2 p-netcdf/1.2.0
 # (2) module swap pgi pgi/11.10.0  ** note must use this version right now KJE 4/16/12**
 # (3) ./bootstrap
+##WHL: Note to Doug: Step (4) may be unnecessary.  If so, please remove it.
 # (4) find . -exec touch -r configure {} +
 # (5) configure-scripts/xk6-config (this file)
 # (6) make
