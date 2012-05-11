@@ -255,6 +255,8 @@ module glam
           call t_stopf('new_remap_halo_upds')
 
           call t_startf('glissade_transport_driver')
+          model%numerics%dt = model%numerics%dt / model%numerics%subcyc
+          do sc = 1 , model%numerics%subcyc
            if (model%options%whichtemp == TEMP_REMAP_ADV) then  ! Use IR to transport thickness, temperature
                                                                 ! (and other tracers, if present)
 
@@ -286,6 +288,8 @@ module glam
                                              model%geometry%thck(:,:))
 
            endif  ! whichtemp
+          enddo
+          model%numerics%dt = model%numerics%dt * model%numerics%subcyc
           call t_stopf('glissade_transport_driver')
 
 !whl - Remove these gathers later
