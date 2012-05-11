@@ -71,7 +71,6 @@ implicit none
            oneortwo  = (/ 1.0_dp, 2.0_dp /),     &
            twoorone  = (/ 2.0_dp, 1.0_dp /)
 
-
   real (kind = dp), allocatable, dimension(:,:,:), save  :: ughost 
   real (kind = dp), allocatable, dimension(:,:,:), save  :: vghost
 

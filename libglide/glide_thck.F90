@@ -137,6 +137,9 @@ contains
        call velo_calc_diffu(model%velowk,model%geomderv%stagthck,model%geomderv%dusrfdew, &
             model%geomderv%dusrfdns,model%velocity%diffu)
 
+!HALO - This 'if' clause, including call to geometry_derivs_unstag, probably is not needed.
+!       The which_ho_diagnostic option is no longer used.
+
        !EIB! added from lanl
        !Calculate higher-order velocities if the user asked for them
        if (model%options%which_ho_diagnostic /= 0 ) then
@@ -273,6 +276,8 @@ contains
           ! calculate diffusivity
           call velo_calc_diffu(model%velowk,model%geomderv%stagthck,model%geomderv%dusrfdew, &
                model%geomderv%dusrfdns,model%velocity%diffu)
+
+!HALO - This 'if' clause can probably be removed.  See note above.
 
        !Calculate higher-order velocities if the user asked for them
        if (model%options%which_ho_diagnostic /= 0 ) then
@@ -687,6 +692,9 @@ subroutine geometry_derivs(model)
 
 end subroutine
 
+!HALO - This subroutine may not be needed anymore.  Called from inc_remap_driver.
+!       If this is removed, may be able to remove upwind_from_mask too.
+
 !*FD Computes derivatives of the geometry onto variables on a nonstaggered
 !*FD grid.  Used for some higher-order routines
 subroutine geometry_derivs_unstag(model)
@@ -729,7 +737,7 @@ end subroutine
   subroutine timeders(thckwk,ipvr,opvr,mask,time,which)
 
     !*FD Calculates the time-derivative of a field. This subroutine is used by 
-    !*FD the temperature solver only.
+    !*FD the Glimmer temperature solver only.
 
     use glimmer_global, only : dp, sp
     use glimmer_paramets, only : conv
@@ -764,6 +772,10 @@ end subroutine
       thckwk%oldtime = time
     end if
 
+!HALO - I think we can remove this.  We don't support the old Glimmer temperature
+!        solver in parallel.
+!       Just make sure that this subroutine computes timeders everywhere they are needed.
+ 
     call parallel_halo(opvr)
   end subroutine timeders
 

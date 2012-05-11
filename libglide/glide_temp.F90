@@ -321,9 +321,10 @@ contains
 
 !lipscomb - restart mod - These routines are now called at the end of tstep_p3, so that wgrd
 !                         can be written to the hotstart file and used for restart.
-!whl - Note to Pat: Jeff uncommented these subroutines.  They should be removed (assuming
+!whl - Note to Pat: Jeff uncommented these subroutine calls.  They should be removed (assuming
 !      they are working corectly at the end of tstep_p3).  Let me know if you have questions.
 
+!HALO - Comment out these calls
                          
        ! JEFF - Concerned about halos and these derivatives.
 !whl - I was able to run these routines on one processor.
@@ -593,6 +594,8 @@ contains
             model%temper%temp(model%general%upn,:,:), &
             GLIDE_IS_FLOAT(model%geometry%thkmask), &
             model%tempwk%wphi)
+
+!HALO - If bwat is computed only on local cells, do we need a halo update here?
 
     case(2) ! *sfp* stealing this un-used option ... 
 

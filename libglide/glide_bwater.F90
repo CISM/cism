@@ -48,6 +48,10 @@ contains
        !              c(3) =  1.0d0 + 0.5d0 * model%tempwk%dt_wat * model%paramets%hydtim
 
        do t_wat = 1, model%tempwk%nwat
+
+!HALO - Loop should be over locally owned cells only.
+!       Then we might have to do a parallel update later--depends on where bwat is used.
+
           do ns = 1,model%general%nsn
              do ew = 1,model%general%ewn
 
@@ -107,6 +111,10 @@ contains
     case default
       bwat = 0.0d0
     end select
+
+!HALO - This halo call might be needed, but could be done in subroutine that calls calcbwat.
+!       (glide_temp and glissade_temp)
+
     call parallel_halo(bwat) !same as model%temper%bwat
     
     ! now also calculate basal water in velocity (staggered) coord system

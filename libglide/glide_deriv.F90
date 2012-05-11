@@ -252,6 +252,10 @@ contains
         real(dp) :: dfdy_2d_downwind
         dfdy_2d_downwind = (-1.5 * f(i, j) + 2 * f(i, j+1) - .5 * f(i, j+2))/delta
     end function dfdy_2d_downwind
+
+!HALO - This routine may not currently be used.
+!       It assumes that the function f lives at 
+
     
     !*FD Computes derivative fields of the given function.
     subroutine df_field_2d(f, deltax, deltay, out_dfdx, out_dfdy, periodic_x, periodic_y, direction_x, direction_y)
@@ -317,6 +321,9 @@ contains
                         
             end do  
         end do
+
+!HALO - If these updates are needed, they should be done at a higher level,
+!       and only for fields whose halo values are needed.
         call parallel_halo(out_dfdx)
         call parallel_halo(out_dfdy)
         
@@ -854,8 +861,12 @@ contains
                 end if
             end do
         end do
+
+!HALO - If these updates are needed, they should be done at a higher level,
+!       and only for fields whose halo values are needed.
         call parallel_halo(d2fdx2)
         call parallel_halo(d2fdy2)
+
     end subroutine d2f_field
 
     !TODO: Rewrite this using the existing derivative machinery

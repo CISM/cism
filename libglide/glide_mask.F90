@@ -57,6 +57,7 @@ contains
     real(dp), parameter :: con = - rhoi / rhoo
     logical :: exec_serial_flag
 
+!HALO - This array may not be needed, at least in parallel.
     !Create an array to "fake" the boundaries of the mask so that boundary
     !finding can work even on the boundaries of the real mask.
     integer, dimension(0:ewn+1,0:nsn+1) :: maskWithBounds;
@@ -99,6 +100,8 @@ contains
         call get_area_vol(thck, numerics%dew, numerics%dns, numerics%thklim, iarea, ivol, exec_serial_flag)
     end if
 
+!HALO - The following could be accomplished by a halo call with a Neumann BC.
+!       I
     maskWithBounds = 0
     maskWithBounds(1:ewn, 1:nsn) = MASK
     maskWithBounds(0,1:nsn) = mask(1,:)
@@ -109,7 +112,12 @@ contains
     maskWithBounds(ewn+1,nsn+1) = mask(ewn,nsn)
     maskWithBounds(0,nsn+1) = mask(1,nsn)
     maskWithBounds(ewn+1,0) = mask(ewn,1)
+
     ! finding boundaries
+
+!HALO - This loop should probably be only over locally owned scalars.
+!       If halo cells are present, maskWithBounds array may not be needed; can replace with mask array.
+
     do ns=1,nsn
        do ew = 1,ewn
           !Find the grounding line
@@ -132,6 +140,9 @@ contains
              MASK(ew,ns) = ior(MASK(ew,ns),GLIDE_MASK_MARGIN)
           end if
 
+!HALO - Not sure if this will be needed when global boundaries are handled correctly.
+!       The GLIDE_MASK_COMP_DOMAIN_BND condition is currently used in glam_strs2.F90.
+
          !Mark domain boundaries
          !if (ns == 1 .or. ns == nsn .or. ew == 1 .or. ew == ewn) then
          if (parallel_boundary(ew,ewn,ns,nsn)) then
@@ -139,6 +150,9 @@ contains
          end if
        end do
     end do
+
+!HALO - If loop above is over locally owned cells, then this halo update is probably needed.
+!       Not sure if the code currently supports halo updates for serial runs, but it should.
 
     !JEFF Don't call halo update if running in serial mode
     if (.NOT. exec_serial_flag) then
@@ -179,6 +193,7 @@ contains
 
     integer :: i,j
 
+!HALO - This loop is (correctly) over locally owned cells, but replace with ilo, ihi, jlo, jhi.
     do i = 1+lhalo, size(thck,1)-uhalo
         do j = 1+lhalo, size(thck,2)-uhalo
             if (thck(i,j) > thklim ) then
@@ -225,6 +240,7 @@ contains
     iareaf = 0.0
     iareag = 0.0 
 
+!HALO - Locally owned cells; change to ilo, ihi, jlo, jhi
     do j = 1+lhalo, size(mask,2)-uhalo
       do i = 1+lhalo, size(mask,1)-uhalo
         if (GLIDE_IS_FLOAT(mask(i,j))) then
@@ -249,6 +265,9 @@ contains
   end subroutine calc_iareaf_iareag
 
     subroutine glide_marine_margin_normal(thck, mask, marine_bc_normal, exec_serial)
+
+!HALO - Steve thinks this is a PBJ routine that could be removed.
+
       use parallel
         use glimmer_physcon, only:pi
         implicit none
@@ -337,6 +356,7 @@ contains
         endif
     end subroutine
 
+!HALO - This is a PBJ function and could be removed.
     function calc_normal_45deg(thck3x3)
         use glimmer_physcon, only: pi
         
@@ -425,6 +445,9 @@ contains
 
     end function
 
+!HALO - This subroutine may not be needed.
+!       It is called from glide_thck.F90 in subroutine geometry_derivs_unstag
+
     !Fills a field of differencing directions suitable to give a field
     !derivative routine.  Uses centered differencing everywhere except for the
     !marine ice margin, where upwinding and downwinding is used to avoid
@@ -448,6 +471,9 @@ contains
 
         direction_x = 0
         direction_y = 0
+
+!HALO - Could this loop be over local cells only?
+!       Does not matter if we remove the subroutine entirely.
 
         !Detect locations of the marine margin
         do i = 1, size(mask,1)

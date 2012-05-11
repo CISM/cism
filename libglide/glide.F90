@@ -220,6 +220,7 @@ contains
 
     call init_thck(model)
 
+!HALO - Not sure backstress is ever used
     call glide_initialise_backstress(model%geometry%thck,&
                                      model%climate%backstressmap,&
                                      model%climate%backstress, &
@@ -386,6 +387,9 @@ contains
     ! ------------------------------------------------------------------------     
     call glide_prof_start(model,model%glide_prof%geomderv)
 
+!HALO - If these geometry derivs are computed only on locally owned nodes,
+!       then some derivs may need halo updates.
+
     call geometry_derivs(model)
     
     !EIB! from gc2 - think this was all replaced by geometry_derivs??
@@ -550,14 +554,19 @@ contains
        call inc_remap_driver( model )
       call t_stopf('inc_remap_driver')
 
+!HALO - No halo updates needed here if glide_stress loops over locally owned cells only.
        !Halo updates required for inputs to glide_stress?
        call staggered_parallel_halo(model%geomderv%dusrfdew)
        call staggered_parallel_halo(model%geomderv%dusrfdns)
        call staggered_parallel_halo(model%geomderv%dthckdew)
        call staggered_parallel_halo(model%geomderv%dthckdns)
+
+!HALO - Pretty sure these can be removed
        ! call parallel_halo(model%geometry%thck) in inc_remap_driver
        ! call staggered_parallel_halo(model%velocity%uvel) in inc_remap_driver
        ! call staggered_parallel_halo(model%velocity%vvel) in inc_remap_driver
+
+!HALO - efvs probably is not needed in halo cells
        call parallel_halo(model%stress%efvs)
 
        !Tau is calculated in glide_stress and initialized in glide_types.
@@ -586,24 +595,37 @@ end select
     ! ------------------------------------------------------------------------
     call glide_prof_start(model,model%glide_prof%ice_mask2)
 
+!HALO - Updates not needed if glide_set_mask loops over locally owned cells.
+!       But may need halo update for thk_mask afterward
+
     !Halo updates required for inputs to glide_set_mask?
     ! call parallel_halo(model%geometry%thck) in inc_remap_driver
     call parallel_halo(model%geometry%topg)
+
+!HALO - The call to glide_set_mask is needed before glide_marinlim.
+!       May not be needed for intermediate calls.
 
     call glide_set_mask(model%numerics, model%geometry%thck, model%geometry%topg, &
                         model%general%ewn, model%general%nsn, model%climate%eus, &
                         model%geometry%thkmask, model%geometry%iarea, model%geometry%ivol)
     !Includes a halo update of model%geometry%thkmask at end of call
+!HALO - That halo update should go here, not in glide_set_mask.
 
     call glide_prof_stop(model,model%glide_prof%ice_mask2)
 
+!HALO - Pretty sure these are not needed.
     !Halo updates required for inputs to glide_set_mask?
     ! call parallel_halo(model%geometry%thck) in inc_remap_driver
     ! call parallel_halo(model%geometry%thkmask) in previous glide_set_mask call
 
+!HALO - This call probably is not needed.
     call glide_marine_margin_normal(model%geometry%thck, model%geometry%thkmask, model%geometry%marine_bc_normal)
     !Includes a halo update of model%geometry%marine_bc_normal at end of call
 
+!HALO - Not sure if we will support calc_gline_flux.  
+!       It computes a diagnostic flux, but doesn't compute it accurately.
+!       Comment out for now?
+!HALO - If computing grounding line flux correctly, might need halo update for thck.
     !Halo updates required for inputs to calc_gline_flux?
     call staggered_parallel_halo(model%geomderv%stagthck)
     call staggered_parallel_halo(model%velocity%surfvel)
@@ -623,14 +645,26 @@ end select
     ! depth, depending on value of whichmarn
     ! ------------------------------------------------------------------------ 
 
+!HALO - Need to look at marinlim more carefully and see what updated fields it needs.
+
     !Halo updates required for inputs to glide_marinlim?
     !(Note: case specific, so push into glide_marinlim?)
+
     ! call parallel_halo(model%geometry%thck) in inc_remap_driver
+
+!HALO - Not sure we need halo values for isostasy
     call parallel_halo(model%isos%relx)
+
     ! call parallel_halo(model%geometry%topg) before previous set_glide_mask
+
+!HALO - not sure flwa halo values are needed here.
     call parallel_halo(model%temper%flwa)
+
     ! call parallel_halo(model%geometry%thkmask) in previous glide_set_mask call
+
+!HALO - Not sure backstress is ever used
     call parallel_halo(model%climate%backstress)
+
     ! call parallel_halo(model%geometry%usrf) not actually used
 
     call glide_marinlim(model%options%whichmarn, &
@@ -663,8 +697,10 @@ end select
     ! model%climate%eus needed only for disabled case 6
     ! model%ground components needed only for disabled case 6
 
+!HALO - Write a better comment here.  The mask needs to be recalculated after marinlim.
     !issues with ice shelf, calling it again fixes the mask
 
+!HALO - Halo updates not needed if glide_set_mask loops over locally owned cells.
     !Halo updates required for inputs to glide_set_mask?
     ! call parallel_halo(model%geometry%thck) within glide_marinlim
     ! call parallel_halo(model%geometry%topg) before previous call to glide_set_mask
@@ -705,12 +741,14 @@ end select
     ! call staggered_parallel_halo(model%geomderv%dusrfdew) prior to glide_calcstrsstr
     ! call staggered_parallel_halo(model%geomderv%dusrfdns) prior to glide_calcstrsstr
 
+!HALO - This call is useful only for SIA diagnostics.
     call calc_basal_shear(model%geomderv%stagthck, &
                           model%geomderv%dusrfdew, &
                           model%geomderv%dusrfdns, &
                           model%stress%tau_x, &
                           model%stress%tau_y)
     !Includes a halo update of model%stress%tau_x and model%stress%tau_y at end of call
+    !HALO - That call will be removed
 
   end subroutine glide_tstep_p2
 

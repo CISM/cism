@@ -651,6 +651,8 @@ contains
         end if
       end do
     end do
+
+!HALO - I think wgrd is needed only for the old temperature code, which is not supported in parallel.
     call parallel_halo(wgrd)
   end subroutine gridwvel
 
@@ -764,7 +766,10 @@ contains
         end if
       end do
     end do
+
+!HALO - I think wvel is needed only for the old temperature code, which is not supported in parallel.
     call parallel_halo(wvel)
+
   end subroutine wvelintg
 
   subroutine wvel_ew(model)
@@ -839,7 +844,10 @@ contains
          end if
       end do
     end do
+
+!HALO - I think wvel is needed only for the old temperature code, which is not supported in parallel.
     call parallel_halo(wvel)
+
   end subroutine chckwvel
 
 !------------------------------------------------------------------------------------------
@@ -1035,6 +1043,7 @@ contains
     ! model%stress%tau_y = model%stress%tau_x * model%geomderv%dusrfdns
     ! model%stress%tau_x = model%stress%tau_x * model%geomderv%dusrfdew
 
+!HALO - These calls can be removed. The tau_x and tau_y fields are SIA diagnostics.
     call staggered_parallel_halo(tau_x)
     call staggered_parallel_halo(tau_y)
   end subroutine calc_basal_shear

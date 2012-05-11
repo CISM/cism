@@ -391,6 +391,17 @@ cell_methods:  time: mean
 coordinates:   lon lat
 load:          1
 
+#whl - added this one
+[surftemp]
+dimensions:    time, y1, x1
+units:         degree_Celsius
+long_name:     annual mean surface temperature
+data:          data%climate%artm
+standard_name: surface_temperature
+cell_methods:  time: mean
+coordinates:   lon lat
+load:          1
+
 [btemp]
 dimensions:    time, y1, x1
 units:         degree_Celsius

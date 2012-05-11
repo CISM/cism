@@ -70,6 +70,7 @@ module stress_hom
         dew2 = 2.0_dp * dew; dns2 = 2.0_dp * dns        ! *sp* 2x the standard grid spacing
         dew4 = 4.0_dp * dew; dns4 = 4.0_dp * dns        ! *sp* 4x the standard grid spacing
 
+!HALO - This loop should be over locally owned cells only.
         do ns = 2,nsn-1
             do ew = 2,ewn-1;
 

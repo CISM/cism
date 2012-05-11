@@ -61,7 +61,14 @@ module glam
 
         ! Compute the new geometry derivatives for this time step
 
+!HALO - Would be better to have one call per routine for which we need the derivative.
+!       Do halo updates as needed before and after the call.
+!       If we need a derivative on the staggered grid (for all locally owned cells),
+!        then we need one layer of halo scalars before calling the derivative routine.
+
         call geometry_derivs(model)
+
+!HALO - May not need to call this subroutine
         call geometry_derivs_unstag(model)
 
         ! Compute higher-order ice velocities
@@ -87,6 +94,9 @@ module glam
 
       if( model%numerics%tend > model%numerics%tstart) then
         if (old_remapping) then
+
+!HALO - These are for serial advection with parallel velocity solver. 
+!       Can remove when we switch to fully distributed with parallel advection.
 
            ! Glue code to gather the distributed variables back to main_task processor.
            ! These are outputs from run_ho_diagnostic and are gathered presuming they will be used
@@ -243,6 +253,8 @@ module glam
 !    If nhalo >= 2, then no halo updates should be needed inside glissade_transport_driver.
 
 !PW FOLLOWING NECESSARY?
+!HALO - These halo calls could be moved to the beginning of inc_remap_driver.
+
            ! Halo updates for velocities, thickness and tracers
           call t_startf('new_remap_halo_upds')
            call staggered_parallel_halo(model%velocity%uvel)
@@ -301,8 +313,12 @@ module glam
 
         endif  ! old v. new remapping
 
+!HALO - These halo calls may not be needed if the rest of the timestep consists of local calculations
         !Update halos of modified fields
        call t_startf('after_remap_haloupds')
+
+!HALO - This one might be needed if we are remapping thickness only and using the old
+!       Glimmer temperature solver.
         call parallel_halo(model%geometry%thck)
 
         if (model%options%whichtemp /= TEMP_GLIMMER) then   ! Glimmer temperature arrays have 
@@ -311,8 +327,6 @@ module glam
            call parallel_halo(model%temper%temp)
         endif
        call t_stopf('after_remap_haloupds')
-
-        !If advecting other tracers, add parallel_halo update here
 
 !whl - optional diagnostics - remove later
 !whl - write gathered_thck and temp

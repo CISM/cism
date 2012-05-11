@@ -99,6 +99,11 @@ contains
     type(glide_grnd) :: ground        !*FD ground instance
     !---------------------------------------------------------------------
    
+!HALO - We can probably remove some of these cases.
+!       And we can probably remove all the parallel_halo calls.
+!
+!       Note that the ablation_field is a diagnostic for calving mass loss.
+!       We should give it a different name, like 'calving_field'.
 
     ablation_field=0.0
 
@@ -143,6 +148,9 @@ contains
       end where
       call parallel_halo(ablation_field)
       call parallel_halo(thck)
+
+!HALO - This may be the only place the backstress is used.
+!       Not sure we want to support this, in which case we can remove it.
 
     case(5) ! Relation based on computing the horizontal stretching
             ! of the unconfined ice shelf (\dot \epsilon_{xx}) and multiplying by H.
@@ -230,6 +238,7 @@ contains
       call parallel_halo(ablation_field)
       call parallel_halo(thck)
 
+!HALO - not sure we want to support this case, in which case we can remove halo calls
     case(6)
       ! not serial as far as I can tell as well; for parallelization, issues
       ! arise from components of ground being updated, and corresponding halos
@@ -243,6 +252,7 @@ contains
       call parallel_halo(ablation_field)
       call parallel_halo(thck)
     
+!HALO - not sure we want to support this case, in which case we can remove halo calls
     !Huybrechts grounding line scheme for Greenland initialization
     case(7)
       if(eus > -80.0) then
@@ -262,9 +272,12 @@ contains
     end select
   end subroutine glide_marinlim
 
+!HALO - This routine may not be supported.  I doubt it's accurate for HO flow.
+!       If we do leave in this routine (or something similar), the loop should be 
+!        over locally owned velocity nodes.
+
   !simple subroutine to calculate the flux at the grounding line
-  subroutine calc_gline_flux(stagthk, surfvel, mask, gline_flux, ubas, vbas, &
-  dew)
+  subroutine calc_gline_flux(stagthk, surfvel, mask, gline_flux, ubas, vbas, dew)
     implicit none
     !JEFF removing pointer attribute integer, dimension(:,:),pointer       :: mask    !*FD grid type mask
     integer, dimension(:,:)       :: mask    !*FD grid type mask
@@ -286,6 +299,7 @@ contains
          (ubas**2.0 + vbas**2.0)**(1.0/2.0))  * dew  
     end where
 
+!HALO - Pretty sure this is not needed.  gline_flux is just a diagnostic.
     call parallel_halo(gline_flux)
   end subroutine calc_gline_flux
 
@@ -293,6 +307,7 @@ contains
   !This function returns the correct grounding line using the data given 
   ! the mask reference point.  dir is specifying 'ew' or 'ns', but can be 
   ! left null if there's only one option.
+
   real function get_ground_line(ground,ew1,ns1,ew2,ns2)
      use glide_types
      implicit none
