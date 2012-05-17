@@ -10,7 +10,9 @@
 #include "config.inc"
 
 !GlobalIDs are for distributed TRILINOS variable IDs
+#ifdef TRILINOS
 #define globalIDs
+#endif
 
 !***********************************************************************
 module glam_strs2
