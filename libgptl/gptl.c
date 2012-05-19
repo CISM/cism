@@ -1694,13 +1694,13 @@ int GPTLpr_file (const char *outfile) /* output file to write */
   /* Print per-name stats for all threads */
 
   if (dopr_threadsort && nthreads > 1) {
-    fprintf (fp, "\nSame stats sorted by timer for threaded regions:\n");
+    fprintf (fp, "\nSame stats sorted by timer for threaded regions (for timers active on thread 0):\n");
     fprintf (fp, "Thd ");
 
     for (n = 0; n < max_name_len[0]; ++n) /* longest timer name */
       fprintf (fp, " ");
 
-    fprintf (fp, "Called  Recurse ");
+    fprintf (fp, " On  Called Recurse");
 
     if (cpustats.enabled)
       fprintf (fp, "%s", cpustats.str);
@@ -2338,12 +2338,13 @@ int GPTLpr_summary_file (int comm,
   int max_name_length;
   int len;
   float temp;
+  int ret;                                  /* return code */
 
   static const char *thisfunc = "GPTLpr_summary_file";
 
 #ifdef HAVE_MPI
   int nproc;                                /* number of procs in MPI communicator */
-  int ret;                                  /* return code */
+
   char name[MAX_CHARS+1];                   /* timer name requested by master */
 
   if (((int) comm) == 0)
@@ -2528,7 +2529,8 @@ static int merge_thread_data()
     for (ptr = timers[0]->next; ptr; ptr = ptr->next) count_r++; 
 
     timerlist    = (char **) GPTLallocate( sizeof (char *));
-    timerlist[0] = (char *)  GPTLallocate( count_r * length * sizeof (char));
+    if( !( timerlist[0] = (char *)malloc( count_r * length * sizeof (char)) ) && count_r)
+      return GPTLerror ("%s: memory allocation failed\n", thisfunc);
 
     x = 0;
     for (ptr = timers[0]->next; ptr; ptr = ptr->next) {
@@ -2553,10 +2555,12 @@ static int merge_thread_data()
 
     if( count[t] > max_count || max_count == 0 ) max_count = count[t];
 
-    sort[t]      = (char **) GPTLallocate( count[t] * sizeof (char *));
+    if( !( sort[t] = (char **)malloc( count[t] * sizeof (char *)) ) && count[t])
+      return GPTLerror ("%s: memory allocation failed\n", thisfunc);
 
     /* allocate memory to hold list of timer names */
-    timerlist[t] = (char *)  GPTLallocate( length * count[t] * sizeof (char)); 
+    if( !( timerlist[t] = (char *)malloc( length * count[t] * sizeof (char)) ) && count[t])
+      return GPTLerror ("%s: memory allocation failed\n", thisfunc);
     memset( timerlist[t], length  * count[t] * sizeof (char), 0 );
 
     x = 0;
@@ -2575,7 +2579,8 @@ static int merge_thread_data()
 
   }
 
-  newtimers = (char **) GPTLallocate( max_count * sizeof (char *));
+  if( !( newtimers = (char **)malloc( max_count * sizeof (char *)) ) && max_count)
+    return GPTLerror ("%s: memory allocation failed\n", thisfunc);
 
   for (t = 1; t < nthreads; t++) {
     memset( newtimers, max_count * sizeof (char *), 0 );

@@ -9,6 +9,10 @@
 #include <stdio.h>
 #include <sys/time.h>
 
+#ifndef NO_COMM_F2C
+#define HAVE_COMM_F2C
+#endif
+
 #ifndef MIN
 #define MIN(X,Y) ((X) < (Y) ? (X) : (Y))
 #endif

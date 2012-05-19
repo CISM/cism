@@ -130,8 +130,15 @@ module perf_mod
    logical, private   :: perf_global_stats = def_perf_global_stats
                          ! collect and print out global performance statistics
                          ! (for this component communicator)
-
+#ifdef HAVE_MPI
    integer, parameter :: def_perf_timer = GPTLmpiwtime         ! default
+#else
+#ifdef CPRIBM
+   integer,parameter :: def_perf_timer = GPTLread_real_time
+#else
+   integer,parameter :: def_perf_timer = GPTLgettimeofday
+#endif
+#endif
    integer, private   :: perf_timer = def_perf_timer           ! default
                          ! integer indicating which timer to use
                          ! (as defined in gptl.inc)

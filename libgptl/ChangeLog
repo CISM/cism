@@ -1,3 +1,8 @@
+timing_120512: Bug fix in global statistics logic for when a thread has no events 
+	       to contribute to the merge (mods to gptl.c)
+	       [Patrick Worley]
+timing_120419: Minor changes for mpi-serial compile (jedwards)
+timing_120408: Make HAVE_COMM_F2C default to true. (jedwards)
 timing_120110: Update to GPTL 4.1 source (mods to gptl.c and GPTLprint_memusage)
                [Jim Rosinski (GPTL 4.1), Patrick Worley]
 timing_120109: Bug fix (adding shr_kind_i8 to shr_kind_mod list)
