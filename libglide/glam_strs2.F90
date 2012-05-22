@@ -971,6 +971,14 @@ subroutine JFNK                 (model,umask)
   efvs => model%stress%efvs(:,:,:)
 
 !whl - Could someone explain why this line is here and whether it is still needed?
+!SFP - Standard glimmer and higher-order glimmer traditionally had different definitions 
+!      for how flwa was scaled. This line scales flwa back to dimensional using Glimmer
+!      scaling and then makes non-dim using Glam scaling. For Picard, this scaling happens
+!      when flwa is passed in from glide_velo_higher. It used to happen there for JFNK also,
+!      but the explicit interface for JFNK has since been removed (not sure who did that and
+!      or why - compatibility w/ NOX?). At any rate, those changes also then require re-assigning
+!      the value of flwa at the end of this subroutine, which is the bug fix that Bill ultimately
+!      commmited).
   flwa(:,:,:)=flwa(:,:,:)*vis0/vis0_glam
 
   ! RN_20100125: assigning value for whatsparse, which is needed for putpcgc()
