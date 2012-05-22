@@ -10,7 +10,6 @@
 #define GLIDE_MASK_LAND                4
 #define GLIDE_MASK_OCEAN               8
 #define GLIDE_MASK_GROUNDING_LINE      16 
-#define GLIDE_BASE_TYPE_BITS           28
 
 !Bit 5: Identifies a margin (jump from zero to nonzero thickness). Margin type determined by whether ice grounded or floating.
 #define GLIDE_MASK_MARGIN 32
@@ -21,6 +20,9 @@
 !Bit 7: Identifies a computational domain boundary.  These are normally just activated on the edges of the domain,
 !unless there is a domain decomposition (in which case they may be missing)
 #define GLIDE_MASK_COMP_DOMAIN_BND 128 
+
+! All mask values actually used in code (as defined below) should be made up of some combination of one or more 
+! of the above "base" type bits.  
 
 !Checks for an iceless square
 !Checks for open ocean with no ice
@@ -45,12 +47,15 @@
 #define GLIDE_IS_GROUND(mask)      (iand(mask,GLIDE_MASK_LAND) == GLIDE_MASK_LAND .and. GLIDE_HAS_ICE(mask))
 
 !Checks for any ice, dynamic or not, that is on the grounding line
+!TODO: define from above available combinations rather than hardcode?
 #define GLIDE_IS_GROUNDING_LINE(mask) (iand(mask, 17) == 17)
 
 !Checks for any ice, dynamic or not, that is either floating *or* on the grounding line
+!TODO: IF NEEDED, define from above available combinations rather than hardcode?
 #define GLIDE_IS_FLOAT_OR_GNDLINE(mask) (iand(mask, 24) > 0 .and. GLIDE_HAS_ICE(mask))
 
 !Checks for any ice, dynamic or not, that is either grounded *or* on the grounding line
+!TODO: IF NEEDED, define from above available combinations rather than hardcode?
 #define GLIDE_IS_GROUND_OR_GNDLINE(mask) (iand(mask, 20) > 0 .and. GLIDE_HAS_ICE(mask))
 
 !Checks whether this is an ice margin (thickness jumps from 0 to non-zero at this point)
@@ -61,20 +66,23 @@
 
 !Checks whether this is a margin in contact with the ocean
 !41 = 32+8+1
+!TODO: define from above available combinations rather than hardcode?
 #define GLIDE_IS_CALVING(mask)            (iand(mask, 41) == 41)
 
 !Checks whether this is a land margin
 !37 = 32 + 4 + 1
+!TODO: define from above available combinations rather than hardcode?
 #define GLIDE_IS_LAND_MARGIN(mask)        (iand(mask, 37) == 37)
 
 !Checks whether a dirichlet boundary has been defined at this point
 #define GLIDE_IS_DIRICHLET_BOUNDARY(mask) (iand(mask, GLIDE_MASK_DIRICHLET_BC) == GLIDE_MASK_DIRICHLET_BC)
 
 !Checks whether we are at the edge of the computational domain *and* there is ice in this square
+!TODO: define from above available combinations rather than hardcode?
 #define GLIDE_IS_COMP_DOMAIN_BND(mask)    (iand(mask, 129) == 129)
 
 ! other common combinations:
-!11 = 8 + 3		! thin floating ice
+!11 = 8 + 3		    ! thin floating ice
 !21 = 20 + 1 	 	! non-thin ice grounding line
 !23 = 20 + 3 	 	! thin ice grounding line
 !39 = 32 + 4 + 3	! land margin with thin ice
@@ -83,4 +91,3 @@
 !57 = 37 + 17 + 3	! g.l. land margin with thin ice
 
 #endif
-
