@@ -24,7 +24,7 @@
 !unless there is a domain decomposition (in which case they may be missing)
 #define GLIDE_MASK_COMP_DOMAIN_BND 128 
 
-=======
+!=======
 ! All mask values actually used in code (as defined below) should be made up of some combination of one or more 
 ! of the above "base" type bits.  
 
