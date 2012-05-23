@@ -111,6 +111,7 @@ module stress_hom
             end do
         end do
 
+!HALO - This should be over locally owned cells only.  Move into loop above?
         tauxz = f1 * efvs * tauxz     
         tauyz = f1 * efvs * tauyz     
         tauxx = 2.0_dp * efvs * tauxx 
@@ -122,7 +123,8 @@ module stress_hom
         ! 1st order approx. to the 2nd strain-rate invariant (outlined in model description document).
         tau = sqrt(tauxz**2 + tauyz**2 + tauxx**2 + tauyy**2 + tauxx*tauyy + tauxy**2)
 
-!HALO - Not sure halo values are needed.  If they are, they should be moved up to the glissade driver level.
+!HALO - I don't think these halo updates are needed.  
+!       (If they are, they should be moved up to the glissade driver level.)
 
         call parallel_halo(tauxx)
         call parallel_halo(tauyy)

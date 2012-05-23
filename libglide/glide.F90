@@ -613,7 +613,7 @@ contains
        call inc_remap_driver( model )
       call t_stopf('inc_remap_driver')
 
-!HALO - No halo updates needed here if glide_stress loops over locally owned cells only.
+!HALO - I think that these are not needed, provided that glide_stress loops over locally owned cells only.
        !Halo updates required for inputs to glide_stress?
        call staggered_parallel_halo(model%geomderv%dusrfdew)
        call staggered_parallel_halo(model%geomderv%dusrfdns)
@@ -625,7 +625,7 @@ contains
        ! call staggered_parallel_halo(model%velocity%uvel) in inc_remap_driver
        ! call staggered_parallel_halo(model%velocity%vvel) in inc_remap_driver
 
-!HALO - efvs probably is not needed in halo cells
+!HALO - I think this update is not needed, provided that glide_calcstrsstr loops over locally owned cells.
        call parallel_halo(model%stress%efvs)
 
        !Tau is calculated in glide_stress and initialized in glide_types.
@@ -635,7 +635,7 @@ contains
        ! model%stress%tau%scalar, model%stress%tau%xz, model%stress%tau%yz
        !at end of call
 !HALO - If the stress%tau halo updates are needed, they should go here (in glissade.F90)
-!       But they may not be needed.
+!       But I think they are not needed.
 
        if (model%options%whichevol .eq. EVOL_NO_THICKNESS) then
           ! restore old thickness
@@ -689,9 +689,15 @@ end select
 !       Comment out for now?
 
     !Halo updates required for inputs to calc_gline_flux?
+!HALO - It should be possible to compute stagthck without a halo update,
+!       provided that thck has been updated.
+
     call staggered_parallel_halo(model%geomderv%stagthck)
-    call staggered_parallel_halo(model%velocity%surfvel)
     ! call parallel_halo(model%geometry%thkmask) in earlier glide_set_mask call
+
+!TODO - Not sure we need to update ubas, vbas, or surfvel,
+!       because these are already part of the 3D uvel and vvel arrays
+    call staggered_parallel_halo(model%velocity%surfvel)
     call staggered_parallel_halo(model%velocity%ubas)
     call staggered_parallel_halo(model%velocity%vbas)
     ! call parallel_halo(model%ground%gline_flux) - halo update not required for correctness
@@ -798,6 +804,8 @@ end select
     ! basal shear stress calculations
 
     !Halo updates required for inputs to glide_set_mask?
+!HALO - If these values are needed, it should be possible to compute them without halo updates,
+!       provided that thck and usrf have been updated in halos
     ! call staggered_parallel_halo(model%geomderv%stagthck) prior to calc_gline_flux
     ! call staggered_parallel_halo(model%geomderv%dusrfdew) prior to glide_calcstrsstr
     ! call staggered_parallel_halo(model%geomderv%dusrfdns) prior to glide_calcstrsstr

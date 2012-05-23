@@ -677,6 +677,8 @@ contains
        ! compute heat source due to basal friction
        ! Note: slterm and bfricflx are defined to be >= 0
 
+!TODO - I think this loop should be over locally owned scalars: (ilo:ihi,jlo:jhi)
+ 
        do ns = 2, model%general%nsn-1
        do ew = 2, model%general%ewn-1
 
@@ -686,6 +688,8 @@ contains
           select case( whichbmlt)
 
           case( SIA_BMELT)      ! taub*ub = -rhoi * g * H * (grad(S) * ubas) 
+
+!HALO - Make sure we have ubas, vbas, and derivs for all locally owned velocity cells
 
              if (thck(ew,ns) > model%numerics%thklim .and. .not. float(ew,ns)) then
 
@@ -710,6 +714,8 @@ contains
              !whl - copied Steve Price's formulation from calcbmlt
              ! btraction is computed in glam_strs2.F90
 
+!HALO - Here we need btraction for all locally owned velocity cells.
+ 
              if (thck(ew,ns) > model%numerics%thklim .and. .not. float(ew,ns)) then
                 do nsp = ns-1,ns
                 do ewp = ew-1,ew

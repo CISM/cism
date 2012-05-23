@@ -520,6 +520,8 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
     ! call distributed_print("preefvs_ov"//Looptime//"_pic"//loopnum//"_tsk", efvs)
 #endif
 
+!HALO - To avoid parallel halo calls within glam_strs2, we may want to compute efvs in halo cells
+
     ! calc effective viscosity using previously calc vel. field
     call findefvsstr(ewn,  nsn,  upn,      &
                      stagsigma,  counter,    &
@@ -546,7 +548,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
                      uindx,       umask,          &
                      lsrf,        topg,           &
                      minTauf,     flwa,           &
-                     beta, btraction,             &
+                     beta,        btraction,      &
                      counter, 0 )
 
     ! put vels and coeffs from 3d arrays into sparse vector format
@@ -628,7 +630,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
                      uindx,       umask,          &
                      lsrf,        topg,           &
                      minTauf,     flwa,           &
-                     beta, btraction,             &
+                     beta,        btraction,      &
                      counter, 0 )
 
     ! put vels and coeffs from 3d arrays into sparse vector format
@@ -694,7 +696,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
                      uindx,       umask,          &
                      lsrf,        topg,           &
                      minTauf,     flwa,           &
-                     beta, btraction,             &
+                     beta,        btraction,      &
                      counter, 1 )
 
    call findcoefstr(ewn,  nsn,   upn,             &
@@ -712,7 +714,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
                      uindx,       umask,          &
                      lsrf,        topg,           &
                      minTauf,     flwa,           &
-                     beta, btraction,             &
+                     beta,        btraction,      &
                      counter, 1 )
 
     !JEFF Commented out plasticbediteration() per Steve Price. December 2010
@@ -792,12 +794,20 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 
   !JEFF: Coordinate halos
   !JEFF: umask is marked as INOUT and is updated for the Ross Ice Shelf experiment, but for no other, so don't update halos
-  !JEFF: btraction and efvs are calculated in this routine, but only for "owned" grid cells, so update halos to get neighboring values.
   !JEFF: uvel, vvel, uflx, and vflx are calculated in this routine, but only for "owned" grid cells, so update halos to get neighboring values.
-  call parallel_halo(btraction)
-  call parallel_halo(efvs)
+
   !call staggered_parallel_halo(uvel) (called earlier)
   !call staggered_parallel_halo(vvel) (called earlier)
+
+!HALO - Do we need halo updates for btraction and efvs?
+!       I think we don't need an update for efvs, because it is already computed in a layer of halo cells.
+!       And I think we don't need an update for btraction, because it is computed in bodyset for all
+!        locally owned velocity points.
+
+  call parallel_halo(efvs)
+  call parallel_halo(btraction)
+
+!HALO - Not sure we need these two halo updates
   call staggered_parallel_halo(uflx)
   call staggered_parallel_halo(vflx)
 
@@ -1279,7 +1289,7 @@ end if
                      uindx,       umask,          &
                      lsrf,        topg,           &
                      minTauf,     flwa,           &
-                     beta, btraction,             &
+                     beta,        btraction,      &
                      k, 1 )
    call findcoefstr(ewn,  nsn,   upn,             &
                      dew,  dns,   sigma,          &
@@ -1296,7 +1306,7 @@ end if
                      uindx,       umask,          &
                      lsrf,        topg,           &
                      minTauf,     flwa,           &
-                     beta, btraction,             &
+                     beta,        btraction,      &
                      k, 1 )
 
   inisoln = .true.
@@ -1344,10 +1354,18 @@ end if
  !model%stress%efvs = efvs
  !PW following are needed for glam_velo_fordsiapstr - putting here until can be convinced
  !   that they are not needed (or that they should be delayed until later)
-  call parallel_halo(btraction)
-  call parallel_halo(efvs)
+
   call staggered_parallel_halo(uvel)
   call staggered_parallel_halo(vvel)
+
+!HALO - Not sure we need these two updates
+!       I think we do not need an update for efvs, because it is already computed in a layer of halo cells.
+!       And I think we don't need an update for btraction, because it is computed in bodyset for all
+!        locally owned velocity points.
+  call parallel_halo(efvs)
+  call parallel_halo(btraction)
+
+!HALO - Probably do not need these two updates
   call staggered_parallel_halo(uflx)
   call staggered_parallel_halo(vflx)
 
@@ -1429,7 +1447,7 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
   ! This is the factor 1/4(X0/H0)^2 in front of the term ((dv/dz)^2+(du/dz)^2) 
   real (kind = dp), parameter :: f1 = 0.25_dp * (len0 / thk0)**2
 
-  if (1 == counter) then
+  if (counter == 1) then
 
 !  if (main_task) then
 !    print *, 'nsn=', nsn
@@ -1441,8 +1459,13 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
 !    print *, 'flwafact shape =', shape(flwafact)
 !  endif
 
+!TODO - If we are not supporting glam_strs2 together with the old Glimmer temperature routines,
+!       then we can assume that temp and flwa live on the staggered vertical grid.
+
 !whl - If temp and flwa live on the staggered vertical grid (like the effective viscosity),
 !      then the size of flwa is (upn-1), and vertical averaging of flwa is not needed here.
+
+!HALO - These loops should be over locally owned cells, plus one halo layer (ilo-1:ihi+1, jlo-1:jhi+1).
 
      if (size(flwa,1)==upn-1) then   ! temperature and flwa live on staggered vertical grid
 
@@ -1476,6 +1499,12 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
   select case(whichefvs)
 
   case(0)       ! calculate eff. visc. using eff. strain rate
+
+!HALO - These loops should be over (ilo-1:ihi+1, jlo-1:jhi+1).
+!       In other words, efvs is required in locally owned cells, plus one halo layer.
+!       This is equivalent to the loop below, provided nhalo = 2
+!       As is, this code should *not* be run with nhalo = 1.
+!       To run with nhalo = 1, we would need to compute efvs in locally owned cells and then do a halo update. 
 
   do ns = 2,nsn-1
       do ew = 2,ewn-1
@@ -1558,6 +1587,8 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
    end do       ! end ns
 
   case(1)       ! set the eff visc to some const value 
+
+!HALO - Make this loop consistent with loop above.
 
 !   *sfp* changed default setting for linear viscosity so that the value of the rate
 !   factor is taken into account
@@ -2287,7 +2318,7 @@ end subroutine reset_effstrmin
                      ui,       um,          &
                      lsrf,        topg,           &
                      minTauf,     flwa,           &
-                     beta, btraction,             &
+                     beta,        btraction,      &
                      counter, 0 )
 
     rhsx(1:pcgsize(1)) = rhsd ! Fv
@@ -2330,7 +2361,7 @@ end subroutine reset_effstrmin
                      ui,       um,          &
                      lsrf,        topg,           &
                      minTauf,     flwa,           &
-                     beta, btraction,             &
+                     beta,        btraction,      &
                      counter, 0 )
 
     rhsx(pcgsize(1)+1:2*pcgsize(1)) = rhsd ! Fv
@@ -2900,7 +2931,7 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                        uindx,       mask,           &
                        lsrf,        topg,           &
                        minTauf,     flwa,           &
-                       beta, btraction,             &
+                       beta,        btraction,      &
                        count, assembly )
 
   ! Main subroutine for determining coefficients that go into the LHS matrix A 
@@ -2976,7 +3007,9 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
 !    print *, loc2_array
 !    pause
 
-!HALO - I think this loop should be over locally owned velocity points: (ilo-1:ihi,jlo-1:jhi)
+!HALO - This loop should be over locally owned velocity points: (ilo-1:ihi,jlo-1:jhi)
+!       Note: efvs has been computed in a layer of halo cells, so we have its value in all
+!             neighbors of locally owned velocity points.
 
   ! JEFFLOC Do I need to restrict to non-halo grid points?
   do ns = 1+staggered_shalo,size(mask,2)-staggered_nhalo
@@ -3032,14 +3065,18 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
             ! Function to adjust indices at sfc and bed so that most correct values of 'efvs' and 'othervel'
             ! are passed to function. Because of the fact that efvs goes from 1:upn-1 rather than 1:upn
             ! we simply use the closest values. This could probably be improved upon at some point
-            ! by extrpolating values for efvs at the sfc and bed using one-sided diffs, and it is not clear
+            ! by extrapolating values for efvs at the sfc and bed using one-sided diffs, and it is not clear
             ! how important this simplfication is.
             !JEFFLOC indshift() returns three-element shift index for up, ew, and ns respectively.
             !JEFFLOC It does get passed loc2_array, but it doesn't use it.  Further, the shifts can be at most 1 unit in any direction.
             shift = indshift( 0, ew, ns, up, ewn, nsn, upn, loc2_array(:,:,1), stagthck(ew-1:ew+1,ns-1:ns+1) )
 
+!HALO - Note that ew and ns below are locally owned velocity points, i.e. in the range (ilo-1:ihi, jlo-1:jhi)
+!HALO - This means we need efvs in one layer of halo cells.
+
 			!JEFFLOC As long as not accessing halo ice points, then won't shift off of halo of size at least 1.
 			!JEFFLOC Completed scan on 11/23.  Testing change of definition of loc2_array.
+
             call bodyset(ew,  ns,  up,        &
                          ewn, nsn, upn,       &
                          dew,      dns,       &
@@ -3580,6 +3617,8 @@ subroutine bodyset(ew,  ns,  up,           &
            g_vel_lhs(:,:,:) = ghostbvel(2,:,ew-1:ew+1,ns-1:ns+1)
            g_vel_rhs(:,:,:) = ghostbvel(1,:,ew-1:ew+1,ns-1:ns+1)
        end select
+
+!HALO - Since ew and ns are locally owned velocity points, we will have btraction at all such points.
 
        btraction(pt,ew,ns) = sum( (g_norm+g_vert)*g_vel_lhs*thk0/len0*sum(local_efvs(2,:,:))/4.0d0 ) &
                            - sum( g_cros*g_vel_rhs*thk0/len0*sum(local_efvs(2,:,:))/4.0d0 )
