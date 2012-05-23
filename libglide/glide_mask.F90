@@ -293,7 +293,7 @@ contains
     iareag = iareag  * dew * dns
 
 !TODO - Move the global sum to the driver level
-      - And verify that the global sum is working correctly    
+!     - And verify that the global sum is working correctly    
     if (.NOT. exec_serial_flag) then
        sum(1) = iareaf
        sum(2) = iareag
