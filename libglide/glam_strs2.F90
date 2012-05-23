@@ -2976,6 +2976,8 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
 !    print *, loc2_array
 !    pause
 
+!HALO - I think this loop should be over locally owned velocity points: (ilo-1:ihi,jlo-1:jhi)
+
   ! JEFFLOC Do I need to restrict to non-halo grid points?
   do ns = 1+staggered_shalo,size(mask,2)-staggered_nhalo
     do ew = 1+staggered_whalo,size(mask,1)-staggered_ehalo
@@ -2996,6 +2998,9 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
     loc2(1,:) = loc2_array(ew,ns,:)
 
 ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+!TODO - Not sure the COMP_DOMAIN_BND condition is needed.
+!       Sometimes we may want to solve for the velocity at the domain boundary.
+
     if ( GLIDE_HAS_ICE(mask(ew,ns)) .and. .not. &
          GLIDE_IS_COMP_DOMAIN_BND(mask(ew,ns)) .and. .not. &
          GLIDE_IS_MARGIN(mask(ew,ns)) .and. .not. &
@@ -3054,6 +3059,8 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
         end do  ! upn
 
 ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+!TODO - Not sure COMP_DOMAIN_BND condition is needed
+
     elseif ( GLIDE_IS_CALVING( mask(ew,ns) ) .and. .not. &
              GLIDE_IS_COMP_DOMAIN_BND(mask(ew,ns) ) .and. .not. &
              GLIDE_IS_DIRICHLET_BOUNDARY(mask(ew,ns)) .and. .not. &
@@ -3098,6 +3105,11 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
         lateralboundry = .false.
 
 ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+!TODO - Here we deal with cells on the computational domain boundary.
+!       Currently the velocity is always set to a specified value on this boundary.
+!       With open (non-Dirichlet) BCs, we might want to solve for these velocities,
+!        using the code above to compute the matrix elements.
+
     elseif ( GLIDE_HAS_ICE(mask(ew,ns)) .and. ( GLIDE_IS_DIRICHLET_BOUNDARY(mask(ew,ns)) .or. &
              GLIDE_IS_COMP_DOMAIN_BND(mask(ew,ns)) ) .or. GLIDE_IS_LAND_MARGIN(mask(ew,ns)) .or. &
              GLIDE_IS_THIN(mask(ew,ns)) ) &
@@ -4896,6 +4908,8 @@ subroutine plasticbediteration( )
 end subroutine plasticbediteration
 
 !***********************************************************************
+
+!TODO - Might be cleaner to just inline the vertical loop wherever this function is called.
 
 function vertintg(upn, sigma, in)
 

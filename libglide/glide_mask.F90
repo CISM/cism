@@ -33,16 +33,22 @@
 
 #include "glide_mask.inc"
 
+!TODO - Should this be renamed, since it will be used by both SIA and HO dycores?
+!       E.g., could call it cism_mask
+
 module glide_mask
     use glimmer_global, only : dp, sp, NaN
   !*FD masking ice thicknesses
 
 contains
-  subroutine glide_set_mask(numerics, thck, topg, ewn, nsn, eus, mask, iarea, ivol,exec_serial)
+
+  subroutine glide_set_mask(numerics, thck, topg, ewn, nsn, eus, mask, iarea, ivol, exec_serial)
+
     use parallel
     use glide_types
     use glimmer_physcon, only : rhoi, rhoo
     implicit none
+
     type(glide_numerics), intent(in) :: numerics !Numerical parameters structure
     real(dp), dimension(:,:), intent(in) :: thck !Ice thickness
     real(dp), dimension(:,:), intent(in) :: topg !Bedrock topography (not lower surface!)
@@ -62,6 +68,7 @@ contains
     !finding can work even on the boundaries of the real mask.
     integer, dimension(0:ewn+1,0:nsn+1) :: maskWithBounds;
 
+!TODO - What is the exec_serial option?  Is it still needed?
     !JEFF Handle exec_serial optional parameter
     if ( present(exec_serial) ) then
        exec_serial_flag = exec_serial
@@ -71,37 +78,66 @@ contains
     endif
 
     mask = 0
-    if (present(iarea)) then
-        iarea = 0.
-    end if
 
-    if (present(ivol)) then
-        ivol = 0.
-    end if
+    if (present(iarea)) iarea = 0.d0
+    if (present(ivol)) ivol = 0.d0
+
+!TODO - This mask is confusing.  Wondering if we should replace it by a series of logical masks.
+
+! Would need the following:
+! glide_mask_has_ice = 1
+! glide_mask_thin_ice = 3
+! glide_mask_ocean = 4 (below sea level, with or without ice)
+! glide_mask_land = 8 (complement of glide_mask_ocean)
+! glide_mask_grounding_line = 16 (could define in terms of margin and has ice?)
+! glide_mask_margin = 32 (has_ice + at least one neighbor with no ice)
+! glide_mask_dirichlet_bc = 64
+! glide_mask_comp_domain_bnd = 128 (no longer needed with new global BC?)
+! glide_no_ice (complement of glide_has_ice)
+! glide_is_thin
+! glide_is_ocean (ocean + no_ice; change to glide_ocean_icefree or remove?)
+! glide_is_land (land + no_ice; change to glide_land_icefree or remove?)
+! glide_is_ground (land + has_ice)
+! glide_is_float (ocean + has_ice)
+! glide_is_grounding_line (just inside or just outside? Used only in glide_ground)
+! glide_is_margin
+! glide_is_land_margin (margin + land + has_ice)
+! glide_is_calving (margin + ocean + has_ice; change the name to is_marine_margin?)
+! glide_is_marine_ice_edge (margin + (float or GL); may not be needed)
+! glide_is_dirichlet_boundary 
+! glide_is_comp_domain_bnd (may not be needed with new global BC?)
+! 
+!TODO - Even if we keep the present structure, could change glide_is_land to glide_icefree_land,
+!                                                           glide_is_ocean to glide_icefree_ocean
+!       Could get by with fewer masks in the code by removing some combinations
+!       Could remove *BITS
+
+!TODO - Combine the following into one do loop with ifs?
+!       Probably should loop over locally owned cells only.
 
     !Identify points with any ice
-    where (thck > 0)
-        mask = ior(mask, GLIDE_MASK_HAS_ICE)
+    where (thck > 0.d0)
+        mask = ior(mask, GLIDE_MASK_HAS_ICE)  ! GLIDE_MASK_HAS_ICE = 1; see glide_mask.inc
     endwhere
 
     !Identify points where the ice is below the ice dynamics limit
-    where (thck > 0 .and. thck < numerics%thklim)
-        mask = ior(mask, GLIDE_MASK_THIN_ICE)
+    where (thck > 0.d0 .and. thck < numerics%thklim)
+        mask = ior(mask, GLIDE_MASK_THIN_ICE)  ! GLIDE_MASK_THIN_ICE = 3
     endwhere
 
     !Identify points where the ice is floating or where there is open ocean
     where (topg - eus < con * thck)
-        mask = ior(mask, GLIDE_MASK_OCEAN)
+        mask = ior(mask, GLIDE_MASK_OCEAN)   ! GLIDE_MASK_OCEAN = 8
     elsewhere
-        mask = ior(mask, GLIDE_MASK_LAND)
+        mask = ior(mask, GLIDE_MASK_LAND)    ! GLIDE_MASK_LAND = 4
     endwhere
 
     if (present(iarea) .and. present(ivol)) then
         call get_area_vol(thck, numerics%dew, numerics%dns, numerics%thklim, iarea, ivol, exec_serial_flag)
     end if
 
-!HALO - The following could be accomplished by a halo call with a Neumann BC.
-!       I
+!HALO - The following could be accomplished by a halo call for 'mask' with appropriate global BC.
+!       
     maskWithBounds = 0
     maskWithBounds(1:ewn, 1:nsn) = MASK
     maskWithBounds(0,1:nsn) = mask(1,:)
@@ -115,13 +151,13 @@ contains
 
     ! finding boundaries
 
-!HALO - This loop should probably be only over locally owned scalars.
+!HALO - This loop should be only over locally owned scalars.
 !       If halo cells are present, maskWithBounds array may not be needed; can replace with mask array.
 
     do ns=1,nsn
        do ew = 1,ewn
           !Find the grounding line
-          if (GLIDE_IS_GROUND(MASK(ew,ns))) then
+          if (GLIDE_IS_GROUND(MASK(ew,ns))) then    ! land + has_ice
              if (GLIDE_IS_FLOAT(maskWithBounds(ew-1,ns)) .or. &
                   GLIDE_IS_FLOAT(maskWithBounds(ew+1,ns)) .or. &
                   GLIDE_IS_FLOAT(maskWithBounds(ew,ns-1)) .or. & 
@@ -158,6 +194,7 @@ contains
     if (.NOT. exec_serial_flag) then
        call parallel_halo(mask)
     endif
+
   end subroutine glide_set_mask
 
   subroutine augment_kinbc_mask(mask, kinbcmask)

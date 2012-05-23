@@ -175,7 +175,8 @@ contains
           
     end select
  
-
+!TODO - Add an option to initialize ice temperature with a linear vertical profile.
+!       This is now done in the version of Glimmer in CESM.
 
       !MJH: Initialize ice temperature.============
       !This block of code is identical to that in glide_init_temp
@@ -191,7 +192,7 @@ contains
           ! Values have been read in - do nothing
       endif
 
-!whl - Not sure this a robust way to decide when to call calcflwa
+!whl - Not sure this is a robust way to decide when to call calcflwa
       ! MJH: Calculate initial value of flwa
       ! If flwa is loaded (e.g. hotstart), use the flwa field in the input file instead
       ! Note: Implementing flwa initialization in this way, I don't think hotstart=1 does anything. 

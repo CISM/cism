@@ -122,6 +122,8 @@ contains
        call t_stopf('calcwvel')
     end subroutine
 
+!TODO - Do we need this vertical temperature calculation for HO code?
+!       We do not, if we use the new temperature scheme.
     !*sfp* copy of code in glide_temp for calc. vert vel. If using HO, this will now be done here
     !*sfp* and not in glide_temp. If NOT calling HO velocity calc, still done in glide_temp
     subroutine calcwvel( model, whichtemp )
@@ -146,7 +148,8 @@ contains
         select case(model%options%whichwvel)
          case(0)
             ! Usual vertical integration
-            call wvelintg(model%velocity%uvel,                        &
+!TODO - Modify argument list to remove velowk array
+            call wvelintg(model%velocity%uvel,              &
                 model%velocity%vvel,                        &
                 model%geomderv,                             &
                 model%numerics,                             &

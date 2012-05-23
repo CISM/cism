@@ -60,6 +60,7 @@ module glide_thck
 
 contains
 
+!TODO - This subroutine needed for SIA only
   subroutine init_thck(model)
     !*FD initialise work data for ice thickness evolution
     use glimmer_log
@@ -615,10 +616,10 @@ contains
     end subroutine findsums
   end subroutine thck_evolve
 
-
-
-
 !---------------------------------------------------------------
+
+!TODO - Move this subroutine to another module.
+!       The other subroutines in this module are used for SIA only.
 
 subroutine geometry_derivs(model)
    use glide_mask, only: upwind_from_mask

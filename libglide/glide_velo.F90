@@ -53,6 +53,9 @@ module glide_velo
 
 contains
 
+!TODO - Pretty sure that none of the arrays in this subroutine are needed for HO.
+!       Some velowk arrays are used in wvelintg, but not hard to rewrite wvelintg without these arrays.
+
   subroutine init_velo(model)
     !*FD initialise velocity module
     use glimmer_physcon, only : arrmll, arrmlh, gascon, actenl, actenh, scyr, pi 
@@ -109,6 +112,9 @@ contains
    
 
   end subroutine init_velo
+
+!TODO - What is the 'if 0' option?
+!TODO - May be able to remove this subroutine; it is never called. 
 #if 0
   subroutine velo_compute_strain_rates(strain_zx, strain_zy, 
                                        stagthck, dusrfdew, dusrfdns, sigma, 
@@ -150,7 +156,7 @@ contains
     end do
   end subroutine
 
-  
+!TODO - This subroutine is not called either.  
   !*FD Integrates the strain rates to compute both the 3d velocity fields and the
   !*FD vertically averaged velocities
   subroutine velo_integrate_strain(strain_zx, strain_zy, ubas, vbas,
@@ -170,6 +176,8 @@ contains
   end subroutine
 #endif
   
+!TODO - The rest of the subroutines in this module are needed for SIA only?
+!       Currently, the HO solver calls gridwvel, wvelintg, and chckwvel, but not sure these calls are needed.
 
   !*****************************************************************************
   ! new velo functions come here
@@ -658,6 +666,9 @@ contains
 
 !------------------------------------------------------------------------------------------
 
+!TODO - Eliminate velowk from the argument list if we are going to call this from HO code.
+!       Currently use velowk%suvel, svvel, dupsw, depthw; would need to allocate and define here.
+
   subroutine wvelintg(uvel,vvel,geomderv,numerics,velowk,wgrd,thck,bmlt,wvel)
 
     !*FD Calculates the vertical velocity field, which is returned in \texttt{wvel}.
@@ -854,6 +865,9 @@ contains
 ! PRIVATE subroutines
 !------------------------------------------------------------------------------------------
 
+!TODO - Note: There is a copy of this function in glam_strs2.  
+!       Maybe better to move this subroutine to another module to avoid duplication.
+ 
   function vertintg(velowk,in)
 
     !*FD Performs a depth integral using the trapezium rule.

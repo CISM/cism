@@ -161,9 +161,12 @@ contains
     ! allocate arrays
     call glide_allocarr(model)
 
+!TODO - Maybe be able to eliminate the bed softness parameter 
+!       and set btrc to model%velowo%btrac_const in glide_velo
     ! initialise bed softness to uniform parameter
     model%velocity%bed_softness = model%velowk%btrac_const
 
+!TODO - Can remove; PBJ only
     !Initialize boundary condition fields to be NaN everywhere 
     model%geometry%marine_bc_normal = NaN
     
@@ -208,7 +211,13 @@ contains
     call glide_io_createall(model)
 
     ! initialise glide components
+
+!TODO - Most of what's done in init_velo is needed for SIA only
+!       Can remove this call provided velowk is not used elsewhere (e.g., to call wvelintg)
+       
     call init_velo(model)
+
+!TODO - Eventually, only glissade_init_temp will be called from HO driver.
 
     ! MJH: Initialize temperature field - this needs to happen after input file is
     ! read so we can assign artm (which could possibly be read in) if temp has not been input.
@@ -218,9 +227,11 @@ contains
        call glissade_init_temp(model)  ! temperature lives at layer centers
     endif 
 
+!TODO - this call needed for SIA only
     call init_thck(model)
 
-!HALO - Not sure backstress is ever used
+!TODO - Not sure backstress is ever used
+!       Probably safe to comment out the call; can uncomment if ever needed.
     call glide_initialise_backstress(model%geometry%thck,&
                                      model%climate%backstressmap,&
                                      model%climate%backstress, &
@@ -232,6 +243,8 @@ contains
        call init_lithot(model)
     end if
 
+!TODO - Move the higher-order stuff to the HO driver, leaving only the old Glide code
+
     if (model%options%which_ho_diagnostic == HO_DIAG_PP ) then
 
         call glam_velo_fordsiapstr_init(model%general%ewn,    model%general%nsn,  &
@@ -239,6 +252,8 @@ contains
                                         model%numerics%dew,   model%numerics%dns, &
                                         model%numerics%sigma)
     end if
+
+!TODO - Eliminate old remapping once the new remapping is certified to be working.
 
     if ((model%options%whichevol == EVOL_INC_REMAP ) .or. &
        (model%options%whichevol == EVOL_NO_THICKNESS)) then
@@ -264,6 +279,7 @@ contains
       endif 
     endif 
 
+!TODO - Eliminate this option once the parallel upwind transport is certified to be working.
     ! *sfp** added for summer modeling school
     if (model%options%whichevol== EVOL_FO_UPWIND ) then
 
@@ -290,6 +306,7 @@ contains
     !! (whichevol = 3 or 4)
     model%geometry%age(:,:,:) = 0._dp
 
+!TODO - Can remove these lines
 !MJH moved flwa init to glide_init_temp/glissade_init_temp
 !    if (model%options%hotstart.ne.1) then
 !       ! initialise Glen's flow parameter A using an isothermal temperature distribution
