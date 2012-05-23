@@ -122,6 +122,8 @@ module stress_hom
         ! 1st order approx. to the 2nd strain-rate invariant (outlined in model description document).
         tau = sqrt(tauxz**2 + tauyz**2 + tauxx**2 + tauyy**2 + tauxx*tauyy + tauxy**2)
 
+!HALO - Not sure halo values are needed.  If they are, they should be moved up to the glissade driver level.
+
         call parallel_halo(tauxx)
         call parallel_halo(tauyy)
         call parallel_halo(tauxy)

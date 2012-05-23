@@ -253,7 +253,8 @@ module glam
 !    If nhalo >= 2, then no halo updates should be needed inside glissade_transport_driver.
 
 !PW FOLLOWING NECESSARY?
-!HALO - These halo calls could be moved to the beginning of inc_remap_driver.
+!HALO - These halo updates could be moved up a level to the new glissade driver, 
+!       before calling inc_remap_driver.
 
            ! Halo updates for velocities, thickness and tracers
           call t_startf('new_remap_halo_upds')
@@ -281,6 +282,9 @@ module glam
                                              model%velocity%vvel(:,:,:) * vel0,                    &
                                              model%geometry%thck(:,:),                             &
                                              model%temper%temp(1:model%general%upn-1,:,:) )
+
+!TODO - Not sure we want to support this option.
+!       We could only use it if we don't want to advect temperature (e.g., for isothermal ice)
 
            else  ! Use IR to transport thickness only
                  ! Note: In glissade_transport_driver, the ice thickness is transported layer by layer,
@@ -313,12 +317,11 @@ module glam
 
         endif  ! old v. new remapping
 
-!HALO - These halo calls may not be needed if the rest of the timestep consists of local calculations
         !Update halos of modified fields
        call t_startf('after_remap_haloupds')
 
-!HALO - This one might be needed if we are remapping thickness only and using the old
-!       Glimmer temperature solver.
+!HALO - Move these updates to the new glissade driver.
+
         call parallel_halo(model%geometry%thck)
 
         if (model%options%whichtemp /= TEMP_GLIMMER) then   ! Glimmer temperature arrays have 

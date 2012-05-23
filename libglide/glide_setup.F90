@@ -166,6 +166,10 @@ contains
 !-------------------------------------------------------------------------
 
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!TODO - This is a utility subroutine called at every timestep; move to another module?
+!       Note that it loops over all grid cells, not just locally owned.
+!       This means the halos must be updated before it is called.
+
   subroutine glide_calclsrf(thck,topg,eus,lsrf)
 
     !*FD Calculates the elevation of the lower surface of the ice, 

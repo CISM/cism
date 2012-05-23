@@ -33,6 +33,9 @@
 
 #include "glide_mask.inc"
 
+!TODO - Make a new model called glissade.F90 patterned after glide.F90.
+!       Remove HO and parallel stuff from glide.F90, remove SIA-only stuff from glissade.F90.
+
 module glide
   !*FD the top-level GLIDE module
 
@@ -161,7 +164,7 @@ contains
     ! allocate arrays
     call glide_allocarr(model)
 
-!TODO - Maybe be able to eliminate the bed softness parameter 
+!TODO - May be able to eliminate the bed softness parameter 
 !       and set btrc to model%velowo%btrac_const in glide_velo
     ! initialise bed softness to uniform parameter
     model%velocity%bed_softness = model%velowk%btrac_const
@@ -217,7 +220,8 @@ contains
        
     call init_velo(model)
 
-!TODO - Eventually, only glissade_init_temp will be called from HO driver.
+!TODO - When glide is separate from the HO driver, only glide_init_temp to be called here;
+!       glissade_init_temp will be called from HO driver.
 
     ! MJH: Initialize temperature field - this needs to happen after input file is
     ! read so we can assign artm (which could possibly be read in) if temp has not been input.
@@ -237,13 +241,14 @@ contains
                                      model%climate%backstress, &
                                      model%climate%stressin, &
                                      model%climate%stressout)
+
     if (model%options%gthf.gt.0) then
        call not_parallel(__FILE__,__LINE__)
        call glide_lithot_io_createall(model)
        call init_lithot(model)
     end if
 
-!TODO - Move the higher-order stuff to the HO driver, leaving only the old Glide code
+!TODO - Move the HO code below to the HO driver, leaving only the old Glide code
 
     if (model%options%which_ho_diagnostic == HO_DIAG_PP ) then
 
@@ -288,6 +293,7 @@ contains
 
     endif
 
+!TODO - Will this module ever be supported?
     ! *mb* added; initialization of basal proc. module
     if (model%options%which_bmod == BAS_PROC_FULLCALC .or. &
         model%options%which_bmod == BAS_PROC_FASTCALC) then
@@ -299,9 +305,10 @@ contains
 
     end if      
 
+!TODO - Compute and advect the ice age.
+!       Initialization should take place in glide_types
     ! initialise ice age
     !! This is a placeholder; currently the ice age is not computed.  
-    !! lipscomb - to do - Compute and advect the ice age.
     !! Currently the ice age is only computed for remapping transport
     !! (whichevol = 3 or 4)
     model%geometry%age(:,:,:) = 0._dp
@@ -313,6 +320,12 @@ contains
 !       call glide_temp_driver(model,0,0)
 !    end if       
 
+!TODO - Decide how to modify glide_set_mask.  Might be able to remove some masks.
+!       Also, may want to rename to cism_set_mask
+
+!TODO - Mask names are perverse: 
+!       model%geometry%thkmask is set in glide_mask.F90, whereas model%geometry%mask is set in glide_thckmask.F90
+
     ! calculate mask
     call glide_set_mask(model%numerics, model%geometry%thck, model%geometry%topg, &
                         model%general%ewn, model%general%nsn, model%climate%eus, &
@@ -322,8 +335,14 @@ contains
                             model%geometry%iarea, model%geometry%thkmask, &
                             model%geometry%iareaf, model%geometry%iareag)
 
+!TODO - Remove this call?  Steve thinks it is PBJ only.
+!       The variable marine_bc_normal is never used.
+ 
     !calculate the normal at the marine margin
     call glide_marine_margin_normal(model%geometry%thck, model%geometry%thkmask, model%geometry%marine_bc_normal)
+
+!TODO - Not sure why this was commented out, but OK to remove since it is called just above.
+!     - Still have to verify exact restart
 
     ! calculate mask
     !if (model%options%hotstart.ne.1) then  ! setting the mask destroys exact restart
@@ -334,13 +353,16 @@ contains
     call glide_calclsrf(model%geometry%thck, model%geometry%topg, model%climate%eus,model%geometry%lsrf)
     model%geometry%usrf = model%geometry%thck + model%geometry%lsrf
 
+!TODO - Pretty sure these are SIA only
     ! initialise thckwk variables; used in timeders subroutine
     model%thckwk%olds(:,:,1) = model%geometry%thck(:,:)
     model%thckwk%olds(:,:,2) = model%geometry%usrf(:,:)
 
+!TODO - SIA only?
     ! initialise standard glide profiling
     call glide_prof_init(model)
 
+!TODO - Unclear on how this is used - Is it needed for parallel code?
     ! register the newly created model so that it can be finalised in the case
     ! of an error without needing to pass the whole thing around to every
     ! function that might cause an error
@@ -363,6 +385,9 @@ contains
 
   end subroutine glide_initialise
   
+!TODO - glide_tstep_p1, p2, and p3 will be combined in glissade.F90.
+!       Could be part of a single glissade_tstep subroutine
+
   subroutine glide_tstep_p1(model,time)
     !*FD Performs first part of time-step of an ice model instance.
     !*FD calculate velocity and temperature
@@ -399,13 +424,16 @@ contains
        write(6,*) 'oldtime =', model%thckwk%oldtime
 #endif
 
+    call glide_prof_start(model,model%glide_prof%geomderv)
+
     ! ------------------------------------------------------------------------ 
     ! Calculate various derivatives...
     ! ------------------------------------------------------------------------     
-    call glide_prof_start(model,model%glide_prof%geomderv)
 
 !HALO - If these geometry derivs are computed only on locally owned nodes,
 !       then some derivs may need halo updates.
+!TODO - I suggest explicit calls to the appropriate subroutines in glide_derivs (dfdx_2d, etc.)
+!       Then we would not need to use the geometry_derivs subroutine in glide_thck.
 
     call geometry_derivs(model)
     
@@ -429,12 +457,17 @@ contains
         model%geometry%thck,     &
         model%numerics%thklim )
 
-
     !EIB!
     
     call glide_prof_stop(model,model%glide_prof%geomderv)
 
     call glide_prof_start(model,model%glide_prof%ice_mask1)
+
+!TODO - Pretty sure that glide_maskthck is SIA only
+!       totpts and empty are used only in glide_thck.
+!       model%geometry%mask (not to be confused with model%geometry%thkmask) is used only in glide_thck
+!       I don't see where dom is used.
+
     !TREY This sets local values of dom, mask, totpts, and empty
     !EIB! call veries between lanl and gc2, this is lanl version
     !magi a hack, someone explain what whichthck=5 does
@@ -448,6 +481,7 @@ contains
          model%geometry% mask,      &
          model%geometry% totpts,    &
          model%geometry% empty)
+
     call glide_prof_stop(model,model%glide_prof%ice_mask1)
 
     ! ------------------------------------------------------------------------ 
@@ -457,6 +491,8 @@ contains
        call not_parallel(__FILE__,__LINE__)
        call calc_lithot(model)
     end if
+
+!TODO - Can have one call in SIA driver, the other call in the HO driver
 
     ! ------------------------------------------------------------------------ 
     ! Calculate temperature evolution and Glenn's A, if necessary
@@ -487,6 +523,8 @@ contains
 
     end if
     call glide_prof_stop(model,model%glide_prof%temperature)
+
+!TODO - SIA only (glam dycore computes beta rather than btrc)
 
     ! ------------------------------------------------------------------------ 
     ! Calculate basal traction factor
@@ -540,6 +578,9 @@ contains
     ! ------------------------------------------------------------------------ 
     call glide_prof_start(model,model%glide_prof%ice_evo)
 
+!TODO - The first 3 cases are SIA only.
+!       For the glissade driver we will support only the INC_REMAP and EVOL_NO_THICKNESS options 
+
     select case(model%options%whichevol)
     case(EVOL_PSEUDO_DIFF) ! Use precalculated uflx, vflx -----------------------------------
 
@@ -567,6 +608,7 @@ contains
           stagthck_old = model%geomderv%stagthck
        endif
 
+!TODO - Suggest moving inc_remap_driver code to this level, to separate velocity solve from thck/temp evolution
       call t_startf('inc_remap_driver')
        call inc_remap_driver( model )
       call t_stopf('inc_remap_driver')
@@ -592,6 +634,8 @@ contains
        ! model%stress%tau%xx, model%stress%tau%yy, model%stress%tau%xy,
        ! model%stress%tau%scalar, model%stress%tau%xz, model%stress%tau%yz
        !at end of call
+!HALO - If the stress%tau halo updates are needed, they should go here (in glissade.F90)
+!       But they may not be needed.
 
        if (model%options%whichevol .eq. EVOL_NO_THICKNESS) then
           ! restore old thickness
@@ -599,11 +643,17 @@ contains
           model%geomderv%stagthck = stagthck_old
        endif
 
+!TODO - Remove this call once the parallel upwind scheme has been tested.
+
     case(EVOL_FO_UPWIND) ! Use first order upwind scheme for mass transport
        call not_parallel(__FILE__,__LINE__)
        call fo_upwind_advect_driver( model )
 
 end select
+
+!HALO - I suggest putting the various geometry halo updates here, after thickness and temperature evolution.
+!       This would include thck at a minimum.
+!       Also include topg if basal topography is evolving.
 
     call glide_prof_stop(model,model%glide_prof%ice_evo)
 
@@ -612,37 +662,32 @@ end select
     ! ------------------------------------------------------------------------
     call glide_prof_start(model,model%glide_prof%ice_mask2)
 
-!HALO - Updates not needed if glide_set_mask loops over locally owned cells.
-!       But may need halo update for thk_mask afterward
-
     !Halo updates required for inputs to glide_set_mask?
     ! call parallel_halo(model%geometry%thck) in inc_remap_driver
     call parallel_halo(model%geometry%topg)
 
-!HALO - The call to glide_set_mask is needed before glide_marinlim.
-!       May not be needed for intermediate calls.
+!TODO - May want to write a new subroutine, glissade_set_mask, that loops over locally owned cells
+!        and is followed by a halo update (for thkmask) in the driver.
+!       For the serial SIA code, we probably shouldn't change the loops.
+ 
+!Note: The call to glide_set_mask is needed before glide_marinlim.
 
     call glide_set_mask(model%numerics, model%geometry%thck, model%geometry%topg, &
                         model%general%ewn, model%general%nsn, model%climate%eus, &
                         model%geometry%thkmask, model%geometry%iarea, model%geometry%ivol)
     !Includes a halo update of model%geometry%thkmask at end of call
-!HALO - That halo update should go here, not in glide_set_mask.
+!HALO - Halo update of thkmask should go here
 
     call glide_prof_stop(model,model%glide_prof%ice_mask2)
 
-!HALO - Pretty sure these are not needed.
-    !Halo updates required for inputs to glide_set_mask?
-    ! call parallel_halo(model%geometry%thck) in inc_remap_driver
-    ! call parallel_halo(model%geometry%thkmask) in previous glide_set_mask call
-
-!HALO - This call probably is not needed.
+!TODO - This call was used by the PBJ core and probably is not needed.
     call glide_marine_margin_normal(model%geometry%thck, model%geometry%thkmask, model%geometry%marine_bc_normal)
     !Includes a halo update of model%geometry%marine_bc_normal at end of call
 
-!HALO - Not sure if we will support calc_gline_flux.  
+!TODO - Not sure if we will support calc_gline_flux.  
 !       It computes a diagnostic flux, but doesn't compute it accurately.
 !       Comment out for now?
-!HALO - If computing grounding line flux correctly, might need halo update for thck.
+
     !Halo updates required for inputs to calc_gline_flux?
     call staggered_parallel_halo(model%geomderv%stagthck)
     call staggered_parallel_halo(model%velocity%surfvel)
@@ -651,33 +696,26 @@ end select
     call staggered_parallel_halo(model%velocity%vbas)
     ! call parallel_halo(model%ground%gline_flux) - halo update not required for correctness
 
+!TODO - Not sure this info is currently used.  Comment out the call to calc_gline_flux for now?
     !calculate the grounding line flux after the mask is correct
     call calc_gline_flux(model%geomderv%stagthck,model%velocity%surfvel, &
                          model%geometry%thkmask,model%ground%gline_flux, model%velocity%ubas, &
                          model%velocity%vbas, model%numerics%dew)
     !Includes a halo update of model%ground%gline_flux at end of call
+!HALO - Halo update of gline_flux should go here.
 
     ! ------------------------------------------------------------------------ 
     ! Remove ice which is either floating, or is present below prescribed
     ! depth, depending on value of whichmarn
     ! ------------------------------------------------------------------------ 
 
-!HALO - Need to look at marinlim more carefully and see what updated fields it needs.
-
-    !Halo updates required for inputs to glide_marinlim?
-    !(Note: case specific, so push into glide_marinlim?)
-
-    ! call parallel_halo(model%geometry%thck) in inc_remap_driver
+!HALO - Look at marinlim more carefully and see which fields need halo updates before it is called.
 
 !HALO - Not sure we need halo values for isostasy
     call parallel_halo(model%isos%relx)
 
-    ! call parallel_halo(model%geometry%topg) before previous set_glide_mask
-
-!HALO - not sure flwa halo values are needed here.
+!HALO - not sure if needed for glide_marinlim.
     call parallel_halo(model%temper%flwa)
-
-    ! call parallel_halo(model%geometry%thkmask) in previous glide_set_mask call
 
 !HALO - Not sure backstress is ever used
     call parallel_halo(model%climate%backstress)
@@ -709,36 +747,41 @@ end select
 
     !Includes halo updates of model%geometry%thck and model%climate%calving
     ! and of model%climate%backstress), when needed
-    !Note that halo updates for 
-    ! model%geometry%thkmask not needed in current implementation of case 3
+!HALO - Those updates should go here instead.
+!       Note: thck will have changed, and updated halo values are needed below in calc_lsrf.
+
+    !Note that halo updates for model%geometry%thkmask not needed in current implementation of case 3
     ! model%climate%eus needed only for disabled case 6
     ! model%ground components needed only for disabled case 6
 
-!HALO - Write a better comment here.  The mask needs to be recalculated after marinlim.
+!TODO - Write a better comment here.  The mask needs to be recalculated after marinlim.
     !issues with ice shelf, calling it again fixes the mask
 
-!HALO - Halo updates not needed if glide_set_mask loops over locally owned cells.
-    !Halo updates required for inputs to glide_set_mask?
-    ! call parallel_halo(model%geometry%thck) within glide_marinlim
-    ! call parallel_halo(model%geometry%topg) before previous call to glide_set_mask
+!HALO - Halo updates are not needed here if glide_set_mask loops over locally owned cells.
 
     call glide_set_mask(model%numerics, model%geometry%thck, model%geometry%topg, &
                         model%general%ewn, model%general%nsn, model%climate%eus, &
                         model%geometry%thkmask, model%geometry%iarea, model%geometry%ivol)
-    !Includes a halo update of model%geometry%thkmask at end of call
 
-    !Halo updates required for inputs to calc_iareaf_iareag?
+!HALO - glide_set_mask includes a halo update of model%geometry%thkmask at end of call
+!       That update should be moved here if needed later (but may not be needed).
+
     ! call parallel_halo(model%geometry%thkmask) in previous glide_set_mask call
 
     call calc_iareaf_iareag(model%numerics%dew,model%numerics%dns, &
                             model%geometry%iarea, model%geometry%thkmask, &
                             model%geometry%iareaf, model%geometry%iareag)
-    !No output requiring halo update (though global_sum called in routine)
+
+!HALO - Need a global sum here (currently done inside calc_iareaf_iareag)
 
     ! ------------------------------------------------------------------------
     ! update ice/water load if necessary
     ! ------------------------------------------------------------------------
     call glide_prof_start(model,model%glide_prof%isos_water)
+
+!TODO - Are we supporting an isostasy calculation in the parallel model?
+!       While this may be a low priority in the near term, we should do so eventually.
+
     if (model%isos%do_isos) then
        !JEFF the isos_icewaterload() is passed the entire model, so I don't know what gathered variables it needs.
        call not_parallel(__FILE__, __LINE__)
@@ -749,6 +792,7 @@ end select
           model%isos%new_load = .true.
        end if
     end if
+
     call glide_prof_stop(model,model%glide_prof%isos_water)
     
     ! basal shear stress calculations
@@ -758,16 +802,18 @@ end select
     ! call staggered_parallel_halo(model%geomderv%dusrfdew) prior to glide_calcstrsstr
     ! call staggered_parallel_halo(model%geomderv%dusrfdns) prior to glide_calcstrsstr
 
-!HALO - This call is useful only for SIA diagnostics.
+!TODO - This call is useful only for SIA diagnostics; not needed for glissade driver.
     call calc_basal_shear(model%geomderv%stagthck, &
                           model%geomderv%dusrfdew, &
                           model%geomderv%dusrfdns, &
                           model%stress%tau_x, &
                           model%stress%tau_y)
     !Includes a halo update of model%stress%tau_x and model%stress%tau_y at end of call
-    !HALO - That call will be removed
+    !HALO - That update will be removed
 
   end subroutine glide_tstep_p2
+
+!HALO - Does tstep_p3 require any halo info?
 
   subroutine glide_tstep_p3(model, no_write)
     !*FD Performs third part of time-step of an ice model instance:
@@ -793,6 +839,9 @@ end select
        write(6,*) 'Starting tstep_p3, i, j, thck =', i, j, model%geometry%thck(i,j)
 #endif
 
+!TODO - Are we supporting an isostasy calculation in the parallel model?
+!       While this may be a low priority in the near term, we should do so eventually.
+
     ! ------------------------------------------------------------------------ 
     ! Calculate isostasy
     ! ------------------------------------------------------------------------ 
@@ -813,6 +862,9 @@ end select
     !Halo updates required for inputs to glide_calcsrf?
     ! call parallel_halo(model%geometry%thck) within glide_marinlim
     ! call parallel_halo(model%geometry%topg) before previous call to glide_set_mask
+
+!HALO - Verify that both thck and topg are up to date.
+!       Note that glide_calclsrf loops over all cells (not just locally owned)
 
     call glide_calclsrf(model%geometry%thck, model%geometry%topg, model%climate%eus, model%geometry%lsrf)
     !If input halos are up to date, halo update for model%geometry%lsrf should not be necessary
@@ -842,6 +894,9 @@ end select
 
     logical, optional, intent(in) :: no_write
     logical nw
+
+!TODO - Determine correct location for these calls (related to exact restart of serial model).
+!       Remove if not needed here.
 
     ! These three calls are in glide_temp in the full-temperature section replaced by Bill's new temperature code.
     ! Commenting out until I hear otherwise.
@@ -907,6 +962,7 @@ end select
          call t_stopf('glide_lithot_io_writeall')
        end if
     end if
+
   end subroutine glide_tstep_postp3
 
   !-------------------------------------------------------------------

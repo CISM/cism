@@ -33,8 +33,7 @@
 
 #include "glide_mask.inc"
 
-!TODO - Should this be renamed, since it will be used by both SIA and HO dycores?
-!       E.g., could call it cism_mask
+!TODO - May need two versions of this module, one for glide and one for glissade
 
 module glide_mask
     use glimmer_global, only : dp, sp, NaN
@@ -151,7 +150,7 @@ contains
 
     ! finding boundaries
 
-!HALO - This loop should be only over locally owned scalars.
+!HALO - For parallel glissade code, this loop should be only over locally owned scalars.
 !       If halo cells are present, maskWithBounds array may not be needed; can replace with mask array.
 
     do ns=1,nsn
@@ -187,8 +186,7 @@ contains
        end do
     end do
 
-!HALO - If loop above is over locally owned cells, then this halo update is probably needed.
-!       Not sure if the code currently supports halo updates for serial runs, but it should.
+!HALO - This halo update should be moved to the driver level.
 
     !JEFF Don't call halo update if running in serial mode
     if (.NOT. exec_serial_flag) then
@@ -254,7 +252,9 @@ contains
  
   subroutine calc_iareaf_iareag(dew, dns, iarea, mask, iareaf, iareag, exec_serial)
     
+!TODO - Probably need two versions of this subroutine, one for parallel and one for serial
     use parallel
+
     implicit none
     real(dp), intent(in) :: dew, dns
     real(dp), intent(in) :: iarea
@@ -266,6 +266,7 @@ contains
     logical :: exec_serial_flag
     real(dp) :: sum(2)
  
+!TODO - Is this exec_serial option needed?
     ! Handle exec_serial optional parameter
     if ( present(exec_serial) ) then
       exec_serial_flag = exec_serial
@@ -277,7 +278,7 @@ contains
     iareaf = 0.0
     iareag = 0.0 
 
-!HALO - Locally owned cells; change to ilo, ihi, jlo, jhi
+!HALO - Locally owned cells; change to ilo, ihi, jlo, jhi (for parallel version)
     do j = 1+lhalo, size(mask,2)-uhalo
       do i = 1+lhalo, size(mask,1)-uhalo
         if (GLIDE_IS_FLOAT(mask(i,j))) then
@@ -290,7 +291,9 @@ contains
 
     iareaf = iareaf  * dew * dns
     iareag = iareag  * dew * dns
-    
+
+!TODO - Move the global sum to the driver level
+      - And verify that the global sum is working correctly    
     if (.NOT. exec_serial_flag) then
        sum(1) = iareaf
        sum(2) = iareag
