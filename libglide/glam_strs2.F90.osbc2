@@ -26,7 +26,7 @@ use glimmer_log,      only : write_log
 use glide_mask
 use glimmer_sparse_type
 use glimmer_sparse
-use glide_types, only : glide_global_type, pass_through
+use glide_types
 
 implicit none
 
