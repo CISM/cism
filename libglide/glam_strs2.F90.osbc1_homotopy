@@ -46,8 +46,8 @@ implicit none
   ! regularization constant for eff. strain rate to avoid infinite visc.
   ! NOTE: would be good to explore how small this really needs to be, as 
   ! code converges much better when this value is made larger.
-  real (kind = dp), parameter :: effstrminsq_target = (1.0e-20_dp * tim0)**2
-  real (kind = dp) :: effstrminsq = effstrminsq_target
+  real (kind = dp), parameter :: effstrminsq = (1.0e-20_dp * tim0)**2
+  real (kind = dp) :: homotopy = 0.0
 
   real (kind = dp) :: p1, p2, p3    ! variants of Glen's "n" (e.g. n, (1-n)/n)
   real (kind = dp) :: dew2, dns2, dew4, dns4
@@ -1157,7 +1157,7 @@ end if
 !    calcoffdiag = .true.    ! save off diag matrix components
 !    calcoffdiag = .false.    ! save off diag matrix components
 
-    call calc_F (xk_1, F, xk_size, c_ptr_to_object)
+    call calc_F (xk_1, F, xk_size, c_ptr_to_object, 0)
 
     call c_f_pointer(c_ptr_to_object,fptr) ! convert C ptr to F ptr
     L2norm = fptr%L2norm
@@ -1215,7 +1215,7 @@ end if
         xk_1_plus = xk_1 + epsilon*vectx
 
 ! form F(x + epsilon*wk1) = F(u^k-1 + epsilon*wk1u, v^k-1 + epsilon*wk1v)
-        call calc_F (xk_1_plus, F_plus, xk_size, c_ptr_to_object)
+        call calc_F (xk_1_plus, F_plus, xk_size, c_ptr_to_object, 1)
 
 ! put approximation of J*wk1 in wk2
 
@@ -1540,7 +1540,7 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
     ! horiz grid, even though it does not). 
 
             ! Below, p2=(1-n)/2n. The 1/2 is from taking the sqr root of the squared eff. strain rate
-            efvs(1:upn-1,ew,ns) = flwafact(1:upn-1,ew,ns) * effstr**p2
+            efvs(1:upn-1,ew,ns) = flwafact(1:upn-1,ew,ns) * effstr**p2 + homotopy
 !            efvs(:,ew,ns) = flwafact(:,ew,ns) * effstr**p2
 
         else
@@ -2138,15 +2138,20 @@ subroutine reset_effstrmin (esm_factor) bind(C, name='reset_effstrmin')
   real (c_double), intent(in):: esm_factor
  
   ! esm_factor of 0 leads to desired target. Valid values are [0,10]
-  effstrminsq = effstrminsq_target * 10.0**(2.0 * esm_factor)
-
-  ! print *,'EFFSTRMINSQ ',effstrminsq, effstrminsq_target, esm_factor
+!  effstrminsq = effstrminsq_target * 10.0**(2.0 * esm_factor)
+  
+  ! Homotopy parameter needs to be zero when esm_factor hits zero
+  if (esm_factor > 1.0e-10) then
+    homotopy = 10**( esm_factor - 9.0 )
+  else
+    homotopy = 0.0;
+  endif
 
 end subroutine reset_effstrmin
 
 !***********************************************************************
 
- subroutine calc_F (xtp, F, xk_size, c_ptr_to_object) bind(C, name='calc_F')
+ subroutine calc_F (xtp, F, xk_size, c_ptr_to_object, ispert) bind(C, name='calc_F')
 
   ! Calculates either F(x) or F(x+epsilon*vect) for the JFNK method
   ! Recall that x=[v,u]
@@ -2159,6 +2164,8 @@ end subroutine reset_effstrmin
   implicit none
 
    integer(c_int) ,intent(in) ,value  :: xk_size
+! ispert is 0 for base calculations, 1 for perturbed calculations
+   integer(c_int) ,intent(in) ,value  :: ispert 
    real(c_double)  ,intent(in)        :: xtp(xk_size)
    real(c_double)  ,intent(out)       :: F(xk_size)
    type(pass_through) ,pointer        :: fptr=>NULL()
@@ -2282,7 +2289,9 @@ end subroutine reset_effstrmin
       call form_matrix ( matrixA ) ! to get A(utp,vtp)
 #ifdef TRILINOS
     else
-      call savetrilinosmatrix(0); 
+      if (ispert == 0) then
+        call savetrilinosmatrix(0); 
+      endif
 #endif
     end if
     
@@ -2323,7 +2332,9 @@ end subroutine reset_effstrmin
       call form_matrix ( matrixC ) ! to get C(utp,vtp)
 #ifdef TRILINOS
     else
-      call savetrilinosmatrix(1); 
+      if (ispert == 0) then
+        call savetrilinosmatrix(1); 
+      endif
 #endif
     end if
     

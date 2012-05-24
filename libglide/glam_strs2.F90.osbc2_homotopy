@@ -46,8 +46,8 @@ implicit none
   ! regularization constant for eff. strain rate to avoid infinite visc.
   ! NOTE: would be good to explore how small this really needs to be, as 
   ! code converges much better when this value is made larger.
-  real (kind = dp), parameter :: effstrminsq_target = (1.0e-20_dp * tim0)**2
-  real (kind = dp) :: effstrminsq = effstrminsq_target
+  real (kind = dp), parameter :: effstrminsq = (1.0e-20_dp * tim0)**2
+  real (kind = dp) :: homotopy = 0.0
 
   real (kind = dp) :: p1, p2, p3    ! variants of Glen's "n" (e.g. n, (1-n)/n)
   real (kind = dp) :: dew2, dns2, dew4, dns4
@@ -294,7 +294,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
   real (kind = dp), save, dimension(2) :: resid     ! vector for storing u resid and v resid 
   real (kind = dp) :: plastic_resid_norm = 0.0d0    ! norm of residual used in Newton-based plastic bed iteration
 
-  integer, parameter :: cmax = 300                  ! max no. of iterations
+  integer, parameter :: cmax = 100                  ! max no. of iterations
   integer :: counter, linit                         ! iteration counter, ???
   character(len=100) :: message                     ! error message
 
@@ -1157,7 +1157,7 @@ end if
 !    calcoffdiag = .true.    ! save off diag matrix components
 !    calcoffdiag = .false.    ! save off diag matrix components
 
-    call calc_F (xk_1, F, xk_size, c_ptr_to_object)
+    call calc_F (xk_1, F, xk_size, c_ptr_to_object, 0)
 
     call c_f_pointer(c_ptr_to_object,fptr) ! convert C ptr to F ptr
     L2norm = fptr%L2norm
@@ -1215,7 +1215,7 @@ end if
         xk_1_plus = xk_1 + epsilon*vectx
 
 ! form F(x + epsilon*wk1) = F(u^k-1 + epsilon*wk1u, v^k-1 + epsilon*wk1v)
-        call calc_F (xk_1_plus, F_plus, xk_size, c_ptr_to_object)
+        call calc_F (xk_1_plus, F_plus, xk_size, c_ptr_to_object, 1)
 
 ! put approximation of J*wk1 in wk2
 
@@ -2138,15 +2138,20 @@ subroutine reset_effstrmin (esm_factor) bind(C, name='reset_effstrmin')
   real (c_double), intent(in):: esm_factor
  
   ! esm_factor of 0 leads to desired target. Valid values are [0,10]
-  effstrminsq = effstrminsq_target * 10.0**(2.0 * esm_factor)
-
-  ! print *,'EFFSTRMINSQ ',effstrminsq, effstrminsq_target, esm_factor
+!  effstrminsq = effstrminsq_target * 10.0**(2.0 * esm_factor)
+  
+  ! Homotopy parameter needs to be zero when esm_factor hits zero
+  if (esm_factor > 1.0e-10) then
+    homotopy = 10**( esm_factor - 9.0 )
+  else
+    homotopy = 0.0;
+  endif
 
 end subroutine reset_effstrmin
 
 !***********************************************************************
 
- subroutine calc_F (xtp, F, xk_size, c_ptr_to_object) bind(C, name='calc_F')
+ subroutine calc_F (xtp, F, xk_size, c_ptr_to_object, ispert) bind(C, name='calc_F')
 
   ! Calculates either F(x) or F(x+epsilon*vect) for the JFNK method
   ! Recall that x=[v,u]
@@ -2159,6 +2164,8 @@ end subroutine reset_effstrmin
   implicit none
 
    integer(c_int) ,intent(in) ,value  :: xk_size
+! ispert is 0 for base calculations, 1 for perturbed calculations
+   integer(c_int) ,intent(in) ,value  :: ispert 
    real(c_double)  ,intent(in)        :: xtp(xk_size)
    real(c_double)  ,intent(out)       :: F(xk_size)
    type(pass_through) ,pointer        :: fptr=>NULL()
@@ -2282,7 +2289,9 @@ end subroutine reset_effstrmin
       call form_matrix ( matrixA ) ! to get A(utp,vtp)
 #ifdef TRILINOS
     else
-      call savetrilinosmatrix(0); 
+      if (ispert == 0) then
+        call savetrilinosmatrix(0); 
+      endif
 #endif
     end if
     
@@ -2323,7 +2332,9 @@ end subroutine reset_effstrmin
       call form_matrix ( matrixC ) ! to get C(utp,vtp)
 #ifdef TRILINOS
     else
-      call savetrilinosmatrix(1); 
+      if (ispert == 0) then
+        call savetrilinosmatrix(1); 
+      endif
 #endif
     end if
     
@@ -3185,7 +3196,7 @@ subroutine bodyset(ew,  ns,  up,           &
 
   integer, dimension(2) :: bcflag  ! indicates choice of sfc and basal bcs ...
 
-  real (kind = dp) :: scalebabc
+  real (kind = dp) :: scalebabc = 1.0d0
 
   integer, dimension(2) :: loc2plusup
 
@@ -3198,6 +3209,18 @@ subroutine bodyset(ew,  ns,  up,           &
 
   ! *********************************************************************************************
   ! lateral boundary conditions 
+
+!!xx Replace ghost cells w/ one-sided diffs at sfc/basal indices.
+!!xx The follow two if constructs set the ghost cells to have ones on the diag and zeros on the rhs,
+!!xx enforcing a zero vel bc for the ghost cells.
+     if( up == upn  )then
+        loc2plusup = loc2(1,:) + upn + 1    ! basal ghost cells
+        call valueset(0.0_dp,loc2plusup)
+     endif
+     if( up == 1  )then
+        loc2plusup = loc2(1,:)              ! sfc ghost cells
+        call valueset(0.0_dp,loc2plusup)
+     endif
 
   ! if at sfc or bed, source due to seawater pressure is 0 and bc normal vector
   ! should contain sfc/bed slope components, e.g. (-ds/dx, -ds/dy, 1) or (db/dx, db/dy, -1)
@@ -3241,28 +3264,44 @@ subroutine bodyset(ew,  ns,  up,           &
 !        !! Hack to avoid bad sfc and basal bc normal vectors !!
         slopex = 0.0d0; slopey = 0.0d0
 
-        g = normhorizmainbc_lat(dew,           dns,             &
+!!x        g = normhorizmainbc_lat(dew,           dns,             &
+!!x                                slopex,        slopey,          &
+!!x                                dsigmadew(up), dsigmadns(up),   &
+!!x                                pt,            2,               &
+!!x                                dup(up),                        &
+!!x                                oneorfour,     fourorone,       &
+!!x                                onesideddiff,                   &
+!!x                                normal,        fwdorbwd)
+!!xx NEW method, using one-sided diffs
+        g = normhorizmainbcos_lat(dew,           dns,             &
                                 slopex,        slopey,          &
                                 dsigmadew(up), dsigmadns(up),   &
                                 pt,            2,               &
                                 dup(up),       local_efvs,      &
                                 oneorfour,     fourorone,       &
                                 onesideddiff,                   &
-                                normal,        fwdorbwd)
+                                normal,        fwdorbwd,        &
+                                bcflag )
 
-        ! add on coeff. associated w/ du/dsigma  
-        g(:,3,3) = g(:,3,3) &
-                 + vertimainbc( stagthck(ew,ns), bcflag, dup(up),     &
-                                local_efvs,      betasquared,   g_vert,    nz, &
-                                plastic_coeff=plastic_coeff_lhs(pt,ew,ns)  )
+
+        ! add on coeff. associated w/ du/dsigma
+!!x        g(:,3,3) = g(:,3,3) &
+!!x                 + vertimainbc( stagthck(ew,ns), bcflag, dup(up),     &
+!!x                                local_efvs,      betasquared,   g_vert,    nz, &
+!!x                                plastic_coeff=plastic_coeff_lhs(pt,ew,ns)  )
+
+!!xx NEW method, using one-sided diffs
+      g(:,3,3) = g(:,3,3)   &
+               + vertimainbcos( stagthck(ew,ns),bcflag,dup(up),local_efvs,betasquared, &
+                             g_vert, nz, plastic_coeff=plastic_coeff_lhs(pt,ew,ns) )
 
         !! scale basal bc coeffs when using JFNK solver 
-        scalebabc = scalebasalbc( g, bcflag, lateralboundry, betasquared, local_efvs )
-        g = g / scalebabc
+!        scalebabc = scalebasalbc( g, bcflag, lateralboundry, betasquared, local_efvs )
+!        g = g / scalebabc
 
         ! put the coeff. for the b.c. equation in the same place as the prev. equation
         ! (w.r.t. cols), on a new row ...
-        call fillsprsebndy( g, loc2plusup(1), loc_latbc, up, normal, pt )
+!!x        call fillsprsebndy( g, loc2plusup(1), loc_latbc, up, normal, pt )
 
         ! NOTE that in the following expression, the "-" sign on the crosshoriz terms, 
         ! which results from moving them from the LHS over to the RHS, has been moved
@@ -3270,31 +3309,43 @@ subroutine bodyset(ew,  ns,  up,           &
         ! NOTE that in the following expression, the "-" sign on the crosshoriz terms, 
         ! which results from moving them from the LHS over to the RHS, has been moved
         ! inside of "croshorizmainbc_lat".
-        rhsd(loc2plusup(2)) = sum( croshorizmainbc_lat(dew,       dns,           &
-                                                   slopex,        slopey,        &
-                                                   dsigmadew(up), dsigmadns(up), &
-                                                   pt,            2,             &
-                                                   dup(up),       local_othervel,&
-                                                   local_efvs,                   &
-                                                   oneortwo,      twoorone,      &
-                                                   onesideddiff,                 &
-                                                   normal,fwdorbwd)              &
-                                                 * local_othervel ) /scalebabc
+!!x        rhsd(loc2plusup(2)) = sum( croshorizmainbc_lat(dew,       dns,           &
+!!x                                                   slopex,        slopey,        &
+!!x                                                   dsigmadew(up), dsigmadns(up), &
+!!x                                                   pt,            2,             &
+!!x                                                   dup(up),       local_othervel,&
+!!x                                                   local_efvs,                   &
+!!x                                                   oneortwo,      twoorone,      &
+!!x                                                   onesideddiff,                 &
+!!x                                                   normal,fwdorbwd)              &
+!!x                                                 * local_othervel ) /scalebabc
 
-        if( nonlinear == HO_NONLIN_JFNK .and. calcoffdiag )then
-            storeoffdiag = .true.
-            h = -croshorizmainbc_lat(dew,      dns,           & 
-                                slopex,        slopey,        &
-                                dsigmadew(up), dsigmadns(up), & 
-                                pt,            2,             & 
-                                dup(up),       local_othervel,& 
-                                local_efvs,                   &
-                                oneortwo,      twoorone,      & 
-                                onesideddiff,                 &
-                                normal,fwdorbwd) / scalebabc 
-            call fillsprsebndy( h, loc2plusup(1), loc_latbc, up, normal, pt ) 
-            storeoffdiag = .false.
-        end if     
+        h = croshorizmainbcos_lat(dew,           dns,           &
+                                  slopex,        slopey,        &
+                                  dsigmadew(up), dsigmadns(up), &
+                                  pt,            2,             &
+                                  dup(up),       local_efvs,    &
+                                  local_othervel,               &
+                                  oneortwo,      twoorone,      &
+                                  onesideddiff,                 &
+                                  normal,        fwdorbwd,      &
+                                  bcflag )
+
+
+!        if( nonlinear == HO_NONLIN_JFNK .and. calcoffdiag )then
+!            storeoffdiag = .true.
+!            h = -croshorizmainbc_lat(dew,      dns,           & 
+!                                slopex,        slopey,        &
+!                                dsigmadew(up), dsigmadns(up), & 
+!                                pt,            2,             & 
+!                                dup(up),       local_othervel,& 
+!                                local_efvs,                   &
+!                                oneortwo,      twoorone,      & 
+!                                onesideddiff,                 &
+!                                normal,fwdorbwd) / scalebabc 
+!            call fillsprsebndy( h, loc2plusup(1), loc_latbc, up, normal, pt ) 
+!            storeoffdiag = .false.
+!        end if     
 
     end if     ! up = 1 or up = upn (IF at lateral boundary and IF at surface or bed)
 
@@ -3319,7 +3370,7 @@ subroutine bodyset(ew,  ns,  up,           &
     ! when the solution has converged a bit, we switch to the more realistic implementation (option 2).
     ! That is achieved in the following if construct ...
 
-!    if( cc < 2 .and. .not. inisoln )then  ! This should be the default option for the shelf BC source term.
+!    if( cc < 5 .and. .not. inisoln )then  ! This should be the default option for the shelf BC source term.
                                           ! If no previous guess for the eff. visc. exists, this option
                                           ! uses the 1d version of the BC for one iteration in order to 
                                           ! "precondition" the soln for the next iteration. W/o this option
@@ -3367,47 +3418,53 @@ subroutine bodyset(ew,  ns,  up,           &
 
   end if
 
-    g = normhorizmainbc_lat(dew,           dns,        &
+    g = g + normhorizmainbcos_lat(dew,           dns,        &
                             slopex,        slopey,     &
                             dsigmadew(up), dsigmadns(up),  &
                             pt,            1,          &
                             dup(up),       local_efvs, &
                             oneorfour,     fourorone,  &
                             onesideddiff,              &
-                            normal,        fwdorbwd)
+                            normal,        fwdorbwd,   &
+                            bcflag )
 
-    ! put the coeff. for the b.c. equation in the same place as the prev. equation
-    ! (w.r.t. cols), on a new row ...
-    call fillsprsebndy( g, loc2plusup(1), loc_latbc, up, normal, pt )
+    loc2plusup = loc2(1,:) + up  !!xx need to reset this index since we want the bc on the actual row
+                                !!xx coinciding with the boundary at up=1
+    if( up == 1 )then
+      call fillsprsebndyos( g, loc2plusup(1), loc_latbc, up, normal, pt, 1 )
+    else if( up == upn )then
+      call fillsprsebndyos( g, loc2plusup(1), loc_latbc, up, normal, pt, -1 )
+    else
+      call fillsprsebndy( g, loc2plusup(1), loc_latbc, up, normal, pt )
+    end if
 
-    ! NOTE that in the following expression, the "-" sign on the crosshoriz terms, 
-    ! which results from moving them from the LHS over to the RHS, has been moved
-    ! inside of "croshorizmainbc_lat".
-    rhsd(loc2plusup(2)) = sum( croshorizmainbc_lat(dew,           dns,            &
-                                               slopex,        slopey,         &
-                                               dsigmadew(up), dsigmadns(up),  &
-                                               pt,            1,              &
-                                               dup(up),       local_othervel, &
-                                               local_efvs,                    &
-                                               oneortwo,      twoorone,       &
-                                               onesideddiff,                  &
-                                               normal,        fwdorbwd)       &
-                                              * local_othervel ) + source
+    h = h + croshorizmainbcos_lat(dew,           dns,            &
+                               slopex,        slopey,         &
+                                dsigmadew(up), dsigmadns(up),  &
+                                pt,            1,              &
+                                dup(up),       local_efvs,     &
+                                local_othervel,                &
+                                oneortwo,      twoorone,       &
+                                onesideddiff,                  &
+                                normal,        fwdorbwd,       &
+                                bcflag )
 
-     if( nonlinear == HO_NONLIN_JFNK .and. calcoffdiag )then
-         storeoffdiag = .true.
-         h = -croshorizmainbc_lat(dew,          dns,            &
-                                 slopex,        slopey,         &
-                                 dsigmadew(up), dsigmadns(up),  &
-                                 pt,            1,              &
-                                 dup(up),       local_othervel, &
-                                 local_efvs,                    &
-                                 oneortwo,      twoorone,       &
-                                 onesideddiff,                  &
-                                 normal,        fwdorbwd)
-         call fillsprsebndy( h, loc2plusup(1), loc_latbc, up, normal, pt )
-         storeoffdiag = .false.
-     end if
+    rhsd(loc2plusup(2)) = sum( h * local_othervel ) + source
+
+!     if( nonlinear == HO_NONLIN_JFNK .and. calcoffdiag )then
+!         storeoffdiag = .true.
+!         h = -croshorizmainbc_lat(dew,          dns,            &
+!                                 slopex,        slopey,         &
+!                                 dsigmadew(up), dsigmadns(up),  &
+!                                 pt,            1,              &
+!                                 dup(up),       local_othervel, &
+!                                 local_efvs,                    &
+!                                 oneortwo,      twoorone,       &
+!                                 onesideddiff,                  &
+!                                 normal,        fwdorbwd)
+!         call fillsprsebndy( h, loc2plusup(1), loc_latbc, up, normal, pt )
+!         storeoffdiag = .false.
+!     end if
 
   else   ! NOT at a lateral boundary 
 
@@ -3415,20 +3472,16 @@ subroutine bodyset(ew,  ns,  up,           &
 ! normal discretization for points inside of lateral boundary and inside main body of ice sheet
 
 !!xx Replace ghost cells w/ one-sided diffs at sfc/basal indices.
-
 !!xx This if construct skips the normal discretization for the RHS and LHS for the sfc and basal indices
      if( up /= upn .and. up /= 1 )then
-
          g = normhorizmain(pt,up,local_efvs)
          g(:,2,2) = g(:,2,2) + vertimain(hsum(local_efvs),up)
-
          call fillsprsemain(g,loc2plusup(1),loc2(:,1),up,pt,0)
          ! NOTE that in the following expression, the "-" sign on the crosshoriz terms,
          ! which results from moving them from the LHS over to the RHS, is explicit and
          ! hast NOT been moved inside of "croshorizmin" (as is the case for the analogous
          ! boundary condition routines).
          rhsd(loc2plusup(2)) = thisdusrfdx(ew,ns) - sum(croshorizmain(pt,up,local_efvs) * local_othervel)
-
      end if
 
 !!xx Replace ghost cells w/ one-sided diffs at sfc/basal indices.
@@ -3517,18 +3570,16 @@ subroutine bodyset(ew,  ns,  up,           &
 
 
      !! scale basal bc coeffs when using JFNK solver
-     scalebabc = scalebasalbc( g, bcflag, lateralboundry, betasquared, local_efvs )
-     g = g / scalebabc
+!     scalebabc = scalebasalbc( g, bcflag, lateralboundry, betasquared, local_efvs )
+!     g = g / scalebabc
 
      ! put the coeff. for the b.c. equation in the same place as the prev. equation
      ! (w.r.t. cols), on a new row ...
 !!xx call fillsprsemain(g,loc2plusup(1),loc2(:,1),up,pt)
-
 !!xx Replace ghost cells w/ one-sided diffs at sfc/basal indices.
 !!xx This section shifts the LHS matrix coeffs back on to the main diagonal (as opposed to staggered
 !!xx off the diag, which was necessary for the ghost cell implementation)
      if( up == 1 .or. up == upn )then
-       !loc2plusup(1) = loc2(1,1) + up  !!xx need to reset this index since we want the bc on the actual row
        loc2plusup = loc2(1,:) + up  !!xx need to reset this index since we want the bc on the actual row
                                        !!xx coinciding with the boundary at up=1
         if( up == 1 )then
@@ -4035,7 +4086,7 @@ function vertimainbcos(thck, bcflag, dup, efvs, betasquared, g_vert, nz, plastic
     ! for higher-order FREE SURFACE B.C. for x ('which'=1) or y ('which'=2) direction ...
     if( bcflag(1) == 1 .and. bcflag(2) == 0 )then
 
-           c = nz / thck / (2*dup) * (len0**2 / thk0**2) * efvsbar_sfc ! value of coefficient
+           c = nz / thck / (2*dup) * (len0**2 / thk0**2) * efvsbar_sfc
 
            vertimainbcos(:) = 0.0_dp
            vertimainbcos(1) = 3.0d0*c
@@ -4051,18 +4102,18 @@ function vertimainbcos(thck, bcflag, dup, efvs, betasquared, g_vert, nz, plastic
    ! for higher-order BASAL B.C. w/ specified basal traction, add on the necessary source term ...
    if( bcflag(1) == 1 .and. bcflag(2) == 1 )then
 
-           c = nz / thck / (2*dup) * (len0**2 / thk0**2) * efvsbar_bed ! value of coefficient
+           c = nz / thck / (2*dup) * (len0**2 / thk0**2) * efvsbar_bed
 
            vertimainbcos(:) = 0.0_dp
            vertimainbcos(1) = -1.0d0*c
            vertimainbcos(2) = 4.0d0*c
            vertimainbcos(3) = -3.0d0*c
 
-            ! this is the part of the vertimain coeff. block that we want to keep for calc
-            ! of boundary tractions (note that it DOES NOT include terms from boundary forcing)
-            ! NOTE that here we do this BEFORE adding in the sliding coefficient, as in the standard
-            ! expression for the BC, this term is on the RHS.
-            g_vert(:,2,2) = vertimainbcos
+           ! this is the part of the vertimain coeff. block that we want to keep for calc
+           ! of boundary tractions (note that it DOES NOT include terms from boundary forcing)
+           ! NOTE that here we do this BEFORE adding in the sliding coefficient, as in the standard
+           ! expression for the BC, this term is on the RHS.
+           g_vert(:,2,2) = vertimainbcos
 
            ! this is the part of the vertimain coeff. block that we want to keep for calc
            ! of boundary tractions (note that it DOES NOT include terms from boundary forcing)
@@ -4071,18 +4122,17 @@ function vertimainbcos(thck, bcflag, dup, efvs, betasquared, g_vert, nz, plastic
 !            vertimainbcos(3) = vertimainbcos(3)   &
 !                           + ( betasquared / efvsbar_bed ) * (len0 / thk0)
             vertimainbcos(3) = vertimainbcos(3)   &
-                           + ( betasquared ) * (len0 / thk0)
+                           + betasquared * (len0 / thk0)
 
     end if
+
 
     ! for higher-order BASAL B.C. w/ plastic yield stress iteration ...
     if( bcflag(2) == 2 )then
 
              ! last set of terms is mean visc. of ice nearest to the bed
-!            vertimainbcos(2) = vertimainbcos(2)   &
-!                           + ( plastic_coeff / efvsbar_bed ) * (len0 / thk0)
             vertimainbcos(2) = vertimainbcos(2)   &
-                           + ( plastic_coeff ) * (len0 / thk0)
+                           + ( plastic_coeff / efvsbar_bed ) * (len0 / thk0)
     end if
 
     ! for higher-order BASAL B.C. U=V=0, in x ('which'=1) or y ('which'=2) direction ...
@@ -4226,7 +4276,6 @@ function normhorizmainbcos(dew,       dns,      &
     ! called "dusrfdns", "dusrfdew" here, but args passed in are different).
     if( bcflag(1) == 1 .and. bcflag(2) == 0 )then
 
-
            ! first, coeff. that go with du/dsigma, and thus are associated
            ! with u(1,2,2) and u(3,2,2) ...
 !           c = ( fourorone(which) * dusrfdew * dsigmadew   &
@@ -4293,6 +4342,358 @@ function normhorizmainbcos(dew,       dns,      &
     return
 
 end function normhorizmainbcos
+
+!***********************************************************************
+
+function normhorizmainbc_lat(dew,       dns,   &
+                             dusrfdew,  dusrfdns,  &
+                             dsigmadew, dsigmadns, &
+                             which,     what,      &
+                             dup,       efvs,      &
+                             oneorfour, fourorone, &
+                             onesideddiff,         &
+                             normal,    fwdorbwd)
+
+    ! Analogous to "normhorizmainbc" but for the case of lateral stress (ice shelf)
+    ! boundary conditions. Note that the basic form of the equations is the same.
+    ! What changes here is (1) the value of the normal vector that is passed in (at
+    ! the sfc and bed we pass in the surface or basal slopes, while at the boundaries
+    ! we use the normal vector orientation to the boundary in map view) and (2) we to
+    ! to use one sided diffs at the lateral boundaries rather than centerd diffs.
+
+    ! Note that we assume here that du/dz (and thus du/dsigma) is approx. 0 for an ice
+    ! shelf, and also that the sfc/basal slopes of an ice shelf are very flat at/near
+    ! the boundary. Thus, we assume flow is depth independent and we ignore gradients
+    ! in sigma.
+
+    implicit none
+
+    real (kind = dp), intent(in) :: dew, dns
+    real (kind = dp), intent(in) :: dusrfdew, dusrfdns, dsigmadew, dsigmadns, dup
+    real (kind = dp), intent(in), dimension(2) :: oneorfour, fourorone, normal, fwdorbwd
+    real (kind = dp), intent(in), dimension(3) :: onesideddiff
+    real (kind = dp), intent(in), dimension(2,2,2) :: efvs
+
+    real (kind = dp), dimension(3,3,3) :: normhorizmainbc_lat
+    real (kind = dp), dimension(3,3,3) :: g
+    real (kind = dp), dimension(2) :: whichbc
+    real (kind = dp) :: c
+    real (kind = dp) :: bar, efvsbar
+
+    integer, intent(in) :: which, what
+
+    c = 0.0_dp; g(:,:,:) = 0.0_dp; whichbc = (/ 0.0_dp, 1.0_dp /)
+
+    ! averaging number for eff. visc. at domain edges
+    bar = sum( (efvs(:,:,:)/efvs(:,:,:)), efvs(:,:,:) > effstrminsq )
+
+    ! average visc. to use in coeff. calc.
+    efvsbar = sum( efvs(:,:,:), efvs(:,:,:) > effstrminsq ) / bar
+
+    ! make the following lines active to turn OFF the visc. dependence in the LHS matrix coeffs.
+!    efvsbar = 1.0d0; 
+
+    ! for higher-order FREE SURFACE B.C. for x ('which'=1) or y ('which'=2) direction ...
+    ! (also applies to basal stress bc)
+
+    ! first, coeff. that go with du/dsigma, and thus are associated with u(1,2,2) and u(3,2,2) ...
+    ! ...note that these are stored in an empty column of 'g' (a corner column) so that we don't
+    ! overwrite these values in the case of fwd/bwd horiz. diffs., which require 3 spaces
+    c = ( fourorone(which) * dusrfdew * dsigmadew    &
+            + oneorfour(which) * dusrfdns * dsigmadns )/(2*dup) * efvsbar
+    g(3,3,3) = -c * whichbc(what)
+    g(1,3,3) = c * whichbc(what)
+
+    if( normal(1) .eq. 0.0_dp )then     ! centered in x ...
+
+           c = fourorone(which) * dusrfdew / (2*dew) * efvsbar
+           g(2,3,2) = c
+           g(2,1,2) = -c
+
+    elseif( normal(1) .ne. 0.0_dp )then     ! forward/backward in x ...
+
+           c = fourorone(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdew / (2*dew) * efvsbar
+           g(2,2-int(fwdorbwd(1)),2) = c
+
+           c = fourorone(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdew / (2*dew) * efvsbar
+           g(2,2,2) = c
+
+           c = fourorone(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdew / (2*dew) * efvsbar
+           g(2,2+int(fwdorbwd(1)),2) = c
+
+    end if
+
+    if( normal(2) .eq. 0.0_dp ) then   ! centered in y ...
+                                       ! (NOTE that y coeff. are stored in g(1,:,:) )
+
+           c = oneorfour(which) * dusrfdns / (2*dns) * efvsbar
+           g(1,2,3) = c
+           g(1,2,1) = -c
+
+    elseif( normal(2) .ne. 0.0_dp) then ! forward/backward in y ...
+
+           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdns / (2*dns) * efvsbar
+           g(1,2,2-int(fwdorbwd(2))) = c
+
+           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdns / (2*dns) * efvsbar
+           g(1,2,2) = c
+
+           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdns / (2*dns) * efvsbar
+           g(1,2,2+int(fwdorbwd(2))) = c
+
+    end if
+
+    normhorizmainbc_lat = g
+
+    return
+
+end function normhorizmainbc_lat
+
+!***********************************************************************
+
+function normhorizmainbcos_lat(dew,       dns,   &
+                             dusrfdew,  dusrfdns,  &
+                             dsigmadew, dsigmadns, &
+                             which,     what,      &
+                             dup,       efvs,      &
+                             oneorfour, fourorone, &
+                             onesideddiff,         &
+                             normal,    fwdorbwd,  &
+                             bcflag )
+
+    ! Analogous to "normhorizmainbc" but for the case of lateral stress (ice shelf)
+    ! boundary conditions. Note that the basic form of the equations is the same.
+    ! What changes here is (1) the value of the normal vector that is passed in (at
+    ! the sfc and bed we pass in the surface or basal slopes, while at the boundaries
+    ! we use the normal vector orientation to the boundary in map view) and (2) we to
+    ! to use one sided diffs at the lateral boundaries rather than centerd diffs.
+
+    ! Note that we assume here that du/dz (and thus du/dsigma) is approx. 0 for an ice
+    ! shelf, and also that the sfc/basal slopes of an ice shelf are very flat at/near
+    ! the boundary. Thus, we assume flow is depth independent and we ignore gradients
+    ! in sigma.
+
+    implicit none
+
+    real (kind = dp), intent(in) :: dew, dns
+    real (kind = dp), intent(in) :: dusrfdew, dusrfdns, dsigmadew, dsigmadns, dup
+    real (kind = dp), intent(in), dimension(2) :: oneorfour, fourorone, normal, fwdorbwd
+    real (kind = dp), intent(in), dimension(3) :: onesideddiff
+    real (kind = dp), intent(in), dimension(2,2,2) :: efvs
+    integer, intent(in), dimension(2) :: bcflag
+    integer, intent(in) :: which, what
+
+    real (kind = dp), dimension(3,3,3) :: normhorizmainbcos_lat
+    real (kind = dp), dimension(3,3,3) :: g
+    real (kind = dp), dimension(2) :: whichbc
+    real (kind = dp) :: c
+    real (kind = dp) :: bar, bar_sfc, bar_bed, efvsbar, efvsbar_bed, efvsbar_sfc
+
+    logical :: debug = .false.
+
+     ! averaging number for eff. visc. at domain edges
+    bar_sfc = sum( (efvs(1,:,:)/efvs(1,:,:)), efvs(1,:,:) > effstrminsq )
+    bar_bed = sum( (efvs(2,:,:)/efvs(2,:,:)), efvs(2,:,:) > effstrminsq )
+    bar = sum( (efvs(:,:,:)/efvs(:,:,:)), efvs(:,:,:) > effstrminsq )
+
+    ! average visc. to use in coeff. calc.
+    efvsbar_sfc = sum( efvs(1,:,:), efvs(1,:,:) > effstrminsq ) / bar_sfc
+    efvsbar_bed = sum( efvs(2,:,:), efvs(2,:,:) > effstrminsq ) / bar_bed
+    efvsbar = sum( efvs(:,:,:), efvs(:,:,:) > effstrminsq ) / bar
+
+    ! make the following lines active to turn OFF the visc. dependence in the LHS matrix coeffs.
+!    efvsbar = 1.0d0; efvsbar_sfc = 1.0d0; efvsbar_bed = 1.0d0
+
+    c = 0.0_dp; g(:,:,:) = 0.0_dp; whichbc = (/ 0.0_dp, 1.0_dp /)
+
+    ! for higher-order FREE SURFACE B.C. for x ('which'=1) or y ('which'=2) direction ...
+    ! (also applies to basal stress bc)
+
+    ! coeff. that go with du/dsigma, and thus are associated with u(1,2,2) and u(3,2,2) ...
+    ! ... these are stored in an empty column of 'g' (a corner column) so that we don't
+    ! overwrite these values in the case of fwd/bwd horiz. diffs., which require 3 spaces
+
+    !! at the surface
+    if( bcflag(1) == 1 .and. bcflag(2) == 0 )then
+
+           c = ( fourorone(which) * dusrfdew * dsigmadew   &
+               + oneorfour(which) * dusrfdns * dsigmadns )/(2*dup) * efvsbar_sfc
+
+           g(1,3,3) = 3.0d0*c
+           g(2,3,3) = -4.0d0*c
+           g(3,3,3) = 1.0d0*c
+
+     if( normal(1) .eq. 0.0_dp )then     ! centered in x ...
+
+           c = fourorone(which) * dusrfdew / (2*dew) * efvsbar_sfc
+           g(2,3,2) = c
+           g(2,1,2) = -c
+
+     elseif( normal(1) .ne. 0.0_dp )then     ! forward/backward in x ...
+
+           c = fourorone(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdew / (2*dew) * efvsbar_sfc
+           g(2,2-int(fwdorbwd(1)),2) = c
+
+           c = fourorone(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdew / (2*dew) * efvsbar_sfc
+           g(2,2,2) = c
+
+           c = fourorone(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdew / (2*dew) * efvsbar_sfc
+           g(2,2+int(fwdorbwd(1)),2) = c
+
+    end if
+
+    if( normal(2) .eq. 0.0_dp ) then   ! centered in y ...
+                                       ! (NOTE that y coeff. are stored in g(1,:,:) )
+
+           c = oneorfour(which) * dusrfdns / (2*dns) * efvsbar_sfc
+           g(1,2,3) = c
+           g(1,2,1) = -c
+
+    elseif( normal(2) .ne. 0.0_dp) then ! forward/backward in y ...
+
+           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdns / (2*dns) * efvsbar_sfc
+           g(1,2,2-int(fwdorbwd(2))) = c
+
+           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdns / (2*dns) * efvsbar_sfc
+           g(1,2,2) = c
+
+           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdns / (2*dns) * efvsbar_sfc
+           g(1,2,2+int(fwdorbwd(2))) = c
+
+    end if
+
+    !! at the bed
+    elseif( bcflag(1) == 1 .and. bcflag(2) == 1 )then
+
+           c = ( fourorone(which) * dusrfdew * dsigmadew   &
+               + oneorfour(which) * dusrfdns * dsigmadns )/(2*dup) * efvsbar_bed
+
+           g(1,3,3) = -1.0d0*c
+           g(2,3,3) = 4.0d0*c
+           g(3,3,3) = -3.0d0*c
+
+     if( normal(1) .eq. 0.0_dp )then     ! centered in x ...
+
+           c = fourorone(which) * dusrfdew / (2*dew) * efvsbar_bed
+           g(2,3,2) = c
+           g(2,1,2) = -c
+
+     elseif( normal(1) .ne. 0.0_dp )then     ! forward/backward in x ...
+
+           c = fourorone(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdew / (2*dew) * efvsbar_bed
+           g(2,2-int(fwdorbwd(1)),2) = c
+
+           c = fourorone(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdew / (2*dew) * efvsbar_bed
+           g(2,2,2) = c
+
+           c = fourorone(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdew / (2*dew) * efvsbar_bed
+           g(2,2+int(fwdorbwd(1)),2) = c
+
+     end if
+
+     if( normal(2) .eq. 0.0_dp ) then   ! centered in y ...
+                                       ! (NOTE that y coeff. are stored in g(1,:,:) )
+
+           c = oneorfour(which) * dusrfdns / (2*dns) * efvsbar_bed
+           g(1,2,3) = c
+           g(1,2,1) = -c
+
+     elseif( normal(2) .ne. 0.0_dp) then ! forward/backward in y ...
+
+           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdns / (2*dns) * efvsbar_bed
+           g(1,2,2-int(fwdorbwd(2))) = c
+
+           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdns / (2*dns) * efvsbar_bed
+           g(1,2,2) = c
+
+           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdns / (2*dns) * efvsbar_bed
+           g(1,2,2+int(fwdorbwd(2))) = c
+
+     end if
+
+    else
+
+    !! at a lateral boundary but in the main body of the column (NOT at sfc or bed)
+
+    ! first, coeff. that go with du/dsigma, and thus are associated with u(1,2,2) and u(3,2,2) ...
+    ! ...note that these are stored in an empty column of 'g' (a corner column) so that we don't
+    ! overwrite these values in the case of fwd/bwd horiz. diffs., which require 3 spaces
+    c = ( fourorone(which) * dusrfdew * dsigmadew    &
+            + oneorfour(which) * dusrfdns * dsigmadns )/(2*dup) * efvsbar
+    g(3,3,3) = -c * whichbc(what)
+    g(1,3,3) = c * whichbc(what)
+
+    if( normal(1) .eq. 0.0_dp )then     ! centered in x ...
+
+           c = fourorone(which) * dusrfdew / (2*dew) * efvsbar
+           g(2,3,2) = c
+           g(2,1,2) = -c
+
+    elseif( normal(1) .ne. 0.0_dp )then     ! forward/backward in x ...
+
+           c = fourorone(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdew / (2*dew) * efvsbar
+           g(2,2-int(fwdorbwd(1)),2) = c
+
+           c = fourorone(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdew / (2*dew) * efvsbar
+           g(2,2,2) = c
+
+           c = fourorone(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdew / (2*dew) * efvsbar
+           g(2,2+int(fwdorbwd(1)),2) = c
+
+    end if
+
+    if( normal(2) .eq. 0.0_dp ) then   ! centered in y ...
+                                       ! (NOTE that y coeff. are stored in g(1,:,:) )
+
+           c = oneorfour(which) * dusrfdns / (2*dns) * efvsbar
+           g(1,2,3) = c
+           g(1,2,1) = -c
+
+    elseif( normal(2) .ne. 0.0_dp) then ! forward/backward in y ...
+
+           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdns / (2*dns) * efvsbar
+           g(1,2,2-int(fwdorbwd(2))) = c
+
+           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdns / (2*dns) * efvsbar
+           g(1,2,2) = c
+
+           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdns / (2*dns) * efvsbar
+           g(1,2,2+int(fwdorbwd(2))) = c
+
+    end if
+
+    end if
+
+    normhorizmainbcos_lat = g
+
+    !! debug lines
+!    debug = .true.
+    if( debug )then
+    print *, ' ---- normhorizmainbcos_lat debug output ---- '
+    print *, ' '
+    print *, 'slopex, slopey  = ', dusrfdew, dusrfdns
+    print *, ' '
+    print *, 'layer 1 of final coeff. block: ', normhorizmainbcos_lat(1,1:3,3)
+    print *, 'layer 1 of final coeff. block: ', normhorizmainbcos_lat(1,1:3,2)
+    print *, 'layer 1 of final coeff. block: ', normhorizmainbcos_lat(1,1:3,1)
+    print *, ' '
+    print *, 'layer 2 of final coeff. block: ', normhorizmainbcos_lat(2,1:3,3)
+    print *, 'layer 2 of final coeff. block: ', normhorizmainbcos_lat(2,1:3,2)
+    print *, 'layer 2 of final coeff. block: ', normhorizmainbcos_lat(2,1:3,1)
+    print *, ' '
+    print *, 'layer 3 of final coeff. block: ', normhorizmainbcos_lat(3,1:3,3)
+    print *, 'layer 3 of final coeff. block: ', normhorizmainbcos_lat(3,1:3,2)
+    print *, 'layer 3 of final coeff. block: ', normhorizmainbcos_lat(3,1:3,1)
+    print *, ' '
+    print *, 'gvert = ', g(:,3,3)
+    print *, 'y coeffs = ', g(1,2,:)
+    print *, 'x coeffs = ', g(2,:,2)
+    print *, ' '
+    end if
+
+    return
+
+end function normhorizmainbcos_lat
 
 !***********************************************************************
 
@@ -4534,111 +4935,6 @@ end function croshorizmainbcos
 
 !***********************************************************************
 
-function normhorizmainbc_lat(dew,       dns,   &
-                             dusrfdew,  dusrfdns,  &
-                             dsigmadew, dsigmadns, &
-                             which,     what,      &
-                             dup,       efvs,      &
-                             oneorfour, fourorone, &
-                             onesideddiff,         &
-                             normal,    fwdorbwd)
-
-    ! Analogous to "normhorizmainbc" but for the case of lateral stress (ice shelf)
-    ! boundary conditions. Note that the basic form of the equations is the same. 
-    ! What changes here is (1) the value of the normal vector that is passed in (at
-    ! the sfc and bed we pass in the surface or basal slopes, while at the boundaries
-    ! we use the normal vector orientation to the boundary in map view) and (2) we to
-    ! to use one sided diffs at the lateral boundaries rather than centerd diffs.
-
-    ! Note that we assume here that du/dz (and thus du/dsigma) is approx. 0 for an ice 
-    ! shelf, and also that the sfc/basal slopes of an ice shelf are very flat at/near 
-    ! the boundary. Thus, we assume flow is depth independent and we ignore gradients 
-    ! in sigma. 
-
-    implicit none
-
-    real (kind = dp), intent(in) :: dew, dns
-    real (kind = dp), intent(in) :: dusrfdew, dusrfdns, dsigmadew, dsigmadns, dup
-    real (kind = dp), intent(in), dimension(2) :: oneorfour, fourorone, normal, fwdorbwd
-    real (kind = dp), intent(in), dimension(3) :: onesideddiff
-    real (kind = dp), intent(in), dimension(:,:,:) :: efvs
-    integer, intent(in) :: which, what
-
-    real (kind = dp), dimension(3,3,3) :: normhorizmainbc_lat
-    real (kind = dp), dimension(3,3,3) :: g
-    real (kind = dp), dimension(2) :: whichbc
-    real (kind = dp) :: c
-    real (kind = dp) :: bar, efvsbar
-
-    c = 0.0_dp; g(:,:,:) = 0.0_dp; whichbc = (/ 0.0_dp, 1.0_dp /)
-
-    ! averaging number for eff. visc. at domain edges
-    bar = sum( (efvs(:,:,:)/efvs(:,:,:)), efvs(:,:,:) > effstrminsq )
-
-    ! average visc. to use in coeff. calc.
-    efvsbar = sum( efvs(:,:,:), efvs(:,:,:) > effstrminsq ) / bar
-
-    ! make the following lines active to turn OFF the visc. dependence in the LHS matrix coeffs.
-!    efvsbar = 1.0d0; 
-
-    ! for higher-order FREE SURFACE B.C. for x ('which'=1) or y ('which'=2) direction ...
-    ! (also applies to basal stress bc)
-
-    ! first, coeff. that go with du/dsigma, and thus are associated with u(1,2,2) and u(3,2,2) ...
-    ! ...note that these are stored in an empty column of 'g' (a corner column) so that we don't
-    ! overwrite these values in the case of fwd/bwd horiz. diffs., which require 3 spaces
-    c = ( fourorone(which) * dusrfdew * dsigmadew    &
-            + oneorfour(which) * dusrfdns * dsigmadns )/(2*dup) * efvsbar
-    g(3,3,3) = -c * whichbc(what)
-    g(1,3,3) = c * whichbc(what)
-
-    if( normal(1) .eq. 0.0_dp )then     ! centered in x ...
-
-           c = fourorone(which) * dusrfdew / (2*dew) * efvsbar
-           g(2,3,2) = c
-           g(2,1,2) = -c
-
-    elseif( normal(1) .ne. 0.0_dp )then     ! forward/backward in x ...
-
-           c = fourorone(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdew / (2*dew) * efvsbar
-           g(2,2-int(fwdorbwd(1)),2) = c
-
-           c = fourorone(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdew / (2*dew) * efvsbar
-           g(2,2,2) = c
-
-           c = fourorone(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdew / (2*dew) * efvsbar
-           g(2,2+int(fwdorbwd(1)),2) = c
-
-    end if
-
-    if( normal(2) .eq. 0.0_dp ) then   ! centered in y ...
-                                       ! (NOTE that y coeff. are stored in g(1,:,:) )
-
-           c = oneorfour(which) * dusrfdns / (2*dns) * efvsbar
-           g(1,2,3) = c
-           g(1,2,1) = -c
-
-    elseif( normal(2) .ne. 0.0_dp) then ! forward/backward in y ...
-
-           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdns / (2*dns) * efvsbar
-           g(1,2,2-int(fwdorbwd(2))) = c
-
-           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdns / (2*dns) * efvsbar
-           g(1,2,2) = c
-
-           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdns / (2*dns) * efvsbar
-           g(1,2,2+int(fwdorbwd(2))) = c
-
-    end if
-
-    normhorizmainbc_lat = g
-
-    return
-
-end function normhorizmainbc_lat
-
-!***********************************************************************
-
 function croshorizmainbc_lat (dew,       dns,       &
                               dusrfdew,  dusrfdns,  &
                               dsigmadew, dsigmadns, &
@@ -4658,7 +4954,7 @@ function croshorizmainbc_lat (dew,       dns,       &
     real (kind = dp), intent(in), dimension(3) :: onesideddiff
     real (kind = dp), intent(in) :: dusrfdew, dusrfdns, dsigmadew, dsigmadns, dup
     real (kind = dp), intent(in), dimension(3,3,3) :: local_othervel
-    real (kind = dp), intent(in), dimension(:,:,:) :: efvs
+    real (kind = dp), intent(in), dimension(2,2,2) :: efvs
 
     integer, intent(in) :: which, what
 
@@ -4758,6 +5054,266 @@ function croshorizmainbc_lat (dew,       dns,       &
     return
 
 end function croshorizmainbc_lat
+
+!***********************************************************************
+
+function croshorizmainbcos_lat (dew,       dns,       &
+                              dusrfdew,  dusrfdns,  &
+                              dsigmadew, dsigmadns, &
+                              which,     what,      &
+                              dup,       efvs,      &
+                              local_othervel,       &
+                              oneortwo,  twoorone,  &
+                              onesideddiff,         &
+                              normal,    fwdorbwd,  &
+                              bcflag )
+
+    ! Analagous to "normhorizmainbc_lat" but for cross terms. See notes above.
+
+    implicit none
+
+    real (kind = dp), intent(in) :: dew, dns
+    real (kind = dp), intent(in), dimension(2) :: oneortwo, twoorone, fwdorbwd, normal
+    real (kind = dp), intent(in), dimension(3) :: onesideddiff
+    real (kind = dp), intent(in) :: dusrfdew, dusrfdns, dsigmadew, dsigmadns, dup
+    real (kind = dp), intent(in), dimension(3,3,3) :: local_othervel
+    real (kind = dp), intent(in), dimension(2,2,2) :: efvs
+
+    integer, intent(in), dimension(:) :: bcflag
+    integer, intent(in) :: which, what
+
+    integer, dimension(3) :: inormal
+    real (kind = dp), dimension(3,3,3) :: g, g_temp, croshorizmainbcos_lat
+    real (kind = dp), dimension(3) :: gvert
+    real (kind = dp), dimension(2) :: whichbc
+    real (kind = dp) :: c
+    real (kind = dp) :: bar, bar_sfc, bar_bed, efvsbar, efvsbar_bed, efvsbar_sfc
+
+    logical :: debug = .false.
+
+     ! averaging number for eff. visc. at domain edges
+    bar_sfc = sum( (efvs(1,:,:)/efvs(1,:,:)), efvs(1,:,:) > effstrminsq )
+    bar_bed = sum( (efvs(2,:,:)/efvs(2,:,:)), efvs(2,:,:) > effstrminsq )
+    bar = sum( (efvs(:,:,:)/efvs(:,:,:)), efvs(:,:,:) > effstrminsq )
+
+    ! average visc. to use in coeff. calc.
+    efvsbar_sfc = sum( efvs(1,:,:), efvs(1,:,:) > effstrminsq ) / bar_sfc
+    efvsbar_bed = sum( efvs(2,:,:), efvs(2,:,:) > effstrminsq ) / bar_bed
+    efvsbar = sum( efvs(:,:,:), efvs(:,:,:) > effstrminsq ) / bar
+
+    ! make the following lines active to turn OFF the visc. dependence in the LHS matrix coeffs.
+!    efvsbar = 1.0d0; efvsbar_sfc = 1.0d0; efvsbar_bed = 1.0d0
+
+    c = 0.0_dp
+    g = 0.0_dp
+    g_temp = 0.0_dp
+    gvert = 0.0_dp
+    whichbc = (/ 0.0_dp, 1.0_dp /)
+    croshorizmainbcos_lat = 0.0_dp
+
+    !! at the surface
+    if( bcflag(1) == 1 .and. bcflag(2) == 0 )then
+
+     c = ( - twoorone(which) * dusrfdew * dsigmadns   &
+              - oneortwo(which) * dusrfdns * dsigmadew )/(2*dup) * efvsbar_sfc
+     gvert(1) = 3.0d0*c
+     gvert(2) = -4.0d0*c
+     gvert(3) = 1.0d0*c
+
+    if( normal(1) .eq. 0.0_dp )then        ! centered in x ...
+
+           c = -oneortwo(which) * dusrfdns / (2*dew) * efvsbar_sfc
+           g(2,3,2) = c
+           g(2,1,2) = -c
+
+    elseif( normal(1) .ne. 0.0_dp )then    ! forward/backward in x ...
+                                           ! (NOTE that x coeff. are stored in g(2,:,:) )
+
+           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdns / (2*dew) * efvsbar_sfc
+           g(2,2-int(fwdorbwd(1)),2) = c
+
+           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdns / (2*dew) * efvsbar_sfc
+           g(2,2,2) = c
+
+           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdns / (2*dew) * efvsbar_sfc
+           g(2,2+int(fwdorbwd(1)),2) = c
+
+    end if
+
+    if( normal(2) .eq. 0.0_dp )then    ! centered in y ...
+                                       ! (NOTE that y coeff. are stored in g(1,:,:) )
+
+           c = -twoorone(which) * dusrfdew / (2*dns) * efvsbar_sfc
+           g(1,2,3) = c
+           g(1,2,1) = -c
+
+    elseif( normal(2) .ne. 0.0_dp )then ! forward/backward in y ...
+
+           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdew / (2*dns) * efvsbar_sfc
+           g(1,2,2-int(fwdorbwd(2))) = c
+
+           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdew / (2*dns) * efvsbar_sfc
+           g(1,2,2) = c
+
+           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdew / (2*dns) * efvsbar_sfc
+           g(1,2,2+int(fwdorbwd(2))) = c
+
+    end if
+
+    !! at the bed
+    elseif( bcflag(1) == 1 .and. bcflag(2) == 1 )then
+
+    c = ( - twoorone(which) * dusrfdew * dsigmadns   &
+              - oneortwo(which) * dusrfdns * dsigmadew )/(2*dup) * efvsbar_bed
+    gvert(1) = -1.0d0*c
+    gvert(2) = 4.0d0*c
+    gvert(3) = -3.0d0*c
+
+    if( normal(1) .eq. 0.0_dp )then        ! centered in x ...
+
+           c = -oneortwo(which) * dusrfdns / (2*dew) * efvsbar_bed
+           g(2,3,2) = c
+           g(2,1,2) = -c
+
+    elseif( normal(1) .ne. 0.0_dp )then    ! forward/backward in x ...
+                                           ! (NOTE that x coeff. are stored in g(2,:,:) )
+
+           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdns / (2*dew) * efvsbar_bed
+           g(2,2-int(fwdorbwd(1)),2) = c
+
+           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdns / (2*dew) * efvsbar_bed
+           g(2,2,2) = c
+
+           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdns / (2*dew) * efvsbar_bed
+           g(2,2+int(fwdorbwd(1)),2) = c
+
+    end if
+
+    if( normal(2) .eq. 0.0_dp )then    ! centered in y ...
+                                       ! (NOTE that y coeff. are stored in g(1,:,:) )
+
+           c = -twoorone(which) * dusrfdew / (2*dns) * efvsbar_bed
+           g(1,2,3) = c
+           g(1,2,1) = -c
+
+    elseif( normal(2) .ne. 0.0_dp )then ! forward/backward in y ...
+            c = -twoorone(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdew / (2*dns) * efvsbar_bed
+           g(1,2,2-int(fwdorbwd(2))) = c
+
+           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdew / (2*dns) * efvsbar_bed
+           g(1,2,2) = c
+
+           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdew / (2*dns) * efvsbar_bed
+           g(1,2,2+int(fwdorbwd(2))) = c
+
+    end if
+
+    !! at a lateral boundary but in the main body of the column (NOT at sfc or bed)
+    else
+
+    ! coeff. that go with du/dsigma, and thus are associated with u(1,2,2) and u(3,2,2)
+    ! ... note that these are stored in a separate vector (to avoid being overwritten if stored in normal 'g')
+    c = ( - twoorone(which) * dusrfdew * dsigmadns   &
+              - oneortwo(which) * dusrfdns * dsigmadew )/(2*dup) * efvsbar
+    gvert(3) = -c * whichbc(what)
+    gvert(1) = c * whichbc(what)
+
+    if( normal(1) .eq. 0.0_dp )then        ! centered in x ...
+
+           c = -oneortwo(which) * dusrfdns / (2*dew) * efvsbar
+           g(2,3,2) = c
+           g(2,1,2) = -c
+
+    elseif( normal(1) .ne. 0.0_dp )then    ! forward/backward in x ...
+                                           ! (NOTE that x coeff. are stored in g(2,:,:) )
+
+           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdns / (2*dew) * efvsbar
+           g(2,2-int(fwdorbwd(1)),2) = c
+
+           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdns / (2*dew) * efvsbar
+           g(2,2,2) = c
+
+           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdns / (2*dew) * efvsbar
+           g(2,2+int(fwdorbwd(1)),2) = c
+
+    end if
+
+    if( normal(2) .eq. 0.0_dp )then    ! centered in y ...
+                                       ! (NOTE that y coeff. are stored in g(1,:,:) )
+
+           c = -twoorone(which) * dusrfdew / (2*dns) * efvsbar
+           g(1,2,3) = c
+           g(1,2,1) = -c
+
+    elseif( normal(2) .ne. 0.0_dp )then ! forward/backward in y ...
+
+           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdew / (2*dns) * efvsbar
+           g(1,2,2-int(fwdorbwd(2))) = c
+
+           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdew / (2*dns) * efvsbar
+           g(1,2,2) = c
+
+           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdew / (2*dns) * efvsbar
+           g(1,2,2+int(fwdorbwd(2))) = c
+
+    end if
+
+    end if
+
+    ! Now rearrange position of coefficients in structure 'g' so that they are multiplied by
+    ! the correct velocity component of 'local_othervel' in 'bodyset' ...
+    ! ... this can be done by using the boundary normal vector to shift the indices of the rows/columns
+    ! in 'g', in the appropriate direction. First, convert the boundary normal to an integer index ...
+    inormal(1) = int( normal(1)/abs(normal(1)) )
+    inormal(2) = int( normal(2)/abs(normal(2)) )
+    if( abs( inormal(1) ) .ne. 1 )then; inormal(1) = 0; end if
+    if( abs( inormal(2) ) .ne. 1 )then; inormal(2) = 0; end if
+
+    ! vertical shift
+    inormal(3) = 0                                      !! default shift is 0
+    if( bcflag(1) == 1 .and. bcflag(2) == 0 )then       !! at the surface
+        inormal(3) = -1
+    elseif( bcflag(1) == 1 .and. bcflag(2) == 1 )then   !! at the bed
+        inormal(3) = 1
+    endif
+
+    croshorizmainbcos_lat(2+inormal(3),:,2+inormal(2)) = g(2,:,2)    ! move coeffs. in g block layer 2 appropriate amount
+    g_temp(2+inormal(3),2+inormal(1),:) = g(1,2,:)                   ! shift layer in g block layer 1 (in temp storage)
+
+    ! sum coeffs. that are in same column and flatten so that all coeff. are on level (2,:,:)
+    croshorizmainbcos_lat(:,:,:) = croshorizmainbcos_lat(:,:,:) + g_temp(:,:,:)
+
+    ! account for vertical terms stored seperately and temporarily in 'gvert'
+    croshorizmainbcos_lat(:,2+inormal(1),2+inormal(2)) = croshorizmainbcos_lat(:,2+inormal(1),2+inormal(2)) + gvert(:)
+
+    !! debug lines
+!    debug = .true.
+    if( debug )then
+    print *, ' ---- croshorizmainbcos_lat debug output ---- '
+    print *, 'inormal(x,y,z) = ', inormal
+    print *, 'slopex, slopey  = ', dusrfdew, dusrfdns
+    print *, ' '
+    print *, 'layer 1 of final coeff. block: ', croshorizmainbcos_lat(1,1:3,3)
+    print *, 'layer 1 of final coeff. block: ', croshorizmainbcos_lat(1,1:3,2)
+    print *, 'layer 1 of final coeff. block: ', croshorizmainbcos_lat(1,1:3,1)
+    print *, ' '
+    print *, 'layer 2 of final coeff. block: ', croshorizmainbcos_lat(2,1:3,3)
+    print *, 'layer 2 of final coeff. block: ', croshorizmainbcos_lat(2,1:3,2)
+    print *, 'layer 2 of final coeff. block: ', croshorizmainbcos_lat(2,1:3,1)
+    print *, ' '
+    print *, 'layer 3 of final coeff. block: ', croshorizmainbcos_lat(3,1:3,3)
+    print *, 'layer 3 of final coeff. block: ', croshorizmainbcos_lat(3,1:3,2)
+    print *, 'layer 3 of final coeff. block: ', croshorizmainbcos_lat(3,1:3,1)
+    print *, ' '
+    print *, 'gvert = ', gvert
+    print *, 'y coeffs = ', g(1,2,:)
+    print *, 'x coeffs = ', g(2,:,2)
+    print *, ' '
+    end if
+
+    return
+
+end function croshorizmainbcos_lat
 
 !***********************************************************************
 
@@ -5037,6 +5593,143 @@ end subroutine fillsprsebndy
 
 !***********************************************************************
 
+subroutine fillsprsebndyos(inp,locplusup,ptindx,up,normal,pt,osshift)
+
+  ! scatter coeff. from 3x3x3 block "g" onto sparse matrix row. This subroutine
+  ! is specifically for the boundary conditions, which are handled differently
+  ! than points in the "main" body of the domain (interior to boundaries).
+  !
+  ! This version allows for use of one sided diffs. for basal and sfc bcs.
+
+  implicit none
+
+  integer, intent(in) :: locplusup, up, pt
+  integer, dimension(6), intent(in) :: ptindx
+  real (kind = dp), dimension(3,3,3), intent(in) :: inp
+  real (kind = dp), dimension(2), intent(in) :: normal
+  integer, intent(in) :: osshift
+
+  !! debugging vars
+  real (kind = dp), dimension(3,3,3) :: checkinp    ! for debugging, to make sure all coeffs. in input block are used
+  checkinp = inp
+  !! debugging lines
+!  print *, 'init sum of coeff block = ', sum( abs(checkinp) )
+!  print *, 'd/dx coeffs: ', inp(2,:,2)
+!  print *, 'd/dy coeffs: ', inp(1,2,:)
+!  print *, 'd/dz coeffs: ', inp(:,3,3)
+!  print *, 'whole block: ', inp(:,:,:)
+
+  ! at points where mixed centered and one-side diffs. would apply
+  if( normal(1) == 0.0_dp )then         ! at boundary normal to y, centered diffs in x
+    if( normal(2) == -1.0_dp )then      ! at boundary w/ normal [0,-1]
+
+!           call putpcgc(inp(1,3,3),ptindx(5)+up-1,locplusup,pt)
+           call putpcgc(inp(2,3,3),ptindx(5)+up+osshift,locplusup,pt)
+                checkinp(2,3,3) = 0
+!           call putpcgc( inp(2,3,3)+inp(1,2,1),ptindx(5)+up,locplusup,pt)
+           call putpcgc( inp(2-osshift,3,3)+inp(1,2,1),ptindx(5)+up,locplusup,pt)
+                checkinp(2-osshift,3,3) = 0; checkinp(1,2,1) = 0
+!           call putpcgc(inp(3,3,3),ptindx(5)+up+1,locplusup,pt)
+           call putpcgc(inp(2+osshift,3,3),ptindx(5)+up+2*osshift,locplusup,pt)
+                checkinp(2+osshift,3,3) = 0
+           call putpcgc(inp(1,2,3),ptindx(4)+up+osshift,locplusup,pt)
+                checkinp(1,2,3) = 0
+    else                                ! at boundary w/ normal [0,1]
+!           call putpcgc(inp(1,3,3),ptindx(4)+up-1,locplusup,pt)
+           call putpcgc(inp(2,3,3),ptindx(4)+up+osshift,locplusup,pt)
+!           call putpcgc(inp(2,3,3)+inp(1,2,3),ptindx(4)+up,locplusup,pt)
+           call putpcgc(inp(2-osshift,3,3)+inp(1,2,3),ptindx(4)+up,locplusup,pt)
+!           call putpcgc(inp(3,3,3),ptindx(4)+up+1,locplusup,pt)
+           call putpcgc(inp(2+osshift,3,3),ptindx(4)+up+2*osshift,locplusup,pt)
+           call putpcgc(inp(1,2,1),ptindx(5)+up+osshift,locplusup,pt)
+    end if
+
+    call putpcgc(inp(1,2,2),ptindx(1)+up+osshift,locplusup,pt)
+         checkinp(1,2,2) = 0
+!    print *, 'sum of coeff block = ', sum( abs(checkinp) )
+
+  end if
+
+  if( normal(2) == 0.0_dp )then            ! at boundary normal to x, centered diffs in y
+        if( normal(1) == -1.0_dp )then     ! at boundary w/ normal [-1,0]
+!           call putpcgc(inp(1,3,3),ptindx(3)+up-1,locplusup,pt)
+           call putpcgc(inp(2,3,3),ptindx(3)+up+osshift,locplusup,pt)
+!           call putpcgc( inp(2,3,3)+inp(2,1,2),ptindx(3)+up,locplusup,pt)
+           call putpcgc( inp(2-osshift,3,3)+inp(2,1,2),ptindx(3)+up,locplusup,pt)
+!           call putpcgc(inp(3,3,3),ptindx(3)+up+1,locplusup,pt)
+           call putpcgc(inp(2+osshift,3,3),ptindx(3)+up+2*osshift,locplusup,pt)
+           call putpcgc(inp(2,3,2),ptindx(2)+up+osshift,locplusup,pt)
+        else                                 ! at boundary w/ normal [1,0]
+!           call putpcgc(inp(1,3,3),ptindx(2)+up-1,locplusup,pt)
+           call putpcgc(inp(2,3,3),ptindx(2)+up+osshift,locplusup,pt)
+!           call putpcgc( inp(2,3,3)+inp(2,3,2),ptindx(2)+up,locplusup,pt)
+           call putpcgc( inp(2-osshift,3,3)+inp(2,3,2),ptindx(2)+up,locplusup,pt)
+!           call putpcgc(inp(3,3,3),ptindx(2)+up+1,locplusup,pt)
+           call putpcgc(inp(2+osshift,3,3),ptindx(2)+up+2*osshift,locplusup,pt)
+           call putpcgc(inp(2,1,2),ptindx(3)+up+osshift,locplusup,pt)
+    end if
+    call putpcgc(inp(2,2,2),ptindx(1)+up+osshift,locplusup,pt)
+  end if
+
+   ! at corners where only one-side diffs. apply
+  if( normal(1) .gt. 0.0_dp .and. normal(2) .ne. 0.0_dp )then
+    if( normal(2) .gt. 0.0_dp )then      ! corner w/ normal [ 1/sqrt(2), 1/sqrt(2) ]
+!           call putpcgc(inp(1,3,3),ptindx(2)+up-1,locplusup,pt)
+           call putpcgc(inp(2,3,3),ptindx(2)+up+osshift,locplusup,pt)
+!           call putpcgc(inp(2,3,3)+inp(2,3,2)+inp(1,2,3),ptindx(2)+up,locplusup,pt)
+           call putpcgc(inp(2-osshift,3,3)+inp(2,3,2)+inp(1,2,3),ptindx(2)+up,locplusup,pt)
+!           call putpcgc(inp(3,3,3),ptindx(2)+up+1,locplusup,pt)
+           call putpcgc(inp(2+osshift,3,3),ptindx(2)+up+2*osshift,locplusup,pt)
+           call putpcgc(inp(2,2,2),ptindx(1)+up+osshift,locplusup,pt)
+           call putpcgc(inp(1,2,2),ptindx(6)+up+osshift,locplusup,pt)
+           call putpcgc(inp(1,2,1),ptindx(5)+up+osshift,locplusup,pt)
+           call putpcgc(inp(2,1,2),ptindx(3)+up+osshift,locplusup,pt)
+    else                                 ! corner w/ normal [ 1/sqrt(2), -1/sqrt(2) ]
+!           call putpcgc(inp(1,3,3),ptindx(2)+up-1,locplusup,pt)
+           call putpcgc(inp(2,3,3),ptindx(2)+up+osshift,locplusup,pt)
+!           call putpcgc(inp(2,3,3)+inp(1,2,1)+inp(2,3,2),ptindx(2)+up,locplusup,pt)
+           call putpcgc(inp(2-osshift,3,3)+inp(1,2,1)+inp(2,3,2),ptindx(2)+up,locplusup,pt)
+!           call putpcgc(inp(3,3,3),ptindx(2)+up+1,locplusup,pt)
+           call putpcgc(inp(2+osshift,3,3),ptindx(2)+up+2*osshift,locplusup,pt)
+           call putpcgc(inp(2,2,2),ptindx(1)+up+osshift,locplusup,pt)
+           call putpcgc(inp(2,1,2),ptindx(3)+up+osshift,locplusup,pt)
+           call putpcgc(inp(1,2,2),ptindx(6)+up+osshift,locplusup,pt)
+           call putpcgc(inp(1,2,3),ptindx(4)+up+osshift,locplusup,pt)
+    end if
+  end if
+
+  if( normal(1) .lt. 0.0_dp .and. normal(2) .ne. 0.0_dp )then
+    if( normal(2) .gt. 0.0_dp )then       ! corner w/ normal [ -1/sqrt(2), 1/sqrt(2) ]
+!           call putpcgc(inp(1,3,3),ptindx(3)+up-1,locplusup,pt)
+           call putpcgc(inp(2,3,3),ptindx(3)+up+osshift,locplusup,pt)
+!           call putpcgc(inp(2,3,3)+inp(1,2,3)+inp(2,1,2),ptindx(3)+up,locplusup,pt)
+           call putpcgc(inp(2-osshift,3,3)+inp(1,2,3)+inp(2,1,2),ptindx(3)+up,locplusup,pt)
+!           call putpcgc(inp(3,3,3),ptindx(3)+up+1,locplusup,pt)
+           call putpcgc(inp(2+osshift,3,3),ptindx(3)+up+2*osshift,locplusup,pt)
+           call putpcgc(inp(2,2,2),ptindx(1)+up+osshift,locplusup,pt)
+           call putpcgc(inp(2,3,2),ptindx(2)+up+osshift,locplusup,pt)
+           call putpcgc(inp(1,2,2),ptindx(6)+up+osshift,locplusup,pt)
+           call putpcgc(inp(1,2,1),ptindx(5)+up+osshift,locplusup,pt)
+    else                                  ! corner w/ normal [ -1/sqrt(2), -1/sqrt(2) ]
+!           call putpcgc(inp(1,3,3),ptindx(3)+up-1,locplusup,pt)
+           call putpcgc(inp(2,3,3),ptindx(3)+up+osshift,locplusup,pt)
+!           call putpcgc(inp(2,3,3)+inp(2,1,2)+inp(1,2,1),ptindx(3)+up,locplusup,pt)
+           call putpcgc(inp(2-osshift,3,3)+inp(2,1,2)+inp(1,2,1),ptindx(3)+up,locplusup,pt)
+!           call putpcgc(inp(3,3,3),ptindx(3)+up+1,locplusup,pt)
+           call putpcgc(inp(2+osshift,3,3),ptindx(3)+up+2*osshift,locplusup,pt)
+           call putpcgc(inp(2,2,2),ptindx(1)+up+osshift,locplusup,pt)
+           call putpcgc(inp(1,2,2),ptindx(6)+up+osshift,locplusup,pt)
+           call putpcgc(inp(2,3,2),ptindx(2)+up+osshift,locplusup,pt)
+           call putpcgc(inp(1,2,3),ptindx(4)+up+osshift,locplusup,pt)
+    end if
+  end if
+
+  return
+
+end subroutine fillsprsebndyos
+
+!**********************************************************************
+
 subroutine getlatboundinfo( ew, ns, up, ewn, nsn, upn,  &
                            thck, loc_array,             &
                            fwdorbwd, normal, loc_latbc)
@@ -5049,7 +5742,6 @@ subroutine getlatboundinfo( ew, ns, up, ewn, nsn, upn,  &
   integer, intent(in) :: ewn, nsn, upn
   integer, dimension(ewn,nsn), intent(in) :: loc_array
   real (kind = dp), dimension(3,3), intent(in) :: thck
-
   real (kind = dp), dimension(2), intent(out) :: fwdorbwd, normal
   integer, dimension(6), intent(out) :: loc_latbc
 
@@ -5700,7 +6392,7 @@ end subroutine putpcgc
 
       ! Step through indxmask, but exclude halo
 	  do ns = 1+staggered_shalo,size(indxmask,2)-staggered_nhalo
-	     do ew = 1+staggered_whalo,size(indxmask,1)-staggered_ehalo
+	      do ew = 1+staggered_whalo,size(indxmask,1)-staggered_ehalo
 	        if ( indxmask(ew,ns) /= 0 ) then
 	          pointno = indxmask(ew,ns)  ! Note that pointno starts at value 1.  If we step through correctly then consecutive values
 	          ! write(*,*) "pointno = ", pointno
@@ -5855,11 +6547,11 @@ function scalebasalbc( coeffblock, bcflag, lateralboundry, beta, efvs )
 !           end if                
 !
 !           if( scale .le. 0.0d0 )then
-            scale = 1.0d0
-!           end if
-
-!        else
 !            scale = 1.0d0
+!           end if
+!
+!        else
+            scale = 1.0d0
         end if
 
     else
