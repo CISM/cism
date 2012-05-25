@@ -2078,7 +2078,6 @@ subroutine apply_precond_nox( wk2_nox, wk1_nox, xk_size, c_ptr_to_object )  bind
   real (kind = dp), allocatable, dimension(:) :: answer, vectp
   real (kind = dp) :: err
 
- call t_startf("Calc_F")
   call c_f_pointer(c_ptr_to_object,fptr) ! convert C ptr to F ptr= resid_object
 
   matrixA = fptr%matrixA
@@ -2183,6 +2182,7 @@ end subroutine reset_effstrmin
 !  real (kind = dp), intent(inout):: L2norm
   real (kind = dp) :: L2norm
 
+ call t_startf("Calc_F")
   call c_f_pointer(c_ptr_to_object,fptr) ! convert C ptr to F ptr= resid_object
            
   ewn = fptr%model%general%ewn
