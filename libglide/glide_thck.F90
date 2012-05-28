@@ -678,8 +678,6 @@ subroutine geometry_derivs(model)
     model%geomderv%dlsrfdns = model%geomderv%dusrfdns - model%geomderv%dthckdns
       
     !Compute second derivatives.
-    !TODO: Turn this on and off conditionally based on whether the computation
-    !is requred
     
     !Compute second derivatives
     !TODO: maybe turn this on and off conditionally?
@@ -698,7 +696,9 @@ end subroutine
 
 !*FD Computes derivatives of the geometry onto variables on a nonstaggered
 !*FD grid.  Used for some higher-order routines
+
 subroutine geometry_derivs_unstag(model)
+
    implicit none
    type(glide_global_type) :: model
 

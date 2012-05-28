@@ -4,6 +4,10 @@
 module glam         
 !***********************************************************************
 
+!TODO - Might make sense to move code from subroutine inc_remap_driver to a higher level
+!       (glissade.F90).
+
+!TODO - Remove PBJ references in this module
     ! 1st-order ice sheet dynamics from Payne/Price OR Pattyn/Bocek/Johonson solver 
     ! (in config file, "diagnostic_scheme" = 3 (PP, B-grid) or 1 (PB&J, A grid) or 2 (PB&J, B grid)
     ! and thickness evolution using LANL incremental remapping (see "remap_advection.F90" for 
@@ -12,29 +16,34 @@ module glam
     use parallel
     use glide_types
     use glimmer_paramets, only : vis0, vis0_glam
-    use glimmer_physcon, only :
     use glide_mask
 
-!whl - This is the new transport driver (for upwind or remapping)
+!TODO - Remove this one?
+    use glimmer_physcon, only :
+
+    use glide_velo_higher
+
     use glissade_transport, only: glissade_transport_driver,  &
                                   nghost_transport, ntracer_transport
 
-!whl - to do - When the new remapping routines (glissade_transport and glissade_remap)
-!              are known to be working, we can remove remap_advection and remap_glamutils
+!TODO - When the new remapping routines (glissade_transport and glissade_remap)
+!        are known to be working, we can remove remap_advection and remap_glamutils
     use remap_advection, only: horizontal_remap
     use remap_glamutils
 
-    use glide_velo_higher
+
+!TODO - May not need to use glide_thck
     use glide_thck
 
     implicit none
     private
 
+!TODO - Remove old_remapping
     public :: inc_remap_driver, old_remapping
 
-    ! NOTE: Relevant initializtion routines are in the init section of "glide.F90" 
+    ! NOTE: Relevant initialization routines are in the init section of "glide.F90" 
 
-!whl - temporary; remove later when the new scheme is the default
+!TODO - temporary; remove later when the new scheme is the default
     logical, parameter :: old_remapping = .true.  ! if false, then use new remapping scheme
                                                   ! if true, revert to older remapping scheme
     logical, parameter :: write_verbose = .false. ! if true, write state variable fields to log file
@@ -55,20 +64,21 @@ module glam
 !           ntrace_ir       ,&! number of tracers to be remapped
 !           nghost_ir         ! number of ghost cells used in remapping scheme
 
+!TODO - Remove debug code.
 !whl - debug
         integer :: i, j
         integer, parameter :: idiag=10, jdiag=15
 
         ! Compute the new geometry derivatives for this time step
 
-!HALO - Would be better to have one call per routine for which we need the derivative.
-!       Do halo updates as needed before and after the call.
+!HALO - Would be better to have one derivative call per field.
+!       Do halo updates as needed (e.g., thck) before the call.
 !       If we need a derivative on the staggered grid (for all locally owned cells),
 !        then we need one layer of halo scalars before calling the derivative routine.
 
         call geometry_derivs(model)
 
-!HALO - May not need to call this subroutine
+!HALO - Pretty sure this is not needed
         call geometry_derivs_unstag(model)
 
         ! Compute higher-order ice velocities

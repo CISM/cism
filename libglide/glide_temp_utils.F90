@@ -58,6 +58,10 @@ contains
 
   !-----------------------------------------------------------------------
 
+!TODO - Break this into two subroutines, one for SIA and one for HO.
+!       The HO version does not need dusrfdew, dusrfdns as inputs.
+!       If the HO version always computes temp on a staggered vertical grid, can remove some code.
+
   subroutine finddisp(model,thck,whichdisp,efvs,stagthck,dusrfdew,dusrfdns,flwa)
 
     ! Compute the dissipation source term associated with strain heating.

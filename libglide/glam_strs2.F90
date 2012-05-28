@@ -14,6 +14,15 @@
 #define globalIDs
 #endif
 
+!TODO - This module is complex and hard to understand.
+!       In particular, there are chunks of code that are used more than once, for Picard as well as JFNK.
+!       It would be better to combine these chunks of code into subroutines that can be called
+!        from multiple places in the code.
+!       Also, it would help if there were better separation between the JFNK solver structure
+!        and the Payne-Price solver, so that the JFNK structure could be applied
+!        to other solvers (e.g., a future variational solver).
+
+
 !***********************************************************************
 module glam_strs2
 !***********************************************************************
@@ -123,6 +132,8 @@ contains
 
 !***********************************************************************
 
+!TODO - Is this subroutine still needed?
+
 subroutine dumpvels(name, uvel, vvel)
     !JEFF routine to track the uvel and vvel calculations in Picard Iteration for debugging
     !3/28/11
@@ -143,9 +154,13 @@ subroutine dumpvels(name, uvel, vvel)
     endif 
 end subroutine dumpvels
 
+!TODO - Can we change the name of this subroutine?
+
 subroutine glam_velo_fordsiapstr_init( ewn,   nsn,   upn,    &
                                        dew,   dns,           &
                                        sigma)
+
+!TODO - Change _dp to d0 for consistency
 
     ! Allocate arrays and initialize variables.
     implicit none
@@ -173,6 +188,7 @@ subroutine glam_velo_fordsiapstr_init( ewn,   nsn,   upn,    &
     ! not regularly spaced. 
     dup = (/ ( (sigma(2)-sigma(1)), up = 1, upn) /)
     dupm = - 0.25_dp / dup
+
 !whl - Moved stagsigma calculation to glide_setup module
 !!    stagsigma(1:upn-1) = (sigma(1:upn-1) + sigma(2:upn)) / 2.0_dp
 
@@ -221,6 +237,9 @@ end subroutine glam_velo_fordsiapstr_init
 
 !***********************************************************************
 
+!TODO - Can we change the name of this subroutine?
+!       Can remove some of the arguments (e.g., derivatives, if we compute these locally)
+
 ! Note that this is the driver subroutine, called from 'run_ho_diagnostic' in
 ! 'glide_velo_higher.F90'. In turn, 'run_ho_model' is called from 'inc_remap_driver' in
 ! 'glam.F90', and 'inc_remap_driver' is called from 'glide_tstep_ps' in 'glide.F90'.
@@ -253,8 +272,12 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 
   integer, intent(in) :: ewn, nsn, upn
   integer, dimension(:,:),   intent(inout)  :: umask
+
+!TODO - Make umask intent in?
   ! NOTE: 'inout' status to 'umask' should be changed to 'in' at some point, 
   ! but for now this allows for some minor internal hacks to CISM-defined mask  
+
+!TODO - Change 'kind = dp' to 'dp'
 
   real (kind = dp), intent(in) :: dew, dns
 
@@ -288,8 +311,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
   integer :: ew, ns, up     ! counters for horiz and vert do loops
 
   real (kind = dp), parameter :: minres = 1.0d-4    ! assume vel fields converged below this resid 
-  real (kind = dp), parameter :: NL_tol = 1.0d-06   ! to have same criterion
-                                                    ! than with JFNK
+  real (kind = dp), parameter :: NL_tol = 1.0d-06   ! to have same criterion than with JFNK
   real (kind = dp), save, dimension(2) :: resid     ! vector for storing u resid and v resid 
   real (kind = dp) :: plastic_resid_norm = 0.0d0    ! norm of residual used in Newton-based plastic bed iteration
 
@@ -319,6 +341,11 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
   ! assign value for nonlinear iteration flag
   nonlinear = whichnonlinear
 
+!TODO - Compute other derivatives (stagthck, etc.) here instead of passing them in?
+
+!TODO - Note: d2usrfdew2 and d2usrfdns2 are needed at all locally owned velocity points.
+!       I am not sure where and why the upwind 2nd derivatives are computed.
+
   ! calc geometric 2nd deriv. for generic input variable 'ipvr', returns 'opvr'
   call geom2ders(ewn, nsn, dew, dns, usrf, stagthck, d2usrfdew2, d2usrfdns2)
   call geom2ders(ewn, nsn, dew, dns, thck, stagthck, d2thckdew2, d2thckdns2)
@@ -334,6 +361,8 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
   uindx = indxvelostr(ewn, nsn, upn, umask,pcgsize(1))
 
 !!!!!!!!!! Boundary conditions HACKS section !!!!!!!!!!!!!
+
+!TODO - Replace these hacks with something more robust.
 
 !! A hack of the boundary condition mask needed for the Ross Ice Shelf exp.
 !! The quick check of whether or not this is the Ross experiment is to look
@@ -440,7 +469,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 ! RN_20100126: End of the block
 !==============================================================================
 
-  ! allocate space matrix variables
+  ! allocate sparse matrix variables
   allocate (pcgrow(pcgsize(2)),pcgcol(pcgsize(2)),rhsd(pcgsize(1)), &
             pcgval(pcgsize(2)))
 
@@ -520,11 +549,11 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
     ! call distributed_print("preefvs_ov"//Looptime//"_pic"//loopnum//"_tsk", efvs)
 #endif
 
-!HALO - To avoid parallel halo calls within glam_strs2, we may want to compute efvs in halo cells
+!HALO - To avoid parallel halo calls for efvs within glam_strs2, we need to compute efvs in one layer of halo cells
 
     ! calc effective viscosity using previously calc vel. field
     call findefvsstr(ewn,  nsn,  upn,      &
-                     stagsigma,  counter,    &
+                     stagsigma,  counter,  &
                      whichefvs,  efvs,     &
                      uvel,       vvel,     &
                      flwa,       thck,     &
@@ -557,7 +586,10 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 !==============================================================================
 ! jfl 20100412: residual for v comp: Fv= A(u^k-1,v^k-1)v^k-1 - b(u^k-1,v^k-1)  
 !==============================================================================
-    !JEFF - The multiplication Ax is done across all nodes, but Ax - b is only computed locally, so L2square needs to be summed.
+
+!TODO - Is L2square summed correctly in res_vect?
+    !JEFF - The multiplication Ax is done across all nodes, but Ax - b is only 
+    !       computed locally, so L2square needs to be summed.
  call t_startf("PICARD_res_vect")
     call res_vect( matrix, vk_1, rhsd, size(rhsd), g_flag, L2square, whichsparse ) 
  call t_stopf("PICARD_res_vect")
@@ -597,6 +629,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
     ! This is necessary since we have not yet solved for the x-comp of vel, which needs the
     ! old prev. guess as an input (NOT the new guess).
 
+!TODO - Can we eliminate the periodic option here?  Periodic BC should be handled automatically.
 
 ! implement periodic boundary conditions in y (if flagged)
 ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -729,11 +762,15 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
     call mindcrshstr(2,whichresid,vvel,counter,resid(2))
  call t_stopf("PICARD_mindcrsh")
 
+!TODO - I'm pretty sure these updates *are* needed.
+!       
     ! coordinate halos for updated uvel and vvel
     call staggered_parallel_halo(uvel)
     call staggered_parallel_halo(vvel)
 
     !call dumpvels("After mindcrsh", uvel, vvel)
+
+!TODO - Remove periodic BC stuff?
 
 ! implement periodic boundary conditions in x (if flagged)
 ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -769,7 +806,8 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 
     counter = counter + 1   ! advance the iteration counter
  call t_stopf("PICARD_in_iter")
-  end do 
+
+  end do  ! while ( outer_it_criterion .ge. outer_it_target .and. counter < cmax)
 
   inisoln = .true.
 
@@ -781,6 +819,9 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
  call t_startf("PICARD_post")
   call ghost_postprocess( ewn, nsn, upn, uindx, uk_1, vk_1, &
                           ughost, vghost )
+
+!TODO - If needed, these loops should be over locally owned velocity points: (ilo-1:ihi, jlo-1:jhi).
+!       However, I don't think uflx and vflx are needed; they are not used by remapping subroutine.
 
   do ns = 1+staggered_shalo,size(umask,2)-staggered_nhalo
       do ew = 1+staggered_whalo,size(umask,1)-staggered_ehalo
@@ -807,7 +848,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
   call parallel_halo(efvs)
   call parallel_halo(btraction)
 
-!HALO - Not sure we need these two halo updates
+!HALO - Pretty sure we don't need these updates; uflx and vflx are not used.
   call staggered_parallel_halo(uflx)
   call staggered_parallel_halo(vflx)
 
@@ -844,7 +885,12 @@ end subroutine glam_velo_fordsiapstr
 
 !***********************************************************************
 
-subroutine JFNK                 (model,umask)
+!TODO - Can we pass arguments explicity instead of passing 'model'?
+!       Maybe there's a good reason not to--I'd just like to understand why.
+!       If we need to pass a derived type to NOX, could we pass a smaller one
+!        that only contains what's needed for the velocity solve?
+
+subroutine JFNK  (model,umask)
 
   use parallel
 
@@ -854,6 +900,8 @@ subroutine JFNK                 (model,umask)
   implicit none
 
   type(glide_global_type) ,intent(inout) :: model
+
+!TODO - Can we make the mask intent in?
 
   integer, dimension(:,:),   intent(inout)  :: umask  !*sfp* replaces the prev., internally calc. mask
                                                       ! ... 'inout' status allows for a minor alteration
@@ -871,7 +919,12 @@ subroutine JFNK                 (model,umask)
   real (kind = dp), dimension(:), allocatable :: vectx
   integer ,dimension(:) ,allocatable :: gx_flag, g_flag
 
+!TODO - Change 'kind=dp' to 'dp'
+
 ! split off of derived types
+
+!TODO - Should the following be passed in explicitly?
+
 ! intent(in)
   integer :: ewn, nsn, upn
   real (kind = dp) :: dew, dns
@@ -886,6 +939,7 @@ subroutine JFNK                 (model,umask)
   real (kind = dp), dimension(:,:)   ,pointer :: minTauf
   real (kind = dp), dimension(:,:,:) ,pointer :: btraction            ! consistent basal traction array
   
+!TODO - Anything to update here?
   !*sfp* This is the betasquared field from CISM (externally specified), and should eventually
   ! take the place of the subroutine 'calcbetasquared' below (for now, using this value instead
   ! will simply be included as another option within that subroutine) 
@@ -898,6 +952,7 @@ subroutine JFNK                 (model,umask)
   integer :: whichnonlinear
   logical :: periodic_ew, periodic_ns
 
+!TODO - Should the following be passed out explicitly?
 ! intent(out)
   real (kind = dp), dimension(:,:,:) ,pointer :: uvel, vvel
   real (kind = dp), dimension(:,:)   ,pointer :: uflx, vflx
@@ -943,6 +998,7 @@ subroutine JFNK                 (model,umask)
 !      end subroutine noxfinish
 !  end interface
 
+!TODO - Could eliminate pointers if arguments are passed in explicitly.
  call t_startf("JFNK_pre")
   ewn = model%general%ewn
   nsn = model%general%nsn
@@ -980,6 +1036,8 @@ subroutine JFNK                 (model,umask)
   vflx => model%velocity%vflx(:,:)
   efvs => model%stress%efvs(:,:,:)
 
+!TODO - Can we eliminate this conversion?
+
 !whl - Could someone explain why this line is here and whether it is still needed?
 !SFP - Standard glimmer and higher-order glimmer traditionally had different definitions 
 !      for how flwa was scaled. This line scales flwa back to dimensional using Glimmer
@@ -992,8 +1050,12 @@ subroutine JFNK                 (model,umask)
   flwa(:,:,:)=flwa(:,:,:)*vis0/vis0_glam
 
   ! RN_20100125: assigning value for whatsparse, which is needed for putpcgc()
+!TODO - Can we use just one variable for each of these options?
   whatsparse = whichsparse
   nonlinear = whichnonlinear
+
+!TODO - Much of the following code is a copy of code above.  
+!       Can we get by with a single copy?  I'm thinking of operations that are done once, before the iterations begin.
 
   ! *sfp** geometric 1st deriv. for generic input variable 'ipvr',
   !      output as 'opvr' (includes 'upwinding' for boundary values)
@@ -1004,6 +1066,7 @@ subroutine JFNK                 (model,umask)
   call geom2derscros(dew, dns, thck, stagthck, d2thckdewdns)
   call geom2derscros(dew, dns, usrf, stagthck, d2usrfdewdns)
 
+!TODO - Do these derivatives have to go in the model derived type and the residual object?
   ! put d2's into model derived type structure to eventually go into resid_object
   model%geomderv%d2thckdew2 = d2thckdew2
   model%geomderv%d2thckdns2 = d2thckdns2
@@ -1016,14 +1079,14 @@ subroutine JFNK                 (model,umask)
 
   !*sfp* This subroutine has been altered from its original form (was a function, still included
   ! below w/ subroutine but commented out) to allow for a tweak to the CISM calculated mask (adds
-  ! in an unique number for ANY arbritray boundary, be it land, water, or simply at the edge of
+  ! in an unique number for ANY arbitrary boundary, be it land, water, or simply at the edge of
   ! the calculation domain). 
 
   allocate(uindx(ewn-1,nsn-1))
 
   ! *sfp** if a point from the 2d array 'mask' is associated with non-zero ice thickness,
   !      either a boundary or interior point, give it a unique number. If not, give it a zero			 
-  uindx = indxvelostr(ewn, nsn, upn, umask,pcgsize(1))
+  uindx = indxvelostr(ewn, nsn, upn, umask, pcgsize(1))
 
   L2norm = 1.0d20
  
@@ -1073,7 +1136,7 @@ subroutine JFNK                 (model,umask)
      !call parallel_stop(__FILE__, __LINE__)
 #endif
 
-     call inittrilinos(25, mySize, myIndices, myX, myY, myZ)
+     call inittrilinos(25, mySize, myIndices, myX, myY, myZ)   !TODO - Why 25 instead of 20 as above?
 
      ! Set if need full solution vector returned or just owned portion
 #ifdef globalIDs
@@ -1092,6 +1155,8 @@ subroutine JFNK                 (model,umask)
      ! deallocate(myIndices)
   endif
 #endif
+
+!TODO This is the end of the block of code that is (mostly) cut and pasted from above.
 
 !==============================================================================
 ! RN_20100126: End of the block
@@ -1147,18 +1212,24 @@ end if
 !                                                       F = [Fv(u,v), Fu(u,v)] 
 !==============================================================================
 
+!TODO - Anything to do here?  Is NOX now standard?
+
 ! UNCOMMENT these lines to switch to NOX's JFNK
 ! AGS: To Do:  send in distributed xk_1, or myIndices array, for distributed nox
 #ifdef TRILINOS 
+
  call t_startf("JFNK_noxinit")
   call noxinit(xk_size, xk_1, 1, c_ptr_to_object)
  call t_stopf("JFNK_noxinit")
+
  call t_startf("JFNK_noxsolve")
   call noxsolve(xk_size, xk_1, c_ptr_to_object)
  call t_stopf("JFNK_noxsolve")
+
  call t_startf("JFNK_noxfinish")
   call noxfinish()
  call t_stopf("JFNK_noxfinish")
+
   kmax = 0     ! turn off native JFNK below
 #endif
 
@@ -1166,8 +1237,11 @@ end if
 ! JFNK loop: calculate F(u^k-1,v^k-1)
 !==============================================================================
 
+!TODO - Can we simply skip this loop if using the Trilinos solver?
+
   ! This do loop is only used for SLAP.  Do not parallelize.
   do k = 1, kmax
+
    call t_startf("JFNK_SLAP")
     call not_parallel(__FILE__, __LINE__)
 
@@ -1189,6 +1263,7 @@ end if
 ! -define nonlinear target (if k=1)
 ! -check at all k if target is reached
 !==============================================================================
+
     if (k .eq. 1) NL_target = NL_tol * (L2norm_wig + 1.0e-2)
 
     print *, 'L2 w/ghost (k)= ',k,L2norm_wig,L2norm
@@ -1198,6 +1273,9 @@ end if
 !==============================================================================
 ! solve J(u^k-1,v^k-1)dx = -F(u^k-1,v^k-1) with fgmres, dx = [dv, du]  
 !==============================================================================
+
+!TODO - Add decimal points to real variables
+
     rhs = -1d0*F
 
     dx  = 0d0 ! initial guess
@@ -1213,6 +1291,8 @@ end if
     iout   = 0    ! set  higher than 0 to have res(ite)
 
     icode = 0
+
+!TODO - Can we avoid GOTO and CONTINUE?  Very old-style Fortran.
 
  10 CONTINUE
       
@@ -1257,7 +1337,7 @@ end if
       xk_1 = xk_1 + dx(1:2*pcgsize(1))
 
   call t_stopf("JFNK_SLAP")
- end do
+ end do   ! k = 1, kmax 
 
  call t_startf("JFNK_post")
 ! (need to update these values from fptr%uvel,vvel,stagthck etc)
@@ -1291,6 +1371,7 @@ end if
                      minTauf,     flwa,           &
                      beta,        btraction,      &
                      k, 1 )
+
    call findcoefstr(ewn,  nsn,   upn,             &
                      dew,  dns,   sigma,          &
                      1,           efvs,           &
@@ -1312,6 +1393,11 @@ end if
   inisoln = .true.
 
   print*,"Solution vector norm after JFNK = " ,sqrt(DOT_PRODUCT(xk_1,xk_1))
+
+!TODO - The remaining code in this subroutine is cut and pasted from above.
+!       Can we encapsulate this repeated code in a subroutine?
+
+!TODO - I don't think uflx and vflux are needed.
 
   do ns = 1+staggered_shalo,size(umask,2)-staggered_nhalo
       do ew = 1+staggered_whalo,size(umask,1)-staggered_ehalo
@@ -1352,9 +1438,11 @@ end if
  !model%velocity%uflx = uflx
  !model%velocity%vflx = vflx
  !model%stress%efvs = efvs
+
+!HALO - Not sure whether these are needed.  Where does JFNK do its parallel halo updates for uvel, vvel?
+
  !PW following are needed for glam_velo_fordsiapstr - putting here until can be convinced
  !   that they are not needed (or that they should be delayed until later)
-
   call staggered_parallel_halo(uvel)
   call staggered_parallel_halo(vvel)
 
@@ -1394,6 +1482,8 @@ function indxvelostr(ewn,  nsn,  upn,  &
   integer, dimension(size(mask,1),size(mask,2)) :: indxvelostr
 
   pointno = 1
+
+!TODO - I think these should be over locally owned velocity points: (ilo-1:ihi, jlo-1:jhi).
 
   do ns = 1+staggered_shalo,size(mask,2)-staggered_nhalo
      do ew = 1+staggered_whalo,size(mask,1)-staggered_ehalo
@@ -1502,7 +1592,7 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
 
 !HALO - These loops should be over (ilo-1:ihi+1, jlo-1:jhi+1).
 !       In other words, efvs is required in locally owned cells, plus one halo layer.
-!       This is equivalent to the loop below, provided nhalo = 2
+!       This is equivalent to the loop below, provided nhalo = 2.
 !       As is, this code should *not* be run with nhalo = 1.
 !       To run with nhalo = 1, we would need to compute efvs in locally owned cells and then do a halo update. 
 
@@ -1683,6 +1773,7 @@ end function getlocrange
 !***********************************************************************
 
 function getlocationarray(ewn, nsn, upn, mask, indxmask)
+
   use parallel
 
   implicit none
@@ -1695,12 +1786,14 @@ function getlocationarray(ewn, nsn, upn, mask, indxmask)
 
 #ifdef globalIDs
   ! Returns in (:,:,1) the global ID bases for each grid point, including 
-  ! halos and those without ice
+  ! halos and those without ice.
   ! Since the code checks elsewhere whether ice occurs at a given grid point, 
   ! this information is not encoded here. For the local indices (see below)
   ! the mask information is used since ice-free grid points are not indexed
   ! locally
 
+!TODO - Not sure if these loops are correct because I don't understand what this subroutine is doing.
+!       Is the input mask on the scalar (ice) grid? 
   do ns=1,nsn
     do ew=1,ewn
       getlocationarray(ew,ns,1) = parallel_globalID(ns, ew, upn + 2)  ! Extra two layers for ghost layers
@@ -1717,6 +1810,8 @@ function getlocationarray(ewn, nsn, upn, mask, indxmask)
 
   ! initialize to zero (in order to set halo and ice-free cells to zero)
   getlocationarray(:,:,2) = 0
+
+!TODO - Should this be over locally owned velocity points?
 
   ! Step through indxmask, but exclude halo
   do ns = 1+staggered_shalo,size(indxmask,2)-staggered_nhalo
@@ -1735,6 +1830,8 @@ function getlocationarray(ewn, nsn, upn, mask, indxmask)
   cumsum = 0
   temparray = 0
   getlocationarray = 0
+
+!TODO - Should this be over locally owned velocity points?
 
   do ns=1+staggered_shalo,size(mask,2)-staggered_nhalo
     do ew=1+staggered_whalo,size(mask,1)-staggered_ehalo
@@ -1818,6 +1915,8 @@ function slapsolvstr(ewn, nsn, upn, &
 !**     mxnelt ... maximum array and vector sizes (in)
 !**     iwork ... workspace for SLAP routines (in)
 
+!TODO - Are loop bounds OK? Since this is for the serial SLAP solver, I think so.
+
 ! *sp* initial estimate for vel. field?
   do ns = 1,nsn-1
   do ew = 1,ewn-1
@@ -1839,6 +1938,8 @@ function slapsolvstr(ewn, nsn, upn, &
   end if
 
   deallocate(rwork,iwork)
+
+!TODO - Are loop bounds OK? Since this is for the serial SLAP solver, I think so.
 
   do ns = 1,nsn-1
   do ew = 1,ewn-1
@@ -1887,6 +1988,8 @@ subroutine solver_preprocess( ewn, nsn, upn, uindx, matrix, answer, vel )
   matrix%col = pcgcol
   matrix%val = pcgval
 
+!HALO - Not sure about the loops here.  Should be over locally owned velocity points?
+
   ! Initial estimate for vel. field; take from 3d array and put into
   ! the format of a solution vector.
   do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
@@ -1923,6 +2026,8 @@ subroutine solver_postprocess( ewn, nsn, upn, pt, uindx, answrapped, ansunwrappe
   integer, dimension(2) :: loc
   integer :: ew, ns
 
+!HALO - Not sure about the loops here.  Should be over locally owned velocity points?
+
   do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
       do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
           if (uindx(ew,ns) /= 0) then
@@ -1957,6 +2062,8 @@ subroutine solver_postprocess_jfnk( ewn, nsn, upn, uindx, answrapped, ansunwrapp
 
    integer, dimension(2) :: loc
    integer :: ew, ns
+
+!HALO - Not sure about the loops here.  Should be over locally owned velocity points?
 
    do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
        do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
@@ -2058,6 +2165,8 @@ subroutine apply_precond( matrixA, matrixC, nu1, nu2, wk1, wk2, whichsparse )
 
 ! precondition v component 
        
+!TODO - Add decimal points to real variables below
+
       answer = 0d0 ! initial guess
       vectp(:) = wk1(1:nu1) ! rhs for precond v
       if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
@@ -2134,6 +2243,8 @@ subroutine apply_precond_nox( wk2_nox, wk1_nox, xk_size, c_ptr_to_object )  bind
 
 ! precondition v component 
        
+!TODO - Add decimal points to real variables below
+
       answer = 0d0 ! initial guess
       vectp(:) = wk1(1:nu1) ! rhs for precond v
       if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
@@ -2187,6 +2298,10 @@ subroutine reset_effstrmin (esm_factor) bind(C, name='reset_effstrmin')
 end subroutine reset_effstrmin
 
 !***********************************************************************
+
+!TODO - There is more repeated code here, making code maintenance difficult.
+!       Would it be possible to package the repeated code into a subroutine called
+!        from multiple places?
 
  subroutine calc_F (xtp, F, xk_size, c_ptr_to_object, ispert) bind(C, name='calc_F')
 
@@ -2391,7 +2506,6 @@ end subroutine reset_effstrmin
 !    L2norm = L2square
 !    F = vectx 
 
-
     call solver_postprocess_jfnk( ewn, nsn, upn, ui, xtp, vvel, uvel, ghostbvel, pcgsize(1) )
 
   fptr%model%velocity%btraction => btraction(:,:,:)
@@ -2431,6 +2545,8 @@ subroutine ghost_preprocess( ewn, nsn, upn, uindx, ughost, vghost, &
   integer, dimension(2) :: loc
 
   g_flag = 0
+
+!TODO - Loops should be over locally owned velocity points?
 
   do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
    do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
@@ -2475,6 +2591,8 @@ end subroutine ghost_preprocess
    integer, dimension(2) :: loc
    
    gx_flag = 0
+
+!TODO - Loops should be over locally owned velocity points?
    
    do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
     do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
@@ -2516,6 +2634,8 @@ subroutine ghost_postprocess( ewn, nsn, upn, uindx, uk_1, vk_1, &
   integer :: ew, ns
   integer, dimension(2) :: loc
 
+!TODO - Loops should be over locally owned velocity points?
+
   do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
       do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
           if (uindx(ew,ns) /= 0) then
@@ -2553,6 +2673,8 @@ end subroutine ghost_postprocess
    
    integer :: ew, ns
    integer, dimension(2) :: loc
+
+!TODO - Loops should be over locally owned velocity points?
    
    do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
        do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
@@ -2619,6 +2741,8 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
   ! case(1): use max of abs( vel_old - vel ) / vel ) but ignore basal vels
   ! case(2): use mean of abs( vel_old - vel ) / vel )
   ! case(3): use max of abs( vel_old - vel ) / vel ) (in addition to L2 norm calculated externally)
+
+!TODO - All loops in this subroutine should be over locally owned velocity points?
 
    case(0)
     ! resid = maxval( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
@@ -2764,6 +2888,8 @@ end subroutine mindcrshstr
 
 !***********************************************************************
 
+!TODO - Why are there two of these subroutines?  Can we remove one of them?
+
 function mindcrshstr2(pt,whichresid,vel,counter,resid)
 
   ! Function to perform 'unstable manifold correction' (see Hindmarsch and Payne, 1996,
@@ -2773,6 +2899,7 @@ function mindcrshstr2(pt,whichresid,vel,counter,resid)
   ! Alternate unstable manifold scheme, based on DeSmedt, Pattyn, and De Goen, J. Glaciology 2010
   ! Written by Carl Gladdish
   
+!TODO - something to do here?
   use parallel  ! Use of WHERE statements is causing inconsistencies on the halos in parallel.  Rewrite like mindcrshstr()
   implicit none
   
@@ -2885,7 +3012,7 @@ function mindcrshstr2(pt,whichresid,vel,counter,resid)
             MASK = vel .ne. 0.0_dp)
 
    case(2)
-    !**cvg*** should replace vel by mindcrshstr2 in the following lines, I belive
+    !**cvg*** should replace vel by mindcrshstr2 in the following lines, I believe
     nr = size( vel, dim=1 )
     vel_ne_0 = 0
     where ( vel .ne. 0.0_dp ) vel_ne_0 = 1
@@ -2936,7 +3063,7 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
 
   ! Main subroutine for determining coefficients that go into the LHS matrix A 
   ! in the expression Au = b. Calls numerous other subroutines, including boundary
-  ! condition subroutines, which determin "b".
+  ! condition subroutines, which determine "b".
 
   use parallel
 
@@ -2987,6 +3114,7 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
 
   ! calculate/specify the map of 'betasquared', for use in the basal boundary condition. 
   ! Input to the subroutine 'bodyset' (below) ... 
+
   call calcbetasquared (whichbabc,              &
                         dew,        dns,        &
                         ewn,        nsn,        &
@@ -4892,6 +5020,7 @@ subroutine calcbetasquared (whichbabc,               &
 
       betasquared = 1.0d4
 
+!TODO - Should these 5's be hardwired?
       do ns=5, nsn-5; do ew=1, ewn-1; 
         betasquared(ew,ns) = 10.0d1 
       end do; end do
@@ -4986,6 +5115,8 @@ subroutine geom2derscros(dew,  dns,   &
   real (kind = dp), intent(out), dimension(:,:) :: opvrewns
   real (kind = dp), intent(in), dimension(:,:) :: ipvr, stagthck
 
+!TODO - Should these be loops over locally owned velocity points? I.e. (ilo-1:ihi, jlo-1:jhi).
+ 
   ! consider replacing by a loop over ewn, nsn?
   where (stagthck /= 0.0d0)
     opvrewns = (eoshift(eoshift(ipvr,1,0.0_dp,2),1,0.0_dp,1) + ipvr   &
@@ -5024,6 +5155,9 @@ subroutine geom2ders(ewn,    nsn,  &
   dewsq4 = 4.0d0 * dew * dew
   dnssq4 = 4.0d0 * dns * dns
 
+!TODO - I think these loops should be over locally owned velocity points: (ilo-1:ihi, jlo-1:jhi).
+!       Provided nhalo >= 2, we should have enough points to compute a centered difference.
+
   do ns = 2, nsn-2
   do ew = 2, ewn-2
     if (stagthck(ew,ns) .gt. 0.0d0) then
@@ -5037,6 +5171,13 @@ subroutine geom2ders(ewn,    nsn,  &
   end do
 
   ! *** 2nd order boundaries using upwinding
+
+!TODO - If nhalo = 2, then I'm not clear on why upwinding is needed.
+!       Where are these values used in the computation?
+!       I don't think they should be used for any interior halo cells.
+!       Are they needed at the global boundaries?  If so, then need to use the correct indices for global boundaries.
+!       Would be easier if we could set global halos in a way that gives reasonable 2nd derivs
+!        without a special case.
 
   do ew = 1, ewn-1, ewn-2
 
@@ -5054,6 +5195,9 @@ subroutine geom2ders(ewn,    nsn,  &
 
   end do
 
+!TODO - If nhalo = 2, then I'm not clear on why upwinding is needed.
+!       Where are these values used in the computation?
+
   do ns = 1, nsn-1, nsn-2
 
     pt = whichway(ns)
@@ -5069,6 +5213,9 @@ subroutine geom2ders(ewn,    nsn,  &
     end do
 
   end do
+
+!TODO - If nhalo = 2, then I'm not clear on why upwinding is needed.
+!       Where are these values used in the computation?
 
   do ns = 1, nsn-1, nsn-2
     do ew = 1, ewn-1, ewn-2
@@ -5305,6 +5452,8 @@ end subroutine putpcgc
 
 	  integer :: ew, ns, pointno
 	  integer :: glblID, upindx, slnindx
+
+!TODO - Loop over locally owned velocity points?
 
       ! Step through indxmask, but exclude halo
           do ns = 1+staggered_shalo,size(indxmask,2)-staggered_nhalo

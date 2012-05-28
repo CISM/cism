@@ -24,6 +24,10 @@ contains
   !! \param thklim Minimum thickness to enable ice dynamics
   !! \param mask   Geometry mask field (used for determining the location of shelf fronts)
   !<
+
+!TODO - Move to glide_derivs?
+!       Why do we need a separate subroutine for stagthck compared to other staggered fields?
+
   subroutine stagthickness(ipvr,opvr,ewn,nsn,usrf,thklim,mask)
     use glimmer_paramets, only: thk0
     implicit none 
@@ -38,16 +42,18 @@ contains
     integer :: ewn,nsn,ew,ns,n
     real(dp) :: tot
 
+!HALO - I think this loop should be over locally owned velocity points: (ilo-1:ihi, jlo-1:jhi)
+
         do ns = 1,nsn-1
             do ew = 1,ewn-1
 
                 !If any of our staggering points are shelf front, ignore zeros when staggering
-                !if (any(GLIDE_IS_CALVING(mask(ew:ew+1, ns:ns+1)))) then
-
+                !if (any(GLIDE_IS_CALVING(mask(ew:ew+1, ns:ns+1)))) then  ! in contact with the ocean
                 !Use the "only nonzero thickness" staggering criterion for ALL marginal ice. For
                 ! reasons that are not entirely clear, this corrects an error whereby the land ice 
                 ! margin is defined incorrectly as existing one grid cell too far inland from where 
                 ! it should be.  
+
                 if (any(GLIDE_HAS_ICE(mask(ew:ew+1,ns:ns+1)))) then
                     n = 0
                     tot = 0
@@ -117,6 +123,10 @@ contains
   !! \param ewn
   !! \param nsn
   !<
+
+!TODO - Move to glide_derivs?
+!       Note: This subroutine takes no account of whether ice is present in nearby cells.
+
   subroutine stagvarb(ipvr,opvr,ewn,nsn)
     implicit none 
 

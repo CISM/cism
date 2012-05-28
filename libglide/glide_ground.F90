@@ -19,6 +19,8 @@ module glide_ground
 contains
   
 !-------------------------------------------------------------------------------  
+!TODO - Is this subroutine needed?  Not sure backstress is used in current dycores
+
   subroutine glide_initialise_backstress(thck,backstressmap,backstress,sigmabin,sigmabout)
   
      implicit none
@@ -38,14 +40,29 @@ contains
          backstress = sigmabout
      end where
   end subroutine glide_initialise_backstress
+
 !-------------------------------------------------------------------------
 
-  subroutine glide_marinlim(which,thck,relx,topg,flwa,levels,mask,mlimit,calving_fraction,eus,ablation_field,backstress, & 
-                 tempanmly,dew,dns,backstressmap,stressout,stressin,ground,nsn,ewn)
+!TODO - Clean up this subroutine.  Cases have been added without being well documented,
+!        and we may not want to support all of them.
+!       May be easiest to make a cleaned-up glissade version with different loop bounds.
+!        Glissade version might just support cases 1 and 2 (and maybe 4)
+!       At some point, we should add a proper calving law for parallel code.
+
+  subroutine glide_marinlim(which,      thck,     relx,    &    
+                            topg,       flwa,              &
+                            levels,     mask,     mlimit,  &
+                            calving_fraction,     eus,     &  
+                            ablation_field,      
+                            backstress,           tempanmly,  &
+                            dew,        dns,        &
+                            backstressmap,          &
+                            stressout,  stressin,   &
+                            ground,                 &
+                            nsn,        ewn)
 !usrf not used   tempanmly,dew,dns,backstressmap,stressout,stressin,ground,nsn,ewn,usrf)
 
-
-    !*FD Removes non-grounded ice, according to one of two altenative
+    !*FD Removes non-grounded ice, according to one of two alternative
     !*FD criteria, and sets upper surface of non-ice-covered points 
     !*FD equal to the topographic height, or sea-level, whichever is higher.
 
@@ -99,26 +116,33 @@ contains
     type(glide_grnd) :: ground        !*FD ground instance
     !---------------------------------------------------------------------
    
-!HALO - We can probably remove some of these cases.
+!HALO - For glissade code we can probably remove some of these cases.
 !       And we can probably remove all the parallel_halo calls.
 !
 !       Note that the ablation_field is a diagnostic for calving mass loss.
 !       We should give it a different name, like 'calving_field'.
 
-    ablation_field=0.0
+    ablation_field=0.0   !TODO - Can we make this double precision?  See climate%calving.
 
     select case (which)
         
     case(1) ! Set thickness to zero if ice is floating
+
+!HALO - For glissade, change to a do loop over local cells: (ilo:ihi, jlo:jhi)
+!     - Halo updates should be moved to a higher level.
+
       where (GLIDE_IS_FLOAT(mask))
         ablation_field=thck
         thck = 0.0d0
       end where
+
       call parallel_halo(ablation_field)
       call parallel_halo(thck)
 
-    case(2) ! Set thickness to zero if relaxed bedrock is below a 
-      ! given level
+!HALO - For glissade, change to a do loop over local cells: (ilo:ihi, jlo:jhi)
+!     - Halo updates should be moved to a higher level.
+
+    case(2) ! Set thickness to zero if relaxed bedrock is below a given level
       where (relx <= mlimit+eus)
          ablation_field=thck
          thck = 0.0d0
@@ -126,6 +150,9 @@ contains
       call parallel_halo(ablation_field)
       call parallel_halo(thck)
     
+!HALO - For glissade, change to a do loop over local cells: (ilo:ihi, jlo:jhi)
+!       Halo updates should be moved to a higher level.
+
     case(3) ! remove fraction of ice when floating
       do ns = 2,size(thck,2)-1
         do ew = 2,size(thck,1)-1
@@ -140,8 +167,11 @@ contains
       call parallel_halo(thck)
       ! if uncomment above mask update, then call parallel_halo(mask)
 
-    case(4) ! Set thickness to zero at marine edge if present
-            ! bedrock is below a given level
+!HALO - For glissade, change to a do loop over local cells: (ilo:ihi, jlo:jhi)
+!       Halo updates should be moved to a higher level.
+!       Note that cases 2 and 4 are very similar; can we combine them?
+
+    case(4) ! Set thickness to zero at marine edge if present bedrock is below a given level
       where (GLIDE_IS_MARINE_ICE_EDGE(mask).and.topg<mlimit+eus)
         ablation_field=thck
         thck = 0.0d0
@@ -150,7 +180,7 @@ contains
       call parallel_halo(thck)
 
 !HALO - This may be the only place the backstress is used.
-!       Not sure we want to support this, in which case we can remove it.
+!       Not sure we want to support this case.  Is there a reference for this scheme?
 
     case(5) ! Relation based on computing the horizontal stretching
             ! of the unconfined ice shelf (\dot \epsilon_{xx}) and multiplying by H.
@@ -274,11 +304,14 @@ contains
 
 !HALO - This routine may not be supported.  I doubt it's accurate for HO flow.
 !       If we do leave in this routine (or something similar), the loop should be 
-!        over locally owned velocity nodes.
+!        over locally owned velocity points.
 
   !simple subroutine to calculate the flux at the grounding line
+
   subroutine calc_gline_flux(stagthk, surfvel, mask, gline_flux, ubas, vbas, dew)
+
     implicit none
+
     !JEFF removing pointer attribute integer, dimension(:,:),pointer       :: mask    !*FD grid type mask
     integer, dimension(:,:)       :: mask    !*FD grid type mask
     real(dp),dimension(:,:),intent(in) :: stagthk    !*FD Ice thickness (scaled)
@@ -301,14 +334,22 @@ contains
 
 !HALO - Pretty sure this is not needed.  gline_flux is just a diagnostic.
     call parallel_halo(gline_flux)
+
   end subroutine calc_gline_flux
 
+!TODO - The rest of this module is associated with case 6.
+!       Not sure if it should be supported.
+
 !-------------------------------------------------------------------------
+
+!TODO - Is this function needed? Currently not called from anywhere I can find.
+
   !This function returns the correct grounding line using the data given 
   ! the mask reference point.  dir is specifying 'ew' or 'ns', but can be 
   ! left null if there's only one option.
 
   real function get_ground_line(ground,ew1,ns1,ew2,ns2)
+
      use glide_types
      implicit none
      type(glide_grnd) :: ground       !*FD glide ground instance
@@ -324,12 +365,18 @@ contains
      end if
      get_ground_line = appr_ground
      return
+
   end function get_ground_line
     
 !-------------------------------------------------------------------------
+
+!TODO - Is this function needed? Only called from update_ground_line (case 6).
+
   subroutine set_ground_line(ground,ew1,ns1,ew2,ns2,value)
+
      use glide_types
      implicit none
+
      type(glide_grnd) :: ground        !*FD model instance
      integer, intent(in) :: ns1 !grounding line in ns direction
      integer, intent(in) :: ew1 !grounding line in ew direction
@@ -346,9 +393,14 @@ contains
          ground%gl_ns(ew1,slot_ns) = value
      end if
   end subroutine set_ground_line
+
 !-------------------------------------------------------------------------
+!TODO - Is this needed? Only called from update_ground_line (case 6).
+
   !does the pattyn interpolation for the grounding line
+
   real function lin_reg_xg(topg, thck, eus, dew, dns, ew, ns, j1ew, j1ns)
+
      use glide_types
      use glimmer_physcon, only : rhoi, rhoo
      real(dp),dimension(:,:),intent(in)    :: topg    !*FD Present bedrock topography (scaled)
@@ -386,9 +438,15 @@ contains
      lin_reg_xg = xg
      return 
   end function lin_reg_xg
+
 !-------------------------------------------------------------------------
+
+!TODO - Is this needed? Only called from case 6.
+
   !Loops through the mask and does the interpolation for all the grounding lines
+
   subroutine update_ground_line(ground, topg, thck, eus, dew, dns, ewn, nsn, mask)
+
      implicit none
      type(glide_grnd) :: ground        !*FD ground instance
      real(dp),dimension(:,:),intent(in)    :: topg    !*FD Present bedrock topography (scaled)
@@ -434,9 +492,15 @@ contains
             end if 
         end do
      end do
+
   end subroutine update_ground_line
+
   !-------------------------------------------------------------------------
+
+!TODO - Is this needed?  Currently not called.
+
   real function get_ground_thck(ground,topg,usrf,dew,dns,ew1,ns1,ew2,ns2)
+
      use glide_types
      implicit none
      type(glide_grnd) :: ground        !*FD ground instance

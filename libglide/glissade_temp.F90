@@ -451,6 +451,9 @@ contains
        ! Temperature above the pressure melting point are reset to Tpmp,
        !  with excess heat contributing to melting.
 
+!TODO - Some of these arguments are not needed:
+!       stagthck, dusrfdew, dusrfdns, ubas, vbas
+
        call glissade_calcbmlt( model,                     &
                                model%options%which_bmelt, &
                                model%temper%temp,         &
@@ -464,7 +467,7 @@ contains
                                model%temper%bmlt,         &
                                GLIDE_IS_FLOAT(model%geometry%thkmask))
 
-       !whl - to do - Should ice thickness be reduced as a result of basal melting?
+!TODO - Reduce ice thickness as a result of basal melting
 
        ! Calculate basal water depth ------------------------------------------------
 
@@ -753,6 +756,9 @@ contains
 
   !-----------------------------------------------------------------------------------
 
+!TODO - Some of these arguments are not needed:
+!       stagthck, dusrfdew, dusrfdns, ubas, vbas
+
   subroutine glissade_calcbmlt( model,    whichbmelt,    &
                                 temp,     stagsigma,     &
                                 thck,     stagthck,      &
@@ -801,7 +807,7 @@ contains
 
             ! Add internal melting associated with temp > pmptemp
 
-            ! whl - to do - adjust layer thickness?
+! TODO - adjust layer thickness?
             ! If internal melting is rare, it should be OK to remove ice from the lowest layer only.
             ! But for temperate ice we should do something more realistic.
 

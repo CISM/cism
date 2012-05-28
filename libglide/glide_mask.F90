@@ -41,6 +41,13 @@ module glide_mask
 
 contains
 
+!TODO - Remove iarea, ivol, and exec_serial?
+!       If iarea and ivol are desired, they can be computed elsewhere.
+
+!TODO - This subroutine is called from glide_velo_higher with stagthck and stagtopg
+!       as input arguments.  Might be safer to have a difference mask subroutine to
+!       compute the staggered mask.
+
   subroutine glide_set_mask(numerics, thck, topg, ewn, nsn, eus, mask, iarea, ivol, exec_serial)
 
     use parallel
@@ -152,6 +159,7 @@ contains
 
 !HALO - For parallel glissade code, this loop should be only over locally owned scalars.
 !       If halo cells are present, maskWithBounds array may not be needed; can replace with mask array.
+!TODO - Not sure what happens here when we're computing a mask on the velocity grid.
 
     do ns=1,nsn
        do ew = 1,ewn
@@ -196,6 +204,7 @@ contains
   end subroutine glide_set_mask
 
   subroutine augment_kinbc_mask(mask, kinbcmask)
+
     !*FD Augments the Glide mask with the location of kinematic (dirichlet) boundary
     !*FD conditions.  These locations cannot be determined by the model a priori, and
     !*FD must be specified through a field in a NetCDF file.
@@ -216,7 +225,7 @@ contains
     where (kinbcmask /= 0)
         maskp = ior(maskp, GLIDE_MASK_DIRICHLET_BC)
     endwhere
-  end subroutine
+  end subroutine augment_kinbc_mask
 
   subroutine get_area_vol(thck, dew, dns, thklim, iarea, ivol, exec_serial)
     use parallel

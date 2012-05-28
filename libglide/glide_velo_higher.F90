@@ -7,6 +7,9 @@
 
 #define shapedbg(x) write(*,*) "x", shape(x)
 
+!TODO - This is a wrapper for the Payne-Price dycore.
+!       Could be moved to the top of glam_strs2.F90.
+
 module glide_velo_higher
     !Includes for the higher-order velocity computations that this calls out to
     use glam_strs2, only: glam_velo_fordsiapstr, JFNK
@@ -26,14 +29,19 @@ module glide_velo_higher
     
 contains
         
+!TODO - Do this analysis of what needs to be passed?
     !This is a temporary wrapper function to get all the HO setup and calling
     !code out of glide_thck so it keeps the clutter down.  I'm just passing the
     !model right now because the analysis on what needs to be passed has yet to
     !be done.
+
     subroutine run_ho_diagnostic(model)
-        use glide_thckmask
+
         use glide_mask
         use stress_hom, only : glide_calcstrsstr
+
+!TODO - Don't think we need glide_thckmask
+        use glide_thckmask
         
         type(glide_global_type),intent(inout) :: model
         !For HO masking
@@ -41,29 +49,40 @@ contains
         integer :: totpts
         real(sp), dimension(model%general%ewn-1, model%general%nsn-1) :: stagmassb
 
-        !TEMPORARY arrays, these should at some point be placed in Model probably
         integer, dimension(model%general%ewn-1, model%general%nsn-1)  :: geom_mask_stag
         real(dp), dimension(model%general%ewn-1, model%general%nsn-1) :: latbc_norms_stag
 
+!TODO - Verify that glide_set_mask works correctly when the input field is on the velo grid.
+!       Would be safer to call a set_mask_staggered subroutine.
+
         !Compute the "geometry mask" (type of square) for the staggered grid
         call glide_set_mask(model%numerics, model%geomderv%stagthck, model%geomderv%stagtopg, &
-                                model%general%ewn-1, model%general%nsn-1, model%climate%eus, &
-                                geom_mask_stag) 
+                            model%general%ewn-1, model%general%nsn-1, model%climate%eus, &
+                            geom_mask_stag) 
 
+!TODO - Are both of these calls needed?  Seems like the second should overwrite the first.
         !Augment masks with kinematic boundary condition info
         call augment_kinbc_mask(model%geometry%thkmask, model%velocity%kinbcmask)
         call augment_kinbc_mask(geom_mask_stag, model%velocity%kinbcmask)
 
+!TODO - Remove this call?  Don't think it is ever used.
         !Compute the normal vectors to the marine margin for the staggered grid
         call glide_marine_margin_normal(model%geomderv%stagthck, geom_mask_stag, latbc_norms_stag)
 
+!TODO - Remove dynbcmask?  It is never used.
         ! save the final mask to 'dynbcmask' for exporting to netCDF output file
         model%velocity%dynbcmask = geom_mask_stag
 
-
+!TODO - Remove this 'if' now what PBJ is not an option?
         if (model%options%which_ho_diagnostic == HO_DIAG_PP) then
 
           if ( model%options%which_ho_nonlinear == HO_NONLIN_PICARD ) then ! Picard (standard solver)
+
+!TODO - Can we change the name of this subroutine?
+
+!TODO - Can reduce the argument list by computing some derivatives within the subroutine.
+!       (Would be good to have a more concise interface to PP dycore.)
+!       Are all these options still supported?  Probably can remove periodic_ew/ns.
 
            call t_startf('glam_velo_fordsiapstr')
             call glam_velo_fordsiapstr( model%general%ewn,       model%general%nsn,                 &
@@ -96,7 +115,7 @@ contains
 
 ! noxsolve could eventually go here 
            call t_startf('JFNK')
-            call JFNK                  (model, geom_mask_stag) 
+            call JFNK (model, geom_mask_stag) 
            call t_stopf('JFNK')
 
           else
@@ -107,12 +126,19 @@ contains
 
         !Compute the velocity norm - this is independant of the methods used to compute the u and v components so
         !we put it out here
+
+!TODO - Add loops instead of array syntax?
+!TODO - Since velnorm is strictly diagnostic, it probably could be computed only for I/O.
+
         model%velocity%velnorm = sqrt(model%velocity%uvel**2 + model%velocity%vvel**2)
         model%velocity%is_velocity_valid = .true.
         
+!TODO - Remove commented code here
         ! similarly, calculate stress tensor components
         ! JEFF Distributed Merge - glide_calcstrsstr called later in serial section in glide.F90 
         ! call glide_calcstrsstr( model )
+
+!TODO - Remove this call to calcwvel?  I think it's needed only for SIA temperature solver.
 
         ! calculate vertical velocity 
         ! JEFF Distributed Merge - the calls in calcwvel have been previously parallelized.
@@ -120,12 +146,16 @@ contains
        call t_startf('calcwvel')
         call calcwvel( model, model%options%whichtemp )
        call t_stopf('calcwvel')
-    end subroutine
+
+    end subroutine run_ho_diagnostic
+
 
 !TODO - Do we need this vertical temperature calculation for HO code?
 !       We do not, if we use the new temperature scheme.
+
     !*sfp* copy of code in glide_temp for calc. vert vel. If using HO, this will now be done here
     !*sfp* and not in glide_temp. If NOT calling HO velocity calc, still done in glide_temp
+
     subroutine calcwvel( model, whichtemp )
 
         use glide_velo, only : gridwvel, wvelintg, chckwvel
