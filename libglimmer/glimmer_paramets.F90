@@ -40,7 +40,7 @@ module glimmer_paramets
 
   implicit none; save
 
-!lipscomb - TO DO - redundant output units  
+!TODO - redundant output units  
 !           It is redundant to define both stdout (which is public) and 
 !            glimmer_unit (which is private to glimmer_log.F90).
 !           However, it is sometimes convenient to write to stdout in Glimmer
@@ -50,6 +50,9 @@ module glimmer_paramets
 
   integer :: stdout = 6
 
+!TODO - Make the diagnostic points parallel-friendly.
+!       E.g., choose desired global indices on standard Greenland 5-km grid,
+!        and convert to local indices on a particular processor at run-time.
 ! logical flag to turn on special DEBUG output (related to test points), false by default
 #ifdef GLC_DEBUG
 ! some parameters for debugging and diagnostics
@@ -63,7 +66,12 @@ module glimmer_paramets
 #endif
 
 ! scaling parameters
-! TO DO - Remove these at some point?
+!TODO - Would like to change all scaling parameters to 1.0.
+!       Is there any reason not to do this for standard Glide code?
+! Ideally, we would use mks units everywhere except for diagnostic output.
+!  (For diagnostics, it's more convenient to have time units of yr instead of sec.)
+! In glissade code, it would be good to eliminate all scaling constants.
+! (May be too much work to remove these from glide code)
 
 #ifdef NO_RESCALE
   real(dp), parameter :: thk0 = 1.d0           ! m

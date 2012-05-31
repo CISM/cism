@@ -42,6 +42,7 @@ module glimmer_physcon
   
   save
 
+!TODO - Verify that all physical constants are mks. (I think they are.)
   real(dp),parameter :: scyr = 31556926.0        !< Number of seconds in a year (s). Note that this is for a 365.242 day year, and might need changing.
 
   real(dp),parameter :: pi = 3.1415926535897d0   !< Value of \f$\pi\f$.
