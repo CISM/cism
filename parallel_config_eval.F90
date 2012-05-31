@@ -1,28 +1,35 @@
 program parallel_config_eval
   implicit none
-  integer :: ewn, nsn, lhalo, uhalo, l_npe, u_npe
-  integer :: i
+  integer :: ewn, nsn, lhalo, uhalo, l_npe, u_npe, stride_npe
+  integer :: i, maxsize, maxdiff, config_cnt
 
-  read (5,*) ewn, nsn, lhalo, uhalo, l_npe, u_npe
-  do i=l_npe,u_npe
-    write(6,1) ewn,nsn,lhalo,uhalo,i
-1 format("Grid: (", I6, ",", I6, ") Halo: (", I2, ",", I2, ") Tasks:", I6)
-    call flush(6)
-    call distributed_grid(ewn,nsn,lhalo,uhalo,i)
+  read (5,*) ewn, nsn, lhalo, uhalo, l_npe, u_npe, stride_npe
+  if (stride_npe < 1) stride_npe = 1
+  do i=l_npe,u_npe,stride_npe
     write(6,*) 
     call flush(6)
+    call distributed_grid(ewn,nsn,lhalo,uhalo,i,maxsize,maxdiff,config_cnt)
+    if (maxsize > 1) then
+       write(6,1) ewn,nsn,lhalo,uhalo,i,maxsize,maxdiff,config_cnt
+    else
+       write(6,2) ewn,nsn,lhalo,uhalo,i
+    endif
+    call flush(6)
+1 format("WORKED: Grid: (", I6, ",", I6, ") Halo: (", I2, ",", I2, ") Tasks:", I6, " Max Block Size:", I6, " Max Side Diff:", I2, " Config Cnt:", I2)
+2 format("FAILED: Grid: (", I6, ",", I6, ") Halo: (", I2, ",", I2, ") Tasks:", I6)
   enddo
 end
 
 !pw  subroutine distributed_grid(ewn,nsn)
 !pw++
-  subroutine distributed_grid(ewn,nsn,lhalo,uhalo,tasks)
+  subroutine distributed_grid(ewn,nsn,lhalo,uhalo,tasks,maxsize,maxdiff,config_cnt)
 !pw--
     implicit none
     integer :: ewn,nsn
 
 !pw++
-    integer :: lhalo,uhalo,tasks
+    integer, intent(in)  :: lhalo,uhalo,tasks
+    integer, intent(out) :: maxsize,maxdiff,config_cnt
     integer :: global_ewn,global_nsn
     integer :: ProcsEW, this_rank
     integer :: global_col_offset, global_row_offset
@@ -39,6 +46,8 @@ end
 
     ! begin
 
+    maxsize = 1
+    maxdiff = max(ewn,nsn)
     global_ewn = ewn
     global_nsn = nsn
 
@@ -159,21 +168,22 @@ end
     !write(*,*) "Process ", this_rank, " ew_vars = ", own_ewn, " ns_vars = ", own_nsn
 !pw    call distributed_print_grid(own_ewn, own_nsn)
 !pw++
-    call distributed_print_grid(l_ewn, l_nsn, tasks)
+    call distributed_print_grid(l_ewn, l_nsn, tasks, maxsize, maxdiff, config_cnt)
 !pw--
   end subroutine distributed_grid
 
 !pw  subroutine distributed_print_grid(l_ewn,l_nsn)
 !pw++
-  subroutine distributed_print_grid(l_ewn,l_nsn,tasks)
+  subroutine distributed_print_grid(l_ewn,l_nsn,tasks,maxsize,maxdiff,config_cnt)
 !pw--
     ! Gathers and prints the overall grid layout by processor counts.
     implicit none
 
 !pw    integer :: l_ewn, l_nsn
 !pw++
-    integer :: tasks
-    integer :: l_ewn(0:tasks-1), l_nsn(0:tasks-1)
+    integer, intent(in) :: l_ewn(0:tasks-1), l_nsn(0:tasks-1)
+    integer, intent(in) :: tasks
+    integer, intent(out) :: maxsize, maxdiff, config_cnt
 !pw--
     integer :: i,j,curr_count
 !pw    integer,dimension(2) :: mybounds
@@ -211,6 +221,23 @@ end
              write(*,*) "Layout(EW,NS) = ", bounds(1,i), bounds(2,i), " total procs = ", curr_count
           endif
        end do
+!pw++
+       maxsize = 1
+       maxdiff = 0
+       config_cnt = 0
+       do i = 1,tasks
+          if (bounds(1,i) .ne. -1) then
+             if (bounds(1,i)*bounds(2,i) > maxsize) then
+                maxsize = bounds(1,i)*bounds(2,i)
+             endif
+             if (abs(bounds(1,i)-bounds(2,i)) > maxdiff) then
+                maxdiff = abs(bounds(1,i)-bounds(2,i))
+             endif
+             config_cnt = config_cnt + 1
+          endif
+       enddo
+       return
+!pw--
 !pw    end if
     ! automatic deallocation
   end subroutine distributed_print_grid
