@@ -1,3 +1,6 @@
+!TODO - Change to glimmer_diagnostics?
+!TODO - Add global reductions to make this parallel.
+
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                             +
 ! +  glide_diagnostics.f90 - part of the Glimmer-CISM ice model + 
@@ -36,6 +39,7 @@ contains
     !*FD Writes diagnostic output
  
     use glimmer_log
+!TODO - Remove scaling
     use glimmer_paramets, only: thk0, len0, vel0, tim0
     use glimmer_physcon, only: scyr, rhoi, shci
     use glide_types
@@ -73,11 +77,12 @@ contains
     nsn = model%general%nsn
     upn = model%general%upn
  
-    ! If running HO 
     !-----------------------------------------------------------------
     ! Compute and write global diagnostics
     !-----------------------------------------------------------------
  
+!TODO - Some of these operations (e.g., writing) should be executed by main task only.
+
     print*, ' '
     print*, 'Writing diagnostics to log file, time(yr) =', time
  
@@ -86,8 +91,11 @@ contains
     call write_log(trim(message), type = GM_DIAGNOSTIC)
     call write_log(' ')
  
+!TODO - Need global reductions for total area, volume, and energy
+
     ! total ice area
  
+!TODO - Loop over locally owned cells
     tot_area = 0.d0
     do j = 1, nsn
        do i = 1, ewn
@@ -103,6 +111,7 @@ contains
  
     ! total ice volume
  
+!TODO - Loop over locally owned cells
     tot_volume = 0.d0
     do j = 1, nsn
        do i = 1, ewn
@@ -119,8 +128,8 @@ contains
  
     ! total ice energy relative to T = 0 deg C
  
+!TODO - Loop over locally owned cells
     tot_energy = 0.d0
-
     if (size(model%temper%temp,1) == upn+1) then  ! staggered temps
        do j = 1, nsn
        do i = 1, ewn
@@ -169,7 +178,9 @@ contains
     call write_log(trim(message), type = GM_DIAGNOSTIC)
     
     ! mean thickness
- 
+
+!SCALING - Make sure inequality makes sense with scaling removed 
+! I think it's OK, since tot_area has already been converted to km^2.
     if (tot_area > eps) then
        mean_thck = tot_volume/tot_area
     else
@@ -179,7 +190,7 @@ contains
     call write_log(trim(message), type = GM_DIAGNOSTIC)
  
     ! max thickness
- 
+!TODO - requires a global max
     imax = 0
     jmax = 0
     max_thck = 0.d0
@@ -207,7 +218,7 @@ contains
     call write_log(trim(message), type = GM_DIAGNOSTIC)
  
     ! min temperature
- 
+!TODO - requires a global min
     min_temp =  9999.d0
     do j = 1, nsn
        do i = 1, ewn
@@ -236,6 +247,8 @@ contains
     call write_log(trim(message), type = GM_DIAGNOSTIC)
  
     ! max surface speed
+!TODO - requires a global max
+
     ! Note: uvel and vvel not defined at i = ewn, j = nsn
     imax = 0
     jmax = 0
@@ -262,7 +275,7 @@ contains
     call write_log(trim(message), type = GM_DIAGNOSTIC)
  
     ! max basal speed
- 
+!TODO - required a global max
     imax = 0
     jmax = 0
     max_spd_bas = 0.d0
@@ -286,7 +299,10 @@ contains
                                        max_spd_bas*vel0*scyr, imax, jmax
     call write_log(trim(message), type = GM_DIAGNOSTIC)
  
- 
+
+!TODO - These should be written by whichever processor owns the point where
+!        we want diagnostics.
+!       Do we need a processor identifier to go with idiag and jdiag?
     ! local diagnostics
  
     if (present(idiag) .and. present(jdiag)) then

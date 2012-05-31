@@ -1,3 +1,6 @@
+!TODO - Consider moving these subroutines to glide_deriv.
+!       (And removing redundant subroutines.)
+
 !Helper module containing routines to move between staggered and
 !unstaggered grids
 #ifdef HAVE_CONFIG_H
@@ -29,6 +32,8 @@ contains
 !       Why do we need a separate subroutine for stagthck compared to other staggered fields?
 
   subroutine stagthickness(ipvr,opvr,ewn,nsn,usrf,thklim,mask)
+
+!TODO - Remove scaling
     use glimmer_paramets, only: thk0
     implicit none 
 

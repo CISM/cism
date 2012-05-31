@@ -1,3 +1,4 @@
+!TODO - Modify the opening comments (since not part of old Glimmer)
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
 ! +  glissade_temp.f90 - part of the GLIMMER ice model        +
@@ -69,7 +70,8 @@ contains
     ! initialization subroutine for the case that temperature lives on the
     !      vertically staggered grid (i.e., at layer centers)
 
-    !*FD initialise temperature module
+!TODO - Remove scaling parameters from this module
+!       Note: if thk0 = 1, then tau0 = rhoi*grav
     use glimmer_physcon, only : rhoi, shci, coni, scyr, grav, gn, lhci, rhow
     use glimmer_paramets, only : tim0, thk0, len0, vis0, vel0, tau0
     use glimmer_global, only : dp 
@@ -134,6 +136,8 @@ contains
 !!         ( tau0 * vel0 / len0 ) / ( rhoi * shci ) * ( model%numerics%dttem * tim0 ) /)  
          !*sfp* added last term to vector above for use in HO & SSA dissip. cacl
 
+!TODO - Rename these constants (tempwk%cons, tempwk%f, tempwk%c).
+
 !whl - The factor of 2 in the numerator in the original code can be traced to a missing factor of 0.5
 !      in the denominator of the dups coefficients.  On the vertically staggered grid, there is no
 !      factor of 0.5 in the dups coefficients, so there is no factor of 2 here.
@@ -180,7 +184,7 @@ contains
 
       !MJH: Initialize ice temperature.============
       !This block of code is identical to that in glide_init_temp
-      if (model%temper%temp(1,1,1) .lt. -273.15) then
+      if (model%temper%temp(1,1,1) < -273.15) then
           ! temp array still has initialized values - no values have been read in. 
           ! Initialize ice temperature to air temperature (for each column). 
           do ns = 1,model%general%nsn
@@ -197,7 +201,7 @@ contains
       ! If flwa is loaded (e.g. hotstart), use the flwa field in the input file instead
       ! Note: Implementing flwa initialization in this way, I don't think hotstart=1 does anything. 
 !      if (model%options%hotstart .ne. 1) then
-       if (model%temper%flwa(1,1,1) .lt. 0.0) then
+       if (model%temper%flwa(1,1,1) < 0.0) then
         call write_log("No initial flwa supplied - calculating initial flwa.")
         ! Calculate Glenn's A --------------------------------------------------------   
         call calcflwa(model%numerics%sigma,        &
@@ -276,6 +280,7 @@ contains
             ! That is, the temperature is defined at the midpoint of each layer 
             ! (and at the top and bottom surfaces).
 
+!TODO - Change to stagsigmaT?
             ! Set Tstagsigma (= stagsigma except that it has values at the top and bottom surfaces).
 
        Tstagsigma(0) = 0.d0
@@ -286,10 +291,11 @@ contains
 
        ! Calculate interior heat dissipation -------------------------------------
 
+!TODO - Make a new version of finddisp for HO solver
        call finddisp( model,                   &
                       model%geometry%thck,     &
                       model%options%which_disp,&
-                      model%stress%efvs, &
+                      model%stress%efvs,       &
                       model%geomderv%stagthck, &
                       model%geomderv%dusrfdew, &
                       model%geomderv%dusrfdns, &
@@ -298,9 +304,9 @@ contains
        ! Calculate heating from basal friction -----------------------------------
 
        call calcbfric( model,                        &
-                       model%options%which_bmelt,      &
+                       model%options%which_bmelt,    &
                        model%geometry%thck,          &
-                       model%velocity%btraction, &
+                       model%velocity%btraction,     &
                        model%geomderv%dusrfdew,      &
                        model%geomderv%dusrfdns,      &
                        model%velocity%ubas,          &
@@ -308,6 +314,9 @@ contains
                        GLIDE_IS_FLOAT(model%geometry%thkmask) )
 
        ! Note: No iteration is needed here since we are doing a local tridiagonal solve without advection.
+
+!HALO - Loop over locally owned cells: (ilo:ihi, jlo:jhi)
+!       Don't forget to do halo updates later for temp and flwa.
 
        do ns = 2,model%general%nsn-1
        do ew = 2,model%general%ewn-1
@@ -348,7 +357,7 @@ contains
              !  between the initial and final internal energy.
              !whl - to do - Make this check optional and/or move it to a subroutine.
 
-             ! first compute the final internal energy
+             ! compute the final internal energy
 
              efinal = 0.0d0
              do up = 1, upn-1
@@ -391,6 +400,8 @@ contains
 
 !whl - would need a different threshold if running in single precision
 
+!SCALING - Make sure threshold makes sense with scaling removed
+!I think this is OK because the denominator has units of seconds. (But check this.)
              if ( abs((efinal-einit-delta_e)/(tim0*model%numerics%dttem)) > 1.0e-8 ) then
                 write(message,*) 'WARNING: Energy conservation error, ew, ns =', ew, ns
                 call write_log(message)
@@ -422,6 +433,8 @@ contains
           endif  ! thck > thklim
        end do    ! ew
        end do    ! ns
+
+!TODO - Loop over locally owned cells
 
        ! set temperature of thin ice to the air temperature and set ice-free nodes to zero
        do ns = 1,model%general%nsn
@@ -467,9 +480,12 @@ contains
                                model%temper%bmlt,         &
                                GLIDE_IS_FLOAT(model%geometry%thkmask))
 
-!TODO - Reduce ice thickness as a result of basal melting
+!TODO - Adjust ice thickness as a result of basal melting (here or elsewhere)
 
        ! Calculate basal water depth ------------------------------------------------
+
+!TODO - Move this call to a higher level?
+!TODO - Is it necessary to pass 'model'?
 
        call calcbwat( model,                     &
                       model%options%whichbwat,   &
@@ -481,6 +497,8 @@ contains
                       model%temper%temp(model%general%upn,:,:), &
                       GLIDE_IS_FLOAT(model%geometry%thkmask),   &
                       model%tempwk%wphi)
+
+!TODO - Move to higher level? (glissade.F90)
 
        ! Calculate Glenn's A --------------------------------------------------------
 
@@ -495,7 +513,7 @@ contains
 
    case(2) ! do nothing
 
-   	   !whl - Should the do-nothing option have a different case number, such as 0 or -1?
+!TODO - Should the do-nothing option have a different case number, such as 0 or -1?
 
    end select
 
@@ -584,6 +602,7 @@ contains
 
     else    ! grounded ice
 
+!TODO - This call (and those below) could be inlined.
        call calcpmptb(pmptempb, model%geometry%thck(ew,ns))
 
        if (abs(model%temper%temp(model%general%upn,ew,ns) - pmptempb) < 0.001d0) then  ! melting
@@ -623,7 +642,8 @@ contains
           rhsd(model%general%upn+1) = model%tempwk%inittemp(model%general%upn,ew,ns)
           
          ! =====Basal boundary using heat equation with specified flux====
-         ! MJH: These coefficients are based on those used in the old temperature code (eqns. 3.60-3.62 in the documentation).
+         ! MJH: These coefficients are based on those used in the old temperature code 
+         ! (eqns. 3.60-3.62 in the documentation).
          ! The implementation assumes the basal fluxes are the same at both time steps (lagged).
          ! The flux b.c. above was determined to be preferable, but this is left
          ! as an alternative.  It gives similar, but slightly different results.
@@ -680,7 +700,7 @@ contains
        ! compute heat source due to basal friction
        ! Note: slterm and bfricflx are defined to be >= 0
 
-!TODO - I think this loop should be over locally owned scalars: (ilo:ihi,jlo:jhi)
+!TODO - This loop should be over locally owned cells: (ilo:ihi,jlo:jhi)
  
        do ns = 2, model%general%nsn-1
        do ew = 2, model%general%ewn-1
@@ -690,12 +710,16 @@ contains
 
           select case( whichbmlt)
 
+!TODO - Will this temperature scheme be supported for the SIA case?
+!       If not, we can skip it.
           case( SIA_BMELT)      ! taub*ub = -rhoi * g * H * (grad(S) * ubas) 
 
 !HALO - Make sure we have ubas, vbas, and derivs for all locally owned velocity cells
 
              if (thck(ew,ns) > model%numerics%thklim .and. .not. float(ew,ns)) then
 
+!SCALING - Make sure inequality threshold makes sense with scaling removed
+!          Both ubas and vbas have been scaled by vel0, so may have to divide rhs by vel0
                 do nsp = ns-1,ns
                 do ewp = ew-1,ew
                    if (abs(model%velocity%ubas(ewp,nsp)) > 1.0d-6 .or.  &
@@ -717,11 +741,13 @@ contains
              !whl - copied Steve Price's formulation from calcbmlt
              ! btraction is computed in glam_strs2.F90
 
-!HALO - Here we need btraction for all locally owned velocity cells.
- 
+!HALO - Make sure we have btraction for all locally owned velocity cells.
+
              if (thck(ew,ns) > model%numerics%thklim .and. .not. float(ew,ns)) then
                 do nsp = ns-1,ns
                 do ewp = ew-1,ew
+!SCALING - Make sure inequality threshold makes sense with scaling removed
+!          ubas and vbas have been scaled by vel0
                    if (abs(model%velocity%ubas(ewp,nsp)) > 1.0d-6 .or.   &
                        abs(model%velocity%vbas(ewp,nsp)) > 1.0d-6) then
                       slide_count = slide_count + 1
@@ -792,6 +818,8 @@ contains
 
     bmlt(:,:) = 0.0d0
 
+!TODO - This loop should be over locally owned cells: (ilo:ihi,jlo:jhi)
+
     do ns = 2, model%general%nsn-1
        do ew = 2, model%general%ewn-1
 
@@ -808,6 +836,8 @@ contains
             ! Add internal melting associated with temp > pmptemp
 
 ! TODO - adjust layer thickness?
+!        Maybe the melt term should be computed here but applied to the ice thickness later (in glissade.F90)
+
             ! If internal melting is rare, it should be OK to remove ice from the lowest layer only.
             ! But for temperate ice we should do something more realistic.
 
@@ -832,6 +862,7 @@ contains
        enddo
     enddo
 
+!TODO - Remove this periodic BC code
     ! apply periodic BC
 
     if (model%options%periodic_ew) then

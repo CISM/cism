@@ -52,9 +52,10 @@
       real (dp), parameter ::   &
          puny = 1.e-11       ! small number
 
-!whl - Test with bugcheck = true, but set to false later for efficiency
+!TODO - Test with bugcheck = true, but set to false for greater efficiency
       logical, parameter :: bugcheck = .true.
 
+!TODO - Remove comments that are not relevant for CISM?
 !=======================================================================
 ! Here is some information about how the incremental remapping scheme
 ! works in CICE and how it can be adapted for use in other models.  
@@ -424,7 +425,8 @@
       real (kind=dp), dimension(nx_block,ny_block) ::   &
           worka, workb, workc, workd
 
-!whl - Could save computations by passing in the following or assuming they are scalars
+!TODO - Could save computations by passing in the following or assuming they are
+!       the same for all grid cells
 
       real (kind=dp), dimension (nx_block,ny_block) ::   &
          domain_mask    ,&! domain mask, = 1 wherever ice is allowed to be present
@@ -518,7 +520,7 @@
       workc(:,:) = 1.d0
       workd(:,:) = 1.d0
 
-!whl Pass these in as arguments or compute appropriately 
+      ! Compute lower and upper indices for locally owned cells
       ilo = 1 + nghost
       ihi = nx_block - nghost
       jlo = 1 + nghost

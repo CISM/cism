@@ -1,3 +1,4 @@
+!TODO - Any changes needed for parallel code?
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
 ! +  glide_lithot.f90 - part of the Glimmer-CISM ice model    + 
@@ -37,6 +38,7 @@ module glide_lithot
 
 
 contains  
+
   subroutine init_lithot(model)
     use glide_types
     use glide_setup
@@ -115,6 +117,7 @@ contains
     end if
   end subroutine spinup_lithot
 
+!TODO - Pretty sure that calc_lithot3d is not parallel.  What about 1d?
   subroutine calc_lithot(model)
     use glide_types
     use glimmer_log

@@ -1,3 +1,7 @@
+!TODO - Change name to glimmer_deriv?
+!       Verify that loops are correct.
+!       Make the subroutines public and the functions private?
+
 #ifdef HAVE_CONFIG_H
 #include "config.inc"
 #endif
@@ -12,10 +16,313 @@
 module glide_deriv
 
     use glimmer_global, only: sp, dp
+
     !------------------------------------------------------------------
     !First Derivative Estimates, Second Order, 2D
     !------------------------------------------------------------------
 contains
+
+!TODO - Remove periodic_x and periodic_y from argument list.
+    !*FD Computes derivative fields of the given function.
+    subroutine df_field_2d(f,  &
+                           deltax,      deltay,      &
+                           out_dfdx,    out_dfdy,    &
+                           periodic_x,  periodic_y,  &
+                           direction_x, direction_y)
+
+      use parallel
+        implicit none
+        real(dp), dimension(:, :), intent(in) :: f
+        real(dp), intent(in) :: deltax, deltay
+        real(dp), dimension(:, :), intent(out) :: out_dfdx, out_dfdy
+        real(dp), dimension(:, :), intent(in), optional  :: direction_x, direction_y
+        
+        logical :: upwind !Whether or not directions for upwinding were provided
+
+        integer :: grad_x, grad_y !Whether to upwind or downwind at the current point
+
+        integer :: nx, ny, x, y
+
+!TODO - Remove; these are not used
+        logical :: periodic_x, periodic_y
+        
+        !Get the size of the field we're working with
+        nx = size(f, 1)
+        ny = size(f, 2)
+        
+        upwind = present(direction_x) .and. present(direction_y)
+
+        !For now, we'll use the function calls defined above.
+        !Later on we might want to refactor?
+        do x = 1, nx
+            do y = 1, ny
+                grad_x = 0
+                grad_y = 0
+                if (upwind) then
+                    if (direction_x(x,y) < 0 .and. x > 2) then !Upstream case
+                        grad_x = -1
+                    else if(direction_x(x,y) > 0 .and. x < nx - 1) then !Downstream case
+                        grad_x = 1
+                    end if
+
+                    if (direction_y(x,y) < 0 .and. y > 2) then !Upstream case
+                        grad_y = -1
+                    else if(direction_y(x,y) > 0 .and. y < ny - 1) then !Downstream case
+                        grad_y = 1
+                    end if
+                end if
+  
+                !For each of the variables in x, y, check whether or not
+                !we need to use an upwinding or downwinding differentiation
+                !scheme.
+                if (x == 1 .or. grad_x > 0) then
+                    out_dfdx(x, y) = dfdx_2d_downwind(f, x, y, deltax)
+                else if (x == nx .or. grad_x < 0) then
+                    out_dfdx(x, y) = dfdx_2d_upwind(f, x, y, deltax)
+                else
+                    out_dfdx(x, y) = dfdx_2d(f, x, y, deltax)
+                end if
+                        
+                if (y == 1 .or. grad_y > 0) then
+                    out_dfdy(x, y) = dfdy_2d_downwind(f, x, y, deltay)
+                elseif (y == ny .or. grad_y < 0) then
+                    out_dfdy(x, y) = dfdy_2d_upwind(f, x, y, deltay)
+                else
+                    out_dfdy(x, y) = dfdy_2d(f, x, y, deltay)
+                end if
+                        
+            end do  
+        end do
+
+!HALO - If these updates are needed, they should be done at a higher level,
+!       and only for fields whose halo values are needed.
+        call parallel_halo(out_dfdx)
+        call parallel_halo(out_dfdy)
+        
+    end subroutine df_field_2d
+
+    !*FD Computes derivative fields of the given function.  Places the result
+    !*FD on a staggered grid.  If periodic in one dimension is set, that 
+    !*FD dimension for derivatives must be the same size as the value's dimension.
+    !*FD Otherwise, it should be one less
+
+!TODO - This is the subroutine used to compute dusrfdew/ns, dthkdew/ns.
+!       Not sure if mods are needed for parallel code.
+
+    subroutine df_field_2d_staggered(f,                  &
+                                     deltax,   deltay,   &
+                                     out_dfdx, out_dfdy, &
+                                     thck,     thklim )
+
+        implicit none
+        real(dp), dimension(:, :), intent(in) :: f, thck
+        real(dp), intent(in) :: deltax, deltay, thklim
+        real(dp), dimension(:, :), intent(out) :: out_dfdx, out_dfdy
+        
+        integer :: nx, ny, x, y
+        
+        !Get the size of the field we're working with
+        nx = size(f, 1)
+        ny = size(f, 2)
+
+        ! intialize to zeros
+        out_dfdx = 0.0d0
+        out_dfdy = 0.0d0
+        
+        ! *SFP* old subroutine calls, commented out below but still available, 
+        ! use centered diffs on normal thck / surf grids but do nothing special at lateral
+        ! boundaries where centered diffs might give unreasonable values (e.g., due to jumping
+        ! from a region of non-zero to zero thickness / elevation). New calls access new 
+        ! subroutines which attempt to correct for this if/when possible using approx., first-order
+        ! accurate one-sided diffs.
+        do x = 1, nx - 1 !We go to nx - 1 because we're using a staggered grid
+            do y = 1, ny - 1
+                out_dfdx(x,y) = dfdx_2d_stag(f, x, y, deltax) !*SFP* old call
+                out_dfdy(x,y) = dfdy_2d_stag(f, x, y, deltay) !*SFP* old call
+!                out_dfdx(x,y) = dfdx_2d_stag_os(f, x, y, deltax, thck, thklim )
+!                out_dfdy(x,y) = dfdy_2d_stag_os(f, x, y, deltay, thck, thklim )
+            end do
+        end do
+
+!               !Deal with periodic boundary conditions.  We will do so by
+!               !providing another set of values at the end of each dimension
+!               !that contains the derivative of the value off the edge of the
+!               !grid.  Because this set of values is at the end, when
+!               !x = nx, x+1 = 1.  This identity has been hard-coded below.
+!               if (periodic_x) then
+!                       do y = 1, ny - 1
+!                               out_dfdx(nx,y) = -(f(1, y) + f(1, y+1) - f(nx, y) - f(nx, y+1))/(2*deltax)
+!                               out_dfdy(nx,y) = dfdy_2d_stag(f, nx, y, deltay)
+!                       end do
+!               end if
+!               
+!               if (periodic_y) then
+!                       do x = 1, nx - 1
+!                           out_dfdx(x,ny) = dfdx_2d_stag(f, x, ny, deltax)
+!                               out_dfdy(x,ny) = -(f(x, 1) + f(x+1, 1) - f(x,ny) - f(x+1, ny))/(2*deltay)
+!                       end do
+!               end if
+!               
+!               !Do the corner that hasn't been done if both dimensions are periodic
+!               if (periodic_x .and. periodic_y) then
+!                       out_dfdx(nx,ny) = (f(1, ny) + f(1, 1) - f(nx, ny) - f(nx, 1))/(2*deltax)
+!                       out_dfdy(nx,ny) = (f(nx, 1) + f(1, 1) - f(nx,ny)  - f(1, ny))/(2*deltay)
+!               end if
+!               
+        end subroutine df_field_2d_staggered
+
+!TODO - I don't think the 3D subroutines are ever called.  
+!       Should we leave them here just in case?
+ 
+    !*FD Computes derivative fields of the given function.
+    !*FD The z axis is computed on an irregular grid.
+    subroutine df_field_3d(f,                                  &
+                           deltax,      deltay,      deltaz,   &
+                           out_dfdx,    out_dfdy,    out_dfdz, &
+                           direction_x, direction_y)
+
+        implicit none
+        real(dp), dimension(:, :, :), intent(in) :: f
+        real(dp), intent(in) :: deltax, deltay
+        real(dp), dimension(:), intent(in) :: deltaz
+        real(dp), dimension(:, :, :), intent(out) :: out_dfdx, out_dfdy, out_dfdz
+
+        !Field containing the direction that derivatives should be upwinded in.
+        !If 0, centered differences are used.  If negative, then upwinded
+        !derivatives (approaching from the negative side) are used.  If
+        !positive, then downwinded derivatives (approaching from the positive
+        !side) are used.
+        real(dp), dimension(:,:), optional :: direction_x, direction_y
+
+ 
+        integer :: grad_x, grad_y !Sign of the gradient, used for determining upwinding
+        integer :: nx, ny, nz, x, y, z
+        logical :: upwind
+
+        !Get the size of the field we're working with
+        nx = size(f, 2)
+        ny = size(f, 3)
+        nz = size(f, 1)
+        
+        upwind = present(direction_x) .and. present(direction_y)
+
+        !For now, we'll use the function calls defined above.
+        !Later on we might want to refactor?
+        do x = 1, nx
+                do y = 1, ny
+                        grad_x = 0
+                        grad_y = 0
+                        if (upwind) then
+                            if (direction_x(x,y) < 0 .and. x > 2) then !Upstream case
+                                grad_x = -1
+                            else if(direction_x(x,y) > 0 .and. x < nx - 1) then !Downstream case
+                                grad_x = 1
+                            end if
+
+                            if (direction_y(x,y) < 0 .and. y > 2) then !Upstream case
+                                grad_y = -1
+                            else if(direction_y(x,y) > 0 .and. y < ny - 1) then !Downstream case
+                                grad_y = 1
+                            end if
+                        end if
+                        
+                        do z = 1, nz
+                                !For each of the variables in x, y, check whether or not
+                                !we need to use an upwinding or downwinding differentiation
+                                !scheme.
+                                if (x == 1 .or. grad_x > 0) then
+                                        out_dfdx(z, x, y) = dfdx_3d_downwind(f, x, y, z, deltax)
+                                        !out_dfdx(x, y, z) = (f(x+1,y,z) - f(x,y,z))/deltax
+                                else if (x == nx .or. grad_x < 0) then
+                                        out_dfdx(z, x, y) = dfdx_3d_upwind(f, x, y, z, deltax)
+                                        !out_dfdx(x, y, z) = (f(x,y,z) - f(x-1,y,z))/deltax
+                                else
+                                        out_dfdx(z, x, y) = dfdx_3d(f, x, y, z, deltax)
+                                end if
+                                if (y == 1 .or. grad_y > 0) then
+                                        out_dfdy(z, x, y) = dfdy_3d_downwind(f, x, y, z, deltay)
+                                        !out_dfdy(x, y, z) = (f(x,y+1,z) - f(x,y,z))/deltay
+                                else if (y == ny .or. grad_y < 0) then
+                                        out_dfdy(z, x, y) = dfdy_3d_upwind(f, x, y, z, deltay)
+                                        !out_dfdy(x, y, z) = (f(x,y,z) - f(x,y-1,z))/deltay
+                                else
+                                        out_dfdy(z, x, y) = dfdy_3d(f, x, y, z, deltay)
+                                end if
+                                if (z == 1) then
+                                        out_dfdz(z, x, y) = dfdz_3d_downwind_irregular(f, x, y, z, deltaz)
+                                else if (z == nz) then
+                                        out_dfdz(z, x, y) = dfdz_3d_upwind_irregular(f, x, y, z, deltaz)
+                                else
+                                        out_dfdz(z, x, y) = dfdz_3d_irregular(f, x, y, z, deltaz)
+                                end if
+                        end do
+                end do  
+        end do
+        
+    end subroutine df_field_3d
+
+        !*FD Computes the derivative fields of the given function.  The X and Y
+        !*FD derivatives are computed on a staggered grid.  The Z derivative
+        !*FD is computed on a nonstaggered but irregular grid.  This means that,
+        !*FD if an array of dimensions (n1, n2, n3), the output arrays should
+        !*FD be of size (n1 - 1, n2 - 1, n3)
+
+    subroutine df_field_3d_stag(f,                                  &
+                                deltax,      deltay,      deltaz,   &
+                                out_dfdx,    out_dfdy,    out_dfdz)
+
+        implicit none
+        real(dp), dimension(:, :, :), intent(in) :: f
+        real(dp), intent(in) :: deltax, deltay
+        real(dp), dimension(:), intent(in) :: deltaz
+        real(dp), dimension(:, :, :), intent(out) :: out_dfdx, out_dfdy, out_dfdz
+        
+        real(dp), dimension(4) :: zDerivs !Temporarily holds derivatives in Z to average
+        integer :: nx, ny, nz, x, y, z
+
+        !Get the size of the field we're working with
+        nx = size(f, 1)
+        ny = size(f, 2)
+        nz = size(f, 3)
+        
+        do x = 1, nx - 1
+                do y = 1, ny - 1
+                        do z = 1, nz
+                                !We will never have to compute upstream and downstream
+                                !derivatives in the horizontal (avoided by the staggered scheme),
+                                !but we will in the vertical.
+                                        out_dfdx(x,y,z) = dfdx_3d_stag(f, x, y, z, deltax)
+                                        out_dfdy(x,y,z) = dfdy_3d_stag(f, x, y, z, deltay)
+                                        
+                                        !Even though we are not staggering in the vertical, the points
+                                        !we compute the derivatives at are still staggered in the
+                                        !horizontal.  We'll solve this by computing four
+                                        !derivatives horizontally around the point requested
+                                        !and averaging the results
+                                if (z == 1) then
+                                    zDerivs(1) = dfdz_3d_downwind_irregular(f, x, y, z, deltaz)
+                                    zDerivs(2) = dfdz_3d_downwind_irregular(f, x+1, y, z, deltaz)
+                                    zDerivs(3) = dfdz_3d_downwind_irregular(f, x, y+1, z, deltaz)
+                                    zDerivs(4) = dfdz_3d_downwind_irregular(f, x+1, y+1, z, deltaz)
+                                else if (z == nz) then
+                                    zDerivs(1) = dfdz_3d_upwind_irregular(f, x, y, z, deltaz)
+                                    zDerivs(2) = dfdz_3d_upwind_irregular(f, x+1, y, z, deltaz)
+                                    zDerivs(3) = dfdz_3d_upwind_irregular(f, x, y+1, z, deltaz)
+                                    zDerivs(4) = dfdz_3d_upwind_irregular(f, x+1, y+1, z, deltaz)
+                                else
+                                    zDerivs(1) = dfdz_3d_irregular(f, x, y, z, deltaz)
+                                    zDerivs(2) = dfdz_3d_irregular(f, x+1, y, z, deltaz)
+                                    zDerivs(3) = dfdz_3d_irregular(f, x, y+1, z, deltaz)
+                                    zDerivs(4) = dfdz_3d_irregular(f, x+1, y+1, z, deltaz)
+                                end if
+                                out_dfdz(x, y, z) = (zDerivs(1) + zDerivs(2) + zDerivs(3) + zDerivs(4)) / 4
+                        end do
+                end do
+        end do          
+        
+    end subroutine df_field_3d_stag
+
+!TODO - Check for unused functions we might want to remove?
 
     !*FD Computes derivative with respect to x at a given point.
     !*FD Applies periodic boundary conditions if needed.
@@ -253,143 +560,6 @@ contains
         dfdy_2d_downwind = (-1.5 * f(i, j) + 2 * f(i, j+1) - .5 * f(i, j+2))/delta
     end function dfdy_2d_downwind
 
-!HALO - This routine may not currently be used.
-!       It assumes that the function f lives at 
-
-    
-    !*FD Computes derivative fields of the given function.
-    subroutine df_field_2d(f, deltax, deltay, out_dfdx, out_dfdy, periodic_x, periodic_y, direction_x, direction_y)
-      use parallel
-        implicit none
-        real(dp), dimension(:, :), intent(in) :: f
-        real(dp), intent(in) :: deltax, deltay
-        real(dp), dimension(:, :), intent(out) :: out_dfdx, out_dfdy
-        real(dp), dimension(:, :), intent(in), optional  :: direction_x, direction_y
-        
-        logical :: upwind !Whether or not directions for upwinding were provided
-
-        integer :: grad_x, grad_y !Whether to upwind or downwind at the current point
-
-
-        integer :: nx, ny, x, y
-        logical :: periodic_x, periodic_y
-        
-        !Get the size of the field we're working with
-        nx = size(f, 1)
-        ny = size(f, 2)
-        
-        upwind = present(direction_x) .and. present(direction_y)
-
-        !For now, we'll use the function calls defined above.
-        !Later on we might want to refactor?
-        do x = 1, nx
-            do y = 1, ny
-                grad_x = 0
-                grad_y = 0
-                if (upwind) then
-                    if (direction_x(x,y) < 0 .and. x > 2) then !Upstream case
-                        grad_x = -1
-                    else if(direction_x(x,y) > 0 .and. x < nx - 1) then !Downstream case
-                        grad_x = 1
-                    end if
-
-                    if (direction_y(x,y) < 0 .and. y > 2) then !Upstream case
-                        grad_y = -1
-                    else if(direction_y(x,y) > 0 .and. y < ny - 1) then !Downstream case
-                        grad_y = 1
-                    end if
-                end if
-  
-                !For each of the variables in x, y, check whether or not
-                !we need to use an upwinding or downwinding differentiation
-                !scheme.
-                if (x == 1 .or. grad_x > 0) then
-                    out_dfdx(x, y) = dfdx_2d_downwind(f, x, y, deltax)
-                else if (x == nx .or. grad_x < 0) then
-                    out_dfdx(x, y) = dfdx_2d_upwind(f, x, y, deltax)
-                else
-                    out_dfdx(x, y) = dfdx_2d(f, x, y, deltax)
-                end if
-                        
-                if (y == 1 .or. grad_y > 0) then
-                    out_dfdy(x, y) = dfdy_2d_downwind(f, x, y, deltay)
-                elseif (y == ny .or. grad_y < 0) then
-                    out_dfdy(x, y) = dfdy_2d_upwind(f, x, y, deltay)
-                else
-                    out_dfdy(x, y) = dfdy_2d(f, x, y, deltay)
-                end if
-                        
-            end do  
-        end do
-
-!HALO - If these updates are needed, they should be done at a higher level,
-!       and only for fields whose halo values are needed.
-        call parallel_halo(out_dfdx)
-        call parallel_halo(out_dfdy)
-        
-    end subroutine
-
-    !*FD Computes derivative fields of the given function.  Places the result
-    !*FD on a staggered grid.  If periodic in one dimension is set, that 
-    !*FD dimension for derivatives must be the same size as the value's dimension.
-    !*FD Otherwise, it should be one less
-    subroutine df_field_2d_staggered(f, deltax, deltay, out_dfdx, out_dfdy, thck, thklim )
-        implicit none
-        real(dp), dimension(:, :), intent(in) :: f, thck
-        real(dp), intent(in) :: deltax, deltay, thklim
-        real(dp), dimension(:, :), intent(out) :: out_dfdx, out_dfdy
-        
-        integer :: nx, ny, x, y
-        
-        !Get the size of the field we're working with
-        nx = size(f, 1)
-        ny = size(f, 2)
-
-        ! intialize to zeros
-        out_dfdx = 0.0d0
-        out_dfdy = 0.0d0
-        
-        ! *SFP* old subroutine calls, commented out below but still available, 
-        ! use centered diffs on normal thck / surf grids but do nothing special at lateral
-        ! boundaries where centered diffs might give unreasonable values (e.g., due to jumping
-        ! from a region of non-zero to zero thickness / elevation). New calls access new 
-        ! subroutines which attempt to correct for this if/when possible using approx., first-order
-        ! accurate one-sided diffs.
-        do x = 1, nx - 1 !We go to nx - 1 because we're using a staggered grid
-            do y = 1, ny - 1
-                out_dfdx(x,y) = dfdx_2d_stag(f, x, y, deltax) !*SFP* old call
-                out_dfdy(x,y) = dfdy_2d_stag(f, x, y, deltay) !*SFP* old call
-!                out_dfdx(x,y) = dfdx_2d_stag_os(f, x, y, deltax, thck, thklim )
-!                out_dfdy(x,y) = dfdy_2d_stag_os(f, x, y, deltay, thck, thklim )
-            end do
-        end do
-
-!               !Deal with periodic boundary conditions.  We will do so by
-!               !providing another set of values at the end of each dimension
-!               !that contains the derivative of the value off the edge of the
-!               !grid.  Because this set of values is at the end, when
-!               !x = nx, x+1 = 1.  This identity has been hard-coded below.
-!               if (periodic_x) then
-!                       do y = 1, ny - 1
-!                               out_dfdx(nx,y) = -(f(1, y) + f(1, y+1) - f(nx, y) - f(nx, y+1))/(2*deltax)
-!                               out_dfdy(nx,y) = dfdy_2d_stag(f, nx, y, deltay)
-!                       end do
-!               end if
-!               
-!               if (periodic_y) then
-!                       do x = 1, nx - 1
-!                           out_dfdx(x,ny) = dfdx_2d_stag(f, x, ny, deltax)
-!                               out_dfdy(x,ny) = -(f(x, 1) + f(x+1, 1) - f(x,ny) - f(x+1, ny))/(2*deltay)
-!                       end do
-!               end if
-!               
-!               !Do the corner that hasn't been done if both dimensions are periodic
-!               if (periodic_x .and. periodic_y) then
-!                       out_dfdx(nx,ny) = (f(1, ny) + f(1, 1) - f(nx, ny) - f(nx, 1))/(2*deltax)
-!                       out_dfdy(nx,ny) = (f(nx, 1) + f(1, 1) - f(nx,ny)  - f(1, ny))/(2*deltay)
-!               end if
-!               
-        end subroutine
     !------------------------------------------------------------------
     !First Derivative Estimates, Second Order, 3D
     !------------------------------------------------------------------
@@ -413,8 +583,6 @@ contains
         real(dp) :: dfdy_3d
         dfdy_3d = (-.5/delta)*f(k, i, j-1) + (.5/delta)*f(k, i, j+1)
     end function dfdy_3d
-    
-
     
     !*FD Computes derivative with respect to z at a given point
     !*FD where the Z axis uses an irregular grid defined by \ittext{deltas}.
@@ -533,147 +701,6 @@ contains
         dfdy_3d_downwind = (-1.5 * f(k, i, j) + 2 * f(k, i, j+1) - .5 * f(k, i, j+2))/delta
     end function dfdy_3d_downwind
     
-    !*FD Computes derivative fields of the given function.
-    !*FD The z axis is computed on an irregular grid.
-    subroutine df_field_3d(f, deltax, deltay, deltaz, out_dfdx, out_dfdy, out_dfdz, &
-                           direction_x, direction_y)
-        implicit none
-        real(dp), dimension(:, :, :), intent(in) :: f
-        real(dp), intent(in) :: deltax, deltay
-        real(dp), dimension(:), intent(in) :: deltaz
-        real(dp), dimension(:, :, :), intent(out) :: out_dfdx, out_dfdy, out_dfdz
-
-        !Field containing the direction that derivatives should be upwinded in.
-        !If 0, centered differences are used.  If negative, then upwinded
-        !derivatives (approaching from the negative side) are used.  If
-        !positive, then downwinded derivatives (approaching from the positive
-        !side) are used.
-        real(dp), dimension(:,:), optional :: direction_x, direction_y
-
- 
-        integer :: grad_x, grad_y !Sign of the gradient, used for determining upwinding
-        integer :: nx, ny, nz, x, y, z
-        logical :: upwind
-
-        !Get the size of the field we're working with
-        nx = size(f, 2)
-        ny = size(f, 3)
-        nz = size(f, 1)
-        
-        upwind = present(direction_x) .and. present(direction_y)
-
-        !For now, we'll use the function calls defined above.
-        !Later on we might want to refactor?
-        do x = 1, nx
-                do y = 1, ny
-                        grad_x = 0
-                        grad_y = 0
-                        if (upwind) then
-                            if (direction_x(x,y) < 0 .and. x > 2) then !Upstream case
-                                grad_x = -1
-                            else if(direction_x(x,y) > 0 .and. x < nx - 1) then !Downstream case
-                                grad_x = 1
-                            end if
-
-                            if (direction_y(x,y) < 0 .and. y > 2) then !Upstream case
-                                grad_y = -1
-                            else if(direction_y(x,y) > 0 .and. y < ny - 1) then !Downstream case
-                                grad_y = 1
-                            end if
-                        end if
-                        
-                        do z = 1, nz
-                                !For each of the variables in x, y, check whether or not
-                                !we need to use an upwinding or downwinding differentiation
-                                !scheme.
-                                if (x == 1 .or. grad_x > 0) then
-                                        out_dfdx(z, x, y) = dfdx_3d_downwind(f, x, y, z, deltax)
-                                        !out_dfdx(x, y, z) = (f(x+1,y,z) - f(x,y,z))/deltax
-                                else if (x == nx .or. grad_x < 0) then
-                                        out_dfdx(z, x, y) = dfdx_3d_upwind(f, x, y, z, deltax)
-                                        !out_dfdx(x, y, z) = (f(x,y,z) - f(x-1,y,z))/deltax
-                                else
-                                        out_dfdx(z, x, y) = dfdx_3d(f, x, y, z, deltax)
-                                end if
-                                if (y == 1 .or. grad_y > 0) then
-                                        out_dfdy(z, x, y) = dfdy_3d_downwind(f, x, y, z, deltay)
-                                        !out_dfdy(x, y, z) = (f(x,y+1,z) - f(x,y,z))/deltay
-                                else if (y == ny .or. grad_y < 0) then
-                                        out_dfdy(z, x, y) = dfdy_3d_upwind(f, x, y, z, deltay)
-                                        !out_dfdy(x, y, z) = (f(x,y,z) - f(x,y-1,z))/deltay
-                                else
-                                        out_dfdy(z, x, y) = dfdy_3d(f, x, y, z, deltay)
-                                end if
-                                if (z == 1) then
-                                        out_dfdz(z, x, y) = dfdz_3d_downwind_irregular(f, x, y, z, deltaz)
-                                else if (z == nz) then
-                                        out_dfdz(z, x, y) = dfdz_3d_upwind_irregular(f, x, y, z, deltaz)
-                                else
-                                        out_dfdz(z, x, y) = dfdz_3d_irregular(f, x, y, z, deltaz)
-                                end if
-                        end do
-                end do  
-        end do
-        
-    end subroutine
-
-        !*FD Computes the derivative fields of the given function.  The X and Y
-        !*FD derivatives are computed on a staggered grid.  The Z derivative
-        !*FD is computed on a nonstaggered but irregular grid.  This means that,
-        !*FD if an array of dimensions (n1, n2, n3), the output arrays should
-        !*FD be of size (n1 - 1, n2 - 1, n3)
-    subroutine df_field_3d_stag(f, deltax, deltay, deltaz, out_dfdx, out_dfdy, out_dfdz)
-        implicit none
-        real(dp), dimension(:, :, :), intent(in) :: f
-        real(dp), intent(in) :: deltax, deltay
-        real(dp), dimension(:), intent(in) :: deltaz
-        real(dp), dimension(:, :, :), intent(out) :: out_dfdx, out_dfdy, out_dfdz
-        
-        real(dp), dimension(4) :: zDerivs !Temporarily holds derivatives in Z to average
-        integer :: nx, ny, nz, x, y, z
-
-        !Get the size of the field we're working with
-        nx = size(f, 1)
-        ny = size(f, 2)
-        nz = size(f, 3)
-        
-        do x = 1, nx - 1
-                do y = 1, ny - 1
-                        do z = 1, nz
-                                !We will never have to compute upstream and downstream
-                                !derivatives in the horizontal (avoided by the staggered scheme),
-                                !but we will in the vertical.
-                                        out_dfdx(x,y,z) = dfdx_3d_stag(f, x, y, z, deltax)
-                                        out_dfdy(x,y,z) = dfdy_3d_stag(f, x, y, z, deltay)
-                                        
-                                        !Even though we are not staggering in the vertical, the points
-                                        !we compute the derivatives at are still staggered in the
-                                        !horizontal.  We'll solve this by computing four
-                                        !derivatives horizontally around the point requested
-                                        !and averaging the results
-                                if (z == 1) then
-                                    zDerivs(1) = dfdz_3d_downwind_irregular(f, x, y, z, deltaz)
-                                    zDerivs(2) = dfdz_3d_downwind_irregular(f, x+1, y, z, deltaz)
-                                    zDerivs(3) = dfdz_3d_downwind_irregular(f, x, y+1, z, deltaz)
-                                    zDerivs(4) = dfdz_3d_downwind_irregular(f, x+1, y+1, z, deltaz)
-                                else if (z == nz) then
-                                    zDerivs(1) = dfdz_3d_upwind_irregular(f, x, y, z, deltaz)
-                                    zDerivs(2) = dfdz_3d_upwind_irregular(f, x+1, y, z, deltaz)
-                                    zDerivs(3) = dfdz_3d_upwind_irregular(f, x, y+1, z, deltaz)
-                                    zDerivs(4) = dfdz_3d_upwind_irregular(f, x+1, y+1, z, deltaz)
-                                else
-                                    zDerivs(1) = dfdz_3d_irregular(f, x, y, z, deltaz)
-                                    zDerivs(2) = dfdz_3d_irregular(f, x+1, y, z, deltaz)
-                                    zDerivs(3) = dfdz_3d_irregular(f, x, y+1, z, deltaz)
-                                    zDerivs(4) = dfdz_3d_irregular(f, x+1, y+1, z, deltaz)
-                                end if
-                                out_dfdz(x, y, z) = (zDerivs(1) + zDerivs(2) + zDerivs(3) + zDerivs(4)) / 4
-                        end do
-                end do
-        end do          
-        
-    end subroutine
-
     !------------------------------------------------------------------
     !Second Derivative Estimates, Second Order
     !------------------------------------------------------------------
@@ -1186,6 +1213,6 @@ contains
         d2fdz2_3d_irregular = 2 * f(k-1, i, j) / (zkMinusZkm1 * zkp1MinusZkm1) - &
                               2 * f(k,   i, j) / (zkp1MinusZk * zkMinusZkm1) + &
                               2 * f(k+1, i, j) / (zkp1Minuszk * zkp1MinusZkm1)    
-    end function
+    end function d2fdz2_3d_irregular
 
 end module glide_deriv

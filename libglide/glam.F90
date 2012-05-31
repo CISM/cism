@@ -15,6 +15,7 @@ module glam
 
     use parallel
     use glide_types
+!TODO - Remove scaling (vis0 and vis0_glam not used in this module anyway)
     use glimmer_paramets, only : vis0, vis0_glam
     use glide_mask
 
@@ -72,7 +73,9 @@ module glam
         ! Compute the new geometry derivatives for this time step
 
 !HALO - Would be better to have one derivative call per field.
-!       Do halo updates as needed (e.g., thck) before the call.
+!       Also could consider computing derivatives in glam_strs2.F90, so as
+!        not to have to pass them through the interface.
+!       Do halo updates as needed (e.g., thck) before computing derivatives.
 !       If we need a derivative on the staggered grid (for all locally owned cells),
 !        then we need one layer of halo scalars before calling the derivative routine.
 
@@ -88,6 +91,7 @@ module glam
            print *, 'Compute higher-order ice velocities, time =', model%numerics%time
         endif
 
+!TODO - Rename run_ho_diagnostic?
        call t_startf('run_ho_diagnostic')
         call run_ho_diagnostic(model)   ! in glide_velo_higher.F90
        call t_stopf('run_ho_diagnostic')
@@ -96,6 +100,12 @@ module glam
            print *, ' '
            print *, 'Compute dH/dt'
         endif
+
+!TODO - Remove the old remapping scheme.
+
+!TODO - I'm not entirely clear on which options are to be supported.
+!       Will we continue to support serial runs that use remapping for advection while
+!        using the old Glimmer temperature scheme?
 
 !whl   Introduced a choice here between old and new remapping schemes.
 !      The old scheme requires gathering data to the main processor.
@@ -263,8 +273,7 @@ module glam
 !    If nhalo >= 2, then no halo updates should be needed inside glissade_transport_driver.
 
 !PW FOLLOWING NECESSARY?
-!HALO - These halo updates could be moved up a level to the new glissade driver, 
-!       before calling inc_remap_driver.
+!HALO - These halo updates could be moved up a level to the new glissade driver.
 
            ! Halo updates for velocities, thickness and tracers
           call t_startf('new_remap_halo_upds')
@@ -293,8 +302,7 @@ module glam
                                              model%geometry%thck(:,:),                             &
                                              model%temper%temp(1:model%general%upn-1,:,:) )
 
-!TODO - Not sure we want to support this option.
-!       We could only use it if we don't want to advect temperature (e.g., for isothermal ice)
+!TODO - Will we continue to support this option?
 
            else  ! Use IR to transport thickness only
                  ! Note: In glissade_transport_driver, the ice thickness is transported layer by layer,
@@ -318,7 +326,7 @@ module glam
           model%numerics%dt = model%numerics%dt * model%numerics%subcyc
           call t_stopf('glissade_transport_driver')
 
-!whl - Remove these gathers later
+!TODO - Remove these gathers later
            if (write_verbose) then
               call distributed_gather_var(model%geometry%thck, gathered_thck)
               call distributed_gather_var(model%temper%temp, gathered_temp, &
@@ -326,6 +334,12 @@ module glam
            endif
 
         endif  ! old v. new remapping
+
+!TODO - Would this be the appropriate place to add/remove ice at the upper and lower surfaces?  
+!       Should probably do this before vertical remapping.
+!       (Vertical remapping currently lives in glissade_transport_driver)
+!       Note that vertical remapping is needed to return to standard sigma levels,
+!        as assumed by both the temperature and velocity solvers.
 
         !Update halos of modified fields
        call t_startf('after_remap_haloupds')
@@ -341,7 +355,7 @@ module glam
         endif
        call t_stopf('after_remap_haloupds')
 
-!whl - optional diagnostics - remove later
+!TODO - optional diagnostics - remove later
 !whl - write gathered_thck and temp
 
         if ((write_verbose) .and. (main_task)) then
@@ -382,6 +396,7 @@ module glam
 
     end subroutine inc_remap_driver
 
+!TODO - Has this been done?
         ! NOTE finalization routine, to be written for PP HO core needs to be written (e.g.
         ! glam_velo_fordsiapstr_final( ) ), added to glam_strs2.F90, and called from glide_stop.F90
 

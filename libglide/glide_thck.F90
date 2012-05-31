@@ -207,6 +207,8 @@ contains
 
     ! local variables
     integer, parameter :: pmax=50                       !*FD maximum Picard iterations
+
+!SCALING - May have to reset tol when removing scaling
     real(kind=dp), parameter :: tol=1.0d-6
     real(kind=dp) :: residual
     integer p
@@ -318,12 +320,14 @@ contains
             exit
           end if
 #else
+!SCALING - Make sure threshold makes sense with scaling removed. Reset tol by multiplying by thk0?
           residual = maxval(abs(model%geometry%thck-model%thckwk%oldthck2))
           if (residual.le.tol) then
              exit
           end if
           model%thckwk%oldthck2 = model%geometry%thck
 #endif
+!SCALING - Make sure threshold makes sense with scaling removed
           !EIB! old way
           !residual = maxval(abs(model%geometry%thck-model%thckwk%oldthck2))
           !if (residual.le.tol) then
@@ -333,6 +337,8 @@ contains
        end do
 #ifdef DEBUG_PICARD
        picard_max=max(picard_max,p)
+!SCALING - Make sure inequality makes sense with scaling removed
+! I think this is OK because tinc and time have not been scaled by tim0.
        if (model%numerics%tinc > mod(model%numerics%time,picard_interval)) then
           write(picard_unit,*) model%numerics%time,p
           picard_max = 0

@@ -46,6 +46,9 @@
 ! be called from an alternative temperature driver, glissade_temp.F90,
 ! without duplicating code.
 
+!TODO - May be better to make glide_temp and glissade_temp entirely separate.
+!       Put SIA stuff in glide_temp and HO stuff in glissade_temp.
+
 #ifdef HAVE_CONFIG_H
 #include "config.inc"
 #endif
@@ -60,7 +63,7 @@ contains
 
 !TODO - Break this into two subroutines, one for SIA and one for HO.
 !       The HO version does not need dusrfdew, dusrfdns as inputs.
-!       If the HO version always computes temp on a staggered vertical grid, can remove some code.
+!       Since the HO version always computes temp on a staggered vertical grid, can remove some code.
 
   subroutine finddisp(model,thck,whichdisp,efvs,stagthck,dusrfdew,dusrfdns,flwa)
 
@@ -195,7 +198,7 @@ contains
                     c5(model%general%upn) = c5(model%general%upn-1) + ( 3.0d0*c5(model%general%upn-1) - &
                                             4.0d0*c5(model%general%upn-2) + c5(model%general%upn-3) ) / 2.0d0
 
-                    if ( c5(1) .lt. 0.0d0 ) then; c5(1) = 0.0d0; end if      ! gaurd against extrapolated dissip. term < 0 
+                    if ( c5(1) .lt. 0.0d0 ) then; c5(1) = 0.0d0; end if      ! guard against extrapolated dissip. term < 0 
 
                 end if
             model%tempwk%dissip(:,ew,ns) = c5 * model%tempwk%cons(5)
@@ -232,6 +235,8 @@ contains
 
   !-----------------------------------------------------------------------------------
 
+!TODO - This subroutine not needed for glissade_temp
+
   subroutine corrpmpt(temp,thck,bwat,sigma,upn)
 
     use glimmer_global, only : dp
@@ -264,6 +269,7 @@ contains
 
     use glimmer_global, only : dp !, upn
     use glimmer_physcon, only : rhoi, grav, pmlt 
+!TODO - Remove thk0 in glissade code
     use glimmer_paramets, only : thk0
 
     implicit none 
@@ -299,12 +305,16 @@ contains
 
   !-------------------------------------------------------------------
 
+!TODO - The parallel HO version of this code would not be very different;
+!       just make sure loops are correct.
+
   subroutine calcflwa(sigma, thklim, flwa, temp, thck, flow_factor, default_flwa_arg, flag)
 
     !*FD Calculates Glenn's $A$ over the three-dimensional domain,
     !*FD using one of three possible methods.
 
     use glimmer_physcon
+!TODO - Remove thk0 and vis0 in glissade code.
     use glimmer_paramets, only : thk0, vis0
 
     implicit none
@@ -363,6 +373,10 @@ contains
     select case(flag)
     case(FLWA_PATERSON_BUDD)
 
+!TODO - Loop over locally owned cells?  Alternatively, just compute over all cells,
+!        but make sure temp and thck are updated in halo cells.
+!       Might be cheaper to compute in all cells and avoid a halo call.
+
       ! This is the Paterson and Budd relationship
 
       do ns = 1,nsn
@@ -375,6 +389,8 @@ contains
             tempcor(:) = max(-50.0d0, tempcor(:))
 
             ! Calculate Glenn's A
+
+!TODO - This call and the one below could be inlined.
 
             call patebudd(tempcor(:), flwa(:,ew,ns), arrfact) 
 

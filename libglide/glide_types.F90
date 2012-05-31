@@ -52,12 +52,15 @@ module glide_types
 !TODO   My suggestion is to keep glide_types as is, but to create a new type (glissade_type?)
 !        that is better designed and has fewer components (like the MPAS types).
 !       This type would be defined in a new module, glissade_types.F90.
-!       glissade_type could include subtypes for mesh, state, options, and params.
+!       The new glissade_type could include subtypes for mesh, state, options, and params.
 !       'general' and some 'numerics' stuff would go under 'mesh'
 !       'geometry', 'temper', and 'velocity' arrays would go under 'state'
 !       Diagnosed arrays under 'geomderv' and 'tensors' could go away 
 !       Work types 'tempwk', 'velowk', etc. would go away
 !       Timestep stuff would go in 'time' type?
+!       In terms of code reuse (e.g., in glide_setup), there may be some advantages
+!        to making parts of glissade_type identical to glide_type.
+!
 
   use glimmer_sparse
   use glimmer_sparse_type
@@ -74,7 +77,7 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - 
+!TODO - Change to glimmer_general or glimmer_mesh?
   type glide_general
 
     !*FD Holds fundamental parameters of the ice model geometry.
@@ -155,6 +158,7 @@ module glide_types
   integer, parameter :: BAS_PROC_FULLCALC = 1
   integer, parameter :: BAS_PROC_FASTCALC = 2
 
+!TODO - Change to glimmer_options?
   type glide_options
 
     !*FD Holds user options controlling the methods used in the ice-model
@@ -257,7 +261,7 @@ module glide_types
     !*FD \item[1] hotstart model from previous run
     !*FD \end{description}
 
-!TODO - Remove HO options from glide_options if creating a new glissade_options
+! Make a separate section for HO options?
     integer :: which_ho_diagnostic = 0
     !*FD Higher-order velocity computation scheme
     !*FD \begin{description}
@@ -417,6 +421,7 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+!TODO - Make a glissade 'mesh' type that includes a small set of basic state variables?
   type glide_geometry
 
     !*FD Holds fields and other information relating to the
@@ -470,7 +475,8 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - Some of these are PBJ variables that can be removed
+!TODO - Some of these are PBJ variables that can be removed.
+!       Not sure that any of these any needed in glissade_type.
   type glide_geomderv
 
     !*FD Holds the horizontal and temporal derivatives of the thickness and
@@ -533,6 +539,7 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+!TODO - Are these used in glissade?  Do they need to be part of glissade type?
   type glide_tensor
     real(dp), dimension(:,:,:), pointer :: scalar => null()
     real(dp), dimension(:,:,:), pointer :: xz => null()
@@ -544,7 +551,7 @@ module glide_types
   
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - Some of these are SIA only and not needed as part of HO state
+!TODO - Some of these are SIA only and not needed as part of HO state.
 
   type glide_velocity
 
@@ -599,8 +606,7 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - Not sure why these are part of glide_global_type
-!       Not needed in new glissade_global_type?
+!TODO - Not sure why these are part of glide_global_type.  Should they be a distinct type?
 
   type glide_climate
      !*FD Holds fields used to drive the model
@@ -622,7 +628,8 @@ module glide_types
 
   type glide_temper
 
-!TODO - Could simplify things if we assume glissade always has temp and flwa on staggered vertical grid
+!TODO - A subset of these could be part of glissade state.
+!       Could simplify things if we assume glissade always has temp and flwa on staggered vertical grid
 
     !*FD Holds fields relating to temperature.
     !whl - In standard Glide, temp and flwa live on the unstaggered vertical grid
@@ -657,6 +664,8 @@ module glide_types
     logical  :: newtemps = .false. !*FD new temperatures
   end type glide_temper
 
+!TODO - Seems like the lithosphere is independent of dycore (glide v. glissade).
+!       Change to glimmer_lithot_type?
   type glide_lithot_type
      !*FD holds variables for temperature calculations in the lithosphere
 
@@ -708,6 +717,8 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+!TODO - glimmer_numerics?
+
   type glide_numerics
 
     !*FD Parameters relating to the model numerics.
@@ -755,6 +766,7 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+!TODO - SIA only?
   type glide_velowk
     real(dp),dimension(:),  pointer :: depth    => null()
     real(dp),dimension(:),  pointer :: dupsw    => null()
@@ -794,6 +806,7 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+!TODO - SIA only?
   type glide_thckwk
      real(dp),dimension(:,:),  pointer :: oldthck   => null()
      real(dp),dimension(:,:),  pointer :: oldthck2  => null()
@@ -811,6 +824,7 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+!TODO - SIA only?
   type glide_tempwk
     real(dp),dimension(:,:,:),pointer :: inittemp => null()
     real(dp),dimension(:,:,:),pointer :: dissip   => null()
@@ -830,6 +844,8 @@ module glide_types
     real(dp),dimension(:,:),  pointer :: smth     => null()
     real(dp),dimension(:,:,:),pointer :: hadv_u   => null()
     real(dp),dimension(:,:,:),pointer :: hadv_v   => null()
+
+!TODO - Do we need these?
     !*sfp** added space to the next 2 (cons, f) for use w/ HO and SSA dissip. calc. 
     real(dp),dimension(5)             :: cons     = 0.0
     real(dp),dimension(5)             :: f        = 0.0
@@ -845,7 +861,7 @@ module glide_types
     integer  :: nwat        = 0
   end type glide_tempwk
 
-!TODO - These could go under 'mesh' type
+!TODO - These are used for remapping only.  Remove with old_remapping option?
   type glide_gridwk 
   !*FD Various grid quantities needed for remapping scheme 
     real(dp),dimension(:,:),pointer :: hte    => null() 
@@ -864,6 +880,8 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+!TODO - Change to glimmer_paramets?
+!TODO - Verify that these parameters are mks.  (Not sure about hydtim)
   type glide_paramets
     real(dp),dimension(5) :: bpar = (/ 0.2d0, 0.5d0, 0.0d0 ,1.0d-2, 1.0d0/)
     real(dp) :: btrac_const = 0.d0 ! m yr^{-1} Pa^{-1} (gets scaled during init)
@@ -881,7 +899,6 @@ module glide_types
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 !TODO - Is this type ever used?
-
   type glide_basalproc
     !Tuneables, set in the config file 
     real (kind = dp):: fric=0.45d0                   ! Till coeff of internal friction: ND
@@ -910,7 +927,6 @@ module glide_types
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 !TODO - Is this type used?
-
   type glide_prof_type
      integer :: geomderv
      integer :: hvelos
@@ -925,7 +941,6 @@ module glide_types
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 !TODO - Is this type used?
-
   type glide_phaml
     real(dp),dimension(:,:),pointer :: uphaml => null()
     real(dp),dimension(:,:),pointer :: init_phaml => null()
@@ -968,7 +983,6 @@ module glide_types
   end type glide_global_type
 
 !TODO - Where should this go?
-
 ! for JFNK, NOX in Trilinos
   type ,public :: pass_through
 
@@ -987,10 +1001,9 @@ module glide_types
 
 contains
 
-  subroutine glide_allocarr(model)
+!TODO - Write a glissade_allocarr subroutine?
 
-!TODO - Create new glissade_allocarr and deallocarr subroutines in glissade_types.
-    
+  subroutine glide_allocarr(model)    
     !*FD Allocates the model arrays, and initialises some of them to zero.
     !*FD These are the arrays allocated, and their dimensions:
     !*FD
@@ -1113,7 +1126,7 @@ contains
 
     if (model%options%whichtemp == TEMP_GLIMMER) then
 
-!whl - I put a similar check in glide_setup.F90, based on distributed_execution().
+!TODO - I put a similar check in glide_setup.F90, based on distributed_execution().
 !      Which is correct?
 
        !JEFF We decided to not support the wide temperature array for parallel.  Kept for serial compatibility.
@@ -1283,6 +1296,7 @@ contains
 
   end subroutine glide_allocarr
 
+!TODO - Add glissade_deallocarr?
   subroutine glide_deallocarr(model)
     !*FD deallocate model arrays
     implicit none
@@ -1520,4 +1534,3 @@ contains
   end subroutine set_time
 
 end module glide_types
-

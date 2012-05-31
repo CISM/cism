@@ -119,6 +119,7 @@ contains
   subroutine velo_compute_strain_rates(strain_zx, strain_zy, 
                                        stagthck, dusrfdew, dusrfdns, sigma, 
                                        flwa, ho_stress_zx, ho_stress_zy)
+
     !*FD Computes the strain rates \epsilon_{zx} and \epsilon{zy} using the
     !*FD formula:
     !*FD \epsilon_{zi}(\sigma) = A(\sigma)(-\rho g H \sigma \frac{\partial s}{\partial i} - HO_i)^n
@@ -135,6 +136,8 @@ contains
         do k = 1, nsn
           !Compute everything inside the exponentiation
           !(we factor out -rhoi*g*H*\sigma so it's only computed once
+!TODO - Where is g defined as the gravitational constant?  Should be grav.
+!TODO - There is no 'implicit none' in this subroutine or at the top of the module.
           zx = -rhoi*g*sigma(i)*stagthck(j,k)
           zy = zx*dusrfdns(j,k)
           zx = zx*dusrfdew(j,k)

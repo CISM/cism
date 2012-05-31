@@ -42,6 +42,8 @@ module stress_hom
                             tauxy,      tau,       &
                             tauxz,      tauyz )
 
+!TODO - Remove scaling.
+! Confused here because tau0 is never used, whereas len0 and thk0 are used below
         use glimmer_paramets, only : tau0
 
         implicit none

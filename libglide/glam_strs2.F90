@@ -30,7 +30,11 @@ module glam_strs2
 use iso_c_binding
 use glimmer_paramets, only : dp
 use glimmer_physcon,  only : gn, rhoi, rhoo, grav, pi, scyr
+
+!TODO - Remove scaling (careful with vis0 and vis0_glam)
+!       Note: if thk0 = 1, then tau0 = rhoi*grav
 use glimmer_paramets, only : thk0, len0, vel0, vis0, vis0_glam, tim0, evs0, tau0
+
 use glimmer_log,      only : write_log
 use glide_mask
 use glimmer_sparse_type
@@ -3139,6 +3143,9 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
 !       Note: efvs has been computed in a layer of halo cells, so we have its value in all
 !             neighbors of locally owned velocity points.
 
+!TODO - Modify inequalities when setting vis0_glam = 1.
+!       (Or temporarily assign value here to vis0_glam.)
+
   ! JEFFLOC Do I need to restrict to non-halo grid points?
   do ns = 1+staggered_shalo,size(mask,2)-staggered_nhalo
     do ew = 1+staggered_whalo,size(mask,1)-staggered_ehalo
@@ -3147,6 +3154,13 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
      ! ... kind of a mess and could be redone or made into a function or subroutine).
      ! SUM has the definition SUM(ARRAY, DIM, MASK) MASK is either scalar or the same shape as ARRAY
      ! JEFFLOC Concerned about the edges at (ew+1, ns), (ew, ns+1), and (ew+1,ns+1)
+!SCALING - Make sure inequality makes sense with scaling removed
+! Note: vis0_glam = tau0**(-gn) * (vel0/len0) where 
+!           tau0 = rhoi*grav*thk0
+!           vel0 = 500.0 / scyr
+!           len0 = 200.0d3
+!           thk0 = 2000.0d0
+! Does the threshold need to be divided by vis0glam?
      flwabar = ( sum( flwa(:,ew,ns), 1, flwa(1,ew,ns)*vis0_glam < 1.0d-10 )/real(upn) + &
                sum( flwa(:,ew,ns+1), 1, flwa(1,ew,ns+1)*vis0_glam < 1.0d-10 )/real(upn)  + &
                sum( flwa(:,ew+1,ns), 1, flwa(1,ew+1,ns)*vis0_glam < 1.0d-10 )/real(upn)  + &
@@ -3536,9 +3550,13 @@ subroutine bodyset(ew,  ns,  up,           &
     ! --------------------------------------------------------------------------------------
     ! (2) source term (strain rate at shelf/ocean boundary) from MacAyeal depth-ave solution. 
     ! --------------------------------------------------------------------------------------
+
+!TODO - Cancelation here if tau0 = rhoi*grav?
     source = (rhoi*grav*stagthck(ew,ns)*thk0) / tau0 / 2.0_dp * ( 1.0_dp - rhoi / rhoo )
 
     ! terms after "/" below count number of non-zero efvs cells ... needed for averaging of the efvs at boundary 
+!SCALING - Make sure inequality makes sense with scaling removed
+! What are the units of efvs?
     source = source / ( sum(local_efvs, local_efvs > 1.0d-12) / &
              sum( (local_efvs/local_efvs), local_efvs > 1.0d-12 ) )
 
@@ -5009,6 +5027,7 @@ subroutine calcbetasquared (whichbabc,               &
   ! betasquared dimensional, within the subroutine, and then non-dimensional again before being sent back out
   ! for use in the code. This scale is the same as scale scale2d_f7 defined in libglimmer/glimmer_scales.F90.
 
+!TODO - Remove scaling here.  What are units of betasquared?
   select case(whichbabc)
 
     case(0)     ! constant value; useful for debugging and test cases
@@ -5048,6 +5067,7 @@ subroutine calcbetasquared (whichbabc,               &
 
     case(5)    ! use value passed in externally from CISM (NOTE not dimensional when passed in) 
 
+!TODO - Careful with scaling here.
       ! scale CISM input value to dimensional units of (Pa yrs 1/m)
       betasquared = beta * ( tau0 / vel0 / scyr )
 

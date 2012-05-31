@@ -1,3 +1,5 @@
+!TODO - Is this something we want to support in parallel?
+
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
 ! +  glide_lithot3d.f90 - part of the Glimmer-CISM ice model  + 
@@ -42,7 +44,9 @@ public :: init_lithot3d, calc_lithot3d, finalise_lithot3d
 
 
 contains  
+
   subroutine init_lithot3d(model)
+
     use glide_types
     use glide_setup
     use glimmer_paramets, only: len0,tim0
@@ -55,6 +59,7 @@ contains
     ! allocate memory for 3D code
     ewn=model%general%ewn
     nsn=model%general%nsn
+
     call new_sparse_matrix(ewn*nsn*model%lithot%nlayer, &
                           (model%lithot%nlayer-1)*ewn*nsn*7+ewn*nsn+1,model%lithot%fd_coeff)
     call new_sparse_matrix(ewn*nsn*model%lithot%nlayer, &

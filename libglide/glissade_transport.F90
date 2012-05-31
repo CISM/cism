@@ -35,9 +35,11 @@
       logical, parameter ::  &
          prescribed_area = .false.  ! if true, prescribe the area fluxed across each edge
 
-!whl - to do - Should these be declared elsewhere?
+!TODO - These parameters should be declared elsewhere.
       integer, parameter :: nghost_transport = 2
       integer, parameter :: ntracer_transport = 1
+
+!TODO - Code uses Protex documenting.  Revise for another documenting system?
 
 !=======================================================================
 
@@ -64,7 +66,7 @@
 !
 ! This subroutine solves the transport equations for one timestep
 ! using the conservative remapping scheme developed by John Dukowicz
-! and John Baumgardner (DB) and modified for sea ice by William
+! and John Baumgardner and modified for sea ice by William
 ! Lipscomb and Elizabeth Hunke.
 !
 ! This scheme preserves monotonicity of ice area and tracers.  That is,
@@ -189,9 +191,8 @@
 !---! Initialize, update ghost cells, fill tracer arrays.
 !---!-------------------------------------------------------------------
 
-!whl - Note to Jeff: pass these in as arguments or compute appropriately
-!(ilo,ihi) and (jlo,jhi) are the lower and upper bounds of the local domain
-! (i.e., grid cells owned by this processor)
+!Note: (ilo,ihi) and (jlo,jhi) are the lower and upper bounds of the local domain
+! (i.e., grid cells owned by this processor).
 
       ilo = 1 + nghost
       ihi = nx - nghost
@@ -377,6 +378,9 @@
 
       endif       ! remapping v. upwind transport
 
+!TODO - Should we add/remove ice at surfaces before doing the vertical remapping?
+!       Would prefer to do this vertical remapping only once per time step.
+
       !-------------------------------------------------------------------
       ! Interpolate tracers back to sigma coordinates 
       !-------------------------------------------------------------------
@@ -535,7 +539,7 @@
     ! Conservative remapping of tracer fields from one set of vertical 
     ! coordinates to another.  The remapping is first-order accurate.
     !
-    !whl - to do - Add a 2nd-order accurate vertical remapping scheme.
+    !whl - TODO - Add a 2nd-order accurate vertical remapping scheme.
     !
     ! Author: William Lipscomb, LANL
 
@@ -675,6 +679,7 @@
 
     end subroutine glissade_vertical_remap
 
+!TODO - Test the first-order upwind scheme.
 !=======================================================================
 !BOP
 !

@@ -37,15 +37,20 @@ module glide_stop
   use glimmer_log
   use remap_glamutils
   use fo_upwind_advect, only : fo_upwind_advect_final
+
+!TODO - Remove this.
   use glam, only : old_remapping
 
+!TODO - Is this needed?
   ! *mb* added
   use glam_Basal_Proc, only : Basal_Proc_final
 
   implicit none
+
   !*FD module containing finalisation of glide
-  !*FD this subroutine had to be split out from glide.f90 to avoid
-  !*FD circular dependencies
+  !*FD this subroutine had to be split out from glide.f90 to avoid circular dependencies
+
+!TODO - Put model registration elsewhere?
   !*FD Updated by Tim Bocek to allow for several models to be
   !*FD registered and finalized with a single call without needing
   !*FD the model at call time
@@ -94,6 +99,7 @@ contains
     end if
   end subroutine
 
+!TODO - Currently, this subroutine is never called.
   subroutine glide_finalise_all(crash_arg)
     !*FD Finalises all models in the model registry
     logical, optional :: crash_arg
@@ -114,7 +120,11 @@ contains
     end do 
   end subroutine
 
+!TODO - Write a glissade_finalise routine
+!     - Does it need a glissade_io_writeall subroutine?
+
   subroutine glide_finalise(model,crash)
+
     !*FD finalise GLIDE model instance
     use glimmer_ncio
     use glimmer_log
@@ -142,9 +152,11 @@ contains
     call closeall_in(model)
     call closeall_out(model)
 
+!TODO - Has this been done yet?
     ! *sfp* Note that a finalization routine, "glam_velo_fordsiapstr_final", for the PP HO core needs 
     ! to be written, added to "glam_strs2.F90", and called from "glide_stop".
   
+!TODO - Can remove this.
     ! finalization for incremental remapping advection scheme 
     if ((model%options%whichevol== EVOL_INC_REMAP ) .or.  &
         (model%options%whichevol== EVOL_NO_THICKNESS )) then 
@@ -153,11 +165,13 @@ contains
       endif 
     endif 
 
+!TODO - Can remove this too, once fo_upwind is removed
    ! finalization for first-order upwinding advection scheme
     if (model%options%whichevol== EVOL_FO_UPWIND ) then
         call fo_upwind_advect_final()
     endif
 
+!TODO - Is this needed?
     ! finalization of Basal Proc module
     if (model%options%which_bmod == BAS_PROC_FULLCALC .or. &
         model%options%which_bmod == BAS_PROC_FASTCALC) then
@@ -178,4 +192,5 @@ contains
 #endif
 
   end subroutine glide_finalise
+
 end module glide_stop

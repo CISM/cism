@@ -1,3 +1,6 @@
+!TODO - Consider a glissade_ground (or glissade_calving?) module that contains
+!        a parallel-friendly version of glide_marinlim.
+!       Other subroutines in this module not currently used by parallel code.  
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
 ! +  glide_ground.f90 - part of the GLIMMER ice model         + 
@@ -69,6 +72,7 @@ contains
     use glimmer_global, only : dp, sp
     use glimmer_physcon, only : rhoi, rhoo, grav, gn
     use glide_vertint, only : vertint_output2d
+!TODO - Remove scaling
     use glimmer_paramets, only: thk0
     implicit none
 

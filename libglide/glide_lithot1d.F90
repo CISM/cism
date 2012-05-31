@@ -75,6 +75,8 @@ contains
 
     integer i,j,k
 
+!TODO - I think these loops can be left as is for parallel code.
+!       Local calculation, so no issues with computing in halo cells.
     ! loop over grid
     do j=1,model%general%nsn
        do i=1,model%general%ewn

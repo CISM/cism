@@ -147,6 +147,9 @@ contains
 
     model%tempwk%zbed = 1.0d0 / thk0
     model%tempwk%dupn = model%numerics%sigma(model%general%upn) - model%numerics%sigma(model%general%upn-1)
+
+!SCALING - I think we should remove scyr from this declaration if getting rid of scaling.  
+!          Not sure about factor of 5.  See below.
     model%tempwk%wmax = 5.0d0 * tim0 / (scyr * thk0)
 
     model%tempwk%cons = (/ 2.0d0 * tim0 * model%numerics%dttem * coni / (2.0d0 * rhoi * shci * thk0**2), &
@@ -219,6 +222,7 @@ contains
 
        !MJH: Initialize ice temperature.
        !This block of code is identical to that in glissade_init_temp
+!TODO - Remove hardwired constant (-273.15)
        if (model%temper%temp(1,1,1) .lt. -273.15) then
            call write_log("No initial ice temperature supplied - setting temp to artm.")
            ! temp array still has initialized values - no values have been read in. 
@@ -450,7 +454,7 @@ contains
 
        do ns = 2,model%general%nsn-1
           do ew = 2,model%general%ewn-1
-             if(model%geometry%thck(ew,ns)>model%numerics%thklim) then
+             if(model%geometry%thck(ew,ns) > model%numerics%thklim) then
 
                 weff = model%velocity%wvel(:,ew,ns) - model%velocity%wgrd(:,ew,ns)
                 if (maxval(abs(weff)) > model%tempwk%wmax) then
@@ -499,9 +503,18 @@ contains
 
           do ns = 2,model%general%nsn-1
              do ew = 2,model%general%ewn-1
-                if(model%geometry%thck(ew,ns)>model%numerics%thklim) then
+                if(model%geometry%thck(ew,ns) > model%numerics%thklim) then
 
                    weff = model%velocity%wvel(:,ew,ns) - model%velocity%wgrd(:,ew,ns)
+!SCALING - Make sure inequality threshold makes sense with scaling removed
+! Note: model%tempwk%wmax = 5.0d0 * tim0 / (scyr * thk0)
+!       where        tim0 = len0 / vel0
+!                    vel0 = 500.0 / scyr
+!       Hence tim0 has units of const*len0*scyr, so wmax has units of const*len0/thk0,
+!       I think we should remove scyr from the definition of wmax.
+  
+! So this will make sense only if weff includes
+
                    if (maxval(abs(weff)) > model%tempwk%wmax) then
                       weff = 0.0d0
                    end if
@@ -829,6 +842,8 @@ contains
        ! only include sliding contrib if temperature node is surrounded by sliding velo nodes
        do nsp = ns-1,ns
           do ewp = ew-1,ew
+!SCALING - Make sure inequality threshold makes sense with scaling removed
+! If ubas and vbas are scaled by vel0 = 500/scyr, then we should divide RHS by vel0 when removing the scaling.
              if (abs(model%velocity%ubas(ewp,nsp)).gt.0.000001 .or. abs(model%velocity%vbas(ewp,nsp)).gt.0.000001) then
                 slide_count = slide_count + 1
                 slterm = slterm + (&

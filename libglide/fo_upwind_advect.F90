@@ -7,6 +7,7 @@ module fo_upwind_advect
 
 !----------------------------------------------------------------------
 
+!TODO - Remove scaling
     use glimmer_paramets, only: sp, dp, len0, thk0, tim0, vel0, tim0, acc0, scyr
     use glide_types
     use glide_velo_higher  
@@ -131,7 +132,7 @@ module fo_upwind_advect
     real (kind = dp) :: cfl                             ! value of checking for CFL violation
     integer :: ew, ns 
 
-    cfl = 0.5d0     ! if vel*dt > clf*grid_spacing a CFL violation will be triggered
+    cfl = 0.5d0     ! if vel*dt > cfl*grid_spacing a CFL violation will be triggered
 
     where( stagthck > 0.0_dp )  ! calculate the depth-ave velocities
         ubar = uflx / stagthck

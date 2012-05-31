@@ -44,6 +44,12 @@ module glide_setup
        glide_read_sigma, glide_calc_sigma
 
 contains
+
+!TODO - Do we need a glissade_readconfig and glissade_printconfig subroutine?
+!       This subroutine uses glide_global_type.
+!       Would be nice if we didn't have to rewrite everything for glissade.
+!       One option would be to pass in subtypes (e.g., general, numerics) that
+!        are shared between glide and glissade.
   
   subroutine glide_readconfig(model,config)
     !*FD read GLIDE configuration file
@@ -117,6 +123,11 @@ contains
     call print_till_options(model)
   end subroutine glide_printconfig
     
+!TODO - Remove scaling?  At least from glissade.
+! But recall that some time steps are in hours, others in years.
+! model%numerics%tinc is in years
+! Would like to have dt and dttem in seconds.
+
   subroutine glide_scale_params(model)
     !*FD scale parameters
     use glide_types
@@ -144,6 +155,8 @@ contains
 
   end subroutine glide_scale_params
 
+!TODO - Need glissade_read_sigma?
+
   subroutine glide_read_sigma(model,config)
     !*FD read sigma levels from configuration file
     use glide_types
@@ -168,7 +181,7 @@ contains
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !TODO - This is a utility subroutine called at every timestep; move to another module?
 !       Note that it loops over all grid cells, not just locally owned.
-!       This means the halos must be updated before it is called.
+!       This means that halos must be updated before it is called.
 
   subroutine glide_calclsrf(thck,topg,eus,lsrf)
 
@@ -187,7 +200,7 @@ contains
 
     real(dp), parameter :: con = - rhoi / rhoo
 
-    where (topg-eus < con * thck)
+    where (topg - eus < con * thck)
       lsrf = con * thck
     elsewhere
       lsrf = topg
@@ -195,6 +208,8 @@ contains
   end subroutine glide_calclsrf
 
 !-------------------------------------------------------------------------
+
+!TODO - Need glissade_read_sigma?  Alternatively, pass in sigma instead of model.
 
   subroutine glide_load_sigma(model,unit)
 
@@ -266,6 +281,8 @@ contains
     
   end subroutine glide_load_sigma
 
+!TODO - Is this function needed?  Will we use the PATTYN option?
+
   function glide_find_level(level, scheme, up, upn)
 
   !Returns the sigma coordinate of one level using a specific builtin scheme
@@ -293,6 +310,7 @@ contains
      
   end function glide_find_level
 
+!TODO - Are these the optimal sigma levels?
   function glide_calc_sigma(x,n)
       use glimmer_global, only:dp
       implicit none
@@ -301,8 +319,9 @@ contains
       glide_calc_sigma = (1-(x+1)**(-n))/(1-2**(-n))
   end function glide_calc_sigma
 
+!TODO - Remove this one?  Or make it an option?
   !Implements an alternate set of sigma levels that encourages better
-  !convergance for higher-order velocities
+  !convergence for higher-order velocities
   function glide_calc_sigma_pattyn(x)
         use glimmer_global, only:dp
         implicit none

@@ -1,11 +1,21 @@
+!TODO - Much of this module consists of Jesse's water-routing code,
+!        which is serial only.
+!       Write a short module 'glissade_bwater.F90' with local options
+!        that are supported for parallel code and have the desired loop ranges. 
+
 module glide_bwater
    use glimmer_global, only: rk, sp
    use glide_types
 
 contains
+
+!TODO - Would be better not to pass 'model'
+
   subroutine calcbwat(model,which,bmlt,bwat,bwatflx,thck,topg,btem,floater,wphi)
+
     use parallel
     use glimmer_global, only : dp 
+!TODO - Remove scaling
     use glimmer_paramets, only : thk0
     use glide_thck
     use glide_grids, only: stagvarb
@@ -28,7 +38,7 @@ contains
     real(dp),  dimension(model%general%ewn,model%general%nsn) :: N, flux, lakes
     real(dp) :: c_effective_pressure,c_flux_to_depth,p_flux_to_depth,q_flux_to_depth
 
-    ! TODO: move these declarations into a parameters derived type
+! TODO: move these declarations into a parameters derived type
     c_effective_pressure = 0.0d0       ! For now estimated with c/w
     c_flux_to_depth = 1./(1.8d-3*12.0d0)  ! 
     p_flux_to_depth = 2.0d0            ! exponent on the depth
@@ -49,8 +59,9 @@ contains
 
        do t_wat = 1, model%tempwk%nwat
 
-!HALO - Loop should be over locally owned cells only.
-!       Then we might have to do a parallel update later--depends on where bwat is used.
+!HALO - For glissade, code, loop should be over locally owned cells (ilo:ihi,jo:jhi).
+!        Then may need a parallel update later.
+!       Could move call from glissade_temp to glissade_driver.
 
           do ns = 1,model%general%nsn
              do ew = 1,model%general%ewn
@@ -58,6 +69,8 @@ contains
                 if (model%numerics%thklim < thck(ew,ns) .and. .not. floater(ew,ns)) then
                    bwat(ew,ns) = (model%tempwk%c(1) * bmlt(ew,ns) + model%tempwk%c(2) * bwat(ew,ns)) / &
                         model%tempwk%c(3)
+!SCALING - Make sure inequality makes sense with scaling removed
+!          I think it's OK, since blim and bwat both include a factor of thk0
                    if (blim(1) > bwat(ew,ns)) then
                       bwat(ew,ns) = 0.0d0
                    end if
@@ -75,6 +88,8 @@ contains
              call smooth_bwat(ew-1,ew,ew+1,ns-1,ns,ns+1)
           end do
        end do
+
+!TODO - Remove for glissade case?
        ! apply periodic BC
        if (model%options%periodic_ew) then
           do ns = 2,model%general%nsn-1
@@ -83,7 +98,8 @@ contains
           end do
        end if
 
-       bwat(1:model%general%ewn,1:model%general%nsn) = model%tempwk%smth(1:model%general%ewn,1:model%general%nsn)
+       bwat(1:model%general%ewn,1:model%general%nsn) = &
+                       model%tempwk%smth(1:model%general%ewn,1:model%general%nsn)
 
     ! Case added by Jesse Johnson 11/15/08
     ! Steady state routing of basal water using flux calculation
@@ -112,24 +128,26 @@ contains
       bwat = 0.0d0
     end select
 
-!HALO - This halo call might be needed, but could be done in subroutine that calls calcbwat.
+!HALO - Move this halo update to a higher level.
 !       (glide_temp and glissade_temp)
 
     call parallel_halo(bwat) !same as model%temper%bwat
     
     ! now also calculate basal water in velocity (staggered) coord system
     call stagvarb(model%temper%bwat, &
-         model%temper%stagbwat ,&
-         model%general%  ewn, &
-         model%general%  nsn)
+                  model%temper%stagbwat ,&
+                  model%general%  ewn, &
+                  model%general%  nsn)
 
   contains
 
+!TODO - Inline this subroutine?  Is it needed in all cases?
     ! Internal subroutine for smoothing
     subroutine smooth_bwat(ewm,ew,ewp,nsm,ns,nsp)
       ! smoothing basal water distrib
       implicit none
       integer, intent(in) :: ewm,ew,ewp,nsm,ns,nsp
+!SCALING - Make sure inequality makes sense with scaling removed
       if (blim(2) < bwat(ew,ns)) then
          model%tempwk%smth(ew,ns) = bwat(ew,ns) + model%paramets%bwat_smooth * &
               (bwat(ewm,ns) + bwat(ewp,ns) + bwat(ew,nsm) + bwat(ew,nsp) - 4.0d0 * bwat(ew,ns))
@@ -152,6 +170,8 @@ contains
     dt_wat = dttem / nwat
 
   end subroutine find_dt_wat
+
+!TODO - Note: This routing is supported in serial code only.
 
    subroutine route_basal_water(wphi,melt,dx,dy,flux,lakes)
     !*FD Routes water from melt field to its destination, recording flux
@@ -328,6 +348,7 @@ contains
   end subroutine flux_to_depth
 
 !==============================================================
+
   subroutine effective_pressure(bwat,c,N)
     real(dp),dimension(:,:),intent(in) ::  bwat! Water depth
     real(dp)               ,intent(in) ::  c   ! Constant of proportionality
@@ -339,7 +360,9 @@ contains
         N = 0.d0
     endwhere
   end subroutine effective_pressure
+
 !==============================================================
+
   subroutine pressure_wphi(thck,topg,N,wphi,thicklim,floater)
   !*FD Compute the pressure wphi at the base of the ice sheet according to
   !*FD ice overburden plus bed height minus effective pressure.

@@ -50,6 +50,7 @@ module glide
   use glimmer_global
   use glam, only : old_remapping
 
+!TODO - Remove scaling
 #ifdef GLC_DEBUG
     use glimmer_paramets, only: itest, jtest, thk0
 #endif
@@ -57,6 +58,8 @@ module glide
   integer, private, parameter :: dummyunit=99
 
 contains
+
+!TODO - Write glissade_config subroutine?  Would need this if model derived type is different.
 
   subroutine glide_config(model,config,fileunit)
 
@@ -291,7 +294,7 @@ contains
       endif 
     endif 
 
-!TODO - Eliminate this option once the parallel upwind transport is certified to be working.
+!TODO - Eliminate this option?  Or retain it as a serial option?
     ! *sfp** added for summer modeling school
     if (model%options%whichevol== EVOL_FO_UPWIND ) then
 
@@ -513,6 +516,8 @@ contains
     ! Calculate temperature evolution and Glenn's A, if necessary
     ! ------------------------------------------------------------------------ 
     call glide_prof_start(model,model%glide_prof%temperature)
+!SCALING - Make sure inequality makes sense with scaling removed
+! I think this is OK, since these timesteps have not been scaled by tim0
     if ( model%numerics%tinc >  mod(model%numerics%time,model%numerics%ntem)) then
 
        if (model%options%whichtemp == TEMP_GLIMMER) then 
@@ -658,7 +663,7 @@ contains
           model%geomderv%stagthck = stagthck_old
        endif
 
-!TODO - Remove this call once the parallel upwind scheme has been tested.
+!TODO - Remove this, or retain it as a serial option?
 
     case(EVOL_FO_UPWIND) ! Use first order upwind scheme for mass transport
        call not_parallel(__FILE__,__LINE__)
