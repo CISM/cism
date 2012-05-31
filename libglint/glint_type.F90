@@ -45,6 +45,12 @@ module glint_type
 
   implicit none
 
+!TODO - glint_instance includes information that is not needed if the SMB is received from a GCM.
+!       Maybe we should create a new, cleaner derived type (glint_gcm_instance?) without the extra information.
+
+!TODO - Note that this type includes 'model', of type glide_global_type, which is a grabbag for many other types.
+!       Some dycore-independent components of glide_global_type could be moved up to glint_gcm_instance
+
   type glint_instance
 
      !*FD Derived type holding information about ice model instance. 
@@ -172,8 +178,7 @@ contains
 
   subroutine glint_i_allocate(instance,nxg,nyg,nxgo,nygo)
 
-    !*FD Allocate top-level arrays in
-    !*FD the model instance, and ice model arrays.
+    !*FD Allocate top-level arrays in the model instance, and ice model arrays.
 
     implicit none
 
@@ -544,7 +549,7 @@ contains
     integer :: il, jl, ig, jg
     character(len=100) :: message
 
-!lipscomb - TO DO - Read topomax from data file at initialization
+!lipscomb - TODO - Read topomax from data file at initialization
     real(dp), dimension(0:nec) :: topomax   ! upper elevation limit of each class
 
     ! Given the value of nec, specify the upper and lower elevation boundaries of each class.
@@ -618,7 +623,7 @@ contains
                             local_topo,          gtopo,     &
                             local_topo,          instance%out_mask)
 
-!lipscomb - TO DO - Copy the appropriate fields into local_field array
+!lipscomb - TODO - Copy the appropriate fields into local_field array
 
     ! ice runoff
 
