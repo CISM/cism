@@ -1,0 +1,34 @@
+# cmake configuration script that works on Andy's Linux box with GCC
+# Others will need to modify the Trilinos and Netcdf paths.
+# This script needs to be run from a subdirectory (e.g. build-linux)
+# of the main seacism repository (reflected in the several instances of
+# ".." below).
+
+# After this executes, do:
+#   make -j 8
+#   cp example-drivers/simple_glide/src/sgcmake .
+#
+
+rm ./CMakeCache.txt
+
+echo
+echo "Auto-generating  glide_io.F90, glide_lithot.F90, and glimmer_vers.F90"
+pushd ../libglide
+ python ../scripts/generate_ncvars.py glide_vars.def ../libglimmer/ncdf_template.F90.in
+ python ../scripts/generate_ncvars.py glide_lithot_vars.def ../libglimmer/ncdf_template.F90.in
+popd
+pushd ../libglimmer
+sed -f svnversion.sed glimmer_vers.F90.in > glimmer_vers.F90
+popd
+
+echo
+echo "\n\nDoing CMake Configuration step"
+cmake \
+  -D GLIMMER_TRILINOS_DIR=/home/agsalin/Trilinos/apr12/install \
+  -D GLIMMER_NETCDF_DIR="/home/agsalin/install/netcdf" \
+  -D CMAKE_Fortran_FLAGS="-g -O2 -ffree-line-length-none -fPIC" \
+  -D CMAKE_VERBOSE_MAKEFILE=ON \
+  ..
+
+# Note: last argument above  ".."  is path to top seacism directory
+
