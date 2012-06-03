@@ -1,11 +1,15 @@
+!CLEANUP - glam.F90
+! This module is now decremented.
+! For now, it is still possible to call subroutine inc_remap_driver
+!  from glissade_tstep by setting call_inc_remap_driver = .true.
+! But the default option is to call the velocity solver and transport
+!  routines from glissade_tstep, where I inlined code from glam.F90.
+!  I inlined the new remapping scheme only.
 
-
+! The TODOs in this module can be ignored.
 !***********************************************************************
 module glam         
 !***********************************************************************
-
-!TODO - Might make sense to move code from subroutine inc_remap_driver to a higher level
-!       (glissade.F90).
 
 !TODO - Remove PBJ references in this module
     ! 1st-order ice sheet dynamics from Payne/Price OR Pattyn/Bocek/Johonson solver 
@@ -45,7 +49,7 @@ module glam
     ! NOTE: Relevant initialization routines are in the init section of "glide.F90" 
 
 !TODO - temporary; remove later when the new scheme is the default
-    logical, parameter :: old_remapping = .true.  ! if false, then use new remapping scheme
+    logical, parameter :: old_remapping = .false.  ! if false, then use new remapping scheme
                                                   ! if true, revert to older remapping scheme
     logical, parameter :: write_verbose = .false. ! if true, write state variable fields to log file
 
@@ -66,7 +70,7 @@ module glam
 !           nghost_ir         ! number of ghost cells used in remapping scheme
 
 !TODO - Remove debug code.
-!whl - debug
+!debug
         integer :: i, j
         integer, parameter :: idiag=10, jdiag=15
 
@@ -269,8 +273,8 @@ module glam
 
         else   ! new remapping scheme
 
-!whl Need halo updates here for thck, temp (and any other advected tracers), uvel and vvel.
-!    If nhalo >= 2, then no halo updates should be needed inside glissade_transport_driver.
+!HALO - Need halo updates here for thck, temp (and any other advected tracers), uvel and vvel.
+!       If nhalo >= 2, then no halo updates should be needed inside glissade_transport_driver.
 
 !PW FOLLOWING NECESSARY?
 !HALO - These halo updates could be moved up a level to the new glissade driver.

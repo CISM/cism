@@ -17,12 +17,12 @@ integer, dimension(nu), intent(in) :: g_flag ! 0 :reg cell
 
 type(sparse_matrix_type),  intent(in) :: matrix
 
-real (kind = dp), dimension(nu), intent(in) :: bvec
-real (kind = dp), dimension(nu), intent(inout) :: uvec
-real (kind = dp), dimension(nu) :: Au_b_wig
-real (kind = dp), intent(out) :: L2square
+real(dp), dimension(nu), intent(in) :: bvec
+real(dp), dimension(nu), intent(inout) :: uvec
+real(dp), dimension(nu) :: Au_b_wig
+real(dp), intent(out) :: L2square
 ! 
-real (kind = dp) :: scale_ghosts = 0.0d0
+real(dp) :: scale_ghosts = 0.0d0
 
 ! calculate residual vector of the u OR v component
 
@@ -88,12 +88,12 @@ integer :: i, j, nu1, nu2, nele, whatsparse ! nu2: size of uvec and bvec, size o
 type(sparse_matrix_type),  intent(in) :: matrixA, matrixC
 
 integer, dimension(nu2) :: g_flag 
-real (kind = dp), dimension(nu2), intent(in) :: bvec
-real (kind = dp), dimension(nu2), intent(inout) :: uvec
-real (kind = dp), dimension(nu1) :: Au_b_wig, Cv_d_wig
-real (kind = dp), intent(out) :: L2square
+real(dp), dimension(nu2), intent(in) :: bvec
+real(dp), dimension(nu2), intent(inout) :: uvec
+real(dp), dimension(nu1) :: Au_b_wig, Cv_d_wig
+real(dp), intent(out) :: L2square
 ! 
-real (kind = dp) :: scale_ghosts = 0.0d0
+real(dp) :: scale_ghosts = 0.0d0
 
 ! calculate residual vector of the u and v component
 

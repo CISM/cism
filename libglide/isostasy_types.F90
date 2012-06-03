@@ -39,11 +39,11 @@ module isostasy_types
   type isostasy_elastic
      !*FD Holds data used by isostatic adjustment calculations
      
-     real(kind=dp) :: d = 0.24e25                !*FD flexural rigidity
-     real(kind=dp) :: lr                         !*FD radius of relative stiffness
-     real(kind=dp) :: a                          !*FD radius of disk
-     real(kind=dp) :: c1,c2,cd3,cd4              !*FD coefficients
-     real(kind=dp), dimension(:,:), pointer :: w !*FD matrix operator for lithosphere deformation
+     real(dp) :: d = 0.24e25                !*FD flexural rigidity
+     real(dp) :: lr                         !*FD radius of relative stiffness
+     real(dp) :: a                          !*FD radius of disk
+     real(dp) :: c1,c2,cd3,cd4              !*FD coefficients
+     real(dp), dimension(:,:), pointer :: w !*FD matrix operator for lithosphere deformation
      integer :: wsize                            !*FD size of operator (0:rbel_wsize, 0:rbel_wsize), operator is axis symmetric
   end type isostasy_elastic
 

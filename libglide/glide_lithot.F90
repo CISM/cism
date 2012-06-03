@@ -51,7 +51,7 @@ contains
 
     ! local variables
     integer k
-    real(kind=dp) :: factor
+    real(dp) :: factor
 
     ! allocate memory for common arrays
     allocate(model%lithot%deltaz(model%lithot%nlayer)); model%lithot%deltaz = 0.0

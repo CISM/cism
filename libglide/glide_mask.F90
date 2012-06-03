@@ -419,10 +419,10 @@ contains
 
         real(dp) :: calc_normal_45deg
          
-        real (kind = dp), dimension(3,3) :: mask, maskcorners
-        real (kind = dp), dimension(3,3) :: thckmask
-        real (kind = dp), dimension(3) :: testvect
-        real (kind = dp) :: phi, deg2rad
+        real(dp), dimension(3,3) :: mask, maskcorners
+        real(dp), dimension(3,3) :: thckmask
+        real(dp), dimension(3) :: testvect
+        real(dp) :: phi, deg2rad
 
         deg2rad = pi / 180.0d0
         loc_latbc = 0; phi = 0

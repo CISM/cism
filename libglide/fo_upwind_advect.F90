@@ -16,7 +16,7 @@ module fo_upwind_advect
     public :: fo_upwind_advect_init, fo_upwind_advect_driver, fo_upwind_advect_final
 
     ! allocatable work arrays
-    real (kind = dp), allocatable, dimension(:,:) ::    &
+    real(dp), allocatable, dimension(:,:) ::    &
                        ubar, vbar,                      & 
                        ubar_grid, vbar_grid,            &
                        flux_net, thck_grid,             & 
@@ -120,16 +120,16 @@ module fo_upwind_advect
 
     implicit none
 
-    real (kind = dp), intent(in) :: dt
-    real (kind = dp), dimension(:,:), intent(inout) :: thck
-    real (kind = dp), dimension(:,:), intent(in) :: stagthck
-    real (kind = sp), dimension(:,:), intent(in) :: acab
-    real (kind = dp), dimension(:,:), intent(in) :: uflx, vflx
-    real (kind = dp), intent(in) :: dew, dns  
+    real(dp), intent(in) :: dt
+    real(dp), dimension(:,:), intent(inout) :: thck
+    real(dp), dimension(:,:), intent(in) :: stagthck
+    real(sp), dimension(:,:), intent(in) :: acab
+    real(dp), dimension(:,:), intent(in) :: uflx, vflx
+    real(dp), intent(in) :: dew, dns  
     integer, intent(in)  :: ewn, nsn
 
-    real (kind = dp) :: He, Hw, Hn, Hs, ue, uw, vn, vs  ! upwinding variables and interface velocities
-    real (kind = dp) :: cfl                             ! value of checking for CFL violation
+    real(dp) :: He, Hw, Hn, Hs, ue, uw, vn, vs  ! upwinding variables and interface velocities
+    real(dp) :: cfl                             ! value of checking for CFL violation
     integer :: ew, ns 
 
     cfl = 0.5d0     ! if vel*dt > cfl*grid_spacing a CFL violation will be triggered

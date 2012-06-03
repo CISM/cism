@@ -156,14 +156,22 @@ contains
 !          stop
 !       end if
 
-
+!TODO - This is the standard SIA evolution option.
+!       Change the name, removing 'HO'?
        if (model%options%which_ho_prognostic == HO_PROG_SIAONLY) then
        ! get new thicknesses
-          call thck_evolve(model,model%velocity%diffu, model%velocity%diffu, .true.,model%geometry%thck,model%geometry%thck)
+          call thck_evolve(model,    &
+                           model%velocity%diffu, model%velocity%diffu, &
+                           .true.,   &
+                           model%geometry%thck,  model%geometry%thck)
+
+!TODO - Get rid of this option?
        else if (model%options%which_ho_prognostic == HO_PROG_PATTYN) then
           call thck_evolve(model,model%velocity%diffu_x, model%velocity%diffu_y, .true.,&
                             model%geometry%thck, model%geometry%thck)
        end if
+
+!TODO - Has this been replaced by HO_PROG_SIAONLY, or should it be uncommented?
        !EIB! old? from gc2
        !call thck_evolve(model,.true.,model%geometry%thck,model%geometry%thck)
 
@@ -209,16 +217,16 @@ contains
     integer, parameter :: pmax=50                       !*FD maximum Picard iterations
 
 !SCALING - May have to reset tol when removing scaling
-    real(kind=dp), parameter :: tol=1.0d-6
-    real(kind=dp) :: residual
+    real(dp), parameter :: tol=1.0d-6
+    real(dp) :: residual
     integer p
     logical first_p
 
 #ifdef USE_UNSTABLE_MANIFOLD
     ! local variables used by unstable manifold correction
-    real(kind=dp), dimension(model%general%ewn*model%general%nsn) :: umc_new_vec   
-    real(kind=dp), dimension(model%general%ewn*model%general%nsn) :: umc_old_vec 
-    real(kind=dp), dimension(model%general%ewn*model%general%nsn) :: umc_correction_vec
+    real(dp), dimension(model%general%ewn*model%general%nsn) :: umc_new_vec   
+    real(dp), dimension(model%general%ewn*model%general%nsn) :: umc_old_vec 
+    real(dp), dimension(model%general%ewn*model%general%nsn) :: umc_correction_vec
     logical :: umc_continue_iteration
     integer :: linearize_start
 
@@ -288,6 +296,7 @@ contains
             call run_ho_diagnostic(model)                          
        end if
 
+!TODO - Can these options be removed?
        ! get new thicknesses
        if (model%options%which_ho_prognostic == HO_PROG_SIAONLY) then
  
@@ -351,6 +360,7 @@ contains
             model%velocity%btrc,           &
             model%velocity%ubas,           &
             model%velocity%vbas)
+
        call velo_calc_velo(model%velowk,model%geomderv%stagthck,model%geomderv%dusrfdew, &
             model%geomderv%dusrfdns,model%temper%flwa,model%velocity%diffu,model%velocity%ubas, &
             model%velocity%vbas,model%velocity%uvel,model%velocity%vvel,model%velocity%uflx,model%velocity%vflx,&
@@ -360,6 +370,7 @@ contains
        !     model%geomderv%dusrfdns,model%temper%flwa,model%velocity%diffu,model%velocity%ubas, &
        !     model%velocity%vbas,model%velocity%uvel,model%velocity%vvel,model%velocity%uflx,model%velocity%vflx)
     end if
+
   end subroutine thck_nonlin_evolve
 
 !---------------------------------------------------------------------------------

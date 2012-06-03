@@ -1,3 +1,6 @@
+!CLEANUP - remap_glamutils.F90
+! This module is now decremented.  Only used for old remapping scheme.
+
 !=======================================================================
 !BOP
 !
@@ -84,7 +87,7 @@
                               ! corrected midpoint velocity
 
       ! some numbers
-      real (kind=dp), parameter ::       &
+      real(dp), parameter ::       &
          puny   = 1.0e-11_dp       ,&
          eps13  = 1.0e-13_dp       ,&
          c0     =    0.0_dp        ,&
@@ -341,7 +344,7 @@
 ! !INPUT/OUTPUT PARAMETERS:
 !
 
-      real (kind=dp), intent(in) ::     &
+      real(dp), intent(in) ::     &
          dt      ! time step
 
       integer, intent(in) ::     &
@@ -350,23 +353,23 @@
          ntrace         ,&! number of tracers in tracer array (tm)
          nghost           ! number of ghost cells
 
-      real (kind=dp), intent(in),       &
+      real(dp), intent(in),       &
                 dimension(nx_block,ny_block,max_blocks) ::           &
          uvel       ,&! x-component of velocity (m/s)
          vvel         ! y-component of velocity (m/s)
 
-      real (kind=dp), intent(inout),     &
+      real(dp), intent(inout),     &
          dimension (nx_block,ny_block,max_blocks) ::          &
          mm           ! mean mass values in each grid cell
 
-      real (kind=dp), intent(inout),     &
+      real(dp), intent(inout),     &
          dimension (nx_block,ny_block,ntrace,max_blocks) ::     &
          tm           ! mean tracer values in each grid cell
 
       logical :: l_prescribed_area = .false.
       logical :: l_prescribed_mass = .false.
 
-      real (kind=dp), dimension(nx_block,ny_block,max_blocks) ::  &
+      real(dp), dimension(nx_block,ny_block,max_blocks) ::  &
          edgearea_e     ,&! area of departure regions for east edges
          edgearea_n       ! area of departure regions for north edges
 
@@ -377,7 +380,7 @@
          l_max_only_in, &! if true, limit maxes only (for mass field)
          l_posdef_only_in   ! if true, limit mass only for positive definiteness
 
-      real (kind=dp), dimension (nx_block,ny_block,max_blocks),   &
+      real(dp), dimension (nx_block,ny_block,max_blocks),   &
          intent(in) ::   &
          htn            ,&! length of northern edge of T-cell (m)
          hte            ,&! length of eastern edge of T-cell (m)
@@ -407,7 +410,7 @@
       integer ::     &
          nx, ny                     ! *sfp** this declaration moved from 'params_mod'
 
-      real (kind=dp), dimension (nx_block,ny_block,max_blocks) ::  &
+      real(dp), dimension (nx_block,ny_block,max_blocks) ::  &
          xav,   yav              ,&! mean T-cell values of x, y
          xxav,  xyav,  yyav      ,&! mean T-cell values of xx, xy, yy
          xxxav, xxyav            ,&! mean T-cell values of xxx, xxy
@@ -422,7 +425,7 @@
          l_max_only,       &! if true, limit maxes only (for mass field)
          l_posdef_only      ! if true, limit mass only for positive definiteness
 
-      real (kind=dp), dimension(nx_block,ny_block,max_blocks) ::  &
+      real(dp), dimension(nx_block,ny_block,max_blocks) ::  &
          mass_e         ,&! mass at east edges
          mass_n           ! mass at north edges
 
@@ -444,31 +447,31 @@
          dimension(nx_block*ny_block,max_blocks) ::     &
          indxinc, indxjnc   ! compressed i/j indices
 
-      real (kind=dp), dimension (nx_block,ny_block,max_blocks) ::     &
+      real(dp), dimension (nx_block,ny_block,max_blocks) ::     &
          dpx            ,&! x coordinates of departure points at cell corners
          dpy              ! y coordinates of departure points at cell corners
 
-      real (kind=dp), dimension(nx_block,ny_block,max_blocks) :: &
+      real(dp), dimension(nx_block,ny_block,max_blocks) :: &
          mc             ,&! mass at geometric center of cell
          mx, my         ,&! limited derivative of mass wrt x and y
          mmask            ! = 1. if mass is present, = 0. otherwise
 
-      real (kind=dp),      &
+      real(dp),      &
          dimension (nx_block,ny_block,ntrace,max_blocks) ::     &
          tc             ,&! tracer values at geometric center of cell
          tx, ty         ,&! limited derivative of tracer wrt x and y
          tmask            ! = 1. if tracer is present, = 0. otherwise
 
-      real (kind=dp), dimension (nx_block,ny_block) ::     &
+      real(dp), dimension (nx_block,ny_block) ::     &
          mflxe, mflxn     ! mass transports across E and N cell edges
 
-      real (kind=dp), dimension (nx_block,ny_block,ntrace) ::     &
+      real(dp), dimension (nx_block,ny_block,ntrace) ::     &
          mtflxe, mtflxn   ! mass*tracer transports across E and N cell edges
 
-      real (kind=dp), dimension (nx_block,ny_block,ngroups) ::     &
+      real(dp), dimension (nx_block,ny_block,ngroups) ::     &
          triarea          ! area of east-edge departure triangle
 
-      real (kind=dp), dimension (nx_block,ny_block,0:nvert,ngroups) ::  &
+      real(dp), dimension (nx_block,ny_block,0:nvert,ngroups) ::  &
          xp, yp           ! x and y coordinates of special triangle points
                           ! (need 4 points for triangle integrals)
 
@@ -494,7 +497,7 @@
          edge             ! 'north' or 'east'
 
       integer :: nv, ng
-      real (kind=dp) :: h1, h2, w1
+      real(dp) :: h1, h2, w1
 
       character(len=100) :: message
 
@@ -930,19 +933,19 @@
            indxi        ,&! compressed i/j indices
            indxj
 
-      real (kind=dp), dimension (nx_block,ny_block),            &
+      real(dp), dimension (nx_block,ny_block),            &
            intent(in) ::     &
            mm            ! mean ice area in each grid cell
 
-      real (kind=dp), dimension (nx_block,ny_block),            &
+      real(dp), dimension (nx_block,ny_block),            &
            intent(out) ::     &
            mmask         ! = 1. if ice is present, else = 0.
 
-      real (kind=dp), dimension (nx_block, ny_block, ntrace),   &
+      real(dp), dimension (nx_block, ny_block, ntrace),   &
            intent(in), optional ::     &
            tm            ! mean tracer values in each grid cell
 
-      real (kind=dp), dimension (nx_block, ny_block, ntrace),   &
+      real(dp), dimension (nx_block, ny_block, ntrace),   &
            intent(out), optional ::     &
            tmask         ! = 1. if tracer is present, else = 0.
 !
@@ -1092,7 +1095,7 @@
          indxi          ,&! compressed i/j indices
          indxj
 
-      real (kind=dp), dimension (nx_block,ny_block),   &
+      real(dp), dimension (nx_block,ny_block),   &
          intent(in) ::   &
          hm             ,&! land/boundary mask, thickness (T-cell)
          htn            ,&! length of northern edge of T-cell (m)
@@ -1103,22 +1106,22 @@
          dxt            ,&! grid cell width (m)
          dyt              ! grid cell height (m)
 
-      real (kind=dp), dimension (nx_block,ny_block),   &
+      real(dp), dimension (nx_block,ny_block),   &
          intent(in) ::   &
          mm            ,&! mean value of mass field
          mmask           ! = 1. if ice is present, = 0. otherwise
 
-      real (kind=dp), dimension (nx_block,ny_block,ntrace),   &
+      real(dp), dimension (nx_block,ny_block,ntrace),   &
          intent(in), optional ::   &
          tm             ,&! mean tracer
          tmask            ! = 1. if tracer is present, = 0. otherwise
 
-      real (kind=dp), dimension (nx_block,ny_block),   &
+      real(dp), dimension (nx_block,ny_block),   &
          intent(out) ::   &
          mc             ,&! mass value at geometric center of cell
          mx, my           ! limited derivative of mass wrt x and y
 
-      real (kind=dp), dimension (nx_block,ny_block,ntrace),   &
+      real(dp), dimension (nx_block,ny_block,ntrace),   &
          intent(out), optional ::   &
          tc             ,&! tracer at geometric center of cell
          tx, ty           ! limited derivative of tracer wrt x and y
@@ -1136,15 +1139,15 @@
          ilo,ihi,jlo,jhi,&! beginning and end of physical domain
          ij               ! combined i/j horizontal index
 
-      real (kind=dp), dimension (nx_block,ny_block) ::    &
+      real(dp), dimension (nx_block,ny_block) ::    &
          mxav           ,&! x coordinate of center of mass
          myav             ! y coordinate of center of mass
 
-      real (kind=dp), dimension (nx_block,ny_block,ntrace) ::  &
+      real(dp), dimension (nx_block,ny_block,ntrace) ::  &
          mtxav          ,&! x coordinate of center of mass*tracer
          mtyav            ! y coordinate of center of mass*tracer
 
-      real (kind=dp) ::   &
+      real(dp) ::   &
          w1, w2, w3, w4, w5, w6, w7   ! work variables
 
       logical ::              &
@@ -1428,7 +1431,7 @@
           nx_block, ny_block,&! block dimensions
           nghost              ! number of ghost cells
 
-      real (kind=dp), dimension (nx_block,ny_block),   &
+      real(dp), dimension (nx_block,ny_block),   &
            intent (in) ::   &
           phi    ,&! input tracer field (mean values in each grid cell)
           cnx    ,&! x-coordinate of phi relative to geometric center of cell
@@ -1442,7 +1445,7 @@
           htn    ,&! length of northern edge of T-cell (m)
           hte      ! length of eastern edge of T-cell (m)
 
-      real (kind=dp), dimension (nx_block,ny_block),   &
+      real(dp), dimension (nx_block,ny_block),   &
           intent(out) ::   &
           gx     ,&! limited x-direction gradient
           gy       ! limited y-direction gradient
@@ -1463,7 +1466,7 @@
       integer, dimension(nx_block*ny_block) ::   &
           indxi, indxj   ! combined i/j horizontal indices
 
-      real (kind=dp) ::   &
+      real(dp) ::   &
           phi_nw, phi_n, phi_ne ,&! values of phi in 8 neighbor cells
           phi_w,         phi_e  ,&
           phi_sw, phi_s, phi_se ,&
@@ -1471,7 +1474,7 @@
           pmn, pmx     ,&! min and max value of phi among neighbor cells
           w1, w2, w3, w4 ! work variables
 
-      real (kind=dp) ::   &
+      real(dp) ::   &
           gxtmp, gytmp   ! temporary term for x- and y- limited gradient
 
       logical ::   &
@@ -1656,16 +1659,16 @@
          nx_block, ny_block,&! block dimensions
          nghost              ! number of ghost cells
 
-      real (kind=dp), intent(in) ::   &
+      real(dp), intent(in) ::   &
          dt               ! time step (s)
 
-      real (kind=dp), dimension (nx_block,ny_block), intent(in) ::   &
+      real(dp), dimension (nx_block,ny_block), intent(in) ::   &
          uvel           ,&! x-component of velocity (m/s)
          vvel           ,&! y-component of velocity (m/s)
          htn            ,&! length of north face of T-cell (m) 
          hte              ! length of east face of T-cell (m) 
 
-      real (kind=dp), dimension (nx_block,ny_block), intent(out) ::   &
+      real(dp), dimension (nx_block,ny_block), intent(out) ::   &
          dpx           ,&! coordinates of departure points (m)
          dpy             ! coordinates of departure points (m)
 
@@ -1785,17 +1788,17 @@
       character (len=5), intent(in) ::   &
          edge             ! 'north' or 'east'
 
-      real (kind=dp), dimension(nx_block,ny_block), intent(in) ::  &
+      real(dp), dimension(nx_block,ny_block), intent(in) ::  &
          dpx            ,&! x coordinates of departure points at cell corners
          dpy            ,&! y coordinates of departure points at cell corners
          dxu            ,&! x dimension of U-cell (m)
          dyu              ! y dimension of U-cell (m)
 
-      real (kind=dp), dimension (nx_block,ny_block,0:nvert,ngroups),   &
+      real(dp), dimension (nx_block,ny_block,0:nvert,ngroups),   &
          intent(out) ::   &
          xp, yp           ! coordinates of triangle vertices
 
-      real (kind=dp), dimension (nx_block,ny_block,ngroups),   &
+      real(dp), dimension (nx_block,ny_block,ngroups),   &
            intent(out) ::   &
          triarea          ! area of departure triangle
 
@@ -1818,7 +1821,7 @@
                             ! if false, edgearea if determined internally
                             !  and is passed out
                           
-      real (kind=dp), dimension(nx_block,ny_block), intent(inout) ::   &
+      real(dp), dimension(nx_block,ny_block), intent(inout) ::   &
          edgearea         ! area of departure region for each edge
                           ! edgearea > 0 for eastward/northward flow
 !
@@ -1837,11 +1840,11 @@
          indxid         ,&! compressed index in i-direction
          indxjd           ! compressed index in j-direction
 
-      real (kind=dp), dimension(nx_block,ny_block) ::   &
+      real(dp), dimension(nx_block,ny_block) ::   &
          dx, dy         ,&! scaled departure points
          areafac          ! area scale factor at cell edges
 
-      real (kind=dp) ::   &
+      real(dp) ::   &
          xcl, ycl       ,&! coordinates of left corner point
                           ! (relative to midpoint of edge)
          xdl, ydl       ,&! left departure point
@@ -1870,7 +1873,7 @@
       integer, dimension (nx_block,ny_block,ngroups) ::   &
          fluxsign         ! = 1 for positive flux, -1 for negative
 
-      real (kind=dp), dimension(nx_block,ny_block) ::   &
+      real(dp), dimension(nx_block,ny_block) ::   &
          areasum          ! sum of triangle areas for a given edge
       
     !-------------------------------------------------------------------
@@ -2908,7 +2911,7 @@
            indxi ,&! compressed index in i-direction
            indxj   ! compressed index in j-direction
 
-      real (kind=dp), intent(inout),   &
+      real(dp), intent(inout),   &
            dimension (nx_block, ny_block, 0:nvert, ngroups) ::   &
            xp, yp          ! coordinates of triangle points
 !
@@ -3055,11 +3058,11 @@
            indxi ,&! compressed index in i-direction
            indxj   ! compressed index in j-direction
 
-      real (kind=dp), intent(in),   &
+      real(dp), intent(in),   &
            dimension (nx_block, ny_block, 0:nvert, ngroups) ::   &
            xp, yp           ! coordinates of triangle points
 
-      real (kind=dp), intent(in),   &
+      real(dp), intent(in),   &
            dimension (nx_block, ny_block, ngroups) ::   &
            triarea          ! triangle area
 
@@ -3068,19 +3071,19 @@
            iflux     ,&
            jflux
 
-      real (kind=dp), intent(inout),     &
+      real(dp), intent(inout),     &
            dimension (nx_block, ny_block) ::   &
            mc, mx, my
 
-      real (kind=dp), intent(out),   &
+      real(dp), intent(out),   &
            dimension (nx_block, ny_block) ::   &
            mflx
 
-      real (kind=dp), intent(in),   &
+      real(dp), intent(in),   &
            dimension (nx_block, ny_block, ntrace), optional ::   &
            tc, tx, ty
 
-      real (kind=dp), intent(out),   &
+      real(dp), intent(out),   &
            dimension (nx_block, ny_block, ntrace), optional ::   &
            mtflx
 
@@ -3094,15 +3097,15 @@
            nt, nt1       ,&! tracer indices
            ilo,ihi,jlo,jhi ! beginning and end of physical domain
 
-      real (kind=dp) ::   &
+      real(dp) ::   &
            m0, m1, m2, m3         ,&! mass field at internal points
            w0, w1, w2, w3           ! work variables
 
-      real (kind=dp), dimension (nx_block, ny_block) ::   &
+      real(dp), dimension (nx_block, ny_block) ::   &
            msum, mxsum, mysum     ,&! sum of mass, mass*x, and mass*y
            mxxsum, mxysum, myysum   ! sum of mass*x*x, mass*x*y, mass*y*y
 
-      real (kind=dp), dimension (nx_block, ny_block, ntrace) ::   &
+      real(dp), dimension (nx_block, ny_block, ntrace) ::   &
            mtsum            ,&! sum of mass*tracer
            mtxsum           ,&! sum of mass*tracer*x
            mtysum             ! sum of mass*tracer*y
@@ -3110,7 +3113,7 @@
       logical ::    &
            l_prescribed_mass  ! if true, masses at each edge are prescribed
 
-      real (kind=dp), dimension(nx_block,ny_block),             &
+      real(dp), dimension(nx_block,ny_block),             &
            intent(in), optional ::                                    &
            mass               ! prescribed mass at edge
 
@@ -3411,20 +3414,20 @@
          tracer_type       ,&! = 1, 2, or 3 (see comments above)
          depend              ! tracer dependencies (see above)
 
-      real (kind=dp), dimension (nx_block, ny_block),   &
+      real(dp), dimension (nx_block, ny_block),   &
          intent(in) ::   &
          mflxe, mflxn   ,&! mass transport across east and north cell edges
          tarea_r          ! 1/tarea
 
-      real (kind=dp), dimension (nx_block, ny_block),   &
+      real(dp), dimension (nx_block, ny_block),   &
          intent(inout) ::   &
          mm               ! mass field (mean)
 
-      real (kind=dp), dimension (nx_block, ny_block, ntrace),   &
+      real(dp), dimension (nx_block, ny_block, ntrace),   &
          intent(in), optional ::   &
          mtflxe, mtflxn   ! mass*tracer transport across E and N cell edges
 
-      real (kind=dp), dimension (nx_block, ny_block, ntrace),   &
+      real(dp), dimension (nx_block, ny_block, ntrace),   &
          intent(inout), optional ::   &
          tm               ! tracer fields
 
@@ -3442,10 +3445,10 @@
          nt, nt1, nt2   ,&! tracer indices
          ilo,ihi,jlo,jhi  ! beginning and end of physical domain
 
-      real (kind=dp), dimension(nx_block,ny_block,ntrace) ::   &
+      real(dp), dimension(nx_block,ny_block,ntrace) ::   &
          mtold            ! old mass*tracer
 
-      real (kind=dp) ::   &
+      real(dp) ::   &
          w1, w2           ! work variables
 
       integer, dimension(nx_block*ny_block) ::   &

@@ -50,19 +50,19 @@ module stress_hom
 
         integer, intent(in) :: ewn, nsn, upn
 
-        real (kind = dp), intent(in) :: dew, dns 
-        real (kind = dp), intent(in), dimension(:)     :: sigma, stagsigma
-        real (kind = dp), intent(in), dimension(:,:,:) :: efvs, uvel, vvel
-        real (kind = dp), intent(in), dimension(:,:) :: thck, dusrfdew, &
+        real(dp), intent(in) :: dew, dns 
+        real(dp), intent(in), dimension(:)     :: sigma, stagsigma
+        real(dp), intent(in), dimension(:,:,:) :: efvs, uvel, vvel
+        real(dp), intent(in), dimension(:,:) :: thck, dusrfdew, &
                                                         dusrfdns, dthckdew, dthckdns
 
-        real (kind = dp), intent(out), dimension(:,:,:) :: tauxx, tauyy, tauxy, &
+        real(dp), intent(out), dimension(:,:,:) :: tauxx, tauyy, tauxy, &
                                                            tauxz, tauyz, tau
         !*sfp* local vars
         integer :: ew, ns, up
-        real (kind = dp), parameter :: f1 = len0 / thk0
-        real (kind = dp) :: dew2, dew4, dns2, dns4
-        real (kind = dp), dimension(upn-1) :: dup, dupm        
+        real(dp), parameter :: f1 = len0 / thk0
+        real(dp) :: dew2, dew4, dns2, dns4
+        real(dp), dimension(upn-1) :: dup, dupm        
 
         !*sfp* note that these are already defined and used in glam_strs2. If needed by PB&J 
 
@@ -144,11 +144,11 @@ module stress_hom
         implicit none
 
         integer, intent(in) :: upn
-        real (kind = dp), intent(in), dimension(:) :: varb
-        real (kind = dp), intent(in) :: thck
-        real (kind = dp), intent(in), dimension(:) :: dupm            
+        real(dp), intent(in), dimension(:) :: varb
+        real(dp), intent(in) :: thck
+        real(dp), intent(in), dimension(:) :: dupm            
 
-        real (kind = dp), dimension(size(varb)-1) :: vertideriv
+        real(dp), dimension(size(varb)-1) :: vertideriv
 
         !*sfp* 'dupm' defined as -1/(2*del_sigma), in which case it seems like 
         !there should be a '-' in front of this expression ... or, negative sign
@@ -167,12 +167,12 @@ module stress_hom
         implicit none
 
         integer, intent(in) :: upn
-        real (kind = dp), dimension(:), intent(in) :: stagsigma
-        real (kind = dp), dimension(:,:), intent(in) :: varb
-        real (kind = dp), dimension(:), intent(in) :: dvarbdz
-        real (kind = dp), intent(in) :: dusrfdx, dthckdx, grid
+        real(dp), dimension(:), intent(in) :: stagsigma
+        real(dp), dimension(:,:), intent(in) :: varb
+        real(dp), dimension(:), intent(in) :: dvarbdz
+        real(dp), intent(in) :: dusrfdx, dthckdx, grid
 
-        real (kind = dp) :: horizderiv(size(varb,1)-1)
+        real(dp) :: horizderiv(size(varb,1)-1)
 
         ! *sfp* where does this factor of 1/4 come from ... averaging? 
         horizderiv = (varb(1:upn-1,2) + varb(2:upn,2) - varb(1:upn-1,1) - varb(2:upn,1)) / grid - &
@@ -186,8 +186,8 @@ module stress_hom
 
       implicit none
 
-      real (kind = dp), dimension(:,:,:), intent(in) :: inp
-      real (kind = dp), dimension(size(inp,dim=1)) :: hsum
+      real(dp), dimension(:,:,:), intent(in) :: inp
+      real(dp), dimension(size(inp,dim=1)) :: hsum
 
       hsum = sum(sum(inp(:,:,:),dim=3),dim=2)
 

@@ -1,3 +1,8 @@
+!CLEANUP - glide_velo_higher.F90
+! This module is now decremented.
+! The new wrapper is subroutine glissade_velo_driver in module glissade_velo.F90.
+!
+! TODOs below can be ignored.
 
 #ifdef HAVE_CONFIG_H 
 #include "config.inc" 
@@ -7,12 +12,9 @@
 
 #define shapedbg(x) write(*,*) "x", shape(x)
 
-!TODO - This is a wrapper for the Payne-Price dycore.
-!       Could be moved to the top of glam_strs2.F90.
-
 module glide_velo_higher
     !Includes for the higher-order velocity computations that this calls out to
-    use glam_strs2, only: glam_velo_fordsiapstr, JFNK
+    use glam_strs2, only: glam_velo_solver, JFNK_velo_solver
 
     !globals
     use glimmer_global, only : dp
@@ -52,15 +54,11 @@ contains
         integer, dimension(model%general%ewn-1, model%general%nsn-1)  :: geom_mask_stag
         real(dp), dimension(model%general%ewn-1, model%general%nsn-1) :: latbc_norms_stag
 
-!TODO - Verify that glide_set_mask works correctly when the input field is on the velo grid.
-!       Would be safer to call a set_mask_staggered subroutine.
-
         !Compute the "geometry mask" (type of square) for the staggered grid
         call glide_set_mask(model%numerics, model%geomderv%stagthck, model%geomderv%stagtopg, &
                             model%general%ewn-1, model%general%nsn-1, model%climate%eus, &
                             geom_mask_stag) 
 
-!TODO - Are both of these calls needed?  Seems like the second should overwrite the first.
         !Augment masks with kinematic boundary condition info
         call augment_kinbc_mask(model%geometry%thkmask, model%velocity%kinbcmask)
         call augment_kinbc_mask(geom_mask_stag, model%velocity%kinbcmask)
@@ -69,7 +67,6 @@ contains
         !Compute the normal vectors to the marine margin for the staggered grid
         call glide_marine_margin_normal(model%geomderv%stagthck, geom_mask_stag, latbc_norms_stag)
 
-!TODO - Remove dynbcmask?  It is never used.
         ! save the final mask to 'dynbcmask' for exporting to netCDF output file
         model%velocity%dynbcmask = geom_mask_stag
 
@@ -80,43 +77,41 @@ contains
 
 !TODO - Can we change the name of this subroutine?
 
-!TODO - Can reduce the argument list by computing some derivatives within the subroutine.
-!       (Would be good to have a more concise interface to PP dycore.)
 !       Are all these options still supported?  Probably can remove periodic_ew/ns.
 
-           call t_startf('glam_velo_fordsiapstr')
-            call glam_velo_fordsiapstr( model%general%ewn,       model%general%nsn,                 &
-                                        model%general%upn,                                          &
-                                        model%numerics%dew,      model%numerics%dns,                &
-                                        model%numerics%sigma,    model%numerics%stagsigma,          &
-                                        model%geometry%thck,     model%geometry%usrf,               &
-                                        model%geometry%lsrf,     model%geometry%topg,               &
-                                        model%geomderv%dthckdew, model%geomderv%dthckdns,           &
-                                        model%geomderv%dusrfdew, model%geomderv%dusrfdns,           &
-                                        model%geomderv%dlsrfdew, model%geomderv%dlsrfdns,           & 
-                                        model%geomderv%stagthck, model%temper%flwa*vis0/vis0_glam,  &
-                                        model%basalproc%minTauf,                                    & 
-                                        model%velocity%btraction,                               & 
-                                        geom_mask_stag,                                             &
-                                        model%options%which_ho_babc,                                &
-                                        model%options%which_ho_efvs,                                &
-                                        model%options%which_ho_resid,                               &
-                                        model%options%which_ho_nonlinear,                           &
-                                        model%options%which_ho_sparse,                              &
-                                        model%options%periodic_ew,                                  &
-                                        model%options%periodic_ns,                                  &
-                                        model%velocity%beta,                                    & 
-                                        model%velocity%uvel, model%velocity%vvel,           &
-                                        model%velocity%uflx, model%velocity%vflx,           &
-                                        model%stress%efvs )
-           call t_stopf('glam_velo_fordsiapstr')
+           call t_startf('glam_velo_solver')
+            call glam_velo_solver( model%general%ewn,       model%general%nsn,                 &
+                                   model%general%upn,                                          &
+                                   model%numerics%dew,      model%numerics%dns,                &
+                                   model%numerics%sigma,    model%numerics%stagsigma,          &
+                                   model%geometry%thck,     model%geometry%usrf,               &
+                                   model%geometry%lsrf,     model%geometry%topg,               &
+                                   model%geomderv%dthckdew, model%geomderv%dthckdns,           &
+                                   model%geomderv%dusrfdew, model%geomderv%dusrfdns,           &
+                                   model%geomderv%dlsrfdew, model%geomderv%dlsrfdns,           & 
+                                   model%geomderv%stagthck, model%temper%flwa*vis0/vis0_glam,  &
+                                   model%basalproc%minTauf,                                    & 
+                                   model%velocity%btraction,                               & 
+                                   geom_mask_stag,                                             &
+                                   model%options%which_ho_babc,                                &
+                                   model%options%which_ho_efvs,                                &
+                                   model%options%which_ho_resid,                               &
+                                   model%options%which_ho_nonlinear,                           &
+                                   model%options%which_ho_sparse,                              &
+                                   model%options%periodic_ew,                                  &
+                                   model%options%periodic_ns,                                  &
+                                   model%velocity%beta,                                    & 
+                                   model%velocity%uvel, model%velocity%vvel,           &
+                                   model%velocity%uflx, model%velocity%vflx,           &
+                                   model%stress%efvs )
+           call t_stopf('glam_velo_solver')
 
           else if ( model%options%which_ho_nonlinear == HO_NONLIN_JFNK ) then ! JFNK (solver in development...)
 
 ! noxsolve could eventually go here 
-           call t_startf('JFNK')
-            call JFNK (model, geom_mask_stag) 
-           call t_stopf('JFNK')
+           call t_startf('JFNK_velo_solver')
+            call JFNK_velo_solver (model, geom_mask_stag) 
+           call t_stopf('JFNK_velo_solver')
 
           else
               call write_log('Invalid which_ho_nonlinear option.',GM_FATAL)
@@ -190,7 +185,7 @@ contains
                 model%velocity%wvel)
          case(1)
             ! Vertical integration constrained so kinematic upper BC obeyed.
-            call wvelintg(model%velocity%uvel,                        &
+            call wvelintg(model%velocity%uvel,              &
                 model%velocity%vvel,                        &
                 model%geomderv,                             &
                 model%numerics,                             &
@@ -199,7 +194,7 @@ contains
                 model%geometry%thck,                        &
                 model%temper%  bmlt,                        &
                 model%velocity%wvel)
-            call chckwvel(model%numerics,                             &
+            call chckwvel(model%numerics,                   &
                 model%geomderv,                             &
                 model%velocity%uvel(1,:,:),                 &
                 model%velocity%vvel(1,:,:),                 &

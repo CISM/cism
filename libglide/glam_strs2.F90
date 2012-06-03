@@ -1,3 +1,8 @@
+!CLEANUP - glam_strs2.F90
+! Changed 'real (kind = dp)' to 'real(dp)'.  (Did this in other modules too.)
+! Changed glam_velo_fordsiapstr to glam_velo_solver
+! Change JFNK to JFNK_velo_solver
+!
 ! "glam_strs2.F90"
 !
 ! 3d velocity calculation based on Blatter/Pattyn, 1st-order equations, by Tony Payne (Univ.
@@ -17,11 +22,8 @@
 !TODO - This module is complex and hard to understand.
 !       In particular, there are chunks of code that are used more than once, for Picard as well as JFNK.
 !       It would be better to combine these chunks of code into subroutines that can be called
-!        from multiple places in the code.
-!       Also, it would help if there were better separation between the JFNK solver structure
-!        and the Payne-Price solver, so that the JFNK structure could be applied
-!        to other solvers (e.g., a future variational solver).
-
+!        from multiple places in the code--or even better, to remove the extra chunks of code
+!        if they are no longer needed.
 
 !***********************************************************************
 module glam_strs2
@@ -46,66 +48,66 @@ implicit none
   logical, save :: lateralboundry = .false.
   integer, dimension(6), save :: loc_latbc
 
-  real (kind = dp), allocatable, dimension(:,:,:),     save :: flwafact
-  real (kind = dp), allocatable, dimension(:),         save :: dups
-  real (kind = dp), allocatable, dimension(:,:,:,:,:), save :: corr
-  real (kind = dp), allocatable, dimension(:,:,:,:),   save :: usav
-  real (kind = dp), dimension(2),                      save :: usav_avg
-  real (kind = dp), allocatable, dimension(:,:,:),     save :: tvel
-  real (kind = dp), allocatable, dimension(:),         save :: dup, dupm
+  real(dp), allocatable, dimension(:,:,:),     save :: flwafact
+  real(dp), allocatable, dimension(:),         save :: dups
+  real(dp), allocatable, dimension(:,:,:,:,:), save :: corr
+  real(dp), allocatable, dimension(:,:,:,:),   save :: usav
+  real(dp), dimension(2),                      save :: usav_avg
+  real(dp), allocatable, dimension(:,:,:),     save :: tvel
+  real(dp), allocatable, dimension(:),         save :: dup, dupm
 
   integer, dimension(:,:), allocatable :: uindx
 
   ! regularization constant for eff. strain rate to avoid infinite visc.
   ! NOTE: would be good to explore how small this really needs to be, as 
   ! code converges much better when this value is made larger.
-  real (kind = dp), parameter :: effstrminsq = (1.0e-20_dp * tim0)**2
-  real (kind = dp) :: homotopy = 0.0
+  real(dp), parameter :: effstrminsq = (1.0d-20 * tim0)**2
+  real(dp) :: homotopy = 0.0
 
-  real (kind = dp) :: p1, p2, p3    ! variants of Glen's "n" (e.g. n, (1-n)/n)
-  real (kind = dp) :: dew2, dns2, dew4, dns4
+  real(dp) :: p1, p2, p3    ! variants of Glen's "n" (e.g. n, (1-n)/n)
+  real(dp) :: dew2, dns2, dew4, dns4
 
   ! combinations of coeffs. used in momentum balance calcs
-  real (kind = dp) :: cdxdy
-  real (kind = dp), dimension(2) :: cdxdx
-  real (kind = dp), dimension(:),   allocatable :: cdsds, cds
-  real (kind = dp), dimension(:), allocatable :: cvert, fvert
-  real (kind = dp), dimension(:,:), allocatable :: cdsdx
+  real(dp) :: cdxdy
+  real(dp), dimension(2) :: cdxdx
+  real(dp), dimension(:),   allocatable :: cdsds, cds
+  real(dp), dimension(:), allocatable :: cvert, fvert
+  real(dp), dimension(:,:), allocatable :: cdsdx
 
-  real (kind = dp), dimension(:), allocatable :: dsigmadew, dsigmadns
-  real (kind = dp), dimension(:), allocatable :: d2sigmadew2, d2sigmadns2, d2sigmadewdns
-  real (kind = dp) :: d2sigmadewdsigma, d2sigmadnsdsigma
+  real(dp), dimension(:), allocatable :: dsigmadew, dsigmadns
+  real(dp), dimension(:), allocatable :: d2sigmadew2, d2sigmadns2, d2sigmadewdns
+  real(dp) :: d2sigmadewdsigma, d2sigmadnsdsigma
 
   ! vectors of coeffs. used for switching symmetric solution subroutines between calc.
   ! of x-comp of vel or y-comp of vel
-  real (kind = dp), dimension(2), parameter ::   &
-           oneorfour = (/ 1.0_dp, 4.0_dp /),     &
-           fourorone = (/ 4.0_dp, 1.0_dp /),     &
-           oneortwo  = (/ 1.0_dp, 2.0_dp /),     &
-           twoorone  = (/ 2.0_dp, 1.0_dp /)
+  real(dp), dimension(2), parameter ::   &
+           oneorfour = (/ 1.d0, 4.d0 /),     &
+           fourorone = (/ 4.d0, 1.d0 /),     &
+           oneortwo  = (/ 1.d0, 2.d0 /),     &
+           twoorone  = (/ 2.d0, 1.d0 /)
 
-  real (kind = dp), allocatable, dimension(:,:,:), save  :: ughost 
-  real (kind = dp), allocatable, dimension(:,:,:), save  :: vghost
+  real(dp), allocatable, dimension(:,:,:), save  :: ughost 
+  real(dp), allocatable, dimension(:,:,:), save  :: vghost
 
   ! coeff. for forward differencing template, used for stress bcs at lateral boundaries
-  real (kind = dp), dimension(3), parameter ::   &
-           onesideddiff = (/ -3.0_dp, 4.0_dp, -1.0_dp /)
+  real(dp), dimension(3), parameter ::   &
+           onesideddiff = (/ -3.d0, 4.d0, -1.d0 /)
 
   ! geometric 2nd and cross-derivs
-  real (kind = dp), dimension(:,:), allocatable :: &
+  real(dp), dimension(:,:), allocatable :: &
               d2thckdew2, d2usrfdew2, d2thckdns2, d2usrfdns2, d2thckdewdns, d2usrfdewdns
 
   ! variables for plastic-till basal BC iteration using Newton method
-  real (kind = dp), dimension(:,:,:), allocatable :: velbcvect, plastic_coeff_lhs, plastic_coeff_rhs, &
+  real(dp), dimension(:,:,:), allocatable :: velbcvect, plastic_coeff_lhs, plastic_coeff_rhs, &
                                                      plastic_rhs, plastic_resid
-  real (kind = dp), dimension(:,:,:,:), allocatable :: ghostbvel
+  real(dp), dimension(:,:,:,:), allocatable :: ghostbvel
 
   ! variables for use in sparse matrix calculation
-  real (kind = dp), dimension(:), allocatable :: pcgval, rhsd, rhsx
+  real(dp), dimension(:), allocatable :: pcgval, rhsd, rhsx
   integer, dimension(:), allocatable :: pcgcol, pcgrow
   integer, dimension(2) :: pcgsize
   ! additional storage needed for off diagonal blocks when using JFNK for nonlinear iteration 
-  real (kind = dp), dimension(:), allocatable :: pcgvaluv, pcgvalvu
+  real(dp), dimension(:), allocatable :: pcgvaluv, pcgvalvu
   integer, dimension(:), allocatable :: pcgcoluv, pcgrowuv, pcgcolvu, pcgrowvu
   integer :: ct, ct2
 
@@ -117,13 +119,13 @@ implicit none
   logical, save :: calcoffdiag = .false. 
   logical, save :: inisoln = .false.      ! true only if a converged solution (velocity fields) exists
 
-  real (kind = dp) :: linearSolveTime = 0
-  real (kind = dp) :: totalLinearSolveTime = 0 ! total linear solve time
+  real(dp) :: linearSolveTime = 0
+  real(dp) :: totalLinearSolveTime = 0 ! total linear solve time
 
   ! AGS: partition information for distributed solves
   ! JEFF: Moved to module-level scope for globalIDs
   integer, allocatable, dimension(:) :: myIndices
-  real (kind = dp), allocatable, dimension(:) :: myX, myY, myZ
+  real(dp), allocatable, dimension(:) :: myX, myY, myZ
   integer, allocatable, dimension(:,:,:) :: loc2_array
   integer :: mySize = -1
 
@@ -145,7 +147,7 @@ subroutine dumpvels(name, uvel, vvel)
     implicit none
 
     character(*) :: name
-    real (kind = dp), dimension(:,:,:), intent(inout) :: uvel, vvel  ! horiz vel components: u(z), v(z)
+    real(dp), dimension(:,:,:), intent(inout) :: uvel, vvel  ! horiz vel components: u(z), v(z)
 
     if (distributed_execution()) then
        if (this_rank == 0) then
@@ -158,21 +160,18 @@ subroutine dumpvels(name, uvel, vvel)
     endif 
 end subroutine dumpvels
 
-!TODO - Can we change the name of this subroutine?
 
-subroutine glam_velo_fordsiapstr_init( ewn,   nsn,   upn,    &
-                                       dew,   dns,           &
-                                       sigma)
-
-!TODO - Change _dp to d0 for consistency
+subroutine glam_velo_init( ewn,   nsn,   upn,    &
+                           dew,   dns,           &
+                           sigma)
 
     ! Allocate arrays and initialize variables.
     implicit none
 
     integer, intent(in) :: ewn, nsn, upn
-    real (kind = dp), intent(in) :: dew, dns
+    real(dp), intent(in) :: dew, dns
 
-    real (kind = dp), dimension(:), intent(in)  :: sigma
+    real(dp), dimension(:), intent(in)  :: sigma
 
     integer :: up
 
@@ -191,20 +190,20 @@ subroutine glam_velo_fordsiapstr_init( ewn,   nsn,   upn,    &
     ! is not working, so the code will not give accurate results if the sigma coordinate is
     ! not regularly spaced. 
     dup = (/ ( (sigma(2)-sigma(1)), up = 1, upn) /)
-    dupm = - 0.25_dp / dup
+    dupm = - 0.25d0 / dup
 
 !whl - Moved stagsigma calculation to glide_setup module
-!!    stagsigma(1:upn-1) = (sigma(1:upn-1) + sigma(2:upn)) / 2.0_dp
+!!    stagsigma(1:upn-1) = (sigma(1:upn-1) + sigma(2:upn)) / 2.d0
 
     ! p1 = -1/n   - used with rate factor in eff. visc. def.
     ! p2 = (1-n)/2n   - used with eff. strain rate in eff. visc. def. 
     ! p3 = (1-n)/n
-    p1 = -1.0_dp / real(gn,dp)
-    p2 = (1.0_dp - real(gn,dp)) / (2.0_dp * real(gn,dp))
-    p3 = (1.0_dp - real(gn,dp)) / real(gn,dp)
+    p1 = -1.d0 / real(gn,dp)
+    p2 = (1.d0 - real(gn,dp)) / (2.d0 * real(gn,dp))
+    p3 = (1.d0 - real(gn,dp)) / real(gn,dp)
 
-    dew2 = 2.0_dp * dew; dns2 = 2.0_dp * dns        ! 2x the standard grid spacing
-    dew4 = 4.0_dp * dew; dns4 = 4.0_dp * dns        ! 4x the standard grid spacing
+    dew2 = 2.d0 * dew; dns2 = 2.d0 * dns        ! 2x the standard grid spacing
+    dew4 = 4.d0 * dew; dns4 = 4.d0 * dns        ! 4x the standard grid spacing
 
     allocate(dsigmadew(upn),  dsigmadns(upn))
     allocate(d2sigmadew2(upn),d2sigmadns2(upn),d2sigmadewdns(upn))
@@ -221,55 +220,53 @@ subroutine glam_velo_fordsiapstr_init( ewn,   nsn,   upn,    &
             plastic_rhs(2,ewn-1,nsn-1), plastic_resid(1,ewn-1,nsn-1) )
     allocate(ghostbvel(2,3,ewn-1,nsn-1))        !! for saving the fictious basal vels at the bed !!
 
-    plastic_coeff_rhs(:,:,:) = 0.0d0
-    plastic_coeff_lhs(:,:,:) = 0.0d0
-    plastic_rhs(:,:,:) = 0.0d0
-    plastic_resid(:,:,:) = 0.0d0
-    ghostbvel(:,:,:,:) = 0.0d0
-    velbcvect(:,:,:) = 0.0d0
+    plastic_coeff_rhs(:,:,:) = 0.d0
+    plastic_coeff_lhs(:,:,:) = 0.d0
+    plastic_rhs(:,:,:) = 0.d0
+    plastic_resid(:,:,:) = 0.d0
+    ghostbvel(:,:,:,:) = 0.d0
+    velbcvect(:,:,:) = 0.d0
 
-    flwafact = 0.0_dp
+    flwafact = 0.d0
 
      ! define constants used in various FD calculations associated with the 
      ! subroutine 'findcoefst'   
      call calccoeffsinit(upn, dew, dns)
 
-    dups = (/ (sigma(up+1) - sigma(up), up=1,upn-1), 0.0d0 /)
+    dups = (/ (sigma(up+1) - sigma(up), up=1,upn-1), 0.d0 /)
 
-end subroutine glam_velo_fordsiapstr_init
+end subroutine glam_velo_init
 
 
 !***********************************************************************
-
-!TODO - Can we change the name of this subroutine?
-!       Can remove some of the arguments (e.g., derivatives, if we compute these locally)
 
 ! Note that this is the driver subroutine, called from 'run_ho_diagnostic' in
 ! 'glide_velo_higher.F90'. In turn, 'run_ho_model' is called from 'inc_remap_driver' in
 ! 'glam.F90', and 'inc_remap_driver' is called from 'glide_tstep_ps' in 'glide.F90'.
 
-subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
-                                 dew,      dns,          &
-                                 sigma,    stagsigma,    &
-                                 thck,     usrf,         &
-                                 lsrf,     topg,         &
-                                 dthckdew, dthckdns,     &
-                                 dusrfdew, dusrfdns,     &
-                                 dlsrfdew, dlsrfdns,     &
-                                 stagthck, flwa,         &
-                                 mintauf,                &
-                                 btraction,              &
-                                 umask,                  &
-                                 whichbabc,              &
-                                 whichefvs,              &
-                                 whichresid,             &
-                                 whichnonlinear,         &
-                                 whichsparse,            &
-                                 periodic_ew,periodic_ns,&
-                                 beta,                   &
-                                 uvel,     vvel,         &
-                                 uflx,     vflx,         &
-                                 efvs )
+subroutine glam_velo_solver(ewn,      nsn,    upn,  &
+                            dew,      dns,          &
+                            sigma,    stagsigma,    &
+                            thck,     usrf,         &
+                            lsrf,     topg,         &
+                            dthckdew, dthckdns,     &
+                            dusrfdew, dusrfdns,     &
+                            dlsrfdew, dlsrfdns,     &
+                            stagthck, flwa,         &
+                            mintauf,                &
+                            btraction,              &
+                            umask,                  &
+                            whichbabc,              &
+                            whichefvs,              &
+                            whichresid,             &
+                            whichnonlinear,         &
+                            whichsparse,            &
+                            periodic_ew,periodic_ns,&
+                            beta,                   &
+                            uvel,     vvel,         &
+                            uflx,     vflx,         &
+                            efvs )
+
   use parallel
 
   implicit none
@@ -281,25 +278,23 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
   ! NOTE: 'inout' status to 'umask' should be changed to 'in' at some point, 
   ! but for now this allows for some minor internal hacks to CISM-defined mask  
 
-!TODO - Change 'kind = dp' to 'dp'
+  real(dp), intent(in) :: dew, dns
 
-  real (kind = dp), intent(in) :: dew, dns
-
-  real (kind = dp), dimension(:),     intent(in)  :: sigma, stagsigma       ! sigma coords
-  real (kind = dp), dimension(:,:),   intent(in)  :: thck, usrf, lsrf, topg ! geom vars
-  real (kind = dp), dimension(:,:),   intent(in)  :: dthckdew, dthckdns     ! thick grads
-  real (kind = dp), dimension(:,:),   intent(in)  :: dusrfdew, dusrfdns     ! upper surf grads
-  real (kind = dp), dimension(:,:),   intent(in)  :: dlsrfdew, dlsrfdns     ! basal surf grads
-  real (kind = dp), dimension(:,:),   intent(in)  :: stagthck               ! staggered thickness
-  real (kind = dp), dimension(:,:),   intent(in)  :: minTauf                ! till yield stress
-  real (kind = dp), dimension(:,:,:), intent(inout) :: btraction            ! consistent basal traction array
-  real (kind = dp), dimension(:,:,:), intent(in)  :: flwa                   ! flow law rate factor
+  real(dp), dimension(:),     intent(in)  :: sigma, stagsigma       ! sigma coords
+  real(dp), dimension(:,:),   intent(in)  :: thck, usrf, lsrf, topg ! geom vars
+  real(dp), dimension(:,:),   intent(in)  :: dthckdew, dthckdns     ! thick grads
+  real(dp), dimension(:,:),   intent(in)  :: dusrfdew, dusrfdns     ! upper surf grads
+  real(dp), dimension(:,:),   intent(in)  :: dlsrfdew, dlsrfdns     ! basal surf grads
+  real(dp), dimension(:,:),   intent(in)  :: stagthck               ! staggered thickness
+  real(dp), dimension(:,:),   intent(in)  :: minTauf                ! till yield stress
+  real(dp), dimension(:,:,:), intent(inout) :: btraction            ! consistent basal traction array
+  real(dp), dimension(:,:,:), intent(in)  :: flwa                   ! flow law rate factor
 
   ! This is the betasquared field from CISM (externally specified), and should eventually
   ! take the place of the subroutine 'calcbetasquared' below. For now, there is simply an option
   ! in the subroutine 'calcbetasquared' (case 9) to use this external, CISM specified value for
   ! the betasquared field as opposed to one of the values calculated internally.
-  real (kind = dp), dimension(:,:),   intent(in)  :: beta
+  real(dp), dimension(:,:),   intent(in)  :: beta
 
   integer, intent(in) :: whichbabc    ! options for betasquared field to use
   integer, intent(in) :: whichefvs    ! options for efvs calculation (calculate it or make it uniform)
@@ -308,16 +303,16 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
   integer, intent(in) :: whichsparse  ! options for which method for doing elliptic solve
   logical, intent(in) :: periodic_ew, periodic_ns  ! options for applying periodic bcs or not
 
-  real (kind = dp), dimension(:,:,:), intent(inout) :: uvel, vvel  ! horiz vel components: u(z), v(z)
-  real (kind = dp), dimension(:,:),   intent(out) :: uflx, vflx  ! horiz fluxs: u_bar*H, v_bar*H
-  real (kind = dp), dimension(:,:,:), intent(out) :: efvs        ! effective viscosity
+  real(dp), dimension(:,:,:), intent(inout) :: uvel, vvel  ! horiz vel components: u(z), v(z)
+  real(dp), dimension(:,:),   intent(out) :: uflx, vflx  ! horiz fluxs: u_bar*H, v_bar*H
+  real(dp), dimension(:,:,:), intent(out) :: efvs        ! effective viscosity
 
   integer :: ew, ns, up     ! counters for horiz and vert do loops
 
-  real (kind = dp), parameter :: minres = 1.0d-4    ! assume vel fields converged below this resid 
-  real (kind = dp), parameter :: NL_tol = 1.0d-06   ! to have same criterion than with JFNK
-  real (kind = dp), save, dimension(2) :: resid     ! vector for storing u resid and v resid 
-  real (kind = dp) :: plastic_resid_norm = 0.0d0    ! norm of residual used in Newton-based plastic bed iteration
+  real(dp), parameter :: minres = 1.0d-4    ! assume vel fields converged below this resid 
+  real(dp), parameter :: NL_tol = 1.0d-06   ! to have same criterion than with JFNK
+  real(dp), save, dimension(2) :: resid     ! vector for storing u resid and v resid 
+  real(dp) :: plastic_resid_norm = 0.d0    ! norm of residual used in Newton-based plastic bed iteration
 
   integer, parameter :: cmax = 300                  ! max no. of iterations
   integer :: counter, linit                         ! iteration counter, ???
@@ -325,18 +320,18 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 
   ! variables used for incorporating generic wrapper to sparse solver
   type(sparse_matrix_type) :: matrix
-  real (kind = dp), dimension(:), allocatable :: answer, uk_1, vk_1, F
-  real (kind = dp) :: err, L2norm, L2square, NL_target
+  real(dp), dimension(:), allocatable :: answer, uk_1, vk_1, F
+  real(dp) :: err, L2norm, L2square, NL_target
   integer :: iter, pic
   integer , dimension(:), allocatable :: g_flag ! jfl flag for ghost cells
 
   ! variables for when to stop outer loop when using Picard for nonlinear iteration 
-  real (kind = dp) :: outer_it_criterion, outer_it_target
+  real(dp) :: outer_it_criterion, outer_it_target
 
   ! variables for debugging output JEFF
   character(3) :: loopnum
   character(3) :: looptime
-  real (kind = dp) :: multiplier
+  real(dp) :: multiplier
 
  call t_startf("PICARD_pre")
   ! RN_20100125: assigning value for whatsparse, which is needed for putpcgc()
@@ -344,8 +339,6 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 
   ! assign value for nonlinear iteration flag
   nonlinear = whichnonlinear
-
-!TODO - Compute other derivatives (stagthck, etc.) here instead of passing them in?
 
 !TODO - Note: d2usrfdew2 and d2usrfdns2 are needed at all locally owned velocity points.
 !       I am not sure where and why the upwind 2nd derivatives are computed.
@@ -392,13 +385,13 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 
   ! allocate space for storing temporary across-flow comp of velocity
   allocate(tvel(upn,ewn-1,nsn-1))
-  tvel = 0.0_dp
+  tvel = 0.d0
 
   ! allocate space for variables used by 'mindcrash' function (unstable manifold correction)
   allocate(corr(upn,ewn-1,nsn-1,2,2),usav(upn,ewn-1,nsn-1,2))
   ! and initialize them
-  corr = 0.0_dp
-  usav = 0.0_dp
+  corr = 0.d0
+  usav = 0.d0
 
   ! make an initial guess at the size of the sparse matrix
   pcgsize(2) = pcgsize(1) * 20
@@ -484,7 +477,7 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
             F(2*pcgsize(1)), g_flag(pcgsize(1)) ) ! jfl for res calc.
 
   ! set residual and iteration counter to initial values
-  resid = 1.0_dp
+  resid = 1.d0
   counter = 1
   L2norm = 1.0d20
 
@@ -885,16 +878,13 @@ subroutine glam_velo_fordsiapstr(ewn,      nsn,    upn,  &
 
   return
 
-end subroutine glam_velo_fordsiapstr
+end subroutine glam_velo_solver
 
 !***********************************************************************
 
-!TODO - Can we pass arguments explicity instead of passing 'model'?
-!       Maybe there's a good reason not to--I'd just like to understand why.
-!       If we need to pass a derived type to NOX, could we pass a smaller one
-!        that only contains what's needed for the velocity solve?
+!TODO - Can we pass arguments explicitly instead of passing 'model'?
 
-subroutine JFNK  (model,umask)
+subroutine JFNK_velo_solver  (model,umask)
 
   use parallel
 
@@ -919,11 +909,9 @@ subroutine JFNK  (model,umask)
 
 !KJE for NOX
   integer(c_int) :: xk_size
-  real (kind = dp), dimension(:), allocatable :: xk_1, xk_1_plus
-  real (kind = dp), dimension(:), allocatable :: vectx
+  real(dp), dimension(:), allocatable :: xk_1, xk_1_plus
+  real(dp), dimension(:), allocatable :: vectx
   integer ,dimension(:) ,allocatable :: gx_flag, g_flag
-
-!TODO - Change 'kind=dp' to 'dp'
 
 ! split off of derived types
 
@@ -931,23 +919,23 @@ subroutine JFNK  (model,umask)
 
 ! intent(in)
   integer :: ewn, nsn, upn
-  real (kind = dp) :: dew, dns
+  real(dp) :: dew, dns
 
-  real (kind = dp), dimension(:)     ,pointer :: sigma, stagsigma
-  real (kind = dp), dimension(:,:)   ,pointer :: thck, usrf, lsrf, topg
-  real (kind = dp), dimension(:,:)   ,pointer :: dthckdew, dthckdns
-  real (kind = dp), dimension(:,:)   ,pointer :: dusrfdew, dusrfdns
-  real (kind = dp), dimension(:,:)   ,pointer :: dlsrfdew, dlsrfdns
-  real (kind = dp), dimension(:,:)   ,pointer :: stagthck
-  real (kind = dp), dimension(:,:,:) ,pointer :: flwa
-  real (kind = dp), dimension(:,:)   ,pointer :: minTauf
-  real (kind = dp), dimension(:,:,:) ,pointer :: btraction            ! consistent basal traction array
+  real(dp), dimension(:)     ,pointer :: sigma, stagsigma
+  real(dp), dimension(:,:)   ,pointer :: thck, usrf, lsrf, topg
+  real(dp), dimension(:,:)   ,pointer :: dthckdew, dthckdns
+  real(dp), dimension(:,:)   ,pointer :: dusrfdew, dusrfdns
+  real(dp), dimension(:,:)   ,pointer :: dlsrfdew, dlsrfdns
+  real(dp), dimension(:,:)   ,pointer :: stagthck
+  real(dp), dimension(:,:,:) ,pointer :: flwa
+  real(dp), dimension(:,:)   ,pointer :: minTauf
+  real(dp), dimension(:,:,:) ,pointer :: btraction            ! consistent basal traction array
   
 !TODO - Anything to update here?
   !*sfp* This is the betasquared field from CISM (externally specified), and should eventually
   ! take the place of the subroutine 'calcbetasquared' below (for now, using this value instead
   ! will simply be included as another option within that subroutine) 
-  real (kind = dp), dimension(:,:)  ,pointer :: beta 
+  real(dp), dimension(:,:)  ,pointer :: beta 
 
   integer :: whichbabc
   integer :: whichefvs
@@ -958,13 +946,13 @@ subroutine JFNK  (model,umask)
 
 !TODO - Should the following be passed out explicitly?
 ! intent(out)
-  real (kind = dp), dimension(:,:,:) ,pointer :: uvel, vvel
-  real (kind = dp), dimension(:,:)   ,pointer :: uflx, vflx
-  real (kind = dp), dimension(:,:,:) ,pointer :: efvs
+  real(dp), dimension(:,:,:) ,pointer :: uvel, vvel
+  real(dp), dimension(:,:)   ,pointer :: uflx, vflx
+  real(dp), dimension(:,:,:) ,pointer :: efvs
 
   integer :: ew, ns, up, nele, k
 
-  real (kind = dp), parameter :: NL_tol = 1.0d-06
+  real(dp), parameter :: NL_tol = 1.0d-06
 
   integer, parameter :: img = 20, img1 = img+1
   integer :: kmax = 1000
@@ -973,13 +961,13 @@ subroutine JFNK  (model,umask)
 
 !*sfp* needed to incorporate generic wrapper to solver
   type(sparse_matrix_type) :: matrixA, matrixC, matrixtp, matrixAuv, matrixAvu
-  real (kind = dp), dimension(:), allocatable :: answer, uk_1, vk_1
-  real (kind = dp), dimension(:), allocatable :: vectp, uk_1_plus, vk_1_plus
-  real (kind = dp), dimension(:), allocatable :: dx, F, F_plus
-  real (kind = dp), dimension(:), allocatable :: wk1, wk2, rhs
-  real (kind = dp), dimension(:,:), allocatable :: vv, wk
-  real (kind = dp) :: L2norm, L2norm_wig, tol, gamma_l, epsilon,NL_target
-  real (kind = dp) :: crap
+  real(dp), dimension(:), allocatable :: answer, uk_1, vk_1
+  real(dp), dimension(:), allocatable :: vectp, uk_1_plus, vk_1_plus
+  real(dp), dimension(:), allocatable :: dx, F, F_plus
+  real(dp), dimension(:), allocatable :: wk1, wk2, rhs
+  real(dp), dimension(:,:), allocatable :: vv, wk
+  real(dp) :: L2norm, L2norm_wig, tol, gamma_l, epsilon,NL_target
+  real(dp) :: crap
   integer :: tot_its, itenb, maxiteGMRES, iout, icode
 
 !  interface
@@ -1217,6 +1205,9 @@ end if
 !==============================================================================
 
 !TODO - Anything to do here?  Is NOX now standard?
+!
+!       Should we eliminate the standalone JFNK solver?
+!       We want to maintain a serial SLAP solver for glam, but does it have to support JFNK?
 
 ! UNCOMMENT these lines to switch to NOX's JFNK
 ! AGS: To Do:  send in distributed xk_1, or myIndices array, for distributed nox
@@ -1241,13 +1232,15 @@ end if
 ! JFNK loop: calculate F(u^k-1,v^k-1)
 !==============================================================================
 
-!TODO - Can we simply skip this loop if using the Trilinos solver?
+!TODO - Remove not_parallel calls if this will always be run with SLAP?
 
   ! This do loop is only used for SLAP.  Do not parallelize.
   do k = 1, kmax
 
    call t_startf("JFNK_SLAP")
-    call not_parallel(__FILE__, __LINE__)
+
+!WHL - commenting out this call for now
+!!!    call not_parallel(__FILE__, __LINE__)
 
 !    calcoffdiag = .true.    ! save off diag matrix components
 !    calcoffdiag = .false.    ! save off diag matrix components
@@ -1278,17 +1271,15 @@ end if
 ! solve J(u^k-1,v^k-1)dx = -F(u^k-1,v^k-1) with fgmres, dx = [dv, du]  
 !==============================================================================
 
-!TODO - Add decimal points to real variables
+    rhs = -1.d0*F
 
-    rhs = -1d0*F
-
-    dx  = 0d0 ! initial guess
+    dx  = 0.d0 ! initial guess
 
     call forcing_term (k, L2norm_wig, gamma_l)
 
     tol = gamma_l * L2norm_wig ! setting the tolerance for fgmres
 
-    epsilon = 1d-07 ! for J*vector approximation
+    epsilon = 1.d-07 ! for J*vector approximation
 
     maxiteGMRES = 300
       
@@ -1467,7 +1458,8 @@ end if
  call t_stopf("JFNK_post")
 
   return
-end subroutine JFNK
+
+end subroutine JFNK_velo_solver
 
 !***********************************************************************
 
@@ -1523,23 +1515,23 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
   implicit none
 
   integer, intent(in) :: ewn, nsn, upn
-  real (kind = dp), intent(in), dimension(:)     :: stagsigma
-  real (kind = dp), intent(in), dimension(:,:,:) :: uvel, vvel, flwa
-  real (kind = dp), intent(inout), dimension(:,:,:) :: efvs
-  real (kind = dp), intent(in), dimension(:,:) :: thck, dthckdew, dusrfdew, &
+  real(dp), intent(in), dimension(:)     :: stagsigma
+  real(dp), intent(in), dimension(:,:,:) :: uvel, vvel, flwa
+  real(dp), intent(inout), dimension(:,:,:) :: efvs
+  real(dp), intent(in), dimension(:,:) :: thck, dthckdew, dusrfdew, &
                                                   dusrfdns, dthckdns
   integer, intent(in), dimension(:,:) :: mask
   integer, intent(in) :: whichefvs, counter
 
   integer :: ew, ns, up
 
-  real (kind = dp), dimension(size(efvs,1)) :: effstr, ugradup, vgradup, &
+  real(dp), dimension(size(efvs,1)) :: effstr, ugradup, vgradup, &
                                                ugradew, ugradns, vgradew, vgradns
 
   integer, dimension(2) :: mew, mns
 
   ! This is the factor 1/4(X0/H0)^2 in front of the term ((dv/dz)^2+(du/dz)^2) 
-  real (kind = dp), parameter :: f1 = 0.25_dp * (len0 / thk0)**2
+  real(dp), parameter :: f1 = 0.25d0 * (len0 / thk0)**2
 
   if (counter == 1) then
 
@@ -1565,11 +1557,11 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
 
         do ns = 2,nsn-1
         do ew = 2,ewn-1
-           if (thck(ew,ns) > 0.0_dp) then
+           if (thck(ew,ns) > 0.d0) then
               ! This is the rate factor term in the expression for the eff. visc: 1/2*A^(-1/n).
               ! If both temperature and eff. visc. live on a staggered grid in the vertical, then
               !  no vertical averaging is needed.
-              flwafact(1:upn-1,ew,ns) = 0.5_dp * flwa(1:upn-1,ew,ns)**p1
+              flwafact(1:upn-1,ew,ns) = 0.5d0 * flwa(1:upn-1,ew,ns)**p1
            end if
         end do
         end do
@@ -1578,11 +1570,11 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
 
        do ns = 2,nsn-1
        do ew = 2,ewn-1
-          if (thck(ew,ns) > 0.0_dp) then
+          if (thck(ew,ns) > 0.d0) then
              ! this is the rate factor term in the expression for the eff. visc: 1/2*A^(-1/n),
              ! which is averaged to midpoints in the vertical (i.e. it lives on a staggered 
              ! grid in the vertical, which is the case for "efvs" as well).
-             forall (up = 1:upn-1) flwafact(up,ew,ns) = 0.5_dp * (sum(flwa(up:up+1,ew,ns)) / 2.0_dp)**p1
+             forall (up = 1:upn-1) flwafact(up,ew,ns) = 0.5d0 * (sum(flwa(up:up+1,ew,ns)) / 2.d0)**p1
           end if
        end do
        end do
@@ -1602,7 +1594,7 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
 
   do ns = 2,nsn-1
       do ew = 2,ewn-1
-        if (thck(ew,ns) > 0.0_dp) then
+        if (thck(ew,ns) > 0.d0) then
     ! The hsum() is on the unstaggered grid picking up the four points.  
     ! Then there is a derivative in the vertical direction.  
             ugradup = vertideriv(upn, hsum(uvel(:,ew-1:ew,ns-1:ns)), thck(ew,ns))
@@ -1634,7 +1626,7 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
 
             ! "effstr" = eff. strain rate squared
             effstr = ugradew**2 + vgradns**2 + ugradew*vgradns + &
-                         0.25_dp * (vgradew + ugradns)**2 + &
+                         0.25d0 * (vgradew + ugradns)**2 + &
 !                         f1 * (ugradup**2 + vgradup**2)      ! make line ACTIVE for "capping" version (see note below)   
                          f1 * (ugradup**2 + vgradup**2) + effstrminsq ! make line ACTIVE for new version
 
@@ -1688,9 +1680,9 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
 !   factor is taken into account
   do ns = 2,nsn-1
       do ew = 2,ewn-1
-       if (thck(ew,ns) > 0.0_dp) then
+       if (thck(ew,ns) > 0.d0) then
 ! KJE code used to have this
-!       efvs(1:upn-1,ew,ns) = 0.5_dp * flwa(1:upn-1,ew,ns)**(-1.0_dp)
+!       efvs(1:upn-1,ew,ns) = 0.5d0 * flwa(1:upn-1,ew,ns)**(-1.d0)
         efvs(1:upn-1,ew,ns) = flwafact(1:upn-1,ew,ns)
         else
            efvs(:,ew,ns) = effstrminsq ! if the point is associated w/ no ice, set to min value
@@ -1719,10 +1711,10 @@ function vertideriv(upn, varb, thck)
   implicit none
 
   integer, intent(in) :: upn
-  real (kind = dp), intent(in), dimension(:) :: varb
-  real (kind = dp), intent(in) :: thck
+  real(dp), intent(in), dimension(:) :: varb
+  real(dp), intent(in) :: thck
 
-  real (kind = dp), dimension(size(varb)-1) :: vertideriv
+  real(dp), dimension(size(varb)-1) :: vertideriv
   !'dupm' is defined as -1/(2*del_sigma), in which case it seems like 
   ! there should be a '-' in front of this expression ... but note that
   ! the negative sign is implicit in the fact that the vertical index 
@@ -1744,15 +1736,15 @@ function horizderiv(upn,     stagsigma,   &
   implicit none
 
   integer, intent(in) :: upn
-  real (kind = dp), dimension(:), intent(in) :: stagsigma
-  real (kind = dp), dimension(:,:), intent(in) :: varb
-  real (kind = dp), dimension(:), intent(in) :: dvarbdz
-  real (kind = dp), intent(in) :: dusrfdx, dthckdx, grid
+  real(dp), dimension(:), intent(in) :: stagsigma
+  real(dp), dimension(:,:), intent(in) :: varb
+  real(dp), dimension(:), intent(in) :: dvarbdz
+  real(dp), intent(in) :: dusrfdx, dthckdx, grid
 
-  real (kind = dp) :: horizderiv(size(varb,1)-1)
+  real(dp) :: horizderiv(size(varb,1)-1)
 
   horizderiv = (varb(1:upn-1,2) + varb(2:upn,2) - varb(1:upn-1,1) - varb(2:upn,1)) / grid - &
-                dvarbdz * (dusrfdx - stagsigma * dthckdx) / 4.0_dp
+                dvarbdz * (dusrfdx - stagsigma * dthckdx) / 4.d0
 
   return
 
@@ -1868,21 +1860,21 @@ function slapsolvstr(ewn, nsn, upn, &
   implicit none
 
   integer, intent(in) :: ewn, nsn, upn
-  real (kind = dp), dimension(:,:,:), intent(in) :: vel
+  real(dp), dimension(:,:,:), intent(in) :: vel
   integer, dimension(:,:), intent(in) :: uindx
 
-  real (kind = dp), dimension(:), intent(out) :: answer
+  real(dp), dimension(:), intent(out) :: answer
 
-  real (kind = dp), dimension(size(vel,1),size(vel,2),size(vel,3)) :: slapsolvstr
+  real(dp), dimension(size(vel,1),size(vel,2),size(vel,3)) :: slapsolvstr
   integer, intent(inout) :: its
 
   integer :: ew, ns
 
-  real (kind = dp), dimension(:), allocatable :: rwork
+  real(dp), dimension(:), allocatable :: rwork
   integer, dimension(:), allocatable :: iwork
 
-  real (kind = dp), parameter :: tol = 1.0e-12_dp
-  real (kind = dp) :: err
+  real(dp), parameter :: tol = 1.0d-12
+  real(dp) :: err
 
   integer, parameter :: isym = 0, itol = 2, itmax = 100
   integer, dimension(2) :: loc
@@ -1951,7 +1943,7 @@ function slapsolvstr(ewn, nsn, upn, &
        loc = getlocrange(upn, uindx(ew,ns))
        slapsolvstr(:,ew,ns) = answer(loc(1):loc(2))
      else
-       slapsolvstr(:,ew,ns) = 0.0d0
+       slapsolvstr(:,ew,ns) = 0.d0
      end if
   end do
   end do
@@ -1974,10 +1966,10 @@ subroutine solver_preprocess( ewn, nsn, upn, uindx, matrix, answer, vel )
   implicit none
 
   integer, intent(in) :: ewn, nsn, upn
-  real (kind = dp), dimension(:,:,:), intent(in) :: vel
+  real(dp), dimension(:,:,:), intent(in) :: vel
   integer, dimension(:,:), intent(in) :: uindx
   type(sparse_matrix_type), intent(inout) :: matrix
-  real (kind = dp), dimension(:), intent(out) :: answer
+  real(dp), dimension(:), intent(out) :: answer
 
   integer :: ew, ns
   integer, dimension(2) :: loc
@@ -2023,9 +2015,9 @@ subroutine solver_postprocess( ewn, nsn, upn, pt, uindx, answrapped, ansunwrappe
 
   integer, intent(in) :: ewn, nsn, upn, pt
   integer, dimension(:,:), intent(in) :: uindx
-  real (kind = dp), dimension(:), intent(in) :: answrapped
-  real (kind = dp), dimension(upn,ewn-1,nsn-1), intent(out) :: ansunwrapped
-  real (kind = dp), dimension(:,:,:,:), intent(inout) :: ghostbvel   
+  real(dp), dimension(:), intent(in) :: answrapped
+  real(dp), dimension(upn,ewn-1,nsn-1), intent(out) :: ansunwrapped
+  real(dp), dimension(:,:,:,:), intent(inout) :: ghostbvel   
 
   integer, dimension(2) :: loc
   integer :: ew, ns
@@ -2040,7 +2032,7 @@ subroutine solver_postprocess( ewn, nsn, upn, pt, uindx, answrapped, ansunwrappe
             !! save the fictitious basal velocities for basal traction calculation !!
             ghostbvel(pt,:,ew,ns) = answrapped( loc(2)-1:loc(2)+1 )  
           else
-            ansunwrapped(:,ew,ns) = 0.0d0
+            ansunwrapped(:,ew,ns) = 0.d0
           end if
       end do
   end do
@@ -2060,9 +2052,9 @@ subroutine solver_postprocess_jfnk( ewn, nsn, upn, uindx, answrapped, ansunwrapp
    integer :: pcg1
    integer, intent(in) :: ewn, nsn, upn
    integer, dimension(:,:), intent(in) :: uindx
-   real (kind = dp), dimension(:), intent(in) :: answrapped
-   real (kind = dp), dimension(upn,ewn-1,nsn-1), intent(out) :: ansunwrappedv, ansunwrappedu
-   real (kind = dp), dimension(:,:,:,:), intent(inout) :: ghostbvel
+   real(dp), dimension(:), intent(in) :: answrapped
+   real(dp), dimension(upn,ewn-1,nsn-1), intent(out) :: ansunwrappedv, ansunwrappedu
+   real(dp), dimension(:,:,:,:), intent(inout) :: ghostbvel
 
    integer, dimension(2) :: loc
    integer :: ew, ns
@@ -2079,8 +2071,8 @@ subroutine solver_postprocess_jfnk( ewn, nsn, upn, uindx, answrapped, ansunwrapp
              ghostbvel(2,:,ew,ns) = answrapped( loc(2)-1:loc(2)+1 )
              ghostbvel(1,:,ew,ns) = answrapped( pcg1+loc(2)-1:pcg1+loc(2)+1 )
            else
-             ansunwrappedv(:,ew,ns) = 0.0d0
-             ansunwrappedu(:,ew,ns) = 0.0d0
+             ansunwrappedv(:,ew,ns) = 0.d0
+             ansunwrappedu(:,ew,ns) = 0.d0
            end if
        end do
    end do
@@ -2126,10 +2118,10 @@ subroutine forcing_term ( k, L2normk_1, gamma_l )
   implicit none
       
   integer, intent(in) :: k
-  real (kind = dp), intent(in) :: L2normk_1 ! L2 norm at k-1
-  real (kind = dp), intent(out):: gamma_l
-  real (kind = dp) :: gamma_ini, gamma_min, expo
-  real (kind = dp), save :: L2normk_2      ! L2 norm at k-2
+  real(dp), intent(in) :: L2normk_1 ! L2 norm at k-1
+  real(dp), intent(out):: gamma_l
+  real(dp) :: gamma_ini, gamma_min, expo
+  real(dp), save :: L2normk_2      ! L2 norm at k-2
 
       gamma_ini = 0.9d0
       gamma_min = 0.01d0
@@ -2162,16 +2154,17 @@ subroutine apply_precond( matrixA, matrixC, nu1, nu2, wk1, wk2, whichsparse )
   integer, intent(in) :: nu1, nu2, whichsparse
   integer :: iter
   type(sparse_matrix_type), intent(in) :: matrixA, matrixC
-  real (kind = dp), dimension(nu2), intent(in) :: wk1
-  real (kind = dp), dimension(nu2), intent(out):: wk2
-  real (kind = dp), dimension(nu1) :: answer, vectp
-  real (kind = dp) :: err
+  real(dp), dimension(nu2), intent(in) :: wk1
+  real(dp), dimension(nu2), intent(out):: wk2
+  real(dp), dimension(nu1) :: answer, vectp
+  real(dp) :: err
 
 ! precondition v component 
        
 !TODO - Add decimal points to real variables below
 
-      answer = 0d0 ! initial guess
+!      answer = 0d0 ! initial guess
+      answer = 0.d0 ! initial guess
       vectp(:) = wk1(1:nu1) ! rhs for precond v
       if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
          call sparse_easy_solve(matrixA, vectp, answer, err, iter, whichsparse, nonlinear_solver = nonlinear)
@@ -2187,7 +2180,8 @@ subroutine apply_precond( matrixA, matrixC, nu1, nu2, wk1, wk2, whichsparse )
 
 ! precondition u component 
        
-      answer = 0d0 ! initial guess
+!      answer = 0d0 ! initial guess
+      answer = 0.d0 ! initial guess
       vectp(:) = wk1(nu1+1:nu2) ! rhs for precond u
       if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
          call sparse_easy_solve(matrixC, vectp, answer, err, iter, whichsparse, nonlinear_solver = nonlinear)
@@ -2224,10 +2218,10 @@ subroutine apply_precond_nox( wk2_nox, wk1_nox, xk_size, c_ptr_to_object )  bind
   integer :: nu1, nu2, whichsparse
   integer :: iter
   type(sparse_matrix_type) :: matrixA, matrixC
-  real (kind = dp), dimension(xk_size) :: wk1
-  real (kind = dp), dimension(xk_size) :: wk2
-  real (kind = dp), allocatable, dimension(:) :: answer, vectp
-  real (kind = dp) :: err
+  real(dp), dimension(xk_size) :: wk1
+  real(dp), dimension(xk_size) :: wk2
+  real(dp), allocatable, dimension(:) :: answer, vectp
+  real(dp) :: err
 
   call c_f_pointer(c_ptr_to_object,fptr) ! convert C ptr to F ptr= resid_object
 
@@ -2249,7 +2243,8 @@ subroutine apply_precond_nox( wk2_nox, wk1_nox, xk_size, c_ptr_to_object )  bind
        
 !TODO - Add decimal points to real variables below
 
-      answer = 0d0 ! initial guess
+!      answer = 0d0 ! initial guess
+      answer = 0.d0 ! initial guess
       vectp(:) = wk1(1:nu1) ! rhs for precond v
       if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
          call sparse_easy_solve(matrixA, vectp, answer, err, iter, whichsparse, nonlinear_solver = nonlinear)
@@ -2265,7 +2260,7 @@ subroutine apply_precond_nox( wk2_nox, wk1_nox, xk_size, c_ptr_to_object )  bind
 
 ! precondition u component 
        
-      answer = 0d0 ! initial guess
+      answer = 0.d0 ! initial guess
       vectp(:) = wk1(nu1+1:nu2) ! rhs for precond u
       if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
          call sparse_easy_solve(matrixC, vectp, answer, err, iter, whichsparse, nonlinear_solver = nonlinear)
@@ -2331,20 +2326,20 @@ end subroutine reset_effstrmin
   integer  ,dimension(2)   :: pcgsize
   integer  ,dimension(:) ,allocatable :: gxf ! 0 :reg cell
   integer  ,dimension(:,:) ,allocatable :: ui, um
-  real (kind = dp) :: dew, dns
-  real (kind = dp), dimension(:)  ,pointer :: sigma, stagsigma
-  real (kind = dp), dimension(:,:) ,pointer :: thck, dusrfdew, dthckdew, dusrfdns, dthckdns, &
+  real(dp) :: dew, dns
+  real(dp), dimension(:)  ,pointer :: sigma, stagsigma
+  real(dp), dimension(:,:) ,pointer :: thck, dusrfdew, dthckdew, dusrfdns, dthckdns, &
                                          dlsrfdew, dlsrfdns, stagthck, lsrf, topg, minTauf, beta
-  real (kind = dp), dimension(:,:) ,pointer ::  d2usrfdew2, d2thckdew2, d2usrfdns2, d2thckdns2
-  real (kind = dp), dimension(:,:,:) ,pointer :: efvs, btraction
-  real (kind = dp), dimension(:,:,:) ,pointer :: uvel, vvel, flwa
+  real(dp), dimension(:,:) ,pointer ::  d2usrfdew2, d2thckdew2, d2usrfdns2, d2thckdns2
+  real(dp), dimension(:,:,:) ,pointer :: efvs, btraction
+  real(dp), dimension(:,:,:) ,pointer :: uvel, vvel, flwa
   type(sparse_matrix_type) :: matrixA, matrixC
-  real (kind = dp), dimension(:) ,allocatable :: vectx
-  real (kind = dp), dimension(:) ,allocatable :: vectp
+  real(dp), dimension(:) ,allocatable :: vectx
+  real(dp), dimension(:) ,allocatable :: vectp
 
-  real (kind = dp) :: L2square
-!  real (kind = dp), intent(inout):: L2norm
-  real (kind = dp) :: L2norm
+  real(dp) :: L2square
+!  real(dp), intent(inout):: L2norm
+  real(dp) :: L2norm
 
  call t_startf("Calc_F")
   call c_f_pointer(c_ptr_to_object,fptr) ! convert C ptr to F ptr= resid_object
@@ -2541,9 +2536,9 @@ subroutine ghost_preprocess( ewn, nsn, upn, uindx, ughost, vghost, &
   integer, intent(in) :: ewn, nsn, upn
   integer, dimension(:,:), intent(in) :: uindx
   integer, dimension(:), intent(out) :: g_flag 
-  real (kind = dp), dimension(2,ewn-1,nsn-1), intent(in) ::ughost,vghost 
-  real (kind = dp), dimension(:,:,:), intent(in) :: uvel, vvel
-  real (kind = dp), dimension(:), intent(out) :: uk_1, vk_1 
+  real(dp), dimension(2,ewn-1,nsn-1), intent(in) ::ughost,vghost 
+  real(dp), dimension(:,:,:), intent(in) :: uvel, vvel
+  real(dp), dimension(:), intent(out) :: uk_1, vk_1 
 
   integer :: ew, ns
   integer, dimension(2) :: loc
@@ -2587,9 +2582,9 @@ end subroutine ghost_preprocess
    integer, intent(in) :: ewn, nsn, upn
    integer, dimension(:,:), intent(in) :: uindx
    integer, dimension(:), intent(out) :: gx_flag
-   real (kind = dp), dimension(2,ewn-1,nsn-1), intent(in) ::ughost,vghost
-   real (kind = dp), dimension(:,:,:), intent(in) :: uvel, vvel
-   real (kind = dp), dimension(:), intent(out) :: xk_1
+   real(dp), dimension(2,ewn-1,nsn-1), intent(in) ::ughost,vghost
+   real(dp), dimension(:,:,:), intent(in) :: uvel, vvel
+   real(dp), dimension(:), intent(out) :: xk_1
 
    integer :: ew, ns, pcg1
    integer, dimension(2) :: loc
@@ -2632,8 +2627,8 @@ subroutine ghost_postprocess( ewn, nsn, upn, uindx, uk_1, vk_1, &
 
   integer, intent(in) :: ewn, nsn, upn
   integer, dimension(:,:), intent(in) :: uindx
-  real (kind = dp), dimension(:), intent(in) :: uk_1, vk_1
-  real (kind = dp), dimension(2,ewn-1,nsn-1), intent(out) :: ughost,vghost
+  real(dp), dimension(:), intent(in) :: uk_1, vk_1
+  real(dp), dimension(2,ewn-1,nsn-1), intent(out) :: ughost,vghost
 
   integer :: ew, ns
   integer, dimension(2) :: loc
@@ -2649,10 +2644,10 @@ subroutine ghost_postprocess( ewn, nsn, upn, uindx, uk_1, vk_1, &
             vghost(1,ew,ns) = vk_1(loc(1)-1) ! ghost at top
             vghost(2,ew,ns) = vk_1(loc(2)+1) ! ghost at base
           else 
-            ughost(1,ew,ns) = 0d0
-            ughost(2,ew,ns) = 0d0
-            vghost(1,ew,ns) = 0d0
-            vghost(2,ew,ns) = 0d0
+            ughost(1,ew,ns) = 0.d0
+            ughost(2,ew,ns) = 0.d0
+            vghost(1,ew,ns) = 0.d0
+            vghost(2,ew,ns) = 0.d0
           end if
       end do
   end do
@@ -2672,8 +2667,8 @@ end subroutine ghost_postprocess
 
    integer, intent(in) :: ewn, nsn, upn, pcg1
    integer, dimension(:,:), intent(in) :: uindx
-   real (kind = dp), dimension(:), intent(in) :: xk_1
-   real (kind = dp), dimension(2,ewn-1,nsn-1), intent(out) :: ughost,vghost
+   real(dp), dimension(:), intent(in) :: xk_1
+   real(dp), dimension(2,ewn-1,nsn-1), intent(out) :: ughost,vghost
    
    integer :: ew, ns
    integer, dimension(2) :: loc
@@ -2689,10 +2684,10 @@ end subroutine ghost_postprocess
              vghost(1,ew,ns) = xk_1(loc(1)-1) ! ghost at top
              vghost(2,ew,ns) = xk_1(loc(2)+1) ! ghost at base
            else 
-             ughost(1,ew,ns) = 0d0
-             ughost(2,ew,ns) = 0d0
-             vghost(1,ew,ns) = 0d0
-             vghost(2,ew,ns) = 0d0
+             ughost(1,ew,ns) = 0.d0
+             ughost(2,ew,ns) = 0.d0
+             vghost(1,ew,ns) = 0.d0
+             vghost(2,ew,ns) = 0.d0
            end if
        end do
    end do
@@ -2709,31 +2704,31 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
 
   implicit none
 
-  real (kind = dp), intent(inout), dimension(:,:,:) :: vel
+  real(dp), intent(inout), dimension(:,:,:) :: vel
   integer, intent(in) :: counter, pt, whichresid
 
-  real (kind = dp), intent(out) :: resid
+  real(dp), intent(out) :: resid
 
-  real (kind = dp), parameter :: ssthres = 5.0_dp * pi / 6.0_dp, &
-                                 critlimit = 10.0_dp / (scyr * vel0), &
-                                 small = 1.0e-16_dp
+  real(dp), parameter :: ssthres = 5.d0 * pi / 6.d0, &
+                                 critlimit = 10.d0 / (scyr * vel0), &
+                                 small = 1.0d-16
 
-  real (kind = dp), intrinsic :: abs, acos
+  real(dp), intrinsic :: abs, acos
 
-  real (kind = dp) :: temp_vel
+  real(dp) :: temp_vel
 
   integer, dimension(2), save :: new = 1, old = 2
   !JEFF integer :: locat(3)
   integer ew, ns, nr
 
   integer, dimension(size(vel,1),size(vel,2),size(vel,3)) :: vel_ne_0
-  real (kind = dp) :: sum_vel_ne_0
+  real(dp) :: sum_vel_ne_0
 
 ! Note: usav and corr initialized to zero upon allocation; following probably
 ! not necessary, but occurs only once (per nonlinear solve)
   if (counter == 1) then
-    usav(:,:,:,pt) = 0.0d0
-    corr(:,:,:,old(pt),pt) = 0.0d0
+    usav(:,:,:,pt) = 0.d0
+    corr(:,:,:,old(pt),pt) = 0.d0
   end if
 
   ! RESIDUAL CALCULATION
@@ -2749,12 +2744,12 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
 !TODO - All loops in this subroutine should be over locally owned velocity points?
 
    case(0)
-    ! resid = maxval( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
-    resid = 0.0_dp
+    ! resid = maxval( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.d0)
+    resid = 0.d0
     do ns = 1 + staggered_shalo, size(vel, 3) - staggered_nhalo
       do ew = 1 + staggered_whalo, size(vel, 2) - staggered_ehalo
         do nr = 1, size(vel, 1)
-          if (vel(nr,ew,ns) .ne. 0.0_dp) then
+          if (vel(nr,ew,ns) .ne. 0.d0) then
             resid = max(resid, abs(usav(nr,ew,ns,pt) - vel(nr,ew,ns)) / vel(nr,ew,ns))
           endif
         enddo
@@ -2763,16 +2758,16 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
 
     resid = parallel_reduce_max(resid)
     !locat is only used in diagnostic print statement below.
-    !locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
+    !locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.d0)
 
    case(1)
     ! nr = size( vel, dim=1 ) ! number of grid points in vertical ...
-    ! resid = maxval( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ), MASK = vel .ne. 0.0_dp)
-    resid = 0.0_dp
+    ! resid = maxval( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ), MASK = vel .ne. 0.d0)
+    resid = 0.d0
     do ns = 1 + staggered_shalo, size(vel, 3) - staggered_nhalo
       do ew = 1 + staggered_whalo, size(vel, 2) - staggered_ehalo
         do nr = 1, size(vel, 1) - 1
-          if (vel(nr,ew,ns) .ne. 0.0_dp) then
+          if (vel(nr,ew,ns) .ne. 0.d0) then
             resid = max(resid, abs(usav(nr,ew,ns,pt) - vel(nr,ew,ns)) / vel(nr,ew,ns))
           endif
         enddo
@@ -2781,20 +2776,20 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
 
     resid = parallel_reduce_max(resid)
     !locat = maxloc( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ),  &
-    !        MASK = vel .ne. 0.0_dp)
+    !        MASK = vel .ne. 0.d0)
 
    case(2)
     call not_parallel(__FILE__, __LINE__)
     !JEFF This has not been translated to parallel.
-    resid = 0.0_dp
+    resid = 0.d0
     nr = size( vel, dim=1 )
     vel_ne_0 = 0
-    where ( vel .ne. 0.0_dp ) vel_ne_0 = 1
+    where ( vel .ne. 0.d0 ) vel_ne_0 = 1
 
     ! include basal velocities in resid. calculation when using MEAN
     ! JEFF Compute sums across nodes in order to compute mean.
     resid = sum( abs((usav(:,:,:,pt) - vel ) / vel ), &
-            MASK = vel .ne. 0.0_dp)
+            MASK = vel .ne. 0.d0)
 
     resid = parallel_reduce_sum(resid)
     sum_vel_ne_0 = sum( vel_ne_0 )
@@ -2804,19 +2799,19 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
 
     ! ignore basal velocities in resid. calculation when using MEAN
     ! resid = sum( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ),   &
-    !           MASK = vel .ne. 0.0_dp) / sum( vel_ne_0(1:nr-1,:,:) )
+    !           MASK = vel .ne. 0.d0) / sum( vel_ne_0(1:nr-1,:,:) )
 
     ! NOTE that the location of the max residual is somewhat irrelevent here
     !      since we are using the mean resid for convergence testing
-    ! locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
+    ! locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.d0)
 
    case(3)
-    ! resid = maxval( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
-    resid = 0.0_dp
+    ! resid = maxval( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.d0)
+    resid = 0.d0
     do ns = 1 + staggered_shalo, size(vel, 3) - staggered_nhalo
       do ew = 1 + staggered_whalo, size(vel, 2) - staggered_ehalo
         do nr = 1, size(vel, 1)
-          if (vel(nr,ew,ns) .ne. 0.0_dp) then
+          if (vel(nr,ew,ns) .ne. 0.d0) then
             resid = max(resid, abs(usav(nr,ew,ns,pt) - vel(nr,ew,ns)) / vel(nr,ew,ns))
           endif
         enddo
@@ -2824,7 +2819,7 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
     enddo
 
     resid = parallel_reduce_max(resid)
-    !locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
+    !locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.d0)
 
   end select
 
@@ -2839,7 +2834,7 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
 !  if (counter > 1) then
 !    where (acos((corr(:,:,:,new(pt),pt) * corr(:,:,:,old(pt),pt)) / &
 !          (abs(corr(:,:,:,new(pt),pt)) * abs(corr(:,:,:,old(pt),pt)) + small)) > &
-!           ssthres .and. corr(:,:,:,new(pt),pt) - corr(:,:,:,old(pt),pt) /= 0.0_dp )
+!           ssthres .and. corr(:,:,:,new(pt),pt) - corr(:,:,:,old(pt),pt) /= 0.d0 )
 !      mindcrshstr = usav(:,:,:,pt) + &
 !                    corr(:,:,:,new(pt),pt) * abs(corr(:,:,:,old(pt),pt)) / &
 !                    abs(corr(:,:,:,new(pt),pt) - corr(:,:,:,old(pt),pt))
@@ -2863,7 +2858,7 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
           temp_vel = vel(nr,ew,ns)
           if (acos((corr(nr,ew,ns,new(pt),pt) * corr(nr,ew,ns,old(pt),pt)) / &
                (abs(corr(nr,ew,ns,new(pt),pt)) * abs(corr(nr,ew,ns,old(pt),pt)) + small)) > &
-              ssthres .and. corr(nr,ew,ns,new(pt),pt) - corr(nr,ew,ns,old(pt),pt) /= 0.0_dp) then
+              ssthres .and. corr(nr,ew,ns,new(pt),pt) - corr(nr,ew,ns,old(pt),pt) /= 0.d0) then
             vel(nr,ew,ns) = usav(nr,ew,ns,pt) + &
                 corr(nr,ew,ns,new(pt),pt) * abs(corr(nr,ew,ns,old(pt),pt)) / &
                     abs(corr(nr,ew,ns,new(pt),pt) - corr(nr,ew,ns,old(pt),pt))
@@ -2907,32 +2902,32 @@ function mindcrshstr2(pt,whichresid,vel,counter,resid)
   use parallel  ! Use of WHERE statements is causing inconsistencies on the halos in parallel.  Rewrite like mindcrshstr()
   implicit none
   
-  real (kind = dp), intent(in), dimension(:,:,:) :: vel
+  real(dp), intent(in), dimension(:,:,:) :: vel
   integer, intent(in) :: counter, pt, whichresid 
-  real (kind = dp), intent(out) :: resid
+  real(dp), intent(out) :: resid
   
-  real (kind = dp), dimension(size(vel,1),size(vel,2),size(vel,3)) :: mindcrshstr2
+  real(dp), dimension(size(vel,1),size(vel,2),size(vel,3)) :: mindcrshstr2
   
   integer, parameter :: start_umc = 3
-  real (kind=dp), parameter :: cvg_accel = 2.0_dp
-  real (kind = dp), parameter :: small = 1.0e-16_dp
+  real(dp), parameter :: cvg_accel = 2.d0
+  real(dp), parameter :: small = 1.0d-16
   
-  real (kind=dp) in_prod, len_new, len_old, mean_rel_diff, sig_rel_diff
-  real (kind=dp) :: theta 
-  real (kind = dp), intrinsic :: abs, acos
+  real(dp) in_prod, len_new, len_old, mean_rel_diff, sig_rel_diff
+  real(dp) :: theta 
+  real(dp), intrinsic :: abs, acos
   
   integer, dimension(2), save :: new = 1, old = 2
   integer :: locat(3)
   
   integer :: nr
   integer,      dimension(size(vel,1),size(vel,2),size(vel,3)) :: vel_ne_0
-  real(kind=dp),dimension(size(vel,1),size(vel,2),size(vel,3)) :: rel_diff
+  real(dp),dimension(size(vel,1),size(vel,2),size(vel,3)) :: rel_diff
   
   call not_parallel(__FILE__, __LINE__)
 
   if (counter == 1) then
-    usav(:,:,:,pt) = 0.0d0
-    corr(:,:,:,:,:) = 0.0d0
+    usav(:,:,:,pt) = 0.d0
+    corr(:,:,:,:,:) = 0.d0
   end if
   
   corr(:,:,:,new(pt),pt) = vel - usav(:,:,:,pt)
@@ -2972,7 +2967,7 @@ function mindcrshstr2(pt,whichresid,vel,counter,resid)
   end if
 
   if (counter == 1) then
-        usav_avg = 1.0_dp
+        usav_avg = 1.d0
   else
         usav_avg(1) = sum( abs(usav(:,:,:,1)) ) / size(vel)  ! a x-dir transport velocity scale
         usav_avg(2) = sum( abs(usav(:,:,:,2)) ) / size(vel)  ! a y-dir transport velocity scale
@@ -2989,16 +2984,16 @@ function mindcrshstr2(pt,whichresid,vel,counter,resid)
   ! case(2): use mean of abs( vel_old - vel ) / vel )
 
    case(0)
-    rel_diff = 0.0_dp
+    rel_diff = 0.d0
     vel_ne_0 = 0
-    where ( mindcrshstr2 .ne. 0.0_dp )
+    where ( mindcrshstr2 .ne. 0.d0 )
         vel_ne_0 = 1
         rel_diff = abs((usav(:,:,:,pt) - mindcrshstr2) / mindcrshstr2) &
                            * usav_avg(pt)/sqrt(sum(usav_avg ** 2.0))
     end where
 
-    resid = maxval( rel_diff, MASK = mindcrshstr2 .ne. 0.0_dp )
-    locat = maxloc( rel_diff, MASK = mindcrshstr2 .ne. 0.0_dp )
+    resid = maxval( rel_diff, MASK = mindcrshstr2 .ne. 0.d0 )
+    locat = maxloc( rel_diff, MASK = mindcrshstr2 .ne. 0.d0 )
 
 !    mean_rel_diff = sum(rel_diff) / sum(vel_ne_0)
 !    sig_rel_diff = sqrt( sum((rel_diff - mean_rel_diff) ** 2.0 )/ sum(vel_ne_0) )
@@ -3011,27 +3006,27 @@ function mindcrshstr2(pt,whichresid,vel,counter,resid)
     !**cvg*** should replace vel by mindcrshstr2 in the following lines, I belive
     nr = size( vel, dim=1 ) ! number of grid points in vertical ...
     resid = maxval( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ),  &
-                        MASK = vel .ne. 0.0_dp)
+                        MASK = vel .ne. 0.d0)
     locat = maxloc( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ),  &
-            MASK = vel .ne. 0.0_dp)
+            MASK = vel .ne. 0.d0)
 
    case(2)
     !**cvg*** should replace vel by mindcrshstr2 in the following lines, I believe
     nr = size( vel, dim=1 )
     vel_ne_0 = 0
-    where ( vel .ne. 0.0_dp ) vel_ne_0 = 1
+    where ( vel .ne. 0.d0 ) vel_ne_0 = 1
 
     ! include basal velocities in resid. calculation when using MEAN
     resid = sum( abs((usav(:,:,:,pt) - vel ) / vel ), &
-            MASK = vel .ne. 0.0_dp) / sum( vel_ne_0 )
+            MASK = vel .ne. 0.d0) / sum( vel_ne_0 )
 
     ! ignore basal velocities in resid. calculation when using MEAN
     ! resid = sum( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ),   &
-    !           MASK = vel .ne. 0.0_dp) / sum( vel_ne_0(1:nr-1,:,:) )
+    !           MASK = vel .ne. 0.d0) / sum( vel_ne_0(1:nr-1,:,:) )
 
     ! NOTE that the location of the max residual is somewhat irrelevent here
     !      since we are using the mean resid for convergence testing
-    locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.0_dp)
+    locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.d0)
 
   end select
 
@@ -3074,12 +3069,12 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
   implicit none
 
   integer, intent(in) :: ewn, nsn, upn, count, assembly
-  real (kind = dp), intent(in) :: dew, dns
-  real (kind = dp), dimension(:), intent(in) :: sigma
+  real(dp), intent(in) :: dew, dns
+  real(dp), dimension(:), intent(in) :: sigma
 
-  real (kind = dp), dimension(:,:,:), intent(in) :: efvs, thisvel, &
+  real(dp), dimension(:,:,:), intent(in) :: efvs, thisvel, &
                                                     othervel
-  real (kind = dp), dimension(:,:), intent(in) :: stagthck, thisdusrfdx,     &
+  real(dp), dimension(:,:), intent(in) :: stagthck, thisdusrfdx,     &
                                                   dusrfdew,   dthckdew,      &
                                                   d2usrfdew2, d2thckdew2,    &
                                                   dusrfdns,   dthckdns,      &
@@ -3088,19 +3083,19 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                                                   dlsrfdew,   dlsrfdns,      &
                                                   thck, lsrf, topg
 
-  real (kind = dp), dimension(:,:), intent(in) :: minTauf
-  real (kind = dp), dimension(:,:), intent(in) :: beta
-  real (kind = dp), dimension(:,:,:), intent(in) :: flwa
-  real (kind = dp), dimension(:,:,:), intent(inout) :: btraction
+  real(dp), dimension(:,:), intent(in) :: minTauf
+  real(dp), dimension(:,:), intent(in) :: beta
+  real(dp), dimension(:,:,:), intent(in) :: flwa
+  real(dp), dimension(:,:,:), intent(inout) :: btraction
 
   integer, dimension(:,:), intent(in) :: mask, uindx
   integer, intent(in) :: pt, whichbabc
 
-  real (kind = dp), dimension(ewn-1,nsn-1) :: betasquared
-  real (kind = dp), dimension(2,2,2) :: localefvs
-  real (kind = dp), dimension(3,3,3) :: localothervel
-  real (kind = dp), dimension(upn) :: boundaryvel
-  real (kind = dp) :: flwabar
+  real(dp), dimension(ewn-1,nsn-1) :: betasquared
+  real(dp), dimension(2,2,2) :: localefvs
+  real(dp), dimension(3,3,3) :: localothervel
+  real(dp), dimension(upn) :: boundaryvel
+  real(dp) :: flwabar
 
   integer, dimension(6,2) :: loc2
   integer, dimension(2) :: loc2plusup
@@ -3149,6 +3144,7 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
   ! JEFFLOC Do I need to restrict to non-halo grid points?
   do ns = 1+staggered_shalo,size(mask,2)-staggered_nhalo
     do ew = 1+staggered_whalo,size(mask,1)-staggered_ehalo
+
      ! Calculate the depth-averaged value of the rate factor, needed below when applying an ice shelf
      ! boundary condition (complicated code so as not to include funny values at boundaries ...
      ! ... kind of a mess and could be redone or made into a function or subroutine).
@@ -3159,8 +3155,9 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
 !           tau0 = rhoi*grav*thk0
 !           vel0 = 500.0 / scyr
 !           len0 = 200.0d3
-!           thk0 = 2000.0d0
+!           thk0 = 2000.d0
 ! Does the threshold need to be divided by vis0glam?
+
      flwabar = ( sum( flwa(:,ew,ns), 1, flwa(1,ew,ns)*vis0_glam < 1.0d-10 )/real(upn) + &
                sum( flwa(:,ew,ns+1), 1, flwa(1,ew,ns+1)*vis0_glam < 1.0d-10 )/real(upn)  + &
                sum( flwa(:,ew+1,ns), 1, flwa(1,ew+1,ns)*vis0_glam < 1.0d-10 )/real(upn)  + &
@@ -3173,9 +3170,9 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
     loc2(1,:) = loc2_array(ew,ns,:)
 
 ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-!TODO - Not sure the COMP_DOMAIN_BND condition is needed.
-!       Sometimes we may want to solve for the velocity at the domain boundary.
-
+!TODO - Sometimes we may want to solve for the velocity at the domain boundary,
+!       or at a land margin.  Can we allow this?
+!       
     if ( GLIDE_HAS_ICE(mask(ew,ns)) .and. .not. &
          GLIDE_IS_COMP_DOMAIN_BND(mask(ew,ns)) .and. .not. &
          GLIDE_IS_MARGIN(mask(ew,ns)) .and. .not. &
@@ -3294,21 +3291,27 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
              GLIDE_IS_THIN(mask(ew,ns)) ) &
     then
 !    print *, 'At a NON-SHELF boundary ... ew, ns = ', ew, ns
+
+!WHLdebug
+!    print*, ' '
+!    print*, 'At a NON-SHELF boundary ... ew, ns = ', ew, ns
+!    print*, 'LAND_MARGIN =', GLIDE_IS_LAND_MARGIN(mask(ew,ns))
+
 ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
         ! Put specified value for vel on rhs. NOTE that this is NOT zero by default 
         ! unless the initial guess is zero. It will be set to whatever the initial value 
         ! for the vel at location up,ew,ns is in the initial array!
         loc2plusup = loc2(1,:)
-        call valueset(0.0_dp, loc2plusup)
+        call valueset(0.d0, loc2plusup)
 
         loc2plusup = loc2(1,:) + upn + 1
-        call valueset(0.0_dp, loc2plusup)
+        call valueset(0.d0, loc2plusup)
 
         do up = up_start, upn
            loc2plusup = loc2(1,:) + up
            call valueset( thisvel(up,ew,ns), loc2plusup )     ! vel at margin set to initial value 
-!           call valueset( 0.0_dp )                ! vel at margin set to 0 
+!           call valueset( 0.d0 )                ! vel at margin set to 0 
         end do
 
     end if
@@ -3348,45 +3351,45 @@ subroutine bodyset(ew,  ns,  up,           &
 
   integer, intent(in) :: ewn, nsn, upn
   integer, intent(in) :: ew, ns, up
-  real (kind = dp), intent(in) :: dew, dns
+  real(dp), intent(in) :: dew, dns
   integer, intent(in) :: pt, whichbabc, assembly
   integer, dimension(ewn,nsn,2), intent(in) :: loc2_array
   integer, dimension(6,2), intent(in) :: loc2
 
-  real (kind = dp), dimension(:,:), intent(in) :: stagthck
-  real (kind = dp), dimension(:,:), intent(in) :: dusrfdew, dusrfdns
-  real (kind = dp), dimension(:,:), intent(in) :: dlsrfdew, dlsrfdns
-  real (kind = dp), dimension(:,:), intent(in) :: thisdusrfdx
-  real (kind = dp), dimension(2,2,2), intent(in) :: local_efvs
+  real(dp), dimension(:,:), intent(in) :: stagthck
+  real(dp), dimension(:,:), intent(in) :: dusrfdew, dusrfdns
+  real(dp), dimension(:,:), intent(in) :: dlsrfdew, dlsrfdns
+  real(dp), dimension(:,:), intent(in) :: thisdusrfdx
+  real(dp), dimension(2,2,2), intent(in) :: local_efvs
   ! "local_othervel" is the other vel component (i.e. u when v is being calc and vice versa),
   ! which is taken as a known value (terms involving it are moved to the RHS and treated as sources)
-  real (kind = dp), dimension(3,3,3), intent(in) :: local_othervel
-  real (kind = dp), intent(in) :: betasquared
-  real (kind = dp), dimension(:,:,:), intent(inout) :: btraction
-  real (kind = dp), intent(in), optional :: local_thisvel
-  real (kind = dp), intent(in), optional :: abar
+  real(dp), dimension(3,3,3), intent(in) :: local_othervel
+  real(dp), intent(in) :: betasquared
+  real(dp), dimension(:,:,:), intent(inout) :: btraction
+  real(dp), intent(in), optional :: local_thisvel
+  real(dp), intent(in), optional :: abar
   integer, intent(in), optional :: cc
 
   ! storage space for coefficients that go w/ the discretization at the local point up, ew, ns.
   ! Note that terms other than 'g' are used for storing particular parts needed for calculation
   ! of the basal traction vector.
-  real (kind = dp), dimension(3,3,3) :: g, h, g_cros, g_vert, g_norm, g_vel_lhs, g_vel_rhs
+  real(dp), dimension(3,3,3) :: g, h, g_cros, g_vert, g_norm, g_vel_lhs, g_vel_rhs
 
   ! source term for the rhs when using ice shelf lateral boundary condition,
   ! e.g. source = rho*g*H/(2*Neff) * ( 1 - rho_i / rho_w ) for ice shelf
-  real (kind = dp) :: source
+  real(dp) :: source
 
-  real (kind = dp) :: slopex, slopey    ! local sfc (or bed) slope terms
+  real(dp) :: slopex, slopey    ! local sfc (or bed) slope terms
 
   ! lateral boundary normal and vector to indicate use of forward
   ! or bacward one-sided diff. when including specified stress lateral bcs
-  real (kind = dp), dimension(2) :: fwdorbwd, normal
+  real(dp), dimension(2) :: fwdorbwd, normal
 
-  real (kind = dp) :: nz   ! z dir normal vector component at sfc or bed (takes diff value for each)
+  real(dp) :: nz   ! z dir normal vector component at sfc or bed (takes diff value for each)
 
   integer, dimension(2) :: bcflag  ! indicates choice of sfc and basal bcs ...
 
-  real (kind = dp) :: scalebabc
+  real(dp) :: scalebabc
 
   integer, dimension(2) :: loc2plusup
 
@@ -3399,7 +3402,7 @@ subroutine bodyset(ew,  ns,  up,           &
 
   ! if at sfc or bed, source due to seawater pressure is 0 and bc normal vector
   ! should contain sfc/bed slope components, e.g. (-ds/dx, -ds/dy, 1) or (db/dx, db/dy, -1)
-     source = 0.0_dp
+     source = 0.d0
 
      call getlatboundinfo( ew,  ns,  up,                                 &
                            ewn, nsn, upn,                                &
@@ -3411,7 +3414,7 @@ subroutine bodyset(ew,  ns,  up,           &
         if( up == 1 )then                ! specify necessary variables and flags for free sfc
            bcflag = (/1,0/)
            loc2plusup = loc2(1,:) + up - 1   ! reverse the sparse matrix / rhs vector row index by 1 ...
-           slopex = -dusrfdew(ew,ns); slopey = -dusrfdns(ew,ns); nz = 1.0_dp
+           slopex = -dusrfdew(ew,ns); slopey = -dusrfdns(ew,ns); nz = 1.d0
         else                             ! specify necessary variables and flags for basal bc
    
            if( whichbabc == 6 )then
@@ -3432,12 +3435,12 @@ subroutine bodyset(ew,  ns,  up,           &
            end if   
 
            loc2plusup = loc2(1,:) + up + 1   ! advance the sparse matrix / rhs row vector index by 1 ...
-           slopex = dlsrfdew(ew,ns); slopey = dlsrfdns(ew,ns); nz = -1.0_dp
+           slopex = dlsrfdew(ew,ns); slopey = dlsrfdns(ew,ns); nz = -1.d0
 
         end if
 
 !        !! Hack to avoid bad sfc and basal bc normal vectors !!
-        slopex = 0.0d0; slopey = 0.0d0
+        slopex = 0.d0; slopey = 0.d0
 
         g = normhorizmainbc_lat(dew,           dns,             &
                                 slopex,        slopey,          &
@@ -3532,11 +3535,11 @@ subroutine bodyset(ew,  ns,  up,           &
     ! --------------------------------------------------------------------------------------
     ! See eq. 2, Pattyn+, 2006, JGR v.111; eq. 8, Vieli&Payne, 2005, JGR v.110). Note that this 
     ! contains the 1d assumption that ice is not spreading lateraly !(assumes dv/dy = 0 for u along flow)
-    source = abar * vis0_glam * ( 1.0_dp/4.0_dp * rhoi * grav * stagthck(ew,ns)*thk0 * ( 1.0_dp - rhoi/rhoo))**3.0_dp
+    source = abar * vis0_glam * ( 1.d0/4.d0 * rhoi * grav * stagthck(ew,ns)*thk0 * ( 1.d0 - rhoi/rhoo))**3.d0
 
     ! multiply by 4 so that case where v=0, du/dy = 0, LHS gives: du/dx = du/dx|_shelf 
     ! (i.e. LHS = 4*du/dx, requires 4*du/dx_shelf)
-    source = source * 4.0_dp
+    source = source * 4.d0
 
     ! split source based on the boundary normal orientation and non-dimensinoalize
     ! Note that it is not really appropriate to apply option (1) to 2d flow, since terms other than du/dx in 
@@ -3552,7 +3555,7 @@ subroutine bodyset(ew,  ns,  up,           &
     ! --------------------------------------------------------------------------------------
 
 !TODO - Cancelation here if tau0 = rhoi*grav?
-    source = (rhoi*grav*stagthck(ew,ns)*thk0) / tau0 / 2.0_dp * ( 1.0_dp - rhoi / rhoo )
+    source = (rhoi*grav*stagthck(ew,ns)*thk0) / tau0 / 2.d0 * ( 1.d0 - rhoi / rhoo )
 
     ! terms after "/" below count number of non-zero efvs cells ... needed for averaging of the efvs at boundary 
 !SCALING - Make sure inequality makes sense with scaling removed
@@ -3642,7 +3645,7 @@ subroutine bodyset(ew,  ns,  up,           &
         if( up == 1 )then                ! specify necessary variables and flags for free sfc
            bcflag = (/1,0/)
            loc2plusup = loc2(1,:) + up - 1   ! reverse the sparse matrix / rhs vector row index by 1 ...
-           slopex = -dusrfdew(ew,ns); slopey = -dusrfdns(ew,ns); nz = 1.0_dp
+           slopex = -dusrfdew(ew,ns); slopey = -dusrfdns(ew,ns); nz = 1.d0
         else                             ! specify necessary variables and flags for basal bc
 
            if( whichbabc == 6 )then
@@ -3663,7 +3666,7 @@ subroutine bodyset(ew,  ns,  up,           &
            end if
            
            loc2plusup = loc2(1,:) + up + 1   ! advance the sparse matrix / rhs row vector index by 1 ...
-           slopex = dlsrfdew(ew,ns); slopey = dlsrfdns(ew,ns); nz = -1.0_dp
+           slopex = dlsrfdew(ew,ns); slopey = dlsrfdns(ew,ns); nz = -1.d0
         
         end if
 
@@ -3707,7 +3710,7 @@ subroutine bodyset(ew,  ns,  up,           &
                                              velbc=velbcvect(pt,ew,ns),     &
                                              plastic_coeff=plastic_coeff_rhs(pt,ew,ns) ) &
                                               * local_othervel )            &
-                                             + plastic_rhs(pt,ew,ns) / (sum(local_efvs(2,:,:))/4.0d0) &
+                                             + plastic_rhs(pt,ew,ns) / (sum(local_efvs(2,:,:))/4.d0) &
                                              *(len0/thk0) / scalebabc
 
          if( nonlinear == HO_NONLIN_JFNK .and. calcoffdiag )then
@@ -3766,8 +3769,8 @@ subroutine bodyset(ew,  ns,  up,           &
 
 !HALO - Since ew and ns are locally owned velocity points, we will have btraction at all such points.
 
-       btraction(pt,ew,ns) = sum( (g_norm+g_vert)*g_vel_lhs*thk0/len0*sum(local_efvs(2,:,:))/4.0d0 ) &
-                           - sum( g_cros*g_vel_rhs*thk0/len0*sum(local_efvs(2,:,:))/4.0d0 )
+       btraction(pt,ew,ns) = sum( (g_norm+g_vert)*g_vel_lhs*thk0/len0*sum(local_efvs(2,:,:))/4.d0 ) &
+                           - sum( g_cros*g_vel_rhs*thk0/len0*sum(local_efvs(2,:,:))/4.d0 )
 
      end if
 
@@ -3789,10 +3792,10 @@ subroutine valueset(local_value, loc2plusup)
 
   implicit none
 
-  real (kind = dp), intent(in) :: local_value
+  real(dp), intent(in) :: local_value
   integer, dimension(2), intent(in) :: loc2plusup
 
-  call putpcgc(1.0_dp,loc2plusup(1),loc2plusup(1))
+  call putpcgc(1.d0,loc2plusup(1),loc2plusup(1))
   rhsd(loc2plusup(2)) = local_value
 
   return
@@ -3809,19 +3812,19 @@ subroutine calccoeffsinit (upn, dew, dns)
   implicit none
 
   integer, intent(in) :: upn
-  real (kind = dp), intent(in) :: dew, dns
+  real(dp), intent(in) :: dew, dns
 
   ! this coefficient used in finite differences of vertical terms.
-  cvert(:) = (len0**2) / (4.0_dp * thk0**2 * dup**2)
+  cvert(:) = (len0**2) / (4.d0 * thk0**2 * dup**2)
 
   ! these coefficients used in finite differences of horizontal terms
   ! for d/dx(fdu/dx), d/dx(fdu/dy), d/dsigma(fdu/dx), d/dx(fdu/dsigma) and
   ! du/dsigma. 
-  cdxdx = (/ 0.25_dp / dew**2, 0.25_dp / dns**2 /)
-  cdsdx(:,1) = 0.0625_dp / (dew * dup); cdsdx(:,2) = 0.0625_dp / (dns * dup);
-  cdsds = 0.25_dp / (dup * dup)
-  cds = 0.0625_dp / dup
-  cdxdy = 0.0625_dp / (dew * dns)
+  cdxdx = (/ 0.25d0 / dew**2, 0.25d0 / dns**2 /)
+  cdsdx(:,1) = 0.0625d0 / (dew * dup); cdsdx(:,2) = 0.0625d0 / (dns * dup);
+  cdsds = 0.25d0 / (dup * dup)
+  cds = 0.0625d0 / dup
+  cdxdy = 0.0625d0 / (dew * dns)
 
   return
 
@@ -3844,8 +3847,8 @@ subroutine calccoeffs(upn,        sigma,                    &
   implicit none
 
   integer, intent(in) :: upn
-  real (kind = dp), dimension(:), intent(in) :: sigma
-  real (kind = dp), intent(in) :: stagthck, dusrfdew, dusrfdns, dthckdew, dthckdns, &
+  real(dp), dimension(:), intent(in) :: sigma
+  real(dp), intent(in) :: stagthck, dusrfdew, dusrfdns, dthckdew, dthckdns, &
                                   d2usrfdew2, d2usrfdns2, d2usrfdewdns, &
                                   d2thckdew2, d2thckdns2, d2thckdewdns
 
@@ -3888,9 +3891,9 @@ function calcdsigmadx(upn,     sigma,    &
   implicit none
 
   integer, intent(in) :: upn
-  real (kind = dp), dimension(:), intent(in) :: sigma
-  real (kind = dp), intent(in) :: stagthck, dusrfdx, dthckdx
-  real (kind = dp), dimension(upn) :: calcdsigmadx
+  real(dp), dimension(:), intent(in) :: sigma
+  real(dp), intent(in) :: stagthck, dusrfdx, dthckdx
+  real(dp), dimension(upn) :: calcdsigmadx
 
   calcdsigmadx = (dusrfdx - sigma * dthckdx) / stagthck
 
@@ -3909,14 +3912,14 @@ function calcd2sigmadxdy(upn,        sigma,       &
   implicit none
 
   integer, intent(in) :: upn
-  real (kind = dp), dimension(:), intent(in) :: sigma
-  real (kind = dp), intent(in) :: d2usrfdxdy, d2thckdxdy, dusrfdx, dusrfdy, &
+  real(dp), dimension(:), intent(in) :: sigma
+  real(dp), intent(in) :: d2usrfdxdy, d2thckdxdy, dusrfdx, dusrfdy, &
                                   dthckdx, dthckdy, stagthck
-  real (kind = dp), dimension(upn) :: calcd2sigmadxdy
+  real(dp), dimension(upn) :: calcd2sigmadxdy
 
   calcd2sigmadxdy = (stagthck * d2usrfdxdy - &
                      dusrfdx * dthckdy - dusrfdy * dthckdx + &
-                     sigma * (2.0_dp * dthckdx * dthckdy - &
+                     sigma * (2.d0 * dthckdx * dthckdy - &
                      stagthck * d2thckdxdy)) / stagthck**2
 
   return
@@ -3929,8 +3932,8 @@ function calcd2sigmadxdsigma(dthckdx,stagthck)
 
   implicit none
 
-  real (kind = dp), intent(in) :: dthckdx, stagthck
-  real (kind = dp) :: calcd2sigmadxdsigma
+  real(dp), intent(in) :: dthckdx, stagthck
+  real(dp) :: calcd2sigmadxdsigma
 
   calcd2sigmadxdsigma = - dthckdx / stagthck
 
@@ -3944,9 +3947,9 @@ function vertimain(efvs,up)
 
   implicit none
 
-  real (kind = dp), dimension(2), intent(in) :: efvs
+  real(dp), dimension(2), intent(in) :: efvs
 
-  real (kind = dp), dimension(3) :: vertimain
+  real(dp), dimension(3) :: vertimain
 
   integer, intent(in) :: up
 
@@ -3971,15 +3974,15 @@ function normhorizmain(which,up,efvs)
   implicit none
 
   integer, intent(in) :: which, up
-  real (kind = dp), dimension(:,:,:), intent(in) :: efvs
+  real(dp), dimension(:,:,:), intent(in) :: efvs
 
-  real (kind = dp), dimension(3,3,3) :: normhorizmain
-  real (kind = dp), dimension(3,3,3) :: g, h
-  real (kind = dp), dimension(2) :: sumefvsup, sumefvsew, sumefvsns
-  real (kind = dp) :: sumefvs
+  real(dp), dimension(3,3,3) :: normhorizmain
+  real(dp), dimension(3,3,3) :: g, h
+  real(dp), dimension(2) :: sumefvsup, sumefvsew, sumefvsns
+  real(dp) :: sumefvs
 
-  g = 0.0_dp
-  h = 0.0_dp
+  g = 0.d0
+  h = 0.d0
 
   sumefvsup = hsum(efvs)
   sumefvsew = sum(sum(efvs,3),1)
@@ -4021,15 +4024,15 @@ function croshorizmain(which,up,efvs)
   implicit none
 
   integer, intent(in) :: which, up
-  real (kind = dp), dimension(:,:,:), intent(in) :: efvs
+  real(dp), dimension(:,:,:), intent(in) :: efvs
 
-  real (kind = dp), dimension(3,3,3) :: croshorizmain
-  real (kind = dp), dimension(3,3,3) :: g = 0.0_dp, h = 0.0_dp
-  real (kind = dp), dimension(2) :: sumefvsup, sumefvsew, sumefvsns
-  real (kind = dp) :: sumefvs
+  real(dp), dimension(3,3,3) :: croshorizmain
+  real(dp), dimension(3,3,3) :: g = 0.d0, h = 0.d0
+  real(dp), dimension(2) :: sumefvsup, sumefvsew, sumefvsns
+  real(dp) :: sumefvs
 
-  g = 0.0_dp
-  h = 0.0_dp
+  g = 0.d0
+  h = 0.d0
 
   sumefvsup = hsum(efvs)
   sumefvsew = sum(sum(efvs,3),1)
@@ -4071,25 +4074,25 @@ function vertimainbc(thck, bcflag, dup, efvs, betasquared, g_vert, nz, plastic_c
 
     implicit none
 
-    real (kind = dp), intent(in) :: dup, thck, betasquared 
-    real (kind = dp), intent(in) :: nz                      ! sfc normal vect comp in z-dir
-    real (kind = dp), intent(in), dimension(2,2,2) :: efvs
-    real (kind = dp), intent(out), dimension(3,3,3) :: g_vert
-    real (kind = dp), optional, intent(in) :: plastic_coeff
+    real(dp), intent(in) :: dup, thck, betasquared 
+    real(dp), intent(in) :: nz                      ! sfc normal vect comp in z-dir
+    real(dp), intent(in), dimension(2,2,2) :: efvs
+    real(dp), intent(out), dimension(3,3,3) :: g_vert
+    real(dp), optional, intent(in) :: plastic_coeff
     integer, intent(in), dimension(2) :: bcflag
 
-    real (kind = dp) :: c
-    real (kind = dp), dimension(3) :: vertimainbc
+    real(dp) :: c
+    real(dp), dimension(3) :: vertimainbc
 
-    c = 0.0_dp
-    g_vert = 0.0_dp
+    c = 0.d0
+    g_vert = 0.d0
 
     ! for higher-order FREE SURFACE B.C. for x ('which'=1) or y ('which'=2) direction ...
     if( bcflag(1) == 1 )then
 
            c = nz / thck / (2*dup) * (len0**2 / thk0**2)   ! value of coefficient
 
-           vertimainbc(:) = 0.0_dp
+           vertimainbc(:) = 0.d0
            vertimainbc(3) = -c
            vertimainbc(1) = c
            vertimainbc(2) = vertimainbc(3) + vertimainbc(1) ! should = 0
@@ -4103,7 +4106,7 @@ function vertimainbc(thck, bcflag, dup, efvs, betasquared, g_vert, nz, plastic_c
 
             ! last set of terms is mean visc. of ice nearest to the bed
             vertimainbc(2) = vertimainbc(2)   &
-                           + ( betasquared / ( sum( efvs(2,:,:) ) / 4.0_dp ) ) * (len0 / thk0)
+                           + ( betasquared / ( sum( efvs(2,:,:) ) / 4.d0 ) ) * (len0 / thk0)
     end if
 
     ! for higher-order BASAL B.C. w/ plastic yield stress iteration ...
@@ -4111,7 +4114,7 @@ function vertimainbc(thck, bcflag, dup, efvs, betasquared, g_vert, nz, plastic_c
 
              ! last set of terms is mean visc. of ice nearest to the bed
             vertimainbc(2) = vertimainbc(2)   &
-                           + ( plastic_coeff / ( sum( efvs(2,:,:) ) / 4.0_dp ) ) * (len0 / thk0)
+                           + ( plastic_coeff / ( sum( efvs(2,:,:) ) / 4.d0 ) ) * (len0 / thk0)
     end if
 
     ! for higher-order BASAL B.C. U=V=0, in x ('which'=1) or y ('which'=2) direction ...
@@ -4121,7 +4124,7 @@ function vertimainbc(thck, bcflag, dup, efvs, betasquared, g_vert, nz, plastic_c
     else if( bcflag(1) == 0 )then
 
            ! if u,v set to 0, there are no coeff. assoc. with du/digma terms ...
-           vertimainbc(:) = 0.0_dp
+           vertimainbc(:) = 0.d0
 
     end if
 
@@ -4158,18 +4161,18 @@ function normhorizmainbc(dew,       dns,        &
 
     implicit none
 
-    real (kind = dp), intent(in) :: dew, dns
-    real (kind = dp), intent(in) :: dusrfdew, dusrfdns, dsigmadew, dsigmadns, dup
-    real (kind = dp), intent(in), dimension(2) :: oneorfour, fourorone
-    real (kind = dp), dimension(3,3,3) :: normhorizmainbc
-    real (kind = dp), dimension(3,3,3) :: g
-    real (kind = dp) :: c
+    real(dp), intent(in) :: dew, dns
+    real(dp), intent(in) :: dusrfdew, dusrfdns, dsigmadew, dsigmadns, dup
+    real(dp), intent(in), dimension(2) :: oneorfour, fourorone
+    real(dp), dimension(3,3,3) :: normhorizmainbc
+    real(dp), dimension(3,3,3) :: g
+    real(dp) :: c
 
     integer, intent(in) :: which
     integer, intent(in), dimension(2) :: bcflag
 
-    c = 0.0_dp
-    g(:,:,:) = 0.0_dp
+    c = 0.d0
+    g(:,:,:) = 0.d0
 
     ! for higher-order FREE SURFACE B.C. for x ('which'=1) or y ('which'=2) direction ...
     ! NOTE that this handles the case for specified stress at the bed as well, as we 
@@ -4197,8 +4200,8 @@ function normhorizmainbc(dew,       dns,        &
     ! note that this requires that rhs(up) be set to 0 as well ...
     else if( bcflag(1) == 0 )then
 
-           g(:,:,:) = 0.0_dp
-           g(2,2,2) = 1.0_dp;
+           g(:,:,:) = 0.d0
+           g(2,2,2) = 1.d0;
 
     end if
 
@@ -4227,21 +4230,21 @@ function croshorizmainbc(dew,       dns,       &
     integer, intent(in) :: which
     integer, intent(in), dimension(:) :: bcflag
 
-    real (kind = dp), intent(in) :: dew, dns
-    real (kind = dp), intent(in), dimension(:) :: oneortwo, twoorone
-    real (kind = dp), intent(in) :: dusrfdew, dusrfdns, dsigmadew, dsigmadns, dup
-    real (kind = dp), intent(in), dimension(:,:,:) :: local_othervel
-    real (kind = dp), intent(in), dimension(:,:,:) :: efvs 
-    real (kind = dp), intent(in), optional :: velbc, plastic_coeff
-    real (kind = dp), intent(out),dimension(:,:,:) :: g_cros
+    real(dp), intent(in) :: dew, dns
+    real(dp), intent(in), dimension(:) :: oneortwo, twoorone
+    real(dp), intent(in) :: dusrfdew, dusrfdns, dsigmadew, dsigmadns, dup
+    real(dp), intent(in), dimension(:,:,:) :: local_othervel
+    real(dp), intent(in), dimension(:,:,:) :: efvs 
+    real(dp), intent(in), optional :: velbc, plastic_coeff
+    real(dp), intent(out),dimension(:,:,:) :: g_cros
 
 
-    real (kind = dp), dimension(3,3,3) :: g, croshorizmainbc
-    real (kind = dp) :: c
+    real(dp), dimension(3,3,3) :: g, croshorizmainbc
+    real(dp) :: c
     integer :: nz
 
-    c = 0.0_dp
-    g(:,:,:) = 0.0_dp
+    c = 0.d0
+    g(:,:,:) = 0.d0
     g_cros = g
     nz = 0
 
@@ -4273,21 +4276,21 @@ function croshorizmainbc(dew,       dns,       &
     ! ... conditional makes sure there is no div by zero if the bc value IS also zero
     else if( bcflag(1) == 0 )then
 
-        g(:,:,:) = 0.0_dp
+        g(:,:,:) = 0.d0
 
-        where( local_othervel /= 0.0d0 )
+        where( local_othervel /= 0.d0 )
             g = 1
         elsewhere
-            g = 0.0d0
+            g = 0.d0
         endwhere
 
         nz = sum( g )
-        g(:,:,:) = 0.0_dp
+        g(:,:,:) = 0.d0
 
-        where( local_othervel /= 0.0d0 )
+        where( local_othervel /= 0.d0 )
             g = ( velbc / nz ) / local_othervel
         elsewhere
-            g = 0.0d0
+            g = 0.d0
         endwhere
 
      end if
@@ -4298,7 +4301,7 @@ function croshorizmainbc(dew,       dns,       &
 
      if( bcflag(2) == 2 )then        ! add on coeff. associated w/ plastic bed iteration
 
-         g(2,2,2) = g(2,2,2) + plastic_coeff / ( sum( efvs(2,:,:) ) / 4.0_dp ) * (len0 / thk0)
+         g(2,2,2) = g(2,2,2) + plastic_coeff / ( sum( efvs(2,:,:) ) / 4.d0 ) * (len0 / thk0)
 
      end if
 
@@ -4333,19 +4336,19 @@ function normhorizmainbc_lat(dew,       dns,   &
 
     implicit none
 
-    real (kind = dp), intent(in) :: dew, dns
-    real (kind = dp), intent(in) :: dusrfdew, dusrfdns, dsigmadew, dsigmadns, dup
-    real (kind = dp), intent(in), dimension(2) :: oneorfour, fourorone, normal, fwdorbwd
-    real (kind = dp), intent(in), dimension(3) :: onesideddiff
+    real(dp), intent(in) :: dew, dns
+    real(dp), intent(in) :: dusrfdew, dusrfdns, dsigmadew, dsigmadns, dup
+    real(dp), intent(in), dimension(2) :: oneorfour, fourorone, normal, fwdorbwd
+    real(dp), intent(in), dimension(3) :: onesideddiff
 
-    real (kind = dp), dimension(3,3,3) :: normhorizmainbc_lat
-    real (kind = dp), dimension(3,3,3) :: g
-    real (kind = dp), dimension(2) :: whichbc
-    real (kind = dp) :: c
+    real(dp), dimension(3,3,3) :: normhorizmainbc_lat
+    real(dp), dimension(3,3,3) :: g
+    real(dp), dimension(2) :: whichbc
+    real(dp) :: c
 
     integer, intent(in) :: which, what
 
-    c = 0.0_dp; g(:,:,:) = 0.0_dp; whichbc = (/ 0.0_dp, 1.0_dp /)
+    c = 0.d0; g(:,:,:) = 0.d0; whichbc = (/ 0.d0, 1.d0 /)
 
     ! for higher-order FREE SURFACE B.C. for x ('which'=1) or y ('which'=2) direction ...
     ! (also applies to basal stress bc) 
@@ -4358,13 +4361,13 @@ function normhorizmainbc_lat(dew,       dns,   &
     g(3,3,3) = -c * whichbc(what)
     g(1,3,3) = c * whichbc(what)
 
-    if( normal(1) .eq. 0.0_dp )then     ! centered in x ...
+    if( normal(1) .eq. 0.d0 )then     ! centered in x ...
 
            c = fourorone(which) * dusrfdew / (2*dew)
            g(2,3,2) = c
            g(2,1,2) = -c
 
-    elseif( normal(1) .ne. 0.0_dp )then     ! forward/backward in x ...
+    elseif( normal(1) .ne. 0.d0 )then     ! forward/backward in x ...
 
            c = fourorone(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdew / (2*dew)
            g(2,2-int(fwdorbwd(1)),2) = c
@@ -4377,14 +4380,14 @@ function normhorizmainbc_lat(dew,       dns,   &
 
     end if
 
-    if( normal(2) .eq. 0.0_dp ) then   ! centered in y ... 
+    if( normal(2) .eq. 0.d0 ) then   ! centered in y ... 
                                        ! (NOTE that y coeff. are stored in g(1,:,:) )
 
            c = oneorfour(which) * dusrfdns / (2*dns)
            g(1,2,3) = c
            g(1,2,1) = -c 
 
-    elseif( normal(2) .ne. 0.0_dp) then ! forward/backward in y ...
+    elseif( normal(2) .ne. 0.d0) then ! forward/backward in y ...
 
            c = oneorfour(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdns / (2*dns)
            g(1,2,2-int(fwdorbwd(2))) = c
@@ -4418,26 +4421,26 @@ function croshorizmainbc_lat (dew,       dns,       &
 
     implicit none
 
-    real (kind = dp), intent(in) :: dew, dns
-    real (kind = dp), intent(in), dimension(2) :: oneortwo, twoorone, fwdorbwd, normal
-    real (kind = dp), intent(in), dimension(3) :: onesideddiff
-    real (kind = dp), intent(in) :: dusrfdew, dusrfdns, dsigmadew, dsigmadns, dup
-    real (kind = dp), intent(in), dimension(3,3,3) :: local_othervel
+    real(dp), intent(in) :: dew, dns
+    real(dp), intent(in), dimension(2) :: oneortwo, twoorone, fwdorbwd, normal
+    real(dp), intent(in), dimension(3) :: onesideddiff
+    real(dp), intent(in) :: dusrfdew, dusrfdns, dsigmadew, dsigmadns, dup
+    real(dp), intent(in), dimension(3,3,3) :: local_othervel
 
     integer, intent(in) :: which, what
 
-    real (kind = dp), dimension(3,3,3) :: g, croshorizmainbc_lat
-    real (kind = dp), dimension(3) :: gvert
-    real (kind = dp), dimension(2) :: whichbc
-    real (kind = dp) :: c
+    real(dp), dimension(3,3,3) :: g, croshorizmainbc_lat
+    real(dp), dimension(3) :: gvert
+    real(dp), dimension(2) :: whichbc
+    real(dp) :: c
 
     integer, dimension(2) :: inormal
 
-    c = 0.0_dp
-    g(:,:,:) = 0.0_dp
-    gvert = 0.0_dp
-    whichbc = (/ 0.0_dp, 1.0_dp /)
-    croshorizmainbc_lat = 0.0_dp
+    c = 0.d0
+    g(:,:,:) = 0.d0
+    gvert = 0.d0
+    whichbc = (/ 0.d0, 1.d0 /)
+    croshorizmainbc_lat = 0.d0
 
     ! first, coeff. that go with du/dsigma, and thus are associated with u(1,2,2) and u(3,2,2) 
     ! ... note that these are stored in a separate vector (to avoid being overwritten if stored in normal 'g')  
@@ -4446,13 +4449,13 @@ function croshorizmainbc_lat (dew,       dns,       &
     gvert(3) = -c * whichbc(what)
     gvert(1) = c * whichbc(what)
 
-    if( normal(1) .eq. 0.0_dp )then        ! centered in x ...
+    if( normal(1) .eq. 0.d0 )then        ! centered in x ...
 
            c = -oneortwo(which) * dusrfdns / (2*dew)
            g(2,3,2) = c
            g(2,1,2) = -c
 
-    elseif( normal(1) .ne. 0.0_dp )then    ! forward/backward in x ...
+    elseif( normal(1) .ne. 0.d0 )then    ! forward/backward in x ...
                                            ! (NOTE that x coeff. are stored in g(2,:,:) )
 
            c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdns / (2*dew)
@@ -4466,14 +4469,14 @@ function croshorizmainbc_lat (dew,       dns,       &
 
     end if
 
-    if( normal(2) .eq. 0.0_dp )then    ! centered in y ...
+    if( normal(2) .eq. 0.d0 )then    ! centered in y ...
                                        ! (NOTE that y coeff. are stored in g(1,:,:) )
 
            c = -twoorone(which) * dusrfdew / (2*dns)
            g(1,2,3) = c
            g(1,2,1) = -c
 
-    elseif( normal(2) .ne. 0.0_dp )then ! forward/backward in y ...
+    elseif( normal(2) .ne. 0.d0 )then ! forward/backward in y ...
 
            c = -twoorone(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdew / (2*dns)
            g(1,2,2-int(fwdorbwd(2))) = c
@@ -4502,7 +4505,7 @@ function croshorizmainbc_lat (dew,       dns,       &
     croshorizmainbc_lat(2,:,:) = croshorizmainbc_lat(2,:,:) + croshorizmainbc_lat(1,:,:)
 
     ! set remaining coeff. on this level to to 0 ...
-    croshorizmainbc_lat(1,:,:) = 0.0_dp
+    croshorizmainbc_lat(1,:,:) = 0.d0
 
     ! accounter for vertical terms stored seperately and temporarily in 'gvert'
     croshorizmainbc_lat(1,2+inormal(1),2+inormal(2)) = gvert(1) * whichbc(what)
@@ -4522,10 +4525,10 @@ function horiztermdxdx(efvs,fact)
 
   implicit none
 
-  real (kind = dp), dimension(2), intent(in) :: efvs
-  real (kind = dp), intent(in) :: fact
+  real(dp), dimension(2), intent(in) :: efvs
+  real(dp), intent(in) :: fact
 
-  real (kind = dp), dimension(3) :: horiztermdxdx  
+  real(dp), dimension(3) :: horiztermdxdx  
 
   horiztermdxdx(3) = efvs(2) * fact
   horiztermdxdx(1) = efvs(1) * fact
@@ -4543,10 +4546,10 @@ function horiztermdxdy(efvs,fact)
 
   implicit none
 
-  real (kind = dp), dimension(2), intent(in) :: efvs
-  real (kind = dp), intent(in) :: fact
+  real(dp), dimension(2), intent(in) :: efvs
+  real(dp), intent(in) :: fact
 
-  real (kind = dp), dimension(3,2) :: horiztermdxdy
+  real(dp), dimension(3,2) :: horiztermdxdy
 
   horiztermdxdy(3,2) = efvs(2) * fact 
   horiztermdxdy(2,2) = horiztermdxdy(3,2)
@@ -4570,10 +4573,10 @@ function horiztermdsdx(dsigmadxy,efvs,fact)
 
   implicit none
 
-  real (kind = dp), dimension(2), intent(in) :: efvs
-  real (kind = dp), intent(in) :: dsigmadxy, fact
+  real(dp), dimension(2), intent(in) :: efvs
+  real(dp), intent(in) :: dsigmadxy, fact
 
-  real (kind = dp), dimension(3,2) :: horiztermdsdx  
+  real(dp), dimension(3,2) :: horiztermdsdx  
 
   horiztermdsdx(3,2) = dsigmadxy * efvs(2) * fact
   horiztermdsdx(2,2) = horiztermdsdx(3,2)
@@ -4597,10 +4600,10 @@ function horiztermdxds(dsigmadxy,efvs,fact)
 
   implicit none
 
-  real (kind = dp), dimension(2), intent(in) :: efvs
-  real (kind = dp), intent(in) :: dsigmadxy, fact
+  real(dp), dimension(2), intent(in) :: efvs
+  real(dp), intent(in) :: dsigmadxy, fact
 
-  real (kind = dp), dimension(2,3) :: horiztermdxds
+  real(dp), dimension(2,3) :: horiztermdxds
 
   horiztermdxds(2,3) = dsigmadxy * efvs(2) * fact
   horiztermdxds(2,2) = horiztermdxds(2,3)
@@ -4624,10 +4627,10 @@ function horiztermdsds(dsigmadxysq,efvs,fact)
 
   implicit none
 
-  real (kind = dp), dimension(2), intent(in) :: efvs
-  real (kind = dp), intent(in) :: dsigmadxysq, fact
+  real(dp), dimension(2), intent(in) :: efvs
+  real(dp), intent(in) :: dsigmadxysq, fact
 
-  real (kind = dp), dimension(3) :: horiztermdsds
+  real(dp), dimension(3) :: horiztermdsds
 
   horiztermdsds(3) = dsigmadxysq * efvs(2) * fact
   horiztermdsds(1) = dsigmadxysq * efvs(1) * fact
@@ -4646,9 +4649,9 @@ function horiztermds(d2sigmadxy2etc,efvs,fact)
 
   implicit none
 
-  real (kind = dp), intent(in) :: efvs, d2sigmadxy2etc, fact
+  real(dp), intent(in) :: efvs, d2sigmadxy2etc, fact
 
-  real (kind = dp), dimension(2) :: horiztermds
+  real(dp), dimension(2) :: horiztermds
 
   horiztermds(2) = d2sigmadxy2etc * efvs * fact
   horiztermds(1) = - horiztermds(2)
@@ -4666,7 +4669,7 @@ subroutine fillsprsemain(inp,locplusup,ptindx,up,pt)
   ! scatter coefficients from 3x3x3 block "g" onto sparse matrix row
   implicit none
 
-  real (kind = dp), dimension(3,3,3), intent(in):: inp
+  real(dp), dimension(3,3,3), intent(in):: inp
   integer, intent(in) :: locplusup, up, pt
   integer, dimension(6), intent(in) :: ptindx
 
@@ -4708,12 +4711,12 @@ subroutine fillsprsebndy(inp,locplusup,ptindx,up,normal,pt)
 
   integer, intent(in) :: locplusup, up, pt
   integer, dimension(6), intent(in) :: ptindx
-  real (kind = dp), dimension(3,3,3), intent(in) :: inp
-  real (kind = dp), dimension(2), intent(in) :: normal
+  real(dp), dimension(3,3,3), intent(in) :: inp
+  real(dp), dimension(2), intent(in) :: normal
 
   ! at points where mixed centered and one-side diffs. would apply
-  if( normal(1) == 0.0_dp )then         ! at boundary normal to y, centered diffs in x 
-    if( normal(2) == -1.0_dp )then      ! at boundary w/ normal [0,-1]
+  if( normal(1) == 0.d0 )then         ! at boundary normal to y, centered diffs in x 
+    if( normal(2) == -1.d0 )then      ! at boundary w/ normal [0,-1]
            call putpcgc(inp(1,3,3),ptindx(5)+up-1,locplusup,pt)
            call putpcgc( inp(2,3,3)+inp(1,2,1),ptindx(5)+up,locplusup,pt)
            call putpcgc(inp(3,3,3),ptindx(5)+up+1,locplusup,pt)
@@ -4727,8 +4730,8 @@ subroutine fillsprsebndy(inp,locplusup,ptindx,up,normal,pt)
     call putpcgc(inp(1,2,2),ptindx(1)+up,locplusup,pt)
   end if
 
-  if( normal(2) == 0.0_dp )then            ! at boundary normal to x, centered diffs in y 
-        if( normal(1) == -1.0_dp )then     ! at boundary w/ normal [-1,0]
+  if( normal(2) == 0.d0 )then            ! at boundary normal to x, centered diffs in y 
+        if( normal(1) == -1.d0 )then     ! at boundary w/ normal [-1,0]
            call putpcgc(inp(1,3,3),ptindx(3)+up-1,locplusup,pt)
            call putpcgc( inp(2,3,3)+inp(2,1,2),ptindx(3)+up,locplusup,pt)
            call putpcgc(inp(3,3,3),ptindx(3)+up+1,locplusup,pt)
@@ -4743,8 +4746,8 @@ subroutine fillsprsebndy(inp,locplusup,ptindx,up,normal,pt)
   end if
 
   ! at corners where only one-side diffs. apply
-  if( normal(1) .gt. 0.0_dp .and. normal(2) .ne. 0.0_dp )then
-    if( normal(2) .gt. 0.0_dp )then      ! corner w/ normal [ 1/sqrt(2), 1/sqrt(2) ]
+  if( normal(1) .gt. 0.d0 .and. normal(2) .ne. 0.d0 )then
+    if( normal(2) .gt. 0.d0 )then      ! corner w/ normal [ 1/sqrt(2), 1/sqrt(2) ]
            call putpcgc(inp(1,3,3),ptindx(2)+up-1,locplusup,pt)
            call putpcgc(inp(3,3,3),ptindx(2)+up+1,locplusup,pt)
            call putpcgc(inp(2,3,3)+inp(2,3,2)+inp(1,2,3),ptindx(2)+up,locplusup,pt)
@@ -4763,8 +4766,8 @@ subroutine fillsprsebndy(inp,locplusup,ptindx,up,normal,pt)
     end if
   end if
 
-  if( normal(1) .lt. 0.0_dp .and. normal(2) .ne. 0.0_dp )then
-    if( normal(2) .gt. 0.0_dp )then       ! corner w/ normal [ -1/sqrt(2), 1/sqrt(2) ]
+  if( normal(1) .lt. 0.d0 .and. normal(2) .ne. 0.d0 )then
+    if( normal(2) .gt. 0.d0 )then       ! corner w/ normal [ -1/sqrt(2), 1/sqrt(2) ]
            call putpcgc(inp(1,3,3),ptindx(3)+up-1,locplusup,pt)
            call putpcgc(inp(3,3,3),ptindx(3)+up+1,locplusup,pt)
            call putpcgc(inp(2,3,3)+inp(1,2,3)+inp(2,1,2),ptindx(3)+up,locplusup,pt)
@@ -4800,24 +4803,24 @@ subroutine getlatboundinfo( ew, ns, up, ewn, nsn, upn,  &
   integer, intent(in) :: ew, ns, up
   integer, intent(in) :: ewn, nsn, upn
   integer, dimension(ewn,nsn), intent(in) :: loc_array
-  real (kind = dp), dimension(3,3), intent(in) :: thck
+  real(dp), dimension(3,3), intent(in) :: thck
 
-  real (kind = dp), dimension(2), intent(out) :: fwdorbwd, normal
+  real(dp), dimension(2), intent(out) :: fwdorbwd, normal
   integer, dimension(6), intent(out) :: loc_latbc
 
-  real (kind = dp), dimension(3,3) :: mask, maskcorners
-  real (kind = dp), dimension(3,3) :: thckmask
-  real (kind = dp), dimension(3) :: testvect
-  real (kind = dp) :: phi, deg2rad
+  real(dp), dimension(3,3) :: mask, maskcorners
+  real(dp), dimension(3,3) :: thckmask
+  real(dp), dimension(3) :: testvect
+  real(dp) :: phi, deg2rad
 
-  deg2rad = 3.141592654d0 / 180.0d0
+  deg2rad = 3.141592654d0 / 180.d0
   loc_latbc = 0; phi = 0
-  mask(:,1) = (/ 0.0d0, 180.0d0, 0.0d0 /)
-  mask(:,2) = (/ 270.0d0, 0.0d0, 90.0d0 /)
-  mask(:,3) = (/ 0.0d0, 360.0d0, 0.0d0 /)
-  maskcorners(:,1) = (/ 225.0d0, 0.0d0, 135.0d0 /)
-  maskcorners(:,2) = (/ 0.0d0, 0.0d0, 0.0d0 /)
-  maskcorners(:,3) = (/ 315.0d0, 0.0d0, 45.0d0 /)
+  mask(:,1) = (/ 0.d0, 180.d0, 0.d0 /)
+  mask(:,2) = (/ 270.d0, 0.d0, 90.d0 /)
+  mask(:,3) = (/ 0.d0, 360.d0, 0.d0 /)
+  maskcorners(:,1) = (/ 225.d0, 0.d0, 135.d0 /)
+  maskcorners(:,2) = (/ 0.d0, 0.d0, 0.d0 /)
+  maskcorners(:,3) = (/ 315.d0, 0.d0, 45.d0 /)
 
   ! specify new value of 'loc' vector such that fwd/bwd diffs. are set up correctly in sparse matrix
   ! when function 'fillsprsebndy' is called. Also, specify appropriate values for the vectors 'normal'
@@ -4827,65 +4830,65 @@ subroutine getlatboundinfo( ew, ns, up, ewn, nsn, upn,  &
 
   ! following is algorithm for calculating boundary normal at 45 deg. increments, based on arbitray
   ! boundary shape (based on initial suggestions by Anne LeBrocq)
-  where( thck .ne. 0.0d0 )
-        thckmask = 0.0_dp
-  elsewhere( thck .eq. 0.0d0 )
-        thckmask = 1.0d0
+  where( thck .ne. 0.d0 )
+        thckmask = 0.d0
+  elsewhere( thck .eq. 0.d0 )
+        thckmask = 1.d0
   endwhere
 
   testvect = sum( thckmask * mask, 1 )
 
     ! calculate the angle of the normal in cart. (x,y) system w/ 0 deg. at 12 O'clock, 
     ! 90 deg. at 3 O'clock, etc.
-    if( sum( sum( thckmask, 1 ) ) .eq. 1.0d0 )then
+    if( sum( sum( thckmask, 1 ) ) .eq. 1.d0 )then
         phi = sum( sum( thckmask * maskcorners, 1 ) )
     else
-        if( any( testvect .eq. 360.0d0 ) )then
-            if( sum( testvect ) .eq. 450.0d0 )then
-                phi = 45.0d0
-            elseif( sum( testvect ) .eq. 630.0d0 )then
-                phi = 315.0d0
+        if( any( testvect .eq. 360.d0 ) )then
+            if( sum( testvect ) .eq. 450.d0 )then
+                phi = 45.d0
+            elseif( sum( testvect ) .eq. 630.d0 )then
+                phi = 315.d0
             else
-                phi = 0.0d0
+                phi = 0.d0
             end if
         elseif( all( testvect .ne. 360 ) )then
-            phi = sum( testvect ) / sum( testvect/testvect, testvect .ne. 0.0d0 )
+            phi = sum( testvect ) / sum( testvect/testvect, testvect .ne. 0.d0 )
         end if
     end if
 
     ! define normal vectors and change definition of loc_array based on this angle
-    if( phi .eq. 0.0d0 )then
+    if( phi .eq. 0.d0 )then
          loc_latbc(1) = loc_array(ew,ns-1); loc_latbc(4) = loc_array(ew,ns); loc_latbc(5) = loc_array(ew,ns-2)
          loc_latbc(2) = loc_array(ew+1,ns); loc_latbc(3) = loc_array(ew-1,ns)
-         normal = (/ 0.0_dp, 1.0_dp /); fwdorbwd = (/ -1.0_dp, -1.0_dp /)
-    elseif( phi .eq. 45.0d0 )then
+         normal = (/ 0.d0, 1.d0 /); fwdorbwd = (/ -1.d0, -1.d0 /)
+    elseif( phi .eq. 45.d0 )then
          loc_latbc(1) = loc_array(ew-1,ns); loc_latbc(2) = loc_array(ew,ns); loc_latbc(3) = loc_array(ew-2,ns)
          loc_latbc(6) = loc_array(ew,ns-1); loc_latbc(4) = loc_array(ew,ns); loc_latbc(5) = loc_array(ew,ns-2)
-         normal = (/ 1.0_dp/sqrt(2.0_dp), 1.0_dp/sqrt(2.0_dp) /); fwdorbwd = (/ -1.0_dp, -1.0_dp /)
-    elseif( phi .eq. 90.0d0 )then
+         normal = (/ 1.d0/sqrt(2.d0), 1.d0/sqrt(2.d0) /); fwdorbwd = (/ -1.d0, -1.d0 /)
+    elseif( phi .eq. 90.d0 )then
          loc_latbc(1) = loc_array(ew-1,ns); loc_latbc(2) = loc_array(ew,ns); loc_latbc(3) = loc_array(ew-2,ns)
          loc_latbc(4) = loc_array(ew,ns+1); loc_latbc(5) = loc_array(ew,ns-1)
-         normal = (/ 1.0_dp, 0.0_dp /); fwdorbwd = (/ -1.0_dp, -1.0_dp /)
-    elseif( phi .eq. 135.0d0 )then
+         normal = (/ 1.d0, 0.d0 /); fwdorbwd = (/ -1.d0, -1.d0 /)
+    elseif( phi .eq. 135.d0 )then
          loc_latbc(1) = loc_array(ew-1,ns); loc_latbc(2) = loc_array(ew,ns); loc_latbc(3) = loc_array(ew-2,ns)
          loc_latbc(6) = loc_array(ew,ns+1); loc_latbc(4) = loc_array(ew,ns+2); loc_latbc(5) = loc_array(ew,ns)
-         normal = (/ 1.0_dp/sqrt(2.0_dp), -1.0_dp/sqrt(2.0_dp) /); fwdorbwd = (/ -1.0_dp, 1.0_dp /)
-    elseif( phi .eq. 180.0d0 )then
+         normal = (/ 1.d0/sqrt(2.d0), -1.d0/sqrt(2.d0) /); fwdorbwd = (/ -1.d0, 1.d0 /)
+    elseif( phi .eq. 180.d0 )then
          loc_latbc(1) = loc_array(ew,ns+1); loc_latbc(4) = loc_array(ew,ns+2); loc_latbc(5) = loc_array(ew,ns)
          loc_latbc(2) = loc_array(ew+1,ns); loc_latbc(3) = loc_array(ew-1,ns)
-         normal = (/ 0.0_dp, -1.0_dp /); fwdorbwd = (/ 1.0_dp, 1.0_dp /)
-    elseif( phi .eq. 225.0d0 )then
+         normal = (/ 0.d0, -1.d0 /); fwdorbwd = (/ 1.d0, 1.d0 /)
+    elseif( phi .eq. 225.d0 )then
          loc_latbc(1) = loc_array(ew+1,ns); loc_latbc(2) = loc_array(ew+2,ns); loc_latbc(3) = loc_array(ew,ns)
          loc_latbc(6) = loc_array(ew,ns+1); loc_latbc(4) = loc_array(ew,ns+2); loc_latbc(5) = loc_array(ew,ns);
-         normal = (/ -1.0_dp/sqrt(2.0_dp), -1.0_dp/sqrt(2.0_dp) /); fwdorbwd = (/ 1.0_dp, 1.0_dp /)
-    elseif( phi .eq. 270.0d0 )then
+         normal = (/ -1.d0/sqrt(2.d0), -1.d0/sqrt(2.d0) /); fwdorbwd = (/ 1.d0, 1.d0 /)
+    elseif( phi .eq. 270.d0 )then
          loc_latbc(1) = loc_array(ew+1,ns); loc_latbc(2) = loc_array(ew+2,ns); loc_latbc(3) = loc_array(ew,ns)
          loc_latbc(4) = loc_array(ew,ns+1); loc_latbc(5) = loc_array(ew,ns-1)
-         normal = (/ -1.0_dp, 0.0_dp /); fwdorbwd = (/ 1.0_dp, 1.0_dp /)
+         normal = (/ -1.d0, 0.d0 /); fwdorbwd = (/ 1.d0, 1.d0 /)
     else
          loc_latbc(1) = loc_array(ew+1,ns); loc_latbc(2) = loc_array(ew+2,ns); loc_latbc(3) = loc_array(ew,ns)
          loc_latbc(6) = loc_array(ew,ns-1); loc_latbc(4) = loc_array(ew,ns); loc_latbc(5) = loc_array(ew,ns-2)
-         normal = (/ -1.0_dp/sqrt(2.0_dp), 1.0_dp/sqrt(2.0_dp) /); fwdorbwd = (/ 1.0_dp, -1.0_dp /)
+         normal = (/ -1.d0/sqrt(2.d0), 1.d0/sqrt(2.d0) /); fwdorbwd = (/ 1.d0, -1.d0 /)
     end if
 
   return
@@ -4907,23 +4910,23 @@ function indshift( which, ew, ns, up, ewn, nsn, upn, loc_array, thck )
   integer, intent(in) :: which
   integer, intent(in) :: ew, ns, up, ewn, nsn, upn
   integer, dimension(ewn,nsn), intent(in) :: loc_array
-  real (kind = dp), dimension(3,3), intent(in) :: thck
+  real(dp), dimension(3,3), intent(in) :: thck
 
   integer, dimension(3) :: indshift
   integer :: upshift = 0, ewshift = 0, nsshift = 0
 
-  real (kind = dp), dimension(3,3) :: mask, maskcorners
-  real (kind = dp), dimension(3,3) :: thckmask
-  real (kind = dp), dimension(3) :: testvect
-  real (kind = dp) :: phi, deg2rad
+  real(dp), dimension(3,3) :: mask, maskcorners
+  real(dp), dimension(3,3) :: thckmask
+  real(dp), dimension(3) :: testvect
+  real(dp) :: phi, deg2rad
 
-  deg2rad = 3.141592654d0 / 180.0d0
-  mask(:,1) = (/ 0.0d0, 180.0d0, 0.0d0 /)
-  mask(:,2) = (/ 270.0d0, 0.0d0, 90.0d0 /)
-  mask(:,3) = (/ 0.0d0, 360.0d0, 0.0d0 /)
-  maskcorners(:,1) = (/ 225.0d0, 0.0d0, 135.0d0 /)
-  maskcorners(:,2) = (/ 0.0d0, 0.0d0, 0.0d0 /)
-  maskcorners(:,3) = (/ 315.0d0, 0.0d0, 45.0d0 /)
+  deg2rad = 3.141592654d0 / 180.d0
+  mask(:,1) = (/ 0.d0, 180.d0, 0.d0 /)
+  mask(:,2) = (/ 270.d0, 0.d0, 90.d0 /)
+  mask(:,3) = (/ 0.d0, 360.d0, 0.d0 /)
+  maskcorners(:,1) = (/ 225.d0, 0.d0, 135.d0 /)
+  maskcorners(:,2) = (/ 0.d0, 0.d0, 0.d0 /)
+  maskcorners(:,3) = (/ 315.d0, 0.d0, 45.d0 /)
 
   if( up == 1 )then   !! first treat bed/sfc, which aren't complicated
       upshift = 1
@@ -4941,47 +4944,47 @@ function indshift( which, ew, ns, up, ewn, nsn, upn, loc_array, thck )
 
       case(1)   !! at lateral boundaries; shift to ew,ns may be non-zero
 
-          where( thck .ne. 0.0d0 )
-            thckmask = 0.0_dp
-          elsewhere( thck .eq. 0.0d0 )
-            thckmask = 1.0d0
+          where( thck .ne. 0.d0 )
+            thckmask = 0.d0
+          elsewhere( thck .eq. 0.d0 )
+            thckmask = 1.d0
           endwhere
 
           testvect = sum( thckmask * mask, 1 )
 
         ! calculate the angle of the normal in cart. (x,y) system w/ 0 deg. at 12 O'clock, 90 deg. at 3 O'clock, etc.
-        if( sum( sum( thckmask, 1 ) ) .eq. 1.0d0 )then
+        if( sum( sum( thckmask, 1 ) ) .eq. 1.d0 )then
             phi = sum( sum( thckmask * maskcorners, 1 ) )
         else
-            if( any( testvect .eq. 360.0d0 ) )then
-                if( sum( testvect ) .eq. 450.0d0 )then
-                    phi = 45.0d0
-                elseif( sum( testvect ) .eq. 630.0d0 )then
-                    phi = 315.0d0
+            if( any( testvect .eq. 360.d0 ) )then
+                if( sum( testvect ) .eq. 450.d0 )then
+                    phi = 45.d0
+                elseif( sum( testvect ) .eq. 630.d0 )then
+                    phi = 315.d0
                 else
-                    phi = 0.0d0
+                    phi = 0.d0
                 end if
             elseif( all( testvect .ne. 360 ) )then
-                phi = sum( testvect ) / sum( testvect/testvect, testvect .ne. 0.0d0 )
+                phi = sum( testvect ) / sum( testvect/testvect, testvect .ne. 0.d0 )
             end if
         end if
 
         ! define shift to indices based on this angle 
-        if( phi .eq. 0.0d0 )then
+        if( phi .eq. 0.d0 )then
             nsshift = -1; ewshift = 0
-        elseif( phi .eq. 45.0d0 )then
+        elseif( phi .eq. 45.d0 )then
             nsshift = -1; ewshift = -1
-        elseif( phi .eq. 90.0d0 )then
+        elseif( phi .eq. 90.d0 )then
             nsshift = 0; ewshift = -1
-        elseif( phi .eq. 135.0d0 )then
+        elseif( phi .eq. 135.d0 )then
             nsshift = 1; ewshift = -1
-        elseif( phi .eq. 180.0d0 )then
+        elseif( phi .eq. 180.d0 )then
             nsshift = 1; ewshift = 0
-        elseif( phi .eq. 225.0d0 )then
+        elseif( phi .eq. 225.d0 )then
             nsshift = 1; ewshift = 1
-        elseif( phi .eq. 270.0d0 )then
+        elseif( phi .eq. 270.d0 )then
             nsshift = 0; ewshift = 1
-        elseif( phi .eq. 315.0d0 )then
+        elseif( phi .eq. 315.d0 )then
             nsshift = -1; ewshift = 1
         end if
 
@@ -5011,16 +5014,16 @@ subroutine calcbetasquared (whichbabc,               &
   integer, intent(in) :: whichbabc
   integer, intent(in) :: ewn, nsn
 
-  real (kind = dp), intent(in) :: dew, dns
-  real (kind = dp), intent(in), dimension(:,:) :: lsrf, topg, thck
-  real (kind = dp), intent(in), dimension(:,:) :: thisvel, othervel, minTauf, beta
+  real(dp), intent(in) :: dew, dns
+  real(dp), intent(in), dimension(:,:) :: lsrf, topg, thck
+  real(dp), intent(in), dimension(:,:) :: thisvel, othervel, minTauf, beta
 
-  real (kind = dp), intent(out), dimension(ewn-1,nsn-1) :: betasquared
+  real(dp), intent(out), dimension(ewn-1,nsn-1) :: betasquared
 
   character (len=30), intent(in), optional :: betafile
-  real (kind = dp) :: smallnum = 1.0d-2
-  real (kind = dp), dimension(ewn) :: grounded
-  real (kind = dp) :: alpha, dx, thck_gl, betalow, betahigh, roughness
+  real(dp) :: smallnum = 1.0d-2
+  real(dp), dimension(ewn) :: grounded
+  real(dp) :: alpha, dx, thck_gl, betalow, betahigh, roughness
   integer :: ew, ns
 
   ! Note that the dimensional scale (tau0 / vel0 / scyr) is used here for making the basal traction coeff.
@@ -5032,16 +5035,16 @@ subroutine calcbetasquared (whichbabc,               &
 
     case(0)     ! constant value; useful for debugging and test cases
 
-      betasquared = 10.0d0
+      betasquared = 10.d0
 
     case(1)     ! simple pattern; also useful for debugging and test cases
                 ! (here, a strip of weak bed surrounded by stronger bed to simulate an ice stream)
 
-      betasquared = 1.0d4
+      betasquared = 1.d4
 
-!TODO - Should these 5's be hardwired?
+!TODO - Should these 5's be hardwired?  Is 10.d1 correct?  (Change to 100.d0?)
       do ns=5, nsn-5; do ew=1, ewn-1; 
-        betasquared(ew,ns) = 10.0d1 
+        betasquared(ew,ns) = 10.d1 
       end do; end do
 
 
@@ -5058,12 +5061,12 @@ subroutine calcbetasquared (whichbabc,               &
 
     case(3)     ! circular ice shelf: set B^2 ~ 0 except for at center, where B^2 >> 0 to enforce u,v=0 there
 
-      betasquared = 1.0d-5
-      betasquared( (ewn-1)/2:(ewn-1)/2+1, (nsn-1)/2:(nsn-1)/2+1 ) = 1.0d10
+      betasquared = 1.d-5
+      betasquared( (ewn-1)/2:(ewn-1)/2+1, (nsn-1)/2:(nsn-1)/2+1 ) = 1.d10
 
     case(4)    ! frozen (u=v=0) ice-bed interface
 
-      betasquared = 1.0d10
+      betasquared = 1.d10
 
     case(5)    ! use value passed in externally from CISM (NOTE not dimensional when passed in) 
 
@@ -5073,7 +5076,7 @@ subroutine calcbetasquared (whichbabc,               &
 
       ! this is a check for NaNs, which indicate, and are replaced by no slip
       where ( betasquared /= betasquared )
-        betasquared = 1.0d10
+        betasquared = 1.d10
       end where
 
     ! NOTE: cases (6) and (7) are handled external to this subroutine
@@ -5104,19 +5107,19 @@ function vertintg(upn, sigma, in)
   implicit none
 
   integer, intent(in) :: upn
-  real (kind = dp), dimension(:), intent(in) :: sigma
-  real (kind = dp), dimension(:), intent(in) :: in
-  real (kind = dp) :: vertintg
+  real(dp), dimension(:), intent(in) :: sigma
+  real(dp), dimension(:), intent(in) :: in
+  real(dp) :: vertintg
 
   integer :: up
 
-  vertintg = 0.0d0
+  vertintg = 0.d0
 
   do up = upn-1, 1, -1
     vertintg = vertintg + sum(in(up:up+1)) * dups(up)
   end do
 
-  vertintg = vertintg / 2.0d0
+  vertintg = vertintg / 2.d0
 
   return
 
@@ -5131,18 +5134,18 @@ subroutine geom2derscros(dew,  dns,   &
 
   implicit none
 
-  real (kind = dp), intent(in) :: dew, dns
-  real (kind = dp), intent(out), dimension(:,:) :: opvrewns
-  real (kind = dp), intent(in), dimension(:,:) :: ipvr, stagthck
+  real(dp), intent(in) :: dew, dns
+  real(dp), intent(out), dimension(:,:) :: opvrewns
+  real(dp), intent(in), dimension(:,:) :: ipvr, stagthck
 
 !TODO - Should these be loops over locally owned velocity points? I.e. (ilo-1:ihi, jlo-1:jhi).
  
   ! consider replacing by a loop over ewn, nsn?
-  where (stagthck /= 0.0d0)
-    opvrewns = (eoshift(eoshift(ipvr,1,0.0_dp,2),1,0.0_dp,1) + ipvr   &
-               - eoshift(ipvr,1,0.0_dp,1) - eoshift(ipvr,1,0.0_dp,2)) / (dew*dns)
+  where (stagthck /= 0.d0)
+    opvrewns = (eoshift(eoshift(ipvr,1,0.d0,2),1,0.d0,1) + ipvr   &
+               - eoshift(ipvr,1,0.d0,1) - eoshift(ipvr,1,0.d0,2)) / (dew*dns)
   elsewhere
-    opvrewns = 0.0d0
+    opvrewns = 0.d0
   end where
 
   return
@@ -5163,29 +5166,29 @@ subroutine geom2ders(ewn,    nsn,  &
   implicit none
 
   integer, intent(in) :: ewn, nsn
-  real (kind = dp), intent(in) :: dew, dns
-  real (kind = dp), intent(out), dimension(:,:) :: opvrew, opvrns
-  real (kind = dp), intent(in), dimension(:,:) :: ipvr, stagthck
+  real(dp), intent(in) :: dew, dns
+  real(dp), intent(out), dimension(:,:) :: opvrew, opvrns
+  real(dp), intent(in), dimension(:,:) :: ipvr, stagthck
 
   integer :: ew, ns
-  real (kind = dp) :: dewsq4, dnssq4
+  real(dp) :: dewsq4, dnssq4
 
   integer :: pt(2)
 
-  dewsq4 = 4.0d0 * dew * dew
-  dnssq4 = 4.0d0 * dns * dns
+  dewsq4 = 4.d0 * dew * dew
+  dnssq4 = 4.d0 * dns * dns
 
 !TODO - I think these loops should be over locally owned velocity points: (ilo-1:ihi, jlo-1:jhi).
 !       Provided nhalo >= 2, we should have enough points to compute a centered difference.
 
   do ns = 2, nsn-2
   do ew = 2, ewn-2
-    if (stagthck(ew,ns) .gt. 0.0d0) then
+    if (stagthck(ew,ns) .gt. 0.d0) then
       opvrew(ew,ns) = centerew(ew,ns,ipvr,dewsq4)
       opvrns(ew,ns) = centerns(ew,ns,ipvr,dnssq4)
     else
-      opvrew(ew,ns) = 0.0d0
-      opvrns(ew,ns) = 0.0d0
+      opvrew(ew,ns) = 0.d0
+      opvrns(ew,ns) = 0.d0
     end if
   end do
   end do
@@ -5204,12 +5207,12 @@ subroutine geom2ders(ewn,    nsn,  &
     pt = whichway(ew)
 
     do ns = 2, nsn-2
-      if (stagthck(ew,ns) .gt. 0.0d0) then
+      if (stagthck(ew,ns) .gt. 0.d0) then
         opvrew(ew,ns) = boundyew(ns,pt,ipvr,dewsq4)
         opvrns(ew,ns) = centerns(ew,ns,ipvr,dnssq4)
       else
-        opvrew(ew,ns) = 0.0d0
-        opvrns(ew,ns) = 0.0d0
+        opvrew(ew,ns) = 0.d0
+        opvrns(ew,ns) = 0.d0
       end if
     end do
 
@@ -5223,12 +5226,12 @@ subroutine geom2ders(ewn,    nsn,  &
     pt = whichway(ns)
 
     do ew = 2, ewn-2
-      if (stagthck(ew,ns) .gt. 0.0d0) then
+      if (stagthck(ew,ns) .gt. 0.d0) then
         opvrew(ew,ns) = centerew(ew,ns,ipvr,dewsq4)
         opvrns(ew,ns) = boundyns(ew,pt,ipvr,dnssq4)
       else
-        opvrew(ew,ns) = 0.0d0
-        opvrns(ew,ns) = 0.0d0
+        opvrew(ew,ns) = 0.d0
+        opvrns(ew,ns) = 0.d0
       end if
     end do
 
@@ -5239,14 +5242,14 @@ subroutine geom2ders(ewn,    nsn,  &
 
   do ns = 1, nsn-1, nsn-2
     do ew = 1, ewn-1, ewn-2
-      if (stagthck(ew,ns) .gt. 0.0d0) then
+      if (stagthck(ew,ns) .gt. 0.d0) then
         pt = whichway(ew)
         opvrew(ew,ns) = boundyew(ns,pt,ipvr,dewsq4)
         pt = whichway(ns)
         opvrns(ew,ns) = boundyns(ew,pt,ipvr,dnssq4)
       else
-        opvrew(ew,ns) = 0.0d0
-        opvrns(ew,ns) = 0.0d0
+        opvrew(ew,ns) = 0.d0
+        opvrns(ew,ns) = 0.d0
       end if
     end do
   end do
@@ -5260,9 +5263,9 @@ end subroutine geom2ders
     implicit none
 
     integer, intent(in) :: ew, ns 
-    real(kind=dp), intent(in) :: ipvr(:,:)
-    real(kind=dp), intent(in) :: dewsq4
-    real (kind = dp) :: centerew
+    real(dp), intent(in) :: ipvr(:,:)
+    real(dp), intent(in) :: dewsq4
+    real(dp) :: centerew
  
     centerew = (sum(ipvr(ew+2,ns:ns+1)) + sum(ipvr(ew-1,ns:ns+1)) - &
                 sum(ipvr(ew+1,ns:ns+1)) - sum(ipvr(ew,ns:ns+1))) / dewsq4
@@ -5278,9 +5281,9 @@ end subroutine geom2ders
     implicit none
  
     integer, intent(in) :: ew, ns 
-    real(kind=dp), intent(in) :: ipvr(:,:)
-    real(kind=dp), intent(in) :: dnssq4
-    real (kind = dp) :: centerns
+    real(dp), intent(in) :: ipvr(:,:)
+    real(dp), intent(in) :: dnssq4
+    real(dp) :: centerns
  
     centerns = (sum(ipvr(ew:ew+1,ns+2)) + sum(ipvr(ew:ew+1,ns-1)) - &
                 sum(ipvr(ew:ew+1,ns+1)) - sum(ipvr(ew:ew+1,ns))) / dnssq4
@@ -5297,12 +5300,12 @@ end subroutine geom2ders
 
     integer, intent(in) :: ns
     integer, intent(in) :: pt(2)
-    real(kind=dp), intent(in) :: ipvr(:,:)
-    real(kind=dp), intent(in) :: dewsq4
-    real (kind = dp) :: boundyew
+    real(dp), intent(in) :: ipvr(:,:)
+    real(dp), intent(in) :: dewsq4
+    real(dp) :: boundyew
  
-    boundyew = pt(1) * (3.0d0 * sum(ipvr(pt(2),ns:ns+1)) - 7.0d0 * sum(ipvr(pt(2)+pt(1),ns:ns+1)) + &
-               5.0d0 * sum(ipvr(pt(2)+2*pt(1),ns:ns+1)) - sum(ipvr(pt(2)+3*pt(1),ns:ns+1))) / dewsq4
+    boundyew = pt(1) * (3.d0 * sum(ipvr(pt(2),ns:ns+1)) - 7.d0 * sum(ipvr(pt(2)+pt(1),ns:ns+1)) + &
+               5.d0 * sum(ipvr(pt(2)+2*pt(1),ns:ns+1)) - sum(ipvr(pt(2)+3*pt(1),ns:ns+1))) / dewsq4
  
     return
  
@@ -5316,12 +5319,12 @@ end subroutine geom2ders
  
     integer, intent(in) :: ew
     integer, intent(in) :: pt(2)
-    real(kind=dp), intent(in) :: ipvr(:,:)
-    real(kind=dp), intent(in) :: dnssq4
-    real (kind = dp) :: boundyns
+    real(dp), intent(in) :: ipvr(:,:)
+    real(dp), intent(in) :: dnssq4
+    real(dp) :: boundyns
  
-    boundyns = pt(1) * (3.0d0 * sum(ipvr(ew:ew+1,pt(2))) - 7.0d0 * sum(ipvr(ew:ew+1,pt(2)+pt(1))) + &
-               5.0d0 * sum(ipvr(ew:ew+1,pt(2)+2*pt(1))) - sum(ipvr(ew:ew+1,pt(2)+3*pt(1)))) / dnssq4
+    boundyns = pt(1) * (3.d0 * sum(ipvr(ew:ew+1,pt(2))) - 7.d0 * sum(ipvr(ew:ew+1,pt(2)+pt(1))) + &
+               5.d0 * sum(ipvr(ew:ew+1,pt(2)+2*pt(1))) - sum(ipvr(ew:ew+1,pt(2)+3*pt(1)))) / dnssq4
  
     return
  
@@ -5353,8 +5356,8 @@ end subroutine geom2ders
  
       implicit none
  
-      real (kind = dp), dimension(:,:,:), intent(in) :: inp
-      real (kind = dp), dimension(size(inp,dim=1)) :: hsum
+      real(dp), dimension(:,:,:), intent(in) :: inp
+      real(dp), dimension(size(inp,dim=1)) :: hsum
  
       hsum = sum(sum(inp(:,:,:),dim=3),dim=2)
  
@@ -5370,14 +5373,14 @@ subroutine putpcgc(value,col,row,pt)
  
   integer, intent(in) :: row, col
   integer, intent(in), optional :: pt
-  real (kind = dp), intent(in) :: value 
+  real(dp), intent(in) :: value 
 
    !*sfp* For now, ignoring the possibility of using JFNK w/ Trilinos ...
    if( nonlinear == HO_NONLIN_PICARD )then
 
     if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
         ! Option to load entry into Triad sparse matrix format
-        if (value /= 0.0d0) then
+        if (value /= 0.d0) then
           pcgval(ct) = value
           pcgcol(ct) = col
           pcgrow(ct) = row
@@ -5386,7 +5389,7 @@ subroutine putpcgc(value,col,row,pt)
 #ifdef TRILINOS
     else
         ! Option to load entry directly into Trilinos sparse matrix 
-        if (value /= 0.0d0) then
+        if (value /= 0.d0) then
            !AGS: If we find that sparsity changes inside a time step,
            !     consider adding entry even for value==0.
            call putintotrilinosmatrix(row, col, value) 
@@ -5405,7 +5408,7 @@ subroutine putpcgc(value,col,row,pt)
 
       if ( .not. storeoffdiag ) then ! block diag coeffs in normal storage space
           ! load entry into Triad sparse matrix format
-          if (value /= 0.0d0) then
+          if (value /= 0.d0) then
             pcgval(ct) = value
             pcgcol(ct) = col
             pcgrow(ct) = row
@@ -5414,14 +5417,14 @@ subroutine putpcgc(value,col,row,pt)
       else if ( storeoffdiag ) then ! off-block diag coeffs in other storage
           ! load entry into Triad sparse matrix format
           if( pt == 1 )then ! store uv coeffs 
-              if (value /= 0.0d0) then
+              if (value /= 0.d0) then
                 pcgvaluv(ct2) = value
                 pcgcoluv(ct2) = col
                 pcgrowuv(ct2) = row
                 ct2 = ct2 + 1
               end if
           else if( pt == 2 )then ! store vu coeffs
-              if (value /= 0.0d0) then
+              if (value /= 0.d0) then
                 pcgvalvu(ct2) = value
                 pcgcolvu(ct2) = col
                 pcgrowvu(ct2) = row
@@ -5436,7 +5439,7 @@ subroutine putpcgc(value,col,row,pt)
       ! *sfp* NOTE: that this option does not allow for storing offidag terms at present
       ! (I assume that Andy can grab these when we know they are correct)
       if (.not. storeoffdiag) then
-        if (value /= 0.0d0) then
+        if (value /= 0.d0) then
            !AGS: If we find that sparsity changes inside a time step,
            !     consider adding entry even for value==0.
          call putintotrilinosmatrix(row, col, value) 
@@ -5468,7 +5471,7 @@ end subroutine putpcgc
 	  integer, intent(in), dimension(:,:) :: indxmask
 	  integer, intent(in) :: mySize
 	  integer, intent(out), dimension(:) :: myIndices
-	  real (kind = dp),  intent(out), dimension(:) :: myX, myY, myZ
+	  real(dp),  intent(out), dimension(:) :: myX, myY, myZ
 
 	  integer :: ew, ns, pointno
 	  integer :: glblID, upindx, slnindx
@@ -5585,7 +5588,7 @@ end subroutine putpcgc
      ! For verification of the matrix passed to Trilinos.
      ! JEFF November 2010
      integer, intent(in) :: row, col
-     real (kind = dp), intent(in) :: value
+     real(dp), intent(in) :: value
      integer :: locrow, loccol
 
 #ifdef globalIDs
@@ -5610,17 +5613,17 @@ function scalebasalbc( coeffblock, bcflag, lateralboundry, beta, efvs )
 
   integer, dimension(2), intent(in) :: bcflag         
   logical :: lateralboundry
-  real (kind = dp), dimension(:,:,:), intent(in) :: coeffblock 
-  real (kind = dp), dimension(:,:,:), intent(in) :: efvs       
-  real (kind = dp), intent(in) :: beta
+  real(dp), dimension(:,:,:), intent(in) :: coeffblock 
+  real(dp), dimension(:,:,:), intent(in) :: efvs       
+  real(dp), intent(in) :: beta
 
-  real (kind = dp) :: scale, scalebasalbc 
+  real(dp) :: scale, scalebasalbc 
 
     if( nonlinear == 1 )then
         if( bcflag(1) == 1 )then
 
            ! use the dominant terms in the coeff associated with the velocity under consideration
-           !scale = beta / ( sum( efvs(2,:,:) ) / 4.0_dp ) * (len0 / thk0)
+           !scale = beta / ( sum( efvs(2,:,:) ) / 4.d0 ) * (len0 / thk0)
 
            ! Use the magnitude of the coeff associated with the vert stress gradients. 
            ! NOTE that relevant coeffs are stored in diff parts of block depending 
@@ -5631,16 +5634,16 @@ function scalebasalbc( coeffblock, bcflag, lateralboundry, beta, efvs )
                scale = abs( coeffblock(3,2,2) );     
            end if                
 
-           if( scale .le. 0.0d0 )then
-            scale = 1.0d0
+           if( scale .le. 0.d0 )then
+            scale = 1.d0
            end if
 
         else
-            scale = 1.0d0
+            scale = 1.d0
         end if
 
     else
-        scale = 1.0d0
+        scale = 1.d0
     end if
 
     scalebasalbc = scale
@@ -5668,8 +5671,8 @@ subroutine init_resid_type(resid_object, model, uindx, umask, &
   integer, dimension(2)     ,intent(in) :: pcgsize
   integer                   ,intent(in) :: gx_flag(2*pcgsize(1)) ! 0 :reg cell
   integer                   ,intent(in) :: uindx(ewn-1,nsn-1), umask(ewn-1,nsn-1)
-  real (kind = dp)          ,intent(in) :: L2norm
-  real (kind = dp)          ,intent(in) :: d2thckdewdns(ewn-1,nsn-1), d2usrfdewdns(ewn-1,nsn-1)
+  real(dp)          ,intent(in) :: L2norm
+  real(dp)          ,intent(in) :: d2thckdewdns(ewn-1,nsn-1), d2usrfdewdns(ewn-1,nsn-1)
   
   type(pass_through)     ,intent(out) :: resid_object
   

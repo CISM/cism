@@ -1,4 +1,5 @@
-!whl - to do - Add standard Glimmer-CISM preamble here.
+!CLEANUP - remap_glamutils.F90
+! This module is now decremented.  Only used for old remapping scheme.
 
 module remap_glamutils      
 
@@ -40,7 +41,7 @@ module remap_glamutils
         ! was initially zero will be forced back to zero, regardless of if material was 
         ! advected into it or not). This is mainly a hack to deal with problems on simplified
         ! domains.
-        real (kind = dp), pointer, dimension(:,:) :: mask_ir
+        real(dp), pointer, dimension(:,:) :: mask_ir
 
     end type remap_glamutils_workspace
 
@@ -176,12 +177,12 @@ module remap_glamutils
 !     integer, intent(out) :: ntrace, &   ! no. of tracers to be remapped
 !                             nghost      ! no. of ghost cells
 
-    real (kind = dp), dimension(:,:), intent(in) :: thck, uflx, vflx, stagthck
-!     real (kind = dp), intent(in) :: dew, dns, dt, thklim
-    real (kind = dp), intent(in) :: dt, thklim
-    real (kind = dp) :: dt_cfl
-    real (kind = dp), dimension(:,:,:), intent(in), optional :: uvel, vvel
-    real (kind = dp), dimension(:,:,:), intent(in), optional :: temp, age
+    real(dp), dimension(:,:), intent(in) :: thck, uflx, vflx, stagthck
+!     real(dp), intent(in) :: dew, dns, dt, thklim
+    real(dp), intent(in) :: dt, thklim
+    real(dp) :: dt_cfl
+    real(dp), dimension(:,:,:), intent(in), optional :: uvel, vvel
+    real(dp), dimension(:,:,:), intent(in), optional :: temp, age
 
     ! flags from config file for applying periodic boundary conditions
     ! Currently not supported
@@ -345,10 +346,10 @@ module remap_glamutils
     type(remap_glamutils_workspace) :: wk
 
 
-    real (kind = dp), intent(in) :: dt
-    real (kind = sp), intent(in), dimension(:,:) :: acab
-    real (kind = dp), dimension(:,:), intent(inout) :: thck
-    real (kind = dp), dimension(:,:,:), intent(inout), optional :: temp, age
+    real(dp), intent(in) :: dt
+    real(sp), intent(in), dimension(:,:) :: acab
+    real(dp), dimension(:,:), intent(inout) :: thck
+    real(dp), dimension(:,:,:), intent(inout), optional :: temp, age
 
 !    integer :: ewn, nsn, ngew, ngns
 
@@ -406,7 +407,7 @@ module remap_glamutils
     !Apply accumulation
     thck = thck + acab*dt
 
-!whl - to do - Allow ice to expand into places where it did not originally exist.
+!whl - Allow ice to expand into places where it did not originally exist.
  
     ! *sfp* Remove thickness from previously ice free locations.
     ! NOTE: this really only applys to a domain where we don't want the

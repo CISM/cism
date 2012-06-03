@@ -49,7 +49,7 @@ contains
     use glimmer_physcon, only : pi
     implicit none
     type(isostasy_elastic) :: rbel     !*FD structure holding elastic litho data    
-    real(kind=dp), intent(in) :: deltax        !*FD grid spacing
+    real(dp), intent(in) :: deltax        !*FD grid spacing
 
     ! local variables
     real :: a     ! radius of disk
@@ -103,8 +103,8 @@ contains
     !*FD calculate surface loading effect using elastic lithosphere approximation
     implicit none
     type(isostasy_elastic) :: rbel                     !*FD structure holding elastic litho data
-    real(kind=dp), dimension(:,:), intent(out) :: load !*FD loading effect due to load_factors
-    real(kind=dp), dimension(:,:), intent(in)  :: load_factors !*FD load mass divided by mantle density
+    real(dp), dimension(:,:), intent(out) :: load !*FD loading effect due to load_factors
+    real(dp), dimension(:,:), intent(in)  :: load_factors !*FD load mass divided by mantle density
 
     integer ewn,nsn
     integer i,j,n,m

@@ -1044,7 +1044,7 @@ contains
   subroutine calc_basal_shear(stagthck, dusrfdew, dusrfdns, tau_x, tau_y)
     !*FD calculate basal shear stress: tau_{x,y} = -ro_i*g*H*d(H+h)/d{x,y}
     use glimmer_physcon, only : rhoi,grav
-    use parallel
+
     implicit none
     real(dp),dimension(:,:),intent(in) :: stagthck    !*FD Ice thickness (scaled)
     real (dp),dimension(:,:),intent(in) :: dusrfdew, dusrfdns
@@ -1060,9 +1060,6 @@ contains
     ! model%stress%tau_y = model%stress%tau_x * model%geomderv%dusrfdns
     ! model%stress%tau_x = model%stress%tau_x * model%geomderv%dusrfdew
 
-!HALO - These calls can be removed. The tau_x and tau_y fields are SIA diagnostics.
-    call staggered_parallel_halo(tau_x)
-    call staggered_parallel_halo(tau_y)
   end subroutine calc_basal_shear
 
 end module glide_velo

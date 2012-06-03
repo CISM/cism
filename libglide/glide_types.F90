@@ -1,3 +1,6 @@
+!CLEANUP - glide_types.F90
+! Added which_dycore option (DYCORE_GLIDE and DYCORE_GLISSADE)
+
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
 ! +  glide_types.f90 - part of the Glimmer-CISM ice model     + 
@@ -49,18 +52,18 @@ module glide_types
 !TODO - Move some types to the higher-level instance type, per suggestion above?
 !       Maybe best to defer this until later, and clean up the glide_global_type first
 
-!TODO   My suggestion is to keep glide_types as is, but to create a new type (glissade_type?)
-!        that is better designed and has fewer components (like the MPAS types).
-!       This type would be defined in a new module, glissade_types.F90.
-!       The new glissade_type could include subtypes for mesh, state, options, and params.
+!TODO - One option is to create a new type (glissade_type?) 
+!        that is better designed and has fewer components (like the MPAS types),
+!        while leaving glide_global_type as is.
+!       However, I think it would be easier to clean up the glide_global_type,
+!        so that there is only one model derived type to pass around.
+!       A modified glide_global_type could include subtypes for mesh, state, options, and params.
 !       'general' and some 'numerics' stuff would go under 'mesh'
 !       'geometry', 'temper', and 'velocity' arrays would go under 'state'
 !       Diagnosed arrays under 'geomderv' and 'tensors' could go away 
-!       Work types 'tempwk', 'velowk', etc. would go away
+!       Work types 'tempwk', 'velowk', etc. could go away
 !       Timestep stuff would go in 'time' type?
-!       In terms of code reuse (e.g., in glide_setup), there may be some advantages
-!        to making parts of glissade_type identical to glide_type.
-!
+
 
   use glimmer_sparse
   use glimmer_sparse_type
@@ -98,6 +101,10 @@ module glide_types
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   !Constants that describe the options available
+
+  integer, parameter :: DYCORE_GLIDE = 0
+  integer, parameter :: DYCORE_GLISSADE = 1
+
   integer, parameter :: TEMP_SURFACE_AIR_TEMP = 0
   integer, parameter :: TEMP_GLIMMER = 1
   integer, parameter :: TEMP_STEADY = 2
@@ -163,6 +170,14 @@ module glide_types
 
     !*FD Holds user options controlling the methods used in the ice-model
     !*FD integration.
+
+    integer :: whichdycore = 1
+
+    ! Choice of two Glimmer dycores:
+    !*FD \begin{description} 
+    !*FD \item[0] Glide dycore (SIA, serial only)
+    !*FD \item[1] Glissade dycore (HO, serial or parallel)
+    !*FD \end{description}
 
     integer :: whichtemp = 1
 
@@ -261,7 +276,7 @@ module glide_types
     !*FD \item[1] hotstart model from previous run
     !*FD \end{description}
 
-! Make a separate section for HO options?
+!TODO Make a separate section for HO options?
     integer :: which_ho_diagnostic = 0
     !*FD Higher-order velocity computation scheme
     !*FD \begin{description}
@@ -901,15 +916,15 @@ module glide_types
 !TODO - Is this type ever used?
   type glide_basalproc
     !Tuneables, set in the config file 
-    real (kind = dp):: fric=0.45d0                   ! Till coeff of internal friction: ND
-    real (kind = dp):: etillo=0.7d0                  ! Till void ratio at No
-    real (kind = dp):: No=1000.d0                    ! Reference value of till effective stress
-    real (kind = dp):: Comp=0.12d0                   ! Till coeff of compressibility: ND
-    real (kind = dp):: Cv = 1.0d-8                   ! Till hydraulic diffusivity: m2/s
-    real (kind = dp):: Kh = 1.0d-10                  !Till hydraulic conductivity: m/s
-    real (kind = dp):: Zs = 3.0d0                    ! Solid till thickness: m
-    real (kind = dp):: aconst=994000000d0            ! Constant in till strength eq. (Pa)
-    real (kind = dp):: bconst=21.7                   ! Constant in till strength eq. (ND)
+    real(dp):: fric=0.45d0                   ! Till coeff of internal friction: ND
+    real(dp):: etillo=0.7d0                  ! Till void ratio at No
+    real(dp):: No=1000.d0                    ! Reference value of till effective stress
+    real(dp):: Comp=0.12d0                   ! Till coeff of compressibility: ND
+    real(dp):: Cv = 1.0d-8                   ! Till hydraulic diffusivity: m2/s
+    real(dp):: Kh = 1.0d-10                  !Till hydraulic conductivity: m/s
+    real(dp):: Zs = 3.0d0                    ! Solid till thickness: m
+    real(dp):: aconst=994000000d0            ! Constant in till strength eq. (Pa)
+    real(dp):: bconst=21.7                   ! Constant in till strength eq. (ND)
     integer:: till_hot = 0
     integer:: tnodes = 5
 
@@ -989,11 +1004,11 @@ module glide_types
     type(glide_global_type)  :: model
     integer ,dimension(:,:) ,allocatable :: ui 
     integer ,dimension(:,:) ,allocatable :: um 
-    real(kind = dp) ,dimension(:,:) ,allocatable :: d2thckcross
-    real(kind = dp) ,dimension(:,:) ,allocatable :: d2usrfcross
+    real(dp) ,dimension(:,:) ,allocatable :: d2thckcross
+    real(dp) ,dimension(:,:) ,allocatable :: d2usrfcross
     integer ,dimension(2) :: pcgsize
     integer ,dimension(:) ,allocatable :: gxf
-    real(kind = dp)  :: L2norm
+    real(dp)  :: L2norm
     type(sparse_matrix_type)  :: matrixA
     type(sparse_matrix_type)  :: matrixC
 
@@ -1234,10 +1249,10 @@ contains
     call coordsystem_allocate(model%general%ice_grid, model%geometry%usrf)
     call coordsystem_allocate(model%general%ice_grid, model%geometry%lsrf)
     call coordsystem_allocate(model%general%ice_grid, model%geometry%topg)
-    call coordsystem_allocate(model%general%ice_grid, upn, model%geometry%age)
     call coordsystem_allocate(model%general%ice_grid, model%geometry%mask)
     call coordsystem_allocate(model%general%ice_grid, model%geometry%thkmask)
     call coordsystem_allocate(model%general%ice_grid, model%geometry%marine_bc_normal)
+    call coordsystem_allocate(model%general%ice_grid, upn-1, model%geometry%age)
 
     allocate(model%thckwk%olds(ewn,nsn,model%thckwk%nwhich))
     model%thckwk%olds = 0.0d0

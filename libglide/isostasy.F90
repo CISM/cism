@@ -70,7 +70,7 @@ contains
     implicit none
     type(glide_global_type) :: model
 
-    real(kind=dp) :: ice_mass, water_depth, water_mass
+    real(dp) :: ice_mass, water_depth, water_mass
     integer :: ew,ns
   
      do ns=1,model%general%nsn
@@ -117,8 +117,8 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: model
-    real(kind=dp), dimension(:,:), intent(out) :: load !*FD loading effect due to load_factors
-    real(kind=dp), dimension(:,:), intent(in)  :: load_factors !*FD load mass divided by mantle density
+    real(dp), dimension(:,:), intent(out) :: load !*FD loading effect due to load_factors
+    real(dp), dimension(:,:), intent(in)  :: load_factors !*FD load mass divided by mantle density
 
     if (model%isos%lithosphere .eq. 0) then
        ! local lithosphere
@@ -154,7 +154,7 @@ contains
     type(glide_global_type) :: model
     
     integer :: ew,ns
-    real(kind=dp) :: ft1, ft2
+    real(dp) :: ft1, ft2
 
     ft1 = exp(-model%numerics%dt/model%isos%relaxed_tau)
     ft2 = 1. - ft1

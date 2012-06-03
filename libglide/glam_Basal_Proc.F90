@@ -10,8 +10,8 @@ use glimmer_log,      only : write_log
   implicit none;save
 
 !!Variables
-  real (kind = dp), dimension(:,:,:), allocatable:: dy  !u,etill,
-  real (kind = dp), dimension(:,:), allocatable:: minTauf_init,Hwater_init
+  real(dp), dimension(:,:,:), allocatable:: dy  !u,etill,
+  real(dp), dimension(:,:), allocatable:: minTauf_init,Hwater_init
   logical, dimension(:,:),   allocatable::tillmask
   integer, parameter :: unin = 90
   
@@ -22,12 +22,12 @@ contains
     
     !Arguments
     integer,intent(in) :: ewn,nsn
-	real (kind = sp),intent (in) :: ntem
+	real (sp),intent (in) :: ntem
     type(glide_basalproc),intent(inout) :: basalproc
     
     !Variables
-    real (kind = dp), dimension (ewn-1,nsn-1,basalproc%tnodes) :: por,Ztot,N
-    real (kind = dp), dimension (ewn-1,nsn-1) :: stagHwater
+    real(dp), dimension (ewn-1,nsn-1,basalproc%tnodes) :: por,Ztot,N
+    real(dp), dimension (ewn-1,nsn-1) :: stagHwater
     integer :: x,y,i
     character(len=512) :: message
 
@@ -45,14 +45,14 @@ contains
     
     !Arguments
     integer, intent (in) ::ewn, nsn, upn, what
-    real (kind = sp), intent(in) :: dt
-    real (kind = dp), dimension(:,:), intent (in) :: ubas,vbas
-    real (kind = dp), dimension(:,:), intent (in) :: bmlt
+    real (sp), intent(in) :: dt
+    real(dp), dimension(:,:), intent (in) :: ubas,vbas
+    real(dp), dimension(:,:), intent (in) :: bmlt
     type(glide_basalproc),intent(inout) :: basalproc
     
     !Variables
-    real (kind = dp), dimension (ewn-1,nsn-1) :: Ub,stagHwater,stagbmlt
-    real (kind = dp) :: f1
+    real(dp), dimension (ewn-1,nsn-1) :: Ub,stagHwater,stagbmlt
+    real(dp) :: f1
     integer :: i
     
     write(*,*)"ERROR: Basal processes module is not supported in this release of CISM."

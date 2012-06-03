@@ -29,6 +29,11 @@
 ! https://developer.berlios.de/projects/glimmer-cism/
 !
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+!CLEANUP - glide_diagnostics.F90 
+! Fixed the total energy diagnostic.
+! Added a max temp diagnostic.
+! Added a call to this subroutine in simple_glide.
  
 module glide_diagnostics
   !*FD subroutines for computing various useful diagnostics
@@ -55,6 +60,7 @@ contains
          tot_volume,     &    ! total ice volume (km^3)
          tot_energy,     &    ! total ice energy (J)
          max_thck,       &    ! max ice thickness (m)
+         max_temp,       &    ! max ice temperature (deg C)
          min_temp,       &    ! min ice temperature (deg C)
          mean_thck,      &    ! mean ice thickness (m)
          mean_temp,      &    ! mean ice temperature (deg C)
@@ -63,7 +69,7 @@ contains
          thck,           &    ! thickness
          spd                  ! speed
 
-    integer :: i, j, k,            &
+    integer :: i, j, k, kbed,      &
                imin, jmin, kmin,   &
                imax, jmax, kmax,   &
                ewn, nsn, upn       ! model%numerics%ewn, etc.
@@ -71,7 +77,7 @@ contains
     character(len=100) :: message
  
     real(dp), parameter ::   &
-         eps = 1.0e-11_dp     ! small number
+         eps = 1.0d-11     ! small number
  
     ewn = model%general%ewn
     nsn = model%general%nsn
@@ -99,7 +105,8 @@ contains
     tot_area = 0.d0
     do j = 1, nsn
        do i = 1, ewn
-          if (model%geometry%thck(i,j) > model%numerics%thklim) then
+!!!          if (model%geometry%thck(i,j) > model%numerics%thklim) then
+          if (model%geometry%thck(i,j) > 0.d0) then
              tot_area = tot_area + 1.0d0
           endif
        enddo
@@ -141,15 +148,8 @@ contains
              enddo
           endif
        enddo
-    enddo
-    tot_energy = tot_energy * model%numerics%dew * model%numerics%dns  &
-               * thk0 * len0**2
-    write(message,'(a25,e24.16)') 'Total ice energy (J)     ', tot_energy
-    call write_log(trim(message), type = GM_DIAGNOSTIC)
+       enddo
     
-    ! total sum of volume * age
- 
-    ! tot_age = 0._dp ! JCC - Removed in parallel
     else   ! unstaggered temps
        do j = 1, nsn
        do i = 1, ewn
@@ -217,19 +217,48 @@ contains
     write(message,'(a25,f24.16)') 'Mean temperature (C)     ', mean_temp
     call write_log(trim(message), type = GM_DIAGNOSTIC)
  
+    if (size(model%temper%temp,1) == upn+1) then  ! staggered temps
+       kbed = upn+1
+    else   ! unstaggered temps
+       kbed = upn
+    endif
+
+!TODO - requires a global max
+    ! max temperature
+    max_temp =  -9999.d0
+    do j = 1, nsn
+       do i = 1, ewn
+          if (model%geometry%thck(i,j) > model%numerics%thklim) then
+             do k = 1, kbed
+                if (model%temper%temp(k,i,j) > max_temp) then
+                   max_temp = model%temper%temp(k,i,j)
+                   imax = i
+                   jmax = j
+                   kmax = k
+                endif
+             enddo
+          endif
+       enddo
+    enddo
+    write(message,'(a25,f24.16,3i4)') 'Max temperature, i, j, k ',   &
+                                       max_temp, imax, jmax, kmax
+    call write_log(trim(message), type = GM_DIAGNOSTIC)
+ 
     ! min temperature
 !TODO - requires a global min
     min_temp =  9999.d0
     do j = 1, nsn
        do i = 1, ewn
-          do k = 1, upn-1
-             if (model%temper%temp(k,i,j) < min_temp) then
-                min_temp = model%temper%temp(k,i,j)
-                imin = i
-                jmin = j
-                kmin = k
-             endif
-          enddo
+          if (model%geometry%thck(i,j) > model%numerics%thklim) then
+             do k = 1, kbed
+                if (model%temper%temp(k,i,j) < min_temp) then
+                   min_temp = model%temper%temp(k,i,j)
+                   imin = i
+                   jmin = j
+                   kmin = k
+                endif
+             enddo
+          endif
        enddo
     enddo
     write(message,'(a25,f24.16,3i4)') 'Min temperature, i, j, k ',   &
@@ -244,7 +273,7 @@ contains
 !        mean_age = 0._dp
 !     endif
 !     write(message,'(a25,f24.16)') 'Mean ice age (yr)        ', mean_age
-    call write_log(trim(message), type = GM_DIAGNOSTIC)
+!     call write_log(trim(message), type = GM_DIAGNOSTIC)
  
     ! max surface speed
 !TODO - requires a global max
@@ -275,7 +304,7 @@ contains
     call write_log(trim(message), type = GM_DIAGNOSTIC)
  
     ! max basal speed
-!TODO - required a global max
+!TODO - requires a global max
     imax = 0
     jmax = 0
     max_spd_bas = 0.d0

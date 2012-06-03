@@ -128,17 +128,17 @@
          ilo,ihi,jlo,jhi ,&! beginning and end of physical domain
          nt                ! tracer index
 
-      real (kind=dp), dimension (nx,ny) ::     &
+      real(dp), dimension (nx,ny) ::     &
          thck_mask         ! = 1. if ice is present, = 0. otherwise
 
-      real (kind=dp), dimension (nx-1,ny-1) ::     &
+      real(dp), dimension (nx-1,ny-1) ::     &
          uvel_layer      ,&! uvel averaged to layer midpoint (m/s)
          vvel_layer        ! vvel averaged to layer midpoint (m/s)
 
-      real (kind=dp), dimension (nx,ny,nlyr) ::     &
+      real(dp), dimension (nx,ny,nlyr) ::     &
          thck_layer        ! ice layer thickness
 
-      real (kind=dp), dimension (nx,ny,ntracer,nlyr) ::     &
+      real(dp), dimension (nx,ny,ntracer,nlyr) ::     &
          tracer            ! tracer values
 
       integer ::     &
@@ -155,14 +155,14 @@
     ! If false, edgearea is computed in locate_triangles and passed out.
     !-------------------------------------------------------------------
 
-      real (kind=dp), dimension(nx,ny) ::   &
+      real(dp), dimension(nx,ny) ::   &
          edgearea_e     ,&! area of departure regions for east edges
          edgearea_n       ! area of departure regions for north edges
 
       logical, parameter ::     &
          conservation_check = .true. ! if true, check global conservation
 
-      real (kind=dp), dimension(0:ntracer) ::     &
+      real(dp), dimension(0:ntracer) ::     &
          mtsum_init     ,&! initial global ice mass and global ice mass*tracer
          mtsum_final      ! final global ice mass and global ice mass*tracer
 
@@ -171,10 +171,10 @@
 
       character(len=100) :: message
 
-      real (kind=dp), dimension (:,:,:), allocatable :: &
+      real(dp), dimension (:,:,:), allocatable :: &
          worku            ! work array
 
-      real (kind=dp), dimension(nx,ny) ::      &
+      real(dp), dimension(nx,ny) ::      &
          uee, vnn            ! cell edge velocities for upwind transport
 
       logical ::     &
@@ -403,7 +403,7 @@
 
          if (present(temp)) temp(k,:,:) = tracer(:,:,1,k)
          if (present(age) .and. ntracer >= 2) age(k,:,:) = tracer(:,:,2,k)
-         !whl - Could add more tracer fields here
+         !WHL - Could add more tracer fields here
 
       enddo
 
@@ -467,7 +467,7 @@
 !
 ! !INPUT/OUTPUT PARAMETERS:
 !
-      real (kind=dp), intent(in) ::     &
+      real(dp), intent(in) ::     &
          msum_init   ,&! initial global ice mass 
          msum_final    ! final global ice mass
 
@@ -477,7 +477,7 @@
       integer, intent(in) ::  &
          ntracer       ! number of tracers
 
-      real (kind=dp), dimension(ntracer), intent(in), optional :: &
+      real(dp), dimension(ntracer), intent(in), optional :: &
          mtsum_init  ,&! initial global ice mass*tracer
          mtsum_final   ! final global ice mass*tracer
 
@@ -488,7 +488,7 @@
       integer ::     &
            nt            ! tracer index
 
-      real (kind=dp) ::     &
+      real(dp) ::     &
            diff          ! difference between initial and final values
 
       if (msum_init > puny) then
@@ -709,15 +709,15 @@
          nx, ny             ,&! block dimensions
          ilo,ihi,jlo,jhi      ! beginning and end of physical domain
 
-      real (kind=dp), intent(in) ::         &
+      real(dp), intent(in) ::         &
          dx, dy             ,&! x and y gridcell dimensions
          dt                   ! time step
 
-      real (kind=dp), dimension(nx,ny), &
+      real(dp), dimension(nx,ny), &
          intent(inout) ::                       &
          phi                  ! scalar field
 
-      real (kind=dp), dimension(nx,ny),         &
+      real(dp), dimension(nx,ny),         &
          intent(in)::     &
          uee, vnn             ! cell edge velocities
 !
@@ -726,10 +726,10 @@
       integer ::     &
          i, j                   ! standard indices
 
-      real (kind=dp) ::        &
+      real(dp) ::        &
          upwind, y1, y2, a, h   ! function
 
-      real (kind=dp), dimension(nx,ny) ::  &
+      real(dp), dimension(nx,ny) ::  &
          worka, workb
 
     !-------------------------------------------------------------------

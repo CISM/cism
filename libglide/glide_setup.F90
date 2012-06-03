@@ -441,13 +441,14 @@ contains
     type(glide_global_type)  :: model
 
     call GetValue(section,'ioparams',model%funits%ncfile)
+    call GetValue(section,'dycore',model%options%whichdycore)
+    call GetValue(section,'evolution',model%options%whichevol)
     call GetValue(section,'temperature',model%options%whichtemp)
     call GetValue(section,'flow_law',model%options%whichflwa)
     call GetValue(section,'basal_proc',model%options%which_bmod)
     call GetValue(section,'basal_water',model%options%whichbwat)
     call GetValue(section,'marine_margin',model%options%whichmarn)
     call GetValue(section,'slip_coeff',model%options%whichbtrc)
-    call GetValue(section,'evolution',model%options%whichevol)
     call GetValue(section,'vertical_integration',model%options%whichwvel)
     call GetValue(section,'topo_is_relaxed',model%options%whichrelaxed)
     call GetValue(section,'hotstart',model%options%hotstart)
@@ -506,11 +507,14 @@ contains
     character(len=500) :: message
 
     ! local variables
+    character(len=*), dimension(0:1), parameter :: dycore = (/ &
+         'glide              ', &
+         'glissade           ' /)  !whl - whichdycore - new option
     character(len=*), dimension(0:3), parameter :: temperature = (/ &
          'isothermal         ', &
          'full               ', &
          'steady             ', &
-         'remapping advection' /)  !whl - whichtemp mod - new option
+         'remapping advection' /)
     character(len=*), dimension(0:2), parameter :: flow_law = (/ &
          'Paterson and Budd                ', &
          'Paterson and Budd (temp=-10degC) ', &
@@ -599,8 +603,8 @@ contains
          'PARDISO Parllel Direct Method   '/)
 
     character(len=*), dimension(0:1), parameter :: b_mbal = (/ &
-         'not in continutity eqn', &
-         'in continutity eqn    ' /)
+         'not in continuity eqn', &
+         'in continuity eqn    ' /)
 
     call write_log('GLIDE options')
     call write_log('-------------')
@@ -623,6 +627,28 @@ contains
     if ((model%options%whichtemp == TEMP_REMAP_ADV .and. model%options%whichevol /= EVOL_INC_REMAP) .and. &
         (model%options%whichtemp == TEMP_REMAP_ADV .and. model%options%whichevol /= EVOL_NO_THICKNESS)) then
         call write_log('Error, must use remapping for thickness evolution (or no thickness evolution) if remapping temperature', GM_FATAL)
+    end if
+
+    if (model%options%whichdycore == DYCORE_GLIDE) then
+       if (model%options%whichtemp == TEMP_REMAP_ADV) then 
+          call write_log('Error, cannot use remapping scheme to advect temperature with Glide dycore', GM_FATAL)
+       endif
+    endif
+
+!TODO - Any other forbidden options with Glissade dycore?
+    if (model%options%whichdycore == DYCORE_GLISSADE) then
+       if (model%options%whichtemp == TEMP_GLIMMER) then
+          call write_log('Error, cannot use Glimmer temperature scheme with Glissade dycore', GM_FATAL)
+       endif
+       if (model%options%whichevol==EVOL_PSEUDO_DIFF .or.  &
+           model%options%whichevol==EVOL_ADI         .or.  &
+           model%options%whichevol==EVOL_DIFFUSION) then
+          call write_log('Error, must use remapping scheme for thickness evolution with Glissade dycore', GM_FATAL)
+       endif
+    endif
+
+    if (model%options%whichdycore.lt.0 .or. model%options%whichdycore.ge.size(dycore)) then
+       call write_log('Error, dycore out of range',GM_FATAL)
     end if
 
     if (model%options%whichflwa.lt.0 .or. model%options%whichflwa.ge.size(flow_law)) then
