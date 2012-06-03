@@ -94,9 +94,12 @@ contains
             opt%base%tolerance  = 1e-11 ! Picard
         end if
 
+!TODO - Remove calls to not_parallel?
+!       These seem unnecessary when running SLAP solver
+!       Just commented out the BICG not_parallel call for now
         !Solver specific options
         if (method == SPARSE_SOLVER_BICG) then
-            call not_parallel(__FILE__,__LINE__)
+!!            call not_parallel(__FILE__,__LINE__)
             call slap_default_options(opt%slap, opt%base) 
 
         else if (method == SPARSE_SOLVER_GMRES) then
