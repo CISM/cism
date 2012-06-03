@@ -1,3 +1,8 @@
+!CLEANUP - simple_glide.F90
+! Added calls to glissade driver
+
+!TODO - Change name to simple_driver?
+
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
 ! +  simple_glide.f90 - part of the Glimmer-CISM ice model    + 
@@ -31,10 +36,15 @@
 #include "config.inc"
 #endif
 
+!TODO - Want a program that can call either glide or glissade init, run, and finalize subroutines.
+!       Call it simple_driver?
+
 program simple_glide
   !*FD This is a simple GLIDE test driver. It can be used to run
   !*FD the EISMINT test cases
+
   use parallel
+
   use glimmer_global, only:rk
   use glide
   use simple_forcing
@@ -44,6 +54,9 @@ program simple_glide
   use glimmer_writestats
   use glimmer_filenames, only : filenames_init
 
+  use glissade
+
+!TODO - Change to 'glimmer_diagnostics'
   use glide_diagnostics
 
   implicit none
@@ -58,7 +71,8 @@ program simple_glide
 
   integer :: tstep_count
 
-  call parallel_initialise
+!TODO - parallel (glissade) only
+  call parallel_initialise     
 
   call glimmer_GetCommandline()
 
@@ -80,113 +94,183 @@ program simple_glide
 
   call t_startf('simple glide')
 
+!TODO - Initialize either glide or glissade.
   ! initialise GLIDE
     call t_startf('glide initialization')
+
+!TODO - glide_config -> glimmer_config?
+
   call glide_config(model,config)
+
+!TODO - Is this call always needed?
   call simple_initialise(climate,config)
-  call glide_initialise(model)
+
+  if (model%options%whichdycore == DYCORE_GLIDE) then
+     call glide_initialise(model)
+  else
+     call glissade_initialise(model)
+  endif
+
   call CheckSections(config)
+
+!TODO - Change to glimmer_nc_fillall?
   ! fill dimension variables
   call glide_nc_fillall(model)
+
   time = model%numerics%tstart
 
+!TODO - Are these calls always needed?
   call simple_massbalance(climate,model,time)
   call simple_surftemp(climate,model,time)
+
   call spinup_lithot(model)
     call t_stopf('glide initialization')
 
   tstep_count = 0
 
   suffix = '_t1'
-  do while(time.le.model%numerics%tend)
+
+  do while(time <= model%numerics%tend)
+
      if (tstep_count > 0) suffix = '   '
+
+!TODO - Change to glimmer_tstep?
      call t_startf('glide_tstep'//suffix)
+
+!TODO - Add subroutine glide_step that calls glide_tstep_p1/p2/p3?
+
+!TODO - What does t_adj_detailf do?
+
+     if (model%options%whichdycore == DYCORE_GLIDE) then
 
        call t_startf('glide_tstep_p1'//suffix)
        if (tstep_count == 0) call t_adj_detailf(+10)
-     call glide_tstep_p1(model,time)
+         call glide_tstep_p1(model,time)
        if (tstep_count == 0) call t_adj_detailf(-10)
        call t_stopf('glide_tstep_p1'//suffix)
 
        call t_startf('glide_tstep_p2'//suffix)
        if (tstep_count == 0) call t_adj_detailf(+10)
-     call glide_tstep_p2(model)
+         call glide_tstep_p2(model)
        if (tstep_count == 0) call t_adj_detailf(-10)
        call t_stopf('glide_tstep_p2'//suffix)
 
        call t_startf('glide_tstep_p3'//suffix)
        if (tstep_count == 0) call t_adj_detailf(+10)
-     call glide_tstep_p3(model)
+         call glide_tstep_p3(model)
        if (tstep_count == 0) call t_adj_detailf(-10)
        call t_stopf('glide_tstep_p3'//suffix)
 
-     ! override masking stuff for now
+     else   ! glissade dycore
+
+!TODO - Make this a single subroutine call
+
+       call t_startf('glissade_tstep'//suffix)
+       if (tstep_count == 0) call t_adj_detailf(+10)
+         call glissade_tstep(model,time)
+       if (tstep_count == 0) call t_adj_detailf(-10)
+       call t_stopf('glissade_tstep'//suffix)
+
+     endif   ! glide or glissade dycore
+
+     ! override masking stuff for now  !TODO - What does this mean?
+
      tstep_count = tstep_count + 1
 
-     ! Redistribute calls here to spread the data back out.
-       call t_startf('simple_glide_halo_upd'//suffix)
-     call parallel_halo(model%stress%efvs)
-     call parallel_halo(model%velocity%uvel)
-     call parallel_halo(model%velocity%vvel)
-     call parallel_halo(model%velocity%uflx)
-     call parallel_halo(model%velocity%vflx)
-     call parallel_halo(model%velocity%velnorm)
-     call parallel_halo(model%geometry%thck)
-     call parallel_halo(model%geomderv%stagthck)
-     call parallel_halo(model%climate%acab)
-     call parallel_halo(model%geomderv%dusrfdew)
-     call parallel_halo(model%geomderv%dusrfdns)
-     call parallel_halo(model%geomderv%dthckdew)
-     call parallel_halo(model%geomderv%dthckdns)
-     call parallel_halo(model%stress%tau%xx)
-     call parallel_halo(model%stress%tau%yy)
-     call parallel_halo(model%stress%tau%xy)
-     call parallel_halo(model%stress%tau%scalar)
-     call parallel_halo(model%stress%tau%xz)
-     call parallel_halo(model%stress%tau%yz)
-     call parallel_halo(model%geometry%topg)
-     call parallel_halo(model%geometry%thkmask)
-     call parallel_halo(model%geometry%marine_bc_normal)
-     call parallel_halo(model%velocity%surfvel)
-     call parallel_halo(model%ground%gline_flux)
-     call parallel_halo(model%velocity%ubas)
-     call parallel_halo(model%velocity%vbas)
-     call parallel_halo(model%isos%relx)
-     call parallel_halo(model%temper%flwa)
-     call parallel_halo(model%climate%calving)
-     call parallel_halo(model%climate%backstress)
-     call parallel_halo(model%geometry%usrf)
-     call parallel_halo(model%climate%backstressmap)
-     call parallel_halo(model%stress%tau_x)
-     call parallel_halo(model%stress%tau_y)
-     call parallel_halo(model%geometry%lsrf)
+!TODO - Change to glimmer_write_diag?
+     ! write ice sheet diagnostics
+     if (mod(tstep_count, model%numerics%ndiag)==0)  then
+        call glide_write_diag(model, time, model%numerics%idiag, &
+                                           model%numerics%jdiag)
+     endif
 
-     call parallel_halo(model%temper%temp)
-       call t_stopf('simple_glide_halo_upd'//suffix)
+!TODO - Remove this comment?
+     ! Redistribute calls here to spread the data back out.
+
+
+     if (model%options%whichdycore == DYCORE_GLIDE) then
 
      ! Perform parallel operations for restart files
        call t_startf('glide_tstep_postp3'//suffix)
        if (tstep_count == 1) call t_adj_detailf(+10)
-     call glide_tstep_postp3(model)
+         call glide_tstep_postp3(model)
        if (tstep_count == 1) call t_adj_detailf(-10)
        call t_stopf('glide_tstep_postp3'//suffix)
+
+     else   ! glissade dycore
+
+!TODO - I think we can safely remove all these parallel halo calls.
+!       Before doing so, make sure we have the required calls in glissade.F90.
+
+       call t_startf('simple_glide_halo_upd'//suffix)
+       call parallel_halo(model%stress%efvs)
+       call parallel_halo(model%velocity%uvel)
+       call parallel_halo(model%velocity%vvel)
+       call parallel_halo(model%velocity%uflx)
+       call parallel_halo(model%velocity%vflx)
+       call parallel_halo(model%velocity%velnorm)
+       call parallel_halo(model%geometry%thck)
+       call parallel_halo(model%geomderv%stagthck)
+       call parallel_halo(model%climate%acab)
+       call parallel_halo(model%geomderv%dusrfdew)
+       call parallel_halo(model%geomderv%dusrfdns)
+       call parallel_halo(model%geomderv%dthckdew)
+       call parallel_halo(model%geomderv%dthckdns)
+       call parallel_halo(model%stress%tau%xx)
+       call parallel_halo(model%stress%tau%yy)
+       call parallel_halo(model%stress%tau%xy)
+       call parallel_halo(model%stress%tau%scalar)
+       call parallel_halo(model%stress%tau%xz)
+       call parallel_halo(model%stress%tau%yz)
+       call parallel_halo(model%geometry%topg)
+       call parallel_halo(model%geometry%thkmask)
+       call parallel_halo(model%geometry%marine_bc_normal)
+       call parallel_halo(model%velocity%surfvel)
+       call parallel_halo(model%ground%gline_flux)
+       call parallel_halo(model%velocity%ubas)
+       call parallel_halo(model%velocity%vbas)
+       call parallel_halo(model%isos%relx)
+       call parallel_halo(model%temper%flwa)
+       call parallel_halo(model%climate%calving)
+       call parallel_halo(model%climate%backstress)
+       call parallel_halo(model%geometry%usrf)
+       call parallel_halo(model%climate%backstressmap)
+       call parallel_halo(model%stress%tau_x)
+       call parallel_halo(model%stress%tau_y)
+       call parallel_halo(model%geometry%lsrf)
+       call parallel_halo(model%temper%temp)
+       call t_stopf('simple_glide_halo_upd'//suffix)
+
+     ! Perform parallel operations for restart files
+       call t_startf('glissade_post_tstep'//suffix)
+       if (tstep_count == 1) call t_adj_detailf(+10)
+        call glissade_post_tstep(model)
+       if (tstep_count == 1) call t_adj_detailf(-10)
+       call t_stopf('glissade_post_tstep'//suffix)
+
+     endif   ! dycore = glide or glissade
 
      time = time + model%numerics%tinc
 
      call simple_massbalance(climate,model,time)
-     call simple_surftemp(climate,model,time)     
+     call simple_surftemp(climate,model,time)
 
      call t_stopf('glide_tstep'//suffix)
   end do
 
   call t_stopf('simple glide')
 
+!TODO - Write a glissade_finalise routine.
   ! finalise GLIDE
   call glide_finalise(model)
+
   call system_clock(clock,clock_rate)
   t2 = real(clock,kind=dp)/real(clock_rate,kind=dp)
   call glimmer_write_stats(commandline_resultsname,commandline_configname,t2-t1)
+
   call close_log
+
+!TODO - parallel only
   call parallel_finalise
 
 end program simple_glide
