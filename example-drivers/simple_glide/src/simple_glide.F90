@@ -266,7 +266,9 @@ program simple_glide
 
   call system_clock(clock,clock_rate)
   t2 = real(clock,kind=dp)/real(clock_rate,kind=dp)
+#if (! defined CCSMCOUPLED && ! defined CESMTIMERS)
   call glimmer_write_stats(commandline_resultsname,commandline_configname,t2-t1)
+#endif
 
   call close_log
 
