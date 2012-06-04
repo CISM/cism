@@ -1,6 +1,6 @@
 # CMAKE File for GLIMMER building against an installed Trilinos
 
-cmake_minimum_required(VERSION 2.7)
+cmake_minimum_required(VERSION 2.8)
 
 # Error check up front
 IF (NOT DEFINED GLIMMER_TRILINOS_DIR)
@@ -11,6 +11,10 @@ ENDIF()
 # Get Trilinos as one entity
 SET(CMAKE_PREFIX_PATH ${GLIMMER_TRILINOS_DIR} ${CMAKE_PREFIX_PATH})
 FIND_PACKAGE(Trilinos REQUIRED)
+
+IF (${Trilinos_VERSION} VERSION_LESS  10.8.0)
+  MESSAGE(FATAL_ERROR "Trilinos version 10.8 or newer required!")
+ENDIF()
 
 MESSAGE("\nFound Trilinos!  Here are the details: ")
 MESSAGE("   Trilinos_DIR = ${Trilinos_DIR}")

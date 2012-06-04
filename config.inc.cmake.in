@@ -1,0 +1,17 @@
+/* Autoconf generated a config.inc file with lots of defines.
+ * This file is an attempt to hardwire the required defines and
+ * just rename this file config.inc at cmake configuration time.
+ * Not sure if it will work to have it machine independent. Andy 6/2012
+ */
+
+#define FC_FUNC(name,NAME) name ## _
+
+/* As FC_FUNC, but for C identifiers containing underscores. */
+#define FC_FUNC_(name,NAME) name ## _
+
+#define HAVE_2003ARGS
+
+#define VERSION "1.7.1"
+
+#define GLIMMER_FCFLAGS "(Not reported in cmake build)"
+

@@ -10,16 +10,7 @@
 #
 
 rm ./CMakeCache.txt
-
-echo
-echo "Auto-generating  glide_io.F90, glide_lithot.F90, and glimmer_vers.F90"
-pushd ../libglide
- python ../scripts/generate_ncvars.py glide_vars.def ../libglimmer/ncdf_template.F90.in
- python ../scripts/generate_ncvars.py glide_lithot_vars.def ../libglimmer/ncdf_template.F90.in
-popd
-pushd ../libglimmer
-sed -f svnversion.sed glimmer_vers.F90.in > glimmer_vers.F90
-popd
+../cmake-scripts/autogenerate-script
 
 echo
 echo "\n\nDoing CMake Configuration step"

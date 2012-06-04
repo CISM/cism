@@ -1,0 +1,19 @@
+# This script needs to be run before the  cmake  command for CMake
+# builds. It should be called from all cmake scripts. 
+#
+# This script auto-generates files that were autogerenated as part 
+# of the autoconf system.
+
+echo
+echo "Auto-generating config.inc, glide_io.F90, glide_lithot.F90, and glimmer_vers.F90"
+pushd ..
+cp config.inc.cmake.in config.inc
+popd
+pushd ../libglide
+ python ../scripts/generate_ncvars.py glide_vars.def ../libglimmer/ncdf_template.F90.in
+ python ../scripts/generate_ncvars.py glide_lithot_vars.def ../libglimmer/ncdf_template.F90.in
+popd
+pushd ../libglimmer
+sed -f svnversion.sed glimmer_vers.F90.in > glimmer_vers.F90
+popd
+
