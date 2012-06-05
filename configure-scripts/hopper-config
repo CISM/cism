@@ -25,7 +25,7 @@
  --disable-python \
  --disable-shared \
  --with-netcdf=$CRAY_NETCDF_DIR \
- EXTRA_LDLIBS="/opt/pgi/11.9.0/linux86-64/11.9/lib/f90main.o" \
+ EXTRA_LDLIBS="/opt/pgi/12.2.0/linux86-64/12.2/lib/f90main.o" \
  --with-trilinos=/global/homes/s/sprice/trilinos-10.10.1 \
  --enable-mpi="yes" \
  --with-blas=-lsci_pgi \
