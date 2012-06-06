@@ -102,9 +102,9 @@ contains
        if (ts%numt.eq.1) then
           cycle
        else if (ts%numt.eq.2) then
-          if (d1.gt.d2) then
+          if (d1 > d2) then
              fact = 1.
-          else if (d1.lt.d2) then
+          else if (d1 < d2) then
              fact = -1.
              d1 = -d1
           else
@@ -112,7 +112,7 @@ contains
              call write_log(message,type=GM_FATAL)
           end if
        else
-          if (d1.le.d2) then
+          if (d1 <= d2) then
              write(message,*) 'Error, time series in file: '//trim(fname)//' is not monotonic line: ',ts%numt
              call write_log(message,type=GM_FATAL)
           end if
@@ -230,23 +230,23 @@ contains
     integer upper,lower
 
     ! BC
-    if (time.le.ts%times(1)) then
+    if (time <= ts%times(1)) then
        get_i = -1
        return
     end if
-    if (time.ge.ts%times(ts%numt)) then
+    if (time >= ts%times(ts%numt)) then
        get_i = ts%numt + 1
        return
     end if
     ! first try if the interpolated value is around the last value
     ts%current=min(ts%current,ts%numt-1)
-    if (time.ge.ts%times(ts%current) .and. time.lt.ts%times(ts%current+1)) then
+    if (time >= ts%times(ts%current) .and. time < ts%times(ts%current+1)) then
        get_i = ts%current
        return
     end if
     ! this didn't work, let's try the next interval
     ts%current=ts%current+1
-    if (time.ge.ts%times(ts%current) .and. time.lt.ts%times(ts%current+1)) then
+    if (time >= ts%times(ts%current) .and. time < ts%times(ts%current+1)) then
        get_i = ts%current
        return
     end if
@@ -255,11 +255,11 @@ contains
     upper = ts%numt
     do
        ts%current = lower+int((upper-lower)/2.)
-       if (time.ge.ts%times(ts%current) .and. time.lt.ts%times(ts%current+1)) then
+       if (time >= ts%times(ts%current) .and. time < ts%times(ts%current+1)) then
           get_i = ts%current
           return
        end if
-       if (time.gt.ts%times(ts%current)) then
+       if (time > ts%times(ts%current)) then
           lower = ts%current
        else
           upper = ts%current

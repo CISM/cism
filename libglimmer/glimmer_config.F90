@@ -137,17 +137,17 @@ contains
     linenr=0
     config=>NULL()
     this_section=>NULL()
-    do while(ios.eq.0)
+    do while(ios == 0)
        if (main_task) read(unit,fmt='(a250)',iostat=ios) line
        call broadcast(line)
        call broadcast(ios)
        line = adjustl(line)
-       if (ios.ne.0) then
+       if (ios /= 0) then
           exit
        end if
-       if (.not.(line(1:1).eq.'!' .or. line(1:1).eq.'#' .or. line(1:1).eq.';' .or. line(1:1).eq.' ')) then
+       if (.not.(line(1:1) == '!' .or. line(1:1) == '#' .or. line(1:1) == ';' .or. line(1:1) == ' ')) then
           ! handle comments
-          if (line(1:1).eq.'[') then
+          if (line(1:1) == '[') then
              ! new section
              call handle_section(linenr,line,this_section)
              this_value=>NULL()
@@ -448,7 +448,7 @@ contains
 
     found=>config
     do while(associated(found))
-       if (name.eq.trim(found%name)) then
+       if (name == trim(found%name)) then
           found%used = .true.
           return
        end if
@@ -496,7 +496,7 @@ contains
     allocate(tempval(numv))
     value=''
     call GetValueChar(section,name,value)
-    if (value.eq.'') return
+    if (value == '') return
 
     i=1
     do
@@ -519,7 +519,7 @@ contains
        if (trim(value)=='') exit
        i=i+1
     end do
-    if (i.ge.1) then
+    if (i >= 1) then
        if (associated(val)) then
           deallocate(val)
        end if
@@ -554,7 +554,7 @@ contains
     allocate(tempval(numv))
     value=''
     call GetValueChar(section,name,value)
-    if (value.eq.'') return
+    if (value == '') return
 
     i=1
     do
@@ -578,7 +578,7 @@ contains
        i=i+1
     end do
 
-    if (i.ge.1) then
+    if (i >= 1) then
        if (associated(val)) then
           deallocate(val)
        end if
@@ -614,7 +614,7 @@ contains
     allocate(tempval(numv))
     value=''
     call GetValueChar(section,name,value)
-    if (value.eq.'') return
+    if (value == '') return
 
     i=1
     do
@@ -638,7 +638,7 @@ contains
        i=i+1
     end do
 
-    if (i.ge.1) then
+    if (i >= 1) then
        if (associated(val)) then
           deallocate(val)
        end if
@@ -673,7 +673,7 @@ contains
     allocate(tempval(numv))
     value=''
     call GetValueChar(section,name,value)
-    if (value.eq.'') return
+    if (value == '') return
 
     i=1
     do
@@ -696,7 +696,7 @@ contains
        i=i+1
     end do
 
-    if (i.ge.1) then
+    if (i >= 1) then
        if (associated(val)) then
           deallocate(val)
        end if
@@ -783,7 +783,7 @@ contains
 
     value=>section%values
     do while(associated(value))
-       if (name.eq.trim(value%name)) then
+       if (name == trim(value%name)) then
           val = value%value
           return
        end if
@@ -809,7 +809,7 @@ contains
 
     read(value,*,iostat=ios) itemp
     if (ios==0) then
-       val = itemp.eq.1
+       val = itemp == 1
     end if
     read(value,*,iostat=ios) ltemp
     if (ios==0) then
@@ -834,11 +834,11 @@ contains
     character(len=msg_length) :: message
 
     do i=1,linelen
-       if (line(i:i).eq.']') then
+       if (line(i:i) == ']') then
           exit
        end if
     end do
-    if (line(i:i).ne.']') then
+    if (line(i:i) /= ']') then
        write(message,*) 'Cannot find end of section ',linenr
        call write_log(message,GM_FATAL)
     end if
@@ -858,11 +858,11 @@ contains
     integer i
     character(len=msg_length) :: message
     do i=1,linelen
-       if (line(i:i).eq.'=' .or. line(i:i).eq.':') then
+       if (line(i:i) == '=' .or. line(i:i) == ':') then
           exit
        end if
     end do
-    if (.not.(line(i:i).eq.'=' .or. line(i:i).eq.':')) then
+    if (.not.(line(i:i) == '=' .or. line(i:i) == ':')) then
        write(message,*) 'Cannot find = or : ',linenr
        call write_log(message,GM_FATAL)
     end if

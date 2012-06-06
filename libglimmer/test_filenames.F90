@@ -53,7 +53,7 @@ program test_filenames
   write(*,'(a)') '** Checking whether it works when not initialised'
   fname = filenames_inputname(infile1)
   write(*,fmt='(4a)',advance='no') '* checking ',trim(infile1),' == ',trim(fname)
-  if (trim(fname).eq.trim(infile1)) then
+  if (trim(fname) == trim(infile1)) then
      write(*,*) ' ok'
   else
      write(*,*) ' no'
@@ -61,7 +61,7 @@ program test_filenames
   end if
   fname = filenames_inputname(infile2)
   write(*,fmt='(4a)',advance='no') '* checking ',trim(infile2),' == ',trim(fname)
-  if (trim(fname).eq.trim(infile2)) then
+  if (trim(fname) == trim(infile2)) then
      write(*,*) ' ok'
   else
      write(*,*) ' no'
@@ -69,7 +69,7 @@ program test_filenames
   end if
   fname = filenames_inputname(infile3)
   write(*,fmt='(4a)',advance='no') '* checking ',trim(infile3),' == ',trim(fname)
-  if (trim(fname).eq.trim(infile3)) then
+  if (trim(fname) == trim(infile3)) then
      write(*,*) ' ok'
   else
      write(*,*) ' no'
@@ -82,7 +82,7 @@ program test_filenames
 
   fname = filenames_inputname(infile1)
   write(*,fmt='(4a)',advance='no') '* checking ',trim(infile1),' == ',trim(fname)
-  if (trim(fname).eq.trim(infile1)) then
+  if (trim(fname) == trim(infile1)) then
      write(*,*) ' ok'
   else
      write(*,*) ' no'
@@ -90,7 +90,7 @@ program test_filenames
   end if
   fname = filenames_inputname(infile2)
   write(*,fmt='(4a)',advance='no') '* checking ',trim(infile2),' == ',trim(fname)
-  if (trim(fname).eq.trim(infile2)) then
+  if (trim(fname) == trim(infile2)) then
      write(*,*) ' ok'
   else
      write(*,*) ' no'
@@ -98,7 +98,7 @@ program test_filenames
   end if
   fname = filenames_inputname(infile3)
   write(*,fmt='(4a)',advance='no') '* checking ',trim(infile3),' == ',trim(fname)
-  if (trim(fname).eq.trim(infile3)) then
+  if (trim(fname) == trim(infile3)) then
      write(*,*) ' ok'
   else
      write(*,*) ' no'
@@ -112,7 +112,7 @@ program test_filenames
 
   fname = filenames_inputname(infile1)
   write(*,fmt='(4a)',advance='no') '* checking ',trim(confdir//infile1),' == ',trim(fname)
-  if (trim(fname).eq.trim(confdir//infile1)) then
+  if (trim(fname) == trim(confdir//infile1)) then
      write(*,*) ' ok'
   else
      write(*,*) ' no'
@@ -120,7 +120,7 @@ program test_filenames
   end if
   fname = filenames_inputname(infile2)
   write(*,fmt='(4a)',advance='no') '* checking ',trim(infile2),' == ',trim(fname)
-  if (trim(fname).eq.trim(infile2)) then
+  if (trim(fname) == trim(infile2)) then
      write(*,*) ' ok'
   else
      write(*,*) ' no'
@@ -128,7 +128,7 @@ program test_filenames
   end if
   fname = filenames_inputname(infile3)
   write(*,fmt='(4a)',advance='no') '* checking ',trim(infile3),' == ',trim(fname)
-  if (trim(fname).eq.trim(infile3)) then
+  if (trim(fname) == trim(infile3)) then
      write(*,*) ' ok'
   else
      write(*,*) ' no'

@@ -103,19 +103,19 @@ contains
 
     if (found_map) then
        glimmap_CFGetProj%found = .true.
-       if (index(mapname,'lambert_azimuthal_equal_area').ne.0) then
+       if (index(mapname,'lambert_azimuthal_equal_area') /= 0) then
           glimmap_CFGetProj%laea => CFproj_get_laea(ncid,varid)
           call glimmap_laea_init(glimmap_CFGetProj%laea)
-       else if (index(mapname,'albers_conical_equal_area').ne.0) then
+       else if (index(mapname,'albers_conical_equal_area') /= 0) then
           glimmap_CFGetProj%aea => CFproj_get_aea(ncid,varid)
           call glimmap_aea_init(glimmap_CFGetProj%aea)
-       else if (index(mapname,'lambert_conformal_conic').ne.0) then
+       else if (index(mapname,'lambert_conformal_conic') /= 0) then
           glimmap_CFGetProj%lcc => CFproj_get_lcc(ncid,varid)
           call glimmap_lcc_init(glimmap_CFGetProj%lcc)
-       else if (index(mapname,'polar_stereographic').ne.0) then
+       else if (index(mapname,'polar_stereographic') /= 0) then
           glimmap_CFGetProj%stere => CFproj_get_stere_polar(ncid,varid)
           call glimmap_stere_init(glimmap_CFGetProj%stere)
-       else if (index(mapname,'stereographic').ne.0) then
+       else if (index(mapname,'stereographic') /= 0) then
           glimmap_CFGetProj%stere => CFproj_get_stere(ncid,varid)
           call glimmap_stere_init(glimmap_CFGetProj%stere)
        else
@@ -220,14 +220,14 @@ contains
             GM_FATAL,__FILE__,__LINE__)
     end if
     status = parallel_get_att(ncid,mapid,'scale_factor_at_projection_origin',dummy)
-    if (status.eq.NF90_NOERR) then
+    if (status == NF90_NOERR) then
        CFproj_get_stere_polar%scale_factor_at_proj_origin = dummy
     end if
     status = parallel_get_att(ncid,mapid,'standard_parallel',dummy)
-    if (status.eq.NF90_NOERR) then
+    if (status == NF90_NOERR) then
        CFproj_get_stere_polar%standard_parallel = dummy
     end if
-    if (CFproj_get_stere_polar%standard_parallel.ne.0 .and. CFproj_get_stere_polar%scale_factor_at_proj_origin.ne.0.) then
+    if (CFproj_get_stere_polar%standard_parallel /= 0 .and. CFproj_get_stere_polar%scale_factor_at_proj_origin /= 0.) then
        call write_log('Error (stereographic projection), can only handle either standard_parallel or scale_at_orig',&
             GM_FATAL,__FILE__,__LINE__)
     end if
@@ -330,7 +330,7 @@ contains
     status = parallel_put_att(ncid,mapid,'latitude_of_projection_origin',stere%latitude_of_projection_origin)
     call nc_errorhandle(__FILE__,__LINE__,status)
     if (stere%pole/=0) then
-       if (stere%standard_parallel.ne.0) then
+       if (stere%standard_parallel /= 0) then
           status = parallel_put_att(ncid,mapid,'standard_parallel',stere%standard_parallel)
        else
           status = parallel_put_att(ncid,mapid,'scale_factor_at_projection_origin',stere%scale_factor_at_proj_origin)

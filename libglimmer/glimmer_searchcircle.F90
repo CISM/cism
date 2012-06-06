@@ -112,7 +112,7 @@ contains
     sc_initdata%total_area = 1.+4.*area(radius)
 
     ! complaining if search circle does not fit
-    if (si_size .lt. 2*radius+2 .and. sj_size .lt. 2*radius+2) then
+    if (si_size < 2*radius+2 .and. sj_size < 2*radius+2) then
        ! internal sums
        sc_initdata%weight(1+radius:isize-radius, 1+radius:jsize-radius) = sc_initdata%total_area
        do j=jstart,jstart+jsize-1
@@ -205,7 +205,7 @@ contains
     end if
 
     ! checking grid sizes
-    if (any(shape(resultgrid) .ne. (/sdata%isize,sdata%jsize/))) then
+    if (any(shape(resultgrid) /= (/sdata%isize,sdata%jsize/))) then
        write(*,*) 'Error (searchcircle), size of result grid does not match: ',shape(resultgrid),(/sdata%isize,sdata%jsize/)
        stop
     end if

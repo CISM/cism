@@ -55,7 +55,7 @@ contains
     
     ! find the last directory separator, the remaining bit is the filename
     pos = scan(trim(cname),dirsep,back=.true.)
-    if (pos.gt.0) then
+    if (pos > 0) then
        configdir = cname(:pos)
     end if
 
@@ -80,12 +80,12 @@ contains
     filenames_inputname = trim(infile)
 
     ! check if configdir exists
-    if (len(trim(configdir)) .eq. 0) then
+    if (len(trim(configdir))  ==  0) then
        return
     end if
     ! check if path is absolute
     !! \todo figure out absolute paths for windows    
-    if (infile(1:1).eq.dirsep) then
+    if (infile(1:1) == dirsep) then
        return
     else
        inquire(file=infile,exist=fexist)
@@ -120,7 +120,7 @@ contains
 
     alpath=adjustl(path)
 
-    if (alpath(1:1)/=dirsep.and.trim(workingdir)/='') then
+    if (alpath(1:1)/=dirsep .and. trim(workingdir)/='') then
        process_path=trim(workingdir)//dirsep//alpath
     else
        process_path=alpath

@@ -91,7 +91,7 @@ contains
     integer profile_register
 
     prof%nump = prof%nump+1
-    if (prof%nump .gt. max_prof) then
+    if (prof%nump > max_prof) then
        call write_log('Maximum number of profiles reached',type=GM_FATAL, &
             file=__FILE__,line=__LINE__)
     end if

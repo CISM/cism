@@ -154,8 +154,8 @@ contains
     type(coord_ipoint) :: coordsystem_get_node
     
     coordsystem_get_node%pt(:) = 1+floor(0.5+(point%pt(:)-coord%origin%pt(:))*coord%delta_r%pt(:))
-    if (coordsystem_get_node%pt(1).eq.coord%size%pt(1)+1) coordsystem_get_node%pt(1) = coord%size%pt(1)
-    if (coordsystem_get_node%pt(2).eq.coord%size%pt(2)+1) coordsystem_get_node%pt(2) = coord%size%pt(2)
+    if (coordsystem_get_node%pt(1) == coord%size%pt(1)+1) coordsystem_get_node%pt(1) = coord%size%pt(1)
+    if (coordsystem_get_node%pt(2) == coord%size%pt(2)+1) coordsystem_get_node%pt(2) = coord%size%pt(2)
 
 #ifdef DEBUG_COORDS
     if (.not.coordsystem_node_inside(coord,coordsystem_get_node)) then
@@ -186,7 +186,7 @@ contains
 
     logical coordsystem_node_inside
     
-    coordsystem_node_inside = (all(node%pt.ge.1) .and. all(node%pt.le.coord%size%pt))
+    coordsystem_node_inside = (all(node%pt >= 1) .and. all(node%pt <= coord%size%pt))
   end function coordsystem_node_inside
 
   !> return true iff point is inside coord system
@@ -200,8 +200,8 @@ contains
 
     coordsystem_point_inside = .true.
     do i=1,2
-       coordsystem_point_inside = (point%pt(i).ge.coord%origin%pt(i)) .and. &
-            (point%pt(i).le.coord%origin%pt(i)+coord%size%pt(i)*coord%delta%pt(i))
+       coordsystem_point_inside = (point%pt(i) >= coord%origin%pt(i)) .and. &
+            (point%pt(i) <= coord%origin%pt(i)+coord%size%pt(i)*coord%delta%pt(i))
        if (.not.coordsystem_point_inside) then
           exit
        end if
@@ -238,7 +238,7 @@ contains
     type(coord_ipoint) :: coordsystem_delinearise2d
 
 #ifdef DEBUG_COORDS
-    if (ind.lt.1 .or. ind.gt.coord%size%pt(1)*coord%size%pt(2)) then
+    if (ind < 1 .or. ind > coord%size%pt(1)*coord%size%pt(2)) then
        write(message,*) 'index ',ind,' outside coord system'
        call write_log(message,GM_FATAL,__FILE__,__LINE__)
     end if

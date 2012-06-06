@@ -393,10 +393,13 @@ contains
         integer, intent(in) :: status
         !*FD netCDF return value
   
-        if (status.ne.NF90_NOERR) then
+        if (status /= NF90_NOERR) then
             call write_log(nf90_strerror(status),type=GM_FATAL,file=file,line=line)
         end if
     end subroutine nc_errorhandle
+
+!TODO - The convention now is that we have unstaggered temps for dycore = 0 (glide)
+!       and staggered temps for dycore = 1 (glissade).
 
     subroutine check_for_tempstag(whichtemp,nc)
       !*FD check for the need to output tempstag and update the output variables if needed.
@@ -423,11 +426,12 @@ contains
       ! netcdf file - this should propbably be handled in glide_io_create where the
       ! hotvars are expanded
 
+!TODO - Change from 'whichtemp' to 'whichdycore'?  At any rate, do not hardwire the whichtemp index
       !print *, "Original varstring:", varstring
-      if (whichtemp .eq. 3) then !3) then !3) then !TEMP_REMAP_ADV) then
+      if (whichtemp == 3) then !3) then !3) then !TEMP_REMAP_ADV) then
           ! We want temp to become tempstag 
           i = index(nc%vars, " temp ")
-          if (i .gt. 0) then
+          if (i > 0) then
             ! temp was specified - change it to tempstag
             ! If temp is listed more than once, this just changes the first instance
             nc%vars = nc%vars(1:i-1) // " tempstag " // nc%vars(i+6:len(nc%vars))
@@ -436,7 +440,7 @@ contains
           endif
           ! Now check if flwa needs to be changed to flwastag
           i = index(nc%vars, " flwa ") ! Look for flwa
-          if (i .gt. 0) then
+          if (i > 0) then
             ! flwa was specified - change to flwastag
             nc%vars = nc%vars(1:i-1) // " flwastag " // nc%vars(i+6:len(nc%vars))
             call write_log('Temperature remapping option uses flwa on a staggered grid.' // &
@@ -445,7 +449,7 @@ contains
       else  ! whichtemp is not IR
           ! We want tempstag to become temp
           i = index(nc%vars, " tempstag ")
-          if (i .gt. 0) then
+          if (i > 0) then
             !Change tempstag to temp
             nc%vars = nc%vars(1:i-1) // " temp " // nc%vars(i+10:len(nc%vars))
             call write_log('The netCDF output variable "tempstag" should only be used when remapping temperature.' // &
@@ -453,7 +457,7 @@ contains
           endif
           ! We want flwastag to become flwa
           i = index(nc%vars, " flwastag ")
-          if (i .gt. 0) then
+          if (i > 0) then
             !Change flwastag to flwa
             nc%vars = nc%vars(1:i-1) // " flwa " // nc%vars(i+10:len(nc%vars))
             call write_log('The netCDF output variable "flwastag" should only be used when remapping temperature.' // &

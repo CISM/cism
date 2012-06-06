@@ -102,11 +102,11 @@ contains
     sign = -1.d0
 
     j=1
-    do while (j.lt.j_max)
+    do while (j < j_max)
        p_d_ber = d_ber
        factorial = factorial*2*j*(2*j-1.d0)
        d_ber = d_ber + sign*arg_d/(factorial*factorial)
-       if (abs(d_ber-p_d_ber).lt.tolerance) exit
+       if (abs(d_ber-p_d_ber) < tolerance) exit
        arg_d = arg_d*arg
        sign = -sign 
        j = j+1
@@ -134,11 +134,11 @@ contains
     sign = -1.d0
 
     j=1
-    do while (j.lt.j_max)
+    do while (j < j_max)
        p_d_bei = d_bei
        factorial = factorial*2*j*(2*j+1.d0)
        d_bei = d_bei + sign*arg_d/(factorial*factorial)
-       if (abs(d_bei-p_d_bei).lt.tolerance) exit
+       if (abs(d_bei-p_d_bei) < tolerance) exit
        arg_d = arg_d*arg
        sign = -sign 
        j = j+1
@@ -167,12 +167,12 @@ contains
     d_ker = -(log(x/2.d0)+gamma)*d_ber(x)+(pi/4.d0)*d_bei(x)
 
     j=1
-    do while (j.lt.j_max)
+    do while (j < j_max)
        p_d_ker = d_ker
        factorial = factorial*2*j*(2*j-1.d0)
        phi = phi + 1.d0/(2.d0*j-1.d0) + 1.d0/(2.d0*j)
        d_ker = d_ker + sign*phi*arg_d/(factorial*factorial)
-       if (abs(d_ker-p_d_ker).lt.tolerance) exit
+       if (abs(d_ker-p_d_ker) < tolerance) exit
        arg_d = arg_d*arg
        sign = -sign 
        j = j+1
@@ -203,12 +203,12 @@ contains
     arg_d = arg_d*arg
 
     j=1
-    do while (j.lt.j_max)
+    do while (j < j_max)
        p_d_kei = d_kei
        factorial = factorial*2*j*(2*j+1.d0)
        phi = phi + 1.d0/(2.d0*j+1.d0) + 1.d0/(2.d0*j)
        d_kei = d_kei + sign*phi*arg_d/(factorial*factorial)
-       if (abs(d_kei-p_d_kei).lt.tolerance) exit
+       if (abs(d_kei-p_d_kei) < tolerance) exit
        arg_d = arg_d*arg
        sign = -sign 
        j = j+1
@@ -267,11 +267,11 @@ contains
     sign = -1.d0
 
     j=1
-    do while (j.lt.j_max)
+    do while (j < j_max)
        p_d_dber = d_dber
        factorial = factorial*2*j*(2*j-1.d0)
        d_dber = d_dber + sign*2.d0*j*arg_d/(factorial*factorial)
-       if (abs(d_dber-p_d_dber).lt.tolerance) exit
+       if (abs(d_dber-p_d_dber) < tolerance) exit
        arg_d = arg_d*arg
        sign = -sign 
        j = j+1
@@ -298,11 +298,11 @@ contains
     sign = -1.d0
 
     j=1
-    do while (j.lt.j_max)
+    do while (j < j_max)
        p_d_dbei = d_dbei
        factorial = factorial*2*j*(2*j+1.d0)
        d_dbei = d_dbei + sign*(2.d0*j+1.d0)*arg_d/(factorial*factorial)
-       if (abs(d_dbei-p_d_dbei).lt.tolerance) exit
+       if (abs(d_dbei-p_d_dbei) < tolerance) exit
        arg_d = arg_d*arg
        sign = -sign 
        j = j+1
@@ -331,12 +331,12 @@ contains
     d_dker = -(log(x/2.d0)+gamma)*d_dber(x)-d_ber(x)/x+(pi/4.d0)*d_dbei(x)
 
     j=1
-    do while (j.lt.j_max)
+    do while (j < j_max)
        p_d_dker = d_dker
        factorial = factorial*2*j*(2*j-1.d0)
        phi = phi + 1.d0/(2.d0*j-1.d0) + 1.d0/(2.d0*j)
        d_dker = d_dker + sign*phi*2.d0*j*arg_d/(factorial*factorial)
-       if (abs(d_dker-p_d_dker).lt.tolerance) exit
+       if (abs(d_dker-p_d_dker) < tolerance) exit
        arg_d = arg_d*arg
        sign = -sign 
        j = j+1
@@ -366,12 +366,12 @@ contains
     arg = arg**4
 
     j=1
-    do while (j.lt.j_max)
+    do while (j < j_max)
        p_d_dkei = d_dkei
        factorial = factorial*2*j*(2*j+1.d0)
        phi = phi + 1.d0/(2.d0*j+1.d0) + 1.d0/(2.d0*j)
        d_dkei = d_dkei + sign*phi*(2.d0*j+1.d0)*arg_d/(factorial*factorial)
-       if (abs(d_dkei-p_d_dkei).lt.tolerance) exit
+       if (abs(d_dkei-p_d_dkei) < tolerance) exit
        arg_d = arg_d*arg
        sign = -sign 
        j = j+1

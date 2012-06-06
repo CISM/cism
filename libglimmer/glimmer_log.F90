@@ -93,7 +93,7 @@ contains
     character(len=*), parameter :: suffix='.log'
     integer i
     i = scan(fname,dirsep,.True.)
-    if (i.ne.0) then
+    if (i /= 0) then
        logname = trim(fname(i+1:))//suffix
     else
        logname = trim(fname)//suffix
@@ -120,7 +120,7 @@ contains
        glimmer_logname = 'glide.log'
     end if
 
-    if ((main_task).and.(glimmer_unit.ne.6)) then
+    if ((main_task).and.(glimmer_unit /= 6)) then
        open(unit=glimmer_unit,file=glimmer_logname,status='unknown')
     end if
 
@@ -148,7 +148,7 @@ contains
 
     local_type = 0
     if (present(type)) then
-       if (type.ge.1 .or. type.le.GM_levels) then
+       if (type >= 1 .or. type <= GM_levels) then
           local_type = type
        end if
     else
@@ -166,11 +166,11 @@ contains
     ! messages are always written to file log
     if (main_task) write(glimmer_unit,*) trim(msg)
     ! and maybe to std out
-    if (local_type.ne.0) then
+    if (local_type /= 0) then
        if ((main_task).and.(gm_show(local_type))) write(*,*) trim(msg)
     end if
     ! stop logging if we encountered a fatal error
-    if (local_type.eq.GM_FATAL) then
+    if (local_type == GM_FATAL) then
        if (main_task) write(*,*) "Fatal error encountered, exiting..."
        call close_log
        stop

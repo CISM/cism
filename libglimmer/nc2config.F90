@@ -65,22 +65,22 @@ program nc2config
   
   ! get number of arguments
   numargs = NARGS()
-  if (numargs.gt.0) then
+  if (numargs > 0) then
      i=0
      nfiles = 0
      ! loop over command line arguments
-     do while (i.lt.numargs)
+     do while (i < numargs)
         i = i + 1
         call GETARG(i,argument)
         ! check if it is an option
-        if (argument(1:1).eq.'-') then
+        if (argument(1:1) == '-') then
            select case (trim(argument))
            case ('-h')
               call usage()
               stop
            case ('-o')
               i = i+1
-              if (i.gt.numargs) then
+              if (i > numargs) then
                  write(*,*) 'Error, expect name of output file to follow -o option'
                  call usage()
                  stop
@@ -98,7 +98,7 @@ program nc2config
            argumentIdx(nfiles) = i
         end if
      end do
-     if (nfiles.gt.1) then
+     if (nfiles > 1) then
         call GETARG(argumentIdx(1),infile)
      else
         write(*,*) 'No input file specified'

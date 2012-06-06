@@ -32,6 +32,7 @@
 #include "config.inc"
 #endif
 
+!TODO - Is there any other utility code to put in this module?
 !> Module containing utility code for GLIMMER.
 module glimmer_utils
 
@@ -174,7 +175,7 @@ contains
 
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  !> Adjusts array location indicies
+  !> Adjusts array location indices
   !! so that they fall within the domain.
   subroutine fix_bcs2d(i,j,nx,ny)
 

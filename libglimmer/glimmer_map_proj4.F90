@@ -93,7 +93,7 @@ contains
     write(glimmap_proj4_stere(2),*) 'lon_0=',stere%longitude_of_central_meridian
     write(glimmap_proj4_stere(3),*) 'lat_0=',stere%latitude_of_projection_origin
     if (stere%pole/=0) then
-       if (stere%standard_parallel.ne.0) then
+       if (stere%standard_parallel /= 0) then
           write(glimmap_proj4_stere(4),*) 'lat_ts=',stere%standard_parallel
        else
           write(glimmap_proj4_stere(4),*) 'k_0=',stere%scale_factor_at_proj_origin

@@ -42,6 +42,9 @@ module glimmer_scales
 
 contains
 
+!TODO - If scaling is removed, then many of these can be eliminated.
+!       Might want to keep scyr to convert between m/s and m/yr.
+
   !> calculate scale factors (can't have non-integer powers)
   subroutine glimmer_init_scales
     use glimmer_physcon, only : scyr, gn
