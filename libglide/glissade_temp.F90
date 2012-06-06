@@ -41,7 +41,7 @@
 !
 ! GLIMMER is hosted on NeSCForge:
 !
-! http://forge.nesc.ac.uk/projects/glimmer/
+! http://forge /= c.ac.uk/projects/glimmer/
 !
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -993,7 +993,7 @@ contains
 !          if (thck(ew,ns) > model%numerics%thklim) then
 !            c4 = 0.0d0
 !            do ins = ns-1,ns; do iew = ew-1,ew; 
-!                if (efvss(iew,ins) .ne. 0.0d0) then                     
+!                if (efvss(iew,ins)  /=  0.0d0) then                     
 !                    c4 = c4 + taus(iew,ins)**2 / efvss(iew,ins)
 !                end if; 
 !            end do; end do

@@ -77,9 +77,9 @@ contains
     if (isos%do_isos) then
        call write_log('Isostasy setup')
        call write_log('--------------')
-       if (isos%lithosphere.eq.0) then
+       if (isos%lithosphere==0) then
           call write_log('using local lithosphere approximation')
-       else if (isos%lithosphere.eq.1) then
+       else if (isos%lithosphere==1) then
           call write_log('using elastic lithosphere approximation')
           write(message,*) ' flexural rigidity: ', isos%rbel%d
           call write_log(message)
@@ -90,9 +90,9 @@ contains
           call close_log
           stop
        end if
-       if (isos%asthenosphere.eq.0) then
+       if (isos%asthenosphere==0) then
           call write_log('using fluid mantle')
-       else if (isos%asthenosphere.eq.1) then
+       else if (isos%asthenosphere==1) then
           call write_log('using relaxing mantle')
           write(message,*) ' characteristic time constant: ',isos%relaxed_tau
           call write_log(message)

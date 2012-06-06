@@ -180,7 +180,7 @@ contains
 
     ! ---------------------------------------------------------
 
-    do while (flag .eq. 1)
+    do while (flag == 1)
 
        flag = 0
 
@@ -191,7 +191,7 @@ contains
 
              flats(i,j) = 0
 
-             if (mask(i,j) .eq. 1) then
+             if (mask(i,j) == 1) then
 
                 if (any(old_phi(i-1:i+1,j-1:j+1) < old_phi(i,j))) then
                    pool(i,j) = 0
@@ -199,7 +199,7 @@ contains
                    pool(i,j) = 1
                 end if
 
-                if (pool(i,j) .eq. 1) then
+                if (pool(i,j) == 1) then
 
                    flag = 1
 
@@ -211,7 +211,7 @@ contains
 
                    max_val = minval(pvs)
 
-                   if (max_val .ne. null) then
+                   if (max_val  /=  null) then
                       phi(i,j) = max_val
                    else
                       flag = 0
@@ -246,7 +246,7 @@ contains
 
     allocate(vect(nn),ind(nn)) 
 
-    if (nn/=nx*ny.or.size(sorted,2).ne.2) then
+    if (nn/=nx*ny.or.size(sorted,2) /= 2) then
       print*,'Wrong dimensions'
       stop
     endif
@@ -301,7 +301,7 @@ contains
     integer, dimension(:) :: index !*FD Index of elements of \texttt{array}.
     integer :: i
 
-    if (size(array).ne.size(index)) then
+    if (size(array) /= size(index)) then
       call write_log('ERROR: INDEXX size mismatch.',GM_FATAL,__FILE__,__LINE__)
     endif
 
@@ -351,7 +351,7 @@ contains
           rr=rr-1
        enddo
 
-       if (ll.ne.rr) then
+       if (ll /= rr) then
           index(ll) = index(rr)
           ll=ll+1
        endif
@@ -361,7 +361,7 @@ contains
           ll=ll+1
        enddo
 
-       if (ll.ne.rr) then
+       if (ll /= rr) then
           index(rr) = index(ll)
           rr=rr-1
        endif

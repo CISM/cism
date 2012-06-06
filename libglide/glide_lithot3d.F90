@@ -92,22 +92,22 @@ contains
              jcount = 0
              r = linearise(model,i,j,k)
              ! i-1,j,k
-             if (i.ne.1) then
+             if (i /= 1) then
                 call sparse_insert_val(model%lithot%fd_coeff,r,linearise(model,i-1,j,k), -model%lithot%xfactor)
                 icount = icount + 1
              end if
              ! i+1, j, k
-             if (i.ne.model%general%ewn) then
+             if (i /= model%general%ewn) then
                 call sparse_insert_val(model%lithot%fd_coeff,r,linearise(model,i+1,j,k), -model%lithot%xfactor)
                 icount = icount + 1
              end if
              ! i,j-1,k
-             if (j.ne.1) then
+             if (j /= 1) then
                 call sparse_insert_val(model%lithot%fd_coeff,r,linearise(model,i,j-1,k), -model%lithot%yfactor)
                 jcount = jcount + 1
              end if
              ! i,j+1,k
-             if (j.ne.model%general%nsn) then
+             if (j /= model%general%nsn) then
                 call sparse_insert_val(model%lithot%fd_coeff,r,linearise(model,i,j+1,k), -model%lithot%yfactor)
                 jcount = jcount + 1
              end if

@@ -250,7 +250,7 @@ contains
     real(dp),dimension(:,:),  intent(out)   :: diffu
 
 
-    where (stagthck .ne. 0.)
+    where (stagthck  /=  0.0d0)
        diffu = velowk%dintflwa * stagthck**p4 * sqrt(dusrfdew**2 + dusrfdns**2)**p2 
     elsewhere
        diffu = 0.0d0
@@ -330,7 +330,7 @@ contains
     end do
     
     !calc surface velocity from the u and v velocties
-    surfvel(:,:,:) = (uvel(:,:,:)**2 + vvel(:,:,:)**2)**(1.0/2.0)
+    surfvel(:,:,:) = (uvel(:,:,:)**2 + vvel(:,:,:)**2)**(0.5d0)
   end subroutine velo_calc_velo
 
   !*****************************************************************************
@@ -551,7 +551,7 @@ contains
 
     case(2)
 
-      where (0.0d0 /= stagthck)
+      where (stagthck /= 0.0d0)
         diffu = velowk%dintflwa * stagthck**p4 * sqrt(dusrfdew**2 + dusrfdns**2)**p2 
       elsewhere
         diffu = 0.0d0
@@ -730,8 +730,8 @@ contains
 
     ! Multiply grid-spacings by 16 -----------------------------------------------------
 
-    dew16 = 1d0/(16.0d0 * numerics%dew)
-    dns16 = 1d0/(16.0d0 * numerics%dns)
+    dew16 = 1.d0/(16.0d0 * numerics%dew)
+    dns16 = 1.d0/(16.0d0 * numerics%dns)
 
     ! ----------------------------------------------------------------------------------
     ! Main loop over each grid-box
@@ -843,7 +843,7 @@ contains
 
     do ns = 2,nsn-1
       do ew = 2,ewn-1
-         if (thck(ew,ns) > numerics%thklim .and. wvel(1,ew,ns).ne.0) then
+         if (thck(ew,ns) > numerics%thklim .and. wvel(1,ew,ns) /= 0) then
 
             wchk = geomderv%dusrfdtm(ew,ns) &
                  - acab(ew,ns) &
@@ -935,8 +935,8 @@ contains
     real :: tau !basal shear stress
 
     !scaling
-    real :: tau_factor = 1e-3*thk0*thk0/len0
-    !real :: tau_factor = 1.0
+    real :: tau_factor = 1.d-3*thk0*thk0/len0
+    !real :: tau_factor = 1.0d0
     !------------------------------------------------------------------------------------
 
     ewn=model%general%ewn
@@ -980,10 +980,11 @@ contains
        ! linear function of basal melt rate
        do ns = 1,nsn-1
           do ew = 1,ewn-1
-             stagbwat = 0.25*sum(model%temper%bmlt(ew:ew+1,ns:ns+1))
+             stagbwat = 0.25d0*sum(model%temper%bmlt(ew:ew+1,ns:ns+1))
              
-             if (stagbwat>0.d0) then
-                btrc(ew,ns) = min(model%velowk%btrac_max, model%velocity%bed_softness(ew,ns)+model%velowk%btrac_slope*stagbwat)
+             if (stagbwat>0.0d0) then
+                btrc(ew,ns) = min(model%velowk%btrac_max, &
+                                  model%velocity%bed_softness(ew,ns)+model%velowk%btrac_slope*stagbwat)
              else
                 btrc(ew,ns) = 0.0d0
              end if
@@ -1012,7 +1013,7 @@ contains
             end if 
             
              tau = ((tau_factor*model%stress%tau_x(ew,ns))**2 +&
-             (model%stress%tau_y(ew,ns)*tau_factor)**2)**(1.0/2.0)
+             (model%stress%tau_y(ew,ns)*tau_factor)**2)**(0.5d0)
              
              btrc(ew,ns) = (Asl*(tau)**2)/Z !assuming that that btrc is later
                                              !multiplied again by the basal shear stress

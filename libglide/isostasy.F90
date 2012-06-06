@@ -52,7 +52,7 @@ contains
     implicit none
     type(glide_global_type) :: model
 
-    if (model%isos%lithosphere .eq. 1) then
+    if (model%isos%lithosphere == 1) then
        call not_parallel(__FILE__,__LINE__)
        call init_elastic(model%isos%rbel,model%numerics%dew)
     end if
@@ -76,13 +76,13 @@ contains
      do ns=1,model%general%nsn
        do ew=1,model%general%ewn
           ice_mass = rhoi * model%geometry%thck(ew,ns)
-          if (model%geometry%topg(ew,ns)-model%climate%eus.lt.0) then             ! check if we are below sea level
+          if (model%geometry%topg(ew,ns)-model%climate%eus < 0.d0) then   ! check if we are below sea level
              water_depth = model%climate%eus - model%geometry%topg(ew,ns)
              water_mass = rhoo * water_depth
              ! Just the water load due to changes in sea-level
              model%isos%load_factors(ew,ns) = rhoo* model%climate%eus/rhom
              ! Check if ice is not floating
-             if ( ice_mass .gt. water_mass ) then
+             if ( ice_mass > water_mass ) then
                 model%isos%load_factors(ew,ns) = model%isos%load_factors(ew,ns) + (ice_mass - water_mass)/rhom
              end if
           else                                       ! bedrock is above sea level
@@ -102,13 +102,13 @@ contains
     if (model%isos%new_load) then
        call isos_lithosphere(model,model%isos%load,model%isos%load_factors)
        ! update bed rock with (non-viscous) fluid mantle
-       if (model%isos%asthenosphere .eq. 0) then
+       if (model%isos%asthenosphere == 0) then
           model%geometry%topg = model%isos%relx - model%isos%load
        end if
        model%isos%new_load = .false.
     end if
     ! update bed rock with relaxing mantle
-    if (model%isos%asthenosphere .eq. 1) then
+    if (model%isos%asthenosphere == 1) then
        call relaxing_mantle(model)
     end if
   end subroutine isos_isostasy
@@ -120,10 +120,10 @@ contains
     real(dp), dimension(:,:), intent(out) :: load !*FD loading effect due to load_factors
     real(dp), dimension(:,:), intent(in)  :: load_factors !*FD load mass divided by mantle density
 
-    if (model%isos%lithosphere .eq. 0) then
+    if (model%isos%lithosphere == 0) then
        ! local lithosphere
        load = load_factors
-    else if (model%isos%lithosphere .eq. 1) then
+    else if (model%isos%lithosphere == 1) then
        call calc_elastic(model%isos%rbel,load,load_factors)
     end if
   end subroutine isos_lithosphere

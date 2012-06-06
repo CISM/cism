@@ -442,15 +442,15 @@ contains
         ! following is algorithm for calculating boundary normal at 45 deg. increments, based on arbitray
         ! boundary shape
 
-        where( thck3x3 .ne. 0.0d0 )
+        where( thck3x3  /=  0.0d0 )
             thckmask = 0.0_dp
-        elsewhere( thck3x3 .eq. 0.0d0 )
+        elsewhere( thck3x3 == 0.0d0 )
             thckmask = 1.0d0
         endwhere
 
         testvect = sum( thckmask * mask, 1 )
 
-        !if( up .eq. 3 )then ! temporary code for debugging
+        !if( up == 3 )then ! temporary code for debugging
         !  do i = 3,1,-1
         !  print *, 'thck = ', thck(:,i)
         !  end do
@@ -466,19 +466,19 @@ contains
         !end if
 
         ! calculate the angle of the normal in cart. (x,y) system w/ 0 deg. at 12 O'clock, 90 deg. at 3 O'clock, etc.
-        if( sum( sum( thckmask, 1 ) ) .eq. 1.0d0 )then
+        if( sum( sum( thckmask, 1 ) ) == 1.0d0 )then
             phi = sum( sum( thckmask * maskcorners, 1 ) )
         else
-            if( any( testvect .eq. 360.0d0 ) )then
-                if( sum( testvect ) .eq. 450.0d0 )then
+            if( any( testvect == 360.0d0 ) )then
+                if( sum( testvect ) == 450.0d0 )then
                     phi = 45.0d0
-                elseif( sum( testvect ) .eq. 630.0d0 )then
+                elseif( sum( testvect ) == 630.0d0 )then
                     phi = 315.0d0
                 else
                     phi = 0.0d0
                 end if
-            elseif( all( testvect .ne. 360 ) )then
-                phi = sum( testvect ) / sum( testvect/testvect, testvect .ne. 0.0d0 )
+            elseif( all( testvect  /=  360 ) )then
+                phi = sum( testvect ) / sum( testvect/testvect, testvect  /=  0.0d0 )
             end if
         end if
 

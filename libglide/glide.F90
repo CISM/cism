@@ -114,7 +114,7 @@ contains
                             model%numerics%dew, model%numerics%dns)
 
     ! netCDF I/O
-    if (trim(model%funits%ncfile).eq.'') then
+    if (trim(model%funits%ncfile) == '') then
        ncconfig => config
     else
        call ConfigRead(process_path(model%funits%ncfile), ncconfig, unit)
@@ -545,7 +545,7 @@ contains
 
 !TODO - Remove model derived type from argument list
     if (model%isos%do_isos) then
-       if (model%numerics%time .ge. model%isos%next_calc) then
+       if (model%numerics%time >= model%isos%next_calc) then
           model%isos%next_calc = model%isos%next_calc + model%isos%period
           call isos_icewaterload(model)
           model%isos%new_load = .true.

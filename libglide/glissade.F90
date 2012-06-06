@@ -93,7 +93,7 @@ contains
          model%numerics%dns)
 
     ! netCDF I/O
-    if (trim(model%funits%ncfile).eq.'') then
+    if (trim(model%funits%ncfile)=='') then
        ncconfig => config
     else
        call ConfigRead(process_path(model%funits%ncfile), ncconfig, unit)
@@ -498,7 +498,7 @@ contains
        ! MJH: I put the no thickness evolution option here so that it is still possible 
        ! (but not required) to use IR to advect temperature when thickness evolution is turned off.
 
-       if (model%options%whichevol .eq. EVOL_NO_THICKNESS) then
+       if (model%options%whichevol == EVOL_NO_THICKNESS) then
           ! store old thickness
           thck_old = model%geometry%thck
           stagthck_old = model%geomderv%stagthck
@@ -668,7 +668,7 @@ contains
 !HALO - If the stress%tau halo updates are needed, they should go here (in glissade.F90)
 !       But I think they are not needed.
 
-       if (model%options%whichevol .eq. EVOL_NO_THICKNESS) then
+       if (model%options%whichevol == EVOL_NO_THICKNESS) then
           ! restore old thickness
           model%geometry%thck = thck_old
           model%geomderv%stagthck = stagthck_old
@@ -811,7 +811,7 @@ end select
        !JEFF the isos_icewaterload() is passed the entire model, so I don't know what gathered variables it needs.
        call not_parallel(__FILE__, __LINE__)
 
-       if (model%numerics%time.ge.model%isos%next_calc) then
+       if (model%numerics%time >= model%isos%next_calc) then
           model%isos%next_calc = model%isos%next_calc + model%isos%period
           call isos_icewaterload(model)
           model%isos%new_load = .true.

@@ -167,7 +167,7 @@ contains
     call write_log(trim(message))
     write(message,*) '  Starting output at ',outfile%next_write,' and write every ',outfile%freq,' years'
     call write_log(trim(message))
-    if (outfile%end_write .lt. glimmer_nc_max_time) then
+    if (outfile%end_write < glimmer_nc_max_time) then
        write(message,*) '  Stop writing at ',outfile%end_write
        call write_log(trim(message))
     end if
@@ -250,7 +250,7 @@ contains
        NCO%define_mode = .FALSE.
     end if
 
-    if (sub_time.gt.NCO%processsed_time) then
+    if (sub_time > NCO%processsed_time) then
        if (NCO%just_processed) then
           ! finished writing during last time step, need to increase counter...
           
@@ -260,8 +260,8 @@ contains
           NCO%just_processed = .FALSE.
        end if
     end if
-    if (sub_time.ge.outfile%next_write .or. (forcewrite.and.sub_time.gt.outfile%next_write-outfile%freq)) then
-       if (sub_time.le.outfile%end_write .and. .not.NCO%just_processed) then
+    if (sub_time >= outfile%next_write .or. (forcewrite.and.sub_time > outfile%next_write-outfile%freq)) then
+       if (sub_time <= outfile%end_write .and. .not.NCO%just_processed) then
           call write_log_div
           write(message,*) 'Writing to file ', trim(process_path(NCO%filename)), ' at time ', sub_time
           call write_log(trim(message))
@@ -338,7 +338,7 @@ contains
 
     ! open netCDF file
     status = parallel_open(process_path(NCI%filename),NF90_NOWRITE,NCI%id)
-    if (status.ne.NF90_NOERR) then
+    if (status /= NF90_NOERR) then
        call write_log('Error opening file '//trim(process_path(NCI%filename))//': '//nf90_strerror(status),&
             type=GM_FATAL,file=__FILE__,line=__LINE__)
     end if
@@ -373,7 +373,7 @@ contains
     call nc_errorhandle(__FILE__,__LINE__,status)
     status = parallel_inquire_dimension(NCI%id,dimid,len=dimsize)
     call nc_errorhandle(__FILE__,__LINE__,status)
-    if (dimsize.ne.global_ewn) then
+    if (dimsize /= global_ewn) then
        write(message,*) 'Dimension x1 of file '//trim(process_path(NCI%filename))//' does not match with config dimension: ',&
             dimsize, global_ewn
        call write_log(message,type=GM_FATAL)
@@ -384,7 +384,7 @@ contains
     call nc_errorhandle(__FILE__,__LINE__,status)
 !SCALING - Make sure inequality makes sense with scaling removed
 ! I think this is OK because dew*len0 has units of meters.
-    if (abs(delta(2)-delta(1) - model%numerics%dew*len0).gt.small) then
+    if (abs(delta(2)-delta(1) - model%numerics%dew*len0) > small) then
        write(message,*) 'deltax1 of file '//trim(process_path(NCI%filename))//' does not match with config deltax: ',&
             delta(2)-delta(1),model%numerics%dew*len0
        call write_log(message,type=GM_FATAL)
@@ -395,7 +395,7 @@ contains
     !call nc_errorhandle(__FILE__,__LINE__,status)
     !status = nf90_inquire_dimension(NCI%id,dimid,len=dimsize)
     !call nc_errorhandle(__FILE__,__LINE__,status)
-    !if (dimsize.ne.model%general%ewn-1) then
+    !if (dimsize /= model%general%ewn-1) then
     !   write(message,*) 'Dimension x0 of file ',trim(process_path(NCI%filename)),' does not match with config dimension: ', &
     !        dimsize, model%general%ewn-1
     !   call write_log(message,type=GM_FATAL)
@@ -404,7 +404,7 @@ contains
     !call nc_errorhandle(__FILE__,__LINE__,status)
     !status = nf90_get_var(NCI%id,varid,delta)
     !call nc_errorhandle(__FILE__,__LINE__,status)
-    !if (abs(delta(2)-delta(1) - model%numerics%dew*len0).gt.small) then
+    !if (abs(delta(2)-delta(1) - model%numerics%dew*len0) > small) then
     !   write(message,*) 'deltax0 of file '//trim(process_path(NCI%filename))//' does not match with config deltax: ', &
     !        delta(2)-delta(1),model%numerics%dew*len0
     !   call write_log(message,type=GM_FATAL)
@@ -415,7 +415,7 @@ contains
     call nc_errorhandle(__FILE__,__LINE__,status)
     status = parallel_inquire_dimension(NCI%id,dimid,len=dimsize)
     call nc_errorhandle(__FILE__,__LINE__,status)
-    if (dimsize.ne.global_nsn) then
+    if (dimsize /= global_nsn) then
        write(message,*) 'Dimension y1 of file '//trim(process_path(NCI%filename))//' does not match with config dimension: ',&
             dimsize, global_nsn
        call write_log(message,type=GM_FATAL)
@@ -426,7 +426,7 @@ contains
     call nc_errorhandle(__FILE__,__LINE__,status)
 !SCALING - Make sure inequality makes sense with scaling removed
 ! I think this is OK because dew*len0 has units of meters.
-    if (abs(delta(2)-delta(1) - model%numerics%dns*len0).gt.small) then
+    if (abs(delta(2)-delta(1) - model%numerics%dns*len0) > small) then
        write(message,*) 'deltay1 of file '//trim(process_path(NCI%filename))//' does not match with config deltay: ',&
             delta(2)-delta(1),model%numerics%dns*len0
        call write_log(message,type=GM_FATAL)
@@ -437,7 +437,7 @@ contains
     !call nc_errorhandle(__FILE__,__LINE__,status)
     !status = nf90_inquire_dimension(NCI%id,dimid,len=dimsize)
     !call nc_errorhandle(__FILE__,__LINE__,status)
-    !if (dimsize.ne.model%general%nsn-1) then
+    !if (dimsize /= model%general%nsn-1) then
     !   write(message,*) 'Dimension y0 of file '//trim(process_path(NCI%filename))//' does not match with config dimension: ',&
     !        dimsize, model%general%nsn-1
     !   call write_log(message,type=GM_FATAL)
@@ -446,7 +446,7 @@ contains
     !call nc_errorhandle(__FILE__,__LINE__,status)
     !status = nf90_get_var(NCI%id,varid,delta)
     !call nc_errorhandle(__FILE__,__LINE__,status)
-    !if (abs(delta(2)-delta(1) - model%numerics%dns*len0).gt.small) then
+    !if (abs(delta(2)-delta(1) - model%numerics%dns*len0) > small) then
     !   write(message,*) 'deltay0 of file '//trim(process_path(NCI%filename))//' does not match with config deltay: ',&
     !        delta(2)-delta(1),model%numerics%dns*len0
     !   call write_log(message,type=GM_FATAL)
@@ -462,7 +462,7 @@ contains
   if (status == NF90_NOERR) then
         status = parallel_inquire_dimension(NCI%id, dimid, len=dimsize)
         call nc_errorhandle(__FILE__, __LINE__, status)
-        if (dimsize.ne.model%general%upn .and. dimsize .ne. 1) then
+        if (dimsize /= model%general%upn .and. dimsize  /=  1) then
             write(message,*) 'Dimension level of file '//trim(process_path(NCI%filename))//&
                 ' does not match with config dimension: ', &
                 dimsize, model%general%upn
@@ -499,7 +499,7 @@ contains
        sub_time=model%numerics%time
     end if
 
-    if (infile%current_time.le.infile%nt) then
+    if (infile%current_time <= infile%nt) then
        if (.not.NCI%just_processed) then
           call write_log_div
           !EIB! added form gc2, needed?
@@ -507,7 +507,7 @@ contains
           write(message,*) 'Check for restart:', trim(infile%nc%filename)
           call write_log(message)
           pos = index(infile%nc%filename,'.r.')  ! use CESM naming convention for restart files
-          if (pos.ne.0) then   ! get the start time based on the current time slice
+          if (pos /= 0) then   ! get the start time based on the current time slice
              restart_time = real(infile%times(infile%current_time))  ! years
              model%numerics%tstart = restart_time
              model%numerics%time = restart_time
@@ -522,7 +522,7 @@ contains
           NCI%processsed_time = sub_time
        end if
     end if
-    if (sub_time.gt.NCI%processsed_time) then
+    if (sub_time > NCI%processsed_time) then
        if (NCI%just_processed) then
           ! finished reading during last time step, need to increase counter...
           infile%current_time = infile%current_time + 1

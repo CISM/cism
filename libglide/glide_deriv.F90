@@ -394,51 +394,51 @@ contains
 
         f = f_in
 
-        where( thck .le. thklim )
+        where( thck <= thklim )
             f = 0
         end where
 
         f_array(1,1) = f(i,j); f_array(2,1) = f(i+1,j); f_array(1,2) = f(i,j+1); f_array(2,2) = f(i+1,j+1);
 
-        if( sum( f_array/ f_array, MASK = f_array .ne. 0.0d0 ) == 4.0 )then
+        if( sum( f_array/ f_array, MASK = f_array /= 0.0d0 ) == 4.0 )then
         ! normal differencing for interior points
             dfdx_2d_stag_os = (f(i+1,j) + f(i+1,j+1) - f(i,j) - f(i,j+1))/(2*delta)
-        elseif( sum( f_array/ f_array, MASK = f_array .ne. 0.0d0 ) == 3.0 )then
+        elseif( sum( f_array/ f_array, MASK = f_array /= 0.0d0 ) == 3.0 )then
         ! corner; use 2x next closest value
-            if( f(i,j) .eq. f_min )then     ! southwest corner point missing: apply value from s.e. point
+            if( f(i,j) == f_min )then     ! southwest corner point missing: apply value from s.e. point
                 dfdx_2d_stag_os = ( f(i+1,j+1) + f(i+1,j) - 2.0*f(i,j+1) )/(2*delta)
-            elseif( f(i+1,j) .eq. f_min )then ! southeast corner point missing: apply value from s.w. point
+            elseif( f(i+1,j) == f_min )then ! southeast corner point missing: apply value from s.w. point
                 dfdx_2d_stag_os = ( 2.0*f(i+1,j+1) - f(i,j) - f(i,j+1) )/(2*delta)
-            elseif( f(i,j+1) .eq. f_min )then ! northwest corner point missing: apply value from n.e. point
+            elseif( f(i,j+1) == f_min )then ! northwest corner point missing: apply value from n.e. point
                 dfdx_2d_stag_os = ( f(i+1,j+1) + f(i+1,j) - 2.0*f(i,j))/(2*delta)
-            elseif( f(i+1,j+1) .eq. f_min )then ! northeast corner point missing: apply value from n.w. point
+            elseif( f(i+1,j+1) == f_min )then ! northeast corner point missing: apply value from n.w. point
                 dfdx_2d_stag_os = ( 2.0*f(i+1,j) - f(i,j) - f(i,j+1) )/(2*delta)
             endif
-        elseif( sum( f_array/ f_array, MASK = f_array .ne. 0.0d0 ) == 2.0 )then
+        elseif( sum( f_array/ f_array, MASK = f_array /= 0.0d0 ) == 2.0 )then
         ! side; back up and take gradient from points one set of cells in OR use only the single set of
         ! cells available along the differencing direction 
-            if( f(i,j) .eq. f_min .and. f(i,j+1) .eq. f_min )then   ! west cells empty
+            if( f(i,j) == f_min .and. f(i,j+1) == f_min )then   ! west cells empty
                 dfdx_2d_stag_os = (f(i+2,j) + f(i+2,j+1) - f(i+1,j+1) - f(i+1,j))/(2*delta)
-            elseif( f(i+1,j) .eq. f_min .and. f(i+1,j+1) .eq. f_min )then   ! east cells empty
+            elseif( f(i+1,j) == f_min .and. f(i+1,j+1) == f_min )then   ! east cells empty
                 dfdx_2d_stag_os = (f(i,j) + f(i,j+1) - f(i-1,j) - f(i-1,j+1))/(2*delta)
-            elseif( f(i,j+1) .eq. f_min .and. f(i+1,j+1) .eq. f_min )then   ! north cells empty
+            elseif( f(i,j+1) == f_min .and. f(i+1,j+1) == f_min )then   ! north cells empty
                 dfdx_2d_stag_os = (f(i+1,j) - f(i,j) )/(delta)
-            elseif( f(i,j) .eq. f_min .and. f(i+1,j) .eq. f_min )then   ! south cells empty
+            elseif( f(i,j) == f_min .and. f(i+1,j) == f_min )then   ! south cells empty
                 dfdx_2d_stag_os = (f(i+1,j+1) - f(i,j+1) )/(delta)
             endif
-        elseif( sum( f_array/ f_array, MASK = f_array .ne. 0.0d0 ) == 1.0 )then
+        elseif( sum( f_array/ f_array, MASK = f_array /= 0.0d0 ) == 1.0 )then
         ! isolated; treat by assuming it is part of a 3 block for which the rest of the values are not contained in
         ! the local 2x2 block with indices i:i+1, j:j+1 
-            if( f(i,j) .ne. f_min .and.  f(i+1,j) .eq. f_min .and. f(i+1,j+1) .eq. f_min .and. f(i,j+1) .eq. f_min)then
+            if( f(i,j) /= f_min .and.  f(i+1,j) == f_min .and. f(i+1,j+1) == f_min .and. f(i,j+1) == f_min)then
             ! a northeast corner
                 dfdx_2d_stag_os = ( f(i,j) - f(i-1,j) ) / (delta)
-            elseif( f(i,j) .eq. f_min .and.  f(i+1,j) .ne. f_min .and. f(i+1,j+1) .eq. f_min .and. f(i,j+1) .eq. f_min)then
+            elseif( f(i,j) == f_min .and.  f(i+1,j) /= f_min .and. f(i+1,j+1) == f_min .and. f(i,j+1) == f_min)then
             ! a northwest corner
                 dfdx_2d_stag_os = ( f(i+2,j) - f(i+1,j) ) / (delta)
-            elseif( f(i,j) .eq. f_min .and.  f(i+1,j) .eq. f_min .and. f(i+1,j+1) .ne. f_min .and. f(i,j+1) .eq. f_min)then
+            elseif( f(i,j) == f_min .and.  f(i+1,j) == f_min .and. f(i+1,j+1) /= f_min .and. f(i,j+1) == f_min)then
             ! a southwest corner
                 dfdx_2d_stag_os = ( f(i+2,j+1) - f(i+1,j+1) ) / (delta)
-            elseif( f(i,j) .eq. f_min .and.  f(i+1,j) .eq. f_min .and. f(i+1,j+1) .eq. f_min .and. f(i,j+1) .ne. f_min)then
+            elseif( f(i,j) == f_min .and.  f(i+1,j) == f_min .and. f(i+1,j+1) == f_min .and. f(i,j+1) /= f_min)then
             ! a southeast corner
                 dfdx_2d_stag_os = ( f(i,j+1) - f(i-1,j+1) ) / (delta)
             endif
@@ -464,51 +464,52 @@ contains
 
         f = f_in
 
-        where( thck .le. thklim )
+        where( thck <= thklim )
             f = 0
         end where
 
         f_array(1,1) = f(i,j); f_array(2,1) = f(i+1,j); f_array(1,2) = f(i,j+1); f_array(2,2) = f(i+1,j+1);
 
-        if( sum( f_array/ f_array, MASK = f_array .ne. 0.0d0 ) == 4.0 )then
+!TODO - Change reals to double precision
+        if( sum( f_array/ f_array, MASK = f_array /= 0.0d0 ) == 4.0 )then
         ! normal differencing for interior points
             dfdy_2d_stag_os = (f(i,j+1) + f(i+1,j+1) - f(i,j) - f(i+1,j))/(2*delta)
-        elseif( sum( f_array/ f_array, MASK = f_array .ne. 0.0d0 ) == 3.0 )then
+        elseif( sum( f_array/ f_array, MASK = f_array /= 0.0d0 ) == 3.0 )then
         ! corner; use 2x next closest value
-            if( f(i,j) .eq. f_min )then     ! southwest corner point missing: apply value from s.e. point
+            if( f(i,j) == f_min )then     ! southwest corner point missing: apply value from s.e. point
                 dfdy_2d_stag_os = (f(i,j+1) + f(i+1,j+1) - 2.0*f(i+1,j))/(2*delta)
-            elseif( f(i+1,j) .eq. f_min )then ! southeast corner point missing: apply value from s.w. point
+            elseif( f(i+1,j) == f_min )then ! southeast corner point missing: apply value from s.w. point
                 dfdy_2d_stag_os = (f(i,j+1) + f(i+1,j+1) - 2.0*f(i,j))/(2*delta)
-            elseif( f(i,j+1) .eq. f_min )then ! northwest corner point missing: apply value from n.e. point
+            elseif( f(i,j+1) == f_min )then ! northwest corner point missing: apply value from n.e. point
                 dfdy_2d_stag_os = ( 2.0*f(i+1,j+1) - f(i,j) - f(i+1,j))/(2*delta)
-            elseif( f(i+1,j+1) .eq. f_min )then ! northeast corner point missing: apply value from n.w. point
+            elseif( f(i+1,j+1) == f_min )then ! northeast corner point missing: apply value from n.w. point
                 dfdy_2d_stag_os = ( 2.0*f(i,j+1) - f(i,j) - f(i+1,j))/(2*delta)
             endif
-        elseif( sum( f_array/ f_array, MASK = f_array .ne. 0.0d0 ) == 2.0 )then
+        elseif( sum( f_array/ f_array, MASK = f_array /= 0.0d0 ) == 2.0 )then
         ! side; back up and take gradient from points one set of cells in OR use only the single set of
         ! cells available along the differencing direction 
-            if( f(i,j) .eq. f_min .and. f(i,j+1) .eq. f_min )then   ! west cells empty
+            if( f(i,j) == f_min .and. f(i,j+1) == f_min )then   ! west cells empty
                 dfdy_2d_stag_os = (f(i+1,j+1) - f(i+1, j))/(delta)
-            elseif( f(i+1,j) .eq. f_min .and. f(i+1,j+1) .eq. f_min )then   ! east cells empty
+            elseif( f(i+1,j) == f_min .and. f(i+1,j+1) == f_min )then   ! east cells empty
                 dfdy_2d_stag_os = (f(i,j+1) - f(i,j) )/(delta)
-            elseif( f(i,j+1) .eq. f_min .and. f(i+1,j+1) .eq. f_min )then   ! north cells empty
+            elseif( f(i,j+1) == f_min .and. f(i+1,j+1) == f_min )then   ! north cells empty
                 dfdy_2d_stag_os = (f(i,j) + f(i+1,j) - f(i,j-1) - f(i+1,j-1))/(2*delta)
-            elseif( f(i,j) .eq. f_min .and. f(i+1,j) .eq. f_min )then   ! south cells empty
+            elseif( f(i,j) == f_min .and. f(i+1,j) == f_min )then   ! south cells empty
                 dfdy_2d_stag_os = (f(i,j+2) + f(i+1,j+2) - f(i,j+1) - f(i+1,j+1))/(2*delta)
             endif
-        elseif( sum( f_array/ f_array, MASK = f_array .ne. 0.0d0 ) == 1.0 )then
+        elseif( sum( f_array/ f_array, MASK = f_array /= 0.0d0 ) == 1.0 )then
         ! isolated; treat by assuming it is part of a 3 block for which the rest of the values are not contained within
         ! the local 2x2 block with indices i:i+1, j:j+1 
-            if( f(i,j) .ne. f_min .and.  f(i+1,j) .eq. f_min .and. f(i+1,j+1) .eq. f_min .and. f(i,j+1) .eq. f_min )then
+            if( f(i,j) /= f_min .and.  f(i+1,j) == f_min .and. f(i+1,j+1) == f_min .and. f(i,j+1) == f_min )then
             ! a northeast corner
                 dfdy_2d_stag_os = ( f(i,j) - f(i,j-1) ) / (delta)
-            elseif( f(i,j) .eq. f_min .and.  f(i+1,j) .ne. f_min .and. f(i+1,j+1) .eq. f_min .and. f(i,j+1) .eq. f_min )then
+            elseif( f(i,j) == f_min .and.  f(i+1,j) /= f_min .and. f(i+1,j+1) == f_min .and. f(i,j+1) == f_min )then
             ! a northwest corner
                 dfdy_2d_stag_os = ( f(i+1,j) - f(i+1,j-1) ) / (delta)
-            elseif( f(i,j) .eq. f_min .and.  f(i+1,j) .eq. f_min .and. f(i+1,j+1) .ne. f_min .and. f(i,j+1) .eq. f_min )then
+            elseif( f(i,j) == f_min .and.  f(i+1,j) == f_min .and. f(i+1,j+1) /= f_min .and. f(i,j+1) == f_min )then
             ! a southwest corner
                 dfdy_2d_stag_os = ( f(i+1,j+2) - f(i+1,j+1) ) / (delta)
-            elseif( f(i,j) .eq. f_min .and.  f(i+1,j) .eq. f_min .and. f(i+1,j+1) .eq. f_min .and. f(i,j+1) .ne. f_min )then
+            elseif( f(i,j) == f_min .and.  f(i+1,j) == f_min .and. f(i+1,j+1) == f_min .and. f(i,j+1) /= f_min )then
             ! a southeast corner
                 dfdy_2d_stag_os = ( f(i,j+2) - f(i,j+1) ) / (delta)
             endif

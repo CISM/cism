@@ -142,7 +142,7 @@ contains
        if (crash) then
           call glide_io_writeall(model,model,.true.)
           !EIB! from gc2, not sure necessary
-          if (model%options%gthf.gt.0) then
+          if (model%options%gthf > 0) then
              call glide_lithot_io_writeall(model,model,.true.)
           end if
           !EIB!

@@ -514,7 +514,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
   outer_it_criterion = 1.0
   outer_it_target = 0.0
 
-  do while ( outer_it_criterion .ge. outer_it_target .and. counter < cmax)    ! use L2 norm for resid calculation
+  do while ( outer_it_criterion >= outer_it_target .and. counter < cmax)    ! use L2 norm for resid calculation
  call t_startf("PICARD_in_iter")
 
   ! choose outer loop stopping criterion
@@ -679,7 +679,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
 
 !    print *, 'L2 with/without ghost (k)= ', counter, &
 !              sqrt(DOT_PRODUCT(F,F)), L2norm
-!    if (counter .le. 2) NL_target = NL_tol * L2norm
+!    if (counter <= 2) NL_target = NL_tol * L2norm
 !    if (counter == 1) NL_target = NL_tol * L2norm
     if (counter == 1) NL_target = 1.0d-4 
 
@@ -804,7 +804,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
     counter = counter + 1   ! advance the iteration counter
  call t_stopf("PICARD_in_iter")
 
-  end do  ! while ( outer_it_criterion .ge. outer_it_target .and. counter < cmax)
+  end do  ! while ( outer_it_criterion >= outer_it_target .and. counter < cmax)
 
   inisoln = .true.
 
@@ -1261,11 +1261,11 @@ end if
 ! -check at all k if target is reached
 !==============================================================================
 
-    if (k .eq. 1) NL_target = NL_tol * (L2norm_wig + 1.0e-2)
+    if (k == 1) NL_target = NL_tol * (L2norm_wig + 1.0e-2)
 
     print *, 'L2 w/ghost (k)= ',k,L2norm_wig,L2norm
 
-    if (L2norm_wig .lt. NL_target) exit ! nonlinear convergence criterion
+    if (L2norm_wig < NL_target) exit ! nonlinear convergence criterion
 
 !==============================================================================
 ! solve J(u^k-1,v^k-1)dx = -F(u^k-1,v^k-1) with fgmres, dx = [dv, du]  
@@ -1319,7 +1319,7 @@ end if
 !------------------------------------------------------------------------
 ! End of FGMRES method    
 !------------------------------------------------------------------------
-      if (tot_its .eq. maxiteGMRES) then
+      if (tot_its == maxiteGMRES) then
         print *,'WARNING: FGMRES has not converged'
         stop
       endif
@@ -1928,7 +1928,7 @@ function slapsolvstr(ewn, nsn, upn, &
   call dslucs(pcgsize(1),rhsd,answer,pcgsize(2),pcgrow,pcgcol,pcgval, &
               isym,itol,tol,itmax,iter,err,ierr,0,rwork,mxnelt,iwork,mxnelt)
 
-  if (ierr .ne. 0) then
+  if (ierr /= 0) then
     print *, 'pcg error ', ierr, itmax, iter, tol, err
     ! stop
   end if
@@ -2127,14 +2127,14 @@ subroutine forcing_term ( k, L2normk_1, gamma_l )
       gamma_min = 0.01d0
       expo      = 2d0
 
-      if (k .eq. 1) then
+      if (k == 1) then
          gamma_l = gamma_ini
       else
          gamma_l = (L2normk_1 / L2normk_2)**expo
       endif
 
-      if (gamma_l .gt. gamma_ini) gamma_l = gamma_ini
-      if (gamma_l .lt. gamma_min) gamma_l = gamma_min
+      if (gamma_l > gamma_ini) gamma_l = gamma_ini
+      if (gamma_l < gamma_min) gamma_l = gamma_min
       
       L2normk_2 = L2normk_1
 
@@ -2744,12 +2744,12 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
 !TODO - All loops in this subroutine should be over locally owned velocity points?
 
    case(0)
-    ! resid = maxval( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.d0)
+    ! resid = maxval( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel /= 0.d0)
     resid = 0.d0
     do ns = 1 + staggered_shalo, size(vel, 3) - staggered_nhalo
       do ew = 1 + staggered_whalo, size(vel, 2) - staggered_ehalo
         do nr = 1, size(vel, 1)
-          if (vel(nr,ew,ns) .ne. 0.d0) then
+          if (vel(nr,ew,ns) /= 0.d0) then
             resid = max(resid, abs(usav(nr,ew,ns,pt) - vel(nr,ew,ns)) / vel(nr,ew,ns))
           endif
         enddo
@@ -2758,16 +2758,16 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
 
     resid = parallel_reduce_max(resid)
     !locat is only used in diagnostic print statement below.
-    !locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.d0)
+    !locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel /= 0.d0)
 
    case(1)
     ! nr = size( vel, dim=1 ) ! number of grid points in vertical ...
-    ! resid = maxval( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ), MASK = vel .ne. 0.d0)
+    ! resid = maxval( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ), MASK = vel /= 0.d0)
     resid = 0.d0
     do ns = 1 + staggered_shalo, size(vel, 3) - staggered_nhalo
       do ew = 1 + staggered_whalo, size(vel, 2) - staggered_ehalo
         do nr = 1, size(vel, 1) - 1
-          if (vel(nr,ew,ns) .ne. 0.d0) then
+          if (vel(nr,ew,ns) /= 0.d0) then
             resid = max(resid, abs(usav(nr,ew,ns,pt) - vel(nr,ew,ns)) / vel(nr,ew,ns))
           endif
         enddo
@@ -2776,7 +2776,7 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
 
     resid = parallel_reduce_max(resid)
     !locat = maxloc( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ),  &
-    !        MASK = vel .ne. 0.d0)
+    !        MASK = vel /= 0.d0)
 
    case(2)
     call not_parallel(__FILE__, __LINE__)
@@ -2784,12 +2784,12 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
     resid = 0.d0
     nr = size( vel, dim=1 )
     vel_ne_0 = 0
-    where ( vel .ne. 0.d0 ) vel_ne_0 = 1
+    where ( vel /= 0.d0 ) vel_ne_0 = 1
 
     ! include basal velocities in resid. calculation when using MEAN
     ! JEFF Compute sums across nodes in order to compute mean.
     resid = sum( abs((usav(:,:,:,pt) - vel ) / vel ), &
-            MASK = vel .ne. 0.d0)
+            MASK = vel /= 0.d0)
 
     resid = parallel_reduce_sum(resid)
     sum_vel_ne_0 = sum( vel_ne_0 )
@@ -2799,19 +2799,19 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
 
     ! ignore basal velocities in resid. calculation when using MEAN
     ! resid = sum( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ),   &
-    !           MASK = vel .ne. 0.d0) / sum( vel_ne_0(1:nr-1,:,:) )
+    !           MASK = vel /= 0.d0) / sum( vel_ne_0(1:nr-1,:,:) )
 
     ! NOTE that the location of the max residual is somewhat irrelevent here
     !      since we are using the mean resid for convergence testing
-    ! locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.d0)
+    ! locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel /= 0.d0)
 
    case(3)
-    ! resid = maxval( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.d0)
+    ! resid = maxval( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel /= 0.d0)
     resid = 0.d0
     do ns = 1 + staggered_shalo, size(vel, 3) - staggered_nhalo
       do ew = 1 + staggered_whalo, size(vel, 2) - staggered_ehalo
         do nr = 1, size(vel, 1)
-          if (vel(nr,ew,ns) .ne. 0.d0) then
+          if (vel(nr,ew,ns) /= 0.d0) then
             resid = max(resid, abs(usav(nr,ew,ns,pt) - vel(nr,ew,ns)) / vel(nr,ew,ns))
           endif
         enddo
@@ -2819,7 +2819,7 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
     enddo
 
     resid = parallel_reduce_max(resid)
-    !locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.d0)
+    !locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel /= 0.d0)
 
   end select
 
@@ -2986,14 +2986,14 @@ function mindcrshstr2(pt,whichresid,vel,counter,resid)
    case(0)
     rel_diff = 0.d0
     vel_ne_0 = 0
-    where ( mindcrshstr2 .ne. 0.d0 )
+    where ( mindcrshstr2 /= 0.d0 )
         vel_ne_0 = 1
         rel_diff = abs((usav(:,:,:,pt) - mindcrshstr2) / mindcrshstr2) &
                            * usav_avg(pt)/sqrt(sum(usav_avg ** 2.0))
     end where
 
-    resid = maxval( rel_diff, MASK = mindcrshstr2 .ne. 0.d0 )
-    locat = maxloc( rel_diff, MASK = mindcrshstr2 .ne. 0.d0 )
+    resid = maxval( rel_diff, MASK = mindcrshstr2 /= 0.d0 )
+    locat = maxloc( rel_diff, MASK = mindcrshstr2 /= 0.d0 )
 
 !    mean_rel_diff = sum(rel_diff) / sum(vel_ne_0)
 !    sig_rel_diff = sqrt( sum((rel_diff - mean_rel_diff) ** 2.0 )/ sum(vel_ne_0) )
@@ -3006,27 +3006,27 @@ function mindcrshstr2(pt,whichresid,vel,counter,resid)
     !**cvg*** should replace vel by mindcrshstr2 in the following lines, I belive
     nr = size( vel, dim=1 ) ! number of grid points in vertical ...
     resid = maxval( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ),  &
-                        MASK = vel .ne. 0.d0)
+                        MASK = vel /= 0.d0)
     locat = maxloc( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ),  &
-            MASK = vel .ne. 0.d0)
+            MASK = vel /= 0.d0)
 
    case(2)
     !**cvg*** should replace vel by mindcrshstr2 in the following lines, I believe
     nr = size( vel, dim=1 )
     vel_ne_0 = 0
-    where ( vel .ne. 0.d0 ) vel_ne_0 = 1
+    where ( vel /= 0.d0 ) vel_ne_0 = 1
 
     ! include basal velocities in resid. calculation when using MEAN
     resid = sum( abs((usav(:,:,:,pt) - vel ) / vel ), &
-            MASK = vel .ne. 0.d0) / sum( vel_ne_0 )
+            MASK = vel /= 0.d0) / sum( vel_ne_0 )
 
     ! ignore basal velocities in resid. calculation when using MEAN
     ! resid = sum( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ),   &
-    !           MASK = vel .ne. 0.d0) / sum( vel_ne_0(1:nr-1,:,:) )
+    !           MASK = vel /= 0.d0) / sum( vel_ne_0(1:nr-1,:,:) )
 
     ! NOTE that the location of the max residual is somewhat irrelevent here
     !      since we are using the mean resid for convergence testing
-    locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel .ne. 0.d0)
+    locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel /= 0.d0)
 
   end select
 
@@ -3639,6 +3639,9 @@ subroutine bodyset(ew,  ns,  up,           &
 
 ! *********************************************************************************************
 ! higher-order sfc and bed boundary conditions in main body of ice sheet (NOT at lat. boundry)
+
+!TODO - whichbabc option numbers should not be hardwired.
+!       This code will break if we change the numbering.
 
   if(  ( up == upn  .or. up == 1 ) .and. .not. lateralboundry) then
 
@@ -4361,13 +4364,13 @@ function normhorizmainbc_lat(dew,       dns,   &
     g(3,3,3) = -c * whichbc(what)
     g(1,3,3) = c * whichbc(what)
 
-    if( normal(1) .eq. 0.d0 )then     ! centered in x ...
+    if( normal(1) == 0.d0 )then     ! centered in x ...
 
            c = fourorone(which) * dusrfdew / (2*dew)
            g(2,3,2) = c
            g(2,1,2) = -c
 
-    elseif( normal(1) .ne. 0.d0 )then     ! forward/backward in x ...
+    elseif( normal(1) /= 0.d0 )then     ! forward/backward in x ...
 
            c = fourorone(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdew / (2*dew)
            g(2,2-int(fwdorbwd(1)),2) = c
@@ -4380,14 +4383,14 @@ function normhorizmainbc_lat(dew,       dns,   &
 
     end if
 
-    if( normal(2) .eq. 0.d0 ) then   ! centered in y ... 
+    if( normal(2) == 0.d0 ) then   ! centered in y ... 
                                        ! (NOTE that y coeff. are stored in g(1,:,:) )
 
            c = oneorfour(which) * dusrfdns / (2*dns)
            g(1,2,3) = c
            g(1,2,1) = -c 
 
-    elseif( normal(2) .ne. 0.d0) then ! forward/backward in y ...
+    elseif( normal(2) /= 0.d0) then ! forward/backward in y ...
 
            c = oneorfour(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdns / (2*dns)
            g(1,2,2-int(fwdorbwd(2))) = c
@@ -4449,13 +4452,13 @@ function croshorizmainbc_lat (dew,       dns,       &
     gvert(3) = -c * whichbc(what)
     gvert(1) = c * whichbc(what)
 
-    if( normal(1) .eq. 0.d0 )then        ! centered in x ...
+    if( normal(1) == 0.d0 )then        ! centered in x ...
 
            c = -oneortwo(which) * dusrfdns / (2*dew)
            g(2,3,2) = c
            g(2,1,2) = -c
 
-    elseif( normal(1) .ne. 0.d0 )then    ! forward/backward in x ...
+    elseif( normal(1) /= 0.d0 )then    ! forward/backward in x ...
                                            ! (NOTE that x coeff. are stored in g(2,:,:) )
 
            c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdns / (2*dew)
@@ -4469,14 +4472,14 @@ function croshorizmainbc_lat (dew,       dns,       &
 
     end if
 
-    if( normal(2) .eq. 0.d0 )then    ! centered in y ...
+    if( normal(2) == 0.d0 )then    ! centered in y ...
                                        ! (NOTE that y coeff. are stored in g(1,:,:) )
 
            c = -twoorone(which) * dusrfdew / (2*dns)
            g(1,2,3) = c
            g(1,2,1) = -c
 
-    elseif( normal(2) .ne. 0.d0 )then ! forward/backward in y ...
+    elseif( normal(2) /= 0.d0 )then ! forward/backward in y ...
 
            c = -twoorone(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdew / (2*dns)
            g(1,2,2-int(fwdorbwd(2))) = c
@@ -4495,8 +4498,8 @@ function croshorizmainbc_lat (dew,       dns,       &
     ! in 'g', in the appropriate direction. First, convert the boundary normal to an integer index ...
     inormal(1) = int( normal(1)/abs(normal(1)) )
     inormal(2) = int( normal(2)/abs(normal(2)) )
-    if( abs( inormal(1) ) .ne. 1 )then; inormal(1) = 0; end if
-    if( abs( inormal(2) ) .ne. 1 )then; inormal(2) = 0; end if
+    if( abs( inormal(1) ) /= 1 )then; inormal(1) = 0; end if
+    if( abs( inormal(2) ) /= 1 )then; inormal(2) = 0; end if
 
     croshorizmainbc_lat(2,:,2+inormal(2)) = g(2,:,2)    ! move x-coeffs. appropriate amount
     croshorizmainbc_lat(1,2+inormal(1),:) = g(1,2,:)    ! move y-coeffs. appropriate amount
@@ -4746,8 +4749,8 @@ subroutine fillsprsebndy(inp,locplusup,ptindx,up,normal,pt)
   end if
 
   ! at corners where only one-side diffs. apply
-  if( normal(1) .gt. 0.d0 .and. normal(2) .ne. 0.d0 )then
-    if( normal(2) .gt. 0.d0 )then      ! corner w/ normal [ 1/sqrt(2), 1/sqrt(2) ]
+  if( normal(1) > 0.d0 .and. normal(2) /= 0.d0 )then
+    if( normal(2) > 0.d0 )then      ! corner w/ normal [ 1/sqrt(2), 1/sqrt(2) ]
            call putpcgc(inp(1,3,3),ptindx(2)+up-1,locplusup,pt)
            call putpcgc(inp(3,3,3),ptindx(2)+up+1,locplusup,pt)
            call putpcgc(inp(2,3,3)+inp(2,3,2)+inp(1,2,3),ptindx(2)+up,locplusup,pt)
@@ -4766,8 +4769,8 @@ subroutine fillsprsebndy(inp,locplusup,ptindx,up,normal,pt)
     end if
   end if
 
-  if( normal(1) .lt. 0.d0 .and. normal(2) .ne. 0.d0 )then
-    if( normal(2) .gt. 0.d0 )then       ! corner w/ normal [ -1/sqrt(2), 1/sqrt(2) ]
+  if( normal(1) < 0.d0 .and. normal(2) /= 0.d0 )then
+    if( normal(2) > 0.d0 )then       ! corner w/ normal [ -1/sqrt(2), 1/sqrt(2) ]
            call putpcgc(inp(1,3,3),ptindx(3)+up-1,locplusup,pt)
            call putpcgc(inp(3,3,3),ptindx(3)+up+1,locplusup,pt)
            call putpcgc(inp(2,3,3)+inp(1,2,3)+inp(2,1,2),ptindx(3)+up,locplusup,pt)
@@ -4830,9 +4833,9 @@ subroutine getlatboundinfo( ew, ns, up, ewn, nsn, upn,  &
 
   ! following is algorithm for calculating boundary normal at 45 deg. increments, based on arbitray
   ! boundary shape (based on initial suggestions by Anne LeBrocq)
-  where( thck .ne. 0.d0 )
+  where( thck /= 0.d0 )
         thckmask = 0.d0
-  elsewhere( thck .eq. 0.d0 )
+  elsewhere( thck == 0.d0 )
         thckmask = 1.d0
   endwhere
 
@@ -4840,48 +4843,48 @@ subroutine getlatboundinfo( ew, ns, up, ewn, nsn, upn,  &
 
     ! calculate the angle of the normal in cart. (x,y) system w/ 0 deg. at 12 O'clock, 
     ! 90 deg. at 3 O'clock, etc.
-    if( sum( sum( thckmask, 1 ) ) .eq. 1.d0 )then
+    if( sum( sum( thckmask, 1 ) ) == 1.d0 )then
         phi = sum( sum( thckmask * maskcorners, 1 ) )
     else
-        if( any( testvect .eq. 360.d0 ) )then
-            if( sum( testvect ) .eq. 450.d0 )then
+        if( any( testvect == 360.d0 ) )then
+            if( sum( testvect ) == 450.d0 )then
                 phi = 45.d0
-            elseif( sum( testvect ) .eq. 630.d0 )then
+            elseif( sum( testvect ) == 630.d0 )then
                 phi = 315.d0
             else
                 phi = 0.d0
             end if
-        elseif( all( testvect .ne. 360 ) )then
-            phi = sum( testvect ) / sum( testvect/testvect, testvect .ne. 0.d0 )
+        elseif( all( testvect /= 360 ) )then
+            phi = sum( testvect ) / sum( testvect/testvect, testvect /= 0.d0 )
         end if
     end if
 
     ! define normal vectors and change definition of loc_array based on this angle
-    if( phi .eq. 0.d0 )then
+    if( phi == 0.d0 )then
          loc_latbc(1) = loc_array(ew,ns-1); loc_latbc(4) = loc_array(ew,ns); loc_latbc(5) = loc_array(ew,ns-2)
          loc_latbc(2) = loc_array(ew+1,ns); loc_latbc(3) = loc_array(ew-1,ns)
          normal = (/ 0.d0, 1.d0 /); fwdorbwd = (/ -1.d0, -1.d0 /)
-    elseif( phi .eq. 45.d0 )then
+    elseif( phi == 45.d0 )then
          loc_latbc(1) = loc_array(ew-1,ns); loc_latbc(2) = loc_array(ew,ns); loc_latbc(3) = loc_array(ew-2,ns)
          loc_latbc(6) = loc_array(ew,ns-1); loc_latbc(4) = loc_array(ew,ns); loc_latbc(5) = loc_array(ew,ns-2)
          normal = (/ 1.d0/sqrt(2.d0), 1.d0/sqrt(2.d0) /); fwdorbwd = (/ -1.d0, -1.d0 /)
-    elseif( phi .eq. 90.d0 )then
+    elseif( phi == 90.d0 )then
          loc_latbc(1) = loc_array(ew-1,ns); loc_latbc(2) = loc_array(ew,ns); loc_latbc(3) = loc_array(ew-2,ns)
          loc_latbc(4) = loc_array(ew,ns+1); loc_latbc(5) = loc_array(ew,ns-1)
          normal = (/ 1.d0, 0.d0 /); fwdorbwd = (/ -1.d0, -1.d0 /)
-    elseif( phi .eq. 135.d0 )then
+    elseif( phi == 135.d0 )then
          loc_latbc(1) = loc_array(ew-1,ns); loc_latbc(2) = loc_array(ew,ns); loc_latbc(3) = loc_array(ew-2,ns)
          loc_latbc(6) = loc_array(ew,ns+1); loc_latbc(4) = loc_array(ew,ns+2); loc_latbc(5) = loc_array(ew,ns)
          normal = (/ 1.d0/sqrt(2.d0), -1.d0/sqrt(2.d0) /); fwdorbwd = (/ -1.d0, 1.d0 /)
-    elseif( phi .eq. 180.d0 )then
+    elseif( phi == 180.d0 )then
          loc_latbc(1) = loc_array(ew,ns+1); loc_latbc(4) = loc_array(ew,ns+2); loc_latbc(5) = loc_array(ew,ns)
          loc_latbc(2) = loc_array(ew+1,ns); loc_latbc(3) = loc_array(ew-1,ns)
          normal = (/ 0.d0, -1.d0 /); fwdorbwd = (/ 1.d0, 1.d0 /)
-    elseif( phi .eq. 225.d0 )then
+    elseif( phi == 225.d0 )then
          loc_latbc(1) = loc_array(ew+1,ns); loc_latbc(2) = loc_array(ew+2,ns); loc_latbc(3) = loc_array(ew,ns)
          loc_latbc(6) = loc_array(ew,ns+1); loc_latbc(4) = loc_array(ew,ns+2); loc_latbc(5) = loc_array(ew,ns);
          normal = (/ -1.d0/sqrt(2.d0), -1.d0/sqrt(2.d0) /); fwdorbwd = (/ 1.d0, 1.d0 /)
-    elseif( phi .eq. 270.d0 )then
+    elseif( phi == 270.d0 )then
          loc_latbc(1) = loc_array(ew+1,ns); loc_latbc(2) = loc_array(ew+2,ns); loc_latbc(3) = loc_array(ew,ns)
          loc_latbc(4) = loc_array(ew,ns+1); loc_latbc(5) = loc_array(ew,ns-1)
          normal = (/ -1.d0, 0.d0 /); fwdorbwd = (/ 1.d0, 1.d0 /)
@@ -4944,47 +4947,47 @@ function indshift( which, ew, ns, up, ewn, nsn, upn, loc_array, thck )
 
       case(1)   !! at lateral boundaries; shift to ew,ns may be non-zero
 
-          where( thck .ne. 0.d0 )
+          where( thck /= 0.d0 )
             thckmask = 0.d0
-          elsewhere( thck .eq. 0.d0 )
+          elsewhere( thck == 0.d0 )
             thckmask = 1.d0
           endwhere
 
           testvect = sum( thckmask * mask, 1 )
 
         ! calculate the angle of the normal in cart. (x,y) system w/ 0 deg. at 12 O'clock, 90 deg. at 3 O'clock, etc.
-        if( sum( sum( thckmask, 1 ) ) .eq. 1.d0 )then
+        if( sum( sum( thckmask, 1 ) ) == 1.d0 )then
             phi = sum( sum( thckmask * maskcorners, 1 ) )
         else
-            if( any( testvect .eq. 360.d0 ) )then
-                if( sum( testvect ) .eq. 450.d0 )then
+            if( any( testvect == 360.d0 ) )then
+                if( sum( testvect ) == 450.d0 )then
                     phi = 45.d0
-                elseif( sum( testvect ) .eq. 630.d0 )then
+                elseif( sum( testvect ) == 630.d0 )then
                     phi = 315.d0
                 else
                     phi = 0.d0
                 end if
-            elseif( all( testvect .ne. 360 ) )then
-                phi = sum( testvect ) / sum( testvect/testvect, testvect .ne. 0.d0 )
+            elseif( all( testvect /= 360 ) )then
+                phi = sum( testvect ) / sum( testvect/testvect, testvect /= 0.d0 )
             end if
         end if
 
         ! define shift to indices based on this angle 
-        if( phi .eq. 0.d0 )then
+        if( phi == 0.d0 )then
             nsshift = -1; ewshift = 0
-        elseif( phi .eq. 45.d0 )then
+        elseif( phi == 45.d0 )then
             nsshift = -1; ewshift = -1
-        elseif( phi .eq. 90.d0 )then
+        elseif( phi == 90.d0 )then
             nsshift = 0; ewshift = -1
-        elseif( phi .eq. 135.d0 )then
+        elseif( phi == 135.d0 )then
             nsshift = 1; ewshift = -1
-        elseif( phi .eq. 180.d0 )then
+        elseif( phi == 180.d0 )then
             nsshift = 1; ewshift = 0
-        elseif( phi .eq. 225.d0 )then
+        elseif( phi == 225.d0 )then
             nsshift = 1; ewshift = 1
-        elseif( phi .eq. 270.d0 )then
+        elseif( phi == 270.d0 )then
             nsshift = 0; ewshift = 1
-        elseif( phi .eq. 315.d0 )then
+        elseif( phi == 315.d0 )then
             nsshift = -1; ewshift = 1
         end if
 
@@ -5183,7 +5186,7 @@ subroutine geom2ders(ewn,    nsn,  &
 
   do ns = 2, nsn-2
   do ew = 2, ewn-2
-    if (stagthck(ew,ns) .gt. 0.d0) then
+    if (stagthck(ew,ns) > 0.d0) then
       opvrew(ew,ns) = centerew(ew,ns,ipvr,dewsq4)
       opvrns(ew,ns) = centerns(ew,ns,ipvr,dnssq4)
     else
@@ -5207,7 +5210,7 @@ subroutine geom2ders(ewn,    nsn,  &
     pt = whichway(ew)
 
     do ns = 2, nsn-2
-      if (stagthck(ew,ns) .gt. 0.d0) then
+      if (stagthck(ew,ns) > 0.d0) then
         opvrew(ew,ns) = boundyew(ns,pt,ipvr,dewsq4)
         opvrns(ew,ns) = centerns(ew,ns,ipvr,dnssq4)
       else
@@ -5226,7 +5229,7 @@ subroutine geom2ders(ewn,    nsn,  &
     pt = whichway(ns)
 
     do ew = 2, ewn-2
-      if (stagthck(ew,ns) .gt. 0.d0) then
+      if (stagthck(ew,ns) > 0.d0) then
         opvrew(ew,ns) = centerew(ew,ns,ipvr,dewsq4)
         opvrns(ew,ns) = boundyns(ew,pt,ipvr,dnssq4)
       else
@@ -5242,7 +5245,7 @@ subroutine geom2ders(ewn,    nsn,  &
 
   do ns = 1, nsn-1, nsn-2
     do ew = 1, ewn-1, ewn-2
-      if (stagthck(ew,ns) .gt. 0.d0) then
+      if (stagthck(ew,ns) > 0.d0) then
         pt = whichway(ew)
         opvrew(ew,ns) = boundyew(ns,pt,ipvr,dewsq4)
         pt = whichway(ns)
@@ -5634,7 +5637,7 @@ function scalebasalbc( coeffblock, bcflag, lateralboundry, beta, efvs )
                scale = abs( coeffblock(3,2,2) );     
            end if                
 
-           if( scale .le. 0.d0 )then
+           if( scale <= 0.d0 )then
             scale = 1.d0
            end if
 

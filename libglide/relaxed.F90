@@ -117,7 +117,7 @@ program relaxed
 
   ! Calculate thickness
 
-  where (model%climate%out_mask .eq. 1.0)
+  where (model%climate%out_mask == 1.0)
      model%geometry%thck = max(0.,real(model%climate%presusrf - model%geometry%topg))
   elsewhere
      model%geometry%thck = 0.0
@@ -141,7 +141,7 @@ program relaxed
 
      ! Flatten masked areas
      
-     where (model%climate%out_mask.eq.0.0)
+     where (model%climate%out_mask==0.0)
         model%geometry%relx=min(-1.0,model%geometry%relx)
      end where
 

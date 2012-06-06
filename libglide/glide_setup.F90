@@ -612,14 +612,14 @@ contains
     write(message,*) 'I/O parameter file      : ',trim(model%funits%ncfile)
     call write_log(message)
 
-    if (model%options%whichtemp.lt.0 .or. model%options%whichtemp.ge.size(temperature)) then
+    if (model%options%whichtemp < 0 .or. model%options%whichtemp >= size(temperature)) then
        call write_log('Error, temperature out of range',GM_FATAL)
     end if
     write(message,*) 'temperature calculation : ',model%options%whichtemp,temperature(model%options%whichtemp)
     call write_log(message)
 
 !whl - The old Glimmer temperature scheme is supported only for single-processor runs.
-    if (model%options%whichtemp.eq.TEMP_GLIMMER .and. distributed_execution()) then
+    if (model%options%whichtemp==TEMP_GLIMMER .and. distributed_execution()) then
        call write_log('Error, Glimmer temperature scheme (temperature = TEMP_GLIMMER) &
                        not supported for distributed parallel runs',GM_FATAL)
     end if
@@ -647,78 +647,78 @@ contains
        endif
     endif
 
-    if (model%options%whichdycore.lt.0 .or. model%options%whichdycore.ge.size(dycore)) then
+    if (model%options%whichdycore < 0 .or. model%options%whichdycore >= size(dycore)) then
        call write_log('Error, dycore out of range',GM_FATAL)
     end if
 
-    if (model%options%whichflwa.lt.0 .or. model%options%whichflwa.ge.size(flow_law)) then
+    if (model%options%whichflwa < 0 .or. model%options%whichflwa >= size(flow_law)) then
        call write_log('Error, flow_law out of range',GM_FATAL)
     end if
 
     write(message,*) 'flow law                : ',model%options%whichflwa,flow_law(model%options%whichflwa)
     call write_log(message)
 
-    if (model%options%which_bmod.lt.0 .or. model%options%which_bmod.ge.size(which_bmod)) then
+    if (model%options%which_bmod < 0 .or. model%options%which_bmod >= size(which_bmod)) then
        call write_log('Error, basal_proc out of range',GM_FATAL)
     end if
 
     write(message,*) 'basal_proc              : ',model%options%which_bmod,which_bmod(model%options%which_bmod)
     call write_log(message)
 
-    if (model%options%whichbwat.lt.0 .or. model%options%whichbwat.ge.size(basal_water)) then
+    if (model%options%whichbwat < 0 .or. model%options%whichbwat >= size(basal_water)) then
        call write_log('Error, basal_water out of range',GM_FATAL)
     end if
 
     write(message,*) 'basal_water             : ',model%options%whichbwat,basal_water(model%options%whichbwat)
     call write_log(message)
 
-    if (model%options%whichmarn.lt.0 .or. model%options%whichmarn.ge.size(marine_margin)) then
+    if (model%options%whichmarn < 0 .or. model%options%whichmarn >= size(marine_margin)) then
        call write_log('Error, marine_margin out of range',GM_FATAL)
     end if
     write(message,*) 'marine_margin           : ', model%options%whichmarn, marine_margin(model%options%whichmarn)
     call write_log(message)
 
-    if (model%options%whichbtrc.lt.0 .or. model%options%whichbtrc.ge.size(slip_coeff)) then
+    if (model%options%whichbtrc < 0 .or. model%options%whichbtrc >= size(slip_coeff)) then
        call write_log('Error, slip_coeff out of range',GM_FATAL)
     end if
 
     write(message,*) 'slip_coeff              : ', model%options%whichbtrc, slip_coeff(model%options%whichbtrc)
     call write_log(message)
 
-    if (model%options%whichevol.lt.-1 .or. model%options%whichevol.ge.(size(evolution)-1)) then
+    if (model%options%whichevol < -1 .or. model%options%whichevol >= (size(evolution)-1)) then
        call write_log('Error, evolution out of range',GM_FATAL)
     end if
 
     write(message,*) 'evolution               : ', model%options%whichevol, evolution(model%options%whichevol)
     call write_log(message)
 
-    if (model%options%whichwvel.lt.0 .or. model%options%whichwvel.ge.size(vertical_integration)) then
+    if (model%options%whichwvel < 0 .or. model%options%whichwvel >= size(vertical_integration)) then
        call write_log('Error, vertical_integration out of range',GM_FATAL)
     end if
 
     write(message,*) 'vertical_integration    : ',model%options%whichwvel,vertical_integration(model%options%whichwvel)
     call write_log(message)
 
-    if (model%options%basal_mbal.lt.0 .or. model%options%basal_mbal.ge.size(b_mbal)) then
+    if (model%options%basal_mbal < 0 .or. model%options%basal_mbal >= size(b_mbal)) then
        call write_log('Error, basal_mass_balance out of range',GM_FATAL)
     end if
 
     write(message,*) 'basal_mass_balance      : ',model%options%basal_mbal,b_mbal(model%options%basal_mbal)
     call write_log(message)
 
-    if (model%options%whichrelaxed.eq.1) then
+    if (model%options%whichrelaxed==1) then
        call write_log('First topo time slice is relaxed')
     end if
 
     if (model%options%periodic_ew) then
-       if (model%options%whichevol .eq. EVOL_ADI) then
+       if (model%options%whichevol == EVOL_ADI) then
           call write_log('Periodic boundary conditions not implemented in ADI scheme',GM_FATAL)
        end if
        call write_log('Periodic EW lateral boundary condition')
        call write_log('  Slightly cheated with how temperature is implemented.',GM_WARNING)
     end if
 
-    if (model%options%hotstart.eq.1) then
+    if (model%options%hotstart==1) then
        call write_log('Hotstarting model')
     end if
 
@@ -849,7 +849,7 @@ contains
     call write_log(message)
     write(message,*) 'marine depth limit    : ',model%numerics%mlimit
     call write_log(message)
-    if (model%options%whichmarn.eq.3) then
+    if (model%options%whichmarn==3) then
        write(message,*) 'ice fraction lost due to calving :', model%numerics%calving_fraction
        call write_log(message)
     end if
@@ -859,17 +859,17 @@ contains
     call write_log(message)
     write(message,*) 'basal hydro time const: ',model%paramets%hydtim
     call write_log(message)
-    if (model%options%whichbtrc.eq.1 .or. model%options%whichbtrc.eq.2 .or. model%options%whichbtrc.eq.4) then
+    if (model%options%whichbtrc==1 .or. model%options%whichbtrc==2 .or. model%options%whichbtrc==4) then
        write(message,*) 'basal traction param  : ',model%paramets%btrac_const
        call write_log(message)
     end if
-    if (model%options%whichbtrc.eq.4) then
+    if (model%options%whichbtrc==4) then
        write(message,*) 'basal traction max  : ',model%paramets%btrac_max
        call write_log(message)
        write(message,*) 'basal traction slope  : ',model%paramets%btrac_slope
        call write_log(message)
     end if
-    if (model%options%whichbtrc.eq.3) then
+    if (model%options%whichbtrc==3) then
        write(message,*) 'basal traction factors: ',model%paramets%bpar(1)
        call write_log(message)
        write(message,*) '                        ',model%paramets%bpar(2)
@@ -892,18 +892,18 @@ contains
     type(ConfigSection), pointer :: section
     type(glide_global_type) :: model
 
-    if (model%options%which_bmod.eq.1) then
+    if (model%options%which_bmod==1) then
         call GetValue(section, 'fric',  model%basalproc%fric)
         call GetValue(section, 'etillo',  model%basalproc%etillo)
         call GetValue(section, 'No',  model%basalproc%No)
         call GetValue(section, 'Comp',  model%basalproc%Comp)
         call GetValue(section, 'Cv',  model%basalproc%Cv)
         call GetValue(section, 'Kh',  model%basalproc%Kh)
-    else if (model%options%which_bmod.eq.2) then
+    else if (model%options%which_bmod==2) then
         call GetValue(section, 'aconst',  model%basalproc%aconst)
         call GetValue(section, 'bconst',  model%basalproc%bconst)
     end if
-    if (model%options%which_bmod.gt.0) then
+    if (model%options%which_bmod > 0) then
         call GetValue(section, 'Zs',  model%basalproc%Zs)
         call GetValue(section, 'tnodes',  model%basalproc%tnodes)
         call GetValue(section, 'till_hot', model%basalproc%till_hot)
@@ -918,10 +918,10 @@ contains
     type(glide_global_type)  :: model
     character(len=100) :: message
 
-if (model%options%which_bmod.gt.0) then 
+if (model%options%which_bmod > 0) then 
     call write_log('Till options')
     call write_log('----------')
-    if (model%options%which_bmod.eq.1) then
+    if (model%options%which_bmod==1) then
         write(message,*) 'Internal friction           : ',model%basalproc%fric
         call write_log(message)
         write(message,*) 'Reference void ratio        : ',model%basalproc%etillo
@@ -935,7 +935,7 @@ if (model%options%which_bmod.gt.0) then
         write(message,*) 'Hyd. conductivity           : ',model%basalproc%Kh
         call write_log(message)
     end if
-    if (model%options%which_bmod.eq.2) then
+    if (model%options%which_bmod==2) then
        write(message,*) 'aconst  : ',model%basalproc%aconst
        call write_log(message)
        write(message,*) 'bconst  : ',model%basalproc%aconst
@@ -1015,12 +1015,12 @@ if (model%options%which_bmod.gt.0) then
     type(glide_global_type)  :: model
     character(len=100) :: message
     
-    if (model%options%gthf.gt.0) then
+    if (model%options%gthf > 0) then
        call write_log('GTHF configuration')
        call write_log('------------------')
-       if (model%lithot%num_dim.eq.1) then
+       if (model%lithot%num_dim==1) then
           call write_log('solve 1D diffusion equation')
-       else if (model%lithot%num_dim.eq.3) then          
+       else if (model%lithot%num_dim==3) then          
           call write_log('solve 3D diffusion equation')
        else
           call write_log('Wrong number of dimensions.',GM_FATAL,__FILE__,__LINE__)

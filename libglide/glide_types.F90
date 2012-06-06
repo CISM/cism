@@ -908,7 +908,8 @@ module glide_types
     real(dp) :: hydtim = 1000.0d0 ! yr^{-1} converted to s^{-1} and scaled, 
                                   ! 0 if no drainage = 0.0d0 * tim0 / scyr
     real(dp) :: bwat_smooth = 0.01d0 ! basal water field smoothing strength
-    real(dp) :: default_flwa = 1.0d-16 !Glen's A to use in isothermal case (would change to e.g. 4.6e-18 in EISMINT-ROSS case)
+    real(dp) :: default_flwa = 1.0d-16 ! Glen's A to use in isothermal case 
+                                       ! (would change to e.g. 4.6e-18 in EISMINT-ROSS case)
   end type glide_paramets
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

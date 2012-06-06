@@ -360,10 +360,10 @@ contains
      integer ns1,ew1,ns2,ew2,slot_ns,slot_ew !grounding line in ns/ew direction
      real appr_ground !grounding line
      
-     if (ns1 .eq. ns2) then
+     if (ns1 == ns2) then
          slot_ew = min(ew1,ew2)
          appr_ground = ground%gl_ns(slot_ew,ns1)
-     else if (ew1 .eq. ew2) then
+     else if (ew1 == ew2) then
          slot_ns = min(ns1,ns2)
          appr_ground = ground%gl_ew(ew1,slot_ns)
      end if
@@ -389,10 +389,10 @@ contains
      real(sp), intent(in) :: value !grounding line in ew direction
      integer slot_ew, slot_ns !integers to compute the min
      
-     if (ns1 .eq. ns2) then
+     if (ns1 == ns2) then
          slot_ew = min(ew1,ew2)
          ground%gl_ew(slot_ew,ns1) = value
-     else if (ew1 .eq. ew2) then
+     else if (ew1 == ew2) then
          slot_ns = min(ns1,ns2)
          ground%gl_ns(ew1,slot_ns) = value
      end if
@@ -422,7 +422,7 @@ contains
      real(sp) :: fj_1                      !f evaluated at j (+/-) 1
      real(sp) :: df                        !delta f of fj,jf_1
      
-     if (ew .eq. j1ew) then
+     if (ew == j1ew) then
         dx = dns 
         xj = ns*dx
      else
@@ -431,7 +431,7 @@ contains
      end if
      !set the pattyn f function - assuming ocean water 
      fj = (eus - topg(ew,ns))*rhoo/(rhoi*thck(ew,ns))
-     if (thck(j1ew,j1ns) .gt. 0.0) then
+     if (thck(j1ew,j1ns) > 0.d0) then
          fj_1 = (eus - topg(j1ew,j1ns))*rhoo/(rhoi*thck(j1ew,j1ns))
          df = (fj_1 - fj)/dx
          xg = (1 - fj + df*xj)/df
@@ -521,14 +521,14 @@ contains
      real(sp) ::  y1                        
      real(sp) ::  y0
      !using lin. interpolation to find top at grounding line
-     if (ns1 .eq. ns2) then
+     if (ns1 == ns2) then
          min_ew = min(ew1,ew2)
          max_ew = max(ew1,ew2)
          min_ns = ns1
          max_ns = ns1
          x0 = min_ew*dew !model%numerics%dew
          x1 = max_ew*dew
-     else if (ew1 .eq. ew2) then
+     else if (ew1 == ew2) then
          min_ns = min(ns1,ns2)
          max_ns = max(ns1,ns2)
          min_ew = ew1

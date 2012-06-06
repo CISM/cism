@@ -79,7 +79,7 @@ contains
     model%lithot%zfactors(:,k) = 0.5*model%lithot%diffu*tim0*model%numerics%dt / &
          (model%lithot%deltaz(k)-model%lithot%deltaz(k-1))**2
 
-    if (model%options%hotstart.ne.1) then
+    if (model%options%hotstart /= 1) then
        ! set initial temp distribution to thermal gradient
        factor = model%paramets%geot/model%lithot%con_r
        do k=1,model%lithot%nlayer
@@ -88,9 +88,9 @@ contains
     end if
 
 
-    if (model%lithot%num_dim.eq.1) then
+    if (model%lithot%num_dim==1) then
        call init_lithot1d(model)
-    else if (model%lithot%num_dim.eq.3) then
+    else if (model%lithot%num_dim==3) then
        call init_lithot3d(model)
     else
        call write_log('Wrong number of dimensions.',GM_FATAL,__FILE__,__LINE__)
@@ -107,7 +107,7 @@ contains
 
     integer t
 
-    if (model%options%hotstart.ne.1 .and. model%lithot%numt .gt. 0) then
+    if (model%options%hotstart /= 1 .and. model%lithot%numt > 0) then
        call write_log('Spinning up GTHF calculations',type=GM_INFO)
        call not_parallel(__FILE__,__LINE__)
        do t=1,model%lithot%numt
@@ -126,9 +126,9 @@ contains
     implicit none
     type(glide_global_type),intent(inout) :: model       !*FD model instance
 
-    if (model%lithot%num_dim.eq.1) then
+    if (model%lithot%num_dim==1) then
        call calc_lithot1d(model)
-    else if (model%lithot%num_dim.eq.3) then
+    else if (model%lithot%num_dim==3) then
        call calc_lithot3d(model)
     else
        call write_log('Wrong number of dimensions.',GM_FATAL,__FILE__,__LINE__)
@@ -161,9 +161,9 @@ contains
     deallocate(model%lithot%deltaz)
     deallocate(model%lithot%zfactors)
 
-    if (model%lithot%num_dim.eq.1) then
+    if (model%lithot%num_dim==1) then
        call finalise_lithot1d(model)
-    else if (model%lithot%num_dim.eq.3) then
+    else if (model%lithot%num_dim==3) then
        call finalise_lithot3d(model)
     else
        call write_log('Wrong number of dimensions.',GM_FATAL,__FILE__,__LINE__)

@@ -97,10 +97,10 @@ contains
     integer up, ns, ew
     real(dp) :: estimate
 
-    if (VERT_DIFF.eq.0.)   call write_log('Vertical diffusion is switched off')
-    if (HORIZ_ADV.eq.0.)   call write_log('Horizontal advection is switched off')
-    if (VERT_ADV.eq.0.)    call write_log('Vertical advection is switched off')
-    if (STRAIN_HEAT.eq.0.) call write_log('Strain heating is switched off')
+    if (VERT_DIFF==0.)   call write_log('Vertical diffusion is switched off')
+    if (HORIZ_ADV==0.)   call write_log('Horizontal advection is switched off')
+    if (VERT_ADV==0.)    call write_log('Vertical advection is switched off')
+    if (STRAIN_HEAT==0.) call write_log('Strain heating is switched off')
 
     ! horizontal advection stuff
     allocate(model%tempwk%hadv_u(model%general%upn,model%general%ewn,model%general%nsn))
@@ -217,7 +217,7 @@ contains
        !MJH: Initialize ice temperature.
        !This block of code is identical to that in glissade_init_temp
 !TODO - Remove hardwired constant (-273.15)
-       if (model%temper%temp(1,1,1) .lt. -273.15) then
+       if (model%temper%temp(1,1,1) < -273.15) then
            call write_log("No initial ice temperature supplied - setting temp to artm.")
            ! temp array still has initialized values - no values have been read in. 
            ! Initialize ice temperature to air temperature (for each column). 
@@ -233,8 +233,8 @@ contains
        ! MJH: Calculate initial value of flwa
       ! If flwa is loaded (e.g. hotstart), use the flwa field in the input file instead
       ! Note: Implementing flwa initialization in this way, I don't think hotstart=1 does anything. 
-!       if (model%options%hotstart .ne. 1) then
-       if (model%temper%flwa(1,1,1) .lt. 0.0) then
+!       if (model%options%hotstart  /=  1) then
+       if (model%temper%flwa(1,1,1) < 0.0) then
          call write_log("No initial flwa supplied - calculating initial flwa.")
 
 !TODO - Check spelling of 'Glen', make sure it's consistent throughout code
@@ -432,7 +432,7 @@ contains
 !!       write(6,*) ' '
     
        !JCC - Don't use ho velocity fields unless we're using the ho model
-       if (model%options%which_ho_diagnostic .EQ. 0 ) then
+       if (model%options%which_ho_diagnostic == 0 ) then
           ! translate velo field
           do ns = 2,model%general%nsn-1
               do ew = 2,model%general%ewn-1
@@ -452,7 +452,7 @@ contains
                     + model%velocity%vvel(:,ew-1,ns) + model%velocity%vvel(:,ew,ns-1) + model%velocity%vvel(:,ew,ns) )
               end do
           end do
-      end if ! model%options%which_ho_diagnostic .EQ. 0
+      end if ! model%options%which_ho_diagnostic == 0
 
        call hadvall(model, &
             model%temper%temp, &
@@ -508,7 +508,7 @@ contains
           end do
        end do
 
-       do while (tempresid.gt.tempthres .and. iter.le.mxit)
+       do while (tempresid > tempthres .and. iter <= mxit)
           tempresid = 0.0d0
 
           do ns = 2,model%general%nsn-1
@@ -843,7 +843,8 @@ contains
           do ewp = ew-1,ew
 !SCALING - Make sure inequality threshold makes sense with scaling removed
 ! If ubas and vbas are scaled by vel0 = 500/scyr, then we should divide RHS by vel0 when removing the scaling.
-             if (abs(model%velocity%ubas(ewp,nsp)).gt.0.000001 .or. abs(model%velocity%vbas(ewp,nsp)).gt.0.000001) then
+! Also change reals to DP
+             if (abs(model%velocity%ubas(ewp,nsp)) > 0.000001 .or. abs(model%velocity%vbas(ewp,nsp)) > 0.000001) then
                 slide_count = slide_count + 1
                 slterm = slterm + (&
                      model%geomderv%dusrfdew(ewp,nsp) * model%velocity%ubas(ewp,nsp) + &
@@ -851,7 +852,7 @@ contains
              end if
           end do
        end do
-       if (slide_count.ge.4) then
+       if (slide_count >= 4) then
           slterm = 0.25*slterm
        else
           slterm = 0.
@@ -918,7 +919,7 @@ contains
 
              call calcpmpt(pmptemp,thck(ew,ns),model%numerics%sigma)
 
-             if (abs(temp(model%general%upn,ew,ns)-pmptemp(model%general%upn)) .lt. 0.001) then
+             if (abs(temp(model%general%upn,ew,ns)-pmptemp(model%general%upn)) < 0.001) then
 
                 slterm = 0.0d0
 
@@ -992,7 +993,8 @@ contains
 
                 up = model%general%upn - 1
 
-                do while (abs(temp(up,ew,ns)-pmptemp(up)) .lt. 0.001 .and. up .ge. 3)
+!TODO - Change reals to DP
+                do while (abs(temp(up,ew,ns)-pmptemp(up)) < 0.001 .and. up >= 3)
                    bmlt(ew,ns) = bmlt(ew,ns) + newmlt
                    newmlt = model%tempwk%f(3) * model%tempwk%dupc(up) * thck(ew,ns) * model%tempwk%dissip(up,ew,ns)
                    up = up - 1
@@ -1113,7 +1115,7 @@ contains
 !          if (thck(ew,ns) > model%numerics%thklim) then
 !            c4 = 0.0d0
 !            do ins = ns-1,ns; do iew = ew-1,ew; 
-!                if (efvss(iew,ins) .ne. 0.0d0) then                     
+!                if (efvss(iew,ins)  /=  0.0d0) then                     
 !                    c4 = c4 + taus(iew,ins)**2 / efvss(iew,ins)
 !                end if; 
 !            end do; end do

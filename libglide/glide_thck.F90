@@ -85,7 +85,7 @@ contains
 #endif
 
     ! allocate memory for ADI scheme
-    if (model%options%whichevol.eq.1) then
+    if (model%options%whichevol==1) then
        allocate(model%thckwk%alpha(max(model%general%ewn, model%general%nsn)))
        allocate(model%thckwk%beta (max(model%general%ewn, model%general%nsn)))
        allocate(model%thckwk%gamma(max(model%general%ewn, model%general%nsn)))
@@ -331,7 +331,7 @@ contains
 #else
 !SCALING - Make sure threshold makes sense with scaling removed. Reset tol by multiplying by thk0?
           residual = maxval(abs(model%geometry%thck-model%thckwk%oldthck2))
-          if (residual.le.tol) then
+          if (residual <= tol) then
              exit
           end if
           model%thckwk%oldthck2 = model%geometry%thck
@@ -339,7 +339,7 @@ contains
 !SCALING - Make sure threshold makes sense with scaling removed
           !EIB! old way
           !residual = maxval(abs(model%geometry%thck-model%thckwk%oldthck2))
-          !if (residual.le.tol) then
+          !if (residual <= tol) then
           !   exit
           !end if
 
@@ -773,7 +773,7 @@ end subroutine
     real(sp) :: factor
 
     factor = (time - thckwk%oldtime)
-    if (factor .eq.0) then
+    if (factor == 0) then
        opvr = 0.0d0
     else
        factor = 1./factor

@@ -39,10 +39,10 @@
 ! should be put in a loop and the loop should be active for as
 ! long as icode is not equal to 0. On return fgmres will
 !    1) either be requesting the new preconditioned vector applied
-!       to wk1 in case icode.eq.1 (result should be put in wk2) 
+!       to wk1 in case icode==1 (result should be put in wk2) 
 !    2) or be requesting the product of A applied to the vector wk1
-!       in case icode.eq.2 (result should be put in wk2) 
-!    3) or be terminated in case icode .eq. 0. 
+!       in case icode==2 (result should be put in wk2) 
+!    3) or be terminated in case icode == 0. 
 ! on entry always set icode = 0. So icode should be set back to zero
 ! upon convergence.
 !-----------------------------------------------------------------------
@@ -52,10 +52,10 @@
 ! 1    continue
 !      call fgmres (n,im,rhs,sol,i,vv,w,wk1, wk2,eps,maxits,iout,icode)
 !
-!      if (icode .eq. 1) then
+!      if (icode == 1) then
 !         call  precon(n, wk1, wk2)    <--- user's variable preconditioning
 !         goto 1
-!      else if (icode .ge. 2) then
+!      else if (icode >= 2) then
 !         call  matvec (n,wk1, wk2)    <--- user's matrix vector product. 
 !         goto 1
 !      else 
@@ -74,9 +74,9 @@
 ! w     == work space of length n x im 
 ! wk1,
 ! wk2,  == two work vectors of length n each used for the reverse
-!          communication protocole. When on return (icode .ne. 1)
+!          communication protocole. When on return (icode \= 1)
 !          the user should call fgmres again with wk2 = precon * wk1
-!          and icode untouched. When icode.eq.1 then it means that
+!          and icode untouched. When icode==1 then it means that
 !          convergence has taken place.
 !          
 ! eps   == tolerance for stopping criterion. process is stopped
@@ -86,30 +86,30 @@
 ! maxits== maximum number of iterations allowed
 !
 ! iout  == output unit number number for printing intermediate results
-!          if (iout .le. 0) no statistics are printed.
+!          if (iout <= 0) no statistics are printed.
 ! 
 ! icode = integer. indicator for the reverse communication protocole.
 !         ON ENTRY : icode should be set to icode = 0.
 !         ON RETURN: 
-!       * icode .eq. 1 value means that fgmres has not finished
+!       * icode == 1 value means that fgmres has not finished
 !         and that it is requesting a preconditioned vector before
 !         continuing. The user must compute M**(-1) wk1, where M is
 !         the preconditioing  matrix (may vary at each call) and wk1 is
 !         the vector as provided by fgmres upun return, and put the 
 !         result in wk2. Then fgmres must be called again without
 !         changing any other argument. 
-!       * icode .eq. 2 value means that fgmres has not finished
+!       * icode == 2 value means that fgmres has not finished
 !         and that it is requesting a matrix vector product before
 !         continuing. The user must compute  A * wk1, where A is the
 !         coefficient  matrix and wk1 is the vector provided by 
 !         upon return. The result of the operation is to be put in
 !         the vector wk2. Then fgmres must be called again without
 !         changing any other argument. 
-!       * icode .eq. 0 means that fgmres has finished and sol contains 
+!       * icode == 0 means that fgmres has finished and sol contains 
 !         the approximate solution.
 !         comment: typically fgmres must be implemented in a loop
 !         with fgmres being called as long icode is returned with 
-!         a value .ne. 0. 
+!         a value \= 0. 
 !-----------------------------------------------------------------------
 !     local variables -- !jfl modif
       double precision hh(201,200),c(200),s(200),rs(201),t,ro,ddot,sqrt 
@@ -141,14 +141,14 @@
       enddo
  20   ro = ddot(n, vv, 1, vv,1) !jfl modification
       ro = sqrt(ro)
-      if (ro .eq. 0.0d0) goto 999 
+      if (ro == 0.0d0) goto 999 
       t = 1.0d0/ ro 
       do j=1, n
          vv(j,1) = vv(j,1)*t 
       enddo
-      if (its .eq. 0) eps1=eps
-      if (its .eq. 0) r0 = ro
-      if (iout .gt. 0) write(*, 199) its, ro!&
+      if (its == 0) eps1=eps
+      if (its == 0) r0 = ro
+      if (iout > 0) write(*, 199) its, ro!&
 !           print *,'chau',its, ro !write(iout, 199) its, ro
 !     
 !     initialize 1-st term  of rhs of hessenberg system..
@@ -184,7 +184,7 @@
 !     
 !     first call to ope corresponds to intialization goto back to 11.
 !     
-!      if (icode .eq. 3) goto 11
+!      if (icode == 3) goto 11
       call  dcopy (n, wk2, 1, vv(1,i1), 1) !jfl modification
 !     
 !     modified gram - schmidt...
@@ -196,7 +196,7 @@
       enddo
       t = sqrt(ddot(n, vv(1,i1), 1, vv(1,i1), 1)) !jfl modification
       hh(i1,i) = t
-      if (t .eq. 0.0d0) goto 58
+      if (t == 0.0d0) goto 58
       t = 1.0d0 / t
       do k=1,n
          vv(k,i1) = vv(k,i1)*t
@@ -205,7 +205,7 @@
 !     done with modified gram schimd and arnoldi step. 
 !     now  update factorization of hh
 !     
- 58   if (i .eq. 1) goto 121
+ 58   if (i == 1) goto 121
 !     
 !     perfrom previous transformations  on i-th column of h
 !     
@@ -216,7 +216,7 @@
          hh(k,i) = -s(k1)*t + c(k1)*hh(k,i)
       enddo
  121  gam = sqrt(hh(i,i)**2 + hh(i1,i)**2)
-      if (gam .eq. 0.0d0) gam = epsmac
+      if (gam == 0.0d0) gam = epsmac
 !-----------#determine next plane rotation  #-------------------
       c(i) = hh(i,i)/gam
       s(i) = hh(i1,i)/gam
@@ -227,9 +227,9 @@
 !     
       hh(i,i) = c(i)*hh(i,i) + s(i)*hh(i1,i)
       ro = abs(rs(i1))
-      if (iout .gt. 0) &
+      if (iout > 0) &
            write(*, 199) its, ro
-      if (i .lt. im .and. (ro .gt. eps1))  goto 4
+      if (i < im .and. (ro > eps1))  goto 4
 !     
 !     now compute solution. first solve upper triangular system.
 !     
@@ -254,7 +254,7 @@
 !     
 !     test for return 
 !     
-      if (ro .le. eps1 .or. its .ge. maxits) goto 999
+      if (ro <= eps1 .or. its >= maxits) goto 999
 !     
 !     else compute residual vector and continue..
 !     
@@ -267,7 +267,7 @@
      enddo
      do j=1,i1
         t = rs(j)
-        if (j .eq. 1)  t = t-1.0d0
+        if (j == 1)  t = t-1.0d0
         call daxpy (n, t, vv(1,j), 1,  vv, 1)
      enddo
 !     

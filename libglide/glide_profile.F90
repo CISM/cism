@@ -42,7 +42,7 @@ contains
     implicit none
     type(glide_global_type) :: model        !*FD model instance
 
-    if (model%profile%profile_unit .eq. 0) then
+    if (model%profile%profile_unit == 0) then
        call profile_init(model%profile,'glide.profile')
 #if (defined PROFILING && ! defined CCSMCOUPLED && ! defined CESMTIMERS)
        write(model%profile%profile_unit,*) '# take a profile every ',model%numerics%profile_period,' time steps'
@@ -83,7 +83,7 @@ contains
     character (len=20) :: timestring
 
     call profile_stop(model%profile,profn)
-    if (mod(model%numerics%timecounter,model%numerics%profile_period).eq.0) then
+    if (mod(model%numerics%timecounter,model%numerics%profile_period)==0) then
        write(timestring,*) model%numerics%time
        call profile_log(model%profile,profn,trim(timestring))
     end if
