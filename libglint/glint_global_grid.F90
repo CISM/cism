@@ -38,7 +38,7 @@ module glint_global_grid
 
   implicit none
 
-  real(rk),parameter :: pi2=2.0*pi
+  real(rk),parameter :: pi2 = 2.0*pi
 
   ! ------------------------------------------------------------
   ! GLOBAL_GRID derived type
@@ -480,7 +480,7 @@ contains
 
     type(global_grid),intent(in) :: a,b
 
-    if (a%nx*a%ny.gt.b%nx*b%ny) then
+    if (a%nx*a%ny > b%nx*b%ny) then
        grid_greater_than=.true.
     else
        grid_greater_than=.false.
@@ -494,7 +494,7 @@ contains
 
     type(global_grid),intent(in) :: a,b
 
-    if (a%nx*a%ny.lt.b%nx*b%ny) then
+    if (a%nx*a%ny < b%nx*b%ny) then
        grid_less_than=.true.
     else
        grid_less_than=.false.
@@ -529,17 +529,17 @@ contains
        return
     end if
 
-    if (a%nx.ne.b%nx .or. a%ny.ne.b%ny .or. a%nec.ne.b%nec) then
+    if (a%nx /= b%nx .or. a%ny /= b%ny .or. a%nec /= b%nec) then
        grid_equiv=.false.
        return
     end if
 
     ! N.B. Only checks grid-box centres and not boundaries
 
-    if (any(a%lats.ne.b%lats).or. &
-        any(a%lons.ne.b%lons).or. &
-        any(a%mask.ne.b%mask).or. &
-        any(a%box_areas.ne.b%box_areas)) then
+    if (any(a%lats /= b%lats).or. &
+        any(a%lons /= b%lons).or. &
+        any(a%mask /= b%mask).or. &
+        any(a%box_areas /= b%box_areas)) then
        grid_equiv=.false.
        return
     end if

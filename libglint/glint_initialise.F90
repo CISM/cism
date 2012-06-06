@@ -215,7 +215,7 @@ contains
        instance%mbal_accum_time = max(instance%ice_tstep,instance%mbal_tstep)
 #ifdef GLC_DEBUG
 !Set mbal_accum_time = mbal_tstep
-! lipscomb - TO DO - Make it easy to run Glimmer/Glint for ~5 days, e.g. for CESM smoke tests,
+! lipscomb - TODO - Make it easy to run Glimmer/Glint for ~5 days, e.g. for CESM smoke tests,
 !         with all major components exercised. 
 !!          instance%mbal_accum_time = instance%mbal_tstep
 !!          write(6,*) 'WARNING: Seting mbal_accum_time =', instance%mbal_accum_time
@@ -252,7 +252,7 @@ contains
     end if
 
 !This was commented out because it destroys exact restart
-!lipscomb - TO DO - Find another way to set thk to snowd?
+!lipscomb - TODO - Find another way to set thk to snowd?
     ! Copy snow-depth to thickness if no thickness is present
 
 !!    allocate(thk(get_ewn(instance%model),get_nsn(instance%model)))
@@ -370,11 +370,11 @@ contains
 
     do i=2,grid%nx-1
        do j=2,grid%ny-1
-          if ((frac_coverage(i,j).ne.0).and. &
-               (frac_coverage(i+1,j).ne.0).and. &
-               (frac_coverage(i,j+1).ne.0).and. &
-               (frac_coverage(i-1,j).ne.0).and. &
-               (frac_coverage(i,j-1).ne.0)) &
+          if ((frac_coverage(i,j) /= 0).and. &
+               (frac_coverage(i+1,j) /= 0).and. &
+               (frac_coverage(i,j+1) /= 0).and. &
+               (frac_coverage(i-1,j) /= 0).and. &
+               (frac_coverage(i,j-1) /= 0)) &
                frac_coverage(i,j)=1.0
        enddo
     enddo
@@ -382,86 +382,86 @@ contains
     ! top and bottom edges
 
     do i=2,grid%nx/2
-       if ((frac_coverage(i,1).ne.0).and. &
-           (frac_coverage(i+1,1).ne.0).and. &
-           (frac_coverage(i,2).ne.0).and. &
-           (frac_coverage(i-1,1).ne.0).and. &
-           (frac_coverage(i+grid%nx/2,1).ne.0)) &
+       if ((frac_coverage(i,1) /= 0).and. &
+           (frac_coverage(i+1,1) /= 0).and. &
+           (frac_coverage(i,2) /= 0).and. &
+           (frac_coverage(i-1,1) /= 0).and. &
+           (frac_coverage(i+grid%nx/2,1) /= 0)) &
             frac_coverage(i,1)=1.0
     enddo
 
     do i=grid%nx/2+1,grid%nx-1
-       if ((frac_coverage(i,1).ne.0).and. &
-           (frac_coverage(i+1,1).ne.0).and. &
-           (frac_coverage(i,2).ne.0).and. &
-           (frac_coverage(i-1,1).ne.0).and. &
-           (frac_coverage(i-grid%nx/2,1).ne.0)) &
+       if ((frac_coverage(i,1) /= 0).and. &
+           (frac_coverage(i+1,1) /= 0).and. &
+           (frac_coverage(i,2) /= 0).and. &
+           (frac_coverage(i-1,1) /= 0).and. &
+           (frac_coverage(i-grid%nx/2,1) /= 0)) &
             frac_coverage(i,1)=1.0
     enddo
 
     do i=2,grid%nx/2
-       if ((frac_coverage(i,grid%ny).ne.0).and. &
-           (frac_coverage(i+1,grid%ny).ne.0).and. &
-           (frac_coverage(i+grid%nx/2,grid%ny).ne.0).and. &
-           (frac_coverage(i-1,grid%ny).ne.0).and. &
-           (frac_coverage(i,grid%ny-1).ne.0)) &
+       if ((frac_coverage(i,grid%ny) /= 0).and. &
+           (frac_coverage(i+1,grid%ny) /= 0).and. &
+           (frac_coverage(i+grid%nx/2,grid%ny) /= 0).and. &
+           (frac_coverage(i-1,grid%ny) /= 0).and. &
+           (frac_coverage(i,grid%ny-1) /= 0)) &
             frac_coverage(i,grid%ny)=1.0
     enddo
 
     do i=grid%nx/2+1,grid%nx-1
-       if ((frac_coverage(i,grid%ny).ne.0).and. &
-           (frac_coverage(i+1,grid%ny).ne.0).and. &
-           (frac_coverage(i-grid%nx/2,grid%ny).ne.0).and. &
-           (frac_coverage(i-1,grid%ny).ne.0).and. &
-           (frac_coverage(i,grid%ny-1).ne.0)) &
+       if ((frac_coverage(i,grid%ny) /= 0).and. &
+           (frac_coverage(i+1,grid%ny) /= 0).and. &
+           (frac_coverage(i-grid%nx/2,grid%ny) /= 0).and. &
+           (frac_coverage(i-1,grid%ny) /= 0).and. &
+           (frac_coverage(i,grid%ny-1) /= 0)) &
             frac_coverage(i,grid%ny)=1.0
     enddo
 
     ! left and right edges
 
     do j=2,grid%ny-1
-       if ((frac_coverage(1,j).ne.0).and. &
-           (frac_coverage(2,j).ne.0).and. &
-           (frac_coverage(1,j+1).ne.0).and. &
-           (frac_coverage(grid%nx,j).ne.0).and. &
-           (frac_coverage(1,j-1).ne.0)) &
+       if ((frac_coverage(1,j) /= 0).and. &
+           (frac_coverage(2,j) /= 0).and. &
+           (frac_coverage(1,j+1) /= 0).and. &
+           (frac_coverage(grid%nx,j) /= 0).and. &
+           (frac_coverage(1,j-1) /= 0)) &
             frac_coverage(1,j)=1.0
-       if ((frac_coverage(grid%nx,j).ne.0).and. &
-           (frac_coverage(1,j).ne.0).and. &
-           (frac_coverage(grid%nx,j+1).ne.0).and. &
-           (frac_coverage(grid%nx-1,j).ne.0).and. &
-           (frac_coverage(grid%nx,j-1).ne.0)) &
+       if ((frac_coverage(grid%nx,j) /= 0).and. &
+           (frac_coverage(1,j) /= 0).and. &
+           (frac_coverage(grid%nx,j+1) /= 0).and. &
+           (frac_coverage(grid%nx-1,j) /= 0).and. &
+           (frac_coverage(grid%nx,j-1) /= 0)) &
             frac_coverage(grid%nx,j)=1.0
     enddo
 
     ! corners
 
-    if ((frac_coverage(1,1).ne.0).and. &
-        (frac_coverage(2,1).ne.0).and. &
-        (frac_coverage(1,2).ne.0).and. &
-        (frac_coverage(grid%nx,1).ne.0).and. &
-        (frac_coverage(grid%nx/2+1,1).ne.0)) &
+    if ((frac_coverage(1,1) /= 0).and. &
+        (frac_coverage(2,1) /= 0).and. &
+        (frac_coverage(1,2) /= 0).and. &
+        (frac_coverage(grid%nx,1) /= 0).and. &
+        (frac_coverage(grid%nx/2+1,1) /= 0)) &
          frac_coverage(1,1)=1.0
 
-    if ((frac_coverage(1,grid%ny).ne.0).and. &
-        (frac_coverage(2,grid%ny).ne.0).and. &
-        (frac_coverage(grid%nx/2+1,grid%ny).ne.0).and. &
-        (frac_coverage(grid%nx,grid%ny).ne.0).and. &
-        (frac_coverage(1,grid%ny-1).ne.0)) &
+    if ((frac_coverage(1,grid%ny) /= 0).and. &
+        (frac_coverage(2,grid%ny) /= 0).and. &
+        (frac_coverage(grid%nx/2+1,grid%ny) /= 0).and. &
+        (frac_coverage(grid%nx,grid%ny) /= 0).and. &
+        (frac_coverage(1,grid%ny-1) /= 0)) &
          frac_coverage(1,grid%ny)=1.0
 
-    if ((frac_coverage(grid%nx,1).ne.0).and. &
-        (frac_coverage(1,1).ne.0).and. &
-        (frac_coverage(grid%nx,2).ne.0).and. &
-        (frac_coverage(grid%nx-1,1).ne.0).and. &
-        (frac_coverage(grid%nx/2,1).ne.0)) &
+    if ((frac_coverage(grid%nx,1) /= 0).and. &
+        (frac_coverage(1,1) /= 0).and. &
+        (frac_coverage(grid%nx,2) /= 0).and. &
+        (frac_coverage(grid%nx-1,1) /= 0).and. &
+        (frac_coverage(grid%nx/2,1) /= 0)) &
          frac_coverage(grid%nx,1)=1.0
 
-    if ((frac_coverage(grid%nx,grid%ny).ne.0).and. &
-        (frac_coverage(1,grid%ny).ne.0).and. &
-        (frac_coverage(grid%nx/2,grid%ny).ne.0).and. &
-        (frac_coverage(grid%nx-1,grid%ny).ne.0).and. &
-        (frac_coverage(grid%nx,grid%ny-1).ne.0)) &
+    if ((frac_coverage(grid%nx,grid%ny) /= 0).and. &
+        (frac_coverage(1,grid%ny) /= 0).and. &
+        (frac_coverage(grid%nx/2,grid%ny) /= 0).and. &
+        (frac_coverage(grid%nx-1,grid%ny) /= 0).and. &
+        (frac_coverage(grid%nx,grid%ny-1) /= 0)) &
          frac_coverage(grid%nx,grid%ny)=1.0
 
     ! Finally fix any rogue points > 1.0

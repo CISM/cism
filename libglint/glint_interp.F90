@@ -477,8 +477,8 @@ contains
 
           ! Add to appropriate location and update count
 
-          if (xbox.ge.1.and.xbox.le.lgrid%size%pt(1).and. &
-               ybox.ge.1.and.ybox.le.lgrid%size%pt(2)) then
+          if (xbox >= 1.and.xbox <= lgrid%size%pt(1).and. &
+               ybox >= 1.and.ybox <= lgrid%size%pt(2)) then
              if (present(global_fn)) then
                 temp_out(xbox,ybox)=temp_out(xbox,ybox)+global_fn(i,j)*ggrid%box_areas(xbox,ybox)
              else

@@ -190,11 +190,11 @@ contains
 
     ! Check that the sizes of the arrays given are sensible --
 
-    if (idl.lt.il.or.il.le.0) ier=1
-    if (idlo.lt.ilo.or.ilo.le.0) ier=ier+2
-    if (jl.le.0)  ier=ier+4
-    if (jlo.le.0) ier=ier+8
-    if (ier.gt.0) then
+    if (idl < il.or.il <= 0) ier=1
+    if (idlo < ilo.or.ilo <= 0) ier=ier+2
+    if (jl <= 0)  ier=ier+4
+    if (jlo <= 0) ier=ier+8
+    if (ier > 0) then
        if (present(error)) error=ier
        return
     end if
@@ -202,7 +202,7 @@ contains
     ! Check monotonic increasing input longitudes ------------
 
     do i=2,il
-       if (alon(i).le.alon(i-1)) then
+       if (alon(i) <= alon(i-1)) then
           ier=ier+64
           exit
        endif
@@ -211,7 +211,7 @@ contains
     ! Check monotonic increasing output longitudes -----------
 
     do i=2,ilo 
-       if (alono(i).le.alono(i-1)) then
+       if (alono(i) <= alono(i-1)) then
           ier=ier+128
           exit
        endif
@@ -221,13 +221,13 @@ contains
 
     sgn=(alat(2)-alat(1))
     do j=2,jl
-       if (sgn.lt.0.0) then
-          if (alat(j)-alat(j-1).ge.0) then
+       if (sgn < 0.0) then
+          if (alat(j)-alat(j-1) >= 0) then
              ier=ier+256
              exit
           endif
-       else if (sgn.gt.0.0) then
-          if (alat(j)-alat(j-1).le.0.0) then
+       else if (sgn > 0.0) then
+          if (alat(j)-alat(j-1) <= 0.0) then
              ier=ier+256
              exit
           endif
@@ -241,13 +241,13 @@ contains
 
     sgn=(alato(2)-alato(1))
     do j=2,jlo 
-       if (sgn.lt.0.0) then
-          if (alato(j)-alato(j-1).ge.0.0) then
+       if (sgn < 0.0) then
+          if (alato(j)-alato(j-1) >= 0.0) then
              ier=ier+512
              exit
           endif
-       else if (sgn.gt.0.0) then
-          if (alato(j)-alato(j-1).le.0.0) then
+       else if (sgn > 0.0) then
+          if (alato(j)-alato(j-1) <= 0.0) then
              ier=ier+512
              exit
           endif
@@ -267,19 +267,19 @@ contains
        almx=max(almx,alon(i))
        almn=min(almn,alon(i))
        al=abs(alon(i)-alon(1))-360.0
-       if (abs(al).le.1.e-4) then
+       if (abs(al) <= 1.e-4) then
           iil=i-1
           exit
-       else if (al.gt.0.0) then
+       else if (al > 0.0) then
           ier=ier+1024
           go to 12
        endif
     end do
 
     dln=0.0
-    if (almn.lt.0.0) then
+    if (almn < 0.0) then
        dln=int(-almn/360.0+.001)*360.0
-    else if (almn.gt.360.0) then
+    else if (almn > 360.0) then
        dln=-int(almn/360.0+.001)*360.0
     endif
 12  continue
@@ -293,33 +293,33 @@ contains
        almxo=max(almxo,alono(i))
        almno=min(almno,alono(i))
        al=abs(alono(i)-alono(1))-360.0
-       if (abs(al).le.1.e-4) then
+       if (abs(al) <= 1.e-4) then
           iilo=i-1
           exit
-       else if (al.gt.0.0) then
+       else if (al > 0.0) then
           ier=ier+2048
           go to 15
        endif
     end do
 
     dlno=0.0
-    if (almno.lt.0.0) then
+    if (almno < 0.0) then
        dlno=int(-almno/360.0+.001)*360.0
-    else if (almno.gt.360.0) then
+    else if (almno > 360.0) then
        dlno=-int(almno/360.0+.001)*360.0
     endif
 15  continue
 
     ! Test for errors.  return if any --------------------------
 
-    if (ier.ne.0) then
+    if (ier /= 0) then
        if (present(error)) error=ier
        return
     end if
 
     ! The output grid needs to begin with or after the input grid.
 
-    if (almno+dlno.lt.almn+dln) dlno=dlno+360.0
+    if (almno+dlno < almn+dln) dlno=dlno+360.0
 
     do j=1,jlo ! loop 200 - over output latitudes
        ! find index limits in latitude to cover the new grid.
@@ -334,7 +334,7 @@ contains
           amnlt=min(alat(jj),alat(jj+1))
           amxlt=max(alat(jj),alat(jj+1))
           ! find jj limits
-          if (amxlt.gt.amnlto.and.amnlt.lt.amxlto) then
+          if (amxlt > amnlto.and.amnlt < amxlto) then
              j1=min(jj,j1)
              j2=max(jj,j2)
           endif
@@ -344,7 +344,7 @@ contains
        ! output grid box, no values will be assigned.  mask out
        ! all values for the latitude.
 
-       if (j2.lt.j1) then
+       if (j2 < j1) then
           do i=1,iilo 
              ao(i,j)=amm
              if (masko(i,j)) ier=-1
@@ -377,7 +377,7 @@ contains
                 amnln=min(alon(ii),alon(ii+1))+dln+k*360.0
                 amxln=max(alon(ii),alon(ii+1))+dln+k*360.0
                 ! find ii limits
-                if (amxln.gt.amnlno.and.amnln.lt.amxlno) then
+                if (amxln > amnlno.and.amnln < amxlno) then
                    i1=min(ii+k*il,i1)
                    i2=max(ii+k*il,i2)
                 endif
@@ -388,7 +388,7 @@ contains
           ! grid box, no values will be assigned.  mask out
           ! the grid box.
 
-          if (i2.lt.i1) then
+          if (i2 < i1) then
              ao(i,j)=amm
              if (masko(i,j)) ier=-1
              masko(i,j)=.false.
@@ -402,11 +402,11 @@ contains
              slatmx=max(alat(jj),alat(jj+1))
              slatmn=min(alat(jj),alat(jj+1))
              wlat=max(sin(min(amxlto,slatmx)*api/180.)-sin(max(amnlto,slatmn)*api/180.),0.d0)
-             if (wlat.ne.0.0) then
+             if (wlat /= 0.0) then
                 do iii=i1,i2
                    slon=dln
                    slonp=dln
-                   if (iii.gt.iil) then
+                   if (iii > iil) then
                       slon=slon+360.
                       slonp=slonp+360.
                    endif
@@ -425,7 +425,7 @@ contains
              endif
           end do
 
-          if (wt.gt.0.0) then
+          if (wt > 0.0) then
              ao(i,j)=avg/wt
           else
              ao(i,j)=amm
@@ -439,7 +439,7 @@ contains
 
     ! Finish filling the output array from wrap-around.
 
-    if (iilo.lt.ilo) then
+    if (iilo < ilo) then
        do j=1,jlo 
           do i=iilo+1,ilo
              ao(i,j)=ao(i-iilo,j)

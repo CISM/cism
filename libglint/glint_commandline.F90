@@ -76,22 +76,22 @@ contains
        commandline_history = trim(commandline_history)//" "//trim(argument)
     end do
     
-    if (numargs.gt.0) then
+    if (numargs > 0) then
        i=0
        nfiles = 0
        ! loop over command line arguments
-       do while (i.lt.numargs)
+       do while (i < numargs)
           i = i + 1
           call GETARG(i,argument)
           ! check if it is an option
-          if (argument(1:1).eq.'-') then
+          if (argument(1:1) == '-') then
              select case (trim(argument))
              case ('-h')
                 call glint_commandlineHelp()
                 stop
              case ('-r')
                 i = i+1
-                if (i.gt.numargs) then
+                if (i > numargs) then
                    write(*,*) 'Error, expect name of output file to follow -o option'
                    call glint_commandlineHelp()
                    stop
@@ -108,7 +108,7 @@ contains
              argumentIdx(nfiles) = i
           end if
        end do
-       if (numargs.gt.1) then
+       if (numargs > 1) then
           call GETARG(1,commandline_configname)
           call GETARG(2,commandline_climatename)
        else

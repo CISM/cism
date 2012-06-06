@@ -527,7 +527,7 @@ contains
 
     nx=size(orog,1) ; ny=size(orog,2)
 
-    if (orog(x,y).lt.0.0) orog(x,y)=0.0
+    if (orog(x,y) < 0.0) orog(x,y)=0.0
     call glint_find_bath(orog,x,y,nx,ny)
 
   end subroutine glint_remove_bath
@@ -547,9 +547,9 @@ contains
     integer :: ns=4,i
 
     do i=1,ns
-       if (x+xi(i).le.nx.and.x+xi(i).gt.0.and. &
-            y+yi(i).le.ny.and.y+yi(i).gt.0) then
-          if (orog(x+xi(i),y+yi(i)).lt.0.0) then
+       if (x+xi(i) <= nx.and.x+xi(i) > 0.and. &
+            y+yi(i) <= ny.and.y+yi(i) > 0) then
+          if (orog(x+xi(i),y+yi(i)) < 0.0) then
              orog(x+xi(i),y+yi(i))=0.0
              call glint_find_bath(orog,x+xi(i),y+yi(i),nx,ny)
           endif
