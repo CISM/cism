@@ -1,5 +1,5 @@
 #  Notes on Hopper build 
-# (updated and confirmed on Feb. 21, 2012 by SFP)
+# (updated and confirmed on June 8, 2012 by SFP)
 #
 # (1) before executing this script, load these modules:            
 # module load netcdf/4.1.2 	(note that default netcdf lib won't work)
@@ -8,11 +8,15 @@
 # (2) execute this configure script using:
 # sh  ./configure-scripts/hopper-config
 #
-# (3) minor correction to Makefiles in libglimmer-trilinos dir:
-# edit 'Makefile.Trilinos.export.in' and 'Makefile.Trilinos.export' in 'libglimmer-trilinos' to remove '$(Trilinos_TPL_LIBRARIES)')
+# (3) run bootstrap 
+# ./bootstrap
 #
-# (4) build the code using ...
-# gmake
+# (4) minor correction to Makefiles in libglimmer-trilinos dir:
+# edit 'Makefile.Trilinos.export.in' and 'Makefile.Trilinos.export' in 'libglimmer-trilinos' to remove '$(Trilinos_TPL_LIBRARIES)')
+# NOTE: Step (4) may no longer be necessary on Hopper - haven't had to do it for the past few builds to work (SFP, 6/8/2012)
+#
+# (5) build the code using ...
+# make
 
 ./configure \
  FC=ftn   F77=ftn   \
