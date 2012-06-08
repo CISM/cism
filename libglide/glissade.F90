@@ -151,8 +151,7 @@ contains
     !Initialize the NAN representation, hack to get smart compilers like gfortran to divide by zero
     call initnan 
 
-!SCALING - to be removed?
-    ! scale parameters
+    ! scale parameters (some conversions to SI units)
     call glide_scale_params(model)
 
     ! set up coordinate systems
@@ -347,7 +346,7 @@ contains
                                   nghost_transport, ntracer_transport
     use glide_mask
     use glide_deriv, only : df_field_2d_staggered
-    use glimmer_paramets, only: tim0, vis0, vis0_glam
+    use glimmer_paramets, only: tim0, len0, vel0
     use glimmer_physcon, only: scyr
     use glide_thckmask  !TODO - Remove this?
     use glide_grids
@@ -452,8 +451,8 @@ contains
     ! Vertical diffusion and strain heating only; no advection
     ! ------------------------------------------------------------------------ 
 
-!SCALING - Make sure inequality makes sense with scaling removed
-! I think this is OK, since these timesteps have not been scaled by tim0
+    ! Note: These times have units of years.
+
     if ( model%numerics%tinc >  mod(model%numerics%time,model%numerics%ntem)) then
 
 !TODO - Remove model derived type from argument list

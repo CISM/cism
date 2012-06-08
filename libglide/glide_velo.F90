@@ -40,7 +40,7 @@ module glide_velo
   use glide_types
   use glimmer_global, only : dp
   use glimmer_physcon, only : rhoi, grav, gn
-  use glimmer_paramets, only : thk0, len0, vis0, vel0, acc0
+  use glimmer_paramets, only : thk0, len0, vis0, vel0
 
   private vertintg, patebudd
 
@@ -982,7 +982,7 @@ contains
           do ew = 1,ewn-1
              stagbwat = 0.25d0*sum(model%temper%bmlt(ew:ew+1,ns:ns+1))
              
-             if (stagbwat>0.0d0) then
+             if (stagbwat > 0.0d0) then
                 btrc(ew,ns) = min(model%velowk%btrac_max, &
                                   model%velocity%bed_softness(ew,ns)+model%velowk%btrac_slope*stagbwat)
              else
@@ -999,7 +999,8 @@ contains
        ! Huybrechts
        do ns = 1, nsn-1
          do ew = 1, ewn-1
-           if ((model%geomderv%stagthck(ew,ns) * thk0) > model%numerics%thklim) then 
+!TODO - Scaling looks wrong here: stagthck and thklim should have the same scaling.
+           if ((model%geomderv%stagthck(ew,ns)*thk0) > model%numerics%thklim) then 
              if((model%geomderv%stagtopg(ew,ns)*thk0) > (model%climate%eus*thk0)) then
                Z = model%geomderv%stagthck(ew,ns)*thk0
              else

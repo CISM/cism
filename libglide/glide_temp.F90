@@ -86,7 +86,7 @@ contains
 
     !*FD initialise temperature module
     use glimmer_physcon, only : rhoi, shci, coni, scyr, grav, gn, lhci, rhow
-    use glimmer_paramets, only : tim0, thk0, acc0, len0, vis0, vel0, tau0
+    use glimmer_paramets, only : tim0, thk0, acc0, len0, vis0, vel0
     use glimmer_global, only : dp 
     use glimmer_log
     use glide_bwater, only : find_dt_wat
@@ -142,16 +142,25 @@ contains
     model%tempwk%zbed = 1.0d0 / thk0
     model%tempwk%dupn = model%numerics%sigma(model%general%upn) - model%numerics%sigma(model%general%upn-1)
 
-!SCALING - I think we should remove scyr from this declaration if getting rid of scaling.  
-!          Not sure about factor of 5.  See below.
+! In dimensional units, wmax = thk0 / (tim0/scyr) = 2000 m / 400 yr = 5 m/yr
+! In nondimensional units, wmax = 5 m/yr / (thk0*scyr/tim0) = 1.0
+! If we remove scaling, then tim0 = thk0 = 1, and wmax = 5 m/yr / scyr.  
+! The following expression is correct if scaling is removed.
+
     model%tempwk%wmax = 5.0d0 * tim0 / (scyr * thk0)
 
+!debug
+    print*, 'wmax =', model%tempwk%wmax
+
+!TODO - Delete line with tau0
     model%tempwk%cons = (/ 2.0d0 * tim0 * model%numerics%dttem * coni / (2.0d0 * rhoi * shci * thk0**2), &
          model%numerics%dttem / 2.0d0, &
          VERT_DIFF*2.0d0 * tim0 * model%numerics%dttem / (thk0 * rhoi * shci), &
          VERT_ADV*tim0 * acc0 * model%numerics%dttem / coni, &
-         ( tau0 * vel0 / len0 ) / ( rhoi * shci ) * ( model%numerics%dttem * tim0 ) /)  
+!!         ( tau0 * vel0 / len0 ) / ( rhoi * shci ) * ( model%numerics%dttem * tim0 ) /)  
+         0.d0 /)   !whl - last term no longer needed
          !*sfp* added last term to vector above for use in HO & SSA dissip. cacl
+         
 
     model%tempwk%c1 = STRAIN_HEAT *(model%numerics%sigma * rhoi * grav * thk0**2 / len0)**p1 * &
          2.0d0 * vis0 * model%numerics%dttem * tim0 / (16.0d0 * rhoi * shci)
@@ -171,11 +180,13 @@ contains
          (model%numerics%sigma(up-1) - model%numerics%sigma(up))), &
          up=3,model%general%upn)  /)
     
+!TODO - Delete line with tau0
     model%tempwk%f = (/ tim0 * coni / (thk0**2 * lhci * rhoi), &
          tim0 / (thk0 * lhci * rhoi), &
          tim0 * thk0 * rhoi * shci /  (thk0 * tim0 * model%numerics%dttem * lhci * rhoi), &
          tim0 * thk0**2 * vel0 * grav * rhoi / (4.0d0 * thk0 * len0 * rhoi * lhci), &
-         tim0 * vel0 * tau0 / (4.0d0 * thk0 * rhoi * lhci) /)      
+!!         tim0 * vel0 * tau0 / (4.0d0 * thk0 * rhoi * lhci) /)      
+         0.d0 /)   !whl - last term no longer needed
          !*sfp* added the last term in the vect above for HO and SSA dissip. calc. 
 
     ! setting up some factors for sliding contrib to basal heat flux
@@ -234,7 +245,7 @@ contains
       ! If flwa is loaded (e.g. hotstart), use the flwa field in the input file instead
       ! Note: Implementing flwa initialization in this way, I don't think hotstart=1 does anything. 
 !       if (model%options%hotstart  /=  1) then
-       if (model%temper%flwa(1,1,1) < 0.0) then
+       if (model%temper%flwa(1,1,1) < 0.d0) then
          call write_log("No initial flwa supplied - calculating initial flwa.")
 
 !TODO - Check spelling of 'Glen', make sure it's consistent throughout code
@@ -467,6 +478,8 @@ contains
              if(model%geometry%thck(ew,ns) > model%numerics%thklim) then
 
                 weff = model%velocity%wvel(:,ew,ns) - model%velocity%wgrd(:,ew,ns)
+
+!TODO - It seems odd to zero out weff when it's big.  Why not set to wmax?
                 if (maxval(abs(weff)) > model%tempwk%wmax) then
                    weff = 0.0d0
                 end if
@@ -516,13 +529,6 @@ contains
                 if(model%geometry%thck(ew,ns) > model%numerics%thklim) then
 
                    weff = model%velocity%wvel(:,ew,ns) - model%velocity%wgrd(:,ew,ns)
-!SCALING - Make sure inequality threshold makes sense with scaling removed
-! Note: model%tempwk%wmax = 5.0d0 * tim0 / (scyr * thk0)
-!       where        tim0 = len0 / vel0
-!                    vel0 = 500.0 / scyr
-!       Hence tim0 has units of const*len0*scyr, so wmax has units of const*len0/thk0,
-!       I think we should remove scyr from the definition of wmax.
-  
                    if (maxval(abs(weff)) > model%tempwk%wmax) then
                       weff = 0.0d0
                    end if
@@ -808,6 +814,7 @@ contains
   subroutine findvtri_init(model,ew,ns,subd,diag,supd,weff,temp,thck,float)
     !*FD called during first iteration to set inittemp
     use glimmer_global, only : dp
+    use glimmer_paramets, only: vel0, vel_scale
 
     type(glide_global_type) :: model
     integer, intent(in) :: ew, ns
@@ -841,10 +848,16 @@ contains
        ! only include sliding contrib if temperature node is surrounded by sliding velo nodes
        do nsp = ns-1,ns
           do ewp = ew-1,ew
-!SCALING - Make sure inequality threshold makes sense with scaling removed
-! If ubas and vbas are scaled by vel0 = 500/scyr, then we should divide RHS by vel0 when removing the scaling.
-! Also change reals to DP
-             if (abs(model%velocity%ubas(ewp,nsp)) > 0.000001 .or. abs(model%velocity%vbas(ewp,nsp)) > 0.000001) then
+
+!SCALING - WHL: Multiply ubas by vel0/vel_scale so we get the same result in these two cases:
+!           (1) Old Glimmer with scaling:         vel0 = vel_scale = 500/scyr, and ubas is non-dimensional
+!           (2) New Glimmer-CISM without scaling: vel0 = 1, vel_scale = 500/scyr, and ubas is in m/s.
+
+!!!             if ( abs(model%velocity%ubas(ewp,nsp)) > 0.000001 .or. &
+!!!                  abs(model%velocity%vbas(ewp,nsp)) > 0.000001 ) then
+             if ( abs(model%velocity%ubas(ewp,nsp))*(vel0/vel_scale) > 1.d-6 .or. &
+                  abs(model%velocity%vbas(ewp,nsp))*(vel0/vel_scale) > 1.d-6 ) then
+
                 slide_count = slide_count + 1
                 slterm = slterm + (&
                      model%geomderv%dusrfdew(ewp,nsp) * model%velocity%ubas(ewp,nsp) + &
@@ -937,31 +950,32 @@ contains
                     !*sfp* NOTE that multiplication by this term has been moved up from below
                     slterm = model%tempwk%f(4) * slterm 
 
+!TODO - Remove this case.  Commenting out for now.
 
-                case( FIRSTORDER_BMELT )                   ! 1st-order SIA approx. (HO model)
-                    do nsp = ns-1,ns 
-                        do ewp = ew-1,ew
-                        !*sfp* Note that vel and stress arrays have diff vert dims (upn for vel, upn-1 for stress)
-                        ! so that for now, basal vel at upn is multiplied by basal stress at upn-1 to get frictional
-                        ! heating term. This may not be entirely correct ... 
-                             slterm = slterm - &
+!!                case( FIRSTORDER_BMELT )                   ! 1st-order SIA approx. (HO model)
+!!                    do nsp = ns-1,ns 
+!!                        do ewp = ew-1,ew
+!!                        !*sfp* Note that vel and stress arrays have diff vert dims (upn for vel, upn-1 for stress)
+!!                        ! so that for now, basal vel at upn is multiplied by basal stress at upn-1 to get frictional
+!!                        ! heating term. This may not be entirely correct ... 
+!!                             slterm = slterm - &
                                 
-                                !! NEW version: uses consistent basal tractions                
-                                ( -model%velocity%btraction(1,ewp,nsp) * &
-                                   model%velocity%uvel(model%general%upn,ewp,nsp)  &
-                                  -model%velocity%btraction(2,ewp,nsp) * &
-                                   model%velocity%vvel(model%general%upn,ewp,nsp) )
+!!                                !! NEW version: uses consistent basal tractions                
+!!                                ( -model%velocity%btraction(1,ewp,nsp) * &
+!!                                   model%velocity%uvel(model%general%upn,ewp,nsp)  &
+!!                                  -model%velocity%btraction(2,ewp,nsp) * &
+!!                                   model%velocity%vvel(model%general%upn,ewp,nsp) )
                                 
-                                !!!! OLD version: uses HO basal shear stress calc. from FD                
-                                !( model%stress%tau%xz(model%general%upn-1,ewp,nsp) * &
-                                !  model%stress%uvel(model%general%upn,ewp,nsp) + &
-                                !  model%stress%tau%yz(model%general%upn-1,ewp,nsp) * &
-                                !  model%stress%vvel(model%general%upn,ewp,nsp) )
+!!                                !!!! OLD version: uses HO basal shear stress calc. from FD                
+!!                                !( model%stress%tau%xz(model%general%upn-1,ewp,nsp) * &
+!!                                !  model%stress%uvel(model%general%upn,ewp,nsp) + &
+!!                                !  model%stress%tau%yz(model%general%upn-1,ewp,nsp) * &
+!!                                !  model%stress%vvel(model%general%upn,ewp,nsp) )
 
-                        end do
-                    end do
+!!                        end do
+!!                    end do
 
-                    slterm = model%tempwk%f(5) * slterm
+!!                    slterm = model%tempwk%f(5) * slterm
 
 !                case( SSA_BMELT )                  ! 1st-order, depth-integrated approx. (SSA) 
 !                                            ! NOTE: need to pass 2d basal shear stress arrays from SSA model

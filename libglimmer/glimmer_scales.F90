@@ -31,47 +31,45 @@
 #include "config.inc"
 #endif
 
-!> this module holds scales for various fields
+! This module holds scales for various fields
+
 module glimmer_scales
 
   use glimmer_global, only : dp
 
-  real(dp) :: scale2d_f1, scale2d_f2, scale2d_f3, scale2d_f4, scale2d_f5, scale2d_f6, scale2d_f7, scale2d_f8, scale2d_f9
-  real(dp) :: scale3d_f1, scale3d_f2, scale3d_f3, scale3d_f4, scale3d_f5, scale3d_f6, scale3d_f7, scale3d_f8, scale3d_f9
-  real(dp) :: scale3d_f10
+  real(dp) :: scale_uvel, scale_uflx, scale_diffu, scale_acab, scale_wvel, scale_btrc 
+  real(dp) :: scale_beta, scale_flwa, scale_tau, scale_efvs
 
 contains
 
-!TODO - If scaling is removed, then many of these can be eliminated.
-!       Might want to keep scyr to convert between m/s and m/yr.
+!SCALING - Removed the scale factors that were not used and renamed the rest.
+!          Can simplify these if thk0, etc. are removed from code.
+!          If code is entirely in SI units, then the scale factor scyr
+!           will convert m/s to m/yr, etc.
+!TODO    - Use the same scale for btrc (SIA) and beta (HO)?
+!          Consolidate scale_acab and scale_wvel into a single scale?
 
-  !> calculate scale factors (can't have non-integer powers)
   subroutine glimmer_init_scales
+
+    ! set scale factors for I/O (can't have non-integer powers)
+
     use glimmer_physcon, only : scyr, gn
     use glimmer_paramets, only : thk0, tim0, vel0, vis0, len0, acc0, tau0, evs0
     implicit none
 
-    scale2d_f1 = scyr * thk0 / tim0
-    scale2d_f2 = scyr * vel0 * thk0
-    scale2d_f3 = vel0 / (vis0 * len0)
-    scale2d_f4 = vel0 * scyr * len0
-    scale2d_f5 = scyr * vel0
-    scale2d_f6 = scyr * vel0 * len0 / (thk0**2)
+    scale_uvel  = scyr * vel0                     ! uvel, vvel, ubas, vbas, etc.
+    scale_uflx  = scyr * vel0 * thk0              ! uflx, vflx
+    scale_diffu = scyr * vel0 * len0              ! diffu
+    scale_acab  = scyr * thk0 / tim0              ! acab, bmlt
+    scale_wvel  = scyr * thk0 / tim0              ! wvel, wgrd
+    scale_btrc  = scyr * vel0 * len0 / (thk0**2)  ! btrc, soft
 
-    scale2d_f7 = tau0 / vel0 / scyr !*sfp* added for correct scaling of betasquared
+    scale_beta  = scyr * tau0 / vel0              ! beta
+    scale_flwa  = scyr * vis0                     ! flwa
+    scale_tau   = tau0                            ! tauf, tauxz, btractx
+    scale_efvs  = evs0 / scyr                     ! efvs
 
-    scale2d_f9 = scyr * acc0
-
-    scale3d_f1 = scyr * vel0
-    scale3d_f2 = vis0 * (vel0/len0)**(gn - 1)
-    scale3d_f3 = scyr * thk0
-    scale3d_f4 = vel0/(vis0*len0)
-    scale3d_f5 = 1.0d0/scale3d_f2**(1.0/gn)
-    scale3d_f6 = scale3d_f4**(1.0/gn)
-    scale3d_f7 = scyr * thk0/tim0
-    scale3d_f8 = vis0*scyr
-    scale3d_f9 = tau0
-    scale3d_f10 = evs0 / scyr
   end subroutine glimmer_init_scales
+
 end module glimmer_scales
 

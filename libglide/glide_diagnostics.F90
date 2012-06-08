@@ -179,8 +179,6 @@ contains
     
     ! mean thickness
 
-!SCALING - Make sure inequality makes sense with scaling removed 
-! I think it's OK, since tot_area has already been converted to km^2.
     if (tot_area > eps) then
        mean_thck = tot_volume/tot_area
     else
@@ -335,9 +333,9 @@ contains
     ! local diagnostics
  
     if (present(idiag) .and. present(jdiag)) then
-       if (idiag >= 1 .and. idiag <=model%general%ewn  &
+       if (idiag >= 1 .and. idiag <= model%general%ewn  &
                       .and.                            &
-           jdiag >= 1 .and. jdiag <=model%general%nsn) then
+           jdiag >= 1 .and. jdiag <= model%general%nsn) then
           call write_log(' ')
           write(message,'(a30,2i4)')  &
                'Grid point diagnostics: i, j =', idiag, jdiag

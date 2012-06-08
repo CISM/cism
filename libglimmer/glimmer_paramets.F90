@@ -65,36 +65,85 @@ module glimmer_paramets
 
 #endif
 
+!SCALING - I removed the no_rescale option.
+!          Now the basic parameters are set to the no_rescale values by default.
+!
+!          Further simplification is possible.  
+!          If tau0 is redefined in the code in terms of rhoi and grav,
+!          then all the scaling parameters can be written in terms of scyr.
+!
+!          If we are willing to have velocity units of m/s instead of m/y, 
+!          we can get rid of scyr too and set all parameters to 1.0, then 
+!          remove them from the code.
+!          
+!          See comments below for details.
+
 ! scaling parameters
-!TODO - Would like to change all scaling parameters to 1.0.
-!       Is there any reason not to do this for standard Glide code?
-! Ideally, we would use mks units everywhere except for diagnostic output.
-!  (For diagnostics, it's more convenient to have time units of yr instead of sec.)
-! In glissade code, it would be good to eliminate all scaling constants.
-! (May be too much work to remove these from glide code)
 
-#ifdef NO_RESCALE
-  real(dp), parameter :: thk0 = 1.d0           ! m
-  real(dp), parameter :: len0 = 1.d0           ! m
-  real(dp), parameter :: vel0 = 1.d0 / scyr    ! m yr^{-1} converted to S.I. units
-  real(dp), parameter :: vis0 = 1.d0 / scyr 
-#else
-  real(dp), parameter :: thk0 = 2000.0d0          ! m
-  real(dp), parameter :: len0 = 200.0d3        ! m
-  real(dp), parameter :: vel0 = 500.0 / scyr    ! m yr^{-1} converted to S.I. units
-  !real(dp), parameter :: vis0 = 5.70d-18 / scyr  ! yr^{-1} Pa^{-3} converted to S.I. units
-  real(dp), parameter :: vis0 = 1d-16 / scyr 
-#endif
+! The fundamental scaling parameters are thk0, len0, and vel0. The others are derived from these.
 
-  ! *sfp* defined these to convert scales to values used by GLAM
-  real(dp), parameter :: tau0 = rhoi*grav*thk0                   ! stress scale in GLAM ( Pa )  
-  real(dp), parameter :: vis0_glam = tau0**(-gn) * (vel0/len0)   ! rate factor scale in GLAM ( Pa^-3 s^-1 )
-  real(dp), parameter :: evs0 = tau0 / (vel0/len0)               ! eff. visc. scale in GLAM ( Pa s )
+! The following are the old Glimmer scaling parameters. These are now decremented.
+!!  real(dp), parameter :: thk0 = 2000.0d0        ! m 
+!!  real(dp), parameter :: len0 = 200.0d3         ! m 
+!!  real(dp), parameter :: vel0 = 500.0 / scyr    ! m yr^{-1} converted to S.I. units
+!!  real(dp), parameter :: vis0 = 5.70d-18 / scyr  ! yr^{-1} Pa^{-3} converted to S.I. units
+
+! The following are the new Glimmer-CISM scaling parameters:
+
+  real(dp), parameter :: thk0 = 1.d0        ! no scaling of thickness
+  real(dp), parameter :: len0 = 1.d0        ! no scaling of length
+  real(dp), parameter :: vel0 = 1.d0 / scyr ! s^{-1}  !TODO - With this value, the serial JFNK solver barely converges.
+                                                      !       Not sure if this solver will be supported in CISM 2.0
+
+  !Note: Both the SIA and HO solvers fail unless tim0 = len0/vel0. Not sure if this can be changed.
+  !      With the above scaling, tim0 = scyr.
+  real(dp), parameter :: tim0 = len0 / vel0          ! s
+  real(dp), parameter :: acc0 = thk0 * vel0 / len0   ! same units as velo
+
+!TODO - With thk0 = 1, can replace tau0 by rhoi*grav in code and remove stress scaling.
+!       Similarly can redefine vis0 and evs0
+
+  ! GLAM scaling parameters; units are correct if thk0 has units of meters
+  real(dp), parameter :: tau0 = rhoi*grav*thk0              ! stress scale in GLAM ( Pa )  
+  real(dp), parameter :: evs0 = tau0 / (vel0/len0)          ! eff. visc. scale in GLAM ( Pa s )
+  real(dp), parameter :: vis0 = tau0**(-gn) * (vel0/len0)   ! rate factor scale in GLAM ( Pa^-3 s^-1 )
+
+!SCALING - Looking ahead, it would be possible to use the following set of scaling parameters.
+!          If tau0 were replaced by rhoi*grav, all parameters would be defined in terms of scyr.
+!          I.e., we would rescale seconds to years and leave everything else in original units. 
+!          We could remove these scaling parameters from the code and replace them with scyr as appropriate.
+!  real(dp), parameter :: thk0 = 1.d0
+!  real(dp), parameter :: len0 = 1.d0
+!  real(dp), parameter :: vel0 = 1.d0 / scyr
+!  real(dp), parameter :: tim0 = scyr
+!  real(dp), parameter :: acc0 = 1.d0 / scyr
+!  real(dp), parameter :: tau0 = rhoi*grav
+!  real(dp), parameter :: evs0 = tau0*scyr
+!  real(dp), parameter :: vis0 = tau0**(-gn) / scyr
+
+!SCALING - Looking further ahead, we could set all the above constants to 1.0 and remove all scaling parameters.
+!          Then the entire code would be in SI units.
+!          The down side is that the units of velocity would be m/s instead of m/yr, but diagnostics could be m/yr.
 
 
-  real(dp), parameter :: acc0 = thk0 * vel0 / len0  ! m s^{-1} 
-  ! ** for zero order model real(dp), parameter :: tim0 = thk0 / acc0      ! s
-  real(dp), parameter :: tim0 = len0 / vel0      ! s
-  real(sp), parameter :: conv = tim0 / scyr
+!WHL - Here I am defining some new constants that have the same values as thk0, len0, etc. in old Glimmer.
+!      I am giving the new constants new names to minimize confusion.
+!      These are used in only a few places.  For instance, we have this in glide_thck:
+!
+!          residual = maxval(abs(model%geometry%thck-model%thckwk%oldthck2))
+!
+!      In old Glimmer, thk0 = 2000 m and thck = O(1)
+!      In new Glimmer-CISM, thk0 = 1 and thck = true thickness in meters
+!      With thk0 = 1, we need to divide the rhs by 2000 m to reproduce the results of old Glimmer.
+!      The following code satisfies either of the two conventions:
+!
+!          residual = maxval( abs(model%geometry%thck-model%thckwk%oldthck2) * (thk0/thk_scale) )
+
+  real(dp), parameter :: thk_scale = 2000.0d0        ! m
+  real(dp), parameter :: len_scale = 200.0d3         ! m
+  real(dp), parameter :: vel_scale = 500.0 / scyr    ! m yr^{-1} converted to S.I. units
+  real(dp), parameter :: tau_scale = rhoi*grav*thk_scale      ! stress scale in GLAM ( Pa )  
+  real(dp), parameter :: vis_scale = tau_scale**(-gn) * (vel_scale/len_scale)  ! rate factor scale in GLAM ( Pa^-3 s^-1 )
+  real(dp), parameter :: evs_scale = tau_scale / (vel_scale/len_scale)   ! eff. visc. scale in GLAM ( Pa s )
 
 end module glimmer_paramets

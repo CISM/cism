@@ -129,35 +129,35 @@ dimensions:    time, y0, x0
 units:         meter2/year
 long_name:     flux in x direction
 data:          data%velocity%uflx
-factor:        scale2d_f2
+factor:        scale_uflx
 
 [vflx]
 dimensions:    time, y0, x0
 units:         meter2/year
 long_name:     flux in x direction
 data:          data%velocity%vflx
-factor:        scale2d_f2
+factor:        scale_uflx
 
 [diffu]
 dimensions:    time, y0, x0
 units:         meter2/year
 long_name:     apparent diffusivity
 data:          data%velocity%diffu
-factor:        scale2d_f4
+factor:        scale_diffu
 
 [btrc]
 dimensions:    time, y0, x0
 units:         meter/pascal/year
 long_name:     basal slip coefficient
 data:          data%velocity%btrc
-factor:        scale2d_f6
+factor:        scale_btrc
 
 [soft]
 dimensions:    time, y0, x0
 units:         meter/pascal/year
 long_name:     bed softness parameter
 data:          data%velocity%bed_softness
-factor:        scale2d_f6
+factor:        scale_btrc
 load:          1
 
 [beta]
@@ -165,15 +165,16 @@ dimensions:    time, y0, x0
 units:         unknown
 long_name:     higher-order bed stress coefficient
 data:          data%velocity%beta
-factor:        scale2d_f7
+factor:        scale_beta
 load:          1
 
+#Why is this 3D?
 [tauf]
 dimensions:    time, y0, x0
 units:         Pa
 long_name:     higher-order basal yield stress
 data:          data%basalproc%minTauf
-factor:        scale3d_f9
+factor:        scale_tau
 load:          1
 hot:           1
 
@@ -182,21 +183,21 @@ dimensions:    time, y0, x0
 units:         Pa
 long_name:     consistent basal traction (x-direction comp)
 data:          data%velocity%btraction(1,:,:)
-factor:        scale3d_f9
+factor:        scale_tau
 
 [btracty]
 dimensions:    time, y0, x0
 units:         Pa
 long_name:     consistent basal traction (y-direction comp)
 data:          data%velocity%btraction(2,:,:)
-factor:        scale3d_f9
+factor:        scale_tau
 
 [ubas]
 dimensions:    time, y0, x0
 units:         meter/year
 long_name:     basal slip velocity in x direction
 data:          data%velocity%ubas
-factor:        scale2d_f5
+factor:        scale_uvel
 standard_name: land_ice_basal_x_velocity
 load:          1
 average:       1
@@ -206,17 +207,18 @@ dimensions:    time, y0, x0
 units:         meter/year
 long_name:     basal slip velocity in y direction
 data:          data%velocity%vbas
-factor:        scale2d_f5
+factor:        scale_uvel
 standard_name: land_ice_basal_y_velocity
 load:          1
 average:       1
 
+#TODO: Scale factor looks wrong
 [taux]
 dimensions:    time, y0, x0
 units:         kilopascal
 long_name:     basal shear stress in x direction
 data:          data%stress%tau_x
-factor:        1e-3*thk0*thk0/len0
+factor:        1e-3*thk0*thk0/len0   
 
 [tauy]
 dimensions:    time, y0, x0
@@ -255,6 +257,7 @@ data:          data%climate%calving
 factor:        thk0
 coordinates:   lon lat
 
+#TODO - Remove this one?
 [backstress]
 dimensions:    time, y1,x1
 units:         meters/year
@@ -276,7 +279,6 @@ long_name:     area covered by ice
 factor:        len0*len0*1.e-6
 data:          data%geometry%iarea
 
-
 [iareag]
 dimensions:    time
 units:         km2
@@ -284,15 +286,12 @@ long_name:     area covered by ice
 factor:        len0*len0*1.e-6
 data:          data%geometry%iareag
 
-
 [iareaf]
 dimensions:    time
 units:         km2
 long_name:     area covered by ice 
 factor:        len0*len0*1.e-6
 data:          data%geometry%iareaf
-
-
 
 [thkmask]
 dimensions:    time, y1, x1
@@ -337,7 +336,7 @@ dimensions:    time, y1, x1
 units:         meter/year
 long_name:     accumulation, ablation rate
 data:          data%climate%acab
-factor:        scale2d_f1
+factor:        scale_acab
 standard_name: land_ice_surface_specific_mass_balance
 coordinates:   lon lat
 average:       1
@@ -357,7 +356,7 @@ dimensions:    time, y1, x1
 units:         meter/year
 long_name:     basal melt rate
 data:          data%temper%bmlt
-factor:        scale2d_f1
+factor:        scale_acab
 standard_name: land_ice_basal_melt_rate
 hot:           1
 coordinates:   lon lat
@@ -391,7 +390,6 @@ cell_methods:  time: mean
 coordinates:   lon lat
 load:          1
 
-#whl - added this one
 [surftemp]
 dimensions:    time, y1, x1
 units:         degree_Celsius
@@ -415,7 +413,7 @@ dimensions:    time, y1, x1
 units:         meter/year
 long_name:     rate of upper ice surface elevation change
 data:          data%geomderv%dusrfdtm
-factor:        scale2d_f1
+factor:        scale_acab
 coordinates:   lon lat
 
 [dthckdtm]
@@ -423,7 +421,7 @@ dimensions:    time, y1,x1
 units:         meter/year
 long_name:     tendency of ice thickness
 data:          data%geomderv%dthckdtm
-factor:        scale2d_f1
+factor:        scale_acab
 coordinates:   lon lat
 
 
@@ -432,7 +430,7 @@ dimensions:    time, level, y0, x0
 units:         meter/year
 long_name:     ice velocity in x direction
 data:          data%velocity%uvel(up,:,:)
-factor:        scale3d_f1
+factor:        scale_uvel
 standard_name: land_ice_x_velocity
 hot:           1
 
@@ -441,7 +439,7 @@ dimensions:    time, level, y0, x0
 units:         meter/year
 long_name:     ice velocity in y direction
 data:          data%velocity%vvel(up,:,:)
-factor:        scale3d_f1
+factor:        scale_uvel
 standard_name: land_ice_y_velocity
 hot:           1
 
@@ -465,9 +463,9 @@ hot:          0
 [velnorm]
 dimensions:    time, level, y0, x0
 units:         meter/year
-long_name:     Ice velocity magnitude according to higher-order model
+long_name:     Ice velocity magnitude
 data:          data%velocity%velnorm(up,:,:)
-factor:        scale3d_f1
+factor:        scale_uvel
 coordinates:   lon lat
 
 # higher-order vertical shear stresses, required for ISMIP-HOM intercomparison
@@ -476,21 +474,21 @@ dimensions: time, staglevel, y1, x1
 units:      kPa
 long_name:  X component vertical shear stress
 data:       data%stress%tau%xz(up,:,:)
-factor:     scale3d_f9
+factor:     scale_tau
 
 [tau_yz]
 dimensions: time, staglevel, y1, x1
 units:      kPa
 long_name:  Y component vertical shear stress
 data:       data%stress%tau%yz(up,:,:)
-factor:     scale3d_f9
+factor:     scale_tau
 
 [wvel]
 dimensions:    time, level, y1, x1
 units:         meter/year
 long_name:     vertical ice velocity
 data:          data%velocity%wvel(up,:,:)
-factor:        scale3d_f7
+factor:        scale_wvel
 coordinates:   lon lat
 
 [wgrd]
@@ -498,16 +496,17 @@ dimensions:    time, level, y1, x1
 units:         meter/year
 long_name:     Vertical grid velocity 
 data:          data%velocity%wgrd(up,:,:)
-factor:        scale3d_f7
+factor:        scale_wvel
 coordinates:   lon lat
 hot:           1
 
+#TODO - Redundant?
 [surfvel]
 dimensions:    time, level, y0, x0
 units:         meter/year
 long_name:     ice surface velocity 
 data:          data%velocity%surfvel(up,:,:)
-factor:        scale3d_f1
+factor:        scale_uvel
 coordinates:   lon lat
 
 [flwa]
@@ -515,7 +514,7 @@ dimensions:    time, level, y1, x1
 units:         pascal/year
 long_name:     Pre-exponential flow law parameter
 data:          data%temper%flwa(up,:,:)
-factor:        scale3d_f8
+factor:        scale_flwa
 hot:           1
 coordinates:   lon lat
 
@@ -524,8 +523,9 @@ dimensions:    time, staglevel, y1, x1
 units:         pascal/year
 long_name:     Pre-exponential flow law parameter
 data:          data%temper%flwa(up,:,:)
-factor:        scale3d_f8
-# hot=0 because we do not want the stag version to be in the hotvars definition - the conversion to stag happens if needed in check_for_tempstag
+factor:        scale_flwa
+# hot=0 because we do not want the stag version to be in the hotvars definition. 
+# The conversion to stag happens if needed in check_for_tempstag
 hot:           0
 # but we do want it loadable in case flwa is listed as hot.
 load:          1
@@ -536,7 +536,7 @@ dimensions:    time, staglevel, y1, x1
 units:         Pascal * years
 long_name:     effective viscosity               
 data:          data%stress%efvs(up,:,:)
-factor:        scale3d_f10
+factor:        scale_efvs
 hot:           0
 coordinates:   lon lat
 
@@ -556,7 +556,8 @@ units:         degree_Celsius
 long_name:     ice temperature on staggered vertical levels with boundaries
 data:          data%temper%temp(up,1:data%general%ewn,1:data%general%nsn)
 standard_name: land_ice_temperature_stag
-# hot=0 because we do not want the stag version to be in the hotvars definition - the conversion to stag happens if needed in check_for_tempstag
+# hot=0 because we do not want the stag version to be in the hotvars definition.
+# The conversion to stag happens if needed in check_for_tempstag.
 hot:           0
 load:          1
 coordinates:   lon lat
@@ -579,6 +580,7 @@ factor:        tim0/scyr
 hot:           1
 coordinates:   lon lat
 
+#TODO - What is phaml?
 [init_phaml]
 dimensions:    time, y1, x1
 units:         meter
@@ -599,6 +601,7 @@ load:          1
 hot:           0
 coordinates:   lon lat
 
+#TODO - Are these gline fields needed?
 [gl_ew]
 dimensions:    time, y1, x0
 units:         meter

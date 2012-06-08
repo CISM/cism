@@ -19,8 +19,6 @@ module glam
 
     use parallel
     use glide_types
-!TODO - Remove scaling (vis0 and vis0_glam not used in this module anyway)
-    use glimmer_paramets, only : vis0, vis0_glam
     use glide_mask
 
 !TODO - Remove this one?

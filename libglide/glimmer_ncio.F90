@@ -382,8 +382,7 @@ contains
     call nc_errorhandle(__FILE__,__LINE__,status)
     status = parallel_get_var(NCI%id,varid,delta)
     call nc_errorhandle(__FILE__,__LINE__,status)
-!SCALING - Make sure inequality makes sense with scaling removed
-! I think this is OK because dew*len0 has units of meters.
+
     if (abs(delta(2)-delta(1) - model%numerics%dew*len0) > small) then
        write(message,*) 'deltax1 of file '//trim(process_path(NCI%filename))//' does not match with config deltax: ',&
             delta(2)-delta(1),model%numerics%dew*len0
@@ -424,8 +423,7 @@ contains
     call nc_errorhandle(__FILE__,__LINE__,status)
     status = parallel_get_var(NCI%id,varid,delta)
     call nc_errorhandle(__FILE__,__LINE__,status)
-!SCALING - Make sure inequality makes sense with scaling removed
-! I think this is OK because dew*len0 has units of meters.
+
     if (abs(delta(2)-delta(1) - model%numerics%dns*len0) > small) then
        write(message,*) 'deltay1 of file '//trim(process_path(NCI%filename))//' does not match with config deltay: ',&
             delta(2)-delta(1),model%numerics%dns*len0

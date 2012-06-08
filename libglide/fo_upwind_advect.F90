@@ -7,8 +7,7 @@ module fo_upwind_advect
 
 !----------------------------------------------------------------------
 
-!TODO - Remove scaling
-    use glimmer_paramets, only: sp, dp, len0, thk0, tim0, vel0, tim0, acc0, scyr
+    use glimmer_paramets, only: sp, dp, len0, thk0, tim0, vel0, tim0, scyr
     use glide_types
     use glide_velo_higher  
 

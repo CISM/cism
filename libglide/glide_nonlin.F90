@@ -149,11 +149,11 @@ contains
         !Assume we need to iterate again until proven otherwise
         unstable_manifold_correction = .true.
 
-        norm1 = 0
-        norm2 = 0
-        norm3 = 0
-        norm4 = 0
-        norm5 = 0
+        norm1 = 0.d0
+        norm2 = 0.d0
+        norm3 = 0.d0
+        norm4 = 0.d0
+        norm5 = 0.d0
 
         vec_correction_new = vec_new(1:vec_size) - vec_old(1:vec_size)
 
@@ -178,6 +178,7 @@ contains
             norm5 = norm5 + vec_new(i) ** 2
         end do
 
+!TODO - Declare pi as an ordinary real(dp) variable
         !Compute the angle between successive correction vectors
         if ((abs(norm2) < 1d-10) .or. (abs(norm3) < 1d-10)) then
             theta=PI/2.

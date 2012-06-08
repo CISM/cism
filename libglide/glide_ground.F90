@@ -32,12 +32,12 @@ contains
      logical, dimension(:,:), intent(inout) :: backstressmap !*FD Backstress map
      real(sp), dimension(:,:), intent(inout):: backstress !*FD Backstress
      real(sp) :: sigmabin,sigmabout
-     backstress = 0.0
+     backstress = 0.0  !TODO - Can we make this double precision?
      backstressmap = .False. 
-     where(thck > 0.0) 
+     where(thck > 0.d0) 
          backstressmap = .True. 
      end where
-     where (thck > 0.0)
+     where (thck > 0.d0)
          backstress = sigmabin
      elsewhere
          backstress = sigmabout
@@ -99,14 +99,15 @@ contains
                                                      !*FD $\mathtt{which}=0$.
     real(dp), intent(in) :: calving_fraction         !*FD fraction of ice lost when calving Used with 
                                                      !*FD $\mathtt{which}=3$.
+!TODO - real(dp) for eus? intent(in) instead of inout?
     real, intent(inout) :: eus                       !*FD eustatic sea level
     real(sp),dimension(:,:),intent(inout) :: ablation_field !*FD this is passed as climate%calving
 
     real(dp), parameter :: con = - rhoi / rhoo
-    real(dp), parameter :: sigmaxx = 0.5 * rhoi * grav * (1.0 - rhoi / rhoo)
-    real(dp), parameter :: theta = 0.125
+    real(dp), parameter :: sigmaxx = 0.5d0 * rhoi * grav * (1.d0 - rhoi / rhoo)
+    real(dp), parameter :: theta = 0.125d0
     real(dp), dimension(2,2) :: A
-    real(sp) :: pi =  3.141592654 
+    real(sp) :: pi =  3.141592654   !TODO - Make this double precision? (3.14159265358979)
 
     real(sp), dimension(:,:), intent(inout) :: backstress
     real(sp) :: tempanmly
@@ -148,7 +149,7 @@ contains
 
     case(2) ! Set thickness to zero if relaxed bedrock is below a given level
       where (relx <= mlimit+eus)
-         ablation_field=thck
+         ablation_field = thck
          thck = 0.0d0
       end where
       call parallel_halo(ablation_field)
@@ -263,7 +264,7 @@ contains
                  (.not. GLIDE_IS_GROUNDING_LINE(mask(ew,ns-1))) .and. &
                  (.not. GLIDE_IS_GROUNDING_LINE(mask(ew,ns+1)))) then
               ablation_field(ew,ns) = thck(ew,ns)
-              thck(ew,ns) = 0.0
+              thck(ew,ns) = 0.d0
             end if
           end if
         end do

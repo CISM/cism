@@ -42,6 +42,8 @@ module glimmer_routing
 
 contains
 
+!TODO - This subroutine currently is not called from Glide.  Is it needed?
+
   subroutine flow_router(surface,input,output,mask,dx,dy)
 
     !*FD Routes water from input field to its destination, 
@@ -107,10 +109,10 @@ contains
       do cx=-1,1,1
         do cy=-1,1,1
           ! If this is the centre point, ignore
-          if (cx==0.and.cy==0) continue
+          if (cx == 0 .and. cy == 0) continue
           ! Otherwise do slope calculation 
           px=x+cx ; py=y+cy
-          if (px>0.and.px<=nx.and.py>0.and.py<=ny) then
+          if (px > 0 .and. px <= nx .and. py > 0 .and. py <= ny) then
               if (surfcopy(px,py)<surfcopy(x,y)) then
                 slopes(cx,cy)=(surfcopy(x,y)-surfcopy(px,py))/dists(cx,cy)
               endif

@@ -207,6 +207,8 @@ contains
     use glide_setup
     use glide_thckmask
     use glide_nonlin !For unstable manifold correction
+    use glimmer_paramets, only: thk0, thk_scale
+
     !EIB! use glide_deriv, only : df_field_2d_staggered 
     implicit none
     ! subroutine arguments
@@ -216,7 +218,6 @@ contains
     ! local variables
     integer, parameter :: pmax=50                       !*FD maximum Picard iterations
 
-!SCALING - May have to reset tol when removing scaling
     real(dp), parameter :: tol=1.0d-6
     real(dp) :: residual
     integer p
@@ -329,25 +330,25 @@ contains
             exit
           end if
 #else
-!SCALING - Make sure threshold makes sense with scaling removed. Reset tol by multiplying by thk0?
-          residual = maxval(abs(model%geometry%thck-model%thckwk%oldthck2))
+!SCALING - Multiply thickness residual by thk0/thk_scale so we get the same result in these two cases:
+!           (1) Old Glimmer with scaling:         thk0 = thk_scale = 2000 m, and thck is non-dimensional
+!           (2) New Glimmer-CISM without scaling: thk0 = 1, thk_scale = 2000 m, and thck is in true meters.
+
+!!!          residual = maxval(abs(model%geometry%thck-model%thckwk%oldthck2))
+          residual = maxval( abs(model%geometry%thck-model%thckwk%oldthck2) * (thk0/thk_scale) )
+
+!debug
+         print*, 'thck_nonlin: residual =', residual
+
           if (residual <= tol) then
              exit
           end if
           model%thckwk%oldthck2 = model%geometry%thck
 #endif
-!SCALING - Make sure threshold makes sense with scaling removed
-          !EIB! old way
-          !residual = maxval(abs(model%geometry%thck-model%thckwk%oldthck2))
-          !if (residual <= tol) then
-          !   exit
-          !end if
 
        end do
 #ifdef DEBUG_PICARD
        picard_max=max(picard_max,p)
-!SCALING - Make sure inequality makes sense with scaling removed
-! I think this is OK because tinc and time have not been scaled by tim0.
        if (model%numerics%tinc > mod(model%numerics%time,picard_interval)) then
           write(picard_unit,*) model%numerics%time,p
           picard_max = 0
@@ -758,7 +759,8 @@ end subroutine
     !*FD the Glimmer temperature solver only.
 
     use glimmer_global, only : dp, sp
-    use glimmer_paramets, only : conv
+    use glimmer_paramets, only : tim0
+    use glimmer_physcon, only: scyr
     use parallel
 
     implicit none 
@@ -778,7 +780,9 @@ end subroutine
     else
        factor = 1./factor
        where (mask /= 0)
-          opvr = conv * (ipvr - thckwk%olds(:,:,which)) * factor
+!WHL - Replaced conv with tim0/scyr (not used anywhere else in code)
+!!!          opvr = conv * (ipvr - thckwk%olds(:,:,which)) * factor
+          opvr = (tim0/scyr) * (ipvr - thckwk%olds(:,:,which)) * factor
        elsewhere
           opvr = 0.0d0
        end where

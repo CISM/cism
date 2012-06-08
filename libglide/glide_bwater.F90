@@ -15,7 +15,6 @@ contains
 
     use parallel
     use glimmer_global, only : dp 
-!TODO - Remove scaling
     use glimmer_paramets, only : thk0
     use glide_thck
     use glide_grids, only: stagvarb
@@ -69,9 +68,7 @@ contains
                 if (model%numerics%thklim < thck(ew,ns) .and. .not. floater(ew,ns)) then
                    bwat(ew,ns) = (model%tempwk%c(1) * bmlt(ew,ns) + model%tempwk%c(2) * bwat(ew,ns)) / &
                         model%tempwk%c(3)
-!SCALING - Make sure inequality makes sense with scaling removed
-!          I think it's OK, since blim and bwat both include a factor of thk0
-                   if (blim(1) > bwat(ew,ns)) then
+                   if (bwat(ew,ns) < blim(1)) then
                       bwat(ew,ns) = 0.0d0
                    end if
                 else
@@ -147,8 +144,8 @@ contains
       ! smoothing basal water distrib
       implicit none
       integer, intent(in) :: ewm,ew,ewp,nsm,ns,nsp
-!SCALING - Make sure inequality makes sense with scaling removed
-      if (blim(2) < bwat(ew,ns)) then
+
+      if (bwat(ew,ns) > blim(2)) then
          model%tempwk%smth(ew,ns) = bwat(ew,ns) + model%paramets%bwat_smooth * &
               (bwat(ewm,ns) + bwat(ewp,ns) + bwat(ew,nsm) + bwat(ew,nsp) - 4.0d0 * bwat(ew,ns))
       else 
@@ -243,7 +240,7 @@ contains
       y=sorted(k,2)
 
       ! Only propagate down slope positive values 
-      if (melt(x,y)>0) then
+      if (melt(x,y) > 0) then
 
         ! Reset flags and slope arrays --------------------------
 
@@ -258,7 +255,7 @@ contains
             if (cx==0.and.cy==0) continue
             ! Otherwise do slope calculation 
             px=x+cx ; py=y+cy
-            if (px>0.and.px<=nx.and.py>0.and.py<=ny) then
+            if (px > 0 .and. px<=nx .and. py > 0 .and. py <= ny) then
                 ! Only allow flow to points that are melted or freezing.
                 ! Testing relax this condition (Hell, Frank does).
                 !if (potcopy(px,py)<potcopy(x,y) .and. melt(px,py)/=0.0) then
@@ -379,7 +376,7 @@ contains
     real(dp),dimension(:,:),intent(out) :: wphi     ! Pressure wphi
 
 
-    where (thck> thicklim .and. .not. floater)
+    where (thck > thicklim .and. .not. floater)
       wphi = thck + rhow/rhoi * topg - N / (rhow * grav)
     elsewhere
       wphi = max(topg *rhow/rhoi,0.0d0)

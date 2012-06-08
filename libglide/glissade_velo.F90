@@ -23,7 +23,6 @@ module glissade_velo
 
     !globals
     use glimmer_global, only : dp
-    use glimmer_paramets, only : vis0, vis0_glam 
     use glimmer_physcon, only: gn
 
     !Other modules that this needs to call out to
@@ -108,7 +107,7 @@ contains
                                      model%geomderv%dthckdew, model%geomderv%dthckdns,           &
                                      model%geomderv%dusrfdew, model%geomderv%dusrfdns,           &
                                      model%geomderv%dlsrfdew, model%geomderv%dlsrfdns,           & 
-                                     model%geomderv%stagthck, model%temper%flwa*vis0/vis0_glam,  &
+                                     model%geomderv%stagthck, model%temper%flwa,                 &
                                      model%basalproc%minTauf,                                    & 
                                      model%velocity%btraction,                                   & 
                                      geom_mask_stag,                                             &
@@ -147,9 +146,7 @@ contains
 
         ! compute the velocity norm
 
-!TODO - Add loops instead of array syntax?
 !TODO - Since velnorm is strictly diagnostic, it probably could be computed only for I/O.
-
         model%velocity%velnorm = sqrt(model%velocity%uvel**2 + model%velocity%vvel**2)
         model%velocity%is_velocity_valid = .true.
         

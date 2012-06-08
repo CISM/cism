@@ -154,7 +154,7 @@ contains
 
     call write_log(trim(glimmer_version_char()))
 
-!SCALING - Remove scaling
+!SCALING - Is this call needed?
     ! initialise scales
     call glimmer_init_scales
 
@@ -162,8 +162,8 @@ contains
     !Initialize the NAN representation, hack to get smart compilers like gfortran to divide by zero
     call initnan 
 
-!SCALING - Remove this call?
-    ! scale parameters
+!SCALING - This call is needed to 
+    ! scale parameters (some conversions to SI units)
     call glide_scale_params(model)
 
     ! set up coordinate systems
@@ -390,13 +390,17 @@ contains
 
     call glide_prof_start(model,model%glide_prof%temperature)
 
-!SCALING - Make sure inequality makes sense with scaling removed
-! I think this is OK, since these timesteps have not been scaled by tim0
+!debug
+!    print*, 'tinc, time, ntem =', model%numerics%tinc, model%numerics%time,  model%numerics%ntem 
+!    print*, ' '
+
+    ! Note: These times have units of years.
 
     if ( model%numerics%tinc >  mod(model%numerics%time,model%numerics%ntem)) then
 
 !TODO - Remove model derived type from argument list
        ! temperature advection, vertical conduction, and internal dissipation
+
        call glide_temp_driver(model, model%options%whichtemp, model%options%which_ho_diagnostic)
 
        model%temper%newtemps = .true.
@@ -561,6 +565,9 @@ contains
     call calc_basal_shear(model%geomderv%stagthck,                          &
                           model%geomderv%dusrfdew, model%geomderv%dusrfdns, &
                           model%stress%tau_x,      model%stress%tau_y)
+
+    ! velocity norm
+    model%velocity%velnorm = sqrt(model%velocity%uvel**2 + model%velocity%vvel**2)
 
   end subroutine glide_tstep_p2
 

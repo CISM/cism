@@ -427,11 +427,7 @@ contains
              delta_e = (model%temper%ucondflx(ew,ns) - model%temper%lcondflx(ew,ns)  &
                       + model%temper%dissipcol(ew,ns)) * tim0*model%numerics%dttem
 
-!whl - would need a different threshold if running in single precision
-
-!SCALING - Make sure threshold makes sense with scaling removed
-!I think this is OK because the denominator has units of seconds. (But check this.)
-             if ( abs((efinal-einit-delta_e)/(tim0*model%numerics%dttem)) > 1.0e-8 ) then
+             if ( abs((efinal-einit-delta_e)/(tim0*model%numerics%dttem)) > 1.0d-8 ) then
                 write(message,*) 'WARNING: Energy conservation error, ew, ns =', ew, ns
                 call write_log(message)
 ! Can uncomment the following for diagnostics
@@ -707,7 +703,7 @@ contains
 
     use glimmer_global,   only: dp 
     use glimmer_physcon,  only: rhoi, grav
-    use glimmer_paramets, only: thk0
+    use glimmer_paramets, only: thk0, vel0, vel_scale
 
     type(glide_global_type) :: model
     integer, intent(in) :: whichbmlt
@@ -749,10 +745,15 @@ contains
              if (thck(ew,ns) > model%numerics%thklim .and. .not. float(ew,ns)) then
                 do nsp = ns-1,ns
                 do ewp = ew-1,ew
-!SCALING - Make sure inequality threshold makes sense with scaling removed
-!          ubas and vbas have been scaled by vel0
-                   if (abs(model%velocity%ubas(ewp,nsp)) > 1.0d-6 .or.   &
-                       abs(model%velocity%vbas(ewp,nsp)) > 1.0d-6) then
+
+!SCALING - WHL: Multiply ubas by vel0/vel_scale so we get the same result in these two cases:
+!           (1) Old Glimmer with scaling:         vel0 = vel_scale = 500/scyr, and ubas is non-dimensional
+!           (2) New Glimmer-CISM without scaling: vel0 = 1, vel_scale = 500/scyr, and ubas is in m/s.
+
+!!!                   if (abs(model%velocity%ubas(ewp,nsp)) > 1.0d-6 .or.   &
+!!!                       abs(model%velocity%vbas(ewp,nsp)) > 1.0d-6) then
+                   if ( abs(model%velocity%ubas(ewp,nsp))*(vel0/vel_scale) > 1.0d-6 .or.   &
+                        abs(model%velocity%vbas(ewp,nsp))*(vel0/vel_scale) > 1.0d-6 ) then
                       slide_count = slide_count + 1
                       slterm = slterm + model%velocity%btraction(1,ewp,nsp) * &
                                         model%velocity%uvel(model%general%upn,ewp,nsp) &

@@ -227,8 +227,8 @@ contains
 
     integer :: ew, ns,nsn,ewn
 
+!TODO - These parameters should be declared elsewhere
     real(dp), save :: thklim = 100.0d0   
-
     real(dp), parameter :: grav = 9.81 
     real(dp), parameter :: pi = 3.1416
 

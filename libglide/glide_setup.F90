@@ -131,31 +131,39 @@ contains
   subroutine glide_scale_params(model)
     !*FD scale parameters
     use glide_types
-    use glimmer_physcon,  only: scyr, gn
+    use glimmer_physcon,  only: scyr
+
+!SCALING - Can delete the following
+    use glimmer_physcon,  only: gn
     use glimmer_paramets, only: thk0,tim0,len0, vel0, vis0, acc0
+
     implicit none
     type(glide_global_type)  :: model !*FD model instance
 
-    model%numerics%ntem = model%numerics%ntem * model%numerics%tinc
-    model%numerics%nvel = model%numerics%nvel * model%numerics%tinc
+!SCALING - Some of this code is still needed, even after thk0, len0, etc. are set to 1.0.
+!          In particular, keep the conversions with scyr.
 
-    model%numerics%dt     = model%numerics%tinc * scyr / tim0
-    model%numerics%dttem  = model%numerics%ntem * scyr / tim0 
-    model%numerics%thklim = model%numerics%thklim  / thk0
+!TODO - Change ntem and nvel to dttem and dtvel?  Is nvel used?
+    model%numerics%ntem = model%numerics%ntem * model%numerics%tinc   ! keep
+    model%numerics%nvel = model%numerics%nvel * model%numerics%tinc   ! keep
 
-    model%numerics%dew = model%numerics%dew / len0
-    model%numerics%dns = model%numerics%dns / len0
+    model%numerics%dt     = model%numerics%tinc * scyr / tim0   ! keep scyr
+    model%numerics%dttem  = model%numerics%ntem * scyr / tim0   ! keep scyr
+    model%numerics%thklim = model%numerics%thklim  / thk0       ! remove  
 
-    model%numerics%mlimit = model%numerics%mlimit / thk0
+    model%numerics%dew = model%numerics%dew / len0         ! remove
+    model%numerics%dns = model%numerics%dns / len0         ! remove
 
-    model%velowk%trc0   = vel0 * len0 / (thk0**2)
-    model%velowk%btrac_const = model%paramets%btrac_const/model%velowk%trc0/scyr
-    model%velowk%btrac_max = model%paramets%btrac_max/model%velowk%trc0/scyr
-    model%velowk%btrac_slope = model%paramets%btrac_slope*acc0/model%velowk%trc0
+    model%numerics%mlimit = model%numerics%mlimit / thk0   ! remove
+
+    model%velowk%trc0   = vel0 * len0 / (thk0**2)          ! keep scyr
+    model%velowk%btrac_const = model%paramets%btrac_const/model%velowk%trc0/scyr  ! remove? 
+    model%velowk%btrac_max = model%paramets%btrac_max/model%velowk%trc0/scyr      ! remove?
+    model%velowk%btrac_slope = model%paramets%btrac_slope*acc0/model%velowk%trc0  ! remove?
 
   end subroutine glide_scale_params
 
-!TODO - Need glissade_read_sigma?
+!TODO - Change to glimmer_read_sigma?
 
   subroutine glide_read_sigma(model,config)
     !*FD read sigma levels from configuration file

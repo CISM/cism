@@ -33,9 +33,11 @@ use iso_c_binding
 use glimmer_paramets, only : dp
 use glimmer_physcon,  only : gn, rhoi, rhoo, grav, pi, scyr
 
-!TODO - Remove scaling (careful with vis0 and vis0_glam)
-!       Note: if thk0 = 1, then tau0 = rhoi*grav
-use glimmer_paramets, only : thk0, len0, vel0, vis0, vis0_glam, tim0, evs0, tau0
+!SCALING - What used to be called vis0_glam is now called vis0 and is used by both dycores.
+!          Note: if thk0 = 1, then tau0 = rhoi*grav
+!          It would not be hard to remove tau0, vis0, and evs0 from this module and elsewhere in the code.
+          
+use glimmer_paramets, only : thk0, len0, vel0, vis0, tim0, evs0, tau0
 
 use glimmer_log,      only : write_log
 use glide_mask
@@ -61,6 +63,8 @@ implicit none
   ! regularization constant for eff. strain rate to avoid infinite visc.
   ! NOTE: would be good to explore how small this really needs to be, as 
   ! code converges much better when this value is made larger.
+
+!SCALING - Is this constant OK?
   real(dp), parameter :: effstrminsq = (1.0d-20 * tim0)**2
   real(dp) :: homotopy = 0.0
 
@@ -197,7 +201,8 @@ subroutine glam_velo_init( ewn,   nsn,   upn,    &
 
     ! p1 = -1/n   - used with rate factor in eff. visc. def.
     ! p2 = (1-n)/2n   - used with eff. strain rate in eff. visc. def. 
-    ! p3 = (1-n)/n
+    ! p3 = (1-n)/n   !TODO - Remove p3?  It is never used.
+
     p1 = -1.d0 / real(gn,dp)
     p2 = (1.d0 - real(gn,dp)) / (2.d0 * real(gn,dp))
     p3 = (1.d0 - real(gn,dp)) / real(gn,dp)
@@ -1028,19 +1033,6 @@ subroutine JFNK_velo_solver  (model,umask)
   vflx => model%velocity%vflx(:,:)
   efvs => model%stress%efvs(:,:,:)
 
-!TODO - Can we eliminate this conversion?
-
-!whl - Could someone explain why this line is here and whether it is still needed?
-!SFP - Standard glimmer and higher-order glimmer traditionally had different definitions 
-!      for how flwa was scaled. This line scales flwa back to dimensional using Glimmer
-!      scaling and then makes non-dim using Glam scaling. For Picard, this scaling happens
-!      when flwa is passed in from glide_velo_higher. It used to happen there for JFNK also,
-!      but the explicit interface for JFNK has since been removed (not sure who did that and
-!      or why - compatibility w/ NOX?). At any rate, those changes also then require re-assigning
-!      the value of flwa at the end of this subroutine, which is the bug fix that Bill ultimately
-!      commmited).
-  flwa(:,:,:)=flwa(:,:,:)*vis0/vis0_glam
-
   ! RN_20100125: assigning value for whatsparse, which is needed for putpcgc()
 !TODO - Can we use just one variable for each of these options?
   whatsparse = whichsparse
@@ -1452,9 +1444,6 @@ end if
   call staggered_parallel_halo(uflx)
   call staggered_parallel_halo(vflx)
 
-!whl - BUG FIX: Resetting flwa to the correct value.  (Above it was set to flwa*vis0/vis0_glam.)
-!      To do: Rewrite the subroutine so that no rescaling is needed.
-  flwa(:,:,:)=flwa(:,:,:) / (vis0/vis0_glam)
  call t_stopf("JFNK_post")
 
   return
@@ -2709,9 +2698,10 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
 
   real(dp), intent(out) :: resid
 
+!TODO - critlimit is never used
   real(dp), parameter :: ssthres = 5.d0 * pi / 6.d0, &
-                                 critlimit = 10.d0 / (scyr * vel0), &
-                                 small = 1.0d-16
+                         critlimit = 10.d0 / (scyr * vel0), &
+                         small = 1.0d-16
 
   real(dp), intrinsic :: abs, acos
 
@@ -3138,9 +3128,6 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
 !       Note: efvs has been computed in a layer of halo cells, so we have its value in all
 !             neighbors of locally owned velocity points.
 
-!TODO - Modify inequalities when setting vis0_glam = 1.
-!       (Or temporarily assign value here to vis0_glam.)
-
   ! JEFFLOC Do I need to restrict to non-halo grid points?
   do ns = 1+staggered_shalo,size(mask,2)-staggered_nhalo
     do ew = 1+staggered_whalo,size(mask,1)-staggered_ehalo
@@ -3148,24 +3135,20 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
      ! Calculate the depth-averaged value of the rate factor, needed below when applying an ice shelf
      ! boundary condition (complicated code so as not to include funny values at boundaries ...
      ! ... kind of a mess and could be redone or made into a function or subroutine).
-     ! SUM has the definition SUM(ARRAY, DIM, MASK) MASK is either scalar or the same shape as ARRAY
+     ! SUM has the definition SUM(ARRAY, DIM, MASK) where MASK is either scalar or the same shape as ARRAY
      ! JEFFLOC Concerned about the edges at (ew+1, ns), (ew, ns+1), and (ew+1,ns+1)
-!SCALING - Make sure inequality makes sense with scaling removed
-! Note: vis0_glam = tau0**(-gn) * (vel0/len0) where 
-!           tau0 = rhoi*grav*thk0
-!           vel0 = 500.0 / scyr
-!           len0 = 200.0d3
-!           thk0 = 2000.d0
-! Does the threshold need to be divided by vis0glam?
 
-     flwabar = ( sum( flwa(:,ew,ns), 1, flwa(1,ew,ns)*vis0_glam < 1.0d-10 )/real(upn) + &
-               sum( flwa(:,ew,ns+1), 1, flwa(1,ew,ns+1)*vis0_glam < 1.0d-10 )/real(upn)  + &
-               sum( flwa(:,ew+1,ns), 1, flwa(1,ew+1,ns)*vis0_glam < 1.0d-10 )/real(upn)  + &
-               sum( flwa(:,ew+1,ns+1), 1, flwa(1,ew+1,ns+1)*vis0_glam < 1.0d-10 )/real(upn) ) / &
-               ( sum( flwa(:,ew,ns)/flwa(:,ew,ns), 1, flwa(1,ew,ns)*vis0_glam < 1.0d-10 )/real(upn) + &
-               sum( flwa(:,ew,ns+1)/flwa(:,ew,ns+1), 1, flwa(1,ew,ns+1)*vis0_glam < 1.0d-10 )/real(upn) + &
-               sum( flwa(:,ew+1,ns)/flwa(:,ew+1,ns), 1, flwa(1,ew+1,ns)*vis0_glam < 1.0d-10 )/real(upn) + &
-               sum( flwa(:,ew+1,ns+1)/flwa(:,ew+1,ns+1), 1, flwa(1,ew+1,ns+1)*vis0_glam < 1.0d-10 )/real(upn) )
+!SCALING - The following is OK because flwa*vis0 is equal to the dimensional flow factor.
+!          The product will still equal the dimensional flow factor when vis0 = 1.
+
+     flwabar = ( sum( flwa(:,ew,ns),     1, flwa(1,ew,ns)*vis0     < 1.0d-10 )/real(upn) + &
+                 sum( flwa(:,ew,ns+1),   1, flwa(1,ew,ns+1)*vis0   < 1.0d-10 )/real(upn)  + &
+                 sum( flwa(:,ew+1,ns),   1, flwa(1,ew+1,ns)*vis0   < 1.0d-10 )/real(upn)  + &
+                 sum( flwa(:,ew+1,ns+1), 1, flwa(1,ew+1,ns+1)*vis0 < 1.0d-10 )/real(upn) ) / &
+               ( sum( flwa(:,ew,ns)/flwa(:,ew,ns),         1, flwa(1,ew,ns)*vis0     < 1.0d-10 )/real(upn) + &
+                 sum( flwa(:,ew,ns+1)/flwa(:,ew,ns+1),     1, flwa(1,ew,ns+1)*vis0   < 1.0d-10 )/real(upn) + &
+                 sum( flwa(:,ew+1,ns)/flwa(:,ew+1,ns),     1, flwa(1,ew+1,ns)*vis0   < 1.0d-10 )/real(upn) + &
+                 sum( flwa(:,ew+1,ns+1)/flwa(:,ew+1,ns+1), 1, flwa(1,ew+1,ns+1)*vis0 < 1.0d-10 )/real(upn) )
 
     loc2(1,:) = loc2_array(ew,ns,:)
 
@@ -3347,6 +3330,7 @@ subroutine bodyset(ew,  ns,  up,           &
   ! which determine the values for coefficients that will go into the sparse matrix, for points
   ! on and inside of the boundaries.
 
+  use glimmer_paramets, only: evs0, evs_scale
   implicit none
 
   integer, intent(in) :: ewn, nsn, upn
@@ -3535,7 +3519,8 @@ subroutine bodyset(ew,  ns,  up,           &
     ! --------------------------------------------------------------------------------------
     ! See eq. 2, Pattyn+, 2006, JGR v.111; eq. 8, Vieli&Payne, 2005, JGR v.110). Note that this 
     ! contains the 1d assumption that ice is not spreading lateraly !(assumes dv/dy = 0 for u along flow)
-    source = abar * vis0_glam * ( 1.d0/4.d0 * rhoi * grav * stagthck(ew,ns)*thk0 * ( 1.d0 - rhoi/rhoo))**3.d0
+
+    source = abar * vis0 * ( 1.d0/4.d0 * rhoi * grav * stagthck(ew,ns)*thk0 * ( 1.d0 - rhoi/rhoo))**3.d0
 
     ! multiply by 4 so that case where v=0, du/dy = 0, LHS gives: du/dx = du/dx|_shelf 
     ! (i.e. LHS = 4*du/dx, requires 4*du/dx_shelf)
@@ -3554,14 +3539,19 @@ subroutine bodyset(ew,  ns,  up,           &
     ! (2) source term (strain rate at shelf/ocean boundary) from MacAyeal depth-ave solution. 
     ! --------------------------------------------------------------------------------------
 
-!TODO - Cancelation here if tau0 = rhoi*grav?
     source = (rhoi*grav*stagthck(ew,ns)*thk0) / tau0 / 2.d0 * ( 1.d0 - rhoi / rhoo )
 
     ! terms after "/" below count number of non-zero efvs cells ... needed for averaging of the efvs at boundary 
-!SCALING - Make sure inequality makes sense with scaling removed
-! What are the units of efvs?
-    source = source / ( sum(local_efvs, local_efvs > 1.0d-12) / &
-             sum( (local_efvs/local_efvs), local_efvs > 1.0d-12 ) )
+
+!SCALING - Units of efvs are evs0 = tau0 / (vel0/len0)
+!          Multiply efvs by evs0/evs_scale so we get the same result in these two cases:
+!           (1) Old Glimmer with scaling:         evs0 = evs_scale = tau0/(vel0/len0), and efvs is non-dimensional
+!           (2) New Glimmer-CISM without scaling: evs0 = 1, evs_scale = tau0/(vel0/len0), and efvs is in Pa s
+
+!!!    source = source / ( sum(local_efvs, local_efvs > 1.0d-12) / &
+!!!             sum( (local_efvs/local_efvs), local_efvs > 1.0d-12 ) )
+    source = source / ( sum(local_efvs, local_efvs*evs0/evs_scale > 1.0d-12) / &
+             sum( (local_efvs/local_efvs), local_efvs*evs0/evs_scale > 1.0d-12 ) )
 
     source = source * normal(pt) ! partition according to normal vector at lateral boundary
                                  ! NOTE that source term is already non-dim here 
@@ -5031,9 +5021,10 @@ subroutine calcbetasquared (whichbabc,               &
 
   ! Note that the dimensional scale (tau0 / vel0 / scyr) is used here for making the basal traction coeff.
   ! betasquared dimensional, within the subroutine, and then non-dimensional again before being sent back out
-  ! for use in the code. This scale is the same as scale scale2d_f7 defined in libglimmer/glimmer_scales.F90.
+  ! for use in the code. This scale is the same as scale2d_beta defined in libglimmer/glimmer_scales.F90.
 
-!TODO - Remove scaling here.  What are units of betasquared?
+!TODO - Remove scaling here?
+
   select case(whichbabc)
 
     case(0)     ! constant value; useful for debugging and test cases

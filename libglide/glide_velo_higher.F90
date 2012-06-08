@@ -18,7 +18,6 @@ module glide_velo_higher
 
     !globals
     use glimmer_global, only : dp
-    use glimmer_paramets, only : vis0, vis0_glam 
     use glimmer_physcon, only: gn
 
     !Other modules that this needs to call out to
@@ -89,9 +88,9 @@ contains
                                    model%geomderv%dthckdew, model%geomderv%dthckdns,           &
                                    model%geomderv%dusrfdew, model%geomderv%dusrfdns,           &
                                    model%geomderv%dlsrfdew, model%geomderv%dlsrfdns,           & 
-                                   model%geomderv%stagthck, model%temper%flwa*vis0/vis0_glam,  &
+                                   model%geomderv%stagthck, model%temper%flwa,                 &
                                    model%basalproc%minTauf,                                    & 
-                                   model%velocity%btraction,                               & 
+                                   model%velocity%btraction,                                   &    
                                    geom_mask_stag,                                             &
                                    model%options%which_ho_babc,                                &
                                    model%options%which_ho_efvs,                                &
@@ -100,7 +99,7 @@ contains
                                    model%options%which_ho_sparse,                              &
                                    model%options%periodic_ew,                                  &
                                    model%options%periodic_ns,                                  &
-                                   model%velocity%beta,                                    & 
+                                   model%velocity%beta,                                        & 
                                    model%velocity%uvel, model%velocity%vvel,           &
                                    model%velocity%uflx, model%velocity%vflx,           &
                                    model%stress%efvs )
