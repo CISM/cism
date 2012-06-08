@@ -5,11 +5,11 @@
 # module load netcdf/4.1.2 	(note that default netcdf lib won't work)
 # module load python
 #
-# (2) execute this configure script using:
-# sh  ./configure-scripts/hopper-config
-#
-# (3) run bootstrap 
+# (2) run bootstrap 
 # ./bootstrap
+#
+# (3) execute this configure script using:
+# sh  ./configure-scripts/hopper-config
 #
 # (4) minor correction to Makefiles in libglimmer-trilinos dir:
 # edit 'Makefile.Trilinos.export.in' and 'Makefile.Trilinos.export' in 'libglimmer-trilinos' to remove '$(Trilinos_TPL_LIBRARIES)')
