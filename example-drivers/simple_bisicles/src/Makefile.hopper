@@ -169,7 +169,7 @@ AUTOMAKE = ${SHELL} $(HOME)/glimmer-cism2/branches/seacism/missing --run automak
 
 AWK = nawk
 BIBTEX = 
-BLAS_LIBS = -L/contrib/blas -lblas
+BLAS_LIBS = -L/contrib/blas -lblas -lsci_pgi
 CC = cc
 CCDEPMODE = depmode=aix
 CFLAGS = -O2 -qcpluscmt
@@ -224,7 +224,7 @@ ECHO_N =
 ECHO_T = 
 EGREP = /usr/local/bin/grep -E
 EXEEXT = 
-EXTRA_LDLIBS_SUBST = 
+EXTRA_LDLIBS_SUBST = /opt/pgi/12.2.0/linux86-64/12.2/lib/f90main.o
 F77 = ftn
 FC = ftn
 FCCPPFLAGS = $(FC_DEFINE)HAVE_MPI  $(FC_DEFINE)MPICH_IGNORE_CXX_SEEK  $(FC_DEFINE)pgiFortran  $(FC_DEFINE)TRILINOS  $(FC_DEFINE)GLIMMER_MPI
@@ -234,7 +234,7 @@ FCFLAGS = -Mfree -O2
 FCFLAGS_F = 
 FCFLAGS_f90 = 
 #FCLIBS =  -lm -llapi_r -L/usr/lpp/ppe.poe/lib/threads -L/usr/lpp/ppe.poe/lib -L/lib/threads -lmpi_r -lxlf90 -L/usr/lpp/xlf/lib -lxlopt -lxlf -lxlomp_ser -lpthreads
-FCLIBS =  -L/opt/cray/udreg/2.3.1-1.0400.3911.5.13.gem/lib64 -L/opt/cray/ugni/2.3-1.0400.4127.5.20.gem/lib64 -L/opt/cray/pmi/3.0.0-1.0000.8661.28.2807.gem/lib64 -L/opt/cray/dmapp/3.2.1-1.0400.3965.10.63.gem/lib64 -L/opt/cray/xpmem/0.1-2.0400.30792.5.6.gem/lib64 -L/opt/cray/mpt/5.4.4/xt/gemini/mpich2-pgi/109/lib -L/opt/cray/mpt/5.4.4/xt/gemini/sma/lib64 -L/opt/xt-libsci/11.0.05/pgi/109/mc12/lib -L/opt/cray/hdf5/1.8.6/pgi/109/lib -L/opt/cray/netcdf/4.1.2/pgi/109/lib -L/opt/cray/xe-sysroot/4.0.36.securitypatch.20120130/usr/lib64 -L/opt/cray/xe-sysroot/4.0.36.securitypatch.20120130/lib64 -L/opt/cray/xe-sysroot/4.0.36.securitypatch.20120130/usr/lib/alps -L/usr/lib/alps -L/opt/pgi/11.9.0/linux86-64/11.9/lib -L/usr/lib64 -L/usr/lib64/gcc/x86_64-suse-linux/4.3 -L/opt/cray/atp/1.4.2/lib/ -lAtpSigHandler -lnetcdff_pgi -lnetcdf_pgi -lhdf5hl_fortran_pgi -lhdf5_hl_pgi -lhdf5_fortran_pgi -lhdf5_pgi -lz -lscicpp_pgi -lsci_pgi_mp -lmpichf90_pgi -lmpich_pgi -lmpl -lsma -lxpmem -ldmapp -lugni -lpmi -lalpslli -lalpsutil -ludreg -lpthread -lzceh -lstdmpz -lCmpz -lpgmp -lpgf90 -lpgf90_rpm1 -lpgf902 -lpgf90rtl -lpgftnrtl -lnspgc -lpgc -lrt -lm
+FCLIBS =  -L/opt/cray/udreg/2.3.1-1.0400.3911.5.13.gem/lib64 -L/opt/cray/ugni/2.3-1.0400.4127.5.20.gem/lib64 -L/opt/cray/pmi/3.0.0-1.0000.8661.28.2807.gem/lib64 -L/opt/cray/dmapp/3.2.1-1.0400.3965.10.63.gem/lib64 -L/opt/cray/xpmem/0.1-2.0400.30792.5.6.gem/lib64 -L/opt/cray/mpt/5.4.4/xt/gemini/mpich2-pgi/109/lib -L/opt/cray/mpt/5.4.4/xt/gemini/sma/lib64 -L/opt/xt-libsci/11.0.06/pgi/109/mc12/lib -L/opt/cray/hdf5-parallel/1.8.6/pgi/109/lib -L/opt/cray/netcdf/4.1.2/pgi/109/lib -L/opt/cray/xe-sysroot/4.0.36.securitypatch.20120130/usr/lib64 -L/opt/cray/xe-sysroot/4.0.36.securitypatch.20120130/lib64 -L/opt/cray/xe-sysroot/4.0.36.securitypatch.20120130/usr/lib/alps -L/usr/lib/alps -L/opt/pgi/12.2.0/linux86-64/12.2/lib -L/usr/lib64 -L/usr/lib64/gcc/x86_64-suse-linux/4.3 -L/opt/cray/atp/1.4.2/lib/ -lAtpSigHandler -lnetcdff_pgi -lnetcdf_pgi -lhdf5hl_fortran_pgi_parallel -lhdf5_hl_pgi_parallel -lhdf5_fortran_pgi_parallel -lhdf5_pgi_parallel -lz -lscicpp_pgi -lsci_pgi_mp -lmpichf90_pgi -lmpich_pgi -lmpl -lsma -lxpmem -ldmapp -lugni -lpmi -lalpslli -lalpsutil -ludreg -lpthread -lzceh -lstdmpz -lCmpz -lpgmp -lpgf90 -lpgf90_rpm1 -lpgf902 -lpgf90rtl -lpgftnrtl -lnspgc -lpgc -lrt -lm
 
 FC_DEFINE = -D
 FC_MODEXT = mod
@@ -242,7 +242,7 @@ FC_MODINC = -I
 FFLAGS = 
 FGREP = /usr/bin/grep -F
 FIG2DEV = 
-FLIBS =  -L/opt/cray/udreg/2.3.1-1.0400.3911.5.13.gem/lib64 -L/opt/cray/ugni/2.3-1.0400.4127.5.20.gem/lib64 -L/opt/cray/pmi/3.0.0-1.0000.8661.28.2807.gem/lib64 -L/opt/cray/dmapp/3.2.1-1.0400.3965.10.63.gem/lib64 -L/opt/cray/xpmem/0.1-2.0400.30792.5.6.gem/lib64 -L/opt/cray/mpt/5.4.4/xt/gemini/mpich2-pgi/109/lib -L/opt/cray/mpt/5.4.4/xt/gemini/sma/lib64 -L/opt/xt-libsci/11.0.05/pgi/109/mc12/lib -L/opt/cray/hdf5/1.8.6/pgi/109/lib -L/opt/cray/netcdf/4.1.2/pgi/109/lib -L/opt/cray/xe-sysroot/4.0.36.securitypatch.20120130/usr/lib64 -L/opt/cray/xe-sysroot/4.0.36.securitypatch.20120130/lib64 -L/opt/cray/xe-sysroot/4.0.36.securitypatch.20120130/usr/lib/alps -L/usr/lib/alps -L/opt/pgi/11.9.0/linux86-64/11.9/lib -L/usr/lib64 -L/usr/lib64/gcc/x86_64-suse-linux/4.3 -L/opt/cray/atp/1.4.2/lib/ -lAtpSigHandler -lnetcdff_pgi -lnetcdf_pgi -lhdf5hl_fortran_pgi -lhdf5_hl_pgi -lhdf5_fortran_pgi -lhdf5_pgi -lz -lscicpp_pgi -lsci_pgi_mp -lmpichf90_pgi -lmpich_pgi -lmpl -lsma -lxpmem -ldmapp -lugni -lpmi -lalpslli -lalpsutil -ludreg -lpthread -lzceh -lstdmpz -lCmpz -lpgmp -lpgf90 -lpgf90_rpm1 -lpgf902 -lpgf90rtl -lpgftnrtl -lnspgc -lpgc -lrt -lm
+FLIBS =  -L/opt/cray/udreg/2.3.1-1.0400.3911.5.13.gem/lib64 -L/opt/cray/ugni/2.3-1.0400.4127.5.20.gem/lib64 -L/opt/cray/pmi/3.0.0-1.0000.8661.28.2807.gem/lib64 -L/opt/cray/dmapp/3.2.1-1.0400.3965.10.63.gem/lib64 -L/opt/cray/xpmem/0.1-2.0400.30792.5.6.gem/lib64 -L/opt/cray/mpt/5.4.4/xt/gemini/mpich2-pgi/109/lib -L/opt/cray/mpt/5.4.4/xt/gemini/sma/lib64 -L/opt/xt-libsci/11.0.06/pgi/109/mc12/lib -L/opt/cray/hdf5-parallel/1.8.6/pgi/109/lib -L/opt/cray/netcdf/4.1.2/pgi/109/lib -L/opt/cray/xe-sysroot/4.0.36.securitypatch.20120130/usr/lib64 -L/opt/cray/xe-sysroot/4.0.36.securitypatch.20120130/lib64 -L/opt/cray/xe-sysroot/4.0.36.securitypatch.20120130/usr/lib/alps -L/usr/lib/alps -L/opt/pgi/12.2.0/linux86-64/12.2/lib -L/usr/lib64 -L/usr/lib64/gcc/x86_64-suse-linux/4.3 -L/opt/cray/atp/1.4.2/lib/ -lAtpSigHandler -lnetcdff_pgi -lnetcdf_pgi -lhdf5hl_fortran_pgi_parallel -lhdf5_hl_pgi_parallel -lhdf5_fortran_pgi_parallel -lhdf5_pgi_parallel -lz -lscicpp_pgi -lsci_pgi_mp -lmpichf90_pgi -lmpich_pgi -lmpl -lsma -lxpmem -ldmapp -lugni -lpmi -lalpslli -lalpsutil -ludreg -lpthread -lzceh -lstdmpz -lCmpz -lpgmp -lpgf90 -lpgf90_rpm1 -lpgf902 -lpgf90rtl -lpgftnrtl -lnspgc -lpgc -lrt -lm
 
 GLIMMER_MAJOR_VERSION = 1
 GLIMMER_MICRO_VERSION = 1
