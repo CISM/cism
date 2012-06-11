@@ -3196,8 +3196,8 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
 !HALO - Note that ew and ns below are locally owned velocity points, i.e. in the range (ilo-1:ihi, jlo-1:jhi)
 !HALO - This means we need efvs in one layer of halo cells.
 
-			!JEFFLOC As long as not accessing halo ice points, then won't shift off of halo of size at least 1.
-			!JEFFLOC Completed scan on 11/23.  Testing change of definition of loc2_array.
+!JEFFLOC As long as not accessing halo ice points, then won't shift off of halo of size at least 1.
+!JEFFLOC Completed scan on 11/23.  Testing change of definition of loc2_array.
 
             call bodyset(ew,  ns,  up,        &
                          ewn, nsn, upn,       &
@@ -3209,6 +3209,9 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                          dlsrfdew, dlsrfdns,  &
                          efvs(up-1+shift(1):up+shift(1),ew:ew+1,ns:ns+1),  &
                          othervel(up-1+shift(1):up+1+shift(1),  &
+                         ew-1+shift(2):ew+1+shift(2),  &
+                         ns-1+shift(3):ns+1+shift(3)), &
+                         thisvel(up-1+shift(1):up+1+shift(1),  &
                          ew-1+shift(2):ew+1+shift(2),  &
                          ns-1+shift(3):ns+1+shift(3)), &
                          betasquared(ew,ns),           &
@@ -3254,6 +3257,9 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                          dlsrfdew, dlsrfdns,  &
                          efvs(up-1+shift(1):up+shift(1),ew:ew+1,ns:ns+1),  &
                          othervel(up-1+shift(1):up+1+shift(1),  &
+                         ew-1+shift(2):ew+1+shift(2),  &
+                         ns-1+shift(3):ns+1+shift(3)), &
+                         thisvel(up-1+shift(1):up+1+shift(1),  &
                          ew-1+shift(2):ew+1+shift(2),  &
                          ns-1+shift(3):ns+1+shift(3)), &
                          betasquared(ew,ns),           &
@@ -3320,10 +3326,10 @@ subroutine bodyset(ew,  ns,  up,           &
                    dlsrfdew, dlsrfdns,     &
                    local_efvs,             &
                    local_othervel,         &
+                   local_thisvel,          &
                    betasquared,            &
                    btraction,              &
                    whichbabc, assembly,    &
-                   local_thisvel,          &
                    abar, cc)
 
   ! This subroutine does the bulk of the work in calling the appropriate discretiztion routines,
@@ -3347,10 +3353,9 @@ subroutine bodyset(ew,  ns,  up,           &
   real(dp), dimension(2,2,2), intent(in) :: local_efvs
   ! "local_othervel" is the other vel component (i.e. u when v is being calc and vice versa),
   ! which is taken as a known value (terms involving it are moved to the RHS and treated as sources)
-  real(dp), dimension(3,3,3), intent(in) :: local_othervel
+  real(dp), dimension(3,3,3), intent(in) :: local_othervel, local_thisvel
   real(dp), intent(in) :: betasquared
   real(dp), dimension(:,:,:), intent(inout) :: btraction
-  real(dp), intent(in), optional :: local_thisvel
   real(dp), intent(in), optional :: abar
   integer, intent(in), optional :: cc
 
@@ -3431,7 +3436,7 @@ subroutine bodyset(ew,  ns,  up,           &
                                 dsigmadew(up), dsigmadns(up),   &
                                 pt,            2,               &
                                 dup(up),       local_efvs,      &
-                                dup(up),                        &
+                                oneorfour,     fourorone,       &
                                 onesideddiff,                   &
                                 normal,        fwdorbwd)
 
@@ -3460,24 +3465,30 @@ subroutine bodyset(ew,  ns,  up,           &
                                                    dsigmadew(up), dsigmadns(up), &
                                                    pt,            2,             &
                                                    dup(up),       local_othervel,&
+                                                   local_efvs,                   &
                                                    oneortwo,      twoorone,      &
                                                    onesideddiff,                 &
                                                    normal,fwdorbwd)              &
                                                  * local_othervel ) /scalebabc
+!OSBC: note that efvs is now passed in to subroutine above, since visc. is included in LHS matrix
+! coeffs rather than divide through onto the RHS solution vector.
 
-        if( nonlinear == HO_NONLIN_JFNK .and. calcoffdiag )then
-            storeoffdiag = .true.
-            h = -croshorizmainbc_lat(dew,           dns,           & 
-                                slopex,        slopey,        &
-                                dsigmadew(up), dsigmadns(up), & 
-                                pt,            2,             & 
-                                dup(up),       local_othervel,& 
-                                oneortwo,      twoorone,      & 
-                                onesideddiff,                 &
-                                 normal,fwdorbwd) / scalebabc 
-            call fillsprsebndy( h, loc2plusup(1), loc_latbc, up, normal, pt ) 
-            storeoffdiag = .false.
-        end if     
+!TODO: These are not currently being used. They are for getting the off diag. blocks of coeffs. from the
+!LHS matrix to improve preconditioning. However, we never got them working. Consider removing here and in
+! related locations below? Can grep for this by looking for the related if construct below.
+!        if( nonlinear == HO_NONLIN_JFNK .and. calcoffdiag )then
+!            storeoffdiag = .true.
+!            h = -croshorizmainbc_lat(dew,           dns,           & 
+!                                slopex,        slopey,        &
+!                                dsigmadew(up), dsigmadns(up), & 
+!                                pt,            2,             & 
+!                                dup(up),       local_othervel,& 
+!                                oneortwo,      twoorone,      & 
+!                                onesideddiff,                 &
+!                                 normal,fwdorbwd) / scalebabc 
+!            call fillsprsebndy( h, loc2plusup(1), loc_latbc, up, normal, pt ) 
+!            storeoffdiag = .false.
+!        end if     
 
     end if     ! up = 1 or up = upn (IF at lateral boundary and IF at surface or bed)
 
@@ -3502,7 +3513,11 @@ subroutine bodyset(ew,  ns,  up,           &
     ! when the solution has converged a bit, we switch to the more realistic implementation (option 2).
     ! That is achieved in the following if construct ...
 
-    if( cc < 2 .and. .not. inisoln )then  ! This should be the default option for the shelf BC source term.
+!OSBC: NOTE that for the one-side bc implementation, the eff. visc. remains w/ the RHS matrix coeffs, so it
+! is not necessary here to fiddle with how it is calculated for the source term in the RHS vector. For this
+! reason, we instead go straight to the floating ice bc source term calc for the full 2d code (below).
+
+!    if( cc < 2 .and. .not. inisoln )then  ! This should be the default option for the shelf BC source term.
                                           ! If no previous guess for the eff. visc. exists, this option
                                           ! uses the 1d version of the BC for one iteration in order to 
                                           ! "precondition" the soln for the next iteration. W/o this option
@@ -3512,7 +3527,7 @@ subroutine bodyset(ew,  ns,  up,           &
 
 ! These options are primarily for debugging the shelf BC source term
 !    if( cc >= 0 )then        ! - use this to use only the 1d version
-!    if( cc > 1000000 )then   ! - use this to go straight to the full 2d version of the bc
+    if( cc > 1000000 )then   ! - use this to go straight to the full 2d version of the bc
 
     ! --------------------------------------------------------------------------------------
     ! (1) source term (strain rate at shelf/ocean boundary) from Weertman's analytical solution 
@@ -3548,10 +3563,13 @@ subroutine bodyset(ew,  ns,  up,           &
 !           (1) Old Glimmer with scaling:         evs0 = evs_scale = tau0/(vel0/len0), and efvs is non-dimensional
 !           (2) New Glimmer-CISM without scaling: evs0 = 1, evs_scale = tau0/(vel0/len0), and efvs is in Pa s
 
-!!!    source = source / ( sum(local_efvs, local_efvs > 1.0d-12) / &
+!!!    source = source / ( sum(local_efvs, local_efvs > 1.0d-12) / &    ! OLD version
 !!!             sum( (local_efvs/local_efvs), local_efvs > 1.0d-12 ) )
-    source = source / ( sum(local_efvs, local_efvs*evs0/evs_scale > 1.0d-12) / &
-             sum( (local_efvs/local_efvs), local_efvs*evs0/evs_scale > 1.0d-12 ) )
+
+!    source = source / ( sum(local_efvs, local_efvs*evs0/evs_scale > 1.0d-12) / &     ! NEW version
+!             sum( (local_efvs/local_efvs), local_efvs*evs0/evs_scale > 1.0d-12 ) )
+!OSBC: This scaling is not needed in the one-sided bc version of the code, since the eff. visc. are
+! kept w/ the LHS coeff. and not moved to the denom. of the RHS vector source terms.
 
     source = source * normal(pt) ! partition according to normal vector at lateral boundary
                                  ! NOTE that source term is already non-dim here 
@@ -3590,9 +3608,7 @@ subroutine bodyset(ew,  ns,  up,           &
 !OSBC: For the one-sided diff version of the code, need to pass in the efvs (above) since it is
 ! part of the LHS matrix coeffs. now.
 
-!TODO: These are not currently being used. They are for getting the off diag. blocks of coeffs. from the
-!LHS matrix to improve preconditioning. However, we never got them working. Consider removing here and in
-! related locations below? Can grep for this by looking for the related if construct below.
+!TODO: As noted above in line 3594, consider removing this?
 !     if( nonlinear == HO_NONLIN_JFNK .and. calcoffdiag )then
 !         storeoffdiag = .true.
 !         h = -croshorizmainbc_lat(dew,           dns,            &
@@ -3618,6 +3634,8 @@ subroutine bodyset(ew,  ns,  up,           &
      if( up /= upn .and. up /= 1 )then
          g = normhorizmain(pt,up,local_efvs)
          g(:,2,2) = g(:,2,2) + vertimain(hsum(local_efvs),up)
+!OSBC: NOTE that version of 'fillspremain' for one-sided bcs needs additional index to specify column shift of
+! coeffs. of rows in LHS matrix
          call fillsprsemain(g,loc2plusup(1),loc2(:,1),up,pt,0)
          ! NOTE that in the following expression, the "-" sign on the crosshoriz terms,
          ! which results from moving them from the LHS over to the RHS, is explicit and
@@ -3718,52 +3736,79 @@ subroutine bodyset(ew,  ns,  up,           &
               + vertimainbcos( stagthck(ew,ns),bcflag,dup(up),local_efvs,betasquared, &
                             g_vert, nz, plastic_coeff=plastic_coeff_lhs(pt,ew,ns) )
 
-!! OSBC WORK: Stopped integration of old/new subroutines here on 6/8/12, after adding above subroutine below !!
-
      !! scale basal bc coeffs when using JFNK solver 
      scalebabc = scalebasalbc( g, bcflag, lateralboundry, betasquared, local_efvs )
      g = g / scalebabc
 
      ! put the coeff. for the b.c. equation in the same place as the prev. equation
      ! (w.r.t. cols), on a new row ...
-     call fillsprsemain(g,loc2plusup(1),loc2(:,1),up,pt)
+     !call fillsprsemain(g,loc2plusup(1),loc2(:,1),up,pt)
+
+!OSBC: The call above goes w/ the old ghost cell bc implementation. The new set of calls is below.
+!
+! Replace ghost cells w/ one-sided diffs at sfc/basal indices. This section shifts the LHS matrix coeffs for the sfc
+! and basal bcs back on to the main diagonal, as opposed to staggered off the diag, which was necessary for the ghost 
+! cell implementation.
+     if( up == 1 .or. up == upn )then
+       loc2plusup = loc2(1,:) + up  ! Need to reset this index since we want the bc on the actual row
+                                    ! coinciding with the boundary at up=1
+        if( up == 1 )then
+          call fillsprsemain(g,loc2plusup(1),loc2(:,1),up,pt,1)
+        else if( up == upn )then
+          call fillsprsemain(g,loc2plusup(1),loc2(:,1),up,pt,-1)
+        end if
+     end if
+
 
      ! NOTE that in the following expression, the "-" sign on the crosshoriz terms, 
      ! which results from moving them from the LHS over to the RHS, has been moved
      ! inside of "croshorizmainbc".
-
      if( bcflag(2) == 2 )then
 
-          rhsd(loc2plusup(2)) = sum( croshorizmainbc(dew,           dns,            &
-                                             slopex,        slopey,         &
-                                             dsigmadew(up), dsigmadns(up),  &
-                                             pt,            bcflag,         &
-                                             dup(up),       local_othervel, &
-                                             local_efvs,                    &
-                                             oneortwo,      twoorone,       &
-                                             g_cros,                       &
-                                             velbc=velbcvect(pt,ew,ns),     &
-                                             plastic_coeff=plastic_coeff_rhs(pt,ew,ns) ) &
-                                              * local_othervel )            &
-                                             + plastic_rhs(pt,ew,ns) / (sum(local_efvs(2,:,:))/4.d0) &
-                                             *(len0/thk0) / scalebabc
+! OSBC: NOTE that the one-sided basal bc implementation has not yet been updated to work with the 
+! plastic bed basal boundary conditions using Newton methods. However, the code above will already 
+! report an error and exit the code if those basal bcs are asked for in the configuration file.
+!
+! Since this is the only place in the one-side basal bc version of the code where 'crosshorizmainbc' is 
+! called, I've (1) moved this subroutine to the end of the module, along w/ other subroutines/functions that
+! are redundant for the time being, and (2) commented out the call here.
+!          rhsd(loc2plusup(2)) = sum( croshorizmainbc(dew,           dns,            &
+!                                             slopex,        slopey,         &
+!                                             dsigmadew(up), dsigmadns(up),  &
+!                                             pt,            bcflag,         &
+!                                             dup(up),       local_othervel, &
+!                                             local_efvs,                    &
+!                                             oneortwo,      twoorone,       &
+!                                             g_cros,                       &
+!                                             velbc=velbcvect(pt,ew,ns),     &
+!                                             plastic_coeff=plastic_coeff_rhs(pt,ew,ns) ) &
+!                                              * local_othervel )            &
+!                                             + plastic_rhs(pt,ew,ns) / (sum(local_efvs(2,:,:))/4.d0) &
+!                                             *(len0/thk0) / scalebabc
 
-         if( nonlinear == HO_NONLIN_JFNK .and. calcoffdiag )then
-             storeoffdiag = .true.
-             h = -croshorizmainbc(dew,           dns,            &
-                                 slopex,        slopey,         &
-                                 dsigmadew(up), dsigmadns(up),  &
-                                 pt,            bcflag,         &
-                                 dup(up),       local_othervel, &
-                                 local_efvs,                    &
-                                 oneortwo, twoorone, g_cros ) / scalebabc
-             call fillsprsemain(h,loc2plusup(1),loc2(:,1),up,pt)
-             storeoffdiag = .false.
-         end if
+!TODO: As noted above in line 3594, consider removing this?
+!         if( nonlinear == HO_NONLIN_JFNK .and. calcoffdiag )then
+!             storeoffdiag = .true.
+!             h = -croshorizmainbc(dew,           dns,            &
+!                                 slopex,        slopey,         &
+!                                 dsigmadew(up), dsigmadns(up),  &
+!                                 pt,            bcflag,         &
+!                                 dup(up),       local_othervel, &
+!                                 local_efvs,                    &
+!                                 oneortwo, twoorone, g_cros ) / scalebabc
+!             call fillsprsemain(h,loc2plusup(1),loc2(:,1),up,pt)
+!             storeoffdiag = .false.
+!         end if
 
      else if( bcflag(2) /= 2 )then
 
-          rhsd(loc2plusup(2)) = sum( croshorizmainbc(dew,           dns,            &
+! OSBC: Need to reset this index since we want the bc coeffs. on the actual row coinciding 
+! with the boundary at up=1.
+     loc2plusup = loc2(1,:) + up    
+
+! OSBC: for one-side bc implementation, call slightly diff. subroutine here.
+!          rhsd(loc2plusup(2)) = sum( croshorizmainbc(dew,           dns,            &
+         rhsd(loc2plusup(2)) = sum( croshorizmainbcos(dew,          dns,            &
                                              slopex,        slopey,         &
                                              dsigmadew(up), dsigmadns(up),  &
                                              pt,            bcflag,         &
@@ -3772,18 +3817,19 @@ subroutine bodyset(ew,  ns,  up,           &
                                              oneortwo, twoorone, g_cros )  &
                                               * local_othervel ) / scalebabc 
 
-         if( nonlinear == HO_NONLIN_JFNK .and. calcoffdiag)then
-             storeoffdiag = .true.
-             h = -croshorizmainbc(dew,           dns,            &
-                                 slopex,        slopey,         &
-                                 dsigmadew(up), dsigmadns(up),  &
-                                 pt,            bcflag,         &
-                                 dup(up),       local_othervel, &
-                                 local_efvs,                    &
-                                 oneortwo, twoorone, g_cros ) / scalebabc
-             call fillsprsemain(h,loc2plusup(1),loc2(:,1),up,pt)
-             storeoffdiag = .false.
-         end if
+!TODO: As noted above in line 3594, consider removing this?
+!         if( nonlinear == HO_NONLIN_JFNK .and. calcoffdiag)then
+!             storeoffdiag = .true.
+!             h = -croshorizmainbc(dew,           dns,            &
+!                                 slopex,        slopey,         &
+!                                 dsigmadew(up), dsigmadns(up),  &
+!                                 pt,            bcflag,         &
+!                                 dup(up),       local_othervel, &
+!                                 local_efvs,                    &
+!                                 oneortwo, twoorone, g_cros ) / scalebabc
+!             call fillsprsemain(h,loc2plusup(1),loc2(:,1),up,pt)
+!             storeoffdiag = .false.
+!         end if
 
       end if
 
@@ -3793,23 +3839,30 @@ subroutine bodyset(ew,  ns,  up,           &
       ! layers that are needed to cacluate the basal traction (as opposed to all vert levels 1:upn).
       if( assembly == 1 )then
 
-      select case( pt )
-         case(1)
-           g_vel_lhs(:,:,:) = ghostbvel(1,:,ew-1:ew+1,ns-1:ns+1)
-           g_vel_rhs(:,:,:) = ghostbvel(2,:,ew-1:ew+1,ns-1:ns+1)
-         case(2)
-           g_vel_lhs(:,:,:) = ghostbvel(2,:,ew-1:ew+1,ns-1:ns+1)
-           g_vel_rhs(:,:,:) = ghostbvel(1,:,ew-1:ew+1,ns-1:ns+1)
-       end select
+!OSBC: one-sided bc implementation does not need ghost vels for traction calculation (below, old calc.
+! is commented out, followed by new calculation)
+!      select case( pt )
+!         case(1)
+!           g_vel_lhs(:,:,:) = ghostbvel(1,:,ew-1:ew+1,ns-1:ns+1)
+!           g_vel_rhs(:,:,:) = ghostbvel(2,:,ew-1:ew+1,ns-1:ns+1)
+!         case(2)
+!           g_vel_lhs(:,:,:) = ghostbvel(2,:,ew-1:ew+1,ns-1:ns+1)
+!           g_vel_rhs(:,:,:) = ghostbvel(1,:,ew-1:ew+1,ns-1:ns+1)
+!       end select
+
+           g_vel_lhs = local_thisvel
+           g_vel_rhs = local_othervel
 
 !HALO - Since ew and ns are locally owned velocity points, we will have btraction at all such points.
 
-       btraction(pt,ew,ns) = sum( (g_norm+g_vert)*g_vel_lhs*thk0/len0*sum(local_efvs(2,:,:))/4.d0 ) &
-                           - sum( g_cros*g_vel_rhs*thk0/len0*sum(local_efvs(2,:,:))/4.d0 )
+!       btraction(pt,ew,ns) = sum( (g_norm+g_vert)*g_vel_lhs*thk0/len0*sum(local_efvs(2,:,:))/4.d0 ) &
+!                           - sum( g_cros*g_vel_rhs*thk0/len0*sum(local_efvs(2,:,:))/4.d0 )
+! NOTE that one-sided bc implementation also uses diff. scales, since efvs is now explicitly attached to the bc coeffs
+! in the LHS matrix, as opposed to being divided through and placed in the RHS vector. 
+       btraction(pt,ew,ns) = sum( (g_norm+g_vert)*g_vel_lhs*thk0/len0 ) &
+                           - sum( g_cros*g_vel_rhs*thk0/len0 )
 
      end if
-
-
 
   end if   ! (up = 1 or up = upn) and lateralboundry = F
 
@@ -4388,7 +4441,7 @@ end function normhorizmainbcos
 
 !***********************************************************************
 
-function croshorizmainbc(dew,       dns,       &
+function croshorizmainbcos(dew,       dns,       &
                          dusrfdew,  dusrfdns,  &
                          dsigmadew, dsigmadns, &
                          which,     bcflag,    &
@@ -4397,7 +4450,7 @@ function croshorizmainbc(dew,       dns,       &
                          oneortwo,  twoorone,        &
                          g_cros, velbc, plastic_coeff )
 
-    ! As described for "normhorizmainbc" above. The vectors "twoorone" and 
+    ! As described for "normhorizmainbc" above. The vectors "twoorone" and
     ! "oneortwo" are given by: twoorone = [ 2 1 ]; oneortwo = [ 1 2 ];
 
     implicit none
@@ -4405,17 +4458,17 @@ function croshorizmainbc(dew,       dns,       &
     integer, intent(in) :: which
     integer, intent(in), dimension(:) :: bcflag
 
-    real(dp), intent(in) :: dew, dns
-    real(dp), intent(in), dimension(:) :: oneortwo, twoorone
-    real(dp), intent(in) :: dusrfdew, dusrfdns, dsigmadew, dsigmadns, dup
-    real(dp), intent(in), dimension(:,:,:) :: local_othervel
-    real(dp), intent(in), dimension(:,:,:) :: efvs 
-    real(dp), intent(in), optional :: velbc, plastic_coeff
-    real(dp), intent(out),dimension(:,:,:) :: g_cros
+    real (kind = dp), intent(in) :: dew, dns
+    real (kind = dp), intent(in), dimension(:) :: oneortwo, twoorone
+    real (kind = dp), intent(in) :: dusrfdew, dusrfdns, dsigmadew, dsigmadns, dup
+    real (kind = dp), intent(in), dimension(:,:,:) :: local_othervel
+    real (kind = dp), intent(in), dimension(:,:,:) :: efvs
+    real (kind = dp), intent(in), optional :: velbc, plastic_coeff
+    real (kind = dp), intent(out),dimension(:,:,:) :: g_cros
 
 
-    real(dp), dimension(3,3,3) :: g, croshorizmainbc
-    real(dp) :: c
+    real (kind = dp), dimension(3,3,3) :: g, croshorizmainbcos
+    real (kind = dp) :: c
     integer :: nz
 
     c = 0.d0
@@ -4424,32 +4477,69 @@ function croshorizmainbc(dew,       dns,       &
     nz = 0
 
     ! for higher-order FREE SURFACE B.C. for x ('which'=1) or y ('which'=2) direction ...
-    ! NOTE that this handles the case for specified stress at the bed as well, as we 
+    ! NOTE that this handles the case for specified stress at the bed as well, as we
     ! simply pass in a different value for the normal vector (slope) components (still
     ! called "dusrfdns", "dusrfdew" here, but args passed in are different).
-    if( bcflag(1) == 1 )then
+    if( bcflag(1) == 1 .and. bcflag(2) == 0 )then
 
            ! first, coeff. that go with du/dsigma, and thus are associated
            ! with u(1,2,2) and u(3,2,2) ...
+!           c = ( - twoorone(which) * dusrfdew * dsigmadns   &
+!                 - oneortwo(which) * dusrfdns * dsigmadew )/(2*dup)
            c = ( - twoorone(which) * dusrfdew * dsigmadns   &
-                 - oneortwo(which) * dusrfdns * dsigmadew )/(2*dup)
-           g(3,2,2) = -c
-           g(1,2,2) = c
+                 - oneortwo(which) * dusrfdns * dsigmadew )/(2*dup) * ( sum( efvs(1,:,:) ) / 4.d0 )
+
+           g(1,2,2) = 3.d0*c
+           g(2,2,2) = -4.d0*c
+           g(3,2,2) = c
 
            ! next, coeff. that go with du/dxhat and du/dyhat terms ...
-           c = - oneortwo(which) * dusrfdns / (2*dew)
-           g(2,3,2) = c
-           g(2,1,2) = -c
+!           c = - oneortwo(which) * dusrfdns / (2*dew)
+           c = - oneortwo(which) * dusrfdns / (2*dew) * ( sum( efvs(1,:,:) ) / 4.d0 )
+           g(1,3,2) = c
+           g(1,1,2) = -c
 
-           c = - twoorone(which) * dusrfdew / (2*dns)
-           g(2,2,3) = c
-           g(2,2,1) = -c
+!           c = - twoorone(which) * dusrfdew / (2*dns)
+           c = - twoorone(which) * dusrfdew / (2*dns) * ( sum( efvs(1,:,:) ) / 4.d0 )
+           g(1,2,3) = c
+           g(1,2,1) = -c
+
+    end if
+
+    ! higher-order, specified traction basal bc, must use fwd rather than bwd one-sided
+    ! diff in vertical direction
+    if( bcflag(1) == 1 .and. bcflag(2) == 1 )then
+
+           ! first, coeff. that go with du/dsigma, and thus are associated
+           ! with u(1,2,2) and u(3,2,2) ...
+!           c = ( - twoorone(which) * dusrfdew * dsigmadns   &
+!                 - oneortwo(which) * dusrfdns * dsigmadew )/(2*dup)
+           c = ( - twoorone(which) * dusrfdew * dsigmadns   &
+                 - oneortwo(which) * dusrfdns * dsigmadew )/(2*dup) * ( sum( efvs(2,:,:) ) / 4.d0 )
+
+           g(1,2,2) = -1.d0*c
+           g(2,2,2) = 4.d0*c
+           g(3,2,2) = -3.d0*c
+
+           ! next, coeff. that go with du/dxhat and du/dyhat terms ...
+!           c = - oneortwo(which) * dusrfdns / (2*dew)
+           c = - oneortwo(which) * dusrfdns / (2*dew) * ( sum( efvs(2,:,:) ) / 4.d0 )
+           g(3,3,2) = c
+           g(3,1,2) = -c
+
+
+!           c = - twoorone(which) * dusrfdew / (2*dns)
+           c = - twoorone(which) * dusrfdew / (2*dns) * ( sum( efvs(2,:,:) ) / 4.d0 )
+           g(3,2,3) = c
+           g(3,2,1) = -c
+
+    end if
 
     ! for higher-order BASAL B.C. U=V=0, in x ('which'=1) or y ('which'=2) direction ...
-    ! This forces the multiplication by 'local_otherval' in the main program 
+    ! This forces the multiplication by 'local_otherval' in the main program
     ! to result in a value of 1, thus leaving the boundary vel. unchanged
     ! ... conditional makes sure there is no div by zero if the bc value IS also zero
-    else if( bcflag(1) == 0 )then
+    if( bcflag(1) == 0 )then
 
         g(:,:,:) = 0.d0
 
@@ -4480,11 +4570,11 @@ function croshorizmainbc(dew,       dns,       &
 
      end if
 
-    croshorizmainbc = g
+    croshorizmainbcos = g
 
     return
 
-end function croshorizmainbc
+end function croshorizmainbcos
 
 !***********************************************************************
 
@@ -6016,6 +6106,103 @@ end function normhorizmainbc
 
 !***********************************************************************
 
+function croshorizmainbc(dew,       dns,       &
+                         dusrfdew,  dusrfdns,  &
+                         dsigmadew, dsigmadns, &
+                         which,     bcflag,    &
+                         dup,       local_othervel,  &
+                         efvs,                       &
+                         oneortwo,  twoorone,        &
+                         g_cros, velbc, plastic_coeff )
+
+    ! As described for "normhorizmainbc" above. The vectors "twoorone" and 
+    ! "oneortwo" are given by: twoorone = [ 2 1 ]; oneortwo = [ 1 2 ];
+
+    implicit none
+
+    integer, intent(in) :: which
+    integer, intent(in), dimension(:) :: bcflag
+
+    real(dp), intent(in) :: dew, dns
+    real(dp), intent(in), dimension(:) :: oneortwo, twoorone
+    real(dp), intent(in) :: dusrfdew, dusrfdns, dsigmadew, dsigmadns, dup
+    real(dp), intent(in), dimension(:,:,:) :: local_othervel
+    real(dp), intent(in), dimension(:,:,:) :: efvs
+    real(dp), intent(in), optional :: velbc, plastic_coeff
+    real(dp), intent(out),dimension(:,:,:) :: g_cros
+
+
+    real(dp), dimension(3,3,3) :: g, croshorizmainbc
+    real(dp) :: c
+    integer :: nz
+
+    c = 0.d0
+    g(:,:,:) = 0.d0
+    g_cros = g
+    nz = 0
+
+    ! for higher-order FREE SURFACE B.C. for x ('which'=1) or y ('which'=2) direction ...
+    ! NOTE that this handles the case for specified stress at the bed as well, as we 
+    ! simply pass in a different value for the normal vector (slope) components (still
+    ! called "dusrfdns", "dusrfdew" here, but args passed in are different).
+    if( bcflag(1) == 1 )then
+
+           ! first, coeff. that go with du/dsigma, and thus are associated
+           ! with u(1,2,2) and u(3,2,2) ...
+           c = ( - twoorone(which) * dusrfdew * dsigmadns   &
+                 - oneortwo(which) * dusrfdns * dsigmadew )/(2*dup)
+           g(3,2,2) = -c
+           g(1,2,2) = c
+
+           ! next, coeff. that go with du/dxhat and du/dyhat terms ...
+           c = - oneortwo(which) * dusrfdns / (2*dew)
+           g(2,3,2) = c
+           g(2,1,2) = -c
+
+           c = - twoorone(which) * dusrfdew / (2*dns)
+           g(2,2,3) = c
+           g(2,2,1) = -c
+
+    ! for higher-order BASAL B.C. U=V=0, in x ('which'=1) or y ('which'=2) direction ...
+    ! This forces the multiplication by 'local_otherval' in the main program 
+    ! to result in a value of 1, thus leaving the boundary vel. unchanged
+    ! ... conditional makes sure there is no div by zero if the bc value IS also zero
+    else if( bcflag(1) == 0 )then
+
+        g(:,:,:) = 0.d0
+
+        where( local_othervel /= 0.d0 )
+            g = 1
+        elsewhere
+            g = 0.d0
+        endwhere
+
+        nz = sum( g )
+        g(:,:,:) = 0.d0
+
+        where( local_othervel /= 0.d0 )
+            g = ( velbc / nz ) / local_othervel
+        elsewhere
+            g = 0.d0
+        endwhere
+
+     end if
+
+     ! NOTE: here we define 'g_cros' FIRST, because we want the value w/o the plastic
+     ! bed coeff. included (needed for estimate of basal traction in plastic bed iteration)
+     g_cros = g
+
+     if( bcflag(2) == 2 )then        ! add on coeff. associated w/ plastic bed iteration
+
+         g(2,2,2) = g(2,2,2) + plastic_coeff / ( sum( efvs(2,:,:) ) / 4.d0 ) * (len0 / thk0)
+
+     end if
+
+    croshorizmainbc = g
+
+    return
+
+end function croshorizmainbc
 
 !***********************************************************************************************
 !OSBC:ABOVE here are older subroutines that have been replaced by newer or slightly altered ones
