@@ -6,6 +6,8 @@
 # After this executes, do:
 #   make -j 8
 #   cp example-drivers/simple_glide/src/sgcmake .
+#  --If you get an error about missing mod files, try make multiple times.
+
 
 rm ./CMakeCache.txt
 ../cmake-scripts/autogenerate-script
