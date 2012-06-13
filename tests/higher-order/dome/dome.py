@@ -68,6 +68,7 @@ netCDFfile.createVariable('y0','f',('y0',))[:] = dy/2 + y[:-1]
 # Calculate values for the required variables.
 thk  = numpy.zeros([1,ny,nx],dtype='float32')
 topg = numpy.zeros([1,ny,nx],dtype='float32')
+artm = numpy.zeros([1,ny,nx],dtype='float32')
 
 # Calculate the thickness of the (ellipsoidal) dome of ice
 for i in range(nx):
@@ -78,9 +79,13 @@ for i in range(nx):
     if r_squared < 0.125:
       thk[0,j,i] = 2000.0 * sqrt(0.125 - r_squared)
 
+# specify a sfc temperature field so that temperature evol. can be calc. if desired
+artm[:] = -15.0
+
 # Create the required variables in the netCDF file.
 netCDFfile.createVariable('thk', 'f',('time','y1','x1'))[:] = thk
 netCDFfile.createVariable('topg','f',('time','y1','x1'))[:] = topg
+netCDFfile.createVariable('artm','f',('time','y1','x1'))[:] = artm 
 
 netCDFfile.close()
 
