@@ -18,6 +18,7 @@ target_link_libraries(sgcmake
       ${GLIMMER_FMAIN}
       glidecmake glimmercmake glimmersolvecmake
       glimmersolveslapcmake glimmertrilinoscmake
+      ${GLIMMER_NETCDF_LIBS}
       ${TRILINOS_LIBS}) 
 
 # Helpful(?) message near end of configuration step

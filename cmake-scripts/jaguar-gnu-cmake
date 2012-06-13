@@ -25,3 +25,7 @@ cmake \
  ..
 
 # Note: last argument above  ".."  is path to top seacism directory 
+
+# If you dont depend on  netcdff AND netcdf, but just netcdf, use this line
+#   -D GLIMMER_NETCDF_LIBS="netcdf" \
+#

@@ -15,8 +15,9 @@ rm ./CMakeCache.txt
 echo
 echo "\n\nDoing CMake Configuration step"
 cmake \
-  -D GLIMMER_TRILINOS_DIR=/home/agsalin/Trilinos/apr12/install \
+  -D GLIMMER_TRILINOS_DIR=/home/agsalin/Trilinos/glimnew11/install \
   -D GLIMMER_NETCDF_DIR="/home/agsalin/install/netcdf" \
+  -D GLIMMER_NETCDF_LIBS="netcdf" \
   -D CMAKE_Fortran_FLAGS="-g -O2 -ffree-line-length-none -fPIC" \
   -D CMAKE_VERBOSE_MAKEFILE=ON \
   ..

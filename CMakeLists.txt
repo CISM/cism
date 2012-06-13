@@ -38,11 +38,13 @@ SET(CMAKE_Fortran_COMPILER ${Trilinos_Fortran_COMPILER} )
 
 ENABLE_LANGUAGE(Fortran) 
 
-#IF (NOT DEFINED GLIMMER_NETCDF_DIR)
-#  MESSAGE(FATAL_ERROR "\nGLIMMER Error: cmake must define GLIMMER_NETCDF_DIR:
-#  (-D GLIMMER_NETCDF_DIR=<netcdf_install_prefix>)!")
-#ENDIF()
+IF (NOT DEFINED GLIMMER_NETCDF_DIR)
+  MESSAGE(FATAL_ERROR "\nGLIMMER Error: cmake must define GLIMMER_NETCDF_DIR:
+  (-D GLIMMER_NETCDF_DIR=<netcdf_install_prefix>)!")
+ENDIF()
 
+SET(GLIMMER_NETCDF_LIBS "netcdff;netcdf" CACHE STRING "Netcdf Library Names(s)")
+MESSAGE(">> GLIMMER_NETCDF_LIBS Library(s) set to : " ${GLIMMER_NETCDF_LIBS})
 
 PROJECT(GLIMMER)
 
