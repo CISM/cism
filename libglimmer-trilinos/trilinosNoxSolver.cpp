@@ -138,7 +138,7 @@ void FC_FUNC(noxsolve,NOXSOLVE) (int* nelems, double* statevector, void* blackbo
 {
   bool succeeded=true;
   try {
-    TEST_FOR_EXCEPTION(Nsolver==Teuchos::null, logic_error, 
+    TEUCHOS_TEST_FOR_EXCEPTION(Nsolver==Teuchos::null, logic_error, 
                           "Exception: noxsolve called with solver=null: \n"
        << "You either did not call noxinit first, or called noxfinish already");
     if (printProc) cout << "NOXSolve called" << endl;

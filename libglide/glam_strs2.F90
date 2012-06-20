@@ -407,7 +407,6 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
 
 #ifdef TRILINOS
   if (whatsparse == STANDALONE_TRILINOS_SOLVER) then
-#ifdef globalIDs
      if (main_task) write(*,*) "Using GlobalIDs..."
 	 ! JEFF: Define myIndices in terms of globalIDs
      allocate(myIndices(pcgsize(1)))  ! myIndices is an integer vector with a unique ID for each layer for ice grid points
@@ -421,38 +420,11 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
      !write(*,*) "pcgsize = ", pcgsize(1)
      !write(*,*) "myIndices = ", myIndices
      !call parallel_stop(__FILE__, __LINE__)
-#else
-     ! AGS: Get partition -- later this will be known by distributed glimmer
-     call dopartition(pcgsize(1), mySize) 
-     allocate(myIndices(mySize))
-     allocate(myX(1)) ! Coordinates (only set for globalIDs)
-     allocate(myY(1)) 
-     allocate(myZ(1)) 
-     call getpartition(mySize, myIndices) 
-
-     if (distributed_execution()) then
-         if (main_task) write(*,*) "Distributed Version cannot be run without globalIDs.  Stopping."
-         call not_parallel(__FILE__, __LINE__)  ! Fatal if running without GlobalIDs in MPI
-     endif
-
-     !write(*,*) "Trilinos Generated Partition Map myIndices..."
-     !write(*,*) "pcgsize = ", pcgsize(1), " mySize = ", mySize
-     !write(*,*) "myIndices = ", myIndices
-     !call parallel_stop(__FILE__, __LINE__)
-#endif
 
      ! Now send this partition to Trilinos initialization routines
      call inittrilinos(20, mySize, myIndices, myX, myY, myZ) 
 
      ! Set if need full solution vector returned or just owned portion
-#ifdef globalIDs
-     ! We default Trilinos to return full solution vector.
-     ! Per AGS, for both distributed and serial globalIDs cases, we must return just owned portion in order to prevent a permutation of the results.
-     ! This was built into parallel_set_trilinos_return_vect that handled the difference between _single and _mpi versions.
-     ! AGS: no longer needed, now the default
-     ! call returnownedvector()
-!     call parallel_set_trilinos_return_vect
-#endif
 
      !No Triad matrix needed in this case -- save on memory alloc
      pcgsize(2) = 1
@@ -1086,7 +1058,6 @@ subroutine JFNK_velo_solver  (model,umask)
 
 #ifdef TRILINOS
   if (whatsparse == STANDALONE_TRILINOS_SOLVER) then
-#ifdef globalIDs
      if (main_task) write(*,*) "Using GlobalIDs..."
 	 ! JEFF: Define myIndices in terms of globalIDs
      allocate(myIndices(pcgsize(1)))  ! myIndices is an integer vector with a unique ID for each layer for ice grid points
@@ -1100,37 +1071,8 @@ subroutine JFNK_velo_solver  (model,umask)
      !write(*,*) "pcgsize = ", pcgsize(1)
      !write(*,*) "myIndices = ", myIndices
      !call parallel_stop(__FILE__, __LINE__)
-#else
-     ! AGS: Get partition -- later this will be known by distributed glimmer
-     call dopartition(pcgsize(1), mySize) 
-     allocate(myIndices(mySize))
-     allocate(myX(1)) ! Coordinates (only set for globalIDs)
-     allocate(myY(1)) 
-     allocate(myZ(1)) 
-     call getpartition(mySize, myIndices) 
-
-     if (distributed_execution()) then
-         if (main_task) write(*,*) "Distributed Version cannot be run without globalIDs.  Stopping."
-         call not_parallel(__FILE__, __LINE__)  ! Fatal if running without GlobalIDs in MPI
-     endif
-
-     !write(*,*) "Trilinos Generated Partition Map myIndices..."
-     !write(*,*) "pcgsize = ", pcgsize(1), " mySize = ", mySize
-     !write(*,*) "myIndices = ", myIndices
-     !call parallel_stop(__FILE__, __LINE__)
-#endif
 
      call inittrilinos(25, mySize, myIndices, myX, myY, myZ)   !TODO - Why 25 instead of 20 as above?
-
-     ! Set if need full solution vector returned or just owned portion
-#ifdef globalIDs
-     ! We default Trilinos to return full solution vector.
-     ! Per AGS, for both distributed and serial globalIDs cases, we must return just owned portion in order to prevent a permutation of the results.
-     ! This was built into parallel_set_trilinos_return_vect that handled the difference between _single and _mpi versions.
-     ! AGS: no longer needed, now the default
-     ! call returnownedvector()
-!     call parallel_set_trilinos_return_vect
-#endif
 
      ! Triad sparse matrix not used in this case, so save on memory
      pcgsize(2) = 1

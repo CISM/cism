@@ -30,7 +30,7 @@ Teuchos::RCP<Epetra_CrsMatrix>& TrilinosMatrix_Interface::getOperator() {return 
 void TrilinosMatrix_Interface::finalizeSparsity() {
   isFillCompleted_ = true;
   int ierr = operator_->FillComplete();
-  TEST_FOR_EXCEPTION(ierr != 0, std::logic_error,
+  TEUCHOS_TEST_FOR_EXCEPTION(ierr != 0, std::logic_error,
      "Error: Trilinos Fill Complete  returned nozero error code ( " << ierr << " )\n");
 
 }

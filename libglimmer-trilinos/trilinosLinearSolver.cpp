@@ -85,7 +85,7 @@ extern "C" {
     Teuchos::RCP<const Epetra_Map> rowMap = 
       Teuchos::rcp(new Epetra_Map(-1,mySize,myIndicies,1,comm) );
 
-    TEST_FOR_EXCEPTION(!rowMap->UniqueGIDs(), std::logic_error,
+    TEUCHOS_TEST_FOR_EXCEPTION(!rowMap->UniqueGIDs(), std::logic_error,
        "Error: inittrilinos, myIndices array needs to have Unique entries" 
         << " across all processor.");
 
@@ -103,7 +103,7 @@ extern "C" {
     // Read parameter list once
     try { 
        pl = Teuchos::rcp(new Teuchos::ParameterList("Trilinos Options"));
-       Teuchos::updateParametersFromXmlFileAndBroadcast("trilinosOptions.xml", pl.get(), tcomm);
+       Teuchos::updateParametersFromXmlFileAndBroadcast("trilinosOptions.xml", pl.ptr(), tcomm);
 
        Teuchos::ParameterList validPL("Valid List");;
        validPL.sublist("Stratimikos"); validPL.sublist("Piro");
@@ -169,7 +169,7 @@ extern "C" {
     int ierr;
     const Epetra_Map& map = interface->getRowMap();
     // If this row is not owned on this processor, then throw error
-    TEST_FOR_EXCEPTION(!map.MyGID(rowInd), std::logic_error,
+    TEUCHOS_TEST_FOR_EXCEPTION(!map.MyGID(rowInd), std::logic_error,
        "Error: Trilinos matrix has detected an invalide row entry (row=" 
         << rowInd << ",col=" << colInd << ",val=" << val << ").\n");
 
@@ -186,7 +186,7 @@ extern "C" {
       // Subsequent matrix fills of each time step.
        ierr = matrix.ReplaceGlobalValues(rowInd, 1, &val, &colInd);
 
-      TEST_FOR_EXCEPTION(ierr != 0, std::logic_error,
+      TEUCHOS_TEST_FOR_EXCEPTION(ierr != 0, std::logic_error,
 	 "Error: Trilinos matrix has detected a new entry (" 
              << rowInd << ", " << colInd << ", " << val
              << ")\n\t that did not exist before.");
@@ -219,9 +219,9 @@ extern "C" {
     epetraRhs = Teuchos::rcp(new Epetra_Vector(View, map, rhs));
 
     thyraOper = Thyra::epetraLinearOp(interface->getOperator());
-    Teuchos::RCP<Thyra::VectorBase<double> >
+    Teuchos::RCP<Thyra::MultiVectorBase<double> >
       thyraRhs = Thyra::create_Vector(epetraRhs, thyraOper->range() );
-    Teuchos::RCP<Thyra::VectorBase<double> >
+    Teuchos::RCP<Thyra::MultiVectorBase<double> >
       thyraSol = Thyra::create_Vector(epetraSol, thyraOper->domain() );
 
     lows = Thyra::linearOpWithSolve(*lowsFactory, thyraOper);
@@ -240,7 +240,7 @@ extern "C" {
 #endif
 
     Thyra::SolveStatus<double>
-      status = Thyra::solve(*lows, Thyra::NOTRANS, *thyraRhs, &*thyraSol);
+      status = Thyra::solve(*lows, Thyra::NOTRANS, *thyraRhs, thyraSol.ptr());
 
     if (printDetails) linSolveDetails(status);
 
@@ -349,7 +349,7 @@ extern "C" {
       // Subsequent matrix fills of each time step.
       int ierr = matrix.SumIntoGlobalValues(rowInd, numEntries, val, colInd);
     
-      TEST_FOR_EXCEPTION(ierr != 0, std::logic_error,
+      TEUCHOS_TEST_FOR_EXCEPTION(ierr != 0, std::logic_error,
 	 "Error: Trilinos matrix has detected a new entry (" 
              << rowInd << ", " << colInd[0] << ", " << val[0] 
              << ")\n\t that did not exist before.");

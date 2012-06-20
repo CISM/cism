@@ -12,7 +12,6 @@ CLEANFILES = $(BUILT_SOURCES)
 libglimmertrilinos_la_SOURCES = \
                                 trilinosLinearSolver.cpp \
                                 matrixInterface.cpp \
-                                trilinosPartition.cpp \
                                 trilinosNoxSolver.cpp \
                                 trilinosModelEvaluator.cpp
 
