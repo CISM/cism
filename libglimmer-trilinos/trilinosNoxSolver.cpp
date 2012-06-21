@@ -68,7 +68,7 @@ void FC_FUNC(noxinit,NOXINIT) ( int* nelems, double* statevector,
       RCP<Teuchos::ParameterList> pl =
         rcp(new Teuchos::ParameterList("Trilinos Options for NOX"));
       Teuchos::updateParametersFromXmlFileAndBroadcast(
-                             "trilinosOptions.xml", pl.get(),tcomm);
+                             "trilinosOptions.xml", pl.ptr(),tcomm);
  
       Teuchos::ParameterList validPL("Valid List");;
       validPL.sublist("Stratimikos"); validPL.sublist("Piro");

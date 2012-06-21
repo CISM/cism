@@ -10,7 +10,6 @@ dist_variable_DATA = $(variable_DATA)
 if DISTRIBUTED
    parallel_src = parallel_mpi.F90
 else
-#   parallel_src = parallel_single.F90
    parallel_src = parallel_slap.F90
 endif
 

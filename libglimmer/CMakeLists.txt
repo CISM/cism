@@ -28,9 +28,8 @@ add_library(glimmermodules ${MODSOURCES})
 # Get all F90 files (would be better to list explicitly then to "GLOB")
 FILE(GLOB SOURCES *.F90 writestats.c)
 
-# Then remove these three that really aren't part of the build.
+# Then remove these two that really aren't part of the build.
 LIST(REMOVE_ITEM SOURCES
-   ${CMAKE_CURRENT_SOURCE_DIR}/parallel_single.F90
    ${CMAKE_CURRENT_SOURCE_DIR}/parallel_slap.F90
    ${CMAKE_CURRENT_SOURCE_DIR}/unittest_glimmer_deriv.F90 )
 
