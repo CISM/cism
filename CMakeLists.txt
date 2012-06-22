@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 2.8)
 # Error check up front
 IF (NOT DEFINED GLIMMER_TRILINOS_DIR)
   MESSAGE(FATAL_ERROR "\nGLIMMER Error: cmake must define GLIMMER_TRILINOS_DIR:
-  (-D GLIMMER_TRILINOS_DIR:FILEPATH=<trilinos_install_prefix>)!")
+  (-D GLIMMER_TRILINOS_DIR=<trilinos_install_prefix>)!")
 ENDIF()
 
 # Get Trilinos as one entity
@@ -44,10 +44,15 @@ IF (NOT DEFINED GLIMMER_NETCDF_DIR)
 ENDIF()
 
 SET(GLIMMER_NETCDF_LIBS "netcdff;netcdf" CACHE STRING "Netcdf Library Names(s)")
-MESSAGE(">> GLIMMER_NETCDF_LIBS Library(s) set to : " ${GLIMMER_NETCDF_LIBS})
+MESSAGE(">> GLIMMER_NETCDF_LIBS Library(s) set to : ${GLIMMER_NETCDF_LIBS}")
 
 PROJECT(GLIMMER)
 
+MESSAGE(">> Calling cmake-scripts/autogenerate-script")
+EXECUTE_PROCESS(COMMAND ./autogenerate-script
+                WORKING_DIRECTORY ${GLIMMER_SOURCE_DIR}/cmake-scripts
+                OUTPUT_FILE ${GLIMMER_BINARY_DIR}/autogenerate.log)
+MESSAGE(">> see ${GLIMMER_BINARY_DIR}/autogenerate.log")
 
 # End of setup and error checking
 #  NOTE: PROJECT command checks for compilers, so this statement
@@ -82,9 +87,28 @@ link_directories(${GLIMMER_NETCDF_DIR}/lib)
 
 ADD_DEFINITIONS(-DGLIMMER_MPI -DTRILINOS)
 
-add_subdirectory(libglimmer-trilinos)
-add_subdirectory(libglimmer-solve)
-add_subdirectory(libglimmer)
-add_subdirectory(libglide)
+#####Build All Fortran Sources #####
+file(GLOB FORTRANSOURCES
+     libglimmer-solve/SLAP/*.f
+     libglimmer-solve/*.F90
+     libglimmer/*.F90 libglimmer/writestats.c
+     libglide/*.F90 libglide/fgmresD.f90)
 
-add_subdirectory(example-drivers)
+LIST(REMOVE_ITEM FORTRANSOURCES
+   ${GLIMMER_SOURCE_DIR}/libglimmer/parallel_slap.F90
+   ${GLIMMER_SOURCE_DIR}/libglimmer/unittest_glimmer_deriv.F90 
+   ${GLIMMER_SOURCE_DIR}/libglide/relaxed.F90)
+
+#message("Fortransource ${FORTRANSOURCES}")
+
+
+include_directories (${GLIMMER_SOURCE_DIR} ${GLIMMER_BINARY_DIR} )
+add_library(glimmercismfortran ${FORTRANSOURCES})
+
+#####Build C++ Sources #####
+add_subdirectory(libglimmer-trilinos)
+
+#####Build simple_glide executable #####
+IF (NOT GLIMMER_NO_EXECUTABLE)
+  add_subdirectory(example-drivers/simple_glide/src)
+ENDIF()

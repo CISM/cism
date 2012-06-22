@@ -1,7 +1,8 @@
 #
-FILE(GLOB SOURCES *.cpp)
-FILE(GLOB HEADERS *.hpp)
+FILE(GLOB CPPSOURCES *.cpp)
+FILE(GLOB CPPHEADERS *.hpp)
 
-add_library(glimmertrilinoscmake ${SOURCES} ${HEADERS})
-include_directories ( ./ ../ ${Trilinos_INCLUDE_DIRS} ${Trilinos_TPL_INCLUDE_DIRS})
+add_library(glimmercismcpp ${CPPSOURCES} ${CPPHEADERS})
+include_directories ( ${GLIMMER_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}
+                      ${Trilinos_INCLUDE_DIRS} ${Trilinos_TPL_INCLUDE_DIRS})
 

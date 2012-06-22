@@ -10,16 +10,15 @@
 #
 
 rm ./CMakeCache.txt
-../cmake-scripts/autogenerate-script
-
 
 echo
-echo "\n\nDoing CMake Configuration step"
+echo "Doing CMake Configuration step"
+
 cmake \
   -D GLIMMER_TRILINOS_DIR=/Users/agsalin/Trilinos/glimmer12/install \
   -D GLIMMER_NETCDF_DIR="/opt/local" \
   -D CMAKE_Fortran_FLAGS="-g -O2 -ffree-line-length-none" \
-  -D CMAKE_VERBOSE_MAKEFILE=ON \
+  -D CMAKE_VERBOSE_MAKEFILE=OFF \
   ..
 
 # Note: last argument above  ".."  is path to top seacism directory

@@ -9,16 +9,20 @@ echo "Auto-generating config.inc, glide_io.F90, glide_lithot.F90, and glimmer_ve
 
 # Just a copy of a file with minimal info
 pushd ..
+echo "  --creating config.inc"
 cp config.inc.cmake.in config.inc
 popd
 
 # Use python scripts 
 pushd ../libglide
+echo "  --creating glide_io.F90"
  python ../scripts/generate_ncvars.py glide_vars.def ../libglimmer/ncdf_template.F90.in
+echo "  --creating glide_lithot_io.F90"
  python ../scripts/generate_ncvars.py glide_lithot_vars.def ../libglimmer/ncdf_template.F90.in
 popd
 # Just a copy of a file without version info
 pushd ../libglimmer
+echo "  --creating glimmer_vers.F90"
 cp glimmer_vers.F90.cmake.in glimmer_vers.F90
 popd
 

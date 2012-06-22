@@ -1,3 +1,6 @@
+# Requires (command line or in  .bashrc):
+#   module load cmake
+#
 # cmake configuration script that works on jaguar with PGI
 # This script needs to be run from a subdirectory (e.g. build-pgi)
 # of the main seacism repository (reflected in the several 
@@ -10,7 +13,6 @@
 
 
 rm ./CMakeCache.txt
-../cmake-scripts/autogenerate-script
 
 echo
 echo "Doing CMake Configuration step"
@@ -19,7 +21,7 @@ cmake \
   -D GLIMMER_TRILINOS_DIR=/ccs/proj/cli054/trilinos-10.10.1/JUNE_PGI_BUILD/include \
   -D GLIMMER_NETCDF_DIR=$NETCDF_DIR \
   -D GLIMMER_FMAIN="/opt/pgi/11.10.0/linux86-64/11.10/lib/f90main.o" \
-  -D CMAKE_VERBOSE_MAKEFILE:BOOL=ON \
+  -D CMAKE_VERBOSE_MAKEFILE:BOOL=OFF \
  ..
 
 # Note: last argument above  ".."  is path to top seacism directory 

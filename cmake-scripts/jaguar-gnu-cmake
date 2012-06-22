@@ -1,3 +1,6 @@
+# Requires (command line or in  .bashrc):
+#   module load cmake
+# 
 # Compared to the PGI build, I executed:
 #   module swap PrgEnv-pgi PrgEnv-gnu
 #   module load netcdf/4.1.2
@@ -12,7 +15,6 @@
 #   cp example-drivers/simple_glide/src/sgcmake .
 
 rm ./CMakeCache.txt
-../cmake-scripts/autogenerate-script
 
 echo
 echo "Doing CMake Configuration step"
@@ -20,7 +22,7 @@ echo "Doing CMake Configuration step"
 cmake \
   -D GLIMMER_TRILINOS_DIR=/ccs/proj/cli054/trilinos-10.10.1/GCC_BUILD/include \
   -D GLIMMER_NETCDF_DIR=$NETCDF_DIR \
-  -D CMAKE_VERBOSE_MAKEFILE:BOOL=ON \
+  -D CMAKE_VERBOSE_MAKEFILE:BOOL=OFF \
   -D GLIMMER_Fortran_FLAGS="-ffree-line-length-none" \
  ..
 
