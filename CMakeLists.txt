@@ -1,6 +1,9 @@
 # CMAKE File for GLIMMER building against an installed Trilinos
 
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 2.8.6)
+
+OPTION(GLIMMER_TRILINOS_DIR "Required path to installed Trilinos")
+OPTION(GLIMMER_NETCDF_DIR "Required path to installed Netcdf")
 
 # Error check up front
 IF (NOT DEFINED GLIMMER_TRILINOS_DIR)
@@ -99,16 +102,41 @@ LIST(REMOVE_ITEM FORTRANSOURCES
    ${GLIMMER_SOURCE_DIR}/libglimmer/unittest_glimmer_deriv.F90 
    ${GLIMMER_SOURCE_DIR}/libglide/relaxed.F90)
 
+
+### (For CESM) Remove source files with names already in GLIMMER_SOURCEMOD_DIR
+OPTION(GLIMMER_SOURCEMOD_DIR 
+      "Path to SourceMod directory of F90 files to replace Glimmer files")
+
+FILE(GLOB SOURCEMODFILES ${GLIMMER_SOURCEMOD_DIR}/*.F90)
+
+FOREACH( MODFILE ${SOURCEMODFILES})
+  STRING(FIND ${MODFILE} / index REVERSE)
+  MATH(EXPR index ${index}+1)
+  STRING(SUBSTRING ${MODFILE} ${index} -1 filename)
+  FOREACH( SOURCEFILE ${FORTRANSOURCES})
+    STRING(REGEX MATCH ${filename} match_found ${SOURCEFILE})
+    IF(match_found)
+      MESSAGE("--SourceMod: removing ${SOURCEFILE} in favor of ${MODFILE}")
+      LIST(REMOVE_ITEM FORTRANSOURCES ${SOURCEFILE})
+   ENDIF()
+  ENDFOREACH()
+ENDFOREACH()
+###
+
 #message("Fortransource ${FORTRANSOURCES}")
 
+# include-dirs: Binary: all the .mod files; SOURCE: config.inc; 
+#               libglide: glide_mask.inc
+include_directories (${GLIMMER_BINARY_DIR} ${GLIMMER_SOURCE_DIR}
+                     ${GLIMMER_SOURCE_DIR}/libglide)
 
-include_directories (${GLIMMER_SOURCE_DIR} ${GLIMMER_BINARY_DIR} )
 add_library(glimmercismfortran ${FORTRANSOURCES})
 
 #####Build C++ Sources #####
 add_subdirectory(libglimmer-trilinos)
 
-#####Build simple_glide executable #####
+#####Build simple_glide executable (unless turned off) #####
+OPTION(GLIMMER_NO_EXECUTABLE "Set to  ON  to just build libraries (default:OFF)"  OFF)
 IF (NOT GLIMMER_NO_EXECUTABLE)
   add_subdirectory(example-drivers/simple_glide/src)
 ENDIF()
