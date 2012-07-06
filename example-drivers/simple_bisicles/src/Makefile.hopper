@@ -123,6 +123,8 @@ simple_bisicles_DEPENDENCIES = libglimmer-simple.la \
 	$(top_builddir)/libglimmer/libglimmer-IO.la \
 	$(top_builddir)/libglimmer/libglimmer.la \
 	$(libdycore_DIR)/BISICLES/libDyCoreToGlimmer.a \
+	$(BISICLES_INTERFACE_DIR)/libBisicles.a \
+	$(BISICLES_INTERFACE_DIR)/libChomboLibs.a \
 	$(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
