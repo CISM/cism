@@ -6,7 +6,7 @@
 
 # After this executes, do:
 #   make -j 8
-#   cp example-drivers/simple_glide/src/sgcmake .
+#   cp example-drivers/simple_glide/src/simple_glide
 #
 
 rm ./CMakeCache.txt
