@@ -21,7 +21,7 @@
   --disable-shared \
   --with-netcdf=$NETCDF_DIR \
   EXTRA_LDLIBS="/opt/pgi/11.10.0/linux86-64/11.10/lib/f90main.o" \
-  --with-trilinos=/ccs/proj/cli054/trilinos-10.8.4-interlagos/NOX_BUILD-FAST \
+  --with-trilinos=/ccs/proj/cli054/trilinos-10.10.1/NOX_BUILD-FAST \
   --with-blas=-lsci_pgi \
   --enable-mpi="yes" \
   --prefix="$HOME/seacism"
