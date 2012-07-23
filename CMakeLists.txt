@@ -2,6 +2,7 @@
 
 cmake_minimum_required(VERSION 2.8.6)
 
+OPTION (NO_TRILINOS "Toggle to Not use Trilinos: defaults to OFF (Trilinos on by default)" OFF)
 
 IF (NOT ${NO_TRILINOS})
   OPTION(GLIMMER_TRILINOS_DIR "Required path to installed Trilinos")
