@@ -387,7 +387,7 @@ extern "C" {
              << linearSolveAchievedTol << " drop in " 
              << linearSolveIters_last << " its (avg: " 
              << linearSolveIters_total / (double) linearSolveCount << " its/slv, " 
-             << 100.0* linearSolveSuccessCount / (double) linearSolveCount << "\% success)"
+             << 100.0* linearSolveSuccessCount / (double) linearSolveCount << "% success)"
              << endl;
       }
     }

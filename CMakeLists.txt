@@ -60,17 +60,22 @@ ENDIF()
 SET(GLIMMER_NETCDF_LIBS "netcdff;netcdf" CACHE STRING "Netcdf Library Names(s)")
 MESSAGE(">> GLIMMER_NETCDF_LIBS Library(s) set to : ${GLIMMER_NETCDF_LIBS}")
 
-FIND_PACKAGE(HDF5 REQUIRED)
-IF (HDF5_FOUND)
-  INCLUDE_DIRECTORIES(${HDF5_INCLUDE_DIRS})
-  # TARGET_LINK_LIBRARIES(simple_glide ${HDF5_LIBRARIES})
-ENDIF (HDF5_FOUND)
+IF (BUILD_SIMPLE_BISICLES)
+
+  # Some confusion here of Serial and/or Bisicles: Doug will need to sort out
+
+  FIND_PACKAGE(HDF5 REQUIRED)
+  IF (HDF5_FOUND)
+    INCLUDE_DIRECTORIES(${HDF5_INCLUDE_DIRS})
+    # TARGET_LINK_LIBRARIES(simple_glide ${HDF5_LIBRARIES})
+  ENDIF (HDF5_FOUND)
 
 
-SET(GLIMMER_HDF5_LIBS "hdf5;hdf5_hl;z;hdf5_pgi_parallel" CACHE STRING "HDF5 Library Names(s)")
-#MESSAGE(">> GLIMMER_HDF5_LIBS Library(s) set to : ${GLIMMER_HDF5_LIBS}")
+  SET(GLIMMER_HDF5_LIBS "hdf5;hdf5_hl;z;hdf5_pgi_parallel" CACHE STRING "HDF5 Library Names(s)")
+  #MESSAGE(">> GLIMMER_HDF5_LIBS Library(s) set to : ${GLIMMER_HDF5_LIBS}")
 
-SET(GLIMMER_MPI_LIBS "mpichf90" CACHE STRING "MPI Extra Library Names(s)")
+  SET(GLIMMER_MPI_LIBS "mpichf90" CACHE STRING "MPI Extra Library Names(s)")
+ENDIF()
 
 
 PROJECT(GLIMMER)
@@ -108,20 +113,22 @@ IF (NOT ${NO_TRILINOS})
    ELSE()
      MESSAGE(FATAL_ERROR "-- Looking for Piro: -- not found! Rebuild Trilinos with Piro package.")
    ENDIF()
+
+   ADD_DEFINITIONS(-DGLIMMER_MPI -DTRILINOS)
+   MESSAGE(">> Trilinos build: adding  -DGLIMMER_MPI -DTRILINOS  to compile lines")
+
+   include_directories(${GLIMMER_NETCDF_DIR}/include)
+   link_directories(${GLIMMER_NETCDF_DIR}/lib) 
+
+ELSE()
+
+    # Some confusion here of Serial and/or Bisicles: Doug will need to sort out
+    include_directories(${GLIMMER_NETCDF_DIR}/include ${MPI_BASE_DIR}/include)
+    link_directories(${GLIMMER_NETCDF_DIR}/lib ${MPI_BASE_DIR}/lib ${SCI_LIB_DIR} 
+  		 ${GLIMMER_DYCORE_DIR} ${HDF5_LIB_DIR} ${HDF5_PARALLEL_LIB_DIR} 
+                   ${BISICLES_INTERFACE_DIR}) 
+
 ENDIF()
-
-######
-
-include_directories(${GLIMMER_NETCDF_DIR}/include ${MPI_BASE_DIR}/include)
-link_directories(${GLIMMER_NETCDF_DIR}/lib ${MPI_BASE_DIR}/lib ${SCI_LIB_DIR} 
-		 ${GLIMMER_DYCORE_DIR} ${HDF5_LIB_DIR} ${HDF5_PARALLEL_LIB_DIR} 
-                 ${BISICLES_INTERFACE_DIR}) 
-
-
-IF (NOT ${NO_TRILINOS})
-  ADD_DEFINITIONS(-DGLIMMER_MPI -DTRILINOS)
-ENDIF()
-
 
 IF (BUILD_SIMPLE_BISICLES)
   MESSAGE("\nBuilding BISICLES...\n")  
