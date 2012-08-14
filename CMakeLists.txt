@@ -140,6 +140,17 @@ IF (BUILD_SIMPLE_BISICLES)
   INCLUDE_DIRECTORIES(${GLIMMER_DYCORE_DIR})
 ENDIF()
 
+OPTION(GLIMMER_GPTL_DIR "Optional path to installed gptl library")
+IF (GLIMMER_GPTL_DIR)
+   message(">> GPTL Library reqested, installed in ${GLIMMER_GPTL_DIR}")
+   ADD_DEFINITIONS(-DCESMTIMERS)
+   include_directories(${GLIMMER_GPTL_DIR})
+   link_directories(${GLIMMER_GPTL_DIR})
+   SET(GLIMMER_GPTL_LIB gptl)
+ELSE()
+   message(">>GPTL Library not reqested: can set GLIMMER_GPTL_DIR to enable")
+ENDIF()
+
 #####Build All Fortran Sources #####
 file(GLOB FORTRANSOURCES
      libglimmer-solve/SLAP/*.f

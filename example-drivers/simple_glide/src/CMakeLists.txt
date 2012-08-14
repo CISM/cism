@@ -23,6 +23,7 @@ target_link_libraries(simple_glide
       glimmercismfortran
       glimmercismcpp
       ${GLIMMER_NETCDF_LIBS}
+      ${GLIMMER_GPTL_LIB}
       ${TRILINOS_LIBS}) 
 
 # Helpful(?) message near end of configuration step
