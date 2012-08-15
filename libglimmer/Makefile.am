@@ -16,7 +16,7 @@ endif
 nodist_include_HEADERS := $(wildcard *.mod)
 EXTRA_DIST = f90_dep.mak 
 CLEANFILES = $(BUILT_SOURCES) glimmer_vers.F90 f90_dep.mak $(wildcard *.mod)
-libglimmer_la_SOURCES = glimmer_vers.F90 $(parallel_src) glimmer_commandline.F90 \
+libglimmer_la_SOURCES = glimmer_vers.F90 glimmer_horiz_bcs.F90 $(parallel_src) glimmer_commandline.F90 \
                        glimmer_global.F90 glimmer_utils.F90\
                        glimmer_log.F90 glimmer_paramets.F90 glimmer_physcon.F90 kelvin.F90 \
                        profile.F90  glimmer_searchcircle.F90 \
