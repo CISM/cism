@@ -28,7 +28,7 @@ contains
         ni = size(field, 1)
         nj = size(field, 2)
         nk = size(field, 3)
-#if DEBUG        
+#if GLC_DEBUG        
         call check_vector_size(start, size(vector), ni, nj, nk)
 #endif
         do i=1,ni
@@ -50,7 +50,7 @@ contains
 
         ni = size(field, 1)
         nj = size(field, 2)
-#if DEBUG        
+#if GLC_DEBUG        
         call check_vector_size(start, size(vector), ni, nj, 1)
 #endif        
         do i=1,ni

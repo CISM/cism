@@ -806,21 +806,6 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - Not sure where this should go in new glissade_global_type
-!       Maybe add a 'solver' type?
-
-  type glide_pcgdwk
-    type(sparse_matrix_type) :: matrix
-   
-    real(dp),dimension(:),pointer :: rhsd    => null()
-    real(dp),dimension(:),pointer :: answ    => null()
-    real(dp),dimension(4)         :: fc      = 0.0
-    real(dp),dimension(6)         :: fc2     = 0.0
-    integer :: ct     = 0
-  end type glide_pcgdwk
-
-  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
 !TODO - SIA only?
   type glide_thckwk
      real(dp),dimension(:,:),  pointer :: oldthck   => null()
@@ -965,7 +950,30 @@ module glide_types
   end type glide_phaml
   
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-!TODO - Create a new glissade_global_type with fewer components 
+! for JFNK, NOX Trilinos solver
+  type ,public :: glissade_solver
+
+    integer ,dimension(:,:) ,allocatable :: ui 
+    integer ,dimension(:,:) ,allocatable :: um 
+    real(dp) ,dimension(:,:) ,allocatable :: d2thckcross
+    real(dp) ,dimension(:,:) ,allocatable :: d2usrfcross
+    integer ,dimension(2) :: pcgsize
+    integer ,dimension(:) ,allocatable :: gxf
+    real(dp)  :: L2norm
+    type(sparse_matrix_type)  :: matrix
+    type(sparse_matrix_type)  :: matrixA
+    type(sparse_matrix_type)  :: matrixC
+    real(dp),dimension(:),pointer :: rhsd    => null()
+    real(dp),dimension(:),pointer :: answ    => null()
+    real(dp),dimension(4)         :: fc      = 0.0
+    real(dp),dimension(6)         :: fc2     = 0.0
+    integer :: ct     = 0
+! KJE remove once new glide_global_type is working and we can use those ewn and nsn
+    integer :: ewn
+    integer :: nsn
+
+  end type glissade_solver
+
 !       
   type glide_global_type
     integer              :: model_id !*FD Used in the global model list for error handling purposes
@@ -981,7 +989,6 @@ module glide_types
     type(glide_funits)   :: funits
     type(glide_numerics) :: numerics
     type(glide_velowk)   :: velowk
-    type(glide_pcgdwk)   :: pcgdwk
     type(glide_thckwk)   :: thckwk
     type(glide_tempwk)   :: tempwk
     type(glide_gridwk)   :: gridwk
@@ -993,27 +1000,27 @@ module glide_types
     type(isos_type)      :: isos
     type(glide_phaml)    :: phaml
     type(glide_grnd)     :: ground
-    
     type(remap_glamutils_workspace) :: remap_wk
+    type(glissade_solver):: solver_data
 
   end type glide_global_type
 
-!TODO - Where should this go?
+!KJE remove once glide_global type is working with glissade_solver
 ! for JFNK, NOX in Trilinos
-  type ,public :: pass_through
-
-    type(glide_global_type)  :: model
-    integer ,dimension(:,:) ,allocatable :: ui 
-    integer ,dimension(:,:) ,allocatable :: um 
-    real(dp) ,dimension(:,:) ,allocatable :: d2thckcross
-    real(dp) ,dimension(:,:) ,allocatable :: d2usrfcross
-    integer ,dimension(2) :: pcgsize
-    integer ,dimension(:) ,allocatable :: gxf
-    real(dp)  :: L2norm
-    type(sparse_matrix_type)  :: matrixA
-    type(sparse_matrix_type)  :: matrixC
-
-  end type pass_through
+!  type ,public :: pass_through
+!
+!    type(glide_global_type)  :: model
+!    integer ,dimension(:,:) ,allocatable :: ui 
+!    integer ,dimension(:,:) ,allocatable :: um 
+!    real(dp) ,dimension(:,:) ,allocatable :: d2thckcross
+!    real(dp) ,dimension(:,:) ,allocatable :: d2usrfcross
+!    integer ,dimension(2) :: pcgsize
+!    integer ,dimension(:) ,allocatable :: gxf
+!    real(dp)  :: L2norm
+!    type(sparse_matrix_type)  :: matrixA
+!    type(sparse_matrix_type)  :: matrixC
+!
+!  end type pass_through
 
 contains
 
@@ -1033,7 +1040,7 @@ contains
     !*FD \item \texttt{bfricflx(ewn,nsn))}
     !*FD \item \texttt{ucondflx(ewn,nsn))}
     !*FD \item \texttt{lcondflx(ewn,nsn))}
-    !*FD \item \texttt{dissipcol(ewn,nsn))}
+    !*FD \item \texttt{dissipcol(pewn,nsn))}
     !*FD \end{itemize}
 
     !*FD In \texttt{model\%velocity}:
@@ -1093,6 +1100,8 @@ contains
     !*FD \begin{itemize}
     !*FD \item \texttt{stagsigma(upn-1))}
     !*FD \end{itemize}
+
+!KJE add the new ones, once working and complete
 
     use glimmer_log
     use parallel
@@ -1278,10 +1287,10 @@ contains
     allocate (model%ground%gl_ew(ewn-1,nsn))
     allocate (model%ground%gl_ns(ewn,nsn-1))
     allocate (model%ground%gline_flux(ewn,nsn)) 
-    ! allocate memory for sparse matrix
-    allocate (model%pcgdwk%rhsd(ewn*nsn))
-    allocate (model%pcgdwk%answ(ewn*nsn))
-    call new_sparse_matrix(ewn*nsn, 5*ewn*nsn, model%pcgdwk%matrix)
+    allocate (model%solver_data%rhsd(ewn*nsn))
+    allocate (model%solver_data%answ(ewn*nsn))
+!KJE do we need this at all here, the parts within are allocated in glam_strs2
+    call new_sparse_matrix(ewn*nsn, 5*ewn*nsn, model%solver_data%matrix)
 
     ! allocate isostasy grids
     call isos_allocate(model%isos,ewn,nsn)
@@ -1439,8 +1448,9 @@ contains
     deallocate(model%numerics%sigma)
     deallocate(model%numerics%stagsigma)
     deallocate(model%numerics%stagwbndsigma)
-    deallocate(model%pcgdwk%rhsd,model%pcgdwk%answ)
-    call del_sparse_matrix(model%pcgdwk%matrix)
+    deallocate(model%solver_data%rhsd,model%solver_data%answ)
+!KJE do we need this at all here, the parts within are allocated in glam_strs2
+    call del_sparse_matrix(model%solver_data%matrix)
 
     ! allocate isostasy grids
     call isos_deallocate(model%isos)

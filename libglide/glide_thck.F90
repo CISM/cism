@@ -51,7 +51,7 @@ module glide_thck
             stagleapthck, geometry_derivs, &
             geometry_derivs_unstag
 
-#ifdef DEBUG_PICARD
+#ifdef GLC_DEBUG
   ! debugging Picard iteration
   integer, private, parameter :: picard_unit=101
   real, private, parameter    :: picard_interval=500.
@@ -68,7 +68,7 @@ contains
     type(glide_global_type) :: model
 
     
-    model%pcgdwk%fc2 = (/ model%numerics%alpha * model%numerics%dt / (2.0d0 * model%numerics%dew * model%numerics%dew), &
+    model%solver_data%fc2 = (/ model%numerics%alpha * model%numerics%dt / (2.0d0 * model%numerics%dew * model%numerics%dew), &
                           model%numerics%dt, &
                           (1.0d0-model%numerics%alpha) / model%numerics%alpha, &
                           1.0d0 / model%numerics%alpha, &
@@ -76,7 +76,7 @@ contains
                           (2.0d0 * model%numerics%dns * model%numerics%dns), &
                           0.0d0 /) 
 
-#ifdef DEBUG_PICARD
+#ifdef GLC_DEBUG
     call write_log('Logging Picard iterations')
     if (main_task) then
        open(picard_unit,name='picard_info.data',status='unknown')
@@ -109,8 +109,8 @@ contains
 
     if (model%geometry%empty) then
 
-       model%geometry%thck = dmax1(0.0d0,model%geometry%thck + model%climate%acab * model%pcgdwk%fc2(2))
-#ifdef DEBUG       
+       model%geometry%thck = dmax1(0.0d0,model%geometry%thck + model%climate%acab * model%solver_data%fc2(2))
+#ifdef GLC_DEBUG       
        print *, "* thck empty - net accumulation added", model%numerics%time
 #endif
     else
@@ -238,8 +238,8 @@ contains
 
     if (model%geometry%empty) then
 
-       model%geometry%thck = dmax1(0.0d0,model%geometry%thck + model%climate%acab * model%pcgdwk%fc2(2))
-#ifdef DEBUG
+       model%geometry%thck = dmax1(0.0d0,model%geometry%thck + model%climate%acab * model%solver_data%fc2(2))
+#ifdef GLC_DEBUG
        print *, "* thck empty - net accumulation added", model%numerics%time
 #endif
     else
@@ -347,7 +347,7 @@ contains
 #endif
 
        end do
-#ifdef DEBUG_PICARD
+#ifdef GLC_DEBUG
        picard_max=max(picard_max,p)
        if (model%numerics%tinc > mod(model%numerics%time,picard_interval)) then
           write(picard_unit,*) model%numerics%time,p
@@ -385,7 +385,7 @@ contains
     use glimmer_global, only : dp
 !    use glide_stop   *sfp* if active, causes circular ref error when built w/ fo_upwind code
     use glimmer_log
-#if DEBUG
+#if GLC_DEBUG
     use glimmer_paramets, only: vel0, thk0
 #endif
 
@@ -410,42 +410,42 @@ contains
     integer :: ew,ns
 
     ! Zero the arrays holding the sparse matrix
-    call sparse_clear(model%pcgdwk%matrix)
+    call sparse_clear(model%solver_data%matrix)
 
     ! Set the order of the matrix
-    model%pcgdwk%matrix%order = model%geometry%totpts
+    model%solver_data%matrix%order = model%geometry%totpts
 
     !EIB! old way
     ! the number of grid points
-    !model%pcgdwk%pcgsize(1) = model%geometry%totpts
+    !model%solver_data%pcgsize(1) = model%geometry%totpts
     ! Zero the arrays holding the sparse matrix
-    !model%pcgdwk%pcgval = 0.0
-    !model%pcgdwk%pcgcol = 0 
-    !model%pcgdwk%pcgrow = 0
-    !model%pcgdwk%ct = 1
+    !model%solver_data%pcgval = 0.0
+    !model%solver_data%pcgcol = 0 
+    !model%solver_data%pcgrow = 0
+    !model%solver_data%ct = 1
 
     ! Boundary Conditions ---------------------------------------------------------------
     ! lower and upper BC
     do ew = 1,model%general%ewn
        ns=1
        if (model%geometry%mask(ew,ns) /= 0) then
-          call sparse_insert_val(model%pcgdwk%matrix, model%geometry%mask(ew,ns), model%geometry%mask(ew,ns), 1d0)
+          call sparse_insert_val(model%solver_data%matrix, model%geometry%mask(ew,ns), model%geometry%mask(ew,ns), 1d0)
           !EIB! old way
-          !call putpcgc(model%pcgdwk,1.0d0, model%geometry%mask(ew,ns), model%geometry%mask(ew,ns))
+          !call putpcgc(model%solver_data,1.0d0, model%geometry%mask(ew,ns), model%geometry%mask(ew,ns))
           if (calc_rhs) then
-             model%pcgdwk%rhsd(model%geometry%mask(ew,ns)) = old_thck(ew,ns) 
+             model%solver_data%rhsd(model%geometry%mask(ew,ns)) = old_thck(ew,ns) 
           end if
-          model%pcgdwk%answ(model%geometry%mask(ew,ns)) = new_thck(ew,ns)
+          model%solver_data%answ(model%geometry%mask(ew,ns)) = new_thck(ew,ns)
        end if
        ns=model%general%nsn
        if (model%geometry%mask(ew,ns) /= 0) then
-          call sparse_insert_val(model%pcgdwk%matrix, model%geometry%mask(ew,ns), model%geometry%mask(ew,ns), 1d0)
+          call sparse_insert_val(model%solver_data%matrix, model%geometry%mask(ew,ns), model%geometry%mask(ew,ns), 1d0)
           !EIB! old way
-          !call putpcgc(model%pcgdwk,1.0d0, model%geometry%mask(ew,ns), model%geometry%mask(ew,ns))
+          !call putpcgc(model%solver_data,1.0d0, model%geometry%mask(ew,ns), model%geometry%mask(ew,ns))
           if (calc_rhs) then
-             model%pcgdwk%rhsd(model%geometry%mask(ew,ns)) = old_thck(ew,ns) 
+             model%solver_data%rhsd(model%geometry%mask(ew,ns)) = old_thck(ew,ns) 
           end if
-          model%pcgdwk%answ(model%geometry%mask(ew,ns)) = new_thck(ew,ns)
+          model%solver_data%answ(model%geometry%mask(ew,ns)) = new_thck(ew,ns)
        end if
     end do
 
@@ -467,23 +467,23 @@ contains
        do ns=2,model%general%nsn-1
           ew=1
           if (model%geometry%mask(ew,ns) /= 0) then
-             call sparse_insert_val(model%pcgdwk%matrix, model%geometry%mask(ew,ns), model%geometry%mask(ew,ns), 1d0)
+             call sparse_insert_val(model%solver_data%matrix, model%geometry%mask(ew,ns), model%geometry%mask(ew,ns), 1d0)
              !EIB! old way
-             !call putpcgc(model%pcgdwk,1.0d0, model%geometry%mask(ew,ns), model%geometry%mask(ew,ns))
+             !call putpcgc(model%solver_data,1.0d0, model%geometry%mask(ew,ns), model%geometry%mask(ew,ns))
              if (calc_rhs) then
-                model%pcgdwk%rhsd(model%geometry%mask(ew,ns)) = old_thck(ew,ns) 
+                model%solver_data%rhsd(model%geometry%mask(ew,ns)) = old_thck(ew,ns) 
              end if
-             model%pcgdwk%answ(model%geometry%mask(ew,ns)) = new_thck(ew,ns)
+             model%solver_data%answ(model%geometry%mask(ew,ns)) = new_thck(ew,ns)
           end if
           ew=model%general%ewn
           if (model%geometry%mask(ew,ns) /= 0) then
-             call sparse_insert_val(model%pcgdwk%matrix, model%geometry%mask(ew,ns), model%geometry%mask(ew,ns), 1d0)
+             call sparse_insert_val(model%solver_data%matrix, model%geometry%mask(ew,ns), model%geometry%mask(ew,ns), 1d0)
              !EIB! old way
-             !call putpcgc(model%pcgdwk,1.0d0, model%geometry%mask(ew,ns), model%geometry%mask(ew,ns))
+             !call putpcgc(model%solver_data,1.0d0, model%geometry%mask(ew,ns), model%geometry%mask(ew,ns))
              if (calc_rhs) then
-                model%pcgdwk%rhsd(model%geometry%mask(ew,ns)) = old_thck(ew,ns) 
+                model%solver_data%rhsd(model%geometry%mask(ew,ns)) = old_thck(ew,ns) 
              end if
-             model%pcgdwk%answ(model%geometry%mask(ew,ns)) = new_thck(ew,ns)
+             model%solver_data%answ(model%geometry%mask(ew,ns)) = new_thck(ew,ns)
           end if
        end do
     end if
@@ -504,18 +504,18 @@ contains
 
     !EIB! still needed?
     ! Calculate the total number of points
-    !model%pcgdwk%pcgsize(2) = model%pcgdwk%ct - 1 
+    !model%solver_data%pcgsize(2) = model%solver_data%ct - 1 
 
     ! Solve the system using SLAP
     !EIB! call slapsolv(model,linit,err)   
-    call sparse_easy_solve(model%pcgdwk%matrix, model%pcgdwk%rhsd, model%pcgdwk%answ, &
+    call sparse_easy_solve(model%solver_data%matrix, model%solver_data%rhsd, model%solver_data%answ, &
                            err, linit)
 
     ! Rejig the solution onto a 2D array
     do ns = 1,model%general%nsn
        do ew = 1,model%general%ewn 
           if (model%geometry%mask(ew,ns) /= 0) then
-             new_thck(ew,ns) = model%pcgdwk%answ(model%geometry%mask(ew,ns))
+             new_thck(ew,ns) = model%solver_data%answ(model%geometry%mask(ew,ns))
           end if
 
        end do
@@ -523,7 +523,7 @@ contains
 
     new_thck = max(0.0d0, new_thck)
 
-#ifdef DEBUG
+#ifdef GLC_DEBUG
     print *, "* thck ", model%numerics%time, linit, model%geometry%totpts, &
          real(thk0*new_thck(model%general%ewn/2+1,model%general%nsn/2+1)), &
          real(vel0*maxval(abs(model%velocity%ubas))), real(vel0*maxval(abs(model%velocity%vbas))) 
@@ -542,57 +542,57 @@ contains
       integer, intent(in) :: nsm,ns,nsp  ! ns index to lower, central, upper node
 
       !fill matrix using the new API
-      call sparse_insert_val(model%pcgdwk%matrix, model%geometry%mask(ew,ns), model%geometry%mask(ewm,ns), sumd(1)) ! point (ew-1,ns)
-      call sparse_insert_val(model%pcgdwk%matrix, model%geometry%mask(ew,ns), model%geometry%mask(ewp,ns), sumd(2)) ! point (ew+1,ns)
-      call sparse_insert_val(model%pcgdwk%matrix, model%geometry%mask(ew,ns), model%geometry%mask(ew,nsm), sumd(3)) ! point (ew,ns-1)
-      call sparse_insert_val(model%pcgdwk%matrix, model%geometry%mask(ew,ns), model%geometry%mask(ew,nsp), sumd(4)) ! point (ew,ns+1)
-      call sparse_insert_val(model%pcgdwk%matrix, model%geometry%mask(ew,ns), model%geometry%mask(ew,ns),  1d0 + sumd(5))! point (ew,ns)
+      call sparse_insert_val(model%solver_data%matrix, model%geometry%mask(ew,ns), model%geometry%mask(ewm,ns), sumd(1)) ! point (ew-1,ns)
+      call sparse_insert_val(model%solver_data%matrix, model%geometry%mask(ew,ns), model%geometry%mask(ewp,ns), sumd(2)) ! point (ew+1,ns)
+      call sparse_insert_val(model%solver_data%matrix, model%geometry%mask(ew,ns), model%geometry%mask(ew,nsm), sumd(3)) ! point (ew,ns-1)
+      call sparse_insert_val(model%solver_data%matrix, model%geometry%mask(ew,ns), model%geometry%mask(ew,nsp), sumd(4)) ! point (ew,ns+1)
+      call sparse_insert_val(model%solver_data%matrix, model%geometry%mask(ew,ns), model%geometry%mask(ew,ns),  1d0 + sumd(5))! point (ew,ns)
     !EIB! old way
       ! fill sparse matrix
-    !  call putpcgc(model%pcgdwk,sumd(1), model%geometry%mask(ewm,ns), model%geometry%mask(ew,ns))       ! point (ew-1,ns)
-    !  call putpcgc(model%pcgdwk,sumd(2), model%geometry%mask(ewp,ns), model%geometry%mask(ew,ns))       ! point (ew+1,ns)
-    !  call putpcgc(model%pcgdwk,sumd(3), model%geometry%mask(ew,nsm), model%geometry%mask(ew,ns))       ! point (ew,ns-1)
-    !  call putpcgc(model%pcgdwk,sumd(4), model%geometry%mask(ew,nsp), model%geometry%mask(ew,ns))       ! point (ew,ns+1)
-    !  call putpcgc(model%pcgdwk,1.0d0 + sumd(5), model%geometry%mask(ew,ns), model%geometry%mask(ew,ns))! point (ew,ns)
+    !  call putpcgc(model%solver_data,sumd(1), model%geometry%mask(ewm,ns), model%geometry%mask(ew,ns))       ! point (ew-1,ns)
+    !  call putpcgc(model%solver_data,sumd(2), model%geometry%mask(ewp,ns), model%geometry%mask(ew,ns))       ! point (ew+1,ns)
+    !  call putpcgc(model%solver_data,sumd(3), model%geometry%mask(ew,nsm), model%geometry%mask(ew,ns))       ! point (ew,ns-1)
+    !  call putpcgc(model%solver_data,sumd(4), model%geometry%mask(ew,nsp), model%geometry%mask(ew,ns))       ! point (ew,ns+1)
+    !  call putpcgc(model%solver_data,1.0d0 + sumd(5), model%geometry%mask(ew,ns), model%geometry%mask(ew,ns))! point (ew,ns)
 
       ! calculate RHS
       if (calc_rhs) then
-         model%pcgdwk%rhsd(model%geometry%mask(ew,ns)) =                    &
-              old_thck(ew,ns) * (1.0d0 - model%pcgdwk%fc2(3) * sumd(5))     &
-            - model%pcgdwk%fc2(3) * (old_thck(ewm,ns) * sumd(1)             &
+         model%solver_data%rhsd(model%geometry%mask(ew,ns)) =                    &
+              old_thck(ew,ns) * (1.0d0 - model%solver_data%fc2(3) * sumd(5))     &
+            - model%solver_data%fc2(3) * (old_thck(ewm,ns) * sumd(1)             &
                                    + old_thck(ewp,ns) * sumd(2)             &
                                    + old_thck(ew,nsm) * sumd(3)             &
                                    + old_thck(ew,nsp) * sumd(4))            &
-            - model%pcgdwk%fc2(4) * (model%geometry%lsrf(ew,ns)  * sumd(5)  &
+            - model%solver_data%fc2(4) * (model%geometry%lsrf(ew,ns)  * sumd(5)  &
                                    + model%geometry%lsrf(ewm,ns) * sumd(1)  &
                                    + model%geometry%lsrf(ewp,ns) * sumd(2)  &
                                    + model%geometry%lsrf(ew,nsm) * sumd(3)  &
                                    + model%geometry%lsrf(ew,nsp) * sumd(4)) &
-            + model%climate%acab(ew,ns) * model%pcgdwk%fc2(2)
+            + model%climate%acab(ew,ns) * model%solver_data%fc2(2)
       end if
       !EIB! old way
       ! calculate RHS
       !if (calc_rhs) then
-      !   model%pcgdwk%rhsd(model%geometry%mask(ew,ns)) =                    &
-      !        old_thck(ew,ns) * (1.0d0 - model%pcgdwk%fc2(3) * sumd(5))     &
-      !      - model%pcgdwk%fc2(3) * (old_thck(ewm,ns) * sumd(1)             &
+      !   model%solver_data%rhsd(model%geometry%mask(ew,ns)) =                    &
+      !        old_thck(ew,ns) * (1.0d0 - model%solver_data%fc2(3) * sumd(5))     &
+      !      - model%solver_data%fc2(3) * (old_thck(ewm,ns) * sumd(1)             &
       !                             + old_thck(ewp,ns) * sumd(2)             &
       !                             + old_thck(ew,nsm) * sumd(3)             &
       !                             + old_thck(ew,nsp) * sumd(4))            &
-      !      - model%pcgdwk%fc2(4) * (model%geometry%lsrf(ew,ns)  * sumd(5)  &
+      !      - model%solver_data%fc2(4) * (model%geometry%lsrf(ew,ns)  * sumd(5)  &
       !                             + model%geometry%lsrf(ewm,ns) * sumd(1)  &
       !                             + model%geometry%lsrf(ewp,ns) * sumd(2)  &
       !                             + model%geometry%lsrf(ew,nsm) * sumd(3)  &
       !                             + model%geometry%lsrf(ew,nsp) * sumd(4)) &
-      !      + model%climate%acab(ew,ns) * model%pcgdwk%fc2(2)
+      !      + model%climate%acab(ew,ns) * model%solver_data%fc2(2)
       !   if(model%options%basal_mbal==1) then
-      !      model%pcgdwk%rhsd(model%geometry%mask(ew,ns)) =                    &
-      !           model%pcgdwk%rhsd(model%geometry%mask(ew,ns))                 &
-      !           - model%temper%bmlt(ew,ns) * model%pcgdwk%fc2(2) ! basal melt is +ve for mass loss
+      !      model%solver_data%rhsd(model%geometry%mask(ew,ns)) =                    &
+      !           model%solver_data%rhsd(model%geometry%mask(ew,ns))                 &
+      !           - model%temper%bmlt(ew,ns) * model%solver_data%fc2(2) ! basal melt is +ve for mass loss
       !   end if
       !end if
 
-      model%pcgdwk%answ(model%geometry%mask(ew,ns)) = new_thck(ew,ns)      
+      model%solver_data%answ(model%geometry%mask(ew,ns)) = new_thck(ew,ns)      
 
     end subroutine generate_row
 
@@ -603,30 +603,30 @@ contains
       integer, intent(in) :: nsm,ns  ! ns index to lower, upper
 
       ! calculate sparse matrix elements
-      sumd(1) = model%pcgdwk%fc2(1) * (&
+      sumd(1) = model%solver_data%fc2(1) * (&
            (diffu_x(ewm,nsm) + diffu_x(ewm,ns)) + &
            (model%velocity%ubas (ewm,nsm) + model%velocity%ubas (ewm,ns)))
-      sumd(2) = model%pcgdwk%fc2(1) * (&
+      sumd(2) = model%solver_data%fc2(1) * (&
            (diffu_x(ew,nsm) + diffu_x(ew,ns)) + &
            (model%velocity%ubas (ew,nsm) + model%velocity%ubas (ew,ns)))
-      sumd(3) = model%pcgdwk%fc2(5) * (&
+      sumd(3) = model%solver_data%fc2(5) * (&
            (diffu_y(ewm,nsm) + diffu_y(ew,nsm)) + &
            (model%velocity%ubas (ewm,nsm) + model%velocity%ubas (ew,nsm)))
-      sumd(4) = model%pcgdwk%fc2(5) * (&
+      sumd(4) = model%solver_data%fc2(5) * (&
            (diffu_y(ewm,ns) + diffu_y(ew,ns)) + &
            (model%velocity%ubas (ewm,ns) + model%velocity%ubas (ew,ns)))
       sumd(5) = - (sumd(1) + sumd(2) + sumd(3) + sumd(4))
       !EIB! old way
-      !sumd(1) = model%pcgdwk%fc2(1) * (&
+      !sumd(1) = model%solver_data%fc2(1) * (&
       !     (model%velocity%diffu(ewm,nsm) + model%velocity%diffu(ewm,ns)) + &
       !     (model%velocity%ubas (ewm,nsm) + model%velocity%ubas (ewm,ns)))
-      !sumd(2) = model%pcgdwk%fc2(1) * (&
+      !sumd(2) = model%solver_data%fc2(1) * (&
       !     (model%velocity%diffu(ew,nsm) + model%velocity%diffu(ew,ns)) + &
       !     (model%velocity%ubas (ew,nsm) + model%velocity%ubas (ew,ns)))
-      !sumd(3) = model%pcgdwk%fc2(5) * (&
+      !sumd(3) = model%solver_data%fc2(5) * (&
       !     (model%velocity%diffu(ewm,nsm) + model%velocity%diffu(ew,nsm)) + &
       !     (model%velocity%ubas (ewm,nsm) + model%velocity%ubas (ew,nsm)))
-      !sumd(4) = model%pcgdwk%fc2(5) * (&
+      !sumd(4) = model%solver_data%fc2(5) * (&
       !     (model%velocity%diffu(ewm,ns) + model%velocity%diffu(ew,ns)) + &
       !     (model%velocity%ubas (ewm,ns) + model%velocity%ubas (ew,ns)))
       !sumd(5) = - (sumd(1) + sumd(2) + sumd(3) + sumd(4))
@@ -885,8 +885,8 @@ end subroutine
 
     if (model%geometry%empty) then
 
-       model%geometry%thck = dmax1(0.0d0,model%geometry%thck + model%climate%acab * model%pcgdwk%fc2(2))
-#ifdef DEBUG       
+       model%geometry%thck = dmax1(0.0d0,model%geometry%thck + model%climate%acab * model%solver_data%fc2(2))
+#ifdef GLC_DEBUG       
        print *, "* thck empty - net accumulation added", model%numerics%time
 #endif
     else

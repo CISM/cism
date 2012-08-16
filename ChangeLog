@@ -1,3 +1,11 @@
+2012-08-16 Kate Evans
+ * changed all DEBUG preproc style flags to GLC_DEBUG
+ * Tested with dome 30 and gis 5km. with PGI cmake and autoconf on Jaguar 
+ * pass-through derived type is now glissade_solver and includes type pcgdwk, which has been absorbed
+ * glissade_solver is now part of glide_global_type, which mean resid_object is no longer needed
+ * init_resid subroutine is now alloc-resid, and allocated parts of the model derived type that deal with the JFNK solver
+ * initial work to create a slap JFNK subroutine is started, just comments with structure right now
+
 2012-01-13 Kate Evans
  * Merged trunk changes since the branch was made.
  * Tested with dome 120 and gis 5km. Bit for bit for first several steps  

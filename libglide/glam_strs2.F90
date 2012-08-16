@@ -24,6 +24,8 @@
 !       It would be better to combine these chunks of code into subroutines that can be called
 !        from multiple places in the code--or even better, to remove the extra chunks of code
 !        if they are no longer needed.
+! KJE looked into creating a generic initialization solver routine but most of init is passing 
+! variables, so its not worth it IMHO
 
 !***********************************************************************
 module glam_strs2
@@ -142,8 +144,7 @@ contains
 
 !***********************************************************************
 
-!TODO - Is this subroutine still needed?
-
+#ifdef GLC_DEBUG
 subroutine dumpvels(name, uvel, vvel)
     !JEFF routine to track the uvel and vvel calculations in Picard Iteration for debugging
     !3/28/11
@@ -163,6 +164,7 @@ subroutine dumpvels(name, uvel, vvel)
        write(*,*) name, "Parallel uvel & vvel (1,5:6,15:16)", uvel(1,5:6,15:16), vvel(1,5:6,15:16)
     endif 
 end subroutine dumpvels
+#endif
 
 
 subroutine glam_velo_init( ewn,   nsn,   upn,    &
@@ -508,7 +510,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
     outer_it_target = 1.0d-12
   end if
 
-#ifdef JEFFTEST
+#ifdef GLC_DEBUG
     !JEFF Debugging Output to see what differences in final vvel and tvel.
     write(loopnum,'(i3.3)') counter
     write(Looptime, '(i3.3)') overallloop
@@ -826,7 +828,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
   call staggered_parallel_halo(uflx)
   call staggered_parallel_halo(vflx)
 
-#ifdef JEFFTEST    
+#ifdef GLC_DEBUG    
   !JEFF Debugging Output to see what differences in final vvel and tvel.
     write(CurrTimeLoopStr, '(i3.3)') CurrTimeLoop
     call distributed_print("uvel_post_ov"//CurrTimeLoopStr//"_tsk", uvel)
@@ -866,11 +868,14 @@ subroutine JFNK_velo_solver  (model,umask)
   use parallel
 
   use iso_c_binding 
-  use glide_types, only : glide_global_type, pass_through
+  use glide_types, only : glide_global_type
 
   implicit none
 
-  type(glide_global_type) ,intent(inout) :: model
+! KJE is it ok to set this as a target this deep in, or does it have to be set this way 
+! from the start? apparently its fine
+
+  type(glide_global_type) ,target, intent(inout) :: model
 
 !TODO - Can we make the mask intent in?
 
@@ -879,16 +884,15 @@ subroutine JFNK_velo_solver  (model,umask)
                                                       ! to cism defined mask, which don't necessarily 
                                                       ! associate all/any boundaries as a unique mask value.
 
-! new glide_global_type variables for everything needed to pass thru trilinos NOX to calc_F as a pointer.
-  type(pass_through) ,target  :: resid_object
-  type(pass_through) ,pointer :: fptr=>NULL()
+  type(glide_global_type) ,pointer :: fptr=>NULL()
   type(c_ptr)                 :: c_ptr_to_object
 
 !KJE for NOX
   integer(c_int) :: xk_size
   real(dp), dimension(:), allocatable :: xk_1, xk_1_plus
   real(dp), dimension(:), allocatable :: vectx
-  integer ,dimension(:) ,allocatable :: gx_flag, g_flag
+! KJE  integer ,dimension(:) ,allocatable :: gx_flag, g_flag
+  integer ,dimension(:) ,allocatable :: gx_flag
 
 ! split off of derived types
 
@@ -1024,6 +1028,7 @@ subroutine JFNK_velo_solver  (model,umask)
 
 !TODO - Do these derivatives have to go in the model derived type and the residual object?
   ! put d2's into model derived type structure to eventually go into resid_object
+!KJE add these in after the code is working well with original stuff
   model%geomderv%d2thckdew2 = d2thckdew2
   model%geomderv%d2thckdns2 = d2thckdns2
   model%geomderv%d2usrfdew2 = d2usrfdew2
@@ -1090,7 +1095,6 @@ subroutine JFNK_velo_solver  (model,umask)
 
   ! For NOX JFNK
   allocate( vectx(2*pcgsize(1)), xk_1(2*pcgsize(1)), xk_1_plus(2*pcgsize(1)), gx_flag(2*pcgsize(1)) )
-  ! allocate( uk_1(pcgsize(1)), vk_1(pcgsize(1)), g_flag(pcgsize(1)))
 
   ! *sfp** allocate space matrix variables
   allocate (pcgrow(pcgsize(2)),pcgcol(pcgsize(2)), rhsd(pcgsize(1)), rhsx(2*pcgsize(1)), &
@@ -1110,21 +1114,22 @@ subroutine JFNK_velo_solver  (model,umask)
   allocate(matrixAuv%row(pcgsize(2)),matrixAuv%col(pcgsize(2)),matrixAuv%val(pcgsize(2)))
   allocate(matrixAvu%row(pcgsize(2)),matrixAvu%col(pcgsize(2)),matrixAvu%val(pcgsize(2)))
 
-  allocate( uk_1(pcgsize(1)), vk_1(pcgsize(1)),g_flag(pcgsize(1)) )
+! KJE  allocate( uk_1(pcgsize(1)), vk_1(pcgsize(1)),g_flag(pcgsize(1)) )
+  allocate( uk_1(pcgsize(1)), vk_1(pcgsize(1)) )
   allocate( vectp(pcgsize(1)), uk_1_plus(pcgsize(1)), vk_1_plus(pcgsize(1)) )
   allocate( F(2*pcgsize(1)), F_plus(2*pcgsize(1)), dx(2*pcgsize(1)) )
   allocate( wk1(2*pcgsize(1)), wk2(2*pcgsize(1)), rhs(2*pcgsize(1)) )
   allocate( vv(2*pcgsize(1),img1), wk(2*pcgsize(1), img) )
 
-  call init_resid_type(resid_object, model, uindx, umask, d2thckdewdns, d2usrfdewdns, &
+  call alloc_resid(model, uindx, umask, d2thckdewdns, d2usrfdewdns, &
                        pcgsize, gx_flag, matrixA, matrixC, L2norm, ewn, nsn)
-  fptr => resid_object
+
+  fptr => model
   c_ptr_to_object = c_loc(fptr)
 
   call ghost_preprocess_jfnk( ewn, nsn, upn, uindx, ughost, vghost, &
                          xk_1, uvel, vvel, gx_flag, pcgsize(1)) ! jfl_20100430
 
-! SLAP incompatibility with main_task
 if (main_task) then
   print *, ' '
   print *, 'Running Payne/Price higher-order dynamics with JFNK solver' 
@@ -1133,19 +1138,14 @@ end if
   calcoffdiag = .false.    ! save off diag matrix components
  call t_stopf("JFNK_pre")
 
+#ifdef TRILINOS 
+
 !==============================================================================
-! Beginning of Newton loop. Solves F(x) = 0 for x where x = [v, u] and
+! Newton loop Using Trilinos NOX. Solves F(x) = 0 for x where x = [v, u] and
 !                                                       F = [Fv(u,v), Fu(u,v)] 
 !==============================================================================
-
-!TODO - Anything to do here?  Is NOX now standard?
-!
-!       Should we eliminate the standalone JFNK solver?
-!       We want to maintain a serial SLAP solver for glam, but does it have to support JFNK?
-
-! UNCOMMENT these lines to switch to NOX's JFNK
-! AGS: To Do:  send in distributed xk_1, or myIndices array, for distributed nox
-#ifdef TRILINOS 
+ 
+! KJE: Andy take noxinit and noxfinish out of time step loop?
 
  call t_startf("JFNK_noxinit")
   call noxinit(xk_size, xk_1, 1, c_ptr_to_object)
@@ -1159,30 +1159,26 @@ end if
   call noxfinish()
  call t_stopf("JFNK_noxfinish")
 
-  kmax = 0     ! turn off native JFNK below
-#endif
-
+#else
 !==============================================================================
-! JFNK loop: calculate F(u^k-1,v^k-1)
+! SLAP JFNK loop: calculate F(u^k-1,v^k-1)
 !==============================================================================
 
-!TODO - Remove not_parallel calls if this will always be run with SLAP?
+!   call slapsolve(xk_1, xk_size, c_ptr_to_object, NL_target, NL_tol, rhs, dx, gamma_l, tol)
+! can move in allocation of rhs and dx, gamma_l, NL?
 
-  ! This do loop is only used for SLAP.  Do not parallelize.
   do k = 1, kmax
 
    call t_startf("JFNK_SLAP")
 
-!WHL - commenting out this call for now
-!!!    call not_parallel(__FILE__, __LINE__)
-
 !    calcoffdiag = .true.    ! save off diag matrix components
 !    calcoffdiag = .false.    ! save off diag matrix components
 
+! xk goes in, F comes out
     call calc_F (xk_1, F, xk_size, c_ptr_to_object, 0)
 
     call c_f_pointer(c_ptr_to_object,fptr) ! convert C ptr to F ptr
-    L2norm = fptr%L2norm
+    L2norm = fptr%solver_data%L2norm
     matrixA = fptr%matrixA
     matrixC = fptr%matrixC
 
@@ -1212,6 +1208,8 @@ end if
     call forcing_term (k, L2norm_wig, gamma_l)
 
     tol = gamma_l * L2norm_wig ! setting the tolerance for fgmres
+
+! to here ID'ing waht is passed to slapsolve
 
     epsilon = 1.d-07 ! for J*vector approximation
 
@@ -1268,6 +1266,8 @@ end if
   call t_stopf("JFNK_SLAP")
  end do   ! k = 1, kmax 
 
+#endif   ! SLAP JFNK
+
  call t_startf("JFNK_post")
 ! (need to update these values from fptr%uvel,vvel,stagthck etc)
   call solver_postprocess_jfnk( ewn, nsn, upn, uindx, xk_1, vvel, uvel, ghostbvel, pcgsize(1) )
@@ -1321,7 +1321,9 @@ end if
 
   inisoln = .true.
 
+#ifdef GLC_DEBUG    
   print*,"Solution vector norm after JFNK = " ,sqrt(DOT_PRODUCT(xk_1,xk_1))
+#endif
 
 !TODO - The remaining code in this subroutine is cut and pasted from above.
 !       Can we encapsulate this repeated code in a subroutine?
@@ -1356,7 +1358,6 @@ end if
   deallocate(matrixAvu%row, matrixAvu%col, matrixAvu%val)
   deallocate(matrixC%row, matrixC%col, matrixC%val)
   deallocate(matrixtp%row, matrixtp%col, matrixtp%val)
-!  deallocate(uk_1, vk_1, xk_1, g_flag, gx_flag)
   deallocate(answer, dx, vectp, uk_1_plus, vk_1_plus, xk_1_plus, gx_flag )
   deallocate(F, F_plus)
   deallocate(wk1, wk2)
@@ -2143,7 +2144,7 @@ subroutine apply_precond_nox( wk2_nox, wk1_nox, xk_size, c_ptr_to_object )  bind
   integer(c_int) ,intent(in) ,value  :: xk_size
   real (c_double) ,intent(in)        :: wk1_nox(xk_size)
   real (c_double) ,intent(out)       :: wk2_nox(xk_size)
-  type(pass_through) ,pointer        :: fptr=>NULL()
+  type(glide_global_type) ,pointer        :: fptr=>NULL()
   type(c_ptr) ,intent(inout)         :: c_ptr_to_object
 
   integer :: nu1, nu2, whichsparse
@@ -2154,12 +2155,12 @@ subroutine apply_precond_nox( wk2_nox, wk1_nox, xk_size, c_ptr_to_object )  bind
   real(dp), allocatable, dimension(:) :: answer, vectp
   real(dp) :: err
 
-  call c_f_pointer(c_ptr_to_object,fptr) ! convert C ptr to F ptr= resid_object
+  call c_f_pointer(c_ptr_to_object,fptr) ! convert C ptr to F ptr= model
 
-  matrixA = fptr%matrixA
-  matrixC = fptr%matrixC
-  whichsparse = fptr%model%options%which_ho_sparse
-  pcgsize = fptr%pcgsize
+  matrixA = fptr%solver_data%matrixA
+  matrixC = fptr%solver_data%matrixC
+  whichsparse = fptr%options%which_ho_sparse
+  pcgsize = fptr%solver_data%pcgsize
            
   nu1 = pcgsize(1)
   nu2 = 2*pcgsize(1)
@@ -2240,7 +2241,7 @@ end subroutine reset_effstrmin
   ! xtp is both vtp and utp in one vector
 
   use iso_c_binding  
-  use glide_types ,only : glide_global_type, pass_through
+  use glide_types ,only : glide_global_type
   use parallel
 
   implicit none
@@ -2250,7 +2251,7 @@ end subroutine reset_effstrmin
    integer(c_int) ,intent(in) ,value  :: ispert 
    real(c_double)  ,intent(in)        :: xtp(xk_size)
    real(c_double)  ,intent(out)       :: F(xk_size)
-   type(pass_through) ,pointer        :: fptr=>NULL()
+   type(glide_global_type) ,pointer        :: fptr=>NULL()
    type(c_ptr) ,intent(inout)         :: c_ptr_to_object
 
   integer :: ewn, nsn, upn, counter, whichbabc, whichefvs, i
@@ -2273,57 +2274,57 @@ end subroutine reset_effstrmin
   real(dp) :: L2norm
 
  call t_startf("Calc_F")
-  call c_f_pointer(c_ptr_to_object,fptr) ! convert C ptr to F ptr= resid_object
+  call c_f_pointer(c_ptr_to_object,fptr) ! convert C ptr to F ptr= model
            
-  ewn = fptr%model%general%ewn
-  nsn = fptr%model%general%nsn
-  upn = fptr%model%general%upn
-  whichbabc = fptr%model%options%which_ho_babc
-  whichefvs = fptr%model%options%which_ho_efvs
-  dew = fptr%model%numerics%dew
-  dns = fptr%model%numerics%dns
-  sigma => fptr%model%numerics%sigma(:)
-  stagsigma => fptr%model%numerics%stagsigma(:)
-  thck => fptr%model%geometry%thck(:,:)
-  lsrf => fptr%model%geometry%lsrf(:,:)
-  topg => fptr%model%geometry%topg (:,:)
-  stagthck => fptr%model%geomderv%stagthck(:,:)
-  dthckdew => fptr%model%geomderv%dthckdew(:,:)
-  dthckdns => fptr%model%geomderv%dthckdns(:,:)
-  dusrfdew => fptr%model%geomderv%dusrfdew(:,:)
-  dusrfdns => fptr%model%geomderv%dusrfdns(:,:)
-  dlsrfdew => fptr%model%geomderv%dlsrfdew(:,:)
-  dlsrfdns => fptr%model%geomderv%dlsrfdns(:,:)
-  d2thckdew2 => fptr%model%geomderv%d2thckdew2(:,:)
-  d2thckdns2 => fptr%model%geomderv%d2thckdns2(:,:)
-  d2usrfdew2 => fptr%model%geomderv%d2usrfdew2(:,:)
-  d2usrfdns2 => fptr%model%geomderv%d2usrfdns2(:,:)
-  minTauf => fptr%model%basalproc%minTauf(:,:)
-  beta => fptr%model%velocity%beta(:,:)
+  ewn = fptr%general%ewn
+  nsn = fptr%general%nsn
+  upn = fptr%general%upn
+  whichbabc = fptr%options%which_ho_babc
+  whichefvs = fptr%options%which_ho_efvs
+  dew = fptr%numerics%dew
+  dns = fptr%numerics%dns
+  sigma => fptr%numerics%sigma(:)
+  stagsigma => fptr%numerics%stagsigma(:)
+  thck => fptr%geometry%thck(:,:)
+  lsrf => fptr%geometry%lsrf(:,:)
+  topg => fptr%geometry%topg (:,:)
+  stagthck => fptr%geomderv%stagthck(:,:)
+  dthckdew => fptr%geomderv%dthckdew(:,:)
+  dthckdns => fptr%geomderv%dthckdns(:,:)
+  dusrfdew => fptr%geomderv%dusrfdew(:,:)
+  dusrfdns => fptr%geomderv%dusrfdns(:,:)
+  dlsrfdew => fptr%geomderv%dlsrfdew(:,:)
+  dlsrfdns => fptr%geomderv%dlsrfdns(:,:)
+  d2thckdew2 => fptr%geomderv%d2thckdew2(:,:)
+  d2thckdns2 => fptr%geomderv%d2thckdns2(:,:)
+  d2usrfdew2 => fptr%geomderv%d2usrfdew2(:,:)
+  d2usrfdns2 => fptr%geomderv%d2usrfdns2(:,:)
+  minTauf => fptr%basalproc%minTauf(:,:)
+  beta => fptr%velocity%beta(:,:)
 !intent (inout) terms
-  btraction => fptr%model%velocity%btraction(:,:,:)
-  flwa => fptr%model%temper%flwa(:,:,:)
-  efvs => fptr%model%stress%efvs(:,:,:)
-  uvel => fptr%model%velocity%uvel(:,:,:)
-  vvel => fptr%model%velocity%vvel(:,:,:)
-  L2norm = fptr%L2norm
+  btraction => fptr%velocity%btraction(:,:,:)
+  flwa => fptr%temper%flwa(:,:,:)
+  efvs => fptr%stress%efvs(:,:,:)
+  uvel => fptr%velocity%uvel(:,:,:)
+  vvel => fptr%velocity%vvel(:,:,:)
+  L2norm = fptr%solver_data%L2norm
 
   allocate( ui(ewn-1,nsn-1), um(ewn-1,nsn-1) )
-  ui= fptr%ui
-  um = fptr%um
+  ui= fptr%solver_data%ui
+  um = fptr%solver_data%um
 
-  pcgsize = fptr%pcgsize
+  pcgsize = fptr%solver_data%pcgsize
   allocate( gxf(2*pcgsize(1)) )
 
-  gxf = fptr%gxf
+  gxf = fptr%solver_data%gxf
 ! temporary to test JFNK -  need to take out
   counter = 1
 
-  d2usrfdewdns = fptr%d2usrfcross
-  d2thckdewdns = fptr%d2thckcross
+  d2usrfdewdns = fptr%solver_data%d2usrfcross
+  d2thckdewdns = fptr%solver_data%d2thckcross
 
-  matrixA = fptr%matrixA
-  matrixC = fptr%matrixC
+  matrixA = fptr%solver_data%matrixA
+  matrixC = fptr%solver_data%matrixC
   allocate( vectp( pcgsize(1)) )
   allocate( vectx(2*pcgsize(1)) )
 
@@ -2438,15 +2439,15 @@ end subroutine reset_effstrmin
 
     call solver_postprocess_jfnk( ewn, nsn, upn, ui, xtp, vvel, uvel, ghostbvel, pcgsize(1) )
 
-  fptr%model%velocity%btraction => btraction(:,:,:)
-  fptr%model%temper%flwa => flwa(:,:,:)
-  fptr%model%stress%efvs => efvs(:,:,:)
-  fptr%model%velocity%uvel => uvel(:,:,:)
-  fptr%model%velocity%vvel => vvel(:,:,:)
+  fptr%velocity%btraction => btraction(:,:,:)
+  fptr%temper%flwa => flwa(:,:,:)
+  fptr%stress%efvs => efvs(:,:,:)
+  fptr%velocity%uvel => uvel(:,:,:)
+  fptr%velocity%vvel => vvel(:,:,:)
 
-  fptr%L2norm = L2norm
-  fptr%matrixA = matrixA
-  fptr%matrixC = matrixC
+  fptr%solver_data%L2norm = L2norm
+  fptr%solver_data%matrixA = matrixA
+  fptr%solver_data%matrixC = matrixC
  call t_stopf("Calc_F")
 
 end subroutine calc_F
@@ -5887,19 +5888,21 @@ end function scalebasalbc
 
 !***********************************************************************
 
-subroutine init_resid_type(resid_object, model, uindx, umask, &
+subroutine alloc_resid(model, uindx, umask, &
      d2thckdewdns, d2usrfdewdns, pcgsize, gx_flag, matrixA, matrixC, L2norm, ewn, nsn)
   
+  
   use iso_c_binding 
-  use glide_types, only : glide_global_type, pass_through
+  use glide_types, only : glide_global_type
   use glimmer_sparse_type, only : sparse_matrix_type
   
   implicit none
   
-  type(glide_global_type)  ,intent(in) :: model
+  type(glide_global_type)  ,intent(inout) :: model
   type(sparse_matrix_type) ,intent(in) :: matrixA, matrixC
   
   integer :: i, j
+! KJE rid of these once working as part of glide_global_type
   integer                   ,intent(in) :: ewn, nsn
   integer, dimension(2)     ,intent(in) :: pcgsize
   integer                   ,intent(in) :: gx_flag(2*pcgsize(1)) ! 0 :reg cell
@@ -5907,62 +5910,129 @@ subroutine init_resid_type(resid_object, model, uindx, umask, &
   real(dp)          ,intent(in) :: L2norm
   real(dp)          ,intent(in) :: d2thckdewdns(ewn-1,nsn-1), d2usrfdewdns(ewn-1,nsn-1)
   
-  type(pass_through)     ,intent(out) :: resid_object
+!  type(glide_global_type)     ,intent(out) :: resid_object
   
-  allocate(resid_object%ui(ewn-1,nsn-1) )
-  allocate(resid_object%um(ewn-1,nsn-1) ) 
-  allocate(resid_object%d2thckcross(ewn-1,nsn-1) )
-  allocate(resid_object%d2usrfcross(ewn-1,nsn-1) ) 
-  allocate(resid_object%gxf( 2*pcgsize(1) ) )
+  allocate(model%solver_data%ui(ewn-1,nsn-1) )
+  allocate(model%solver_data%um(ewn-1,nsn-1) ) 
+  allocate(model%solver_data%d2thckcross(ewn-1,nsn-1) )
+  allocate(model%solver_data%d2usrfcross(ewn-1,nsn-1) ) 
+  allocate(model%solver_data%gxf( 2*pcgsize(1) ) )
   
-  resid_object%model%general%ewn = model%general%ewn
-  resid_object%model%general%nsn = model%general%nsn
-  resid_object%model%general%upn = model%general%upn
-  resid_object%model%numerics%dew = model%numerics%dew
-  resid_object%model%numerics%dns = model%numerics%dns
-  resid_object%model%numerics%sigma => model%numerics%sigma(:)
-  resid_object%model%numerics%stagsigma => model%numerics%stagsigma(:)
-  resid_object%model%geometry%thck => model%geometry%thck(:,:)
-  resid_object%model%geometry%lsrf => model%geometry%lsrf(:,:)
-  resid_object%model%geometry%topg => model%geometry%topg(:,:)
-  resid_object%model%geomderv%dthckdew => model%geomderv%dthckdew(:,:)
-  resid_object%model%geomderv%dthckdns => model%geomderv%dthckdns(:,:)
-  resid_object%model%geomderv%dusrfdew => model%geomderv%dusrfdew(:,:)
-  resid_object%model%geomderv%dusrfdns => model%geomderv%dusrfdns(:,:)
-  resid_object%model%geomderv%dlsrfdew => model%geomderv%dlsrfdew(:,:)
-  resid_object%model%geomderv%dlsrfdns => model%geomderv%dlsrfdns(:,:)
-  resid_object%model%geomderv%d2thckdew2 => model%geomderv%d2thckdew2(:,:) 
-  resid_object%model%geomderv%d2thckdns2 => model%geomderv%d2thckdns2(:,:) 
-  resid_object%model%geomderv%d2usrfdew2 => model%geomderv%d2usrfdew2(:,:) 
-  resid_object%model%geomderv%d2usrfdns2 => model%geomderv%d2usrfdns2(:,:) 
-  resid_object%model%geomderv%stagthck => model%geomderv%stagthck(:,:)
-  resid_object%model%temper%flwa => model%temper%flwa(:,:,:)
-  resid_object%model%basalproc%minTauf => model%basalproc%minTauf(:,:)
-  resid_object%model%velocity%btraction => model%velocity%btraction(:,:,:)
-  resid_object%model%options%which_ho_babc = model%options%which_ho_babc
-  resid_object%model%options%which_ho_efvs = model%options%which_ho_efvs
-  resid_object%model%options%which_ho_sparse = model%options%which_ho_sparse
-  resid_object%model%velocity%beta => model%velocity%beta(:,:)
   do i = 1, ewn-1 
    do j = 1, nsn-1 
-    resid_object%ui(i,j)  = uindx(i,j)
-    resid_object%um(i,j)  = umask(i,j)
-    resid_object%d2thckcross(i,j) = d2thckdewdns(i,j) 
-    resid_object%d2usrfcross(i,j) = d2usrfdewdns(i,j) 
+    model%solver_data%ui(i,j)  = uindx(i,j)
+    model%solver_data%um(i,j)  = umask(i,j)
+    model%solver_data%d2thckcross(i,j) = d2thckdewdns(i,j) 
+    model%solver_data%d2usrfcross(i,j) = d2usrfdewdns(i,j) 
    end do
   end do
-  resid_object%pcgsize = pcgsize
+  model%solver_data%pcgsize = pcgsize
   do i = 1, 2*pcgsize(1)
-   resid_object%gxf(i) = gx_flag(i)
+   model%solver_data%gxf(i) = gx_flag(i)
   end do
-  resid_object%L2norm = L2norm
-  resid_object%matrixA = matrixA
-  resid_object%matrixC = matrixC
-  resid_object%model%stress%efvs => model%stress%efvs(:,:,:)
-  resid_object%model%velocity%uvel => model%velocity%uvel(:,:,:)
-  resid_object%model%velocity%vvel => model%velocity%vvel(:,:,:)
+  model%solver_data%L2norm = L2norm
+  model%solver_data%matrixA = matrixA
+  model%solver_data%matrixC = matrixC
 
-end subroutine init_resid_type
+end subroutine alloc_resid
+
+!   subroutine slapsolve(xk_1, F, xk_size, c_ptr_to_object, NL_target,NL_tol)
+
+!  use iso_c_binding  
+!  use glide_types ,only : glide_global_type
+!  use parallel
+
+!  implicit none
+
+!   integer(c_int) ,intent(in) ,value  :: xk_size
+!   real(c_double)  ,intent(in)        :: xtp(xk_size)
+!   real(c_double)  ,intent(out)       :: F(xk_size)
+!   type(glide_global_type) ,pointer        :: fptr=>NULL()
+!   type(c_ptr) ,intent(inout)         :: c_ptr_to_object
+!
+! Iteration loop
+
+!  do k = 1, kmax
+
+!    call calc_F (xk_1, F, xk_size, c_ptr_to_object, 0)
+!
+!    call c_f_pointer(c_ptr_to_object,fptr) ! convert C ptr to F ptr
+!    L2norm = fptr%L2norm
+!    matrixA = fptr%matrixA
+!    matrixC = fptr%matrixC
+!
+!!   calcoffdiag = .false.    ! next time calling calc_F, DO NOT save off diag matrix components
+!
+!    L2norm_wig = sqrt(DOT_PRODUCT(F,F)) ! with ghost
+!
+!!==============================================================================
+!! -define nonlinear target (if k=1)
+!! -check at all k if target is reached
+!!==============================================================================
+!
+!    if (k == 1) NL_target = NL_tol * (L2norm_wig + 1.0e-2)
+!
+!    print *, 'L2 w/ghost (k)= ',k,L2norm_wig,L2norm
+!
+!    if (L2norm_wig < NL_target) exit ! nonlinear convergence criterion
+!
+!!==============================================================================
+!! solve J(u^k-1,v^k-1)dx = -F(u^k-1,v^k-1) with fgmres, dx = [dv, du]  
+!!==============================================================================
+!
+!    rhs = -1.d0*F
+!
+!    dx  = 0.d0 ! initial guess
+!
+!    call forcing_term (k, L2norm_wig, gamma_l)
+!
+!    tol = gamma_l * L2norm_wig ! setting the tolerance for fgmres
+!
+!    epsilon = 1.d-07 ! for J*vector approximation
+!
+!    maxiteGMRES = 300
+!      
+!    iout   = 0    ! set  higher than 0 to have res(ite)
+!
+!    icode = 0
+!
+!!TODO - Can we avoid GOTO and CONTINUE?  Very old-style Fortran.
+!
+! 10 CONTINUE
+!      
+!      call fgmres (2*pcgsize(1),img,rhs,dx,itenb,vv,wk,wk1,wk2, &
+!                   tol,maxiteGMRES,iout,icode,tot_its)
+!
+!      IF ( icode == 1 ) THEN   ! precond step: use of Picard linear solver
+!                               ! wk2 = P^-1*wk1
+!        call apply_precond_nox( wk2, wk1, xk_size, c_ptr_to_object )
+!        GOTO 10
+!      ELSEIF ( icode >= 2 ) THEN  ! matvec step: Jacobian free approach
+!                                  ! J*wk1 ~ wk2 = (F_plus - F)/epsilon
+!         
+!! form  v^k-1_plus = v^k-1 + epsilon*wk1v. We use solver_postprocess to 
+!! transform vk_1_plus from a vector to a 3D field. (same idea for u^k-1_plus)
+!        vectx(:) = wk1(1:2*pcgsize(1)) ! for v and u
+!        xk_1_plus = xk_1 + epsilon*vectx
+!
+!! form F(x + epsilon*wk1) = F(u^k-1 + epsilon*wk1u, v^k-1 + epsilon*wk1v)
+!        call calc_F (xk_1_plus, F_plus, xk_size, c_ptr_to_object, 1)
+!
+!! put approximation of J*wk1 in wk2
+!
+!        wk2 =  ( F_plus - F ) / epsilon
+!
+!        GOTO 10
+!      ENDIF
+!
+!!------------------------------------------------------------------------
+!! End of FGMRES method    
+!!------------------------------------------------------------------------
+!      if (tot_its == maxiteGMRES) then
+!        print *,'WARNING: FGMRES has not converged'
+!        stop
+!      endif
+!   end subroutine slapsolve
 
 
 !***********************************************************************************************
@@ -6149,8 +6219,8 @@ end function croshorizmainbc
 !***********************************************************************************************
 !OSBC:ABOVE here are older subroutines that have been replaced by newer or slightly altered ones
 !***********************************************************************************************
-
+ 
 
 end module glam_strs2
 
-!***********************************************************************
+!!!***********************************************************************
