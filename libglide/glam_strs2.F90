@@ -872,9 +872,6 @@ subroutine JFNK_velo_solver  (model,umask)
 
   implicit none
 
-! KJE is it ok to set this as a target this deep in, or does it have to be set this way 
-! from the start? apparently its fine
-
   type(glide_global_type) ,target, intent(inout) :: model
 
 !TODO - Can we make the mask intent in?
@@ -887,15 +884,11 @@ subroutine JFNK_velo_solver  (model,umask)
   type(glide_global_type) ,pointer :: fptr=>NULL()
   type(c_ptr)                 :: c_ptr_to_object
 
-!KJE for NOX
   integer(c_int) :: xk_size
-  real(dp), dimension(:), allocatable :: xk_1, xk_1_plus
-  real(dp), dimension(:), allocatable :: vectx
-! KJE  integer ,dimension(:) ,allocatable :: gx_flag, g_flag
+  real(dp), dimension(:), allocatable :: xk_1
   integer ,dimension(:) ,allocatable :: gx_flag
 
 ! split off of derived types
-
 !TODO - Should the following be passed in explicitly?
 
 ! intent(in)
@@ -931,45 +924,17 @@ subroutine JFNK_velo_solver  (model,umask)
   real(dp), dimension(:,:)   ,pointer :: uflx, vflx
   real(dp), dimension(:,:,:) ,pointer :: efvs
 
-  integer :: ew, ns, up, nele, k
-
+  integer :: ew, ns, up, nele
   real(dp), parameter :: NL_tol = 1.0d-06
 
-  integer, parameter :: img = 20, img1 = img+1
-  integer :: kmax = 1000
+! currently needed to assess whether basal traction is updated after each nonlinear iteration
+  integer :: k 
 
   character(len=100) :: message
 
 !*sfp* needed to incorporate generic wrapper to solver
   type(sparse_matrix_type) :: matrixA, matrixC, matrixtp, matrixAuv, matrixAvu
-  real(dp), dimension(:), allocatable :: answer, uk_1, vk_1
-  real(dp), dimension(:), allocatable :: vectp, uk_1_plus, vk_1_plus
-  real(dp), dimension(:), allocatable :: dx, F, F_plus
-  real(dp), dimension(:), allocatable :: wk1, wk2, rhs
-  real(dp), dimension(:,:), allocatable :: vv, wk
-  real(dp) :: L2norm, L2norm_wig, tol, gamma_l, epsilon,NL_target
-  real(dp) :: crap
-  integer :: tot_its, itenb, maxiteGMRES, iout, icode
-
-!  interface
-!    subroutine noxsolve(vectorSize,vector,v_container) bind(C,name='noxsolve')
-!      use iso_c_binding
-!          integer(c_int)                :: vectorSize
-!          real(c_double)  ,dimension(*) :: vector
-!          type(c_ptr)                   :: v_container
-!      end subroutine noxsolve
-!
-!    subroutine noxinit(vectorSize,vector,comm,v_container) bind(C,name='noxinit')
-!      use iso_c_binding
-!          integer(c_int)                :: vectorSize,comm
-!          real(c_double)  ,dimension(*) :: vector
-!          type(c_ptr)                   :: v_container
-!      end subroutine noxinit
-!
-!      subroutine noxfinish() bind(C,name='noxfinish')
-!       use iso_c_binding
-!      end subroutine noxfinish
-!  end interface
+  real(dp) :: L2norm
 
 !TODO - Could eliminate pointers if arguments are passed in explicitly.
  call t_startf("JFNK_pre")
@@ -1028,7 +993,6 @@ subroutine JFNK_velo_solver  (model,umask)
 
 !TODO - Do these derivatives have to go in the model derived type and the residual object?
   ! put d2's into model derived type structure to eventually go into resid_object
-!KJE add these in after the code is working well with original stuff
   model%geomderv%d2thckdew2 = d2thckdew2
   model%geomderv%d2thckdns2 = d2thckdns2
   model%geomderv%d2usrfdew2 = d2usrfdew2
@@ -1072,12 +1036,14 @@ subroutine JFNK_velo_solver  (model,umask)
      call distributed_create_partition(ewn, nsn, (upn + 2) , uindx, pcgsize(1), myIndices, myX, myY, myZ)  ! Uses uindx mask to determine ice grid points.
      mySize = pcgsize(1)  ! Set variable for inittrilinos
 
-     !write(*,*) "GlobalIDs myIndices..."
-     !write(*,*) "pcgsize = ", pcgsize(1)
-     !write(*,*) "myIndices = ", myIndices
+#ifdef GLC_DEBUG
+     write(*,*) "GlobalIDs myIndices..."
+     write(*,*) "pcgsize = ", pcgsize(1)
+     write(*,*) "myIndices = ", myIndices
      !call parallel_stop(__FILE__, __LINE__)
+#endif
 
-     call inittrilinos(25, mySize, myIndices, myX, myY, myZ)   !TODO - Why 25 instead of 20 as above?
+     call inittrilinos(25, mySize, myIndices, myX, myY, myZ)   !re: Why 25 not 20 for PIC? needed the mem space
 
      ! Triad sparse matrix not used in this case, so save on memory
      pcgsize(2) = 1
@@ -1093,14 +1059,13 @@ subroutine JFNK_velo_solver  (model,umask)
 ! RN_20100126: End of the block
 !==============================================================================
 
-  ! For NOX JFNK
-  allocate( vectx(2*pcgsize(1)), xk_1(2*pcgsize(1)), xk_1_plus(2*pcgsize(1)), gx_flag(2*pcgsize(1)) )
+  allocate( xk_1(2*pcgsize(1)), gx_flag(2*pcgsize(1)) )
 
   ! *sfp** allocate space matrix variables
   allocate (pcgrow(pcgsize(2)),pcgcol(pcgsize(2)), rhsd(pcgsize(1)), rhsx(2*pcgsize(1)), &
             pcgval(pcgsize(2)))
   allocate(matrixA%row(pcgsize(2)), matrixA%col(pcgsize(2)), &
-            matrixA%val(pcgsize(2)), answer(pcgsize(1)))
+            matrixA%val(pcgsize(2))) 
   allocate(matrixC%row(pcgsize(2)), matrixC%col(pcgsize(2)), &
             matrixC%val(pcgsize(2)))
   allocate(matrixtp%row(pcgsize(2)), matrixtp%col(pcgsize(2)), &
@@ -1113,13 +1078,6 @@ subroutine JFNK_velo_solver  (model,umask)
   allocate(pcgrowvu(pcgsize(2)),pcgcolvu(pcgsize(2)),pcgvalvu(pcgsize(2)))
   allocate(matrixAuv%row(pcgsize(2)),matrixAuv%col(pcgsize(2)),matrixAuv%val(pcgsize(2)))
   allocate(matrixAvu%row(pcgsize(2)),matrixAvu%col(pcgsize(2)),matrixAvu%val(pcgsize(2)))
-
-! KJE  allocate( uk_1(pcgsize(1)), vk_1(pcgsize(1)),g_flag(pcgsize(1)) )
-  allocate( uk_1(pcgsize(1)), vk_1(pcgsize(1)) )
-  allocate( vectp(pcgsize(1)), uk_1_plus(pcgsize(1)), vk_1_plus(pcgsize(1)) )
-  allocate( F(2*pcgsize(1)), F_plus(2*pcgsize(1)), dx(2*pcgsize(1)) )
-  allocate( wk1(2*pcgsize(1)), wk2(2*pcgsize(1)), rhs(2*pcgsize(1)) )
-  allocate( vv(2*pcgsize(1),img1), wk(2*pcgsize(1), img) )
 
   call alloc_resid(model, uindx, umask, d2thckdewdns, d2usrfdewdns, &
                        pcgsize, gx_flag, matrixA, matrixC, L2norm, ewn, nsn)
@@ -1159,117 +1117,22 @@ end if
   call noxfinish()
  call t_stopf("JFNK_noxfinish")
 
+ k = 0
+
 #else
 !==============================================================================
 ! SLAP JFNK loop: calculate F(u^k-1,v^k-1)
 !==============================================================================
 
-!   call slapsolve(xk_1, xk_size, c_ptr_to_object, NL_target, NL_tol, rhs, dx, gamma_l, tol)
-! can move in allocation of rhs and dx, gamma_l, NL?
+   call slapsolve(xk_1, xk_size, c_ptr_to_object, NL_tol, pcgsize)
 
-  do k = 1, kmax
-
-   call t_startf("JFNK_SLAP")
-
-!    calcoffdiag = .true.    ! save off diag matrix components
-!    calcoffdiag = .false.    ! save off diag matrix components
-
-! xk goes in, F comes out
-    call calc_F (xk_1, F, xk_size, c_ptr_to_object, 0)
-
-    call c_f_pointer(c_ptr_to_object,fptr) ! convert C ptr to F ptr
-    L2norm = fptr%solver_data%L2norm
-    matrixA = fptr%matrixA
-    matrixC = fptr%matrixC
-
-!   calcoffdiag = .false.    ! next time calling calc_F, DO NOT save off diag matrix components
-
-    L2norm_wig = sqrt(DOT_PRODUCT(F,F)) ! with ghost
-
-!==============================================================================
-! -define nonlinear target (if k=1)
-! -check at all k if target is reached
-!==============================================================================
-
-    if (k == 1) NL_target = NL_tol * (L2norm_wig + 1.0e-2)
-
-    print *, 'L2 w/ghost (k)= ',k,L2norm_wig,L2norm
-
-    if (L2norm_wig < NL_target) exit ! nonlinear convergence criterion
-
-!==============================================================================
-! solve J(u^k-1,v^k-1)dx = -F(u^k-1,v^k-1) with fgmres, dx = [dv, du]  
-!==============================================================================
-
-    rhs = -1.d0*F
-
-    dx  = 0.d0 ! initial guess
-
-    call forcing_term (k, L2norm_wig, gamma_l)
-
-    tol = gamma_l * L2norm_wig ! setting the tolerance for fgmres
-
-! to here ID'ing waht is passed to slapsolve
-
-    epsilon = 1.d-07 ! for J*vector approximation
-
-    maxiteGMRES = 300
-      
-    iout   = 0    ! set  higher than 0 to have res(ite)
-
-    icode = 0
-
-!TODO - Can we avoid GOTO and CONTINUE?  Very old-style Fortran.
-
- 10 CONTINUE
-      
-      call fgmres (2*pcgsize(1),img,rhs,dx,itenb,vv,wk,wk1,wk2, &
-                   tol,maxiteGMRES,iout,icode,tot_its)
-
-      IF ( icode == 1 ) THEN   ! precond step: use of Picard linear solver
-                               ! wk2 = P^-1*wk1
-        call apply_precond_nox( wk2, wk1, xk_size, c_ptr_to_object )
-        GOTO 10
-      ELSEIF ( icode >= 2 ) THEN  ! matvec step: Jacobian free approach
-                                  ! J*wk1 ~ wk2 = (F_plus - F)/epsilon
-         
-! form  v^k-1_plus = v^k-1 + epsilon*wk1v. We use solver_postprocess to 
-! transform vk_1_plus from a vector to a 3D field. (same idea for u^k-1_plus)
-        vectx(:) = wk1(1:2*pcgsize(1)) ! for v and u
-        xk_1_plus = xk_1 + epsilon*vectx
-
-! form F(x + epsilon*wk1) = F(u^k-1 + epsilon*wk1u, v^k-1 + epsilon*wk1v)
-        call calc_F (xk_1_plus, F_plus, xk_size, c_ptr_to_object, 1)
-
-! put approximation of J*wk1 in wk2
-
-        wk2 =  ( F_plus - F ) / epsilon
-
-        GOTO 10
-      ENDIF
-
-!------------------------------------------------------------------------
-! End of FGMRES method    
-!------------------------------------------------------------------------
-      if (tot_its == maxiteGMRES) then
-        print *,'WARNING: FGMRES has not converged'
-        stop
-      endif
-
-! icode = 0 means that fgmres has finished and sol contains the app. solution
-
-!------------------------------------------------------------------------
-! Update solution vectors (x^k = x^k-1 + dx) and 3D fields 
-!------------------------------------------------------------------------
-      xk_1 = xk_1 + dx(1:2*pcgsize(1))
-
-  call t_stopf("JFNK_SLAP")
- end do   ! k = 1, kmax 
+ k = 1
 
 #endif   ! SLAP JFNK
 
  call t_startf("JFNK_post")
-! (need to update these values from fptr%uvel,vvel,stagthck etc)
+
+! need to update these values from fptr%uvel,vvel,stagthck etc
   call solver_postprocess_jfnk( ewn, nsn, upn, uindx, xk_1, vvel, uvel, ghostbvel, pcgsize(1) )
   call ghost_postprocess_jfnk( ewn, nsn, upn, uindx, xk_1, ughost, vghost, pcgsize(1) )
 
@@ -1283,6 +1146,9 @@ end if
     ! to skip JFs original implementation of JFNK (and jumping out of the do loop means these calls
     ! are skipped if they are inside of the do loop).
     !
+
+! KJE this is now outside the loop of both JFNK methods (and has been for while) 
+
     call findcoefstr(ewn,  nsn,   upn,            &
                      dew,  dns,   sigma,          &
                      2,           efvs,           &
@@ -1358,10 +1224,11 @@ end if
   deallocate(matrixAvu%row, matrixAvu%col, matrixAvu%val)
   deallocate(matrixC%row, matrixC%col, matrixC%val)
   deallocate(matrixtp%row, matrixtp%col, matrixtp%val)
-  deallocate(answer, dx, vectp, uk_1_plus, vk_1_plus, xk_1_plus, gx_flag )
-  deallocate(F, F_plus)
-  deallocate(wk1, wk2)
-  deallocate(vv, wk)
+  deallocate(gx_flag )
+!  deallocate(dx, xk_1_plus, gx_flag )
+!  deallocate(F, F_plus)
+!  deallocate(wk1, wk2)
+!  deallocate(vv, wk)
 
  !model%velocity%uvel = uvel
  !model%velocity%vvel = vvel
@@ -2756,9 +2623,11 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
 
   end select
 
+#ifdef GLC_DEBUG
   ! Additional debugging line, useful when trying to determine if convergence is being consistently
   ! help up by the residual at one or a few particular locations in the domain.
-  !print '("* ",i3,g20.6,3i6,g20.6)', counter, resid, locat, vel(locat(1),locat(2),locat(3))*vel0
+  print '("* ",i3,g20.6,3i6,g20.6)', counter, resid, locat, vel(locat(1),locat(2),locat(3))*vel0
+#endif
 
   ! SAVE VELOCITY AND CALCULATE CORRECTION
 
@@ -2807,6 +2676,8 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
   end if
 
   ! UPDATE POINTERS
+
+! TODO take out the older one?
 
   !*sfp* Old version
   ! if (new(pt) == 1) then; old(pt) = 1; new(pt) = 2; else; old(pt) = 1; new(pt) = 2; end if
@@ -5936,103 +5807,141 @@ subroutine alloc_resid(model, uindx, umask, &
 
 end subroutine alloc_resid
 
-!   subroutine slapsolve(xk_1, F, xk_size, c_ptr_to_object, NL_target,NL_tol)
+subroutine slapsolve(xk_1, xk_size, c_ptr_to_object, NL_tol, pcgsize)
 
-!  use iso_c_binding  
-!  use glide_types ,only : glide_global_type
-!  use parallel
+  use iso_c_binding  
+  use glimmer_paramets, only : dp
+  use glide_types ,only : glide_global_type
+  use parallel
 
-!  implicit none
+  implicit none
 
-!   integer(c_int) ,intent(in) ,value  :: xk_size
-!   real(c_double)  ,intent(in)        :: xtp(xk_size)
-!   real(c_double)  ,intent(out)       :: F(xk_size)
-!   type(glide_global_type) ,pointer        :: fptr=>NULL()
-!   type(c_ptr) ,intent(inout)         :: c_ptr_to_object
-!
+  real(dp), dimension(:), intent(out) :: xk_1
+  integer(c_int) ,intent(in) ,value  :: xk_size
+  type(c_ptr) ,intent(inout)         :: c_ptr_to_object
+  real(dp) ,intent(in) :: NL_tol
+  integer, dimension(2) :: pcgsize
+
+  type(glide_global_type) ,pointer        :: fptr=>NULL()
+
+  real(dp), dimension(:), allocatable :: xk_1_plus, vectx
+  real(dp), dimension(:), allocatable :: dx, F, F_plus
+  real(dp), dimension(:), allocatable :: wk1, wk2, rhs
+  real(dp), dimension(:,:), allocatable :: vv, wk
+  real(dp) :: L2norm_wig, tol, gamma_l, epsilon, NL_target
+  integer :: tot_its, itenb, maxiteGMRES, iout, icode
+  integer, parameter :: img = 20, img1 = img+1, kmax = 1000
+  integer :: k
+
+  type(sparse_matrix_type) :: matrixA, matrixC
+  real(dp) :: L2norm
+
+  allocate( vectx(2*pcgsize(1)), xk_1_plus(2*pcgsize(1)) )
+  allocate( F(2*pcgsize(1)), F_plus(2*pcgsize(1)), dx(2*pcgsize(1)) )
+  allocate( wk1(2*pcgsize(1)), wk2(2*pcgsize(1)), rhs(2*pcgsize(1)) )
+  allocate( vv(2*pcgsize(1),img1), wk(2*pcgsize(1),img) )
+
+   call t_startf("JFNK_SLAP")
+
 ! Iteration loop
 
-!  do k = 1, kmax
+  do k = 1, kmax
 
-!    call calc_F (xk_1, F, xk_size, c_ptr_to_object, 0)
-!
-!    call c_f_pointer(c_ptr_to_object,fptr) ! convert C ptr to F ptr
-!    L2norm = fptr%L2norm
-!    matrixA = fptr%matrixA
-!    matrixC = fptr%matrixC
-!
-!!   calcoffdiag = .false.    ! next time calling calc_F, DO NOT save off diag matrix components
-!
-!    L2norm_wig = sqrt(DOT_PRODUCT(F,F)) ! with ghost
-!
-!!==============================================================================
-!! -define nonlinear target (if k=1)
-!! -check at all k if target is reached
-!!==============================================================================
-!
-!    if (k == 1) NL_target = NL_tol * (L2norm_wig + 1.0e-2)
-!
-!    print *, 'L2 w/ghost (k)= ',k,L2norm_wig,L2norm
-!
-!    if (L2norm_wig < NL_target) exit ! nonlinear convergence criterion
-!
-!!==============================================================================
-!! solve J(u^k-1,v^k-1)dx = -F(u^k-1,v^k-1) with fgmres, dx = [dv, du]  
-!!==============================================================================
-!
-!    rhs = -1.d0*F
-!
-!    dx  = 0.d0 ! initial guess
-!
-!    call forcing_term (k, L2norm_wig, gamma_l)
-!
-!    tol = gamma_l * L2norm_wig ! setting the tolerance for fgmres
-!
-!    epsilon = 1.d-07 ! for J*vector approximation
-!
-!    maxiteGMRES = 300
-!      
-!    iout   = 0    ! set  higher than 0 to have res(ite)
-!
-!    icode = 0
-!
-!!TODO - Can we avoid GOTO and CONTINUE?  Very old-style Fortran.
-!
-! 10 CONTINUE
-!      
-!      call fgmres (2*pcgsize(1),img,rhs,dx,itenb,vv,wk,wk1,wk2, &
-!                   tol,maxiteGMRES,iout,icode,tot_its)
-!
-!      IF ( icode == 1 ) THEN   ! precond step: use of Picard linear solver
-!                               ! wk2 = P^-1*wk1
-!        call apply_precond_nox( wk2, wk1, xk_size, c_ptr_to_object )
-!        GOTO 10
-!      ELSEIF ( icode >= 2 ) THEN  ! matvec step: Jacobian free approach
-!                                  ! J*wk1 ~ wk2 = (F_plus - F)/epsilon
-!         
-!! form  v^k-1_plus = v^k-1 + epsilon*wk1v. We use solver_postprocess to 
-!! transform vk_1_plus from a vector to a 3D field. (same idea for u^k-1_plus)
-!        vectx(:) = wk1(1:2*pcgsize(1)) ! for v and u
-!        xk_1_plus = xk_1 + epsilon*vectx
-!
-!! form F(x + epsilon*wk1) = F(u^k-1 + epsilon*wk1u, v^k-1 + epsilon*wk1v)
-!        call calc_F (xk_1_plus, F_plus, xk_size, c_ptr_to_object, 1)
-!
-!! put approximation of J*wk1 in wk2
-!
-!        wk2 =  ( F_plus - F ) / epsilon
-!
-!        GOTO 10
-!      ENDIF
-!
-!!------------------------------------------------------------------------
-!! End of FGMRES method    
-!!------------------------------------------------------------------------
-!      if (tot_its == maxiteGMRES) then
-!        print *,'WARNING: FGMRES has not converged'
-!        stop
-!      endif
-!   end subroutine slapsolve
+    call calc_F (xk_1, F, xk_size, c_ptr_to_object, 0)
+
+    call c_f_pointer(c_ptr_to_object,fptr) ! convert C ptr to F ptr
+    L2norm = fptr%solver_data%L2norm
+    matrixA = fptr%solver_data%matrixA
+    matrixC = fptr%solver_data%matrixC
+
+!   calcoffdiag = .false.    ! next time calling calc_F, DO NOT save off diag matrix components
+
+    L2norm_wig = sqrt(DOT_PRODUCT(F,F)) ! with ghost
+
+!==============================================================================
+! -define nonlinear target (if k=1)
+! -check at all k if target is reached
+!==============================================================================
+
+    if (k == 1) NL_target = NL_tol * (L2norm_wig + 1.0e-2)
+
+    print *, 'L2 w/ghost (k)= ',k,L2norm_wig,L2norm
+
+    if (L2norm_wig < NL_target) exit ! nonlinear convergence criterion
+
+!==============================================================================
+! solve J(u^k-1,v^k-1)dx = -F(u^k-1,v^k-1) with fgmres, dx = [dv, du]  
+!==============================================================================
+
+    rhs = -1.d0*F
+
+    dx  = 0.d0 ! initial guess
+
+    call forcing_term (k, L2norm_wig, gamma_l)
+
+    tol = gamma_l * L2norm_wig ! setting the tolerance for fgmres
+
+    epsilon = 1.d-07 ! for J*vector approximation
+
+    maxiteGMRES = 300
+      
+    iout   = 0    ! set  higher than 0 to have res(ite)
+
+    icode = 0
+
+!TODO - Can we avoid GOTO and CONTINUE?  Very old-style Fortran.
+
+ 10 CONTINUE
+! icode = 0 means that fgmres has finished and sol contains the app. solution
+      
+      call fgmres (2*pcgsize(1),img,rhs,dx,itenb,vv,wk,wk1,wk2, &
+                   tol,maxiteGMRES,iout,icode,tot_its)
+
+      IF ( icode == 1 ) THEN   ! precond step: use of Picard linear solver
+                               ! wk2 = P^-1*wk1
+        call apply_precond_nox( wk2, wk1, xk_size, c_ptr_to_object )
+        GOTO 10
+      ELSEIF ( icode >= 2 ) THEN  ! matvec step: Jacobian free approach
+                                  ! J*wk1 ~ wk2 = (F_plus - F)/epsilon
+         
+! form  v^k-1_plus = v^k-1 + epsilon*wk1v. We use solver_postprocess to 
+! transform vk_1_plus from a vector to a 3D field. (same idea for u^k-1_plus)
+        vectx(:) = wk1(1:2*pcgsize(1)) ! for v and u
+        xk_1_plus = xk_1 + epsilon*vectx
+
+! form F(x + epsilon*wk1) = F(u^k-1 + epsilon*wk1u, v^k-1 + epsilon*wk1v)
+        call calc_F (xk_1_plus, F_plus, xk_size, c_ptr_to_object, 1)
+
+! put approximation of J*wk1 in wk2
+
+        wk2 =  ( F_plus - F ) / epsilon
+
+        GOTO 10
+      ENDIF
+
+!------------------------------------------------------------------------
+! End of FGMRES method    
+!------------------------------------------------------------------------
+      if (tot_its == maxiteGMRES) then
+        print *,'WARNING: FGMRES has not converged'
+        stop
+      endif
+
+!------------------------------------------------------------------------
+! Update solution vectors (x^k = x^k-1 + dx) and 3D fields 
+!------------------------------------------------------------------------
+      xk_1 = xk_1 + dx(1:2*pcgsize(1))
+
+  call t_stopf("JFNK_SLAP")
+ end do   ! k = 1, kmax 
+
+
+  deallocate(dx, vectx, xk_1_plus)
+  deallocate(F, F_plus, rhs)
+  deallocate(wk1, wk2)
+  deallocate(vv, wk)
+
+end subroutine slapsolve
 
 
 !***********************************************************************************************

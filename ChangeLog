@@ -4,7 +4,7 @@
  * pass-through derived type is now glissade_solver and includes type pcgdwk, which has been absorbed
  * glissade_solver is now part of glide_global_type, which mean resid_object is no longer needed
  * init_resid subroutine is now alloc-resid, and allocated parts of the model derived type that deal with the JFNK solver
- * initial work to create a slap JFNK subroutine is started, just comments with structure right now
+ * JFNK solved with slap when the code is built to run in serial is now a separate subroutine within glam_strs2
 
 2012-01-13 Kate Evans
  * Merged trunk changes since the branch was made.

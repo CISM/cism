@@ -25,6 +25,7 @@ module parallel
   integer,save :: global_ewn,global_nsn,local_ewn,local_nsn,own_ewn,own_nsn
   integer,save :: global_col_offset, global_row_offset
 
+! TODO make slap version of these for consistency
   integer,save :: ewlb,ewub,nslb,nsub
   integer,save :: east,north,south,west
 
