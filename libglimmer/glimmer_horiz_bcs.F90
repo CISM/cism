@@ -16,12 +16,12 @@ contains
 
 
   subroutine horiz_bcs_unstag_scalar_real8_3d( a )
-    use parallel, only: this_rank, north, south, east, west, local_ewn, local_nsn
+!   use parallel, only: this_rank, north, south, east, west, own_ewn, own_nsn
     implicit none
-    real(8),dimension( : , : , : ) :: a
-    if (this_rank < west ) then
-      write(*,*) this_rank, 'west'
-    endif
+    real(8),dimension(:,:,:) :: a
+!   if (this_rank < west ) then
+!     write(*,*) this_rank, 'west'
+!   endif
   end subroutine horiz_bcs_unstag_scalar_real8_3d
 
 
