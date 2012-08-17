@@ -849,7 +849,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
   deallocate(pcgval,pcgrow,pcgcol,rhsd)
   deallocate(matrix%row, matrix%col, matrix%val)
   deallocate(answer)
-  deallocate(uk_1, vk_1, F, g_flag) ! jfl 
+  deallocate(uk_1, vk_1, F, g_flag)
 
   !JEFF Debugging output
   overallloop = overallloop + 1
@@ -1103,8 +1103,6 @@ end if
 !                                                       F = [Fv(u,v), Fu(u,v)] 
 !==============================================================================
  
-! KJE: Andy take noxinit and noxfinish out of time step loop?
-
  call t_startf("JFNK_noxinit")
   call noxinit(xk_size, xk_1, 1, c_ptr_to_object)
  call t_stopf("JFNK_noxinit")
@@ -1124,7 +1122,7 @@ end if
 ! SLAP JFNK loop: calculate F(u^k-1,v^k-1)
 !==============================================================================
 
-   call slapsolve(xk_1, xk_size, c_ptr_to_object, NL_tol, pcgsize)
+ call slapsolve(xk_1, xk_size, c_ptr_to_object, NL_tol, pcgsize)
 
  k = 1
 
@@ -1148,42 +1146,43 @@ end if
     !
 
 ! KJE this is now outside the loop of both JFNK methods (and has been for while) 
+! appears to be redundant, but leaving commented for a while in case an unknown issues pops up
 
-    call findcoefstr(ewn,  nsn,   upn,            &
-                     dew,  dns,   sigma,          &
-                     2,           efvs,           &
-                     vvel,        uvel,           &
-                     thck,        dusrfdns,       &
-                     dusrfdew,    dthckdew,       &
-                     d2usrfdew2,  d2thckdew2,     &
-                     dusrfdns,    dthckdns,       &
-                     d2usrfdns2,  d2thckdns2,     &
-                     d2usrfdewdns,d2thckdewdns,   &
-                     dlsrfdew,    dlsrfdns,       &
-                     stagthck,    whichbabc,      &
-                     uindx,       umask,          &
-                     lsrf,        topg,           &
-                     minTauf,     flwa,           &
-                     beta,        btraction,      &
-                     k, 1 )
-
-   call findcoefstr(ewn,  nsn,   upn,             &
-                     dew,  dns,   sigma,          &
-                     1,           efvs,           &
-                     uvel,        vvel,           &
-                     thck,        dusrfdew,       &
-                     dusrfdew,    dthckdew,       &
-                     d2usrfdew2,  d2thckdew2,     &
-                     dusrfdns,    dthckdns,       &
-                     d2usrfdns2,  d2thckdns2,     &
-                     d2usrfdewdns,d2thckdewdns,   &
-                     dlsrfdew,    dlsrfdns,       &
-                     stagthck,    whichbabc,      &
-                     uindx,       umask,          &
-                     lsrf,        topg,           &
-                     minTauf,     flwa,           &
-                     beta,        btraction,      &
-                     k, 1 )
+!    call findcoefstr(ewn,  nsn,   upn,            &
+!                     dew,  dns,   sigma,          &
+!                     2,           efvs,           &
+!                     vvel,        uvel,           &
+!                     thck,        dusrfdns,       &
+!                     dusrfdew,    dthckdew,       &
+!                     d2usrfdew2,  d2thckdew2,     &
+!                     dusrfdns,    dthckdns,       &
+!                     d2usrfdns2,  d2thckdns2,     &
+!                     d2usrfdewdns,d2thckdewdns,   &
+!                     dlsrfdew,    dlsrfdns,       &
+!                     stagthck,    whichbabc,      &
+!                     uindx,       umask,          &
+!                     lsrf,        topg,           &
+!                     minTauf,     flwa,           &
+!                     beta,        btraction,      &
+!                     k, 1 )
+!
+!   call findcoefstr(ewn,  nsn,   upn,             &
+!                     dew,  dns,   sigma,          &
+!                     1,           efvs,           &
+!                     uvel,        vvel,           &
+!                     thck,        dusrfdew,       &
+!                     dusrfdew,    dthckdew,       &
+!                     d2usrfdew2,  d2thckdew2,     &
+!                     dusrfdns,    dthckdns,       &
+!                     d2usrfdns2,  d2thckdns2,     &
+!                     d2usrfdewdns,d2thckdewdns,   &
+!                     dlsrfdew,    dlsrfdns,       &
+!                     stagthck,    whichbabc,      &
+!                     uindx,       umask,          &
+!                     lsrf,        topg,           &
+!                     minTauf,     flwa,           &
+!                     beta,        btraction,      &
+!                     k, 1 )
 
   inisoln = .true.
 
