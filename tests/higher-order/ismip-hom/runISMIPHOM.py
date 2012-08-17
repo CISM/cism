@@ -39,11 +39,11 @@ if __name__ == '__main__':
   parser.add_option('-g','--grid-size',dest='horizontal_grid_size',type='int',help='(overrides ewn and nsn in ishom.a.config)')
   parser.add_option('-v','--vert-grid-size',dest='vertical_grid_size',type='int',help='(overrides upn in ishom.a.config)')
   parser.add_option('-d','--diagnostic-scheme',dest='diagnostic_scheme',help='(overrides ishom.a.config)')
-  parser.add_option('-r','--run',dest='executable',default='simple_glide',help='Set path to the GLIMMER executable (defaults to simple_glide)')
+  parser.add_option('-r','--run',dest='executable',default='./simple_glide',help='Set path to the GLIMMER executable (defaults to simple_glide)')
   parser.add_option('-p','--prefix',dest='prefix',default='glm1',help='Prefix to use for model output files (defaults to glm1)')
   parser.add_option('-f','--format-only',dest='format_only',action='store_true',help='Generate the config and NetCDF input files only')
   parser.add_option('-q','--periodic',dest='periodic',type='int',help='if specified then use NEW version of periodic bcs')
-  parser.add_option('-m','--parallel',dest='parallel',type='int',help='if specified then execture run in parallel')
+  parser.add_option('-m','--parallel',dest='parallel',type='int',help='if specified then execute run in parallel')
   options, args = parser.parse_args()
 # If the user didn't specify a list of experiments or domain sizes, run the whole suite
   if options.experiments == None: options.experiments = defaultExperiments
@@ -197,8 +197,8 @@ if __name__ == '__main__':
 #       Run Glimmer (NOTE two options here. 2nd line commented out allows for parallel MPI runs)
         print 'Running',options.executable,'for experiment',experiment.upper(),'with domain size',size,'km'
         if options.parallel != None:
-           #exitCode = os.system('aprun -n6 ./simple_glide '+filename+'.config')  # support for MPI runs is here
-           exitCode = os.system('mpirun -np 6 ./simple_glide '+filename+'.config')
+           #exitCode = os.system('aprun -n4 ./simple_glide '+filename+'.config')  # support for MPI runs is here
+           exitCode = os.system('mpirun -np 4 ./simple_glide '+filename+'.config')
         else:
            exitCode = os.system('echo '+filename+'.config'+' | '+options.executable)
 
