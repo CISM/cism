@@ -355,8 +355,8 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
   call geom2ders(ewn, nsn, dew, dns, thck, stagthck, d2thckdew2, d2thckdns2)
 
   ! calc geometric 2nd cross-deriv. for generic input variable 'ipvr', returns 'opvr'
-  call geom2derscros(dew, dns, thck, stagthck, d2thckdewdns)
-  call geom2derscros(dew, dns, usrf, stagthck, d2usrfdewdns)
+  call geom2derscros(ewn, nsn, dew, dns, thck, stagthck, d2thckdewdns)
+  call geom2derscros(ewn, nsn, dew, dns, usrf, stagthck, d2usrfdewdns)
 
   allocate(uindx(ewn-1,nsn-1))
 
@@ -988,8 +988,8 @@ subroutine JFNK_velo_solver  (model,umask)
   call geom2ders(ewn, nsn, dew, dns, thck, stagthck, d2thckdew2, d2thckdns2)
 
   ! *sfp** geometric (2nd) cross-deriv. for generic input variable 'ipvr', output as 'opvr'
-  call geom2derscros(dew, dns, thck, stagthck, d2thckdewdns)
-  call geom2derscros(dew, dns, usrf, stagthck, d2usrfdewdns)
+  call geom2derscros(ewn, nsn, dew, dns, thck, stagthck, d2thckdewdns)
+  call geom2derscros(ewn, nsn, dew, dns, usrf, stagthck, d2usrfdewdns)
 
 !TODO - Do these derivatives have to go in the model derived type and the residual object?
   model%geomderv%d2thckdew2 = d2thckdew2
@@ -5234,26 +5234,44 @@ end function vertintg
 
 !***********************************************************************
 
-subroutine geom2derscros(dew,  dns,   &
+subroutine geom2derscros(ewn,  nsn,   &
+                         dew,  dns,   &
                          ipvr, stagthck, opvrewns)
 
   ! geometric (2nd) cross-deriv. for generic input variable 'ipvr', output as 'opvr'       
 
   implicit none
 
+  integer, intent(in) :: ewn, nsn
   real(dp), intent(in) :: dew, dns
   real(dp), intent(out), dimension(:,:) :: opvrewns
   real(dp), intent(in), dimension(:,:) :: ipvr, stagthck
 
-!TODO - Should these be loops over locally owned velocity points? I.e. (ilo-1:ihi, jlo-1:jhi).
+  integer :: ew, ns
+  real(dp) :: dewdns
+
+  dewdns = dew*dns
  
-  ! consider replacing by a loop over ewn, nsn?
-  where (stagthck /= 0.d0)
-    opvrewns = (eoshift(eoshift(ipvr,1,0.d0,2),1,0.d0,1) + ipvr   &
-               - eoshift(ipvr,1,0.d0,1) - eoshift(ipvr,1,0.d0,2)) / (dew*dns)
-  elsewhere
-    opvrewns = 0.d0
-  end where
+!  *SFP* OLD method; replaced (below) w/ loops and logic for compatibility w/ gnu compilers
+!  where (stagthck /= 0.d0)
+!    opvrewns = (eoshift(eoshift(ipvr,1,0.d0,2),1,0.d0,1) + ipvr   &
+!               - eoshift(ipvr,1,0.d0,1) - eoshift(ipvr,1,0.d0,2)) / (dewdns)
+!  elsewhere
+!    opvrewns = 0.d0
+!  end where
+
+!  *SFP* NEW method
+!TODO - Should these be loops over locally owned velocity points? I.e. (ilo-1:ihi, jlo-1:jhi).
+
+  opvrewns = ( ipvr(2:ewn,2:nsn) - ipvr(2:ewn,1:nsn-1) - ipvr(1:ewn-1,2:nsn) + ipvr(1:ewn-1,1:nsn-1) ) / dewdns
+
+  do ns = 1, nsn-1
+      do ew = 1, ewn-1
+        if (stagthck(ew,ns) == 0.d0) then
+           opvrewns(ew,ns) = 0.d0
+        end if
+      end do
+  end do
 
   return
 
