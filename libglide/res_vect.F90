@@ -49,7 +49,6 @@ real(dp) :: scale_ghosts = 0.0d0
       enddo
 
       uvec = Au_b_wig
-!      print*, "matrix%val,uvec",maxval(matrix%val), maxval(uvec)
 
 ! AGS: Residual norm includes scaling to decrease importance of ghost values
 ! By calling it a redefinition of an inner product, it is kosher.
@@ -71,8 +70,8 @@ end subroutine res_vect
 
 subroutine res_vect_jfnk ( matrixA, matrixC, uvec, bvec, nu1, nu2, g_flag, L2square, whatsparse)
 
-! similar to res_vect, but state vector uvec and rhs vector bvec are now both velocities (kje 101005)
-! as an intermediate step, right now A and C matrices are separate, but eventually they will be combined
+! similar to res_vect, but state vector uvec and rhs vector bvec are now both velocities 
+! A and C matrices are separate, but eventually could be combined
 
 use glimmer_paramets, only : dp
 use glimmer_sparse_type
@@ -82,12 +81,10 @@ use glide_mask
 implicit none
 
 integer :: i, j, nu1, nu2, nele, whatsparse ! nu2: size of uvec and bvec, size of u, v within
-!integer, dimension(:), intent(in) :: g_flag ! 0 :reg cell
-                                             ! 1 :top ghost, 2 :base ghost
 
 type(sparse_matrix_type),  intent(in) :: matrixA, matrixC
 
-integer, dimension(nu2) :: g_flag 
+integer, dimension(nu2) :: g_flag  ! 0=reg cell, 1: top ghost, 2, base ghost
 real(dp), dimension(nu2), intent(in) :: bvec
 real(dp), dimension(nu2), intent(inout) :: uvec
 real(dp), dimension(nu1) :: Au_b_wig, Cv_d_wig
@@ -161,6 +158,8 @@ real(dp) :: scale_ghosts = 0.0d0
 !         endif
 !      end do
 ! when the combined version is used, convergence wrong
+!TODO (KJE) what is the comment above. What is wrong?
+
       do i = 1, nu2
          if (g_flag(i) == 0) then
             L2square = L2square + uvec(i) * uvec(i)

@@ -928,7 +928,7 @@ subroutine JFNK_velo_solver  (model,umask)
   real(dp), parameter :: NL_tol = 1.0d-06
 
 ! currently needed to assess whether basal traction is updated after each nonlinear iteration
-  integer :: k 
+!  integer :: k 
 
   character(len=100) :: message
 
@@ -992,7 +992,6 @@ subroutine JFNK_velo_solver  (model,umask)
   call geom2derscros(dew, dns, usrf, stagthck, d2usrfdewdns)
 
 !TODO - Do these derivatives have to go in the model derived type and the residual object?
-  ! put d2's into model derived type structure to eventually go into resid_object
   model%geomderv%d2thckdew2 = d2thckdew2
   model%geomderv%d2thckdns2 = d2thckdns2
   model%geomderv%d2usrfdew2 = d2usrfdew2
@@ -1115,7 +1114,7 @@ end if
   call noxfinish()
  call t_stopf("JFNK_noxfinish")
 
- k = 0
+! k = 0
 
 #else
 !==============================================================================
@@ -1124,7 +1123,7 @@ end if
 
  call slapsolve(xk_1, xk_size, c_ptr_to_object, NL_tol, pcgsize)
 
- k = 1
+! k = 1
 
 #endif   ! SLAP JFNK
 
@@ -1333,6 +1332,8 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
 
   if (counter == 1) then
 
+#ifdef GLC_DEBUG
+
 !  if (main_task) then
 !    print *, 'nsn=', nsn
 !    print *, 'ewn=', ewn
@@ -1342,6 +1343,8 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
 !    print *, 'efvs shape =', shape(efvs)
 !    print *, 'flwafact shape =', shape(flwafact)
 !  endif
+
+#endif
 
 !TODO - If we are not supporting glam_strs2 together with the old Glimmer temperature routines,
 !       then we can assume that temp and flwa live on the staggered vertical grid.
@@ -5772,15 +5775,12 @@ subroutine alloc_resid(model, uindx, umask, &
   type(sparse_matrix_type) ,intent(in) :: matrixA, matrixC
   
   integer :: i, j
-! KJE rid of these once working as part of glide_global_type
   integer                   ,intent(in) :: ewn, nsn
   integer, dimension(2)     ,intent(in) :: pcgsize
   integer                   ,intent(in) :: gx_flag(2*pcgsize(1)) ! 0 :reg cell
   integer                   ,intent(in) :: uindx(ewn-1,nsn-1), umask(ewn-1,nsn-1)
   real(dp)          ,intent(in) :: L2norm
   real(dp)          ,intent(in) :: d2thckdewdns(ewn-1,nsn-1), d2usrfdewdns(ewn-1,nsn-1)
-  
-!  type(glide_global_type)     ,intent(out) :: resid_object
   
   allocate(model%solver_data%ui(ewn-1,nsn-1) )
   allocate(model%solver_data%um(ewn-1,nsn-1) ) 
