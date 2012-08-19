@@ -1040,7 +1040,7 @@ contains
     !*FD \item \texttt{bfricflx(ewn,nsn))}
     !*FD \item \texttt{ucondflx(ewn,nsn))}
     !*FD \item \texttt{lcondflx(ewn,nsn))}
-    !*FD \item \texttt{dissipcol(pewn,nsn))}
+    !*FD \item \texttt{dissipcol(ewn,nsn))}
     !*FD \end{itemize}
 
     !*FD In \texttt{model\%velocity}:
@@ -1289,7 +1289,7 @@ contains
     allocate (model%ground%gline_flux(ewn,nsn)) 
     allocate (model%solver_data%rhsd(ewn*nsn))
     allocate (model%solver_data%answ(ewn*nsn))
-!KJE do we need this at all here, the parts within are allocated in glam_strs2
+
     call new_sparse_matrix(ewn*nsn, 5*ewn*nsn, model%solver_data%matrix)
 
     ! allocate isostasy grids

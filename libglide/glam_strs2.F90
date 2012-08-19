@@ -1078,7 +1078,13 @@ subroutine JFNK_velo_solver  (model,umask)
   allocate(matrixAuv%row(pcgsize(2)),matrixAuv%col(pcgsize(2)),matrixAuv%val(pcgsize(2)))
   allocate(matrixAvu%row(pcgsize(2)),matrixAvu%col(pcgsize(2)),matrixAvu%val(pcgsize(2)))
 
-  call alloc_resid(model, uindx, umask, d2thckdewdns, d2usrfdewdns, &
+  allocate(model%solver_data%ui(ewn-1,nsn-1) )
+  allocate(model%solver_data%um(ewn-1,nsn-1) ) 
+  allocate(model%solver_data%d2thckcross(ewn-1,nsn-1) )
+  allocate(model%solver_data%d2usrfcross(ewn-1,nsn-1) ) 
+  allocate(model%solver_data%gxf( 2*pcgsize(1) ) )
+  
+  call assign_resid(model, uindx, umask, d2thckdewdns, d2usrfdewdns, &
                        pcgsize, gx_flag, matrixA, matrixC, L2norm, ewn, nsn)
 
   fptr => model
@@ -1125,7 +1131,7 @@ end if
 
 ! k = 1
 
-#endif   ! SLAP JFNK
+#endif  
 
  call t_startf("JFNK_post")
 
@@ -1223,17 +1229,12 @@ end if
   deallocate(matrixC%row, matrixC%col, matrixC%val)
   deallocate(matrixtp%row, matrixtp%col, matrixtp%val)
   deallocate(gx_flag )
-!  deallocate(dx, xk_1_plus, gx_flag )
-!  deallocate(F, F_plus)
-!  deallocate(wk1, wk2)
-!  deallocate(vv, wk)
-
- !model%velocity%uvel = uvel
- !model%velocity%vvel = vvel
- !model%velocity%uflx = uflx
- !model%velocity%vflx = vflx
- !model%stress%efvs = efvs
-
+  deallocate(model%solver_data%ui)
+  deallocate(model%solver_data%um)
+  deallocate(model%solver_data%d2thckcross)
+  deallocate(model%solver_data%d2usrfcross)
+  deallocate(model%solver_data%gxf)
+  
 !HALO - Not sure whether these are needed.  Where does JFNK do its parallel halo updates for uvel, vvel?
 
  !PW following are needed for glam_velo_fordsiapstr - putting here until can be convinced
@@ -5779,7 +5780,7 @@ end function scalebasalbc
 
 !***********************************************************************
 
-subroutine alloc_resid(model, uindx, umask, &
+subroutine assign_resid(model, uindx, umask, &
      d2thckdewdns, d2usrfdewdns, pcgsize, gx_flag, matrixA, matrixC, L2norm, ewn, nsn)
   
   
@@ -5800,12 +5801,6 @@ subroutine alloc_resid(model, uindx, umask, &
   real(dp)          ,intent(in) :: L2norm
   real(dp)          ,intent(in) :: d2thckdewdns(ewn-1,nsn-1), d2usrfdewdns(ewn-1,nsn-1)
   
-  allocate(model%solver_data%ui(ewn-1,nsn-1) )
-  allocate(model%solver_data%um(ewn-1,nsn-1) ) 
-  allocate(model%solver_data%d2thckcross(ewn-1,nsn-1) )
-  allocate(model%solver_data%d2usrfcross(ewn-1,nsn-1) ) 
-  allocate(model%solver_data%gxf( 2*pcgsize(1) ) )
-  
   do i = 1, ewn-1 
    do j = 1, nsn-1 
     model%solver_data%ui(i,j)  = uindx(i,j)
@@ -5822,7 +5817,7 @@ subroutine alloc_resid(model, uindx, umask, &
   model%solver_data%matrixA = matrixA
   model%solver_data%matrixC = matrixC
 
-end subroutine alloc_resid
+end subroutine assign_resid
 
 subroutine slapsolve(xk_1, xk_size, c_ptr_to_object, NL_tol, pcgsize)
 
