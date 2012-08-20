@@ -3,7 +3,7 @@
 # 
 # Compared to the PGI build, I executed:
 #   module swap PrgEnv-pgi PrgEnv-gnu
-#   module load netcdf/4.1.2
+#   module load netcdf (on 8/2012, gives netcdf-hdf5parallel/4.2.0, hdf5/1.8.8 )
 #
 # cmake configuration script that works on jaguar with GCC 
 # This script needs to be run from a subdirectory (e.g. build-gnu)
@@ -20,7 +20,7 @@ echo
 echo "Doing CMake Configuration step"
 
 cmake \
-  -D GLIMMER_TRILINOS_DIR=/ccs/proj/cli054/trilinos-10.10.1/GCC_BUILD/include \
+  -D GLIMMER_TRILINOS_DIR=/tmp/work/4ue/trilinos-10.10.1/gnu_build/install \
   -D GLIMMER_NETCDF_DIR=$NETCDF_DIR \
   -D CMAKE_VERBOSE_MAKEFILE:BOOL=OFF \
   -D GLIMMER_Fortran_FLAGS="-ffree-line-length-none" \
