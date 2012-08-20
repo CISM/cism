@@ -3,13 +3,13 @@ module parallel
 
   implicit none
 
-  integer,parameter :: lhalo = 2
-  integer,parameter :: uhalo = 2
+  integer,parameter :: lhalo = 0
+  integer,parameter :: uhalo = 0
 
   integer,parameter :: staggered_whalo = lhalo
   integer,parameter :: staggered_shalo = lhalo
-  integer,parameter :: staggered_ehalo = uhalo-1
-  integer,parameter :: staggered_nhalo = uhalo-1
+  integer,parameter :: staggered_ehalo = uhalo
+  integer,parameter :: staggered_nhalo = uhalo
 
 #ifdef _USE_MPI_WITH_SLAP
   logical,save :: main_task
@@ -25,12 +25,6 @@ module parallel
   ! distributed grid
   integer,save :: global_ewn,global_nsn,local_ewn,local_nsn,own_ewn,own_nsn
   integer,save :: ewlb,ewub,nslb,nsub
-
-  ! these values guarantee that this rank will register as containing all the physical boundaries
-  integer,parameter :: north = -999999
-  integer,parameter :: south = 999999
-  integer,parameter :: east = -999999
-  integer,parameter :: west = 999999
 
   ! global IDs
   integer,parameter :: ProcsEW = 1
