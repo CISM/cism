@@ -35,29 +35,29 @@ contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   subroutine horiz_bcs_unstag_scalar_real8_2d( a )
-    use parallel, only: this_rank, north, south, east, west, own_ewn, own_nsn, lhalo, uhalo
+    use parallel, only: nsub, ewub, nslb, ewlb, global_nsn, global_ewn, own_ewn, own_nsn, lhalo, uhalo
     implicit none
     real(8),dimension(:,:), intent(inout) :: a
     integer :: i
 
     !If this process is on a domain boundary, loop over the halo (ghost cells) and populate them
 
-    if ( this_rank > north ) then   !I am on the north boundary
+    if ( nsub > global_nsn ) then   !I am on the north boundary
       do i = 1 , uhalo
         a(:,lhalo+own_nsn+i) = a(:,lhalo+own_nsn+1-i)
       enddo
     endif
-    if ( this_rank > east ) then    !I am on the east boundary
+    if ( ewub > global_ewn ) then    !I am on the east boundary
       do i = 1 , uhalo
         a(lhalo+own_ewn+i,:) = a(lhalo+own_ewn+1-i,:)
       enddo
     endif
-    if ( this_rank < south ) then   !I am on the south boundary
+    if ( nslb < 1 ) then   !I am on the south boundary
       do i = 1 , lhalo
         a(:,lhalo+1-i) = a(:,lhalo+i)
       enddo
     endif
-    if ( this_rank < west ) then    !I am on the west boundary
+    if ( ewlb < 1 ) then    !I am on the west boundary
       do i = 1 , lhalo
         a(lhalo+1-i,:) = a(lhalo+i,:)
       enddo
@@ -67,26 +67,26 @@ contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   subroutine horiz_bcs_unstag_scalar_integer_2d( a )
-    use parallel, only: this_rank, north, south, east, west, own_ewn, own_nsn, lhalo, uhalo
+    use parallel, only: nsub, ewub, nslb, ewlb, global_nsn, global_ewn, own_ewn, own_nsn, lhalo, uhalo
     implicit none
     integer,dimension(:,:), intent(inout) :: a
     integer :: i
-    if ( this_rank > north ) then
+    if ( nsub > global_nsn ) then
       do i = 1 , uhalo
         a(:,lhalo+own_nsn+i) = a(:,lhalo+own_nsn+1-i)
       enddo
     endif
-    if ( this_rank > east ) then
+    if ( ewub > global_ewn ) then
       do i = 1 , uhalo
         a(lhalo+own_ewn+i,:) = a(lhalo+own_ewn+1-i,:)
       enddo
     endif
-    if ( this_rank < south ) then
+    if ( nslb < 1 ) then
       do i = 1 , lhalo
         a(:,lhalo+1-i) = a(:,lhalo+i)
       enddo
     endif
-    if ( this_rank < west ) then
+    if ( ewlb < 1 ) then
       do i = 1 , lhalo
         a(lhalo+1-i,:) = a(lhalo+i,:)
       enddo
@@ -96,26 +96,26 @@ contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   subroutine horiz_bcs_unstag_scalar_real8_3d( a )
-    use parallel, only: this_rank, north, south, east, west, own_ewn, own_nsn, lhalo, uhalo
+    use parallel, only: nsub, ewub, nslb, ewlb, global_nsn, global_ewn, own_ewn, own_nsn, lhalo, uhalo
     implicit none
     real(8),dimension(:,:,:), intent(inout) :: a
     integer :: i
-    if ( this_rank > north ) then
+    if ( nsub > global_nsn ) then
       do i = 1 , uhalo
         a(:,:,lhalo+own_nsn+i) = a(:,:,lhalo+own_nsn+1-i)
       enddo
     endif
-    if ( this_rank > east ) then
+    if ( ewub > global_ewn ) then
       do i = 1 , uhalo
         a(:,lhalo+own_ewn+i,:) = a(:,lhalo+own_ewn+1-i,:)
       enddo
     endif
-    if ( this_rank < south ) then
+    if ( nslb < 1 ) then
       do i = 1 , lhalo
         a(:,:,lhalo+1-i) = a(:,:,lhalo+i)
       enddo
     endif
-    if ( this_rank < west ) then
+    if ( ewlb < 1 ) then
       do i = 1 , lhalo
         a(:,lhalo+1-i,:) = a(:,lhalo+i,:)
       enddo
@@ -125,7 +125,7 @@ contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   subroutine horiz_bcs_stag_vector_ew_real8_3d( a )
-    use parallel, only: this_rank, north, south, east, west, own_ewn, own_nsn, &
+    use parallel, only: nsub, ewub, nslb, ewlb, global_nsn, global_ewn, own_ewn, own_nsn, &
                         staggered_nhalo, staggered_ehalo, staggered_shalo, staggered_whalo
     implicit none
     real(8),dimension(:,:,:), intent(inout) :: a
@@ -140,41 +140,42 @@ contains
     ns_npts = own_nsn+1 !number of physical domain points this process is responsible for in ns direction.
 
     !Physical domain is mirrored at all boundaries and negated at normal boundaries
-    if ( this_rank > north ) then
+    if ( nsub > global_nsn ) then
       do i = 1 , nhalo
         a(:,:,shalo+ns_npts+i) = a(:,:,shalo+ns_npts-i)
       enddo
     endif
-    if ( this_rank > east ) then
+    if ( ewub > global_ewn ) then
       do i = 1 , ehalo
         a(:,whalo+ew_npts+i,:) = -a(:,whalo+ew_npts-i,:)
       enddo
+      !Normal velocities are zero at boundaries
+      a(:,whalo+ew_npts,:) = 0.D0
     endif
-    if ( this_rank < south ) then
+    if ( nslb < 1 ) then
       do i = 1 , shalo
         a(:,:,shalo+1-i) = a(:,:,shalo+1+i)
       enddo
+      !For slip transverse BC's, the northern boundary is left alone. The velocity solve does not treat the
+      !southern boundary, however, and that must be interpolated.
+      !For this, some assumptions must be made: shalo >= 1 & nsn >= 2. Using three data points allows the
+      !inclusion of curvature in this interpolation using shalo, shalo+2, and shalo+3
+      a(:,:,shalo+1) = a(:,:,shalo) / 3.D0 + a(:,:,shalo+2) - a(:,:,shalo+3) / 3.D0
     endif
-    if ( this_rank < west ) then
+    if ( ewlb < 1 ) then
       do i = 1 , whalo
         a(:,whalo+1-i,:) = -a(:,whalo+1+i,:)
       enddo
+      !Normal velocities are zero at boundaries
+      a(:,whalo+1      ,:) = 0.D0
     endif
-    !Normal velocities are zero at boundaries
-    a(:,whalo+1      ,:) = 0.D0 
-    a(:,whalo+ew_npts,:) = 0.D0
-    !For slip transverse BC's, the northern boundary is left alone. The velocity solve does not treat the
-    !southern boundary, however, and that must be interpolated.
-    !For this, some assumptions must be made: shalo >= 1 & nsn >= 2. Using three data points allows the
-    !inclusion of curvature in this interpolation using shalo, shalo+2, and shalo+3
-    a(:,:,shalo+1) = a(:,:,shalo) / 3.D0 + a(:,:,shalo+2) - a(:,:,shalo+3) / 3.D0
 
   end subroutine horiz_bcs_stag_vector_ew_real8_3d
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   subroutine horiz_bcs_stag_vector_ns_real8_3d( a )
-    use parallel, only: this_rank, north, south, east, west, own_ewn, own_nsn, &
+    use parallel, only: nsub, ewub, nslb, ewlb, global_nsn, global_ewn, own_ewn, own_nsn, &
                         staggered_nhalo, staggered_ehalo, staggered_shalo, staggered_whalo
     implicit none
     real(8),dimension(:,:,:), intent(inout) :: a
@@ -189,34 +190,35 @@ contains
     ns_npts = own_nsn+1 !number of physical domain points this process is responsible for in ns direction.
 
     !Physical domain is mirrored at all boundaries and negated at normal boundaries
-    if ( this_rank > north ) then
+    if ( nsub > global_nsn ) then
       do i = 1 , nhalo
         a(:,:,shalo+ns_npts+i) = -a(:,:,shalo+ns_npts-i)
       enddo
+      !Normal velocities are zero at boundaries
+      a(:,:,shalo+ns_npts) = 0.D0
     endif
-    if ( this_rank > east ) then
+    if ( ewub > global_ewn ) then
       do i = 1 , ehalo
         a(:,whalo+ew_npts+i,:) = a(:,whalo+ew_npts-i,:)
       enddo
     endif
-    if ( this_rank < south ) then
+    if ( nslb < 1 ) then
       do i = 1 , shalo
         a(:,:,shalo+1-i) = -a(:,:,shalo+1+i)
       enddo
+      !Normal velocities are zero at boundaries
+      a(:,:,shalo+1      ) = 0.D0
     endif
-    if ( this_rank < west ) then
+    if ( ewlb < 1 ) then
       do i = 1 , whalo
         a(:,whalo+1-i,:) = a(:,whalo+1+i,:)
       enddo
+      !For slip transverse BC's, the northern boundary is left alone. The velocity solve does not treat the
+      !western boundary, however, and that must be interpolated.
+      !For this, some assumptions must be made: whalo >= 1 & ewn >= 2. Using three data points allows the
+      !inclusion of curvature in this interpolation using whalo, whalo+2, and whalo+3
+      a(:,whalo+1,:) = a(:,whalo,:) / 3.D0 + a(:,whalo+2,:) - a(:,whalo+3,:) / 3.D0
     endif
-    !Normal velocities are zero at boundaries
-    a(:,:,shalo+1      ) = 0.D0 
-    a(:,:,shalo+ns_npts) = 0.D0
-    !For slip transverse BC's, the northern boundary is left alone. The velocity solve does not treat the
-    !western boundary, however, and that must be interpolated.
-    !For this, some assumptions must be made: whalo >= 1 & ewn >= 2. Using three data points allows the
-    !inclusion of curvature in this interpolation using whalo, whalo+2, and whalo+3
-    a(:,whalo+1,:) = a(:,whalo,:) / 3.D0 + a(:,whalo+2,:) - a(:,whalo+3,:) / 3.D0
 
   end subroutine horiz_bcs_stag_vector_ns_real8_3d
 
