@@ -53,6 +53,8 @@ program simple_glide
   use glimmer_commandline
   use glimmer_writestats
   use glimmer_filenames, only : filenames_init
+  use glimmer_horiz_bcs, only : horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns, &
+                                horiz_bcs_unstag_scalar
 
   use glissade
 
@@ -239,6 +241,14 @@ program simple_glide
        call parallel_halo(model%stress%tau_y)
        call parallel_halo(model%geometry%lsrf)
        call parallel_halo(model%temper%temp)
+
+       call horiz_bcs_stag_vector_ew(model%velocity%uvel)
+       call horiz_bcs_stag_vector_ns(model%velocity%vvel)
+       call horiz_bcs_unstag_scalar(model%geometry%thck)
+       call horiz_bcs_unstag_scalar(model%geometry%topg)
+       call horiz_bcs_unstag_scalar(model%geometry%thkmask)
+       call horiz_bcs_unstag_scalar(model%temper%flwa)
+       call horiz_bcs_unstag_scalar(model%temper%temp)
        call t_stopf('simple_glide_halo_upd'//suffix)
 
      ! Perform parallel operations for restart files

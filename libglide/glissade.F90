@@ -357,6 +357,8 @@ contains
 !TODO - To be removed
     use glam, only: inc_remap_driver
     use glide_velo_higher, only: run_ho_diagnostic
+    use glimmer_horiz_bcs, only: horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns, &
+                                 horiz_bcs_unstag_scalar
 
     implicit none
 
@@ -570,9 +572,13 @@ contains
              call staggered_parallel_halo(model%velocity%uvel)
              call staggered_parallel_halo(model%velocity%vvel)
              call parallel_halo(model%geometry%thck)
+             call horiz_bcs_stag_vector_ew(model%velocity%uvel)
+             call horiz_bcs_stag_vector_ns(model%velocity%vvel)
+             call horiz_bcs_unstag_scalar(model%geometry%thck)
              if (model%options%whichtemp == TEMP_REMAP_ADV) then
                 !If advecting other tracers, add parallel_halo update here
                 call parallel_halo(model%temper%temp)
+                call horiz_bcs_unstag_scalar(model%temper%temp)
              endif
             call t_stopf('new_remap_halo_upds')
 
@@ -641,6 +647,8 @@ contains
 
        call parallel_halo(model%geometry%thck)
        call parallel_halo(model%temper%temp)
+       call horiz_bcs_unstag_scalar(model%geometry%thck)
+       call horiz_bcs_unstag_scalar(model%temper%temp)
       call t_stopf('after_remap_haloupds')
 
 !HALO - I think that these are not needed, provided that glide_stress loops over locally owned cells only.
@@ -686,6 +694,7 @@ end select
     !Halo updates required for inputs to glide_set_mask?
     ! call parallel_halo(model%geometry%thck) in inc_remap_driver
     call parallel_halo(model%geometry%topg)
+    call horiz_bcs_unstag_scalar(model%geometry%topg)
 
 !TODO - May want to write a new subroutine, glissade_set_mask, that loops over locally owned cells
 !        and is followed by a halo update (for thkmask) in the driver.
@@ -737,6 +746,7 @@ end select
 
 !HALO - not sure if needed for glide_marinlim.
     call parallel_halo(model%temper%flwa)
+    call horiz_bcs_unstag_scalar(model%temper%flwa)
 
 !HALO - Not sure backstress is ever used
     call parallel_halo(model%climate%backstress)

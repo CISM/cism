@@ -275,6 +275,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                             efvs )
 
   use parallel
+  use glimmer_horiz_bcs, only: horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns
 
   implicit none
 
@@ -743,6 +744,8 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
     ! coordinate halos for updated uvel and vvel
     call staggered_parallel_halo(uvel)
     call staggered_parallel_halo(vvel)
+    call horiz_bcs_stag_vector_ew(uvel)
+    call horiz_bcs_stag_vector_ns(vvel)
 
     !call dumpvels("After mindcrsh", uvel, vvel)
 
@@ -866,6 +869,7 @@ end subroutine glam_velo_solver
 subroutine JFNK_velo_solver  (model,umask)
 
   use parallel
+  use glimmer_horiz_bcs, only: horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns
 
   use iso_c_binding 
   use glide_types, only : glide_global_type
@@ -1241,6 +1245,8 @@ end if
  !   that they are not needed (or that they should be delayed until later)
   call staggered_parallel_halo(uvel)
   call staggered_parallel_halo(vvel)
+  call horiz_bcs_stag_vector_ew(uvel)
+  call horiz_bcs_stag_vector_ns(vvel)
 
 !HALO - Not sure we need these two updates
 !       I think we do not need an update for efvs, because it is already computed in a layer of halo cells.
@@ -2113,6 +2119,7 @@ end subroutine reset_effstrmin
   use iso_c_binding  
   use glide_types ,only : glide_global_type
   use parallel
+  use glimmer_horiz_bcs, only: horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns
 
   implicit none
 
@@ -2204,6 +2211,8 @@ end subroutine reset_effstrmin
     ! coordinate halos for updated uvel and vvel
     call staggered_parallel_halo(uvel)
     call staggered_parallel_halo(vvel)
+    call horiz_bcs_stag_vector_ew(uvel)
+    call horiz_bcs_stag_vector_ns(vvel)
 
     call findefvsstr(ewn,  nsn,  upn,       &
                      stagsigma,  counter,  &
@@ -2909,13 +2918,15 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
   integer, dimension(3) :: shift
   integer :: ew, ns, up, up_start
 
+  logical :: comp_bound
+
   ct = 1        ! index to count the number of non-zero entries in the sparse matrix
   ct2 = 1
 
   if( assembly == 1 )then   ! for normal assembly (assembly=0), start vert index at sfc and go to bed
-      up_start = upn        ! for boundary traction calc (assembly=1), do matrix assembly on for equations at bed
+    up_start = upn        ! for boundary traction calc (assembly=1), do matrix assembly on for equations at bed
   else
-      up_start = 1
+    up_start = 1
   end if
 
   ! calculate/specify the map of 'betasquared', for use in the basal boundary condition. 
@@ -2930,58 +2941,59 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                         othervel(upn,:,:),      &
                         minTauf, beta,          &
                         betasquared )
-! intent(out) betasquared
+  ! intent(out) betasquared
 
   ! Note loc2_array is defined only for non-halo ice grid points.
   ! JEFFLOC returns an array with starting indices into solution vector for each ice grid point.
   allocate(loc2_array(ewn,nsn,2))
   loc2_array = getlocationarray(ewn, nsn, upn, mask, uindx)
-!  !!!!!!!!! useful for debugging !!!!!!!!!!!!!!
-!    print *, 'loc2_array = '
-!    print *, loc2_array
-!    pause
-
-!HALO - This loop should be over locally owned velocity points: (ilo-1:ihi,jlo-1:jhi)
-!       Note: efvs has been computed in a layer of halo cells, so we have its value in all
-!             neighbors of locally owned velocity points.
+  !  !!!!!!!!! useful for debugging !!!!!!!!!!!!!!
+  !    print *, 'loc2_array = '
+  !    print *, loc2_array
+  !    pause
+  
+  !HALO - This loop should be over locally owned velocity points: (ilo-1:ihi,jlo-1:jhi)
+  !       Note: efvs has been computed in a layer of halo cells, so we have its value in all
+  !             neighbors of locally owned velocity points.
 
   ! JEFFLOC Do I need to restrict to non-halo grid points?
   do ns = 1+staggered_shalo,size(mask,2)-staggered_nhalo
     do ew = 1+staggered_whalo,size(mask,1)-staggered_ehalo
+      !Theoretically, this should just be .false. to remove it from the if statements and let the ghost cells
+      !take over. However, with only one process, this give an exception error when calc_F calls savetrilinosmatrix(0).
+      !Therefore, it will currently revert back to the old BC's when using only one task for now. I am working to
+      !debug and fix this case, but for now, it does no harm for the original BC's.
+      comp_bound = merge( .false. , GLIDE_IS_COMP_DOMAIN_BND(mask(ew,ns)) , tasks > 1 )
+      ! Calculate the depth-averaged value of the rate factor, needed below when applying an ice shelf
+      ! boundary condition (complicated code so as not to include funny values at boundaries ...
+      ! ... kind of a mess and could be redone or made into a function or subroutine).
+      ! SUM has the definition SUM(ARRAY, DIM, MASK) where MASK is either scalar or the same shape as ARRAY
+      ! JEFFLOC Concerned about the edges at (ew+1, ns), (ew, ns+1), and (ew+1,ns+1)
 
-     ! Calculate the depth-averaged value of the rate factor, needed below when applying an ice shelf
-     ! boundary condition (complicated code so as not to include funny values at boundaries ...
-     ! ... kind of a mess and could be redone or made into a function or subroutine).
-     ! SUM has the definition SUM(ARRAY, DIM, MASK) where MASK is either scalar or the same shape as ARRAY
-     ! JEFFLOC Concerned about the edges at (ew+1, ns), (ew, ns+1), and (ew+1,ns+1)
+      !SCALING - The following is OK because flwa*vis0 is equal to the dimensional flow factor.
+      !          The product will still equal the dimensional flow factor when vis0 = 1.
+      flwabar = ( sum( flwa(:,ew,ns),     1, flwa(1,ew,ns)*vis0     < 1.0d-10 )/real(upn) + &
+                  sum( flwa(:,ew,ns+1),   1, flwa(1,ew,ns+1)*vis0   < 1.0d-10 )/real(upn)  + &
+                  sum( flwa(:,ew+1,ns),   1, flwa(1,ew+1,ns)*vis0   < 1.0d-10 )/real(upn)  + &
+                  sum( flwa(:,ew+1,ns+1), 1, flwa(1,ew+1,ns+1)*vis0 < 1.0d-10 )/real(upn) ) / &
+                ( sum( flwa(:,ew,ns)/flwa(:,ew,ns),         1, flwa(1,ew,ns)*vis0     < 1.0d-10 )/real(upn) + &
+                  sum( flwa(:,ew,ns+1)/flwa(:,ew,ns+1),     1, flwa(1,ew,ns+1)*vis0   < 1.0d-10 )/real(upn) + &
+                  sum( flwa(:,ew+1,ns)/flwa(:,ew+1,ns),     1, flwa(1,ew+1,ns)*vis0   < 1.0d-10 )/real(upn) + &
+                  sum( flwa(:,ew+1,ns+1)/flwa(:,ew+1,ns+1), 1, flwa(1,ew+1,ns+1)*vis0 < 1.0d-10 )/real(upn) )
 
-!SCALING - The following is OK because flwa*vis0 is equal to the dimensional flow factor.
-!          The product will still equal the dimensional flow factor when vis0 = 1.
+      loc2(1,:) = loc2_array(ew,ns,:)
 
-     flwabar = ( sum( flwa(:,ew,ns),     1, flwa(1,ew,ns)*vis0     < 1.0d-10 )/real(upn) + &
-                 sum( flwa(:,ew,ns+1),   1, flwa(1,ew,ns+1)*vis0   < 1.0d-10 )/real(upn)  + &
-                 sum( flwa(:,ew+1,ns),   1, flwa(1,ew+1,ns)*vis0   < 1.0d-10 )/real(upn)  + &
-                 sum( flwa(:,ew+1,ns+1), 1, flwa(1,ew+1,ns+1)*vis0 < 1.0d-10 )/real(upn) ) / &
-               ( sum( flwa(:,ew,ns)/flwa(:,ew,ns),         1, flwa(1,ew,ns)*vis0     < 1.0d-10 )/real(upn) + &
-                 sum( flwa(:,ew,ns+1)/flwa(:,ew,ns+1),     1, flwa(1,ew,ns+1)*vis0   < 1.0d-10 )/real(upn) + &
-                 sum( flwa(:,ew+1,ns)/flwa(:,ew+1,ns),     1, flwa(1,ew+1,ns)*vis0   < 1.0d-10 )/real(upn) + &
-                 sum( flwa(:,ew+1,ns+1)/flwa(:,ew+1,ns+1), 1, flwa(1,ew+1,ns+1)*vis0 < 1.0d-10 )/real(upn) )
-
-    loc2(1,:) = loc2_array(ew,ns,:)
-
-! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-!TODO - Sometimes we may want to solve for the velocity at the domain boundary,
-!       or at a land margin.  Can we allow this?
-!       
-    if ( GLIDE_HAS_ICE(mask(ew,ns)) .and. .not. &
-         GLIDE_IS_COMP_DOMAIN_BND(mask(ew,ns)) .and. .not. &
-         GLIDE_IS_MARGIN(mask(ew,ns)) .and. .not. &
-         GLIDE_IS_DIRICHLET_BOUNDARY(mask(ew,ns)) .and. .not. &
-         GLIDE_IS_CALVING(mask(ew,ns) ) .and. .not. &
-         GLIDE_IS_THIN(mask(ew,ns) ) ) &
-    then
-!    print *, 'In main body ... ew, ns = ', ew, ns
-! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+      ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+      !TODO - Sometimes we may want to solve for the velocity at the domain boundary,
+      !       or at a land margin.  Can we allow this?
+      if ( GLIDE_HAS_ICE(mask(ew,ns)) .and. .not. &
+           comp_bound .and. .not. &
+           GLIDE_IS_MARGIN(mask(ew,ns)) .and. .not. &
+           GLIDE_IS_DIRICHLET_BOUNDARY(mask(ew,ns)) .and. .not. &
+           GLIDE_IS_CALVING(mask(ew,ns) ) .and. .not. &
+           GLIDE_IS_THIN(mask(ew,ns) ) ) then
+        !    print *, 'In main body ... ew, ns = ', ew, ns
+        ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
         call calccoeffs( upn,               sigma,              &
                          stagthck(ew,ns),                       &
@@ -2991,7 +3003,6 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                          d2usrfdewdns(ew,ns),                   &
                          d2thckdew2(ew,ns), d2thckdns2(ew,ns),  &
                          d2thckdewdns(ew,ns))
-
         ! get index of cardinal neighbours
         loc2(2,:) = loc2_array(ew+1,ns,:)
         loc2(3,:) = loc2_array(ew-1,ns,:)
@@ -3000,53 +3011,46 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
 
         ! this loop fills coeff. for all vertical layers at index ew,ns (including sfc. and bed bcs)
         do up = up_start, upn
+          ! Function to adjust indices at sfc and bed so that most correct values of 'efvs' and 'othervel'
+          ! are passed to function. Because of the fact that efvs goes from 1:upn-1 rather than 1:upn
+          ! we simply use the closest values. This could probably be improved upon at some point
+          ! by extrapolating values for efvs at the sfc and bed using one-sided diffs, and it is not clear
+          ! how important this simplfication is.
+          !JEFFLOC indshift() returns three-element shift index for up, ew, and ns respectively.
+          !JEFFLOC It does get passed loc2_array, but it doesn't use it.  Further, the shifts can be at most 1 unit in any direction.
+          shift = indshift( 0, ew, ns, up, ewn, nsn, upn, loc2_array(:,:,1), stagthck(ew-1:ew+1,ns-1:ns+1) )
 
-            ! Function to adjust indices at sfc and bed so that most correct values of 'efvs' and 'othervel'
-            ! are passed to function. Because of the fact that efvs goes from 1:upn-1 rather than 1:upn
-            ! we simply use the closest values. This could probably be improved upon at some point
-            ! by extrapolating values for efvs at the sfc and bed using one-sided diffs, and it is not clear
-            ! how important this simplfication is.
-            !JEFFLOC indshift() returns three-element shift index for up, ew, and ns respectively.
-            !JEFFLOC It does get passed loc2_array, but it doesn't use it.  Further, the shifts can be at most 1 unit in any direction.
-            shift = indshift( 0, ew, ns, up, ewn, nsn, upn, loc2_array(:,:,1), stagthck(ew-1:ew+1,ns-1:ns+1) )
-
-!HALO - Note that ew and ns below are locally owned velocity points, i.e. in the range (ilo-1:ihi, jlo-1:jhi)
-!HALO - This means we need efvs in one layer of halo cells.
-
-!JEFFLOC As long as not accessing halo ice points, then won't shift off of halo of size at least 1.
-!JEFFLOC Completed scan on 11/23.  Testing change of definition of loc2_array.
-
-            call bodyset(ew,  ns,  up,        &
-                         ewn, nsn, upn,       &
-                         dew,      dns,       &
-                         pt,       loc2_array,&
-                         loc2,     stagthck,  &
-                         thisdusrfdx,         &
-                         dusrfdew, dusrfdns,  &
-                         dlsrfdew, dlsrfdns,  &
-                         efvs(up-1+shift(1):up+shift(1),ew:ew+1,ns:ns+1),  &
-                         othervel(up-1+shift(1):up+1+shift(1),  &
-                         ew-1+shift(2):ew+1+shift(2),  &
-                         ns-1+shift(3):ns+1+shift(3)), &
-                         thisvel(up-1+shift(1):up+1+shift(1),  &
-                         ew-1+shift(2):ew+1+shift(2),  &
-                         ns-1+shift(3):ns+1+shift(3)), &
-                         betasquared(ew,ns),           &
-                         btraction,                    &
-                         whichbabc, assembly )
-
-        end do  ! upn
-
-! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-!TODO - Not sure COMP_DOMAIN_BND condition is needed
-
-    elseif ( GLIDE_IS_CALVING( mask(ew,ns) ) .and. .not. &
-             GLIDE_IS_COMP_DOMAIN_BND(mask(ew,ns) ) .and. .not. &
-             GLIDE_IS_DIRICHLET_BOUNDARY(mask(ew,ns)) .and. .not. &
-             GLIDE_IS_THIN(mask(ew,ns) ) ) &
-    then
-!    print *, 'At a SHELF boundary ... ew, ns = ', ew, ns
-! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+          !HALO - Note that ew and ns below are locally owned velocity points, i.e. in the range (ilo-1:ihi, jlo-1:jhi)
+          !HALO - This means we need efvs in one layer of halo cells.
+          !JEFFLOC As long as not accessing halo ice points, then won't shift off of halo of size at least 1.
+          !JEFFLOC Completed scan on 11/23.  Testing change of definition of loc2_array.
+          call bodyset(ew,  ns,  up,        &
+                       ewn, nsn, upn,       &
+                       dew,      dns,       &
+                       pt,       loc2_array,&
+                       loc2,     stagthck,  &
+                       thisdusrfdx,         &
+                       dusrfdew, dusrfdns,  &
+                       dlsrfdew, dlsrfdns,  &
+                       efvs(up-1+shift(1):up+shift(1),ew:ew+1,ns:ns+1),  &
+                       othervel(up-1+shift(1):up+1+shift(1),  &
+                       ew-1+shift(2):ew+1+shift(2),  &
+                       ns-1+shift(3):ns+1+shift(3)), &
+                       thisvel(up-1+shift(1):up+1+shift(1),  &
+                       ew-1+shift(2):ew+1+shift(2),  &
+                       ns-1+shift(3):ns+1+shift(3)), &
+                       betasquared(ew,ns),           &
+                       btraction,                    &
+                       whichbabc, assembly )
+        enddo  ! upn
+        ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+        !TODO - Not sure COMP_DOMAIN_BND condition is needed
+      elseif ( GLIDE_IS_CALVING( mask(ew,ns) ) .and. .not. &
+               comp_bound .and. .not. &
+               GLIDE_IS_DIRICHLET_BOUNDARY(mask(ew,ns)) .and. .not. &
+               GLIDE_IS_THIN(mask(ew,ns) ) ) then
+        !    print *, 'At a SHELF boundary ... ew, ns = ', ew, ns
+        ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
         call calccoeffs( upn,               sigma,              &
                          stagthck(ew,ns),                       &
@@ -3058,52 +3062,46 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                          d2thckdewdns(ew,ns))
 
         do up = up_start, upn
-           lateralboundry = .true.
-           shift = indshift(  1, ew, ns, up,                   &
-                               ewn, nsn, upn,                  &
-                               loc2_array(:,:,1),              &
-                               stagthck(ew-1:ew+1,ns-1:ns+1) )
-
-            call bodyset(ew,  ns,  up,        &
-                         ewn, nsn, upn,       &
-                         dew,      dns,       &
-                         pt,       loc2_array,&
-                         loc2,     stagthck,  &
-                         thisdusrfdx,         &
-                         dusrfdew, dusrfdns,  &
-                         dlsrfdew, dlsrfdns,  &
-                         efvs(up-1+shift(1):up+shift(1),ew:ew+1,ns:ns+1),  &
-                         othervel(up-1+shift(1):up+1+shift(1),  &
-                         ew-1+shift(2):ew+1+shift(2),  &
-                         ns-1+shift(3):ns+1+shift(3)), &
-                         thisvel(up-1+shift(1):up+1+shift(1),  &
-                         ew-1+shift(2):ew+1+shift(2),  &
-                         ns-1+shift(3):ns+1+shift(3)), &
-                         betasquared(ew,ns),           &
-                         btraction,                    &
-                         whichbabc, assembly,          &              
-                         abar=flwabar, cc=count )
-        end do
+          lateralboundry = .true.
+          shift = indshift(  1, ew, ns, up,                   &
+                              ewn, nsn, upn,                  &
+                              loc2_array(:,:,1),              &
+                              stagthck(ew-1:ew+1,ns-1:ns+1) )
+          call bodyset(ew,  ns,  up,        &
+                       ewn, nsn, upn,       &
+                       dew,      dns,       &
+                       pt,       loc2_array,&
+                       loc2,     stagthck,  &
+                       thisdusrfdx,         &
+                       dusrfdew, dusrfdns,  &
+                       dlsrfdew, dlsrfdns,  &
+                       efvs(up-1+shift(1):up+shift(1),ew:ew+1,ns:ns+1),  &
+                       othervel(up-1+shift(1):up+1+shift(1),  &
+                       ew-1+shift(2):ew+1+shift(2),  &
+                       ns-1+shift(3):ns+1+shift(3)), &
+                       thisvel(up-1+shift(1):up+1+shift(1),  &
+                       ew-1+shift(2):ew+1+shift(2),  &
+                       ns-1+shift(3):ns+1+shift(3)), &
+                       betasquared(ew,ns),           &
+                       btraction,                    &
+                       whichbabc, assembly,          &              
+                       abar=flwabar, cc=count )
+        enddo
         lateralboundry = .false.
-
-! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-!TODO - Here we deal with cells on the computational domain boundary.
-!       Currently the velocity is always set to a specified value on this boundary.
-!       With open (non-Dirichlet) BCs, we might want to solve for these velocities,
-!        using the code above to compute the matrix elements.
-
-    elseif ( GLIDE_HAS_ICE(mask(ew,ns)) .and. ( GLIDE_IS_DIRICHLET_BOUNDARY(mask(ew,ns)) .or. &
-             GLIDE_IS_COMP_DOMAIN_BND(mask(ew,ns)) ) .or. GLIDE_IS_LAND_MARGIN(mask(ew,ns)) .or. &
-             GLIDE_IS_THIN(mask(ew,ns)) ) &
-    then
-!    print *, 'At a NON-SHELF boundary ... ew, ns = ', ew, ns
-
-!WHLdebug
-!    print*, ' '
-!    print*, 'At a NON-SHELF boundary ... ew, ns = ', ew, ns
-!    print*, 'LAND_MARGIN =', GLIDE_IS_LAND_MARGIN(mask(ew,ns))
-
-! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+        ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+        !TODO - Here we deal with cells on the computational domain boundary.
+        !       Currently the velocity is always set to a specified value on this boundary.
+        !       With open (non-Dirichlet) BCs, we might want to solve for these velocities,
+        !        using the code above to compute the matrix elements.
+      elseif ( GLIDE_HAS_ICE(mask(ew,ns)) .and. ( GLIDE_IS_DIRICHLET_BOUNDARY(mask(ew,ns)) .or. &
+               comp_bound ) .or. GLIDE_IS_LAND_MARGIN(mask(ew,ns)) .or. &
+               GLIDE_IS_THIN(mask(ew,ns)) ) then
+        !    print *, 'At a NON-SHELF boundary ... ew, ns = ', ew, ns
+        !WHLdebug
+        !    print*, ' '
+        !    print*, 'At a NON-SHELF boundary ... ew, ns = ', ew, ns
+        !    print*, 'LAND_MARGIN =', GLIDE_IS_LAND_MARGIN(mask(ew,ns))
+        ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
         ! Put specified value for vel on rhs. NOTE that this is NOT zero by default 
         ! unless the initial guess is zero. It will be set to whatever the initial value 
@@ -3115,19 +3113,15 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
         call valueset(0.d0, loc2plusup)
 
         do up = up_start, upn
-           loc2plusup = loc2(1,:) + up
-           call valueset( thisvel(up,ew,ns), loc2plusup )     ! vel at margin set to initial value 
-!           call valueset( 0.d0 )                ! vel at margin set to 0 
-        end do
-
-    end if
-
-    end do;     ! ew 
-  end do        ! ns
+          loc2plusup = loc2(1,:) + up
+          call valueset( thisvel(up,ew,ns), loc2plusup )     ! vel at margin set to initial value 
+         !call valueset( 0.d0 )                ! vel at margin set to 0 
+        enddo
+      endif
+    enddo      ! ew 
+  enddo        ! ns
 
   deallocate(loc2_array)
-
-  return
 
 end subroutine findcoefstr
 

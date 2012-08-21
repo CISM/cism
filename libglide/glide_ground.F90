@@ -74,6 +74,7 @@ contains
     use glide_vertint, only : vertint_output2d
 !TODO - Remove scaling
     use glimmer_paramets, only: thk0
+    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
     implicit none
 
     !---------------------------------------------------------------------
@@ -143,6 +144,7 @@ contains
 
       call parallel_halo(ablation_field)
       call parallel_halo(thck)
+      call horiz_bcs_unstag_scalar(thck)
 
 !HALO - For glissade, change to a do loop over local cells: (ilo:ihi, jlo:jhi)
 !     - Halo updates should be moved to a higher level.
@@ -154,6 +156,7 @@ contains
       end where
       call parallel_halo(ablation_field)
       call parallel_halo(thck)
+      call horiz_bcs_unstag_scalar(thck)
     
 !HALO - For glissade, change to a do loop over local cells: (ilo:ihi, jlo:jhi)
 !       Halo updates should be moved to a higher level.
@@ -170,6 +173,7 @@ contains
       end do
       call parallel_halo(ablation_field)
       call parallel_halo(thck)
+      call horiz_bcs_unstag_scalar(thck)
       ! if uncomment above mask update, then call parallel_halo(mask)
 
 !HALO - For glissade, change to a do loop over local cells: (ilo:ihi, jlo:jhi)
@@ -183,6 +187,7 @@ contains
       end where
       call parallel_halo(ablation_field)
       call parallel_halo(thck)
+      call horiz_bcs_unstag_scalar(thck)
 
 !HALO - This may be the only place the backstress is used.
 !       Not sure we want to support this case.  Is there a reference for this scheme?
@@ -272,6 +277,7 @@ contains
       call parallel_halo(backstress)
       call parallel_halo(ablation_field)
       call parallel_halo(thck)
+      call horiz_bcs_unstag_scalar(thck)
 
 !HALO - not sure we want to support this case, in which case we can remove halo calls
     case(6)
@@ -286,6 +292,7 @@ contains
       end where
       call parallel_halo(ablation_field)
       call parallel_halo(thck)
+      call horiz_bcs_unstag_scalar(thck)
     
 !HALO - not sure we want to support this case, in which case we can remove halo calls
     !Huybrechts grounding line scheme for Greenland initialization
@@ -303,6 +310,7 @@ contains
       end if
       call parallel_halo(ablation_field)
       call parallel_halo(thck)
+      call horiz_bcs_unstag_scalar(thck)
 
     end select
   end subroutine glide_marinlim
