@@ -5133,7 +5133,7 @@ subroutine calcbetasquared (whichbabc,               &
   real(dp) :: alpha, dx, thck_gl, betalow, betahigh, roughness
   integer :: ew, ns
 
-  ! Note that the dimensional scale (tau0 / vel0 / scyr) is used here for making the basal traction coeff.
+  ! Note that the dimensional scale (tau0 * scyr / vel0 ) is used here for making the basal traction coeff.
   ! betasquared dimensional, within the subroutine, and then non-dimensional again before being sent back out
   ! for use in the code. This scale is the same as scale2d_beta defined in libglimmer/glimmer_scales.F90.
 
@@ -5164,7 +5164,7 @@ subroutine calcbetasquared (whichbabc,               &
       !!! if it were the till yield stress (in units of Pascals).
 !      betasquared = minTauf*tau0 / dsqrt( (thisvel*vel0*scyr)**2 + (othervel*vel0*scyr)**2 + (smallnum)**2 )
 
-      betasquared = ( beta * ( tau0 / vel0 / scyr  ) ) &
+      betasquared = ( beta * ( tau0 * scyr / vel0 ) ) &
                     / dsqrt( (thisvel*vel0*scyr)**2 + (othervel*vel0*scyr)**2 + (smallnum)**2 )
 
     case(3)     ! circular ice shelf: set B^2 ~ 0 except for at center, where B^2 >> 0 to enforce u,v=0 there
@@ -5180,7 +5180,7 @@ subroutine calcbetasquared (whichbabc,               &
 
 !TODO - Careful with scaling here.
       ! scale CISM input value to dimensional units of (Pa yrs 1/m)
-      betasquared = beta * ( tau0 / vel0 / scyr )
+      betasquared = beta * ( tau0 * scyr / vel0 )
 
       ! this is a check for NaNs, which indicate, and are replaced by no slip
       where ( betasquared /= betasquared )
@@ -5193,7 +5193,7 @@ subroutine calcbetasquared (whichbabc,               &
 
   ! convert whatever the specified value is to dimensional units of (Pa s m^-1 ) 
   ! and then non-dimensionalize using PP dyn core specific scaling.
-  betasquared = betasquared / ( tau0 / vel0 / scyr )
+  betasquared = betasquared / ( tau0 * scyr / vel0 )
 
 end subroutine calcbetasquared
 
