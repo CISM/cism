@@ -5168,7 +5168,7 @@ subroutine calcbetasquared (whichbabc,               &
 
     case(4)    ! frozen (u=v=0) ice-bed interface
 
-      betasquared = 1.d10
+      betasquared = 1.d25
 
     case(5)    ! use value passed in externally from CISM (NOTE not dimensional when passed in) 
 
@@ -5178,7 +5178,7 @@ subroutine calcbetasquared (whichbabc,               &
 
       ! this is a check for NaNs, which indicate, and are replaced by no slip
       where ( betasquared /= betasquared )
-        betasquared = 1.d10
+        betasquared = 1.d25
       end where
 
     ! NOTE: cases (6) and (7) are handled external to this subroutine
