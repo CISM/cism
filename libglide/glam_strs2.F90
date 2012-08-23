@@ -5127,9 +5127,12 @@ subroutine calcbetasquared (whichbabc,               &
   real(dp) :: alpha, dx, thck_gl, betalow, betahigh, roughness
   integer :: ew, ns
 
-  ! Note that the dimensional scale (tau0 * scyr / vel0 ) is used here for making the basal traction coeff.
-  ! betasquared dimensional, within the subroutine, and then non-dimensional again before being sent back out
-  ! for use in the code. This scale is the same as scale2d_beta defined in libglimmer/glimmer_scales.F90.
+  ! Note that the dimensional scale (tau0 / vel0 / scyr ) is used here for making the basal traction coeff.
+  ! betasquared dimensional, within the subroutine (mainly for debugging purposes), and then non-dimensional 
+  ! again before being sent back out for use in the code. This scale is the same as "scale_beta" defined in 
+  ! libglimmer/glimmer_scales.F90. See additional notes where that scale is defined. In general, below, it is
+  ! assumed that values for betasquared being accessed from inside the code are already dimensionless and 
+  ! any hardwired values have units of Pa yr/m. 
 
 !TODO - Remove scaling here?
 
@@ -5137,16 +5140,16 @@ subroutine calcbetasquared (whichbabc,               &
 
     case(0)     ! constant value; useful for debugging and test cases
 
-      betasquared = 10.d0
+      betasquared = 10.d0       ! Pa yr/m
 
     case(1)     ! simple pattern; also useful for debugging and test cases
                 ! (here, a strip of weak bed surrounded by stronger bed to simulate an ice stream)
 
-      betasquared = 1.d4
+      betasquared = 1.d4        ! Pa yr/m
 
 !TODO - Should these 5's be hardwired?  Is 10.d1 correct?  (Change to 100.d0?)
       do ns=5, nsn-5; do ew=1, ewn-1; 
-        betasquared(ew,ns) = 10.d1 
+        betasquared(ew,ns) = 10.d1      ! Pa yr/m
       end do; end do
 
 
@@ -5158,36 +5161,35 @@ subroutine calcbetasquared (whichbabc,               &
       !!! if it were the till yield stress (in units of Pascals).
 !      betasquared = minTauf*tau0 / dsqrt( (thisvel*vel0*scyr)**2 + (othervel*vel0*scyr)**2 + (smallnum)**2 )
 
-      betasquared = ( beta * ( tau0 * scyr / vel0 ) ) &
+      betasquared = ( beta * ( tau0 / vel0 / scyr ) ) &     ! Pa yr/m
                     / dsqrt( (thisvel*vel0*scyr)**2 + (othervel*vel0*scyr)**2 + (smallnum)**2 )
 
     case(3)     ! circular ice shelf: set B^2 ~ 0 except for at center, where B^2 >> 0 to enforce u,v=0 there
 
-      betasquared = 1.d-5
-      betasquared( (ewn-1)/2:(ewn-1)/2+1, (nsn-1)/2:(nsn-1)/2+1 ) = 1.d10
+      betasquared = 1.d-5       ! Pa yr/m
+      betasquared( (ewn-1)/2:(ewn-1)/2+1, (nsn-1)/2:(nsn-1)/2+1 ) = 1.d10       ! Pa yr/m
 
     case(4)    ! frozen (u=v=0) ice-bed interface
 
-      betasquared = 1.d25
+      betasquared = 1.d10       ! Pa yr/m
 
     case(5)    ! use value passed in externally from CISM (NOTE not dimensional when passed in) 
 
 !TODO - Careful with scaling here.
-      ! scale CISM input value to dimensional units of (Pa yrs 1/m)
-      betasquared = beta * ( tau0 * scyr / vel0 )
+      ! scale CISM input value to dimensional units of (Pa yr/m)
+      betasquared = beta * ( tau0 / vel0 / scyr )
 
       ! this is a check for NaNs, which indicate, and are replaced by no slip
       where ( betasquared /= betasquared )
-        betasquared = 1.d25
+        betasquared = 1.d10     ! Pa yr/m
       end where
 
     ! NOTE: cases (6) and (7) are handled external to this subroutine
 
   end select
 
-  ! convert whatever the specified value is to dimensional units of (Pa s m^-1 ) 
-  ! and then non-dimensionalize using PP dyn core specific scaling.
-  betasquared = betasquared / ( tau0 * scyr / vel0 )
+  ! convert the dimensional value of betasquared to non-dimensional units by dividing by scale factor.
+  betasquared = betasquared / ( tau0 / vel0 / scyr )    !! scale in paranetheses is: Pa * sec/m * yr/sec = Pa yr/m
 
 end subroutine calcbetasquared
 
