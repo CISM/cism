@@ -89,7 +89,7 @@ for i in range(nx):
   for j in range(ny):
     y = float(j)/(ny-1) - 0.5 # -1/2 < y < 1/2
     r = sqrt(x*x+y*y)     # radial distance from the center
-    if r < 0.48:          # Inside a circle we have
+    if r < 0.44:          # Inside a circle we have
       thk[0,j,i] = 1000     # constant ice thickness unless
       if options.sloped:  # command line option specifies
         thk[0,j,i] *= (1-r) # conical top
