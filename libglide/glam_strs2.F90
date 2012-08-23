@@ -773,7 +773,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
         ! (send output to the screen or to the log file, per whichever line is commented out) 
         if( whichresid == 3 )then
             print '(i4,3g20.6)', counter, L2norm, NL_target    ! Output when using L2norm for convergence
-            print '(a,i4,3g20.6)', "sup-norm uvel, vvel=", counter, resid(1), resid(2), minres
+            !print '(a,i4,3g20.6)', "sup-norm uvel, vvel=", counter, resid(1), resid(2), minres
             !write(message,'(i4,3g20.6)') counter, L2norm, NL_target
             !call write_log (message)
         else
