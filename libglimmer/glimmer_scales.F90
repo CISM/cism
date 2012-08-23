@@ -63,8 +63,15 @@ contains
     scale_acab  = scyr * thk0 / tim0              ! acab, bmlt
     scale_wvel  = scyr * thk0 / tim0              ! wvel, wgrd
     scale_btrc  = scyr * vel0 * len0 / (thk0**2)  ! btrc, soft
+    
+    scale_beta  = tau0 / vel0 / scyr              ! units: Pa * sec/m * yr/sec = Pa * yr/m 
+                                                  ! NOTE: on i/o, beta has units of Pa yr/m. Since vel0 has units of m/s, 
+                                                  ! the first two terms on the RHS have units of Pa s/m. Thus, the final 
+                                                  ! division by scyr here converts s/m to yr/m. All together, the 3 terms 
+                                                  ! on the RHS scale by on i/o by Pa yr/m (made dimensionless on input, 
+                                                  ! assuming the units in the input .nc file are in Pa yr/m, and vice
+                                                  ! versa on output.
 
-    scale_beta  = scyr * tau0 / vel0              ! beta
     scale_flwa  = scyr * vis0                     ! flwa
     scale_tau   = tau0                            ! tauf, tauxz, btractx
     scale_efvs  = evs0 / scyr                     ! efvs
