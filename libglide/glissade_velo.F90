@@ -20,6 +20,7 @@ module glissade_velo
     ! Glissade higher-order velocity solver
 
     use glam_strs2, only: glam_velo_solver, JFNK_velo_solver
+!    use glissade_velo_higher
 
     !globals
     use glimmer_global, only : dp
@@ -85,7 +86,8 @@ contains
         model%velocity%dynbcmask = geom_mask_stag
 
 !TODO - HO_DIAG_PP is the only supported option for now.
-!       Later we will add an option for the variational dycore
+!       Later we will add an option for the variational dycore.
+!       (This is currently being constructed in glissade_velo_higher.F90.)
  
         !-------------------------------------------------------------------
         ! Compute the velocity field

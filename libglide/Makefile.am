@@ -25,11 +25,11 @@ libglide_la_SOURCES = glide.F90 glide_setup.F90 glide_types.F90 res_vect.F90 \
 		      remap_advection.F90 remap_glamutils.F90 \
 		      glide_mask.inc glide_nan.inc glide_bwater.F90 \
                       glimmer_restart_gcm.F90 \
+                      glissade.F90 glissade_velo.F90 glissade_velo_higher.F90 \
                       glissade_remap.F90 glissade_transport.F90 glissade_temp.F90 \
-                      glissade_velo.F90 glissade.F90 \
                       glam_Basal_Proc.F90 fgmresD.f90
 
-#TODO - Move glissade modules to a new library
+#TODO - Move glissade modules to a new library distinct from libglide?
 #       Alternatively, could make a libdycore
 
 libglide_la_LDFLAGS=-all-static
