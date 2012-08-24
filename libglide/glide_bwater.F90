@@ -58,9 +58,7 @@ contains
 
        do t_wat = 1, model%tempwk%nwat
 
-!HALO - For glissade, code, loop should be over locally owned cells (ilo:ihi,jo:jhi).
-!        Then may need a parallel update later.
-!       Could move call from glissade_temp to glissade_driver.
+!LOOP - For glissade, loop should be over locally owned cells (ilo:ihi,jo:jhi).
 
           do ns = 1,model%general%nsn
              do ew = 1,model%general%ewn
@@ -125,11 +123,6 @@ contains
       bwat = 0.0d0
     end select
 
-!HALO - Move this halo update to a higher level.
-!       (glide_temp and glissade_temp)
-
-    call parallel_halo(bwat) !same as model%temper%bwat
-    
     ! now also calculate basal water in velocity (staggered) coord system
     call stagvarb(model%temper%bwat, &
                   model%temper%stagbwat ,&
@@ -331,7 +324,7 @@ contains
     allocate(dwphidx(nx,ny),dwphidy(nx,ny),grad_wphi(nx,ny))
 
     ! Compute the gradient of the potential field.
-    call df_field_2d(wphi,dew,dns,dwphidx,dwphidy,.FALSE.,.FALSE.)
+    call df_field_2d(wphi,dew,dns,dwphidx,dwphidy)
 
     grad_wphi = sqrt(dwphidx**2 + dwphidy**2)
 

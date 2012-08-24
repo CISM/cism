@@ -1,5 +1,5 @@
 !CLEANUP - glam.F90
-! This module is now decremented.
+! This module is now deprecated.
 ! For now, it is still possible to call subroutine inc_remap_driver
 !  from glissade_tstep by setting call_inc_remap_driver = .true.
 ! But the default option is to call the velocity solver and transport

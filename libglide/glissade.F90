@@ -466,6 +466,7 @@ contains
 
     end if
 
+
     ! ------------------------------------------------------------------------ 
     ! Calculate basal traction factor
     ! ------------------------------------------------------------------------ 
@@ -485,6 +486,13 @@ contains
 !!    write(*,*)"ERROR: Basal processes module is not supported in this release of CISM."
 !!    stop
 !!    end if
+
+    ! ------------------------------------------------------------------------ 
+    ! Halo updates
+    ! ------------------------------------------------------------------------ 
+
+      call parallel_halo(model%temper%bwat)    ! not sure if this is needed
+
 
     ! ------------------------------------------------------------------------ 
     ! Calculate flow evolution by various different methods

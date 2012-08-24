@@ -1,5 +1,5 @@
 !CLEANUP - remap_glamutils.F90
-! This module is now decremented.  Only used for old remapping scheme.
+! This module is now deprecated.  Only used for old remapping scheme.
 
 module remap_glamutils      
 

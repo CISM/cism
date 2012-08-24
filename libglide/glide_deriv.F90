@@ -22,12 +22,10 @@ module glide_deriv
     !------------------------------------------------------------------
 contains
 
-!TODO - Remove periodic_x and periodic_y from argument list.
     !*FD Computes derivative fields of the given function.
     subroutine df_field_2d(f,  &
                            deltax,      deltay,      &
                            out_dfdx,    out_dfdy,    &
-                           periodic_x,  periodic_y,  &
                            direction_x, direction_y)
 
       use parallel
@@ -43,9 +41,6 @@ contains
 
         integer :: nx, ny, x, y
 
-!TODO - Remove; these are not used
-        logical :: periodic_x, periodic_y
-        
         !Get the size of the field we're working with
         nx = size(f, 1)
         ny = size(f, 2)
@@ -94,10 +89,12 @@ contains
             end do  
         end do
 
+
 !HALO - If these updates are needed, they should be done at a higher level,
-!       and only for fields whose halo values are needed.
-        call parallel_halo(out_dfdx)
-        call parallel_halo(out_dfdy)
+!        and only for fields whose halo values are needed.
+
+!!        call parallel_halo(out_dfdx)
+!!        call parallel_halo(out_dfdy)
         
     end subroutine df_field_2d
 

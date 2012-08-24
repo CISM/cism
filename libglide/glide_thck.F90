@@ -709,7 +709,7 @@ subroutine geometry_derivs(model)
 
 end subroutine
 
-!HALO - This subroutine may not be needed anymore.  Called from inc_remap_driver.
+!TODO - This subroutine may not be needed anymore.  Called from inc_remap_driver.
 !       If this is removed, may be able to remove upwind_from_mask too.
 
 !*FD Computes derivatives of the geometry onto variables on a nonstaggered
@@ -730,15 +730,15 @@ subroutine geometry_derivs_unstag(model)
    !Compute first derivatives of geometry
    call df_field_2d(model%geometry%usrf, model%numerics%dew, model%numerics%dns, &
                     model%geomderv%dusrfdew_unstag, model%geomderv%dusrfdns_unstag, &
-                    .false., .false., direction_x, direction_y)
+                    direction_x, direction_y)
 
    call df_field_2d(model%geometry%lsrf, model%numerics%dew, model%numerics%dns, &
                     model%geomderv%dlsrfdew_unstag, model%geomderv%dlsrfdns_unstag, &
-                    .false., .false., direction_x, direction_y)
+                    direction_x, direction_y)
 
    call df_field_2d(model%geometry%thck, model%numerics%dew, model%numerics%dns, &
                     model%geomderv%dthckdew_unstag, model%geomderv%dthckdns_unstag, &
-                    .false., .false., direction_x, direction_y)
+                    direction_x, direction_y)
 
    call d2f_field(model%geometry%usrf, model%numerics%dew, model%numerics%dns, &
                   model%geomderv%d2usrfdew2_unstag, model%geomderv%d2usrfdns2_unstag, &

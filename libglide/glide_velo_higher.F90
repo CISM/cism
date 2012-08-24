@@ -1,5 +1,5 @@
 !CLEANUP - glide_velo_higher.F90
-! This module is now decremented.
+! This module is now deprecated.
 ! The new wrapper is subroutine glissade_velo_driver in module glissade_velo.F90.
 !
 ! TODOs below can be ignored.
