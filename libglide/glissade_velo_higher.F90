@@ -31,7 +31,7 @@
     implicit none
     private
 
-!TODO - At some point, we coud make this code MPAS-friendly by replacing 
+!TODO - At some point we coud make this code more MPAS-friendly by replacing 
 !       the ij loops with indirect addressing.  But keep i and j for now.
 
     !----------------------------------------------------------------
@@ -45,19 +45,22 @@
     integer :: nVertices  ! total number of vertices associated with at least one cell
 
     integer, parameter ::      &
-       nVerticesOnCell = 4,    &   
-       nVerticesOnVertex = 9 
+       nVerticesOnCell = 4,    & ! number of vertices bordeing each cell   
+       nVerticesOnVertex = 9     !TODO - not needed?
 
-!TODO - Use VertexID instead of gVertex Index?
-    integer, dimension(:,:), allocatable ::    &
-!       gCellIndex,          &! global cell index for each cell (i,j)
-!       gVertexIndex,        &!
-       CellID,              &! unique local ID for each cell (i,j)
-       VertexID              ! unique local ID for each vertex (i,j)
+    integer, dimension(:,:), allocatable ::  &
+       CellID                ! unique ID for each cell (i,j)
+
+    integer, dimension(:,:), allocatable ::  &
+       VertexID              ! unique ID for each vertex (i,j)
+
+    real(dp), dimension(:,:), allocatable :: &
+       xVertex, yVertex       ! x and y coordinates of each vertex
 
 !whl - Can remove gVerticesOnVertex
 !      Might want to replace gVerticesOnCell with gNodesOnElement in FE subroutines
   
+!whl - remove this one too?
     integer, dimension(:,:), allocatable ::    &
        VertexOnCellID        ! VertexID for each vertex of each cell
 
@@ -65,9 +68,7 @@
 !       gVerticesOnVertex,   &! global index of vertices neighboring a given vertex
 !       gVerticesOnCell       ! global index of vertices of a given cell
 
-    real(dp), dimension(:), allocatable ::     &
-       xVertex, yVertex, zvertex    ! x, y and z coordinates of each vertex
-                                    ! x and y are fixed, but z will change in time
+
     !----------------------------------------------------------------
     ! Finite element properties
     !
@@ -76,11 +77,11 @@
 
     integer, parameter ::      &
        nNodesPerElement = 8,   &   ! 8 nodes for hexahedra
-       nQuadPoints = 8             ! number of quadrature points
-                                   ! These live at +- 1/sqrt(3) for hexahedra
+       nQuadPoints = 8             ! number of quadrature points per element
+                                   ! These live at +- 1/sqrt(3) for reference hexahedron
 
     real(dp), parameter ::     &
-       rsqrt3 = 1.d0/sqrt(3.d0)    ! for quadrature points 
+       rsqrt3 = 1.d0/sqrt(3.d0)    ! for quadrature points
          
     !----------------------------------------------------------------
     ! Arrays used for finite-element calculations
@@ -99,7 +100,6 @@
 ! storage arrays
 
 !TODO - Get rid of these
-! Would be nice to get rid of these (assemble Auu, etc. in some other way)
 
     integer, parameter :: &   ! indices for a vertex and its 8 horizontal neighbors
        isw = 1,    &
@@ -127,7 +127,6 @@
     ! (Not sure where these will be needed.)
     !----------------------------------------------------------------
 
-
     !----------------------------------------------------------------
     ! Here are some definitions:
     !
@@ -135,6 +134,8 @@
     ! Each cell can be extruded to form a column with a specified number of layers.
     ! 
     ! An element is a layer of a cell, and a node is a corner of an element.
+    ! So elements and nodes live in 3D space, whereas cells and vertices live in
+    !  the horizontal plane.
     !
     ! Active elements are those elements lying in cells with ice present
     !  (that is, the ice thickness is above a minimum threshold).
@@ -149,132 +150,67 @@
     real(dp), intent(in) ::  &
        dx,  dy                     ! grid cell dimensions
 
-
     integer :: i, j, n, p, nc, nv
 
     !----------------------------------------------------------------
-    ! Assign indices for the cells and vertices on this mesh.
+    ! Assign indices for the cells and vertices
+    ! TODO - Decide whether these indices should be local or global for parallel code,
+    !        and rewrite as needed.
     !----------------------------------------------------------------
 
     ! Define global cell index for cells on this processor.
     ! Note: Cell 1 is at lower left, cell nCells is at upper right
 
-!TODO - The following indexing scheme works only in serial.  
-!       Must rewrite (or let Trilinos handle the indexing) if in parallel.
-
 !whl - MPAS has indexToCellID and indexToVertexID.  
-!      Could these replace gCellIndex and gVertexIndex?
 
     ! Assign a unique index to each cell on this processor.
 
-!    allocate(gCellIndex(nx,ny))
-!    gCellIndex(:,:) = 0
-
-!    nCells = 0
-!    do j = 1+nhalo, ny-nhalo
-!    do i = 1+nhalo, nx-nhalo     
-!       nCells = nCells + 1
-!       gCellIndex(i,j) = nCells
-!    enddo
-!    enddo       
-
-    
     allocate(CellID(nx,ny))
     nCells = 0
-    do j = 1, ny   ! OK to count halo cells?  Or should loop be over local cells only?
+    do j = 1, ny   ! OK to count halo cells?  Or should we loop over local cells only?
     do i = 1, nx
        nCells = nCells + 1
        CellID(i,j) = nCells
     enddo
     enddo
 
-    ! Assign a unique index to each vertex on this processor
+    ! Assign a unique index to each vertex and compute its x and y coordinates.
     ! By convention, vertex (i,j) lies at the NE corner of cell(i,j).
-
-!    allocate(gVertexIndex(nx-1,ny-1))
-!    gVertexIndex(:,:) = 0
-
-!    nVertices = 0
-!    do j = nhalo, ny-nhalo   ! include south edge (index nhalo)     
-!    do i = nhalo, nx-nhalo   ! include west edge  (index nhalo)
-!       nVertices = nVertices + 1
-!       gVertexIndex(i,j) = nVertices
-!    enddo
-!    enddo       
+    !TODO - These coordinates are relative to local processor; modify for parallel case?
 
     allocate(VertexID(nx-1, ny-1))
-    nVertices = 0
+    allocate(xvertex(nx-1,ny-1), yvertex(nx-1,ny-1))
 
-    do j = 1, ny-1
+    nVertices = 0
+    VertexID(:,:) = 0
+    xVertex(:,:) = 0.d0
+    yVertex(:,:) = 0.d0
+    do j = 1, ny-1  ! Restrict loop to vertices of local cells?
     do i = 1, nx-1
        nVertices = nVertices + 1
        VertexID(i,j) = nVertices
+       xVertex(i,j) = dx * i
+       yVertex(i,j) = dy * j
     enddo
     enddo
 
+!TODO - VertexOnCellID may not be needed
     ! Determine the vertex IDs for each vertex of each cell.
     ! Numbering is counter-clockwise from SW corner
     ! Requires nhalo >= 1
 
-    allocate(VertexOnCellID(nCells, nVerticesOnCell))
+    allocate(VertexOnCellID(nCells, nVerticesOnCell))  ! TODO - Should ncells be on the outside?
     VertexOnCellID(:,:) = 0
-
     do j = 1+nhalo, ny-nhalo   ! locally owned cells
     do i = 1+nhalo, nx-nhalo
        nc = CellID(i,j)     
-       VertexOnCellID(nc,1) = VertexID(i-1,j-1)   ! lower SW corner
-       VertexOnCellID(nc,2) = VertexID(i,j-1)     ! lower SE corner
-       VertexOnCellID(nc,3) = VertexID(i,j)       ! lower NE corner
-       VertexOnCellID(nc,4) = VertexID(i-1,j)     ! lower NW corner
-!       VertexOnCellID(nc,5) = VertexID(i-1,j-1)   ! upper SW corner
-!       VertexOnCellID(nc,6) = VertexID(i,j-1)     ! upper SE corner
-!       VertexOnCellID(nc,7) = VertexID(i,j)       ! upper NE corner
-!       VertexOnCellID(nc,8) = VertexID(i-1,j)     ! upper NW corner
+       VertexOnCellID(nc,1) = VertexID(i-1,j-1)   ! SW corner
+       VertexOnCellID(nc,2) = VertexID(i,j-1)     ! SE corner
+       VertexOnCellID(nc,3) = VertexID(i,j)       ! NE corner
+       VertexOnCellID(nc,4) = VertexID(i-1,j)     ! NW corner
     enddo
     enddo
     
-    ! Assign x and y coordinates to each vertex.
-    ! z values set to zero for now; will be set later based on the ice thickness.
-
-    !TODO - These coordinates are relative to local processor; modify for parallel case?
-
-    allocate(xVertex(nVertices))
-    allocate(yVertex(nVertices))
-    allocate(zVertex(nVertices))
-
-    xVertex(:) = 0.d0
-    yVertex(:) = 0.d0
-    zVertex(:) = 0.d0
-
-    do j = 1, ny-1
-    do i = 1, nx-1
-       xVertex(VertexID(i,j)) = dx * i
-       yVertex(VertexID(i,j)) = dy * j
-    enddo
-    enddo
-
-!TODO: Not sure the following is needed.
-    ! Determine the global indices of each vertex and its 8 neighbors
-    ! Note: This requires nhalo >= 2.  Must revise if nhalo = 1.
-
-!    allocate(gVerticesOnVertex(nVertices, nVerticesOnVertex))
-!    gVerticesOnVertex(:,:) = 0
-
-!    do j = nhalo, ny-nhalo    ! include south edge
-!    do i = nhalo, nx-nhalo    ! include west edge
-!       nv = gVertexIndex(i,j)
-!       gVerticesOnVertex(nv,isw) = gVertexIndex(i-1,j-1) 
-!       gVerticesOnVertex(nv,is0) = gVertexIndex(i  ,j-1) 
-!       gVerticesOnVertex(nv,ise) = gVertexIndex(i+1,j-1) 
-!       gVerticesOnVertex(nv,i0w) = gVertexIndex(i-1,j) 
-!       gVerticesOnVertex(nv,i00) = gVertexIndex(i  ,j)
-!       gVerticesOnVertex(nv,i0e) = gVertexIndex(i+1,j) 
-!       gVerticesOnVertex(nv,inw) = gVertexIndex(i-1,j+1) 
-!       gVerticesOnVertex(nv,in0) = gVertexIndex(i  ,j+1) 
-!       gVerticesOnVertex(nv,ine) = gVertexIndex(i+1,j+1) 
-!    enddo
-!    enddo
-
     !----------------------------------------------------------------
     ! Initialize some time-independent finite element arrays
     !----------------------------------------------------------------
@@ -292,8 +228,9 @@
     ! N7 = (1+x)*(1+y)*(1+z)/8
     ! N8 = (1-x)*(1+y)*(1+z)/8
    
-    ! Set coordinates and weights of quadrature points for reference square element
-    ! Numbering is counter-clockwise from southwest
+    ! Set coordinates and weights of quadrature points for reference hexahedral element.
+    ! Numbering is counter-clockwise from southwest, lower face (1-4) followed by
+    !  upper face (5-8).
 
     xqp(1) = -rsqrt3
     yqp(1) = -rsqrt3
@@ -336,6 +273,7 @@
     wqp(8) =  1.d0
 
     ! Evaluate basis functions and their derivatives at each quad pt
+    ! TODO - Check these carefully.
 
     do p = 1, nQuadPoints
 
@@ -418,23 +356,35 @@
        nElements,         &   ! no. of elements (nlyr per active cell)
        nNodes                 ! no. of nodes belonging to these elements
 
-!    integer, dimension(nCells) ::   &
-!       iCellIndex, jCellIndex ! i and j indices of active cells
-
-!    integer, dimension(nVertices*nlyr) ::   &
-!       iNodeIndex, jNodeIndex, kNodeIndex   ! i, j and k indices of nodes
-
+!TODO - Change dimensions to nCells and nVertices?
     logical, dimension(nx,ny) :: &
        active_cell,       &   ! true for active cells (thck > thckmin)
        active_vertex          ! true for vertices of active cells
 
-    logical, dimension(nlyr+1,nx,ny) ::  &
-       active_node            ! true for active nodes
+!TODO - Not sure if iCellIndex and jCellIndex are needed
+    integer, dimension(nCells) ::   &
+       iCellIndex, jCellIndex ! i and j indices of active cells
 
-    real(dp), dimension(:), allocatable :: &
-       visc,           &   ! effective viscosity
-       vertex_usfc,    &   ! upper surface averaged to vertices
-       vertex_thck         ! ice thickness averaged to vertices
+    integer, dimension(nlyr,nx,ny) ::  &
+        NodeID             ! ID for each active node
+
+    integer, dimension(nVertices*nlyr) ::   &
+       iNodeIndex, jNodeIndex, kNodeIndex   ! i, j and k indices of active nodes
+
+    real(dp), dimension(nVertices*nlyr) :: &
+        xNode, &  ! x coordinate for each node of each element
+        yNode, &  ! y coordinate for each node of each element
+        zNode     ! z coordinate for each node of each element
+
+!TODO - may not be needed
+!    logical, dimension(nlyr+1,nx,ny) ::  &
+!       active_node            ! true for active nodes
+
+    integer, dimension(nNodesPerElement,nlyr,nx,ny) ::  &
+        NodeOnElement     ! node ID for each node of each element
+
+    real(dp), dimension(nlyr,nx,ny) :: &
+       visc               ! effective viscosity of each element
 
     real(dp), dimension(:,:,:,:), allocatable ::  &
        Auu, Auv,    &     ! assembled stiffness matrix, divided into 4 parts
@@ -446,28 +396,23 @@
     real(dp), dimension(:), allocatable ::  &
        bu, bv             ! assembled load vector, divided into 2 parts
 
-    integer :: i, j, k, gc, gv, nv
+    integer :: i, j, k, gc, gv, nv, nid
 
 !TODO - Are these needed?
     integer, dimension(nCells) :: gElementIndex   ! global cell index for each element
     integer, dimension(nVertices) :: gNodeIndex   ! global node index for each vertex
 
-
     ! Identify and count the active cells (i.e., cells with thck > thckmin)
 
     nActiveCells = 0
     active_cell(:,:) = .false.
-!    iCellIndex(:) = 0
-!    jCellIndex(:) = 0
-
-!TODO - May not need iCellIndex is using CellID(i,j)?
     do j = 1+nhalo, ny-nhalo
     do i = 1+nhalo, nx-nhalo
        if (thck(i,j) >= thckmin) then
           active_cell(i,j) = .true.
           nActiveCells = nActiveCells + 1
-!          iCellIndex(nActiveCells) = i
-!          jCellIndex(nActiveCells) = j
+!!          iCellIndex(nActiveCells) = i  ! could use these for indirect addressing
+!!          jCellIndex(nActiveCells) = j 
        endif
     enddo
     enddo
@@ -481,7 +426,7 @@
 
     active_vertex(:,:) = .false.
 
-    do j = 1+nhalo, ny-nhalo
+    do j = 1+nhalo, ny-nhalo   ! loop over local cells
     do i = 1+nhalo, nx-nhalo
        if (active_cell(i,j)) then
           active_vertex(i-1:i, j-1:j) = .true.  ! 4 vertices of this cell
@@ -489,37 +434,55 @@
     enddo
     enddo
 
-    ! Identify and count the active nodes
+    ! Identify and count the active nodes, and compute their x, y and z coordinates.
 
-    active_node(:,:,:) = .false.
+!    active_node(:,:,:) = .false.
     nNodes = 0
+    xNode(:) = 0.d0     ! indices are (1:8,NodeID)
+    yNode(:) = 0.d0     ! indices are (1:8,NodeID)
+    zNode(:) = 0.d0     ! indices are (1:8,NodeID)
 
     do j = nhalo, ny-nhalo    ! include S edge
     do i = nhalo, nx-nhalo    ! include W edge
        if (active_vertex(i,j)) then
           do k = 1, nlyr+1    ! all nodes in column are active
-             active_node(k,i,j) = .true.
+!             active_node(k,i,j) = .true.
              nNodes = nNodes + 1   
-!             iNodeIndex(nNodes) = i
-!             jNodeIndex(nNodes) = j
-!             kNodeIndex(nNodes) = k
-          enddo
-       endif
-    enddo
-    enddo
+             NodeID(k,i,j) = nNodes   ! unique index for active nodes
+             iNodeIndex(nNodes) = i
+             jNodeIndex(nNodes) = j
+             kNodeIndex(nNodes) = k
+             xNode(nNodes) = xVertex(i,j)
+             yNode(nNodes) = yVertex(i,j)
+             zNode(nNodes) = stagusfc(i,j) - sigma(k)*stagthck(i,j)
+           enddo   ! k
+        endif      ! active cell
+    enddo          ! i
+    enddo          ! j
 
-!TODO - Is this needed?
     ! Identify the nodes of each element
+    ! For now at least, assume k increases from top to bottom 
+    ! (whereas numbering of nodes within each element is from bottom to top--
+    !  this can be confusing)
+
+    NodeOnElement(:,:,:,:) = 0  ! indices are (1:8,k,i,j)
 
     do j = 1+nhalo, ny-nhalo
     do i = 1+nhalo, nx-nhalo
-        if (active_cell(i,j)) then
-           do k = 1, nlyr
-!              Node_On_Element(i,j,k,1) = nodeID(i-1,j-1,k-1)
-           enddo
-        endif
-    enddo
-    enddo
+       if (active_cell(i,j)) then
+          do k = 1, nlyr
+             NodeOnElement(1,k,i,j) = nodeID(k+1,i-1,j-1)
+             NodeOnElement(2,k,i,j) = nodeID(k+1,i,j-1)
+             NodeOnElement(3,k,i,j) = nodeID(k+1,i,j)
+             NodeOnElement(4,k,i,j) = nodeID(k+1,i-1,j)
+             NodeOnElement(5,k,i,j) = nodeID(k,i-1,j-1)
+             NodeOnElement(6,k,i,j) = nodeID(k,i,j-1)
+             NodeOnElement(7,k,i,j) = nodeID(k,i,j)
+             NodeOnElement(8,k,i,j) = nodeID(k,i-1,j)
+          enddo  ! k
+       endif     ! active cell
+    enddo        ! i
+    enddo        ! j
 
 
     ! Allocate space for the stiffness matrix
@@ -534,20 +497,7 @@
     allocate(bu(nNodes))
     allocate(bv(nNodes))
 
-    ! allocate space for the effective viscosity
-    allocate(visc(nElements))
-
     !TODO - Start the outer loop here
-
-
-       ! Compute the thickness at each vertex
-       do j = 1, ny-1
-       do i = 1, nx-1
-          nv = VertexID(i,j)
-          vertex_usfc(nv) = stagusfc(i,j)
-          vertex_thck(nv) = stagthck(i,j)
-       enddo
-       enddo
 
        ! TODO: Compute the effective viscosity for each element
        ! Note dimensions: visc(nElements)
@@ -558,13 +508,12 @@
        call assemble_stiffness_matrix(nx, ny, nlyr,  nhalo,           &
                                       active_cell,                     &
                                       nCells,           nActiveCells,  &
-                                      VertexOnCellID,                 &
+                                      NodeOnElement,    &
 !                                      iCellIndex,       jCellIndex,  &
 !                                      iNodeIndex,       jNodeIndex,  &
 !                                      kNodeIndex,                    &
                                       nElements,        nNodes,      &
                                       visc,             sigma,       &
-                                      vertex_usfc,      vertex_thck, &
                                       Auu,              Auv,         &
                                       Avu,              Avv)
 
@@ -587,7 +536,6 @@
     deallocate(Avv)
     deallocate(bu)
     deallocate(bv)
-    deallocate(visc)
 
   end subroutine glissade_velo_higher_solve
 
@@ -596,13 +544,12 @@
   subroutine assemble_stiffness_matrix(nx, ny, nlyr,  nhalo,           &
                                        active_cell,  &
                                        nCells,           nActiveCells, &
-                                       VertexOnCellID, &
+                                       NodeOnElement, &
 !                                       iCellIndex,       jCellIndex,   &     
 !                                       iNodeIndex,       jNodeIndex,   &     
 !                                       kNodeIndex,   &     
                                        nElements,        nNodes,       &
                                        visc,             sigma,        &
-                                       vertex_usfc,      vertex_thck,  &
                                        Auu,              Auv,          &
                                        Avu,              Avv)
 
@@ -615,14 +562,16 @@
 
     logical, intent(in), dimension(nx,ny) :: active_cell
 
-    integer, dimension(nCells, nVerticesOnCell) ::    &
-       VertexOnCellID        ! VertexID for each vertex of each cell
+!    integer, dimension(nCells, nVerticesOnCell) ::    &
+!       VertexOnCellID        ! VertexID for each vertex of each cell
 
 !    integer, dimension(nCells), intent(in) ::   &
 !       iCellIndex, jCellIndex      ! i and j indices of active cells
 
 !    integer, dimension(nVertices*nlyr), intent(in) ::   &
 !       iNodeIndex, jNodeIndex, kNodeIndex  ! i, j and k indices of nodes
+
+     integer, dimension(nNodesPerElement,nlyr, nx, ny), intent(in) :: NodeOnElement
 
 !TODO - Are these needed?
     integer, intent(in) ::   &
@@ -634,10 +583,6 @@
 
     real(dp), dimension(nlyr+1), intent(in) ::   &
        sigma              ! sigma vertical coordinate
-
-    real(dp), dimension(nVertices), intent(in) ::  &
-       vertex_usfc,     & ! upper surface averaged to vertices
-       vertex_thck        ! ice thickness averaged to vertices
 
     real(dp), dimension(3,3,3,nNodes), intent(out) ::  &
        Auu, Auv,    &     ! assembled stiffness matrix, divided into 4 parts
@@ -665,7 +610,9 @@
                           !         |
                           ! Kvu may not be needed if matrix is symmetric, but is included for now
 
-    integer :: ii, jj, i, j, k, n, nc, nv, gc, gv, p, r, s, vid
+    integer :: ii, jj, i, j, k, n, nc, nv, gc, gv, p, r, s, nid
+
+    real(dp), dimension(nNodesPerElement) :: x, y, z   ! nodal coordinates
 
     ! Initialize arrays
 
@@ -688,7 +635,7 @@
        
      if (active_cell(ii,jj)) then
 
-       nc = CellID(ii,jj)
+       nc = CellID(ii,jj)   ! not needed?
           
        do k = 1, nlyr    ! loop over elements in this column
                          ! assume k increases from upper surface to bed
@@ -697,16 +644,10 @@
           ! (need to check this)
 
           do n = 1, nNodesPerElement
-             nv = mod(n, nVerticesOnCell)  ! assume consecutive numbering of each layer 
-                                           ! e.g., 1-4 on bottom layer and 5-8 on top layer
-             vid = VertexOnCellID(nc,nv)
-             xNode(n) = xVertex(vid)
-             yNode(n) = yVertex(vid)
-             if (n <= nVerticesOnCell) then   ! lower surface
-                zNode(n) = vertex_usfc(vid) - sigma(k+1)*vertex_thck(vid)
-             else
-                zNode(n) = vertex_usfc(vid) - sigma(k)*vertex_thck(vid)   
-             endif
+             nid = NodeOnElement(n,k,i,j)
+             x(n) = xNode(nid)
+             y(n) = yNode(nid)
+             z(n) = zNode(nid)
           enddo   ! nodes per element
 
        ! Loop over quadrature points
@@ -719,7 +660,7 @@
           ! at this quadrature point.
 
           call get_basis_function_derivatives_2d(nNodesPerElement,               &
-                                                 xNode(:),       yNode(:),       &
+                                                 x(:),           y(:),           &
                                                  dphi_dxr(:,p),  dphi_dyr(:,p),  &
                                                  dphi_dx(:),     dphi_dy(:),     &
                                                  detJ )
