@@ -6,7 +6,7 @@
 !
 ! This module contains routines for computing the ice velocity
 !  using a variational finite-element approach.
-! See Dukowicz, Price and Lipscomb (J. Glac., 2010).
+! See Dukowicz, Price and Lipscomb (J. Glaciology, 2010).
 !
 ! Author: William Lipscomb
 !         Los Alamos National Laboratory
@@ -31,21 +31,36 @@
     implicit none
     private
 
+    !----------------------------------------------------------------
+    ! Here are some definitions:
+    !
+    ! The horizontal mesh is composed of cells and vertices.
+    ! For now, all cells are assumed to be quadrilaterals, but the code can be
+    !  generalized later to triangles (e.g., for MPAS mesh).
+    ! Each cell can be extruded to form a column with a specified number of layers.
+    ! 
+    ! An element is a layer of a cell, and a node is a corner of an element.
+    ! So elements and nodes live in 3D space, whereas cells and vertices live in
+    !  the horizontal plane.
+    !
+    ! Active elements are those elements lying in cells with ice present
+    !  (that is, the ice thickness is above a minimum threshold).
+    ! Active nodes are the nodes of these active elements.
+    !
+    !----------------------------------------------------------------
+
 !TODO - At some point we coud make this code more MPAS-friendly by replacing 
 !       the ij loops with indirect addressing.  But keep i and j for now.
 
     !----------------------------------------------------------------
     ! basic cell properties (quadrilateral cells)
-    !
-    !TODO - might want to declare these elsewhere (they would be declared
-    !       elsewhere in MPAS code)
     !----------------------------------------------------------------
 
     integer :: nCells     ! total number of cells on this processor
     integer :: nVertices  ! total number of vertices associated with at least one cell
 
     integer, parameter ::      &
-       nVerticesOnCell = 4,    & ! number of vertices bordeing each cell   
+       nVerticesOnCell = 4,    & ! number of vertices bordering each cell   
        nVerticesOnVertex = 9     !TODO - not needed?
 
     integer, dimension(:,:), allocatable ::  &
@@ -67,7 +82,6 @@
 !    integer, dimension(:,:), allocatable ::    &
 !       gVerticesOnVertex,   &! global index of vertices neighboring a given vertex
 !       gVerticesOnCell       ! global index of vertices of a given cell
-
 
     !----------------------------------------------------------------
     ! Finite element properties
@@ -97,20 +111,10 @@
        xqp, yqp, zqp,  &    ! quad pt coordinates in reference element
        wqp                  ! quad pt weights
 
+    integer, dimension(nNodesPerElement, nNodesPerElement) ::  &
+       ishift, jshift, kshift   ! matrices describing relative indices of nodes in an element
+
 ! storage arrays
-
-!TODO - Get rid of these
-
-    integer, parameter :: &   ! indices for a vertex and its 8 horizontal neighbors
-       isw = 1,    &
-       is0 = 2,    &
-       ise = 3,    &
-       i0w = 4,    &
-       i00 = 5,    &
-       i0e = 6,    &
-       inw = 7,    &
-       in0 = 8,    &
-       ine = 9
 
     public :: glissade_velo_higher_init, glissade_velo_higher_solve
 
@@ -125,22 +129,6 @@
     !----------------------------------------------------------------
     ! Assign global indices to each cell and vertex.
     ! (Not sure where these will be needed.)
-    !----------------------------------------------------------------
-
-    !----------------------------------------------------------------
-    ! Here are some definitions:
-    !
-    ! The horizontal mesh is composed of cells and vertices.
-    ! Each cell can be extruded to form a column with a specified number of layers.
-    ! 
-    ! An element is a layer of a cell, and a node is a corner of an element.
-    ! So elements and nodes live in 3D space, whereas cells and vertices live in
-    !  the horizontal plane.
-    !
-    ! Active elements are those elements lying in cells with ice present
-    !  (that is, the ice thickness is above a minimum threshold).
-    ! Active nodes are the nodes of these active elements.
-    !
     !----------------------------------------------------------------
 
     integer, intent(in) ::   &
@@ -163,6 +151,7 @@
 
 !whl - MPAS has indexToCellID and indexToVertexID.  
 
+!TODO - Deallocate CellID and VertexID at end of run? 
     ! Assign a unique index to each cell on this processor.
 
     allocate(CellID(nx,ny))
@@ -194,7 +183,7 @@
     enddo
     enddo
 
-!TODO - VertexOnCellID may not be needed
+!TODO - VertexOnCellID may not be needed (use NodeOnElement instead)
     ! Determine the vertex IDs for each vertex of each cell.
     ! Numbering is counter-clockwise from SW corner
     ! Requires nhalo >= 1
@@ -218,58 +207,44 @@
     ! Trilinear basis set for reference hexahedron, x=(-1,1), y=(-1,1), z=(-1,1)             
     ! Indexing is counter-clockwise from SW corner, with 1-4 on lower surface
     !  and 5-8 on upper surface
+    ! In the code we use "phi" to denote these basis functions. 
     !
-    ! N1 = (1-x)*(1-y)*(1-z)/8
-    ! N2 = (1+x)*(1-y)*(1-z)/8
-    ! N3 = (1+x)*(1+y)*(1-z)/8
-    ! N4 = (1-x)*(1+y)*(1-z)/8
-    ! N5 = (1-x)*(1-y)*(1+z)/8
-    ! N6 = (1+x)*(1-y)*(1+z)/8
-    ! N7 = (1+x)*(1+y)*(1+z)/8
-    ! N8 = (1-x)*(1+y)*(1+z)/8
+    ! N1 = (1-x)*(1-y)*(1-z)/8             N4----N3
+    ! N2 = (1+x)*(1-y)*(1-z)/8             |     |    Lower layer        
+    ! N3 = (1+x)*(1+y)*(1-z)/8             |     |
+    ! N4 = (1-x)*(1+y)*(1-z)/8             N1----N2
+
+    ! N5 = (1-x)*(1-y)*(1+z)/8             N8----N7
+    ! N6 = (1+x)*(1-y)*(1+z)/8             |     |    Upper layer
+    ! N7 = (1+x)*(1+y)*(1+z)/8             |     |
+    ! N8 = (1-x)*(1+y)*(1+z)/8             N5----N6
    
     ! Set coordinates and weights of quadrature points for reference hexahedral element.
     ! Numbering is counter-clockwise from southwest, lower face (1-4) followed by
     !  upper face (5-8).
 
-    xqp(1) = -rsqrt3
-    yqp(1) = -rsqrt3
-    zqp(1) = -rsqrt3
+    xqp(1) = -rsqrt3; yqp(1) = -rsqrt3; zqp(1) = -rsqrt3
     wqp(1) =  1.d0   !TODO - check that weight = 1 and not 1/8
 
-    xqp(2) =  rsqrt3
-    yqp(2) = -rsqrt3
-    zqp(2) = -rsqrt3
+    xqp(2) =  rsqrt3; yqp(2) = -rsqrt3; zqp(2) = -rsqrt3
     wqp(2) =  1.d0
 
-    xqp(3) =  rsqrt3
-    yqp(3) =  rsqrt3
-    zqp(3) = -rsqrt3
+    xqp(3) =  rsqrt3; yqp(3) =  rsqrt3; zqp(3) = -rsqrt3
     wqp(3) =  1.d0
 
-    xqp(4) = -rsqrt3
-    yqp(4) =  rsqrt3
-    zqp(4) = -rsqrt3
+    xqp(4) = -rsqrt3; yqp(4) =  rsqrt3; zqp(4) = -rsqrt3
     wqp(4) =  1.d0
 
-    xqp(5) = -rsqrt3
-    yqp(5) = -rsqrt3
-    zqp(5) =  rsqrt3
+    xqp(5) = -rsqrt3; yqp(5) = -rsqrt3; zqp(5) =  rsqrt3
     wqp(5) =  1.d0
 
-    xqp(6) =  rsqrt3
-    yqp(6) = -rsqrt3
-    zqp(6) =  rsqrt3
+    xqp(6) =  rsqrt3; yqp(6) = -rsqrt3; zqp(6) =  rsqrt3
     wqp(6) =  1.d0
 
-    xqp(7) =  rsqrt3
-    yqp(7) =  rsqrt3
-    zqp(7) =  rsqrt3
+    xqp(7) =  rsqrt3; yqp(7) =  rsqrt3; zqp(7) =  rsqrt3
     wqp(7) =  1.d0
 
-    xqp(8) = -rsqrt3
-    yqp(8) =  rsqrt3
-    zqp(8) =  rsqrt3
+    xqp(8) = -rsqrt3; yqp(8) =  rsqrt3; zqp(8) =  rsqrt3
     wqp(8) =  1.d0
 
     ! Evaluate basis functions and their derivatives at each quad pt
@@ -313,7 +288,72 @@
        dphi_dzr(7,p) =  (1.d0 + xqp(p)) * (1.d0 + yqp(p)) / 8.d0 
        dphi_dzr(8,p) =  (1.d0 - xqp(p)) * (1.d0 + yqp(p)) / 8.d0 
 
+       ! Initialize some matrices that describe how the i, j and k indices of each node
+       ! in each element are related to one another.
+
+       ! The kshift matrix describes how the k indices of the 8 nodes are related to one another.
+       ! E.g, if kshift (1,5) = -1, this means that the k index of node 5 has a k index
+       ! one less than the k index of node 1.  (Assume that k increases downward.)
+
+       kshift(1, 1:8) = (/ 0,  0,  0,  0, -1, -1, -1, -1/)   
+       kshift(2, 1:8) = kshift(1, 1:8)
+       kshift(3, 1:8) = kshift(1, 1:8)
+       kshift(4, 1:8) = kshift(1, 1:8)
+       kshift(5, 1:8) = (/ 1,  1,  1,  1,  0,  0,  0,  0/)
+       kshift(6, 1:8) = kshift(5, 1:8)
+       kshift(7, 1:8) = kshift(5, 1:8)
+       kshift(8, 1:8) = kshift(5, 1:8)
+
+       ! The ishift matrix describes how the i indices of the 8 nodes are related to one another.
+
+       ishift(1, 1:8) = (/ 0,  1,  1,  0,  0,  1,  1,  0/)   
+       ishift(2, 1:8) = (/-1,  0,  0, -1, -1,  0,  0, -1/)   
+       ishift(3, 1:8) = ishift(2,1:8)
+       ishift(4, 1:8) = ishift(1,1:8)
+       ishift(5, 1:8) = ishift(1,1:8)
+       ishift(6, 1:8) = ishift(2,1:8)
+       ishift(7, 1:8) = ishift(2,1:8)
+       ishift(8, 1:8) = ishift(1,1:8)
+
+       ! And the ishift matrix describes how the j indices of the 8 nodes are related to one another.
+
+       jshift(1, 1:8) = (/ 0,  0,  1,  1,  0,  0,  1,  1/)   
+       jshift(2, 1:8) = jshift(1,1:8)
+       jshift(3, 1:8) = (/-1, -1,  0,  0, -1, -1,  0, 0/)   
+       jshift(4, 1:8) = jshift(3,1:8)
+       jshift(5, 1:8) = jshift(1,1:8)
+       jshift(6, 1:8) = jshift(1,1:8)
+       jshift(7, 1:8) = jshift(3,1:8)
+       jshift(8, 1:8) = jshift(3,1:8)
+
     enddo
+
+!TODO - Write out and debug some of the variables computed above
+
+   go to 100
+
+   ! Cells
+   write(6,*) ' '
+   write(6,*) 'Cell IDs:'
+   do j = 1, ny
+      write(6,*) ' '
+      do i = 1, nx
+         write(6,*) 'i, j, cellID:', i, j, CellID(i,j)
+      enddo
+   enddo
+
+   ! Vertices
+   write(6,*) ' '
+   write(6,*) 'Vertex IDs:'
+   do j = 1, ny-1
+      write(6,*) ' '    
+      do i = 1, nx-1
+         write(6,*) 'i, j, vertexID:', i, j, VertexID(i,j)
+         write(6,*) 'x, y coords:', xVertex(i,j), yVertex(i,j)
+      enddo
+   enddo
+
+100 return
 
   end subroutine glissade_velo_higher_init
 
@@ -338,10 +378,10 @@
     real (dp), dimension(nx,ny), intent(in) ::  &
        thck                   ! ice thickness
 
-    real (dp), dimension(nx,ny,nlyr), intent(in) ::  &
+    real (dp), dimension(nlyr,nx,ny), intent(in) ::  &
        flwa                   ! flow factor
 
-    integer, intent(in) ::   &
+    real(dp), intent(in) ::   & 
        thckmin                ! minimum ice thickness for active cells
 
     real (dp), dimension(nx-1,ny-1), intent(in) ::  &
@@ -356,7 +396,7 @@
        nElements,         &   ! no. of elements (nlyr per active cell)
        nNodes                 ! no. of nodes belonging to these elements
 
-!TODO - Change dimensions to nCells and nVertices?
+    ! Change dimensions to nCells and nVertices?
     logical, dimension(nx,ny) :: &
        active_cell,       &   ! true for active cells (thck > thckmin)
        active_vertex          ! true for vertices of active cells
@@ -372,9 +412,7 @@
        iNodeIndex, jNodeIndex, kNodeIndex   ! i, j and k indices of active nodes
 
     real(dp), dimension(nVertices*nlyr) :: &
-        xNode, &  ! x coordinate for each node of each element
-        yNode, &  ! y coordinate for each node of each element
-        zNode     ! z coordinate for each node of each element
+       xNode, ynode, znode   ! x, y and z coordinates for each node
 
 !TODO - may not be needed
 !    logical, dimension(nlyr+1,nx,ny) ::  &
@@ -402,6 +440,8 @@
     integer, dimension(nCells) :: gElementIndex   ! global cell index for each element
     integer, dimension(nVertices) :: gNodeIndex   ! global node index for each vertex
 
+!TODO - Put the next few loops in a separate geometry subroutine?
+
     ! Identify and count the active cells (i.e., cells with thck > thckmin)
 
     nActiveCells = 0
@@ -417,19 +457,18 @@
     enddo
     enddo
         
-    ! Count the active elements
+    ! Count the active elements (nlyr element per active cell)
 
     nElements = nActiveCells * nlyr
 
     ! Identify the active vertices (i.e., all vertices of active cells)
-    ! Many of these nodes will be set to true multiple times.
 
     active_vertex(:,:) = .false.
 
     do j = 1+nhalo, ny-nhalo   ! loop over local cells
     do i = 1+nhalo, nx-nhalo
        if (active_cell(i,j)) then
-          active_vertex(i-1:i, j-1:j) = .true.  ! 4 vertices of this cell
+          active_vertex(i-1:i, j-1:j) = .true.  ! all vertices of this cell
        endif
     enddo
     enddo
@@ -438,9 +477,12 @@
 
 !    active_node(:,:,:) = .false.
     nNodes = 0
-    xNode(:) = 0.d0     ! indices are (1:8,NodeID)
-    yNode(:) = 0.d0     ! indices are (1:8,NodeID)
-    zNode(:) = 0.d0     ! indices are (1:8,NodeID)
+    iNodeIndex(:) = 0
+    jNodeIndex(:) = 0
+    kNodeIndex(:) = 0    
+    xNode(:) = 0.d0
+    yNode(:) = 0.d0
+    zNode(:) = 0.d0
 
     do j = nhalo, ny-nhalo    ! include S edge
     do i = nhalo, nx-nhalo    ! include W edge
@@ -448,7 +490,7 @@
           do k = 1, nlyr+1    ! all nodes in column are active
 !             active_node(k,i,j) = .true.
              nNodes = nNodes + 1   
-             NodeID(k,i,j) = nNodes   ! unique index for active nodes
+             NodeID(k,i,j) = nNodes   ! unique index for each active node
              iNodeIndex(nNodes) = i
              jNodeIndex(nNodes) = j
              kNodeIndex(nNodes) = k
@@ -461,29 +503,28 @@
     enddo          ! j
 
     ! Identify the nodes of each element
-    ! For now at least, assume k increases from top to bottom 
-    ! (whereas numbering of nodes within each element is from bottom to top--
+    ! Assume that k increases from top to bottom 
+    ! (Note: The numbering of nodes within each element is from bottom to top--
     !  this can be confusing)
 
     NodeOnElement(:,:,:,:) = 0  ! indices are (1:8,k,i,j)
 
-    do j = 1+nhalo, ny-nhalo
+    do j = 1+nhalo, ny-nhalo    ! loop over locally owned cells 
     do i = 1+nhalo, nx-nhalo
        if (active_cell(i,j)) then
           do k = 1, nlyr
              NodeOnElement(1,k,i,j) = nodeID(k+1,i-1,j-1)
-             NodeOnElement(2,k,i,j) = nodeID(k+1,i,j-1)
-             NodeOnElement(3,k,i,j) = nodeID(k+1,i,j)
+             NodeOnElement(2,k,i,j) = nodeID(k+1,i,  j-1)
+             NodeOnElement(3,k,i,j) = nodeID(k+1,i,  j)
              NodeOnElement(4,k,i,j) = nodeID(k+1,i-1,j)
-             NodeOnElement(5,k,i,j) = nodeID(k,i-1,j-1)
-             NodeOnElement(6,k,i,j) = nodeID(k,i,j-1)
-             NodeOnElement(7,k,i,j) = nodeID(k,i,j)
-             NodeOnElement(8,k,i,j) = nodeID(k,i-1,j)
+             NodeOnElement(5,k,i,j) = nodeID(k,  i-1,j-1)
+             NodeOnElement(6,k,i,j) = nodeID(k,  i,  j-1)
+             NodeOnElement(7,k,i,j) = nodeID(k,  i,  j)
+             NodeOnElement(8,k,i,j) = nodeID(k,  i-1,j)
           enddo  ! k
        endif     ! active cell
     enddo        ! i
     enddo        ! j
-
 
     ! Allocate space for the stiffness matrix
 
@@ -505,15 +546,19 @@
 
        ! Assemble the stiffness matrix
 
+!TODO - Remove unneeded arguments.
+
        call assemble_stiffness_matrix(nx, ny, nlyr,  nhalo,           &
                                       active_cell,                     &
                                       nCells,           nActiveCells,  &
                                       NodeOnElement,    &
 !                                      iCellIndex,       jCellIndex,  &
-!                                      iNodeIndex,       jNodeIndex,  &
-!                                      kNodeIndex,                    &
+                                      iNodeIndex,       jNodeIndex,  &
+                                      kNodeIndex,                    &
+                                      xNode,            yNode,       &
+                                      zNode,                         &
                                       nElements,        nNodes,      &
-                                      visc,             sigma,       &
+                                      visc,                          &
                                       Auu,              Auv,         &
                                       Avu,              Avv)
 
@@ -546,10 +591,12 @@
                                        nCells,           nActiveCells, &
                                        NodeOnElement, &
 !                                       iCellIndex,       jCellIndex,   &     
-!                                       iNodeIndex,       jNodeIndex,   &     
-!                                       kNodeIndex,   &     
+                                       iNodeIndex,       jNodeIndex,   &     
+                                       kNodeIndex,   &     
+                                       xNode,            yNode,       &
+                                       zNode,                         &
                                        nElements,        nNodes,       &
-                                       visc,             sigma,        &
+                                       visc,                           &
                                        Auu,              Auv,          &
                                        Avu,              Avv)
 
@@ -568,10 +615,13 @@
 !    integer, dimension(nCells), intent(in) ::   &
 !       iCellIndex, jCellIndex      ! i and j indices of active cells
 
-!    integer, dimension(nVertices*nlyr), intent(in) ::   &
-!       iNodeIndex, jNodeIndex, kNodeIndex  ! i, j and k indices of nodes
+    integer, dimension(nVertices*nlyr), intent(in) ::   &
+       iNodeIndex, jNodeIndex, kNodeIndex  ! i, j and k indices of nodes
 
-     integer, dimension(nNodesPerElement,nlyr, nx, ny), intent(in) :: NodeOnElement
+    real(dp), dimension(nVertices*nlyr), intent(in) ::   &
+       xNode, yNode, zNode  ! x, y and z coordinates of nodes
+
+    integer, dimension(nNodesPerElement,nlyr, nx, ny), intent(in) :: NodeOnElement
 
 !TODO - Are these needed?
     integer, intent(in) ::   &
@@ -581,17 +631,7 @@
     real(dp), dimension(nElements), intent(in) ::  &
        visc               ! effective viscosity
 
-    real(dp), dimension(nlyr+1), intent(in) ::   &
-       sigma              ! sigma vertical coordinate
-
-    real(dp), dimension(3,3,3,nNodes), intent(out) ::  &
-       Auu, Auv,    &     ! assembled stiffness matrix, divided into 4 parts
-       Avu, Avv                                    
-
-    real(dp), dimension(nNodesPerElement) ::   &
-       xNode, yNode, zNode  ! x, y and z coordinates of nodes
-
-    real(dp), dimension(2,2) ::   &
+    real(dp), dimension(3,3) ::   &
        Jac, Jinv          ! Jacobian matrix and its inverse
 
     real(dp) ::   &
@@ -599,6 +639,18 @@
 
     real(dp), dimension(nNodesPerElement) ::   &
        dphi_dx, dphi_dy, dphi_dz   ! derivatives of basis function, evaluated at quad pts
+
+    !----------------------------------------------------------------
+    ! Note: Kuu, Kuv, Kvu, and Kvv are 8x8 stiffness matrices for the local element.
+    !
+    ! Once these matrices are formed, their coefficients are summed into the assembled
+    !  matrices Auu, Auv, Avu, Avv.  The A matrices each have as many row as there are
+    !  active nodes, but only 27 columns, corresponding to the 27 vertices that belong to
+    !  the 8 elements sharing a given node.
+    !
+    ! At the next step, the terms of the dense A matrices will be put in a sparse matrix
+    !  format suitable for iterative solutions.
+    !----------------------------------------------------------------
 
     real(dp), dimension(nNodesPerElement, nNodesPerElement) ::   &   !
        Kuu,          &    ! element stiffness matrix, divided into 4 parts as shown below
@@ -610,140 +662,103 @@
                           !         |
                           ! Kvu may not be needed if matrix is symmetric, but is included for now
 
-    integer :: ii, jj, i, j, k, n, nc, nv, gc, gv, p, r, s, nid
+    real(dp), dimension(3,3,3,nNodes), intent(out) ::  &
+       Auu, Auv,    &     ! assembled stiffness matrix, divided into 4 parts
+       Avu, Avv                                    
 
     real(dp), dimension(nNodesPerElement) :: x, y, z   ! nodal coordinates
 
-    ! Initialize arrays
+    integer, dimension(nNodesPerElement) :: nodeID     ! ID for each node of an element
 
-    Auu(:,:,:,:) = 0.d0
-    Auv(:,:,:,:) = 0.d0
-    Avu(:,:,:,:) = 0.d0
-    Avv(:,:,:,:) = 0.d0
+    integer :: i, j, k, n, p
+
+    ! Initialize arrays
 
     Kuu(:,:) = 0.d0
     Kuv(:,:) = 0.d0
     Kvu(:,:) = 0.d0
     Kvv(:,:) = 0.d0
     
+    Auu(:,:,:,:) = 0.d0
+    Auv(:,:,:,:) = 0.d0
+    Avu(:,:,:,:) = 0.d0
+    Avv(:,:,:,:) = 0.d0
+
     ! Sum over elements
 
-!TODO - Sum over nCells and do not use i and j?
+!TODO - Could sum over nCells and do not use i and j?
 
-    do jj = nhalo+1, ny-nhalo    ! loop over local cells
-    do ii = nhalo+1, nx-nhalo
+    do j = nhalo+1, ny-nhalo    ! loop over local cells
+    do i = nhalo+1, nx-nhalo
        
-     if (active_cell(ii,jj)) then
+     if (active_cell(i,j)) then
 
-       nc = CellID(ii,jj)   ! not needed?
-          
        do k = 1, nlyr    ! loop over elements in this column
                          ! assume k increases from upper surface to bed
 
-          ! Find x, y and z coordinates of each node for this element
-          ! (need to check this)
+          ! Find node ID and (x,y,z) coordinates of each node for this element
 
           do n = 1, nNodesPerElement
-             nid = NodeOnElement(n,k,i,j)
-             x(n) = xNode(nid)
-             y(n) = yNode(nid)
-             z(n) = zNode(nid)
+             nodeID(n) = NodeOnElement(n,k,i,j)
+             x(n) = xNode(nodeID(n))
+             y(n) = yNode(nodeID(n))
+             z(n) = zNode(nodeID(n))
           enddo   ! nodes per element
 
-       ! Loop over quadrature points
+          ! Loop over quadrature points for this element
    
-       do p = 1, nQuadPoints
-
-!TODO - Modify to include z coordinate
+          do p = 1, nQuadPoints
 
           ! Evaluate the derivatives of the element basis functions
           ! at this quadrature point.
 
-          call get_basis_function_derivatives_2d(nNodesPerElement,               &
-                                                 x(:),           y(:),           &
-                                                 dphi_dxr(:,p),  dphi_dyr(:,p),  &
-                                                 dphi_dx(:),     dphi_dy(:),     &
+             call get_basis_function_derivatives(nNodesPerElement,                             &
+                                                 x(:),          y(:),          z(:),           &
+                                                 dphi_dxr(:,p), dphi_dyr(:,p), dphi_dzr(:,p),  &
+                                                 dphi_dx(:),    dphi_dy(:),    dphi_dz(:),     &
                                                  detJ )
 
           ! Increment the element stiffness matrix with the contribution from
-          ! this quadrature point, assuming we are solving the shallow-shelf equations.
+          ! this quadrature point.
 
-          call increment_element_matrix_ssa(nNodesPerElement,               &
-                                            wqp(p),            detJ,        &
-                                            dphi_dx(:),        dphi_dy(:),  &
-                                            Kuu(:,:),          Kuv(:,:),    &
-                                            Kvu(:,:),          Kvv(:,:) )
+             call increment_element_matrix(nNodesPerElement,                        &
+                                           wqp(p),         detJ,                    &
+                                           dphi_dx(:),     dphi_dy(:),  dphi_dz(:), &
+                                           Kuu(:,:),       Kuv(:,:),                &
+                                           Kvu(:,:),       Kvv(:,:) )
 
-       enddo   ! nQuadPoints
+          enddo   ! nQuadPoints
 
-       call check_symmetry_element_matrix(nNodesPerElement,  &
-                                          Kuu, Kuv, Kvu, Kvv)
-
-!       call element_to_global_matrix_2d
-
-       ! Insert terms of element stiffness matrices (Kuu, Kuv, Kvu, Kvv) into the 
-       ! global stiffness matrices (Auu, Auv, Avu, Avv).
-       ! 
-       ! The integrated basis functions (computed above) are multiplied by the
-       ! viscosity of each element.
-       !
-       ! The number of rows in the global matrices is nNodes.
-       ! The number of columns is 9, corresponding to a vertex and its 8 neighbors. 
-       ! In this way we can accumulate and store all the nonzero terms of A in a compact matrix.
-
-       !whl - It might be better if we could store A in the sparse matrix data type.
-       !      But I don't know how to accumulate values with this data type; I only know
-       !       how to put values that are already accumulated.
-       !
-       !whl - Change i0e to ie, in0 to in, etc.?
-
-!       i = 1                          ! 1st row of K matrix, associated with vertex 1
-!       gv = gVerticesOnCell(gc,i)     ! global vertex index for this node (gc = cell index)
-
-!        gv = 1 ! just for now
-!        r = 1  ! just for now
-!       r = gNodeIndex(gv)             ! global matrix row corresponding to this node
-
-!       Auu(r,i00) = Auu(r,i00) + Kuu(1,1)*visc(ne)  ! column corresponding to vertex 1
-!       Auu(r,i0e) = Auu(r,i0e) + Kuu(1,2)*visc(ne)  ! column corresponding to vertex 2
-!       Auu(r,ine) = Auu(r,ine) + Kuu(1,3)*visc(ne)  ! column corresponding to vertex 3
-!       Auu(r,in0) = Auu(r,in0) + Kuu(1,4)*visc(ne)  ! column corresponding to vertex 4
-
-!       i = 2                          ! 2nd row of K matrix, associated with vertex 2
-!       gv = gVerticesOnCell(gc,i)     ! global vertex index for this node
-!       r = gNodeIndex(gv)             ! global matrix row corresponding to this node
-
-!       Auu(r,i0w) = Auu(r,i0w) + Kuu(2,1)*visc(ne)  ! column corresponding to vertex 1
-!       Auu(r,i00) = Auu(r,i00) + Kuu(2,2)*visc(ne)  ! column corresponding to vertex 2
-!       Auu(r,in0) = Auu(r,in0) + Kuu(2,3)*visc(ne)  ! column corresponding to vertex 3
-!       Auu(r,inw) = Auu(r,inw) + Kuu(2,4)*visc(ne)  ! column corresponding to vertex 4
-
-!       i = 3                          ! 3rd row of K matrix, associated with vertex 3
-!       gv = gVerticesOnCell(gc,i)     ! global vertex index for this node
-!       r = gNodeIndex(gv)             ! global matrix row corresponding to this node
-
-!       Auu(r,isw) = Auu(r,isw) + Kuu(3,1)*visc(ne)  ! column corresponding to vertex 1
-!       Auu(r,is0) = Auu(r,is0) + Kuu(3,2)*visc(ne)  ! column corresponding to vertex 2
-!       Auu(r,i00) = Auu(r,i00) + Kuu(3,3)*visc(ne)  ! column corresponding to vertex 3
-!       Auu(r,i0w) = Auu(r,i0w) + Kuu(3,4)*visc(ne)  ! column corresponding to vertex 4
-
-!       i = 4                          ! 3rd row of K matrix, associated with vertex 3
-!       gv = gVerticesOnCell(gc,i)     ! global vertex index for this node
-!       r = gNodeIndex(gv)             ! global matrix row corresponding to this node
-
-!       Auu(r,is0) = Auu(r,is0) + Kuu(4,1)*visc(ne)  ! column corresponding to vertex 1
-!       Auu(r,ise) = Auu(r,ise) + Kuu(4,2)*visc(ne)  ! column corresponding to vertex 2
-!       Auu(r,i0e) = Auu(r,i0e) + Kuu(4,3)*visc(ne)  ! column corresponding to vertex 3
-!       Auu(r,i00) = Auu(r,i00) + Kuu(4,4)*visc(ne)  ! column corresponding to vertex 4
-
-!whl - Then need to repeat for Auv, Avu, and Avv
-!      How to minimize the number of lines of code?
-!      Maybe turn this into a subroutine with inputs Auu/Kuu, Auv/Kuv, etc.?
-
-       ! Here I should finish assembling the stiffness matrix by incorporating basal sliding?
+          call check_symmetry_element_matrix(nNodesPerElement,  &
+                                             Kuu, Kuv, Kvu, Kvv)
 
 
-       enddo   ! nlyr
+         ! If solving in parallel with Trilinos, we have the option at this point to 
+         ! call a sum_into_global_matrix routine, passing one row at a time of the
+         ! element matrix.  Trilinos will handle the rest.
+         !
+         ! For the serial SLAP solve, we first form a dense intermediate matrix, 
+         ! and later put that matrix in sparse format.
+
+          call element_to_global_matrix(nNodesPerElement, nNodes,    &
+                                        nodeID,                      &
+                                        Kuu,              Auu)
+
+          call element_to_global_matrix(nNodesPerElement, nNodes,    &
+                                        nodeID,                      &
+                                        Kuv,              Auv)
+
+          call element_to_global_matrix(nNodesPerElement, nNodes,    &
+                                        nodeID,                      &
+                                        Kvu,              Avu)
+
+          call element_to_global_matrix(nNodesPerElement, nNodes,    &
+                                        nodeID,                      &
+                                        Kvv,              Avv)
+
+       ! TODO: Finish assembling the stiffness matrix by incorporating basal sliding?
+
+       enddo   ! nlyr (loop over elements in this column)
 
      endif   ! active cell
 
@@ -754,117 +769,14 @@
 
 !****************************************************************************
 
-  subroutine get_basis_function_derivatives_2d(nNodesPerElement,       &
-                                               xNode,       yNode,     &
-                                               dphi_dxr,    dphi_dyr,  &
-                                               dphi_dx,     dphi_dy,   &
-                                               detJ )
+  subroutine get_basis_function_derivatives(nNodesPerElement,       &
+                                            xNode,       yNode,     zNode,    &
+                                            dphi_dxr,    dphi_dyr,  dphi_dzr, &
+                                            dphi_dx,     dphi_dy,   dphi_dz,  &
+                                            detJ )
 
     !------------------------------------------------------------------
-    ! Evaluate the x and y derivatives of the element basis functions
-    ! at a particular quadrature point.
-    !
-    ! Also determine the Jacobian of the transformation between the
-    ! reference element and the true element.
-    ! 
-    ! This subroutine should work for any 2D element with any number of nodes.
-    !------------------------------------------------------------------
-
-    integer, intent(in) :: nNodesPerElement   ! number of nodes per element
- 
-    real(dp), dimension(nNodesPerElement), intent(in) :: &
-                xNode, yNode,        &! nodal coordinates
-                dphi_dxr, dphi_dyr    ! derivatives of basis functions at quad pt
-                                      !  wrt x and y in reference element
-
-    real(dp), dimension(nNodesPerElement), intent(out) :: &
-                dphi_dx , dphi_dy     ! derivatives of basis functions at quad pt
-                                      !  wrt x and y in true coordinates  
-
-    real(dp), intent(out) :: &
-                detJ      ! determinant of Jacobian matrix
-
-    real(dp), dimension(2,2) ::  &
-                Jac,     &! Jacobian matrix
-                Jinv      ! inverse Jacobian matrix
-
-    integer :: n
-
-    !------------------------------------------------------------------
-    ! Compute the Jacobian for the transformation from the reference
-    ! coordinates to the true coordinates:
-    !
-    !              |                                                 |
-    !              | sum_n{dphi_n/dxr * xn}   sum_n{dphi_n/dxr * yn} |
-    !   J(xr,yr) = |                                                 |
-    !              | sum_n{dphi_n/dyr * xn}   sum_n{dphi_n/dyr * yn} |
-    !              |                                                 |
-    !
-    ! where (xn,yn) are the true nodal coordinates,
-    !       (xr,yr) are the coordinates of the quad point in the reference element,
-    !       and sum_n denotes a sum over nodes.
-    !------------------------------------------------------------------
-
-    Jac(:,:) = 0.d0
-
-    do n = 1, nNodesPerElement
-       Jac(1,1) = Jac(1,1) + dphi_dxr(n) * xNode(n)
-       Jac(1,2) = Jac(1,2) + dphi_dxr(n) * yNode(n)
-       Jac(2,1) = Jac(2,1) + dphi_dyr(n) * xNode(n)
-       Jac(2,2) = Jac(2,2) + dphi_dyr(n) * xNode(n)
-    enddo
-
-    !------------------------------------------------------------------
-    ! Compute the determinant and inverse of J
-    !------------------------------------------------------------------
-
-    detJ = Jac(1,1)*Jac(2,2) - Jac(1,2)*Jac(2,1)
-
-    if (abs(detJ) > 0.d0) then
-       Jinv(1,1) =  Jac(2,2)
-       Jinv(1,2) = -Jac(1,2)
-       Jinv(2,1) = -Jac(2,1)
-       Jinv(2,2) =  Jac(1,1)
-       Jinv(:,:) = Jinv(:,:) / detJ
-    else
-       !whl - do a proper abort here
-       print*, 'stopping, det J = 0'
-       stop
-    endif
-
-    !------------------------------------------------------------------
-    ! Compute the contribution of this quadrature point to dphi/dx and dphi/dy
-    ! for each basis function.
-    !
-    !   | dphi_n/dx |          | dphi_n/dxr |
-    !   |           | = Jinv * |            | 
-    !   | dphi_n/dy |          | dphi_n/dyr |
-    !------------------------------------------------------------------
-
-    dphi_dx(:) = 0.d0
-    dphi_dy(:) = 0.d0
-
-    do n = 1, nNodesPerElement
-       dphi_dx(n) = dphi_dx(n) + Jinv(1,1)*dphi_dxr(n)  &
-                               + Jinv(1,2)*dphi_dyr(n)
-       dphi_dy(n) = dphi_dy(n) + Jinv(2,1)*dphi_dxr(n)  &
-                               + Jinv(2,2)*dphi_dyr(n)
-    enddo
-
-  end subroutine get_basis_function_derivatives_2d
-
-!****************************************************************************
-
-!whl - Write a 3D version of this subroutine too.
-
-  subroutine get_basis_function_derivatives_3d(nNodesPerElement,       &
-                                               xNode,     yNode,    znode,     &
-                                               dphi_dxr,  dphi_dyr, dphi_dzr,  &
-                                               dphi_dx,   dphi_dy,  dphi_dz,   &
-                                               detJ )
-
-    !------------------------------------------------------------------
-    ! Evaluate the x and y derivatives of the element basis functions
+    ! Evaluate the x, y and z derivatives of the element basis functions
     ! at a particular quadrature point.
     !
     ! Also determine the Jacobian of the transformation between the
@@ -876,13 +788,13 @@
     integer, intent(in) :: nNodesPerElement   ! number of nodes per element
  
     real(dp), dimension(nNodesPerElement), intent(in) :: &
-                xNode, yNode, zNode,         &! nodal coordinates
-                dphi_dxr, dphi_dyr, dphi_dzr  ! derivatives of basis functions at quad pt
-                                              !  wrt x and y in reference element
+                xNode, yNode, zNode,          &! nodal coordinates
+                dphi_dxr, dphi_dyr, dphi_dzr   ! derivatives of basis functions at quad pt
+                                               !  wrt x, y and z in reference element
 
     real(dp), dimension(nNodesPerElement), intent(out) :: &
-                dphi_dx, dphi_dy, dphi_dz     ! derivatives of basis functions at quad pt
-                                              !  wrt x and y in true coordinates  
+                dphi_dx , dphi_dy, dphi_dz     ! derivatives of basis functions at quad pt
+                                               !  wrt x, y and z in true Cartesian coordinates  
 
     real(dp), intent(out) :: &
                 detJ      ! determinant of Jacobian matrix
@@ -898,19 +810,22 @@
     ! Compute the Jacobian for the transformation from the reference
     ! coordinates to the true coordinates:
     !
-    !                 |                                                                        |
-    !                 | sum_n{dphi_n/dxr * xn}  sum_n{dphi_n/dxr * yn}  sum_n{dphi_n/dxr * zn} |
-    !   J(xr,yr,zr) = |                                                                        |
-    !                 | sum_n{dphi_n/dyr * xn}  sum_n{dphi_n/dyr * yn}  sum_n(dphi_n/dyr * zn  |
-    !                 |                                                                        |
-    !                 | sum_n{dphi_n/dzr * xn}  sum_n{dphi_n/dzr * yn}  sum_n(dphi_n/dyz * zn  |
+    !                 |                                                                          |
+    !                 | sum_n{dphi_n/dxr * xn}   sum_n{dphi_n/dxr * yn}   sum_n{dphi_n/dxr * zn} |
+    !   J(xr,yr,zr) = |                                                                          |
+    !                 | sum_n{dphi_n/dyr * xn}   sum_n{dphi_n/dyr * yn}   sum_n{dphi_n/dyr * zn} |
+    !                 |                                                                          |
+    !                 | sum_n{dphi_n/dzr * xn}   sum_n{dphi_n/dzr * yn}   sum_n{dphi_n/dzr * zn} |
+    !                 !                                                                          |
     !
-    ! where (xn,yn,zn) are the true nodal coordinates,
+    ! where (xn,yn,zn) are the true Cartesian nodal coordinates,
     !       (xr,yr,zr) are the coordinates of the quad point in the reference element,
     !       and sum_n denotes a sum over nodes.
     !------------------------------------------------------------------
 
     Jac(:,:) = 0.d0
+
+!TODO - Check this code carefully.
 
     do n = 1, nNodesPerElement
        Jac(1,1) = Jac(1,1) + dphi_dxr(n) * xNode(n)
@@ -953,7 +868,7 @@
        stop
     endif
 
-!whl - to do - bug check - Verify that J * Jinv = I
+!whl - TODO - bug check - Verify that J * Jinv = I
 
     !------------------------------------------------------------------
     ! Compute the contribution of this quadrature point to dphi/dx and dphi/dy
@@ -983,11 +898,67 @@
                                + Jinv(3,3)*dphi_dzr(n)
     enddo
 
-  end subroutine get_basis_function_derivatives_3d
+  end subroutine get_basis_function_derivatives
 
 !****************************************************************************
 
-!whl - Write a 3D version of this subroutine for the BP equations.
+  subroutine increment_element_matrix(nNodesPerElement,             &
+                                      wqp,      detJ,               &
+                                      dphi_dx,  dphi_dy,  dphi_dz,  &
+                                      Kuu,      Kuv,                &
+                                      Kvu,      Kvv )
+
+!TODO - Add optional arguments that reduce the solver to SIA or SSA.
+
+    !------------------------------------------------------------------
+    ! Increment the stiffness matrices Kuu, Kuv, Kvu, Kvv with the
+    ! contribution from a particular quadrature point, 
+    ! based on the Blatter-Pattyn first-order equations.
+    !
+    ! This subroutine will work for any 3D element with any number of nodes.
+    !------------------------------------------------------------------
+
+    integer, intent(in) :: nNodesPerElement  ! number of nodes per element
+
+    real(dp), intent(in) ::    &
+             wqp,        &! weight for this quadrature point
+             detJ         ! determinant of Jacobian for the transformation
+                          !  between the reference element and true element
+
+    real(dp), dimension(nNodesPerElement), intent(in) ::  &
+             dphi_dx, dphi_dy, dphi_dz   ! derivatives of basis functions,
+                                         ! evaluated at this quadrature point
+
+    real(dp), dimension(nNodesPerElement,nNodesPerElement), intent(inout) :: &
+             Kuu, Kuv, Kvu, Kvv     ! components of element stiffness matrix
+
+    integer :: i, j
+
+    ! Increment the element stiffness matrices for the first-order Blatter-Pattyn equations
+
+    do j = 1, nNodesPerElement      ! columns of K
+       do i = 1, nNodesPerElement   ! rows of K
+
+          Kuu(i,j) = Kuu(i,j) + wqp*detJ*(4.d0*dphi_dx(j)*dphi_dx(i)  &
+                                         +     dphi_dy(j)*dphi_dy(i)  &
+                                         +     dphi_dz(j)*dphi_dz(i) )
+          Kuv(i,j) = Kuv(i,j) + wqp*detJ*(2.d0*dphi_dx(j)*dphi_dy(i)  &
+                                         +     dphi_dy(j)*dphi_dx(i) )
+          Kvu(i,j) = Kvu(i,j) + wqp*detJ*(2.d0*dphi_dy(j)*dphi_dx(i)  &
+                                         +     dphi_dx(j)*dphi_dy(i) )
+          Kvv(i,j) = Kvv(i,j) + wqp*detJ*(4.d0*dphi_dy(j)*dphi_dy(i)  &
+                                         +     dphi_dx(j)*dphi_dx(i)  &
+                                         +     dphi_dz(j)*dphi_dz(i) )
+
+       enddo  ! i (rows)
+    enddo     ! j (columns)
+
+  end subroutine increment_element_matrix
+
+!****************************************************************************
+
+!TODO - Remove this subroutine?  
+! Can always implement SSA in 3D by removing terms from HO approximation       
 
   subroutine increment_element_matrix_ssa(nNodesPerElement,               &
                                           wqp,               detJ,        &
@@ -1037,59 +1008,6 @@
     enddo     ! j (columns)
 
   end subroutine increment_element_matrix_ssa
-
-!****************************************************************************
-
-  subroutine increment_element_matrix_first_order_3d(nNodesPerElement,             &
-                                                     wqp,      detJ,               &
-                                                     dphi_dx,  dphi_dy,  dphi_dz,  &
-                                                     Kuu,      Kuv,                &
-                                                     Kvu,      Kvv )
-
-    !------------------------------------------------------------------
-    ! Increment the stiffness matrices Kuu, Kuv, Kvu, Kvv with the
-    ! contribution from a particular quadrature point, 
-    ! based on the Blatter-Pattyn first-order equations.
-    !
-    ! This subroutine will work for any 3D element with any number of nodes.
-    !------------------------------------------------------------------
-
-    integer, intent(in) :: nNodesPerElement  ! number of nodes per element
-
-    real(dp), intent(in) ::    &
-             wqp,        &! weight for this quadrature point
-             detJ         ! determinant of Jacobian for the transformation
-                          !  between the reference element and true element
-
-    real(dp), dimension(nNodesPerElement), intent(in) ::  &
-             dphi_dx, dphi_dy, dphi_dz   ! derivatives of basis functions,
-                                         ! evaluated at this quadrature point
-
-    real(dp), dimension(nNodesPerElement,nNodesPerElement), intent(inout) :: &
-             Kuu, Kuv, Kvu, Kvv     ! components of element stiffness matrix
-
-    integer :: i, j
-
-    ! Increment the element stiffness matrices for the first-order Blatter-Pattyn equations
-
-    do j = 1, nNodesPerElement      ! columns of K
-       do i = 1, nNodesPerElement   ! rows of K
-
-          Kuu(i,j) = Kuu(i,j) + wqp*detJ*(4.d0*dphi_dx(j)*dphi_dx(i)  &
-                                         +     dphi_dy(j)*dphi_dy(i)  &
-                                         +     dphi_dz(j)*dphi_dz(i) )
-          Kuv(i,j) = Kuv(i,j) + wqp*detJ*(2.d0*dphi_dx(j)*dphi_dy(i)  &
-                                         +     dphi_dy(j)*dphi_dx(i) )
-          Kvu(i,j) = Kvu(i,j) + wqp*detJ*(2.d0*dphi_dy(j)*dphi_dx(i)  &
-                                         +     dphi_dx(j)*dphi_dy(i) )
-          Kvv(i,j) = Kvv(i,j) + wqp*detJ*(4.d0*dphi_dy(j)*dphi_dy(i)  &
-                                         +     dphi_dx(j)*dphi_dx(i)  &
-                                         +     dphi_dz(j)*dphi_dz(i) )
-
-       enddo  ! i (rows)
-    enddo     ! j (columns)
-
-  end subroutine increment_element_matrix_first_order_3d
 
 !****************************************************************************
 
@@ -1157,6 +1075,51 @@
 
 !****************************************************************************
 
+  subroutine element_to_global_matrix(nNodesPerElement, nNodes,   &
+                                      nodeID,                     &
+                                      Kmat,             Amat)
+
+    ! Sum terms of element matrix K into dense assembled matrix A
+    ! Here we assume that K is partitioned into Kuu, Kuv, Kvu, and Kvv,
+    !  and similarly for A.
+    ! So this subroutine is called four times.
+
+    integer, intent(in) ::   &
+       nNodesPerElement,     &
+       nNodes            ! total number of active nodes
+       
+    integer, dimension(nNodesPerElement), intent(in) ::  &
+       nodeID            ! node ID for each node of this element
+
+    real(dp), dimension(nNodesPerElement,nNodesPerElement), intent(in) ::  &
+       Kmat              ! element matrix
+
+    real(dp), dimension(3,3,3,nNodes), intent(inout) ::    &
+       Amat              ! assembled matrix
+
+    integer :: m, n, nid, iA, jA, kA
+
+    do m = 1, nNodesPerElement       ! rows of K
+       nid = nodeID(m)               ! node ID for this row of K
+
+       do n = 1, nNodesPerElement    ! columns of K
+
+          kA = kshift(m,n)           ! k index of A into which K(m,n) is summed
+          iA = ishift(m,n)           ! similarly for i and j indices
+          jA = jshift(m,n)         
+
+          !TODO - Add viscosity term
+          Amat(kA,iA,jA,nid) = Amat(kA,iA,jA,nid) + Kmat(m,n)
+
+       enddo     ! n
+    enddo        ! m
+
+  end subroutine element_to_global_matrix
+
+!****************************************************************************
+
+!TODO - Make this 3D
+
   subroutine assemble_load_vector_2d(nElements,        nNodes,      &
                                      gElementIndex,    gNodeIndex,  &
                                      bu,               bv)
@@ -1185,262 +1148,6 @@
 
 
   end subroutine assemble_load_vector_2d
-
-!****************************************************************************
-
-  subroutine glissade_velo_init_3d(nx, ny,   &
-!!!                                nz,       &     !whl - not needed?
-                                   dx, dy)
-
-!whl - This is an old version.
-!      Modify to be consistent with glissade_velo_init_2d
-!      Separate out the parts that are independent of the velocity solver (2D or 3D).
-
-
-  ! Initialize some data structures related to the mesh.
-  ! These are similar to data structures in the MPAS framework, but for a grid
-  !  that is structured in the horizontal.
-  !
-  ! Assumptions:
-  ! (1) The mesh is logically rectangular in the horizontal with dimensions (nx, ny).
-  ! (2) The number of cells is nx * ny.
-  ! (3) The number of vertices is (nx-1)*(ny-1).  Hence each vertex is associated with
-  !     four cells.  Interior cells are associated with four vertices, but border cells
-  !     are associated with only 1 or 2 vertices.  Vertex (i,j) lies at the NE corner
-  !     of cell (i,j).
-  ! (4) The number of edges is (nx-1)*ny + (ny-1)*nx.  Each edge is associated with
-  !     2 cells.  Interior cells are associated with 4 edges, but border cells are
-  !     associated with only 2 or 3 edges.
-  ! (5) Border cells (i = 1, i = nx, j = 1, j = ny) exist in the data structure, but
-  !     they are not computational elements.  Any ice in the border cells is dynamically
-  !     inactive.
-
-    integer, intent(in) :: nx, ny       ! number of cells in x and y dimensions
-!!!    integer, intent(in) :: nz            ! number of levels in z dimension
-    real(dp), intent(in) :: dx, dy      ! grid cell dimensions
-
-!whl - Remove later
-    integer, parameter ::      &
-       nVerticesOnCell = 8,    &
-       nVerticesOnVertex = 27
-
-    integer ::     &
-       nCells,              &! number of cells on the mesh
-       nVertices,           &! number of vertices
-       nEdges                ! number of edges
-
-    integer, dimension(:,:), allocatable ::    &
-       gCellIndex,          &! assigns global cell index for each horizontal cell (i,j)
-       gVertexIndex          ! assigns global vertex index for each horizontal vertex (i,j)
-  
-    integer, dimension(:,:), allocatable ::    &
-       VerticesOnCell,      &! global indices of 4 vertices of a given cell (CCW from SW corner)
-       CellsOnVertex,       &! global indices of 4 cells neighboring a given vertex (CCW from SW
-       VerticesOnEdge,      &! global indices of 2 vertices of a given edge (S to N or W to E)
-       EdgesOnCell,         &! global indices of 4 edges of a given cell (CCW from S edge)
-       CellsOnEdge           ! global indices of 2 cells neighboring a given edge (S to N, or W to E)
-
-    real(dp), dimension(:), allocatable ::   &
-       VertexCoordX,        &! x coordinates of vertices
-       VertexCoordY          ! x coordinates of vertices
-
-    integer :: i, j, gc, gv 
-!!!    integer :: k, n
-    integer :: count, ewcount, nscount
-
-!whl - Move or remove later
-    ! trilinear basis set for 3D             
-    ! N1 = (1-q1)*(1-q2)*(1-q3)             N4----N3
-    ! N2 =    q1 *(1-q2)*(1-q3)             |     |    Lower layer
-    ! N3 =    q1 * q2   *(1-q3)             |     |
-    ! N4 = (1-q1)* q2   *(1-q3)             N1----N2
-    !
-    ! N5 = (1-q1)*(1-q2)* q3                N5----N8
-    ! N6 =    q1 *(1-q2)* q3                |     |    Upper layer
-    ! N7 =    q1 * q2   * q3                |     |
-    ! N8 = (1-q1)* q2   * q3                N5----N6
-
-    ! Count number of cells, vertices, and edges
-
-    nCells = nx * ny
-    nVertices = (nx-1) * (ny-1)
-    nEdges = (nx-1)*ny + (ny-1)*nx
-
-    ! Assign global index to each cell 
-
-    allocate(gCellIndex(nx,ny))
-
-    gCellIndex(:,:) = 0
-    count = 0   
-    do j = 1, ny   ! S to N
-    do i = 1, nx   ! W to E
-       count = count + 1
-       gCellIndex(i,j) = count
-    enddo
-    enddo
-
-    ! Assign global index to each vertex
-    ! Assign (x,y) coordinates to each vertex 
-
-    allocate(gVertexIndex(nx-1,ny-1))
-    allocate(VertexCoordX(nVertices))
-    allocate(VertexCoordY(nVertices))
-
-    gVertexIndex(:,:) = 0
-    count = 0   
-    do j = 1, ny-1   ! S to N
-    do i = 1, nx-1   ! W to E
-       count = count + 1
-       gVertexIndex(i,j) = count
-       VertexCoordX(count) = (dx*i)
-       VertexCoordY(count) = (dy*j)
-    enddo
-    enddo
-    nVertices = count
-
-    ! 4 vertices of each cell
-    ! Vertices outside the domain are assigned index 0.
-
-    allocate(VerticesOnCell(nCells,4))
-
-    VerticesOnCell(:,:) = 0
-    do j = 1, ny
-    do i = 1, nx
-       gc = gCellIndex(i,j)
-       if (i > 1  .and. j > 1 ) VerticesOnCell(gc,1) = gVertexIndex(i-1,j-1)  ! SW
-       if (i < nx .and. j > 1 ) VerticesOnCell(gc,2) = gVertexIndex(i  ,j-1)  ! SE
-       if (i < nx .and. j < ny) VerticesOnCell(gc,3) = gVertexIndex(i  ,j  )  ! NE
-       if (i > 1  .and. j < ny) VerticesOnCell(gc,4) = gVertexIndex(i-1,j  )  ! NW
-    enddo
-    enddo
-
-    ! 4 cells neighboring each vertex
-
-    allocate(CellsOnVertex(nVertices,4))
-
-    CellsOnVertex(:,:) = 0
-    do j = 1, ny-1
-    do i = 1, nx-1
-       gv = gVertexIndex(i,j)
-       CellsOnVertex(gv,1) = gCellIndex(i  ,j  )  ! SW
-       CellsOnVertex(gv,2) = gCellIndex(i+1,j  )  ! SE
-       CellsOnVertex(gv,3) = gCellIndex(i+1,j+1)  ! NE
-       CellsOnVertex(gv,4) = gCellIndex(i  ,j+1)  ! NW
-    enddo
-    enddo
-
-    ! Edge data structures:
-    ! 2 vertices on each edge, 2 cells on each edge
-
-    allocate(VerticesOnEdge(nEdges, 2))
-    allocate(CellsOnEdge(nEdges, 2))
-    allocate(EdgesOnCell(nCells, 4))
-
-    VerticesOnEdge(:,:) = 0
-    CellsOnEdge(:,:) = 0
-    EdgesOnCell(:,:) = 0
-
-    ! Start with edges oriented parallel to E-W axis.
-    ! These edges are numbered 1, 3, 5, 7, etc.
-    ! Note: Edges along N and S boundaries of domain are not defined.
-
-    ewcount = 0
-    do j = 1, ny-1   
-    do i = 1, nx
-       ewcount = ewcount + 1
-       count = 2*ewcount - 1
-
-       gc = gCellIndex(i,j)  ! south of the edge
-       CellsOnEdge(count,1) = gc
-       EdgesOnCell(gc,3) = count  ! N edge of cell
-
-       gc = gCellIndex(i,j+1)  ! north of the edge
-       CellsOnEdge(count,2) = gc 
-       EdgesOnCell(gc,1) = count  ! S edge of cell
-
-       if (i > 1)  VerticesOnEdge(count,1) = gVertexIndex(i-1,j)
-       if (i < nx) VerticesOnEdge(count,2) = gVertexIndex(i,j)
-
-    enddo
-    enddo
-
-    ! Now the edges oriented parallel to N-S axis
-    ! These edges are numbered 2, 4, 6, 8, etc.
-    ! Note: Edges along E and W boundaries of domain are not defined.
-
-    nscount = 0
-    do j = 1, ny   
-    do i = 1, nx-1
-       nscount = nscount + 1
-       count = 2*nscount
-
-       gc = gCellIndex(i,j)  ! west of the edge
-       CellsOnEdge(count,1) = gc
-       EdgesOnCell(gc,2) = count  ! E edge of cell
-
-       gc = gCellIndex(i+1,j)  ! east of the edge
-       CellsOnEdge(count,2) = gc 
-       EdgesOnCell(gc,4) = count  ! W edge of cell
-
-       if (j > 1)  VerticesOnEdge(count,1) = gVertexIndex(i,j-1)
-       if (j < ny) VerticesOnEdge(count,2) = gVertexIndex(i,j)
-
-    enddo
-    enddo
-
-!whl - Write out and debug
-
-   go to 100
-
-   ! Cells
-   do j = 1, ny
-   do i = 1, nx
-      gc = gCellIndex(i,j)
-      write(6,*) ' '
-      write(6,*) 'i, j, gcell:', i, j, gc
-      write(6,*) 'Edges:',    EdgesOnCell(gc,:)
-      write(6,*) 'Vertices:', VerticesOnCell(gc,:)
-   enddo
-   enddo
-
-   ! Vertices
-   do j = 1, ny-1
-   do i = 1, nx-1
-      gv = gVertexIndex(i,j)
-      write(6,*) ' '    
-      write(6,*) 'i, j, gvertex:', i, j, gv
-      write(6,*) 'x, y coords:', VertexCoordX(gv), VertexCoordY(gv)
-      write(6,*) 'Cells:', CellsOnVertex(gv,:)
-   enddo
-   enddo
-
-   ! EW edges
-   count = -1
-   do j = 1, ny-1
-   do i = 1, nx
-      count = count + 2
-      write(6,*) ' '
-      write(6,*) 'nedge =', count
-      write(6,*) 'Vertices:', VerticesOnEdge(count,:)
-      write(6,*) 'Cells:', CellsOnEdge(count,:)
-   enddo
-   enddo
-
-   ! NS edges
-   count = 0
-   do j = 1, ny
-   do i = 1, nx-1
-      count = count + 2
-      write(6,*) ' '
-      write(6,*) 'nedge =', count
-      write(6,*) 'Vertices:', VerticesOnEdge(count,:)
-      write(6,*) 'Cells:', CellsOnEdge(count,:)
-   enddo
-   enddo
-
-100 return
-
-  end subroutine glissade_velo_init_3d
 
 !****************************************************************************
 
@@ -1577,25 +1284,25 @@ subroutine glissade_velo_solver_template( ewn,      nsn,    upn,  &
 
           ! Accumulate terms in auu (dI/du or dI/dv terms that are multiplied by u or v)
 
-          auu(nv1,i00) = auu(nv1,i00) + efvs(nc) * kuu(1,1) 
-          auu(nv1,i0e) = auu(nv1,i0e) + efvs(nc) * kuu(1,2) 
-          auu(nv1,ine) = auu(nv1,ine) + efvs(nc) * kuu(1,3) 
-          auu(nv1,in0) = auu(nv1,in0) + efvs(nc) * kuu(1,4) 
+!          auu(nv1,i00) = auu(nv1,i00) + efvs(nc) * kuu(1,1) 
+!          auu(nv1,i0e) = auu(nv1,i0e) + efvs(nc) * kuu(1,2) 
+!          auu(nv1,ine) = auu(nv1,ine) + efvs(nc) * kuu(1,3) 
+!          auu(nv1,in0) = auu(nv1,in0) + efvs(nc) * kuu(1,4) 
 
-          auu(nv2,i0w) = auu(nv2,i0w) + efvs(nc) * kuu(2,1) 
-          auu(nv2,i00) = auu(nv2,i00) + efvs(nc) * kuu(2,2) 
-          auu(nv2,in0) = auu(nv2,in0) + efvs(nc) * kuu(2,3) 
-          auu(nv2,inw) = auu(nv2,inw) + efvs(nc) * kuu(2,4) 
+!          auu(nv2,i0w) = auu(nv2,i0w) + efvs(nc) * kuu(2,1) 
+!          auu(nv2,i00) = auu(nv2,i00) + efvs(nc) * kuu(2,2) 
+!          auu(nv2,in0) = auu(nv2,in0) + efvs(nc) * kuu(2,3) 
+!          auu(nv2,inw) = auu(nv2,inw) + efvs(nc) * kuu(2,4) 
 
-          auu(nv3,isw) = auu(nv3,isw) + efvs(nc) * kuu(3,1) 
-          auu(nv3,is0) = auu(nv3,is0) + efvs(nc) * kuu(3,2) 
-          auu(nv3,i00) = auu(nv3,i00) + efvs(nc) * kuu(3,3) 
-          auu(nv3,i0w) = auu(nv3,i0w) + efvs(nc) * kuu(3,4) 
+!          auu(nv3,isw) = auu(nv3,isw) + efvs(nc) * kuu(3,1) 
+!          auu(nv3,is0) = auu(nv3,is0) + efvs(nc) * kuu(3,2) 
+!          auu(nv3,i00) = auu(nv3,i00) + efvs(nc) * kuu(3,3) 
+!          auu(nv3,i0w) = auu(nv3,i0w) + efvs(nc) * kuu(3,4) 
 
-          auu(nv4,is0) = auu(nv4,is0) + efvs(nc) * kuu(4,1) 
-          auu(nv4,ise) = auu(nv4,ise) + efvs(nc) * kuu(4,2) 
-          auu(nv4,i0e) = auu(nv4,i0e) + efvs(nc) * kuu(4,3) 
-          auu(nv4,i00) = auu(nv4,i00) + efvs(nc) * kuu(4,4) 
+!          auu(nv4,is0) = auu(nv4,is0) + efvs(nc) * kuu(4,1) 
+!          auu(nv4,ise) = auu(nv4,ise) + efvs(nc) * kuu(4,2) 
+!          auu(nv4,i0e) = auu(nv4,i0e) + efvs(nc) * kuu(4,3) 
+!          auu(nv4,i00) = auu(nv4,i00) + efvs(nc) * kuu(4,4) 
 
 !whl - then would need to repeat for auv, avu, avv
 
