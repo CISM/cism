@@ -20,7 +20,7 @@ echo
 echo "Doing CMake Configuration step"
 
 cmake \
-  -D GLIMMER_TRILINOS_DIR=/tmp/work/4ue/trilinos-10.10.1/gnu_build/install \
+  -D GLIMMER_TRILINOS_DIR=/ccs/proj/cli054/trilinos-10.12/AUG_GNU_BUILD/install \
   -D GLIMMER_NETCDF_DIR=$NETCDF_DIR \
   -D CMAKE_VERBOSE_MAKEFILE:BOOL=OFF \
   -D GLIMMER_Fortran_FLAGS="-ffree-line-length-none" \
