@@ -595,6 +595,7 @@ contains
              model%numerics%dt = model%numerics%dt / model%numerics%subcyc
 
              do sc = 1 , model%numerics%subcyc
+                if (model%numerics%subcyc > 1) write(*,*) 'Subcycling transport: Cycle ',sc
 
                 if (model%options%whichtemp == TEMP_REMAP_ADV) then  ! Use IR to transport thickness, temperature
                                                                      ! (and other tracers, if present)
@@ -629,6 +630,16 @@ contains
                                                   model%geometry%thck(:,:))
 
                 endif  ! whichtemp
+                !Update halos of modified fields
+                call t_startf('after_remap_haloupds')
+
+                !HALO - Move these updates to the new glissade driver.
+
+                call parallel_halo(model%geometry%thck)
+                call parallel_halo(model%temper%temp)
+                call horiz_bcs_unstag_scalar(model%geometry%thck)
+                call horiz_bcs_unstag_scalar(model%temper%temp)
+                call t_stopf('after_remap_haloupds')
 
              enddo     ! subcycling
 
@@ -648,16 +659,6 @@ contains
 !       Note that vertical remapping is needed to return to standard sigma levels,
 !        as assumed by both the temperature and velocity solvers.
 
-        !Update halos of modified fields
-      call t_startf('after_remap_haloupds')
-
-!HALO - Move these updates to the new glissade driver.
-
-       call parallel_halo(model%geometry%thck)
-       call parallel_halo(model%temper%temp)
-       call horiz_bcs_unstag_scalar(model%geometry%thck)
-       call horiz_bcs_unstag_scalar(model%temper%temp)
-      call t_stopf('after_remap_haloupds')
 
 !HALO - I think that these are not needed, provided that glide_stress loops over locally owned cells only.
        !Halo updates required for inputs to glide_stress?
