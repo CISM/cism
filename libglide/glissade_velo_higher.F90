@@ -25,6 +25,8 @@
     use glimmer_sparse_type
     use glimmer_sparse
     
+    use parallel, only: main_task
+
 !    use glide_deriv
 !    use glide_grids, only: stagvarb
 
@@ -365,31 +367,61 @@
                                         thck,     flwa,     &
                                         stagthck, stagusfc, &
                                         thckmin,            &
-                                        uvel,     vvel)
+                                        uvel,     vvel,     &
+                                        whichefvs,          &
+                                        whichresid,             &
+                                        whichnonlinear,         &
+                                        whichsparse)
+
+    !--------------------------------------------------------
+    ! Input-output variables
+    !--------------------------------------------------------
 
     integer, intent(in) ::   &
-       nx, ny,             &  ! horizontal grid dimensions
-       nlyr,               &  ! number of vertical layers
-       nhalo                  ! number of rows/columns of halo cells
+       nx, ny,               &  ! horizontal grid dimensions
+       nlyr,                 &  ! number of vertical layers
+       nhalo                    ! number of rows/columns of halo cells
  
-    real(dp), dimension(nlyr+1), intent(in) :: &
+    real(dp), dimension(:), intent(in) :: &
        sigma
 
-    real (dp), dimension(nx,ny), intent(in) ::  &
+    real (dp), dimension(:,:), intent(in) ::  &
        thck                   ! ice thickness
-
-    real (dp), dimension(nlyr,nx,ny), intent(in) ::  &
-       flwa                   ! flow factor
 
     real(dp), intent(in) ::   & 
        thckmin                ! minimum ice thickness for active cells
 
-    real (dp), dimension(nx-1,ny-1), intent(in) ::  &
+    real (dp), dimension(:,:,:), intent(in) ::  &
+       flwa                   ! flow factor
+
+    real (dp), dimension(:,:), intent(in) ::  &
        stagusfc,            & ! upper surface averaged to vertices
        stagthck               ! ice thickness averaged to vertices
 
-    real (dp), dimension(nx-1,ny-1), intent(inout) ::  &
+    real (dp), dimension(:,:,:), intent(inout) ::  &
        uvel, vvel             ! velocity components
+
+    integer, intent(in) :: whichefvs      ! option for effective viscosity calculation 
+                                          ! (calculate it or make it uniform)
+    integer, intent(in) :: whichresid     ! option for method to use when calculating residual
+    integer, intent(in) :: whichnonlinear ! options for which nonlinear method (Picard or JFNK)
+    integer, intent(in) :: whichsparse    ! options for which method for doing elliptic solve
+                                          ! (BiCG, GMRES, standalone Trilinos, etc.)
+
+    !--------------------------------------------------------
+    ! Local parameters
+    !--------------------------------------------------------
+
+    integer, parameter :: cmax = 300          ! max number of outer iterations
+
+    !TODO - These values may be tuned for old scaling parameters; adjust them?
+
+    real(dp), parameter :: minresid = 1.0d-04   ! assume velocity fields have converged below this resid 
+    real(dp), parameter :: NL_tol   = 1.0d-06   ! to have same criterion as JFNK
+
+    !--------------------------------------------------------
+    ! Local variables
+    !--------------------------------------------------------
 
     integer ::            &
        nActiveCells,      &   ! no. of active cells (thck > thckmin)
@@ -419,7 +451,7 @@
 !       active_node            ! true for active nodes
 
     integer, dimension(nNodesPerElement,nlyr,nx,ny) ::  &
-        NodeOnElement     ! node ID for each node of each element
+       NodeOnElement     ! node ID for each node of each element
 
     real(dp), dimension(nlyr,nx,ny) :: &
        visc               ! effective viscosity of each element
@@ -434,15 +466,434 @@
     real(dp), dimension(:), allocatable ::  &
        bu, bv             ! assembled load vector, divided into 2 parts
 
+    type(sparse_matrix_type) ::  &
+       matrix             ! sparse matrix, defined in glimmer_sparse_types
+                          ! includes nonzeroes, order, col, row, val 
+    integer ::    &
+       matrix_order,    & ! order of matrix = number of rows
+       nNonzero           ! upper bound for number of nonzero entries in sparse matrix
+
+    real(dp), dimension(:), allocatable ::   &
+       rhs,             & ! right-hand-side (b) in Ax = b
+       answer             ! answer (x) in Ax = b
+
+    integer ::  & 
+       counter            ! outer iteration counter
+
+    !TODO - Define residual vector somewhere, distinct from resid?
+
+    real(dp) :: &
+       resid,               & ! residual (computed from Ax-b)
+       L2norm,              & ! L2 norm of residual
+       NL_target,           & ! nonlinear convergence target   !TODO - Make sure this is set correctly
+       outer_it_criterion,  & ! current value of outer (nonlinear) loop converence criterion
+       outer_it_target        ! target value for outer-loop convergence
+
     integer :: i, j, k, gc, gv, nv, nid
 
 !TODO - Are these needed?
     integer, dimension(nCells) :: gElementIndex   ! global cell index for each element
     integer, dimension(nVertices) :: gNodeIndex   ! global node index for each vertex
 
-!TODO - Put the next few loops in a separate geometry subroutine?
+    !------------------------------------------------------------------------------
+    ! Setup for higher-order solver: Compute nodal geometry, allocate storage, etc.
+    !------------------------------------------------------------------------------
 
     ! Identify and count the active cells (i.e., cells with thck > thckmin)
+
+    call get_nodal_geometry(nx,          ny,       &   
+                            nlyr,        nhalo,       sigma,    &
+                            thck,        thckmin,  &
+                            stagusfc,    stagthck, &
+                            nElements,   nNodes,   &
+                            NodeID,      NodeOnElement,             &
+                            iNodeIndex,  jNodeIndex,  kNodeIndex,   &
+                            xNode,       yNode,       zNode)
+
+    ! Allocate space for the intermediate (dense) stiffness matrix and rhs vector
+    ! (Not needed if using standalone Trilinos solver?)
+
+    allocate(Auu(3,3,3,nNodes), Auv(3,3,3,nNodes))
+    allocate(Avu(3,3,3,nNodes), Avv(3,3,3,nNodes))
+    allocate(bu(nNodes), bv(nNodes))
+
+    ! Allocate space for the sparse matrix (A), rhs (b), and answer (x) in Ax = b.
+
+    matrix_order = 2*nNodes         ! Is this enough?
+    nNonzero = matrix_order*27      ! 27 = node plus 26 nearest neighbors in hexahedral lattice   
+
+    allocate(matrix%row(nNonzero), matrix%col(nNonzero), matrix%val(nNonzero))
+    allocate(rhs(matrix_order), answer(matrix_order))
+
+    !---------------------------------------------------------------
+    ! Solve Ax = b
+    !---------------------------------------------------------------
+
+    ! Much of the following is copied from glam_strs2.F90
+
+    ! set residual and iteration counter to initial values
+    resid = 1.d0
+    counter = 1
+    L2norm = 1.0d20
+
+    if (main_task) then
+       ! print some info to the screen to update on iteration progress
+       print *, ' '
+       print *, 'Running glissade higher-order dynamics solver'
+       print *, ' '
+       if(whichresid == 3) then                 ! use L2 norm of residual
+          print *, 'iter #     resid (L2 norm)       target resid'
+       else                                     ! use max value of residual
+          print *, 'iter #     uvel resid         vvel resid       target resid'
+       end if
+       print *, ' '
+    endif
+
+    ! Any ghost preprocessing needed, as in glam_strs2?
+
+    ! intialize outer loop convergence variables (guarantees at least one loop)
+    outer_it_criterion = 1.0
+    outer_it_target = 0.0
+
+    !TODO - Start the outer loop here
+
+    do while (outer_it_criterion >= outer_it_target .and. counter < cmax)
+       call t_startf("PICARD_in_iter")
+
+       ! choose outer loop stopping criterion
+       if (counter > 1 )then
+          if (whichresid == 3 )then
+             outer_it_criterion = L2norm
+             outer_it_target = NL_target
+          else
+             outer_it_criterion = resid
+             outer_it_target = minresid   
+          end if
+       else
+          outer_it_criterion = 1.0d10
+          outer_it_target = 1.0d-12
+       end if
+
+
+
+       ! TODO: Compute the effective viscosity for each element 
+       !       (ideally by summing over quadrature points)
+
+       ! These are the arguments in glam_strs2
+!       call compute_effective_viscosity (ewn,  nsn,  upn,      &
+!                                         stagsigma,  counter,  &
+!                                         whichefvs,  efvs,     &
+!                                         uvel,       vvel,     &
+!                                         flwa,       thck,     &
+!                                         dusrfdew,   dthckdew, &
+!                                         dusrfdns,   dthckdns, &
+!                                         umask)
+
+
+       ! Assemble the stiffness matrix
+       !TODO - Remove unneeded arguments.
+
+       call assemble_stiffness_matrix(nx, ny, nlyr,  nhalo,            &
+                                      active_cell,                     &
+                                      nCells,           nActiveCells,  &
+                                      NodeOnElement,                   &
+!                                     iCellIndex,       jCellIndex,   &
+                                      iNodeIndex,       jNodeIndex,  &
+                                      kNodeIndex,                    &
+                                      xNode,            yNode,       &
+                                      zNode,                         &
+                                      nElements,        nNodes,      &
+                                      visc,                          &
+                                      Auu,              Auv,         &
+                                      Avu,              Avv)
+
+
+       ! TODO: Assemble the load vector
+
+       call assemble_load_vector(nElements,        nNodes,      &
+                                 gElementIndex,    gNodeIndex,  &
+                                 bu,               bv)
+
+
+       ! Put the nonzero matrix elements into the required sparse format
+       ! (For SLAP solver; may not be needed for Trilinos)
+
+       call glissade_solver_preprocess(nNodes,       NodeID,        &
+                                       iNodeIndex,   jNodeIndex,   kNodeIndex,   &
+                                       Auu,          Auv,   &
+                                       Avu,          Avv,   &
+                                       bu,           bv,    &
+                                       uvel,         vvel,  &
+                                       matrix_order, nNonzero,  &
+                                       matrix,       rhs,   &
+                                       answer)
+                                       
+       !TODO - Solve the matrix
+
+       !TODO - Compute the residual vector and write diagnostics
+
+       !TODO: Modify the following from glam_strs2:
+       !      Figure out meaning of uk_1, g_flag, L2square
+
+!        call res_vect( matrix, uk_1, rhsd, size(rhsd), g_flag, L2square, whichsparse ) 
+!        L2norm = sqrt(L2norm + L2square)
+!        F(pcgsize(1)+1:2*pcgsize(1)) = uk_1(:) ! F = [ Fv, Fu ]
+
+!        print *, 'L2 with/without ghost (k)= ', counter, sqrt(DOT_PRODUCT(F,F)), L2norm
+!!!        if (counter == 1) NL_target = NL_tol * L2norm
+!        if (counter == 1) NL_target = 1.0d-4 
+
+          ! Write diagnostics (iteration number, max residual, and location of max residual
+          ! (send output to the screen or to the log file, per whichever line is commented out) 
+
+        !TODO - Find out if this note from glam_strs2 still applies:
+          ! "Can't use main_task flag because main_task is true for all processors in case of parallel_single"
+       if (main_task) then
+          if (whichresid == 3 )then
+             print '(i4,2g20.6)', counter, L2norm, NL_target    ! Output when using L2norm for convergence
+             !print '(a,i4,2g20.6)', "sup-norm uvel/vvel=", counter, resid, minresid
+             !write(message,'(i4,3g20.6)') counter, L2norm, NL_target
+             !call write_log (message)
+          else
+             print '(i4,2g20.6)', counter, resid, minresid
+             !write(message,'(" * strs ",i3,2g20.6)') counter, resid, minresid
+             !call write_log (message)
+          end if
+       endif
+
+       counter = counter + 1   ! advance the iteration counter
+
+    enddo  ! while (outer_it_criterion >= outer_it_target .and. counter < cmax)
+
+
+    ! Clean up
+
+    deallocate(Auu, Auv, Avu, Avv)
+    deallocate(bu, bv)
+    deallocate(matrix%row, matrix%col, matrix%val)
+    deallocate(rhs, answer)
+
+  end subroutine glissade_velo_higher_solve
+
+!****************************************************************************
+
+  subroutine glissade_solver_preprocess(nNodes,       NodeID,        &
+                                        iNodeIndex,   jNodeIndex,  kNodeIndex,  &
+                                        Auu,          Auv,   &
+                                        Avu,          Avv,   &
+                                        bu,           bv,    &
+                                        uvel,         vvel,  &
+                                        matrix_order, nNonzero,  &
+                                        matrix,       rhs,   &
+                                        answer)
+
+    ! Using the intermediate matrices (Auu, Auv, Avu, Avv), load vectors (bu, bv),
+    ! and velocity components (uvel, vvel), form the matrix and the rhs and answer
+    ! vectors in the desired format.
+
+    !---------------------------------------------------------
+    ! Input-output variables
+    !---------------------------------------------------------
+
+    integer, intent(in) :: nNodes        ! number of active nodes
+
+    integer, dimension(:,:,:), intent(in) ::  &
+        NodeID             ! ID for each active node
+
+
+    integer, dimension(:), intent(in) ::   &
+       iNodeIndex, jNodeIndex, kNodeIndex   ! i, j and k indices of active nodes
+
+    real(dp), dimension(3,3,3,nNodes), intent(in) ::  &
+       Auu, Auv,    &     ! assembled stiffness matrix, divided into 4 parts
+       Avu, Avv           ! 1st dimension = 3 (node and its 2 neighbors in z direction) 
+                          ! 2nd dimension = 3 (node and its 2 neighbors in x direction) 
+                          ! 3rd dimension = 3 (node and its 2 neighbors in y direction) 
+                          ! 4th dimension = nNodes
+
+    real(dp), dimension(nNodes), intent(in) ::  &
+       bu, bv             ! assembled load (rhs) vector, divided into 2 parts
+
+    real(dp), dimension(:,:,:), intent(in) ::   &
+       uvel, vvel         ! u and v components of velocity
+
+    integer, intent(in) ::    &
+       matrix_order,  &   ! order of matrix = number of rows
+       nNonzero           ! upper bound for number of nonzero entries in sparse matrix
+
+    type(sparse_matrix_type), intent(inout) ::  &    ! TODO: inout or out?
+       matrix             ! sparse matrix, defined in glimmer_sparse_types
+                          ! includes nonzeroes, order, col, row, val 
+
+    real(dp), dimension(:), intent(out) ::   &
+       rhs,             & ! right-hand-side (b) in Ax = b
+       answer             ! answer (x) in Ax = b
+
+    !---------------------------------------------------------
+    ! Local variables
+    !---------------------------------------------------------
+
+    integer :: i, j, k, iA, jA, kA, n, ct
+
+    integer :: rowA, colA   ! row and column of A submatrices (order = nNodes)
+    integer :: row, col     ! row and column of sparse matrix (order = 2*nNodes) 
+
+    real(dp) :: val         ! value of matrix coefficient
+    
+    ! Set basic matrix parameters
+
+    matrix%order = matrix_order
+    matrix%nonzeros = nNonzero
+    matrix%symmetric = .false.
+
+    ! Set the nonzero coefficients of the sparse matrix 
+
+    ct = 0
+
+    do rowA = 1, nNodes
+
+       i = iNodeIndex(rowA)
+       j = iNodeIndex(rowA)
+       k = iNodeIndex(rowA)
+       
+       do jA = -1, 1
+        do iA = -1, 1
+         do kA = -1, 1
+            colA = NodeID(k+kA, i+iA, j+jA)
+
+            !TODO - Could shorten the following by calling a putval subroutine 4 times
+
+            ! Auu
+            val = Auu(kA,iA,jA,rowA)
+            if (val /= 0.d0) then   ! Is this adequate?
+               ct = ct + 1
+               matrix%row(ct) = 2*rowA - 1
+               matrix%col(ct) = 2*colA - 1
+               matrix%val(ct) = val
+            endif
+
+            ! Auv 
+            val = Auv(kA,iA,jA,rowA)
+            if (val /= 0.d0) then   ! Is this adequate?
+               ct = ct + 1
+               matrix%row(ct) = 2*rowA - 1
+               matrix%col(ct) = 2*colA
+               matrix%val(ct) = val
+            endif
+
+            ! Avu 
+            val = Avu(kA,iA,jA,rowA)
+            if (val /= 0.d0) then   ! Is this adequate?
+               ct = ct + 1
+               matrix%row(ct) = 2*rowA
+               matrix%col(ct) = 2*colA - 1
+               matrix%val(ct) = val
+            endif
+
+            ! Avv 
+            val = Avv(kA,iA,jA,rowA)
+            if (val /= 0.d0) then
+               ct = ct + 1
+               matrix%row(ct) = 2*rowA
+               matrix%col(ct) = 2*colA
+               matrix%val(ct) = val
+            endif
+
+         enddo    ! kA
+        enddo     ! iA
+       enddo      ! jA
+
+    enddo         ! rowA
+
+    ! Set the current guess for the answer vector
+    ! For efficiency, put the u and v terms for a given node adjacent in storage.
+
+    do n = 1, nNodes
+       i = iNodeIndex(n)
+       j = iNodeIndex(n)
+       k = iNodeIndex(n)
+
+       answer(2*n-1) = uvel(k,i,j)
+       answer(2*n)   = vvel(k,i,j)
+    enddo
+
+    ! Set the rhs vector (TODO: Is this adequate?) 
+    ! For efficiency, put the u and v terms for a given node adjacent in storage.
+
+    do n = 1, nNodes
+       rhs(2*n-1) = bu(n)
+       rhs(2*n)   = bv(n)
+    enddo
+
+       
+  end subroutine glissade_solver_preprocess
+
+!****************************************************************************
+
+  subroutine get_nodal_geometry(nx,          ny,       &   
+                                nlyr,        nhalo,       sigma,    &
+                                thck,        thckmin,  &
+                                stagusfc,    stagthck, &
+                                nElements,   nNodes,   &
+                                NodeID,      NodeOnElement,             &
+                                iNodeIndex,  jNodeIndex,  kNodeIndex,   &
+                                xNode,       yNode,       zNode)
+                            
+    ! Identify and count the active nodes for the calculations.
+    ! All nodes of all elements lying within active cells (i.e., cells with ice present)
+    !  are active.
+    ! Active nodes may be either free (to be solved for) or constrained (e.g., Dirichlet).
+
+    !---------------------------------------------------------
+    ! Input-output variables
+    !---------------------------------------------------------
+
+    integer, intent(in) ::      &
+       nx, ny,                  &    ! horizontal grid dimensions
+       nlyr,                    &    ! number of vertical layers
+       nhalo                    
+
+    real(dp), dimension(nlyr+1), intent(in) :: &
+       sigma                  ! sigma vertical coordinate
+
+    real (dp), dimension(nx,ny), intent(in) ::  &
+       thck                   ! ice thickness
+
+    real(dp), intent(in) ::   & 
+       thckmin                ! minimum ice thickness for active cells
+
+    real (dp), dimension(nx-1,ny-1), intent(in) ::  &
+       stagusfc,            & ! upper surface averaged to vertices
+       stagthck               ! ice thickness averaged to vertices
+
+    integer, intent(out)  ::            &
+       nElements,         &   ! no. of elements (nlyr per active cell)
+       nNodes                 ! no. of nodes belonging to these elements
+
+    integer, dimension(nlyr,nx,ny), intent(out) ::  &
+       NodeID             ! ID for each active node
+
+    integer, dimension(nNodesPerElement,nlyr,nx,ny), intent(out) ::  &
+       NodeOnElement     ! node ID for each node of each element
+
+    integer, dimension(nVertices*nlyr), intent(out) ::   &
+       iNodeIndex, jNodeIndex, kNodeIndex   ! i, j and k indices of active nodes
+
+    real(dp), dimension(nVertices*nlyr), intent(out) :: &
+       xNode, ynode, znode   ! x, y and z coordinates for each node
+
+
+    !---------------------------------------------------------
+    ! Local variables
+    !---------------------------------------------------------
+
+    integer :: nActiveCells
+
+    logical, dimension(nx,ny) :: &
+       active_cell,       &   ! true for active cells (thck > thckmin)
+       active_vertex          ! true for vertices of active cells
+
+    integer :: i, j, k
 
     nActiveCells = 0
     active_cell(:,:) = .false.
@@ -451,8 +902,6 @@
        if (thck(i,j) >= thckmin) then
           active_cell(i,j) = .true.
           nActiveCells = nActiveCells + 1
-!!          iCellIndex(nActiveCells) = i  ! could use these for indirect addressing
-!!          jCellIndex(nActiveCells) = j 
        endif
     enddo
     enddo
@@ -475,7 +924,6 @@
 
     ! Identify and count the active nodes, and compute their x, y and z coordinates.
 
-!    active_node(:,:,:) = .false.
     nNodes = 0
     iNodeIndex(:) = 0
     jNodeIndex(:) = 0
@@ -526,63 +974,7 @@
     enddo        ! i
     enddo        ! j
 
-    ! Allocate space for the stiffness matrix
-
-    allocate(Auu(3,3,3,nNodes))
-    allocate(Auv(3,3,3,nNodes))
-    allocate(Avu(3,3,3,nNodes))
-    allocate(Avv(3,3,3,nNodes))
-
-    ! Allocate space for the row vector
- 
-    allocate(bu(nNodes))
-    allocate(bv(nNodes))
-
-    !TODO - Start the outer loop here
-
-       ! TODO: Compute the effective viscosity for each element
-       ! Note dimensions: visc(nElements)
-   
-
-       ! Assemble the stiffness matrix
-
-!TODO - Remove unneeded arguments.
-
-       call assemble_stiffness_matrix(nx, ny, nlyr,  nhalo,           &
-                                      active_cell,                     &
-                                      nCells,           nActiveCells,  &
-                                      NodeOnElement,    &
-!                                      iCellIndex,       jCellIndex,  &
-                                      iNodeIndex,       jNodeIndex,  &
-                                      kNodeIndex,                    &
-                                      xNode,            yNode,       &
-                                      zNode,                         &
-                                      nElements,        nNodes,      &
-                                      visc,                          &
-                                      Auu,              Auv,         &
-                                      Avu,              Avv)
-
-       ! Assemble the load vector
-
-       call assemble_load_vector_2d(nElements,        nNodes,      &
-                                    gElementIndex,    gNodeIndex,  &
-                                    bu,               bv)
-
-       ! Solve Ax = b
-
-
-    !whl - End the outer loop here 
-
-    ! Clean up
-
-    deallocate(Auu)
-    deallocate(Auv)
-    deallocate(Avu)
-    deallocate(Avv)
-    deallocate(bu)
-    deallocate(bv)
-
-  end subroutine glissade_velo_higher_solve
+  end subroutine get_nodal_geometry
 
 !****************************************************************************
 
@@ -1120,9 +1512,9 @@
 
 !TODO - Make this 3D
 
-  subroutine assemble_load_vector_2d(nElements,        nNodes,      &
-                                     gElementIndex,    gNodeIndex,  &
-                                     bu,               bv)
+  subroutine assemble_load_vector(nElements,        nNodes,      &
+                                  gElementIndex,    gNodeIndex,  &
+                                  bu,               bv)
 
     integer, intent(in) ::   &
        nElements,    &    ! number of elements on this processor
@@ -1147,7 +1539,7 @@
 !      Then the pressure term from immersed shelves
 
 
-  end subroutine assemble_load_vector_2d
+  end subroutine assemble_load_vector
 
 !****************************************************************************
 
