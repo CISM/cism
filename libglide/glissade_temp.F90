@@ -1095,7 +1095,7 @@ contains
     integer :: ew,ns,up,ewn,nsn,upn
 
 !    real(dp), dimension(size(sigma)) :: tempcor
-! KJE hack
+! KJE give a hard number to satisfy gcc compiler on Jaguar
     real(dp), dimension(1000) :: tempcor
 
     !------------------------------------------------------------------------------------ 

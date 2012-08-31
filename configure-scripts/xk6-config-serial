@@ -4,6 +4,8 @@
 # (3) ./bootstrap
 # (5) configure-scripts/xk6-config-serial (this file)
 # (6) make
+# NOTE: after having built parallel version, run make distclean or it will try 
+# to link to trilinos
 #
 ./configure \
   FC=ftn  F77=ftn   \

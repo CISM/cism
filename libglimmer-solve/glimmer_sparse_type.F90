@@ -159,9 +159,11 @@ contains
     implicit none
     type(sparse_matrix_type) :: matrix !*FD matrix
 
-    deallocate(matrix%col)
-    deallocate(matrix%row)
-    deallocate(matrix%val)
+    if (associated(matrix%col)) then
+       deallocate(matrix%col)
+       deallocate(matrix%row)
+       deallocate(matrix%val)
+    end if
 
   end subroutine del_sparse_matrix
 
