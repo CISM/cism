@@ -18,9 +18,9 @@ echo
 echo "Doing CMake Configuration step"
 
 cmake \
-  -D GLIMMER_TRILINOS_DIR=/ccs/proj/cli054/trilinos-10.10.1/JUNE_PGI_BUILD/include \
+  -D GLIMMER_TRILINOS_DIR=/ccs/proj/cli054/trilinos-10.12/AUG_PGI_BUILD/install \
   -D GLIMMER_NETCDF_DIR=$NETCDF_DIR \
-  -D GLIMMER_FMAIN="/opt/pgi/11.10.0/linux86-64/11.10/lib/f90main.o" \
+  -D GLIMMER_FMAIN="/opt/pgi/12.5.0/linux86-64/12.5/lib/f90main.o" \
   -D GLIMMER_GPTL_DIR=/tmp/proj/cli054/libgptl \
   -D CMAKE_VERBOSE_MAKEFILE:BOOL=OFF \
  ..

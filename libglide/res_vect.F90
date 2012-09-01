@@ -8,6 +8,7 @@ use glimmer_paramets, only : dp
 use glimmer_sparse_type
 use glimmer_sparse
 use glide_mask
+use profile
 
 implicit none
 
@@ -28,6 +29,7 @@ real(dp) :: scale_ghosts = 0.0d0
 
       Au_b_wig = 0d0 ! regular+ghost cells
 
+call t_startf("res_vect_matvec")
       if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
 
         do nele = 1, matrix%nonzeros 
@@ -43,6 +45,7 @@ real(dp) :: scale_ghosts = 0.0d0
         call matvecwithtrilinos(uvec, Au_b_wig);
 #endif
       endif 
+call t_stopf("res_vect_matvec")
 
       do i = 1, nu
          Au_b_wig(i) = Au_b_wig(i) - bvec(i)
@@ -62,7 +65,9 @@ real(dp) :: scale_ghosts = 0.0d0
       end do
 
       !JEFF Sum L2square across nodes
+call t_startf("res_vect_reduce")
       L2square = parallel_reduce_sum(L2square)
+call t_stopf("res_vect_reduce")
 
       return
 

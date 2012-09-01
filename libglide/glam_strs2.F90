@@ -1131,7 +1131,9 @@ end if
 ! SLAP JFNK loop: calculate F(u^k-1,v^k-1)
 !==============================================================================
 
+ call t_startf("JFNK_SLAP")
  call slapsolve(xk_1, xk_size, c_ptr_to_object, NL_tol, pcgsize)
+ call t_stopf("JFNK_SLAP")
 
 ! k = 1
 
@@ -2054,6 +2056,7 @@ subroutine apply_precond_nox( wk2_nox, wk1_nox, xk_size, c_ptr_to_object )  bind
 !      answer = 0d0 ! initial guess
       answer = 0.d0 ! initial guess
       vectp(:) = wk1(1:nu1) ! rhs for precond v
+ call t_startf("nox_precond_v")
       if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
          call sparse_easy_solve(matrixA, vectp, answer, err, iter, whichsparse, nonlinear_solver = nonlinear)
 #ifdef TRILINOS
@@ -2064,12 +2067,14 @@ subroutine apply_precond_nox( wk2_nox, wk1_nox, xk_size, c_ptr_to_object )  bind
 !         write(*,*) 'Total linear solve time so far', totalLinearSolveTime
 #endif
       endif
+ call t_stopf("nox_precond_v")
       wk2(1:nu1) = answer(:)
 
 ! precondition u component 
        
       answer = 0.d0 ! initial guess
       vectp(:) = wk1(nu1+1:nu2) ! rhs for precond u
+ call t_startf("nox_precond_u")
       if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
          call sparse_easy_solve(matrixC, vectp, answer, err, iter, whichsparse, nonlinear_solver = nonlinear)
 #ifdef TRILINOS
@@ -2080,6 +2085,7 @@ subroutine apply_precond_nox( wk2_nox, wk1_nox, xk_size, c_ptr_to_object )  bind
 !         write(*,*) 'Total linear solve time so far', totalLinearSolveTime
 #endif
       endif
+ call t_stopf("nox_precond_u")
       wk2(nu1+1:nu2) = answer(:)
 
   wk2_nox  = wk2
@@ -5849,8 +5855,6 @@ subroutine slapsolve(xk_1, xk_size, c_ptr_to_object, NL_tol, pcgsize)
   allocate( wk1(2*pcgsize(1)), wk2(2*pcgsize(1)), rhs(2*pcgsize(1)) )
   allocate( vv(2*pcgsize(1),img1), wk(2*pcgsize(1),img) )
 
-   call t_startf("JFNK_SLAP")
-
 ! Iteration loop
 
   do k = 1, kmax
@@ -5940,7 +5944,6 @@ subroutine slapsolve(xk_1, xk_size, c_ptr_to_object, NL_tol, pcgsize)
 !------------------------------------------------------------------------
       xk_1 = xk_1 + dx(1:2*pcgsize(1))
 
-  call t_stopf("JFNK_SLAP")
  end do   ! k = 1, kmax 
 
 
