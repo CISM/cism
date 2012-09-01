@@ -96,7 +96,7 @@ module perf_mod
                          ! timer nesting 
 
    integer, parameter :: def_timing_detail_limit = 1           ! default
-   integer, private   :: timing_detail_limit = def_timer_depth_limit
+   integer, private   :: timing_detail_limit = def_timing_detail_limit
                          ! integer indicating maximum detail level to
                          ! profile
 
@@ -115,7 +115,7 @@ module perf_mod
                          ! (per component communicator) or to a 
                          ! separate file for each process
 
-   integer, parameter :: def_perf_outpe_num = -1               ! default
+   integer, parameter :: def_perf_outpe_num = 0                ! default
    integer, private   :: perf_outpe_num = def_perf_outpe_num
                          ! maximum number of processes writing out 
                          ! timing data (for this component communicator)
@@ -834,7 +834,7 @@ contains
 !========================================================================
 !
    subroutine t_prf(filename, mpicom, num_outpe, stride_outpe, &
-                    single_file, global_stats, proc_subset)
+                    single_file, global_stats, output_thispe)
 !----------------------------------------------------------------------- 
 ! Purpose: Write out performance timer data
 ! Author: P. Worley 
@@ -853,8 +853,8 @@ contains
    logical, intent(in), optional :: single_file
    ! enable/disable the collection of global statistics
    logical, intent(in), optional :: global_stats
-   ! process ids of subset of processes writing out timing data
-   integer, intent(in), optional :: proc_subset(:)
+   ! output timing data for this process
+   logical, intent(in), optional :: output_thispe
 !
 !---------------------------Local workspace-----------------------------
 !
@@ -873,12 +873,11 @@ contains
    integer  gme                   ! global process id
    integer  ierr                  ! MPI error return
    integer  outpe_num             ! max number of processes writing out
-                                  !  timing data
+                                  !  timing data (excluding output_thispe)
    integer  outpe_stride          ! separation between process ids for
                                   !  processes writing out timing data
    integer  max_outpe             ! max process id for processes
                                   !  writing out timing data
-   integer  subset_size           ! number of process ids in proc_subset
    integer  signal                ! send/recv variable for single
                                   ! output file logic
    integer  str_length            ! string length
@@ -938,52 +937,41 @@ contains
    ! Determine which processes are writing out timing data
    write_data = .false.
 
-   if (present(proc_subset)) then
-      subset_size = size(proc_subset)
+   if (present(num_outpe)) then
+      if (num_outpe < 0) then
+         outpe_num = npes
+      else
+         outpe_num = num_outpe
+      endif
    else
-      subset_size = 0
+      if (perf_outpe_num < 0) then
+         outpe_num = npes
+      else
+         outpe_num = perf_outpe_num
+      endif
    endif
 
-   if (subset_size > 0) then
-
-      do i=1,subset_size
-         if (me .eq. proc_subset(i)) write_data = .true.
-      enddo
-
+   if (present(stride_outpe)) then
+      if (stride_outpe < 1) then
+         outpe_stride = 1
+      else
+         outpe_stride = stride_outpe
+      endif
    else
-
-      if (present(num_outpe)) then
-         if (num_outpe < 0) then
-            outpe_num = npes
-         else
-            outpe_num = num_outpe
-         endif
+      if (perf_outpe_stride < 1) then
+         outpe_stride = 1
       else
-         if (perf_outpe_num < 0) then
-            outpe_num = npes
-         else
-            outpe_num = perf_outpe_num
-         endif
+         outpe_stride = perf_outpe_stride
       endif
+   endif
 
-      if (present(stride_outpe)) then
-         if (stride_outpe < 1) then
-            outpe_stride = 1
-         else
-            outpe_stride = stride_outpe
-         endif
-      else
-         if (perf_outpe_stride < 1) then
-            outpe_stride = 1
-         else
-            outpe_stride = perf_outpe_stride
-         endif
-      endif
+   max_outpe = min(outpe_num*outpe_stride, npes) - 1
 
-      max_outpe = min(outpe_num*outpe_stride, npes) - 1
+   if ((mod(me, outpe_stride) .eq. 0) .and. (me .le. max_outpe)) &
+      write_data = .true.
 
-      if ((mod(me, outpe_stride) .eq. 0) .and. (me .le. max_outpe)) &
-         write_data = .true.
+   if (present(output_thispe)) then
+      write_data = output_thispe
    endif
 
    ! If a single timing output file, take turns writing to it.

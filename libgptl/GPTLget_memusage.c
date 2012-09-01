@@ -42,9 +42,51 @@
 
 #endif
 
+#ifdef BGP
+
+#include <spi/kernel_interface.h>
+#include <common/bgp_personality.h>
+#include <common/bgp_personality_inlines.h>
+#include <malloc.h>
+#define   Personality                    _BGP_Personality_t
+
+#endif
+
+
 int GPTLget_memusage (int *size, int *rss, int *share, int *text, int *datastack)
 {
-#ifdef HAVE_SLASHPROC
+#ifdef BGP
+
+  long long alloc;
+  struct mallinfo m;
+  Personality pers;
+
+  long long total;
+  int node_config;
+ 
+ /* memory available */
+  Kernel_GetPersonality(&pers, sizeof(pers));
+  total = BGP_Personality_DDRSizeMB(&pers);
+
+  node_config  = BGP_Personality_processConfig(&pers);
+  if (node_config == _BGP_PERS_PROCESSCONFIG_VNM) total /= 4;
+  else if (node_config == _BGP_PERS_PROCESSCONFIG_2x2) total /= 2;
+  total *= 1024*1024;
+
+  *size = total;
+
+  /* total memory used  - heap only (not static memory)*/
+
+  m = mallinfo();
+  alloc = m.hblkhd + m.uordblks;
+
+  *rss = alloc;
+  *share     = -1;
+  *text     = -1;
+  *datastack = -1;
+
+
+#elif (defined HAVE_SLASHPROC)
   FILE *fd;                       /* file descriptor for fopen */
   int pid;                        /* process id */
   static char *head = "/proc/";   /* part of path */

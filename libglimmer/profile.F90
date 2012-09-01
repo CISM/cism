@@ -39,6 +39,7 @@ module profile
 #if (defined CCSMCOUPLED || defined CESMTIMERS)
   use perf_mod
   use parallel
+  logical, public :: output_thispe = .false.
 #endif
 
   integer, private :: current_unit = 200
@@ -172,7 +173,20 @@ contains
 #endif
 
 #if (! defined CCSMCOUPLED && defined CESMTIMERS)
-    call t_prf('seacism_timing',num_outpe=1,global_stats=.true.)
+    integer :: ewrank, nsrank, nstasks
+
+    ! Sample performance data from process in middle of
+    ! computational domain
+    ewrank = mod(this_rank,ProcsEW)
+    nsrank = this_rank/ProcsEW
+    nstasks = tasks/ProcsEW
+    if ((ewrank .eq. (ProcsEW+1)/2) .and. (nsrank .eq. (nstasks+1)/2)) then
+       call t_prf('seacism_timing', num_outpe=1, global_stats=.true., &
+                  output_thispe=.true.)
+    else
+       call t_prf('seacism_timing', num_outpe=1, global_stats=.true.)
+    endif
+
     call t_finalizef ()
 #endif
   end subroutine profile_close

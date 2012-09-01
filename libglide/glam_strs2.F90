@@ -2215,11 +2215,14 @@ end subroutine reset_effstrmin
                                 xtp, vvel, uvel, ghostbvel, pcgsize(1) )
 
     ! coordinate halos for updated uvel and vvel
+    call t_startf("Calc_F_uvhalo_upd")
     call staggered_parallel_halo(uvel)
     call staggered_parallel_halo(vvel)
+    call t_stopf("Calc_F_uvhalo_upd")
     call horiz_bcs_stag_vector_ew(uvel)
     call horiz_bcs_stag_vector_ns(vvel)
 
+    call t_startf("Calc_F_findefvsstr")
     call findefvsstr(ewn,  nsn,  upn,       &
                      stagsigma,  counter,  &
                      whichefvs,  efvs,     &
@@ -2228,12 +2231,14 @@ end subroutine reset_effstrmin
                      dusrfdew,   dthckdew, &
                      dusrfdns,   dthckdns, &
                      um)
+    call t_stopf("Calc_F_findefvsstr")
 
 !==============================================================================
 ! jfl 20100412: residual for v comp: Fv= A(utp,vtp)vtp - b(utp,vtp)  
 !==============================================================================
 
     ! *sfp** calculation of coeff. for stress balance calc. 
+    call t_startf("Calc_F_findcoefstr1")
     call findcoefstr(ewn,  nsn,   upn,            &
                      dew,  dns,   sigma,          &
                      2,           efvs,           &
@@ -2251,6 +2256,7 @@ end subroutine reset_effstrmin
                      minTauf,     flwa,           &
                      beta,        btraction,      &
                      counter, 0 )
+    call t_stopf("Calc_F_findcoefstr1")
 
     rhsx(1:pcgsize(1)) = rhsd ! Fv
 
@@ -2277,6 +2283,7 @@ end subroutine reset_effstrmin
 ! jfl 20100412: residual for u comp: Fu= C(utp,vtp)utp - d(utp,vtp)  
 !==============================================================================
 
+    call t_startf("Calc_F_findcoefstr2")
     call findcoefstr(ewn,  nsn,   upn,            &
                      dew,  dns,   sigma,          &
                      1,           efvs,           &
@@ -2294,6 +2301,7 @@ end subroutine reset_effstrmin
                      minTauf,     flwa,           &
                      beta,        btraction,      &
                      counter, 0 )
+    call t_stopf("Calc_F_findcoefstr2")
 
     rhsx(pcgsize(1)+1:2*pcgsize(1)) = rhsd ! Fv
 

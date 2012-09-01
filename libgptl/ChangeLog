@@ -1,3 +1,14 @@
+timing_120803: Bug fix in setting timing_detail_limit default.
+               [Patrick Worley]
+timing_120731: Correction in Makefile for serial build [Jim Edwards]
+timing_120728: Replace process subset optional parameter in t_prf with 
+	       outpe_thispe optional parameter. Change def_perf_outpe_num to 0. 
+	       [Patrick Worley]
+timing_120717: Retain timestamp on cp in Makefile   [Jim Edwards]
+timing_120710: Correct issue in Makefile [Jim Edwards]
+timing_120709: Change for BGP to measure on compute nodes rather than IO nodes only,
+               minor Change in Makefile so that gptl can build seperate from csm_share
+               in cesm [Jim Edwards]
 timing_120512: Bug fix in global statistics logic for when a thread has no events 
 	       to contribute to the merge (mods to gptl.c)
 	       [Patrick Worley]
