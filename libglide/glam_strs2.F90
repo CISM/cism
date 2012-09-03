@@ -5852,7 +5852,7 @@ subroutine slapsolve(xk_1, xk_size, c_ptr_to_object, NL_tol, pcgsize)
   real(dp), dimension(:,:), allocatable :: vv, wk
   real(dp) :: L2norm_wig, tol, gamma_l, epsilon, NL_target
   integer :: tot_its, itenb, maxiteGMRES, iout, icode
-  integer, parameter :: img = 20, img1 = img+1, kmax = 1000
+  integer, parameter :: img = 20, img1 = img+1, kmax = 500
   integer :: k
 
   type(sparse_matrix_type) :: matrixA, matrixC

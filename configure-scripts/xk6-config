@@ -1,6 +1,7 @@
 # install script for Jaguar-interlagos: 07/2012
 # build instructions for top level directory 
 # (1) module load python subversion netcdf-hdf5parallel/4.2.0 
+# (2) run a make distclean (else you may get a dimension error at runtime)
 # (3) ./bootstrap
 # (5) configure-scripts/xk6-config (this file)
 # (6) make

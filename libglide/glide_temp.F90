@@ -1249,7 +1249,9 @@ contains
     real(dp),dimension(4) :: arrfact
     integer :: ew,ns,up,ewn,nsn,upn
 
-    real(dp), dimension(size(sigma)) :: tempcor
+!    real(dp), dimension(size(sigma)) :: tempcor
+!   KJE give a hard number to satisfy gnu complier 
+    real(dp), dimension(1000) :: tempcor
 
     !------------------------------------------------------------------------------------ 
    
