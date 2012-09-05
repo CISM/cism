@@ -1,28 +1,48 @@
-#!/bin/sh
-# cmake configuration script that works on jaguar with PGI
-# This script needs to be run from a subdirectory (e.g. build-pgi)
-# of the main seacism repository (reflected in the several 
-# instances of # ".." below).
-#
-# After this executes, do:
-#   make -j 8
-#   cp example-drivers/simple_glide/src/sgcmake .
+# run this script by typing: source hopper-pgi-cmake
+# After thus script completes, type: make -j 8
+# If rebuilding, type 'make clean' before running 'make -j 8'
 
-EXTRA_ARGS=$@
+# This cmake configuration script builds simple_glide and simple_bisicles
+# on hopper using the PGI compiler suite.  It relies on builds of Trilinos
+# and BISICLES that are located under the ranken home directory:
+# /global/u1/r/ranken
 
+# This script should be run from the builds/hopper-pgi subdirirectory
+# of the main seacism repository (reflected in the two instances
+# of "../.." below).
+
+
+# help user get the correct modules loaded:
+
+module unload modules
+module load modules/3.2.6.6
+
+module unload cmake
+module load cmake/2.8.7
+
+module unload PrgEnv-cray PrgEnv-gnu PrgEnv-intel PrgEnv-pathscale PrgEnv-pgi 
+module load PrgEnv-pgi/4.0.46
+
+module unload hdf5-parallel
+module load hdf5-parallel/1.8.8
+
+module unload python
+module load python/2.7.1
+
+module unload cray-shmem
+module load cray-shmem/5.5.2
+
+module unload cray-mpich2
+module load cray-mpich2/5.5.2
+
+# remove old build data:
 rm ./CMakeCache.txt
-# ../cmake-scripts/autogenerate-script
+
+# run a script that creates some CISM source files:
+../../cmake-scripts/autogenerate-script
 
 echo
 echo "Doing CMake Configuration step"
-
-
-#  -D BISICLES_INTERFACE_DIR=/global/u1/r/ranken/BISICLES/code/interface \
-#  -D HDF5_LIB_DIR=/opt/cray/hdf5/1.8.7/pgi/109/lib \
-#  -D HDF5_LIB_DIR=/global/u1/r/ranken/tmp2/seacism/hopper-pgi/hdf5_mixed_lib \
-#  -D GLIMMER_NETCDF_DIR=$NETCDF_DIR \
-#  -D CMAKE_CXX_COMPILER=pgCC \
-#  -D CMAKE_C_COMPILER=pgcc \
 
 cmake \
   -D GLIMMER_TRILINOS_DIR=/global/homes/r/ranken/trilinos/hopper-pgi/install \
@@ -33,23 +53,21 @@ cmake \
   -D CMAKE_VERBOSE_MAKEFILE:BOOL=ON \
   -D CMAKE_VERBOSE_CONFIGURE:BOOL=ON \
 \
-  -D CMAKE_CXX_COMPILER=pgCC \
-  -D CMAKE_C_COMPILER=pgcc \
-  -D CMAKE_Fortran_COMPILER=pgfortran \
+  -D CMAKE_CXX_COMPILER=CC \
+  -D CMAKE_C_COMPILER=cc \
+  -D CMAKE_Fortran_COMPILER=ftn \
 \
   -D MPI_BASE_DIR=/opt/cray/mpt/5.4.5/xt/gemini/mpich2-pgi/109 \
   -D SCI_LIB_DIR=/opt/xt-libsci/11.0.06/pgi/109/mc12/lib \
-  -D HDF5_LIB_DIR=/opt/cray/hdf5/1.8.6/pgi/109/lib \
   -D HDF5_PARALLEL_LIB_DIR=/opt/cray/hdf5-parallel/1.8.6/pgi/109/lib \
+  -D HDF5_PGI_LIBS="-lhdf5_pgi_parallel -lz" \
   -D CMAKE_PREFIX_PATH="/opt/cray/hdf5/1.8.6/pgi/109;/opt/cray/hdf5-parallel/1.8.6/pgi/109" \
-  -D HDF5_PGI_LIBS="-lhdf5_pgi -lhdf5_hl_pgi -lhdf5_pgi_parallel -lz" \
 \
   -D CMAKE_CXX_FLAGS:STRING="-O2 --diag_suppress 554,111,611" \
   -D TPL_ENABLE_MPI:BOOL=ON \
-  -D BUILD_SIMPLE_BISICLES:BOOL=OFF \
+  -D BUILD_SIMPLE_BISICLES:BOOL=ON \
   -D NO_TRILINOS:BOOL=OFF \
   -D BISICLES_INTERFACE_DIR=/global/u1/r/ranken/BISICLES/code/interface \
  ../..
 
-# Note: last argument above  "../.."  is path to top seacism directory 
- 
+# Note: last argument above  "../.."  is path to top seacism directory
