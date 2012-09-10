@@ -64,7 +64,7 @@ cmake \
   -D TPL_ENABLE_MPI:BOOL=ON \
   -D BUILD_SIMPLE_BISICLES:BOOL=ON \
   -D NO_TRILINOS:BOOL=OFF \
-  -D BISICLES_INTERFACE_DIR=/global/u2/d/dmartin/BISICLES/code/interface \
+  -D BISICLES_INTERFACE_DIR=/global/u1/r/ranken/BISICLES/code/interface \
  ../..
 
 # Note: last argument above  "../.."  is path to top seacism directory
