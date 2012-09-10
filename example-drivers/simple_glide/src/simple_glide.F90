@@ -134,9 +134,17 @@ program simple_glide
 
 !###   !tstep_count = 0 !TODO MJH delete this line - moved up above
 
-!###   !suffix = '_t1'  !TODO MJH delete this line.  the suffix for the first time through is not needed anymore.  It was presumably only there to get a separate timing for the first time through the timestep loop where we have a bad guess of the velocity and the velocity solve would take much longer than usual.  But now that initial slow velocity solve occurs here in init, so there is not a reason to time the first time through the time step loop differently than other times through.
+!###   !suffix = '_t1'  !TODO MJH delete this line.  the suffix for the first time through is not needed anymore.  
+       !It was presumably only there to get a separate timing for the first time through the timestep loop where 
+       !we have a bad guess of the velocity and the velocity solve would take much longer than usual.  But now 
+       !that initial slow velocity solve occurs here in init, so there is not a reason to time the first time 
+       !through the time step loop differently than other times through.
 
-  !MJH Created this block here to fill out initial state without needing to enter time stepping loop.  This allows a run with tend=tstart to be run without time-stepping at all.  It requires solving all diagnostic (i.e. not time depdendent) variables (most important of which is velocity) for the initial state and then writing the initial state as time 0 (or more accurately, as time=tstart).  Also, halo updates need to occur after the diagnostic variables are calculated.
+  !MJH Created this block here to fill out initial state without needing to enter time stepping loop.  This allows
+  ! a run with tend=tstart to be run without time-stepping at all.  It requires solving all diagnostic (i.e. not
+  ! time depdendent) variables (most important of which is velocity) for the initial state and then writing the 
+  !initial state as time 0 (or more accurately, as time=tstart).  Also, halo updates need to occur after the diagnostic
+  ! variables are calculated.
 
   ! ------------- Calculate initial state and output it -----------------
   if (model%options%whichdycore == DYCORE_GLIDE) then
@@ -152,9 +160,14 @@ program simple_glide
   end if
 
   ! --- Output the initial state -------------
-  ! TODO MJH Copied this below from glissade_post_tstep().  May want to make a subroutine that just has this block in it.  It could be called glimmer_write_output and be in simple_glide if it can be used by both glide and glissade.  Or else separate routines at the glissade/glide module level.
+  ! TODO MJH Copied this below from glissade_post_tstep().  May want to make a subroutine that just has this 
+  !block in it.  It could be called glimmer_write_output and be in simple_glide if it can be used by both glide
+  ! and glissade.  Or else separate routines at the glissade/glide module level.
   !TODO - Change to glimmer_io_writeall?
-  !TODO - the write operation in post_step is inside an if-construct that checks an optional 'nowrite' logical variable.  However the call to that subroutine at the end of this module does not supply the optional variable.  Therefore I am leaving out that if-construct here.  If simple_glide actually does support a nowrite option, then a check for it would need to occur here!
+  !TODO - the write operation in post_step is inside an if-construct that checks an optional 'nowrite' logical variable. 
+  ! However the call to that subroutine at the end of this module does not supply the optional variable.  Therefore I am 
+  !leaving out that if-construct here.  If simple_glide actually does support a nowrite option, then a check for it would
+  ! need to occur here!
   call t_startf('glide_io_writeall')
   call glide_io_writeall(model,model, time=REAL(time,4))  ! MJH The optional time argument needs to be supplied since we have not yet set model%numerics%time
   call t_stopf('glide_io_writeall')
@@ -195,7 +208,8 @@ program simple_glide
 
      ! --- First assign forcings ----
      ! Because this is Forward Euler, the forcings should be from the previous time step (e.g. H1 = f(H0, V0, SMB0))
-     ! TODO Write generic forcing subroutines that could call simple_massbalance/surftemp or some other forcing module.  simple_massbalance/surftemp are only used for the EISMINT experiments.  If they are called without EISMINT options in the config file, they will do nothing.
+     ! TODO Write generic forcing subroutines that could call simple_massbalance/surftemp or some other forcing module.  
+     !simple_massbalance/surftemp are only used for the EISMINT experiments.  If they are called without EISMINT options in the config file, they will do nothing.
      ! TODO May want to move them to the glissade/glide time steppers.  If so be careful about using the right time level (i.e. the old one).
      call simple_massbalance(climate,model,time)
      call simple_surftemp(climate,model,time)

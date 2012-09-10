@@ -1,6 +1,8 @@
 !TODO - Change to glimmer_diagnostics?
 !TODO - Add global reductions to make this parallel.
-!TODO - May want to eliminate calculations of iarea, iareaf, and areag in calc_iareaf_iareag() and glide_set_mask().  Instead just use the calculations made here.  If so, the values calculated here should be saved to the model derived type (model%geometry%iarea, etc.), in case those fields are to be output.
+!TODO - May want to eliminate calculations of iarea, iareaf, and areag in calc_iareaf_iareag() and 
+!TODO - glide_set_mask().  Instead just use the calculations made here.  If so, the values calculated 
+!TODO - here should be saved to the model derived type (model%geometry%iarea, etc.), in case those fields are to be output.
 
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                             +

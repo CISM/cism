@@ -517,7 +517,9 @@ contains
        ! MJH: I put the no thickness evolution option here so that it is still possible 
        ! (but not required) to use IR to advect temperature when thickness evolution is turned off.
 
-       ! TODO  MJH If we really want to support no evolution, then we may want to implement it so that IR does not occur at all - right now a run can fail because of a CFL violation in IR even if evolution is turned off.  Do we want to support temperature evolution without thickness evolution?  If so, then the current implementation may be preferred approach.
+       ! TODO  MJH If we really want to support no evolution, then we may want to implement it so that IR does not occur 
+       !at all - right now a run can fail because of a CFL violation in IR even if evolution is turned off.  Do we want
+       ! to support temperature evolution without thickness evolution?  If so, then the current implementation may be preferred approach.
        if (model%options%whichevol == EVOL_NO_THICKNESS) then
           ! store old thickness
           thck_old = model%geometry%thck

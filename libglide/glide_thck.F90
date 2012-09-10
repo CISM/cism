@@ -557,7 +557,9 @@ contains
          real(vel0*maxval(abs(model%velocity%ubas))), real(vel0*maxval(abs(model%velocity%vbas))) 
 #endif
 
-    !TODO Why are lsrf and usrf calculated here?  This is confusing because model%geometry%thck has only been updated because new_thck points to it, but that was only the case because of the way this subroutine is called, and would not generally be true.  This calculation should be made with new_thck, if it's going to be made here at all!
+    !TODO Why are lsrf and usrf calculated here?  This is confusing because model%geometry%thck has only been updated 
+    !because new_thck points to it, but that was only the case because of the way this subroutine is called, and would
+    !not generally be true.  This calculation should be made with new_thck, if it's going to be made here at all!
     ! calculate upper and lower surface
     call glide_calclsrf(model%geometry%thck, model%geometry%topg, model%climate%eus, model%geometry%lsrf)
     model%geometry%usrf = max(0.d0,model%geometry%thck + model%geometry%lsrf)
@@ -922,7 +924,9 @@ end subroutine
 #endif
     else
 
-       !TODO If this evolution option is kept, may want to add call to geometry_derivs() here, like is done in the other two SIA evolution subroutines (thck_lin_evolve/thck_nonlin_evolve).  May want to move it to a higher level and have it in common to all 3 schemes (although it will still be needed in the Picard iteration of thck_nonlin_evolve).
+       !TODO If this evolution option is kept, may want to add call to geometry_derivs() here, like is done in the other two
+       ! SIA evolution subroutines (thck_lin_evolve/thck_nonlin_evolve).  May want to move it to a higher level and have it 
+       !in common to all 3 schemes (although it will still be needed in the Picard iteration of thck_nonlin_evolve).
 
        ! calculate basal velos
        if (newtemps) then
