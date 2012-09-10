@@ -1,3 +1,12 @@
+2012-09-10 Bill Sacks
+ * Shortened some long lines in glimmer_ncio.F90 to make some compilers happy (mod from Bill Lipscomb, previously implemented in cism1 repo within cesm)
+ * Fixed memory leak in glint_climate.F90 (previously implemented in cism1 repo within cesm)
+ * Testing done: 
+   NOTE: The following testing was done off of r1463
+   - Kate's dome30 test script (including comparison to baseline)
+   - Kate's gis_10km test script (including comparison to baseline)
+     - Note that baseline is giving seg faults in some configurations.
+
 2012-08-16 Kate Evans
  * changed all DEBUG preproc style flags to GLC_DEBUG
  * Tested with dome 30 and gis 5km. with PGI cmake and autoconf on Jaguar 

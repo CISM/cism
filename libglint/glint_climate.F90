@@ -274,6 +274,8 @@ contains
     enddo  ! i
     enddo  ! j
 
+    deallocate(qsmb_l, tsfc_l, topo_l)
+
   end subroutine glint_downscaling_gcm
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

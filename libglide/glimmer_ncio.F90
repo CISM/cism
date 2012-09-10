@@ -374,8 +374,8 @@ contains
     status = parallel_inquire_dimension(NCI%id,dimid,len=dimsize)
     call nc_errorhandle(__FILE__,__LINE__,status)
     if (dimsize /= global_ewn) then
-       write(message,*) 'Dimension x1 of file '//trim(process_path(NCI%filename))//' does not match with config dimension: ',&
-            dimsize, global_ewn
+       write(message,*) 'Dimension x1 of file '//trim(process_path(NCI%filename))// &
+            ' does not match with config dimension: ', dimsize, global_ewn
        call write_log(message,type=GM_FATAL)
     end if
     status = parallel_inq_varid(NCI%id,'x1',varid)
@@ -384,8 +384,8 @@ contains
     call nc_errorhandle(__FILE__,__LINE__,status)
 
     if (abs(delta(2)-delta(1) - model%numerics%dew*len0) > small) then
-       write(message,*) 'deltax1 of file '//trim(process_path(NCI%filename))//' does not match with config deltax: ',&
-            delta(2)-delta(1),model%numerics%dew*len0
+       write(message,*) 'deltax1 of file '//trim(process_path(NCI%filename))// &
+            ' does not match with config deltax: ', delta(2)-delta(1),model%numerics%dew*len0
        call write_log(message,type=GM_FATAL)
     end if
 
@@ -415,8 +415,8 @@ contains
     status = parallel_inquire_dimension(NCI%id,dimid,len=dimsize)
     call nc_errorhandle(__FILE__,__LINE__,status)
     if (dimsize /= global_nsn) then
-       write(message,*) 'Dimension y1 of file '//trim(process_path(NCI%filename))//' does not match with config dimension: ',&
-            dimsize, global_nsn
+       write(message,*) 'Dimension y1 of file '//trim(process_path(NCI%filename))// &
+            ' does not match with config dimension: ', dimsize, global_nsn
        call write_log(message,type=GM_FATAL)
     end if
     status = parallel_inq_varid(NCI%id,'y1',varid)
@@ -425,8 +425,8 @@ contains
     call nc_errorhandle(__FILE__,__LINE__,status)
 
     if (abs(delta(2)-delta(1) - model%numerics%dns*len0) > small) then
-       write(message,*) 'deltay1 of file '//trim(process_path(NCI%filename))//' does not match with config deltay: ',&
-            delta(2)-delta(1),model%numerics%dns*len0
+       write(message,*) 'deltay1 of file '//trim(process_path(NCI%filename))// &
+            ' does not match with config deltay: ', delta(2)-delta(1),model%numerics%dns*len0
        call write_log(message,type=GM_FATAL)
     end if
     
