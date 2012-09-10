@@ -272,6 +272,7 @@ contains
                            model%geometry%iarea, model%geometry%ivol)
     endif
  
+!TODO Do calc_iareaf_areag, lsrf, and usrf need to be calc'ed here if they are now calc'ed as part of glide_init_state_diagnostic?
 !TODO- Not sure why this needs to be called here.
     call calc_iareaf_iareag(model%numerics%dew,model%numerics%dns, &
                             model%geometry%iarea, model%geometry%thkmask, &
@@ -297,6 +298,224 @@ contains
     call register_model(model)
     
   end subroutine glide_initialise
+
+!=======================================================================
+
+  subroutine glide_init_state_diagnostic(model)
+    ! Calculate diagnostic variables for the initial model state
+    ! This provides calculation of output fields at time 0
+    ! This is analagous to glissade_diagnostic_variable_solve but is only 
+    ! called from init.  The glide tstep routines take care of these calculations
+    ! during time stepping.  
+
+    use glimmer_global, only : rk
+    use glide_thck
+    use glide_velo
+    use glide_setup
+    use glide_temp
+    use glide_mask
+    use glide_deriv, only : df_field_2d_staggered
+    use glimmer_paramets, only: tim0
+    use glimmer_physcon, only: scyr
+    use glide_thckmask
+    use glide_grids
+    use glide_ground, only: glide_marinlim
+    use glide_bwater, only: calcbwat
+    use glide_temp, only: glide_calcbmlt
+
+    type(glide_global_type), intent(inout) :: model     ! model instance
+
+    ! ------------------------------------------------------------------------ 
+    ! ***Part 1: Make geometry consistent with calving law, if necessary
+    ! ------------------------------------------------------------------------       
+    ! ------------------------------------------------------------------------ 
+    ! Remove ice which is either floating, or is present below prescribed
+    ! depth, depending on value of whichmarn
+    ! ------------------------------------------------------------------------ 
+
+!TODO - Are all these arguments needed?
+!       Old Glimmer code includes only arguments through model%climate%calving.
+
+    call glide_marinlim(model%options%whichmarn, &
+                        model%geometry%thck,      &
+                        model%isos%relx,      &
+                        model%geometry%topg,   &
+                        model%temper%flwa,   &
+                        model%numerics%sigma,   &
+                        model%geometry%thkmask,    &
+                        model%numerics%mlimit,     &
+                        model%numerics%calving_fraction, &
+                        model%climate%eus,         &
+                        model%climate%calving,  &
+! The remaining arguments may not be needed?
+                        model%climate%backstress, &
+                        model%climate%tempanmly, &
+                        model%numerics%dew,    &
+                        model%numerics%dns, &
+                        model%climate%backstressmap, &
+                        model%climate%stressout, &
+                        model%climate%stressin, &
+                        model%ground, &
+                        model%general%nsn, &
+                        model%general%ewn)
+
+!TODO - Write a better comment here.  The mask needs to be recalculated after marinlim.
+    !issues with ice shelf, calling it again fixes the mask
+
+    call glide_set_mask(model%numerics,                                &
+                        model%geometry%thck,  model%geometry%topg,     &
+                        model%general%ewn,    model%general%nsn,       &
+                        model%climate%eus,    model%geometry%thkmask,  &
+                        model%geometry%iarea, model%geometry%ivol)
+
+    call calc_iareaf_iareag(model%numerics%dew,    model%numerics%dns,     &
+                            model%geometry%iarea,  model%geometry%thkmask, &
+                            model%geometry%iareaf, model%geometry%iareag)
+
+
+    ! ------------------------------------------------------------------------ 
+    ! ***Part 2: Calculate geometry related fields
+    ! ------------------------------------------------------------------------    
+
+!TODO Update ice/water load here?
+
+!TODO Calculate isostasy here?
+
+    ! ------------------------------------------------------------------------
+    ! calculate upper and lower ice surface
+    ! ------------------------------------------------------------------------
+
+!TODO - Inline calclsrf
+    call glide_calclsrf(model%geometry%thck, model%geometry%topg, &
+                        model%climate%eus,   model%geometry%lsrf)
+
+    model%geometry%usrf = max(0.d0,model%geometry%thck + model%geometry%lsrf)
+
+    ! ------------------------------------------------------------------------ 
+    ! Calculate various derivatives
+    ! ------------------------------------------------------------------------     
+
+!TODO - I suggest explicit calls to the appropriate subroutines in glide_derivs (dfdx_2d, etc.)
+!       Then we would not need to use the geometry_derivs subroutine in glide_thck.
+!       Currently, this subroutine computes stagthck, staglsrf, stagtopg, dusrfdew/ns, dthckdew/ns,
+!        dlsrfdew/ns, d2usrfdew/ns2, d2thckdew/ns2 (2nd derivs are HO only)   
+
+    call geometry_derivs(model)
+    
+    !EIB! from gc2 - think this was all replaced by geometry_derivs??
+!TODO - The subroutine geometry_derivs calls subroutine stagthickness to compute stagthck.
+!       Similarly for dthckdew/ns and dusrfdew/ns
+!       No need to call the next three subroutines as well as geometry_derivs?
+
+!TODO this calculation of stagthck differs from that in geometry_derivs which calls stagthickness() in the glide_grids.F90  Which do we want to use?  stagthickness() seems to be noisier.
+    call stagvarb(model%geometry%thck, model%geomderv%stagthck,&
+                  model%general%ewn,   model%general%nsn)
+
+    call df_field_2d_staggered(model%geometry%usrf,                              &
+                               model%numerics%dew,      model%numerics%dns,      &
+                               model%geomderv%dusrfdew, model%geomderv%dusrfdns, &
+                               model%geometry%thck,     model%numerics%thklim )
+
+    call df_field_2d_staggered(model%geometry%thck,                              &
+                               model%numerics%dew,      model%numerics%dns,      &
+                               model%geomderv%dthckdew, model%geomderv%dthckdns, &
+                               model%geometry%thck,     model%numerics%thklim )
+
+    call glide_prof_stop(model,model%glide_prof%geomderv)
+
+    call glide_prof_start(model,model%glide_prof%ice_mask1)
+
+    !TREY This sets local values of dom, mask, totpts, and empty
+    !EIB! call veries between lanl and gc2, this is lanl version
+    !magi a hack, someone explain what whichthck=5 does
+    !call glide_maskthck(0, &       
+    call glide_maskthck( model%geometry% thck,      &
+                         model%climate%  acab,      &
+                         .true.,                    &
+                         model%numerics% thklim,    &
+                         model%geometry% dom,       &
+                         model%geometry% mask,      &
+                         model%geometry% totpts,    &
+                         model%geometry% empty)
+
+    call glide_prof_stop(model,model%glide_prof%ice_mask1)
+
+
+    call geometry_derivs(model)  ! This call is needed here to make sure stagthck is calculated the same way as in thck_lin_evolve/thck_nonlin_evolve
+    ! ------------------------------------------------------------------------ 
+    ! Part 3: Solve velocity
+    ! ------------------------------------------------------------------------    
+    ! initial value for flwa should already be calculated as part of glide_init_temp()
+    ! calculate  the part of the vertically averaged velocity field which solely depends on the temperature
+    call velo_integrate_flwa(model%velowk,model%geomderv%stagthck,model%temper%flwa)
+    ! Calculate diffusivity
+    call velo_calc_diffu(model%velowk,model%geomderv%stagthck,model%geomderv%dusrfdew, &
+            model%geomderv%dusrfdns,model%velocity%diffu)
+
+
+    ! Calculate basal melt rate --------------------------------------------------
+    ! Note: For the initial state, we won't have values for ubas/vbas (unless they were 
+    ! supplied in the input file) to get an initial guess of sliding heating.
+    ! We could iterate on this, but for simplicity that is not done.
+    call glide_calcbmlt(model, &
+                           model%options%which_bmelt, &
+                           model%temper%temp, &
+                           model%geometry%thck, &
+                           model%geomderv%stagthck, &
+                           model%geomderv%dusrfdew, &
+                           model%geomderv%dusrfdns, &
+                           model%velocity%ubas, &
+                           model%velocity%vbas, &
+                           model%temper%bmlt, &
+                           GLIDE_IS_FLOAT(model%geometry%thkmask))
+
+    ! Calculate basal water depth ------------------------------------------------
+    call calcbwat(model, &
+                     model%options%whichbwat, &
+                     model%temper%bmlt, &
+                     model%temper%bwat, &
+                     model%temper%bwatflx, &
+                     model%geometry%thck, &
+                     model%geometry%topg, &
+                     model%temper%temp(model%general%upn,:,:), &
+                     GLIDE_IS_FLOAT(model%geometry%thkmask), &
+                     model%tempwk%wphi)
+
+    ! ------------------------------------------------------------------------ 
+    ! Calculate basal traction factor
+    ! ------------------------------------------------------------------------ 
+!TODO - Remove model derived type from argument list
+    call calc_btrc(model,                    &
+                   model%options%whichbtrc,  &
+                   model%velocity%btrc)
+
+    call slipvelo(model,                &
+               0,                             &
+               model%velocity% btrc,          &
+               model%velocity% ubas,          &
+               model%velocity% vbas)
+
+    ! Calculate velocity
+    call velo_calc_velo(model%velowk,model%geomderv%stagthck,model%geomderv%dusrfdew, &
+            model%geomderv%dusrfdns,model%temper%flwa,model%velocity%diffu,model%velocity%ubas, &
+            model%velocity%vbas,model%velocity%uvel,model%velocity%vvel,model%velocity%uflx,model%velocity%vflx,&
+            model%velocity%surfvel)    
+
+    ! ------------------------------------------------------------------------ 
+    ! Part 4: Calculate other diagnostic fields that depend on velocity
+    ! ------------------------------------------------------------------------    
+    ! ------------------------------------------------------------------------
+    ! basal shear stress calculation
+    ! ------------------------------------------------------------------------
+
+    call calc_basal_shear(model%geomderv%stagthck,                          &
+                          model%geomderv%dusrfdew, model%geomderv%dusrfdns, &
+                          model%stress%tau_x,      model%stress%tau_y)
+
+    ! velocity norm
+    model%velocity%velnorm = sqrt(model%velocity%uvel**2 + model%velocity%vvel**2)
+
+  end subroutine glide_init_state_diagnostic
 
 !=======================================================================
 
@@ -343,6 +562,7 @@ contains
 !TODO - The subroutine geometry_derivs calls subroutine stagthickness to compute stagthck.
 !       Similarly for dthckdew/ns and dusrfdew/ns
 !       No need to call the next three subroutines as well as geometry_derivs?
+!       This calculation of stagthck differs from that in geometry_derivs which calls stagthickness() in the glide_grids.F90  Which do we want to use?  stagthickness() seems to be noisier but there are notes in there about some issue related to margins.
 
     call stagvarb(model%geometry%thck, model%geomderv%stagthck,&
                   model%general%ewn,   model%general%nsn)
@@ -474,7 +694,7 @@ contains
        call thck_nonlin_evolve(model,model%temper%newtemps)
 
     case(EVOL_FO_UPWIND) ! Use first order upwind scheme for mass transport
-
+!TODO MJH - Eliminate the FO_Upwind case?  It calls the HO velocity solver, which shouldn't be called from GLIDE.
        call fo_upwind_advect_driver( model )
 
     end select

@@ -350,6 +350,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
 
 !TODO - Note: d2usrfdew2 and d2usrfdns2 are needed at all locally owned velocity points.
 !       I am not sure where and why the upwind 2nd derivatives are computed.
+!TODO MJH These 2nd derivatives are already calculated in subroutine geometry_derivs(model) in glide_thck.  These calls could either be deleted and just use those previous calculations, or possibly use that module here.  First it needs to be determined that they are making the same (or not) calculation!
 
   ! calc geometric 2nd deriv. for generic input variable 'ipvr', returns 'opvr'
   call geom2ders(ewn, nsn, dew, dns, usrf, stagthck, d2usrfdew2, d2usrfdns2)
@@ -985,6 +986,7 @@ subroutine JFNK_velo_solver  (model,umask)
 
 !TODO - Much of the following code is a copy of code above.  
 !       Can we get by with a single copy?  I'm thinking of operations that are done once, before the iterations begin.
+!TODO MJH: can we put these derivative calculations in the diagnostic solve part where the other derivatives are calculated?
 
   ! *sfp** geometric 1st deriv. for generic input variable 'ipvr',
   !      output as 'opvr' (includes 'upwinding' for boundary values)

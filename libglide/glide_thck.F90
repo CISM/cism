@@ -175,6 +175,26 @@ contains
        !EIB! old? from gc2
        !call thck_evolve(model,.true.,model%geometry%thck,model%geometry%thck)
 
+
+
+!--- MJH: Since the linear evolution uses a diffusivity based on the old geometry, the
+!    velocity calculated here will also be based on the old geometry.  If it is
+!    desired to calculate a velocity for the new evolved geometry, then the diffusivity
+!    and other things need to be updated before calculating velocity (commented out with !* ).
+!    If using this block starting with !* , delete the call to slipvelo with option 3 below.
+!*       ! Update geometry information for new thickness before calculating velocity
+!*       model%geometry%usrf = model%geometry%lsrf + model%geometry%thck  ! usrf needed for slope calculations in geometry_derivs
+!*       call geometry_derivs(model)  !this updates stagthck and the slopes
+!*       call velo_calc_diffu(model%velowk,model%geomderv%stagthck,model%geomderv%dusrfdew, &
+!*            model%geomderv%dusrfdns,model%velocity%diffu)
+!*       call slipvelo(model,                &
+!*            0,                             &
+!*            model%velocity% btrc,          &
+!*            model%velocity% ubas,          &
+!*            model%velocity% vbas)
+!----
+
+
        ! calculate horizontal velocity field
        ! (These calls must appear after thck_evolve, as thck_evolve uses ubas,
        ! which slipvelo mutates)
@@ -312,6 +332,8 @@ contains
           ! get new thicknesses
           !call thck_evolve(model,first_p,model%thckwk%oldthck,model%geometry%thck)
 
+       !TODO If we ever support parallel Glide, a halo update on thck would need to occur somewhere around here.
+
           first_p = .false.
 
 #ifdef USE_UNSTABLE_MANIFOLD
@@ -354,6 +376,12 @@ contains
           picard_max = 0
        end if
 #endif
+
+       ! Note: the values for stagthck, slopes, diffu, and ubas (from option 2 call to slipvelo)
+       ! will be outdated from the previous Picard iteration.  Since the solution is converged
+       ! the values should be very close to their final value.  However, if an exact match is
+       ! desired, those calls should be repeated here after the Picard loop has converged and
+       ! before the velocity is calculated.
 
        ! calculate horizontal velocity field
        call slipvelo(model,                &
@@ -529,6 +557,7 @@ contains
          real(vel0*maxval(abs(model%velocity%ubas))), real(vel0*maxval(abs(model%velocity%vbas))) 
 #endif
 
+    !TODO Why are lsrf and usrf calculated here?  This is confusing because model%geometry%thck has only been updated because new_thck points to it, but that was only the case because of the way this subroutine is called, and would not generally be true.  This calculation should be made with new_thck, if it's going to be made here at all!
     ! calculate upper and lower surface
     call glide_calclsrf(model%geometry%thck, model%geometry%topg, model%climate%eus, model%geometry%lsrf)
     model%geometry%usrf = max(0.d0,model%geometry%thck + model%geometry%lsrf)
@@ -872,6 +901,8 @@ end subroutine
     !*FD this subroutine solves the ice sheet thickness equation using the ADI scheme
     !*FD diffusivities are updated for each half time step
 
+    !TODO The ADI scheme has not been checked for consistency with the new time-stepping convention.  If it is retained, that should be done.
+
     use glide_setup, only: glide_calclsrf
     use glide_velo
     use glimmer_utils
@@ -890,6 +921,8 @@ end subroutine
        print *, "* thck empty - net accumulation added", model%numerics%time
 #endif
     else
+
+       !TODO If this evolution option is kept, may want to add call to geometry_derivs() here, like is done in the other two SIA evolution subroutines (thck_lin_evolve/thck_nonlin_evolve).  May want to move it to a higher level and have it in common to all 3 schemes (although it will still be needed in the Picard iteration of thck_nonlin_evolve).
 
        ! calculate basal velos
        if (newtemps) then

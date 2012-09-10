@@ -105,6 +105,7 @@ contains
 
 !TODO - This is the subroutine used to compute dusrfdew/ns, dthkdew/ns.
 !       Not sure if mods are needed for parallel code.
+!TODO - thck and thklim are no longer used in this subroutine.  Should they be removed from the call?
 
     subroutine df_field_2d_staggered(f,                  &
                                      deltax,   deltay,   &

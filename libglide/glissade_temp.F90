@@ -210,6 +210,7 @@ contains
       ! MJH: Calculate initial value of flwa
       ! If flwa is loaded (e.g. hotstart), use the flwa field in the input file instead
       ! Note: Implementing flwa initialization in this way, I don't think hotstart=1 does anything. 
+      ! Note: flwa needs to be calculated here for the intital T field before calculating velocity in glissade_diagnostic_variable_solve during init.
 
        if (model%temper%flwa(1,1,1) < 0.d0) then
           call write_log("No initial flwa supplied - calculating initial flwa")

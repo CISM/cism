@@ -75,6 +75,7 @@ contains
 
 !TODO - What exactly does this do?  Is it solver-dependent?
         !Augment masks with kinematic boundary condition info
+!TODO Adding the kinematic bc to thkmask is not needed.  Can be removed.
         call augment_kinbc_mask(model%geometry%thkmask, model%velocity%kinbcmask)
         call augment_kinbc_mask(geom_mask_stag, model%velocity%kinbcmask)
 

@@ -205,6 +205,7 @@ contains
 
   subroutine augment_kinbc_mask(mask, kinbcmask)
 
+    !TODO adding the kinematic bc to the unstaggered mask no longer needs to be supported.  That functionality can be removed.
     !*FD Augments the Glide mask with the location of kinematic (dirichlet) boundary
     !*FD conditions.  These locations cannot be determined by the model a priori, and
     !*FD must be specified through a field in a NetCDF file.
@@ -263,6 +264,7 @@ contains
     
 !TODO - Probably need two versions of this subroutine, one for parallel and one for serial
     use parallel
+!TODO - remove iarea from the call since it is not used!
 
     implicit none
     real(dp), intent(in) :: dew, dns

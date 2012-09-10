@@ -74,7 +74,7 @@ module glide_temp
   implicit none
 
   private
-  public :: glide_init_temp, glide_temp_driver
+  public :: glide_init_temp, glide_temp_driver, glide_calcbmlt
 
 contains
 
@@ -626,7 +626,7 @@ contains
     case(2) ! *sfp* stealing this un-used option ... 
 
         ! DO NOTHING. That is, hold T const. at initially assigned value
-        !whl - Should the do-nothing option have a different case number, such as 0 or -1? 
+        !TODO whl - Should the do-nothing option have a different case number, such as 0 or -1? 
 
     end select   ! whichtemp
 
