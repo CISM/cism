@@ -132,6 +132,7 @@ contains
     use glam_strs2, only : glam_velo_init
 
     use glide_velo_higher  !TODO - Remove this when removing calc_run_ho_diagnostic option
+    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
 
 !!    use remap_glamutils, only : horizontal_remap_init
 !!    use fo_upwind_advect, only : fo_upwind_advect_init
@@ -306,6 +307,7 @@ contains
                            model%general%ewn,    model%general%nsn,       &
                            model%climate%eus,    model%geometry%thkmask,  &
                            model%geometry%iarea, model%geometry%ivol)
+       call horiz_bcs_unstag_scalar(model%geometry%thkmask)
     endif
 
 !TODO- Not sure why this needs to be called here.
@@ -780,6 +782,7 @@ end select
                            model%geometry%thck,  model%geometry%topg,     &
                            model%general%ewn,    model%general%nsn,       &
                            model%climate%eus,    model%geometry%thkmask)
+       call horiz_bcs_unstag_scalar(model%geometry%thkmask)
 !### Removing the calculation of iarea and ivol here.  This first call to set_mask gets repeated after the marinlim call once the thickness has been adjusted for calved ice.
 !###                           model%geometry%iarea, model%geometry%ivol)
 
@@ -852,6 +855,7 @@ end select
                         model%general%ewn,    model%general%nsn,       &
                         model%climate%eus,    model%geometry%thkmask,  &
                         model%geometry%iarea, model%geometry%ivol)
+    call horiz_bcs_unstag_scalar(model%geometry%thkmask)
 
 !HALO - glide_set_mask includes a halo update of model%geometry%thkmask at end of call
 !       That update should be moved here if needed later (but may not be needed).

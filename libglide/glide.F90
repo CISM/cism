@@ -143,6 +143,7 @@ contains
     use isostasy
     use glimmer_map_init
     use fo_upwind_advect, only : fo_upwind_advect_init
+    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
 
 !TODO - Can we eliminate this?  Currently it's needed.
     use parallel, only: distributed_grid
@@ -270,6 +271,7 @@ contains
                            model%general%ewn,    model%general%nsn,       &
                            model%climate%eus,    model%geometry%thkmask,  &
                            model%geometry%iarea, model%geometry%ivol)
+       call horiz_bcs_unstag_scalar(model%geometry%thkmask)
     endif
  
 !TODO Do calc_iareaf_areag, lsrf, and usrf need to be calc'ed here if they are now calc'ed as part of glide_init_state_diagnostic?
@@ -322,6 +324,7 @@ contains
     use glide_ground, only: glide_marinlim
     use glide_bwater, only: calcbwat
     use glide_temp, only: glide_calcbmlt
+    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
 
     type(glide_global_type), intent(inout) :: model     ! model instance
 
@@ -367,6 +370,7 @@ contains
                         model%general%ewn,    model%general%nsn,       &
                         model%climate%eus,    model%geometry%thkmask,  &
                         model%geometry%iarea, model%geometry%ivol)
+    call horiz_bcs_unstag_scalar(model%geometry%thkmask)
 
     call calc_iareaf_iareag(model%numerics%dew,    model%numerics%dns,     &
                             model%geometry%iarea,  model%geometry%thkmask, &
@@ -668,6 +672,7 @@ contains
     use isostasy
     use fo_upwind_advect, only: fo_upwind_advect_driver
     use glide_ground, only: glide_marinlim
+    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
 
     type(glide_global_type), intent(inout) :: model    ! model instance
 
@@ -714,6 +719,7 @@ contains
                         model%general%ewn,    model%general%nsn,       &
                         model%climate%eus,    model%geometry%thkmask,  &
                         model%geometry%iarea, model%geometry%ivol)
+    call horiz_bcs_unstag_scalar(model%geometry%thkmask)
 
     call glide_prof_stop(model,model%glide_prof%ice_mask2)
 
@@ -756,6 +762,7 @@ contains
                         model%general%ewn,    model%general%nsn,       &
                         model%climate%eus,    model%geometry%thkmask,  &
                         model%geometry%iarea, model%geometry%ivol)
+    call horiz_bcs_unstag_scalar(model%geometry%thkmask)
 
     call calc_iareaf_iareag(model%numerics%dew,    model%numerics%dns,     &
                             model%geometry%iarea,  model%geometry%thkmask, &

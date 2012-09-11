@@ -46,6 +46,7 @@ contains
 
 !TODO - Don't think we need glide_thckmask
         use glide_thckmask
+        use glimmer_horiz_bcs, only: horiz_bcs_stag_scalar
         
         type(glide_global_type),intent(inout) :: model
 
@@ -68,10 +69,12 @@ contains
 
         !Compute the "geometry mask" (type of square) for the staggered grid
 
+        call horiz_bcs_stag_scalar(model%geomderv%stagthck)
         call glide_set_mask(model%numerics,                                     &
                             model%geomderv%stagthck, model%geomderv%stagtopg,   &
                             model%general%ewn-1,     model%general%nsn-1,       &
-                            model%climate%eus,       geom_mask_stag) 
+                            model%climate%eus,       geom_mask_stag)
+        call horiz_bcs_stag_scalar(geom_mask_stag)
 
 !TODO - What exactly does this do?  Is it solver-dependent?
         !Augment masks with kinematic boundary condition info
