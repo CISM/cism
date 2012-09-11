@@ -433,7 +433,7 @@
                                       l_stop,        ntracer,         &
                                       mtsum_init(1:ntracer), mtsum_final(1:ntracer))
             if (l_stop) then
-               write(message,*) 'Aborting'
+               write(message,*) 'CONSERVATION ERROR: Aborting'
                call write_log(message,GM_FATAL)
             endif
          endif
