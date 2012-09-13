@@ -637,12 +637,23 @@ contains
         call write_log('Error, must use remapping for thickness evolution (or no thickness evolution) if remapping temperature', GM_FATAL)
     end if
 
+    ! Forbidden options to use with the Glide dycore
     if (model%options%whichdycore == DYCORE_GLIDE) then
        if (model%options%whichtemp == TEMP_REMAP_ADV) then 
           call write_log('Error, cannot use remapping scheme to advect temperature with Glide dycore', GM_FATAL)
        endif
+       if (distributed_execution()) then
+          !TODO May want to make this GM_FATAL, but it's convenient for testing to still allow glide to run in parallel even if won't necessarily work right.
+          call write_log('Warning, Glide dycore not supported for distributed parallel runs',GM_WARNING)
+       end if
+       !TODO Decide to keep or modify this warning.
+       if (model%options%whichevol==EVOL_PSEUDO_DIFF .or.  &
+           model%options%whichevol==EVOL_ADI)        then
+          call write_log('Warning, pseudo-diffusion and ADI evolution are being deprecated with the Glide dycore and may contain errors', GM_WARNING)
+       endif
     endif
 
+    ! Forbidden options to use with the Glissade dycore
 !TODO - Any other forbidden options with Glissade dycore?
     if (model%options%whichdycore == DYCORE_GLISSADE) then
        if (model%options%whichtemp == TEMP_GLIMMER) then
