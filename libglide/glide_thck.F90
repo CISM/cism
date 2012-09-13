@@ -156,24 +156,25 @@ contains
 !          stop
 !       end if
 
-!TODO - This is the standard SIA evolution option.
-!       Change the name, removing 'HO'?
-       if (model%options%which_ho_prognostic == HO_PROG_SIAONLY) then
-       ! get new thicknesses
+!# TODO Commenting out this if-construct - to be deleted
+!#!TODO - This is the standard SIA evolution option.
+!#!       Change the name, removing 'HO'?
+!#       if (model%options%which_ho_prognostic == HO_PROG_SIAONLY) then
+!#       ! get new thicknesses
           call thck_evolve(model,    &
                            model%velocity%diffu, model%velocity%diffu, &
                            .true.,   &
                            model%geometry%thck,  model%geometry%thck)
 
-!TODO - Get rid of this option?
-       else if (model%options%which_ho_prognostic == HO_PROG_PATTYN) then
-          call thck_evolve(model,model%velocity%diffu_x, model%velocity%diffu_y, .true.,&
-                            model%geometry%thck, model%geometry%thck)
-       end if
-
-!TODO - Has this been replaced by HO_PROG_SIAONLY, or should it be uncommented?
-       !EIB! old? from gc2
-       !call thck_evolve(model,.true.,model%geometry%thck,model%geometry%thck)
+!#!TODO - Get rid of this option?
+!#       else if (model%options%which_ho_prognostic == HO_PROG_PATTYN) then
+!#          call thck_evolve(model,model%velocity%diffu_x, model%velocity%diffu_y, .true.,&
+!#                            model%geometry%thck, model%geometry%thck)
+!#       end if
+!#
+!#!TODO - Has this been replaced by HO_PROG_SIAONLY, or should it be uncommented?
+!#       !EIB! old? from gc2
+!#       !call thck_evolve(model,.true.,model%geometry%thck,model%geometry%thck)
 
 
 
@@ -311,26 +312,27 @@ contains
 
 !HALO - This 'if' clause can probably be removed.  See note above.
 
-       !Calculate higher-order velocities if the user asked for them
-       if (model%options%which_ho_diagnostic /= 0 ) then
-            call geometry_derivs_unstag(model)
-            call run_ho_diagnostic(model)                          
-       end if
+!# TODO commented out these options - to be deleted
+!#       !Calculate higher-order velocities if the user asked for them
+!#       if (model%options%which_ho_diagnostic /= 0 ) then
+!#            call geometry_derivs_unstag(model)
+!#            call run_ho_diagnostic(model)                          
+!#       end if
 
-!TODO - Can these options be removed?
-       ! get new thicknesses
-       if (model%options%which_ho_prognostic == HO_PROG_SIAONLY) then
+!#!TODO - Can these options be removed?
+!#       ! get new thicknesses
+!#       if (model%options%which_ho_prognostic == HO_PROG_SIAONLY) then
  
            call thck_evolve(model, model%velocity%diffu, model%velocity%diffu, &
                             first_p, model%geometry%thck, model%geometry%thck)
-       else if (model%options%which_ho_prognostic == HO_PROG_PATTYN) then
-           call thck_evolve(model,model%velocity%diffu_x, model%velocity%diffu_y, .true.,&
-                            model%geometry%thck, model%geometry%thck)
-       end if          
+!#       else if (model%options%which_ho_prognostic == HO_PROG_PATTYN) then
+!#           call thck_evolve(model,model%velocity%diffu_x, model%velocity%diffu_y, .true.,&
+!#                            model%geometry%thck, model%geometry%thck)
+!#       end if          
 
-          !EIB! old way
-          ! get new thicknesses
-          !call thck_evolve(model,first_p,model%thckwk%oldthck,model%geometry%thck)
+!#          !EIB! old way
+!#          ! get new thicknesses
+!#          !call thck_evolve(model,first_p,model%thckwk%oldthck,model%geometry%thck)
 
        !TODO If we ever support parallel Glide, a halo update on thck would need to occur somewhere around here.
 
