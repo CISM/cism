@@ -1,5 +1,5 @@
 !CLEANUP - glide_types.F90
-! Added which_dycore option (DYCORE_GLIDE and DYCORE_GLISSADE)
+! Added which_dycore option (DYCORE_GLIDE, DYCORE_GLAM, DYCORE_GLISSADE)
 
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
@@ -81,6 +81,8 @@ module glide_types
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 !TODO - Change to glimmer_general or glimmer_mesh?
+!TODO - Add nhalo to this type?
+
   type glide_general
 
     !*FD Holds fundamental parameters of the ice model geometry.
@@ -102,8 +104,9 @@ module glide_types
 
   !Constants that describe the options available
 
-  integer, parameter :: DYCORE_GLIDE = 0
-  integer, parameter :: DYCORE_GLISSADE = 1
+  integer, parameter :: DYCORE_GLIDE = 0     ! old shallow-ice dycore from Glimmer
+  integer, parameter :: DYCORE_GLAM = 1      ! Payne-Price finite-difference solver
+  integer, parameter :: DYCORE_GLISSADE = 2  ! prototype finite-element solver
 
   integer, parameter :: TEMP_SURFACE_AIR_TEMP = 0
   integer, parameter :: TEMP_GLIMMER = 1
@@ -133,12 +136,6 @@ module glide_types
   integer, parameter :: BWATER_BASAL_PROC = 3  !*mb* basal water available from basal proc. module
   integer, parameter :: BWATER_CONST = 4       !*mb* Constant thickness of water, e.g., to force Tpmp.
 
-  integer, parameter :: HO_DIAG_NONE = 0
-  integer, parameter :: HO_DIAG_PP = 1 
-
-  integer, parameter :: HO_PROG_SIAONLY = 0
-  integer, parameter :: HO_PROG_PATTYN = 1
- 
   integer, parameter :: HO_EFVS_FULL = 0
   integer, parameter :: HO_EFVS_CONSTANT = 1
   integer, parameter :: HO_EFVS_MINIMUM = 2

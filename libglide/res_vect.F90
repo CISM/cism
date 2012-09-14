@@ -55,7 +55,7 @@ call t_stopf("res_vect_matvec")
 
 ! AGS: Residual norm includes scaling to decrease importance of ghost values
 ! By calling it a redefinition of an inner product, it is kosher.
-      L2square = 0.0
+      L2square = 0.d0
       do i = 1, nu
          if (g_flag(i) == 0) then
             L2square = L2square + Au_b_wig(i) * Au_b_wig(i)

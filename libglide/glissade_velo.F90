@@ -1,8 +1,8 @@
 !CLEANUP - New module based on glissade_velo.F90.
-! For now, it is simply a wrapper to the Payne-Price dycore.
-! Later, it will also be a wrapper to the variational dycore.
+! For now, it is simply a wrapper to the glam finite-difference dycore (whichdycore = 1).
+! Later, it will also be a wrapper to the glissade finite-element dycore (whichdycore = 2).
 ! Should probably make the JFNK solver independent of the underlying
-!  velocity solver (e.g., Payne-Price v. variational)
+!  velocity solver (i.e., glam v. glissade).
 ! Note: glam_velo_fordsiapstr is now called glam_velo_solver
 !
 !TODO - Are all these includes needed?
@@ -20,7 +20,10 @@ module glissade_velo
     ! Glissade higher-order velocity solver
 
     use glam_strs2, only: glam_velo_solver, JFNK_velo_solver
-!    use glissade_velo_higher
+    use glissade_velo_higher, only: glissade_velo_higher_solve
+
+!TODO - nhalo should be declared elsewhere
+    use glissade_velo_higher, only: nhalo
 
     !globals
     use glimmer_global, only : dp
@@ -89,19 +92,15 @@ contains
         ! save the final mask to 'dynbcmask' for exporting to netCDF output file
         model%velocity%dynbcmask = geom_mask_stag
 
-!TODO - HO_DIAG_PP is the only supported option for now.
-!       Later we will add an option for the variational dycore.
-!       (This is currently being constructed in glissade_velo_higher.F90.)
- 
         !-------------------------------------------------------------------
         ! Compute the velocity field
         !-------------------------------------------------------------------
 
-        if (model%options%which_ho_diagnostic == HO_DIAG_PP) then
+        if (model%options%whichdycore == DYCORE_GLAM) then    ! glam finite-difference dycore
 
-           if ( model%options%which_ho_nonlinear == HO_NONLIN_PICARD ) then ! Picard (standard solver)
+           if (model%options%which_ho_nonlinear == HO_NONLIN_PICARD ) then ! Picard (standard solver)
 
-!       Are all these options still supported?  Probably can remove periodic_ew/ns.
+             !TODO - Are all these options still supported?  Probably can remove periodic_ew/ns.
 
              call t_startf('glam_velo_solver')
               call glam_velo_solver( model%general%ewn,       model%general%nsn,                 &
@@ -130,7 +129,7 @@ contains
                                      model%stress%efvs )
              call t_stopf('glam_velo_solver')
 
-           else if ( model%options%which_ho_nonlinear == HO_NONLIN_JFNK ) then ! JFNK (solver in development...)
+           else if ( model%options%which_ho_nonlinear == HO_NONLIN_JFNK ) then ! JFNK
 
 !TODO - Create a JFNK solver that can work with an arbitrary calcF routine
 !       (e.g., variational as well as Payne-Price)
@@ -140,11 +139,46 @@ contains
               call JFNK_velo_solver (model, geom_mask_stag) 
              call t_stopf('JFNK_velo_solver')
 
-           else
+           else   
               call write_log('Invalid which_ho_nonlinear option.',GM_FATAL)
            end if
 
-        end if   ! which_ho_diagnostic
+        else  ! glissade finite-element dycore
+
+           if (model%options%which_ho_nonlinear == HO_NONLIN_PICARD ) then ! Picard (standard solver)
+
+              call glissade_velo_higher_solve(model%general%ewn,       model%general%nsn,        &
+                                              model%general%upn-1,      &  
+                                              model%numerics%sigma,     &
+                                              nhalo,      &  ! should be part of a derived type
+                                              model%geometry%thck,     model%geometry%usrf,         &
+                                              model%geomderv%stagthck, model%geomderv%stagusrf,     &
+                                              model%numerics%thklim,             &
+                                              model%temper%flwa,                 &
+                                              model%velocity%uvel,     model%velocity%vvel,      &
+!                                              model%velocity%beta,               &  ! add this one later 
+!                                              model%options%which_ho_babc,       &  ! add this one later
+                                              model%options%which_ho_efvs,       &
+                                              model%options%which_ho_resid,      &
+                                              model%options%which_ho_nonlinear,  &
+                                              model%options%which_ho_sparse)
+
+
+           else if ( model%options%which_ho_nonlinear == HO_NONLIN_JFNK ) then ! JFNK
+
+!TODO - Create a JFNK solver that can work with an arbitrary calcF routine
+!       (i.e., glissade as well as glam)
+! noxsolve could eventually go here 
+
+             call t_startf('JFNK_velo_solver')
+!!              call JFNK_velo_solver (model, geom_mask_stag)   ! needs to be generalized to glissade solver
+             call t_stopf('JFNK_velo_solver')
+
+           else   
+              call write_log('Invalid which_ho_nonlinear option.',GM_FATAL)
+           end if
+
+        end if   ! whichdycore
 
         !-------------------------------------------------------------------
         ! Velocity-related computations that are independent of the solver

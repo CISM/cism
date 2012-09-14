@@ -343,6 +343,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
 
  call t_startf("PICARD_pre")
   ! RN_20100125: assigning value for whatsparse, which is needed for putpcgc()
+!TODO - Can we get rid of whatsparse and use only whichsparse?
   whatsparse = whichsparse
 
   ! assign value for nonlinear iteration flag
@@ -770,6 +771,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
     end if
 ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
+!TODO - Does this comment still apply, or is parallel_single defunct?
     if (this_rank == 0) then
         ! Can't use main_task flag because main_task is true for all processors in case of parallel_single
         ! output the iteration status: iteration number, max residual, and location of max residual

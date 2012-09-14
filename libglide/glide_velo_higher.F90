@@ -69,14 +69,13 @@ contains
         ! save the final mask to 'dynbcmask' for exporting to netCDF output file
         model%velocity%dynbcmask = geom_mask_stag
 
-!TODO - Remove this 'if' now what PBJ is not an option?
-        if (model%options%which_ho_diagnostic == HO_DIAG_PP) then
+! The following assumes whichdycore = DYCORE_GLAM
 
-          if ( model%options%which_ho_nonlinear == HO_NONLIN_PICARD ) then ! Picard (standard solver)
+        if ( model%options%which_ho_nonlinear == HO_NONLIN_PICARD ) then ! Picard (standard solver)
 
 !TODO - Can we change the name of this subroutine?
 
-!       Are all these options still supported?  Probably can remove periodic_ew/ns.
+!          Are all these options still supported?  Probably can remove periodic_ew/ns.
 
            call t_startf('glam_velo_solver')
             call glam_velo_solver( model%general%ewn,       model%general%nsn,                 &
@@ -105,17 +104,15 @@ contains
                                    model%stress%efvs )
            call t_stopf('glam_velo_solver')
 
-          else if ( model%options%which_ho_nonlinear == HO_NONLIN_JFNK ) then ! JFNK (solver in development...)
+        else if ( model%options%which_ho_nonlinear == HO_NONLIN_JFNK ) then ! JFNK (solver in development...)
 
 ! noxsolve could eventually go here 
            call t_startf('JFNK_velo_solver')
             call JFNK_velo_solver (model, geom_mask_stag) 
            call t_stopf('JFNK_velo_solver')
 
-          else
+        else
               call write_log('Invalid which_ho_nonlinear option.',GM_FATAL)
-           end if
-
         end if
 
         !Compute the velocity norm - this is independant of the methods used to compute the u and v components so

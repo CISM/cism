@@ -161,10 +161,10 @@ contains
 !#!       Change the name, removing 'HO'?
 !#       if (model%options%which_ho_prognostic == HO_PROG_SIAONLY) then
 !#       ! get new thicknesses
-          call thck_evolve(model,    &
-                           model%velocity%diffu, model%velocity%diffu, &
-                           .true.,   &
-                           model%geometry%thck,  model%geometry%thck)
+        call thck_evolve(model,    &
+                         model%velocity%diffu, model%velocity%diffu, &
+                         .true.,   &
+                         model%geometry%thck,  model%geometry%thck)
 
 !#!TODO - Get rid of this option?
 !#       else if (model%options%which_ho_prognostic == HO_PROG_PATTYN) then

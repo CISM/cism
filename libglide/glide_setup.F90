@@ -515,9 +515,10 @@ contains
     character(len=500) :: message
 
     ! local variables
-    character(len=*), dimension(0:1), parameter :: dycore = (/ &
+    character(len=*), dimension(0:2), parameter :: dycore = (/ &
          'glide              ', &
-         'glissade           ' /)  !whl - whichdycore - new option
+         'glam               ', &  ! Payne-Price finite difference
+         'glissade           ' /)  ! prototype finite element
     character(len=*), dimension(0:3), parameter :: temperature = (/ &
          'isothermal         ', &
          'full               ', &
@@ -657,12 +658,12 @@ contains
 !TODO - Any other forbidden options with Glissade dycore?
     if (model%options%whichdycore == DYCORE_GLISSADE) then
        if (model%options%whichtemp == TEMP_GLIMMER) then
-          call write_log('Error, cannot use Glimmer temperature scheme with Glissade dycore', GM_FATAL)
+          call write_log('Error, Glimmer temperature scheme can be used only with Glide dycore', GM_FATAL)
        endif
        if (model%options%whichevol==EVOL_PSEUDO_DIFF .or.  &
            model%options%whichevol==EVOL_ADI         .or.  &
            model%options%whichevol==EVOL_DIFFUSION) then
-          call write_log('Error, must use remapping scheme for thickness evolution with Glissade dycore', GM_FATAL)
+          call write_log('Error, Glimmer thickness evolution options can be used only with Glide dycore', GM_FATAL)
        endif
     endif
 

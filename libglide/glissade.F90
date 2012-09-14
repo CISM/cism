@@ -130,6 +130,10 @@ contains
     use glimmer_map_init
     use glide_ground
     use glam_strs2, only : glam_velo_init
+    use glissade_velo_higher, only: glissade_velo_higher_init
+
+!TODO - Declare nhalo elsewhere
+    use glissade_velo_higher, only: nhalo
 
     use glide_velo_higher  !TODO - Remove this when removing calc_run_ho_diagnostic option
     use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
@@ -252,13 +256,21 @@ contains
        call init_lithot(model)
     end if
 
-    if (model%options%which_ho_diagnostic == HO_DIAG_PP ) then
+    if (model%options%whichdycore == DYCORE_GLAM ) then  ! glam finite-difference
 
         call glam_velo_init(model%general%ewn,    model%general%nsn,  &
                             model%general%upn,                        &
                             model%numerics%dew,   model%numerics%dns, &
                             model%numerics%sigma)
-    end if
+
+    elseif (model%options%whichdycore == DYCORE_GLISSADE ) then  ! glissade finite-element
+
+        call glissade_velo_higher_init(model%general%ewn,  model%general%nsn,  &
+                                       nhalo,                                  &
+                                       model%numerics%dew, model%numerics%dns)
+
+    endif
+
 
 !TODO - Eliminate old remapping once the new remapping is certified to be working.
 !       Note: old_remapping now suppported only if call_inc_remap_driver = .true.
