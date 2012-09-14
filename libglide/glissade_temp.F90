@@ -1048,7 +1048,7 @@ contains
 !TODO - Very similar to the SIA version of calcflwa; just make sure loops are correct.
 !       Move to another module?
 
-  subroutine calcflwa(sigma, thklim, flwa, temp, thck, flow_factor, default_flwa_arg, flag)
+  subroutine calcflwa(stagsigma, thklim, flwa, temp, thck, flow_factor, default_flwa_arg, flag)
 
     !*FD Calculates Glen's $A$ over the three-dimensional domain,
     !*FD using one of three possible methods.
@@ -1060,24 +1060,19 @@ contains
     ! Subroutine arguments
     !------------------------------------------------------------------------------------
 
-!      Note: dummy argument sigma can be either model%numerics%sigma or model%numerics%stagsigma.
-!      The flwa, temp, and sigma arrays must have the same vertical dimension
-!       (1:upn on an unstaggered vertical grid, or 1:upn-1 on a staggered vertical grid).
+!      Note: The flwa, temp, and stagsigma arrays must have the same vertical dimension
+!       (1:upn-1 on the staggered vertical grid used here).
 !
-    real(dp),dimension(:),      intent(in)    :: sigma     !*FD Vertical coordinate
+    real(dp),dimension(:),      intent(in)    :: stagsigma !*FD Vertical coordinate
     real(dp),                   intent(in)    :: thklim    !*FD thickness threshold
-    real(dp),dimension(:,:,:),  intent(out)   :: flwa      !*FD The calculated values of $A$
-
-!TODO - Is this OK?
-!whl - Changed this so that the temp array is assumed to start with horizontal index 1 instead of 0.
-!!    real(dp),dimension(:,0:,0:),intent(in)    :: temp      !*FD The 3D temperature field
-    real(dp),dimension(:,:,:),intent(in)      :: temp      !*FD The 3D temperature field
-
+    real(dp),dimension(:,:,:),  intent(in)    :: temp      !*FD The 3D temperature field
     real(dp),dimension(:,:),    intent(in)    :: thck      !*FD The ice thickness
     real(dp)                                  :: flow_factor !*FD Fudge factor in arrhenius relationship
     real(dp),                   intent(in)    :: default_flwa_arg !*FD Glen's A to use in isothermal case 
     integer,                    intent(in)    :: flag      !*FD Flag to select the method
                                                            !*FD of calculation:
+    real(dp),dimension(:,:,:),  intent(out)   :: flwa      !*FD The calculated values of $A$
+
     !*FD \begin{description}
     !*FD \item[0] {\em Paterson and Budd} relationship.
     !*FD \item[1] {\em Paterson and Budd} relationship, with temperature set to
@@ -1093,12 +1088,10 @@ contains
     real(dp), parameter :: contemp = -5.0d0
     real(dp) :: default_flwa
     real(dp),dimension(4) :: arrfact
-    integer :: ew,ns,up,ewn,nsn,upn
+    integer :: ew,ns,up,ewn,nsn,upn, nlayer
 
-!    real(dp), dimension(size(sigma)) :: tempcor
-! KJE give a hard number to satisfy gcc compiler on Jaguar
-    real(dp), dimension(1000) :: tempcor
-
+    real(dp), dimension(:), allocatable :: tempcor
+    
     !------------------------------------------------------------------------------------ 
    
     default_flwa = flow_factor * default_flwa_arg / (vis0*scyr) 
@@ -1115,6 +1108,11 @@ contains
     select case(flag)
     case(FLWA_PATERSON_BUDD)
 
+      allocate(tempcor(size(flwa,1)))
+!whl - TODO - Verify that the above allocation works, so that a hard number is not needed.
+! KJE give a hard number to satisfy gcc compiler on Jaguar
+!    allocate(tempcor(1000))
+
 !TODO - Loop over locally owned cells?  Alternatively, just compute over all cells,
 !        but make sure temp and thck are updated in halo cells.
 !       Might be cheaper to compute in all cells and avoid a halo call.
@@ -1127,7 +1125,7 @@ contains
             
             ! Calculate the corrected temperature
 
-            tempcor(:) = min(0.0d0, temp(:,ew,ns) + thck(ew,ns) * fact * sigma(:))
+            tempcor(:) = min(0.0d0, temp(:,ew,ns) + thck(ew,ns) * fact * stagsigma(:))
             tempcor(:) = max(-50.0d0, tempcor(:))
 
             ! Calculate Glen's A
@@ -1139,6 +1137,8 @@ contains
           end if
         end do
       end do
+
+      deallocate(tempcor)
 
     case(FLWA_PATERSON_BUDD_CONST_TEMP)
 
