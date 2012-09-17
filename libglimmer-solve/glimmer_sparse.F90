@@ -32,33 +32,43 @@
 #endif
 
 module glimmer_sparse
+
   use glimmer_global, only: sp, dp
   use glimmer_sparse_type
   use glimmer_sparse_slap
-  use glimmer_sparse_umfpack
-  use glimmer_sparse_pardiso
+
+!whl - Removed umfpack and pardiso options
+!TODO - Remove umfpack and pardiso modules
+!!  use glimmer_sparse_umfpack
+!!  use glimmer_sparse_pardiso
+
   implicit none
 
   type sparse_solver_options
         type(sparse_solver_options_base) :: base
         type(slap_solver_options) :: slap
-        type(umf_solver_options)  :: umf
-        type(pardiso_solver_options)  :: pardiso
+!!        type(umf_solver_options)  :: umf
+!!        type(pardiso_solver_options)  :: pardiso
   end type
 
   type sparse_solver_workspace
         type(slap_solver_workspace), pointer :: slap => null()
-        type(umf_solver_workspace),  pointer :: umf  => null()
-        type(pardiso_solver_workspace),  pointer :: pardiso  => null()
+!!        type(umf_solver_workspace),  pointer :: umf  => null()
+!!        type(pardiso_solver_workspace),  pointer :: pardiso  => null()
   end type
 
     integer, parameter :: HO_NONLIN_PICARD = 0
     integer, parameter :: HO_NONLIN_JFNK = 1
 
+!whl - Replaced umfpack and pardiso options with pcg options
+!TODO - These SPARSE_SOLVER options are redundant with HO_SPARSE options in glide_types.
+!       Combine into one list? (e.g., by having glide_setup use this module)
+!TODO - Or could simply set up a SLAP_SOLVER option with sub-options
+
     integer, parameter :: SPARSE_SOLVER_BICG = 0
     integer, parameter :: SPARSE_SOLVER_GMRES = 1
-    integer, parameter :: SPARSE_SOLVER_UMF = 2
-    integer, parameter :: SPARSE_SOLVER_PARDISO = 3
+    integer, parameter :: SPARSE_SOLVER_PCG_DIAG = 2  ! PCG with diagonal preconditioner
+    integer, parameter :: SPARSE_SOLVER_PCG_INCH = 3  ! PCG with incomplete Cholesky preconditioner
     ! This Trilinos solver does not go through sparse_easy_solve
     !   because it has a different sparse matrix format
     integer, parameter :: STANDALONE_TRILINOS_SOLVER = 4
@@ -79,14 +89,16 @@ contains
 !EIB!#endif
 
     subroutine sparse_solver_default_options(method, opt, nonlinear)
+
         use parallel
-        integer, intent(in) :: method
-        integer, optional, intent(in) :: nonlinear    !*sfp* Picard vs. JFNK flag 
-        type(sparse_solver_options) :: opt
+        integer, intent(in) :: method                 ! sparse solver: BiCG, GMRES, PCG, etc.
+        integer, optional, intent(in) :: nonlinear    ! Picard vs. JFNK flag 
+        type(sparse_solver_options) :: opt            !TODO - intent inout or out?
 
         opt%base%method = method
         opt%base%tolerance  = 1e-11
         opt%base%maxiters = 200
+
         if ( present(nonlinear) )then
             if (nonlinear .eq. HO_NONLIN_PICARD) opt%base%tolerance  = 1e-11 ! Picard
             if (nonlinear .eq. HO_NONLIN_JFNK) opt%base%tolerance  = 1e-03 ! JFNK
@@ -95,37 +107,50 @@ contains
         end if
 
 !TODO - Remove calls to not_parallel?
-!       These seem unnecessary when running SLAP solver
-!       Just commented out the BICG not_parallel call for now
-        !Solver specific options
-        if (method == SPARSE_SOLVER_BICG) then
-!!            call not_parallel(__FILE__,__LINE__)
-            call slap_default_options(opt%slap, opt%base) 
+!       These seem unnecessary when running SLAP solver.  Commented out for now.
 
+!whl -  Removed UMF and PARDISO options (used by old PBJ dycore)
+
+!TODO - Remove calls to slap_default_options; set appropriate options here.
+
+        !Solver specific options
+
+        if (method == SPARSE_SOLVER_BICG) then
+!            call not_parallel(__FILE__,__LINE__)
+            call slap_default_options(opt%slap, opt%base)
+            opt%base%method = SPARSE_SOLVER_BICG
+!            opt%slap%itol = 2   ! current default = 2 in slap_default_options
+   
         else if (method == SPARSE_SOLVER_GMRES) then
 !           call not_parallel(__FILE__,__LINE__)
             call slap_default_options(opt%slap, opt%base)
-            opt%slap%use_gmres = .true.
+            opt%base%method = SPARSE_SOLVER_GMRES
+!            opt%slap%itol = 2   ! current default = 2 in slap_default_options
+             
+        else if (method == SPARSE_SOLVER_PCG_DIAG) then
+!            call not_parallel(__FILE__,__LINE__)
+            call slap_default_options(opt%slap, opt%base)
+            opt%base%method = SPARSE_SOLVER_PCG_DIAG
+            opt%slap%itol = 1  
+            !whl - itol = 2 does not work for simple test problems 
 
-        else if (method == SPARSE_SOLVER_UMF) then
-            call not_parallel(__FILE__,__LINE__)
-            call umf_default_options(opt%umf)
+        else if (method == SPARSE_SOLVER_PCG_INCH) then
+!            call not_parallel(__FILE__, __LINE__)
+            call slap_default_options(opt%slap, opt%base)
+            opt%base%method = SPARSE_SOLVER_PCG_INCH
+            opt%slap%itol = 1
+            !whl - itol = 2 does not work for simple test problems 
 
-        else if (method == SPARSE_SOLVER_PARDISO) then
-			call not_parallel(__FILE__, __LINE__)
-
-            call pardiso_default_options(opt%pardiso)
-
-        ! Temporary error message to warn of option change. Can be removed soon: AGS 4/11
-        else if (method == 5) then
-            call write_log("Pardiso has changed to sparse option 3.", GM_FATAL)
         else 
             !call glide_finalise_all(.true.)
-            call write_log("Invalid sparse matrix option used.", GM_FATAL)
+            call write_log("Invalid sparse matrix option", GM_FATAL)
+
         end if
-    end subroutine
+
+    end subroutine sparse_solver_default_options
 
     subroutine sparse_allocate_workspace(matrix, options, workspace, max_nonzeros_arg)
+
         use parallel
         !*FD Allocate solver workspace.  This needs to be done once
         !*FD (when the maximum number of nonzero entries is first known)
@@ -145,23 +170,18 @@ contains
             max_nonzeros = matrix%nonzeros
         end if
 
+!whl - Removed umfpack and pardiso options
+!TODO - This 'if' statement is kind of clumsy; combine into a SPARSE_SOLVER_SLAP option?
+
         if (options%base%method == SPARSE_SOLVER_BICG .or. &
-            options%base%method == SPARSE_SOLVER_GMRES) then
+            options%base%method == SPARSE_SOLVER_GMRES .or. &
+            options%base%method == SPARSE_SOLVER_PCG_DIAG .or. &
+            options%base%method == SPARSE_SOLVER_PCG_INCH) then
 !           call not_parallel(__FILE__,__LINE__)
             allocate(workspace%slap)
             call slap_allocate_workspace(matrix, options%slap, workspace%slap, max_nonzeros)
-
-        else if (options%base%method == SPARSE_SOLVER_UMF) then
-            call not_parallel(__FILE__,__LINE__)
-            allocate(workspace%umf)
-            call umf_allocate_workspace(matrix, options%umf, workspace%umf, max_nonzeros)
-
-        else if (options%base%method == SPARSE_SOLVER_PARDISO) then
-			call not_parallel(__FILE__,__LINE__)
-            allocate(workspace%pardiso)
-            call pardiso_allocate_workspace(matrix, options%pardiso, workspace%pardiso, max_nonzeros)
-
         end if
+
     end subroutine sparse_allocate_workspace
 
     subroutine sparse_solver_preprocess(matrix, options, workspace)
@@ -181,19 +201,21 @@ contains
         type(sparse_solver_workspace) :: workspace
 
         if (options%base%method == SPARSE_SOLVER_BICG .or. &
-            options%base%method == SPARSE_SOLVER_GMRES) then
+            options%base%method == SPARSE_SOLVER_GMRES .or. &
+            options%base%method == SPARSE_SOLVER_PCG_DIAG .or. &
+            options%base%method == SPARSE_SOLVER_PCG_INCH) then
+
             call slap_solver_preprocess(matrix, options%slap, workspace%slap)
 
-        else if (options%base%method == SPARSE_SOLVER_UMF) then
-            call umf_solver_preprocess(matrix, options%umf, workspace%umf)
-
-        else if (options%base%method == SPARSE_SOLVER_PARDISO) then
-            call pardiso_solver_preprocess(matrix, options%pardiso, workspace%pardiso)
-
+!whl - removed umfpack and pardiso options
         end if
+
     end subroutine sparse_solver_preprocess
 
-    function sparse_solve(matrix, rhs, solution, options, workspace,err,niters, verbose)
+    function sparse_solve(matrix, rhs, solution, &
+                          options, workspace,     &
+                          err, niters, verbose)
+
         !*FD Solves the linear system, and reports status information.
         !*FD This function returns an error code that should be zero if the
         !*FD call succeeded and nonzero if it failed.  No additional error codes
@@ -236,16 +258,18 @@ contains
         end if
 
         if (options%base%method == SPARSE_SOLVER_BICG .or. &
-            options%base%method == SPARSE_SOLVER_GMRES) then
-            sparse_solve = slap_solve(matrix, rhs, solution, options%slap, workspace%slap, err, niters, verbose_var)
+            options%base%method == SPARSE_SOLVER_GMRES .or. &
+            options%base%method == SPARSE_SOLVER_PCG_DIAG .or. &
+            options%base%method == SPARSE_SOLVER_PCG_INCH) then
 
-        else if (options%base%method == SPARSE_SOLVER_UMF) then
-            sparse_solve = umf_solve(matrix, rhs, solution, options%umf, workspace%umf, err, niters, verbose_var)
+            sparse_solve = slap_solve(matrix, rhs, solution, &
+                                      options%slap, workspace%slap, &
+                                      err, niters, verbose_var)
 
-        else if (options%base%method == SPARSE_SOLVER_PARDISO) then
-            sparse_solve = pardiso_solve(matrix, rhs, solution, options%pardiso,&
-                                         workspace%pardiso, err,niters, verbose_var)
+!whl - removed umfpack and pardiso options
+
         end if
+
     end function sparse_solve
 
     subroutine sparse_solver_postprocess(matrix, options, workspace)
@@ -254,73 +278,76 @@ contains
         type(sparse_solver_workspace) :: workspace
 
         if (options%base%method == SPARSE_SOLVER_BICG .or. &
-            options%base%method == SPARSE_SOLVER_GMRES) then
+            options%base%method == SPARSE_SOLVER_GMRES .or. &
+            options%base%method == SPARSE_SOLVER_PCG_DIAG .or. &
+            options%base%method == SPARSE_SOLVER_PCG_INCH) then
+
             call slap_solver_postprocess(matrix, options%slap, workspace%slap)
 
-        else if (options%base%method == SPARSE_SOLVER_UMF) then
-            call umf_solver_postprocess(matrix, options%umf, workspace%umf)
-
-        else if (options%base%method == SPARSE_SOLVER_PARDISO) then
-            call pardiso_solver_postprocess(matrix, options%pardiso, workspace%pardiso)
+!whl - removed umfpack and pardiso options
 
         end if
-    end subroutine
+
+    end subroutine sparse_solver_postprocess
 
     subroutine sparse_destroy_workspace(matrix, options, workspace)
+
         !*FD Deallocates all working memory for the slap linear solver.
         !*FD This need *not* be safe to call of an unallocated workspace
         !*FD No slap solver should call this automatically.
+
         type(sparse_matrix_type) :: matrix
         type(sparse_solver_options) :: options
         type(sparse_solver_workspace) :: workspace
         
         if (options%base%method == SPARSE_SOLVER_BICG .or. &
-            options%base%method == SPARSE_SOLVER_GMRES) then
+            options%base%method == SPARSE_SOLVER_GMRES .or. &
+            options%base%method == SPARSE_SOLVER_PCG_DIAG .or. &
+            options%base%method == SPARSE_SOLVER_PCG_INCH) then
+
             call slap_destroy_workspace(matrix, options%slap, workspace%slap)
             deallocate(workspace%slap)
 
-        else if (options%base%method == SPARSE_SOLVER_UMF) then
-            call umf_destroy_workspace(matrix, options%umf, workspace%umf)
-            deallocate(workspace%umf)
+!whl - removed umfpack and pardiso options
 
-        else if (options%base%method == SPARSE_SOLVER_PARDISO) then
-            call pardiso_destroy_workspace(matrix, options%pardiso, workspace%pardiso)
-            deallocate(workspace%pardiso)
         end if
 
     end subroutine sparse_destroy_workspace
 
     subroutine sparse_interpret_error(options, error_code, error_string)
+
         !*FD takes an error code output from slap_solve and interprets it.
         !*FD error_string must be an optional argument.
         !*FD If it is not provided, the error is printed to standard out
         !*FD instead of being put in the string
+
         type(sparse_solver_options) :: options
         integer :: error_code
         character(*), optional, intent(out) :: error_string
         character(256) :: tmp_error_string
         
         if (options%base%method == SPARSE_SOLVER_BICG .or. &
-            options%base%method == SPARSE_SOLVER_GMRES) then
+            options%base%method == SPARSE_SOLVER_GMRES .or. &
+            options%base%method == SPARSE_SOLVER_PCG_DIAG .or. &
+            options%base%method == SPARSE_SOLVER_PCG_INCH) then
+
             call slap_interpret_error(error_code, tmp_error_string)
 
-        else if (options%base%method == SPARSE_SOLVER_UMF) then
-            call umf_interpret_error(error_code, tmp_error_string)
+!whl - removed umfpack and pardiso options
 
-        else if (options%base%method == SPARSE_SOLVER_PARDISO) then
-            call pardiso_interpret_error(error_code, tmp_error_string)
-        end if
-
+        endif
 
         if (present(error_string)) then
             error_string = tmp_error_string
         else
             write(*,*) tmp_error_string
         endif
+
     end subroutine sparse_interpret_error
 
     subroutine sparse_easy_solve(matrix, rhs, answer, err, iter, method_arg, &
                                  calling_file, calling_line, nonlinear_solver )
+
         !This subroutine wraps the basic (though probably the most inefficient)
         !workflow to solve a sparse matrix using the sparse matrix solver
         !framework.  It handles errors gracefully, and reports back the
@@ -337,8 +364,8 @@ contains
         real(dp), intent(out) :: err
         integer, intent(out) :: iter
         
-        integer, optional, intent(in) :: method_arg
-        integer, optional, intent(in) :: nonlinear_solver
+        integer, optional, intent(in) :: method_arg         ! solver method: BiCG, GMRES, PCG, etc.
+        integer, optional, intent(in) :: nonlinear_solver   ! Picard or JFNK
 
         character(*), optional :: calling_file
         integer, optional :: calling_line
@@ -350,24 +377,54 @@ contains
         integer :: method
         integer :: nonlinear
 
+!whl - I am temporarily adding some print statements for debugging.
+!      TODO: Remove these print statements.
+        logical, parameter :: verbose = .false.
+
+!whl - debug
+        if (verbose) then
+           print*, ' '
+           print*, 'In sparse_easy_solve'
+        endif
+
         if (present(method_arg)) then
             method = method_arg
         else
             method = SPARSE_SOLVER_BICG
         endif
-
+ 
         if (present(nonlinear_solver)) then
             nonlinear = nonlinear_solver
         else
             nonlinear = HO_NONLIN_PICARD  
         endif
 
+!whl - debug
+        if (verbose) then
+           print*, 'method (0=BiCG, 1=GMRES, 2=PCG_DIAG, 3=PCG_INCH) =', method
+           print*, 'nonlinear (0=Picard, 1=JFNK) =', nonlinear
+           print*, ' '
+           print*, 'matrix%row =', matrix%row
+           print*, 'matrix%col =', matrix%col
+           print*, 'matrix%val =', matrix%val
+           print*, ' '
+           print*, 'rhs =', rhs
+        endif
+
         call sparse_solver_default_options(method, opt, nonlinear)
+
         call sparse_allocate_workspace(matrix, opt, wk)
+
         call sparse_solver_preprocess(matrix, opt, wk)
 
         ierr = sparse_solve(matrix, rhs, answer, opt, wk, err, iter, .false.)
        
+        if (verbose) then
+           print*, 'answer =', answer
+           print*, 'iter, err =', iter, err
+           print*, ' '
+        endif
+
         call sparse_solver_postprocess(matrix, opt, wk)
 
         if (ierr /= 0) then
@@ -383,6 +440,7 @@ contains
     end subroutine sparse_easy_solve
 
     subroutine handle_sparse_error(matrix, solver_options, error, error_file, error_line, time)
+
         !Checks a sparse error flag and, if an error occurred, log it to
         !the GLIMMER log file.  This does not stop Glimmer, it just writes
         !to the log
@@ -420,6 +478,7 @@ contains
         end if
 
         !Output sparse matrix data to the file
+
         call dcpplt(matrix%order, matrix%nonzeros, matrix%row, matrix%col, matrix%val,&
                     isym, lunit)
 
@@ -453,6 +512,7 @@ contains
         else
             call write_log(trim(errdesc), GM_FATAL, __FILE__, __LINE__)
         end if
+
     end subroutine handle_sparse_error
 
 end module glimmer_sparse

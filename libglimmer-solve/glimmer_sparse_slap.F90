@@ -27,30 +27,39 @@ module glimmer_sparse_slap
         !*FD common to any iterative slap linear solver.  Other options
         !*FD can be defined as necessary.
         !*FD
-        !*FD Design note: the options are seperated from the workspace because
+        !*FD Design note: the options are separated from the workspace because
         !*FD one set of options could apply to multiple matrices, and the
         !*FD lifecycles for each could be different (a workspace need only
         !*FD exist as long as the matrix does, the options could persist
         !*FD throughout the entire program)
-        integer :: itol !*FD Tolerance code, see SLAP documentation
-        logical :: use_gmres !*FD Whether to use the GMRES method instead of Biconjugate Gradient
+
+        integer :: itol                !*FD Tolerance code, see SLAP documentation
         integer :: gmres_saved_vectors !*FD How many vectors to save while performing GMRES iteration
         type(sparse_solver_options_base), pointer :: base => null() !*FD Pointer to basic options
+
     end type slap_solver_options
 
 contains
+
+!TODO - This call may not be needed.
+!       Better to set the desired defaults for each individual method (GMRES, BiCG, PCG, etc.)
     subroutine slap_default_options(opt, base)
+
         !*FD Populates a slap_solver_options (defined above) with default
         !*FD options.  This is necessary because different solvers may define
         !*FD different options beyond the required fields defined above.
         !*FD Filling them in this function allows client code to pick "good"
         !*FD values in a generic way.
+
         type(slap_solver_options), intent(out) :: opt
         type(sparse_solver_options_base), intent(in), target :: base
+
+!TODO - This value of itol may not be optimal for all solver options.
+!       The PCG solver fails for simple test matrices with itol=2, but does fine with itol=1.
         opt%itol = 2
-        opt%use_gmres = .false.
         opt%gmres_saved_vectors = 20
         opt%base => base
+
     end subroutine slap_default_options
 
     subroutine slap_allocate_workspace(matrix, options, workspace, max_nonzeros_arg)
@@ -67,13 +76,13 @@ contains
         integer :: max_nonzeros
         integer(kind=size_t) :: lenrw
         integer(kind=size_t) :: leniw
-        
+
         if (present(max_nonzeros_arg)) then
             max_nonzeros = max_nonzeros_arg
         else
             max_nonzeros = matrix%nonzeros
         end if
-        
+
         !Only allocate the memory if it hasn't been allocated or it needs
         !to grow
         if (.not. associated(workspace%rwork) .or. workspace%max_nelt < max_nonzeros) then
@@ -97,6 +106,7 @@ contains
 
             !write(*,*) "MAX NONZEROS",max_nonzeros
             !write(*,*) "ALLOCATING WORKSPACE",lenrw,leniw 
+
             allocate(workspace%rwork(lenrw))
             allocate(workspace%iwork(leniw))
             !Recored the number of nonzeros so we know whether to allocate more
@@ -106,6 +116,7 @@ contains
     end subroutine slap_allocate_workspace
 
     subroutine slap_solver_preprocess(matrix, options, workspace)
+
         !*FD Performs any preprocessing needed to be performed on the slap
         !*FD matrix.  Workspace must have already been allocated. 
         !*FD This function should be safe to call more than once.
@@ -120,6 +131,7 @@ contains
         type(sparse_matrix_type) :: matrix
         type(slap_solver_options) :: options
         type(slap_solver_workspace) :: workspace
+
     end subroutine slap_solver_preprocess
 
     function slap_solve(matrix, rhs, solution, options, workspace,err,niters, verbose)
@@ -164,6 +176,10 @@ contains
         logical :: allzeros
         integer :: i
 
+!whl - added a logical variable for debug print statements
+!      TODO - Remove later
+       logical, parameter :: verbose_debug = .false.
+
         iunit = 0
         if (present(verbose)) then
             if(verbose) then
@@ -188,14 +204,12 @@ contains
             end if
         end do zero_check
 
-
 	!----------------------------------------------
 	! RN_20091102: An example of calls to Trilinos solvers
 	!#ifdef HAVE_TRILINOS
 	!call helloworld()
 	!#endif
 	!----------------------------------------------
-
 
         if (allzeros) then
             err = 0
@@ -205,25 +219,92 @@ contains
             call write_log("RHS of all zeros passed to BCG method; iteration not perfomred.", &
                            GM_WARNING, __FILE__, __LINE__)        
         else
+
+!TODO - This call to slap_solver_preprocess seems to be unnecessary
             !Set up SLAP if it hasn't been already
             call slap_solver_preprocess(matrix, options, workspace)
 
-            if (options%use_gmres) then
-                call dslugm(matrix%order, rhs, solution, matrix%nonzeros, &
-                            matrix%row, matrix%col, matrix%val, &
-                            isym, options%gmres_saved_vectors, options%itol, &
-                            options%base%tolerance, options%base%maxiters, &
-                            niters, err, ierr, iunit, &
-                            workspace%rwork, size(workspace%rwork), workspace%iwork, size(workspace%iwork))
-            else
-                call dslucs(matrix%order, rhs, solution, matrix%nonzeros, &
-                            matrix%row, matrix%col, matrix%val, &
-                            isym, options%itol, options%base%tolerance, options%base%maxiters,&
-                            niters, err, ierr, iunit, &
-                            workspace%rwork, size(workspace%rwork), workspace%iwork, size(workspace%iwork))
-            end if
-        end if
+!whl - debug
+            if (verbose_debug) then
+               print*, 'method =', options%base%method
+               print*, 'order =', matrix%order
+               print*, 'rhs =', rhs
+               print*, 'initial solution guess =', solution
+               print*, 'nonzeros =', matrix%nonzeros
+               print*, ' '
+               print*, 'row =', matrix%row(:)
+               print*, 'col =', matrix%col(:)
+               print*, 'val =', matrix%val(:)
+               print*, ' '
+               print*, 'isym =', isym
+               print*, 'itol =', options%itol
+               print*, 'tolerance =', options%base%tolerance
+               print*, 'maxiters =', options%base%maxiters
+               print*, 'size(rwork) =', size(workspace%rwork)
+               print*, 'size(iwork) =', size(workspace%iwork)
+               print*, ' '
+            endif
+  
+!TODO - Case numbers are hardwired.  Change to SPARSE_SOLVER values?
+!       Note: This module cannot use SPARSE_SOLVER values in glimmer_sparse.F90 without circular dependency.
+!             Could define new SLAP_SOLVER options in this module.
+ 
+            select case(options%base%method)
+
+               case(1)   ! GMRES
+
+                   call dslugm(matrix%order, rhs, solution, matrix%nonzeros, &
+                               matrix%row, matrix%col, matrix%val, &
+                               isym, options%gmres_saved_vectors, options%itol, &
+                               options%base%tolerance, options%base%maxiters, &
+                               niters, err, ierr, iunit, &
+                               workspace%rwork, size(workspace%rwork), workspace%iwork, size(workspace%iwork))
+
+                !whl - added options: PCG for symmetric positive-definite matrices
+                !TODO - compare performance of diagonal to incomplete Cholesky preconditioner
+ 
+                case(2)  ! PCG with diagonal preconditioner
+
+                   ! Note: For simple test matrices (e.g., 2x2 and 3x3), itol = 2 does not work.
+                   ! So I've set itol = 1 as the default.
+
+                   call dsdcg(matrix%order, rhs, solution, matrix%nonzeros, &
+                              matrix%row, matrix%col, matrix%val, &
+                              isym, options%itol, options%base%tolerance, options%base%maxiters,&
+                              niters, err, ierr, iunit, &
+                              workspace%rwork, size(workspace%rwork), workspace%iwork, size(workspace%iwork))
+
+                case(3)  ! PCG with incomplete Cholesky preconditioner 
+
+                   call dsiccg(matrix%order, rhs, solution, matrix%nonzeros, &
+                               matrix%row, matrix%col, matrix%val, &
+                               isym, options%itol, options%base%tolerance, options%base%maxiters,&
+                               niters, err, ierr, iunit, &
+                               workspace%rwork, size(workspace%rwork), workspace%iwork, size(workspace%iwork))
+
+               case default   ! Biconjugate gradient
+
+                  call dslucs(matrix%order, rhs, solution, matrix%nonzeros, &
+                              matrix%row, matrix%col, matrix%val, &
+                              isym, options%itol, options%base%tolerance, options%base%maxiters,&
+                              niters, err, ierr, iunit, &
+                              workspace%rwork, size(workspace%rwork), workspace%iwork, size(workspace%iwork))
+
+            end select   ! slap solver
+  
+
+            if (verbose_debug) then
+                print*, ' '
+                print*, 'solution:'
+                print*, 'niters =', niters
+                print*, 'err =', err
+                print*, 'ierr =', ierr                
+            endif
+
+        endif   ! allzeros
+
         slap_solve = ierr
+
     end function slap_solve
 
     subroutine slap_solver_postprocess(matrix, options, workspace)
