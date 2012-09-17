@@ -25,24 +25,27 @@ module glimmer_horiz_bcs
   public :: horiz_bcs_stag_scalar   !Unstaggered scalar variables
 
   interface horiz_bcs_unstag_scalar
+    module procedure horiz_bcs_unstag_scalar_logical_2d
     module procedure horiz_bcs_unstag_scalar_integer_2d
+    module procedure horiz_bcs_unstag_scalar_real4_2d
     module procedure horiz_bcs_unstag_scalar_real8_2d
     module procedure horiz_bcs_unstag_scalar_real8_3d
   end interface
 
   interface horiz_bcs_stag_vector_ew
-    module procedure horiz_bcs_stag_vector_ew_real8_3d
     module procedure horiz_bcs_stag_vector_ew_real8_2d
+    module procedure horiz_bcs_stag_vector_ew_real8_3d
   end interface
 
   interface horiz_bcs_stag_vector_ns
-    module procedure horiz_bcs_stag_vector_ns_real8_3d
     module procedure horiz_bcs_stag_vector_ns_real8_2d
+    module procedure horiz_bcs_stag_vector_ns_real8_3d
   end interface
 
   interface horiz_bcs_stag_scalar
     module procedure horiz_bcs_stag_scalar_integer_2d
     module procedure horiz_bcs_stag_scalar_real8_2d
+    module procedure horiz_bcs_stag_scalar_real8_3d
   end interface
 
 
@@ -273,6 +276,232 @@ contains
       deallocate(sbuf_w)
     endif
   end subroutine horiz_bcs_unstag_scalar_integer_2d
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  subroutine horiz_bcs_unstag_scalar_logical_2d( a )
+    use parallel, only: nsub, ewub, nslb, ewlb, global_nsn, global_ewn, own_ewn, own_nsn, lhalo, uhalo, &
+                        rank => this_rank, ewtasks => ProcsEW, tasks, comm
+    use mpi 
+    implicit none
+    logical,dimension(:,:), intent(inout) :: a
+    integer :: i, partner, nstasks, ierr
+    integer :: send_req_n, recv_req_n
+    integer :: send_req_e, recv_req_e
+    integer :: send_req_s, recv_req_s
+    integer :: send_req_w, recv_req_w
+    logical,dimension(:,:), allocatable :: sbuf_n, rbuf_n
+    logical,dimension(:,:), allocatable :: sbuf_e, rbuf_e
+    logical,dimension(:,:), allocatable :: sbuf_s, rbuf_s
+    logical,dimension(:,:), allocatable :: sbuf_w, rbuf_w
+    nstasks = tasks / ewtasks
+    if ( nsub > global_nsn ) then   !I am on the north boundary
+      select case (horiz_bcs_type_north)
+        case (HORIZ_BCS_WALL_SLIP)
+          do i = 1 , uhalo
+            a(:,lhalo+own_nsn+i) = a(:,lhalo+own_nsn+1-i)
+          enddo
+        case (HORIZ_BCS_CYCLIC)
+          partner = mod(rank,ewtasks)
+          allocate(rbuf_n(size(a,1),uhalo))
+          allocate(sbuf_n(size(a,1),lhalo))
+          rbuf_n = a(:,lhalo+own_nsn+1:lhalo+own_nsn+uhalo)
+          sbuf_n = a(:,lhalo+own_nsn+1-lhalo:lhalo+own_nsn)
+          call mpi_irecv( rbuf_n , size( rbuf_n ) , mpi_logical , partner , 1 , comm , recv_req_n , ierr )
+          call mpi_isend( sbuf_n , size( sbuf_n ) , mpi_logical , partner , 2 , comm , send_req_n , ierr )
+      endselect
+    endif
+    if ( ewub > global_ewn ) then    !I am on the east boundary
+      select case (horiz_bcs_type_east)
+        case (HORIZ_BCS_WALL_SLIP)
+          do i = 1 , uhalo
+            a(lhalo+own_ewn+i,:) = a(lhalo+own_ewn+1-i,:)
+          enddo
+        case (HORIZ_BCS_CYCLIC)
+          partner = rank - (ewtasks-1)
+          allocate(rbuf_e(uhalo,size(a,2)))
+          allocate(sbuf_e(lhalo,size(a,2)))
+          rbuf_e = a(lhalo+own_ewn+1:lhalo+own_ewn+uhalo,:)
+          sbuf_e = a(lhalo+own_ewn+1-lhalo:lhalo+own_ewn,:)
+          call mpi_irecv( rbuf_e , size( rbuf_e ) , mpi_logical , partner , 3 , comm , recv_req_e , ierr )
+          call mpi_isend( sbuf_e , size( sbuf_e ) , mpi_logical , partner , 4 , comm , send_req_e , ierr )
+      endselect
+    endif
+    if ( nslb < 1 ) then   !I am on the south boundary
+      select case (horiz_bcs_type_south)
+        case (HORIZ_BCS_WALL_SLIP)
+          do i = 1 , lhalo
+            a(:,lhalo+1-i) = a(:,lhalo+i)
+          enddo
+        case (HORIZ_BCS_CYCLIC)
+          partner = (nstasks-1)*ewtasks+mod(rank,ewtasks)
+          allocate(rbuf_s(size(a,1),lhalo))
+          allocate(sbuf_s(size(a,1),uhalo))
+          rbuf_s = a(:,1:lhalo)
+          sbuf_s = a(:,lhalo+1:lhalo+uhalo)
+          call mpi_irecv( rbuf_s , size( rbuf_s ) , mpi_logical , partner , 2 , comm , recv_req_s , ierr )
+          call mpi_isend( sbuf_s , size( sbuf_s ) , mpi_logical , partner , 1 , comm , send_req_s , ierr )
+      endselect
+    endif
+    if ( ewlb < 1 ) then    !I am on the west boundary
+      select case (horiz_bcs_type_west)
+        case (HORIZ_BCS_WALL_SLIP)
+          do i = 1 , lhalo
+            a(lhalo+1-i,:) = a(lhalo+i,:)
+          enddo
+        case (HORIZ_BCS_CYCLIC)
+          partner = rank + (ewtasks-1)
+          allocate(rbuf_w(lhalo,size(a,2)))
+          allocate(sbuf_w(uhalo,size(a,2)))
+          rbuf_w = a(1:lhalo,:)
+          sbuf_w = a(lhalo+1:lhalo+uhalo,:)
+          call mpi_irecv( rbuf_w , size( rbuf_w ) , mpi_logical , partner , 4 , comm , recv_req_w , ierr )
+          call mpi_isend( sbuf_w , size( sbuf_w ) , mpi_logical , partner , 3 , comm , send_req_w , ierr )
+      endselect
+    endif
+
+    if ( ( nsub > global_nsn ) .and. ( horiz_bcs_type_north == HORIZ_BCS_CYCLIC ) ) then   !I am on the north boundary
+      call mpi_wait( recv_req_n , mpi_status_ignore , ierr )
+      call mpi_wait( send_req_n , mpi_status_ignore , ierr )
+      a(:,lhalo+own_nsn+1:lhalo+own_nsn+uhalo) = rbuf_n
+      deallocate(rbuf_n)
+      deallocate(sbuf_n)
+    endif
+    if ( ( ewub > global_ewn ) .and. ( horiz_bcs_type_east  == HORIZ_BCS_CYCLIC ) ) then   !I am on the north boundary
+      call mpi_wait( recv_req_e , mpi_status_ignore , ierr )
+      call mpi_wait( send_req_e , mpi_status_ignore , ierr )
+      a(lhalo+own_ewn+1:lhalo+own_ewn+uhalo,:) = rbuf_e
+      deallocate(rbuf_e)
+      deallocate(sbuf_e)
+    endif
+    if ( ( nslb < 1          ) .and. ( horiz_bcs_type_south == HORIZ_BCS_CYCLIC ) ) then   !I am on the south boundary
+      call mpi_wait( recv_req_s , mpi_status_ignore , ierr )
+      call mpi_wait( send_req_s , mpi_status_ignore , ierr )
+      a(:,1:lhalo) = rbuf_s
+      deallocate(rbuf_s)
+      deallocate(sbuf_s)
+    endif
+    if ( ( ewlb < 1          ) .and. ( horiz_bcs_type_west  == HORIZ_BCS_CYCLIC ) ) then   !I am on the south boundary
+      call mpi_wait( recv_req_w , mpi_status_ignore , ierr )
+      call mpi_wait( send_req_w , mpi_status_ignore , ierr )
+      a(1:lhalo,:) = rbuf_w
+      deallocate(rbuf_w)
+      deallocate(sbuf_w)
+    endif
+  end subroutine horiz_bcs_unstag_scalar_logical_2d
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  subroutine horiz_bcs_unstag_scalar_real4_2d( a )
+    use parallel, only: nsub, ewub, nslb, ewlb, global_nsn, global_ewn, own_ewn, own_nsn, lhalo, uhalo, &
+                        rank => this_rank, ewtasks => ProcsEW, tasks, comm
+    use mpi 
+    implicit none
+    real(4),dimension(:,:), intent(inout) :: a
+    integer :: i, partner, nstasks, ierr
+    integer :: send_req_n, recv_req_n
+    integer :: send_req_e, recv_req_e
+    integer :: send_req_s, recv_req_s
+    integer :: send_req_w, recv_req_w
+    real(4),dimension(:,:), allocatable :: sbuf_n, rbuf_n
+    real(4),dimension(:,:), allocatable :: sbuf_e, rbuf_e
+    real(4),dimension(:,:), allocatable :: sbuf_s, rbuf_s
+    real(4),dimension(:,:), allocatable :: sbuf_w, rbuf_w
+    nstasks = tasks / ewtasks
+    if ( nsub > global_nsn ) then   !I am on the north boundary
+      select case (horiz_bcs_type_north)
+        case (HORIZ_BCS_WALL_SLIP)
+          do i = 1 , uhalo
+            a(:,lhalo+own_nsn+i) = a(:,lhalo+own_nsn+1-i)
+          enddo
+        case (HORIZ_BCS_CYCLIC)
+          partner = mod(rank,ewtasks)
+          allocate(rbuf_n(size(a,1),uhalo))
+          allocate(sbuf_n(size(a,1),lhalo))
+          rbuf_n = a(:,lhalo+own_nsn+1:lhalo+own_nsn+uhalo)
+          sbuf_n = a(:,lhalo+own_nsn+1-lhalo:lhalo+own_nsn)
+          call mpi_irecv( rbuf_n , size( rbuf_n ) , mpi_real , partner , 1 , comm , recv_req_n , ierr )
+          call mpi_isend( sbuf_n , size( sbuf_n ) , mpi_real , partner , 2 , comm , send_req_n , ierr )
+      endselect
+    endif
+    if ( ewub > global_ewn ) then    !I am on the east boundary
+      select case (horiz_bcs_type_east)
+        case (HORIZ_BCS_WALL_SLIP)
+          do i = 1 , uhalo
+            a(lhalo+own_ewn+i,:) = a(lhalo+own_ewn+1-i,:)
+          enddo
+        case (HORIZ_BCS_CYCLIC)
+          partner = rank - (ewtasks-1)
+          allocate(rbuf_e(uhalo,size(a,2)))
+          allocate(sbuf_e(lhalo,size(a,2)))
+          rbuf_e = a(lhalo+own_ewn+1:lhalo+own_ewn+uhalo,:)
+          sbuf_e = a(lhalo+own_ewn+1-lhalo:lhalo+own_ewn,:)
+          call mpi_irecv( rbuf_e , size( rbuf_e ) , mpi_real , partner , 3 , comm , recv_req_e , ierr )
+          call mpi_isend( sbuf_e , size( sbuf_e ) , mpi_real , partner , 4 , comm , send_req_e , ierr )
+      endselect
+    endif
+    if ( nslb < 1 ) then   !I am on the south boundary
+      select case (horiz_bcs_type_south)
+        case (HORIZ_BCS_WALL_SLIP)
+          do i = 1 , lhalo
+            a(:,lhalo+1-i) = a(:,lhalo+i)
+          enddo
+        case (HORIZ_BCS_CYCLIC)
+          partner = (nstasks-1)*ewtasks+mod(rank,ewtasks)
+          allocate(rbuf_s(size(a,1),lhalo))
+          allocate(sbuf_s(size(a,1),uhalo))
+          rbuf_s = a(:,1:lhalo)
+          sbuf_s = a(:,lhalo+1:lhalo+uhalo)
+          call mpi_irecv( rbuf_s , size( rbuf_s ) , mpi_real , partner , 2 , comm , recv_req_s , ierr )
+          call mpi_isend( sbuf_s , size( sbuf_s ) , mpi_real , partner , 1 , comm , send_req_s , ierr )
+      endselect
+    endif
+    if ( ewlb < 1 ) then    !I am on the west boundary
+      select case (horiz_bcs_type_west)
+        case (HORIZ_BCS_WALL_SLIP)
+          do i = 1 , lhalo
+            a(lhalo+1-i,:) = a(lhalo+i,:)
+          enddo
+        case (HORIZ_BCS_CYCLIC)
+          partner = rank + (ewtasks-1)
+          allocate(rbuf_w(lhalo,size(a,2)))
+          allocate(sbuf_w(uhalo,size(a,2)))
+          rbuf_w = a(1:lhalo,:)
+          sbuf_w = a(lhalo+1:lhalo+uhalo,:)
+          call mpi_irecv( rbuf_w , size( rbuf_w ) , mpi_real , partner , 4 , comm , recv_req_w , ierr )
+          call mpi_isend( sbuf_w , size( sbuf_w ) , mpi_real , partner , 3 , comm , send_req_w , ierr )
+      endselect
+    endif
+
+    if ( ( nsub > global_nsn ) .and. ( horiz_bcs_type_north == HORIZ_BCS_CYCLIC ) ) then   !I am on the north boundary
+      call mpi_wait( recv_req_n , mpi_status_ignore , ierr )
+      call mpi_wait( send_req_n , mpi_status_ignore , ierr )
+      a(:,lhalo+own_nsn+1:lhalo+own_nsn+uhalo) = rbuf_n
+      deallocate(rbuf_n)
+      deallocate(sbuf_n)
+    endif
+    if ( ( ewub > global_ewn ) .and. ( horiz_bcs_type_east  == HORIZ_BCS_CYCLIC ) ) then   !I am on the north boundary
+      call mpi_wait( recv_req_e , mpi_status_ignore , ierr )
+      call mpi_wait( send_req_e , mpi_status_ignore , ierr )
+      a(lhalo+own_ewn+1:lhalo+own_ewn+uhalo,:) = rbuf_e
+      deallocate(rbuf_e)
+      deallocate(sbuf_e)
+    endif
+    if ( ( nslb < 1          ) .and. ( horiz_bcs_type_south == HORIZ_BCS_CYCLIC ) ) then   !I am on the south boundary
+      call mpi_wait( recv_req_s , mpi_status_ignore , ierr )
+      call mpi_wait( send_req_s , mpi_status_ignore , ierr )
+      a(:,1:lhalo) = rbuf_s
+      deallocate(rbuf_s)
+      deallocate(sbuf_s)
+    endif
+    if ( ( ewlb < 1          ) .and. ( horiz_bcs_type_west  == HORIZ_BCS_CYCLIC ) ) then   !I am on the south boundary
+      call mpi_wait( recv_req_w , mpi_status_ignore , ierr )
+      call mpi_wait( send_req_w , mpi_status_ignore , ierr )
+      a(1:lhalo,:) = rbuf_w
+      deallocate(rbuf_w)
+      deallocate(sbuf_w)
+    endif
+  end subroutine horiz_bcs_unstag_scalar_real4_2d
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -1192,6 +1421,141 @@ contains
     endif
 
   end subroutine horiz_bcs_stag_scalar_real8_2d
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  subroutine horiz_bcs_stag_scalar_real8_3d( a )
+    use parallel, only: nsub, ewub, nslb, ewlb, global_nsn, global_ewn, own_ewn, own_nsn, &
+                        staggered_nhalo, staggered_ehalo, staggered_shalo, staggered_whalo, &
+                        rank => this_rank, ewtasks => ProcsEW, tasks, comm
+    use mpi
+    implicit none
+    real(8),dimension(:,:,:), intent(inout) :: a
+    integer :: i, partner, nstasks, ierr
+    integer :: nhalo, ehalo, shalo, whalo !Sizes of halos
+    integer :: ew_npts, ns_npts           !Number of staggered points in ew and ns directions
+    integer :: send_req_n, recv_req_n
+    integer :: send_req_e, recv_req_e
+    integer :: send_req_s, recv_req_s
+    integer :: send_req_w, recv_req_w
+    real(8),dimension(:,:,:), allocatable :: sbuf_n, rbuf_n
+    real(8),dimension(:,:,:), allocatable :: sbuf_e, rbuf_e
+    real(8),dimension(:,:,:), allocatable :: sbuf_s, rbuf_s
+    real(8),dimension(:,:,:), allocatable :: sbuf_w, rbuf_w
+    nstasks = tasks / ewtasks
+    nhalo = staggered_nhalo
+    ehalo = staggered_ehalo
+    shalo = staggered_shalo-1 !Technically, domains on the south or west boundaries do not "own" the south or 
+    whalo = staggered_whalo-1 !west edges. So we must specify these values. So, these halos are reduced by 1.
+    ew_npts = own_ewn+1 !number of physical domain points this process is responsible for in ew direction.
+    ns_npts = own_nsn+1 !number of physical domain points this process is responsible for in ns direction.
+
+    !Physical domain is mirrored at all boundaries and negated at normal boundaries
+    if ( nsub > global_nsn ) then
+      select case (horiz_bcs_type_north)
+        case (HORIZ_BCS_WALL_SLIP)
+          do i = 1 , nhalo
+            a(:,:,shalo+ns_npts+i) = a(:,:,shalo+ns_npts-i)
+          enddo
+        case (HORIZ_BCS_CYCLIC)
+          partner = mod(rank,ewtasks)
+          allocate(rbuf_n(size(a,1),size(a,2),nhalo  ))
+          allocate(sbuf_n(size(a,1),size(a,2),shalo+1))
+          rbuf_n = a(:,:,shalo+own_nsn+1:shalo+own_nsn+nhalo)
+          sbuf_n = a(:,:,shalo+own_nsn+1-(shalo+1):shalo+own_nsn)
+          call mpi_irecv( rbuf_n , size( rbuf_n ) , mpi_double , partner , 1 , comm , recv_req_n , ierr )
+          call mpi_isend( sbuf_n , size( sbuf_n ) , mpi_double , partner , 2 , comm , send_req_n , ierr )
+      endselect
+    endif
+    if ( ewub > global_ewn ) then
+      select case (horiz_bcs_type_east)
+        case (HORIZ_BCS_WALL_SLIP)
+          do i = 1 , ehalo
+            a(:,whalo+ew_npts+i,:) = a(:,whalo+ew_npts-i,:)
+          enddo
+        case (HORIZ_BCS_CYCLIC)
+          partner = rank - (ewtasks-1)
+          allocate(rbuf_e(size(a,1),ehalo  ,size(a,3)))
+          allocate(sbuf_e(size(a,1),whalo+1,size(a,3)))
+          rbuf_e = a(:,whalo+own_ewn+1:whalo+own_ewn+ehalo,:)
+          sbuf_e = a(:,whalo+own_ewn+1-(whalo+1):whalo+own_ewn,:)
+          call mpi_irecv( rbuf_e , size( rbuf_e ) , mpi_double , partner , 3 , comm , recv_req_e , ierr )
+          call mpi_isend( sbuf_e , size( sbuf_e ) , mpi_double , partner , 4 , comm , send_req_e , ierr )
+      endselect
+    endif
+    if ( nslb < 1 ) then
+      select case (horiz_bcs_type_south)
+        case (HORIZ_BCS_WALL_SLIP)
+          do i = 1 , shalo
+            a(:,:,shalo+1-i) = a(:,:,shalo+1+i)
+          enddo
+          !For slip transverse BC's, the northern boundary is left alone. The velocity solve does not treat the
+          !western boundary, however, and that must be interpolated.
+          !For this, some assumptions must be made: whalo >= 1 & ewn >= 2. Using three data points allows the
+          !inclusion of curvature in this interpolation using whalo, whalo+2, and whalo+3
+          a(:,:,shalo+1) = a(:,:,shalo) / 3.D0 + a(:,:,shalo+2) - a(:,:,shalo+3) / 3.D0
+        case (HORIZ_BCS_CYCLIC)
+          partner = (nstasks-1)*ewtasks+mod(rank,ewtasks)
+          allocate(rbuf_s(size(a,1),size(a,2),shalo+1))
+          allocate(sbuf_s(size(a,1),size(a,2),nhalo  ))
+          rbuf_s = a(:,:,1:shalo+1)
+          sbuf_s = a(:,:,shalo+2:shalo+1+nhalo)
+          call mpi_irecv( rbuf_s , size( rbuf_s ) , mpi_double , partner , 2 , comm , recv_req_s , ierr )
+          call mpi_isend( sbuf_s , size( sbuf_s ) , mpi_double , partner , 1 , comm , send_req_s , ierr )
+      endselect
+    endif
+    if ( ewlb < 1 ) then
+      select case (horiz_bcs_type_west)
+        case (HORIZ_BCS_WALL_SLIP)
+          do i = 1 , whalo
+            a(:,whalo+1-i,:) = a(:,whalo+1+i,:)
+          enddo
+          !For slip transverse BC's, the northern boundary is left alone. The velocity solve does not treat the
+          !western boundary, however, and that must be interpolated.
+          !For this, some assumptions must be made: whalo >= 1 & ewn >= 2. Using three data points allows the
+          !inclusion of curvature in this interpolation using whalo, whalo+2, and whalo+3
+          a(:,whalo+1,:) = a(:,whalo,:) / 3.D0 + a(:,whalo+2,:) - a(:,whalo+3,:) / 3.D0
+        case (HORIZ_BCS_CYCLIC)
+          partner = rank + (ewtasks-1)
+          allocate(rbuf_w(size(a,1),whalo+1,size(a,3)))
+          allocate(sbuf_w(size(a,1),ehalo  ,size(a,3)))
+          rbuf_w = a(:,1:whalo+1,:)
+          sbuf_w = a(:,whalo+2:whalo+1+ehalo,:)
+          call mpi_irecv( rbuf_w , size( rbuf_w ) , mpi_double , partner , 4 , comm , recv_req_w , ierr )
+          call mpi_isend( sbuf_w , size( sbuf_w ) , mpi_double , partner , 3 , comm , send_req_w , ierr )
+      endselect
+    endif
+
+    if ( ( nsub > global_nsn ) .and. ( horiz_bcs_type_north == HORIZ_BCS_CYCLIC ) ) then   !I am on the north boundary
+      call mpi_wait( recv_req_n , mpi_status_ignore , ierr )
+      call mpi_wait( send_req_n , mpi_status_ignore , ierr )
+      a(:,:,shalo+own_nsn+1:shalo+own_nsn+nhalo) = rbuf_n
+      deallocate(rbuf_n)
+      deallocate(sbuf_n)
+    endif
+    if ( ( ewub > global_ewn ) .and. ( horiz_bcs_type_east  == HORIZ_BCS_CYCLIC ) ) then   !I am on the north boundary
+      call mpi_wait( recv_req_e , mpi_status_ignore , ierr )
+      call mpi_wait( send_req_e , mpi_status_ignore , ierr )
+      a(:,whalo+own_ewn+1:whalo+own_ewn+ehalo,:) = rbuf_e
+      deallocate(rbuf_e)
+      deallocate(sbuf_e)
+    endif
+    if ( ( nslb < 1          ) .and. ( horiz_bcs_type_south == HORIZ_BCS_CYCLIC ) ) then   !I am on the south boundary
+      call mpi_wait( recv_req_s , mpi_status_ignore , ierr )
+      call mpi_wait( send_req_s , mpi_status_ignore , ierr )
+      a(:,:,1:shalo+1) = rbuf_s
+      deallocate(rbuf_s)
+      deallocate(sbuf_s)
+    endif
+    if ( ( ewlb < 1          ) .and. ( horiz_bcs_type_west  == HORIZ_BCS_CYCLIC ) ) then   !I am on the south boundary
+      call mpi_wait( recv_req_w , mpi_status_ignore , ierr )
+      call mpi_wait( send_req_w , mpi_status_ignore , ierr )
+      a(:,1:whalo+1,:) = rbuf_w
+      deallocate(rbuf_w)
+      deallocate(sbuf_w)
+    endif
+
+  end subroutine horiz_bcs_stag_scalar_real8_3d
 
 end module glimmer_horiz_bcs
 
