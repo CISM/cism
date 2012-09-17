@@ -131,8 +131,8 @@
 !whl - debug
     logical :: verbose_init = .false.   ! for debug print statements
     logical :: verbose_Jac = .false.
-    logical :: verbose = .true.   ! for debug print statements
-
+    logical :: verbose = .false.  
+    logical :: verbose_test = .true.
 !whl - debug
     integer, parameter :: &
        itest = 24, jtest = 17, ktest = 1
@@ -151,6 +151,8 @@
     ! Assign global indices to each cell and vertex.
     ! (Not sure where these will be needed.)
     !----------------------------------------------------------------
+
+!TODO - Remove 'implicit none' from these and other subroutines
     implicit none
 
     integer, intent(in) ::   &
@@ -436,7 +438,10 @@
                                         whichresid,             &
                                         whichnonlinear,         &
                                         whichsparse)
-    use glam_strs2, only: linearSolveTime, totalLinearSolveTime
+
+!TODO - Something like these may be needed if building with Trilinos.
+!!    use glam_strs2, only: linearSolveTime, totalLinearSolveTime
+
     implicit none
 
     !--------------------------------------------------------
@@ -564,6 +569,9 @@
     real(dp), dimension(:,:), allocatable :: Atest, Auu_test, Auv_test, Avu_test, Avv_test
     integer :: i, j, k, n
 
+    logical, parameter :: test_matrix = .true.
+    integer, parameter :: test_order = 2
+
     !------------------------------------------------------------------------------
     ! Setup for higher-order solver: Compute nodal geometry, allocate storage, etc.
     !------------------------------------------------------------------------------
@@ -610,6 +618,7 @@
 
     matrix_order = 2*nNodes         ! Is this exactly enough?
     nNonzero = matrix_order*27      ! 27 = node plus 26 nearest neighbors in hexahedral lattice   
+                                    ! TODO: Is this enough storage?
 
     if (verbose) then
        print*, 'matrix_order =', matrix_order
@@ -617,16 +626,30 @@
     endif
 
 !whl - debug
-!    matrix_order = 3
-!    nNonzero = 9
-!    matrix_order = 4
-!    nNonzero = 16
+    if (test_matrix) then
+       matrix_order = test_order
+       nNonzero = matrix_order*matrix_order    ! not sure how big this must be
+       allocate(Atest(matrix_order,matrix_order))
+       Atest(:,:) = 0.d0
+       if (verbose_test) then
+          print*, ' '
+          print*, 'Test matrix order =', test_order
+       endif
+    endif
 
-!    allocate(Atest(matrix_order,matrix_order))
-!    allocate(Auu_test(2,2), Auv_test(2,2), Avu_test(2,2), Avv_test(2,2))
+!       allocate(Auu_test(2,2), Auv_test(2,2), Avu_test(2,2), Avv_test(2,2))  ! try this later
+
 
     allocate(matrix%row(nNonzero), matrix%col(nNonzero), matrix%val(nNonzero))
     allocate(rhs(matrix_order), answer(matrix_order), resid_vec(matrix_order))
+
+    if (test_matrix) then
+       rhs(:) = 0.d0
+       answer(:) = 0.d0
+       matrix%row(:) = 0
+       matrix%col(:) = 0
+       matrix%val(:) = 0.d0
+    endif
 
     ! Allocate space for velocity vectors (saved from previous guess)
 
@@ -699,6 +722,9 @@
        usav(:,:,:) = uvel(:,:,:)
        vsav(:,:,:) = vvel(:,:,:)
 
+!whl - debug
+       if (test_matrix) go to 50
+
        ! TODO: Compute the effective viscosity for each element 
        !       (ideally by summing over quadrature points)
 
@@ -736,7 +762,7 @@
        
        if (verbose) print*, 'Assembled the stiffness matrix'
 
-       stop
+!!       stop
 
        ! TODO: Assemble the load vector
 
@@ -748,24 +774,54 @@
        ! (For SLAP solver; may not be needed for Trilinos)
 
 !WHL - debug - Test sparse_easy_solve
+   50  continue
 
        matrix%order = matrix_order   ! set above   
        matrix%nonzeros = nNonzero
        matrix%symmetric = .false.
 
-       if (matrix%order == 3) then
-          Atest(1,1:3) = (/1.d0,  2.d0,  3.d0 /)
-          Atest(2,1:3) = (/4.d0,  5.d0,  6.d0 /)
-          Atest(3,1:3) = (/7.d0,  8.d0,  9.d0 /)
-          rhs(1:3)   =  (/10.d0, 28.d0, 46.d0 /)   ! answer = (3 2 1)
+       rhs(:) = 0.d0
+       answer(:) = 0.d0   ! initial guess
+
+       if (matrix%order == 2) then
+          Atest(1,1:2) = (/3.d0, 2.d0 /)
+          Atest(2,1:2) = (/2.d0, 6.d0 /)
+          rhs(1:2) = (/2.d0, -8.d0 /)   ! answer = (2 -2) 
+       elseif (matrix%order == 3) then
+
+           ! identity
+!          Atest(1,1:3) = (/1.d0,  0.d0,  0.d0 /)
+!          Atest(2,1:3) = (/0.d0,  1.d0,  0.d0 /)
+!          Atest(3,1:3) = (/0.d0,  0.d0,  1.d0 /)
+!          rhs(1:3)   =  (/1.d0, 2.d0, 3.d0 /)     ! answer = (1 2 3)
+
+          ! symmetric
+          Atest(1,1:3) = (/ 7.d0, -2.d0,  0.d0 /)
+          Atest(2,1:3) = (/-2.d0,  6.d0, -2.d0 /)
+          Atest(3,1:3) = (/ 0.d0, -2.d0,  5.d0 /)
+          rhs(1:3)   =   (/ 3.d0,  8.d0,  1.d0 /)   ! answer = (1 2 1)
+
+          ! non-symmetric
+!          Atest(1,1:3) = (/3.d0,   1.d0,  1.d0 /)
+!          Atest(2,1:3) = (/2.d0,   2.d0,  5.d0 /)
+!          Atest(3,1:3) = (/1.d0,  -3.d0, -4.d0 /)
+!          rhs(1:3)   =  (/ 6.d0,  11.d0, -9.d0 /)   ! answer = (1 2 1)
+
        else if (matrix%order == 4) then
-          Atest(1,1:4) = (/1.d0,  2.d0,  3.d0,  4.d0 /)
-          Atest(2,1:4) = (/2.d0,  3.d0,  4.d0,  5.d0 /)
-          Atest(3,1:4) = (/3.d0,  4.d0,  5.d0,  6.d0 /)
-          Atest(4,1:4) = (/4.d0,  5.d0,  6.d0,  7.d0 /)
-          rhs(1:4)    = (/20.d0, 30.d0, 40.d0, 50.d0/)   ! answer = (4 3 2 1)
+          Atest(1,1:4) = (/3.d0,  0.d0,  2.d0, -1.d0 /)
+          Atest(2,1:4) = (/1.d0,  2.d0,  0.d0,  2.d0 /)
+          Atest(3,1:4) = (/4.d0,  0.d0,  6.d0, -3.d0 /)
+          Atest(4,1:4) = (/5.d0,  0.d0,  2.d0,  0.d0 /)
+          rhs(1:4)    = (/ 6.d0,  7.d0, 13.d0,  9.d0 /)   ! answer = (1 2 2 1)
        endif
 
+       if (verbose_test) then
+          print*, ' '
+          print*, 'Atest =', Atest
+          print*, 'rhs =', rhs
+       endif
+
+       ! Put in SLAP triad format
        n = 0
        do j = 1, matrix%order
           do i = 1, matrix%order
@@ -776,9 +832,16 @@
           enddo
        enddo
 
-!whl - debug - skip solver_preprocess for now
+       if (verbose_test) then
+          print*, ' '
+          print*, 'row,       col,       val:'
+          do n = 1, matrix%order*matrix%order
+             print*, matrix%row(n), matrix%col(n), matrix%val(n)
+          enddo
+       endif
 
-       go to 100
+!whl - debug - skip solver_preprocess for now
+       if (test_matrix) go to 100
 
           ! for testing Auu, etc.
           Auu_test(1,1:2) = (/ 1.d0, 2.d0 /)
@@ -806,16 +869,19 @@
                               matrix,       rhs,   &
                               answer)
                                        
-
-100    print*, 'Calling sparse_easy_solve, whichsparse, order =', whichsparse, matrix%order
+100    continue
 
        ! Solve the linear matrix problem
 
        call sparse_easy_solve(matrix, rhs, answer, err, iter, whichsparse)
 
-       print*, 'answer =', answer
-       print*, 'err =', err       
-       print*, 'iter =', iter
+       if (verbose_test) then
+          print*, ' '
+          print*, 'Called sparse_easy_solve, whichsparse, order =', whichsparse, matrix%order
+          print*, 'answer =', answer
+          print*, 'err =', err       
+          print*, 'iter =', iter
+       endif
 
        stop
 
@@ -830,8 +896,9 @@
           call sparse_easy_solve(matrix, rhs, answer, err, iter, whichsparse)
 #ifdef TRILINOS
        else
-          call solvewithtrilinos(rhs, answer, linearSolveTime)
-          totalLinearSolveTime = totalLinearSolveTime + linearSolveTime
+!whl - Commented out for now until testing later with Trilinos
+!!          call solvewithtrilinos(rhs, answer, linearSolveTime)
+!!          totalLinearSolveTime = totalLinearSolveTime + linearSolveTime
           ! write(*,*) 'Total linear solve time so far', totalLinearSolveTime                                           
 #endif
        endif

@@ -505,8 +505,10 @@ contains
   end subroutine handle_dycore_options
 
   subroutine print_options(model)
+
     use glide_types
     use glimmer_log
+
     use parallel
 
     implicit none
@@ -519,26 +521,31 @@ contains
          'glide              ', &
          'glam               ', &  ! Payne-Price finite difference
          'glissade           ' /)  ! prototype finite element
+
     character(len=*), dimension(0:3), parameter :: temperature = (/ &
          'isothermal         ', &
          'full               ', &
          'steady             ', &
          'remapping advection' /)
+
     character(len=*), dimension(0:2), parameter :: flow_law = (/ &
          'Paterson and Budd                ', &
          'Paterson and Budd (temp=-10degC) ', &
          'const 1e-16a^-1Pa^-n             ' /)
-  !*mb* added options for basal processes model       
+
+  !*mb* added options for basal processes model
     character(len=*), dimension(0:2), parameter :: which_bmod = (/ &
          'Basal proc mod disabled '  , &
          'Basal proc, high res.   '   , &
          'Basal proc, fast calc.  ' /)
+
     character(len=*), dimension(0:4), parameter :: basal_water = (/ &
          'local water balance   ', &
          'local + const flux    ', &
          'none                  ', &
          'From basal proc model ', &
          'Constant value (=10m) '/)
+
     character(len=*), dimension(0:7), parameter :: marine_margin = (/ &
          'ignore              ', &
          'no ice shelf        ', &
@@ -548,6 +555,7 @@ contains
          'van der Veen        ', &
          'Pattyn Grnd Line    ', &
          'Huybrechts Greenland'/)
+
     character(len=*), dimension(0:5), parameter :: slip_coeff = (/ &
          'zero        ', &
          'const       ', &
@@ -555,6 +563,7 @@ contains
          '~basal water', &
          '~basal melt ', &
          'taub^3      ' /)
+
     character(len=*), dimension(-1:4), parameter :: evolution = (/ &
          'no thickness evolution                ', &
          'pseudo-diffusion                      ', &
@@ -562,15 +571,19 @@ contains
          'iterated diffusion                    ', &
          'remap thickness                       ', &   
          '1st order upwind                      ' /)   
+
     character(len=*), dimension(0:1), parameter :: vertical_integration = (/ &
          'standard     ', &
          'obey upper BC' /)
+
     character(len=*), dimension(0:1), parameter :: ho_diagnostic = (/ &
          'Do not compute higher-order velocities', &
          'Payne/Price (on B-grid)               ' /)    
+
     character(len=*), dimension(0:1), parameter :: ho_prognostic = (/ &
          'Evolve ice with SIA only', &
          'Pattyn scheme           ' /)
+
     character(len=*), dimension(0:7), parameter :: ho_whichbabc = (/ &
          'constant B^2                           ', &
          'simple pattern of B^2                  ', &
@@ -580,36 +593,42 @@ contains
          'B^2 passed from CISM                   ', &
          'no slip (Dirichlet implementation)     ', &
          'till yield stress (Newton)             ' /)
+
     character(len=*), dimension(0:1), parameter :: ho_whichefvs = (/ &
          'from eff strain rate    ', &
          'constant value          ' /)
+
     character(len=*), dimension(0:3), parameter :: ho_whichresid = (/ &
          'max value               ', &
          'max value ignoring ubas ', &
          'mean value              ', &
          'L2 norm of Ax-b=resid   ' /)
+
     character(len=*), dimension(0:2), parameter :: ho_whichsource = (/ &
          'vertically averaged     ', &
          'vertically explicit     ', &
          'shelf front disabled    '/)
+
     character(len=*), dimension(0:2), parameter :: dispwhich = (/ &
          '0-order SIA                       ', &
          '1-st order model (Blatter-Pattyn) ', &
          '1-st order depth-integrated (SSA) ' /)
+
     character(len=*), dimension(0:2), parameter :: bmeltwhich = (/ &
          '0-order SIA                       ', &
          '1-st order model (Blatter-Pattyn) ', &
          '1-st order depth-integrated (SSA) ' /)
+
     character(len=*), dimension(0:1), parameter :: which_ho_nonlinear = (/ &
          'use standard Picard iteration  ', &
          'use JFNK                       '/)
-    character(len=*), dimension(0:5), parameter :: ho_whichsparse = (/ &
-         'BiCG with LU precondition       ', &
-         'GMRES with LU precondition      ', &
-         'UMFPACK Unsymmetric Multifrontal', &
-         'Compatible Trilinos interface   ', &
-         'Standalone Trilinos interface   ', &
-         'PARDISO Parllel Direct Method   '/)
+
+    character(len=*), dimension(0:4), parameter :: ho_whichsparse = (/ &
+         'BiCG with LU preconditioner                ', &
+         'GMRES with LU preconditioner               ', &
+         'PCG with diagonal preconditioner           ', &
+         'PCG with incomplete Cholesky preconditioner', &
+         'Standalone Trilinos interface              '/)
 
     character(len=*), dimension(0:1), parameter :: b_mbal = (/ &
          'not in continuity eqn', &
@@ -654,7 +673,7 @@ contains
        endif
     endif
 
-    ! Forbidden options to use with the Glissade dycore
+    ! Forbidden options associated with the Glissade dycore
 !TODO - Any other forbidden options with Glissade dycore?
     if (model%options%whichdycore == DYCORE_GLISSADE) then
        if (model%options%whichtemp == TEMP_GLIMMER) then
@@ -664,6 +683,11 @@ contains
            model%options%whichevol==EVOL_ADI         .or.  &
            model%options%whichevol==EVOL_DIFFUSION) then
           call write_log('Error, Glimmer thickness evolution options can be used only with Glide dycore', GM_FATAL)
+       endif
+    else   ! not DYCORE_GLISSADE
+       if (model%options%which_ho_sparse == HO_SPARSE_PCG_DIAG .or.  &
+           model%options%which_ho_sparse == HO_SPARSE_PCG_INCH) then
+          call write_log('Error, preconditioned conjugate gradient solver requires glissade dycore with SPD matrix')
        endif
     endif
 
@@ -744,26 +768,10 @@ contains
 
     !HO options
     call write_log("***Higher-order options:")
-    if (model%options%which_ho_diagnostic < 0 .or. model%options%which_ho_diagnostic >= size(ho_diagnostic)) then
-        call write_log('Error, diagnostic_scheme out of range', GM_FATAL)
-    end if
-
-    write(message,*) 'ho_diagnostic           :',model%options%which_ho_diagnostic, &
-                       ho_diagnostic(model%options%which_ho_diagnostic)
-    call write_log(message)
-
-    if (model%options%which_ho_prognostic < 0 .or. model%options%which_ho_prognostic >= size(ho_prognostic)) then
-        call write_log('Error, prognostic_scheme out of range', GM_FATAL)
-    end if
-
-    write(message,*) 'ho_prognostic :',model%options%which_ho_prognostic, &
-                        ho_prognostic(model%options%which_ho_prognostic)
-    call write_log(message)    
 
     if (model%options%which_ho_source < 0 .or. model%options%which_ho_source >= size(ho_whichsource)) then
         call write_log('Error, which_ho_source out of range', GM_FATAL)
     end if
-
     write(message,*) 'ice_shelf_source_term   :',model%options%which_ho_source, &
                        ho_whichsource(model%options%which_ho_source)
     call write_log(message)
@@ -771,58 +779,59 @@ contains
     write(message,*) 'ho_whichbabc            :',model%options%which_ho_babc,  &
                       ho_whichbabc(model%options%which_ho_babc)
     call write_log(message)
-
     if (model%options%which_ho_babc < 0 .or. model%options%which_ho_babc >= size(ho_whichbabc)) then
         call write_log('Error, HO basal BC input out of range', GM_FATAL)
     end if
+
     write(message,*) 'ho_whichefvs            :',model%options%which_ho_efvs,  &
                       ho_whichefvs(model%options%which_ho_efvs)
     call write_log(message)
-
     if (model%options%which_ho_efvs < 0 .or. model%options%which_ho_efvs >= size(ho_whichefvs)) then
         call write_log('Error, HO effective viscosity input out of range', GM_FATAL)
     end if
+
     write(message,*) 'ho_whichresid           :',model%options%which_ho_resid,  &
                       ho_whichresid(model%options%which_ho_resid)
     call write_log(message)
-
     if (model%options%which_ho_resid < 0 .or. model%options%which_ho_resid >= size(ho_whichresid)) then
         call write_log('Error, HO residual input out of range', GM_FATAL)
     end if
+
     write(message,*) 'dispwhich               :',model%options%which_disp,  &
                       dispwhich(model%options%which_disp)
     call write_log(message)
-
     if (model%options%which_disp < 0 .or. model%options%which_disp >= size(dispwhich)) then
         call write_log('Error, which dissipation input out of range', GM_FATAL)
     end if
+
     write(message,*) 'bmeltwhich              :',model%options%which_bmelt,  &
                       bmeltwhich(model%options%which_bmelt)
     call write_log(message)
-
     if (model%options%which_bmelt < 0 .or. model%options%which_bmelt >= size(bmeltwhich)) then
         call write_log('Error, which bmelt input out of range', GM_FATAL)
     end if
+
     write(message,*) 'which_ho_nonlinear       :',model%options%which_ho_nonlinear,  &
                       which_ho_nonlinear(model%options%which_ho_nonlinear)
     call write_log(message)
-
     if (model%options%which_ho_nonlinear < 0 .or. model%options%which_ho_nonlinear >= size(which_ho_nonlinear)) then
         call write_log('Error, HO nonlinear solution input out of range', GM_FATAL)
     end if
+
     write(message,*) 'ho_whichsparse          :',model%options%which_ho_sparse,  &
                       ho_whichsparse(model%options%which_ho_sparse)
     call write_log(message)
-
     if (model%options%which_ho_sparse < 0 .or. model%options%which_ho_sparse >= size(ho_whichsparse)) then
         call write_log('Error, HO sparse solver input out of range', GM_FATAL)
     end if
 
     call write_log('')
+
   end subroutine print_options
 
   ! parameters
   subroutine handle_parameters(section, model)
+
     use glimmer_config
     use glide_types
     use glimmer_log

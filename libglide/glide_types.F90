@@ -153,6 +153,12 @@ module glide_types
   integer, parameter :: FIRSTORDER_BMELT = 1
   integer, parameter :: SSA_BMELT = 2
 
+  integer, parameter :: HO_SPARSE_BICG = 0
+  integer, parameter :: HO_SPARSE_GMRES = 1
+  integer, parameter :: HO_SPARSE_PCG_DIAG = 2
+  integer, parameter :: HO_SPARSE_PCG_INCH = 3
+  integer, parameter :: HO_SPARSE_TRILINOS = 4
+
   integer, parameter :: HO_SOURCE_AVERAGED = 0
   integer, parameter :: HO_SOURCE_EXPLICIT = 1
   integer, parameter :: HO_SOURCE_DISABLED = 2
@@ -344,17 +350,19 @@ module glide_types
     !*FD \item[0] use the standard Picard iteration
     !*FD \item[1] use Jacobian Free Newton Krylov (JFNK) method
 
+!whl - Removed old options 2 and 3 (UMF direct and PARDISO), replaced with PCG
     integer :: which_ho_sparse = 0
     !*FD Flag that indicates method for solving the sparse linear system
     !*FD that arises from the higher-order solver
     !*FD \begin{description}
-    !*FD \item[0] Biconjugate Gradient, Incomplete LU Preconditioner
-    !*FD \item[1] GMRES, Incomplete LU Preconditioner
-    !*FD \item[2] Unsymmetric multifrontal direct solver
-    !*FD \item[3] PARDISO direct solver
+    !*FD \item[0] Biconjugate gradient, incomplete LU preconditioner
+    !*FD \item[1] GMRES, incomplete LU preconditioner
+    !*FD \item[2] Conjugate gradient, diagonal preconditioner
+    !*FD \item[3] Conjugate gradient, incomplete LU preconditioner
     !*FD \item[4] standalone interface to Trilinos
     !*FD \end{description}
 
+!TODO - Is the fallback option still needed?
     integer :: which_ho_sparse_fallback = -1
     !*FD Flag that indicates a sparse matrix solver that the higher-order 
     !*FD computation should fall back on if the primary choice fails.
