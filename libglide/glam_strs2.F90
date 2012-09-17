@@ -275,7 +275,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                             efvs )
 
   use parallel
-  use glimmer_horiz_bcs, only: horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns
+  use glimmer_horiz_bcs, only: horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns, horiz_bcs_unstag_scalar
 
   implicit none
 
@@ -747,8 +747,8 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
 !       
     ! coordinate halos for updated uvel and vvel
     call staggered_parallel_halo(uvel)
-    call staggered_parallel_halo(vvel)
     call horiz_bcs_stag_vector_ew(uvel)
+    call staggered_parallel_halo(vvel)
     call horiz_bcs_stag_vector_ns(vvel)
 
     !call dumpvels("After mindcrsh", uvel, vvel)
@@ -830,11 +830,14 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
 !        locally owned velocity points.
 
   call parallel_halo(efvs)
+  call horiz_bcs_unstag_scalar(efvs)
   call parallel_halo(btraction)
 
 !HALO - Pretty sure we don't need these updates; uflx and vflx are not used.
   call staggered_parallel_halo(uflx)
+  call horiz_bcs_stag_vector_ew(uflx)
   call staggered_parallel_halo(vflx)
+  call horiz_bcs_stag_vector_ns(vflx)
 
 #ifdef GLC_DEBUG    
   !JEFF Debugging Output to see what differences in final vvel and tvel.
@@ -874,7 +877,7 @@ end subroutine glam_velo_solver
 subroutine JFNK_velo_solver  (model,umask)
 
   use parallel
-  use glimmer_horiz_bcs, only: horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns
+  use glimmer_horiz_bcs, only: horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns,  horiz_bcs_unstag_scalar
 
   use iso_c_binding 
   use glide_types, only : glide_global_type
@@ -1252,8 +1255,8 @@ end if
  !PW following are needed for glam_velo_fordsiapstr - putting here until can be convinced
  !   that they are not needed (or that they should be delayed until later)
   call staggered_parallel_halo(uvel)
-  call staggered_parallel_halo(vvel)
   call horiz_bcs_stag_vector_ew(uvel)
+  call staggered_parallel_halo(vvel)
   call horiz_bcs_stag_vector_ns(vvel)
 
 !HALO - Not sure we need these two updates
@@ -1261,11 +1264,14 @@ end if
 !       And I think we don't need an update for btraction, because it is computed in bodyset for all
 !        locally owned velocity points.
   call parallel_halo(efvs)
+  call horiz_bcs_unstag_scalar(efvs)
   call parallel_halo(btraction)
 
 !HALO - Probably do not need these two updates
   call staggered_parallel_halo(uflx)
+  call horiz_bcs_stag_vector_ew(uflx)
   call staggered_parallel_halo(vflx)
+  call horiz_bcs_stag_vector_ns(vflx)
 
  call t_stopf("JFNK_post")
 
@@ -2223,10 +2229,10 @@ end subroutine reset_effstrmin
     ! coordinate halos for updated uvel and vvel
     call t_startf("Calc_F_uvhalo_upd")
     call staggered_parallel_halo(uvel)
-    call staggered_parallel_halo(vvel)
-    call t_stopf("Calc_F_uvhalo_upd")
     call horiz_bcs_stag_vector_ew(uvel)
+    call staggered_parallel_halo(vvel)
     call horiz_bcs_stag_vector_ns(vvel)
+    call t_stopf("Calc_F_uvhalo_upd")
 
     call t_startf("Calc_F_findefvsstr")
     call findefvsstr(ewn,  nsn,  upn,       &

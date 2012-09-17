@@ -72,7 +72,6 @@ contains
 
         !Compute the "geometry mask" (type of square) for the staggered grid
 
-        call horiz_bcs_stag_scalar(model%geomderv%stagthck)
         call glide_set_mask(model%numerics,                                     &
                             model%geomderv%stagthck, model%geomderv%stagtopg,   &
                             model%general%ewn-1,     model%general%nsn-1,       &

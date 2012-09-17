@@ -795,6 +795,7 @@ end subroutine
     use glimmer_paramets, only : tim0
     use glimmer_physcon, only: scyr
     use parallel
+    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
 
     implicit none 
 
@@ -832,6 +833,7 @@ end subroutine
 !       Just make sure that this subroutine computes timeders everywhere they are needed.
  
     call parallel_halo(opvr)
+    call horiz_bcs_unstag_scalar(opvr)
   end subroutine timeders
 
 !---------------------------------------------------------------------------------

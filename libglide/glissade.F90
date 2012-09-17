@@ -606,10 +606,10 @@ contains
            ! Halo updates for velocities, thickness and tracers
             call t_startf('new_remap_halo_upds')
              call staggered_parallel_halo(model%velocity%uvel)
-             call staggered_parallel_halo(model%velocity%vvel)
-             call parallel_halo(model%geometry%thck)
              call horiz_bcs_stag_vector_ew(model%velocity%uvel)
+             call staggered_parallel_halo(model%velocity%vvel)
              call horiz_bcs_stag_vector_ns(model%velocity%vvel)
+             call parallel_halo(model%geometry%thck)
              call horiz_bcs_unstag_scalar(model%geometry%thck)
              if (model%options%whichtemp == TEMP_REMAP_ADV) then
                 !If advecting other tracers, add parallel_halo update here
@@ -665,8 +665,8 @@ contains
                 !HALO - Move these updates to the new glissade driver.
 
                 call parallel_halo(model%geometry%thck)
-                call parallel_halo(model%temper%temp)
                 call horiz_bcs_unstag_scalar(model%geometry%thck)
+                call parallel_halo(model%temper%temp)
                 call horiz_bcs_unstag_scalar(model%temper%temp)
                 call t_stopf('after_remap_haloupds')
 
@@ -712,6 +712,7 @@ end select
 
     ! call parallel_halo(model%geometry%thck) in inc_remap_driver
     call parallel_halo(model%geometry%topg)
+    call horiz_bcs_unstag_scalar(model%geometry%topg)
 
 !### !TODO Delete this stuff.  Moved to beginning of subroutine when the time itself is incremented.
 !###!TODO - Is this the right place to increment the timecounter?  
@@ -728,8 +729,6 @@ end select
     ! ------------------------------------------------------------------------
 
     call glissade_diagnostic_variable_solve(model)
-    call horiz_bcs_unstag_scalar(model%geometry%topg)
-
 
   end subroutine glissade_tstep  !MJH
 
@@ -756,7 +755,7 @@ end select
     use glide_grids
     use glide_ground, only: glide_marinlim
     use stress_hom, only : glide_calcstrsstr
-    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
+    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar, horiz_bcs_stag_scalar, horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns
     use isostasy
 
     implicit none
@@ -811,6 +810,7 @@ end select
 !HALO - Look at marinlim more carefully and see which fields need halo updates before it is called.
 
     call parallel_halo(model%isos%relx)
+    call horiz_bcs_unstag_scalar(model%isos%relx)
 
 !HALO - not sure if needed for glide_marinlim.
     call parallel_halo(model%temper%flwa)
@@ -818,6 +818,7 @@ end select
 
 !HALO - Not sure backstress is ever used
     call parallel_halo(model%climate%backstress)
+    call horiz_bcs_unstag_scalar(model%climate%backstress)
     ! call parallel_halo(model%geometry%usrf) not actually used
 
 !TODO - glissade_marinlim?
@@ -994,10 +995,14 @@ end select
 
 !HALO - I think that these are not needed, provided that glide_stress loops over locally owned cells only.
        !Halo updates required for inputs to glide_stress?
-       call staggered_parallel_halo(model%geomderv%dusrfdew)
-       call staggered_parallel_halo(model%geomderv%dusrfdns)
-       call staggered_parallel_halo(model%geomderv%dthckdew)
-       call staggered_parallel_halo(model%geomderv%dthckdns)
+       call parallel_halo(model%geomderv%dusrfdew)
+       call horiz_bcs_stag_vector_ew(model%geomderv%dusrfdew)
+       call parallel_halo(model%geomderv%dusrfdns)
+       call horiz_bcs_stag_vector_ns(model%geomderv%dusrfdns)
+       call parallel_halo(model%geomderv%dthckdew)
+       call horiz_bcs_stag_vector_ew(model%geomderv%dthckdew)
+       call parallel_halo(model%geomderv%dthckdns)
+       call horiz_bcs_stag_vector_ns(model%geomderv%dthckdns)
 
     
 !TODO - Pretty sure that glide_maskthck is SIA only
@@ -1022,6 +1027,7 @@ end select
 !       provided that thck has been updated.
 
     call staggered_parallel_halo(model%geomderv%stagthck)
+    call horiz_bcs_stag_scalar(model%geomderv%stagthck)
     ! call parallel_halo(model%geometry%thkmask) in earlier glide_set_mask call
 
 
@@ -1081,8 +1087,11 @@ end select
 !TODO - Not sure we need to update ubas, vbas, or surfvel,
 !       because these are already part of the 3D uvel and vvel arrays
     call staggered_parallel_halo(model%velocity%surfvel)
+    call horiz_bcs_stag_scalar(model%velocity%surfvel)
     call staggered_parallel_halo(model%velocity%ubas)
+    call horiz_bcs_stag_vector_ew(model%velocity%ubas)
     call staggered_parallel_halo(model%velocity%vbas)
+    call horiz_bcs_stag_vector_ns(model%velocity%vbas)
 
 
 
@@ -1110,6 +1119,7 @@ end select
 
 !HALO - I think this update is not needed, provided that glide_calcstrsstr loops over locally owned cells.
        call parallel_halo(model%stress%efvs)
+       call horiz_bcs_unstag_scalar(model%stress%efvs)
 
        !Tau is calculated in glide_stress and initialized in glide_types.
        call glide_calcstrsstr( model )       !*sfp* added for populating stress tensor w/ HO fields

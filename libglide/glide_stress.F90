@@ -45,6 +45,7 @@ module stress_hom
 !TODO - Remove scaling.
 ! Confused here because tau0 is never used, whereas len0 and thk0 are used below
         use glimmer_paramets, only : tau0
+        use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
 
         implicit none
 
@@ -129,11 +130,17 @@ module stress_hom
 !       (If they are, they should be moved up to the glissade driver level.)
 
         call parallel_halo(tauxx)
+        call horiz_bcs_unstag_scalar(tauxx)
         call parallel_halo(tauyy)
+        call horiz_bcs_unstag_scalar(tauyy)
         call parallel_halo(tauxy)
+        call horiz_bcs_unstag_scalar(tauxy)
         call parallel_halo(tauxz)
+        call horiz_bcs_unstag_scalar(tauxz)
         call parallel_halo(tauyz)
+        call horiz_bcs_unstag_scalar(tauyz)
         call parallel_halo(tau)
+        call horiz_bcs_unstag_scalar(tau)
         return
 
     end subroutine calcstrsstr

@@ -613,6 +613,7 @@ contains
     !*FD \]
     !*FD Compare this with equation A1 in {\em Payne and Dongelmans}.
     use parallel
+    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
     implicit none 
 
     !------------------------------------------------------------------------------------
@@ -665,6 +666,7 @@ contains
 
 !HALO - I think wgrd is needed only for the old temperature code, which is not supported in parallel.
     call parallel_halo(wgrd)
+    call horiz_bcs_unstag_scalar(wgrd)
   end subroutine gridwvel
 
 !------------------------------------------------------------------------------------------
@@ -684,6 +686,7 @@ contains
     !*FD (This is equation 13 in {\em Payne and Dongelmans}.) Note that this is only 
     !*FD done if the thickness is greater than the threshold given by \texttt{numerics\%thklim}.
     use parallel
+    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
     implicit none
 
     !------------------------------------------------------------------------------------
@@ -783,6 +786,7 @@ contains
 
 !HALO - I think wvel is needed only for the old temperature code, which is not supported in parallel.
     call parallel_halo(wvel)
+    call horiz_bcs_unstag_scalar(wvel)
 
   end subroutine wvelintg
 
@@ -805,6 +809,7 @@ contains
     !*FD condition.
     use parallel
     use glimmer_global, only : sp 
+    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
 
     implicit none
 
@@ -861,6 +866,7 @@ contains
 
 !HALO - I think wvel is needed only for the old temperature code, which is not supported in parallel.
     call parallel_halo(wvel)
+    call horiz_bcs_unstag_scalar(wvel)
 
   end subroutine chckwvel
 

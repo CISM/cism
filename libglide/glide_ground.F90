@@ -143,6 +143,7 @@ contains
       end where
 
       call parallel_halo(ablation_field)
+      call horiz_bcs_unstag_scalar(ablation_field)
       call parallel_halo(thck)
       call horiz_bcs_unstag_scalar(thck)
 
@@ -155,6 +156,7 @@ contains
          thck = 0.0d0
       end where
       call parallel_halo(ablation_field)
+      call horiz_bcs_unstag_scalar(ablation_field)
       call parallel_halo(thck)
       call horiz_bcs_unstag_scalar(thck)
     
@@ -172,6 +174,7 @@ contains
         end do
       end do
       call parallel_halo(ablation_field)
+      call horiz_bcs_unstag_scalar(ablation_field)
       call parallel_halo(thck)
       call horiz_bcs_unstag_scalar(thck)
       ! if uncomment above mask update, then call parallel_halo(mask)
@@ -186,6 +189,7 @@ contains
         thck = 0.0d0
       end where
       call parallel_halo(ablation_field)
+      call horiz_bcs_unstag_scalar(ablation_field)
       call parallel_halo(thck)
       call horiz_bcs_unstag_scalar(thck)
 
@@ -275,7 +279,9 @@ contains
         end do
       end do
       call parallel_halo(backstress)
+      call horiz_bcs_unstag_scalar(backstress)
       call parallel_halo(ablation_field)
+      call horiz_bcs_unstag_scalar(ablation_field)
       call parallel_halo(thck)
       call horiz_bcs_unstag_scalar(thck)
 
@@ -291,6 +297,7 @@ contains
         thck = 0.0d0
       end where
       call parallel_halo(ablation_field)
+      call horiz_bcs_unstag_scalar(ablation_field)
       call parallel_halo(thck)
       call horiz_bcs_unstag_scalar(thck)
     
@@ -309,6 +316,7 @@ contains
         end where
       end if
       call parallel_halo(ablation_field)
+      call horiz_bcs_unstag_scalar(ablation_field)
       call parallel_halo(thck)
       call horiz_bcs_unstag_scalar(thck)
 
@@ -323,6 +331,7 @@ contains
 
   subroutine calc_gline_flux(stagthk, surfvel, mask, gline_flux, ubas, vbas, dew)
 
+    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
     implicit none
 
     !JEFF removing pointer attribute integer, dimension(:,:),pointer       :: mask    !*FD grid type mask
@@ -347,6 +356,7 @@ contains
 
 !HALO - Pretty sure this is not needed.  gline_flux is just a diagnostic.
     call parallel_halo(gline_flux)
+    call horiz_bcs_unstag_scalar(gline_flux)
 
   end subroutine calc_gline_flux
 

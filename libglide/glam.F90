@@ -33,6 +33,7 @@ module glam
 !        are known to be working, we can remove remap_advection and remap_glamutils
     use remap_advection, only: horizontal_remap
     use remap_glamutils
+    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar, horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns
 
 
 !TODO - May not need to use glide_thck
@@ -280,11 +281,15 @@ module glam
            ! Halo updates for velocities, thickness and tracers
           call t_startf('new_remap_halo_upds')
            call staggered_parallel_halo(model%velocity%uvel)
+           call horiz_bcs_stag_vector_ew(model%velocity%uvel)
            call staggered_parallel_halo(model%velocity%vvel)
+           call horiz_bcs_stag_vector_ns(model%velocity%vvel)
            call parallel_halo(model%geometry%thck)
+           call horiz_bcs_unstag_scalar(model%geometry%thck)
            if (model%options%whichtemp == TEMP_REMAP_ADV) then
               !If advecting other tracers, add parallel_halo update here
               call parallel_halo(model%temper%temp)
+              call horiz_bcs_unstag_scalar(model%temper%temp)
            endif
           call t_stopf('new_remap_halo_upds')
 
@@ -349,11 +354,13 @@ module glam
 !HALO - Move these updates to the new glissade driver.
 
         call parallel_halo(model%geometry%thck)
+        call horiz_bcs_unstag_scalar(model%geometry%thck)
 
         if (model%options%whichtemp /= TEMP_GLIMMER) then   ! Glimmer temperature arrays have 
                                                             ! extra horizontal dimensions; not supported
                                                             ! for halo updates
            call parallel_halo(model%temper%temp)
+           call horiz_bcs_unstag_scalar(model%temper%temp)
         endif
        call t_stopf('after_remap_haloupds')
 

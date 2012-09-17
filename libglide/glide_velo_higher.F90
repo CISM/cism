@@ -43,6 +43,7 @@ contains
 
 !TODO - Don't think we need glide_thckmask
         use glide_thckmask
+        use glimmer_horiz_bcs, only: horiz_bcs_stag_scalar
         
         type(glide_global_type),intent(inout) :: model
         !For HO masking
@@ -57,6 +58,7 @@ contains
         call glide_set_mask(model%numerics, model%geomderv%stagthck, model%geomderv%stagtopg, &
                             model%general%ewn-1, model%general%nsn-1, model%climate%eus, &
                             geom_mask_stag) 
+        call horiz_bcs_stag_scalar(geom_mask_stag)
 
         !Augment masks with kinematic boundary condition info
         call augment_kinbc_mask(model%geometry%thkmask, model%velocity%kinbcmask)
