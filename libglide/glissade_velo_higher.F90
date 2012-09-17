@@ -151,6 +151,7 @@
     ! Assign global indices to each cell and vertex.
     ! (Not sure where these will be needed.)
     !----------------------------------------------------------------
+    implicit none
 
     integer, intent(in) ::   &
        nx,  ny,              &     ! number of grid cells in each direction
@@ -435,6 +436,8 @@
                                         whichresid,             &
                                         whichnonlinear,         &
                                         whichsparse)
+    use glam_strs2, only: linearSolveTime, totalLinearSolveTime
+    implicit none
 
     !--------------------------------------------------------
     ! Input-output variables
@@ -905,6 +908,7 @@
     ! Compute the residual vector Ax - b and its L2 norm.
 
     use parallel
+    implicit none
 
     type(sparse_matrix_type), intent(in) ::  &
        matrix             ! sparse matrix, defined in glimmer_sparse_types
@@ -951,6 +955,7 @@
                                        resid_velo)
 
     use parallel
+    implicit none
 
     integer, intent(in) ::   &
        nhalo,           & ! number of layers of halo cells
@@ -1084,6 +1089,7 @@
     !---------------------------------------------------------
     ! Input-output variables
     !---------------------------------------------------------
+    implicit none
 
     integer, intent(in) :: nNodes        ! number of active nodes
 
@@ -1225,6 +1231,7 @@
   ! Extract the velocities from the solution vector.
                                             
 !    use parallel
+    implicit none
 
     !---------------------------------------------------------
     ! Input-output variables
@@ -1274,6 +1281,7 @@
     !---------------------------------------------------------
     ! Input-output variables
     !---------------------------------------------------------
+    implicit none
 
     integer, intent(in) ::      &
        nx, ny,                  &    ! horizontal grid dimensions
@@ -1452,6 +1460,7 @@
                                        Auu,              Auv,          &
                                        Avu,              Avv)
 
+    implicit none
     integer, intent(in) ::      &
        nx, ny,                  &    ! horizontal grid dimensions
        nlyr,                    &    ! number of vertical layers
@@ -1714,6 +1723,7 @@
     ! 
     ! This subroutine should work for any 3D element with any number of nodes.
     !------------------------------------------------------------------
+    implicit none
 
     integer, intent(in) :: nNodesPerElement   ! number of nodes per element
  
@@ -1943,6 +1953,7 @@
     ! This subroutine will work for any 3D element with any number of nodes.
     !------------------------------------------------------------------
 
+    implicit none
 !whl - debug - Pass in i, j, k, and p for now
     integer, intent(in) :: ii, jj, k, p
 
@@ -2000,6 +2011,7 @@
     ! So this subroutine is called four times per element.
 
 !whl - Pass in i, j, k for now
+    implicit none
     integer, intent(in) :: i, j, k
 
     integer, intent(in) ::   &
@@ -2065,6 +2077,7 @@
   subroutine assemble_load_vector(nElements,        nNodes,      &
                                   bu,               bv)
 
+    implicit none
     integer, intent(in) ::   &
        nElements,    &    ! number of elements on this processor
        nNodes             ! number of nodes associated with these elements
@@ -2097,6 +2110,7 @@
     ! This check should not be needed for production runs with a well-tested code,
     !  but is included for now to help with debugging.
     !------------------------------------------------------------------
+    implicit none
 
     integer, intent(in) :: nNodesPerElement  ! number of nodes per element
 
@@ -2167,6 +2181,7 @@
     ! This check should not be needed for production runs with a well-tested code,
     !  but is included for now to help with debugging.
     !------------------------------------------------------------------    
+    implicit none
 
     integer, intent(in) :: nNodes     ! number of active nodes = number of rows of Auu, etc.
 
@@ -2368,6 +2383,7 @@
   !---------------------------------------------------------------------------
   ! in-out variables
   !---------------------------------------------------------------------------
+  implicit none
 
   integer, intent(in) ::  &
       ewn, nsn                  ! horizontal grid dimensions
