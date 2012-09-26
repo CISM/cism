@@ -4720,7 +4720,7 @@ subroutine getlatboundinfo( ew, ns, up, ewn, nsn, upn,  &
   ! when function 'fillsprsebndy' is called. Also, specify appropriate values for the vectors 'normal'
   ! and 'fwdorbwd', which specify the orientation of the boundary normal and the direction of forward or
   ! backward differencing to be done in the lateral boundary condition functions 'normhorizmainbc_lat'
-  ! and 'crosshorizmainbc_lat'
+  ! and 'croshorizmainbc_lat'
 
   ! following is algorithm for calculating boundary normal at 45 deg. increments, based on arbitray
   ! boundary shape (based on initial suggestions by Anne LeBrocq)
@@ -5392,25 +5392,25 @@ end subroutine putpcgc
 !***********************************************************************
 
   function distributed_globalID_to_localindex(globalID)
-  	! distributed_globalID_to_localindex converts a globalID to its position in the solution vector. 
-        ! It is a utility function that is not currently used, but retained for future debugging capability.
-  	! The function searches loc2_array(:,:,1) for the globalID closest to the 
-        ! given globalID, then uses this difference and loc2_array(:,:,2) for the same ew,ns coordinates
-        ! to calculate (and return) the corresponding index.
-        ! Result is checked using myIndices.
-  	! loc2_array is assumed to be a module-level variable set by the routine getlocationarray.
-  	! myIndices is assumed to be a module-level variable which holds the local processor's ID partition list.
-  	! This function will work for both globalIDs and regular partitions.
-  	! In the latter case it is redundant, because the ID will be at the same index, so it is just an identity function.
-  	! Original implementation using myIndices, and then fast inverse, by JEFF 11/2010 and 11/2011
-        ! Current loc2_array-based implementation by PW 12/2011
-	  use parallel
+  ! distributed_globalID_to_localindex converts a globalID to its position in the solution vector. 
+  ! It is a utility function that is not currently used, but retained for future debugging capability.
+  ! The function searches loc2_array(:,:,1) for the globalID closest to the 
+  ! given globalID, then uses this difference and loc2_array(:,:,2) for the same ew,ns coordinates
+  ! to calculate (and return) the corresponding index.
+  ! Result is checked using myIndices.
+  ! loc2_array is assumed to be a module-level variable set by the routine getlocationarray.
+  ! myIndices is assumed to be a module-level variable which holds the local processor's ID partition list.
+  ! This function will work for both globalIDs and regular partitions.
+  ! In the latter case it is redundant, because the ID will be at the same index, so it is just an identity function.
+  ! Original implementation using myIndices, and then fast inverse, by JEFF 11/2010 and 11/2011
+  ! Current loc2_array-based implementation by PW 12/2011
+          use parallel
 
- 	  implicit none
+          implicit none
 
-	  integer, intent(in) :: globalID
+          integer, intent(in) :: globalID
 
-	  integer :: distributed_globalID_to_localindex
+          integer :: distributed_globalID_to_localindex
 
 #ifdef globalIDs
       !JEFF integer :: GlobalIDsGet ! C++ function with return value
@@ -5419,7 +5419,7 @@ end subroutine putpcgc
           integer :: curdiff, mindiff
           integer :: lindex
 
-      ! loc2_array-based search
+         ! loc2_array-based search
           minew = 1
           minns = 1
           mindiff = globalID
@@ -5712,10 +5712,13 @@ end subroutine slapsolve
 
 
 !***********************************************************************************************
-!OSBC: Below here are older subroutines that have been replaced by newer or slightly altered ones
-! to allow for the new one-sided bc implementatation at the sfc and bed.
+!BELOW here are deprecated boundary condition subroutines that have been replaced by newer 
+! ones (using one sided differences) or slightly altered ones.
 !***********************************************************************************************
 
+!***********************************************************************************************
+!NOTE: This subroutine has been deprecated because it is has been replaced by
+! 'normhorizmainbcos', where the "os" stands for one-sided difference.
 function normhorizmainbc(dew,       dns,        &
                          dusrfdew,  dusrfdns,   &
                          dsigmadew, dsigmadns,  &
@@ -5887,7 +5890,8 @@ function croshorizmainbc(dew,       dns,       &
 end function croshorizmainbc
 
 !***********************************************************************************************
-!OSBC:ABOVE here are older subroutines that have been replaced by newer or slightly altered ones
+!ABOVE here are deprecated boundary condition subroutines that have been replaced by newer 
+! ones (using one sided differences) or slightly altered ones.
 !***********************************************************************************************
  
 
