@@ -6,7 +6,17 @@
 !
 ! This module contains routines for computing the ice velocity
 !  using a variational finite-element approach.
-! See Dukowicz, Price and Lipscomb (J. Glaciology, 2010).
+!
+! See these papers for details:
+!
+! J.K. Dukowicz, S.F. Price and W.H. Lipscomb, 2010: Consistent
+!    approximations and boundary conditions for ice-sheet dynamics
+!    using a principle of least action.  J. Glaciology, 56 (197),
+!    480-495.
+!
+! M. Perego, M. Gunzburger, and J. Burkardt, 2012: Parallel
+!    finite-element implementation for higher-order ice-sheet models.
+!    J. Glaciology, 58 (207), 76-88.
 !
 ! Author: William Lipscomb
 !         Los Alamos National Laboratory
@@ -21,6 +31,7 @@
 
     use glimmer_global, only: sp, dp
     use glimmer_physcon, only: gn, rhoi, rhoo, grav
+    use glimmer_paramets, only: thk0, len0, tim0   !TODO - remove thk0 and len0
     use glimmer_log, only: write_log
     use glimmer_sparse_type
     use glimmer_sparse
@@ -81,17 +92,6 @@
     real(dp), dimension(:,:), allocatable :: &
        xVertex, yVertex       ! x and y coordinates of each vertex
 
-!whl - Can remove gVerticesOnVertex
-!      Might want to replace gVerticesOnCell with gNodesOnElement in FE subroutines
-  
-!whl - remove this one too?
-!    integer, dimension(:,:), allocatable ::    &
-!       VertexOnCellID        ! VertexID for each vertex of each cell
-
-!    integer, dimension(:,:), allocatable ::    &
-!       gVerticesOnVertex,   &! global index of vertices neighboring a given vertex
-!       gVerticesOnCell       ! global index of vertices of a given cell
-
     !----------------------------------------------------------------
     ! Finite element properties
     !
@@ -111,7 +111,7 @@
     !----------------------------------------------------------------
 
     real(dp), dimension(nNodesPerElement, nQuadPoints) ::   & 
-       phi,            &    ! interpolation function, evaluated at quad pts
+       phi,            &    ! basis function, evaluated at quad pts
        dphi_dxr,       &    ! dphi/dx for reference element, evaluated at quad pts
        dphi_dyr,       &    ! dphi/dy for reference element, evaluated at quad pts
        dphi_dzr             ! dphi/dy for reference element, evaluated at quad pts
@@ -131,9 +131,9 @@
 !whl - debug
     logical :: verbose_init = .false.   ! for debug print statements
     logical :: verbose_Jac = .false.
-    logical :: verbose = .false.  
-    logical :: verbose_test = .true.
+    logical :: verbose = .true.  
 !whl - debug
+
     integer, parameter :: &
        itest = 24, jtest = 17, ktest = 1
 
@@ -151,9 +151,6 @@
     ! Assign global indices to each cell and vertex.
     ! (Not sure where these will be needed.)
     !----------------------------------------------------------------
-
-!TODO - Remove 'implicit none' from these and other subroutines
-    implicit none
 
     integer, intent(in) ::   &
        nx,  ny,              &     ! number of grid cells in each direction
@@ -428,7 +425,7 @@
                                         sigma,    &
                                         nhalo,    &
                                         thck,     usfc,     &
-                                        stagthck, stagusfc, &
+!!                                        stagthck, stagusfc, &
                                         thklim,             &
                                         flwa,     &
                                         uvel,     vvel,     &
@@ -442,11 +439,9 @@
 !TODO - Something like these may be needed if building with Trilinos.
 !!    use glam_strs2, only: linearSolveTime, totalLinearSolveTime
 
-    implicit none
-
-    !--------------------------------------------------------
-    ! Input-output variables
-    !--------------------------------------------------------
+    !----------------------------------------------------------------
+    ! Input-output arguments
+    !----------------------------------------------------------------
 
 !TODO - Compute nx, ny, and nlyr based on size(thck) and size(flwa)?
 !Note: nlyr = upn-1; change to nz = upn?
@@ -463,9 +458,10 @@
        thck,                 &  ! ice thickness
        usfc                     ! upper surface elevation
 
-    real (dp), dimension(:,:), intent(in) ::  &
-       stagusfc,            & ! upper surface averaged to vertices
-       stagthck               ! ice thickness averaged to vertices
+!TODO - May want to compute locally instead of passing in
+!    real (dp), dimension(:,:), intent(in) ::  &
+!       stagusfc,            & ! upper surface averaged to vertices
+!       stagthck               ! ice thickness averaged to vertices
 
     real(dp), intent(in) ::   & 
        thklim                 ! minimum ice thickness for active cells
@@ -489,7 +485,6 @@
 
     integer, parameter :: cmax = 300          ! max number of outer iterations
 
-
     !WHL - What I call resid_target is called minresid in glam_strs2
     !TODO - I think these values are tuned for old scaling parameters; adjust them?
     real(dp), parameter :: resid_target = 1.0d-04   ! assume velocity fields have converged below this resid 
@@ -504,9 +499,17 @@
        nElements,         &   ! no. of elements (nlyr per active cell)
        nNodes                 ! no. of nodes belonging to these elements
 
-    ! Change dimensions to nCells and nVertices?
+    real(dp), dimension(nx-1,ny-1) ::   &
+       stagusfc,            & ! upper surface averaged to vertices
+       stagthck               ! ice thickness averaged to vertices
+
+    real(dp), dimension(nx,ny) ::        &
+       rmask                    ! = 1. where ice is present, else = 0.
+
     logical, dimension(nx,ny) :: &
-       active_cell,       &   ! true for active cells (thck > thklim)
+       active_cell            ! true for active cells (thck > thklim)
+
+    logical, dimension(nx-1,ny-1) :: &
        active_vertex          ! true for vertices of active cells
 
     integer, dimension(nlyr+1,nx,ny) ::  &
@@ -521,8 +524,12 @@
     integer, dimension(nNodesPerElement,nlyr,nx,ny) ::  &
        NodeOnElementID     ! node ID for each node of each element
 
-    real(dp), dimension(nlyr,nx,ny) :: &
-       visc               ! effective viscosity of each element
+!    real(dp), dimension(nlyr,nx,ny) :: &
+!       visc               ! effective viscosity of each element
+
+    real(dp), dimension(nlyr,nx,ny) ::  &
+       flwafact           ! temperature-based flow factor, 0.5 * A^(-1/n), 
+                          ! used to compute effective viscosity
 
     real(dp), dimension(:,:,:), allocatable ::   &
        usav, vsav         ! previous guess for velocity solution
@@ -565,15 +572,19 @@
        counter,         & ! outer (nonlinear) iteration counter
        iter               ! linear iteration count from sparse_easy_solve
 
-!whl - debug
-    real(dp), dimension(:,:), allocatable :: Atest, Auu_test, Auv_test, Avu_test, Avv_test
     integer :: i, j, k, n
 
-    logical, parameter :: test_matrix = .true.
-    integer, parameter :: test_order = 2
+!whl - debug
+    logical, parameter :: test_matrix = .false.
+    integer, parameter :: test_order = 3
+
+    if (test_matrix) then
+       call solve_test_matrix(test_order, whichsparse)
+    endif
 
     !------------------------------------------------------------------------------
     ! Setup for higher-order solver: Compute nodal geometry, allocate storage, etc.
+    ! These are quantities that do not change during the outer nonlinear loop. 
     !------------------------------------------------------------------------------
 
     if (verbose) then
@@ -586,18 +597,58 @@
        print*, 'max usfc:', maxval(usfc(:,:))
        print*, ' '
     endif
+ 
+    ! Compute real mask: = 1 where ice is present, 0 elsewhere
+
+    do j = 1, ny
+       do i = 1, nx
+          if (thck(i,j) > thklim) then
+	     rmask(i,j) = 1.d0
+          else
+             rmask(i,j) = 0.d0
+          endif
+       enddo
+    enddo
+
+    ! Compute ice thickness on staggered grid
+
+    call staggered_scalar(nx,           ny,         &
+                          nhalo,        rmask,      &
+                          thck,         stagthck)
+
+    ! Compute upper surface elevation on staggered grid
+
+    call staggered_scalar(nx,           ny,         &
+                          nhalo,        rmask,      &
+                          usfc,         stagusfc)
 
     ! Identify and count the active cells (i.e., cells with thck > thklim)
+    ! Assign a unique ID to each node, and identify the nodes of each element.
 
+    !TODO - active_vertex may not be needed as output
     call get_nodal_geometry(nx,          ny,       &   
                             nlyr,        nhalo,       sigma,    &
                             thck,        thklim,  &
                             stagusfc,    stagthck, &
-                            nElements,   nNodes,      active_cell,    &
+                            nElements,   nNodes,          & 
+                            active_cell, active_vertex,   &
                             NodeID,      NodeOnElementID,             &
                             iNodeIndex,  jNodeIndex,  kNodeIndex,   &
                             xNode,       yNode,       zNode)
 
+    ! Compute flow factor appearing in the expression for effective viscosity.
+
+    do j = 1, ny
+       do i = 1, nx
+          if (thck(i,j) > thklim) then
+             ! gn = exponent in Glen's flow law (= 3 by default)
+             flwafact(:,i,j) = 0.5d0 * flwa(:,i,j)**(-1.d0/real(gn,dp))  
+          else
+             flwafact(:,i,j) = 0.d0
+          endif
+       enddo
+    enddo
+ 
     if (verbose) then
        print*, ' '
        i = itest; j = jtest; k = ktest
@@ -605,6 +656,15 @@
        print*, 'NodeID =', NodeID(k,i,j)
        print*, 'NodeOnElementID =', NodeOnElementID(:,k,i,j)
        print*, ' '
+       print*, 'thck(j+1):', thck(i:i+1,j+1)
+       print*, 'thck(j)  :', thck(i:i+1,j)
+       print*, 'stagthck :', stagthck(i,j)
+       print*, ' '
+       print*, 'usfc(j+1):', usfc(i:i+1,j+1)
+       print*, 'usfc(j)  :', usfc(i:i+1,j)
+       print*, 'stagusfc :', stagusfc(i,j)
+       print*, ' '
+       print*, 'flwa, flwafact:', flwa(k,i,j), flwafact(k,i,j)
     endif
 
     ! Allocate space for the intermediate (dense) stiffness matrix and rhs vector
@@ -625,43 +685,22 @@
        print*, 'nNonzero = ', nNonzero
     endif
 
-!whl - debug
-    if (test_matrix) then
-       matrix_order = test_order
-       nNonzero = matrix_order*matrix_order    ! not sure how big this must be
-       allocate(Atest(matrix_order,matrix_order))
-       Atest(:,:) = 0.d0
-       if (verbose_test) then
-          print*, ' '
-          print*, 'Test matrix order =', test_order
-       endif
-    endif
-
-!       allocate(Auu_test(2,2), Auv_test(2,2), Avu_test(2,2), Avv_test(2,2))  ! try this later
-
-
     allocate(matrix%row(nNonzero), matrix%col(nNonzero), matrix%val(nNonzero))
     allocate(rhs(matrix_order), answer(matrix_order), resid_vec(matrix_order))
-
-    if (test_matrix) then
-       rhs(:) = 0.d0
-       answer(:) = 0.d0
-       matrix%row(:) = 0
-       matrix%col(:) = 0
-       matrix%val(:) = 0.d0
-    endif
 
     ! Allocate space for velocity vectors (saved from previous guess)
 
     !TODO - Use 'size' function to make sure these are the same size as uvel, vvel.
 
     allocate(usav(nlyr+1,nx-1,ny-1), vsav(nlyr+1,nx-1,ny-1))  
+    print*, 'size(uvel, vvel) =', size(uvel), size(vvel)
+    print*, 'size(usav, vsav) =', size(usav), size(vsav)
 
     !---------------------------------------------------------------
     ! Solve Ax = b
     !---------------------------------------------------------------
 
-    ! Much of the following is copied from glam_strs2.F90
+    ! Much of the following is based on glam_strs2.F90
 
     ! set initial values
 
@@ -722,139 +761,56 @@
        usav(:,:,:) = uvel(:,:,:)
        vsav(:,:,:) = vvel(:,:,:)
 
-!whl - debug
-       if (test_matrix) go to 50
-
-       ! TODO: Compute the effective viscosity for each element 
-       !       (ideally by summing over quadrature points)
-
-       ! These are the arguments in glam_strs2
-!       call compute_effective_viscosity (ewn,  nsn,  upn,      &
-!                                         stagsigma,  counter,  &
-!                                         whichefvs,  efvs,     &
-!                                         uvel,       vvel,     &
-!                                         flwa,       thck,     &
-!                                         dusrfdew,   dthckdew, &
-!                                         dusrfdns,   dthckdns, &
-!                                         umask)
-
-
-       ! Assemble the stiffness matrix
-       !TODO - Remove unneeded arguments.
+       ! Assemble the stiffness matrix A and load vector b in the linear system Ax = b
 
        if (verbose) then
           print*, ' '
-          print*, 'call assemble_stiffness_matrix'
+          print*, 'call assemble_linear_system'
        endif
 
-       call assemble_stiffness_matrix(nx, ny, nlyr,  nhalo,              &
-                                      active_cell,                       &
-                                      nCells,           nActiveCells,    &
-                                      NodeID,           NodeOnElementID, &
-                                      iNodeIndex,       jNodeIndex,      &
-                                      kNodeIndex,                        &
-                                      xNode,            yNode,           &
-                                      zNode,                             &
-                                      nElements,        nNodes,          &
-                                      visc,                              &
-                                      Auu,              Auv,             &
-                                      Avu,              Avv)
+       !TODO - Remove unneeded arguments?
+
+       call assemble_linear_system(nx, ny, nlyr,  nhalo,              &
+                                   active_cell,                       &
+                                   nCells,           nActiveCells,    &
+                                   NodeID,           NodeOnElementID, &
+                                   iNodeIndex,       jNodeIndex,      &
+                                   kNodeIndex,                        &
+                                   xNode,            yNode,           &
+                                   zNode,                             &
+                                   nElements,        nNodes,          &
+                                   uvel,             vvel,            &
+                                   stagusfc,         flwafact,        &
+                                   whichefvs,                         &
+                                   Auu,              Auv,             &
+                                   Avu,              Avv,             &
+                                   bu,               bv)
        
-       if (verbose) print*, 'Assembled the stiffness matrix'
+       if (verbose) print*, 'Assembled the stiffness matrix and load vector'
 
 !!       stop
 
-       ! TODO: Assemble the load vector
+       !TODO - Should this be done in the same subroutine as matrix assembly?
+       ! Assemble the load vector
 
-       call assemble_load_vector(nElements,        nNodes,      &
-                                 bu,               bv)
+!       call assemble_load_vector(nx, ny, nlyr,  nhalo,              &
+!                                 active_cell,                       &
+!                                 NodeID,           NodeOnElementID, &
+!                                 iNodeIndex,       jNodeIndex,     kNodeIndex,   &     
+!                                 xNode,            yNode,          zNode,        &
+!                                 phi,              stagusfc,        &
+!                                 bu,               bv)
+
+
+       ! Incorporate Dirichlet boundary conditions
 
 
        ! Put the nonzero matrix elements into the required sparse format
        ! (For SLAP solver; may not be needed for Trilinos)
 
-!WHL - debug - Test sparse_easy_solve
-   50  continue
-
-       matrix%order = matrix_order   ! set above   
+       matrix%order = matrix_order
        matrix%nonzeros = nNonzero
        matrix%symmetric = .false.
-
-       rhs(:) = 0.d0
-       answer(:) = 0.d0   ! initial guess
-
-       if (matrix%order == 2) then
-          Atest(1,1:2) = (/3.d0, 2.d0 /)
-          Atest(2,1:2) = (/2.d0, 6.d0 /)
-          rhs(1:2) = (/2.d0, -8.d0 /)   ! answer = (2 -2) 
-       elseif (matrix%order == 3) then
-
-           ! identity
-!          Atest(1,1:3) = (/1.d0,  0.d0,  0.d0 /)
-!          Atest(2,1:3) = (/0.d0,  1.d0,  0.d0 /)
-!          Atest(3,1:3) = (/0.d0,  0.d0,  1.d0 /)
-!          rhs(1:3)   =  (/1.d0, 2.d0, 3.d0 /)     ! answer = (1 2 3)
-
-          ! symmetric
-          Atest(1,1:3) = (/ 7.d0, -2.d0,  0.d0 /)
-          Atest(2,1:3) = (/-2.d0,  6.d0, -2.d0 /)
-          Atest(3,1:3) = (/ 0.d0, -2.d0,  5.d0 /)
-          rhs(1:3)   =   (/ 3.d0,  8.d0,  1.d0 /)   ! answer = (1 2 1)
-
-          ! non-symmetric
-!          Atest(1,1:3) = (/3.d0,   1.d0,  1.d0 /)
-!          Atest(2,1:3) = (/2.d0,   2.d0,  5.d0 /)
-!          Atest(3,1:3) = (/1.d0,  -3.d0, -4.d0 /)
-!          rhs(1:3)   =  (/ 6.d0,  11.d0, -9.d0 /)   ! answer = (1 2 1)
-
-       else if (matrix%order == 4) then
-          Atest(1,1:4) = (/3.d0,  0.d0,  2.d0, -1.d0 /)
-          Atest(2,1:4) = (/1.d0,  2.d0,  0.d0,  2.d0 /)
-          Atest(3,1:4) = (/4.d0,  0.d0,  6.d0, -3.d0 /)
-          Atest(4,1:4) = (/5.d0,  0.d0,  2.d0,  0.d0 /)
-          rhs(1:4)    = (/ 6.d0,  7.d0, 13.d0,  9.d0 /)   ! answer = (1 2 2 1)
-       endif
-
-       if (verbose_test) then
-          print*, ' '
-          print*, 'Atest =', Atest
-          print*, 'rhs =', rhs
-       endif
-
-       ! Put in SLAP triad format
-       n = 0
-       do j = 1, matrix%order
-          do i = 1, matrix%order
-             n = n + 1
-             matrix%row(n) = i
-             matrix%col(n) = j
-             matrix%val(n) = Atest(i,j)
-          enddo
-       enddo
-
-       if (verbose_test) then
-          print*, ' '
-          print*, 'row,       col,       val:'
-          do n = 1, matrix%order*matrix%order
-             print*, matrix%row(n), matrix%col(n), matrix%val(n)
-          enddo
-       endif
-
-!whl - debug - skip solver_preprocess for now
-       if (test_matrix) go to 100
-
-          ! for testing Auu, etc.
-          Auu_test(1,1:2) = (/ 1.d0, 2.d0 /)
-          Auu_test(2,1:2) = (/ 2.d0, 3.d0 /)
-
-          Auv_test(1,1:2) = (/ 3.d0, 4.d0 /)
-          Auv_test(2,1:2) = (/ 4.d0, 5.d0 /)
-
-          Avu_test(1,1:2) = (/ 3.d0, 4.d0 /)
-          Avu_test(2,1:2) = (/ 4.d0, 5.d0 /)
-
-          Avv_test(1,1:2) = (/ 5.d0, 6.d0 /)
-          Avv_test(2,1:2) = (/ 6.d0, 7.d0 /)
 
        ! Given the intermediate stiffness matrices (Auu, etc.) and load vector (bu, bv),
        ! form the global matrix (in sparse matrix format) and rhs.
@@ -868,34 +824,32 @@
                               matrix_order, nNonzero,  &
                               matrix,       rhs,   &
                               answer)
-                                       
-100    continue
 
-       ! Solve the linear matrix problem
-
-       call sparse_easy_solve(matrix, rhs, answer, err, iter, whichsparse)
-
-       if (verbose_test) then
-          print*, ' '
-          print*, 'Called sparse_easy_solve, whichsparse, order =', whichsparse, matrix%order
-          print*, 'answer =', answer
-          print*, 'err =', err       
-          print*, 'iter =', iter
-       endif
-
+       !whl - Stop here for now
        stop
-
-!whl - end debug
 
        !TODO - glam_strs2 calls res_vect here--why?
        !!!call res_vect( matrix, vk_1, rhs, size(rhs), g_flag, L2square, whichsparse )
        !! L2norm  = L2square
        !! F(1:pcgsize(1)) = vk_1(:)
 
+       ! Solve the linear matrix problem
+
        if (whichsparse /= STANDALONE_TRILINOS_SOLVER) then
+
           call sparse_easy_solve(matrix, rhs, answer, err, iter, whichsparse)
+
+          if (verbose) then
+             print*, ' '
+             print*, 'Called sparse_easy_solve, whichsparse, order =', whichsparse, matrix%order
+!             print*, 'answer =', answer
+             print*, 'err =', err       
+             print*, 'iter =', iter
+          endif
+
 #ifdef TRILINOS
        else
+
 !whl - Commented out for now until testing later with Trilinos
 !!          call solvewithtrilinos(rhs, answer, linearSolveTime)
 !!          totalLinearSolveTime = totalLinearSolveTime + linearSolveTime
@@ -969,365 +923,50 @@
 
 !****************************************************************************
 
-  subroutine compute_residual_vector(matrix, answer, rhs, &
-                                     resid_vec, L2_norm)
+  subroutine staggered_scalar(nx,           ny,        &
+                              nhalo,        rmask,     &
+                              var,          stagvar)
 
-    ! Compute the residual vector Ax - b and its L2 norm.
-
-    use parallel
-    implicit none
-
-    type(sparse_matrix_type), intent(in) ::  &
-       matrix             ! sparse matrix, defined in glimmer_sparse_types
-                          ! includes nonzeroes, order, col, row, val 
-
-    real(dp), dimension(:), intent(in) ::   &
-       rhs,             & ! right-hand-side (b) in Ax = b
-       answer             ! answer (x) in Ax = b
-
-    real(dp), dimension(:), intent(out) ::   &
-       resid_vec          ! residual vector
-
-    real(dp), intent(out) ::    &
-       L2_norm             ! L2 norm of residual vector
-
-    integer :: i, j, n
-
-    resid_vec(:) = 0.d0
-
-    do n = 1, matrix%nonzeros
-       i = matrix%row(n)
-       j = matrix%col(n)
-       resid_vec(i) = resid_vec(i) + matrix%val(n)*answer(j)
-    enddo
-
-    L2_norm = 0.d0
-    do n = 1, matrix%order
-       resid_vec(i) = resid_vec(i) - rhs(i)
-       L2_norm = L2_norm + resid_vec(i)*resid_vec(i)
-    enddo
-
-!TODO - Parallel sum
-!    L2_norm = parallel_reduce_sum(L2_norm)
-
-    L2_norm = sqrt(L2_norm)
-
-  end subroutine compute_residual_vector
-
-!****************************************************************************
-
-  subroutine compute_residual_velocity(nhalo,  whichresid, &
-                                       uvel,   vvel,        &
-                                       usav,   vsav,        &
-                                       resid_velo)
-
-    use parallel
-    implicit none
+    !----------------------------------------------------------------
+    ! Input-output arguments
+    !----------------------------------------------------------------
 
     integer, intent(in) ::   &
-       nhalo,           & ! number of layers of halo cells
-       whichresid         ! option for method to use when calculating residual
+       nx, ny,               &  ! horizontal grid dimensions
+       nhalo                    ! number of rows/columns of halo cells
 
-    real(dp), dimension(:,:,:), intent(in) ::  &
-       uvel, vvel,      & ! current guess for velocity
-       usav, vsav         ! previous guess for velocity
+    real(dp), dimension(nx,ny), intent(in) ::        &
+       rmask                    ! = 1. where ice is present, else = 0.
 
-    real(dp), intent(out) ::    &
-       resid_velo         ! quantity related to velocity convergence
+    real(dp), dimension(nx,ny), intent(in) ::    &
+       var                      ! scalar field defined at cell centers
 
+    real(dp), dimension(nx-1,ny-1), intent(out) ::    &
+       stagvar                  ! staggered field defined at cell corners
 
-    integer ::   &
-       imaxdiff, jmaxdiff, kmaxdiff   ! location of maximum speed difference
-                                      ! currently computed but not used
- 
-    integer :: i, j, k, count
-
-    real(dp) ::   &
-       speed,      &   ! current guess for ice speed
-       oldspeed,   &   ! previous guess for ice speed
-       diffspeed       ! abs(speed-oldspeed)
-
-
-  ! Compute a residual quantity based on convergence of the velocity field.
-  !TODO - Are all of these methods needed?
-
-  ! options for residual calculation method, as specified in configuration file
-  ! (see additional notes in "higher-order options" section of documentation)
-  ! case(0): use max of abs( vel_old - vel ) / vel )
-  ! case(1): use max of abs( vel_old - vel ) / vel ) but ignore basal vels
-  ! case(2): use mean of abs( vel_old - vel ) / vel )
-  ! case(3): use max of abs( vel_old - vel ) / vel ) (in addition to L2 norm)
-
-    resid_velo = 0.d0
-    imaxdiff = 0
-    jmaxdiff = 0
-    kmaxdiff = 0
-
-    select case (whichresid)
-
-    case(1)   ! max speed difference, excluding the bed
-
-       do j = 1+nhalo, size(uvel,3)-nhalo
-          do i = 1+nhalo, size(uvel,2)-nhalo
-             do k = 1, size(uvel,1) - 1         ! ignore bed velocity
-                speed = sqrt(uvel(k,i,j)**2 + vvel(k,i,j)**2)
-                if (speed /= 0.d0) then
-                   oldspeed = sqrt(usav(k,i,j)**2 + vsav(k,i,j)**2)
-                   diffspeed = abs((oldspeed - speed)/speed)
-                   if (diffspeed > resid_velo) then
-                      resid_velo = diffspeed
-                      imaxdiff = i
-                      jmaxdiff = j
-                      kmaxdiff = k
-                   endif
-                endif
-             enddo
-          enddo
-       enddo
-       
-       resid_velo = parallel_reduce_max(resid_velo)
-
-    case(2)   ! mean relative speed difference
-
-       count = 0
-
-       do j = 1+nhalo, size(uvel,3)-nhalo
-          do i = 1+nhalo, size(uvel,2)-nhalo
-             do k = 1, size(uvel,1) - 1         ! ignore bed velocity
-                speed = sqrt(uvel(k,i,j)**2 + vvel(k,i,j)**2)
-                if (speed /= 0.d0) then
-                   count = count+1
-                   oldspeed = sqrt(usav(k,i,j)**2 + vsav(k,i,j)**2)
-                   diffspeed = abs((oldspeed - speed)/speed)                
-                   resid_velo = resid_velo + diffspeed
-                endif
-             enddo
-          enddo
-       enddo
-
-       if (count > 0) resid_velo = resid_velo / count
-
-       call not_parallel(__FILE__, __LINE__)
-       !TODO - parallel reduction for mean
-
-   case default    ! max speed difference, including basal speeds  (case 0 or 3)
-
-       do j = 1+nhalo, size(uvel,3)-nhalo
-          do i = 1+nhalo, size(uvel,2)-nhalo
-             do k = 1, size(uvel,1)
-                speed = sqrt(uvel(k,i,j)**2 + vvel(k,i,j)**2)
-                if (speed /= 0.d0) then
-                   oldspeed = sqrt(usav(k,i,j)**2 + vsav(k,i,j)**2)
-                   diffspeed = abs((oldspeed - speed)/speed)
-                   if (diffspeed > resid_velo) then
-                      resid_velo = diffspeed
-                      imaxdiff = i
-                      jmaxdiff = j
-                      kmaxdiff = k
-                   endif
-                endif
-             enddo
-          enddo
-       enddo
-
-       resid_velo = parallel_reduce_max(resid_velo)
-       
-  end select
-
-  end subroutine compute_residual_velocity
-
-!****************************************************************************
-
-
-  subroutine solver_preprocess(nNodes,       NodeID,        &
-                               iNodeIndex,   jNodeIndex,  kNodeIndex,  &
-                               Auu,          Auv,   &
-                               Avu,          Avv,   &
-                               bu,           bv,    &
-                               uvel,         vvel,  &
-                               matrix_order, nNonzero,  &
-                               matrix,       rhs,   &
-                               answer)
-
-    ! Using the intermediate matrices (Auu, Auv, Avu, Avv), load vectors (bu, bv),
-    ! and velocity components (uvel, vvel), form the matrix and the rhs and answer
-    ! vectors in the desired sparse matrix format.
-
-    !---------------------------------------------------------
-    ! Input-output variables
-    !---------------------------------------------------------
-    implicit none
-
-    integer, intent(in) :: nNodes        ! number of active nodes
-
-    integer, dimension(:,:,:), intent(in) ::  &
-        NodeID             ! ID for each active node
-
-    integer, dimension(:), intent(in) ::   &
-       iNodeIndex, jNodeIndex, kNodeIndex   ! i, j and k indices of active nodes
-
-    real(dp), dimension(3,3,3,nNodes), intent(in) ::  &
-       Auu, Auv,    &     ! assembled stiffness matrix, divided into 4 parts
-       Avu, Avv           ! 1st dimension = 3 (node and its 2 neighbors in z direction) 
-                          ! 2nd dimension = 3 (node and its 2 neighbors in x direction) 
-                          ! 3rd dimension = 3 (node and its 2 neighbors in y direction) 
-                          ! 4th dimension = nNodes
-
-    real(dp), dimension(nNodes), intent(in) ::  &
-       bu, bv             ! assembled load (rhs) vector, divided into 2 parts
-
-    real(dp), dimension(:,:,:), intent(in) ::   &
-       uvel, vvel         ! u and v components of velocity
-
-    integer, intent(in) ::    &
-       matrix_order,  &   ! order of matrix = number of rows
-       nNonzero           ! upper bound for number of nonzero entries in sparse matrix
-
-    type(sparse_matrix_type), intent(inout) ::  &    ! TODO: inout or out?
-       matrix             ! sparse matrix, defined in glimmer_sparse_types
-                          ! includes nonzeroes, order, col, row, val 
-
-    real(dp), dimension(:), intent(out) ::   &
-       rhs,             & ! right-hand-side (b) in Ax = b
-       answer             ! answer (x) in Ax = b
-
-    !---------------------------------------------------------
+    !--------------------------------------------------------
     ! Local variables
-    !---------------------------------------------------------
+    !--------------------------------------------------------
 
-    integer :: i, j, k, iA, jA, kA, n, ct
+    integer :: i, j
 
-    integer :: rowA, colA   ! row and column of A submatrices (order = nNodes)
-    integer :: row, col     ! row and column of sparse matrix (order = 2*nNodes) 
+    real(dp) :: sumvar, summask
 
-    real(dp) :: val         ! value of matrix coefficient
-    
-    ! Set basic matrix parameters
+    stagvar(:,:) = 0.d0
 
-    matrix%order = matrix_order
-    matrix%nonzeros = nNonzero
-    matrix%symmetric = .false.
+    ! Loop over all vertices of locally owned cells
+    ! Average the input field over the neighboring cells with ice present (rmask = 1)
 
-    ! Set the nonzero coefficients of the sparse matrix 
+    do j = nhalo, ny-nhalo
+       do i = nhalo, nx-nhalo
+          sumvar = rmask(i,j+1)*var(i,j+1) + rmask(i+1,j+1)*var(i+1,j+1)  &
+                 + rmask(i,j)  *var(i,j)   + rmask(i+1,j)  *var(i+1,j)	  
+          summask = rmask(i,j+1) + rmask(i+1,j+1) + rmask(i,j) + rmask(i+1,j)
+          if (summask > 0.d0) stagvar(i,j) = sumvar / summask
+       enddo
+    enddo  
 
-    ct = 0
-
-    do rowA = 1, nNodes
-
-       i = iNodeIndex(rowA)
-       j = iNodeIndex(rowA)
-       k = iNodeIndex(rowA)
-       
-       do jA = -1, 1
-        do iA = -1, 1
-         do kA = -1, 1
-            colA = NodeID(k+kA, i+iA, j+jA)
-
-            !TODO - Could shorten the following by calling a putval subroutine 4 times
-
-            ! Auu
-            val = Auu(kA,iA,jA,rowA)
-            if (val /= 0.d0) then   ! Is this adequate?
-               ct = ct + 1
-               matrix%row(ct) = 2*rowA - 1
-               matrix%col(ct) = 2*colA - 1
-               matrix%val(ct) = val
-            endif
-
-            ! Auv 
-            val = Auv(kA,iA,jA,rowA)
-            if (val /= 0.d0) then   ! Is this adequate?
-               ct = ct + 1
-               matrix%row(ct) = 2*rowA - 1
-               matrix%col(ct) = 2*colA
-               matrix%val(ct) = val
-            endif
-
-            ! Avu 
-            val = Avu(kA,iA,jA,rowA)
-            if (val /= 0.d0) then   ! Is this adequate?
-               ct = ct + 1
-               matrix%row(ct) = 2*rowA
-               matrix%col(ct) = 2*colA - 1
-               matrix%val(ct) = val
-            endif
-
-            ! Avv 
-            val = Avv(kA,iA,jA,rowA)
-            if (val /= 0.d0) then
-               ct = ct + 1
-               matrix%row(ct) = 2*rowA
-               matrix%col(ct) = 2*colA
-               matrix%val(ct) = val
-            endif
-
-         enddo    ! kA
-        enddo     ! iA
-       enddo      ! jA
-
-    enddo         ! rowA
-
-    ! Set the current guess for the answer vector
-    ! For efficiency, put the u and v terms for a given node adjacent in storage.
-
-    do n = 1, nNodes
-       i = iNodeIndex(n)
-       j = iNodeIndex(n)
-       k = iNodeIndex(n)
-
-       answer(2*n-1) = uvel(k,i,j)
-       answer(2*n)   = vvel(k,i,j)
-    enddo
-
-    ! Set the rhs vector (TODO: Is this adequate?) 
-    ! For efficiency, put the u and v terms for a given node adjacent in storage.
-
-    do n = 1, nNodes
-       rhs(2*n-1) = bu(n)
-       rhs(2*n)   = bv(n)
-    enddo
-
-  end subroutine solver_preprocess
-
-!****************************************************************************
-
-  subroutine solver_postprocess(nNodes,       answer,                   &
-                                iNodeIndex,   jNodeIndex,  kNodeIndex,  &
-                                uvel,         vvel)
-
-  ! Extract the velocities from the solution vector.
-                                            
-!    use parallel
-    implicit none
-
-    !---------------------------------------------------------
-    ! Input-output variables
-    !---------------------------------------------------------
-
-    integer, intent(in) :: nNodes        ! number of active nodes
-
-    real(dp), dimension(:), intent(in) ::   &
-       answer             ! velocity solution vector
-
-    integer, dimension(:), intent(in) ::   &
-       iNodeIndex, jNodeIndex, kNodeIndex   ! i, j and k indices of active nodes
-
-    real(dp), dimension(:,:,:), intent(inout) ::   &
-       uvel, vvel         ! u and v components of velocity
-
-    integer :: i, j, k, n
-
-    do n = 1, nNodes
-       i = iNodeIndex(n)
-       j = iNodeIndex(n)
-       k = iNodeIndex(n)
-
-       uvel(k,i,j) = answer(2*n-1)
-       vvel(k,i,j) = answer(2*n)
-
-    enddo
-
-  end subroutine solver_postprocess
+  end subroutine staggered_scalar
 
 !****************************************************************************
 
@@ -1335,7 +974,8 @@
                                 nlyr,        nhalo,       sigma,    &
                                 thck,        thklim,   &
                                 stagusfc,    stagthck, &
-                                nElements,   nNodes,      active_cell,  &
+                                nElements,   nNodes,   &
+                                active_cell, active_vertex,             &
                                 NodeID,      NodeOnElementID,           &
                                 iNodeIndex,  jNodeIndex,  kNodeIndex,   &
                                 xNode,       yNode,       zNode)
@@ -1345,10 +985,9 @@
     !  are active.
     ! Active nodes may be either free (to be solved for) or constrained (e.g., Dirichlet).
 
-    !---------------------------------------------------------
-    ! Input-output variables
-    !---------------------------------------------------------
-    implicit none
+    !----------------------------------------------------------------
+    ! Input-output arguments
+    !----------------------------------------------------------------
 
     integer, intent(in) ::      &
        nx, ny,                  &    ! horizontal grid dimensions
@@ -1375,6 +1014,9 @@
     logical, dimension(nx,ny), intent(out) :: &
        active_cell            ! true for active cells (thck > thklim)
 
+    logical, dimension(nx-1,ny-1), intent(out) :: &
+       active_vertex          ! true for vertices of active cells
+
     integer, dimension(nlyr+1,nx,ny), intent(out) ::  &
        NodeID             ! ID for each active node
 
@@ -1395,9 +1037,6 @@
     integer ::   &
        nActiveCells,   &      ! number of active cells (thck > thklim)
        nActiveVertices        ! number of active vertices
-
-    logical, dimension(nx,ny) :: &
-       active_vertex          ! true for vertices of active cells
 
     integer :: i, j, k
 
@@ -1516,18 +1155,26 @@
 
 !****************************************************************************
 
-  subroutine assemble_stiffness_matrix(nx, ny, nlyr,  nhalo,              &
-                                       active_cell,                       &
-                                       nCells,           nActiveCells,    &
-                                       NodeID,           NodeOnElementID, &
-                                       iNodeIndex,       jNodeIndex,     kNodeIndex,   &     
-                                       xNode,            yNode,          zNode,        &
-                                       nElements,        nNodes,       &
-                                       visc,                           &
-                                       Auu,              Auv,          &
-                                       Avu,              Avv)
+  subroutine assemble_linear_system(nx, ny, nlyr,  nhalo,              &
+                                    active_cell,                       &
+                                    nCells,           nActiveCells,    &
+                                    NodeID,           NodeOnElementID, &
+                                    iNodeIndex,       jNodeIndex,     kNodeIndex,   &     
+                                    xNode,            yNode,          zNode,        &
+                                    nElements,        nNodes,          &
+                                    uvel,             vvel,            &
+                                    stagusfc,         flwafact,        &
+                                    whichefvs,                         &
+                                    Auu,              Auv,             &
+                                    Avu,              Avv,             &
+                                    bu,               bv)
 
-    implicit none
+    ! Assemble the stiffness matrix A and load vector b in the linear system Ax = b
+ 
+    !----------------------------------------------------------------
+    ! Input-output arguments
+    !----------------------------------------------------------------
+
     integer, intent(in) ::      &
        nx, ny,                  &    ! horizontal grid dimensions
        nlyr,                    &    ! number of vertical layers
@@ -1554,11 +1201,29 @@
        nElements,    &    ! number of elements
        nNodes             ! number of nodes associated with these elements
 
-    real(dp), dimension(nElements), intent(in) ::  &
-       visc               ! effective viscosity
+    real (dp), dimension(:,:,:), intent(in) ::  &
+       uvel, vvel             ! velocity components
 
-    real(dp), dimension(3,3) ::   &
-       Jac, Jinv          ! Jacobian matrix and its inverse
+    real(dp), dimension(:,:), intent(in) ::  &
+       stagusfc           ! upper surface elevation on staggered grid
+
+    real(dp), dimension(:,:,:), intent(in) ::  &
+       flwafact           ! temperature-based flow factor, 0.5 * A^(-1/n), 
+                          ! used to compute the effective viscosity
+
+    integer, intent(in) :: whichefvs      ! option for effective viscosity calculation 
+                                          ! (calculate it or make it uniform)
+
+    real(dp), dimension(3,3,3,nNodes), intent(out) ::  &
+       Auu, Auv,    &     ! assembled stiffness matrix, divided into 4 parts
+       Avu, Avv                                    
+
+    real(dp), dimension(:), intent(out) ::  &
+       bu, bv             ! load vector, divided into u and v components
+
+    !---------------------------------------------------------
+    ! Local variables
+    !---------------------------------------------------------
 
     real(dp) ::   &
        detJ               ! determinant of J
@@ -1567,14 +1232,15 @@
        dphi_dx, dphi_dy, dphi_dz   ! derivatives of basis function, evaluated at quad pts
 
     !----------------------------------------------------------------
-    ! Note: Kuu, Kuv, Kvu, and Kvv are 8x8 stiffness matrices for the local element.
+    ! Note: Kuu, Kuv, Kvu, and Kvv are 8x8 components of the stiffness matrix
+    !       for the local element.  (The combined stiffness matrix is 16x16.)
     !
     ! Once these matrices are formed, their coefficients are summed into the assembled
-    !  matrices Auu, Auv, Avu, Avv.  The A matrices each have as many row as there are
+    !  matrices Auu, Auv, Avu, Avv.  The A matrices each have as many rows as there are
     !  active nodes, but only 27 columns, corresponding to the 27 vertices that belong to
     !  the 8 elements sharing a given node.
     !
-    ! At the next step, the terms of the dense A matrices will be put in a sparse matrix
+    ! At the next step, the terms of the dense A matrices are put in a sparse matrix
     !  format suitable for iterative solutions.
     !----------------------------------------------------------------
 
@@ -1588,32 +1254,34 @@
                           !         |
                           ! Kvu may not be needed if matrix is symmetric, but is included for now
 
-    real(dp), dimension(3,3,3,nNodes), intent(out) ::  &
-       Auu, Auv,    &     ! assembled stiffness matrix, divided into 4 parts
-       Avu, Avv                                    
-
-    real(dp), dimension(nNodesPerElement) :: x, y, z   ! nodal coordinates
-
     integer, dimension(nNodesPerElement) :: nid        ! ID for each node of an element
+
+    real(dp), dimension(nNodesPerElement) ::     &
+       x, y, z,         & ! Cartesian coordinates of nodes
+       u, v,            & ! u and v at nodes
+       s                  ! upper surface elevation at nodes
+
+    real(dp) ::    &
+       efvs               ! effective viscosity
 
     integer :: i, j, k, n, p
 
-
     if (verbose) then
        print*, ' '
-       print*, 'In assemble_stiffness_matrix'
+       print*, 'In assemble_linear_system'
     endif
 
-    ! Initialize arrays
+    ! Initialize global stiffness matrix and load vector
 
     Auu(:,:,:,:) = 0.d0
     Auv(:,:,:,:) = 0.d0
     Avu(:,:,:,:) = 0.d0
     Avv(:,:,:,:) = 0.d0
 
-    ! Sum over elements
+    bu(:) = 0.d0
+    bv(:) = 0.d0
 
-!TODO - Could sum over nCells and do not use i and j?
+    ! Sum over elements
 
     do j = nhalo+1, ny-nhalo    ! loop over the cells owned by this processor
     do i = nhalo+1, nx-nhalo
@@ -1623,28 +1291,33 @@
        do k = 1, nlyr    ! loop over elements in this column
                          ! assume k increases from upper surface to bed
 
-          ! Find node ID and (x,y,z) coordinates of each node for this element
-
           if (verbose .and. i==itest .and. j==jtest .and. k==ktest) then
              print*, 'i, j, k:', i, j, k
              print*, ' '
           endif
 
-          ! initialize element stiffness matrices
+          ! Initialize element stiffness matrix
           Kuu(:,:) = 0.d0
           Kuv(:,:) = 0.d0
           Kvu(:,:) = 0.d0
           Kvv(:,:) = 0.d0
     
-          ! get nodeID and spatial coordinates for each node
+          ! get nodeID, spatial coordinates, velocity, and upper surface elevation for each node
+          !TODO - Compute usfc_node(n) only once per column?
+
           do n = 1, nNodesPerElement
+
              nid(n) = NodeOnElementID(n,k,i,j)
              x(n) = xNode(nid(n))
              y(n) = yNode(nid(n))
              z(n) = zNode(nid(n))
+             u(n) = uvel(kNodeIndex(nid(n)), iNodeIndex(nid(n)), jNodeIndex(nid(n)))
+             v(n) = vvel(kNodeIndex(nid(n)), iNodeIndex(nid(n)), jNodeIndex(nid(n)))
+             s(n) = stagusfc(iNodeIndex(nid(n)), jNodeIndex(nid(n)))
 
              if (verbose .and. i==itest .and. j==jtest .and. k==ktest) then
                 print*, 'n, nid, x, y, z:', n, nid(n), x(n), y(n), z(n)
+                print*, 's, u, v:', s(n), u(n), v(n)
              endif
 
           enddo   ! nodes per element
@@ -1672,15 +1345,37 @@
                 enddo
              endif
 
-          ! Increment the element stiffness matrix with the contribution from
-          ! this quadrature point.
+             call compute_effective_viscosity(whichefvs,  nNodesPerElement,             &
+                                              dphi_dx(:), dphi_dy(:), dphi_dz(:),       &
+                                              u(:),       v(:),       flwafact(k,i,j),  &
+                                              efvs)     
+
+             ! Increment the element stiffness matrix with the contribution from
+             ! this quadrature point.
 
 !whl - debug - Pass in i, j, k, and p for now
-             call increment_element_matrix(nNodesPerElement,                        &
-                                           wqp(p),         detJ,                    &
-                                           dphi_dx(:),     dphi_dy(:),  dphi_dz(:), &
-                                           Kuu(:,:),       Kuv(:,:),                &
-                                           Kvu(:,:),       Kvv(:,:),    i, j, k, p )
+
+             !TODO - Don't have to pass in nNodesPerElement
+
+             call increment_element_matrix(nNodesPerElement,                          &
+                                           wqp(p),           detJ,        efvs,       &
+                                           dphi_dx(:),       dphi_dy(:),  dphi_dz(:), &
+                                           Kuu(:,:),         Kuv(:,:),                &
+                                           Kvu(:,:),         Kvv(:,:),    i, j, k, p )
+
+             ! Increment the global load vector (i.e., the right-hand side of Ax = b)
+             ! with the contribution from this quadrature point.
+
+             !TO DO - Currently this is just the gravitational driving stress.
+             !        Need to add the pressure term for floating ice.
+
+             !TODO - Don't have to pass in nNodesPerElement
+
+             call increment_load_vector(nNodesPerElement, nid(:),         &
+                                        wqp(p),           detJ,           &
+                                        s(:),             phi(:,p),       &
+                                        dphi_dx(:),       dphi_dy(:),     &
+                                        bu(:),            bv(:))
 
           enddo   ! nQuadPoints
 
@@ -1770,7 +1465,7 @@
                                          Avu,         Avv)
 
 
-  end subroutine assemble_stiffness_matrix
+  end subroutine assemble_linear_system
 
 !****************************************************************************
 
@@ -1790,7 +1485,6 @@
     ! 
     ! This subroutine should work for any 3D element with any number of nodes.
     !------------------------------------------------------------------
-    implicit none
 
     integer, intent(in) :: nNodesPerElement   ! number of nodes per element
  
@@ -2002,15 +1696,116 @@
 
 !****************************************************************************
 
+  subroutine compute_effective_viscosity (whichefvs, nNodesPerElement,       &
+                                          dphi_dx,   dphi_dy,  dphi_dz,      &
+                                          uvel,      vvel,     flwafact,     &
+                                          efvs)
+
+    ! Compute effective viscosity at a quadrature point, based on the latest
+    ! guess for the velocity field
+
+    !----------------------------------------------------------------
+    ! Input-output arguments
+    !----------------------------------------------------------------
+
+    integer, intent(in) :: &
+       whichefvs       ! method for computing effective viscosity
+                       ! 0 = based on effective strain rate
+                       ! 1 = constant value
+                       !TODO - Let 0 = constant value, 1 = eff str rate?
+                       ! Add an option representing a true constant value, 
+                       ! rather than temperature-based?
+
+    integer, intent(in) :: nNodesPerElement   ! number of nodes per element
+
+    real(dp), dimension(nNodesPerElement), intent(in) ::  &
+       dphi_dx, dphi_dy, dphi_dz         ! derivatives of basis functions,
+                                         ! evaluated at this quadrature point
+
+    real(dp), dimension(nNodesPerElement), intent(in) ::  &
+       uvel, vvel      ! current guess for velocity field at each node of element
+
+    real(dp), intent(in) ::  &
+       flwafact        ! temperature-based flow factor for this element, 0.5 * A^(-1/n)
+
+    real(dp), intent(out) ::   &
+       efvs            ! effective viscosity at this quadrature point
+
+    !----------------------------------------------------------------
+    ! Local parameters
+    !----------------------------------------------------------------
+
+    real(dp), parameter ::   &
+       effstrainsq_min = (1.0d-20 * tim0)**2,  &! minimum value of squared effective strain rate
+       p_effstr = (1.d0 - real(gn,dp)) / (2.d0*real(gn,dp))    ! exponent in efvs relation
+
+    !----------------------------------------------------------------
+    ! Local variables
+    !----------------------------------------------------------------
+
+    real(dp) ::            &
+       du_dx, dv_dx,       & ! strain rate components
+       du_dy, dv_dy,       &
+       du_dz, dv_dz,       &
+       effstrainsq           ! square of effective strain rate
+        
+    integer :: n
+
+    select case(whichefvs)
+
+    case(0)      ! calculate effective viscosity based on effective strain rate
+
+       du_dx = 0.d0
+       dv_dx = 0.d0
+       du_dy = 0.d0
+       dv_dy = 0.d0
+       du_dz = 0.d0
+       dv_dz = 0.d0
+
+       ! Compute strain rate components at this quadrature point
+
+       do n = 1, nNodesPerElement
+
+          du_dx = du_dx + dphi_dx(n)*uvel(n)
+          dv_dx = dv_dx + dphi_dx(n)*vvel(n)
+
+          du_dy = du_dy + dphi_dy(n)*uvel(n)
+          dv_dy = dv_dy + dphi_dy(n)*vvel(n)
+
+          du_dz = du_dz + dphi_dz(n)*uvel(n)
+          dv_dz = dv_dz + dphi_dz(n)*vvel(n)
+
+       enddo   ! nNodesPerElement
+
+       ! compute effective strain rate at this quadrature point (PGB 2012, eq. 3 and 9)
+
+       effstrainsq = effstrainsq_min                                  &
+                    + du_dx**2 + dv_dy**2 + du_dx*dv_dy               &
+                    + 0.25d0 * (dv_dx + du_dy)**2                      &
+                    + 0.25d0 * (du_dz**2 + dv_dz**2) * (len0/thk0)**2  !TODO - remove scaling?
+
+       ! compute effective viscosity (PGB 2012, eq. 4)
+
+       efvs = flwafact * effstrainsq**p_effstr
+
+    case(1)      ! set the effective viscosity to some constant value 
+                 !TODO - Verify that this value is OK
+
+       efvs = flwafact
+
+    end select
+
+  end subroutine compute_effective_viscosity
+
+!****************************************************************************
+
 !whl - debug - Pass in i, j, k, and p for now
 
   subroutine increment_element_matrix(nNodesPerElement,             &
-                                      wqp,      detJ,               &
+                                      wqp,      detJ,     efvs,     &
                                       dphi_dx,  dphi_dy,  dphi_dz,  &
                                       Kuu,      Kuv,                &
                                       Kvu,      Kvv,      ii, jj, k, p)
-
-!TODO - Add optional arguments that reduce the solver to SIA or SSA.
 
     !------------------------------------------------------------------
     ! Increment the stiffness matrices Kuu, Kuv, Kvu, Kvv with the
@@ -2020,7 +1815,12 @@
     ! This subroutine will work for any 3D element with any number of nodes.
     !------------------------------------------------------------------
 
-    implicit none
+!TODO - Add optional arguments that reduce the solver to SIA or SSA.
+
+    !----------------------------------------------------------------
+    ! Input-output arguments
+    !----------------------------------------------------------------
+
 !whl - debug - Pass in i, j, k, and p for now
     integer, intent(in) :: ii, jj, k, p
 
@@ -2028,8 +1828,9 @@
 
     real(dp), intent(in) ::    &
              wqp,        &! weight for this quadrature point
-             detJ         ! determinant of Jacobian for the transformation
+             detJ,       &! determinant of Jacobian for the transformation
                           !  between the reference element and true element
+             efvs         ! effective viscosity at this quadrature point
 
     real(dp), dimension(nNodesPerElement), intent(in) ::  &
              dphi_dx, dphi_dy, dphi_dz   ! derivatives of basis functions,
@@ -2038,23 +1839,29 @@
     real(dp), dimension(nNodesPerElement,nNodesPerElement), intent(inout) :: &
              Kuu, Kuv, Kvu, Kvv     ! components of element stiffness matrix
 
+    !----------------------------------------------------------------
+    ! Local variables
+    !----------------------------------------------------------------
+
     integer :: i, j
 
     ! Increment the element stiffness matrices for the first-order Blatter-Pattyn equations
-
+    ! The terms in parentheses can be derived from PGB 2012, eq. 13 and 15.
+    ! TODO: Check factor of 2 in eq. 15. I think it's been absorbed into parenthetical terms. 
+      
     do j = 1, nNodesPerElement      ! columns of K
        do i = 1, nNodesPerElement   ! rows of K
 
-          Kuu(i,j) = Kuu(i,j) + wqp*detJ*(4.d0*dphi_dx(j)*dphi_dx(i)  &
-                                         +     dphi_dy(j)*dphi_dy(i)  &
-                                         +     dphi_dz(j)*dphi_dz(i) )
-          Kuv(i,j) = Kuv(i,j) + wqp*detJ*(2.d0*dphi_dx(j)*dphi_dy(i)  &
-                                         +     dphi_dy(j)*dphi_dx(i) )
-          Kvu(i,j) = Kvu(i,j) + wqp*detJ*(2.d0*dphi_dy(j)*dphi_dx(i)  &
-                                         +     dphi_dx(j)*dphi_dy(i) )
-          Kvv(i,j) = Kvv(i,j) + wqp*detJ*(4.d0*dphi_dy(j)*dphi_dy(i)  &
-                                         +     dphi_dx(j)*dphi_dx(i)  &
-                                         +     dphi_dz(j)*dphi_dz(i) )
+          Kuu(i,j) = Kuu(i,j) + efvs*wqp*detJ*(4.d0*dphi_dx(j)*dphi_dx(i)  &
+                                              +     dphi_dy(j)*dphi_dy(i)  &
+                                              +     dphi_dz(j)*dphi_dz(i) )
+          Kuv(i,j) = Kuv(i,j) + efvs*wqp*detJ*(2.d0*dphi_dx(j)*dphi_dy(i)  &
+                                              +     dphi_dy(j)*dphi_dx(i) )
+          Kvu(i,j) = Kvu(i,j) + efvs*wqp*detJ*(2.d0*dphi_dy(j)*dphi_dx(i)  &
+                                              +     dphi_dx(j)*dphi_dy(i) )
+          Kvv(i,j) = Kvv(i,j) + efvs*wqp*detJ*(4.d0*dphi_dy(j)*dphi_dy(i)  &
+                                              +     dphi_dx(j)*dphi_dx(i)  &
+                                              +     dphi_dz(j)*dphi_dz(i) )
 
        enddo  ! i (rows)
     enddo     ! j (columns)
@@ -2064,6 +1871,68 @@
     endif
 
   end subroutine increment_element_matrix
+
+!****************************************************************************
+
+  subroutine increment_load_vector(nNodesPerElement, nid,           &
+                                   wqp,              detJ,          &
+                                   usfc,             phi,           &
+                                   dphi_dx,          dphi_dy,       &
+                                   bu,               bv)
+
+    integer, intent(in) :: nNodesPerElement
+
+    integer, dimension(nNodesPerElement), intent(in) ::    &
+       nid                ! IDs for the nodes of this element
+
+    real(dp), intent(in) ::   &
+       wqp,              &! weight for this quadrature point
+       detJ               ! determinant of Jacobian for the transformation
+                          !  between the reference element and true element
+
+    real(dp), dimension(nNodesPerElement), intent(in) ::  &
+       usfc               ! upper surface elevation at each node
+
+    real(dp), dimension(nNodesPerElement), intent(in) ::   & 
+       phi                ! nodal basis functions, evaluated at quad pts
+
+    real(dp), dimension(nNodesPerElement), intent(in) ::   &
+       dphi_dx, dphi_dy   ! derivatives of basis functions, evaluated at quad pts
+
+    real(dp), dimension(:), intent(inout) ::  &
+       bu, bv             ! load vector, divided into u and v components
+
+    !----------------------------------------------------------------
+    ! Local variables
+    !----------------------------------------------------------------
+
+    real(dp) ::    &
+       ds_dx, ds_dy       ! horizontal gradient of upper surface elevation
+
+    integer :: n
+
+
+    ! Evaluate ds_dx and ds_dy at this quadrature point
+
+    ds_dx = 0.d0
+    ds_dy = 0.d0
+
+    do n = 1, nNodesPerElement
+       ds_dx = ds_dx + dphi_dx(n) * usfc(n)
+       ds_dy = ds_dy + dphi_dy(n) * usfc(n)
+    enddo
+
+    ! Increment the load vector with the gravitational contribution from
+    ! this quadrature point.
+
+    ! Is the indexing correct?  E.g., no n index for ds_dx?
+
+    do n = 1, nNodesPerElement    
+       bu(nid(n)) = bu(nid(n)) + rhoi*grav * wqp * detJ * ds_dx * phi(n)
+       bv(nid(n)) = bv(nid(n)) + rhoi*grav * wqp * detJ * ds_dy * phi(n)
+    enddo
+
+  end subroutine increment_load_vector
 
 !****************************************************************************
 
@@ -2078,7 +1947,6 @@
     ! So this subroutine is called four times per element.
 
 !whl - Pass in i, j, k for now
-    implicit none
     integer, intent(in) :: i, j, k
 
     integer, intent(in) ::   &
@@ -2139,30 +2007,360 @@
 
 !****************************************************************************
 
-!TODO - Make this 3D
+  subroutine solver_preprocess(nNodes,       NodeID,        &
+                               iNodeIndex,   jNodeIndex,  kNodeIndex,  &
+                               Auu,          Auv,   &
+                               Avu,          Avv,   &
+                               bu,           bv,    &
+                               uvel,         vvel,  &
+                               matrix_order, nNonzero,  &
+                               matrix,       rhs,   &
+                               answer)
 
-  subroutine assemble_load_vector(nElements,        nNodes,      &
-                                  bu,               bv)
+    ! Using the intermediate matrices (Auu, Auv, Avu, Avv), load vectors (bu, bv),
+    ! and velocity components (uvel, vvel), form the matrix and the rhs and answer
+    ! vectors in the desired sparse matrix format.
 
-    implicit none
+    !----------------------------------------------------------------
+    ! Input-output arguments
+    !----------------------------------------------------------------
+
+    integer, intent(in) :: nNodes        ! number of active nodes
+
+    integer, dimension(:,:,:), intent(in) ::  &
+        NodeID             ! ID for each active node
+
+    integer, dimension(:), intent(in) ::   &
+       iNodeIndex, jNodeIndex, kNodeIndex   ! i, j and k indices of active nodes
+
+    real(dp), dimension(3,3,3,nNodes), intent(in) ::  &
+       Auu, Auv,    &     ! assembled stiffness matrix, divided into 4 parts
+       Avu, Avv           ! 1st dimension = 3 (node and its 2 neighbors in z direction) 
+                          ! 2nd dimension = 3 (node and its 2 neighbors in x direction) 
+                          ! 3rd dimension = 3 (node and its 2 neighbors in y direction) 
+                          ! 4th dimension = nNodes
+
+    real(dp), dimension(nNodes), intent(in) ::  &
+       bu, bv             ! assembled load (rhs) vector, divided into 2 parts
+
+    real(dp), dimension(:,:,:), intent(in) ::   &
+       uvel, vvel         ! u and v components of velocity
+
+    integer, intent(in) ::    &
+       matrix_order,  &   ! order of matrix = number of rows
+       nNonzero           ! upper bound for number of nonzero entries in sparse matrix
+
+    type(sparse_matrix_type), intent(inout) ::  &    ! TODO: inout or out?
+       matrix             ! sparse matrix, defined in glimmer_sparse_types
+                          ! includes nonzeroes, order, col, row, val 
+
+    real(dp), dimension(:), intent(out) ::   &
+       rhs,             & ! right-hand-side (b) in Ax = b
+       answer             ! answer (x) in Ax = b
+
+    !---------------------------------------------------------
+    ! Local variables
+    !---------------------------------------------------------
+
+    integer :: i, j, k, iA, jA, kA, n, ct
+
+    integer :: rowA, colA   ! row and column of A submatrices (order = nNodes)
+    integer :: row, col     ! row and column of sparse matrix (order = 2*nNodes) 
+
+    real(dp) :: val         ! value of matrix coefficient
+    
+    ! Set basic matrix parameters
+
+    matrix%order = matrix_order
+    matrix%nonzeros = nNonzero
+    matrix%symmetric = .false.
+
+    ! Set the nonzero coefficients of the sparse matrix 
+
+    ct = 0
+
+    do rowA = 1, nNodes
+
+       i = iNodeIndex(rowA)
+       j = iNodeIndex(rowA)
+       k = iNodeIndex(rowA)
+       
+       do jA = -1, 1
+        do iA = -1, 1
+         do kA = -1, 1
+            colA = NodeID(k+kA, i+iA, j+jA)
+
+            !TODO - Could shorten the following by calling a putval subroutine 4 times
+
+            ! Auu
+            val = Auu(kA,iA,jA,rowA)
+            if (val /= 0.d0) then   ! Is this adequate?
+               ct = ct + 1
+               matrix%row(ct) = 2*rowA - 1
+               matrix%col(ct) = 2*colA - 1
+               matrix%val(ct) = val
+            endif
+
+            ! Auv 
+            val = Auv(kA,iA,jA,rowA)
+            if (val /= 0.d0) then   ! Is this adequate?
+               ct = ct + 1
+               matrix%row(ct) = 2*rowA - 1
+               matrix%col(ct) = 2*colA
+               matrix%val(ct) = val
+            endif
+
+            ! Avu 
+            val = Avu(kA,iA,jA,rowA)
+            if (val /= 0.d0) then   ! Is this adequate?
+               ct = ct + 1
+               matrix%row(ct) = 2*rowA
+               matrix%col(ct) = 2*colA - 1
+               matrix%val(ct) = val
+            endif
+
+            ! Avv 
+            val = Avv(kA,iA,jA,rowA)
+            if (val /= 0.d0) then
+               ct = ct + 1
+               matrix%row(ct) = 2*rowA
+               matrix%col(ct) = 2*colA
+               matrix%val(ct) = val
+            endif
+
+         enddo    ! kA
+        enddo     ! iA
+       enddo      ! jA
+
+    enddo         ! rowA
+
+    ! Set the current guess for the answer vector
+    ! For efficiency, put the u and v terms for a given node adjacent in storage.
+
+    do n = 1, nNodes
+       i = iNodeIndex(n)
+       j = iNodeIndex(n)
+       k = iNodeIndex(n)
+
+       answer(2*n-1) = uvel(k,i,j)
+       answer(2*n)   = vvel(k,i,j)
+    enddo
+
+    ! Set the rhs vector (TODO: Is this adequate?) 
+    ! For efficiency, put the u and v terms for a given node adjacent in storage.
+
+    do n = 1, nNodes
+       rhs(2*n-1) = bu(n)
+       rhs(2*n)   = bv(n)
+    enddo
+
+  end subroutine solver_preprocess
+
+!****************************************************************************
+
+  subroutine solver_postprocess(nNodes,       answer,                   &
+                                iNodeIndex,   jNodeIndex,  kNodeIndex,  &
+                                uvel,         vvel)
+
+  ! Extract the velocities from the solution vector.
+                                            
+!    use parallel
+
+    !----------------------------------------------------------------
+    ! Input-output arguments
+    !----------------------------------------------------------------
+
+    integer, intent(in) :: nNodes        ! number of active nodes
+
+    real(dp), dimension(:), intent(in) ::   &
+       answer             ! velocity solution vector
+
+    integer, dimension(:), intent(in) ::   &
+       iNodeIndex, jNodeIndex, kNodeIndex   ! i, j and k indices of active nodes
+
+    real(dp), dimension(:,:,:), intent(inout) ::   &
+       uvel, vvel         ! u and v components of velocity
+
+    integer :: i, j, k, n
+
+    do n = 1, nNodes
+       i = iNodeIndex(n)
+       j = iNodeIndex(n)
+       k = iNodeIndex(n)
+
+       uvel(k,i,j) = answer(2*n-1)
+       vvel(k,i,j) = answer(2*n)
+
+    enddo
+
+  end subroutine solver_postprocess
+
+!****************************************************************************
+
+  subroutine compute_residual_vector(matrix, answer, rhs, &
+                                     resid_vec, L2_norm)
+
+    ! Compute the residual vector Ax - b and its L2 norm.
+
+    use parallel
+
+    type(sparse_matrix_type), intent(in) ::  &
+       matrix             ! sparse matrix, defined in glimmer_sparse_types
+                          ! includes nonzeroes, order, col, row, val 
+
+    real(dp), dimension(:), intent(in) ::   &
+       rhs,             & ! right-hand-side (b) in Ax = b
+       answer             ! answer (x) in Ax = b
+
+    real(dp), dimension(:), intent(out) ::   &
+       resid_vec          ! residual vector
+
+    real(dp), intent(out) ::    &
+       L2_norm             ! L2 norm of residual vector
+
+    integer :: i, j, n
+
+    resid_vec(:) = 0.d0
+
+    do n = 1, matrix%nonzeros
+       i = matrix%row(n)
+       j = matrix%col(n)
+       resid_vec(i) = resid_vec(i) + matrix%val(n)*answer(j)
+    enddo
+
+    L2_norm = 0.d0
+    do n = 1, matrix%order
+       resid_vec(i) = resid_vec(i) - rhs(i)
+       L2_norm = L2_norm + resid_vec(i)*resid_vec(i)
+    enddo
+
+!TODO - Parallel sum
+!    L2_norm = parallel_reduce_sum(L2_norm)
+
+    L2_norm = sqrt(L2_norm)
+
+  end subroutine compute_residual_vector
+
+!****************************************************************************
+
+  subroutine compute_residual_velocity(nhalo,  whichresid, &
+                                       uvel,   vvel,        &
+                                       usav,   vsav,        &
+                                       resid_velo)
+
+    use parallel
+
     integer, intent(in) ::   &
-       nElements,    &    ! number of elements on this processor
-       nNodes             ! number of nodes associated with these elements
+       nhalo,           & ! number of layers of halo cells
+       whichresid         ! option for method to use when calculating residual
 
-    real(dp), dimension(nNodes) ::  &
-       bu, bv             ! assembled load vector, divided into 2 parts
+    real(dp), dimension(:,:,:), intent(in) ::  &
+       uvel, vvel,      & ! current guess for velocity
+       usav, vsav         ! previous guess for velocity
 
-    bu(:) = 0.d0
-    bv(:) = 0.d0
-
-!whl - Write this subroutine
-
-!      First the gravitational term
-
-!      Then the pressure term from immersed shelves
+    real(dp), intent(out) ::    &
+       resid_velo         ! quantity related to velocity convergence
 
 
-  end subroutine assemble_load_vector
+    integer ::   &
+       imaxdiff, jmaxdiff, kmaxdiff   ! location of maximum speed difference
+                                      ! currently computed but not used
+ 
+    integer :: i, j, k, count
+
+    real(dp) ::   &
+       speed,      &   ! current guess for ice speed
+       oldspeed,   &   ! previous guess for ice speed
+       diffspeed       ! abs(speed-oldspeed)
+
+
+  ! Compute a residual quantity based on convergence of the velocity field.
+  !TODO - Are all of these methods needed?
+
+  ! options for residual calculation method, as specified in configuration file
+  ! (see additional notes in "higher-order options" section of documentation)
+  ! case(0): use max of abs( vel_old - vel ) / vel )
+  ! case(1): use max of abs( vel_old - vel ) / vel ) but ignore basal vels
+  ! case(2): use mean of abs( vel_old - vel ) / vel )
+  ! case(3): use max of abs( vel_old - vel ) / vel ) (in addition to L2 norm)
+
+    resid_velo = 0.d0
+    imaxdiff = 0
+    jmaxdiff = 0
+    kmaxdiff = 0
+
+    select case (whichresid)
+
+    case(1)   ! max speed difference, excluding the bed
+
+       do j = 1+nhalo, size(uvel,3)-nhalo
+          do i = 1+nhalo, size(uvel,2)-nhalo
+             do k = 1, size(uvel,1) - 1         ! ignore bed velocity
+                speed = sqrt(uvel(k,i,j)**2 + vvel(k,i,j)**2)
+                if (speed /= 0.d0) then
+                   oldspeed = sqrt(usav(k,i,j)**2 + vsav(k,i,j)**2)
+                   diffspeed = abs((oldspeed - speed)/speed)
+                   if (diffspeed > resid_velo) then
+                      resid_velo = diffspeed
+                      imaxdiff = i
+                      jmaxdiff = j
+                      kmaxdiff = k
+                   endif
+                endif
+             enddo
+          enddo
+       enddo
+       
+       resid_velo = parallel_reduce_max(resid_velo)
+
+    case(2)   ! mean relative speed difference
+
+       count = 0
+
+       do j = 1+nhalo, size(uvel,3)-nhalo
+          do i = 1+nhalo, size(uvel,2)-nhalo
+             do k = 1, size(uvel,1) - 1         ! ignore bed velocity
+                speed = sqrt(uvel(k,i,j)**2 + vvel(k,i,j)**2)
+                if (speed /= 0.d0) then
+                   count = count+1
+                   oldspeed = sqrt(usav(k,i,j)**2 + vsav(k,i,j)**2)
+                   diffspeed = abs((oldspeed - speed)/speed)                
+                   resid_velo = resid_velo + diffspeed
+                endif
+             enddo
+          enddo
+       enddo
+
+       if (count > 0) resid_velo = resid_velo / count
+
+       call not_parallel(__FILE__, __LINE__)
+       !TODO - parallel reduction for mean
+
+   case default    ! max speed difference, including basal speeds  (case 0 or 3)
+
+       do j = 1+nhalo, size(uvel,3)-nhalo
+          do i = 1+nhalo, size(uvel,2)-nhalo
+             do k = 1, size(uvel,1)
+                speed = sqrt(uvel(k,i,j)**2 + vvel(k,i,j)**2)
+                if (speed /= 0.d0) then
+                   oldspeed = sqrt(usav(k,i,j)**2 + vsav(k,i,j)**2)
+                   diffspeed = abs((oldspeed - speed)/speed)
+                   if (diffspeed > resid_velo) then
+                      resid_velo = diffspeed
+                      imaxdiff = i
+                      jmaxdiff = j
+                      kmaxdiff = k
+                   endif
+                endif
+             enddo
+          enddo
+       enddo
+
+       resid_velo = parallel_reduce_max(resid_velo)
+       
+  end select
+
+  end subroutine compute_residual_velocity
 
 !****************************************************************************
 
@@ -2177,7 +2375,6 @@
     ! This check should not be needed for production runs with a well-tested code,
     !  but is included for now to help with debugging.
     !------------------------------------------------------------------
-    implicit none
 
     integer, intent(in) :: nNodesPerElement  ! number of nodes per element
 
@@ -2248,7 +2445,6 @@
     ! This check should not be needed for production runs with a well-tested code,
     !  but is included for now to help with debugging.
     !------------------------------------------------------------------    
-    implicit none
 
     integer, intent(in) :: nNodes     ! number of active nodes = number of rows of Auu, etc.
 
@@ -2420,11 +2616,292 @@
 
 !****************************************************************************
 
+  subroutine solve_test_matrix (matrix_order, whichsparse)
+
+    ! solve a small test matrix
+
+    integer, intent(in) :: &
+       matrix_order,       & ! matrix order
+       whichsparse          ! solution method (0=BiCG, 1=GMRES, 2=PCG_DIAG, 3=PCG_INCH)
+
+    logical :: verbose_test = .true.
+
+    type(sparse_matrix_type) ::  &
+       matrix             ! sparse matrix, defined in glimmer_sparse_types
+
+    real(dp), dimension(:), allocatable ::   &
+       rhs,             & ! right-hand-side (b) in Ax = b
+       answer             ! answer (x) in Ax = b
+
+    real(dp), dimension(:,:), allocatable :: Atest
+
+    real(dp) :: err
+
+    integer :: iter, nNonzero
+
+    integer :: i, j, n
+
+    print*, 'Solving test matrix, order =', matrix_order
+
+    nNonzero = matrix_order*matrix_order    ! not sure how big this must be
+
+    allocate(Atest(matrix_order,matrix_order))
+    Atest(:,:) = 0.d0
+
+    allocate(matrix%row(nNonzero), matrix%col(nNonzero), matrix%val(nNonzero))
+    allocate(rhs(matrix_order), answer(matrix_order))
+
+    rhs(:) = 0.d0
+    answer(:) = 0.d0
+    matrix%row(:) = 0
+    matrix%col(:) = 0
+    matrix%val(:) = 0.d0
+
+    matrix%order = matrix_order
+    matrix%nonzeros = nNonzero
+    matrix%symmetric = .false.
+
+    if (matrix%order == 2) then    ! symmetric 2x2
+       Atest(1,1:2) = (/3.d0, 2.d0 /)
+       Atest(2,1:2) = (/2.d0, 6.d0 /)
+       rhs(1:2) = (/2.d0, -8.d0 /)   ! answer = (2 -2) 
+
+    elseif (matrix%order == 3) then
+
+       ! symmetric
+       Atest(1,1:3) = (/ 7.d0, -2.d0,  0.d0 /)
+       Atest(2,1:3) = (/-2.d0,  6.d0, -2.d0 /)
+       Atest(3,1:3) = (/ 0.d0, -2.d0,  5.d0 /)
+       rhs(1:3)   =   (/ 3.d0,  8.d0,  1.d0 /)   ! answer = (1 2 1)
+
+        ! non-symmetric
+!       Atest(1,1:3) = (/3.d0,   1.d0,  1.d0 /)
+!       Atest(2,1:3) = (/2.d0,   2.d0,  5.d0 /)
+!       Atest(3,1:3) = (/1.d0,  -3.d0, -4.d0 /)
+!       rhs(1:3)   =  (/ 6.d0,  11.d0, -9.d0 /)   ! answer = (1 2 1)
+
+    else if (matrix%order == 4) then
+
+       Atest(1,1:4) = (/3.d0,  0.d0,  2.d0, -1.d0 /)
+       Atest(2,1:4) = (/1.d0,  2.d0,  0.d0,  2.d0 /)
+       Atest(3,1:4) = (/4.d0,  0.d0,  6.d0, -3.d0 /)
+       Atest(4,1:4) = (/5.d0,  0.d0,  2.d0,  0.d0 /)
+       rhs(1:4)    = (/ 6.d0,  7.d0, 13.d0,  9.d0 /)   ! answer = (1 2 2 1)
+
+    endif
+
+    if (verbose_test) then
+       print*, ' '
+       print*, 'Atest =', Atest
+       print*, 'rhs =', rhs
+    endif
+
+    ! Put in SLAP triad format
+
+    n = 0
+    do j = 1, matrix%order
+       do i = 1, matrix%order
+          n = n + 1
+          matrix%row(n) = i
+          matrix%col(n) = j
+          matrix%val(n) = Atest(i,j)
+       enddo
+    enddo
+
+    if (verbose_test) then
+       print*, ' '
+       print*, 'row,       col,       val:'
+       do n = 1, matrix%order*matrix%order
+          print*, matrix%row(n), matrix%col(n), matrix%val(n)
+       enddo
+    endif
+
+    ! Solve the linear matrix problem
+
+    call sparse_easy_solve(matrix, rhs, answer, err, iter, whichsparse)
+
+    if (verbose_test) then
+       print*, ' '
+       print*, 'Called sparse_easy_solve, whichsparse, order =', whichsparse, matrix%order
+       print*, 'answer =', answer
+       print*, 'err =', err       
+       print*, 'iter =', iter
+    endif
+
+    stop
+
+  end subroutine solve_test_matrix
+
+!****************************************************************************
+
 !****************************************************************************
 
 !****************************************************************************
 
 !****************************************************************************
+
+  !TODO - Should this be combined with matrix assembly?
+  !       If so, then can remove this subroutine
+
+  subroutine assemble_load_vector(nx, ny, nlyr,     nhalo,           &
+                                  active_cell,                       &
+                                  NodeID,           NodeOnElementID, &
+                                  iNodeIndex,       jNodeIndex,     kNodeIndex,   &     
+                                  xNode,            yNode,          zNode,        &
+                                  phi,              stagusfc,        &
+                                  bu,               bv)
+
+    integer, intent(in) ::      &
+       nx, ny,                  &    ! horizontal grid dimensions
+       nlyr,                    &    ! number of vertical layers
+       nhalo                         ! number of halo layers
+
+    logical, dimension(nx,ny), intent(in) :: active_cell
+
+    integer, dimension(nVertices*nlyr), intent(in) ::   &
+       iNodeIndex, jNodeIndex, kNodeIndex  ! i, j and k indices of nodes
+
+    real(dp), dimension(nVertices*nlyr), intent(in) ::   &
+       xNode, yNode, zNode  ! x, y and z coordinates of nodes
+
+    integer, dimension(:,:,:), intent(in) ::  &
+       NodeID             ! ID for each active node
+
+    integer, dimension(:,:,:,:), intent(in) :: &
+       NodeOnElementID    ! ID for each node of each element
+
+    real(dp), dimension(nNodesPerElement, nQuadPoints), intent(in) ::   & 
+       phi                ! basis function, evaluated at quad pts
+
+    real(dp), dimension(nx-1,ny-1), intent(in) ::  &
+       stagusfc           ! upper surface elevation on staggered grid
+
+    real(dp), dimension(:), intent(out) ::  &
+       bu, bv             ! load vector, divided into u and v components
+
+    !----------------------------------------------------------------
+    ! Local variables
+    !----------------------------------------------------------------
+
+    real(dp) ::   &
+       detJ               ! determinant of J
+
+    !TODO - Is dphi_dz needed?
+    real(dp), dimension(nNodesPerElement) ::   &
+       dphi_dx, dphi_dy, dphi_dz   ! derivatives of basis function, evaluated at quad pts
+
+    real(dp), dimension(nNodesPerElement) ::   &
+       x, y, z,       &   ! nodal coordinates
+       s                  ! upper surface elevation
+
+    real(dp) ::    &
+       ds_dx, ds_dy       ! horizontal gradient of stagusfc
+
+    integer, dimension(nNodesPerElement) :: nid        ! ID for each node of an element
+
+    integer :: i, j, k, n, p
+
+    if (verbose) then
+       print*, ' '
+       print*, 'In assemble_load_vector'
+    endif
+
+    ! Initialize arrays
+
+    bu(:) = 0.d0
+    bv(:) = 0.d0
+
+    ! Sum over elements
+
+    do j = nhalo+1, ny-nhalo    ! loop over the cells owned by this processor
+    do i = nhalo+1, nx-nhalo
+       
+     if (active_cell(i,j)) then
+
+       do k = 1, nlyr    ! loop over elements in this column
+                         ! assume k increases from upper surface to bed
+
+          ! Find node ID and (x,y,z) coordinates of each node for this element
+
+          if (verbose .and. i==itest .and. j==jtest .and. k==ktest) then
+             print*, 'i, j, k:', i, j, k
+             print*, ' '
+          endif
+
+          ! get nodeID, spatial coordinates, and surface elevation for each node
+          !TODO - Compute s(n) only once per cell instead of for each element?
+          !       Remove z(n)?
+
+          do n = 1, nNodesPerElement
+
+             nid(n) = NodeOnElementID(n,k,i,j)
+             x(n) = xNode(nid(n))
+             y(n) = yNode(nid(n))
+             z(n) = zNode(nid(n))
+             s(n) = stagusfc(iNodeIndex(nid(n)), jNodeIndex(nid(n)))
+
+             if (verbose .and. i==itest .and. j==jtest .and. k==ktest) then
+                print*, 'n, nid, x, y, z, s:', n, nid(n), x(n), y(n), z(n), s(n)
+             endif
+
+          enddo   ! nodes per element
+
+          ! Loop over quadrature points for this element
+   
+          do p = 1, nQuadPoints
+
+             !TODO - Should this be simplified, since I do not need the z derivatives?
+             !       Can I write a 2D version?
+
+             ! Evaluate the derivatives of the element basis functions
+             ! at this quadrature point.
+
+             !whl - debug - Pass in i, j, k, and p for now
+
+             call get_basis_function_derivatives(nNodesPerElement, &
+                                                 x(:),          y(:),          z(:),           &
+                                                 dphi_dxr(:,p), dphi_dyr(:,p), dphi_dzr(:,p),  &
+                                                 dphi_dx(:),    dphi_dy(:),    dphi_dz(:),     &
+                                                 detJ , i, j, k, p )
+
+             !TODO - Next chunk of code could be inserted in matrix assembly loop
+
+             ! Evaluate ds_dx and ds_dy at this quadrature point
+
+             ds_dx = 0.d0
+             ds_dy = 0.d0
+
+             do n = 1, nNodesPerElement
+                ds_dx = ds_dx + dphi_dx(n) * s(n)
+                ds_dy = ds_dy + dphi_dy(n) * s(n)
+             enddo
+
+             ! Increment the load vector with the gravitational contribution from
+             ! this quadrature point.
+
+             ! Is the indexing correct?  E.g., no n index for ds_dx?
+
+             do n = 1, nNodesPerElement    
+                bu(nid(n)) = bu(nid(n)) + rhoi*grav * wqp(p) * detJ * ds_dx * phi(n,p)
+                bv(nid(n)) = bv(nid(n)) + rhoi*grav * wqp(p) * detJ * ds_dy * phi(n,p)
+             enddo     ! n
+
+          enddo   ! nQuadPoints
+
+       enddo   ! nlyr (loop over elements in this column)
+
+     endif   ! active cell
+
+    enddo      ! i
+    enddo      ! j
+
+
+!TODO -  Add the pressure term from immersed shelves
+
+
+  end subroutine assemble_load_vector
+
+!*************************************************
 
 !whl - Rename and revise this subroutine
 !      Call from a k loop to avoid writing 3D version?
@@ -2450,7 +2927,6 @@
   !---------------------------------------------------------------------------
   ! in-out variables
   !---------------------------------------------------------------------------
-  implicit none
 
   integer, intent(in) ::  &
       ewn, nsn                  ! horizontal grid dimensions

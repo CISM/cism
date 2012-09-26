@@ -151,7 +151,7 @@ contains
                                               model%numerics%sigma,     &
                                               nhalo,      &  ! should be part of a derived type
                                               model%geometry%thck,     model%geometry%usrf,         &
-                                              model%geomderv%stagthck, model%geomderv%stagusrf,     &
+!!                                              model%geomderv%stagthck, model%geomderv%stagusrf,     &
                                               model%numerics%thklim,             &
                                               model%temper%flwa,                 &
                                               model%velocity%uvel,     model%velocity%vvel,      &
