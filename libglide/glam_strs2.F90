@@ -112,17 +112,12 @@ implicit none
   real(dp), dimension(:), allocatable :: pcgval, rhsd, rhsx
   integer, dimension(:), allocatable :: pcgcol, pcgrow
   integer, dimension(2) :: pcgsize
-  ! additional storage needed for off diagonal blocks when using JFNK for nonlinear iteration 
-  real(dp), dimension(:), allocatable :: pcgvaluv, pcgvalvu
-  integer, dimension(:), allocatable :: pcgcoluv, pcgrowuv, pcgcolvu, pcgrowvu
-  integer :: ct, ct2
+  integer :: ct
 
 !*sfp* NOTE: these redefined here so that they are "in scope" and can avoid being passed as args
   integer :: whatsparse ! needed for putpgcg()
   integer :: nonlinear  ! flag for indicating type of nonlinar iteration (Picard vs. JFNK)
 
-  logical, save :: storeoffdiag = .false. ! true only if using JFNK solver and block, off diag coeffs needed
-  logical, save :: calcoffdiag = .false. 
   logical, save :: inisoln = .false.      ! true only if a converged solution (velocity fields) exists
 
   real(dp) :: linearSolveTime = 0
@@ -1088,14 +1083,6 @@ subroutine JFNK_velo_solver  (model,umask)
   allocate(matrixtp%row(pcgsize(2)), matrixtp%col(pcgsize(2)), &
             matrixtp%val(pcgsize(2)))
 
-  !*sfp* allocation for storage of (block matrix) off diagonal terms in coeff sparse matrix
-  ! (these terms are usually sent to the RHS and treated as a source term in the operator splitting
-  ! done in the standard Picard iteration)
-  allocate(pcgrowuv(pcgsize(2)),pcgcoluv(pcgsize(2)),pcgvaluv(pcgsize(2)))
-  allocate(pcgrowvu(pcgsize(2)),pcgcolvu(pcgsize(2)),pcgvalvu(pcgsize(2)))
-  allocate(matrixAuv%row(pcgsize(2)),matrixAuv%col(pcgsize(2)),matrixAuv%val(pcgsize(2)))
-  allocate(matrixAvu%row(pcgsize(2)),matrixAvu%col(pcgsize(2)),matrixAvu%val(pcgsize(2)))
-
   allocate(model%solver_data%ui(ewn-1,nsn-1) )
   allocate(model%solver_data%um(ewn-1,nsn-1) ) 
   allocate(model%solver_data%d2thckcross(ewn-1,nsn-1) )
@@ -1116,7 +1103,6 @@ if (main_task) then
   print *, 'Running Payne/Price higher-order dynamics with JFNK solver' 
 end if
 
-  calcoffdiag = .false.    ! save off diag matrix components
  call t_stopf("JFNK_pre")
 
 #ifdef TRILINOS 
@@ -1242,11 +1228,7 @@ end if
   ! *sfp* de-allocation of sparse matrix solution variables 
   deallocate(uindx)
   deallocate(pcgval,pcgrow,pcgcol,rhsd, rhsx)
-  deallocate(pcgvaluv,pcgrowuv,pcgcoluv)
-  deallocate(pcgvalvu,pcgrowvu,pcgcolvu)
   deallocate(matrixA%row, matrixA%col, matrixA%val)
-  deallocate(matrixAuv%row, matrixAuv%col, matrixAuv%val)
-  deallocate(matrixAvu%row, matrixAvu%col, matrixAvu%val)
   deallocate(matrixC%row, matrixC%col, matrixC%val)
   deallocate(matrixtp%row, matrixtp%col, matrixtp%val)
   deallocate(gx_flag )
@@ -2956,7 +2938,6 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
   logical :: comp_bound
 
   ct = 1        ! index to count the number of non-zero entries in the sparse matrix
-  ct2 = 1
 
   if( assembly == 1 )then   ! for normal assembly (assembly=0), start vert index at sfc and go to bed
     up_start = upn        ! for boundary traction calc (assembly=1), do matrix assembly on for equations at bed
@@ -5105,6 +5086,7 @@ subroutine geom2derscros(ewn,  nsn,   &
 
   dewdns = dew*dns
  
+! TODO: Check this over and if ok remove old code !!
 !  *SFP* OLD method; replaced (below) w/ loops and logic for compatibility w/ gnu compilers
 !  where (stagthck /= 0.d0)
 !    opvrewns = (eoshift(eoshift(ipvr,1,0.d0,2),1,0.d0,1) + ipvr   &
@@ -5384,7 +5366,6 @@ subroutine putpcgc(value,col,row,pt)
 
     if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then      ! if using Triad format to store matrix entries
 
-      if ( .not. storeoffdiag ) then ! block diag coeffs in normal storage space
           ! load entry into Triad sparse matrix format
           if (value /= 0.d0) then
             pcgval(ct) = value
@@ -5392,39 +5373,16 @@ subroutine putpcgc(value,col,row,pt)
             pcgrow(ct) = row
             ct = ct + 1
           end if
-      else if ( storeoffdiag ) then ! off-block diag coeffs in other storage
-          ! load entry into Triad sparse matrix format
-          if( pt == 1 )then ! store uv coeffs 
-              if (value /= 0.d0) then
-                pcgvaluv(ct2) = value
-                pcgcoluv(ct2) = col
-                pcgrowuv(ct2) = row
-                ct2 = ct2 + 1
-              end if
-          else if( pt == 2 )then ! store vu coeffs
-              if (value /= 0.d0) then
-                pcgvalvu(ct2) = value
-                pcgcolvu(ct2) = col
-                pcgrowvu(ct2) = row
-                ct2 = ct2 + 1
-              end if
-          end if
-      end if
 
 #ifdef TRILINOS
     else    ! if storing matrix entires directly in Trilinos sparse format
 
-      ! *sfp* NOTE: that this option does not allow for storing offidag terms at present
-      ! (I assume that Andy can grab these when we know they are correct)
-      if (.not. storeoffdiag) then
         if (value /= 0.d0) then
            !AGS: If we find that sparsity changes inside a time step,
            !     consider adding entry even for value==0.
-         call putintotrilinosmatrix(row, col, value) 
+           call putintotrilinosmatrix(row, col, value) 
         end if
-      end if
 #endif
-
     end if  ! end of "if using Triad or Trilinos storage format" construct
  
    end if   ! end of "if using Picard or JFNK for nonlinear solve" construct
@@ -5436,51 +5394,52 @@ end subroutine putpcgc
 !***********************************************************************
 
   subroutine distributed_create_partition(ewn, nsn, upstride, indxmask, mySize, myIndices, myX, myY, myZ)
-  	! distributed_create_partition builds myIndices ID vector for Trilinos using (ns,ew) coordinates in indxmask
-  	! upstride is the total number of vertical layers including any ghosts
-  	! indxmask is ice mask with non-zero values for cells with ice.
-  	! mySize is number of elements in myIndices
-  	! myIndices is integer vector in which IDs are def
-	  use parallel
+  ! distributed_create_partition builds myIndices ID vector for Trilinos using (ns,ew) coordinates in indxmask
+  ! upstride is the total number of vertical layers including any ghosts
+  ! indxmask is ice mask with non-zero values for cells with ice.
+  ! mySize is number of elements in myIndices
+  ! myIndices is integer vector in which IDs are def
+  use parallel
 
- 	  implicit none
+  implicit none
 
-	  integer, intent(in) :: ewn, nsn, upstride
-	  integer, intent(in), dimension(:,:) :: indxmask
-	  integer, intent(in) :: mySize
-	  integer, intent(out), dimension(:) :: myIndices
+  integer, intent(in) :: ewn, nsn, upstride
+  integer, intent(in), dimension(:,:) :: indxmask
+  integer, intent(in) :: mySize
+  integer, intent(out), dimension(:) :: myIndices
 	  real(dp),  intent(out), dimension(:) :: myX, myY, myZ
 
-	  integer :: ew, ns, pointno
-	  integer :: glblID, upindx, slnindx
+  integer :: ew, ns, pointno
+  integer :: glblID, upindx, slnindx
 
 !TODO - Loop over locally owned velocity points?
 
       ! Step through indxmask, but exclude halo
-          do ns = 1+staggered_shalo,size(indxmask,2)-staggered_nhalo
-             do ew = 1+staggered_whalo,size(indxmask,1)-staggered_ehalo
-	        if ( indxmask(ew,ns) /= 0 ) then
-	          pointno = indxmask(ew,ns)  ! Note that pointno starts at value 1.  If we step through correctly then consecutive values
-	          ! write(*,*) "pointno = ", pointno
-	          ! first layer ID is set from parallel_globalID, rest by incrementing through layers
-	          glblID = parallel_globalID(ns, ew, upstride)
-	          ! write(*,*) "global ID (ew, ns) = (", ew, ",", ns, ") ", glblID
-	          upindx = 0
-	          do slnindx = (pointno - 1) * upstride + 1, pointno * upstride
-	              ! slnindx is offset into myIndices for current ice cell's layers. upindx is offset from current globalID.
-  	              myIndices(slnindx) = glblID + upindx
+      do ns = 1+staggered_shalo,size(indxmask,2)-staggered_nhalo
+         do ew = 1+staggered_whalo,size(indxmask,1)-staggered_ehalo
+               if ( indxmask(ew,ns) /= 0 ) then
+                 pointno = indxmask(ew,ns)  ! Note that pointno starts at value 1.  If we step through correctly then consecutive values
+                 ! write(*,*) "pointno = ", pointno
+                 ! first layer ID is set from parallel_globalID, rest by incrementing through layers
+                 glblID = parallel_globalID(ns, ew, upstride)
+                 ! write(*,*) "global ID (ew, ns) = (", ew, ",", ns, ") ", glblID
+                 upindx = 0
+                 do slnindx = (pointno - 1) * upstride + 1, pointno * upstride
+                 ! slnindx is offset into myIndices for current ice cell's layers. upindx is offset from current globalID.
+                      myIndices(slnindx) = glblID + upindx
                       ! Return coordinates for nodes. Assumes structured with dx=1,dy=1,dz=1.0e6
                       myX(slnindx) = (ewlb+ew) * 1.0
                       myY(slnindx) = (nslb+ns) * 1.0
                       myZ(slnindx) = upindx * 1.0e-6
-  	              upindx = upindx + 1
-  	              ! write(*,*) "myIndices offset = ", slnindx
-	          end do
-	        endif
-	      end do
-	  end do
+                     upindx = upindx + 1
+                     ! write(*,*) "myIndices offset = ", slnindx
+                 end do
+               endif
+         end do
+      end do
 
-	  return
+  return
+
   end subroutine
 
 !***********************************************************************
