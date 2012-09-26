@@ -559,7 +559,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      lsrf,        topg,           &
                      minTauf,     flwa,           &
                      beta,        btraction,      &
-                     counter, 0 )
+                     0 )
 
     ! put vels and coeffs from 3d arrays into sparse vector format
     call solver_preprocess( ewn, nsn, upn, uindx, matrix, answer, vvel )
@@ -645,7 +645,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      lsrf,        topg,           &
                      minTauf,     flwa,           &
                      beta,        btraction,      &
-                     counter, 0 )
+                     0 )
 
     ! put vels and coeffs from 3d arrays into sparse vector format
     call solver_preprocess( ewn, nsn, upn, uindx, matrix, answer, uvel )
@@ -711,7 +711,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      lsrf,        topg,           &
                      minTauf,     flwa,           &
                      beta,        btraction,      &
-                     counter, 1 )
+                     1 )
 
    call findcoefstr(ewn,  nsn,   upn,             &
                      dew,  dns,   sigma,          &
@@ -729,7 +729,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      lsrf,        topg,           &
                      minTauf,     flwa,           &
                      beta,        btraction,      &
-                     counter, 1 )
+                     1 )
 
     !JEFF Commented out plasticbediteration() per Steve Price. December 2010
     ! call plasticbediteration( ewn, nsn, uvel(upn,:,:), tvel(upn,:,:), btraction, minTauf, &
@@ -1190,7 +1190,7 @@ end if
                      lsrf,        topg,           &
                      minTauf,     flwa,           &
                      beta,        btraction,      &
-                     0, 1 )
+                     1 )
 
    call findcoefstr(ewn,  nsn,   upn,             &
                      dew,  dns,   sigma,          &
@@ -1208,7 +1208,7 @@ end if
                      lsrf,        topg,           &
                      minTauf,     flwa,           &
                      beta,        btraction,      &
-                     0, 1 )
+                     1 )
 
   inisoln = .true.
 
@@ -2273,7 +2273,8 @@ end subroutine reset_effstrmin
                      lsrf,        topg,           &
                      minTauf,     flwa,           &
                      beta,        btraction,      &
-                     counter, 0 )
+                     0 )
+
     call t_stopf("Calc_F_findcoefstr1")
 
     rhsx(1:pcgsize(1)) = rhsd ! Fv
@@ -2302,6 +2303,7 @@ end subroutine reset_effstrmin
 !==============================================================================
 
     call t_startf("Calc_F_findcoefstr2")
+
     call findcoefstr(ewn,  nsn,   upn,            &
                      dew,  dns,   sigma,          &
                      1,           efvs,           &
@@ -2318,7 +2320,8 @@ end subroutine reset_effstrmin
                      lsrf,        topg,           &
                      minTauf,     flwa,           &
                      beta,        btraction,      &
-                     counter, 0 )
+                     0 )
+
     call t_stopf("Calc_F_findcoefstr2")
 
     rhsx(pcgsize(1)+1:2*pcgsize(1)) = rhsd ! Fv
@@ -2906,7 +2909,7 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                        lsrf,        topg,           &
                        minTauf,     flwa,           &
                        beta,        btraction,      &
-                       count, assembly )
+                       assembly )
 
   ! Main subroutine for determining coefficients that go into the LHS matrix A 
   ! in the expression Au = b. Calls numerous other subroutines, including boundary
@@ -2916,7 +2919,7 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
 
   implicit none
 
-  integer, intent(in) :: ewn, nsn, upn, count, assembly
+  integer, intent(in) :: ewn, nsn, upn, assembly
   real(dp), intent(in) :: dew, dns
   real(dp), dimension(:), intent(in) :: sigma
 
@@ -3117,7 +3120,7 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                        betasquared(ew,ns),           &
                        btraction,                    &
                        whichbabc, assembly,          &              
-                       abar=flwabar, cc=count )
+                       abar=flwabar)
         enddo
         lateralboundry = .false.
         ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -3173,7 +3176,7 @@ subroutine bodyset(ew,  ns,  up,           &
                    betasquared,            &
                    btraction,              &
                    whichbabc, assembly,    &
-                   abar, cc)
+                   abar)
 
   ! This subroutine does the bulk of the work in calling the appropriate discretiztion routines,
   ! which determine the values for coefficients that will go into the sparse matrix, for points
@@ -3200,7 +3203,6 @@ subroutine bodyset(ew,  ns,  up,           &
   real(dp), intent(in) :: betasquared
   real(dp), dimension(:,:,:), intent(inout) :: btraction
   real(dp), intent(in), optional :: abar
-  integer, intent(in), optional :: cc
 
   ! storage space for coefficients that go w/ the discretization at the local point up, ew, ns.
   ! Note that terms other than 'g' are used for storing particular parts needed for calculation
@@ -3255,15 +3257,6 @@ subroutine bodyset(ew,  ns,  up,           &
            elseif( whichbabc >=0 .and. whichbabc <= 5 )then
                 bcflag = (/1,1/)              ! flag for specififed stress at bed: Tau_zx = betasquared * u_bed,
                                               ! where betasquared is MacAyeal-type traction parameter
-           elseif( whichbabc == 7 )then
-
-                write(*,*)"ERROR: This option is not supported in the current release of CISM."
-                write(*,*)"       A future release will support use of Newton iteration on " 
-                write(*,*)"       plastic till basal BC."
-                stop
-
-                bcflag = (/1,2/)              ! plastic bed iteration using Newton implementation
- 
            end if   
 
            loc2plusup = loc2(1,:) + up + 1   ! advance the sparse matrix / rhs row vector index by 1 ...
@@ -3271,9 +3264,11 @@ subroutine bodyset(ew,  ns,  up,           &
 
         end if
 
+!TODO: conduct realistic test cases with and w/o this hack
 !        !! Hack to avoid bad sfc and basal bc normal vectors !!
-        slopex = 0.d0; slopey = 0.d0
+!        slopex = 0.d0; slopey = 0.d0
 
+        ! get coeffs. associated with horiz. normal stresses lateral boundary
         g = normhorizmainbc_lat(dew,           dns,             &
                                 slopex,        slopey,          &
                                 dsigmadew(up), dsigmadns(up),   &
@@ -3283,9 +3278,9 @@ subroutine bodyset(ew,  ns,  up,           &
                                 onesideddiff,                   &
                                 normal,        fwdorbwd)
 
-        ! add on coeff. associated w/ du/dsigma  
+        ! add on coeffs. associated with vertical shear stresses
         g(:,3,3) = g(:,3,3) &
-                 + vertimainbc( stagthck(ew,ns), bcflag, dup(up),     &
+                 + vertimainbc( stagthck(ew,ns), bcflag, dup(up),              &
                                 local_efvs,      betasquared,   g_vert,    nz, &
                                 plastic_coeff=plastic_coeff_lhs(pt,ew,ns)  )
 
@@ -3297,9 +3292,9 @@ subroutine bodyset(ew,  ns,  up,           &
         ! (w.r.t. cols), on a new row ...
         call fillsprsebndy( g, loc2plusup(1), loc_latbc, up, normal, pt )
 
-        ! NOTE that in the following expression, the "-" sign on the crosshoriz terms, 
-        ! which results from moving them from the LHS over to the RHS, has been moved
-        ! inside of "croshorizmainbc_lat".
+
+        ! get coeffs. for horiz shear stress terms, multiply by other vel and put into RHS vector
+
         ! NOTE that in the following expression, the "-" sign on the crosshoriz terms, 
         ! which results from moving them from the LHS over to the RHS, has been moved
         ! inside of "croshorizmainbc_lat".
@@ -3313,25 +3308,6 @@ subroutine bodyset(ew,  ns,  up,           &
                                                    onesideddiff,                 &
                                                    normal,fwdorbwd)              &
                                                  * local_othervel ) /scalebabc
-!OSBC: note that efvs is now passed in to subroutine above, since visc. is included in LHS matrix
-! coeffs rather than divide through onto the RHS solution vector.
-
-!TODO: These are not currently being used. They are for getting the off diag. blocks of coeffs. from the
-!LHS matrix to improve preconditioning. However, we never got them working. Consider removing here and in
-! related locations below? Can grep for this by looking for the related if construct below.
-!        if( nonlinear == HO_NONLIN_JFNK .and. calcoffdiag )then
-!            storeoffdiag = .true.
-!            h = -croshorizmainbc_lat(dew,           dns,           & 
-!                                slopex,        slopey,        &
-!                                dsigmadew(up), dsigmadns(up), & 
-!                                pt,            2,             & 
-!                                dup(up),       local_othervel,& 
-!                                oneortwo,      twoorone,      & 
-!                                onesideddiff,                 &
-!                                 normal,fwdorbwd) / scalebabc 
-!            call fillsprsebndy( h, loc2plusup(1), loc_latbc, up, normal, pt ) 
-!            storeoffdiag = .false.
-!        end if     
 
     end if     ! up = 1 or up = upn (IF at lateral boundary and IF at surface or bed)
 
@@ -3344,54 +3320,48 @@ subroutine bodyset(ew,  ns,  up,           &
     slopex = normal(1)
     slopey = normal(2)
 
-    ! Two options here, (1) use the 1d solution that involves the rate factor (not accurate for 
-    !                       3d domains, but generally more stable 
-    !                   (2) use the more general solution that involves the eff. visc. and normal
-    !                       vector orientation at lateral boundary
-    ! ... only one of these options should be active at a time (comment the other lines out)
-    ! The default setting is (2), the more general case that should also work in the 1d case.
+    ! There are two options here for the source term associated with the boundary condition for 
+    ! floating ice:
+    !
+    !  (1) use the 1d solution that involves the rate factor (not accurate for 
+    !      3d domains, but can be more robust and stable) 
+    !  (2) use the more general solution that involves the eff. visc. and normal
+    !      vector orientation at lateral boundary
+    !
+    ! Only one of these options should be active at a time (i.e. comment the other lines out)
+    ! The default setting is (2), which is the more general case that should also work for 1d problems. 
 
     ! In some cases, the two options can be used together to improve performance, e.g. for the Ross
-    ! ice shelf experiment, a number of early iterations use the more simple bc (option 1) and then
+    ! ice shelf experiment, a number of early iterations could use the more simple bc (option 1) and then
     ! when the solution has converged a bit, we switch to the more realistic implementation (option 2).
-    ! That is achieved in the following if construct ...
+    ! This has the advantage of "conditioning" the eff. visc. in the source term a bit before turning 
+    ! the source term dependence on the eff. visc. "on". 
 
-!OSBC: NOTE that for the one-side bc implementation, the eff. visc. remains w/ the RHS matrix coeffs, so it
-! is not necessary here to fiddle with how it is calculated for the source term in the RHS vector. For this
-! reason, we instead go straight to the floating ice bc source term calc for the full 2d code (below).
+    ! NOTE that the newer sfc, basal, and lateral bc subroutines keep the eff. visc. terms with the LHS
+    ! matrix coeffs. In this case, they do not have any affect on the source term for floating ice bcs
+    ! and the considerations in the above paragraph do not apply (w.r.t. adversely affecting the source term).  
 
-!    if( cc < 2 .and. .not. inisoln )then  ! This should be the default option for the shelf BC source term.
-                                          ! If no previous guess for the eff. visc. exists, this option
-                                          ! uses the 1d version of the BC for one iteration in order to 
-                                          ! "precondition" the soln for the next iteration. W/o this option
-                                          ! active, the 2d version of the BC fails, presumably because of
-                                          ! eff. visc. terms in the denom. of the source term which are either
-                                          ! too large (inf) or to small (~0).
-
-! These options are primarily for debugging the shelf BC source term
-!    if( cc >= 0 )then        ! - use this to use only the 1d version
-    if( cc > 1000000 )then   ! - use this to go straight to the full 2d version of the bc
-
-    ! --------------------------------------------------------------------------------------
-    ! (1) source term (strain rate at shelf/ocean boundary) from Weertman's analytical solution 
-    ! --------------------------------------------------------------------------------------
-    ! See eq. 2, Pattyn+, 2006, JGR v.111; eq. 8, Vieli&Payne, 2005, JGR v.110). Note that this 
-    ! contains the 1d assumption that ice is not spreading lateraly !(assumes dv/dy = 0 for u along flow)
-
-    source = abar * vis0 * ( 1.d0/4.d0 * rhoi * grav * stagthck(ew,ns)*thk0 * ( 1.d0 - rhoi/rhoo))**3.d0
-
-    ! multiply by 4 so that case where v=0, du/dy = 0, LHS gives: du/dx = du/dx|_shelf 
-    ! (i.e. LHS = 4*du/dx, requires 4*du/dx_shelf)
-    source = source * 4.d0
-
-    ! split source based on the boundary normal orientation and non-dimensinoalize
-    ! Note that it is not really appropriate to apply option (1) to 2d flow, since terms other than du/dx in 
-    ! eff. strain rate are ignored. For 2d flow, should use option (2) below. 
-     source = source * normal(pt)
-     source = source * tim0 ! make source term non-dim
-    ! --------------------------------------------------------------------------------------
-
-  else
+!    ! --------------------------------------------------------------------------------------
+!    ! (1) source term (strain rate at shelf/ocean boundary) from Weertman's analytical solution 
+!    ! This is primarily of use for debugging purposes, e.g. when a 1d test case is run. Also useful
+!    ! if one wants to turn "off" the eff. visc. dependence in the matrix coeffs. that go with this
+!    ! boundary condition, since this form of it has no eff. visc. terms.
+!    ! --------------------------------------------------------------------------------------
+!    ! See eq. 2, Pattyn+, 2006, JGR v.111; eq. 8, Vieli&Payne, 2005, JGR v.110). Note that this 
+!    ! contains the 1d assumption that ice is not spreading lateraly !(assumes dv/dy = 0 for u along flow)
+!
+!    source = abar * vis0 * ( 1.d0/4.d0 * rhoi * grav * stagthck(ew,ns)*thk0 * ( 1.d0 - rhoi/rhoo))**3.d0
+!
+!    ! multiply by 4 so that case where v=0, du/dy = 0, LHS gives: du/dx = du/dx|_shelf 
+!    ! (i.e. LHS = 4*du/dx, requires 4*du/dx_shelf)
+!    source = source * 4.d0
+!
+!    ! split source based on the boundary normal orientation and non-dimensinoalize
+!    ! Note that it is not really appropriate to apply option (1) to 2d flow, since terms other than du/dx in 
+!    ! eff. strain rate are ignored. For 2d flow, should use option (2) below. 
+!     source = source * normal(pt)
+!     source = source * tim0 ! make source term non-dim
+!    ! --------------------------------------------------------------------------------------
 
     ! --------------------------------------------------------------------------------------
     ! (2) source term (strain rate at shelf/ocean boundary) from MacAyeal depth-ave solution. 
@@ -3399,29 +3369,11 @@ subroutine bodyset(ew,  ns,  up,           &
 
     source = (rhoi*grav*stagthck(ew,ns)*thk0) / tau0 / 2.d0 * ( 1.d0 - rhoi / rhoo )
 
-    ! terms after "/" below count number of non-zero efvs cells ... needed for averaging of the efvs at boundary 
-
-!SCALING - Units of efvs are evs0 = tau0 / (vel0/len0)
-!          Multiply efvs by evs0/evs_scale so we get the same result in these two cases:
-!           (1) Old Glimmer with scaling:         evs0 = evs_scale = tau0/(vel0/len0), and efvs is non-dimensional
-!           (2) New Glimmer-CISM without scaling: evs0 = 1, evs_scale = tau0/(vel0/len0), and efvs is in Pa s
-
-!!!    source = source / ( sum(local_efvs, local_efvs > 1.0d-12) / &    ! OLD version
-!!!             sum( (local_efvs/local_efvs), local_efvs > 1.0d-12 ) )
-
-!    source = source / ( sum(local_efvs, local_efvs*evs0/evs_scale > 1.0d-12) / &     ! NEW version
-!             sum( (local_efvs/local_efvs), local_efvs*evs0/evs_scale > 1.0d-12 ) )
-!OSBC: This scaling is not needed in the one-sided bc version of the code, since the eff. visc. are
-! kept w/ the LHS coeff. and not moved to the denom. of the RHS vector source terms.
-
     source = source * normal(pt) ! partition according to normal vector at lateral boundary
                                  ! NOTE that source term is already non-dim here 
     ! --------------------------------------------------------------------------------------
 
-  end if
-
-!OSBC: For the one-sided diff version of the code, need to pass in the efvs. since it is
-! part of the LHS matrix coeffs. now.
+    ! get matrix coefficients that go with horiz normal stresses at a floating ice boundary
     g = normhorizmainbc_lat(dew,           dns,        &
                             slopex,        slopey,     &
                             dsigmadew(up), dsigmadns(up),  &
@@ -3431,10 +3383,18 @@ subroutine bodyset(ew,  ns,  up,           &
                             onesideddiff,              &
                             normal,        fwdorbwd)
 
+    ! NOTE that for lateral floating ice boundary, we assume u_sfc ~ u_bed and stress free bc
+    ! at both upper and lower sfc boundaries, so that there are no coeffs. for vert. shear stresses 
+
     ! put the coeff. for the b.c. equation in the same place as the prev. equation
     ! (w.r.t. cols), on a new row ...
+!TODO: is above comment correct or is this now just a normal scatter of coeffs. into the matrix?
     call fillsprsebndy( g, loc2plusup(1), loc_latbc, up, normal, pt )
 
+
+    ! get matrix coefficients that go with the horiz shear stresses at a floating ice
+    ! boundary, multiply by their respective "other" velocity and put into RHS vector
+    
     ! NOTE that in the following expression, the "-" sign on the crosshoriz terms, 
     ! which results from moving them from the LHS over to the RHS, has been moved
     ! inside of "croshorizmainbc_lat".
@@ -3448,66 +3408,44 @@ subroutine bodyset(ew,  ns,  up,           &
                                                onesideddiff,                  &
                                                normal,        fwdorbwd)       &
                                               * local_othervel ) + source
-!OSBC: For the one-sided diff version of the code, need to pass in the efvs (above) since it is
-! part of the LHS matrix coeffs. now.
-
-!TODO: As noted above in line 3594, consider removing this?
-!     if( nonlinear == HO_NONLIN_JFNK .and. calcoffdiag )then
-!         storeoffdiag = .true.
-!         h = -croshorizmainbc_lat(dew,           dns,            &
-!                                 slopex,        slopey,         &
-!                                 dsigmadew(up), dsigmadns(up),  &
-!                                 pt,            1,              &
-!                                 dup(up),       local_othervel, &
-!                                 oneortwo,      twoorone,       &
-!                                 onesideddiff,                  &
-!                                 normal,        fwdorbwd)
-!         call fillsprsebndy( h, loc2plusup(1), loc_latbc, up, normal, pt )
-!         storeoffdiag = .false.
-!     end if
 
   else   ! NOT at a lateral boundary 
 
 ! *********************************************************************************************
 ! normal discretization for points inside of lateral boundary and inside main body of ice sheet
 
-!OSBC: Changes in this section are to replace ghost cells w/ one-sided diffs at sfc/basal indices.
+    ! This if construct skips the normal discretization for the RHS and LHS for the sfc and basal indices
+    ! because these vertical levels are handled by different subroutines.
+    if( up /= upn .and. up /= 1 )then
 
-!OSBC: This if construct skips the normal discretization for the RHS and LHS for the sfc and basal indices
-     if( up /= upn .and. up /= 1 )then
-         g = normhorizmain(pt,up,local_efvs)
-         g(:,2,2) = g(:,2,2) + vertimain(hsum(local_efvs),up)
-!OSBC: NOTE that version of 'fillspremain' for one-sided bcs needs additional index to specify column shift of
-! coeffs. of rows in LHS matrix
-         call fillsprsemain(g,loc2plusup(1),loc2(:,1),up,pt,0)
-         ! NOTE that in the following expression, the "-" sign on the crosshoriz terms,
-         ! which results from moving them from the LHS over to the RHS, is explicit and
-         ! hast NOT been moved inside of "croshorizmin" (as is the case for the analogous
-         ! boundary condition routines).
-         rhsd(loc2plusup(2)) = thisdusrfdx(ew,ns) - &
-                                            sum(croshorizmain(pt,up,local_efvs) * local_othervel)
-     end if
+       g = normhorizmain(pt,up,local_efvs)                      ! normal stress grad coeffs
 
-!OSBC: Replace ghost cells w/ one-sided diffs at sfc/basal indices.
-! The follow two if constructs set the ghost cells to have ones on the diag and zeros on the rhs,
-! enforcing a zero vel bc for the ghost cells.
-     if( up == upn  )then
-        loc2plusup = loc2(1,:) + upn + 1    ! basal ghost cells
-        call valueset(0.d0, loc2plusup)
-     endif
-     if( up == 1  )then
-        loc2plusup = loc2(1,:)              ! sfc ghost cells
-        call valueset(0.d0, loc2plusup)
-     endif
+       g(:,2,2) = g(:,2,2) + vertimain(hsum(local_efvs),up)     ! add vert stress grad coeffs
 
-!TODO: As noted above in line 3594, consider removing this?
-!     if( nonlinear == HO_NONLIN_JFNK .and. calcoffdiag )then
-!         storeoffdiag = .true.
-!         h = croshorizmain(pt,up,local_efvs)   
-!         call fillsprsemain(h,loc2plusup(1),loc2(:,1),up,pt)
-!         storeoffdiag = .false.
-!     end if     
+    ! NOTE that version of 'fillspremain' for one-sided bcs needs additional argument to specify a
+    ! column shift of coeffs. of rows in LHS matrix. That is the "0" past last here (no shift for internal bcs)
+       call fillsprsemain(g,loc2plusup(1),loc2(:,1),up,pt,0)
 
+    ! NOTE that in the following expression, the "-" sign on the crosshoriz terms,
+    ! which results from moving them from the LHS over to the RHS, is explicit and
+    ! hast NOT been moved inside of "croshorizmin" (as is the case for the analogous
+    ! boundary condition routines).
+       rhsd(loc2plusup(2)) = thisdusrfdx(ew,ns) - &             ! shear stress grad coeffs into RHS vector
+                             sum(croshorizmain(pt,up,local_efvs) * local_othervel)
+    end if
+ 
+   ! The follow two if constructs set the ghost cell storage to have ones on the martrix diag and zeros 
+   ! on the rhs, enforcing a zero vel bc for the ghost cells. Eventually, the capacity allowing for ghost
+   ! cells can probably be removed but keeping here for now for backward compatibility.
+    if( up == upn  )then
+       loc2plusup = loc2(1,:) + upn + 1    ! basal ghost cells
+       call valueset(0.d0, loc2plusup)
+    endif
+    if( up == 1  )then
+       loc2plusup = loc2(1,:)              ! sfc ghost cells
+       call valueset(0.d0, loc2plusup)
+    endif
+ 
   end if
 
 ! *********************************************************************************************
@@ -3530,15 +3468,6 @@ subroutine bodyset(ew,  ns,  up,           &
            elseif( whichbabc >=0 .and. whichbabc <= 5 )then
                 bcflag = (/1,1/)              ! flag for specififed stress at bed: Tau_zx = betasquared * u_bed,
                                               ! where betasquared is MacAyeal-type traction parameter
-           elseif( whichbabc == 7 )then
-
-                write(*,*)"ERROR: This option is not supported in the current release of CISM."
-                write(*,*)"       A future release will support use of Newton iteration on " 
-                write(*,*)"       plastic till basal BC."
-                stop
-
-                bcflag = (/1,2/)              ! plastic bed iteration using Newton implementation
-
            end if
            
            loc2plusup = loc2(1,:) + up + 1   ! advance the sparse matrix / rhs row vector index by 1 ...
@@ -3546,170 +3475,65 @@ subroutine bodyset(ew,  ns,  up,           &
         
         end if
 
-!OSBC: OLD bc method, using ghost cells; this subroutine has been moved to bottom module.
-!     g = normhorizmainbc(dew,           dns,     &
-!                         slopex,        slopey,  &
-!                         dsigmadew(up), dsigmadns(up),  &
-!                         pt,            bcflag,  &
-!                         dup(up),                &
-!                         oneorfour,     fourorone)
-
-!OSBC: NEW bc method, using one-sided diffs. Note that this subroutine
-! has a new, slightly diff name than the original.  
-     g = normhorizmainbcos(dew,           dns,          &
+        ! get matrix coefficients that go with normal stresses at sfc or basal boundary 
+        g = normhorizmainbcos(dew,         dns,            &
                          slopex,        slopey,         &
                          dsigmadew(up), dsigmadns(up),  &
                          pt,            bcflag,         &
                          dup(up),       local_efvs,     &
                          oneorfour,     fourorone)
 
-     g_norm = g              ! save for basal traction calculation
+        g_norm = g              ! save these coeffs, as needed for basal traction calculation
 
-     ! Now add on coeff. associated w/ du/dsigma
 
-!OSBC: OLD bc method, using ghost cells; this subroutine has been moved however, because it
-! it is still used in the case of sfc/basal bcs when at a lateral boundary.
-!     g(:,2,2) = g(:,2,2)   &
-!              + vertimainbc( stagthck(ew,ns),bcflag,dup(up),local_efvs,betasquared, &
-!                            g_vert, nz, plastic_coeff=plastic_coeff_lhs(pt,ew,ns) )
+        ! get matrix coefficients that go with vertical stresses at sfc or basal boundary 
+        g(:,2,2) = g(:,2,2)   &
+                 + vertimainbcos( stagthck(ew,ns),bcflag,dup(up),local_efvs,betasquared, &
+                               g_vert, nz, plastic_coeff=plastic_coeff_lhs(pt,ew,ns) )
 
-!OSBC: NEW bc method, using one-sided diffs. Note that this subroutine
-! has a new, slightly diff name than the original.  
-     g(:,2,2) = g(:,2,2)   &
-              + vertimainbcos( stagthck(ew,ns),bcflag,dup(up),local_efvs,betasquared, &
-                            g_vert, nz, plastic_coeff=plastic_coeff_lhs(pt,ew,ns) )
-
-     !! scale basal bc coeffs when using JFNK solver 
-     scalebabc = scalebasalbc( g, bcflag, lateralboundry, betasquared, local_efvs )
-     g = g / scalebabc
-
-     ! put the coeff. for the b.c. equation in the same place as the prev. equation
-     ! (w.r.t. cols), on a new row ...
-     !call fillsprsemain(g,loc2plusup(1),loc2(:,1),up,pt)
-
-!OSBC: The call above goes w/ the old ghost cell bc implementation. The new set of calls is below.
-!
-! Replace ghost cells w/ one-sided diffs at sfc/basal indices. This section shifts the LHS matrix coeffs for the sfc
-! and basal bcs back on to the main diagonal, as opposed to staggered off the diag, which was necessary for the ghost 
-! cell implementation.
-     if( up == 1 .or. up == upn )then
-       loc2plusup = loc2(1,:) + up  ! Need to reset this index since we want the bc on the actual row
-                                    ! coinciding with the boundary at up=1
-        if( up == 1 )then
-          call fillsprsemain(g,loc2plusup(1),loc2(:,1),up,pt,1)
-        else if( up == upn )then
-          call fillsprsemain(g,loc2plusup(1),loc2(:,1),up,pt,-1)
+        !! scale basal bc coeffs when using JFNK solver 
+        scalebabc = scalebasalbc( g, bcflag, lateralboundry, betasquared, local_efvs )
+        g = g / scalebabc
+   
+        loc2plusup = loc2(1,:) + up  ! Need to reset this index since we want the bc on the actual row
+                                     ! coinciding with the boundary at up=1
+   
+        ! Replace ghost cells w/ one-sided diffs at sfc/basal indices. This section shifts the LHS matrix coeffs for the sfc
+        ! and basal bcs back on to the main diagonal, as opposed to staggered off the diag, which was necessary for the ghost 
+        ! cell implementation.
+        if( up == 1 .or. up == upn )then
+           if( up == 1 )then
+             call fillsprsemain(g,loc2plusup(1),loc2(:,1),up,pt,1)
+           else if( up == upn )then
+             call fillsprsemain(g,loc2plusup(1),loc2(:,1),up,pt,-1)
+           end if
         end if
-     end if
 
+        ! calc shear stress coeffs., multiply by other vel and move to RHS vector
+        rhsd(loc2plusup(2)) = sum( croshorizmainbcos(dew,          dns,            &
+                                   slopex,        slopey,         &
+                                   dsigmadew(up), dsigmadns(up),  &
+                                   pt,            bcflag,         &
+                                   dup(up),       local_othervel, &
+                                   local_efvs,                    &
+                                   oneortwo, twoorone, g_cros )   &
+                                   * local_othervel ) / scalebabc 
 
-     ! NOTE that in the following expression, the "-" sign on the crosshoriz terms, 
-     ! which results from moving them from the LHS over to the RHS, has been moved
-     ! inside of "croshorizmainbc".
-     if( bcflag(2) == 2 )then
-
-! OSBC: NOTE that the one-sided basal bc implementation has not yet been updated to work with the 
-! plastic bed basal boundary conditions using Newton methods. However, the code above will already 
-! report an error and exit the code if those basal bcs are asked for in the configuration file.
-!
-! Since this is the only place in the one-side basal bc version of the code where 'crosshorizmainbc' is 
-! called, I've (1) moved this subroutine to the end of the module, along w/ other subroutines/functions that
-! are redundant for the time being, and (2) commented out the call here.
-!          rhsd(loc2plusup(2)) = sum( croshorizmainbc(dew,           dns,            &
-!                                             slopex,        slopey,         &
-!                                             dsigmadew(up), dsigmadns(up),  &
-!                                             pt,            bcflag,         &
-!                                             dup(up),       local_othervel, &
-!                                             local_efvs,                    &
-!                                             oneortwo,      twoorone,       &
-!                                             g_cros,                       &
-!                                             velbc=velbcvect(pt,ew,ns),     &
-!                                             plastic_coeff=plastic_coeff_rhs(pt,ew,ns) ) &
-!                                              * local_othervel )            &
-!                                             + plastic_rhs(pt,ew,ns) / (sum(local_efvs(2,:,:))/4.d0) &
-!                                             *(len0/thk0) / scalebabc
-
-!TODO: As noted above in line 3594, consider removing this?
-!         if( nonlinear == HO_NONLIN_JFNK .and. calcoffdiag )then
-!             storeoffdiag = .true.
-!             h = -croshorizmainbc(dew,           dns,            &
-!                                 slopex,        slopey,         &
-!                                 dsigmadew(up), dsigmadns(up),  &
-!                                 pt,            bcflag,         &
-!                                 dup(up),       local_othervel, &
-!                                 local_efvs,                    &
-!                                 oneortwo, twoorone, g_cros ) / scalebabc
-!             call fillsprsemain(h,loc2plusup(1),loc2(:,1),up,pt)
-!             storeoffdiag = .false.
-!         end if
-
-     else if( bcflag(2) /= 2 )then
-
-! OSBC: Need to reset this index since we want the bc coeffs. on the actual row coinciding 
-! with the boundary at up=1.
-     loc2plusup = loc2(1,:) + up    
-
-! OSBC: for one-side bc implementation, call slightly diff. subroutine here.
-!          rhsd(loc2plusup(2)) = sum( croshorizmainbc(dew,           dns,            &
-         rhsd(loc2plusup(2)) = sum( croshorizmainbcos(dew,          dns,            &
-                                             slopex,        slopey,         &
-                                             dsigmadew(up), dsigmadns(up),  &
-                                             pt,            bcflag,         &
-                                             dup(up),       local_othervel, &
-                                             local_efvs,                    &
-                                             oneortwo, twoorone, g_cros )  &
-                                              * local_othervel ) / scalebabc 
-
-!TODO: As noted above in line 3594, consider removing this?
-!         if( nonlinear == HO_NONLIN_JFNK .and. calcoffdiag)then
-!             storeoffdiag = .true.
-!             h = -croshorizmainbc(dew,           dns,            &
-!                                 slopex,        slopey,         &
-!                                 dsigmadew(up), dsigmadns(up),  &
-!                                 pt,            bcflag,         &
-!                                 dup(up),       local_othervel, &
-!                                 local_efvs,                    &
-!                                 oneortwo, twoorone, g_cros ) / scalebabc
-!             call fillsprsemain(h,loc2plusup(1),loc2(:,1),up,pt)
-!             storeoffdiag = .false.
-!         end if
-
-      end if
-
-      ! The following calculates the basal traction AFTER an updated solution is obtain by passing the new
-      ! values of uvel, vvel back to the matrix assembly routines, and thus obtaining updated values of the 
-      ! relevant coefficients. The if construct allows the assembly routines to be called for only the vert
-      ! layers that are needed to cacluate the basal traction (as opposed to all vert levels 1:upn).
-      if( assembly == 1 )then
-
-!OSBC: one-sided bc implementation does not need ghost vels for traction calculation (below, old calc.
-! is commented out, followed by new calculation)
-!      select case( pt )
-!         case(1)
-!           g_vel_lhs(:,:,:) = ghostbvel(1,:,ew-1:ew+1,ns-1:ns+1)
-!           g_vel_rhs(:,:,:) = ghostbvel(2,:,ew-1:ew+1,ns-1:ns+1)
-!         case(2)
-!           g_vel_lhs(:,:,:) = ghostbvel(2,:,ew-1:ew+1,ns-1:ns+1)
-!           g_vel_rhs(:,:,:) = ghostbvel(1,:,ew-1:ew+1,ns-1:ns+1)
-!       end select
+        ! The following calculates the basal traction AFTER an updated solution is obtain by passing the new
+        ! values of uvel, vvel back to the matrix assembly routines, and thus obtaining updated values of the 
+        ! relevant coefficients. The if construct allows the assembly routines to be called for only the vert
+        ! layers that are needed to cacluate the basal traction (as opposed to all vert levels 1:upn).
+        if( assembly == 1 )then
 
            g_vel_lhs = local_thisvel
            g_vel_rhs = local_othervel
 
 !HALO - Since ew and ns are locally owned velocity points, we will have btraction at all such points.
-
-!       btraction(pt,ew,ns) = sum( (g_norm+g_vert)*g_vel_lhs*thk0/len0*sum(local_efvs(2,:,:))/4.d0 ) &
-!                           - sum( g_cros*g_vel_rhs*thk0/len0*sum(local_efvs(2,:,:))/4.d0 )
-! NOTE that one-sided bc implementation also uses diff. scales, since efvs is now explicitly attached to the bc coeffs
-! in the LHS matrix, as opposed to being divided through and placed in the RHS vector. 
-       btraction(pt,ew,ns) = sum( (g_norm+g_vert)*g_vel_lhs*thk0/len0 ) &
-                           - sum( g_cros*g_vel_rhs*thk0/len0 )
-
-     end if
+           btraction(pt,ew,ns) = sum( (g_norm+g_vert)*g_vel_lhs*thk0/len0 ) &
+                                  - sum( g_cros*g_vel_rhs*thk0/len0 )
+        end if
 
   end if   ! (up = 1 or up = upn) and lateralboundry = F
-
-! *********************************************************************************************
 
   return
 
