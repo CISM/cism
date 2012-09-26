@@ -103,9 +103,6 @@ implicit none
   real(dp), dimension(:,:), allocatable :: &
               d2thckdew2, d2usrfdew2, d2thckdns2, d2usrfdns2, d2thckdewdns, d2usrfdewdns
 
-  ! variables for plastic-till basal BC iteration using Newton method
-  real(dp), dimension(:,:,:), allocatable :: velbcvect, plastic_coeff_lhs, plastic_coeff_rhs, &
-                                                     plastic_rhs, plastic_resid
   real(dp), dimension(:,:,:,:), allocatable :: ghostbvel
 
   ! variables for use in sparse matrix calculation
@@ -217,17 +214,9 @@ subroutine glam_velo_init( ewn,   nsn,   upn,    &
 
     allocate(dups(upn))
 
-  ! allocate/initialize variables for plastic-till basal BC iteration using Newton method
-    allocate(velbcvect(2,ewn-1,nsn-1),plastic_coeff_rhs(2,ewn-1,nsn-1),plastic_coeff_lhs(2,ewn-1,nsn-1), &
-            plastic_rhs(2,ewn-1,nsn-1), plastic_resid(1,ewn-1,nsn-1) )
     allocate(ghostbvel(2,3,ewn-1,nsn-1))        !! for saving the fictious basal vels at the bed !!
 
-    plastic_coeff_rhs(:,:,:) = 0.d0
-    plastic_coeff_lhs(:,:,:) = 0.d0
-    plastic_rhs(:,:,:) = 0.d0
-    plastic_resid(:,:,:) = 0.d0
     ghostbvel(:,:,:,:) = 0.d0
-    velbcvect(:,:,:) = 0.d0
 
     flwafact = 0.d0
 
@@ -315,7 +304,6 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
   real(dp), parameter :: minres = 1.0d-4    ! assume vel fields converged below this resid 
   real(dp), parameter :: NL_tol = 1.0d-06   ! to have same criterion than with JFNK
   real(dp), save, dimension(2) :: resid     ! vector for storing u resid and v resid 
-  real(dp) :: plastic_resid_norm = 0.d0    ! norm of residual used in Newton-based plastic bed iteration
 
   integer, parameter :: cmax = 300                  ! max no. of iterations
   integer :: counter, linit                         ! iteration counter, ???
@@ -725,10 +713,6 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      minTauf,     flwa,           &
                      beta,        btraction,      &
                      1 )
-
-    !JEFF Commented out plasticbediteration() per Steve Price. December 2010
-    ! call plasticbediteration( ewn, nsn, uvel(upn,:,:), tvel(upn,:,:), btraction, minTauf, &
-    !                          plastic_coeff_lhs, plastic_coeff_rhs, plastic_rhs, plastic_resid )
 
     ! apply unstable manifold correction to converged velocities
 
@@ -3262,8 +3246,7 @@ subroutine bodyset(ew,  ns,  up,           &
         ! add on coeffs. associated with vertical shear stresses
         g(:,3,3) = g(:,3,3) &
                  + vertimainbc( stagthck(ew,ns), bcflag, dup(up),              &
-                                local_efvs,      betasquared,   g_vert,    nz, &
-                                plastic_coeff=plastic_coeff_lhs(pt,ew,ns)  )
+                                local_efvs,      betasquared,   g_vert,  nz ) 
 
         !! scale basal bc coeffs when using JFNK solver 
         scalebabc = scalebasalbc( g, bcflag, lateralboundry, betasquared, local_efvs )
@@ -3469,8 +3452,8 @@ subroutine bodyset(ew,  ns,  up,           &
 
         ! get matrix coefficients that go with vertical stresses at sfc or basal boundary 
         g(:,2,2) = g(:,2,2)   &
-                 + vertimainbcos( stagthck(ew,ns),bcflag,dup(up),local_efvs,betasquared, &
-                               g_vert, nz, plastic_coeff=plastic_coeff_lhs(pt,ew,ns) )
+                 + vertimainbcos( stagthck(ew,ns),bcflag,dup(up),local_efvs, &
+                                    betasquared, g_vert, nz )
 
         !! scale basal bc coeffs when using JFNK solver 
         scalebabc = scalebasalbc( g, bcflag, lateralboundry, betasquared, local_efvs )
@@ -3803,7 +3786,7 @@ end function croshorizmain
 ! start of functions to deal with higher-order boundary conditions at sfc and bed
 ! ***************************************************************************
 
-function vertimainbc(thck, bcflag, dup, efvs, betasquared, g_vert, nz, plastic_coeff)
+function vertimainbc(thck, bcflag, dup, efvs, betasquared, g_vert, nz )
 
 ! altered form of 'vertimain' that calculates coefficients for higher-order
 ! b.c. that go with the 'normhorizmain' term: -(X/H)^2 * dsigma/dzhat * du/dsigma 
@@ -3814,7 +3797,6 @@ function vertimainbc(thck, bcflag, dup, efvs, betasquared, g_vert, nz, plastic_c
     real(dp), intent(in) :: nz                      ! sfc normal vect comp in z-dir
     real(dp), intent(in), dimension(2,2,2) :: efvs
     real(dp), intent(out), dimension(3,3,3) :: g_vert
-    real(dp), optional, intent(in) :: plastic_coeff
     integer, intent(in), dimension(2) :: bcflag
 
     real(dp) :: c
@@ -3845,14 +3827,6 @@ function vertimainbc(thck, bcflag, dup, efvs, betasquared, g_vert, nz, plastic_c
                            + ( betasquared / ( sum( efvs(2,:,:) ) / 4.d0 ) ) * (len0 / thk0)
     end if
 
-    ! for higher-order BASAL B.C. w/ plastic yield stress iteration ...
-    if( bcflag(2) == 2 )then
-
-             ! last set of terms is mean visc. of ice nearest to the bed
-            vertimainbc(2) = vertimainbc(2)   &
-                           + ( plastic_coeff / ( sum( efvs(2,:,:) ) / 4.d0 ) ) * (len0 / thk0)
-    end if
-
     ! for higher-order BASAL B.C. U=V=0, in x ('which'=1) or y ('which'=2) direction ...
     ! NOTE that this is not often implemented, as it is generally sufficient to implement 
     ! an "almost" no slip BC by just making the coeff. for betasquared very large (and the 
@@ -3870,7 +3844,7 @@ end function vertimainbc
 
 !***********************************************************************
 
-function vertimainbcos(thck, bcflag, dup, efvs, betasquared, g_vert, nz, plastic_coeff)
+function vertimainbcos(thck, bcflag, dup, efvs, betasquared, g_vert, nz )
 
 ! altered form of 'vertimain' that calculates coefficients for higher-order
 ! b.c. that go with the 'normhorizmain' term: -(X/H)^2 * dsigma/dzhat * du/dsigma
@@ -3881,7 +3855,6 @@ function vertimainbcos(thck, bcflag, dup, efvs, betasquared, g_vert, nz, plastic
     real (dp), intent(in) :: nz                      ! sfc normal vect comp in z-dir
     real (dp), intent(in), dimension(2,2,2) :: efvs
     real (dp), intent(out), dimension(3,3,3) :: g_vert
-    real (dp), optional, intent(in) :: plastic_coeff
     integer, intent(in), dimension(2) :: bcflag
 
     real (dp) :: c
@@ -3943,17 +3916,6 @@ function vertimainbcos(thck, bcflag, dup, efvs, betasquared, g_vert, nz, plastic
             vertimainbcos(3) = vertimainbcos(3)   &
                            + ( betasquared ) * (len0 / thk0)
 
-    end if
-
-    ! for higher-order BASAL B.C. w/ plastic yield stress iteration ...
-    if( bcflag(2) == 2 )then
-
-             ! last set of terms is mean visc. of ice nearest to the bed
-!            vertimainbcos(2) = vertimainbcos(2)   &
-!                           + ( plastic_coeff / efvsbar_bed ) * (len0 / thk0)
-! ... but one-sided implementation doesn't need this, since efvs stays on LHS
-            vertimainbcos(2) = vertimainbcos(2)   &
-                           + ( plastic_coeff ) * (len0 / thk0)
     end if
 
     ! for higher-order BASAL B.C. U=V=0, in x ('which'=1) or y ('which'=2) direction ...
@@ -4096,7 +4058,7 @@ function croshorizmainbcos(dew,       dns,       &
                          dup,       local_othervel,  &
                          efvs,                       &
                          oneortwo,  twoorone,        &
-                         g_cros, velbc, plastic_coeff )
+                         g_cros, velbc )
 
     ! As described for "normhorizmainbc" above. The vectors "twoorone" and
     ! "oneortwo" are given by: twoorone = [ 2 1 ]; oneortwo = [ 1 2 ];
@@ -4111,7 +4073,7 @@ function croshorizmainbcos(dew,       dns,       &
     real (kind = dp), intent(in) :: dusrfdew, dusrfdns, dsigmadew, dsigmadns, dup
     real (kind = dp), intent(in), dimension(:,:,:) :: local_othervel
     real (kind = dp), intent(in), dimension(:,:,:) :: efvs
-    real (kind = dp), intent(in), optional :: velbc, plastic_coeff
+    real (kind = dp), intent(in), optional :: velbc
     real (kind = dp), intent(out),dimension(:,:,:) :: g_cros
 
 
@@ -4211,12 +4173,6 @@ function croshorizmainbcos(dew,       dns,       &
      ! NOTE: here we define 'g_cros' FIRST, because we want the value w/o the plastic
      ! bed coeff. included (needed for estimate of basal traction in plastic bed iteration)
      g_cros = g
-
-     if( bcflag(2) == 2 )then        ! add on coeff. associated w/ plastic bed iteration
-
-         g(2,2,2) = g(2,2,2) + plastic_coeff / ( sum( efvs(2,:,:) ) / 4.d0 ) * (len0 / thk0)
-
-     end if
 
     croshorizmainbcos = g
 
@@ -5032,15 +4988,6 @@ end subroutine calcbetasquared
 
 !***********************************************************************
 
-subroutine plasticbediteration( )  
-
-    !!! NOTE: This subroutine is under development, in support of  Newton-type iteration on a plastic-till
-    !!!       basal boundary condition. It will be supported in a future release of CISM.
-
-end subroutine plasticbediteration
-
-!***********************************************************************
-
 !TODO - Might be cleaner to just inline the vertical loop wherever this function is called.
 
 function vertintg(upn, sigma, in)
@@ -5846,7 +5793,8 @@ function normhorizmainbc(dew,       dns,        &
 end function normhorizmainbc
 
 !***********************************************************************
-
+!NOTE: This subroutine has been deprecated because it is has been replaced by
+! 'croshorizmainbcos', where the "os" stands for one-sided difference.
 function croshorizmainbc(dew,       dns,       &
                          dusrfdew,  dusrfdns,  &
                          dsigmadew, dsigmadns, &
@@ -5854,7 +5802,7 @@ function croshorizmainbc(dew,       dns,       &
                          dup,       local_othervel,  &
                          efvs,                       &
                          oneortwo,  twoorone,        &
-                         g_cros, velbc, plastic_coeff )
+                         g_cros, velbc )
 
     ! As described for "normhorizmainbc" above. The vectors "twoorone" and 
     ! "oneortwo" are given by: twoorone = [ 2 1 ]; oneortwo = [ 1 2 ];
@@ -5869,9 +5817,8 @@ function croshorizmainbc(dew,       dns,       &
     real(dp), intent(in) :: dusrfdew, dusrfdns, dsigmadew, dsigmadns, dup
     real(dp), intent(in), dimension(:,:,:) :: local_othervel
     real(dp), intent(in), dimension(:,:,:) :: efvs
-    real(dp), intent(in), optional :: velbc, plastic_coeff
+    real(dp), intent(in), optional :: velbc
     real(dp), intent(out),dimension(:,:,:) :: g_cros
-
 
     real(dp), dimension(3,3,3) :: g, croshorizmainbc
     real(dp) :: c
@@ -5932,12 +5879,6 @@ function croshorizmainbc(dew,       dns,       &
      ! NOTE: here we define 'g_cros' FIRST, because we want the value w/o the plastic
      ! bed coeff. included (needed for estimate of basal traction in plastic bed iteration)
      g_cros = g
-
-     if( bcflag(2) == 2 )then        ! add on coeff. associated w/ plastic bed iteration
-
-         g(2,2,2) = g(2,2,2) + plastic_coeff / ( sum( efvs(2,:,:) ) / 4.d0 ) * (len0 / thk0)
-
-     end if
 
     croshorizmainbc = g
 
