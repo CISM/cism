@@ -68,9 +68,8 @@ contains
                                                   ! NOTE: on i/o, beta has units of Pa yr/m. Since vel0 has units of m/s, 
                                                   ! the first two terms on the RHS have units of Pa s/m. Thus, the final 
                                                   ! division by scyr here converts s/m to yr/m. All together, the 3 terms 
-                                                  ! on the RHS scale by on i/o by Pa yr/m (made dimensionless on input, 
-                                                  ! assuming the units in the input .nc file are in Pa yr/m, and vice
-                                                  ! versa on output.
+                                                  ! on the RHS scale on i/o by Pa yr/m (thus, making dimensionless on input, 
+                                                  ! assuming the units on input are Pa yr/m, and also converting to Pa yr/m on output)
 
     scale_flwa  = scyr * vis0                     ! flwa
     scale_tau   = tau0                            ! tauf, tauxz, btractx
