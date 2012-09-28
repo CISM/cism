@@ -1584,6 +1584,7 @@ function getlocationarray(ewn, nsn, upn, mask, indxmask)
 
 !TODO - Not sure if these loops are correct because I don't understand what this subroutine is doing.
 !       Is the input mask on the scalar (ice) grid? 
+!SFP: Need to check indices here - getlocationarray should exist on the velocity grid, not the thickness (scalar) grid
   do ns=1,nsn
     do ew=1,ewn
       getlocationarray(ew,ns,1) = parallel_globalID(ns, ew, upn + 2)  ! Extra two layers for ghost layers
