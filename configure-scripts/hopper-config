@@ -1,8 +1,8 @@
 #  Notes on Hopper build 
-# (updated and confirmed on June 8, 2012 by SFP)
+# (updated and confirmed on Sept. 28, 2012 by KJE)
 #
 # (1) before executing this script, load these modules:            
-# module load netcdf/4.1.2 	(note that default netcdf lib won't work)
+# module load netcdf/4.1.2   FYI netcdf/4.2.0 produces a link error, haven't tried netcdf-hdf5-parallel/4.2.0 yet
 # module load python
 #
 # (2) run bootstrap 
@@ -29,8 +29,8 @@
  --disable-python \
  --disable-shared \
  --with-netcdf=$CRAY_NETCDF_DIR \
- EXTRA_LDLIBS="/opt/pgi/12.2.0/linux86-64/12.2/lib/f90main.o" \
- --with-trilinos=/global/homes/s/sprice/trilinos-10.10.1 \
+ EXTRA_LDLIBS="/opt/pgi/12.5.0/linux86-64/12.5/lib/f90main.o" \
+ --with-trilinos=$SCRATCH/trilinos-10.12.2-Source/xe6-pgi/install \
  --enable-mpi="yes" \
  --with-blas=-lsci_pgi \
 

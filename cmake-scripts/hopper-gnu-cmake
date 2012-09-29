@@ -1,0 +1,49 @@
+# Requires (command line or in  .bashrc):
+#   module load cmake
+#
+# cmake configuration script that works on hopper with PGI
+# This script needs to be run from a subdirectory (e.g. build-pgi)
+# of the main seacism repository (reflected in the several 
+# instances of # ".." below).
+#
+# After this executes, do:
+#   make -j 4
+#   cp example-drivers/simple_glide/src/sgcmake .
+#  --If you get an error about missing mod files, try make multiple times.
+
+rm ./CMakeCache.txt
+
+echo
+echo "Doing CMake Configuration step"
+
+cmake \
+  -D GLIMMER_TRILINOS_DIR=/scratch/scratchdirs/evanskj/trilinos-10.12.2-Source/xe6-gnu/install \
+  -D GLIMMER_NETCDF_DIR=$CRAY_NETCDF_DIR \
+  -D CMAKE_VERBOSE_MAKEFILE:BOOL=OFF \
+  -D GLIMMER_Fortran_FLAGS="-ffree-line-length-none" \
+ ..
+
+# Note: last argument above  ".."  is path to top seacism directory 
+ 
+# If you dont depend on  netcdff AND netcdf, but just netcdf, use this line
+#   -D GLIMMER_NETCDF_LIBS="netcdf" \
+#
+# 9/27/2012 this the PrgEnv that both the trilinos build above and the current
+# successful build and run of seacism on Hopper xe6
+
+#Currently Loaded Modulefiles:
+#  1) modules/3.2.6.6                      14) gcc/4.7.1
+#  2) xtpe-network-gemini                  15) eswrap/1.0.10
+#  3) cray-mpich2/5.5.2                    16) xtpe-mc12
+#  4) atp/1.5.0                            17) cray-shmem/5.5.2
+#  5) xt-asyncpe/5.12                      18) torque/2.5.9
+#  6) xe-sysroot/4.0.46                    19) moab/6.1.8
+#  7) xpmem/0.1-2.0400.31280.3.1.gem       20) altd/1.0
+#  8) gni-headers/2.1-1.0400.4351.3.1.gem  21) PrgEnv-gnu/4.0.46
+#  9) dmapp/3.2.1-1.0400.4255.2.159.gem    22) subversion/1.6.4
+# 10) pmi/3.0.1-1.0000.9101.2.26.gem       23) cmake/2.8.7
+# 11) ugni/2.3-1.0400.4374.4.88.gem        24) python/2.7.1
+# 12) udreg/2.3.1-1.0400.4264.3.1.gem      25) hdf5/1.8.8
+# 13) cray-libsci/11.1.00                  26) netcdf/4.2.0
+
+
