@@ -85,7 +85,7 @@ module glimmer_paramets
 !SCALING - WHL, 10 June 2012 - Reverted to the old values of thk0, len0, vel0 for now.
 ! To use the new scaling parameters, simply comment out the old values and uncomment the new.
 
-! The following are the old Glimmer scaling parameters. These are now decremented.
+! The following are the old Glimmer scaling parameters. These are now deprecated.
   real(dp), parameter :: thk0 = 2000.0d0        ! m 
   real(dp), parameter :: len0 = 200.0d3         ! m 
   real(dp), parameter :: vel0 = 500.0 / scyr    ! m yr^{-1} converted to S.I. units
@@ -124,11 +124,6 @@ module glimmer_paramets
 !  real(dp), parameter :: tau0 = rhoi*grav
 !  real(dp), parameter :: evs0 = tau0*scyr
 !  real(dp), parameter :: vis0 = tau0**(-gn) / scyr
-
-!SCALING - Looking further ahead, we could set all the above constants to 1.0 and remove all scaling parameters.
-!          Then the entire code would be in SI units.
-!          The down side is that the units of velocity would be m/s instead of m/yr, but diagnostics could be m/yr.
-
 
 !WHL - Here I am defining some new constants that have the same values as thk0, len0, etc. in old Glimmer.
 !      I am giving the new constants new names to minimize confusion.

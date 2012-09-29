@@ -594,8 +594,10 @@ contains
          'no slip (Dirichlet implementation)     ', &
          'till yield stress (Newton)             ' /)
 
-    character(len=*), dimension(0:1), parameter :: ho_whichefvs = (/ &
+!whl - added another case here
+    character(len=*), dimension(0:2), parameter :: ho_whichefvs = (/ &
          'from eff strain rate    ', &
+         'multiple of flow factor ', &
          'constant value          ' /)
 
     character(len=*), dimension(0:3), parameter :: ho_whichresid = (/ &

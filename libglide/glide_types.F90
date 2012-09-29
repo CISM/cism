@@ -136,14 +136,15 @@ module glide_types
   integer, parameter :: BWATER_BASAL_PROC = 3  !*mb* basal water available from basal proc. module
   integer, parameter :: BWATER_CONST = 4       !*mb* Constant thickness of water, e.g., to force Tpmp.
 
+!whl - added a case here
   integer, parameter :: HO_EFVS_FULL = 0
-  integer, parameter :: HO_EFVS_CONSTANT = 1
-  integer, parameter :: HO_EFVS_MINIMUM = 2
+  integer, parameter :: HO_EFVS_FLOWFACT = 1
+  integer, parameter :: HO_EFVS_CONSTANT = 2
     !*FD Flag that indicates how effective viscosity is computed
     !*FD \begin{description}
     !*FD \item[0] compute from effective strain rate
-    !*FD \item[1] constant value
-    !*FD \item[2] minimum value
+    !*FD \item[1] multiple of flow factor
+    !*FD \item[2] constant value
 
   integer, parameter :: SIA_DISP = 0
   integer, parameter :: FIRSTORDER_DISP = 1
