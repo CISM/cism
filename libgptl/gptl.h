@@ -9,6 +9,10 @@
 #ifndef GPTL_H
 #define GPTL_H
 
+#ifdef INCLUDE_CMAKE_FCI
+#include "cmake_fortran_c_interface.h"
+#endif
+
 /* following block for camtimers only */
 #ifndef NO_GETTIMEOFDAY
 #define HAVE_GETTIMEOFDAY

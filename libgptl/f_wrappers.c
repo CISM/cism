@@ -46,6 +46,33 @@
 #define gptlevent_name_to_code GPTLEVENT_NAME_TO_CODE
 #define gptlevent_code_to_name GPTLEVENT_CODE_TO_NAME
 
+#elif ( defined INCLUDE_CMAKE_FCI )
+
+#define gptlinitialize              FCI_GLOBAL(gptlinitialize,GPTLINITIALIZE)
+#define gptlfinalize                FCI_GLOBAL(gptlfinalize,GPTLFINALIZE)
+#define gptlpr                      FCI_GLOBAL(gptlpr,GPTLPR)
+#define gptlpr_file                 FCI_GLOBAL(gptlpr_file,GPTLPR_FILE)
+#define gptlpr_summary              FCI_GLOBAL(gptlpr_summary,GPTLPR_SUMMARY)
+#define gptlreset                   FCI_GLOBAL(gptlreset,GPTLRESET)
+#define gptlstamp                   FCI_GLOBAL(gptlstamp,GPTLSTAMP)
+#define gptlstart                   FCI_GLOBAL(gptlstart,GPTLSTART)
+#define gptlstop                    FCI_GLOBAL(gptlstop,GPTLSTOP)
+#define gptlsetoption               FCI_GLOBAL(gptlsetoption,GPTLSETOPTION)
+#define gptlenable                  FCI_GLOBAL(gptlenable,GPTLENABLE)
+#define gptldisable                 FCI_GLOBAL(gptldisable,GPTLDISABLE)
+#define gptlsetutr                  FCI_GLOBAL(gptlsetutr,GPTLSETUTR)
+#define gptlquery                   FCI_GLOBAL(gptlquery,GPTLQUERY)
+#define gptlquerycounters           FCI_GLOBAL(gptlquerycounters,GPTLQUERYCOUNTERS)
+#define gptlget_wallclock           FCI_GLOBAL(gptlget_wallclock,GPTLGET_WALLCLOCK)
+#define gptlget_eventvalue          FCI_GLOBAL(gptlget_eventvalue,GPTLGET_EVENTVALUE)
+#define gptlget_nregions            FCI_GLOBAL(gptlget_nregions,GPTLGET_NREGIONS)
+#define gptlget_regionname          FCI_GLOBAL(gptlget_regionname,GPTLGET_REGIONNAME)
+#define gptlget_memusage            FCI_GLOBAL(gptlget_memusage,GPTLGET_MEMUSAGE)
+#define gptlprint_memusage          FCI_GLOBAL(gptlprint_memusage,GPTLPRINT_MEMUSAGE)
+#define gptl_papilibraryinit        FCI_GLOBAL(gptl_papilibraryinit,GPTL_PAPILIBRARYINIT)
+#define gptlevent_name_to_code      FCI_GLOBAL(gptlevent_name_to_code,GPTLEVENT_NAME_TO_CODE)
+#define gptlevent_code_to_name      FCI_GLOBAL(gptlevent_code_to_name,GPTLEVENT_CODE_TO_NAME)
+
 #elif ( defined FORTRANUNDERSCORE )
 
 #define gptlinitialize gptlinitialize_

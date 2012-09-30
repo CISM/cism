@@ -1,3 +1,4 @@
+timing_120921: Add code for cmake build, should not have any affect otherwise
 timing_120803: Bug fix in setting timing_detail_limit default.
                [Patrick Worley]
 timing_120731: Correction in Makefile for serial build [Jim Edwards]
