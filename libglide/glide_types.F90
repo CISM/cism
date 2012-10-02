@@ -739,6 +739,8 @@ module glide_types
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 !TODO - glimmer_numerics?
+!TODO Why are some of these sp?  With some fractional tinc values, you may get an extra time step performed 
+! due to roundoff error in the time variable in simple_glide (which is dp).  
 
   type glide_numerics
 

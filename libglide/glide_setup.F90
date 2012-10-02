@@ -431,6 +431,10 @@ contains
     call write_log(message)
     write(message,*) 'thermal dt factor : ',model%numerics%ntem
     call write_log(message)
+    if ( (model%numerics%ntem < 1.0d0) .or. &
+       (floor(model%numerics%ntem) /= model%numerics%ntem) ) then
+       call write_log('ntem is a multiplier on the basic time step.  It should be a positive integer.  Aborting.',GM_FATAL)
+    endif
     write(message,*) 'velo dt factor    : ',model%numerics%nvel
     call write_log(message)
     write(message,*) 'profile frequency : ',model%numerics%profile_period
