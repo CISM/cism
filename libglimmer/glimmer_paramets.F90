@@ -85,19 +85,27 @@ module glimmer_paramets
 !SCALING - WHL, 10 June 2012 - Reverted to the old values of thk0, len0, vel0 for now.
 ! To use the new scaling parameters, simply comment out the old values and uncomment the new.
 
+!SCALING - DFM, 2, Oct 2012 - made scaled vs. unscaled values for thk0, len0, 
+! and vel0 switchable by the reconstituted NO_RESCALE compilation flag. 
+! (necessary to be compatible with alternate dycores) 
+
+#ifndef NO_RESCALE
 ! The following are the old Glimmer scaling parameters. These are now deprecated.
   real(dp), parameter :: thk0 = 2000.0d0        ! m 
   real(dp), parameter :: len0 = 200.0d3         ! m 
   real(dp), parameter :: vel0 = 500.0 / scyr    ! m yr^{-1} converted to S.I. units
 !!  real(dp), parameter :: vis0 = 5.70d-18 / scyr  ! yr^{-1} Pa^{-3} converted to S.I. units
-
+#else
+! (no rescaling)
 ! The following are the new Glimmer-CISM scaling parameters:
 
-!!  real(dp), parameter :: thk0 = 1.d0        ! no scaling of thickness
-!!  real(dp), parameter :: len0 = 1.d0        ! no scaling of length
-!!  real(dp), parameter :: vel0 = 1.d0 / scyr ! s^{-1}  
+  real(dp), parameter :: thk0 = 1.d0        ! no scaling of thickness
+  real(dp), parameter :: len0 = 1.d0        ! no scaling of length
+  real(dp), parameter :: vel0 = 1.d0 / scyr ! s^{-1}  
 !TODO - With the new value of vel0, the serial JFNK solver barely converges
 !       for the first time step of the dome test.  The Picard solver does fine.
+! end (no rescaling)
+#endif
 
   !Note: Both the SIA and HO solvers fail unless tim0 = len0/vel0. Not sure if this can be changed.
   !      With the above scaling, tim0 = scyr.
