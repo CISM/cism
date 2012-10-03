@@ -1,0 +1,49 @@
+# run this script by typing: source hopper-pgi-cmake
+# After thus script completes, type: make -j 8
+# If rebuilding, type 'make clean' before running 'make -j 8'
+
+# This cmake configuration script builds simple_glide and simple_bisicles
+# on hopper using the PGI compiler suite.  It relies on builds of Trilinos
+# and BISICLES that are located under the ranken home directory:
+# /global/u1/r/ranken
+
+# This script should be run from the builds/hopper-pgi subdirirectory
+# of the main seacism repository (reflected in the two instances
+# of "../.." below).
+
+
+# remove old build data:
+rm ./CMakeCache.txt
+
+# run a script that creates some CISM source files:
+../../cmake-scripts/autogenerate-script
+
+echo
+echo "Doing CMake Configuration step"
+
+cmake \
+  -D GLIMMER_NETCDF_DIR=/usr/local/netcdf \
+  -D CMAKE_INSTALL_PREFIX:PATH=$PWD/install \
+  -D CMAKE_VERBOSE_MAKEFILE:BOOL=ON \
+  -D CMAKE_VERBOSE_CONFIGURE:BOOL=ON \
+\
+  -D CMAKE_CXX_COMPILER=mpiCC \
+  -D CMAKE_C_COMPILER=mpicc \
+  -D CMAKE_Fortran_COMPILER=mpif90 \
+\
+  -D HDF_ROOT=/usr/local/hdf5/hdf5-1.6.9-parallel \
+  -D HDF5_LIB_DIR=/usr/local/hdf5/hdf5-1.6.9-parallel \
+  -D HDF5_PARALLEL_LIB_DIR=/usr/local/hdf5/hdf5-1.6.9-parallel/lib \
+  -D HDF5_PGI_LIBS="-DH5_USE_16_API -lhdf5 -lz -lstdc++" \
+  -D CMAKE_PREFIX_PATH="/usr/local/hdf5/hdf5-1.6.9-parallel" \
+\
+  -D CMAKE_CXX_FLAGS:STRING="-g -DH5_USE_16_API" \
+  -D CMAKE_Fortran_FLAGS:STRING="-g  -ffree-line-length-none -DNO_RESCALE" \
+  -D GLIMMER_EXTRA_LIBS:STRING="-lblas" \
+  -D TPL_ENABLE_MPI:BOOL=ON \
+  -D BUILD_SIMPLE_BISICLES:BOOL=ON \
+  -D NO_TRILINOS:BOOL=ON \
+  -D BISICLES_INTERFACE_DIR=$PWD/../../../BISICLES/code/interface \
+ /home/dan/code/seacism
+
+# Note: last argument above  "../.."  is path to top seacism directory
