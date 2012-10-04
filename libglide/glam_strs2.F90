@@ -4227,8 +4227,8 @@ function normhorizmainbc_lat(dew,       dns,   &
     ! temporary variables for testing 1st-order, one sided diffs 
     ! (eventually something like this will be passed in)
     logical :: fons, foew
-    !fons = .false.; foew = .false.
-    fons = .true.; foew = .true.
+    fons = .false.; foew = .false.
+    !fons = .true.; foew = .true.
 
     c = 0.d0; g(:,:,:) = 0.d0; whichbc = (/ 0.d0, 1.d0 /)
 
