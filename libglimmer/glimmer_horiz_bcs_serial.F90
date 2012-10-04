@@ -34,6 +34,8 @@ module glimmer_horiz_bcs
     module procedure horiz_bcs_stag_scalar_real8_3d
   end interface
 
+  integer, parameter, public :: ghost_shift = 0
+
 
 contains
 

@@ -2883,6 +2883,7 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
   ! condition subroutines, which determine "b".
 
   use parallel
+  use glimmer_horiz_bcs, only: ghost_shift
 
   implicit none
 
@@ -2964,7 +2965,10 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
       !take over. However, with only one process, this give an exception error when calc_F calls savetrilinosmatrix(0).
       !Therefore, it will currently revert back to the old BC's when using only one task for now. I am working to
       !debug and fix this case, but for now, it does no harm for the original BC's.
-      comp_bound = merge( .false. , GLIDE_IS_COMP_DOMAIN_BND(mask(ew,ns)) , tasks > 1 )
+      comp_bound = ( nslb < 1          .and. ns <              staggered_shalo+1+ghost_shift ) .or. &
+                   ( ewlb < 1          .and. ew <              staggered_whalo+1+ghost_shift ) .or. &
+                   ( nsub > global_nsn .and. ns > size(mask,2)-staggered_nhalo  -ghost_shift ) .or. &
+                   ( ewub > global_ewn .and. ew > size(mask,1)-staggered_ehalo  -ghost_shift )
       ! Calculate the depth-averaged value of the rate factor, needed below when applying an ice shelf
       ! boundary condition (complicated code so as not to include funny values at boundaries ...
       ! ... kind of a mess and could be redone or made into a function or subroutine).
