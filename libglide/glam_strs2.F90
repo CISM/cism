@@ -4224,6 +4224,12 @@ function normhorizmainbc_lat(dew,       dns,   &
     real(dp) :: c
     real (kind = dp) :: bar, efvsbar
 
+    ! temporary variables for testing 1st-order, one sided diffs 
+    ! (eventually something like this will be passed in)
+    logical :: fons, foew
+    !fons = .false.; foew = .false.
+    fons = .true.; foew = .true.
+
     c = 0.d0; g(:,:,:) = 0.d0; whichbc = (/ 0.d0, 1.d0 /)
 
     ! averaging number for eff. visc. at domain edges
@@ -4233,7 +4239,7 @@ function normhorizmainbc_lat(dew,       dns,   &
     efvsbar = sum( efvs(:,:,:), efvs(:,:,:) > effstrminsq ) / bar
 
     ! make the following lines active to turn OFF the visc. dependence in the LHS matrix coeffs.
-!    efvsbar = 1.0d0; 
+    !efvsbar = 1.0d0; 
 
     ! for higher-order FREE SURFACE B.C. for x ('which'=1) or y ('which'=2) direction ...
     ! (also applies to basal stress bc) 
@@ -4254,13 +4260,25 @@ function normhorizmainbc_lat(dew,       dns,   &
 
     elseif( normal(1) /= 0.d0 )then     ! forward/backward in x ...
 
-           c = fourorone(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdew / (2*dew) * efvsbar
+           if( foew )then
+               c =  -1.d0 * fwdorbwd(1) * fourorone(which) * dusrfdew / dew * efvsbar
+           else
+               c = fourorone(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdew / (2*dew) * efvsbar
+           endif
            g(2,2-int(fwdorbwd(1)),2) = c
 
-           c = fourorone(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdew / (2*dew) * efvsbar
+           if( foew )then
+               c = fwdorbwd(1)*fourorone(which) * dusrfdew / dew * efvsbar
+           else
+               c = fourorone(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdew / (2*dew) * efvsbar
+           endif
            g(2,2,2) = c
 
-           c = fourorone(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdew / (2*dew) * efvsbar
+           if( foew )then
+               c = 0.d0
+           else
+               c = fourorone(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdew / (2*dew) * efvsbar
+           endif
            g(2,2+int(fwdorbwd(1)),2) = c
 
     end if
@@ -4274,13 +4292,25 @@ function normhorizmainbc_lat(dew,       dns,   &
 
     elseif( normal(2) /= 0.d0) then ! forward/backward in y ...
 
-           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdns / (2*dns) * efvsbar
+           if( fons )then
+               c =  -1.d0 * fwdorbwd(2) * oneorfour(which) * dusrfdns / dns * efvsbar
+           else
+               c = oneorfour(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdns / (2*dns) * efvsbar
+           endif
            g(1,2,2-int(fwdorbwd(2))) = c
 
-           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdns / (2*dns) * efvsbar
+           if( fons )then
+               c = fwdorbwd(2)*oneorfour(which) * dusrfdns / dns * efvsbar
+           else
+               c = oneorfour(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdns / (2*dns) * efvsbar
+           endif
            g(1,2,2) = c
 
-           c = oneorfour(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdns / (2*dns) * efvsbar
+           if( fons )then
+               c = 0.d0
+           else
+               c = oneorfour(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdns / (2*dns) * efvsbar
+           endif
            g(1,2,2+int(fwdorbwd(2))) = c
 
     end if
