@@ -111,7 +111,7 @@ implicit none
   integer, dimension(2) :: pcgsize
   integer :: ct
 
-!*sfp* NOTE: these redefined here so that they are "in scope" and can avoid being passed as args
+!*SFP* NOTE: these redefined here so that they are "in scope" and can avoid being passed as args
   integer :: whatsparse ! needed for putpgcg()
   integer :: nonlinear  ! flag for indicating type of nonlinar iteration (Picard vs. JFNK)
 
@@ -768,7 +768,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
     endif
 
     counter = counter + 1   ! advance the iteration counter
- call t_stopf("PICARD_in_iter")
+  call t_stopf("PICARD_in_iter")
 
   end do  ! while ( outer_it_criterion >= outer_it_target .and. counter < cmax)
 
@@ -867,7 +867,7 @@ subroutine JFNK_velo_solver  (model,umask)
 
 !TODO - Can we make the mask intent in?
 
-  integer, dimension(:,:),   intent(inout)  :: umask  !*sfp* replaces the prev., internally calc. mask
+  integer, dimension(:,:),   intent(inout)  :: umask  !*SFP* replaces the prev., internally calc. mask
                                                       ! ... 'inout' status allows for a minor alteration
                                                       ! to cism defined mask, which don't necessarily 
                                                       ! associate all/any boundaries as a unique mask value.
@@ -897,7 +897,7 @@ subroutine JFNK_velo_solver  (model,umask)
   real(dp), dimension(:,:,:) ,pointer :: btraction            ! consistent basal traction array
   
 !TODO - Anything to update here?
-  !*sfp* This is the betasquared field from CISM (externally specified), and should eventually
+  !*SFP* This is the betasquared field from CISM (externally specified), and should eventually
   ! take the place of the subroutine 'calcbetasquared' below (for now, using this value instead
   ! will simply be included as another option within that subroutine) 
   real(dp), dimension(:,:)  ,pointer :: beta 
@@ -928,7 +928,7 @@ subroutine JFNK_velo_solver  (model,umask)
 
   character(len=100) :: message
 
-!*sfp* needed to incorporate generic wrapper to solver
+!*SFP* needed to incorporate generic wrapper to solver
   type(sparse_matrix_type) :: matrixA, matrixC, matrixtp, matrixAuv, matrixAvu
   real(dp) :: L2norm
 
@@ -979,12 +979,12 @@ subroutine JFNK_velo_solver  (model,umask)
 !       Can we get by with a single copy?  I'm thinking of operations that are done once, before the iterations begin.
 !TODO MJH: can we put these derivative calculations in the diagnostic solve part where the other derivatives are calculated?
 
-  ! *sfp** geometric 1st deriv. for generic input variable 'ipvr',
+  ! *SFP* geometric 1st deriv. for generic input variable 'ipvr',
   !      output as 'opvr' (includes 'upwinding' for boundary values)
   call geom2ders(ewn, nsn, dew, dns, usrf, stagthck, d2usrfdew2, d2usrfdns2)
   call geom2ders(ewn, nsn, dew, dns, thck, stagthck, d2thckdew2, d2thckdns2)
 
-  ! *sfp** geometric (2nd) cross-deriv. for generic input variable 'ipvr', output as 'opvr'
+  ! *SFP* geometric (2nd) cross-deriv. for generic input variable 'ipvr', output as 'opvr'
   call geom2derscros(ewn, nsn, dew, dns, thck, stagthck, d2thckdewdns)
   call geom2derscros(ewn, nsn, dew, dns, usrf, stagthck, d2usrfdewdns)
 
@@ -994,24 +994,24 @@ subroutine JFNK_velo_solver  (model,umask)
   model%geomderv%d2usrfdew2 = d2usrfdew2
   model%geomderv%d2usrfdns2 = d2usrfdns2
 
-  ! *sfp** make a 2d array identifying if the associated point has zero thickness,
+  ! *SFP* make a 2d array identifying if the associated point has zero thickness,
   !      has non-zero thickness and is interior, or has non-zero thickness
   !      and is along a boundary
 
-  !*sfp* This subroutine has been altered from its original form (was a function, still included
+  !*SFP* This subroutine has been altered from its original form (was a function, still included
   ! below w/ subroutine but commented out) to allow for a tweak to the CISM calculated mask (adds
   ! in an unique number for ANY arbitrary boundary, be it land, water, or simply at the edge of
   ! the calculation domain). 
 
   allocate(uindx(ewn-1,nsn-1))
 
-  ! *sfp** if a point from the 2d array 'mask' is associated with non-zero ice thickness,
+  ! *SFP* if a point from the 2d array 'mask' is associated with non-zero ice thickness,
   !      either a boundary or interior point, give it a unique number. If not, give it a zero			 
   uindx = indxvelostr(ewn, nsn, upn, umask, pcgsize(1))
 
   L2norm = 1.0d20
  
-  ! *sfp** an initial guess at the size of the sparse matrix
+  ! *SFP* an initial guess at the size of the sparse matrix
   pcgsize(2) = pcgsize(1) * 20
 
   ! Structure to become NOX implementation for JFNK solve
@@ -1057,7 +1057,7 @@ subroutine JFNK_velo_solver  (model,umask)
 
   allocate( xk_1(2*pcgsize(1)), gx_flag(2*pcgsize(1)) )
 
-  ! *sfp** allocate space matrix variables
+  ! *SFP* allocate space matrix variables
   allocate (pcgrow(pcgsize(2)),pcgcol(pcgsize(2)), rhsd(pcgsize(1)), rhsx(2*pcgsize(1)), &
             pcgval(pcgsize(2)))
   allocate(matrixA%row(pcgsize(2)), matrixA%col(pcgsize(2)), &
@@ -1193,7 +1193,7 @@ end if
 
   do ns = 1+staggered_shalo,size(umask,2)-staggered_nhalo
       do ew = 1+staggered_whalo,size(umask,1)-staggered_ehalo
-      ! *sfp** calc. fluxes from converged vel. fields (for input to thickness evolution subroutine)
+      ! *SFP* calc. fluxes from converged vel. fields (for input to thickness evolution subroutine)
          if (umask(ew,ns) > 0) then
              uflx(ew,ns) = vertintg(upn, sigma, uvel(:,ew,ns)) * stagthck(ew,ns)
              vflx(ew,ns) = vertintg(upn, sigma, vvel(:,ew,ns)) * stagthck(ew,ns)
@@ -1209,7 +1209,7 @@ end if
      deallocate(myZ)
   endif
 
-  ! *sfp* de-allocation of sparse matrix solution variables 
+  ! *SFP* de-allocation of sparse matrix solution variables 
   deallocate(uindx)
   deallocate(pcgval,pcgrow,pcgcol,rhsd, rhsx)
   deallocate(matrixA%row, matrixA%col, matrixA%val)
@@ -1470,7 +1470,7 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
 
 !HALO - Make this loop consistent with loop above.
 
-!   *sfp* changed default setting for linear viscosity so that the value of the rate
+!   *SFP* changed default setting for linear viscosity so that the value of the rate
 !   factor is taken into account
   do ns = 2,nsn-1
       do ew = 2,ewn-1
@@ -2222,7 +2222,7 @@ end subroutine reset_effstrmin
 ! jfl 20100412: residual for v comp: Fv= A(utp,vtp)vtp - b(utp,vtp)  
 !==============================================================================
 
-    ! *sfp** calculation of coeff. for stress balance calc. 
+    ! *SFP* calculation of coeff. for stress balance calc. 
     call t_startf("Calc_F_findcoefstr1")
     call findcoefstr(ewn,  nsn,   upn,            &
                      dew,  dns,   sigma,          &
@@ -2693,10 +2693,10 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
 
 ! TODO take out the older one?
 
-  !*sfp* Old version
+  !*SFP* Old version
   ! if (new(pt) == 1) then; old(pt) = 1; new(pt) = 2; else; old(pt) = 1; new(pt) = 2; end if
 
-  !*sfp* correction from Carl Gladdish
+  !*SFP* correction from Carl Gladdish
   if (new(pt) == 1) then; old(pt) = 1; new(pt) = 2; else; old(pt) = 2; new(pt) = 1; end if
 
   return
@@ -3198,6 +3198,9 @@ subroutine bodyset(ew,  ns,  up,           &
 
   integer, dimension(2) :: loc2plusup
 
+  logical :: fons, foew     ! true when geom. requires using 1st-order one sided diffs. at floating ice boundary
+                            ! (default is 2nd-order, which requires larger stencil)
+
   loc2plusup = loc2(1,:) + up
 
   if( lateralboundry )then
@@ -3211,8 +3214,9 @@ subroutine bodyset(ew,  ns,  up,           &
 
      call getlatboundinfo( ew,  ns,  up,                                 &
                            ewn, nsn, upn,                                &
-                           stagthck(ew-1:ew+1, ns-1:ns+1),               &
-                           loc2_array(:,:,1), fwdorbwd, normal, loc_latbc)
+                           stagthck(ew-2:ew+2, ns-2:ns+2),               &
+                           loc2_array(:,:,1), fwdorbwd, normal,          & 
+                           loc_latbc, foew, fons)
 
      if( up == 1 .or. up == upn )then
 
@@ -3247,7 +3251,8 @@ subroutine bodyset(ew,  ns,  up,           &
                                 dup(up),       local_efvs,      &
                                 oneorfour,     fourorone,       &
                                 onesideddiff,                   &
-                                normal,        fwdorbwd)
+                                normal,        fwdorbwd,        &
+                                foew,          fons    )
 
         ! add on coeffs. associated with vertical shear stresses
         g(:,3,3) = g(:,3,3) &
@@ -3276,7 +3281,8 @@ subroutine bodyset(ew,  ns,  up,           &
                                                    local_efvs,                   &
                                                    oneortwo,      twoorone,      &
                                                    onesideddiff,                 &
-                                                   normal,fwdorbwd)              &
+                                                   normal,        fwdorbwd,      &
+                                                   foew,          fons )         & 
                                                  * local_othervel ) /scalebabc
 
     end if     ! up = 1 or up = upn (IF at lateral boundary and IF at surface or bed)
@@ -3351,7 +3357,8 @@ subroutine bodyset(ew,  ns,  up,           &
                             dup(up),       local_efvs, &
                             oneorfour,     fourorone,  &
                             onesideddiff,              &
-                            normal,        fwdorbwd)
+                            normal,        fwdorbwd,   &
+                            foew,          fons    )
 
     ! NOTE that for lateral floating ice boundary, we assume u_sfc ~ u_bed and stress free bc
     ! at both upper and lower sfc boundaries, so that there are no coeffs. for vert. shear stresses 
@@ -3376,7 +3383,8 @@ subroutine bodyset(ew,  ns,  up,           &
                                                local_efvs,                    &
                                                oneortwo,      twoorone,       &
                                                onesideddiff,                  &
-                                               normal,        fwdorbwd)       &
+                                               normal,        fwdorbwd,       &
+                                               foew,          fons )          & 
                                               * local_othervel ) + source
 
   else   ! NOT at a lateral boundary 
@@ -4195,7 +4203,8 @@ function normhorizmainbc_lat(dew,       dns,   &
                              dup,       efvs,      &
                              oneorfour, fourorone, &
                              onesideddiff,         &
-                             normal,    fwdorbwd)
+                             normal,    fwdorbwd,  &
+                             foew,      fons )
 
     ! Analogous to "normhorizmainbc" but for the case of lateral stress (ice shelf)
     ! boundary conditions. Note that the basic form of the equations is the same. 
@@ -4219,17 +4228,13 @@ function normhorizmainbc_lat(dew,       dns,   &
 
     integer, intent(in) :: which, what
 
+    logical, intent(in) :: fons, foew   ! true when geom. requires 1st-order one sided diffs for shelf bcs
+
     real(dp), dimension(3,3,3) :: normhorizmainbc_lat
     real(dp), dimension(3,3,3) :: g
     real(dp), dimension(2) :: whichbc
     real(dp) :: c
     real (kind = dp) :: bar, efvsbar
-
-    ! temporary variables for testing 1st-order, one sided diffs 
-    ! (eventually something like this will be passed in)
-    logical :: fons, foew
-    fons = .false.; foew = .false.
-    !fons = .true.; foew = .true.
 
     c = 0.d0; g(:,:,:) = 0.d0; whichbc = (/ 0.d0, 1.d0 /)
 
@@ -4332,7 +4337,8 @@ function croshorizmainbc_lat (dew,       dns,       &
                               efvs,                 &
                               oneortwo,  twoorone,  &
                               onesideddiff,         &
-                              normal,    fwdorbwd)
+                              normal,    fwdorbwd,  &
+                              foew,      fons )
 
     ! Analagous to "normhorizmainbc_lat" but for cross terms. See notes above.
 
@@ -4354,13 +4360,9 @@ function croshorizmainbc_lat (dew,       dns,       &
 
     integer, dimension(2) :: inormal
 
-    real (kind = dp) :: bar, efvsbar
+    logical, intent(in) :: fons, foew   ! true when geom. requires 1st-order one sided diffs for shelf bcs
 
-    ! temporary variables for testing 1st-order, one sided diffs 
-    ! (eventually something like this will be passed in)
-    logical :: fons, foew
-    fons = .false.; foew = .false.
-    !fons = .true.; foew = .true.
+    real (kind = dp) :: bar, efvsbar
 
     ! averaging number for eff. visc. at domain edges
     bar = sum( (efvs(:,:,:)/efvs(:,:,:)), efvs(:,:,:) > effstrminsq )
@@ -4752,9 +4754,10 @@ end subroutine fillsprsebndy
 
 !***********************************************************************
 
-subroutine getlatboundinfo( ew, ns, up, ewn, nsn, upn,  &
-                           thck, loc_array,             &
-                           fwdorbwd, normal, loc_latbc)
+subroutine getlatboundinfo( ew, ns, up, ewn, nsn, upn,    &
+                           thckin, loc_array,             &
+                           fwdorbwd, normal, loc_latbc,   &
+                           foew, fons)
 
   ! Calculate map plane normal vector at 45 deg. increments
   ! for regions of floating ice
@@ -4763,15 +4766,24 @@ subroutine getlatboundinfo( ew, ns, up, ewn, nsn, upn,  &
   integer, intent(in) :: ew, ns, up
   integer, intent(in) :: ewn, nsn, upn
   integer, dimension(ewn,nsn), intent(in) :: loc_array
-  real(dp), dimension(3,3), intent(in) :: thck
+
+  real(dp), dimension(5,5), intent(in) :: thckin
 
   real(dp), dimension(2), intent(out) :: fwdorbwd, normal
   integer, dimension(6), intent(out) :: loc_latbc
 
+  logical, intent(out) :: fons, foew
+
   real(dp), dimension(3,3) :: mask, maskcorners
-  real(dp), dimension(3,3) :: thckmask
+
+  integer, dimension(5,5) :: thckinmask
+
+  real(dp), dimension(3,3) :: thckmask, thck
   real(dp), dimension(3) :: testvect
   real(dp) :: phi, deg2rad
+
+  thck(:,:) = thckin(2:4,2:4)
+  thckinmask = 0
 
   deg2rad = 3.141592654d0 / 180.d0
   loc_latbc = 0; phi = 0
@@ -4781,6 +4793,31 @@ subroutine getlatboundinfo( ew, ns, up, ewn, nsn, upn,  &
   maskcorners(:,1) = (/ 225.d0, 0.d0, 135.d0 /)
   maskcorners(:,2) = (/ 0.d0, 0.d0, 0.d0 /)
   maskcorners(:,3) = (/ 315.d0, 0.d0, 45.d0 /)
+
+  !! first section below contains logic to ID where 1st-order one-sided diffs are needed
+  where( thckin /= 0.d0 )
+        thckinmask = 1
+  endwhere
+  !! check if 1st-order one sided diffs. are needed in n/s direction
+  if( (thckinmask(3,3)+thckinmask(3,4)+thckinmask(3,5)) < 3 .and. (thckinmask(3,1)+thckinmask(3,2)) < 2 )then
+        !print *, '1st-order one-sided diffs. in N/S direction at ew,ns = ', ew, ns
+        fons = .true. 
+  elseif( (thckinmask(3,1)+thckinmask(3,2)+thckinmask(3,3)) < 3 .and. (thckinmask(3,4)+thckinmask(3,5)) < 2 )then
+        !print *, '1st-order one-sided diffs. in N/S direction at ew,ns = ', ew, ns
+        fons = .true. 
+  else 
+        fons = .false.
+  endif
+  !! check if 1st-order one sided diffs. are needed in n/s direction
+  if( (thckinmask(3,3)+thckinmask(4,3)+thckinmask(5,3)) < 3 .and. (thckinmask(1,3)+thckinmask(2,3)) < 2 )then
+        !print *, '1st-order one-sided diffs. in E/W direction at ew,ns = ', ew, ns
+        foew = .true. 
+  elseif( (thckinmask(1,3)+thckinmask(2,3)+thckinmask(3,3)) < 3 .and. (thckinmask(4,3)+thckinmask(5,3)) < 2 )then
+        !print *, '1st-order one-sided diffs. in E/W direction at ew,ns = ', ew, ns
+        foew = .true. 
+  else 
+        foew = .false.
+  endif
 
   ! specify new value of 'loc' vector such that fwd/bwd diffs. are set up correctly in sparse matrix
   ! when function 'fillsprsebndy' is called. Also, specify appropriate values for the vectors 'normal'
@@ -5348,7 +5385,7 @@ subroutine putpcgc(value,col,row,pt)
   integer, intent(in), optional :: pt
   real(dp), intent(in) :: value 
 
-   !*sfp* For now, ignoring the possibility of using JFNK w/ Trilinos ...
+   !*SFP*or now, ignoring the possibility of using JFNK w/ Trilinos ...
    if( nonlinear == HO_NONLIN_PICARD )then
 
     if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
@@ -5374,7 +5411,7 @@ subroutine putpcgc(value,col,row,pt)
     end if
  
  
-   !*sfp* if using JFNK, store the main block diagonal coeffs and off diag coeffs 
+   !*SFP* if using JFNK, store the main block diagonal coeffs and off diag coeffs 
    elseif ( nonlinear == HO_NONLIN_JFNK )then
 
     if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then      ! if using Triad format to store matrix entries
@@ -5556,7 +5593,7 @@ end subroutine putpcgc
 
 function scalebasalbc( coeffblock, bcflag, lateralboundry, beta, efvs )
 
-  ! *sfp* This function is used to scale the matrix coeffs and rhs vector coeff
+  ! *SFP* This function is used to scale the matrix coeffs and rhs vector coeff
   ! of the basal boundary condition when using JFNK for the nonlinear iteration
   ! (iteration on viscosity). 
   implicit none
