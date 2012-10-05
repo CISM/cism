@@ -305,7 +305,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
   real(dp), parameter :: NL_tol = 1.0d-06   ! to have same criterion than with JFNK
   real(dp), save, dimension(2) :: resid     ! vector for storing u resid and v resid 
 
-  integer, parameter :: cmax = 300                  ! max no. of iterations
+  integer, parameter :: cmax = 100                  ! max no. of iterations
   integer :: counter, linit                         ! iteration counter, ???
   character(len=100) :: message                     ! error message
 
@@ -3067,6 +3067,7 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                          d2thckdewdns(ew,ns))
 
         do up = up_start, upn
+
           lateralboundry = .true.
           shift = indshift(  1, ew, ns, up,                   &
                               ewn, nsn, upn,                  &
@@ -4355,6 +4356,12 @@ function croshorizmainbc_lat (dew,       dns,       &
 
     real (kind = dp) :: bar, efvsbar
 
+    ! temporary variables for testing 1st-order, one sided diffs 
+    ! (eventually something like this will be passed in)
+    logical :: fons, foew
+    fons = .false.; foew = .false.
+    !fons = .true.; foew = .true.
+
     ! averaging number for eff. visc. at domain edges
     bar = sum( (efvs(:,:,:)/efvs(:,:,:)), efvs(:,:,:) > effstrminsq )
 
@@ -4386,13 +4393,25 @@ function croshorizmainbc_lat (dew,       dns,       &
     elseif( normal(1) /= 0.d0 )then    ! forward/backward in x ...
                                            ! (NOTE that x coeff. are stored in g(2,:,:) )
 
-           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdns / (2*dew) * efvsbar
+           if( foew )then
+               c =  oneortwo(which) * fwdorbwd(1) * dusrfdns / dew * efvsbar
+           else
+               c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdns / (2*dew) * efvsbar
+           endif
            g(2,2-int(fwdorbwd(1)),2) = c
 
-           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdns / (2*dew) * efvsbar
+           if( foew )then
+               c = -oneortwo(which) * fwdorbwd(1) * dusrfdns / dew * efvsbar
+           else
+               c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdns / (2*dew) * efvsbar
+           endif
            g(2,2,2) = c
 
-           c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdns / (2*dew) * efvsbar
+           if( foew )then
+               c = 0.d0
+           else
+               c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdns / (2*dew) * efvsbar
+           endif
            g(2,2+int(fwdorbwd(1)),2) = c
 
     end if
@@ -4406,13 +4425,25 @@ function croshorizmainbc_lat (dew,       dns,       &
 
     elseif( normal(2) /= 0.d0 )then ! forward/backward in y ...
 
-           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdew / (2*dns) * efvsbar
+           if( fons )then
+               c =  twoorone(which) * fwdorbwd(2) * dusrfdew / dns * efvsbar
+           else
+               c = -twoorone(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdew / (2*dns) * efvsbar
+           endif
            g(1,2,2-int(fwdorbwd(2))) = c
 
-           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdew / (2*dns) * efvsbar
+           if( fons )then
+               c = -twoorone(which) * fwdorbwd(2) * dusrfdew / dns * efvsbar
+           else
+               c = -twoorone(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdew / (2*dns) * efvsbar
+           endif
            g(1,2,2) = c
 
-           c = -twoorone(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdew / (2*dns) * efvsbar
+           if( fons )then
+               c = 0.d0
+           else
+               c = -twoorone(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdew / (2*dns) * efvsbar
+           endif
            g(1,2,2+int(fwdorbwd(2))) = c
 
     end if
