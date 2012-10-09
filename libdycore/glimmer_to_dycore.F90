@@ -133,6 +133,11 @@ print *,"In gtd_init_dycore, past set_geometry_vars"
 
     dtype_name = 'velocity'//char(0)
 
+    print *,'uvel rank,shape = ',size(shape(model%velocity%uvel)),shape(model%velocity%uvel)
+
+    print *,'vvel rank,shape = ',size(shape(model%velocity%vvel)),shape(model%velocity%vvel)
+
+
     var_name = 'uvel'//char(0)       
     call dycore_set_ptr_double_var(model%velocity%uvel,var_name, &
                               dtype_name,dycore_model_index);
@@ -145,9 +150,12 @@ print *,"In gtd_init_dycore, past set_geometry_vars"
     var_name = 'wgrd'//char(0)
     call dycore_set_ptr_double_var(model%velocity%wgrd,var_name, &
                               dtype_name,dycore_model_index);
-!    var_name = 'btrc'//char(0)
-!    call dycore_set_ptr_double_var(model%velocity_hom%beta,var_name, &
-!                              dtype_name,dycore_model_index);
+
+    print *,'beta rank,shape = ',size(shape(model%velocity%beta)),shape(model%velocity%beta)
+
+    var_name = 'btrc'//char(0)
+    call dycore_set_ptr_double_var(model%velocity%beta,var_name, &
+                                  dtype_name,dycore_model_index);
 
     call gtd_set_dim_info(shape(model%velocity%uvel),dim_info)
 
