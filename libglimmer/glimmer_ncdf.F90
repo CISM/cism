@@ -143,7 +143,9 @@ module glimmer_ncdf
      !NO_RESTART previous
      type(glimmer_nc_stat) :: nc
      !*FD structure containg file info
-     integer, pointer, dimension(:) :: times => NULL()     
+!WHLTSTEP - Changed times pointer to real(dp)
+!     integer, pointer, dimension(:) :: times => NULL()     
+     real(dp), pointer, dimension(:) :: times => NULL()     
      !*FD pointer to array holding times
      integer                        :: nt, current_time=1
      !*FDnumber of elements in times and current time index

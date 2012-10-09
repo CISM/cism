@@ -136,9 +136,11 @@ module parallel
      module procedure distributed_scatter_var_real8_3d
   end interface
 
+!WHLTSTEP - Added parallel_get_var_real8_1d
   interface parallel_get_var
      module procedure parallel_get_var_integer_1d
      module procedure parallel_get_var_real4_1d
+     module procedure parallel_get_var_real8_1d
   end interface
 
   interface parallel_halo
@@ -174,6 +176,7 @@ module parallel
      module procedure parallel_put_att_real8_1d
   end interface
 
+!WHLTSTEP - Added parellel_put_var_real8
   interface parallel_put_var
      module procedure parallel_put_var_real4
      module procedure parallel_put_var_real8
@@ -862,6 +865,16 @@ contains
     if (main_task) parallel_get_var_real4_1d = &
          nf90_get_var(ncid,varid,values)
   end function parallel_get_var_real4_1d
+
+!WHLTSTEP - Added parallel_get_var_real8_1d
+  function parallel_get_var_real8_1d(ncid,varid,values)
+    implicit none
+    integer :: ncid,parallel_get_var_real8_1d,varid
+    real(8),dimension(:) :: values
+    ! begin
+    if (main_task) parallel_get_var_real8_1d = &
+         nf90_get_var(ncid,varid,values)
+  end function parallel_get_var_real8_1d
 
   function parallel_globalID(locns, locew, upstride)
     ! Returns a unique ID for a given row and column reference that is identical across all processors.
