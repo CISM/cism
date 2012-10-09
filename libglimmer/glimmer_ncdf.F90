@@ -40,14 +40,20 @@
 !! \date 2004
 module glimmer_ncdf  
 
-  use glimmer_global, only: fname_length
+!WHLTSTEP - Need to use dp also
+!  use glimmer_global, only: fname_length
+  use glimmer_global, only: fname_length, dp
   use netcdf
 
   integer, parameter :: glimmer_nc_meta_len = 100
   !*FD maximum length for meta data
+
   character(len=*), parameter :: glimmer_nc_mapvarname = 'mapping'
   !*FD name of the grid mapping variable
-  real, parameter :: glimmer_nc_max_time=1.e10
+
+!WHLTSTEP - Changed max_time to dp
+!  real, parameter :: glimmer_nc_max_time=1.e10
+  real(dp), parameter :: glimmer_nc_max_time=1.d10
   !*FD maximum time that can be written
 
   !> Data structure holding netCDF file description
@@ -106,14 +112,20 @@ module glimmer_ncdf
      !NO_RESTART previous
 
      type(glimmer_nc_stat) :: nc                          !< structure containg file info
-     real :: freq=1000                                    !< frequency at which data is written to file
-     real :: next_write=0                                 !< next time step at which data is dumped
-     real :: end_write=glimmer_nc_max_time                !< stop writing after this year
-     integer :: timecounter=1                             !< time counter
-     real :: total_time = 0.0                             !< accumulate time steps (used for taking time averages)
+!WHLTSTEP - Changed freq, next_write, end_write and total_time to dp
+!     real :: freq = 1000                                  !< frequency at which data is written to file
+!     real :: next_write=0                                 !< next time step at which data is dumped
+!     real :: end_write=glimmer_nc_max_time                !< stop writing after this year
+     real(dp) :: freq = 1000.d0                           !< frequency at which data is written to file
+     real(dp) :: next_write = 0.d0                        !< next time step at which data is dumped
+     real(dp) :: end_write = glimmer_nc_max_time          !< stop writing after this year
+     integer :: timecounter = 1                           !< time counter
+!     real :: total_time = 0.0                             !< accumulate time steps (used for taking time averages)
+     real(dp) :: total_time = 0.d0                        !< accumulate time steps (used for taking time averages)
 
+!TODO - I'd like to understand how the default xtype is overridden
      integer :: default_xtype = NF90_REAL                 !< the default external type for storing flointing point values
-     logical :: do_averages = .False. !*FD set to .True. if we need to handle averages
+     logical :: do_averages = .false.                     !< set to .true. if we need to handle averages
 
      type(glimmer_nc_meta) :: metadata
      !*FD structure holding metadata

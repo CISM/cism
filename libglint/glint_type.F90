@@ -68,11 +68,14 @@ module glint_type
                                                             !*FD (defaults to ice time-step)
      integer                          :: ice_tstep_multiply=1 !*FD Ice time multiplier (non-dimensional)
      integer                          :: n_icetstep         !*FD Number of ice time-steps per mass-balance accumulation
-     real(rk)                         :: glide_time         !*FD Time as seen by glide (years)
+!WHLTSTEP - Changed glide_time to dp
+!     real(rk)                         :: glide_time         !*FD Time as seen by glide (years)
+     real(dp)                         :: glide_time         !*FD Time as seen by glide (years)
      integer                          :: next_time          !*FD The next time we expect to be called (hours)
 
      ! Climate inputs from global model --------------------------
 
+!TODO - Change to dp?
      real(sp),dimension(:,:),pointer :: artm        => null() !*FD Annual mean air temperature
      real(sp),dimension(:,:),pointer :: arng        => null() !*FD Annual air temperature half-range
      real(sp),dimension(:,:),pointer :: prcp        => null() !*FD Precipitation (mm or m)
@@ -98,6 +101,7 @@ module glint_type
 
      ! Fractional coverage information ---------------------------
 
+!TODO - Change to dp?
      real(rk) ,dimension(:,:),pointer :: frac_coverage => null() 
      !*FD Fractional coverage of each global gridbox by the projected grid.
      real(rk) ,dimension(:,:),pointer :: frac_cov_orog => null() 
@@ -136,10 +140,10 @@ module glint_type
 
      ! Climate parameters ----------------------------------------------------------
 
+!TODO - Change to dp?
      real(sp) :: ice_albedo   =   0.4 !*FD Ice albedo. (fraction)
      real(sp) :: lapse_rate   =   8.0 !*FD Uniform lapse rate in deg C/km 
-     !*FD (N.B. This should be \emph{positive} for 
-     !*FD temperature falling with height!)
+     !*FD (N.B. This should be \emph{positive} for temperature falling with height!)
      real(sp) :: data_lapse_rate = 8.0 !*FD Implied lapse rate in large-scale data (used for
      !*FD tuning). Set equal to lapse\_rate if not supplied.
 
@@ -277,9 +281,12 @@ contains
     ! Internals
 
     type(ConfigSection), pointer :: section
-    real(rk) :: mbal_time_temp ! Accumulation time in years
+!WHLTSTEP - Changed mbal_time_temp to dp
+!    real(rk) :: mbal_time_temp ! Accumulation time in years
+    real(dp) :: mbal_time_temp ! Accumulation time in years
 
-    mbal_time_temp = -1.0
+!    mbal_time_temp = -1.0
+    mbal_time_temp = -1.d0
 
     call GetSection(config,section,'GLINT climate')
     if (associated(section)) then
@@ -327,7 +334,9 @@ contains
     ! setup outputs
     call GetSection(config,section,'GLINT output')
     do while(associated(section))
-       output => handle_output(section,output,0.0,configstring)
+!WHLTSTEP - changed time to dp
+!       output => handle_output(section,output,0.0,configstring)
+       output => handle_output(section,output,0.d0,configstring)
        if (.not.associated(instance%out_first)) then
           instance%out_first => output
        end if
@@ -428,6 +437,7 @@ contains
     ! Arguments ----------------------------------------------------------------------------------------
 
     type(glint_instance),   intent(in)  :: instance      !*FD the model instance
+!TODO - Change to dp?
     real(rk),dimension(:,:),intent(out) :: orog          !*FD the orographic elevation (m)
     real(rk),dimension(:,:),intent(out) :: albedo        !*FD the albedo of ice/snow
     real(rk),dimension(:,:),intent(out) :: ice_frac      !*FD The fraction covered by ice
@@ -708,6 +718,7 @@ contains
        snowveg_frac,snow_depth,water_in,water_out,total_water_in,total_water_out,ice_volume)
 
     type(output_flags),intent(inout) :: out_f
+!TODO - Change to dp?
     real(rk),dimension(:,:),optional,intent(inout) :: orog_out        !*FD The fed-back, output orography (m)
     real(rk),dimension(:,:),optional,intent(inout) :: albedo          !*FD surface albedo
     real(rk),dimension(:,:),optional,intent(inout) :: ice_frac        !*FD grid-box ice-fraction

@@ -106,7 +106,7 @@ contains
     type(glimmer_nc_meta) ::metadata
     logical :: default
 
-    !EIB! from gc2, may have been replaced by glimmer_version about, or vise versa??
+    !EIB! from gc2, may have been replaced by glimmer_version about, or vice versa??
 
     character(len=100), external :: glimmer_version_char
 
@@ -143,11 +143,16 @@ contains
     use glimmer_ncdf
     use glimmer_config
     use glimmer_log
+!WHLTSTEP
+    use glimmer_global, only: dp
     implicit none
+
     type(ConfigSection), pointer :: section
     type(glimmer_nc_output), pointer :: output
     type(glimmer_nc_output), pointer :: handle_output
-    real, intent(in) :: start_yr
+!WHLTSTEP - changed start_yr to dp
+!    real, intent(in) :: start_yr
+    real(dp), intent(in) :: start_yr
     character(*),intent(in) :: configstring
     character(10) :: mode_str,xtype_str
 

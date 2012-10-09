@@ -142,12 +142,14 @@
 !       itest = 24, jtest = 17, ktest = 2, ptest = 1
 !       itest = 24, jtest = 17, ktest = 10, ptest = 1
        itest = 12, jtest = 5, ktest = 1, ptest = 1
+!       itest = 12, jtest = 26, ktest = 1, ptest = 1
 
 !    integer, parameter :: ntest = 2371  ! nodeID for (24,17,1)
 !    integer, parameter :: ntest = 2372  ! nodeID for (24,17,2)
 !    integer, parameter :: ntest = 2380  ! nodeID for (24,17,10)
 
     integer, parameter :: ntest = 1     ! nodeID for (12,5,1)
+!    integer, parameter :: ntest = 3841     ! nodeID for (12,26,1)
 
     contains
 
@@ -568,6 +570,15 @@
     type(sparse_matrix_type) ::  &
        matrix             ! sparse matrix, defined in glimmer_sparse_types
                           ! includes nonzeroes, order, col, row, val 
+
+!whl - temporary hack - allocate space for a copy of the matrix
+!                       This is because slap changes the row and column indexing of the matrix
+
+    integer, dimension(:), allocatable :: &
+       matrix_row, matrix_col                ! copy of the matrix
+    real(dp), dimension(:), allocatable :: &
+       matrix_val                            ! copy of the matrix
+
     integer ::    &
        matrix_order,    & ! order of matrix = number of rows
        nNonzero           ! upper bound for number of nonzero entries in sparse matrix
@@ -623,6 +634,15 @@
        print*, ' '
     endif
  
+    if (verbose) then
+        print*, ' '
+        print*, 'i, j, usrf(i,j)'
+        i = itest+1
+        do j = ny, 1, -1
+           print*, i, j, usrf(i,j)
+        enddo
+    endif
+
     ! Compute real mask: = 1 where ice is present, 0 elsewhere
 
     do j = 1, ny
@@ -728,6 +748,8 @@
     allocate(matrix%row(nNonzero), matrix%col(nNonzero), matrix%val(nNonzero))
     allocate(rhs(matrix_order), answer(matrix_order), resid_vec(matrix_order))
 
+!whl - temporary hack - allocate space for a copy of the matrix
+    allocate(matrix_row(nNonzero), matrix_col(nNonzero), matrix_val(nNonzero))
 
     ! Allocate memory for other fields
 
@@ -873,8 +895,10 @@
 
        if (verbose) print*, 'Formed global matrix in sparse format'
 
-       !whl - Stop here for now
-!!       stop
+!whl - debug - Make a copy of the matrix
+       matrix_row(:) = matrix%row(:)
+       matrix_col(:) = matrix%col(:)
+       matrix_val(:) = matrix%val(:)
 
        !TODO - glam_strs2 calls res_vect here--why?
        !!!call res_vect( matrix, vk_1, rhs, size(rhs), g_flag, L2square, whichsparse )
@@ -889,7 +913,30 @@
              print*, 'Call sparse_easy_solve, counter =', counter
           endif
 
+!whl - bug check
+       if (verbose) then
+          print*, ' '
+          print*, 'Before easy_solve: n, row, col, val:'
+          print*, ' '
+          do n = 1, 10              
+             print*, n, matrix%row(n), matrix%col(n), matrix%val(n)
+          enddo
+       endif
+
           call sparse_easy_solve(matrix, rhs, answer, err, iter, whichsparse)
+
+!whl - bug check
+       if (verbose) then
+          print*, ' '
+          print*, 'matrix and matrix_copy after easy_solve: n, row, col, val:'
+          print*, ' '
+          do n = 1, 10              
+          print*, ' '
+             print*, n, matrix%row(n), matrix%col(n), matrix%val(n)
+             print*, n, matrix_row(n), matrix_col(n), matrix_val(n)
+          enddo
+       endif
+
 
           if (verbose) then
 !             print*, 'answer =', answer
@@ -922,9 +969,24 @@
 !       call horiz_bcs_stag_vector_ew(uvel)
 !       call horiz_bcs_stag_vector_ns(vvel)
 
+
+!whl - bug check
+       if (verbose) then
+          print*, ' '
+          print*, 'After postprocess: n, row, col, val:'
+          print*, ' '
+          do n = 1, 100              
+             print*, n, matrix%row(n), matrix%col(n), matrix%val(n)
+          enddo
+       endif
+
        ! Compute the residual vector and its L2 norm
 
-       call compute_residual_vector(matrix, answer, rhs,  &
+!whl - Call this with a copy of the original matrix, because the matrix has been altered by SLAP
+
+       call compute_residual_vector(matrix,   &
+                                    matrix_row, matrix_col, matrix_val,  &
+                                    answer, rhs,  &
                                     resid_vec, L2_norm)
 
 
@@ -943,7 +1005,7 @@
           ! write out some values for nodes with big residual vector
 
           print*, ' '
-          print*, 'n, i, j, k, uvel, resid_vec:'
+          print*, 'Large u residual, n, i, j, k, uvel, resid_vec:'
           do n = 1, nNodes, 10     ! top level only (but all will be bad)   
              rowi = 2*n-1          ! row of residual vector; u nodes only
              if (abs(resid_vec(rowi)) > 1.e-8) then
@@ -955,7 +1017,7 @@
           enddo
 
           print*, ' '
-          print*, 'n, i, j, k, vvel, resid_vec:'
+          print*, 'Large v residaul, n, i, j, k, vvel, resid_vec:'
           do n = 1, nNodes, 10     ! top level only (but all will be bad)   
              rowi = 2*n            ! row of residual vector; u nodes only
              if (abs(resid_vec(rowi)) > 1.e-8) then
@@ -993,8 +1055,7 @@
        endif
 
 !whl - stop for now
-
-       stop
+!       stop
 
        ! Advance the iteration counter
 
@@ -1004,6 +1065,13 @@
 
     converged_soln = .true.
 
+    if (verbose) then
+       print*, ' '
+       print*, 'GLISSADE SOLUTION HAS CONVERGED'
+       print*, 'outer counter =', counter
+!!       stop
+    endif
+
     ! Clean up
 
     deallocate(Auu, Auv, Avu, Avv)
@@ -1011,6 +1079,9 @@
     deallocate(matrix%row, matrix%col, matrix%val)
     deallocate(rhs, answer, resid_vec)
     deallocate(usav, vsav)
+
+!whl - debug
+    deallocate(matrix_row, matrix_col, matrix_val)
 
   end subroutine glissade_velo_higher_solve
 
@@ -2509,7 +2580,11 @@
 
 !****************************************************************************
 
-  subroutine compute_residual_vector(matrix, answer, rhs, &
+!whl - temporary hack with matrix copy
+
+  subroutine compute_residual_vector(matrix,    &
+                                     matrix_row, matrix_col, matrix_val, &
+                                     answer, rhs, &
                                      resid_vec, L2_norm)
 
     ! Compute the residual vector Ax - b and its L2 norm.
@@ -2519,6 +2594,12 @@
     type(sparse_matrix_type), intent(in) ::  &
        matrix             ! sparse matrix, defined in glimmer_sparse_types
                           ! includes nonzeroes, order, col, row, val 
+
+    integer, dimension(:), intent(in) ::  &
+       matrix_row, matrix_col  ! copy of original matrix
+
+    real(dp), dimension(:), intent(in) ::  &
+       matrix_val              ! copy of original matrix
 
     real(dp), dimension(:), intent(in) ::   &
        rhs,             & ! right-hand-side (b) in Ax = b
@@ -2533,7 +2614,7 @@
     integer :: i, j, n
 
 !whl - debug
-    integer :: nid
+    integer :: nid, islap, jslap
 
     if (verbose) then
        print*, ' '
@@ -2544,14 +2625,21 @@
 
     resid_vec(:) = 0.d0
 
+!whl - temporary hack using matrix copy
     do n = 1, matrix%nonzeros
-       i = matrix%row(n)
-       j = matrix%col(n)
-       resid_vec(i) = resid_vec(i) + matrix%val(n)*answer(j)
+       islap = matrix%row(n)
+       jslap = matrix%col(n)
+       i = matrix_row(n)
+       j = matrix_col(n)
+
+!       resid_vec(i) = resid_vec(i) + matrix%val(n)*answer(j)
+       resid_vec(i) = resid_vec(i) + matrix_val(n)*answer(j)
 
        if (i==2*ntest-1) then  ! row for uvel at this node
           print*, ' '
-          print*, 'row, col, val, ans, val*ans:', i, j, matrix%val(n), answer(j), matrix%val(n)*answer(j)
+          print*, 'slap row, col, val, ans, val*ans:', islap, jslap, &
+                   matrix%val(n), answer(jslap), matrix%val(n)*answer(jslap)
+          print*, 'copy row, col, val, ans, val*ans:', i, j, matrix_val(n), answer(j), matrix_val(n)*answer(j)
           print*, 'n, new Ax:', i, resid_vec(i)
        endif
 

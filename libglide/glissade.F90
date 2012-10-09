@@ -265,9 +265,11 @@ contains
 
     elseif (model%options%whichdycore == DYCORE_GLISSADE ) then  ! glissade finite-element
 
+!whl - Removed scaling of dew and dns
         call glissade_velo_higher_init(model%general%ewn,  model%general%nsn,  &
                                        nhalo,                                  &
-                                       model%numerics%dew, model%numerics%dns)
+!!                                       model%numerics%dew, model%numerics%dns)
+                                       len0*model%numerics%dew, len0*model%numerics%dns)
 
     endif
 
@@ -381,7 +383,9 @@ contains
     implicit none
 
     type(glide_global_type), intent(inout) :: model   ! model instance
-    real(rk),  intent(in)   :: time         !*FD Current time in years
+!WHLTSTEP - Changed time to dp
+!    real(rk),  intent(in)   :: time         !*FD Current time in years
+    real(dp),  intent(in)   :: time         !*FD Current time in years
 
     ! --- Local Variables ---
 

@@ -111,7 +111,9 @@ contains
 
     ! local variables
     integer :: status,timedimid,ntime,timeid
-    real(sp),dimension(1) :: last_time
+!WHLTSTEP - changed last_time to dp
+!    real(sp),dimension(1) :: last_time
+    real(dp),dimension(1) :: last_time
     character(len=msglen) :: message
 
     ! open existing netCDF file
@@ -230,11 +232,15 @@ contains
     type(glimmer_nc_output), pointer :: outfile    
     type(glide_global_type) :: model
     logical forcewrite
-    real(sp),optional :: time
+!WHLTSTEP - Changed time to dp
+!    real(sp),optional :: time
+    real(dp),optional :: time
 
     character(len=msglen) :: message
     integer status
-    real(sp) :: sub_time
+!WHLTSTEP - Changed sub_time to dp
+!    real(sp) :: sub_time
+    real(dp) :: sub_time
 
     ! Check for optional time argument
     if (present(time)) then
@@ -482,14 +488,21 @@ contains
     !*FD structure containg output netCDF descriptor
     type(glide_global_type) :: model
     !*FD the model instance
-    real(sp),optional :: time
+!WHLTSTEP - Changed time to dp
+!    real(sp),optional :: time
+    real(dp),optional :: time
     !*FD Optional alternative time
 
     character(len=msglen) :: message
-    real(sp) :: sub_time
+!WHLTSTEP - Changed sub_time to dp
+!    real(sp) :: sub_time
+    real(dp) :: sub_time
 
     integer :: pos  ! to identify restart files
-    real(rk) :: restart_time   ! time of restart (yr)
+
+!WHLTSTEP - Changed restart_time to dp
+!    real(rk) :: restart_time   ! time of restart (yr)
+    real(dp) :: restart_time   ! time of restart (yr)
 
     if (present(time)) then
        sub_time=time
@@ -506,7 +519,9 @@ contains
           call write_log(message)
           pos = index(infile%nc%filename,'.r.')  ! use CESM naming convention for restart files
           if (pos /= 0) then   ! get the start time based on the current time slice
-             restart_time = real(infile%times(infile%current_time))  ! years
+!WHLTSTEP - Changed restart_time to dp
+!             restart_time = real(infile%times(infile%current_time))  ! years
+             restart_time = infile%times(infile%current_time)      ! years
              model%numerics%tstart = restart_time
              model%numerics%time = restart_time
              write(message,*) 'Restart: New tstart =', model%numerics%tstart

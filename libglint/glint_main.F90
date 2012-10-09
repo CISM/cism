@@ -43,6 +43,9 @@ module glint_main
   use glimmer_anomcouple
 #ifdef GLC_DEBUG
   use glide_diagnostics
+
+!TODO - Do not use the hard-coded idiag and jdiag; use model%numerics%idiag/jdiag instead
+!       Also, change the names of itest and jtest to make it clear these are on the global (CLM) grid.
   use glimmer_paramets, only: itest, jtest, jjtest, stdout, idiag, jdiag
 #endif
 
@@ -261,7 +264,9 @@ contains
                                            svf_temp,  sd_temp, alb_temp      ! Temporary output arrays
     integer,dimension(:),allocatable :: mbts,idts ! Array of mass-balance and ice dynamics timesteps
     logical :: anomaly_check ! Set if we've already initialised anomaly coupling
-    real(rk) :: timeyr       ! time in years
+!WHLTSTEP - Changed timeyr to dp
+!    real(rk) :: timeyr       ! time in years
+    real(dp) :: timeyr       ! time in years
 
     real(rk),dimension(:,:,:),allocatable ::   &
                gfrac_temp, gtopo_temp, grofi_temp, grofl_temp, ghflx_temp    ! Temporary output arrays
@@ -468,9 +473,11 @@ contains
        where (params%total_cov_orog > 0.0) params%cov_norm_orog = params%cov_norm_orog + 1.0
 
        ! Write initial diagnostics for this instance
-       timeyr = real(params%start_time/8760.)
+!WHLTSTEP - Changed timeyr to dp
+!       timeyr = real(params%start_time/8760.)
+       timeyr = params%start_time/8760.d0
 #ifdef GLC_DEBUG
-          write(stdout,*) 'Write model diagnostics, time =', timeyr
+       write(stdout,*) 'Write model diagnostics, time =', timeyr
        call glide_write_diag(params%instances(i)%model, timeyr, idiag, jdiag)
 #endif
 
@@ -683,7 +690,7 @@ contains
                    gtopo,          grofi,           &
                    grofl,          ghflx)
 
-    !*FD Main Glimmer subroutine.
+    !*FD Main Glint subroutine.
     !*FD
     !*FD This should be called daily or hourly, depending on
     !*FD the mass-balance scheme being used. It does all necessary 
@@ -755,7 +762,9 @@ contains
     real(rk),dimension(:,:),pointer :: precip
     real(rk),dimension(:,:),pointer :: temp
     real(rk) :: yearfrac
-    real(rk) :: timeyr   ! time in years
+!WHLTSTEP - Changed timeyr to dp
+!    real(rk) :: timeyr   ! time in years
+    real(dp) :: timeyr   ! time in years
     integer :: j, ig, jg
 
     real(rk), dimension(:,:,:), allocatable ::   &
@@ -1098,11 +1107,16 @@ contains
           endif   ! gcm_smb
 
           ! write ice sheet diagnostics
+!TODO - This will not write diagnostics every ice dynamics timestep if timesteps are < 1 yr
+!       Move to Glide?
+
           if (mod(params%instances(i)%model%numerics%timecounter,  &
                   params%instances(i)%model%numerics%ndiag)==0)  then
-             timeyr = time / (days_in_year*24.d0) 
+!WHLTSTEP - Write Glide time instead of Glint time.
+!             timeyr = time / (days_in_year*24.d0) 
+             timeyr = params%instances(i)%model%numerics%time
 #ifdef GLC_DEBUG
-                write(stdout,*) 'Write diagnostics, time (yr)=', timeyr     
+             write(stdout,*) 'Write diagnostics, time (yr)=', timeyr     
              call glide_write_diag(params%instances(i)%model, timeyr, idiag, jdiag)
 #endif
           endif

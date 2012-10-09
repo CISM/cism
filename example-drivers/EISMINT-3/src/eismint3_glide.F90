@@ -36,7 +36,9 @@ program eismint3_glide
   !*FD This is a simple GLIDE test driver. It can be used to run
   !*FD the EISMINT 3 Greenland test case. Adapted from simple_glide.f90
 
-  use glimmer_global, only:rk,fname_length
+!WHLTSTEP
+!  use glimmer_global, only:rk,fname_length
+  use glimmer_global, only: dp, fname_length
   use glide
   use glimmer_log
   use glimmer_config
@@ -50,7 +52,9 @@ program eismint3_glide
   type(glide_global_type) :: model        ! model instance
   type(eismint3_climate) :: climate
   type(ConfigSection), pointer :: config  ! configuration stuff
-  real(kind=rk) time
+!WHLTSTEP
+!  real(kind=rk) time
+  real(kind=dp) time
   real(kind=dp) t1,t2
   integer clock,clock_rate
 

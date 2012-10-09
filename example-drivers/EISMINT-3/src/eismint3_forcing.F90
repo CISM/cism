@@ -99,7 +99,8 @@ contains
 
        ! Put it into glide
 
-       call glide_set_thk(model,max(0.0,climate%acab*model%numerics%tinc))
+!WHLTSTEP - Subroutine glide_set_thk expects a real(sp) argument, so I left this line unchanged
+       call glide_set_thk(model,max(0.0,climate%acab*real(model%numerics%tinc)))
     case(1)
        ! do nothing
     case(2)

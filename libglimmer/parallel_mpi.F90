@@ -187,6 +187,7 @@ module parallel
 
   interface parallel_put_var
      module procedure parallel_put_var_real4
+     module procedure parallel_put_var_real8
      module procedure parallel_put_var_real8_1d
   end interface
 

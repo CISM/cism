@@ -96,7 +96,8 @@ contains
     print*, 'Writing diagnostics to log file, time(yr) =', time
  
     call write_log(' ')
-    write(message,'(a32,f10.2)') 'Global diagnostic output, time =', time
+!WHLTSTEP - write all digits of 'time'
+    write(message,'(a32,f24.16)') 'Global diagnostic output, time =', time
     call write_log(trim(message), type = GM_DIAGNOSTIC)
     call write_log(' ')
  

@@ -528,7 +528,9 @@ contains
     ! Perform first part of time-step of an ice model instance:
     ! temperature advection, vertical conduction, and internal dissipation.
 
-    use glimmer_global, only : rk
+!WHLTSTEP - Changed time to dp
+!    use glimmer_global, only : rk
+    use glimmer_global, only : dp
     use glide_thck
     use glide_velo
     use glide_setup
@@ -541,7 +543,9 @@ contains
     use glide_grids
 
     type(glide_global_type), intent(inout) :: model     ! model instance
-    real(rk),  intent(in)   :: time                     ! current time in years
+!WHLTSTEP - Changed time to dp
+!    real(rk),  intent(in)   :: time                     ! current time in years
+    real(dp),  intent(in)   :: time                     ! current time in years
 
     ! Update internal clock
     model%numerics%time = time  

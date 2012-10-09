@@ -149,9 +149,6 @@ contains
 
     model%tempwk%wmax = 5.0d0 * tim0 / (scyr * thk0)
 
-!debug
-    print*, 'wmax =', model%tempwk%wmax
-
 !TODO - Delete line with tau0
     model%tempwk%cons = (/ 2.0d0 * tim0 * model%numerics%dttem * coni / (2.0d0 * rhoi * shci * thk0**2), &
          model%numerics%dttem / 2.0d0, &

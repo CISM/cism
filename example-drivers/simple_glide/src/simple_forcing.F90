@@ -309,7 +309,9 @@ contains
     implicit none
     type(simple_climate) :: climate         !*FD structure holding climate info
     type(glide_global_type) :: model        !*FD model instance
-    real(kind=rk), intent(in) :: time                !*FD current time
+!WHLTSTEP - Changed time to dp
+!    real(kind=rk), intent(in) :: time                !*FD current time
+    real(kind=dp), intent(in) :: time                !*FD current time
 
     ! local variables
     integer  :: ns,ew
@@ -379,7 +381,9 @@ contains
     implicit none
     type(simple_climate) :: climate         !*FD structure holding climate info
     type(glide_global_type) :: model        !*FD model instance
+!WHLTSTEP - Change time to dp
     real(kind=rk), intent(in) :: time                !*FD current time
+!    real(kind=dp), intent(in) :: time                !*FD current time
 
     ! local variables
     integer  :: ns,ew
@@ -441,7 +445,9 @@ contains
     implicit none
     type(simple_climate) :: climate         !*FD structure holding climate info
     type(glide_global_type) :: model        !*FD model instance
-    real(kind=rk), intent(in) :: time                !*FD current time
+!WHLTSTEP - Changed time to dp
+!    real(kind=rk), intent(in) :: time                !*FD current time
+    real(kind=dp), intent(in) :: time                !*FD current time
     real(sp), intent(in) :: which_test                !*FD  Which exact test (F=0,G=1)
     real(sp), intent(in) :: which_call                !*FD  0 = surface temp, 1= mass balance
     integer  :: ns,ew,lev,center

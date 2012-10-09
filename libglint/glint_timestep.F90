@@ -470,9 +470,11 @@ contains
 
     ! Output instantaneous values
 
+!WHLTSTEP - Changed time to dp
     call glint_mbal_io_writeall(instance, instance%model,       &
                                 outfiles = instance%out_first,  &
-                                time = real(time*hours2years,sp))
+                                time = time*hours2years)
+!                                time = real(time*hours2years,sp))
 
     ! ------------------------------------------------------------------------ 
     ! Upscaling of output

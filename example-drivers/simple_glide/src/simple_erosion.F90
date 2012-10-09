@@ -49,7 +49,9 @@ program simple_erosion
   type(simple_climate) :: climate         ! climate
   type(erosion_type) :: er           ! erosion
   type(ConfigSection), pointer :: config  ! configuration stuff
-  real(kind=rk) time
+!WHLTSTEP - Changed time to dp
+!  real(kind=rk) time
+  real(kind=dp) time
   real(kind=dp) t1,t2
   integer clock,clock_rate
 

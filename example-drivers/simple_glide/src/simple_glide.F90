@@ -37,8 +37,7 @@
 #endif
 
 !TODO - Want a program that can call either glide or glissade init, run, and finalize subroutines.
-!       Call it simple_driver?
-!       MJH: Why not just call it cism_driver or cism_exec and abandon this 'simple' convention?
+!       Call it cism_driver?
 
 program simple_glide
   !*FD This is a simple GLIDE test driver. It can be used to run
@@ -59,7 +58,7 @@ program simple_glide
 
   use glissade
 
-!TODO - Change to 'glimmer_diagnostics'
+!TODO - Change to 'cism_diagnostics'?
   use glide_diagnostics
 
   implicit none
@@ -67,10 +66,12 @@ program simple_glide
   type(glide_global_type) :: model        ! model instance
   type(simple_climate) :: climate         ! climate
   type(ConfigSection), pointer :: config  ! configuration stuff
-  real(kind=rk) time
-  real(kind=dp) t1,t2
-  integer clock,clock_rate,ret
-  character*3 suffix   !TODO MJH: delete this line.  see note below about 'suffix'
+!WHLTSTEP - Changed time to dp
+!  real(kind=rk) time
+  real(kind=dp) :: time                   ! model time in years
+  real(kind=dp) :: t1,t2
+  integer :: clock,clock_rate,ret
+  character*3 :: suffix   !TODO MJH: delete this line.  see note below about 'suffix'
 
   integer :: tstep_count
 
@@ -106,12 +107,13 @@ program simple_glide
   call glide_config(model,config)
 
 !TODO - Is this call always needed?   
-! MJH says: simple_initialise is only needed when using simple_massbalance and simple_surftemp.  If those are removed, this should be removed too.
+! MJH says: simple_initialise is only needed when using simple_massbalance and simple_surftemp.  
+! If those are removed, this should be removed too.
   call simple_initialise(climate,config)
 
   if (model%options%whichdycore == DYCORE_GLIDE) then
      call glide_initialise(model)
-  else
+  else       ! glam/glissade dycore	
      call glissade_initialise(model)
   endif
 
@@ -125,7 +127,8 @@ program simple_glide
   tstep_count = 0
 
 !### !TODO - Are these calls always needed?
-!### !TODO MJH These aren't needed for the initial state - only during time-stepping.  So delete the calls here and only call them in the time-stepping routine
+!### !TODO MJH These aren't needed for the initial state - only during time-stepping.  
+     !         So delete the calls here and only call them in the time-stepping routine
 !### !  call simple_massbalance(climate,model,time)
 !### !  call simple_surftemp(climate,model,time)
 
@@ -169,12 +172,21 @@ program simple_glide
   !leaving out that if-construct here.  If simple_glide actually does support a nowrite option, then a check for it would
   ! need to occur here!
   call t_startf('glide_io_writeall')
-  call glide_io_writeall(model,model, time=REAL(time,4))  ! MJH The optional time argument needs to be supplied since we have not yet set model%numerics%time
+!WHLTSTEP - Changed time to dp
+!  call glide_io_writeall(model,model, time=REAL(time,4))  
+                                                          
+  call glide_io_writeall(model, model, time=time)          ! MJH The optional time argument needs to be supplied 
+                                                           !     since we have not yet set model%numerics%time
   call t_stopf('glide_io_writeall')
 !TODO Do we want to write out litho output here too?  I think so, but I'm not sure what it is exactly.
   if (model%options%gthf > 0) then
      call t_startf('glide_lithot_io_writeall')
-     call glide_lithot_io_writeall(model,model, time=REAL(time,4))  ! MJH The optional time argument needs to be supplied since we have not yet set model%numerics%time
+!WHLTSTEP - Changed time to dp
+!     call glide_lithot_io_writeall(model,model, time=REAL(time,4)) 
+                                                                    
+     call glide_lithot_io_writeall(model, model, time=time)          ! MJH The optional time argument needs to be supplied
+                                                                     !     since we have not yet set model%numerics%time
+
      call t_stopf('glide_lithot_io_writeall')
   endif 
 
@@ -186,7 +198,8 @@ program simple_glide
 ! prior to time-stepping, which results in velocity being non-zero on the first 
 ! temperature solve.  This changes the result due to dissipation and sliding heating.
   !if (model%options%whichdycore == DYCORE_GLIDE) then
-  ! zero out velocity fields for GLIDE dycore if you want to get same answers as old versions of the code.  Zeroing all of these might not be necessary.
+  ! zero out velocity fields for GLIDE dycore if you want to get same answers as old versions of the code.  
+  ! Zeroing all of these might not be necessary.
   !  model%velocity%uvel = 0.0
   !  model%velocity%vvel = 0.0
   !  model%velocity%velnorm = 0.0
@@ -209,15 +222,18 @@ program simple_glide
      ! --- First assign forcings ----
      ! Because this is Forward Euler, the forcings should be from the previous time step (e.g. H1 = f(H0, V0, SMB0))
      ! TODO Write generic forcing subroutines that could call simple_massbalance/surftemp or some other forcing module.  
-     !simple_massbalance/surftemp are only used for the EISMINT experiments.  If they are called without EISMINT options in the config file, they will do nothing.
-     ! TODO May want to move them to the glissade/glide time steppers.  If so be careful about using the right time level (i.e. the old one).
+     ! simple_massbalance/surftemp are only used for the EISMINT experiments.  
+     ! If they are called without EISMINT options in the config file, they will do nothing.
+     ! TODO May want to move them to the glissade/glide time steppers.  
+     ! If so be careful about using the right time level (i.e. the old one).
      call simple_massbalance(climate,model,time)
      call simple_surftemp(climate,model,time)
 
 
      ! --- Increment time before performing time step operations ---
      ! We are solving variables at the new time level using values from the previous time level.
-     ! TODO Can we just use model%numerics%time and model%numerics%timecounter?  That would be less confusing than having time-keeping done separately here and in glissade.
+     ! TODO Can we just use model%numerics%time and model%numerics%timecounter?  
+     !      That would be less confusing than having time-keeping done separately here and in glissade.
      time = time + model%numerics%tinc
      tstep_count = tstep_count + 1
 
@@ -252,7 +268,7 @@ program simple_glide
        if (tstep_count == 0) call t_adj_detailf(-10)
        call t_stopf('glide_tstep_p3'//suffix)
 
-     else   ! glissade dycore
+     else   ! glam/glissade dycore
 
 !TODO - Make this a single subroutine call
 
@@ -262,13 +278,13 @@ program simple_glide
        if (tstep_count == 0) call t_adj_detailf(-10)
        call t_stopf('glissade_tstep'//suffix)
 
-     endif   ! glide or glissade dycore
+     endif   ! glide v. glam/glissade dycore
 
      ! override masking stuff for now  !TODO - What does this mean?
 
      !tstep_count = tstep_count + 1  !TODO delete this.  moved to start of time loop
 
-!TODO - Change to glimmer_write_diag?
+!TODO - Change to cism_write_diag?
 !TODO Can this be moved to end of time loop so that we can merge the two if-statements into a single construct?
      ! write ice sheet diagnostics
      if (mod(tstep_count, model%numerics%ndiag)==0)  then
@@ -279,7 +295,6 @@ program simple_glide
 !TODO - Remove this comment?
      ! Redistribute calls here to spread the data back out.
 
-
      if (model%options%whichdycore == DYCORE_GLIDE) then
 
      ! Perform parallel operations for restart files
@@ -289,7 +304,7 @@ program simple_glide
        if (tstep_count == 1) call t_adj_detailf(-10)
        call t_stopf('glide_tstep_postp3'//suffix)
 
-     else   ! glissade dycore
+     else   ! glam/glissade dycore
 
 !TODO - I think we can safely remove all these parallel halo calls.
 !       Before doing so, make sure we have the required calls in glissade.F90.
@@ -371,14 +386,15 @@ program simple_glide
        call t_stopf('simple_glide_halo_upd'//suffix)
 
      ! Perform parallel operations for restart files
-     ! TODO post_tstep has nothing left in it but the output writing.  I think it should be eliminated and the output writing occur here in simple_glide.
+     ! TODO post_tstep has nothing left in it but the output writing.  
+     !      I think it should be eliminated and the output writing occur here in simple_glide.
        call t_startf('glissade_post_tstep'//suffix)
        if (tstep_count == 1) call t_adj_detailf(+10)
         call glissade_post_tstep(model)
        if (tstep_count == 1) call t_adj_detailf(-10)
        call t_stopf('glissade_post_tstep'//suffix)
 
-     endif   ! dycore = glide or glissade
+     endif   ! glide v. glam/glissade dycore
 
 !###     !time = time + model%numerics%tinc  !TODO DELETE - moved to start of time step
 

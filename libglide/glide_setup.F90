@@ -126,18 +126,18 @@ contains
 !TODO - Remove scaling?  At least from glissade.
 ! But recall that some time steps are in hours, others in years.
 ! model%numerics%tinc is in years
-! Would like to have dt and dttem in seconds.
 
   subroutine glide_scale_params(model)
     !*FD scale parameters
     use glide_types
     use glimmer_physcon,  only: scyr
 
-!SCALING - Can delete the following
+!SCALING - Can delete the following when scaling is removed
     use glimmer_physcon,  only: gn
     use glimmer_paramets, only: thk0,tim0,len0, vel0, vis0, acc0
 
     implicit none
+
     type(glide_global_type)  :: model !*FD model instance
 
 !SCALING - Some of this code is still needed, even after thk0, len0, etc. are set to 1.0.
@@ -147,8 +147,8 @@ contains
     model%numerics%ntem = model%numerics%ntem * model%numerics%tinc   ! keep
     model%numerics%nvel = model%numerics%nvel * model%numerics%tinc   ! keep
 
-    model%numerics%dt     = model%numerics%tinc * scyr / tim0   ! keep scyr
-    model%numerics%dttem  = model%numerics%ntem * scyr / tim0   ! keep scyr
+    model%numerics%dt     = model%numerics%tinc * scyr / tim0   ! keep scyr?  (or let dt be in yr)
+    model%numerics%dttem  = model%numerics%ntem * scyr / tim0   ! keep scyr?  (or let dt be in yr)
     model%numerics%thklim = model%numerics%thklim  / thk0       ! remove  
 
     model%numerics%dew = model%numerics%dew / len0         ! remove
@@ -402,6 +402,12 @@ contains
     type(ConfigSection), pointer :: section
     type(glide_global_type)  :: model
 
+!TODO - To handle timesteps both greater and less than one year, we may want to
+!        define ice_dt_option and ice_dt_count in place of the current dt.
+!       For instance, ice_dt_option could be either 'nyears' or 'steps_per_year'.
+!       For timesteps < 1 year, we would use ice_dt_option = 'steps_per_year'.
+!       This would ensure that the ice sheet dynamic timestep divides evenly
+!        into the mass balance timestep (= 1 year) when running with Glint.
     call GetValue(section,'tstart',model%numerics%tstart)
     call GetValue(section,'tend',model%numerics%tend)
     call GetValue(section,'dt',model%numerics%tinc)

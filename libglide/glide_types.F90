@@ -745,12 +745,20 @@ module glide_types
   type glide_numerics
 
     !*FD Parameters relating to the model numerics.
-    real(sp) :: tstart = 0.0      !*FD starting time
-    real(sp) :: tend   = 20000.0  !*FD end time
-    real(sp) :: time   =    0.0   !*FD main loop counter in years
-    real(sp) :: tinc   =   20.0   !*FD time step of main loop in years 
-    real(sp) :: ntem   =    1.0   !*FD temperature time step (multiplier of main time step)
-    real(sp) :: nvel   =    1.0   !*FD velocity time step (multiplier of main time step)
+!WHLTSTEP - Changed time variables to dp
+!           Reduced default values of tstart and tend
+    real(dp) :: tstart =    0.d0 !*FD starting time
+    real(dp) :: tend   = 1000.d0 !*FD end time
+    real(dp) :: time   =    0.d0 !*FD main loop counter in years
+    real(dp) :: tinc   =    1.d0 !*FD time step of main loop in years 
+    real(dp) :: ntem   =    1.d0 !*FD temperature time step (multiplier of main time step)
+    real(dp) :: nvel   =    1.d0 !*FD velocity time step (multiplier of main time step)
+!    real(sp) :: tstart = 0.0      !*FD starting time
+!    real(sp) :: tend   = 20000.0  !*FD end time
+!    real(sp) :: time   =    0.0   !*FD main loop counter in years
+!    real(sp) :: tinc   =   20.0   !*FD time step of main loop in years 
+!    real(sp) :: ntem   =    1.0   !*FD temperature time step (multiplier of main time step)
+!    real(sp) :: nvel   =    1.0   !*FD velocity time step (multiplier of main time step)
     real(dp) :: alpha  =    0.5d0 !*FD richard suggests 1.5 - was a parameter in original
     real(dp) :: alphas =    0.5d0 !*FD was a parameter in the original
     real(dp) :: thklim =  100.0   
@@ -760,6 +768,7 @@ module glide_types
     real(dp) :: dns    =   20.0d3
     real(dp) :: dt     =    0.0
     real(dp) :: dttem  =    0.0
+!TODO - Should nshlf be dp?
     real(sp) :: nshlf  =    0.0
     integer  :: subcyc =    1
 
@@ -821,7 +830,9 @@ module glide_types
      real(dp),dimension(:,:),pointer :: float => null()
      real(dp),dimension(:,:,:),pointer :: olds      => null()
      integer  :: nwhich  = 2
-     real(sp) :: oldtime = 0.0
+!WHLTSTEP - Changed oldtime to dp
+!     real(sp) :: oldtime = 0.0
+     real(dp) :: oldtime = 0.0
      
      real(dp), dimension(:), pointer :: alpha => null()
      real(dp), dimension(:), pointer :: beta  => null()
@@ -1512,10 +1523,12 @@ contains
     get_dns = model%numerics%dns * len0
   end function get_dns
 
+!WHLTSTEP - Changed get_tstart, get_tend, and get_tinc to dp
   function get_tstart(model)
     !*FD return start time
     implicit none
-    real(sp) :: get_tstart
+!    real(sp) :: get_tstart
+    real(dp) :: get_tstart
     type(glide_global_type) :: model
     
     get_tstart = model%numerics%tstart
@@ -1524,7 +1537,8 @@ contains
   function get_tend(model)
     !*FD return end time
     implicit none
-    real(sp) :: get_tend
+!    real(sp) :: get_tend
+    real(dp) :: get_tend
     type(glide_global_type) :: model
     
     get_tend = model%numerics%tend
@@ -1533,7 +1547,8 @@ contains
   function get_tinc(model)
     !*FD return time increment
     implicit none
-    real(sp) :: get_tinc
+!    real(sp) :: get_tinc
+    real(dp) :: get_tinc
     type(glide_global_type) :: model
     
     get_tinc = model%numerics%tinc
@@ -1557,14 +1572,16 @@ contains
     get_nsn = model%general%nsn
   end function get_nsn
   
+!WHLTSTEP - Change set_time to dp
   subroutine set_time(model,time)
     !*FD Set the model time counter --- useful for
     !*FD fractional year output
     implicit none
     type(glide_global_type) :: model
-    real :: time
+!    real :: time
+    real(dp) :: time
 
-    model%numerics%time=time
+    model%numerics%time = time
   end subroutine set_time
 
 end module glide_types
