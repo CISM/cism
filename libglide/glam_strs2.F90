@@ -2942,7 +2942,7 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                         thisvel(upn,:,:),       &
                         othervel(upn,:,:),      &
                         minTauf, beta,          &
-                        betasquared )
+                        betasquared, mask )
   ! intent(out) betasquared
 
   ! Note loc2_array is defined only for non-halo ice grid points.
@@ -5002,7 +5002,8 @@ subroutine calcbetasquared (whichbabc,               &
                             thck,                    &
                             thisvel,     othervel,   &
                             minTauf, beta,           &
-                            betasquared, betafile)
+                            betasquared, mask,       &
+                            betafile)
 
   ! subroutine to calculate map of betasquared sliding parameter, based on 
   ! user input ("whichbabc" flag, from config file as "which_ho_babc").
@@ -5014,6 +5015,8 @@ subroutine calcbetasquared (whichbabc,               &
   real(dp), intent(in) :: dew, dns
   real(dp), intent(in), dimension(:,:) :: lsrf, topg, thck
   real(dp), intent(in), dimension(:,:) :: thisvel, othervel, minTauf, beta
+
+  integer, intent(in), dimension(:,:) :: mask 
 
   real(dp), intent(out), dimension(ewn-1,nsn-1) :: betasquared
 
@@ -5076,9 +5079,22 @@ subroutine calcbetasquared (whichbabc,               &
       betasquared = beta * ( tau0 / vel0 / scyr )
 
       ! this is a check for NaNs, which indicate, and are replaced by no slip
-      where ( betasquared /= betasquared )
-        betasquared = 1.d10     ! Pa yr/m
-      end where
+      !TODO: Not sure I follow the logic of this ... keep/omit? Added by the UMT crew at some point
+      do ns=1, nsn-1; do ew=1, ewn-1; 
+        if( betasquared(ew,ns) /= betasquared(ew,ns) )then
+          betasquared(ew,ns) = 1.d10     ! Pa yr/m
+        endif 
+      end do; end do
+
+      ! check for areas where ice is floating or grounded and make sure beta in these regions is 0  
+      !TODO: Ideally, these mask values should not be hardwired, but keeping it this way for now until
+      ! we decide which mask values to keep/remove
+      do ns=1, nsn-1; do ew=1, ewn-1; 
+        if( ( mask(ew,ns) >= 21 .and. mask(ew,ns) <= 23 ) .or. ( mask(ew,ns) >= 41 .and. mask(ew,ns) <= 57 ) &
+             .or. mask(ew,ns) == 9 .or. mask(ew,ns) == 11 )then
+           betasquared(ew,ns) = 0.d0
+        endif
+      end do; end do
 
     ! NOTE: cases (6) and (7) are handled external to this subroutine
 
