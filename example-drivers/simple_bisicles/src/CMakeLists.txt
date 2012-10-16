@@ -1,12 +1,17 @@
 # simple_bisicles build
 # Get libraries for link line from Trilinos build information
-set(TRILINOS_LIBS ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES}
-   ${Trilinos_EXTRA_LD_FLAGS} ${CMAKE_Fortran_IMPLICIT_LINK_LIBRARIES} )
+# 
 
-message("")
-message("  CMake detected the following libraries for linking Fortran with C++ compiler:")
-message("     ${CMAKE_Fortran_IMPLICIT_LINK_LIBRARIES} ")
-message("  Bill S. and Jim E.: try this list in CESM builds when linking with C++")
+IF (NOT ${NO_TRILINOS})
+  set(CISM_TRILINOS_LIBS glimmercismcpp ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES}
+     ${Trilinos_EXTRA_LD_FLAGS} ${CMAKE_Fortran_IMPLICIT_LINK_LIBRARIES})
+ELSE()
+  set(CISM_TRILINOS_LIBS ${CMAKE_Fortran_IMPLICIT_LINK_LIBRARIES} )
+ENDIF()
+
+#message("")
+#message("  CMake detected the following libraries for linking Fortran with C++ compiler:")
+#message("     ${CMAKE_Fortran_IMPLICIT_LINK_LIBRARIES} ")
 
 # Need include directories from Trilinos but also mod files from glimmer
 include_directories (${GLIMMER_BINARY_DIR} ${GLIMMER_BINARY_DIR}/include
@@ -23,29 +28,18 @@ MESSAGE("HDF5_LIBRARIES: " ${HDF5_LIBRARIES})
 
 # Executable depends on several glimmer libraries and Trilinos,
 # and potentially an f90main.o file (on jaguar with PGI at least)
-target_link_libraries(simple_bisicles  
+target_link_libraries(simple_bisicles
       ${GLIMMER_FMAIN}
       glimmercismfortran
-      glimmercismcpp
       DyCoreToGlimmer
       libBisicles.a
       libChomboLibs.a
       ${HDF5_PGI_LIBS}
       ${GLIMMER_NETCDF_LIBS}
       ${GLIMMER_MPI_LIBS}
-      ${TRILINOS_LIBS})
+      ${CISM_TRILINOS_LIBS}
+      ${GLIMMER_EXTRA_LIBS})
 
-#target_link_libraries(simple_bisicles  
-#      ${GLIMMER_FMAIN}
-#      glimmercismfortran
-#      glimmercismcpp
-#      libDyCoreToGlimmer.a
-#      libBisicles.a
-#      libChomboLibs.a
-#      ${HDF5_LIBS}
-#      ${GLIMMER_NETCDF_LIBS}
-#      ${GLIMMER_HDF5_LIBS}
-#      ${TRILINOS_LIBS}) 
 
 
 # Helpful(?) message near end of configuration step
