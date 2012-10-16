@@ -36,6 +36,7 @@ module glimmer_horiz_bcs
 
   integer, parameter, public :: ghost_shift = 0
 
+  logical :: not_printed = .true.
 
 contains
 
@@ -44,8 +45,9 @@ contains
   subroutine horiz_bcs_unstag_scalar_real8_2d( a )
     implicit none
     real(8),dimension(:,:), intent(inout) :: a
-    write(*,*) 'Using a dummy file for serial building. Horizontal BCs are not being enforced!'
-    write(*,'(A,I5)') 'Printed from line: ', __LINE__
+    if (not_printed) write(*,*) 'Using a dummy file for serial building. Horizontal BCs are not being enforced!'
+    if (not_printed) write(*,'(A,I5)') 'Printed from line: ', __LINE__
+    not_printed = .false.
   end subroutine horiz_bcs_unstag_scalar_real8_2d
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -53,8 +55,9 @@ contains
   subroutine horiz_bcs_unstag_scalar_integer_2d( a )
     implicit none
     integer,dimension(:,:), intent(inout) :: a
-    write(*,*) 'Using a dummy file for serial building. Horizontal BCs are not being enforced!'
-    write(*,'(A,I5)') 'Printed from line: ', __LINE__
+    if (not_printed) write(*,*) 'Using a dummy file for serial building. Horizontal BCs are not being enforced!'
+    if (not_printed) write(*,'(A,I5)') 'Printed from line: ', __LINE__
+    not_printed = .false.
   end subroutine horiz_bcs_unstag_scalar_integer_2d
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -62,8 +65,9 @@ contains
   subroutine horiz_bcs_unstag_scalar_logical_2d( a )
     implicit none
     logical,dimension(:,:), intent(inout) :: a
-    write(*,*) 'Using a dummy file for serial building. Horizontal BCs are not being enforced!'
-    write(*,'(A,I5)') 'Printed from line: ', __LINE__
+    if (not_printed) write(*,*) 'Using a dummy file for serial building. Horizontal BCs are not being enforced!'
+    if (not_printed) write(*,'(A,I5)') 'Printed from line: ', __LINE__
+    not_printed = .false.
   end subroutine horiz_bcs_unstag_scalar_logical_2d
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -71,8 +75,9 @@ contains
   subroutine horiz_bcs_unstag_scalar_real8_3d( a )
     implicit none
     real(8),dimension(:,:,:), intent(inout) :: a
-    write(*,*) 'Using a dummy file for serial building. Horizontal BCs are not being enforced!'
-    write(*,'(A,I5)') 'Printed from line: ', __LINE__
+    if (not_printed) write(*,*) 'Using a dummy file for serial building. Horizontal BCs are not being enforced!'
+    if (not_printed) write(*,'(A,I5)') 'Printed from line: ', __LINE__
+    not_printed = .false.
   end subroutine horiz_bcs_unstag_scalar_real8_3d
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -80,8 +85,9 @@ contains
   subroutine horiz_bcs_unstag_scalar_real4_2d( a )
     implicit none
     real(4),dimension(:,:), intent(inout) :: a
-    write(*,*) 'Using a dummy file for serial building. Horizontal BCs are not being enforced!'
-    write(*,'(A,I5)') 'Printed from line: ', __LINE__
+    if (not_printed) write(*,*) 'Using a dummy file for serial building. Horizontal BCs are not being enforced!'
+    if (not_printed) write(*,'(A,I5)') 'Printed from line: ', __LINE__
+    not_printed = .false.
   end subroutine horiz_bcs_unstag_scalar_real4_2d
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -89,8 +95,9 @@ contains
   subroutine horiz_bcs_stag_vector_ew_real8_3d( a )
     implicit none
     real(8),dimension(:,:,:), intent(inout) :: a
-    write(*,*) 'Using a dummy file for serial building. Horizontal BCs are not being enforced!'
-    write(*,'(A,I5)') 'Printed from line: ', __LINE__
+    if (not_printed) write(*,*) 'Using a dummy file for serial building. Horizontal BCs are not being enforced!'
+    if (not_printed) write(*,'(A,I5)') 'Printed from line: ', __LINE__
+    not_printed = .false.
   end subroutine horiz_bcs_stag_vector_ew_real8_3d
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -98,8 +105,9 @@ contains
   subroutine horiz_bcs_stag_vector_ew_real8_2d( a )
     implicit none
     real(8),dimension(:,:), intent(inout) :: a
-    write(*,*) 'Using a dummy file for serial building. Horizontal BCs are not being enforced!'
-    write(*,'(A,I5)') 'Printed from line: ', __LINE__
+    if (not_printed) write(*,*) 'Using a dummy file for serial building. Horizontal BCs are not being enforced!'
+    if (not_printed) write(*,'(A,I5)') 'Printed from line: ', __LINE__
+    not_printed = .false.
   end subroutine horiz_bcs_stag_vector_ew_real8_2d
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -107,8 +115,9 @@ contains
   subroutine horiz_bcs_stag_vector_ns_real8_3d( a )
     implicit none
     real(8),dimension(:,:,:), intent(inout) :: a
-    write(*,*) 'Using a dummy file for serial building. Horizontal BCs are not being enforced!'
-    write(*,'(A,I5)') 'Printed from line: ', __LINE__
+    if (not_printed) write(*,*) 'Using a dummy file for serial building. Horizontal BCs are not being enforced!'
+    if (not_printed) write(*,'(A,I5)') 'Printed from line: ', __LINE__
+    not_printed = .false.
   end subroutine horiz_bcs_stag_vector_ns_real8_3d
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -116,8 +125,9 @@ contains
   subroutine horiz_bcs_stag_vector_ns_real8_2d( a )
     implicit none
     real(8),dimension(:,:), intent(inout) :: a
-    write(*,*) 'Using a dummy file for serial building. Horizontal BCs are not being enforced!'
-    write(*,'(A,I5)') 'Printed from line: ', __LINE__
+    if (not_printed) write(*,*) 'Using a dummy file for serial building. Horizontal BCs are not being enforced!'
+    if (not_printed) write(*,'(A,I5)') 'Printed from line: ', __LINE__
+    not_printed = .false.
   end subroutine horiz_bcs_stag_vector_ns_real8_2d
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -125,8 +135,9 @@ contains
   subroutine horiz_bcs_stag_scalar_integer_2d( a )
     implicit none
     integer,dimension(:,:), intent(inout) :: a
-    write(*,*) 'Using a dummy file for serial building. Horizontal BCs are not being enforced!'
-    write(*,'(A,I5)') 'Printed from line: ', __LINE__
+    if (not_printed) write(*,*) 'Using a dummy file for serial building. Horizontal BCs are not being enforced!'
+    if (not_printed) write(*,'(A,I5)') 'Printed from line: ', __LINE__
+    not_printed = .false.
   end subroutine horiz_bcs_stag_scalar_integer_2d
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -134,8 +145,9 @@ contains
   subroutine horiz_bcs_stag_scalar_real8_2d( a )
     implicit none
     real(8),dimension(:,:), intent(inout) :: a
-    write(*,*) 'Using a dummy file for serial building. Horizontal BCs are not being enforced!'
-    write(*,'(A,I5)') 'Printed from line: ', __LINE__
+    if (not_printed) write(*,*) 'Using a dummy file for serial building. Horizontal BCs are not being enforced!'
+    if (not_printed) write(*,'(A,I5)') 'Printed from line: ', __LINE__
+    not_printed = .false.
   end subroutine horiz_bcs_stag_scalar_real8_2d
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -143,8 +155,9 @@ contains
   subroutine horiz_bcs_stag_scalar_real8_3d( a )
     implicit none
     real(8),dimension(:,:,:), intent(inout) :: a
-    write(*,*) 'Using a dummy file for serial building. Horizontal BCs are not being enforced!'
-    write(*,'(A,I5)') 'Printed from line: ', __LINE__
+    if (not_printed) write(*,*) 'Using a dummy file for serial building. Horizontal BCs are not being enforced!'
+    if (not_printed) write(*,'(A,I5)') 'Printed from line: ', __LINE__
+    not_printed = .false.
   end subroutine horiz_bcs_stag_scalar_real8_3d
 
 end module glimmer_horiz_bcs
