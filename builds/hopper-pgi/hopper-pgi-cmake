@@ -17,7 +17,8 @@
 module unload modules
 
 module unload cmake
-module unload PrgEnv-cray PrgEnv-gnu PrgEnv-intel PrgEnv-pathscale PrgEnv-pgi 
+module unload PrgEnv-cray PrgEnv-gnu PrgEnv-intel PrgEnv-pathscale PrgEnv-pgi
+module unload hdf5 
 module unload hdf5-parallel
 module unload netcdf
 module unload python
@@ -36,16 +37,27 @@ module load cray-mpich2/5.5.2
 rm ./CMakeCache.txt
 
 # run a script that creates some CISM source files:
-../../cmake-scripts/autogenerate-script
+pushd .
+cd ..
+../cmake-scripts/autogenerate-script
+popd
 
 echo
 echo "Doing CMake Configuration step"
 
+
+#  -D GLIMMER_GPTL_DIR=/project/projectdirs/ccsm1/libgptl/libgptl-pgi \
 cmake \
+  -D NO_TRILINOS:BOOL=OFF \
+  -D CISM_MPI_MODE:BOOL=ON \
+  -D CISM_SERIAL_MODE:BOOL=OFF \
+  -D BUILD_SIMPLE_BISICLES:BOOL=OFF \
+\
   -D GLIMMER_TRILINOS_DIR=/global/homes/r/ranken/trilinos/hopper-pgi/install \
   -D GLIMMER_NETCDF_DIR=/opt/cray/netcdf/4.1.2/pgi/109 \
   -D GLIMMER_MPI=$CRAY_MPICH2_DIR \
   -D GLIMMER_FMAIN=/opt/pgi/12.4.0/linux86-64/12.4/lib/f90main.o \
+  -D GLIMMER_GPTL_DIR=/project/projectdirs/ccsm1/libgptl/libgptl-pgi \
   -D CMAKE_INSTALL_PREFIX:PATH=$PWD/install \
   -D CMAKE_VERBOSE_MAKEFILE:BOOL=ON \
   -D CMAKE_VERBOSE_CONFIGURE:BOOL=ON \
@@ -56,15 +68,14 @@ cmake \
 \
   -D MPI_BASE_DIR=/opt/cray/mpt/5.4.5/xt/gemini/mpich2-pgi/109 \
   -D SCI_LIB_DIR=/opt/xt-libsci/11.0.06/pgi/109/mc12/lib \
-  -D HDF5_PARALLEL_LIB_DIR=/opt/cray/hdf5-parallel/1.8.6/pgi/109/lib \
+  -D HDF5_PARALLEL_LIB_DIR=/opt/cray/hdf5-parallel/1.8.8/pgi/119/lib \
   -D HDF5_PGI_LIBS="-lhdf5_pgi_parallel -lz" \
-  -D CMAKE_PREFIX_PATH="/opt/cray/hdf5/1.8.6/pgi/109;/opt/cray/hdf5-parallel/1.8.6/pgi/109" \
+  -D CMAKE_PREFIX_PATH="/opt/cray/hdf5/1.8.8/pgi/119;/opt/cray/hdf5-parallel/1.8.8/pgi/119" \
 \
   -D CMAKE_CXX_FLAGS:STRING="-O2 --diag_suppress 554,111,611" \
   -D TPL_ENABLE_MPI:BOOL=ON \
-  -D BUILD_SIMPLE_BISICLES:BOOL=ON \
-  -D NO_TRILINOS:BOOL=OFF \
   -D BISICLES_INTERFACE_DIR=/global/u1/r/ranken/BISICLES/code/interface \
- ../..
+  ../..
 
 # Note: last argument above  "../.."  is path to top seacism directory
+
