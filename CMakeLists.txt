@@ -161,6 +161,7 @@ file(GLOB FORTRANSOURCES
 
 
 LIST(REMOVE_ITEM FORTRANSOURCES
+   ${GLIMMER_SOURCE_DIR}/libglimmer/glimmer_horiz_bcs_serial.F90
    ${GLIMMER_SOURCE_DIR}/libglimmer/parallel_slap.F90
    ${GLIMMER_SOURCE_DIR}/libglimmer/unittest_glimmer_deriv.F90 
    ${GLIMMER_SOURCE_DIR}/libglide/relaxed.F90)
