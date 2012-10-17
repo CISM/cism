@@ -83,8 +83,8 @@ contains
           allocate(sbuf_n(size(a,1),lhalo))
           rbuf_n = a(:,lhalo+own_nsn+1      -ghost_shift:lhalo+own_nsn+uhalo-ghost_shift)
           sbuf_n = a(:,lhalo+own_nsn+1-lhalo-ghost_shift:lhalo+own_nsn      -ghost_shift)
-          call mpi_irecv( rbuf_n , size( rbuf_n ) , mpi_double , partner , 1 , comm , recv_req_n , ierr )
-          call mpi_isend( sbuf_n , size( sbuf_n ) , mpi_double , partner , 2 , comm , send_req_n , ierr )
+          call mpi_irecv( rbuf_n , size( rbuf_n ) , mpi_real8 , partner , 1 , comm , recv_req_n , ierr )
+          call mpi_isend( sbuf_n , size( sbuf_n ) , mpi_real8 , partner , 2 , comm , send_req_n , ierr )
       endselect
     endif
     if ( ewub > global_ewn ) then    !I am on the east boundary
@@ -99,8 +99,8 @@ contains
           allocate(sbuf_e(lhalo,size(a,2)))
           rbuf_e = a(lhalo+own_ewn+1      -ghost_shift:lhalo+own_ewn+uhalo-ghost_shift,:)
           sbuf_e = a(lhalo+own_ewn+1-lhalo-ghost_shift:lhalo+own_ewn      -ghost_shift,:)
-          call mpi_irecv( rbuf_e , size( rbuf_e ) , mpi_double , partner , 3 , comm , recv_req_e , ierr )
-          call mpi_isend( sbuf_e , size( sbuf_e ) , mpi_double , partner , 4 , comm , send_req_e , ierr )
+          call mpi_irecv( rbuf_e , size( rbuf_e ) , mpi_real8 , partner , 3 , comm , recv_req_e , ierr )
+          call mpi_isend( sbuf_e , size( sbuf_e ) , mpi_real8 , partner , 4 , comm , send_req_e , ierr )
       endselect
     endif
     if ( nslb < 1 ) then   !I am on the south boundary
@@ -115,8 +115,8 @@ contains
           allocate(sbuf_s(size(a,1),uhalo))
           rbuf_s = a(:,1      +ghost_shift:lhalo      +ghost_shift)
           sbuf_s = a(:,lhalo+1+ghost_shift:lhalo+uhalo+ghost_shift)
-          call mpi_irecv( rbuf_s , size( rbuf_s ) , mpi_double , partner , 2 , comm , recv_req_s , ierr )
-          call mpi_isend( sbuf_s , size( sbuf_s ) , mpi_double , partner , 1 , comm , send_req_s , ierr )
+          call mpi_irecv( rbuf_s , size( rbuf_s ) , mpi_real8 , partner , 2 , comm , recv_req_s , ierr )
+          call mpi_isend( sbuf_s , size( sbuf_s ) , mpi_real8 , partner , 1 , comm , send_req_s , ierr )
       endselect
     endif
     if ( ewlb < 1 ) then    !I am on the west boundary
@@ -131,8 +131,8 @@ contains
           allocate(sbuf_w(uhalo,size(a,2)))
           rbuf_w = a(1      +ghost_shift:lhalo      +ghost_shift,:)
           sbuf_w = a(lhalo+1+ghost_shift:lhalo+uhalo+ghost_shift,:)
-          call mpi_irecv( rbuf_w , size( rbuf_w ) , mpi_double , partner , 4 , comm , recv_req_w , ierr )
-          call mpi_isend( sbuf_w , size( sbuf_w ) , mpi_double , partner , 3 , comm , send_req_w , ierr )
+          call mpi_irecv( rbuf_w , size( rbuf_w ) , mpi_real8 , partner , 4 , comm , recv_req_w , ierr )
+          call mpi_isend( sbuf_w , size( sbuf_w ) , mpi_real8 , partner , 3 , comm , send_req_w , ierr )
       endselect
     endif
 
@@ -535,8 +535,8 @@ contains
           allocate(sbuf_n(size(a,1),size(a,2),lhalo))
           rbuf_n = a(:,:,lhalo+own_nsn+1      -ghost_shift:lhalo+own_nsn+uhalo-ghost_shift)
           sbuf_n = a(:,:,lhalo+own_nsn+1-lhalo-ghost_shift:lhalo+own_nsn      -ghost_shift)
-          call mpi_irecv( rbuf_n , size( rbuf_n ) , mpi_double , partner , 1 , comm , recv_req_n , ierr )
-          call mpi_isend( sbuf_n , size( sbuf_n ) , mpi_double , partner , 2 , comm , send_req_n , ierr )
+          call mpi_irecv( rbuf_n , size( rbuf_n ) , mpi_real8 , partner , 1 , comm , recv_req_n , ierr )
+          call mpi_isend( sbuf_n , size( sbuf_n ) , mpi_real8 , partner , 2 , comm , send_req_n , ierr )
       endselect
     endif
     if ( ewub > global_ewn ) then    !I am on the east boundary
@@ -551,8 +551,8 @@ contains
           allocate(sbuf_e(size(a,1),lhalo,size(a,3)))
           rbuf_e = a(:,lhalo+own_ewn+1      -ghost_shift:lhalo+own_ewn+uhalo-ghost_shift,:)
           sbuf_e = a(:,lhalo+own_ewn+1-lhalo-ghost_shift:lhalo+own_ewn      -ghost_shift,:)
-          call mpi_irecv( rbuf_e , size( rbuf_e ) , mpi_double , partner , 3 , comm , recv_req_e , ierr )
-          call mpi_isend( sbuf_e , size( sbuf_e ) , mpi_double , partner , 4 , comm , send_req_e , ierr )
+          call mpi_irecv( rbuf_e , size( rbuf_e ) , mpi_real8 , partner , 3 , comm , recv_req_e , ierr )
+          call mpi_isend( sbuf_e , size( sbuf_e ) , mpi_real8 , partner , 4 , comm , send_req_e , ierr )
       endselect
     endif
     if ( nslb < 1 ) then   !I am on the south boundary
@@ -567,8 +567,8 @@ contains
           allocate(sbuf_s(size(a,1),size(a,2),uhalo))
           rbuf_s = a(:,:,1      +ghost_shift:lhalo      +ghost_shift)
           sbuf_s = a(:,:,lhalo+1+ghost_shift:lhalo+uhalo+ghost_shift)
-          call mpi_irecv( rbuf_s , size( rbuf_s ) , mpi_double , partner , 2 , comm , recv_req_s , ierr )
-          call mpi_isend( sbuf_s , size( sbuf_s ) , mpi_double , partner , 1 , comm , send_req_s , ierr )
+          call mpi_irecv( rbuf_s , size( rbuf_s ) , mpi_real8 , partner , 2 , comm , recv_req_s , ierr )
+          call mpi_isend( sbuf_s , size( sbuf_s ) , mpi_real8 , partner , 1 , comm , send_req_s , ierr )
       endselect
     endif
     if ( ewlb < 1 ) then    !I am on the west boundary
@@ -583,8 +583,8 @@ contains
           allocate(sbuf_w(size(a,1),uhalo,size(a,3)))
           rbuf_w = a(:,1      +ghost_shift:lhalo      +ghost_shift,:)
           sbuf_w = a(:,lhalo+1+ghost_shift:lhalo+uhalo+ghost_shift,:)
-          call mpi_irecv( rbuf_w , size( rbuf_w ) , mpi_double , partner , 4 , comm , recv_req_w , ierr )
-          call mpi_isend( sbuf_w , size( sbuf_w ) , mpi_double , partner , 3 , comm , send_req_w , ierr )
+          call mpi_irecv( rbuf_w , size( rbuf_w ) , mpi_real8 , partner , 4 , comm , recv_req_w , ierr )
+          call mpi_isend( sbuf_w , size( sbuf_w ) , mpi_real8 , partner , 3 , comm , send_req_w , ierr )
       endselect
     endif
 
@@ -659,8 +659,8 @@ contains
           allocate(sbuf_n(size(a,1),size(a,2),shalo+1))
           rbuf_n = a(:,:,shalo+own_nsn+1          -ghost_shift:shalo+own_nsn+nhalo-ghost_shift)
           sbuf_n = a(:,:,shalo+own_nsn+1-(shalo+1)-ghost_shift:shalo+own_nsn      -ghost_shift)
-          call mpi_irecv( rbuf_n , size( rbuf_n ) , mpi_double , partner , 1 , comm , recv_req_n , ierr )
-          call mpi_isend( sbuf_n , size( sbuf_n ) , mpi_double , partner , 2 , comm , send_req_n , ierr )
+          call mpi_irecv( rbuf_n , size( rbuf_n ) , mpi_real8 , partner , 1 , comm , recv_req_n , ierr )
+          call mpi_isend( sbuf_n , size( sbuf_n ) , mpi_real8 , partner , 2 , comm , send_req_n , ierr )
       endselect
     endif
     if ( ewub > global_ewn ) then
@@ -677,8 +677,8 @@ contains
           allocate(sbuf_e(size(a,1),whalo+1,size(a,3)))
           rbuf_e = a(:,whalo+own_ewn+1          -ghost_shift:whalo+own_ewn+ehalo-ghost_shift,:)
           sbuf_e = a(:,whalo+own_ewn+1-(whalo+1)-ghost_shift:whalo+own_ewn      -ghost_shift,:)
-          call mpi_irecv( rbuf_e , size( rbuf_e ) , mpi_double , partner , 3 , comm , recv_req_e , ierr )
-          call mpi_isend( sbuf_e , size( sbuf_e ) , mpi_double , partner , 4 , comm , send_req_e , ierr )
+          call mpi_irecv( rbuf_e , size( rbuf_e ) , mpi_real8 , partner , 3 , comm , recv_req_e , ierr )
+          call mpi_isend( sbuf_e , size( sbuf_e ) , mpi_real8 , partner , 4 , comm , send_req_e , ierr )
       endselect
     endif
     if ( nslb < 1 ) then
@@ -698,8 +698,8 @@ contains
           allocate(sbuf_s(size(a,1),size(a,2),nhalo  ))
           rbuf_s = a(:,:,1      +ghost_shift:shalo+1      +ghost_shift)
           sbuf_s = a(:,:,shalo+2+ghost_shift:shalo+1+nhalo+ghost_shift)
-          call mpi_irecv( rbuf_s , size( rbuf_s ) , mpi_double , partner , 2 , comm , recv_req_s , ierr )
-          call mpi_isend( sbuf_s , size( sbuf_s ) , mpi_double , partner , 1 , comm , send_req_s , ierr )
+          call mpi_irecv( rbuf_s , size( rbuf_s ) , mpi_real8 , partner , 2 , comm , recv_req_s , ierr )
+          call mpi_isend( sbuf_s , size( sbuf_s ) , mpi_real8 , partner , 1 , comm , send_req_s , ierr )
       endselect
     endif
     if ( ewlb < 1 ) then
@@ -716,8 +716,8 @@ contains
           allocate(sbuf_w(size(a,1),ehalo  ,size(a,3)))
           rbuf_w = a(:,1      +ghost_shift:whalo+1      +ghost_shift,:)
           sbuf_w = a(:,whalo+2+ghost_shift:whalo+1+ehalo+ghost_shift,:)
-          call mpi_irecv( rbuf_w , size( rbuf_w ) , mpi_double , partner , 4 , comm , recv_req_w , ierr )
-          call mpi_isend( sbuf_w , size( sbuf_w ) , mpi_double , partner , 3 , comm , send_req_w , ierr )
+          call mpi_irecv( rbuf_w , size( rbuf_w ) , mpi_real8 , partner , 4 , comm , recv_req_w , ierr )
+          call mpi_isend( sbuf_w , size( sbuf_w ) , mpi_real8 , partner , 3 , comm , send_req_w , ierr )
       endselect
     endif
 
@@ -793,8 +793,8 @@ contains
           allocate(sbuf_n(size(a,1),shalo+1))
           rbuf_n = a(:,shalo+own_nsn+1          -ghost_shift:shalo+own_nsn+nhalo-ghost_shift)
           sbuf_n = a(:,shalo+own_nsn+1-(shalo+1)-ghost_shift:shalo+own_nsn      -ghost_shift)
-          call mpi_irecv( rbuf_n , size( rbuf_n ) , mpi_double , partner , 1 , comm , recv_req_n , ierr )
-          call mpi_isend( sbuf_n , size( sbuf_n ) , mpi_double , partner , 2 , comm , send_req_n , ierr )
+          call mpi_irecv( rbuf_n , size( rbuf_n ) , mpi_real8 , partner , 1 , comm , recv_req_n , ierr )
+          call mpi_isend( sbuf_n , size( sbuf_n ) , mpi_real8 , partner , 2 , comm , send_req_n , ierr )
       endselect
     endif
     if ( ewub > global_ewn ) then
@@ -811,8 +811,8 @@ contains
           allocate(sbuf_e(whalo+1,size(a,2)))
           rbuf_e = a(whalo+own_ewn+1          -ghost_shift:whalo+own_ewn+ehalo-ghost_shift,:)
           sbuf_e = a(whalo+own_ewn+1-(whalo+1)-ghost_shift:whalo+own_ewn      -ghost_shift,:)
-          call mpi_irecv( rbuf_e , size( rbuf_e ) , mpi_double , partner , 3 , comm , recv_req_e , ierr )
-          call mpi_isend( sbuf_e , size( sbuf_e ) , mpi_double , partner , 4 , comm , send_req_e , ierr )
+          call mpi_irecv( rbuf_e , size( rbuf_e ) , mpi_real8 , partner , 3 , comm , recv_req_e , ierr )
+          call mpi_isend( sbuf_e , size( sbuf_e ) , mpi_real8 , partner , 4 , comm , send_req_e , ierr )
       endselect
     endif
     if ( nslb < 1 ) then
@@ -832,8 +832,8 @@ contains
           allocate(sbuf_s(size(a,1),nhalo  ))
           rbuf_s = a(:,1      +ghost_shift:shalo+1      +ghost_shift)
           sbuf_s = a(:,shalo+2+ghost_shift:shalo+1+nhalo+ghost_shift)
-          call mpi_irecv( rbuf_s , size( rbuf_s ) , mpi_double , partner , 2 , comm , recv_req_s , ierr )
-          call mpi_isend( sbuf_s , size( sbuf_s ) , mpi_double , partner , 1 , comm , send_req_s , ierr )
+          call mpi_irecv( rbuf_s , size( rbuf_s ) , mpi_real8 , partner , 2 , comm , recv_req_s , ierr )
+          call mpi_isend( sbuf_s , size( sbuf_s ) , mpi_real8 , partner , 1 , comm , send_req_s , ierr )
       endselect
     endif
     if ( ewlb < 1 ) then
@@ -850,8 +850,8 @@ contains
           allocate(sbuf_w(ehalo  ,size(a,2)))
           rbuf_w = a(1      +ghost_shift:whalo+1      +ghost_shift,:)
           sbuf_w = a(whalo+2+ghost_shift:whalo+1+ehalo+ghost_shift,:)
-          call mpi_irecv( rbuf_w , size( rbuf_w ) , mpi_double , partner , 4 , comm , recv_req_w , ierr )
-          call mpi_isend( sbuf_w , size( sbuf_w ) , mpi_double , partner , 3 , comm , send_req_w , ierr )
+          call mpi_irecv( rbuf_w , size( rbuf_w ) , mpi_real8 , partner , 4 , comm , recv_req_w , ierr )
+          call mpi_isend( sbuf_w , size( sbuf_w ) , mpi_real8 , partner , 3 , comm , send_req_w , ierr )
       endselect
     endif
 
@@ -929,8 +929,8 @@ contains
           allocate(sbuf_n(size(a,1),size(a,2),shalo+1))
           rbuf_n = a(:,:,shalo+own_nsn+1          -ghost_shift:shalo+own_nsn+nhalo-ghost_shift)
           sbuf_n = a(:,:,shalo+own_nsn+1-(shalo+1)-ghost_shift:shalo+own_nsn      -ghost_shift)
-          call mpi_irecv( rbuf_n , size( rbuf_n ) , mpi_double , partner , 1 , comm , recv_req_n , ierr )
-          call mpi_isend( sbuf_n , size( sbuf_n ) , mpi_double , partner , 2 , comm , send_req_n , ierr )
+          call mpi_irecv( rbuf_n , size( rbuf_n ) , mpi_real8 , partner , 1 , comm , recv_req_n , ierr )
+          call mpi_isend( sbuf_n , size( sbuf_n ) , mpi_real8 , partner , 2 , comm , send_req_n , ierr )
       endselect
     endif
     if ( ewub > global_ewn ) then
@@ -945,8 +945,8 @@ contains
           allocate(sbuf_e(size(a,1),whalo+1,size(a,3)))
           rbuf_e = a(:,whalo+own_ewn+1          -ghost_shift:whalo+own_ewn+ehalo-ghost_shift,:)
           sbuf_e = a(:,whalo+own_ewn+1-(whalo+1)-ghost_shift:whalo+own_ewn      -ghost_shift,:)
-          call mpi_irecv( rbuf_e , size( rbuf_e ) , mpi_double , partner , 3 , comm , recv_req_e , ierr )
-          call mpi_isend( sbuf_e , size( sbuf_e ) , mpi_double , partner , 4 , comm , send_req_e , ierr )
+          call mpi_irecv( rbuf_e , size( rbuf_e ) , mpi_real8 , partner , 3 , comm , recv_req_e , ierr )
+          call mpi_isend( sbuf_e , size( sbuf_e ) , mpi_real8 , partner , 4 , comm , send_req_e , ierr )
       endselect
     endif
     if ( nslb < 1 ) then
@@ -963,8 +963,8 @@ contains
           allocate(sbuf_s(size(a,1),size(a,2),nhalo  ))
           rbuf_s = a(:,:,1      +ghost_shift:shalo+1      +ghost_shift)
           sbuf_s = a(:,:,shalo+2+ghost_shift:shalo+1+nhalo+ghost_shift)
-          call mpi_irecv( rbuf_s , size( rbuf_s ) , mpi_double , partner , 2 , comm , recv_req_s , ierr )
-          call mpi_isend( sbuf_s , size( sbuf_s ) , mpi_double , partner , 1 , comm , send_req_s , ierr )
+          call mpi_irecv( rbuf_s , size( rbuf_s ) , mpi_real8 , partner , 2 , comm , recv_req_s , ierr )
+          call mpi_isend( sbuf_s , size( sbuf_s ) , mpi_real8 , partner , 1 , comm , send_req_s , ierr )
       endselect
     endif
     if ( ewlb < 1 ) then
@@ -984,8 +984,8 @@ contains
           allocate(sbuf_w(size(a,1),ehalo  ,size(a,3)))
           rbuf_w = a(:,1      +ghost_shift:whalo+1      +ghost_shift,:)
           sbuf_w = a(:,whalo+2+ghost_shift:whalo+1+ehalo+ghost_shift,:)
-          call mpi_irecv( rbuf_w , size( rbuf_w ) , mpi_double , partner , 4 , comm , recv_req_w , ierr )
-          call mpi_isend( sbuf_w , size( sbuf_w ) , mpi_double , partner , 3 , comm , send_req_w , ierr )
+          call mpi_irecv( rbuf_w , size( rbuf_w ) , mpi_real8 , partner , 4 , comm , recv_req_w , ierr )
+          call mpi_isend( sbuf_w , size( sbuf_w ) , mpi_real8 , partner , 3 , comm , send_req_w , ierr )
       endselect
     endif
 
@@ -1063,8 +1063,8 @@ contains
           allocate(sbuf_n(size(a,1),shalo+1))
           rbuf_n = a(:,shalo+own_nsn+1          -ghost_shift:shalo+own_nsn+nhalo-ghost_shift)
           sbuf_n = a(:,shalo+own_nsn+1-(shalo+1)-ghost_shift:shalo+own_nsn      -ghost_shift)
-          call mpi_irecv( rbuf_n , size( rbuf_n ) , mpi_double , partner , 1 , comm , recv_req_n , ierr )
-          call mpi_isend( sbuf_n , size( sbuf_n ) , mpi_double , partner , 2 , comm , send_req_n , ierr )
+          call mpi_irecv( rbuf_n , size( rbuf_n ) , mpi_real8 , partner , 1 , comm , recv_req_n , ierr )
+          call mpi_isend( sbuf_n , size( sbuf_n ) , mpi_real8 , partner , 2 , comm , send_req_n , ierr )
       endselect
     endif
     if ( ewub > global_ewn ) then
@@ -1079,8 +1079,8 @@ contains
           allocate(sbuf_e(whalo+1,size(a,2)))
           rbuf_e = a(whalo+own_ewn+1          -ghost_shift:whalo+own_ewn+ehalo-ghost_shift,:)
           sbuf_e = a(whalo+own_ewn+1-(whalo+1)-ghost_shift:whalo+own_ewn      -ghost_shift,:)
-          call mpi_irecv( rbuf_e , size( rbuf_e ) , mpi_double , partner , 3 , comm , recv_req_e , ierr )
-          call mpi_isend( sbuf_e , size( sbuf_e ) , mpi_double , partner , 4 , comm , send_req_e , ierr )
+          call mpi_irecv( rbuf_e , size( rbuf_e ) , mpi_real8 , partner , 3 , comm , recv_req_e , ierr )
+          call mpi_isend( sbuf_e , size( sbuf_e ) , mpi_real8 , partner , 4 , comm , send_req_e , ierr )
       endselect
     endif
     if ( nslb < 1 ) then
@@ -1097,8 +1097,8 @@ contains
           allocate(sbuf_s(size(a,1),nhalo  ))
           rbuf_s = a(:,1      +ghost_shift:shalo+1      +ghost_shift)
           sbuf_s = a(:,shalo+2+ghost_shift:shalo+1+nhalo+ghost_shift)
-          call mpi_irecv( rbuf_s , size( rbuf_s ) , mpi_double , partner , 2 , comm , recv_req_s , ierr )
-          call mpi_isend( sbuf_s , size( sbuf_s ) , mpi_double , partner , 1 , comm , send_req_s , ierr )
+          call mpi_irecv( rbuf_s , size( rbuf_s ) , mpi_real8 , partner , 2 , comm , recv_req_s , ierr )
+          call mpi_isend( sbuf_s , size( sbuf_s ) , mpi_real8 , partner , 1 , comm , send_req_s , ierr )
       endselect
     endif
     if ( ewlb < 1 ) then
@@ -1118,8 +1118,8 @@ contains
           allocate(sbuf_w(ehalo  ,size(a,2)))
           rbuf_w = a(1      +ghost_shift:whalo+1      +ghost_shift,:)
           sbuf_w = a(whalo+2+ghost_shift:whalo+1+ehalo+ghost_shift,:)
-          call mpi_irecv( rbuf_w , size( rbuf_w ) , mpi_double , partner , 4 , comm , recv_req_w , ierr )
-          call mpi_isend( sbuf_w , size( sbuf_w ) , mpi_double , partner , 3 , comm , send_req_w , ierr )
+          call mpi_irecv( rbuf_w , size( rbuf_w ) , mpi_real8 , partner , 4 , comm , recv_req_w , ierr )
+          call mpi_isend( sbuf_w , size( sbuf_w ) , mpi_real8 , partner , 3 , comm , send_req_w , ierr )
       endselect
     endif
 
@@ -1330,8 +1330,8 @@ contains
           allocate(sbuf_n(size(a,1),shalo+1))
           rbuf_n = a(:,shalo+own_nsn+1          -ghost_shift:shalo+own_nsn+nhalo-ghost_shift)
           sbuf_n = a(:,shalo+own_nsn+1-(shalo+1)-ghost_shift:shalo+own_nsn      -ghost_shift)
-          call mpi_irecv( rbuf_n , size( rbuf_n ) , mpi_double , partner , 1 , comm , recv_req_n , ierr )
-          call mpi_isend( sbuf_n , size( sbuf_n ) , mpi_double , partner , 2 , comm , send_req_n , ierr )
+          call mpi_irecv( rbuf_n , size( rbuf_n ) , mpi_real8 , partner , 1 , comm , recv_req_n , ierr )
+          call mpi_isend( sbuf_n , size( sbuf_n ) , mpi_real8 , partner , 2 , comm , send_req_n , ierr )
       endselect
     endif
     if ( ewub > global_ewn ) then
@@ -1346,8 +1346,8 @@ contains
           allocate(sbuf_e(whalo+1,size(a,2)))
           rbuf_e = a(whalo+own_ewn+1          -ghost_shift:whalo+own_ewn+ehalo-ghost_shift,:)
           sbuf_e = a(whalo+own_ewn+1-(whalo+1)-ghost_shift:whalo+own_ewn      -ghost_shift,:)
-          call mpi_irecv( rbuf_e , size( rbuf_e ) , mpi_double , partner , 3 , comm , recv_req_e , ierr )
-          call mpi_isend( sbuf_e , size( sbuf_e ) , mpi_double , partner , 4 , comm , send_req_e , ierr )
+          call mpi_irecv( rbuf_e , size( rbuf_e ) , mpi_real8 , partner , 3 , comm , recv_req_e , ierr )
+          call mpi_isend( sbuf_e , size( sbuf_e ) , mpi_real8 , partner , 4 , comm , send_req_e , ierr )
       endselect
     endif
     if ( nslb < 1 ) then
@@ -1367,8 +1367,8 @@ contains
           allocate(sbuf_s(size(a,1),nhalo  ))
           rbuf_s = a(:,1      +ghost_shift:shalo+1      +ghost_shift)
           sbuf_s = a(:,shalo+2+ghost_shift:shalo+1+nhalo+ghost_shift)
-          call mpi_irecv( rbuf_s , size( rbuf_s ) , mpi_double , partner , 2 , comm , recv_req_s , ierr )
-          call mpi_isend( sbuf_s , size( sbuf_s ) , mpi_double , partner , 1 , comm , send_req_s , ierr )
+          call mpi_irecv( rbuf_s , size( rbuf_s ) , mpi_real8 , partner , 2 , comm , recv_req_s , ierr )
+          call mpi_isend( sbuf_s , size( sbuf_s ) , mpi_real8 , partner , 1 , comm , send_req_s , ierr )
       endselect
     endif
     if ( ewlb < 1 ) then
@@ -1388,8 +1388,8 @@ contains
           allocate(sbuf_w(ehalo  ,size(a,2)))
           rbuf_w = a(1      +ghost_shift:whalo+1      +ghost_shift,:)
           sbuf_w = a(whalo+2+ghost_shift:whalo+1+ehalo+ghost_shift,:)
-          call mpi_irecv( rbuf_w , size( rbuf_w ) , mpi_double , partner , 4 , comm , recv_req_w , ierr )
-          call mpi_isend( sbuf_w , size( sbuf_w ) , mpi_double , partner , 3 , comm , send_req_w , ierr )
+          call mpi_irecv( rbuf_w , size( rbuf_w ) , mpi_real8 , partner , 4 , comm , recv_req_w , ierr )
+          call mpi_isend( sbuf_w , size( sbuf_w ) , mpi_real8 , partner , 3 , comm , send_req_w , ierr )
       endselect
     endif
 
@@ -1465,8 +1465,8 @@ contains
           allocate(sbuf_n(size(a,1),size(a,2),shalo+1))
           rbuf_n = a(:,:,shalo+own_nsn+1          -ghost_shift:shalo+own_nsn+nhalo-ghost_shift)
           sbuf_n = a(:,:,shalo+own_nsn+1-(shalo+1)-ghost_shift:shalo+own_nsn      -ghost_shift)
-          call mpi_irecv( rbuf_n , size( rbuf_n ) , mpi_double , partner , 1 , comm , recv_req_n , ierr )
-          call mpi_isend( sbuf_n , size( sbuf_n ) , mpi_double , partner , 2 , comm , send_req_n , ierr )
+          call mpi_irecv( rbuf_n , size( rbuf_n ) , mpi_real8 , partner , 1 , comm , recv_req_n , ierr )
+          call mpi_isend( sbuf_n , size( sbuf_n ) , mpi_real8 , partner , 2 , comm , send_req_n , ierr )
       endselect
     endif
     if ( ewub > global_ewn ) then
@@ -1481,8 +1481,8 @@ contains
           allocate(sbuf_e(size(a,1),whalo+1,size(a,3)))
           rbuf_e = a(:,whalo+own_ewn+1          -ghost_shift:whalo+own_ewn+ehalo-ghost_shift,:)
           sbuf_e = a(:,whalo+own_ewn+1-(whalo+1)-ghost_shift:whalo+own_ewn      -ghost_shift,:)
-          call mpi_irecv( rbuf_e , size( rbuf_e ) , mpi_double , partner , 3 , comm , recv_req_e , ierr )
-          call mpi_isend( sbuf_e , size( sbuf_e ) , mpi_double , partner , 4 , comm , send_req_e , ierr )
+          call mpi_irecv( rbuf_e , size( rbuf_e ) , mpi_real8 , partner , 3 , comm , recv_req_e , ierr )
+          call mpi_isend( sbuf_e , size( sbuf_e ) , mpi_real8 , partner , 4 , comm , send_req_e , ierr )
       endselect
     endif
     if ( nslb < 1 ) then
@@ -1502,8 +1502,8 @@ contains
           allocate(sbuf_s(size(a,1),size(a,2),nhalo  ))
           rbuf_s = a(:,:,1      +ghost_shift:shalo+1      +ghost_shift)
           sbuf_s = a(:,:,shalo+2+ghost_shift:shalo+1+nhalo+ghost_shift)
-          call mpi_irecv( rbuf_s , size( rbuf_s ) , mpi_double , partner , 2 , comm , recv_req_s , ierr )
-          call mpi_isend( sbuf_s , size( sbuf_s ) , mpi_double , partner , 1 , comm , send_req_s , ierr )
+          call mpi_irecv( rbuf_s , size( rbuf_s ) , mpi_real8 , partner , 2 , comm , recv_req_s , ierr )
+          call mpi_isend( sbuf_s , size( sbuf_s ) , mpi_real8 , partner , 1 , comm , send_req_s , ierr )
       endselect
     endif
     if ( ewlb < 1 ) then
@@ -1523,8 +1523,8 @@ contains
           allocate(sbuf_w(size(a,1),ehalo  ,size(a,3)))
           rbuf_w = a(:,1      +ghost_shift:whalo+1      +ghost_shift,:)
           sbuf_w = a(:,whalo+2+ghost_shift:whalo+1+ehalo+ghost_shift,:)
-          call mpi_irecv( rbuf_w , size( rbuf_w ) , mpi_double , partner , 4 , comm , recv_req_w , ierr )
-          call mpi_isend( sbuf_w , size( sbuf_w ) , mpi_double , partner , 3 , comm , send_req_w , ierr )
+          call mpi_irecv( rbuf_w , size( rbuf_w ) , mpi_real8 , partner , 4 , comm , recv_req_w , ierr )
+          call mpi_isend( sbuf_w , size( sbuf_w ) , mpi_real8 , partner , 3 , comm , send_req_w , ierr )
       endselect
     endif
 
