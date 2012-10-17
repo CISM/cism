@@ -635,12 +635,13 @@ contains
          'use standard Picard iteration  ', &
          'use JFNK                       '/)
 
-    character(len=*), dimension(0:4), parameter :: ho_whichsparse = (/ &
+    character(len=*), dimension(0:5), parameter :: ho_whichsparse = (/ &
          'BiCG with LU preconditioner                ', &
          'GMRES with LU preconditioner               ', &
          'PCG with diagonal preconditioner           ', &
          'PCG with incomplete Cholesky preconditioner', &
-         'Standalone Trilinos interface              '/)
+         'Standalone Trilinos interface              ', &
+         'Standalone PCG solver                      '/)
 
     character(len=*), dimension(0:1), parameter :: b_mbal = (/ &
          'not in continuity eqn', &

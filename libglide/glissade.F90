@@ -881,7 +881,8 @@ end select
 
     ! --- Calculate area of ice that is floating and grounded.
 !TODO This subroutine does not use iarea - remove from the call/subroutine.
-!TODO May want to only calculate iarea, iareaf, iareag in glide_write_diag() and remove those calculations here.  It seems hazardous to make those calculations in two different places.
+!TODO May want to only calculate iarea, iareaf, iareag in glide_write_diag() and remove those calculations here.  
+!     It seems hazardous to make those calculations in two different places.
     call calc_iareaf_iareag(model%numerics%dew,    model%numerics%dns,     &
                             model%geometry%iarea,  model%geometry%thkmask, &
                             model%geometry%iareaf, model%geometry%iareag)

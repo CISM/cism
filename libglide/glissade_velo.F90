@@ -27,7 +27,7 @@ module glissade_velo
 
     !globals
     use glimmer_global, only : dp
-    use glimmer_physcon, only: gn
+    use glimmer_physcon, only: gn, scyr
     use glimmer_paramets, only: thk0, len0, vel0
 
     !Other modules that this needs to call out to
@@ -62,7 +62,7 @@ contains
         integer, dimension(model%general%ewn-1, model%general%nsn-1)  :: geom_mask_stag
         real(dp), dimension(model%general%ewn-1, model%general%nsn-1) :: latbc_norms_stag
 
-!whl - to remove scaling
+!WHL - temporary velocity arrays to remove scaling
         real(dp), dimension(model%general%upn, model%general%ewn-1, model%general%nsn-1) ::  &
            uvel, vvel    ! uvel and vvel with scale factor (vel0) removed
 
@@ -151,11 +151,11 @@ contains
 
            if (model%options%which_ho_nonlinear == HO_NONLIN_PICARD ) then ! Picard (standard solver)
 
-!whl - Try removing the scaling of thickness and length
-!      Rescale flwa?
+!TODO - Pass unscaled flwa?
 
-              uvel = vel0*model%velocity%uvel
-              vvel = vel0*model%velocity%vvel
+              ! pass in the unscaled velocity (m/yr)
+              uvel(:,:,:) = model%velocity%uvel(:,:,:) * (vel0*scyr)
+              vvel(:,:,:) = model%velocity%vvel(:,:,:) * (vel0*scyr)
 
               call glissade_velo_higher_solve(model%general%ewn,       model%general%nsn,        &
                                               model%general%upn-1,      &  
@@ -173,9 +173,9 @@ contains
                                               model%options%which_ho_nonlinear,  &
                                               model%options%which_ho_sparse)
 
-
-              model%velocity%uvel = uvel/vel0
-              model%velocity%vvel = vvel/vel0
+              ! rescale the velocity since the rest of the code expects it
+              model%velocity%uvel(:,:,:) = uvel(:,:,:) / (vel0*scyr)
+              model%velocity%vvel(:,:,:) = vvel(:,:,:) / (vel0*scyr)
 
            else if ( model%options%which_ho_nonlinear == HO_NONLIN_JFNK ) then ! JFNK
 

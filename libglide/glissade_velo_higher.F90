@@ -35,6 +35,8 @@
     use glimmer_log, only: write_log
     use glimmer_sparse_type
     use glimmer_sparse
+
+    use cism_sparse_pcg
     
     use parallel, only: main_task
 
@@ -47,7 +49,7 @@
     public :: glissade_velo_higher_init, glissade_velo_higher_solve
 
 !TODO - Declare nhalo in parallel modules (in addition to or instead of lhalo and uhalo).    
-    public :: nhalo
+    public :: nhalo, itest, jtest, ktest
 
     integer, parameter :: nhalo = 2
 
@@ -138,17 +140,17 @@
 !whl - debug
 
     integer, parameter :: &
-!       itest = 24, jtest = 17, ktest = 1, ptest = 1
+       itest = 24, jtest = 17, ktest = 1, ptest = 1
 !       itest = 24, jtest = 17, ktest = 2, ptest = 1
 !       itest = 24, jtest = 17, ktest = 10, ptest = 1
-       itest = 12, jtest = 5, ktest = 1, ptest = 1
+!       itest = 12, jtest = 5, ktest = 1, ptest = 1
 !       itest = 12, jtest = 26, ktest = 1, ptest = 1
 
-!    integer, parameter :: ntest = 2371  ! nodeID for (24,17,1)
+    integer, parameter :: ntest = 2371  ! nodeID for (24,17,1)
 !    integer, parameter :: ntest = 2372  ! nodeID for (24,17,2)
 !    integer, parameter :: ntest = 2380  ! nodeID for (24,17,10)
 
-    integer, parameter :: ntest = 1     ! nodeID for (12,5,1)
+!    integer, parameter :: ntest = 1     ! nodeID for (12,5,1)
 !    integer, parameter :: ntest = 3841     ! nodeID for (12,26,1)
 
     contains
@@ -571,14 +573,6 @@
        matrix             ! sparse matrix, defined in glimmer_sparse_types
                           ! includes nonzeroes, order, col, row, val 
 
-!whl - temporary hack - allocate space for a copy of the matrix
-!                       This is because slap changes the row and column indexing of the matrix
-
-    integer, dimension(:), allocatable :: &
-       matrix_row, matrix_col                ! copy of the matrix
-    real(dp), dimension(:), allocatable :: &
-       matrix_val                            ! copy of the matrix
-
     integer ::    &
        matrix_order,    & ! order of matrix = number of rows
        nNonzero           ! upper bound for number of nonzero entries in sparse matrix
@@ -610,7 +604,7 @@
 
     real(dp) :: ds_dx, ds_dy
     logical, parameter :: test_matrix = .false.
-    integer, parameter :: test_order = 3
+    integer, parameter :: test_order = 20
     integer :: rowi
 
     if (test_matrix) then
@@ -748,9 +742,6 @@
     allocate(matrix%row(nNonzero), matrix%col(nNonzero), matrix%val(nNonzero))
     allocate(rhs(matrix_order), answer(matrix_order), resid_vec(matrix_order))
 
-!whl - temporary hack - allocate space for a copy of the matrix
-    allocate(matrix_row(nNonzero), matrix_col(nNonzero), matrix_val(nNonzero))
-
     ! Allocate memory for other fields
 
     allocate(umask_dirichlet(nlyr+1,nx-1,ny-1))
@@ -764,15 +755,6 @@
     !---------------------------------------------------------------
 
     ! Much of the following is based on glam_strs2.F90
-
-    ! set initial values
-
-    resid_velo = 1.d0
-    counter = 1
-    L2_norm = 1.0d20
-
-    L2_target = 1.0d-4      !TODO - Is this the best value?  
-                            ! Should it stay fixed during the outer loop, or should it evolve?
 
     if (main_task) then
        ! print some info to the screen to update on iteration progress
@@ -789,29 +771,22 @@
 
     ! Any ghost preprocessing needed, as in glam_strs2?
 
-    !TODO - Start the outer loop here
+    ! set initial values 
 
-    ! initialize outer loop convergence variables (guarantees at least one loop)
-    if (counter == 1) then           
-       outer_it_criterion = 1.0
-       outer_it_target = 0.0
-    endif
+    counter = 0
+    resid_velo = 1.d0
+    L2_norm = 1.0d20
+    L2_target = 1.0d-4      !TODO - Is this the best value?  
+                            ! Should it stay fixed during the outer loop, or should it evolve?
+
+    outer_it_criterion = 1.0d10   ! guarantees at least one loop
+    outer_it_target = 1.0d-12 
 
     do while (outer_it_criterion >= outer_it_target .and. counter < cmax)
 
-       ! choose outer loop stopping criterion
-       if (counter > 1) then
-          if (whichresid == 3) then
-             outer_it_criterion = L2_norm
-             outer_it_target = L2_target
-          else
-             outer_it_criterion = resid_velo
-             outer_it_target = resid_target
-          end if
-       else
-          outer_it_criterion = 1.0d10
-          outer_it_target = 1.0d-12
-       end if
+       ! Advance the iteration counter
+
+       counter = counter + 1
 
        if (verbose) then
           print*, ' '
@@ -827,10 +802,7 @@
 
        ! Assemble the stiffness matrix A and load vector b in the linear system Ax = b
 
-       if (verbose) then
-          print*, ' '
-          print*, 'call assemble_linear_system'
-       endif
+       if (verbose) print*, 'call assemble_linear_system'
 
        !TODO - Remove unneeded arguments?
 
@@ -866,9 +838,18 @@
                                           Avu,             Avv,               &
                                           bu,              bv)
 
-!!       stop
-
        !TODO - Incorporate a basal sliding BC
+
+    ! Check symmetry of assembled matrix
+    ! This call could be skipped in a well-tested production code.
+
+       if (verbose) print*, 'Check matrix symmetry'
+
+       call check_symmetry_assembled_matrix(nNodes,      NodeID,      &     
+                                            iNodeIndex,  jNodeIndex,  &
+                                            kNodeIndex,               &
+                                            Auu,         Auv,    &
+                                            Avu,         Avv)
 
        ! Put the nonzero matrix elements into the required sparse format
        ! (For SLAP solver; may not be needed for Trilinos)
@@ -881,7 +862,6 @@
        ! form the global matrix (in sparse matrix format) and rhs.
 
        if (verbose) print*, 'Call solver_preprocess'
-       call flush(6)
 
        call solver_preprocess(nNodes,       NodeID,       nlyr,         &
                               iNodeIndex,   jNodeIndex,   kNodeIndex,   &
@@ -895,10 +875,17 @@
 
        if (verbose) print*, 'Formed global matrix in sparse format'
 
-!whl - debug - Make a copy of the matrix
-       matrix_row(:) = matrix%row(:)
-       matrix_col(:) = matrix%col(:)
-       matrix_val(:) = matrix%val(:)
+!TODO - Write an alternative preprocess subroutine (solver_preprocess_xyz) that produces the following output:
+!       (1) Auu_xyz(-1:1,-1:1,-1:1,nz,nx,ny) - This defines a 27-point stencil at each node (k,i,j)
+!            and similarly for Auv, Avu, Avv
+!       (2) bu_xyz(nz,nx,ny) - This is the RHS for each vel component at each node (k,i,j)
+!       (3) initial guess for uvel and vvel
+!
+!       Then call a PCG solver that computes Ax_u = Auu*u + Auv*v
+!                                            Ax_v = Auv*u + Avv*v
+!            and residual (ru  rv) = (Ax_u-bu  Ax_v-bv)
+!
+!       Then could use halo updates and global reductions to compute dot products in parallel.
 
        !TODO - glam_strs2 calls res_vect here--why?
        !!!call res_vect( matrix, vk_1, rhs, size(rhs), g_flag, L2square, whichsparse )
@@ -907,42 +894,31 @@
 
        ! Solve the linear matrix problem
 
-       if (whichsparse /= STANDALONE_TRILINOS_SOLVER) then
+!whl - bug check
+       if (verbose) then
+          print*, ' '
+          print*, 'Before linear solve: n, row, col, val:'
+          print*, ' '
+          do n = 1, 10              
+             print*, n, matrix%row(n), matrix%col(n), matrix%val(n)
+          enddo
+       endif
+
+       if (whichsparse == STANDALONE_PCG_SOLVER) then
+
+          if (verbose) print*, 'Call standalone cism pcg solver, counter =', counter
+
+          call cism_sparse_pcg_solve(matrix,  rhs,    answer,   &
+                                     err,     iter,   verbose)
+
+       elseif (whichsparse /= STANDALONE_TRILINOS_SOLVER) then
 
           if (verbose) then
              print*, 'Call sparse_easy_solve, counter =', counter
           endif
 
-!whl - bug check
-       if (verbose) then
-          print*, ' '
-          print*, 'Before easy_solve: n, row, col, val:'
-          print*, ' '
-          do n = 1, 10              
-             print*, n, matrix%row(n), matrix%col(n), matrix%val(n)
-          enddo
-       endif
-
-          call sparse_easy_solve(matrix, rhs, answer, err, iter, whichsparse)
-
-!whl - bug check
-       if (verbose) then
-          print*, ' '
-          print*, 'matrix and matrix_copy after easy_solve: n, row, col, val:'
-          print*, ' '
-          do n = 1, 10              
-          print*, ' '
-             print*, n, matrix%row(n), matrix%col(n), matrix%val(n)
-             print*, n, matrix_row(n), matrix_col(n), matrix_val(n)
-          enddo
-       endif
-
-
-          if (verbose) then
-!             print*, 'answer =', answer
-             print*, 'Solved the linear system, err, iter =', err, iter       
-             print*, 'ntest, u, v (m/yr):', ntest, answer(2*ntest-1), answer(2*ntest)
-          endif
+          call sparse_easy_solve(matrix, rhs,  answer,  &
+                                 err,    iter, whichsparse)
 
 #ifdef TRILINOS
        else
@@ -952,7 +928,18 @@
 !!          totalLinearSolveTime = totalLinearSolveTime + linearSolveTime
           ! write(*,*) 'Total linear solve time so far', totalLinearSolveTime                                           
 #endif
-       endif
+       endif   ! whichsparse
+
+          if (verbose) then
+             print*, 'Solved the linear system, iter, err =', iter, err       
+             print*, ' '
+             print*, 'n, u, v (m/yr):', ntest, answer(2*ntest-1), answer(2*ntest)
+
+!!             do n = 1, matrix%order 
+!!                print*, n, answer(n)
+!!             enddo
+
+          endif
 
        ! Put the velocity solution back into 3D arrays
 
@@ -973,62 +960,19 @@
 !whl - bug check
        if (verbose) then
           print*, ' '
-          print*, 'After postprocess: n, row, col, val:'
-          print*, ' '
-          do n = 1, 100              
-             print*, n, matrix%row(n), matrix%col(n), matrix%val(n)
+          print*, 'After postprocess: n, i, j, k, uvel, vvel'
+          do n = ntest-10, ntest+10              
+             i = iNodeIndex(n)
+             j = jNodeIndex(n)
+             k = kNodeIndex(n)
+             print*, n, i, j, k, uvel(k,i,j), vvel(k,i,j)
           enddo
        endif
 
        ! Compute the residual vector and its L2 norm
 
-!whl - Call this with a copy of the original matrix, because the matrix has been altered by SLAP
-
-       call compute_residual_vector(matrix,   &
-                                    matrix_row, matrix_col, matrix_val,  &
-                                    answer, rhs,  &
+       call compute_residual_vector(matrix,    answer,   rhs,  &
                                     resid_vec, L2_norm)
-
-
-       if (verbose) then    ! write values for test point
-          print*, ' '
-          print*, 'n, i, j, k, u, v:' 
-          do k = ktest, ktest+1
-             do i = itest-1, itest+1
-                do j = jtest-1, jtest+1
-                   n = NodeID(k,i,j)
-!!!                   print*, n, i, j, k, uvel(k,i,j), vvel(k,i,j)
-                enddo
-             enddo
-          enddo 
-
-          ! write out some values for nodes with big residual vector
-
-          print*, ' '
-          print*, 'Large u residual, n, i, j, k, uvel, resid_vec:'
-          do n = 1, nNodes, 10     ! top level only (but all will be bad)   
-             rowi = 2*n-1          ! row of residual vector; u nodes only
-             if (abs(resid_vec(rowi)) > 1.e-8) then
-                i = iNodeIndex(n)
-                j = jNodeIndex(n)
-                k = kNodeIndex(n)
-                print*, n, i, j, k, answer(rowi), resid_vec(rowi)
-             endif
-          enddo
-
-          print*, ' '
-          print*, 'Large v residaul, n, i, j, k, vvel, resid_vec:'
-          do n = 1, nNodes, 10     ! top level only (but all will be bad)   
-             rowi = 2*n            ! row of residual vector; u nodes only
-             if (abs(resid_vec(rowi)) > 1.e-8) then
-                i = iNodeIndex(n)
-                j = jNodeIndex(n)
-                k = kNodeIndex(n)
-                print*, n, i, j, k, answer(rowi), resid_vec(rowi)
-             endif
-          enddo
-
-       endif   ! verbose
 
        ! Compute residual quantities based on the velocity solution
 
@@ -1037,39 +981,75 @@
                                       usav,   vsav,        &
                                       resid_velo)
 
+
+!WHL - debug
+       ! check for large values of residual vector
+
+       if (verbose) then
+          print*, ' '
+          print*, 'L2_resid =', L2_norm
+          print*, 'resid_velo =', resid_velo
+          do n = 1, nNodes         
+             if (abs(resid_vec(n)) > 1.d-8) then
+                i = iNodeIndex(n)
+                j = jNodeIndex(n)
+                k = kNodeIndex(n)
+!!!                print*, 'Large residual, n, i, j, k, resid_vec:', resid_vec(n)
+             endif
+          enddo
+       endif
+
        ! Write diagnostics (iteration number, max residual, and location of max residual
        ! (send output to the screen or to the log file, per whichever line is commented out) 
 
        !TODO - Find out if this note from glam_strs2 still applies:
        ! "Can't use main_task flag because main_task is true for all processors in case of parallel_single"
+
        if (main_task) then
           if (whichresid == 3 )then
-             print '(i4,2g20.6)', counter, L2_norm, L2_target
+             if (verbose) then
+                print*, ' '
+                print*, 'Using L2 norm convergence criterion'
+                print*, 'iter#, L2 norm, L2 target:', counter, L2_norm, L2_target
+             else   ! standard short message
+                print '(i4,2g20.6)', counter, L2_norm, L2_target
+             endif
              !write(message,'(i4,3g20.6)') counter, L2_norm, L2_target
              !call write_log (message)
           else
-             print '(i4,2g20.6)', counter, resid_velo, resid_target
+             if (verbose) then
+                print*, ' '
+                print*, 'Using velocity residual convergence criterion'
+                print*, 'iter#, resid velo, resid target:', counter, resid_velo, resid_target
+             else
+                print '(i4,2g20.6)', counter, resid_velo, resid_target
+             endif
              !write(message,'(i4,2g20.6)') counter, resid_velo, resid_target
              !call write_log (message)
           end if
        endif
 
-!whl - stop for now
-!       stop
-
-       ! Advance the iteration counter
-
-       counter = counter + 1
+       ! update the outer loop stopping criterion
+       if (whichresid == 3) then
+          outer_it_criterion = L2_norm
+          outer_it_target = L2_target      ! L2_target is currently set to 1.d-4 and held constant
+       else
+          outer_it_criterion = resid_velo
+          outer_it_target = resid_target   ! resid_target is currently a parameter = 1.d-4  
+       end if
 
     enddo  ! while (outer_it_criterion >= outer_it_target .and. counter < cmax)
 
-    converged_soln = .true.
+    if (counter < cmax) converged_soln = .true.
 
-    if (verbose) then
+    if (verbose .and. converged_soln) then
        print*, ' '
-       print*, 'GLISSADE SOLUTION HAS CONVERGED'
-       print*, 'outer counter =', counter
-!!       stop
+       print*, 'GLISSADE SOLUTION HAS CONVERGED, outer counter =', counter
+
+       i = itest
+       j = jtest
+       k = ktest
+       print*, 'i, j, k, uvel, vvel:', i, j, k, uvel(k,i,j), vvel(k,i,j)
     endif
 
     ! Clean up
@@ -1079,9 +1059,6 @@
     deallocate(matrix%row, matrix%col, matrix%val)
     deallocate(rhs, answer, resid_vec)
     deallocate(usav, vsav)
-
-!whl - debug
-    deallocate(matrix_row, matrix_col, matrix_val)
 
   end subroutine glissade_velo_higher_solve
 
@@ -1644,16 +1621,6 @@
     enddo      ! i
     enddo      ! j
 
-    ! Check symmetry of assembled matrix
-    ! This call could be skipped in a well-tested production code.
-
-    call check_symmetry_assembled_matrix(nNodes,      NodeID,      &     
-                                         iNodeIndex,  jNodeIndex,  &
-                                         kNodeIndex,               &
-                                         Auu,         Auv,    &
-                                         Avu,         Avv)
-
-
   end subroutine assemble_linear_system
 
 !****************************************************************************
@@ -2093,6 +2060,8 @@
        endif
 
 !whl - Note volume scaling such that detJ/vol0 is close to unity
+!TODO - Define SIA and SSA factors, = 1.d0 or 0.d0
+!       Compare SIA matrix to total matrix
 
           Kuu(i,j) = Kuu(i,j) + efvs*wqp*detJ/vol0 * (4.d0*dphi_dx(j)*dphi_dx(i)  &
                                                      +     dphi_dy(j)*dphi_dy(i)  &
@@ -2202,7 +2171,13 @@
                                            Avu,             Avv,              &
                                            bu,              bv)
 
-    ! Modify the global matrix and RHS for Dirichlet basal boundary conditions.
+    !----------------------------------------------------------------
+    ! Modify the global matrix and RHS for Dirichlet boundary conditions.
+    ! This subroutine assumes that u = v = 0 at Dirichlet points.
+    ! For each such point, we find the corresponding row and column of the global matrix.
+    ! We zero out each row and column, except for setting the diagonal term to 1.
+    ! We set the corresponding rhs to 0, so that the solution must be 0.
+    !----------------------------------------------------------------
 
     !----------------------------------------------------------------
     ! Input-output arguments
@@ -2235,22 +2210,52 @@
     ! Local variables
     !----------------------------------------------------------------
     
-    integer :: i, j, k, nid
+    integer :: i, j, k     ! Cartesian indices of nodes
+    integer :: row, col    ! row and column indices of assembled global matrix
+    integer :: iA, jA, kA  ! i, j, and k offsets of neighboring nodes 
 
     do j = 1, ny-1
        do i = 1, nx-1
           if (active_vertex(i,j)) then
              do k = 1, nlyr+1
                 if (umask_dirichlet(k,i,j)) then
-                   nid = NodeID(k,i,j)
-                   Auu(:,:,:,nid) = 0.d0     ! first zero out the entire row
-                   Auv(:,:,:,nid) = 0.d0
-                   Avu(:,:,:,nid) = 0.d0
-                   Avv(:,:,:,nid) = 0.d0
-                   Auu(0,0,0,nid) = 1.d0     ! put 1's on the main diagonal
-                   Avv(0,0,0,nid) = 1.d0   
-                   bu(nid) = 0.d0            ! set u = v = 0
-                   bv(nid) = 0.d0
+
+                   ! determine the row of A associated with this node
+                   row = NodeID(k,i,j)       
+                   
+                   ! loop through potential nonzero values in this row
+
+                   do jA = -1,1
+                      do iA = -1,1
+                         do kA = -1,1
+
+                            ! determine the column containing this value 
+                            col = NodeID(k+kA, i+iA, j+jA)
+
+                            ! zero out A(row,col) and A(col,row)
+                            ! Note: If we were setting (u,v) to something other than (0,0),
+                            !  we would have to move terms to the RHS instead of just zeroing them.
+                            Auu( kA,  iA,  jA, row) = 0.d0
+                            Auu(-kA, -iA, -jA, col) = 0.d0
+                            Avv( kA,  iA,  jA, row) = 0.d0
+                            Avv(-kA, -iA, -jA, col) = 0.d0
+                            Auv( kA,  iA,  jA, row) = 0.d0
+                            Auv(-kA, -iA, -jA, col) = 0.d0
+                            Avu( kA,  iA,  jA, row) = 0.d0
+                            Avu(-kA, -iA, -jA, col) = 0.d0
+
+                         enddo     ! kA
+                      enddo        ! iA
+                   enddo           ! jA
+
+                   ! put back 1's on the main diagonal
+                   Auu(0,0,0,row) = 1.d0
+                   Avv(0,0,0,row) = 1.d0
+
+                   ! set u = v = 0 for this node   
+                   bu(row) = 0.d0            
+                   bv(row) = 0.d0
+
                 endif    ! umask_dirichlet
              enddo       ! k
           endif          ! active_vertex
@@ -2290,11 +2295,9 @@
     integer :: m, n, iA, jA, kA
 
     if (verbose .and. i==itest .and. j==jtest .and. k==ktest) then
-       print*, ' '
        print*, 'First row of K:'
        write(6, '(8e12.4)') Kmat(1,:)
     endif
-
 
     do m = 1, nNodesPerElement       ! rows of K
 
@@ -2580,11 +2583,7 @@
 
 !****************************************************************************
 
-!whl - temporary hack with matrix copy
-
-  subroutine compute_residual_vector(matrix,    &
-                                     matrix_row, matrix_col, matrix_val, &
-                                     answer, rhs, &
+  subroutine compute_residual_vector(matrix,    answer,   rhs, &
                                      resid_vec, L2_norm)
 
     ! Compute the residual vector Ax - b and its L2 norm.
@@ -2594,12 +2593,6 @@
     type(sparse_matrix_type), intent(in) ::  &
        matrix             ! sparse matrix, defined in glimmer_sparse_types
                           ! includes nonzeroes, order, col, row, val 
-
-    integer, dimension(:), intent(in) ::  &
-       matrix_row, matrix_col  ! copy of original matrix
-
-    real(dp), dimension(:), intent(in) ::  &
-       matrix_val              ! copy of original matrix
 
     real(dp), dimension(:), intent(in) ::   &
        rhs,             & ! right-hand-side (b) in Ax = b
@@ -2625,24 +2618,10 @@
 
     resid_vec(:) = 0.d0
 
-!whl - temporary hack using matrix copy
     do n = 1, matrix%nonzeros
-       islap = matrix%row(n)
-       jslap = matrix%col(n)
-       i = matrix_row(n)
-       j = matrix_col(n)
-
-!       resid_vec(i) = resid_vec(i) + matrix%val(n)*answer(j)
-       resid_vec(i) = resid_vec(i) + matrix_val(n)*answer(j)
-
-       if (i==2*ntest-1) then  ! row for uvel at this node
-          print*, ' '
-          print*, 'slap row, col, val, ans, val*ans:', islap, jslap, &
-                   matrix%val(n), answer(jslap), matrix%val(n)*answer(jslap)
-          print*, 'copy row, col, val, ans, val*ans:', i, j, matrix_val(n), answer(j), matrix_val(n)*answer(j)
-          print*, 'n, new Ax:', i, resid_vec(i)
-       endif
-
+       i = matrix%row(n)
+       j = matrix%col(n)
+       resid_vec(i) = resid_vec(i) + matrix%val(n)*answer(j)
     enddo
 
     L2_norm = 0.d0
@@ -2650,24 +2629,6 @@
        resid_vec(i) = resid_vec(i) - rhs(i)
        L2_norm = L2_norm + resid_vec(i)*resid_vec(i)
     enddo
-
-    if (verbose) then
-!!       print*, ' '
-!!       print*, 'Residual vector: order, nonzeros =', matrix%order, matrix%nonzeros 
-!!       print*, 'i, rhs, resid_vec:'
-       do i = 1, matrix%order
-!          print*, i, rhs(i), resid_vec(i)
-       enddo
-!!       print*, ' '
-!!       print*, 'Large u residuals:'
-!!       print*, 'nid, rhs(i), resid_vec(i)'
-       do i = 1, matrix%order, 2   ! u points only
-          if (abs(resid_vec(i)) > 1.e-8) then
-             nid = i/2 + 1
-!!             print*, nid, rhs(i), resid_vec(i)
-          endif
-       enddo
-    endif
 
 !TODO - Parallel sum
 !    L2_norm = parallel_reduce_sum(L2_norm)
@@ -2928,7 +2889,7 @@
                    print*, 'Auu is not symmetric'
                    print*, 'row, col, Auu(row,col), Auu(col,row):', &
                             row, col, val1, val2
-                   stop
+!!                   stop
                 endif
 
 !whl - debug
@@ -2965,7 +2926,7 @@
                    print*, 'Avv is not symmetric'
                    print*, 'row, col, Avv(row,col), Avv(col,row):', &
                             row, col, val1, val2
-                   stop
+!!                   stop
                 endif
 
 !whl - debug
@@ -2997,7 +2958,8 @@
                    print*, 'Auv is not equal to (Avu)^T'
                    print*, 'row, col, Auv(row,col), Avu(col,row):', &
                             row, col, val1, val2
-                   stop
+
+!!                   stop
                 endif
 
 !whl - debug
@@ -3031,7 +2993,7 @@
                    print*, 'Auv is not equal to (Avu)^T'
                    print*, 'row, col, Auv(row,col), Avu(col,row):', &
                             row, col, val1, val2
-                   stop
+!!                   stop
                 endif
 
 !whl - debug
@@ -3057,7 +3019,7 @@
 
     integer, intent(in) :: &
        matrix_order,       & ! matrix order
-       whichsparse          ! solution method (0=BiCG, 1=GMRES, 2=PCG_DIAG, 3=PCG_INCH)
+       whichsparse           ! solution method (0=BiCG, 1=GMRES, 2=PCG_DIAG, 3=PCG_INCH, 5 = STANDALONE_PCG)
 
     logical :: verbose_test = .true.
 
@@ -3072,18 +3034,18 @@
 
     real(dp) :: err
 
-    integer :: iter, nNonzero
+    integer :: iter, nNonzero_max
 
     integer :: i, j, n
 
     print*, 'Solving test matrix, order =', matrix_order
 
-    nNonzero = matrix_order*matrix_order    ! not sure how big this must be
+    nNonzero_max = matrix_order*matrix_order    ! not sure how big this must be
 
     allocate(Atest(matrix_order,matrix_order))
     Atest(:,:) = 0.d0
 
-    allocate(matrix%row(nNonzero), matrix%col(nNonzero), matrix%val(nNonzero))
+    allocate(matrix%row(nNonzero_max), matrix%col(nNonzero_max), matrix%val(nNonzero_max))
     allocate(rhs(matrix_order), answer(matrix_order))
 
     rhs(:) = 0.d0
@@ -3093,7 +3055,6 @@
     matrix%val(:) = 0.d0
 
     matrix%order = matrix_order
-    matrix%nonzeros = nNonzero
     matrix%symmetric = .false.
 
     if (matrix%order == 2) then    ! symmetric 2x2
@@ -3117,12 +3078,34 @@
 
     else if (matrix%order == 4) then
 
-       Atest(1,1:4) = (/3.d0,  0.d0,  2.d0, -1.d0 /)
-       Atest(2,1:4) = (/1.d0,  2.d0,  0.d0,  2.d0 /)
-       Atest(3,1:4) = (/4.d0,  0.d0,  6.d0, -3.d0 /)
-       Atest(4,1:4) = (/5.d0,  0.d0,  2.d0,  0.d0 /)
-       rhs(1:4)    = (/ 6.d0,  7.d0, 13.d0,  9.d0 /)   ! answer = (1 2 2 1)
+        ! symmetric
 
+       Atest(1,1:4) = (/ 2.d0, -1.d0,  0.d0,  0.d0 /)
+       Atest(2,1:4) = (/-1.d0,  2.d0, -1.d0,  0.d0 /)
+       Atest(3,1:4) = (/ 0.d0, -1.d0,  2.d0, -1.d0 /)
+       Atest(4,1:4) = (/ 0.d0,  0.d0, -1.d0,  2.d0 /)
+       rhs(1:4)    = (/  0.d0,  1.d0, -1.d0,  4.d0 /)   ! answer = (1 2 2 3)
+
+        ! non-symmetric
+!       Atest(1,1:4) = (/3.d0,  0.d0,  2.d0, -1.d0 /)
+!       Atest(2,1:4) = (/1.d0,  2.d0,  0.d0,  2.d0 /)
+!       Atest(3,1:4) = (/4.d0,  0.d0,  6.d0, -3.d0 /)
+!       Atest(4,1:4) = (/5.d0,  0.d0,  2.d0,  0.d0 /)
+!       rhs(1:4)    = (/ 6.d0,  7.d0, 13.d0,  9.d0 /)   ! answer = (1 2 2 1)
+
+    elseif (matrix%order > 4) then
+  
+        Atest(:,:) = 0.d0
+        do n = 1, matrix%order 
+           Atest(n,n) = 2.d0
+           if (n > 1) Atest(n,n-1) = -1.d0
+           if (n < matrix%order) Atest(n,n+1) = -1.d0
+        enddo
+
+        rhs(1) = 1.d0
+        rhs(matrix%order) = 1.d0
+        rhs(2:matrix%order-1) = 0.d0              ! answer = (1 1 1 ... 1 1 1)
+        
     endif
 
     if (verbose_test) then
@@ -3131,33 +3114,55 @@
        print*, 'rhs =', rhs
     endif
 
-    ! Put in SLAP triad format
+    ! Put in SLAP triad format (column ascending order)
 
     n = 0
     do j = 1, matrix%order
        do i = 1, matrix%order
-          n = n + 1
-          matrix%row(n) = i
-          matrix%col(n) = j
-          matrix%val(n) = Atest(i,j)
+          if (Atest(i,j) /= 0.d0) then 
+             n = n + 1
+             matrix%row(n) = i
+             matrix%col(n) = j
+             matrix%val(n) = Atest(i,j)
+          endif
        enddo
     enddo
+
+    ! Set number of nonzero values
+    matrix%nonzeros = n
 
     if (verbose_test) then
        print*, ' '
        print*, 'row,       col,       val:'
-       do n = 1, matrix%order*matrix%order
+       do n = 1, matrix%nonzeros
           print*, matrix%row(n), matrix%col(n), matrix%val(n)
        enddo
     endif
 
     ! Solve the linear matrix problem
 
-    call sparse_easy_solve(matrix, rhs, answer, err, iter, whichsparse)
+    if (whichsparse == STANDALONE_PCG_SOLVER) then
+
+       if (verbose_test) then
+          print*, 'Call standalone cism pcg solver'
+       endif
+
+       call cism_sparse_pcg_solve(matrix,  rhs,    answer,   &
+                                  err,     iter,   verbose)
+
+    else  ! SLAP solver
+
+       if (verbose_test) then
+          print*, 'Call sparse_easy_solve, whichsparse =', whichsparse
+       endif
+
+       call sparse_easy_solve(matrix, rhs,  answer,  &
+                              err,    iter, whichsparse)
+
+    endif
 
     if (verbose_test) then
        print*, ' '
-       print*, 'Called sparse_easy_solve, whichsparse, order =', whichsparse, matrix%order
        print*, 'answer =', answer
        print*, 'err =', err       
        print*, 'iter =', iter
@@ -3166,10 +3171,6 @@
     stop
 
   end subroutine solve_test_matrix
-
-!****************************************************************************
-
-!****************************************************************************
 
 !****************************************************************************
 
