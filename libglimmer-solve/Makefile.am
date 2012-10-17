@@ -13,7 +13,7 @@ CLEANFILES = $(BUILT_SOURCES) f90_dep.mak $(wildcard *.mod)
 
 libglimmer_solve_la_SOURCES = glimmer_sparse.F90 glimmer_sparse_type.F90 \
 			      glimmer_sparse_slap.F90 glimmer_sparse_umfpack.F90 \
-			      glimmer_sparse_pardiso.F90
+			      glimmer_sparse_pardiso.F90 cism_sparse_pcg.F90
 libglimmer_solve_la_LIBADD = SLAP/libslap.la $(BLAS_LIB)
 libglimmer_solve_la_LDFLAGS=-all-static
 nodist_include_HEADERS := $(wildcard *.mod)
