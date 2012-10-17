@@ -162,6 +162,10 @@ program simple_glide
      call t_stopf('glissade_initial_diag_var_solve')
   end if
 
+!WHL - Write initial diagnostic output to log file
+  call glide_write_diag(model, time, model%numerics%idiag, &
+                                     model%numerics%jdiag)
+
   ! --- Output the initial state -------------
   ! TODO MJH Copied this below from glissade_post_tstep().  May want to make a subroutine that just has this 
   !block in it.  It could be called glimmer_write_output and be in simple_glide if it can be used by both glide
