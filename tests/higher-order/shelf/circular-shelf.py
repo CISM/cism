@@ -103,6 +103,10 @@ if not options.smooth_beta:  # command line option is NOT present
   #beta[0,:,:] =  1                             # beta is 1 almost everywhere
   beta[0,ny/2-1:ny/2+1,nx/2-1:nx/2+1] = 1.0e10 # but large in the center
 
+# Add a single bedrock spike in the domain center, to "ground" shelf for 
+# bisicles dycore
+topg[0,19:22,19:22] = -800.
+
 # Create the required variables in the netCDF file.
 netCDFfile.createVariable('thk', 'f',('time','y1','x1'))[:] = thk.tolist()
 netCDFfile.createVariable('topg','f',('time','y1','x1'))[:] = topg.tolist()
@@ -128,7 +132,7 @@ if len(sys.argv) > 2:
    os.system('mpirun -np '+nprocs+' ./simple_glide '+configfile+'')  # support for MPI runs is here (other)
    #os.system('aprun -n'+nprocs+' ./simple_glide '+configfile+'')  # support for MPI runs is here (Jaguar)
 else:
-   os.system('echo '+configfile+' | simple_glide')
+   os.system('echo '+configfile+' | ./simple_glide')
 
 # Clean up by moving extra files written by Glimmer to the "scratch" subdirectory
 # Look for files with extension "txt", "log", or "nc"
