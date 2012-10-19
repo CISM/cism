@@ -82,6 +82,7 @@ netCDFfile.createVariable('y0','f',('y0',))[:] = (dy/2 + y[:-1]).tolist()
 
 # Calculate values for the required variables.
 thk  = numpy.zeros([1,ny,nx],dtype='float32')
+topg  = numpy.zeros([1,ny,nx],dtype='float32')
 beta = numpy.empty([1,ny-1,nx-1],dtype='float32')
 kbc  = numpy.zeros([1,ny-1,nx-1],dtype='int')
 acab = numpy.zeros([1,ny,nx],dtype='float32') # *sfp* added acab field for prog. runs 
@@ -91,6 +92,9 @@ zero = numpy.zeros([1,nz,ny-1,nx-1],dtype='float32')
 uvel = numpy.zeros([1,nz,ny-1,nx-1],dtype='float32')
 vvel = numpy.zeros([1,nz,ny-1,nx-1],dtype='float32')
 
+# *SFP* added topg var so that areas of no slip are consistent w/ grounded ice on bedrock
+topg[:] = -2000.0
+
 # *SFP* changed to be in line w/ EISMINT-shelf tests 3&4 
 
 # shelf bc applied at bottom (DEFAULT FOR TEST CASE - other options below for testing bcs)
@@ -98,24 +102,36 @@ thk[0,4:-2,2:-2] = 500.
 kbc[0,ny-4:,:]  = 1
 kbc[0,:,:3] = 1
 kbc[0,:,nx-4:] = 1
+topg[0,ny-4:,:]  = -440 
+topg[0,:,:4] = -440
+topg[0,:,nx-4:] = -440
 
 # shelf bc applied at top    
 #thk[0,2:-4,2:-2] = 500.     
 #kbc[0,:3,:]  = 1
 #kbc[0,:,:3] = 1
 #kbc[0,:,nx-4:] = 1
+#topg[0,:4,:]  = -440
+#topg[0,:,:4] = -440
+#topg[0,:,nx-4:] = -440
 
 # shelf bc applied at right     ! NOTE that shelf is wider slightly wider in ns than in ew direction  
 #thk[0,2:-2,2:-4] = 500.     
 #kbc[0,:,:3]  = 1
 #kbc[0,:3,:] = 1
 #kbc[0,ny-4:,:] = 1
+#topg[0,:,:4]  = -440
+#topg[0,:4,:] = -440
+#topg[0,ny-4:,:] = -440
 
 # shelf bc applied at left     ! NOTE that shelf is wider slightly wider in ns than in ew direction  
 #thk[0,2:-2,4:-2] = 500.     
 #kbc[0,:,nx-4:]  = 1
 #kbc[0,:3,:] = 1
 #kbc[0,ny-4:,:] = 1
+#topg[0,:,nx-4:]  = -440
+#topg[0,:4,:] = -440
+#topg[0,ny-4:,:] = -440
 
 #if not periodic_ew:    *SFP* removed periodic option
 
@@ -138,7 +154,7 @@ netCDFfile.createVariable('thk',      'f',('time','y1','x1'))[:] = thk.tolist()
 netCDFfile.createVariable('acab',     'f',('time','y1','x1'))[:] = acab.tolist()
 netCDFfile.createVariable('temp',     'f',('time','level','y1','x1'))[:] = temp.tolist()
 netCDFfile.createVariable('kinbcmask','i',('time','y0','x0'))[:] = kbc.tolist()
-netCDFfile.createVariable('topg',     'f',('time','y1','x1'))[:] = ny*[nx*[-2000]]
+netCDFfile.createVariable('topg',     'f',('time','y1','x1'))[:] = topg.tolist()
 netCDFfile.createVariable('beta',     'f',('time','y0','x0'))[:] = beta.tolist()
 netCDFfile.createVariable('uvel',  'f',('time','level','y0','x0'))[:] = zero.tolist()
 
