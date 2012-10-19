@@ -99,7 +99,6 @@ real(dp) :: scale_ghosts = 0.0d0
 
 ! calculate residual vector of the u and v component
 
-
       Au_b_wig = 0d0 ! regular+ghost cells
       Cv_d_wig = 0d0 ! regular+ghost cells
 
@@ -144,6 +143,7 @@ real(dp) :: scale_ghosts = 0.0d0
          uvec(nu1+i) = Cv_d_wig(i)
 
       enddo
+
 ! AGS: Residual norm includes scaling to decrease importance of ghost values
 ! By calling it a redefinition of an inner product, it is kosher.
 !      L2square = 0.0

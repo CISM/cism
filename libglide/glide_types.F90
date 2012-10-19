@@ -594,6 +594,11 @@ module glide_types
     real(dp),dimension(:,:)  ,pointer :: vbas  => null() !*FD 
     real(dp),dimension(:,:)  ,pointer :: vbas_tavg  => null() 
 
+    !! next 3 used for output of residual fields (when relevant code in glam_strs2 is active)
+!    real(dp),dimension(:,:,:),pointer :: ures => null() !*FD 3D $x$-residual.
+!    real(dp),dimension(:,:,:),pointer :: vres  => null() !*FD 3D $y$-residual.
+!    real(dp),dimension(:,:,:),pointer :: magres  => null() !*FD 3D $magnitude$-residual.
+
     logical :: is_velocity_valid = .false. !*FD True if uvel, vvel contains a HOM-computed velocity (and thus is valid as initial guess)
 
     real(dp),dimension(:,:)  ,pointer :: bed_softness => null() !*FD bed softness parameter
@@ -1197,6 +1202,12 @@ contains
 
     call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%uvel)
     call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%vvel)
+
+    !! next 3 used for output of residual fields (when relevant code in glam_strs2 is active)
+!    call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%ures)
+!    call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%vres)
+!    call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%magres)
+
     call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%velnorm)
     call coordsystem_allocate(model%general%ice_grid, upn, model%velocity%wvel)
     call coordsystem_allocate(model%general%ice_grid, upn, model%velocity%wgrd)
@@ -1375,6 +1386,12 @@ contains
 
     deallocate(model%velocity%uvel)
     deallocate(model%velocity%vvel)
+
+    !! next 3 used for output of residual fields (when relevant code in glam_strs2 is active)
+!    deallocate(model%velocity%ures) 
+!    deallocate(model%velocity%vres)
+!    deallocate(model%velocity%magres)
+
     deallocate(model%velocity%velnorm)
     deallocate(model%velocity%wvel)
     deallocate(model%velocity%wgrd)

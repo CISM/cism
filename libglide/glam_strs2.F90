@@ -398,7 +398,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
 #ifdef TRILINOS
   if (whatsparse == STANDALONE_TRILINOS_SOLVER) then
      if (main_task) write(*,*) "Using GlobalIDs..."
-	 ! JEFF: Define myIndices in terms of globalIDs
+     ! JEFF: Define myIndices in terms of globalIDs
      allocate(myIndices(pcgsize(1)))  ! myIndices is an integer vector with a unique ID for each layer for ice grid points
      allocate(myX(pcgsize(1))) ! Coordinates of nodes, used by ML preconditioner
      allocate(myY(pcgsize(1))) 
@@ -1855,7 +1855,6 @@ subroutine solver_postprocess_jfnk( ewn, nsn, upn, uindx, answrapped, ansunwrapp
    integer :: ew, ns
 
 !HALO - Not sure about the loops here.  Should be over locally owned velocity points?
-
    do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
        do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
            if (uindx(ew,ns) /= 0) then
@@ -1871,8 +1870,44 @@ subroutine solver_postprocess_jfnk( ewn, nsn, upn, uindx, answrapped, ansunwrapp
            end if
        end do
    end do
+
 end subroutine solver_postprocess_jfnk
 
+!***********************************************************************
+
+subroutine resvect_postprocess_jfnk( ewn, nsn, upn, uindx, pcg1, answrapped, ansunwrappedv, &
+                                    ansunwrappedu, ansunwrappedmag )   
+! Unwrap the jfnk residual vector from the solution vector and place into a 3d array.
+   use parallel
+
+   implicit none
+
+   integer :: pcg1
+   integer, intent(in) :: ewn, nsn, upn
+   integer, dimension(:,:), intent(in) :: uindx
+   real(dp), dimension(:), intent(in) :: answrapped
+   real(dp), dimension(upn,ewn-1,nsn-1), intent(out), optional :: ansunwrappedv, ansunwrappedu, ansunwrappedmag
+
+   integer, dimension(2) :: loc
+   integer :: ew, ns
+
+!HALO - Not sure about the loops here.  Should be over locally owned velocity points?
+   do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
+       do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
+           if (uindx(ew,ns) /= 0) then
+             loc = getlocrange(upn, uindx(ew,ns))
+             ansunwrappedv(:,ew,ns) = answrapped(loc(1):loc(2))
+             ansunwrappedu(:,ew,ns) = answrapped(pcg1+loc(1):pcg1+loc(2))
+           else
+             ansunwrappedv(:,ew,ns) = 0.d0
+             ansunwrappedu(:,ew,ns) = 0.d0
+           end if
+       end do
+   end do
+
+   ansunwrappedmag = dsqrt( ansunwrappedu**2.d0 + ansunwrappedv**2.d0 )
+
+end subroutine resvect_postprocess_jfnk
 
 !***********************************************************************
 
@@ -2133,12 +2168,18 @@ end subroutine reset_effstrmin
   real(dp), dimension(:,:) ,pointer ::  d2usrfdew2, d2thckdew2, d2usrfdns2, d2thckdns2
   real(dp), dimension(:,:,:) ,pointer :: efvs, btraction
   real(dp), dimension(:,:,:) ,pointer :: uvel, vvel, flwa
+!  real(dp), dimension(:,:,:) ,pointer :: ures, vres, magres  !! used for output of residual fields  
   type(sparse_matrix_type) :: matrixA, matrixC
   real(dp), dimension(:) ,allocatable :: vectx
   real(dp), dimension(:) ,allocatable :: vectp
 
   real(dp) :: L2square
 !  real(dp), intent(inout):: L2norm
+
+!  real(dp) :: Ft(xk_size)   !! used for output of residual fields (ures,vres,magres) 
+                            ! storage for "F" vector when using F to output residual fields for plotting (because it 
+                            ! during the process of calc. the resid. and unwrapping it and we don't want to alter the
+                            ! actual F vector)
   real(dp) :: L2norm
 
  call t_startf("Calc_F")
@@ -2175,6 +2216,9 @@ end subroutine reset_effstrmin
   efvs => fptr%stress%efvs(:,:,:)
   uvel => fptr%velocity%uvel(:,:,:)
   vvel => fptr%velocity%vvel(:,:,:)
+!  ures => fptr%velocity%ures(:,:,:)         !! used for output of residual fields
+!  vres => fptr%velocity%vres(:,:,:)         !! used for output of residual fields
+!  magres => fptr%velocity%magres(:,:,:)     !! used for output of residual fields
   L2norm = fptr%solver_data%L2norm
 
   allocate( ui(ewn-1,nsn-1), um(ewn-1,nsn-1) )
@@ -2312,19 +2356,33 @@ end subroutine reset_effstrmin
 
     F(pcgsize(1)+1:2*pcgsize(1)) = vectp(1:pcgsize(1)) 
 
-!      vectx = xtp 
+!TODO: Older code that doesn't seem to be needed anymore? Note that "res_vect_jfnk" sits inside of "res_vect.F90"
+! and should NOT be removed. It is still useful, as per below where it can be used during debug/perf. testing to
+! output the 3d residual fields.
 !
+!   vectx = xtp 
 !   call res_vect_jfnk(matrixA, matrixC, vectx, rhsx, pcgsize(1), 2*pcgsize(1), gxf, L2square, whatsparse)
-!    L2norm = L2square
-!    F = vectx 
+!   L2norm = L2square
+!   F = vectx 
 
     call solver_postprocess_jfnk( ewn, nsn, upn, ui, xtp, vvel, uvel, ghostbvel, pcgsize(1) )
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!! This section used and active only if / for output of residual fields !! 
+!  Ft = F  !! need a temp variable to pass in here because "res_vect_jfnk" alters the value of "F"
+!  call res_vect_jfnk(matrixA, matrixC, Ft, rhsx, pcgsize(1), 2*pcgsize(1), gxf, L2square, whatsparse)
+!  call resvect_postprocess_jfnk( ewn, nsn, upn, ui, pcgsize(1), Ft, vres, ures, magres )
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   fptr%velocity%btraction => btraction(:,:,:)
   fptr%temper%flwa => flwa(:,:,:)
   fptr%stress%efvs => efvs(:,:,:)
   fptr%velocity%uvel => uvel(:,:,:)
   fptr%velocity%vvel => vvel(:,:,:)
+
+!  fptr%velocity%ures => ures(:,:,:)     !! used for output of residual fields 
+!  fptr%velocity%vres => vres(:,:,:)     !! used for output of residual fields
+!  fptr%velocity%magres => magres(:,:,:) !! used for output of residual fields
 
   fptr%solver_data%L2norm = L2norm
   fptr%solver_data%matrixA = matrixA
@@ -5090,7 +5148,10 @@ subroutine calcbetasquared (whichbabc,               &
       !TODO: Ideally, these mask values should not be hardwired, but keeping it this way for now until
       ! we decide which mask values to keep/remove
       do ns=1, nsn-1; do ew=1, ewn-1; 
-        if( ( mask(ew,ns) >= 21 .and. mask(ew,ns) <= 23 ) .or. ( mask(ew,ns) >= 41 .and. mask(ew,ns) <= 57 ) &
+        !if( ( mask(ew,ns) >= 21 .and. mask(ew,ns) <= 23 ) .or. ( mask(ew,ns) >= 41 .and. mask(ew,ns) <= 57 ) &
+        !! less agressive than apply beta = 0 at g.l., which will make some test cases fail (e.g. circ. shelf)
+        !! because of lack of fully grounded area.
+        if( ( mask(ew,ns) >= 41 .and. mask(ew,ns) <= 43 ) &     
              .or. mask(ew,ns) == 9 .or. mask(ew,ns) == 11 )then
            betasquared(ew,ns) = 0.d0
         endif
