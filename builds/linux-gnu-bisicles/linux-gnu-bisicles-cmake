@@ -16,13 +16,16 @@
 rm ./CMakeCache.txt
 
 # run a script that creates some CISM source files:
-../../cmake-scripts/autogenerate-script
+pushd .
+cd ..
+../cmake-scripts/autogenerate-script
+popd 
 
 echo
 echo "Doing CMake Configuration step"
 
 cmake \
-  -D GLIMMER_NETCDF_DIR=/usr/local/netcdf \
+  -D GLIMMER_NETCDF_DIR=/home/loren/users/dmartin/util/netcdf/netcdf-4.1.2 \
   -D CMAKE_INSTALL_PREFIX:PATH=$PWD/install \
   -D CMAKE_VERBOSE_MAKEFILE:BOOL=ON \
   -D CMAKE_VERBOSE_CONFIGURE:BOOL=ON \
@@ -31,19 +34,21 @@ cmake \
   -D CMAKE_C_COMPILER=mpicc \
   -D CMAKE_Fortran_COMPILER=mpif90 \
 \
-  -D HDF_ROOT=/usr/local/hdf5/hdf5-1.6.9-parallel \
-  -D HDF5_LIB_DIR=/usr/local/hdf5/hdf5-1.6.9-parallel \
-  -D HDF5_PARALLEL_LIB_DIR=/usr/local/hdf5/hdf5-1.6.9-parallel/lib \
+  -D HDF_ROOT=${ANAG_HDF5_DIR}l \
+  -D HDF5_LIB_DIR=${ANAG_HDF5_DIR}/lib \
+  -D HDF5_PARALLEL_LIB_DIR=${ANAG_HDF5_DIR}/lib \
   -D HDF5_PGI_LIBS="-DH5_USE_16_API -lhdf5 -lz -lstdc++" \
-  -D CMAKE_PREFIX_PATH="/usr/local/hdf5/hdf5-1.6.9-parallel" \
+  -D CMAKE_PREFIX_PATH="${ANAG_HDF5_DIR}" \
 \
   -D CMAKE_CXX_FLAGS:STRING="-g -DH5_USE_16_API" \
   -D CMAKE_Fortran_FLAGS:STRING="-g  -ffree-line-length-none -DNO_RESCALE" \
   -D GLIMMER_EXTRA_LIBS:STRING="-lblas" \
   -D TPL_ENABLE_MPI:BOOL=ON \
+  -D CISM_MPI_MODE:BOOL=ON \
+  -D CISM_SERIAL_MODE:BOOL=OFF \
   -D BUILD_SIMPLE_BISICLES:BOOL=ON \
   -D NO_TRILINOS:BOOL=ON \
   -D BISICLES_INTERFACE_DIR=$PWD/../../../BISICLES/code/interface \
- /home/dan/code/seacism
+ ../..
 
 # Note: last argument above  "../.."  is path to top seacism directory
