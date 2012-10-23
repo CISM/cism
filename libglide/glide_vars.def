@@ -444,34 +444,34 @@ standard_name: land_ice_y_velocity
 hot:           1
 
 # used for output of res fields
-[ures]
-dimensions:    time, level, y0, x0
-units:         meter/year
-long_name:     ice velocity resid. in x direction
-data:          data%velocity%ures(up,:,:)
-factor:        scale_uvel
-standard_name: land_ice_x_velocity_resid
-hot:           0
+#[ures]
+#dimensions:    time, level, y0, x0
+#units:         meter/year
+#long_name:     ice velocity resid. in x direction
+#data:          data%velocity%ures(up,:,:)
+#factor:        scale_uvel
+#standard_name: land_ice_x_velocity_resid
+#hot:           0
 
 # used for output of res fields
-[vres]
-dimensions:    time, level, y0, x0
-units:         meter/year
-long_name:     ice velocity resid. in y direction
-data:          data%velocity%vres(up,:,:)
-factor:        scale_uvel
-standard_name: land_ice_y_velocity_resid
-hot:           0
+#[vres]
+#dimensions:    time, level, y0, x0
+#units:         meter/year
+#long_name:     ice velocity resid. in y direction
+#data:          data%velocity%vres(up,:,:)
+#factor:        scale_uvel
+#standard_name: land_ice_y_velocity_resid
+#hot:           0
 
 # used for output of res fields
-[magres]
-dimensions:    time, level, y0, x0
-units:         meter/year
-long_name:     ice velocity resid. magnitude 
-data:          data%velocity%magres(up,:,:)
-factor:        scale_uvel
-standard_name: land_ice_y_velocity_resid
-hot:           0
+#[magres]
+#dimensions:    time, level, y0, x0
+#units:         meter/year
+#long_name:     ice velocity resid. magnitude 
+#data:          data%velocity%magres(up,:,:)
+#factor:        scale_uvel
+#standard_name: land_ice_y_velocity_resid
+#hot:           0
 
 [kinbcmask]
 dimensions:   time, y0, x0
