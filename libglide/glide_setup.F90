@@ -485,6 +485,8 @@ contains
     type(ConfigSection), pointer :: section
     type(glide_global_type) :: model
     
+!WHL  - Added which_ho_approx option for glissade dycore.
+!TODO - Remove later if not often used.
     call GetValue(section, 'diagnostic_scheme',  model%options%which_ho_diagnostic)
     call GetValue(section, 'prognostic_scheme', model%options%which_ho_prognostic)
     call GetValue(section, 'guess_specified',    model%velocity%is_velocity_valid)
@@ -498,6 +500,7 @@ contains
     call GetValue(section, 'which_ho_nonlinear', model%options%which_ho_nonlinear)
     call GetValue(section, 'which_ho_sparse',    model%options%which_ho_sparse)
     call GetValue(section, 'which_ho_sparse_fallback', model%options%which_ho_sparse_fallback)
+    call GetValue(section, 'which_ho_approx',    model%options%which_ho_approx)
   end subroutine handle_ho_options
 
   ! Handles external dycore options -- Doug Ranken 03/26/12
@@ -635,13 +638,23 @@ contains
          'use standard Picard iteration  ', &
          'use JFNK                       '/)
 
-    character(len=*), dimension(0:5), parameter :: ho_whichsparse = (/ &
+!WHL - added options 5 and 6 for new standalone PCG solver
+
+    character(len=*), dimension(0:6), parameter :: ho_whichsparse = (/ &
          'BiCG with LU preconditioner                ', &
          'GMRES with LU preconditioner               ', &
          'PCG with diagonal preconditioner           ', &
          'PCG with incomplete Cholesky preconditioner', &
          'Standalone Trilinos interface              ', &
-         'Standalone PCG solver                      '/)
+         'Standalone PCG solver (unstructured)       ', &
+         'Standalone PCG solver (structured)         '/)
+
+!WHL - added glissade options for solving different Stokes approximations
+
+    character(len=*), dimension(0:2), parameter :: ho_whichapprox = (/ &
+         'SIA only (glissade dycore)         ', &
+         'SSA only (glissade dycore)         ', &
+         'Blatter-Pattyn HO (glissade dycore)' /)
 
     character(len=*), dimension(0:1), parameter :: b_mbal = (/ &
          'not in continuity eqn', &
@@ -672,35 +685,59 @@ contains
 
     ! Forbidden options to use with the Glide dycore
     if (model%options%whichdycore == DYCORE_GLIDE) then
+
        if (model%options%whichtemp == TEMP_REMAP_ADV) then 
           call write_log('Error, cannot use remapping scheme to advect temperature with Glide dycore', GM_FATAL)
        endif
+
        if (distributed_execution()) then
-          !TODO May want to make this GM_FATAL, but it's convenient for testing to still allow glide to run in parallel even if won't necessarily work right.
+          !TODO May want to make this GM_FATAL, but it's convenient for testing to still allow glide to run 
+          !     in parallel even if won't necessarily work right.
           call write_log('Warning, Glide dycore not supported for distributed parallel runs',GM_WARNING)
        end if
+
        !TODO Decide to keep or modify this warning.
        if (model%options%whichevol==EVOL_PSEUDO_DIFF .or.  &
            model%options%whichevol==EVOL_ADI)        then
           call write_log('Warning, pseudo-diffusion and ADI evolution are being deprecated with the Glide dycore and may contain errors', GM_WARNING)
        endif
+
     endif
 
     ! Forbidden options associated with the Glissade dycore
 !TODO - Any other forbidden options with Glissade dycore?
     if (model%options%whichdycore == DYCORE_GLISSADE) then
+
        if (model%options%whichtemp == TEMP_GLIMMER) then
           call write_log('Error, Glimmer temperature scheme can be used only with Glide dycore', GM_FATAL)
        endif
+
        if (model%options%whichevol==EVOL_PSEUDO_DIFF .or.  &
            model%options%whichevol==EVOL_ADI         .or.  &
            model%options%whichevol==EVOL_DIFFUSION) then
           call write_log('Error, Glimmer thickness evolution options can be used only with Glide dycore', GM_FATAL)
        endif
+
     else   ! not DYCORE_GLISSADE
+
        if (model%options%which_ho_sparse == HO_SPARSE_PCG_DIAG .or.  &
            model%options%which_ho_sparse == HO_SPARSE_PCG_INCH) then
           call write_log('Error, preconditioned conjugate gradient solver requires glissade dycore with SPD matrix')
+       endif
+
+    endif
+
+    ! Forbidden options associated with Glide and Glam dycores
+   
+    if (model%options%whichdycore == DYCORE_GLIDE) then
+       if (model%options%which_ho_approx == HO_APPROX_SSA .or.   &
+           model%options%which_ho_approx == HO_APPROX_BP) then 
+          call write_log('Error, Glide dycore must use shallow-ice approximation', GM_FATAL)
+       endif
+    elseif (model%options%whichdycore == DYCORE_GLAM) then
+       if (model%options%which_ho_approx == HO_APPROX_SIA .or.   &
+           model%options%which_ho_approx == HO_APPROX_SSA) then 
+          call write_log('Error, Glide dycore must use higher-order Blatter-Pattyn approximation', GM_FATAL)
        endif
     endif
 
@@ -836,6 +873,13 @@ contains
     call write_log(message)
     if (model%options%which_ho_sparse < 0 .or. model%options%which_ho_sparse >= size(ho_whichsparse)) then
         call write_log('Error, HO sparse solver input out of range', GM_FATAL)
+    end if
+
+    write(message,*) 'ho_whichapprox          :',model%options%which_ho_sparse,  &
+                      ho_whichapprox(model%options%which_ho_sparse)
+    call write_log(message)
+    if (model%options%which_ho_sparse < 0 .or. model%options%which_ho_sparse >= size(ho_whichsparse)) then
+        call write_log('Error, Stokes approximation input out of range', GM_FATAL)
     end if
 
     call write_log('')

@@ -60,7 +60,8 @@ module glimmer_sparse
     integer, parameter :: HO_NONLIN_PICARD = 0
     integer, parameter :: HO_NONLIN_JFNK = 1
 
-!WHL - Replaced umfpack and pardiso options with pcg options
+!WHL - Replaced umfpack and pardiso options with SLAP pcg options
+!      Added standalone PCG options 5 and 6
 !TODO - These SPARSE_SOLVER options are redundant with HO_SPARSE options in glide_types.
 !       Combine into one list? (e.g., by having glide_setup use this module)
 !TODO - Or could simply set up a SLAP_SOLVER option with sub-options
@@ -72,8 +73,9 @@ module glimmer_sparse
     ! This Trilinos solver does not go through sparse_easy_solve
     !   because it has a different sparse matrix format
     integer, parameter :: STANDALONE_TRILINOS_SOLVER = 4
-    ! This solver goes through the cism_sparse_pcg module without SLAP
-    integer, parameter :: STANDALONE_PCG_SOLVER = 5  ! PCG with diagonal preconditioner
+    ! These two solvers go through the cism_sparse_pcg module without SLAP
+    integer, parameter :: STANDALONE_PCG_UNSTRUC = 5  ! PCG with unstructured (triad) matrix storage
+    integer, parameter :: STANDALONE_PCG_STRUC = 6  ! PCG with structured (k,i,j) matrix storage
 
 !EIB!  !MAKE_RESTART
 !EIB!#ifdef RESTARTS

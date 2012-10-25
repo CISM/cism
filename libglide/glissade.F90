@@ -234,9 +234,6 @@ contains
 !       Can remove this call provided velowk is not used elsewhere (e.g., to call wvelintg)
     call init_velo(model)
 
-!TODO - When glide is separate from the HO driver, only glide_init_temp to be called here;
-!       glissade_init_temp will be called from HO driver.
-
     call glissade_init_temp(model)  ! temperature lives at layer centers
 
 !TODO - this call needed for SIA only
@@ -265,7 +262,7 @@ contains
 
     elseif (model%options%whichdycore == DYCORE_GLISSADE ) then  ! glissade finite-element
 
-!whl - Removed scaling of dew and dns
+!WHL - Removed scaling of dew and dns
         call glissade_velo_higher_init(model%general%ewn,  model%general%nsn,  &
                                        nhalo,                                  &
 !!                                       model%numerics%dew, model%numerics%dns)

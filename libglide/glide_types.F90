@@ -154,11 +154,20 @@ module glide_types
   integer, parameter :: FIRSTORDER_BMELT = 1
   integer, parameter :: SSA_BMELT = 2
 
+!WHL - added options 5 and 6 for standalone PCG solver
   integer, parameter :: HO_SPARSE_BICG = 0
   integer, parameter :: HO_SPARSE_GMRES = 1
   integer, parameter :: HO_SPARSE_PCG_DIAG = 2
   integer, parameter :: HO_SPARSE_PCG_INCH = 3
   integer, parameter :: HO_SPARSE_TRILINOS = 4
+  integer, parameter :: HO_SPARSE_PCG_UNSTRUC = 5
+  integer, parameter :: HO_SPARSE_PCG_STRUC = 6
+
+!WHL - added options for different Stokes approximations
+!      (for glissade dycore only)
+  integer, parameter :: HO_APPROX_SIA = 0
+  integer, parameter :: HO_APPROX_SSA = 1
+  integer, parameter :: HO_APPROX_BP = 2
 
   integer, parameter :: HO_SOURCE_AVERAGED = 0
   integer, parameter :: HO_SOURCE_EXPLICIT = 1
@@ -370,6 +379,18 @@ module glide_types
     !*FD By default, this is set to -1 which indicates no fallback.
     !*FD Optimally, this should be set to a direct solver (such as UMFPACK)
     !*FD that can be used if the iterative solver fails.
+
+!WHL - Added a glissade option to choose which Stokes approximation (SIA, SSA or Blatter-Pattyn HO)
+    ! Blatter-Pattyn HO by default
+
+    integer :: which_ho_approx = 2    
+    !*FD Flag that indicates which Stokes approximation to use in the glissade dycore.
+    !*FD Not valid for other dycores 
+    !*FD \begin{description}
+    !*FD \item[0] Shallow-ice approximation, vertical shear stress only
+    !*FD \item[1] Shallow-shelf approximation, horizontal-plane stresses only
+    !*FD \item[2] Blatter-Pattyn with both vertical-shear and horizontal-plane stresses
+    !*FD \end{description}
 
     integer :: which_ho_source = 0
     !*FD Flag that indicates how to compute the source term of an ice shelf

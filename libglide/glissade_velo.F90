@@ -158,7 +158,7 @@ contains
               vvel(:,:,:) = model%velocity%vvel(:,:,:) * (vel0*scyr)
 
               call glissade_velo_higher_solve(model%general%ewn,       model%general%nsn,        &
-                                              model%general%upn-1,      &  
+                                              model%general%upn,        &  
                                               model%numerics%sigma,     &
                                               nhalo,      &  ! should be part of a derived type
                                               thk0 * model%geometry%thck,     thk0 * model%geometry%usrf,         &
@@ -171,7 +171,8 @@ contains
                                               model%options%which_ho_efvs,       &
                                               model%options%which_ho_resid,      &
                                               model%options%which_ho_nonlinear,  &
-                                              model%options%which_ho_sparse)
+                                              model%options%which_ho_sparse,     &
+                                              model%options%which_ho_approx)   !TODO - The ho_approx option may be temporary only
 
               ! rescale the velocity since the rest of the code expects it
               model%velocity%uvel(:,:,:) = uvel(:,:,:) / (vel0*scyr)

@@ -19,8 +19,834 @@ module cism_sparse_pcg
     integer, parameter :: &
         ndiagmax = 10      ! number of values to print out for debugging
 
+!WHL - debug
+
+   integer, parameter :: &
+       itest = 24, jtest = 17, ktest = 1
+
+   integer, parameter :: ntest = 2371  ! nodeID for (24,17,1)
 
 contains
+
+!****************************************************************************
+
+  subroutine pcg_solver_structured(nx,        ny,            &
+                                   nz,        active_vertex, &
+                                   Auu,       Auv,           &
+                                   Avu,       Avv,           &
+                                   bu,        bv,            &
+                                   xu,        xv,            &
+                                   err,       niters,        &
+                                   NodeID,    verbose)   ! NodeID is temporary for debugging
+
+    !---------------------------------------------------------------
+    !  This subroutine uses a preconditioned conjugate-gradient solver to
+    !  solve the equation $Ax=b$.
+    !  Convergence is checked every {\em ncheck} steps.
+    !
+    !  It is based on the barotropic solver in the POP ocean model 
+    !  (author Phil Jones, LANL).  Input and output arrays are located
+    !  on a structured (i,j,k) grid as defined in the glissade_velo_higher
+    !  module.  The global matrix is sparse, but its nonzero elements
+    !  are stored in four dense matrices called Auu, Avv, Auv, and Avu.
+    !  Each matrix has 3x3x3 = 27 potential nonzero elements per
+    !  node (i,j,k).
+    !
+    !  The current preconditioning options are
+    !  (0) no preconditioning
+    !  (1) diagonal preconditioning
+    !  (2) preconditioning using a physics-based SIA solver
+    ! 
+    !  For the dome test case with higher-order dynamics, option (2) is best. 
+    !
+    !  This subroutine is less flexible than the generic PCG solver below,
+    !  which works with grid-independent matrices in triad format.
+    !  However, this subroutine is easier to parallelize because
+    !  it can use existing halo updates and global reductions.
+    !---------------------------------------------------------------
+
+    !---------------------------------------------------------------
+    ! input-output arguments
+    !---------------------------------------------------------------
+
+    integer, intent(in) ::   &
+       nx, ny,               &  ! horizontal grid dimensions (for scalars)
+                                ! velocity grid has dimensions (nx-1,ny-1)
+       nz                       ! number of vertical levels where velocity is computed
+
+    logical, dimension(nx-1,ny-1), intent(in) ::   &
+       active_vertex          ! T for columns (i,j) where velocity is computed, else F
+ 
+    real(dp), dimension(-1:1,-1:1,-1:1,nz,nx-1,ny-1), intent(in) ::   &
+       Auu, Auv, Avu, Avv     ! four components of assembled matrix
+                              ! 1st dimension = 3 (node and its 2 neighbors in z direction)
+                              ! 2nd dimension = 3 (node and its 2 neighbors in x direction)
+                              ! 3rd dimension = 3 (node and its 2 neighbors in y direction)
+                              ! other dimensions = (z,x,y) indices
+                              !
+                              !    Auu  | Auv
+                              !    _____|____
+                              !    Avu  | Avv
+                              !         |
+
+    real(dp), dimension(nz,nx-1,ny-1), intent(in) ::  &
+       bu, bv             ! assembled load (rhs) vector, divided into 2 parts
+
+    real(dp), dimension(nz,nx-1,ny-1), intent(inout) ::   &
+       xu, xv             ! u and v components of solution (i.e., uvel and vvel)
+
+    real(dp), intent(out) ::  &
+       err                               ! error (L2 norm of residual) in final solution
+
+    integer, intent(out) ::   &
+       niters                            ! iterations needed to solution
+
+!WHL - Temporary for debugging
+    integer, dimension(nz,nx-1,ny-1), intent(in) ::  &
+       NodeID
+
+    logical, intent(in), optional :: &
+       verbose                           ! if true, print diagnostic output
+    
+    !---------------------------------------------------------------
+    ! Local variables and parameters   
+    !---------------------------------------------------------------
+
+    integer ::  i, j, k      ! grid indices
+    integer ::  iA, jA, kA   ! grid offsets ranging from -1 to 1
+    integer ::  m            ! iteration counter
+
+    real(dp) ::           &
+       eta0, eta1, rr      ! scalar inner product results
+
+    ! vectors (each of these is split into u and v components)
+    real(dp), dimension(nz,nx-1,ny-1) ::  &
+       Adiagu, Adiagv,    &! diagonal terms of matrices Auu and Avv
+       ru, rv,            &! residual vector (b-Ax)
+       du, dv,            &! conjugate direction vector
+       yu, yv,            &! result of a matvec multiply
+       work0u, work0v,    &! cg intermediate results
+       work1u, work1v      ! cg intermediate results
+
+    real(dp) ::  &
+       L2_resid,          &! L2 norm of residual vector Ax-b
+       L2_rhs              ! L2 norm of rhs vector b
+                           ! solver converges when L2_resid/L2_rhs < tolerance
+
+    real(dp), dimension(-1:1,nz,nx-1,ny-1) ::  &
+       Muu, Mvv            ! simplified SIA matrices for preconditioning
+
+    !---------------------------------------------------------------
+    ! Solver parameters
+    ! TODO: Pass these in as arguments?
+    !---------------------------------------------------------------
+
+    real(dp), parameter ::   &
+       tolerance = 1.d-11    ! tolerance for linear solver
+
+    integer, parameter ::    &
+       maxiters = 200         ! max number of linear iterations before quitting
+
+    integer, parameter :: &
+        solv_ncheck = 1    ! check for convergence every solv_ncheck iterations
+                           ! for now, hardwire for debugging
+                           ! later, let this be an argument
+
+    integer, parameter :: &
+        precond = 2        ! = 0 for no preconditioning
+                           ! = 1 for diagonal preconditioning (does not work well for SIA-dominated flow)
+                           ! = 2 for preconditioning with SIA solver (works well for SIA-dominated flow)
+
+!WHL - debug
+    if (present(verbose)) then
+       verbose_pcg = verbose
+    else
+       verbose_pcg = .true.   ! for debugging
+    endif
+
+    if (verbose_pcg) then
+       print*, ' '
+       print*, 'In structured pcg solver'
+       print*, 'tolerance, maxiters =', tolerance, maxiters
+       print*, ' '
+    endif
+
+    ! Set up preconditioning
+
+    if (precond == 1) then    ! form diagonal matrix for preconditioning
+
+       Adiagu(:,:,:) = Auu(0,0,0,:,:,:)
+       Adiagv(:,:,:) = Avv(0,0,0,:,:,:)
+
+!TODO - Get rid of NodeID later
+       if (verbose_pcg) then
+          print*, ' '
+          print*, 'Using diagonal solver for preconditioning'
+          print*, ' '
+          print*, 'i, j, k, n, diagonal entries, initial guess, residual:'
+          m = 0
+          do j = 1, ny-1
+          do i = 1, nx-1
+          do k = 1, nz
+             if (Adiagu(k,i,j) > 0.d0 .and. m < ndiagmax) then
+                m = m + 2
+                print*, i, j, k, NodeID(k,i,j), Adiagu(k,i,j), xu(k,i,j), ru(k,i,j)
+                print*, i, j, k, NodeID(k,i,j), Adiagv(k,i,j), xv(k,i,j), rv(k,i,j)
+             else
+                exit
+             endif
+          enddo
+          enddo
+          enddo
+       endif  ! verbose_pcg
+
+    elseif (precond == 2) then  ! form SIA matrices Muu and Mvv with vertical coupling only
+
+       Muu(:,:,:,:) = 0.d0
+       Mvv(:,:,:,:) = 0.d0
+
+       do j = 1, ny-1
+       do i = 1, nx-1
+       do k = 1, nz
+          do kA = -1,1
+             Muu(kA,k,i,j) = Auu(kA,0,0,k,i,j)   ! remove horizontal coupling
+             Mvv(kA,k,i,j) = Avv(kA,0,0,k,i,j)
+          enddo
+       enddo
+       enddo
+       enddo
+
+!WHL - debug
+       if (verbose_pcg) then
+          print*, ' '
+          print*, 'Using easy SIA solver for preconditioning'
+          i = itest
+          j = jtest
+          print*, ' '
+          print*, 'i, j =', i, j
+          print*, ' '
+          print*, 'k, Muu(-1:1):'
+          do k = 1, nz
+             print*, k, Muu(-1:1,k,i,j)
+          enddo
+          print*, ' '
+          print*, 'k, Mvv(-1:1):'
+          do k = 1, nz
+             print*, k, Mvv(-1:1,k,i,j)
+          enddo
+       endif
+
+    endif      ! precond
+
+    !  Compute initial residual and initialize the direction vector d
+
+    !TODO - Could use active_vertex array to set up indirect addressing
+    !       and avoid an 'if' in the matvec subroutine
+
+    call matvec_multiply_structured(nx,        ny,            &
+                                    nz,        active_vertex, &
+                                    Auu,       Auv,           &
+                                    Avu,       Avv,           &
+                                    xu,        xv,            &
+                                    yu,        yv, NodeID)
+
+    ru(:,:,:) = bu(:,:,:) - yu(:,:,:)
+    rv(:,:,:) = bv(:,:,:) - yv(:,:,:)
+
+    du(:,:,:) = 0.d0
+    dv(:,:,:) = 0.d0
+
+    ! POP does a halo update of the residual here.
+    ! (I think this is needed to make sure r is correct in halo cells.
+    !  The r computed above will be wrong in halo cells if y is not correct in halo cells.)
+    ! call halo_update(r)
+
+    ! Initialize fields and scalars
+
+    eta0 = 1.d0 
+    niters = maxiters 
+
+    ! Compute L2 norm of rhs vectors
+    ! (Goal is to obtain L2_resid/L2_rhs < tolerance)
+
+    work0u(:,:,:) = bu(:,:,:)*bu(:,:,:)
+    work0v(:,:,:) = bv(:,:,:)*bv(:,:,:)
+
+    ! POP does a halo update here before taking the global sum
+    ! (I don't see why this is needed)
+
+    L2_rhs = sum(work0u) + sum(work0v)       ! (b, b) = squared L2 norm
+    ! In parallel, this would need to be a global sum: L2_rhs = global_sum(work0)
+
+    L2_rhs = sqrt(L2_rhs)       ! L2 norm of rhs
+
+    ! Iterate to solution
+
+    iter_loop: do m = 1, maxiters
+
+       ! Compute (PC)r
+
+       if (precond == 0) then      ! no preconditioning
+
+           work1u(:,:,:) = ru(:,:,:)         ! PC(r) = r 
+           work1v(:,:,:) = rv(:,:,:)         ! PC(r) = r 
+
+       elseif (precond == 1 ) then  ! diagonal preconditioning
+
+          do j = 1, ny-1
+          do i = 1, nx-1
+          do k = 1, nz
+             if (Adiagu(k,i,j) /= 0.d0) then
+                work1u(k,i,j) = ru(k,i,j) / Adiagu(k,i,j)   ! PC(r), where PC is formed from diagonal elements of A
+             else                                        
+                work1u(k,i,j) = 0.d0
+             endif
+             if (Adiagv(k,i,j) /= 0.d0) then
+                work1v(k,i,j) = rv(k,i,j) / Adiagv(k,i,j)  
+             else                                        
+                work1v(k,i,j) = 0.d0
+             endif
+          enddo    ! k
+          enddo    ! i
+          enddo    ! j
+
+!WHL - debug
+          if (verbose_pcg) then
+             i = itest
+             j = jtest
+             print*, ' '
+             print*, 'Diagonal preconditioning, i, j =', i, j
+             print*, ' '
+             print*, 'k, ru, PC(ru):'
+             do k = 1, nz
+                print*, k, ru(k,i,j), work1u(k,i,j)
+             enddo
+             print*, ' '
+             print*, 'k, rv, PC(rv):'
+             do k = 1, nz
+                print*, k, rv(k,i,j), work1v(k,i,j)
+             enddo
+           endif
+
+       elseif (precond == 2) then   ! local vertical shallow-ice solver for preconditioning
+
+          call easy_sia_solver(nx,   ny,    nz,       &
+                               active_vertex,         &
+                               Muu,  ru,   work1u)      ! solve Muu*work1u = ru 
+
+          call easy_sia_solver(nx,   ny,    nz,       &
+                               active_vertex,         &
+                               Mvv,  rv,   work1v)      ! solve Mvv*work1v = rv 
+
+!WHL - debug
+          if (verbose_pcg) then
+             i = itest
+             j = jtest
+             print*, ' '
+             print*, 'SIA preconditioning, i, j =', i, j
+             print*, ' '
+             print*, 'k, ru, PC(ru):'
+             do k = 1, nz
+                print*, k, ru(k,i,j), work1u(k,i,j)
+             enddo
+             print*, ' '
+             print*, 'k, rv, PC(rv):'
+             do k = 1, nz
+                print*, k, rv(k,i,j), work1v(k,i,j)
+             enddo
+           endif
+
+       endif    ! precond
+
+       work0u(:,:,:) = ru(:,:,:)*work1u(:,:,:)    ! terms of dot product (r, PC(r))
+       work0v(:,:,:) = rv(:,:,:)*work1v(:,:,:)    ! terms of dot product (r, PC(r))
+
+       ! POP has a halo update here for parallel solve with external preconditioner (lprecond = T)
+       ! if (lprecond) call halo_update(work1)
+       ! Not sure why this is done after computing work0 = r*work1
+
+       ! Compute (r, PC(r))
+
+       ! In parallel, this would need to be a global sum: eta1 = global_sum(work0u) + global_sum(work0v)
+       eta1 = sum(work0u) + sum(work0v)
+
+!       if (verbose_pcg) print*,'eta0, eta1 =', eta0, eta1
+
+       ! Update conjugate direction vector d
+
+       du(:,:,:) = work1u(:,:,:) + du(:,:,:)*(eta1/eta0)   ! d_(i+1) = PC(r_(i+1)) + beta_(i+1)*d_i
+       dv(:,:,:) = work1v(:,:,:) + dv(:,:,:)*(eta1/eta0)   !
+                                                           !                    (r_(i+1), PC(r_(i+1)))
+                                                           ! where beta_(i+1) = --------------------  
+                                                           !                        (r_i, PC(r_i)) 
+                                                           ! Initially eta0 = 1  
+                                                           ! For m >=2, eta0 = old eta1
+
+       ! Compute y = A*d
+
+       call matvec_multiply_structured(nx,        ny,            &
+                                       nz,        active_vertex, &
+                                       Auu,       Auv,           &
+                                       Avu,       Avv,           &
+                                       du,        dv,            &
+                                       yu,        yv, NodeID)
+
+       work0u(:,:,:) = yu(:,:,:) * du(:,:,:)       ! terms of dot product (d, Ad)
+       work0v(:,:,:) = yv(:,:,:) * dv(:,:,:)
+
+       ! Compute next solution and residual
+
+       ! Here POP does a halo update for y = A*d
+       ! call halo_update(y)
+
+        eta0 = eta1               ! (r_(i+1), PC(r_(i+1))) --> (r_i, PC(r_i)) 
+                                  
+
+        ! These sums need to be global sums in parallel.
+                                                     !          (r, PC(r))
+        eta1 = eta0 / (sum(work0u) + sum(work0v))    ! alpha = ----------
+                                                     !          (d, A*d)
+
+
+        if (verbose_pcg) then
+!           print*, '(r, PC(r))=', eta0
+!           print*, 'alpha =', eta1
+        endif
+
+        xu(:,:,:) = xu(:,:,:) + eta1 * du(:,:,:)    ! new solution, x_(i+1) = x_i + alpha*d
+        xv(:,:,:) = xv(:,:,:) + eta1 * dv(:,:,:)
+
+        ru(:,:,:) = ru(:,:,:) - eta1 * yu(:,:,:)    ! new residual, r_(i+1) = r_i - alpha*(Ad)
+        rv(:,:,:) = rv(:,:,:) - eta1 * yv(:,:,:)
+
+        if (verbose_pcg) then
+!           print*, ' '
+!           print*, 'New solution, residual:'
+!           do i = 1, min(ndiagmax,order)
+!              print*, x(i), r(i)
+!           enddo
+        endif
+
+!TODO - Can we evaluate the L2 norm of the residual each iteration without doing another matvec multiply?
+!       Just have to use the residual computed above instead of computing Ax - b
+
+        if (mod(m,solv_ncheck) == 0) then
+
+           ! Compute y = Ax
+           
+          call matvec_multiply_structured(nx,        ny,            &
+                                          nz,        active_vertex, &
+                                          Auu,       Auv,           &
+                                          Avu,       Avv,           &
+                                          xu,        xv,            &
+                                          yu,        yv, NodeID)
+
+           ! Compute residual and terms of its L2 norm
+           ! TODO - How does this differ from the residual computed above?
+
+           ru(:,:,:) = bu(:,:,:) - yu(:,:,:)
+           rv(:,:,:) = bv(:,:,:) - yv(:,:,:)
+
+           work0u(:,:,:) = ru(:,:,:)*ru(:,:,:)
+           work0v(:,:,:) = rv(:,:,:)*rv(:,:,:)
+
+           ! POP does a halo update here (Why? Should it be done before computing work0?)
+           ! call halo_update(r)
+           
+           ! In parallel, these would need to be global sums
+           L2_resid = sum(work0u) + sum(work0v)        ! (r, r) = squared L2 norm
+
+           L2_resid = sqrt(L2_resid)                   ! L2 norm of residual
+
+           err = L2_resid/L2_rhs
+
+           if (verbose_pcg) print*, 'iter, L2_resid, error =', m, L2_resid, err
+
+           if (err < tolerance) then
+              niters = m
+              exit iter_loop
+           endif            
+
+        endif    ! solv_ncheck
+
+     enddo iter_loop
+
+!WHL - Without good preconditioning, convergence is slow, but the solution after maxiters may be good enough.
+ 
+     if (niters == maxiters) then
+        print*, 'Glissade PCG solver not converged'
+        print*, 'niters, err, tolerance:', niters, err, tolerance
+!!!        stop   ! TODO - Abort cleanly
+     endif
+
+  end subroutine pcg_solver_structured
+
+!****************************************************************************
+
+!WHL - NodeID is temporary
+
+  subroutine matvec_multiply_structured(nx,        ny,            &
+                                        nz,        active_vertex, &
+                                        Auu,       Auv,           &
+                                        Avu,       Avv,           &
+                                        xu,        xv,            &
+                                        yu,        yv, NodeID)
+
+    !---------------------------------------------------------------
+    ! Compute the matrix-vector product $y = Ax$.
+    !---------------------------------------------------------------
+
+    !---------------------------------------------------------------
+    ! input-output arguments
+    !---------------------------------------------------------------
+
+!WHL - Temporary for debugging
+    integer, dimension(nz,nx-1,ny-1), intent(in) ::  &
+       NodeID
+
+    integer, intent(in) :: &
+       nx, ny,             &  ! horizontal grid dimensions (for scalars)
+       nz                     ! number of vertical levels
+
+    !TODO - Replace with indirect addressing?
+    logical, dimension(nx-1,ny-1), intent(in) ::   &
+       active_vertex          ! T for columns (i,j) where velocity is computed, else F
+
+    real(dp), dimension(-1:1,-1:1,-1:1,nz,nx-1,ny-1), intent(in) ::   &
+       Auu, Auv, Avu, Avv     ! four components of assembled matrix
+                              ! 1st dimension = 3 (node and its 2 neighbors in z direction)
+                              ! 2nd dimension = 3 (node and its 2 neighbors in x direction)
+                              ! 3rd dimension = 3 (node and its 2 neighbors in y direction)
+                              ! other dimensions = (z,x,y) indices
+                              !
+                              !    Auu  | Auv
+                              !    _____|____
+                              !    Avu  | Avv
+                              !         |
+
+    real(dp), dimension(nz,nx-1,ny-1), intent(in) ::   &
+       xu, xv             ! current guess for solution
+
+
+    real(dp), dimension(nz,nx-1,ny-1), intent(out) ::  &
+       yu, yv             ! y = Ax
+
+    !---------------------------------------------------------------
+    ! local variables
+    !---------------------------------------------------------------
+
+    integer :: i, j, k
+    integer :: iA, jA, kA
+    
+!WHL= debug
+    real(dp) :: maxyu, maxyv
+    integer :: imaxu, jmaxu, kmaxu
+    integer :: imaxv, jmaxv, kmaxv
+!!    integer :: nid
+
+    if (verbose_pcg) then
+!       print*, ' '
+!       print*, 'In structured matvec'
+!       print*, 'max(Auu), max(Auv), max(Avu), max(Avv) =', &
+!                maxval(Auu), maxval(Auv), maxval(Avu), maxval(Avv)
+!       print*, 'sum(xu), sum(xv), sumtot =', sum(xu), sum(xv), sum(xu) + sum(xv)
+!       print*, 'max(xu), max(xv) =', maxval(xu), maxval(xv)
+    endif
+
+    ! Initialize the result vector.
+
+    yu(:,:,:) = 0.d0
+    yv(:,:,:) = 0.d0
+
+    ! Compute y = Ax
+
+    !TODO - Change loop bounds so we don't go out of bounds?
+    !       For now the full bounds should work as long as there is no
+    !        ice at the global domain boundaries.
+    do j = 1, ny-1
+    do i = 1, nx-1
+
+       !TODO - Use indirect addressing to avoid an 'if' here?
+       if (active_vertex(i,j)) then
+
+!WHL - debug
+!!          print*, ' '
+!!          print*, 'Active: i, j =', i, j
+
+          do k = 1, nz
+
+!!             nid = NodeID(k,i,j)
+!!             if (nid == ntest) print*, 'ntest, xu, xv:', nid, xu(k,i,j), xv(k,i,j)
+
+             !TODO - Could replace these three short loops with long multadds for better GPU efficiency
+             do jA = -1,1
+             do iA = -1,1
+             do kA = -1,1
+
+!TODO - Can we somehow get rid of this 'if' statement and still keep the xu/xv indices in bounds?
+                if ( (k+kA >= 1 .and. k+kA <= nz)     &
+      	                        .and.                     &
+                     (i+iA >= 1 .and. i+iA <= nx-1)         &
+                             .and.                     &
+                     (j+jA >= 1 .and. j+jA <= ny-1) ) then
+
+                   yu(k,i,j) = yu(k,i,j)   &
+                             + Auu(kA,iA,jA,k,i,j)*xu(k+kA,i+iA,j+jA)  &
+                             + Auv(kA,iA,jA,k,i,j)*xv(k+kA,i+iA,j+jA)
+
+                   yv(k,i,j) = yv(k,i,j)   &
+                             + Avu(kA,iA,jA,k,i,j)*xu(k+kA,i+iA,j+jA)  &
+                             + Avv(kA,iA,jA,k,i,j)*xv(k+kA,i+iA,j+jA)
+ 
+!WHL - debug
+!!                   if (NodeID(k,i,j) == ntest) then
+!!                      print*, 'nid, iA, jA, kA, Auu, xu, u, Auu*xu:',  &
+!!                               nid, iA, jA, kA, Auu(kA,iA,jA,k,i,j), xu(k+kA,i+iA,j+jA), Auu(kA,iA,jA,k,i,j)*xu(k+kA,i+iA,j+jA)
+!!                      print*, 'nid, iA, jA, kA, Auv, xv, v, Auv*xv:',  &
+!!                               nid, iA, jA, kA, Auv(kA,iA,jA,k,i,j), xv(k+kA,i+iA,j+jA), Auv(kA,iA,jA,k,i,j)*xv(k+kA,i+iA,j+jA)
+!!                      print*, 'new yu:', yu(k,i,j)
+!!                   endif
+                   
+                endif   ! k+kA, i+iA, j+jA in bounds
+
+             enddo   ! kA
+             enddo   ! iA
+             enddo   ! jA
+
+          enddo   ! k
+
+       endif   ! active_vertex
+
+    enddo   ! i
+    enddo   ! j
+
+    if (verbose_pcg) then
+!       print*, ' '
+!       print*, 'Find max yu, yv'
+!       maxyu = -9999.d0
+!       maxyv = -9999.d0
+!       do j = 1, ny-1
+!       do i = 1, nx-1
+!       do k = 1, nz
+!          if (yu(k,i,j) > maxyu) then
+!             maxyu = yu(k,i,j)
+!             imaxu = i
+!             jmaxu = j
+!             kmaxu = k
+!          endif
+!          if (yv(k,i,j) > maxyv) then
+!             maxyv = yv(k,i,j)
+!             imaxv = i
+!             jmaxv = j
+!             kmaxv = k
+!          endif
+!       enddo
+!       enddo
+!       enddo
+
+!       print*, 'i, j, k, NodeID, maxyu:', imaxu, jmaxu, kmaxu, NodeID(kmaxu,imaxu,jmaxu), maxyu
+!       print*, 'i, j, k, NodeID, maxyv:', imaxv, jmaxv, kmaxv, NodeID(kmaxv,imaxv,jmaxv), maxyv
+
+    endif  ! verbose_pcg
+
+  end subroutine matvec_multiply_structured
+ 
+!****************************************************************************
+
+  subroutine easy_sia_solver(nx,   ny,   nz,    &
+                             active_vertex,     & 
+                             A,    b,    x)
+
+    !---------------------------------------------------------------
+    ! Solve the problem Ax = y where A is a local shallow-ice matrix,
+    !  with coupling in the vertical but not the horizontal.
+    ! We simply solve a tridiagonal matrix for each column.
+    !---------------------------------------------------------------
+   
+    !---------------------------------------------------------------
+    ! input-output arguments
+    !---------------------------------------------------------------
+
+    integer, intent(in) :: &
+       nx, ny,             &  ! horizontal grid dimensions (for scalars)
+       nz                     ! number of vertical levels
+           
+    logical, dimension(nx-1,ny-1), intent(in) ::   &
+       active_vertex          ! T for columns (i,j) where velocity is computed, else F
+
+    real(dp), dimension(-1:1,nz,nx-1,ny-1), intent(in) ::   &
+       A                      ! matrix with vertical coupling only
+                              ! 1st dimension = node and its upper and lower neighbors
+
+    real(dp), dimension(nz,nx-1,ny-1), intent(in) ::   &
+       b                      ! right-hand side
+
+    real(dp), dimension(nz,nx-1,ny-1), intent(inout) ::   &
+       x                      ! solution
+
+    !---------------------------------------------------------------
+    ! local variables
+    !---------------------------------------------------------------
+
+    real(dp), dimension(nz) ::  &
+       sbdiag,         &      ! subdiagonal matrix entries
+       diag,           &      ! diagonal matrix entries
+       spdiag,         &      ! superdiagonal matrix entries
+       rhs,            &      ! right-hand side
+       soln                   ! tridiagonal solution
+
+    integer :: i, j, k
+
+!TODO - Can remove this temporary test code
+
+!WHL - debug
+    logical, parameter :: test_tridiag = .false.
+
+    if (test_tridiag) then
+
+       print*, ' '
+       print*, 'Testing tridiag solver'
+
+       diag(:) = 0.d0
+       sbdiag(:) = 0.d0
+       spdiag(:) = 0.d0
+       soln(:) = 0.d0
+
+       do k = 1, nz
+          diag(k) = 2.d0
+          if (k > 1)  sbdiag(k) = -1.d0
+          if (k < nz) spdiag(k) = -1.d0
+       enddo
+
+       rhs(1) = 1.d0
+       rhs(nz) = 1.d0
+       rhs(2:nz-1) = 0.d0              ! answer = (1 1 1 ... 1 1 1)
+
+       call tridiag_solver(nz,    sbdiag,   &
+                           diag,  spdiag,   &
+                           rhs,   soln)
+ 
+       print*, ' '
+       print*, 'Solution =', soln(:)
+
+       stop
+
+    endif   ! test_tridiag
+
+!WHL - Real code starts here
+
+    do j = 1, ny-1
+    do i = 1, nx-1
+
+       if (active_vertex(i,j)) then
+
+          ! initialize rhs and solution 
+
+          rhs(:)  = b(:,i,j)
+          soln(:) = x(:,i,j)
+
+          ! top layer
+
+          k = 1
+          sbdiag(k) = 0.d0
+          diag(k)   = A(0,k,i,j)
+          spdiag(k) = A(1,k,i,j)
+
+          ! intermediate layers
+
+          do k = 2, nz-1
+             sbdiag(k) = A(-1,k,i,j)
+             diag(k)   = A( 0,k,i,j)
+             spdiag(k) = A( 1,k,i,j)
+          enddo
+
+          ! bottom layer
+
+          k = nz 
+          sbdiag(k) = A(-1,k,i,j)
+          diag(k)   = A( 0,k,i,j)
+          spdiag(k) = 0.d0           
+         
+          ! solve
+
+          call tridiag_solver(nz,    sbdiag,   &
+                              diag,  spdiag,   &
+                              rhs,   soln)
+
+          x(:,i,j) = soln(:)
+
+       endif  ! active_vertex
+
+    enddo     ! i
+    enddo     ! j
+
+  end subroutine easy_sia_solver
+  
+!****************************************************************************
+
+  subroutine tridiag_solver(order,    sbdiag,   &
+                            diag,     spdiag,   &
+                            rhs,      soln)
+
+    !---------------------------------------------------------------
+    ! Solve a 1D tridiagonal matrix problem.
+    !---------------------------------------------------------------
+
+    !---------------------------------------------------------------
+    ! input-output arguments
+    !---------------------------------------------------------------
+
+    integer, intent(in) :: &
+       order            ! matrix dimension
+
+    real(dp), dimension(order), intent(in) :: &
+       sbdiag,        & ! sub-diagonal matrix elements
+       diag,          & ! diagonal matrix elements
+       spdiag,        & ! super-diagonal matrix elements
+       rhs              ! right-hand side
+
+    real(dp), dimension(order), intent(inout) :: &
+       soln             ! solution vector
+
+    !---------------------------------------------------------------
+    ! local variables
+    !---------------------------------------------------------------
+
+    integer :: &
+       k               ! row counter
+
+    real(dp) :: &
+       beta            ! temporary matrix variable
+
+    real(dp), dimension(order) :: &
+       gamma           ! temporary matrix variable
+
+
+    ! Solve
+
+    beta = diag(1)
+    soln(1) = rhs(1) / beta
+
+    do k = 2, order
+       gamma(k) = spdiag(k-1) / beta
+       beta = diag(k) - sbdiag(k)*gamma(k)
+       soln(k) = (rhs(k) - sbdiag(k)*soln(k-1)) / beta
+    enddo
+
+    do k = order-1, 1, -1
+       soln(k) = soln(k) - gamma(k+1)*soln(k+1)
+    enddo
+
+  end subroutine tridiag_solver
+
+!****************************************************************************
+
+!TODO - Move the rest of this module to a different module?
+!       The remaining subroutines are associated with a SLAP-type PCG 
+!        solver that uses diagonal preconditioning.
+!       They reproduce SLAP functionality without having to call SLAP itself,
+!        but otherwise they may not be very useful because diagonal
+!        preconditioning isn't generally very efficient.
 
 !****************************************************************************
 
@@ -31,7 +857,6 @@ contains
     ! Preconditioned conjugate gradient solver based on the PCG solver 
     ! in the POP ocean model (author Phil Jones, LANL).
     ! Also includes some Fortran90 versions of SLAP subroutines.
-    ! TODO - Any SLAP copyright issues?
     !
     ! This solver is functionally equivalent to the SLAP PCG solver with 
     ! diagonal preconditioning, but a new Fortran90 version is included
@@ -100,7 +925,7 @@ contains
        maxiters = 200         ! max number of linear iterations before quitting
 
     integer, parameter ::   &
-       storage = 1            ! = 1 for compressed sparse column (CSC)
+       storage = 2            ! = 1 for compressed sparse column (CSC)
                               ! = 2 for compressed sparse row (CSR)
                               ! (See comments below for details)
 
@@ -330,6 +1155,20 @@ contains
        stop    !TODO - Abort cleanly
     endif
 
+    if (verbose_pcg) then
+       print*, ' '
+       print*, 'In unstructured standalone pcg solver'
+       print*, 'tolerance, maxiters =', tolerance, maxiters
+       print*, 'L2_rhs =', L2_rhs
+!       print*, ' '
+!       print*, 'sum(x):', sum(x)
+!       print*, 'max(x):', maxval(x)
+!       print*, 'sum(b):', sum(b)
+!       print*, 'max(b)',  maxval(b)
+!       print*, ' '
+!       print*, 'Call matvec, y = Ax'
+    endif
+
     !  Compute initial residual and initialize the direction vector d
 
     call matvec_multiply(order,  nonzeros,  &
@@ -402,11 +1241,10 @@ contains
     endif      ! precond = 1
 
     if (verbose_pcg) then
+!       print*, ' '
+!       print*, 'sum(Adiag) =', sum(Adiag)
        print*, ' '
-       print*, 'In standalone pcg solver'
-       print*, 'tolerance, maxiters =', tolerance, maxiters
-       print*, 'L2_rhs =', L2_rhs
-       print*, 'Diagonal entries, initial guess, residual:'
+       print*, 'diagonal entries, initial guess, residual:'
        do i = 1, min(ndiagmax,order)
           print*, i, Adiag(i), x(i), r(i)
        enddo
@@ -416,8 +1254,10 @@ contains
 
     iter_loop: do m = 1, maxiters
 
-!        print*, ' '
-!        print*, 'iter =', m
+       if (verbose_pcg) then
+!          print*, ' '
+!          print*, 'iter =', m
+       endif
 
        ! Compute (PC)r using a diagonal preconditioner
        ! TODO: Consider using a different preconditioner if the
@@ -454,6 +1294,10 @@ contains
        ! In parallel, this would need to be a global sum: eta1 = global_sum(work0)
        eta1 = sum(work0)
 
+       if (verbose_pcg) then
+!          print*, 'eta0, eta1 =', eta0, eta1
+       endif
+
        ! Update conjugate direction vector d
 
        d(:) = work1(:) + d(:)*(eta1/eta0)   ! d_(i+1) = PC(r_(i+1)) + beta_(i+1)*d_i
@@ -466,6 +1310,13 @@ contains
 
 !       print*, 'work0 =', work0
 !       print*, 'd =', d(:)
+
+       if (verbose_pcg) then
+!          print*, 'sum(work1) =', sum(work1)
+!          print*, 'sum(d) =', sum(d)
+!          print*, ' '
+!          print*, 'Call matvec, y = Ad'
+       endif
 
        ! Compute y = A*d
 
@@ -489,6 +1340,16 @@ contains
                                   !          (r, PC(r))
         eta1 = eta0/sum(work0)    ! alpha = ----------
                                   !          (d, A*d)
+
+
+       if (verbose_pcg) then
+!          print*, 'sum(y=Ad) =', sum(y)
+!          print*, 'max(y=Ad) =', maxval(y)
+!          print*, ' '
+!          print*, 'sum(work0 = d*Ad) =', sum(work0)
+!          print*, 'new eta0, eta1 =', eta0, eta1
+       endif
+
         ! In parallel, this would need to be a global sum: eta1 = eta0/global_sum(work0)
 
 !        print*, '(r, PC(r))=', eta0
@@ -496,6 +1357,13 @@ contains
 
         x(:) = x(:) + eta1 * d(:)    ! new solution, x_(i+1) = x_i + alpha*d
         r(:) = r(:) - eta1 * y(:)    ! new residual, r_(i+1) = r_i - alpha*(Ad)
+
+        if (verbose_pcg) then
+!           print*,'new sum(x) =', sum(x)
+!           print*,'new max(x) =', maxval(x)
+!           print*,'new sum(r) =', sum(r)
+!           print*,'new max(r) =', maxval(r)
+        endif
 
         if (verbose_pcg) then
 !           print*, ' '
@@ -506,6 +1374,11 @@ contains
         endif
 
         if (mod(m,solv_ncheck) == 0) then
+
+           if (verbose_pcg) then
+!              print*, ' '
+!              print*, 'Call matvec, y = Ax'
+           endif
 
            ! Compute y = Ax
            
@@ -615,11 +1488,26 @@ contains
 
     integer :: storage      ! = 1 for CSC, = 2 for CSR
 
+
+!WHL - debug
+!!    integer :: rowtest
+!!    rowtest = 2*ntest - 1
+    
+    if (verbose_pcg) then
+!       print*, ' '
+!       print*, 'In unstructured matvec'
+!       print*, 'max(A) =', maxval(A)
+!       print*, 'sum(x):', sum(x)
+!       print*, 'max(x):', maxval(x)
+!!       print*, 'rowtest, x(rowtest):', rowtest, x(rowtest) 
+    endif
+
     if (present(matrix_storage)) then
        storage = matrix_storage   ! 1 for CSC, 2 for CSR
     else
        storage = 1                ! CSC by default
     endif
+
 
     ! Initialize the result vector.
 
@@ -634,6 +1522,12 @@ contains
           iend = iA(irow+1)-1   ! index of last nonzero in irow
           do i = ibgn, iend
              y(irow) = y(irow) + A(i)*x(jA(i))
+
+!WHL- debug
+!!             if (irow == rowtest) then
+!!                print*, 'row, A, x, Ax, ynew:', irow, A(i), x(jA(i)), A(i)*x(jA(i)), y(irow)
+!!             endif
+
           enddo
        enddo
 
