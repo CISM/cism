@@ -359,14 +359,14 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
 !! A hack of the boundary condition mask needed for the Ross Ice Shelf exp.
 !! The quick check of whether or not this is the Ross experiment is to look
 !! at the domain size.
- if( ewn == 151 .and. nsn == 115 )then
-    call not_parallel(__FILE__, __LINE__)
-    do ns=1,nsn-1; do ew=1,ewn-1
-        if( umask(ew,ns) == 21 .or. umask(ew,ns) == 5 )then
-            umask(ew,ns) = 73
-        endif
-    end do; end do
- end if
+! if( ewn == 151 .and. nsn == 115 )then
+!    call not_parallel(__FILE__, __LINE__)
+!    do ns=1,nsn-1; do ew=1,ewn-1
+!        if( umask(ew,ns) == 21 .or. umask(ew,ns) == 5 )then
+!            umask(ew,ns) = 73
+!        endif
+!    end do; end do
+! end if
 
 !! hack for basal processes submodel test case, to avoid floatation at downstream
 !! end yet still allow for application of a floating ice bc there
