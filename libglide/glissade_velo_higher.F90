@@ -2556,9 +2556,14 @@
                                matrix,       rhs,   &
                                answer)
 
+    !----------------------------------------------------------------
     ! Using the intermediate matrices (Auu, Auv, Avu, Avv), load vectors (bu, bv),
     ! and velocity components (uvel, vvel), form the matrix and the rhs and answer
     ! vectors in the desired sparse matrix format.
+    !
+    ! The matrix is formed in ascending row order, so it can easily be transformed
+    ! to compressed sparse row (CSR) format without further sorting.
+    !----------------------------------------------------------------
 
     !----------------------------------------------------------------
     ! Input-output arguments
@@ -2624,6 +2629,9 @@
        j = jNodeIndex(rowA)
        k = kNodeIndex(rowA)
 
+       ! Load the nonzero values associated with Auu and Auv
+       ! These are assigned a value of matrix%row = 2*rowA - 1
+
        do jA = -1, 1
        do iA = -1, 1
        do kA = -1, 1
@@ -2655,6 +2663,27 @@
                 matrix%col(ct) = 2*colA
                 matrix%val(ct) = val
              endif
+
+          endif     ! i+iA, j+jA, and k+kA in bounds
+
+       enddo        ! kA
+       enddo        ! iA
+       enddo        ! jA
+
+       ! Load the nonzero values associated with Avu and Avv
+       ! These are assigned a value of matrix%row = 2*rowA
+
+       do jA = -1, 1
+       do iA = -1, 1
+       do kA = -1, 1
+
+          if ( (k+kA >= 1 .and. k+kA <= nz)     &
+                          .and.                     &
+               (i+iA >= 1 .and. i+iA <= nx)         &
+                          .and.                     &
+               (j+jA >= 1 .and. j+jA <= ny-1) ) then
+
+             colA = NodeID(k+kA, i+iA, j+jA)   ! ID for neighboring node
 
              ! Avu 
              val = Avu(kA,iA,jA,k,i,j)
