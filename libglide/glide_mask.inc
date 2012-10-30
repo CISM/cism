@@ -60,12 +60,12 @@
 !17 = 16 + 1
 #define GLIDE_IS_GROUNDING_LINE(mask) (iand(mask, 17) == 17)
 
-!TODO - This one probably is not needed
+!TODO - This one probably is not needed - NOTE that removing it affects the iarea/ivol calculation
 !Checks for any ice, dynamic or not, that is either floating *or* on the grounding line
 !TODO: IF NEEDED, define from above available combinations rather than hardcode?
 #define GLIDE_IS_FLOAT_OR_GNDLINE(mask) (iand(mask, 24) > 0 .and. GLIDE_HAS_ICE(mask))
 
-!TODO - This one probably is not needed
+!TODO - This one probably is not needed - NOTE that removing it affects the iarea/ivol calculation
 !Checks for any ice, dynamic or not, that is either grounded *or* on the grounding line
 !TODO: IF NEEDED, define from above available combinations rather than hardcode?
 #define GLIDE_IS_GROUND_OR_GNDLINE(mask) (iand(mask, 20) > 0 .and. GLIDE_HAS_ICE(mask))
@@ -99,13 +99,25 @@
 ! 129 = 128 + 1
 #define GLIDE_IS_COMP_DOMAIN_BND(mask)    (iand(mask, 129) == 129)
 
-! other common combinations:
-!11 = 8 + 3		    ! thin floating ice
-!21 = 20 + 1 	 	! non-thin ice grounding line
-!23 = 20 + 3 	 	! thin ice grounding line
+! table of common combinations:
+!1			! has ice
+!3			! has thin ice
+!4		 	! land
+!5 = 4 + 1              ! grounded ice
+!7 = 4 + 3              ! grounded thin ice
+!8		 	! ocean
+!9 = 8 + 1              ! floating ice
+!11 = 8 + 3             ! floating thin ice
+!17 = 16 + 1		! grounding line with ice
+!19 = 16 + 3		! grounding line with thin ice
+!21 = 16 + 4 + 1	! non-thin ice grounding line
+!23 = 16 + 4 + 3	! thin ice grounding line
+!32			! margin
+!37 = 32 + 4 + 1	! land margin
 !39 = 32 + 4 + 3	! land margin with thin ice
-!43 = 32 + 8 + 3	! calving margin with thin ice
-!55 = 37 + 17 + 1	! g.l. land margin with non-thin ice
-!57 = 37 + 17 + 3	! g.l. land margin with thin ice
+!41 = 32 + 8 + 1	! calving margin (ocean)
+!43 = 32 + 8 + 3	! calving margin (ocean) with thin ice
+!53 = 32 + 21		! margin AND grounding line   
+!55 = 32 + 23		! margin AND grounding line with thin ice  
 
 #endif
