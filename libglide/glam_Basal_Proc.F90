@@ -22,7 +22,9 @@ contains
     
     !Arguments
     integer,intent(in) :: ewn,nsn
-	real (sp),intent (in) :: ntem
+!WHLTSTEP - Changed ntem to real(dp)
+!    real (sp),intent (in) :: ntem
+    real (dp),intent (in) :: ntem
     type(glide_basalproc),intent(inout) :: basalproc
     
     !Variables
@@ -38,14 +40,17 @@ contains
   
   
   subroutine Basal_Proc_driver (ewn,      nsn,      upn,  				&
-								dt,ubas,vbas,  what, bmlt, basalproc)
+				dt,ubas,vbas,  what, bmlt, basalproc)
 								
 	use glide_grids, only: stagvarb								
   implicit none
     
     !Arguments
     integer, intent (in) ::ewn, nsn, upn, what
-    real (sp), intent(in) :: dt
+
+!WHLTSTEP - Changed dt to real(dp)
+!    real (sp), intent(in) :: dt
+    real (dp), intent(in) :: dt
     real(dp), dimension(:,:), intent (in) :: ubas,vbas
     real(dp), dimension(:,:), intent (in) :: bmlt
     type(glide_basalproc),intent(inout) :: basalproc
