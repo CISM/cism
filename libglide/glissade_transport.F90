@@ -56,7 +56,7 @@
                                            dx,       dy,         &
                                            nx,       ny,         &
                                            nlyr,     sigma,      &
-                                           nghost,   ntracer,    &
+                                           nhalo,    ntracer,    &
                                            uvel,     vvel,       &
                                            thck,     temp,       &
                                            age,                  &
@@ -94,7 +94,7 @@
          nx, ny,               &! horizontal array size
          nlyr,                 &! number of vertical layers
          ntracer,              &! number of tracers (should be >= 1)
-         nghost                 ! number of rows of ghost cells
+         nhalo                  ! number of rows of halo cells
 
       real(dp), intent(in), dimension(nlyr+1) :: &
          sigma                  ! layer interfaces in sigma coordinates
@@ -188,16 +188,18 @@
 
 !---!-------------------------------------------------------------------
 !---! Prepare for remapping.
-!---! Initialize, update ghost cells, fill tracer arrays.
+!---! Initialize, update halo cells, fill tracer arrays.
 !---!-------------------------------------------------------------------
 
 !Note: (ilo,ihi) and (jlo,jhi) are the lower and upper bounds of the local domain
 ! (i.e., grid cells owned by this processor).
 
-      ilo = 1 + nghost
-      ihi = nx - nghost
-      jlo = 1 + nghost
-      jhi = ny - nghost
+!TODO - Replace ilo with 1+nhalo, ihi with nx-nhalo, etc.?
+
+      ilo = 1 + nhalo
+      ihi = nx - nhalo
+      jlo = 1 + nhalo
+      jhi = ny - nhalo
 
       l_stop = .false.
 
@@ -321,7 +323,7 @@
 
          call make_remap_mask (nx,           ny,                 &
                                ilo, ihi,     jlo, jhi,           &
-                               nghost,       icells,             &
+                               nhalo,        icells,             &
                                indxi(:),     indxj(:),           &
                                thck(:,:),    thck_mask(:,:))
 
@@ -367,7 +369,7 @@
             call glissade_horizontal_remap (dt,                                  &
                                             dx,                dy,               &
                                             nx,                ny,               &
-                                            ntracer,           nghost,           &
+                                            ntracer,           nhalo,            &
                                             thck_mask(:,:),    icells,           &
                                             indxi(:),          indxj(:),         &
                                             uvel_layer(:,:),   vvel_layer(:,:),  &
@@ -391,9 +393,26 @@
                                    thck_layer(:,:,:),          &
                                    tracer(:,:,:,:) )
 
-    !-------------------------------------------------------------------
-    ! Recompute thickness, temperature and other tracers.
-    !-------------------------------------------------------------------
+      !-------------------------------------------------------------------
+      ! Halo updates for thickness and tracer arrays
+      !
+      ! Note: Cannot pass the full 3D array to parallel_halo, because this
+      !       subroutine assumes that k is the first rather than third index. 
+      !-------------------------------------------------------------------
+
+      do k = 1, nlyr
+
+         call parallel_halo(thck_layer(:,:,k))
+
+         do nt = 1, ntracer
+            call parallel_halo(tracer(:,:,nt,k))
+         enddo
+
+      enddo
+
+      !-------------------------------------------------------------------
+      ! Recompute thickness, temperature and other tracers.
+      !-------------------------------------------------------------------
 
       thck(:,:) = 0.d0
 
@@ -428,12 +447,25 @@
          enddo
          call global_sum(mtsum_final)
 
+!WHL - debug
+               print*, ' '
+               print*, 'msum_init =', mtsum_init(0)
+               print*, 'msum_final =', mtsum_final(0)
+               print*, 'diff =', mtsum_init(0) - mtsum_final(0)
+               print*, ' '
+               do nt = 1, ntracer              
+                  print*, nt, 'mtsum_init =', mtsum_init(nt)
+                  print*, nt, 'mtsum_final =', mtsum_final(nt)
+                  print*, 'diff =', mtsum_init(nt) - mtsum_final(nt)
+                  print*, ' '
+               enddo
+
          if (main_task) then
             call global_conservation (mtsum_init(0), mtsum_final(0),  &
                                       l_stop,        ntracer,         &
                                       mtsum_init(1:ntracer), mtsum_final(1:ntracer))
             if (l_stop) then
-               write(message,*) 'CONSERVATION ERROR: Aborting'
+               write(message,*) 'CONSERVATION ERROR in glissade_transport; Aborting'
                call write_log(message,GM_FATAL)
             endif
          endif

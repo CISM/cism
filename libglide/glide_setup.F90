@@ -416,8 +416,8 @@ contains
     call GetValue(section,'nvel',model%numerics%nvel)
     call GetValue(section,'profile',model%numerics%profile_period)
     call GetValue(section,'ndiag',model%numerics%ndiag)
-    call GetValue(section,'idiag',model%numerics%idiag)
-    call GetValue(section,'jdiag',model%numerics%jdiag)
+    call GetValue(section,'idiag',model%numerics%idiag_global)
+    call GetValue(section,'jdiag',model%numerics%jdiag_global)
   end subroutine handle_time
   
   subroutine print_time(model)
@@ -437,7 +437,7 @@ contains
     call write_log(message)
     write(message,*) 'thermal dt factor : ',model%numerics%ntem
     call write_log(message)
-    if ( (model%numerics%ntem < 1.0d0) .or. &
+    if ( (model%numerics%ntem < 1.0d0) .or. & 
        (floor(model%numerics%ntem) /= model%numerics%ntem) ) then
        call write_log('ntem is a multiplier on the basic time step.  It should be a positive integer.  Aborting.',GM_FATAL)
     endif
@@ -673,6 +673,11 @@ contains
     call write_log(message)
 
 !whl - The old Glimmer temperature scheme is supported only for single-processor runs.
+!TODO - Maybe the distributed_execution function should be called in association with the Glide dycore,
+!       (whichdycore = 0), and not just the temperature option.
+!      But we still want to be able to run the Glide dycore with MPI on one processor.
+!      Does distributed_execution return '.true.' in this case?
+
     if (model%options%whichtemp==TEMP_GLIMMER .and. distributed_execution()) then
        call write_log('Error, Glimmer temperature scheme (temperature = TEMP_GLIMMER) &
                        not supported for distributed parallel runs',GM_FATAL)
@@ -881,6 +886,14 @@ contains
     if (model%options%which_ho_sparse < 0 .or. model%options%which_ho_sparse >= size(ho_whichsparse)) then
         call write_log('Error, Stokes approximation input out of range', GM_FATAL)
     end if
+
+    ! other options
+
+    if (model%numerics%idiag_global < 1 .or. model%numerics%idiag_global > model%general%ewn     &
+                                        .or.                                                     &
+        model%numerics%jdiag_global < 1 .or. model%numerics%jdiag_global > model%general%nsn) then
+        call write_log('Error, global diagnostic point (idiag, jdiag) is out of bounds', GM_FATAL)
+    endif
 
     call write_log('')
 

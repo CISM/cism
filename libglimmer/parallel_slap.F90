@@ -26,6 +26,10 @@ module parallel
   integer,save :: global_ewn,global_nsn,local_ewn,local_nsn,own_ewn,own_nsn
   integer,save :: ewlb,ewub,nslb,nsub
 
+!WHL - Added global_row_offset and global_col_offset 
+!      (since these are defined in parallel_mpi.F90)
+  integer,save :: global_col_offset, global_row_offset
+
   ! global IDs
   integer,parameter :: ProcsEW = 1
 
@@ -183,6 +187,13 @@ module parallel
      module procedure parallel_put_var_real8_1d
   end interface
 
+!WHL - added this interface and associated procedures
+  interface parallel_reduce_max
+     module procedure parallel_reduce_max_integer
+     module procedure parallel_reduce_max_real4
+     module procedure parallel_reduce_max_real8
+  end interface
+
 contains
 
   subroutine broadcast_character(c)
@@ -292,6 +303,11 @@ contains
     local_nsn = nsub-nslb+1
     own_nsn = local_nsn-lhalo-uhalo
     nsn = local_nsn
+
+!WHL - initialize these too
+    global_row_offset = 0
+    global_col_offset = 0
+  
   end subroutine distributed_grid
 
   function distributed_execution()
@@ -876,6 +892,7 @@ contains
          nf90_get_var(ncid,varid,values)
   end function parallel_get_var_real8_1d
 
+!TODO - Pass locew in first position and locns in second position?
   function parallel_globalID(locns, locew, upstride)
     ! Returns a unique ID for a given row and column reference that is identical across all processors.
     ! For instance if Proc 2: (17,16) is the same global cell as Proc 3: (17,1), then the globalID will be the same for both.
@@ -901,6 +918,35 @@ contains
 	!return value
 	parallel_globalID = global_ID
   end function parallel_globalID
+
+!WHL - New function similar to parallel_globalID, but assigns 0's to cells outside the global domain
+!TODO - Remove function parallel_globalID if no longer needed?
+  function parallel_globalID_scalar(locew, locns, upstride)
+    ! Returns a unique ID for a given row and column reference that is identical across all processors.
+    ! For instance if Proc 0: (17,16) is the same global cell as Proc 3: (17,1), then the globalID will be the same for both.
+    ! These IDs are spaced upstride apart.  upstride = number of vertical layers.
+    integer,intent(IN) :: locns, locew, upstride
+    integer :: parallel_globalID_scalar
+    ! locns is local NS (row) grid index
+    ! locew is local EW (col) grid index
+    integer :: global_row, global_col, global_ID
+    character(len=40) :: local_coord
+
+    ! including global domain halo adds lhalo to offsets
+    global_row = locns - lhalo
+    global_col = locew - lhalo
+
+    ! including global domain halo adds (lhalo + uhalo) to global_ewn
+    global_ID = ((global_row - 1)*(global_ewn) + (global_col - 1)) * upstride + 1
+
+    ! JEFF Testing Code
+    ! write(local_coord, "A13,I10.1,A2,I10.1,A1") " (NS, EW) = (", locns, ", ", locew, ")"
+    ! write(*,*) "Processor reference ", this_rank, local_coord, " globalID = ", global_ID
+
+    !return value
+    parallel_globalID_scalar = global_ID
+
+  end function parallel_globalID_scalar
 
   subroutine parallel_halo_integer_2d(a)
     implicit none
@@ -1243,15 +1289,36 @@ contains
     return
   end function parallel_reduce_sum
 
-  function parallel_reduce_max(x)
+!WHL - added three versions of this procedure to replace the original real8 version
+  function parallel_reduce_max_integer(x)
     ! Max x across all of the nodes.
     ! In parallel_slap mode just return x.
     implicit none
-    real(8) :: x, parallel_reduce_max
+    integer :: x, parallel_reduce_max_integer
 
-    parallel_reduce_max = x
+    parallel_reduce_max_integer = x
     return
-  end function parallel_reduce_max
+  end function parallel_reduce_max_integer
+
+  function parallel_reduce_max_real4(x)
+    ! Max x across all of the nodes.
+    ! In parallel_slap mode just return x.
+    implicit none
+    real(4) :: x, parallel_reduce_max_real4
+
+    parallel_reduce_max_real4 = x
+    return
+  end function parallel_reduce_max_real4
+
+  function parallel_reduce_max_real8(x)
+    ! Max x across all of the nodes.
+    ! In parallel_slap mode just return x.
+    implicit none
+    real(8) :: x, parallel_reduce_max_real8
+
+    parallel_reduce_max_real8 = x
+    return
+  end function parallel_reduce_max_real8
 
   subroutine parallel_show_minmax(label,values)
     implicit none

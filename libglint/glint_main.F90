@@ -46,7 +46,7 @@ module glint_main
 
 !TODO - Do not use the hard-coded idiag and jdiag; use model%numerics%idiag/jdiag instead
 !       Also, change the names of itest and jtest to make it clear these are on the global (CLM) grid.
-  use glimmer_paramets, only: itest, jtest, jjtest, stdout, idiag, jdiag
+  use glimmer_paramets, only: itest, jtest, jjtest, stdout
 #endif
 
   use glide_diagnostics
@@ -478,7 +478,9 @@ contains
        timeyr = params%start_time/8760.d0
 #ifdef GLC_DEBUG
        write(stdout,*) 'Write model diagnostics, time =', timeyr
-       call glide_write_diag(params%instances(i)%model, timeyr, idiag, jdiag)
+       call glide_write_diag(params%instances(i)%model, timeyr,  &
+                             params%instances(i)%model%numerics%idiag_global,  &
+                             params%instances(i)%model%numerics%jdiag_global)
 #endif
 
        ! Initialise anomaly coupling
@@ -1117,7 +1119,9 @@ contains
              timeyr = params%instances(i)%model%numerics%time
 #ifdef GLC_DEBUG
              write(stdout,*) 'Write diagnostics, time (yr)=', timeyr     
-             call glide_write_diag(params%instances(i)%model, timeyr, idiag, jdiag)
+             call glide_write_diag(params%instances(i)%model, timeyr,  &
+                                   params%instances(i)%model%numerics%idiag_global,  &
+                                   params%instances(i)%model%numerics%jdiag_global)
 #endif
           endif
 

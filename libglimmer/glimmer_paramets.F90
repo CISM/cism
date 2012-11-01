@@ -60,9 +60,6 @@ module glimmer_paramets
       itest = 133, jtest = 84,  &          ! in Greenland (FV2), lat 67.3 N, lon 330 E
                   jjtest = 97 - jtest,  &  ! reversed for N to S indexing (FV2, ny = 96)
       itest_local = 60, jtest_local = 54   ! Greenland 20 deg grid, initial usrf = 491 m
-
-   integer, parameter :: idiag = 30, jdiag = 50  ! point for diagnostic output
-
 #endif
 
 !SCALING - I removed the no_rescale option.

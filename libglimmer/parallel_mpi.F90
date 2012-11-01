@@ -19,7 +19,7 @@ module parallel
   integer,parameter :: staggered_nhalo = uhalo-1
 
   logical,save :: main_task
-  integer,save :: comm,tasks,this_rank
+  integer,save :: comm, tasks, this_rank
 
   ! distributed grid
   integer,save :: global_ewn,global_nsn,local_ewn,local_nsn,own_ewn,own_nsn
@@ -192,6 +192,13 @@ module parallel
      module procedure parallel_put_var_real4
      module procedure parallel_put_var_real8
      module procedure parallel_put_var_real8_1d
+  end interface
+
+!WHL - added this interface and associated procedures
+  interface parallel_reduce_max
+     module procedure parallel_reduce_max_integer
+     module procedure parallel_reduce_max_real4
+     module procedure parallel_reduce_max_real8
   end interface
 
 contains
@@ -1197,16 +1204,17 @@ contains
         call parallel_stop(__FILE__, __LINE__)
     endif
 
+!WHL - Uncommment prints
     ! Print grid geometry
-    !write(*,*) "Process ", this_rank, " Total = ", tasks, " ewtasks = ", ewtasks, " nstasks = ", nstasks
-    !write(*,*) "Process ", this_rank, " ewrank = ", ewrank, " nsrank = ", nsrank
-    !write(*,*) "Process ", this_rank, " l_ewn = ", local_ewn, " o_ewn = ", own_ewn
-    !write(*,*) "Process ", this_rank, " l_nsn = ", local_nsn, " o_nsn = ", own_nsn
-    !write(*,*) "Process ", this_rank, " ewlb = ", ewlb, " ewub = ", ewub
-    !write(*,*) "Process ", this_rank, " nslb = ", nslb, " nsub = ", nsub
-    !write(*,*) "Process ", this_rank, " east = ", east, " west = ", west
-    !write(*,*) "Process ", this_rank, " north = ", north, " south = ", south
-    !write(*,*) "Process ", this_rank, " ew_vars = ", own_ewn, " ns_vars = ", own_nsn
+    write(*,*) "Process ", this_rank, " Total = ", tasks, " ewtasks = ", ewtasks, " nstasks = ", nstasks
+    write(*,*) "Process ", this_rank, " ewrank = ", ewrank, " nsrank = ", nsrank
+    write(*,*) "Process ", this_rank, " l_ewn = ", local_ewn, " o_ewn = ", own_ewn
+    write(*,*) "Process ", this_rank, " l_nsn = ", local_nsn, " o_nsn = ", own_nsn
+    write(*,*) "Process ", this_rank, " ewlb = ", ewlb, " ewub = ", ewub
+    write(*,*) "Process ", this_rank, " nslb = ", nslb, " nsub = ", nsub
+    write(*,*) "Process ", this_rank, " east = ", east, " west = ", west
+    write(*,*) "Process ", this_rank, " north = ", north, " south = ", south
+    write(*,*) "Process ", this_rank, " ew_vars = ", own_ewn, " ns_vars = ", own_nsn
     call distributed_print_grid(own_ewn, own_nsn)
   end subroutine distributed_grid
 
@@ -2441,6 +2449,7 @@ contains
     call broadcast(values)
   end function parallel_get_var_real8_1d
 
+!TODO - Pass locew in first position and locns in second position?
   function parallel_globalID(locns, locew, upstride)
     ! Returns a unique ID for a given row and column reference that is identical across all processors.
     ! For instance if Proc 0: (17,16) is the same global cell as Proc 3: (17,1), then the globalID will be the same for both.
@@ -2457,7 +2466,7 @@ contains
     global_col = (locew - lhalo) + (global_col_offset + lhalo)
 
     ! including global domain halo adds (lhalo + uhalo) to global_ewn
-    global_ID = ((global_row - 1) * (global_ewn +lhalo + uhalo) + (global_col - 1)) * upstride + 1
+    global_ID = ((global_row - 1) * (global_ewn + lhalo + uhalo) + (global_col - 1)) * upstride + 1
 
     ! JEFF Testing Code
     ! write(local_coord, "A13,I10.1,A2,I10.1,A1") " (NS, EW) = (", locns, ", ", locew, ")"
@@ -2466,6 +2475,35 @@ contains
     !return value
     parallel_globalID = global_ID
   end function parallel_globalID
+
+!WHL - New function similar to parallel_globalID, but assigns 0's to cells outside the global domain
+!TODO - Remove function parallel_globalID if no longer needed?
+  function parallel_globalID_scalar(locew, locns, upstride)
+    ! Returns a unique ID for a given row and column reference that is identical across all processors.
+    ! For instance if Proc 0: (17,16) is the same global cell as Proc 3: (17,1), then the globalID will be the same for both.
+    ! These IDs are spaced upstride apart.  upstride = number of vertical layers.
+    integer,intent(IN) :: locns, locew, upstride
+    integer :: parallel_globalID_scalar
+    ! locns is local NS (row) grid index
+    ! locew is local EW (col) grid index
+    integer :: global_row, global_col, global_ID
+    character(len=40) :: local_coord
+
+    ! including global domain halo adds lhalo to offsets
+    global_row = (locns - lhalo) + global_row_offset
+    global_col = (locew - lhalo) + global_col_offset
+
+    ! including global domain halo adds (lhalo + uhalo) to global_ewn
+    global_ID = ((global_row - 1)*(global_ewn) + (global_col - 1)) * upstride + 1
+
+    ! JEFF Testing Code
+    ! write(local_coord, "A13,I10.1,A2,I10.1,A1") " (NS, EW) = (", locns, ", ", locew, ")"
+    ! write(*,*) "Processor reference ", this_rank, local_coord, " globalID = ", global_ID
+
+    !return value
+    parallel_globalID_scalar = global_ID
+
+  end function parallel_globalID_scalar
 
   subroutine parallel_halo_integer_2d(a)
     use mpi
@@ -2684,6 +2722,7 @@ contains
   end subroutine parallel_halo_real8_2d
 
   subroutine parallel_halo_real8_3d(a)
+
     use mpi
     implicit none
     real(8),dimension(:,:,:) :: a
@@ -3318,19 +3357,48 @@ contains
     return
   end function parallel_reduce_sum
 
-  function parallel_reduce_max(x)
+!WHL - added three versions of this procedure to replace the original real8 version
+  function parallel_reduce_max_integer(x)
+    use mpi
+    implicit none
+    integer :: x
+
+    integer :: ierror
+    integer :: recvbuf,sendbuf, parallel_reduce_max_integer
+    ! begin
+    sendbuf = x
+    call mpi_allreduce(sendbuf,recvbuf,1,mpi_integer,mpi_max,comm,ierror)
+    parallel_reduce_max_integer = recvbuf
+    return
+  end function parallel_reduce_max_integer
+
+  function parallel_reduce_max_real4(x)
+    use mpi
+    implicit none
+    real(4) :: x
+
+    integer :: ierror
+    real(4) :: recvbuf,sendbuf, parallel_reduce_max_real4
+    ! begin
+    sendbuf = x
+    call mpi_allreduce(sendbuf,recvbuf,1,mpi_real4,mpi_max,comm,ierror)
+    parallel_reduce_max_real4 = recvbuf
+    return
+  end function parallel_reduce_max_real4
+
+  function parallel_reduce_max_real8(x)
     use mpi
     implicit none
     real(8) :: x
 
     integer :: ierror
-    real(8) :: recvbuf,sendbuf, parallel_reduce_max
+    real(8) :: recvbuf,sendbuf, parallel_reduce_max_real8
     ! begin
     sendbuf = x
     call mpi_allreduce(sendbuf,recvbuf,1,mpi_real8,mpi_max,comm,ierror)
-    parallel_reduce_max = recvbuf
+    parallel_reduce_max_real8 = recvbuf
     return
-  end function parallel_reduce_max
+  end function parallel_reduce_max_real8
 
   ! Andy removed support for returnownedvector in October 2011.
   ! subroutine parallel_set_trilinos_return_vect

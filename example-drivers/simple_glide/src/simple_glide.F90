@@ -53,8 +53,8 @@ program simple_glide
   use glimmer_commandline
   use glimmer_writestats
   use glimmer_filenames, only : filenames_init
-  use glimmer_horiz_bcs, only : horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns, &
-                                horiz_bcs_unstag_scalar, horiz_bcs_stag_scalar
+!!  use glimmer_horiz_bcs, only : horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns, &
+!!                                horiz_bcs_unstag_scalar, horiz_bcs_stag_scalar
 
   use glissade
 
@@ -163,8 +163,8 @@ program simple_glide
   end if
 
 !WHL - Write initial diagnostic output to log file
-  call glide_write_diag(model, time, model%numerics%idiag, &
-                                     model%numerics%jdiag)
+  call glide_write_diag(model, time, model%numerics%idiag_global,  &
+                                     model%numerics%jdiag_global)
 
   ! --- Output the initial state -------------
   ! TODO MJH Copied this below from glissade_post_tstep().  May want to make a subroutine that just has this 
@@ -292,8 +292,8 @@ program simple_glide
 !TODO Can this be moved to end of time loop so that we can merge the two if-statements into a single construct?
      ! write ice sheet diagnostics
      if (mod(tstep_count, model%numerics%ndiag)==0)  then
-        call glide_write_diag(model, time, model%numerics%idiag, &
-                                           model%numerics%jdiag)
+        call glide_write_diag(model, time, model%numerics%idiag_global,  &
+                                           model%numerics%jdiag_global)
      endif
 
 !TODO - Remove this comment?
@@ -315,77 +315,77 @@ program simple_glide
 
        call t_startf('simple_glide_halo_upd'//suffix)
        call parallel_halo(model%stress%efvs)
-       call horiz_bcs_unstag_scalar(model%stress%efvs)
+!!       call horiz_bcs_unstag_scalar(model%stress%efvs)
        call parallel_halo(model%velocity%uvel)
-       call horiz_bcs_stag_vector_ew(model%velocity%uvel)
+!!       call horiz_bcs_stag_vector_ew(model%velocity%uvel)
        call parallel_halo(model%velocity%vvel)
-       call horiz_bcs_stag_vector_ns(model%velocity%vvel)
+!!       call horiz_bcs_stag_vector_ns(model%velocity%vvel)
        call parallel_halo(model%velocity%uflx)
-       call horiz_bcs_stag_vector_ew(model%velocity%uflx)
+!!       call horiz_bcs_stag_vector_ew(model%velocity%uflx)
        call parallel_halo(model%velocity%vflx)
-       call horiz_bcs_stag_vector_ns(model%velocity%vflx)
+!!       call horiz_bcs_stag_vector_ns(model%velocity%vflx)
        call parallel_halo(model%velocity%velnorm)
-       call horiz_bcs_stag_scalar(model%velocity%velnorm)
+!!       call horiz_bcs_stag_scalar(model%velocity%velnorm)
        call parallel_halo(model%geometry%thck)
-       call horiz_bcs_unstag_scalar(model%geometry%thck)
+!!       call horiz_bcs_unstag_scalar(model%geometry%thck)
        call parallel_halo(model%geomderv%stagthck)
-       call horiz_bcs_stag_scalar(model%geomderv%stagthck)
+!!       call horiz_bcs_stag_scalar(model%geomderv%stagthck)
        call parallel_halo(model%climate%acab)
-       call horiz_bcs_unstag_scalar(model%climate%acab)
+!!       call horiz_bcs_unstag_scalar(model%climate%acab)
        call parallel_halo(model%geomderv%dusrfdew)
-       call horiz_bcs_stag_vector_ew(model%geomderv%dusrfdew)
+!!       call horiz_bcs_stag_vector_ew(model%geomderv%dusrfdew)
        call parallel_halo(model%geomderv%dusrfdns)
-       call horiz_bcs_stag_vector_ns(model%geomderv%dusrfdns)
+!!       call horiz_bcs_stag_vector_ns(model%geomderv%dusrfdns)
        call parallel_halo(model%geomderv%dthckdew)
-       call horiz_bcs_stag_vector_ew(model%geomderv%dthckdew)
+!!       call horiz_bcs_stag_vector_ew(model%geomderv%dthckdew)
        call parallel_halo(model%geomderv%dthckdns)
-       call horiz_bcs_stag_vector_ns(model%geomderv%dthckdns)
+!!       call horiz_bcs_stag_vector_ns(model%geomderv%dthckdns)
        call parallel_halo(model%stress%tau%xx)
-       call horiz_bcs_unstag_scalar(model%stress%tau%xx)
+!!       call horiz_bcs_unstag_scalar(model%stress%tau%xx)
        call parallel_halo(model%stress%tau%yy)
-       call horiz_bcs_unstag_scalar(model%stress%tau%yy)
+!!       call horiz_bcs_unstag_scalar(model%stress%tau%yy)
        call parallel_halo(model%stress%tau%xy)
-       call horiz_bcs_unstag_scalar(model%stress%tau%xy)
+!!       call horiz_bcs_unstag_scalar(model%stress%tau%xy)
        call parallel_halo(model%stress%tau%scalar)
-       call horiz_bcs_unstag_scalar(model%stress%tau%scalar)
+!!       call horiz_bcs_unstag_scalar(model%stress%tau%scalar)
        call parallel_halo(model%stress%tau%xz)
-       call horiz_bcs_unstag_scalar(model%stress%tau%xz)
+!!       call horiz_bcs_unstag_scalar(model%stress%tau%xz)
        call parallel_halo(model%stress%tau%yz)
-       call horiz_bcs_unstag_scalar(model%stress%tau%yz)
+!!       call horiz_bcs_unstag_scalar(model%stress%tau%yz)
        call parallel_halo(model%geometry%topg)
-       call horiz_bcs_unstag_scalar(model%geometry%topg)
+!!       call horiz_bcs_unstag_scalar(model%geometry%topg)
        call parallel_halo(model%geometry%thkmask)
-       call horiz_bcs_unstag_scalar(model%geometry%thkmask)
+!!       call horiz_bcs_unstag_scalar(model%geometry%thkmask)
        call parallel_halo(model%geometry%marine_bc_normal)
-       call horiz_bcs_unstag_scalar(model%geometry%marine_bc_normal)
+!!       call horiz_bcs_unstag_scalar(model%geometry%marine_bc_normal)
        call parallel_halo(model%velocity%surfvel)
-       call horiz_bcs_stag_scalar(model%velocity%surfvel)
+!!       call horiz_bcs_stag_scalar(model%velocity%surfvel)
        call parallel_halo(model%ground%gline_flux)
-       call horiz_bcs_unstag_scalar(model%ground%gline_flux)
+!!       call horiz_bcs_unstag_scalar(model%ground%gline_flux)
        call parallel_halo(model%velocity%ubas)
-       call horiz_bcs_stag_vector_ew(model%velocity%ubas)
+!!       call horiz_bcs_stag_vector_ew(model%velocity%ubas)
        call parallel_halo(model%velocity%vbas)
-       call horiz_bcs_stag_vector_ns(model%velocity%vbas)
+!!       call horiz_bcs_stag_vector_ns(model%velocity%vbas)
        call parallel_halo(model%isos%relx)
-       call horiz_bcs_unstag_scalar(model%isos%relx)
+!!       call horiz_bcs_unstag_scalar(model%isos%relx)
        call parallel_halo(model%temper%flwa)
-       call horiz_bcs_unstag_scalar(model%temper%flwa)
+!!       call horiz_bcs_unstag_scalar(model%temper%flwa)
        call parallel_halo(model%climate%calving)
-       call horiz_bcs_unstag_scalar(model%climate%calving)
+!!       call horiz_bcs_unstag_scalar(model%climate%calving)
        call parallel_halo(model%climate%backstress)
-       call horiz_bcs_unstag_scalar(model%climate%backstress)
+!!       call horiz_bcs_unstag_scalar(model%climate%backstress)
        call parallel_halo(model%geometry%usrf)
-       call horiz_bcs_unstag_scalar(model%geometry%usrf)
+!!       call horiz_bcs_unstag_scalar(model%geometry%usrf)
        call parallel_halo(model%climate%backstressmap)
-       call horiz_bcs_unstag_scalar(model%climate%backstressmap)
+!!       call horiz_bcs_unstag_scalar(model%climate%backstressmap)
        call parallel_halo(model%stress%tau_x)
-       call horiz_bcs_stag_vector_ew(model%stress%tau_x)
+!!       call horiz_bcs_stag_vector_ew(model%stress%tau_x)
        call parallel_halo(model%stress%tau_y)
-       call horiz_bcs_stag_vector_ew(model%stress%tau_y)
+!!       call horiz_bcs_stag_vector_ew(model%stress%tau_y)
        call parallel_halo(model%geometry%lsrf)
-       call horiz_bcs_unstag_scalar(model%geometry%lsrf)
+!!       call horiz_bcs_unstag_scalar(model%geometry%lsrf)
        call parallel_halo(model%temper%temp)
-       call horiz_bcs_unstag_scalar(model%temper%temp)
+!!       call horiz_bcs_unstag_scalar(model%temper%temp)
 
        call t_stopf('simple_glide_halo_upd'//suffix)
 
