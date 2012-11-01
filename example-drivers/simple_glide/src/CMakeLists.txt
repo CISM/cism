@@ -5,6 +5,12 @@ set(TRILINOS_LIBS ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES}
 message("")
 message("  CMake detected the following libraries for linking Fortran with C++ compiler:")
 message("     ${CMAKE_Fortran_IMPLICIT_LINK_LIBRARIES} ")
+message("  Compare this to the implicit libraries for C++:")
+message("     ${CMAKE_CXX_IMPLICIT_LINK_LIBRARIES} ")
+message("  CMake detected the following link directories for linking Fortran with C++ compiler:")
+message("     ${CMAKE_Fortran_IMPLICIT_LINK_DIRECTORIES} ")
+message("  Compare this to the implicit link directories for C++:")
+message("     ${CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES} ")
 message("  Bill S. and Jim E.: try this list in CESM builds when linking with C++")
 
 # Need include directories from Trilinos but also mod files from glimmer
