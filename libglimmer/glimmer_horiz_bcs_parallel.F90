@@ -657,8 +657,8 @@ contains
           partner = mod(rank,ewtasks)
           allocate(rbuf_n(size(a,1),size(a,2),nhalo  ))
           allocate(sbuf_n(size(a,1),size(a,2),shalo+1))
-          rbuf_n = a(:,:,shalo+own_nsn+1          -ghost_shift:shalo+own_nsn+nhalo-ghost_shift)
-          sbuf_n = a(:,:,shalo+own_nsn+1-(shalo+1)-ghost_shift:shalo+own_nsn      -ghost_shift)
+          rbuf_n = a(:,:,shalo+ns_npts+1          -ghost_shift:shalo+ns_npts+nhalo-ghost_shift)
+          sbuf_n = a(:,:,shalo+ns_npts+1-(shalo+1)-ghost_shift:shalo+ns_npts      -ghost_shift)
           call mpi_irecv( rbuf_n , size( rbuf_n ) , mpi_real8 , partner , 1 , comm , recv_req_n , ierr )
           call mpi_isend( sbuf_n , size( sbuf_n ) , mpi_real8 , partner , 2 , comm , send_req_n , ierr )
       endselect
@@ -675,8 +675,8 @@ contains
           partner = rank - (ewtasks-1)
           allocate(rbuf_e(size(a,1),ehalo  ,size(a,3)))
           allocate(sbuf_e(size(a,1),whalo+1,size(a,3)))
-          rbuf_e = a(:,whalo+own_ewn+1          -ghost_shift:whalo+own_ewn+ehalo-ghost_shift,:)
-          sbuf_e = a(:,whalo+own_ewn+1-(whalo+1)-ghost_shift:whalo+own_ewn      -ghost_shift,:)
+          rbuf_e = a(:,whalo+ew_npts+1          -ghost_shift:whalo+ew_npts+ehalo-ghost_shift,:)
+          sbuf_e = a(:,whalo+ew_npts+1-(whalo+1)-ghost_shift:whalo+ew_npts      -ghost_shift,:)
           call mpi_irecv( rbuf_e , size( rbuf_e ) , mpi_real8 , partner , 3 , comm , recv_req_e , ierr )
           call mpi_isend( sbuf_e , size( sbuf_e ) , mpi_real8 , partner , 4 , comm , send_req_e , ierr )
       endselect
@@ -724,14 +724,14 @@ contains
     if ( ( nsub > global_nsn ) .and. ( horiz_bcs_type_north == HORIZ_BCS_CYCLIC ) ) then   !I am on the north boundary
       call mpi_wait( recv_req_n , mpi_status_ignore , ierr )
       call mpi_wait( send_req_n , mpi_status_ignore , ierr )
-      a(:,:,shalo+own_nsn+1-ghost_shift:shalo+own_nsn+nhalo-ghost_shift) = rbuf_n
+      a(:,:,shalo+ns_npts+1-ghost_shift:shalo+ns_npts+nhalo-ghost_shift) = rbuf_n
       deallocate(rbuf_n)
       deallocate(sbuf_n)
     endif
-    if ( ( ewub > global_ewn ) .and. ( horiz_bcs_type_east  == HORIZ_BCS_CYCLIC ) ) then   !I am on the north boundary
+    if ( ( ewub > global_ewn ) .and. ( horiz_bcs_type_east  == HORIZ_BCS_CYCLIC ) ) then   !I am on the east boundary
       call mpi_wait( recv_req_e , mpi_status_ignore , ierr )
       call mpi_wait( send_req_e , mpi_status_ignore , ierr )
-      a(:,whalo+own_ewn+1-ghost_shift:whalo+own_ewn+ehalo-ghost_shift,:) = rbuf_e
+      a(:,whalo+ew_npts+1-ghost_shift:whalo+ew_npts+ehalo-ghost_shift,:) = rbuf_e
       deallocate(rbuf_e)
       deallocate(sbuf_e)
     endif
@@ -742,7 +742,7 @@ contains
       deallocate(rbuf_s)
       deallocate(sbuf_s)
     endif
-    if ( ( ewlb < 1          ) .and. ( horiz_bcs_type_west  == HORIZ_BCS_CYCLIC ) ) then   !I am on the south boundary
+    if ( ( ewlb < 1          ) .and. ( horiz_bcs_type_west  == HORIZ_BCS_CYCLIC ) ) then   !I am on the west boundary
       call mpi_wait( recv_req_w , mpi_status_ignore , ierr )
       call mpi_wait( send_req_w , mpi_status_ignore , ierr )
       a(:,1+ghost_shift:whalo+1+ghost_shift,:) = rbuf_w
@@ -791,8 +791,8 @@ contains
           partner = mod(rank,ewtasks)
           allocate(rbuf_n(size(a,1),nhalo  ))
           allocate(sbuf_n(size(a,1),shalo+1))
-          rbuf_n = a(:,shalo+own_nsn+1          -ghost_shift:shalo+own_nsn+nhalo-ghost_shift)
-          sbuf_n = a(:,shalo+own_nsn+1-(shalo+1)-ghost_shift:shalo+own_nsn      -ghost_shift)
+          rbuf_n = a(:,shalo+ns_npts+1          -ghost_shift:shalo+ns_npts+nhalo-ghost_shift)
+          sbuf_n = a(:,shalo+ns_npts+1-(shalo+1)-ghost_shift:shalo+ns_npts      -ghost_shift)
           call mpi_irecv( rbuf_n , size( rbuf_n ) , mpi_real8 , partner , 1 , comm , recv_req_n , ierr )
           call mpi_isend( sbuf_n , size( sbuf_n ) , mpi_real8 , partner , 2 , comm , send_req_n , ierr )
       endselect
@@ -809,8 +809,8 @@ contains
           partner = rank - (ewtasks-1)
           allocate(rbuf_e(ehalo  ,size(a,2)))
           allocate(sbuf_e(whalo+1,size(a,2)))
-          rbuf_e = a(whalo+own_ewn+1          -ghost_shift:whalo+own_ewn+ehalo-ghost_shift,:)
-          sbuf_e = a(whalo+own_ewn+1-(whalo+1)-ghost_shift:whalo+own_ewn      -ghost_shift,:)
+          rbuf_e = a(whalo+ew_npts+1          -ghost_shift:whalo+ew_npts+ehalo-ghost_shift,:)
+          sbuf_e = a(whalo+ew_npts+1-(whalo+1)-ghost_shift:whalo+ew_npts      -ghost_shift,:)
           call mpi_irecv( rbuf_e , size( rbuf_e ) , mpi_real8 , partner , 3 , comm , recv_req_e , ierr )
           call mpi_isend( sbuf_e , size( sbuf_e ) , mpi_real8 , partner , 4 , comm , send_req_e , ierr )
       endselect
@@ -858,14 +858,14 @@ contains
     if ( ( nsub > global_nsn ) .and. ( horiz_bcs_type_north == HORIZ_BCS_CYCLIC ) ) then   !I am on the north boundary
       call mpi_wait( recv_req_n , mpi_status_ignore , ierr )
       call mpi_wait( send_req_n , mpi_status_ignore , ierr )
-      a(:,shalo+own_nsn+1-ghost_shift:shalo+own_nsn+nhalo-ghost_shift) = rbuf_n
+      a(:,shalo+ns_npts+1-ghost_shift:shalo+ns_npts+nhalo-ghost_shift) = rbuf_n
       deallocate(rbuf_n)
       deallocate(sbuf_n)
     endif
-    if ( ( ewub > global_ewn ) .and. ( horiz_bcs_type_east  == HORIZ_BCS_CYCLIC ) ) then   !I am on the north boundary
+    if ( ( ewub > global_ewn ) .and. ( horiz_bcs_type_east  == HORIZ_BCS_CYCLIC ) ) then   !I am on the east boundary
       call mpi_wait( recv_req_e , mpi_status_ignore , ierr )
       call mpi_wait( send_req_e , mpi_status_ignore , ierr )
-      a(whalo+own_ewn+1-ghost_shift:whalo+own_ewn+ehalo-ghost_shift,:) = rbuf_e
+      a(whalo+ew_npts+1-ghost_shift:whalo+ew_npts+ehalo-ghost_shift,:) = rbuf_e
       deallocate(rbuf_e)
       deallocate(sbuf_e)
     endif
@@ -876,7 +876,7 @@ contains
       deallocate(rbuf_s)
       deallocate(sbuf_s)
     endif
-    if ( ( ewlb < 1          ) .and. ( horiz_bcs_type_west  == HORIZ_BCS_CYCLIC ) ) then   !I am on the south boundary
+    if ( ( ewlb < 1          ) .and. ( horiz_bcs_type_west  == HORIZ_BCS_CYCLIC ) ) then   !I am on the west boundary
       call mpi_wait( recv_req_w , mpi_status_ignore , ierr )
       call mpi_wait( send_req_w , mpi_status_ignore , ierr )
       a(1+ghost_shift:whalo+1+ghost_shift,:) = rbuf_w
@@ -927,8 +927,8 @@ contains
           partner = mod(rank,ewtasks)
           allocate(rbuf_n(size(a,1),size(a,2),nhalo  ))
           allocate(sbuf_n(size(a,1),size(a,2),shalo+1))
-          rbuf_n = a(:,:,shalo+own_nsn+1          -ghost_shift:shalo+own_nsn+nhalo-ghost_shift)
-          sbuf_n = a(:,:,shalo+own_nsn+1-(shalo+1)-ghost_shift:shalo+own_nsn      -ghost_shift)
+          rbuf_n = a(:,:,shalo+ns_npts+1          -ghost_shift:shalo+ns_npts+nhalo-ghost_shift)
+          sbuf_n = a(:,:,shalo+ns_npts+1-(shalo+1)-ghost_shift:shalo+ns_npts      -ghost_shift)
           call mpi_irecv( rbuf_n , size( rbuf_n ) , mpi_real8 , partner , 1 , comm , recv_req_n , ierr )
           call mpi_isend( sbuf_n , size( sbuf_n ) , mpi_real8 , partner , 2 , comm , send_req_n , ierr )
       endselect
@@ -943,8 +943,8 @@ contains
           partner = rank - (ewtasks-1)
           allocate(rbuf_e(size(a,1),ehalo  ,size(a,3)))
           allocate(sbuf_e(size(a,1),whalo+1,size(a,3)))
-          rbuf_e = a(:,whalo+own_ewn+1          -ghost_shift:whalo+own_ewn+ehalo-ghost_shift,:)
-          sbuf_e = a(:,whalo+own_ewn+1-(whalo+1)-ghost_shift:whalo+own_ewn      -ghost_shift,:)
+          rbuf_e = a(:,whalo+ew_npts+1          -ghost_shift:whalo+ew_npts+ehalo-ghost_shift,:)
+          sbuf_e = a(:,whalo+ew_npts+1-(whalo+1)-ghost_shift:whalo+ew_npts      -ghost_shift,:)
           call mpi_irecv( rbuf_e , size( rbuf_e ) , mpi_real8 , partner , 3 , comm , recv_req_e , ierr )
           call mpi_isend( sbuf_e , size( sbuf_e ) , mpi_real8 , partner , 4 , comm , send_req_e , ierr )
       endselect
@@ -992,14 +992,14 @@ contains
     if ( ( nsub > global_nsn ) .and. ( horiz_bcs_type_north == HORIZ_BCS_CYCLIC ) ) then   !I am on the north boundary
       call mpi_wait( recv_req_n , mpi_status_ignore , ierr )
       call mpi_wait( send_req_n , mpi_status_ignore , ierr )
-      a(:,:,shalo+own_nsn+1-ghost_shift:shalo+own_nsn+nhalo-ghost_shift) = rbuf_n
+      a(:,:,shalo+ns_npts+1-ghost_shift:shalo+ns_npts+nhalo-ghost_shift) = rbuf_n
       deallocate(rbuf_n)
       deallocate(sbuf_n)
     endif
-    if ( ( ewub > global_ewn ) .and. ( horiz_bcs_type_east  == HORIZ_BCS_CYCLIC ) ) then   !I am on the north boundary
+    if ( ( ewub > global_ewn ) .and. ( horiz_bcs_type_east  == HORIZ_BCS_CYCLIC ) ) then   !I am on the east boundary
       call mpi_wait( recv_req_e , mpi_status_ignore , ierr )
       call mpi_wait( send_req_e , mpi_status_ignore , ierr )
-      a(:,whalo+own_ewn+1-ghost_shift:whalo+own_ewn+ehalo-ghost_shift,:) = rbuf_e
+      a(:,whalo+ew_npts+1-ghost_shift:whalo+ew_npts+ehalo-ghost_shift,:) = rbuf_e
       deallocate(rbuf_e)
       deallocate(sbuf_e)
     endif
@@ -1010,7 +1010,7 @@ contains
       deallocate(rbuf_s)
       deallocate(sbuf_s)
     endif
-    if ( ( ewlb < 1          ) .and. ( horiz_bcs_type_west  == HORIZ_BCS_CYCLIC ) ) then   !I am on the south boundary
+    if ( ( ewlb < 1          ) .and. ( horiz_bcs_type_west  == HORIZ_BCS_CYCLIC ) ) then   !I am on the west boundary
       call mpi_wait( recv_req_w , mpi_status_ignore , ierr )
       call mpi_wait( send_req_w , mpi_status_ignore , ierr )
       a(:,1+ghost_shift:whalo+1+ghost_shift,:) = rbuf_w
@@ -1061,8 +1061,8 @@ contains
           partner = mod(rank,ewtasks)
           allocate(rbuf_n(size(a,1),nhalo  ))
           allocate(sbuf_n(size(a,1),shalo+1))
-          rbuf_n = a(:,shalo+own_nsn+1          -ghost_shift:shalo+own_nsn+nhalo-ghost_shift)
-          sbuf_n = a(:,shalo+own_nsn+1-(shalo+1)-ghost_shift:shalo+own_nsn      -ghost_shift)
+          rbuf_n = a(:,shalo+ns_npts+1          -ghost_shift:shalo+ns_npts+nhalo-ghost_shift)
+          sbuf_n = a(:,shalo+ns_npts+1-(shalo+1)-ghost_shift:shalo+ns_npts      -ghost_shift)
           call mpi_irecv( rbuf_n , size( rbuf_n ) , mpi_real8 , partner , 1 , comm , recv_req_n , ierr )
           call mpi_isend( sbuf_n , size( sbuf_n ) , mpi_real8 , partner , 2 , comm , send_req_n , ierr )
       endselect
@@ -1077,8 +1077,8 @@ contains
           partner = rank - (ewtasks-1)
           allocate(rbuf_e(ehalo  ,size(a,2)))
           allocate(sbuf_e(whalo+1,size(a,2)))
-          rbuf_e = a(whalo+own_ewn+1          -ghost_shift:whalo+own_ewn+ehalo-ghost_shift,:)
-          sbuf_e = a(whalo+own_ewn+1-(whalo+1)-ghost_shift:whalo+own_ewn      -ghost_shift,:)
+          rbuf_e = a(whalo+ew_npts+1          -ghost_shift:whalo+ew_npts+ehalo-ghost_shift,:)
+          sbuf_e = a(whalo+ew_npts+1-(whalo+1)-ghost_shift:whalo+ew_npts      -ghost_shift,:)
           call mpi_irecv( rbuf_e , size( rbuf_e ) , mpi_real8 , partner , 3 , comm , recv_req_e , ierr )
           call mpi_isend( sbuf_e , size( sbuf_e ) , mpi_real8 , partner , 4 , comm , send_req_e , ierr )
       endselect
@@ -1126,14 +1126,14 @@ contains
     if ( ( nsub > global_nsn ) .and. ( horiz_bcs_type_north == HORIZ_BCS_CYCLIC ) ) then   !I am on the north boundary
       call mpi_wait( recv_req_n , mpi_status_ignore , ierr )
       call mpi_wait( send_req_n , mpi_status_ignore , ierr )
-      a(:,shalo+own_nsn+1-ghost_shift:shalo+own_nsn+nhalo-ghost_shift) = rbuf_n
+      a(:,shalo+ns_npts+1-ghost_shift:shalo+ns_npts+nhalo-ghost_shift) = rbuf_n
       deallocate(rbuf_n)
       deallocate(sbuf_n)
     endif
-    if ( ( ewub > global_ewn ) .and. ( horiz_bcs_type_east  == HORIZ_BCS_CYCLIC ) ) then   !I am on the north boundary
+    if ( ( ewub > global_ewn ) .and. ( horiz_bcs_type_east  == HORIZ_BCS_CYCLIC ) ) then   !I am on the east boundary
       call mpi_wait( recv_req_e , mpi_status_ignore , ierr )
       call mpi_wait( send_req_e , mpi_status_ignore , ierr )
-      a(whalo+own_ewn+1-ghost_shift:whalo+own_ewn+ehalo-ghost_shift,:) = rbuf_e
+      a(whalo+ew_npts+1-ghost_shift:whalo+ew_npts+ehalo-ghost_shift,:) = rbuf_e
       deallocate(rbuf_e)
       deallocate(sbuf_e)
     endif
@@ -1144,7 +1144,7 @@ contains
       deallocate(rbuf_s)
       deallocate(sbuf_s)
     endif
-    if ( ( ewlb < 1          ) .and. ( horiz_bcs_type_west  == HORIZ_BCS_CYCLIC ) ) then   !I am on the south boundary
+    if ( ( ewlb < 1          ) .and. ( horiz_bcs_type_west  == HORIZ_BCS_CYCLIC ) ) then   !I am on the west boundary
       call mpi_wait( recv_req_w , mpi_status_ignore , ierr )
       call mpi_wait( send_req_w , mpi_status_ignore , ierr )
       a(1+ghost_shift:whalo+1+ghost_shift,:) = rbuf_w
@@ -1193,8 +1193,8 @@ contains
           partner = mod(rank,ewtasks)
           allocate(rbuf_n(size(a,1),nhalo  ))
           allocate(sbuf_n(size(a,1),shalo+1))
-          rbuf_n = a(:,shalo+own_nsn+1          -ghost_shift:shalo+own_nsn+nhalo-ghost_shift)
-          sbuf_n = a(:,shalo+own_nsn+1-(shalo+1)-ghost_shift:shalo+own_nsn      -ghost_shift)
+          rbuf_n = a(:,shalo+ns_npts+1          -ghost_shift:shalo+ns_npts+nhalo-ghost_shift)
+          sbuf_n = a(:,shalo+ns_npts+1-(shalo+1)-ghost_shift:shalo+ns_npts      -ghost_shift)
           call mpi_irecv( rbuf_n , size( rbuf_n ) , mpi_integer , partner , 1 , comm , recv_req_n , ierr )
           call mpi_isend( sbuf_n , size( sbuf_n ) , mpi_integer , partner , 2 , comm , send_req_n , ierr )
       endselect
@@ -1209,8 +1209,8 @@ contains
           partner = rank - (ewtasks-1)
           allocate(rbuf_e(ehalo  ,size(a,2)))
           allocate(sbuf_e(whalo+1,size(a,2)))
-          rbuf_e = a(whalo+own_ewn+1          -ghost_shift:whalo+own_ewn+ehalo-ghost_shift,:)
-          sbuf_e = a(whalo+own_ewn+1-(whalo+1)-ghost_shift:whalo+own_ewn      -ghost_shift,:)
+          rbuf_e = a(whalo+ew_npts+1          -ghost_shift:whalo+ew_npts+ehalo-ghost_shift,:)
+          sbuf_e = a(whalo+ew_npts+1-(whalo+1)-ghost_shift:whalo+ew_npts      -ghost_shift,:)
           call mpi_irecv( rbuf_e , size( rbuf_e ) , mpi_integer , partner , 3 , comm , recv_req_e , ierr )
           call mpi_isend( sbuf_e , size( sbuf_e ) , mpi_integer , partner , 4 , comm , send_req_e , ierr )
       endselect
@@ -1261,14 +1261,14 @@ contains
     if ( ( nsub > global_nsn ) .and. ( horiz_bcs_type_north == HORIZ_BCS_CYCLIC ) ) then   !I am on the north boundary
       call mpi_wait( recv_req_n , mpi_status_ignore , ierr )
       call mpi_wait( send_req_n , mpi_status_ignore , ierr )
-      a(:,shalo+own_nsn+1-ghost_shift:shalo+own_nsn+nhalo-ghost_shift) = rbuf_n
+      a(:,shalo+ns_npts+1-ghost_shift:shalo+ns_npts+nhalo-ghost_shift) = rbuf_n
       deallocate(rbuf_n)
       deallocate(sbuf_n)
     endif
-    if ( ( ewub > global_ewn ) .and. ( horiz_bcs_type_east  == HORIZ_BCS_CYCLIC ) ) then   !I am on the north boundary
+    if ( ( ewub > global_ewn ) .and. ( horiz_bcs_type_east  == HORIZ_BCS_CYCLIC ) ) then   !I am on the east boundary
       call mpi_wait( recv_req_e , mpi_status_ignore , ierr )
       call mpi_wait( send_req_e , mpi_status_ignore , ierr )
-      a(whalo+own_ewn+1-ghost_shift:whalo+own_ewn+ehalo-ghost_shift,:) = rbuf_e
+      a(whalo+ew_npts+1-ghost_shift:whalo+ew_npts+ehalo-ghost_shift,:) = rbuf_e
       deallocate(rbuf_e)
       deallocate(sbuf_e)
     endif
@@ -1279,7 +1279,7 @@ contains
       deallocate(rbuf_s)
       deallocate(sbuf_s)
     endif
-    if ( ( ewlb < 1          ) .and. ( horiz_bcs_type_west  == HORIZ_BCS_CYCLIC ) ) then   !I am on the south boundary
+    if ( ( ewlb < 1          ) .and. ( horiz_bcs_type_west  == HORIZ_BCS_CYCLIC ) ) then   !I am on the west boundary
       call mpi_wait( recv_req_w , mpi_status_ignore , ierr )
       call mpi_wait( send_req_w , mpi_status_ignore , ierr )
       a(1+ghost_shift:whalo+1+ghost_shift,:) = rbuf_w
@@ -1328,8 +1328,8 @@ contains
           partner = mod(rank,ewtasks)
           allocate(rbuf_n(size(a,1),nhalo  ))
           allocate(sbuf_n(size(a,1),shalo+1))
-          rbuf_n = a(:,shalo+own_nsn+1          -ghost_shift:shalo+own_nsn+nhalo-ghost_shift)
-          sbuf_n = a(:,shalo+own_nsn+1-(shalo+1)-ghost_shift:shalo+own_nsn      -ghost_shift)
+          rbuf_n = a(:,shalo+ns_npts+1          -ghost_shift:shalo+ns_npts+nhalo-ghost_shift)
+          sbuf_n = a(:,shalo+ns_npts+1-(shalo+1)-ghost_shift:shalo+ns_npts      -ghost_shift)
           call mpi_irecv( rbuf_n , size( rbuf_n ) , mpi_real8 , partner , 1 , comm , recv_req_n , ierr )
           call mpi_isend( sbuf_n , size( sbuf_n ) , mpi_real8 , partner , 2 , comm , send_req_n , ierr )
       endselect
@@ -1344,8 +1344,8 @@ contains
           partner = rank - (ewtasks-1)
           allocate(rbuf_e(ehalo  ,size(a,2)))
           allocate(sbuf_e(whalo+1,size(a,2)))
-          rbuf_e = a(whalo+own_ewn+1          -ghost_shift:whalo+own_ewn+ehalo-ghost_shift,:)
-          sbuf_e = a(whalo+own_ewn+1-(whalo+1)-ghost_shift:whalo+own_ewn      -ghost_shift,:)
+          rbuf_e = a(whalo+ew_npts+1          -ghost_shift:whalo+ew_npts+ehalo-ghost_shift,:)
+          sbuf_e = a(whalo+ew_npts+1-(whalo+1)-ghost_shift:whalo+ew_npts      -ghost_shift,:)
           call mpi_irecv( rbuf_e , size( rbuf_e ) , mpi_real8 , partner , 3 , comm , recv_req_e , ierr )
           call mpi_isend( sbuf_e , size( sbuf_e ) , mpi_real8 , partner , 4 , comm , send_req_e , ierr )
       endselect
@@ -1396,14 +1396,14 @@ contains
     if ( ( nsub > global_nsn ) .and. ( horiz_bcs_type_north == HORIZ_BCS_CYCLIC ) ) then   !I am on the north boundary
       call mpi_wait( recv_req_n , mpi_status_ignore , ierr )
       call mpi_wait( send_req_n , mpi_status_ignore , ierr )
-      a(:,shalo+own_nsn+1-ghost_shift:shalo+own_nsn+nhalo-ghost_shift) = rbuf_n
+      a(:,shalo+ns_npts+1-ghost_shift:shalo+ns_npts+nhalo-ghost_shift) = rbuf_n
       deallocate(rbuf_n)
       deallocate(sbuf_n)
     endif
-    if ( ( ewub > global_ewn ) .and. ( horiz_bcs_type_east  == HORIZ_BCS_CYCLIC ) ) then   !I am on the north boundary
+    if ( ( ewub > global_ewn ) .and. ( horiz_bcs_type_east  == HORIZ_BCS_CYCLIC ) ) then   !I am on the east boundary
       call mpi_wait( recv_req_e , mpi_status_ignore , ierr )
       call mpi_wait( send_req_e , mpi_status_ignore , ierr )
-      a(whalo+own_ewn+1-ghost_shift:whalo+own_ewn+ehalo-ghost_shift,:) = rbuf_e
+      a(whalo+ew_npts+1-ghost_shift:whalo+ew_npts+ehalo-ghost_shift,:) = rbuf_e
       deallocate(rbuf_e)
       deallocate(sbuf_e)
     endif
@@ -1414,7 +1414,7 @@ contains
       deallocate(rbuf_s)
       deallocate(sbuf_s)
     endif
-    if ( ( ewlb < 1          ) .and. ( horiz_bcs_type_west  == HORIZ_BCS_CYCLIC ) ) then   !I am on the south boundary
+    if ( ( ewlb < 1          ) .and. ( horiz_bcs_type_west  == HORIZ_BCS_CYCLIC ) ) then   !I am on the west boundary
       call mpi_wait( recv_req_w , mpi_status_ignore , ierr )
       call mpi_wait( send_req_w , mpi_status_ignore , ierr )
       a(1+ghost_shift:whalo+1+ghost_shift,:) = rbuf_w
@@ -1463,8 +1463,8 @@ contains
           partner = mod(rank,ewtasks)
           allocate(rbuf_n(size(a,1),size(a,2),nhalo  ))
           allocate(sbuf_n(size(a,1),size(a,2),shalo+1))
-          rbuf_n = a(:,:,shalo+own_nsn+1          -ghost_shift:shalo+own_nsn+nhalo-ghost_shift)
-          sbuf_n = a(:,:,shalo+own_nsn+1-(shalo+1)-ghost_shift:shalo+own_nsn      -ghost_shift)
+          rbuf_n = a(:,:,shalo+ns_npts+1          -ghost_shift:shalo+ns_npts+nhalo-ghost_shift)
+          sbuf_n = a(:,:,shalo+ns_npts+1-(shalo+1)-ghost_shift:shalo+ns_npts      -ghost_shift)
           call mpi_irecv( rbuf_n , size( rbuf_n ) , mpi_real8 , partner , 1 , comm , recv_req_n , ierr )
           call mpi_isend( sbuf_n , size( sbuf_n ) , mpi_real8 , partner , 2 , comm , send_req_n , ierr )
       endselect
@@ -1479,8 +1479,8 @@ contains
           partner = rank - (ewtasks-1)
           allocate(rbuf_e(size(a,1),ehalo  ,size(a,3)))
           allocate(sbuf_e(size(a,1),whalo+1,size(a,3)))
-          rbuf_e = a(:,whalo+own_ewn+1          -ghost_shift:whalo+own_ewn+ehalo-ghost_shift,:)
-          sbuf_e = a(:,whalo+own_ewn+1-(whalo+1)-ghost_shift:whalo+own_ewn      -ghost_shift,:)
+          rbuf_e = a(:,whalo+ew_npts+1          -ghost_shift:whalo+ew_npts+ehalo-ghost_shift,:)
+          sbuf_e = a(:,whalo+ew_npts+1-(whalo+1)-ghost_shift:whalo+ew_npts      -ghost_shift,:)
           call mpi_irecv( rbuf_e , size( rbuf_e ) , mpi_real8 , partner , 3 , comm , recv_req_e , ierr )
           call mpi_isend( sbuf_e , size( sbuf_e ) , mpi_real8 , partner , 4 , comm , send_req_e , ierr )
       endselect
@@ -1531,14 +1531,14 @@ contains
     if ( ( nsub > global_nsn ) .and. ( horiz_bcs_type_north == HORIZ_BCS_CYCLIC ) ) then   !I am on the north boundary
       call mpi_wait( recv_req_n , mpi_status_ignore , ierr )
       call mpi_wait( send_req_n , mpi_status_ignore , ierr )
-      a(:,:,shalo+own_nsn+1-ghost_shift:shalo+own_nsn+nhalo-ghost_shift) = rbuf_n
+      a(:,:,shalo+ns_npts+1-ghost_shift:shalo+ns_npts+nhalo-ghost_shift) = rbuf_n
       deallocate(rbuf_n)
       deallocate(sbuf_n)
     endif
-    if ( ( ewub > global_ewn ) .and. ( horiz_bcs_type_east  == HORIZ_BCS_CYCLIC ) ) then   !I am on the north boundary
+    if ( ( ewub > global_ewn ) .and. ( horiz_bcs_type_east  == HORIZ_BCS_CYCLIC ) ) then   !I am on the east boundary
       call mpi_wait( recv_req_e , mpi_status_ignore , ierr )
       call mpi_wait( send_req_e , mpi_status_ignore , ierr )
-      a(:,whalo+own_ewn+1-ghost_shift:whalo+own_ewn+ehalo-ghost_shift,:) = rbuf_e
+      a(:,whalo+ew_npts+1-ghost_shift:whalo+ew_npts+ehalo-ghost_shift,:) = rbuf_e
       deallocate(rbuf_e)
       deallocate(sbuf_e)
     endif
@@ -1549,7 +1549,7 @@ contains
       deallocate(rbuf_s)
       deallocate(sbuf_s)
     endif
-    if ( ( ewlb < 1          ) .and. ( horiz_bcs_type_west  == HORIZ_BCS_CYCLIC ) ) then   !I am on the south boundary
+    if ( ( ewlb < 1          ) .and. ( horiz_bcs_type_west  == HORIZ_BCS_CYCLIC ) ) then   !I am on the west boundary
       call mpi_wait( recv_req_w , mpi_status_ignore , ierr )
       call mpi_wait( send_req_w , mpi_status_ignore , ierr )
       a(:,1+ghost_shift:whalo+1+ghost_shift,:) = rbuf_w
