@@ -11,6 +11,7 @@
 setenv TEST_DIR "$SCRATCH/cism_tests"
 setenv CODE_DIR "$HOME/seacism"
 cd $CODE_DIR
+setenv build_no 0
 #mkdir -pv $TEST_DIR/configure_output
 
 # even if these are set in your env you need these when running the script
@@ -19,8 +20,8 @@ module unload cmake netcdf python
 module swap PrgEnv-gnu PrgEnv-pgi; module load cmake/2.8.7 python netcdf-hdf5parallel/4.2.0 subversion
 
 # NEEDED AFTER A FRESH CHECKOUT
-#echo 'bootstrap'
-#./bootstrap
+echo 'bootstrap'
+./bootstrap
 
 #SERIAL BUILD WITH AUTOCONF
 echo 'make distclean'
@@ -30,10 +31,15 @@ echo 'configure serial autoconf build'
 echo 'make serial'
 make >& serial_build.out 
 
-echo 'copy serial executable to test directory'
-cp -f $CODE_DIR/example-drivers/simple_glide/src/simple_glide $TEST_DIR/simple_glide_serial
+if ( -e example-drivers/simple_glide/src/simple_glide ) then
+ echo 'copy serial executable to test directory'
+ cp -f $CODE_DIR/example-drivers/simple_glide/src/simple_glide $TEST_DIR/simple_glide_serial
+else
+ echo "autoconf parallel build failed, no executable"
+ @ build_no = 1
+endif
 
-# PARALLEL BUILD WITH AUTOCONF PGI
+ PARALLEL BUILD WITH AUTOCONF PGI
 echo 'make distclean'
 make distclean
 echo 'configure parallel autoconf build'
@@ -41,9 +47,15 @@ echo 'configure parallel autoconf build'
 echo 'make parallel'
 make >& auto_pgi_build.out 
 
-echo 'copy autconf parallel executable to test directory'
-cp -f $CODE_DIR/example-drivers/simple_glide/src/simple_glide $TEST_DIR/simple_glide
+if ( -e example-drivers/simple_glide/src/simple_glide ) then
+ echo 'copy autoconf parallel executable to test directory'
+ cp -f $CODE_DIR/example-drivers/simple_glide/src/simple_glide $TEST_DIR/simple_glide
+else
+ echo "autoconf parallel build failed, no executable"
+ @ build_no = 1
+endif
 
+echo $build_no
 # set up directories for building cmake executables
 rm -rf xe6-pgi
 rm -rf xe6-gnu
@@ -61,9 +73,18 @@ echo 'configure pgi cmake build'
 echo 'make parallel pgi'
 make -j 4 >& cmake_pgi_build.out
 
-echo 'copy pgi parallel executable to test directory'
-cp -f example-drivers/simple_glide/src/simple_glide $TEST_DIR/simple_glide_pgi
+if ( -e example-drivers/simple_glide/src/simple_glide ) then
+ echo 'copy pgi parallel executable to test directory'
+ cp -f example-drivers/simple_glide/src/simple_glide $TEST_DIR/simple_glide_pgi
+else
+ echo "cmake pgi build failed, no executable"
+ @ build_no = 1
+endif
 
+cd $CODE_DIR
+make distclean
+
+echo $build_no
 # PARALLEL BUILD WITH CMAKE GNU
 echo 'change to gnu env'
 module unload cmake netcdf-hdf5parallel/4.2.0 python
@@ -77,15 +98,24 @@ echo 'configure gnu cmake build'
 echo 'make parallel gnu'
 make -j 4 >& cmake_gnu_build.out
 
-echo 'copy gnu parallel executable to test directory'
-cp -f example-drivers/simple_glide/src/simple_glide $TEST_DIR/simple_glide_gnu
+if ( -e example-drivers/simple_glide/src/simple_glide ) then
+ echo 'copy gnu parallel executable to test directory'
+ cp -f example-drivers/simple_glide/src/simple_glide $TEST_DIR/simple_glide_gnu
+else
+ echo "cmake gnu build failed, no executable"
+ @ build_no = 1
+endif
 
+echo $build_no
 # execute tests on hopper
 # TODO the small jobs need to be combined into one hopjob submission to get through the queue
-
+if (build_no == 1 ) then
+  echo "no job sumbitted, build/builds failed"
+else
 # simplest case, runs all builds and on a range of small processor counts 
-cd $TEST_DIR/dome30
-qsub hopjob
+ echo 'submitting jobs to compute nodes'
+#cd $TEST_DIR/dome30
+#qsub hopjob
 
 # large but not challenging case, to test large processor counts, not yet configured for hopper
 #cd $TEST_DIR/dome500
@@ -100,18 +130,19 @@ qsub hopjob
 #qsub hopjob
 
 # confined shelf to periodic BC
-cd $TEST_DIR/confined-shelf
-qsub hopjob
+#cd $TEST_DIR/confined-shelf
+#qsub hopjob
 
 # circular shelf to periodic BC
-cd $TEST_DIR/circular-shelf
-qsub hopjob
+#cd $TEST_DIR/circular-shelf
+#qsub hopjob
 
 # smaller GIS case to test realistic ice sheet configuration
-cd $TEST_DIR/gis_10km
-qsub hopjob
+#cd $TEST_DIR/gis_10km
+#qsub hopjob
 
 # high resolution GIS case to test realistic ice sheet configuration and longer time series, no yet configured for hopper
 #cd $TEST_DIR/gis_5km
 #qsub hopjob
 
+endif

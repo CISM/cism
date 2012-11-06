@@ -168,7 +168,7 @@ IF (NOT BUILD_SIMPLE_BISICLES)
    link_directories(${GLIMMER_GPTL_DIR})
    SET(GLIMMER_GPTL_LIB gptl)
  ELSE()
-   message(">>GPTL Library not reqested: can set GLIMMER_GPTL_DIR to enable")
+   message(">>GPTL Library not requested: can set GLIMMER_GPTL_DIR to enable")
  ENDIF()
 ENDIF()
 
