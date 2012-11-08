@@ -1,4 +1,4 @@
-#!/bin/csh -f
+#!/bin/csh
 # Master build script for hopper, last updated 10/25/2012 with v1583 
 # build the code in the 4 ways currently supported and submits some test jobs
 # there are fewer tests run here than for jaguar since the allocation amount is smaller

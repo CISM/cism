@@ -1,4 +1,4 @@
-#!/bin/csh -f
+#!/bin/csh
 # Master build script for jaguar, last updated 9/28/2012. 
 # build the code in the 4 ways currently supported and submits some test jobs
 # this script may not execute successfully if there are old builds or module settings laying around
