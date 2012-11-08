@@ -39,7 +39,7 @@ else
  @ build_no = 1
 endif
 
- PARALLEL BUILD WITH AUTOCONF PGI
+# PARALLEL BUILD WITH AUTOCONF PGI
 echo 'make distclean'
 make distclean
 echo 'configure parallel autoconf build'

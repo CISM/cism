@@ -1108,10 +1108,10 @@ contains
     select case(flag)
     case(FLWA_PATERSON_BUDD)
 
-      allocate(tempcor(size(flwa,1)))
+!      allocate(tempcor(size(flwa,1)))
 !whl - TODO - Verify that the above allocation works, so that a hard number is not needed.
 ! KJE give a hard number to satisfy gcc compiler on Jaguar
-!    allocate(tempcor(1000))
+    allocate(tempcor(1000))
 
 !TODO - Loop over locally owned cells?  Alternatively, just compute over all cells,
 !        but make sure temp and thck are updated in halo cells.
