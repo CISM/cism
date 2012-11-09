@@ -3,7 +3,12 @@
 cmake_minimum_required(VERSION 2.8.6)
 
 OPTION (NO_TRILINOS "Toggle to Not use Trilinos: defaults to OFF (Trilinos on by default)" OFF)
-OPTION (BUILD_SIMPLE_BISICLES "Toggle to build simple_bisicles, off by default)" OFF)
+OPTION (CISM_MPI_MODE "Toggle to Configure with MPI: defaults to ON" ON)
+OPTION (CISM_SERIAL_MODE "Toggle to Configure in Serial mode: defaults to OFF " OFF)
+OPTION (CISM_BUILD_SIMPLE_GLIDE "Toggle to build simple_glide, ON by default)" ON)
+OPTION (CISM_BUILD_SIMPLE_BISICLES "Toggle to build simple_bisicles, off by default)" OFF)
+OPTION (CISM_BUILD_EXTRA_EXECUTABLES "Toggle to other executables, off by default)" OFF)
+OPTION (CISM_USE_GPTL_INSTRUMENTATION "Toggle to use GPTL instrumentation, on by default " ON)
 
 
 
@@ -77,23 +82,6 @@ ELSE()
 ENDIF()
 MESSAGE(">> GLIMMER_NETCDF_LIBS Library(s) set to : ${GLIMMER_NETCDF_LIBS}")
 
-IF (BUILD_SIMPLE_BISICLES)
-
-  # Some confusion here of Serial and/or Bisicles: Doug will need to sort out
-
-#  FIND_PACKAGE(HDF5 REQUIRED)
-  IF (HDF5_FOUND)
-    INCLUDE_DIRECTORIES(${HDF5_INCLUDE_DIRS})
-    # TARGET_LINK_LIBRARIES(simple_glide ${HDF5_LIBRARIES})
-  ENDIF (HDF5_FOUND)
-
-
-  SET(GLIMMER_HDF5_LIBS "hdf5;hdf5_hl;z;hdf5_pgi_parallel" CACHE STRING "HDF5 Library Names(s)")
-  #MESSAGE(">> GLIMMER_HDF5_LIBS Library(s) set to : ${GLIMMER_HDF5_LIBS}")
-
-  SET(GLIMMER_MPI_LIBS "mpichf90" CACHE STRING "MPI Extra Library Names(s)")
-ENDIF()
-
 SET(CMAKE_Fortran_MODULE_DIRECTORY ${CISM_BINARY_DIR}/fortran_mod_files)
 
 
@@ -134,22 +122,23 @@ IF (NOT ${NO_TRILINOS})
    ENDIF()
 
    ADD_DEFINITIONS(-DGLIMMER_MPI -DTRILINOS)
-   MESSAGE(">> Trilinos build: adding  -DGLIMMER_MPI -DTRILINOS  to compile lines")
+   MESSAGE(">> Trilinos build: adding  -DTRILINOS  to compile lines")
 
    include_directories(${GLIMMER_NETCDF_DIR}/include)
    link_directories(${GLIMMER_NETCDF_DIR}/lib) 
 
 ELSE()
 
-    # Some confusion here of Serial and/or Bisicles: Doug will need to sort out
-    include_directories(${GLIMMER_NETCDF_DIR}/include ${MPI_BASE_DIR}/include)
-    link_directories(${GLIMMER_NETCDF_DIR}/lib ${MPI_BASE_DIR}/lib ${SCI_LIB_DIR} 
-  		 ${GLIMMER_DYCORE_DIR} ${HDF5_LIB_DIR} ${HDF5_PARALLEL_LIB_DIR} 
-                   ${BISICLES_INTERFACE_DIR}) 
+   IF (${CISM_MPI_MODE})
+      ADD_DEFINITIONS(-DGLIMMER_MPI)
+   ENDIF()
+   include_directories(${GLIMMER_NETCDF_DIR}/include ${CISM_MPI_BASE_DIR}/include)
+   link_directories(${GLIMMER_NETCDF_DIR}/lib ${CISM_MPI_BASE_DIR}/lib ${CISM_SCI_LIB_DIR} 
+  		 ${GLIMMER_DYCORE_DIR} ${CISM_HDF5_LIB_DIR} ${BISICLES_INTERFACE_DIR}) 
 
 ENDIF()
 
-IF (BUILD_SIMPLE_BISICLES)
+IF (CISM_BUILD_SIMPLE_BISICLES)
   MESSAGE("\nBISICLES build configured.\n")  
 
   SET(GLIMMER_DYCORE_DIR ${GLIMMER_SOURCE_DIR}/libdycore)
@@ -159,7 +148,9 @@ IF (BUILD_SIMPLE_BISICLES)
   INCLUDE_DIRECTORIES(${GLIMMER_DYCORE_DIR})
 ENDIF()
 
-IF (NOT BUILD_SIMPLE_BISICLES)
+IF ( CISM_USE_GPTL_INSTRUMENTATION AND 
+    (NOT CISM_BUILD_SIMPLE_BISICLES) AND
+    (NOT CISM_SERIAL_MODE))
  OPTION(GLIMMER_GPTL_DIR "Optional path to installed gptl library")
  IF (GLIMMER_GPTL_DIR)
    message(">> GPTL Library reqested, installed in ${GLIMMER_GPTL_DIR}")
@@ -182,7 +173,15 @@ file(GLOB FORTRANSOURCES
 
 LIST(REMOVE_ITEM FORTRANSOURCES
    ${GLIMMER_SOURCE_DIR}/libglimmer/unittest_glimmer_deriv.F90 
-   ${GLIMMER_SOURCE_DIR}/libglide/relaxed.F90)
+   ${GLIMMER_SOURCE_DIR}/libglide/relaxed.F90
+   ${GLIMMER_SOURCE_DIR}/libglide/test_setup.F90
+   ${GLIMMER_SOURCE_DIR}/libglimmer/test_commandline.F90
+   ${GLIMMER_SOURCE_DIR}/libglimmer/test_config.F90
+   ${GLIMMER_SOURCE_DIR}/libglimmer/test_filenames.F90
+   ${GLIMMER_SOURCE_DIR}/libglimmer/test_integrate.F90
+   ${GLIMMER_SOURCE_DIR}/libglimmer/test_ts.F90
+   ${GLIMMER_SOURCE_DIR}/libglimmer/test_writestats.F90
+   ${GLIMMER_SOURCE_DIR}/libglimmer/nc2config.F90 )
 
 IF ((NOT ${NO_TRILINOS}) OR CISM_MPI_MODE)
    LIST(REMOVE_ITEM FORTRANSOURCES
@@ -225,7 +224,6 @@ ENDFOREACH()
 SET(CMAKE_INCLUDE_PATH ${CISM_BINARY_DIR}/include)
 
 
-
 #message("Fortransource ${FORTRANSOURCES}")
 
 # include-dirs: Binary: all the .mod files; SOURCE: config.inc; 
@@ -248,11 +246,14 @@ ENDIF()
 
 #####Build simple_glide executable (unless turned off) #####
 OPTION(GLIMMER_NO_EXECUTABLE "Set to  ON  to just build libraries (default:OFF)"  OFF)
-IF (NOT GLIMMER_NO_EXECUTABLE)
+
+
+IF (CISM_BUILD_SIMPLE_GLIDE AND (NOT GLIMMER_NO_EXECUTABLE))
   add_subdirectory(example-drivers/simple_glide/src)
 ENDIF()
 
-IF (BUILD_SIMPLE_BISICLES)
+
+IF (CISM_BUILD_SIMPLE_BISICLES)
   add_subdirectory(example-drivers/simple_bisicles/src)
   add_subdirectory(libdycore)
   SET(GLIMMER_EXTERNAL_DYCORE_DIR ${GLIMMER_SOURCE_DIR}/libdycore)
@@ -265,7 +266,12 @@ IF (BUILD_SIMPLE_BISICLES)
   get_property(inc_dirs DIRECTORY PROPERTY INCLUDE_DIRECTORIES)
   message("inc_dirs = ${inc_dirs}")
 
+ENDIF()
 
+
+IF(CISM_BUILD_EXTRA_EXECUTABLES)
+  add_subdirectory(example-drivers/eis/src)
+  message("Building extra executables: ")
 ENDIF()
 
 #COMMAND (environment)
