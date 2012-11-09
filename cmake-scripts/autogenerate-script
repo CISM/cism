@@ -20,6 +20,12 @@ echo "  --creating glide_io.F90"
 echo "  --creating glide_lithot_io.F90"
  python ../scripts/generate_ncvars.py glide_lithot_vars.def ../libglimmer/ncdf_template.F90.in
 popd
+
+pushd ../example-drivers/eis/src
+echo "  --creating eis_io.F90"
+ python ../../../scripts/generate_ncvars.py eis_vars.def ../../../libglimmer/ncdf_template.F90.in
+popd
+
 # Just a copy of a file without version info
 pushd ../libglimmer
 echo "  --creating glimmer_vers.F90"
