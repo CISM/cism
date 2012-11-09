@@ -732,14 +732,9 @@ contains
 
     endif
 
-    ! Forbidden options associated with Glide and Glam dycores
+    ! Forbidden options associated with Glam dycore
    
-    if (model%options%whichdycore == DYCORE_GLIDE) then
-       if (model%options%which_ho_approx == HO_APPROX_SSA .or.   &
-           model%options%which_ho_approx == HO_APPROX_BP) then 
-          call write_log('Error, Glide dycore must use shallow-ice approximation', GM_FATAL)
-       endif
-    elseif (model%options%whichdycore == DYCORE_GLAM) then
+    if (model%options%whichdycore == DYCORE_GLAM) then
        if (model%options%which_ho_approx == HO_APPROX_SIA .or.   &
            model%options%which_ho_approx == HO_APPROX_SSA) then 
           call write_log('Error, Glide dycore must use higher-order Blatter-Pattyn approximation', GM_FATAL)

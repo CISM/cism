@@ -161,7 +161,9 @@ module parallel
      module procedure parallel_halo_verify_real8_3d
   end interface
 
+!WHL - added staggered_parallel_halo_integer_2d
   interface staggered_parallel_halo
+     module procedure staggered_parallel_halo_integer_2d
      module procedure staggered_parallel_halo_real8_2d
      module procedure staggered_parallel_halo_real8_3d
   end interface
@@ -1355,6 +1357,12 @@ contains
     implicit none
     real(8),dimension(:,:) :: a
   end subroutine parallel_velo_halo
+
+!WHL - added this subroutine
+  subroutine staggered_parallel_halo_integer_2d(a)
+    implicit none
+    integer,dimension(:,:) :: a
+  end subroutine staggered_parallel_halo_integer_2d
 
   subroutine staggered_parallel_halo_real8_2d(a)
     implicit none

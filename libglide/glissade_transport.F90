@@ -250,6 +250,9 @@
 
       endif                     ! conservation_check
       
+
+!TODO - Test upwind transport option
+
       if (upwind_transport) then
 
          allocate (worku(nx,ny,0:ntracer))
@@ -327,9 +330,9 @@
                                indxi(:),     indxj(:),           &
                                thck(:,:),    thck_mask(:,:))
 
-    !-------------------------------------------------------------------
-    ! Remap ice thickness and tracers; loop over layers
-    !-------------------------------------------------------------------
+      !-------------------------------------------------------------------
+      ! Remap ice thickness and tracers; loop over layers
+      !-------------------------------------------------------------------
 
          do k = 1, nlyr
 
@@ -448,17 +451,17 @@
          call global_sum(mtsum_final)
 
 !WHL - debug
-               print*, ' '
-               print*, 'msum_init =', mtsum_init(0)
-               print*, 'msum_final =', mtsum_final(0)
-               print*, 'diff =', mtsum_init(0) - mtsum_final(0)
-               print*, ' '
-               do nt = 1, ntracer              
-                  print*, nt, 'mtsum_init =', mtsum_init(nt)
-                  print*, nt, 'mtsum_final =', mtsum_final(nt)
-                  print*, 'diff =', mtsum_init(nt) - mtsum_final(nt)
-                  print*, ' '
-               enddo
+!               print*, ' '
+!               print*, 'msum_init =', mtsum_init(0)
+!               print*, 'msum_final =', mtsum_final(0)
+!               print*, 'diff =', mtsum_init(0) - mtsum_final(0)
+!               print*, ' '
+!               do nt = 1, ntracer              
+!                  print*, nt, 'mtsum_init =', mtsum_init(nt)
+!                  print*, nt, 'mtsum_final =', mtsum_final(nt)
+!                  print*, 'diff =', mtsum_init(nt) - mtsum_final(nt)
+!                  print*, ' '
+!               enddo
 
          if (main_task) then
             call global_conservation (mtsum_init(0), mtsum_final(0),  &

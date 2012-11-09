@@ -158,9 +158,11 @@ contains
     ! Compute and write global diagnostics
     !-----------------------------------------------------------------
  
-    print*, ' '
-    print*, 'Writing diagnostics to log file, time(yr) =', time
- 
+    if (main_task) then
+       print*, ' '
+       print*, 'Writing diagnostics to log file, time(yr) =', time
+    endif
+
     call write_log(' ')
     write(message,'(a32,f24.16)') 'Global diagnostic output, time =', time
     call write_log(trim(message), type = GM_DIAGNOSTIC)
@@ -221,8 +223,9 @@ contains
                          * 0.5d0 * model%numerics%sigma(2)
              do k = 2, upn-1
                 tot_energy = tot_energy +   &
-                             model%geometry%thck(i,j) * model%temper%temp(k,i,j) *   &
-                             0.5d0*(model%numerics%sigma(k+1) - model%numerics%sigma(k-1))
+                             model%geometry%thck(i,j) * model%temper%temp(k,i,j) &
+                           * model%numerics%dew * model%numerics%dns             &
+                           * 0.5d0*(model%numerics%sigma(k+1) - model%numerics%sigma(k-1))
              enddo
              ! lower half-layer, T = lower sfc temp
              tot_energy = tot_energy +   &

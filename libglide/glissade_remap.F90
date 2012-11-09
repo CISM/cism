@@ -499,7 +499,7 @@
       if (present(dp_midpt_in)) then
          dp_midpt = dp_midpt_in
       else
-!whl - Set to true for increased accuracy
+!WHL - Set to true for increased accuracy
 !    - Set to false for closer agreement with the old remapping code
 !!!         dp_midpt = .true.
 !pw++
@@ -724,6 +724,8 @@
 !
 ! If a gridcell is massless (mass < puny), then the values of tracers
 !  in that grid cell are assumed to have no physical meaning.
+!WHL - Changed this condition from 'mass < puny' to 'mass < 0.d0'
+!      to preserve monotonicity in grid cells with very small thickness
 !
 ! !REVISION HISTORY:
 !
@@ -747,7 +749,7 @@
 
       real(dp), dimension (nx_block,ny_block),            &
            intent(in) ::     &
-           mass          ! mean ice area in each grid cell
+           mass          ! mean ice thickness in each grid cell
 
       real(dp), dimension (nx_block,ny_block),            &
            intent(out) ::     &
@@ -762,9 +764,12 @@
     ! ice mask
     !-------------------------------------------------------------------
 
+!WHL - Changed this condition from 'mass(i,j) < puny' to 'mass(i,j) < 0.d0'
+!      to preserve monotonicity in grid cells with very small thickness
       do j = 1, ny_block
       do i = 1, nx_block
-         if (mass(i,j) > puny) then
+!!         if (mass(i,j) > puny) then
+         if (mass(i,j) > 0.d0) then
             mmask(i,j) = 1.d0
          else
             mmask(i,j) = 0.d0
@@ -786,7 +791,10 @@
 
       do j = jlo-nghost+1, jhi+nghost-1
       do i = ilo-nghost+1, ihi+nghost-1
-         if (mass(i,j) > puny) then
+!WHL - Changed this condition from 'mass(i,j) > puny' to 'mass(i,j) > 0.d0'
+!      to preserve monotonicity in grid cells with very small thickness
+!!         if (mass(i,j) > puny) then
+         if (mass(i,j) > 0.d0) then
             icells = icells + 1
             ij = icells
             indxi(ij) = i
@@ -1294,7 +1302,7 @@
          if (dpx(i,j) < -htn(i,j) .or. dpx(i,j) > htn(i+1,j) .or.   &
              dpy(i,j) < -hte(i,j) .or. dpy(i,j) > hte(i,j+1)) then
 
-!whl - debug
+!WHL - debug
 !             print*, ' '
 !             print*, 'dt =', dt
 !             print*, 'i, j =', i, j
@@ -1310,21 +1318,31 @@
       enddo
       enddo
 
+!TODO - Write error message cleanly to the log file.
+!       I think this will require broadcasting istop and jstop to main_rank.
+!       For now, just print an error message locally.
+
       if (l_stop) then
          i = istop
          j = jstop
-         write (message,*) 'Process:',this_rank
-         call write_log(message)
-         write (message,*) 'Remap, departure points out of bounds:, i, j =', i, j
-         call write_log(message)
-         write (message,*) 'dpx, dpy =', dpx(i,j), dpy(i,j)
-         call write_log(message)
-         write (message,*) 'uvel, vvel =', uvel(i,j), vvel(i,j)
-         call write_log(message)
-         write (message,*) 'htn(i,j), htn(i+1,j) =', htn(i,j), htn(i+1,j)
-         call write_log(message)
-         write (message,*) 'hte(i,j), hte(i,j+1) =', hte(i,j), hte(i,j+1)
-         call write_log(message)
+!         write (message,*) 'Process:',this_rank
+!         call write_log(message)
+!         write (message,*) 'Remap, departure points out of bounds:, i, j =', i, j
+!         call write_log(message)
+!         write (message,*) 'dpx, dpy =', dpx(i,j), dpy(i,j)
+!         call write_log(message)
+!         write (message,*) 'uvel, vvel =', uvel(i,j), vvel(i,j)
+!         call write_log(message)
+!         write (message,*) 'htn(i,j), htn(i+1,j) =', htn(i,j), htn(i+1,j)
+!         call write_log(message)
+!         write (message,*) 'hte(i,j), hte(i,j+1) =', hte(i,j), hte(i,j+1)
+!         call write_log(message)
+         write (6,*) 'Process:', this_rank
+         write (6,*) 'Remap, departure points out of bounds:, i, j =', i, j
+         write (6,*) 'dpx, dpy =', dpx(i,j), dpy(i,j)
+         write (6,*) 'uvel, vvel =', uvel(i,j), vvel(i,j)
+         write (6,*) 'htn(i,j), htn(i+1,j) =', htn(i,j), htn(i+1,j)
+         write (6,*) 'hte(i,j), hte(i,j+1) =', hte(i,j), hte(i,j+1)
          return
       endif
 
@@ -3276,22 +3294,30 @@
       enddo
       enddo
 
-!whl - Test the diagnostics
+!WHL - Test the diagnostics
+!TODO - Write error message cleanly to log file.
+!       For now, just print out an error message.
+
       if (l_stop) then
          i = istop
          j = jstop
          w1 = mflxe(i,j) - mflxe(i-1,j)   &
             + mflxn(i,j) - mflxn(i,j-1)
-         write (message,*) 'Process:',this_rank
-         call write_log(message)
-         write (message,*) 'Remap, negative ice thickness, i, j =', i, j
-         call write_log(message)    
-         write (message,*) 'Old thickness =', mass(i,j) + w1*tarear
-         call write_log(message)    
-         write (message,*) 'New thickness =', mass(i,j)
-         call write_log(message)    
-         write (message,*) 'Net transport =', -w1*tarear
-         call write_log(message)    
+!         write (message,*) 'Process:',this_rank
+!         call write_log(message)
+!         write (message,*) 'Remap, negative ice thickness, i, j =', i, j
+!         call write_log(message)    
+!         write (message,*) 'Old thickness =', mass(i,j) + w1*tarear
+!         call write_log(message)    
+!         write (message,*) 'New thickness =', mass(i,j)
+!         call write_log(message)    
+!         write (message,*) 'Net transport =', -w1*tarear
+!         call write_log(message)    
+         write (6,*) 'Process:',this_rank
+         write (6,*) 'Remap, negative ice thickness, i, j =', i, j
+         write (6,*) 'Old thickness =', mass(i,j) + w1*tarear
+         write (6,*) 'New thickness =', mass(i,j)
+         write (6,*) 'Net transport =', -w1*tarear
          return
       endif
 

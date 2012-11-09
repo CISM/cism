@@ -136,7 +136,7 @@ contains
     use glissade_velo_higher, only: nhalo
 
     use glide_velo_higher  !TODO - Remove this when removing calc_run_ho_diagnostic option
-!!    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
+    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
 
 !!    use remap_glamutils, only : horizontal_remap_init
 !!    use fo_upwind_advect, only : fo_upwind_advect_init
@@ -325,7 +325,7 @@ contains
                            model%general%ewn,    model%general%nsn,       &
                            model%climate%eus,    model%geometry%thkmask,  &
                            model%geometry%iarea, model%geometry%ivol)
-!!       call horiz_bcs_unstag_scalar(model%geometry%thkmask)
+       call horiz_bcs_unstag_scalar(model%geometry%thkmask)
     endif
 
 !TODO- Not sure why this needs to be called here.
@@ -386,8 +386,8 @@ contains
 !### !TODO - To be removed
 !###    use glam, only: inc_remap_driver
 !###    use glide_velo_higher, only: run_ho_diagnostic
-!!    use glimmer_horiz_bcs, only: horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns, &
-!!                                 horiz_bcs_unstag_scalar
+    use glimmer_horiz_bcs, only: horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns, &
+                                 horiz_bcs_unstag_scalar
 
 
     implicit none
@@ -620,15 +620,15 @@ contains
            ! Halo updates for velocities, thickness and tracers
             call t_startf('new_remap_halo_upds')
              call staggered_parallel_halo(model%velocity%uvel)
-!!             call horiz_bcs_stag_vector_ew(model%velocity%uvel)
+             call horiz_bcs_stag_vector_ew(model%velocity%uvel)
              call staggered_parallel_halo(model%velocity%vvel)
-!!             call horiz_bcs_stag_vector_ns(model%velocity%vvel)
+             call horiz_bcs_stag_vector_ns(model%velocity%vvel)
              call parallel_halo(model%geometry%thck)
-!!             call horiz_bcs_unstag_scalar(model%geometry%thck)
+             call horiz_bcs_unstag_scalar(model%geometry%thck)
              if (model%options%whichtemp == TEMP_REMAP_ADV) then
                 !If advecting other tracers, add parallel_halo update here
                 call parallel_halo(model%temper%temp)
-!!                call horiz_bcs_unstag_scalar(model%temper%temp)
+                call horiz_bcs_unstag_scalar(model%temper%temp)
              endif
             call t_stopf('new_remap_halo_upds')
 
@@ -679,9 +679,9 @@ contains
                 !HALO - Move these updates to the new glissade driver.
 
                 call parallel_halo(model%geometry%thck)
-!!                call horiz_bcs_unstag_scalar(model%geometry%thck)
+                call horiz_bcs_unstag_scalar(model%geometry%thck)
                 call parallel_halo(model%temper%temp)
-!!                call horiz_bcs_unstag_scalar(model%temper%temp)
+                call horiz_bcs_unstag_scalar(model%temper%temp)
                 call t_stopf('after_remap_haloupds')
 
              enddo     ! subcycling
@@ -726,7 +726,7 @@ end select
 
     ! call parallel_halo(model%geometry%thck) in inc_remap_driver
     call parallel_halo(model%geometry%topg)
-!!    call horiz_bcs_unstag_scalar(model%geometry%topg)
+    call horiz_bcs_unstag_scalar(model%geometry%topg)
 
 !### !TODO Delete this stuff.  Moved to beginning of subroutine when the time itself is incremented.
 !###!TODO - Is this the right place to increment the timecounter?  
@@ -769,7 +769,7 @@ end select
     use glide_grids
     use glide_ground, only: glide_marinlim
     use stress_hom, only : glide_calcstrsstr
-!!    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar, horiz_bcs_stag_scalar, horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns
+    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar, horiz_bcs_stag_scalar, horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns
     use isostasy
 
     implicit none
@@ -795,7 +795,7 @@ end select
     !Halo updates required for inputs to glide_set_mask?
     ! call parallel_halo(model%geometry%thck) in inc_remap_driver
     call parallel_halo(model%geometry%topg)
-!!    call horiz_bcs_unstag_scalar(model%geometry%topg)
+    call horiz_bcs_unstag_scalar(model%geometry%topg)
 
 !TODO - May want to write a new subroutine, glissade_set_mask, that loops over locally owned cells
 !        and is followed by a halo update (for thkmask) in the driver.
@@ -807,7 +807,7 @@ end select
                            model%geometry%thck,  model%geometry%topg,     &
                            model%general%ewn,    model%general%nsn,       &
                            model%climate%eus,    model%geometry%thkmask)
-!!       call horiz_bcs_unstag_scalar(model%geometry%thkmask)
+       call horiz_bcs_unstag_scalar(model%geometry%thkmask)
 !### Removing the calculation of iarea and ivol here.  This first call to set_mask gets repeated after the marinlim call once the thickness has been adjusted for calved ice.
 !###                           model%geometry%iarea, model%geometry%ivol)
 
@@ -824,15 +824,15 @@ end select
 !HALO - Look at marinlim more carefully and see which fields need halo updates before it is called.
 
     call parallel_halo(model%isos%relx)
-!!    call horiz_bcs_unstag_scalar(model%isos%relx)
+    call horiz_bcs_unstag_scalar(model%isos%relx)
 
 !HALO - not sure if needed for glide_marinlim.
     call parallel_halo(model%temper%flwa)
-!!    call horiz_bcs_unstag_scalar(model%temper%flwa)
+    call horiz_bcs_unstag_scalar(model%temper%flwa)
 
 !HALO - Not sure backstress is ever used
     call parallel_halo(model%climate%backstress)
-!!    call horiz_bcs_unstag_scalar(model%climate%backstress)
+    call horiz_bcs_unstag_scalar(model%climate%backstress)
     ! call parallel_halo(model%geometry%usrf) not actually used
 
 !TODO - glissade_marinlim?
@@ -882,7 +882,7 @@ end select
                         model%general%ewn,    model%general%nsn,       &
                         model%climate%eus,    model%geometry%thkmask,  &
                         model%geometry%iarea, model%geometry%ivol)
-!!    call horiz_bcs_unstag_scalar(model%geometry%thkmask)
+    call horiz_bcs_unstag_scalar(model%geometry%thkmask)
 
 !HALO - glide_set_mask includes a halo update of model%geometry%thkmask at end of call
 !       That update should be moved here if needed later (but may not be needed).
@@ -1011,13 +1011,13 @@ end select
 !HALO - I think that these are not needed, provided that glide_stress loops over locally owned cells only.
        !Halo updates required for inputs to glide_stress?
        call parallel_halo(model%geomderv%dusrfdew)
-!!       call horiz_bcs_stag_vector_ew(model%geomderv%dusrfdew)
+       call horiz_bcs_stag_vector_ew(model%geomderv%dusrfdew)
        call parallel_halo(model%geomderv%dusrfdns)
-!!       call horiz_bcs_stag_vector_ns(model%geomderv%dusrfdns)
+       call horiz_bcs_stag_vector_ns(model%geomderv%dusrfdns)
        call parallel_halo(model%geomderv%dthckdew)
-!!       call horiz_bcs_stag_vector_ew(model%geomderv%dthckdew)
+       call horiz_bcs_stag_vector_ew(model%geomderv%dthckdew)
        call parallel_halo(model%geomderv%dthckdns)
-!!       call horiz_bcs_stag_vector_ns(model%geomderv%dthckdns)
+       call horiz_bcs_stag_vector_ns(model%geomderv%dthckdns)
 
     
 !TODO - Pretty sure that glide_maskthck is SIA only
@@ -1042,7 +1042,7 @@ end select
 !       provided that thck has been updated.
 
     call staggered_parallel_halo(model%geomderv%stagthck)
-!!    call horiz_bcs_stag_scalar(model%geomderv%stagthck)
+    call horiz_bcs_stag_scalar(model%geomderv%stagthck)
     ! call parallel_halo(model%geometry%thkmask) in earlier glide_set_mask call
 
 
@@ -1102,11 +1102,11 @@ end select
 !TODO - Not sure we need to update ubas, vbas, or surfvel,
 !       because these are already part of the 3D uvel and vvel arrays
     call staggered_parallel_halo(model%velocity%surfvel)
-!!    call horiz_bcs_stag_scalar(model%velocity%surfvel)
+    call horiz_bcs_stag_scalar(model%velocity%surfvel)
     call staggered_parallel_halo(model%velocity%ubas)
-!!    call horiz_bcs_stag_vector_ew(model%velocity%ubas)
+    call horiz_bcs_stag_vector_ew(model%velocity%ubas)
     call staggered_parallel_halo(model%velocity%vbas)
-!!    call horiz_bcs_stag_vector_ns(model%velocity%vbas)
+    call horiz_bcs_stag_vector_ns(model%velocity%vbas)
 
 
 
@@ -1134,7 +1134,7 @@ end select
 
 !HALO - I think this update is not needed, provided that glide_calcstrsstr loops over locally owned cells.
        call parallel_halo(model%stress%efvs)
-!!       call horiz_bcs_unstag_scalar(model%stress%efvs)
+       call horiz_bcs_unstag_scalar(model%stress%efvs)
 
        !Tau is calculated in glide_stress and initialized in glide_types.
        call glide_calcstrsstr( model )       !*sfp* added for populating stress tensor w/ HO fields
@@ -1254,6 +1254,10 @@ end select
 
     integer, dimension (:,:), allocatable ::  pgID    ! unique global ID for parallel runs  
 
+    integer, dimension (:,:), allocatable ::  pgIDstagi    ! unique global ID for parallel runs  
+    real(dp), dimension (:,:), allocatable ::  pgIDstagr    ! unique global ID for parallel runs  
+    real(dp), dimension (:,:,:), allocatable ::  pgIDstagr3    ! unique global ID for parallel runs  
+
     real(dp), dimension(:,:,:), allocatable :: uvel, vvel   ! uniform velocity field
  
     integer :: i, j, k, n
@@ -1282,7 +1286,10 @@ end select
     nz = model%general%upn
 
     allocate(pgID(nx,ny))
-    allocate(uvel(nz,nx,ny), vvel(nz,nx,ny))
+    allocate(pgIDstagi(nx-1,ny-1))
+    allocate(pgIDstagr(nx-1,ny-1))
+    allocate(pgIDstagr3(nz,nx-1,ny-1))
+    allocate(uvel(nz,nx-1,ny-1), vvel(nz,nx-1,ny-1))
 
     if (main_task) then
        print*, ' '
@@ -1294,9 +1301,10 @@ end select
 
     print*, 'this_rank, global_row/col offset =', this_rank, global_row_offset, global_col_offset
 
-    pgID(:,:) = 0
 
     ! Compute parallel global ID for each grid cell
+
+    pgID(:,:) = 0
 
     do j = 1+lhalo, ny-uhalo
     do i = 1+lhalo, nx-uhalo
@@ -1304,7 +1312,6 @@ end select
     enddo
     enddo
 
-    ! Print
     if (this_rank == rdiag) then
        write(6,*) ' '
        print*, 'Parallel global ID, this_rank =', this_rank
@@ -1317,28 +1324,150 @@ end select
 
     if (this_rank == rdiag) then
        write(6,*) ' '
-       print*, 'After halo_update, this_rank =', this_rank
+       write(6,*) 'After parallel_halo_update, this_rank =', this_rank
        do j = ny, 1, -1
           write(6,'(34i5)') pgID(:,j)
        enddo
     endif
 
+    ! Repeat for staggered variables
+
+    ! First for an integer 2D field
+
+    pgIDstagi(:,:) = 0
+
+    do j = 1+lhalo, ny-uhalo
+    do i = 1+lhalo, nx-uhalo
+       pgIDstagi(i,j) = parallel_globalID_scalar(i,j,nz)    ! function in parallel_mpi.F90
+    enddo
+    enddo
+
+    ! Print
+    if (this_rank == rdiag) then
+       write(6,*) ' '
+       write(6,*) 'Staggered parallel global ID (integer), this_rank =', this_rank
+       do j = ny-1, 1, -1
+          write(6,'(33i5)') pgIDstagi(:,j)
+       enddo
+    endif
+
+    call staggered_parallel_halo(pgIDstagi)
+
+    if (this_rank == rdiag) then
+       write(6,*) ' '
+       write(6,*) 'After staggered_parallel_halo_update, this_rank =', this_rank
+       do j = ny-1, 1, -1
+          write(6,'(33i5)') pgIDstagi(:,j)
+       enddo
+    endif
+
+    ! Then for a real 2D field
+
+    pgIDstagr(:,:) = 0.d0
+
+    do j = 1+lhalo, ny-uhalo
+    do i = 1+lhalo, nx-uhalo
+       pgIDstagr(i,j) = real(parallel_globalID_scalar(i,j,nz),dp)    ! function in parallel_mpi.F90
+    enddo
+    enddo
+
+    ! Print
+    if (this_rank == rdiag) then
+       write(6,*) ' '
+       write(6,*) 'Staggered parallel global ID (real 2D), this_rank =', this_rank
+       do j = ny-1, 1, -1
+          write(6,'(33f6.0)') pgIDstagr(:,j)
+       enddo
+    endif
+
+    call staggered_parallel_halo(pgIDstagr)
+
+    if (this_rank == rdiag) then
+       write(6,*) ' '
+       write(6,*) 'After staggered_parallel_halo_update, this_rank =', this_rank
+       do j = ny-1, 1, -1
+          write(6,'(33f6.0)') pgIDstagr(:,j)
+       enddo
+    endif
+
+    ! Then for a real 3D field
+
+    pgIDstagr3(:,:,:) = 0.d0
+
+    do j = 1+lhalo, ny-uhalo
+    do i = 1+lhalo, nx-uhalo
+       do k = 1, nz
+          pgIDstagr3(k,i,j) = real(parallel_globalID_scalar(i,j,nz),dp) + real(k,dp)    ! function in parallel_mpi.F90
+       enddo
+    enddo
+    enddo
+
+    k = 1
+
+    if (this_rank == rdiag) then
+       write(6,*) ' '
+       write(6,*) 'Staggered parallel global ID (real 3D), k, this_rank =', k, this_rank
+       do j = ny-1, 1, -1
+          write(6,'(33f6.0)') pgIDstagr3(k,:,j)
+       enddo
+    endif
+
+    call staggered_parallel_halo(pgIDstagr3)
+
+    if (this_rank == rdiag) then
+       write(6,*) ' '
+       write(6,*) 'After staggered_parallel_halo_update, this_rank =', this_rank
+       do j = ny-1, 1, -1
+          write(6,'(33f6.0)') pgIDstagr3(k,:,j)
+       enddo
+    endif
 
     ! Run remapping routine
 
-    uvel(:,:,:) = umag * cos(theta)
-    vvel(:,:,:) = umag * sin(theta)
+    uvel(:,:,:) = 0.d0
+    vvel(:,:,:) = 0.d0
+
+    ! Set velocity in locally owned cells
+
+    do j = 1+lhalo, ny-uhalo
+    do i = 1+lhalo, nx-uhalo
+       do k = 1, nz
+          uvel(k,i,j) = umag * cos(theta)
+          vvel(k,i,j) = umag * sin(theta)
+       enddo
+    enddo
+    enddo
 
        if (this_rank == rdiag) then
-1          write(6,*) ' '
-!          write(6,*) 'uvel, this_rank =', this_rank
-          do j = ny, 1, -1
-!             write(6,'(34f6.1)') uvel(1,:,j)
+          write(6,*) ' '
+          write(6,*) 'Before halo update:'
+          write(6,*) 'uvel, this_rank =', this_rank
+          do j = ny-1, 1, -1
+             write(6,'(33f6.1)') uvel(1,:,j)
           enddo
-!          write(6,*) ' '
-!          write(6,*) 'vvel, this_rank =', this_rank
-          do j = ny, 1, -1
-!             write(6,'(34f6.1)') vvel(1,:,j)
+          write(6,*) ' '
+          write(6,*) 'vvel, this_rank =', this_rank
+          do j = ny-1, 1, -1
+             write(6,'(33f6.1)') vvel(1,:,j)
+          enddo
+       endif
+
+    ! staggered halo update
+
+    call staggered_parallel_halo(uvel)
+    call staggered_parallel_halo(vvel)
+
+       if (this_rank == rdiag) then
+          write(6,*) ' '
+          write(6,*) 'After halo update:'
+          write(6,*) 'uvel, this_rank =', this_rank
+          do j = ny-1, 1, -1
+             write(6,'(33f6.1)') uvel(1,:,j)
+          enddo
+          write(6,*) ' '
+          write(6,*) 'vvel, this_rank =', this_rank
+          do j = ny-1, 1, -1
+             write(6,'(33f6.1)') vvel(1,:,j)
           enddo
        endif
 
@@ -1357,25 +1486,25 @@ end select
           write(6,*) ' '
           write(6,*) 'New thck, n =', n
           do j = ny, 1, -1
-             write(6,'(19f8.3)') model%geometry%thck(1:19,j)
-!             write(6,'(18f8.3)') model%geometry%thck(17:34,j)
-!             write(6,'(34f8.3)') model%geometry%thck(1:34,j)
+             write(6,'(19e10.2)') model%geometry%thck(1:19,j)
           enddo
           write(6,*) ' '
           write(6,*) 'New layer 1 temp, n =', n
           do j = ny, 1, -1
-             write(6,'(19f8.3)') model%temper%temp(1,1:19,j)
-!             write(6,'(18f8.3)') model%temper%temp(1,17:34,j)
-!             write(6,'(34f8.3)') model%temper%temp(1,:,j)
+             write(6,'(19f10.2)') model%temper%temp(1,1:19,j)
           enddo
        endif
 
     enddo  ! ntstep
 
-    print*, 'Done in parallel diagnostic test'
+    if (main_task) print*, 'Done in parallel diagnostic test'
 
     deallocate(pgID)
-    deallocate(uvel,vvel)
+    deallocate(pgIDstagi)
+    deallocate(pgIDstagr)
+    deallocate(pgIDstagr3)
+    deallocate(uvel)
+    deallocate(vvel)
 
     end subroutine glissade_test_parallel
 

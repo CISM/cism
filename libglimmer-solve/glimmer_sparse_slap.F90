@@ -276,32 +276,33 @@ contains
            print*, ' '
         endif
 
+!TODO - Remove this code when no longer needed for debugging
 !WHL - debug
 !  This can take a long time.  It's more efficient to check symmetry at a higher level,
 !  in the glissade velo solver.
 
-        if (check_symmetry) then
-           print*, 'Check symmetry'
-           do n = 1, matrix%nonzeros
-              i = matrix%row(n)
-              j = matrix%col(n)
-              sym_partner = .false.
-              do m = 1, matrix%nonzeros
-                 if (matrix%col(m)==i .and. matrix%row(m)==j) then
-                    if (matrix%val(m) == matrix%val(n)) then
-                       sym_partner = .true.
-                    else
-                       print*, 'Entry (i,j) not equal to (j,i)'
-                       print*, 'i, j, val(i,j), val(j,i):', i, j, matrix%val(n), matrix%val(m)
-                       stop
-                    endif
-                 endif
-              enddo
-              if (.not. sym_partner) then
-                 print*, 'Entry (i,j) has no corresponding (j,i): n, i, j, val =', n, i, j, matrix%val(n)
-              endif
-           enddo
-        endif   ! check_symmetry
+!        if (check_symmetry) then
+!           print*, 'Check symmetry'
+!           do n = 1, matrix%nonzeros
+!              i = matrix%row(n)
+!              j = matrix%col(n)
+!              sym_partner = .false.
+!              do m = 1, matrix%nonzeros
+!                 if (matrix%col(m)==i .and. matrix%row(m)==j) then
+!                    if (matrix%val(m) == matrix%val(n)) then
+!                       sym_partner = .true.
+!                    else
+!                       print*, 'Entry (i,j) not equal to (j,i)'
+!                       print*, 'i, j, val(i,j), val(j,i):', i, j, matrix%val(n), matrix%val(m)
+!                       stop
+!                    endif
+!                 endif
+!              enddo
+!              if (.not. sym_partner) then
+!                 print*, 'Entry (i,j) has no corresponding (j,i): n, i, j, val =', n, i, j, matrix%val(n)
+!              endif
+!           enddo
+!        endif   ! check_symmetry
 
         ! Make a local copy of the nonzero matrix entries.
         ! These local arrays can be passed to the various SLAP solvers with intent(inout)
@@ -333,7 +334,7 @@ contains
                                niters, err, ierr, iunit, &
                                workspace%rwork, size(workspace%rwork), workspace%iwork, size(workspace%iwork))
 
-                  print*, 'GMRES: iters, err =', niters, err
+                  if (verbose_slap) print*, 'GMRES: iters, err =', niters, err
 
                 !WHL - added options: PCG for symmetric positive-definite matrices
                 !TODO - compare performance of diagonal to incomplete Cholesky preconditioner
@@ -354,7 +355,7 @@ contains
                               niters, err, ierr, iunit, &
                               workspace%rwork, size(workspace%rwork), workspace%iwork, size(workspace%iwork))
 
-                  print*, 'PCG_diag: iters, err =', niters, err
+                  if (verbose_slap) print*, 'PCG_diag: iters, err =', niters, err
 
                 case(3)  ! PCG with incomplete Cholesky preconditioner 
 
@@ -368,8 +369,7 @@ contains
                                niters, err, ierr, iunit, &
                                workspace%rwork, size(workspace%rwork), workspace%iwork, size(workspace%iwork))
 
-                  print*, 'PCG_inch: iters, err =', niters, err
-                     print*,  'maxiters, tolerance =', options%base%maxiters, options%base%tolerance
+                  if (verbose_slap) print*, 'PCG_inch: iters, err =', niters, err
 
                case default   ! Biconjugate gradient
 
@@ -384,7 +384,7 @@ contains
                               niters, err, ierr, iunit, &
                               workspace%rwork, size(workspace%rwork), workspace%iwork, size(workspace%iwork))
 
-                  print*, 'BiCG: iters, err =', niters, err
+                  if (verbose_slap) print*, 'BiCG: iters, err =', niters, err
 
             end select   ! slap solver
   
