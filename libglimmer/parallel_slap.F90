@@ -1,15 +1,24 @@
 module parallel
-  use netcdf
 
+  use netcdf
   implicit none
 
+!WHL - Here are the old values with no halos for slap code
   integer,parameter :: lhalo = 0
   integer,parameter :: uhalo = 0
 
-  integer,parameter :: staggered_whalo = lhalo
-  integer,parameter :: staggered_shalo = lhalo
-  integer,parameter :: staggered_ehalo = uhalo
-  integer,parameter :: staggered_nhalo = uhalo
+!  integer,parameter :: staggered_whalo = lhalo
+!  integer,parameter :: staggered_shalo = lhalo
+!  integer,parameter :: staggered_ehalo = uhalo
+!  integer,parameter :: staggered_nhalo = uhalo
+  integer,parameter :: staggered_lhalo = lhalo
+  integer,parameter :: staggered_uhalo = uhalo
+
+!TODO - Set lhalo = uhalo = 2 as in parallel_mpi
+!!  integer,parameter :: lhalo = 2
+!!  integer,parameter :: uhalo = 2
+!!  integer,parameter :: staggered_lhalo = lhalo
+!!  integer,parameter :: staggered_uhalo = uhalo-1
 
 #ifdef _USE_MPI_WITH_SLAP
   logical,save :: main_task

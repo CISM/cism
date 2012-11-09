@@ -109,7 +109,8 @@ implicit none
   real(dp), dimension(:), allocatable :: pcgval, rhsd, rhsx
   integer, dimension(:), allocatable :: pcgcol, pcgrow
   integer, dimension(2) :: pcgsize
-  integer :: ct
+!WHL - changed 'ct' to 'ct_nonzero'
+  integer :: ct_nonzero  ! number of nonzero matrix entries
 
 !*SFP* NOTE: these redefined here so that they are "in scope" and can avoid being passed as args
   integer :: whatsparse ! needed for putpgcg()
@@ -788,8 +789,8 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
 !TODO - If needed, these loops should be over locally owned velocity points: (ilo-1:ihi, jlo-1:jhi).
 !       However, I don't think uflx and vflx are needed; they are not used by remapping subroutine.
 
-  do ns = 1+staggered_shalo,size(umask,2)-staggered_nhalo
-      do ew = 1+staggered_whalo,size(umask,1)-staggered_ehalo
+  do ns = 1+staggered_lhalo,size(umask,2)-staggered_uhalo
+      do ew = 1+staggered_lhalo,size(umask,1)-staggered_uhalo
       ! calc. fluxes from converged vel. fields (needed for input to thickness evolution subroutine)
          if (umask(ew,ns) > 0) then
              uflx(ew,ns) = vertintg(upn, sigma, uvel(:,ew,ns)) * stagthck(ew,ns)
@@ -1195,8 +1196,8 @@ end if
 
 !TODO - I don't think uflx and vflux are needed.
 
-  do ns = 1+staggered_shalo,size(umask,2)-staggered_nhalo
-      do ew = 1+staggered_whalo,size(umask,1)-staggered_ehalo
+  do ns = 1+staggered_lhalo,size(umask,2)-staggered_uhalo
+      do ew = 1+staggered_lhalo,size(umask,1)-staggered_uhalo
       ! *SFP* calc. fluxes from converged vel. fields (for input to thickness evolution subroutine)
          if (umask(ew,ns) > 0) then
              uflx(ew,ns) = vertintg(upn, sigma, uvel(:,ew,ns)) * stagthck(ew,ns)
@@ -1275,8 +1276,8 @@ function indxvelostr(ewn,  nsn,  upn,  &
 
 !TODO - I think these should be over locally owned velocity points: (ilo-1:ihi, jlo-1:jhi).
 
-  do ns = 1+staggered_shalo,size(mask,2)-staggered_nhalo
-     do ew = 1+staggered_whalo,size(mask,1)-staggered_ehalo
+  do ns = 1+staggered_lhalo,size(mask,2)-staggered_uhalo
+     do ew = 1+staggered_lhalo,size(mask,1)-staggered_uhalo
         if ( GLIDE_HAS_ICE( mask(ew,ns) ) ) then
           indxvelostr(ew,ns) = pointno
           pointno = pointno + 1
@@ -1471,7 +1472,7 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
        end do   ! end ew
    end do       ! end ns
 
-  case(1)       ! set the eff visc to some const value 
+  case(1)       ! set the eff visc to a value based on the rate factor 
 
 !HALO - Make this loop consistent with loop above.
 
@@ -1488,6 +1489,21 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
        end if
       end do
   end do
+
+!WHL - added case(2)
+
+  case(2)       ! set the eff visc to a constant value
+
+   do ns = 2,nsn-1
+     do ew = 2,ewn-1
+        if (thck(ew,ns) > 0.d0) then
+           ! Steve recommends 10^6 to 10^7 Pa yr
+           efvs(1:upn-1,ew,ns) = 1.d7  * scyr/tim0 / tau0    ! tau0 = rhoi*grav*thk0   
+        else        
+           efvs(:,ew,ns) = effstrminsq ! if the point is associated w/ no ice, set to min value
+        endif
+     enddo
+   enddo
 
   end select
 
@@ -1610,8 +1626,9 @@ function getlocationarray(ewn, nsn, upn, mask, indxmask)
 !TODO - Should this be over locally owned velocity points?
 
   ! Step through indxmask, but exclude halo
-  do ns = 1+staggered_shalo,size(indxmask,2)-staggered_nhalo
-    do ew = 1+staggered_whalo,size(indxmask,1)-staggered_ehalo
+
+  do ns = 1+staggered_lhalo,size(indxmask,2)-staggered_uhalo
+    do ew = 1+staggered_lhalo,size(indxmask,1)-staggered_uhalo
       if ( indxmask(ew,ns) /= 0 ) then
         getlocationarray(ew,ns,2) = (indxmask(ew,ns) - 1) * (upn+2) + 1
       endif
@@ -1629,8 +1646,8 @@ function getlocationarray(ewn, nsn, upn, mask, indxmask)
 
 !TODO - Should this be over locally owned velocity points?
 
-  do ns=1+staggered_shalo,size(mask,2)-staggered_nhalo
-    do ew=1+staggered_whalo,size(mask,1)-staggered_ehalo
+  do ns=1+staggered_lhalo,size(mask,2)-staggered_uhalo
+    do ew=1+staggered_lhalo,size(mask,1)-staggered_uhalo
       if ( GLIDE_HAS_ICE( mask(ew,ns) ) ) then
         cumsum = cumsum + ( upn + 2 )
         getlocationarray(ew,ns,1) = cumsum
@@ -1682,7 +1699,7 @@ function slapsolvstr(ewn, nsn, upn, &
 
 ! ** move to values subr   
 
-  pcgsize(2) = ct - 1
+  pcgsize(2) = ct_nonzero - 1
 
   call ds2y(pcgsize(1),pcgsize(2),pcgrow,pcgcol,pcgval,isym)
 
@@ -1774,7 +1791,7 @@ subroutine solver_preprocess( ewn, nsn, upn, uindx, matrix, answer, vel )
   integer :: ew, ns
   integer, dimension(2) :: loc
 
-  pcgsize(2) = ct - 1
+  pcgsize(2) = ct_nonzero - 1
 
   matrix%order = pcgsize(1)
   matrix%nonzeros = pcgsize(2)
@@ -1788,8 +1805,9 @@ subroutine solver_preprocess( ewn, nsn, upn, uindx, matrix, answer, vel )
 
   ! Initial estimate for vel. field; take from 3d array and put into
   ! the format of a solution vector.
-  do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
-   do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
+
+  do ns = 1+staggered_lhalo,size(uindx,2)-staggered_uhalo
+   do ew = 1+staggered_lhalo,size(uindx,1)-staggered_uhalo
         if (uindx(ew,ns) /= 0) then
             loc = getlocrange(upn, uindx(ew,ns))
             answer(loc(1):loc(2)) = vel(:,ew,ns)
@@ -1824,8 +1842,8 @@ subroutine solver_postprocess( ewn, nsn, upn, pt, uindx, answrapped, ansunwrappe
 
 !HALO - Not sure about the loops here.  Should be over locally owned velocity points?
 
-  do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
-      do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
+  do ns = 1+staggered_lhalo,size(uindx,2)-staggered_uhalo
+      do ew = 1+staggered_lhalo,size(uindx,1)-staggered_uhalo
           if (uindx(ew,ns) /= 0) then
             loc = getlocrange(upn, uindx(ew,ns))
             ansunwrapped(:,ew,ns) = answrapped(loc(1):loc(2))
@@ -1860,8 +1878,9 @@ subroutine solver_postprocess_jfnk( ewn, nsn, upn, uindx, answrapped, ansunwrapp
    integer :: ew, ns
 
 !HALO - Not sure about the loops here.  Should be over locally owned velocity points?
-   do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
-       do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
+
+   do ns = 1+staggered_lhalo,size(uindx,2)-staggered_uhalo
+       do ew = 1+staggered_lhalo,size(uindx,1)-staggered_uhalo
            if (uindx(ew,ns) /= 0) then
              loc = getlocrange(upn, uindx(ew,ns))
              ansunwrappedv(:,ew,ns) = answrapped(loc(1):loc(2))
@@ -1897,8 +1916,9 @@ subroutine resvect_postprocess_jfnk( ewn, nsn, upn, uindx, pcg1, answrapped, ans
    integer :: ew, ns
 
 !HALO - Not sure about the loops here.  Should be over locally owned velocity points?
-   do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
-       do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
+
+   do ns = 1+staggered_lhalo,size(uindx,2)-staggered_uhalo
+       do ew = 1+staggered_lhalo,size(uindx,1)-staggered_uhalo
            if (uindx(ew,ns) /= 0) then
              loc = getlocrange(upn, uindx(ew,ns))
              ansunwrappedv(:,ew,ns) = answrapped(loc(1):loc(2))
@@ -1926,7 +1946,7 @@ subroutine form_matrix( matrix ) ! for JFNK solver
 !  integer, intent(in) :: ewn, nsn, upn
   type(sparse_matrix_type), intent(inout) :: matrix
 
-  pcgsize(2) = ct - 1
+  pcgsize(2) = ct_nonzero - 1
 
   matrix%order = pcgsize(1)
   matrix%nonzeros = pcgsize(2)
@@ -2423,8 +2443,8 @@ subroutine ghost_preprocess( ewn, nsn, upn, uindx, ughost, vghost, &
 
 !TODO - Loops should be over locally owned velocity points?
 
-  do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
-   do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
+  do ns = 1+staggered_lhalo,size(uindx,2)-staggered_uhalo
+   do ew = 1+staggered_lhalo,size(uindx,1)-staggered_uhalo
         if (uindx(ew,ns) /= 0) then
             loc = getlocrange(upn, uindx(ew,ns))
             uk_1(loc(1):loc(2)) = uvel(:,ew,ns)
@@ -2469,8 +2489,8 @@ end subroutine ghost_preprocess
 
 !TODO - Loops should be over locally owned velocity points?
    
-   do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
-    do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
+   do ns = 1+staggered_lhalo,size(uindx,2)-staggered_uhalo
+    do ew = 1+staggered_lhalo,size(uindx,1)-staggered_uhalo
          if (uindx(ew,ns) /= 0) then
              loc = getlocrange(upn, uindx(ew,ns))
              xk_1(pcg1+loc(1):pcg1+loc(2)) = uvel(:,ew,ns)
@@ -2511,8 +2531,8 @@ subroutine ghost_postprocess( ewn, nsn, upn, uindx, uk_1, vk_1, &
 
 !TODO - Loops should be over locally owned velocity points?
 
-  do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
-      do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
+  do ns = 1+staggered_lhalo,size(uindx,2)-staggered_uhalo
+      do ew = 1+staggered_lhalo,size(uindx,1)-staggered_uhalo
           if (uindx(ew,ns) /= 0) then
             loc = getlocrange(upn, uindx(ew,ns))
             ughost(1,ew,ns) = uk_1(loc(1)-1) ! ghost at top
@@ -2551,8 +2571,8 @@ end subroutine ghost_postprocess
 
 !TODO - Loops should be over locally owned velocity points?
    
-   do ns = 1+staggered_shalo,size(uindx,2)-staggered_nhalo
-       do ew = 1+staggered_whalo,size(uindx,1)-staggered_ehalo
+   do ns = 1+staggered_lhalo,size(uindx,2)-staggered_uhalo
+       do ew = 1+staggered_lhalo,size(uindx,1)-staggered_uhalo
            if (uindx(ew,ns) /= 0) then
              loc = getlocrange(upn, uindx(ew,ns))
              ughost(1,ew,ns) = xk_1(pcg1+loc(1)-1) ! ghost at top
@@ -2624,8 +2644,8 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
    case(0)
     ! resid = maxval( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel /= 0.d0)
     resid = 0.d0
-    do ns = 1 + staggered_shalo, size(vel, 3) - staggered_nhalo
-      do ew = 1 + staggered_whalo, size(vel, 2) - staggered_ehalo
+    do ns = 1 + staggered_lhalo, size(vel, 3) - staggered_uhalo
+      do ew = 1 + staggered_lhalo, size(vel, 2) - staggered_uhalo
         do nr = 1, size(vel, 1)
           if (vel(nr,ew,ns) /= 0.d0) then
             resid = max(resid, abs(usav(nr,ew,ns,pt) - vel(nr,ew,ns)) / vel(nr,ew,ns))
@@ -2642,8 +2662,8 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
     ! nr = size( vel, dim=1 ) ! number of grid points in vertical ...
     ! resid = maxval( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ), MASK = vel /= 0.d0)
     resid = 0.d0
-    do ns = 1 + staggered_shalo, size(vel, 3) - staggered_nhalo
-      do ew = 1 + staggered_whalo, size(vel, 2) - staggered_ehalo
+    do ns = 1 + staggered_lhalo, size(vel, 3) - staggered_uhalo
+      do ew = 1 + staggered_lhalo, size(vel, 2) - staggered_uhalo
         do nr = 1, size(vel, 1) - 1
           if (vel(nr,ew,ns) /= 0.d0) then
             resid = max(resid, abs(usav(nr,ew,ns,pt) - vel(nr,ew,ns)) / vel(nr,ew,ns))
@@ -2686,8 +2706,8 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
    case(3)
     ! resid = maxval( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel /= 0.d0)
     resid = 0.d0
-    do ns = 1 + staggered_shalo, size(vel, 3) - staggered_nhalo
-      do ew = 1 + staggered_whalo, size(vel, 2) - staggered_ehalo
+    do ns = 1 + staggered_lhalo, size(vel, 3) - staggered_uhalo
+      do ew = 1 + staggered_lhalo, size(vel, 2) - staggered_uhalo
         do nr = 1, size(vel, 1)
           if (vel(nr,ew,ns) /= 0.d0) then
             resid = max(resid, abs(usav(nr,ew,ns,pt) - vel(nr,ew,ns)) / vel(nr,ew,ns))
@@ -2732,8 +2752,9 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
   if (counter > 1) then
 
     ! Replace where clause with explicit, owned variables for each processor.
-    do ns = 1 + staggered_shalo, size(vel, 3) - staggered_nhalo
-      do ew = 1 + staggered_whalo, size(vel, 2) - staggered_ehalo
+
+    do ns = 1 + staggered_lhalo, size(vel, 3) - staggered_uhalo
+      do ew = 1 + staggered_lhalo, size(vel, 2) - staggered_uhalo
         do nr = 1, size(vel, 1)
           temp_vel = vel(nr,ew,ns)
           if (acos((corr(nr,ew,ns,new(pt),pt) * corr(nr,ew,ns,old(pt),pt)) / &
@@ -2987,7 +3008,7 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
 
   logical :: comp_bound
 
-  ct = 1        ! index to count the number of non-zero entries in the sparse matrix
+  ct_nonzero = 1        ! index to count the number of non-zero entries in the sparse matrix
 
   if( assembly == 1 )then   ! for normal assembly (assembly=0), start vert index at sfc and go to bed
     up_start = upn        ! for boundary traction calc (assembly=1), do matrix assembly on for equations at bed
@@ -3023,16 +3044,19 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
   !             neighbors of locally owned velocity points.
 
   ! JEFFLOC Do I need to restrict to non-halo grid points?
-  do ns = 1+staggered_shalo,size(mask,2)-staggered_nhalo
-    do ew = 1+staggered_whalo,size(mask,1)-staggered_ehalo
+
+  do ns = 1+staggered_lhalo,size(mask,2)-staggered_uhalo
+    do ew = 1+staggered_lhalo,size(mask,1)-staggered_uhalo
       !Theoretically, this should just be .false. to remove it from the if statements and let the ghost cells
       !take over. However, with only one process, this give an exception error when calc_F calls savetrilinosmatrix(0).
       !Therefore, it will currently revert back to the old BC's when using only one task for now. I am working to
       !debug and fix this case, but for now, it does no harm for the original BC's.
-      comp_bound = ( nslb < 1          .and. ns <              staggered_shalo+1+ghost_shift ) .or. &
-                   ( ewlb < 1          .and. ew <              staggered_whalo+1+ghost_shift ) .or. &
-                   ( nsub > global_nsn .and. ns > size(mask,2)-staggered_nhalo  -ghost_shift ) .or. &
-                   ( ewub > global_ewn .and. ew > size(mask,1)-staggered_ehalo  -ghost_shift )
+
+      comp_bound = ( nslb < 1          .and. ns <              staggered_lhalo+1+ghost_shift ) .or. &
+                   ( ewlb < 1          .and. ew <              staggered_lhalo+1+ghost_shift ) .or. &
+                   ( nsub > global_nsn .and. ns > size(mask,2)-staggered_uhalo  -ghost_shift ) .or. &
+                   ( ewub > global_ewn .and. ew > size(mask,1)-staggered_uhalo  -ghost_shift )
+
       ! Calculate the depth-averaged value of the rate factor, needed below when applying an ice shelf
       ! boundary condition (complicated code so as not to include funny values at boundaries ...
       ! ... kind of a mess and could be redone or made into a function or subroutine).
@@ -5474,10 +5498,10 @@ subroutine putpcgc(value,col,row,pt)
     if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
         ! Option to load entry into Triad sparse matrix format
         if (value /= 0.d0) then
-          pcgval(ct) = value
-          pcgcol(ct) = col
-          pcgrow(ct) = row
-          ct = ct + 1
+          pcgval(ct_nonzero) = value
+          pcgcol(ct_nonzero) = col
+          pcgrow(ct_nonzero) = row
+          ct_nonzero = ct_nonzero + 1
         end if
 #ifdef TRILINOS
     else
@@ -5501,10 +5525,10 @@ subroutine putpcgc(value,col,row,pt)
 
           ! load entry into Triad sparse matrix format
           if (value /= 0.d0) then
-            pcgval(ct) = value
-            pcgcol(ct) = col
-            pcgrow(ct) = row
-            ct = ct + 1
+            pcgval(ct_nonzero) = value
+            pcgcol(ct_nonzero) = col
+            pcgrow(ct_nonzero) = row
+            ct_nonzero = ct_nonzero + 1
           end if
 
 #ifdef TRILINOS
@@ -5548,8 +5572,9 @@ end subroutine putpcgc
 !TODO - Loop over locally owned velocity points?
 
       ! Step through indxmask, but exclude halo
-      do ns = 1+staggered_shalo,size(indxmask,2)-staggered_nhalo
-         do ew = 1+staggered_whalo,size(indxmask,1)-staggered_ehalo
+
+      do ns = 1+staggered_lhalo,size(indxmask,2)-staggered_uhalo
+         do ew = 1+staggered_lhalo,size(indxmask,1)-staggered_uhalo
                if ( indxmask(ew,ns) /= 0 ) then
                  pointno = indxmask(ew,ns)  ! Note that pointno starts at value 1.  If we step through correctly then consecutive values
                  ! write(*,*) "pointno = ", pointno
@@ -5609,8 +5634,8 @@ end subroutine putpcgc
           minew = 1
           minns = 1
           mindiff = globalID
-!          do ns = 1+staggered_shalo,size(loc2_array,2)-staggered_nhalo
-!            do ew = 1+staggered_whalo,size(loc2_array,1)-staggered_ehalo
+!          do ns = 1+staggered_lhalo,size(loc2_array,2)-staggered_uhalo
+!            do ew = 1+staggered_lhalo,size(loc2_array,1)-staggered_uhalo
           ! loc2_array(:,:,1) defined for all ew,ns, 
           ! while loc2_array(:,:,2) == 0 for halos and ice-free loactions
           do ns = 1,size(loc2_array,2)

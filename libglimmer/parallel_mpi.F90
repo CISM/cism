@@ -1,4 +1,5 @@
 module parallel
+
   use netcdf
   implicit none
 
@@ -10,13 +11,18 @@ module parallel
   integer,parameter :: lhalo = 2
   integer,parameter :: uhalo = 2
 
+!WHL - Changed staggered_whalo and staggered_shalo to staggered_lhalo
+!      Changed staggered_ehalo and staggered_nhalo to staggered_uhalo
   !for staggered grid, left, bottom, right, and top halo widths
-  ! (eventually, different values for processes with cells on left 
-  !  and bottom of global domain)
+
+!TODO - Replace these
   integer,parameter :: staggered_whalo = lhalo
   integer,parameter :: staggered_shalo = lhalo
   integer,parameter :: staggered_ehalo = uhalo-1
   integer,parameter :: staggered_nhalo = uhalo-1
+
+  integer,parameter :: staggered_lhalo = lhalo
+  integer,parameter :: staggered_uhalo = uhalo-1
 
   logical,save :: main_task
   integer,save :: comm, tasks, this_rank
@@ -3501,10 +3507,15 @@ contains
 
     ! integer :: erequest,ierror,one,nrequest,srequest,wrequest
     integer :: ierror,nrequest,srequest,erequest,wrequest
-    integer,dimension(staggered_whalo,size(a,2)-staggered_shalo-staggered_nhalo) :: esend,wrecv
-    integer,dimension(staggered_ehalo,size(a,2)-staggered_shalo-staggered_nhalo) :: erecv,wsend
-    integer,dimension(size(a,1),staggered_shalo) :: nsend,srecv
-    integer,dimension(size(a,1),staggered_nhalo) :: nrecv,ssend
+
+!    integer,dimension(staggered_whalo,size(a,2)-staggered_shalo-staggered_nhalo) :: esend,wrecv
+!    integer,dimension(staggered_ehalo,size(a,2)-staggered_shalo-staggered_nhalo) :: erecv,wsend
+!    integer,dimension(size(a,1),staggered_shalo) :: nsend,srecv
+!    integer,dimension(size(a,1),staggered_nhalo) :: nrecv,ssend
+    integer,dimension(staggered_lhalo,size(a,2)-staggered_lhalo-staggered_uhalo) :: esend,wrecv
+    integer,dimension(staggered_uhalo,size(a,2)-staggered_lhalo-staggered_uhalo) :: erecv,wsend
+    integer,dimension(size(a,1),staggered_lhalo) :: nsend,srecv
+    integer,dimension(size(a,1),staggered_uhalo) :: nrecv,ssend
 
 !WHL - temporary logical variable to determine whether or not to fill in halo cells
 !      at edge of the global domain.  I am setting it to true by default to support
@@ -3541,53 +3552,69 @@ contains
     endif
 
     if (this_rank > west .or. fill_global_halos) then
-      wsend(:,1:size(a,2)-staggered_shalo-staggered_nhalo) = &
-        a(1+staggered_whalo:1+staggered_whalo+staggered_ehalo-1, &
-            1+staggered_shalo:size(a,2)-staggered_nhalo)
+!      wsend(:,1:size(a,2)-staggered_shalo-staggered_nhalo) = &
+!        a(1+staggered_whalo:1+staggered_whalo+staggered_ehalo-1, &
+!            1+staggered_shalo:size(a,2)-staggered_nhalo)
+      wsend(:,1:size(a,2)-staggered_lhalo-staggered_uhalo) = &
+        a(1+staggered_lhalo:1+staggered_lhalo+staggered_uhalo-1, &
+            1+staggered_lhalo:size(a,2)-staggered_uhalo)
       call mpi_send(wsend,size(wsend),mpi_integer,west,this_rank,comm,ierror)
     endif
 
     if (this_rank < east .or. fill_global_halos) then
-      esend(:,1:size(a,2)-staggered_shalo-staggered_nhalo) = &
-        a(size(a,1)-staggered_ehalo-staggered_whalo+1:size(a,1)-staggered_ehalo, &
-            1+staggered_shalo:size(a,2)-staggered_nhalo)
+!      esend(:,1:size(a,2)-staggered_shalo-staggered_nhalo) = &
+!        a(size(a,1)-staggered_ehalo-staggered_whalo+1:size(a,1)-staggered_ehalo, &
+!            1+staggered_shalo:size(a,2)-staggered_nhalo)
+      esend(:,1:size(a,2)-staggered_lhalo-staggered_uhalo) = &
+        a(size(a,1)-staggered_uhalo-staggered_lhalo+1:size(a,1)-staggered_uhalo, &
+            1+staggered_lhalo:size(a,2)-staggered_uhalo)
       call mpi_send(esend,size(esend),mpi_integer,east,this_rank,comm,ierror)
     endif
 
     if (this_rank < east .or. fill_global_halos) then
       call mpi_wait(erequest,mpi_status_ignore,ierror)
-      a(size(a,1)-staggered_ehalo+1:size(a,1), &
-          1+staggered_shalo:size(a,2)-staggered_nhalo) = &
-          erecv(:,1:size(a,2)-staggered_shalo-staggered_nhalo)
+!      a(size(a,1)-staggered_ehalo+1:size(a,1), &
+!          1+staggered_shalo:size(a,2)-staggered_nhalo) = &
+!          erecv(:,1:size(a,2)-staggered_shalo-staggered_nhalo)
+      a(size(a,1)-staggered_uhalo+1:size(a,1), &
+          1+staggered_lhalo:size(a,2)-staggered_uhalo) = &
+          erecv(:,1:size(a,2)-staggered_lhalo-staggered_uhalo)
     endif
 
     if (this_rank > west .or. fill_global_halos) then
       call mpi_wait(wrequest,mpi_status_ignore,ierror)
-      a(1:staggered_whalo, &
-          1+staggered_shalo:size(a,2)-staggered_nhalo) = &
-          wrecv(:,1:size(a,2)-staggered_shalo-staggered_nhalo)
+!      a(1:staggered_whalo, &
+!          1+staggered_shalo:size(a,2)-staggered_nhalo) = &
+!          wrecv(:,1:size(a,2)-staggered_shalo-staggered_nhalo)
+      a(1:staggered_lhalo, &
+          1+staggered_lhalo:size(a,2)-staggered_uhalo) = &
+          wrecv(:,1:size(a,2)-staggered_lhalo-staggered_uhalo)
     endif
 
     if (this_rank > south .or. fill_global_halos) then
       ssend(:,:) = &
-        a(:,1+staggered_shalo:1+staggered_shalo+staggered_nhalo-1)
+!        a(:,1+staggered_shalo:1+staggered_shalo+staggered_nhalo-1)
+        a(:,1+staggered_lhalo:1+staggered_lhalo+staggered_uhalo-1)
       call mpi_send(ssend,size(ssend),mpi_integer,south,this_rank,comm,ierror)
     endif
 
     if (this_rank < north .or. fill_global_halos) then
       nsend(:,:) = &
-        a(:,size(a,2)-staggered_nhalo-staggered_shalo+1:size(a,2)-staggered_nhalo)
+!        a(:,size(a,2)-staggered_nhalo-staggered_shalo+1:size(a,2)-staggered_nhalo)
+        a(:,size(a,2)-staggered_uhalo-staggered_lhalo+1:size(a,2)-staggered_uhalo)
       call mpi_send(nsend,size(nsend),mpi_integer,north,this_rank,comm,ierror)
     endif
 
     if (this_rank < north .or. fill_global_halos) then
       call mpi_wait(nrequest,mpi_status_ignore,ierror)
-      a(:,size(a,2)-staggered_nhalo+1:size(a,2)) = nrecv(:,:)
+!      a(:,size(a,2)-staggered_nhalo+1:size(a,2)) = nrecv(:,:)
+      a(:,size(a,2)-staggered_uhalo+1:size(a,2)) = nrecv(:,:)
     endif
 
     if (this_rank > south .or. fill_global_halos) then
       call mpi_wait(srequest,mpi_status_ignore,ierror)
-      a(:,1:staggered_shalo) = srecv(:,:)
+!      a(:,1:staggered_shalo) = srecv(:,:)
+      a(:,1:staggered_lhalo) = srecv(:,:)
     endif
 
   end subroutine staggered_parallel_halo_integer_2d
@@ -3618,10 +3645,14 @@ contains
 
     ! integer :: erequest,ierror,one,nrequest,srequest,wrequest
     integer :: ierror,nrequest,srequest,erequest,wrequest
-    real(8),dimension(staggered_whalo,size(a,2)-staggered_shalo-staggered_nhalo) :: esend,wrecv
-    real(8),dimension(staggered_ehalo,size(a,2)-staggered_shalo-staggered_nhalo) :: erecv,wsend
-    real(8),dimension(size(a,1),staggered_shalo) :: nsend,srecv
-    real(8),dimension(size(a,1),staggered_nhalo) :: nrecv,ssend
+!    real(8),dimension(staggered_whalo,size(a,2)-staggered_shalo-staggered_nhalo) :: esend,wrecv
+!    real(8),dimension(staggered_ehalo,size(a,2)-staggered_shalo-staggered_nhalo) :: erecv,wsend
+!    real(8),dimension(size(a,1),staggered_shalo) :: nsend,srecv
+!    real(8),dimension(size(a,1),staggered_nhalo) :: nrecv,ssend
+    real(8),dimension(staggered_lhalo,size(a,2)-staggered_lhalo-staggered_uhalo) :: esend,wrecv
+    real(8),dimension(staggered_uhalo,size(a,2)-staggered_lhalo-staggered_uhalo) :: erecv,wsend
+    real(8),dimension(size(a,1),staggered_lhalo) :: nsend,srecv
+    real(8),dimension(size(a,1),staggered_uhalo) :: nrecv,ssend
 
 !WHL - temporary logical variable to determine whether or not to fill in halo cells
 !      at edge of the global domain.  I am setting it to true by default to support
@@ -3657,53 +3688,69 @@ contains
     endif
 
     if (this_rank > west .or. fill_global_halos) then
-      wsend(:,1:size(a,2)-staggered_shalo-staggered_nhalo) = &
-        a(1+staggered_whalo:1+staggered_whalo+staggered_ehalo-1, &
-            1+staggered_shalo:size(a,2)-staggered_nhalo)
+!      wsend(:,1:size(a,2)-staggered_shalo-staggered_nhalo) = &
+!        a(1+staggered_whalo:1+staggered_whalo+staggered_ehalo-1, &
+!            1+staggered_shalo:size(a,2)-staggered_nhalo)
+      wsend(:,1:size(a,2)-staggered_lhalo-staggered_uhalo) = &
+        a(1+staggered_lhalo:1+staggered_lhalo+staggered_uhalo-1, &
+            1+staggered_lhalo:size(a,2)-staggered_uhalo)
       call mpi_send(wsend,size(wsend),mpi_real8,west,this_rank,comm,ierror)
     endif
 
     if (this_rank < east .or. fill_global_halos) then
-      esend(:,1:size(a,2)-staggered_shalo-staggered_nhalo) = &
-        a(size(a,1)-staggered_ehalo-staggered_whalo+1:size(a,1)-staggered_ehalo, &
-            1+staggered_shalo:size(a,2)-staggered_nhalo)
+!      esend(:,1:size(a,2)-staggered_shalo-staggered_nhalo) = &
+!        a(size(a,1)-staggered_ehalo-staggered_whalo+1:size(a,1)-staggered_ehalo, &
+!            1+staggered_shalo:size(a,2)-staggered_nhalo)
+      esend(:,1:size(a,2)-staggered_lhalo-staggered_uhalo) = &
+        a(size(a,1)-staggered_uhalo-staggered_lhalo+1:size(a,1)-staggered_uhalo, &
+            1+staggered_lhalo:size(a,2)-staggered_uhalo)
       call mpi_send(esend,size(esend),mpi_real8,east,this_rank,comm,ierror)
     endif
 
     if (this_rank < east .or. fill_global_halos) then
       call mpi_wait(erequest,mpi_status_ignore,ierror)
-      a(size(a,1)-staggered_ehalo+1:size(a,1), &
-          1+staggered_shalo:size(a,2)-staggered_nhalo) = &
-          erecv(:,1:size(a,2)-staggered_shalo-staggered_nhalo)
+!      a(size(a,1)-staggered_ehalo+1:size(a,1), &
+!          1+staggered_shalo:size(a,2)-staggered_nhalo) = &
+!          erecv(:,1:size(a,2)-staggered_shalo-staggered_nhalo)
+      a(size(a,1)-staggered_uhalo+1:size(a,1), &
+          1+staggered_lhalo:size(a,2)-staggered_uhalo) = &
+          erecv(:,1:size(a,2)-staggered_lhalo-staggered_uhalo)
     endif
 
     if (this_rank > west .or. fill_global_halos) then
       call mpi_wait(wrequest,mpi_status_ignore,ierror)
-      a(1:staggered_whalo, &
-          1+staggered_shalo:size(a,2)-staggered_nhalo) = &
-          wrecv(:,1:size(a,2)-staggered_shalo-staggered_nhalo)
+!      a(1:staggered_whalo, &
+!          1+staggered_shalo:size(a,2)-staggered_nhalo) = &
+!          wrecv(:,1:size(a,2)-staggered_shalo-staggered_nhalo)
+      a(1:staggered_lhalo, &
+          1+staggered_lhalo:size(a,2)-staggered_uhalo) = &
+          wrecv(:,1:size(a,2)-staggered_lhalo-staggered_uhalo)
     endif
 
     if (this_rank > south .or. fill_global_halos) then
       ssend(:,:) = &
-        a(:,1+staggered_shalo:1+staggered_shalo+staggered_nhalo-1)
+!        a(:,1+staggered_shalo:1+staggered_shalo+staggered_nhalo-1)
+        a(:,1+staggered_lhalo:1+staggered_lhalo+staggered_uhalo-1)
       call mpi_send(ssend,size(ssend),mpi_real8,south,this_rank,comm,ierror)
     endif
 
     if (this_rank < north .or. fill_global_halos) then
       nsend(:,:) = &
-        a(:,size(a,2)-staggered_nhalo-staggered_shalo+1:size(a,2)-staggered_nhalo)
+!        a(:,size(a,2)-staggered_nhalo-staggered_shalo+1:size(a,2)-staggered_nhalo)
+        a(:,size(a,2)-staggered_uhalo-staggered_lhalo+1:size(a,2)-staggered_uhalo)
       call mpi_send(nsend,size(nsend),mpi_real8,north,this_rank,comm,ierror)
     endif
 
     if (this_rank < north .or. fill_global_halos) then
       call mpi_wait(nrequest,mpi_status_ignore,ierror)
-      a(:,size(a,2)-staggered_nhalo+1:size(a,2)) = nrecv(:,:)
+!      a(:,size(a,2)-staggered_nhalo+1:size(a,2)) = nrecv(:,:)
+      a(:,size(a,2)-staggered_uhalo+1:size(a,2)) = nrecv(:,:)
     endif
 
     if (this_rank > south .or. fill_global_halos) then
       call mpi_wait(srequest,mpi_status_ignore,ierror)
-      a(:,1:staggered_shalo) = srecv(:,:)
+!      a(:,1:staggered_shalo) = srecv(:,:)
+      a(:,1:staggered_lhalo) = srecv(:,:)
     endif
 
   end subroutine staggered_parallel_halo_real8_2d
@@ -3736,10 +3783,15 @@ contains
 
     ! integer :: erequest,ierror,one,nrequest,srequest,wrequest
     integer :: ierror,nrequest,srequest,erequest,wrequest
-    real(8),dimension(size(a,1),staggered_whalo,size(a,3)-staggered_shalo-staggered_nhalo) :: esend,wrecv
-    real(8),dimension(size(a,1),staggered_ehalo,size(a,3)-staggered_shalo-staggered_nhalo) :: erecv,wsend
-    real(8),dimension(size(a,1),size(a,2),staggered_shalo) :: nsend,srecv
-    real(8),dimension(size(a,1),size(a,2),staggered_nhalo) :: nrecv,ssend
+
+!    real(8),dimension(size(a,1),staggered_whalo,size(a,3)-staggered_shalo-staggered_nhalo) :: esend,wrecv
+!    real(8),dimension(size(a,1),staggered_ehalo,size(a,3)-staggered_shalo-staggered_nhalo) :: erecv,wsend
+!    real(8),dimension(size(a,1),size(a,2),staggered_shalo) :: nsend,srecv
+!    real(8),dimension(size(a,1),size(a,2),staggered_nhalo) :: nrecv,ssend
+    real(8),dimension(size(a,1),staggered_lhalo,size(a,3)-staggered_lhalo-staggered_uhalo) :: esend,wrecv
+    real(8),dimension(size(a,1),staggered_uhalo,size(a,3)-staggered_lhalo-staggered_uhalo) :: erecv,wsend
+    real(8),dimension(size(a,1),size(a,2),staggered_lhalo) :: nsend,srecv
+    real(8),dimension(size(a,1),size(a,2),staggered_uhalo) :: nrecv,ssend
 
 !WHL - temporary logical variable to determine whether or not to fill in halo cells
 !      at edge of the global domain.  I am setting it to true by default to support
@@ -3775,53 +3827,70 @@ contains
     endif
 
     if (this_rank > west .or. fill_global_halos) then
-      wsend(:,:,1:size(a,3)-staggered_shalo-staggered_nhalo) = &
-        a(:,1+staggered_whalo:1+staggered_whalo+staggered_ehalo-1, &
-            1+staggered_shalo:size(a,3)-staggered_nhalo)
+!      wsend(:,:,1:size(a,3)-staggered_shalo-staggered_nhalo) = &
+!        a(:,1+staggered_whalo:1+staggered_whalo+staggered_ehalo-1, &
+!            1+staggered_shalo:size(a,3)-staggered_nhalo)
+      wsend(:,:,1:size(a,3)-staggered_lhalo-staggered_uhalo) = &
+        a(:,1+staggered_lhalo:1+staggered_lhalo+staggered_uhalo-1, &
+            1+staggered_lhalo:size(a,3)-staggered_uhalo)
       call mpi_send(wsend,size(wsend),mpi_real8,west,this_rank,comm,ierror)
     endif
 
     if (this_rank < east .or. fill_global_halos) then
-      esend(:,:,1:size(a,3)-staggered_shalo-staggered_nhalo) = &
-        a(:,size(a,2)-staggered_ehalo-staggered_whalo+1:size(a,2)-staggered_ehalo, &
-            1+staggered_shalo:size(a,3)-staggered_nhalo)
+!      esend(:,:,1:size(a,3)-staggered_shalo-staggered_nhalo) = &
+!        a(:,size(a,2)-staggered_ehalo-staggered_whalo+1:size(a,2)-staggered_ehalo, &
+!            1+staggered_shalo:size(a,3)-staggered_nhalo)
+      esend(:,:,1:size(a,3)-staggered_lhalo-staggered_uhalo) = &
+        a(:,size(a,2)-staggered_uhalo-staggered_lhalo+1:size(a,2)-staggered_uhalo, &
+            1+staggered_lhalo:size(a,3)-staggered_uhalo)
       call mpi_send(esend,size(esend),mpi_real8,east,this_rank,comm,ierror)
     endif
 
     if (this_rank < east .or. fill_global_halos) then
       call mpi_wait(erequest,mpi_status_ignore,ierror)
-      a(:,size(a,2)-staggered_ehalo+1:size(a,2), &
-          1+staggered_shalo:size(a,3)-staggered_nhalo) = &
-          erecv(:,:,1:size(a,3)-staggered_shalo-staggered_nhalo)
+!      a(:,size(a,2)-staggered_ehalo+1:size(a,2), &
+!          1+staggered_shalo:size(a,3)-staggered_nhalo) = &
+!          erecv(:,:,1:size(a,3)-staggered_shalo-staggered_nhalo)
+      a(:,size(a,2)-staggered_uhalo+1:size(a,2), &
+          1+staggered_lhalo:size(a,3)-staggered_uhalo) = &
+          erecv(:,:,1:size(a,3)-staggered_lhalo-staggered_uhalo)
     endif
 
     if (this_rank > west .or. fill_global_halos) then
       call mpi_wait(wrequest,mpi_status_ignore,ierror)
-      a(:,1:staggered_whalo, &
-          1+staggered_shalo:size(a,3)-staggered_nhalo) = &
-          wrecv(:,:,1:size(a,3)-staggered_shalo-staggered_nhalo)
+!      a(:,1:staggered_whalo, &
+!          1+staggered_shalo:size(a,3)-staggered_nhalo) = &
+!          wrecv(:,:,1:size(a,3)-staggered_shalo-staggered_nhalo)
+      a(:,1:staggered_lhalo, &
+          1+staggered_lhalo:size(a,3)-staggered_uhalo) = &
+          wrecv(:,:,1:size(a,3)-staggered_lhalo-staggered_uhalo)
     endif
 
     if (this_rank > south .or. fill_global_halos) then
+!      ssend(:,:,:) = &
+!        a(:,:,1+staggered_shalo:1+staggered_shalo+staggered_nhalo-1)
       ssend(:,:,:) = &
-        a(:,:,1+staggered_shalo:1+staggered_shalo+staggered_nhalo-1)
+        a(:,:,1+staggered_lhalo:1+staggered_lhalo+staggered_uhalo-1)
       call mpi_send(ssend,size(ssend),mpi_real8,south,this_rank,comm,ierror)
     endif
 
     if (this_rank < north .or. fill_global_halos) then
       nsend(:,:,:) = &
-        a(:,:,size(a,3)-staggered_nhalo-staggered_shalo+1:size(a,3)-staggered_nhalo)
+!        a(:,:,size(a,3)-staggered_nhalo-staggered_shalo+1:size(a,3)-staggered_nhalo)
+        a(:,:,size(a,3)-staggered_uhalo-staggered_lhalo+1:size(a,3)-staggered_uhalo)
       call mpi_send(nsend,size(nsend),mpi_real8,north,this_rank,comm,ierror)
     endif
 
     if (this_rank < north .or. fill_global_halos) then
       call mpi_wait(nrequest,mpi_status_ignore,ierror)
-      a(:,:,size(a,3)-staggered_nhalo+1:size(a,3)) = nrecv(:,:,:)
+!      a(:,:,size(a,3)-staggered_nhalo+1:size(a,3)) = nrecv(:,:,:)
+      a(:,:,size(a,3)-staggered_uhalo+1:size(a,3)) = nrecv(:,:,:)
     endif
 
     if (this_rank > south .or. fill_global_halos) then
       call mpi_wait(srequest,mpi_status_ignore,ierror)
-      a(:,:,1:staggered_shalo) = srecv(:,:,:)
+!      a(:,:,1:staggered_shalo) = srecv(:,:,:)
+      a(:,:,1:staggered_lhalo) = srecv(:,:,:)
     endif
 
   end subroutine staggered_parallel_halo_real8_3d
