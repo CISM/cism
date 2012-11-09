@@ -485,8 +485,6 @@ contains
     type(ConfigSection), pointer :: section
     type(glide_global_type) :: model
     
-!WHL  - Added which_ho_approx option for glissade dycore.
-!TODO - Remove later if not often used.
     call GetValue(section, 'diagnostic_scheme',  model%options%which_ho_diagnostic)
     call GetValue(section, 'prognostic_scheme', model%options%which_ho_prognostic)
     call GetValue(section, 'guess_specified',    model%velocity%is_velocity_valid)
@@ -500,7 +498,11 @@ contains
     call GetValue(section, 'which_ho_nonlinear', model%options%which_ho_nonlinear)
     call GetValue(section, 'which_ho_sparse',    model%options%which_ho_sparse)
     call GetValue(section, 'which_ho_sparse_fallback', model%options%which_ho_sparse_fallback)
-    call GetValue(section, 'which_ho_approx',    model%options%which_ho_approx)
+
+!WHL  - Added which_ho_approx option for glissade dycore.
+!       Commented out for now
+!!    call GetValue(section, 'which_ho_approx',    model%options%which_ho_approx)
+
   end subroutine handle_ho_options
 
   ! Handles external dycore options -- Doug Ranken 03/26/12
@@ -650,11 +652,11 @@ contains
          'Standalone PCG solver (structured)         '/)
 
 !WHL - added glissade options for solving different Stokes approximations
-
-    character(len=*), dimension(0:2), parameter :: ho_whichapprox = (/ &
-         'SIA only (glissade dycore)         ', &
-         'SSA only (glissade dycore)         ', &
-         'Blatter-Pattyn HO (glissade dycore)' /)
+!      commented out for now
+!!    character(len=*), dimension(0:2), parameter :: ho_whichapprox = (/ &
+!!         'SIA only (glissade dycore)         ', &
+!!         'SSA only (glissade dycore)         ', &
+!!         'Blatter-Pattyn HO (glissade dycore)' /)
 
     character(len=*), dimension(0:1), parameter :: b_mbal = (/ &
          'not in continuity eqn', &
@@ -734,12 +736,13 @@ contains
 
     ! Forbidden options associated with Glam dycore
    
-    if (model%options%whichdycore == DYCORE_GLAM) then
-       if (model%options%which_ho_approx == HO_APPROX_SIA .or.   &
-           model%options%which_ho_approx == HO_APPROX_SSA) then 
-          call write_log('Error, Glide dycore must use higher-order Blatter-Pattyn approximation', GM_FATAL)
-       endif
-    endif
+!WHL - commented out for now
+!!    if (model%options%whichdycore == DYCORE_GLAM) then
+!!       if (model%options%which_ho_approx == HO_APPROX_SIA .or.   &
+!!           model%options%which_ho_approx == HO_APPROX_SSA) then 
+!!          call write_log('Error, Glide dycore must use higher-order Blatter-Pattyn approximation', GM_FATAL)
+!!       endif
+!!    endif
 
     if (model%options%whichdycore < 0 .or. model%options%whichdycore >= size(dycore)) then
        call write_log('Error, dycore out of range',GM_FATAL)
@@ -861,7 +864,7 @@ contains
         call write_log('Error, which bmelt input out of range', GM_FATAL)
     end if
 
-    write(message,*) 'which_ho_nonlinear       :',model%options%which_ho_nonlinear,  &
+    write(message,*) 'which_ho_nonlinear      :',model%options%which_ho_nonlinear,  &
                       which_ho_nonlinear(model%options%which_ho_nonlinear)
     call write_log(message)
     if (model%options%which_ho_nonlinear < 0 .or. model%options%which_ho_nonlinear >= size(which_ho_nonlinear)) then
@@ -875,12 +878,13 @@ contains
         call write_log('Error, HO sparse solver input out of range', GM_FATAL)
     end if
 
-    write(message,*) 'ho_whichapprox          :',model%options%which_ho_sparse,  &
-                      ho_whichapprox(model%options%which_ho_sparse)
-    call write_log(message)
-    if (model%options%which_ho_sparse < 0 .or. model%options%which_ho_sparse >= size(ho_whichsparse)) then
-        call write_log('Error, Stokes approximation input out of range', GM_FATAL)
-    end if
+!WHL - commented out for now
+!!    write(message,*) 'ho_whichapprox          :',model%options%which_ho_approx,  &
+!!                      ho_whichapprox(model%options%which_ho_approx)
+!!    call write_log(message)
+!!    if (model%options%which_ho_approx < 0 .or. model%options%which_ho_approx >= size(ho_whichapprox)) then
+!!        call write_log('Error, Stokes approximation out of range', GM_FATAL)
+!!    end if
 
     ! other options
 

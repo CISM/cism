@@ -165,9 +165,10 @@ module glide_types
 
 !WHL - added options for different Stokes approximations
 !      (for glissade dycore only)
-  integer, parameter :: HO_APPROX_SIA = 0
-  integer, parameter :: HO_APPROX_SSA = 1
-  integer, parameter :: HO_APPROX_BP = 2
+!      commented out for now
+!!  integer, parameter :: HO_APPROX_SIA = 0
+!!  integer, parameter :: HO_APPROX_SSA = 1
+!!  integer, parameter :: HO_APPROX_BP = 2
 
   integer, parameter :: HO_SOURCE_AVERAGED = 0
   integer, parameter :: HO_SOURCE_EXPLICIT = 1
@@ -381,9 +382,12 @@ module glide_types
     !*FD that can be used if the iterative solver fails.
 
 !WHL - Added a glissade option to choose which Stokes approximation (SIA, SSA or Blatter-Pattyn HO)
+!WHL - Commented out for now
+
+!TODO - Is this really the default value?  Or do we have to save the value (i.e., 'integer, save')?
     ! Blatter-Pattyn HO by default
 
-    integer :: which_ho_approx = 2    
+!!    integer :: which_ho_approx = 2    
     !*FD Flag that indicates which Stokes approximation to use in the glissade dycore.
     !*FD Not valid for other dycores 
     !*FD \begin{description}

@@ -460,7 +460,7 @@
 !!    use glam_strs2, only: linearSolveTime, totalLinearSolveTime
 
 !TODO - Is this 'use' better than hardwiring the numbers?
-    use glide_types, only: HO_APPROX_SIA, HO_APPROX_SSA 
+!!    use glide_types, only: HO_APPROX_SIA, HO_APPROX_SSA 
 
     !----------------------------------------------------------------
     ! Input-output arguments
@@ -618,13 +618,16 @@
     integer :: rowi
     logical, parameter :: sia_test = .false.
 
-!TODO - Should SSA should be vertically integrated 2D?
+!TODO - Pass in whichapprox?
+
     if (present(whichapprox)) then
-       if (whichapprox == HO_APPROX_SIA) then   ! SIA
+!!       if (whichapprox == HO_APPROX_SIA) then   ! SIA
+       if (whichapprox == 0) then   ! SIA
           if (verbose) print*, 'Solving shallow-ice approximation'
           sia_factor = 1.d0
           ssa_factor = 0.d0
-       elseif (whichapprox == HO_APPROX_SSA) then  ! SSA
+!!       elseif (whichapprox == HO_APPROX_SSA) then  ! SSA
+       elseif (whichapprox == 1) then  ! SSA
           if (verbose) print*, 'Solving shallow-shelf approximation'
           sia_factor = 0.d0
           ssa_factor = 1.d0

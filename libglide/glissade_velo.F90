@@ -171,8 +171,7 @@ contains
                                               model%options%which_ho_efvs,       &
                                               model%options%which_ho_resid,      &
                                               model%options%which_ho_nonlinear,  &
-                                              model%options%which_ho_sparse,     &
-                                              model%options%which_ho_approx)   !TODO - The ho_approx option may be temporary only
+                                              model%options%which_ho_sparse)
 
               ! rescale the velocity since the rest of the code expects it
               model%velocity%uvel(:,:,:) = uvel(:,:,:) / (vel0*scyr)
