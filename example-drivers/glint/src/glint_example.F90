@@ -43,6 +43,7 @@ program glint_example
   use glint_example_clim
   use glint_commandline
   use glimmer_writestats
+  use glimmer_paramets, only: GLC_DEBUG
   implicit none
 
   ! Program variables -------------------------------------------------------------------
@@ -185,11 +186,11 @@ program glint_example
      if (time>climate%total_years*climate%hours_in_year) exit
   end do
 
-#ifdef GLC_DEBUG
+  if (GLC_DEBUG) then
      ! Print time so as to have something to watch while the code runs
      if (mod(real(time),8760.) < 0.01)   &
          print*, 'time (yr) =', real(time)/8760.
-#endif
+  end if
 
   ! Finalise/tidy up everything ------------------------------------------------------------
 

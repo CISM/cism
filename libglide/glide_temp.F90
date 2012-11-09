@@ -272,7 +272,7 @@ contains
 
     use glimmer_utils, only: tridiag
     use glimmer_global, only : dp
-    use glimmer_paramets, only : thk0
+    use glimmer_paramets, only : thk0, GLC_DEBUG
     use glide_velo
     use glide_thck
     use glide_grids
@@ -640,10 +640,10 @@ contains
 
     ! Output some information ----------------------------------------------------
 
-#ifdef GLC_DEBUG
-    print *, "* temp ", model%numerics%time, iter, model%temper%niter, &
-         real(model%temper%temp(model%general%upn,model%general%ewn/2+1,model%general%nsn/2+1))
-#endif
+    if (GLC_DEBUG) then
+       print *, "* temp ", model%numerics%time, iter, model%temper%niter, &
+            real(model%temper%temp(model%general%upn,model%general%ewn/2+1,model%general%nsn/2+1))
+    end if
 
   end subroutine glide_temp_driver
 

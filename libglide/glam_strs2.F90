@@ -136,27 +136,26 @@ contains
 
 !***********************************************************************
 
-#ifdef GLC_DEBUG
-subroutine dumpvels(name, uvel, vvel)
-    !JEFF routine to track the uvel and vvel calculations in Picard Iteration for debugging
-    !3/28/11
-    use parallel
-    implicit none
+! WJS: The following routine doesn't compile on gnu; commenting it out for now
+! subroutine dumpvels(name, uvel, vvel)
+!     !JEFF routine to track the uvel and vvel calculations in Picard Iteration for debugging
+!     !3/28/11
+!     use parallel
+!     implicit none
 
-    character(*) :: name
-    real(dp), dimension(:,:,:), intent(inout) :: uvel, vvel  ! horiz vel components: u(z), v(z)
+!     character(*) :: name
+!     real(dp), dimension(:,:,:), intent(inout) :: uvel, vvel  ! horiz vel components: u(z), v(z)
 
-    if (distributed_execution()) then
-       if (this_rank == 0) then
-           write(*,*) name, "Proc 0 uvel & vvel (1,7:8,16:17)", uvel(1,7:8,16:17), vvel(1,7:8,16:17)
-       else
-           write(*,*) name, "Proc 1 uvel & vvel (1,7:8,0:1)", uvel(1,7:8,0:1), vvel(1,7:8,0:1)
-       endif
-    else
-       write(*,*) name, "Parallel uvel & vvel (1,5:6,15:16)", uvel(1,5:6,15:16), vvel(1,5:6,15:16)
-    endif 
-end subroutine dumpvels
-#endif
+!     if (distributed_execution()) then
+!        if (this_rank == 0) then
+!            write(*,*) name, "Proc 0 uvel & vvel (1,7:8,16:17)", uvel(1,7:8,16:17), vvel(1,7:8,16:17)
+!        else
+!            write(*,*) name, "Proc 1 uvel & vvel (1,7:8,0:1)", uvel(1,7:8,0:1), vvel(1,7:8,0:1)
+!        endif
+!     else
+!        write(*,*) name, "Parallel uvel & vvel (1,5:6,15:16)", uvel(1,5:6,15:16), vvel(1,5:6,15:16)
+!     endif 
+! end subroutine dumpvels
 
 
 subroutine glam_velo_init( ewn,   nsn,   upn,    &
@@ -260,6 +259,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
 
   use parallel
   use glimmer_horiz_bcs, only: horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns, horiz_bcs_unstag_scalar
+  use glimmer_paramets, only: GLC_DEBUG
 
   implicit none
 
@@ -498,20 +498,22 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
     outer_it_target = 1.0d-12
   end if
 
-#ifdef GLC_DEBUG
-    !JEFF Debugging Output to see what differences in final vvel and tvel.
-    write(loopnum,'(i3.3)') counter
-    write(Looptime, '(i3.3)') overallloop
-    loopnum = trim(loopnum)  ! Trying to get rid of spaces in name.
-    Looptime = trim(Looptime)
-    call distributed_print("uvela_ov"//Looptime//"_pic"//loopnum//"_tsk", uvel)
+  ! WJS: commenting out the following block, because it leads to lots of extra files,
+  ! which is undesirable even when GLC_DEBUG=.true.
+  ! if (GLC_DEBUG) then
+  !   !JEFF Debugging Output to see what differences in final vvel and tvel.
+  !   write(loopnum,'(i3.3)') counter
+  !   write(Looptime, '(i3.3)') overallloop
+  !   loopnum = trim(loopnum)  ! Trying to get rid of spaces in name.
+  !   Looptime = trim(Looptime)
+  !   call distributed_print("uvela_ov"//Looptime//"_pic"//loopnum//"_tsk", uvel)
 
-    call distributed_print("vvela_ov"//Looptime//"_pic"//loopnum//"_tsk", vvel)
+  !   call distributed_print("vvela_ov"//Looptime//"_pic"//loopnum//"_tsk", vvel)
 
-    ! call dumpvels("Before findefvsstr", uvel, vvel)
+  !   ! call dumpvels("Before findefvsstr", uvel, vvel)
 
-    ! call distributed_print("preefvs_ov"//Looptime//"_pic"//loopnum//"_tsk", efvs)
-#endif
+  !   ! call distributed_print("preefvs_ov"//Looptime//"_pic"//loopnum//"_tsk", efvs)
+  ! end if
 
 !HALO - To avoid parallel halo calls for efvs within glam_strs2, we need to compute efvs in one layer of halo cells
 
@@ -818,13 +820,14 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
   call staggered_parallel_halo(vflx)
   call horiz_bcs_stag_vector_ns(vflx)
 
-#ifdef GLC_DEBUG    
-  !JEFF Debugging Output to see what differences in final vvel and tvel.
-    write(CurrTimeLoopStr, '(i3.3)') CurrTimeLoop
-    call distributed_print("uvel_post_ov"//CurrTimeLoopStr//"_tsk", uvel)
+  if (GLC_DEBUG) then
+     !JEFF Debugging Output to see what differences in final vvel and tvel.
+     ! write(CurrTimeLoopStr, '(i3.3)') CurrTimeLoop
+     ! call distributed_print("uvel_post_ov"//CurrTimeLoopStr//"_tsk", uvel)
+     !
+     ! call distributed_print("vvel_post_ov"//CurrTimeLoopStr//"_tsk", vvel)
+  end if
 
-    call distributed_print("vvel_post_ov"//CurrTimeLoopStr//"_tsk", vvel)
-#endif
   ! JEFF: Deallocate myIndices which is used to intialize Trilinos
   if (whatsparse == STANDALONE_TRILINOS_SOLVER) then
      deallocate(myIndices)
@@ -857,6 +860,7 @@ subroutine JFNK_velo_solver  (model,umask)
 
   use parallel
   use glimmer_horiz_bcs, only: horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns,  horiz_bcs_unstag_scalar
+  use glimmer_paramets, only: GLC_DEBUG
 
   use iso_c_binding 
   use glide_types, only : glide_global_type
@@ -1032,12 +1036,12 @@ subroutine JFNK_velo_solver  (model,umask)
      call distributed_create_partition(ewn, nsn, (upn + 2) , uindx, pcgsize(1), myIndices, myX, myY, myZ)  ! Uses uindx mask to determine ice grid points.
      mySize = pcgsize(1)  ! Set variable for inittrilinos
 
-#ifdef GLC_DEBUG
-     write(*,*) "GlobalIDs myIndices..."
-     write(*,*) "pcgsize = ", pcgsize(1)
-     write(*,*) "myIndices = ", myIndices
-     !call parallel_stop(__FILE__, __LINE__)
-#endif
+     if (GLC_DEBUG) then
+        write(*,*) "GlobalIDs myIndices..."
+        write(*,*) "pcgsize = ", pcgsize(1)
+        write(*,*) "myIndices = ", myIndices
+        !call parallel_stop(__FILE__, __LINE__)
+     end if
 
      call inittrilinos(25, mySize, myIndices, myX, myY, myZ)   !re: Why 25 not 20 for PIC? needed the mem space
 
@@ -1182,9 +1186,9 @@ end if
 
   inisoln = .true.
 
-#ifdef GLC_DEBUG    
-  print*,"Solution vector norm after JFNK = " ,sqrt(DOT_PRODUCT(xk_1,xk_1))
-#endif
+  if (GLC_DEBUG) then
+     print*,"Solution vector norm after JFNK = " ,sqrt(DOT_PRODUCT(xk_1,xk_1))
+  end if
 
 !TODO - The remaining code in this subroutine is cut and pasted from above.
 !       Can we encapsulate this repeated code in a subroutine?
@@ -1302,6 +1306,7 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
 
   ! calculate the eff. visc.    
   use parallel
+  use glimmer_paramets, only: GLC_DEBUG
   implicit none
 
   integer, intent(in) :: ewn, nsn, upn
@@ -1325,19 +1330,19 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
 
   if (counter == 1) then
 
-#ifdef GLC_DEBUG
+     if (GLC_DEBUG) then
 
-!  if (main_task) then
-!    print *, 'nsn=', nsn
-!    print *, 'ewn=', ewn
-!    print *, 'uvel shape =', shape(uvel)
-!    print *, 'vvel shape =', shape(vvel)
-!    print *, 'thck shape =', shape(thck)
-!    print *, 'efvs shape =', shape(efvs)
-!    print *, 'flwafact shape =', shape(flwafact)
-!  endif
+        !  if (main_task) then
+        !    print *, 'nsn=', nsn
+        !    print *, 'ewn=', ewn
+        !    print *, 'uvel shape =', shape(uvel)
+        !    print *, 'vvel shape =', shape(vvel)
+        !    print *, 'thck shape =', shape(thck)
+        !    print *, 'efvs shape =', shape(efvs)
+        !    print *, 'flwafact shape =', shape(flwafact)
+        !  endif
 
-#endif
+     end if
 
 !TODO - If we are not supporting glam_strs2 together with the old Glimmer temperature routines,
 !       then we can assume that temp and flwa live on the staggered vertical grid.
@@ -2572,6 +2577,7 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
   ! "Time-step limits for stable solutions of the ice-sheet equation", Annals of
   ! Glaciology, 23, p.74-85)
   use parallel
+  use glimmer_paramets, only: GLC_DEBUG
 
   implicit none
 
@@ -2695,11 +2701,11 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
 
   end select
 
-#ifdef GLC_DEBUG
-  ! Additional debugging line, useful when trying to determine if convergence is being consistently
-  ! help up by the residual at one or a few particular locations in the domain.
-  print '("* ",i3,g20.6,3i6,g20.6)', counter, resid, locat, vel(locat(1),locat(2),locat(3))*vel0
-#endif
+  if (GLC_DEBUG) then
+     ! Additional debugging line, useful when trying to determine if convergence is being consistently
+     ! help up by the residual at one or a few particular locations in the domain.
+     ! print '("* ",i3,g20.6,3i6,g20.6)', counter, resid, locat, vel(locat(1),locat(2),locat(3))*vel0
+  end if
 
   ! SAVE VELOCITY AND CALCULATE CORRECTION
 

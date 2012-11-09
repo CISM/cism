@@ -51,12 +51,10 @@ module glide_thck
             stagleapthck, geometry_derivs, &
             geometry_derivs_unstag
 
-#ifdef GLC_DEBUG
   ! debugging Picard iteration
   integer, private, parameter :: picard_unit=101
   real, private, parameter    :: picard_interval=500.
   integer, private            :: picard_max=0
-#endif
 
 contains
 
@@ -64,6 +62,7 @@ contains
   subroutine init_thck(model)
     !*FD initialise work data for ice thickness evolution
     use glimmer_log
+    use glimmer_paramets, only: GLC_DEBUG
     implicit none
     type(glide_global_type) :: model
 
@@ -76,13 +75,14 @@ contains
                           (2.0d0 * model%numerics%dns * model%numerics%dns), &
                           0.0d0 /) 
 
-#ifdef GLC_DEBUG
-    call write_log('Logging Picard iterations')
-    if (main_task) then
-       open(picard_unit,name='picard_info.data',status='unknown')
-       write(picard_unit,*) '#time    max_iter'
-    end if
-#endif
+    ! WJS: The following code has syntax errors; simply commenting it out for now
+    ! if (GLC_DEBUG) then
+    !    call write_log('Logging Picard iterations')
+    !    if (main_task) then
+    !       open(picard_unit,name='picard_info.data',status='unknown')
+    !       write(picard_unit,*) '#time    max_iter'
+    !    end if
+    ! end if
 
     ! allocate memory for ADI scheme
     if (model%options%whichevol==1) then
@@ -102,6 +102,7 @@ contains
 
     use glide_velo
     use glide_thckmask
+    use glimmer_paramets, only: GLC_DEBUG
     implicit none
     ! subroutine arguments
     type(glide_global_type) :: model
@@ -110,9 +111,9 @@ contains
     if (model%geometry%empty) then
 
        model%geometry%thck = dmax1(0.0d0,model%geometry%thck + model%climate%acab * model%solver_data%fc2(2))
-#ifdef GLC_DEBUG       
-       print *, "* thck empty - net accumulation added", model%numerics%time
-#endif
+       if (GLC_DEBUG) then
+          print *, "* thck empty - net accumulation added", model%numerics%time
+       end if
     else
 
        !EIB! added from lanl
@@ -228,7 +229,7 @@ contains
     use glide_setup
     use glide_thckmask
     use glide_nonlin !For unstable manifold correction
-    use glimmer_paramets, only: thk0, thk_scale
+    use glimmer_paramets, only: thk0, thk_scale, GLC_DEBUG
 
     !EIB! use glide_deriv, only : df_field_2d_staggered 
     implicit none
@@ -260,9 +261,9 @@ contains
     if (model%geometry%empty) then
 
        model%geometry%thck = dmax1(0.0d0,model%geometry%thck + model%climate%acab * model%solver_data%fc2(2))
-#ifdef GLC_DEBUG
-       print *, "* thck empty - net accumulation added", model%numerics%time
-#endif
+       if (GLC_DEBUG) then
+          print *, "* thck empty - net accumulation added", model%numerics%time
+       end if
     else
 
        ! calculate basal velos
@@ -371,13 +372,13 @@ contains
 #endif
 
        end do
-#ifdef GLC_DEBUG
-       picard_max=max(picard_max,p)
-       if (model%numerics%tinc > mod(model%numerics%time,picard_interval)) then
-          write(picard_unit,*) model%numerics%time,p
-          picard_max = 0
+       if (GLC_DEBUG) then
+          picard_max=max(picard_max,p)
+          if (model%numerics%tinc > mod(model%numerics%time,picard_interval)) then
+             write(picard_unit,*) model%numerics%time,p
+             picard_max = 0
+          end if
        end if
-#endif
 
        ! Note: the values for stagthck, slopes, diffu, and ubas (from option 2 call to slipvelo)
        ! will be outdated from the previous Picard iteration.  Since the solution is converged
@@ -415,9 +416,7 @@ contains
     use glimmer_global, only : dp
 !    use glide_stop   *sfp* if active, causes circular ref error when built w/ fo_upwind code
     use glimmer_log
-#if GLC_DEBUG
-    use glimmer_paramets, only: vel0, thk0
-#endif
+    use glimmer_paramets, only: vel0, thk0, GLC_DEBUG
 
     implicit none
 
@@ -553,11 +552,11 @@ contains
 
     new_thck = max(0.0d0, new_thck)
 
-#ifdef GLC_DEBUG
-    print *, "* thck ", model%numerics%time, linit, model%geometry%totpts, &
-         real(thk0*new_thck(model%general%ewn/2+1,model%general%nsn/2+1)), &
-         real(vel0*maxval(abs(model%velocity%ubas))), real(vel0*maxval(abs(model%velocity%vbas))) 
-#endif
+    if (GLC_DEBUG) then
+       print *, "* thck ", model%numerics%time, linit, model%geometry%totpts, &
+            real(thk0*new_thck(model%general%ewn/2+1,model%general%nsn/2+1)), &
+            real(vel0*maxval(abs(model%velocity%ubas))), real(vel0*maxval(abs(model%velocity%vbas))) 
+    end if
 
     !TODO Why are lsrf and usrf calculated here?  This is confusing because model%geometry%thck has only been updated 
     !because new_thck points to it, but that was only the case because of the way this subroutine is called, and would
@@ -918,6 +917,7 @@ end subroutine
     use glide_setup, only: glide_calclsrf
     use glide_velo
     use glimmer_utils
+    use glimmer_paramets, only: GLC_DEBUG
     implicit none
     ! subroutine arguments
     type(glide_global_type) :: model
@@ -929,9 +929,9 @@ end subroutine
     if (model%geometry%empty) then
 
        model%geometry%thck = dmax1(0.0d0,model%geometry%thck + model%climate%acab * model%solver_data%fc2(2))
-#ifdef GLC_DEBUG       
-       print *, "* thck empty - net accumulation added", model%numerics%time
-#endif
+       if (GLC_DEBUG) then
+          print *, "* thck empty - net accumulation added", model%numerics%time
+       end if
     else
 
        !TODO If this evolution option is kept, may want to add call to geometry_derivs() here, like is done in the other two

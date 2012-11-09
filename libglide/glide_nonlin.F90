@@ -19,6 +19,7 @@ contains
 
 
     subroutine linearize_3d(vector, start, field)
+        use glimmer_paramets, only: GLC_DEBUG
         real(dp), dimension(:) :: vector
         integer :: start
         real(dp), dimension(:,:,:) :: field
@@ -28,9 +29,9 @@ contains
         ni = size(field, 1)
         nj = size(field, 2)
         nk = size(field, 3)
-#if GLC_DEBUG        
-        call check_vector_size(start, size(vector), ni, nj, nk)
-#endif
+        if (GLC_DEBUG) then
+           call check_vector_size(start, size(vector), ni, nj, nk)
+        end if
         do i=1,ni
             do j=1,nj
                 do k=1,nk
@@ -42,6 +43,7 @@ contains
     end subroutine
 
     subroutine linearize_2d(vector, start, field)
+        use glimmer_paramets, only: GLC_DEBUG
         real(dp), dimension(:) :: vector
         integer :: start
         real(dp), dimension(:,:) :: field
@@ -50,9 +52,9 @@ contains
 
         ni = size(field, 1)
         nj = size(field, 2)
-#if GLC_DEBUG        
-        call check_vector_size(start, size(vector), ni, nj, 1)
-#endif        
+        if (GLC_DEBUG) then
+           call check_vector_size(start, size(vector), ni, nj, 1)
+        end if
         do i=1,ni
             do j=1,nj
                 vector(start) = field(i,j)

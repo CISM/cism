@@ -55,10 +55,6 @@ module glide
 
   implicit none
 
-#ifdef GLC_DEBUG
-    use glimmer_paramets, only: itest, jtest, thk0
-#endif
-
   integer, private, parameter :: dummyunit=99
 
 contains

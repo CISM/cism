@@ -63,6 +63,7 @@ contains
     use glide
     use glimmer_log
     use glint_constants
+    use glimmer_paramets, only: GLC_DEBUG
     use glimmer_restart_gcm
     implicit none
 
@@ -202,24 +203,24 @@ contains
 
     instance%next_time = force_start-force_dt+instance%mbal_tstep
 
-#ifdef GLC_DEBUG
+    if (GLC_DEBUG) then
        write (6,*) 'Called glint_mbc_init'
        write (6,*) 'mbal tstep =', mbts
        write (6,*) 'next_time =', instance%next_time
        write (6,*) 'start_time =', instance%mbal_accum%start_time
-#endif
+    end if
 
     ! Mass-balance accumulation length
 
     if (instance%mbal_accum_time == -1) then
        instance%mbal_accum_time = max(instance%ice_tstep,instance%mbal_tstep)
-#ifdef GLC_DEBUG
-!Set mbal_accum_time = mbal_tstep
-! lipscomb - TODO - Make it easy to run Glimmer/Glint for ~5 days, e.g. for CESM smoke tests,
-!         with all major components exercised. 
-!!          instance%mbal_accum_time = instance%mbal_tstep
-!!          write(6,*) 'WARNING: Seting mbal_accum_time =', instance%mbal_accum_time
-#endif
+       if (GLC_DEBUG) then
+          !Set mbal_accum_time = mbal_tstep
+          ! lipscomb - TODO - Make it easy to run Glimmer/Glint for ~5 days, e.g. for CESM smoke tests,
+          !         with all major components exercised. 
+          !!          instance%mbal_accum_time = instance%mbal_tstep
+          !!          write(6,*) 'WARNING: Seting mbal_accum_time =', instance%mbal_accum_time
+       end if
     end if
 
     if (instance%mbal_accum_time < instance%mbal_tstep) then
