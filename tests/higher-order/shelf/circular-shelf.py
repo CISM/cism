@@ -105,7 +105,7 @@ if not options.smooth_beta:  # command line option is NOT present
 
 # Add a single bedrock spike in the domain center, to "ground" shelf for 
 # bisicles dycore
-topg[0,19:22,19:22] = -800.
+topg[0,(ny-1)/2-1:(ny-1)/2+2,(nx-1)/2-1:(nx-1)/2+2] = -800. 
 
 # Create the required variables in the netCDF file.
 netCDFfile.createVariable('thk', 'f',('time','y1','x1'))[:] = thk.tolist()
