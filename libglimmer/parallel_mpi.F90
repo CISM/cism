@@ -7,7 +7,6 @@ module parallel
   integer,parameter :: DEBUG_LEVEL = 1 
 	! If > 0, then debug code executed.  Added for parallel_halo_verify()
 
-  integer,parameter :: main_rank = 0
   integer,parameter :: lhalo = 2
   integer,parameter :: uhalo = 2
 
@@ -24,6 +23,7 @@ module parallel
   integer,parameter :: staggered_lhalo = lhalo
   integer,parameter :: staggered_uhalo = uhalo-1
 
+  integer,save :: main_rank
   logical,save :: main_task
   integer,save :: comm, tasks, this_rank
 
@@ -3030,17 +3030,33 @@ contains
     parallel_halo_verify_real8_3d = .NOT. notverify_flag
   end function parallel_halo_verify_real8_3d
 
+  ! parallel_initialise should generally just be called by standalone cism drivers
+  ! When cism is nested inside a climate model (so mpi_init has already been called) use parallel_set_info instead
   subroutine parallel_initialise
+    use mpi 
+    implicit none
+    integer :: ierror 
+    integer, parameter :: my_main_rank = 0
+    ! begin 
+    call mpi_init(ierror)
+    call parallel_set_info(mpi_comm_world, my_main_rank)
+  end subroutine parallel_initialise
+
+  ! parallel_set_info should be called directly when cism is nested inside a climate model
+  ! (then, mpi_init has already been called, so do NOT use parallel_initialise)
+  subroutine parallel_set_info(my_comm, my_main_rank)
     use mpi
     implicit none
-    integer :: ierror
+    integer, intent(in) :: my_comm       ! CISM's global communicator
+    integer, intent(in) :: my_main_rank  ! rank of the master task
+    integer :: ierror 
     ! begin
-    call mpi_init(ierror)
-    comm = mpi_comm_world
+    comm = my_comm
+    main_rank = my_main_rank
     call mpi_comm_size(comm,tasks,ierror)
     call mpi_comm_rank(comm,this_rank,ierror)
     main_task = (this_rank==main_rank)
-  end subroutine parallel_initialise
+  end subroutine parallel_set_info
 
   function parallel_inq_attname(ncid,varid,attnum,name)
     implicit none

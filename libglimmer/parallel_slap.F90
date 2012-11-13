@@ -1014,22 +1014,46 @@ contains
   end function parallel_halo_verify_real8_3d
 
 #ifdef _USE_MPI_WITH_SLAP
+  ! parallel_initialise should generally just be called by standalone cism drivers
+  ! When cism is nested inside a climate model (so mpi_init has already been called) use parallel_set_info instead
   subroutine parallel_initialise
     use mpi 
     implicit none
     integer :: ierror 
+    integer, parameter :: my_main_rank = 0
     ! begin 
     call mpi_init(ierror)
-    comm = mpi_comm_world
+    call parallel_set_info(mpi_comm_world, my_main_rank)
+  end subroutine parallel_initialise
+
+  ! parallel_set_info should be called directly when cism is nested inside a climate model
+  ! (then, mpi_init has already been called, so do NOT use parallel_initialise)
+  subroutine parallel_set_info(my_comm, my_main_rank)
+    use mpi
+    implicit none
+    integer, intent(in) :: my_comm       ! CISM's global communicator
+    integer, intent(in) :: my_main_rank  ! rank of the master task (ignored for parallel_slap)
+    integer :: ierror 
+    ! begin
+    comm = my_comm
     call mpi_comm_size(comm,tasks,ierror)
     call mpi_comm_rank(comm,this_rank,ierror)
     main_task = .true. !For parallel_slap, each node duplicates all of the calculations.
-  end subroutine
+  end subroutine parallel_set_info
+
 #else
   subroutine parallel_initialise
     implicit none
   end subroutine parallel_initialise
+
+  subroutine parallel_set_info(my_comm, my_main_rank)
+    implicit none
+    integer, intent(in) :: my_comm       ! CISM's global communicator (IGNORED)
+    integer, intent(in) :: my_main_rank  ! rank of the master task (IGNORED)
+  end subroutine parallel_set_info
+
 #endif
+
 
   subroutine parallel_print_integer_2d(name,values)
     implicit none

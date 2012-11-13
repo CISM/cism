@@ -63,20 +63,26 @@ extern "C" {
   // in the beginning to set up the problem.
   //================================================================
   void FC_FUNC(inittrilinos,INITTRILINOS) (int& bandwidth, int& mySize,
-               int* myIndicies, double* myX, double* myY, double* myZ) {
+	       int* myIndicies, double* myX, double* myY, double* myZ,
+	       int* mpi_comm_f) {
+// mpi_comm_f: CISM's fortran mpi communicator
 
 #ifdef GLIMMER_MPI
-    // On Linux, Jaguar, the MPI_Init in Fortran is recopgnized by C++
-    // On Bill's Mac, it is not, so this extra MPI_Init is needed
+    // Make sure the MPI_Init in Fortran is recognized by C++.
+    // We used to call an extra MPI_Init if (!flag), but the behavior of doing so is uncertain,
+    // especially if CISM's MPI communicator is a subset of MPI_COMM_WORLD (as can be the case in CESM).
+    // Thus, for now, we die with an error message if C++ perceives MPI to be uninitialized.
+    // If this causes problems (e.g., if certain MPI implementations seem not to recognize 
+    // that MPI has already been initialized), then we will revisit how to handle this.
        int flag;
        MPI_Initialized(&flag);
        if (!flag) {
-          int    argc;
-          char** argv;
-          MPI_Init(&argc, &argv);
+	 cout << "ERROR in inittrilinos: MPI not initialized according to C++ code" << endl;
+	 exit(1);
        }
-    Epetra_MpiComm comm(MPI_COMM_WORLD);
-    Teuchos::MpiComm<int> tcomm(Teuchos::opaqueWrapper((MPI_Comm) MPI_COMM_WORLD));
+    MPI_Comm mpi_comm_c = MPI_Comm_f2c(*mpi_comm_f);
+    Epetra_MpiComm comm(mpi_comm_c);
+    Teuchos::MpiComm<int> tcomm(Teuchos::opaqueWrapper(mpi_comm_c));
 #else
     Epetra_SerialComm comm;
     Teuchos::SerialComm<int> tcomm;

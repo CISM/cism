@@ -413,7 +413,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
      !call parallel_stop(__FILE__, __LINE__)
 
      ! Now send this partition to Trilinos initialization routines
-     call inittrilinos(20, mySize, myIndices, myX, myY, myZ) 
+     call inittrilinos(20, mySize, myIndices, myX, myY, myZ, comm) 
 
      ! Set if need full solution vector returned or just owned portion
 
@@ -1044,7 +1044,7 @@ subroutine JFNK_velo_solver  (model,umask)
         !call parallel_stop(__FILE__, __LINE__)
      end if
 
-     call inittrilinos(25, mySize, myIndices, myX, myY, myZ)   !re: Why 25 not 20 for PIC? needed the mem space
+     call inittrilinos(25, mySize, myIndices, myX, myY, myZ, comm)   !re: Why 25 not 20 for PIC? needed the mem space
 
      ! Triad sparse matrix not used in this case, so save on memory
      pcgsize(2) = 1
@@ -1102,7 +1102,7 @@ end if
 !==============================================================================
  
  call t_startf("JFNK_noxinit")
-  call noxinit(xk_size, xk_1, 1, c_ptr_to_object)
+  call noxinit(xk_size, xk_1, comm, c_ptr_to_object)
  call t_stopf("JFNK_noxinit")
 
  call t_startf("JFNK_noxsolve")

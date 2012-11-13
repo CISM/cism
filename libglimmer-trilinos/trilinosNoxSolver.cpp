@@ -50,17 +50,19 @@ void setCismLocaDefaults(Teuchos::ParameterList& locaList) {
 
 extern "C" {
 void FC_FUNC(noxinit,NOXINIT) ( int* nelems, double* statevector,
-               int* mpi_comm_ignored, void* blackbox_res)
+               int* mpi_comm_f, void* blackbox_res)
+// mpi_comm_f: CISM's fortran mpi communicator
 {
 
  bool succeeded=true;
  try {
 
   // Build the epetra communicator
-  Comm_=rcp(new Epetra_MpiComm(MPI_COMM_WORLD));
+  MPI_Comm mpi_comm_c = MPI_Comm_f2c(*mpi_comm_f);
+  Comm_=rcp(new Epetra_MpiComm(mpi_comm_c));
   Epetra_Comm& Comm=*Comm_;
   printProc = (Comm_->MyPID() == 0);
-  Teuchos::MpiComm<int> tcomm(Teuchos::opaqueWrapper((MPI_Comm) MPI_COMM_WORLD));
+  Teuchos::MpiComm<int> tcomm(Teuchos::opaqueWrapper(mpi_comm_c));
   
   if (printProc) cout << "NOXINIT CALLED    for nelem=" << *nelems << endl;
 
