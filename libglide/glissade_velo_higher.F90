@@ -662,6 +662,15 @@
        print*, 'max usrf:', maxval(usrf(:,:))
        print*, ' '
     endif
+
+!WHL - debug
+    if (verbose) then
+       print*, ' '
+       print*, 'Thickness field:'
+       do j = ny, 1, -1
+          write(6,'(34f6.0)') thck(:,j)
+       enddo
+    endif
  
     if (verbose) then
         print*, ' '

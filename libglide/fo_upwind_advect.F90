@@ -81,7 +81,7 @@ module fo_upwind_advect
         ! Compute the new geometry derivatives for this time step
         call geometry_derivs(model)
 
-!HALO - If this call is removed from glam.F90, it can be removed here too.
+!TODO - If this call is removed from glam.F90, it can be removed here too.
         call geometry_derivs_unstag(model)
 
         print *, ' '

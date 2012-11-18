@@ -1,8 +1,10 @@
 !Module for the thickness mask, pulled out of glide_setup to avoid circular dependencies now
 !that the mask function is needed in glide_thck
+
 module glide_thckmask
    implicit none
 contains
+
   subroutine glide_maskthck(thck,massb,include_adjacent,thklim,dom,pointno,totpts,empty)
     
     !*FD Calculates the contents of the mask array.
@@ -44,12 +46,17 @@ contains
 
     !-------------------------------------------------------------------------
 
+!LOOP: all scalar points
+
     do ns = 1,nsn
 
       full(ns) = .false.
 
       do ew = 1,ewn
+
+!TODO - Is this function needed?  This subroutine is used only by glide dycore.
         if (.not.distributed_owner(ew,ewn,ns,nsn)) cycle
+
         if ( thckcrit(thck(max(1,ew-1):min(ewn,ew+1),max(1,ns-1):min(nsn,ns+1)),massb(ew,ns)) ) then
 
           covtot = covtot + 1
@@ -67,8 +74,9 @@ contains
     end do
   
     totpts = covtot
-                                             
-    dom(1:2) = (/ewn,1/); empty = .true.
+
+    dom(1:2) = (/ewn,1/)
+    empty = .true.
 
     do ns = 1,nsn
            
@@ -78,13 +86,16 @@ contains
           empty  = .false.
           dom(3) = ns
         end if
+
         dom(4) = ns
         dom(1) = min0(dom(1),band(ns,1))
         dom(2) = max0(dom(2),band(ns,2))
       end if
+
     end do
 
   contains
+
     logical function thckcrit(ca,cb)
 
       implicit none
@@ -93,6 +104,7 @@ contains
       real(sp),               intent(in) :: cb
 
       if (.not. include_adjacent) then
+
         ! Include only points with ice in the mask
 
         if ( ca(2,2) > thklim .or. cb > thklim) then
@@ -107,6 +119,7 @@ contains
         ! or the mass balance is positive, thckcrit is .true.
         ! This means that the mask includes points that have no
         ! ice but are adjacent to points that do have ice
+
         if ( any((ca(:,:) > thklim)) .or. cb > thklim ) then
           thckcrit = .true.
         else

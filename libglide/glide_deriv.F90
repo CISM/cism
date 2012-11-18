@@ -1,5 +1,4 @@
-!TODO - Change name to glimmer_deriv?
-!       Verify that loops are correct.
+!TODO - Create module called glam_deriv?  Some of these subroutines are needed only by glam HO dycore.
 !       Make the subroutines public and the functions private?
 
 #ifdef HAVE_CONFIG_H
@@ -49,6 +48,8 @@ contains
 
         !For now, we'll use the function calls defined above.
         !Later on we might want to refactor?
+
+!LOOP: all scalar points (uses upwinding and downwinding to avoid stepping out of bounds)
         do x = 1, nx
             do y = 1, ny
                 grad_x = 0
@@ -113,9 +114,9 @@ contains
                                      thck,     thklim )
 
         implicit none
-        real(dp), dimension(:, :), intent(in) :: f, thck
+        real(dp), dimension(:, :), intent(in) :: f, thck    ! unstaggered grid
         real(dp), intent(in) :: deltax, deltay, thklim
-        real(dp), dimension(:, :), intent(out) :: out_dfdx, out_dfdy
+        real(dp), dimension(:, :), intent(out) :: out_dfdx, out_dfdy  ! staggered grid
         
         integer :: nx, ny, x, y
         
@@ -133,7 +134,10 @@ contains
         ! from a region of non-zero to zero thickness / elevation). New calls access new 
         ! subroutines which attempt to correct for this if/when possible using approx., first-order
         ! accurate one-sided diffs.
-        do x = 1, nx - 1 !We go to nx - 1 because we're using a staggered grid
+
+!TODO - Use old calls or new calls?
+!LOOP: all velocity points
+        do x = 1, nx - 1  ! We go to nx - 1 because we're using a staggered grid
             do y = 1, ny - 1
                 out_dfdx(x,y) = dfdx_2d_stag(f, x, y, deltax) !*SFP* old call
                 out_dfdy(x,y) = dfdy_2d_stag(f, x, y, deltay) !*SFP* old call
@@ -142,6 +146,7 @@ contains
             end do
         end do
 
+!TODO - Remove this chunk of code
 !               !Deal with periodic boundary conditions.  We will do so by
 !               !providing another set of values at the end of each dimension
 !               !that contains the derivative of the value off the edge of the
@@ -169,15 +174,15 @@ contains
 !               
         end subroutine df_field_2d_staggered
 
-!TODO - I don't think the 3D subroutines are ever called.  
-!       Should we leave them here just in case?
+!TODO - This 3D subroutine is never called.  Remove it?
  
-    !*FD Computes derivative fields of the given function.
-    !*FD The z axis is computed on an irregular grid.
     subroutine df_field_3d(f,                                  &
                            deltax,      deltay,      deltaz,   &
                            out_dfdx,    out_dfdy,    out_dfdz, &
                            direction_x, direction_y)
+
+    !*FD Computes derivative fields of the given function.
+    !*FD The z axis is computed on an irregular grid.
 
         implicit none
         real(dp), dimension(:, :, :), intent(in) :: f
@@ -206,6 +211,9 @@ contains
 
         !For now, we'll use the function calls defined above.
         !Later on we might want to refactor?
+
+!LOOP: all scalar points
+!      uses upwinding and downwinding to avoid going out of bounds
         do x = 1, nx
                 do y = 1, ny
                         grad_x = 0
@@ -259,15 +267,17 @@ contains
         
     end subroutine df_field_3d
 
+!TODO - This 3D subroutine is never called.  Remove it?
+
+    subroutine df_field_3d_stag(f,                                  &
+                                deltax,      deltay,      deltaz,   &
+                                out_dfdx,    out_dfdy,    out_dfdz)
+
         !*FD Computes the derivative fields of the given function.  The X and Y
         !*FD derivatives are computed on a staggered grid.  The Z derivative
         !*FD is computed on a nonstaggered but irregular grid.  This means that,
         !*FD if an array of dimensions (n1, n2, n3), the output arrays should
         !*FD be of size (n1 - 1, n2 - 1, n3)
-
-    subroutine df_field_3d_stag(f,                                  &
-                                deltax,      deltay,      deltaz,   &
-                                out_dfdx,    out_dfdy,    out_dfdz)
 
         implicit none
         real(dp), dimension(:, :, :), intent(in) :: f
@@ -283,6 +293,9 @@ contains
         ny = size(f, 2)
         nz = size(f, 3)
         
+!LOOP: all scalar points
+!      uses upwinding and downwinding to avoid going out of bounds
+
         do x = 1, nx - 1
                 do y = 1, ny - 1
                         do z = 1, nz
@@ -320,7 +333,7 @@ contains
         
     end subroutine df_field_3d_stag
 
-!TODO - Check for unused functions we might want to remove?
+!TODO - Check for unused functions we might want to remove
 
     !*FD Computes derivative with respect to x at a given point.
     !*FD Applies periodic boundary conditions if needed.
@@ -843,14 +856,18 @@ contains
         implicit none 
 
         real(dp), intent(out), dimension(:,:) :: d2fdx2, d2fdy2
-        real(dp), intent(in), dimension(:,:) :: f
+        real(dp), intent(in), dimension(:,:) :: f    ! unstaggered grid
         real(dp), intent(in) :: deltax, deltay
         real(dp), intent(in), dimension(:,:), optional :: direction_x, direction_y
         integer :: i,j
 
+!LOOP: all scalar points
+!      uses upwinding and downwinding to avoid going out of bounds
+
         do i = 1,size(f,1)
             do j = 1,size(f,2)
-                !non-staggered grid
+
+                !unstaggered grid
                 if (i == 1) then
                     d2fdx2(i,j) = d2fdx2_2d_downwind(f,i,j,deltax)
                 else if (i == size(f,1)) then
@@ -898,7 +915,8 @@ contains
 
     end subroutine d2f_field
 
-    !TODO: Rewrite this using the existing derivative machinery
+!TODO: Rewrite this using the existing derivative machinery
+
     subroutine d2f_field_stag(f, deltax, deltay, d2fdx2, d2fdy2, periodic_x, periodic_y)
     implicit none 
 
@@ -920,9 +938,11 @@ contains
     dewsq4 = 4.0d0 * deltax * deltax
     dnssq4 = 4.0d0 * deltay * deltay
 
-    d2fdx2 = 0
-    d2fdy2 = 0
+    d2fdx2 = 0.d0
+    d2fdy2 = 0.d0
  
+!LOOP - not sure what bounds should be in this subroutine
+
     do ns = 2, nsn-2
       do ew = 2, ewn-2
         d2fdx2(ew,ns) = centerew(ew,ns)

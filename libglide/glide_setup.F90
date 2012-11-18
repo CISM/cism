@@ -674,11 +674,9 @@ contains
     write(message,*) 'temperature calculation : ',model%options%whichtemp,temperature(model%options%whichtemp)
     call write_log(message)
 
-!whl - The old Glimmer temperature scheme is supported only for single-processor runs.
-!TODO - Maybe the distributed_execution function should be called in association with the Glide dycore,
-!       (whichdycore = 0), and not just the temperature option.
-!      But we still want to be able to run the Glide dycore with MPI on one processor.
-!      Does distributed_execution return '.true.' in this case?
+!TODO - Support the old Glimmer temperature scheme (and Glide dycore) for single-processor MPI runs.
+!TODO - Maybe the distributed_execution function (or something similar that returns .false. for single-proc runs) 
+!       should be called in association with the Glide dycore, (whichdycore = 0), and not just the temperature option.
 
     if (model%options%whichtemp==TEMP_GLIMMER .and. distributed_execution()) then
        call write_log('Error, Glimmer temperature scheme (temperature = TEMP_GLIMMER) &

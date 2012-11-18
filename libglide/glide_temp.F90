@@ -439,8 +439,13 @@ contains
 !!       write(6,*) 'dissip =', model%tempwk%dissip(:,i,j)
 !!       write(6,*) ' '
     
-       !JCC - Don't use ho velocity fields unless we're using the ho model
+!TODO - Remove the 'if' and the ho option; which_ho_diagnostic is no longer used.
+
        if (model%options%which_ho_diagnostic == 0 ) then
+
+!LOOP: all scalar points except outer row
+!      Outer row of cells is omitted because velo points are not available at boundaries
+
           ! translate velo field
           do ns = 2,model%general%nsn-1
               do ew = 2,model%general%ewn-1
@@ -450,7 +455,9 @@ contains
                     + model%velocity%vvel(:,ew-1,ns) + model%velocity%vvel(:,ew,ns-1) + model%velocity%vvel(:,ew,ns) )
               end do
           end do
+
       else ! Using ho physics
+
           ! translate velo field
           do ns = 2,model%general%nsn-1
               do ew = 2,model%general%ewn-1
@@ -460,15 +467,19 @@ contains
                     + model%velocity%vvel(:,ew-1,ns) + model%velocity%vvel(:,ew,ns-1) + model%velocity%vvel(:,ew,ns) )
               end do
           end do
+
       end if ! model%options%which_ho_diagnostic == 0
 
        call hadvall(model, &
-            model%temper%temp, &
-            model%geometry%thck)
+                    model%temper%temp, &
+                    model%geometry%thck)
 
        ! zeroth iteration
        iter = 0
        tempresid = 0.0d0
+
+!LOOP: all scalar points except outer row
+!      Note: temperature array has dimensions (upn, 0:ewn+1, 0:nsn+1)
 
        do ns = 2,model%general%nsn-1
           do ew = 2,model%general%ewn-1
@@ -519,10 +530,14 @@ contains
        end do
 
        do while (tempresid > tempthres .and. iter <= mxit)
+
           tempresid = 0.0d0
+
+!LOOP: all scalar points except outer row
 
           do ns = 2,model%general%nsn-1
              do ew = 2,model%general%ewn-1
+
                 if(model%geometry%thck(ew,ns) > model%numerics%thklim) then
 
                    weff = model%velocity%wvel(:,ew,ns) - model%velocity%wgrd(:,ew,ns)
@@ -566,11 +581,14 @@ contains
           end do
 
           iter = iter + 1
-       end do
 
-       model%temper%niter = max(model%temper%niter, iter )
+       end do   ! tempresid > tempthres .and. iter <= mxit
+
+       model%temper%niter = max(model%temper%niter, iter)
        
        ! set temperature of thin ice to the air temperature and set ice free nodes to zero
+
+!LOOP: all scalar points
        do ns = 1,model%general%nsn
           do ew = 1,model%general%ewn
              if (GLIDE_IS_THIN(model%geometry%thkmask(ew,ns))) then
@@ -732,6 +750,8 @@ contains
 
     model%tempwk%initadvt = 0.0d0
 
+!LOOP: all scalar points except outer row
+
     do ns = 2,model%general%nsn-1
        do ew = 2,model%general%ewn-1
           if (thck(ew,ns) > model%numerics%thklim) then
@@ -847,8 +867,8 @@ contains
           do ewp = ew-1,ew
 
 !SCALING - WHL: Multiply ubas by vel0/vel_scale so we get the same result in these two cases:
-!           (1) Old Glimmer with scaling:         vel0 = vel_scale = 500/scyr, and ubas is non-dimensional
-!           (2) New Glimmer-CISM without scaling: vel0 = 1, vel_scale = 500/scyr, and ubas is in m/s.
+!           (1) Old Glimmer with scaling:         vel0 = vel_scale = 500/scyr, and ubas is non-dimensional.
+!           (2) New Glimmer-CISM without scaling: vel0 = 1/scyr, vel_scale = 500/scyr, and ubas is in m/yr.
 
 !!!             if ( abs(model%velocity%ubas(ewp,nsp)) > 0.000001 .or. &
 !!!                  abs(model%velocity%vbas(ewp,nsp)) > 0.000001 ) then
@@ -922,6 +942,8 @@ contains
     real(dp) :: slterm, newmlt
  
     integer :: ewp, nsp, up, ew, ns
+
+!LOOP: all scalar points except outer row
 
     do ns = 2, model%general%nsn-1
        do ew = 2, model%general%ewn-1
@@ -1040,6 +1062,8 @@ contains
        end do
     end do
 
+!TODO - Remove this?
+
     ! apply periodic BC
 
     if (model%options%periodic_ew) then
@@ -1048,6 +1072,7 @@ contains
           bmlt(model%general%ewn,ns) = bmlt(2,ns)
        end do
     end if
+
   end subroutine glide_calcbmlt
 
 !-------------------------------------------------------------------
@@ -1089,6 +1114,8 @@ contains
     ! 2. works best for eismint divide (symmetry) but 1 likely to be better for full expts
 
     model%tempwk%dissip(:,:,:) = 0.0d0
+
+!LOOP: all scalar points except outer row
 
     do ns = 2, model%general%nsn-1
        do ew = 2, model%general%ewn-1
@@ -1246,6 +1273,7 @@ contains
     real(dp),dimension(4) :: arrfact
     integer :: ew,ns,up,ewn,nsn,upn
 
+!TODO - Fix this in a robust way.
 !    real(dp), dimension(size(sigma)) :: tempcor
 !   KJE give a hard number to satisfy gnu complier 
     real(dp), dimension(1000) :: tempcor
@@ -1267,6 +1295,8 @@ contains
     case(FLWA_PATERSON_BUDD)
 
       ! This is the Paterson and Budd relationship
+
+!LOOP: all scalar points
 
       do ns = 1,nsn
         do ew = 1,ewn
@@ -1293,6 +1323,8 @@ contains
 
       ! This is the Paterson and Budd relationship, but with the temperature held constant
       ! at -5 deg C
+
+!LOOP: all scalar points
 
       do ns = 1,nsn
         do ew = 1,ewn

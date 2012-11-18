@@ -1,5 +1,4 @@
-!TODO - Change to glimmer_diagnostics?
-!TODO - Add global reductions to make this parallel.
+!TODO - Change to cism_diagnostics?
 !TODO - May want to eliminate calculations of iarea, iareaf, and areag in calc_iareaf_iareag() and 
 !TODO - glide_set_mask().  Instead just use the calculations made here.  If so, the values calculated 
 !TODO - here should be saved to the model derived type (model%geometry%iarea, etc.), in case those fields are to be output.
@@ -499,6 +498,7 @@ contains
           temp_diag(:) = model%temper%temp(1:upn,i,j)          
           spd_diag(:) = sqrt(model%velocity%uvel(1:upn,i,j)**2   &
                            + model%velocity%vvel(1:upn,i,j)**2) * vel0*scyr
+
        endif
 
        thck_diag = parallel_reduce_max(thck_diag)

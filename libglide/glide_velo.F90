@@ -255,12 +255,18 @@ contains
     elsewhere
        diffu = 0.0d0
     end where
+
   end subroutine velo_calc_diffu
 
   !*****************************************************************************
 
-  subroutine velo_calc_velo(velowk,stagthck,dusrfdew,dusrfdns,flwa,diffu,ubas,vbas,uvel,vvel,uflx,vflx,&
-  surfvel)
+  subroutine velo_calc_velo(velowk,   stagthck,    &
+                            dusrfdew, dusrfdns,    &
+                            flwa,     diffu,       &
+                            ubas,     vbas,        &
+                            uvel,     vvel,        &
+                            uflx,     vflx,        &
+                            surfvel)
 
     !*FD calculate 3D horizontal velocity field and 2D flux field from diffusivity
     implicit none
@@ -281,6 +287,7 @@ contains
     real(dp),dimension(:,:),  intent(out)   :: uflx
     real(dp),dimension(:,:),  intent(out)   :: vflx
     real(dp),dimension(:,:,:), intent(out)    :: surfvel
+
     !------------------------------------------------------------------------------------
     ! Internal variables
     !------------------------------------------------------------------------------------
@@ -291,8 +298,13 @@ contains
 
     upn=size(flwa,1) ; ewn=size(stagthck,1) ; nsn=size(stagthck,2)
     
+!LOOP: All velocity points
+!      Note: Here (confusingly), nsn = size(stagthck,2) = model%general%nsn-1
+!                                ewn = size(stagthck,1) = model%general%ewn-1
+
     do ns = 1,nsn
        do ew = 1,ewn
+
           if (stagthck(ew,ns) /= 0.0d0) then
 
              vflx(ew,ns) = diffu(ew,ns) * dusrfdns(ew,ns) + vbas(ew,ns) * stagthck(ew,ns)
@@ -329,13 +341,18 @@ contains
        end do
     end do
     
+!TODO - Rename? This is not the surface velocity; it is the 3D ice speed field.
+
     !calc surface velocity from the u and v velocties
+
     surfvel(:,:,:) = (uvel(:,:,:)**2 + vvel(:,:,:)**2)**(0.5d0)
+
   end subroutine velo_calc_velo
 
   !*****************************************************************************
   ! old velo functions come here
   !*****************************************************************************
+
   subroutine slipvelo(model,flag1,btrc,ubas,vbas)
 
     !*FD Calculate the basal slip velocity and the value of $B$, the free parameter
@@ -919,6 +936,7 @@ contains
 !------------------------------------------------------------------------------------------
 
   subroutine calc_btrc(model,flag,btrc)
+
     !*FD Calculate the value of $B$ used for basal sliding calculations.
     use glimmer_global, only : dp 
     use glimmer_physcon, only : rhoo, rhoi
@@ -956,6 +974,7 @@ contains
        btrc = model%velocity%bed_softness
     case(2)
        ! constant where basal melt water is present
+!LOOP - all velocity points
        do ns = 1,nsn-1
           do ew = 1,ewn-1
              if (0.0d0 < model%temper%stagbwat(ew,ns)) then
@@ -967,6 +986,7 @@ contains
        end do
     case(3)
        ! function of basal water depth
+!LOOP - all velocity points
        do ns = 1,nsn-1
           do ew = 1,ewn-1
              if (0.0d0 < model%temper%stagbwat(ew,ns)) then
@@ -984,6 +1004,7 @@ contains
        end do
     case(4)
        ! linear function of basal melt rate
+!LOOP - all velocity points
        do ns = 1,nsn-1
           do ew = 1,ewn-1
              stagbwat = 0.25d0*sum(model%temper%bmlt(ew:ew+1,ns:ns+1))
@@ -1003,6 +1024,7 @@ contains
 
        ! increases with the third power of the basal shear stress, from
        ! Huybrechts
+!LOOP - all velocity points
        do ns = 1, nsn-1
          do ew = 1, ewn-1
 !TODO - Scaling looks wrong here: stagthck and thklim should have the same scaling.
@@ -1035,6 +1057,7 @@ contains
 
   end subroutine calc_btrc
 
+!TODO - Remove this version of the subroutine?
 #ifdef JEFFORIG
   subroutine calc_basal_shear(model)
     !*FD calculate basal shear stress: tau_{x,y} = -ro_i*g*H*d(H+h)/d{x,y}
@@ -1050,18 +1073,20 @@ contains
 #endif
 
   subroutine calc_basal_shear(stagthck, dusrfdew, dusrfdns, tau_x, tau_y)
-    !*FD calculate basal shear stress: tau_{x,y} = -ro_i*g*H*d(H+h)/d{x,y}
+
+    ! calculate basal shear stress: tau_{x,y} = -ro_i*g*H*d(H+h)/d{x,y}
     use glimmer_physcon, only : rhoi,grav
 
     implicit none
     real(dp),dimension(:,:),intent(in) :: stagthck    !*FD Ice thickness (scaled)
-    real (dp),dimension(:,:),intent(in) :: dusrfdew, dusrfdns
+    real(dp),dimension(:,:),intent(in) :: dusrfdew, dusrfdns
     real(dp),dimension(:,:),intent(out) :: tau_x
     real(dp),dimension(:,:),intent(out) :: tau_y
 
-    tau_x = -rhoi*grav*stagthck
-    tau_y = tau_x * dusrfdns
-    tau_x = tau_x * dusrfdew
+!LOOP - all velocity points 
+    tau_x(:,:) = -rhoi*grav*stagthck(:,:)
+    tau_y(:,:) = tau_x * dusrfdns(:,:)
+    tau_x(:,:) = tau_x * dusrfdew(:,:)
 
     !JEFF Are these replaced by the three lines above? They are not compiling.  7/28/11 
     ! model%stress%tau_x = -rhoi*grav*model%geomderv%stagthck

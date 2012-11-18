@@ -47,7 +47,7 @@ contains
     integer :: ewn,nsn,ew,ns,n
     real(dp) :: tot
 
-!HALO - I think this loop should be over locally owned velocity points: (ilo-1:ihi, jlo-1:jhi)
+!LOOP - all velocity points
 
         do ns = 1,nsn-1
             do ew = 1,ewn-1
@@ -168,6 +168,9 @@ contains
 
         opvr(1:ewn-1,1:nsn-1) = (ipvr(2:ewn,1:nsn-1) + ipvr(1:ewn-1,2:nsn) + &
                                  ipvr(2:ewn,2:nsn)   + ipvr(1:ewn-1,1:nsn-1)) / 4.0d0
+
+!LOOP: all velocity points
+
         do ns = 1,nsn-1
             do ew = 1,ewn-1
 
@@ -220,11 +223,10 @@ contains
     end do
   end subroutine stagvarb_3d_mask
 
+!TODO - This is never used.  Remove it?
+    ! Copies a staggered grid onto a nonstaggered grid.  This version
+    ! assumes periodic boundary conditions.
 
-
-
-    !*FD Copies a staggered grid onto a nonstaggered grid.  This verion
-    !*FD assumes periodic boundary conditions.
     subroutine unstagger_field_2d(f_stag, f, periodic_x, periodic_y)
         real(dp), dimension(:,:), intent(in) :: f_stag
         real(dp), dimension(:,:), intent(out) :: f
@@ -312,6 +314,7 @@ contains
     
     end subroutine unstagger_field_2d
 
+!TODO - This is never used.  Remove it?
     subroutine unstagger_field_3d(f, f_stag, periodic_x, periodic_y)
         real(dp), dimension(:,:,:) :: f, f_stag
         logical, intent(in) :: periodic_x, periodic_y
@@ -325,6 +328,7 @@ contains
     end subroutine unstagger_field_3d
 
 
+!TODO - This is never used.  Remove it?
     subroutine periodic_boundaries(m, apply_to_x, apply_to_y, nlayers_arg)
       use parallel
         !*FD Applies periodic boundary conditions to a 2D array
@@ -366,6 +370,7 @@ contains
         call parallel_velo_halo(m)
     end subroutine periodic_boundaries
     
+!TODO - This is never used.  Remove it?
     subroutine periodic_boundaries_3d(m, apply_to_x, apply_to_y, nlayers_arg)
         !*FD Applies periodic boundary conditions to a 3D array
         real(dp), dimension(:,:,:), intent(inout) :: m

@@ -122,48 +122,51 @@ contains
     type(glide_grnd) :: ground        !*FD ground instance
     !---------------------------------------------------------------------
    
-!HALO - For glissade code we can probably remove some of these cases.
+!TODO - For glissade code we can probably remove some of these cases.
 !       And we can probably remove all the parallel_halo calls.
 !
 !       Note that the ablation_field is a diagnostic for calving mass loss.
 !       We should give it a different name, like 'calving_field'.
 
-    ablation_field=0.0   !TODO - Can we make this double precision?  See climate%calving.
+    ablation_field(:,:) = 0.0   !TODO - Can we make this double precision?  See climate%calving.
 
     select case (which)
         
     case(1) ! Set thickness to zero if ice is floating
 
-!HALO - For glissade, change to a do loop over local cells: (ilo:ihi, jlo:jhi)
-!     - Halo updates should be moved to a higher level.
+!LOOP TODO - Change to do loops over scalar cells?
 
       where (GLIDE_IS_FLOAT(mask))
-        ablation_field=thck
+        ablation_field = thck
         thck = 0.0d0
       end where
 
+!HALO - Halo updates should be moved to a higher level.
       call parallel_halo(ablation_field)
       call horiz_bcs_unstag_scalar(ablation_field)
       call parallel_halo(thck)
       call horiz_bcs_unstag_scalar(thck)
 
-!HALO - For glissade, change to a do loop over local cells: (ilo:ihi, jlo:jhi)
-!     - Halo updates should be moved to a higher level.
 
     case(2) ! Set thickness to zero if relaxed bedrock is below a given level
+
+!LOOP TODO - Change to do loops over scalar cells?
+
       where (relx <= mlimit+eus)
          ablation_field = thck
          thck = 0.0d0
       end where
+
+!HALO - Halo updates should be moved to a higher level.
       call parallel_halo(ablation_field)
       call horiz_bcs_unstag_scalar(ablation_field)
       call parallel_halo(thck)
       call horiz_bcs_unstag_scalar(thck)
     
-!HALO - For glissade, change to a do loop over local cells: (ilo:ihi, jlo:jhi)
-!       Halo updates should be moved to a higher level.
-
     case(3) ! remove fraction of ice when floating
+
+!LOOP TODO - Why is the outer row of cells skipped here?
+
       do ns = 2,size(thck,2)-1
         do ew = 2,size(thck,1)-1
           if (GLIDE_IS_CALVING(mask(ew,ns))) then
@@ -173,27 +176,31 @@ contains
           end if
         end do
       end do
+
+!HALO - Halo updates should be moved to a higher level.
       call parallel_halo(ablation_field)
       call horiz_bcs_unstag_scalar(ablation_field)
       call parallel_halo(thck)
       call horiz_bcs_unstag_scalar(thck)
       ! if uncomment above mask update, then call parallel_halo(mask)
 
-!HALO - For glissade, change to a do loop over local cells: (ilo:ihi, jlo:jhi)
-!       Halo updates should be moved to a higher level.
-!       Note that cases 2 and 4 are very similar; can we combine them?
+!TODO - Cases 2 and 4 are very similar; can we combine them?
 
     case(4) ! Set thickness to zero at marine edge if present bedrock is below a given level
-      where (GLIDE_IS_MARINE_ICE_EDGE(mask).and.topg<mlimit+eus)
+
+!LOOP TODO - Change to do loops over scalar cells?
+      where (GLIDE_IS_MARINE_ICE_EDGE(mask) .and. topg < mlimit+eus)
         ablation_field=thck
         thck = 0.0d0
       end where
+
+!HALO - Halo updates should be moved to a higher level.
       call parallel_halo(ablation_field)
       call horiz_bcs_unstag_scalar(ablation_field)
       call parallel_halo(thck)
       call horiz_bcs_unstag_scalar(thck)
 
-!HALO - This may be the only place the backstress is used.
+!TODO - This may be the only place the backstress is used.
 !       Not sure we want to support this case.  Is there a reference for this scheme?
 
     case(5) ! Relation based on computing the horizontal stretching
@@ -285,24 +292,30 @@ contains
       call parallel_halo(thck)
       call horiz_bcs_unstag_scalar(thck)
 
-!HALO - not sure we want to support this case, in which case we can remove halo calls
+!TODO - not sure we want to support this case, in which case we can remove halo calls
     case(6)
+
       ! not serial as far as I can tell as well; for parallelization, issues
       ! arise from components of ground being updated, and corresponding halos
       ! also need to be updated? Waiting until serial fixes are implemented
+
       call not_parallel(__FILE__, __LINE__) ! not serial as far as I can tell as well
       call update_ground_line(ground, topg, thck, eus, dew, dns, ewn, nsn, mask)
+
       where (GLIDE_IS_FLOAT(mask))
         ablation_field=thck
         thck = 0.0d0
       end where
+
       call parallel_halo(ablation_field)
       call horiz_bcs_unstag_scalar(ablation_field)
       call parallel_halo(thck)
       call horiz_bcs_unstag_scalar(thck)
     
-!HALO - not sure we want to support this case, in which case we can remove halo calls
+!TODO - not sure we want to support this case, in which case we can remove halo calls
+
     !Huybrechts grounding line scheme for Greenland initialization
+
     case(7)
       if(eus > -80.0) then
         where(relx <= 2.0*eus)
@@ -315,6 +328,7 @@ contains
           thck = 0.0d0
         end where
       end if
+
       call parallel_halo(ablation_field)
       call horiz_bcs_unstag_scalar(ablation_field)
       call parallel_halo(thck)
@@ -349,6 +363,8 @@ contains
     ewn = size(gline_flux, 1)
     nsn = size(gline_flux, 2)
        
+!LOOP - Loop over velocity points?
+
     where (GLIDE_IS_GROUNDING_LINE(mask))
          gline_flux = stagthk * ((4.0/5.0)* surfvel(1,:,:) + &
          (ubas**2.0 + vbas**2.0)**(1.0/2.0))  * dew  

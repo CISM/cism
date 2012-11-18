@@ -33,7 +33,7 @@
 
 #include "glide_mask.inc"
 
-!TODO - May need two versions of this module, one for glide and one for glissade
+!TODO - May need two versions of this module, one for glide and one for glam
 
 module glide_mask
     use glimmer_global, only : dp, sp, NaN
@@ -70,8 +70,10 @@ contains
     logical :: exec_serial_flag
 
 !HALO - This array may not be needed, at least in parallel.
-    !Create an array to "fake" the boundaries of the mask so that boundary
-    !finding can work even on the boundaries of the real mask.
+
+    ! Create an array to "fake" the boundaries of the mask so that boundary
+    ! finding can work even on the boundaries of the real mask.
+
     integer, dimension(0:ewn+1,0:nsn+1) :: maskWithBounds;
 
 !TODO - What is the exec_serial option?  Is it still needed?
@@ -118,8 +120,8 @@ contains
 !       Could get by with fewer masks in the code by removing some combinations
 !       Could remove *BITS
 
-!TODO - Combine the following into one do loop with ifs?
-!       Probably should loop over locally owned cells only.
+!LOOP TODO - Combine the following into one do loop with ifs?
+!            Probably should loop over locally owned cells only.
 
     !Identify points with any ice
     where (thck > 0.d0)
@@ -157,11 +159,11 @@ contains
 
     ! finding boundaries
 
-!HALO - For parallel glissade code, this loop should be only over locally owned scalars.
+!LOOP - For parallel glissade code, this loop should be only over locally owned scalars.
 !       If halo cells are present, maskWithBounds array may not be needed; can replace with mask array.
 !TODO - Not sure what happens here when we're computing a mask on the velocity grid.
 
-    do ns=1,nsn
+    do ns = 1,nsn
        do ew = 1,ewn
           !Find the grounding line
           if (GLIDE_IS_GROUND(MASK(ew,ns))) then    ! land + has_ice
@@ -238,7 +240,7 @@ contains
 
     integer :: i,j
 
-!HALO - This loop is (correctly) over locally owned cells, but replace with ilo, ihi, jlo, jhi.
+!LOOP - locally owned scalars
     do i = 1+lhalo, size(thck,1)-uhalo
         do j = 1+lhalo, size(thck,2)-uhalo
             if (thck(i,j) > thklim ) then
@@ -258,11 +260,11 @@ contains
        iarea = sum(1)
        ivol  = sum(2)
     endif
+
   end subroutine get_area_vol
  
   subroutine calc_iareaf_iareag(dew, dns, iarea, mask, iareaf, iareag, exec_serial)
     
-!TODO - Probably need two versions of this subroutine, one for parallel and one for serial
     use parallel
 !TODO - remove iarea from the call since it is not used!
 
@@ -286,25 +288,22 @@ contains
       exec_serial_flag = .FALSE.
     endif
 
-    iareaf = 0.0
-    iareag = 0.0 
+    iareaf = 0.d0
+    iareag = 0.d0 
 
-!HALO - Locally owned cells; change to ilo, ihi, jlo, jhi (for parallel version)
+!LOOP - Locally owned scalars
     do j = 1+lhalo, size(mask,2)-uhalo
       do i = 1+lhalo, size(mask,1)-uhalo
         if (GLIDE_IS_FLOAT(mask(i,j))) then
-          iareaf = iareaf + 1
+          iareaf = iareaf + dew * dns
         else if(GLIDE_IS_GROUND_OR_GNDLINE(mask(i,j))) then
-          iareag = iareag + 1
+          iareag = iareag + dew * dns
         end if
       end do
     end do
 
-    iareaf = iareaf  * dew * dns
-    iareag = iareag  * dew * dns
+!TODO - Move the global sum to the driver level?
 
-!TODO - Move the global sum to the driver level
-!     - And verify that the global sum is working correctly    
     if (.NOT. exec_serial_flag) then
        sum(1) = iareaf
        sum(2) = iareag
@@ -317,7 +316,7 @@ contains
 
     subroutine glide_marine_margin_normal(thck, mask, marine_bc_normal, exec_serial)
 
-!HALO - Steve thinks this is a PBJ routine that could be removed.
+!TODO - Steve thinks this is a PBJ routine that could be removed.
 
       use parallel
         use glimmer_physcon, only:pi
