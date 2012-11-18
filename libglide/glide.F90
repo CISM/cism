@@ -141,13 +141,17 @@ contains
     use fo_upwind_advect, only : fo_upwind_advect_init
     use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
 
-!TODO - Can we eliminate this?  Currently it's needed.
     use parallel, only: distributed_grid
+
+!WHL - debug
+    use parallel, only: lhalo, uhalo, staggered_lhalo, staggered_uhalo
 
     type(glide_global_type), intent(inout) :: model     ! model instance
 
 !TODO - build glimmer_vers file or put this character elsewhere?
     character(len=100), external :: glimmer_version_char
+
+    integer, parameter :: nhalo = 0   ! no halo layers for Glide dycore
 
     call write_log(trim(glimmer_version_char()))
 
@@ -165,8 +169,11 @@ contains
 
     ! set up coordinate systems
 
-!TODO - Can we eliminate this call?  Currently get a fatal error if it's commented out.
-    call distributed_grid(model%general%ewn,model%general%nsn)
+    ! Note: nhalo = 0 is included in call to distributed_grid to set other halo
+    !  variables (lhalo, uhalo, etc.) to 0 instead of default values
+
+    call distributed_grid(model%general%ewn, model%general%nsn,  &
+                          nhalo)
 
     model%general%ice_grid = coordsystem_new(0.d0,               0.d0, &
                                              model%numerics%dew, model%numerics%dns, &
@@ -395,7 +402,7 @@ contains
     ! Calculate various derivatives
     ! ------------------------------------------------------------------------     
 
-!TODO - I suggest explicit calls to the appropriate subroutines in glide_derivs (dfdx_2d, etc.)
+!TODO - Replace this call with explicit calls to the appropriate subroutines.
 !       Then we would not need to use the geometry_derivs subroutine in glide_thck.
 !       Currently, this subroutine computes stagthck, staglsrf, stagtopg, dusrfdew/ns, dthckdew/ns,
 !        dlsrfdew/ns, d2usrfdew/ns2, d2thckdew/ns2 (2nd derivs are HO only)   
@@ -407,7 +414,9 @@ contains
 !       Similarly for dthckdew/ns and dusrfdew/ns
 !       No need to call the next three subroutines as well as geometry_derivs?
 
-!TODO this calculation of stagthck differs from that in geometry_derivs which calls stagthickness() in the glide_grids.F90  Which do we want to use?  stagthickness() seems to be noisier.
+!TODO this calculation of stagthck differs from that in geometry_derivs which calls stagthickness() 
+!     in glide_grids.F90.  Which do we want to use?  stagthickness() seems to be noisier.
+
     call stagvarb(model%geometry%thck, model%geomderv%stagthck,&
                   model%general%ewn,   model%general%nsn)
 
@@ -428,6 +437,7 @@ contains
     !TREY This sets local values of dom, mask, totpts, and empty
     !EIB! call veries between lanl and gc2, this is lanl version
     !magi a hack, someone explain what whichthck=5 does
+
     !call glide_maskthck(0, &       
     call glide_maskthck( model%geometry% thck,      &
                          model%climate%  acab,      &
@@ -441,13 +451,18 @@ contains
     call glide_prof_stop(model,model%glide_prof%ice_mask1)
 
 
-    call geometry_derivs(model)  ! This call is needed here to make sure stagthck is calculated the same way as in thck_lin_evolve/thck_nonlin_evolve
+!TODO - Remove this call and replace with appropriate calculation of stagthck?
+    call geometry_derivs(model)  ! This call is needed here to make sure stagthck is calculated 
+                                 ! the same way as in thck_lin_evolve/thck_nonlin_evolve
+
     ! ------------------------------------------------------------------------ 
     ! Part 3: Solve velocity
     ! ------------------------------------------------------------------------    
     ! initial value for flwa should already be calculated as part of glide_init_temp()
     ! calculate  the part of the vertically averaged velocity field which solely depends on the temperature
+
     call velo_integrate_flwa(model%velowk,model%geomderv%stagthck,model%temper%flwa)
+
     ! Calculate diffusivity
     call velo_calc_diffu(model%velowk,model%geomderv%stagthck,model%geomderv%dusrfdew, &
             model%geomderv%dusrfdns,model%velocity%diffu)
@@ -457,6 +472,7 @@ contains
     ! Note: For the initial state, we won't have values for ubas/vbas (unless they were 
     ! supplied in the input file) to get an initial guess of sliding heating.
     ! We could iterate on this, but for simplicity that is not done.
+
     call glide_calcbmlt(model, &
                            model%options%which_bmelt, &
                            model%temper%temp, &
@@ -470,6 +486,7 @@ contains
                            GLIDE_IS_FLOAT(model%geometry%thkmask))
 
     ! Calculate basal water depth ------------------------------------------------
+
     call calcbwat(model, &
                      model%options%whichbwat, &
                      model%temper%bmlt, &
@@ -555,7 +572,7 @@ contains
     ! Calculate various derivatives
     ! ------------------------------------------------------------------------     
 
-!TODO - I suggest explicit calls to the appropriate subroutines in glide_derivs (dfdx_2d, etc.)
+!TODO - Replace this call with explicit calls to the appropriate subroutines in glide_derivs.
 !       Then we would not need to use the geometry_derivs subroutine in glide_thck.
 !       Currently, this subroutine computes stagthck, staglsrf, stagtopg, dusrfdew/ns, dthckdew/ns,
 !        dlsrfdew/ns, d2usrfdew/ns2, d2thckdew/ns2 (2nd derivs are HO only)   
@@ -586,9 +603,8 @@ contains
     call glide_prof_start(model,model%glide_prof%ice_mask1)
 
     !TREY This sets local values of dom, mask, totpts, and empty
-    !EIB! call veries between lanl and gc2, this is lanl version
-    !magi a hack, someone explain what whichthck=5 does
-    !call glide_maskthck(0, &       
+    !EIB! call varies between lanl and gc2, this is lanl version
+
     call glide_maskthck( model%geometry% thck,      &
                          model%climate%  acab,      &
                          .true.,                    &
@@ -622,7 +638,6 @@ contains
 
     if ( model%numerics%tinc >  mod(model%numerics%time,model%numerics%ntem)) then
 
-!TODO - Remove model derived type from argument list
        ! temperature advection, vertical conduction, and internal dissipation
 
        call glide_temp_driver(model, model%options%whichtemp, model%options%which_ho_diagnostic)
@@ -630,12 +645,12 @@ contains
        model%temper%newtemps = .true.
 
     end if
+
     call glide_prof_stop(model,model%glide_prof%temperature)
 
     ! ------------------------------------------------------------------------ 
     ! Calculate basal traction factor
     ! ------------------------------------------------------------------------ 
-!TODO - Remove model derived type from argument list
 
     call calc_btrc(model,                    &
                    model%options%whichbtrc,  &
@@ -672,6 +687,8 @@ contains
     use isostasy
     use fo_upwind_advect, only: fo_upwind_advect_driver
     use glide_ground, only: glide_marinlim
+
+!TODO - Remove this?  Not needed for Glide dycore.
     use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
 
     type(glide_global_type), intent(inout) :: model    ! model instance
@@ -682,8 +699,8 @@ contains
 
     call glide_prof_start(model,model%glide_prof%ice_evo)
 
-!TODO - Remove model derived type from argument lists
-
+!TODO - Remove model derived type from argument lists?  (Could be a lot of work)
+ 
     select case(model%options%whichevol)
 
     case(EVOL_PSEUDO_DIFF) ! Use precalculated uflx, vflx -----------------------------------
@@ -719,6 +736,8 @@ contains
                         model%general%ewn,    model%general%nsn,       &
                         model%climate%eus,    model%geometry%thkmask,  &
                         model%geometry%iarea, model%geometry%ivol)
+
+!TODO - Remove this call?  Not needed for Glide dycore.
     call horiz_bcs_unstag_scalar(model%geometry%thkmask)
 
     call glide_prof_stop(model,model%glide_prof%ice_mask2)
@@ -762,6 +781,8 @@ contains
                         model%general%ewn,    model%general%nsn,       &
                         model%climate%eus,    model%geometry%thkmask,  &
                         model%geometry%iarea, model%geometry%ivol)
+
+!TODO - Remove this call?  Not needed for Glide dycore.
     call horiz_bcs_unstag_scalar(model%geometry%thkmask)
 
     call calc_iareaf_iareag(model%numerics%dew,    model%numerics%dns,     &

@@ -7,21 +7,32 @@ module parallel
   integer,parameter :: DEBUG_LEVEL = 1 
 	! If > 0, then debug code executed.  Added for parallel_halo_verify()
 
-  integer,parameter :: lhalo = 2
-  integer,parameter :: uhalo = 2
+!WHL - Changed halo values from parameters to saved variables, so the default values
+!      can be reset in distributed_grid
+
+!  integer,parameter :: lhalo = 2
+!  integer,parameter :: uhalo = 2
+  integer, save :: lhalo = 2
+  integer, save :: uhalo = 2
 
 !WHL - Changed staggered_whalo and staggered_shalo to staggered_lhalo
 !      Changed staggered_ehalo and staggered_nhalo to staggered_uhalo
-  !for staggered grid, left, bottom, right, and top halo widths
 
-!TODO - Replace these
-  integer,parameter :: staggered_whalo = lhalo
-  integer,parameter :: staggered_shalo = lhalo
-  integer,parameter :: staggered_ehalo = uhalo-1
-  integer,parameter :: staggered_nhalo = uhalo-1
+  ! halo widths for staggered grid
+!  integer,parameter :: staggered_lhalo = lhalo
+!  integer,parameter :: staggered_uhalo = uhalo-1
+  integer, save :: staggered_lhalo = 2
+  integer, save :: staggered_uhalo = 1
 
-  integer,parameter :: staggered_lhalo = lhalo
-  integer,parameter :: staggered_uhalo = uhalo-1
+!TODO - Remove staggered_whalo/shalo/ehalo/nhalo here and in other parts of the code
+!  integer,parameter :: staggered_whalo = lhalo
+!  integer,parameter :: staggered_shalo = lhalo
+!  integer,parameter :: staggered_ehalo = uhalo-1
+!  integer,parameter :: staggered_nhalo = uhalo-1
+  integer, save :: staggered_whalo = 2
+  integer, save :: staggered_shalo = 2
+  integer, save :: staggered_ehalo = 1
+  integer, save :: staggered_nhalo = 1
 
   integer,save :: main_rank
   logical,save :: main_task
@@ -31,7 +42,6 @@ module parallel
   integer,save :: global_ewn,global_nsn,local_ewn,local_nsn,own_ewn,own_nsn
   integer,save :: global_col_offset, global_row_offset
 
-! TODO make slap version of these for consistency
   integer,save :: ewlb,ewub,nslb,nsub
   integer,save :: east,north,south,west
 
@@ -1040,6 +1050,7 @@ contains
          recvbuf,size(recvbuf),mpi_real8,main_rank,comm,ierror)
     values(:,:) = recvbuf(:size(values,1),:size(values,2))
     !automatic deallocation
+
   end function distributed_get_var_real8_2d
 
   function distributed_get_var_real8_3d(ncid,varid,values,start)
@@ -1118,15 +1129,46 @@ contains
      distributed_isparallel = .true.
   end function distributed_isparallel
 
-  subroutine distributed_grid(ewn,nsn)
-    implicit none
-    integer :: ewn,nsn
+!WHL - added nhalo as an optional argument
+!      If present, the value of nhalo is used to set lhalo, uhalo, etc.
+!      Note that the parallel dycore will normally be used with the 
+!       default values specified at the top of the module, so it is
+!       not necessary to provide this argument.
 
+  subroutine distributed_grid(ewn, nsn, nhalo)
+
+    implicit none
+    integer, intent(inout) :: ewn, nsn       ! global grid dimensions
+    integer, intent(in), optional :: nhalo   ! number of rows of halo cells
     integer :: best,i,j,metric
     integer :: ewrank,ewtasks,nsrank,nstasks
     real(8) :: rewtasks,rnstasks
 
     ! begin
+
+    ! Optionally, change the halo values
+    ! Note: The parallel dycores have been tested only with nhalo = 2.
+
+    if (present(nhalo)) then
+       if (main_task) then
+          write(*,*) 'Setting halo values: nhalo =', nhalo
+          if (nhalo < 0) then
+             write(*,*) 'ERROR: nhalo must be >= 0'
+             call parallel_stop(__FILE__, __LINE__)
+          elseif (nhalo /= 2) then
+             write(*,*) 'WARNING: parallel dycores tested only with nhalo = 2'
+          endif
+       endif 
+       lhalo = nhalo
+       uhalo = nhalo
+       staggered_lhalo = lhalo
+       staggered_uhalo = max(uhalo-1, 0)
+!TODO - the following variables are to be removed from the code
+       staggered_whalo = lhalo
+       staggered_shalo = lhalo
+       staggered_ehalo = max(uhalo-1, 0)
+       staggered_nhalo = max(uhalo-1, 0)
+    endif
 
     global_ewn = ewn
     global_nsn = nsn
@@ -1212,17 +1254,16 @@ contains
         call parallel_stop(__FILE__, __LINE__)
     endif
 
-!WHL - Uncommment prints
     ! Print grid geometry
-    write(*,*) "Process ", this_rank, " Total = ", tasks, " ewtasks = ", ewtasks, " nstasks = ", nstasks
-    write(*,*) "Process ", this_rank, " ewrank = ", ewrank, " nsrank = ", nsrank
-    write(*,*) "Process ", this_rank, " l_ewn = ", local_ewn, " o_ewn = ", own_ewn
-    write(*,*) "Process ", this_rank, " l_nsn = ", local_nsn, " o_nsn = ", own_nsn
-    write(*,*) "Process ", this_rank, " ewlb = ", ewlb, " ewub = ", ewub
-    write(*,*) "Process ", this_rank, " nslb = ", nslb, " nsub = ", nsub
-    write(*,*) "Process ", this_rank, " east = ", east, " west = ", west
-    write(*,*) "Process ", this_rank, " north = ", north, " south = ", south
-    write(*,*) "Process ", this_rank, " ew_vars = ", own_ewn, " ns_vars = ", own_nsn
+!    write(*,*) "Process ", this_rank, " Total = ", tasks, " ewtasks = ", ewtasks, " nstasks = ", nstasks
+!    write(*,*) "Process ", this_rank, " ewrank = ", ewrank, " nsrank = ", nsrank
+!    write(*,*) "Process ", this_rank, " l_ewn = ", local_ewn, " o_ewn = ", own_ewn
+!    write(*,*) "Process ", this_rank, " l_nsn = ", local_nsn, " o_nsn = ", own_nsn
+!    write(*,*) "Process ", this_rank, " ewlb = ", ewlb, " ewub = ", ewub
+!    write(*,*) "Process ", this_rank, " nslb = ", nslb, " nsub = ", nsub
+!    write(*,*) "Process ", this_rank, " east = ", east, " west = ", west
+!    write(*,*) "Process ", this_rank, " north = ", north, " south = ", south
+!    write(*,*) "Process ", this_rank, " ew_vars = ", own_ewn, " ns_vars = ", own_nsn
     call distributed_print_grid(own_ewn, own_nsn)
   end subroutine distributed_grid
 
@@ -2482,6 +2523,7 @@ contains
 
     !return value
     parallel_globalID = global_ID
+
   end function parallel_globalID
 
 !WHL - New function similar to parallel_globalID, but assigns 0's to cells outside the global domain
@@ -3498,6 +3540,7 @@ contains
     call mpi_send(ssend,size(ssend),mpi_real8,south,this_rank,comm,ierror)
     call mpi_wait(nrequest,mpi_status_ignore,ierror)
     a(1+lhalo:,size(a,2)) = nrecv(:)
+
   end subroutine parallel_velo_halo
 
 !WHL - Added subroutine staggered_parallel_halo_integer_2d
@@ -3536,8 +3579,7 @@ contains
 !WHL - temporary logical variable to determine whether or not to fill in halo cells
 !      at edge of the global domain.  I am setting it to true by default to support
 !      cyclic global BCs.
-!TODO - Set to true in all cases (or simply remove the 'if's?)  
-!       Can always overwrite halo values if desired.
+!TODO - Set to true in all cases? (Or simply remove the 'if's?)  
 
     logical :: fill_global_halos = .true.
 
@@ -3653,9 +3695,6 @@ contains
     ! and have one less 'southern' halo row than other processes. Likewise, the West-most processes own one 
     ! additional column of staggered variables on the western edge and have one less 'western' halo column. 
     ! This is implemented by a modification to the staggered_lhalo value on these processes. 
-!WHL - I'm no longer sure we should say that the South-most processes "own" an additional row of
-!      staggered variables on the southern edge.  It may be possible to treat the southern edge as a halo row
-!      and still enforce the various global BC we'd like.
 
     ! Maintaining global boundary conditions are not addressed within this routine (yet).
 
@@ -3673,7 +3712,7 @@ contains
 !WHL - temporary logical variable to determine whether or not to fill in halo cells
 !      at edge of the global domain.  I am setting it to true by default to support
 !      cyclic global BCs
-!TODO - Set to true in all cases?  Can always overwrite if desired.
+!TODO - Set to true in all cases?
 
     logical :: fill_global_halos = .true.
 
@@ -3791,10 +3830,6 @@ contains
     ! additional column of staggered variables on the western edge and have one less 'western' halo column. 
     ! This is implemented by a modification to the staggered_lhalo value on these processes. 
 
-!WHL - I'm no longer sure we should say that the South-most processes "own" an additional row of
-!      staggered variables on the southern edge.  It may be possible to treat the southern edge as a halo row
-!      and still enforce the various global BC we'd like.
-
     ! Maintaining global boundary conditions are not addressed within this routine (yet).
 
     ! integer :: erequest,ierror,one,nrequest,srequest,wrequest
@@ -3812,7 +3847,7 @@ contains
 !WHL - temporary logical variable to determine whether or not to fill in halo cells
 !      at edge of the global domain.  I am setting it to true by default to support
 !      cyclic global BCs.
-!TODO - Set to true in all cases?  Can always overwrite if desired.
+!TODO - Set to true in all cases?
 
     logical :: fill_global_halos = .true.
 
