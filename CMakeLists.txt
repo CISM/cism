@@ -12,6 +12,19 @@ OPTION (CISM_USE_GPTL_INSTRUMENTATION "Toggle to use GPTL instrumentation, on by
 OPTION (CISM_BUILD_GLINT "Toggle to build glint, off by default" OFF)
 OPTION (CISM_COUPLED "Toggle to build CISM for use with CESM, off by default" OFF)
 
+# override CISM_SERIAL_MODE setting, if it conflicts with CISM_MPI_MODE setting:
+IF (CISM_MPI_MODE)
+  SET(CISM_SERIAL_MODE "OFF")
+ENDIF()
+
+IF (NOT CISM_MPI_MODE AND NOT CISM_SERIAL_MODE)
+  SET(CISM_MPI_MODE "ON")
+ENDIF()
+
+#MESSAGE("CISM MPI Mode Setting:    ${CISM_MPI_MODE}")
+#MESSAGE("CISM Serial Mode Setting: ${CISM_SERIAL_MODE}")
+
+
 # set (or override) other options, if CISM_COUPLED is ON:
 IF (CISM_COUPLED)
   SET(GLIMMER_NO_EXECUTABLE "ON")
@@ -109,11 +122,19 @@ SET(CMAKE_Fortran_MODULE_DIRECTORY ${CISM_BINARY_DIR}/fortran_mod_files)
 
 PROJECT(GLIMMER)
 
-MESSAGE(">> Calling cmake-scripts/autogenerate-script")
-EXECUTE_PROCESS(COMMAND ./autogenerate-script
-                WORKING_DIRECTORY ${GLIMMER_SOURCE_DIR}/cmake-scripts
-                OUTPUT_FILE ${CISM_BINARY_DIR}/autogenerate.log)
-MESSAGE(">> see ${CISM_BINARY_DIR}/autogenerate.log")
+IF (CISM_COUPLED)
+  MESSAGE(">> Calling cmake-scripts/autogenerate-script-no-io-srcs")
+  EXECUTE_PROCESS(COMMAND ./autogenerate-script-no-io-srcs
+                  WORKING_DIRECTORY ${GLIMMER_SOURCE_DIR}/cmake-scripts
+                  OUTPUT_FILE ${CISM_BINARY_DIR}/autogenerate.log)
+  MESSAGE(">> see ${CISM_BINARY_DIR}/autogenerate.log")
+ELSE()
+  MESSAGE(">> Calling cmake-scripts/autogenerate-script")
+  EXECUTE_PROCESS(COMMAND ./autogenerate-script
+                  WORKING_DIRECTORY ${GLIMMER_SOURCE_DIR}/cmake-scripts
+                  OUTPUT_FILE ${CISM_BINARY_DIR}/autogenerate.log)
+  MESSAGE(">> see ${CISM_BINARY_DIR}/autogenerate.log")
+ENDIF()
 
 # End of setup and error checking
 #  NOTE: PROJECT command checks for compilers, so this statement
