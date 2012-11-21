@@ -51,10 +51,10 @@ module load cray-mpich2/5.5.2
 rm ./CMakeCache.txt
 
 # run a script that creates some CISM source files:
-pushd .
-cd ..
-../cmake-scripts/autogenerate-script
-popd
+#pushd .
+#cd ..
+#../cmake-scripts/autogenerate-script
+#popd
 
 echo
 echo "Doing CMake Configuration step"
