@@ -5,11 +5,21 @@ cmake_minimum_required(VERSION 2.8.6)
 OPTION (NO_TRILINOS "Toggle to Not use Trilinos: defaults to OFF (Trilinos on by default)" OFF)
 OPTION (CISM_MPI_MODE "Toggle to Configure with MPI: defaults to ON" ON)
 OPTION (CISM_SERIAL_MODE "Toggle to Configure in Serial mode: defaults to OFF " OFF)
-OPTION (CISM_BUILD_SIMPLE_GLIDE "Toggle to build simple_glide, ON by default)" ON)
-OPTION (CISM_BUILD_SIMPLE_BISICLES "Toggle to build simple_bisicles, off by default)" OFF)
-OPTION (CISM_BUILD_EXTRA_EXECUTABLES "Toggle to other executables, off by default)" OFF)
+OPTION (CISM_BUILD_SIMPLE_GLIDE "Toggle to build simple_glide, ON by default" ON)
+OPTION (CISM_BUILD_SIMPLE_BISICLES "Toggle to build simple_bisicles, off by default" OFF)
+OPTION (CISM_BUILD_EXTRA_EXECUTABLES "Toggle to other executables, off by default" OFF)
 OPTION (CISM_USE_GPTL_INSTRUMENTATION "Toggle to use GPTL instrumentation, on by default " ON)
+OPTION (CISM_BUILD_GLINT "Toggle to build glint, off by default" OFF)
+OPTION (CISM_COUPLED "Toggle to build CISM for use with CESM, off by default" OFF)
 
+# set (or override) other options, if CISM_COUPLED is ON:
+IF (CISM_COUPLED)
+  SET(GLIMMER_NO_EXECUTABLE "ON")
+  SET(CISM_BUILD_SIMPLE_GLIDE "OFF")
+  SET(CISM_BUILD_SIMPLE_BISICLES "OFF")
+  SET(CISM_BUILD_EXTRA_EXECUTABLES "OFF")
+  SET(CISM_BUILD_GLINT "ON")  
+ENDIF()
 
 
 IF (NOT DEFINED(CISM_BINARY_DIR))
@@ -145,8 +155,10 @@ ELSE()
       ADD_DEFINITIONS(-DGLIMMER_MPI)
    ENDIF()
    include_directories(${GLIMMER_NETCDF_DIR}/include ${CISM_MPI_INC_DIR})
+
+#   link_directories(${GLIMMER_NETCDF_DIR}/lib )
    link_directories(${GLIMMER_NETCDF_DIR}/lib ${CISM_MPI_LIB_DIR} ${CISM_SCI_LIB_DIR} 
-  		 ${GLIMMER_DYCORE_DIR} ${CISM_HDF5_LIB_DIR} ${BISICLES_INTERFACE_DIR}) 
+        		 ${CISM_HDF5_LIB_DIR} ) 
 
 ENDIF()
 
@@ -158,6 +170,7 @@ IF (CISM_BUILD_SIMPLE_BISICLES)
   SET(GLIMMER_BISICLES_DIR ${GLIMMER_DYCORE_DIR}/BISICLES)
   
   INCLUDE_DIRECTORIES(${GLIMMER_DYCORE_DIR})
+  LINK_DIRECTORIES(${GLIMMER_DYCORE_DIR} ${BISICLES_INTERFACE_DIR} )
 ENDIF()
 
 IF ( CISM_USE_GPTL_INSTRUMENTATION AND 
@@ -176,11 +189,17 @@ IF ( CISM_USE_GPTL_INSTRUMENTATION AND
 ENDIF()
 
 #####Build All Fortran Sources #####
+
+IF (CISM_BUILD_GLINT OR CISM_BUILD_EXTRA_EXECUTABLES)
+   file(GLOB GLINT_SOURCES libglint/*.F90) 
+ENDIF()
+
 file(GLOB FORTRANSOURCES
      libglimmer-solve/SLAP/*.f
      libglimmer-solve/*.F90
      libglimmer/*.F90 libglimmer/writestats.c
-     libglide/*.F90 libglide/fgmresD.f90 
+     libglide/*.F90 libglide/fgmresD.f90
+     ${GLINT_SOURCES}
      ${GLIMMER_TO_DYCORE})
 
 LIST(REMOVE_ITEM FORTRANSOURCES
@@ -283,6 +302,7 @@ ENDIF()
 
 IF(CISM_BUILD_EXTRA_EXECUTABLES)
   add_subdirectory(example-drivers/eis/src)
+  add_subdirectory(example-drivers/glint/src)
   message("Building extra executables: ")
 ENDIF()
 
