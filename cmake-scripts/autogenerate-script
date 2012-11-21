@@ -5,13 +5,26 @@
 # of the autoconf system.
 
 echo
-echo "Auto-generating config.inc, glide_io.F90, glide_lithot.F90, and glimmer_vers.F90"
+echo "Auto-generating config.inc, glimmer_vers.F90, glide_io.F90, glide_lithot.F90, "
+echo "glint_io.F90, glint_mbal_io.F90, and eis_io.F90."
+echo
+
+
 
 # Just a copy of a file with minimal info
 pushd ..
 echo "  --creating config.inc"
 cp config.inc.cmake.in config.inc
 popd
+
+# Just a copy of a file without version info
+pushd ../libglimmer
+echo "  --creating glimmer_vers.F90"
+cp glimmer_vers.F90.cmake.in glimmer_vers.F90
+popd
+
+##########################
+# The following lines generate several *_io.F90 files, based on variable definition files:
 
 # Use python scripts 
 pushd ../libglide
@@ -33,9 +46,4 @@ echo "  --creating eis_io.F90"
  python ../../../scripts/generate_ncvars.py eis_vars.def ../../../libglimmer/ncdf_template.F90.in
 popd
 
-# Just a copy of a file without version info
-pushd ../libglimmer
-echo "  --creating glimmer_vers.F90"
-cp glimmer_vers.F90.cmake.in glimmer_vers.F90
-popd
 
