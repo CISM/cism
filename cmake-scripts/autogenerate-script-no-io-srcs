@@ -13,13 +13,13 @@ echo
 # Just a copy of a file with minimal info
 pushd ..
 echo "  --creating config.inc"
-cp config.inc.cmake.in config.inc
+cp -p config.inc.cmake.in config.inc
 popd
 
 # Just a copy of a file without version info
 pushd ../libglimmer
 echo "  --creating glimmer_vers.F90"
-cp glimmer_vers.F90.cmake.in glimmer_vers.F90
+cp -p glimmer_vers.F90.cmake.in glimmer_vers.F90
 popd
 
 ##########################
