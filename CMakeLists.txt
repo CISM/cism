@@ -252,7 +252,15 @@ OPTION(GLIMMER_SOURCEMOD_DIR
 
 #MESSAGE("Fortran Source Files: ${FORTRANSOURCES}")
 
-FILE(GLOB SOURCEMODFILES ${GLIMMER_SOURCEMOD_DIR}/*.F90)
+# Note that the following glob does NOT contain .cpp files, because
+# those are built in a separate library - so for now, you can't put
+# .cpp files in your sourceMod directory.
+FILE(GLOB SOURCEMODFILES 
+     ${GLIMMER_SOURCEMOD_DIR}/*.F90
+     ${GLIMMER_SOURCEMOD_DIR}/*.F
+     ${GLIMMER_SOURCEMOD_DIR}/*.f90
+     ${GLIMMER_SOURCEMOD_DIR}/*.f
+     ${GLIMMER_SOURCEMOD_DIR}/*.c)
 
 # MESSAGE("glimmer_sourcemod_dir: " ${GLIMMER_SOURCEMOD_DIR})
 # MESSAGE("Fortran Mod Files: ${SOURCEMODFILES}")
@@ -287,7 +295,7 @@ include_directories (${CISM_BINARY_DIR} ${GLIMMER_SOURCE_DIR}
 
 SET(LIBRARY_OUTPUT_PATH ${CISM_BINARY_DIR}/lib)
 
-add_library(glimmercismfortran ${FORTRANSOURCES})
+add_library(glimmercismfortran ${FORTRANSOURCES} ${SOURCEMODFILES})
 
 
 #####Build C++ Sources #####
