@@ -1,14 +1,13 @@
 #!/bin/csh
-# Master build script for hopper, last updated 10/25/2012 with v1583 
+# Master build script for hopper, last updated 11/09/2012 with v1617 
 # build the code in the 4 ways currently supported and submits some test jobs
 # there are fewer tests run here than for jaguar since the allocation amount is smaller
-# this script may not execute successfully if there are old builds or module settings laying around
  
 # (1) execute from the main seacism directory
 # (2) set the next two commands 
 
 #add logic at the top to decide which versions to build 
-setenv TEST_DIR "$SCRATCH/cism_tests"
+setenv TEST_DIR "$GSCRATCH/cism_tests"
 setenv CODE_DIR "$HOME/seacism"
 cd $CODE_DIR
 setenv build_no 0
@@ -109,7 +108,7 @@ endif
 echo $build_no
 # execute tests on hopper
 # TODO the small jobs need to be combined into one hopjob submission to get through the queue
-if (build_no == 1 ) then
+if ($build_no == 1 ) then
   echo "no job sumbitted, build/builds failed"
 else
 # simplest case, runs all builds and on a range of small processor counts 
@@ -141,7 +140,8 @@ else
 #cd $TEST_DIR/gis_10km
 #qsub hopjob
 
-# high resolution GIS case to test realistic ice sheet configuration and longer time series, no yet configured for hopper
+# high resolution GIS case to test realistic ice sheet configuration and longer time series, current setup gives
+#convergence problems
 #cd $TEST_DIR/gis_5km
 #qsub hopjob
 
