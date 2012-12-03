@@ -71,7 +71,6 @@ program simple_glide
   real(kind=dp) :: time                   ! model time in years
   real(kind=dp) :: t1,t2
   integer :: clock,clock_rate,ret
-  character*3 :: suffix   !TODO MJH: delete this line.  see note below about 'suffix'
 
   integer :: tstep_count
 
@@ -137,12 +136,6 @@ program simple_glide
 
 !###   !tstep_count = 0 !TODO MJH delete this line - moved up above
 
-!###   !suffix = '_t1'  !TODO MJH delete this line.  the suffix for the first time through is not needed anymore.  
-       !It was presumably only there to get a separate timing for the first time through the timestep loop where 
-       !we have a bad guess of the velocity and the velocity solve would take much longer than usual.  But now 
-       !that initial slow velocity solve occurs here in init, so there is not a reason to time the first time 
-       !through the time step loop differently than other times through.
-
   !MJH Created this block here to fill out initial state without needing to enter time stepping loop.  This allows
   ! a run with tend=tstart to be run without time-stepping at all.  It requires solving all diagnostic (i.e. not
   ! time depdendent) variables (most important of which is velocity) for the initial state and then writing the 
@@ -152,13 +145,25 @@ program simple_glide
   ! ------------- Calculate initial state and output it -----------------
   if (model%options%whichdycore == DYCORE_GLIDE) then
      call t_startf('glide_initial_diag_var_solve')
+      ! disable further profiling in normal usage
+      call t_adj_detailf(+10)
+
      call glide_init_state_diagnostic(model)
+
+      ! restore profiling to normal settings
+      call t_adj_detailf(-10)
      call t_stopf('glide_initial_diag_var_solve')
   else   ! glissade dycore
      call t_startf('glissade_initial_diag_var_solve')
+      ! disable further profiling in normal usage
+      call t_adj_detailf(+10)
+
      ! solve the remaining diagnostic variables for the initial state
      call glissade_diagnostic_variable_solve(model)  !velocity, usrf, etc.
      ! TODO HALO UPDATES?  Hopefully these are done in the subroutine
+
+      ! restore profiling to normal settings
+      call t_adj_detailf(-10)
      call t_stopf('glissade_initial_diag_var_solve')
   end if
 
@@ -241,52 +246,35 @@ program simple_glide
      time = time + model%numerics%tinc
      tstep_count = tstep_count + 1
 
-!###     !if (tstep_count > 0) suffix = '   '   !TODO MJH delete this line.  see note above about 'suffix'.
-     suffix = '   '  !TODO delete this line.  see note above about suffix.
-
-!TODO - Change to glimmer_tstep?
-!TODO Delete suffix-see note above about 'suffix'.  suffix also needs to be removed in many places below.
-     call t_startf('glide_tstep'//suffix)
+     call t_startf('glide_tstep')
 
 !TODO - Add subroutine glide_step that calls glide_tstep_p1/p2/p3?
 
-!TODO - What does t_adj_detailf do?
-
      if (model%options%whichdycore == DYCORE_GLIDE) then
 
-       call t_startf('glide_tstep_p1'//suffix)
-       if (tstep_count == 0) call t_adj_detailf(+10)
-         call glide_tstep_p1(model,time)
-       if (tstep_count == 0) call t_adj_detailf(-10)
-       call t_stopf('glide_tstep_p1'//suffix)
+       call t_startf('glide_tstep_p1')
+       call glide_tstep_p1(model,time)
+       call t_stopf('glide_tstep_p1')
 
-       call t_startf('glide_tstep_p2'//suffix)
-       if (tstep_count == 0) call t_adj_detailf(+10)
-         call glide_tstep_p2(model)
-       if (tstep_count == 0) call t_adj_detailf(-10)
-       call t_stopf('glide_tstep_p2'//suffix)
+       call t_startf('glide_tstep_p2')
+       call glide_tstep_p2(model)
+       call t_stopf('glide_tstep_p2')
 
-       call t_startf('glide_tstep_p3'//suffix)
-       if (tstep_count == 0) call t_adj_detailf(+10)
-         call glide_tstep_p3(model)
-       if (tstep_count == 0) call t_adj_detailf(-10)
-       call t_stopf('glide_tstep_p3'//suffix)
+       call t_startf('glide_tstep_p3')
+       call glide_tstep_p3(model)
+       call t_stopf('glide_tstep_p3')
 
      else   ! glam/glissade dycore
 
 !TODO - Make this a single subroutine call
 
-       call t_startf('glissade_tstep'//suffix)
-       if (tstep_count == 0) call t_adj_detailf(+10)
-         call glissade_tstep(model,time)
-       if (tstep_count == 0) call t_adj_detailf(-10)
-       call t_stopf('glissade_tstep'//suffix)
+       call t_startf('glissade_tstep')
+       call glissade_tstep(model,time)
+       call t_stopf('glissade_tstep')
 
      endif   ! glide v. glam/glissade dycore
 
      ! override masking stuff for now  !TODO - What does this mean?
-
-     !tstep_count = tstep_count + 1  !TODO delete this.  moved to start of time loop
 
 !TODO - Change to cism_write_diag?
 !TODO Can this be moved to end of time loop so that we can merge the two if-statements into a single construct?
@@ -302,11 +290,9 @@ program simple_glide
      if (model%options%whichdycore == DYCORE_GLIDE) then
 
      ! Perform parallel operations for restart files
-       call t_startf('glide_tstep_postp3'//suffix)
-       if (tstep_count == 1) call t_adj_detailf(+10)
-         call glide_tstep_postp3(model)
-       if (tstep_count == 1) call t_adj_detailf(-10)
-       call t_stopf('glide_tstep_postp3'//suffix)
+       call t_startf('glide_tstep_postp3')
+       call glide_tstep_postp3(model)
+       call t_stopf('glide_tstep_postp3')
 
      else   ! glam/glissade dycore
 
@@ -314,7 +300,7 @@ program simple_glide
 !       Before doing so, make sure we have the required calls in glissade.F90.
 
 !WHL - Replaced some parallel_halo calls with staggered_parallel_halo as appropriate       
-       call t_startf('simple_glide_halo_upd'//suffix)
+       call t_startf('simple_glide_halo_upd')
        call parallel_halo(model%stress%efvs)
 !!       call horiz_bcs_unstag_scalar(model%stress%efvs)
        call staggered_parallel_halo(model%velocity%uvel)
@@ -388,27 +374,18 @@ program simple_glide
        call parallel_halo(model%temper%temp)
 !!       call horiz_bcs_unstag_scalar(model%temper%temp)
 
-       call t_stopf('simple_glide_halo_upd'//suffix)
+       call t_stopf('simple_glide_halo_upd')
 
      ! Perform parallel operations for restart files
      ! TODO post_tstep has nothing left in it but the output writing.  
      !      I think it should be eliminated and the output writing occur here in simple_glide.
-       call t_startf('glissade_post_tstep'//suffix)
-       if (tstep_count == 1) call t_adj_detailf(+10)
-        call glissade_post_tstep(model)
-       if (tstep_count == 1) call t_adj_detailf(-10)
-       call t_stopf('glissade_post_tstep'//suffix)
+       call t_startf('glissade_post_tstep')
+       call glissade_post_tstep(model)
+       call t_stopf('glissade_post_tstep')
 
      endif   ! glide v. glam/glissade dycore
 
-!###     !time = time + model%numerics%tinc  !TODO DELETE - moved to start of time step
-
-!###     ! TODO Delete these two lines - moved to start of time step loop
-!###     !call simple_massbalance(climate,model,time)
-!###     !call simple_surftemp(climate,model,time)
-
-!TODO DELETE suffix-see note above about 'suffix'.
-     call t_stopf('glide_tstep'//suffix)
+     call t_stopf('glide_tstep')
   end do
 
   call t_stopf('simple glide')

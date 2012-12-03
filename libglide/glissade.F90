@@ -1086,7 +1086,7 @@ end select
              print *, 'Compute higher-order ice velocities, time =', model%numerics%time
           endif
 
-         call t_startf('ho_velo_diagnostic')
+         call t_startf('glissade_velo_driver')
 
 !### !TODO - Remove run_ho_diagnostic; it has been superseded by glissade_velo_driver.
 !### 
@@ -1101,7 +1101,7 @@ end select
 
 !###           endif
 
-         call t_stopf('ho_velo_diagnostic')
+         call t_stopf('glissade_velo_driver')
 
 
 !TODO - Not sure we need to update ubas, vbas, or surfvel,
