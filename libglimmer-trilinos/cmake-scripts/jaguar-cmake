@@ -2,7 +2,7 @@
 ## Sample trilinos configuration script, that works on Jaguar.
 ## Note 1: The "../Trilinos" at the end assumes that this is run in a 
 #  sister directory to Trilinos. This relative path can be changed.
-## Note 2: The PREFIX is set to "$PWD". This is the Trilinos install 
+## Note 2: The PREFIX is set to "$PWD/install". This is the Trilinos install 
 ##   path that you need to use in the glimmer configuration script after
 ##   --with-trilinos=<CMAKE_INSTALL_PREFIX>.
 ## Note 3: After running this script, you can run:
@@ -17,7 +17,7 @@
 
 rm CMakeCache.txt
 
-cmake -D CMAKE_INSTALL_PREFIX:PATH=. \
+cmake -D CMAKE_INSTALL_PREFIX:PATH=$PWD/install \
       -D TPL_ENABLE_MPI:BOOL=ON \
       -D CMAKE_BUILD_TYPE:STRING=RELEASE \
       -D Trilinos_WARNINGS_AS_ERRORS_FLAGS:STRING="" \
