@@ -514,6 +514,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
 
 !HALO - To avoid parallel halo calls for efvs within glam_strs2, we need to compute efvs in one layer of halo cells
 
+ call t_startf("PICARD_findefvsstr")
     ! calc effective viscosity using previously calc vel. field
     call findefvsstr(ewn,  nsn,  upn,      &
                      stagsigma,  counter,  &
@@ -523,7 +524,9 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      dusrfdew,   dthckdew, &
                      dusrfdns,   dthckdns, &
                      umask)
+ call t_stopf("PICARD_findefvsstr")
 
+ call t_startf("PICARD_findcoefstr1")
     ! calculate coeff. for stress balance in y-direction 
     call findcoefstr(ewn,  nsn,   upn,            &
                      dew,  dns,   sigma,          &
@@ -542,9 +545,12 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      minTauf,     flwa,           &
                      beta,        btraction,      &
                      0 )
+ call t_stopf("PICARD_findcoefstr1")
 
+ call t_startf("PICARD_solver_pre1")
     ! put vels and coeffs from 3d arrays into sparse vector format
     call solver_preprocess( ewn, nsn, upn, uindx, matrix, answer, vvel )
+ call t_stopf("PICARD_solver_pre1")
 
 !==============================================================================
 ! jfl 20100412: residual for v comp: Fv= A(u^k-1,v^k-1)v^k-1 - b(u^k-1,v^k-1)  
@@ -610,6 +616,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
     end if
 ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
+ call t_startf("PICARD_findcoefstr2")
     ! calculate coeff. for stress balance calc. in x-direction 
     call findcoefstr(ewn,  nsn,   upn,            &
                      dew,  dns,   sigma,          &
@@ -628,9 +635,12 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      minTauf,     flwa,           &
                      beta,        btraction,      &
                      0 )
+ call t_stopf("PICARD_findcoefstr2")
 
+ call t_startf("PICARD_solver_pre2")
     ! put vels and coeffs from 3d arrays into sparse vector format
     call solver_preprocess( ewn, nsn, upn, uindx, matrix, answer, uvel )
+ call t_stopf("PICARD_solver_pre2")
 
 !==============================================================================
 ! jfl 20100412: residual for u comp: Fu= C(u^k-1,v^k-1)u^k-1 - d(u^k-1,v^k-1)  
@@ -677,6 +687,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
     ! call fraction of assembly routines, passing current vel estimates (w/o manifold
     ! correction!) to calculate consistent basal tractions
 
+ call t_startf("PICARD_findcoefstr3")
     call findcoefstr(ewn,  nsn,   upn,            &
                      dew,  dns,   sigma,          &
                      2,           efvs,           &
@@ -695,7 +706,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      beta,        btraction,      &
                      1 )
 
-   call findcoefstr(ewn,  nsn,   upn,             &
+    call findcoefstr(ewn,  nsn,   upn,            &
                      dew,  dns,   sigma,          &
                      1,           efvs,           &
                      uvel,        tvel,           &
@@ -712,6 +723,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      minTauf,     flwa,           &
                      beta,        btraction,      &
                      1 )
+ call t_stopf("PICARD_findcoefstr3")
 
     ! apply unstable manifold correction to converged velocities
 
@@ -723,11 +735,13 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
 
 !HALO - I'm pretty sure these updates *are* needed.
 !       
+ call t_startf("PICARD_halo_upds")
     ! coordinate halos for updated uvel and vvel
     call staggered_parallel_halo(uvel)
     call horiz_bcs_stag_vector_ew(uvel)
     call staggered_parallel_halo(vvel)
     call horiz_bcs_stag_vector_ns(vvel)
+ call t_stopf("PICARD_halo_upds")
 
     !call dumpvels("After mindcrsh", uvel, vvel)
 
@@ -767,7 +781,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
     endif
 
     counter = counter + 1   ! advance the iteration counter
-  call t_stopf("PICARD_in_iter")
+ call t_stopf("PICARD_in_iter")
 
   end do  ! while ( outer_it_criterion >= outer_it_target .and. counter < cmax)
 
@@ -2324,14 +2338,14 @@ end subroutine reset_effstrmin
                                 xtp, vvel, uvel, ghostbvel, pcgsize(1) )
 
     ! coordinate halos for updated uvel and vvel
-    call t_startf("Calc_F_uvhalo_upd")
+ call t_startf("Calc_F_uvhalo_upd")
     call staggered_parallel_halo(uvel)
     call horiz_bcs_stag_vector_ew(uvel)
     call staggered_parallel_halo(vvel)
     call horiz_bcs_stag_vector_ns(vvel)
-    call t_stopf("Calc_F_uvhalo_upd")
+ call t_stopf("Calc_F_uvhalo_upd")
 
-    call t_startf("Calc_F_findefvsstr")
+ call t_startf("Calc_F_findefvsstr")
     call findefvsstr(ewn,  nsn,  upn,       &
                      stagsigma,  counter,  &
                      whichefvs,  efvs,     &
@@ -2340,14 +2354,14 @@ end subroutine reset_effstrmin
                      dusrfdew,   dthckdew, &
                      dusrfdns,   dthckdns, &
                      um)
-    call t_stopf("Calc_F_findefvsstr")
+ call t_stopf("Calc_F_findefvsstr")
 
 !==============================================================================
 ! jfl 20100412: residual for v comp: Fv= A(utp,vtp)vtp - b(utp,vtp)  
 !==============================================================================
 
     ! *SFP* calculation of coeff. for stress balance calc. 
-    call t_startf("Calc_F_findcoefstr1")
+ call t_startf("Calc_F_findcoefstr1")
     call findcoefstr(ewn,  nsn,   upn,            &
                      dew,  dns,   sigma,          &
                      2,           efvs,           &
@@ -2366,16 +2380,20 @@ end subroutine reset_effstrmin
                      beta,        btraction,      &
                      0 )
 
-    call t_stopf("Calc_F_findcoefstr1")
+ call t_stopf("Calc_F_findcoefstr1")
 
     rhsx(1:pcgsize(1)) = rhsd ! Fv
 
     if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
+ call t_startf("Calc_F_form_matrix1")
       call form_matrix ( matrixA ) ! to get A(utp,vtp)
+ call t_stopf("Calc_F_form_matrix1")
 #ifdef TRILINOS
     else
       if (ispert == 0) then
+ call t_startf("Calc_F_savetrilinos1")
         call savetrilinosmatrix(0); 
+ call t_stopf("Calc_F_savetrilinos1")
       endif
 #endif
     end if
@@ -2393,7 +2411,7 @@ end subroutine reset_effstrmin
 ! jfl 20100412: residual for u comp: Fu= C(utp,vtp)utp - d(utp,vtp)  
 !==============================================================================
 
-    call t_startf("Calc_F_findcoefstr2")
+ call t_startf("Calc_F_findcoefstr2")
 
     call findcoefstr(ewn,  nsn,   upn,            &
                      dew,  dns,   sigma,          &
@@ -2413,16 +2431,20 @@ end subroutine reset_effstrmin
                      beta,        btraction,      &
                      0 )
 
-    call t_stopf("Calc_F_findcoefstr2")
+ call t_stopf("Calc_F_findcoefstr2")
 
     rhsx(pcgsize(1)+1:2*pcgsize(1)) = rhsd ! Fv
 
     if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then
+ call t_startf("Calc_F_form_matrix2")
       call form_matrix ( matrixC ) ! to get C(utp,vtp)
+ call t_stopf("Calc_F_form_matrix2")
 #ifdef TRILINOS
     else
       if (ispert == 0) then
+ call t_startf("Calc_F_savetrilinos2")
         call savetrilinosmatrix(1); 
+ call t_stopf("Calc_F_savetrilinos2")
       endif
 #endif
     end if
