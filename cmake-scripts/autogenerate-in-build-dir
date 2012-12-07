@@ -6,24 +6,24 @@
 # of the autoconf system.
 
 echo
-echo "Auto-generating config.inc, glimmer_vers.F90, glide_io.F90, glide_lithot.F90, "
-echo "glint_io.F90, glint_mbal_io.F90."
+echo "Auto-generating glimmer_vers.F90, glide_io.F90, glide_lithot.F90, "
+echo "glint_io.F90, glint_mbal_io.F90 in build directory."
 echo
 
 mkdir -p fortran_autogen_srcs
 pushd fortran_autogen_srcs
-export CISM_SOURCE_DIR=../../../
 
-# Just a copy of a file with minimal info
-#pushd ..
-echo "  --creating config.inc"
-cp -p $CISM_SOURCE_DIR/config.inc.cmake.in $CISM_SOURCE_DIR/config.inc
-#popd
+rm *.F90
 
-# Just a copy of a file without version info
-# pushd ../libglimmer
-echo "  --creating glimmer_vers.F90"
-cp -p $CISM_SOURCE_DIR/libglimmer/glimmer_vers.F90.cmake.in glimmer_vers.F90
+if [ $# -eq 1 ];
+  then
+    export CISM_SOURCE_DIR=$1 
+  else
+    export CISM_SOURCE_DIR=../../../
+echo $1
+fi
+echo "Auto-generate script is using CISM source directory: "
+echo $CISM_SOURCE_DIR
 
 # copy template file to shorten python calls below
 cp $CISM_SOURCE_DIR/libglimmer/ncdf_template.F90.in .
@@ -38,11 +38,11 @@ cp $CISM_SOURCE_DIR/libglide/glide_lithot_vars.def .
 python $CISM_SOURCE_DIR/scripts/generate_ncvars.py glide_vars.def ncdf_template.F90.in
 python $CISM_SOURCE_DIR/scripts/generate_ncvars.py glide_lithot_vars.def ncdf_template.F90.in
 
-echo "  --creating glint_io.F90 and glint_mbal_io.F90 "
-cp $CISM_SOURCE_DIR/libglint/glint_vars.def .
-cp $CISM_SOURCE_DIR/libglint/glint_mbal_vars.def .
-python $CISM_SOURCE_DIR/scripts/generate_ncvars.py glint_vars.def ncdf_template.F90.in
-python $CISM_SOURCE_DIR/scripts/generate_ncvars.py glint_mbal_vars.def ncdf_template.F90.in
+#echo "  --creating glint_io.F90 and glint_mbal_io.F90 "
+#cp $CISM_SOURCE_DIR/libglint/glint_vars.def .
+#cp $CISM_SOURCE_DIR/libglint/glint_mbal_vars.def .
+#python $CISM_SOURCE_DIR/scripts/generate_ncvars.py glint_vars.def ncdf_template.F90.in
+#python $CISM_SOURCE_DIR/scripts/generate_ncvars.py glint_mbal_vars.def ncdf_template.F90.in
 
 
 #echo "  --creating eis_io.F90"
