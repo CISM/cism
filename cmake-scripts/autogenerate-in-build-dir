@@ -6,7 +6,7 @@
 # of the autoconf system.
 
 echo
-echo "Auto-generating glimmer_vers.F90, glide_io.F90, glide_lithot.F90, "
+echo "Auto-generating glide_io.F90, glide_lithot_io.F90, "
 echo "glint_io.F90, glint_mbal_io.F90 in build directory."
 echo
 
