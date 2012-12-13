@@ -3,6 +3,17 @@ module parallel
   use netcdf
   implicit none
 
+!PW - Repeat from glimmer_horiz_bcs_parallel.F90; needs to be set some place
+!PW   form which can be 'used' by both the parallel and glimmer_horiz_bcs modules
+  integer, parameter, private :: HORIZ_BCS_WALL_SLIP = 0
+  integer, parameter, private :: HORIZ_BCS_CYCLIC = 1
+
+  integer, parameter, private :: horiz_bcs_type_north = HORIZ_BCS_CYCLIC
+  integer, parameter, private :: horiz_bcs_type_south = HORIZ_BCS_CYCLIC
+  integer, parameter, private :: horiz_bcs_type_east  = HORIZ_BCS_CYCLIC
+  integer, parameter, private :: horiz_bcs_type_west  = HORIZ_BCS_CYCLIC
+!PW - End of repeat
+
   ! Debug and Verification Level
   integer,parameter :: DEBUG_LEVEL = 1 
 	! If > 0, then debug code executed.  Added for parallel_halo_verify()
@@ -2513,6 +2524,33 @@ contains
     ! including global domain halo adds lhalo to offsets
     global_row = (locns - lhalo) + (global_row_offset + lhalo)
     global_col = (locew - lhalo) + (global_col_offset + lhalo)
+
+    ! if halo cell and if using periodic boundary conditions,
+    ! define global ID to be associated non-halo cell
+    if (global_row .le. lhalo) then
+      if (horiz_bcs_type_south .eq. HORIZ_BCS_CYCLIC) then
+        global_row = global_row + global_nsn
+      endif
+    endif
+
+    if (global_row > (global_nsn+lhalo)) then
+      if  (horiz_bcs_type_north .eq. HORIZ_BCS_CYCLIC) then
+        global_row = global_row - global_nsn
+      endif
+    endif
+
+    if (global_col .le. lhalo) then
+      if (horiz_bcs_type_west .eq. HORIZ_BCS_CYCLIC) then
+        global_col = global_col + global_ewn
+      endif
+    endif
+
+    if (global_col > (global_ewn+lhalo)) then
+      if (horiz_bcs_type_east .eq. HORIZ_BCS_CYCLIC) then
+        global_col = global_col - global_ewn
+      endif
+    endif
+
 
     ! including global domain halo adds (lhalo + uhalo) to global_ewn
     global_ID = ((global_row - 1) * (global_ewn + lhalo + uhalo) + (global_col - 1)) * upstride + 1
