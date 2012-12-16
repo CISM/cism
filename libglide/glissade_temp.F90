@@ -1088,15 +1088,24 @@ contains
     real(dp), parameter :: contemp = -5.0d0
     real(dp) :: default_flwa
     real(dp),dimension(4) :: arrfact
-    integer :: ew,ns,up,ewn,nsn,upn, nlayer
+    integer :: ew,ns,up,ewn,nsn
+    integer :: flwa_upn, temp_upn, temp_up_offset
 
-    real(dp), dimension(:), allocatable :: tempcor
+    real(dp), dimension(size(flwa,1)) :: tempcor
     
     !------------------------------------------------------------------------------------ 
    
     default_flwa = flow_factor * default_flwa_arg / (vis0*scyr) 
 
-    upn=size(flwa,1) ; ewn=size(flwa,2) ; nsn=size(flwa,3)
+    temp_upn=size(temp,1)
+    flwa_upn=size(flwa,1) ; ewn=size(flwa,2) ; nsn=size(flwa,3)
+    if (temp_upn .eq. flwa_upn) then
+!     whichtemp == TEMP_GLIMMER, so temp and flwa are both declared 1:upn
+      temp_up_offset = 0
+    else
+!     othersize temp is 0:upn, but declared as 1:upn+2 here, and flwa is 1:upn-1
+      temp_up_offset = 1
+    endif
 
     !write(*,*)"Default flwa = ",default_flwa
 
@@ -1107,11 +1116,6 @@ contains
  
     select case(flag)
     case(FLWA_PATERSON_BUDD)
-
-!      allocate(tempcor(size(flwa,1)))
-!whl - TODO - Verify that the above allocation works, so that a hard number is not needed.
-! KJE give a hard number to satisfy gcc compiler on Jaguar
-    allocate(tempcor(1000))
 
 !TODO - Loop over locally owned cells?  Alternatively, just compute over all cells,
 !        but make sure temp and thck are updated in halo cells.
@@ -1125,8 +1129,13 @@ contains
             
             ! Calculate the corrected temperature
 
-            tempcor(:) = min(0.0d0, temp(:,ew,ns) + thck(ew,ns) * fact * stagsigma(:))
-            tempcor(:) = max(-50.0d0, tempcor(:))
+!pw         tempcor(:) = min(0.0d0, temp(:,ew,ns) + thck(ew,ns) * fact * stagsigma(:))
+!pw         tempcor(:) = max(-50.0d0, tempcor(:))
+            do up = 1,flwa_upn
+              tempcor(up) = &
+                min(0.0d0, temp(up+temp_up_offset,ew,ns) + thck(ew,ns) * fact * stagsigma(up))
+              tempcor(up) = max(-50.0d0, tempcor(up))
+            enddo
 
             ! Calculate Glen's A
 
@@ -1137,8 +1146,6 @@ contains
           end if
         end do
       end do
-
-      deallocate(tempcor)
 
     case(FLWA_PATERSON_BUDD_CONST_TEMP)
 
@@ -1151,7 +1158,7 @@ contains
 
             ! Calculate Glen's A with a fixed temperature.
 
-            call patebudd((/(contemp, up=1,upn)/),flwa(:,ew,ns),arrfact) 
+            call patebudd((/(contemp, up=1,flwa_upn)/),flwa(:,ew,ns),arrfact) 
 
           else
             flwa(:,ew,ns) = default_flwa

@@ -42,7 +42,7 @@ endif
 echo 'make distclean'
 make distclean
 echo 'configure parallel autoconf build'
-./configure-scripts/hopper-config >& conf_auto_pgi.out
+./configure-scripts/hopper-config-cesmtimers >& conf_auto_pgi.out
 echo 'make parallel'
 make >& auto_pgi_build.out 
 
@@ -60,15 +60,15 @@ rm -rf xe6-pgi
 rm -rf xe6-gnu
 mkdir xe6-pgi
 mkdir xe6-gnu
-cp cmake-scripts/hopper-pgi-cmake xe6-pgi
-cp cmake-scripts/hopper-gnu-cmake xe6-gnu
+cp cmake-scripts/hopper-pgi-cmake-cesmtimers xe6-pgi
+cp cmake-scripts/hopper-gnu-cmake-cesmtimers xe6-gnu
 
 # PARALLEL BUILD WITH CMAKE PGI
 cd $CODE_DIR/xe6-pgi
 echo 'clean out the build dir'
 rm -rf CMakeCache.txt CMakeFiles fortran_mod_files lib libglimmer-trilinos autogenerate.log cmake_install.cmake
 echo 'configure pgi cmake build'
-./hopper-pgi-cmake >& conf_cmake_pgi.out
+./hopper-pgi-cmake-cesmtimers >& conf_cmake_pgi.out
 echo 'make parallel pgi'
 make -j 4 >& cmake_pgi_build.out
 
@@ -93,7 +93,7 @@ cd $CODE_DIR/xe6-gnu
 echo 'clean out the build dir'
 rm -rf CMakeCache.txt CMakeFiles fortran_mod_files lib libglimmer-trilinos autogenerate.log cmake_install.cmake
 echo 'configure gnu cmake build'
-./hopper-gnu-cmake >& conf_gnu.out
+./hopper-gnu-cmake-cesmtimers >& conf_gnu.out
 echo 'make parallel gnu'
 make -j 4 >& cmake_gnu_build.out
 

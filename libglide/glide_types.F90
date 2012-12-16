@@ -1382,134 +1382,242 @@ contains
     implicit none
     type(glide_global_type),intent(inout) :: model
 
-    deallocate(model%general%x0) 
-    deallocate(model%general%y0) 
-    deallocate(model%general%x1) 
-    deallocate(model%general%y1) 
+    if (associated(model%general%x0)) &
+       deallocate(model%general%x0) 
+    if (associated(model%general%y0)) &
+       deallocate(model%general%y0) 
+    if (associated(model%general%x1)) &
+       deallocate(model%general%x1) 
+    if (associated(model%general%y1)) &
+       deallocate(model%general%y1) 
 
-    deallocate(model%temper%temp)
-    deallocate(model%temper%flwa)
-    deallocate(model%temper%bheatflx)
-    deallocate(model%temper%bwat)
-    deallocate(model%temper%bwatflx)
-    deallocate(model%temper%stagbwat)
-    deallocate(model%temper%bmlt)
-    deallocate(model%temper%bmlt_tavg)
-    deallocate(model%temper%bfricflx)
-    deallocate(model%temper%ucondflx)
-    deallocate(model%temper%lcondflx)
-    deallocate(model%temper%dissipcol)
-    deallocate(model%temper%stagbtemp)
-    deallocate(model%temper%bpmp)
-    deallocate(model%temper%stagbpmp)
-    deallocate(model%ground%gl_ns)
-    deallocate(model%ground%gl_ew)
-    deallocate(model%ground%gline_flux)
+    if (associated(model%temper%temp)) &
+       deallocate(model%temper%temp)
+    if (associated(model%temper%flwa)) &
+       deallocate(model%temper%flwa)
+    if (associated(model%temper%bheatflx)) &
+       deallocate(model%temper%bheatflx)
+    if (associated(model%temper%bwat)) &
+       deallocate(model%temper%bwat)
+    if (associated(model%temper%bwatflx)) &
+       deallocate(model%temper%bwatflx)
+    if (associated(model%temper%stagbwat)) &
+       deallocate(model%temper%stagbwat)
+    if (associated(model%temper%bmlt)) &
+       deallocate(model%temper%bmlt)
+    if (associated(model%temper%bmlt_tavg)) &
+       deallocate(model%temper%bmlt_tavg)
+    if (associated(model%temper%bfricflx)) &
+       deallocate(model%temper%bfricflx)
+    if (associated(model%temper%ucondflx)) &
+       deallocate(model%temper%ucondflx)
+    if (associated(model%temper%lcondflx)) &
+       deallocate(model%temper%lcondflx)
+    if (associated(model%temper%dissipcol)) &
+       deallocate(model%temper%dissipcol)
+    if (associated(model%temper%stagbtemp)) &
+       deallocate(model%temper%stagbtemp)
+    if (associated(model%temper%bpmp)) &
+       deallocate(model%temper%bpmp)
+    if (associated(model%temper%stagbpmp)) &
+       deallocate(model%temper%stagbpmp)
+    if (associated(model%ground%gl_ns)) &
+       deallocate(model%ground%gl_ns)
+    if (associated(model%ground%gl_ew)) &
+       deallocate(model%ground%gl_ew)
+    if (associated(model%ground%gline_flux)) &
+       deallocate(model%ground%gline_flux)
 
-    deallocate(model%lithot%temp)
-    deallocate(model%lithot%mask)
+    if (associated(model%lithot%temp)) &
+       deallocate(model%lithot%temp)
+    if (associated(model%lithot%mask)) &
+       deallocate(model%lithot%mask)
 
-    deallocate(model%velocity%uvel)
-    deallocate(model%velocity%vvel)
+    if (associated(model%velocity%uvel)) &
+       deallocate(model%velocity%uvel)
+    if (associated(model%velocity%vvel)) &
+       deallocate(model%velocity%vvel)
 
     !! next 3 used for output of residual fields (when relevant code in glam_strs2 is active)
 !    deallocate(model%velocity%ures) 
 !    deallocate(model%velocity%vres)
 !    deallocate(model%velocity%magres)
 
-    deallocate(model%velocity%velnorm)
-    deallocate(model%velocity%wvel)
-    deallocate(model%velocity%wgrd)
-    deallocate(model%velocity%surfvel)
+    if (associated(model%velocity%velnorm)) &
+       deallocate(model%velocity%velnorm)
+    if (associated(model%velocity%wvel)) &
+       deallocate(model%velocity%wvel)
+    if (associated(model%velocity%wgrd)) &
+       deallocate(model%velocity%wgrd)
+    if (associated(model%velocity%surfvel)) &
+       deallocate(model%velocity%surfvel)
 
-    deallocate(model%velocity%uflx)
-    deallocate(model%velocity%vflx)
-    deallocate(model%velocity%diffu)
-    deallocate(model%velocity%diffu_x)
-    deallocate(model%velocity%diffu_y)
-    deallocate(model%velocity%total_diffu)
-    deallocate(model%velocity%bed_softness)
-    deallocate(model%velocity%btrc)
-    deallocate(model%velocity%btraction)
-    deallocate(model%velocity%beta)
-    deallocate(model%velocity%ubas)
-    deallocate(model%velocity%ubas_tavg)
-    deallocate(model%velocity%vbas)
-    deallocate(model%velocity%vbas_tavg)
-    deallocate(model%velocity%velmask)
-    deallocate(model%velocity%kinbcmask)
-    deallocate(model%velocity%dynbcmask)
+    if (associated(model%velocity%uflx)) &
+       deallocate(model%velocity%uflx)
+    if (associated(model%velocity%vflx)) &
+       deallocate(model%velocity%vflx)
+    if (associated(model%velocity%diffu)) &
+       deallocate(model%velocity%diffu)
+    if (associated(model%velocity%diffu_x)) &
+       deallocate(model%velocity%diffu_x)
+    if (associated(model%velocity%diffu_y)) &
+       deallocate(model%velocity%diffu_y)
+    if (associated(model%velocity%total_diffu)) &
+       deallocate(model%velocity%total_diffu)
+    if (associated(model%velocity%bed_softness)) &
+       deallocate(model%velocity%bed_softness)
+    if (associated(model%velocity%btrc)) &
+       deallocate(model%velocity%btrc)
+    if (associated(model%velocity%btraction)) &
+       deallocate(model%velocity%btraction)
+    if (associated(model%velocity%beta)) &
+       deallocate(model%velocity%beta)
+    if (associated(model%velocity%ubas)) &
+       deallocate(model%velocity%ubas)
+    if (associated(model%velocity%ubas_tavg)) &
+       deallocate(model%velocity%ubas_tavg)
+    if (associated(model%velocity%vbas)) &
+       deallocate(model%velocity%vbas)
+    if (associated(model%velocity%vbas_tavg)) &
+       deallocate(model%velocity%vbas_tavg)
+    if (associated(model%velocity%velmask)) &
+       deallocate(model%velocity%velmask)
+    if (associated(model%velocity%kinbcmask)) &
+       deallocate(model%velocity%kinbcmask)
+    if (associated(model%velocity%dynbcmask)) &
+       deallocate(model%velocity%dynbcmask)
 
-    deallocate(model%stress%tau%scalar)
-    deallocate(model%stress%tau%xz)
-    deallocate(model%stress%tau%yz)
-    deallocate(model%stress%tau%xx)
-    deallocate(model%stress%tau%yy)
-    deallocate(model%stress%tau%xy)
-    deallocate(model%stress%efvs)
-    deallocate(model%stress%tau_x)
-    deallocate(model%stress%tau_y)
+    if (associated(model%stress%tau%scalar)) &
+       deallocate(model%stress%tau%scalar)
+    if (associated(model%stress%tau%xz)) &
+       deallocate(model%stress%tau%xz)
+    if (associated(model%stress%tau%yz)) &
+       deallocate(model%stress%tau%yz)
+    if (associated(model%stress%tau%xx)) &
+       deallocate(model%stress%tau%xx)
+    if (associated(model%stress%tau%yy)) &
+       deallocate(model%stress%tau%yy)
+    if (associated(model%stress%tau%xy)) &
+       deallocate(model%stress%tau%xy)
+    if (associated(model%stress%efvs)) &
+       deallocate(model%stress%efvs)
+    if (associated(model%stress%tau_x)) &
+       deallocate(model%stress%tau_x)
+    if (associated(model%stress%tau_y)) &
+       deallocate(model%stress%tau_y)
 !    deallocate(model%stress%gdsx)  *sfp* not currently used anywhere
 !    deallocate(model%stress%gdsy)
 
-    deallocate(model%climate%acab)
-    deallocate(model%climate%acab_tavg)
-    deallocate(model%climate%artm)
-    deallocate(model%climate%lati)
-    deallocate(model%climate%loni)
-    deallocate(model%climate%backstress)
-    deallocate(model%climate%backstressmap)
+    if (associated(model%climate%acab)) &
+       deallocate(model%climate%acab)
+    if (associated(model%climate%acab_tavg)) &
+       deallocate(model%climate%acab_tavg)
+    if (associated(model%climate%artm)) &
+       deallocate(model%climate%artm)
+    if (associated(model%climate%lati)) &
+       deallocate(model%climate%lati)
+    if (associated(model%climate%loni)) &
+       deallocate(model%climate%loni)
+    if (associated(model%climate%backstress)) &
+       deallocate(model%climate%backstress)
+    if (associated(model%climate%backstressmap)) &
+       deallocate(model%climate%backstressmap)
 
-    deallocate(model%geomderv%dthckdew)
-    deallocate(model%geomderv%dusrfdew)
-    deallocate(model%geomderv%dlsrfdew)
-    deallocate(model%geomderv%dthckdns)
-    deallocate(model%geomderv%dusrfdns)
-    deallocate(model%geomderv%dlsrfdns)
+    if (associated(model%geomderv%dthckdew)) &
+       deallocate(model%geomderv%dthckdew)
+    if (associated(model%geomderv%dusrfdew)) &
+       deallocate(model%geomderv%dusrfdew)
+    if (associated(model%geomderv%dlsrfdew)) &
+       deallocate(model%geomderv%dlsrfdew)
+    if (associated(model%geomderv%dthckdns)) &
+       deallocate(model%geomderv%dthckdns)
+    if (associated(model%geomderv%dusrfdns)) &
+       deallocate(model%geomderv%dusrfdns)
+    if (associated(model%geomderv%dlsrfdns)) &
+       deallocate(model%geomderv%dlsrfdns)
 
-    deallocate(model%geomderv%d2usrfdew2)
-    deallocate(model%geomderv%d2thckdew2)
-    deallocate(model%geomderv%d2usrfdns2)
-    deallocate(model%geomderv%d2thckdns2)
+    if (associated(model%geomderv%d2usrfdew2)) &
+       deallocate(model%geomderv%d2usrfdew2)
+    if (associated(model%geomderv%d2thckdew2)) &
+       deallocate(model%geomderv%d2thckdew2)
+    if (associated(model%geomderv%d2usrfdns2)) &
+       deallocate(model%geomderv%d2usrfdns2)
+    if (associated(model%geomderv%d2thckdns2)) &
+       deallocate(model%geomderv%d2thckdns2)
 
-    deallocate(model%geomderv%dthckdew_unstag)
-    deallocate(model%geomderv%dusrfdew_unstag)
-    deallocate(model%geomderv%dlsrfdew_unstag)
-    deallocate(model%geomderv%dthckdns_unstag)
-    deallocate(model%geomderv%dusrfdns_unstag)
-    deallocate(model%geomderv%dlsrfdns_unstag)
+    if (associated(model%geomderv%dthckdew_unstag)) &
+       deallocate(model%geomderv%dthckdew_unstag)
+    if (associated(model%geomderv%dusrfdew_unstag)) &
+       deallocate(model%geomderv%dusrfdew_unstag)
+    if (associated(model%geomderv%dlsrfdew_unstag)) &
+       deallocate(model%geomderv%dlsrfdew_unstag)
+    if (associated(model%geomderv%dthckdns_unstag)) &
+       deallocate(model%geomderv%dthckdns_unstag)
+    if (associated(model%geomderv%dusrfdns_unstag)) &
+       deallocate(model%geomderv%dusrfdns_unstag)
+    if (associated(model%geomderv%dlsrfdns_unstag)) &
+       deallocate(model%geomderv%dlsrfdns_unstag)
 
-    deallocate(model%geomderv%d2usrfdew2_unstag)
-    deallocate(model%geomderv%d2thckdew2_unstag)
-    deallocate(model%geomderv%d2usrfdns2_unstag)
-    deallocate(model%geomderv%d2thckdns2_unstag)
+    if (associated(model%geomderv%d2usrfdew2_unstag)) &
+       deallocate(model%geomderv%d2usrfdew2_unstag)
+    if (associated(model%geomderv%d2thckdew2_unstag)) &
+       deallocate(model%geomderv%d2thckdew2_unstag)
+    if (associated(model%geomderv%d2usrfdns2_unstag)) &
+       deallocate(model%geomderv%d2usrfdns2_unstag)
+    if (associated(model%geomderv%d2thckdns2_unstag)) &
+       deallocate(model%geomderv%d2thckdns2_unstag)
 
-    deallocate(model%geomderv%dthckdtm)
-    deallocate(model%geomderv%dusrfdtm)
-    deallocate(model%geomderv%stagthck)
-    deallocate(model%geomderv%stagusrf)
-    deallocate(model%geomderv%staglsrf)
-    deallocate(model%geomderv%stagtopg)
+    if (associated(model%geomderv%dthckdtm)) &
+       deallocate(model%geomderv%dthckdtm)
+    if (associated(model%geomderv%dusrfdtm)) &
+       deallocate(model%geomderv%dusrfdtm)
+    if (associated(model%geomderv%stagthck)) &
+       deallocate(model%geomderv%stagthck)
+    if (associated(model%geomderv%stagusrf)) &
+       deallocate(model%geomderv%stagusrf)
+    if (associated(model%geomderv%staglsrf)) &
+       deallocate(model%geomderv%staglsrf)
+    if (associated(model%geomderv%stagtopg)) &
+       deallocate(model%geomderv%stagtopg)
 
-    deallocate(model%geometry%temporary0)
-    deallocate(model%geometry%temporary1)
-    deallocate(model%geometry%thck)
-    deallocate(model%geometry%usrf)
-    deallocate(model%geometry%lsrf)
-    deallocate(model%geometry%topg)
-    deallocate(model%geometry%age)
-    deallocate(model%geometry%mask)
-    deallocate(model%geometry%thkmask)
-    deallocate(model%geometry%marine_bc_normal)
+    if (associated(model%geometry%temporary0)) &
+       deallocate(model%geometry%temporary0)
+    if (associated(model%geometry%temporary1)) &
+       deallocate(model%geometry%temporary1)
+    if (associated(model%geometry%thck)) &
+       deallocate(model%geometry%thck)
+    if (associated(model%geometry%usrf)) &
+       deallocate(model%geometry%usrf)
+    if (associated(model%geometry%lsrf)) &
+       deallocate(model%geometry%lsrf)
+    if (associated(model%geometry%topg)) &
+       deallocate(model%geometry%topg)
+    if (associated(model%geometry%age)) &
+       deallocate(model%geometry%age)
+    if (associated(model%geometry%mask)) &
+       deallocate(model%geometry%mask)
+    if (associated(model%geometry%thkmask)) &
+       deallocate(model%geometry%thkmask)
+    if (associated(model%geometry%marine_bc_normal)) &
+       deallocate(model%geometry%marine_bc_normal)
 
-    deallocate(model%thckwk%olds)
-    deallocate(model%thckwk%oldthck)
-    deallocate(model%thckwk%oldthck2)
-    deallocate(model%thckwk%float)
-    deallocate(model%numerics%sigma)
-    deallocate(model%numerics%stagsigma)
-    deallocate(model%numerics%stagwbndsigma)
-    deallocate(model%solver_data%rhsd,model%solver_data%answ)
+    if (associated(model%thckwk%olds)) &
+       deallocate(model%thckwk%olds)
+    if (associated(model%thckwk%oldthck)) &
+       deallocate(model%thckwk%oldthck)
+    if (associated(model%thckwk%oldthck2)) &
+       deallocate(model%thckwk%oldthck2)
+    if (associated(model%thckwk%float)) &
+       deallocate(model%thckwk%float)
+    if (associated(model%numerics%sigma)) &
+       deallocate(model%numerics%sigma)
+    if (associated(model%numerics%stagsigma)) &
+       deallocate(model%numerics%stagsigma)
+    if (associated(model%numerics%stagwbndsigma)) &
+       deallocate(model%numerics%stagwbndsigma)
+    if (associated(model%solver_data%rhsd,model%solver_data%answ)) &
+       deallocate(model%solver_data%rhsd,model%solver_data%answ)
+
 !KJE do we need this at all here, the parts within are allocated in glam_strs2
     call del_sparse_matrix(model%solver_data%matrix)
 
@@ -1517,28 +1625,48 @@ contains
     call isos_deallocate(model%isos)
 
     !deallocate phaml variables
-    deallocate(model%phaml%init_phaml)
-    deallocate(model%phaml%rs_phaml)    
-    deallocate(model%phaml%uphaml)
+    if (associated(model%phaml%init_phaml)) &
+       deallocate(model%phaml%init_phaml)
+    if (associated(model%phaml%rs_phaml)) &
+       deallocate(model%phaml%rs_phaml)    
+    if (associated(model%phaml%uphaml)) &
+       deallocate(model%phaml%uphaml)
+
     ! deallocate grid quantities for remapping scheme
-    deallocate(model%gridwk%hte) 
-    deallocate(model%gridwk%htn) 
-    deallocate(model%gridwk%dxt) 
-    deallocate(model%gridwk%dyt) 
-    deallocate(model%gridwk%tarea) 
-    deallocate(model%gridwk%tarear) 
-    deallocate(model%gridwk%mask) 
-    deallocate(model%gridwk%xav) 
-    deallocate(model%gridwk%yav) 
-    deallocate(model%gridwk%xxav) 
-    deallocate(model%gridwk%xyav) 
-    deallocate(model%gridwk%yyav) 
+    if (associated(model%gridwk%hte)) &
+       deallocate(model%gridwk%hte) 
+    if (associated(model%gridwk%htn)) &
+       deallocate(model%gridwk%htn) 
+    if (associated(model%gridwk%dxt)) &
+       deallocate(model%gridwk%dxt) 
+    if (associated(model%gridwk%dyt)) &
+       deallocate(model%gridwk%dyt) 
+    if (associated(model%gridwk%tarea)) &
+       deallocate(model%gridwk%tarea) 
+    if (associated(model%gridwk%tarear)) &
+       deallocate(model%gridwk%tarear) 
+    if (associated(model%gridwk%mask)) &
+       deallocate(model%gridwk%mask) 
+    if (associated(model%gridwk%xav)) &
+       deallocate(model%gridwk%xav) 
+    if (associated(model%gridwk%yav)) &
+       deallocate(model%gridwk%yav) 
+    if (associated(model%gridwk%xxav)) &
+       deallocate(model%gridwk%xxav) 
+    if (associated(model%gridwk%xyav)) &
+       deallocate(model%gridwk%xyav) 
+    if (associated(model%gridwk%yyav)) &
+       deallocate(model%gridwk%yyav) 
 
     ! deallocate till variables
-    deallocate(model%basalproc%Hwater)
-    deallocate(model%basalproc%minTauf)
-    deallocate(model%basalproc%u)
-    deallocate(model%basalproc%etill)
+    if (associated(model%basalproc%Hwater)) &
+       deallocate(model%basalproc%Hwater)
+    if (associated(model%basalproc%minTauf)) &
+       deallocate(model%basalproc%minTauf)
+    if (associated(model%basalproc%u)) &
+       deallocate(model%basalproc%u)
+    if (associated(model%basalproc%etill)) &
+       deallocate(model%basalproc%etill)
 
   end subroutine glide_deallocarr
 

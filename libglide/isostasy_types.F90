@@ -100,8 +100,11 @@ contains
     implicit none
     type(isos_type) :: isos                !*FD structure holding isostasy configuration
     
-    deallocate(isos%relx)
-    deallocate(isos%load)
-    deallocate(isos%load_factors)
+    if (associated(isos%relx)) &
+      deallocate(isos%relx)
+    if (associated(isos%load)) &
+      deallocate(isos%load)
+    if (associated(isos%load_factors)) &
+      deallocate(isos%load_factors)
   end subroutine isos_deallocate
 end module isostasy_types

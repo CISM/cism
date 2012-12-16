@@ -1249,7 +1249,6 @@ contains
     real(dp),                   intent(in)    :: thklim    !*FD thickness threshold
     real(dp),dimension(:,:,:),  intent(out)   :: flwa      !*FD The calculated values of $A$
 !whl - Changed this so that the temp array is assumed to start with horizontal index 1 instead of 0.
-!!    real(dp),dimension(:,0:,0:),intent(in)    :: temp      !*FD The 3D temperature field
     real(dp),dimension(:,:,:),intent(in)      :: temp      !*FD The 3D temperature field
     real(dp),dimension(:,:),    intent(in)    :: thck      !*FD The ice thickness
     real(dp)                                  :: flow_factor !*FD Fudge factor in arrhenius relationship
@@ -1271,18 +1270,24 @@ contains
     real(dp), parameter :: contemp = -5.0d0
     real(dp) :: default_flwa
     real(dp),dimension(4) :: arrfact
-    integer :: ew,ns,up,ewn,nsn,upn
+    integer :: ew,ns,up,ewn,nsn
+    integer :: flwa_upn, temp_upn, temp_up_offset
 
-!TODO - Fix this in a robust way.
-!    real(dp), dimension(size(sigma)) :: tempcor
-!   KJE give a hard number to satisfy gnu complier 
-    real(dp), dimension(1000) :: tempcor
+    real(dp), dimension(size(flwa,1)) :: tempcor
 
     !------------------------------------------------------------------------------------ 
    
     default_flwa = flow_factor * default_flwa_arg / (vis0*scyr) 
 
-    upn=size(flwa,1) ; ewn=size(flwa,2) ; nsn=size(flwa,3)
+    temp_upn=size(temp,1)
+    flwa_upn=size(flwa,1) ; ewn=size(flwa,2) ; nsn=size(flwa,3)
+    if (temp_upn .eq. flwa_upn) then
+!     whichtemp == TEMP_GLIMMER, so temp and flwa are both declared 1:upn
+      temp_up_offset = 0
+    else
+!     othersize temp is 0:upn, but declared as 1:upn+2 here, and flwa is 1:upn-1
+      temp_up_offset = 1
+    endif
 
     !write(*,*)"Default flwa = ",default_flwa
 
@@ -1304,8 +1309,13 @@ contains
             
             ! Calculate the corrected temperature
 
-            tempcor(:) = min(0.0d0, temp(:,ew,ns) + thck(ew,ns) * fact * sigma(:))
-            tempcor(:) = max(-50.0d0, tempcor(:))
+!pw         tempcor(:) = min(0.0d0, temp(:,ew,ns) + thck(ew,ns) * fact * sigma(:))
+!pw         tempcor(:) = max(-50.0d0, tempcor(:))
+            do up = 1,flwa_upn
+              tempcor(up) = &
+                min(0.0d0, temp(up+temp_up_offset,ew,ns) + thck(ew,ns) * fact * sigma(up))
+              tempcor(up) = max(-50.0d0, tempcor(up))
+            enddo
 
             ! Calculate Glen's A
 
@@ -1332,7 +1342,7 @@ contains
 
             ! Calculate Glen's A with a fixed temperature.
 
-            call patebudd((/(contemp, up=1,upn)/),flwa(:,ew,ns),arrfact) 
+            call patebudd((/(contemp, up=1,flwa_upn)/),flwa(:,ew,ns),arrfact) 
 
           else
             flwa(:,ew,ns) = default_flwa
