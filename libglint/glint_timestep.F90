@@ -314,7 +314,7 @@ contains
 
           ! Set acab to zero for ocean cells (bed below sea level, no ice present)
 
-          where (instance%model%geometry%thkmask == GLIDE_MASK_OCEAN)
+          where (GLIDE_IS_OCEAN(instance%model%geometry%thkmask))
              instance%acab = 0.0
           endwhere
 
