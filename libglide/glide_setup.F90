@@ -642,14 +642,12 @@ contains
 
 !WHL - added options 5 and 6 for new standalone PCG solver
 
-    character(len=*), dimension(0:6), parameter :: ho_whichsparse = (/ &
+    character(len=*), dimension(0:4), parameter :: ho_whichsparse = (/ &
          'BiCG with LU preconditioner                ', &
          'GMRES with LU preconditioner               ', &
-         'PCG with diagonal preconditioner           ', &
          'PCG with incomplete Cholesky preconditioner', &
-         'Standalone Trilinos interface              ', &
-         'Standalone PCG solver (unstructured)       ', &
-         'Standalone PCG solver (structured)         '/)
+         'Standalone PCG solver (structured)         ', &
+         'Standalone Trilinos interface              '/)
 
 !WHL - added glissade options for solving different Stokes approximations
 !      commented out for now
@@ -723,11 +721,11 @@ contains
           call write_log('Error, Glimmer thickness evolution options can be used only with Glide dycore', GM_FATAL)
        endif
 
+!TODO - Get rid of this?
     else   ! not DYCORE_GLISSADE
 
-       if (model%options%which_ho_sparse == HO_SPARSE_PCG_DIAG .or.  &
-           model%options%which_ho_sparse == HO_SPARSE_PCG_INCH) then
-          call write_log('Error, preconditioned conjugate gradient solver requires glissade dycore with SPD matrix')
+       if (model%options%which_ho_sparse == HO_SPARSE_PCG_STRUC) then
+          call write_log('Error, structured PCG solver requires glissade dycore')
        endif
 
     endif
@@ -927,8 +925,6 @@ contains
     call GetValue(section,'basal_tract_const',model%paramets%btrac_const)
     call GetValue(section,'basal_tract_max',model%paramets%btrac_max)
     call GetValue(section,'basal_tract_slope',model%paramets%btrac_slope)
-    call GetValue(section,'stressin',model%climate%stressin)
-    call GetValue(section,'stressout',model%climate%stressout)
     call GetValue(section,'sliding_constant',model%climate%slidconst)
   end subroutine handle_parameters
 

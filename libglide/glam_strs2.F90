@@ -11,6 +11,9 @@
 #include "glide_mask.inc"
 #include "config.inc"
 
+!TODO - Get rid of globalIDs option.
+!       Make it the default for Trilinos, else not used.
+
 !GlobalIDs are for distributed TRILINOS variable IDs
 #ifdef TRILINOS
 #define globalIDs
@@ -513,6 +516,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
   ! end if
 
 !HALO - To avoid parallel halo calls for efvs within glam_strs2, we need to compute efvs in one layer of halo cells
+!       surrounding the locally owned velocity cells.
 
  call t_startf("PICARD_findefvsstr")
     ! calc effective viscosity using previously calc vel. field
@@ -827,9 +831,10 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
 !WHL - changed btraction from parallel_halo to staggered_parallel_halo
   call staggered_parallel_halo(btraction)
 
-!HALO - Pretty sure we don't need these updates; uflx and vflx are not used.
+!HALO - Pretty sure we don't need these updates; uflx and vflx are not used elsewhere.
   call staggered_parallel_halo(uflx)
   call horiz_bcs_stag_vector_ew(uflx)
+
   call staggered_parallel_halo(vflx)
   call horiz_bcs_stag_vector_ns(vflx)
 
@@ -1637,6 +1642,7 @@ function getlocationarray(ewn, nsn, upn, mask, indxmask, return_global_IDs)
      return_globalIDs = .true.
   endif
 
+!TODO - Make this if which_ho_sparse = 4 instead (or ifdef Trilinos?)
 #ifdef globalIDs
   ! Returns in (:,:,1) the global ID bases for each grid point, including 
   ! halos and those without ice.
@@ -1685,6 +1691,8 @@ function getlocationarray(ewn, nsn, upn, mask, indxmask, return_global_IDs)
            endif
         end do
      end do
+
+!TODO - Clean this up, so we always use this procedure when solving without Trilinos.
 
   else  ! use the procedure below under #else
 

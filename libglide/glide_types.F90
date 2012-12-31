@@ -154,14 +154,12 @@ module glide_types
   integer, parameter :: FIRSTORDER_BMELT = 1
   integer, parameter :: SSA_BMELT = 2
 
-!WHL - added options 5 and 6 for standalone PCG solver
+!WHL - added options 2 and 3
   integer, parameter :: HO_SPARSE_BICG = 0
   integer, parameter :: HO_SPARSE_GMRES = 1
-  integer, parameter :: HO_SPARSE_PCG_DIAG = 2
-  integer, parameter :: HO_SPARSE_PCG_INCH = 3
+  integer, parameter :: HO_SPARSE_PCG_INCH = 2
+  integer, parameter :: HO_SPARSE_PCG_STRUC = 3
   integer, parameter :: HO_SPARSE_TRILINOS = 4
-  integer, parameter :: HO_SPARSE_PCG_UNSTRUC = 5
-  integer, parameter :: HO_SPARSE_PCG_STRUC = 6
 
 !WHL - added options for different Stokes approximations
 !      (for glissade dycore only)
@@ -657,7 +655,9 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - Not sure why these are part of glide_global_type.  Should they be a distinct type?
+!TODO - Should calving, eus, and slidconst be part of some other type?
+!WHL - Removed backstress and other variables that were used only by the old glide_marinlim case(5),
+!      which was removed.
 
   type glide_climate
      !*FD Holds fields used to drive the model
@@ -667,14 +667,8 @@ module glide_types
      real(sp),dimension(:,:),pointer :: lati     => null() !*FD Latitudes of model grid points
      real(sp),dimension(:,:),pointer :: loni     => null() !*FD Longitudes of model grid points
      real(sp),dimension(:,:),pointer :: calving  => null() !*FD Calving flux (scaled as mass balance, thickness, etc)
-     real(sp) :: eus = 0.                                  !*FD eustatic sea level
-     real(sp),dimension(:,:),pointer :: backstress => null() !*FD Back stress field for use with the 
-                                                             !*FD Van der veen grounding line scheme
-     logical, dimension(:,:),pointer :: backstressmap => null() !*FD map of the backstress on the first time step
-     real(sp) :: stressin = 0.92                                
-     real(sp) :: stressout = 0.80
+     real(sp) :: eus = 0.0                                 !*FD eustatic sea level
      real(sp) :: slidconst = 0.0
-     real(sp) :: tempanmly                                  !*FD Temperature anomaly 
   end type glide_climate
 
   type glide_temper
@@ -716,7 +710,8 @@ module glide_types
   end type glide_temper
 
 !TODO - Seems like the lithosphere is independent of dycore (glide v. glissade).
-!       Change to glimmer_lithot_type?
+!       Change to cism_lithot_type?
+
   type glide_lithot_type
      !*FD holds variables for temperature calculations in the lithosphere
 
@@ -768,9 +763,7 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - glimmer_numerics?
-!TODO Why are some of these sp?  With some fractional tinc values, you may get an extra time step performed 
-! due to roundoff error in the time variable in simple_glide (which is dp).  
+!TODO - cism_numerics?
 
   type glide_numerics
 
@@ -828,7 +821,7 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - SIA only?
+!TODO - SIA only?  Remove this type?
   type glide_velowk
     real(dp),dimension(:),  pointer :: depth    => null()
     real(dp),dimension(:),  pointer :: dupsw    => null()
@@ -839,7 +832,7 @@ module glide_types
     real(dp),dimension(:,:),pointer :: dintflwa => null()
     real(dp),dimension(:),  pointer :: dups     => null()
     real(dp),dimension(4) :: fact
-    real(dp),dimension(4) :: c    = 0.0
+    real(dp),dimension(4) :: c = 0.d0
     real(dp) :: watwd  = 3.0d0
     real(dp) :: watct  = 10.0d0
     real(dp) :: trc0   = 0.0
@@ -862,7 +855,7 @@ module glide_types
      integer  :: nwhich  = 2
 !WHLTSTEP - Changed oldtime to dp
 !     real(sp) :: oldtime = 0.0
-     real(dp) :: oldtime = 0.0
+     real(dp) :: oldtime = 0.0  !TODO - Change to 0.d0
      
      real(dp), dimension(:), pointer :: alpha => null()
      real(dp), dimension(:), pointer :: beta  => null()
@@ -894,7 +887,7 @@ module glide_types
     real(dp),dimension(:,:,:),pointer :: hadv_u   => null()
     real(dp),dimension(:,:,:),pointer :: hadv_v   => null()
 
-!TODO - Do we need these?
+!TODO - Do we need these?  If so, change to 0.d0
     !*sfp** added space to the next 2 (cons, f) for use w/ HO and SSA dissip. calc. 
     real(dp),dimension(5)             :: cons     = 0.0
     real(dp),dimension(5)             :: f        = 0.0
@@ -1273,8 +1266,6 @@ contains
     call coordsystem_allocate(model%general%ice_grid, model%climate%lati)
     call coordsystem_allocate(model%general%ice_grid, model%climate%loni)
     call coordsystem_allocate(model%general%ice_grid, model%climate%calving)
-    call coordsystem_allocate(model%general%ice_grid, model%climate%backstress)
-    call coordsystem_allocate(model%general%ice_grid, model%climate%backstressmap)
 
     call coordsystem_allocate(model%general%velo_grid, model%geomderv%dthckdew)
     call coordsystem_allocate(model%general%velo_grid, model%geomderv%dusrfdew)
@@ -1518,10 +1509,6 @@ contains
        deallocate(model%climate%lati)
     if (associated(model%climate%loni)) &
        deallocate(model%climate%loni)
-    if (associated(model%climate%backstress)) &
-       deallocate(model%climate%backstress)
-    if (associated(model%climate%backstressmap)) &
-       deallocate(model%climate%backstressmap)
 
     if (associated(model%geomderv%dthckdew)) &
        deallocate(model%geomderv%dthckdew)

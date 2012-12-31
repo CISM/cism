@@ -138,7 +138,7 @@ contains
     model%tempwk%zbed = 1.0d0 / thk0
     model%tempwk%dupn = model%numerics%sigma(model%general%upn) - model%numerics%sigma(model%general%upn-1)
 
-!whl - We need only two of these (cons(1) and cons(5)) for the staggered case with no advection.
+!WHL - We need only two of these (cons(1) and cons(5)) for the staggered case with no advection.
 !!    model%tempwk%cons = (/ 2.0d0 * tim0 * model%numerics%dttem * coni / (2.0d0 * rhoi * shci * thk0**2), &
 !!         model%numerics%dttem / 2.0d0, &
 !!         VERT_DIFF*2.0d0 * tim0 * model%numerics%dttem / (thk0 * rhoi * shci), &
@@ -149,10 +149,10 @@ contains
 
 !TODO - Rename these constants (tempwk%cons, tempwk%f, tempwk%c).
 
-!whl - The factor of 2 in the numerator in the original code can be traced to a missing factor of 0.5
+!WHL - The factor of 2 in the numerator in the original code can be traced to a missing factor of 0.5
 !      in the denominator of the dups coefficients.  On the vertically staggered grid, there is no
 !      factor of 0.5 in the dups coefficients, so there is no factor of 2 here.
-!whl - The factor of 2 in the denominator is a Crank-Nicolson averaging factor.
+!WHL - The factor of 2 in the denominator is a Crank-Nicolson averaging factor.
 !!    model%tempwk%cons(1) = 2.0d0 * tim0 * model%numerics%dttem * coni / (2.0d0 * rhoi * shci * thk0**2)
     model%tempwk%cons(1) = tim0 * model%numerics%dttem * coni / (2.0d0 * rhoi * shci * thk0**2)
 
@@ -207,6 +207,9 @@ contains
           ! Values have been read in - do nothing
       endif
 
+!TODO - If the call to calcflwa is moved out of glissade_temp_driver, then for consistency we might want to move it out of here
+!       and up to glissade_init.
+
       ! MJH: Calculate initial value of flwa
       ! If flwa is loaded (e.g. hotstart), use the flwa field in the input file instead
       ! Note: Implementing flwa initialization in this way, I don't think hotstart=1 does anything. 
@@ -259,7 +262,7 @@ contains
     integer :: ew, ns, up, upn
     character(len=100) :: message
 
-!WHLdebug
+!WHL - debug
 !!    integer :: i, j
 !!    integer, parameter :: itest = 10, jtest = 10    
 
@@ -345,8 +348,9 @@ contains
 
        ! Note: No iteration is needed here since we are doing a local tridiagonal solve without advection.
 
-!HALO - Loop over locally owned cells: (ilo:ihi, jlo:jhi)
-!       Don't forget to do halo updates later for temp and flwa.
+!LOOP - Loop over locally owned cells: (ilo:ihi, jlo:jhi)
+!LOOP TODO: Change to 1+lhalo, nsn-uhalo?
+!HALO - Don't forget to do halo updates later for temp and flwa.
 
        do ns = 2,model%general%nsn-1
        do ew = 2,model%general%ewn-1
@@ -721,7 +725,7 @@ contains
        ! compute heat source due to basal friction
        ! Note: slterm and bfricflx are defined to be >= 0
 
-!TODO - This loop should be over locally owned cells: (ilo:ihi,jlo:jhi)
+!LOOP TODO - This loop should be over locally owned cells: (ilo:ihi,jlo:jhi)
  
        do ns = 2, model%general%nsn-1
        do ew = 2, model%general%ewn-1
@@ -820,8 +824,7 @@ contains
 
     bmlt(:,:) = 0.0d0
 
-!TODO - This loop should be over locally owned cells? (ilo:ihi,jlo:jhi)
-!       Maybe no harm in computing everywhere.
+!LOOP TODO - This loop should be over locally owned cells? (ilo:ihi,jlo:jhi)
 
     do ns = 2, model%general%nsn-1
        do ew = 2, model%general%ewn-1
@@ -923,6 +926,7 @@ contains
 
     model%tempwk%dissip(:,:,:) = 0.0d0
 
+!LOOP TODO: Locally owned cells only
     do ns = 2, model%general%nsn-1
        do ew = 2, model%general%ewn-1
           if (thck(ew,ns) > model%numerics%thklim) then
@@ -957,6 +961,8 @@ contains
     if (size(model%tempwk%dissip,1) /= model%general%upn-1) then  ! staggered vertical grid
         !TODO - Write an error message and exit gracefully
     endif
+
+!LOOP TODO: Locally owned cells only
 
     do ns = 1, model%general%nsn
        do ew = 1, model%general%ewn
@@ -1117,7 +1123,7 @@ contains
     select case(flag)
     case(FLWA_PATERSON_BUDD)
 
-!TODO - Loop over locally owned cells?  Alternatively, just compute over all cells,
+!LOOP TODO - Loop over locally owned cells?  Alternatively, just compute over all cells,
 !        but make sure temp and thck are updated in halo cells.
 !       Might be cheaper to compute in all cells and avoid a halo call.
 

@@ -257,13 +257,7 @@ data:          data%climate%calving
 factor:        thk0
 coordinates:   lon lat
 
-#TODO - Remove this one?
-[backstress]
-dimensions:    time, y1,x1
-units:         meters/year
-long_name:     backstress_sigmab
-data:          data%climate%backstress
-coordinates:   lon lat
+#WHL - Removed backstress
 
 [ivol]
 dimensions:    time

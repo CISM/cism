@@ -20,149 +20,94 @@ module glide_ground
   use parallel
   implicit none
 contains
-  
 !-------------------------------------------------------------------------------  
-!TODO - Is this subroutine needed?  Not sure backstress is used in current dycores
+!WHL - Removed this subroutine, which was used only by old case(5)
 
-  subroutine glide_initialise_backstress(thck,backstressmap,backstress,sigmabin,sigmabout)
-  
-     implicit none
-     
-     real(dp), dimension(:,:), intent(in) :: thck !*FD Ice thickness
-     logical, dimension(:,:), intent(inout) :: backstressmap !*FD Backstress map
-     real(sp), dimension(:,:), intent(inout):: backstress !*FD Backstress
-     real(sp) :: sigmabin,sigmabout
-     backstress = 0.0  !TODO - Can we make this double precision?
-     backstressmap = .False. 
-     where(thck > 0.d0) 
-         backstressmap = .True. 
-     end where
-     where (thck > 0.d0)
-         backstress = sigmabin
-     elsewhere
-         backstress = sigmabout
-     end where
-  end subroutine glide_initialise_backstress
+!!!  subroutine glide_initialise_backstress(thck,backstressmap,backstress,sigmabin,sigmabout)
+!!!  end subroutine glide_initialise_backstress
 
 !-------------------------------------------------------------------------
 
-!TODO - Clean up this subroutine.  Cases have been added without being well documented,
-!        and we may not want to support all of them.
-!       May be easiest to make a cleaned-up glissade version with different loop bounds.
-!        Glissade version might just support cases 1 and 2 (and maybe 4)
+!WHL - Removed old case (5) as recommended by Jesse Johnson
+!      Then changed old case(7) to new case(5) to avoid having a gap in the case numbering.
+!TODO - Remove any other cases?
 !       At some point, we should add a proper calving law for parallel code.
 
-  subroutine glide_marinlim(which,      thck,     relx,    &    
-                            topg,       flwa,              &
-                            levels,     mask,     mlimit,  &
-                            calving_fraction,     eus,     &  
-                            ablation_field,                &
-                            backstress,           tempanmly,  &
-                            dew,        dns,        &
-                            backstressmap,          &
-                            stressout,  stressin,   &
-                            ground,                 &
+  subroutine glide_marinlim(which,                        &
+                            thck,       relx,             &    
+                            topg,       mask,             &
+                            mlimit,     calving_fraction, &    
+                            eus,        calving_field,    &
+                            ground,                       &
+                            dew,        dns,              &
                             nsn,        ewn)
-!usrf not used   tempanmly,dew,dns,backstressmap,stressout,stressin,ground,nsn,ewn,usrf)
 
-    !*FD Removes non-grounded ice, according to one of two alternative
-    !*FD criteria, and sets upper surface of non-ice-covered points 
-    !*FD equal to the topographic height, or sea-level, whichever is higher.
+    ! Remove non-grounded ice according to one of several alternative methods
 
     use glimmer_global, only : dp, sp
-    use glimmer_physcon, only : rhoi, rhoo, grav, gn
-    use glide_vertint, only : vertint_output2d
-!TODO - Remove scaling
-    use glimmer_paramets, only: thk0
-    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
+
     implicit none
 
     !---------------------------------------------------------------------
     ! Subroutine arguments
     !---------------------------------------------------------------------
 
-    integer,                intent(in)    :: which   !*FD Option to choose ice-removal method
-                                                     !*FD \begin{description}
-                                                     !*FD \item[0] Set thickness to zero if 
-                                                     !*FD relaxed bedrock is below a given level.
-                                                     !*FD \item[1] Set thickness to zero if
-                                                     !*FD ice is floating.
-                                                     !*FD \end{description}
-    real(dp),dimension(:,:),intent(inout) :: thck    !*FD Ice thickness (scaled)
-    real(dp),dimension(:,:),intent(in)    :: relx    !*FD Relaxed topography (scaled)
-    real(dp),dimension(:,:),intent(in)    :: topg    !*FD Present bedrock topography (scaled)
-    real(dp),dimension(:,:,:),intent(in)  :: flwa    !*FD Vertically averaged ice hardness
-    real(dp),dimension(:)    ,intent(in)  :: levels    !*FD Vertically averaged ice hardness
-    !JEFF removing pointer attribute integer, dimension(:,:),pointer       :: mask    !*FD grid type mask
-    integer, dimension(:,:)       :: mask    !*FD grid type mask
-    real(dp)                              :: mlimit  !*FD Lower limit on topography elevation for
-                                                     !*FD ice to be present (scaled). Used with 
-                                                     !*FD $\mathtt{which}=0$.
-    real(dp), intent(in) :: calving_fraction         !*FD fraction of ice lost when calving Used with 
+!TODO: real(dp) for calving_field, eus?
+!TODO: Change mask to thkmask?
+
+    integer,                intent(in)    :: which   !*FD Calving method option
+    real(dp),dimension(:,:),intent(inout) :: thck    !*FD Ice thickness
+    real(dp),dimension(:,:),intent(in)    :: relx    !*FD Relaxed topography
+    real(dp),dimension(:,:),intent(in)    :: topg    !*FD Present bedrock topography
+    integer, dimension(:,:), intent(in)   :: mask    !*FD grid type mask
+    real(dp), intent(in)                  :: mlimit  !*FD Lower limit on topography elevation for
+                                                     !*FD ice to be present. 
+    real(dp), intent(in) :: calving_fraction         !*FD fraction of ice lost when calving; used with 
                                                      !*FD $\mathtt{which}=3$.
-!TODO - real(dp) for eus? intent(in) instead of inout?
-    real, intent(inout) :: eus                       !*FD eustatic sea level
-    real(sp),dimension(:,:),intent(inout) :: ablation_field !*FD this is passed as climate%calving
-
-    real(dp), parameter :: con = - rhoi / rhoo
-    real(dp), parameter :: sigmaxx = 0.5d0 * rhoi * grav * (1.d0 - rhoi / rhoo)
-    real(dp), parameter :: theta = 0.125d0
-    real(dp), dimension(2,2) :: A
-    real(sp) :: pi =  3.141592654   !TODO - Make this double precision? (3.14159265358979)
-
-    real(sp), dimension(:,:), intent(inout) :: backstress
-    real(sp) :: tempanmly
-    real(dp), intent(in) ::  dew,dns
+    real, intent(in) :: eus                          !*FD eustatic sea level
+    real(sp),dimension(:,:),intent(out) :: calving_field ! thickness lost due to calving
+    real(dp), intent(in) :: dew,dns
     integer, intent(in) ::  nsn,ewn
-!   real(dp),dimension(:,:),intent(in)    :: usrf    !*FD usrf (NOT USED)
-    logical, dimension(:,:), intent(in)   :: backstressmap !*FD map of the
-                                                           !*FD backstresses for the initial map
-    integer ew,ns
-    real(sp) :: stressout,stressin
-    type(glide_grnd) :: ground        !*FD ground instance
+
+    type(glide_grnd), intent(inout) :: ground        !*FD ground instance
+
+    integer :: ew,ns
     !---------------------------------------------------------------------
    
-!TODO - For glissade code we can probably remove some of these cases.
-!       And we can probably remove all the parallel_halo calls.
-!
-!       Note that the ablation_field is a diagnostic for calving mass loss.
-!       We should give it a different name, like 'calving_field'.
+!HALO - Moved parallel_halo updates from this subroutine to glissade.F90
 
-    ablation_field(:,:) = 0.0   !TODO - Can we make this double precision?  See climate%calving.
+    calving_field(:,:) = 0.d0   ! using dp for constants in case calving_field changed to dp
 
     select case (which)
+
+!WHL - debug - temporary case(0) to exercise this subroutine in the dome problem
+    case(0) ! set thickness to zero at the ice margin, land or ocean
+
+      print*, ' '
+      print*, 'Calving case 0: Remove ice at margin'
+      where (GLIDE_IS_MARGIN(mask))
+        calving_field = thck
+        thck = 0.0d0
+      end where
         
     case(1) ! Set thickness to zero if ice is floating
 
 !LOOP TODO - Change to do loops over scalar cells?
 
       where (GLIDE_IS_FLOAT(mask))
-        ablation_field = thck
+        calving_field = thck
         thck = 0.0d0
       end where
-
-!HALO - Halo updates should be moved to a higher level.
-      call parallel_halo(ablation_field)
-      call horiz_bcs_unstag_scalar(ablation_field)
-      call parallel_halo(thck)
-      call horiz_bcs_unstag_scalar(thck)
-
 
     case(2) ! Set thickness to zero if relaxed bedrock is below a given level
 
 !LOOP TODO - Change to do loops over scalar cells?
 
       where (relx <= mlimit+eus)
-         ablation_field = thck
+         calving_field = thck
          thck = 0.0d0
       end where
 
-!HALO - Halo updates should be moved to a higher level.
-      call parallel_halo(ablation_field)
-      call horiz_bcs_unstag_scalar(ablation_field)
-      call parallel_halo(thck)
-      call horiz_bcs_unstag_scalar(thck)
-    
     case(3) ! remove fraction of ice when floating
 
 !LOOP TODO - Why is the outer row of cells skipped here?
@@ -170,18 +115,13 @@ contains
       do ns = 2,size(thck,2)-1
         do ew = 2,size(thck,1)-1
           if (GLIDE_IS_CALVING(mask(ew,ns))) then
-            ablation_field(ew,ns)=(1.0-calving_fraction)*thck(ew,ns)
+            calving_field(ew,ns) = (1.d0-calving_fraction)*thck(ew,ns)
             thck(ew,ns) =  calving_fraction*thck(ew,ns)
             !mask(ew,ns) = ior(mask(ew,ns), GLIDE_MASK_OCEAN)
           end if
         end do
       end do
 
-!HALO - Halo updates should be moved to a higher level.
-      call parallel_halo(ablation_field)
-      call horiz_bcs_unstag_scalar(ablation_field)
-      call parallel_halo(thck)
-      call horiz_bcs_unstag_scalar(thck)
       ! if uncomment above mask update, then call parallel_halo(mask)
 
 !TODO - Cases 2 and 4 are very similar; can we combine them?
@@ -189,110 +129,35 @@ contains
     case(4) ! Set thickness to zero at marine edge if present bedrock is below a given level
 
 !LOOP TODO - Change to do loops over scalar cells?
+
       where (GLIDE_IS_MARINE_ICE_EDGE(mask) .and. topg < mlimit+eus)
-        ablation_field=thck
+        calving_field = thck
         thck = 0.0d0
       end where
 
-!HALO - Halo updates should be moved to a higher level.
-      call parallel_halo(ablation_field)
-      call horiz_bcs_unstag_scalar(ablation_field)
-      call parallel_halo(thck)
-      call horiz_bcs_unstag_scalar(thck)
+!WHL - Removed old case (5) based on recommendation from Jesse Johnson
+!      Then changed old case(7) to new case(5) to avoid having a gap in the case numbering.
 
-!TODO - This may be the only place the backstress is used.
-!       Not sure we want to support this case.  Is there a reference for this scheme?
+!TODO - not sure we want to support this case
 
-    case(5) ! Relation based on computing the horizontal stretching
-            ! of the unconfined ice shelf (\dot \epsilon_{xx}) and multiplying by H.
-            ! 
-      do ns = 2, size(backstress,2)-1
-        do ew = 2, size(backstress,1)-1
-          if(.not. backstressmap(ew,ns)) then
-            !should be > -1.0 if using log10
-            if (tempanmly > 0.0) then
-              backstress(ew,ns) = stressout
-            else
-              !backstress(ew,ns) = stressout + (1-stressout)*log10(-tempanmly)
-              !( 1-exp(tempanmly))
-              backstress(ew,ns) = stressout + (1-stressout)*abs(tempanmly/9.2)
-              ! backstress(ew,ns) =sigmabout + (1-sigmabout)*atan(-tempanmly)/(pi/2)
-            end if
-          else
-            !should be > -1.0 if using log10
-            if (tempanmly > 0.0) then
-              backstress(ew,ns) = stressin
-            else
-              backstress(ew,ns) = stressin + (1-stressin)*abs(tempanmly/9.2)
-              !backstress(ew,ns) =stressin + (1-stressin)*log10(-tempanmly)
-              !backstress(ew,ns) =sigmabin + (1-sigmabin)*atan(-tempanmly)/(pi/2)
-            end if
-          end if
-        end do
-      end do 
-        
-      !do ns = 2, size(backstress,2)-1
-      !   do ew = 2, size(backstress,1)-1
-      !where (backstressmap) 
-      !    if (tempanmly > 0.0) then
-      !      backstress(ew,ns) = sigmabin
-      !    else
-          !backstress = sigmabin + (1-sigmabin)*abs(tempanmly/9.2)
-      !      backstress(ew,ns) =sigmabin + (1-sigmabin)*( 1-exp(tempanmly))
-      !    end if 
-      !   end do
-      ! end do
-      !end where 
-        
-      where(backstress > 1.0)
-        backstress = 1.0
-      end where
-           
-      do ns = 2,size(thck,2)-1
-        do ew = 2,size(thck,1)-1
-          if (GLIDE_IS_GROUNDING_LINE(mask(ew,ns))) then
-            call vertint_output2d(flwa(:,ew-1:ew,ns-1:ns),A, levels * thck(ew,ns))
-            ablation_field(ew,ns)= ((dew*dns)/(50.0d3)**2)* theta * A(2,2) * (sigmaxx * &
-            thck(ew,ns)  * (1 - backstress(ew,ns))) ** gn
-            if ((thck(ew,ns) - ablation_field(ew,ns)) >= 0.0) then
-              thck(ew,ns) = thck(ew,ns) - ablation_field(ew,ns) 
-            else 
-              ablation_field(ew,ns) = thck(ew,ns)
-              thck(ew,ns) = 0.0d0
-            end if
-          end if
-        end do
-      end do
-          
-      !where (GLIDE_IS_FLOAT(mask).and.relx<mlimit+eus)
-      !    ablation_field=thck
-      !    thck = 0.0d0
-      ! end where
-          
-      !remove all ice that is outside of a single grid layer of floating ice
-      !adjacent to the grounding line
-      do ns = 2,size(thck,2)-1
-        do ew = 2,size(thck,1)-1
-          if (GLIDE_IS_FLOAT(mask(ew,ns)) .and. .not. backstressmap(ew,ns))then 
-          
-            if ((.not. GLIDE_IS_GROUNDING_LINE(mask(ew-1,ns))) &
-                 .and. (.not. GLIDE_IS_GROUNDING_LINE(mask(ew+1,ns))) .and. &
-                 (.not. GLIDE_IS_GROUNDING_LINE(mask(ew,ns-1))) .and. &
-                 (.not. GLIDE_IS_GROUNDING_LINE(mask(ew,ns+1)))) then
-              ablation_field(ew,ns) = thck(ew,ns)
-              thck(ew,ns) = 0.d0
-            end if
-          end if
-        end do
-      end do
-      call parallel_halo(backstress)
-      call horiz_bcs_unstag_scalar(backstress)
-      call parallel_halo(ablation_field)
-      call horiz_bcs_unstag_scalar(ablation_field)
-      call parallel_halo(thck)
-      call horiz_bcs_unstag_scalar(thck)
+    !Huybrechts grounding line scheme for Greenland initialization
 
-!TODO - not sure we want to support this case, in which case we can remove halo calls
+    case(5)   ! used to be case(7)
+
+      if(eus > -80.d0) then
+        where (relx <= 2.d0*eus)
+          calving_field = thck
+          thck = 0.0d0
+        end where
+      elseif (eus <= -80.d0) then
+        where (relx <= (2.d0*eus - 0.25d0*(eus + 80.d0)**2.d0))
+          calving_field = thck
+          thck = 0.0d0
+        end where
+      end if
+
+
+!TODO - not sure we want to support this case
     case(6)
 
       ! not serial as far as I can tell as well; for parallelization, issues
@@ -303,38 +168,12 @@ contains
       call update_ground_line(ground, topg, thck, eus, dew, dns, ewn, nsn, mask)
 
       where (GLIDE_IS_FLOAT(mask))
-        ablation_field=thck
+        calving_field = thck
         thck = 0.0d0
       end where
-
-      call parallel_halo(ablation_field)
-      call horiz_bcs_unstag_scalar(ablation_field)
-      call parallel_halo(thck)
-      call horiz_bcs_unstag_scalar(thck)
     
-!TODO - not sure we want to support this case, in which case we can remove halo calls
-
-    !Huybrechts grounding line scheme for Greenland initialization
-
-    case(7)
-      if(eus > -80.0) then
-        where(relx <= 2.0*eus)
-          ablation_field=thck
-          thck = 0.0d0
-        end where
-      elseif(eus <= -80.0) then
-        where ( relx <= (2.0*eus - 0.25*(eus + 80.0)**2.0))
-          ablation_field = thck
-          thck = 0.0d0
-        end where
-      end if
-
-      call parallel_halo(ablation_field)
-      call horiz_bcs_unstag_scalar(ablation_field)
-      call parallel_halo(thck)
-      call horiz_bcs_unstag_scalar(thck)
-
     end select
+
   end subroutine glide_marinlim
 
 !HALO - This routine may not be supported.  I doubt it's accurate for HO flow.

@@ -245,13 +245,7 @@ contains
 !TODO - this call needed for SIA only
 !!    call init_thck(model)
 
-!TODO - Not sure backstress is ever used
-!       Comment out for now; can uncomment if ever needed.
-!!    call glide_initialise_backstress(model%geometry%thck,&
-!!                                     model%climate%backstressmap,&
-!!                                     model%climate%backstress, &
-!!                                     model%climate%stressin, &
-!!                                     model%climate%stressout)
+!WHL - Removed call to glide_initialise_backstress; used only by old glide_marinlim case(5)
 
     if (model%options%gthf > 0) then
        call not_parallel(__FILE__,__LINE__)
@@ -392,8 +386,6 @@ contains
     implicit none
 
     type(glide_global_type), intent(inout) :: model   ! model instance
-!WHLTSTEP - Changed time to dp
-!    real(rk),  intent(in)   :: time         !*FD Current time in years
     real(dp),  intent(in)   :: time         !*FD Current time in years
 
     ! --- Local Variables ---
@@ -493,7 +485,9 @@ contains
 
     if ( model%numerics%tinc >  mod(model%numerics%time,model%numerics%ntem)) then
 
-!TODO - Remove model derived type from argument list
+!TODO - Remove model derived type from argument list?
+!HALO - Will modify glissade_temp_driver to compute over locally owned cells only.
+
       call t_startf('glissade_temp_driver')
        call glissade_temp_driver(model, model%options%whichtemp)
       call t_stopf('glissade_temp_driver')
@@ -527,8 +521,7 @@ contains
     ! Halo updates
     ! ------------------------------------------------------------------------ 
 
-      call parallel_halo(model%temper%bwat)    ! not sure if this is needed
-
+    call parallel_halo(model%temper%bwat)    !HALO: not sure if this is needed
 
     ! ------------------------------------------------------------------------ 
     ! Calculate flow evolution by various different methods
@@ -537,7 +530,7 @@ contains
 
     select case(model%options%whichevol)
 
-    case(EVOL_INC_REMAP, EVOL_NO_THICKNESS) 
+       case(EVOL_INC_REMAP, EVOL_NO_THICKNESS) 
 
        ! Use incremental remapping scheme for advecting ice thickness ---
        ! (and temperature too, if whichtemp = TEMP_REMAP_ADV)
@@ -547,6 +540,7 @@ contains
        ! TODO  MJH If we really want to support no evolution, then we may want to implement it so that IR does not occur 
        !at all - right now a run can fail because of a CFL violation in IR even if evolution is turned off.  Do we want
        ! to support temperature evolution without thickness evolution?  If so, then the current implementation may be preferred approach.
+
        if (model%options%whichevol == EVOL_NO_THICKNESS) then
           ! store old thickness
           thck_old = model%geometry%thck
@@ -600,10 +594,10 @@ contains
 !### 
 !### !!!!!!         call t_stopf('ho_velo_diagnostic')
 
-          if (main_task) then
-             print *, ' '
-             print *, 'Compute dH/dt'
-          endif
+       if (main_task) then
+          print *, ' '
+          print *, 'Compute dH/dt'
+       endif
 
 !WHL - Only the new remapping scheme supported here
 
@@ -612,103 +606,111 @@ contains
 !### !HALO - Need halo updates here for thck, temp (and any other advected tracers), uvel and vvel.
 !### !       If nhalo >= 2, then no halo updates should be needed inside glissade_transport_driver.
 
-!PW FOLLOWING NECESSARY?
-!HALO - These halo updates could be moved up a level to the new glissade driver.
+
+!WHL - Testing a new subroutine that updates all the key scalars (thck, temp, etc.) at once
+!TODO - Do we need updates of lsrf, usrf, or topg?
+
+       call parallel_halo_scalars(model%geometry%thck,   &
+                                  model%temper%temp)
 
 
-           ! TODO MJH: these halo updates may not be needed here.
-           ! Halo updates for velocities, thickness and tracers
-            call t_startf('new_remap_halo_upds')
+!HALO - Here we need halo updates for thck and temp.  
 
-             call staggered_parallel_halo(model%velocity%uvel)
-             call horiz_bcs_stag_vector_ew(model%velocity%uvel)
+!       Velocity update may be needed if velo was not updated in halo at the end of the previous diagnostic solve
+!        (just to be on the safe side).
 
-             call staggered_parallel_halo(model%velocity%vvel)
-             call horiz_bcs_stag_vector_ns(model%velocity%vvel)
+        ! Halo updates for velocities, thickness and tracers
+      call t_startf('new_remap_halo_upds')
 
-             call parallel_halo(model%geometry%thck)
-             call horiz_bcs_unstag_scalar(model%geometry%thck)
+       call staggered_parallel_halo(model%velocity%uvel)
+       call horiz_bcs_stag_vector_ew(model%velocity%uvel)
 
-             if (model%options%whichtemp == TEMP_REMAP_ADV) then
-                !If advecting other tracers, add parallel_halo update here
-                call parallel_halo(model%temper%temp)
-                call horiz_bcs_unstag_scalar(model%temper%temp)
-             endif
+       call staggered_parallel_halo(model%velocity%vvel)
+       call horiz_bcs_stag_vector_ns(model%velocity%vvel)
 
-            call t_stopf('new_remap_halo_upds')
+       call parallel_halo(model%geometry%thck)
+       call horiz_bcs_unstag_scalar(model%geometry%thck)
 
-            call t_startf('glissade_transport_driver')
+       if (model%options%whichtemp == TEMP_REMAP_ADV) then
+          call parallel_halo(model%temper%temp)
+          call horiz_bcs_unstag_scalar(model%temper%temp)
+       endif
 
-             !TODO It would be less confusing to just store the subcycling dt in a local/module variable - really only needs to be calculated once on init
-             model%numerics%dt = model%numerics%dt / model%numerics%subcyc
+      call t_stopf('new_remap_halo_upds')
 
-             do sc = 1 , model%numerics%subcyc
-                if (model%numerics%subcyc > 1) write(*,*) 'Subcycling transport: Cycle ',sc
+      call t_startf('glissade_transport_driver')
 
-                if (model%options%whichtemp == TEMP_REMAP_ADV) then  ! Use IR to transport thickness, temperature
-                                                                     ! (and other tracers, if present)
+       !TODO It would be less confusing to just store the subcycling dt in a local/module variable - 
+       ! really only needs to be calculated once on init
 
-                   call glissade_transport_driver(model%numerics%dt * tim0,                             &
-                                                  model%numerics%dew * len0, model%numerics%dns * len0, &
-                                                  model%general%ewn,         model%general%nsn,         &
-                                                  model%general%upn-1,       model%numerics%sigma,      &
-                                                  nghost_transport,          ntracer_transport,         &
-                                                  model%velocity%uvel(:,:,:) * vel0,                    &
-                                                  model%velocity%vvel(:,:,:) * vel0,                    &
-                                                  model%geometry%thck(:,:),                             &
-                                                  model%temper%temp(1:model%general%upn-1,:,:) )
+       model%numerics%dt = model%numerics%dt / model%numerics%subcyc
+
+       do sc = 1 , model%numerics%subcyc
+          if (model%numerics%subcyc > 1) write(*,*) 'Subcycling transport: Cycle ',sc
+
+          if (model%options%whichtemp == TEMP_REMAP_ADV) then  ! Use IR to transport thickness, temperature
+                                                                ! (and other tracers, if present)
+
+             call glissade_transport_driver(model%numerics%dt * tim0,                             &
+                                            model%numerics%dew * len0, model%numerics%dns * len0, &
+                                            model%general%ewn,         model%general%nsn,         &
+                                            model%general%upn-1,       model%numerics%sigma,      &
+!TODO - Replace nghost_transport with nhalo
+                                            nghost_transport,          ntracer_transport,         &
+                                            model%velocity%uvel(:,:,:) * vel0,                    &
+                                            model%velocity%vvel(:,:,:) * vel0,                    &
+                                            model%geometry%thck(:,:),                             &
+                                            model%temper%temp(1:model%general%upn-1,:,:) )
 
 !TODO - Will we continue to support this option?  May not be needed.
 
-                else  ! Use IR to transport thickness only
-                      ! Note: In glissade_transport_driver, the ice thickness is transported layer by layer,
-                      !       which is inefficient if no tracers are being transported.  (It would be more
-                      !       efficient to transport thickness in one layer only, using a vertically
-                      !       averaged velocity.)  But this option probably will not be used in practice;
-                      !       it is left in the code just to ensure backward compatibility with an
-                      !       older remapping scheme for transporting thickness only.
+          else  ! Use IR to transport thickness only
+                ! Note: In glissade_transport_driver, the ice thickness is transported layer by layer,
+                !       which is inefficient if no tracers are being transported.  (It would be more
+                !       efficient to transport thickness in one layer only, using a vertically
+                !       averaged velocity.)  But this option probably will not be used in practice;
+                !       it is left in the code just to ensure backward compatibility with an
+                !       older remapping scheme for transporting thickness only.
 
-                   call glissade_transport_driver(model%numerics%dt * tim0,                             &
-                                                  model%numerics%dew * len0, model%numerics%dns * len0, &
-                                                  model%general%ewn,         model%general%nsn,         &
-                                                  model%general%upn-1,       model%numerics%sigma,      &
-                                                  nghost_transport,          1,                         &
-                                                  model%velocity%uvel(:,:,:) * vel0,                &
-                                                  model%velocity%vvel(:,:,:) * vel0,                &
-                                                  model%geometry%thck(:,:))
+             call glissade_transport_driver(model%numerics%dt * tim0,                             &
+                                            model%numerics%dew * len0, model%numerics%dns * len0, &
+                                            model%general%ewn,         model%general%nsn,         &
+                                            model%general%upn-1,       model%numerics%sigma,      &
+                                            nghost_transport,          1,                         &
+                                            model%velocity%uvel(:,:,:) * vel0,                &
+                                            model%velocity%vvel(:,:,:) * vel0,                &
+                                            model%geometry%thck(:,:))
 
-                endif  ! whichtemp
-                !Update halos of modified fields
-                call t_startf('after_remap_haloupds')
+          endif  ! whichtemp
 
-                !HALO - Move these updates to the new glissade driver.
+!HALO: Move these updates to after 'end select'
 
+          ! Update halos of modified fields
 
-                call parallel_halo(model%geometry%thck)
-                call horiz_bcs_unstag_scalar(model%geometry%thck)
-                call parallel_halo(model%temper%temp)
-                call horiz_bcs_unstag_scalar(model%temper%temp)
-                call t_stopf('after_remap_haloupds')
+         call t_startf('after_remap_haloupds')
 
-             enddo     ! subcycling
+          call parallel_halo(model%geometry%thck)
+          call horiz_bcs_unstag_scalar(model%geometry%thck)
 
-             model%numerics%dt = model%numerics%dt * model%numerics%subcyc
+          call parallel_halo(model%temper%temp)
+          call horiz_bcs_unstag_scalar(model%temper%temp)
 
-            call t_stopf('glissade_transport_driver')
+         call t_stopf('after_remap_haloupds')
 
-!###           !endif   ! tend > tstart  !TODO MJH: delete this line - this is no longer needed now that the initial diagnostic solve of velocity actually occurs during init and not in the time-stepper
-!### 
-!###        endif      ! call inc_remap_driver
+       enddo     ! subcycling
+
+!TODO: Don't divide and multiple this variable
+       model%numerics%dt = model%numerics%dt * model%numerics%subcyc
+
+      call t_stopf('glissade_transport_driver')
 
       call t_stopf('inc_remap_driver')
-
 
 !TODO - Would this be the appropriate place to add/remove ice at the upper and lower surfaces?
 !       Should probably do this before vertical remapping.
 !       (Vertical remapping currently lives in glissade_transport_driver)
 !       Note that vertical remapping is needed to return to standard sigma levels,
 !        as assumed by both the temperature and velocity solvers.
-
 
 
 !HALO - Pretty sure these can be removed
@@ -723,33 +725,28 @@ contains
           model%geomderv%stagthck = stagthck_old
        endif
 
-end select
+    end select
 
-!TODO What halo updates needed here?
-!HALO - I suggest putting the various geometry halo updates here, after thickness and temperature evolution.
-!       This would include thck at a minimum.
+!HALO - What halo updates needed here?
+!       I suggest putting the various geometry halo updates here, after thickness and temperature evolution.
+!       This would include thck and tracer at a minimum.
 !       Also include topg if basal topography is evolving.
-
+!      Call to calc_flwa should go here too.  Should be based on post-remap temperature.
+!       (Could go later if not needed for glide_marinlim)
 
     ! call parallel_halo(model%geometry%thck) in inc_remap_driver
+
     call parallel_halo(model%geometry%topg)
     call horiz_bcs_unstag_scalar(model%geometry%topg)
-
-!### !TODO Delete this stuff.  Moved to beginning of subroutine when the time itself is incremented.
-!###!TODO - Is this the right place to increment the timecounter?  
-!###!CESM Glimmer code has this after the netCDF write.
-!###
-!###    ! increment time counter
-!###    model%numerics%timecounter = model%numerics%timecounter + 1
-
-!HALO - Does the last part of the time step require any halo info?
-
 
     ! ------------------------------------------------------------------------
     ! Calculate diagnostic variables, including velocity
     ! ------------------------------------------------------------------------
 
     call glissade_diagnostic_variable_solve(model)
+
+!HALO - Any halo updates needed here?  
+!       Maybe not, if all done with non-local calculations.
 
   end subroutine glissade_tstep  !MJH
 
@@ -758,7 +755,9 @@ end select
 
   subroutine glissade_diagnostic_variable_solve(model) 
 
-     ! Solve diagnostic (not time-dependent) variables.  This is needed at the end of each time step once the prognostic variables (thicknes, tracers) have been updated.  It is also needed to fill out the initial state from the fields that have been read in.
+     ! Solve diagnostic (not time-dependent) variables.  This is needed at the end of each time step once the 
+     !  prognostic variables (thickness, tracers) have been updated.  
+     ! It is also needed to fill out the initial state from the fields that have been read in.
 
     use parallel
     use glide_thck  !TODO - Remove this (after moving geometry_derivs)
@@ -786,6 +785,9 @@ end select
 !###     ! Temporary parameter to call run_ho_diagnostic in glide_velo_higher.F90 (or not)
 !###     logical, parameter :: call_run_ho_diagnostic = .false.
 
+!WHL - debug
+    integer :: i, j
+
 
     ! ------------------------------------------------------------------------ 
     ! ------------------------------------------------------------------------ 
@@ -797,30 +799,25 @@ end select
 
     ! --- Calculate updated mask because marinlim calculation needs a mask.
 
-
     !Halo updates required for inputs to glide_set_mask?
-    ! call parallel_halo(model%geometry%thck) in inc_remap_driver
+    ! call parallel_halo(model%geometry%thck) in inc_remap_driver  !HALO: Move to glissade?
+
+!HALO - This should be done above in glissade_tstep
     call parallel_halo(model%geometry%topg)
     call horiz_bcs_unstag_scalar(model%geometry%topg)
 
-!TODO - May want to write a new subroutine, glissade_set_mask, that loops over locally owned cells
-!        and is followed by a halo update (for thkmask) in the driver.
-!       For the serial SIA code, we probably shouldn't change the loops.
- 
 !Note: The call to glide_set_mask is needed before glide_marinlim.
 
        call glide_set_mask(model%numerics,                                &
                            model%geometry%thck,  model%geometry%topg,     &
                            model%general%ewn,    model%general%nsn,       &
                            model%climate%eus,    model%geometry%thkmask)
+
+    ! TODO: glide_set_mask includes a halo update of model%geometry%thkmask; move it here
        call horiz_bcs_unstag_scalar(model%geometry%thkmask)
-!### Removing the calculation of iarea and ivol here.  This first call to set_mask gets repeated after the marinlim call once the thickness has been adjusted for calved ice.
-!###                           model%geometry%iarea, model%geometry%ivol)
 
-    !Includes a halo update of model%geometry%thkmask at end of call
-!HALO - Halo update of thkmask should go here (needs to be removed from the set_mask subroutine)
-!TODO it appears that marinlim only needs the halo of thkmask for case 5.  If that case is removed, a thkmask halo update does not need to occur here.
-
+!TODO It appears that marinlim only needs the halo of thkmask for case 5.  
+!     If that case is removed, a thkmask halo update does not need to occur here.
 
     ! ------------------------------------------------------------------------ 
     ! Remove ice which is either floating, or is present below prescribed
@@ -829,48 +826,80 @@ end select
 
 !HALO - Look at marinlim more carefully and see which fields need halo updates before it is called.
 
-
     call parallel_halo(model%isos%relx)
     call horiz_bcs_unstag_scalar(model%isos%relx)
 
-!HALO - not sure if needed for glide_marinlim.
-    call parallel_halo(model%temper%flwa)
-    call horiz_bcs_unstag_scalar(model%temper%flwa)
-
-!HALO - Not sure backstress is ever used
-    call parallel_halo(model%climate%backstress)
-    call horiz_bcs_unstag_scalar(model%climate%backstress)
     ! call parallel_halo(model%geometry%usrf) not actually used
 
-!TODO - glissade_marinlim?
+!WHL - debug - print thickness field before calving
+!    if (main_task) then
+!       print*, ' '
+!       print*, 'size(thck) =', size(model%geometry%thck,1), size(model%geometry%thck,2)
+!       print*, 'Thickness before calving:'
+!       do j = model%general%nsn, 1, -1
+!          write(6,100) model%geometry%thck(:,j)
+!       enddo 
+!    endif
+
+!100 format(34f6.2)
+100 format(19f6.2)
+
+!WHL - Removed old case(5), allowing for removal of some arguments
+
+!WHL - debug - temporary case(0) to test glide_marinlim for dome problem
+!!    call glide_marinlim(0, &
     call glide_marinlim(model%options%whichmarn, &
-         model%geometry%thck,      &
+         model%geometry%thck,  &
          model%isos%relx,      &
-         model%geometry%topg,   &
-         model%temper%flwa,   &
-         model%numerics%sigma,   &
+         model%geometry%topg,  &
          model%geometry%thkmask,    &
          model%numerics%mlimit,     &
          model%numerics%calving_fraction, &
          model%climate%eus,         &
          model%climate%calving,  &
-!TODO - The remaining arguments may not be needed
-         model%climate%backstress, &
-         model%climate%tempanmly, &
+         model%ground, &
          model%numerics%dew,    &
          model%numerics%dns, &
-         model%climate%backstressmap, &
-         model%climate%stressout, &
-         model%climate%stressin, &
-         model%ground, &
          model%general%nsn, &
          model%general%ewn)
          ! model%geometry%usrf) not used in routine
 
-    !Includes halo updates of model%geometry%thck and model%climate%calving
-    ! and of model%climate%backstress), when needed
-!HALO - Those updates should go here instead.
-!       Note: thck will have changed, and updated halo values are needed below in calc_lsrf.
+!WHL - debug - print thickness field after calving
+!  if (main_task) then
+!    print*, ' '
+!    print*, 'Thickness after calving:'
+!    do j = model%general%nsn, 1, -1
+!       write(6,100) model%geometry%thck(:,j)
+!    enddo 
+!  endif
+
+!WHL - debug - print calving field
+!  if (main_task) then
+!    print*, ' '
+!    print*, 'Calving:'
+!    do j = model%general%nsn, 1, -1
+!       write(6,100) model%climate%calving(:,j)
+!    enddo 
+!  endif
+
+!HALO TODO: Test the effect of these updates with a nonzero calving field
+         ! halo updates
+
+!HALO - The calving field does not need a halo update.
+!!         call parallel_halo(model%climate%calving)
+!!         call horiz_bcs_unstag_scalar(model%climate%calving)
+
+         call parallel_halo(model%geometry%thck)    ! Updated halo values of thck are needed below in calc_lsrf
+         call horiz_bcs_unstag_scalar(model%geometry%thck)   
+
+!WHL - debug - print thickness field after halo update
+  if (main_task) then
+    print*, ' '
+    print*, 'Thickness after halo update:'
+    do j = model%general%nsn, 1, -1
+       write(6,100) model%geometry%thck(:,j)
+    enddo 
+  endif
 
     !Note that halo updates for model%geometry%thkmask not needed in current implementation of case 3
     ! model%climate%eus needed only for disabled case 6
@@ -881,43 +910,41 @@ end select
     ! --- This time we want to calculate the optional arguments iarea and ivol because thickness 
     ! --- will not change further during this time step.
 
-!HALO - Halo updates are not needed here if glide_set_mask loops over locally owned cells.
-
-!TODO - glissade_set_mask?
     call glide_set_mask(model%numerics,                                &
                         model%geometry%thck,  model%geometry%topg,     &
                         model%general%ewn,    model%general%nsn,       &
                         model%climate%eus,    model%geometry%thkmask,  &
                         model%geometry%iarea, model%geometry%ivol)
-    call horiz_bcs_unstag_scalar(model%geometry%thkmask)
 
 !HALO - glide_set_mask includes a halo update of model%geometry%thkmask at end of call
 !       That update should be moved here if needed later (but may not be needed).
 
     ! call parallel_halo(model%geometry%thkmask) in previous glide_set_mask call
+    ! call horiz_bcs_unstag_scalar(model%geometry%thkmask)
 
     ! --- Calculate area of ice that is floating and grounded.
 !TODO This subroutine does not use iarea - remove from the call/subroutine.
 !TODO May want to only calculate iarea, iareaf, iareag in glide_write_diag() and remove those calculations here.  
 !     It seems hazardous to make those calculations in two different places.
+
     call calc_iareaf_iareag(model%numerics%dew,    model%numerics%dns,     &
                             model%geometry%iarea,  model%geometry%thkmask, &
                             model%geometry%iareaf, model%geometry%iareag)
 
 !HALO - Need a global sum here (currently done inside calc_iareaf_iareag)
 
-
-
-
 !TODO These isostasy calls may be in the wrong place.  
 ! Consider for a forward Euler time step:
 ! With a relaxing mantle model, topg is a prognostic (time-evolving) variable (I think):
 ! topg1 = f(topg0, thk0, ...) 
-! However, for a fluid mantle where the adjustment is instantaneous, topg is a diagnostic variable (comparable to calculating floatation height of ice in the ocean):
+! However, for a fluid mantle where the adjustment is instantaneous, topg is a diagnostic variable 
+!(comparable to calculating floatation height of ice in the ocean):
 ! topg1 = f(thk1)
 ! In either case, the topg update should be separate from the thickness evolution (because thk1 = f(thk0, vel0=g(topg0,...)).
-! However, if the isostasy calculation needs topg0, the icewaterload call should be made BEFORE thck is updated.  If the isostasy calculation needs topg1, the icewaterload call should be made AFTER thck is updated.  
+! However, if the isostasy calculation needs topg0, the icewaterload call should be made BEFORE thck is updated.  
+! If the isostasy calculation needs topg1, the icewaterload call should be made AFTER thck is updated.  
 ! Also, we need think carefully about when marinlim, usrf, lsrf, derivatives should be calculated relative to the topg update via isostasy.
+
     ! ------------------------------------------------------------------------
     ! update ice/water load if necessary
     ! ------------------------------------------------------------------------
@@ -960,10 +987,11 @@ end select
     ! call parallel_halo(model%geometry%thck) within glide_marinlim
     ! call parallel_halo(model%geometry%topg) before previous call to glide_set_mask
 
-!HALO - Verify that both thck and topg are up to date before this call.
+!HALO - Verify that thck, topg, and eus are up to date before this call.
 !       Note that glide_calclsrf loops over all cells (not just locally owned)
 
 !TODO - Inline calclsrf
+
     call glide_calclsrf(model%geometry%thck, model%geometry%topg, model%climate%eus, model%geometry%lsrf)
     !If input halos are up to date, halo update for model%geometry%lsrf should not be necessary
 
@@ -971,9 +999,10 @@ end select
     !If input halos are up to date, halo update for model%geometry%usrf should not be necessary
 
 
+! MJH: Next 53 lines copied from start of glissade_tstep.  
+!      Notes below indicate it is unclear which of these derivatives are actually needed.  
+!      But geometry derivatives are diagnostic fields and should be calculated here.
 
-
-! MJH: Next 53 lines copied from start of glissade_tstep.  Notes below indicate it is unclear which of these derivatives are actually needed.  But geometry derivatives are diagnostic fields and should be in calculated here.
     ! ------------------------------------------------------------------------ 
     ! Now that geometry is finalized for the time step, calculate derivatives 
     ! that may be needed for the velocity solve.
@@ -990,13 +1019,17 @@ end select
 !        Note that there is another call to geometry_derivs in glam.F90.
 !       None of the derivatives below are needed by glissade_temp_driver.
 !       (Some are passed to subroutines but are never used; need to modify those subroutines.)
+
     call geometry_derivs(model)
     
     !EIB! from gc2 - think this was all replaced by geometry_derivs??
 !TODO - The subroutine geometry_derivs calls subroutine stagthickness to compute stagthck.
 !       Similarly for dthckdew/ns and dusrfdew/ns
 !       No need to call the next three subroutines as well as geometry_derivs
-!       This calculation of stagthck differs from that in geometry_derivs which calls stagthickness() in the glide_grids.F90  Which do we want to use?  stagthickness() seems to be noisier but there are notes in there about some issue related to margins.
+!       This calculation of stagthck differs from that in geometry_derivs which calls stagthickness() 
+!        in the glide_grids.F90  Which do we want to use?  
+!        stagthickness() seems to be noisier but there are notes in there about some issue related to margins.
+
     call stagvarb(model%geometry%thck, model%geomderv%stagthck,&
                   model%general%ewn,   model%general%nsn)
 
@@ -1012,18 +1045,20 @@ end select
 
 
 !WHL - Changed these updates from parallel_halo to staggered_parallel_halo
-!HALO - I think that these are not needed, provided that glide_stress loops over locally owned cells only.
+!HALO - Not sure these are needed.
        !Halo updates required for inputs to glide_stress?
        call staggered_parallel_halo (model%geomderv%dusrfdew)
        call horiz_bcs_stag_vector_ew(model%geomderv%dusrfdew)
+
        call staggered_parallel_halo (model%geomderv%dusrfdns)
        call horiz_bcs_stag_vector_ns(model%geomderv%dusrfdns)
+
        call staggered_parallel_halo (model%geomderv%dthckdew)
        call horiz_bcs_stag_vector_ew(model%geomderv%dthckdew)
+
        call staggered_parallel_halo (model%geomderv%dthckdns)
        call horiz_bcs_stag_vector_ns(model%geomderv%dthckdns)
 
-    
 !TODO - Pretty sure that glide_maskthck is SIA only
 !       totpts and empty are used only in glide_thck.
 !       model%geometry%mask (not to be confused with model%geometry%thkmask) is used only in glide_thck
@@ -1045,9 +1080,9 @@ end select
 !HALO - It should be possible to compute stagthck without a halo update,
 !       provided that thck has been updated.
 
-
     call staggered_parallel_halo(model%geomderv%stagthck)
     call horiz_bcs_stag_scalar(model%geomderv%stagthck)
+
     ! call parallel_halo(model%geometry%thkmask) in earlier glide_set_mask call
 
 
@@ -1061,8 +1096,10 @@ end select
 !###     ! call staggered_parallel_halo(model%geomderv%dusrfdns) prior to glide_calcstrsstr
 
         ! Compute the new geometry derivatives for this time step
-! TODO Merge the geom derivs with above.  Are they needed for the velocity solve?  I assume so, but need to make sure they happen in the right order and have halo updates if needed.
-!HALO - Would be better to have one derivative call per field.
+! TODO Merge the geom derivs with above.  Are they needed for the velocity solve?  
+!      I assume so, but need to make sure they happen in the right order and have halo updates if needed.
+
+!HALO - Would be better to have just one derivative call per field.
 !       Also could consider computing derivatives in glam_strs2.F90, so as
 !        not to have to pass them through the interface.
 !       Do halo updates as needed (e.g., thck) before computing derivatives.
@@ -1070,14 +1107,14 @@ end select
 !        then we need one layer of halo scalars before calling the derivative routine.
 
           call geometry_derivs(model)
+
 !HALO - Pretty sure this is not needed
           call geometry_derivs_unstag(model)
 
     ! ------------------------------------------------------------------------ 
     ! ------------------------------------------------------------------------ 
     ! 2. Second part of diagnostic solve: 
-    ! Now that geometry-related diagnostic fields are updated,
-    ! solve velocity.
+    !    Now that geometry-related diagnostic fields are updated, solve velocity.
     ! ------------------------------------------------------------------------ 
     ! ------------------------------------------------------------------------ 
 
@@ -1097,7 +1134,8 @@ end select
 !###           else
 
 !TODO - Replace model derived type with explicit arguments?
-             call glissade_velo_driver(model)
+
+                  call glissade_velo_driver(model)
 
 !###           endif
 
@@ -1106,14 +1144,13 @@ end select
 
 !TODO - Not sure we need to update ubas, vbas, or surfvel,
 !       because these are already part of the 3D uvel and vvel arrays
+
     call staggered_parallel_halo(model%velocity%surfvel)
     call horiz_bcs_stag_scalar(model%velocity%surfvel)
     call staggered_parallel_halo(model%velocity%ubas)
     call horiz_bcs_stag_vector_ew(model%velocity%ubas)
     call staggered_parallel_halo(model%velocity%vbas)
     call horiz_bcs_stag_vector_ns(model%velocity%vbas)
-
-
 
     ! ------------------------------------------------------------------------ 
     ! ------------------------------------------------------------------------ 
@@ -1129,18 +1166,22 @@ end select
 
     !calculate the grounding line flux after the mask is correct
     !Halo updates required for inputs to calc_gline_flux?
+
 !!    call calc_gline_flux(model%geomderv%stagthck,model%velocity%surfvel, &
 !!                         model%geometry%thkmask,model%ground%gline_flux, model%velocity%ubas, &
 !!                         model%velocity%vbas, model%numerics%dew)
     !Includes a halo update of model%ground%gline_flux at end of call
 !HALO - Halo update of gline_flux (if needed) should go here.
 
-!HALO - I think this update is not needed, provided that glide_calcstrsstr loops over locally owned cells.
+!HALO - I think this update is not needed.
+
        call parallel_halo(model%stress%efvs)
        call horiz_bcs_unstag_scalar(model%stress%efvs)
 
        !Tau is calculated in glide_stress and initialized in glide_types.
+
        call glide_calcstrsstr( model )       !*sfp* added for populating stress tensor w/ HO fields
+
        !Includes halo updates of 
        ! model%stress%tau%xx, model%stress%tau%yy, model%stress%tau%xy,
        ! model%stress%tau%scalar, model%stress%tau%xz, model%stress%tau%yz
@@ -1154,7 +1195,6 @@ end select
 
 
   end subroutine glissade_diagnostic_variable_solve
-
 
 
 !=======================================================================
@@ -1245,6 +1285,70 @@ end select
 
 !=======================================================================
 
+  subroutine parallel_halo_scalars(thck,     temp,   &
+                                   lsrf,     usrf,   &
+                                   topg,             &
+                                   ntracers, tracers)
+
+    ! Do parallel halo updates for the main scalar state variables
+
+    use parallel
+
+    real(dp), intent(inout), dimension(:,:) :: thck   
+    real(dp), intent(inout), dimension(:,:,:) :: temp
+
+    real(dp), intent(inout), dimension(:,:), optional ::  &
+       lsrf,       & ! lower ice surface
+       usrf,       & ! upper ice surface
+       topg          ! basal topography
+
+    integer, intent(in), optional :: ntracers
+    real(dp), intent(inout), dimension(:,:,:,:), optional :: tracers
+
+    integer :: nt   ! tracer index
+
+    call parallel_halo(thck)
+!    call horiz_bcs_unstag_scalar(thck)
+
+    call parallel_halo(temp)
+!!   call horiz_bcs_unstag_scalar(temp)
+
+    ! optional updates for geometry variables
+
+    if (present(lsrf)) then
+       call parallel_halo(lsrf)
+!       call horiz_bcs_unstag_scalar(lsrf)
+    endif
+
+    if (present(usrf)) then
+       if (present(lsrf)) then   ! compute usrf = lsrf + thck; no halo call needed
+          usrf(:,:) = lsrf(:,:) + thck(:,:)
+       else
+          call parallel_halo(usrf)
+!          call horiz_bcs_unstag_scalar(usrf)
+       endif
+    endif
+
+    if (present(topg)) then
+       call parallel_halo(topg)
+!       call horiz_bcs_unstag_scalar(topg)
+    endif
+
+    ! optional update for 3D tracers (e.g., ice age)
+
+    if (present(tracers)) then
+
+       do nt = 1, ntracers
+          call parallel_halo(tracers(:,:,:,nt))
+!          call horiz_bcs_unstag_scalar(tracers(:,:,:,nt))
+       enddo
+
+    endif
+
+  end subroutine parallel_halo_scalars
+
+!=======================================================================
+
     subroutine glissade_test_parallel(model)
 
     use parallel
@@ -1281,9 +1385,9 @@ end select
     real(dp), parameter :: umag = 1000.   ! uniform speed (m/yr)
 
     !WHL - Tested all three of these angles (eastward, northward, and northeastward)
-!    real(dp), parameter :: theta = 0.d0   ! angle of trajectory
-!    real(dp), parameter :: theta = pi/4.d0
-    real(dp), parameter :: theta = pi/2.d0
+!    real(dp), parameter :: theta = 0.d0     ! eastward
+    real(dp), parameter :: theta = pi/4.d0   ! northeastward
+!    real(dp), parameter :: theta = pi/2.d0  ! northward
 
 
     real(dp) :: global_row, global_col, global_ID

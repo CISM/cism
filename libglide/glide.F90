@@ -346,22 +346,14 @@ contains
                         model%geometry%thck,      &
                         model%isos%relx,      &
                         model%geometry%topg,   &
-                        model%temper%flwa,   &
-                        model%numerics%sigma,   &
                         model%geometry%thkmask,    &
                         model%numerics%mlimit,     &
                         model%numerics%calving_fraction, &
                         model%climate%eus,         &
                         model%climate%calving,  &
-! The remaining arguments may not be needed?
-                        model%climate%backstress, &
-                        model%climate%tempanmly, &
+                        model%ground, &
                         model%numerics%dew,    &
                         model%numerics%dns, &
-                        model%climate%backstressmap, &
-                        model%climate%stressout, &
-                        model%climate%stressin, &
-                        model%ground, &
                         model%general%nsn, &
                         model%general%ewn)
 
@@ -754,22 +746,14 @@ contains
                         model%geometry%thck,      &
                         model%isos%relx,      &
                         model%geometry%topg,   &
-                        model%temper%flwa,   &
-                        model%numerics%sigma,   &
                         model%geometry%thkmask,    &
                         model%numerics%mlimit,     &
                         model%numerics%calving_fraction, &
                         model%climate%eus,         &
                         model%climate%calving,  &
-! The remaining arguments may not be needed?
-                        model%climate%backstress, &
-                        model%climate%tempanmly, &
+                        model%ground, &
                         model%numerics%dew,    &
                         model%numerics%dns, &
-                        model%climate%backstressmap, &
-                        model%climate%stressout, &
-                        model%climate%stressin, &
-                        model%ground, &
                         model%general%nsn, &
                         model%general%ewn)
 
