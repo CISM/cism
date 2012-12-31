@@ -64,18 +64,20 @@ module glimmer_sparse
 !      Added standalone PCG options 5 and 6
 !TODO - These SPARSE_SOLVER options are redundant with HO_SPARSE options in glide_types.
 !       Combine into one list? (e.g., by having glide_setup use this module)
-!TODO - Or could simply set up a SLAP_SOLVER option with sub-options
+!        Or pass in which_ho_sparse?
 
+    ! The first three options use the SLAP solver and work only on one processor.
     integer, parameter :: SPARSE_SOLVER_BICG = 0
     integer, parameter :: SPARSE_SOLVER_GMRES = 1
-    integer, parameter :: SPARSE_SOLVER_PCG_DIAG = 2  ! PCG with diagonal preconditioner
-    integer, parameter :: SPARSE_SOLVER_PCG_INCH = 3  ! PCG with incomplete Cholesky preconditioner
+    integer, parameter :: SPARSE_SOLVER_PCG_INCH = 2  ! PCG with incomplete Cholesky preconditioner
+
+    ! This option does not use SLAP.  It is designed to work for both serial and parallel.
+    integer, parameter :: STANDALONE_PCG_STRUC = 3    ! PCG with structured (k,i,j) matrix storage
+                                                    
     ! This Trilinos solver does not go through sparse_easy_solve
     !   because it has a different sparse matrix format
     integer, parameter :: STANDALONE_TRILINOS_SOLVER = 4
     ! These two solvers go through the cism_sparse_pcg module without SLAP
-    integer, parameter :: STANDALONE_PCG_UNSTRUC = 5  ! PCG with unstructured (triad) matrix storage
-    integer, parameter :: STANDALONE_PCG_STRUC = 6  ! PCG with structured (k,i,j) matrix storage
 
 !EIB!  !MAKE_RESTART
 !EIB!#ifdef RESTARTS
@@ -131,13 +133,6 @@ contains
             opt%base%method = SPARSE_SOLVER_GMRES
 !            opt%slap%itol = 2   ! current default = 2 in slap_default_options
              
-        else if (method == SPARSE_SOLVER_PCG_DIAG) then
-!            call not_parallel(__FILE__,__LINE__)
-            call slap_default_options(opt%slap, opt%base)
-            opt%base%method = SPARSE_SOLVER_PCG_DIAG
-            opt%slap%itol = 1  
-            !WHL - itol = 2 does not work for simple test problems 
-
         else if (method == SPARSE_SOLVER_PCG_INCH) then
 !            call not_parallel(__FILE__, __LINE__)
             call slap_default_options(opt%slap, opt%base)
@@ -179,7 +174,6 @@ contains
 
         if (options%base%method == SPARSE_SOLVER_BICG .or. &
             options%base%method == SPARSE_SOLVER_GMRES .or. &
-            options%base%method == SPARSE_SOLVER_PCG_DIAG .or. &
             options%base%method == SPARSE_SOLVER_PCG_INCH) then
 !           call not_parallel(__FILE__,__LINE__)
             allocate(workspace%slap)
@@ -207,7 +201,6 @@ contains
 
         if (options%base%method == SPARSE_SOLVER_BICG .or. &
             options%base%method == SPARSE_SOLVER_GMRES .or. &
-            options%base%method == SPARSE_SOLVER_PCG_DIAG .or. &
             options%base%method == SPARSE_SOLVER_PCG_INCH) then
 
             call slap_solver_preprocess(matrix, options%slap, workspace%slap)
@@ -271,7 +264,6 @@ contains
 
         if (options%base%method == SPARSE_SOLVER_BICG .or. &
             options%base%method == SPARSE_SOLVER_GMRES .or. &
-            options%base%method == SPARSE_SOLVER_PCG_DIAG .or. &
             options%base%method == SPARSE_SOLVER_PCG_INCH) then
 
 !WHL - bug check
@@ -298,7 +290,6 @@ contains
 
         if (options%base%method == SPARSE_SOLVER_BICG .or. &
             options%base%method == SPARSE_SOLVER_GMRES .or. &
-            options%base%method == SPARSE_SOLVER_PCG_DIAG .or. &
             options%base%method == SPARSE_SOLVER_PCG_INCH) then
 
             call slap_solver_postprocess(matrix, options%slap, workspace%slap)
@@ -321,7 +312,6 @@ contains
         
         if (options%base%method == SPARSE_SOLVER_BICG .or. &
             options%base%method == SPARSE_SOLVER_GMRES .or. &
-            options%base%method == SPARSE_SOLVER_PCG_DIAG .or. &
             options%base%method == SPARSE_SOLVER_PCG_INCH) then
 
             call slap_destroy_workspace(matrix, options%slap, workspace%slap)
@@ -347,7 +337,6 @@ contains
         
         if (options%base%method == SPARSE_SOLVER_BICG .or. &
             options%base%method == SPARSE_SOLVER_GMRES .or. &
-            options%base%method == SPARSE_SOLVER_PCG_DIAG .or. &
             options%base%method == SPARSE_SOLVER_PCG_INCH) then
 
             call slap_interpret_error(error_code, tmp_error_string)
@@ -417,7 +406,7 @@ contains
         if (verbose_slap) then
            print*, ' '
            print*, 'In sparse_easy_solve'
-           print*, 'method (0=BiCG, 1=GMRES, 2=PCG_DIAG, 3=PCG_INCH) =', method
+           print*, 'method (0=BiCG, 1=GMRES, 2=PCG_INCH) =', method
            print*, 'nonlinear (0=Picard, 1=JFNK) =', nonlinear
            print*, 'matrix%order =', matrix%order
            print*, 'matrix%nonzeros =', matrix%nonzeros

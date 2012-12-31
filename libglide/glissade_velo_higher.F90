@@ -36,10 +36,9 @@
     use glimmer_sparse_type
     use glimmer_sparse
 
-    use cism_sparse_pcg, only: pcg_solver_structured, &
-                               cism_sparse_pcg_solve
-    
-    use parallel, only: main_task
+    use cism_sparse_pcg, only: pcg_solver_structured
+
+    use parallel
 
 !    use glide_deriv
 !    use glide_grids, only: stagvarb
@@ -138,18 +137,22 @@
 !WHL - debug
 
     integer, parameter :: &
-       itest = 24, jtest = 17, ktest = 1, ptest = 1
+!       itest = 24, jtest = 17, ktest = 1, ptest = 1
 !       itest = 24, jtest = 17, ktest = 2, ptest = 1
 !       itest = 24, jtest = 17, ktest = 10, ptest = 1
 !       itest = 12, jtest = 5, ktest = 1, ptest = 1
 !       itest = 12, jtest = 26, ktest = 1, ptest = 1
+       itest = 17, jtest = 10, ktest = 1, ptest = 1
 
-    integer, parameter :: ntest = 2371  ! nodeID for (24,17,1)    
+!    integer, parameter :: ntest = 2371  ! nodeID for (24,17,1)    
 !    integer, parameter :: ntest = 2372  ! nodeID for (24,17,2)
 !    integer, parameter :: ntest = 2380  ! nodeID for (24,17,10)
 
 !    integer, parameter :: ntest = 1     ! nodeID for (12,5,1)
 !    integer, parameter :: ntest = 3841     ! nodeID for (12,26,1)
+
+    integer, parameter :: ntest = 411  ! nodeID for (17,10,1)    
+    integer, parameter :: rtest = 0    ! rank for (17,10) with 4 procs
 
     contains
 
@@ -513,7 +516,7 @@
     integer, parameter :: cmax = 300          ! max number of outer iterations
 
     !WHL - What I call resid_target is called minresid in glam_strs2
-    !TODO - I think these values are tuned for old scaling parameters; adjust them?
+    !TODO - These values might be tuned for old scaling parameters; adjust them?
     real(dp), parameter :: resid_target = 1.0d-04   ! assume velocity fields have converged below this resid 
     real(dp), parameter :: NL_tol   = 1.0d-06   ! to have same criterion as JFNK
 
@@ -610,9 +613,11 @@
        ssa_factor         ! = 1. if SSA terms are included, else = 0.
 
 !WHL - debug
-    integer :: i, j, k, n
+    integer :: i, j, k, n, r
     integer :: iA, jA, kA, colA
     real(dp) :: ds_dx, ds_dy
+    real(dp) :: maxthck, maxusrf
+    real(dp) :: sumuvel, sumvvel
     logical, parameter :: test_matrix = .false.
     integer, parameter :: test_order = 20
     integer :: rowi
@@ -623,21 +628,21 @@
     if (present(whichapprox)) then
 !!       if (whichapprox == HO_APPROX_SIA) then   ! SIA
        if (whichapprox == 0) then   ! SIA
-          if (verbose) print*, 'Solving shallow-ice approximation'
+          if (verbose .and. main_task) print*, 'Solving shallow-ice approximation'
           sia_factor = 1.d0
           ssa_factor = 0.d0
 !!       elseif (whichapprox == HO_APPROX_SSA) then  ! SSA
        elseif (whichapprox == 1) then  ! SSA
-          if (verbose) print*, 'Solving shallow-shelf approximation'
+          if (verbose .and. main_task) print*, 'Solving shallow-shelf approximation'
           sia_factor = 0.d0
           ssa_factor = 1.d0
        else   ! Blatter-Pattyn higher-order 
-          if (verbose) print*, 'Solving Blatter-Pattyn higher-order approximation'
+          if (verbose .and. main_task) print*, 'Solving Blatter-Pattyn higher-order approximation'
           sia_factor = 1.d0
           ssa_factor = 1.d0
        endif
     else   ! Blatter-Pattyn higher-order by default
-       if (verbose) print*, 'Solving Blatter-Pattyn higher-order approximation'
+       if (verbose .and. main_task) print*, 'Solving Blatter-Pattyn higher-order approximation'
        sia_factor = 1.d0
        ssa_factor = 1.d0
     endif
@@ -651,28 +656,32 @@
     ! These are quantities that do not change during the outer nonlinear loop. 
     !------------------------------------------------------------------------------
 
-    if (verbose) then
+    maxthck = maxval(thck(:,:))
+    maxthck = parallel_reduce_max(maxthck)
+    maxusrf = maxval(usrf(:,:))
+    maxusrf = parallel_reduce_max(maxusrf)
+
+    if (verbose .and. main_task) then
        print*, ' '
        print*, 'In glissade_velo_higher_solve'
        print*, 'nx, ny, nz:', nx, ny, nz
        print*, 'vol0:', vol0
        print*, 'sigma:', sigma
        print*, 'thklim:', thklim
-       print*, 'max thck:', maxval(thck(:,:))
-       print*, 'max usrf:', maxval(usrf(:,:))
-       print*, ' '
+       print*, 'max thck:', maxthck
+       print*, 'max usrf:', maxusrf
     endif
 
 !WHL - debug
-    if (verbose) then
+    if (verbose .and. this_rank==rtest) then
        print*, ' '
-       print*, 'Thickness field:'
+       print*, 'Thickness field, rank =', rtest
        do j = ny, 1, -1
           write(6,'(34f6.0)') thck(:,j)
        enddo
     endif
  
-    if (verbose) then
+    if (verbose .and. this_rank==rtest) then
         print*, ' '
         print*, 'i, j, usrf(i,j)'
         i = itest+1
@@ -693,6 +702,22 @@
        enddo
     enddo
 
+    ! Make sure thickness is up to date in halo cells
+    !HALO - Move to higher level?
+
+    call parallel_halo(thck)
+    call parallel_halo(usrf)
+
+
+!WHL - debug
+    if (verbose .and. this_rank==rtest) then
+       print*, ' '
+       print*, 'After halo update: thck, rank =', rtest
+       do j = ny, 1, -1
+          write(6,'(34f6.0)') thck(:,j)
+       enddo
+    endif
+
     ! Compute ice thickness on staggered grid
 
     call staggered_scalar(nx,           ny,         &
@@ -705,7 +730,22 @@
                           nhalo,        rmask,      &
                           usrf,         stagusrf)
 
-    ! Identify and count the active cells (i.e., cells with thck > thklim)
+    ! Compute staggered fields for halo vertices surrounding locally owned vertices
+
+    call staggered_parallel_halo(stagthck)
+    call staggered_parallel_halo(stagusrf)
+
+!WHL - debug
+    if (verbose .and. this_rank==rtest) then
+       print*, ' '
+       print*, 'After halo update: stagthck, rank =', rtest
+       do j = ny-1, 1, -1
+          write(6,'(33f6.0)') stagthck(:,j)
+       enddo
+    endif
+
+    ! Identify and count the active cells (i.e., cells with thck > thklim,
+    !  bordering a locally owned vertex).
     ! Assign a unique ID to each node, and identify the nodes of each element.
 
     call get_nodal_geometry(nx,          ny,         nz, &   
@@ -731,7 +771,7 @@
        enddo
     enddo
 
-    if (verbose) then
+    if (verbose .and. this_rank==rtest) then
        n = ntest
        i = iNodeIndex(n)
        j = jNodeIndex(n)
@@ -740,7 +780,7 @@
        print*, 'ntest, i, j, k:', n, i, j, k
     endif
  
-    if (verbose) then
+    if (verbose .and. this_rank==rtest) then
        print*, ' '
        i = itest; j = jtest; k = ktest
        print*, 'itest, jtest, ktest:', i, j, k
@@ -795,10 +835,11 @@
 
     endif   ! STANDALONE_PCG_STRUC or not
  
-
-    print*, 'size(uvel, vvel) =', size(uvel), size(vvel)
-    print*, 'sum(uvel, vvel) =', sum(uvel), sum(vvel)
-    print*, 'size(usav, vsav) =', size(usav), size(vsav)
+    if (verbose .and. this_rank==rtest) then
+       print*, 'size(uvel, vvel) =', size(uvel), size(vvel)
+       print*, 'sum(uvel, vvel) =', sum(uvel), sum(vvel)
+       print*, 'size(usav, vsav) =', size(usav), size(vsav)
+    endif
 
     !---------------------------------------------------------------
     ! Solve Ax = b
@@ -836,7 +877,7 @@
 
        counter = counter + 1
 
-       if (verbose) then
+       if (verbose .and. main_task) then
           print*, ' '
           print*, 'Outer counter =', counter
           print*, 'whichresid =', whichresid
@@ -850,7 +891,7 @@
 
        ! Assemble the stiffness matrix A and load vector b in the linear system Ax = b
 
-       if (verbose) print*, 'call assemble_linear_system'
+       if (verbose .and. this_rank==rtest) print*, 'call assemble_linear_system'
 
        !TODO - Remove unneeded arguments?
 
@@ -871,15 +912,19 @@
                                    bu,               bv,              &
                                    sia_factor,       ssa_factor)
        
+
+       if (verbose .and. this_rank==rtest) print*, 'Assembled linear system'
+
 !WHL - debug
-       if (verbose) then
+       if (verbose .and. this_rank==rtest) then
 
           i = itest
           j = jtest
           k = ktest
           n = ntest
+          r = rtest
           print*, ' '
-          print*, 'Auu after assembly: i, j, k, n =', i, j, k, n
+          print*, 'Auu after assembly: rank, i, j, k, n =', r, i, j, k, n
           do jA = -1, 1
           do iA = -1, 1
           do kA = -1, 1
@@ -893,7 +938,7 @@
           k = ktest+1
           n = ntest+1
           print*, ' '
-          print*, 'Auu after assembly: i, j, k, n =', i, j, k, n
+          print*, 'Auu after assembly: rank, i, j, k, n =', r, i, j, k, n
           do jA = -1, 1
           do iA = -1, 1
           do kA = -1, 1
@@ -911,11 +956,10 @@
 
        umask_dirichlet(nz,:,:) = .true.   ! u = v = 0 at bed
 
-       if (verbose) print*, 'Call dirichlet_bc'
+       if (verbose .and. main_task) print*, 'Call dirichlet_bc'
 
        call dirichlet_boundary_conditions(nx,  ny,         nz,                &
                                           active_vertex,   umask_dirichlet,   &
-                                          nNodes,          NodeID,            &
                                           Auu,             Auv,               &
                                           Avu,             Avv,               &
                                           bu,              bv)
@@ -926,8 +970,10 @@
 
           if (sia_test) then
 
-             print*, ' '
-             print*, 'SIA test: Removing Auv, Avu, and iA/jA columns'
+             if (verbose .and. main_task) then
+                print*, ' '
+                print*, 'SIA test: Removing Auv, Avu, and iA/jA columns'
+             endif
 
              ! Set Auv = Avu = 0
 
@@ -956,20 +1002,20 @@
           endif   ! sia_test             
 
 
+       ! Check symmetry of assembled matrix
+       ! This call could be skipped in a well-tested production code.
 
-    ! Check symmetry of assembled matrix
-    ! This call could be skipped in a well-tested production code.
-
-       if (verbose) print*, 'Check matrix symmetry'
+       if (verbose .and. main_task) print*, 'Check matrix symmetry'
 
        call check_symmetry_assembled_matrix(nx,          ny,         nz,      &
-                                            nNodes,      NodeID,              &     
-                                            iNodeIndex,  jNodeIndex,          &
-                                            kNodeIndex,                       &
+                                            active_vertex,                    &
                                             Auu,         Auv,                 &
                                             Avu,         Avv)
 
-       if (verbose) then
+
+!WHL - debug - print out some matrix values for test point
+
+       if (verbose .and. this_rank==rtest) then
           i = itest
           j = jtest
           k = ktest
@@ -1003,21 +1049,23 @@
           enddo
           enddo
 
-       endif
+       endif   ! verbose, this_rank==rtest
 
        if (whichsparse == STANDALONE_PCG_STRUC) then   ! standalone PCG for structured grid
 
           ! preprocessing is not needed because the matrix, rhs, and solution already
           ! have the required data structure
 
-          if (verbose) then
+          if (verbose .and. this_rank==rtest) then
              print*, ' '
              print*, 'Calling structured PCG solver'
-             print*, 'sum(uvel, vvel) =', sum(uvel), sum(vvel)
           endif
 
+          ! Call linear PCG solver, compute uvel and vvel on local processor
+
           call pcg_solver_structured(nx,        ny,            &
-                                     nz,        active_vertex, &
+                                     nz,        nhalo,         &
+                                     active_vertex,            &
                                      Auu,       Auv,           &
                                      Avu,       Avv,           &
                                      bu,        bv,            &
@@ -1025,16 +1073,34 @@
                                      err,       niters,        &
                                      NodeID)   !WHL - Node ID is temporary for debugging
 
+          ! Halo updates for uvel and vvel
+
+          call staggered_parallel_halo(uvel)
+          call staggered_parallel_halo(vvel)
+!          call horiz_bcs_stag_vector_ew(uvel)
+!          call horiz_bcs_stag_vector_ns(vvel)
+
           ! Compute the residual vector and its L2 norm
 
+          if (verbose .and. this_rank==rtest) then
+             print*, ' '
+             print*, 'Compute residual vector'
+          endif
+
           call compute_residual_vector_structured(nx,          ny,            &
-                                                  nz,          active_vertex, &
+                                                  nz,          nhalo,         &
+                                                  active_vertex,              &
                                                   Auu,         Auv,           &
                                                   Avu,         Avv,           &
                                                   bu,          bv,            &
                                                   uvel,        vvel,          &
                                                   resid_vec_u, resid_vec_v,   &
                                                   L2_norm)
+
+          if (verbose .and. this_rank==rtest) then
+             print*, ' '
+             print*, 'L2_norm =', L2_norm
+          endif
 
        elseif (whichsparse /= STANDALONE_TRILINOS_SOLVER) then   
           
@@ -1074,31 +1140,14 @@
              do n = 1, 10              
                 print*, n, matrix%row(n), matrix%col(n), matrix%val(n)
              enddo
+
+             print*, 'Call sparse_easy_solve, counter =', counter
           endif
 
           ! Solve the linear matrix problem
 
-          if (whichsparse == STANDALONE_PCG_UNSTRUC) then
-
-!TODO - Eliminate this solve at some point?  It doesn't add new functionality relative to SLAP.
-
-             if (verbose) print*, 'Call standalone cism pcg solver, counter =', counter
-
-             call cism_sparse_pcg_solve(matrix,  rhs,    answer,   &
-                                        err,     niters, verbose)
-
-          elseif (whichsparse /= STANDALONE_TRILINOS_SOLVER) then
-
-             if (verbose) then
-                print*, 'Call sparse_easy_solve, counter =', counter
-             endif
-
-             call sparse_easy_solve(matrix, rhs,    answer,  &
+          call sparse_easy_solve(matrix, rhs,    answer,  &
                                     err,    niters, whichsparse)
-
-             ! Put the velocity solution back into 3D arrays
-
-          endif   ! STANDALONE_PCG_UNSTRUC or not
 
           if (verbose) then
              print*, 'Solved the linear system, niters, err =', niters, err
@@ -1108,6 +1157,8 @@
 !!              print*, n, answer(n)
 !!           enddo
           endif
+
+          ! Put the velocity solution back into 3D arrays
 
           call solver_postprocess(nNodes,       answer,                   &
                                   iNodeIndex,   jNodeIndex,  kNodeIndex,  &
@@ -1119,7 +1170,7 @@
                                        resid_vec, L2_norm)
 
 #ifdef TRILINOS
-       else
+       else    ! solve with Trilinos
 
 !WHL - Commented out for now until testing later with Trilinos
 !!           call solvewithtrilinos(rhs, answer, linearSolveTime)
@@ -1131,22 +1182,15 @@
 
        ! Any ghost postprocessing needed, as in glam_strs2?
 
-       ! Halo updates for velocity (to be tested)
-       !TODO - Are all four of these calls needed?
-!       call staggered_parallel_halo(uvel)
-!       call staggered_parallel_halo(vvel)
-!       call horiz_bcs_stag_vector_ew(uvel)
-!       call horiz_bcs_stag_vector_ns(vvel)
-
 !WHL - bug check
-       if (verbose) then
+       if (verbose .and. this_rank==rtest) then
+          i = itest
+          j = jtest
           print*, ' '
-          print*, 'After postprocess: n, i, j, k, uvel, vvel'
-          do n = ntest-10, ntest+10              
-             i = iNodeIndex(n)
-             j = jNodeIndex(n)
-             k = kNodeIndex(n)
-             print*, n, i, j, k, uvel(k,i,j), vvel(k,i,j)
+          print*, 'After postprocess: rank, i, j =', this_rank, i, j
+          print*, 'k, uvel, vvel:'
+          do k = 1, nz
+             print*, k, uvel(k,i,j), vvel(k,i,j)               
           enddo
        endif
 
@@ -1157,10 +1201,9 @@
                                       usav,   vsav,        &
                                       resid_velo)
   
-       if (verbose) then
+       if (verbose .and. this_rank==rtest) then
           print*, ' '
-          print*, 'L2_resid =', L2_norm
-          print*, 'resid_velo =', resid_velo
+          print*, 'whichresid, resid_velo =', whichresid, resid_velo
        endif
 
        ! Write diagnostics (iteration number, max residual, and location of max residual
@@ -1207,13 +1250,12 @@
     if (counter < cmax) converged_soln = .true.
 
     if (verbose .and. converged_soln) then
-       print*, ' '
-       print*, 'GLISSADE SOLUTION HAS CONVERGED, outer counter =', counter
 
-       i = itest
-       j = jtest
-       k = ktest
-       print*, 'i, j, k, uvel, vvel:', i, j, k, uvel(k,i,j), vvel(k,i,j)
+       if (main_task) then
+          print*, ' '
+          print*, 'GLISSADE SOLUTION HAS CONVERGED, outer counter =', counter
+       endif
+
     endif
 
     ! Clean up
@@ -1267,7 +1309,11 @@
     ! Loop over all vertices of locally owned cells
     ! Average the input field over the neighboring cells with ice present (rmask = 1)
 
-    do j = nhalo, ny-nhalo
+!PARALLEL - Later, we need staggered values for all potentially active vertices
+!           Here, compute staggered values for locally owned vertices.
+!           Then do a halo update afterward. 
+
+    do j = nhalo, ny-nhalo   ! locally owned vertices
        do i = nhalo, nx-nhalo
           sumvar = rmask(i,j+1)*var(i,j+1) + rmask(i+1,j+1)*var(i+1,j+1)  &
                  + rmask(i,j)  *var(i,j)   + rmask(i+1,j)  *var(i+1,j)	  
@@ -1293,6 +1339,7 @@
     ! Identify and count the active nodes for the calculations.
     ! All nodes of all elements lying within active cells (i.e., cells with ice present)
     !  are active.
+    ! Active cells include all cells that contain ice (thck > thklin) and border locally owned vertices.
     ! Active nodes may be either free (to be solved for) or constrained (e.g., Dirichlet).
 
     !----------------------------------------------------------------
@@ -1322,23 +1369,23 @@
        nNodes                 ! no. of nodes belonging to these elements
 
     logical, dimension(nx,ny), intent(out) :: &
-       active_cell            ! true for active cells (thck > thklim)
+       active_cell            ! true for active cells 
+                              ! (thck > thklim, bordering a locally owned vertex)
 
     logical, dimension(nx-1,ny-1), intent(out) :: &
        active_vertex          ! true for vertices of active cells
 
     integer, dimension(nz,nx-1,ny-1), intent(out) ::  &
-       NodeID             ! ID for each active node
+       NodeID                 ! ID for each active node
 
     integer, dimension(nNodesPerElement,nz-1,nx,ny), intent(out) ::  &
-       NodeOnElementID     ! node ID for each node of each element
+       NodeOnElementID        ! node ID for each node of each element
 
     integer, dimension(nVertices*nz), intent(out) ::   &
        iNodeIndex, jNodeIndex, kNodeIndex   ! i, j and k indices of active nodes
 
     real(dp), dimension(nVertices*nz), intent(out) :: &
        xNode, yNode, zNode   ! x, y and z coordinates for each node
-
 
     !---------------------------------------------------------
     ! Local variables
@@ -1350,15 +1397,19 @@
 
     integer :: i, j, k
 
-    if (verbose) then
+    if (verbose .and. main_task) then
        print*, 'In get_nodal_geometry, thklim =', thklim
        print*, 'Active cells:'
     endif
 
+!PARALLEL - Include all cells that border locally owned vertices.
+!           These includes halo cells along east and north boundaries of local domain.
     nActiveCells = 0
     active_cell(:,:) = .false.
-    do j = 1+nhalo, ny-nhalo
-    do i = 1+nhalo, nx-nhalo
+!!    do j = 1+nhalo, ny-nhalo
+!!    do i = 1+nhalo, nx-nhalo
+    do j = 1+nhalo, ny-nhalo+1
+    do i = 1+nhalo, nx-nhalo+1
        if (thck(i,j) >= thklim) then
           active_cell(i,j) = .true.
           nActiveCells = nActiveCells + 1
@@ -1373,7 +1424,7 @@
 
     nElements = nActiveCells * (nz-1)
 
-    if (verbose) then
+    if (verbose .and. this_rank==rtest) then
        print*, 'nActiveCells =', nActiveCells
        print*, 'nElements =', nElements
 !!       print*, 'Active vertices:'
@@ -1381,11 +1432,14 @@
 
 
     ! Identify the active vertices (i.e., all vertices of active cells)
+!PARALLEL - Include vertices of east and north layer of halo cells
 
     active_vertex(:,:) = .false.
 
-    do j = 1+nhalo, ny-nhalo   ! loop over local cells
-    do i = 1+nhalo, nx-nhalo
+!!    do j = 1+nhalo, ny-nhalo   ! loop over local cells
+!!    do i = 1+nhalo, nx-nhalo
+    do j = 1+nhalo, ny-nhalo+1  ! include east and north layer of halo cells
+    do i = 1+nhalo, nx-nhalo+1
        if (active_cell(i,j)) then
           active_vertex(i-1:i, j-1:j) = .true.  ! all vertices of this cell
        endif
@@ -1404,14 +1458,17 @@
 
     nActiveVertices = 0
 
-    do j = nhalo, ny-nhalo    ! include S edge
-    do i = nhalo, nx-nhalo    ! include W edge
+!PARALLEL - Include all nodes associated with active vertices (nz nodes per vertex)
+!!    do j = nhalo, ny-nhalo    ! include S edge
+!!    do i = nhalo, nx-nhalo    ! include W edge
+    do j = nhalo, ny-nhalo+1    ! include a layer of halo vertices around locally owned vertices
+    do i = nhalo, nx-nhalo+1
        if (active_vertex(i,j)) then
           nActiveVertices = nActiveVertices + 1
 !!          if (verbose) print*, i, j
           do k = 1, nz    ! all nodes in column are active
              nNodes = nNodes + 1   
-             NodeID(k,i,j) = nNodes   ! unique index for each active node
+             NodeID(k,i,j) = nNodes   ! unique local index for each active node
              iNodeIndex(nNodes) = i
              jNodeIndex(nNodes) = j
              kNodeIndex(nNodes) = k
@@ -1419,7 +1476,7 @@
              yNode(nNodes) = yVertex(i,j)
              zNode(nNodes) = stagusrf(i,j) - sigma(k)*stagthck(i,j)
 
-             if (verbose .and. nNodes==ntest) then
+             if (verbose .and. this_rank==rtest .and. nNodes==ntest) then
                 print*, ' '
                 print*, 'i, j, k, n:', i, j, k, nNodes
                 print*, 'sigma, stagusrf, stagthck:', sigma(k), stagusrf(i,j), stagthck(i,j)
@@ -1439,7 +1496,7 @@
     ! (Note: The numbering of nodes within each element is from bottom to top--
     !  this can be confusing)
 
-    if (verbose) then
+    if (verbose .and. this_rank==rtest) then
        print*, ' '
        print*, 'nActiveVertices =', nActiveVertices
        print*, 'nNodes =', nNodes
@@ -1447,8 +1504,13 @@
 
     NodeOnElementID(:,:,:,:) = 0  ! indices are (n,k,i,j)
 
-    do j = 1+nhalo, ny-nhalo    ! loop over locally owned cells 
-    do i = 1+nhalo, nx-nhalo
+!PARALLEL - Do these node IDs need to be global?
+
+!PARALLEL - Loop over all potentially active cells
+!!    do j = 1+nhalo, ny-nhalo    ! loop over locally owned cells 
+!!    do i = 1+nhalo, nx-nhalo
+    do j = 1+nhalo, ny-nhalo+1    ! loop over potentially active cells 
+    do i = 1+nhalo, nx-nhalo+1
        if (active_cell(i,j)) then
           do k = 1, nz-1
              NodeOnElementID(1,k,i,j) = NodeID(k+1,i-1,j-1)
@@ -1497,7 +1559,7 @@
        nActiveCells                  ! number of cells with ice present
 
     logical, dimension(nx,ny), intent(in) ::  &
-       active_cell                   ! true if element contains ice
+       active_cell                   ! true if cell contains ice and borders a locally owned vertex
 
     integer, dimension(nVertices*nz), intent(in) ::   &
        iNodeIndex, jNodeIndex, kNodeIndex  ! i, j and k indices of nodes
@@ -1569,8 +1631,9 @@
        Kvu,          &    !
        Kvv                !    Kuu  | Kuv
                           !    _____|____          
-                          !    Kvu  | Kvv
                           !         |
+                          !    Kvu  | Kvv
+                          !         
                           ! Kvu may not be needed if matrix is symmetric, but is included for now
 
     integer, dimension(nNodesPerElement) :: nid        ! ID for each node of an element
@@ -1585,7 +1648,7 @@
 
     integer :: i, j, k, n, p
 
-    if (verbose) then
+    if (verbose .and. main_task) then
        print*, ' '
        print*, 'In assemble_linear_system'
     endif
@@ -1600,17 +1663,22 @@
     bu(:,:,:) = 0.d0
     bv(:,:,:) = 0.d0
 
-    ! Sum over elements
+    ! Sum over elements in active cells 
 
-    do j = nhalo+1, ny-nhalo    ! loop over the cells owned by this processor
-    do i = nhalo+1, nx-nhalo
+!PARALLEL - Include all cells that border locally owned vertices.
+!           Make sure halo information is available.
+
+!!    do j = nhalo+1, ny-nhalo    ! loop over the cells owned by this processor
+!!    do i = nhalo+1, nx-nhalo
+    do j = nhalo+1, ny-nhalo+1
+    do i = nhalo+1, nx-nhalo+1
        
      if (active_cell(i,j)) then
 
        do k = 1, nz-1    ! loop over elements in this column
                          ! assume k increases from upper surface to bed
 
-          if (verbose .and. i==itest .and. j==jtest .and. k==ktest) then
+          if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
              print*, 'i, j, k:', i, j, k
              print*, ' '
           endif
@@ -1634,7 +1702,7 @@
              v(n) = vvel(kNodeIndex(nid(n)), iNodeIndex(nid(n)), jNodeIndex(nid(n)))
              s(n) = stagusrf(iNodeIndex(nid(n)), jNodeIndex(nid(n)))
 
-             if (verbose .and. i==itest .and. j==jtest .and. k==ktest) then
+             if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
                 print*, 'n, nid, x, y, z:', n, nid(n), x(n), y(n), z(n)
                 print*, 's, u, v:', s(n), u(n), v(n)
              endif
@@ -1660,7 +1728,7 @@
                                                  dphi_dx(:),    dphi_dy(:),    dphi_dz(:),     &
                                                  detJ , i, j, k, p                      )
 
-             if (verbose .and. i==itest .and. j==jtest .and. k==ktest) then
+             if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
 !!                print*, ' '
 !!                print*, 'Derivatives of basis functions, p =', p
                 do n = 1, nNodesPerElement
@@ -1677,7 +1745,7 @@
                                               flwafact(k,i,j),  efvs,                         &
                                               sia_factor,       ssa_factor,  i, j, k, p )
 
-             if (verbose .and. i==itest .and. j==jtest .and. k==ktest) then
+             if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
 !                print*, ' '
 !                print*, 'efvs:', efvs
              endif
@@ -1713,7 +1781,7 @@
                                         dphi_dx(:),       dphi_dy(:),     &
                                         bu(:,:,:),        bv(:,:,:), i, j, k, p)
 
-             if (verbose .and. i==itest .and. j==jtest .and. k==ktest) then
+             if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
                 print*, ' '
                 do n = 1, nNodesPerElement
                    print*, 'nid, bu, bv:', nid(n), bu(k,i,j), bv(k,i,j)
@@ -1722,7 +1790,7 @@
 
           enddo   ! nQuadPoints
 
-          if (verbose .and. i==itest .and. j==jtest .and. k==ktest) then
+          if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
              print*, ' '
              print*, 'Kuu:'
              do n = 1, nNodesPerElement
@@ -1752,7 +1820,7 @@
          ! For the serial SLAP solve, we first form a dense intermediate matrix, 
          ! and later put that matrix in sparse format.
 
-          if (verbose .and. i==itest .and. j==jtest .and. k==ktest) then
+          if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
              print*, ' '
              print*, 'Insert Kuu into Auu'
           endif
@@ -1760,9 +1828,9 @@
           call element_to_global_matrix(nx,           ny,          nz,          &
                                         nNodesPerElement, nNodes,  nid,         &
                                         iNodeIndex,   jNodeIndex,  kNodeIndex,  &
-                                        Kuu,              Auu, i, j, k)
+                                        Kuu,          Auu, i, j, k)
 
-          if (verbose .and. i==itest .and. j==jtest .and. k==ktest) then
+          if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
              print*, ' '
              print*, 'Insert Kuv into Auv'
           endif
@@ -1770,9 +1838,9 @@
           call element_to_global_matrix(nx,           ny,          nz,          &
                                         nNodesPerElement, nNodes,  nid,         &
                                         iNodeIndex,   jNodeIndex,  kNodeIndex,  &
-                                        Kuv,              Auv, i, j, k)
+                                        Kuv,          Auv, i, j, k)
 
-          if (verbose .and. i==itest .and. j==jtest .and. k==ktest) then
+          if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
              print*, ' '
              print*, 'Insert Kvu into Avu'
           endif
@@ -1780,9 +1848,9 @@
           call element_to_global_matrix(nx,           ny,          nz,          &
                                         nNodesPerElement, nNodes,  nid,         &
                                         iNodeIndex,   jNodeIndex,  kNodeIndex,  &
-                                        Kvu,              Avu, i, j, k)
+                                        Kvu,          Avu, i, j, k)
 
-          if (verbose .and. i==itest .and. j==jtest .and. k==ktest) then
+          if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
              print*, ' '
              print*, 'Insert Kvv into Avv'
           endif
@@ -1790,7 +1858,7 @@
           call element_to_global_matrix(nx,           ny,          nz,          &
                                         nNodesPerElement, nNodes,  nid,         &
                                         iNodeIndex,   jNodeIndex,  kNodeIndex,  &
-                                        Kvv,              Avv, i, j, k)
+                                        Kvv,          Avv, i, j, k)
 
        enddo   ! nz  (loop over elements in this column)
 
@@ -2149,7 +2217,7 @@
 
        efvs = flwafact
 
-       if (verbose .and. i==itest .and. j==jtest .and. k==ktest) then
+       if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
           print*, ' '
           print*, 'Set efvs = flwafact, i, j, k, p =', i, j, k, p
           print*, 'efvs =', efvs       
@@ -2165,7 +2233,7 @@
 !WHL - This is the glam-type scaling
 !!       efvs = efvs * scyr/tim0 / tau0   ! tau0 = rhoi*grav*thk0
 
-       if (verbose .and. i==itest .and. j==jtest .and. k==ktest) then
+       if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
           print*, ' '
           print*, 'Set efvs = constant, i, j, k, p =', i, j, k, p
           print*, 'efvs =', efvs       
@@ -2191,7 +2259,7 @@
     ! contribution from a particular quadrature point, 
     ! based on the Blatter-Pattyn first-order equations.
     !
-    ! This subroutine will work for any 3D element with any number of nodes.
+    ! This subroutine should work for any 3D element with any number of nodes.
     !------------------------------------------------------------------
 
 !TODO - Add optional arguments that reduce the solver to SIA or SSA.
@@ -2228,7 +2296,7 @@
 
     integer :: i, j
 
-    if (verbose .and. ii==itest .and. jj==jtest .and. k==ktest) then
+    if (verbose .and. this_rank==rtest .and. ii==itest .and. jj==jtest .and. k==ktest) then
        print*, ' '
        print*, 'Increment element matrix, p =', p
     endif
@@ -2240,7 +2308,7 @@
     do j = 1, nNodesPerElement      ! columns of K
        do i = 1, nNodesPerElement   ! rows of K
 
-       if (verbose .and. ii==itest .and. jj==jtest .and. k==ktest .and. p==ptest &
+       if (verbose .and. this_rank==rtest .and. ii==itest .and. jj==jtest .and. k==ktest .and. p==ptest &
                    .and.  i==1     .and.  j==1) then
           print*, 'efvs, wqp, detJ/vol0 =', efvs, wqp, detJ/vol0
           print*, 'dphi_dz(1) =', dphi_dz(1)
@@ -2328,7 +2396,7 @@
        ds_dy = ds_dy + dphi_dy(n) * usrf(n)
     enddo
 
-    if (verbose .and. ii==itest .and. jj==jtest .and. kk==ktest) then
+    if (verbose .and. this_rank==rtest .and. ii==itest .and. jj==jtest .and. kk==ktest) then
        print*, ' '
        print*, 'Increment load vector, p =', p
        print*, 'ds/dx, ds/dy =', ds_dx, ds_dy       
@@ -2352,7 +2420,7 @@
        bu(k,i,j) = bu(k,i,j) - rhoi*grav * wqp * detJ/vol0 * ds_dx * phi(n)
        bv(k,i,j) = bv(k,i,j) - rhoi*grav * wqp * detJ/vol0 * ds_dy * phi(n)
 
-       if (verbose .and. ii==itest .and. jj==jtest .and. kk==ktest .and. p==ptest) then
+       if (verbose .and. this_rank==rtest .and. ii==itest .and. jj==jtest .and. kk==ktest .and. p==ptest) then
 !          print*, ' '
           print*, 'n, nid(n), phi(n), delta(bu), delta(bv):', n, nid(n), phi(n), &
                 rhoi*grav*wqp*detJ/vol0 * ds_dx * phi(n), &
@@ -2367,7 +2435,6 @@
 
   subroutine dirichlet_boundary_conditions(nx,  ny,  nz,                      &
                                            active_vertex,   umask_dirichlet,  &
-                                           nNodes,          NodeID,           &
                                            Auu,             Auv,              &
                                            Avu,             Avv,              &
                                            bu,              bv)
@@ -2394,12 +2461,6 @@
     logical, dimension(nz,nx-1,ny-1), intent(in) ::  &
        umask_dirichlet     ! Dirichlet mask for velocity (if true, u = 0)
 
-    integer, intent(in) ::   &
-       nNodes              ! number of nodes where velocity is computed
-
-    integer, dimension(nz,nx-1,ny-1), intent(in) ::  &
-       NodeID              ! ID for each active node
-
     real(dp), dimension(-1:1,-1:1,-1:1,nz,nx-1,ny-1), intent(inout) ::   &
        Auu, Auv,    &      ! assembled stiffness matrix, divided into 4 parts
        Avu, Avv                                    
@@ -2414,30 +2475,37 @@
     integer :: i, j, k     ! Cartesian indices of nodes
     integer :: iA, jA, kA  ! i, j, and k offsets of neighboring nodes 
 
-!TODO - don't need row and col?
-    integer :: row, col    ! row and column indices of assembled global matrix
+!PARALLEL - Make sure not to step out of bounds here.
+!           This requires nhalo >= 2.
 
-    do j = 1, ny-1
-       do i = 1, nx-1
+! Loop over all vertices that border locally owned vertices.
+! Locally owned vertices are (nhalo+1:ny-nhalo, nhalo+1:nx-nhalo)
+!           
+     do j = nhalo, ny-nhalo+1
+        do i = nhalo, nx-nhalo+1
           if (active_vertex(i,j)) then
              do k = 1, nz
                 if (umask_dirichlet(k,i,j)) then
 
-                   ! determine the row of the assembled global matrix associated with this node
-!!                   row = NodeID(k,i,j)       
-                   
                    ! loop through potential nonzero matrix values in the row associated with this vertex
                    ! Note: row = NodeID(k,i,j) if we were forming a matrix with one row per node
 
                    do jA = -1,1
-                      do iA = -1,1
-                         do kA = -1,1
+                   do iA = -1,1
+                   do kA = -1,1
 
-                            ! zero out A(row,col) and A(col,row)
-                            ! Note: col = NodeID(k+kA, i+iA, j+jA) if we were forming a matrix with one column per node
 
-                            ! Note: If we were setting (u,v) to something other than (0,0),
-                            !  we would have to move terms to the RHS instead of just zeroing them.
+                      if ( (k+kA >= 1 .and. k+kA <= nz)         &
+                                      .and.                     &
+                           (i+iA >= 1 .and. i+iA <= nx-1)       &
+                                      .and.                     &
+                           (j+jA >= 1 .and. j+jA <= ny-1) ) then
+
+                         ! zero out A(row,col) and A(col,row)
+                         ! Note: col = NodeID(k+kA, i+iA, j+jA) if we were forming a matrix with one column per node
+
+                         ! Note: If we were setting (u,v) to something other than (0,0),
+                         !  we would have to move terms to the RHS instead of just zeroing them.
 
 !                            Auu( kA,  iA,  jA, row) = 0.d0
 !                            Auu(-kA, -iA, -jA, col) = 0.d0
@@ -2448,28 +2516,26 @@
 !                            Avu( kA,  iA,  jA, row) = 0.d0
 !                            Avu(-kA, -iA, -jA, col) = 0.d0
 
-                            Auu( kA,  iA,  jA, k,    i,    j   ) = 0.d0
-                            Auu(-kA, -iA, -jA, k+kA, i+iA, j+jA) = 0.d0
-                            Avv( kA,  iA,  jA, k,    i,    j   ) = 0.d0
-                            Avv(-kA, -iA, -jA, k+kA, i+iA, j+jA) = 0.d0
-                            Auv( kA,  iA,  jA, k,    i,    j   ) = 0.d0
-                            Auv(-kA, -iA, -jA, k+kA, i+iA, j+jA) = 0.d0
-                            Avu( kA,  iA,  jA, k,    i,    j   ) = 0.d0
-                            Avu(-kA, -iA, -jA, k+kA, i+iA, j+jA) = 0.d0
+                         Auu( kA,  iA,  jA, k,    i,    j   ) = 0.d0
+                         Auu(-kA, -iA, -jA, k+kA, i+iA, j+jA) = 0.d0
+                         Avv( kA,  iA,  jA, k,    i,    j   ) = 0.d0
+                         Avv(-kA, -iA, -jA, k+kA, i+iA, j+jA) = 0.d0
+                         Auv( kA,  iA,  jA, k,    i,    j   ) = 0.d0
+                         Auv(-kA, -iA, -jA, k+kA, i+iA, j+jA) = 0.d0
+                         Avu( kA,  iA,  jA, k,    i,    j   ) = 0.d0
+                         Avu(-kA, -iA, -jA, k+kA, i+iA, j+jA) = 0.d0
 
-                         enddo     ! kA
-                      enddo        ! iA
-                   enddo           ! jA
+                      endif     ! i+iA, j+jA, and k+kA in bounds
+
+                   enddo        ! kA
+                   enddo        ! iA
+                   enddo        ! jA
 
                    ! put back 1's on the main diagonal
-!                   Auu(0,0,0,row) = 1.d0
-!                   Avv(0,0,0,row) = 1.d0
                    Auu(0,0,0,k,i,j) = 1.d0
                    Avv(0,0,0,k,i,j) = 1.d0
 
-                   ! fix u = v = 0 for this node by zeroing the rhs  
-!                   bu(row) = 0.d0            
-!                   bv(row) = 0.d0
+                   ! force u = v = 0 for this node by zeroing the rhs  
                    bu(k,i,j) = 0.d0            
                    bv(k,i,j) = 0.d0
 
@@ -2520,7 +2586,7 @@
     integer :: iA, jA, kA
     integer :: m, n
 
-    if (verbose .and. ii==itest .and. jj==jtest .and. kk==ktest) then
+    if (verbose .and. this_rank==rtest .and. ii==itest .and. jj==jtest .and. kk==ktest) then
        print*, 'First row of K:'
        write(6, '(8e12.4)') Kmat(1,:)
     endif
@@ -2536,7 +2602,7 @@
 
        do n = 1, nNodesPerElement    ! columns of K
 
-          kA = kshift(m,n)           ! k index of A into which K(m,n) is summed;
+          kA = kshift(m,n)           ! k index of A into which K(m,n) is summed
           iA = ishift(m,n)           ! similarly for i and j indices 
           jA = jshift(m,n)           ! these indices can take values -1, 0 and 1
 
@@ -2648,9 +2714,9 @@
        do iA = -1, 1
        do kA = -1, 1
 
-          if ( (k+kA >= 1 .and. k+kA <= nz)     &
+          if ( (k+kA >= 1 .and. k+kA <= nz)         &
                           .and.                     &
-               (i+iA >= 1 .and. i+iA <= nx)         &
+               (i+iA >= 1 .and. i+iA <= nx-1)       &
                           .and.                     &
                (j+jA >= 1 .and. j+jA <= ny-1) ) then
 
@@ -2689,9 +2755,9 @@
        do iA = -1, 1
        do kA = -1, 1
 
-          if ( (k+kA >= 1 .and. k+kA <= nz)     &
+          if ( (k+kA >= 1 .and. k+kA <= nz)         &
                           .and.                     &
-               (i+iA >= 1 .and. i+iA <= nx)         &
+               (i+iA >= 1 .and. i+iA <= nx-1)       &
                           .and.                     &
                (j+jA >= 1 .and. j+jA <= ny-1) ) then
 
@@ -2825,7 +2891,8 @@
 !****************************************************************************
 
   subroutine compute_residual_vector_structured(nx,          ny,            &
-                                                nz,          active_vertex, &
+                                                nz,          nhalo,         &
+                                                active_vertex,              &
                                                 Auu,         Auv,           &
                                                 Avu,         Avv,           &
                                                 bu,          bv,            &
@@ -2839,8 +2906,9 @@
     use parallel
 
     integer, intent(in) ::   &
-       nx, ny,               &  ! horizontal grid dimensions
-       nz                       ! number of vertical levels where velocity is computed
+       nx, ny,               &  ! horizontal grid dimensions (for scalars)
+       nz,                   &  ! number of vertical levels where velocity is computed
+       nhalo                    ! number of halo layers
 
     logical, dimension(nx-1,ny-1), intent(in) ::   &
        active_vertex          ! T for columns (i,j) where velocity is computed, else F
@@ -2876,7 +2944,7 @@
 !WHL - debug
     integer :: nid, islap, jslap
 
-    if (verbose) then
+    if (verbose .and. this_rank==rtest) then
        print*, ' '
        i = itest
        j = jtest
@@ -2885,14 +2953,19 @@
        print*, 'i, j, k, v answer, v rhs:', i, j, k, vvel(k,i,j), bv(k,i,j)
     endif
 
+    ! Compute u and v components of A*x
+
     resid_vec_u(:,:,:) = 0.d0
     resid_vec_v(:,:,:) = 0.d0
 
-    do j = 1, ny-1
-    do i = 1, nx-1
+!    do j = 1, ny-1
+!    do i = 1, nx-1
 
+    ! Loop over locally owned vertices
+
+    do j = nhalo+1, ny-nhalo
+    do i = nhalo+1, nx-nhalo
        !TODO - Use indirect addressing to avoid an 'if' here?
-
        if (active_vertex(i,j)) then
 
           do k = 1, nz
@@ -2907,11 +2980,11 @@
                              .and.                     &
                      (j+jA >= 1 .and. j+jA <= ny-1) ) then
 
-                   resid_vec_u(k,i,j) = resid_vec_u(k,i,j)                      & 
+                   resid_vec_u(k,i,j) = resid_vec_u(k,i,j)                        & 
                                       + Auu(kA,iA,jA,k,i,j)*uvel(k+kA,i+iA,j+jA)  &
                                       + Auv(kA,iA,jA,k,i,j)*vvel(k+kA,i+iA,j+jA)
 
-                   resid_vec_v(k,i,j) = resid_vec_v(k,i,j)                      &
+                   resid_vec_v(k,i,j) = resid_vec_v(k,i,j)                        &
                                       + Avu(kA,iA,jA,k,i,j)*uvel(k+kA,i+iA,j+jA)  &
                                       + Avv(kA,iA,jA,k,i,j)*vvel(k+kA,i+iA,j+jA)
 
@@ -2929,22 +3002,23 @@
     enddo   ! j
 
 
-    if (verbose) then
+    if (verbose .and. this_rank==rtest) then
 !       print*, ' '
 !       print*, 'Compute residual:'
 !       print*, 'k, i, j, Axu, bu:'
     endif
 
+    ! Subtract b to get A*x - b
+    ! Sum up squared L2 norm as we go
+
     L2_norm = 0.d0
 
-    do j = 1, ny-1
-    do i = 1, nx-1
+    ! Loop over locally owned vertices
+
+    do j = nhalo+1, ny-nhalo
+    do i = nhalo+1, nx-nhalo
        if (active_vertex(i,j)) then
           do k = 1, nz
-
-!WHL - debug
-!             print*, k, i, j, resid_vec_u(k,i,j), bu(k,i,j)
-
              resid_vec_u(k,i,j) = resid_vec_u(k,i,j) - bu(k,i,j)
              resid_vec_v(k,i,j) = resid_vec_v(k,i,j) - bv(k,i,j)
              L2_norm = L2_norm + resid_vec_u(k,i,j)*resid_vec_u(k,i,j)  &
@@ -2954,9 +3028,9 @@
     enddo        ! i
     enddo        ! j
 
-!TODO - Parallel sum
-!    L2_norm = parallel_reduce_sum(L2_norm)
+    ! Take global sum, then take square root
 
+    L2_norm = parallel_reduce_sum(L2_norm)
     L2_norm = sqrt(L2_norm)
 
   end subroutine compute_residual_vector_structured
@@ -3011,7 +3085,7 @@
        L2_norm = L2_norm + resid_vec(i)*resid_vec(i)
     enddo
 
-!TODO - Parallel sum
+!PARALLEL - Parallel sum needed here?  Or will we never call this subroutine in parallel?
 !    L2_norm = parallel_reduce_sum(L2_norm)
 
     L2_norm = sqrt(L2_norm)
@@ -3031,6 +3105,7 @@
        nhalo,           & ! number of layers of halo cells
        whichresid         ! option for method to use when calculating residual
 
+!TODO - Specify dimensions?
     real(dp), dimension(:,:,:), intent(in) ::  &
        uvel, vvel,      & ! current guess for velocity
        usav, vsav         ! previous guess for velocity
@@ -3070,6 +3145,8 @@
 
     case(1)   ! max speed difference, excluding the bed
 
+       ! Loop over locally owned vertices
+
        do j = 1+nhalo, size(uvel,3)-nhalo
           do i = 1+nhalo, size(uvel,2)-nhalo
              do k = 1, size(uvel,1) - 1         ! ignore bed velocity
@@ -3088,11 +3165,14 @@
           enddo
        enddo
        
+       ! take global max
        resid_velo = parallel_reduce_max(resid_velo)
 
     case(2)   ! mean relative speed difference
 
        count = 0
+
+       ! Loop over locally owned vertices
 
        do j = 1+nhalo, size(uvel,3)-nhalo
           do i = 1+nhalo, size(uvel,2)-nhalo
@@ -3110,10 +3190,14 @@
 
        if (count > 0) resid_velo = resid_velo / count
 
+!TODO - How to convert this to a global value?
+!       Maybe remove this case
        call not_parallel(__FILE__, __LINE__)
-       !TODO - parallel reduction for mean
+
 
    case default    ! max speed difference, including basal speeds  (case 0 or 3)
+
+       ! Loop over locally owned vertices
 
        do j = 1+nhalo, size(uvel,3)-nhalo
           do i = 1+nhalo, size(uvel,2)-nhalo
@@ -3205,47 +3289,42 @@
 
 !****************************************************************************
 
-  subroutine check_symmetry_assembled_matrix(nx,         ny,         nz,        &
-                                             nNodes,     NodeID,    &
-                                             iNodeIndex, jNodeIndex, kNodeIndex,  &
+  subroutine check_symmetry_assembled_matrix(nx,  ny,  nz,        &
+                                             active_vertex,       &
                                              Auu, Auv, Avu, Avv)
 
     !------------------------------------------------------------------
     ! Check that the assembled stiffness matrix is symmetric.
-    ! Roughly speaking, this is true provided that (1) Auu = (Auu)^T
-    !                                              (2) Avv = (Avv)^T
-    !                                              (3) Auv = (Avu)^T
+    ! This is true provided that (1) Auu = (Auu)^T
+    !                            (2) Avv = (Avv)^T
+    !                            (3) Auv = (Avu)^T
     ! However, the A matrices are assembled in a dense fashion to save storage.
-    ! The row of A corresponds to the row of the full matrix (which is not assembled). 
-    !  Using the indexing scheme we can determine the column of the full matrix, and then
-    !  we can compare A(col,row) to A(row,col) for the full matrix.
     !
     ! This check should not be needed for production runs with a well-tested code,
     !  but is included for now to help with debugging.
     !------------------------------------------------------------------    
 
+!PARALLEL - Will this work in parallel if the entire matrix is not computed on this node?
+!           I think so, because even though the matrix is incomplete for rows corresponding
+!            to halo velocities, each element matrix is symmetric and therefore the
+!            partial matrix will be symmetric.
+
     integer, intent(in) ::   &
        nx, ny,               &  ! horizontal grid dimensions
        nz                       ! number of vertical levels where velocity is computed
 
-!TODO - not needed?
-    integer, intent(in) :: nNodes     ! number of active nodes = number of rows of Auu, etc.
-
-    integer, dimension(:,:,:), intent(in) ::  &
-       NodeID             ! ID for each active node
-
-    integer, dimension(:), intent(in) ::   &
-       iNodeIndex, jNodeIndex, kNodeIndex  ! i, j and k indices of nodes
+    logical, dimension(nx-1,ny-1), intent(in) ::   &
+       active_vertex          ! T for columns (i,j) where velocity is computed, else F
 
     real(dp), dimension(-1:1,-1:1,-1:1,nz,nx-1,ny-1), intent(in) ::   &
              Auu, Auv, Avu, Avv     ! components of assembled stiffness matrix
                                     !
                                     !    Auu  | Auv
                                     !    _____|____          
-                                    !    Avu  | Avv
                                     !         |
+                                    !    Avu  | Avv                                    
 
-    integer :: i, j, k, iA, jA, kA, row, col
+    integer :: i, j, k, iA, jA, kA
 
     real(dp) :: val1, val2          ! values of matrix coefficients
 
@@ -3255,46 +3334,48 @@
 
     maxdiff = 0.d0
 
-    do j = 1, ny-1
-    do i = 1, nx-1
-    do k = 1, nz
+! Loop over all vertices that border locally owned vertices.
+! Locally owned vertices are (nhalo+1:ny-nhalo, nhalo+1:nx-nhalo)
+!           
+    do j = nhalo, ny-nhalo+1
+       do i = nhalo, nx-nhalo+1
+          if (active_vertex(i,j)) then
+             do k = 1, nz
 
-       if (NodeID(k,i,j) > 0) then    ! node is active
+                do jA = -1, 1
+                do iA = -1, 1
+                do kA = -1, 1
 
-          do jA = -1, 1
-          do iA = -1, 1
-          do kA = -1, 1
+                   val1 = Auu(kA, iA, jA, k, i, j)      ! value of Auu(row,col)
 
-             val1 = Auu(kA, iA, jA, k, i, j)      ! value of Auu(row,col)
+                   if (val1 /= 0.d0) then
 
-             if (val1 /= 0.d0) then
+                      ! Note: There is a risk of stepping out of bounds here if, e.g., k+kA = nz+1.
+                      ! But in this case we should have val1 = 0.
+ 
+                      val2 = Auu(-kA, -iA, -jA, k+kA, i+iA, j+jA)   ! value of Auu(col,row)
 
-                val2 = Auu(-kA, -iA, -jA, k+kA, i+iA, j+jA)   ! value of Auu(col,row)
-
-                if (abs(val2 - val1) > eps12) then
-                   print*, 'Auu is not symmetric: i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
-                   print*, 'row, col, Auu(row,col), Auu(col,row):', &
-                            row, col, val1, val2
+                      if (abs(val2 - val1) > eps12) then
+                         print*, 'Auu is not symmetric: i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
+                         print*, 'Auu(row,col), Auu(col,row):', val1, val2
 !!                      stop
-                endif
+                      endif
 
-!WHL - debug
-                if (abs(val2 - val1) > maxdiff) maxdiff = abs(val2 - val1)
+                      if (abs(val2 - val1) > maxdiff) maxdiff = abs(val2 - val1)
 
-             endif   ! val1 /= 0.
+                   endif   ! val1 /= 0.
                 
-          enddo        ! kA
-          enddo        ! iA
-          enddo        ! jA
+               enddo        ! kA
+               enddo        ! iA
+               enddo        ! jA
 
-       endif        ! NodeID > 0
+             enddo     ! k
+          endif        ! active_vertex
+       enddo           ! i
+    enddo              ! j
 
-    enddo        ! k
-    enddo        ! i
-    enddo        ! j
-
-!WHL - debug
-    if (verbose) print*, 'Auu: max difference from symmetry =', maxdiff
+    maxdiff = parallel_reduce_max(maxdiff)
+    if (verbose .and. main_task) print*, 'Auu: max difference from symmetry =', maxdiff
 
     ! check that Avv = (Avv)^T
 
@@ -3303,90 +3384,89 @@
 
     maxdiff = 0.d0
 
-    do j = 1, ny-1
-    do i = 1, nx-1
-    do k = 1, nz
+    do j = nhalo, ny-nhalo+1
+       do i = nhalo, nx-nhalo+1
+          if (active_vertex(i,j)) then
+             do k = 1, nz
 
-       if (NodeID(k,i,j) > 0) then    ! node is active
+                do jA = -1, 1
+                do iA = -1, 1
+                do kA = -1, 1
 
-          do jA = -1, 1
-          do iA = -1, 1
-          do kA = -1, 1
+                   val1 = Avv(kA, iA, jA, k, i, j)      ! value of Avv(row,col)
 
-             val1 = Avv(kA, iA, jA, k, i, j)      ! value of Avv(row,col)
+                   if (val1 /= 0.d0) then
 
-             if (val1 /= 0.d0) then
+                      ! Note: There is a risk of stepping out of bounds here if, e.g., k+kA = nz+1.
+                      ! But in this case we should have val1 = 0.
+ 
+                      val2 = Avv(-kA, -iA, -jA, k+kA, i+iA, j+jA)   ! value of Avv(col,row)
 
-                val2 = Avv(-kA, -iA, -jA, k+kA, i+iA, j+jA)   ! value of Avv(col,row)
+                      if (abs(val2 - val1) > eps12) then
+                         print*, 'Avv is not symmetric: i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
+                         print*, 'Avv(row,col), Avv(col,row):', val1, val2
+!!                      stop
+                      endif
 
-                if (abs(val2 - val1) > eps12) then
-                   print*, 'Avv is not symmetric'
-                   print*, 'row, col, Avv(row,col), Avv(col,row):', &
-                            row, col, val1, val2
-!!                   stop
-                endif
+                      if (abs(val2 - val1) > maxdiff) maxdiff = abs(val2 - val1)
 
-                if (abs(val2 - val1) > maxdiff) maxdiff = abs(val2 - val1)
+                   endif   ! val1 /= 0.
                 
-             endif   ! val1 /= 0.
-                
-          enddo        ! kA
-          enddo        ! iA
-          enddo        ! jA
+               enddo        ! kA
+               enddo        ! iA
+               enddo        ! jA
 
-       endif        ! NodeID > 0
+             enddo     ! k
+          endif        ! active_vertex
+       enddo           ! i
+    enddo              ! j
 
-    enddo        ! k
-    enddo        ! i
-    enddo        ! j
-
-
-!WHL - debug
-    if (verbose) print*, 'Avv: max difference from symmetry =', maxdiff
+    maxdiff = parallel_reduce_max(maxdiff)
+    if (verbose .and. main_task) print*, 'Avv: max difference from symmetry =', maxdiff
 
     ! Check that Auv = (Avu)^T
 
     maxdiff = 0.d0
 
-    do j = 1, ny-1
-    do i = 1, nx-1
-    do k = 1, nz
+    do j = nhalo, ny-nhalo+1
+       do i = nhalo, nx-nhalo+1
+          if (active_vertex(i,j)) then
+             do k = 1, nz
 
-       if (NodeID(k,i,j) > 0) then    ! node is active
+                do jA = -1, 1
+                do iA = -1, 1
+                do kA = -1, 1
 
-          do jA = -1, 1
-          do iA = -1, 1
-          do kA = -1, 1
+                   val1 = Auv(kA, iA, jA, k, i, j)      ! value of Auv(row,col)
 
-             val1 = Auv(kA, iA, jA, k, i, j)      ! value of Auv(row,col)
+                   if (val1 /= 0.d0) then
 
-             if (val1 /= 0.d0) then
+                      ! Note: There is a risk of stepping out of bounds here if, e.g., k+kA = nz+1.
+                      ! But in this case we should have val1 = 0.
+ 
+                      val2 = Avu(-kA, -iA, -jA, k+kA, i+iA, j+jA)   ! value of Avu(col,row)
 
-                val2 = Avu(-kA, -iA, -jA, k+kA, i+iA, j+jA)   ! value of Avu(col,row)
+                      if (abs(val2 - val1) > eps12) then
+                         print*, 'Auv is not equal to (Avu)^T, i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
+                         print*, 'Auv(row,col), Avu(col,row):', val1, val2
+!!                      stop
+                      endif
 
-                if (abs(val2 - val1) > eps12) then
-                   print*, 'Auv is not equal to (Avu)^T'
-                   print*, 'row, col, Auv(row,col), Avu(col,row):', &
-                            row, col, val1, val2
-!!                   stop
-                endif
+                      if (abs(val2 - val1) > maxdiff) maxdiff = abs(val2 - val1)
 
-                if (abs(val2 - val1) > maxdiff) maxdiff = abs(val2 - val1)
+                   endif   ! val1 /= 0.
                 
-             endif   ! val1 /= 0.
-                
-          enddo        ! kA
-          enddo        ! iA
-          enddo        ! jA
+               enddo        ! kA
+               enddo        ! iA
+               enddo        ! jA
 
-       endif        ! NodeID > 0
+             enddo     ! k
+          endif        ! active_vertex
+       enddo           ! i
+    enddo              ! j
 
-    enddo        ! k
-    enddo        ! i
-    enddo        ! j
-
-!WHL - debug
-    if (verbose) print*, 'Auv v. (Avu)^T: max difference from symmetry =', maxdiff
+    maxdiff = parallel_reduce_max(maxdiff)
+    if (verbose .and. main_task) print*, 'Auv v. (Avu)^T: max difference from symmetry =', maxdiff
 
     ! Check that Avu = (Auv)^T
     ! This check may not be necessary given that we've already checked that Auv = (Avu)^T.
@@ -3394,45 +3474,45 @@
 
     maxdiff = 0.d0
 
-    do j = 1, ny-1
-    do i = 1, nx-1
-    do k = 1, nz
+    do j = nhalo, ny-nhalo+1
+       do i = nhalo, nx-nhalo+1
+          if (active_vertex(i,j)) then
+             do k = 1, nz
 
-       if (NodeID(k,i,j) > 0) then    ! node is active
+                do jA = -1, 1
+                do iA = -1, 1
+                do kA = -1, 1
 
-          do jA = -1, 1
-          do iA = -1, 1
-          do kA = -1, 1
+                   val1 = Avu(kA, iA, jA, k, i, j)      ! value of Avu(row,col)
 
-             val1 = Avu(kA, iA, jA, k, i, j)      ! value of Avu(row,col)
+                   if (val1 /= 0.d0) then
 
-             if (val1 /= 0.d0) then
+                      ! Note: There is a risk of stepping out of bounds here if, e.g., k+kA = nz+1.
+                      ! But in this case we should have val1 = 0.
+ 
+                      val2 = Auv(-kA, -iA, -jA, k+kA, i+iA, j+jA)   ! value of Auv(col,row)
 
-                val2 = Auv(-kA, -iA, -jA, k+kA, i+iA, j+jA)   ! value of Auv(col,row)
+                      if (abs(val2 - val1) > eps12) then
+                         print*, 'Avu is not equal to (Auv)^T, i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
+                         print*, 'Avu(row,col), Auv(col,row):', val1, val2
+!!                      stop
+                      endif
 
-                if (abs(val2 - val1) > eps12) then
-                   print*, 'Avu is not equal to (Auv)^T'
-                   print*, 'row, col, Avu(row,col), Auv(col,row):', &
-                            row, col, val1, val2
-!!                   stop
-                endif
+                      if (abs(val2 - val1) > maxdiff) maxdiff = abs(val2 - val1)
 
-                if (abs(val2 - val1) > maxdiff) maxdiff = abs(val2 - val1)
+                   endif   ! val1 /= 0.
                 
-             endif   ! val1 /= 0.
-                
-          enddo        ! kA
-          enddo        ! iA
-          enddo        ! jA
+               enddo        ! kA
+               enddo        ! iA
+               enddo        ! jA
 
-       endif        ! NodeID > 0
+             enddo     ! k
+          endif        ! active_vertex
+       enddo           ! i
+    enddo              ! j
 
-    enddo        ! k
-    enddo        ! i
-    enddo        ! j
-
-!WHL - debug
-    if (verbose) print*, 'Avu v. (Auv)^T: max difference from symmetry =', maxdiff
+    maxdiff = parallel_reduce_max(maxdiff)
+    if (verbose .and. main_task) print*, 'Avu v. (Auv)^T: max difference from symmetry =', maxdiff
 
   end subroutine check_symmetry_assembled_matrix
 
@@ -3562,29 +3642,14 @@
        do n = 1, matrix%nonzeros
           print*, matrix%row(n), matrix%col(n), matrix%val(n)
        enddo
+       print*, 'Call sparse_easy_solve, whichsparse =', whichsparse
     endif
 
     ! Solve the linear matrix problem
 
-    if (whichsparse == STANDALONE_PCG_UNSTRUC) then
 
-       if (verbose_test) then
-          print*, 'Call standalone cism pcg solver'
-       endif
-
-       call cism_sparse_pcg_solve(matrix,  rhs,     answer,   &
-                                  err,     niters,  verbose)
-
-    else  ! SLAP solver
-
-       if (verbose_test) then
-          print*, 'Call sparse_easy_solve, whichsparse =', whichsparse
-       endif
-
-       call sparse_easy_solve(matrix, rhs,    answer,  &
-                              err,    niters, whichsparse)
-
-    endif
+    call sparse_easy_solve(matrix, rhs,    answer,  &
+                           err,    niters, whichsparse)
 
     if (verbose_test) then
        print*, ' '
@@ -3707,4 +3772,5 @@
 !****************************************************************************
 
   end module glissade_velo_higher
+
 !*************************************************************************

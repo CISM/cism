@@ -46,7 +46,7 @@ module glimmer_sparse_slap
 contains
 
 !TODO - This call may not be needed.
-!       Better to set the desired defaults for each individual method (GMRES, BiCG, PCG, etc.)
+!       Better to set the desired defaults for each individual method (GMRES, BiCG, PCG, etc.)?
     subroutine slap_default_options(opt, base)
 
         !*FD Populates a slap_solver_options (defined above) with default
@@ -317,6 +317,7 @@ contains
 !TODO - Case numbers are hardwired.  Change to SPARSE_SOLVER values?
 !       Note: This module cannot use SPARSE_SOLVER values in glimmer_sparse.F90 without circular dependency.
 !             Could define new SLAP_SOLVER options in this module.
+!       Or pass in which_ho_sparse?
  
             select case(options%base%method)
 
@@ -336,28 +337,9 @@ contains
 
                   if (verbose_slap) print*, 'GMRES: iters, err =', niters, err
 
-                !WHL - added options: PCG for symmetric positive-definite matrices
-                !TODO - compare performance of diagonal to incomplete Cholesky preconditioner
- 
-                case(2)  ! PCG with diagonal preconditioner
+                !WHL - added an option: PCG for symmetric positive-definite matrices
 
-                   ! Note: For simple test matrices (e.g., 2x2 and 3x3), itol = 2 does not work.
-                   ! So I've set itol = 1 as the default.
-
-                  if (verbose_slap) then
-                     print*, 'Call dsdcg (PCG, diagonal)'
-                     print*,  'maxiters, tolerance =', options%base%maxiters, options%base%tolerance
-                  endif
-
-                   call dsdcg(matrix%order, rhs, solution, matrix%nonzeros, &
-                              matrix_row, matrix_col, matrix_val, &
-                              isym, options%itol, options%base%tolerance, options%base%maxiters,&
-                              niters, err, ierr, iunit, &
-                              workspace%rwork, size(workspace%rwork), workspace%iwork, size(workspace%iwork))
-
-                  if (verbose_slap) print*, 'PCG_diag: iters, err =', niters, err
-
-                case(3)  ! PCG with incomplete Cholesky preconditioner 
+                case(2)  ! PCG with incomplete Cholesky preconditioner 
 
                   if (verbose_slap) then
                      print*, 'Call dsiccg (PCG, incomplete Cholesky)'
