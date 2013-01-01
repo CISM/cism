@@ -265,7 +265,7 @@ contains
 !TODO - Replace model derived type with explicit arguments?
 !       Could be a lot of work.
 
-  subroutine glide_temp_driver(model,whichtemp,which_ho_diagnostic)
+  subroutine glide_temp_driver(model,whichtemp)
 
     !*FD Calculates the ice temperature, according to one
     !*FD of several alternative methods.
@@ -286,7 +286,6 @@ contains
 
     type(glide_global_type),intent(inout) :: model                  ! model instance
     integer,                intent(in)    :: whichtemp              ! flag to choose method.
-    integer,                intent(in)    :: which_ho_diagnostic 
 
     !------------------------------------------------------------------------------------
     ! Internal variables
@@ -354,57 +353,52 @@ contains
     
        ! Calculate the actual vertical velocity; method depends on whichwvel ------------
 
-       ! *sfp* Added the if clause here so that this calc only gets done if has NOT
-       ! *sfp* already been done at the end of the HO velocity calculation. If using HO
-       ! *sfp* velocity calc, then this has already been done at the end of call to
-       ! *sfp* 'run_ho_diagnostic' in glide_velo_higher. 
-       if( which_ho_diagnostic == 0 )then
-
-          call gridwvel(model%numerics%sigma,  &
-                        model%numerics%thklim, &
-                        model%velocity%uvel,   &
-                        model%velocity%vvel,   &
-                        model%geomderv,        &
-                        model%geometry%thck,   &
-                        model%velocity%wgrd)
+       call gridwvel(model%numerics%sigma,  &
+                     model%numerics%thklim, &
+                     model%velocity%uvel,   &
+                     model%velocity%vvel,   &
+                     model%geomderv,        &
+                     model%geometry%thck,   &
+                     model%velocity%wgrd)
     
-          select case(model%options%whichwvel)
+       select case(model%options%whichwvel)
 
 !TODO - Here and below, replace derived types (geomderv, numerics, etc.) with explicit arguments
 
-          case(0) 
-              ! Usual vertical integration
-              call wvelintg(model%velocity%uvel,                        &
-                            model%velocity%vvel,                        &
-                            model%geomderv,                             &
-                            model%numerics,                             &
-                            model%velowk,                               &
-                            model%velocity%wgrd(model%general%upn,:,:), &
-                            model%geometry%thck,                        &
-                            model%temper%bmlt,                          &
-                            model%velocity%wvel)
+        case(0) 
+           ! Usual vertical integration
+           call wvelintg(model%velocity%uvel,                        &
+                         model%velocity%vvel,                        &
+                         model%geomderv,                             &
+                         model%numerics,                             &
+                         model%velowk,                               &
+                         model%velocity%wgrd(model%general%upn,:,:), &
+                         model%geometry%thck,                        &
+                         model%temper%bmlt,                          &
+                         model%velocity%wvel)
     
-          case(1)
-              ! Vertical integration constrained so kinematic upper BC obeyed.
-              call wvelintg(model%velocity%uvel,                        &
-                            model%velocity%vvel,                        &
-                            model%geomderv,                             &
-                            model%numerics,                             &
-                            model%velowk,                               &
-                            model%velocity%wgrd(model%general%upn,:,:), &
-                            model%geometry%thck,                        &
-                            model%temper%  bmlt,                        &
-                            model%velocity%wvel)
+        case(1)
+           ! Vertical integration constrained so kinematic upper BC obeyed.
+           call wvelintg(model%velocity%uvel,                        &
+                         model%velocity%vvel,                        &
+                         model%geomderv,                             &
+                         model%numerics,                             &
+                         model%velowk,                               &
+                         model%velocity%wgrd(model%general%upn,:,:), &
+                         model%geometry%thck,                        &
+                         model%temper%  bmlt,                        &
+                         model%velocity%wvel)
 
-              call chckwvel(model%numerics,                             &
-                            model%geomderv,                             &
-                            model%velocity%uvel(1,:,:),                 &
-                            model%velocity%vvel(1,:,:),                 &
-                            model%velocity%wvel,                        &
-                            model%geometry%thck,                        &
-                            model%climate% acab)
-          end select
-       end if
+           call chckwvel(model%numerics,                             &
+                         model%geomderv,                             &
+                         model%velocity%uvel(1,:,:),                 &
+                         model%velocity%vvel(1,:,:),                 &
+                         model%velocity%wvel,                        &
+                         model%geometry%thck,                        &
+                         model%climate% acab)
+       end select
+
+!TODO - Remove support for periodic BC?
        ! apply periodic ew BC
        if (model%options%periodic_ew) then
           call wvel_ew(model)
@@ -439,36 +433,18 @@ contains
 !!       write(6,*) 'dissip =', model%tempwk%dissip(:,i,j)
 !!       write(6,*) ' '
     
-!TODO - Remove the 'if' and the ho option; which_ho_diagnostic is no longer used.
-
-       if (model%options%which_ho_diagnostic == 0 ) then
-
 !LOOP: all scalar points except outer row
 !      Outer row of cells is omitted because velo points are not available at boundaries
 
-          ! translate velo field
-          do ns = 2,model%general%nsn-1
-              do ew = 2,model%general%ewn-1
-                model%tempwk%hadv_u(:,ew,ns) = model%tempwk%advconst(1) * ( model%velocity%uvel(:,ew-1,ns-1) &
-                    + model%velocity%uvel(:,ew-1,ns) + model%velocity%uvel(:,ew,ns-1) + model%velocity%uvel(:,ew,ns) )
-                model%tempwk%hadv_v(:,ew,ns) = model%tempwk%advconst(2) * ( model%velocity%vvel(:,ew-1,ns-1) &
-                    + model%velocity%vvel(:,ew-1,ns) + model%velocity%vvel(:,ew,ns-1) + model%velocity%vvel(:,ew,ns) )
-              end do
-          end do
-
-      else ! Using ho physics
-
-          ! translate velo field
-          do ns = 2,model%general%nsn-1
-              do ew = 2,model%general%ewn-1
-                model%tempwk%hadv_u(:,ew,ns) = model%tempwk%advconst(1) * ( model%velocity%uvel(:,ew-1,ns-1) &
-                    + model%velocity%uvel(:,ew-1,ns) + model%velocity%uvel(:,ew,ns-1) + model%velocity%uvel(:,ew,ns) )
-                model%tempwk%hadv_v(:,ew,ns) = model%tempwk%advconst(2) * ( model%velocity%vvel(:,ew-1,ns-1) &
-                    + model%velocity%vvel(:,ew-1,ns) + model%velocity%vvel(:,ew,ns-1) + model%velocity%vvel(:,ew,ns) )
-              end do
-          end do
-
-      end if ! model%options%which_ho_diagnostic == 0
+       ! translate velo field
+       do ns = 2,model%general%nsn-1
+           do ew = 2,model%general%ewn-1
+             model%tempwk%hadv_u(:,ew,ns) = model%tempwk%advconst(1) * ( model%velocity%uvel(:,ew-1,ns-1) &
+                 + model%velocity%uvel(:,ew-1,ns) + model%velocity%uvel(:,ew,ns-1) + model%velocity%uvel(:,ew,ns) )
+             model%tempwk%hadv_v(:,ew,ns) = model%tempwk%advconst(2) * ( model%velocity%vvel(:,ew-1,ns-1) &
+                 + model%velocity%vvel(:,ew-1,ns) + model%velocity%vvel(:,ew,ns-1) + model%velocity%vvel(:,ew,ns) )
+           end do
+       end do
 
        call hadvall(model, &
                     model%temper%temp, &

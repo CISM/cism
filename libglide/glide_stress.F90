@@ -1,5 +1,5 @@
 ! *sfp* module to hold subroutines for calculation of stress components from converged, higher-order
-! stress and effective viscosity fields. To be called at the end of HO vel calculation in 'run_ho_diagnostic'
+! stress and effective viscosity fields. To be called at the end of HO vel calculation.
 
 module stress_hom
 
@@ -43,8 +43,7 @@ module stress_hom
                             tauxz,      tauyz )
 
 !TODO - Remove scaling.
-! Confused here because tau0 is never used, whereas len0 and thk0 are used below
-        use glimmer_paramets, only : tau0
+        use glimmer_paramets, only : len0, thk0
         use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
 
         implicit none

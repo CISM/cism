@@ -36,7 +36,7 @@
 module glide_thck
 
   use glide_types
-  use glide_velo_higher
+  use glissade_velo
   use glimmer_sparse
   use glimmer_sparse_type
   use glide_grids
@@ -50,8 +50,7 @@ module glide_thck
   use glide_io
   private
   public :: init_thck, thck_nonlin_evolve, thck_lin_evolve, timeders, &
-            stagleapthck, geometry_derivs, &
-            geometry_derivs_unstag
+            stagleapthck, geometry_derivs, geometry_derivs_unstag
 
   ! debugging Picard iteration
   integer, private, parameter :: picard_unit=101
@@ -142,29 +141,11 @@ contains
        call velo_calc_diffu(model%velowk,model%geomderv%stagthck,model%geomderv%dusrfdew, &
             model%geomderv%dusrfdns,model%velocity%diffu)
 
-!TODO - This 'if' clause, including call to geometry_derivs_unstag, probably is not needed.
-!       The which_ho_diagnostic option is no longer used.
-
-       !EIB! added from lanl
-       !Calculate higher-order velocities if the user asked for them
-       if (model%options%which_ho_diagnostic /= 0 ) then
-            call geometry_derivs_unstag(model)
-           call t_startf('run_ho_diagnostic2')
-            call run_ho_diagnostic(model)                          
-           call t_stopf('run_ho_diagnostic2')
-       end if
-
 ! *sfp* not needed anymore? Causes circular ref error when building w/ fo_upwind code
 !       if (model%options%diagnostic_run == 1) then
 !          call glide_finalise_all(.true.)
 !          stop
 !       end if
-
-!# TODO Commenting out this if-construct - to be deleted
-!#!TODO - This is the standard SIA evolution option.
-!#!       Change the name, removing 'HO'?
-!#       if (model%options%which_ho_prognostic == HO_PROG_SIAONLY) then
-
 
         ! get new thicknesses
 
@@ -172,18 +153,6 @@ contains
                          model%velocity%diffu, model%velocity%diffu, &
                          .true.,   &
                          model%geometry%thck,  model%geometry%thck)
-
-!#!TODO - Get rid of this option?
-!#       else if (model%options%which_ho_prognostic == HO_PROG_PATTYN) then
-!#          call thck_evolve(model,model%velocity%diffu_x, model%velocity%diffu_y, .true.,&
-!#                            model%geometry%thck, model%geometry%thck)
-!#       end if
-!#
-!#!TODO - Has this been replaced by HO_PROG_SIAONLY, or should it be uncommented?
-!#       !EIB! old? from gc2
-!#       !call thck_evolve(model,.true.,model%geometry%thck,model%geometry%thck)
-
-
 
 !--- MJH: Since the linear evolution uses a diffusivity based on the old geometry, the
 !    velocity calculated here will also be based on the old geometry.  If it is
@@ -328,28 +297,9 @@ contains
           call velo_calc_diffu(model%velowk,model%geomderv%stagthck,model%geomderv%dusrfdew, &
                model%geomderv%dusrfdns,model%velocity%diffu)
 
-!# TODO commented out these options - to be deleted
-!#       !Calculate higher-order velocities if the user asked for them
-!#       if (model%options%which_ho_diagnostic /= 0 ) then
-!#            call geometry_derivs_unstag(model)
-!#            call run_ho_diagnostic(model)                          
-!#       end if
-
-!#!TODO - Can these options be removed?
-!#       ! get new thicknesses
-!#       if (model%options%which_ho_prognostic == HO_PROG_SIAONLY) then
- 
-           call thck_evolve(model, model%velocity%diffu, model%velocity%diffu, &
-                            first_p, model%geometry%thck, model%geometry%thck)
-
-!#       else if (model%options%which_ho_prognostic == HO_PROG_PATTYN) then
-!#           call thck_evolve(model,model%velocity%diffu_x, model%velocity%diffu_y, .true.,&
-!#                            model%geometry%thck, model%geometry%thck)
-!#       end if          
-
-!#          !EIB! old way
-!#          ! get new thicknesses
-!#          !call thck_evolve(model,first_p,model%thckwk%oldthck,model%geometry%thck)
+          ! get new thickness
+          call thck_evolve(model, model%velocity%diffu, model%velocity%diffu, &
+                           first_p, model%geometry%thck, model%geometry%thck)
 
           first_p = .false.
 

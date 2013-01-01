@@ -632,7 +632,7 @@ contains
 
        ! temperature advection, vertical conduction, and internal dissipation
 
-       call glide_temp_driver(model, model%options%whichtemp, model%options%which_ho_diagnostic)
+       call glide_temp_driver(model, model%options%whichtemp)
 
        model%temper%newtemps = .true.
 

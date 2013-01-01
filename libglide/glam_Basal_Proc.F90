@@ -67,6 +67,8 @@ contains
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+!WHL - This subroutine sets up circular dependencies if called from glide_stop.
+!      For now I removed the call from glide_stop.
   
   subroutine Basal_Proc_final(basalproc)
 	type(glide_basalproc),intent(inout) :: basalproc

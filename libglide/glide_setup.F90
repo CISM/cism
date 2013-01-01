@@ -485,8 +485,8 @@ contains
     type(ConfigSection), pointer :: section
     type(glide_global_type) :: model
     
-    call GetValue(section, 'diagnostic_scheme',  model%options%which_ho_diagnostic)
-    call GetValue(section, 'prognostic_scheme', model%options%which_ho_prognostic)
+!WHL - Removed which_ho_diagnostic and which_ho_prognostic
+!TODO - Are there other options here that can be removed? 
     call GetValue(section, 'guess_specified',    model%velocity%is_velocity_valid)
     call GetValue(section, 'which_ho_source',    model%options%which_ho_source)
     call GetValue(section, 'include_thin_ice',   model%options%ho_include_thinice)
@@ -590,14 +590,6 @@ contains
     character(len=*), dimension(0:1), parameter :: vertical_integration = (/ &
          'standard     ', &
          'obey upper BC' /)
-
-    character(len=*), dimension(0:1), parameter :: ho_diagnostic = (/ &
-         'Do not compute higher-order velocities', &
-         'Payne/Price (on B-grid)               ' /)    
-
-    character(len=*), dimension(0:1), parameter :: ho_prognostic = (/ &
-         'Evolve ice with SIA only', &
-         'Pattyn scheme           ' /)
 
     character(len=*), dimension(0:7), parameter :: ho_whichbabc = (/ &
          'constant B^2                           ', &

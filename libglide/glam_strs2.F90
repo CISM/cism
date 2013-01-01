@@ -230,9 +230,8 @@ end subroutine glam_velo_init
 
 !***********************************************************************
 
-! Note that this is the driver subroutine, called from 'run_ho_diagnostic' in
-! 'glide_velo_higher.F90'. In turn, 'run_ho_model' is called from 'inc_remap_driver' in
-! 'glam.F90', and 'inc_remap_driver' is called from 'glide_tstep_ps' in 'glide.F90'.
+! This is the driver subroutine, called from subroutine glissade_velo_driver in
+! module glissade_velo.F90. 
 
 subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                             dew,      dns,          &

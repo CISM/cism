@@ -1,4 +1,6 @@
 
+!TODO - Will this module be supported?
+
 module fo_upwind_advect
 
 ! contains init, finalize, and driver subroutines for mass advection 
@@ -9,7 +11,7 @@ module fo_upwind_advect
 
     use glimmer_paramets, only: sp, dp, len0, thk0, tim0, vel0, tim0, scyr
     use glide_types
-    use glide_velo_higher  
+    use glissade_velo
 
     private
     public :: fo_upwind_advect_init, fo_upwind_advect_driver, fo_upwind_advect_final
@@ -50,6 +52,9 @@ module fo_upwind_advect
 
 !----------------------------------------------------------------------
 
+!WHL - This subroutine sets up circular dependencies if called from glide_stop.
+!      For now I removed the call from glide_stop.
+
     subroutine fo_upwind_advect_final( )
     ! finalization for 1st-order upwinding mass advection
     ! (when enabled, called from 'glide_stop.F90')
@@ -88,7 +93,9 @@ module fo_upwind_advect
         print *, '(dH/dt using first-order upwinding)'
         print *, 'time = ', model%numerics%time
 
-        call run_ho_diagnostic(model)   ! get velocities and fluxes from HO dynamic subroutines
+!WHL - Replaced the call to deprecated subroutine run_ho_diagnostic
+!!        call run_ho_diagnostic(model)   ! get velocities and fluxes from HO dynamic subroutines
+        call glissade_velo_driver(model)
 
         ! driver subroutine for 1st-order advection scheme (lives below)
         call fo_upwind_advect_main( model%geometry%thck,    model%geomderv%stagthck,    &

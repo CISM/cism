@@ -34,9 +34,6 @@ module glissade
   use glimmer_config
   use glimmer_global
 
-!TODO - Remove old remapping
-  use glam, only : old_remapping
-
 !TODO - Remove scaling
 
   implicit none
@@ -48,7 +45,7 @@ contains
 !=======================================================================
 
 !TODO - Currently identical to glide_config.
-!       Change to glimmer_config?
+!       Change to cism_config?
 
   subroutine glissade_config(model,config,fileunit)
 
@@ -92,8 +89,8 @@ contains
     ! **** N.B. Here, dew and dns are unscaled - i.e. real distances in m
 
     call glimmap_readconfig(model%projection,config, &
-         model%numerics%dew, &
-         model%numerics%dns)
+                            model%numerics%dew, &
+                            model%numerics%dns)
 
     ! netCDF I/O
     if (trim(model%funits%ncfile)=='') then
@@ -135,10 +132,8 @@ contains
 !TODO - Declare nhalo elsewhere
     use glissade_velo_higher, only: nhalo
 
-    use glide_velo_higher  !TODO - Remove this when removing calc_run_ho_diagnostic option
     use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
 
-!!    use remap_glamutils, only : horizontal_remap_init
 !!    use fo_upwind_advect, only : fo_upwind_advect_init
 !!    use glam_Basal_Proc, only : Basal_Proc_init
 
@@ -271,32 +266,7 @@ contains
     endif
 
 
-!TODO - Eliminate old remapping once the new remapping is certified to be working.
-!       Note: old_remapping now suppported only if call_inc_remap_driver = .true.
-
-    if ((model%options%whichevol == EVOL_INC_REMAP ) .or. &
-       (model%options%whichevol == EVOL_NO_THICKNESS)) then
-      if (old_remapping) then
-
-        if (model%options%whichtemp == TEMP_REMAP_ADV) then ! Use IR to advect temperature
-
-           !old horizontal remapping is serialized, so it needs to be initialized with full grid size
-           call horizontal_remap_init( model%remap_wk,    &
-                                       model%numerics%dew, model%numerics%dns,  &
-                                       global_ewn,  global_nsn,   &
-                                       model%options%periodic_ew, model%options%periodic_ns, &
-                                       model%general%upn,  model%numerics%sigma )
-
-        else  ! Use IR to transport thickness only
-           !old horizontal remapping is serialized, so it needs to be initialized with full grid size
-           call horizontal_remap_init( model%remap_wk,    &
-                                       model%numerics%dew, model%numerics%dns,  &
-                                       global_ewn,  global_nsn, &
-                                       model%options%periodic_ew, model%options%periodic_ns)
-        endif ! whichtemp
-
-      endif 
-    endif 
+!WHL - Removed old remapping option here
 
 !TODO - Will this module ever be supported?
     ! *mb* added; initialization of basal proc. module
@@ -313,12 +283,14 @@ contains
 !TODO - Verify exact restart.
     ! calculate mask
     if (model%options%hotstart /= 1) then  ! setting the mask destroys exact restart
+
        call glide_set_mask(model%numerics,                                &
                            model%geometry%thck,  model%geometry%topg,     &
                            model%general%ewn,    model%general%nsn,       &
                            model%climate%eus,    model%geometry%thkmask,  &
                            model%geometry%iarea, model%geometry%ivol)
        call horiz_bcs_unstag_scalar(model%geometry%thkmask)
+
     endif
 
 !TODO- Not sure why this needs to be called here.
@@ -328,6 +300,7 @@ contains
 
 !TODO - inline calclsrf?
     ! and calculate lower and upper ice surface
+
     call glide_calclsrf(model%geometry%thck, model%geometry%topg, model%climate%eus,model%geometry%lsrf)
     model%geometry%usrf = model%geometry%thck + model%geometry%lsrf
 
@@ -363,25 +336,16 @@ contains
     use glide_setup
 
     use glissade_temp, only: glissade_temp_driver
-!###    use glissade_velo, only: glissade_velo_driver  !TODO remove - moved to diagnostic solve
     use glissade_transport, only: glissade_transport_driver,  &
                                   nghost_transport, ntracer_transport
-!###    use glide_mask !TODO remove - moved to diagnostic solve
-!###    use glide_deriv, only : df_field_2d_staggered !TODO remove - moved to diagnostic solve
+
     use glimmer_paramets, only: tim0, len0, vel0
     use glimmer_physcon, only: scyr
-!###    use glide_thckmask  !TODO - Remove this?  !TODO remove - moved to diagnostic solve
-    use glide_grids
-!###    use glide_ground, only: glide_marinlim   !TODO remove - moved to diagnostic solve
-!###    use stress_hom, only : glide_calcstrsstr   !TODO remove - moved to diagnostic solve
-!###    use isostasy   !TODO remove - moved to diagnostic solve
 
-!### !TODO - To be removed
-!###    use glam, only: inc_remap_driver
-!###    use glide_velo_higher, only: run_ho_diagnostic
+    use glide_grids
+
     use glimmer_horiz_bcs, only: horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns, &
                                  horiz_bcs_unstag_scalar
-
 
     implicit none
 
@@ -391,10 +355,6 @@ contains
     ! --- Local Variables ---
 
     integer :: sc  ! subcycling index
-
-!### !TODO - This parameter to be removed
-!###     ! Temporary parameter to call inc_remap_driver in glam.F90 (or not)
-!###     logical, parameter :: call_inc_remap_driver = .false.
 
     ! temporary variables needed to reset geometry for the EVOL_NO_THICKNESS option
     real(dp), dimension(model%general%ewn,model%general%nsn) :: thck_old
@@ -409,63 +369,6 @@ contains
 
     !TODO MJH: why not just save the old time before updating time?
     model%thckwk%oldtime = model%numerics%time - (model%numerics%dt * tim0/scyr)
-
-!TODO Remove this block of comments and others below that start with !###
-!### ! MJH moved this block of 6+ comments to glissade_diagnostic_variable_solve 
-!### !!!!!!    ! ------------------------------------------------------------------------ 
-!### !!!!!!    ! Calculate various derivatives...
-!### !!!!!!    ! ------------------------------------------------------------------------     
-!### 
-!### !!!!!!!HALO - Make sure these geometry derivs are computed everywhere they are needed
-!### !!!!!!!       (all locally owned velocity points?)
-!### !!!!!!!TODO - I suggest explicit calls to the appropriate subroutines in glide_derivs (dfdx_2d, etc.)
-!### !!!!!!!       Then we would not need to use the geometry_derivs subroutine in glide_thck.
-!### !!!!!!!       Currently, this subroutine computes stagthck, staglsrf, stagtopg, dusrfdew/ns, dthckdew/ns,
-!### !!!!!!!        dlsrfdew/ns, d2usrfdew/ns2, d2thckdew/ns2 (2nd derivs are HO only)   
-!### 
-!### !!!!!!!TODO - Remove this call. 
-!### !!!!!!!        Note that there is another call to geometry_derivs in glam.F90.
-!### !!!!!!!       None of the derivatives below are needed by glissade_temp_driver.
-!### !!!!!!!       (Some are passed to subroutines but are never used; need to modify those subroutines.)
-!### !!!!!!    call geometry_derivs(model)
-!### !!!!!!    
-!### !!!!!!    !EIB! from gc2 - think this was all replaced by geometry_derivs??
-!### !!!!!!!TODO - The subroutine geometry_derivs calls subroutine stagthickness to compute stagthck.
-!### !!!!!!!       Similarly for dthckdew/ns and dusrfdew/ns
-!### !!!!!!!       No need to call the next three subroutines as well as geometry_derivs
-!### 
-!### !!!!!!    call stagvarb(model%geometry%thck, model%geomderv%stagthck,&
-!### !!!!!!                  model%general%ewn,   model%general%nsn)
-!### 
-!### !!!!!!    call df_field_2d_staggered(model%geometry%usrf, &
-!### !!!!!!                               model%numerics%dew,      model%numerics%dns, &
-!### !!!!!!                               model%geomderv%dusrfdew, model%geomderv%dusrfdns, &
-!### !!!!!!                               model%geometry%thck,     model%numerics%thklim )
-!### 
-!### !!!!!!    call df_field_2d_staggered(model%geometry%thck, &
-!### !!!!!!                               model%numerics%dew,      model%numerics%dns, &
-!### !!!!!!                               model%geomderv%dthckdew, model%geomderv%dthckdns, &
-!### !!!!!!                               model%geometry%thck,     model%numerics%thklim )
-!### 
-!### !!!!!!    !EIB!
-!### !!!!!!    
-!### !!!!!!!TODO - Pretty sure that glide_maskthck is SIA only
-!### !!!!!!!       totpts and empty are used only in glide_thck.
-!### !!!!!!!       model%geometry%mask (not to be confused with model%geometry%thkmask) is used only in glide_thck
-!### !!!!!!!       I don't see where dom is used.
-!### 
-!### !!!!!!    !TREY This sets local values of dom, mask, totpts, and empty
-!### !!!!!!    !EIB! call veries between lanl and gc2, this is lanl version
-!### !!!!!!    !magi a hack, someone explain what whichthck=5 does
-!### !!!!!!    !call glide_maskthck(0, &       
-!### !!!!!!!!    call glide_maskthck (model%geometry% thck,      &
-!### !!!!!!!!                         model%climate%  acab,      &
-!### !!!!!!!!                         .true.,                    &
-!### !!!!!!!!                         model%numerics% thklim,    &
-!### !!!!!!!!                         model%geometry% dom,       &
-!### !!!!!!!!                         model%geometry% mask,      &
-!### !!!!!!!!                         model%geometry% totpts,    &
-!### !!!!!!!!                         model%geometry% empty)
 
     ! ------------------------------------------------------------------------ 
     ! calculate geothermal heat flux
@@ -495,27 +398,6 @@ contains
        model%temper%newtemps = .true.
 
     end if
-
-!###     ! ------------------------------------------------------------------------ 
-!###     ! Calculate basal traction factor
-!###     ! ------------------------------------------------------------------------ 
-!### !TODO - SIA only (glam dycore computes beta rather than btrc)
-!### !!    call calc_btrc(model,model%options%whichbtrc,model%velocity%btrc)
-!### 
-!### !TODO - Will this ever be supported?
-!### ! TODO MJH If it is supported, it might need to be moved.
-!###     ! ------------------------------------------------------------------------ 
-!###     ! Calculate basal shear strength from Basal Proc module, if necessary
-!###     ! ------------------------------------------------------------------------    
-!### !!    if (model%options%which_bmod == BAS_PROC_FULLCALC .or. &
-!### !!        model%options%which_bmod == BAS_PROC_FASTCALC) then
-!### !        call Basal_Proc_driver (model%general%ewn,model%general%nsn,model%general%upn,       &
-!### !                                model%numerics%ntem,model%velocity%uvel(model%general%upn,:,:), &
-!### !                                model%velocity%vvel(model%general%upn,:,:), &
-!### !                                model%options%which_bmod,model%temper%bmlt,model%basalproc)
-!### !!    write(*,*)"ERROR: Basal processes module is not supported in this release of CISM."
-!### !!    stop
-!### !!    end if
 
     ! ------------------------------------------------------------------------ 
     ! Halo updates
@@ -547,52 +429,7 @@ contains
           stagthck_old = model%geomderv%stagthck
        endif
 
-!### !WHL - Moved inc_remap_driver code from glam.F90 to this level
-!### !TODO - Remove glam.F90.
-
       call t_startf('inc_remap_driver')
-
-!###        if (call_inc_remap_driver) then
-!### 
-!###           call inc_remap_driver(model)   ! in glam.F90 - to be removed
-!### 
-!###        else   ! use inlined code from inc_remap_driver
-!### ! MJH: This block of 6-commented-out code has been moved to glissade_diagnostic_variable_solve because it has to do with velocity
-!### !!!!!!        ! Compute the new geometry derivatives for this time step
-!### 
-!### !!!!!!!HALO - Would be better to have one derivative call per field.
-!### !!!!!!!       Also could consider computing derivatives in glam_strs2.F90, so as
-!### !!!!!!!        not to have to pass them through the interface.
-!### !!!!!!!       Do halo updates as needed (e.g., thck) before computing derivatives.
-!### !!!!!!!       If we need a derivative on the staggered grid (for all locally owned cells),
-!### !!!!!!!        then we need one layer of halo scalars before calling the derivative routine.
-!### 
-!### !!!!!!          call geometry_derivs(model)
-!### 
-!### !!!!!!!HALO - Pretty sure this is not needed
-!### !!!!!!          call geometry_derivs_unstag(model)
-!### 
-!### !!!!!!          if (main_task) then
-!### !!!!!!             print *, ' '
-!### !!!!!!             print *, 'Compute higher-order ice velocities, time =', model%numerics%time
-!### !!!!!!          endif
-!### 
-!### !!!!!!         call t_startf('ho_velo_diagnostic')
-!### 
-!### !!!!!!!TODO - Remove run_ho_diagnostic; it has been superseded by glissade_velo_driver.
-!### 
-!### !!!!!!          if (call_run_ho_diagnostic) then
-!### 
-!### !!!!!!             call run_ho_diagnostic(model)   ! in glide_velo_higher.F90
-!### 
-!### !!!!!!          else
-!### 
-!### !!!!!!!TODO - Replace model derived type with explicit arguments?
-!### !!!!!!             call glissade_velo_driver(model)
-!### 
-!### !!!!!!          endif
-!### 
-!### !!!!!!         call t_stopf('ho_velo_diagnostic')
 
        if (main_task) then
           print *, ' '
@@ -600,12 +437,6 @@ contains
        endif
 
 !WHL - Only the new remapping scheme supported here
-
-!###           !if( model%numerics%tend > model%numerics%tstart) then  !TODO MJH: delete this line - this is no longer needed now that the initial diagnostic solve of velocity actually occurs during init and not in the time-stepper
-!### 
-!### !HALO - Need halo updates here for thck, temp (and any other advected tracers), uvel and vvel.
-!### !       If nhalo >= 2, then no halo updates should be needed inside glissade_transport_driver.
-
 
 !WHL - Testing a new subroutine that updates all the key scalars (thck, temp, etc.) at once
 !TODO - Do we need updates of lsrf, usrf, or topg?
@@ -640,8 +471,8 @@ contains
 
       call t_startf('glissade_transport_driver')
 
-       !TODO It would be less confusing to just store the subcycling dt in a local/module variable - 
-       ! really only needs to be calculated once on init
+!TODO  It would be less confusing to just store the subcycling dt in a local/module variable - 
+!       really only needs to be calculated once on init
 
        model%numerics%dt = model%numerics%dt / model%numerics%subcyc
 
@@ -712,13 +543,6 @@ contains
 !       Note that vertical remapping is needed to return to standard sigma levels,
 !        as assumed by both the temperature and velocity solvers.
 
-
-!HALO - Pretty sure these can be removed
-       ! call parallel_halo(model%geometry%thck) in inc_remap_driver
-!###        ! call staggered_parallel_halo(model%velocity%uvel) in inc_remap_driver
-!###        ! call staggered_parallel_halo(model%velocity%vvel) in inc_remap_driver
-
-
        if (model%options%whichevol == EVOL_NO_THICKNESS) then
           ! restore old thickness
           model%geometry%thck = thck_old
@@ -781,13 +605,9 @@ contains
     type(glide_global_type), intent(inout) :: model   ! model instance
 
     ! Local variables
-!###     !TODO remove this parameter
-!###     ! Temporary parameter to call run_ho_diagnostic in glide_velo_higher.F90 (or not)
-!###     logical, parameter :: call_run_ho_diagnostic = .false.
 
 !WHL - debug
     integer :: i, j
-
 
     ! ------------------------------------------------------------------------ 
     ! ------------------------------------------------------------------------ 
@@ -800,7 +620,6 @@ contains
     ! --- Calculate updated mask because marinlim calculation needs a mask.
 
     !Halo updates required for inputs to glide_set_mask?
-    ! call parallel_halo(model%geometry%thck) in inc_remap_driver  !HALO: Move to glissade?
 
 !HALO - This should be done above in glissade_tstep
     call parallel_halo(model%geometry%topg)
@@ -816,7 +635,7 @@ contains
     ! TODO: glide_set_mask includes a halo update of model%geometry%thkmask; move it here
        call horiz_bcs_unstag_scalar(model%geometry%thkmask)
 
-!TODO It appears that marinlim only needs the halo of thkmask for case 5.  
+!TODO It appears that marinlim only needs the halo of thkmask for case 5 (which was removed).  
 !     If that case is removed, a thkmask halo update does not need to occur here.
 
     ! ------------------------------------------------------------------------ 
@@ -893,18 +712,13 @@ contains
          call horiz_bcs_unstag_scalar(model%geometry%thck)   
 
 !WHL - debug - print thickness field after halo update
-  if (main_task) then
-    print*, ' '
-    print*, 'Thickness after halo update:'
-    do j = model%general%nsn, 1, -1
-       write(6,100) model%geometry%thck(:,j)
-    enddo 
-  endif
-
-    !Note that halo updates for model%geometry%thkmask not needed in current implementation of case 3
-    ! model%climate%eus needed only for disabled case 6
-    ! model%ground components needed only for disabled case 6
-
+!  if (main_task) then
+!    print*, ' '
+!    print*, 'Thickness after halo update:'
+!    do j = model%general%nsn, 1, -1
+!       write(6,100) model%geometry%thck(:,j)
+!    enddo 
+!  endif
 
     ! --- marinlim adjusts thickness for calved ice.  Therefore the mask needs to be recalculated.
     ! --- This time we want to calculate the optional arguments iarea and ivol because thickness 
@@ -964,8 +778,6 @@ contains
     end if
    
       ! calculate isostatic adjustment and upper and lower ice surface
-
-!TODO - Need to support an isostasy calculation in the parallel model?
 
     ! ------------------------------------------------------------------------ 
     ! Calculate isostasy
@@ -1085,7 +897,6 @@ contains
 
     ! call parallel_halo(model%geometry%thkmask) in earlier glide_set_mask call
 
-
 !###     ! basal shear stress calculations
 !### 
 !### !HALO - If these values are needed, it should be possible to compute them without halo updates,
@@ -1125,19 +936,7 @@ contains
 
          call t_startf('glissade_velo_driver')
 
-!### !TODO - Remove run_ho_diagnostic; it has been superseded by glissade_velo_driver.
-!### 
-!###           if (call_run_ho_diagnostic) then
-!### 
-!###              call run_ho_diagnostic(model)   ! in glide_velo_higher.F90
-!### 
-!###           else
-
-!TODO - Replace model derived type with explicit arguments?
-
-                  call glissade_velo_driver(model)
-
-!###           endif
+         call glissade_velo_driver(model)
 
          call t_stopf('glissade_velo_driver')
 
@@ -1172,8 +971,7 @@ contains
 !!                         model%velocity%vbas, model%numerics%dew)
     !Includes a halo update of model%ground%gline_flux at end of call
 !HALO - Halo update of gline_flux (if needed) should go here.
-
-!HALO - I think this update is not needed.
+!       But I think this update is not needed.
 
        call parallel_halo(model%stress%efvs)
        call horiz_bcs_unstag_scalar(model%stress%efvs)
@@ -1192,7 +990,6 @@ contains
 
     ! --- A calculation of wvel could go here if we want to calculate it.
     ! --- For now, such a calculation is not needed.
-
 
   end subroutine glissade_diagnostic_variable_solve
 
@@ -1354,6 +1151,7 @@ contains
     use parallel
     use glissade_transport, only: glissade_transport_driver,  &
                                   nghost_transport, ntracer_transport
+    use glimmer_paramets, only: len0
 
     ! various tests of parallel model
 

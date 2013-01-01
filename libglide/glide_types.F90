@@ -74,10 +74,6 @@ module glide_types
   use glimmer_coordinates
   use glimmer_map_types, pi_dummy=>pi
 
-!TODO - Can be removed when old remapping is removed
-  !These modules define internal workspace types.  We are including them so that they can appear in glide_types.
-  use remap_glamutils
-
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 !TODO - Change to glimmer_general or glimmer_mesh?
@@ -288,25 +284,9 @@ module glide_types
     !*FD \item[1] hotstart model from previous run
     !*FD \end{description}
 
-!TODO Make a separate section for HO options?
-    integer :: which_ho_diagnostic = 0
-    !*FD Higher-order velocity computation scheme
-    !*FD \begin{description}
-    !*FD \item[0] Do not compute higher-order velocity estimate
-    !*FD \item[1] higher-order velocites from Payne/Price 1st order dyn
-    !*FD \end{description}
+!WHL - Removed the which_ho_diagnostic and which_ho_prognostic options
 
-    integer :: which_ho_prognostic = 0
-    !*FD Higher-order prognostic scheme. Note that this flag applies only when
-    !*FD using Glimmer's existing ice evolution functions; new evolution methods
-    !*FD may be added that do not use the diffusive scheme. In other words,
-    !*FD this flag states how to transform the HO velocities into diffusion and
-    !*FD basal velocity fields.
-    !*FD \begin{description}
-    !*FD \item[0] Do not not use higher-order velocities prognostically; compute
-    !*FD and output them but use SIA to evolve the ice
-    !*FD \item[1] Pattyn scheme (compute higher-order diffusivities only)
-    !*FD \end{description}
+!TODO - Make a separate section for HO options?
 
     ! options for using the Payne/Price higher-order dynamical core
     integer :: which_ho_babc = 4
@@ -359,15 +339,15 @@ module glide_types
     !*FD \item[0] use the standard Picard iteration
     !*FD \item[1] use Jacobian Free Newton Krylov (JFNK) method
 
-!whl - Removed old options 2 and 3 (UMF direct and PARDISO), replaced with PCG
+!WHL - Removed old options 2 and 3 (UMF direct and PARDISO), replaced with PCG
     integer :: which_ho_sparse = 0
     !*FD Flag that indicates method for solving the sparse linear system
     !*FD that arises from the higher-order solver
     !*FD \begin{description}
     !*FD \item[0] Biconjugate gradient, incomplete LU preconditioner
     !*FD \item[1] GMRES, incomplete LU preconditioner
-    !*FD \item[2] Conjugate gradient, diagonal preconditioner
-    !*FD \item[3] Conjugate gradient, incomplete LU preconditioner
+    !*FD \item[2] Conjugate gradient, incomplete LU preconditioner
+    !*FD \item[3] Conjugate gradient, structured grid, parallel-enabled
     !*FD \item[4] standalone interface to Trilinos
     !*FD \end{description}
 
@@ -382,9 +362,7 @@ module glide_types
 !WHL - Added a glissade option to choose which Stokes approximation (SIA, SSA or Blatter-Pattyn HO)
 !WHL - Commented out for now
 
-!TODO - Is this really the default value?  Or do we have to save the value (i.e., 'integer, save')?
     ! Blatter-Pattyn HO by default
-
 !!    integer :: which_ho_approx = 2    
     !*FD Flag that indicates which Stokes approximation to use in the glissade dycore.
     !*FD Not valid for other dycores 
@@ -903,23 +881,6 @@ module glide_types
     integer  :: nwat        = 0
   end type glide_tempwk
 
-!TODO - These are used for remapping only.  Remove with old_remapping option?
-  type glide_gridwk 
-  !*FD Various grid quantities needed for remapping scheme 
-    real(dp),dimension(:,:),pointer :: hte    => null() 
-    real(dp),dimension(:,:),pointer :: htn    => null() 
-    real(dp),dimension(:,:),pointer :: dxt    => null() 
-    real(dp),dimension(:,:),pointer :: dyt    => null() 
-    real(dp),dimension(:,:),pointer :: tarea  => null() 
-    real(dp),dimension(:,:),pointer :: tarear => null() 
-    real(dp),dimension(:,:),pointer :: mask   => null() 
-    real(dp),dimension(:,:),pointer :: xav    => null() 
-    real(dp),dimension(:,:),pointer :: yav    => null() 
-    real(dp),dimension(:,:),pointer :: xxav   => null() 
-    real(dp),dimension(:,:),pointer :: xyav   => null() 
-    real(dp),dimension(:,:),pointer :: yyav   => null() 
-  end type glide_gridwk
-
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 !TODO - Change to glimmer_paramets?
@@ -1033,7 +994,6 @@ module glide_types
     type(glide_velowk)   :: velowk
     type(glide_thckwk)   :: thckwk
     type(glide_tempwk)   :: tempwk
-    type(glide_gridwk)   :: gridwk
     type(glide_paramets) :: paramets
     type(glimmap_proj)   :: projection
     type(glide_basalproc):: basalproc
@@ -1042,7 +1002,6 @@ module glide_types
     type(isos_type)      :: isos
     type(glide_phaml)    :: phaml
     type(glide_grnd)     :: ground
-    type(remap_glamutils_workspace) :: remap_wk
     type(glissade_solver):: solver_data
 
   end type glide_global_type
@@ -1345,19 +1304,6 @@ contains
     call coordsystem_allocate(model%general%ice_grid, model%phaml%init_phaml)
     call coordsystem_allocate(model%general%ice_grid, model%phaml%rs_phaml)
     call coordsystem_allocate(model%general%ice_grid, model%phaml%uphaml)
-    ! allocate grid quantities for remapping scheme
-    call coordsystem_allocate(model%general%ice_grid, model%gridwk%hte) 
-    call coordsystem_allocate(model%general%ice_grid, model%gridwk%htn) 
-    call coordsystem_allocate(model%general%ice_grid, model%gridwk%dxt) 
-    call coordsystem_allocate(model%general%ice_grid, model%gridwk%dyt) 
-    call coordsystem_allocate(model%general%ice_grid, model%gridwk%tarea) 
-    call coordsystem_allocate(model%general%ice_grid, model%gridwk%tarear) 
-    call coordsystem_allocate(model%general%ice_grid, model%gridwk%mask) 
-    call coordsystem_allocate(model%general%ice_grid, model%gridwk%xav) 
-    call coordsystem_allocate(model%general%ice_grid, model%gridwk%yav) 
-    call coordsystem_allocate(model%general%ice_grid, model%gridwk%xxav) 
-    call coordsystem_allocate(model%general%ice_grid, model%gridwk%xyav) 
-    call coordsystem_allocate(model%general%ice_grid, model%gridwk%yyav)
 
     !allocate basal processes variables
     call coordsystem_allocate(model%general%ice_grid, model%basalproc%Hwater)
@@ -1618,32 +1564,6 @@ contains
        deallocate(model%phaml%rs_phaml)    
     if (associated(model%phaml%uphaml)) &
        deallocate(model%phaml%uphaml)
-
-    ! deallocate grid quantities for remapping scheme
-    if (associated(model%gridwk%hte)) &
-       deallocate(model%gridwk%hte) 
-    if (associated(model%gridwk%htn)) &
-       deallocate(model%gridwk%htn) 
-    if (associated(model%gridwk%dxt)) &
-       deallocate(model%gridwk%dxt) 
-    if (associated(model%gridwk%dyt)) &
-       deallocate(model%gridwk%dyt) 
-    if (associated(model%gridwk%tarea)) &
-       deallocate(model%gridwk%tarea) 
-    if (associated(model%gridwk%tarear)) &
-       deallocate(model%gridwk%tarear) 
-    if (associated(model%gridwk%mask)) &
-       deallocate(model%gridwk%mask) 
-    if (associated(model%gridwk%xav)) &
-       deallocate(model%gridwk%xav) 
-    if (associated(model%gridwk%yav)) &
-       deallocate(model%gridwk%yav) 
-    if (associated(model%gridwk%xxav)) &
-       deallocate(model%gridwk%xxav) 
-    if (associated(model%gridwk%xyav)) &
-       deallocate(model%gridwk%xyav) 
-    if (associated(model%gridwk%yyav)) &
-       deallocate(model%gridwk%yyav) 
 
     ! deallocate till variables
     if (associated(model%basalproc%Hwater)) &

@@ -405,13 +405,8 @@ contains
 
     do j = lhalo+1, nsn-uhalo
        do i = lhalo+1, ewn-uhalo
-          if (model%options%which_ho_diagnostic  /= 0) then
-             spd = sqrt(model%velocity%uvel(1,i,j)**2   &
-                      + model%velocity%vvel(1,i,j)**2)
-          else
-             spd = sqrt(model%velocity%uvel(1,i,j)**2   &
-                      + model%velocity%vvel(1,i,j)**2)
-          endif
+          spd = sqrt(model%velocity%uvel(1,i,j)**2   &
+                   + model%velocity%vvel(1,i,j)**2)
           if (model%geometry%thck(i,j) > eps .and. spd > max_spd_sfc) then
              max_spd_sfc = spd
              imax = i

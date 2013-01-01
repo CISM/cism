@@ -44,7 +44,7 @@ contains
 !TODO - Remove iarea, ivol, and exec_serial?
 !       If iarea and ivol are desired, they can be computed elsewhere.
 
-!TODO - This subroutine is called from glide_velo_higher with stagthck and stagtopg
+!TODO - This subroutine is called from glissade_velo_driver with stagthck and stagtopg
 !       as input arguments.  Might be safer to have a difference mask subroutine to
 !       compute the staggered mask.
 
