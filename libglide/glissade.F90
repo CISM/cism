@@ -329,10 +329,7 @@ contains
 
     ! Perform time-step of an ice model instance with glissade dycore
 
-    use parallel
     use glimmer_global, only : rk
-!###    use glide_thck  !TODO - Remove this (after moving geometry_derivs)
-!###    use glide_velo  !TODO - Remove this (make sure wvel is not needed)
     use glide_setup
 
     use glissade_temp, only: glissade_temp_driver
@@ -342,8 +339,12 @@ contains
     use glimmer_paramets, only: tim0, len0, vel0
     use glimmer_physcon, only: scyr
 
+    use glide_mask, only: glide_set_mask, calc_iareaf_iareag
+    use glide_ground, only: glide_marinlim
     use glide_grids
+    use isostasy
 
+    use parallel
     use glimmer_horiz_bcs, only: horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns, &
                                  horiz_bcs_unstag_scalar
 
@@ -563,92 +564,17 @@ contains
     call parallel_halo(model%geometry%topg)
     call horiz_bcs_unstag_scalar(model%geometry%topg)
 
-    ! ------------------------------------------------------------------------
-    ! Calculate diagnostic variables, including velocity
-    ! ------------------------------------------------------------------------
-
-    call glissade_diagnostic_variable_solve(model)
-
-!HALO - Any halo updates needed here?  
-!       Maybe not, if all done with non-local calculations.
-
-  end subroutine glissade_tstep  !MJH
-
-!=======================================================================
-!MJH added this diagnostic solve subroutine so it can be called from init.  
-
-  subroutine glissade_diagnostic_variable_solve(model) 
-
-     ! Solve diagnostic (not time-dependent) variables.  This is needed at the end of each time step once the 
-     !  prognostic variables (thickness, tracers) have been updated.  
-     ! It is also needed to fill out the initial state from the fields that have been read in.
-
-    use parallel
-    use glide_thck  !TODO - Remove this (after moving geometry_derivs)
-!###     use glide_velo  !TODO - Remove this (make sure wvel is not needed)
-    use glide_setup
-
-    use glissade_velo, only: glissade_velo_driver
-    use glide_mask
-    use glide_deriv, only : df_field_2d_staggered
-    use glimmer_paramets, only: tim0, len0, vel0
-    use glimmer_physcon, only: scyr
-    use glide_thckmask  !TODO - Remove this?
-    use glide_grids
-    use glide_ground, only: glide_marinlim
-    use stress_hom, only : glide_calcstrsstr
-    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar, horiz_bcs_stag_scalar, horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns
-    use isostasy
-
-    implicit none
-
-    type(glide_global_type), intent(inout) :: model   ! model instance
-
-    ! Local variables
-
-!WHL - debug
-    integer :: i, j
-
-    ! ------------------------------------------------------------------------ 
-    ! ------------------------------------------------------------------------ 
-    ! 1. First part of diagnostic solve: 
-    ! Now that advection is done, update geometry-related diagnostic fields.
-    ! Many of these are needed for the velocity solve.
-    ! ------------------------------------------------------------------------ 
-    ! ------------------------------------------------------------------------ 
-
     ! --- Calculate updated mask because marinlim calculation needs a mask.
 
-    !Halo updates required for inputs to glide_set_mask?
+!HALO - Are these updates required for input to glide_set_mask?
 
-!HALO - This should be done above in glissade_tstep
     call parallel_halo(model%geometry%topg)
     call horiz_bcs_unstag_scalar(model%geometry%topg)
 
-!Note: The call to glide_set_mask is needed before glide_marinlim.
-
-       call glide_set_mask(model%numerics,                                &
-                           model%geometry%thck,  model%geometry%topg,     &
-                           model%general%ewn,    model%general%nsn,       &
-                           model%climate%eus,    model%geometry%thkmask)
-
-    ! TODO: glide_set_mask includes a halo update of model%geometry%thkmask; move it here
-       call horiz_bcs_unstag_scalar(model%geometry%thkmask)
-
-!TODO It appears that marinlim only needs the halo of thkmask for case 5 (which was removed).  
-!     If that case is removed, a thkmask halo update does not need to occur here.
-
-    ! ------------------------------------------------------------------------ 
-    ! Remove ice which is either floating, or is present below prescribed
-    ! depth, depending on value of whichmarn
-    ! ------------------------------------------------------------------------ 
-
-!HALO - Look at marinlim more carefully and see which fields need halo updates before it is called.
-
-    call parallel_halo(model%isos%relx)
-    call horiz_bcs_unstag_scalar(model%isos%relx)
-
-    ! call parallel_halo(model%geometry%usrf) not actually used
+    call glide_set_mask(model%numerics,                                &
+                        model%geometry%thck,  model%geometry%topg,     &
+                        model%general%ewn,    model%general%nsn,       &
+                        model%climate%eus,    model%geometry%thkmask)
 
 !WHL - debug - print thickness field before calving
 !    if (main_task) then
@@ -662,6 +588,22 @@ contains
 
 !100 format(34f6.2)
 100 format(19f6.2)
+
+    ! ------------------------------------------------------------------------ 
+    ! Remove ice which is either floating, or is present below prescribed
+    ! depth, depending on value of whichmarn
+    ! ------------------------------------------------------------------------ 
+
+!HALO - Look at marinlim more carefully and see which fields need halo updates before it is called.
+!       It appears that marinlim only needs the halo of thkmask for case 5 (which was removed).  
+!       If that case is removed, a thkmask halo update does not need to occur here.
+
+    ! TODO: glide_set_mask includes a halo update of model%geometry%thkmask; move it here?
+    call parallel_halo(model%geometry%thkmask) 
+    call horiz_bcs_unstag_scalar(model%geometry%thkmask)
+
+    call parallel_halo(model%isos%relx)
+    call horiz_bcs_unstag_scalar(model%isos%relx)
 
 !WHL - Removed old case(5), allowing for removal of some arguments
 
@@ -702,14 +644,11 @@ contains
 !  endif
 
 !HALO TODO: Test the effect of these updates with a nonzero calving field
-         ! halo updates
 
-!HALO - The calving field does not need a halo update.
-!!         call parallel_halo(model%climate%calving)
-!!         call horiz_bcs_unstag_scalar(model%climate%calving)
+    ! halo updates
 
-         call parallel_halo(model%geometry%thck)    ! Updated halo values of thck are needed below in calc_lsrf
-         call horiz_bcs_unstag_scalar(model%geometry%thck)   
+    call parallel_halo(model%geometry%thck)    ! Updated halo values of thck are needed below in calc_lsrf
+    call horiz_bcs_unstag_scalar(model%geometry%thck)   
 
 !WHL - debug - print thickness field after halo update
 !  if (main_task) then
@@ -719,6 +658,12 @@ contains
 !       write(6,100) model%geometry%thck(:,j)
 !    enddo 
 !  endif
+
+!WHL - Is the call to glide_set_mask needed here?
+!      This subroutine is called at the beginning of glissade_velo_driver,
+!       so a call here is not needed for the velo diagnostic solve.
+!      The question is whether it is needed for the isostasy.
+!      And the isostasy may itself be in the wrong place.
 
     ! --- marinlim adjusts thickness for calved ice.  Therefore the mask needs to be recalculated.
     ! --- This time we want to calculate the optional arguments iarea and ivol because thickness 
@@ -791,10 +736,65 @@ contains
     end if
 
     ! ------------------------------------------------------------------------
+    ! Calculate diagnostic variables, including velocity
+    ! ------------------------------------------------------------------------
+
+    call glissade_diagnostic_variable_solve(model)
+
+!HALO - Any halo updates needed here?  
+
+  end subroutine glissade_tstep
+
+!=======================================================================
+!MJH added this diagnostic solve subroutine so it can be called from init.  
+
+  subroutine glissade_diagnostic_variable_solve(model) 
+
+     ! Solve diagnostic (not time-dependent) variables.  This is needed at the end of each time step once the 
+     !  prognostic variables (thickness, tracers) have been updated.  
+     ! It is also needed to fill out the initial state from the fields that have been read in.
+
+    use parallel
+    use glide_thck  !TODO - Remove this (if moving geometry_derivs)
+    use glide_setup
+
+    use glissade_velo, only: glissade_velo_driver
+    use glide_deriv, only : df_field_2d_staggered
+    use glimmer_paramets, only: tim0, len0, vel0
+    use glimmer_physcon, only: scyr
+    use glide_grids
+    use stress_hom, only : glide_calcstrsstr
+    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar, horiz_bcs_stag_scalar, horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns
+
+    implicit none
+
+    type(glide_global_type), intent(inout) :: model   ! model instance
+
+    ! Local variables
+
+!WHL - debug
+    integer :: i, j
+
+    ! ------------------------------------------------------------------------ 
+    ! ------------------------------------------------------------------------ 
+    ! 1. First part of diagnostic solve: 
+    ! Now that advection is done, update geometry-related diagnostic fields
+    ! that are needed for the velocity solve.
+    ! ------------------------------------------------------------------------ 
+    ! ------------------------------------------------------------------------ 
+
+!WHL - Moved mask update and calving from beginning of diagnostic subroutine
+!      to end of main glissade_tstep subroutine.  This ensures that for a
+!      simple diagnostic case, the velocities are based on the input geometry
+!      rather than a geometry that evolves due to calving.
+
+!      Note that glide_set_mask is called near the beginning of glissade_velo_driver,
+!      so that call is not needed here.
+
+    ! ------------------------------------------------------------------------
     ! calculate upper and lower ice surface
     ! ------------------------------------------------------------------------
 
-!### ! Calculate time-derivatives of thickness and upper surface elevation ------------
     !Halo updates required for inputs to glide_calcsrf?
     ! call parallel_halo(model%geometry%thck) within glide_marinlim
     ! call parallel_halo(model%geometry%topg) before previous call to glide_set_mask
@@ -802,14 +802,13 @@ contains
 !HALO - Verify that thck, topg, and eus are up to date before this call.
 !       Note that glide_calclsrf loops over all cells (not just locally owned)
 
-!TODO - Inline calclsrf
+!TODO - Inline calclsrf?
 
     call glide_calclsrf(model%geometry%thck, model%geometry%topg, model%climate%eus, model%geometry%lsrf)
     !If input halos are up to date, halo update for model%geometry%lsrf should not be necessary
 
     model%geometry%usrf = max(0.d0,model%geometry%thck + model%geometry%lsrf)
     !If input halos are up to date, halo update for model%geometry%usrf should not be necessary
-
 
 ! MJH: Next 53 lines copied from start of glissade_tstep.  
 !      Notes below indicate it is unclear which of these derivatives are actually needed.  
@@ -827,10 +826,7 @@ contains
 !       Currently, this subroutine computes stagthck, staglsrf, stagtopg, dusrfdew/ns, dthckdew/ns,
 !        dlsrfdew/ns, d2usrfdew/ns2, d2thckdew/ns2 (2nd derivs are HO only)   
 
-!TODO - Remove this call. 
-!        Note that there is another call to geometry_derivs in glam.F90.
-!       None of the derivatives below are needed by glissade_temp_driver.
-!       (Some are passed to subroutines but are never used; need to modify those subroutines.)
+!TODO - Remove this call?  It is repeated below.
 
     call geometry_derivs(model)
     
@@ -876,19 +872,6 @@ contains
 !       model%geometry%mask (not to be confused with model%geometry%thkmask) is used only in glide_thck
 !       I don't see where dom is used.
 
-    !TREY This sets local values of dom, mask, totpts, and empty
-    !EIB! call veries between lanl and gc2, this is lanl version
-    !magi a hack, someone explain what whichthck=5 does
-    !call glide_maskthck(0, &       
-!!    call glide_maskthck (model%geometry% thck,      &
-!!                         model%climate%  acab,      &
-!!                         .true.,                    &
-!!                         model%numerics% thklim,    &
-!!                         model%geometry% dom,       &
-!!                         model%geometry% mask,      &
-!!                         model%geometry% totpts,    &
-!!                         model%geometry% empty)
-
 !HALO - It should be possible to compute stagthck without a halo update,
 !       provided that thck has been updated.
 
@@ -911,8 +894,7 @@ contains
 !      I assume so, but need to make sure they happen in the right order and have halo updates if needed.
 
 !HALO - Would be better to have just one derivative call per field.
-!       Also could consider computing derivatives in glam_strs2.F90, so as
-!        not to have to pass them through the interface.
+!       Also could consider computing derivatives in glissade_velo.F90.
 !       Do halo updates as needed (e.g., thck) before computing derivatives.
 !       If we need a derivative on the staggered grid (for all locally owned cells),
 !        then we need one layer of halo scalars before calling the derivative routine.
@@ -980,10 +962,10 @@ contains
 
        call glide_calcstrsstr( model )       !*sfp* added for populating stress tensor w/ HO fields
 
-       !Includes halo updates of 
+       ! Includes halo updates of 
        ! model%stress%tau%xx, model%stress%tau%yy, model%stress%tau%xy,
        ! model%stress%tau%scalar, model%stress%tau%xz, model%stress%tau%yz
-       !at end of call
+
 !HALO - If the stress%tau halo updates are needed, they should go here (in glissade.F90)
 !       But I think they are not needed.
 
@@ -1019,39 +1001,8 @@ contains
 !TODO Is the no_write option being supported any more?  If not, it could be removed.
     logical nw
 
-!### !TODO - Determine correct location for these calls (related to exact restart of serial model).
-!### !       Remove if not needed here.
-!### 
-!###     ! These three calls are in glide_temp in the full-temperature section replaced by Bill's new temperature code.
-!###     ! Commenting out until I hear otherwise.
-!###     !TODO MJH The timeders calls are needed for (and only for?) the gridwvel call.  If we don't need gridwvel, we can remove these timeders calls as well.
-!###    call t_startf('postp3_timeders')
-!###     call timeders(model%thckwk,   &
-!###                   model%geometry%thck,     &
-!###                   model%geomderv%dthckdtm, &
-!###                   model%geometry%mask,     &
-!###                   model%numerics%time,     &
-!###                   1)
-!### 
-!###     call timeders(model%thckwk,   &
-!###             model%geometry%usrf,     &
-!###             model%geomderv%dusrfdtm, &
-!###             model%geometry%mask,     &
-!###             model%numerics%time,     &
-!###             2)
-!###    call t_stopf('postp3_timeders')
-!### 
-!###     ! Calculate the vertical velocity of the grid ------------------------------------
-!### 
-!###    call t_startf('postp3_gridwvel')
-!###     call gridwvel(model%numerics%sigma,  &
-!###             model%numerics%thklim, &
-!###             model%velocity%uvel,   &
-!###             model%velocity%vvel,   &
-!###             model%geomderv,        &
-!###             model%geometry%thck,   &
-!###             model%velocity%wgrd)
-!###    call t_stopf('postp3_gridwvel')
+!WHL - Removed calls to timeders and gridwvel.  These are needed at the end of the glide timestep
+!      to ensure exact restart, but are not needed by the glissade dycore.
 
     !---------------------------------------------------------------------
     ! write to netCDF file
