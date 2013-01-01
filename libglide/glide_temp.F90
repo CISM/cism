@@ -262,9 +262,6 @@ contains
 
 !****************************************************    
 
-!TODO - Replace model derived type with explicit arguments?
-!       Could be a lot of work.
-
   subroutine glide_temp_driver(model,whichtemp)
 
     !*FD Calculates the ice temperature, according to one
@@ -1255,6 +1252,9 @@ contains
    
     default_flwa = flow_factor * default_flwa_arg / (vis0*scyr) 
 
+!TODO - If this subroutine is called only from Glide, we should always have temp_upn = flwa_upn,
+!       in which case the offset term is not needed.
+!
     temp_upn=size(temp,1)
     flwa_upn=size(flwa,1) ; ewn=size(flwa,2) ; nsn=size(flwa,3)
     if (temp_upn .eq. flwa_upn) then

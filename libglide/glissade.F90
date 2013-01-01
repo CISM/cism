@@ -117,9 +117,7 @@ contains
     use glide_setup
     use glimmer_ncio
     use glide_velo  !TODO - Remove this
-!!    use glide_thck
-!!    use glide_temp
-    use glissade_temp
+    use glissade_temp, only: glissade_init_temp, glissade_calcflwa
     use glimmer_log
     use glimmer_scales
     use glide_mask
@@ -236,9 +234,6 @@ contains
     call init_velo(model)
 
     call glissade_init_temp(model)  ! temperature lives at layer centers
-
-!TODO - this call needed for SIA only
-!!    call init_thck(model)
 
 !WHL - Removed call to glide_initialise_backstress; used only by old glide_marinlim case(5)
 
@@ -758,6 +753,7 @@ contains
     use glide_thck  !TODO - Remove this (if moving geometry_derivs)
     use glide_setup
 
+    use glissade_temp, only: glissade_calcflwa
     use glissade_velo, only: glissade_velo_driver
     use glide_deriv, only : df_field_2d_staggered
     use glimmer_paramets, only: tim0, len0, vel0
@@ -778,10 +774,23 @@ contains
     ! ------------------------------------------------------------------------ 
     ! ------------------------------------------------------------------------ 
     ! 1. First part of diagnostic solve: 
-    ! Now that advection is done, update geometry-related diagnostic fields
-    ! that are needed for the velocity solve.
+    !    Now that advection is done, update geometry- and temperature-related 
+    !    diagnostic fields that are needed for the velocity solve.
     ! ------------------------------------------------------------------------ 
     ! ------------------------------------------------------------------------ 
+
+!WHL - Moved this calculation here from glissade_temp, since flwa is a diagnostic variable.
+
+    ! Calculate Glen's A --------------------------------------------------------
+
+    call glissade_calcflwa(model%numerics%stagsigma,    &
+                           model%numerics%thklim,       &
+                           model%temper%flwa,           &
+                           model%temper%temp(1:model%general%upn-1,:,:),  &
+                           model%geometry%thck,         &
+                           model%paramets%flow_factor,  &
+                           model%paramets%default_flwa, &
+                           model%options%whichflwa)
 
 !WHL - Moved mask update and calving from beginning of diagnostic subroutine
 !      to end of main glissade_tstep subroutine.  This ensures that for a
@@ -907,7 +916,8 @@ contains
     ! ------------------------------------------------------------------------ 
     ! ------------------------------------------------------------------------ 
     ! 2. Second part of diagnostic solve: 
-    !    Now that geometry-related diagnostic fields are updated, solve velocity.
+    !    Now that geometry- and temperature-related diagnostic fields are updated, 
+    !    solve velocity.
     ! ------------------------------------------------------------------------ 
     ! ------------------------------------------------------------------------ 
 

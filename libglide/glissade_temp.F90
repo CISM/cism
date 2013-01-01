@@ -67,7 +67,7 @@ module glissade_temp
 
     implicit none
     private
-    public :: glissade_init_temp, glissade_temp_driver
+    public :: glissade_init_temp, glissade_temp_driver, glissade_calcflwa
 
 contains
 
@@ -207,27 +207,7 @@ contains
           ! Values have been read in - do nothing
       endif
 
-!TODO - If the call to calcflwa is moved out of glissade_temp_driver, then for consistency we might want to move it out of here
-!       and up to glissade_init.
-
-      ! MJH: Calculate initial value of flwa
-      ! If flwa is loaded (e.g. hotstart), use the flwa field in the input file instead
-      ! Note: Implementing flwa initialization in this way, I don't think hotstart=1 does anything. 
-      ! Note: flwa needs to be calculated here for the intital T field before calculating velocity in glissade_diagnostic_variable_solve during init.
-
-       if (model%temper%flwa(1,1,1) < 0.d0) then
-          call write_log("No initial flwa supplied - calculating initial flwa")
-
-          ! Calculate Glen's A --------------------------------------------------------   
-          call calcflwa(model%numerics%sigma,        &
-                        model%numerics%thklim,       &
-                        model%temper%flwa,           &
-                        model%temper%temp(:,1:model%general%ewn,1:model%general%nsn), &
-                        model%geometry%thck,         &
-                        model%paramets%flow_factor,  &
-                        model%paramets%default_flwa, &
-                        model%options%whichflwa) 
-       endif
+!WHL - Removed glissade_calcflwa call here; now computed in glissade_diagnostic_variable_solve.
  
   end subroutine glissade_init_temp
 
@@ -528,19 +508,18 @@ contains
                       GLIDE_IS_FLOAT(model%geometry%thkmask),   &
                       model%tempwk%wphi)
 
-!TODO - Move call to glissade.F90?
-!       Move subroutine calcflwa to another module?
+!WHL - Removed glissade_calcflwa call here; moved it to glissade_diagnostic_variable_solve.
 
        ! Calculate Glen's A --------------------------------------------------------
 
-       call calcflwa(model%numerics%stagsigma,    &
-                     model%numerics%thklim,       &
-                     model%temper%flwa,           &
-                     model%temper%temp(1:model%general%upn-1,:,:),  &
-                     model%geometry%thck,         &
-                     model%paramets%flow_factor,  &
-                     model%paramets%default_flwa, &
-                     model%options%whichflwa) 
+!       call glissade_calcflwa(model%numerics%stagsigma,    &
+!                              model%numerics%thklim,       &
+!                              model%temper%flwa,           &
+!                              model%temper%temp(1:model%general%upn-1,:,:),  &
+!                              model%geometry%thck,         &
+!                              model%paramets%flow_factor,  &
+!                              model%paramets%default_flwa, &
+!                              model%options%whichflwa) 
 
    case(2) ! do nothing
 
@@ -631,7 +610,7 @@ contains
     else    ! grounded ice
 
 !TODO - This call (and those below) could be inlined.
-       call calcpmptb(pmptempb, model%geometry%thck(ew,ns))
+       call glissade_calcpmptb(pmptempb, model%geometry%thck(ew,ns))
 
        if (abs(model%temper%temp(model%general%upn,ew,ns) - pmptempb) < 0.001d0) then  ! melting
 
@@ -847,7 +826,7 @@ contains
             ! If internal melting is rare, it should be OK to remove ice from the lowest layer only.
             ! But for temperate ice we should do something more realistic.
 
-             call calcpmpt(pmptemp(:), thck(ew,ns), stagsigma(1:model%general%upn) )
+             call glissade_calcpmpt(pmptemp(:), thck(ew,ns), stagsigma(1:model%general%upn) )
 
              do up = 1, model%general%upn-1
                  if (temp(up,ew,ns) > pmptemp(up)) then
@@ -860,7 +839,7 @@ contains
              ! Reset basal temp to pmptemp, if necessary
 
              up = model%general%upn
-             call calcpmptb(pmptemp(up), thck(ew,ns))
+             call glissade_calcpmptb(pmptemp(up), thck(ew,ns))
              temp(up,ew,ns) = min (temp(up,ew,ns), pmptemp(up))
 
           endif   ! thk > thklim
@@ -1016,7 +995,9 @@ contains
 
   !-----------------------------------------------------------------------------------
 
-  subroutine calcpmpt(pmptemp,thck,sigma)
+!TODO - Inline this subroutine above?
+
+  subroutine glissade_calcpmpt(pmptemp,thck,sigma)
 
     use glimmer_global, only : dp !, upn
     use glimmer_physcon, only : rhoi, grav, pmlt 
@@ -1030,11 +1011,13 @@ contains
 
     pmptemp(:) = fact * thck * sigma(:)
 
-  end subroutine calcpmpt
+  end subroutine glissade_calcpmpt
 
   !-------------------------------------------------------------------
 
-  subroutine calcpmptb(pmptemp,thck)
+!TODO - Inline this subroutine above?
+
+  subroutine glissade_calcpmptb(pmptemp,thck)
 
     use glimmer_global, only : dp
     use glimmer_physcon, only : rhoi, grav, pmlt 
@@ -1047,14 +1030,13 @@ contains
 
     pmptemp = fact * thck 
 
-  end subroutine calcpmptb
+  end subroutine glissade_calcpmptb
 
   !-------------------------------------------------------------------
 
 !TODO - Very similar to the SIA version of calcflwa; just make sure loops are correct.
-!       Move to another module?
 
-  subroutine calcflwa(stagsigma, thklim, flwa, temp, thck, flow_factor, default_flwa_arg, flag)
+  subroutine glissade_calcflwa(stagsigma, thklim, flwa, temp, thck, flow_factor, default_flwa_arg, flag)
 
     !*FD Calculates Glen's $A$ over the three-dimensional domain,
     !*FD using one of three possible methods.
@@ -1103,6 +1085,10 @@ contains
    
     default_flwa = flow_factor * default_flwa_arg / (vis0*scyr) 
 
+!TODO - If this subroutine is called only from Glide, we should always have temp_upn = flwa_upn,
+!     	 in which case the offset term should always = 1.
+!WHL - I'm not sure why the size of temp is wrong, given the way the array is passed in.
+       
     temp_upn=size(temp,1)
     flwa_upn=size(flwa,1) ; ewn=size(flwa,2) ; nsn=size(flwa,3)
     if (temp_upn .eq. flwa_upn) then
@@ -1145,7 +1131,7 @@ contains
 
             ! Calculate Glen's A
 
-            call patebudd(tempcor(:), flwa(:,ew,ns), arrfact) 
+            call glissade_patebudd(tempcor(:), flwa(:,ew,ns), arrfact) 
 
           else
             flwa(:,ew,ns) = default_flwa
@@ -1164,7 +1150,7 @@ contains
 
             ! Calculate Glen's A with a fixed temperature.
 
-            call patebudd((/(contemp, up=1,flwa_upn)/),flwa(:,ew,ns),arrfact) 
+            call glissade_patebudd((/(contemp, up=1,flwa_upn)/),flwa(:,ew,ns),arrfact) 
 
           else
             flwa(:,ew,ns) = default_flwa
@@ -1178,11 +1164,11 @@ contains
   
     end select
 
-  end subroutine calcflwa 
+  end subroutine glissade_calcflwa 
 
 !------------------------------------------------------------------------------------------
 
-  subroutine patebudd(tempcor,calcga,fact)
+  subroutine glissade_patebudd(tempcor,calcga,fact)
 
     !*FD Calculates the value of Glen's $A$ for the temperature values in a one-dimensional
     !*FD array. The input array is usually a vertical temperature profile. The equation used
@@ -1227,7 +1213,7 @@ contains
       calcga = fact(2) * exp(fact(4) / (tempcor + trpt))
     end where
 
-  end subroutine patebudd
+  end subroutine glissade_patebudd
 
 !------------------------------------------------------------------------------------
 
