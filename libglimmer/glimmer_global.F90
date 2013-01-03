@@ -88,13 +88,7 @@ module glimmer_global
   character, parameter :: char_ret = achar(13)          !< ASCII carriage-return
   character(2), parameter :: cr_lf = char_ret//linefeed !< default newline appropriate for UNIX-type systems
   character, parameter :: endline = linefeed
-
-  real(dp) :: NaN
   !*FD ASCII linefeed and carriage-return characters,
   !*FD and set up default newline appropriate for UNIX-type systems
-contains
-  subroutine initnan()
-    NaN = 0
-    NaN = NaN/NaN
-  end subroutine
+
 end module glimmer_global

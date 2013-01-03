@@ -1152,7 +1152,7 @@ contains
 
 #ifdef _USE_MPI_WITH_SLAP
   subroutine parallel_finalise
-    use mpi
+    use mpi_mod
     implicit none
     integer :: ierror 
     ! begin 
@@ -1531,7 +1531,7 @@ contains
   ! parallel_initialise should generally just be called by standalone cism drivers
   ! When cism is nested inside a climate model (so mpi_init has already been called) use parallel_set_info instead
   subroutine parallel_initialise
-    use mpi 
+    use mpi_mod 
     implicit none
     integer :: ierror 
     integer, parameter :: my_main_rank = 0
@@ -1543,7 +1543,7 @@ contains
   ! parallel_set_info should be called directly when cism is nested inside a climate model
   ! (then, mpi_init has already been called, so do NOT use parallel_initialise)
   subroutine parallel_set_info(my_comm, my_main_rank)
-    use mpi
+    use mpi_mod
     implicit none
     integer, intent(in) :: my_comm       ! CISM's global communicator
     integer, intent(in) :: my_main_rank  ! rank of the master task (ignored for parallel_slap)

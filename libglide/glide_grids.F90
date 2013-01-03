@@ -11,7 +11,8 @@
 #include "glide_mask.inc"
 
 module glide_grids
-    use glimmer_global, only : dp, NaN
+    use glimmer_global, only : dp
+    use nan_mod, only : NaN
     implicit none
 
 contains

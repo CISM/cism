@@ -159,10 +159,6 @@ contains
     ! initialise scales
     call glimmer_init_scales
 
-!TODO - Is this call needed?
-    !Initialize the NAN representation, hack to get smart compilers like gfortran to divide by zero
-    call initnan 
-
 !SCALING - This call is needed to 
     ! scale parameters (some conversions to SI units)
     call glide_scale_params(model)

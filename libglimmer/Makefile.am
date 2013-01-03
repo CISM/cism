@@ -10,9 +10,14 @@ dist_variable_DATA = $(variable_DATA)
 if DISTRIBUTED
    parallel_src = parallel_mpi.F90
    horiz_bcs_src = glimmer_horiz_bcs_parallel.F90
+   mpi_src = mpi_mod.F90
 else
    parallel_src = parallel_slap.F90
    horiz_bcs_src = glimmer_horiz_bcs_serial.F90
+
+   # empty mpi_src variable
+   # WJS (1-3-12): Really, this should be mpi_mod.F90 if we're using USE_MPI_WITH_SLAP
+   mpi_src = 
 endif
 
 nodist_include_HEADERS := $(wildcard *.mod)
@@ -26,7 +31,8 @@ libglimmer_la_SOURCES = glimmer_vers.F90 $(horiz_bcs_src) $(parallel_src) glimme
                        glimmer_integrate.F90 \
                        glimmer_map_CFproj.F90 glimmer_map_proj4.F90 \
                        glimmer_map_types.F90 glimmer_map_init.F90 \
-                       glimmer_map_trans.F90 glimmer_scales.F90 
+                       glimmer_map_trans.F90 glimmer_scales.F90 \
+                       nan_mod.F90 $(mpi_src)
 nodist_libglimmer_la_SOURCES = glimmer_vers.F90
 libglimmer_la_LDFLAGS=-all-static
 

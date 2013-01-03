@@ -1,6 +1,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! WARNING: this file was automatically generated on
-! Mon, 03 Dec 2012 21:19:25 +0000
+! Thu, 03 Jan 2013 19:50:07 +0000
 ! from ncdf_template.F90.in
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -386,24 +386,6 @@ contains
        status = parallel_put_att(NCO%id, varid, 'standard_name', 'surface_temperature')
        status = parallel_put_att(NCO%id, varid, 'cell_methods', 'time: mean')
        status = parallel_put_att(NCO%id, varid, 'units', 'degree_Celsius')
-       if (glimmap_allocated(model%projection)) then
-          status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
-          status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
-       end if
-     end if
-
-    !     backstress -- backstress_sigmab
-    pos = index(NCO%vars,' backstress ')
-    status = parallel_inq_varid(NCO%id,'backstress',varid)
-    if (pos.ne.0) then
-      NCO%vars(pos+1:pos+10) = '          '
-    end if
-    if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-       call write_log('Creating variable backstress')
-       status = parallel_def_var(NCO%id,'backstress',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
-       call nc_errorhandle(__FILE__,__LINE__,status)
-       status = parallel_put_att(NCO%id, varid, 'long_name', 'backstress_sigmab')
-       status = parallel_put_att(NCO%id, varid, 'units', 'meters/year')
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
@@ -1611,13 +1593,6 @@ contains
     if (status .eq. nf90_noerr) then
        status = distributed_put_var(NCO%id, varid, &
             data%climate%artm, (/1,1,outfile%timecounter/))
-       call nc_errorhandle(__FILE__,__LINE__,status)
-    end if
-
-    status = parallel_inq_varid(NCO%id,'backstress',varid)
-    if (status .eq. nf90_noerr) then
-       status = distributed_put_var(NCO%id, varid, &
-            data%climate%backstress, (/1,1,outfile%timecounter/))
        call nc_errorhandle(__FILE__,__LINE__,status)
     end if
 
@@ -2941,28 +2916,6 @@ contains
 
     data%climate%artm = inarray
   end subroutine glide_set_artm
-
-  subroutine glide_get_backstress(data,outarray)
-    use glimmer_scales
-    use glimmer_paramets
-    use glide_types
-    implicit none
-    type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
-
-    outarray = data%climate%backstress
-  end subroutine glide_get_backstress
-
-  subroutine glide_set_backstress(data,inarray)
-    use glimmer_scales
-    use glimmer_paramets
-    use glide_types
-    implicit none
-    type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
-
-    data%climate%backstress = inarray
-  end subroutine glide_set_backstress
 
   subroutine glide_get_beta(data,outarray)
     use glimmer_scales

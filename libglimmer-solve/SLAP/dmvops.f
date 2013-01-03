@@ -545,7 +545,10 @@ C***ROUTINES CALLED SLLTI2
 C
 C***END PROLOGUE  DSLLTI
       IMPLICIT DOUBLE PRECISION(A-H,O-Z)
-      INTEGER N, NELT, IA(NELT), JA(NELT), ISYM, IWORK(1)
+CWJS (1-3-13): Changing IWORK from size 1 to size 10,
+CWJS in agreement with what was done in the CESM repository.
+CWJS This is needed to avoid warnings when array bounds checking is on.
+      INTEGER N, NELT, IA(NELT), JA(NELT), ISYM, IWORK(10)
       DOUBLE PRECISION B(1), X(1), A(NELT), RWORK(1)
 C         
 C***FIRST EXECUTABLE STATEMENT  DSLLTI
@@ -741,8 +744,11 @@ C       See the "DESCRIPTION" of DSLUI2 for the gory details.
 C***ROUTINES CALLED  DSLUI2
 C***END PROLOGUE  DSLUI
       IMPLICIT DOUBLE PRECISION(A-H,O-Z)
-      INTEGER N, NELT, IA(NELT), JA(NELT), ISYM, IWORK(10)
-      DOUBLE PRECISION B(N), X(N), A(NELT), RWORK(1)
+CWJS (1-2-13): Changing IWORK and RWORK from size 10,1 (respectively) to size *,
+CWJS in agreement with what was in the CESM repository. This is needed to avoid problems
+CWJS when array bounds checking is on.
+      INTEGER N, NELT, IA(NELT), JA(NELT), ISYM, IWORK(*)
+      DOUBLE PRECISION B(N), X(N), A(NELT), RWORK(*)
 C
 C         Pull out the locations of the arrays holding the ILU
 C         factorization.
@@ -913,8 +919,11 @@ C***REFERENCES  (NONE)
 C***ROUTINES CALLED  (NONE)
 C***END PROLOGUE  DSLUI2
       IMPLICIT DOUBLE PRECISION(A-H,O-Z)
-      INTEGER N, IL(1), JL(1), IU(1), JU(1)
-      DOUBLE PRECISION B(N), X(N), L(1), DINV(N), U(1)
+CWJS (1-2-13): Reimplementing changes from Jon Wolfe to make code work with array bounds checking
+CWJS  INTEGER N, IL(1), JL(1), IU(1), JU(1)
+CWJS  DOUBLE PRECISION B(N), X(N), L(1), DINV(N), U(1)
+      INTEGER N, IL(N+1), JL(*), IU(*), JU(N+1)
+      DOUBLE PRECISION B(N), X(N), L(*), DINV(N), U(*)
 C         
 C         Solve  L*Y = B,  storing result in X, L stored by rows.
 C***FIRST EXECUTABLE STATEMENT  DSLUI2

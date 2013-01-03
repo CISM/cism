@@ -36,7 +36,8 @@
 !TODO - May need two versions of this module, one for glide and one for glam
 
 module glide_mask
-    use glimmer_global, only : dp, sp, NaN
+    use glimmer_global, only : dp, sp
+    use nan_mod, only : NaN
   !*FD masking ice thicknesses
 
 contains

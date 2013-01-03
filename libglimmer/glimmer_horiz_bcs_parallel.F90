@@ -58,7 +58,7 @@ contains
   subroutine horiz_bcs_unstag_scalar_real8_2d( a )
     use parallel, only: nsub, ewub, nslb, ewlb, global_nsn, global_ewn, own_ewn, own_nsn, lhalo, uhalo, &
                         rank => this_rank, ewtasks => ProcsEW, tasks, comm
-    use mpi 
+    use mpi_mod 
     implicit none
     real(8),dimension(:,:), intent(inout) :: a
     integer :: i, partner, nstasks, ierr
@@ -167,7 +167,7 @@ contains
   subroutine horiz_bcs_unstag_scalar_integer_2d( a )
     use parallel, only: nsub, ewub, nslb, ewlb, global_nsn, global_ewn, own_ewn, own_nsn, lhalo, uhalo, &
                         rank => this_rank, ewtasks => ProcsEW, tasks, comm
-    use mpi 
+    use mpi_mod 
     implicit none
     integer,dimension(:,:), intent(inout) :: a
     integer :: i, partner, nstasks, ierr
@@ -276,7 +276,7 @@ contains
   subroutine horiz_bcs_unstag_scalar_logical_2d( a )
     use parallel, only: nsub, ewub, nslb, ewlb, global_nsn, global_ewn, own_ewn, own_nsn, lhalo, uhalo, &
                         rank => this_rank, ewtasks => ProcsEW, tasks, comm
-    use mpi 
+    use mpi_mod 
     implicit none
     logical,dimension(:,:), intent(inout) :: a
     integer :: i, partner, nstasks, ierr
@@ -385,7 +385,7 @@ contains
   subroutine horiz_bcs_unstag_scalar_real4_2d( a )
     use parallel, only: nsub, ewub, nslb, ewlb, global_nsn, global_ewn, own_ewn, own_nsn, lhalo, uhalo, &
                         rank => this_rank, ewtasks => ProcsEW, tasks, comm
-    use mpi 
+    use mpi_mod 
     implicit none
     real(4),dimension(:,:), intent(inout) :: a
     integer :: i, partner, nstasks, ierr
@@ -494,7 +494,7 @@ contains
   subroutine horiz_bcs_unstag_scalar_real8_3d( a )
     use parallel, only: nsub, ewub, nslb, ewlb, global_nsn, global_ewn, own_ewn, own_nsn, lhalo, uhalo, &
                         rank => this_rank, ewtasks => ProcsEW, tasks, comm
-    use mpi 
+    use mpi_mod 
     implicit none
     real(8),dimension(:,:,:), intent(inout) :: a
     integer :: i, partner, nstasks, ierr
@@ -604,7 +604,7 @@ contains
     use parallel, only: nsub, ewub, nslb, ewlb, global_nsn, global_ewn, own_ewn, own_nsn, &
                         staggered_nhalo, staggered_ehalo, staggered_shalo, staggered_whalo, &
                         rank => this_rank, ewtasks => ProcsEW, tasks, comm
-    use mpi
+    use mpi_mod
     implicit none
     real(8),dimension(:,:,:), intent(inout) :: a
     integer :: i, partner, nstasks, ierr
@@ -734,7 +734,7 @@ contains
     use parallel, only: nsub, ewub, nslb, ewlb, global_nsn, global_ewn, own_ewn, own_nsn, &
                         staggered_nhalo, staggered_ehalo, staggered_shalo, staggered_whalo, &
                         rank => this_rank, ewtasks => ProcsEW, tasks, comm
-    use mpi
+    use mpi_mod
     implicit none
     real(8),dimension(:,:), intent(inout) :: a
     integer :: i, partner, nstasks, ierr
@@ -864,7 +864,7 @@ contains
     use parallel, only: nsub, ewub, nslb, ewlb, global_nsn, global_ewn, own_ewn, own_nsn, &
                         staggered_nhalo, staggered_ehalo, staggered_shalo, staggered_whalo, &
                         rank => this_rank, ewtasks => ProcsEW, tasks, comm
-    use mpi
+    use mpi_mod
     implicit none
     real(8),dimension(:,:,:), intent(inout) :: a
     integer :: i, partner, nstasks, ierr
@@ -994,7 +994,7 @@ contains
     use parallel, only: nsub, ewub, nslb, ewlb, global_nsn, global_ewn, own_ewn, own_nsn, &
                         staggered_nhalo, staggered_ehalo, staggered_shalo, staggered_whalo, &
                         rank => this_rank, ewtasks => ProcsEW, tasks, comm
-    use mpi
+    use mpi_mod
     implicit none
     real(8),dimension(:,:), intent(inout) :: a
     integer :: i, partner, nstasks, ierr
@@ -1124,7 +1124,7 @@ contains
     use parallel, only: nsub, ewub, nslb, ewlb, global_nsn, global_ewn, own_ewn, own_nsn, &
                         staggered_nhalo, staggered_ehalo, staggered_shalo, staggered_whalo, &
                         rank => this_rank, ewtasks => ProcsEW, tasks, comm
-    use mpi
+    use mpi_mod
     implicit none
     integer,dimension(:,:), intent(inout) :: a
     integer :: i, partner, nstasks, ierr
@@ -1255,7 +1255,7 @@ contains
     use parallel, only: nsub, ewub, nslb, ewlb, global_nsn, global_ewn, own_ewn, own_nsn, &
                         staggered_nhalo, staggered_ehalo, staggered_shalo, staggered_whalo, &
                         rank => this_rank, ewtasks => ProcsEW, tasks, comm
-    use mpi
+    use mpi_mod
     implicit none
     real(8),dimension(:,:), intent(inout) :: a
     integer :: i, partner, nstasks, ierr
@@ -1386,7 +1386,7 @@ contains
     use parallel, only: nsub, ewub, nslb, ewlb, global_nsn, global_ewn, own_ewn, own_nsn, &
                         staggered_nhalo, staggered_ehalo, staggered_shalo, staggered_whalo, &
                         rank => this_rank, ewtasks => ProcsEW, tasks, comm
-    use mpi
+    use mpi_mod
     implicit none
     real(8),dimension(:,:,:), intent(inout) :: a
     integer :: i, partner, nstasks, ierr

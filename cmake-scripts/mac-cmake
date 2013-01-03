@@ -19,6 +19,7 @@ cmake \
   -D GLIMMER_NETCDF_DIR="/opt/local" \
   -D CMAKE_Fortran_FLAGS="-g -O2 -ffree-line-length-none" \
   -D CMAKE_VERBOSE_MAKEFILE=OFF \
+  -D CISM_GNU:BOOL=ON \
   ..
 
 # Note: last argument above  ".."  is path to top seacism directory

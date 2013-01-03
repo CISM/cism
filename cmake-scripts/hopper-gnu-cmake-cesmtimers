@@ -63,6 +63,7 @@ cmake \
   -D GLIMMER_GPTL_DIR=/project/projectdirs/ccsm1/libgptl/libgptl-gnu \
   -D CMAKE_VERBOSE_MAKEFILE:BOOL=OFF \
   -D GLIMMER_Fortran_FLAGS="-ffree-line-length-none" \
+  -D CISM_GNU:BOOL=ON \
  ..
 
 # Note: last argument above  ".."  is path to top seacism directory 

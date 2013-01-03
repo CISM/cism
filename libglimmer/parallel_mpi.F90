@@ -233,7 +233,7 @@ module parallel
 contains
 
   subroutine broadcast_character(c)
-    use mpi
+    use mpi_mod
     implicit none
     character(len=*) :: c
     integer :: ierror,n
@@ -243,7 +243,7 @@ contains
   end subroutine broadcast_character
 
   subroutine broadcast_integer(i)
-    use mpi
+    use mpi_mod
     implicit none
     integer :: i,ierror
     ! begin
@@ -251,7 +251,7 @@ contains
   end subroutine broadcast_integer
 
   subroutine broadcast_integer_1d(a)
-    use mpi
+    use mpi_mod
     implicit none
     integer,dimension(:) :: a
     integer :: ierror
@@ -260,7 +260,7 @@ contains
   end subroutine broadcast_integer_1d
 
   subroutine broadcast_logical(l)
-    use mpi
+    use mpi_mod
     implicit none
     logical :: l
     integer :: ierror
@@ -269,7 +269,7 @@ contains
   end subroutine broadcast_logical
 
   subroutine broadcast_real4(r)
-    use mpi
+    use mpi_mod
     implicit none
     integer :: ierror
     real(4) :: r
@@ -278,7 +278,7 @@ contains
   end subroutine broadcast_real4
 
   subroutine broadcast_real4_1d(a)
-    use mpi
+    use mpi_mod
     implicit none
     real(4),dimension(:) :: a
     integer :: ierror
@@ -287,7 +287,7 @@ contains
   end subroutine broadcast_real4_1d
 
   subroutine broadcast_real8(r)
-    use mpi
+    use mpi_mod
     implicit none
     integer :: ierror
     real(8) :: r
@@ -296,7 +296,7 @@ contains
   end subroutine broadcast_real8
 
   subroutine broadcast_real8_1d(a)
-    use mpi
+    use mpi_mod
     implicit none
     real(8),dimension(:) :: a
     integer :: ierror
@@ -316,7 +316,7 @@ contains
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task will store the variable.
     ! If global_values is allocated, then it will be deallocated and reallocated.  It will be unused on other nodes.
-    use mpi
+    use mpi_mod
     implicit none
     integer,dimension(:,:),intent(in) :: values
     integer,dimension(:,:),allocatable,intent(inout) :: global_values
@@ -390,7 +390,7 @@ contains
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task will store the variable.
     ! If global_values is allocated, then it will be deallocated and reallocated.  It will be unused on other nodes.
-    use mpi
+    use mpi_mod
     implicit none
     logical,dimension(:,:),intent(in) :: values
     logical,dimension(:,:),allocatable,intent(inout) :: global_values
@@ -464,7 +464,7 @@ contains
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task will store the variable.
     ! If global_values is allocated, then it will be deallocated and reallocated.  It will be unused on other nodes.
-    use mpi
+    use mpi_mod
     implicit none
     real(4),dimension(:,:),intent(in) :: values
     real(4),dimension(:,:),allocatable,intent(inout) :: global_values
@@ -538,7 +538,7 @@ contains
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task will store the variable.
     ! If global_values is allocated, then it will be deallocated and reallocated.  It will be unused on other nodes.
-    use mpi
+    use mpi_mod
     implicit none
     real(4),dimension(:,:,:),intent(in) :: values
     real(4),dimension(:,:,:),allocatable,intent(inout) :: global_values
@@ -631,7 +631,7 @@ contains
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task will store the variable.
     ! If global_values is allocated, then it will be deallocated and reallocated.  It will be unused on other nodes.
-    use mpi
+    use mpi_mod
     implicit none
     real(8),dimension(:,:),intent(in) :: values
     real(8),dimension(:,:),allocatable,intent(inout) :: global_values
@@ -705,7 +705,7 @@ contains
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task will store the variable.
     ! If global_values is allocated, then it will be deallocated and reallocated.  It will be unused on other nodes.
-    use mpi
+    use mpi_mod
     implicit none
     real(8),dimension(:,:,:),intent(in) :: values
     real(8),dimension(:,:,:),allocatable,intent(inout) :: global_values
@@ -794,7 +794,7 @@ contains
   end subroutine distributed_gather_var_real8_3d
 
   function distributed_get_var_integer_2d(ncid,varid,values,start)
-    use mpi
+    use mpi_mod
     implicit none
     integer :: distributed_get_var_integer_2d,ncid,varid
     integer,dimension(:) :: start
@@ -862,7 +862,7 @@ contains
   end function distributed_get_var_integer_2d
 
   function distributed_get_var_real4_1d(ncid,varid,values,start)
-    use mpi
+    use mpi_mod
     use netcdf
     implicit none
     integer :: distributed_get_var_real4_1d,ncid,varid
@@ -928,7 +928,7 @@ contains
   end function distributed_get_var_real4_1d
 
   function distributed_get_var_real4_2d(ncid,varid,values,start)
-    use mpi
+    use mpi_mod
     implicit none
     integer :: distributed_get_var_real4_2d,ncid,varid
     integer,dimension(:) :: start
@@ -996,7 +996,7 @@ contains
   end function distributed_get_var_real4_2d
 
   function distributed_get_var_real8_2d(ncid,varid,values,start)
-    use mpi
+    use mpi_mod
     implicit none
     integer :: distributed_get_var_real8_2d,ncid,varid
     integer,dimension(:) :: start
@@ -1065,7 +1065,7 @@ contains
   end function distributed_get_var_real8_2d
 
   function distributed_get_var_real8_3d(ncid,varid,values,start)
-    use mpi
+    use mpi_mod
     implicit none
     integer :: distributed_get_var_real8_3d,ncid,varid
     integer,dimension(:) :: start
@@ -1289,7 +1289,7 @@ contains
 
   subroutine distributed_print_grid(l_ewn,l_nsn)
     ! Gathers and prints the overall grid layout by processor counts.
-    use mpi
+    use mpi_mod
     implicit none
 
     integer :: l_ewn, l_nsn
@@ -1328,7 +1328,7 @@ contains
   end subroutine distributed_print_grid
 
   subroutine distributed_print_integer_2d(name,values)
-    use mpi
+    use mpi_mod
     implicit none
     character(*) :: name
     integer,dimension(:,:) :: values
@@ -1404,7 +1404,7 @@ contains
   end subroutine distributed_print_integer_2d
 
   subroutine distributed_print_real8_2d(name,values)
-    use mpi
+    use mpi_mod
     implicit none
     character(*) :: name
     real(8),dimension(:,:) :: values
@@ -1480,7 +1480,7 @@ contains
   end subroutine distributed_print_real8_2d
 
   subroutine distributed_print_real8_3d(name,values)
-    use mpi
+    use mpi_mod
     implicit none
     character(*) :: name
     real(8),dimension(:,:,:) :: values
@@ -1557,7 +1557,7 @@ contains
   end subroutine distributed_print_real8_3d
 
   function distributed_put_var_integer_2d(ncid,varid,values,start)
-    use mpi
+    use mpi_mod
     implicit none
     integer :: distributed_put_var_integer_2d,ncid,varid
     integer,dimension(:) :: start
@@ -1627,7 +1627,7 @@ contains
   end function distributed_put_var_integer_2d
 
   function distributed_put_var_real4_1d(ncid,varid,values)
-    use mpi
+    use mpi_mod
     use netcdf
     implicit none
     integer :: distributed_put_var_real4_1d,ncid,varid
@@ -1707,7 +1707,7 @@ contains
   end function distributed_put_var_real4_1d
 
   function distributed_put_var_real4_2d(ncid,varid,values,start)
-    use mpi
+    use mpi_mod
     implicit none
     integer :: distributed_put_var_real4_2d,ncid,varid
     integer,dimension(:) :: start
@@ -1777,7 +1777,7 @@ contains
   end function distributed_put_var_real4_2d
 
   function distributed_put_var_real8_2d(ncid,varid,values,start)
-    use mpi
+    use mpi_mod
     implicit none
     integer :: distributed_put_var_real8_2d,ncid,varid
     integer,dimension(:) :: start
@@ -1847,7 +1847,7 @@ contains
   end function distributed_put_var_real8_2d
 
   function distributed_put_var_real8_3d(ncid,varid,values,start)
-    use mpi
+    use mpi_mod
     implicit none
     integer :: distributed_put_var_real8_3d,ncid,varid
     integer,dimension(:) :: start
@@ -1923,7 +1923,7 @@ contains
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task holds the variable.
     ! global_values is deallocated at the end.
-    use mpi
+    use mpi_mod
     implicit none
     integer,dimension(:,:),intent(inout) :: values  ! populated from values on main_task
     integer,dimension(:,:),allocatable,intent(inout) :: global_values  ! only used on main_task
@@ -1986,7 +1986,7 @@ contains
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task holds the variable.
     ! global_values is deallocated at the end.
-    use mpi
+    use mpi_mod
     implicit none
     logical,dimension(:,:),intent(inout) :: values  ! populated from values on main_task
     logical,dimension(:,:),allocatable,intent(inout) :: global_values  ! only used on main_task
@@ -2049,7 +2049,7 @@ contains
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task holds the variable.
     ! global_values is deallocated at the end.
-    use mpi
+    use mpi_mod
     implicit none
     real(4),dimension(:,:),intent(inout) :: values  ! populated from values on main_task
     real(4),dimension(:,:),allocatable,intent(inout) :: global_values  ! only used on main_task
@@ -2112,7 +2112,7 @@ contains
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task holds the variable.
     ! global_values is deallocated at the end.
-    use mpi
+    use mpi_mod
     implicit none
     real(4),dimension(:,:,:),intent(inout) :: values  ! populated from values on main_task
     real(4),dimension(:,:,:),allocatable,intent(inout) :: global_values  ! only used on main_task
@@ -2177,7 +2177,7 @@ contains
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task holds the variable.
     ! global_values is deallocated at the end.
-    use mpi
+    use mpi_mod
     implicit none
     real(8),dimension(:,:),intent(inout) :: values  ! populated from values on main_task
     real(8),dimension(:,:),allocatable,intent(inout) :: global_values  ! only used on main_task
@@ -2240,7 +2240,7 @@ contains
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task holds the variable.
     ! global_values is deallocated at the end.
-    use mpi
+    use mpi_mod
     implicit none
     real(8),dimension(:,:,:),intent(inout) :: values  ! populated from values on main_task
     real(8),dimension(:,:,:),allocatable,intent(inout) :: global_values  ! only used on main_task
@@ -2310,7 +2310,7 @@ contains
   end subroutine distributed_scatter_var_real8_3d
 
   subroutine global_sum(x)
-    use mpi
+    use mpi_mod
     implicit none
     real(8),dimension(:) :: x
     
@@ -2330,7 +2330,7 @@ contains
   end subroutine not_parallel
 
   subroutine parallel_barrier
-    use mpi
+    use mpi_mod
     implicit none
     integer :: ierror
     ! begin
@@ -2409,7 +2409,7 @@ contains
   end function parallel_enddef
 
   subroutine parallel_finalise
-    use mpi
+    use mpi_mod
     implicit none
     integer :: ierror
     ! begin
@@ -2594,7 +2594,7 @@ contains
   end function parallel_globalID_scalar
 
   subroutine parallel_halo_integer_2d(a)
-    use mpi
+    use mpi_mod
     implicit none
     integer,dimension(:,:) :: a
     
@@ -2648,7 +2648,7 @@ contains
   end subroutine parallel_halo_integer_2d
 
   subroutine parallel_halo_logical_2d(a)
-    use mpi
+    use mpi_mod
     implicit none
     logical,dimension(:,:) :: a
 
@@ -2702,7 +2702,7 @@ contains
   end subroutine parallel_halo_logical_2d
 
   subroutine parallel_halo_real4_2d(a)
-    use mpi
+    use mpi_mod
     implicit none
     real(4),dimension(:,:) :: a
 
@@ -2756,7 +2756,7 @@ contains
   end subroutine parallel_halo_real4_2d
 
   subroutine parallel_halo_real8_2d(a)
-    use mpi
+    use mpi_mod
     implicit none
     real(8),dimension(:,:) :: a
     
@@ -2811,7 +2811,7 @@ contains
 
   subroutine parallel_halo_real8_3d(a)
 
-    use mpi
+    use mpi_mod
     implicit none
     real(8),dimension(:,:,:) :: a
     
@@ -2869,7 +2869,7 @@ contains
     !JEFF This routine is for updating the halo for the variable model%temper%temp.
     ! This variable is two larger in each dimension, because of the current advection code.
     ! Per Bill L, we will remove this difference when we update the remapping code.
-    use mpi
+    use mpi_mod
     implicit none
     real(8),dimension(:,:,:) :: a
 
@@ -2917,7 +2917,7 @@ contains
   end subroutine parallel_halo_temperature
 
   function parallel_halo_verify_integer_2d(a)
-    use mpi
+    use mpi_mod
     implicit none
     integer,dimension(:,:) :: a
 
@@ -2983,7 +2983,7 @@ contains
   end function parallel_halo_verify_integer_2d
 
   function parallel_halo_verify_real8_2d(a)
-    use mpi
+    use mpi_mod
     implicit none
     real(8),dimension(:,:) :: a
     
@@ -3047,7 +3047,7 @@ contains
   end function parallel_halo_verify_real8_2d
 
   function parallel_halo_verify_real8_3d(a)
-    use mpi
+    use mpi_mod
     implicit none
     real(8),dimension(:,:,:) :: a
     
@@ -3113,7 +3113,7 @@ contains
   ! parallel_initialise should generally just be called by standalone cism drivers
   ! When cism is nested inside a climate model (so mpi_init has already been called) use parallel_set_info instead
   subroutine parallel_initialise
-    use mpi 
+    use mpi_mod 
     implicit none
     integer :: ierror 
     integer, parameter :: my_main_rank = 0
@@ -3125,7 +3125,7 @@ contains
   ! parallel_set_info should be called directly when cism is nested inside a climate model
   ! (then, mpi_init has already been called, so do NOT use parallel_initialise)
   subroutine parallel_set_info(my_comm, my_main_rank)
-    use mpi
+    use mpi_mod
     implicit none
     integer, intent(in) :: my_comm       ! CISM's global communicator
     integer, intent(in) :: my_main_rank  ! rank of the master task
@@ -3448,7 +3448,7 @@ contains
   end function parallel_redef
 
   function parallel_reduce_sum(x)
-    use mpi
+    use mpi_mod
     implicit none
     real(8) :: x
 
@@ -3463,7 +3463,7 @@ contains
 
 !WHL - added three versions of this procedure to replace the original real8 version
   function parallel_reduce_max_integer(x)
-    use mpi
+    use mpi_mod
     implicit none
     integer :: x
 
@@ -3477,7 +3477,7 @@ contains
   end function parallel_reduce_max_integer
 
   function parallel_reduce_max_real4(x)
-    use mpi
+    use mpi_mod
     implicit none
     real(4) :: x
 
@@ -3491,7 +3491,7 @@ contains
   end function parallel_reduce_max_real4
 
   function parallel_reduce_max_real8(x)
-    use mpi
+    use mpi_mod
     implicit none
     real(8) :: x
 
@@ -3512,7 +3512,7 @@ contains
   ! end subroutine parallel_set_trilinos_return_vect
 
   subroutine parallel_show_minmax(label,values)
-    use mpi
+    use mpi_mod
     implicit none
     character(*) :: label
     real(8),dimension(:,:,:) :: values
@@ -3530,7 +3530,7 @@ contains
   end subroutine parallel_show_minmax
 
   subroutine parallel_stop(file,line)
-    use mpi
+    use mpi_mod
     implicit none
     integer :: line
     character(len=*) :: file
@@ -3552,7 +3552,7 @@ contains
 !PW used only in periodic_boundaries routine
 !PW needs to be reworked?
   subroutine parallel_velo_halo(a)
-    use mpi
+    use mpi_mod
     implicit none
     real(8),dimension(:,:) :: a
 
@@ -3583,7 +3583,7 @@ contains
 
 !WHL - Added subroutine staggered_parallel_halo_integer_2d
   subroutine staggered_parallel_halo_integer_2d(a)
-    use mpi
+    use mpi_mod
     implicit none
     integer,dimension(:,:) :: a
 
@@ -3720,7 +3720,7 @@ contains
 !      to allow cyclic BCs for staggered variables
 
   subroutine staggered_parallel_halo_real8_2d(a)
-    use mpi
+    use mpi_mod
     implicit none
     real(8),dimension(:,:) :: a
 
@@ -3853,7 +3853,7 @@ contains
 !      to allow cyclic BCs for staggered variables
 
   subroutine staggered_parallel_halo_real8_3d(a)
-    use mpi
+    use mpi_mod
     implicit none
     real(8),dimension(:,:,:) :: a
 
@@ -4012,7 +4012,7 @@ contains
 !
 ! !USES:
 !
-      use mpi
+      use mpi_mod
 
 !
 ! !INPUT PARAMETERS: 
@@ -4142,7 +4142,7 @@ contains
 !
 ! !USES:
 !
-      use mpi
+      use mpi_mod
 
 !
 ! !INPUT PARAMETERS: 
@@ -4275,7 +4275,7 @@ contains
 !
 ! !USES:
 !
-      use mpi
+      use mpi_mod
 
 !
 ! !INPUT PARAMETERS: 
@@ -4408,7 +4408,7 @@ contains
 !
 ! !USES:
 !
-      use mpi
+      use mpi_mod
 
 !
 ! !INPUT PARAMETERS: 
@@ -4541,7 +4541,7 @@ contains
 !
 ! !USES:
 !
-      use mpi
+      use mpi_mod
 
 !
 ! !INPUT PARAMETERS: 
