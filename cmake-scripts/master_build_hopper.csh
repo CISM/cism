@@ -7,10 +7,12 @@
 # (2) set the next two commands 
 
 #add logic at the top to decide which versions to build 
-setenv TEST_DIR "$GSCRATCH/cism_tests"
+setenv TEST_DIR "$GSCRATCH/higher-order"
 setenv CODE_DIR "$HOME/seacism"
 cd $CODE_DIR
 setenv build_no 0
+setenv build_autoconf 1
+setenv build_cmake 1
 #mkdir -pv $TEST_DIR/configure_output
 
 # even if these are set in your env you need these when running the script
@@ -22,6 +24,8 @@ module swap PrgEnv-gnu PrgEnv-pgi; module load cmake/2.8.7 python netcdf-hdf5par
 echo 'bootstrap'
 ./bootstrap
 
+echo $build_autoconf
+if ($build_autoconf == 1 ) then
 #SERIAL BUILD WITH AUTOCONF
 echo 'make distclean'
 make distclean 
@@ -54,7 +58,13 @@ else
  @ build_no = 1
 endif
 
+else # build with autoconf option
+ echo 'not building autoconf code option'
+endif # build with autoconf option
+
 echo $build_no
+echo 'flag to build cmake option:' $build_no
+if ($build_cmake == 1 ) then
 # set up directories for building cmake executables
 rm -rf xe6-pgi
 rm -rf xe6-gnu
@@ -104,6 +114,10 @@ else
  echo "cmake gnu build failed, no executable"
  @ build_no = 1
 endif
+
+else # build with cmake option
+ echo 'not building cmake code option'
+endif # build with cmake option
 
 echo $build_no
 # execute tests on hopper
