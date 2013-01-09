@@ -685,16 +685,22 @@ contains
           call write_log('Error, cannot use remapping scheme to advect temperature with Glide dycore', GM_FATAL)
        endif
 
+       if (model%options%whichevol==EVOL_INC_REMAP) then
+          call write_log('Error, incremental remapping evolution is not supported for the Glide dycore', GM_FATAL)
+       endif
+
        if (distributed_execution()) then
           !TODO May want to make this GM_FATAL, but it's convenient for testing to still allow glide to run 
           !     in parallel even if won't necessarily work right.
           call write_log('Warning, Glide dycore not supported for distributed parallel runs',GM_WARNING)
        end if
 
-       !TODO Decide to keep or modify this warning.
-       if (model%options%whichevol==EVOL_PSEUDO_DIFF .or.  &
-           model%options%whichevol==EVOL_ADI)        then
-          call write_log('Warning, pseudo-diffusion and ADI evolution are being deprecated with the Glide dycore and may contain errors', GM_WARNING)
+       if (model%options%whichevol==EVOL_ADI) then
+          call write_log('Warning, exact restarts are not possible with ADI evolution', GM_WARNING)
+       endif
+
+       if (model%options%whichevol==EVOL_PSEUDO_DIFF) then
+          call write_log('Warning, exact restarts with pseudo-diffusion evolution require including uvel and vvel as restart variables', GM_WARNING)
        endif
 
     endif

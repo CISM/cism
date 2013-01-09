@@ -500,11 +500,20 @@ contains
                model%velocity% ubas,          &
                model%velocity% vbas)
 
-    ! Calculate velocity
-    call velo_calc_velo(model%velowk,model%geomderv%stagthck,model%geomderv%dusrfdew, &
+    ! Only calculate a velocity here if uvel/vvel were not provided in the input file.
+    ! If they were provided, then use the provided values.
+    ! This is required to support exact restarts when using evolution=0.
+    if ( (maxval(abs(model%velocity%uvel))==0.0d0) .and. & 
+         (maxval(abs(model%velocity%vvel))==0.0d0) ) then
+
+       ! Calculate velocity
+       call velo_calc_velo(model%velowk,model%geomderv%stagthck,model%geomderv%dusrfdew, &
             model%geomderv%dusrfdns,model%temper%flwa,model%velocity%diffu,model%velocity%ubas, &
             model%velocity%vbas,model%velocity%uvel,model%velocity%vvel,model%velocity%uflx,model%velocity%vflx,&
             model%velocity%surfvel)    
+    else
+       call write_log('Using input values for uvel and vvel for the initial time')
+    endif
 
     ! ------------------------------------------------------------------------ 
     ! Part 4: Calculate other diagnostic fields that depend on velocity

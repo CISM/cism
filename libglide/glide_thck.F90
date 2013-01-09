@@ -344,10 +344,20 @@ contains
        end if
 
        ! Note: the values for stagthck, slopes, diffu, and ubas (from option 2 call to slipvelo)
-       ! will be outdated from the previous Picard iteration.  Since the solution is converged
-       ! the values should be very close to their final value.  However, if an exact match is
-       ! desired, those calls should be repeated here after the Picard loop has converged and
-       ! before the velocity is calculated.
+       ! will be outdated from the previous Picard iteration.  
+       ! To ensure exact restarts are possible, calculate these one more time so that
+       ! they can be reconstructed with the restart values of thk and flwa
+       ! This will change answers very slightly (to within the Picard convergence tolerance)
+       ! relative to older versions of the code.   --MJH 1/9/13
+       call geometry_derivs(model)  
+       call slipvelo(model,                &
+            2,                             &
+            model%velocity% btrc,          &
+            model%velocity% ubas,          &
+            model%velocity% vbas)
+       call velo_calc_diffu(model%velowk,model%geomderv%stagthck,model%geomderv%dusrfdew, &
+            model%geomderv%dusrfdns,model%velocity%diffu)
+
 
        ! calculate horizontal velocity field
        call slipvelo(model,                &
