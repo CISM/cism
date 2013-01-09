@@ -1,0 +1,67 @@
+ Layout(EW,NS) =           41          41  total procs =            1
+  
+ Compute higher-order ice velocities, time =   0.0000000000000000     
+ Using GlobalIDs...
+
+Partition Info in init_trilinos: Total nodes = 21853  Max = 21853  Min = 21853  Ave = 21853
+  
+ Running Payne/Price higher-order dynamics with JFNK solver
+NOXINIT CALLED    for nelem=43706
+NOXInit: param list is: (delete this debug line)
+Jacobian Operator = Matrix-Free   [unused]
+Matrix-Free Perturbation = 0.0001   [unused]
+CISM: Number of Time Steps To Use LOCA = 0   [unused]
+Lean Matrix Free = 1   [unused]
+NOX -> 
+ Nonlinear Solver = Line Search Based   [unused]
+ Direction -> 
+  Method = Newton   [unused]
+  Newton -> 
+   Forcing Term Method = Type 2   [unused]
+   Rescue Bad Newton Solve = 1   [unused]
+   Stratimikos Linear Solver -> 
+    NOX Stratimikos Options -> 
+     [empty list]
+    Stratimikos -> 
+     Linear Solver Type = Belos   [unused]
+     Preconditioner Type = None   [unused]
+     Linear Solver Types -> 
+      Belos -> 
+       Solver Type = Block GMRES   [unused]
+       Solver Types -> 
+        Block GMRES -> 
+         Convergence Tolerance = 0.0001   [unused]
+         Output Frequency = 1   [unused]
+         Output Style = 1   [unused]
+         Verbosity = 33   [unused]
+         Maximum Iterations = 100   [unused]
+         Block Size = 1   [unused]
+         Num Blocks = 100   [unused]
+         Flexible Gmres = 1   [unused]
+ Line Search -> 
+  [empty list]
+ Printing -> 
+  Output Information -> 
+   Error = 1   [unused]
+   Warning = 1   [unused]
+   Outer Iteration = 1   [unused]
+   Parameters = 0   [unused]
+   Details = 0   [unused]
+   Stepper Iteration = 1   [unused]
+   Linear Solver Details = 0   [unused]
+ Status Tests -> 
+  Test Type = Combo   [unused]
+  Combo Type = OR   [unused]
+  Number of Tests = 2   [unused]
+  Test 0 -> 
+   Test Type = NormF   [unused]
+   Tolerance = 0.0001   [unused]
+  Test 1 -> 
+   Test Type = MaxIters   [unused]
+   Maximum Iterations = 100   [unused]
+
+NOXSolve called
+
+p=0: *** Caught an integer std::exception with value = -1
+Application 13924830 exit codes: 1
+Application 13924830 resources: utime ~1s, stime ~0s Rss ~45808 inblocks ~32990 outblocks ~88798

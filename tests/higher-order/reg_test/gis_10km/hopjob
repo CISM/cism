@@ -1,0 +1,42 @@
+#!/bin/bash
+#PBS -A m1343
+#PBS -q regular
+#PBS -N GIS_10km_1yr
+#PBS -l mppwidth=144
+#PBS -l walltime=1:00:00
+#PBS -j oe
+
+export SCRIPT=gis_10km.JFNK.trilinos.config
+export SCRIPT2=gis_10km.PIC.trilinos.config
+export SCRIPT3=gis_10km.JFNK.slap.config
+export SCRIPT4=gis_10km.PIC.slap.config
+export SCRIPT5=gis_10km.JFNK.trilinos.10.config
+
+export BASE=$GSCRATCH/higher-order/gis_10km/
+export EXE=$GSCRATCH/higher-order/
+cd $PBS_O_WORKDIR
+
+#echo built with autoconf pgi
+
+echo serial JFNK with slap
+time aprun -n 1 $EXE/simple_glide_serial  $BASE/$SCRIPT3 >& data/gis_10km.JFNK.slap.out
+
+echo serial PIC with slap
+time aprun -n 1 $EXE/simple_glide_serial  $BASE/$SCRIPT4 >& data/gis_10km.PIC.slap.out
+
+echo built with cmake pgi
+
+echo JFNK with trilinos
+time aprun -n 128 $EXE/simple_glide_pgi  $BASE/$SCRIPT >& data/gis_10km.JFNK.trilinos.10.pgi.out
+
+echo PIC with trilinos
+time aprun -n 128 $EXE/simple_glide_pgi  $BASE/$SCRIPT2 >& data/gis_10km.PIC.trilinos.pgi.out
+
+echo built with cmake gnu
+
+echo JFNK with trilinos, 10 years
+time aprun -n 128 $EXE/simple_glide_gnu  $BASE/$SCRIPT5 >& data/gis_10km.JFNK.trilinos.10.gnu.out
+
+echo PIC with trilinos
+time aprun -n 128 $EXE/simple_glide_gnu  $BASE/$SCRIPT2 >& data/gis_10km.PIC.trilinos.gnu.out
+

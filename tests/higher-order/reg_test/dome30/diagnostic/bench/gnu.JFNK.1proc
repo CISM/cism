@@ -1,0 +1,210 @@
+ (t_initf) Read in prof_inparm namelist from: perf_in
+ (t_initf) Using profile_disable= F  profile_timer=           1
+ (t_initf)  profile_depth_limit=       99999  profile_detail_limit=           1
+ (t_initf)  profile_barrier= F  profile_outpe_num=           0
+ (t_initf)  profile_outpe_stride=           1  profile_single_file= F
+ (t_initf)  profile_global_stats= T  profile_papi_enable= F
+ Layout(EW,NS) =           31          31  total procs =            1
+  
+ Compute higher-order ice velocities, time =   0.0000000000000000     
+ Using GlobalIDs...
+
+Partition Info in init_trilinos: Total nodes = 4992  Max = 4992  Min = 4992  Ave = 4992
+  
+ Running Payne/Price higher-order dynamics with JFNK solver
+NOXINIT CALLED    for nelem=9984
+NOXInit: param list is: (delete this debug line)
+Jacobian Operator = Matrix-Free   [unused]
+Matrix-Free Perturbation = 0.0001   [unused]
+CISM: Number of Time Steps To Use LOCA = 0   [unused]
+Lean Matrix Free = 1   [unused]
+NOX -> 
+ Nonlinear Solver = Line Search Based   [unused]
+ Direction -> 
+  Method = Newton   [unused]
+  Newton -> 
+   Forcing Term Method = Type 2   [unused]
+   Rescue Bad Newton Solve = 1   [unused]
+   Stratimikos Linear Solver -> 
+    NOX Stratimikos Options -> 
+     [empty list]
+    Stratimikos -> 
+     Linear Solver Type = Belos   [unused]
+     Preconditioner Type = None   [unused]
+     Linear Solver Types -> 
+      Belos -> 
+       Solver Type = Block GMRES   [unused]
+       Solver Types -> 
+        Block GMRES -> 
+         Convergence Tolerance = 0.0001   [unused]
+         Output Frequency = 1   [unused]
+         Output Style = 1   [unused]
+         Verbosity = 33   [unused]
+         Maximum Iterations = 100   [unused]
+         Block Size = 1   [unused]
+         Num Blocks = 100   [unused]
+         Flexible Gmres = 1   [unused]
+ Line Search -> 
+  [empty list]
+ Printing -> 
+  Output Information -> 
+   Error = 1   [unused]
+   Warning = 1   [unused]
+   Outer Iteration = 1   [unused]
+   Parameters = 0   [unused]
+   Details = 0   [unused]
+   Stepper Iteration = 1   [unused]
+   Linear Solver Details = 0   [unused]
+ Status Tests -> 
+  Test Type = Combo   [unused]
+  Combo Type = OR   [unused]
+  Number of Tests = 2   [unused]
+  Test 0 -> 
+   Test Type = NormF   [unused]
+   Tolerance = 0.0001   [unused]
+  Test 1 -> 
+   Test Type = MaxIters   [unused]
+   Maximum Iterations = 30   [unused]
+
+NOXSolve called
+
+************************************************************************
+-- Nonlinear Solver Step 0 -- 
+||F|| = 2.046e+02  step = 0.000e+00  dx = 0.000e+00
+************************************************************************
+
+ Precon Linear Solve Succeeded: 6.9e-12 drop in 30 its (avg: 30 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 4.04e-12 drop in 31 its (avg: 30.5 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 5.53e-12 drop in 31 its (avg: 30.7 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 8.28e-12 drop in 30 its (avg: 30.5 its/slv, 100% success)
+ 
+ The Belos solver of type "Belos::BlockGmresSolMgr<...,double>{Variant='Flexible', Ortho Type='DGKS', Block Size=1, Num Blocks=100, Max Restarts=20}" returned a solve status of "SOLVE_STATUS_CONVERGED" in 2 iterations with total CPU time of 0.275212 sec
+
+************************************************************************
+-- Nonlinear Solver Step 1 -- 
+||F|| = 2.043e+02  step = 1.000e+00  dx = 1.384e-06
+************************************************************************
+
+ Precon Linear Solve Succeeded: 1.34e-12 drop in 12 its (avg: 26.8 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 1.14e-12 drop in 12 its (avg: 24.3 its/slv, 100% success)
+ 
+ The Belos solver of type "Belos::BlockGmresSolMgr<...,double>{Variant='Flexible', Ortho Type='DGKS', Block Size=1, Num Blocks=100, Max Restarts=20}" returned a solve status of "SOLVE_STATUS_CONVERGED" in 1 iterations with total CPU time of 0.084765 sec
+
+************************************************************************
+-- Nonlinear Solver Step 2 -- 
+||F|| = 2.009e+02  step = 1.000e+00  dx = 6.085e-05
+************************************************************************
+
+ Precon Linear Solve Succeeded: 7.94e-12 drop in 15 its (avg: 23 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 7.01e-12 drop in 15 its (avg: 22 its/slv, 100% success)
+ 
+ The Belos solver of type "Belos::BlockGmresSolMgr<...,double>{Variant='Flexible', Ortho Type='DGKS', Block Size=1, Num Blocks=100, Max Restarts=20}" returned a solve status of "SOLVE_STATUS_CONVERGED" in 1 iterations with total CPU time of 0.0913541 sec
+
+************************************************************************
+-- Nonlinear Solver Step 3 -- 
+||F|| = 1.842e+02  step = 1.000e+00  dx = 7.000e-03
+************************************************************************
+
+ Precon Linear Solve Succeeded: 6.45e-12 drop in 15 its (avg: 21.2 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 5.82e-12 drop in 15 its (avg: 20.6 its/slv, 100% success)
+ 
+ The Belos solver of type "Belos::BlockGmresSolMgr<...,double>{Variant='Flexible', Ortho Type='DGKS', Block Size=1, Num Blocks=100, Max Restarts=20}" returned a solve status of "SOLVE_STATUS_CONVERGED" in 1 iterations with total CPU time of 0.0910211 sec
+
+************************************************************************
+-- Nonlinear Solver Step 4 -- 
+||F|| = 1.430e+02  step = 1.000e+00  dx = 1.555e-01
+************************************************************************
+
+ Precon Linear Solve Succeeded: 7.58e-12 drop in 15 its (avg: 20.1 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 7.34e-12 drop in 15 its (avg: 19.7 its/slv, 100% success)
+ 
+ The Belos solver of type "Belos::BlockGmresSolMgr<...,double>{Variant='Flexible', Ortho Type='DGKS', Block Size=1, Num Blocks=100, Max Restarts=20}" returned a solve status of "SOLVE_STATUS_CONVERGED" in 1 iterations with total CPU time of 0.0912559 sec
+
+************************************************************************
+-- Nonlinear Solver Step 5 -- 
+||F|| = 8.215e+01  step = 1.000e+00  dx = 9.885e-01
+************************************************************************
+
+ Precon Linear Solve Succeeded: 9.2e-12 drop in 15 its (avg: 19.3 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 9.75e-12 drop in 15 its (avg: 19 its/slv, 100% success)
+ 
+ The Belos solver of type "Belos::BlockGmresSolMgr<...,double>{Variant='Flexible', Ortho Type='DGKS', Block Size=1, Num Blocks=100, Max Restarts=20}" returned a solve status of "SOLVE_STATUS_CONVERGED" in 1 iterations with total CPU time of 0.0909178 sec
+
+************************************************************************
+-- Nonlinear Solver Step 6 -- 
+||F|| = 2.826e+01  step = 1.000e+00  dx = 2.050e+00
+************************************************************************
+
+ Precon Linear Solve Succeeded: 2.12e-12 drop in 16 its (avg: 18.8 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 2.22e-12 drop in 16 its (avg: 18.6 its/slv, 100% success)
+ 
+ The Belos solver of type "Belos::BlockGmresSolMgr<...,double>{Variant='Flexible', Ortho Type='DGKS', Block Size=1, Num Blocks=100, Max Restarts=20}" returned a solve status of "SOLVE_STATUS_CONVERGED" in 1 iterations with total CPU time of 0.0928788 sec
+
+************************************************************************
+-- Nonlinear Solver Step 7 -- 
+||F|| = 3.945e+00  step = 1.000e+00  dx = 1.313e+00
+************************************************************************
+
+ Precon Linear Solve Succeeded: 2.86e-12 drop in 16 its (avg: 18.5 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 2.59e-12 drop in 16 its (avg: 18.3 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 3.39e-12 drop in 16 its (avg: 18.2 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 8.17e-12 drop in 15 its (avg: 18.1 its/slv, 100% success)
+ 
+ The Belos solver of type "Belos::BlockGmresSolMgr<...,double>{Variant='Flexible', Ortho Type='DGKS', Block Size=1, Num Blocks=100, Max Restarts=20}" returned a solve status of "SOLVE_STATUS_CONVERGED" in 2 iterations with total CPU time of 0.184849 sec
+
+************************************************************************
+-- Nonlinear Solver Step 8 -- 
+||F|| = 1.727e-01  step = 1.000e+00  dx = 2.088e-01
+************************************************************************
+
+ Precon Linear Solve Succeeded: 2.34e-12 drop in 16 its (avg: 18 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 2.77e-12 drop in 16 its (avg: 17.9 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 2.98e-12 drop in 16 its (avg: 17.8 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 2.91e-12 drop in 16 its (avg: 17.7 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 2.87e-12 drop in 16 its (avg: 17.6 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 2.13e-12 drop in 16 its (avg: 17.6 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 2.48e-12 drop in 16 its (avg: 17.5 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 2.24e-12 drop in 16 its (avg: 17.5 its/slv, 100% success)
+ 
+ The Belos solver of type "Belos::BlockGmresSolMgr<...,double>{Variant='Flexible', Ortho Type='DGKS', Block Size=1, Num Blocks=100, Max Restarts=20}" returned a solve status of "SOLVE_STATUS_CONVERGED" in 4 iterations with total CPU time of 0.36899 sec
+
+************************************************************************
+-- Nonlinear Solver Step 9 -- 
+||F|| = 1.346e-03  step = 1.000e+00  dx = 5.205e-03
+************************************************************************
+
+ Precon Linear Solve Succeeded: 9.71e-12 drop in 15 its (avg: 17.4 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 8.49e-12 drop in 15 its (avg: 17.3 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 2.37e-12 drop in 16 its (avg: 17.3 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 3.14e-12 drop in 16 its (avg: 17.2 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 3.23e-12 drop in 16 its (avg: 17.2 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 3.34e-12 drop in 16 its (avg: 17.1 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 3.33e-12 drop in 16 its (avg: 17.1 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 2.72e-12 drop in 16 its (avg: 17.1 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 2.73e-12 drop in 16 its (avg: 17.1 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 2.63e-12 drop in 16 its (avg: 17 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 2.41e-12 drop in 16 its (avg: 17 its/slv, 100% success)
+ Precon Linear Solve Succeeded: 9.49e-12 drop in 15 its (avg: 16.9 its/slv, 100% success)
+ 
+ The Belos solver of type "Belos::BlockGmresSolMgr<...,double>{Variant='Flexible', Ortho Type='DGKS', Block Size=1, Num Blocks=100, Max Restarts=20}" returned a solve status of "SOLVE_STATUS_CONVERGED" in 6 iterations with total CPU time of 0.550452 sec
+
+************************************************************************
+-- Nonlinear Solver Step 10 -- 
+||F|| = 7.223e-07  step = 1.000e+00  dx = 2.101e-05 (Converged!)
+************************************************************************
+
+************************************************************************
+-- Final Status Test Results --
+Converged....OR Combination -> 
+  Converged....F-Norm = 7.223e-07 < 1.000e-04
+               (Unscaled Two-Norm, Absolute Tolerance)
+  ??...........Number of Iterations = -1 < 30
+************************************************************************
+Step Converged
+Convergence Stats: for step  #1 : Newton, Krylov, Kr/Ne; LastKrylov, LastTol: 10  20  2  6 0.000491
+NOXFinish called
+  
+ Writing diagnostics to log file, time(yr) =   0.0000000000000000     
+ idiag_global, jdiag_global:           1           1
+ local rank, i, j:           0           3           3
+Application 14552847 resources: utime ~4s, stime ~0s Rss ~35116 inblocks ~33057 outblocks ~89533

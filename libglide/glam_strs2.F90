@@ -3173,10 +3173,12 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
       !Therefore, it will currently revert back to the old BC's when using only one task for now. I am working to
       !debug and fix this case, but for now, it does no harm for the original BC's.
 
-      comp_bound = ( nslb < 1          .and. ns <              staggered_lhalo+1+ghost_shift ) .or. &
-                   ( ewlb < 1          .and. ew <              staggered_lhalo+1+ghost_shift ) .or. &
-                   ( nsub > global_nsn .and. ns > size(mask,2)-staggered_uhalo  -ghost_shift ) .or. &
-                   ( ewub > global_ewn .and. ew > size(mask,1)-staggered_uhalo  -ghost_shift )
+!      comp_bound = ( nslb < 1          .and. ns <              staggered_lhalo+1+ghost_shift ) .or. &
+!                   ( ewlb < 1          .and. ew <              staggered_lhalo+1+ghost_shift ) .or. &
+!                   ( nsub > global_nsn .and. ns > size(mask,2)-staggered_uhalo  -ghost_shift ) .or. &
+!                   ( ewub > global_ewn .and. ew > size(mask,1)-staggered_uhalo  -ghost_shift )
+
+      comp_bound = .false.
 
       ! Calculate the depth-averaged value of the rate factor, needed below when applying an ice shelf
       ! boundary condition (complicated code so as not to include funny values at boundaries ...

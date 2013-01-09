@@ -63,7 +63,7 @@ else # build with autoconf option
 endif # build with autoconf option
 
 echo $build_no
-echo 'flag to build cmake option:' $build_no
+echo 'flag to build cmake option:' $build_cmake
 if ($build_cmake == 1 ) then
 # set up directories for building cmake executables
 rm -rf xe6-pgi
@@ -127,31 +127,38 @@ if ($build_no == 1 ) then
 else
 # simplest case, runs all builds and on a range of small processor counts 
  echo 'submitting jobs to compute nodes'
-#cd $TEST_DIR/dome30
-#qsub hopjob
+#diagnostic dome test case
+cd $TEST_DIR/reg_test/dome30/diagnostic
+qsub hopjob
+
+#evolving dome test case
+cd $TEST_DIR/reg_test/dome30/evolving
+qsub hopjob
+
+# ISMIP test case A - not operational until BC set
+cd $TEST_DIR/reg_test/ismip-hom-a/80km
+qsub hopjob
+
+# ISMIP test case C - not operational until BC set
+cd $TEST_DIR/reg_test/ismip-hom-c/80km
+qsub hopjob
+
+# confined shelf to periodic BC
+cd $TEST_DIR/reg_test/confined-shelf
+qsub hopjob
+
+# circular shelf to periodic BC
+cd $TEST_DIR/reg_test/circular-shelf
+qsub hopjob
+
+# smaller GIS case to test realistic ice sheet configuration
+cd $TEST_DIR/reg_test/gis_10km
+qsub hopjob
+
+# non regression test cases, default not run: 
 
 # large but not challenging case, to test large processor counts, not yet configured for hopper
 #cd $TEST_DIR/dome500
-#qsub hopjob
-
-# ISMIP test case A - not activated until BC set
-#cd $TEST_DIR/ismip-hom-a
-#qsub hopjob
-
-# ISMIP test case C - not activated until BC set
-#cd $TEST_DIR/ismip-hom-c
-#qsub hopjob
-
-# confined shelf to periodic BC
-#cd $TEST_DIR/confined-shelf
-#qsub hopjob
-
-# circular shelf to periodic BC
-#cd $TEST_DIR/circular-shelf
-#qsub hopjob
-
-# smaller GIS case to test realistic ice sheet configuration
-#cd $TEST_DIR/gis_10km
 #qsub hopjob
 
 # high resolution GIS case to test realistic ice sheet configuration and longer time series, current setup gives

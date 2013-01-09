@@ -1,0 +1,26 @@
+#!/bin/bash
+#PBS -A m1343
+#PBS -q debug
+#PBS -N dome_30_test
+#PBS -l mppwidth=24
+#PBS -l walltime=0:10:00
+#PBS -j oe
+
+# to run, first build executables on login nodes in serial and parallel
+# and make
+
+export SCRIPT1c=dome.30.JFNK.trilinos.config.9
+export SCRIPT1d=dome.30.JFNK.trilinos.config.15
+
+# executable for parallel code
+export EXE=$GSCRATCH/higher-order/simple_glide_gnu
+
+export BASE=$GSCRATCH/higher-order/reg_test/dome30/evolving/
+
+cd $PBS_O_WORKDIR
+
+echo GNU JFNK 9 proc
+time aprun -n 9 $EXE  $BASE/$SCRIPT1c  &> data/gnu.JFNK.9proc
+echo GNU JFNK 15 proc
+time aprun -n 15 $EXE  $BASE/$SCRIPT1d  &> data/gnu.JFNK.15proc
+

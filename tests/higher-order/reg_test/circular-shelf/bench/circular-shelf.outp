@@ -1,0 +1,137 @@
+ (t_initf) Read in prof_inparm namelist from: perf_in
+ (t_initf) Using profile_disable= F  profile_timer=           1
+ (t_initf)  profile_depth_limit=       99999  profile_detail_limit=           1
+ (t_initf)  profile_barrier= F  profile_outpe_num=           0
+ (t_initf)  profile_outpe_stride=           1  profile_single_file= F
+ (t_initf)  profile_global_stats= T  profile_papi_enable= F
+ Layout(EW,NS) =           41          21  total procs =            1
+ Layout(EW,NS) =           41          20  total procs =            1
+  
+ Compute higher-order ice velocities, time =   0.0000000000000000     
+ Using GlobalIDs...
+
+Partition Info in init_trilinos: Total nodes = 7308  Max = 3906  Min = 3402  Ave = 3654
+  
+ Running Payne/Price higher-order dynamics solver
+  
+ iter #     resid (L2 norm)       target resid
+  
+Precon Linear Solve Succeeded: 6.19e-09 drop in 92 its (avg: 92 its/slv, 100% success)
+Precon Linear Solve Succeeded: 9.82e-09 drop in 90 its (avg: 91 its/slv, 100% success)
+   1         37.3466            0.100000E-03
+Precon Linear Solve Succeeded: 6.26e-09 drop in 88 its (avg: 90 its/slv, 100% success)
+Precon Linear Solve Succeeded: 6.79e-09 drop in 86 its (avg: 89 its/slv, 100% success)
+   2         37.3078            0.100000E-03
+Precon Linear Solve Succeeded: 6.65e-09 drop in 88 its (avg: 88.8 its/slv, 100% success)
+Precon Linear Solve Succeeded: 6e-09 drop in 86 its (avg: 88.3 its/slv, 100% success)
+   3         37.2163            0.100000E-03
+Precon Linear Solve Succeeded: 9.2e-09 drop in 87 its (avg: 88.1 its/slv, 100% success)
+Precon Linear Solve Succeeded: 9.27e-09 drop in 86 its (avg: 87.9 its/slv, 100% success)
+   4         35.5186            0.100000E-03
+Precon Linear Solve Succeeded: 8.45e-09 drop in 88 its (avg: 87.9 its/slv, 100% success)
+Precon Linear Solve Succeeded: 7.26e-09 drop in 87 its (avg: 87.8 its/slv, 100% success)
+   5         32.0032            0.100000E-03
+Precon Linear Solve Succeeded: 8.31e-09 drop in 86 its (avg: 87.6 its/slv, 100% success)
+Precon Linear Solve Succeeded: 7.82e-09 drop in 87 its (avg: 87.6 its/slv, 100% success)
+   6         26.9310            0.100000E-03
+Precon Linear Solve Succeeded: 5.52e-09 drop in 89 its (avg: 87.7 its/slv, 100% success)
+Precon Linear Solve Succeeded: 7.66e-09 drop in 87 its (avg: 87.6 its/slv, 100% success)
+   7         21.1717            0.100000E-03
+Precon Linear Solve Succeeded: 6.63e-09 drop in 89 its (avg: 87.7 its/slv, 100% success)
+Precon Linear Solve Succeeded: 7.17e-09 drop in 87 its (avg: 87.7 its/slv, 100% success)
+   8         15.6199            0.100000E-03
+Precon Linear Solve Succeeded: 7.07e-09 drop in 89 its (avg: 87.8 its/slv, 100% success)
+Precon Linear Solve Succeeded: 9.58e-09 drop in 86 its (avg: 87.7 its/slv, 100% success)
+   9         10.8986            0.100000E-03
+Precon Linear Solve Succeeded: 7.03e-09 drop in 89 its (avg: 87.7 its/slv, 100% success)
+Precon Linear Solve Succeeded: 7.99e-09 drop in 86 its (avg: 87.7 its/slv, 100% success)
+  10         7.27955            0.100000E-03
+Precon Linear Solve Succeeded: 6.83e-09 drop in 89 its (avg: 87.7 its/slv, 100% success)
+Precon Linear Solve Succeeded: 9.91e-09 drop in 85 its (avg: 87.6 its/slv, 100% success)
+  11         4.72141            0.100000E-03
+Precon Linear Solve Succeeded: 6.64e-09 drop in 89 its (avg: 87.7 its/slv, 100% success)
+Precon Linear Solve Succeeded: 8.1e-09 drop in 85 its (avg: 87.5 its/slv, 100% success)
+  12         3.00996            0.100000E-03
+Precon Linear Solve Succeeded: 6.51e-09 drop in 89 its (avg: 87.6 its/slv, 100% success)
+Precon Linear Solve Succeeded: 7.73e-09 drop in 85 its (avg: 87.5 its/slv, 100% success)
+  13         1.90101            0.100000E-03
+Precon Linear Solve Succeeded: 6.43e-09 drop in 89 its (avg: 87.6 its/slv, 100% success)
+Precon Linear Solve Succeeded: 8.23e-09 drop in 85 its (avg: 87.5 its/slv, 100% success)
+  14         1.19418            0.100000E-03
+Precon Linear Solve Succeeded: 6.38e-09 drop in 89 its (avg: 87.5 its/slv, 100% success)
+Precon Linear Solve Succeeded: 8.91e-09 drop in 85 its (avg: 87.4 its/slv, 100% success)
+  15        0.730101            0.100000E-03
+Precon Linear Solve Succeeded: 6.34e-09 drop in 89 its (avg: 87.5 its/slv, 100% success)
+Precon Linear Solve Succeeded: 9.5e-09 drop in 85 its (avg: 87.4 its/slv, 100% success)
+  16        0.476198            0.100000E-03
+Precon Linear Solve Succeeded: 6.32e-09 drop in 89 its (avg: 87.5 its/slv, 100% success)
+Precon Linear Solve Succeeded: 6.89e-09 drop in 86 its (avg: 87.4 its/slv, 100% success)
+  17        0.292959            0.100000E-03
+Precon Linear Solve Succeeded: 6.31e-09 drop in 89 its (avg: 87.5 its/slv, 100% success)
+Precon Linear Solve Succeeded: 7.13e-09 drop in 86 its (avg: 87.4 its/slv, 100% success)
+  18        0.182557            0.100000E-03
+Precon Linear Solve Succeeded: 6.3e-09 drop in 89 its (avg: 87.5 its/slv, 100% success)
+Precon Linear Solve Succeeded: 7.29e-09 drop in 86 its (avg: 87.4 its/slv, 100% success)
+  19        0.112932            0.100000E-03
+Precon Linear Solve Succeeded: 6.3e-09 drop in 89 its (avg: 87.5 its/slv, 100% success)
+Precon Linear Solve Succeeded: 7.39e-09 drop in 86 its (avg: 87.4 its/slv, 100% success)
+  20        0.698657E-01        0.100000E-03
+Precon Linear Solve Succeeded: 6.29e-09 drop in 89 its (avg: 87.5 its/slv, 100% success)
+Precon Linear Solve Succeeded: 7.47e-09 drop in 86 its (avg: 87.4 its/slv, 100% success)
+  21        0.433318E-01        0.100000E-03
+Precon Linear Solve Succeeded: 6.29e-09 drop in 89 its (avg: 87.5 its/slv, 100% success)
+Precon Linear Solve Succeeded: 7.53e-09 drop in 86 its (avg: 87.4 its/slv, 100% success)
+  22        0.267015E-01        0.100000E-03
+Precon Linear Solve Succeeded: 6.29e-09 drop in 89 its (avg: 87.5 its/slv, 100% success)
+Precon Linear Solve Succeeded: 7.57e-09 drop in 86 its (avg: 87.4 its/slv, 100% success)
+  23        0.167561E-01        0.100000E-03
+Precon Linear Solve Succeeded: 6.29e-09 drop in 89 its (avg: 87.5 its/slv, 100% success)
+Precon Linear Solve Succeeded: 7.6e-09 drop in 86 its (avg: 87.4 its/slv, 100% success)
+  24        0.103606E-01        0.100000E-03
+Precon Linear Solve Succeeded: 6.29e-09 drop in 89 its (avg: 87.5 its/slv, 100% success)
+Precon Linear Solve Succeeded: 7.62e-09 drop in 86 its (avg: 87.4 its/slv, 100% success)
+  25        0.648913E-02        0.100000E-03
+Precon Linear Solve Succeeded: 6.29e-09 drop in 89 its (avg: 87.5 its/slv, 100% success)
+Precon Linear Solve Succeeded: 7.64e-09 drop in 86 its (avg: 87.4 its/slv, 100% success)
+  26        0.413556E-02        0.100000E-03
+Precon Linear Solve Succeeded: 6.29e-09 drop in 89 its (avg: 87.5 its/slv, 100% success)
+Precon Linear Solve Succeeded: 7.65e-09 drop in 86 its (avg: 87.4 its/slv, 100% success)
+  27        0.265044E-02        0.100000E-03
+Precon Linear Solve Succeeded: 6.29e-09 drop in 89 its (avg: 87.5 its/slv, 100% success)
+Precon Linear Solve Succeeded: 7.66e-09 drop in 86 its (avg: 87.4 its/slv, 100% success)
+  28        0.174715E-02        0.100000E-03
+Precon Linear Solve Succeeded: 6.29e-09 drop in 89 its (avg: 87.5 its/slv, 100% success)
+Precon Linear Solve Succeeded: 7.66e-09 drop in 86 its (avg: 87.4 its/slv, 100% success)
+  29        0.116584E-02        0.100000E-03
+Precon Linear Solve Succeeded: 6.29e-09 drop in 89 its (avg: 87.5 its/slv, 100% success)
+Precon Linear Solve Succeeded: 7.67e-09 drop in 86 its (avg: 87.5 its/slv, 100% success)
+  30        0.806092E-03        0.100000E-03
+Precon Linear Solve Succeeded: 6.29e-09 drop in 89 its (avg: 87.5 its/slv, 100% success)
+Precon Linear Solve Succeeded: 7.67e-09 drop in 86 its (avg: 87.5 its/slv, 100% success)
+  31        0.556200E-03        0.100000E-03
+Precon Linear Solve Succeeded: 6.29e-09 drop in 89 its (avg: 87.5 its/slv, 100% success)
+Precon Linear Solve Succeeded: 7.67e-09 drop in 86 its (avg: 87.5 its/slv, 100% success)
+  32        0.400877E-03        0.100000E-03
+Precon Linear Solve Succeeded: 6.29e-09 drop in 89 its (avg: 87.5 its/slv, 100% success)
+Precon Linear Solve Succeeded: 7.67e-09 drop in 86 its (avg: 87.5 its/slv, 100% success)
+  33        0.287058E-03        0.100000E-03
+Precon Linear Solve Succeeded: 6.29e-09 drop in 89 its (avg: 87.5 its/slv, 100% success)
+Precon Linear Solve Succeeded: 7.67e-09 drop in 86 its (avg: 87.5 its/slv, 100% success)
+  34        0.211027E-03        0.100000E-03
+Precon Linear Solve Succeeded: 6.29e-09 drop in 89 its (avg: 87.5 its/slv, 100% success)
+Precon Linear Solve Succeeded: 7.67e-09 drop in 86 its (avg: 87.5 its/slv, 100% success)
+  35        0.157997E-03        0.100000E-03
+Precon Linear Solve Succeeded: 6.29e-09 drop in 89 its (avg: 87.5 its/slv, 100% success)
+Precon Linear Solve Succeeded: 7.68e-09 drop in 86 its (avg: 87.5 its/slv, 100% success)
+  36        0.118403E-03        0.100000E-03
+Precon Linear Solve Succeeded: 6.29e-09 drop in 89 its (avg: 87.5 its/slv, 100% success)
+Precon Linear Solve Succeeded: 7.68e-09 drop in 86 its (avg: 87.5 its/slv, 100% success)
+  37        0.890373E-04        0.100000E-03
+Precon Linear Solve Succeeded: 6.29e-09 drop in 89 its (avg: 87.5 its/slv, 100% success)
+Precon Linear Solve Succeeded: 7.68e-09 drop in 86 its (avg: 87.5 its/slv, 100% success)
+  38        0.700377E-04        0.100000E-03
+  
+ Writing diagnostics to log file, time(yr) =   0.0000000000000000     
+ idiag_global, jdiag_global:           1           1
+ local rank, i, j:           0           3           3
+Application 14537984 resources: utime ~34s, stime ~0s Rss ~32764 inblocks ~33118 outblocks ~89475

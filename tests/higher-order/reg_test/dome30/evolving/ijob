@@ -1,0 +1,25 @@
+#!/bin/bash
+#PBS -A cli054
+#PBS -q killable
+#PBS -N dome_30_test
+#PBS -l gres=widow3
+#PBS -j oe -l walltime=0:20:00,size=16
+
+# to run, first build executables on login nodes in serial and parallel
+# and make
+
+export SCRIPT=dome.30.JFNK.trilinos.config.9
+export SCRIPT=dome.30.JFNK.trilinos.config.15
+
+# executable for parallel code
+export EXE=/tmp/work/4ue/SEACISM/higher_order/simple_glide_gnu
+
+export BASE=/tmp/work/4ue/SEACISM/higher_order/dome30/evolving
+
+cd $PBS_O_WORKDIR
+
+echo GNU JFNK 9 proc
+time aprun -n9 $EXE  $BASE/$SCRIPT  &> data/gnu.JFNK.9proc
+echo GNU JFNK 15 proc
+time aprun -n15 $EXE  $BASE/$SCRIPT &> data/gnu.JFNK.15proc
+
