@@ -917,6 +917,12 @@ contains
     ! ------------------------------------------------------------------------ 
     ! ------------------------------------------------------------------------ 
 
+    ! Do not solve velocity on a restart.  Here we are identifying a restart by
+    ! being at the start time and having velocities supplied in the input file.
+    if ( (maxval(abs(model%velocity%uvel))==0.0d0) .and. & 
+         (maxval(abs(model%velocity%vvel))==0.0d0) .and. &
+         (model % numerics % time == model % numerics % tstart) ) then
+       
           if (main_task) then
              print *, ' '
              print *, 'Compute higher-order ice velocities, time =', model%numerics%time
@@ -939,6 +945,10 @@ contains
     call staggered_parallel_halo(model%velocity%vbas)
     call horiz_bcs_stag_vector_ns(model%velocity%vbas)
 
+    else
+      write_log('Using uvel, vvel from input file at initial time.')
+
+    endif
     ! ------------------------------------------------------------------------ 
     ! ------------------------------------------------------------------------ 
     ! 3. Third part of diagnostic solve: 

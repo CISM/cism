@@ -121,6 +121,7 @@ program simple_glide
 
   time = model%numerics%tstart
   tstep_count = 0
+  model%numerics%time = time    ! MJH added 1/10/13 - the initial diagnostic glissade solve won't know the correct time on a restart unless we set it here.
 
 !### !TODO - Are these calls always needed?
 !### !TODO MJH These aren't needed for the initial state - only during time-stepping.  
