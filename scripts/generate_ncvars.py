@@ -26,7 +26,6 @@
 import ConfigParser, sys, time, string,re, os.path
 
 NOATTRIB = ['name','dimensions','dimlen','data','factor','load','hot','type','average','coordinates']
-hotvars = []
 dimensions = {}
 module = {}
 
@@ -71,10 +70,6 @@ class Variables(dict):
             vardef['name'] = v
             for (name, value) in vars.items(v):
                 vardef[name] = value
-            if 'hot' in vardef:
-                if vardef['hot'].lower() in ['1','true','t']:
-                    hotvars.append(v)
-                    vardef['load'] = '1'
             if 'type' not in vardef:
                 vardef['type'] = 'float'
             if 'average' in vardef:
@@ -100,7 +95,6 @@ class Variables(dict):
                 vardef_avg = vardef.copy()
                 vardef_avg['average'] = False
                 vardef_avg['load'] = '0'
-                vardef_avg['hot'] = '0'
                 vardef_avg['data'] = '%s_%s'%(vardef_avg['data'],AVERAGE_SUFFIX)
                 vardef_avg['name'] = '%s_%s'%(vardef_avg['name'],AVERAGE_SUFFIX)
                 if 'long_name' in vardef_avg:
@@ -246,8 +240,6 @@ class PrintNC_template(PrintVars):
             if string.find(l,token) is not -1:
                 for v in vars.keys():
                     self.handletoken[token](vars[v])
-            elif '!GENVAR_HOT!' in l:
-                self.print_varhot()
             elif '!GENVAR_DIMS!' in l:
                 self.print_dimensions()
             elif '!GENVAR_CHECKDIM!' in l:
@@ -267,13 +259,6 @@ class PrintNC_template(PrintVars):
         if have_avg:
             self.stream.write("#define HAVE_AVG 1\n")
 
-    def print_varhot(self):
-        """Create list of hotstart variables."""
-
-        hotvar = ''
-        for v in hotvars:
-            hotvar = hotvar + ' %s '%v
-        self.stream.write("  character(len=*),private,parameter :: hotvars = '%s'\n"%hotvar)
         
     def print_vardef(self,var):
         """Write single variable block to stream for ncdf_file."""

@@ -86,7 +86,6 @@ long_name:     latitude
 standard_name: latitude
 data:          data%climate%lati
 load:          1
-hot:           1
 standard_name: latitude
 
 [lon]
@@ -104,7 +103,6 @@ long_name:     relaxed bedrock topography
 data:          data%isos%relx
 factor:        thk0
 load:          1
-hot:           1
 coordinates:   lon lat
 
 [eus]
@@ -176,7 +174,6 @@ long_name:     higher-order basal yield stress
 data:          data%basalproc%minTauf
 factor:        scale_tau
 load:          1
-hot:           1
 
 [btractx]
 dimensions:    time, y0, x0
@@ -235,7 +232,6 @@ data:          data%geometry%thck
 factor:        thk0
 load:          1
 standard_name: land_ice_thickness
-hot:           1
 coordinates:   lon lat
 
 [stagthk]
@@ -246,7 +242,6 @@ data:          data%geomderv%stagthck
 factor:        thk0
 standard_name: stag_land_ice_thickness
 load:          0
-hot:           0
 coordinates:   lon lat
 
 [calving]
@@ -294,7 +289,7 @@ units:         1
 data:          data%geometry%thkmask
 type:          int
 coordinates:   lon lat
-hot:           1
+load:          1
 
 [usurf]
 dimensions:    time, y1, x1
@@ -322,7 +317,6 @@ data:          data%geometry%topg
 factor:        thk0
 load:          1
 standard_name: bedrock_altitude
-hot:           1
 coordinates:   lon lat
 
 [acab]
@@ -342,7 +336,6 @@ units:         watt/meter2
 long_name:     basal heat flux
 data:          data%temper%bheatflx
 load:          1
-hot:           1
 coordinates:   lon lat
 
 [bmlt]
@@ -352,7 +345,7 @@ long_name:     basal melt rate
 data:          data%temper%bmlt
 factor:        scale_acab
 standard_name: land_ice_basal_melt_rate
-hot:           1
+load:          1
 coordinates:   lon lat
 average:       1
 
@@ -362,7 +355,7 @@ units:         meter
 long_name:     basal water depth
 data:          data%temper%bwat
 factor:        thk0
-hot:           1
+load:          1
 coordinates:   lon lat
 
 [bwatflx]
@@ -371,7 +364,6 @@ units:         meter3/year
 long_name:     basal water flux
 data:          data%temper%bwatflx
 factor:        thk0
-hot:           0
 coordinates:   lon lat
 
 [artm]
@@ -426,7 +418,7 @@ long_name:     ice velocity in x direction
 data:          data%velocity%uvel(up,:,:)
 factor:        scale_uvel
 standard_name: land_ice_x_velocity
-hot:           1
+load:          1
 
 [vvel]
 dimensions:    time, level, y0, x0
@@ -435,7 +427,7 @@ long_name:     ice velocity in y direction
 data:          data%velocity%vvel(up,:,:)
 factor:        scale_uvel
 standard_name: land_ice_y_velocity
-hot:           1
+load:          1
 
 # used for output of res fields
 #[ures]
@@ -445,7 +437,6 @@ hot:           1
 #data:          data%velocity%ures(up,:,:)
 #factor:        scale_uvel
 #standard_name: land_ice_x_velocity_resid
-#hot:           0
 
 # used for output of res fields
 #[vres]
@@ -455,7 +446,6 @@ hot:           1
 #data:          data%velocity%vres(up,:,:)
 #factor:        scale_uvel
 #standard_name: land_ice_y_velocity_resid
-#hot:           0
 
 # used for output of res fields
 #[magres]
@@ -465,7 +455,6 @@ hot:           1
 #data:          data%velocity%magres(up,:,:)
 #factor:        scale_uvel
 #standard_name: land_ice_y_velocity_resid
-#hot:           0
 
 [kinbcmask]
 dimensions:   time, y0, x0
@@ -482,7 +471,6 @@ long_name:    2d array of higher-order model boundary condition mask values
 data:         data%velocity%dynbcmask
 type:         int
 load:         0
-hot:          0
 
 [velnorm]
 dimensions:    time, level, y0, x0
@@ -522,7 +510,7 @@ long_name:     Vertical grid velocity
 data:          data%velocity%wgrd(up,:,:)
 factor:        scale_wvel
 coordinates:   lon lat
-hot:           1
+load:          1
 
 #TODO - Redundant?
 [surfvel]
@@ -539,7 +527,7 @@ units:         pascal/year
 long_name:     Pre-exponential flow law parameter
 data:          data%temper%flwa(up,:,:)
 factor:        scale_flwa
-hot:           1
+load:          1
 coordinates:   lon lat
 
 [flwastag]
@@ -550,7 +538,6 @@ data:          data%temper%flwa(up,:,:)
 factor:        scale_flwa
 # hot=0 because we do not want the stag version to be in the hotvars definition. 
 # The conversion to stag happens if needed in check_for_tempstag
-hot:           0
 # but we do want it loadable in case flwa is listed as hot.
 load:          1
 coordinates:   lon lat
@@ -561,7 +548,6 @@ units:         Pascal * years
 long_name:     effective viscosity               
 data:          data%stress%efvs(up,:,:)
 factor:        scale_efvs
-hot:           0
 coordinates:   lon lat
 
 [temp]
@@ -570,7 +556,6 @@ units:         degree_Celsius
 long_name:     ice temperature
 data:          data%temper%temp(up,1:data%general%ewn,1:data%general%nsn)
 standard_name: land_ice_temperature
-hot:           1
 load:          1
 coordinates:   lon lat
 
@@ -582,7 +567,6 @@ data:          data%temper%temp(up,1:data%general%ewn,1:data%general%nsn)
 standard_name: land_ice_temperature_stag
 # hot=0 because we do not want the stag version to be in the hotvars definition.
 # The conversion to stag happens if needed in check_for_tempstag.
-hot:           0
 load:          1
 coordinates:   lon lat
 
@@ -591,7 +575,7 @@ dimensions:    time, lithoz, y1, x1
 units:         degree_Celsius
 long_name:     lithosphere temperature
 data:          data%lithot%temp
-hot:           1
+load:          0
 coordinates:   lon lat
 
 [age]
@@ -601,7 +585,7 @@ long_name:     ice age
 data:          data%geometry%age(up,:,:)
 standard_name: land_ice_age
 factor:        tim0/scyr
-hot:           1
+load:           0
 coordinates:   lon lat
 
 #TODO - What is phaml?
@@ -612,7 +596,6 @@ long_name:     phaml initial conditions
 data:          data%phaml%init_phaml
 standard_name: phaml_initial_conditions
 load:          1
-hot:           0
 coordinates:   lon lat
 
 [phaml]
@@ -622,7 +605,6 @@ long_name:     phaml true solution
 data:          data%phaml%uphaml
 standard_name: phaml_solution
 load:          1
-hot:           0
 coordinates:   lon lat
 
 #TODO - Are these gline fields needed?

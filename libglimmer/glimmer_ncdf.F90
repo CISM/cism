@@ -80,10 +80,11 @@ module glimmer_ncdf
      !*FD id of time dimension
      integer timevar
      !*FD id of time variable 
+     ! TODO Create a variable for vars length so it can be made longer - apply it here for vars, vars_copy and to restart_variable_list in glimmer_ncparams.F90
      character(len=310) vars
      !*FD string containing variables to be processed
-     logical :: hotstart = .false.
-     !*FD Set to true if we're writing a hotstart file
+     logical :: restartfile = .false.
+     !*FD Set to true if we're writing a restart file
      character(len=310) vars_copy
      !*FD string containing variables to be processed (retained copy)
   end type glimmer_nc_stat     
@@ -434,11 +435,8 @@ contains
       integer :: i
 
       ! Check if tempstag should be output
-      ! \todo If both temp and tempstag are specfied, should one be removed?
-      ! \todo Modify this to work if multiple output files are specified?
-      ! \todo Allow hotstarts to read/write the appropriate temp variable from the
-      ! netcdf file - this should propbably be handled in glide_io_create where the
-      ! hotvars are expanded
+      ! TODO If both temp and tempstag are specfied, should one be removed?
+      ! TODO Modify this to work if multiple output files are specified?
 
 !TODO - Change from 'whichtemp' to 'whichdycore'?  At any rate, do not hardwire the whichtemp index
       !print *, "Original varstring:", varstring

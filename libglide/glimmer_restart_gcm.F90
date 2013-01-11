@@ -55,8 +55,8 @@
     allocate(ic)
     ic%get_time_slice = 1
     ic%nc%filename    = trim(restart_filename)
-    ic%nc%vars        = ' hot '
-    ic%nc%hotstart    = .true.
+    ic%nc%vars        = ' restart '
+    ic%nc%restartfile = .true.
     ic%nc%vars_copy   = ic%nc%vars
 
     ! add the input unit to the model

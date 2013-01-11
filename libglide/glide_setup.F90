@@ -105,6 +105,7 @@ contains
     if (associated(section)) then
        call handle_till_options(section, model)
     end if
+
   end subroutine glide_readconfig
 
   subroutine glide_printconfig(model)
@@ -469,6 +470,7 @@ contains
     call GetValue(section,'slip_coeff',model%options%whichbtrc)
     call GetValue(section,'vertical_integration',model%options%whichwvel)
     call GetValue(section,'topo_is_relaxed',model%options%whichrelaxed)
+    ! TODO Assess whether we need to keep this option
     call GetValue(section,'hotstart',model%options%hotstart)
     call GetValue(section,'periodic_ew',model%options%periodic_ew)
     call GetValue(section,'basal_mass_balance',model%options%basal_mbal)
@@ -487,6 +489,7 @@ contains
     
 !WHL - Removed which_ho_diagnostic and which_ho_prognostic
 !TODO - Are there other options here that can be removed? 
+!TODO MJH I don't think is_velocity_valid gets used anywhere.
     call GetValue(section, 'guess_specified',    model%velocity%is_velocity_valid)
     call GetValue(section, 'which_ho_source',    model%options%which_ho_source)
     call GetValue(section, 'include_thin_ice',   model%options%ho_include_thinice)
@@ -699,10 +702,6 @@ contains
           call write_log('Warning, exact restarts are not possible with ADI evolution', GM_WARNING)
        endif
 
-       if (model%options%whichevol==EVOL_PSEUDO_DIFF) then
-          call write_log('Warning, exact restarts with pseudo-diffusion evolution require including uvel and vvel as restart variables', GM_WARNING)
-       endif
-
     endif
 
     ! Forbidden options associated with the Glissade dycore
@@ -809,6 +808,7 @@ contains
        call write_log('  Slightly cheated with how temperature is implemented.',GM_WARNING)
     end if
 
+    ! TODO Decide if we need to keep the hotstart option  MJH 1/11/13
     if (model%options%hotstart==1) then
        call write_log('Hotstarting model')
     end if

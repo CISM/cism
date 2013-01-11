@@ -38,8 +38,6 @@ module NAME_io
 
   private :: get_xtype
 
-  !GENVAR_HOT!
-
 contains
 
   !*****************************************************************************
@@ -143,19 +141,10 @@ contains
 
     !GENVAR_DIMS!
 
-    NCO%vars = ' '//trim(NCO%vars)//' '
-    ! expanding hotstart variables
-    pos = index(NCO%vars,' hot ') 
-    if (pos.ne.0) then
-       NCO%vars = NCO%vars(:pos)//NCO%vars(pos+4:)
-       NCO%hotstart = .true.
-    end if
-    if (NCO%hotstart) then
-       NCO%vars = trim(NCO%vars)//hotvars
-    end if
-    ! MJH Convert temp and flwa to versions on stag grid, if needed
-    ! This check is inserted here because those two variables are part of hotvars
+    ! Convert temp and flwa to versions on stag grid, if needed
+    ! Note: this check must occur after restart variables are expanded which happens in glimmer_nc_readparams
     call check_for_tempstag(model%options%whichtemp,NCO)
+
     ! checking if we need to handle time averages
     pos = index(NCO%vars,AVG_SUFF)
     if (pos.ne.0) then
