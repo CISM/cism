@@ -919,36 +919,37 @@ contains
 
     ! Do not solve velocity on a restart.  Here we are identifying a restart by
     ! being at the start time and having velocities supplied in the input file.
-    if ( (maxval(abs(model%velocity%uvel))==0.0d0) .and. & 
-         (maxval(abs(model%velocity%vvel))==0.0d0) .and. &
-         (model % numerics % time == model % numerics % tstart) ) then
-       
-          if (main_task) then
-             print *, ' '
-             print *, 'Compute higher-order ice velocities, time =', model%numerics%time
-          endif
+    if ( (model % numerics % time == model % numerics % tstart) .and. &
+         ( (maxval(abs(model%velocity%uvel))/=0.0d0) .or. & 
+           (maxval(abs(model%velocity%vvel))/=0.0d0) ) ) then
+       call write_log('Using uvel, vvel from input file at initial time.')
+       !TODO - Since velnorm is strictly diagnostic, it probably could be computed only for I/O.
+       model%velocity%velnorm = sqrt(model%velocity%uvel**2 + model%velocity%vvel**2)
+       model%velocity%is_velocity_valid = .true.
+    else
+       if (main_task) then
+          print *, ' '
+          print *, 'Compute higher-order ice velocities, time =', model%numerics%time
+       endif
 
-         call t_startf('glissade_velo_driver')
+       call t_startf('glissade_velo_driver')
 
-         call glissade_velo_driver(model)
+       call glissade_velo_driver(model)
 
-         call t_stopf('glissade_velo_driver')
-
+       call t_stopf('glissade_velo_driver')
 
 !TODO - Not sure we need to update ubas, vbas, or surfvel,
 !       because these are already part of the 3D uvel and vvel arrays
 
-    call staggered_parallel_halo(model%velocity%surfvel)
-    call horiz_bcs_stag_scalar(model%velocity%surfvel)
-    call staggered_parallel_halo(model%velocity%ubas)
-    call horiz_bcs_stag_vector_ew(model%velocity%ubas)
-    call staggered_parallel_halo(model%velocity%vbas)
-    call horiz_bcs_stag_vector_ns(model%velocity%vbas)
-
-    else
-      call write_log('Using uvel, vvel from input file at initial time.')
+       call staggered_parallel_halo(model%velocity%surfvel)
+       call horiz_bcs_stag_scalar(model%velocity%surfvel)
+       call staggered_parallel_halo(model%velocity%ubas)
+       call horiz_bcs_stag_vector_ew(model%velocity%ubas)
+       call staggered_parallel_halo(model%velocity%vbas)
+       call horiz_bcs_stag_vector_ns(model%velocity%vbas)
 
     endif
+
     ! ------------------------------------------------------------------------ 
     ! ------------------------------------------------------------------------ 
     ! 3. Third part of diagnostic solve: 
