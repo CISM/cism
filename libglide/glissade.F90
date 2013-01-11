@@ -946,7 +946,7 @@ contains
     call horiz_bcs_stag_vector_ns(model%velocity%vbas)
 
     else
-      write_log('Using uvel, vvel from input file at initial time.')
+      call write_log('Using uvel, vvel from input file at initial time.')
 
     endif
     ! ------------------------------------------------------------------------ 
