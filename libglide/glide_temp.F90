@@ -85,11 +85,12 @@ contains
   subroutine glide_init_temp(model)
 
     !*FD initialise temperature module
-    use glimmer_physcon, only : rhoi, shci, coni, scyr, grav, gn, lhci, rhow
+    use glimmer_physcon, only : rhoi, shci, coni, scyr, grav, gn, lhci, rhow, trpt
     use glimmer_paramets, only : tim0, thk0, acc0, len0, vis0, vel0
     use glimmer_global, only : dp 
     use glimmer_log
     use glide_bwater, only : find_dt_wat
+    use parallel, only: lhalo, uhalo
 
     type(glide_global_type), intent(inout) :: model       ! model instance
 
@@ -222,29 +223,49 @@ contains
        !      model%temper%temp = -10.0
 
 
-       !MJH: Initialize ice temperature.
-       !This block of code is identical to that in glissade_init_temp
-!TODO - Remove hardwired constant (-273.15)
-       if (model%temper%temp(1,1,1) < -273.15) then
-           call write_log("No initial ice temperature supplied - setting temp to artm.")
-           ! temp array still has initialized values - no values have been read in. 
-           ! Initialize ice temperature to air temperature (for each column). 
-           do ns = 1,model%general%nsn
-              do ew = 1,model%general%ewn
-                 model%temper%temp(:,ew,ns) = dmin1(0.0d0,dble(model%climate%artm(ew,ns)))
-              end do
-           end do
-       else
-           ! Values have been read in - do nothing
-       endif
+      !MJH: Initialize ice temperature.============
+      !This block of code is similar to that in glissade_init_temp
+      ! Check if any of -999.0 default values remain for temp in the physical domain now that the input file has been read.
+      ! -- if so, consider the temp field uninitialized and give it artm as a default.
+      ! -- if not, consider the temp field initialized from the input file and do nothing.
+      ! This logic applies for both cold start and restart situations.
+      if ( minval(model%temper%temp(1:model%general%upn, &
+                  1+lhalo:model%general%ewn-lhalo, 1+uhalo:model%general%nsn-uhalo)) < &
+                  (-1.0d0 * trpt) ) then
+          call write_log('Initializing ice temperature to the air temperature.')
+          ! temp array still has initialized values - no values have been read in. 
+          ! Initialize ice temperature to air temperature (for each column). 
+          ! Only loop over local cells so that the halos will retain the junk -999.0 values until updated.
+          do ns = 1+uhalo, model%general%nsn-uhalo
+             do ew = 1+lhalo, model%general%ewn-lhalo
+               if (model%geometry%thck(ew,ns) <= 0.0d0) then  ! TODO should this be thin ice?
+                 model%temper%temp(:,ew,ns) = 0.0d0  ! initialize non-ice areas to 0 
+               else
+                 model%temper%temp(:,ew,ns) = dmin1(0.0d0,dble(model%climate%artm(ew,ns)))  ! initialize ice areas to the min of artm and 0
+               endif
+             end do
+          end do
+      else
+          ! Values have been read in from input file - do nothing
+          call write_log('Using temp values from input file for temperature initial condition.')
+      endif
+
+
 
        ! MJH: Calculate initial value of flwa
       ! If flwa is loaded (e.g. hotstart), use the flwa field in the input file instead
-      ! Note: Implementing flwa initialization in this way, I don't think hotstart=1 does anything. 
-!       if (model%options%hotstart  /=  1) then
-       if (model%temper%flwa(1,1,1) < 0.d0) then
-         call write_log("No initial flwa supplied - calculating initial flwa.")
+!!!      ! Note: Implementing flwa initialization in this way, I don't think hotstart=1 does anything. 
+!!!       if (model%options%hotstart  /=  1) then
+      ! TODO Actually use the hotstart variable so that we don't use a supplied flwa field on a cold start.
 
+      ! Check if any of -999.0 default values remain for flwa in the physical domain now that the input file has been read.
+      ! -- if so, consider the flwa field uninitialized and calculate it using temp and thk.
+      ! -- if not, consider the flwa field initialized from the input file and do nothing 
+      !          (if we calculate it now on a restart, we will not get an exact restart of the 
+      !           flow dissipation calculation by the temp driver on the first time step).
+      if ( minval(model%temper%flwa(1:model%general%upn, &
+                  1+lhalo:model%general%ewn-lhalo, 1+uhalo:model%general%nsn-uhalo)) < 0.0d0 ) then
+         call write_log("No initial flwa supplied - calculating initial flwa from temp and thk fields.")
 !TODO - Check spelling of 'Glen', make sure it's consistent throughout code
          ! Calculate Glen's A --------------------------------------------------------   
          call calcflwa(model%numerics%sigma,        &
@@ -255,6 +276,8 @@ contains
                        model%paramets%flow_factor,  &
                        model%paramets%default_flwa, &
                        model%options%whichflwa) 
+       else
+         call write_log("Using flwa values from input file for flwa initial condition.") 
        endif
 !       endif
 
@@ -329,77 +352,79 @@ contains
 
 !TODO - Pretty sure these calls are not needed, since they are now at the end of tstep_p3
 !       (so that wgrd can be written to the hotstart file and used for restart).
+      !--MJH 1/14/13 I commented them out here and they now all are called at the end of glide tstep.
+      !  This block of commented ~70 lines can be deleted eventually.  
                          
        ! Calculate time-derivatives of thickness and upper surface elevation ------------
 
-       call timeders(model%thckwk,   &
-                     model%geometry%thck,     &
-                     model%geomderv%dthckdtm, &
-                     model%geometry%mask,     &
-                     model%numerics%time,     &
-                     1)
+!       call timeders(model%thckwk,   &
+!                     model%geometry%thck,     &
+!                     model%geomderv%dthckdtm, &
+!                     model%geometry%mask,     &
+!                     model%numerics%time,     &
+!                     1)
 
-       call timeders(model%thckwk,   &
-                     model%geometry%usrf,     &
-                     model%geomderv%dusrfdtm, &
-                     model%geometry%mask,     &
-                     model%numerics%time,     &
-                     2)
+!       call timeders(model%thckwk,   &
+!                     model%geometry%usrf,     &
+!                     model%geomderv%dusrfdtm, &
+!                     model%geometry%mask,     &
+!                     model%numerics%time,     &
+!                     2)
 
-       ! Calculate the vertical velocity of the grid ------------------------------------
+!       ! Calculate the vertical velocity of the grid ------------------------------------
+!    
+!       ! Calculate the actual vertical velocity; method depends on whichwvel ------------
+
+!       call gridwvel(model%numerics%sigma,  &
+!                     model%numerics%thklim, &
+!                     model%velocity%uvel,   &
+!                     model%velocity%vvel,   &
+!                     model%geomderv,        &
+!                     model%geometry%thck,   &
+!                     model%velocity%wgrd)
     
-       ! Calculate the actual vertical velocity; method depends on whichwvel ------------
+!       select case(model%options%whichwvel)
 
-       call gridwvel(model%numerics%sigma,  &
-                     model%numerics%thklim, &
-                     model%velocity%uvel,   &
-                     model%velocity%vvel,   &
-                     model%geomderv,        &
-                     model%geometry%thck,   &
-                     model%velocity%wgrd)
-    
-       select case(model%options%whichwvel)
+!!TODO - Here and below, replace derived types (geomderv, numerics, etc.) with explicit arguments
 
-!TODO - Here and below, replace derived types (geomderv, numerics, etc.) with explicit arguments
+!        case(0) 
+!           ! Usual vertical integration
+!           call wvelintg(model%velocity%uvel,                        &
+!                         model%velocity%vvel,                        &
+!                         model%geomderv,                             &
+!                         model%numerics,                             &
+!                         model%velowk,                               &
+!                         model%velocity%wgrd(model%general%upn,:,:), &
+!                         model%geometry%thck,                        &
+!                         model%temper%bmlt,                          &
+!                         model%velocity%wvel)
+!    
+!        case(1)
+!           ! Vertical integration constrained so kinematic upper BC obeyed.
+!           call wvelintg(model%velocity%uvel,                        &
+!                         model%velocity%vvel,                        &
+!                         model%geomderv,                             &
+!                         model%numerics,                             &
+!                         model%velowk,                               &
+!                         model%velocity%wgrd(model%general%upn,:,:), &
+!                         model%geometry%thck,                        &
+!                         model%temper%  bmlt,                        &
+!                         model%velocity%wvel)
 
-        case(0) 
-           ! Usual vertical integration
-           call wvelintg(model%velocity%uvel,                        &
-                         model%velocity%vvel,                        &
-                         model%geomderv,                             &
-                         model%numerics,                             &
-                         model%velowk,                               &
-                         model%velocity%wgrd(model%general%upn,:,:), &
-                         model%geometry%thck,                        &
-                         model%temper%bmlt,                          &
-                         model%velocity%wvel)
-    
-        case(1)
-           ! Vertical integration constrained so kinematic upper BC obeyed.
-           call wvelintg(model%velocity%uvel,                        &
-                         model%velocity%vvel,                        &
-                         model%geomderv,                             &
-                         model%numerics,                             &
-                         model%velowk,                               &
-                         model%velocity%wgrd(model%general%upn,:,:), &
-                         model%geometry%thck,                        &
-                         model%temper%  bmlt,                        &
-                         model%velocity%wvel)
+!           call chckwvel(model%numerics,                             &
+!                         model%geomderv,                             &
+!                         model%velocity%uvel(1,:,:),                 &
+!                         model%velocity%vvel(1,:,:),                 &
+!                         model%velocity%wvel,                        &
+!                         model%geometry%thck,                        &
+!                         model%climate% acab)
+!       end select
 
-           call chckwvel(model%numerics,                             &
-                         model%geomderv,                             &
-                         model%velocity%uvel(1,:,:),                 &
-                         model%velocity%vvel(1,:,:),                 &
-                         model%velocity%wvel,                        &
-                         model%geometry%thck,                        &
-                         model%climate% acab)
-       end select
-
-!TODO - Remove support for periodic BC?
-       ! apply periodic ew BC
-       if (model%options%periodic_ew) then
-          call wvel_ew(model)
-       end if
+!!TODO - Remove support for periodic BC?
+!       ! apply periodic ew BC
+!       if (model%options%periodic_ew) then
+!          call wvel_ew(model)
+!       end if
 
        model%tempwk%inittemp = 0.0d0
        model%tempwk%initadvt = 0.0d0

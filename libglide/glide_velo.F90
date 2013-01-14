@@ -629,6 +629,8 @@ contains
     !*FD -\sigma\left(\frac{\partial H}{\partial t}+\mathbf{U}\cdot\nabla H\right)
     !*FD \]
     !*FD Compare this with equation A1 in {\em Payne and Dongelmans}.
+
+    !TODO The name of this subroutine is confusing.  It is called wvel but it does not calculate wvel, only wgrd.
     use parallel
     use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
     implicit none 

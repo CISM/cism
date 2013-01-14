@@ -867,7 +867,7 @@ contains
   subroutine glide_tstep_postp3(model, no_write)
 
     use glide_setup
-    use glide_velo, only: gridwvel
+    use glide_velo, !only: gridwvel
     use glide_thck, only: timeders
 
     implicit none
@@ -907,6 +907,55 @@ contains
                   model%geometry%thck,   &
                   model%velocity%wgrd)
    call t_stopf('postp3_gridwvel')
+
+
+
+
+
+       select case(model%options%whichwvel)
+
+!TODO - Here and below, replace derived types (geomderv, numerics, etc.) with explicit arguments
+
+        case(0) 
+           ! Usual vertical integration
+           call wvelintg(model%velocity%uvel,                        &
+                         model%velocity%vvel,                        &
+                         model%geomderv,                             &
+                         model%numerics,                             &
+                         model%velowk,                               &
+                         model%velocity%wgrd(model%general%upn,:,:), &
+                         model%geometry%thck,                        &
+                         model%temper%bmlt,                          &
+                         model%velocity%wvel)
+    
+        case(1)
+           ! Vertical integration constrained so kinematic upper BC obeyed.
+           call wvelintg(model%velocity%uvel,                        &
+                         model%velocity%vvel,                        &
+                         model%geomderv,                             &
+                         model%numerics,                             &
+                         model%velowk,                               &
+                         model%velocity%wgrd(model%general%upn,:,:), &
+                         model%geometry%thck,                        &
+                         model%temper%  bmlt,                        &
+                         model%velocity%wvel)
+
+           call chckwvel(model%numerics,                             &
+                         model%geomderv,                             &
+                         model%velocity%uvel(1,:,:),                 &
+                         model%velocity%vvel(1,:,:),                 &
+                         model%velocity%wvel,                        &
+                         model%geometry%thck,                        &
+                         model%climate% acab)
+       end select
+
+
+!TODO - Remove support for periodic BC?
+       ! apply periodic ew BC
+       if (model%options%periodic_ew) then
+          call wvel_ew(model)
+       end if
+
 
     !---------------------------------------------------------------------
     ! write to netCDF file

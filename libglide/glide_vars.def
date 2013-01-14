@@ -502,6 +502,7 @@ long_name:     vertical ice velocity
 data:          data%velocity%wvel(up,:,:)
 factor:        scale_wvel
 coordinates:   lon lat
+load:          1
 
 [wgrd]
 dimensions:    time, level, y1, x1

@@ -293,10 +293,19 @@ contains
 
       case (DYCORE_GLIDE)
         ! thkmask - TODO is this needed?
-        ! wgrd - this is needed by the temperature code on a restart and cannot
-        !        be re-calculated because it requires time derivatives that are stored in thckwrk
-        !        TODO sorting out wgrd and wvel calculations
-        restart_variable_list = trim(restart_variable_list) // ' thkmask wgrd'
+        ! wgrd & wvel - temp driver calculates weff = f(wgrd, wvel) so both are needed by temp code.
+        !               It looks possible to calculate wvel on a restart from wgrd because wvel does not 
+        !               appear to require a time derivative (see subroutine wvelintg).  
+        !               wgrd does require time derivatives and therefore should be
+        !               calculated at the end of each time step and stored as a restart variable
+        !               so that the time derivatives do not need to be restart variables.
+        !               For now I am calculating wvel at the same time (end of glide time step) 
+        !               and then saving both as restart variables.  This has the advantage of
+        !               them being on consistent time levels in the output file.  
+        !               (If we waited to calculate wvel in the temp driver, we would not need to
+        !                add it as a restart variable, been then in the output wgrd and wvel would
+        !                be based on different time levels.)
+        restart_variable_list = trim(restart_variable_list) // ' thkmask wgrd wvel'
 
         ! slip option for SIA
         select case (options%whichbtrc)
