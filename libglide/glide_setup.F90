@@ -667,14 +667,6 @@ contains
     write(message,*) 'temperature calculation : ',model%options%whichtemp,temperature(model%options%whichtemp)
     call write_log(message)
 
-!TODO - Support the old Glimmer temperature scheme (and Glide dycore) for single-processor MPI runs.
-!TODO - Maybe the distributed_execution function (or something similar that returns .false. for single-proc runs) 
-!       should be called in association with the Glide dycore, (whichdycore = 0), and not just the temperature option.
-
-    if (model%options%whichtemp==TEMP_GLIMMER .and. distributed_execution()) then
-       call write_log('Error, Glimmer temperature scheme (temperature = TEMP_GLIMMER) &
-                       not supported for distributed parallel runs',GM_FATAL)
-    end if
 
     if ((model%options%whichtemp == TEMP_REMAP_ADV .and. model%options%whichevol /= EVOL_INC_REMAP) .and. &
         (model%options%whichtemp == TEMP_REMAP_ADV .and. model%options%whichevol /= EVOL_NO_THICKNESS)) then
@@ -692,14 +684,22 @@ contains
           call write_log('Error, incremental remapping evolution is not supported for the Glide dycore', GM_FATAL)
        endif
 
-       if (distributed_execution()) then
-          !TODO May want to make this GM_FATAL, but it's convenient for testing to still allow glide to run 
-          !     in parallel even if won't necessarily work right.
-          call write_log('Warning, Glide dycore not supported for distributed parallel runs',GM_WARNING)
+       if ( tasks > 1 ) then
+          call write_log('Error, Glide dycore not supported for distributed parallel runs with more than one processor',GM_FATAL)
        end if
 
+       if (model%options%whichtemp==TEMP_GLIMMER .and. (tasks>1) ) then
+          ! Note: this should never be executed because the previous check of (tasks>1) will catch that situation.
+          ! I am leaving it here for completeness.  I moved it from before the Glide-specific checks
+          ! because in that location the code issued the 'temp=1 can't use multiple processors' error
+          ! instead of the 'glide can't use multiple processors' error, which is more informative.  MJH 1/15/13
+          call write_log('Error, Glimmer temperature scheme (temperature = TEMP_GLIMMER) &
+                       not supported for distributed parallel runs with more than one processor',GM_FATAL)
+       end if
+
+
        if (model%options%whichevol==EVOL_ADI) then
-          call write_log('Warning, exact restarts are not possible with ADI evolution', GM_WARNING)
+          call write_log('Warning, exact restarts are not currently possible with ADI evolution', GM_WARNING)
        endif
 
     endif
