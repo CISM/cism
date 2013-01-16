@@ -1,6 +1,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! WARNING: this file was automatically generated on
-! Thu, 03 Jan 2013 19:50:07 +0000
+! Wed, 16 Jan 2013 19:55:35 +0000
 ! from ncdf_template.F90.in
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -43,8 +43,6 @@ module glide_io
   !*FD written by Magnus Hagdorn, 2004
 
   private :: get_xtype
-
-  character(len=*),private,parameter :: hotvars = ' lat  relx  tauf  thk  thkmask  topg  bheatflx  bmlt  bwat  uvel  vvel  wgrd  flwa  temp  litho_temp  age '
 
 contains
 
@@ -209,19 +207,10 @@ contains
     endif
     call nc_errorhandle(__FILE__,__LINE__,status)
 
-    NCO%vars = ' '//trim(NCO%vars)//' '
-    ! expanding hotstart variables
-    pos = index(NCO%vars,' hot ') 
-    if (pos.ne.0) then
-       NCO%vars = NCO%vars(:pos)//NCO%vars(pos+4:)
-       NCO%hotstart = .true.
-    end if
-    if (NCO%hotstart) then
-       NCO%vars = trim(NCO%vars)//hotvars
-    end if
-    ! MJH Convert temp and flwa to versions on stag grid, if needed
-    ! This check is inserted here because those two variables are part of hotvars
+    ! Convert temp and flwa to versions on stag grid, if needed
+    ! Note: this check must occur after restart variables are expanded which happens in glimmer_nc_readparams
     call check_for_tempstag(model%options%whichtemp,NCO)
+
     ! checking if we need to handle time averages
     pos = index(NCO%vars,"_tavg")
     if (pos.ne.0) then
@@ -459,9 +448,9 @@ contains
        status = parallel_def_var(NCO%id,'bmlt_tavg',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
        status = parallel_put_att(NCO%id, varid, 'scale_factor',(scale_acab))
-       status = parallel_put_att(NCO%id, varid, 'standard_name', 'land_ice_basal_melt_rate')
        status = parallel_put_att(NCO%id, varid, 'avg_factor', 'tavgf')
        status = parallel_put_att(NCO%id, varid, 'long_name', 'basal melt rate (time average)')
+       status = parallel_put_att(NCO%id, varid, 'standard_name', 'land_ice_basal_melt_rate')
        status = parallel_put_att(NCO%id, varid, 'cell_methods', 'time: mean over years')
        status = parallel_put_att(NCO%id, varid, 'units', 'meter/year')
        if (glimmap_allocated(model%projection)) then
@@ -2147,26 +2136,6 @@ contains
        end if
     end if
 
-    status = parallel_inq_varid(NCI%id,'age',varid)
-    if (status .eq. nf90_noerr) then
-       call write_log('  Loading age')
-       do up=1,NCI%nlevel
-          status = distributed_get_var(NCI%id, varid, &
-               data%geometry%age(up,:,:), (/1,1,up,infile%current_time/))
-          call nc_errorhandle(__FILE__,__LINE__,status)
-          status = parallel_get_att(NCI%id, varid,'scale_factor',scaling_factor)
-          if (status.ne.NF90_NOERR) then
-             scaling_factor = 1.0d0/(tim0/scyr)
-          else
-             scaling_factor = scaling_factor/(tim0/scyr)
-          end if
-          if (abs(scaling_factor-1.0d0).gt.1.d-17) then
-             call write_log("scaling age",GM_DIAGNOSTIC)
-             data%geometry%age(up,:,:) = data%geometry%age(up,:,:)*scaling_factor
-          end if
-       end do
-    end if
-
     status = parallel_inq_varid(NCI%id,'artm',varid)
     if (status .eq. nf90_noerr) then
        call write_log('  Loading artm')
@@ -2338,22 +2307,6 @@ contains
        if (abs(scaling_factor-1.0d0).gt.1.d-17) then
           call write_log("scaling lat",GM_DIAGNOSTIC)
           data%climate%lati = data%climate%lati*scaling_factor
-       end if
-    end if
-
-    status = parallel_inq_varid(NCI%id,'litho_temp',varid)
-    if (status .eq. nf90_noerr) then
-       call write_log('  Loading litho_temp')
-       status = distributed_get_var(NCI%id, varid, &
-            data%lithot%temp, (/1,1,1,infile%current_time/))
-       call nc_errorhandle(__FILE__,__LINE__,status)
-       status = parallel_get_att(NCI%id, varid,'scale_factor',scaling_factor)
-       if (status.ne.NF90_NOERR) then
-          scaling_factor = 1.0d0
-       end if
-       if (abs(scaling_factor-1.0d0).gt.1.d-17) then
-          call write_log("scaling litho_temp",GM_DIAGNOSTIC)
-          data%lithot%temp = data%lithot%temp*scaling_factor
        end if
     end if
 
@@ -2657,6 +2610,26 @@ contains
           if (abs(scaling_factor-1.0d0).gt.1.d-17) then
              call write_log("scaling wgrd",GM_DIAGNOSTIC)
              data%velocity%wgrd(up,:,:) = data%velocity%wgrd(up,:,:)*scaling_factor
+          end if
+       end do
+    end if
+
+    status = parallel_inq_varid(NCI%id,'wvel',varid)
+    if (status .eq. nf90_noerr) then
+       call write_log('  Loading wvel')
+       do up=1,NCI%nlevel
+          status = distributed_get_var(NCI%id, varid, &
+               data%velocity%wvel(up,:,:), (/1,1,up,infile%current_time/))
+          call nc_errorhandle(__FILE__,__LINE__,status)
+          status = parallel_get_att(NCI%id, varid,'scale_factor',scaling_factor)
+          if (status.ne.NF90_NOERR) then
+             scaling_factor = 1.0d0/(scale_wvel)
+          else
+             scaling_factor = scaling_factor/(scale_wvel)
+          end if
+          if (abs(scaling_factor-1.0d0).gt.1.d-17) then
+             call write_log("scaling wvel",GM_DIAGNOSTIC)
+             data%velocity%wvel(up,:,:) = data%velocity%wvel(up,:,:)*scaling_factor
           end if
        end do
     end if

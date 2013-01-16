@@ -867,7 +867,7 @@ contains
   subroutine glide_tstep_postp3(model, no_write)
 
     use glide_setup
-    use glide_velo, !only: gridwvel
+    use glide_velo
     use glide_thck, only: timeders
 
     implicit none

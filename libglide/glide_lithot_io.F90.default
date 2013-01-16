@@ -1,6 +1,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! WARNING: this file was automatically generated on
-! Mon, 03 Dec 2012 21:19:26 +0000
+! Wed, 16 Jan 2013 19:55:35 +0000
 ! from ncdf_template.F90.in
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -42,8 +42,6 @@ module glide_lithot_io
   !*FD written by Magnus Hagdorn, 2004
 
   private :: get_xtype
-
-  character(len=*),private,parameter :: hotvars = ' litho_temp '
 
 contains
 
@@ -165,19 +163,10 @@ contains
     status = parallel_inq_dimid(NCO%id,'y1',y1_dimid)
     call nc_errorhandle(__FILE__,__LINE__,status)
 
-    NCO%vars = ' '//trim(NCO%vars)//' '
-    ! expanding hotstart variables
-    pos = index(NCO%vars,' hot ') 
-    if (pos.ne.0) then
-       NCO%vars = NCO%vars(:pos)//NCO%vars(pos+4:)
-       NCO%hotstart = .true.
-    end if
-    if (NCO%hotstart) then
-       NCO%vars = trim(NCO%vars)//hotvars
-    end if
-    ! MJH Convert temp and flwa to versions on stag grid, if needed
-    ! This check is inserted here because those two variables are part of hotvars
+    ! Convert temp and flwa to versions on stag grid, if needed
+    ! Note: this check must occur after restart variables are expanded which happens in glimmer_nc_readparams
     call check_for_tempstag(model%options%whichtemp,NCO)
+
     ! checking if we need to handle time averages
     pos = index(NCO%vars,"_tavg")
     if (pos.ne.0) then
@@ -296,22 +285,6 @@ contains
     real(dp) :: scaling_factor
 
     ! read variables
-    status = parallel_inq_varid(NCI%id,'litho_temp',varid)
-    if (status .eq. nf90_noerr) then
-       call write_log('  Loading litho_temp')
-       status = distributed_get_var(NCI%id, varid, &
-            data%lithot%temp, (/1,1,1,infile%current_time/))
-       call nc_errorhandle(__FILE__,__LINE__,status)
-       status = parallel_get_att(NCI%id, varid,'scale_factor',scaling_factor)
-       if (status.ne.NF90_NOERR) then
-          scaling_factor = 1.0d0
-       end if
-       if (abs(scaling_factor-1.0d0).gt.1.d-17) then
-          call write_log("scaling litho_temp",GM_DIAGNOSTIC)
-          data%lithot%temp = data%lithot%temp*scaling_factor
-       end if
-    end if
-
   end subroutine glide_lithot_io_read
 
   subroutine glide_lithot_io_checkdim(infile,model,data)

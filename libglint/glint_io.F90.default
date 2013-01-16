@@ -1,6 +1,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! WARNING: this file was automatically generated on
-! Mon, 03 Dec 2012 21:19:26 +0000
+! Wed, 16 Jan 2013 19:55:35 +0000
 ! from ncdf_template.F90.in
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -42,8 +42,6 @@ module glint_io
   !*FD written by Magnus Hagdorn, 2004
 
   private :: get_xtype
-
-  character(len=*),private,parameter :: hotvars = ' outmask '
 
 contains
 
@@ -158,19 +156,10 @@ contains
     status = parallel_inq_dimid(NCO%id,'y1',y1_dimid)
     call nc_errorhandle(__FILE__,__LINE__,status)
 
-    NCO%vars = ' '//trim(NCO%vars)//' '
-    ! expanding hotstart variables
-    pos = index(NCO%vars,' hot ') 
-    if (pos.ne.0) then
-       NCO%vars = NCO%vars(:pos)//NCO%vars(pos+4:)
-       NCO%hotstart = .true.
-    end if
-    if (NCO%hotstart) then
-       NCO%vars = trim(NCO%vars)//hotvars
-    end if
-    ! MJH Convert temp and flwa to versions on stag grid, if needed
-    ! This check is inserted here because those two variables are part of hotvars
+    ! Convert temp and flwa to versions on stag grid, if needed
+    ! Note: this check must occur after restart variables are expanded which happens in glimmer_nc_readparams
     call check_for_tempstag(model%options%whichtemp,NCO)
+
     ! checking if we need to handle time averages
     pos = index(NCO%vars,"_tavg")
     if (pos.ne.0) then

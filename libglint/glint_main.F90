@@ -272,6 +272,10 @@ contains
     integer :: nec       ! number of elevation classes
     integer :: j, ii, jj
 
+    if (present(gcm_debug)) then
+       GLC_DEBUG = gcm_debug
+    endif
+
     if (GLC_DEBUG) then
        write(stdout,*) 'Starting initialise_glint'
     end if
