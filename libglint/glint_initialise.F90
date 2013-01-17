@@ -128,6 +128,15 @@ contains
 
     call glint_i_readconfig(instance, config)    
     call glint_i_printconfig(instance)    
+
+    ! Construct the list of necessary restart variables based on the config options 
+    ! selected by the user in the config file (specific to glint - other configs,
+    ! e.g. glide, isos, are handled separately by their setup routines).
+    ! This is done regardless of whether or not a restart ouput file is going 
+    ! to be created for this run, but this information is needed before setting up outputs.   MJH 1/17/13
+    ! Note: the corresponding call for glide is placed within *_readconfig, which is probably more appropriate,
+    ! but putting this call into glint_i_readconfig creates a circular dependency.  
+    call define_glint_restart_variables(instance)
  
     ! create glint variables for the glide output files
     call glint_io_createall(instance%model, data=instance)
@@ -490,5 +499,38 @@ contains
     lon_diff=aa-bb
 
   end function lon_diff
+
+  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+  subroutine define_glint_restart_variables(instance)
+    !*FD This subroutine analyzes the glint options input by the user in the config file
+    !*FD and determines which variables are necessary for an exact restart.  MJH 1/11/2013
+
+    ! Please comment thoroughly the reasons why a particular variable needs to be a restart variable for a given config.
+
+    use glint_io, only: glint_add_to_restart_variable_list
+    use glint_mbal_io, only: glint_mbal_add_to_restart_variable_list
+    implicit none
+
+    !------------------------------------------------------------------------------------
+    ! Subroutine arguments
+    !------------------------------------------------------------------------------------
+    type(glint_instance), intent (in) :: instance  !*FD Derived type that includes all glint options
+
+    !------------------------------------------------------------------------------------
+    ! Internal variables
+    !------------------------------------------------------------------------------------
+
+    !------------------------------------------------------------------------------------
+
+    ! Variables needed for restart with glint.
+    ! TODO I am simply inserting outmask because it was the only variable with hot=1 in glint_vars.def
+    call glint_add_to_restart_variable_list('outmask')
+
+    ! Variables needed for restart with glint_mbal
+    ! No variables had hot=1 in glint_mbal_vars.def, so I am not adding any restart variables here.
+    ! call glint_mbal_add_to_restart_variable_list('')
+
+  end subroutine define_glint_restart_variables
 
 end module glint_initialise

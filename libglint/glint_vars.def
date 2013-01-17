@@ -21,7 +21,6 @@ units:         1
 long_name:     upscaling mask
 data:          data%out_mask
 load:          1
-hot:           1
 coordinates:   lon lat
 
 #lipscomb mod: Added inmask
