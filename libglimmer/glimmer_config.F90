@@ -59,7 +59,7 @@ module glimmer_config
   private :: handle_section, handle_value, InsertSection, InsertValue, dp
 
   integer, parameter :: namelen=50                 !< the maximum length of key or section
-  integer, parameter :: valuelen=200               !< the maximum length of a value
+  integer, parameter :: valuelen=400               !< the maximum length of a value
   integer, parameter :: linelen=valuelen+namelen+1 !< the maximum length of a line
   
   !> derived type defining a key-value pair
@@ -138,7 +138,7 @@ contains
     config=>NULL()
     this_section=>NULL()
     do while(ios == 0)
-       if (main_task) read(unit,fmt='(a250)',iostat=ios) line
+       if (main_task) read(unit,fmt='(a450)',iostat=ios) line
        call broadcast(line)
        call broadcast(ios)
        line = adjustl(line)
@@ -778,6 +778,7 @@ contains
 
   !> get character value
   subroutine GetValueChar(section,name,val)
+    use glimmer_log
     implicit none
     type(ConfigSection), pointer :: section !< the section from which the value is loaded
     character(len=*),intent(in) :: name     !< the name of the key
@@ -789,6 +790,9 @@ contains
     do while(associated(value))
        if (name == trim(value%name)) then
           val = value%value
+          if ((len_trim(val) + 1) >= len(val)) then 
+            call write_log('The value of config option   ' // trim(name) // '   is too long for the variable.' ,GM_FATAL)
+          endif
           return
        end if
        value=>value%next
@@ -896,6 +900,7 @@ contains
 
   !> insert a key-value pair
   subroutine InsertValue(name,val,value)
+    use glimmer_log
     implicit none
     character(len=*), intent(in) :: name !< the key
     character(len=*), intent(in) :: val  !< the value
@@ -904,6 +909,10 @@ contains
 
     allocate(new_value)
     
+    if ((len_trim(val) + 1) >= len(new_value%value)) then 
+       call write_log('The value of config option   ' // trim(name) // '   is too long to be read fully.' ,GM_FATAL)  
+    endif
+
     new_value%name = name
     new_value%value = val
 

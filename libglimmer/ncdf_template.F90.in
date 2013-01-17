@@ -38,6 +38,9 @@ module NAME_io
 
   private :: get_xtype
 
+  character(310), save :: restart_variable_list=''    !*FD list of variables needed for a restart
+!TODO change 310 to a variable - see glimmer_ncdf.F90 in the definition for type glimmer_nc_stat for other instances of this value.
+
 contains
 
   !*****************************************************************************
@@ -132,6 +135,7 @@ contains
     use glimmer_log
     use glimmer_paramets
     use glimmer_scales
+    use glimmer_log
     implicit none
     type(glimmer_nc_output), pointer :: outfile
     type(glide_global_type) :: model
@@ -140,6 +144,30 @@ contains
     integer status,varid,pos
 
     !GENVAR_DIMS!
+
+    ! Expanding restart variables: if 'restart' or 'hot' is present, we remove that
+    ! word from the variable list, and flip the restartfile flag.  
+    ! In CISM 2.0, 'restart' is the preferred name to represent restart variables, 
+    ! but 'hot' is supported for backward compatibility.  Thus, we check for both.
+    NCO%vars = ' '//trim(NCO%vars)//' '
+    ! expanding hotstart variables
+    pos = index(NCO%vars,' restart ') 
+    if (pos.ne.0) then
+       NCO%vars = NCO%vars(:pos)//NCO%vars(pos+8:)
+       NCO%restartfile = .true.
+    end if
+    pos = index(NCO%vars,' hot ') 
+    if (pos.ne.0) then
+       NCO%vars = NCO%vars(:pos)//NCO%vars(pos+4:)
+       NCO%restartfile = .true.
+    end if
+    ! Now apply necessary changes if the file is a restart file.
+    if (NCO%restartfile) then
+       ! Expand the restart variable list 
+       NCO%vars = trim(NCO%vars) // restart_variable_list ! (a module variable)
+       ! Set the xtype to be double (required for an exact restart)
+       outfile%default_xtype = NF90_DOUBLE   
+    end if
 
     ! Convert temp and flwa to versions on stag grid, if needed
     ! Note: this check must occur after restart variables are expanded which happens in glimmer_nc_readparams
@@ -150,6 +178,12 @@ contains
     if (pos.ne.0) then
        outfile%do_averages = .True.
     end if    
+
+    ! Now that the output variable list is finalized, make sure we aren't truncating what the user intends to be output.
+    if ((len_trim(NCO%vars) + 1 ) >= len(NCO%vars)) then 
+       call write_log('The list of output variables is too long in file ' // NCO%filename, GM_FATAL)
+    endif
+
 
     !GENVAR_VARDEF!
   end subroutine NAME_io_create
@@ -184,6 +218,36 @@ contains
     ! write variables
     !GENVAR_WRITE!
   end subroutine NAME_io_write
+
+
+  subroutine NAME_add_to_restart_variable_list(vars_to_add)
+    !*FD This subroutine adds variables to the list of variables needed for a restart.
+    !*FD It is a public subroutine that allows other parts of the model to modify the list, 
+    !*FD which is a module level variable.   MJH 1/17/2013
+
+    use glimmer_log
+    implicit none
+
+    !------------------------------------------------------------------------------------
+    ! Subroutine arguments
+    !------------------------------------------------------------------------------------
+    character(len=*), intent (in) :: vars_to_add  !*FD list of variable(s) to be added to the list of restart variables 
+    !character(*), intent (inout) :: restart_variable_list  ! list of variables needed to perform an exact restart - module variable
+
+    !------------------------------------------------------------------------------------
+    ! Internal variables
+    !------------------------------------------------------------------------------------
+
+    !------------------------------------------------------------------------------------
+    restart_variable_list = ' ' // trim(restart_variable_list) // ' ' // trim(vars_to_add) // ' '
+
+    !call write_log('Adding to NAME restart variable list: ' // trim(vars_to_add) )
+    if ((len_trim(restart_variable_list) + 1 ) >= len(restart_variable_list)) then 
+       call write_log('Adding restart variables has made the restart variable list too long.',GM_FATAL)
+    endif
+
+  end subroutine NAME_add_to_restart_variable_list
+
 
   !*****************************************************************************
   ! netCDF input

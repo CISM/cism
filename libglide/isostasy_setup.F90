@@ -64,6 +64,14 @@ contains
     if (associated(section)) then
        call GetValue(section,'flexural_rigidity',isos%rbel%d)
     end if
+
+    ! Construct the list of necessary restart variables based on the config options 
+    ! selected by the user in the config file (specific to the isos section - other sections,
+    ! e.g. glint, glide, are handled separately by their setup routines).
+    ! This is done regardless of whether or not a restart ouput file is going 
+    ! to be created for this run, but this information is needed before setting up outputs.   MJH 1/17/13
+    call define_isos_restart_variables(isos)
+
   end subroutine isos_readconfig
 
   subroutine isos_printconfig(isos)
@@ -104,5 +112,33 @@ contains
        call write_log('')
     end if
   end subroutine isos_printconfig
+
+  subroutine define_isos_restart_variables(isos)
+    !*FD This subroutine analyzes the isostasy options input by the user in the config file
+    !*FD and determines which variables are necessary for an exact restart.  MJH 1/11/2013
+
+    ! Please comment thoroughly the reasons why a particular variable needs to be a restart variable for a given config.
+
+    use isostasy_types
+    use glide_io, only: glide_add_to_restart_variable_list
+    implicit none
+
+    !------------------------------------------------------------------------------------
+    ! Subroutine arguments
+    !------------------------------------------------------------------------------------
+    type(isos_type), intent (in) :: isos  !*FD Derived type holding isotasy options and variables (we only need the options here)
+
+    !------------------------------------------------------------------------------------
+    ! Internal variables
+    !------------------------------------------------------------------------------------
+
+    !------------------------------------------------------------------------------------
+
+    ! restart variables needed for isostasy calculation
+    if (isos%do_isos) then
+        call glide_add_to_restart_variable_list('relx')
+        ! TODO I suspect that relx is only needed when asthenosphere=1 (relaxing mantle), but I'm not sure - this should be tested when isostasy implementation is finalized/tested.
+    endif
+  end subroutine define_isos_restart_variables
 
 end module isostasy_setup

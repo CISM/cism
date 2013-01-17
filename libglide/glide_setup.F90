@@ -106,6 +106,14 @@ contains
        call handle_till_options(section, model)
     end if
 
+    ! Construct the list of necessary restart variables based on the config options 
+    ! selected by the user in the config file (specific to the glide & glide_litho sections - other sections,
+    ! e.g. glint, isos, are handled separately by their setup routines).
+    ! This is done regardless of whether or not a restart ouput file is going 
+    ! to be created for this run, but this information is needed before setting up outputs.   MJH 1/17/13
+    call define_glide_restart_variables(model%options)
+    ! TODO Should this be called glimmer or cism?  Keeping the word glide for consistency with the module.
+
   end subroutine glide_readconfig
 
   subroutine glide_printconfig(model)
@@ -1132,5 +1140,126 @@ if (model%options%which_bmod > 0) then
        call write_log('')
     end if
   end subroutine print_gthf
+
+  subroutine define_glide_restart_variables(options)
+    !*FD This subroutine analyzes the glide/glissade options input by the user in the config file
+    !*FD and determines which variables are necessary for an exact restart.  MJH 1/11/2013
+
+    ! Please comment thoroughly the reasons why a particular variable needs to be a restart variable for a given config.
+
+    use glide_types
+    use glide_io, only: glide_add_to_restart_variable_list
+    use glide_lithot_io, only: glide_lithot_add_to_restart_variable_list
+    implicit none
+
+    !------------------------------------------------------------------------------------
+    ! Subroutine arguments
+    !------------------------------------------------------------------------------------
+    type(glide_options), intent (in) :: options  !*FD Derived type holding all model options
+
+    !------------------------------------------------------------------------------------
+    ! Internal variables
+    !------------------------------------------------------------------------------------
+
+    !------------------------------------------------------------------------------------
+
+    !This was the restart list as of 1/11/13 using the old hot=1 systme in glide_vars.def:
+    !restart_variable_list=' lat  relx  tauf  thk  thkmask  topg  bheatflx  bmlt  bwat  uvel  vvel  wgrd  flwa  temp  litho_temp  age '
+
+    ! Start with a few variables that we always want - prognostic variables and b.c.
+    ! topg - needed to reconstruct all other geometry fields
+    ! thk - prognostic variable
+    ! temp - prognostic variable
+    ! flwa - in principal this could be reconstructed from temp.  However in the current 
+    !        implementation of glide the flwa calculation occurs after temp evolution but 
+    !        before thk evolution.  This means flwa is calculated from the current temp and 
+    !        the old thk.  The old thk is not available on a restart (just the current thk).
+    !        (thk is needed to calculate flwa for 1) a mask for where ice is, 2) correction for pmp.)
+    ! Note: the conversion from temp/flwa to tempstag/flwastag (if necessary) happens in glide_io.F90
+    ! bheatflx, artm, acab - boundary conditions.  Of course if these fields are 0 they don't need 
+    !        to be in the restart file, but without adding a check for that we cannot assume any of them are.
+    !        There are some options where artm would not be needed.  Logic could be added to make that distinction.
+    call glide_add_to_restart_variable_list('topg thk temp flwa bheatflx artm acab')
+
+    ! add dycore specific restart variables
+    select case (options%whichdycore)
+
+      case (DYCORE_GLIDE)
+        ! thkmask - TODO is this needed?
+        ! wgrd & wvel - temp driver calculates weff = f(wgrd, wvel) so both are needed by temp code.
+        !               It looks possible to calculate wvel on a restart from wgrd because wvel does not 
+        !               appear to require a time derivative (see subroutine wvelintg).  
+        !               wgrd does require time derivatives and therefore should be
+        !               calculated at the end of each time step and stored as a restart variable
+        !               so that the time derivatives do not need to be restart variables.
+        !               For now I am calculating wvel at the same time (end of glide time step) 
+        !               and then saving both as restart variables.  This has the advantage of
+        !               them being on consistent time levels in the output file.  
+        !               (If we waited to calculate wvel in the temp driver, we would not need to
+        !                add it as a restart variable, been then in the output wgrd and wvel would
+        !                be based on different time levels.)
+        call glide_add_to_restart_variable_list('thkmask wgrd wvel')
+    
+        ! slip option for SIA
+        select case (options%whichbtrc)
+          case (0)
+            ! no restart variable needed when no-slip is chosen
+          case default
+            call glide_add_to_restart_variable_list('btrc')
+        end select
+
+        if (options%whichevol == EVOL_PSEUDO_DIFF) then
+          ! uvel,vvel are needed for linear diffusion evolution.  Their values
+          ! cannot be reconstructed from the current thk or diffu because their
+          ! values were originaly calculated from the old thk, which is not available
+          ! on a restart.
+          call glide_add_to_restart_variable_list('uvel vvel')
+        endif
+
+      case (DYCORE_GLAM, DYCORE_GLISSADE)
+        ! uvel,vvel - these are needed for an exact restart because we can only 
+        !             recalculate them to within the picard/jfnk convergence tolerance.
+        ! beta - b.c. needed for runs with sliding - could add logic to only include in that case
+        ! TODO not sure if thkmask is needed for HO
+        ! TODO not sure if wgrd is needed for HO
+        call glide_add_to_restart_variable_list('uvel vvel beta thkmask wgrd')
+
+    end select
+
+    ! ==== Other non-dycore specific options ====
+
+    ! basal water option
+    select case (options%whichbwat)
+      case (BWATER_NONE, BWATER_CONST)
+        ! no restart needed
+      case default
+        ! restart needs to know bwat value
+        call glide_add_to_restart_variable_list('bwat')
+    end select
+
+    ! if the GTHF calculation is enabled, litho_temp needs to be a restart variable
+    if (options%gthf /= 0) then
+        ! (Note the call to the glide_lithot_io module instead of glide_io module here)
+        call glide_lithot_add_to_restart_variable_list('litho_temp')
+    endif
+
+    ! basal processes module - requires tauf for a restart
+    if (options%which_bmod /= BAS_PROC_DISABLED ) then
+        call glide_add_to_restart_variable_list('tauf')
+    endif
+
+    ! TODO bmlt was set as a restart variable, but I'm not sure when or if it is needed.
+
+    ! TODO age should be a restart variable if it is an input variable.  
+    ! Same goes for b.c. (bheatflxm, artm, acab) and any other tracers that get introduced.
+    ! These could be included all the time (as I have down above for b.c.), or 
+    ! we could add logic to only include them when they were in the input file.
+    ! To do this, this subroutine would have to be moved to after where input files are read,
+    ! glide_io_readall(), but before the output files are created, glide_io_createall()
+
+    ! TODO lat is only needed for some climate drivers.  It is not needed for simple_glide.
+    ! Need to add logic that will add it only when those drivers are used.
+
+  end subroutine define_glide_restart_variables
 
 end module glide_setup
