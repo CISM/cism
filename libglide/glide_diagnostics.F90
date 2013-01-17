@@ -91,7 +91,8 @@ contains
                imax_global, imin_global,          &
                jmax_global, jmin_global,          &
                kmax_global, kmin_global,          &
-               ewn, nsn, upn       ! model%numerics%ewn, etc.
+               ewn, nsn, upn,                     &    ! model%numerics%ewn, etc.
+               velo_ew_ubound, velo_ns_ubound          ! upper bounds for velocity variables
  
     character(len=100) :: message
  
@@ -106,7 +107,17 @@ contains
     ewn = model%general%ewn
     nsn = model%general%nsn
     upn = model%general%upn
- 
+    
+    if (uhalo > 0) then
+       velo_ns_ubound = nsn-uhalo
+       velo_ew_ubound = ewn-uhalo
+    else
+       ! for uhalo==0 (as is the case for the glide dycore), the velocity grid has one less
+       ! point than the main grid, so we need to subtract one to avoid out-of-bounds problems
+       velo_ns_ubound = nsn-uhalo-1
+       velo_ew_ubound = ewn-uhalo-1
+    end if
+
 !WHL - Some of the global reductions below may seem unnecessary.
 !      But at present, subroutine write_log permits writes only from main_task,
 !      and the broadcast subroutines allow broadcasts only from main_task,
@@ -398,14 +409,13 @@ contains
     endif
 
     ! max surface speed
-    ! Note: uvel and vvel are on the velocity grid, which has one less point than the
-    ! main grid -- hence the subtraction of 1 in the ending indices here
+
     imax = 0
     jmax = 0
     max_spd_sfc = -999.d0
 
-    do j = lhalo+1, nsn-uhalo-1
-       do i = lhalo+1, ewn-uhalo-1
+    do j = lhalo+1, velo_ns_ubound
+       do i = lhalo+1, velo_ew_ubound
           spd = sqrt(model%velocity%uvel(1,i,j)**2   &
                    + model%velocity%vvel(1,i,j)**2)
           if (model%geometry%thck(i,j) > eps .and. spd > max_spd_sfc) then
@@ -433,13 +443,12 @@ contains
     endif
 
     ! max basal speed
-    ! Note: uvel and vvel are on the velocity grid, which has one less point than the
-    ! main grid -- hence the subtraction of 1 in the ending indices here
+
     imax = 0
     jmax = 0
     max_spd_bas = -999.d0
-    do j = lhalo+1, nsn-uhalo-1
-       do i = lhalo+1, ewn-uhalo-1
+    do j = lhalo+1, velo_ns_ubound
+       do i = lhalo+1, velo_ew_ubound
           spd = sqrt(model%velocity%uvel(upn,i,j)**2   &
                    + model%velocity%vvel(upn,i,j)**2)
           if (model%geometry%thck(i,j) > eps .and. spd > max_spd_bas) then
