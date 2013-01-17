@@ -398,13 +398,14 @@ contains
     endif
 
     ! max surface speed
-
+    ! Note: uvel and vvel are on the velocity grid, which has one less point than the
+    ! main grid -- hence the subtraction of 1 in the ending indices here
     imax = 0
     jmax = 0
     max_spd_sfc = -999.d0
 
-    do j = lhalo+1, nsn-uhalo
-       do i = lhalo+1, ewn-uhalo
+    do j = lhalo+1, nsn-uhalo-1
+       do i = lhalo+1, ewn-uhalo-1
           spd = sqrt(model%velocity%uvel(1,i,j)**2   &
                    + model%velocity%vvel(1,i,j)**2)
           if (model%geometry%thck(i,j) > eps .and. spd > max_spd_sfc) then
@@ -432,12 +433,13 @@ contains
     endif
 
     ! max basal speed
-
+    ! Note: uvel and vvel are on the velocity grid, which has one less point than the
+    ! main grid -- hence the subtraction of 1 in the ending indices here
     imax = 0
     jmax = 0
     max_spd_bas = -999.d0
-    do j = lhalo+1, nsn-uhalo
-       do i = lhalo+1, ewn-uhalo
+    do j = lhalo+1, nsn-uhalo-1
+       do i = lhalo+1, ewn-uhalo-1
           spd = sqrt(model%velocity%uvel(upn,i,j)**2   &
                    + model%velocity%vvel(upn,i,j)**2)
           if (model%geometry%thck(i,j) > eps .and. spd > max_spd_bas) then
