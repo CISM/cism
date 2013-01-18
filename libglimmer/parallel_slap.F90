@@ -436,12 +436,12 @@ contains
 !WHL - Modified so that the serial grid can have the same dimensions as the parallel 
 !      single-proc grid, with halo cells
 
-  subroutine distributed_grid(ewn, nsn, nhalo)
+  subroutine distributed_grid(ewn, nsn, nhalo_in)
 
     implicit none
 
     integer, intent(inout) :: ewn, nsn          ! global grid dimensions
-    integer, intent(in), optional :: nhalo   ! number of rows of halo cells
+    integer, intent(in), optional :: nhalo_in   ! number of rows of halo cells
 
     integer :: ewrank,ewtasks,nsrank,nstasks
 
@@ -451,14 +451,15 @@ contains
     ! The default halo values at the top of the module are appropriate for
     !  the higher-order dycores.  Here they can be reset to zero for Glide.
 
-    if (present(nhalo)) then
+    if (present(nhalo_in)) then
        if (main_task) then
-          write(*,*) 'Setting halo values: nhalo =', nhalo
-          if (nhalo < 0) then
+          write(*,*) 'Setting halo values: nhalo =', nhalo_in
+          if (nhalo_in < 0) then
       	     write(*,*) 'ERROR: nhalo must be >= 0'
              call parallel_stop(__FILE__, __LINE__)
           endif
        endif
+       nhalo = nhalo_in
        lhalo = nhalo
        uhalo = nhalo
        staggered_lhalo = lhalo

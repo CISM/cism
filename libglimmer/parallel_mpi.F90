@@ -1147,11 +1147,11 @@ contains
 !       default values specified at the top of the module, so it is
 !       not necessary to provide this argument.
 
-  subroutine distributed_grid(ewn, nsn, nhalo)
+  subroutine distributed_grid(ewn, nsn, nhalo_in)
 
     implicit none
-    integer, intent(inout) :: ewn, nsn       ! global grid dimensions
-    integer, intent(in), optional :: nhalo   ! number of rows of halo cells
+    integer, intent(inout) :: ewn, nsn        ! global grid dimensions
+    integer, intent(in), optional :: nhalo_in ! number of rows of halo cells
     integer :: best,i,j,metric
     integer :: ewrank,ewtasks,nsrank,nstasks
     real(8) :: rewtasks,rnstasks
@@ -1161,16 +1161,17 @@ contains
     ! Optionally, change the halo values
     ! Note: The parallel dycores have been tested only with nhalo = 2.
 
-    if (present(nhalo)) then
+    if (present(nhalo_in)) then
        if (main_task) then
-          write(*,*) 'Setting halo values: nhalo =', nhalo
-          if (nhalo < 0) then
+          write(*,*) 'Setting halo values: nhalo =', nhalo_in
+          if (nhalo_in < 0) then
              write(*,*) 'ERROR: nhalo must be >= 0'
              call parallel_stop(__FILE__, __LINE__)
-          elseif (nhalo /= 2) then
+          elseif (nhalo_in /= 2) then
              write(*,*) 'WARNING: parallel dycores tested only with nhalo = 2'
           endif
        endif 
+       nhalo = nhalo_in
        lhalo = nhalo
        uhalo = nhalo
        staggered_lhalo = lhalo
