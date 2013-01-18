@@ -234,8 +234,8 @@ contains
         model%velocity%vvel_icegrid(:,:,:) = 0.d0
         do j = 1, model%general%nsn-1
            do i = 1, model%general%ewn-1
-              model%velocity%uvel_icegrid(:,i,j) = uvel(:,i,j)
-              model%velocity%vvel_icegrid(:,i,j) = uvel(:,i,j)             
+              model%velocity%uvel_icegrid(:,i,j) = model%velocity%uvel(:,i,j)
+              model%velocity%vvel_icegrid(:,i,j) = model%velocity%vvel(:,i,j)             
            enddo
         enddo
         
