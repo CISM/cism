@@ -122,8 +122,6 @@ contains
 
 !=======================================================================
 
-!TODO - Move some of this to a glimmer_initialise module? Keep only the SIA stuff here.
-
   subroutine glide_initialise(model)
 
     ! Initialise Glide model instance
@@ -143,19 +141,18 @@ contains
 
     use parallel, only: distributed_grid
 
-!WHL - debug
-    use parallel, only: lhalo, uhalo, staggered_lhalo, staggered_uhalo
-
     type(glide_global_type), intent(inout) :: model     ! model instance
 
 !TODO - build glimmer_vers file or put this character elsewhere?
+!       Old Glide does not include this variable.
     character(len=100), external :: glimmer_version_char
 
     integer, parameter :: nhalo = 0   ! no halo layers for Glide dycore
 
+!!!Old Glide has this:
+!!!    call write_log(glimmer_version)  
     call write_log(trim(glimmer_version_char()))
 
-!SCALING - Is this call needed?
     ! initialise scales
     call glimmer_init_scales
 
@@ -232,6 +229,12 @@ contains
     ! read so we can assign artm (which could possibly be read in) if temp has not been input.
        call glide_init_temp(model)
 
+!TODO - Old Glide has this--have we replaced it?
+!!    if (model%options%hotstart.ne.1) then
+!!       ! initialise Glen's flow parameter A using an isothermal temperature distribution
+!!       call timeevoltemp(model,0)
+!!    end if
+
     ! initialise thickness evolution calc
     call init_thck(model)
 
@@ -240,12 +243,13 @@ contains
        call init_lithot(model)
     end if
 
+!TODO 
     ! *sfp** added for summer modeling school
     if (model%options%whichevol == EVOL_FO_UPWIND ) then
         call fo_upwind_advect_init( model%general%ewn, model%general%nsn )
     endif
 
-!TODO - Will this module ever be supported?
+!TODO - Remove this?
     ! *mb* added; initialization of basal proc. module
     if (model%options%which_bmod == BAS_PROC_FULLCALC .or. &
         model%options%which_bmod == BAS_PROC_FASTCALC) then
@@ -262,6 +266,7 @@ contains
 !     - Mask names are perverse: 
 !       model%geometry%thkmask is set in glide_mask.F90, whereas model%geometry%mask is set in glide_thckmask.F90
 
+
 !TODO - Verify exact restart.
     ! calculate mask
     if (model%options%hotstart /= 1) then  ! setting the mask destroys exact restart
@@ -270,16 +275,14 @@ contains
                            model%general%ewn,    model%general%nsn,       &
                            model%climate%eus,    model%geometry%thkmask,  &
                            model%geometry%iarea, model%geometry%ivol)
-       call horiz_bcs_unstag_scalar(model%geometry%thkmask)
     endif
  
 !TODO Do calc_iareaf_areag, lsrf, and usrf need to be calc'ed here if they are now calc'ed as part of glide_init_state_diagnostic?
-!TODO- Not sure why this needs to be called here.
-    call calc_iareaf_iareag(model%numerics%dew,model%numerics%dns, &
-                            model%geometry%iarea, model%geometry%thkmask, &
-                            model%geometry%iareaf, model%geometry%iareag)
+!TODO- Remove this call.
+!!    call calc_iareaf_iareag(model%numerics%dew,model%numerics%dns, &
+!!                            model%geometry%iarea, model%geometry%thkmask, &
+!!                            model%geometry%iareaf, model%geometry%iareag)
 
-!TODO - Inline calclsrf?
     ! calculate lower and upper ice surface
     call glide_calclsrf(model%geometry%thck, model%geometry%topg, model%climate%eus,model%geometry%lsrf)
 
@@ -296,6 +299,7 @@ contains
     ! register the newly created model so that it can be finalised in the case
     ! of an error without needing to pass the whole thing around to every
     ! function that might cause an error
+
     call register_model(model)
     
   end subroutine glide_initialise
@@ -303,6 +307,7 @@ contains
 !=======================================================================
 
   subroutine glide_init_state_diagnostic(model)
+
     ! Calculate diagnostic variables for the initial model state
     ! This provides calculation of output fields at time 0
     ! This is analagous to glissade_diagnostic_variable_solve but is only 
@@ -323,7 +328,6 @@ contains
     use glide_ground, only: glide_marinlim
     use glide_bwater, only: calcbwat
     use glide_temp, only: glide_calcbmlt
-    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
 
     type(glide_global_type), intent(inout) :: model     ! model instance
 
@@ -335,8 +339,7 @@ contains
     ! depth, depending on value of whichmarn
     ! ------------------------------------------------------------------------ 
 
-!TODO - Are all these arguments needed?
-!       Old Glimmer code includes only arguments through model%climate%calving.
+!TODO - Remove this call?  There is a call to glide_marinlim in glide_tstep_p2.
 
     call glide_marinlim(model%options%whichmarn, &
                         model%geometry%thck,      &
@@ -353,16 +356,16 @@ contains
                         model%general%nsn, &
                         model%general%ewn)
 
-!TODO - Write a better comment here.  The mask needs to be recalculated after marinlim.
-    !issues with ice shelf, calling it again fixes the mask
+!TODO - There are two calls to glide_set_mask, one before and one after the call to glide_marinlim.
+!       Keep the second call here?
 
     call glide_set_mask(model%numerics,                                &
                         model%geometry%thck,  model%geometry%topg,     &
                         model%general%ewn,    model%general%nsn,       &
                         model%climate%eus,    model%geometry%thkmask,  &
                         model%geometry%iarea, model%geometry%ivol)
-    call horiz_bcs_unstag_scalar(model%geometry%thkmask)
 
+!TODO - Remove this call?
     call calc_iareaf_iareag(model%numerics%dew,    model%numerics%dns,     &
                             model%geometry%iarea,  model%geometry%thkmask, &
                             model%geometry%iareaf, model%geometry%iareag)
@@ -380,7 +383,6 @@ contains
     ! calculate upper and lower ice surface
     ! ------------------------------------------------------------------------
 
-!TODO - Inline calclsrf
     call glide_calclsrf(model%geometry%thck, model%geometry%topg, &
                         model%climate%eus,   model%geometry%lsrf)
 
@@ -391,6 +393,7 @@ contains
     ! ------------------------------------------------------------------------     
 
 !TODO - Replace this call with explicit calls to the appropriate subroutines.
+!       See comments below in glide_tstep_p1.
 !       Then we would not need to use the geometry_derivs subroutine in glide_thck.
 !       Currently, this subroutine computes stagthck, staglsrf, stagtopg, dusrfdew/ns, dthckdew/ns,
 !        dlsrfdew/ns, d2usrfdew/ns2, d2thckdew/ns2 (2nd derivs are HO only)   
@@ -447,7 +450,7 @@ contains
     ! Part 3: Solve velocity
     ! ------------------------------------------------------------------------    
     ! initial value for flwa should already be calculated as part of glide_init_temp()
-    ! calculate  the part of the vertically averaged velocity field which solely depends on the temperature
+    ! calculate the part of the vertically averaged velocity field which solely depends on the temperature
 
     call velo_integrate_flwa(model%velowk,model%geomderv%stagthck,model%temper%flwa)
 
@@ -455,6 +458,8 @@ contains
     call velo_calc_diffu(model%velowk,model%geomderv%stagthck,model%geomderv%dusrfdew, &
             model%geomderv%dusrfdns,model%velocity%diffu)
 
+
+!TODO - Remove the next two calls, assume bwat is in restart file.
 
     ! Calculate basal melt rate --------------------------------------------------
     ! Note: For the initial state, we won't have values for ubas/vbas (unless they were 
@@ -489,7 +494,7 @@ contains
     ! ------------------------------------------------------------------------ 
     ! Calculate basal traction factor
     ! ------------------------------------------------------------------------ 
-!TODO - Remove model derived type from argument list
+
     call calc_btrc(model,                    &
                    model%options%whichbtrc,  &
                    model%velocity%btrc)
@@ -518,6 +523,8 @@ contains
     ! ------------------------------------------------------------------------ 
     ! Part 4: Calculate other diagnostic fields that depend on velocity
     ! ------------------------------------------------------------------------    
+
+!TODO Remove this call?  Or maybe not, if we want to have tau available at time zero.
     ! ------------------------------------------------------------------------
     ! basal shear stress calculation
     ! ------------------------------------------------------------------------
@@ -538,8 +545,6 @@ contains
     ! Perform first part of time-step of an ice model instance:
     ! temperature advection, vertical conduction, and internal dissipation.
 
-!WHLTSTEP - Changed time to dp
-!    use glimmer_global, only : rk
     use glimmer_global, only : dp
     use glide_thck
     use glide_velo
@@ -553,14 +558,13 @@ contains
     use glide_grids
 
     type(glide_global_type), intent(inout) :: model     ! model instance
-!WHLTSTEP - Changed time to dp
-!    real(rk),  intent(in)   :: time                     ! current time in years
     real(dp),  intent(in)   :: time                     ! current time in years
 
     ! Update internal clock
     model%numerics%time = time  
     model%temper%newtemps = .false.
 
+!TODO - Check this--not in old Glide
     model%thckwk%oldtime = model%numerics%time - (model%numerics%dt * tim0/scyr)
 
     call glide_prof_start(model,model%glide_prof%geomderv)
@@ -575,16 +579,38 @@ contains
 !        dlsrfdew/ns, d2usrfdew/ns2, d2thckdew/ns2 (2nd derivs are HO only)   
 
     call geometry_derivs(model)
+
+! Here are the calls in old Glide:
+!    call stagvarb(model%geometry% thck, &
+!         model%geomderv% stagthck,&
+!         model%general%  ewn, &
+!         model%general%  nsn)
+
+!    call geomders(model%numerics, &
+!         model%geometry% usrf, &
+!         model%geomderv% stagthck,&
+!         model%geomderv% dusrfdew, &
+!         model%geomderv% dusrfdns)
+
+!    call geomders(model%numerics, &
+!         model%geometry% thck, &
+!         model%geomderv% stagthck,&
+!         model%geomderv% dthckdew, &
+!         model%geomderv% dthckdns)
+
     
     !EIB! from gc2 - think this was all replaced by geometry_derivs??
 !TODO - The subroutine geometry_derivs calls subroutine stagthickness to compute stagthck.
 !       Similarly for dthckdew/ns and dusrfdew/ns
 !       No need to call the next three subroutines as well as geometry_derivs?
-!       This calculation of stagthck differs from that in geometry_derivs which calls stagthickness() in the glide_grids.F90  Which do we want to use?  stagthickness() seems to be noisier but there are notes in there about some issue related to margins.
+!       This calculation of stagthck differs from that in geometry_derivs which calls stagthickness() in the glide_grids.F90  
+!       Which do we want to use?  stagthickness() seems to be noisier but there are notes in there about some issue related to margins.
 
+!TODO - This can stay
     call stagvarb(model%geometry%thck, model%geomderv%stagthck,&
                   model%general%ewn,   model%general%nsn)
 
+! The next two can be replaced by calls to geomders?
     call df_field_2d_staggered(model%geometry%usrf,                              &
                                model%numerics%dew,      model%numerics%dns,      &
                                model%geomderv%dusrfdew, model%geomderv%dusrfdns, &
@@ -599,6 +625,7 @@ contains
 
     call glide_prof_start(model,model%glide_prof%ice_mask1)
 
+!TODO - Remove this call?  I don't think the variables it computes are needed.
     !TREY This sets local values of dom, mask, totpts, and empty
     !EIB! call varies between lanl and gc2, this is lanl version
 
@@ -685,9 +712,6 @@ contains
     use fo_upwind_advect, only: fo_upwind_advect_driver
     use glide_ground, only: glide_marinlim
 
-!TODO - Remove this?  Not needed for Glide dycore.
-    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
-
     type(glide_global_type), intent(inout) :: model    ! model instance
 
     ! ------------------------------------------------------------------------ 
@@ -712,10 +736,6 @@ contains
 
        call thck_nonlin_evolve(model,model%temper%newtemps)
 
-    case(EVOL_FO_UPWIND) ! Use first order upwind scheme for mass transport
-!TODO MJH - Eliminate the FO_Upwind case?  It calls the HO velocity solver, which shouldn't be called from GLIDE.
-       call fo_upwind_advect_driver( model )
-
     end select
 
     call glide_prof_stop(model,model%glide_prof%ice_evo)
@@ -733,9 +753,6 @@ contains
                         model%general%ewn,    model%general%nsn,       &
                         model%climate%eus,    model%geometry%thkmask,  &
                         model%geometry%iarea, model%geometry%ivol)
-
-!TODO - Remove this call?  Not needed for Glide dycore.
-    call horiz_bcs_unstag_scalar(model%geometry%thkmask)
 
     call glide_prof_stop(model,model%glide_prof%ice_mask2)
 
@@ -762,6 +779,7 @@ contains
                         model%general%nsn, &
                         model%general%ewn)
 
+!TODO - This call is not in old Glide.
 !TODO - Write a better comment here.  The mask needs to be recalculated after marinlim.
     !issues with ice shelf, calling it again fixes the mask
 
@@ -771,9 +789,7 @@ contains
                         model%climate%eus,    model%geometry%thkmask,  &
                         model%geometry%iarea, model%geometry%ivol)
 
-!TODO - Remove this call?  Not needed for Glide dycore.
-    call horiz_bcs_unstag_scalar(model%geometry%thkmask)
-
+!TODO - Is this call needed?  Not in old Glide.
     call calc_iareaf_iareag(model%numerics%dew,    model%numerics%dns,     &
                             model%geometry%iarea,  model%geometry%thkmask, &
                             model%geometry%iareaf, model%geometry%iareag)
@@ -784,7 +800,6 @@ contains
 
     call glide_prof_start(model,model%glide_prof%isos_water)
 
-!TODO - Remove model derived type from argument list
     if (model%isos%do_isos) then
        if (model%numerics%time >= model%isos%next_calc) then
           model%isos%next_calc = model%isos%next_calc + model%isos%period
@@ -822,7 +837,7 @@ contains
 
 !TODO - Move back to tstep_p3?
     use glide_velo, only: gridwvel
-    use glide_thck, only: timeders    
+    use glide_thck, only: timeders
 
     implicit none
     type(glide_global_type), intent(inout) :: model     ! model instance
@@ -835,7 +850,6 @@ contains
     ! Calculate isostasy
     ! ------------------------------------------------------------------------ 
 
-!TODO - Remove model derived type from argument list
     call glide_prof_start(model,model%glide_prof%isos)
     if (model%isos%do_isos) then
        call isos_isostasy(model)
