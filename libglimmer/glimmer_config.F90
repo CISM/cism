@@ -791,6 +791,7 @@ contains
        if (name == trim(value%name)) then
           val = value%value
           if ((len_trim(val) + 1) >= len(val)) then 
+            ! Assume that if we get within one space of the variable length (excluding spaces) then we may be truncating the intended value.
             call write_log('The value of config option   ' // trim(name) // '   is too long for the variable.' ,GM_FATAL)
           endif
           return
@@ -909,6 +910,7 @@ contains
 
     allocate(new_value)
     
+    ! Assume that if we get within one space of the variable length (excluding spaces) then we may be truncating the intended value.
     if ((len_trim(val) + 1) >= len(new_value%value)) then 
        call write_log('The value of config option   ' // trim(name) // '   is too long to be read fully.' ,GM_FATAL)  
     endif
