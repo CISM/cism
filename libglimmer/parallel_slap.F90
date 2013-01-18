@@ -173,9 +173,10 @@ module parallel
      module procedure parallel_halo_verify_real8_3d
   end interface
 
-!WHL - added staggered_parallel_halo_integer_2d
+!WHL - added staggered_parallel_halo_integer_2d and _3d
   interface staggered_parallel_halo
      module procedure staggered_parallel_halo_integer_2d
+     module procedure staggered_parallel_halo_integer_3d
      module procedure staggered_parallel_halo_real8_2d
      module procedure staggered_parallel_halo_real8_3d
   end interface
@@ -1956,6 +1957,48 @@ contains
     a(:, 1:staggered_lhalo) = ncopy(:,:)
 
   end subroutine staggered_parallel_halo_integer_2d
+
+!WHL - added this subroutine
+  subroutine staggered_parallel_halo_integer_3d(a)
+
+    implicit none
+    integer,dimension(:,:,:) :: a
+
+    integer,dimension(size(a,1),staggered_lhalo,size(a,3)-staggered_lhalo-staggered_uhalo) :: ecopy
+    integer,dimension(size(a,1),staggered_uhalo,size(a,3)-staggered_lhalo-staggered_uhalo) :: wcopy
+    integer,dimension(size(a,1),size(a,2),staggered_lhalo) :: ncopy
+    integer,dimension(size(a,1),size(a,2),staggered_uhalo) :: scopy
+
+    ! begin
+
+    ! Confirm staggered array
+    if (size(a,2)/=local_ewn-1 .or. size(a,3)/=local_nsn-1) then
+         write(*,*) "staggered_parallel_halo() requires staggered arrays."
+         call parallel_stop(__FILE__,__LINE__)
+    endif
+
+    wcopy(:,:, 1:size(a,3)-staggered_lhalo-staggered_uhalo) = &
+       a(:,1+staggered_lhalo:1+staggered_lhalo+staggered_uhalo-1, &
+           1+staggered_lhalo:size(a,3)-staggered_uhalo)
+
+    ecopy(:,:, 1:size(a,3)-staggered_lhalo-staggered_uhalo) = &
+       a(:,size(a,2)-staggered_uhalo-staggered_lhalo+1:size(a,2)-staggered_uhalo, &
+           1+staggered_lhalo:size(a,3)-staggered_uhalo)
+
+    a(:, size(a,2)-staggered_uhalo+1:size(a,2), 1+staggered_lhalo:size(a,3)-staggered_uhalo) = &
+       wcopy(:,:, 1:size(a,3)-staggered_lhalo-staggered_uhalo)
+
+    a(:, 1:staggered_lhalo, 1+staggered_lhalo:size(a,3)-staggered_uhalo) = &
+       ecopy(:,:, 1:size(a,3)-staggered_lhalo-staggered_uhalo)
+
+    scopy(:,:,:) = a(:,:, 1+staggered_lhalo:1+staggered_lhalo+staggered_uhalo-1)
+    ncopy(:,:,:) = a(:,:, size(a,3)-staggered_uhalo-staggered_lhalo+1:size(a,3)-staggered_uhalo)
+
+    a(:,:,size(a,3)-staggered_uhalo+1:size(a,3)) = scopy(:,:,:)
+    a(:,:,1:staggered_lhalo) = ncopy(:,:,:)
+
+  end subroutine staggered_parallel_halo_integer_3d
+
 
 !WHL - replaced this stub with a working subroutine
 !  subroutine staggered_parallel_halo_real8_2d(a)
