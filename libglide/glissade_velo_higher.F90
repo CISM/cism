@@ -55,7 +55,7 @@
     ! Each cell can be extruded to form a column with a specified number of layers.
     ! 
     ! An element is a layer of a cell, and a node is a corner of an element.
-    ! So elements and nodes live in 3D space, whereas cells and vertices live in
+    ! Elements and nodes live in 3D space, whereas cells and vertices live in
     !  the horizontal plane.
     !
     ! Locally owned cells and vertices have indices (nhalo+1:nx-nhalo, nhalo+1,ny-nhalo).
@@ -520,9 +520,6 @@
     ! Local variables
     !--------------------------------------------------------
 
-    integer ::            &
-       nNodes                 ! number of active nodes
-
     real(dp), dimension(nx-1,ny-1) :: &
        xVertex, yVertex       ! x and y coordinates of each vertex
 
@@ -540,12 +537,6 @@
 
     logical, dimension(nx-1,ny-1) :: &
        active_vertex          ! true for vertices of active cells
-
-    integer, dimension(nz,nx-1,ny-1) ::  &
-       NodeID             ! ID for each active node
-
-    integer, dimension((nx-1)*(ny-1)*nz) ::   &
-       iNodeIndex, jNodeIndex, kNodeIndex   ! i, j and k indices of active nodes
 
     real(dp), dimension(nz-1,nx,ny) ::  &
        flwafact           ! temperature-based flow factor, 0.5 * A^(-1/n), 
@@ -586,7 +577,22 @@
        sia_factor,      & ! = 1. if SIA terms are included, else = 0.
        ssa_factor         ! = 1. if SSA terms are included, else = 0.
 
-    ! Derived types and allocatable arrays for SLAP solver
+    !TODO - Pass in as an argument instead
+    real (dp), dimension(nx-1,ny-1) ::  &
+       beta                   ! basal traction parameter
+
+    ! The following are used only for the single-processor SLAP solver
+
+    integer ::            &
+       nNodes                 ! number of nodes where we solve for velocity
+
+    integer, dimension(nz,nx-1,ny-1) ::  &
+       NodeID                 ! ID for each node where we solve for velocity
+                              ! For periodic BCs, halo node IDs will be copied
+                              !  from the other side of the grid
+
+    integer, dimension((nx-1)*(ny-1)*nz) ::   &
+       iNodeIndex, jNodeIndex, kNodeIndex   ! i, j and k indices of nodes
 
     type(sparse_matrix_type) ::  &
        matrix             ! sparse matrix for SLAP solver, defined in glimmer_sparse_types
@@ -601,9 +607,6 @@
        matrix_order,    & ! order of matrix = number of rows
        nNonzero           ! upper bound for number of nonzero entries in sparse matrix
 
-    !TODO - Pass in as an argument instead
-    real (dp), dimension(nx-1,ny-1) ::  &
-       beta                   ! basal traction parameter
 
 !WHL - debug
     integer :: i, j, k, n, r
@@ -765,7 +768,9 @@
     ! Identify the active cells (i.e., cells with thck > thklim,
     !  bordering a locally owned vertex) and active vertices (all vertices
     !  of active cells).
-    ! Count and assign a unique ID to each active node.
+
+    ! For the SLAP solver, count and assign a unique ID to each active node.
+    !TODO - Move SLAP-only calculation to another subroutine?
 
     call get_nodal_geometry(nx,          ny,         nz,  &   
                             nhalo,       sigma,           &
@@ -776,6 +781,29 @@
                             active_cell, active_vertex,   &
                             nNodes,      NodeID,          &
                             iNodeIndex,  jNodeIndex,  kNodeIndex)
+
+    ! Assign the appropriate ID to nodes in the halo.
+
+!WHL - debug
+    if (verbose .and. this_rank==rtest) then
+       print*, ' '
+       print*, 'NodeID before halo update, k = 1:'
+       do j = ny-1, 1, -1
+          write(6,'(23i6)') NodeID(1,:,j)
+       enddo
+    endif
+
+    call staggered_parallel_halo(NodeID)
+
+!WHL - debug
+    if (verbose .and. this_rank==rtest) then
+       print*, ' '
+       print*, 'NodeID after halo update, k = 1:'
+       do j = ny-1, 1, -1
+          write(6,'(23i6)') NodeID(1,:,j)
+       enddo
+    endif
+
 
     ! Compute the factor A^(-1/n) appearing in the expression for effective viscosity.
     ! Note: The rate factor (flwa = A) is assumed to have units of Pa^(-n) s^(-1).
@@ -1144,8 +1172,7 @@
                                      Avu,       Avv,           &
                                      bu,        bv,            &
                                      uvel,      vvel,          &
-                                     err,       niters,        &
-                                     NodeID)   !WHL - Node ID is temporary for debugging
+                                     err,       niters)
 
           ! Halo updates for uvel and vvel
           !TODO - Put these after the 'endif'?
@@ -1388,11 +1415,15 @@
                                 nNodes,      NodeID,               & 
                                 iNodeIndex,  jNodeIndex,  kNodeIndex)
                             
-    ! Identify and count the active nodes for the calculations.
-    ! All nodes of all elements lying within active cells (i.e., cells with ice present)
-    !  are active.
+    !----------------------------------------------------------------
+    ! Compute coordinates for each vertex.
+    ! Identify and count the active cells and vertices for the finite-element calculations.
     ! Active cells include all cells that contain ice (thck > thklin) and border locally owned vertices.
-    ! Active nodes may be either free (to be solved for) or constrained (e.g., Dirichlet).
+    ! Active vertices include all vertices of active cells.
+    !
+    ! Also compute some node indices needed for the SLAP single-processor solver.
+    !TODO - Move SLAP part to different subroutine?
+    !----------------------------------------------------------------
 
     !----------------------------------------------------------------
     ! Input-output arguments
@@ -1430,22 +1461,20 @@
     logical, dimension(nx-1,ny-1), intent(out) :: &
        active_vertex          ! true for vertices of active cells
 
+    ! The remaining input/output arguments are for the SLAP solver
+
     integer, intent(out) :: &
-       nNodes                 ! number of active nodes
+       nNodes                 ! number of nodes where we solve for velocity
 
     integer, dimension(nz,nx-1,ny-1), intent(out) ::  &
-       NodeID                 ! ID for each active node
+       NodeID                 ! ID for each node where we solve for velocity
 
     integer, dimension((nx-1)*(ny-1)*nz), intent(out) ::   &
-       iNodeIndex, jNodeIndex, kNodeIndex   ! i, j and k indices of active nodes
+       iNodeIndex, jNodeIndex, kNodeIndex   ! i, j and k indices of nodes
 
     !---------------------------------------------------------
     ! Local variables
     !---------------------------------------------------------
-
-    integer ::   &
-       nActiveCells,   &      ! number of active cells (thck > thklim)
-       nActiveVertices        ! number of active vertices
 
     integer :: i, j, k
 
@@ -1483,7 +1512,6 @@
     do i = 1+nhalo, nx-nhalo+1
        if (thck(i,j) > thklim) then
           active_cell(i,j) = .true.
-          nActiveCells = nActiveCells + 1
        endif
     enddo
     enddo
@@ -1501,23 +1529,24 @@
     enddo
     enddo
 
-    ! Identify and count the locally owned nodes where we solve for the velocity.
+    ! Identify and count the nodes where we must solve for the velocity.
     ! This indexing is used for pre- and post-processing of the assembled matrix
     !  when we call the SLAP solver (one processor only).
     ! It is not required by the structured solver.
-    !TODO - Add whichsparse logic?
+    !TODO - Move to separate subroutine
 
     nNodes = 0
+    NodeID(:,:,:) = 0
     iNodeIndex(:) = 0
     jNodeIndex(:) = 0
     kNodeIndex(:) = 0
 
-    do j = nhalo+1, ny-nhalo    ! include locally owned vertices only
+    do j = nhalo+1, ny-nhalo    ! locally owned vertices only
     do i = nhalo+1, nx-nhalo
        if (active_vertex(i,j)) then   ! all nodes in column are active
           do k = 1, nz               
              nNodes = nNodes + 1   
-             NodeID(k,i,j) = nNodes   ! unique local index for each node
+             NodeID(k,i,j) = nNodes   ! unique index for each node
              iNodeIndex(nNodes) = i
              jNodeIndex(nNodes) = j
              kNodeIndex(nNodes) = k
@@ -2833,8 +2862,6 @@
                                            Kvu,         Kvv,                &
                                            sia_factor,  ssa_factor,  ii, jj, k, p)
 
-!TODO: Add 'blatter_pattyn' to subroutine name?
-
     !------------------------------------------------------------------
     ! Increment the stiffness matrices Kuu, Kuv, Kvu, Kvv with the
     ! contribution from a particular quadrature point, 
@@ -3524,7 +3551,6 @@
                    do iA = -1,1
                    do kA = -1,1
 
-
                       if ( (k+kA >= 1 .and. k+kA <= nz)         &
                                       .and.                     &
                            (i+iA >= 1 .and. i+iA <= nx-1)       &
@@ -3885,10 +3911,10 @@
     integer, intent(in) ::   &
        nx, ny,               &  ! horizontal grid dimensions
        nz,                   &  ! number of vertical levels at which velocity is computed
-       nNodes                   ! number of active nodes
+       nNodes                   ! number of nodes where we solve for velocity
 
-    integer, dimension(:,:,:), intent(in) ::  &
-       NodeID            ! ID for each active node
+    integer, dimension(nz,nx-1,ny-1), intent(in) ::  &
+       NodeID             ! ID for each node
 
     integer, dimension(:), intent(in) ::   &
        iNodeIndex, jNodeIndex, kNodeIndex   ! i, j and k indices of active nodes
@@ -4083,7 +4109,7 @@
     ! Input-output arguments
     !----------------------------------------------------------------
 
-    integer, intent(in) :: nNodes        ! number of active nodes
+    integer, intent(in) :: nNodes     ! number of nodes where we solve for velocity
 
     real(dp), dimension(:), intent(in) ::   &
        answer             ! velocity solution vector

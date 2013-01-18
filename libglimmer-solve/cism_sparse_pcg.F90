@@ -44,7 +44,7 @@ contains
                                    bu,        bv,            &
                                    xu,        xv,            &
                                    err,       niters,        &
-                                   NodeID,    verbose)   ! NodeID is temporary for debugging
+                                   verbose) 
 
     !---------------------------------------------------------------
     !  This subroutine uses a preconditioned conjugate-gradient solver to
@@ -108,10 +108,6 @@ contains
 
     integer, intent(out) ::   &
        niters                            ! iterations needed to solution
-
-!WHL - Temporary for debugging
-    integer, dimension(nz,nx-1,ny-1), intent(in) ::  &
-       NodeID
 
     logical, intent(in), optional :: &
        verbose                           ! if true, print diagnostic output
@@ -188,20 +184,19 @@ contains
        Adiagu(:,:,:) = Auu(0,0,0,:,:,:)
        Adiagv(:,:,:) = Avv(0,0,0,:,:,:)
 
-!TODO - Get rid of NodeID later
        if (verbose_pcg .and. this_rank==rtest) then
           print*, ' '
           print*, 'Using diagonal solver for preconditioning'
           print*, ' '
-          print*, 'i, j, k, n, diagonal entries, initial guess, residual:'
+          print*, 'i, j, k, diagonal entries, initial guess, residual:'
           m = 0
           do j = 1, ny-1
           do i = 1, nx-1
           do k = 1, nz
              if (Adiagu(k,i,j) > 0.d0 .and. m < ndiagmax) then
                 m = m + 2
-                print*, i, j, k, NodeID(k,i,j), Adiagu(k,i,j), xu(k,i,j), ru(k,i,j)
-                print*, i, j, k, NodeID(k,i,j), Adiagv(k,i,j), xv(k,i,j), rv(k,i,j)
+                print*, i, j, k, Adiagu(k,i,j), xu(k,i,j), ru(k,i,j)
+                print*, i, j, k, Adiagv(k,i,j), xv(k,i,j), rv(k,i,j)
              else
                 exit
              endif
