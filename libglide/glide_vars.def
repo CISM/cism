@@ -429,6 +429,26 @@ factor:        scale_uvel
 standard_name: land_ice_y_velocity
 load:          1
 
+#used for output of uvel and vvel with dimensions of global scalar grid
+
+[uvel_icegrid]
+dimensions:    time, level, y1, x1
+units:         meter/year
+long_name:     ice velocity in x direction
+data:          data%velocity%uvel_icegrid(up,:,:)
+factor:        scale_uvel
+standard_name: land_ice_x_velocity
+hot:           0
+
+[vvel_icegrid]
+dimensions:    time, level, y1, x1
+units:         meter/year
+long_name:     ice velocity in y direction
+data:          data%velocity%vvel_icegrid(up,:,:)
+factor:        scale_uvel
+standard_name: land_ice_y_velocity
+hot:           0
+
 # used for output of res fields
 #[ures]
 #dimensions:    time, level, y0, x0

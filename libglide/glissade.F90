@@ -127,9 +127,6 @@ contains
     use glam_strs2, only : glam_velo_init
     use glissade_velo_higher, only: glissade_velo_higher_init
 
-!TODO - Declare nhalo elsewhere
-    use glissade_velo_higher, only: nhalo
-
     use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
 
 !!    use fo_upwind_advect, only : fo_upwind_advect_init
@@ -249,10 +246,7 @@ contains
     elseif (model%options%whichdycore == DYCORE_GLISSADE ) then  ! glissade finite-element
 
 !WHL - Removed scaling of dew and dns
-        call glissade_velo_higher_init(model%general%ewn,  model%general%nsn,  &
-                                       nhalo,                                  &
-!!                                       model%numerics%dew, model%numerics%dns)
-                                       len0*model%numerics%dew, len0*model%numerics%dns)
+        call glissade_velo_higher_init
 
     endif
 
@@ -478,8 +472,7 @@ contains
                                             model%numerics%dew * len0, model%numerics%dns * len0, &
                                             model%general%ewn,         model%general%nsn,         &
                                             model%general%upn-1,       model%numerics%sigma,      &
-!TODO - Replace nghost_transport with nhalo
-                                            nghost_transport,          ntracer_transport,         &
+                                            nhalo,                     ntracer_transport,         &
                                             model%velocity%uvel(:,:,:) * vel0,                    &
                                             model%velocity%vvel(:,:,:) * vel0,                    &
                                             model%geometry%thck(:,:),                             &
@@ -499,7 +492,7 @@ contains
                                             model%numerics%dew * len0, model%numerics%dns * len0, &
                                             model%general%ewn,         model%general%nsn,         &
                                             model%general%upn-1,       model%numerics%sigma,      &
-                                            nghost_transport,          1,                         &
+                                            nhalo,                     1,                         &
                                             model%velocity%uvel(:,:,:) * vel0,                &
                                             model%velocity%vvel(:,:,:) * vel0,                &
                                             model%geometry%thck(:,:))
@@ -650,7 +643,7 @@ contains
 !    enddo 
 !  endif
 
-!WHL - Is the call to glide_set_mask needed here?
+!TODO - Remove this call to glide_set_mask?
 !      This subroutine is called at the beginning of glissade_velo_driver,
 !       so a call here is not needed for the velo diagnostic solve.
 !      The question is whether it is needed for the isostasy.

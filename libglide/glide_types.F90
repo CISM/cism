@@ -600,6 +600,13 @@ module glide_types
 !    real(dp),dimension(:,:,:),pointer :: vres  => null() !*FD 3D $y$-residual.
 !    real(dp),dimension(:,:,:),pointer :: magres  => null() !*FD 3D $magnitude$-residual.
 
+
+    !! WHL - next 2 used for output of uvel, vvel on ice grid 
+    !! (e.g., for problems with periodic BC, where the number of velocity points is
+    !!  equal to the number of grid cells)
+    real(dp),dimension(:,:,:),pointer :: uvel_icegrid => null() !*FD 3D $x$-velocity
+    real(dp),dimension(:,:,:),pointer :: vvel_icegrid => null() !*FD 3D $x$-velocity
+
     logical :: is_velocity_valid = .false. !*FD True if uvel, vvel contains a HOM-computed velocity (and thus is valid as initial guess)
 
     real(dp),dimension(:,:)  ,pointer :: bed_softness => null() !*FD bed softness parameter
@@ -883,8 +890,8 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - Change to glimmer_paramets?
-!TODO - Verify that these parameters are mks.  (Not sure about hydtim)
+!TODO - Change to cism_paramets?
+!TODO - Check units of hydtim.
   type glide_paramets
     real(dp),dimension(5) :: bpar = (/ 0.2d0, 0.5d0, 0.0d0 ,1.0d-2, 1.0d0/)
     real(dp) :: btrac_const = 0.d0 ! m yr^{-1} Pa^{-1} (gets scaled during init)
@@ -896,7 +903,7 @@ module glide_types
     real(dp) :: hydtim = 1000.0d0 ! yr^{-1} converted to s^{-1} and scaled, 
                                   ! 0 if no drainage = 0.0d0 * tim0 / scyr
     real(dp) :: bwat_smooth = 0.01d0 ! basal water field smoothing strength
-    real(dp) :: default_flwa = 1.0d-16 ! Glen's A to use in isothermal case 
+    real(dp) :: default_flwa = 1.0d-16 ! Glen's A to use in isothermal case, in units Pa^{-n} yr^{-1} 
                                        ! (would change to e.g. 4.6e-18 in EISMINT-ROSS case)
   end type glide_paramets
 
@@ -1185,6 +1192,10 @@ contains
 !    call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%vres)
 !    call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%magres)
 
+    !!WHL - next 2 used for output of uvel, vvel on ice grid
+    call coordsystem_allocate(model%general%ice_grid, upn, model%velocity%uvel_icegrid)
+    call coordsystem_allocate(model%general%ice_grid, upn, model%velocity%vvel_icegrid)
+
     call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%velnorm)
     call coordsystem_allocate(model%general%ice_grid, upn, model%velocity%wvel)
     call coordsystem_allocate(model%general%ice_grid, upn, model%velocity%wgrd)
@@ -1379,6 +1390,12 @@ contains
 !    deallocate(model%velocity%ures) 
 !    deallocate(model%velocity%vres)
 !    deallocate(model%velocity%magres)
+
+    !! WHL - next 2 used for output of uvel, vvel on ice grid
+    if (associated(model%velocity%uvel_icegrid)) &
+       deallocate(model%velocity%uvel_icegrid)
+    if (associated(model%velocity%vvel_icegrid)) &
+       deallocate(model%velocity%vvel_icegrid)
 
     if (associated(model%velocity%velnorm)) &
        deallocate(model%velocity%velnorm)

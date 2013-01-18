@@ -23,12 +23,12 @@ module cism_sparse_pcg
 !WHL - debug
 
    integer, parameter :: &
-!       itest = 24, jtest = 17, ktest = 1
-       itest = 17, jtest = 10, ktest = 1
+       itest = 24, jtest = 17, ktest = 1
+!       itest = 17, jtest = 10, ktest = 1
 
    integer, parameter :: &
-!       ntest = 2371  ! nodeID for (24,17,1)
-       ntest = 411    ! nodeID for (17,10,1)
+       ntest = 2371  ! nodeID for (24,17,1)
+!       ntest = 411    ! nodeID for (17,10,1)
 
     integer, parameter :: rtest = 0    ! rank for (17,10) with 4 procs
 
@@ -235,22 +235,22 @@ contains
 
 !WHL - debug
        if (verbose_pcg .and. this_rank==rtest) then
-          print*, ' '
+!          print*, ' '
           print*, 'Using easy SIA solver for preconditioning'
           i = itest
           j = jtest
-          print*, ' '
-          print*, 'i, j =', i, j
-          print*, ' '
-          print*, 'k, Muu(-1:1):'
-          do k = 1, nz
-             print*, k, Muu(-1:1,k,i,j)
-          enddo
-          print*, ' '
-          print*, 'k, Mvv(-1:1):'
-          do k = 1, nz
-             print*, k, Mvv(-1:1,k,i,j)
-          enddo
+!          print*, ' '
+!          print*, 'i, j =', i, j
+!          print*, ' '
+!          print*, 'k, Muu(-1:1):'
+!          do k = 1, nz
+!             print*, k, Muu(-1:1,k,i,j)
+!          enddo
+!          print*, ' '
+!          print*, 'k, Mvv(-1:1):'
+!          do k = 1, nz
+!             print*, k, Mvv(-1:1,k,i,j)
+!          enddo
        endif
 
     endif      ! precond
@@ -376,18 +376,18 @@ contains
           if (verbose_pcg .and. this_rank==rtest) then
              i = itest
              j = jtest
-             print*, ' '
-             print*, 'SIA preconditioning, i, j =', i, j
-             print*, ' '
-             print*, 'k, ru, PC(ru):'
-             do k = 1, nz
-                print*, k, ru(k,i,j), work1u(k,i,j)
-             enddo
-             print*, ' '
-             print*, 'k, rv, PC(rv):'
-             do k = 1, nz
-                print*, k, rv(k,i,j), work1v(k,i,j)
-             enddo
+!             print*, ' '
+!             print*, 'SIA preconditioning, i, j =', i, j
+!             print*, ' '
+!             print*, 'k, ru, PC(ru):'
+!             do k = 1, nz
+!                print*, k, ru(k,i,j), work1u(k,i,j)
+!             enddo
+!             print*, ' '
+!             print*, 'k, rv, PC(rv):'
+!             do k = 1, nz
+!                print*, k, rv(k,i,j), work1v(k,i,j)
+!             enddo
            endif
 
        endif    ! precond
@@ -405,8 +405,8 @@ contains
 
 
        if (verbose_pcg .and. this_rank==rtest) then
-          print*, ' '
-          print*, 'eta0, eta1 =', eta0, eta1
+!          print*, ' '
+!          print*, 'eta0, eta1 =', eta0, eta1
        endif
 
        ! Update the conjugate direction vector d
@@ -458,8 +458,8 @@ contains
        
 
        if (verbose_pcg .and. this_rank==rtest) then
-          print*, '(r, PC(r))=', eta0
-          print*, 'alpha =', eta1
+!          print*, '(r, PC(r))=', eta0
+!          print*, 'alpha =', eta1
        endif
 
        ! Compute the new solution
@@ -506,12 +506,12 @@ contains
        if (verbose_pcg .and. this_rank==rtest) then
           i = itest
           j = jtest
-          print*, ' '
-          print*, 'i, j, =', i, j
-          print*, 'k, xu, ru:'
-          do k = 1, nz
-             print*, k, xu(k,i,j), ru(k,i,j)
-          enddo
+!          print*, ' '
+!          print*, 'i, j, =', i, j
+!          print*, 'k, xu, ru:'
+!          do k = 1, nz
+!             print*, k, xu(k,i,j), ru(k,i,j)
+!          enddo
        endif
 
        ! Check for convergence
@@ -534,7 +534,7 @@ contains
           err = L2_resid/L2_rhs           ! normalized error
 
           if (verbose_pcg .and. main_task) then
-             print*, ' '
+!             print*, ' '
              print*, 'iter, L2_resid, error =', m, L2_resid, err
           endif
 

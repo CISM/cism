@@ -17,18 +17,17 @@
 
 module glissade_velo
 
+    use parallel
+
     ! Glissade higher-order velocity solver
 
     use glam_strs2, only: glam_velo_solver, JFNK_velo_solver
     use glissade_velo_higher, only: glissade_velo_higher_solve
 
-!TODO - nhalo should be declared elsewhere
-    use glissade_velo_higher, only: nhalo
-
     !globals
     use glimmer_global, only : dp
     use glimmer_physcon, only: gn, scyr
-    use glimmer_paramets, only: thk0, len0, vel0
+    use glimmer_paramets, only: thk0, len0, vel0, vis0
 
     !Other modules that this needs to call out to
     use glide_types
@@ -65,6 +64,9 @@ contains
 !WHL - temporary velocity arrays to remove scaling
         real(dp), dimension(model%general%upn, model%general%ewn-1, model%general%nsn-1) ::  &
            uvel, vvel    ! uvel and vvel with scale factor (vel0) removed
+
+!WHL - debug
+        integer :: i, j
 
         !-------------------------------------------------------------------
         ! Velocity prep that is independent of the solver
@@ -149,23 +151,39 @@ contains
 
         else  ! glissade finite-element dycore
 
+          !----------------------------------------------------------------
+          ! Note: The glissade solver uses SI units.
+          ! Thus we have grid cell dimensions and ice thickness in meters,
+          !  velocity in m/s, and the rate factor in Pa^(-n) s(-1).
+          !----------------------------------------------------------------
+          !TODO - Switch to SI elsewhere in the code?
+
            if (model%options%which_ho_nonlinear == HO_NONLIN_PICARD ) then ! Picard (standard solver)
 
-!TODO - Pass unscaled flwa?
+              print*, ' '
+              print*, 'Call glissade_velo_higher_solve'
+              print*, 'thk0, thklim =', thk0, model%numerics%thklim
+              print*, 'scaled flwa(1,26,19) =', model%temper%flwa(1,26,19)
+              print*, 'unscaled flwa(1,26,19) =', model%temper%flwa(1,26,19) *vis0*scyr
+ 
+              ! compute the unscaled velocity (m/yr)
+              uvel(:,:,:) = vel0 * model%velocity%uvel(:,:,:)
+              vvel(:,:,:) = vel0 * model%velocity%vvel(:,:,:)
 
-              ! pass in the unscaled velocity (m/yr)
-              uvel(:,:,:) = model%velocity%uvel(:,:,:) * (vel0*scyr)
-              vvel(:,:,:) = model%velocity%vvel(:,:,:) * (vel0*scyr)
-
-              call glissade_velo_higher_solve(model%general%ewn,       model%general%nsn,        &
-                                              model%general%upn,        &  
-                                              model%numerics%sigma,     &
-                                              nhalo,      &  ! should be part of a derived type
-                                              thk0 * model%geometry%thck,     thk0 * model%geometry%usrf,         &
-                                              thk0 * model%numerics%thklim,             &
-                                              model%temper%flwa,                 &
-!!                                              model%velocity%uvel,  model%velocity%vvel,      &
-                                              uvel,          vvel,      &
+              call glissade_velo_higher_solve(model%general%ewn,      model%general%nsn,         &
+                                              model%general%upn,                                 &  
+                                              model%numerics%sigma,                              &
+                                              nhalo,                                             &  
+                                              len0 * model%numerics%dew,                         &
+                                              len0 * model%numerics%dns,                         &
+                                              thk0 * model%geometry%thck,                        &
+                                              thk0 * model%geometry%usrf,                        &
+                                              thk0 * model%geometry%topg,                        &
+                                              real(model%climate%eus,dp),                        &
+                                              thk0 * model%numerics%thklim,                      &
+                                              vis0 * model%temper%flwa,                   &
+!!                                              model%velocity%uvel,  model%velocity%vvel,       &
+                                              uvel,                   vvel,                      &
 !                                              model%velocity%beta,               &  ! add this one later 
 !                                              model%options%which_ho_babc,       &  ! add this one later
                                               model%options%which_ho_efvs,       &
@@ -174,8 +192,8 @@ contains
                                               model%options%which_ho_sparse)
 
               ! rescale the velocity since the rest of the code expects it
-              model%velocity%uvel(:,:,:) = uvel(:,:,:) / (vel0*scyr)
-              model%velocity%vvel(:,:,:) = vvel(:,:,:) / (vel0*scyr)
+              model%velocity%uvel(:,:,:) = uvel(:,:,:) / vel0
+              model%velocity%vvel(:,:,:) = vvel(:,:,:) / vel0
 
            else if ( model%options%which_ho_nonlinear == HO_NONLIN_JFNK ) then ! JFNK
 
@@ -202,6 +220,24 @@ contains
 !TODO - Since velnorm is strictly diagnostic, it probably could be computed only for I/O.
         model%velocity%velnorm = sqrt(model%velocity%uvel**2 + model%velocity%vvel**2)
         model%velocity%is_velocity_valid = .true.
+
+        ! WHL - Copy uvel and vvel to arrays uvel_icegrid and vvel_icegrid.
+        !       These arrays have horizontal dimensions (nx,ny) instead of (nx-1,ny-1).
+        !       Thus they are better suited for I/O if we have periodic BC,
+        !        where the velocity field we are solving for has global dimensions (nx,ny).
+        !       Since uvel and vvel are not defined for i = nx or for j = ny, the
+        !        uvel_icegrid and vvel_icegrid arrays will have values of zero at these points.
+        !       But these are halo points, so when we write netCDF I/O it shouldn't matter;
+        !        we should have the correct values at physical points.
+
+        model%velocity%uvel_icegrid(:,:,:) = 0.d0
+        model%velocity%vvel_icegrid(:,:,:) = 0.d0
+        do j = 1, model%general%nsn-1
+           do i = 1, model%general%ewn-1
+              model%velocity%uvel_icegrid(:,i,j) = uvel(:,i,j)
+              model%velocity%vvel_icegrid(:,i,j) = uvel(:,i,j)             
+           enddo
+        enddo
         
     end subroutine glissade_velo_driver
 

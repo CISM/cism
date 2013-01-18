@@ -91,6 +91,7 @@ contains
 
     ! read parameters
     call GetSection(config,section,'parameters')
+
     if (associated(section)) then
        call handle_parameters(section, model)
     end if
@@ -158,7 +159,7 @@ contains
 
     model%numerics%dt     = model%numerics%tinc * scyr / tim0   ! keep scyr?  (or let dt be in yr)
     model%numerics%dttem  = model%numerics%ntem * scyr / tim0   ! keep scyr?  (or let dt be in yr)
-    model%numerics%thklim = model%numerics%thklim  / thk0       ! remove  
+    model%numerics%thklim = model%numerics%thklim  / thk0       ! can remove scaling here 
 
     model%numerics%dew = model%numerics%dew / len0         ! remove
     model%numerics%dns = model%numerics%dns / len0         ! remove
@@ -461,8 +462,10 @@ contains
 
   ! options
   subroutine handle_options(section, model)
+
     use glimmer_config
     use glide_types
+
     implicit none
     type(ConfigSection), pointer :: section
     type(glide_global_type)  :: model
@@ -485,6 +488,7 @@ contains
     call GetValue(section,'periodic_ns',model%options%periodic_ns)
     call GetValue(section,'diagnostic_run',model%options%diagnostic_run)
     !call GetValue(section, 'use_plume',model%options%use_plume)   !! For future releases
+
   end subroutine handle_options
 
     !Higher order options
@@ -932,6 +936,7 @@ contains
     call GetValue(section,'basal_tract_max',model%paramets%btrac_max)
     call GetValue(section,'basal_tract_slope',model%paramets%btrac_slope)
     call GetValue(section,'sliding_constant',model%climate%slidconst)
+
   end subroutine handle_parameters
 
   subroutine print_parameters(model)

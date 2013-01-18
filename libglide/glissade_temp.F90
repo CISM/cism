@@ -1065,12 +1065,13 @@ contains
 !      Note: The flwa, temp, and stagsigma arrays must have the same vertical dimension
 !       (1:upn-1 on the staggered vertical grid used here).
 !
-    real(dp),dimension(:),      intent(in)    :: stagsigma !*FD Vertical coordinate
-    real(dp),                   intent(in)    :: thklim    !*FD thickness threshold
-    real(dp),dimension(:,:,:),  intent(in)    :: temp      !*FD The 3D temperature field
-    real(dp),dimension(:,:),    intent(in)    :: thck      !*FD The ice thickness
-    real(dp)                                  :: flow_factor !*FD Fudge factor in arrhenius relationship
-    real(dp),                   intent(in)    :: default_flwa_arg !*FD Glen's A to use in isothermal case 
+    real(dp),dimension(:),      intent(in)    :: stagsigma ! vertical coordinate
+    real(dp),                   intent(in)    :: thklim    ! thickness threshold
+    real(dp),dimension(:,:,:),  intent(in)    :: temp      ! 3D temperature field
+    real(dp),dimension(:,:),    intent(in)    :: thck      ! ice thickness
+    real(dp)                                  :: flow_factor ! fudge factor in arrhenius relationship
+    real(dp),                   intent(in)    :: default_flwa_arg ! Glen's A to use in isothermal case 
+                                                                  ! Units: Pa^{-n} yr^{-1} 
     integer,                    intent(in)    :: flag      !*FD Flag to select the method
                                                            !*FD of calculation:
     real(dp),dimension(:,:,:),  intent(out)   :: flwa      !*FD The calculated values of $A$
@@ -1097,6 +1098,9 @@ contains
     
     !------------------------------------------------------------------------------------ 
    
+    ! Scale the rate factor (default value has units Pa^{-n} yr^{-1}).
+    ! Also multiply by fudge factor
+
     default_flwa = flow_factor * default_flwa_arg / (vis0*scyr) 
 
 !TODO - If this subroutine is called only from Glide, we should always have temp_upn = flwa_upn,
