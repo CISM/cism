@@ -10,16 +10,15 @@ what modules are loaded and what environment variables
 These scripts are stored in this configure-scripts directory,
 but are designed to run from the top-level glimmer directory.
 
-*** JAGUARPF*** 
-Instructions for building on OLCF Jaguarpf in parallel 8/2011.
+*** TITAN *** 
+Instructions for building on OLCF Titan in parallel 1/2013
 In top level directory:
-(1) don't bootstrap
-(2) find . -exec touch -r configure {} +
-(3) ./configure-scripts/jaguar-config or ./configure-scripts/jaguar-config-serial
+(1)  ./bootstrap
+(3) ./configure-scripts/titan-config (LATER: or ./configure-scripts/titan-config-serial)
 (4) make
 
 notes about configure script in case you want to alter:
-
+these are older build scripts for jaguar
 jaguar-config:
 ./configure \
   FC=ftn   F77=ftn   \   # wrappers for pgi compilers
