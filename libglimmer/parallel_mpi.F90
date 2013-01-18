@@ -18,11 +18,12 @@ module parallel
   integer,parameter :: DEBUG_LEVEL = 1 
 	! If > 0, then debug code executed.  Added for parallel_halo_verify()
 
-!WHL - Changed halo values from parameters to saved variables, so the default values
-!      can be reset in distributed_grid
+!WHL - The glissade solver uses nhalo.
+!TODO -  If we will always have lhalo = uhalo, then maybe we should set nhalo = 2 and
+!        define lhalo and uhalo in terms of nhalo.
 
-!  integer,parameter :: lhalo = 2
-!  integer,parameter :: uhalo = 2
+  integer, save :: nhalo = 2
+
   integer, save :: lhalo = 2
   integer, save :: uhalo = 2
 

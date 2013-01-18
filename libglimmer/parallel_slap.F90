@@ -9,11 +9,17 @@ module parallel
 !  integer, save :: staggered_lhalo = lhalo
 !  integer, save :: staggered_uhalo = uhalo
 
-!WHL - Set lhalo = uhalo = 2 as in parallel_mpi
+!WHL - The glissade solver uses nhalo.
+!TODO -  If we will always have lhalo = uhalo, then maybe we should set nhalo = 2 and
+!        define lhalo and uhalo in terms of nhalo.
 !      Note: These can be reset to zero (as appropriate for Glide dycore)
 !            by calling distributed_grid with optional argument nhalo = 0.
+
+  integer, save :: nhalo = 2
+
   integer, save :: lhalo = 2
   integer, save :: uhalo = 2
+
   integer, save :: staggered_lhalo = 2
   integer, save :: staggered_uhalo = 1
 
