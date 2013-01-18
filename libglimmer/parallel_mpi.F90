@@ -3764,33 +3764,33 @@ contains
     ! Prepost expected receives
 
     if (this_rank < east  .or. fill_global_halos) then
-      call mpi_irecv(erecv,size(erecv),mpi_real8,east,east,comm,erequest,ierror)
+      call mpi_irecv(erecv,size(erecv),mpi_integer,east,east,comm,erequest,ierror)
     endif
 
     if (this_rank > west .or. fill_global_halos) then
-      call mpi_irecv(wrecv,size(wrecv),mpi_real8,west,west,comm,wrequest,ierror)
+      call mpi_irecv(wrecv,size(wrecv),mpi_integer,west,west,comm,wrequest,ierror)
     endif
 
     if (this_rank < north .or. fill_global_halos) then
-      call mpi_irecv(nrecv,size(nrecv),mpi_real8,north,north,comm,nrequest,ierror)
+      call mpi_irecv(nrecv,size(nrecv),mpi_integer,north,north,comm,nrequest,ierror)
     endif
 
     if (this_rank > south .or. fill_global_halos) then
-      call mpi_irecv(srecv,size(srecv),mpi_real8,south,south,comm,srequest,ierror)
+      call mpi_irecv(srecv,size(srecv),mpi_integer,south,south,comm,srequest,ierror)
     endif
 
     if (this_rank > west .or. fill_global_halos) then
       wsend(:,:,1:size(a,3)-staggered_lhalo-staggered_uhalo) = &
         a(:,1+staggered_lhalo:1+staggered_lhalo+staggered_uhalo-1, &
             1+staggered_lhalo:size(a,3)-staggered_uhalo)
-      call mpi_send(wsend,size(wsend),mpi_real8,west,this_rank,comm,ierror)
+      call mpi_send(wsend,size(wsend),mpi_integer,west,this_rank,comm,ierror)
     endif
 
     if (this_rank < east .or. fill_global_halos) then
       esend(:,:,1:size(a,3)-staggered_lhalo-staggered_uhalo) = &
         a(:,size(a,2)-staggered_uhalo-staggered_lhalo+1:size(a,2)-staggered_uhalo, &
             1+staggered_lhalo:size(a,3)-staggered_uhalo)
-      call mpi_send(esend,size(esend),mpi_real8,east,this_rank,comm,ierror)
+      call mpi_send(esend,size(esend),mpi_integer,east,this_rank,comm,ierror)
     endif
 
     if (this_rank < east .or. fill_global_halos) then
@@ -3810,13 +3810,13 @@ contains
     if (this_rank > south .or. fill_global_halos) then
       ssend(:,:,:) = &
         a(:,:,1+staggered_lhalo:1+staggered_lhalo+staggered_uhalo-1)
-      call mpi_send(ssend,size(ssend),mpi_real8,south,this_rank,comm,ierror)
+      call mpi_send(ssend,size(ssend),mpi_integer,south,this_rank,comm,ierror)
     endif
 
     if (this_rank < north .or. fill_global_halos) then
       nsend(:,:,:) = &
         a(:,:,size(a,3)-staggered_uhalo-staggered_lhalo+1:size(a,3)-staggered_uhalo)
-      call mpi_send(nsend,size(nsend),mpi_real8,north,this_rank,comm,ierror)
+      call mpi_send(nsend,size(nsend),mpi_integer,north,this_rank,comm,ierror)
     endif
 
     if (this_rank < north .or. fill_global_halos) then
@@ -3837,6 +3837,7 @@ contains
 !      to allow cyclic BCs for staggered variables
 
   subroutine staggered_parallel_halo_real8_2d(a)
+
     use mpi_mod
     implicit none
     real(8),dimension(:,:) :: a
@@ -3970,6 +3971,7 @@ contains
 !      to allow cyclic BCs for staggered variables
 
   subroutine staggered_parallel_halo_real8_3d(a)
+
     use mpi_mod
     implicit none
     real(8),dimension(:,:,:) :: a
@@ -4009,7 +4011,7 @@ contains
     ! begin
 
     ! Confirm staggered array
-    if (size(a,2)/=local_ewn-1.or.size(a,3)/=local_nsn-1) then
+    if (size(a,2)/=local_ewn-1 .or. size(a,3)/=local_nsn-1) then
          write(*,*) "staggered_parallel_halo() requires staggered arrays."
          call parallel_stop(__FILE__,__LINE__)
     endif
