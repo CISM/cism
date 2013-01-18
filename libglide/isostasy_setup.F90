@@ -76,6 +76,8 @@ contains
 
   subroutine isos_printconfig(isos)
     !*FD print isostasy configuration to log
+
+    use parallel, only: tasks
     use glimmer_log
     implicit none
     type(isos_type) :: isos                !*FD structure holding isostasy configuration
@@ -88,6 +90,9 @@ contains
        if (isos%lithosphere==0) then
           call write_log('using local lithosphere approximation')
        else if (isos%lithosphere==1) then
+          if (tasks > 1) then
+             call write_log('Error, elastic lithosphere not supported for multiple processors',GM_FATAL)
+          endif
           call write_log('using elastic lithosphere approximation')
           write(message,*) ' flexural rigidity: ', isos%rbel%d
           call write_log(message)
@@ -98,6 +103,7 @@ contains
           call close_log
           stop
        end if
+
        if (isos%asthenosphere==0) then
           call write_log('using fluid mantle')
        else if (isos%asthenosphere==1) then
