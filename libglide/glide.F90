@@ -147,7 +147,7 @@ contains
 !       Old Glide does not include this variable.
     character(len=100), external :: glimmer_version_char
 
-    integer, parameter :: nhalo = 0   ! no halo layers for Glide dycore
+    integer, parameter :: my_nhalo = 0   ! no halo layers for Glide dycore
 
 !!!Old Glide has this:
 !!!    call write_log(glimmer_version)  
@@ -166,7 +166,7 @@ contains
     !  variables (lhalo, uhalo, etc.) to 0 instead of default values
 
     call distributed_grid(model%general%ewn, model%general%nsn,  &
-                          nhalo)
+                          nhalo_in=my_nhalo)
 
     model%general%ice_grid = coordsystem_new(0.d0,               0.d0, &
                                              model%numerics%dew, model%numerics%dns, &
