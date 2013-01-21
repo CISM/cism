@@ -1,6 +1,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! WARNING: this file was automatically generated on
-! Thu, 17 Jan 2013 23:10:22 +0000
+! Mon, 21 Jan 2013 20:37:59 +0000
 ! from ncdf_template.F90.in
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -200,7 +200,7 @@ contains
     ! word from the variable list, and flip the restartfile flag.  
     ! In CISM 2.0, 'restart' is the preferred name to represent restart variables, 
     ! but 'hot' is supported for backward compatibility.  Thus, we check for both.
-    NCO%vars = ' '//trim(NCO%vars)//' '
+    NCO%vars = ' '//trim(adjustl(NCO%vars))//' '  ! Need to maintain a space at beginning and end of list
     ! expanding hotstart variables
     pos = index(NCO%vars,' restart ') 
     if (pos.ne.0) then
@@ -214,10 +214,14 @@ contains
     end if
     ! Now apply necessary changes if the file is a restart file.
     if (NCO%restartfile) then
-       ! Expand the restart variable list 
-       NCO%vars = trim(NCO%vars) // restart_variable_list ! (a module variable)
-       ! Set the xtype to be double (required for an exact restart)
-       outfile%default_xtype = NF90_DOUBLE   
+       if ((len_trim(NCO%vars) + len_trim(restart_variable_list) + 2) >= len(NCO%vars) ) then
+          call write_log('Adding restart variables has made the list of output variables too long for file ' // NCO%filename, GM_FATAL)
+       else
+          ! Expand the restart variable list 
+          NCO%vars = trim(NCO%vars) // ' ' // trim(restart_variable_list) // ' ' ! (a module variable)  ! Need to maintain a space at beginning and end of list
+          ! Set the xtype to be double (required for an exact restart)
+          outfile%default_xtype = NF90_DOUBLE   
+       endif
     end if
 
     ! Convert temp and flwa to versions on stag grid, if needed
@@ -231,8 +235,10 @@ contains
     end if    
 
     ! Now that the output variable list is finalized, make sure we aren't truncating what the user intends to be output.
+    ! Note: this only checks that the text in the variable list does not extend to within one character of the end of the variable.
+    ! It does not handle the case where the user exactly fills the allowable length with variables or has a too-long list with more than one space between variable names.
     if ((len_trim(NCO%vars) + 1 ) >= len(NCO%vars)) then 
-       call write_log('The list of output variables is too long in file ' // NCO%filename, GM_FATAL)
+       call write_log('The list of output variables is too long for file ' // NCO%filename, GM_FATAL)
     endif
 
 
@@ -648,11 +654,13 @@ contains
     !------------------------------------------------------------------------------------
 
     !------------------------------------------------------------------------------------
-    restart_variable_list = ' ' // trim(restart_variable_list) // ' ' // trim(vars_to_add) // ' '
 
-    !call write_log('Adding to glint_mbal restart variable list: ' // trim(vars_to_add) )
-    if ((len_trim(restart_variable_list) + 1 ) >= len(restart_variable_list)) then 
+    ! Add the variables to the list so long as they don't make the list too long.
+    if ( (len_trim(restart_variable_list) + 1 + len_trim(vars_to_add)) > len(restart_variable_list)) then
        call write_log('Adding restart variables has made the restart variable list too long.',GM_FATAL)
+    else
+       restart_variable_list = trim(adjustl(restart_variable_list)) // ' ' // trim(vars_to_add)
+       !call write_log('Adding to glint_mbal restart variable list: ' // trim(vars_to_add) )
     endif
 
   end subroutine glint_mbal_add_to_restart_variable_list
