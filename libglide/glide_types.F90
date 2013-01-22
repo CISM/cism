@@ -277,11 +277,11 @@ module glide_types
     !*FD \item[2] first time slice of input topo is in isostatic equilibrium
     !*FD \end{description}
 
-    integer :: hotstart = 0
-    !*FD hotstart the model
+    integer :: is_restart = 0
+    !*FD if the run is a restart of a previous run
     !*FD \begin{description}
     !*FD \item[0] normal start-up
-    !*FD \item[1] hotstart model from previous run
+    !*FD \item[1] restart model from previous run
     !*FD \end{description}
 
 !WHL - Removed the which_ho_diagnostic and which_ho_prognostic options
@@ -929,7 +929,7 @@ module glide_types
     !Model variables that will be passed to other subroutines
     real(dp),dimension(:,:)  ,pointer :: minTauf => null() !Bed strength calculated with basal proc. mod.
     real(dp),dimension(:,:)  ,pointer :: Hwater  => null() !Water available from till layer (m)
-    !Model variabled necessary for hotstart
+    !Model variabled necessary for restart
     real(dp),dimension(:,:,:)  ,pointer :: u => null()     !Till excess pore pressure (Pa)
     real(dp),dimension(:,:,:)  ,pointer :: etill  => null()  !Till void ratio (ND)  
     

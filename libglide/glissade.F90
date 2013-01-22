@@ -265,18 +265,13 @@ contains
 
 !TODO - Change to glissade_set_mask?
 
-!TODO - Verify exact restart.
     ! calculate mask
-    if (model%options%hotstart /= 1) then  ! setting the mask destroys exact restart
-
        call glide_set_mask(model%numerics,                                &
                            model%geometry%thck,  model%geometry%topg,     &
                            model%general%ewn,    model%general%nsn,       &
                            model%climate%eus,    model%geometry%thkmask,  &
                            model%geometry%iarea, model%geometry%ivol)
        call horiz_bcs_unstag_scalar(model%geometry%thkmask)
-
-    endif
 
 !TODO- Not sure why this needs to be called here.
     call calc_iareaf_iareag(model%numerics%dew,model%numerics%dns, &
@@ -771,7 +766,7 @@ contains
 !WHL - Moved this calculation here from glissade_temp, since flwa is a diagnostic variable.
 
     ! Calculate Glen's A --------------------------------------------------------
-
+    ! Note: because flwa is not a restart variable in glissade, no check is included here for whether to calculate it on initial time (as is done in glide).
     call glissade_calcflwa(model%numerics%stagsigma,    &
                            model%numerics%thklim,       &
                            model%temper%flwa,           &
@@ -910,16 +905,24 @@ contains
     ! ------------------------------------------------------------------------ 
     ! ------------------------------------------------------------------------ 
 
-    ! Do not solve velocity on a restart.  Here we are identifying a restart by
-    ! being at the start time and having velocities supplied in the input file.
-    if ( (model % numerics % time == model % numerics % tstart) .and. &
+    ! Do not solve velocity for initial time on a restart because that breaks an exact restart.
+    if ( (model%options%is_restart == 1) .and. &
+         (model % numerics % time == model % numerics % tstart) ) then
+       call write_log('Using uvel, vvel from restart file at initial time.')
+       model%velocity%is_velocity_valid = .true.  ! TODO I don't think this flag is used anywhere, but I am setting it anyway.
+    else
+       ! If this is not a restart or we are not at the initial time, then proceed normally.
+
+       if ( (model % numerics % time == model % numerics % tstart) .and. &
          ( (maxval(abs(model%velocity%uvel))/=0.0d0) .or. & 
            (maxval(abs(model%velocity%vvel))/=0.0d0) ) ) then
-       call write_log('Using uvel, vvel from input file at initial time.')
-       !TODO - Since velnorm is strictly diagnostic, it probably could be computed only for I/O.
-       model%velocity%velnorm = sqrt(model%velocity%uvel**2 + model%velocity%vvel**2)
-       model%velocity%is_velocity_valid = .true.
-    else
+          ! If velocity was input and this is NOT a restart, then use the input field as the first guess at the initial time.
+          ! This happens automatically, but let the user know.
+          ! Using this value versus not will only change the answer within the tolerance of the nonlinear solve.  
+          ! If a user already has a good guess from a previous run, they may wish to start things off with it to speed the initial solution.
+          call write_log('Using uvel, vvel from input file as initial guess at initial time.  If this is not desired, please remove those fields from the input file.')
+       endif
+
        if (main_task) then
           print *, ' '
           print *, 'Compute higher-order ice velocities, time =', model%numerics%time

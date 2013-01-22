@@ -224,16 +224,10 @@ contains
     ! initialise velocity calc
     call init_velo(model)
 
-!TODO - Make sure this does not overwrite temperature for hotstarts
+!TODO - Make sure this does not overwrite temperature for restarts
     ! initialize temperature field - this needs to happen after input file is
     ! read so we can assign artm (which could possibly be read in) if temp has not been input.
-       call glide_init_temp(model)
-
-!TODO - Old Glide has this--have we replaced it?
-!!    if (model%options%hotstart.ne.1) then
-!!       ! initialise Glen's flow parameter A using an isothermal temperature distribution
-!!       call timeevoltemp(model,0)
-!!    end if
+    call glide_init_temp(model)
 
     ! initialise thickness evolution calc
     call init_thck(model)
@@ -267,15 +261,11 @@ contains
 !       model%geometry%thkmask is set in glide_mask.F90, whereas model%geometry%mask is set in glide_thckmask.F90
 
 
-!TODO - Verify exact restart.
-    ! calculate mask
-    if (model%options%hotstart /= 1) then  ! setting the mask destroys exact restart
-       call glide_set_mask(model%numerics,                                &
+    call glide_set_mask(model%numerics,                                   &
                            model%geometry%thck,  model%geometry%topg,     &
                            model%general%ewn,    model%general%nsn,       &
                            model%climate%eus,    model%geometry%thkmask,  &
                            model%geometry%iarea, model%geometry%ivol)
-    endif
  
 !TODO Do calc_iareaf_areag, lsrf, and usrf need to be calc'ed here if they are now calc'ed as part of glide_init_state_diagnostic?
 !TODO- Remove this call.
@@ -505,19 +495,16 @@ contains
                model%velocity% ubas,          &
                model%velocity% vbas)
 
-    ! Only calculate a velocity here if uvel/vvel were not provided in the input file.
-    ! If they were provided, then use the provided values.
-    ! This is required to support exact restarts when using evolution=0.
-    if ( (maxval(abs(model%velocity%uvel))==0.0d0) .and. & 
-         (maxval(abs(model%velocity%vvel))==0.0d0) ) then
-
+    ! The evolution=0 (linear diffusion) option requires that uvel/vvel be restart variables.  So use input values if
+    ! that option is selected on a restart.  Otherwise calculate velocity now.
+    if ((model%options%is_restart == 1) .and. (model%options%whichevol == EVOL_PSEUDO_DIFF)) then
+       call write_log('Using restart file values for uvel and vvel for the initial time because evolution=0.')
+    else
        ! Calculate velocity
        call velo_calc_velo(model%velowk,model%geomderv%stagthck,model%geomderv%dusrfdew, &
             model%geomderv%dusrfdns,model%temper%flwa,model%velocity%diffu,model%velocity%ubas, &
             model%velocity%vbas,model%velocity%uvel,model%velocity%vvel,model%velocity%uflx,model%velocity%vflx,&
             model%velocity%surfvel)    
-    else
-       call write_log('Using input values for uvel and vvel for the initial time')
     endif
 
     ! ------------------------------------------------------------------------ 
@@ -890,7 +877,7 @@ contains
     logical, optional, intent(in) :: no_write
     logical nw
 
-    ! For exact restart, compute wgrd here and write it to the hotstart file.
+    ! For exact restart, compute wgrd here and write it to the restart file.
     ! (This is easier than writing thckwk quantities to the restart file.)
 
    call t_startf('postp3_timeders')

@@ -222,20 +222,20 @@ contains
        ! JCC - was in LANL but not in parallel
        !      model%temper%temp = -10.0
 
-
-      !MJH: Initialize ice temperature.============
+      !==== Initialize ice temperature.============
       !This block of code is similar to that in glissade_init_temp
-      ! Check if any of -999.0 default values remain for temp in the physical domain now that the input file has been read.
-      ! -- if so, consider the temp field uninitialized and give it artm as a default.
-      ! -- if not, consider the temp field initialized from the input file and do nothing.
-      ! This logic applies for both cold start and restart situations.
-      if ( minval(model%temper%temp(1:model%general%upn, &
+      if (model%options%is_restart == 1) then
+         ! If we are restarting, use the field from the restart input file. (Temp is always a restart variable.)
+          call write_log('Using temp values from restart file for temperature initial condition.')
+      elseif ( minval(model%temper%temp(1:model%general%upn, &
                   1+lhalo:model%general%ewn-lhalo, 1+uhalo:model%general%nsn-uhalo)) < &
                   (-1.0d0 * trpt) ) then
-          call write_log('Initializing ice temperature to the air temperature.')
-          ! temp array still has initialized values - no values have been read in. 
+          ! If a temperature field was not provided on a cold start, then use the air temp.
+          ! (Check if any of -999.0 default values remain for temp in the physical domain now that the input file has been read.)
+
           ! Initialize ice temperature to air temperature (for each column). 
           ! Only loop over local cells so that the halos will retain the junk -999.0 values until updated.
+          call write_log('Initializing ice temperature to the air temperature.')
           do ns = 1+uhalo, model%general%nsn-uhalo
              do ew = 1+lhalo, model%general%ewn-lhalo
                if (model%geometry%thck(ew,ns) <= 0.0d0) then  ! TODO should this be thin ice?
@@ -246,26 +246,13 @@ contains
              end do
           end do
       else
-          ! Values have been read in from input file - do nothing
+          ! If temp values have been included in the input file on a cold start, use them!
           call write_log('Using temp values from input file for temperature initial condition.')
       endif
 
-
-
-       ! MJH: Calculate initial value of flwa
-      ! If flwa is loaded (e.g. hotstart), use the flwa field in the input file instead
-!!!      ! Note: Implementing flwa initialization in this way, I don't think hotstart=1 does anything. 
-!!!       if (model%options%hotstart  /=  1) then
-      ! TODO Actually use the hotstart variable so that we don't use a supplied flwa field on a cold start.
-
-      ! Check if any of -999.0 default values remain for flwa in the physical domain now that the input file has been read.
-      ! -- if so, consider the flwa field uninitialized and calculate it using temp and thk.
-      ! -- if not, consider the flwa field initialized from the input file and do nothing 
-      !          (if we calculate it now on a restart, we will not get an exact restart of the 
-      !           flow dissipation calculation by the temp driver on the first time step).
-      if ( minval(model%temper%flwa(1:model%general%upn, &
-                  1+lhalo:model%general%ewn-lhalo, 1+uhalo:model%general%nsn-uhalo)) < 0.0d0 ) then
-         call write_log("No initial flwa supplied - calculating initial flwa from temp and thk fields.")
+      ! ====== Calculate initial value of flwa ==================
+      if (model%options%is_restart == 0) then
+         call write_log("Calculating initial flwa from temp and thk fields.")
 !TODO - Check spelling of 'Glen', make sure it's consistent throughout code
          ! Calculate Glen's A --------------------------------------------------------   
          call calcflwa(model%numerics%sigma,        &
@@ -276,10 +263,9 @@ contains
                        model%paramets%flow_factor,  &
                        model%paramets%default_flwa, &
                        model%options%whichflwa) 
-       else
-         call write_log("Using flwa values from input file for flwa initial condition.") 
-       endif
-!       endif
+      else
+         call write_log("Using flwa values from restart file for flwa initial condition.") 
+      endif
 
   end subroutine glide_init_temp
 

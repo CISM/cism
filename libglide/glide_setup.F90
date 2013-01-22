@@ -481,8 +481,11 @@ contains
     call GetValue(section,'slip_coeff',model%options%whichbtrc)
     call GetValue(section,'vertical_integration',model%options%whichwvel)
     call GetValue(section,'topo_is_relaxed',model%options%whichrelaxed)
-    ! TODO Assess whether we need to keep this option
-    call GetValue(section,'hotstart',model%options%hotstart)
+    ! Both terms 'hotstart' and 'restart' are supported in the config file, 
+    ! but if they are both supplied for some reason, then restart will be used.
+    ! 'restart' is the preferred term moving forward.  'hotstart' is retained for backward compatability.
+    call GetValue(section,'hotstart',model%options%is_restart)
+    call GetValue(section,'restart',model%options%is_restart)
     call GetValue(section,'periodic_ew',model%options%periodic_ew)
     call GetValue(section,'basal_mass_balance',model%options%basal_mbal)
     call GetValue(section,'periodic_ns',model%options%periodic_ns)
@@ -820,9 +823,8 @@ contains
        call write_log('  Slightly cheated with how temperature is implemented.',GM_WARNING)
     end if
 
-    ! TODO Decide if we need to keep the hotstart option  MJH 1/11/13
-    if (model%options%hotstart==1) then
-       call write_log('Hotstarting model')
+    if (model%options%is_restart==1) then
+       call write_log('Restarting model from a previous run')
     end if
 
     !HO options
@@ -1175,16 +1177,11 @@ if (model%options%which_bmod > 0) then
     ! topg - needed to reconstruct all other geometry fields
     ! thk - prognostic variable
     ! temp - prognostic variable
-    ! flwa - in principal this could be reconstructed from temp.  However in the current 
-    !        implementation of glide the flwa calculation occurs after temp evolution but 
-    !        before thk evolution.  This means flwa is calculated from the current temp and 
-    !        the old thk.  The old thk is not available on a restart (just the current thk).
-    !        (thk is needed to calculate flwa for 1) a mask for where ice is, 2) correction for pmp.)
     ! Note: the conversion from temp/flwa to tempstag/flwastag (if necessary) happens in glide_io.F90
     ! bheatflx, artm, acab - boundary conditions.  Of course if these fields are 0 they don't need 
     !        to be in the restart file, but without adding a check for that we cannot assume any of them are.
     !        There are some options where artm would not be needed.  Logic could be added to make that distinction.
-    call glide_add_to_restart_variable_list('topg thk temp flwa bheatflx artm acab')
+    call glide_add_to_restart_variable_list('topg thk temp bheatflx artm acab')
 
     ! add dycore specific restart variables
     select case (options%whichdycore)
@@ -1203,7 +1200,12 @@ if (model%options%which_bmod > 0) then
         !               (If we waited to calculate wvel in the temp driver, we would not need to
         !                add it as a restart variable, been then in the output wgrd and wvel would
         !                be based on different time levels.)
-        call glide_add_to_restart_variable_list('thkmask wgrd wvel')
+        ! flwa - in principal this could be reconstructed from temp.  However in the current 
+        !        implementation of glide the flwa calculation occurs after temp evolution but 
+        !        before thk evolution.  This means flwa is calculated from the current temp and 
+        !        the old thk.  The old thk is not available on a restart (just the current thk).
+        !        (thk is needed to calculate flwa for 1) a mask for where ice is, 2) correction for pmp.)
+        call glide_add_to_restart_variable_list('thkmask wgrd wvel flwa')
     
         ! slip option for SIA
         select case (options%whichbtrc)
@@ -1225,6 +1227,7 @@ if (model%options%which_bmod > 0) then
         ! uvel,vvel - these are needed for an exact restart because we can only 
         !             recalculate them to within the picard/jfnk convergence tolerance.
         ! beta - b.c. needed for runs with sliding - could add logic to only include in that case
+        ! flwa is not needed for glissade.
         ! TODO not sure if thkmask is needed for HO
         ! TODO not sure if wgrd is needed for HO
         call glide_add_to_restart_variable_list('uvel vvel beta thkmask wgrd')

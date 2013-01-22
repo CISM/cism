@@ -79,7 +79,7 @@ contains
     model%lithot%zfactors(:,k) = 0.5*model%lithot%diffu*tim0*model%numerics%dt / &
          (model%lithot%deltaz(k)-model%lithot%deltaz(k-1))**2
 
-    if (model%options%hotstart /= 1) then
+    if (model%options%is_restart /= 1) then
        ! set initial temp distribution to thermal gradient
        factor = model%paramets%geot/model%lithot%con_r
        do k=1,model%lithot%nlayer
@@ -107,7 +107,7 @@ contains
 
     integer t
 
-    if (model%options%hotstart /= 1 .and. model%lithot%numt > 0) then
+    if (model%options%is_restart /= 1 .and. model%lithot%numt > 0) then
        call write_log('Spinning up GTHF calculations',type=GM_INFO)
        call not_parallel(__FILE__,__LINE__)
        do t=1,model%lithot%numt

@@ -79,7 +79,7 @@ module glint_main
      ! Parameters that can be set by the GCM calling Glint
 
      logical  :: gcm_smb = .false.     !*FD If true, receive surface mass balance from the GCM 
-     logical  :: gcm_restart = .false. !*FD If true, hotstart the model from a GCM restart file
+     logical  :: gcm_restart = .false. !*FD If true, restart the model from a GCM restart file
      character(fname_length) :: gcm_restart_file   !*FD Name of restart file
      integer  :: gcm_fileunit = 99     !*FD Fileunit specified by GCM for reading config files
    
@@ -245,8 +245,8 @@ contains
     real(rk),dimension(:,:,:),optional,intent(out) :: grofl       !*FD liquid runoff (kg/m^2/s = mm H2O/s)
     real(rk),dimension(:,:,:),optional,intent(out) :: ghflx       !*FD heat flux (W/m^2, positive down)
     integer, dimension(:,:),  optional,intent(in)  :: gmask       !*FD mask = 1 where global data are valid
-    logical,                  optional,intent(in)  :: gcm_restart ! logical flag to hotstart from a GCM restart file
-    character(*),             optional, intent(in) :: gcm_restart_file ! hotstart filename for a GCM restart
+    logical,                  optional,intent(in)  :: gcm_restart ! logical flag to restart from a GCM restart file
+    character(*),             optional, intent(in) :: gcm_restart_file ! restart filename for a GCM restart
                                                                   ! (currently assumed to be CESM)
     logical,                  optional,intent(in)  :: gcm_debug   ! logical flag from GCM to output debug information
     integer,                  optional,intent(in)  :: gcm_fileunit! fileunit for reading config files

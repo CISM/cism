@@ -194,31 +194,33 @@ contains
 !TODO - Add an option to initialize ice temperature with a linear vertical profile.
 !       This is now done in the version of Glimmer in CESM.
 
-      !MJH: Initialize ice temperature.============
+      !==== Initialize ice temperature.============
       !This block of code is similar to that in glide_init_temp
-      ! Check if any of -999.0 default values remain for temp in the physical domain now that the input file has been read.
-      ! -- if so, consider the temp field uninitialized and give it artm as a default.
-      ! -- if not, consider the temp field initialized from the input file and do nothing.
-      ! This logic applies for both cold start and restart situations.
-      if ( minval(model%temper%temp(1:model%general%upn-1, &
+      if (model%options%is_restart == 1) then
+         ! If we are restarting, use the field from the restart input file. (Temp is always a restart variable.)
+          call write_log('Using tempstag values from restart file for temperature initial condition.')
+      elseif ( minval(model%temper%temp(1:model%general%upn, &
                   1+lhalo:model%general%ewn-lhalo, 1+uhalo:model%general%nsn-uhalo)) < &
                   (-1.0d0 * trpt) ) then
-          call write_log('Initializing ice temperature to the air temperature.')
-          ! temp array still has initialized values - no values have been read in. 
+          ! If a temperature field was not provided on a cold start, then use the air temp.
+          ! (Check if any of -999.0 default values remain for temp in the physical domain now that the input file has been read.)
+
           ! Initialize ice temperature to air temperature (for each column). 
           ! Only loop over local cells so that the halos will retain the junk -999.0 values until updated.
+          call write_log('Initializing ice temperature to the air temperature.')
           do ns = 1+uhalo, model%general%nsn-uhalo
              do ew = 1+lhalo, model%general%ewn-lhalo
                if (model%geometry%thck(ew,ns) <= 0.0d0) then  ! TODO should this be thin ice?
-                 model%temper%temp(:,ew,ns) = 0.0d0  ! initialize non-ice areas to 0 because this convention matches what IR will do during time-stepping
+                 model%temper%temp(:,ew,ns) = 0.0d0  ! initialize non-ice areas to 0 
                else
                  model%temper%temp(:,ew,ns) = dmin1(0.0d0,dble(model%climate%artm(ew,ns)))  ! initialize ice areas to the min of artm and 0
                endif
              end do
           end do
       else
-          ! Values have been read in from input file - do nothing
+          ! If temp values have been included in the input file on a cold start, use them!
           call write_log('Using tempstag values from input file for temperature initial condition.')
+          ! TODO No check is made during input that tempstag is being input - if a user inputs temp instead, that will be used.
       endif
 
 !WHL - Removed glissade_calcflwa call here; now computed in glissade_diagnostic_variable_solve.

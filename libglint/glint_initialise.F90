@@ -79,8 +79,8 @@ contains
                                                              !    mass-bal model
     integer,               intent(in)    :: force_start      !*FD glint forcing start time (hours)
     integer,               intent(in)    :: force_dt         !*FD glint forcing time step (hours)
-    logical,     optional, intent(in)    :: gcm_restart      !*FD logical flag to read from a hotstart file
-    character(*),optional, intent(in)    :: gcm_restart_file !*FD hotstart filename for restart
+    logical,     optional, intent(in)    :: gcm_restart      !*FD logical flag to read from a restart file
+    character(*),optional, intent(in)    :: gcm_restart_file !*FD restart filename for restart
     integer,     optional, intent(in)    :: gcm_config_unit  !*FD fileunit for reading config files
 
     ! Internal
@@ -105,9 +105,9 @@ contains
 
          if (present(gcm_restart_file)) then
 
-            ! read the hotstart file
+            ! read the restart file
             call glimmer_read_restart_gcm(instance%model, gcm_restart_file)
-            instance%model%options%hotstart = 1
+            instance%model%options%is_restart = 1
  
          else
 
