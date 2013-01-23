@@ -83,7 +83,10 @@ contains
                             model%geomderv%stagthck, model%geomderv%stagtopg,   &
                             model%general%ewn-1,     model%general%nsn-1,       &
                             model%climate%eus,       geom_mask_stag)
-        call horiz_bcs_stag_scalar(geom_mask_stag)
+
+!        call stag_parallel_halo ( geom_mask_stag )
+!        call horiz_bcs_stag_scalar(geom_mask_stag)
+
 
 !TODO - What exactly does this do?  Is it solver-dependent?
         !Augment masks with kinematic boundary condition info

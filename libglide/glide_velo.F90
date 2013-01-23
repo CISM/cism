@@ -685,7 +685,7 @@ contains
 
 !HALO - I think wgrd is needed only for the old temperature code, which is not supported in parallel.
     call parallel_halo(wgrd)
-    call horiz_bcs_unstag_scalar(wgrd)
+!    call horiz_bcs_unstag_scalar(wgrd)
   end subroutine gridwvel
 
 !------------------------------------------------------------------------------------------
@@ -805,7 +805,7 @@ contains
 
 !HALO - I think wvel is needed only for the old temperature code, which is not supported in parallel.
     call parallel_halo(wvel)
-    call horiz_bcs_unstag_scalar(wvel)
+!    call horiz_bcs_unstag_scalar(wvel)
 
   end subroutine wvelintg
 
@@ -885,7 +885,7 @@ contains
 
 !HALO - I think wvel is needed only for the old temperature code, which is not supported in parallel.
     call parallel_halo(wvel)
-    call horiz_bcs_unstag_scalar(wvel)
+!    call horiz_bcs_unstag_scalar(wvel)
 
   end subroutine chckwvel
 

@@ -271,7 +271,7 @@ contains
                            model%general%ewn,    model%general%nsn,       &
                            model%climate%eus,    model%geometry%thkmask,  &
                            model%geometry%iarea, model%geometry%ivol)
-       call horiz_bcs_unstag_scalar(model%geometry%thkmask)
+!       call horiz_bcs_unstag_scalar(model%geometry%thkmask)
 
 !TODO- Not sure why this needs to be called here.
     call calc_iareaf_iareag(model%numerics%dew,model%numerics%dns, &
@@ -435,17 +435,17 @@ contains
       call t_startf('new_remap_halo_upds')
 
        call staggered_parallel_halo(model%velocity%uvel)
-       call horiz_bcs_stag_vector_ew(model%velocity%uvel)
+!       call horiz_bcs_stag_vector_ew(model%velocity%uvel)
 
        call staggered_parallel_halo(model%velocity%vvel)
-       call horiz_bcs_stag_vector_ns(model%velocity%vvel)
+!       call horiz_bcs_stag_vector_ns(model%velocity%vvel)
 
        call parallel_halo(model%geometry%thck)
-       call horiz_bcs_unstag_scalar(model%geometry%thck)
+!       call horiz_bcs_unstag_scalar(model%geometry%thck)
 
        if (model%options%whichtemp == TEMP_REMAP_ADV) then
           call parallel_halo(model%temper%temp)
-          call horiz_bcs_unstag_scalar(model%temper%temp)
+!          call horiz_bcs_unstag_scalar(model%temper%temp)
        endif
 
       call t_stopf('new_remap_halo_upds')
@@ -501,10 +501,10 @@ contains
          call t_startf('after_remap_haloupds')
 
           call parallel_halo(model%geometry%thck)
-          call horiz_bcs_unstag_scalar(model%geometry%thck)
+!          call horiz_bcs_unstag_scalar(model%geometry%thck)
 
           call parallel_halo(model%temper%temp)
-          call horiz_bcs_unstag_scalar(model%temper%temp)
+!          call horiz_bcs_unstag_scalar(model%temper%temp)
 
          call t_stopf('after_remap_haloupds')
 
@@ -541,14 +541,14 @@ contains
     ! call parallel_halo(model%geometry%thck) in inc_remap_driver
 
     call parallel_halo(model%geometry%topg)
-    call horiz_bcs_unstag_scalar(model%geometry%topg)
+!    call horiz_bcs_unstag_scalar(model%geometry%topg)
 
     ! --- Calculate updated mask because marinlim calculation needs a mask.
 
 !HALO - Are these updates required for input to glide_set_mask?
 
     call parallel_halo(model%geometry%topg)
-    call horiz_bcs_unstag_scalar(model%geometry%topg)
+!    call horiz_bcs_unstag_scalar(model%geometry%topg)
 
     call glide_set_mask(model%numerics,                                &
                         model%geometry%thck,  model%geometry%topg,     &
@@ -579,10 +579,10 @@ contains
 
     ! TODO: glide_set_mask includes a halo update of model%geometry%thkmask; move it here?
     call parallel_halo(model%geometry%thkmask) 
-    call horiz_bcs_unstag_scalar(model%geometry%thkmask)
+!    call horiz_bcs_unstag_scalar(model%geometry%thkmask)
 
     call parallel_halo(model%isos%relx)
-    call horiz_bcs_unstag_scalar(model%isos%relx)
+!    call horiz_bcs_unstag_scalar(model%isos%relx)
 
 !WHL - Removed old case(5), allowing for removal of some arguments
 
@@ -627,7 +627,7 @@ contains
     ! halo updates
 
     call parallel_halo(model%geometry%thck)    ! Updated halo values of thck are needed below in calc_lsrf
-    call horiz_bcs_unstag_scalar(model%geometry%thck)   
+!    call horiz_bcs_unstag_scalar(model%geometry%thck)   
 
 !WHL - debug - print thickness field after halo update
 !  if (main_task) then
@@ -820,7 +820,12 @@ contains
 !        dlsrfdew/ns, d2usrfdew/ns2, d2thckdew/ns2 (2nd derivs are HO only)   
 
 !TODO - Remove this call?  It is repeated below.
-
+!
+! SFP: Note that NOT all of the vars calculated in "geometry_derivs" are calculated in geomtry_derivs by default
+! I added explicit calls to the missing ones below, along w/ appropriate halo updates prior to their call. I agree
+! that we should comment this out here (and elsewhere). Better to make explicit which fields are being calculated
+! and where the necessary halo updates for those fields are being made.
+! An additional call to this has been commented out below.
     call geometry_derivs(model)
     
     !EIB! from gc2 - think this was all replaced by geometry_derivs??
@@ -831,8 +836,34 @@ contains
 !        in the glide_grids.F90  Which do we want to use?  
 !        stagthickness() seems to be noisier but there are notes in there about some issue related to margins.
 
-    call stagvarb(model%geometry%thck, model%geomderv%stagthck,&
+    ! SFP: not sure if these are all needed here or not. Halo updates for usrf and thck are needed in order 
+    ! for periodic bcs to work. Otherwise, global halos do not contain corret values and, presumably, the gradients
+    ! calculated below are incorrect in and near the global halos.
+    ! Calls were added here for other staggered variables (stagusrf, stagtopg, and staglsrf), first providing halo
+    ! updates to the non-stag vars, then calc. their stag values. This was done because debug lines show that these
+    ! stag fields did not have the correct values in their global halos. This may be ok if they are not used at all 
+    ! by the dycores called here, but I added them for consistency. More testing needed to determine if they are
+    ! essential or not.
+    call parallel_halo (model%geometry%usrf)
+    call parallel_halo (model%geometry%lsrf)
+    call parallel_halo (model%geometry%topg)
+    call parallel_halo (model%geometry%thck)
+
+    ! SFP: for consistency, I added these calls, so that all scalars interpolated to the stag mesh
+    ! first have had their global halos updated. As w/ above calls to halo updates, these may be better 
+    ! placed elsewhere. The only call originally here was the one to calc stagthck.
+    call stagvarb(model%geometry%usrf, model%geomderv%stagusrf,&
                   model%general%ewn,   model%general%nsn)
+
+    call stagvarb(model%geometry%lsrf, model%geomderv%staglsrf,&
+                  model%general%ewn,   model%general%nsn)
+
+    call stagvarb(model%geometry%topg, model%geomderv%stagtopg,&
+                  model%general%ewn,   model%general%nsn)
+
+    call stagvarb(model%geometry%thck, model%geomderv%stagthck,&    ! SFP: this call was already here. Calls to calc 
+                  model%general%ewn,   model%general%nsn)           ! stagusrf, staglsrf, and stagtop were added
+
 
     call df_field_2d_staggered(model%geometry%usrf, &
                                model%numerics%dew,      model%numerics%dns, &
@@ -844,21 +875,25 @@ contains
                                model%geomderv%dthckdew, model%geomderv%dthckdns, &
                                model%geometry%thck,     model%numerics%thklim )
 
+!SFP: W.r.t WHL comment below, I went the other route above - that is, did halo updates for the non-stag
+!fields first, then did the subroutine calls to calc. fields on the unstag mesh. I think this makes sure
+!you are not populating the stag field global halos with bad information that may have been sitting in the 
+!associated non-stag field halos in the case that you forgot to update them. Maybe?
 
 !WHL - Changed these updates from parallel_halo to staggered_parallel_halo
 !HALO - Not sure these are needed.
        !Halo updates required for inputs to glide_stress?
        call staggered_parallel_halo (model%geomderv%dusrfdew)
-       call horiz_bcs_stag_vector_ew(model%geomderv%dusrfdew)
+!       call horiz_bcs_stag_vector_ew(model%geomderv%dusrfdew)
 
        call staggered_parallel_halo (model%geomderv%dusrfdns)
-       call horiz_bcs_stag_vector_ns(model%geomderv%dusrfdns)
+!       call horiz_bcs_stag_vector_ns(model%geomderv%dusrfdns)
 
        call staggered_parallel_halo (model%geomderv%dthckdew)
-       call horiz_bcs_stag_vector_ew(model%geomderv%dthckdew)
+!       call horiz_bcs_stag_vector_ew(model%geomderv%dthckdew)
 
        call staggered_parallel_halo (model%geomderv%dthckdns)
-       call horiz_bcs_stag_vector_ns(model%geomderv%dthckdns)
+!       call horiz_bcs_stag_vector_ns(model%geomderv%dthckdns)
 
 !TODO - Pretty sure that glide_maskthck is SIA only
 !       totpts and empty are used only in glide_thck.
@@ -867,9 +902,11 @@ contains
 
 !HALO - It should be possible to compute stagthck without a halo update,
 !       provided that thck has been updated.
-
-    call staggered_parallel_halo(model%geomderv%stagthck)
-    call horiz_bcs_stag_scalar(model%geomderv%stagthck)
+!SFP: This is now done above, so I commented out the call here (that is, above we first call halo updates
+! on the non-stag thickness, then calc the stagthck field. I have confirmed that stagthck field calc in this way
+! has correct values in global halos.
+!    call staggered_parallel_halo(model%geomderv%stagthck)
+!    call horiz_bcs_stag_scalar(model%geomderv%stagthck)
 
     ! call parallel_halo(model%geometry%thkmask) in earlier glide_set_mask call
 
@@ -892,10 +929,14 @@ contains
 !       If we need a derivative on the staggered grid (for all locally owned cells),
 !        then we need one layer of halo scalars before calling the derivative routine.
 
-          call geometry_derivs(model)
+!SFP: this calls appear to be overwritting calls made above which explicitly make sure that 
+! global halos are filled first ... comment these out?
+!          call geometry_derivs(model)
 
 !HALO - Pretty sure this is not needed
-          call geometry_derivs_unstag(model)
+!SFP: this calls appear to be overwritting calls made above which explicitly make sure that 
+! global halos are filled first ... comment these out?
+!          call geometry_derivs_unstag(model)
 
     ! ------------------------------------------------------------------------ 
     ! ------------------------------------------------------------------------ 
@@ -938,11 +979,11 @@ contains
 !       because these are already part of the 3D uvel and vvel arrays
 
        call staggered_parallel_halo(model%velocity%surfvel)
-       call horiz_bcs_stag_scalar(model%velocity%surfvel)
+!       call horiz_bcs_stag_scalar(model%velocity%surfvel)
        call staggered_parallel_halo(model%velocity%ubas)
-       call horiz_bcs_stag_vector_ew(model%velocity%ubas)
+!       call horiz_bcs_stag_vector_ew(model%velocity%ubas)
        call staggered_parallel_halo(model%velocity%vbas)
-       call horiz_bcs_stag_vector_ns(model%velocity%vbas)
+!       call horiz_bcs_stag_vector_ns(model%velocity%vbas)
 
     endif
 
@@ -969,7 +1010,7 @@ contains
 !       But I think this update is not needed.
 
        call parallel_halo(model%stress%efvs)
-       call horiz_bcs_unstag_scalar(model%stress%efvs)
+!       call horiz_bcs_unstag_scalar(model%stress%efvs)
 
        !Tau is calculated in glide_stress and initialized in glide_types.
 

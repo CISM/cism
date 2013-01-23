@@ -192,7 +192,8 @@ contains
          !Mark domain boundaries
          !if (ns == 1 .or. ns == nsn .or. ew == 1 .or. ew == ewn) then
          if (parallel_boundary(ew,ewn,ns,nsn)) then
-            mask(ew, ns) = ior(mask(ew, ns), GLIDE_MASK_COMP_DOMAIN_BND)
+! SFP: commenting out for now, while trying to get periodic bcs working
+!            mask(ew, ns) = ior(mask(ew, ns), GLIDE_MASK_COMP_DOMAIN_BND)
          end if
        end do
     end do
@@ -405,7 +406,7 @@ contains
         end do
         if (.NOT. exec_serial_flag) then
            call parallel_halo(marine_bc_normal)
-           call horiz_bcs_unstag_scalar(marine_bc_normal)
+!           call horiz_bcs_unstag_scalar(marine_bc_normal)
         endif
     end subroutine
 
@@ -599,9 +600,9 @@ contains
 
         if (.NOT. exec_serial_flag) then
             call parallel_halo(direction_x)
-            call horiz_bcs_unstag_scalar(direction_x)
+!            call horiz_bcs_unstag_scalar(direction_x)
             call parallel_halo(direction_y)
-            call horiz_bcs_unstag_scalar(direction_y)
+!            call horiz_bcs_unstag_scalar(direction_y)
         endif
     end subroutine
 

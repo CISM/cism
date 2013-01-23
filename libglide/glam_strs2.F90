@@ -741,9 +741,9 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
  call t_startf("PICARD_halo_upds")
     ! coordinate halos for updated uvel and vvel
     call staggered_parallel_halo(uvel)
-    call horiz_bcs_stag_vector_ew(uvel)
+!    call horiz_bcs_stag_vector_ew(uvel)
     call staggered_parallel_halo(vvel)
-    call horiz_bcs_stag_vector_ns(vvel)
+!    call horiz_bcs_stag_vector_ns(vvel)
  call t_stopf("PICARD_halo_upds")
 
     !call dumpvels("After mindcrsh", uvel, vvel)
@@ -825,17 +825,17 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
 !        locally owned velocity points.
 
   call parallel_halo(efvs)
-  call horiz_bcs_unstag_scalar(efvs)
+!  call horiz_bcs_unstag_scalar(efvs)
 
 !WHL - changed btraction from parallel_halo to staggered_parallel_halo
   call staggered_parallel_halo(btraction)
 
 !HALO - Pretty sure we don't need these updates; uflx and vflx are not used elsewhere.
   call staggered_parallel_halo(uflx)
-  call horiz_bcs_stag_vector_ew(uflx)
+!  call horiz_bcs_stag_vector_ew(uflx)
 
   call staggered_parallel_halo(vflx)
-  call horiz_bcs_stag_vector_ns(vflx)
+!  call horiz_bcs_stag_vector_ns(vflx)
 
   if (GLC_DEBUG) then
      !JEFF Debugging Output to see what differences in final vvel and tvel.
@@ -1249,9 +1249,9 @@ end if
  !PW following are needed for glam_velo_fordsiapstr - putting here until can be convinced
  !   that they are not needed (or that they should be delayed until later)
   call staggered_parallel_halo(uvel)
-  call horiz_bcs_stag_vector_ew(uvel)
+!  call horiz_bcs_stag_vector_ew(uvel)
   call staggered_parallel_halo(vvel)
-  call horiz_bcs_stag_vector_ns(vvel)
+!  call horiz_bcs_stag_vector_ns(vvel)
 
 !HALO - Not sure we need these two updates
 !       I think we do not need an update for efvs, because it is already computed in a layer of halo cells.
@@ -1259,16 +1259,16 @@ end if
 !        locally owned velocity points.
 
   call parallel_halo(efvs)
-  call horiz_bcs_unstag_scalar(efvs)
+!  call horiz_bcs_unstag_scalar(efvs)
 
 !WHL - changed btraction from parallel_halo to staggered_parallel_halo
   call staggered_parallel_halo(btraction)
 
 !HALO - Probably do not need these two updates
   call staggered_parallel_halo(uflx)
-  call horiz_bcs_stag_vector_ew(uflx)
+!  call horiz_bcs_stag_vector_ew(uflx)
   call staggered_parallel_halo(vflx)
-  call horiz_bcs_stag_vector_ns(vflx)
+!  call horiz_bcs_stag_vector_ns(vflx)
 
  call t_stopf("JFNK_post")
 
@@ -2347,9 +2347,9 @@ end subroutine reset_effstrmin
     ! coordinate halos for updated uvel and vvel
  call t_startf("Calc_F_uvhalo_upd")
     call staggered_parallel_halo(uvel)
-    call horiz_bcs_stag_vector_ew(uvel)
+!    call horiz_bcs_stag_vector_ew(uvel)
     call staggered_parallel_halo(vvel)
-    call horiz_bcs_stag_vector_ns(vvel)
+!    call horiz_bcs_stag_vector_ns(vvel)
  call t_stopf("Calc_F_uvhalo_upd")
 
  call t_startf("Calc_F_findefvsstr")
@@ -3208,8 +3208,8 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
            GLIDE_IS_DIRICHLET_BOUNDARY(mask(ew,ns)) .and. .not. &
            GLIDE_IS_CALVING(mask(ew,ns) ) .and. .not. &
            GLIDE_IS_THIN(mask(ew,ns) ) ) then
-        !    print *, 'In main body ... ew, ns = ', ew, ns
-        ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+      !    print *, 'In main body ... ew, ns = ', ew, ns
+      ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
         call calccoeffs( upn,               sigma,              &
                          stagthck(ew,ns),                       &
@@ -3269,8 +3269,8 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                comp_bound .and. .not. &
                GLIDE_IS_DIRICHLET_BOUNDARY(mask(ew,ns)) .and. .not. &
                GLIDE_IS_THIN(mask(ew,ns) ) ) then
-        !    print *, 'At a SHELF boundary ... ew, ns = ', ew, ns
-        ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+       !    print *, 'At a SHELF boundary ... ew, ns = ', ew, ns
+       ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
         call calccoeffs( upn,               sigma,              &
                          stagthck(ew,ns),                       &
@@ -3318,11 +3318,10 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
       elseif ( GLIDE_HAS_ICE(mask(ew,ns)) .and. ( GLIDE_IS_DIRICHLET_BOUNDARY(mask(ew,ns)) .or. &
                comp_bound ) .or. GLIDE_IS_LAND_MARGIN(mask(ew,ns)) .or. &
                GLIDE_IS_THIN(mask(ew,ns)) ) then
-        !    print *, 'At a NON-SHELF boundary ... ew, ns = ', ew, ns
-        !WHLdebug
         !    print*, ' '
         !    print*, 'At a NON-SHELF boundary ... ew, ns = ', ew, ns
         !    print*, 'LAND_MARGIN =', GLIDE_IS_LAND_MARGIN(mask(ew,ns))
+        !    print*, 'MASK(ew,ns) =', mask(ew,ns)
         ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
         ! Put specified value for vel on rhs. NOTE that this is NOT zero by default 
@@ -5714,6 +5713,9 @@ end subroutine putpcgc
   integer :: glblID, upindx, slnindx
 
       ! Step through indxmask, but exclude halo
+
+!    SFP: debug line below
+!    print *, 'mySize = ', mySize
 
 !LOOP - locally owned velocity points      
       do ns = 1+staggered_lhalo, size(indxmask,2)-staggered_uhalo

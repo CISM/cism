@@ -909,9 +909,9 @@ contains
 !HALO - If these updates are needed, they should be done at a higher level,
 !       and only for fields whose halo values are needed.
         call parallel_halo(d2fdx2)
-        call horiz_bcs_unstag_scalar(d2fdx2)
+!        call horiz_bcs_unstag_scalar(d2fdx2)
         call parallel_halo(d2fdy2)
-        call horiz_bcs_unstag_scalar(d2fdy2)
+!        call horiz_bcs_unstag_scalar(d2fdy2)
 
     end subroutine d2f_field
 
