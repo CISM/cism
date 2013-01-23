@@ -7,14 +7,14 @@
 flow_factor = 1
 
 [CF output]
-variables = uvel vvel tau_xz tau_yz uvel_icegrid vvel_icegrid topg thk usurf
+variables = uvel vvel tau_xz tau_yz
 frequency = 1
 name = ishom.a.out.nc
 
 [grid]
 upn = 11
-ewn = 40    
-nsn = 40
+ewn = 41    
+nsn = 41
 dew = 4000   
 dns = 4000   
 sigma_builtin = 1
@@ -31,14 +31,16 @@ title = ISMIP-HOM Experiment A
 [options]
 dycore = 1              # SIA=0; 1st-order = 1
 flow_law = 2            # temp dependent = 0; constant/uniform rate factor = 2
+periodic_ew = 1         # none = 0; periodic lateral boundary conditions = 1
+periodic_ns = 1
 evolution = 3           # incremental remapping = 3
 temperature = 0         # none = 0; incremental remapping = 3
  
 [ho_options]
 which_ho_babc = 4       # no-slip basal boundary conditions = 4        
 which_ho_efvs = 0       # nonlinear eff. visc. = 0 
-which_ho_sparse = 4     # serial SLAP GMRES = 1; Trlinos = 4 
-which_ho_nonlinear = 1  # Picard = 0; JFNK = 1
+which_ho_sparse = 1     # serial SLAP GMRES = 1; Trlinos = 4 
+which_ho_nonlinear = 0  # Picard = 0; JFNK = 1
 
 [CF input]
 name = ishom.a.nc

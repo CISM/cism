@@ -42,12 +42,18 @@ if __name__ == '__main__':
   parser.add_option('-r','--run',dest='executable',default='./simple_glide',help='Set path to the GLIMMER executable (defaults to simple_glide)')
   parser.add_option('-p','--prefix',dest='prefix',default='glm1',help='Prefix to use for model output files (defaults to glm1)')
   parser.add_option('-f','--format-only',dest='format_only',action='store_true',help='Generate the config and NetCDF input files only')
+  parser.add_option('-q','--periodic',dest='periodic',type='int',help='if specified then use NEW version of periodic bcs')
   parser.add_option('-m','--parallel',dest='parallel',type='int',help='if specified then execute run in parallel')
-  parser.add_option('-c','--cyclic',dest='cyclic',type='int',help='if specified then all fields, including scalars, are truly periodic across the domain (NOT true for ismip-hom)')
   options, args = parser.parse_args()
 # If the user didn't specify a list of experiments or domain sizes, run the whole suite
   if options.experiments == None: options.experiments = defaultExperiments
   if options.sizes == None: options.sizes = defaultSizes
+
+# *sfp* Added option to run on 3x peridoc domain (to avoid issues w/ periodic bcs)
+  if options.periodic == None:
+      factor = 1    
+  else:
+      factor = 3    
 
 # Loop over the experiments requested on the command line
   for experiment in options.experiments:
@@ -75,8 +81,8 @@ if __name__ == '__main__':
 #     Glimmer's periodic boundary conditions seem to be messed up so
 #     the grids used here are something of a hack.
 #     They were copied from a previous script (verify.py)
-      dx = size*1000/nx
-      dy = size*1000/ny
+      dx = size*1000/(nx-1)*factor
+      dy = size*1000/(ny-1)*factor
       configParser.set('grid','dew',str(dx))
       configParser.set('grid','dns',str(dy))
 #     Specify the netCDF input and output filenames
@@ -114,10 +120,10 @@ if __name__ == '__main__':
       if experiment in ('c','d'):
         beta = netCDFfile.createVariable('beta','f',('time','y0','x0'))
       time[0] = 0
-      x1[:] = [(i+0.5)*dx for i in range(nx)] # unstaggered grid
-      y1[:] = [(j+0.5)*dy for j in range(ny)]
-      x0[:] = [(i+1)*dx for i in range(nx-1)] # staggered grid 
-      y0[:] = [(j+1)*dy for j in range(ny-1)]
+      x1[:] = [i*dx for i in range(nx)] # unstaggered grid
+      y1[:] = [j*dy for j in range(ny)]
+      x0[:] = [(i+0.5)*dx for i in range(nx-1)] # staggered grid 
+      y0[:] = [(j+0.5)*dy for j in range(ny-1)]
 
 #     Generate the ice thickness, bed topography, and (sometimes) 
 #     basal friction coefficient for the experiment
@@ -127,23 +133,24 @@ if __name__ == '__main__':
       basalFriction = list()
 
       if experiment in ('a','b'):
-        xx = [(i+0.5)*dx for i in range(nx)]
-        yy = [(j+0.5)*dy for j in range(ny)]
-        if options.cyclic == None:              # optional flags to allow for truly periodic domain setup
-          alpha = 0.5 * pi/180
-        else: 
-          alpha = 0.
-        zz = [4000-x1[i]*tan(alpha) for i in range(nx)]
+        xx = [i*dx for i in range(nx)]
+        yy = [j*dy for j in range(ny)]
+        xx = [x *float(nx-1)/float(nx-2) for x in xx]
+        yy = [y *float(ny-1)/float(ny-2) for y in yy]
+        alpha = 0.5 * pi/180
+        zz = [4000-i*dx*tan(alpha) for i in range(nx)]
       elif experiment in ('c','d'):
-        xx = [(i+0.5)*dx for i in range(nx)]
-        yy = [(j+0.5)*dy for j in range(ny)]
+        xx = [i*dx for i in range(nx)]
+        yy = [j*dy for j in range(ny)]
+        xx = [x *float(nx-1)/float(nx-3) for x in xx]
+        yy = [y *float(ny-1)/float(ny-3) for y in yy]
         alpha = 0.1 * pi/180
-        zz = [1000-x1[i]*tan(alpha) for i in range(nx)]
+        zz = [1000-i*dx*tan(alpha) for i in range(nx)]
       elif experiment == 'f':
-        xx = [(i+0.5)*dx for i in range(nx)]
-        yy = [(j+0.5)*dy for j in range(ny)]
+        xx = [i*dx for i in range(nx)]
+        yy = [j*dy for j in range(ny)]
         alpha = 3.0 * pi/180
-        zz = [6000-x1[i]*tan(alpha) for i in range(nx)]
+        zz = [6000-i*dx*tan(alpha) for i in range(nx)]
         xc = (xx[0]+xx[-1])/2
         yc = (yy[0]+yy[-1])/2
         a0 = 100
@@ -165,10 +172,7 @@ if __name__ == '__main__':
             row.append(1000 - a0*exp(-((x-xc)**2+(y-yc)**2)/sigma2))
         if experiment in ('a','b','f'):
           thickness.append(row)
-          if options.cyclic == None:        # options to allow for truly periodic domain setup
-            topography.append([z-t for (z,t) in zip(zz,row)])
-          else:
-            topography.append([z for z in zz])
+          topography.append([z-t for (z,t) in zip(zz,row)])
         else:
           basalFriction.append(row[:-1])
  
@@ -218,20 +222,38 @@ if __name__ == '__main__':
 
           nx0 = nx - 1
           ny0 = ny - 1
+          if factor == 5:
+            factor2 = 2
+            factor3 = 0
+          else:
+            factor2 = 1
+            factor3 = 1
 
           ISMIP_HOMfilename = os.path.join('output',options.prefix+experiment+'%03d'%size+'.txt')
           ISMIP_HOMfile = open(ISMIP_HOMfilename,'w')
 
-          rangenx = range(nx-2)
-          rangeny = range(ny-2)
+          if options.periodic == None:
+            rangenx = range(nx-2)
+            rangeny = range(ny-2)
+          else:
+            rangenx = range( factor2*nx0/factor-factor3, factor2*nx0/factor-factor3 + nx0/factor+1 )
+            rangeny = range( factor2*ny0/factor-factor3, factor2*ny0/factor-factor3 + ny0/factor+1 )
 
           for i in rangenx:
 
-            x = float(i)/(nx-3)   # In a more perfect world: x = (i+0.5)/(nx-2)
+            if options.periodic == None:
+              x = float(i)/(nx-3)   # In a more perfect world: x = (i+0.5)/(nx-2)
+            else:
+              x = float(i)/(factor2*nx0/factor)
+              x = x - float(nx0/factor-factor3) / float(nx0/factor) 
 
             for j in rangeny:
 
-              y = float(j)/(ny-3) # In a more perfect world: y = (j+0.5)/(ny-2)
+              if options.periodic == None:
+                y = float(j)/(ny-3) # In a more perfect world: y = (j+0.5)/(ny-2)
+              else:              
+                y = float(j)/(factor2*ny0/factor)
+                y = y - float(ny0/factor-factor3) / float(ny0/factor) 
 
               if netCDF_module == 'Scientific.IO.NetCDF':
                 if experiment in ('a','c'):
