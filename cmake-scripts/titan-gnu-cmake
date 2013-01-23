@@ -3,7 +3,7 @@
 # 
 #   module unload cmake python netcdf hdf5 
 #   module swap PrgEnv-pgi PrgEnv-gnu
-#   module load netcdf-hdf5parallel/4.2.0 make/2.8.6 python
+#   module load netcdf-hdf5parallel/4.2.0 cmake/2.8.6 python
 #
 # cmake configuration script that works on jaguar with GCC 
 # This script needs to be run from a subdirectory (e.g. build-gnu)
