@@ -832,7 +832,7 @@ end subroutine geometry_derivs_unstag
 !       Just make sure that this subroutine computes timeders everywhere they are needed.
  
     call parallel_halo(opvr)
-    call horiz_bcs_unstag_scalar(opvr)
+!    call horiz_bcs_unstag_scalar(opvr)
 
   end subroutine timeders
 

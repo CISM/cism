@@ -929,9 +929,11 @@ contains
 !       If we need a derivative on the staggered grid (for all locally owned cells),
 !        then we need one layer of halo scalars before calling the derivative routine.
 
-!SFP: this calls appear to be overwritting calls made above which explicitly make sure that 
-! global halos are filled first ... comment these out?
-!          call geometry_derivs(model)
+!SFP: For some reason, this next call IS needed. It does not affect the results of the periodic ismip-hom test case either
+! way (that is, if it is active or commented out), or the dome test case. But for some reaosn, if it is not active, it
+! messes up both shelf test cases. There must be some important derivs being calculated within this call that are NOT
+! being explicitly calculated above. 
+          call geometry_derivs(model)
 
 !HALO - Pretty sure this is not needed
 !SFP: this calls appear to be overwritting calls made above which explicitly make sure that 
