@@ -779,6 +779,9 @@ module glide_types
 !TODO - Should nshlf be dp?
     real(sp) :: nshlf  =    0.0
     integer  :: subcyc =    1
+    real(dp) :: periodic_offset_ew = 0.d0 ! optional periodic_offsets for ismip-hom and similar tests
+    real(dp) :: periodic_offset_ns = 0.d0 ! These may be needed to ensure continuous ice geometry at
+                                          !  the edges of the global domain.
 
     integer  :: timecounter = 0   !*FD count time steps
     

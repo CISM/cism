@@ -166,6 +166,10 @@ contains
 
     model%numerics%mlimit = model%numerics%mlimit / thk0   ! remove
 
+!WHL - added for ismip-hom
+    model%numerics%periodic_offset_ew = model%numerics%periodic_offset_ew / thk0
+    model%numerics%periodic_offset_ns = model%numerics%periodic_offset_ns / thk0
+
     model%velowk%trc0   = vel0 * len0 / (thk0**2)          ! keep scyr
     model%velowk%btrac_const = model%paramets%btrac_const/model%velowk%trc0/scyr  ! remove? 
     model%velowk%btrac_max = model%paramets%btrac_max/model%velowk%trc0/scyr      ! remove?
@@ -502,7 +506,6 @@ contains
     type(ConfigSection), pointer :: section
     type(glide_global_type) :: model
     
-!WHL - Removed which_ho_diagnostic and which_ho_prognostic
 !TODO - Are there other options here that can be removed? 
 !TODO MJH I don't think is_velocity_valid gets used anywhere.
     call GetValue(section, 'guess_specified',    model%velocity%is_velocity_valid)
@@ -518,7 +521,8 @@ contains
     call GetValue(section, 'which_ho_sparse_fallback', model%options%which_ho_sparse_fallback)
 
 !WHL  - Added which_ho_approx option for glissade dycore.
-!       Commented out for now
+!TODO - Remove this option?
+!!       Commented out for now
 !!    call GetValue(section, 'which_ho_approx',    model%options%which_ho_approx)
 
   end subroutine handle_ho_options
@@ -619,7 +623,6 @@ contains
          'no slip (Dirichlet implementation)     ', &
          'till yield stress (Newton)             ' /)
 
-!whl - added another case here
     character(len=*), dimension(0:2), parameter :: ho_whichefvs = (/ &
          'from eff strain rate    ', &
          'multiple of flow factor ', &
@@ -649,8 +652,6 @@ contains
     character(len=*), dimension(0:1), parameter :: which_ho_nonlinear = (/ &
          'use standard Picard iteration  ', &
          'use JFNK                       '/)
-
-!WHL - added options 5 and 6 for new standalone PCG solver
 
     character(len=*), dimension(0:4), parameter :: ho_whichsparse = (/ &
          'BiCG with LU preconditioner                ', &
@@ -939,6 +940,10 @@ contains
     call GetValue(section,'basal_tract_slope',model%paramets%btrac_slope)
     call GetValue(section,'sliding_constant',model%climate%slidconst)
 
+!WHL - added for ismip-hom
+    call GetValue(section,'periodic_offset_ew',model%numerics%periodic_offset_ew)
+    call GetValue(section,'periodic_offset_ns',model%numerics%periodic_offset_ns)
+
   end subroutine handle_parameters
 
   subroutine print_parameters(model)
@@ -986,6 +991,18 @@ contains
        write(message,*) '                        ',model%paramets%bpar(5)
        call write_log(message)
     end if
+
+!WHL - added for ismip-hom
+    if (model%numerics%periodic_offset_ew /= 0.d0) then
+       write(message,*) 'periodic offset_ew (m)  :  ',model%numerics%periodic_offset_ew
+       call write_log(message)
+    endif
+
+    if (model%numerics%periodic_offset_ns /= 0.d0) then
+       write(message,*) 'periodic offset_ns (m)  :  ',model%numerics%periodic_offset_ns
+       call write_log(message)
+    endif
+   
     call write_log('')
   end subroutine print_parameters
 

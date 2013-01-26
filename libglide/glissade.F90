@@ -422,8 +422,8 @@ contains
 !WHL - Testing a new subroutine that updates all the key scalars (thck, temp, etc.) at once
 !TODO - Do we need updates of lsrf, usrf, or topg?
 
-       call parallel_halo_scalars(model%geometry%thck,   &
-                                  model%temper%temp)
+!!       call parallel_halo_scalars(model%geometry%thck,   &
+!!                                  model%temper%temp)
 
 
 !HALO - Here we need halo updates for thck and temp.  
@@ -494,8 +494,6 @@ contains
 
           endif  ! whichtemp
 
-!HALO: Move these updates to after 'end select'
-
           ! Update halos of modified fields
 
          call t_startf('after_remap_haloupds')
@@ -505,6 +503,8 @@ contains
 
           call parallel_halo(model%temper%temp)
 !          call horiz_bcs_unstag_scalar(model%temper%temp)
+
+          ! Halo updates of other tracers, if present, would need to go here
 
          call t_stopf('after_remap_haloupds')
 
@@ -532,23 +532,17 @@ contains
     end select
 
 !HALO - What halo updates needed here?
-!       I suggest putting the various geometry halo updates here, after thickness and temperature evolution.
+!       We could put the various geometry halo updates here, after thickness and temperature evolution.
 !       This would include thck and tracer at a minimum.
 !       Also include topg if basal topography is evolving.
+!       
 !      Call to calc_flwa should go here too.  Should be based on post-remap temperature.
 !       (Could go later if not needed for glide_marinlim)
-
-    ! call parallel_halo(model%geometry%thck) in inc_remap_driver
 
     call parallel_halo(model%geometry%topg)
 !    call horiz_bcs_unstag_scalar(model%geometry%topg)
 
     ! --- Calculate updated mask because marinlim calculation needs a mask.
-
-!HALO - Are these updates required for input to glide_set_mask?
-
-    call parallel_halo(model%geometry%topg)
-!    call horiz_bcs_unstag_scalar(model%geometry%topg)
 
     call glide_set_mask(model%numerics,                                &
                         model%geometry%thck,  model%geometry%topg,     &
@@ -785,25 +779,39 @@ contains
 !      so that call is not needed here.
 
     ! ------------------------------------------------------------------------
-    ! calculate upper and lower ice surface
+    ! halo updates for ice topography and thickness
+    !
+    !WHL - Note the optional argument periodic_offset_ew for topg.
+    !      This is for ismip-hom experiments. A positive EW offset means that 
+    !       the topography in west halo cells will be raised, and the topography 
+    !       in east halo cells will be lowered.  This ensures that the topography
+    !       and upper surface elevation are continuous between halo cells
+    !       and locally owned cells at the edge of the global domain.
+    !      In other cases (anything but ismip-hom), periodic_offset_ew = periodic_offset_ns = 0, 
+    !       and this argument will have no effect.
     ! ------------------------------------------------------------------------
 
-    !Halo updates required for inputs to glide_calcsrf?
-    ! call parallel_halo(model%geometry%thck) within glide_marinlim
-    ! call parallel_halo(model%geometry%topg) before previous call to glide_set_mask
+!WHL - uncommented these halo updates so that all the geometry updates are grouped together
+!TODO - Remove the halo update of thck in glide_marinlim if it's not needed.
+!       The topg update might not be needed here if it's been updated above (before the call to glide_set_mask).
+!       But topg definitely needs a halo update after the isostasy calculation.
 
-!HALO - Verify that thck, topg, and eus are up to date before this call.
-!       Note that glide_calclsrf loops over all cells (not just locally owned)
+    call parallel_halo(model%geometry%thck)
+    call parallel_halo(model%geometry%topg, periodic_offset_ew = model%numerics%periodic_offset_ew)
 
-!TODO - Inline calclsrf?
+    ! ------------------------------------------------------------------------
+    ! Update the upper and lower ice surface
+    ! Note that glide_calclsrf loops over all cells, including halos,
+    !  so halo updates are not needed for lsrf and usrf.
+    ! ------------------------------------------------------------------------
 
-    call glide_calclsrf(model%geometry%thck, model%geometry%topg, model%climate%eus, model%geometry%lsrf)
-    !If input halos are up to date, halo update for model%geometry%lsrf should not be necessary
+    call glide_calclsrf(model%geometry%thck, model%geometry%topg,       & 
+                        model%climate%eus,   model%geometry%lsrf)
 
-    model%geometry%usrf = max(0.d0,model%geometry%thck + model%geometry%lsrf)
-    !If input halos are up to date, halo update for model%geometry%usrf should not be necessary
+    model%geometry%usrf(:,:) = max(0.d0, model%geometry%thck(:,:) + model%geometry%lsrf(:,:))
 
-! MJH: Next 53 lines copied from start of glissade_tstep.  
+
+! MJH: Next 53 lines copied from start of glissade_tstep.
 !      Notes below indicate it is unclear which of these derivatives are actually needed.  
 !      But geometry derivatives are diagnostic fields and should be calculated here.
 
@@ -819,7 +827,7 @@ contains
 !       Currently, this subroutine computes stagthck, staglsrf, stagtopg, dusrfdew/ns, dthckdew/ns,
 !        dlsrfdew/ns, d2usrfdew/ns2, d2thckdew/ns2 (2nd derivs are HO only)   
 
-!TODO - Remove this call?  It is repeated below.
+!TODO - Remove this call to geometry_derivs?  It is repeated below.
 !
 ! SFP: Note that NOT all of the vars calculated in "geometry_derivs" are calculated in geomtry_derivs by default
 ! I added explicit calls to the missing ones below, along w/ appropriate halo updates prior to their call. I agree
@@ -837,17 +845,25 @@ contains
 !        stagthickness() seems to be noisier but there are notes in there about some issue related to margins.
 
     ! SFP: not sure if these are all needed here or not. Halo updates for usrf and thck are needed in order 
-    ! for periodic bcs to work. Otherwise, global halos do not contain corret values and, presumably, the gradients
+    ! for periodic bcs to work. Otherwise, global halos do not contain correct values and, presumably, the gradients
     ! calculated below are incorrect in and near the global halos.
     ! Calls were added here for other staggered variables (stagusrf, stagtopg, and staglsrf), first providing halo
     ! updates to the non-stag vars, then calc. their stag values. This was done because debug lines show that these
     ! stag fields did not have the correct values in their global halos. This may be ok if they are not used at all 
     ! by the dycores called here, but I added them for consistency. More testing needed to determine if they are
     ! essential or not.
-    call parallel_halo (model%geometry%usrf)
-    call parallel_halo (model%geometry%lsrf)
-    call parallel_halo (model%geometry%topg)
-    call parallel_halo (model%geometry%thck)
+
+    !WHL: I am commenting out these four parallel_halo updates.
+    !     Halo updates for topg and thck are done above, after the call to glide_calcflwa and before
+    !      the call to geometry_derivs.  These halo updates are immediately followed by calculations
+    !      of lsrf and usrf.  Since usrf and lsrf are calculated for all grid cells based on thck and topg,
+    !      they do not require halo updates.
+    !     Steve may want to verify that moving the halo updates to before the call to geometry_derivs
+    !      does not change the results.
+!!    call parallel_halo (model%geometry%usrf)
+!!    call parallel_halo (model%geometry%lsrf)
+!!    call parallel_halo (model%geometry%topg)
+!!    call parallel_halo (model%geometry%thck)
 
     ! SFP: for consistency, I added these calls, so that all scalars interpolated to the stag mesh
     ! first have had their global halos updated. As w/ above calls to halo updates, these may be better 
@@ -894,11 +910,6 @@ contains
 
        call staggered_parallel_halo (model%geomderv%dthckdns)
 !       call horiz_bcs_stag_vector_ns(model%geomderv%dthckdns)
-
-!TODO - Pretty sure that glide_maskthck is SIA only
-!       totpts and empty are used only in glide_thck.
-!       model%geometry%mask (not to be confused with model%geometry%thkmask) is used only in glide_thck
-!       I don't see where dom is used.
 
 !HALO - It should be possible to compute stagthck without a halo update,
 !       provided that thck has been updated.

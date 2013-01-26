@@ -163,6 +163,11 @@ contains
 
            if (model%options%which_ho_nonlinear == HO_NONLIN_PICARD ) then ! Picard (standard solver)
 
+              ! Note: The geometry fields (thck, topg, and usrf) must be updated in halos
+              !        before calling glissade_velo_higher-solver.
+              !       These updates are done in subroutine glissade_diagnostic_variable_solve
+              !        in module glissade.F90.
+
               print*, ' '
               print*, 'Call glissade_velo_higher_solve'
               print*, 'thk0, thklim =', thk0, model%numerics%thklim

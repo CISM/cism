@@ -268,27 +268,23 @@ contains
  
     ! write global sums and means
 
-    if (main_task) then
+    write(message,'(a25,e24.16)') 'Total ice area (km^2)     ',   &
+                                   tot_area*1.0d-6   ! convert to km^2
+    call write_log(trim(message), type = GM_DIAGNOSTIC)
 
-       write(message,'(a25,e24.16)') 'Total ice area (km^2)     ',   &
-                                      tot_area*1.0d-6   ! convert to km^2
-       call write_log(trim(message), type = GM_DIAGNOSTIC)
+    write(message,'(a25,e24.16)') 'Total ice volume (km^3)  ',   &
+                                   tot_volume*1.0d-9   ! convert to km^3
+    call write_log(trim(message), type = GM_DIAGNOSTIC)
 
-       write(message,'(a25,e24.16)') 'Total ice volume (km^3)  ',   &
-                                      tot_volume*1.0d-9   ! convert to km^3
-       call write_log(trim(message), type = GM_DIAGNOSTIC)
-
-       write(message,'(a25,e24.16)') 'Total ice energy (J)     ', tot_energy
-       call write_log(trim(message), type = GM_DIAGNOSTIC)
+    write(message,'(a25,e24.16)') 'Total ice energy (J)     ', tot_energy
+    call write_log(trim(message), type = GM_DIAGNOSTIC)
     
-       write(message,'(a25,f24.16)') 'Mean thickness (m)       ', mean_thck
-       call write_log(trim(message), type = GM_DIAGNOSTIC)
+    write(message,'(a25,f24.16)') 'Mean thickness (m)       ', mean_thck
+    call write_log(trim(message), type = GM_DIAGNOSTIC)
 
-       write(message,'(a25,f24.16)') 'Mean temperature (C)     ', mean_temp
-       call write_log(trim(message), type = GM_DIAGNOSTIC)
+    write(message,'(a25,f24.16)') 'Mean temperature (C)     ', mean_temp
+    call write_log(trim(message), type = GM_DIAGNOSTIC)
 
-    endif
- 
     ! Find various global maxes and mins
 
     ! max thickness
@@ -316,11 +312,9 @@ contains
     imax_global = parallel_reduce_max(imax_global)
     jmax_global = parallel_reduce_max(jmax_global)
 
-    if (main_task) then
-       write(message,'(a25,f24.16,2i4)') 'Max thickness (m), i, j  ',   &
-                                          max_thck_global*thk0, imax_global, jmax_global
-       call write_log(trim(message), type = GM_DIAGNOSTIC)
-    endif
+    write(message,'(a25,f24.16,2i4)') 'Max thickness (m), i, j  ',   &
+                                       max_thck_global*thk0, imax_global, jmax_global
+    call write_log(trim(message), type = GM_DIAGNOSTIC)
 
     ! max temperature
 
@@ -396,17 +390,13 @@ contains
     jmin_global = parallel_reduce_max(jmin_global)
     kmin_global = parallel_reduce_max(kmin_global)
  
-    if (main_task) then
-
-       write(message,'(a25,f24.16,3i4)') 'Max temperature, i, j, k ',   &
-                        max_temp_global, imax_global, jmax_global, kmax_global
-       call write_log(trim(message), type = GM_DIAGNOSTIC)
+    write(message,'(a25,f24.16,3i4)') 'Max temperature, i, j, k ',   &
+                    max_temp_global, imax_global, jmax_global, kmax_global
+    call write_log(trim(message), type = GM_DIAGNOSTIC)
  
-       write(message,'(a25,f24.16,3i4)') 'Min temperature, i, j, k ',   &
-                        min_temp_global, imin_global, jmin_global, kmin_global
-       call write_log(trim(message), type = GM_DIAGNOSTIC)
-
-    endif
+    write(message,'(a25,f24.16,3i4)') 'Min temperature, i, j, k ',   &
+                    min_temp_global, imin_global, jmin_global, kmin_global
+    call write_log(trim(message), type = GM_DIAGNOSTIC)
 
     ! max surface speed
 
@@ -436,11 +426,9 @@ contains
     imax_global = parallel_reduce_max(imax_global)
     jmax_global = parallel_reduce_max(jmax_global)
 
-    if (main_task) then
-       write(message,'(a25,f24.16,2i4)') 'Max sfc spd (m/yr), i, j ',   &
-                       max_spd_sfc_global*vel0*scyr, imax_global, jmax_global
-       call write_log(trim(message), type = GM_DIAGNOSTIC)
-    endif
+    write(message,'(a25,f24.16,2i4)') 'Max sfc spd (m/yr), i, j ',   &
+                    max_spd_sfc_global*vel0*scyr, imax_global, jmax_global
+    call write_log(trim(message), type = GM_DIAGNOSTIC)
 
     ! max basal speed
 
@@ -469,11 +457,9 @@ contains
     imax_global = parallel_reduce_max(imax_global)
     jmax_global = parallel_reduce_max(jmax_global)
  
-    if (main_task) then
-       write(message,'(a25,f24.16,2i4)') 'Max base spd (m/yr), i, j',   &
-                       max_spd_bas_global*vel0*scyr, imax_global, jmax_global
-       call write_log(trim(message), type = GM_DIAGNOSTIC)
-    endif
+    write(message,'(a25,f24.16,2i4)') 'Max base spd (m/yr), i, j',   &
+                    max_spd_bas_global*vel0*scyr, imax_global, jmax_global
+    call write_log(trim(message), type = GM_DIAGNOSTIC)
 
     ! local diagnostics
 
@@ -487,7 +473,7 @@ contains
 
     if (present(idiag_global) .and. present(jdiag_global)) then
 
-       ! Set local diagnostic values and communicate to main_task
+       ! Set local diagnostic values, and communicate them to main_task
        
        if (this_rank == rdiag_local) then
 
@@ -516,45 +502,36 @@ contains
           spd_diag(k)  = parallel_reduce_max(spd_diag(k))
        enddo
 
-       if (main_task) then
-          
-          call write_log(' ')
-          write(message,'(a39,2i4)')  &
-               'Grid point diagnostics: global (i,j) =', idiag_global, jdiag_global
-          call write_log(trim(message), type = GM_DIAGNOSTIC)
-          write(message,'(a25,3i4)')  &
-               'local rank, i ,j =', rdiag_local, idiag_local, jdiag_local
-          call write_log(trim(message), type = GM_DIAGNOSTIC)
-          call write_log(' ')
+       call write_log(' ')
+       write(message,'(a39,2i4)')  &
+            'Grid point diagnostics: global (i,j) =', idiag_global, jdiag_global
+       call write_log(trim(message), type = GM_DIAGNOSTIC)
+       write(message,'(a25,3i4)')  &
+            'local rank, i ,j =', rdiag_local, idiag_local, jdiag_local
+       call write_log(trim(message), type = GM_DIAGNOSTIC)
+       call write_log(' ')
  
-          write(message,'(a25,f24.16)')   &
-               'Thickness (m)            ', thck_diag
-          call write_log(trim(message), type = GM_DIAGNOSTIC)
+       write(message,'(a25,f24.16)') 'Thickness (m)            ', thck_diag
+       call write_log(trim(message), type = GM_DIAGNOSTIC)
  
-          write(message,'(a25,f24.16)')   &
-               'Sfc air temperature (C)  ', artm_diag
-          call write_log(trim(message), type = GM_DIAGNOSTIC)
+       write(message,'(a25,f24.16)') 'Sfc air temperature (C)  ', artm_diag
+       call write_log(trim(message), type = GM_DIAGNOSTIC)
  
-          write(message,'(a25,f24.16)')   &
-               'Basal temperature (C)    ', tbas_diag
-          call write_log(trim(message), type = GM_DIAGNOSTIC)
+       write(message,'(a25,f24.16)') 'Basal temperature (C)    ', tbas_diag
+       call write_log(trim(message), type = GM_DIAGNOSTIC)
  
-          write(message,'(a25,f24.16)')   &
-               'Basal speed (m/yr)       ', ubas_diag
-          call write_log(trim(message), type = GM_DIAGNOSTIC)
+       write(message,'(a25,f24.16)') 'Basal speed (m/yr)       ', ubas_diag
+       call write_log(trim(message), type = GM_DIAGNOSTIC)
  
-          call write_log(' ')
-          write(message,'(a50)')   &
-               'Level     Speed (m/yr)             Temperature (C)'
-          call write_log(trim(message), type = GM_DIAGNOSTIC)
+       call write_log(' ')
+       write(message,'(a50)') 'Level     Speed (m/yr)             Temperature (C)'
+       call write_log(trim(message), type = GM_DIAGNOSTIC)
  
-          do k = 1, upn
-             write (message,'(i4,2f24.16)')  &
-                k, spd_diag(k), temp_diag(k)
-             call write_log(trim(message), type = GM_DIAGNOSTIC)
-          enddo
+       do k = 1, upn
+          write (message,'(i4,2f24.16)') k, spd_diag(k), temp_diag(k)
+          call write_log(trim(message), type = GM_DIAGNOSTIC)
+       enddo
 
-       endif  ! main_task
     endif     ! idiag and jdiag present
  
   end subroutine glide_write_diag

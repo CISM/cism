@@ -476,7 +476,7 @@
     real(dp), dimension(:,:), intent(in) ::  &
        thck,                 &  ! ice thickness (m)
        usrf,                 &  ! upper surface elevation (m)
-       topg                     ! elevation of topography
+       topg                     ! elevation of topography (m)
 
     real(dp), intent(in) ::   &
        eus                      ! eustatic sea level (m)
@@ -653,6 +653,14 @@
        call solve_test_matrix(test_order, whichsparse)
     endif
 
+    ! Make sure the geometry is up to date in halo cells
+    ! These calls are commented out, since the geometry is updated in 
+    !  module glissade.F90, before calling glissade_velo_higher_solve.
+
+!    call parallel_halo(thck)
+!    call parallel_halo(topg)
+!    call parallel_halo(usrf)
+
     !------------------------------------------------------------------------------
     ! Setup for higher-order solver: Compute nodal geometry, allocate storage, etc.
     ! These are quantities that do not change during the outer nonlinear loop. 
@@ -679,39 +687,26 @@
        print*, ' '
        print*, 'Thickness field, rank =', rtest
        do j = ny, 1, -1
-          write(6,'(34f5.0)') thck(:,j)
+          write(6,'(34f6.0)') thck(:,j)
+       enddo
+       print*, ' '
+       print*, 'Topography field, rank =', rtest
+       do j = ny, 1, -1
+          write(6,'(34f6.0)') topg(:,j)
+       enddo
+       print*, ' '
+       print*, 'Upper surface field, rank =', rtest
+       do j = ny, 1, -1
+          write(6,'(34f6.0)') usrf(:,j)
        enddo
     endif
  
-    if (verbose .and. this_rank==rtest) then
-!        print*, ' '
-!        print*, 'i, j, usrf(i,j)'
-!        i = itest+1
-!        do j = ny, 1, -1
-!           print*, i, j, usrf(i,j)
-!        enddo
-    endif
-
-    ! Make sure geometry is up to date in halo cells
-    ! (May not be necessary if geometry is updated before calling this subroutine)
-
-    call parallel_halo(thck)
-    call parallel_halo(usrf)
-    call parallel_halo(topg)
-
-!WHL - debug
-    if (verbose .and. this_rank==rtest) then
-       print*, ' '
-       print*, 'After halo update: thck, rank =', rtest
-       do j = ny, 1, -1
-          write(6,'(34f5.0)') thck(:,j)
-       enddo
-    endif
-
+    !------------------------------------------------------------------------------
     ! Compute masks: 
     ! (1) real mask = 1 where ice is present, 0 elsewhere
     ! (2) floating mask = .true. where ice is present and is floating
     ! (3) ocean mask = .true. where topography is below sea level and ice is absent
+    !------------------------------------------------------------------------------
 
     do j = 1, ny
        do i = 1, nx
@@ -738,36 +733,39 @@
        enddo
     enddo
 
-    ! Compute ice thickness on staggered grid
+    !------------------------------------------------------------------------------
+    ! Compute ice thickness and upper surface on staggered grid
+    ! (requires that thck and usrf are up to date in halo cells)
+    !------------------------------------------------------------------------------
 
     call staggered_scalar(nx,           ny,         &
                           nhalo,        rmask,      &
                           thck,         stagthck)
 
-    ! Compute upper surface elevation on staggered grid
-
     call staggered_scalar(nx,           ny,         &
                           nhalo,        rmask,      &
                           usrf,         stagusrf)
 
-    ! Compute staggered fields for halo vertices surrounding locally owned vertices
-
-    call staggered_parallel_halo(stagthck)
-    call staggered_parallel_halo(stagusrf)
-
 !WHL - debug
     if (verbose .and. this_rank==rtest) then
        print*, ' '
-       print*, 'After halo update: stagthck, rank =', rtest
+       print*, 'stagthck, rank =', rtest
        do j = ny-1, 1, -1
-          write(6,'(33f5.0)') stagthck(:,j)
+          write(6,'(33f6.0)') stagthck(:,j)
+       enddo
+       print*, ' '
+       print*, 'stagusrf, rank =', rtest
+       do j = ny-1, 1, -1
+          write(6,'(33f6.0)') stagusrf(:,j)
        enddo
     endif
 
+    !------------------------------------------------------------------------------
     ! Compute vertices of each element.
     ! Identify the active cells (i.e., cells with thck > thklim,
     !  bordering a locally owned vertex) and active vertices (all vertices
     !  of active cells).
+    !------------------------------------------------------------------------------
 
     ! For the SLAP solver, count and assign a unique ID to each active node.
     !TODO - Move SLAP-only calculation to another subroutine?
@@ -782,8 +780,6 @@
                             nNodes,      NodeID,          &
                             iNodeIndex,  jNodeIndex,  kNodeIndex)
 
-    ! Assign the appropriate ID to nodes in the halo.
-
 !WHL - debug
     if (verbose .and. this_rank==rtest) then
        print*, ' '
@@ -792,6 +788,8 @@
           write(6,'(23i6)') NodeID(1,:,j)
        enddo
     endif
+
+    ! Assign the appropriate ID to nodes in the halo.
 
     call staggered_parallel_halo(NodeID)
 
@@ -804,10 +802,11 @@
        enddo
     endif
 
-
+    !------------------------------------------------------------------------------
     ! Compute the factor A^(-1/n) appearing in the expression for effective viscosity.
     ! Note: The rate factor (flwa = A) is assumed to have units of Pa^(-n) s^(-1).
     !       Thus flwafact = 0.5 * A^(-1/n) has units Pa s^(1/n).
+    !------------------------------------------------------------------------------
 
     flwafact(:,:,:) = 0.d0
 
@@ -854,7 +853,10 @@
        print*, 'flwa, flwafact:', flwa(k,i,j), flwafact(k,i,j)
     endif
 
-    ! If using SLAP solver, then allocate space for the sparse matrix (A), rhs (b), answer (x), and residual vector (Ax-b).
+    !------------------------------------------------------------------------------
+    ! If using SLAP solver, then allocate space for the sparse matrix (A), rhs (b), 
+    !  answer (x), and residual vector (Ax-b).
+    !------------------------------------------------------------------------------
 
     if (whichsparse /= STANDALONE_PCG_STRUC .and.    &
         whichsparse /= STANDALONE_TRILINOS_SOLVER) then   
@@ -898,7 +900,9 @@
 
     !TODO - Any ghost preprocessing needed, as in glam_strs2?
 
+    !------------------------------------------------------------------------------
     ! set initial values 
+    !------------------------------------------------------------------------------
 
     counter = 0
     resid_velo = 1.d0
@@ -909,14 +913,18 @@
     outer_it_criterion = 1.0d10   ! guarantees at least one loop
     outer_it_target    = 1.0d-12 
 
+    !------------------------------------------------------------------------------
     ! Assemble the load vector b
     ! This goes before the outer loop because the load vector
     !  does not change from one nonlinear iteration to the next.
+    !------------------------------------------------------------------------------
 
     bu(:,:,:) = 0.d0
     bv(:,:,:) = 0.d0
 
+    !------------------------------------------------------------------------------
     ! gravitational forcing
+    !------------------------------------------------------------------------------
 
     call load_vector_gravity(nx,               ny,              &
                              nz,               nhalo,           &
@@ -926,7 +934,9 @@
                              stagusrf,         stagthck,        &
                              bu,               bv)
 
+    !------------------------------------------------------------------------------
     ! lateral water pressure at edge of ice shelves
+    !------------------------------------------------------------------------------
 
 !TODO - Test this subroutine
 
@@ -939,7 +949,9 @@
 !                              stagusrf,         stagthck,        &
 !                              bu,               bv)
 
+    !------------------------------------------------------------------------------
     ! main outer loop: iteration to solve the nonlinear problem
+    !------------------------------------------------------------------------------
 
     do while (outer_it_criterion >= outer_it_target .and. counter < cmax)
 
@@ -959,7 +971,9 @@
        usav(:,:,:) = uvel(:,:,:)
        vsav(:,:,:) = vvel(:,:,:)
 
+       !---------------------------------------------------------------------------
        ! Assemble the stiffness matrix A
+       !---------------------------------------------------------------------------
 
        if (verbose .and. this_rank==rtest) print*, 'call assemble_stiffness_matrix'
 
@@ -996,12 +1010,14 @@
 
        endif
 
+       !---------------------------------------------------------------------------
        ! Incorporate basal slding boundary conditions
        ! Assume a linear sliding law for now
 
        ! Note: We could call this subroutine before the main outer loop if beta
        !       is assumed to be independent of velocity.  Putting the call here,
        !       however, allows for more general sliding laws.
+       !---------------------------------------------------------------------------
 
        ! Set beta to zero to deactivate this subroutine for now
        !TODO = Pass in as argument
@@ -1028,7 +1044,9 @@
           enddo
           enddo
 
+       !---------------------------------------------------------------------------
        ! Incorporate Dirichlet (u = 0) basal boundary conditions
+       !---------------------------------------------------------------------------
 
        ! For now, simply impose zero sliding everywhere at the bed.
        ! TODO: Modify for confined shelf.
@@ -1080,8 +1098,10 @@
           endif   ! sia_test             
 
 
+       !---------------------------------------------------------------------------
        ! Check symmetry of assembled matrix
        ! TODO - This call could be skipped in a well-tested production code.
+       !---------------------------------------------------------------------------
 
        if (verbose .and. main_task) print*, 'Check matrix symmetry'
 
@@ -1133,7 +1153,9 @@
        if (whichsparse == STANDALONE_PCG_STRUC) then   ! standalone PCG for structured grid
                                                        ! works for both serial and parallel runs
 
+          !------------------------------------------------------------------------
           ! Compute the residual vector and its L2 norm
+          !------------------------------------------------------------------------
 
           if (verbose .and. this_rank==rtest) then
              print*, ' '
@@ -1163,7 +1185,9 @@
              print*, 'Calling structured PCG solver'
           endif
 
+          !------------------------------------------------------------------------
           ! Call linear PCG solver, compute uvel and vvel on local processor
+          !------------------------------------------------------------------------
 
           call pcg_solver_structured(nx,        ny,            &
                                      nz,        nhalo,         &
@@ -1184,16 +1208,16 @@
 
        elseif (whichsparse /= STANDALONE_TRILINOS_SOLVER) then   ! one-processor SLAP solve   
           
-          ! Put the nonzero matrix elements into the SLAP triad format
+          !------------------------------------------------------------------------
+          ! Given the stiffness matrices (Auu, etc.) and load vector (bu, bv) in
+          !  structured format, form the global matrix and rhs in SLAP format.
+          !------------------------------------------------------------------------
 
           if (verbose) print*, 'Form global matrix in sparse format'
  
           matrix%order = matrix_order
           matrix%nonzeros = nNonzero
           matrix%symmetric = .false.
-
-          ! Given the intermediate stiffness matrices (Auu, etc.) and load vector (bu, bv),
-          ! form the global matrix (in sparse matrix format) and rhs.
 
           call slap_preprocess(nx,           ny,         &   
                                nz,           nNodes,     &
@@ -1208,7 +1232,9 @@
                                matrix,       rhs,        &
                                answer)
 
+          !------------------------------------------------------------------------
           ! Compute the residual vector and its L2_norm
+          !------------------------------------------------------------------------
 
           call slap_compute_residual_vector(matrix,    answer,   rhs,  &
                                             resid_vec, L2_norm)
@@ -1226,7 +1252,9 @@
              print*, 'Call sparse_easy_solve, counter =', counter
           endif
 
+          !------------------------------------------------------------------------
           ! Solve the linear matrix problem
+          !------------------------------------------------------------------------
 
           call sparse_easy_solve(matrix, rhs,    answer,  &
                                  err,    niters, whichsparse)
@@ -1240,13 +1268,17 @@
 !!           enddo
           endif
 
+          !------------------------------------------------------------------------
           ! Put the velocity solution back into 3D arrays
+          !------------------------------------------------------------------------
 
           call slap_postprocess(nNodes,       answer,                   &
                                 iNodeIndex,   jNodeIndex,  kNodeIndex,  &
                                 uvel,         vvel)
 
+          !------------------------------------------------------------------------
           ! Halo updates for uvel and vvel
+          !------------------------------------------------------------------------
 
           call staggered_parallel_halo(uvel)
           call staggered_parallel_halo(vvel)
@@ -1278,7 +1310,9 @@
           enddo
        endif
 
+       !---------------------------------------------------------------------------
        ! Compute residual quantities based on the velocity solution
+       !---------------------------------------------------------------------------
 
        call compute_residual_velocity(nhalo,  whichresid,   &
                                       uvel,   vvel,        &
@@ -1290,8 +1324,10 @@
           print*, 'whichresid, resid_velo =', whichresid, resid_velo
        endif
 
+       !---------------------------------------------------------------------------
        ! Write diagnostics (iteration number, max residual, and location of max residual
        ! (send output to the screen or to the log file, per whichever line is commented out) 
+       !---------------------------------------------------------------------------
 
        !TODO - Find out if this note from glam_strs2 still applies:
        ! "Can't use main_task flag because main_task is true for all processors in case of parallel_single"
@@ -1320,7 +1356,10 @@
           end if
        endif
 
+       !---------------------------------------------------------------------------
        ! update the outer loop stopping criterion
+       !---------------------------------------------------------------------------
+
        if (whichresid == 3) then
           outer_it_criterion = L2_norm
           outer_it_target = L2_target      ! L2_target is currently set to 1.d-4 and held constant
@@ -1342,7 +1381,9 @@
 
     endif
 
+    !------------------------------------------------------------------------------
     ! Clean up
+    !------------------------------------------------------------------------------
 
     if (whichsparse /= STANDALONE_PCG_STRUC .and.   &
         whichsparse /= STANDALONE_TRILINOS_SOLVER) then
@@ -1388,12 +1429,8 @@
     ! Loop over all vertices of locally owned cells
     ! Average the input field over the neighboring cells with ice present (rmask = 1)
 
-!PARALLEL - Later, we need staggered values for all potentially active vertices
-!           Here, compute staggered values for locally owned vertices.
-!           Then do a halo update afterward. 
-
-    do j = nhalo, ny-nhalo   ! locally owned vertices
-       do i = nhalo, nx-nhalo
+    do j = 1, ny-1     ! all vertices
+       do i = 1, nx-1
           sumvar = rmask(i,j+1)*var(i,j+1) + rmask(i+1,j+1)*var(i+1,j+1)  &
                  + rmask(i,j)  *var(i,j)   + rmask(i+1,j)  *var(i+1,j)	  
           summask = rmask(i,j+1) + rmask(i+1,j+1) + rmask(i,j) + rmask(i+1,j)
@@ -3890,8 +3927,6 @@
                              matrix_order, nNonzero,   &
                              matrix,       rhs,        &
                              answer)
-
-!TODO - Fix this subroutine for ismip-hom problem with global periodic BCs.
 
     !----------------------------------------------------------------
     ! Using the intermediate matrices (Auu, Auv, Avu, Avv), load vectors (bu, bv),

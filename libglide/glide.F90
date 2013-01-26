@@ -61,8 +61,6 @@ contains
 
 !=======================================================================
 
-!TODO - Rename to glimmer_config and put in separate module?
-
   subroutine glide_config(model,config,fileunit)
 
     ! Read glide configuration from file and print it to the log
