@@ -1432,10 +1432,16 @@ contains
 !    real(8),dimension(:,:) :: a
 !  end subroutine parallel_halo_real8_2d
 
-  subroutine parallel_halo_real8_2d(a)
+!WHL - added optional arguments for periodic offsets, to support ismip-hom test cases
+  subroutine parallel_halo_real8_2d(a, periodic_offset_ew, periodic_offset_ns)
 
     implicit none
     real(8),dimension(:,:) :: a
+    real(8), intent(in), optional :: &
+       periodic_offset_ew,  &! offset halo values by this amount
+                             ! if positive, the offset is positive for W halo, negative for E halo 
+       periodic_offset_ns    ! offset halo values by this amount
+                             ! if positive, the offset is positive for S halo, negative for N halo
 
     real(8),dimension(lhalo,local_nsn-lhalo-uhalo) :: ecopy
     real(8),dimension(uhalo,local_nsn-lhalo-uhalo) :: wcopy
@@ -1458,10 +1464,26 @@ contains
     a(:lhalo,1+lhalo:local_nsn-uhalo) = ecopy(:,:)
     a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = wcopy(:,:)
 
+    if (present(periodic_offset_ew)) then
+       if (periodic_offset_ew /= 0.d0) then
+          a(:lhalo,1+lhalo:local_nsn-uhalo) =   &
+             a(:lhalo,1+lhalo:local_nsn-uhalo) + periodic_offset_ew
+          a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) =    &
+             a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) - periodic_offset_ew
+       endif
+    endif
+
     ncopy(:,:) = a(:,local_nsn-uhalo-lhalo+1:local_nsn-uhalo)
     scopy(:,:) = a(:,1+lhalo:1+lhalo+uhalo-1)
     a(:,:lhalo) = ncopy(:,:)
     a(:,local_nsn-uhalo+1:) = scopy(:,:)
+
+    if (present(periodic_offset_ns)) then
+       if (periodic_offset_ns /= 0.d0) then
+          a(:,:lhalo) = a(:,:lhalo) + periodic_offset_ns
+          a(:,local_nsn-uhalo+1:) = a(:,local_nsn-uhalo+1:) - periodic_offset_ns
+       endif
+    endif
 
   end subroutine parallel_halo_real8_2d
 

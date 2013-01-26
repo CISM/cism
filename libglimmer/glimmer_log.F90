@@ -163,12 +163,15 @@ contains
     else
        write(msg,*) trim(msg_prefix(local_type))//' '//trim(message)
     end if
+
     ! messages are always written to file log
     if (main_task) write(glimmer_unit,*) trim(msg)
+
     ! and maybe to std out
     if (local_type /= 0) then
        if ((main_task).and.(gm_show(local_type))) write(*,*) trim(msg)
     end if
+
     ! stop logging if we encountered a fatal error
     if (local_type == GM_FATAL) then
        if (main_task) write(*,*) "Fatal error encountered, exiting..."

@@ -2758,10 +2758,17 @@ contains
     a(:,local_nsn-uhalo+1:) = nrecv(:,:)
   end subroutine parallel_halo_real4_2d
 
-  subroutine parallel_halo_real8_2d(a)
+!WHL - added optional arguments for periodic offsets, to support ismip-hom test cases
+
+  subroutine parallel_halo_real8_2d(a, periodic_offset_ew, periodic_offset_ns)
     use mpi_mod
     implicit none
     real(8),dimension(:,:) :: a
+    real(8), intent(in), optional :: &
+       periodic_offset_ew,  &! offset halo values by this amount
+                             ! if positive, the offset is positive for W halo, negative for E halo
+       periodic_offset_ns    ! offset halo values by this amount
+                             ! if positive, the offset is positive for S halo, negative for N halo
     
     integer :: erequest,ierror,nrequest,srequest,wrequest
     real(8),dimension(lhalo,local_nsn-lhalo-uhalo) :: esend,wrecv
@@ -2801,6 +2808,21 @@ contains
     call mpi_wait(erequest,mpi_status_ignore,ierror)
     a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = erecv(:,:)
 
+    if (present(periodic_offset_ew)) then
+       if (periodic_offset_ew /= 0.d0) then
+          if (this_rank <= west) then   ! this proc lies at the west edge of the global domain
+!             print*, 'Offset at west edge: this_rank, west =', this_rank, west
+             a(:lhalo,1+lhalo:local_nsn-uhalo) =   &
+                a(:lhalo,1+lhalo:local_nsn-uhalo) + periodic_offset_ew
+          endif
+          if (this_rank >= east) then   ! this proc lies at the east edge of the global domain
+!             print*, 'Offset at east edge: this_rank, east =', this_rank, east
+             a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) =    &
+                a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) - periodic_offset_ew
+          endif
+       endif
+    endif
+
     nsend(:,:) = a(:,local_nsn-uhalo-lhalo+1:local_nsn-uhalo)
     call mpi_send(nsend,size(nsend),mpi_real8,north,this_rank,comm,ierror)
     ssend(:,:) = a(:,1+lhalo:1+lhalo+uhalo-1)
@@ -2810,6 +2832,20 @@ contains
     a(:,:lhalo) = srecv(:,:)
     call mpi_wait(nrequest,mpi_status_ignore,ierror)
     a(:,local_nsn-uhalo+1:) = nrecv(:,:)
+
+    if (present(periodic_offset_ns)) then
+       if (periodic_offset_ns /= 0.d0) then
+          if (this_rank <= south) then  ! this proc lies at the south edge of the global domain
+!             print*, 'Offset at south edge: this_rank, south =', this_rank, south
+             a(:,:lhalo) = a(:,:lhalo) + periodic_offset_ns
+          endif
+          if (this_rank >= north) then  ! this proc lies at the north edge of the global domain
+!             print*, 'Offset at north edge: this_rank, north =', this_rank, north
+             a(:,local_nsn-uhalo+1:) = a(:,local_nsn-uhalo+1:) - periodic_offset_ns
+          endif
+       endif
+    endif
+
   end subroutine parallel_halo_real8_2d
 
   subroutine parallel_halo_real8_3d(a)
@@ -2817,7 +2853,7 @@ contains
     use mpi_mod
     implicit none
     real(8),dimension(:,:,:) :: a
-    
+
     integer :: erequest,ierror,one,nrequest,srequest,wrequest
     real(8),dimension(size(a,1),lhalo,local_nsn-lhalo-uhalo) :: esend,wrecv
     real(8),dimension(size(a,1),uhalo,local_nsn-lhalo-uhalo) :: erecv,wsend
@@ -2866,6 +2902,7 @@ contains
     a(:,:,:lhalo) = srecv(:,:,:)
     call mpi_wait(nrequest,mpi_status_ignore,ierror)
     a(:,:,local_nsn-uhalo+1:) = nrecv(:,:,:)
+
   end subroutine parallel_halo_real8_3d
 
   subroutine parallel_halo_temperature(a)
