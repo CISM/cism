@@ -172,17 +172,19 @@ contains
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  subroutine interp_wind_to_local(lgrid,zonwind,merwind,downs,xwind,ywind)
+  subroutine interp_wind_to_local(lgrid_fulldomain,zonwind,merwind,downs,xwind,ywind)
 
     !*FD Interpolates a global wind field 
     !*FD (or any vector field) onto a given projected grid.
 
     use glimmer_utils
     use glimmer_coordinates
+    use glimmer_log
+    use parallel, only : tasks
 
     ! Argument declarations
 
-    type(coordsystem_type), intent(in)     :: lgrid            !*FD Target grid
+    type(coordsystem_type), intent(in)     :: lgrid_fulldomain !*FD Target grid on the full domain (i.e., across all tasks)
     real(rk),dimension(:,:),intent(in)     :: zonwind          !*FD Zonal component (input)
     real(rk),dimension(:,:),intent(in)     :: merwind          !*FD Meridional components (input)
     type(downscale),        intent(inout)  :: downs            !*FD Downscaling parameters
@@ -199,11 +201,18 @@ contains
 
     ! Interpolate onto the projected grid
 
-    call interp_to_local(lgrid,zonwind,downs,localdp=tempzw)
-    call interp_to_local(lgrid,merwind,downs,localdp=tempmw)
+    call interp_to_local(lgrid_fulldomain,zonwind,downs,localdp=tempzw)
+    call interp_to_local(lgrid_fulldomain,merwind,downs,localdp=tempmw)
 
     ! Apply rotation
 
+    ! WJS (1-15-13): The following code won't work currently if there is more than 1 task,
+    ! because the downs variable applies to the full (non-decomposed) domain, and is only
+    ! valid on the master task
+    if (tasks > 1) then
+       call write_log('interp_wind_to_local only works with a single task', &
+                      GM_FATAL, __FILE__, __LINE__)
+    end if
     xwind=tempzw*downs%costheta-tempmw*downs%sintheta
     ywind=tempzw*downs%sintheta+tempmw*downs%costheta
 
@@ -211,10 +220,10 @@ contains
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  subroutine interp_to_local (lgrid,     global,      downs,   &
-                              localsp,   localdp,     localrk, &
-                              global_fn, z_constrain,          &
-                              gmask,     maskval)
+  subroutine interp_to_local (lgrid_fulldomain, global,      downs,   &
+                              localsp,          localdp,     localrk, &
+                              global_fn,        z_constrain,          &
+                              gmask,            maskval)
 
     !*FD Interpolate a global scalar field onto a projected grid. 
     !*FD 
@@ -224,6 +233,9 @@ contains
     !*FD
     !*FD Either localsp or localdp must be present (or both), depending
     !*FD which precision output is required.
+    !*FD
+    !*FD Variables referring to the global domain (global, downs,
+    !*FD gmask) only need to be valid on the main task
 
 ! Cell indexing for (xloc,yloc) is as follows:
 !
@@ -237,27 +249,31 @@ contains
     use glimmer_utils
     use glimmer_coordinates
     use glimmer_log
+    use parallel, only : main_task, distributed_scatter_var
 
     ! Argument declarations
 
-    type(coordsystem_type),  intent(in)           :: lgrid     !*FD Local grid
-    real(rk), dimension(:,:),intent(in)           :: global    !*FD Global field (input)
-    type(downscale),         intent(inout)        :: downs     !*FD Downscaling parameters
-    real(sp),dimension(:,:), intent(out),optional :: localsp   !*FD Local field on projected grid (output) sp
-    real(dp),dimension(:,:), intent(out),optional :: localdp   !*FD Local field on projected grid (output) dp
-    real(rk),dimension(:,:), intent(out),optional :: localrk   !*FD Local field on projected grid (output) rk
-    real(sp),optional,external                    :: global_fn !*FD Function returning values in global field. This  
-                                                               !*FD may be used as an alternative to passing the
-                                                               !*FD whole array in \texttt{global} if, for instance the
-                                                               !*FD data-set is in a large file, being accessed point by point.
-                                                               !*FD In these circumstances, \texttt{global}
-                                                               !*FD may be of any size, and its contents are irrelevant.
+    type(coordsystem_type),  intent(in)           :: lgrid_fulldomain !*FD Local grid, spanning the full domain (across all tasks)
+    real(rk), dimension(:,:),intent(in)           :: global           !*FD Global field (input)
+    type(downscale),         intent(inout)        :: downs            !*FD Downscaling parameters
+    real(sp),dimension(:,:), intent(out),optional :: localsp          !*FD Local field on projected grid (output) sp
+    real(dp),dimension(:,:), intent(out),optional :: localdp          !*FD Local field on projected grid (output) dp
+    real(rk),dimension(:,:), intent(out),optional :: localrk          !*FD Local field on projected grid (output) rk
+    real(sp),optional,external                    :: global_fn        !*FD Function returning values in global field. This  
+                                                                      !*FD may be used as an alternative to passing the
+                                                                      !*FD whole array in \texttt{global} if, for instance the
+                                                                      !*FD data-set is in a large file, being accessed point by point.
+                                                                      !*FD In these circumstances, \texttt{global}
+                                                                      !*FD may be of any size, and its contents are irrelevant.
     logical,optional :: z_constrain
-    integer, dimension(:,:), intent(in),optional  :: gmask     !*FD = 1 where global data are valid, else = 0
-    real(dp), intent(in), optional                :: maskval   !*FD Value to write for masked-out cells 
+    integer, dimension(:,:), intent(in),optional  :: gmask            !*FD = 1 where global data are valid, else = 0
+    real(dp), intent(in), optional                :: maskval          !*FD Value to write for masked-out cells 
 
     ! Local variable declarations
 
+    real(sp), dimension(:,:), allocatable :: localsp_fulldomain  ! localsp spanning full domain (all tasks)
+    real(dp), dimension(:,:), allocatable :: localdp_fulldomain  ! localdp spanning full domain (all tasks)
+    real(rk), dimension(:,:), allocatable :: localrk_fulldomain  ! localrk spanning full domain (all tasks)
     integer  :: i,j                          ! Counter variables for main loop
     real(rk),dimension(4) :: f               ! Temporary array holding the four points in the 
                                              ! interpolation domain.
@@ -267,6 +283,7 @@ contains
 
     integer :: x1, x2, x3, x4
     integer :: y1, y2, y3, y4
+
 
     if (present(z_constrain)) then
        zc=z_constrain
@@ -280,128 +297,172 @@ contains
        call write_log('Interp_to_local has no output',GM_WARNING,__FILE__,__LINE__)
     endif
 
-    ! Do stuff for mean-preserving interpolation
+    ! Allocate variables to hold result of interpolation
+    ! We allocate size 0 arrays on non-main task (rather than leaving variables
+    ! unallocated there), because distributed_scatter_var tries to do a deallocate on all tasks
+    ! Note that coordsystem_allocate can't be used here because it only works on pointer
+    ! variables, and the *_fulldomain variables are non-pointers (as is required for distributed_scatter_var)
 
-    if (downs%use_mpint) then
-       call mean_preserve_interp(downs%mpint,global,g_loc,zeros)
+    if (present(localsp)) then
+       if (main_task) then
+          allocate(localsp_fulldomain(lgrid_fulldomain%size%pt(1), lgrid_fulldomain%size%pt(2)))
+       else
+          allocate(localsp_fulldomain(0,0))
+       end if
     end if
 
-    ! Main interpolation loop
+    if (present(localdp)) then
+       if (main_task) then
+          allocate(localdp_fulldomain(lgrid_fulldomain%size%pt(1), lgrid_fulldomain%size%pt(2)))
+       else
+          allocate(localdp_fulldomain(0,0))
+       end if
+    end if
 
-    do i=1,lgrid%size%pt(1)
-       do j=1,lgrid%size%pt(2)
+    if (present(localrk)) then
+       if (main_task) then
+          allocate(localrk_fulldomain(lgrid_fulldomain%size%pt(1), lgrid_fulldomain%size%pt(2)))
+       else
+          allocate(localrk_fulldomain(0,0))
+       end if
+    end if
 
-          ! Compile the temporary array f from adjacent points 
+    ! Do main interpolation work, just on main task
 
-!lipscomb - TO DO - This could be handled more efficiently by precomputing arrays that specify
-!                   which neighbor gridcell supplies values in each masked-out global gridcell.
- 
-          if (present(gmask) .and. present(maskval)) then
+    if (main_task) then
 
-             if (downs%lmask(i,j) == 0) then
+       ! Do stuff for mean-preserving interpolation
 
-                f(1) = maskval
-                f(2) = maskval
-                f(3) = maskval
-                f(4) = maskval
+       if (downs%use_mpint) then
+          call mean_preserve_interp(downs%mpint,global,g_loc,zeros)
+       end if
 
-             else
+       ! Main interpolation loop
 
-                x1 = downs%xloc(i,j,1); y1 = downs%yloc(i,j,1)
-                x2 = downs%xloc(i,j,2); y2 = downs%yloc(i,j,2)
-                x3 = downs%xloc(i,j,3); y3 = downs%yloc(i,j,3)
-                x4 = downs%xloc(i,j,4); y4 = downs%yloc(i,j,4)
+       do i=1,lgrid_fulldomain%size%pt(1)
+          do j=1,lgrid_fulldomain%size%pt(2)
 
-                ! if a gridcell is masked out, try to assign a value from a
-                ! neighbor that is not masked out
+             ! Compile the temporary array f from adjacent points 
 
-                if (gmask(x1,y1) /= 0) then
-                   f(1) = global(x1,y1)
-                elseif (gmask(x2,y2) /= 0) then
-                   f(1) = global(x2,y2)
-                elseif (gmask(x4,y4) /= 0) then
-                   f(1) = global(x4,y4)
-                elseif  (gmask(x3,y3) /= 0) then
-                   f(1) = global(x3,y3)
-                else
+             !lipscomb - TO DO - This could be handled more efficiently by precomputing arrays that specify
+             !                   which neighbor gridcell supplies values in each masked-out global gridcell.
+
+             if (present(gmask) .and. present(maskval)) then
+
+                if (downs%lmask(i,j) == 0) then
+
                    f(1) = maskval
-                endif
-
-                if (gmask(x2,y2) /= 0) then
-                   f(2) = global(x2,y2)
-                elseif (gmask(x1,y1) /= 0) then
-                   f(2) = global(x1,y1)
-                elseif (gmask(x3,y3) /= 0) then
-                   f(2) = global(x3,y3)
-                elseif  (gmask(x4,y4) /= 0) then
-                   f(2) = global(x4,y4)
-                else
                    f(2) = maskval
-                endif
-
-                if (gmask(x3,y3) /= 0) then
-                   f(3) = global(x3,y3)
-                elseif (gmask(x4,y4) /= 0) then
-                   f(3) = global(x4,y4)
-                elseif (gmask(x2,y2) /= 0) then
-                   f(3) = global(x2,y2)
-                elseif  (gmask(x1,y1) /= 0) then
-                   f(3) = global(x1,y1)
-                else
                    f(3) = maskval
-                endif
-
-                if (gmask(x4,y4) /= 0) then
-                   f(4) = global(x4,y4)
-                elseif (gmask(x3,y3) /= 0) then
-                   f(4) = global(x3,y3)
-                elseif (gmask(x1,y1) /= 0) then
-                   f(4) = global(x1,y1)
-                elseif  (gmask(x2,y2) /= 0) then
-                   f(4) = global(x2,y2)
-                else
                    f(4) = maskval
-                endif
 
-             endif    ! lmask = 0
-
-          else        ! gmask and maskval not present
-
-             if (present(global_fn)) then
-                f(1)=global_fn(downs%xloc(i,j,1),downs%yloc(i,j,1))
-                f(2)=global_fn(downs%xloc(i,j,2),downs%yloc(i,j,2))
-                f(3)=global_fn(downs%xloc(i,j,3),downs%yloc(i,j,3))
-                f(4)=global_fn(downs%xloc(i,j,4),downs%yloc(i,j,4))
-             else
-                if (downs%use_mpint) then
-                   f(1)=g_loc(downs%xloc(i,j,1),downs%yloc(i,j,1))
-                   f(2)=g_loc(downs%xloc(i,j,2),downs%yloc(i,j,2))
-                   f(3)=g_loc(downs%xloc(i,j,3),downs%yloc(i,j,3))
-                   f(4)=g_loc(downs%xloc(i,j,4),downs%yloc(i,j,4))
                 else
-                   f(1)=global(downs%xloc(i,j,1),downs%yloc(i,j,1))
-                   f(2)=global(downs%xloc(i,j,2),downs%yloc(i,j,2))
-                   f(3)=global(downs%xloc(i,j,3),downs%yloc(i,j,3))
-                   f(4)=global(downs%xloc(i,j,4),downs%yloc(i,j,4))
+
+                   x1 = downs%xloc(i,j,1); y1 = downs%yloc(i,j,1)
+                   x2 = downs%xloc(i,j,2); y2 = downs%yloc(i,j,2)
+                   x3 = downs%xloc(i,j,3); y3 = downs%yloc(i,j,3)
+                   x4 = downs%xloc(i,j,4); y4 = downs%yloc(i,j,4)
+
+                   ! if a gridcell is masked out, try to assign a value from a
+                   ! neighbor that is not masked out
+
+                   if (gmask(x1,y1) /= 0) then
+                      f(1) = global(x1,y1)
+                   elseif (gmask(x2,y2) /= 0) then
+                      f(1) = global(x2,y2)
+                   elseif (gmask(x4,y4) /= 0) then
+                      f(1) = global(x4,y4)
+                   elseif  (gmask(x3,y3) /= 0) then
+                      f(1) = global(x3,y3)
+                   else
+                      f(1) = maskval
+                   endif
+
+                   if (gmask(x2,y2) /= 0) then
+                      f(2) = global(x2,y2)
+                   elseif (gmask(x1,y1) /= 0) then
+                      f(2) = global(x1,y1)
+                   elseif (gmask(x3,y3) /= 0) then
+                      f(2) = global(x3,y3)
+                   elseif  (gmask(x4,y4) /= 0) then
+                      f(2) = global(x4,y4)
+                   else
+                      f(2) = maskval
+                   endif
+
+                   if (gmask(x3,y3) /= 0) then
+                      f(3) = global(x3,y3)
+                   elseif (gmask(x4,y4) /= 0) then
+                      f(3) = global(x4,y4)
+                   elseif (gmask(x2,y2) /= 0) then
+                      f(3) = global(x2,y2)
+                   elseif  (gmask(x1,y1) /= 0) then
+                      f(3) = global(x1,y1)
+                   else
+                      f(3) = maskval
+                   endif
+
+                   if (gmask(x4,y4) /= 0) then
+                      f(4) = global(x4,y4)
+                   elseif (gmask(x3,y3) /= 0) then
+                      f(4) = global(x3,y3)
+                   elseif (gmask(x1,y1) /= 0) then
+                      f(4) = global(x1,y1)
+                   elseif  (gmask(x2,y2) /= 0) then
+                      f(4) = global(x2,y2)
+                   else
+                      f(4) = maskval
+                   endif
+
+                endif    ! lmask = 0
+
+             else        ! gmask and maskval not present
+
+                if (present(global_fn)) then
+                   f(1)=global_fn(downs%xloc(i,j,1),downs%yloc(i,j,1))
+                   f(2)=global_fn(downs%xloc(i,j,2),downs%yloc(i,j,2))
+                   f(3)=global_fn(downs%xloc(i,j,3),downs%yloc(i,j,3))
+                   f(4)=global_fn(downs%xloc(i,j,4),downs%yloc(i,j,4))
+                else
+                   if (downs%use_mpint) then
+                      f(1)=g_loc(downs%xloc(i,j,1),downs%yloc(i,j,1))
+                      f(2)=g_loc(downs%xloc(i,j,2),downs%yloc(i,j,2))
+                      f(3)=g_loc(downs%xloc(i,j,3),downs%yloc(i,j,3))
+                      f(4)=g_loc(downs%xloc(i,j,4),downs%yloc(i,j,4))
+                   else
+                      f(1)=global(downs%xloc(i,j,1),downs%yloc(i,j,1))
+                      f(2)=global(downs%xloc(i,j,2),downs%yloc(i,j,2))
+                      f(3)=global(downs%xloc(i,j,3),downs%yloc(i,j,3))
+                      f(4)=global(downs%xloc(i,j,4),downs%yloc(i,j,4))
+                   end if
                 end if
+
+             endif  ! gmask and maskval present
+
+             ! Apply the bilinear interpolation
+
+             if (zc.and.zeros(downs%xin(i,j),downs%yin(i,j)).and.downs%use_mpint) then
+                if (present(localsp)) localsp_fulldomain(i,j)=0.0_sp
+                if (present(localdp)) localdp_fulldomain(i,j)=0.0_dp
+                if (present(localrk)) localrk_fulldomain(i,j)=0.0_rk
+             else
+                if (present(localsp)) localsp_fulldomain(i,j)=bilinear_interp(downs%xfrac(i,j),downs%yfrac(i,j),f)
+                if (present(localdp)) localdp_fulldomain(i,j)=bilinear_interp(downs%xfrac(i,j),downs%yfrac(i,j),f)
+                if (present(localrk)) localrk_fulldomain(i,j)=bilinear_interp(downs%xfrac(i,j),downs%yfrac(i,j),f)
              end if
 
-          endif  ! gmask and maskval present
-
-          ! Apply the bilinear interpolation
-
-          if (zc.and.zeros(downs%xin(i,j),downs%yin(i,j)).and.downs%use_mpint) then
-             if (present(localsp)) localsp(i,j)=0.0_sp
-             if (present(localdp)) localdp(i,j)=0.0_dp
-             if (present(localrk)) localrk(i,j)=0.0_rk
-          else
-             if (present(localsp)) localsp(i,j)=bilinear_interp(downs%xfrac(i,j),downs%yfrac(i,j),f)
-             if (present(localdp)) localdp(i,j)=bilinear_interp(downs%xfrac(i,j),downs%yfrac(i,j),f)
-             if (present(localrk)) localrk(i,j)=bilinear_interp(downs%xfrac(i,j),downs%yfrac(i,j),f)
-          end if
-
+          enddo
        enddo
-    enddo
+    end if  ! main_task
+
+    ! Main task scatters interpolated data from the full domain to the task owning each point
+
+    if (present(localsp)) call distributed_scatter_var(localsp, localsp_fulldomain)
+    if (present(localdp)) call distributed_scatter_var(localdp, localdp_fulldomain)
+    if (present(localrk)) call distributed_scatter_var(localrk, localrk_fulldomain)
+
+    ! We do NOT deallocate the local*_fulldomain variables here, because the
+    ! distributed_scatter_var routines do this deallocation
 
   end subroutine interp_to_local
 
@@ -551,11 +612,16 @@ contains
     !*FD
     !*FD Note that:
     !*FD \begin{itemize}
-    !*FD \item \texttt{gboxx} and \texttt{gboxy} are the same size as \texttt{local}
+    !*FD \item \texttt{global} output is only valid on the main task
+    !*FD \item \texttt{ups} input only needs to be valid on the main task
+    !*FD \item \texttt{gboxx} and \texttt{gboxy} are the same size as \texttt{local_fulldomain}
     !*FD \item \texttt{gboxn} is the same size as \texttt{global}
     !*FD \item This method is \emph{not} the mathematical inverse of the
     !*FD \texttt{interp\_to\_local} routine.
     !*FD \end{itemize}
+
+    use parallel, only : main_task, distributed_gather_var
+    use nan_mod , only : NaN
 
     ! Arguments
 
@@ -566,14 +632,16 @@ contains
 
     ! Internal variables
 
-    integer :: nxl,nyl,i,j
+    integer :: nxl_full,nyl_full,i,j
     real(rk),dimension(size(local,1),size(local,2)) :: tempmask
+
+    ! values of 'local' and 'tempmask' spanning full domain (all tasks)
+    real(sp),dimension(:,:), allocatable            :: local_fulldomain
+    real(rk),dimension(:,:), allocatable            :: tempmask_fulldomain
 
     ! Beginning of code
 
-    nxl=size(local,1) ; nyl=size(local,2)
-
-    global=0.0
+    global=NaN
 
     if (present(mask)) then
        tempmask=mask
@@ -581,18 +649,35 @@ contains
        tempmask=1
     endif
 
-    do i=1,nxl
-       do j=1,nyl
-          global(ups%gboxx(i,j),ups%gboxy(i,j))= &
-               global(ups%gboxx(i,j),ups%gboxy(i,j))+local(i,j)*tempmask(i,j)
-       enddo
-    enddo
+    ! Gather 'local' and 'tempmask' onto main task, which is the only one that does the regridding
 
-    where (ups%gboxn.ne.0)
-       global=global/ups%gboxn
-    elsewhere
-       global=0.0
-    endwhere
+    call distributed_gather_var(local, local_fulldomain)
+    call distributed_gather_var(tempmask, tempmask_fulldomain)
+
+    ! Main task does regridding
+
+    if (main_task) then
+
+       nxl_full=size(local_fulldomain,1) ; nyl_full=size(local_fulldomain,2)
+       global = 0.0
+
+       do i=1,nxl_full
+          do j=1,nyl_full
+             global(ups%gboxx(i,j),ups%gboxy(i,j))= &
+                  global(ups%gboxx(i,j),ups%gboxy(i,j))+local_fulldomain(i,j)*tempmask_fulldomain(i,j)
+          enddo
+       enddo
+
+       where (ups%gboxn.ne.0)
+          global=global/ups%gboxn
+       elsewhere
+          global=0.0
+       endwhere
+
+    end if  ! main_task
+
+    if (allocated(local_fulldomain)) deallocate(local_fulldomain)
+    if (allocated(tempmask_fulldomain)) deallocate(tempmask_fulldomain)
 
   end subroutine mean_to_global_sp
 
@@ -605,11 +690,16 @@ contains
     !*FD
     !*FD Note that:
     !*FD \begin{itemize}
-    !*FD \item \texttt{gboxx} and \texttt{gboxy} are the same size as \texttt{local}
+    !*FD \item \texttt{global} output is only valid on the main task
+    !*FD \item \texttt{ups} input only needs to be valid on the main task
+    !*FD \item \texttt{gboxx} and \texttt{gboxy} are the same size as \texttt{local_fulldomain}
     !*FD \item \texttt{gboxn} is the same size as \texttt{global}
     !*FD \item This method is \emph{not} the mathematical inverse of the
     !*FD \texttt{interp\_to\_local} routine.
     !*FD \end{itemize}
+
+    use parallel, only : main_task, distributed_gather_var
+    use nan_mod , only : NaN
 
     ! Arguments
 
@@ -620,14 +710,16 @@ contains
 
     ! Internal variables
 
-    integer :: nxl,nyl,i,j
+    integer :: nxl_full,nyl_full,i,j
     real(rk),dimension(size(local,1),size(local,2)) :: tempmask
+
+    ! values of 'local' and 'tempmask' spanning full domain (all tasks)
+    real(dp),dimension(:,:), allocatable            :: local_fulldomain
+    real(rk),dimension(:,:), allocatable            :: tempmask_fulldomain
 
     ! Beginning of code
 
-    nxl=size(local,1) ; nyl=size(local,2)
-
-    global=0.0
+    global=NaN
 
     if (present(mask)) then
        tempmask=mask
@@ -635,18 +727,35 @@ contains
        tempmask=1
     endif
 
-    do i=1,nxl
-       do j=1,nyl
-          global(ups%gboxx(i,j),ups%gboxy(i,j))= &
-               global(ups%gboxx(i,j),ups%gboxy(i,j))+local(i,j)*tempmask(i,j)
-       enddo
-    enddo
+    ! Gather 'local' and 'tempmask' onto main task, which is the only one that does the regridding
 
-    where (ups%gboxn.ne.0)
-       global=global/ups%gboxn
-    elsewhere
-       global=0.0
-    endwhere
+    call distributed_gather_var(local, local_fulldomain)
+    call distributed_gather_var(tempmask, tempmask_fulldomain)
+
+    ! Main task does regridding
+
+    if (main_task) then
+
+       nxl_full=size(local_fulldomain,1) ; nyl_full=size(local_fulldomain,2)
+       global = 0.0
+
+       do i=1,nxl_full
+          do j=1,nyl_full
+             global(ups%gboxx(i,j),ups%gboxy(i,j))= &
+                  global(ups%gboxx(i,j),ups%gboxy(i,j))+local_fulldomain(i,j)*tempmask_fulldomain(i,j)
+          enddo
+       enddo
+
+       where (ups%gboxn.ne.0)
+          global=global/ups%gboxn
+       elsewhere
+          global=0.0
+       endwhere
+
+    end if  ! main_task
+
+    if (allocated(local_fulldomain)) deallocate(local_fulldomain)
+    if (allocated(tempmask_fulldomain)) deallocate(tempmask_fulldomain)
 
   end subroutine mean_to_global_dp
 
@@ -666,11 +775,16 @@ contains
     ! The difference is that local topography is upscaled to multiple elevation classes
     !  in each global grid cell.
     !
+    ! Note that the 'global' output is only valid on the main task.
+    ! The global inputs (ups, nxg, nyg) only need to be valid on the main task.
+    !
     ! Note: This method is not the inverse of the interp_to_local routine.
     ! Also note that each local grid cell is weighted equally.
     ! In the future we may want to use the CESM coupler for upscaling.
  
     use glimmer_log
+    use parallel, only : main_task, distributed_gather_var
+    use nan_mod , only : NaN
 
     ! Arguments
  
@@ -691,114 +805,150 @@ contains
        ig, jg       ! indices
 
     integer, dimension(nxl,nyl) ::  &
-        tempmask,    &! temporary mask
+        tempmask      ! temporary mask
+
+    integer, dimension(:,:), allocatable ::  &
         gboxec        ! elevation class into which local data is upscaled
 
     integer, dimension(nxg,nyg,nec) ::  &
         gnumloc       ! no. of local cells within each global cell in each elevation class
 
+    ! values of 'local', 'ltopo' and 'tempmask' spanning full domain (all tasks)
+    real(dp),dimension(:,:),allocatable :: local_fulldomain
+    real(dp),dimension(:,:),allocatable :: ltopo_fulldomain
+    integer ,dimension(:,:),allocatable :: tempmask_fulldomain
+
 
     integer :: il, jl
+    integer :: nxl_full, nyl_full  ! nxl & nyl spanning the full domain (all tasks)
     real(dp) :: lsum, gsum
+
+    ! Beginning of code
+
+    global(:,:,:) = NaN
  
     if (present(mask)) then
        tempmask(:,:) = mask(:,:)
     else
        tempmask(:,:) = 1
     endif
- 
-    ! Compute global elevation class for each local grid cell
-    ! Also compute number of local cells within each global cell in each elevation class
 
-    gboxec(:,:) = 0
-    gnumloc(:,:,:) = 0
+    ! Gather 'local', 'ltopo' and 'tempmask' onto main task, which is the only one that
+    ! does the regridding
 
-    do n = 1, nec
-       do j = 1, nyl
-       do i = 1, nxl
-          if (ltopo(i,j) >= topomax(n-1) .and. ltopo(i,j) < topomax(n)) then
-             gboxec(i,j) = n
-             if (tempmask(i,j)==1) then
-                ig = ups%gboxx(i,j)
-                jg = ups%gboxy(i,j)
-                gnumloc(ig,jg,n) = gnumloc(ig,jg,n) + 1
+    call distributed_gather_var(local, local_fulldomain)
+    call distributed_gather_var(ltopo, ltopo_fulldomain)
+    call distributed_gather_var(tempmask, tempmask_fulldomain)
+
+    ! Main task does regridding
+
+    if (main_task) then
+
+       ! Compute global elevation class for each local grid cell
+       ! Also compute number of local cells within each global cell in each elevation class
+       
+       nxl_full = size(local_fulldomain,1)
+       nyl_full = size(local_fulldomain,2)
+
+       allocate(gboxec(nxl_full, nyl_full))
+       
+       gboxec(:,:) = 0
+       gnumloc(:,:,:) = 0
+
+       do n = 1, nec
+          do j = 1, nyl_full
+             do i = 1, nxl_full
+                if (ltopo_fulldomain(i,j) >= topomax(n-1) .and. ltopo_fulldomain(i,j) < topomax(n)) then
+                   gboxec(i,j) = n
+                   if (tempmask_fulldomain(i,j)==1) then
+                      ig = ups%gboxx(i,j)
+                      jg = ups%gboxy(i,j)
+                      gnumloc(ig,jg,n) = gnumloc(ig,jg,n) + 1
+                   endif
+                endif
+             enddo
+          enddo
+       enddo
+
+       global(:,:,:) = 0._dp
+
+       do j = 1, nyl_full
+          do i = 1, nxl_full
+             ig = ups%gboxx(i,j)
+             jg = ups%gboxy(i,j)
+             n = gboxec(i,j)
+             if (n==0) then
+                if (GLC_DEBUG) then
+                   write(stdout,*) 'Upscaling error: local topography out of bounds'
+                   write(stdout,*) 'i, j, ltopo_fulldomain:', i, j, ltopo_fulldomain(i,j)
+                   write(stdout,*) 'topomax =', topomax(:)
+                end if
+                call write_log('Upscaling error: local topography out of bounds', &
+                     GM_FATAL,__FILE__,__LINE__)
              endif
+
+             global(ig,jg,n) = global(ig,jg,n) + local_fulldomain(i,j)*tempmask_fulldomain(i,j)
+
+          enddo
+       enddo
+
+       do n = 1, nec
+          do j = 1, nyg
+             do i = 1, nxg
+                if (gnumloc(i,j,n) /= 0) then
+                   global(i,j,n) = global(i,j,n) / gnumloc(i,j,n)
+                else
+                   global(i,j,n) = 0._dp
+                endif
+             enddo
+          enddo
+       enddo
+
+       ! conservation check
+
+       lsum = 0._dp
+       do j = 1, nyl_full
+          do i = 1, nxl_full
+             lsum = lsum + local_fulldomain(i,j)*tempmask_fulldomain(i,j)
+          enddo
+       enddo
+
+       gsum = 0._dp
+       do n = 1, nec
+          do j = 1, nyg
+             do i = 1, nxg
+                gsum = gsum + global(i,j,n)*gnumloc(i,j,n)
+             enddo
+          enddo
+       enddo
+
+       if (abs(lsum) > 1.e-10_dp) then
+          if (abs(gsum-lsum)/abs(lsum) > 1.e-10_dp) then 
+             if (GLC_DEBUG) then
+                write(stdout,*) 'local and global sums disagree'
+                write (stdout,*) 'lsum, gsum =', lsum, gsum 
+             end if
+             call write_log('Upscaling error: local and glocal sums disagree', &
+                  GM_FATAL,__FILE__,__LINE__)
           endif
-       enddo
-       enddo
-    enddo
-
-    global(:,:,:) = 0._dp
-
-    do j = 1, nyl
-    do i = 1, nxl
-       ig = ups%gboxx(i,j)
-       jg = ups%gboxy(i,j)
-       n = gboxec(i,j)
-       if (n==0) then
-          if (GLC_DEBUG) then
-             write(stdout,*) 'Upscaling error: local topography out of bounds'
-             write(stdout,*) 'i, j, ltopo:', i, j, ltopo(i,j)
-             write(stdout,*) 'topomax =', topomax(:)
-          end if
-          call write_log('Upscaling error: local topography out of bounds', &
-               GM_FATAL,__FILE__,__LINE__)
-       endif
-
-       global(ig,jg,n) = global(ig,jg,n) + local(i,j)*tempmask(i,j)
-
-    enddo
-    enddo
- 
-    do n = 1, nec
-       do j = 1, nyg
-       do i = 1, nxg
-          if (gnumloc(i,j,n) /= 0) then
-             global(i,j,n) = global(i,j,n) / gnumloc(i,j,n)
-          else
-             global(i,j,n) = 0._dp
+       else  ! lsum is close to zero
+          if (abs(gsum-lsum) > 1.e-10_dp) then
+             if (GLC_DEBUG) then
+                write(stdout,*) 'local and global sums disagree'
+                write (stdout,*) 'lsum, gsum =', lsum, gsum 
+             end if
+             call write_log('Upscaling error: local and glocal sums disagree', &
+                  GM_FATAL,__FILE__,__LINE__)
           endif
-       enddo
-       enddo
-    enddo
-
-    ! conservation check
-
-    lsum = 0._dp
-    do j = 1, nyl
-    do i = 1, nxl
-       lsum = lsum + local(i,j)*tempmask(i,j)
-    enddo    
-    enddo
-
-    gsum = 0._dp
-    do n = 1, nec
-    do j = 1, nyg
-    do i = 1, nxg
-       gsum = gsum + global(i,j,n)*gnumloc(i,j,n)
-    enddo
-    enddo
-    enddo
-
-    if (abs(lsum) > 1.e-10_dp) then
-       if (abs(gsum-lsum)/abs(lsum) > 1.e-10_dp) then 
-          if (GLC_DEBUG) then
-             write(stdout,*) 'local and global sums disagree'
-             write (stdout,*) 'lsum, gsum =', lsum, gsum 
-          end if
-          call write_log('Upscaling error: local and glocal sums disagree', &
-               GM_FATAL,__FILE__,__LINE__)
        endif
-    else  ! lsum is close to zero
-       if (abs(gsum-lsum) > 1.e-10_dp) then
-          if (GLC_DEBUG) then
-             write(stdout,*) 'local and global sums disagree'
-             write (stdout,*) 'lsum, gsum =', lsum, gsum 
-          end if
-          call write_log('Upscaling error: local and glocal sums disagree', &
-               GM_FATAL,__FILE__,__LINE__)
-       endif
-    endif
+
+       deallocate(gboxec)
+
+    endif  ! main_task
+
+    if (allocated(local_fulldomain)) deallocate(local_fulldomain)
+    if (allocated(ltopo_fulldomain)) deallocate(ltopo_fulldomain)
+    if (allocated(tempmask_fulldomain)) deallocate(tempmask_fulldomain)
 
   end subroutine mean_to_global_mec
   
@@ -888,6 +1038,7 @@ contains
     use glint_global_grid
     use glimmer_coordinates
     use glimmer_map_trans
+    use parallel, only: main_task
 
     ! Arguments
 
@@ -904,7 +1055,7 @@ contains
     real(rk) :: ilon,jlat,xa,ya,xb,yb,xc,yc,xd,yd
     integer :: nx, ny, nxg, nyg, n
 
-    if (GLC_DEBUG) then
+    if (GLC_DEBUG .and. main_task) then
        nx = lgrid%size%pt(1)
        ny = lgrid%size%pt(2)
        nxg = size(ggrid%mask,1)
@@ -1002,7 +1153,10 @@ contains
        enddo
     enddo
 
-    if (GLC_DEBUG) then
+    ! This output should work for any number of tasks, since the variables here span the
+    ! full local domain. Because of where it falls in the call chain, only the main task
+    ! should reach this point, but we check that anyway to avoid problems.
+    if (GLC_DEBUG .and. main_task) then
        write(stdout,*) ' '
        write(stdout,*) 'Mask in neighborhood of i, j = ', itest_local, jtest_local
        do j = jtest_local-1, jtest_local+1

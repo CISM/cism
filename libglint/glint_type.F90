@@ -54,12 +54,22 @@ module glint_type
   type glint_instance
 
      !*FD Derived type holding information about ice model instance. 
+     !*FD Note that variables used for downscaling & upscaling are only valid on the main task,
+     !*FD since all downscaling and upscaling is done there.
 
-     type(coordsystem_type)           :: lgrid              !*FD Local grid for interfacing with glide
+     type(coordsystem_type)           :: lgrid              !*FD Local grid for interfacing with glide (grid on this task)
+                                                            !*FD (WJS: Note that origin may be incorrect with multiple tasks;
+                                                            !*FD  as far as I can tell, this isn't currently a problem)
+     type(coordsystem_type)           :: lgrid_fulldomain   !*FD Local grid on the full domain (across all tasks),
+                                                            !*FD used for downscaling & upscaling
+                                                            !*FD (ONLY VALID ON MAIN TASK)
      type(downscale)                  :: downs              !*FD Downscaling parameters.
+                                                            !*FD (ONLY VALID ON MAIN TASK)
      type(upscale)                    :: ups                !*FD Upscaling parameters
+                                                            !*FD (ONLY VALID ON MAIN TASK)
      type(upscale)                    :: ups_orog           !*FD Upscaling parameters for orography (to cope
                                                             !*FD with need to convert to spectral form).
+                                                            !*FD (ONLY VALID ON MAIN TASK)
      type(glide_global_type)          :: model              !*FD The instance and all its arrays.
      character(fname_length)          :: paramfile          !*FD The name of the configuration file.
      integer                          :: ice_tstep          !*FD Ice timestep in hours
@@ -104,8 +114,10 @@ module glint_type
 !TODO - Change to dp?
      real(rk) ,dimension(:,:),pointer :: frac_coverage => null() 
      !*FD Fractional coverage of each global gridbox by the projected grid.
+     !*FD (ONLY VALID ON MAIN TASK)
      real(rk) ,dimension(:,:),pointer :: frac_cov_orog => null() 
      !*FD Fractional coverage of each global gridbox by the projected grid (orography).
+     !*FD (ONLY VALID ON MAIN TASK)
 
      ! Output masking --------------------------------------------
 
@@ -420,6 +432,7 @@ contains
                                    snow_depth)
 
     !*FD Upscales and returns certain fields
+    !*FD Output fields are only valid on the main task
     !*FD 
     !*FD \begin{itemize}
     !*FD \item \texttt{orog} --- the orographic elevation (m)
@@ -528,11 +541,13 @@ contains
                                        ghflx)
 
     ! Upscale fields from the local grid to the global grid (with multiple elevation classes).
+    ! Output fields are only valid on the main task.
     ! The upscaled fields are passed to the GCM land surface model, which has the option
     !  of updating the fractional area and surface elevation of glaciated gridcells.
 
     use glimmer_paramets, only: thk0, GLC_DEBUG
     use glimmer_log
+    use parallel, only: tasks, main_task
 
     ! Arguments ----------------------------------------------------------------------------
  
@@ -577,7 +592,7 @@ contains
        topomax = (/ 0._dp,   200._dp,   400._dp,   700._dp,  1000._dp,  1300._dp,  &
                             1600._dp,  2000._dp,  2500._dp,  3000._dp, 10000._dp /)
     else
-       if (GLC_DEBUG) then
+       if (GLC_DEBUG .and. main_task) then
           write(message,'(a6,i3)') 'nec =', nec
           call write_log(trim(message), GM_DIAGNOSTIC)
        end if
@@ -587,8 +602,9 @@ contains
 
     local_topo(:,:) = thk0 * instance%model%geometry%usrf(:,:)
     local_thck(:,:) = thk0 * instance%model%geometry%thck(:,:)
-        
-    if (GLC_DEBUG) then
+
+    ! The following output only works correctly if running with a single task
+    if (GLC_DEBUG .and. tasks==1) then
        ig = itest
        jg = jjtest
        il = itest_local
@@ -668,7 +684,7 @@ contains
                             local_field,         ghflx,     &
                             local_topo,          instance%out_mask)
     
-    if (GLC_DEBUG) then
+    if (GLC_DEBUG .and. main_task) then
 !       write(stdout,*) ' '
 !       write(stdout,*) 'global ifrac:'
 !       do n = 1, nec

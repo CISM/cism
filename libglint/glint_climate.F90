@@ -104,21 +104,21 @@ contains
     real(rk),dimension(:,:),intent(in)   :: g_airpress   !*FD Global surface air pressure (Pa)
     logical,                intent(in)   :: orogflag
 
-    call interp_to_local(instance%lgrid,g_temp,      instance%downs,localsp=instance%artm)
-    call interp_to_local(instance%lgrid,g_temp_range,instance%downs,localsp=instance%arng,z_constrain=.true.)
-    call interp_to_local(instance%lgrid,g_precip,    instance%downs,localsp=instance%prcp,z_constrain=.true.)
+    call interp_to_local(instance%lgrid_fulldomain,g_temp,      instance%downs,localsp=instance%artm)
+    call interp_to_local(instance%lgrid_fulldomain,g_temp_range,instance%downs,localsp=instance%arng,z_constrain=.true.)
+    call interp_to_local(instance%lgrid_fulldomain,g_precip,    instance%downs,localsp=instance%prcp,z_constrain=.true.)
 
     if (instance%whichacab==3) then
-       call interp_to_local(instance%lgrid,g_humid,   instance%downs,localrk=instance%humid,z_constrain=.true.)
-       call interp_to_local(instance%lgrid,g_lwdown,  instance%downs,localrk=instance%lwdown)
-       call interp_to_local(instance%lgrid,g_swdown,  instance%downs,localrk=instance%swdown)
-       call interp_to_local(instance%lgrid,g_airpress,instance%downs,localrk=instance%airpress,z_constrain=.true.)
+       call interp_to_local(instance%lgrid_fulldomain,g_humid,   instance%downs,localrk=instance%humid,z_constrain=.true.)
+       call interp_to_local(instance%lgrid_fulldomain,g_lwdown,  instance%downs,localrk=instance%lwdown)
+       call interp_to_local(instance%lgrid_fulldomain,g_swdown,  instance%downs,localrk=instance%swdown)
+       call interp_to_local(instance%lgrid_fulldomain,g_airpress,instance%downs,localrk=instance%airpress,z_constrain=.true.)
     end if
 
-    if (orogflag) call interp_to_local(instance%lgrid,g_orog,instance%downs,localdp=instance%global_orog,z_constrain=.true.)
+    if (orogflag) call interp_to_local(instance%lgrid_fulldomain,g_orog,instance%downs,localdp=instance%global_orog,z_constrain=.true.)
 
     if (instance%whichprecip==2.or.instance%whichacab==3) &
-         call interp_wind_to_local(instance%lgrid,g_zonwind,g_merwind,instance%downs,instance%xwind,instance%ywind)
+         call interp_wind_to_local(instance%lgrid_fulldomain,g_zonwind,g_merwind,instance%downs,instance%xwind,instance%ywind)
 
   end subroutine glint_downscaling
 
@@ -132,6 +132,7 @@ contains
 
     use glint_type, only: glint_instance
     use glint_interp, only: interp_to_local
+    use parallel, only: tasks
 
     ! Downscale fields from the global grid (with multiple elevation classes)
     ! to the local grid.
@@ -176,25 +177,26 @@ contains
     if (present(gmask)) then   ! set local field = maskval where the global field is masked out
                                ! (i.e., where instance%downs%lmask = 0).
        do n = 1, nec
-          call interp_to_local(instance%lgrid, qsmb_g(:,:,n), instance%downs, localdp=qsmb_l(:,:,n), &
+          call interp_to_local(instance%lgrid_fulldomain, qsmb_g(:,:,n), instance%downs, localdp=qsmb_l(:,:,n), &
                                gmask = gmask, maskval=maskval)
-          call interp_to_local(instance%lgrid, tsfc_g(:,:,n), instance%downs, localdp=tsfc_l(:,:,n), &
+          call interp_to_local(instance%lgrid_fulldomain, tsfc_g(:,:,n), instance%downs, localdp=tsfc_l(:,:,n), &
                                gmask = gmask, maskval=maskval)
-          call interp_to_local(instance%lgrid, topo_g(:,:,n), instance%downs, localdp=topo_l(:,:,n), &
+          call interp_to_local(instance%lgrid_fulldomain, topo_g(:,:,n), instance%downs, localdp=topo_l(:,:,n), &
                                gmask = gmask, maskval=maskval)
        enddo
 
     else    ! global field values are assumed to be valid everywhere
 
        do n = 1, nec
-          call interp_to_local(instance%lgrid, qsmb_g(:,:,n), instance%downs, localdp=qsmb_l(:,:,n))
-          call interp_to_local(instance%lgrid, tsfc_g(:,:,n), instance%downs, localdp=tsfc_l(:,:,n))
-          call interp_to_local(instance%lgrid, topo_g(:,:,n), instance%downs, localdp=topo_l(:,:,n))
+          call interp_to_local(instance%lgrid_fulldomain, qsmb_g(:,:,n), instance%downs, localdp=qsmb_l(:,:,n))
+          call interp_to_local(instance%lgrid_fulldomain, tsfc_g(:,:,n), instance%downs, localdp=tsfc_l(:,:,n))
+          call interp_to_local(instance%lgrid_fulldomain, topo_g(:,:,n), instance%downs, localdp=topo_l(:,:,n))
        enddo
 
     endif
 
-    if (GLC_DEBUG) then
+    ! The following output only works correctly if running with a single task
+    if (GLC_DEBUG .and. tasks==1) then
        write (stdout,*) ' ' 
        write (stdout,*) 'Interpolate fields to local grid'
        write (stdout,*) 'Global cell =', itest, jjtest
@@ -253,7 +255,8 @@ contains
           enddo
        endif   ! usrf
 
-       if (GLC_DEBUG) then
+       ! The following output only works correctly if running with a single task
+       if (GLC_DEBUG .and. tasks==1) then
           if (i==itest_local .and. j==jtest_local) then
              n = 4  
              write (stdout,*) ' '

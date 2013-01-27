@@ -65,6 +65,7 @@ contains
     use glint_constants
     use glimmer_paramets, only: GLC_DEBUG
     use glimmer_restart_gcm
+    use parallel, only: main_task
     implicit none
 
     ! Arguments
@@ -153,16 +154,16 @@ contains
 
     call CheckSections(config)
 
-    ! New grid and downscaling
+    ! New grid (grid on this task)
 
+    ! WJS (1-11-13): I'm not sure if it's correct to set the origin to (0,0) when running
+    ! on multiple tasks, with a decomposed grid. However, as far as I can tell, the
+    ! origin of this variable isn't important, so I'm not trying to fix it right now.
     instance%lgrid = coordsystem_new(0.d0, 0.d0, &
                                      get_dew(instance%model), &
                                      get_dns(instance%model), &
                                      get_ewn(instance%model), &
                                      get_nsn(instance%model))
-
-    call new_downscale(instance%downs, instance%model%projection, grid, &
-                       instance%lgrid, mpint=(instance%use_mpint==1))
 
     ! Allocate arrays appropriately
 
@@ -172,28 +173,11 @@ contains
 
     call glint_i_readdata(instance)
 
-    ! New upscaling
-
-    call new_upscale(instance%ups, grid, instance%model%projection, &
-                     instance%out_mask,  instance%lgrid) ! Initialise upscaling parameters
-    call new_upscale(instance%ups_orog, grid_orog, instance%model%projection, &
-                     instance%out_mask, instance%lgrid) ! Initialise upscaling parameters
-
-    ! Calculate coverage map
-
-    call calc_coverage(instance%lgrid, &
-                       instance%ups,   &             
-                       grid,           &
-                       instance%out_mask, &
-                       instance%frac_coverage)
-
-    ! Calculate coverage map for orog
-
-    call calc_coverage(instance%lgrid, &               
-                       instance%ups_orog,  &             
-                       grid_orog,     &
-                       instance%out_mask, &
-                       instance%frac_cov_orog)
+    ! Create grid spanning full domain and other information needed for downscaling &
+    ! upscaling. Note that, currently, these variables only have valid data on the main
+    ! task, since all downscaling & upscaling is done there
+    
+    call setup_lgrid_fulldomain(instance, grid, grid_orog)
 
     ! initialise the mass-balance accumulation
 
@@ -212,7 +196,7 @@ contains
 
     instance%next_time = force_start-force_dt+instance%mbal_tstep
 
-    if (GLC_DEBUG) then
+    if (GLC_DEBUG .and. main_task) then
        write (6,*) 'Called glint_mbc_init'
        write (6,*) 'mbal tstep =', mbts
        write (6,*) 'next_time =', instance%next_time
@@ -329,7 +313,71 @@ contains
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  subroutine calc_coverage(lgrid,ups,grid,mask,frac_coverage)
+  subroutine setup_lgrid_fulldomain(instance, grid, grid_orog)
+
+    !*FD Set up the local (icesheet) grid spanning the full domain (i.e., across all tasks).
+    !*FD This also sets up auxiliary variables that depend on this full domain lgrid,
+    !*FD such as the downscaling and upscaling derived types.
+    !*FD This routine is required because we currently do downscaling and upscaling just
+    !*FD on the main task, with the appropriate gathers / scatters.
+    !*FD Thus, this creates a lgrid spanning the full domain on the main task;
+    !*FD other tasks are left with an uninitialized lgrid_fulldomain.
+    !*FD Tasks other than the main task also have uninitialized ups, downs and frac_coverage
+    !*FD (along with the similar *_orog variables).
+    
+    use glint_type         , only : glint_instance
+    use glint_global_grid  , only : global_grid
+    use parallel           , only : main_task, global_ewn, global_nsn
+    use glimmer_coordinates, only : coordsystem_new
+    use glide_types        , only : get_dew, get_dns
+
+    implicit none
+
+    ! Arguments
+
+    type(glint_instance), intent(inout) :: instance
+    type(global_grid)   , intent(in)    :: grid
+    type(global_grid)   , intent(in)    :: grid_orog
+
+    ! Beginning of code
+
+    if (main_task) then
+
+       instance%lgrid_fulldomain = coordsystem_new(0.d0, 0.d0, &
+                                                   get_dew(instance%model), &
+                                                   get_dns(instance%model), &
+                                                   global_ewn, &
+                                                   global_nsn)
+    
+       call new_downscale(instance%downs, instance%model%projection, grid, &
+                          instance%lgrid_fulldomain, mpint=(instance%use_mpint==1))
+
+       call new_upscale(instance%ups, grid, instance%model%projection, &
+                        instance%out_mask,  instance%lgrid_fulldomain) ! Initialise upscaling parameters
+       call new_upscale(instance%ups_orog, grid_orog, instance%model%projection, &
+                        instance%out_mask, instance%lgrid_fulldomain) ! Initialise upscaling parameters
+
+       call calc_coverage(instance%lgrid_fulldomain, &
+                          instance%ups,   &             
+                          grid,           &
+                          instance%out_mask, &
+                          instance%frac_coverage)
+
+       ! Calculate coverage map for orog
+
+       call calc_coverage(instance%lgrid_fulldomain, &               
+                          instance%ups_orog,  &             
+                          grid_orog,     &
+                          instance%out_mask, &
+                          instance%frac_cov_orog)
+
+    end if
+
+  end subroutine setup_lgrid_fulldomain
+
+  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+  subroutine calc_coverage(lgrid_fulldomain,ups,grid,mask,frac_coverage)
 
     !*FD Calculates the fractional
     !*FD coverage of the global grid-boxes by the ice model
@@ -341,12 +389,12 @@ contains
 
     ! Arguments
 
-    type(coordsystem_type), intent(in)  :: lgrid         !*FD Local grid
-    type(upscale),          intent(in)  :: ups           !*FD Upscaling used
-    type(global_grid),      intent(in)  :: grid          !*FD Global grid used
-    integer, dimension(:,:),intent(in)  :: mask          !*FD Mask of points for upscaling
-    real(rk),dimension(:,:),intent(out) :: frac_coverage !*FD Map of fractional 
-                                                         !*FD coverage of global by local grid-boxes.
+    type(coordsystem_type), intent(in)  :: lgrid_fulldomain  !*FD Local grid, spanning full domain (all tasks)
+    type(upscale),          intent(in)  :: ups               !*FD Upscaling used
+    type(global_grid),      intent(in)  :: grid              !*FD Global grid used
+    integer, dimension(:,:),intent(in)  :: mask              !*FD Mask of points for upscaling
+    real(rk),dimension(:,:),intent(out) :: frac_coverage     !*FD Map of fractional 
+                                                             !*FD coverage of global by local grid-boxes.
     ! Internal variables
 
     integer,dimension(grid%nx,grid%ny) :: tempcount
@@ -356,8 +404,8 @@ contains
 
     tempcount=0
 
-    do i=1,lgrid%size%pt(1)
-       do j=1,lgrid%size%pt(2)
+    do i=1,lgrid_fulldomain%size%pt(1)
+       do j=1,lgrid_fulldomain%size%pt(2)
           tempcount(ups%gboxx(i,j),ups%gboxy(i,j))=tempcount(ups%gboxx(i,j),ups%gboxy(i,j))+mask(i,j)
        enddo
     enddo
@@ -367,7 +415,7 @@ contains
           if (tempcount(i,j)==0) then
              frac_coverage(i,j)=0.0
           else
-             frac_coverage(i,j)=(tempcount(i,j)*lgrid%delta%pt(1)*lgrid%delta%pt(2))/ &
+             frac_coverage(i,j)=(tempcount(i,j)*lgrid_fulldomain%delta%pt(1)*lgrid_fulldomain%delta%pt(2))/ &
                   (lon_diff(grid%lon_bound(i+1),grid%lon_bound(i))*D2R*EQ_RAD**2*    &
                   (sin(grid%lat_bound(j)*D2R)-sin(grid%lat_bound(j+1)*D2R)))
           endif

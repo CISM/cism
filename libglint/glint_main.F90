@@ -110,7 +110,7 @@ module glint_main
      real(rk),pointer,dimension(:,:,:) :: g_av_topo => null()   ! globally averaged surface elevation   (m)
 
      ! Fractional coverage information --------------------------
-
+     ! Note: these are only valid on the main task
      real(rk),pointer,dimension(:,:) :: total_coverage  => null()     !*FD Fractional coverage by 
                                                                       !*FD all ice model instances.
      real(rk),pointer,dimension(:,:) :: cov_normalise   => null()     !*FD Normalisation values 
@@ -196,11 +196,15 @@ contains
                               gcm_debug,    gcm_fileunit)
 
     !*FD Initialises the model
+    !*FD For a multi-processor run, the main task should specify lats & longs spanning
+    !*FD the full global domain; the other tasks should give 0-size lats & longs arrays
+    !*FD Output arrays on the global grid are only valid on the main task
 
     use glimmer_config
     use glint_initialise
     use glimmer_log
     use glimmer_filenames
+    use parallel, only: main_task
     implicit none
 
     ! Subroutine argument declarations --------------------------------------------------------
@@ -276,7 +280,7 @@ contains
        GLC_DEBUG = gcm_debug
     endif
 
-    if (GLC_DEBUG) then
+    if (GLC_DEBUG .and. main_task) then
        write(stdout,*) 'Starting initialise_glint'
     end if
 
@@ -320,7 +324,7 @@ contains
        nec = gcm_nec
     endif
 
-    if (GLC_DEBUG) then
+    if (GLC_DEBUG .and. main_task) then
        write(stdout,*) 'time_step =', params%time_step
        write(stdout,*) 'start_time =', params%start_time
        write(stdout,*) 'next_av_start =', params%next_av_start
@@ -332,7 +336,7 @@ contains
        call glint_set_year_length(daysinyear)
     end if
 
-    if (GLC_DEBUG) then
+    if (GLC_DEBUG .and. main_task) then
        write(stdout,*) 'Initialize global grid'
        write(stdout,*) 'present =', present(gmask)
     end if
@@ -345,7 +349,7 @@ contains
        call new_global_grid(params%g_grid, longs, lats, lonb=lonb, latb=latb, nec=nec)
     endif
 
-    if (GLC_DEBUG) then
+    if (GLC_DEBUG .and. main_task) then
        write (stdout,*) ' ' 
        write (stdout,*) 'time_step (hr)  =', params%time_step
        write (stdout,*) 'start_time (hr) =', params%start_time
@@ -415,7 +419,7 @@ contains
     params%cov_normalise = 0.0
     params%cov_norm_orog = 0.0
 
-    if (GLC_DEBUG) then
+    if (GLC_DEBUG .and. main_task) then
        write(stdout,*) 'Read paramfile'
        write(stdout,*) 'paramfile =', paramfile
     end if
@@ -438,7 +442,7 @@ contains
     allocate(params%instances(params%ninstances))
     allocate(mbts(params%ninstances), idts(params%ninstances))
 
-    if (GLC_DEBUG) then
+    if (GLC_DEBUG .and. main_task) then
        write(stdout,*) 'Number of instances =', params%ninstances
        write(stdout,*) 'Read config files and initialize each instance'
     end if
@@ -478,6 +482,7 @@ contains
 !WHLTSTEP - Changed timeyr to dp
 !       timeyr = real(params%start_time/8760.)
        timeyr = params%start_time/8760.d0
+       ! WJS: I think the glide_write_diag call is meant to be done by all tasks
        if (GLC_DEBUG) then
           write(stdout,*) 'Write model diagnostics, time =', timeyr
           call glide_write_diag(params%instances(i)%model, timeyr,  &
@@ -507,7 +512,7 @@ contains
        ice_dt = check_mbts(idts)
     end if
 
-    if (GLC_DEBUG) then
+    if (GLC_DEBUG .and. main_task) then
        write(stdout,*) 'tstep_mbal =', params%tstep_mbal
        write(stdout,*) 'start_time =', params%start_time
        write(stdout,*) 'time_step =',  params%time_step
@@ -562,7 +567,7 @@ contains
        allocate(ghflx_temp(params%g_grid%nx,params%g_grid%ny,params%g_grid%nec))
     endif
 
-    if (GLC_DEBUG) then
+    if (GLC_DEBUG .and. main_task) then
        write(stdout,*) 'Upscale and splice the initial fields'
     end if
 
@@ -576,33 +581,39 @@ contains
                                   sif_temp,    svf_temp, &
                                   sd_temp)
 
-       if (present(orog)) &
-            orog = splice_field(orog, orog_temp, params%instances(i)%frac_cov_orog, &
-            params%cov_norm_orog)
+       ! Add this contribution to the global output
+       ! Only the main task has valid values for the global output fields
+       if (main_task) then
+          
+          if (present(orog)) &
+               orog = splice_field(orog, orog_temp, params%instances(i)%frac_cov_orog, &
+               params%cov_norm_orog)
 
-       if (present(albedo)) &
-            albedo = splice_field(albedo, alb_temp, params%instances(i)%frac_coverage, &
-            params%cov_normalise)
+          if (present(albedo)) &
+               albedo = splice_field(albedo, alb_temp, params%instances(i)%frac_coverage, &
+               params%cov_normalise)
 
-       if (present(ice_frac)) &
-            ice_frac = splice_field(ice_frac, if_temp, params%instances(i)%frac_coverage, &
-            params%cov_normalise)
+          if (present(ice_frac)) &
+               ice_frac = splice_field(ice_frac, if_temp, params%instances(i)%frac_coverage, &
+               params%cov_normalise)
 
-       if (present(veg_frac)) &
-            veg_frac = splice_field(veg_frac, vf_temp, params%instances(i)%frac_coverage, &
-            params%cov_normalise)
+          if (present(veg_frac)) &
+               veg_frac = splice_field(veg_frac, vf_temp, params%instances(i)%frac_coverage, &
+               params%cov_normalise)
 
-       if (present(snowice_frac)) &
-            snowice_frac = splice_field(snowice_frac,sif_temp,params%instances(i)%frac_coverage, &
-            params%cov_normalise)
+          if (present(snowice_frac)) &
+               snowice_frac = splice_field(snowice_frac,sif_temp,params%instances(i)%frac_coverage, &
+               params%cov_normalise)
 
-       if (present(snowveg_frac)) &
-            snowveg_frac = splice_field(snowveg_frac,svf_temp,params%instances(i)%frac_coverage, &
-            params%cov_normalise)
+          if (present(snowveg_frac)) &
+               snowveg_frac = splice_field(snowveg_frac,svf_temp,params%instances(i)%frac_coverage, &
+               params%cov_normalise)
 
-       if (present(snow_depth)) &
-            snow_depth = splice_field(snow_depth,sd_temp,params%instances(i)%frac_coverage, &
-            params%cov_normalise)
+          if (present(snow_depth)) &
+               snow_depth = splice_field(snow_depth,sd_temp,params%instances(i)%frac_coverage, &
+               params%cov_normalise)
+
+       end if
 
        if (params%gcm_smb) then
 
@@ -615,39 +626,45 @@ contains
                                          grofi_temp,          grofl_temp,         &
                                          ghflx_temp)
 
-          do n = 1, params%g_grid%nec
+          ! Add this contribution to the global output
+          ! Only the main task has valid values for the global output fields
+          if (main_task) then
 
-             if (present(gfrac))    &
-                gfrac(:,:,n) = splice_field(gfrac(:,:,n),                      &
-                                            gfrac_temp(:,:,n),                 &
-                                            params%instances(i)%frac_coverage, &
-                                            params%cov_normalise)
+             do n = 1, params%g_grid%nec
 
-             if (present(gtopo))    &
-                gtopo(:,:,n) = splice_field(gtopo(:,:,n),                      &
-                                            gtopo_temp(:,:,n),                 &
-                                            params%instances(i)%frac_coverage, &
-                                            params%cov_normalise)
+                if (present(gfrac))    &
+                   gfrac(:,:,n) = splice_field(gfrac(:,:,n),                      &
+                                               gfrac_temp(:,:,n),                 &
+                                               params%instances(i)%frac_coverage, &
+                                               params%cov_normalise)
 
-             if (present(grofi))    &
-                grofi(:,:,n) = splice_field(grofi(:,:,n),                      &
-                                            grofi_temp(:,:,n),                 &
-                                            params%instances(i)%frac_coverage, &
-                                            params%cov_normalise)
+                if (present(gtopo))    &
+                   gtopo(:,:,n) = splice_field(gtopo(:,:,n),                      &
+                                               gtopo_temp(:,:,n),                 &
+                                               params%instances(i)%frac_coverage, &
+                                               params%cov_normalise)
 
-             if (present(grofl))    &
-                grofl(:,:,n) = splice_field(grofl(:,:,n),                      &
-                                            grofl_temp(:,:,n),                 &
-                                            params%instances(i)%frac_coverage, &
-                                            params%cov_normalise)
+                if (present(grofi))    &
+                   grofi(:,:,n) = splice_field(grofi(:,:,n),                      &
+                                               grofi_temp(:,:,n),                 &
+                                               params%instances(i)%frac_coverage, &
+                                               params%cov_normalise)
 
-             if (present(ghflx))    &
-                ghflx(:,:,n) = splice_field(ghflx(:,:,n),                      &
-                                            ghflx_temp(:,:,n),                 &
-                                            params%instances(i)%frac_coverage, &
-                                            params%cov_normalise)
+                if (present(grofl))    &
+                   grofl(:,:,n) = splice_field(grofl(:,:,n),                      &
+                                               grofl_temp(:,:,n),                 &
+                                               params%instances(i)%frac_coverage, &
+                                               params%cov_normalise)
 
-          enddo  ! nec
+                if (present(ghflx))    &
+                   ghflx(:,:,n) = splice_field(ghflx(:,:,n),                      &
+                                               ghflx_temp(:,:,n),                 &
+                                               params%instances(i)%frac_coverage, &
+                                               params%cov_normalise)
+
+             enddo  ! nec
+
+          endif  ! main_task
 
        endif     ! gcm_smb
 
@@ -704,6 +721,11 @@ contains
     !*FD Input fields should be taken as means over the period since the last call.
     !*FD See the user documentation for more information.
     !*FD
+    !*FD Global output fields are only valid on the main task. Fields that are integrated
+    !*FD over the whole domain (total_water_in, total_water_out, ice_volume) are only
+    !*FD valid in single-task runs; trying to compute these in multi-task runs will generate a
+    !*FD fatal error.
+    !*FD
     !*FD Note that the total ice volume returned is the total at the end of the time-step;
     !*FD the water fluxes are valid over the duration of the timestep. Thus the difference
     !*FD between \texttt{total\_water\_in} and \texttt{total\_water\_out} should be equal
@@ -713,6 +735,7 @@ contains
     use glint_interp
     use glint_timestep
     use glimmer_log
+    use parallel, only: main_task
     implicit none
 
     ! Subroutine argument declarations -------------------------------------------------------------
@@ -778,7 +801,7 @@ contains
        grofl_temp    ,&! grofl for a single instance
        ghflx_temp      ! ghflx for a single instance
 
-    if (GLC_DEBUG) then
+    if (GLC_DEBUG .and. main_task) then
 !       write (stdout,*) 'In subroutine glint, current time (hr) =', time
 !       write (stdout,*) 'av_start_time =', params%av_start_time
 !       write (stdout,*) 'next_av_start =', params%next_av_start
@@ -929,7 +952,7 @@ contains
 
        params%g_temp_range=(params%g_max_temp-params%g_min_temp)/2.0
 
-       if (GLC_DEBUG) then
+       if (GLC_DEBUG .and. main_task) then
           i = itest
           j = jjtest
           write(stdout,*) 'Take a mass balance timestep, time (hr) =', time
@@ -959,7 +982,7 @@ contains
        ! Do a timestep for each instance
 
        do i=1,params%ninstances
-
+          
           if (params%gcm_smb) then
 
              !lipscomb - TO DO - Make some of these arguments optional?
@@ -1004,45 +1027,69 @@ contains
 
            endif
 
-           if (GLC_DEBUG) then
+           if (GLC_DEBUG .and. main_task) then
              write(stdout,*) 'Finished glc_glint_ice tstep, instance =', i
              write(stdout,*) 'Upscale fields to global grid'
           end if
 
-          ! Add this contribution to the output orography
+          ! Add this contribution to the global output
+          ! Only the main task has valid values for the global output fields
+          if (main_task) then
+             
+             if (present(orog_out)) orog_out=splice_field(orog_out,orog_out_temp, &
+                  params%instances(i)%frac_cov_orog,params%cov_norm_orog)
 
-          if (present(orog_out)) orog_out=splice_field(orog_out,orog_out_temp, &
-               params%instances(i)%frac_cov_orog,params%cov_norm_orog)
+             if (present(albedo)) albedo=splice_field(albedo,albedo_temp, &
+                  params%instances(i)%frac_coverage,params%cov_normalise)
 
-          if (present(albedo)) albedo=splice_field(albedo,albedo_temp, &
-               params%instances(i)%frac_coverage,params%cov_normalise)
+             if (present(ice_frac)) ice_frac=splice_field(ice_frac,if_temp, &
+                  params%instances(i)%frac_coverage,params%cov_normalise)
 
-          if (present(ice_frac)) ice_frac=splice_field(ice_frac,if_temp, &
-               params%instances(i)%frac_coverage,params%cov_normalise)
+             if (present(veg_frac)) veg_frac=splice_field(veg_frac,vf_temp, &
+                  params%instances(i)%frac_coverage,params%cov_normalise)
 
-          if (present(veg_frac)) veg_frac=splice_field(veg_frac,vf_temp, &
-               params%instances(i)%frac_coverage,params%cov_normalise)
+             if (present(snowice_frac))snowice_frac=splice_field(snowice_frac,sif_temp, &
+                  params%instances(i)%frac_coverage,params%cov_normalise)
 
-          if (present(snowice_frac))snowice_frac=splice_field(snowice_frac,sif_temp, &
-               params%instances(i)%frac_coverage,params%cov_normalise)
+             if (present(snowveg_frac)) snowveg_frac=splice_field(snowveg_frac, &
+                  svf_temp,params%instances(i)%frac_coverage, params%cov_normalise)
 
-          if (present(snowveg_frac)) snowveg_frac=splice_field(snowveg_frac, &
-               svf_temp,params%instances(i)%frac_coverage, params%cov_normalise)
+             if (present(snow_depth)) snow_depth=splice_field(snow_depth, &
+                  sd_temp,params%instances(i)%frac_coverage,params%cov_normalise)
 
-          if (present(snow_depth)) snow_depth=splice_field(snow_depth, &
-               sd_temp,params%instances(i)%frac_coverage,params%cov_normalise)
+             if (present(water_in)) water_in=splice_field(water_in,win_temp, &
+                  params%instances(i)%frac_coverage,params%cov_normalise)
 
-          if (present(water_in)) water_in=splice_field(water_in,win_temp, &
-               params%instances(i)%frac_coverage,params%cov_normalise)
+             if (present(water_out)) water_out=splice_field(water_out, &
+                  wout_temp, params%instances(i)%frac_coverage,params%cov_normalise)
 
-          if (present(water_out)) water_out=splice_field(water_out, &
-               wout_temp, params%instances(i)%frac_coverage,params%cov_normalise)
+          end if
 
           ! Add total water variables to running totals
+          ! WJS (1-15-13): These fields are only valid in single-task runs; multi-task
+          ! runs should generate an error in glint_i_tstep if you try to compute any of
+          ! these. But to be safe, we check here, too
 
-          if (present(total_water_in))  total_water_in  = total_water_in  + twin_temp
-          if (present(total_water_out)) total_water_out = total_water_out + twout_temp
-          if (present(ice_volume))      ice_volume      = ice_volume      + icevol_temp
+          if (present(total_water_in))  then
+             if (tasks > 1) call write_log('total_water_in is only valid when running with a single task', &
+                                           GM_FATAL, __FILE__, __LINE__)
+
+             total_water_in  = total_water_in  + twin_temp
+          end if
+
+          if (present(total_water_out)) then
+             if (tasks > 1) call write_log('total_water_out is only valid when running with a single task', &
+                                           GM_FATAL, __FILE__, __LINE__)
+
+             total_water_out = total_water_out + twout_temp
+          end if
+
+          if (present(ice_volume)) then
+             if (tasks > 1) call write_log('ice_volume is only valid when running with a single task', &
+                                           GM_FATAL, __FILE__, __LINE__)
+
+             ice_volume      = ice_volume      + icevol_temp
+          end if
 
           ! Set flag
           if (present(ice_tstep)) then
@@ -1061,7 +1108,7 @@ contains
                                             grofi_temp,          grofl_temp,        &
                                             ghflx_temp )
 
-             if (GLC_DEBUG) then
+             if (GLC_DEBUG .and. main_task) then
                 ig = itest
                 jg = jjtest
                 write(stdout,*) ' '
@@ -1077,36 +1124,40 @@ contains
                 enddo
              end if
 
-          ! Add this contribution to the global output
+             ! Add this contribution to the global output
+             ! Only the main task has valid values for the global output fields
+             if (main_task) then
 
-             do n = 1, params%g_grid%nec
+                do n = 1, params%g_grid%nec
 
-                gfrac(:,:,n) = splice_field(gfrac(:,:,n),                      &
-                                            gfrac_temp(:,:,n),                 &
-                                            params%instances(i)%frac_coverage, &
-                                            params%cov_normalise)
+                   gfrac(:,:,n) = splice_field(gfrac(:,:,n),                      &
+                                               gfrac_temp(:,:,n),                 &
+                                               params%instances(i)%frac_coverage, &
+                                               params%cov_normalise)
 
-                gtopo(:,:,n) = splice_field(gtopo(:,:,n),                      &
-                                            gtopo_temp(:,:,n),                 &
-                                            params%instances(i)%frac_coverage, &
-                                            params%cov_normalise)
+                   gtopo(:,:,n) = splice_field(gtopo(:,:,n),                      &
+                                               gtopo_temp(:,:,n),                 &
+                                               params%instances(i)%frac_coverage, &
+                                               params%cov_normalise)
 
-                grofi(:,:,n) = splice_field(grofi(:,:,n),                      &
-                                            grofi_temp(:,:,n),                 &
-                                            params%instances(i)%frac_coverage, &
-                                            params%cov_normalise)
+                   grofi(:,:,n) = splice_field(grofi(:,:,n),                      &
+                                               grofi_temp(:,:,n),                 &
+                                               params%instances(i)%frac_coverage, &
+                                               params%cov_normalise)
 
-                grofl(:,:,n) = splice_field(grofl(:,:,n),                      &
-                                            grofl_temp(:,:,n),                 &
-                                            params%instances(i)%frac_coverage, &
-                                            params%cov_normalise)
+                   grofl(:,:,n) = splice_field(grofl(:,:,n),                      &
+                                               grofl_temp(:,:,n),                 &
+                                               params%instances(i)%frac_coverage, &
+                                               params%cov_normalise)
 
-                ghflx(:,:,n) = splice_field(ghflx(:,:,n),                      &
-                                            ghflx_temp(:,:,n),                 &
-                                            params%instances(i)%frac_coverage, &
-                                            params%cov_normalise)
+                   ghflx(:,:,n) = splice_field(ghflx(:,:,n),                      &
+                                               ghflx_temp(:,:,n),                 &
+                                               params%instances(i)%frac_coverage, &
+                                               params%cov_normalise)
 
-             enddo   ! nec
+                enddo   ! nec
+
+             endif  ! main_task
 
           endif   ! gcm_smb
 
@@ -1119,6 +1170,8 @@ contains
 !WHLTSTEP - Write Glide time instead of Glint time.
 !             timeyr = time / (days_in_year*24.d0) 
              timeyr = params%instances(i)%model%numerics%time
+             
+             ! WJS: I think the glide_write_diag call is meant to be done by all tasks
              if (GLC_DEBUG) then
                 write(stdout,*) 'Write diagnostics, time (yr)=', timeyr     
                 call glide_write_diag(params%instances(i)%model, timeyr,  &
@@ -1205,6 +1258,7 @@ contains
     !*FD Retrieve ice model fractional 
     !*FD coverage map. This function is provided so that glimmer may
     !*FD be restructured without altering the interface.
+    !*FD This is currently only valid on the main task.
     !*RV Three return values are possible:
     !*RV \begin{description}
     !*RV \item[0 ---] Successful return

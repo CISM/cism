@@ -70,6 +70,7 @@ contains
     !*FD Performs time-step of an ice model instance. 
     !*FD Note that input quantities here are accumulated/average totals since the
     !*FD last call.
+    !*FD Global output arrays are only valid on the main task.
     !
     ! TO DO - The interface requires many arguments that may not be needed.
     ! Some of these arguments (e.g., zonwind, merwind, humid, lwdown, swdown, airpress)
@@ -86,6 +87,7 @@ contains
     use glimmer_routing
     use glimmer_log
     use glimmer_physcon, only: rhow,rhoi
+    use parallel, only: tasks, main_task
 
     implicit none
 
@@ -144,7 +146,7 @@ contains
     integer, dimension(:,:),pointer :: fudge_mask   => null() ! temporary array for fudging
     real(sp),dimension(:,:),pointer :: thck_temp    => null() ! temporary array for volume calcs
     real(sp),dimension(:,:),pointer :: calve_temp   => null() ! temporary array for calving flux
-    real(rk) :: start_volume,end_volume,flux_fudge
+    real(rk) :: start_volume,end_volume,flux_fudge            ! note: only valid for single-task runs
     integer :: i
     integer :: j, ii, jj, nx, ny, il, jl
 
@@ -163,7 +165,7 @@ contains
     if (present(grofl)) grofl(:,:,:) = 0._rk
     if (present(ghflx)) ghflx(:,:,:) = 0._rk
 
-    if (GLC_DEBUG) then
+    if (GLC_DEBUG .and. main_task) then
        write(stdout,*) ' '
        write(stdout,*) 'In glint_i_tstep, time =', time
        write(stdout,*) 'next_time =', instance%next_time
@@ -207,6 +209,8 @@ contains
     ! ------------------------------------------------------------------------  
 
     call glide_get_usurf(instance%model, instance%local_orog)
+!TODO: Determine if glint_remove_bath is needed in a CESM run. If so, fix it to work with
+!      multiple tasks. If not, maybe put this call in an 'if (.not. gcm_smb)' conditional?
     call glint_remove_bath(instance%local_orog,1,1)
 
 
@@ -248,7 +252,7 @@ contains
     t_win=0.0       ; t_wout=0.0
     g_water_out=0.0 ; g_water_in=0.0
 
-    if (GLC_DEBUG) then
+    if (GLC_DEBUG .and. main_task) then
        write(stdout,*) ' '
        write(stdout,*) 'Check for ice dynamics timestep'
        write(stdout,*) 'time =', time
@@ -279,6 +283,8 @@ contains
        end if
 
        ! Calculate the initial ice volume (scaled and converted to water equivalent)
+       ! start_volume is only valid for single-task runs (this is checked in the place
+       ! where it is used)
        call glide_get_thk(instance%model, thck_temp)
        thck_temp = thck_temp*real(rhoi/rhow)
        start_volume = sum(thck_temp)
@@ -289,7 +295,7 @@ contains
 
        do i = 1, instance%n_icetstep
 
-          if (GLC_DEBUG) then
+          if (GLC_DEBUG .and. main_task) then
              write (stdout,*) 'GLIDE timestep, iteration =', i
           end if
 
@@ -299,6 +305,8 @@ contains
 
           ! Get latest upper-surface elevation (needed for masking)
           call glide_get_usurf(instance%model, instance%local_orog)
+!TODO: Determine if glint_remove_bath is needed in a CESM run. If so, fix it to work with
+!      multiple tasks. If not, maybe put this call in an 'if (.not. gcm_smb)' conditional?
           call glint_remove_bath(instance%local_orog,1,1)
 
           ! Get the mass-balance, as m water/year 
@@ -328,7 +336,8 @@ contains
           call glide_set_acab(instance%model, instance%acab*real(rhow/rhoi))
           call glide_set_artm(instance%model, instance%artm)
 
-          if (GLC_DEBUG) then
+          ! itest_local & jtest_local only make sense for single-processor runs
+          if (GLC_DEBUG .and. tasks==1) then
              il = itest_local
              jl = jtest_local
              write (stdout,*) ' '
@@ -377,6 +386,13 @@ contains
 
        if (out_f%water_out .or. out_f%total_wout .or. out_f%water_in .or. out_f%total_win) then
 
+          ! WJS (1-15-13): I am pretty sure (but not positive) that the stuff in this
+          ! conditional will only work right with a single task
+          if (tasks > 1) then
+             call write_log('The sums in the computation of a flux fudge factor only work with a single task', &
+                            GM_FATAL, __FILE__, __LINE__)
+          end if
+          
           call coordsystem_allocate(instance%lgrid,fudge_mask)
 
           call glide_get_thk(instance%model,thck_temp)
@@ -426,6 +442,15 @@ contains
 !lipscomb - TO DO - Modify (or skip?) the following for gcm_smb option
 
        if (out_f%water_out) then
+          ! WJS (1-15-13): The flow_router routine (called bolew) currently seems to
+          ! assume that it's working on the full (non-decomposed) domain. I'm not sure
+          ! what the best way is to fix this, so for now we only allow this code to be
+          ! executed if tasks==1.
+          if (tasks > 1) then
+             call write_log('water_out computation assumes a single task', &
+                            GM_FATAL, __FILE__, __LINE__)
+          end if
+
           call coordsystem_allocate(instance%lgrid, upscale_temp)
           call coordsystem_allocate(instance%lgrid, routing_temp)
 
@@ -457,11 +482,17 @@ contains
        ! Sum water fluxes and convert if necessary ------------------------------
 
        if (out_f%total_win) then
+          if (tasks > 1) call write_log('t_win sum assumes a single task', &
+                                        GM_FATAL, __FILE__, __LINE__)
+
           t_win  = sum(accum_temp) * instance%lgrid%delta%pt(1)* &
                                      instance%lgrid%delta%pt(2)
        endif
 
        if (out_f%total_wout) then
+          if (tasks > 1) call write_log('t_wout sum assumes a single task', &
+                                        GM_FATAL, __FILE__, __LINE__)
+
           t_wout = sum(ablat_temp) * instance%lgrid%delta%pt(1)* &
                                      instance%lgrid%delta%pt(2)
        endif
@@ -488,6 +519,9 @@ contains
     ! Calculate ice volume ---------------------------------------------------
 
     if (out_f%ice_vol) then
+       if (tasks > 1) call write_log('ice_vol sum assumes a single task', &
+                                     GM_FATAL, __FILE__, __LINE__)
+
        call glide_get_thk(instance%model, thck_temp)
        ice_vol = sum(thck_temp) * instance%lgrid%delta%pt(1)* &
                                   instance%lgrid%delta%pt(2)
@@ -522,10 +556,22 @@ contains
     !*FD Sets ocean areas to zero height, working recursively from
     !*FD a known ocean point.
 
+    use glimmer_log
+    use parallel, only : tasks
+
     real(sp),dimension(:,:),intent(inout) :: orog !*FD Orography --- used for input and output
     integer,                intent(in)    :: x,y  !*FD Location of starting point (index)
 
     integer :: nx,ny
+
+    ! Currently, this routine is called assuming point 1,1 is ocean... this won't be true
+    ! when running on multiple processors, with a distributed grid
+    ! This can't be made a fatal error, because this is currently called even if we have
+    ! more than one task... the hope is just that the returned data aren't needed in CESM.
+    if (tasks > 1) then
+       call write_log('Use of glint_remove_bath currently assumes the use of only one task', &
+                      GM_WARNING, __FILE__, __LINE__)
+    end if
 
     nx=size(orog,1) ; ny=size(orog,2)
 

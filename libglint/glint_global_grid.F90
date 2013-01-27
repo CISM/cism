@@ -179,25 +179,36 @@ contains
     grid%lats=lats
     grid%lons=lons
 
+    ! In the following code, there are some things that only work correctly if 
+    ! size(grid%lats) > 0 or size(grid%lons) > 0... we need to explicitly check those
+    ! conditions to handle the multiple processor case, where tasks other than main have
+    ! a size-0 global grid
+
     ! Check to see if we have polar points, and fudge if necessary
     ! By moving 1/20 of the way towards the next equatorward point.
 
-    if (abs(grid%lats(1)-90)<1e-8)       grid%lats(1)       =  90.0-(grid%lats(1)        -grid%lats(2))/20.0
-    if (abs(grid%lats(grid%ny)+90)<1e-8) grid%lats(grid%ny) = -90.0+(grid%lats(grid%ny-1)-grid%lats(grid%ny))/20.0
+    if (size(grid%lats) > 0) then
+       if (abs(grid%lats(1)-90)<1e-8)       grid%lats(1)       =  90.0-(grid%lats(1)        -grid%lats(2))/20.0
+       if (abs(grid%lats(grid%ny)+90)<1e-8) grid%lats(grid%ny) = -90.0+(grid%lats(grid%ny-1)-grid%lats(grid%ny))/20.0
+    end if
 
     ! Calculate boundaries if necessary
 
-    if (present(lonb)) then
-       grid%lon_bound=lonb
-    else
-       call calc_bounds_lon(lons,grid%lon_bound,cor)
-    endif
+    if (size(grid%lons) > 0) then
+       if (present(lonb)) then
+          grid%lon_bound=lonb
+       else
+          call calc_bounds_lon(lons,grid%lon_bound,cor)
+       endif
+    end if
 
-    if (present(latb)) then
-       grid%lat_bound=latb
-    else
-       call calc_bounds_lat(lats,grid%lat_bound)
-    endif
+    if (size(grid%lats) > 0) then
+       if (present(latb)) then
+          grid%lat_bound=latb
+       else
+          call calc_bounds_lat(lats,grid%lat_bound)
+       endif
+    end if
 
     ! Set radius of earth if necessary
 
