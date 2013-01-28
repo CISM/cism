@@ -735,7 +735,7 @@ contains
     use glint_interp
     use glint_timestep
     use glimmer_log
-    use parallel, only: main_task
+    use parallel, only: main_task, tasks
     implicit none
 
     ! Subroutine argument declarations -------------------------------------------------------------
