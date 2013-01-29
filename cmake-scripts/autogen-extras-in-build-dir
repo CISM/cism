@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # This script needs to be run before the  cmake  command for CMake
 # builds. It should be called from all cmake scripts. 
 #
