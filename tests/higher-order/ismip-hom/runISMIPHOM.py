@@ -84,6 +84,13 @@ if __name__ == '__main__':
       filename = os.path.join('output','ishom.'+experiment+'.'+str(size)+'km')
       configParser.set('CF input', 'name',filename+'.nc')
       configParser.set('CF output','name',filename+'.out.nc')
+#     add the vertical offset specification to the config if running actual ismip-hom test cases
+      if options.cyclic == None:              
+        if experiment == 'a': 
+          offset = float(size)*1000.0 * (0.5 * pi/180.0)
+        elif experiment == 'c':
+          offset = float(size)*1000.0 * (0.1 * pi/180.0) 
+        configParser.set('parameters', 'periodic_offset_ew', str(offset))
 #     Make additional changes if requested on the command line
       if options.vertical_grid_size != None:
         configParser.set('grid','upn',str(options.vertical_grid_size))
@@ -201,15 +208,20 @@ if __name__ == '__main__':
         if exitCode == 0:
 #         Extract the output data for comparison to the other models
           if experiment == 'a': # Get the following (variable,level)'s
-            variables = [('uvel',0),('vvel',0),('wvel',0),('tau_xz',-1),('tau_yz',-1)]
+#            variables = [('uvel',0),('vvel',0),('wvel',0),('tau_xz',-1),('tau_yz',-1)]
+            variables = [('uvel',0),('vvel',0),('tau_xz',-1),('tau_yz',-1)]
           if experiment == 'b':
-            variables = [('uvel',0),('wvel',0),('tau_xz',-1)]
+#            variables = [('uvel',0),('wvel',0),('tau_xz',-1)]
+            variables = [('uvel',0),('tau_xz',-1)]
           if experiment == 'c':
-            variables = [('uvel',0),('vvel',0),('wvel',0),('uvel',-1),('vvel',-1),('tau_xz',-1),('tau_yz',-1)]
+#            variables = [('uvel',0),('vvel',0),('wvel',0),('uvel',-1),('vvel',-1),('tau_xz',-1),('tau_yz',-1)]
+            variables = [('uvel',0),('vvel',0),('uvel',-1),('vvel',-1),('tau_xz',-1),('tau_yz',-1)]
           if experiment == 'd':
-            variables = [('uvel',0),('wvel',0),('uvel',-1),('tau_xz',-1)]
+#            variables = [('uvel',0),('wvel',0),('uvel',-1),('tau_xz',-1)]
+            variables = [('uvel',0),('uvel',-1),('tau_xz',-1)]
           if experiment == 'f':
-            variables = [('usurf',None),('uvel',0),('vvel',0),('wvel',0)]
+#            variables = [('usurf',None),('uvel',0),('vvel',0),('wvel',0)]
+            variables = [('usurf',None),('uvel',0),('vvel',0)]
 #         Open the netCDF file that was written by Glimmer
           netCDFfile = NetCDFFile(filename+'.out.nc','r')
           data = [(netCDFfile.variables[v[0]],v[1],netCDFfile.variables[v[0]].scale_factor) for v in variables]
@@ -228,10 +240,13 @@ if __name__ == '__main__':
           for i in rangenx:
 
             x = float(i)/(nx-3)   # In a more perfect world: x = (i+0.5)/(nx-2)
+            #x = float(i+0.5)/(nx-2)   
+
 
             for j in rangeny:
 
               y = float(j)/(ny-3) # In a more perfect world: y = (j+0.5)/(ny-2)
+              #y = float(j+0.5)/(ny-2) 
 
               if netCDF_module == 'Scientific.IO.NetCDF':
                 if experiment in ('a','c'):
