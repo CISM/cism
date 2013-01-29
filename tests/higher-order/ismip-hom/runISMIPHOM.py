@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#)!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # This script runs ISMIP-HOM experiments using Glimmer-CISM.
 # Output files are written in the "output" subdirectory.
@@ -87,9 +87,9 @@ if __name__ == '__main__':
 #     add the vertical offset specification to the config if running actual ismip-hom test cases
       if options.cyclic == None:              
         if experiment == 'a': 
-          offset = float(size)*1000.0 * (0.5 * pi/180.0)
+          offset = float(size)*1000.0 * tan(0.5 * pi/180.0)
         elif experiment == 'c':
-          offset = float(size)*1000.0 * (0.1 * pi/180.0) 
+          offset = float(size)*1000.0 * tan(0.1 * pi/180.0) 
         configParser.set('parameters', 'periodic_offset_ew', str(offset))
 #     Make additional changes if requested on the command line
       if options.vertical_grid_size != None:
@@ -119,7 +119,8 @@ if __name__ == '__main__':
       thk  = netCDFfile.createVariable('thk' ,'f',('time','y1','x1'))
       topg = netCDFfile.createVariable('topg','f',('time','y1','x1'))
       if experiment in ('c','d'):
-        beta = netCDFfile.createVariable('beta','f',('time','y0','x0'))
+        #beta = netCDFfile.createVariable('beta','f',('time','y0','x0'))
+        beta = netCDFfile.createVariable('beta','f',('time','y1','x1'))
       time[0] = 0
       x1[:] = [(i+0.5)*dx for i in range(nx)] # unstaggered grid
       y1[:] = [(j+0.5)*dy for j in range(ny)]
@@ -144,7 +145,10 @@ if __name__ == '__main__':
       elif experiment in ('c','d'):
         xx = [(i+0.5)*dx for i in range(nx)]
         yy = [(j+0.5)*dy for j in range(ny)]
+#        if options.cyclic == None:              # optional flags to allow for truly periodic domain setup
         alpha = 0.1 * pi/180
+#        else:
+#          alpha = 0.
         zz = [1000-x1[i]*tan(alpha) for i in range(nx)]
       elif experiment == 'f':
         xx = [(i+0.5)*dx for i in range(nx)]
@@ -165,6 +169,9 @@ if __name__ == '__main__':
           elif experiment == 'b':
             row.append(1000 - 500*sin(omega*x))
           elif experiment == 'c':
+#            if options.cyclic != None:    # for test case w/ truly periodic domain, add some non-zero topog to force flow 
+#              row.append(1000 - 500*sin(omega*x)*sin(omega*y))
+#            elif options.cyclic == None:
             row.append(1000 + 1000*sin(omega*x)*sin(omega*y))
           elif experiment == 'd':
             row.append(1000 + 1000*sin(omega*x))
@@ -177,7 +184,8 @@ if __name__ == '__main__':
           else:
             topography.append([z for z in zz])
         else:
-          basalFriction.append(row[:-1])
+#          basalFriction.append(row[:-1])
+          basalFriction.append(row[:])
  
       if experiment in ('a','b','f'):
         thk [:] = thickness
@@ -185,14 +193,9 @@ if __name__ == '__main__':
       elif experiment in ('c','d'):
         thk [:] = ny*[nx*[1000]]
         topg[:] = ny*[zz]
-        if options.periodic == None:
-          beta[:] = basalFriction[:-1]
-        else:
-          beta[:] = basalFriction[:-1]
-          beta[0,ny-3:,:] = 100000 
-          beta[0,nx-3:] = 100000 
-          beta[0,0:2,:] = 100000 
-          beta[0,:,0:2] = 100000 
+#        if options.cyclic == None:         # options to allow for truly periodic domain setup
+#        beta[:] = basalFriction[:-1]
+        beta[:] = basalFriction[:]
       netCDFfile.close()
 
       if not options.format_only:
