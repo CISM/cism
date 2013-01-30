@@ -71,6 +71,7 @@ program simple_bisicles
   ! for external dycore:
   integer*4 dycore_model_index
   integer argc
+  integer*4 p_index
 
   call parallel_initialise
 
@@ -107,21 +108,22 @@ program simple_bisicles
   call simple_surftemp(climate,model,time)
   call spinup_lithot(model)
 
-! if (this_rank == 0) then
-
+  dycore_model_index = this_rank + 1
+  
   print *,"Initializing external dycore interface."
   call gtd_init_dycore_interface()
 
+  call parallel_barrier()
   print *,"Initializing external dycore."
   call gtd_init_dycore(model,dycore_model_index)
+  call parallel_barrier()
 
   print *,"Running external dycore."
   call gtd_run_dycore(dycore_model_index,cur_time,time_inc)
   print *,"Completed Dycore Run."
+  call parallel_barrier()
 
-! endif
-
-  ! finalise GLIDE
+  ! finalise 
   call glide_finalise(model)
   call system_clock(clock,clock_rate)
   t2 = real(clock,kind=dp)/real(clock_rate,kind=dp)
