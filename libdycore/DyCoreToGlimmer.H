@@ -36,6 +36,11 @@ class DyCoreToGlimmer
     double * topg;
     double * mask;
     long * dimInfo;
+    long * ewlb;
+    long * ewub;
+    long * nslb;
+    long * nsub;
+
     //double * thkmask;
     //double * marine_bc_normal;
  

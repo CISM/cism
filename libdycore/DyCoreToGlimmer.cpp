@@ -108,6 +108,10 @@ DyCoreToGlimmer::getLongVar( const char *var_name,  const char *struct_name)
 
   if (strcmp(struct_name,"geometry") == 0) {
     if (strcmp(var_name,"dimInfo") == 0) var = geometry.dimInfo;
+    if (strcmp(var_name,"ewlb") == 0) var = geometry.ewlb;
+    if (strcmp(var_name,"ewub") == 0) var = geometry.ewub;
+    if (strcmp(var_name,"nslb") == 0) var = geometry.nslb;
+    if (strcmp(var_name,"nsub") == 0) var = geometry.nsub;
   }
 
   if (strcmp(struct_name,"velocity") == 0) {
@@ -129,7 +133,7 @@ DyCoreToGlimmer::copyInDoubleVar( const double *var,  const char *var_name,
   long elem_count=1;
   long i;
   
-  std::cout  << "copyInDoubleVar " << var_name << " = " << *var << std::endl;
+  // std::cout  << "copyInDoubleVar " << var_name << " = " << *var << std::endl;
 
   for (i=1;i<=var_dim_info[0];i++) elem_count *= var_dim_info[i];
     
@@ -187,6 +191,22 @@ DyCoreToGlimmer::copyInLongVar(const long *var, const char *var_name,
     if (strcmp(var_name,"dimInfo") == 0) {
       geometry.dimInfo = new long[elem_count];
       for (i=0;i<elem_count;i++) geometry.dimInfo[i] = var[i];
+    }  
+    if (strcmp(var_name,"ewlb") == 0) {
+      geometry.ewlb = new long[elem_count];
+      for (i=0;i<elem_count;i++) geometry.ewlb[i] = var[i];
+    }  
+    if (strcmp(var_name,"ewub") == 0) {
+      geometry.ewub = new long[elem_count];
+      for (i=0;i<elem_count;i++) geometry.ewub[i] = var[i];
+    }  
+    if (strcmp(var_name,"nslb") == 0) {
+      geometry.nslb = new long[elem_count];
+      for (i=0;i<elem_count;i++) geometry.nslb[i] = var[i];
+    }  
+    if (strcmp(var_name,"nsub") == 0) {
+      geometry.nsub = new long[elem_count];
+      for (i=0;i<elem_count;i++) geometry.nsub[i] = var[i];
     }  
   }
   if (strcmp(struct_name,"climate") == 0) {

@@ -8,13 +8,15 @@ module glimmer_to_dycore
   !*FD glimmer_to_dycore contains Fortran routines to couple Glimmer to a
   ! dynamic core model.
   use glide_types
+  !use mpi_mod
+  use parallel
   !use simple_forcing
 
   contains
 
   subroutine gtd_init_dycore_interface()
     call dycore_init_registry()
-print *,"Past dycore_init_registry"
+!print *,"Past dycore_init_registry"
   end subroutine gtd_init_dycore_interface
 
   subroutine gtd_delete_dycore_interface()
@@ -28,13 +30,16 @@ print *,"Past dycore_init_registry"
     integer*4 error_code
     integer*4 dycore_type  ! 0=BISICLES, 1=Ymir
     character(8),DIMENSION(2) :: dycore_names = (/"BISICLES","Ymir    "/)
-print *,'in init -- topg rank,shape = ',size(shape(model%geometry%topg)),shape(model%geometry%topg)
+
+print *,"In gtd_init, dycore_model_index = ",dycore_model_index
+
+!print *,'in init -- topg ndims,shape = ',size(shape(model%geometry%topg)),shape(model%geometry%topg)
     dycore_type = model%options%external_dycore_type
-print *,"In gtd_init_dycore, calling get_new_model"
+!print *,"In gtd_init_dycore, calling get_new_model"
     call dycore_get_new_model(dycore_type,dycore_model_index,error_code)
-print *,"In gtd_init_dycore, calling get_set_var routines"
+!print *,"In gtd_init_dycore, calling get_set_var routines"
     call gtd_set_geometry_vars(model,dycore_model_index)
-print *,"In gtd_init_dycore, past set_geometry_vars"
+!print *,"In gtd_init_dycore, past set_geometry_vars"
     call gtd_set_velocity_vars(model,dycore_model_index)
     call gtd_set_numerics_vars(model,dycore_model_index)
     call gtd_set_temper_vars(model,dycore_model_index)
@@ -43,7 +48,7 @@ print *,"In gtd_init_dycore, past set_geometry_vars"
     print *,"In gtd_init_dycore, dycore_type, dycore_index  =  " , &
              dycore_names(dycore_type+1),dycore_model_index
     call dycore_init_model(dycore_type,dycore_model_index, &
-             trim(model%options%dycore_input_file)//char(0),error_code)
+            trim(model%options%dycore_input_file)//char(0),error_code)
 
   end subroutine gtd_init_dycore
 
@@ -80,11 +85,12 @@ print *,"In gtd_init_dycore, past set_geometry_vars"
 
     integer*8 dim_info(11)
     integer*8 dim_info2(2)
+    integer*8 ewlbl, ewubl, nslbl, nsubl
 
-    print *,"In gtd_set_geometry_vars, dycore_model_index = ",dycore_model_index
+!    print *,"In gtd_set_geometry_vars, dycore_model_index = ",dycore_model_index
     
-    print *,'thck rank,shape = ',size(shape(model%geometry%thck)),shape(model%geometry%thck)
-    print *,'topg rank,shape = ',size(shape(model%geometry%topg)),shape(model%geometry%topg)
+!    print *,'thck ndims,shape = ',size(shape(model%geometry%thck)),shape(model%geometry%thck)
+!    print *,'topg ndims,shape = ',size(shape(model%geometry%topg)),shape(model%geometry%topg)
 
     dtype_name = 'geometry'//char(0)
      
@@ -96,7 +102,7 @@ print *,"In gtd_init_dycore, past set_geometry_vars"
     !call gtd_set_dim_info(shape(model%geometry%topg),dim_info)
     call dycore_set_ptr_double_var(model%geometry%topg,var_name,dtype_name,dycore_model_index)
 
-   
+    print *,"this_rank, ewlb, ewub, nslb, nsub", this_rank,  ewlb, ewub, nslb, nsub
  
 !    dim_info(1) = 3
 !    dim_info(2) = model%general%upn
@@ -113,6 +119,22 @@ print *,"In gtd_init_dycore, past set_geometry_vars"
     dim_info2(1) = 1
     dim_info2(2) = dim_info(1) + 1
     call dycore_copy_in_long_var(dim_info,var_name,dtype_name,dim_info2, dycore_model_index)
+
+    ewlbl = ewlb
+    ewubl = ewub
+    nslbl = nslb
+    nsubl = nsub
+
+    dim_info2(1) = 1
+    dim_info2(2) = 1
+    var_name = 'ewlb'//char(0)
+    call dycore_copy_in_long_var(ewlbl,var_name,dtype_name,dim_info2, dycore_model_index)
+    var_name = 'ewub'//char(0)
+    call dycore_copy_in_long_var(ewubl,var_name,dtype_name,dim_info2, dycore_model_index)
+    var_name = 'nslb'//char(0)
+    call dycore_copy_in_long_var(nslbl,var_name,dtype_name,dim_info2, dycore_model_index)
+    var_name = 'nsub'//char(0)
+    call dycore_copy_in_long_var(nsubl,var_name,dtype_name,dim_info2, dycore_model_index)
 
 !    print *,"leaving gtd_set_geometry_vars, dim_info =  ",dim_info
   end subroutine gtd_set_geometry_vars 
@@ -133,9 +155,9 @@ print *,"In gtd_init_dycore, past set_geometry_vars"
 
     dtype_name = 'velocity'//char(0)
 
-    print *,'uvel rank,shape = ',size(shape(model%velocity%uvel)),shape(model%velocity%uvel)
+!    print *,'uvel ndims,shape = ',size(shape(model%velocity%uvel)),shape(model%velocity%uvel)
 
-    print *,'vvel rank,shape = ',size(shape(model%velocity%vvel)),shape(model%velocity%vvel)
+!    print *,'vvel ndims,shape = ',size(shape(model%velocity%vvel)),shape(model%velocity%vvel)
 
 
     var_name = 'uvel'//char(0)       
@@ -151,7 +173,7 @@ print *,"In gtd_init_dycore, past set_geometry_vars"
     call dycore_set_ptr_double_var(model%velocity%wgrd,var_name, &
                               dtype_name,dycore_model_index);
 
-    print *,'beta rank,shape = ',size(shape(model%velocity%beta)),shape(model%velocity%beta)
+!    print *,'beta ndims,shape = ',size(shape(model%velocity%beta)),shape(model%velocity%beta)
 
     var_name = 'btrc'//char(0)
     call dycore_set_ptr_double_var(model%velocity%beta,var_name, &
@@ -199,7 +221,7 @@ print *,"In gtd_init_dycore, past set_geometry_vars"
     var_name = 'temp'//char(0)       
     call dycore_set_ptr_double_var(model%temper%temp,var_name,dtype_name,dycore_model_index)
       
-    !print *,'temp rank,shape = ',size(shape(model%temper%temp)),shape(model%temper%temp)
+    !print *,'temp ndims,shape = ',size(shape(model%temper%temp)),shape(model%temper%temp)
 
     call gtd_set_dim_info(shape(model%temper%temp),dim_info)
 
