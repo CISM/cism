@@ -573,8 +573,8 @@ C
       INTEGER ITMP(N), IDIAG(N)
       DOUBLE PRECISION FACTOR, A(NELTMX)
       DOUBLE PRECISION F(N), SOLN(N), DSUM(N)
-      REAL RAND
       INTEGER DUMMY
+      REAL, EXTERNAL :: RAND
 C
 C         Start by setting the random number generator seed.
 C         This is done for reproducablility in debuggin.  Remove
@@ -702,7 +702,7 @@ C            n with out any repetitions.
 C***ROUTINES CALLED  RAND
 C***END PROLOGUE
       IMPLICIT DOUBLE PRECISION(A-H,O-Z)
-      REAL RAND
+      REAL, EXTERNAL :: RAND
       INTEGER DUMMY
       INTEGER N, M, INDX(M)
 C

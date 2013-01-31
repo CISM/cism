@@ -1,3 +1,9 @@
+! WJS (1-30-12): The following (turning optimization off) is needed as a workaround for an
+! xlf compiler bug, at least in IBM XL Fortran for AIX, V12.1 on bluefire
+#ifdef xlfFortran
+@PROCESS OPT(0)
+#endif
+
 !CLEANUP - glissade.F90
 !
 ! NOTE: MJH Lines that start with !### are ones I have identified to be deleted.

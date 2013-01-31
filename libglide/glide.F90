@@ -1,3 +1,9 @@
+! WJS (1-30-12): The following (turning optimization off) is needed as a workaround for an
+! xlf compiler bug, at least in IBM XL Fortran for AIX, V12.1 on bluefire
+#ifdef xlfFortran
+@PROCESS OPT(0)
+#endif
+
 !CLEANUP - glide.F90
 ! Moved higher-order computations to a new module, glissade.F90.
 ! Simplified glide.F90 to include only SIA computations.

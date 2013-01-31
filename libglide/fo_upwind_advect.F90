@@ -156,7 +156,7 @@ module fo_upwind_advect
     
     where( thck > 0.0_dp )      ! mask for eventually removing flux outside of the original domain
         mask = 1.0_dp           ! (i.e. stuff that moves past the calving front goes away)
-    else where
+    elsewhere
         mask = 0.0_dp
     end where
 

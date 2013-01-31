@@ -2691,8 +2691,6 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
                          critlimit = 10.d0 / (scyr * vel0), &
                          small = 1.0d-16
 
-  real(dp), intrinsic :: abs, acos
-
   real(dp) :: temp_vel
 
   integer, dimension(2), save :: new = 1, old = 2
@@ -2903,7 +2901,6 @@ function mindcrshstr2(pt,whichresid,vel,counter,resid)
   
   real(dp) in_prod, len_new, len_old, mean_rel_diff, sig_rel_diff
   real(dp) :: theta 
-  real(dp), intrinsic :: abs, acos
   
   integer, dimension(2), save :: new = 1, old = 2
   integer :: locat(3)

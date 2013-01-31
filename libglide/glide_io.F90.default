@@ -4,6 +4,12 @@
 ! from ncdf_template.F90.in
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+! WJS (1-30-12): The following (turning optimization off) is needed as a workaround for an
+! xlf compiler bug, at least in IBM XL Fortran for AIX, V12.1 on bluefire
+#ifdef xlfFortran
+@PROCESS OPT(0)
+#endif
+
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
 ! +  ncdf_template.f90 - part of the Glimmer_CISM ice model   + 

@@ -1,3 +1,9 @@
+! WJS (1-30-12): The following (turning optimization off) is needed as a workaround for an
+! xlf compiler bug, at least in IBM XL Fortran for AIX, V12.1 on bluefire
+#ifdef xlfFortran
+@PROCESS OPT(0)
+#endif
+
 #ifdef xlfFortran
 @PROCESS ALIAS_SIZE(107374182)
 #endif
@@ -57,8 +63,8 @@ contains
 
     use glimmer_config
     use glint_global_grid
-    use glint_io
-    use glint_mbal_io
+    use glint_io          , only: glint_io_createall     , glint_io_writeall
+    use glint_mbal_io     , only: glint_mbal_io_createall, glint_mbal_io_writeall
     use glimmer_ncio
     use glide
     use glimmer_log
@@ -327,7 +333,7 @@ contains
     
     use glint_type         , only : glint_instance
     use glint_global_grid  , only : global_grid
-    use parallel           , only : main_task, global_ewn, global_nsn
+    use parallel           , only : main_task, global_ewn, global_nsn, distributed_gather_var
     use glimmer_coordinates, only : coordsystem_new
     use glide_types        , only : get_dew, get_dns
 
@@ -339,7 +345,13 @@ contains
     type(global_grid)   , intent(in)    :: grid
     type(global_grid)   , intent(in)    :: grid_orog
 
+    ! Internal variables
+
+    integer, dimension(:,:), allocatable :: out_mask_fulldomain
+
     ! Beginning of code
+
+    call distributed_gather_var(instance%out_mask, out_mask_fulldomain)
 
     if (main_task) then
 
@@ -352,15 +364,15 @@ contains
        call new_downscale(instance%downs, instance%model%projection, grid, &
                           instance%lgrid_fulldomain, mpint=(instance%use_mpint==1))
 
-       call new_upscale(instance%ups, grid, instance%model%projection, &
-                        instance%out_mask,  instance%lgrid_fulldomain) ! Initialise upscaling parameters
+       call new_upscale(instance%ups, grid,  instance%model%projection, &
+                        out_mask_fulldomain, instance%lgrid_fulldomain) ! Initialise upscaling parameters
        call new_upscale(instance%ups_orog, grid_orog, instance%model%projection, &
-                        instance%out_mask, instance%lgrid_fulldomain) ! Initialise upscaling parameters
+                        out_mask_fulldomain, instance%lgrid_fulldomain) ! Initialise upscaling parameters
 
        call calc_coverage(instance%lgrid_fulldomain, &
                           instance%ups,   &             
                           grid,           &
-                          instance%out_mask, &
+                          out_mask_fulldomain, &
                           instance%frac_coverage)
 
        ! Calculate coverage map for orog
@@ -368,7 +380,7 @@ contains
        call calc_coverage(instance%lgrid_fulldomain, &               
                           instance%ups_orog,  &             
                           grid_orog,     &
-                          instance%out_mask, &
+                          out_mask_fulldomain, &
                           instance%frac_cov_orog)
 
     end if
@@ -377,7 +389,7 @@ contains
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  subroutine calc_coverage(lgrid_fulldomain,ups,grid,mask,frac_coverage)
+  subroutine calc_coverage(lgrid_fulldomain,ups,grid,mask_fulldomain,frac_coverage)
 
     !*FD Calculates the fractional
     !*FD coverage of the global grid-boxes by the ice model
@@ -392,7 +404,7 @@ contains
     type(coordsystem_type), intent(in)  :: lgrid_fulldomain  !*FD Local grid, spanning full domain (all tasks)
     type(upscale),          intent(in)  :: ups               !*FD Upscaling used
     type(global_grid),      intent(in)  :: grid              !*FD Global grid used
-    integer, dimension(:,:),intent(in)  :: mask              !*FD Mask of points for upscaling
+    integer, dimension(:,:),intent(in)  :: mask_fulldomain   !*FD Mask of points for upscaling, spanning full domain (all tasks)
     real(rk),dimension(:,:),intent(out) :: frac_coverage     !*FD Map of fractional 
                                                              !*FD coverage of global by local grid-boxes.
     ! Internal variables
@@ -406,7 +418,7 @@ contains
 
     do i=1,lgrid_fulldomain%size%pt(1)
        do j=1,lgrid_fulldomain%size%pt(2)
-          tempcount(ups%gboxx(i,j),ups%gboxy(i,j))=tempcount(ups%gboxx(i,j),ups%gboxy(i,j))+mask(i,j)
+          tempcount(ups%gboxx(i,j),ups%gboxy(i,j))=tempcount(ups%gboxx(i,j),ups%gboxy(i,j))+mask_fulldomain(i,j)
        enddo
     enddo
 

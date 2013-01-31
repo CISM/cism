@@ -710,7 +710,7 @@ contains
           ! because in that location the code issued the 'temp=1 can't use multiple processors' error
           ! instead of the 'glide can't use multiple processors' error, which is more informative.  MJH 1/15/13
           call write_log('Error, Glimmer temperature scheme (temperature = TEMP_GLIMMER) &
-                       not supported for distributed parallel runs with more than one processor',GM_FATAL)
+                       &not supported for distributed parallel runs with more than one processor',GM_FATAL)
        end if
 
 

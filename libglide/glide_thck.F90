@@ -1,3 +1,9 @@
+! WJS (1-30-12): The following (turning optimization off) is included as a workaround for
+! LONG (infinite???) compile times with xlf, at least in IBM XL Fortran for AIX, V12.1 on bluefire
+#ifdef xlfFortran
+@PROCESS OPT(0)
+#endif
+
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
 ! +  glimmer_thck.f90 - part of the Glimmer-CISM ice model    + 
@@ -54,7 +60,7 @@ module glide_thck
 
   ! debugging Picard iteration
   integer, private, parameter :: picard_unit=101
-  real, private, parameter    :: picard_interval=500.
+  real(dp),private, parameter :: picard_interval=500.d0
   integer, private            :: picard_max=0
 
 contains

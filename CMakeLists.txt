@@ -133,6 +133,7 @@ MESSAGE(">> CISM_MPI_INC_DIR set to : ${CISM_MPI_INC_DIR}")
 IF (NOT DEFINED CMAKE_Fortran_MODULE_DIRECTORY)
   SET(CMAKE_Fortran_MODULE_DIRECTORY ${CISM_BINARY_DIR}/fortran_mod_files)
 ENDIF()
+INCLUDE_DIRECTORIES(${CMAKE_Fortran_MODULE_DIRECTORY})
 
 
 # Note that C++ is excluded here -- we only include C++ support if
@@ -381,6 +382,16 @@ include_directories (${CISM_BINARY_DIR} ${GLIMMER_SOURCE_DIR}
 
 
 SET(LIBRARY_OUTPUT_PATH ${CISM_BINARY_DIR}/lib)
+
+### Determine which fortran source files are fixed-form,
+### which may require special compilation flags
+FOREACH (SOURCEFILE ${FORTRANSOURCES} ${SOURCEMODFILES})
+  STRING(REGEX MATCH "\\.[fF]$" match_found ${SOURCEFILE})
+  IF(match_found)
+    LIST(APPEND FIXEDSOURCES ${SOURCEFILE})
+  ENDIF()
+ENDFOREACH()
+SET_SOURCE_FILES_PROPERTIES(${FIXEDSOURCES} PROPERTIES Fortran_FORMAT FIXED)
 
 add_library(glimmercismfortran ${FORTRANSOURCES} ${SOURCEMODFILES})
 
