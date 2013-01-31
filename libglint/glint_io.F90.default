@@ -1,6 +1,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! WARNING: this file was automatically generated on
-! Mon, 21 Jan 2013 20:37:59 +0000
+! Thu, 31 Jan 2013 12:39:34 +0000
 ! from ncdf_template.F90.in
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -171,7 +171,7 @@ contains
     ! In CISM 2.0, 'restart' is the preferred name to represent restart variables, 
     ! but 'hot' is supported for backward compatibility.  Thus, we check for both.
     NCO%vars = ' '//trim(adjustl(NCO%vars))//' '  ! Need to maintain a space at beginning and end of list
-    ! expanding hotstart variables
+    ! expanding restart variables
     pos = index(NCO%vars,' restart ') 
     if (pos.ne.0) then
        NCO%vars = NCO%vars(:pos)//NCO%vars(pos+8:)
