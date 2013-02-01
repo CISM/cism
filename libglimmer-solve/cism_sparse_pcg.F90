@@ -23,12 +23,14 @@ module cism_sparse_pcg
 !WHL - debug
 
    integer, parameter :: &
-       itest = 24, jtest = 17, ktest = 1
+!       itest = 24, jtest = 17, ktest = 1
 !       itest = 17, jtest = 10, ktest = 1
+       itest = 10, jtest = 17, ktest = 1
 
    integer, parameter :: &
-       ntest = 2371  ! nodeID for (24,17,1)
+!       ntest = 2371   ! nodeID for (24,17,1)
 !       ntest = 411    ! nodeID for (17,10,1)
+       ntest = 1771   ! nodeID for (10,17,1)
 
     integer, parameter :: rtest = 0    ! rank for (17,10) with 4 procs
 
@@ -47,8 +49,8 @@ contains
                                    verbose) 
 
     !---------------------------------------------------------------
-    !  This subroutine uses a preconditioned conjugate-gradient solver to
-    !  solve the equation $Ax=b$.
+    !  This subroutine uses a preconditioned conjugate-gradient solver
+    !  to solve the equation $Ax=b$.
     !  Convergence is checked every {\em ncheck} steps.
     !
     !  It is based on the barotropic solver in the POP ocean model 
@@ -66,10 +68,34 @@ contains
     ! 
     !  For the dome test case with higher-order dynamics, option (2) is best. 
     !
-    !  This subroutine is less flexible than the generic PCG solver below,
-    !  which works with grid-independent matrices in triad format.
-    !  However, this subroutine is easier to parallelize because
-    !  it can use existing halo updates and global reductions.
+    !  Here is a schematic of the method implemented below for solving Ax = b:
+    !
+    !  r0 = b - A*x0
+    !  d0 = 0
+    !  eta0 = 1
+    !
+    !  while (not converged)
+    !     z = (M-1)r
+    !     eta1 = (r,z)
+    !     beta = eta1/eta0
+    !     d = z + beta*d
+    !     eta0 = eta1
+    !     y = Ad
+    !     eta2 = (d,y)
+    !     alpha = eta1/eta2
+    !     x = x + alpha*d
+    !     r = r - alpha*y (or occasionally, r = b - Ax)
+    !     Check for convergence: err = sqrt(r,r)/sqrt(b,b) < tolerance
+    !  end while
+    !
+    !  where X = solution (initial value = x0)
+    !        d = conjugate direction vector (initial value = d0)
+    !        r = residual vector (initial value = r0)
+    !      M-1 = inverse of preconditioning matrix M
+    !            (can be implemented by solving Mz = r without forming M-1)
+    !    (r,z) = dot product of vectors r and z
+    !            and similarly for (d,y)
+    !       
     !---------------------------------------------------------------
 
     !---------------------------------------------------------------
@@ -121,7 +147,9 @@ contains
     integer ::  m            ! iteration counter
 
     real(dp) ::           &
-       eta0, eta1, rr      ! scalar inner product results
+       eta0, eta1, eta2,  &! scalar inner product results
+       alpha,             &! eta1/eta2 = term in expression for new residual
+       beta                ! eta1/eta0 = term in expression for new direction vector
 
     ! vectors (each of these is split into u and v components)
     real(dp), dimension(nz,nx-1,ny-1) ::  &
@@ -129,8 +157,8 @@ contains
        ru, rv,            &! residual vector (b-Ax)
        du, dv,            &! conjugate direction vector
        yu, yv,            &! result of a matvec multiply
-       work0u, work0v,    &! cg intermediate results
-       work1u, work1v      ! cg intermediate results
+       zu, zv,            &! solution of Mz = r
+       work0u, work0v      ! cg intermediate results
 
     real(dp) ::  &
        L2_resid,          &! L2 norm of residual vector Ax-b
@@ -163,8 +191,6 @@ contains
                              ! = 1 for diagonal preconditioning (does not work well for SIA-dominated flow)
                              ! = 2 for preconditioning with SIA solver (works well for SIA-dominated flow)
 
-!WHL - debug
-
     if (present(verbose)) then
        verbose_pcg = verbose
     else
@@ -187,22 +213,22 @@ contains
        if (verbose_pcg .and. this_rank==rtest) then
           print*, ' '
           print*, 'Using diagonal solver for preconditioning'
-          print*, ' '
-          print*, 'i, j, k, diagonal entries, initial guess, residual:'
-          m = 0
-          do j = 1, ny-1
-          do i = 1, nx-1
-          do k = 1, nz
-             if (Adiagu(k,i,j) > 0.d0 .and. m < ndiagmax) then
-                m = m + 2
-                print*, i, j, k, Adiagu(k,i,j), xu(k,i,j), ru(k,i,j)
-                print*, i, j, k, Adiagv(k,i,j), xv(k,i,j), rv(k,i,j)
-             else
-                exit
-             endif
-          enddo
-          enddo
-          enddo
+!          print*, ' '
+!          print*, 'i, j, k, diagonal entries, initial guess, residual:'
+!          m = 0
+!          do j = 1, ny-1
+!          do i = 1, nx-1
+!          do k = 1, nz
+!             if (Adiagu(k,i,j) > 0.d0 .and. m < ndiagmax) then
+!                m = m + 2
+!                print*, i, j, k, Adiagu(k,i,j), xu(k,i,j), ru(k,i,j)
+!                print*, i, j, k, Adiagv(k,i,j), xv(k,i,j), rv(k,i,j)
+!             else
+!                exit
+!             endif
+!          enddo
+!          enddo
+!          enddo
        endif  ! verbose_pcg
 
     elseif (precond == 2) then  ! form SIA matrices Muu and Mvv with vertical coupling only
@@ -230,10 +256,10 @@ contains
 
 !WHL - debug
        if (verbose_pcg .and. this_rank==rtest) then
-!          print*, ' '
+          print*, ' '
           print*, 'Using easy SIA solver for preconditioning'
-          i = itest
-          j = jtest
+!          i = itest
+!          j = jtest
 !          print*, ' '
 !          print*, 'i, j =', i, j
 !          print*, ' '
@@ -283,13 +309,13 @@ contains
     ! Initialize scalars and vectors
 
     niters = maxiters 
-    eta0 = 1.d0 
+    eta0 = 1.d0
 
     du(:,:,:) = 0.d0
     dv(:,:,:) = 0.d0
 
-    work1u(:,:,:) = 0.d0
-    work1v(:,:,:) = 0.d0
+    zu(:,:,:) = 0.d0
+    zv(:,:,:) = 0.d0
 
     ! Compute the L2 norm of the RHS vectors
     ! (Goal is to obtain L2_resid/L2_rhs < tolerance)
@@ -313,12 +339,12 @@ contains
 
     iter_loop: do m = 1, maxiters
 
-       ! Compute (PC)r
+       ! Compute (PC)r = solution z of Mz = r
 
        if (precond == 0) then      ! no preconditioning
 
-           work1u(:,:,:) = ru(:,:,:)         ! PC(r) = r 
-           work1v(:,:,:) = rv(:,:,:)         ! PC(r) = r 
+           zu(:,:,:) = ru(:,:,:)         ! PC(r) = r     
+           zv(:,:,:) = rv(:,:,:)         ! PC(r) = r    
 
        elseif (precond == 1 ) then  ! diagonal preconditioning
 
@@ -326,14 +352,14 @@ contains
           do i = 1, nx-1
           do k = 1, nz
              if (Adiagu(k,i,j) /= 0.d0) then
-                work1u(k,i,j) = ru(k,i,j) / Adiagu(k,i,j)   ! PC(r), where PC is formed from diagonal elements of A
+                zu(k,i,j) = ru(k,i,j) / Adiagu(k,i,j)   ! PC(r), where PC is formed from diagonal elements of A
              else                                        
-                work1u(k,i,j) = 0.d0
+                zu(k,i,j) = 0.d0
              endif
              if (Adiagv(k,i,j) /= 0.d0) then
-                work1v(k,i,j) = rv(k,i,j) / Adiagv(k,i,j)  
+                zv(k,i,j) = rv(k,i,j) / Adiagv(k,i,j)  
              else                                        
-                work1v(k,i,j) = 0.d0
+                zv(k,i,j) = 0.d0
              endif
           enddo    ! k
           enddo    ! i
@@ -341,78 +367,77 @@ contains
 
 !WHL - debug
           if (verbose_pcg .and. this_rank==rtest) then
-             i = itest
-             j = jtest
-             print*, ' '
-             print*, 'Diagonal preconditioning, i, j =', i, j
-             print*, ' '
-             print*, 'k, ru, PC(ru):'
-             do k = 1, nz
-                print*, k, ru(k,i,j), work1u(k,i,j)
-             enddo
-             print*, ' '
-             print*, 'k, rv, PC(rv):'
-             do k = 1, nz
-                print*, k, rv(k,i,j), work1v(k,i,j)
-             enddo
+!             i = itest
+!             j = jtest
+!             print*, ' '
+!             print*, 'Diagonal preconditioning, i, j =', i, j
+!             print*, ' '
+!             print*, 'k, ru, PC(ru):'
+!             do k = 1, nz
+!                print*, k, ru(k,i,j), zu(k,i,j)
+!             enddo
+!             print*, ' '
+!             print*, 'k, rv, PC(rv):'
+!             do k = 1, nz
+!                print*, k, rv(k,i,j), zv(k,i,j)
+!             enddo
            endif
 
        elseif (precond == 2) then   ! local vertical shallow-ice solver for preconditioning
 
-          call easy_sia_solver(nx,   ny,    nz,       &
+          call easy_sia_solver(nx,   ny,   nz,        &
                                active_vertex,         &
-                               Muu,  ru,   work1u)      ! solve Muu*work1u = ru 
+                               Muu,  ru,   zu)      ! solve Muu*zu = ru 
 
-          call easy_sia_solver(nx,   ny,    nz,       &
+          call easy_sia_solver(nx,   ny,   nz,        &
                                active_vertex,         &
-                               Mvv,  rv,   work1v)      ! solve Mvv*work1v = rv 
+                               Mvv,  rv,   zv)      ! solve Mvv*zv = rv 
 
 !WHL - debug
           if (verbose_pcg .and. this_rank==rtest) then
-             i = itest
-             j = jtest
+!             i = itest
+!             j = jtest
 !             print*, ' '
 !             print*, 'SIA preconditioning, i, j =', i, j
 !             print*, ' '
 !             print*, 'k, ru, PC(ru):'
 !             do k = 1, nz
-!                print*, k, ru(k,i,j), work1u(k,i,j)
+!                print*, k, ru(k,i,j), zu(k,i,j)
 !             enddo
 !             print*, ' '
 !             print*, 'k, rv, PC(rv):'
 !             do k = 1, nz
-!                print*, k, rv(k,i,j), work1v(k,i,j)
+!                print*, k, rv(k,i,j), zv(k,i,j)
 !             enddo
            endif
 
        endif    ! precond
 
-       work0u(:,:,:) = ru(:,:,:)*work1u(:,:,:)    ! terms of dot product (r, PC(r))
-       work0v(:,:,:) = rv(:,:,:)*work1v(:,:,:)    
+       ! Compute the dot product eta1 = (r, PC(r))
 
-       ! Compute the dot product (r, PC(r))
-       ! That is, find the global sum of work0u + work0v
+       work0u(:,:,:) = ru(:,:,:)*zu(:,:,:)    ! terms of dot product (r, PC(r))
+       work0v(:,:,:) = rv(:,:,:)*zv(:,:,:)    
 
        call global_sum_staggered(nx,     ny,     &
                                  nz,     nhalo,  &
                                  eta1,           &
                                  work0u, work0v)
 
-
-       if (verbose_pcg .and. this_rank==rtest) then
-!          print*, ' '
-!          print*, 'eta0, eta1 =', eta0, eta1
-       endif
-
        ! Update the conjugate direction vector d
 
-       du(:,:,:) = work1u(:,:,:) + du(:,:,:)*(eta1/eta0)   ! d_(i+1) = PC(r_(i+1)) + beta_(i+1)*d_i
-       dv(:,:,:) = work1v(:,:,:) + dv(:,:,:)*(eta1/eta0)   !
-                                                           !                    (r_(i+1), PC(r_(i+1)))
-                                                           ! where beta_(i+1) = --------------------  
-                                                           !                        (r_i, PC(r_i)) 
-                                                           ! Initially eta0 = 1  
-                                                           ! For m >=2, eta0 = old eta1
+       beta = eta1/eta0
+
+       if (verbose_pcg .and. this_rank==rtest) then
+!          print*, 'eta0, eta1, beta =', eta0, eta1, beta
+       endif
+
+       du(:,:,:) = zu(:,:,:) + beta*du(:,:,:)       ! d_(i+1) = PC(r_(i+1)) + beta_(i+1)*d_i
+       dv(:,:,:) = zv(:,:,:) + beta*dv(:,:,:)       !
+                                                    !                    (r_(i+1), PC(r_(i+1)))
+                                                    ! where beta_(i+1) = --------------------  
+                                                    !                        (r_i, PC(r_i)) 
+                                                    ! Initially eta0 = 1  
+                                                    ! For m >=2, eta0 = old eta1
 
        ! Halo update for d
 
@@ -430,41 +455,41 @@ contains
                                        du,        dv,            &
                                        yu,        yv)
 
-       work0u(:,:,:) = yu(:,:,:) * du(:,:,:)       ! terms of dot product (d, Ad)
-       work0v(:,:,:) = yv(:,:,:) * dv(:,:,:)
-
        ! Copy old eta1 = (r, PC(r)) to eta0
 
        eta0 = eta1               ! (r_(i+1), PC(r_(i+1))) --> (r_i, PC(r_i)) 
-                                  
-       ! Compute the dot product (d, A*d)
-       ! That is, find the global sum of work0u + work0v
+
+       ! Compute the dot product eta2 = (d, A*d)
+
+       work0u(:,:,:) = yu(:,:,:) * du(:,:,:)       ! terms of dot product (d, Ad)
+       work0v(:,:,:) = yv(:,:,:) * dv(:,:,:)
 
        call global_sum_staggered(nx,     ny,     &
                                  nz,     nhalo,  &
-                                 eta1,           &
+                                 eta2,           &
                                  work0u, work0v)
 
-       ! Compute alpha (needed to compute new solution and residual)
+       ! Compute alpha
 
-                               !          (r, PC(r))
-       eta1 = eta0 / eta1      ! alpha = ----------
-                               !          (d, A*d)
+                              !          (r, PC(r))
+       alpha = eta1/eta2      ! alpha = ----------
+                              !          (d, A*d)
        
 
        if (verbose_pcg .and. this_rank==rtest) then
-!          print*, '(r, PC(r))=', eta0
-!          print*, 'alpha =', eta1
+!          print*, '(r, PC(r)) =', eta1
+!          print*, '(d, Ad) =', eta2
+!          print*, 'alpha =', alpha
        endif
 
        ! Compute the new solution
 
-       xu(:,:,:) = xu(:,:,:) + eta1 * du(:,:,:)    ! new solution, x_(i+1) = x_i + alpha*d
-       xv(:,:,:) = xv(:,:,:) + eta1 * dv(:,:,:)
+       xu(:,:,:) = xu(:,:,:) + alpha * du(:,:,:)    ! new solution, x_(i+1) = x_i + alpha*d
+       xv(:,:,:) = xv(:,:,:) + alpha * dv(:,:,:)
 
        ! Compute the new residual
 
-       ! The cheap way is to take r = r - alpha*(Ad), since Ad is available.
+       ! The cheap way is to take r = r - alpha*(Ad), since Ad is already available.
        ! The expensive way is to take r = b - Ax, which requires a new computation of Ax.
        ! Most of the time we do things the cheap way, but occasionally we use the expensive way
        !  to avoid cumulative loss of accuracy.
@@ -493,14 +518,14 @@ contains
 
        else    ! r = r - alpha*(Ad)
 
-          ru(:,:,:) = ru(:,:,:) - eta1 * yu(:,:,:)    ! new residual, r_(i+1) = r_i - alpha*(Ad)
-          rv(:,:,:) = rv(:,:,:) - eta1 * yv(:,:,:)
+          ru(:,:,:) = ru(:,:,:) - alpha * yu(:,:,:)    ! new residual, r_(i+1) = r_i - alpha*(Ad)
+          rv(:,:,:) = rv(:,:,:) - alpha * yv(:,:,:)
 
        endif
 
        if (verbose_pcg .and. this_rank==rtest) then
-          i = itest
-          j = jtest
+!          i = itest
+!          j = jtest
 !          print*, ' '
 !          print*, 'i, j, =', i, j
 !          print*, 'k, xu, ru:'
@@ -513,10 +538,10 @@ contains
 
        if (mod(m,solv_ncheck) == 0) then
 
+          ! Compute squared L2 norm of (r, r)
+
           work0u(:,:,:) = ru(:,:,:)*ru(:,:,:)   ! terms of dot product (r, r)
           work0v(:,:,:) = rv(:,:,:)*rv(:,:,:)
-
-          ! Compute squared L2 norm of (r, r)
 
           call global_sum_staggered(nx,     ny,       &
                                     nz,     nhalo,    &
