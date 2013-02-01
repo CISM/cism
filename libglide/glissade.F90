@@ -542,8 +542,8 @@ contains
 !       This would include thck and tracer at a minimum.
 !       Also include topg if basal topography is evolving.
 !       
-!      Call to calc_flwa should go here too.  Should be based on post-remap temperature.
-!       (Could go later if not needed for glide_marinlim)
+!       TODO: Make sure a call to calc_flwa (based on post-remap temperature) 
+!             is not needed for glide_marinlim.Should be based on post-remap temperature.
 
     call parallel_halo(model%geometry%topg)
 !    call horiz_bcs_unstag_scalar(model%geometry%topg)
@@ -776,6 +776,10 @@ contains
                            model%paramets%default_flwa, &
                            model%options%whichflwa)
 
+    ! Halo update for flwa
+
+    call parallel_halo(model%temper%flwa)
+
 !WHL - Moved mask update and calving from beginning of diagnostic subroutine
 !      to end of main glissade_tstep subroutine.  This ensures that for a
 !      simple diagnostic case, the velocities are based on the input geometry
@@ -785,7 +789,7 @@ contains
 !      so that call is not needed here.
 
     ! ------------------------------------------------------------------------
-    ! halo updates for ice topography and thickness
+    ! Halo updates for ice topography and thickness
     !
     !WHL - Note the optional argument periodic_offset_ew for topg.
     !      This is for ismip-hom experiments. A positive EW offset means that 
@@ -815,7 +819,6 @@ contains
                         model%climate%eus,   model%geometry%lsrf)
 
     model%geometry%usrf(:,:) = max(0.d0, model%geometry%thck(:,:) + model%geometry%lsrf(:,:))
-
 
 ! MJH: Next 53 lines copied from start of glissade_tstep.
 !      Notes below indicate it is unclear which of these derivatives are actually needed.  

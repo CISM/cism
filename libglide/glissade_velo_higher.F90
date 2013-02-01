@@ -131,16 +131,17 @@
 !       itest = 26, jtest = 19, ktest = 2, ptest = 1
 !       itest = 26, jtest = 19, ktest = 10, ptest = 1
 !       itest = 17, jtest = 10, ktest = 1, ptest = 1
+       itest = 10, jtest = 17, ktest = 1, ptest = 1
 
-        itest = 3, jtest = 3, ktest = 1, ptest = 1    ! for ishom.a.80km global (i,j) = (1,1)
+!        itest = 3, jtest = 3, ktest = 1, ptest = 1    ! for ishom.a.80km global (i,j) = (1,1)
 
 !    integer, parameter :: ntest = 2371  ! nodeID for dome global (24,17,1)    
 !    integer, parameter :: ntest = 2372  ! nodeID for dome global (24,17,2)
 !    integer, parameter :: ntest = 2380  ! nodeID for dome global (24,17,10)
-
-!    integer, parameter :: ntest = 411  ! nodeID for dome global (17,10,1)    
-
-     integer, parameter :: ntest = 1    ! for ishom.a.80km global (i,j) = (1,1)
+!    integer, parameter :: ntest = 411  ! nodeID for dome global (17,10,1)
+    integer, parameter :: ntest = 1771  ! nodeID for dome global (10,17,1)
+    
+!    integer, parameter :: ntest = 1    ! for ishom.a.80km global (i,j) = (1,1)
 
     integer, parameter :: rtest = 0    ! rank for any single-process run
 !    integer, parameter :: rtest = 0    ! rank for (17,10) with 4 procs
@@ -653,13 +654,14 @@
        call solve_test_matrix(test_order, whichsparse)
     endif
 
-    ! Make sure the geometry is up to date in halo cells
-    ! These calls are commented out, since the geometry is updated in 
+    ! Make sure that the geometry and flow factor are correct in halo cells.
+    ! These calls are commented out, since the halo updates are done in 
     !  module glissade.F90, before calling glissade_velo_higher_solve.
 
 !    call parallel_halo(thck)
 !    call parallel_halo(topg)
 !    call parallel_halo(usrf)
+!    call parallel_halo(flwa)
 
     !------------------------------------------------------------------------------
     ! Setup for higher-order solver: Compute nodal geometry, allocate storage, etc.
@@ -785,11 +787,13 @@
        print*, ' '
        print*, 'NodeID before halo update, k = 1:'
        do j = ny-1, 1, -1
-          write(6,'(23i6)') NodeID(1,:,j)
+          write(6,'(33i6)') NodeID(1,:,j)
        enddo
     endif
 
     ! Assign the appropriate ID to nodes in the halo.
+    ! Note: This will work for single-processor runs with periodic BCs
+    !       (e.g., ISMIP-HOM), but not for multiple processors.
 
     call staggered_parallel_halo(NodeID)
 
@@ -798,7 +802,7 @@
        print*, ' '
        print*, 'NodeID after halo update, k = 1:'
        do j = ny-1, 1, -1
-          write(6,'(23i6)') NodeID(1,:,j)
+          write(6,'(33i6)') NodeID(1,:,j)
        enddo
     endif
 
@@ -1023,23 +1027,25 @@
        !TODO = Pass in as argument
        beta(:,:) = 0.d0
 
-       call basal_sliding_bc(nx,               ny,              &
-                             nz,               nhalo,           &
-                             nNodesPerElement_2d,               &
-                             active_cell,      beta,            &
-                             xVertex,          yVertex,         &
-                             Auu,              Avv)
+!TODO - Test this subroutine
+
+!       call basal_sliding_bc(nx,               ny,              &
+!                             nz,               nhalo,           &
+!                             nNodesPerElement_2d,               &
+!                             active_cell,      beta,            &
+!                             xVertex,          yVertex,         &
+!                             Auu,              Avv)
 
           i = itest
           j = jtest
           k = ktest
           n = ntest
-          print*, ' '
-          print*, 'Auu after basal sliding BC: rank, i, j, k, n =', r, i, j, k, n
+!          print*, ' '
+!          print*, 'Auu after basal sliding BC: rank, i, j, k, n =', r, i, j, k, n
           do jA = -1, 1
           do iA = -1, 1
           do kA = -1, 1
-             print*, 'iA, jA, kA, Auu:', iA, jA, kA, Auu(kA, iA, jA, k, i, j)
+!             print*, 'iA, jA, kA, Auu:', iA, jA, kA, Auu(kA, iA, jA, k, i, j)
           enddo
           enddo
           enddo
@@ -2849,8 +2855,8 @@
  
        efvs = flwafact * effstrain**p_effstr
 
-!WHL - debug
        if (verbose .and. i==itest .and. j==jtest .and. k==ktest) then
+!!       if (verbose .and. i==itest .and. j==jtest+1 .and. k==ktest) then
           print*, 'effstrain_min =', effstrain_min
           print*, 'du/dx, du/dy, du/dz =', du_dx, du_dy, du_dz
           print*, 'dv/dx, dv/dy, dv/dz =', dv_dx, dv_dy, dv_dz
@@ -2867,6 +2873,7 @@
 
 !WHL - debug
        if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+!!       if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest+1 .and. k==ktest) then
           print*, 'flwafact, effstrain, efvs =', flwafact, effstrain, efvs       
        endif
 
@@ -2939,7 +2946,9 @@
 
     integer :: i, j
 
+!WHL - debug
     if (verbose .and. this_rank==rtest .and. ii==itest .and. jj==jtest .and. k==ktest) then
+!!    if (verbose .and. this_rank==rtest .and. ii==itest .and. jj==jtest+1 .and. k==ktest) then
        print*, ' '
        print*, 'Increment element matrix, p =', p
     endif
@@ -2952,6 +2961,7 @@
        do i = 1, nNodesPerElement   ! rows of K
 
        if (verbose .and. this_rank==rtest .and. ii==itest .and. jj==jtest .and. k==ktest .and. p==ptest &
+!!       if (verbose .and. this_rank==rtest .and. ii==itest .and. jj==jtest+1 .and. k==ktest .and. p==ptest &
                    .and.  i==1     .and.  j==1) then
           print*, 'efvs, wqp, detJ/vol0 =', efvs, wqp, detJ/vol0
           print*, 'dphi_dz(1) =', dphi_dz(1)
@@ -3014,7 +3024,9 @@
     integer :: iA, jA, kA
     integer :: m, n
 
+!WHL - debug
     if (verbose .and. this_rank==rtest .and. iElement==itest .and. jElement==jtest .and. kElement==ktest) then
+!!    if (verbose .and. this_rank==rtest .and. iElement==itest .and. jElement==jtest+1 .and. kElement==ktest) then
        print*, 'First row of K:'
        write(6, '(8e12.4)') Kmat(1,:)
     endif
@@ -3173,6 +3185,8 @@
                 print*, 'detJ/vol0 =', detJ/vol0
                 print*, 'detJ/vol0 * beta_qp =', detJ/vol0 * beta_qp
              endif
+
+!TODO - Test this subroutine
 
              call element_matrix_basal_sliding(nNodesPerElement_2d,    &
                                                wqp(p),      detJ,      & 
