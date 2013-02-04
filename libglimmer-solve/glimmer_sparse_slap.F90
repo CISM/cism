@@ -202,6 +202,7 @@ contains
         logical, parameter ::  &
            check_symmetry = .false.   ! if true, check matrix symmetry (takes a long time for big matrices)
         logical :: sym_partner
+        real(dp) :: avg_val
 
         iunit = 0
         if (present(verbose)) then
@@ -276,34 +277,6 @@ contains
            print*, ' '
         endif
 
-!TODO - Remove this code when no longer needed for debugging
-!WHL - debug
-!  This can take a long time.  It's more efficient to check symmetry at a higher level,
-!  in the glissade velo solver.
-
-!        if (check_symmetry) then
-!           print*, 'Check symmetry'
-!           do n = 1, matrix%nonzeros
-!              i = matrix%row(n)
-!              j = matrix%col(n)
-!              sym_partner = .false.
-!              do m = 1, matrix%nonzeros
-!                 if (matrix%col(m)==i .and. matrix%row(m)==j) then
-!                    if (matrix%val(m) == matrix%val(n)) then
-!                       sym_partner = .true.
-!                    else
-!                       print*, 'Entry (i,j) not equal to (j,i)'
-!                       print*, 'i, j, val(i,j), val(j,i):', i, j, matrix%val(n), matrix%val(m)
-!                       stop
-!                    endif
-!                 endif
-!              enddo
-!              if (.not. sym_partner) then
-!                 print*, 'Entry (i,j) has no corresponding (j,i): n, i, j, val =', n, i, j, matrix%val(n)
-!              endif
-!           enddo
-!        endif   ! check_symmetry
-
         ! Make a local copy of the nonzero matrix entries.
         ! These local arrays can be passed to the various SLAP solvers with intent(inout)
         ! and modified by SLAP without changing matrix%row, matrix%col, and matrix%val.
@@ -313,6 +286,46 @@ contains
            matrix_col(n) = matrix%col(n)
            matrix_val(n) = matrix%val(n)
         enddo
+
+!TODO - Remove this code when no longer needed for debugging
+!WHL - debug
+!  This can take a long time.  It's more efficient to check symmetry at a higher level,
+!  in the glissade velo solver.
+
+        if (check_symmetry) then
+           print*, 'Check symmetry...could take a while'
+           do n = 1, matrix%nonzeros
+              i = matrix_row(n)
+              j = matrix_col(n)
+              sym_partner = .false.
+              do m = 1, matrix%nonzeros
+                 if (matrix_col(m)==i .and. matrix_row(m)==j) then
+                    if (matrix_val(m) == matrix_val(n)) then
+                       sym_partner = .true.
+                    else  ! fix if difference is small, else abort
+                       if ( abs ((matrix_val(m)-matrix_val(n))/matrix_val(m)) < 1.e-10 ) then
+                          avg_val = 0.5d0 * (matrix_val(m) + matrix_val(n))
+                          matrix_val(m) = avg_val
+                          matrix_val(n) = avg_val
+                          sym_partner = .true.
+                       else
+                          print*, ' '
+                          print*, 'Entry (i,j) not equal to (j,i)'
+                          print*, 'i, j, val(i,j), val(j,i):', i, j, matrix%val(n), matrix%val(m)
+!!                          stop
+                       endif
+                    endif
+                    go to 100
+                 endif
+              enddo
+              if (.not. sym_partner) then
+                 print*, ' '
+                 print*, 'Entry (i,j) has no corresponding (j,i): n, i, j, val =', n, i, j, matrix%val(n)
+              endif
+100           continue
+           enddo
+
+        endif   ! check_symmetry
 
 !TODO - Case numbers are hardwired.  Change to SPARSE_SOLVER values?
 !       Note: This module cannot use SPARSE_SOLVER values in glimmer_sparse.F90 without circular dependency.
@@ -344,6 +357,10 @@ contains
                   if (verbose_slap) then
                      print*, 'Call dsiccg (PCG, incomplete Cholesky)'
                   endif
+
+!TODO - Pass in just half the matrix?
+!       If we pass in the entire matrix, then the preconditioner is fragile in the sense
+!        that it can fail with very small departures from symmetry (due to roundoff errors)
 
                    call dsiccg(matrix%order, rhs, solution, matrix%nonzeros, &
                                matrix_row, matrix_col, matrix_val, &

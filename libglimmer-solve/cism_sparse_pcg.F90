@@ -176,9 +176,15 @@ contains
     real(dp), parameter ::   &
        tolerance = 1.d-11    ! tolerance for linear solver
 
+    ! WHL: With SIA preconconditioning, up to 210 iterations are needed
+    !       for convergence with ismip-hom test A, 20 km resolution
+    !      More are probably needed at higher resolutions.
+    ! TODO: Implement a better preconditioner for higher-order problems!
+ 
     integer, parameter ::    &
-       maxiters = 200        ! max number of linear iterations before quitting
-
+!       maxiters = 200        ! max number of linear iterations before quitting
+       maxiters = 300        ! max number of linear iterations before quitting
+                             
     integer, parameter :: &
        solv_ncheck = 1       ! check for convergence every solv_ncheck iterations
                              !TODO - See if performance improves for less frequent checks

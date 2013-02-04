@@ -857,6 +857,11 @@ CVD$ NODEPCHK
  90         CONTINUE
 C
 C         If we get here, we have real problems...
+
+C WHL: Usually this means the matrix A is not symmetric.
+C      The preconditioner is fragile in the sense that it can fail with
+C       very small departures from symmetry (due to roundoff errors).
+ 
             CALL XERRWV('DSICS -- A and EL data structure mismatch'//
      $           ' in row (i1)',53,1,2,1,IROW,0,0,0.0,0.0)
  100     CONTINUE

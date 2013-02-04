@@ -196,11 +196,13 @@ module parallel
   end interface
 
 !WHL - added staggered_parallel_halo_integer_2d and _3d
+!    - added staggered_parallel_halo_real8_6d
   interface staggered_parallel_halo
      module procedure staggered_parallel_halo_integer_2d
      module procedure staggered_parallel_halo_integer_3d
      module procedure staggered_parallel_halo_real8_2d
      module procedure staggered_parallel_halo_real8_3d
+     module procedure staggered_parallel_halo_real8_6d
   end interface
 
   interface parallel_print
@@ -4139,6 +4141,125 @@ contains
     endif
 
   end subroutine staggered_parallel_halo_real8_3d
+
+  subroutine staggered_parallel_halo_real8_6d(a)
+
+    use mpi_mod
+    implicit none
+    real(8),dimension(-1:,-1:,-1:,:,:,:) :: a
+
+    ! Implements a staggered grid halo update for a 6D field.
+    ! This subroutine is custom-made for the 6D arrays that hold matrix entries.
+
+    ! As the grid is staggered, the array 'a' is one smaller in both dimensions than an unstaggered array.
+    ! The vertical dimension is assumed to precede the i and j indices, i.e., a(:,:,:,k,i,j).
+
+    ! NOTE: The first three dimensions are -1:1.
+    ! The subroutine is very specific for matrix arrays with this structure.
+
+    ! The grid is laid out from the SW, and the lower left corner is assigned to this_rank = 0.
+    ! It's eastern nbhr is task_id = 1, proceeding rowwise and starting from the western edge.
+    ! The South-most processes own one additional row of stagggered variables on the southern edge
+    ! and have one less 'southern' halo row than other processes. Likewise, the West-most processes own one 
+    ! additional column of staggered variables on the western edge and have one less 'western' halo column. 
+    ! This is implemented by a modification to the staggered_lhalo value on these processes. 
+
+    ! Maintaining global boundary conditions are not addressed within this routine (yet).
+
+    ! integer :: erequest,ierror,one,nrequest,srequest,wrequest
+    integer :: ierror,nrequest,srequest,erequest,wrequest
+
+    real(8),dimension(-1:1,-1:1,-1:1,size(a,4), &
+                      staggered_lhalo,size(a,6)-staggered_lhalo-staggered_uhalo) :: esend,wrecv
+    real(8),dimension(-1:1,-1:1,-1:1,size(a,4), &
+                      staggered_uhalo,size(a,6)-staggered_lhalo-staggered_uhalo) :: erecv,wsend
+    real(8),dimension(-1:1,-1:1,-1:1,size(a,4),size(a,5),staggered_lhalo) :: nsend,srecv
+    real(8),dimension(-1:1,-1:1,-1:1,size(a,4),size(a,5),staggered_uhalo) :: nrecv,ssend
+
+!WHL - temporary logical variable to determine whether or not to fill in halo cells
+!      at edge of the global domain.  I am setting it to true by default to support
+!      cyclic global BCs.
+!TODO - Set to true in all cases?
+
+    logical :: fill_global_halos = .true.
+
+    ! begin
+
+    ! Confirm staggered array
+    if (size(a,5)/=local_ewn-1 .or. size(a,6)/=local_nsn-1) then
+         write(*,*) "staggered_parallel_halo() requires staggered arrays."
+         call parallel_stop(__FILE__,__LINE__)
+    endif
+
+    ! Prepost expected receives
+
+    if (this_rank < east  .or. fill_global_halos) then
+      call mpi_irecv(erecv,size(erecv),mpi_real8,east,east,comm,erequest,ierror)
+    endif
+
+    if (this_rank > west .or. fill_global_halos) then
+      call mpi_irecv(wrecv,size(wrecv),mpi_real8,west,west,comm,wrequest,ierror)
+    endif
+
+    if (this_rank < north .or. fill_global_halos) then
+      call mpi_irecv(nrecv,size(nrecv),mpi_real8,north,north,comm,nrequest,ierror)
+    endif
+
+    if (this_rank > south .or. fill_global_halos) then
+      call mpi_irecv(srecv,size(srecv),mpi_real8,south,south,comm,srequest,ierror)
+    endif
+
+    if (this_rank > west .or. fill_global_halos) then
+      wsend(:,:,:,:,:,1:size(a,6)-staggered_lhalo-staggered_uhalo) = &
+        a(:,:,:,:,1+staggered_lhalo:1+staggered_lhalo+staggered_uhalo-1, &
+                  1+staggered_lhalo:size(a,6)-staggered_uhalo)
+      call mpi_send(wsend,size(wsend),mpi_real8,west,this_rank,comm,ierror)
+    endif
+
+    if (this_rank < east .or. fill_global_halos) then
+      esend(:,:,:,:,:,1:size(a,6)-staggered_lhalo-staggered_uhalo) = &
+        a(:,:,:,:,size(a,5)-staggered_uhalo-staggered_lhalo+1:size(a,5)-staggered_uhalo, &
+                  1+staggered_lhalo:size(a,6)-staggered_uhalo)
+      call mpi_send(esend,size(esend),mpi_real8,east,this_rank,comm,ierror)
+    endif
+
+    if (this_rank < east .or. fill_global_halos) then
+      call mpi_wait(erequest,mpi_status_ignore,ierror)
+      a(:,:,:,:,size(a,5)-staggered_uhalo+1:size(a,5), &
+                1+staggered_lhalo:size(a,6)-staggered_uhalo) = &
+          erecv(:,:,:,:,:,1:size(a,6)-staggered_lhalo-staggered_uhalo)
+    endif
+
+    if (this_rank > west .or. fill_global_halos) then
+      call mpi_wait(wrequest,mpi_status_ignore,ierror)
+      a(:,:,:,:,1:staggered_lhalo, &
+                1+staggered_lhalo:size(a,6)-staggered_uhalo) = &
+          wrecv(:,:,:,:,:,1:size(a,6)-staggered_lhalo-staggered_uhalo)
+    endif
+
+    if (this_rank > south .or. fill_global_halos) then
+      ssend(:,:,:,:,:,:) = &
+        a(:,:,:,:,:,1+staggered_lhalo:1+staggered_lhalo+staggered_uhalo-1)
+      call mpi_send(ssend,size(ssend),mpi_real8,south,this_rank,comm,ierror)
+    endif
+
+    if (this_rank < north .or. fill_global_halos) then
+      nsend(:,:,:,:,:,:) = &
+        a(:,:,:,:,:,size(a,6)-staggered_uhalo-staggered_lhalo+1:size(a,6)-staggered_uhalo)
+      call mpi_send(nsend,size(nsend),mpi_real8,north,this_rank,comm,ierror)
+    endif
+
+    if (this_rank < north .or. fill_global_halos) then
+      call mpi_wait(nrequest,mpi_status_ignore,ierror)
+      a(:,:,:,:,:,size(a,6)-staggered_uhalo+1:size(a,6)) = nrecv(:,:,:,:,:,:)
+    endif
+
+    if (this_rank > south .or. fill_global_halos) then
+      call mpi_wait(srequest,mpi_status_ignore,ierror)
+      a(:,:,:,:,:,1:staggered_lhalo) = srecv(:,:,:,:,:,:)
+    endif
+
+  end subroutine staggered_parallel_halo_real8_6d
 
 ! Following routines imported from the Community Earth System Model
 ! (models/utils/mct/mpeu.m_FcComms.F90)

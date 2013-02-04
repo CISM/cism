@@ -114,37 +114,48 @@
     real(dp), dimension(3,3) ::  &
        identity3                ! 3 x 3 identity matrix
 
-    real(dp), parameter :: eps12 = 1.d-12   ! small number
+    real(dp), parameter ::   &
+       eps12 = 1.d-12           ! small number
 
 !WHL - TODO - Keep volume scale?
     real(dp) :: vol0    ! volume scale = dx * dy * (1000 m)
+
+    logical, parameter ::  &
+       check_symmetry = .true.   ! if true, then check matrix symmetry
 
 !WHL - debug
     logical :: verbose_init = .false.   ! for debug print statements
     logical :: verbose_Jac = .false.
     logical :: verbose = .true.  
 
-!WHL - debug
-
     integer, parameter :: &
 !       itest = 26, jtest = 19, ktest = 1, ptest = 1  ! for dome global (i,j) = (24,17), 1 proc
 !       itest = 26, jtest = 19, ktest = 2, ptest = 1
 !       itest = 26, jtest = 19, ktest = 10, ptest = 1
 !       itest = 17, jtest = 10, ktest = 1, ptest = 1
-       itest = 10, jtest = 17, ktest = 1, ptest = 1
+!       itest = 10, jtest = 17, ktest = 1, ptest = 1
 
-!        itest = 3, jtest = 3, ktest = 1, ptest = 1    ! for ishom.a.80km global (i,j) = (1,1)
+        itest = 3, jtest = 3, ktest = 1, ptest = 1    ! for ishom.a.80km global (i,j) = (1,1)
+!        itest = 22, jtest = 7, ktest = 1, ptest = 1    ! for ishom.a.80km symmetry check
 
 !    integer, parameter :: ntest = 2371  ! nodeID for dome global (24,17,1)    
 !    integer, parameter :: ntest = 2372  ! nodeID for dome global (24,17,2)
 !    integer, parameter :: ntest = 2380  ! nodeID for dome global (24,17,10)
 !    integer, parameter :: ntest = 411  ! nodeID for dome global (17,10,1)
-    integer, parameter :: ntest = 1771  ! nodeID for dome global (10,17,1)
+!    integer, parameter :: ntest = 1771  ! nodeID for dome global (10,17,1)
     
-!    integer, parameter :: ntest = 1    ! for ishom.a.80km global (i,j) = (1,1)
+    integer, parameter :: ntest = 1    ! for ishom.a.80km global (i,j) = (1,1)
+!    integer, parameter :: ntest = 882    ! for ishom.a.80km symmetry check
 
     integer, parameter :: rtest = 0    ! rank for any single-process run
 !    integer, parameter :: rtest = 0    ! rank for (17,10) with 4 procs
+
+!WHL = debug
+    integer, parameter :: rowtest = -999
+    integer, parameter :: coltest = -999
+
+    integer, parameter :: &
+      iAtest=0, jAtest=0, kAtest=0
 
     contains
 
@@ -585,7 +596,7 @@
     ! The following are used only for the single-processor SLAP solver
 
     integer ::            &
-       nNodes                 ! number of nodes where we solve for velocity
+       nNodesSolve            ! number of nodes where we solve for velocity
 
     integer, dimension(nz,nx-1,ny-1) ::  &
        NodeID                 ! ID for each node where we solve for velocity
@@ -608,7 +619,6 @@
        matrix_order,    & ! order of matrix = number of rows
        nNonzero           ! upper bound for number of nonzero entries in sparse matrix
 
-
 !WHL - debug
     integer :: i, j, k, n, r
     integer :: iA, jA, kA, colA
@@ -619,6 +629,9 @@
     integer, parameter :: test_order = 20
     integer :: rowi
     logical, parameter :: sia_test = .false.
+
+
+    integer :: nNonzeros    ! number of nonzero entries in structured matrices
 
     ! Set volume scale
     ! This is not necessary, but dividing by this scale gives matrix coefficients 
@@ -701,6 +714,11 @@
        do j = ny, 1, -1
           write(6,'(34f6.0)') usrf(:,j)
        enddo
+       print*, ' '
+       print*, 'flwa, k = 1, rank =', rtest
+       do j = ny, 1, -1
+          write(6,'(34e12.5)') flwa(1,:,j)
+       enddo
     endif
  
     !------------------------------------------------------------------------------
@@ -779,7 +797,7 @@
                             stagusrf,    stagthck,        &
                             xVertex,     yVertex,         &
                             active_cell, active_vertex,   &
-                            nNodes,      NodeID,          &
+                            nNodesSolve, NodeID,          &
                             iNodeIndex,  jNodeIndex,  kNodeIndex)
 
 !WHL - debug
@@ -815,6 +833,7 @@
     flwafact(:,:,:) = 0.d0
 
     ! Loop over all cells that border locally owned vertices
+    !TODO - Simply compute for all cells?  We should have flwa for all cells.
 
     do j = 1+nhalo, ny-nhalo+1
        do i = 1+nhalo, nx-nhalo+1
@@ -865,7 +884,7 @@
     if (whichsparse /= STANDALONE_PCG_STRUC .and.    &
         whichsparse /= STANDALONE_TRILINOS_SOLVER) then   
 
-       matrix_order = 2*nNodes         ! Is this exactly enough?
+       matrix_order = 2*nNodesSolve    ! Is this exactly enough?
        nNonzero = matrix_order*54      ! 27 = node plus 26 nearest neighbors in hexahedral lattice   
                                        ! 54 = 2 * 27 (since solving for both u and v)
 
@@ -1004,10 +1023,13 @@
           r = rtest
           print*, ' '
           print*, 'Auu after assembly: rank, i, j, k, n =', r, i, j, k, n
+!          print*, 'Auv after assembly: rank, i, j, k, n =', r, i, j, k, n
           do jA = -1, 1
           do iA = -1, 1
           do kA = -1, 1
              print*, 'iA, jA, kA, Auu:', iA, jA, kA, Auu(kA, iA, jA, k, i, j)
+!             if (iA==1 .and. jA==0 .and. kA==1) &
+!                print*, 'iA, jA, kA, Auv:', iA, jA, kA, Auv(kA, iA, jA, k, i, j)
           enddo
           enddo
           enddo
@@ -1015,7 +1037,7 @@
        endif
 
        !---------------------------------------------------------------------------
-       ! Incorporate basal slding boundary conditions
+       ! Incorporate basal sliding boundary conditions
        ! Assume a linear sliding law for now
 
        ! Note: We could call this subroutine before the main outer loop if beta
@@ -1059,7 +1081,10 @@
 
        umask_dirichlet(nz,:,:) = .true.   ! u = v = 0 at bed
 
-       if (verbose .and. main_task) print*, 'Call dirichlet_bc'
+       if (verbose .and. main_task) then
+          print*, ' '
+          print*, 'Call dirichlet_bc'
+       endif
 
        call dirichlet_boundary_conditions(nx,              ny,                &
                                           nz,              nhalo,             &
@@ -1067,6 +1092,70 @@
                                           Auu,             Auv,               &
                                           Avu,             Avv,               &
                                           bu,              bv)
+
+       !---------------------------------------------------------------------------
+       ! Halo updates for matrices
+       !
+       ! These updates are not strictly necessary unless we're concerned about
+       !  roundoff errors.
+       ! But suppose we are comparing two entries that are supposed to be equal
+       !  (e.g., to preserve symmetry), where entry 1 is owned by processor A and 
+       !  entry 2 is owned by processor B.  
+       ! Processor A might compute a local version of entry 2 in its halo, with 
+       !  entry 2 = entry 1 locally.  But processor B's entry 2 might be different
+       !  because of roundoff.  We need to make sure that processor B's value of 
+       !  is communicated to processor A.  If these values are slightly different, 
+       !  they will be reconciled by the subroutine check_symmetry_assembled_matrix.
+       !---------------------------------------------------------------------------
+     
+
+!WHL - debug
+    if (verbose .and. this_rank==rtest) then
+!       print*, ' '
+!       print*, 'Before halo update, Auu(0,0,0,1,:,:), rank =', rtest
+!       do j = ny-1, 1, -1
+!          write(6,'(23e10.3)') Auu(0,0,0,1,:,j)
+!       enddo
+    endif
+
+        call staggered_parallel_halo(Auu(:,:,:,:,:,:))
+        call staggered_parallel_halo(Auv(:,:,:,:,:,:))
+        call staggered_parallel_halo(Avu(:,:,:,:,:,:))
+        call staggered_parallel_halo(Avv(:,:,:,:,:,:))
+
+!WHL - debug
+    if (verbose .and. this_rank==rtest) then
+!       print*, ' '
+!       print*, 'After halo update, Auu(0,0,0,1,:,:), rank =', rtest
+!       do j = ny-1, 1, -1
+!          write(6,'(23e10.3)') Auu(0,0,0,1,:,j)
+!       enddo
+    endif
+
+       !---------------------------------------------------------------------------
+       ! Check symmetry of assembled matrix
+       ! 
+       ! There may be small differences from perfect symmetry due to roundoff errors.  
+       ! If sufficiently small, these differences are fixed by averaging the two values 
+       !  that should be symmetric.  Otherwise the code aborts.
+       !
+       ! Note: It may be OK to skip this check for production code.  However,
+       !       small violations of symmetry are not tolerated well by some solvers.
+       !       For example, the SLAP PCG solver with incomplete Cholesky preconditioning
+       !       can crash if symmetry is not perfect. 
+       !---------------------------------------------------------------------------
+
+       if (verbose .and. main_task) print*, 'Check matrix symmetry'
+
+       if (check_symmetry) then
+
+          call check_symmetry_assembled_matrix(nx,          ny,      &
+                                               nz,          nhalo,   &
+                                               active_vertex,        &
+                                               Auu,         Auv,     &
+                                               Avu,         Avv)
+
+       endif
 
 !WHL - debug - Try stripping out columns from the matrix and see if it can still solve an SIA problem.
 
@@ -1103,20 +1192,34 @@
 
           endif   ! sia_test             
 
-
        !---------------------------------------------------------------------------
-       ! Check symmetry of assembled matrix
-       ! TODO - This call could be skipped in a well-tested production code.
+       ! Count nonzero elements in structured matrices (strictly diagnostic)
        !---------------------------------------------------------------------------
 
-       if (verbose .and. main_task) print*, 'Check matrix symmetry'
+       nNonzeros = 0
+       do j = nhalo+1, ny-nhalo
+       do i = nhalo+1, nx-nhalo
+          if (active_vertex(i,j)) then
+             do k = 1, nz
+                do jA = -1, 1
+                do iA = -1, 1
+                do kA = -1, 1
+                   if (Auu(kA,iA,jA,k,i,j) /= 0.d0) nNonzeros = nNonzeros + 1
+                   if (Auv(kA,iA,jA,k,i,j) /= 0.d0) nNonzeros = nNonzeros + 1
+                   if (Avu(kA,iA,jA,k,i,j) /= 0.d0) nNonzeros = nNonzeros + 1
+                   if (Avv(kA,iA,jA,k,i,j) /= 0.d0) nNonzeros = nNonzeros + 1
+                enddo 
+                enddo
+                enddo
+             enddo  ! k
+          endif     ! active_vertex
+       enddo        ! i
+       enddo        ! j
 
-       call check_symmetry_assembled_matrix(nx,          ny,      &
-                                            nz,          nhalo,   &
-                                            active_vertex,        &
-                                            Auu,         Auv,     &
-                                            Avu,         Avv)
-
+       if (verbose .and. this_rank==rtest) then
+          print*, ' '
+          print*, 'nNonzeros in structured matrices =', nNonzeros
+       endif
 
 !WHL - debug - print out some matrix values for test point
 
@@ -1225,17 +1328,17 @@
           matrix%nonzeros = nNonzero
           matrix%symmetric = .false.
 
-          call slap_preprocess(nx,           ny,         &   
-                               nz,           nNodes,     &
-                               NodeID,                   &
-                               iNodeIndex,   jNodeIndex, &
-                               kNodeIndex,               &
-                               Auu,          Auv,        &
-                               Avu,          Avv,        &
-                               bu,           bv,         &
-                               uvel,         vvel,       &
-                               matrix_order, nNonzero,   &
-                               matrix,       rhs,        &
+          call slap_preprocess(nx,           ny,          &   
+                               nz,           nNodesSolve, &
+                               NodeID,                    &
+                               iNodeIndex,   jNodeIndex,  &
+                               kNodeIndex,                &
+                               Auu,          Auv,         &
+                               Avu,          Avv,         &
+                               bu,           bv,          &
+                               uvel,         vvel,        &
+                               matrix_order, nNonzero,    &
+                               matrix,       rhs,         &
                                answer)
 
           !------------------------------------------------------------------------
@@ -1278,7 +1381,7 @@
           ! Put the velocity solution back into 3D arrays
           !------------------------------------------------------------------------
 
-          call slap_postprocess(nNodes,       answer,                   &
+          call slap_postprocess(nNodesSolve,  answer,                   &
                                 iNodeIndex,   jNodeIndex,  kNodeIndex,  &
                                 uvel,         vvel)
 
@@ -1455,7 +1558,7 @@
                                 stagusrf,    stagthck,             &
                                 xVertex,     yVertex,              &
                                 active_cell, active_vertex,        &
-                                nNodes,      NodeID,               & 
+                                nNodesSolve, NodeID,               & 
                                 iNodeIndex,  jNodeIndex,  kNodeIndex)
                             
     !----------------------------------------------------------------
@@ -1507,7 +1610,7 @@
     ! The remaining input/output arguments are for the SLAP solver
 
     integer, intent(out) :: &
-       nNodes                 ! number of nodes where we solve for velocity
+       nNodesSolve            ! number of nodes where we solve for velocity
 
     integer, dimension(nz,nx-1,ny-1), intent(out) ::  &
        NodeID                 ! ID for each node where we solve for velocity
@@ -1576,9 +1679,9 @@
     ! This indexing is used for pre- and post-processing of the assembled matrix
     !  when we call the SLAP solver (one processor only).
     ! It is not required by the structured solver.
-    !TODO - Move to separate subroutine
+    !TODO - Move to separate subroutine?
 
-    nNodes = 0
+    nNodesSolve = 0
     NodeID(:,:,:) = 0
     iNodeIndex(:) = 0
     jNodeIndex(:) = 0
@@ -1588,15 +1691,15 @@
     do i = nhalo+1, nx-nhalo
        if (active_vertex(i,j)) then   ! all nodes in column are active
           do k = 1, nz               
-             nNodes = nNodes + 1   
-             NodeID(k,i,j) = nNodes   ! unique index for each node
-             iNodeIndex(nNodes) = i
-             jNodeIndex(nNodes) = j
-             kNodeIndex(nNodes) = k
+             nNodesSolve = nNodesSolve + 1   
+             NodeID(k,i,j) = nNodesSolve   ! unique index for each node
+             iNodeIndex(nNodesSolve) = i
+             jNodeIndex(nNodesSolve) = j
+             kNodeIndex(nNodesSolve) = k
 
-             if (verbose .and. this_rank==rtest .and. nNodes==ntest) then
+             if (verbose .and. this_rank==rtest .and. nNodesSolve==ntest) then
                 print*, ' '
-                print*, 'i, j, k, n:', i, j, k, nNodes
+                print*, 'i, j, k, n:', i, j, k, nNodesSolve
                 print*, 'sigma, stagusrf, stagthck:', sigma(k), stagusrf(i,j), stagthck(i,j)
                 print*, 'dx, dy, dz:', xVertex(i,j) - xVertex(i-1,j), &
                                        yVertex(i,j) - yVertex(i,j-1), &
@@ -1610,7 +1713,7 @@
 
     if (verbose .and. this_rank==rtest) then
        print*, ' '
-       print*, 'nNodes =', nNodes
+       print*, 'nNodesSolve =', nNodesSolve
     endif
 
   end subroutine get_nodal_geometry
@@ -2308,6 +2411,7 @@
        efvs               ! effective viscosity
 
     integer :: i, j, k, n, p
+    integer :: iA, jA, kA
 
     integer :: iNode, jNode, kNode
 
@@ -2447,10 +2551,12 @@
              enddo
           endif
 
-!TODO - This subroutine is for testing and debugging; could be skipped for production runs.
+          if (check_symmetry) then
 
-          call check_symmetry_element_matrix(nNodesPerElement,  &
-                                             Kuu, Kuv, Kvu, Kvv)
+             call check_symmetry_element_matrix(nNodesPerElement,  &
+                                                Kuu, Kuv, Kvu, Kvv)
+
+          endif
 
          ! If solving in parallel with Trilinos, we have the option at this point to 
          ! call a sum_into_global_matrix routine, passing one row at a time of the
@@ -2503,6 +2609,7 @@
 
     enddo      ! i
     enddo      ! j
+
 
   end subroutine assemble_stiffness_matrix
 
@@ -2871,9 +2978,7 @@
        effstrain = vel_scale/len_scale   ! typical strain rate, s^{-1}  
        efvs = flwafact * effstrain**p_effstr  
 
-!WHL - debug
        if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
-!!       if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest+1 .and. k==ktest) then
           print*, 'flwafact, effstrain, efvs =', flwafact, effstrain, efvs       
        endif
 
@@ -2886,7 +2991,6 @@
 !WHL - This is the glam-type scaling
 !!       efvs = efvs * scyr/tim0 / tau0   ! tau0 = rhoi*grav*thk0
 
-!WHL - debug
        if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
           print*, 'Set efvs = constant:', efvs
        endif
@@ -2948,7 +3052,6 @@
 
 !WHL - debug
     if (verbose .and. this_rank==rtest .and. ii==itest .and. jj==jtest .and. k==ktest) then
-!!    if (verbose .and. this_rank==rtest .and. ii==itest .and. jj==jtest+1 .and. k==ktest) then
        print*, ' '
        print*, 'Increment element matrix, p =', p
     endif
@@ -2960,18 +3063,15 @@
     do j = 1, nNodesPerElement      ! columns of K
        do i = 1, nNodesPerElement   ! rows of K
 
-       if (verbose .and. this_rank==rtest .and. ii==itest .and. jj==jtest .and. k==ktest .and. p==ptest &
-!!       if (verbose .and. this_rank==rtest .and. ii==itest .and. jj==jtest+1 .and. k==ktest .and. p==ptest &
-                   .and.  i==1     .and.  j==1) then
-          print*, 'efvs, wqp, detJ/vol0 =', efvs, wqp, detJ/vol0
-          print*, 'dphi_dz(1) =', dphi_dz(1)
-          print*, 'dphi_dx(1) =', dphi_dx(1)
-          print*, 'Kuu dphi/dz increment(1,1) =', efvs*wqp*detJ/vol0*dphi_dz(1)*dphi_dz(1)
-          print*, 'Kuu dphi/dx increment(1,1) =', efvs*wqp*detJ/vol0*4.d0*dphi_dx(1)*dphi_dx(1)
-       endif
+!       if (verbose .and. this_rank==rtest .and. ii==itest .and. jj==jtest .and. k==ktest .and. p==ptest) then
+!          print*, 'efvs, wqp, detJ/vol0 =', efvs, wqp, detJ/vol0
+!          print*, 'dphi_dz(1) =', dphi_dz(1)
+!          print*, 'dphi_dx(1) =', dphi_dx(1)
+!          print*, 'Kuu dphi/dz increment(1,1) =', efvs*wqp*detJ/vol0*dphi_dz(1)*dphi_dz(1)
+!          print*, 'Kuu dphi/dx increment(1,1) =', efvs*wqp*detJ/vol0*4.d0*dphi_dx(1)*dphi_dx(1)
+!       endif
 
-!WHL - Note volume scaling such that detJ/vol0 is close to unity
-!       Compare SIA matrix to total matrix
+          !WHL - Note volume scaling such that detJ/vol0 is closer to unity
 
           Kuu(i,j) = Kuu(i,j) + efvs*wqp*detJ/vol0 *                                               &
                               ( ssa_factor * (4.d0*dphi_dx(j)*dphi_dx(i) + dphi_dy(j)*dphi_dy(i))  &
@@ -3026,9 +3126,11 @@
 
 !WHL - debug
     if (verbose .and. this_rank==rtest .and. iElement==itest .and. jElement==jtest .and. kElement==ktest) then
-!!    if (verbose .and. this_rank==rtest .and. iElement==itest .and. jElement==jtest+1 .and. kElement==ktest) then
-       print*, 'First row of K:'
-       write(6, '(8e12.4)') Kmat(1,:)
+       print*, 'Element i, j, k:', iElement, jElement, kElement 
+       print*, 'Rows of K:'
+       do n = 1, nNodesPerElement
+          write(6, '(8e12.4)') Kmat(n,:)
+       enddo
     endif
 
 !TODO - Switch loops or switch order of indices in K(m,n)?
@@ -3050,6 +3152,14 @@
           jA = jshift(m,n)           ! these indices can take values -1, 0 and 1
 
           Amat(kA,iA,jA,k,i,j) = Amat(kA,iA,jA,k,i,j) + Kmat(m,n)
+
+!WHL - debug
+!          if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest  &
+!                      .and. iA == iAtest .and. jA==jAtest .and. kA==kAtest) then
+!             print*, ' '
+!             print*, 'i, j, k, iA, jA, kA:', i, j, k, iA, jA, kA
+!             print*, 'm, n, Kmat, new Amat:', m, n, Kmat(m,n), Amat(kA,iA,jA,k,i,j)
+!          endif
 
        enddo     ! n
 
@@ -3564,7 +3674,7 @@
        nhalo                    ! number of halo layers
 
     logical, dimension(nx-1,ny-1), intent(in) ::  &
-       active_vertex       ! true for active vertices (columns where velocity is computed)
+       active_vertex       ! true for active vertices (vertices of active cells)
 
     logical, dimension(nz,nx-1,ny-1), intent(in) ::  &
        umask_dirichlet     ! Dirichlet mask for velocity (if true, u = 0)
@@ -3929,17 +4039,17 @@
 ! The next three subroutines are used for the SLAP solver only.
 !****************************************************************************
 
-  subroutine slap_preprocess(nx,           ny,         &
-                             nz,           nNodes,     &
-                             NodeID,                   &
-                             iNodeIndex,   jNodeIndex, &
-                             kNodeIndex,               &
-                             Auu,          Auv,        &
-                             Avu,          Avv,        &  
-                             bu,           bv,         &
-                             uvel,         vvel,       &
-                             matrix_order, nNonzero,   &
-                             matrix,       rhs,        &
+  subroutine slap_preprocess(nx,           ny,          &
+                             nz,           nNodesSolve, &
+                             NodeID,                    &
+                             iNodeIndex,   jNodeIndex,  &
+                             kNodeIndex,                &
+                             Auu,          Auv,         &
+                             Avu,          Avv,         &  
+                             bu,           bv,          &
+                             uvel,         vvel,        &
+                             matrix_order, nNonzero,    &
+                             matrix,       rhs,         &
                              answer)
 
     !----------------------------------------------------------------
@@ -3960,7 +4070,7 @@
     integer, intent(in) ::   &
        nx, ny,               &  ! horizontal grid dimensions
        nz,                   &  ! number of vertical levels at which velocity is computed
-       nNodes                   ! number of nodes where we solve for velocity
+       nNodesSolve              ! number of nodes where we solve for velocity
 
     integer, dimension(nz,nx-1,ny-1), intent(in) ::  &
        NodeID             ! ID for each node
@@ -3999,8 +4109,8 @@
 
     integer :: i, j, k, iA, jA, kA, n, ct
 
-    integer :: rowA, colA   ! row and column of A submatrices (order = nNodes)
-    integer :: row, col     ! row and column of sparse matrix (order = 2*nNodes) 
+    integer :: rowA, colA   ! row and column of A submatrices (order = nNodesSolve)
+    integer :: row, col     ! row and column of sparse matrix (order = 2*nNodesSolve) 
 
     real(dp) :: val         ! value of matrix coefficient
     
@@ -4008,7 +4118,7 @@
 
     ct = 0
 
-    do rowA = 1, nNodes
+    do rowA = 1, nNodesSolve
 
        i = iNodeIndex(rowA)
        j = jNodeIndex(rowA)
@@ -4016,6 +4126,8 @@
 
        ! Load the nonzero values associated with Auu and Auv
        ! These are assigned a value of matrix%row = 2*rowA - 1
+
+!TODO: Make sure that this procedure captures all the nonzero entries
 
        do jA = -1, 1
        do iA = -1, 1
@@ -4047,6 +4159,16 @@
                 matrix%val(ct) = val
              endif
 
+             if (2*colA==rowtest .and. 2*rowA-1==coltest) then
+               print*, ' '
+               print*, 'rowA, colA, i, j, k =', rowA, colA, i, j, k
+               print*, 'iA, jA, kA:', iA, jA, kA
+               print*, 'Auv(iA,jA,kA,i,j,k) =', Auv(kA,iA,jA,k,i,j)
+               print*, 'Avu(-iA,-jA,-kA,i+iA,j+jA,k+kA) =', Avu(-kA,-iA,-jA, k+kA, i+iA, j+jA)
+               print*, ' '
+               print*, 'ct, row, col, val:', ct, matrix%row(ct), matrix%col(ct), matrix%val(ct)
+             endif
+
           endif     ! i+iA, j+jA, and k+kA in bounds
 
        enddo        ! kA
@@ -4059,6 +4181,7 @@
        do jA = -1, 1
        do iA = -1, 1
        do kA = -1, 1
+
 
           if ( (k+kA >= 1 .and. k+kA <= nz)         &
                           .and.                     &
@@ -4075,6 +4198,17 @@
                 matrix%row(ct) = 2*rowA
                 matrix%col(ct) = 2*colA - 1
                 matrix%val(ct) = val
+             endif
+
+!WHL - debug
+             if (2*rowA==rowtest .and. 2*colA-1==coltest) then
+               print*, ' '
+               print*, 'rowA, colA, i, j, k =', rowA, colA, i, j, k
+               print*, 'iA, jA, kA:', iA, jA, kA
+               print*, 'Avu(iA,jA,kA,i,j,k) =', Avu(kA,iA,jA,k,i,j)
+               print*, 'Auv(-iA,-jA,-kA,i+iA,j+jA,k+kA) =', Auv(-kA,-iA,-jA, k+kA, i+iA, j+jA)
+               print*, ' '
+               print*, 'ct, row, col, val:', ct, matrix%row(ct), matrix%col(ct), matrix%val(ct)
              endif
 
              ! Avv 
@@ -4101,14 +4235,15 @@
     matrix%symmetric = .false.
 
     if (verbose) then
-       print*, 'solver_preprocess'
+       print*, ' '
+       print*, 'solver preprocess'
        print*, 'order, nonzeros =', matrix%order, matrix%nonzeros
     endif
 
     ! Initialize the answer vector
     ! For efficiency, put the u and v terms for a given node adjacent in storage.
 
-    do n = 1, nNodes
+    do n = 1, nNodesSolve
        i = iNodeIndex(n)
        j = jNodeIndex(n)
        k = kNodeIndex(n)
@@ -4127,7 +4262,7 @@
     ! Set the rhs vector
     ! For efficiency, put the u and v terms for a given node adjacent in storage.
 
-    do n = 1, nNodes
+    do n = 1, nNodesSolve
        i = iNodeIndex(n)
        j = jNodeIndex(n)
        k = kNodeIndex(n)
@@ -4147,7 +4282,7 @@
 
 !****************************************************************************
 
-  subroutine slap_postprocess(nNodes,       answer,                   &
+  subroutine slap_postprocess(nNodesSolve,  answer,                   &
                               iNodeIndex,   jNodeIndex,  kNodeIndex,  &
                               uvel,         vvel)
 
@@ -4158,13 +4293,13 @@
     ! Input-output arguments
     !----------------------------------------------------------------
 
-    integer, intent(in) :: nNodes     ! number of nodes where we solve for velocity
+    integer, intent(in) :: nNodesSolve     ! number of nodes where we solve for velocity
 
-    real(dp), dimension(:), intent(in) ::   &
+    real(dp), dimension(:), intent(in) ::  &
        answer             ! velocity solution vector
 
     integer, dimension(:), intent(in) ::   &
-       iNodeIndex, jNodeIndex, kNodeIndex   ! i, j and k indices of active nodes
+       iNodeIndex, jNodeIndex, kNodeIndex  ! i, j and k indices of active nodes
 
     real(dp), dimension(:,:,:), intent(inout) ::   &
        uvel, vvel         ! u and v components of velocity
@@ -4176,7 +4311,7 @@
           print*, 'solver postprocess: n, i, j, k, u, v'
        endif
 
-    do n = 1, nNodes
+    do n = 1, nNodesSolve
 
        i = iNodeIndex(n)
        j = jNodeIndex(n)
@@ -4319,16 +4454,12 @@
     ! This is true provided that (1) Auu = (Auu)^T
     !                            (2) Avv = (Avv)^T
     !                            (3) Auv = (Avu)^T
-    ! However, the A matrices are assembled in a dense fashion to save storage.
+    ! The A matrices are assembled in a dense fashion to save storage
+    !  and preserve the i/j/k structure of the grid..
     !
-    ! This check should not be needed for production runs with a well-tested code,
-    !  but is included for now to help with debugging.
+    ! There can be small differences from perfect symmetry due to roundoff error.
+    ! These differences are fixed provided they are small enough.
     !------------------------------------------------------------------    
-
-!PARALLEL - Will this work in parallel if the entire matrix is not computed on this node?
-!           I think so, because even though the matrix is incomplete for rows corresponding
-!            to halo velocities, each element matrix is symmetric and therefore the
-!            partial matrix will be symmetric.
 
     integer, intent(in) ::   &
        nx, ny,               &  ! horizontal grid dimensions
@@ -4336,197 +4467,176 @@
        nhalo                    ! number of halo layers
 
     logical, dimension(nx-1,ny-1), intent(in) ::   &
-       active_vertex          ! T for columns (i,j) where velocity is computed, else F
+       active_vertex            ! T for columns (i,j) where velocity is computed, else F
 
-    real(dp), dimension(-1:1,-1:1,-1:1,nz,nx-1,ny-1), intent(in) ::   &
-             Auu, Auv, Avu, Avv     ! components of assembled stiffness matrix
-                                    !
-                                    !    Auu  | Auv
-                                    !    _____|____          
-                                    !         |
-                                    !    Avu  | Avv                                    
+    real(dp), dimension(-1:1,-1:1,-1:1,nz,nx-1,ny-1), intent(inout) ::   &
+       Auu, Auv, Avu, Avv       ! components of assembled stiffness matrix
+                                !
+                                !    Auu  | Auv
+                                !    _____|____          
+                                !         |
+                                !    Avu  | Avv                                    
 
     integer :: i, j, k, iA, jA, kA
 
     real(dp) :: val1, val2          ! values of matrix coefficients
 
-    real(dp) :: maxdiff
+    real(dp) :: maxdiff, diag_entry, avg_val
 
-    ! check that Auu = (Auu)^T
+    ! Check matrix for symmetry
+
+    ! Here we correct for small differences from symmetry due to roundoff error.
+    ! The maximum departure from symmetry is set to be a small fraction (1.e-12) 
+    !  of the diagonal entry for the row.
+    ! If the departure from symmetry is larger than this, then the model prints a warning 
+    !  and/or aborts.
 
     maxdiff = 0.d0
 
-! Loop over all vertices that border locally owned vertices.
+! Loop over locally owned vertices.
+! Each active vertex is associate with 2*nz matrix rows belonging to this processor.
 ! Locally owned vertices are (nhalo+1:ny-nhalo, nhalo+1:nx-nhalo)
 !           
-    do j = nhalo, ny-nhalo+1
-       do i = nhalo, nx-nhalo+1
+    do j = nhalo+1, ny-nhalo
+       do i = nhalo+1, nx-nhalo
           if (active_vertex(i,j)) then
              do k = 1, nz
+
+                ! Check Auu and Auv for symmetry
+
+                diag_entry = Auu(0,0,0,k,i,j)
 
                 do jA = -1, 1
                 do iA = -1, 1
                 do kA = -1, 1
 
-                   val1 = Auu(kA, iA, jA, k, i, j)      ! value of Auu(row,col)
+                   ! Check that Auu = Auu^T
 
-                   if (val1 /= 0.d0) then
+                   if (k+kA >= 1 .and. k+kA <=nz) then  ! to keep k index in bounds
 
-                      ! Note: There is a risk of stepping out of bounds here if, e.g., k+kA = nz+1.
-                      ! But in this case we should have val1 = 0.
- 
+                      val1 = Auu( kA,  iA,  jA, k,    i,    j   )   ! value of Auu(row,col)
                       val2 = Auu(-kA, -iA, -jA, k+kA, i+iA, j+jA)   ! value of Auu(col,row)
 
-                      if (abs(val2 - val1) > eps12) then
-                         print*, 'Auu is not symmetric: i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
-                         print*, 'Auu(row,col), Auu(col,row):', val1, val2
-!!                      stop
-                      endif
+                      if (val2 /= val1) then
+                          
+                         if (abs(val2 - val1) > maxdiff) maxdiff = abs(val2 - val1)
 
-                      if (abs(val2 - val1) > maxdiff) maxdiff = abs(val2 - val1)
+                         ! if difference is small, then fix the asymmetry by averaging values
+                         ! else print a warning and abort
 
-                   endif   ! val1 /= 0.
+                         if ( abs(val2-val1) < eps12*diag_entry ) then
+                            avg_val = 0.5d0 * (val1 + val2)
+                            Auu( kA, iA, jA, k,   i,   j   ) = avg_val
+                            Auu(-kA,-iA,-jA, k+kA,i+iA,j+jA) = avg_val
+!!                            print*, 'Auu, i, j, k, iA, jA, kA, val1, val2:', i, j, k, iA, jA, kA, val1, val2
+                         else
+                            print*, ' '
+                            print*, 'Auu is not symmetric: i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
+                            print*, 'Auu(row,col), Auu(col,row), diff:', val1, val2, val2 - val1
+                            stop  !TODO - Put in a proper abort
+                         endif
+
+                      endif   ! val2 /= val1
                 
-               enddo        ! kA
-               enddo        ! iA
-               enddo        ! jA
+                      ! Check that Auv = (Avu)^T
 
-             enddo     ! k
-          endif        ! active_vertex
-       enddo           ! i
-    enddo              ! j
-
-    maxdiff = parallel_reduce_max(maxdiff)
-    if (verbose .and. main_task) print*, 'Auu: max difference from symmetry =', maxdiff
-
-    ! check that Avv = (Avv)^T
-
-    !TODO - The following code is basically identical to the above code for Auu.
-    !       Combine into one code chunk called twice?
-
-    maxdiff = 0.d0
-
-    do j = nhalo, ny-nhalo+1
-       do i = nhalo, nx-nhalo+1
-          if (active_vertex(i,j)) then
-             do k = 1, nz
-
-                do jA = -1, 1
-                do iA = -1, 1
-                do kA = -1, 1
-
-                   val1 = Avv(kA, iA, jA, k, i, j)      ! value of Avv(row,col)
-
-                   if (val1 /= 0.d0) then
-
-                      ! Note: There is a risk of stepping out of bounds here if, e.g., k+kA = nz+1.
-                      ! But in this case we should have val1 = 0.
- 
-                      val2 = Avv(-kA, -iA, -jA, k+kA, i+iA, j+jA)   ! value of Avv(col,row)
-
-                      if (abs(val2 - val1) > eps12) then
-                         print*, 'Avv is not symmetric: i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
-                         print*, 'Avv(row,col), Avv(col,row):', val1, val2
-!!                      stop
-                      endif
-
-                      if (abs(val2 - val1) > maxdiff) maxdiff = abs(val2 - val1)
-
-                   endif   ! val1 /= 0.
-                
-               enddo        ! kA
-               enddo        ! iA
-               enddo        ! jA
-
-             enddo     ! k
-          endif        ! active_vertex
-       enddo           ! i
-    enddo              ! j
-
-    maxdiff = parallel_reduce_max(maxdiff)
-    if (verbose .and. main_task) print*, 'Avv: max difference from symmetry =', maxdiff
-
-    ! Check that Auv = (Avu)^T
-
-    maxdiff = 0.d0
-
-    do j = nhalo, ny-nhalo+1
-       do i = nhalo, nx-nhalo+1
-          if (active_vertex(i,j)) then
-             do k = 1, nz
-
-                do jA = -1, 1
-                do iA = -1, 1
-                do kA = -1, 1
-
-                   val1 = Auv(kA, iA, jA, k, i, j)      ! value of Auv(row,col)
-
-                   if (val1 /= 0.d0) then
-
-                      ! Note: There is a risk of stepping out of bounds here if, e.g., k+kA = nz+1.
-                      ! But in this case we should have val1 = 0.
- 
+                      val1 = Auv( kA,  iA,  jA, k,    i,    j)      ! value of Auv(row,col)
                       val2 = Avu(-kA, -iA, -jA, k+kA, i+iA, j+jA)   ! value of Avu(col,row)
 
-                      if (abs(val2 - val1) > eps12) then
-                         print*, 'Auv is not equal to (Avu)^T, i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
-                         print*, 'Auv(row,col), Avu(col,row):', val1, val2
-!!                      stop
-                      endif
+                      if (val2 /= val1) then
 
-                      if (abs(val2 - val1) > maxdiff) maxdiff = abs(val2 - val1)
+                         if (abs(val2 - val1) > maxdiff) maxdiff = abs(val2 - val1)
 
-                   endif   ! val1 /= 0.
-                
-               enddo        ! kA
-               enddo        ! iA
-               enddo        ! jA
+                         ! if difference is small, then fix the asymmetry by averaging values
+                         ! else print a warning and abort
 
-             enddo     ! k
-          endif        ! active_vertex
-       enddo           ! i
-    enddo              ! j
+                         if ( abs(val2-val1) < eps12*diag_entry ) then
+                            avg_val = 0.5d0 * (val1 + val2)
+                            Auv( kA, iA, jA, k,   i,   j   ) = avg_val
+                            Avu(-kA,-iA,-jA, k+kA,i+iA,j+jA) = avg_val
+!!                            print*, 'Auv, i, j, k, iA, jA, kA, val1, val2:', i, j, k, iA, jA, kA, val1, val2
+                         else
+                            print*, ' '
+                            print*, 'Auv is not equal to (Avu)^T, i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
+                            print*, 'Auv(row,col), Avu(col,row), diff:', val1, val2, val2 - val1
+                            stop  !TODO - Put in a proper abort
+                         endif
 
-    maxdiff = parallel_reduce_max(maxdiff)
-    if (verbose .and. main_task) print*, 'Auv v. (Avu)^T: max difference from symmetry =', maxdiff
+                      endif  ! val2 /= val1
 
-    ! Check that Avu = (Auv)^T
-    ! This check may not be necessary given that we've already checked that Auv = (Avu)^T.
-    !  Just being extra careful.
+                   endif     ! k+kA in bounds
+            
+                enddo        ! kA
+                enddo        ! iA
+                enddo        ! jA
 
-    maxdiff = 0.d0
+                ! Now check Avu and Avv
 
-    do j = nhalo, ny-nhalo+1
-       do i = nhalo, nx-nhalo+1
-          if (active_vertex(i,j)) then
-             do k = 1, nz
+                diag_entry = Avv(0,0,0,k,i,j)
+
+                ! check that Avv = (Avv)^T
 
                 do jA = -1, 1
                 do iA = -1, 1
                 do kA = -1, 1
 
-                   val1 = Avu(kA, iA, jA, k, i, j)      ! value of Avu(row,col)
+                   if (k+kA >= 1 .and. k+kA <=nz) then  ! to keep k index in bounds
 
-                   if (val1 /= 0.d0) then
+                      val1 = Avv( kA,  iA,  jA, k,    i,    j)      ! value of Avv(row,col)
+                      val2 = Avv(-kA, -iA, -jA, k+kA, i+iA, j+jA)   ! value of Avv(col,row)
 
-                      ! Note: There is a risk of stepping out of bounds here if, e.g., k+kA = nz+1.
-                      ! But in this case we should have val1 = 0.
- 
+                      if (val2 /= val1) then
+                          
+                         if (abs(val2 - val1) > maxdiff) maxdiff = abs(val2 - val1)
+
+                         ! if difference is small, then fix the asymmetry by averaging values
+                         ! else print a warning and abort
+
+                         if ( abs(val2-val1) < eps12*diag_entry ) then
+                            avg_val = 0.5d0 * (val1 + val2)
+                            Avv( kA, iA, jA, k,   i,   j   ) = avg_val
+                            Avv(-kA,-iA,-jA, k+kA,i+iA,j+jA) = avg_val
+!!                            print*, 'Avv, i, j, k, iA, jA, kA, val1, val2:', i, j, k, iA, jA, kA, val1, val2
+                         else
+                            print*, ' '
+                            print*, 'Avv is not symmetric: i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
+                            print*, 'Avv(row,col), Avv(col,row), diff:', val1, val2, val2 - val1
+                            stop  !TODO - Put in a proper abort
+                         endif
+
+                      endif   ! val2 /= val1
+
+                      ! Check that Avu = (Auv)^T
+
+                      val1 = Avu( kA,  iA,  jA, k,    i,    j)      ! value of Avu(row,col)
                       val2 = Auv(-kA, -iA, -jA, k+kA, i+iA, j+jA)   ! value of Auv(col,row)
-
-                      if (abs(val2 - val1) > eps12) then
-                         print*, 'Avu is not equal to (Auv)^T, i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
-                         print*, 'Avu(row,col), Auv(col,row):', val1, val2
-!!                      stop
-                      endif
 
                       if (abs(val2 - val1) > maxdiff) maxdiff = abs(val2 - val1)
 
-                   endif   ! val1 /= 0.
-                
-               enddo        ! kA
-               enddo        ! iA
-               enddo        ! jA
+                      if (val2 /= val1) then
+
+                         ! if difference is small, then fix the asymmetry by averaging values
+                         ! else print a warning and abort
+
+                         if ( abs(val2-val1) < eps12*diag_entry ) then
+                            avg_val = 0.5d0 * (val1 + val2)
+                            Avu( kA, iA, jA, k,   i,   j   ) = avg_val
+                            Auv(-kA,-iA,-jA, k+kA,i+iA,j+jA) = avg_val
+!!                            print*, 'Avu, i, j, k, iA, jA, kA, val1, val2:', i, j, k, iA, jA, kA, val1, val2
+                         else
+                            print*, ' '
+                            print*, 'Avu is not equal to (Auv)^T, i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
+                            print*, 'Avu(row,col), Auv(col,row), diff:', val1, val2, val2 - val1
+                            stop  !TODO - Put in a proper abort
+                         endif
+
+                      endif  ! val2 /= val1
+
+                   endif     ! k+kA in bounds
+
+                enddo        ! kA
+                enddo        ! iA
+                enddo        ! jA
 
              enddo     ! k
           endif        ! active_vertex
@@ -4534,7 +4644,10 @@
     enddo              ! j
 
     maxdiff = parallel_reduce_max(maxdiff)
-    if (verbose .and. main_task) print*, 'Avu v. (Auv)^T: max difference from symmetry =', maxdiff
+    if (verbose .and. main_task) then
+       print*, ' '
+       print*, 'Max difference from symmetry =', maxdiff
+    endif
 
   end subroutine check_symmetry_assembled_matrix
 
@@ -4683,6 +4796,116 @@
     stop
 
   end subroutine solve_test_matrix
+
+!****************************************************************************
+
+!WHL - This subroutine is currently not called.
+!      It might be useful if the matrix contains many entries that are
+!       close to but not quite equal to zero (e.g., due to roundoff error).
+!      It may need to be modified to preserve symmetry (so we don't zero out 
+!       an entry without zeroing out its symmetric partner).
+
+  subroutine remove_small_matrix_terms(nx, ny, nz,   &
+                                       Auu, Auv,     &
+                                       Avu, Avv) 
+
+
+    !------------------------------------------------------------------------
+    ! Get rid of matrix entries that are very small compared to diagonal entries.
+    !   
+    ! This handles a potential numerical issue: Some entries should be zero because of 
+    !  cancellation of terms, but are not exactly zero because of rounding errors.
+    !------------------------------------------------------------------------
+
+    !----------------------------------------------------------------
+    ! Input-output arguments
+    !----------------------------------------------------------------
+
+    integer, intent(in) ::      &
+       nx, ny,                  &    ! horizontal grid dimensions
+       nz                            ! number of vertical layers at which velocity is computed
+
+    real(dp), dimension(-1:1,-1:1,-1:1,nz,nx-1,ny-1), intent(inout) ::  &
+       Auu, Auv,    &     ! assembled stiffness matrix, divided into 4 parts
+       Avu, Avv                                    
+
+    !---------------------------------------------------------
+    ! Local variables
+    !---------------------------------------------------------
+
+    integer :: i, j, k, iA, jA, kA
+
+    real(dp) ::       &
+       diag_entry,   &! mean size of diagonal entries
+       min_entry      ! minimum size of entries kept in matrix
+
+    do j = 1, ny-1
+    do i = 1, nx-1
+    do k = 1, nz
+
+       ! Compute threshold value of matrix entries for Auu/Auv row
+
+       diag_entry = Auu(0,0,0,k,i,j)
+       min_entry = eps12 * diag_entry
+
+       ! Remove very small values
+
+       do jA = -1, 1
+       do iA = -1, 1
+       do kA = -1, 1
+
+          if (abs(Auu(kA,iA,jA,k,i,j)) < min_entry) then
+!             if (abs(Auu(kA,iA,jA,k,i,j)) > 0.d0) then
+!                print*, 'Dropping Auu term:, i, j, k, iA, jA, kA, val:', i, j, k, iA, jA, kA, Auu(kA,iA,jA,k,i,j)
+!             endif
+             Auu(kA,iA,jA,k,i,j) = 0.d0
+          endif
+
+          if (abs(Auv(kA,iA,jA,k,i,j)) < min_entry) then
+!             if (abs(Auv(kA,iA,jA,k,i,j)) > 0.d0) then
+!                print*, 'Dropping Auv term:, i, j, k, iA, jA, kA, val:', i, j, k, iA, jA, kA, Auv(kA,iA,jA,k,i,j)
+!             endif
+             Auv(kA,iA,jA,k,i,j) = 0.d0
+          endif
+
+       enddo
+       enddo
+       enddo
+
+       ! Compute threshold value of matrix entries for Avu/Avv row
+
+       diag_entry = Avv(0,0,0,k,i,j)
+       min_entry = eps12 * diag_entry
+
+       ! Remove very small values
+
+       do jA = -1, 1
+       do iA = -1, 1
+       do kA = -1, 1
+
+          if (abs(Avu(kA,iA,jA,k,i,j)) < min_entry) then
+!             if (abs(Avu(kA,iA,jA,k,i,j)) > 0.d0) then
+!                print*, 'Dropping Avu term:, i, j, k, iA, jA, kA, val:', i, j, k, iA, jA, kA, Avu(kA,iA,jA,k,i,j)
+!             endif
+             Avu(kA,iA,jA,k,i,j) = 0.d0
+          endif
+
+          if (abs(Avv(kA,iA,jA,k,i,j)) < min_entry) then
+!             if (abs(Avv(kA,iA,jA,k,i,j)) > 0.d0) then
+!                print*, 'Dropping Avv term:, i, j, k, iA, jA, kA, val:', i, j, k, iA, jA, kA, Avv(kA,iA,jA,k,i,j)
+!             endif
+             Avv(kA,iA,jA,k,i,j) = 0.d0
+          endif
+
+       enddo
+       enddo
+       enddo
+
+  enddo
+  enddo
+  enddo
+     
+  end subroutine remove_small_matrix_terms
 
 !****************************************************************************
 

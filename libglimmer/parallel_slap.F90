@@ -174,11 +174,13 @@ module parallel
   end interface
 
 !WHL - added staggered_parallel_halo_integer_2d and _3d
+!    - added staggered_parallel_halo_real8_6d
   interface staggered_parallel_halo
      module procedure staggered_parallel_halo_integer_2d
      module procedure staggered_parallel_halo_integer_3d
      module procedure staggered_parallel_halo_real8_2d
      module procedure staggered_parallel_halo_real8_3d
+     module procedure staggered_parallel_halo_real8_6d
   end interface
 
   interface parallel_print
@@ -2113,5 +2115,54 @@ contains
     a(:,:,1:staggered_lhalo) = ncopy(:,:,:)
 
   end subroutine staggered_parallel_halo_real8_3d
+
+  subroutine staggered_parallel_halo_real8_6d(a)
+
+    ! Implements a staggered grid halo update for a 6D field.
+    ! This subroutine is custom-made for the 6D arrays that hold matrix entries.
+
+    ! As the grid is staggered, the array 'a' is one smaller in both dimensions than an unstaggered array.
+    ! The vertical dimension is assumed to precede the i and j indices, i.e., a(:,:,:,k,i,j).
+
+    ! NOTE: The first three dimensions are -1:1. 
+    !The subroutine is very specific for matrix arrays with this structure.
+
+    implicit none
+    real(8),dimension(-1:,-1:,-1:,:,:,:) :: a
+
+    real(8),dimension(-1:1,-1:1,-1:1,size(a,4),staggered_lhalo,size(a,6)-staggered_lhalo-staggered_uhalo) :: ecopy
+    real(8),dimension(-1:1,-1:1,-1:1,size(a,4),staggered_uhalo,size(a,6)-staggered_lhalo-staggered_uhalo) :: wcopy
+    real(8),dimension(-1:1,-1:1,-1:1,size(a,4),size(a,5),staggered_lhalo) :: ncopy
+    real(8),dimension(-1:1,-1:1,-1:1,size(a,4),size(a,5),staggered_uhalo) :: scopy
+
+    ! begin
+
+    ! Confirm staggered array
+    if (size(a,5)/=local_ewn-1 .or. size(a,6)/=local_nsn-1) then
+         write(*,*) "staggered_parallel_halo() requires staggered arrays."
+         call parallel_stop(__FILE__,__LINE__)
+    endif
+
+    wcopy(:,:,:,:,:, 1:size(a,6)-staggered_lhalo-staggered_uhalo) = &
+       a(:,:,:,:,1+staggered_lhalo:1+staggered_lhalo+staggered_uhalo-1, &
+                 1+staggered_lhalo:size(a,6)-staggered_uhalo)
+
+    ecopy(:,:,:,:,:, 1:size(a,6)-staggered_lhalo-staggered_uhalo) = &
+       a(:,:,:,:,size(a,5)-staggered_uhalo-staggered_lhalo+1:size(a,5)-staggered_uhalo, &
+                 1+staggered_lhalo:size(a,6)-staggered_uhalo)
+
+    a(:,:,:,:, size(a,5)-staggered_uhalo+1:size(a,5), 1+staggered_lhalo:size(a,6)-staggered_uhalo) = &
+       wcopy(:,:,:,:,:, 1:size(a,6)-staggered_lhalo-staggered_uhalo)
+
+    a(:,:,:,:, 1:staggered_lhalo, 1+staggered_lhalo:size(a,6)-staggered_uhalo) = &
+       ecopy(:,:,:,:,:, 1:size(a,6)-staggered_lhalo-staggered_uhalo)
+
+    scopy(:,:,:,:,:,:) = a(:,:,:,:,:, 1+staggered_lhalo:1+staggered_lhalo+staggered_uhalo-1)
+    ncopy(:,:,:,:,:,:) = a(:,:,:,:,:, size(a,6)-staggered_uhalo-staggered_lhalo+1:size(a,6)-staggered_uhalo)
+
+    a(:,:,:,:,:,size(a,6)-staggered_uhalo+1:size(a,6)) = scopy(:,:,:,:,:,:)
+    a(:,:,:,:,:,1:staggered_lhalo) = ncopy(:,:,:,:,:,:)
+
+  end subroutine staggered_parallel_halo_real8_6d
 
 end module parallel
