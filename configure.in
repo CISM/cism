@@ -121,7 +121,7 @@ f95_preprocessor="-fpp"
 fs=`echo $f95string |$EGREP "XL Fortran"`
 if test "$fs" != "" ; then
   f95v="IBM xlf"
-  CPPFLAGS="$CPPFLAGS -DxlfFortran"
+  CPPFLAGS="$CPPFLAGS -DCPRIBM"
 fi
 # testing for SUN f95 compiler
 fs=`echo $f95string |$EGREP "Sun|Forte"`

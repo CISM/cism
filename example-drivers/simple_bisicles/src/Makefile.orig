@@ -172,7 +172,7 @@ CCDEPMODE = depmode=aix
 CFLAGS = -O2 -qcpluscmt
 CONVERT = convert
 CPP = mpcc_r -qlanglvl=extc89 -E
-CPPFLAGS =  -DxlfFortran
+CPPFLAGS =  -DCPRIBM
 
 #CXX = mpCC_r
 #CXX = xlC_r
