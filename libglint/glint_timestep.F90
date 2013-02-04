@@ -1,4 +1,4 @@
-#ifdef xlfFortran
+#ifdef CPRIBM
 @PROCESS ALIAS_SIZE(107374182)
 #endif
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

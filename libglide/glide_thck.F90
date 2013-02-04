@@ -1,6 +1,6 @@
 ! WJS (1-30-12): The following (turning optimization off) is included as a workaround for
 ! LONG (infinite???) compile times with xlf, at least in IBM XL Fortran for AIX, V12.1 on bluefire
-#ifdef xlfFortran
+#ifdef CPRIBM
 @PROCESS OPT(0)
 #endif
 

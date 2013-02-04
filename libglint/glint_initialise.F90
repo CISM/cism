@@ -1,10 +1,10 @@
 ! WJS (1-30-12): The following (turning optimization off) is needed as a workaround for an
 ! xlf compiler bug, at least in IBM XL Fortran for AIX, V12.1 on bluefire
-#ifdef xlfFortran
+#ifdef CPRIBM
 @PROCESS OPT(0)
 #endif
 
-#ifdef xlfFortran
+#ifdef CPRIBM
 @PROCESS ALIAS_SIZE(107374182)
 #endif
 ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
