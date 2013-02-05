@@ -113,6 +113,11 @@ DyCoreToGlimmer::getLongVar( const char *var_name,  const char *struct_name)
     if (strcmp(var_name,"nslb") == 0) var = geometry.nslb;
     if (strcmp(var_name,"nsub") == 0) var = geometry.nsub;
   }
+  if (strcmp(struct_name,"mpi_vars") == 0) {
+    if (strcmp(var_name,"communicator") == 0) var = mpi_vars.communicator;
+    if (strcmp(var_name,"process_count") == 0) var = mpi_vars.process_count;
+    if (strcmp(var_name,"my_rank") == 0) var = mpi_vars.my_rank;
+  }
 
   if (strcmp(struct_name,"velocity") == 0) {
     if (strcmp(var_name,"dimInfo") == 0) var = velocity.dimInfo;
@@ -215,6 +220,25 @@ DyCoreToGlimmer::copyInLongVar(const long *var, const char *var_name,
       for (i=0;i<elem_count;i++) climate.dimInfo[i] = var[i];
     }  
   }
+  if (strcmp(struct_name,"mpi_vars") == 0) {
+    if (strcmp(var_name,"communicator") == 0) {
+      mpi_vars.communicator = new long[elem_count];
+      for (i=0;i<elem_count;i++) mpi_vars.communicator[i] = var[i];
+    }
+  }
+  if (strcmp(struct_name,"mpi_vars") == 0) {
+    if (strcmp(var_name,"process_count") == 0) {
+      mpi_vars.process_count = new long[elem_count];
+      for (i=0;i<elem_count;i++) mpi_vars.process_count[i] = var[i];
+    }
+  }
+  if (strcmp(struct_name,"mpi_vars") == 0) {
+    if (strcmp(var_name,"my_rank") == 0) {
+      mpi_vars.my_rank = new long[elem_count];
+      for (i=0;i<elem_count;i++) mpi_vars.my_rank[i] = var[i];
+    }
+  }
+
   return(0);
 }
 

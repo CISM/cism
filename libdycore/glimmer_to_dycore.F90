@@ -44,6 +44,7 @@ print *,"In gtd_init, dycore_model_index = ",dycore_model_index
     call gtd_set_numerics_vars(model,dycore_model_index)
     call gtd_set_temper_vars(model,dycore_model_index)
     call gtd_set_climate_vars(model,dycore_model_index)
+    call gtd_set_mpi_vars(model,dycore_model_index)
 
     print *,"In gtd_init_dycore, dycore_type, dycore_index  =  " , &
              dycore_names(dycore_type+1),dycore_model_index
@@ -264,5 +265,33 @@ print *,"In gtd_init, dycore_model_index = ",dycore_model_index
 
   end subroutine gtd_set_climate_vars
   
+  subroutine gtd_set_mpi_vars(model,dycore_model_index)
+    type(glide_global_type) :: model
+    integer*4 dycore_model_index
+    character*20 var_name
+    character*20 dtype_name
+
+    integer*8 dim_info(11), dim_info2(2)
+
+    ! integer,save :: comm, tasks, this_rank -- from parallel_mpi.F90
+    integer*8 communicator, process_count, my_rank
+
+
+    communicator = comm
+    process_count = tasks
+    my_rank = this_rank
+      
+    dtype_name = 'mpi_vars'//char(0)
+
+    dim_info2(1) = 1
+    dim_info2(2) = 1
+    var_name = 'communicator'//char(0)
+    call dycore_copy_in_long_var(communicator,var_name,dtype_name,dim_info2, dycore_model_index)
+    var_name = 'process_count'//char(0)
+    call dycore_copy_in_long_var(process_count,var_name,dtype_name,dim_info2, dycore_model_index)
+    var_name = 'my_rank'//char(0)
+    call dycore_copy_in_long_var(my_rank,var_name,dtype_name,dim_info2, dycore_model_index)
+
+  end subroutine gtd_set_mpi_vars
 
 end module glimmer_to_dycore
