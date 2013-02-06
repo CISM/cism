@@ -91,7 +91,11 @@ class DyCoreToGlimmer
     long dimInfo;
   } velocity_hom;
 
-  
+  struct {
+    long * communicator;
+    long * process_count;
+    long * my_rank;
+  } mpi_vars;
 
   public: 
 
