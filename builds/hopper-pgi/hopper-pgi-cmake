@@ -34,7 +34,7 @@
 echo
 echo Run this script by typing: source hopper-pgi-cmake
 echo
-echo Warning: Python problem.  After the last hopper system updates (1/28/13), in order to run simple_glide
+echo Warning: Python problem.  After the last hopper system updates 1/28/13, in order to run simple_glide
 echo or simple_bisicles, you need to replace the python/2.7.3 module with the python/2.7.1 module.
 echo The easiest way to do this: In your .cshrc.ext or .bashrc.ext add the line:
 echo module swap python python/2.7.1
