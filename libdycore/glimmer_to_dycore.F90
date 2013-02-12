@@ -109,9 +109,10 @@ print *,"In gtd_init, dycore_model_index = ",dycore_model_index
 ! pass in global index space info
     dim_info(1) = 3
     dim_info(2) = model%general%upn
-    dim_info(3) = model%general%global_ewn
-    dim_info(4) = model%general%global_nsn
- 
+    dim_info(3) = global_ewn
+    dim_info(4) = global_nsn 
+
+
 !    dtype_name = 'geometry'
 !    dtype_name_len = 8
 
