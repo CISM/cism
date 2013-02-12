@@ -105,16 +105,20 @@ print *,"In gtd_init, dycore_model_index = ",dycore_model_index
 
     print *,"this_rank, ewlb, ewub, nslb, nsub", this_rank,  ewlb, ewub, nslb, nsub
  
-!    dim_info(1) = 3
-!    dim_info(2) = model%general%upn
-!    dim_info(3) = model%general%ewn
-!    dim_info(4) = model%general%nsn
+! (DFM -2/12/13) since ewlb, et al contain local grid info, use dim_info to 
+! pass in global index space info
+    dim_info(1) = 3
+    dim_info(2) = model%general%upn
+    dim_info(3) = model%general%global_ewn
+    dim_info(4) = model%general%global_nsn
  
 !    dtype_name = 'geometry'
 !    dtype_name_len = 8
 
     ! use age to get dim_info for now (only 3d var in geometry derived type)
-    call gtd_set_dim_info(shape(model%geometry%age),dim_info)
+!    call gtd_set_dim_info(shape(model%geometry%age),dim_info)
+
+    print *, "dim_info = ", dim_info(1), dim_info(2), dim_info(3), dim_info(4)
 
     var_name = 'dimInfo'//char(0)
     dim_info2(1) = 1
