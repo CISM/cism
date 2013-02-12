@@ -373,6 +373,10 @@ contains
     call GetValue(section,'sigma_file',model%funits%sigfile)
     call GetValue(section,'sigma_builtin',model%options%which_sigma_builtin)
 
+    ! (DFM, 2/12/13) -- also set global_ewn and global_nsn here
+    model%general%global_ewn = model%general%ewn
+    model%general%global_nsn = model%general%nsn
+
     ! We set this flag to one to indicate we've got a sigfile name.
     ! A warning/error is generated if sigma levels are specified in some other way
     ! and mangle the name

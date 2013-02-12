@@ -87,6 +87,9 @@ module glide_types
     integer :: nsn = 0  !*FD The number of grid-points in the N-S direction.
     integer :: upn = 1  !*FD The number of vertical levels in the model.
 
+    integer :: global_ewn = 0  !*FD Total number of grid-points in the E-W direction.
+    integer :: global_nsn = 0  !*FD Total number of grid-points in the N-S direction.
+
     type(coordsystem_type) :: ice_grid  !*FD coordinate system of the ice grid
     type(coordsystem_type) :: velo_grid !*FD coordinate system of the velocity grid
 
