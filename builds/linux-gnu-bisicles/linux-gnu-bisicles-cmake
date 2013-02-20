@@ -60,7 +60,7 @@ cmake \
   -D CMAKE_PREFIX_PATH="${ANAG_HDF5_DIR}" \
 \
   -D CMAKE_CXX_FLAGS:STRING="-g -DH5_USE_16_API" \
-  -D GLIMMER_Fortran_FLAGS:STRING="-g  -ffree-line-length-none -DNO_RESCALE" \
+  -D GLIMMER_Fortran_FLAGS:STRING="-g  -ffree-line-length-none -fno-range-check -DNO_RESCALE" \
   -D GLIMMER_EXTRA_LIBS:STRING="-lblas" \
   -D TPL_ENABLE_MPI:BOOL=ON \
   -D BISICLES_INTERFACE_DIR=$PWD/../../../BISICLES/code/interface \
