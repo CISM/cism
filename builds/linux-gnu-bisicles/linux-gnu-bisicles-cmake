@@ -3,28 +3,47 @@
 # If rebuilding, type 'make clean' before running 'make -j 8'
 
 # This cmake configuration script builds simple_glide and simple_bisicles
-# on hopper using the PGI compiler suite.  It relies on builds of Trilinos
-# and BISICLES that are located under the ranken home directory:
-# /global/u1/r/ranken
 
-# This script should be run from the builds/hopper-pgi subdirirectory
+
+# This script should be run from the builds/linux-gnu-bisicles subdirectory
 # of the main seacism repository (reflected in the two instances
 # of "../.." below).
+
+# BUILD OPTIONS:
+# The call to cmake below include several input ON/OFF switch parameters, to
+# provide a simple way to select different build options.  These are:
+# NO_TRILINOS -- OFF by default, set to on for builds without Trilinos
+# CISM_MPI_MODE -- ON by default, only set to OFF for serial builds
+# CISM_SERIAL_MODE -- OFF by default, set to ON for serial builds.
+# CISM_BUILD_SIMPLE_GLIDE -- ON by default, set to OFF to not build simple_glide
+# CISM_BUILD_SIMPLE_BISICLES -- OFF by default, set to ON to build simple_bisicles
+#      Setting NO_TRILINOS to ON will generate a much smaller executable for this build.
+# CISM_BUILD_EXTRA_EXECUTABLES -- OFF by default, set to ON to build eis_glide and others
+# CISM_USE_GPTL_INSTRUMENTATION -- OFF by default, set to ON to use GPTL instrumentation
 
 
 # remove old build data:
 rm ./CMakeCache.txt
 
 # run a script that creates some CISM source files:
-pushd .
-cd ..
-../cmake-scripts/autogenerate-script
-popd 
+#pushd .
+#cd ..
+#../cmake-scripts/autogenerate-script
+#popd
 
 echo
 echo "Doing CMake Configuration step"
 
 cmake \
+  -D NO_TRILINOS:BOOL=ON \
+  -D CISM_COUPLED:BOOL=OFF \
+  -D CISM_MPI_MODE:BOOL=ON \
+  -D CISM_SERIAL_MODE:BOOL=OFF \
+  -D CISM_BUILD_SIMPLE_GLIDE:BOOL=ON \
+  -D CISM_BUILD_SIMPLE_BISICLES:BOOL=ON \
+  -D CISM_BUILD_EXTRA_EXECUTABLES:BOOL=OFF \
+  -D CISM_USE_GPTL_INSTRUMENTATION:BOOL=OFF \
+\
   -D GLIMMER_NETCDF_DIR=/home/loren/users/dmartin/util/netcdf/netcdf-4.1.2 \
   -D CMAKE_INSTALL_PREFIX:PATH=$PWD/install \
   -D CMAKE_VERBOSE_MAKEFILE:BOOL=ON \
@@ -41,13 +60,9 @@ cmake \
   -D CMAKE_PREFIX_PATH="${ANAG_HDF5_DIR}" \
 \
   -D CMAKE_CXX_FLAGS:STRING="-g -DH5_USE_16_API" \
-  -D CMAKE_Fortran_FLAGS:STRING="-g  -ffree-line-length-none -DNO_RESCALE" \
+  -D GLIMMER_Fortran_FLAGS:STRING="-g  -ffree-line-length-none -DNO_RESCALE" \
   -D GLIMMER_EXTRA_LIBS:STRING="-lblas" \
   -D TPL_ENABLE_MPI:BOOL=ON \
-  -D CISM_MPI_MODE:BOOL=ON \
-  -D CISM_SERIAL_MODE:BOOL=OFF \
-  -D BUILD_SIMPLE_BISICLES:BOOL=ON \
-  -D NO_TRILINOS:BOOL=ON \
   -D BISICLES_INTERFACE_DIR=$PWD/../../../BISICLES/code/interface \
  ../..
 
