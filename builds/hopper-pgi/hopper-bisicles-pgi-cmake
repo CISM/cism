@@ -3,11 +3,12 @@
 # If rebuilding, type 'make clean' before running 'make -j 8'
 
 # This cmake configuration script builds simple_glide and simple_bisicles
-# on hopper using the PGI compiler suite.  It relies on a build of Trilinos
-# located in /global/project/projectdirs/piscees, and a build of BISICLES
-# located in the ranken home directory: /global/u1/r/ranken/BISICLES
+# on hopper using the PGI compiler suite.  It no longer relies on a build
+# of Trilinos, but does need a BISICLES build located in BISICLES_INTERFACE_DIR
+# (currently set to /global/u2/d/dmartin/BISICLES/code/interface)
 
-# This script should be run from the builds/hopper-pgi subdirirectory
+
+# This script should be run from the builds/hopper-pgi subdirectory
 # of the main seacism repository (reflected in the two instances
 # of "../.." below).
 

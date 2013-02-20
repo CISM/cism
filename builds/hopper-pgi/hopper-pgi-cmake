@@ -7,7 +7,8 @@
 # located in /global/project/projectdirs/piscees, and a build of BISICLES
 # located in the ranken home directory: /global/u1/r/ranken/BISICLES
 
-# This script should be run from the builds/hopper-pgi subdirirectory
+
+# This script should be run from the builds/hopper-pgi subdirectory
 # of the main seacism repository (reflected in the two instances
 # of "../.." below).
 
@@ -103,6 +104,7 @@ cmake \
 \
   -D CMAKE_CXX_FLAGS:STRING="-O2 --diag_suppress 554,111,611" \
   -D BISICLES_INTERFACE_DIR=/global/u1/r/ranken/BISICLES/code/interface \
+  -D GLIMMER_MPI_LIBS:STRING="mpichf90" \
   ../..
 
 # Note: last argument above  "../.."  is path to top seacism directory
