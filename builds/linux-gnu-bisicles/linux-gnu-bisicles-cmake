@@ -34,6 +34,10 @@ rm ./CMakeCache.txt
 echo
 echo "Doing CMake Configuration step"
 
+#set Netcdf installation directory here
+#setenv NETCDF_HOME /home/loren/users/dmartin/util/netcdf/netcdf-4.1.2 
+setenv NETCDF_HOME /usr/local/netcdf 
+
 cmake \
   -D NO_TRILINOS:BOOL=ON \
   -D CISM_COUPLED:BOOL=OFF \
@@ -44,7 +48,7 @@ cmake \
   -D CISM_BUILD_EXTRA_EXECUTABLES:BOOL=OFF \
   -D CISM_USE_GPTL_INSTRUMENTATION:BOOL=OFF \
 \
-  -D GLIMMER_NETCDF_DIR=/home/loren/users/dmartin/util/netcdf/netcdf-4.1.2 \
+  -D GLIMMER_NETCDF_DIR=${NETCDF_HOME} \
   -D CMAKE_INSTALL_PREFIX:PATH=$PWD/install \
   -D CMAKE_VERBOSE_MAKEFILE:BOOL=ON \
   -D CMAKE_VERBOSE_CONFIGURE:BOOL=ON \
@@ -53,8 +57,6 @@ cmake \
   -D CMAKE_C_COMPILER=mpicc \
   -D CMAKE_Fortran_COMPILER=mpif90 \
 \
-  -D HDF_ROOT=${ANAG_HDF5_DIR}l \
-  -D HDF5_LIB_DIR=${ANAG_HDF5_DIR}/lib \
   -D CISM_HDF5_LIB_DIR=${ANAG_HDF5_DIR}/lib \
   -D CISM_HDF5_LIBS="-DH5_USE_16_API -lhdf5 -lz -lstdc++" \
   -D CMAKE_PREFIX_PATH="${ANAG_HDF5_DIR}" \
@@ -62,7 +64,6 @@ cmake \
   -D CMAKE_CXX_FLAGS:STRING="-g -DH5_USE_16_API" \
   -D GLIMMER_Fortran_FLAGS:STRING="-g  -ffree-line-length-none -fno-range-check -DNO_RESCALE" \
   -D GLIMMER_EXTRA_LIBS:STRING="-lblas" \
-  -D TPL_ENABLE_MPI:BOOL=ON \
   -D BISICLES_INTERFACE_DIR=$PWD/../../../BISICLES/code/interface \
  ../..
 
