@@ -55,8 +55,8 @@ cmake \
 \
   -D HDF_ROOT=${ANAG_HDF5_DIR}l \
   -D HDF5_LIB_DIR=${ANAG_HDF5_DIR}/lib \
-  -D HDF5_PARALLEL_LIB_DIR=${ANAG_HDF5_DIR}/lib \
-  -D HDF5_PGI_LIBS="-DH5_USE_16_API -lhdf5 -lz -lstdc++" \
+  -D CISM_HDF5_LIB_DIR=${ANAG_HDF5_DIR}/lib \
+  -D CISM_HDF5_LIBS="-DH5_USE_16_API -lhdf5 -lz -lstdc++" \
   -D CMAKE_PREFIX_PATH="${ANAG_HDF5_DIR}" \
 \
   -D CMAKE_CXX_FLAGS:STRING="-g -DH5_USE_16_API" \
