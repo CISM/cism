@@ -31,12 +31,12 @@ IF (NOT ${NO_TRILINOS})
                      glimmercismcpp 
                      ${GLIMMER_NETCDF_LIBS}
                      ${GLIMMER_GPTL_LIB}
+		     ${TRILINOS_LIBS}
 		     ${GLIMMER_EXTRA_LIBS}) 
 ELSE()
    SET(CISM_USE_LIBS glimmercismfortran
                      ${GLIMMER_NETCDF_LIBS}
                      ${GLIMMER_GPTL_LIB}
-                     ${TRILINOS_LIBS}
 		     ${GLIMMER_EXTRA_LIBS})
 ENDIF()
     
