@@ -83,12 +83,15 @@ contains
 !WHL - debug - temporary case(0) to exercise this subroutine in the dome problem
     case(0) ! set thickness to zero at the ice margin, land or ocean
 
-      print*, ' '
-      print*, 'Calving case 0: Remove ice at margin'
-      where (GLIDE_IS_MARGIN(mask))
-        calving_field = thck
-        thck = 0.0d0
-      end where
+!SFP - commented out for now so that this option remains consistent w/ prev. versions of the code
+! where case(0) was "do nothing".
+!
+!      print*, ' '
+!      print*, 'Calving case 0: Remove ice at margin'
+!      where (GLIDE_IS_MARGIN(mask))
+!        calving_field = thck
+!        thck = 0.0d0
+!      end where
         
     case(1) ! Set thickness to zero if ice is floating
 
