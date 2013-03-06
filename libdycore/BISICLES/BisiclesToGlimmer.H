@@ -26,7 +26,8 @@ class BisiclesToGlimmer : public DyCoreToGlimmer
   
   //DynCoreToGlimmer BisiclesToGlimmer();
   int initDyCore(const char * input_fname);
-  int runDyCore(const float cur_time_yr, const float time_inc_yr);
+  // cur_time_yr is updated in place as solution is evolved
+  int runDyCore(float& cur_time_yr, const float time_inc_yr);
   int deleteDyCore();
 
 };

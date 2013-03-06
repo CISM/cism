@@ -251,7 +251,7 @@ DyCoreToGlimmer::initDyCore(const char * dycore_fname)
 }
 
 int
-DyCoreToGlimmer::runDyCore(const float cur_time_yr, const float time_inc_yr)
+DyCoreToGlimmer::runDyCore(float& cur_time_yr, const float time_inc_yr)
 {
   return(0);
 }

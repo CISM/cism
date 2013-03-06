@@ -115,7 +115,7 @@ class DyCoreToGlimmer
 		      const char *struct_name,  const long *var_dim_info);
     
   virtual int initDyCore(const char *input_fname);    // = 0;
-  virtual int runDyCore(const float cur_time_yr, const float time_inc_yr);     // = 0;
+  virtual int runDyCore(float& cur_time_yr, const float time_inc_yr);     // = 0;
   virtual int deleteDyCore(); // = 0; 
 
   int setDyCoreType(const int dycore_type);
