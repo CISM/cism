@@ -591,6 +591,15 @@ contains
     elseif (nec == 10) then
        topomax = (/ 0._dp,   200._dp,   400._dp,   700._dp,  1000._dp,  1300._dp,  &
                             1600._dp,  2000._dp,  2500._dp,  3000._dp, 10000._dp /)
+    elseif (nec == 36) then
+       topomax = (/ 0._dp,   200._dp,   400._dp,   600._dp,   800._dp,  &
+                 1000._dp,  1200._dp,  1400._dp,  1600._dp,  1800._dp,  &
+                 2000._dp,  2200._dp,  2400._dp,  2600._dp,  2800._dp,  &
+                 3000._dp,  3200._dp,  3400._dp,  3600._dp,  3800._dp,  &
+                 4000._dp,  4200._dp,  4400._dp,  4600._dp,  4800._dp,  &
+                 5000._dp,  5200._dp,  5400._dp,  5600._dp,  5800._dp,  &
+                 6000._dp,  6200._dp,  6400._dp,  6600._dp,  6800._dp,  &
+                 7000._dp, 10000._dp /)
     else
        if (GLC_DEBUG .and. main_task) then
           write(message,'(a6,i3)') 'nec =', nec
