@@ -85,6 +85,7 @@ cmake \
   -D CISM_BUILD_SIMPLE_BISICLES:BOOL=OFF \
   -D CISM_BUILD_EXTRA_EXECUTABLES:BOOL=OFF \
   -D CISM_USE_GPTL_INSTRUMENTATION:BOOL=OFF \
+  -D CISM_USE_CISM_FRONT_END:BOOL=OFF \
 \
   -D GLIMMER_TRILINOS_DIR=/global/project/projectdirs/piscees/trilinos-default/hopper-pgi/install \
   -D GLIMMER_NETCDF_DIR=/opt/cray/netcdf/4.1.2/pgi/109 \
