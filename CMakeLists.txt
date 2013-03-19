@@ -12,6 +12,7 @@ OPTION (CISM_BUILD_EXTRA_EXECUTABLES "Toggle to other executables, off by defaul
 OPTION (CISM_USE_GPTL_INSTRUMENTATION "Toggle to use GPTL instrumentation, on by default " ON)
 OPTION (CISM_BUILD_GLINT "Toggle to build glint, off by default" OFF)
 OPTION (CISM_COUPLED "Toggle to build CISM for use with CESM, off by default" OFF)
+OPTION (CISM_USE_CISM_FRONT_END "Toggle to use cism_driver or cism_cesm_interface with cism_front_end, off by default" OFF)
 OPTION (CISM_USE_DEFAULT_IO "Toggle to use default i/o files rather than running python script, off by default" OFF)
 # WJS (1-3-13): We could avoid CISM_GNU by using something like CMAKE_Fortran_COMPILER_ID or CMAKE_COMPILER_IS_GNUCC, 
 # but it's not clear to me if those work consistently
@@ -414,6 +415,11 @@ ENDIF()
 IF (CISM_BUILD_SIMPLE_BISICLES)
   add_subdirectory(example-drivers/simple_bisicles/src)
   add_subdirectory(libdycore)
+
+  IF (CISM_USE_CISM_FRONT_END)
+    add_subdirectory(cism_driver)
+  ENDIF()
+
   SET(GLIMMER_EXTERNAL_DYCORE_DIR ${GLIMMER_SOURCE_DIR}/libdycore)
   SET(GLIMMER_BISICLES_DIR ${GLIMMER_EXTERNAL_DYCORE_DIR}/BISICLES)
   include_directories (${GLIMMER_EXTERNAL_DYCORE_DIR}
