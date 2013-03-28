@@ -80,6 +80,10 @@ DyCoreToGlimmer::getDoubleVar(const char *var_name, const  char *struct_name)
   }
   if (strcmp(struct_name,"velocity") == 0) {
     if (strcmp(var_name,"btrc") == 0) return (velocity.btrc);
+    if (strcmp(var_name,"uvel") == 0) return (velocity.uvel);
+    if (strcmp(var_name,"vvel") == 0) return (velocity.vvel);
+    if (strcmp(var_name,"wvel") == 0) return (velocity.wvel);
+
     //cout << "Set velocity var, " << var_name << endl;
   }
 
