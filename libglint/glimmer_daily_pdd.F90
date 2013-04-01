@@ -91,7 +91,7 @@ contains
 
   subroutine daily_pdd_readconfig(params,config)
 
-    !*FD Reads in configuration data for the annual PDD scheme.
+    !*FD Reads in configuration data for the daily PDD scheme.
 
     use glimmer_config
 

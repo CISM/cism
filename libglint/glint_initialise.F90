@@ -46,8 +46,10 @@ module glint_initialise
 
   use glint_type
 
+  implicit none
+
   private
-  public glint_i_initialise, glint_i_end, calc_coverage
+  public glint_i_initialise, glint_i_initialise_gcm, glint_i_end, calc_coverage
 
 contains
 
@@ -63,9 +65,11 @@ contains
 
     use glimmer_config
     use glint_global_grid
+    use glint_mbal_coupling
     use glint_io          , only: glint_io_createall     , glint_io_writeall
     use glint_mbal_io     , only: glint_mbal_io_createall, glint_mbal_io_writeall
     use glimmer_ncio
+    use glide_nc_custom   , only: glide_nc_fillall
     use glide
     use glimmer_log
     use glint_constants
@@ -187,6 +191,8 @@ contains
 
     ! initialise the mass-balance accumulation
 
+!TODO - Skip this call for whichacab = 0 (smb from gcm)?
+
     call glint_mbc_init(instance%mbal_accum, &
                         instance%lgrid, &
                         config,         &
@@ -279,6 +285,259 @@ contains
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+!WHL - Working copy of new subroutine for GCM coupling
+!TODO - Test new subroutine
+
+!!  subroutine glint_i_initialise(config,           instance,         &
+!!                                grid,             grid_orog,        &
+!!                                mbts,             idts,             &
+!!                                need_winds,       enmabal,          &
+!!                                force_start,      force_dt,         &
+!!                                gcm_restart,      gcm_restart_file, &
+!!                                gcm_config_unit)
+
+  subroutine glint_i_initialise_gcm(config,           instance,         &
+                                    grid,             &
+                                    mbts,             idts,             &
+                                    force_start,      force_dt,         &
+                                    gcm_restart,      gcm_restart_file, &
+                                    gcm_config_unit)
+
+    ! Initialise a GLINT ice model instance for GCM coupling
+
+    use glimmer_config
+    use glint_global_grid
+    use glint_mbal_coupling
+    use glint_io          , only: glint_io_createall     , glint_io_writeall
+    use glint_mbal_io     , only: glint_mbal_io_createall, glint_mbal_io_writeall
+    use glimmer_ncio
+    use glide_nc_custom   , only: glide_nc_fillall
+    use glide
+    use glimmer_log
+    use glint_constants
+    use glimmer_paramets, only: GLC_DEBUG
+    use glimmer_restart_gcm
+    use parallel, only: main_task
+    implicit none
+
+    ! Arguments
+    type(ConfigSection), pointer         :: config           ! structure holding sections of configuration file   
+    type(glint_instance),  intent(inout) :: instance         ! The instance being initialised.
+    type(global_grid),     intent(in)    :: grid             ! Global grid to use
+!!    type(global_grid),     intent(in)    :: grid_orog        ! Global grid to use for orography
+    integer,               intent(out)   :: mbts             ! mass-balance time-step (hours)
+    integer,               intent(out)   :: idts             ! ice dynamics time-step (hours)
+!!    logical,               intent(inout) :: need_winds       ! Set if this instance needs wind input
+!!    logical,               intent(inout) :: enmabal          ! Set if this instance uses the energy balance
+                                                             !    mass-bal model
+
+!TODO - Change names of force_start and force_dt?
+    integer,               intent(in)    :: force_start      ! glint forcing start time (hours)
+    integer,               intent(in)    :: force_dt         ! glint forcing time step (hours)
+    logical,     optional, intent(in)    :: gcm_restart      ! logical flag to read from a restart file
+    character(*),optional, intent(in)    :: gcm_restart_file ! restart filename for restart
+    integer,     optional, intent(in)    :: gcm_config_unit  ! fileunit for reading config files
+
+    ! Internal
+
+    real(sp),dimension(:,:),allocatable :: thk
+
+    integer :: config_fileunit, restart_fileunit
+
+    config_fileunit = 99
+    if (present(gcm_config_unit)) then
+       config_fileunit = gcm_config_unit
+    endif
+
+    ! initialise model
+
+    call glide_config(instance%model, config, config_fileunit)
+
+    ! if this is a continuation run, then set up to read restart
+    ! (currently assumed to be a CESM restart file)
+
+    if (present(gcm_restart)) then
+
+      if (gcm_restart) then
+
+         if (present(gcm_restart_file)) then
+
+            ! read the restart file
+            call glimmer_read_restart_gcm(instance%model, gcm_restart_file)
+            instance%model%options%is_restart = 1
+ 
+         else
+
+            call write_log('Missing gcm_restart_file when gcm_restart is true',&
+                           GM_FATAL,__FILE__,__LINE__)
+
+         endif
+
+      endif
+    endif
+
+    call glide_initialise(instance%model)
+
+    instance%ice_tstep = get_tinc(instance%model)*years2hours
+    idts = instance%ice_tstep
+
+    instance%glide_time = instance%model%numerics%tstart
+
+    ! read glint configuration
+
+    call glint_i_readconfig(instance, config)    
+    call glint_i_printconfig(instance)    
+
+    ! Construct the list of necessary restart variables based on the config options 
+    ! selected by the user in the config file (specific to glint - other configs,
+    ! e.g. glide, isos, are handled separately by their setup routines).
+    ! This is done regardless of whether or not a restart ouput file is going 
+    ! to be created for this run, but this information is needed before setting up outputs.   MJH 1/17/13
+    ! Note: the corresponding call for glide is placed within *_readconfig, which is probably more appropriate,
+    ! but putting this call into glint_i_readconfig creates a circular dependency.  
+
+    call define_glint_restart_variables(instance)
+ 
+    ! create glint variables for the glide output files
+    call glint_io_createall(instance%model, data=instance)
+
+    ! create instantaneous glint variables
+    call openall_out(instance%model, outfiles=instance%out_first)
+    call glint_mbal_io_createall(instance%model, data=instance, outfiles=instance%out_first)
+
+    ! fill dimension variables
+    call glide_nc_fillall(instance%model)
+    call glide_nc_fillall(instance%model, outfiles=instance%out_first)
+
+    ! Check we've used all the config sections
+
+    call CheckSections(config)
+
+    ! New grid (grid on this task)
+
+    ! WJS (1-11-13): I'm not sure if it's correct to set the origin to (0,0) when running
+    ! on multiple tasks, with a decomposed grid. However, as far as I can tell, the
+    ! origin of this variable isn't important, so I'm not trying to fix it right now.
+
+    instance%lgrid = coordsystem_new(0.d0, 0.d0, &
+                                     get_dew(instance%model), &
+                                     get_dns(instance%model), &
+                                     get_ewn(instance%model), &
+                                     get_nsn(instance%model))
+
+    ! Allocate arrays appropriately
+
+    call glint_i_allocate_gcm(instance, grid%nx, grid%ny)
+
+    ! Read data and initialise climate
+
+    call glint_i_readdata(instance)
+
+    ! Create grid spanning full domain and other information needed for downscaling &
+    ! upscaling. Note that, currently, these variables only have valid data on the main
+    ! task, since all downscaling & upscaling is done there
+    
+!!    call setup_lgrid_fulldomain(instance, grid, grid_orog)
+    call setup_lgrid_fulldomain(instance, grid)
+
+    ! initialise the mass-balance accumulation
+
+!!    call glint_mbc_init(instance%mbal_accum, &
+!!                        instance%lgrid, &
+!!                        config,         &
+!!                        instance%whichacab, &
+!!                        instance%snowd, &
+!!                        instance%siced, &
+!!                        instance%lgrid%size%pt(1), &
+!!                        instance%lgrid%size%pt(2), &
+!!                        real(instance%lgrid%delta%pt(1),rk))
+
+!TODO - Test this subroutine
+    call glint_mbc_init_gcm(instance%mbal_accum, &
+                            instance%lgrid)
+
+!TODO - Do we need two copies of this tstep variable?
+    instance%mbal_tstep = instance%mbal_accum%mbal%tstep
+
+    mbts=instance%mbal_tstep
+
+    instance%next_time = force_start - force_dt + instance%mbal_tstep
+
+    if (GLC_DEBUG .and. main_task) then
+       write (6,*) 'Called glint_mbc_init'
+       write (6,*) 'mbal tstep =', mbts
+       write (6,*) 'next_time =', instance%next_time
+       write (6,*) 'start_time =', instance%mbal_accum%start_time
+    end if
+
+    ! Mass-balance accumulation length
+
+    if (instance%mbal_accum_time == -1) then
+       instance%mbal_accum_time = max(instance%ice_tstep,instance%mbal_tstep)
+       if (GLC_DEBUG) then
+          !Set mbal_accum_time = mbal_tstep
+          ! lipscomb - TODO - Make it easy to run Glimmer/Glint for ~5 days, e.g. for CESM smoke tests,
+          !         with all major components exercised. 
+          !!          instance%mbal_accum_time = instance%mbal_tstep
+          !!          write(6,*) 'WARNING: Seting mbal_accum_time =', instance%mbal_accum_time
+       end if
+    end if
+
+    if (instance%mbal_accum_time < instance%mbal_tstep) then
+       call write_log('Mass-balance accumulation timescale must be as '//&
+            'long as mass-balance time-step',GM_FATAL,__FILE__,__LINE__)
+    end if
+
+    if (mod(instance%mbal_accum_time,instance%mbal_tstep) /= 0) then
+       call write_log('Mass-balance accumulation timescale must be an '// &
+            'integer multiple of the mass-balance time-step',GM_FATAL,__FILE__,__LINE__)
+    end if
+
+    if (.not. (mod(instance%mbal_accum_time, instance%ice_tstep)==0 .or.   &
+               mod(instance%ice_tstep, instance%mbal_accum_time)==0)) then
+       call write_log('Mass-balance accumulation timescale and ice dynamics '//&
+            'timestep must divide into one another',GM_FATAL,__FILE__,__LINE__)
+    end if
+
+    if (instance%ice_tstep_multiply/=1 .and. mod(instance%mbal_accum_time,int(years2hours)) /= 0.0) then
+       call write_log('For ice time-step multiplication, mass-balance accumulation timescale '//&
+            'must be an integer number of years',GM_FATAL,__FILE__,__LINE__)
+    end if
+
+    ! Initialise some other stuff
+
+    if (instance%mbal_accum_time>instance%ice_tstep) then
+       instance%n_icetstep = instance%ice_tstep_multiply*instance%mbal_accum_time/instance%ice_tstep
+    else
+       instance%n_icetstep = instance%ice_tstep_multiply
+    end if
+
+    ! Copy snow-depth to thickness if no thickness is present
+
+!!    allocate(thk(get_ewn(instance%model),get_nsn(instance%model)))
+!!    call glide_get_thk(instance%model,thk)
+!!    where (instance%snowd>0.0 .and. thk==0.0)
+!!       thk=instance%snowd
+!!    elsewhere
+!!       thk=thk
+!!    endwhere
+!!    call glide_set_thk(instance%model,thk)
+!!    deallocate(thk)
+
+    call glide_io_writeall(instance%model, instance%model)
+    call glint_io_writeall(instance, instance%model)
+    call glint_mbal_io_writeall(instance, instance%model, outfiles=instance%out_first)
+
+!!    if (instance%whichprecip == 2) need_winds=.true.
+!!    if (instance%whichacab == 3) then
+!!       need_winds = .true.
+!!       enmabal = .true.
+!!    end if
+
+  end subroutine glint_i_initialise_gcm
+
+  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
   subroutine glint_i_end(instance)
 
     !*FD Performs tidying-up for an ice model. 
@@ -343,7 +602,7 @@ contains
 
     type(glint_instance), intent(inout) :: instance
     type(global_grid)   , intent(in)    :: grid
-    type(global_grid)   , intent(in)    :: grid_orog
+    type(global_grid)   , intent(in), optional :: grid_orog
 
     ! Internal variables
 
@@ -366,8 +625,11 @@ contains
 
        call new_upscale(instance%ups, grid,  instance%model%projection, &
                         out_mask_fulldomain, instance%lgrid_fulldomain) ! Initialise upscaling parameters
-       call new_upscale(instance%ups_orog, grid_orog, instance%model%projection, &
-                        out_mask_fulldomain, instance%lgrid_fulldomain) ! Initialise upscaling parameters
+
+       if (present(grid_orog)) then
+          call new_upscale(instance%ups_orog, grid_orog, instance%model%projection, &
+                           out_mask_fulldomain, instance%lgrid_fulldomain) ! Initialise upscaling parameters
+       endif
 
        call calc_coverage(instance%lgrid_fulldomain, &
                           instance%ups,   &             
@@ -375,13 +637,13 @@ contains
                           out_mask_fulldomain, &
                           instance%frac_coverage)
 
-       ! Calculate coverage map for orog
-
-       call calc_coverage(instance%lgrid_fulldomain, &               
-                          instance%ups_orog,  &             
-                          grid_orog,     &
-                          out_mask_fulldomain, &
-                          instance%frac_cov_orog)
+       if (present(grid_orog)) then
+          call calc_coverage(instance%lgrid_fulldomain, &               
+                             instance%ups_orog,  &             
+                             grid_orog,     &
+                             out_mask_fulldomain, &
+                             instance%frac_cov_orog)
+       endif
 
     end if
 

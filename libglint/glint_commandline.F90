@@ -42,6 +42,8 @@ module glint_commandline
 
   use glimmer_global, only:fname_length
 
+  implicit none
+
   character(len=5000)         :: commandline_history     !< complete command line
   character(len=fname_length) :: commandline_configname  !< name of the configuration file
   character(len=fname_length) :: commandline_resultsname !< name of results file

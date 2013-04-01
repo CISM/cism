@@ -41,7 +41,7 @@ module glint_type
   use glimmer_global
   use glint_interp
   use glide_types
-  use glint_mbal_coupling
+  use glint_mbal_coupling, only: glint_mbc, mbal_has_snow_model
 
   implicit none
 
@@ -272,6 +272,95 @@ contains
     allocate(instance%out_mask(ewn,nsn)); instance%out_mask = 1
 
   end subroutine glint_i_allocate
+
+  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+!WHL - Added a new version for GCM coupling
+!TODO - Test this subroutine.  Move elsewhere?
+
+!!  subroutine glint_i_allocate(instance,nxg,nyg,nxgo,nygo)
+  subroutine glint_i_allocate_gcm(instance,nxg,nyg)
+
+    !*FD Allocate top-level arrays in the model instance, and ice model arrays.
+
+    implicit none
+
+    type(glint_instance),intent(inout) :: instance  !*FD Instance whose elements are to be allocated.
+    integer,             intent(in)    :: nxg       !*FD Longitudinal size of global grid (grid-points).
+    integer,             intent(in)    :: nyg       !*FD Latitudinal size of global grid (grid-points).
+!!    integer,             intent(in)    :: nxgo      !*FD Longitudinal size of global orog grid (grid-points).
+!!    integer,             intent(in)    :: nygo      !*FD Latitudinal size of global orog grid (grid-points).
+
+    integer ewn,nsn
+
+    ewn = get_ewn(instance%model)
+    nsn = get_nsn(instance%model)
+
+    ! First deallocate if necessary
+    ! Downscaled global arrays
+
+    if (associated(instance%artm))          deallocate(instance%artm)
+!!    if (associated(instance%arng))          deallocate(instance%arng)
+!!    if (associated(instance%prcp))          deallocate(instance%prcp)
+!!    if (associated(instance%snowd))         deallocate(instance%snowd)
+!!    if (associated(instance%siced))         deallocate(instance%siced)
+!!    if (associated(instance%xwind))         deallocate(instance%xwind)
+!!    if (associated(instance%ywind))         deallocate(instance%ywind)
+!!    if (associated(instance%humid))         deallocate(instance%humid)
+!!    if (associated(instance%lwdown))        deallocate(instance%lwdown)
+!!    if (associated(instance%swdown))        deallocate(instance%swdown)
+!!    if (associated(instance%airpress))      deallocate(instance%airpress)
+!!    if (associated(instance%global_orog))   deallocate(instance%global_orog) 
+!!    if (associated(instance%local_orog))    deallocate(instance%local_orog)
+
+    ! Local climate arrays
+
+!!    if (associated(instance%ablt))          deallocate(instance%ablt)
+    if (associated(instance%acab))          deallocate(instance%acab)
+
+    ! Fractional coverage
+
+    if (associated(instance%frac_coverage)) deallocate(instance%frac_coverage)
+!!    if (associated(instance%frac_cov_orog)) deallocate(instance%frac_cov_orog)
+
+    ! Output mask
+    !TODO - Is this needed?
+
+    if (associated(instance%out_mask))      deallocate(instance%out_mask)
+
+    ! Then reallocate and zero...
+    ! Global input fields
+
+    allocate(instance%artm(ewn,nsn));        instance%artm        = 0.0
+!!    allocate(instance%arng(ewn,nsn));        instance%arng        = 0.0
+!!    allocate(instance%prcp(ewn,nsn));        instance%prcp        = 0.0
+!!    allocate(instance%snowd(ewn,nsn));       instance%snowd       = 0.0
+!!    allocate(instance%siced(ewn,nsn));       instance%siced       = 0.0
+!!    allocate(instance%xwind(ewn,nsn));       instance%xwind       = 0.0
+!!    allocate(instance%ywind(ewn,nsn));       instance%ywind       = 0.0
+!!    allocate(instance%humid(ewn,nsn));       instance%humid       = 0.0
+!!    allocate(instance%lwdown(ewn,nsn));      instance%lwdown      = 0.0
+!!    allocate(instance%swdown(ewn,nsn));      instance%swdown      = 0.0
+!!    allocate(instance%airpress(ewn,nsn));    instance%airpress    = 0.0
+!!    allocate(instance%global_orog(ewn,nsn)); instance%global_orog = 0.0
+!!    allocate(instance%local_orog(ewn,nsn));  instance%local_orog  = 0.0
+
+    ! Local fields
+
+!!    allocate(instance%ablt(ewn,nsn)); instance%ablt = 0.0
+    allocate(instance%acab(ewn,nsn)); instance%acab = 0.0
+
+    ! Fractional coverage map
+
+    allocate(instance%frac_coverage(nxg,nyg)); instance%frac_coverage = 0.0
+!!    allocate(instance%frac_cov_orog(nxgo,nygo)); instance%frac_cov_orog = 0.0
+
+    ! Output mask
+    !TODO - Is this needed?
+
+    allocate(instance%out_mask(ewn,nsn)); instance%out_mask = 1
+
+  end subroutine glint_i_allocate_gcm
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

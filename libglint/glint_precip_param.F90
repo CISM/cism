@@ -40,6 +40,8 @@ module glint_precip_param
 
   use glimmer_global
 
+  implicit none
+
   private satvap,calc_w0,error_func
 
 contains
