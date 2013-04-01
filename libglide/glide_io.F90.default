@@ -1,6 +1,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! WARNING: this file was automatically generated on
-! Thu, 31 Jan 2013 12:39:34 +0000
+! Mon, 01 Apr 2013 22:20:05 +0000
 ! from ncdf_template.F90.in
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -47,6 +47,8 @@
 module glide_io
   !*FD template for creating subsystem specific I/O routines
   !*FD written by Magnus Hagdorn, 2004
+
+  implicit none
 
   private :: get_xtype
 
@@ -1135,25 +1137,6 @@ contains
        end if
      end if
 
-    !     surfvel -- ice surface velocity
-    pos = index(NCO%vars,' surfvel ')
-    status = parallel_inq_varid(NCO%id,'surfvel',varid)
-    if (pos.ne.0) then
-      NCO%vars(pos+1:pos+7) = '       '
-    end if
-    if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-       call write_log('Creating variable surfvel')
-       status = parallel_def_var(NCO%id,'surfvel',get_xtype(outfile,NF90_FLOAT),(/x0_dimid, y0_dimid, level_dimid, time_dimid/),varid)
-       call nc_errorhandle(__FILE__,__LINE__,status)
-       status = parallel_put_att(NCO%id, varid, 'scale_factor',(scale_uvel))
-       status = parallel_put_att(NCO%id, varid, 'long_name', 'ice surface velocity')
-       status = parallel_put_att(NCO%id, varid, 'units', 'meter/year')
-       if (glimmap_allocated(model%projection)) then
-          status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
-          status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
-       end if
-     end if
-
     !     tau_xz -- X component vertical shear stress
     pos = index(NCO%vars,' tau_xz ')
     status = parallel_inq_varid(NCO%id,'tau_xz',varid)
@@ -1496,7 +1479,7 @@ contains
        end if
      end if
 
-    !     velnorm -- Ice velocity magnitude
+    !     velnorm -- Horizontal ice velocity magnitude
     pos = index(NCO%vars,' velnorm ')
     status = parallel_inq_varid(NCO%id,'velnorm',varid)
     if (pos.ne.0) then
@@ -1507,7 +1490,7 @@ contains
        status = parallel_def_var(NCO%id,'velnorm',get_xtype(outfile,NF90_FLOAT),(/x0_dimid, y0_dimid, level_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
        status = parallel_put_att(NCO%id, varid, 'scale_factor',(scale_uvel))
-       status = parallel_put_att(NCO%id, varid, 'long_name', 'Ice velocity magnitude')
+       status = parallel_put_att(NCO%id, varid, 'long_name', 'Horizontal ice velocity magnitude')
        status = parallel_put_att(NCO%id, varid, 'units', 'meter/year')
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
@@ -1939,15 +1922,6 @@ contains
        status = distributed_put_var(NCO%id, varid, &
             data%climate%artm, (/1,1,outfile%timecounter/))
        call nc_errorhandle(__FILE__,__LINE__,status)
-    end if
-
-    status = parallel_inq_varid(NCO%id,'surfvel',varid)
-    if (status .eq. nf90_noerr) then
-       do up=1,NCO%nlevel
-          status = distributed_put_var(NCO%id, varid, &
-               data%velocity%surfvel(up,:,:), (/1,1,up,outfile%timecounter/))
-          call nc_errorhandle(__FILE__,__LINE__,status)
-       end do
     end if
 
     status = parallel_inq_varid(NCO%id,'tau_xz',varid)

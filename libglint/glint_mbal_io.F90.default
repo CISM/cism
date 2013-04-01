@@ -1,6 +1,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! WARNING: this file was automatically generated on
-! Thu, 31 Jan 2013 12:39:34 +0000
+! Mon, 01 Apr 2013 22:20:05 +0000
 ! from ncdf_template.F90.in
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -46,6 +46,8 @@
 module glint_mbal_io
   !*FD template for creating subsystem specific I/O routines
   !*FD written by Magnus Hagdorn, 2004
+
+  implicit none
 
   private :: get_xtype
 
