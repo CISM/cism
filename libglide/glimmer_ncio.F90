@@ -39,6 +39,9 @@ module glimmer_ncio
   !*FD written by Magnus Hagdorn, 2004
 
   use glimmer_ncdf
+
+  implicit none
+
   integer,parameter,private :: msglen=512
   
 contains
@@ -322,7 +325,7 @@ contains
   subroutine glimmer_nc_openfile(infile,model)
     !*FD open an existing netCDF file
     use glide_types
-    use glimmer_map_cfproj
+    use glimmer_map_CFproj
     use glimmer_map_types
     use glimmer_log
     use glimmer_paramets, only: len0

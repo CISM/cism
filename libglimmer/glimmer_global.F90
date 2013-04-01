@@ -39,6 +39,8 @@ module glimmer_global
   !EIB! in gc2 glimmer_vers is not a module
   !use glimmer_vers
 
+  implicit none
+
   integer,parameter :: sp = kind(1.0) 
 
   !*FD Single precision --- Fortran single-precision real-type kind 

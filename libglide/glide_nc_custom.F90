@@ -34,8 +34,13 @@
 #define NCO outfile%nc
 
 module glide_nc_custom
-  !*FD module for filling in dimension variables
+
+  !module for filling in dimension variables
+
+  implicit none
+
 contains
+
   subroutine glide_nc_fillall(model,outfiles)
     !*FD fill dimension variables of all files
     use glide_types

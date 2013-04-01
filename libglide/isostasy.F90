@@ -40,6 +40,8 @@ module isostasy
   use isostasy_types
   use isostasy_el
 
+  implicit none
+
   private :: relaxing_mantle
   
 contains

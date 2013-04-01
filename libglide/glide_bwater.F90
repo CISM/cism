@@ -1,23 +1,25 @@
 !TODO - Much of this module consists of Jesse's water-routing code,
 !        which is serial only.
-!       Write a short module 'glissade_bwater.F90' with local options
-!        that are supported for parallel code and have the desired loop ranges. 
+!       Add a subroutine with local options that are supported for parallel code 
+!        and have the desired loop ranges?
 
 module glide_bwater
+
    use glimmer_global, only: rk, sp
    use glide_types
+
+   implicit none
 
 contains
 
 !TODO - Would be better not to pass 'model'
 
-  subroutine calcbwat(model,which,bmlt,bwat,bwatflx,thck,topg,btem,floater,wphi)
+  subroutine calcbwat(model, which, bmlt, bwat, bwatflx, thck, topg, btem, floater, wphi)
 
     use parallel
     use glimmer_global, only : dp 
     use glimmer_paramets, only : thk0
-    use glide_thck
-    use glide_grids, only: stagvarb
+    use glide_grid_operators, only: stagvarb
 
     implicit none
 
@@ -291,7 +293,9 @@ contains
   end subroutine route_basal_water
 
 !==============================================================
+
   subroutine flux_to_depth(flux,wphi,c,p,q,dew,dns,bwat)
+
   !*FD Assuming that the flow is steady state, this function simply solves
   !*FD              flux = depth * velocity
   !*FD for the depth, assuming that the velocity is a function of depth,
@@ -299,7 +303,7 @@ contains
   !*FD or Manning flow, both of which take the form of a constant times water
   !*FD depth to a power, times pressure wphi to a power.
 
-    use glide_deriv, only: df_field_2d              ! Find grad_wphi
+    use glam_grid_operators, only: df_field_2d      ! Find grad_wphi
     use glimmer_physcon, only : scyr                ! Seconds per year
 
     real(dp),dimension(:,:),intent(in) :: flux      ! Basal water flux
@@ -314,7 +318,7 @@ contains
     ! Internal variables 
     real(rk),dimension(:,:),allocatable :: grad_wphi, dwphidx, dwphidy
 
-    integer nx,ny
+    integer nx,ny,nn
 
     ! Set up grid dimensions ----------------------------------
     nx=size(flux,1) ; ny=size(flux,2)

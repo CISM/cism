@@ -39,6 +39,8 @@
 
 module kelvin
 
+  implicit none
+
   integer, private, parameter :: sp=selected_real_kind(6)   !< integer storing kind value for variables with a precision of at least 6 digits (single precision)
   integer, private, parameter :: dp=selected_real_kind(15)  !< integer storing kind value for variables with a precision of at least 15 digits (double precision)
   real(kind=dp), private, parameter :: gamma=0.577215664901532860606512d0 !< Euler's constant

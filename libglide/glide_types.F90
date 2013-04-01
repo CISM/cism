@@ -52,18 +52,15 @@ module glide_types
 !TODO - Move some types to the higher-level instance type, per suggestion above?
 !       Maybe best to defer this until later, and clean up the glide_global_type first
 
-!TODO - One option is to create a new type (glissade_type?) 
-!        that is better designed and has fewer components (like the MPAS types),
-!        while leaving glide_global_type as is.
-!       However, I think it would be easier to clean up the glide_global_type,
-!        so that there is only one model derived type to pass around.
+!TODO - We might consider cleaning up the glide_global type so that it doesn't
+!        include as many subtypes.
 !       A modified glide_global_type could include subtypes for mesh, state, options, and params.
-!       'general' and some 'numerics' stuff would go under 'mesh'
-!       'geometry', 'temper', and 'velocity' arrays would go under 'state'
-!       Diagnosed arrays under 'geomderv' and 'tensors' could go away 
-!       Work types 'tempwk', 'velowk', etc. could go away
-!       Timestep stuff would go in 'time' type?
-
+!        * 'general' and some 'numerics' stuff would go under 'mesh'
+!        * 'geometry', 'temper', and 'velocity' arrays would go under 'state'
+!        * Diagnosed arrays under 'geomderv' and 'tensors' could go away 
+!        * Work types 'tempwk', 'velowk', etc. could go away
+!        * Timestep stuff would go in 'time' type?
+!       However, this would take a lot of work.
 
   use glimmer_sparse
   use glimmer_sparse_type
@@ -72,12 +69,11 @@ module glide_types
   use isostasy_types
   use profile
   use glimmer_coordinates
-  use glimmer_map_types, pi_dummy=>pi
+  use glimmer_map_types
+
+  implicit none
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-!TODO - Change to glimmer_general or glimmer_mesh?
-!TODO - Add nhalo to this type?
 
   type glide_general
 
@@ -105,7 +101,7 @@ module glide_types
   integer, parameter :: DYCORE_GLISSADE = 2  ! prototype finite-element solver
 
   integer, parameter :: TEMP_SURFACE_AIR_TEMP = 0
-  integer, parameter :: TEMP_GLIMMER = 1
+  integer, parameter :: TEMP_GLIDE = 1
   integer, parameter :: TEMP_STEADY = 2
   integer, parameter :: TEMP_REMAP_ADV = 3
 
@@ -173,7 +169,6 @@ module glide_types
   integer, parameter :: BAS_PROC_FULLCALC = 1
   integer, parameter :: BAS_PROC_FASTCALC = 2
 
-!TODO - Change to glimmer_options?
   type glide_options
 
     !*FD Holds user options controlling the methods used in the ice-model
@@ -209,8 +204,8 @@ module glide_types
     !*FD \,\mathrm{Pa}^{-n}$
     !*FD \end{description}
 
-    ! *mb* added
-    integer :: which_bmod = 0
+    ! This option is currently disabled.
+    integer :: which_bproc = 0
     !Options for the basal processes code
     !*FD \begin{description}
     !*FD \item[0] Disabled
@@ -283,8 +278,6 @@ module glide_types
     !*FD \item[0] normal start-up
     !*FD \item[1] restart model from previous run
     !*FD \end{description}
-
-!WHL - Removed the which_ho_diagnostic and which_ho_prognostic options
 
 !TODO - Make a separate section for HO options?
 
@@ -382,7 +375,6 @@ module glide_types
     logical :: ho_include_thinice = .true.
     !*FD Whether or not to include thin ice in the higher order computation
 
-!TODO - Periodic BCs will be handled differently for glissade_type.
     logical :: periodic_ew = .false.
     !*FD \begin{description}
     !*FD \item[0] no periodic EW boundary conditions
@@ -443,7 +435,6 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - Make a glissade 'mesh' type that includes a small set of basic state variables?
   type glide_geometry
 
     !*FD Holds fields and other information relating to the
@@ -469,14 +460,6 @@ module glide_types
     real(dp),dimension(:,:,:),pointer :: age => null()
     !*FD The age of a given ice layer, divided by \texttt{tim0}.
 
-!TODO - It is confusing to have both mask and thkmask arrays.
-!       The mask array is used only for the SIA model and is not needed in glissade_types.
-
-    integer, dimension(:,:),pointer :: mask => null()
-    !*FD Set to zero for all points where $\mathtt{thck}=0$, otherwise non-zero.
-    !*FD the non-zero points are numbered in sequence from the bottom left to the 
-    !*FD top right, going along the rows.
-
     integer, dimension(:,:),pointer :: thkmask => null()
     !*FD see glide_mask.f90 for possible values
 
@@ -485,11 +468,15 @@ module glide_types
     !*FD margin of an ice shelf, in which case contains the angle
     !*FD of the normal to the ice front. 
 
-    integer :: totpts = 0
-    !*FD The total number of points with non-zero thickness
+!WHL - Renamed mask to thck_index, since it is an integer index.
+!!    integer, dimension(:,:),pointer :: mask => null()
+    integer, dimension(:,:),pointer :: thck_index => null()
+    ! Set to nonzero integer for ice-covered cells (thck > 0), cells adjacent to ice-covered cells,
+    !  and cells with acab > 0.  The non-zero points are numbered in sequence from the bottom left 
+    !  to the top right, going along the rows.
 
-    integer, dimension(4) :: dom   = 0      !*FD I have no idea what this is for.
-    logical               :: empty = .true. !*FD I have no idea what this is for.
+    integer :: totpts = 0       ! total number of points with nonzero thck_index
+    logical :: empty = .true.   ! true if totpts = 0
 
     real(dp) :: ivol, iarea,iareag, iareaf !*FD ice volume and ice area
 
@@ -498,7 +485,7 @@ module glide_types
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 !TODO - Some of these are PBJ variables that can be removed.
-!       Not sure that any of these any needed in glissade_type.
+
   type glide_geomderv
 
     !*FD Holds the horizontal and temporal derivatives of the thickness and
@@ -561,7 +548,6 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - Are these used in glissade?  Do they need to be part of glissade type?
   type glide_tensor
     real(dp), dimension(:,:,:), pointer :: scalar => null()
     real(dp), dimension(:,:,:), pointer :: xz => null()
@@ -573,26 +559,23 @@ module glide_types
   
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - Some of these are SIA only and not needed as part of HO state.
-
   type glide_velocity
 
     !*FD Holds the velocity fields in 2D and 3D. At least some of these fields
-    real(dp),dimension(:,:,:),pointer :: uvel  => null() !*FD 3D $x$-velocity.
-    real(dp),dimension(:,:,:),pointer :: vvel  => null() !*FD 3D $y$-velocity.
-    real(dp),dimension(:,:,:),pointer :: velnorm => null()
-    real(dp),dimension(:,:,:),pointer :: wvel  => null() !*FD 3D $z$-velocity.
-    real(dp),dimension(:,:,:),pointer :: wgrd  => null() !*FD 3D grid vertical velocity.
-    real(dp),dimension(:,:,:),pointer :: surfvel => null() !Surface velocity
-    real(dp),dimension(:,:)  ,pointer :: uflx  => null() !*FD 
-    real(dp),dimension(:,:)  ,pointer :: vflx  => null() !*FD 
-    real(dp),dimension(:,:)  ,pointer :: diffu => null() !*FD 
+    real(dp),dimension(:,:,:),pointer :: uvel  => null()   !*FD 3D $x$-velocity.
+    real(dp),dimension(:,:,:),pointer :: vvel  => null()   !*FD 3D $y$-velocity.
+    real(dp),dimension(:,:,:),pointer :: velnorm => null() ! horizontal ice speed
+    real(dp),dimension(:,:,:),pointer :: wvel  => null()   !*FD 3D $z$-velocity.
+    real(dp),dimension(:,:,:),pointer :: wgrd  => null()   !*FD 3D grid vertical velocity.
+    real(dp),dimension(:,:)  ,pointer :: uflx  => null()   !*FD 
+    real(dp),dimension(:,:)  ,pointer :: vflx  => null()   !*FD 
+    real(dp),dimension(:,:)  ,pointer :: diffu => null()   !*FD 
     real(dp),dimension(:,:)  ,pointer :: diffu_x => null() !*sfp* moved from velocity_hom deriv type
     real(dp),dimension(:,:)  ,pointer :: diffu_y => null() 
     real(dp),dimension(:,:)  ,pointer :: total_diffu => null() !*FD total diffusivity
-    real(dp),dimension(:,:)  ,pointer :: ubas  => null() !*FD 
+    real(dp),dimension(:,:)  ,pointer :: ubas  => null()   !*FD 
     real(dp),dimension(:,:)  ,pointer :: ubas_tavg  => null()
-    real(dp),dimension(:,:)  ,pointer :: vbas  => null() !*FD 
+    real(dp),dimension(:,:)  ,pointer :: vbas  => null()   !*FD 
     real(dp),dimension(:,:)  ,pointer :: vbas_tavg  => null() 
 
     !! next 3 used for output of residual fields (when relevant code in glam_strs2 is active)
@@ -610,15 +593,18 @@ module glide_types
     logical :: is_velocity_valid = .false. !*FD True if uvel, vvel contains a HOM-computed velocity (and thus is valid as initial guess)
 
     real(dp),dimension(:,:)  ,pointer :: bed_softness => null() !*FD bed softness parameter
-    real(dp),dimension(:,:)  ,pointer :: btrc  => null() !*FD  basal traction (scaler field)
-    real(dp),dimension(:,:,:),pointer :: btraction => null() !*FD x(1,:,:) and y(2,:,:) "consistent" basal traction fields 
-    real(dp),dimension(:,:)  ,pointer   :: beta  => null() !*FD basal shear coefficient
-                                                             !*FD calculated from matrix coeffs in PP dyn core
-    !*FD A mask similar to glide_geometry%mask, but on the velocity grid instead of the
+    real(dp),dimension(:,:)  ,pointer :: btrc  => null()        !*FD  basal traction (scaler field)
+    real(dp),dimension(:,:,:),pointer :: btraction => null()    !*FD x(1,:,:) and y(2,:,:) "consistent" basal traction fields 
+    real(dp),dimension(:,:)  ,pointer :: beta  => null()        !*FD basal shear coefficient
+                                                                !*FD calculated from matrix coeffs in PP dyn core
+
+    !*FD A mask similar to glide_geometry%thck_index, but on the velocity grid instead of the
     !*FD ice grid.  This is to aid in converging higher-order velocities
-    integer, dimension(:,:)  ,pointer   :: velmask => null()
+    integer, dimension(:,:), pointer    :: velmask => null()
+
     !*FD A mask that specifies where the velocity being read in should be held constant as a dirichlet condition
     integer, dimension(:,:), pointer    :: kinbcmask => null()
+
     !*sfp* mask on vel grid showing which dyn bc is applied at each grid cell (mainly for debugging)
     integer, dimension(:,:), pointer    :: dynbcmask => null()
 
@@ -658,21 +644,21 @@ module glide_types
 
   type glide_temper
 
-!TODO - A subset of these could be part of glissade state.
-!       Could simplify things if we assume glissade always has temp and flwa on staggered vertical grid
-
     !*FD Holds fields relating to temperature.
-    !whl - In standard Glide, temp and flwa live on the unstaggered vertical grid
-    !      at layer interfaces.  But if whichtemp = 3 (remapping advection of 
-    !      temperature), temp and flwa live on the staggered vertical grid, 
-    !      at layer midpoints.
-    !whl - added some heat flux terms: bfricflx, ucondflx, lcondflx, dissipcol
+    !WHL - In the glide dycore, temp and flwa live on the unstaggered vertical grid
+    !       at layer interfaces and have vertical dimension (1:upn).
+    !      In the glam/glissade dycore, with remapping advection of temperature, 
+    !       temp and flwa live on the staggered vertical grid at layer midpoints.  
+    !       The vertical dimensions are temp(0:upn) and flwa(1:upn-1).
+
+    !WHL - added some heat flux terms: bfricflx, ucondflx, lcondflx, dissipcol
     !      Note: bheatflx, ucondflx, and lcondflx are defined as positive down,
     !            so they will generally be < 0.  
     !      However, bfricflx and dissipcol are defined to be >= 0.
+
     real(dp),dimension(:,:,:),pointer :: temp => null() !*FD 3D temperature field.
     real(dp),dimension(:,:),  pointer :: bheatflx => null() !*FD basal heat flux (geothermal)
-    real(dp),dimension(:,:,:),pointer :: flwa => null() !*FD Glenn's $A$.
+    real(dp),dimension(:,:,:),pointer :: flwa => null() !*FD Glen's flow factor $A$.
     real(dp),dimension(:,:),  pointer :: bwat => null() !*FD Basal water depth
     real(dp),dimension(:,:),  pointer :: bwatflx => null() !*FD Basal water flux 
     real(dp),dimension(:,:),  pointer :: stagbwat => null() !*FD Basal water depth in velo grid
@@ -693,9 +679,6 @@ module glide_types
     logical  :: first1  = .true. !*FD
     logical  :: newtemps = .false. !*FD new temperatures
   end type glide_temper
-
-!TODO - Seems like the lithosphere is independent of dycore (glide v. glissade).
-!       Change to cism_lithot_type?
 
   type glide_lithot_type
      !*FD holds variables for temperature calculations in the lithosphere
@@ -747,8 +730,6 @@ module glide_types
   end type glide_funits
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-!TODO - cism_numerics?
 
   type glide_numerics
 
@@ -809,7 +790,6 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - SIA only?  Remove this type?
   type glide_velowk
     real(dp),dimension(:),  pointer :: depth    => null()
     real(dp),dimension(:),  pointer :: dupsw    => null()
@@ -834,16 +814,13 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - SIA only?
   type glide_thckwk
      real(dp),dimension(:,:),  pointer :: oldthck   => null()
      real(dp),dimension(:,:),  pointer :: oldthck2  => null()
      real(dp),dimension(:,:),pointer :: float => null()
      real(dp),dimension(:,:,:),pointer :: olds      => null()
      integer  :: nwhich  = 2
-!WHLTSTEP - Changed oldtime to dp
-!     real(sp) :: oldtime = 0.0
-     real(dp) :: oldtime = 0.0  !TODO - Change to 0.d0
+     real(dp) :: oldtime = 0.d0
      
      real(dp), dimension(:), pointer :: alpha => null()
      real(dp), dimension(:), pointer :: beta  => null()
@@ -854,7 +831,6 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - SIA only?
   type glide_tempwk
     real(dp),dimension(:,:,:),pointer :: inittemp => null()
     real(dp),dimension(:,:,:),pointer :: dissip   => null()
@@ -877,23 +853,22 @@ module glide_types
 
 !TODO - Do we need these?  If so, change to 0.d0
     !*sfp** added space to the next 2 (cons, f) for use w/ HO and SSA dissip. calc. 
-    real(dp),dimension(5)             :: cons     = 0.0
-    real(dp),dimension(5)             :: f        = 0.0
-    real(dp),dimension(8)             :: c        = 0.0
+    real(dp),dimension(5)             :: cons     = 0.d0
+    real(dp),dimension(5)             :: f        = 0.d0
+    real(dp),dimension(8)             :: c        = 0.d0
     real(dp),dimension(2)             :: slide_f
     real(dp) :: noflow      = -1
-    real(dp),dimension(2) :: advconst = 0.0
-    real(dp) :: zbed        = 0.0
-    real(dp) :: dupn        = 0.0
-    real(dp) :: wmax        = 0.0
-    real(dp) :: dt_wat      = 0.0
-    real(dp) :: watvel      = 0.0
+    real(dp),dimension(2) :: advconst = 0.d0
+    real(dp) :: zbed        = 0.d0
+    real(dp) :: dupn        = 0.d0
+    real(dp) :: wmax        = 0.d0
+    real(dp) :: dt_wat      = 0.d0
+    real(dp) :: watvel      = 0.d0
     integer  :: nwat        = 0
   end type glide_tempwk
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - Change to cism_paramets?
 !TODO - Check units of hydtim.
   type glide_paramets
     real(dp),dimension(5) :: bpar = (/ 0.2d0, 0.5d0, 0.0d0 ,1.0d-2, 1.0d0/)
@@ -912,7 +887,7 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - Is this type ever used?
+!TODO - This type is not currently used.  Should it be removed?
   type glide_basalproc
     !Tuneables, set in the config file 
     real(dp):: fric=0.45d0                   ! Till coeff of internal friction: ND
@@ -963,8 +938,9 @@ module glide_types
   end type glide_phaml
   
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-! for JFNK, NOX Trilinos solver
-  type ,public :: glissade_solver
+
+  ! for JFNK, NOX Trilinos solver
+  type, public :: glissade_solver
 
     integer ,dimension(:,:) ,allocatable :: ui 
     integer ,dimension(:,:) ,allocatable :: um 
@@ -978,16 +954,15 @@ module glide_types
     type(sparse_matrix_type)  :: matrixC
     real(dp),dimension(:),pointer :: rhsd    => null()
     real(dp),dimension(:),pointer :: answ    => null()
-    real(dp),dimension(4)         :: fc      = 0.0
-    real(dp),dimension(6)         :: fc2     = 0.0
     integer :: ct     = 0
-! KJE remove once new glide_global_type is working and we can use those ewn and nsn
+
+!TODO - KJE - remove once new glide_global_type is working and we can use those ewn and nsn
     integer :: ewn
     integer :: nsn
 
   end type glissade_solver
 
-!       
+       
   type glide_global_type
     integer              :: model_id !*FD Used in the global model list for error handling purposes
     type(glide_general)  :: general
@@ -1016,26 +991,7 @@ module glide_types
 
   end type glide_global_type
 
-!KJE remove once glide_global type is working with glissade_solver
-! for JFNK, NOX in Trilinos
-!  type ,public :: pass_through
-!
-!    type(glide_global_type)  :: model
-!    integer ,dimension(:,:) ,allocatable :: ui 
-!    integer ,dimension(:,:) ,allocatable :: um 
-!    real(dp) ,dimension(:,:) ,allocatable :: d2thckcross
-!    real(dp) ,dimension(:,:) ,allocatable :: d2usrfcross
-!    integer ,dimension(2) :: pcgsize
-!    integer ,dimension(:) ,allocatable :: gxf
-!    real(dp)  :: L2norm
-!    type(sparse_matrix_type)  :: matrixA
-!    type(sparse_matrix_type)  :: matrixC
-!
-!  end type pass_through
-
 contains
-
-!TODO - Write a glissade_allocarr subroutine?
 
   subroutine glide_allocarr(model)    
     !*FD Allocates the model arrays, and initialises some of them to zero.
@@ -1150,17 +1106,15 @@ contains
     call coordsystem_allocate(model%general%ice_grid, model%temper%lcondflx)
     call coordsystem_allocate(model%general%ice_grid, model%temper%dissipcol)
 
-!whl - In the old Glimmer code (whichtemp = TEMP_GLIMMER), temperature and 
+!WHL - In the glide dycore (whichtemp = TEMP_GLIDE), temperature and 
 !       flow factor live on the unstaggered vertical grid, and extra rows and columns 
 !       (with indices 0:ewn+1, 0:nsn+1) are needed.
-!whl - In the newer Glissade code, temperature and flow factor live on the 
+!    - In the glam/glissade dycore, temperature and flow factor live on the 
 !       staggered vertical grid, with temperature and flwa defined at the
 !       center of each layer k = 1:upn-1.  The temperature (but not flwa)
 !       is defined at the upper surface (k = 0) and lower surface (k = upn).
-!      The distributed code uses the Glissade convention.
-!       The old Glimmer convention is supported only for single-processor runs.
 
-    if (model%options%whichtemp == TEMP_GLIMMER) then
+    if (model%options%whichtemp == TEMP_GLIDE) then
 
 !TODO - I put a similar check in glide_setup.F90, based on distributed_execution().
 !      Which is correct?
@@ -1202,7 +1156,6 @@ contains
     call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%velnorm)
     call coordsystem_allocate(model%general%ice_grid, upn, model%velocity%wvel)
     call coordsystem_allocate(model%general%ice_grid, upn, model%velocity%wgrd)
-    call coordsystem_allocate(model%general%velo_grid,upn,model%velocity%surfvel)
     call coordsystem_allocate(model%general%velo_grid, model%velocity%uflx)
     call coordsystem_allocate(model%general%velo_grid, model%velocity%vflx)
     call coordsystem_allocate(model%general%velo_grid, model%velocity%diffu)
@@ -1278,7 +1231,7 @@ contains
     call coordsystem_allocate(model%general%ice_grid, model%geometry%usrf)
     call coordsystem_allocate(model%general%ice_grid, model%geometry%lsrf)
     call coordsystem_allocate(model%general%ice_grid, model%geometry%topg)
-    call coordsystem_allocate(model%general%ice_grid, model%geometry%mask)
+    call coordsystem_allocate(model%general%ice_grid, model%geometry%thck_index)
     call coordsystem_allocate(model%general%ice_grid, model%geometry%thkmask)
     call coordsystem_allocate(model%general%ice_grid, model%geometry%marine_bc_normal)
     call coordsystem_allocate(model%general%ice_grid, upn-1, model%geometry%age)
@@ -1327,7 +1280,6 @@ contains
 
   end subroutine glide_allocarr
 
-!TODO - Add glissade_deallocarr?
   subroutine glide_deallocarr(model)
     !*FD deallocate model arrays
     implicit none
@@ -1406,8 +1358,6 @@ contains
        deallocate(model%velocity%wvel)
     if (associated(model%velocity%wgrd)) &
        deallocate(model%velocity%wgrd)
-    if (associated(model%velocity%surfvel)) &
-       deallocate(model%velocity%surfvel)
 
     if (associated(model%velocity%uflx)) &
        deallocate(model%velocity%uflx)
@@ -1547,8 +1497,8 @@ contains
        deallocate(model%geometry%topg)
     if (associated(model%geometry%age)) &
        deallocate(model%geometry%age)
-    if (associated(model%geometry%mask)) &
-       deallocate(model%geometry%mask)
+    if (associated(model%geometry%thck_index)) &
+       deallocate(model%geometry%thck_index)
     if (associated(model%geometry%thkmask)) &
        deallocate(model%geometry%thkmask)
     if (associated(model%geometry%marine_bc_normal)) &
@@ -1597,8 +1547,6 @@ contains
 
   end subroutine glide_deallocarr
 
-!TODO - Are these accessor functions ever used?
-
   ! some accessor functions
   function get_dew(model)
     !*FD return scaled x node spacing
@@ -1620,11 +1568,9 @@ contains
     get_dns = model%numerics%dns * len0
   end function get_dns
 
-!WHLTSTEP - Changed get_tstart, get_tend, and get_tinc to dp
   function get_tstart(model)
     !*FD return start time
     implicit none
-!    real(sp) :: get_tstart
     real(dp) :: get_tstart
     type(glide_global_type) :: model
     
@@ -1669,13 +1615,11 @@ contains
     get_nsn = model%general%nsn
   end function get_nsn
   
-!WHLTSTEP - Change set_time to dp
   subroutine set_time(model,time)
     !*FD Set the model time counter --- useful for
     !*FD fractional year output
     implicit none
     type(glide_global_type) :: model
-!    real :: time
     real(dp) :: time
 
     model%numerics%time = time

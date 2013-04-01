@@ -1,3 +1,5 @@
+!TODO - Should this subroutine be part of glam_strs2 or another module?
+
 !  uvec is either u^k-1 or v^k-1 on input and Av-b or Cu-d on output
 
 subroutine res_vect ( matrix, uvec, bvec, nu, g_flag, L2square, whatsparse)

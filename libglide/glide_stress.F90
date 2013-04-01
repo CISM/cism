@@ -1,11 +1,16 @@
 ! *sfp* module to hold subroutines for calculation of stress components from converged, higher-order
 ! stress and effective viscosity fields. To be called at the end of HO vel calculation.
 
-module stress_hom
+!TODO - Add header
+!       Combine with glam_strs2?  Not sure it needs to be its own module.
+
+module glide_stress
 
     use glimmer_paramets, only : dp
     use glide_types
     use parallel
+
+    implicit none
 
     private
     public :: glide_calcstrsstr  
@@ -44,7 +49,7 @@ module stress_hom
 
 !TODO - Remove scaling.
         use glimmer_paramets, only : len0, thk0
-        use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
+!!        use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
 
         implicit none
 
@@ -129,17 +134,17 @@ module stress_hom
 !       (If they are, they should be moved up to the glissade driver level.)
 
         call parallel_halo(tauxx)
-        call horiz_bcs_unstag_scalar(tauxx)
+!!        call horiz_bcs_unstag_scalar(tauxx)
         call parallel_halo(tauyy)
-        call horiz_bcs_unstag_scalar(tauyy)
+!!        call horiz_bcs_unstag_scalar(tauyy)
         call parallel_halo(tauxy)
-        call horiz_bcs_unstag_scalar(tauxy)
+!!        call horiz_bcs_unstag_scalar(tauxy)
         call parallel_halo(tauxz)
-        call horiz_bcs_unstag_scalar(tauxz)
+!!        call horiz_bcs_unstag_scalar(tauxz)
         call parallel_halo(tauyz)
-        call horiz_bcs_unstag_scalar(tauyz)
+!!        call horiz_bcs_unstag_scalar(tauyz)
         call parallel_halo(tau)
-        call horiz_bcs_unstag_scalar(tau)
+!!        call horiz_bcs_unstag_scalar(tau)
         return
 
     end subroutine calcstrsstr
@@ -201,4 +206,4 @@ module stress_hom
 
    end function hsum
 
-end module stress_hom
+end module glide_stress

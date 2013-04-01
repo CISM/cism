@@ -1,3 +1,4 @@
+!TODO - Move to libglint?
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
 ! +  glimmer_routing.f90 - part of the Glimmer-CISM ice model + 
@@ -31,18 +32,19 @@
 #include "config.inc"
 #endif
 
-!EIB! was glint_routing in gc2
-
 module glimmer_routing
 
   use glimmer_global,only: rk,sp
+
+  implicit none
 
   private
   public flow_router
 
 contains
 
-!TODO - This subroutine currently is not called from Glide.  Is it needed?
+!TODO - This subroutine currently is not called from Glide.
+!       Move to Glint directory? (called by glint_timestep)
 
   subroutine flow_router(surface,input,output,mask,dx,dy)
 

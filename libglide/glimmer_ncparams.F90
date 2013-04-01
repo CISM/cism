@@ -35,9 +35,13 @@
 #define NCI infile%nc
 
 module glimmer_ncparams
+
   !*FD read netCDF I/O related configuration files
   !*FD written by Magnus Hagdorn, May 2004
+
   use glimmer_ncdf, only: glimmer_nc_meta
+
+  implicit none
     
   private
   public :: glimmer_nc_readparams, default_metadata, handle_output, handle_input, configstring

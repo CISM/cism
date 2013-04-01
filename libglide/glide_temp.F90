@@ -71,6 +71,9 @@ module glide_temp
 
   use glide_types
 
+!WHL - debug
+    use glimmer_paramets, only : oldglide
+
   implicit none
 
   private
@@ -79,8 +82,7 @@ module glide_temp
 contains
 
 !------------------------------------------------------------------------------------
-
-!TODO - Replace model derived type with explicit arguments?
+!TODO - Get rid of some ugly tempwk constants
 
   subroutine glide_init_temp(model)
 
@@ -150,15 +152,12 @@ contains
 
     model%tempwk%wmax = 5.0d0 * tim0 / (scyr * thk0)
 
-!TODO - Delete line with tau0
     model%tempwk%cons = (/ 2.0d0 * tim0 * model%numerics%dttem * coni / (2.0d0 * rhoi * shci * thk0**2), &
          model%numerics%dttem / 2.0d0, &
          VERT_DIFF*2.0d0 * tim0 * model%numerics%dttem / (thk0 * rhoi * shci), &
          VERT_ADV*tim0 * acc0 * model%numerics%dttem / coni, &
-!!         ( tau0 * vel0 / len0 ) / ( rhoi * shci ) * ( model%numerics%dttem * tim0 ) /)  
-         0.d0 /)   !whl - last term no longer needed
+         0.d0 /)   !WHL - last term no longer needed
          !*sfp* added last term to vector above for use in HO & SSA dissip. cacl
-         
 
     model%tempwk%c1 = STRAIN_HEAT *(model%numerics%sigma * rhoi * grav * thk0**2 / len0)**p1 * &
          2.0d0 * vis0 * model%numerics%dttem * tim0 / (16.0d0 * rhoi * shci)
@@ -167,24 +166,24 @@ contains
          ((model%numerics%sigma(up+1) - model%numerics%sigma(up-1)) / 2.0d0, &
          up=2,model%general%upn-1), (model%numerics%sigma(model%general%upn) - &
          model%numerics%sigma(model%general%upn-1)) / 2.0d0  /)
+
     model%tempwk%dupa = (/ 0.0d0, 0.0d0, &
          ((model%numerics%sigma(up) - model%numerics%sigma(up-1)) / &
          ((model%numerics%sigma(up-2) - model%numerics%sigma(up-1)) * &
          (model%numerics%sigma(up-2) - model%numerics%sigma(up))), &
          up=3,model%general%upn)  /)
+
     model%tempwk%dupb = (/ 0.0d0, 0.0d0, &
          ((model%numerics%sigma(up) - model%numerics%sigma(up-2)) / &
          ((model%numerics%sigma(up-1) - model%numerics%sigma(up-2)) * &
          (model%numerics%sigma(up-1) - model%numerics%sigma(up))), &
          up=3,model%general%upn)  /)
     
-!TODO - Delete line with tau0
     model%tempwk%f = (/ tim0 * coni / (thk0**2 * lhci * rhoi), &
          tim0 / (thk0 * lhci * rhoi), &
          tim0 * thk0 * rhoi * shci /  (thk0 * tim0 * model%numerics%dttem * lhci * rhoi), &
          tim0 * thk0**2 * vel0 * grav * rhoi / (4.0d0 * thk0 * len0 * rhoi * lhci), &
-!!         tim0 * vel0 * tau0 / (4.0d0 * thk0 * rhoi * lhci) /)      
-         0.d0 /)   !whl - last term no longer needed
+         0.d0 /)   !WHL - last term no longer needed
          !*sfp* added the last term in the vect above for HO and SSA dissip. calc. 
 
     ! setting up some factors for sliding contrib to basal heat flux
@@ -192,6 +191,7 @@ contains
          VERT_ADV * rhoi*grav*acc0*thk0*thk0*model%numerics%dttem/coni /)             ! vert advection
 
     select case(model%options%whichbwat)
+
        case(0)
           model%paramets%hydtim = tim0 / (model%paramets%hydtim * scyr)
           estimate = 0.2d0 / model%paramets%hydtim
@@ -200,6 +200,10 @@ contains
           
           model%tempwk%c = (/ model%tempwk%dt_wat, 1.0d0 - 0.5d0 * model%tempwk%dt_wat * model%paramets%hydtim, &
                1.0d0 + 0.5d0 * model%tempwk%dt_wat * model%paramets%hydtim, 0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0 /) 
+
+!TODO - This option is part of old glide.  Why was it removed?
+!       Option 1 is like option 0 (local basal water balance), but with constant horizontal flow
+
        case(1)
           !EIB! not in lanl
           !model%tempwk%watvel = model%paramets%hydtim * tim0 / (scyr * len0)
@@ -219,50 +223,82 @@ contains
           stop
 
        end select
-       ! JCC - was in LANL but not in parallel
-       !      model%temper%temp = -10.0
 
       !==== Initialize ice temperature.============
+
       !This block of code is similar to that in glissade_init_temp
+      !WHL - Old glide has this code in timeevoltemp
+
+!TODO - Remove halo parameters below, since uhalo = lhalo = 0 for glide
+
       if (model%options%is_restart == 1) then
+
          ! If we are restarting, use the field from the restart input file. (Temp is always a restart variable.)
           call write_log('Using temp values from restart file for temperature initial condition.')
+
+!TODO - For restart, make sure that values in the temperature halo are reasonable.
+
       elseif ( minval(model%temper%temp(1:model%general%upn, &
                   1+lhalo:model%general%ewn-lhalo, 1+uhalo:model%general%nsn-uhalo)) < &
-                  (-1.0d0 * trpt) ) then
+                  (-1.0d0 * trpt) ) then    ! trpt = 273.15 K
+                                            ! Default initial temps in glide_types are -999
+
           ! If a temperature field was not provided on a cold start, then use the air temp.
           ! (Check if any of -999.0 default values remain for temp in the physical domain now that the input file has been read.)
 
+!WHL - Previously, temps in the temperature halo cells were left at -999 after initialization.
+!      This doesn't seem like a good idea.
+
+          model%temper%temp(:,:,:) = 0.0d0  ! initialize to 0 
+                                            ! including temperature halo: ew = 0, ewn+1
+                                            !                             ns = 0, nsn+1   
+
           ! Initialize ice temperature to air temperature (for each column). 
-          ! Only loop over local cells so that the halos will retain the junk -999.0 values until updated.
+          ! Loop over physical cells where artm should be defined (not temperature halo cells)
+
+!WHL - Note: Old glide sets temp = artm everywhere without regard to whether ice exists in a column.
+!TODO - Verify that this makes no difference for model results.
+
           call write_log('Initializing ice temperature to the air temperature.')
-          do ns = 1+uhalo, model%general%nsn-uhalo
-             do ew = 1+lhalo, model%general%ewn-lhalo
-               if (model%geometry%thck(ew,ns) <= 0.0d0) then  ! TODO should this be thin ice?
-                 model%temper%temp(:,ew,ns) = 0.0d0  ! initialize non-ice areas to 0 
+
+          do ns = 1, model%general%nsn
+             do ew = 1, model%general%ewn
+
+               if (oldglide) then
+                model%temper%temp(:,ew,ns) = dmin1(0.0d0,dble(model%climate%artm(ew,ns)))  
                else
-                 model%temper%temp(:,ew,ns) = dmin1(0.0d0,dble(model%climate%artm(ew,ns)))  ! initialize ice areas to the min of artm and 0
-               endif
+                if (model%geometry%thck(ew,ns) > 0.0d0) then  ! TODO should this be thin ice?
+                   ! initialize ice-covered areas to the min of artm and 0
+                   model%temper%temp(:,ew,ns) = dmin1(0.0d0,dble(model%climate%artm(ew,ns)))  
+                endif
+               endif   ! oldglide
              end do
           end do
+
       else
+
           ! If temp values have been included in the input file on a cold start, use them!
           call write_log('Using temp values from input file for temperature initial condition.')
+
+!TODO - For reading input file, make sure that values in the temperature halo are reasonable.
+
       endif
 
       ! ====== Calculate initial value of flwa ==================
+
       if (model%options%is_restart == 0) then
          call write_log("Calculating initial flwa from temp and thk fields.")
-!TODO - Check spelling of 'Glen', make sure it's consistent throughout code
+
          ! Calculate Glen's A --------------------------------------------------------   
-         call calcflwa(model%numerics%sigma,        &
-                       model%numerics%thklim,       &
-                       model%temper%flwa,           &
-                       model%temper%temp(:,1:model%general%ewn,1:model%general%nsn), &
-                       model%geometry%thck,         &
-                       model%paramets%flow_factor,  &
-                       model%paramets%default_flwa, &
-                       model%options%whichflwa) 
+
+         call glide_calcflwa(model%numerics%sigma,        &
+                             model%numerics%thklim,       &
+                             model%temper%flwa,           &
+                             model%temper%temp(:,1:model%general%ewn,1:model%general%nsn), &
+                             model%geometry%thck,         &
+                             model%paramets%flow_factor,  &
+                             model%paramets%default_flwa, &
+                             model%options%whichflwa) 
       else
          call write_log("Using flwa values from restart file for flwa initial condition.") 
       endif
@@ -279,12 +315,7 @@ contains
     use glimmer_utils, only: tridiag
     use glimmer_global, only : dp
     use glimmer_paramets, only : thk0, GLC_DEBUG
-    use glide_velo
-    use glide_thck
-    use glide_grids
     use glide_bwater
-
-    use parallel
 
     !------------------------------------------------------------------------------------
     ! Subroutine arguments
@@ -311,8 +342,10 @@ contains
     real(dp), dimension(size(model%numerics%sigma)) :: weff
 
 !WHLdebug
-!!    integer :: i, j
-!!    integer, parameter :: itest = 10, jtest = 10    
+    integer :: j, k
+    integer :: idiag, jdiag
+    idiag = model%numerics%idiag_global
+    jdiag = model%numerics%jdiag_global
 
     !------------------------------------------------------------------------------------
     ! ewbc/nsbc set the type of boundary condition aplied at the end of
@@ -321,12 +354,7 @@ contains
 
     select case(whichtemp)
 
-    !whl - In distributed code, case 0 is now handled by glissade_temp_driver.
-    !      But leaving this option in glide_temp_driver in case it's ever needed.
- 
     case(0) ! Set column to surface air temperature -------------------------------------
-
-       ! JEFF - Ok for distributed since using air temperature at grid point to initialize.
 
        do ns = 1,model%general%nsn
           do ew = 1,model%general%ewn
@@ -336,81 +364,25 @@ contains
 
     case(1) ! Do full temperature solution as in Glimmer---------------------------------
 
-!TODO - Pretty sure these calls are not needed, since they are now at the end of tstep_p3
-!       (so that wgrd can be written to the hotstart file and used for restart).
-      !--MJH 1/14/13 I commented them out here and they now all are called at the end of glide tstep.
-      !  This block of commented ~70 lines can be deleted eventually.  
-                         
-       ! Calculate time-derivatives of thickness and upper surface elevation ------------
+      ! Note: In older versions of Glimmer, the vertical velocity was computed here.
+      !       It is now computed in glide_tstep_p3 to support exact restart.
 
-!       call timeders(model%thckwk,   &
-!                     model%geometry%thck,     &
-!                     model%geomderv%dthckdtm, &
-!                     model%geometry%mask,     &
-!                     model%numerics%time,     &
-!                     1)
-
-!       call timeders(model%thckwk,   &
-!                     model%geometry%usrf,     &
-!                     model%geomderv%dusrfdtm, &
-!                     model%geometry%mask,     &
-!                     model%numerics%time,     &
-!                     2)
-
-!       ! Calculate the vertical velocity of the grid ------------------------------------
-!    
-!       ! Calculate the actual vertical velocity; method depends on whichwvel ------------
-
-!       call gridwvel(model%numerics%sigma,  &
-!                     model%numerics%thklim, &
-!                     model%velocity%uvel,   &
-!                     model%velocity%vvel,   &
-!                     model%geomderv,        &
-!                     model%geometry%thck,   &
-!                     model%velocity%wgrd)
-    
-!       select case(model%options%whichwvel)
-
-!!TODO - Here and below, replace derived types (geomderv, numerics, etc.) with explicit arguments
-
-!        case(0) 
-!           ! Usual vertical integration
-!           call wvelintg(model%velocity%uvel,                        &
-!                         model%velocity%vvel,                        &
-!                         model%geomderv,                             &
-!                         model%numerics,                             &
-!                         model%velowk,                               &
-!                         model%velocity%wgrd(model%general%upn,:,:), &
-!                         model%geometry%thck,                        &
-!                         model%temper%bmlt,                          &
-!                         model%velocity%wvel)
-!    
-!        case(1)
-!           ! Vertical integration constrained so kinematic upper BC obeyed.
-!           call wvelintg(model%velocity%uvel,                        &
-!                         model%velocity%vvel,                        &
-!                         model%geomderv,                             &
-!                         model%numerics,                             &
-!                         model%velowk,                               &
-!                         model%velocity%wgrd(model%general%upn,:,:), &
-!                         model%geometry%thck,                        &
-!                         model%temper%  bmlt,                        &
-!                         model%velocity%wvel)
-
-!           call chckwvel(model%numerics,                             &
-!                         model%geomderv,                             &
-!                         model%velocity%uvel(1,:,:),                 &
-!                         model%velocity%vvel(1,:,:),                 &
-!                         model%velocity%wvel,                        &
-!                         model%geometry%thck,                        &
-!                         model%climate% acab)
-!       end select
-
-!!TODO - Remove support for periodic BC?
-!       ! apply periodic ew BC
-!       if (model%options%periodic_ew) then
-!          call wvel_ew(model)
-!       end if
+!WHL - debug
+!    print*, ' '
+!    print*, 'Starting glide_temp_driver'
+!    print*, ' '
+!    print*, 'basal uvel:'
+!    do j = model%general%nsn+1, 0, -1
+!       write(6,'(14f12.7)') model%velocity%uvel(model%general%upn,3:16,j)
+!    enddo
+!    print*, 'basal temp:'
+!    do j = model%general%nsn+1, 0, -1
+!       write(6,'(14f12.7)') model%temper%temp(model%general%upn,3:16,j)
+!    enddo
+!    print*, 'temp, k = 2:'
+!    do j = model%general%nsn+1, 0, -1
+!       write(6,'(14f12.7)') model%temper%temp(2,3:16,j)
+!    enddo
 
        model%tempwk%inittemp = 0.0d0
        model%tempwk%initadvt = 0.0d0
@@ -458,6 +430,13 @@ contains
                     model%temper%temp, &
                     model%geometry%thck)
 
+!WHL - debug
+!    print*, ' '
+!    print*, 'basal dissipation:'
+!    do j = model%general%nsn+1, 0, -1
+!       write(6,'(14f12.7)') model%tempwk%dissip(model%general%upn,3:16,j)
+!    enddo
+
        ! zeroth iteration
        iter = 0
        tempresid = 0.0d0
@@ -476,6 +455,17 @@ contains
                    weff = 0.0d0
                 end if
 
+!WHL - debug
+!                if (ew == idiag .and. ns == jdiag) then
+!                   print*, ' ' 
+!                   print*, 'Before findvtri, i, j =', idiag, jdiag
+!                   print*, ' '
+!                   print*, 'iteradvt, diagadvt, temp:'
+!                   do k = 1, model%general%upn
+!                      write(6,'(5f16.7)') iteradvt(k), diagadvt(k), model%temper%temp(k,ew,ns)
+!                   enddo
+!                endif
+
                 call hadvpnt(iteradvt,                       &
                              diagadvt,                               &
                              model%temper%temp(:,ew-2:ew+2,ns),      &
@@ -486,6 +476,17 @@ contains
                 call findvtri(model,ew,ns,subd,diag,supd,diagadvt, &
                      weff, &
                      GLIDE_IS_FLOAT(model%geometry%thkmask(ew,ns)))
+
+!WHL - debug
+!                if (ew == idiag .and. ns == jdiag) then
+!                   print*, ' ' 
+!                   print*, 'After findvtri, i, j =', idiag, jdiag
+!                   print*, ' '
+!                   print*, 'subd, diag, supd, rhsd, new temp:'
+!                   do k = 1, model%general%upn
+!                      write(6,'(5f16.7)') subd(k), diag(k), supd(k), rhsd(k), model%temper%temp(k,ew,ns)
+!                   enddo
+!                endif
 
                 call findvtri_init(model,ew,ns,subd,diag,supd,weff,model%temper%temp(:,ew,ns), &
                      model%geometry%thck(ew,ns),GLIDE_IS_FLOAT(model%geometry%thkmask(ew,ns)))
@@ -506,12 +507,42 @@ contains
                               model%temper%bwat(ew,ns),       &
                               model%numerics%sigma,           &
                               model%general%upn)
-
+            
                 tempresid = max(tempresid,maxval(abs(model%temper%temp(:,ew,ns)-prevtemp(:))))
+
+!WHL - debug
+!                if (ew == idiag .and. ns == jdiag) then
+!                   print*, ' ' 
+!                   print*, 'After tridiag, i, j =', idiag, jdiag
+!                   print*, ' ' 
+!                   print*, 'hadv_u, hadv_v, weff:'
+!                   do k = 1, model%general%upn
+!                      write(6,'(3f16.7)') model%tempwk%hadv_u(k,ew,ns), model%tempwk%hadv_v(k,ew,ns), weff(k)
+!                   enddo
+!                   print*, ' '
+!                   print*, 'subd, diag, supd, rhsd, new temp:'
+!                   do k = 1, model%general%upn
+!                      write(6,'(5f16.7)') subd(k), diag(k), supd(k), rhsd(k), model%temper%temp(k,ew,ns)
+!                   enddo
+!                endif
 
              endif
           end do
        end do
+
+!WHL - debug
+!    print*, ' '
+!    print*, 'After zeroth iteration:'
+!    print*, ' '
+!    print*, 'basal temp:'
+!    do j = model%general%nsn+1, 0, -1
+!       write(6,'(14f12.7)') model%temper%temp(model%general%upn,3:16,j)
+!    enddo
+!    print*, 'temp, k = 2:'
+!    do j = model%general%nsn+1, 0, -1
+!       write(6,'(14f12.7)') model%temper%temp(2,3:16,j)
+!    enddo
+
 
        do while (tempresid > tempthres .and. iter <= mxit)
 
@@ -631,14 +662,33 @@ contains
 
     ! Calculate Glen's A --------------------------------------------------------
 
-    call calcflwa(model%numerics%sigma,        &
-                  model%numerics%thklim,       &
-                  model%temper%flwa,           &
-                  model%temper%temp(:,1:model%general%ewn,1:model%general%nsn), &
-                  model%geometry%thck,         &
-                  model%paramets%flow_factor,  &
-                  model%paramets%default_flwa, &
-                  model%options%whichflwa) 
+    call glide_calcflwa(model%numerics%sigma,        &
+                        model%numerics%thklim,       &
+                        model%temper%flwa,           &
+                        model%temper%temp(:,1:model%general%ewn,1:model%general%nsn), &
+                        model%geometry%thck,         &
+                        model%paramets%flow_factor,  &
+                        model%paramets%default_flwa, &
+                        model%options%whichflwa) 
+
+!WHL - debug
+!    print*, ' '
+!    print*, 'Found new temps'
+!    print*, ' '
+!    print*, 'basal temp:'
+!    do j = model%general%nsn+1, 0, -1
+!       write(6,'(14f12.7)') model%temper%temp(model%general%upn,3:16,j)
+!    enddo
+!    print*, 'temp, k = 2:'
+!    do j = model%general%nsn+1, 0, -1
+!       write(6,'(14f12.7)') model%temper%temp(2,3:16,j)
+!    enddo
+!    print*, 'flwa, k = 2:'
+!    do j = model%general%nsn+1, 0, -1
+!       write(6,'(14e12.5)') model%temper%flwa(2,3:16,j)
+!    enddo
+
+
 
     ! Output some information ----------------------------------------------------
 
@@ -764,7 +814,12 @@ contains
     real(dp), dimension(:), intent(out) :: subd, diag, supd
     logical, intent(in) :: float
 
-    real(dp) :: fact(3)
+    real(dp) :: fact(3)  !TODO - fact(2)?
+
+!WHL - debug
+    integer :: idiag, jdiag, k
+    idiag = model%numerics%idiag_global
+    jdiag = model%numerics%jdiag_global
 
 ! These constants are precomputed:
 ! model%tempwk%cons(1) = 2.0d0 * tim0 * model%numerics%dttem * coni / (2.0d0 * rhoi * shci * thk0**2)
@@ -773,6 +828,19 @@ contains
     fact(1) = VERT_DIFF*model%tempwk%cons(1) / model%geometry%thck(ew,ns)**2
     fact(2) = VERT_ADV*model%tempwk%cons(2) / model%geometry%thck(ew,ns)    
     
+!WHL - debug
+!Note: dups will be different if sigma levels are different
+!    if (ew==idiag .and.	ns==jdiag) then
+!       print*, ' '
+!       print*, 'fact(1) =', fact(1)
+!       print*, 'fact(2) =', fact(2)
+!       print*, ' '
+!       print*, 'dups(1:3):'
+!       do k = 1, model%general%upn
+!          write(6,'(3f16.7)') model%tempwk%dups(k,1:3)
+!       enddo
+!    endif
+
     subd(2:model%general%upn-1) = fact(2) * weff(2:model%general%upn-1) * &
          model%tempwk%dups(2:model%general%upn-1,3)
 
@@ -794,19 +862,19 @@ contains
     ! for grounded ice, a heat flux is applied
     ! for floating ice, temperature held constant
 
-     if (float) then
+    if (float) then
 
        supd(model%general%upn) = 0.0d0
        subd(model%general%upn) = 0.0d0
        diag(model%general%upn) = 1.0d0
 
-     else 
+    else 
  
-        supd(model%general%upn) = 0.0d0 
-        subd(model%general%upn) = -0.5*fact(1)/(model%tempwk%dupn**2)
-        diag(model%general%upn) = 1.0d0 - subd(model%general%upn) + diagadvt(model%general%upn)
+       supd(model%general%upn) = 0.0d0 
+       subd(model%general%upn) = -0.5*fact(1)/(model%tempwk%dupn**2)
+       diag(model%general%upn) = 1.0d0 - subd(model%general%upn) + diagadvt(model%general%upn)
  
-     end if
+    end if
 
   end subroutine findvtri
 
@@ -1046,8 +1114,6 @@ contains
        end do
     end do
 
-!TODO - Remove this?
-
     ! apply periodic BC
 
     if (model%options%periodic_ew) then
@@ -1150,7 +1216,7 @@ contains
 
   end subroutine glide_finddisp
 
-  !-----------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------------
 
   subroutine corrpmpt(temp,thck,bwat,sigma,upn)
 
@@ -1176,7 +1242,7 @@ contains
 
   end subroutine corrpmpt
 
-  !-------------------------------------------------------------------
+!-------------------------------------------------------------------
 
   subroutine calcpmpt(pmptemp,thck,sigma)
 
@@ -1194,7 +1260,7 @@ contains
 
   end subroutine calcpmpt
 
-  !-------------------------------------------------------------------
+!-------------------------------------------------------------------
 
   subroutine calcpmptb(pmptemp,thck)
 
@@ -1211,9 +1277,9 @@ contains
 
   end subroutine calcpmptb
 
-  !-------------------------------------------------------------------
+!-------------------------------------------------------------------
 
-  subroutine calcflwa(sigma, thklim, flwa, temp, thck, flow_factor, default_flwa_arg, flag)
+  subroutine glide_calcflwa(sigma, thklim, flwa, temp, thck, flow_factor, default_flwa_arg, flag)
 
     !*FD Calculates Glen's $A$ over the three-dimensional domain,
     !*FD using one of three possible methods.
@@ -1225,15 +1291,17 @@ contains
     ! Subroutine arguments
     !------------------------------------------------------------------------------------
 
-!      Note: dummy argument sigma can be either model%numerics%sigma or model%numerics%stagsigma.
-!      The flwa, temp, and sigma arrays must have the same vertical dimension
-!       (1:upn on an unstaggered vertical grid, or 1:upn-1 on a staggered vertical grid).
-!
+       ! Note: The temperature array is assumed to start with horizontal index 1 (not 0).
+       !       We are not updating flwa in the glide temperature halo.
+
+       ! The flwa, temp, and sigma arrays should have the same vertical dimension, 1:upn.
+       ! These quantities are defined at layer interfaces (not layer midpoints as in the
+       !  glam/glissade dycore).
+
     real(dp),dimension(:),      intent(in)    :: sigma     !*FD Vertical coordinate
     real(dp),                   intent(in)    :: thklim    !*FD thickness threshold
     real(dp),dimension(:,:,:),  intent(out)   :: flwa      !*FD The calculated values of $A$
-!whl - Changed this so that the temp array is assumed to start with horizontal index 1 instead of 0.
-    real(dp),dimension(:,:,:),intent(in)      :: temp      !*FD The 3D temperature field
+    real(dp),dimension(:,:,:),  intent(in)    :: temp      !*FD The 3D temperature field
     real(dp),dimension(:,:),    intent(in)    :: thck      !*FD The ice thickness
     real(dp)                                  :: flow_factor !*FD Fudge factor in arrhenius relationship
     real(dp),                   intent(in)    :: default_flwa_arg !*FD Glen's A to use in isothermal case 
@@ -1254,41 +1322,39 @@ contains
     real(dp), parameter :: contemp = -5.0d0
     real(dp) :: default_flwa
     real(dp),dimension(4) :: arrfact
-    integer :: ew,ns,up,ewn,nsn
-    integer :: flwa_upn, temp_upn, temp_up_offset
-
     real(dp), dimension(size(flwa,1)) :: tempcor
+
+    integer :: ew, ns, up, ewn, nsn, upn
 
     !------------------------------------------------------------------------------------ 
    
+!WHL - Some notes:
+!      vis0 = 1.39E-032 Pa-3 s-1 for glam dycore (and here for glide)
+!           = tau0**(-gn) * (vel0/len0) where tau0 = rhoi*grav*thk0
+!      vis0*scyr = 4.39E-025 Pa-2 yr-1
+!      For glam: default_flwa_arg = 1.0d-16 Pa-3 yr-1 by default
+!      Result is default_flwa =   227657117 (unitless) if flow factor = 1
+!        This is the value given to thin ice.
+!
+!      In old glide, default_flwa is just set to the flow factor (called 'fiddle')
+!         vis0 = 3.17E-024 Pa-3 s-1 for old glide dycore = 1d-16 Pa-3 yr-1 / scyr
+!
+
     default_flwa = flow_factor * default_flwa_arg / (vis0*scyr) 
 
-!TODO - If this subroutine is called only from Glide, we should always have temp_upn = flwa_upn,
-!       in which case the offset term is not needed.
-!
-    temp_upn=size(temp,1)
-    flwa_upn=size(flwa,1) ; ewn=size(flwa,2) ; nsn=size(flwa,3)
-    if (temp_upn .eq. flwa_upn) then
-!     whichtemp == TEMP_GLIMMER, so temp and flwa are both declared 1:upn
-      temp_up_offset = 0
-    else
-!     othersize temp is 0:upn, but declared as 1:upn+2 here, and flwa is 1:upn-1
-      temp_up_offset = 1
-    endif
-
     !write(*,*)"Default flwa = ",default_flwa
+
+    upn=size(flwa,1) ; ewn=size(flwa,2) ; nsn=size(flwa,3)
 
     arrfact = (/ flow_factor * arrmlh / vis0, &   ! Value of a when T* is above -263K
                  flow_factor * arrmll / vis0, &   ! Value of a when T* is below -263K
                  -actenh / gascon,        &       ! Value of -Q/R when T* is above -263K
                  -actenl / gascon/)               ! Value of -Q/R when T* is below -263K
- 
+
     select case(flag)
     case(FLWA_PATERSON_BUDD)
 
       ! This is the Paterson and Budd relationship
-
-!LOOP: all scalar points
 
       do ns = 1,nsn
         do ew = 1,ewn
@@ -1296,23 +1362,19 @@ contains
             
             ! Calculate the corrected temperature
 
-!pw         tempcor(:) = min(0.0d0, temp(:,ew,ns) + thck(ew,ns) * fact * sigma(:))
-!pw         tempcor(:) = max(-50.0d0, tempcor(:))
-            do up = 1,flwa_upn
-              tempcor(up) = &
-                min(0.0d0, temp(up+temp_up_offset,ew,ns) + thck(ew,ns) * fact * sigma(up))
+            do up = 1, upn
+              tempcor(up) = min(0.0d0, temp(up,ew,ns) + thck(ew,ns) * fact * sigma(up))
               tempcor(up) = max(-50.0d0, tempcor(up))
             enddo
 
             ! Calculate Glen's A
-
-!TODO - This call and the one below could be inlined.
 
             call patebudd(tempcor(:), flwa(:,ew,ns), arrfact) 
 
           else
             flwa(:,ew,ns) = default_flwa
           end if
+
         end do
       end do
 
@@ -1321,15 +1383,13 @@ contains
       ! This is the Paterson and Budd relationship, but with the temperature held constant
       ! at -5 deg C
 
-!LOOP: all scalar points
-
       do ns = 1,nsn
         do ew = 1,ewn
           if (thck(ew,ns) > thklim) then
 
             ! Calculate Glen's A with a fixed temperature.
 
-            call patebudd((/(contemp, up=1,flwa_upn)/),flwa(:,ew,ns),arrfact) 
+            call patebudd((/(contemp, up=1,upn)/),flwa(:,ew,ns),arrfact) 
 
           else
             flwa(:,ew,ns) = default_flwa
@@ -1343,11 +1403,11 @@ contains
   
     end select
 
-  end subroutine calcflwa 
+  end subroutine glide_calcflwa 
 
 !------------------------------------------------------------------------------------------
 
-  subroutine patebudd(tempcor,calcga,fact)
+  subroutine patebudd(tempcor,calcga,arrfact)
 
     !*FD Calculates the value of Glen's $A$ for the temperature values in a one-dimensional
     !*FD array. The input array is usually a vertical temperature profile. The equation used
@@ -1379,20 +1439,33 @@ contains
                                                      !*FD added to it later on; rather it is
                                                      !*FD $T-T_{\mathrm{pmp}}$.
     real(dp),dimension(:), intent(out)   :: calcga   !*FD The output values of Glen's $A$.
-    real(dp),dimension(4), intent(in)    :: fact     !*FD Constants for the calculation. These
+    real(dp),dimension(4), intent(in)    :: arrfact  !*FD Constants for the calculation. These
                                                      !*FD are set when the velo module is initialised
 
     !------------------------------------------------------------------------------------
 
+!       arrfact = (/ flow_factor * arrmlh / vis0, &   ! Value of a when T* is above -263K
+!                    flow_factor * arrmll / vis0, &   ! Value of a when T* is below -263K
+!                    -actenh / gascon,        &       ! Value of -Q/R when T* is above -263K
+!                    -actenl / gascon/)               ! Value of -Q/R when T* is below -263K
+!       
+!       where arrmlh = 1.733d3 Pa-3 s-1
+!             arrmll = 3.613d-13 Pa-3 s-1
+!             and vis0 has units Pa-3 s-1
+!       The result calcga is a scaled flwa, multiplied by flow_factor
+
     ! Actual calculation is done here - constants depend on temperature -----------------
 
     where (tempcor >= -10.0d0)         
-      calcga = fact(1) * exp(fact(3) / (tempcor + trpt))
+      calcga = arrfact(1) * exp(arrfact(3) / (tempcor + trpt))
     elsewhere
-      calcga = fact(2) * exp(fact(4) / (tempcor + trpt))
+      calcga = arrfact(2) * exp(arrfact(4) / (tempcor + trpt))
     end where
 
   end subroutine patebudd
 
+!-------------------------------------------------------------------
+
 end module glide_temp
 
+!-------------------------------------------------------------------

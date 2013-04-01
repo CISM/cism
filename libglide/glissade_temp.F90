@@ -66,6 +66,7 @@ module glissade_temp
     use glide_types
 
     implicit none
+
     private
     public :: glissade_init_temp, glissade_temp_driver, glissade_calcflwa
 
@@ -97,7 +98,7 @@ contains
     integer up, ns, ew
     real(dp) :: estimate
 
-!whl - Note vertical dimensions here.  Dissipation is computed for each of (upn-1) layers.
+!WHL - Note vertical dimensions here.  Dissipation is computed for each of (upn-1) layers.
 !      Temperature is defined at midpoint of each layer, plus upper and lower surfaces.
     allocate(model%tempwk%dups(model%general%upn+1,2))
     allocate(model%tempwk%inittemp(model%general%upn+1,model%general%ewn,model%general%nsn))
@@ -118,7 +119,7 @@ contains
 
     model%tempwk%dups = 0.0d0
 
-!whl - Note that the 'dups' grid coefficients are not the same as for unstaggered temperatures.
+!WHL - Note that the 'dups' grid coefficients are not the same as for unstaggered temperatures.
 
     up = 1
     model%tempwk%dups(up,1) = 1.d0/((model%numerics%sigma(up+1) - model%numerics%sigma(up)) * &
@@ -144,11 +145,11 @@ contains
 !!         model%numerics%dttem / 2.0d0, &
 !!         VERT_DIFF*2.0d0 * tim0 * model%numerics%dttem / (thk0 * rhoi * shci), &
 !!         VERT_ADV*tim0 * acc0 * model%numerics%dttem / coni, &
-!!         0.0d0, &   !whl - no vertical advection
+!!         0.0d0, &   !WHL - no vertical advection
 !!         ( tau0 * vel0 / len0 ) / ( rhoi * shci ) * ( model%numerics%dttem * tim0 ) /)  
          !*sfp* added last term to vector above for use in HO & SSA dissip. cacl
 
-!TODO - Rename these constants (tempwk%cons, tempwk%f, tempwk%c).
+!TODO - Give these constants (tempwk%cons, tempwk%f, tempwk%c) better names.
 
 !WHL - The factor of 2 in the numerator in the original code can be traced to a missing factor of 0.5
 !      in the denominator of the dups coefficients.  On the vertically staggered grid, there is no
@@ -159,7 +160,7 @@ contains
 
     model%tempwk%cons(5) = (tau0 * vel0 / len0 ) / (rhoi * shci) * (model%numerics%dttem * tim0)
 
-!whl - Note: stagsigma here instead of sigma
+!WHL - Note: stagsigma here instead of sigma
     model%tempwk%c1(1:model%general%upn-1) =   &
                              (model%numerics%stagsigma(1:model%general%upn-1)   &
                              * rhoi * grav * thk0**2 / len0)**p1 * 2.0d0 * vis0              &
@@ -196,18 +197,23 @@ contains
 
       !==== Initialize ice temperature.============
       !This block of code is similar to that in glide_init_temp
+
       if (model%options%is_restart == 1) then
+
          ! If we are restarting, use the field from the restart input file. (Temp is always a restart variable.)
           call write_log('Using tempstag values from restart file for temperature initial condition.')
+
       elseif ( minval(model%temper%temp(1:model%general%upn, &
                   1+lhalo:model%general%ewn-lhalo, 1+uhalo:model%general%nsn-uhalo)) < &
                   (-1.0d0 * trpt) ) then
+
           ! If a temperature field was not provided on a cold start, then use the air temp.
           ! (Check if any of -999.0 default values remain for temp in the physical domain now that the input file has been read.)
 
           ! Initialize ice temperature to air temperature (for each column). 
           ! Only loop over local cells so that the halos will retain the junk -999.0 values until updated.
-          call write_log('Initializing ice temperature to the air temperature.')
+
+          call write_log('Initializing ice temperature to the air temperature')
           do ns = 1+uhalo, model%general%nsn-uhalo
              do ew = 1+lhalo, model%general%ewn-lhalo
                if (model%geometry%thck(ew,ns) <= 0.0d0) then  ! TODO should this be thin ice?
@@ -223,14 +229,13 @@ contains
           ! TODO No check is made during input that tempstag is being input - if a user inputs temp instead, that will be used.
       endif
 
+      print*, 'Done in glissade_init_temp'
+
 !WHL - Removed glissade_calcflwa call here; now computed in glissade_diagnostic_variable_solve.
  
   end subroutine glissade_init_temp
 
 !****************************************************    
-
-!TODO - Replace model derived type with explicit arguments?
-!       Could be a lot of work
 
   subroutine glissade_temp_driver(model, whichtemp)
 
@@ -286,11 +291,7 @@ contains
           end do
        end do
 
-!TODO - Change case(3) to case (1)?
-!       This would mean that whichtemp = 1 would denote different schemes for glide and glissade dycores.
-!       But in either case it would be a full prognostic temperature calculation
-
-    case(3) ! Local column calculation
+    case(3) ! Local column calculation (with advection done elsewhere)
 
             ! No horizontal or vertical advection; vertical diffusion and strain heating only.
             ! Temperatures are vertically staggered relative to velocities.  
@@ -385,7 +386,7 @@ contains
 
              ! Check that the net input of energy to the column is equal to the difference
              !  between the initial and final internal energy.
-             !whl - to do - Make this check optional and/or move it to a subroutine.
+             !TODO - Make this check optional and/or move it to a subroutine.
 
              ! compute the final internal energy
 
@@ -453,7 +454,7 @@ contains
 !                                                             + model%temper%lcondflx(ew,ns)
              endif
 
-!whl - No call here to corrpmpt.  Temperatures above pmpt are set to pmpt 
+!WHL - No call here to corrpmpt.  Temperatures above pmpt are set to pmpt 
 !      in calcbmlt_remapadv (conserving energy).
 
           endif  ! thck > thklim
@@ -477,7 +478,7 @@ contains
        end do
        end do
 
-!whl - In distributed code, periodic BCs will be handled by halo updates
+!WHL - In distributed code, periodic BCs will be handled by halo updates
        ! apply periodic ew BC
 !       if (model%options%periodic_ew) then
 !           model%temper%temp(:,0,:) = model%temper%temp(:,model%general%ewn-2,:)
@@ -506,11 +507,8 @@ contains
                                model%temper%bmlt,         &
                                GLIDE_IS_FLOAT(model%geometry%thkmask))
 
-!TODO - Adjust ice thickness as a result of basal melting (here or elsewhere)
-
        ! Calculate basal water depth ------------------------------------------------
 
-!TODO - Move this call to glissade.F90?
 !TODO - Is it necessary to pass 'model'?
 
        call calcbwat( model,                     &
@@ -525,17 +523,6 @@ contains
                       model%tempwk%wphi)
 
 !WHL - Removed glissade_calcflwa call here; moved it to glissade_diagnostic_variable_solve.
-
-       ! Calculate Glen's A --------------------------------------------------------
-
-!       call glissade_calcflwa(model%numerics%stagsigma,    &
-!                              model%numerics%thklim,       &
-!                              model%temper%flwa,           &
-!                              model%temper%temp(1:model%general%upn-1,:,:),  &
-!                              model%geometry%thck,         &
-!                              model%paramets%flow_factor,  &
-!                              model%paramets%default_flwa, &
-!                              model%options%whichflwa) 
 
    case(2) ! do nothing
 
@@ -557,7 +544,7 @@ contains
     use glimmer_paramets, only : thk0
     use glimmer_physcon,  only : rhoi, grav, coni
 
-!whl - Note: Matrix elements (subd, supd, diag, rhsd) are indexed from 1 to upn+1,
+!WHL - Note: Matrix elements (subd, supd, diag, rhsd) are indexed from 1 to upn+1,
 !             whereas temperature is indexed from 0 to upn.
 !            The first row of the matrix is the equation for temp(0,ew,ns),
 !             the second row is the equation for temp(1,ew,ns), and so on.
@@ -609,7 +596,7 @@ contains
     ! for grounded ice, a heat flux is applied
     ! for floating ice, the basal temperature is held constant
 
-!whl - This lower BC is different from the one in standard glide_temp.
+!WHL - This lower BC is different from the one in standard glide_temp.
 !      If T(upn) < T_pmp, then require dT/dsigma = H/k * (G + taub*ubas)
 !       That is, net heat flux at lower boundary must equal zero.
 !      If T(upn) >= Tpmp, then set T(upn) = Tpmp
@@ -737,7 +724,7 @@ contains
 
           case( FIRSTORDER_BMELT) 
 
-             !whl - copied Steve Price's formulation from calcbmlt
+             !WHL - copied Steve Price's formulation from calcbmlt
              ! btraction is computed in glam_strs2.F90
 
 !HALO - Make sure we have btraction for all locally owned velocity cells.
@@ -768,8 +755,8 @@ contains
           end select  ! whichbmlt
 
           ! include sliding contrib only if temperature node is surrounded by sliding velo nodes
-          !whl - TODO - This may result in non-conservation of energy.
-          !              Why not include all nonzero terms? 
+          !TODO - This may result in non-conservation of energy.
+          !       Why not include all nonzero terms? 
 
           if (slide_count >= 4) then
              slterm = 0.25d0 * slterm
@@ -1050,149 +1037,12 @@ contains
 
   !-------------------------------------------------------------------
 
-!TODO - Very similar to the SIA version of calcflwa; just make sure loops are correct.
-
   subroutine glissade_calcflwa(stagsigma, thklim, flwa, temp, thck, flow_factor, default_flwa_arg, flag)
 
     !*FD Calculates Glen's $A$ over the three-dimensional domain,
     !*FD using one of three possible methods.
-
-    use glimmer_physcon
-    use glimmer_paramets, only : thk0, vis0
-
-    !------------------------------------------------------------------------------------
-    ! Subroutine arguments
-    !------------------------------------------------------------------------------------
-
-!      Note: The flwa, temp, and stagsigma arrays must have the same vertical dimension
-!       (1:upn-1 on the staggered vertical grid used here).
-!
-    real(dp),dimension(:),      intent(in)    :: stagsigma ! vertical coordinate
-    real(dp),                   intent(in)    :: thklim    ! thickness threshold
-    real(dp),dimension(:,:,:),  intent(in)    :: temp      ! 3D temperature field
-    real(dp),dimension(:,:),    intent(in)    :: thck      ! ice thickness
-    real(dp)                                  :: flow_factor ! fudge factor in arrhenius relationship
-    real(dp),                   intent(in)    :: default_flwa_arg ! Glen's A to use in isothermal case 
-                                                                  ! Units: Pa^{-n} yr^{-1} 
-    integer,                    intent(in)    :: flag      !*FD Flag to select the method
-                                                           !*FD of calculation:
-    real(dp),dimension(:,:,:),  intent(out)   :: flwa      !*FD The calculated values of $A$
-
-    !*FD \begin{description}
-    !*FD \item[0] {\em Paterson and Budd} relationship.
-    !*FD \item[1] {\em Paterson and Budd} relationship, with temperature set to
-    !*FD -5$^{\circ}$C.
-    !*FD \item[2] Set constant, {\em but not sure how this works at the moment\ldots}
-    !*FD \end{description}
-
-    !------------------------------------------------------------------------------------
-    ! Internal variables
-    !------------------------------------------------------------------------------------
-
-    real(dp), parameter :: fact = grav * rhoi * pmlt * thk0
-    real(dp), parameter :: contemp = -5.0d0
-    real(dp) :: default_flwa
-    real(dp),dimension(4) :: arrfact
-    integer :: ew,ns,up,ewn,nsn
-    integer :: flwa_upn, temp_upn, temp_up_offset
-
-    real(dp), dimension(size(flwa,1)) :: tempcor
-    
-    !------------------------------------------------------------------------------------ 
-   
-    ! Scale the rate factor (default value has units Pa^{-n} yr^{-1}).
-    ! Also multiply by fudge factor
-
-    default_flwa = flow_factor * default_flwa_arg / (vis0*scyr) 
-
-!TODO - If this subroutine is called only from Glide, we should always have temp_upn = flwa_upn,
-!     	 in which case the offset term should always = 1.
-!WHL - I'm not sure why the size of temp is wrong, given the way the array is passed in.
-       
-    temp_upn=size(temp,1)
-    flwa_upn=size(flwa,1) ; ewn=size(flwa,2) ; nsn=size(flwa,3)
-    if (temp_upn .eq. flwa_upn) then
-!     whichtemp == TEMP_GLIMMER, so temp and flwa are both declared 1:upn
-      temp_up_offset = 0
-    else
-!     othersize temp is 0:upn, but declared as 1:upn+2 here, and flwa is 1:upn-1
-      temp_up_offset = 1
-    endif
-
-    !write(*,*)"Default flwa = ",default_flwa
-
-    arrfact = (/ flow_factor * arrmlh / vis0, &   ! Value of a when T* is above -263K
-                 flow_factor * arrmll / vis0, &   ! Value of a when T* is below -263K
-                 -actenh / gascon,        &       ! Value of -Q/R when T* is above -263K
-                 -actenl / gascon/)               ! Value of -Q/R when T* is below -263K
- 
-    select case(flag)
-    case(FLWA_PATERSON_BUDD)
-
-!LOOP TODO - Loop over locally owned cells?  Alternatively, just compute over all cells,
-!        but make sure temp and thck are updated in halo cells.
-!       Might be cheaper to compute in all cells and avoid a halo call.
-
-      ! This is the Paterson and Budd relationship
-
-      do ns = 1,nsn
-        do ew = 1,ewn
-          if (thck(ew,ns) > thklim) then
-            
-            ! Calculate the corrected temperature
-
-!pw         tempcor(:) = min(0.0d0, temp(:,ew,ns) + thck(ew,ns) * fact * stagsigma(:))
-!pw         tempcor(:) = max(-50.0d0, tempcor(:))
-            do up = 1,flwa_upn
-              tempcor(up) = &
-                min(0.0d0, temp(up+temp_up_offset,ew,ns) + thck(ew,ns) * fact * stagsigma(up))
-              tempcor(up) = max(-50.0d0, tempcor(up))
-            enddo
-
-            ! Calculate Glen's A
-
-            call glissade_patebudd(tempcor(:), flwa(:,ew,ns), arrfact) 
-
-          else
-            flwa(:,ew,ns) = default_flwa
-          end if
-        end do
-      end do
-
-    case(FLWA_PATERSON_BUDD_CONST_TEMP)
-
-      ! This is the Paterson and Budd relationship, but with the temperature held constant
-      ! at -5 deg C
-
-      do ns = 1,nsn
-        do ew = 1,ewn
-          if (thck(ew,ns) > thklim) then
-
-            ! Calculate Glen's A with a fixed temperature.
-
-            call glissade_patebudd((/(contemp, up=1,flwa_upn)/),flwa(:,ew,ns),arrfact) 
-
-          else
-            flwa(:,ew,ns) = default_flwa
-          end if
-        end do
-      end do
-
-    case(FLWA_CONST_FLWA) 
-
-      flwa(:,:,:) = default_flwa
-  
-    end select
-
-  end subroutine glissade_calcflwa 
-
-!------------------------------------------------------------------------------------------
-
-  subroutine glissade_patebudd(tempcor,calcga,fact)
-
-    !*FD Calculates the value of Glen's $A$ for the temperature values in a one-dimensional
-    !*FD array. The input array is usually a vertical temperature profile. The equation used
-    !*FD is from \emph{Paterson and Budd} [1982]:
+    !*FD
+    !*FD The primary method is to use this equation from \emph{Paterson and Budd} [1982]:
     !*FD \[
     !*FD A(T^{*})=a \exp \left(\frac{-Q}{RT^{*}}\right)
     !*FD \]
@@ -1209,33 +1059,145 @@ contains
     !*FD temperature, $T_0$ is the triple point of water, $\rho$ is the ice density, and 
     !*FD $\Phi$ is the (constant) rate of change of melting point temperature with pressure.
 
-    use glimmer_physcon, only : trpt
+    use glimmer_physcon
+    use glimmer_paramets, only : thk0, vis0
 
     !------------------------------------------------------------------------------------
     ! Subroutine arguments
     !------------------------------------------------------------------------------------
 
-    real(dp),dimension(:), intent(in)    :: tempcor  !*FD Input temperature profile. This is 
-                                                     !*FD {\em not} $T^{*}$, as it has $T_0$
-                                                     !*FD added to it later on; rather it is
-                                                     !*FD $T-T_{\mathrm{pmp}}$.
-    real(dp),dimension(:), intent(out)   :: calcga   !*FD The output values of Glen's $A$.
-    real(dp),dimension(4), intent(in)    :: fact     !*FD Constants for the calculation. These
-                                                     !*FD are set when the velo module is initialised
+!   Note: The flwa, temp, and stagsigma arrays should have the same vertical dimension
+!         (1:upn-1 on the staggered vertical grid).
+
+    real(dp),dimension(:),      intent(in)    :: stagsigma ! vertical coordinate at layer midpoints
+    real(dp),                   intent(in)    :: thklim    ! thickness threshold
+    real(dp),dimension(:,:,:),  intent(in)    :: temp      ! 3D temperature field
+    real(dp),dimension(:,:),    intent(in)    :: thck      ! ice thickness
+    real(dp)                                  :: flow_factor ! fudge factor in Arrhenius relationship
+    real(dp),                   intent(in)    :: default_flwa_arg ! Glen's A to use in isothermal case 
+                                                                  ! Units: Pa^{-n} yr^{-1} 
+    integer,                    intent(in)    :: flag      !*FD Flag to select the method
+                                                           !*FD of calculation
+    real(dp),dimension(:,:,:),  intent(out)   :: flwa      !*FD The calculated values of $A$
+
+    !*FD \begin{description}
+    !*FD \item[0] {\em Paterson and Budd} relationship.
+    !*FD \item[1] {\em Paterson and Budd} relationship, with temperature set to -5$^{\circ}$C.
+    !*FD \item[2] Set to prescribed constant value.
+    !*FD \end{description}
 
     !------------------------------------------------------------------------------------
+    ! Internal variables
+    !------------------------------------------------------------------------------------
 
-    ! Actual calculation is done here - constants depend on temperature -----------------
+    real(dp) :: default_flwa
+    integer :: ew, ns, up, ewn, nsn, uflwa
+    real(dp) :: tempcor
 
-    where (tempcor >= -10.0d0)         
-      calcga = fact(1) * exp(fact(3) / (tempcor + trpt))
-    elsewhere
-      calcga = fact(2) * exp(fact(4) / (tempcor + trpt))
-    end where
+    real(dp), parameter :: fact = grav * rhoi * pmlt * thk0
+    real(dp), parameter :: const_temp = -5.0d0
 
-  end subroutine glissade_patebudd
+    real(dp),dimension(4), parameter ::  &
+       arrfact = (/ arrmlh / vis0,      &   ! Value of A when T* is above -263K
+                    arrmll / vis0,      &   ! Value of A when T* is below -263K
+                   -actenh / gascon,    &   ! Value of -Q/R when T* is above -263K
+                   -actenl / gascon/)       ! Value of -Q/R when T* is below -263K
+    
+    !------------------------------------------------------------------------------------ 
+   
+    ! Check that the temperature array has the desired vertical dimension
+
+    if (size(temp,1) /= size(flwa,1)) then
+       call write_log('glissade_calcflwa: temp and flwa must have the same vertical dimensions', &
+                       GM_FATAL)
+    endif
+
+    ! Scale the default rate factor (default value has units Pa^{-n} yr^{-1}).
+    ! Also multiply by fudge factor
+
+    default_flwa = flow_factor * default_flwa_arg / (vis0*scyr) 
+    !write(*,*)"Default flwa = ",default_flwa
+
+    uflwa=size(flwa,1) ; ewn=size(flwa,2) ; nsn=size(flwa,3)
+
+    select case(flag)
+
+    case(FLWA_PATERSON_BUDD)
+
+!LOOP TODO - Loop over locally owned cells?  Alternatively, just compute over all cells,
+!        but make sure temp and thck are up to date in halo cells.
+!       Might be cheaper to compute in all cells and avoid a halo call.
+
+      ! This is the Paterson and Budd relationship
+
+      do ns = 1,nsn
+         do ew = 1,ewn
+
+            if (thck(ew,ns) > thklim) then
+            
+               do up = 1, uflwa   ! uflwa = upn - 1 (values at layer midpoints)
+
+                  ! Calculate the corrected temperature
+
+                  tempcor = min(0.0d0, temp(up,ew,ns) + thck(ew,ns)*fact*stagsigma(up))
+                  tempcor = max(-50.0d0, tempcor)
+
+                  ! Calculate Glen's A (including flow fudge factor)
+
+                  if (tempcor >= -10.d0) then
+                     flwa(up,ew,ns) = flow_factor * arrfact(1) * exp(arrfact(3)/(tempcor + trpt))
+                  else
+                     flwa(up,ew,ns) = flow_factor * arrfact(2) * exp(arrfact(4)/(tempcor + trpt))
+                  endif
+
+               enddo
+
+            else   ! thck < thklim
+
+               flwa(:,ew,ns) = default_flwa
+
+            end if
+
+         end do
+      end do
+
+    case(FLWA_PATERSON_BUDD_CONST_TEMP)
+
+      ! This is the Paterson and Budd relationship, but with the temperature held constant
+      ! at -5 deg C
+
+      do ns = 1,nsn
+         do ew = 1,ewn
+
+            if (thck(ew,ns) > thklim) then
+
+               ! Calculate Glen's A with a fixed temperature (including flow fudge factor)
+
+               if (const_temp >= -10.d0) then
+                  flwa(:,ew,ns) = flow_factor * arrfact(1) * exp(arrfact(3)/(const_temp + trpt))
+               else
+                  flwa(:,ew,ns) = flow_factor * arrfact(2) * exp(arrfact(4)/(const_temp + trpt))
+               endif
+
+            else
+
+               flwa(:,ew,ns) = default_flwa
+
+            end if
+
+         end do
+      end do
+
+    case(FLWA_CONST_FLWA) 
+
+      flwa(:,:,:) = default_flwa
+  
+    end select
+
+  end subroutine glissade_calcflwa 
 
 !------------------------------------------------------------------------------------
 
 end module glissade_temp
 
+!------------------------------------------------------------------------------------

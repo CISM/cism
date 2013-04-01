@@ -1,13 +1,20 @@
+!TODO - Remove this module?  Not currently used.
+
 module glide_vertint
+
     !*FD This module contains routines to vertically integrate fields
     !*FD All 3d fields are assumed to use the (z,x,y) coordinate system,
     !*FD where the top is the minimum z and the bottom is the maximum z.
+
     use glimmer_global , only: dp
     implicit none
+
 contains
+
     !*FD Performs vertical integration, places the result on a 3d field
     !*FD where each level in the 3d field is the integral of all levels
     !*FD above it
+
     subroutine vertint_output3d(infield, outfield, levels, topdown, initial_value)
         real(dp), dimension(:,:,:), intent(in) :: infield
         real(dp), dimension(:,:,:), intent(out) :: outfield

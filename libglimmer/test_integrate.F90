@@ -31,8 +31,10 @@
 #include "config.inc"
 #endif
 
-module test_int
+!WHL - Changed module name to test_integ
+module test_integ
   use glimmer_global, only : dp, sp
+  implicit none
 contains
   
   ! integrate $\int_0^\pi\a*sin(x+b)dx$
@@ -70,11 +72,11 @@ contains
     
     sf = p(1)*sin(p(2)*x)
   end function sf
-end module test_int
+end module test_integ
 
 program test_integrate
   !*FD test numerical integration schemes
-  use test_int
+  use test_integ
   use glimmer_physcon, only : pi
   use glimmer_global, only : sp,dp
   use glimmer_integrate

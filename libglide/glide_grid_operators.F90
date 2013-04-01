@@ -1,8 +1,12 @@
-!TODO - Consider moving these subroutines to glide_deriv.
-!       (And removing redundant subroutines.)
+!WHL Changed the filename from glide_grids to glide_grid_operators.
+!    Moved some glam-specific subroutines to module glam_grid_operators (formerly glide_deriv)
+!    Moved subroutine geomders here from glide_thck.F90.
+!    Added a geometry driver subroutine, glide_geometry_derivs, to call stagvarb and geomders in turn,
+!     as required by the various evolution subroutines in glide_thck.F90.
 
-!Helper module containing routines to move between staggered and
-!unstaggered grids
+! Various grid operators for glide dycore, including routines for computing gradients
+! and switching between staggered and unstaggered grids
+
 #ifdef HAVE_CONFIG_H
 #include "config.inc"
 #endif
@@ -10,130 +14,103 @@
 #include "glide_nan.inc"
 #include "glide_mask.inc"
 
-module glide_grids
+module glide_grid_operators
+
     use glimmer_global, only : dp
-    use nan_mod, only : NaN
     implicit none
 
 contains
- 
-  !> A special staggering algorithm that is meant to conserve mass when operating on thickness fields
-  !! This incorporates Ann LeBroque's nunatak fix and the calving front fix.
-  !!
-  !! \param ipvr The input thickness field (ewn x nsn)
-  !! \param opvr The output (staggered) thickness field (ewn - 1 x nsn - 1)
-  !! \param ewn
-  !! \param nsn
-  !! \param usrf   Surface elevation field, non-staggered.
-  !! \param thklim Minimum thickness to enable ice dynamics
-  !! \param mask   Geometry mask field (used for determining the location of shelf fronts)
-  !<
 
-!TODO - Move to glide_derivs?
-!       Why do we need a separate subroutine for stagthck compared to other staggered fields?
+!----------------------------------------------------------------------------
 
-  subroutine stagthickness(ipvr,opvr,ewn,nsn,usrf,thklim,mask)
+  subroutine glide_geometry_derivs(model)
 
-!TODO - Remove scaling
+! Compute geometric quantities needed by the glide dycore:
+! stagthck (given thck), along with the gradients
+! dusrfdew/dns (given usrf) and dthckdew/dns (given thck).
+
+    use glide_types, only: glide_global_type
+
+!WHL - debug
     use glimmer_paramets, only: thk0
-    implicit none 
 
-    real(dp), intent(out), dimension(:,:) :: opvr 
-    real(dp), intent(in), dimension(:,:) :: ipvr
-    
-    real(dp), intent(in), dimension(:,:) :: usrf
-    real(dp), intent(in) :: thklim
-    integer, intent(in), dimension(:,:) :: mask
-    
-    integer :: ewn,nsn,ew,ns,n
-    real(dp) :: tot
+    implicit none
 
-!LOOP - all velocity points
+    type(glide_global_type), intent(inout) :: model
 
-        do ns = 1,nsn-1
-            do ew = 1,ewn-1
+!WHL - debug
+    integer :: j
 
-                !If any of our staggering points are shelf front, ignore zeros when staggering
-                !if (any(GLIDE_IS_CALVING(mask(ew:ew+1, ns:ns+1)))) then  ! in contact with the ocean
-                !Use the "only nonzero thickness" staggering criterion for ALL marginal ice. For
-                ! reasons that are not entirely clear, this corrects an error whereby the land ice 
-                ! margin is defined incorrectly as existing one grid cell too far inland from where 
-                ! it should be.  
-
-                if (any(GLIDE_HAS_ICE(mask(ew:ew+1,ns:ns+1)))) then
-                    n = 0
-                    tot = 0
-                    if (abs(ipvr(ew,ns)) > 0.0d0  )then
-                        tot = tot + ipvr(ew,ns)
-                        n   = n   + 1
-                    end if
-                    if (abs(ipvr(ew+1,ns)) > 0.0d0  )then
-                        tot = tot + ipvr(ew+1,ns)
-                        n   = n   + 1
-                    end if
-                    if (abs(ipvr(ew,ns+1)) > 0.0d0  )then
-                        tot = tot + ipvr(ew,ns+1)
-                        n   = n   + 1
-                    end if
-                    if (abs(ipvr(ew+1,ns+1)) > 0.0d0  )then
-                        tot = tot + ipvr(ew+1,ns+1)
-                        n   = n   + 1
-                    end if
-                    if (n > 0) then
-                        opvr(ew,ns) = tot/n
-                    else
-                        opvr(ew,ns) = 0
-                    end if
-
-                !The following cases relate to Anne LeBroque's fix for nunataks
-                !ew,ns cell is ice free:
-                else if (ipvr(ew,ns) <= thklim .and. &
-                   ((usrf(ew,ns) >= usrf(ew+1,ns) .and. ipvr(ew+1,ns) >= thklim) &
-                    .or. (usrf(ew,ns) >= usrf(ew,ns+1) .and. ipvr(ew,ns+1) >= thklim))) then
-                        opvr(ew,ns) = 0.0
-
-                !ew+1,ns cell is ice free:
-                else if (ipvr(ew+1,ns) <= thklim .and. &
-                    ((usrf(ew+1,ns) >= usrf(ew,ns) .and. ipvr(ew,ns) >= thklim) &
-                    .or. (usrf(ew+1,ns) >= usrf(ew+1,ns+1) .and. ipvr(ew+1,ns+1) >= thklim))) then
-                        opvr(ew,ns) = 0.0
-    
-                !ew,ns+1 cell is ice free:
-                else if (ipvr(ew,ns+1) <= thklim .and. &
-                    ((usrf(ew,ns+1) >= usrf(ew,ns) .and. ipvr(ew,ns) >= thklim) &
-                    .or. (usrf(ew,ns+1) >= usrf(ew+1,ns+1) .and. ipvr(ew+1,ns+1) >= thklim))) then
-                        opvr(ew,ns) = 0.0
-    
-                !ew+1,ns+1 cell is ice free:
-                else if (ipvr(ew+1,ns+1) <= thklim .and. &
-                    ((usrf(ew+1,ns+1) >= usrf(ew+1,ns) .and. ipvr(ew+1,ns) >=thklim) &
-                    .or. (usrf(ew+1,ns+1) >= usrf(ew,ns+1) .and. ipvr(ew,ns+1) >=thklim))) then
-                        opvr(ew,ns) = 0.0
-               
-!                !Standard Staggering   !! Not needed if only-nonzero-thickness staggering scheme is used
-!                else
-!                        opvr(ew,ns) = (ipvr(ew+1,ns) + ipvr(ew,ns+1) + &
-!                               ipvr(ew+1,ns+1) + ipvr(ew,ns)) / 4.0d0
-
-                end if
-  
-        end do
-    end do
-
-  end subroutine stagthickness
-
+    ! Interpolate ice thickness to velocity points
  
-  !> Moves a variable from the ice grid to the velocity grid by averaging onto the centroids
-  !! \param ipvr Input variable (on the ice grid)
-  !! \param opvr Output variable (on the velocity grid)
-  !! \param ewn
-  !! \param nsn
-  !<
+    call stagvarb(model%geometry% thck, &
+                  model%geomderv% stagthck,      &
+                  model%general%  ewn,           &
+                  model%general%  nsn)
 
-!TODO - Move to glide_derivs?
-!       Note: This subroutine takes no account of whether ice is present in nearby cells.
+!WHL - debug
+!    print*, ' '
+!    print*, 'stagthck from stagvarb:'
+!    do j = model%general%nsn-1, 1, -1
+!       write(6,'(29f6.1)') thk0 * model%geomderv%stagthck(:,j)
+!    enddo
+
+    ! Compute EW and NS gradients in usrf and thck
+
+    call geomders(model%numerics, &
+                  model%geometry% usrf, &
+                  model%geomderv% stagthck,&
+                  model%geomderv% dusrfdew, &
+                  model%geomderv% dusrfdns)
+
+    call geomders(model%numerics, &
+                  model%geometry% thck, &
+                  model%geomderv% stagthck,&
+                  model%geomderv% dthckdew, &
+                  model%geomderv% dthckdns)
+
+!WHL - debug
+!    print*, ' '
+!    print*, 'dusrfdew from geomders:'
+!    do j = model%general%nsn-1, 1, -1
+!       write(6,'(14f8.0)') thk0 * model%geomderv%dusrfdew(3:16,j)
+!    enddo
+
+!WHL - debug
+!    print*, ' '
+!    print*, 'dusrfdew from df_field_2d:'
+!    do j = model%general%nsn-1, 1, -1
+!       write(6,'(14f8.0)') thk0 * model%geomderv%dusrfdew(3:16,j)
+!    enddo
+
+!TODO - Should this code, which is in stagthickness, be included?
+!     - Check the effect of zeroing out gradients where stagthck = 0.
+
+    ! Make sure the derivatives are 0 where stagthck = 0
+
+!     where (model%geomderv%stagthck == 0.d0)
+!            model%geomderv%dusrfdew = 0.d0
+!            model%geomderv%dusrfdns = 0.d0
+!            model%geomderv%dthckdew = 0.d0
+!            model%geomderv%dthckdns = 0.d0
+!     endwhere
+
+  end subroutine glide_geometry_derivs
+
+!---------------------------------------------------------------
 
   subroutine stagvarb(ipvr,opvr,ewn,nsn)
+
+  ! Interpolate a scalar variable such as ice thickness from cell centers to cell corners.
+
+!WHL - Note that this subroutine, used by the glide SIA dycore, is different from 
+!      stagthickness, which is used by the glam HO dycore.  In stagthickness, zero-thickness 
+!      values are ignored when thickness is averaged over four adjacent grid cells.
+!      In stagvarb, zero-thickness values are included in the average.
+!      The glam approach works better for calving. We have retained the old glide
+!      approach in stagvarb for backward compatibility (and because calving is less
+!      important to treat realistically in a shallow-ice model).
+
     implicit none 
 
     real(dp), intent(out), dimension(:,:) :: opvr 
@@ -141,9 +118,12 @@ contains
     
     integer, intent(in) :: ewn,nsn
 
-        opvr(1:ewn-1,1:nsn-1) = (ipvr(2:ewn,1:nsn-1) + ipvr(1:ewn-1,2:nsn) + &
-                                 ipvr(2:ewn,2:nsn)   + ipvr(1:ewn-1,1:nsn-1)) / 4.0d0
+    opvr(1:ewn-1,1:nsn-1) = (ipvr(2:ewn,1:nsn-1) + ipvr(1:ewn-1,2:nsn) + &
+                             ipvr(2:ewn,2:nsn)   + ipvr(1:ewn-1,1:nsn-1)) / 4.0d0
+
   end subroutine stagvarb
+
+!----------------------------------------------------------------------------
 
   subroutine stagvarb_3d(ipvr, opvr, ewn, nsn, upn)
     real(dp), intent(in), dimension(:,:,:) :: ipvr
@@ -154,9 +134,13 @@ contains
     do k = 1, upn
         call stagvarb(ipvr(k,:,:), opvr(k,:,:), ewn, nsn)
     end do
+
   end subroutine stagvarb_3d
 
+!----------------------------------------------------------------------------
+
   subroutine stagvarb_mask(ipvr,opvr,ewn,nsn,geometry_mask)
+
     implicit none 
 
     real(dp), intent(out), dimension(:,:) :: opvr 
@@ -205,12 +189,15 @@ contains
                 !Standard Staggering
                 else
                         opvr(ew,ns) = (ipvr(ew+1,ns) + ipvr(ew,ns+1) + &
-                               ipvr(ew+1,ns+1) + ipvr(ew,ns)) / 4.0d0
+                                      ipvr(ew+1,ns+1) + ipvr(ew,ns)) / 4.0d0
                 end if
   
         end do
     end do
+
   end subroutine stagvarb_mask
+
+!----------------------------------------------------------------------------
 
   subroutine stagvarb_3d_mask(ipvr, opvr, ewn, nsn, upn, geometry_mask)
     real(dp), intent(in), dimension(:,:,:) :: ipvr
@@ -222,13 +209,58 @@ contains
     do k = 1, upn
         call stagvarb_mask(ipvr(k,:,:), opvr(k,:,:), ewn, nsn, geometry_mask)
     end do
+
   end subroutine stagvarb_3d_mask
+
+!----------------------------------------------------------------------------
+!TODO: Move to glide_grid_operators?
+!      Not sure if it's OK for glide_grid_operators to use glide_types (cmake build issue)
+
+  subroutine geomders(numerics,ipvr,stagthck,opvrew,opvrns)
+
+    use glimmer_global, only : dp
+    use glide_types, only: glide_numerics
+
+    implicit none 
+
+    type(glide_numerics) :: numerics
+    real(dp), intent(out), dimension(:,:) :: opvrew, opvrns
+    real(dp), intent(in), dimension(:,:) :: ipvr, stagthck
+
+    real(dp) :: dew2, dns2 
+    integer :: ew,ns,ewn,nsn
+
+    ! Obviously we don't need to do this every time,
+    ! but will do so for the moment.
+    dew2 = 1.d0/(2.0d0 * numerics%dew)
+    dns2 = 1.d0/(2.0d0 * numerics%dns)
+    ewn=size(ipvr,1)
+    nsn=size(ipvr,2)
+
+    do ns=1,nsn-1
+       do ew = 1,ewn-1
+          if (stagthck(ew,ns) /= 0.0d0) then
+             opvrew(ew,ns) = (ipvr(ew+1,ns+1)+ipvr(ew+1,ns)-ipvr(ew,ns)-ipvr(ew,ns+1)) * dew2
+             opvrns(ew,ns) = (ipvr(ew+1,ns+1)+ipvr(ew,ns+1)-ipvr(ew,ns)-ipvr(ew+1,ns)) * dns2
+          else
+             opvrew(ew,ns) = 0.
+             opvrns(ew,ns) = 0.
+          end if
+       end do
+    end do
+    
+  end subroutine geomders
+
+!----------------------------------------------------------------------------
 
 !TODO - This is never used.  Remove it?
     ! Copies a staggered grid onto a nonstaggered grid.  This version
     ! assumes periodic boundary conditions.
 
     subroutine unstagger_field_2d(f_stag, f, periodic_x, periodic_y)
+
+        use nan_mod, only : NaN
+
         real(dp), dimension(:,:), intent(in) :: f_stag
         real(dp), dimension(:,:), intent(out) :: f
         logical, intent(in) :: periodic_x, periodic_y
@@ -315,8 +347,11 @@ contains
     
     end subroutine unstagger_field_2d
 
+!----------------------------------------------------------------------------
+
 !TODO - This is never used.  Remove it?
     subroutine unstagger_field_3d(f, f_stag, periodic_x, periodic_y)
+
         real(dp), dimension(:,:,:) :: f, f_stag
         logical, intent(in) :: periodic_x, periodic_y
 
@@ -328,9 +363,12 @@ contains
         
     end subroutine unstagger_field_3d
 
+!----------------------------------------------------------------------------
+
 
 !TODO - This is never used.  Remove it?
     subroutine periodic_boundaries(m, apply_to_x, apply_to_y, nlayers_arg)
+
       use parallel
         !*FD Applies periodic boundary conditions to a 2D array
         real(dp), dimension(:,:), intent(inout) :: m
@@ -358,7 +396,6 @@ contains
             m( :, 1 : nlayers ) = m( :, maxy-nlayers*2 + 1 : maxy - nlayers )
             m( :, maxy-nlayers+1 : maxy ) = m( :, nlayers + 1 : nlayers*2 )
         end if
-
         
         !If both directions are periodic, treat the corners specially.
         if(apply_to_x .and. apply_to_y) then
@@ -368,11 +405,17 @@ contains
             m(1:nlayers, maxy-nlayers+1:maxy) = m(maxx-nlayers*2+1:maxx-nlayers, nlayers+1:2*nlayers)
             m(nlayers+1:2*nlayers, maxy-nlayers*2+1:maxy-nlayers) = m(maxx-nlayers+1:maxx, 1:nlayers)
         end if
+
         call parallel_velo_halo(m)
+
     end subroutine periodic_boundaries
+
+!----------------------------------------------------------------------------
     
 !TODO - This is never used.  Remove it?
+
     subroutine periodic_boundaries_3d(m, apply_to_x, apply_to_y, nlayers_arg)
+
         !*FD Applies periodic boundary conditions to a 3D array
         real(dp), dimension(:,:,:), intent(inout) :: m
         logical :: apply_to_x, apply_to_y
@@ -383,6 +426,11 @@ contains
         do i = 1, size(m,1)
             call periodic_boundaries(m(i,:,:), apply_to_x, apply_to_y, nlayers_arg)
         end do
+
     end subroutine periodic_boundaries_3d
  
-end module glide_grids
+!---------------------------------------------------------------------------------
+
+end module glide_grid_operators
+
+!----------------------------------------------------------------------------

@@ -34,14 +34,16 @@
 #include "glide_mask.inc"
 
 module glide_setup
+
+  ! general routines for initialisation, etc, called from top-level glimmer subroutines
+
   use glimmer_global, only: dp
-  !*FD Contains general routines for initialisation, etc, called
-  !*FD from the top-level glimmer subroutines.
+
+  implicit none
 
   private
   public :: glide_readconfig, glide_printconfig, glide_scale_params, &
-       glide_calclsrf, glide_load_sigma, &
-       glide_read_sigma, glide_calc_sigma
+            glide_calclsrf, glide_load_sigma, glide_read_sigma, glide_calc_sigma
 
 contains
 
@@ -177,8 +179,6 @@ contains
 
   end subroutine glide_scale_params
 
-!TODO - Change to glimmer_read_sigma?
-
   subroutine glide_read_sigma(model,config)
     !*FD read sigma levels from configuration file
     use glide_types
@@ -230,8 +230,6 @@ contains
   end subroutine glide_calclsrf
 
 !-------------------------------------------------------------------------
-
-!TODO - Need glissade_read_sigma?  Alternatively, pass in sigma instead of model.
 
   subroutine glide_load_sigma(model,unit)
 
@@ -479,7 +477,7 @@ contains
     call GetValue(section,'evolution',model%options%whichevol)
     call GetValue(section,'temperature',model%options%whichtemp)
     call GetValue(section,'flow_law',model%options%whichflwa)
-    call GetValue(section,'basal_proc',model%options%which_bmod)
+    call GetValue(section,'basal_proc',model%options%which_bproc)
     call GetValue(section,'basal_water',model%options%whichbwat)
     call GetValue(section,'marine_margin',model%options%whichmarn)
     call GetValue(section,'slip_coeff',model%options%whichbtrc)
@@ -571,10 +569,13 @@ contains
          'const 1e-16a^-1Pa^-n             ' /)
 
   !*mb* added options for basal processes model
-    character(len=*), dimension(0:2), parameter :: which_bmod = (/ &
-         'Basal proc mod disabled '  , &
-         'Basal proc, high res.   '   , &
-         'Basal proc, fast calc.  ' /)
+!!    character(len=*), dimension(0:2), parameter :: which_bproc = (/ &
+!!         'Basal proc mod disabled '  , &
+!!         'Basal proc, high res.   '   , &
+!!         'Basal proc, fast calc.  ' /)
+  !WHL - Assumed to be disabled for now.
+    character(len=*), dimension(0:0), parameter :: which_bproc = (/ &
+         'Basal process model disabled ' /)
 
     character(len=*), dimension(0:4), parameter :: basal_water = (/ &
          'local water balance   ', &
@@ -704,7 +705,7 @@ contains
           call write_log('Error, Glide dycore not supported for distributed parallel runs with more than one processor',GM_FATAL)
        end if
 
-       if (model%options%whichtemp==TEMP_GLIMMER .and. (tasks>1) ) then
+       if (model%options%whichtemp==TEMP_GLIDE .and. (tasks>1) ) then
           ! Note: this should never be executed because the previous check of (tasks>1) will catch that situation.
           ! I am leaving it here for completeness.  I moved it from before the Glide-specific checks
           ! because in that location the code issued the 'temp=1 can't use multiple processors' error
@@ -724,7 +725,7 @@ contains
 !TODO - Any other forbidden options with Glissade dycore?
     if (model%options%whichdycore == DYCORE_GLISSADE) then
 
-       if (model%options%whichtemp == TEMP_GLIMMER) then
+       if (model%options%whichtemp == TEMP_GLIDE) then
           call write_log('Error, Glimmer temperature scheme can be used only with Glide dycore', GM_FATAL)
        endif
 
@@ -764,11 +765,11 @@ contains
     write(message,*) 'flow law                : ',model%options%whichflwa,flow_law(model%options%whichflwa)
     call write_log(message)
 
-    if (model%options%which_bmod < 0 .or. model%options%which_bmod >= size(which_bmod)) then
+    if (model%options%which_bproc < 0 .or. model%options%which_bproc >= size(which_bproc)) then
        call write_log('Error, basal_proc out of range',GM_FATAL)
     end if
 
-    write(message,*) 'basal_proc              : ',model%options%which_bmod,which_bmod(model%options%which_bmod)
+    write(message,*) 'basal_proc              : ',model%options%which_bproc,which_bproc(model%options%which_bproc)
     call write_log(message)
 
     if (model%options%whichbwat < 0 .or. model%options%whichbwat >= size(basal_water)) then
@@ -1006,6 +1007,7 @@ contains
     call write_log('')
   end subroutine print_parameters
 
+!WHL - These options are disabled for now.
 !Till options
   subroutine handle_till_options(section,model)
     use glimmer_config
@@ -1014,18 +1016,18 @@ contains
     type(ConfigSection), pointer :: section
     type(glide_global_type) :: model
 
-    if (model%options%which_bmod==1) then
+    if (model%options%which_bproc==1) then
         call GetValue(section, 'fric',  model%basalproc%fric)
         call GetValue(section, 'etillo',  model%basalproc%etillo)
         call GetValue(section, 'No',  model%basalproc%No)
         call GetValue(section, 'Comp',  model%basalproc%Comp)
         call GetValue(section, 'Cv',  model%basalproc%Cv)
         call GetValue(section, 'Kh',  model%basalproc%Kh)
-    else if (model%options%which_bmod==2) then
+    else if (model%options%which_bproc==2) then
         call GetValue(section, 'aconst',  model%basalproc%aconst)
         call GetValue(section, 'bconst',  model%basalproc%bconst)
     end if
-    if (model%options%which_bmod > 0) then
+    if (model%options%which_bproc > 0) then
         call GetValue(section, 'Zs',  model%basalproc%Zs)
         call GetValue(section, 'tnodes',  model%basalproc%tnodes)
         call GetValue(section, 'till_hot', model%basalproc%till_hot)
@@ -1033,44 +1035,44 @@ contains
 
   end subroutine handle_till_options    
 
-    subroutine print_till_options(model)
+!WHL - These options are disabled for now.
+  subroutine print_till_options(model)
     use glide_types
     use glimmer_log
     implicit none
     type(glide_global_type)  :: model
     character(len=100) :: message
 
-if (model%options%which_bmod > 0) then 
-    call write_log('Till options')
-    call write_log('----------')
-    if (model%options%which_bmod==1) then
-        write(message,*) 'Internal friction           : ',model%basalproc%fric
+    if (model%options%which_bproc > 0) then 
+        call write_log('Till options')
+        call write_log('----------')
+        if (model%options%which_bproc==1) then
+            write(message,*) 'Internal friction           : ',model%basalproc%fric
+            call write_log(message)
+            write(message,*) 'Reference void ratio        : ',model%basalproc%etillo
+            call write_log(message)
+            write(message,*) 'Reference effective Stress  : ',model%basalproc%No
+            call write_log(message)
+            write(message,*) 'Compressibility             : ',model%basalproc%Comp
+            call write_log(message)
+            write(message,*) 'Diffusivity                 : ',model%basalproc%Cv
+            call write_log(message)
+            write(message,*) 'Hyd. conductivity           : ',model%basalproc%Kh
+            call write_log(message)
+        end if
+        if (model%options%which_bproc==2) then
+            write(message,*) 'aconst  : ',model%basalproc%aconst
+            call write_log(message)
+            write(message,*) 'bconst  : ',model%basalproc%aconst
+            call write_log(message)
+        end if
+        write(message,*) 'Solid till thickness : ',model%basalproc%Zs
         call write_log(message)
-        write(message,*) 'Reference void ratio        : ',model%basalproc%etillo
+        write(message,*) 'Till nodes number : ',model%basalproc%tnodes
         call write_log(message)
-        write(message,*) 'Reference effective Stress  : ',model%basalproc%No
-        call write_log(message)
-        write(message,*) 'Compressibility             : ',model%basalproc%Comp
-        call write_log(message)
-        write(message,*) 'Diffusivity                 : ',model%basalproc%Cv
-        call write_log(message)
-        write(message,*) 'Hyd. conductivity           : ',model%basalproc%Kh
+        write(message,*) 'till_hot  :',model%basalproc%till_hot
         call write_log(message)
     end if
-    if (model%options%which_bmod==2) then
-       write(message,*) 'aconst  : ',model%basalproc%aconst
-       call write_log(message)
-       write(message,*) 'bconst  : ',model%basalproc%aconst
-       call write_log(message)
-    end if
-       write(message,*) 'Solid till thickness : ',model%basalproc%Zs
-       call write_log(message)
-       write(message,*) 'Till nodes number : ',model%basalproc%tnodes
-       call write_log(message)
-       write(message,*) 'till_hot  :',model%basalproc%till_hot
-    call write_log(message)
-
-   end if
   end subroutine print_till_options
 
   ! Sigma levels
@@ -1269,7 +1271,7 @@ if (model%options%which_bmod > 0) then
     endif
 
     ! basal processes module - requires tauf for a restart
-    if (options%which_bmod /= BAS_PROC_DISABLED ) then
+    if (options%which_bproc /= BAS_PROC_DISABLED ) then
         call glide_add_to_restart_variable_list('tauf')
     endif
 

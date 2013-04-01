@@ -30,13 +30,10 @@ module glissade
 
   ! Driver for Glissade (parallel, higher-order) dynamical core
 
-!TODO - Should some of these be moved into subroutines?
   use glide_types
-  use glide_nc_custom
   use glide_io
   use glide_lithot_io
   use glide_lithot
-!  use glide_profile
   use glimmer_config
   use glimmer_global
 
@@ -50,69 +47,6 @@ contains
 
 !=======================================================================
 
-!TODO - Currently identical to glide_config.
-!       Change to cism_config?
-
-  subroutine glissade_config(model,config,fileunit)
-
-    !*FD read glide configuration from file and print it to the log
-    use glide_setup
-    use isostasy
-    use glimmer_ncparams
-    use glimmer_config
-    use glimmer_map_init
-    use glimmer_filenames
-    implicit none
-
-    type(glide_global_type), intent(inout) :: model   ! model instance
-    type(ConfigSection), pointer  :: config           ! structure holding sections of configuration file
-    integer, intent(in), optional :: fileunit         !fileunit for reading config file 
-
-    type(ConfigSection), pointer :: ncconfig
-    integer :: unit
-
-    unit = 99
-    if (present(fileunit)) then
-       unit = fileunit
-    endif
-
-!TODO - glimmer_readconfig and printconfig?
-    ! read configuration file
-    call glide_readconfig(model,config)
-    call glide_printconfig(model)
-
-    ! Read alternate sigma levels from config file, if necessary
-    call glide_read_sigma(model,config)
-
-    ! read isostasy configuration file
-    call isos_readconfig(model%isos,config)
-    call isos_printconfig(model%isos)
-    ! read mapping from config file
-    ! **** Use of dew and dns here is an ugly fudge that
-    ! **** allows the use of old [GLINT projection] config section
-    ! **** for backwards compatibility. It will be deleted soon.
-    ! **** (You have been warned!)
-    ! **** N.B. Here, dew and dns are unscaled - i.e. real distances in m
-
-    call glimmap_readconfig(model%projection,config, &
-                            model%numerics%dew, &
-                            model%numerics%dns)
-
-    ! netCDF I/O
-    if (trim(model%funits%ncfile)=='') then
-       ncconfig => config
-    else
-       call ConfigRead(process_path(model%funits%ncfile), ncconfig, unit)
-    end if
-    call glimmer_nc_readparams(model,ncconfig)
-
-  end subroutine glissade_config
-
-!=======================================================================
-
-!TODO - Modify for glissade_global_type
-!       Remove extraneous use statements
-
   subroutine glissade_initialise(model)
 
     ! initialise Glissade model instance
@@ -122,7 +56,7 @@ contains
     use glide_stop, only: register_model
     use glide_setup
     use glimmer_ncio
-    use glide_velo  !TODO - Remove this
+    use glide_velo, only: init_velo  !TODO - Remove this
     use glissade_temp, only: glissade_init_temp, glissade_calcflwa
     use glimmer_log
     use glimmer_scales
@@ -133,10 +67,12 @@ contains
     use glam_strs2, only : glam_velo_init
     use glissade_velo_higher, only: glissade_velo_higher_init
 
-    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
-
+!!    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
 !!    use fo_upwind_advect, only : fo_upwind_advect_init
 !!    use glam_Basal_Proc, only : Basal_Proc_init
+
+!WHL - debug
+    use glimmer_paramets, only: thk0
 
     implicit none
 
@@ -148,6 +84,11 @@ contains
 !WHL - debug
 !    logical, parameter :: test_parallel = .true.   ! if true, call test_parallel subroutine
     logical, parameter :: test_parallel = .false.   ! if true, call test_parallel subroutine
+    integer :: i, j, nx, ny
+
+!WHL - for artificial adjustment to ismip-hom surface elevation
+    logical, parameter :: ismip_hom_adjust_usrf = .false.
+    real(dp) :: usrf_ref
 
     call write_log(trim(glimmer_version_char()))
 
@@ -256,17 +197,12 @@ contains
 
     endif
 
-
-!WHL - Removed old remapping option here
-
-!TODO - Will this module ever be supported?
+!WHL - This option is disabled for now.
     ! *mb* added; initialization of basal proc. module
 !!    if (model%options%which_bmod == BAS_PROC_FULLCALC .or. &
 !!        model%options%which_bmod == BAS_PROC_FASTCALC) then        
-!        call Basal_Proc_init (model%general%ewn, model%general%nsn,model%basalproc,     &
-!                              model%numerics%ntem)
-!!    write(*,*)"ERROR: Basal processes module is not supported in this release of CISM."
-!!    stop
+!!        call Basal_Proc_init (model%general%ewn, model%general%nsn,model%basalproc,     &
+!!                              model%numerics%ntem)
 !!    end if      
 
 !TODO - Change to glissade_set_mask?
@@ -290,12 +226,29 @@ contains
     call glide_calclsrf(model%geometry%thck, model%geometry%topg, model%climate%eus,model%geometry%lsrf)
     model%geometry%usrf = model%geometry%thck + model%geometry%lsrf
 
+!WHL - The following is a hack to ensure that usrf is uniform (to double precision) for 
+!      a given value of i for the ISMIP-HOM tests.  We take one value in each column as 
+!      the benchmark and set all other values in that column to the same value.
+!      Then we correct the thickness to ensure that lsrf + thck = usrf to double precision.
+!      
+!      A better way would be to read double-precision data from the input files.
+!
+
+    if (ismip_hom_adjust_usrf) then
+       do i = 1, model%general%ewn
+          usrf_ref = model%geometry%usrf(i,nhalo+1)
+          do j = 1, model%general%nsn
+             model%geometry%usrf(i,:) = usrf_ref  ! same usrf for all j in this column
+          enddo
+       enddo
+       model%geometry%thck(:,:) = model%geometry%usrf(:,:) - model%geometry%lsrf(:,:) 
+    endif
+
 !TODO - Pretty sure these are SIA only
     ! initialise thckwk variables; used in timeders subroutine
 !!    model%thckwk%olds(:,:,1) = model%geometry%thck(:,:)
 !!    model%thckwk%olds(:,:,2) = model%geometry%usrf(:,:)
 
-!TODO - Unclear on how this is used - Is it needed for parallel code?
     ! register the newly created model so that it can be finalised in the case
     ! of an error without needing to pass the whole thing around to every
     ! function that might cause an error
@@ -311,7 +264,7 @@ contains
   
 !=======================================================================
 
-  subroutine glissade_tstep(model,time)
+  subroutine glissade_tstep(model, time, no_write)
 
     ! Perform time-step of an ice model instance with glissade dycore
 
@@ -327,17 +280,24 @@ contains
 
     use glide_mask, only: glide_set_mask, calc_iareaf_iareag
     use glide_ground, only: glide_marinlim
-    use glide_grids
+    use glide_grid_operators
     use isostasy
 
     use parallel
-    use glimmer_horiz_bcs, only: horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns, &
-                                 horiz_bcs_unstag_scalar
+!!    use glimmer_horiz_bcs, only: horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns, &
+!!                                 horiz_bcs_unstag_scalar
 
+    use parallel
+    use glide_setup
     implicit none
 
     type(glide_global_type), intent(inout) :: model   ! model instance
     real(dp),  intent(in)   :: time         !*FD Current time in years
+
+!TODO - Change no_write to write, to avoid double negatives?
+    logical, optional, intent(in) :: no_write
+
+    logical nw
 
     ! --- Local Variables ---
 
@@ -353,9 +313,6 @@ contains
     model%numerics%time = time  
     model%numerics%timecounter = model%numerics%timecounter + 1
     model%temper%newtemps = .false.
-
-    !TODO MJH: why not just save the old time before updating time?
-    model%thckwk%oldtime = model%numerics%time - (model%numerics%dt * tim0/scyr)
 
     ! ------------------------------------------------------------------------ 
     ! calculate geothermal heat flux
@@ -720,7 +677,30 @@ contains
 
     call glissade_diagnostic_variable_solve(model)
 
-!HALO - Any halo updates needed here?  
+    !---------------------------------------------------------------------
+    ! write to netCDF file
+    ! ------------------------------------------------------------------------
+
+    if (present(no_write)) then
+       nw = no_write
+    else
+       nw = .false.
+    end if
+   
+    if (.not. nw) then
+      call t_startf('glide_io_writeall')
+       call glide_io_writeall(model,model)
+      call t_stopf('glide_io_writeall')
+
+       if (model%options%gthf > 0) then
+         call t_startf('glide_lithot_io_writeall')
+          call glide_lithot_io_writeall(model,model)
+         call t_stopf('glide_lithot_io_writeall')
+       end if
+
+    end if
+
+!TODO - Any halo updates needed at the end?  
 
   end subroutine glissade_tstep
 
@@ -734,17 +714,17 @@ contains
      ! It is also needed to fill out the initial state from the fields that have been read in.
 
     use parallel
-    use glide_thck  !TODO - Remove this (if moving geometry_derivs)
     use glide_setup
 
     use glissade_temp, only: glissade_calcflwa
     use glissade_velo, only: glissade_velo_driver
-    use glide_deriv, only : df_field_2d_staggered
     use glimmer_paramets, only: tim0, len0, vel0
     use glimmer_physcon, only: scyr
-    use glide_grids
-    use stress_hom, only : glide_calcstrsstr
-    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar, horiz_bcs_stag_scalar, horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns
+    use glide_stress, only : glide_calcstrsstr
+!!    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar, horiz_bcs_stag_scalar, horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns
+    use glam_grid_operators,  only: glam_geometry_derivs, df_field_2d_staggered
+
+    use glide_grid_operators, only: stagvarb    !TODO - Is this needed?  Seems redundant with df_field_2d_staggered
 
     implicit none
 
@@ -766,7 +746,13 @@ contains
 !WHL - Moved this calculation here from glissade_temp, since flwa is a diagnostic variable.
 
     ! Calculate Glen's A --------------------------------------------------------
-    ! Note: because flwa is not a restart variable in glissade, no check is included here for whether to calculate it on initial time (as is done in glide).
+    !
+    ! Note: because flwa is not a restart variable in glissade, no check is included 
+    !       here for whether to calculate it on initial time (as is done in glide).
+    ! 
+    ! Note: We are passing in only vertical elements (1:upn-1) of the temp array,
+    !       so that it has the same vertical dimensions as flwa.
+
     call glissade_calcflwa(model%numerics%stagsigma,    &
                            model%numerics%thklim,       &
                            model%temper%flwa,           &
@@ -831,10 +817,6 @@ contains
 
 !HALO - Make sure these geometry derivs are computed everywhere they are needed
 !       (all locally owned velocity points?)
-!TODO - I suggest explicit calls to the appropriate subroutines in glide_derivs (dfdx_2d, etc.)
-!       Then we would not need to use the geometry_derivs subroutine in glide_thck.
-!       Currently, this subroutine computes stagthck, staglsrf, stagtopg, dusrfdew/ns, dthckdew/ns,
-!        dlsrfdew/ns, d2usrfdew/ns2, d2thckdew/ns2 (2nd derivs are HO only)   
 
 !TODO - Remove this call to geometry_derivs?  It is repeated below.
 !
@@ -843,7 +825,8 @@ contains
 ! that we should comment this out here (and elsewhere). Better to make explicit which fields are being calculated
 ! and where the necessary halo updates for those fields are being made.
 ! An additional call to this has been commented out below.
-    call geometry_derivs(model)
+
+    call glam_geometry_derivs(model)
     
     !EIB! from gc2 - think this was all replaced by geometry_derivs??
 !TODO - The subroutine geometry_derivs calls subroutine stagthickness to compute stagthck.
@@ -877,6 +860,9 @@ contains
     ! SFP: for consistency, I added these calls, so that all scalars interpolated to the stag mesh
     ! first have had their global halos updated. As w/ above calls to halo updates, these may be better 
     ! placed elsewhere. The only call originally here was the one to calc stagthck.
+
+    !TODO - Should we replace these with calls to df_field_2d_staggered?
+
     call stagvarb(model%geometry%usrf, model%geomderv%stagusrf,&
                   model%general%ewn,   model%general%nsn)
 
@@ -906,7 +892,7 @@ contains
 !associated non-stag field halos in the case that you forgot to update them. Maybe?
 
 !WHL - Changed these updates from parallel_halo to staggered_parallel_halo
-!HALO - Not sure these are needed.
+!TODO - Not sure these are needed.
        !Halo updates required for inputs to glide_stress?
        call staggered_parallel_halo (model%geomderv%dusrfdew)
 !       call horiz_bcs_stag_vector_ew(model%geomderv%dusrfdew)
@@ -920,7 +906,7 @@ contains
        call staggered_parallel_halo (model%geomderv%dthckdns)
 !       call horiz_bcs_stag_vector_ns(model%geomderv%dthckdns)
 
-!HALO - It should be possible to compute stagthck without a halo update,
+!TODO - It should be possible to compute stagthck without a halo update,
 !       provided that thck has been updated.
 !SFP: This is now done above, so I commented out the call here (that is, above we first call halo updates
 ! on the non-stag thickness, then calc the stagthck field. I have confirmed that stagthck field calc in this way
@@ -943,19 +929,20 @@ contains
 ! TODO Merge the geom derivs with above.  Are they needed for the velocity solve?  
 !      I assume so, but need to make sure they happen in the right order and have halo updates if needed.
 
-!HALO - Would be better to have just one derivative call per field.
+!TODO - Would be better to have just one derivative call per field.
 !       Also could consider computing derivatives in glissade_velo.F90.
 !       Do halo updates as needed (e.g., thck) before computing derivatives.
 !       If we need a derivative on the staggered grid (for all locally owned cells),
 !        then we need one layer of halo scalars before calling the derivative routine.
 
 !SFP: For some reason, this next call IS needed. It does not affect the results of the periodic ismip-hom test case either
-! way (that is, if it is active or commented out), or the dome test case. But for some reaosn, if it is not active, it
+! way (that is, if it is active or commented out), or the dome test case. But for some reason, if it is not active, it
 ! messes up both shelf test cases. There must be some important derivs being calculated within this call that are NOT
 ! being explicitly calculated above. 
-          call geometry_derivs(model)
 
-!HALO - Pretty sure this is not needed
+          call glam_geometry_derivs(model)
+
+!TODO - Pretty sure this is not needed
 !SFP: this calls appear to be overwritting calls made above which explicitly make sure that 
 ! global halos are filled first ... comment these out?
 !          call geometry_derivs_unstag(model)
@@ -997,11 +984,11 @@ contains
 
        call t_stopf('glissade_velo_driver')
 
-!TODO - Not sure we need to update ubas, vbas, or surfvel,
-!       because these are already part of the 3D uvel and vvel arrays
+!TODO - Don't think we need to update ubas, vbas, or velnorm,
+!       because these can be derived directly from the 3D uvel and vvel arrays
 
-       call staggered_parallel_halo(model%velocity%surfvel)
-!       call horiz_bcs_stag_scalar(model%velocity%surfvel)
+       call staggered_parallel_halo(model%velocity%velnorm)
+!       call horiz_bcs_stag_scalar(model%velocity%velnorm)
        call staggered_parallel_halo(model%velocity%ubas)
 !       call horiz_bcs_stag_vector_ew(model%velocity%ubas)
        call staggered_parallel_halo(model%velocity%vbas)
@@ -1024,11 +1011,12 @@ contains
     !calculate the grounding line flux after the mask is correct
     !Halo updates required for inputs to calc_gline_flux?
 
-!!    call calc_gline_flux(model%geomderv%stagthck,model%velocity%surfvel, &
-!!                         model%geometry%thkmask,model%ground%gline_flux, model%velocity%ubas, &
-!!                         model%velocity%vbas, model%numerics%dew)
+!!    call calc_gline_flux(model%geomderv%stagthck,  model%velocity%velnorm,  &
+!!                         model%geometry%thkmask,   model%ground%gline_flux, &
+!!                         model%velocity%ubas,      model%velocity%vbas,     &
+!!                         model%numerics%dew)
     !Includes a halo update of model%ground%gline_flux at end of call
-!HALO - Halo update of gline_flux (if needed) should go here.
+!TODO - Halo update of gline_flux (if needed) should go here.
 !       But I think this update is not needed.
 
        call parallel_halo(model%stress%efvs)
@@ -1051,61 +1039,14 @@ contains
 
   end subroutine glissade_diagnostic_variable_solve
 
-
 !=======================================================================
 
-!TODO - Merge with glissade_tstep or move to simple_driver?
-!       Not sure these calls are needed for HO solver.
+!WHL - Moved this code back to glissade_tstep to avoid having an extra
+!      subroutine call.
 
-  subroutine glissade_post_tstep(model, no_write)
+!!  subroutine glissade_post_tstep(model, no_write)
 
-    !* This routine does the parallel routines and output that was in _p3()
-    !* _p3() is executed in serial on main node.  These are parallel operations.
-    !* Jeff Nichols, created for Bill Lipscomb September 2011
-
-    use parallel
-    use glide_setup
-
-!TODO - not needed?
-!###     use glide_velo, only: gridwvel
-!###     use glide_thck, only: timeders
-
-    implicit none
-    type(glide_global_type), intent(inout) :: model   ! model instance
-
-    logical, optional, intent(in) :: no_write
-!TODO Is the no_write option being supported any more?  If not, it could be removed.
-    logical nw
-
-!WHL - Removed calls to timeders and gridwvel.  These are needed at the end of the glide timestep
-!      to ensure exact restart, but are not needed by the glissade dycore.
-
-    !---------------------------------------------------------------------
-    ! write to netCDF file
-    ! ------------------------------------------------------------------------
-
-    if (present(no_write)) then
-       nw = no_write
-    else
-       nw = .false.
-    end if
-   
-!TODO - Change to glimmer_io_writeall?
-!       Move to simple_driver?
-    if (.not. nw) then
-      call t_startf('glide_io_writeall')
-       call glide_io_writeall(model,model)
-      call t_stopf('glide_io_writeall')
-
-       if (model%options%gthf > 0) then
-         call t_startf('glide_lithot_io_writeall')
-          call glide_lithot_io_writeall(model,model)
-         call t_stopf('glide_lithot_io_writeall')
-       end if
-
-    end if
-
-  end subroutine glissade_post_tstep
+!!  end subroutine glissade_post_tstep
 
 !=======================================================================
 

@@ -38,6 +38,8 @@ module isostasy_setup
   use isostasy_types
   use glimmer_global, only : dp
 
+  implicit none
+
 contains
   
   subroutine isos_readconfig(isos,config)

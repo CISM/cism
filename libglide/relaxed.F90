@@ -1,3 +1,4 @@
+!TODO - This is a program.  Move to another directory?
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
 ! +  relaxed.f90 - part of the Glimmer-CISM ice model         + 

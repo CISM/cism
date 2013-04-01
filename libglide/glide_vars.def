@@ -495,7 +495,7 @@ load:         0
 [velnorm]
 dimensions:    time, level, y0, x0
 units:         meter/year
-long_name:     Ice velocity magnitude
+long_name:     Horizontal ice velocity magnitude
 data:          data%velocity%velnorm(up,:,:)
 factor:        scale_uvel
 coordinates:   lon lat
@@ -533,14 +533,7 @@ factor:        scale_wvel
 coordinates:   lon lat
 load:          1
 
-#TODO - Redundant?
-[surfvel]
-dimensions:    time, level, y0, x0
-units:         meter/year
-long_name:     ice surface velocity 
-data:          data%velocity%surfvel(up,:,:)
-factor:        scale_uvel
-coordinates:   lon lat
+#WHL - Removed surfvel; was equivalent to velnorm
 
 [flwa]
 dimensions:    time, level, y1, x1

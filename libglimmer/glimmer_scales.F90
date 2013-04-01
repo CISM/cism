@@ -37,6 +37,8 @@ module glimmer_scales
 
   use glimmer_global, only : dp
 
+  implicit none
+
   real(dp) :: scale_uvel, scale_uflx, scale_diffu, scale_acab, scale_wvel, scale_btrc 
   real(dp) :: scale_beta, scale_flwa, scale_tau, scale_efvs
 

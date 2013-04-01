@@ -39,6 +39,11 @@ module profile
 #if (defined CCSMCOUPLED || defined CESMTIMERS)
   use perf_mod
   use parallel
+#endif
+
+  implicit none
+
+#if (defined CCSMCOUPLED || defined CESMTIMERS)
   logical, public :: output_thispe = .false.
 #endif
 

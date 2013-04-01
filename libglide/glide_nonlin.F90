@@ -2,11 +2,15 @@
 !iteration loop and to serialize the data into the vector format that these
 !functions require.
 !Currently only unstable manifold correction is implemented.
+
 module glide_nonlin
+
     use glimmer_global, only: dp
     use glimmer_physcon, only: pi
     implicit none
+
 contains
+
     subroutine check_vector_size(start, veclen, ni, nj, nk)
        use glimmer_log
        integer :: start, veclen, ni, nj, nk

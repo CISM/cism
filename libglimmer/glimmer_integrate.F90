@@ -36,6 +36,8 @@ module glimmer_integrate
 
   use glimmer_global, only : dp,sp
 
+  implicit none
+
   private :: dp, sp
 
   !> interface to integration routines

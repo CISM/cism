@@ -343,7 +343,8 @@ contains
           rel = climate%nmsb(3)
        end if
 
-       call not_parallel(__FILE__,__LINE__)
+!WHL - Commenting out this 'not_parallel' call to reduce screen output
+!!       call not_parallel(__FILE__,__LINE__)
        do ns = 1,model%general%nsn
           do ew = 1,model%general%ewn
              dist = grid * sqrt(periodic_bc*(real(ew) - ewct)**2 + (real(ns) - nsct)**2)
@@ -354,7 +355,8 @@ contains
        ! EISMINT-2
        rel = climate%nmsb(3)
 
-       call not_parallel(__FILE__,__LINE__)
+!WHL - Commenting out this 'not_parallel' call to reduce screen output
+!!       call not_parallel(__FILE__,__LINE__)
        do ns = 1,model%general%nsn
           do ew = 1,model%general%ewn
              dist = grid * sqrt(periodic_bc*(real(ew) - ewct)**2 + (real(ns) - nsct)**2)
@@ -420,7 +422,8 @@ contains
           model%climate%artm(:,:) = model%climate%artm(:,:) + 10.*sin(2.*pi*time/climate%period)
        end if
     case(3)
-       call not_parallel(__FILE__,__LINE__)
+!WHL - Commenting out this 'not_parallel' call to reduce screen output
+!!       call not_parallel(__FILE__,__LINE__)
        ! EISMINT-2
        do ns = 1,model%general%nsn
           do ew = 1,model%general%ewn

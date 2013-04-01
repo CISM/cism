@@ -56,6 +56,9 @@
 module glimmer_config
 
   use glimmer_global, only : dp, msg_length
+
+  implicit none
+
   private :: handle_section, handle_value, InsertSection, InsertValue, dp
 
   integer, parameter :: namelen=50                 !< the maximum length of key or section

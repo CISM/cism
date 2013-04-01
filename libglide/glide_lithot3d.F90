@@ -39,8 +39,10 @@
 
 module glide_lithot3d
 
-private
-public :: init_lithot3d, calc_lithot3d, finalise_lithot3d
+  implicit none
+
+  private
+  public :: init_lithot3d, calc_lithot3d, finalise_lithot3d
 
 
 contains  
@@ -48,7 +50,6 @@ contains
   subroutine init_lithot3d(model)
 
     use glide_types
-    use glide_setup
     use glimmer_paramets, only: len0,tim0
     implicit none
     type(glide_global_type),intent(inout) :: model       !*FD model instance

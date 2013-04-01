@@ -42,21 +42,22 @@
 module glide_thck
 
   use glide_types
-  use glissade_velo
   use glimmer_sparse
   use glimmer_sparse_type
-  use glide_grids
 
-!TODO - Remove this if moving geometry_derivs to another module
-  use glide_deriv           !*sfp* added
+  !DEBUG only
+!!  use xls
 
-  !DEBUG ONLY, these should be deleted eventually
-!  use glide_stop   *sfp* if active, causes circular ref error when built w/ fo_upwind code
-  use xls
-  use glide_io
+!WHL - debug
+  use glimmer_paramets, only: oldglide
+
+  implicit none
+
   private
-  public :: init_thck, thck_nonlin_evolve, thck_lin_evolve, timeders, &
-            stagleapthck, geometry_derivs, geometry_derivs_unstag
+
+!TODO - Move or remove subroutines that are not used by the Glide dycore
+
+  public :: init_thck, thck_nonlin_evolve, thck_lin_evolve, stagleapthck, glide_thck_index
 
   ! debugging Picard iteration
   integer, private, parameter :: picard_unit=101
@@ -66,20 +67,20 @@ module glide_thck
 contains
 
   subroutine init_thck(model)
+
     !*FD initialise work data for ice thickness evolution
     use glimmer_log
     use glimmer_paramets, only: GLC_DEBUG
     implicit none
     type(glide_global_type) :: model
 
-    
-    model%solver_data%fc2 = (/ model%numerics%alpha * model%numerics%dt / (2.0d0 * model%numerics%dew * model%numerics%dew), &
-                          model%numerics%dt, &
-                          (1.0d0-model%numerics%alpha) / model%numerics%alpha, &
-                          1.0d0 / model%numerics%alpha, &
-                          model%numerics%alpha * model%numerics%dt / &
-                          (2.0d0 * model%numerics%dns * model%numerics%dns), &
-                          0.0d0 /) 
+!WHL - Removed this array
+!!    model%solver_data%fc2 = (/ model%numerics%alpha * model%numerics%dt / (2.0d0 * model%numerics%dew * model%numerics%dew), &
+!!                               model%numerics%dt,                                   &
+!!                               (1.0d0 - model%numerics%alpha) / model%numerics%alpha, &
+!!                               1.0d0 / model%numerics%alpha,                        &
+!!                               model%numerics%alpha * model%numerics%dt / (2.0d0 * model%numerics%dns * model%numerics%dns), &
+!!                               0.0d0 /) 
 
     ! WJS: The following code has syntax errors; simply commenting it out for now
     ! if (GLC_DEBUG) then
@@ -91,12 +92,14 @@ contains
     ! end if
 
     ! allocate memory for ADI scheme
+
     if (model%options%whichevol==1) then
        allocate(model%thckwk%alpha(max(model%general%ewn, model%general%nsn)))
        allocate(model%thckwk%beta (max(model%general%ewn, model%general%nsn)))
        allocate(model%thckwk%gamma(max(model%general%ewn, model%general%nsn)))
        allocate(model%thckwk%delta(max(model%general%ewn, model%general%nsn)))
     end if
+
   end subroutine init_thck
 
 !---------------------------------------------------------------------------------
@@ -107,51 +110,78 @@ contains
     !*FD diffusivity from quantities of the previous time step
 
     use glide_velo
-    use glide_thckmask
     use glimmer_paramets, only: GLC_DEBUG
+    use glide_grid_operators, only: glide_geometry_derivs
+
+!WHL - debug
+    use glimmer_paramets, only: tim0, scyr
+
     implicit none
+
     ! subroutine arguments
     type(glide_global_type) :: model
     logical, intent(in) :: newtemps                     !*FD true when we should recalculate Glen's A
 
+!WHL - debug
+    integer :: j
+
     if (model%geometry%empty) then
 
-       model%geometry%thck = dmax1(0.0d0,model%geometry%thck + model%climate%acab * model%solver_data%fc2(2))
+       model%geometry%thck = dmax1(0.0d0, model%geometry%thck + model%climate%acab * model%numerics%dt)
        if (GLC_DEBUG) then
           print *, "* thck empty - net accumulation added", model%numerics%time
        end if
     else
 
-       !EIB! added from lanl
-       call geometry_derivs(model)
+       !Note: glide_geometry_derivs is called at the beginning of glide_tstep_p1,
+       !      and the geometry has not changed, so stagthck and the geometry
+       !      derivatives are still up to date.  A call might be needed here
+       !      if glide_tstep_p2 were called out of order.
+
+!!       call glide_geometry_derivs(model)
 
        ! calculate basal velos
        if (newtemps) then
+
           call slipvelo(model,                &
-               1,                             &
-               model%velocity% btrc,          &
-               model%velocity% ubas,          &
-               model%velocity% vbas)
+                        1,                             &
+                        model%velocity% btrc,          &
+                        model%velocity% ubas,          &
+                        model%velocity% vbas)
+
           ! calculate Glen's A if necessary
-          call velo_integrate_flwa(model%velowk,model%geomderv%stagthck,model%temper%flwa)
+          call velo_integrate_flwa(model%velowk,  &
+                                   model%geomderv%stagthck,   &
+                                   model%temper%flwa)
+
        end if
 
        call slipvelo(model,                &
-            2,                             &
-            model%velocity% btrc,          &
-            model%velocity% ubas,          &
-            model%velocity% vbas)
+                     2,                             &
+                     model%velocity% btrc,          &
+                     model%velocity% ubas,          &
+                     model%velocity% vbas)
 
        ! calculate diffusivity
 
-       call velo_calc_diffu(model%velowk,model%geomderv%stagthck,model%geomderv%dusrfdew, &
-            model%geomderv%dusrfdns,model%velocity%diffu)
+       call velo_calc_diffu(model%velowk,            model%geomderv%stagthck,  &
+                            model%geomderv%dusrfdew, model%geomderv%dusrfdns,  &
+                            model%velocity%diffu)
 
-! *sfp* not needed anymore? Causes circular ref error when building w/ fo_upwind code
-!       if (model%options%diagnostic_run == 1) then
-!          call glide_finalise_all(.true.)
-!          stop
-!       end if
+!WHL - debug
+       print*, 'call thck_evolve'
+
+    print*, ' '
+    print*, 'mask:'
+    do j = model%general%nsn, 1, -1
+       write(6,'(28i4)') model%geometry%thck_index(4:31,j)
+    enddo
+
+    print*, ' '
+    print*, 'acab *dt :'
+    do j = model%general%nsn, 1, -1
+       write(6,'(28f6.2)') thk0 * model%climate%acab(4:31,j) * model%numerics%dt
+    enddo
 
         ! get new thicknesses
 
@@ -159,6 +189,12 @@ contains
                          model%velocity%diffu, model%velocity%diffu, &
                          .true.,   &
                          model%geometry%thck,  model%geometry%thck)
+
+    print*, ' '
+    print*, 'thck:'
+    do j = model%general%nsn, 1, -1
+       write(6,'(28f6.2)') thk0 * model%geometry%thck(4:31,j)
+    enddo
 
 !--- MJH: Since the linear evolution uses a diffusivity based on the old geometry, the
 !    velocity calculated here will also be based on the old geometry.  If it is
@@ -181,11 +217,11 @@ contains
        ! (These calls must appear after thck_evolve, as thck_evolve uses ubas,
        ! which slipvelo mutates)
 
-       call slipvelo(model,                &
-            3,                             &
-            model%velocity%btrc,           &
-            model%velocity%ubas,           &
-            model%velocity%vbas)
+       call slipvelo(model,                         &
+                     3,                             &
+                     model%velocity%btrc,           &
+                     model%velocity%ubas,           &
+                     model%velocity%vbas)
 
        call velo_calc_velo(model%velowk,            model%geomderv%stagthck,   &
                            model%geomderv%dusrfdew, model%geomderv%dusrfdns,   &
@@ -193,12 +229,8 @@ contains
                            model%velocity%ubas,     model%velocity%vbas,       &
                            model%velocity%uvel,     model%velocity%vvel,       &
                            model%velocity%uflx,     model%velocity%vflx,&
-                           model%velocity%surfvel)
+                           model%velocity%velnorm)
 
-       !EIB! old
-       !call velo_calc_velo(model%velowk,model%geomderv%stagthck,model%geomderv%dusrfdew, &
-       !     model%geomderv%dusrfdns,model%temper%flwa,model%velocity%diffu,model%velocity%ubas, &
-       !     model%velocity%vbas,model%velocity%uvel,model%velocity%vvel,model%velocity%uflx,model%velocity%vflx)
     end if
 
   end subroutine thck_lin_evolve
@@ -214,9 +246,9 @@ contains
     use glimmer_global, only : dp
     use glide_velo
     use glide_setup
-    use glide_thckmask
     use glide_nonlin !For unstable manifold correction
     use glimmer_paramets, only: thk0, thk_scale, GLC_DEBUG
+    use glide_grid_operators, only: glide_geometry_derivs
 
     !EIB! use glide_deriv, only : df_field_2d_staggered 
     implicit none
@@ -247,21 +279,34 @@ contains
 
     if (model%geometry%empty) then
 
-       model%geometry%thck = dmax1(0.0d0,model%geometry%thck + model%climate%acab * model%solver_data%fc2(2))
+       model%geometry%thck = dmax1(0.0d0, model%geometry%thck + model%climate%acab * model%numerics%dt)
        if (GLC_DEBUG) then
           print *, "* thck empty - net accumulation added", model%numerics%time
        end if
     else
 
+       !Note: glide_geometry_derivs is called at the beginning of glide_tstep_p1,
+       !      and the geometry has not changed, so stagthck and the geometry
+       !      derivatives are still up to date.  A call might be needed here
+       !      if glide_tstep_p2 were called out of order.
+       !      This subroutine must be called during each Picard iteration below.
+
+!!          call glide_geometry_derivs(model)
+
        ! calculate basal velos
        if (newtemps) then
-          call slipvelo(model,                &
-               1,                             &
-               model%velocity% btrc,          &
-               model%velocity% ubas,          &
-               model%velocity% vbas)
+
+          call slipvelo(model,                         &
+                        1,                             &
+                        model%velocity% btrc,          &
+                        model%velocity% ubas,          &
+                        model%velocity% vbas)
+
           ! calculate Glen's A if necessary
-          call velo_integrate_flwa(model%velowk,model%geomderv%stagthck,model%temper%flwa)
+          call velo_integrate_flwa(model%velowk,             &
+                                   model%geomderv%stagthck,  &
+                                   model%temper%flwa)
+
        end if
 
        first_p = .true.
@@ -271,37 +316,31 @@ contains
 
        model%thckwk%oldthck2 = model%geometry%thck
 
-       do p=1,pmax
+       do p = 1, pmax
           !EIB moved! model%thckwk%oldthck2 = model%geometry%thck
 
-!TODO - Go back to old way?
+!WHL: Here I replaced a call to geometry_derivs (used by the glam dycore)
+!      with a call to glide_geometry derivs, which in turn calls
+!      stagvarb and geomders as in the old Glide code.
+!     Note that stagvarb includes zero thickness values in ice-free cells
+!      when computing averages, but stagthickness (used by glam) does not.
+!     Answers are now in agreement with old Glide.
 
-          call geometry_derivs(model)
-          !EIB! old way
-          !call stagvarb(model%geometry% thck, &
-          !     model%geomderv% stagthck,&
-          !     model%general%  ewn, &
-          !     model%general%  nsn)
-          !call df_field_2d_staggered(model%geometry%usrf, &
-          !     model%numerics%dew, model%numerics%dns, &
-          !     model%geomderv%dusrfdew, & 
-          !     model%geomderv%dusrfdns, &
-          !     .false., .false.)
-          !call df_field_2d_staggered(model%geometry%thck, &
-          !     model%numerics%dew, model%numerics%dns, &
-          !     model%geomderv%dthckdew, & 
-          !     model%geomderv%dthckdns, &
-          !     .false., .false.)
+          ! update stagthck, dusrfdew/dns, dthckdew/dns
 
-          call slipvelo(model,                &
-               2,                             &
-               model%velocity% btrc,          &
-               model%velocity% ubas,          &
-               model%velocity% vbas)
+          call glide_geometry_derivs(model)   
+
+          ! flag = 2: compute basal contribution to diffusivity
+          call slipvelo(model,                         &
+                        2,                             &
+                        model%velocity% btrc,          &
+                        model%velocity% ubas,          &
+                        model%velocity% vbas)
 
           ! calculate diffusivity
-          call velo_calc_diffu(model%velowk,model%geomderv%stagthck,model%geomderv%dusrfdew, &
-               model%geomderv%dusrfdns,model%velocity%diffu)
+          call velo_calc_diffu(model%velowk,            model%geomderv%stagthck,  &
+                               model%geomderv%dusrfdew, model%geomderv%dusrfdns,  &
+                               model%velocity%diffu)
 
           ! get new thickness
           call thck_evolve(model, model%velocity%diffu, model%velocity%diffu, &
@@ -309,7 +348,7 @@ contains
 
           first_p = .false.
 
-!TODO - Is this option ever used?  If so, then replace the ifdef with a logical option.
+!TODO - Is this option ever used?  If so, then replace the ifdef with a logical option?
 #ifdef USE_UNSTABLE_MANIFOLD
           linearize_start = 1
           call linearize_2d(umc_new_vec, linearize_start, model%geometry%thck)
@@ -336,15 +375,16 @@ contains
           if (residual <= tol) then
              exit
           end if
+
           model%thckwk%oldthck2 = model%geometry%thck
 #endif
 
-       end do
+       end do   ! Picard iteration
 
        if (GLC_DEBUG) then
-          picard_max=max(picard_max,p)
+          picard_max = max(picard_max,p)
           if (model%numerics%tinc > mod(model%numerics%time,picard_interval)) then
-             write(picard_unit,*) model%numerics%time,p
+             write(picard_unit,*) model%numerics%time, p
              picard_max = 0
           end if
        end if
@@ -355,22 +395,39 @@ contains
        ! they can be reconstructed with the restart values of thk and flwa
        ! This will change answers very slightly (to within the Picard convergence tolerance)
        ! relative to older versions of the code.   --MJH 1/9/13
-       call geometry_derivs(model)  
-       call slipvelo(model,                &
-            2,                             &
-            model%velocity% btrc,          &
-            model%velocity% ubas,          &
-            model%velocity% vbas)
-       call velo_calc_diffu(model%velowk,model%geomderv%stagthck,model%geomderv%dusrfdew, &
-            model%geomderv%dusrfdns,model%velocity%diffu)
 
+!WHL - oldglide does not update the diffusivity here
+!      By skipping this update, I get the same velocities as oldglide on the 
+!       first timestep of the dome test case (within double-precision roundoff).  
+!      Including this update, velocites agree only to ~4 sig digits.
+!       
+
+     if (.not. oldglide) then  ! update the diffusivity before computing the final velocity
+
+       call glide_geometry_derivs(model)   ! stagvarb, geomders as in old Glide code
+
+       ! flag = 2: basal contribution to diffusivity
+       call slipvelo(model,                         &
+                     2,                             &
+                     model%velocity%btrc,           &
+                     model%velocity%ubas,           &
+                     model%velocity%vbas)
+
+       ! calculate diffusivity
+       call velo_calc_diffu(model%velowk,            model%geomderv%stagthck,  &
+                            model%geomderv%dusrfdew, model%geomderv%dusrfdns,  &
+                            model%velocity%diffu)
+
+     endif   ! oldglide = F
 
        ! calculate horizontal velocity field
-       call slipvelo(model,                &
-            3,                             &
-            model%velocity%btrc,           &
-            model%velocity%ubas,           &
-            model%velocity%vbas)
+
+       ! flag = 3: Calculate the basal velocity from the diffusivities
+       call slipvelo(model,                         &
+                     3,                             &
+                     model%velocity%btrc,           &
+                     model%velocity%ubas,           &
+                     model%velocity%vbas)
 
        call velo_calc_velo(model%velowk,            model%geomderv%stagthck,   &
                            model%geomderv%dusrfdew, model%geomderv%dusrfdns,   &
@@ -378,9 +435,9 @@ contains
                            model%velocity%ubas,     model%velocity%vbas,       &
                            model%velocity%uvel,     model%velocity%vvel,       &
                            model%velocity%uflx,     model%velocity%vflx,&
-                           model%velocity%surfvel)
+                           model%velocity%velnorm)
 
-    end if
+    end if    ! model%geometry%empty
 
   end subroutine thck_nonlin_evolve
 
@@ -393,7 +450,6 @@ contains
 
     use glide_setup, only: glide_calclsrf
     use glimmer_global, only : dp
-!    use glide_stop   *sfp* if active, causes circular ref error when built w/ fo_upwind code
     use glimmer_log
     use glimmer_paramets, only: vel0, thk0, GLC_DEBUG
 
@@ -416,6 +472,11 @@ contains
     real(dp) :: err
     integer :: linit
     integer :: ew,ns
+
+    real(dp) :: alpha_dt_ew, alpha_dt_ns  ! factors used repeatedly in matrix elements
+
+    alpha_dt_ew = model%numerics%alpha * model%numerics%dt / (2.0d0 * model%numerics%dew * model%numerics%dew)
+    alpha_dt_ns = model%numerics%alpha * model%numerics%dt / (2.0d0 * model%numerics%dns * model%numerics%dns)
 
     ! Zero the arrays holding the sparse matrix
     call sparse_clear(model%solver_data%matrix)
@@ -441,25 +502,25 @@ contains
     do ew = 1,model%general%ewn
 
        ns=1
-       if (model%geometry%mask(ew,ns) /= 0) then
-          call sparse_insert_val(model%solver_data%matrix, model%geometry%mask(ew,ns), model%geometry%mask(ew,ns), 1d0)
+       if (model%geometry%thck_index(ew,ns) /= 0) then
+          call sparse_insert_val(model%solver_data%matrix, model%geometry%thck_index(ew,ns), model%geometry%thck_index(ew,ns), 1d0)
           !EIB! old way
-          !call putpcgc(model%solver_data,1.0d0, model%geometry%mask(ew,ns), model%geometry%mask(ew,ns))
+          !call putpcgc(model%solver_data,1.0d0, model%geometry%thck_index(ew,ns), model%geometry%thck_index(ew,ns))
           if (calc_rhs) then
-             model%solver_data%rhsd(model%geometry%mask(ew,ns)) = old_thck(ew,ns) 
+             model%solver_data%rhsd(model%geometry%thck_index(ew,ns)) = old_thck(ew,ns) 
           end if
-          model%solver_data%answ(model%geometry%mask(ew,ns)) = new_thck(ew,ns)
+          model%solver_data%answ(model%geometry%thck_index(ew,ns)) = new_thck(ew,ns)
        end if
 
        ns=model%general%nsn
-       if (model%geometry%mask(ew,ns) /= 0) then
-          call sparse_insert_val(model%solver_data%matrix, model%geometry%mask(ew,ns), model%geometry%mask(ew,ns), 1d0)
+       if (model%geometry%thck_index(ew,ns) /= 0) then
+          call sparse_insert_val(model%solver_data%matrix, model%geometry%thck_index(ew,ns), model%geometry%thck_index(ew,ns), 1d0)
           !EIB! old way
-          !call putpcgc(model%solver_data,1.0d0, model%geometry%mask(ew,ns), model%geometry%mask(ew,ns))
+          !call putpcgc(model%solver_data,1.0d0, model%geometry%thck_index(ew,ns), model%geometry%thck_index(ew,ns))
           if (calc_rhs) then
-             model%solver_data%rhsd(model%geometry%mask(ew,ns)) = old_thck(ew,ns) 
+             model%solver_data%rhsd(model%geometry%thck_index(ew,ns)) = old_thck(ew,ns) 
           end if
-          model%solver_data%answ(model%geometry%mask(ew,ns)) = new_thck(ew,ns)
+          model%solver_data%answ(model%geometry%thck_index(ew,ns)) = new_thck(ew,ns)
        end if
 
     end do
@@ -472,13 +533,13 @@ contains
 
        do ns=2,model%general%nsn-1
           ew = 1
-          if (model%geometry%mask(ew,ns) /= 0) then
+          if (model%geometry%thck_index(ew,ns) /= 0) then
              call findsums(model%general%ewn-2,model%general%ewn-1,ns-1,ns)
              call generate_row(model%general%ewn-2,ew,ew+1,ns-1,ns,ns+1)
           end if
 
           ew=model%general%ewn
-          if (model%geometry%mask(ew,ns) /= 0) then
+          if (model%geometry%thck_index(ew,ns) /= 0) then
              call findsums(1,2,ns-1,ns)
              call generate_row(ew-1,ew,3,ns-1,ns,ns+1)
           end if
@@ -489,25 +550,25 @@ contains
        do ns=2,model%general%nsn-1
 
           ew=1
-          if (model%geometry%mask(ew,ns) /= 0) then
-             call sparse_insert_val(model%solver_data%matrix, model%geometry%mask(ew,ns), model%geometry%mask(ew,ns), 1d0)
+          if (model%geometry%thck_index(ew,ns) /= 0) then
+             call sparse_insert_val(model%solver_data%matrix, model%geometry%thck_index(ew,ns), model%geometry%thck_index(ew,ns), 1d0)
              !EIB! old way
-             !call putpcgc(model%solver_data,1.0d0, model%geometry%mask(ew,ns), model%geometry%mask(ew,ns))
+             !call putpcgc(model%solver_data,1.0d0, model%geometry%thck_index(ew,ns), model%geometry%thck_index(ew,ns))
              if (calc_rhs) then
-                model%solver_data%rhsd(model%geometry%mask(ew,ns)) = old_thck(ew,ns) 
+                model%solver_data%rhsd(model%geometry%thck_index(ew,ns)) = old_thck(ew,ns) 
              end if
-             model%solver_data%answ(model%geometry%mask(ew,ns)) = new_thck(ew,ns)
+             model%solver_data%answ(model%geometry%thck_index(ew,ns)) = new_thck(ew,ns)
           end if
 
           ew=model%general%ewn
-          if (model%geometry%mask(ew,ns) /= 0) then
-             call sparse_insert_val(model%solver_data%matrix, model%geometry%mask(ew,ns), model%geometry%mask(ew,ns), 1d0)
+          if (model%geometry%thck_index(ew,ns) /= 0) then
+             call sparse_insert_val(model%solver_data%matrix, model%geometry%thck_index(ew,ns), model%geometry%thck_index(ew,ns), 1d0)
              !EIB! old way
-             !call putpcgc(model%solver_data,1.0d0, model%geometry%mask(ew,ns), model%geometry%mask(ew,ns))
+             !call putpcgc(model%solver_data,1.0d0, model%geometry%thck_index(ew,ns), model%geometry%thck_index(ew,ns))
              if (calc_rhs) then
-                model%solver_data%rhsd(model%geometry%mask(ew,ns)) = old_thck(ew,ns) 
+                model%solver_data%rhsd(model%geometry%thck_index(ew,ns)) = old_thck(ew,ns) 
              end if
-             model%solver_data%answ(model%geometry%mask(ew,ns)) = new_thck(ew,ns)
+             model%solver_data%answ(model%geometry%thck_index(ew,ns)) = new_thck(ew,ns)
           end if
 
        end do
@@ -521,10 +582,10 @@ contains
     do ns = 2,model%general%nsn-1
        do ew = 2,model%general%ewn-1
 
-          if (model%geometry%mask(ew,ns) /= 0) then
+          if (model%geometry%thck_index(ew,ns) /= 0) then
                 
-             call findsums(ew-1,ew,ns-1,ns)
-             call generate_row(ew-1,ew,ew+1,ns-1,ns,ns+1)
+             call findsums(ew-1, ew, ns-1, ns)
+             call generate_row(ew-1, ew, ew+1, ns-1, ns, ns+1)
 
           end if
        end do
@@ -537,15 +598,16 @@ contains
     ! Solve the system using SLAP
     !EIB! call slapsolv(model,linit,err)   
 
-    call sparse_easy_solve(model%solver_data%matrix, model%solver_data%rhsd, model%solver_data%answ, &
+    call sparse_easy_solve(model%solver_data%matrix,                       &
+                           model%solver_data%rhsd, model%solver_data%answ, &
                            err, linit)
 
     ! Rejig the solution onto a 2D array
 
     do ns = 1,model%general%nsn
        do ew = 1,model%general%ewn 
-          if (model%geometry%mask(ew,ns) /= 0) then
-             new_thck(ew,ns) = model%solver_data%answ(model%geometry%mask(ew,ns))
+          if (model%geometry%thck_index(ew,ns) /= 0) then
+             new_thck(ew,ns) = model%solver_data%answ(model%geometry%thck_index(ew,ns))
           end if
        end do
     end do
@@ -569,98 +631,100 @@ contains
 
   contains
 
-    subroutine generate_row(ewm,ew,ewp,nsm,ns,nsp)
+    subroutine generate_row(ewm, ew, ewp, &
+                            nsm, ns, nsp)
+
       ! calculate row of sparse matrix equation
+
       implicit none
+
       integer, intent(in) :: ewm,ew,ewp  ! ew index to left, central, right node
       integer, intent(in) :: nsm,ns,nsp  ! ns index to lower, central, upper node
 
       !fill matrix using the new API
-      call sparse_insert_val(model%solver_data%matrix, model%geometry%mask(ew,ns), model%geometry%mask(ewm,ns), sumd(1)) ! point (ew-1,ns)
-      call sparse_insert_val(model%solver_data%matrix, model%geometry%mask(ew,ns), model%geometry%mask(ewp,ns), sumd(2)) ! point (ew+1,ns)
-      call sparse_insert_val(model%solver_data%matrix, model%geometry%mask(ew,ns), model%geometry%mask(ew,nsm), sumd(3)) ! point (ew,ns-1)
-      call sparse_insert_val(model%solver_data%matrix, model%geometry%mask(ew,ns), model%geometry%mask(ew,nsp), sumd(4)) ! point (ew,ns+1)
-      call sparse_insert_val(model%solver_data%matrix, model%geometry%mask(ew,ns), model%geometry%mask(ew,ns),  1d0 + sumd(5))! point (ew,ns)
+      call sparse_insert_val(model%solver_data%matrix, model%geometry%thck_index(ew,ns), model%geometry%thck_index(ewm,ns), sumd(1)) ! point (ew-1,ns)
+      call sparse_insert_val(model%solver_data%matrix, model%geometry%thck_index(ew,ns), model%geometry%thck_index(ewp,ns), sumd(2)) ! point (ew+1,ns)
+      call sparse_insert_val(model%solver_data%matrix, model%geometry%thck_index(ew,ns), model%geometry%thck_index(ew,nsm), sumd(3)) ! point (ew,ns-1)
+      call sparse_insert_val(model%solver_data%matrix, model%geometry%thck_index(ew,ns), model%geometry%thck_index(ew,nsp), sumd(4)) ! point (ew,ns+1)
+      call sparse_insert_val(model%solver_data%matrix, model%geometry%thck_index(ew,ns), model%geometry%thck_index(ew,ns),  1d0 + sumd(5))! point (ew,ns)
+
     !EIB! old way
       ! fill sparse matrix
-    !  call putpcgc(model%solver_data,sumd(1), model%geometry%mask(ewm,ns), model%geometry%mask(ew,ns))       ! point (ew-1,ns)
-    !  call putpcgc(model%solver_data,sumd(2), model%geometry%mask(ewp,ns), model%geometry%mask(ew,ns))       ! point (ew+1,ns)
-    !  call putpcgc(model%solver_data,sumd(3), model%geometry%mask(ew,nsm), model%geometry%mask(ew,ns))       ! point (ew,ns-1)
-    !  call putpcgc(model%solver_data,sumd(4), model%geometry%mask(ew,nsp), model%geometry%mask(ew,ns))       ! point (ew,ns+1)
-    !  call putpcgc(model%solver_data,1.0d0 + sumd(5), model%geometry%mask(ew,ns), model%geometry%mask(ew,ns))! point (ew,ns)
+    !  call putpcgc(model%solver_data,sumd(1), model%geometry%thck_index(ewm,ns), model%geometry%thck_index(ew,ns))       ! point (ew-1,ns)
+    !  call putpcgc(model%solver_data,sumd(2), model%geometry%thck_index(ewp,ns), model%geometry%thck_index(ew,ns))       ! point (ew+1,ns)
+    !  call putpcgc(model%solver_data,sumd(3), model%geometry%thck_index(ew,nsm), model%geometry%thck_index(ew,ns))       ! point (ew,ns-1)
+    !  call putpcgc(model%solver_data,sumd(4), model%geometry%thck_index(ew,nsp), model%geometry%thck_index(ew,ns))       ! point (ew,ns+1)
+    !  call putpcgc(model%solver_data,1.0d0 + sumd(5), model%geometry%thck_index(ew,ns), model%geometry%thck_index(ew,ns))! point (ew,ns)
 
       ! calculate RHS
       if (calc_rhs) then
-         model%solver_data%rhsd(model%geometry%mask(ew,ns)) =                    &
-              old_thck(ew,ns) * (1.0d0 - model%solver_data%fc2(3) * sumd(5))     &
-            - model%solver_data%fc2(3) * (old_thck(ewm,ns) * sumd(1)             &
-                                   + old_thck(ewp,ns) * sumd(2)             &
-                                   + old_thck(ew,nsm) * sumd(3)             &
-                                   + old_thck(ew,nsp) * sumd(4))            &
-            - model%solver_data%fc2(4) * (model%geometry%lsrf(ew,ns)  * sumd(5)  &
-                                   + model%geometry%lsrf(ewm,ns) * sumd(1)  &
-                                   + model%geometry%lsrf(ewp,ns) * sumd(2)  &
-                                   + model%geometry%lsrf(ew,nsm) * sumd(3)  &
-                                   + model%geometry%lsrf(ew,nsp) * sumd(4)) &
-            + model%climate%acab(ew,ns) * model%solver_data%fc2(2)
-      end if
-      !EIB! old way
-      ! calculate RHS
-      !if (calc_rhs) then
-      !   model%solver_data%rhsd(model%geometry%mask(ew,ns)) =                    &
-      !        old_thck(ew,ns) * (1.0d0 - model%solver_data%fc2(3) * sumd(5))     &
-      !      - model%solver_data%fc2(3) * (old_thck(ewm,ns) * sumd(1)             &
-      !                             + old_thck(ewp,ns) * sumd(2)             &
-      !                             + old_thck(ew,nsm) * sumd(3)             &
-      !                             + old_thck(ew,nsp) * sumd(4))            &
-      !      - model%solver_data%fc2(4) * (model%geometry%lsrf(ew,ns)  * sumd(5)  &
-      !                             + model%geometry%lsrf(ewm,ns) * sumd(1)  &
-      !                             + model%geometry%lsrf(ewp,ns) * sumd(2)  &
-      !                             + model%geometry%lsrf(ew,nsm) * sumd(3)  &
-      !                             + model%geometry%lsrf(ew,nsp) * sumd(4)) &
-      !      + model%climate%acab(ew,ns) * model%solver_data%fc2(2)
-      !   if(model%options%basal_mbal==1) then
-      !      model%solver_data%rhsd(model%geometry%mask(ew,ns)) =                    &
-      !           model%solver_data%rhsd(model%geometry%mask(ew,ns))                 &
-      !           - model%temper%bmlt(ew,ns) * model%solver_data%fc2(2) ! basal melt is +ve for mass loss
-      !   end if
-      !end if
 
-      model%solver_data%answ(model%geometry%mask(ew,ns)) = new_thck(ew,ns)      
+         model%solver_data%rhsd(model%geometry%thck_index(ew,ns)) =                   &
+              old_thck(ew,ns) * (1.0d0 - ((1.0d0-model%numerics%alpha)/model%numerics%alpha) * sumd(5))          &
+            - ((1.0d0 - model%numerics%alpha) / model%numerics%alpha) *               &
+                                              (old_thck(ewm,ns) * sumd(1)             &
+                                             + old_thck(ewp,ns) * sumd(2)             &
+                                             + old_thck(ew,nsm) * sumd(3)             &
+                                             + old_thck(ew,nsp) * sumd(4))            &
+            - (1.d0 / model%numerics%alpha) * (model%geometry%lsrf(ew,ns)  * sumd(5)  &
+                                             + model%geometry%lsrf(ewm,ns) * sumd(1)  &
+                                             + model%geometry%lsrf(ewp,ns) * sumd(2)  &
+                                             + model%geometry%lsrf(ew,nsm) * sumd(3)  &
+                                             + model%geometry%lsrf(ew,nsp) * sumd(4)) &
+            + model%climate%acab(ew,ns) * model%numerics%dt
+
+!WHL - This piece of code was inadvertently removed from the LANL/seacism branch a while ago. 
+!TODO - Run a test (EISMINT-2?) with this option turned on.  
+!       The default is basal_mbal = 0 (basal melt rate not included in continuity equation).
+
+         if (model%options%basal_mbal==1) then   ! basal melt rate included in continuity equation
+             model%solver_data%rhsd(model%geometry%thck_index(ew,ns)) =                     &
+                   model%solver_data%rhsd(model%geometry%thck_index(ew,ns))                 &
+                 - model%temper%bmlt(ew,ns) * model%numerics%dt  ! basal melt is positive for mass loss
+         end if
+
+      end if   ! calc_rhs
+
+      model%solver_data%answ(model%geometry%thck_index(ew,ns)) = new_thck(ew,ns)      
 
     end subroutine generate_row
 
-    subroutine findsums(ewm,ew,nsm,ns)
+!---------------------------------------------------------------
+
+    subroutine findsums(ewm, ew, nsm, ns)
+
       ! calculate diffusivities
+
       implicit none
       integer, intent(in) :: ewm,ew  ! ew index to left, right
       integer, intent(in) :: nsm,ns  ! ns index to lower, upper
 
       ! calculate sparse matrix elements
-      sumd(1) = model%solver_data%fc2(1) * (&
-           (diffu_x(ewm,nsm) + diffu_x(ewm,ns)) + &
-           (model%velocity%ubas (ewm,nsm) + model%velocity%ubas (ewm,ns)))
-      sumd(2) = model%solver_data%fc2(1) * (&
-           (diffu_x(ew,nsm) + diffu_x(ew,ns)) + &
-           (model%velocity%ubas (ew,nsm) + model%velocity%ubas (ew,ns)))
-      sumd(3) = model%solver_data%fc2(5) * (&
-           (diffu_y(ewm,nsm) + diffu_y(ew,nsm)) + &
-           (model%velocity%ubas (ewm,nsm) + model%velocity%ubas (ew,nsm)))
-      sumd(4) = model%solver_data%fc2(5) * (&
-           (diffu_y(ewm,ns) + diffu_y(ew,ns)) + &
-           (model%velocity%ubas (ewm,ns) + model%velocity%ubas (ew,ns)))
+      sumd(1) = alpha_dt_ew * (&
+               (diffu_x(ewm,nsm) + diffu_x(ewm,ns)) + &
+               (model%velocity%ubas (ewm,nsm) + model%velocity%ubas (ewm,ns)))
+      sumd(2) = alpha_dt_ew * (&
+               (diffu_x(ew,nsm) + diffu_x(ew,ns)) + &
+               (model%velocity%ubas (ew,nsm) + model%velocity%ubas (ew,ns)))
+      sumd(3) = alpha_dt_ns * (&
+               (diffu_y(ewm,nsm) + diffu_y(ew,nsm)) + &
+               (model%velocity%ubas (ewm,nsm) + model%velocity%ubas (ew,nsm)))
+      sumd(4) = alpha_dt_ns * (&
+               (diffu_y(ewm,ns) + diffu_y(ew,ns)) + &
+               (model%velocity%ubas (ewm,ns) + model%velocity%ubas (ew,ns)))
       sumd(5) = - (sumd(1) + sumd(2) + sumd(3) + sumd(4))
+
       !EIB! old way
-      !sumd(1) = model%solver_data%fc2(1) * (&
+      !sumd(1) = alpha_dt_ew * (&
       !     (model%velocity%diffu(ewm,nsm) + model%velocity%diffu(ewm,ns)) + &
       !     (model%velocity%ubas (ewm,nsm) + model%velocity%ubas (ewm,ns)))
-      !sumd(2) = model%solver_data%fc2(1) * (&
+      !sumd(2) = alpha_dt_ew * (&
       !     (model%velocity%diffu(ew,nsm) + model%velocity%diffu(ew,ns)) + &
       !     (model%velocity%ubas (ew,nsm) + model%velocity%ubas (ew,ns)))
-      !sumd(3) = model%solver_data%fc2(5) * (&
+      !sumd(3) = alpha_dt_ns * (&
       !     (model%velocity%diffu(ewm,nsm) + model%velocity%diffu(ew,nsm)) + &
       !     (model%velocity%ubas (ewm,nsm) + model%velocity%ubas (ew,nsm)))
-      !sumd(4) = model%solver_data%fc2(5) * (&
+      !sumd(4) = alpha_dt_ns * (&
       !     (model%velocity%diffu(ewm,ns) + model%velocity%diffu(ew,ns)) + &
       !     (model%velocity%ubas (ewm,ns) + model%velocity%ubas (ew,ns)))
       !sumd(5) = - (sumd(1) + sumd(2) + sumd(3) + sumd(4))
@@ -671,176 +735,143 @@ contains
 
 !---------------------------------------------------------------
 
-!TODO - Move this subroutine to another module (glam_derivs?).
-!       It contains calls that are needed only for glam HO dycore.
+!WHL - This subroutine used to be called glide_maskthck and located in its own module, 
+!       but I put it in glide_thck.F90 since it is used only for the glide thickness calculation. 
+!      Removed thklim from the argument list (best to have threshold of 0.0)
+!      Removed dom from argument list (not used anywhere)
 
-subroutine geometry_derivs(model)
-   use glide_mask, only: upwind_from_mask
-   implicit none
-
-   !*FD Computes derivatives of the ice and bed geometry, as well as averaging
-   !*FD them onto the staggered grid
-   type(glide_global_type), intent(inout) :: model
-
-   call stagthickness(model%geometry% thck, &
-             model%geomderv%stagthck,&
-             model%general%ewn, &
-             model%general%nsn, &
-             model%geometry%usrf, &
-             model%numerics%thklim, &
-             model%geometry%thkmask)
+  subroutine glide_thck_index(thck,             acab,  &
+                              thck_index,       totpts,  &
+                              include_adjacent, empty)
     
-   call stagvarb(model%geometry%lsrf, &
-                 model%geomderv%staglsrf,&
-                 model%general%ewn, &
-                 model%general%nsn)
+    ! Compute an integer mask for the glide thickness calculation.
+    ! The mask generally includes ice-covered cells (thck > 0), cells adjacent to 
+    !  ice-covered cells, and cells with a positive mass balance (acab > 0).
 
-   call stagvarb(model%geometry%topg, &
-                 model%geomderv%stagtopg,&
-                 model%general%ewn, &
-                 model%general%nsn)
+    use glimmer_global, only : dp, sp 
 
+    !-------------------------------------------------------------------------
+    ! Subroutine arguments
+    !-------------------------------------------------------------------------
 
-   model%geomderv%stagusrf = model%geomderv%staglsrf + model%geomderv%stagthck
+    real(dp),dimension(:,:),intent(in)  :: thck       !*FD Ice thickness
+    real(sp),dimension(:,:),intent(in)  :: acab       !*FD Mass balance
+    integer, dimension(:,:),intent(out) :: thck_index !*FD integer index (1, 2, 3, ..., totpts)
+    integer,                intent(out) :: totpts     !*FD Total number of points in mask
+    logical, intent(in)       :: include_adjacent     ! If true, points with no ice but that are adjacent
+                                                      ! to points with ice are included in the mask
+    logical,                intent(out) :: empty      !*FD true if no points in mask
 
-   call df_field_2d_staggered(model%geometry%usrf, &
-                              model%numerics%dew, model%numerics%dns, &
-                              model%geomderv%dusrfdew, &
-                              model%geomderv%dusrfdns, &
-                              model%geometry%thck,     &
-                              model%numerics%thklim )
+    !-------------------------------------------------------------------------
+    ! Internal variables
+    !-------------------------------------------------------------------------
 
-   call df_field_2d_staggered(model%geometry%thck, &
-                              model%numerics%dew, model%numerics%dns, &
-                              model%geomderv%dthckdew, &
-                              model%geomderv%dthckdns, &
-                              model%geometry%thck,     &
-                              model%numerics%thklim )
+    logical,dimension(size(thck,2))   :: full
+    integer :: covtot
+    integer :: ew,ns,ewn,nsn
+
+!!    integer,dimension(size(thck,2),2) :: band   ! no longer used
+!!    integer, dimension(4) :: dom  ! used to be an output argument, but no longer used
+
+    !-------------------------------------------------------------------------
+
+    ewn=size(thck,1) ; nsn=size(thck,2)
+
+    thck_index = 0
+    covtot  = 0 
+
+    !-------------------------------------------------------------------------
+
+    do ns = 1,nsn
+
+      full(ns) = .false.
+
+      do ew = 1,ewn
+
+        if ( thckcrit(thck(max(1,ew-1):min(ewn,ew+1),max(1,ns-1):min(nsn,ns+1)), acab(ew,ns)) ) then
+
+          covtot = covtot + 1
+          thck_index(ew,ns) = covtot 
+
+          if ( .not. full(ns) ) then
+!!            band(ns,1) = ew
+            full(ns)   = .true.
+          else
+!!            band(ns,2) = ew
+          end if
+               
+        end if
+      end do
+    end do
+  
+    totpts = covtot
+
+!!    dom(1:2) = (/ewn,1/)
+    empty = .true.
+
+    do ns = 1,nsn
+           
+      if (full(ns)) then
+
+        if (empty) then
+          empty  = .false.
+!!          dom(3) = ns
+        end if
+
+!!        dom(4) = ns
+!!        dom(1) = min0(dom(1),band(ns,1))
+!!        dom(2) = max0(dom(2),band(ns,2))
+      end if
+
+    end do
+
+  contains
+
+    logical function thckcrit(ca,cb)
+
+      implicit none
+
+      real(dp),dimension(:,:),intent(in) :: ca 
+      real(sp),               intent(in) :: cb
+
+!WHL - As in old glide, use 0.0 rather than thklim as the threshold.  
+!      With thklim > 0, we will prevent ice from accumulating in regions with 
+!       a small positive mass balance.
+
+!TODO - Is there any case in which we would not want to include adjacent cells
+!       in the mask for the thickness calculation?
+
+      if (.not. include_adjacent) then
+
+        ! Include only points with ice in the mask
+        ! ca(2,2) corresponds to the current (ew,ns)
  
-    !Make sure that the derivatives are 0 where staggered thickness is 0
-!TODO - change to 0.d0
-    where (model%geomderv%stagthck == 0)
-           model%geomderv%dusrfdew = 0
-           model%geomderv%dusrfdns = 0
-           model%geomderv%dthckdew = 0
-           model%geomderv%dthckdns = 0
-    endwhere
+!!        if ( ca(2,2) > thklim .or. cb > thklim) then
+        if ( ca(2,2) > 0.d0 .or. cb > 0.d0) then
+          thckcrit = .true.
+        else
+          thckcrit = .false.
+        end if
 
-    !TODO: correct signs
-    model%geomderv%dlsrfdew = model%geomderv%dusrfdew - model%geomderv%dthckdew
-    model%geomderv%dlsrfdns = model%geomderv%dusrfdns - model%geomderv%dthckdns
-      
-    !Compute second derivatives.
-    
-    call d2f_field_stag(model%geometry%usrf, model%numerics%dew, model%numerics%dns, &
-                        model%geomderv%d2usrfdew2, model%geomderv%d2usrfdns2, &
-                        .false., .false.)
+      else
 
-    call d2f_field_stag(model%geometry%thck, model%numerics%dew, model%numerics%dns, &
-                        model%geomderv%d2thckdew2, model%geomderv%d2thckdns2, &
-                        .false., .false.)
+        ! If the thickness in the region under consideration
+        ! or the mass balance is positive, thckcrit is .true.
+        ! This means that the mask includes points that have no
+        ! ice but are adjacent to points that do have ice
 
-end subroutine geometry_derivs
+!!        if ( any((ca(:,:) > thklim)) .or. cb > thklim ) then
+        if ( any((ca(:,:) > 0.d0)) .or. cb > 0.d0 ) then
+          thckcrit = .true.
+        else
+          thckcrit = .false.
+        end if
 
-!TODO - I think this subroutine can be removed.  Called from inc_remap_driver.
-!       If so, may be able to remove upwind_from_mask too.
+      end if
 
-subroutine geometry_derivs_unstag(model)
+    end function thckcrit
 
-!*FD Computes derivatives of the geometry onto variables on a nonstaggered
-!*FD grid.  Used for some higher-order routines
-
-   implicit none
-   type(glide_global_type) :: model
-
-   !Fields allow us to upwind derivatives at the ice sheet lateral boundaries
-   !so that we're not differencing out of the domain
-   real(dp), dimension(model%general%ewn, model%general%nsn) :: direction_x, direction_y
-
-   call upwind_from_mask(model%geometry%thkmask, direction_x, direction_y)
-   ! call write_xls("direction_x_unstag.txt", direction_x)
-   ! call write_xls("direction_y_unstag.txt", direction_y)
-   !Compute first derivatives of geometry
-   call df_field_2d(model%geometry%usrf, model%numerics%dew, model%numerics%dns, &
-                    model%geomderv%dusrfdew_unstag, model%geomderv%dusrfdns_unstag, &
-                    direction_x, direction_y)
-
-   call df_field_2d(model%geometry%lsrf, model%numerics%dew, model%numerics%dns, &
-                    model%geomderv%dlsrfdew_unstag, model%geomderv%dlsrfdns_unstag, &
-                    direction_x, direction_y)
-
-   call df_field_2d(model%geometry%thck, model%numerics%dew, model%numerics%dns, &
-                    model%geomderv%dthckdew_unstag, model%geomderv%dthckdns_unstag, &
-                    direction_x, direction_y)
-
-   call d2f_field(model%geometry%usrf, model%numerics%dew, model%numerics%dns, &
-                  model%geomderv%d2usrfdew2_unstag, model%geomderv%d2usrfdns2_unstag, &
-                  direction_x, direction_y)
-
-   call d2f_field(model%geometry%thck, model%numerics%dew, model%numerics%dns, &
-                  model%geomderv%d2thckdew2_unstag, model%geomderv%d2thckdns2_unstag, &
-                  direction_x, direction_y)
-
-
-end subroutine geometry_derivs_unstag
-
-!---------------------------------------------------------------------------------
-
-  subroutine timeders(thckwk,ipvr,opvr,mask,time,which)
-
-    !*FD Calculates the time-derivative of a field. This subroutine is used by 
-    !*FD the Glimmer temperature solver only.
-
-    use glimmer_global, only : dp, sp
-    use glimmer_paramets, only : tim0
-    use glimmer_physcon, only: scyr
-    use parallel
-    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
-
-    implicit none 
-
-    type(glide_thckwk) :: thckwk    !*FD Derived-type containing work data
-    real(dp), intent(out), dimension(:,:) :: opvr  !*FD Input field.  JN: Output field?
-    real(dp), intent(in),  dimension(:,:) :: ipvr  !*FD Output (derivative) field.  JN Input field?
-!WHLTSTEP - Changed time to dp
-!    real(sp), intent(in)                  :: time  !*FD current time
-    real(dp), intent(in)                  :: time  !*FD current time
-    integer,  intent(in),  dimension(:,:) :: mask  !*FD mask for calculation
-    integer,  intent(in)                  :: which !*FD selector for stored field
-
-!WHLTSTEP - Changed factor to dp
-!    real(sp) :: factor
-    real(dp) :: factor
-
-    factor = (time - thckwk%oldtime)
-!    if (factor == 0) then
-    if (factor == 0.d0) then
-       opvr = 0.0d0
-    else
-       factor = 1./factor
-       where (mask /= 0)
-!WHL - Replaced conv with tim0/scyr (not used anywhere else in code)
-!!!          opvr = conv * (ipvr - thckwk%olds(:,:,which)) * factor
-          opvr = (tim0/scyr) * (ipvr - thckwk%olds(:,:,which)) * factor
-       elsewhere
-          opvr = 0.0d0
-       end where
-    end if
-
-    thckwk%olds(:,:,which) = ipvr
-
-    if (which == thckwk%nwhich) then
-      thckwk%oldtime = time
-    end if
-
-!HALO - I think we can remove this.  We don't support the old Glimmer temperature
-!        solver in parallel.
-!       Just make sure that this subroutine computes timeders everywhere they are needed.
- 
-    call parallel_halo(opvr)
-!    call horiz_bcs_unstag_scalar(opvr)
-
-  end subroutine timeders
+  end subroutine glide_thck_index
 
 !---------------------------------------------------------------------------------
 
@@ -912,8 +943,6 @@ end subroutine geometry_derivs_unstag
   ! ADI routines
   !-----------------------------------------------------------------------------
 
-!TODO - This subroutine is used for ADI only.  Remove it if not supporting ADI.
-
   subroutine stagleapthck(model,newtemps)
     
     !*FD this subroutine solves the ice sheet thickness equation using the ADI scheme
@@ -924,8 +953,9 @@ end subroutine geometry_derivs_unstag
 
     use glide_setup, only: glide_calclsrf
     use glide_velo
-    use glimmer_utils
+    use glimmer_utils, only: tridiag
     use glimmer_paramets, only: GLC_DEBUG
+    use glide_grid_operators, only: glide_geometry_derivs
     implicit none
 
     ! subroutine arguments
@@ -937,16 +967,19 @@ end subroutine geometry_derivs_unstag
 
     if (model%geometry%empty) then
 
-       model%geometry%thck = dmax1(0.0d0,model%geometry%thck + model%climate%acab * model%solver_data%fc2(2))
+       model%geometry%thck = dmax1(0.0d0, model%geometry%thck + model%climate%acab * model%numerics%dt)
        if (GLC_DEBUG) then
           print *, "* thck empty - net accumulation added", model%numerics%time
        end if
 
     else
 
-       !TODO If this evolution option is kept, may want to add call to geometry_derivs() here, like is done in the other two
-       ! SIA evolution subroutines (thck_lin_evolve/thck_nonlin_evolve).  May want to move it to a higher level and have it 
-       !in common to all 3 schemes (although it will still be needed in the Picard iteration of thck_nonlin_evolve).
+       !Note: glide_geometry_derivs is called at the beginning of glide_tstep_p1,
+       !      and the geometry has not changed, so stagthck and the geometry
+       !      derivatives are still up to date.  A call might be needed here
+       !      if glide_tstep_p2 were called out of order.
+
+!!       call glide_geometry_derivs(model)
 
        ! calculate basal velos
 
@@ -969,8 +1002,9 @@ end subroutine geometry_derivs_unstag
 
        ! calculate diffusivity
 
-       call velo_calc_diffu(model%velowk,model%geomderv%stagthck,model%geomderv%dusrfdew, &
-            model%geomderv%dusrfdns,model%velocity%diffu)
+       call velo_calc_diffu(model%velowk,            model%geomderv%stagthck,  &
+                            model%geomderv%dusrfdew, model%geomderv%dusrfdns,  &
+                            model%velocity%diffu)
 
        model%velocity%total_diffu(:,:) = model%velocity%diffu(:,:) + model%velocity%ubas(:,:)
 
@@ -978,6 +1012,7 @@ end subroutine geometry_derivs_unstag
 
        n = model%general%ewn
        do ns=2,model%general%nsn-1
+
           call adi_tri ( model%thckwk%alpha,                 &
                          model%thckwk%beta,                  &
                          model%thckwk%gamma,                 &
@@ -994,6 +1029,7 @@ end subroutine geometry_derivs_unstag
                          model%numerics%dns )
                     !EIB! gc2 acab input, not sure why the difference
                     !model%climate%acab(:,ns)-real(model%options%basal_mbal)*real(model%temper%bmlt(:,ns),sp),           &
+
           call tridiag(model%thckwk%alpha(1:n),    &
                        model%thckwk%beta(1:n),     &
                        model%thckwk%gamma(1:n),    &
@@ -1046,15 +1082,13 @@ end subroutine geometry_derivs_unstag
             model%velocity%ubas,           &
             model%velocity%vbas)
 
-       call velo_calc_velo(model%velowk,model%geomderv%stagthck,model%geomderv%dusrfdew, &
-            model%geomderv%dusrfdns,model%temper%flwa,model%velocity%diffu,model%velocity%ubas, &
-            model%velocity%vbas,model%velocity%uvel,model%velocity%vvel,model%velocity%uflx,model%velocity%vflx,&
-            model%velocity%surfvel)
-
-       !EIB! old way
-       !call velo_calc_velo(model%velowk,model%geomderv%stagthck,model%geomderv%dusrfdew, &
-       !     model%geomderv%dusrfdns,model%temper%flwa,model%velocity%diffu,model%velocity%ubas, &
-       !     model%velocity%vbas,model%velocity%uvel,model%velocity%vvel,model%velocity%uflx,model%velocity%vflx)
+       call velo_calc_velo(model%velowk,            model%geomderv%stagthck,  &
+                           model%geomderv%dusrfdew, model%geomderv%dusrfdns,  &
+                           model%temper%flwa,       model%velocity%diffu,     &
+                           model%velocity%ubas,     model%velocity%vbas,      &
+                           model%velocity%uvel,     model%velocity%vvel,      &
+                           model%velocity%uflx,     model%velocity%vflx,      &
+                           model%velocity%velnorm)
 
     end if   ! empty
 
@@ -1069,9 +1103,8 @@ end subroutine geometry_derivs_unstag
 
 !---------------------------------------------------------------------------------
 
-!TODO - This subroutine is used for ADI only.  Remove it if not supporting ADI.
-
   subroutine adi_tri(a,b,c,d,thk,tpg,mb,flx_p,flx_m,dif_p,dif_m,dt,ds1, ds2)
+
     !*FD construct tri-diagonal matrix system for a column/row
     use glimmer_global, only : dp, sp
     implicit none
@@ -1129,5 +1162,12 @@ end subroutine geometry_derivs_unstag
 
   end subroutine adi_tri
 
+!---------------------------------------------------------------------------------
+
+!WHL - Removed subroutine geometry_derivs_unstag, which is no longer used.
+
+!---------------------------------------------------------------------------------
+
 end module glide_thck
 
+!---------------------------------------------------------------------------------

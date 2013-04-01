@@ -37,6 +37,8 @@
 !! \author Magnus Hagdorn
 module searchcircle
   
+  implicit none
+
   type searchdata
      logical :: initialised = .false.
      integer :: radius                              !< search radius

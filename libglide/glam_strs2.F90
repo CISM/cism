@@ -65,7 +65,7 @@ implicit none
   ! NOTE: would be good to explore how small this really needs to be, as 
   ! code converges much better when this value is made larger.
 
-!SCALING - Is this constant OK?
+!SCALING - This corresponds to an effective min strain rate of 1.0d-20 s^(-1).
   real(dp), parameter :: effstrminsq = (1.0d-20 * tim0)**2
   real(dp) :: homotopy = 0.0
 
@@ -257,7 +257,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                             efvs )
 
   use parallel
-  use glimmer_horiz_bcs, only: horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns, horiz_bcs_unstag_scalar
+!!  use glimmer_horiz_bcs, only: horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns, horiz_bcs_unstag_scalar
   use glimmer_paramets, only: GLC_DEBUG
 
   implicit none
@@ -731,9 +731,12 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
     ! apply unstable manifold correction to converged velocities
 
  call t_startf("PICARD_mindcrsh")
+
     call mindcrshstr(1,whichresid,uvel,counter,resid(1))
+
     vvel = tvel
     call mindcrshstr(2,whichresid,vvel,counter,resid(2))
+
  call t_stopf("PICARD_mindcrsh")
 
 !HALO - I'm pretty sure these updates *are* needed.
@@ -830,7 +833,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
 !WHL - changed btraction from parallel_halo to staggered_parallel_halo
   call staggered_parallel_halo(btraction)
 
-!HALO - Pretty sure we don't need these updates; uflx and vflx are not used elsewhere.
+!HALO TODO - Pretty sure we don't need these updates; uflx and vflx are not used elsewhere.
   call staggered_parallel_halo(uflx)
 !  call horiz_bcs_stag_vector_ew(uflx)
 
@@ -876,7 +879,7 @@ end subroutine glam_velo_solver
 subroutine JFNK_velo_solver  (model,umask)
 
   use parallel
-  use glimmer_horiz_bcs, only: horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns,  horiz_bcs_unstag_scalar
+!!  use glimmer_horiz_bcs, only: horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns,  horiz_bcs_unstag_scalar
   use glimmer_paramets, only: GLC_DEBUG
 
   use iso_c_binding 
@@ -1353,6 +1356,8 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
 
   if (counter == 1) then
 
+     ! effstrminsq = (1.0d-20 * tim0)**2
+
      if (GLC_DEBUG) then
 
         !  if (main_task) then
@@ -1373,7 +1378,6 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
 !whl - If temp and flwa live on the staggered vertical grid (like the effective viscosity),
 !      then the size of flwa is (upn-1), and vertical averaging of flwa is not needed here.
 
-
      if (size(flwa,1)==upn-1) then   ! temperature and flwa live on staggered vertical grid
 
 !LOOP - all scalars except for outer layer
@@ -1385,6 +1389,7 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
               !  no vertical averaging is needed.
               flwafact(1:upn-1,ew,ns) = 0.5d0 * flwa(1:upn-1,ew,ns)**p1
            end if
+
         end do
         end do
 
@@ -2246,7 +2251,7 @@ end subroutine reset_effstrmin
   use iso_c_binding  
   use glide_types ,only : glide_global_type
   use parallel
-  use glimmer_horiz_bcs, only: horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns
+!!  use glimmer_horiz_bcs, only: horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns
 
   implicit none
 
@@ -2687,6 +2692,7 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
   real(dp), intent(out) :: resid
 
 !TODO - critlimit is never used
+!TODO - SCALING - Does 'small' need a velocity scale factor?
   real(dp), parameter :: ssthres = 5.d0 * pi / 6.d0, &
                          critlimit = 10.d0 / (scyr * vel0), &
                          small = 1.0d-16
@@ -2699,6 +2705,9 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
 
   integer, dimension(size(vel,1),size(vel,2),size(vel,3)) :: vel_ne_0
   real(dp) :: sum_vel_ne_0
+
+!WHL - debug (to print out intermediate terms in equations)
+!!  real(dp) :: alpha, theta
 
 ! Note: usav and corr initialized to zero upon allocation; following probably
 ! not necessary, but occurs only once (per nonlinear solve)
@@ -2841,13 +2850,24 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
       do ew = 1 + staggered_lhalo, size(vel,2) - staggered_uhalo
         do nr = 1, size(vel, 1)
           temp_vel = vel(nr,ew,ns)
+
           if (acos((corr(nr,ew,ns,new(pt),pt) * corr(nr,ew,ns,old(pt),pt)) / &
                (abs(corr(nr,ew,ns,new(pt),pt)) * abs(corr(nr,ew,ns,old(pt),pt)) + small)) > &
               ssthres .and. corr(nr,ew,ns,new(pt),pt) - corr(nr,ew,ns,old(pt),pt) /= 0.d0) then
-            vel(nr,ew,ns) = usav(nr,ew,ns,pt) + &
-                corr(nr,ew,ns,new(pt),pt) * abs(corr(nr,ew,ns,old(pt),pt)) / &
-                    abs(corr(nr,ew,ns,new(pt),pt) - corr(nr,ew,ns,old(pt),pt))
+
+               ! theta and alpha are intermediate terms that might be useful to print out
+!!             theta = acos((corr(nr,ew,ns,new(pt),pt) * corr(nr,ew,ns,old(pt),pt)) / &
+!!                    (abs(corr(nr,ew,ns,new(pt),pt)) * abs(corr(nr,ew,ns,old(pt),pt)) + small))
+
+!!             alpha = abs(corr(nr,ew,ns,old(pt),pt)) / &
+!!                     abs(corr(nr,ew,ns,new(pt),pt) - corr(nr,ew,ns,old(pt),pt))
+
+             vel(nr,ew,ns) = usav(nr,ew,ns,pt) + &
+                             corr(nr,ew,ns,new(pt),pt) * abs(corr(nr,ew,ns,old(pt),pt)) / &
+                             abs(corr(nr,ew,ns,new(pt),pt) - corr(nr,ew,ns,old(pt),pt))
+
           endif
+
           usav(nr,ew,ns,pt) = temp_vel
         enddo
       enddo
@@ -3051,7 +3071,7 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
   ! condition subroutines, which determine "b".
 
   use parallel
-  use glimmer_horiz_bcs, only: ghost_shift
+!!  use glimmer_horiz_bcs, only: ghost_shift
 
   implicit none
 

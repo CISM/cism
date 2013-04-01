@@ -51,13 +51,14 @@ module glide
   
   use glide_types
   use glide_stop
-  use glide_nc_custom
   use glide_io
   use glide_lithot_io
   use glide_lithot
   use glide_profile
   use glimmer_config
   use glimmer_global
+
+  use glimmer_paramets, only: oldglide
 
   implicit none
 
@@ -132,7 +133,7 @@ contains
 
     use glide_setup
     use glimmer_ncio
-    use glide_velo
+    use glide_velo, only: init_velo
     use glide_thck
     use glide_temp
     use glimmer_log
@@ -140,10 +141,13 @@ contains
     use glide_mask
     use isostasy
     use glimmer_map_init
-    use fo_upwind_advect, only : fo_upwind_advect_init
-    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
+!!    use fo_upwind_advect, only : fo_upwind_advect_init
+!!    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
 
     use parallel, only: distributed_grid
+
+!WHL - debug
+    use glimmer_paramets
 
     type(glide_global_type), intent(inout) :: model     ! model instance
 
@@ -153,14 +157,17 @@ contains
 
     integer, parameter :: my_nhalo = 0   ! no halo layers for Glide dycore
 
+!WHL - debug
+  integer :: i, j, k
+
 !!!Old Glide has this:
 !!!    call write_log(glimmer_version)  
+
     call write_log(trim(glimmer_version_char()))
 
     ! initialise scales
     call glimmer_init_scales
 
-!SCALING - This call is needed to 
     ! scale parameters (some conversions to SI units)
     call glide_scale_params(model)
 
@@ -169,6 +176,8 @@ contains
     ! Note: nhalo = 0 is included in call to distributed_grid to set other halo
     !  variables (lhalo, uhalo, etc.) to 0 instead of default values
 
+!WHL - distributed_grid is not in old glide
+      
     call distributed_grid(model%general%ewn, model%general%nsn,  &
                           nhalo_in=my_nhalo)
 
@@ -225,10 +234,15 @@ contains
     ! create glide variables
     call glide_io_createall(model)
 
+!TODO - Change names to glide_init_velo, glide_init_thck
+
     ! initialise velocity calc
     call init_velo(model)
 
-!TODO - Make sure this does not overwrite temperature for restarts
+!WHL - old glide has a call to init_temp, which is similar to glide_init_temp
+!      but does not set the temperature or compute flwa until later call to timeevoltemp
+!WHL - In old glide I added artm as a hotstart variable
+
     ! initialize temperature field - this needs to happen after input file is
     ! read so we can assign artm (which could possibly be read in) if temp has not been input.
     call glide_init_temp(model)
@@ -241,35 +255,26 @@ contains
        call init_lithot(model)
     end if
 
-!TODO 
-    ! *sfp** added for summer modeling school
-    if (model%options%whichevol == EVOL_FO_UPWIND ) then
-        call fo_upwind_advect_init( model%general%ewn, model%general%nsn )
-    endif
+!WHL - old glide has this call in addition to init_temp, to compute flwa
+!!    if (model%options%hotstart.ne.1) then
+!!       ! initialise Glen's flow parameter A using an isothermal temperature distribution
+!!       call timeevoltemp(model,0)
+!!    end if
 
-!TODO - Remove this?
+
+!WHL - This option is disabled for now.
     ! *mb* added; initialization of basal proc. module
-    if (model%options%which_bmod == BAS_PROC_FULLCALC .or. &
-        model%options%which_bmod == BAS_PROC_FASTCALC) then
-        
-!        call Basal_Proc_init (model%general%ewn, model%general%nsn,model%basalproc,     &
-!                              model%numerics%ntem)
-!TODO - Remove 'stop' and exit cleanly (in glide_setup?)
-    write(*,*)"ERROR: Basal processes module is not supported in this release of CISM."
-    stop
-
-    end if      
-
-!TODO - Modify glide_set_mask for SIA?
-!     - Mask names are perverse: 
-!       model%geometry%thkmask is set in glide_mask.F90, whereas model%geometry%mask is set in glide_thckmask.F90
-
+!!    if (model%options%which_bproc == BAS_PROC_FULLCALC .or. &
+!!        model%options%which_bproc == BAS_PROC_FASTCALC) then
+!!        call Basal_Proc_init (model%general%ewn, model%general%nsn,model%basalproc,     &
+!!                              model%numerics%ntem)
+!!    end if      
 
     call glide_set_mask(model%numerics,                                   &
-                           model%geometry%thck,  model%geometry%topg,     &
-                           model%general%ewn,    model%general%nsn,       &
-                           model%climate%eus,    model%geometry%thkmask,  &
-                           model%geometry%iarea, model%geometry%ivol)
+                        model%geometry%thck,  model%geometry%topg,     &
+                        model%general%ewn,    model%general%nsn,       &
+                        model%climate%eus,    model%geometry%thkmask,  &
+                        model%geometry%iarea, model%geometry%ivol)
  
 !TODO Do calc_iareaf_areag, lsrf, and usrf need to be calc'ed here if they are now calc'ed as part of glide_init_state_diagnostic?
 !TODO- Remove this call.
@@ -295,7 +300,30 @@ contains
     ! function that might cause an error
 
     call register_model(model)
-    
+
+!WHL - debug
+!    print*, 'After glide_initialise:'
+!    print*, 'max, min thck (m)=', maxval(model%geometry%thck)*thk0, minval(model%geometry%thck)*thk0
+!    print*, 'max, min usrf (m)=', maxval(model%geometry%usrf)*thk0, minval(model%geometry%usrf)*thk0
+!    print*, 'max, min artm =', maxval(model%climate%artm), minval(model%climate%artm)
+!    print*, 'max, min temp =', maxval(model%temper%temp), minval(model%temper%temp)
+!    print*, 'max, min flwa =', maxval(model%temper%flwa), minval(model%temper%flwa)
+
+!    print*, ' '
+!    print*, 'thck:'
+!    do j = model%general%nsn, 1, -1
+!       write(6,'(30f5.0)') thk0 * model%geometry%thck(:,j)
+!    enddo
+!    print*, ' '
+!    print*, 'temp, k = 2:'
+!    do j = model%general%nsn+1, 0, -1
+!       write(6,'(32f5.0)') model%temper%temp(2,:,j)
+!    enddo
+!    print*, 'basal temp:'
+!    do j = model%general%nsn+1, 0, -1
+!       write(6,'(32f5.0)') model%temper%temp(model%general%upn,:,j)
+!    enddo
+
   end subroutine glide_initialise
 
 !=======================================================================
@@ -314,14 +342,15 @@ contains
     use glide_setup
     use glide_temp
     use glide_mask
-    use glide_deriv, only : df_field_2d_staggered
     use glimmer_paramets, only: tim0
     use glimmer_physcon, only: scyr
-    use glide_thckmask
-    use glide_grids
     use glide_ground, only: glide_marinlim
     use glide_bwater, only: calcbwat
     use glide_temp, only: glide_calcbmlt
+    use glide_grid_operators
+
+!WHL - Can we remove this one?
+    use glam_grid_operators, only : df_field_2d_staggered
 
     type(glide_global_type), intent(inout) :: model     ! model instance
 
@@ -384,36 +413,14 @@ contains
 
     ! ------------------------------------------------------------------------ 
     ! Calculate various derivatives
+    !
+    ! This call is needed here to make sure stagthck is calculated 
+    ! the same way as in thck_lin_evolve/thck_nonlin_evolve
     ! ------------------------------------------------------------------------     
 
-!TODO - Replace this call with explicit calls to the appropriate subroutines.
-!       See comments below in glide_tstep_p1.
-!       Then we would not need to use the geometry_derivs subroutine in glide_thck.
-!       Currently, this subroutine computes stagthck, staglsrf, stagtopg, dusrfdew/ns, dthckdew/ns,
-!        dlsrfdew/ns, d2usrfdew/ns2, d2thckdew/ns2 (2nd derivs are HO only)   
+    call glide_prof_start(model,model%glide_prof%geomderv)
 
-    call geometry_derivs(model)
-    
-    !EIB! from gc2 - think this was all replaced by geometry_derivs??
-!TODO - The subroutine geometry_derivs calls subroutine stagthickness to compute stagthck.
-!       Similarly for dthckdew/ns and dusrfdew/ns
-!       No need to call the next three subroutines as well as geometry_derivs?
-
-!TODO this calculation of stagthck differs from that in geometry_derivs which calls stagthickness() 
-!     in glide_grids.F90.  Which do we want to use?  stagthickness() seems to be noisier.
-
-    call stagvarb(model%geometry%thck, model%geomderv%stagthck,&
-                  model%general%ewn,   model%general%nsn)
-
-    call df_field_2d_staggered(model%geometry%usrf,                              &
-                               model%numerics%dew,      model%numerics%dns,      &
-                               model%geomderv%dusrfdew, model%geomderv%dusrfdns, &
-                               model%geometry%thck,     model%numerics%thklim )
-
-    call df_field_2d_staggered(model%geometry%thck,                              &
-                               model%numerics%dew,      model%numerics%dns,      &
-                               model%geomderv%dthckdew, model%geomderv%dthckdns, &
-                               model%geometry%thck,     model%numerics%thklim )
+    call glide_geometry_derivs(model)   ! stagvarb, geomders as in old Glide
 
     call glide_prof_stop(model,model%glide_prof%geomderv)
 
@@ -423,35 +430,31 @@ contains
     !EIB! call veries between lanl and gc2, this is lanl version
     !magi a hack, someone explain what whichthck=5 does
 
-    !call glide_maskthck(0, &       
-    call glide_maskthck( model%geometry% thck,      &
-                         model%climate%  acab,      &
-                         .true.,                    &
-                         model%numerics% thklim,    &
-                         model%geometry% dom,       &
-                         model%geometry% mask,      &
-                         model%geometry% totpts,    &
-                         model%geometry% empty)
+!WHL - Modified this subroutine so that ice can accumulate in regions with
+!      a small positive mass balance.
+
+    call glide_thck_index(model%geometry% thck,      &
+                          model%climate%  acab,      &
+                          model%geometry% thck_index,  &
+                          model%geometry% totpts,    &
+                          .true.,                    &
+                          model%geometry% empty)
 
     call glide_prof_stop(model,model%glide_prof%ice_mask1)
-
-
-!TODO - Remove this call and replace with appropriate calculation of stagthck?
-    call geometry_derivs(model)  ! This call is needed here to make sure stagthck is calculated 
-                                 ! the same way as in thck_lin_evolve/thck_nonlin_evolve
 
     ! ------------------------------------------------------------------------ 
     ! Part 3: Solve velocity
     ! ------------------------------------------------------------------------    
+
     ! initial value for flwa should already be calculated as part of glide_init_temp()
     ! calculate the part of the vertically averaged velocity field which solely depends on the temperature
 
     call velo_integrate_flwa(model%velowk,model%geomderv%stagthck,model%temper%flwa)
 
     ! Calculate diffusivity
+
     call velo_calc_diffu(model%velowk,model%geomderv%stagthck,model%geomderv%dusrfdew, &
             model%geomderv%dusrfdns,model%velocity%diffu)
-
 
 !TODO - Remove the next two calls, assume bwat is in restart file.
 
@@ -494,21 +497,25 @@ contains
                    model%velocity%btrc)
 
     call slipvelo(model,                &
-               0,                             &
-               model%velocity% btrc,          &
-               model%velocity% ubas,          &
-               model%velocity% vbas)
+                  0,                             &
+                  model%velocity% btrc,          &
+                  model%velocity% ubas,          &
+                  model%velocity% vbas)
 
     ! The evolution=0 (linear diffusion) option requires that uvel/vvel be restart variables.  So use input values if
     ! that option is selected on a restart.  Otherwise calculate velocity now.
+
     if ((model%options%is_restart == 1) .and. (model%options%whichevol == EVOL_PSEUDO_DIFF)) then
        call write_log('Using restart file values for uvel and vvel for the initial time because evolution=0.')
     else
        ! Calculate velocity
-       call velo_calc_velo(model%velowk,model%geomderv%stagthck,model%geomderv%dusrfdew, &
-            model%geomderv%dusrfdns,model%temper%flwa,model%velocity%diffu,model%velocity%ubas, &
-            model%velocity%vbas,model%velocity%uvel,model%velocity%vvel,model%velocity%uflx,model%velocity%vflx,&
-            model%velocity%surfvel)    
+       call velo_calc_velo(model%velowk,            model%geomderv%stagthck,  &
+                           model%geomderv%dusrfdew, model%geomderv%dusrfdns,  &
+                           model%temper%flwa,       model%velocity%diffu,     &
+                           model%velocity%ubas,     model%velocity%vbas,      &
+                           model%velocity%uvel,     model%velocity%vvel,      &
+                           model%velocity%uflx,     model%velocity%vflx,      &
+                           model%velocity%velnorm)    
     endif
 
     ! ------------------------------------------------------------------------ 
@@ -542,14 +549,15 @@ contains
     use glide_setup
     use glide_temp
     use glide_mask
-    use glide_deriv, only : df_field_2d_staggered
     use glimmer_paramets, only: tim0
     use glimmer_physcon, only: scyr
-    use glide_thckmask
-    use glide_grids
+    use glide_grid_operators
 
     type(glide_global_type), intent(inout) :: model     ! model instance
     real(dp),  intent(in)   :: time                     ! current time in years
+
+!WHL - debug
+  integer :: i, j, k
 
     ! Update internal clock
     model%numerics%time = time  
@@ -560,74 +568,23 @@ contains
 
     call glide_prof_start(model,model%glide_prof%geomderv)
 
-    ! ------------------------------------------------------------------------ 
-    ! Calculate various derivatives
-    ! ------------------------------------------------------------------------     
+    ! Update geometric quantities: stagthck, dusrfdew/dns, dthckdew/dns
 
-!TODO - Replace this call with explicit calls to the appropriate subroutines in glide_derivs.
-!       Then we would not need to use the geometry_derivs subroutine in glide_thck.
-!       Currently, this subroutine computes stagthck, staglsrf, stagtopg, dusrfdew/ns, dthckdew/ns,
-!        dlsrfdew/ns, d2usrfdew/ns2, d2thckdew/ns2 (2nd derivs are HO only)   
-
-    call geometry_derivs(model)
-
-! Here are the calls in old Glide:
-!    call stagvarb(model%geometry% thck, &
-!         model%geomderv% stagthck,&
-!         model%general%  ewn, &
-!         model%general%  nsn)
-
-!    call geomders(model%numerics, &
-!         model%geometry% usrf, &
-!         model%geomderv% stagthck,&
-!         model%geomderv% dusrfdew, &
-!         model%geomderv% dusrfdns)
-
-!    call geomders(model%numerics, &
-!         model%geometry% thck, &
-!         model%geomderv% stagthck,&
-!         model%geomderv% dthckdew, &
-!         model%geomderv% dthckdns)
-
-    
-    !EIB! from gc2 - think this was all replaced by geometry_derivs??
-!TODO - The subroutine geometry_derivs calls subroutine stagthickness to compute stagthck.
-!       Similarly for dthckdew/ns and dusrfdew/ns
-!       No need to call the next three subroutines as well as geometry_derivs?
-!       This calculation of stagthck differs from that in geometry_derivs which calls stagthickness() in the glide_grids.F90  
-!       Which do we want to use?  stagthickness() seems to be noisier but there are notes in there about some issue related to margins.
-
-!TODO - This can stay
-    call stagvarb(model%geometry%thck, model%geomderv%stagthck,&
-                  model%general%ewn,   model%general%nsn)
-
-! The next two can be replaced by calls to geomders?
-    call df_field_2d_staggered(model%geometry%usrf,                              &
-                               model%numerics%dew,      model%numerics%dns,      &
-                               model%geomderv%dusrfdew, model%geomderv%dusrfdns, &
-                               model%geometry%thck,     model%numerics%thklim )
-
-    call df_field_2d_staggered(model%geometry%thck,                              &
-                               model%numerics%dew,      model%numerics%dns,      &
-                               model%geomderv%dthckdew, model%geomderv%dthckdns, &
-                               model%geometry%thck,     model%numerics%thklim )
+    call glide_geometry_derivs(model)  ! compute stagthck, dusrfdew/dns, dthckdew/dns
 
     call glide_prof_stop(model,model%glide_prof%geomderv)
 
     call glide_prof_start(model,model%glide_prof%ice_mask1)
 
-!TODO - Remove this call?  I don't think the variables it computes are needed.
-    !TREY This sets local values of dom, mask, totpts, and empty
-    !EIB! call varies between lanl and gc2, this is lanl version
+!WHL - Modified this subroutine so that ice can accumulate in regions with
+!      a small positive mass balance.
 
-    call glide_maskthck( model%geometry% thck,      &
-                         model%climate%  acab,      &
-                         .true.,                    &
-                         model%numerics% thklim,    &
-                         model%geometry% dom,       &
-                         model%geometry% mask,      &
-                         model%geometry% totpts,    &
-                         model%geometry% empty)
+    call glide_thck_index(model%geometry% thck,        &
+                          model%climate%  acab,        &
+                          model%geometry% thck_index,  &
+                          model%geometry% totpts,      &
+                          .true.,                      &
+                          model%geometry% empty)
 
     call glide_prof_stop(model,model%glide_prof%ice_mask1)
 
@@ -643,8 +600,6 @@ contains
     ! Calculate temperature evolution and Glen's A, if necessary
     ! ------------------------------------------------------------------------ 
 
-    call glide_prof_start(model,model%glide_prof%temperature)
-
 !debug
 !    print*, 'tinc, time, ntem =', model%numerics%tinc, model%numerics%time,  model%numerics%ntem 
 !    print*, ' '
@@ -653,15 +608,24 @@ contains
 
     if ( model%numerics%tinc >  mod(model%numerics%time,model%numerics%ntem)) then
 
+       call glide_prof_start(model,model%glide_prof%temperature)
+
+     if (oldglide) then   ! compute vertical velocity in glide_tstep_p1 
+                          ! In new glide, this is called in glide_tstep_p3
+         
+       call glide_velo_vertical(model)
+
+     endif   ! oldglide = T
+
        ! temperature advection, vertical conduction, and internal dissipation
 
        call glide_temp_driver(model, model%options%whichtemp)
 
        model%temper%newtemps = .true.
 
-    end if
+       call glide_prof_stop(model,model%glide_prof%temperature)
 
-    call glide_prof_stop(model,model%glide_prof%temperature)
+    end if
 
     ! ------------------------------------------------------------------------ 
     ! Calculate basal traction factor
@@ -671,19 +635,23 @@ contains
                    model%options%whichbtrc,  &
                    model%velocity%btrc)
 
-!TODO - Delete?
-    ! ------------------------------------------------------------------------ 
-    ! Calculate basal shear strength from Basal Proc module, if necessary
-    ! ------------------------------------------------------------------------    
-    if (model%options%which_bmod == BAS_PROC_FULLCALC .or. &
-        model%options%which_bmod == BAS_PROC_FASTCALC) then
-!        call Basal_Proc_driver (model%general%ewn,model%general%nsn,model%general%upn,       &
-!                                model%numerics%ntem,model%velocity%uvel(model%general%upn,:,:), &
-!                                model%velocity%vvel(model%general%upn,:,:), &
-!                                model%options%which_bmod,model%temper%bmlt,model%basalproc)
-      write(*,*)"ERROR: Basal processes module is not supported in this release of CISM."
-      stop
-    end if
+
+!WHL - debug
+!    print*, ' '
+!    print*, 'After glide_tstep_p1:'
+!    print*, 'max, min temp =', maxval(model%temper%temp), minval(model%temper%temp)
+!    print*, 'max, min flwa =', maxval(model%temper%flwa), minval(model%temper%flwa)
+
+!    print*, ' '
+!    print*, 'temp, k = 2:'
+!    do j = model%general%nsn+1, 0, -1
+!       write(6,'(14f12.7)') model%temper%temp(2,3:16,j)
+!    enddo
+!    print*, 'basal temp:'
+!    do j = model%general%nsn+1, 0, -1
+!       write(6,'(14f12.7)') model%temper%temp(model%general%upn,3:16,j)
+!    enddo
+
 
   end subroutine glide_tstep_p1
 
@@ -700,10 +668,13 @@ contains
     use glide_temp
     use glide_mask
     use isostasy
-    use fo_upwind_advect, only: fo_upwind_advect_driver
+!!    use fo_upwind_advect, only: fo_upwind_advect_driver
     use glide_ground, only: glide_marinlim
 
     type(glide_global_type), intent(inout) :: model    ! model instance
+
+!WHL - debug
+  integer :: i, j, k
 
     ! ------------------------------------------------------------------------ 
     ! Calculate flow evolution by various different methods
@@ -711,8 +682,6 @@ contains
 
     call glide_prof_start(model,model%glide_prof%ice_evo)
 
-!TODO - Remove model derived type from argument lists?  (Could be a lot of work)
- 
     select case(model%options%whichevol)
 
     case(EVOL_PSEUDO_DIFF) ! Use precalculated uflx, vflx -----------------------------------
@@ -739,6 +708,9 @@ contains
     call glide_prof_start(model,model%glide_prof%ice_mask2)
 
 !TODO - Calculate area and vol separately from glide_set_mask?
+
+!Old glide just passes 'model'
+
     call glide_set_mask(model%numerics,                                &
                         model%geometry%thck,  model%geometry%topg,     &
                         model%general%ewn,    model%general%nsn,       &
@@ -753,7 +725,7 @@ contains
     ! ------------------------------------------------------------------------ 
 
 !TODO - Are all these arguments needed?
-!       Old Glimmer code includes only arguments through model%climate%calving.
+!       Old glide includes only arguments through model%climate%calving.
 
     call glide_marinlim(model%options%whichmarn, &
                         model%geometry%thck,      &
@@ -774,16 +746,21 @@ contains
 !TODO - Write a better comment here.  The mask needs to be recalculated after marinlim.
     !issues with ice shelf, calling it again fixes the mask
 
+ if (.not. oldglide) then   ! recalculate the thickness mask after calving
     call glide_set_mask(model%numerics,                                &
                         model%geometry%thck,  model%geometry%topg,     &
                         model%general%ewn,    model%general%nsn,       &
                         model%climate%eus,    model%geometry%thkmask,  &
                         model%geometry%iarea, model%geometry%ivol)
+ endif   ! oldglide = F
 
-!TODO - Is this call needed?  Not in old Glide.
+!TODO - Is this call needed?  Not in old glide.
+
+ if (.not. oldglide) then   ! calculate area of floating and grounded ice
     call calc_iareaf_iareag(model%numerics%dew,    model%numerics%dns,     &
                             model%geometry%iarea,  model%geometry%thkmask, &
                             model%geometry%iareaf, model%geometry%iareag)
+ endif   ! oldglide = F
 
     ! ------------------------------------------------------------------------
     ! update ice/water load if necessary
@@ -805,18 +782,41 @@ contains
     ! basal shear stress calculation
     ! ------------------------------------------------------------------------
 
+! Old glide just passes 'model'
+
     call calc_basal_shear(model%geomderv%stagthck,                          &
                           model%geomderv%dusrfdew, model%geomderv%dusrfdns, &
                           model%stress%tau_x,      model%stress%tau_y)
 
+! not in old glide, but this is a useful diagnostic
+
     ! velocity norm
     model%velocity%velnorm = sqrt(model%velocity%uvel**2 + model%velocity%vvel**2)
+
+!WHL - debug
+!    print*, ' '
+!    print*, 'After tstep_p2:'
+!    print*, 'max, min thck (m)=', maxval(model%geometry%thck)*thk0, minval(model%geometry%thck)*thk0
+!    print*, 'max, min usrf (m)=', maxval(model%geometry%usrf)*thk0, minval(model%geometry%usrf)*thk0
+!    print*, 'max uvel, vvel =', maxval(model%velocity%uvel), maxval(model%velocity%vvel)
+
+!    print*, ' '
+!    print*, 'thck:'
+!    do j = model%general%nsn, 1, -1
+!       write(6,'(14f12.7)') thk0 * model%geometry%thck(3:16,j)
+!    enddo
+!    print*, 'sfc uvel:'
+!    do j = model%general%nsn-1, 1, -1
+!       write(6,'(14f12.7)') model%velocity%uvel(1,3:16,j)
+!    enddo
+!    print*, 'sfc vvel:'
+!    do j = model%general%nsn-1, 1, -1
+!       write(6,'(14f12.7)') model%velocity%vvel(1,3:16,j)
+!    enddo
 
   end subroutine glide_tstep_p2
 
 !=======================================================================
-
-!TODO - no_write has been moved to tstep_postp3.  Move back?
 
   subroutine glide_tstep_p3(model, no_write)
 
@@ -825,15 +825,13 @@ contains
 
     use isostasy
     use glide_setup
-
-!TODO - Move back to tstep_p3?
-    use glide_velo, only: gridwvel
-    use glide_thck, only: timeders
-
+    use glide_velo, only: glide_velo_vertical
     implicit none
+
     type(glide_global_type), intent(inout) :: model     ! model instance
     
-!TODO - Move back to tstep_p3?
+!TODO - Change no_write to write?  Double negatives (if .not.nw) are confusing.
+
     logical, optional, intent(in) :: no_write
     logical nw
 
@@ -851,7 +849,6 @@ contains
     ! calculate upper and lower ice surface
     ! ------------------------------------------------------------------------
 
-!TODO - Inline calclsrf
     call glide_calclsrf(model%geometry%thck, model%geometry%topg, &
                         model%climate%eus,   model%geometry%lsrf)
 
@@ -863,116 +860,40 @@ contains
     ! increment time counter
     model%numerics%timecounter = model%numerics%timecounter + 1
 
-  end subroutine glide_tstep_p3
-
-!=======================================================================
-
-!TODO - Move this back to tstep_p3?
-
-  subroutine glide_tstep_postp3(model, no_write)
-
-    use glide_setup
-    use glide_velo
-    use glide_thck, only: timeders
-
-    implicit none
-    type(glide_global_type), intent(inout) :: model     ! model instance
-
-    logical, optional, intent(in) :: no_write
-    logical nw
+!TODO - Combine these timeders and vert velo calls into a subroutine?
 
     ! For exact restart, compute wgrd here and write it to the restart file.
     ! (This is easier than writing thckwk quantities to the restart file.)
 
-   call t_startf('postp3_timeders')
-    call timeders(model%thckwk,            &
-                  model%geometry%thck,     &
-                  model%geomderv%dthckdtm, &
-                  model%geometry%mask,     &
-                  model%numerics%time,     &
-                  1)
+ if (.not. oldglide) then  ! compute vertical velocity in glide_tstep_p3
 
-    call timeders(model%thckwk,            &
-                  model%geometry%usrf,     &
-                  model%geomderv%dusrfdtm, &
-                  model%geometry%mask,     &
-                  model%numerics%time,     &
-                  2)
+    ! compute vertical velocity
+         
+    call t_startf('vertical_velo')
 
-   call t_stopf('postp3_timeders')
+    call glide_velo_vertical(model)
 
-    ! Calculate the vertical velocity of the grid ------------------------------------
+    call t_stopf('vertical_velo')
 
-   call t_startf('postp3_gridwvel')
-    call gridwvel(model%numerics%sigma,  &
-                  model%numerics%thklim, &
-                  model%velocity%uvel,   &
-                  model%velocity%vvel,   &
-                  model%geomderv,        &
-                  model%geometry%thck,   &
-                  model%velocity%wgrd)
-   call t_stopf('postp3_gridwvel')
-
-
-
-
-
-       select case(model%options%whichwvel)
-
-!TODO - Here and below, replace derived types (geomderv, numerics, etc.) with explicit arguments
-
-        case(0) 
-           ! Usual vertical integration
-           call wvelintg(model%velocity%uvel,                        &
-                         model%velocity%vvel,                        &
-                         model%geomderv,                             &
-                         model%numerics,                             &
-                         model%velowk,                               &
-                         model%velocity%wgrd(model%general%upn,:,:), &
-                         model%geometry%thck,                        &
-                         model%temper%bmlt,                          &
-                         model%velocity%wvel)
-    
-        case(1)
-           ! Vertical integration constrained so kinematic upper BC obeyed.
-           call wvelintg(model%velocity%uvel,                        &
-                         model%velocity%vvel,                        &
-                         model%geomderv,                             &
-                         model%numerics,                             &
-                         model%velowk,                               &
-                         model%velocity%wgrd(model%general%upn,:,:), &
-                         model%geometry%thck,                        &
-                         model%temper%  bmlt,                        &
-                         model%velocity%wvel)
-
-           call chckwvel(model%numerics,                             &
-                         model%geomderv,                             &
-                         model%velocity%uvel(1,:,:),                 &
-                         model%velocity%vvel(1,:,:),                 &
-                         model%velocity%wvel,                        &
-                         model%geometry%thck,                        &
-                         model%climate% acab)
-       end select
-
-
-!TODO - Remove support for periodic BC?
-       ! apply periodic ew BC
-       if (model%options%periodic_ew) then
-          call wvel_ew(model)
-       end if
-
+ endif  ! oldglide = F
 
     !---------------------------------------------------------------------
-    ! write to netCDF file
+    ! write output to netCDF file
     ! ------------------------------------------------------------------------
+    !TODO - Put the following code in a subroutine?
+
+!WHL - In old glide, this is done at the start of tstep_p2.
+!      Leave here for now, bearing in mind that netcdf output could be
+!       displaced by a timestep between old and new glide.
 
     if (present(no_write)) then
-       nw=no_write
+       nw = no_write
     else
        nw=.false.
     end if
    
     if (.not. nw) then
+
       call t_startf('glide_io_writeall')
        call glide_io_writeall(model,model)
       call t_stopf('glide_io_writeall')
@@ -985,7 +906,16 @@ contains
 
     end if
 
-  end subroutine glide_tstep_postp3
+  end subroutine glide_tstep_p3
+
+!=======================================================================
+
+!WHL - Moved the code in this subroutine back to glide_tstep_p3 for 
+!      compatibility with most drivers.
+!      (simple_glide was calling this separately, but other drivers were not.)
+
+!!  subroutine glide_tstep_postp3(model, no_write)
+!!  end subroutine glide_tstep_postp3
 
 !=======================================================================
 

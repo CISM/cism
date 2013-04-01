@@ -1,3 +1,4 @@
+!TODO - This is not currently used.  Move to libglimmer or a utilities directory?
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
 ! +  xls.f90 - part of the Glimmer-CISM ice model             + 
@@ -43,7 +44,11 @@
 !Debugging module: contains routines to write out data fields quickly
 !that can be read into Matlab
 module xls
+
+   implicit none
+
 contains
+
   subroutine write_xls(fname, data)
     character(len=*) :: fname
     double precision data(:,:)

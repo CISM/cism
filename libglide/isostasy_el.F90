@@ -38,6 +38,8 @@ module isostasy_el
   use glimmer_global, only : dp
   use isostasy_types
 
+  implicit none
+
   real, private, parameter :: r_lr=6.0        ! influence of disk load at (0,0) is felt within a radius of rbel_r_lr*rbel_r
   
   private :: init_rbel,rbel_ow, rbel_iw

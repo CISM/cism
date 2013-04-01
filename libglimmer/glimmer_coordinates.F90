@@ -37,8 +37,9 @@
 !! \date June 2006
 module glimmer_coordinates
 
-
   use glimmer_global, only: dp, sp
+
+  implicit none
 
   !> derived type describing a 2D point
   type coord_point

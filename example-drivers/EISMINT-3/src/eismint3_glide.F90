@@ -47,6 +47,7 @@ program eismint3_glide
   use glimmer_commandline
   use glimmer_writestats
   use glimmer_filenames, only : filenames_init
+  use glide_nc_custom, only : glide_nc_fillall
   implicit none
 
   type(glide_global_type) :: model        ! model instance

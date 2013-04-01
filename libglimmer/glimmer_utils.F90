@@ -36,15 +36,16 @@
 !> Module containing utility code for GLIMMER.
 module glimmer_utils
 
-
   use glimmer_global
 
   implicit none
 
+!TODO - Remove these array_bcs functions?  I can't find where they are used
   interface array_bcs
     module procedure array_bcs1d,array_bcs2d
   end interface
 
+!TODO - Move check_conformal to glint?  Used by glint_interp only.
   interface check_conformal
     module procedure check_conformal_2d_real
   end interface
@@ -175,6 +176,7 @@ contains
 
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+!TODO - Move to glint?  Used by glint_interp only.
   !> Adjusts array location indices
   !! so that they fall within the domain.
   subroutine fix_bcs2d(i,j,nx,ny)
@@ -258,6 +260,7 @@ contains
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+!TODO - Move lsum to glint?  Used by glint_interp only.
   !> Calculates the sum of a given two-dimensional field along one axis.
   !! Within GLIMMER, this function calculates the mean vertical profile
   !! in a 2D vertical slice. 

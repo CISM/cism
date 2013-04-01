@@ -38,7 +38,15 @@ module glimmer_paramets
   use glimmer_global, only : sp, dp
   use glimmer_physcon, only : scyr, rhoi, grav, gn
 
-  implicit none; save
+  implicit none
+  save
+
+!WHL - logical parameter for code testing
+!      If oldglide = T, the glide dycore will reproduce
+!      (within single-precision roundoff) the results
+!      of Glimmer 1.0.18 for the dome and EISMINT-2 test cases.
+
+  logical, parameter :: oldglide = .false.
 
 !TODO - redundant output units  
 !           It is redundant to define both stdout (which is public) and 

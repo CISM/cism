@@ -40,10 +40,10 @@
 !! \date 2004
 module glimmer_ncdf  
 
-!WHLTSTEP - Need to use dp also
-!  use glimmer_global, only: fname_length
   use glimmer_global, only: fname_length, dp
   use netcdf
+
+  implicit none
 
   integer, parameter :: glimmer_nc_meta_len = 100
   !*FD maximum length for meta data
@@ -51,8 +51,6 @@ module glimmer_ncdf
   character(len=*), parameter :: glimmer_nc_mapvarname = 'mapping'
   !*FD name of the grid mapping variable
 
-!WHLTSTEP - Changed max_time to dp
-!  real, parameter :: glimmer_nc_max_time=1.e10
   real(dp), parameter :: glimmer_nc_max_time=1.d10
   !*FD maximum time that can be written
 

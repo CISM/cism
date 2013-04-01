@@ -32,7 +32,11 @@ module glimmer_writestats
   !!
   !! \author Magnus Hagdorn
   !! \date April 2009
+
+  implicit none
+
 contains
+
   subroutine glimmer_write_stats(resname, cfgname,wallTime)
     use glimmer_global, only : dp
     implicit none

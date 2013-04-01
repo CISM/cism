@@ -33,12 +33,14 @@
 
 #include "glide_mask.inc"
 
-!TODO - May need two versions of this module, one for glide and one for glam
-
 module glide_mask
+
+    ! masking ice thicknesses
+
     use glimmer_global, only : dp, sp
     use nan_mod, only : NaN
-  !*FD masking ice thicknesses
+
+    implicit none
 
 contains
 
@@ -322,7 +324,7 @@ contains
 
       use parallel
         use glimmer_physcon, only:pi
-        use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
+!!        use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
         implicit none
         !*FD This subroutine derives from the given mask the normal to an ice shelf
         !*FD each point on the marine margin.
@@ -428,9 +430,11 @@ contains
         real(dp), dimension(3,3) :: thckmask
         real(dp), dimension(3) :: testvect
         real(dp) :: phi, deg2rad
+        integer :: loc_latbc
 
         deg2rad = pi / 180.0d0
-        loc_latbc = 0; phi = 0
+        loc_latbc = 0
+        phi = 0.d0
         mask(:,1) = (/ 0.0d0, 180.0d0, 0.0d0 /)
         mask(:,2) = (/ 270.0d0, 0.0d0, 90.0d0 /)
         mask(:,3) = (/ 0.0d0, 360.0d0, 0.0d0 /)
@@ -508,7 +512,7 @@ contains
     !differencing across the boundary.
     subroutine upwind_from_mask(mask, direction_x, direction_y, exec_serial)
       use parallel
-        use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
+!!        use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
         integer, dimension(:,:), intent(in) :: mask
         double precision, dimension(:,:), intent(out) :: direction_x, direction_y
         logical, optional :: exec_serial  !JEFF If executing in serial in MPI program.

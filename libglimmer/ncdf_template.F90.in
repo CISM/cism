@@ -42,6 +42,8 @@ module NAME_io
   !*FD template for creating subsystem specific I/O routines
   !*FD written by Magnus Hagdorn, 2004
 
+  implicit none
+
   private :: get_xtype
 
   character(310), save :: restart_variable_list=''    !*FD list of variables needed for a restart

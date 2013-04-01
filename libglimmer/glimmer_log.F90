@@ -60,6 +60,8 @@ module glimmer_log
 
   use glimmer_global, only : fname_length,dirsep
 
+  implicit none
+
   integer,parameter :: GM_DIAGNOSTIC = 1 !< Numerical identifier for diagnostic messages.
   integer,parameter :: GM_TIMESTEP   = 2 !< Numerical identifier for timestep messages.
   integer,parameter :: GM_INFO       = 3 !< Numerical identifier for information messages.

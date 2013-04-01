@@ -37,8 +37,12 @@
 
 module glide_lithot1d
 
+  implicit none
+
 contains
+
   subroutine init_lithot1d(model)
+
     use glide_types
     implicit none
     type(glide_global_type),intent(inout) :: model       !*FD model instance
@@ -68,7 +72,7 @@ contains
 
   subroutine calc_lithot1d(model)
     use glide_types
-    use glimmer_utils
+    use glimmer_utils, only: tridiag
     !use glide_mask
     implicit none
     type(glide_global_type),intent(inout) :: model       !*FD model instance

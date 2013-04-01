@@ -36,6 +36,7 @@
 
 module glide_lithot
 
+    implicit none
 
 contains  
 

@@ -1,9 +1,16 @@
-!TODO - Create module called glam_deriv?  Some of these subroutines are needed only by glam HO dycore.
-!       Make the subroutines public and the functions private?
+!WHL Changed the filename from glide_deriv to glam_grid_operators.
+!    Moved and renamed subroutine geometry_derivs from glide_thck.F90.
+!TODO - Make sure all these subroutines are currently used, or might
+!       be in the future.
+
+! Various grid operators for glide dycore, including routines for computing gradients
+! and switching between staggered and unstaggered grids
 
 #ifdef HAVE_CONFIG_H
 #include "config.inc"
 #endif
+
+#include "glide_mask.inc"
 
 !*FD This module contains functions for computing derivatives numerically, both
 !*FD for a single value and for an entire field.
@@ -12,14 +19,193 @@
 !*FD index corresponds to the y (north-south) coordinate), then transposition
 !*FD will be necessary.  Simply ask for the y-derivative when you mean to ask for
 !*FD the x-derivative, and vice versa.
-module glide_deriv
+
+module glam_grid_operators
 
     use glimmer_global, only: sp, dp
+
+    implicit none
+
+contains
+
+!----------------------------------------------------------------------------
+
+  subroutine glam_geometry_derivs(model)
+
+    ! Compute derivatives of the ice and bed geometry, as well as averaging
+    ! them onto the staggered grid
+
+    use glide_types, only: glide_global_type
+    use glide_grid_operators, only: stagvarb  ! can we remove this?
+    implicit none
+
+    type(glide_global_type), intent(inout) :: model
+
+    call stagthickness(model%geometry% thck, &
+                       model%geomderv%stagthck,&
+                       model%general%ewn, &
+                       model%general%nsn, &
+                       model%geometry%usrf, &
+                       model%numerics%thklim, &
+                       model%geometry%thkmask)
+
+!TODO: Should these calls to stagvarb be replaced by calls to df_field_2d_staggered?    
+    call stagvarb(model%geometry%lsrf, &
+                  model%geomderv%staglsrf,&
+                  model%general%ewn, &
+                  model%general%nsn)
+
+    call stagvarb(model%geometry%topg, &
+                  model%geomderv%stagtopg,&
+                  model%general%ewn, &
+                  model%general%nsn)
+
+    model%geomderv%stagusrf = model%geomderv%staglsrf + model%geomderv%stagthck
+
+    call df_field_2d_staggered(model%geometry%usrf, &
+                               model%numerics%dew, model%numerics%dns, &
+                               model%geomderv%dusrfdew, &
+                               model%geomderv%dusrfdns, &
+                               model%geometry%thck,     &
+                               model%numerics%thklim )
+
+    call df_field_2d_staggered(model%geometry%thck, &
+                              model%numerics%dew, model%numerics%dns, &
+                              model%geomderv%dthckdew, &
+                              model%geomderv%dthckdns, &
+                              model%geometry%thck,     &
+                              model%numerics%thklim )
+ 
+    !Make sure that the derivatives are 0 where staggered thickness is 0
+
+    where (model%geomderv%stagthck == 0.d0)
+           model%geomderv%dusrfdew = 0.d0
+           model%geomderv%dusrfdns = 0.d0
+           model%geomderv%dthckdew = 0.d0
+           model%geomderv%dthckdns = 0.d0
+    endwhere
+
+    !TODO: correct signs
+    !WHL - These seem correct to me.
+    model%geomderv%dlsrfdew = model%geomderv%dusrfdew - model%geomderv%dthckdew
+    model%geomderv%dlsrfdns = model%geomderv%dusrfdns - model%geomderv%dthckdns
+      
+    !Compute second derivatives.
+    
+    call d2f_field_stag(model%geometry%usrf, model%numerics%dew, model%numerics%dns, &
+                        model%geomderv%d2usrfdew2, model%geomderv%d2usrfdns2, &
+                        .false., .false.)
+
+    call d2f_field_stag(model%geometry%thck, model%numerics%dew, model%numerics%dns, &
+                        model%geomderv%d2thckdew2, model%geomderv%d2thckdns2, &
+                        .false., .false.)
+ 
+  end subroutine glam_geometry_derivs
+
+!----------------------------------------------------------------------------
+
+  subroutine stagthickness(ipvr,opvr,ewn,nsn,usrf,thklim,mask)
+
+  !! A special staggering algorithm that is meant to conserve mass when operating on thickness fields.
+  !! This incorporates Ann LeBroque's nunatak fix and the calving front fix.
+
+!WHL - Note that this subroutine, used by the glam HO dycore, is different from stagvarb, 
+!      which is used by the glide SIA dycore.  Here, zero-thickness values are
+!      ignored when thickness is averaged over four adjacent grid cells.
+!      In stagvarb, zero-thickness values are included in the average.
+!      The glam approach works better for calving. 
+
+    implicit none 
+
+    real(dp), intent(out), dimension(:,:) :: opvr 
+    real(dp), intent(in), dimension(:,:) :: ipvr
+    
+    real(dp), intent(in), dimension(:,:) :: usrf
+    real(dp), intent(in) :: thklim
+    integer, intent(in), dimension(:,:) :: mask
+    
+    integer :: ewn,nsn,ew,ns,n
+    real(dp) :: tot
+
+!LOOP - all velocity points
+
+        do ns = 1,nsn-1
+            do ew = 1,ewn-1
+
+                !If any of our staggering points are shelf front, ignore zeros when staggering
+                !if (any(GLIDE_IS_CALVING(mask(ew:ew+1, ns:ns+1)))) then  ! in contact with the ocean
+                !Use the "only nonzero thickness" staggering criterion for ALL marginal ice. For
+                ! reasons that are not entirely clear, this corrects an error whereby the land ice 
+                ! margin is defined incorrectly as existing one grid cell too far inland from where 
+                ! it should be.  
+
+                if (any(GLIDE_HAS_ICE(mask(ew:ew+1,ns:ns+1)))) then
+                    n = 0
+                    tot = 0
+                    if (abs(ipvr(ew,ns)) > 0.0d0  )then
+                        tot = tot + ipvr(ew,ns)
+                        n   = n   + 1
+                    end if
+                    if (abs(ipvr(ew+1,ns)) > 0.0d0  )then
+                        tot = tot + ipvr(ew+1,ns)
+                        n   = n   + 1
+                    end if
+                    if (abs(ipvr(ew,ns+1)) > 0.0d0  )then
+                        tot = tot + ipvr(ew,ns+1)
+                        n   = n   + 1
+                    end if
+                    if (abs(ipvr(ew+1,ns+1)) > 0.0d0  )then
+                        tot = tot + ipvr(ew+1,ns+1)
+                        n   = n   + 1
+                    end if
+                    if (n > 0) then
+                        opvr(ew,ns) = tot/n
+                    else
+                        opvr(ew,ns) = 0
+                    end if
+
+                !The following cases relate to Anne LeBroque's fix for nunataks
+                !ew,ns cell is ice free:
+                else if (ipvr(ew,ns) <= thklim .and. &
+                   ((usrf(ew,ns) >= usrf(ew+1,ns) .and. ipvr(ew+1,ns) >= thklim) &
+                    .or. (usrf(ew,ns) >= usrf(ew,ns+1) .and. ipvr(ew,ns+1) >= thklim))) then
+                        opvr(ew,ns) = 0.0
+
+                !ew+1,ns cell is ice free:
+                else if (ipvr(ew+1,ns) <= thklim .and. &
+                    ((usrf(ew+1,ns) >= usrf(ew,ns) .and. ipvr(ew,ns) >= thklim) &
+                    .or. (usrf(ew+1,ns) >= usrf(ew+1,ns+1) .and. ipvr(ew+1,ns+1) >= thklim))) then
+                        opvr(ew,ns) = 0.0
+    
+                !ew,ns+1 cell is ice free:
+                else if (ipvr(ew,ns+1) <= thklim .and. &
+                    ((usrf(ew,ns+1) >= usrf(ew,ns) .and. ipvr(ew,ns) >= thklim) &
+                    .or. (usrf(ew,ns+1) >= usrf(ew+1,ns+1) .and. ipvr(ew+1,ns+1) >= thklim))) then
+                        opvr(ew,ns) = 0.0
+    
+                !ew+1,ns+1 cell is ice free:
+                else if (ipvr(ew+1,ns+1) <= thklim .and. &
+                    ((usrf(ew+1,ns+1) >= usrf(ew+1,ns) .and. ipvr(ew+1,ns) >=thklim) &
+                    .or. (usrf(ew+1,ns+1) >= usrf(ew,ns+1) .and. ipvr(ew,ns+1) >=thklim))) then
+                        opvr(ew,ns) = 0.0
+               
+!                !Standard Staggering   !! Not needed if only-nonzero-thickness staggering scheme is used
+!                else
+!                        opvr(ew,ns) = (ipvr(ew+1,ns) + ipvr(ew,ns+1) + &
+!                                       ipvr(ew+1,ns+1) + ipvr(ew,ns)) / 4.0d0
+
+                end if
+  
+        end do
+    end do
+
+  end subroutine stagthickness
+
+!----------------------------------------------------------------------------
 
     !------------------------------------------------------------------
     !First Derivative Estimates, Second Order, 2D
     !------------------------------------------------------------------
-contains
 
     !*FD Computes derivative fields of the given function.
     subroutine df_field_2d(f,  &
@@ -99,6 +285,8 @@ contains
         
     end subroutine df_field_2d
 
+!----------------------------------------------------------------------------
+
     !*FD Computes derivative fields of the given function.  Places the result
     !*FD on a staggered grid.  If periodic in one dimension is set, that 
     !*FD dimension for derivatives must be the same size as the value's dimension.
@@ -173,6 +361,8 @@ contains
 !               end if
 !               
         end subroutine df_field_2d_staggered
+
+!----------------------------------------------------------------------------
 
 !TODO - This 3D subroutine is never called.  Remove it?
  
@@ -267,6 +457,8 @@ contains
         
     end subroutine df_field_3d
 
+!----------------------------------------------------------------------------
+
 !TODO - This 3D subroutine is never called.  Remove it?
 
     subroutine df_field_3d_stag(f,                                  &
@@ -333,10 +525,13 @@ contains
         
     end subroutine df_field_3d_stag
 
-!TODO - Check for unused functions we might want to remove
+!----------------------------------------------------------------------------
+
+!TODO - Check the rest of this module for unused functions we might want to remove
 
     !*FD Computes derivative with respect to x at a given point.
     !*FD Applies periodic boundary conditions if needed.
+
     function dfdx_2d(f, i, j, delta)
         implicit none
         real(dp), dimension(:,:), intent(in) :: f
@@ -348,7 +543,10 @@ contains
         !write(*,*), i, j, f(i,j), ip1, im1, delta, dfdx_2d
     end function dfdx_2d
 
+!----------------------------------------------------------------------------
+
     !*FD Computes derivative with respect to y at a given point
+
     function dfdy_2d(f, i, j, delta)
         implicit none
         real(dp), dimension(:,:), intent(in) :: f
@@ -365,8 +563,11 @@ contains
         dfdy_2d = (-.5/delta)*f(i, j-1) + (.5/delta)*f(i, j+1)
     end function dfdy_2d
 
+!----------------------------------------------------------------------------
+
     !*FD Computes derivative with respect to x at the equivalent
     !*FD point on a staggered grid.
+
     function dfdx_2d_stag(f, i, j, delta)
         implicit none
         real(dp), dimension(:,:), intent(in) :: f
@@ -376,8 +577,11 @@ contains
         dfdx_2d_stag = (f(i+1, j) + f(i+1, j+1) - f(i, j) - f(i, j+1))/(2*delta) 
     end function dfdx_2d_stag
 
+!----------------------------------------------------------------------------
+
     !*FD Computes derivative with respect to y at the equivalent
     !*FD point on a staggered grid.
+
     function dfdy_2d_stag(f, i, j, delta)
         implicit none
         real(dp), dimension(:,:), intent(in) :: f
@@ -387,8 +591,11 @@ contains
         dfdy_2d_stag = (f(i, j+1) + f(i+1, j+1) - f(i,j) - f(i+1, j))/(2*delta)
     end function dfdy_2d_stag
 
+!----------------------------------------------------------------------------
+
     function dfdx_2d_stag_os(f_in, i, j, delta, thck, thklim )
-    !*SFP* altered/expaned version of above function that uses approx. one-sided
+
+    !*SFP* altered/expanded version of above function that uses approx. one-sided
     ! diffs at physical domain edges so as not to overesimate grads there.
         implicit none
         real(dp), dimension(:,:), intent(in) :: f_in, thck
@@ -412,10 +619,13 @@ contains
         f_array(1,1) = f(i,j); f_array(2,1) = f(i+1,j); f_array(1,2) = f(i,j+1); f_array(2,2) = f(i+1,j+1);
 
         if( sum( f_array/ f_array, MASK = f_array /= 0.0d0 ) == 4.0 )then
-        ! normal differencing for interior points
+
+            ! normal differencing for interior points
             dfdx_2d_stag_os = (f(i+1,j) + f(i+1,j+1) - f(i,j) - f(i,j+1))/(2*delta)
+
         elseif( sum( f_array/ f_array, MASK = f_array /= 0.0d0 ) == 3.0 )then
-        ! corner; use 2x next closest value
+
+            ! corner; use 2x next closest value
             if( f(i,j) == f_min )then     ! southwest corner point missing: apply value from s.e. point
                 dfdx_2d_stag_os = ( f(i+1,j+1) + f(i+1,j) - 2.0*f(i,j+1) )/(2*delta)
             elseif( f(i+1,j) == f_min )then ! southeast corner point missing: apply value from s.w. point
@@ -425,9 +635,11 @@ contains
             elseif( f(i+1,j+1) == f_min )then ! northeast corner point missing: apply value from n.w. point
                 dfdx_2d_stag_os = ( 2.0*f(i+1,j) - f(i,j) - f(i,j+1) )/(2*delta)
             endif
+
         elseif( sum( f_array/ f_array, MASK = f_array /= 0.0d0 ) == 2.0 )then
-        ! side; back up and take gradient from points one set of cells in OR use only the single set of
-        ! cells available along the differencing direction 
+
+            ! side; back up and take gradient from points one set of cells in OR use only the single set of
+            ! cells available along the differencing direction 
             if( f(i,j) == f_min .and. f(i,j+1) == f_min )then   ! west cells empty
                 dfdx_2d_stag_os = (f(i+2,j) + f(i+2,j+1) - f(i+1,j+1) - f(i+1,j))/(2*delta)
             elseif( f(i+1,j) == f_min .and. f(i+1,j+1) == f_min )then   ! east cells empty
@@ -437,9 +649,11 @@ contains
             elseif( f(i,j) == f_min .and. f(i+1,j) == f_min )then   ! south cells empty
                 dfdx_2d_stag_os = (f(i+1,j+1) - f(i,j+1) )/(delta)
             endif
+
         elseif( sum( f_array/ f_array, MASK = f_array /= 0.0d0 ) == 1.0 )then
-        ! isolated; treat by assuming it is part of a 3 block for which the rest of the values are not contained in
-        ! the local 2x2 block with indices i:i+1, j:j+1 
+
+            ! isolated; treat by assuming it is part of a 3 block for which the rest of the values are not contained in
+            ! the local 2x2 block with indices i:i+1, j:j+1 
             if( f(i,j) /= f_min .and.  f(i+1,j) == f_min .and. f(i+1,j+1) == f_min .and. f(i,j+1) == f_min)then
             ! a northeast corner
                 dfdx_2d_stag_os = ( f(i,j) - f(i-1,j) ) / (delta)
@@ -453,13 +667,18 @@ contains
             ! a southeast corner
                 dfdx_2d_stag_os = ( f(i,j+1) - f(i-1,j+1) ) / (delta)
             endif
+
         endif
 
     end function dfdx_2d_stag_os
 
+!----------------------------------------------------------------------------
+
     function dfdy_2d_stag_os(f_in, i, j, delta, thck, thklim )
-    !*SFP* altered/expaned version of above function that uses approx. one-sided
+
+    !*SFP* altered/expanded version of above function that uses approx. one-sided
     ! diffs at physical domain edges so as not to overesimate grads there.
+
         implicit none
         real(dp), dimension(:,:), intent(in) :: f_in, thck
         integer, intent(in) :: i, j
@@ -481,12 +700,15 @@ contains
 
         f_array(1,1) = f(i,j); f_array(2,1) = f(i+1,j); f_array(1,2) = f(i,j+1); f_array(2,2) = f(i+1,j+1);
 
-!TODO - Change reals to double precision
+        !TODO - Change reals to double precision
         if( sum( f_array/ f_array, MASK = f_array /= 0.0d0 ) == 4.0 )then
-        ! normal differencing for interior points
+
+            ! normal differencing for interior points
             dfdy_2d_stag_os = (f(i,j+1) + f(i+1,j+1) - f(i,j) - f(i+1,j))/(2*delta)
+
         elseif( sum( f_array/ f_array, MASK = f_array /= 0.0d0 ) == 3.0 )then
-        ! corner; use 2x next closest value
+
+            ! corner; use 2x next closest value
             if( f(i,j) == f_min )then     ! southwest corner point missing: apply value from s.e. point
                 dfdy_2d_stag_os = (f(i,j+1) + f(i+1,j+1) - 2.0*f(i+1,j))/(2*delta)
             elseif( f(i+1,j) == f_min )then ! southeast corner point missing: apply value from s.w. point
@@ -496,9 +718,11 @@ contains
             elseif( f(i+1,j+1) == f_min )then ! northeast corner point missing: apply value from n.w. point
                 dfdy_2d_stag_os = ( 2.0*f(i,j+1) - f(i,j) - f(i+1,j))/(2*delta)
             endif
+
         elseif( sum( f_array/ f_array, MASK = f_array /= 0.0d0 ) == 2.0 )then
-        ! side; back up and take gradient from points one set of cells in OR use only the single set of
-        ! cells available along the differencing direction 
+
+            ! side; back up and take gradient from points one set of cells in OR use only the single set of
+            ! cells available along the differencing direction 
             if( f(i,j) == f_min .and. f(i,j+1) == f_min )then   ! west cells empty
                 dfdy_2d_stag_os = (f(i+1,j+1) - f(i+1, j))/(delta)
             elseif( f(i+1,j) == f_min .and. f(i+1,j+1) == f_min )then   ! east cells empty
@@ -508,9 +732,11 @@ contains
             elseif( f(i,j) == f_min .and. f(i+1,j) == f_min )then   ! south cells empty
                 dfdy_2d_stag_os = (f(i,j+2) + f(i+1,j+2) - f(i,j+1) - f(i+1,j+1))/(2*delta)
             endif
+
         elseif( sum( f_array/ f_array, MASK = f_array /= 0.0d0 ) == 1.0 )then
-        ! isolated; treat by assuming it is part of a 3 block for which the rest of the values are not contained within
-        ! the local 2x2 block with indices i:i+1, j:j+1 
+
+            ! isolated; treat by assuming it is part of a 3 block for which the rest of the values are not contained within
+            ! the local 2x2 block with indices i:i+1, j:j+1 
             if( f(i,j) /= f_min .and.  f(i+1,j) == f_min .and. f(i+1,j+1) == f_min .and. f(i,j+1) == f_min )then
             ! a northeast corner
                 dfdy_2d_stag_os = ( f(i,j) - f(i,j-1) ) / (delta)
@@ -524,12 +750,16 @@ contains
             ! a southeast corner
                 dfdy_2d_stag_os = ( f(i,j+2) - f(i,j+1) ) / (delta)
             endif
+
         endif
 
     end function dfdy_2d_stag_os
 
+!----------------------------------------------------------------------------
+
     !*FD Computes derivative with respect to x at the given point
     !*FD using an upwind method (suitable for maximum boundaries)
+
     function dfdx_2d_upwind(f, i, j, delta)
         implicit none
         real(dp), dimension(:,:), intent(in) :: f
@@ -539,8 +769,11 @@ contains
         dfdx_2d_upwind = (.5 * f(i-2,j) - 2 * f(i-1, j) + 1.5 * f(i, j))/delta
     end function dfdx_2d_upwind
 
+!----------------------------------------------------------------------------
+
     !*FD Computes derivative with respect to y at the given point
     !*FD using an upwind method (suitable for maximum boundaries)
+
     function dfdy_2d_upwind(f, i, j, delta)
         implicit none
         real(dp), dimension(:,:), intent(in) :: f
@@ -550,8 +783,11 @@ contains
         dfdy_2d_upwind = (.5 * f(i,j-2) - 2 * f(i, j-1) + 1.5 * f(i, j))/delta
     end function dfdy_2d_upwind
 
+!----------------------------------------------------------------------------
+
     !*FD Computes derivative with respect to x at the given point
     !*FD using a downwind method (suitable for minimum boundaries)
+
     function dfdx_2d_downwind(f, i, j, delta)
         implicit none
         real(dp), dimension(:,:), intent(in) :: f
@@ -561,8 +797,11 @@ contains
         dfdx_2d_downwind = (-1.5 * f(i, j) + 2 * f(i+1, j) - .5 * f(i+2, j))/delta
     end function dfdx_2d_downwind 
 
+!----------------------------------------------------------------------------
+
     !*FD Computes derivative with respect to y at the given point
     !*FD using a downwind method (suitable for minimum boundaries)
+
     function dfdy_2d_downwind(f, i, j, delta)
         implicit none
         real(dp), dimension(:,:), intent(in) :: f
@@ -572,11 +811,14 @@ contains
         dfdy_2d_downwind = (-1.5 * f(i, j) + 2 * f(i, j+1) - .5 * f(i, j+2))/delta
     end function dfdy_2d_downwind
 
+!----------------------------------------------------------------------------
+
     !------------------------------------------------------------------
     !First Derivative Estimates, Second Order, 3D
     !------------------------------------------------------------------
 
     !*FD Computes derivative with respect to x at a given point
+
     function dfdx_3d(f, i, j, k, delta)
         implicit none
         real(dp), dimension(:,:,:), intent(in) :: f
@@ -586,7 +828,10 @@ contains
         dfdx_3d = (-.5/delta)*f(k, i-1, j)  + (.5/delta)*f(k, i+1, j)
     end function dfdx_3d
 
+!----------------------------------------------------------------------------
+
     !*FD Computes derivative with respect to y at a given point
+
     function dfdy_3d(f, i, j, k, delta)
         implicit none
         real(dp), dimension(:,:,:), intent(in) :: f
@@ -596,9 +841,12 @@ contains
         dfdy_3d = (-.5/delta)*f(k, i, j-1) + (.5/delta)*f(k, i, j+1)
     end function dfdy_3d
     
+!----------------------------------------------------------------------------
+
     !*FD Computes derivative with respect to z at a given point
     !*FD where the Z axis uses an irregular grid defined by \ittext{deltas}.
     !*FD This derivative is given by the formula:
+
     function dfdz_3d_irregular(f, i, j, k, dz)
         implicit none
         real(dp), dimension(:,:,:), intent(in) :: f
@@ -611,8 +859,11 @@ contains
                             f(k+1,i,j)*(dz(k)-dz(k-1))/((dz(k+1)-dz(k))*(dz(K+1)-dz(k-1)))
     end function
     
+!----------------------------------------------------------------------------
+
     !*FD Computes derivative with respect to z at a given point using an upwinding
     !*FD scheme.  The Z axis uses an irregular grid defined by \iittext{deltas}.
+
     function dfdz_3d_upwind_irregular(f, i, j, k, deltas)
         implicit none
         real(dp), dimension(:,:,:), intent(in) :: f
@@ -629,8 +880,11 @@ contains
                                    f(k,   i, j) * (2*deltas(k) - deltas(k-1) - deltas(k-2)) / (zkMinusZkm1 * zkMinusZkm2)
     end function
     
-        !*FD Computes derivative with respect to z at a given point using a downwinding
+!----------------------------------------------------------------------------
+
+    !*FD Computes derivative with respect to z at a given point using a downwinding
     !*FD scheme.  The Z axis uses an irregular grid defined by \iittext{deltas}.
+
     function dfdz_3d_downwind_irregular(f, i, j, k, deltas)
         implicit none
         real(dp), dimension(:,:,:), intent(in) :: f
@@ -647,8 +901,11 @@ contains
                                     f(k+2, i, j) * zkp1MinusZk / (zkp2MinusZkp1 * zkp2MinusZk)
     end function
     
+!----------------------------------------------------------------------------
+
     !*FD Computes derivative with respect to x at the equivalent
     !*FD point on a staggered grid.
+
     function dfdx_3d_stag(f, i, j, k, delta)
         implicit none
         real(dp), dimension(:,:,:), intent(in) :: f
@@ -658,8 +915,11 @@ contains
         dfdx_3d_stag = (f(k, i+1, j) + f(k, i+1, j+1) - f(k, i, j) - f(k, i, j+1))/(2*delta) 
     end function dfdx_3d_stag
 
+!----------------------------------------------------------------------------
+
     !*FD Computes derivative with respect to y at the equivalent
     !*FD point on a staggered grid.
+
     function dfdy_3d_stag(f, i, j, k, delta)
         implicit none
         real(dp), dimension(:,:,:), intent(in) :: f
@@ -669,8 +929,11 @@ contains
         dfdy_3d_stag = (f(k, i, j+1) + f(k, i+1, j+1) - f(k, i, j) - f(k, i+1, j))/(2*delta)
     end function dfdy_3d_stag
 
+!----------------------------------------------------------------------------
+
     !*FD Computes derivative with respect to x at the given point
     !*FD using an upwind method (suitable for maximum boundaries)
+
     function dfdx_3d_upwind(f, i, j, k, delta)
         implicit none
         real(dp), dimension(:,:,:), intent(in) :: f
@@ -680,8 +943,11 @@ contains
         dfdx_3d_upwind = (.5 * f(k, i-2, j) - 2 * f(k, i-1, j) + 1.5 * f(k, i, j))/delta
     end function dfdx_3d_upwind
 
+!----------------------------------------------------------------------------
+
     !*FD Computes derivative with respect to y at the given point
     !*FD using an upwind method (suitable for maximum boundaries)
+
     function dfdy_3d_upwind(f, i, j, k, delta)
         implicit none
         real(dp), dimension(:,:,:), intent(in) :: f
@@ -691,8 +957,11 @@ contains
         dfdy_3d_upwind = (.5 * f(k, i, j-2) - 2 * f(k, i, j-1) + 1.5 * f(k, i, j))/delta
     end function dfdy_3d_upwind
 
+!----------------------------------------------------------------------------
+
     !*FD Computes derivative with respect to x at the given point
     !*FD using a downwind method (suitable for minimum boundaries)
+
     function dfdx_3d_downwind(f, i, j, k, delta)
         implicit none
         real(dp), dimension(:,:,:), intent(in) :: f
@@ -702,8 +971,11 @@ contains
         dfdx_3d_downwind = (-1.5 * f(k, i, j) + 2 * f(k, i+1, j) - .5 * f(k, i+2, j))/delta
     end function dfdx_3d_downwind 
 
+!----------------------------------------------------------------------------
+
     !*FD Computes derivative with respect to y at the given point
     !*FD using a downwind method (suitable for minimum boundaries)
+
     function dfdy_3d_downwind(f, i, j, k, delta)
         implicit none
         real(dp), dimension(:,:,:), intent(in) :: f
@@ -713,11 +985,14 @@ contains
         dfdy_3d_downwind = (-1.5 * f(k, i, j) + 2 * f(k, i, j+1) - .5 * f(k, i, j+2))/delta
     end function dfdy_3d_downwind
     
+!----------------------------------------------------------------------------
+
     !------------------------------------------------------------------
     !Second Derivative Estimates, Second Order
     !------------------------------------------------------------------
     
     !*FD Computes 2nd derivative with respect to x at the given point
+
     function d2fdx2_2d(f, i, j, delta)
         implicit none
         real(dp), dimension(:,:), intent(in) :: f
@@ -726,6 +1001,8 @@ contains
         real(dp) :: d2fdx2_2d     
         d2fdx2_2d = (f(i+1,j) + f(i-1,j) - 2 * f(i, j))/(delta*delta)
     end function d2fdx2_2d
+
+!----------------------------------------------------------------------------
     
     function d2fdx2_2d_downwind(f,i,j,delta)
         implicit none
@@ -738,6 +1015,8 @@ contains
 
     end function d2fdx2_2d_downwind
 
+!----------------------------------------------------------------------------
+
     function d2fdx2_2d_upwind(f,i,j,delta)
         implicit none
         real(dp), dimension(:,:), intent(in) :: f
@@ -748,6 +1027,8 @@ contains
         d2fdx2_2d_upwind = (3*f(i, j) - 7*f(i-1, j) + 5*f(i-2, j) - f(i-3, j)) / (2*delta**2)
 
     end function d2fdx2_2d_upwind
+
+!----------------------------------------------------------------------------
 
     function d2fdy2_2d_downwind(f,i,j,delta)
         implicit none
@@ -760,6 +1041,8 @@ contains
 
     end function d2fdy2_2d_downwind
 
+!----------------------------------------------------------------------------
+
     function d2fdy2_2d_upwind(f,i,j,delta)
         implicit none
         real(dp), dimension(:,:), intent(in) :: f
@@ -770,6 +1053,8 @@ contains
         d2fdy2_2d_upwind = (3*f(i, j) - 7*f(i, j-1) + 5*f(i, j-2) - f(i, j-3)) / (2*delta**2)
 
     end function d2fdy2_2d_upwind
+
+!----------------------------------------------------------------------------
 
     function d2fdx2_2d_stag(f, i, j, delta)
         implicit none
@@ -785,8 +1070,10 @@ contains
         d2fdx2_2d_stag = sum(f(i+2, j:j+1) + f(i-1, j:j+1) - f(i+1, j:j+1) - f(i, j:j+1))/(4*delta**2)
     end function d2fdx2_2d_stag
 
-        function d2fdx2_2d_stag_downwind(f, i, j, delta)
-            implicit none
+!----------------------------------------------------------------------------
+
+    function d2fdx2_2d_stag_downwind(f, i, j, delta)
+        implicit none
         real(dp), dimension(:,:), intent(in) :: f
         integer, intent(in) :: i,j
         real(dp), intent(in) :: delta
@@ -803,9 +1090,12 @@ contains
         real(dp) :: d2fdx2_2d_stag_upwind
         
         d2fdx2_2d_stag_upwind = sum(-3*f(i+1, j:j+1) + 7*f(i, j:j+1) - 5*f(i-1, j:j+1) + f(i-2, j:j+1)) / (4*delta**2)
-        end function d2fdx2_2d_stag_upwind
+    end function d2fdx2_2d_stag_upwind
+
+!----------------------------------------------------------------------------
 
     !*FD Computes 2nd derivative with respect to y at the given point
+
     function d2fdy2_2d(f, i, j, delta)
         implicit none
         real(dp), dimension(:,:), intent(in) :: f
@@ -815,6 +1105,8 @@ contains
         d2fdy2_2d = (f(i, j+1) + f(i, j-1) - 2 * f(i, j))/(delta*delta)
     end function d2fdy2_2d
     
+!----------------------------------------------------------------------------
+
     function d2fdy2_2d_stag(f, i, j, delta)
         implicit none
         real(dp), dimension(:,:), intent(in) :: f
@@ -829,30 +1121,36 @@ contains
         d2fdy2_2d_stag = sum(f(i:i+1, j+2) + f(i:i+1, j-1) - f(i:i+1, j+1) - f(i:i+1, j))/(4*delta**2)
     end function d2fdy2_2d_stag
     
+!----------------------------------------------------------------------------
+
     function d2fdy2_2d_stag_downwind(f, i, j, delta)
-            implicit none
+        implicit none
         real(dp), dimension(:,:), intent(in) :: f
         integer, intent(in) :: i,j
         real(dp), intent(in) :: delta
         real(dp) :: d2fdy2_2d_stag_downwind
         
         d2fdy2_2d_stag_downwind = sum(3*f(i:i+1, j) - 7*f(i:i+1, j+1) + 5*f(i:i+1, j+2) - f(i:i+1, j+3)) / (4*delta**2)
-        end function d2fdy2_2d_stag_downwind
+    end function d2fdy2_2d_stag_downwind
         
-        function d2fdy2_2d_stag_upwind(f, i, j, delta)
-            implicit none
+!----------------------------------------------------------------------------
+
+    function d2fdy2_2d_stag_upwind(f, i, j, delta)
+        implicit none
         real(dp), dimension(:,:), intent(in) :: f
         integer, intent(in) :: i,j
         real(dp), intent(in) :: delta
         real(dp) :: d2fdy2_2d_stag_upwind
         
         d2fdy2_2d_stag_upwind = sum(-3*f(i:i+1, j+1) + 7*f(i:i+1, j) - 5*f(i:i+1, j-1) + f(i:i+1, j-2)) / (4*delta**2)
-        end function d2fdy2_2d_stag_upwind
+    end function d2fdy2_2d_stag_upwind
    
+!----------------------------------------------------------------------------
 
     subroutine d2f_field(f, deltax, deltay, d2fdx2, d2fdy2, direction_x, direction_y)
+
         use parallel
-        use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
+!!        use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
         implicit none 
 
         real(dp), intent(out), dimension(:,:) :: d2fdx2, d2fdy2
@@ -906,7 +1204,7 @@ contains
             end do
         end do
 
-!HALO - If these updates are needed, they should be done at a higher level,
+!TODO - If these updates are needed, they should be done at a higher level,
 !       and only for fields whose halo values are needed.
         call parallel_halo(d2fdx2)
 !        call horiz_bcs_unstag_scalar(d2fdx2)
@@ -915,9 +1213,12 @@ contains
 
     end subroutine d2f_field
 
-!TODO: Rewrite this using the existing derivative machinery
+!----------------------------------------------------------------------------
+
+!TODO: Rewrite this using the existing derivative machinery?
 
     subroutine d2f_field_stag(f, deltax, deltay, d2fdx2, d2fdy2, periodic_x, periodic_y)
+
     implicit none 
 
     real(dp), intent(out), dimension(:,:) :: d2fdx2, d2fdy2
@@ -985,6 +1286,8 @@ contains
 
   contains
 
+!----------------------------------------------------------------------------
+
     function centerew(ew,ns)
 
       implicit none
@@ -997,6 +1300,8 @@ contains
     
     end function centerew 
 
+!----------------------------------------------------------------------------
+
     function centerns(ew,ns)
 
       implicit none
@@ -1008,6 +1313,8 @@ contains
                   sum(f(ew:ew+1,ns+1)) - sum(f(ew:ew+1,ns))) / dnssq4
   
     end function centerns 
+
+!----------------------------------------------------------------------------
 
     function boundyew(pt,ns)
 
@@ -1022,6 +1329,8 @@ contains
 
     end function boundyew
 
+!----------------------------------------------------------------------------
+
     function boundyns(pt,ew)
 
       implicit none
@@ -1034,6 +1343,8 @@ contains
                  5.0d0 * sum(f(ew:ew+1,pt(2)+2*pt(1))) - sum(f(ew:ew+1,pt(2)+3*pt(1)))) / dnssq4
 
     end function boundyns
+
+!----------------------------------------------------------------------------
 
     function whichway(i)
 
@@ -1049,6 +1360,9 @@ contains
       end if
 
     end function whichway
+
+!----------------------------------------------------------------------------
+!TODO: Not sure what this code is doing here.
 
 !       real(dp), dimension(:,:), intent(in) :: f
 !       real(dp), dimension(:,:), intent(out) :: d2fdx2, d2fdy2
@@ -1174,9 +1488,12 @@ contains
 !               
 !       end if
         
-    end subroutine
+    end subroutine d2f_field_stag
     
+!----------------------------------------------------------------------------
+
     !*FD Computes derivative taken first w.r.t x, then to y at the given point.
+
     function d2fdxy_3d(f, i, j, k, delta_x, delta_y)
         implicit none
         real(dp), dimension(:,:,:), intent(in) :: f
@@ -1187,6 +1504,8 @@ contains
         d2fdxy_3d = (f(k, i-1, j-1) - f(k, i-1, j+1) - f(k, i+1, j-1) + f(k, i+1, j+1))/(4*delta_x*delta_y) 
     end function d2fdxy_3d
     
+!----------------------------------------------------------------------------
+
     function d2fdxz_3d(f, i, j, k, delta_x, dz)
         implicit none
         real(dp), dimension(:,:,:), intent(in) :: f
@@ -1215,9 +1534,11 @@ contains
           (f(k+1, i, j+1) - f(k+1, i, j-1)) * (dz(k) - dz(k-1)) / ( (dz(k+1) - dz(k)) * (dz(k+1) - dz(k-1)) ) )
         end function d2fdyz_3d
         
+!----------------------------------------------------------------------------
+
     !*FD Computes derivative with respect to z at a given point
     !*FD where the Z axis uses an irregular grid defined by \ittext{deltas}.
-    !*FD This derivative is given by the formula:
+
     function d2fdz2_3d_irregular(f, i, j, k, deltas)
         implicit none
         real(dp), dimension(:,:,:), intent(in) :: f
@@ -1237,4 +1558,8 @@ contains
                               2 * f(k+1, i, j) / (zkp1Minuszk * zkp1MinusZkm1)    
     end function d2fdz2_3d_irregular
 
-end module glide_deriv
+!---------------------------------------------------------------------------------
+
+end module glam_grid_operators
+
+!----------------------------------------------------------------------------

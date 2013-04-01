@@ -1,9 +1,3 @@
-!CLEANUP - New module based on glissade_velo.F90.
-! For now, it is simply a wrapper to the glam finite-difference dycore (whichdycore = 1).
-! Later, it will also be a wrapper to the glissade finite-element dycore (whichdycore = 2).
-! Should probably make the JFNK solver independent of the underlying
-!  velocity solver (i.e., glam v. glissade).
-! Note: glam_velo_fordsiapstr is now called glam_velo_solver
 !
 !TODO - Are all these includes needed?
 #ifdef HAVE_CONFIG_H 
@@ -19,37 +13,30 @@ module glissade_velo
 
     use parallel
 
-    ! Glissade higher-order velocity solver
+    ! Driver for glam and glissade higher-order velocity solvers
 
-    use glam_strs2, only: glam_velo_solver, JFNK_velo_solver
-    use glissade_velo_higher, only: glissade_velo_higher_solve
-
-    !globals
     use glimmer_global, only : dp
     use glimmer_physcon, only: gn, scyr
     use glimmer_paramets, only: thk0, len0, vel0, vis0
 
-    !Other modules that this needs to call out to
+    use glam_strs2, only: glam_velo_solver, JFNK_velo_solver
+    use glissade_velo_higher, only: glissade_velo_higher_solve
+
     use glide_types
-    use glide_grids, only: stagvarb
+    use glide_grid_operators, only: stagvarb
     use glide_mask
-    use glide_grids
 
     implicit none
     
 contains
         
-!TODO - Pass explicit arguments instead of model derived type?
     subroutine glissade_velo_driver(model)
 
         ! Glissade higher-order velocity driver
 
         use glide_mask
-        use stress_hom, only : glide_calcstrsstr
 
-!TODO - Don't think we need glide_thckmask
-        use glide_thckmask
-        use glimmer_horiz_bcs, only: horiz_bcs_stag_scalar
+!!        use glimmer_horiz_bcs, only: horiz_bcs_stag_scalar
         
         type(glide_global_type),intent(inout) :: model
 

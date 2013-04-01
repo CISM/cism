@@ -1,3 +1,5 @@
+!TODO - This is a program.  Move to another directory?
+
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
 ! +  test_setup.f90 - part of the Glimmer-CISM ice model      +

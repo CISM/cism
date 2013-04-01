@@ -41,6 +41,8 @@
 !! interpolated the data.
 module glimmer_ts
 
+  implicit none
+
   !> time series derived type
   type glimmer_tseries
      integer :: numt=0                              !< number of times in time series

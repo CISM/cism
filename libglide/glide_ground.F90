@@ -15,10 +15,13 @@
 
 #include "glide_mask.inc"
 module glide_ground
+
   use glide_types
   use glimmer_global
   use parallel
+
   implicit none
+
 contains
 !-------------------------------------------------------------------------------  
 !WHL - Removed this subroutine, which was used only by old case(5)
@@ -185,19 +188,19 @@ contains
 
   !simple subroutine to calculate the flux at the grounding line
 
-  subroutine calc_gline_flux(stagthk, surfvel, mask, gline_flux, ubas, vbas, dew)
+  subroutine calc_gline_flux(stagthk, velnorm, mask, gline_flux, ubas, vbas, dew)
 
     use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
     implicit none
 
     !JEFF removing pointer attribute integer, dimension(:,:),pointer       :: mask    !*FD grid type mask
-    integer, dimension(:,:)       :: mask    !*FD grid type mask
-    real(dp),dimension(:,:),intent(in) :: stagthk    !*FD Ice thickness (scaled)
-    real(dp),dimension(:,:,:), intent(in) :: surfvel !*FD Surface velocity
-    real(dp),dimension(:,:), intent(inout) :: gline_flux !*FD Grounding Line flux
-    real(dp),dimension(:,:), intent(in) :: ubas !*FD basal velocity in u-dir
-    real(dp),dimension(:,:), intent(in) :: vbas !*FD basal velocity in v-dir
-    real(dp),intent(in)                 :: dew !*FD gridspacing  
+    integer, dimension(:,:)       :: mask                ! grid type mask
+    real(dp),dimension(:,:),intent(in) :: stagthk        ! Ice thickness (scaled)
+    real(dp),dimension(:,:,:), intent(in) :: velnorm     ! horizontal ice speed
+    real(dp),dimension(:,:), intent(inout) :: gline_flux ! Grounding Line flux
+    real(dp),dimension(:,:), intent(in) :: ubas          ! basal velocity in u-dir
+    real(dp),dimension(:,:), intent(in) :: vbas          ! basal velocity in v-dir
+    real(dp),intent(in)                 :: dew           !gridspacing  
     integer :: ewn, nsn
 
     !TODO: get the grounding line flux on the velo grid - right now it seems
@@ -208,7 +211,7 @@ contains
 !LOOP - Loop over velocity points?
 
     where (GLIDE_IS_GROUNDING_LINE(mask))
-         gline_flux = stagthk * ((4.0/5.0)* surfvel(1,:,:) + &
+         gline_flux = stagthk * ((4.0/5.0)* velnorm(1,:,:) + &
          (ubas**2.0 + vbas**2.0)**(1.0/2.0))  * dew  
     end where
 

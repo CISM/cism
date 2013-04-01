@@ -35,6 +35,7 @@ program eis_glide
   !*FD This is the Edinburgh Ice Sheet GLIDE driver
   use glimmer_global, only:rk
   use glide
+  use glide_nc_custom, only: glide_nc_fillall
   use eis_forcing
   use eis_io
   use glimmer_log

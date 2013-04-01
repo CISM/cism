@@ -42,14 +42,17 @@ module glide_velo
   use glimmer_physcon, only : rhoi, grav, gn
   use glimmer_paramets, only : thk0, len0, vis0, vel0
 
-  private vertintg, patebudd
+  implicit none
+
+  private vertintg
 
   ! some private parameters
   integer, private, parameter :: p1 = gn+1
   integer, private, parameter :: p2 = gn-1
   integer, private, parameter :: p3 = 2*gn+1
   integer, private, parameter :: p4 = gn+2
-  real(dp),private, parameter :: c = -2.0d0*vis0*(rhoi*grav)**gn*thk0**p3/(8.0d0*vel0*len0**gn)
+
+  real(dp),private, parameter :: cflow = -2.0d0*vis0*(rhoi*grav)**gn*thk0**p3/(8.0d0*vel0*len0**gn)
 
 contains
 
@@ -94,10 +97,10 @@ contains
     model%velowk%depthw = (/ ((model%numerics%sigma(up+1)+model%numerics%sigma(up)) / 2.0d0, up=1,upn-1), 0.0d0 /)
 
     model%velowk%fact = (/ model%paramets%flow_factor* arrmlh / vis0, &   ! Value of a when T* is above -263K
-         model%paramets%flow_factor* arrmll / vis0, &                     ! Value of a when T* is below -263K
-         -actenh / gascon,        &                                   ! Value of -Q/R when T* is above -263K
-         -actenl / gascon/)                                           ! Value of -Q/R when T* is below -263K
-   
+                           model%paramets%flow_factor* arrmll / vis0, &   ! Value of a when T* is below -263K
+                          -actenh / gascon,        &                      ! Value of -Q/R when T* is above -263K
+                          -actenl / gascon/)                              ! Value of -Q/R when T* is below -263K
+
     model%velowk%watwd  = model%paramets%bpar(1)
     model%velowk%watct  = model%paramets%bpar(2)
     model%velowk%trcmin = model%paramets%bpar(3) / scyr
@@ -162,6 +165,7 @@ contains
 !TODO - This subroutine is not called either.  
   !*FD Integrates the strain rates to compute both the 3d velocity fields and the
   !*FD vertically averaged velocities
+
   subroutine velo_integrate_strain(strain_zx, strain_zy, ubas, vbas,
     !Find the 3d velocity field by vertically integrating the strain rate from
     !the base up
@@ -174,9 +178,8 @@ contains
     !This 2 is pulled out of the integral.  We correct for it here.
     uvel = 2*uvel
     vvel = 2*vvel
-    
-       
-  end subroutine
+           
+  end subroutine velo_integrate_strain
 #endif
   
 !TODO - The rest of the subroutines in this module are needed for SIA only?
@@ -221,7 +224,7 @@ contains
                 intflwa(up) = intflwa(up+1) + velowk%depth(up) * (hrzflwa(up)+hrzflwa(up+1))
              end do
 
-             velowk%dintflwa(ew,ns) = c * vertintg(velowk,intflwa)
+             velowk%dintflwa(ew,ns) = cflow * vertintg(velowk,intflwa)
 
           else 
 
@@ -266,7 +269,7 @@ contains
                             ubas,     vbas,        &
                             uvel,     vvel,        &
                             uflx,     vflx,        &
-                            surfvel)
+                            velnorm)
 
     !*FD calculate 3D horizontal velocity field and 2D flux field from diffusivity
     implicit none
@@ -286,7 +289,7 @@ contains
     real(dp),dimension(:,:,:),intent(out)   :: vvel
     real(dp),dimension(:,:),  intent(out)   :: uflx
     real(dp),dimension(:,:),  intent(out)   :: vflx
-    real(dp),dimension(:,:,:), intent(out)    :: surfvel
+    real(dp),dimension(:,:,:), intent(out)  :: velnorm
 
     !------------------------------------------------------------------------------------
     ! Internal variables
@@ -317,7 +320,9 @@ contains
 
              factor = velowk%dintflwa(ew,ns)*stagthck(ew,ns)
              if (factor /= 0.0d0) then
-                const(2) = c * diffu(ew,ns) / factor
+
+                const(2) = cflow * diffu(ew,ns) / factor
+
                 const(3) = const(2) * dusrfdns(ew,ns)  
                 const(2) = const(2) * dusrfdew(ew,ns) 
              else
@@ -341,11 +346,9 @@ contains
        end do
     end do
     
-!TODO - Rename? This is not the surface velocity; it is the 3D ice speed field.
+    ! horizontal ice speed (mainly for diagnostic purposes)
 
-    !calc surface velocity from the u and v velocties
-
-    surfvel(:,:,:) = (uvel(:,:,:)**2 + vvel(:,:,:)**2)**(0.5d0)
+    velnorm(:,:,:) = sqrt((uvel(:,:,:)**2 + vvel(:,:,:)**2))
 
   end subroutine velo_calc_velo
 
@@ -499,19 +502,18 @@ contains
             uvel(upn,ew,ns) = 0.0d0
             vvel(upn,ew,ns) = 0.0d0
 
-            ! Get column profile of Glenn's A
+            ! Get column profile of Glen's A
 
             hrzflwa = flwa(:,ew,ns) + flwa(:,ew,ns+1) + flwa(:,ew+1,ns) + flwa(:,ew+1,ns+1)
 
             ! Calculate coefficient for integration
 
-            const(1) = c * stagthck(ew,ns)**p1 * sqrt(dusrfdew(ew,ns)**2 + dusrfdns(ew,ns)**2)**p2  
+            const(1) = cflow * stagthck(ew,ns)**p1 * sqrt(dusrfdew(ew,ns)**2 + dusrfdns(ew,ns)**2)**p2  
 
             ! Do first step of finding u according to (8) in Payne and Dongelmans 
 
             do up = upn-1, 1, -1
-              uvel(up,ew,ns) = uvel(up+1,ew,ns) + const(1) * &
-                    velowk%depth(up) * sum(hrzflwa(up:up+1)) 
+              uvel(up,ew,ns) = uvel(up+1,ew,ns) + const(1) * velowk%depth(up) * sum(hrzflwa(up:up+1)) 
             end do
 
             ! Calculate u diffusivity (?)
@@ -556,7 +558,7 @@ contains
                intflwa(up) = intflwa(up+1) + velowk%depth(up) * sum(hrzflwa(up:up+1)) 
             end do
 
-            velowk%dintflwa(ew,ns) = c * vertintg(velowk,intflwa)
+            velowk%dintflwa(ew,ns) = cflow * vertintg(velowk,intflwa)
 
           else 
 
@@ -589,7 +591,9 @@ contains
             hrzflwa = flwa(:,ew,ns) + flwa(:,ew,ns+1) + flwa(:,ew+1,ns) + flwa(:,ew+1,ns+1)
 
             if (velowk%dintflwa(ew,ns) /= 0.0d0) then
-               const(2) = c * diffu(ew,ns) / velowk%dintflwa(ew,ns)/stagthck(ew,ns)
+
+               const(2) = cflow * diffu(ew,ns) / velowk%dintflwa(ew,ns)/stagthck(ew,ns)
+
                const(3) = const(2) * dusrfdns(ew,ns)  
                const(2) = const(2) * dusrfdew(ew,ns) 
             else
@@ -619,6 +623,137 @@ contains
 
 !------------------------------------------------------------------------------------------
 
+  subroutine glide_velo_vertical(model)
+
+     type(glide_global_type), intent(inout) :: model     ! model instance
+
+     ! Compute the ice vertical velocity
+
+     !WHL - This is a new subroutine created by combining calls to several existing subroutines.
+
+     ! Note: It is now called at the end of glide_tstep_p3, so that exact restart is easier.
+     !       In older versions of Glimmer the vertical velocity was computed at the start of 
+     !        the temperature calculation in glide_tstep_p1.
+
+     ! Calculate time-derivatives of thickness and upper surface elevation ------------
+
+     call timeders(model%thckwk,              &
+                   model%geometry%thck,       &
+                   model%geomderv%dthckdtm,   &
+                   model%geometry%thck_index, &
+                   model%numerics%time,       &
+                   1)
+
+     call timeders(model%thckwk,     &
+                   model%geometry%usrf,       &
+                   model%geomderv%dusrfdtm,   &
+                   model%geometry%thck_index, &
+                   model%numerics%time,       &
+                   2)
+
+     ! Calculate the vertical velocity of the grid ------------------------------------
+
+     call gridwvel(model%numerics%sigma,  &
+                   model%numerics%thklim, &
+                   model%velocity%uvel,   &
+                   model%velocity%vvel,   &
+                   model%geomderv,        &
+                   model%geometry%thck,   &
+                   model%velocity%wgrd)
+
+     ! Calculate the actual vertical velocity; method depends on whichwvel ------------
+
+     select case(model%options%whichwvel)
+
+     case(0)     ! Usual vertical integration
+
+        call wvelintg(model%velocity%uvel,                        &
+                      model%velocity%vvel,                        &
+                      model%geomderv,                             &
+                      model%numerics,                             &
+                      model%velowk,                               &
+                      model%velocity%wgrd(model%general%upn,:,:), &
+                      model%geometry%thck,                        &
+                      model%temper%bmlt,                          &
+                      model%velocity%wvel)
+
+     case(1)     ! Vertical integration constrained so kinematic upper BC obeyed.
+
+        call wvelintg(model%velocity%uvel,                        &
+                      model%velocity%vvel,                        &
+                      model%geomderv,                             &
+                      model%numerics,                             &
+                      model%velowk,                               &
+                      model%velocity%wgrd(model%general%upn,:,:), &
+                      model%geometry%thck,                        &
+                      model%temper%  bmlt,                        &
+                      model%velocity%wvel)
+
+        call chckwvel(model%numerics,                             &
+                      model%geomderv,                             &
+                      model%velocity%uvel(1,:,:),                 &
+                      model%velocity%vvel(1,:,:),                 &
+                      model%velocity%wvel,                        &
+                      model%geometry%thck,                        &
+                      model%climate% acab)
+
+     end select
+
+     ! apply periodic ew BC
+
+     if (model%options%periodic_ew) then
+        call wvel_ew(model)
+     end if
+
+  end subroutine glide_velo_vertical
+
+!---------------------------------------------------------------
+!WHL - Moved this subroutine from glide_thck.F90 to glide_velo.F90.
+
+  subroutine timeders(thckwk,ipvr,opvr,mask,time,which)
+
+    !*FD Calculates the time-derivative of a field. This subroutine is used by 
+    !*FD the Glimmer temperature solver only.
+
+    use glimmer_global, only : dp, sp
+    use glimmer_paramets, only : tim0
+    use glimmer_physcon, only: scyr
+
+    implicit none 
+
+    type(glide_thckwk) :: thckwk    !*FD Derived-type containing work data
+    real(dp), intent(out), dimension(:,:) :: opvr  !*FD output (time derivative) field
+    real(dp), intent(in),  dimension(:,:) :: ipvr  !*FD input field
+    real(dp), intent(in)                  :: time  !*FD current time
+    integer,  intent(in),  dimension(:,:) :: mask  !*FD mask for calculation
+    integer,  intent(in)                  :: which !*FD selector for stored field
+
+    real(dp) :: factor
+
+    factor = (time - thckwk%oldtime)
+    if (factor == 0.d0) then
+       opvr = 0.0d0
+    else
+       factor = 1.d0/factor
+       where (mask /= 0)
+!WHL - Replaced conv with tim0/scyr (not used anywhere else in code)
+!!!          opvr = conv * (ipvr - thckwk%olds(:,:,which)) * factor
+          opvr = (tim0/scyr) * (ipvr - thckwk%olds(:,:,which)) * factor
+       elsewhere
+          opvr = 0.0d0
+       end where
+    end if
+
+    thckwk%olds(:,:,which) = ipvr
+
+    if (which == thckwk%nwhich) then
+      thckwk%oldtime = time
+    end if
+
+  end subroutine timeders
+
+!------------------------------------------------------------------------------------------
+
   subroutine gridwvel(sigma,thklim,uvel,vvel,geomderv,thck,wgrd)
 
     !*FD Calculates the vertical velocity of the grid, and returns it in \texttt{wgrd}. This
@@ -631,8 +766,9 @@ contains
     !*FD Compare this with equation A1 in {\em Payne and Dongelmans}.
 
     !TODO The name of this subroutine is confusing.  It is called wvel but it does not calculate wvel, only wgrd.
+
     use parallel
-    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
+!!    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
     implicit none 
 
     !------------------------------------------------------------------------------------
@@ -683,9 +819,10 @@ contains
       end do
     end do
 
-!HALO - I think wgrd is needed only for the old temperature code, which is not supported in parallel.
+!TODO - I think wgrd is needed only for the old temperature code, which is not supported in parallel.
     call parallel_halo(wgrd)
 !    call horiz_bcs_unstag_scalar(wgrd)
+
   end subroutine gridwvel
 
 !------------------------------------------------------------------------------------------
@@ -705,7 +842,7 @@ contains
     !*FD (This is equation 13 in {\em Payne and Dongelmans}.) Note that this is only 
     !*FD done if the thickness is greater than the threshold given by \texttt{numerics\%thklim}.
     use parallel
-    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
+!!    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
     implicit none
 
     !------------------------------------------------------------------------------------
@@ -803,13 +940,14 @@ contains
       end do
     end do
 
-!HALO - I think wvel is needed only for the old temperature code, which is not supported in parallel.
+!TODO - I think wvel is needed only for the old temperature code, which is not supported in parallel.
     call parallel_halo(wvel)
 !    call horiz_bcs_unstag_scalar(wvel)
 
   end subroutine wvelintg
 
   subroutine wvel_ew(model)
+
     !*FD set periodic EW boundary conditions
     implicit none
     type(glide_global_type),intent(inout) :: model       !*FD Ice model parameters.
@@ -818,9 +956,11 @@ contains
     model%velocity%wgrd(:,model%general%ewn,:) = model%velocity%wgrd(:,2,:)
     model%velocity%wvel(:,1,:)                  = model%velocity%wvel(:,model%general%ewn-1,:)
     model%velocity%wvel(:,model%general%ewn,:) = model%velocity%wvel(:,2,:)
+
   end subroutine wvel_ew
 
 !------------------------------------------------------------------------------------------
+!TODO - Remove 'use parallel'?
 
   subroutine chckwvel(numerics,geomderv,uvel,vvel,wvel,thck,acab)
 
@@ -828,7 +968,7 @@ contains
     !*FD condition.
     use parallel
     use glimmer_global, only : sp 
-    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
+!!    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
 
     implicit none
 
@@ -883,7 +1023,7 @@ contains
       end do
     end do
 
-!HALO - I think wvel is needed only for the old temperature code, which is not supported in parallel.
+!TODO - I think wvel is needed only for the old temperature code, which is not supported in parallel.
     call parallel_halo(wvel)
 !    call horiz_bcs_unstag_scalar(wvel)
 
@@ -1060,6 +1200,7 @@ contains
   end subroutine calc_btrc
 
 !TODO - Remove this version of the subroutine?
+
 #ifdef JEFFORIG
   subroutine calc_basal_shear(model)
     !*FD calculate basal shear stress: tau_{x,y} = -ro_i*g*H*d(H+h)/d{x,y}
@@ -1097,4 +1238,8 @@ contains
 
   end subroutine calc_basal_shear
 
+!-------------------------------------------------------------------
+
 end module glide_velo
+
+!-------------------------------------------------------------------

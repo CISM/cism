@@ -44,6 +44,7 @@ program verifglide
   use verif_io
   use glimmer_commandline
   use glimmer_writestats
+  use glide_nc_custom, only: glide_nc_fillall
   implicit none
 
   ! some variables

@@ -311,7 +311,7 @@
 ! !USES:
 !
       use parallel
-      use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar, horiz_bcs_stag_scalar
+!!      use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar, horiz_bcs_stag_scalar
 !
 ! !INPUT/OUTPUT PARAMETERS:
 !
@@ -582,25 +582,25 @@
 
          ! mass field
          call parallel_halo(mc)
-         call horiz_bcs_unstag_scalar(mc)
+!!         call horiz_bcs_unstag_scalar(mc)
          call parallel_halo(mx)
-         call horiz_bcs_unstag_scalar(mx)
+!!         call horiz_bcs_unstag_scalar(mx)
          call parallel_halo(my)
-         call horiz_bcs_unstag_scalar(my)
+!!         call horiz_bcs_unstag_scalar(my)
 
          ! tracer fields
          call parallel_halo(tc)
-         call horiz_bcs_unstag_scalar(tc)
+!!         call horiz_bcs_unstag_scalar(tc)
          call parallel_halo(tx)
-         call horiz_bcs_unstag_scalar(tx)
+!!         call horiz_bcs_unstag_scalar(tx)
          call parallel_halo(ty)
-         call horiz_bcs_unstag_scalar(ty)
+!!         call horiz_bcs_unstag_scalar(ty)
 
          ! departure points
          call parallel_halo(dpx)
-         call horiz_bcs_stag_scalar(dpx)
+!!         call horiz_bcs_stag_scalar(dpx)
          call parallel_halo(dpy)
-         call horiz_bcs_stag_scalar(dpy)
+!!         call horiz_bcs_stag_scalar(dpy)
 
       endif  ! nghost
 

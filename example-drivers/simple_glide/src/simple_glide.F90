@@ -42,20 +42,26 @@ program simple_glide
 
   use parallel
 
-  use glimmer_global, only:rk
+  use glimmer_global
   use glide
+  use glissade
   use simple_forcing
   use glimmer_log
   use glimmer_config
+  use glide_nc_custom, only: glide_nc_fillall
   use glimmer_commandline
   use glimmer_writestats
   use glimmer_filenames, only : filenames_init
+
+!TODO - These could be removed if we all a subroutine in glide.F90.
+  use glide_io, only: glide_io_writeall
+  use glide_lithot_io, only: glide_lithot_io_writeall
+
 !!  use glimmer_horiz_bcs, only : horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns, &
 !!                                horiz_bcs_unstag_scalar, horiz_bcs_stag_scalar
 
-  use glissade
+  use glide_stop, only: glide_finalise
 
-!TODO - Change to 'cism_diagnostics'?
   use glide_diagnostics
 
   implicit none
@@ -63,8 +69,6 @@ program simple_glide
   type(glide_global_type) :: model        ! model instance
   type(simple_climate) :: climate         ! climate
   type(ConfigSection), pointer :: config  ! configuration stuff
-!WHLTSTEP - Changed time to dp
-!  real(kind=rk) time
   real(kind=dp) :: time                   ! model time in years
   real(kind=dp) :: t1,t2
   integer :: clock,clock_rate,ret
@@ -94,11 +98,8 @@ program simple_glide
 
   call t_startf('simple glide')
 
-!TODO - Initialize either glide or glissade.
   ! initialise GLIDE
     call t_startf('glide initialization')
-
-!TODO - glide_config -> glimmer_config?
 
   call glide_config(model,config)
 
@@ -114,9 +115,8 @@ program simple_glide
   endif
 
   call CheckSections(config)
-
-!TODO - Change to glimmer_nc_fillall?
-  ! fill dimension variables on output files
+ 
+ ! fill dimension variables on output files
   call glide_nc_fillall(model)
 
   time = model%numerics%tstart
@@ -141,17 +141,27 @@ program simple_glide
   ! variables are calculated.
 
   ! ------------- Calculate initial state and output it -----------------
+
   if (model%options%whichdycore == DYCORE_GLIDE) then
+
      call t_startf('glide_initial_diag_var_solve')
       ! disable further profiling in normal usage
       call t_adj_detailf(+10)
 
+!WHL - Don't call this when running old glide
+!      Instead, start with zero velocity
+
+  if (.not. oldglide) then
+     print*, 'Initializing Glide diagnostic state'
      call glide_init_state_diagnostic(model)
+  endif
 
       ! restore profiling to normal settings
       call t_adj_detailf(-10)
      call t_stopf('glide_initial_diag_var_solve')
-  else   ! glissade dycore
+
+  else   ! glam/glissade dycore
+
      call t_startf('glissade_initial_diag_var_solve')
       ! disable further profiling in normal usage
       call t_adj_detailf(+10)
@@ -163,6 +173,7 @@ program simple_glide
       ! restore profiling to normal settings
       call t_adj_detailf(-10)
      call t_stopf('glissade_initial_diag_var_solve')
+
   end if
 
 !WHL - Write initial diagnostic output to log file
@@ -173,27 +184,22 @@ program simple_glide
   ! TODO MJH Copied this below from glissade_post_tstep().  May want to make a subroutine that just has this 
   !block in it.  It could be called glimmer_write_output and be in simple_glide if it can be used by both glide
   ! and glissade.  Or else separate routines at the glissade/glide module level.
-  !TODO - Change to glimmer_io_writeall?
+
   !TODO - the write operation in post_step is inside an if-construct that checks an optional 'nowrite' logical variable. 
   ! However the call to that subroutine at the end of this module does not supply the optional variable.  Therefore I am 
   !leaving out that if-construct here.  If simple_glide actually does support a nowrite option, then a check for it would
   ! need to occur here!
-  call t_startf('glide_io_writeall')
-!WHLTSTEP - Changed time to dp
-!  call glide_io_writeall(model,model, time=REAL(time,4))  
-                                                          
+
+  call t_startf('glide_io_writeall')                                                          
   call glide_io_writeall(model, model, time=time)          ! MJH The optional time argument needs to be supplied 
                                                            !     since we have not yet set model%numerics%time
   call t_stopf('glide_io_writeall')
+
 !TODO Do we want to write out litho output here too?  I think so, but I'm not sure what it is exactly.
   if (model%options%gthf > 0) then
-     call t_startf('glide_lithot_io_writeall')
-!WHLTSTEP - Changed time to dp
-!     call glide_lithot_io_writeall(model,model, time=REAL(time,4)) 
-                                                                    
+     call t_startf('glide_lithot_io_writeall')                                                                    
      call glide_lithot_io_writeall(model, model, time=time)          ! MJH The optional time argument needs to be supplied
                                                                      !     since we have not yet set model%numerics%time
-
      call t_stopf('glide_lithot_io_writeall')
   endif 
 
@@ -223,7 +229,7 @@ program simple_glide
 !==============================
 
   ! ------------- Begin time step loop -----------------
-!### !  do while(time <= model%numerics%tend)
+
   do while(time < model%numerics%tend)
 
      ! --- First assign forcings ----
@@ -233,6 +239,7 @@ program simple_glide
      ! If they are called without EISMINT options in the config file, they will do nothing.
      ! TODO May want to move them to the glissade/glide time steppers.  
      ! If so be careful about using the right time level (i.e. the old one).
+
      call simple_massbalance(climate,model,time)
      call simple_surftemp(climate,model,time)
 
@@ -241,14 +248,13 @@ program simple_glide
      ! We are solving variables at the new time level using values from the previous time level.
      ! TODO Can we just use model%numerics%time and model%numerics%timecounter?  
      !      That would be less confusing than having time-keeping done separately here and in glissade.
+
      time = time + model%numerics%tinc
      tstep_count = tstep_count + 1
 
-     call t_startf('glide_tstep')
-
-!TODO - Add subroutine glide_step that calls glide_tstep_p1/p2/p3?
-
      if (model%options%whichdycore == DYCORE_GLIDE) then
+
+       call t_startf('glide_tstep')
 
        call t_startf('glide_tstep_p1')
        call glide_tstep_p1(model,time)
@@ -262,9 +268,9 @@ program simple_glide
        call glide_tstep_p3(model)
        call t_stopf('glide_tstep_p3')
 
-     else   ! glam/glissade dycore
+       call t_stopf('glide_tstep')
 
-!TODO - Make this a single subroutine call
+     else   ! glam/glissade dycore
 
        call t_startf('glissade_tstep')
        call glissade_tstep(model,time)
@@ -272,127 +278,25 @@ program simple_glide
 
      endif   ! glide v. glam/glissade dycore
 
+!WHL - Combined glide_tstep_postp3 with glide_tstep_p3, to be
+!      consistent with other drivers.
+!    - Also combined glissade_post_tstep with glissade_tstep
+
      ! override masking stuff for now  !TODO - What does this mean?
 
-!TODO - Change to cism_write_diag?
-!TODO Can this be moved to end of time loop so that we can merge the two if-statements into a single construct?
      ! write ice sheet diagnostics
      if (mod(tstep_count, model%numerics%ndiag)==0)  then
         call glide_write_diag(model, time, model%numerics%idiag_global,  &
                                            model%numerics%jdiag_global)
      endif
 
-!TODO - Remove this comment?
-     ! Redistribute calls here to spread the data back out.
-
-     if (model%options%whichdycore == DYCORE_GLIDE) then
-
-     ! Perform parallel operations for restart files
-       call t_startf('glide_tstep_postp3')
-       call glide_tstep_postp3(model)
-       call t_stopf('glide_tstep_postp3')
-
-     else   ! glam/glissade dycore
-
-!TODO - I think we can safely remove all these parallel halo calls.
-!       Before doing so, make sure we have the required calls in glissade.F90.
-
-!WHL - Replaced some parallel_halo calls with staggered_parallel_halo as appropriate       
-       call t_startf('simple_glide_halo_upd')
-
-!WHL - Commented out parallel_halo calls here.
-!      Whatever halo updates are needed should be done within the appropriate dycore.
-!!       call parallel_halo(model%stress%efvs)
-!!       call horiz_bcs_unstag_scalar(model%stress%efvs)
-!!       call staggered_parallel_halo(model%velocity%uvel)
-!!       call horiz_bcs_stag_vector_ew(model%velocity%uvel)
-!!       call staggered_parallel_halo(model%velocity%vvel)
-!!       call horiz_bcs_stag_vector_ns(model%velocity%vvel)
-!!       call staggered_parallel_halo(model%velocity%uflx)
-!!       call horiz_bcs_stag_vector_ew(model%velocity%uflx)
-!!       call staggered_parallel_halo(model%velocity%vflx)
-!!       call horiz_bcs_stag_vector_ns(model%velocity%vflx)
-!!       call staggered_parallel_halo(model%velocity%velnorm)
-!!       call horiz_bcs_stag_scalar(model%velocity%velnorm)
-!!       call parallel_halo(model%geometry%thck)
-!!       call horiz_bcs_unstag_scalar(model%geometry%thck)
-!!       call staggered_parallel_halo(model%geomderv%stagthck)
-!!       call horiz_bcs_stag_scalar(model%geomderv%stagthck)
-!!       call parallel_halo(model%climate%acab)
-!!       call horiz_bcs_unstag_scalar(model%climate%acab)
-!!       call staggered_parallel_halo(model%geomderv%dusrfdew)
-!!       call horiz_bcs_stag_vector_ew(model%geomderv%dusrfdew)
-!!       call staggered_parallel_halo(model%geomderv%dusrfdns)
-!!       call horiz_bcs_stag_vector_ns(model%geomderv%dusrfdns)
-!!       call staggered_parallel_halo(model%geomderv%dthckdew)
-!!       call horiz_bcs_stag_vector_ew(model%geomderv%dthckdew)
-!!       call staggered_parallel_halo(model%geomderv%dthckdns)
-!!       call horiz_bcs_stag_vector_ns(model%geomderv%dthckdns)
-!!       call parallel_halo(model%stress%tau%xx)
-!!       call horiz_bcs_unstag_scalar(model%stress%tau%xx)
-!!       call parallel_halo(model%stress%tau%yy)
-!!       call horiz_bcs_unstag_scalar(model%stress%tau%yy)
-!!       call parallel_halo(model%stress%tau%xy)
-!!       call horiz_bcs_unstag_scalar(model%stress%tau%xy)
-!!       call parallel_halo(model%stress%tau%scalar)
-!!       call horiz_bcs_unstag_scalar(model%stress%tau%scalar)
-!!       call parallel_halo(model%stress%tau%xz)
-!!       call horiz_bcs_unstag_scalar(model%stress%tau%xz)
-!!       call parallel_halo(model%stress%tau%yz)
-!!       call horiz_bcs_unstag_scalar(model%stress%tau%yz)
-!!       call parallel_halo(model%geometry%topg)
-!!       call horiz_bcs_unstag_scalar(model%geometry%topg)
-!!       call parallel_halo(model%geometry%thkmask)
-!!       call horiz_bcs_unstag_scalar(model%geometry%thkmask)
-!!       call parallel_halo(model%geometry%marine_bc_normal)
-!!       call horiz_bcs_unstag_scalar(model%geometry%marine_bc_normal)
-!!       call staggered_parallel_halo(model%velocity%surfvel)
-!!       call horiz_bcs_stag_scalar(model%velocity%surfvel)
-!!       call parallel_halo(model%ground%gline_flux)
-!!       call horiz_bcs_unstag_scalar(model%ground%gline_flux)
-!!       call staggered_parallel_halo(model%velocity%ubas)
-!!       call horiz_bcs_stag_vector_ew(model%velocity%ubas)
-!!       call staggered_parallel_halo(model%velocity%vbas)
-!!       call horiz_bcs_stag_vector_ns(model%velocity%vbas)
-!!       call parallel_halo(model%isos%relx)
-!!       call horiz_bcs_unstag_scalar(model%isos%relx)
-!!       call parallel_halo(model%temper%flwa)
-!!       call horiz_bcs_unstag_scalar(model%temper%flwa)
-!!       call parallel_halo(model%climate%calving)
-!!       call horiz_bcs_unstag_scalar(model%climate%calving)
-!!       call parallel_halo(model%climate%backstress)
-!!       call horiz_bcs_unstag_scalar(model%climate%backstress)
-!!       call parallel_halo(model%geometry%usrf)
-!!       call horiz_bcs_unstag_scalar(model%geometry%usrf)
-!!       call parallel_halo(model%climate%backstressmap)
-!!       call horiz_bcs_unstag_scalar(model%climate%backstressmap)
-!!       call parallel_halo(model%stress%tau_x)
-!!       call horiz_bcs_stag_vector_ew(model%stress%tau_x)
-!!       call parallel_halo(model%stress%tau_y)
-!!       call horiz_bcs_stag_vector_ew(model%stress%tau_y)
-!!       call parallel_halo(model%geometry%lsrf)
-!!       call horiz_bcs_unstag_scalar(model%geometry%lsrf)
-!!       call parallel_halo(model%temper%temp)
-!!       call horiz_bcs_unstag_scalar(model%temper%temp)
-
-       call t_stopf('simple_glide_halo_upd')
-
-     ! Perform parallel operations for restart files
-     ! TODO post_tstep has nothing left in it but the output writing.  
-     !      I think it should be eliminated and the output writing occur here in simple_glide.
-       call t_startf('glissade_post_tstep')
-       call glissade_post_tstep(model)
-       call t_stopf('glissade_post_tstep')
-
-     endif   ! glide v. glam/glissade dycore
-
-     call t_stopf('glide_tstep')
-  end do
+  end do   ! time < model%numerics%tend
 
   call t_stopf('simple glide')
 
-!TODO - Write a glissade_finalise routine.
+!TODO - Write a separate glissade_finalise routine?
   ! finalise GLIDE
+
   call glide_finalise(model)
 
   call system_clock(clock,clock_rate)

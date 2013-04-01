@@ -38,12 +38,17 @@
 ! Added a call to this subroutine in simple_glide.
  
 module glide_diagnostics
-  !*FD subroutines for computing various useful diagnostics
+
+  ! subroutines for computing various useful diagnostics
   ! Author: William Lipscomb, LANL 
  
+  implicit none
+
 contains
 
-  subroutine glide_write_diag (model, time, idiag_global, jdiag_global)
+  subroutine glide_write_diag (model,        time,   &
+                               idiag_global, jdiag_global,  &
+                               minthick_in)
 
     ! Write global diagnostics
     ! Optionally, write local diagnostics for a selected grid cell
@@ -60,14 +65,21 @@ contains
     type(glide_global_type), intent(in) :: model    ! model instance
     real(dp),  intent(in)   :: time                 ! current time in years
     integer, intent(in), optional :: &
-         idiag_global, jdiag_global                 ! global (i,j) for diagnostics
+         idiag_global, jdiag_global         ! global (i,j) for diagnostics
+    real(dp), intent(in), optional :: &
+         minthick_in       ! ice thickness threshold (m) for including in diagnostics
  
-    real(dp) ::          &
+    real(dp) ::      & 
+         minthick          ! ice thickness threshold (m) for including in diagnostics
+                           ! defaults to thickness > eps (a very small number) if not passed in
+    real(dp) ::                         &
          tot_area,                      &    ! total ice area (km^2)
          tot_volume,                    &    ! total ice volume (km^3)
          tot_energy,                    &    ! total ice energy (J)
          mean_thck,                     &    ! mean ice thickness (m)
          mean_temp,                     &    ! mean ice temperature (deg C)
+         mean_acab,                     &    ! mean surface accumulation/ablation rate (m/yr)
+         mean_bmlt,                     &    ! mean basal melt (m/yr)
          max_thck, max_thck_global,     &    ! max ice thickness (m)
          max_temp, max_temp_global,     &    ! max ice temperature (deg C)
          min_temp, min_temp_global,     &    ! min ice temperature (deg C)
@@ -108,6 +120,12 @@ contains
     nsn = model%general%nsn
     upn = model%general%upn
     
+    if (present(minthick_in)) then
+       minthick = minthick_in
+    else
+       minthick = eps   ! small number
+    endif
+ 
     if (uhalo > 0) then
        velo_ns_ubound = nsn-uhalo
        velo_ew_ubound = ewn-uhalo
@@ -120,7 +138,7 @@ contains
 
 !WHL - Some of the global reductions below may seem unnecessary.
 !      But at present, subroutine write_log permits writes only from main_task,
-!      and the broadcast subroutines allow broadcasts only from main_task,
+!       and the broadcast subroutines allow broadcasts only from main_task,
 !       not from other processors.
 !      So the way we get info to main_task is by parallel reductions.
 !      Might want to change this later.
@@ -171,6 +189,7 @@ contains
     if (main_task) then
        print*, ' '
        print*, 'Writing diagnostics to log file, time(yr) =', time
+!!       print*, 'minthick (m) =', minthick
     endif
 
     call write_log(' ')
@@ -178,12 +197,12 @@ contains
     call write_log(trim(message), type = GM_DIAGNOSTIC)
     call write_log(' ')
  
-    ! total ice area
+    ! total ice area (m^2)
  
     tot_area = 0.d0
     do j = lhalo+1, nsn-uhalo
        do i = lhalo+1, ewn-uhalo
-          if (model%geometry%thck(i,j) > model%numerics%thklim) then
+          if (model%geometry%thck(i,j) * thk0 > minthick) then
              tot_area = tot_area + model%numerics%dew * model%numerics%dns
           endif
        enddo
@@ -191,12 +210,12 @@ contains
     tot_area = tot_area * len0**2
     tot_area = parallel_reduce_sum(tot_area)
 
-    ! total ice volume
+    ! total ice volume (m^3)
  
     tot_volume = 0.d0
     do j = lhalo+1, nsn-uhalo
        do i = lhalo+1, ewn-uhalo
-          if (model%geometry%thck(i,j) > model%numerics%thklim) then
+          if (model%geometry%thck(i,j) * thk0 > minthick) then
              tot_volume = tot_volume + model%geometry%thck(i,j)  &
                                      * model%numerics%dew * model%numerics%dns
           endif
@@ -205,13 +224,13 @@ contains
     tot_volume = tot_volume * thk0 * len0**2
     tot_volume = parallel_reduce_sum(tot_volume)
 
-    ! total ice energy relative to T = 0 deg C
+    ! total ice energy relative to T = 0 deg C (J)
  
     tot_energy = 0.d0
     if (size(model%temper%temp,1) == upn+1) then  ! temps are staggered in vertical
        do j = lhalo+1, nsn-uhalo
        do i = lhalo+1, ewn-uhalo
-          if (model%geometry%thck(i,j) > model%numerics%thklim) then
+          if (model%geometry%thck(i,j) * thk0 > minthick) then
              do k = 1, upn-1
                 tot_energy = tot_energy +   &
                              model%geometry%thck(i,j) * model%temper%temp(k,i,j)    &
@@ -225,7 +244,7 @@ contains
     else   ! temps are unstaggered in vertical
        do j = lhalo+1, nsn-uhalo
        do i = lhalo+1, ewn-uhalo
-          if (model%geometry%thck(i,j) > model%numerics%thklim) then
+          if (model%geometry%thck(i,j) * thk0 > minthick) then
              ! upper half-layer, T = upper sfc temp
              tot_energy = tot_energy +   &
                           model%geometry%thck(i,j) * model%temper%temp(1,i,j)  &
@@ -266,25 +285,72 @@ contains
        mean_temp = 0.d0
     endif
  
+    ! mean surface accumulation/ablation rate (m/yr)
+ 
+    mean_acab = 0.d0
+    do j = lhalo+1, nsn-uhalo
+       do i = lhalo+1, ewn-uhalo
+          if (model%geometry%thck(i,j) * thk0 > minthick) then
+             mean_acab = mean_acab + model%climate%acab(i,j)  &
+                                   * model%numerics%dew * model%numerics%dns
+          endif
+       enddo
+    enddo
+    mean_acab = mean_acab * scyr * thk0 / tim0 * len0**2   ! convert to m^3/yr
+    mean_acab = parallel_reduce_sum(mean_acab)
+
+    if (tot_area > eps) then
+       mean_acab = mean_acab/tot_area    ! divide by total area to get m/yr
+    else
+       mean_acab = 0.d0
+    endif
+
+    ! mean basal melting rate (positive for ice loss)
+ 
+    mean_bmlt = 0.d0
+    do j = lhalo+1, nsn-uhalo
+       do i = lhalo+1, ewn-uhalo
+          if (model%geometry%thck(i,j) * thk0 > minthick) then
+             mean_bmlt = mean_bmlt + model%temper%bmlt(i,j)  &
+                                   * model%numerics%dew * model%numerics%dns
+          endif
+       enddo
+    enddo
+
+    mean_bmlt = mean_bmlt * scyr * thk0 / tim0 * len0**2   ! convert to m^3/yr
+    mean_bmlt = parallel_reduce_sum(mean_bmlt)
+
+    if (tot_area > eps) then
+       mean_bmlt = mean_bmlt/tot_area    ! divide by total area to get m/yr
+    else
+       mean_bmlt = 0.d0
+    endif
+
     ! write global sums and means
 
-    write(message,'(a25,e24.16)') 'Total ice area (km^2)     ',   &
-                                   tot_area*1.0d-6   ! convert to km^2
+    write(message,'(a25,e24.16)') 'Total ice area (km^2)    ',   &
+                                   tot_area*1.0d-6    ! convert to km^2
     call write_log(trim(message), type = GM_DIAGNOSTIC)
 
     write(message,'(a25,e24.16)') 'Total ice volume (km^3)  ',   &
-                                   tot_volume*1.0d-9   ! convert to km^3
+                                   tot_volume*1.0d-9  ! convert to km^3
     call write_log(trim(message), type = GM_DIAGNOSTIC)
 
     write(message,'(a25,e24.16)') 'Total ice energy (J)     ', tot_energy
     call write_log(trim(message), type = GM_DIAGNOSTIC)
-    
+
     write(message,'(a25,f24.16)') 'Mean thickness (m)       ', mean_thck
     call write_log(trim(message), type = GM_DIAGNOSTIC)
 
     write(message,'(a25,f24.16)') 'Mean temperature (C)     ', mean_temp
     call write_log(trim(message), type = GM_DIAGNOSTIC)
 
+    write(message,'(a25,e24.16)') 'Mean accum/ablat (m/yr)  ', mean_acab     
+    call write_log(trim(message), type = GM_DIAGNOSTIC)
+
+    write(message,'(a25,e24.16)') 'Mean basal melt (m/yr)   ', mean_bmlt
+    call write_log(trim(message), type = GM_DIAGNOSTIC)
+    
     ! Find various global maxes and mins
 
     ! max thickness
@@ -330,7 +396,7 @@ contains
     max_temp =  -999.d0
     do j = lhalo+1, nsn-uhalo
        do i = lhalo+1, ewn-uhalo
-          if (model%geometry%thck(i,j) > model%numerics%thklim) then
+          if (model%geometry%thck(i,j) * thk0 > minthick) then
              do k = 1, kbed
                 if (model%temper%temp(k,i,j) > max_temp) then
                    max_temp = model%temper%temp(k,i,j)
@@ -364,7 +430,7 @@ contains
     min_temp =  999.d0
     do j = lhalo+1, nsn-uhalo
        do i = lhalo+1, ewn-uhalo
-          if (model%geometry%thck(i,j) > model%numerics%thklim) then
+          if (model%geometry%thck(i,j) * thk0 > minthick) then
              do k = 1, kbed
                 if (model%temper%temp(k,i,j) < min_temp) then
                    min_temp = model%temper%temp(k,i,j)
@@ -408,7 +474,7 @@ contains
        do i = lhalo+1, velo_ew_ubound
           spd = sqrt(model%velocity%uvel(1,i,j)**2   &
                    + model%velocity%vvel(1,i,j)**2)
-          if (model%geometry%thck(i,j) > eps .and. spd > max_spd_sfc) then
+          if (model%geometry%thck(i,j) * thk0 > minthick .and. spd > max_spd_sfc) then
              max_spd_sfc = spd
              imax = i
              jmax = j
@@ -439,7 +505,7 @@ contains
        do i = lhalo+1, velo_ew_ubound
           spd = sqrt(model%velocity%uvel(upn,i,j)**2   &
                    + model%velocity%vvel(upn,i,j)**2)
-          if (model%geometry%thck(i,j) > eps .and. spd > max_spd_bas) then
+          if (model%geometry%thck(i,j) * thk0 > minthick  .and. spd > max_spd_bas) then
              max_spd_bas = spd
              imax = i
              jmax = j

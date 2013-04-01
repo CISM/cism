@@ -32,14 +32,20 @@
 #endif
 
 module glide_profile
-  !*FD profiling for glide
+
+  ! profiling for glide
+
+  implicit none
 
 contains
+
   subroutine glide_prof_init(model)
-    !*FD initialise glide profiling
+
+    ! initialise glide profiling
     use profile
     use glide_types
     implicit none
+
     type(glide_global_type) :: model        !*FD model instance
 
     if (model%profile%profile_unit == 0) then

@@ -33,10 +33,10 @@
 
 !> This module contains derived types.
 !!
-!! \todo move math constants to constants module
 module glimmer_map_types
 
   use glimmer_global, only: rk
+  use glimmer_physcon, only: pi
 
   implicit none
 
@@ -113,9 +113,9 @@ module glimmer_map_types
 
   ! Global mapping parameters ----------------------------------
 
-  real(rk),parameter :: pi         = 3.141592654    !< The value of $\pi$.
-  real(rk),parameter :: M_PI_4     = pi/4           !< The value of $\pi/4$.
-  real(rk),parameter :: M_PI_2     = pi/2           !< The value of $\pi/2$.
+!  real(rk),parameter :: pi         = 3.141592654    !< The value of $\pi$.  ! defined in glimmer_physcon
+  real(rk),parameter :: M_PI_4     = pi/4.          !< The value of $\pi/4$.
+  real(rk),parameter :: M_PI_2     = pi/2.          !< The value of $\pi/2$.
   real(rk),parameter :: D2R        = pi/180.0       !< Degrees-to-radians conversion factor.
   real(rk),parameter :: R2D        = 180.0/pi       !< Radians-to-degrees conversion factor.
   real(rk),parameter :: EQ_RAD     = 6.37e6         !< Radius of the earth (m)

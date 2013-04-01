@@ -35,6 +35,8 @@ module isostasy_types
   !*FD types for isostasy model
 
   use glimmer_global, only : dp
+
+  implicit none
   
   type isostasy_elastic
      !*FD Holds data used by isostatic adjustment calculations

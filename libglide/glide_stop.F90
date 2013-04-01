@@ -36,10 +36,6 @@ module glide_stop
   use glide_types
   use glimmer_log
 
-!WHL - Commented out to avoid circular dependencies
-!!!  use glam_Basal_Proc, only : Basal_Proc_final
-!!!  use fo_upwind_advect, only : fo_upwind_advect_final
-
   implicit none
 
   !*FD module containing finalisation of glide
@@ -151,22 +147,6 @@ contains
     ! *sfp* Note that a finalization routine, "glam_velo_fordsiapstr_final", for the PP HO core needs 
     ! to be written, added to "glam_strs2.F90", and called from "glide_stop".
   
-!TODO - Can remove this if fo_upwind is removed
-!WHL - Commented out this call so that glide_stop does not have to use the fo_upwind module.
-
-   ! finalization for first-order upwinding advection scheme
-!!!    if (model%options%whichevol== EVOL_FO_UPWIND ) then
-!!!        call fo_upwind_advect_final()
-!!!    endif
-
-!TODO - Is this needed?  Probably can be removed.
-!WHL - Commented out this call so that glide_stop does not have to use the basal proc module.
-    ! finalization of Basal Proc module
-!!!    if (model%options%which_bmod == BAS_PROC_FULLCALC .or. &
-!!!        model%options%which_bmod == BAS_PROC_FASTCALC) then
-!!!        call Basal_Proc_final (model%basalproc)
-!!!    end if  
-
     call glide_deallocarr(model)
     call deregister_model(model)
 
