@@ -168,33 +168,12 @@ contains
                             model%geomderv%dusrfdew, model%geomderv%dusrfdns,  &
                             model%velocity%diffu)
 
-!WHL - debug
-       print*, 'call thck_evolve'
-
-    print*, ' '
-    print*, 'mask:'
-    do j = model%general%nsn, 1, -1
-       write(6,'(28i4)') model%geometry%thck_index(4:31,j)
-    enddo
-
-    print*, ' '
-    print*, 'acab *dt :'
-    do j = model%general%nsn, 1, -1
-       write(6,'(28f6.2)') thk0 * model%climate%acab(4:31,j) * model%numerics%dt
-    enddo
-
         ! get new thicknesses
 
         call thck_evolve(model,    &
                          model%velocity%diffu, model%velocity%diffu, &
                          .true.,   &
                          model%geometry%thck,  model%geometry%thck)
-
-    print*, ' '
-    print*, 'thck:'
-    do j = model%general%nsn, 1, -1
-       write(6,'(28f6.2)') thk0 * model%geometry%thck(4:31,j)
-    enddo
 
 !--- MJH: Since the linear evolution uses a diffusivity based on the old geometry, the
 !    velocity calculated here will also be based on the old geometry.  If it is
