@@ -79,17 +79,19 @@ contains
     ! Some of these arguments (e.g., zonwind, merwind, humid, lwdown, swdown, airpress)
     ! should be made optional.
     
-    use glide
-    use glide_io
     use glimmer_paramets
+    use glimmer_physcon, only: rhow,rhoi
+    use glimmer_log
+    use glide
+    use glissade
+    use glide_io
     use glint_mbal_coupling
     use glint_io
     use glint_mbal_io
     use glint_climate
     !EIB! use glint_routing
     use glimmer_routing
-    use glimmer_log
-    use glimmer_physcon, only: rhow,rhoi
+    use glide_diagnostics
     use parallel, only: tasks, main_task
 
     implicit none
@@ -358,12 +360,26 @@ contains
              instance%ablt =  thck_temp
           end where
 
-          instance%glide_time=instance%glide_time+instance%model%numerics%tinc
-          call glide_tstep_p1(instance%model,instance%glide_time)
-          call glide_tstep_p2(instance%model)
-          !EIB! difference in call between gc2 and lanl
-          call glide_tstep_p3(instance%model)
-          !EIB! call glide_tstep_p3(instance%model,no_write=.true.)
+          instance%glide_time = instance%glide_time + instance%model%numerics%tinc
+
+          ! call the dynamic ice sheet model
+
+          !WHL - added option for glissade dycore
+          if (instance%model%options%whichdycore == DYCORE_GLIDE) then
+
+             call glide_tstep_p1(instance%model,instance%glide_time)
+
+             call glide_tstep_p2(instance%model)
+
+             !EIB! difference in call between gc2 and lanl
+             call glide_tstep_p3(instance%model)
+             !EIB! call glide_tstep_p3(instance%model,no_write=.true.)
+
+          else   ! glam/glissade dycore
+
+             call glissade_tstep(instance%model,instance%glide_time)
+
+          endif
 
           ! Add the calved ice to the ablation field
 
@@ -382,11 +398,27 @@ contains
              ablat_temp = ablat_temp + instance%ablt*instance%model%numerics%tinc
           endif
 
-          ! Save GLIDE output until now
+          ! write ice sheet diagnostics for this instance
+
+          if (mod(instance%model%numerics%timecounter,  &
+                  instance%model%numerics%ndiag)==0)  then
+
+             if (main_task) &
+                write(stdout,*) 'Write model diagnostics, time (yr) =', instance%model%numerics%time
+
+             call glide_write_diag(instance%model,                        &
+                                   instance%model%numerics%time,          &
+                                   instance%model%numerics%idiag_global,  &
+                                   instance%model%numerics%jdiag_global)
+
+          endif !   time to write diagnostics
+
+          ! write netCDf output
+
           call glide_io_writeall(instance%model,instance%model)
           call glint_io_writeall(instance,instance%model)
 
-       end do
+       end do   ! n_icestep
 
        ! Calculate flux fudge factor --------------------------------------------
 
@@ -586,16 +618,18 @@ contains
     ! last call.
     ! Global output arrays are only valid on the main task.
     !
-    use glide
-    use glide_io
     use glimmer_paramets
+    use glimmer_physcon, only: rhow,rhoi
+    use glimmer_log
+    use glide
+    use glissade
+    use glide_io
     use glint_mbal_coupling
     use glint_io
     use glint_mbal_io
     use glint_climate
 !!    use glimmer_routing
-    use glimmer_log
-    use glimmer_physcon, only: rhow,rhoi
+    use glide_diagnostics
     use parallel, only: tasks, main_task
 
     implicit none
@@ -879,14 +913,24 @@ contains
 
           instance%glide_time = instance%glide_time + instance%model%numerics%tinc
 
-          call glide_tstep_p1(instance%model,instance%glide_time)
+          ! call the dynamic ice sheet model
 
-          call glide_tstep_p2(instance%model)
+          !WHL - added option for glissade dycore
+          if (instance%model%options%whichdycore == DYCORE_GLIDE) then
 
-          !EIB! difference in call between gc2 and lanl
-          !EIB! call glide_tstep_p3(instance%model,no_write=.true.)
+             call glide_tstep_p1(instance%model,instance%glide_time)
 
-          call glide_tstep_p3(instance%model)
+             call glide_tstep_p2(instance%model)
+
+             !EIB! difference in call between gc2 and lanl
+             call glide_tstep_p3(instance%model)
+             !EIB! call glide_tstep_p3(instance%model,no_write=.true.)
+
+          else   ! glam/glissade dycore
+
+             call glissade_tstep(instance%model,instance%glide_time)
+
+          endif
 
           ! Add the calved ice to the ablation field
 
@@ -906,7 +950,23 @@ contains
 !!             ablat_temp = ablat_temp + instance%ablt*instance%model%numerics%tinc
 !!          endif
 
-          ! Save GLIDE output until now
+          ! write ice sheet diagnostics for this instance
+
+          if (mod(instance%model%numerics%timecounter,  &
+                  instance%model%numerics%ndiag)==0)  then
+
+             if (main_task) &
+                write(stdout,*) 'Write model diagnostics, time (yr) =', instance%model%numerics%time
+
+             call glide_write_diag(instance%model,                        &
+                                   instance%model%numerics%time,          &
+                                   instance%model%numerics%idiag_global,  &
+                                   instance%model%numerics%jdiag_global)
+
+          endif !   time to write diagnostics
+
+          ! write netCDF output
+
           call glide_io_writeall(instance%model,instance%model)
           call glint_io_writeall(instance,instance%model)
 

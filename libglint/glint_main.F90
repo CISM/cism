@@ -41,13 +41,12 @@ module glint_main
   use glint_global_grid
   use glint_constants
   use glimmer_anomcouple
-  use glide_diagnostics
+!!  use glide_diagnostics
 
 !TODO - Do not use the hard-coded idiag and jdiag; use model%numerics%idiag/jdiag instead
 !       Also, change the names of itest and jtest to make it clear these are on the global (CLM) grid.
   use glimmer_paramets, only: itest, jtest, jjtest, stdout, GLC_DEBUG
 
-  use glide_diagnostics
 
   implicit none
 
@@ -268,8 +267,7 @@ contains
                                            svf_temp,  sd_temp, alb_temp      ! Temporary output arrays
     integer,dimension(:),allocatable :: mbts,idts ! Array of mass-balance and ice dynamics timesteps
     logical :: anomaly_check ! Set if we've already initialised anomaly coupling
-!WHLTSTEP - Changed timeyr to dp
-!    real(rk) :: timeyr       ! time in years
+
     real(dp) :: timeyr       ! time in years
 
     real(rk),dimension(:,:,:),allocatable ::   &
@@ -466,7 +464,7 @@ contains
           end if
        end if
  
-      call glint_i_initialise(instance_config,     params%instances(i),     &
+       call glint_i_initialise(instance_config,    params%instances(i),     &
                                params%g_grid,      params%g_grid_orog,      &
                                mbts(i),            idts(i),                 &
                                params%need_winds,  params%enmabal,          &
@@ -479,18 +477,6 @@ contains
 
        where (params%total_coverage > 0.0) params%cov_normalise = params%cov_normalise + 1.0
        where (params%total_cov_orog > 0.0) params%cov_norm_orog = params%cov_norm_orog + 1.0
-
-       ! Write initial diagnostics for this instance
-!WHLTSTEP - Changed timeyr to dp
-!       timeyr = real(params%start_time/8760.)
-       timeyr = params%start_time/8760.d0
-       ! WJS: I think the glide_write_diag call is meant to be done by all tasks
-       if (GLC_DEBUG) then
-          write(stdout,*) 'Write model diagnostics, time =', timeyr
-          call glide_write_diag(params%instances(i)%model, timeyr,  &
-                                params%instances(i)%model%numerics%idiag_global,  &
-                                params%instances(i)%model%numerics%jdiag_global)
-       end if
 
        ! Initialise anomaly coupling
        if (.not.anomaly_check) then 
@@ -1003,20 +989,6 @@ contains
        where (params%total_coverage > 0.0) params%cov_normalise = params%cov_normalise + 1.0
 !!       where (params%total_cov_orog > 0.0) params%cov_norm_orog = params%cov_norm_orog + 1.0
 
-       ! Write initial diagnostics for this instance
-
-       timeyr = params%start_time/8760.d0
-
-       ! WJS: I think the glide_write_diag call is meant to be done by all tasks
-       ! WHL: That is correct
-
-!WHL - Do this always, not just if (GLC_DEBUG)?
-       if (GLC_DEBUG) then
-          write(stdout,*) 'Write model diagnostics, time =', timeyr
-          call glide_write_diag(params%instances(i)%model, timeyr,  &
-                                params%instances(i)%model%numerics%idiag_global,  &
-                                params%instances(i)%model%numerics%jdiag_global)
-       end if
 
        ! Initialise anomaly coupling
 !!       if (.not.anomaly_check) then 
@@ -1324,8 +1296,6 @@ contains
     real(rk),dimension(:,:),pointer :: precip
     real(rk),dimension(:,:),pointer :: temp
     real(rk) :: yearfrac
-!WHLTSTEP - Changed timeyr to dp
-!    real(rk) :: timeyr   ! time in years
     real(dp) :: timeyr   ! time in years
     integer :: j, ig, jg
 
@@ -1696,25 +1666,6 @@ contains
 
           endif   ! gcm_smb
 
-          ! write ice sheet diagnostics
-!TODO - This will not write diagnostics every ice dynamics timestep if timesteps are < 1 yr
-!       Move to Glide?
-
-          if (mod(params%instances(i)%model%numerics%timecounter,  &
-                  params%instances(i)%model%numerics%ndiag)==0)  then
-!WHLTSTEP - Write Glide time instead of Glint time.
-!             timeyr = time / (days_in_year*24.d0) 
-             timeyr = params%instances(i)%model%numerics%time
-             
-             ! WJS: I think the glide_write_diag call is meant to be done by all tasks
-             if (GLC_DEBUG) then
-                write(stdout,*) 'Write diagnostics, time (yr)=', timeyr     
-                call glide_write_diag(params%instances(i)%model, timeyr,  &
-                                      params%instances(i)%model%numerics%idiag_global,  &
-                                      params%instances(i)%model%numerics%jdiag_global)
-             end if
-          endif
-
        enddo    ! ninstances
 
        ! Scale output water fluxes to be in mm/s
@@ -1758,6 +1709,8 @@ contains
   end subroutine glint
 
   !===================================================================
+
+!WHL - New subroutine for GCM timestepping
 
 !!  subroutine glint(params,         time,            &
 !!                   rawtemp,        rawprecip,       &
@@ -2248,28 +2201,6 @@ contains
              endif  ! main_task
 
 !!          endif   ! gcm_smb
-
-          ! write ice sheet diagnostics
-
-!TODO - This will not write diagnostics every ice dynamics timestep if timesteps are < 1 yr
-!       Move to Glide?
-
-          if (mod(params%instances(i)%model%numerics%timecounter,  &
-                  params%instances(i)%model%numerics%ndiag)==0)  then
-
-!WHLTSTEP - Write Glide time instead of Glint time.
-!             timeyr = time / (days_in_year*24.d0) 
-             timeyr = params%instances(i)%model%numerics%time
-             
-             ! WJS: I think the glide_write_diag call is meant to be done by all tasks
-             ! WHL: Yes
-             if (GLC_DEBUG) then
-                write(stdout,*) 'Write diagnostics, time (yr)=', timeyr     
-                call glide_write_diag(params%instances(i)%model, timeyr,  &
-                                      params%instances(i)%model%numerics%idiag_global,  &
-                                      params%instances(i)%model%numerics%jdiag_global)
-             end if
-          endif
 
        enddo    ! ninstances
 

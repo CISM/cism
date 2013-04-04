@@ -63,6 +63,8 @@ contains
 
     !*FD Initialise a GLINT ice model instance
 
+    use glimmer_paramets, only: GLC_DEBUG
+    use glimmer_log
     use glimmer_config
     use glint_global_grid
     use glint_mbal_coupling
@@ -71,11 +73,12 @@ contains
     use glimmer_ncio
     use glide_nc_custom   , only: glide_nc_fillall
     use glide
-    use glimmer_log
+    use glissade
     use glint_constants
-    use glimmer_paramets, only: GLC_DEBUG
     use glimmer_restart_gcm
+    use glide_diagnostics
     use parallel, only: main_task
+
     implicit none
 
     ! Arguments
@@ -97,6 +100,7 @@ contains
     ! Internal
     real(sp),dimension(:,:),allocatable :: thk
     integer :: config_fileunit, restart_fileunit
+    real(dp) :: timeyr       ! time in years
 
     config_fileunit = 99
     if (present(gcm_config_unit)) then
@@ -130,7 +134,15 @@ contains
       endif
     endif
 
-    call glide_initialise(instance%model)
+    !WHL - added option for glissade dycore
+    if (instance%model%options%whichdycore == DYCORE_GLIDE) then
+       call glide_initialise(instance%model)
+    else       ! glam/glissade dycore     
+       call glissade_initialise(instance%model)
+    endif
+
+!TODO - Add call to diagnostic velocity solve
+
     instance%ice_tstep = get_tinc(instance%model)*years2hours
     instance%glide_time = instance%model%numerics%tstart
     idts = instance%ice_tstep
@@ -147,18 +159,37 @@ contains
     ! to be created for this run, but this information is needed before setting up outputs.   MJH 1/17/13
     ! Note: the corresponding call for glide is placed within *_readconfig, which is probably more appropriate,
     ! but putting this call into glint_i_readconfig creates a circular dependency.  
+
     call define_glint_restart_variables(instance)
  
+!WHL - debug
+    print*, ' '
+    print*, 'create glint variables (glint_io)'
+
     ! create glint variables for the glide output files
     call glint_io_createall(instance%model, data=instance)
 
+!WHL - debug
+    print*, ' '
+    print*, 'create glint variables (glint_mbal_io)'
+
     ! create instantaneous glint variables
+
     call openall_out(instance%model, outfiles=instance%out_first)
     call glint_mbal_io_createall(instance%model, data=instance, outfiles=instance%out_first)
 
     ! fill dimension variables
-    call glide_nc_fillall(instance%model)
-    call glide_nc_fillall(instance%model, outfiles=instance%out_first)
+
+!WHL - debug
+    print*, ' '
+    print*, 'call glide_nc_fillall'
+    call glide_nc_fillall(instance%model, vertical_level_flag = .false.)
+
+!WHL - debug
+    print*, ' '
+    print*, 'call glide_nc_fillall, outfiles =', instance%out_first%nc%filename
+    call glide_nc_fillall(instance%model, outfiles=instance%out_first,  &
+                                          vertical_level_flag = .false.)
 
     ! Check we've used all the config sections
 
@@ -271,6 +302,17 @@ contains
 !!    call glide_set_thk(instance%model,thk)
 !!    deallocate(thk)
 
+   ! Write initial ice sheet diagnostics for this instance
+
+    timeyr = 0.d0
+    if (main_task) write(stdout,*) 'Write initial model diagnostics, time =', timeyr
+
+    call glide_write_diag(instance%model,         timeyr,        &
+                          instance%model%numerics%idiag_global,  &
+                          instance%model%numerics%jdiag_global)
+
+    ! Write netCDF output for this instance
+
     call glide_io_writeall(instance%model, instance%model)
     call glint_io_writeall(instance, instance%model)
     call glint_mbal_io_writeall(instance, instance%model, outfiles=instance%out_first)
@@ -305,6 +347,8 @@ contains
 
     ! Initialise a GLINT ice model instance for GCM coupling
 
+    use glimmer_paramets, only: GLC_DEBUG
+    use glimmer_log
     use glimmer_config
     use glint_global_grid
     use glint_mbal_coupling
@@ -313,11 +357,12 @@ contains
     use glimmer_ncio
     use glide_nc_custom   , only: glide_nc_fillall
     use glide
-    use glimmer_log
+    use glissade
     use glint_constants
-    use glimmer_paramets, only: GLC_DEBUG
     use glimmer_restart_gcm
+    use glide_diagnostics
     use parallel, only: main_task
+
     implicit none
 
     ! Arguments
@@ -341,6 +386,7 @@ contains
     ! Internal
 
     real(sp),dimension(:,:),allocatable :: thk
+    real(dp) :: timeyr       ! time in years
 
     integer :: config_fileunit, restart_fileunit
 
@@ -376,7 +422,12 @@ contains
       endif
     endif
 
-    call glide_initialise(instance%model)
+    !WHL - added option for glissade dycore
+    if (instance%model%options%whichdycore == DYCORE_GLIDE) then
+       call glide_initialise(instance%model)
+    else       ! glam/glissade dycore     
+       call glissade_initialise(instance%model)
+    endif
 
     instance%ice_tstep = get_tinc(instance%model)*years2hours
     idts = instance%ice_tstep
@@ -398,12 +449,17 @@ contains
 
     call define_glint_restart_variables(instance)
  
+!TODO - Generate and call glint_gcm_io.F90 file?
+
     ! create glint variables for the glide output files
     call glint_io_createall(instance%model, data=instance)
 
     ! create instantaneous glint variables
     call openall_out(instance%model, outfiles=instance%out_first)
     call glint_mbal_io_createall(instance%model, data=instance, outfiles=instance%out_first)
+
+
+!TODO - Add optional vertical level argument as above.
 
     ! fill dimension variables
     call glide_nc_fillall(instance%model)
@@ -523,6 +579,17 @@ contains
 !!    endwhere
 !!    call glide_set_thk(instance%model,thk)
 !!    deallocate(thk)
+
+   ! Write initial ice sheet diagnostics for this instance
+
+    timeyr = 0.d0
+    if (main_task) write(stdout,*) 'Write initial model diagnostics, time =', timeyr
+
+    call glide_write_diag(instance%model,         timeyr,        &
+                          instance%model%numerics%idiag_global,  &
+                          instance%model%numerics%jdiag_global)
+
+    ! Write netCDF output for this instance
 
     call glide_io_writeall(instance%model, instance%model)
     call glint_io_writeall(instance, instance%model)
