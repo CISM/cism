@@ -1,6 +1,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! WARNING: this file was automatically generated on
-! Mon, 01 Apr 2013 22:20:05 +0000
+! Fri, 05 Apr 2013 18:25:24 +0000
 ! from ncdf_template.F90.in
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -156,8 +156,6 @@ contains
 
     integer status,varid,pos
 
-    integer :: level_dimid
-    integer :: lithoz_dimid
     integer :: time_dimid
     integer :: x0_dimid
     integer :: x1_dimid
@@ -165,18 +163,6 @@ contains
     integer :: y1_dimid
 
     ! defining dimensions
-    if (.not.outfile%append) then
-       status = parallel_def_dim(NCO%id,'level',model%general%upn,level_dimid)
-    else
-       status = parallel_inq_dimid(NCO%id,'level',level_dimid)
-    endif
-    call nc_errorhandle(__FILE__,__LINE__,status)
-    if (.not.outfile%append) then
-       status = parallel_def_dim(NCO%id,'lithoz',model%lithot%nlayer,lithoz_dimid)
-    else
-       status = parallel_inq_dimid(NCO%id,'lithoz',lithoz_dimid)
-    endif
-    call nc_errorhandle(__FILE__,__LINE__,status)
     status = parallel_inq_dimid(NCO%id,'time',time_dimid)
     call nc_errorhandle(__FILE__,__LINE__,status)
     if (.not.outfile%append) then
@@ -249,26 +235,6 @@ contains
        call write_log('The list of output variables is too long for file ' // NCO%filename, GM_FATAL)
     endif
 
-
-    !     level -- sigma layers
-    if (.not.outfile%append) then
-       call write_log('Creating variable level')
-       status = parallel_def_var(NCO%id,'level',get_xtype(outfile,NF90_FLOAT),(/level_dimid/),varid)
-       call nc_errorhandle(__FILE__,__LINE__,status)
-       status = parallel_put_att(NCO%id, varid, 'formula_terms', 'sigma: level topo: topg thick: thk')
-       status = parallel_put_att(NCO%id, varid, 'long_name', 'sigma layers')
-       status = parallel_put_att(NCO%id, varid, 'standard_name', 'land_ice_sigma_coordinate')
-       status = parallel_put_att(NCO%id, varid, 'units', '1')
-     end if
-
-    !     lithoz -- vertical coordinate of lithosphere layer
-    if (.not.outfile%append) then
-       call write_log('Creating variable lithoz')
-       status = parallel_def_var(NCO%id,'lithoz',get_xtype(outfile,NF90_FLOAT),(/lithoz_dimid/),varid)
-       call nc_errorhandle(__FILE__,__LINE__,status)
-       status = parallel_put_att(NCO%id, varid, 'long_name', 'vertical coordinate of lithosphere layer')
-       status = parallel_put_att(NCO%id, varid, 'units', 'meter')
-     end if
 
     !     x0 -- Cartesian x-coordinate, velocity grid
     if (.not.outfile%append) then
@@ -739,24 +705,6 @@ contains
     character(len=150) message
 
     ! check dimensions
-    status = parallel_inq_dimid(NCI%id,'level',dimid)
-    if (dimid.gt.0) then
-       status = parallel_inquire_dimension(NCI%id,dimid,len=dimsize)
-       if (dimsize.ne.model%general%upn) then
-          write(message,*) 'Error, reading file ',trim(NCI%filename),' size level does not match: ', &
-               model%general%upn
-          call write_log(message,GM_FATAL)
-       end if
-    end if
-    status = parallel_inq_dimid(NCI%id,'lithoz',dimid)
-    if (dimid.gt.0) then
-       status = parallel_inquire_dimension(NCI%id,dimid,len=dimsize)
-       if (dimsize.ne.model%lithot%nlayer) then
-          write(message,*) 'Error, reading file ',trim(NCI%filename),' size lithoz does not match: ', &
-               model%lithot%nlayer
-          call write_log(message,GM_FATAL)
-       end if
-    end if
     status = parallel_inq_dimid(NCI%id,'x0',dimid)
     if (dimid.gt.0) then
        status = parallel_inquire_dimension(NCI%id,dimid,len=dimsize)
