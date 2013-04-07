@@ -54,6 +54,8 @@ program simple_bisicles
 
   use glimmer_to_dycore
 
+  use glide_nc_custom
+
   implicit none
 
 
