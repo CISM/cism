@@ -30,16 +30,16 @@
       implicit none
       save
       private
-      public :: glissade_transport_driver, nghost_transport, ntracer_transport
+      public :: glissade_transport_driver
 
       logical, parameter ::  &
          prescribed_area = .false.  ! if true, prescribe the area fluxed across each edge
 
-!TODO - These parameters should be declared elsewhere.
-      integer, parameter :: nghost_transport = 2
-      integer, parameter :: ntracer_transport = 1
+!TODO - Code uses Protex documenting.  Revise for doxygen
 
-!TODO - Code uses Protex documenting.  Revise for another documenting system?
+!WHL = debug
+      integer, parameter :: idiag = 31, jdiag = 31
+
 
 !=======================================================================
 
@@ -58,9 +58,11 @@
                                            nlyr,     sigma,      &
                                            nhalo,    ntracer,    &
                                            uvel,     vvel,       &
-                                           thck,     temp,       &
-                                           age,                  &
+                                           thck,                 &
+                                           acab,     bmlt,       &
+                                           temp,     age,        &
                                            upwind_transport_in)
+
 !
 ! !DESCRIPTION:
 !
@@ -85,10 +87,14 @@
 !
 ! !INPUT/OUTPUT PARAMETERS:
 !
+
       real(dp), intent(in) ::     &
          dt,                   &! time step (s)
          dx, dy                 ! gridcell dimensions (m)
                                 ! (cells assumed to be rectangular)
+
+      !TODO - Use nhalo in parallel module instead of passing in
+      !     - Declare ntracer somewhere instead of passing in?
 
       integer, intent(in) ::   &
          nx, ny,               &! horizontal array size
@@ -109,7 +115,17 @@
          thck                   ! ice thickness (m)
                                 ! (defined at horiz cell centers)
 
-      real(dp), intent(inout), dimension(nlyr,nx,ny), optional :: &
+      real(dp), intent(in), dimension(nx,ny) :: &
+         acab                   ! surface mass balance (m/s)
+                                ! (defined at horiz cell centers)
+
+      real(dp), intent(in), dimension(nx,ny) :: &
+         bmlt                   ! basal melt rate (m/s)
+                                ! positive for melting, negative for freeze-on
+                                ! (defined at horiz cell centers)
+
+      ! Note vertical dimension of temperature
+      real(dp), intent(inout), dimension(0:nlyr+1,nx,ny), optional :: &
          temp                   ! ice temperature
                                 ! (defined at horiz cell centers, vertical layer midpts)
 
@@ -136,16 +152,27 @@
          vvel_layer        ! vvel averaged to layer midpoint (m/s)
 
       real(dp), dimension (nx,ny,nlyr) ::     &
-         thck_layer        ! ice layer thickness
+         thck_layer        ! ice layer thickness (m)
 
       real(dp), dimension (nx,ny,ntracer,nlyr) ::     &
          tracer            ! tracer values
+
+      real(dp), dimension (nx,ny) ::     &
+         tsfc,            &! surface temperature, temp(0,:,:)
+         tbed              ! basal temperature, temp(nlyr+1,:,:)
 
       integer ::     &
          icells            ! number of cells with ice
 
       integer, dimension(nx*ny) ::     &
          indxi, indxj      ! compressed i/j indices
+
+      real(dp) ::   &
+         new_thck,        &! temporary ice thickness
+         new_bmlt          ! bmlt adjusted for residual ablation
+
+      real(dp), dimension (nlyr) ::     &
+         new_thck_layer    ! temporary ice layer thickness
 
     !-------------------------------------------------------------------
     ! If prescribed_area is true, the area of each departure region is
@@ -162,9 +189,14 @@
       logical, parameter ::     &
          conservation_check = .true. ! if true, check global conservation
 
+      !TODO - separate arrays for mass and tracers?
       real(dp), dimension(0:ntracer) ::     &
-         mtsum_init     ,&! initial global ice mass and global ice mass*tracer
+         mtsum_init,     &! initial global ice mass and global ice mass*tracer
          mtsum_final      ! final global ice mass and global ice mass*tracer
+
+      real(dp) ::    &
+         sfc_accum, sfc_ablat,  &! accumulation and ablation at upper surface (m)
+         bed_accum, bed_ablat    ! freeze-on and melting at lower surface (m)
 
       logical ::     &
          l_stop            ! if true, abort the model
@@ -219,7 +251,7 @@
          if (present(temp)) then
             tracer(:,:,1,k) = temp(k,:,:)
          else
-            tracer(:,:,1,k) = 1.d0    ! dummy array
+            tracer(:,:,1,k) = 0.d0    ! dummy array
          endif
 
          if (present(age) .and. ntracer >= 2) tracer(:,:,2,k) = age(k,:,:)
@@ -229,27 +261,182 @@
       enddo
 
     !-------------------------------------------------------------------
+    ! Set surface and basal temperatures.
+    !-------------------------------------------------------------------
+
+      if (present(temp)) then
+         tsfc(:,:) = temp(0,:,:)
+         tbed(:,:) = temp(nlyr+1,:,:)
+      else
+         tsfc(:,:) = 0.d0
+         tbed(:,:) = 0.d0
+      endif
+
+    !TODO - Put this conservation check code in a subroutine?
+    !-------------------------------------------------------------------
     ! Compute initial values of globally conserved quantities (optional)
     !-------------------------------------------------------------------
 
       if (conservation_check) then
 
-         ! Compute initial values of globally conserved quantities.
+         !TODO - Account for basal melt too.
+
+         ! Compute initial values of globally conserved quantities,
+         !  accounting for surface accumulation.
          ! Assume gridcells of equal area, ice of uniform density.
 
          mtsum_init(:) = 0.0_dp
+
          do j = jlo, jhi
          do i = ilo, ihi
-            mtsum_init(0) = mtsum_init(0) + thck(i,j)  ! local for now
+
+            !------------------------------------------------------------------
+            ! accumulate ice thickness (proportional to mass) and thickness*tracers
+            !------------------------------------------------------------------
+
+            mtsum_init(0) = mtsum_init(0) + thck(i,j)   
             do nt = 1, ntracer
                mtsum_init(nt) =  mtsum_init(nt) + sum(tracer(i,j,nt,:) * thck_layer(i,j,:))
             enddo
-         enddo
-         enddo
+
+            !------------------------------------------------------------------
+            ! account for accumulation/ablation at top surface
+            ! assume acab > 0 for accumulation, < 0 for ablation
+            !------------------------------------------------------------------
+
+            new_thck_layer(:) = thck_layer(i,j,:)   ! keep track of new layer thicknesses as we handle acab,
+                                                    ! so we can deal correctly with bmlt below
+
+            if (acab(i,j) > 0.d0) then  ! net accumulation
+
+               sfc_accum = acab(i,j)*dt
+               new_thck_layer(1) = new_thck_layer(1) + sfc_accum
+
+               ! add mass
+               mtsum_init(0) = mtsum_init(0) + sfc_accum
+
+               ! add mass*temperature
+               mtsum_init(1) = mtsum_init(1) + tsfc(i,j) * sfc_accum
+
+               ! assume age of new ice = 0, so do not need to increment mtsum_init(2)
+
+               !TODO - Add other tracers here, as needed
+
+            elseif (acab(i,j) < 0.d0) then  ! net ablation
+             
+               sfc_ablat = -acab(i,j)*dt
+
+               if (thck(i,j) > sfc_ablat) then
+
+                  ! subtract mass
+                  mtsum_init(0) = mtsum_init(0) - sfc_ablat
+
+                  ! subtract mass*tracers
+                  do k = 1, nlyr      
+                     if (sfc_ablat > thck_layer(i,j,k)) then  ! remove entire layer
+                        do nt = 1, ntracer
+                           mtsum_init(nt) = mtsum_init(nt) - tracer(i,j,nt,k)*thck_layer(i,j,k)
+                        enddo
+                        new_thck_layer(k) = 0.d0
+                        sfc_ablat = sfc_ablat - thck_layer(i,j,k)
+                     else                                     ! remove part of layer
+                        do nt = 1, ntracer
+                           mtsum_init(nt) = mtsum_init(nt) - tracer(i,j,nt,k)*sfc_ablat
+                        enddo
+                        new_thck_layer(k) = new_thck_layer(k) - sfc_ablat
+                        sfc_ablat = 0.d0
+                        exit
+                     endif
+                  enddo
+
+               else    ! thck < sfc_ablat, so entire column will be removed
+
+                  mtsum_init(0) = mtsum_init(0) - thck(i,j)
+                  do k = 1, nlyr
+                     do nt = 1, ntracer
+                        mtsum_init(nt) = mtsum_init(nt) - tracer(i,j,nt,k)*thck_layer(i,j,k)
+                     enddo
+                     new_thck_layer(k) = 0.d0
+                  enddo
+
+                  ! There is some residual melt potential which we ignore for now.
+                  ! May have to revisit this for coupled runs. 
+                  sfc_ablat = sfc_ablat - sum(thck_layer(i,j,:))
+                                                                   
+               endif   ! thck > sfc_ablat
+ 
+            endif  ! acab > 0
+
+            !------------------------------------------------------------------
+            ! account for melting/freeze-on at bed
+            ! assume bmlt is > 0 for melting, < 0 for freezing
+            !------------------------------------------------------------------
+
+            ! new ice thickness adjusted for acab
+            new_thck = sum(new_thck_layer(:))
+ 
+            if (bmlt(i,j) < 0.d0) then  ! freeze-on
+
+               bed_accum = -bmlt(i,j)*dt
+
+               ! add mass
+               mtsum_init(0) = mtsum_init(0) + bed_accum
+
+               ! add mass*temperature
+               mtsum_init(1) = mtsum_init(1) + tbed(i,j) * bed_accum
+
+               ! assume age of new ice = 0, so do not need to increment mtsum_init(2)
+
+               !TODO - Add other tracers here, as needed
+
+            elseif (bmlt(i,j) > 0.d0) then  ! melting
+             
+               bed_ablat = bmlt(i,j)*dt
+
+               if (new_thck > bed_ablat) then
+
+                  ! subtract mass
+                  mtsum_init(0) = mtsum_init(0) - bed_ablat
+
+                  ! subtract mass*tracers
+                  do k = nlyr, 1, -1      
+                     if (bed_ablat > new_thck_layer(k)) then  ! remove entire layer
+                        do nt = 1, ntracer
+                           mtsum_init(nt) = mtsum_init(nt) - tracer(i,j,nt,k)*new_thck_layer(k)
+                        enddo
+                        bed_ablat = bed_ablat - new_thck_layer(k)
+                     else                                     ! remove part of layer
+                        do nt = 1, ntracer
+                           mtsum_init(nt) = mtsum_init(nt) - tracer(i,j,nt,k)*bed_ablat
+                        enddo
+                        bed_ablat = 0.d0
+                        exit
+                     endif
+                  enddo
+
+               else    ! new_thck < bed_ablat, so entire column will be removed
+
+                  mtsum_init(0) = mtsum_init(0) - new_thck
+                  do k = 1, nlyr
+                     do nt = 1, ntracer
+                        mtsum_init(nt) = mtsum_init(nt) - tracer(i,j,nt,k)*new_thck_layer(k)
+                     enddo
+                  enddo
+
+                  ! There is some residual melt potential which we ignore for now.
+                  ! May have to revisit this for coupled runs.
+                  bed_ablat = bed_ablat - new_thck
+
+               endif   ! thck > bed_ablat
+ 
+            endif  ! bmlt < 0
+
+         enddo       ! i
+         enddo       ! j
+
          call global_sum(mtsum_init)
 
       endif                     ! conservation_check
-      
 
 !TODO - Test upwind transport option
 
@@ -383,9 +570,30 @@
 
       endif       ! remapping v. upwind transport
 
-!TODO - Should we add/remove ice at surfaces before doing the vertical remapping?
-!       Would prefer to do this vertical remapping only once per time step.
+      !-------------------------------------------------------------------
+      ! Add the mass balance at the surface and bed.
+      ! The reason to do this now rather than at the beginning of the
+      !  subroutine is that the velocity was computed for the old geometry,
+      !  before the addition or loss of new mass at the surface and bed.  
+      ! TODO: Rethink this ordering if we move to implicit or semi-implicit
+      !       timestepping, where the velocity depends on the new geometry.
+      !
+      ! We assume here that new ice arrives at the surface with the same 
+      !  temperature as the surface.
+      ! TODO: Make sure that this assumption is consistent with energy
+      !       conservation for coupled simulations.
+      !-------------------------------------------------------------------
 
+      call glissade_add_smb(nx,       ny,         &
+                            nlyr,     ntracer,    &
+                            dt,                   &
+                            thck_layer(:,:,:),    &
+                            tracer(:,:,:,:),      &
+                            acab(:,:),            &
+                            tsfc(:,:),            &
+                            bmlt(:,:),            &
+                            tbed(:,:) )
+   
       !-------------------------------------------------------------------
       ! Interpolate tracers back to sigma coordinates 
       !-------------------------------------------------------------------
@@ -434,6 +642,8 @@
     ! Check global conservation of mass and mass*tracers.  (Optional)
     !-------------------------------------------------------------------
 
+      !TODO - Call a subroutine without optional arguments acab and bmlt?
+
       if (conservation_check) then
 
          ! Compute final values of globally conserved quantities.
@@ -470,6 +680,7 @@
             if (l_stop) then
                write(message,*) 'CONSERVATION ERROR in glissade_transport; Aborting'
                call write_log(message,GM_FATAL)
+!               call write_log(message,GM_DIAGNOSTIC)  ! uncomment for debugging
             endif
          endif
 
@@ -566,6 +777,225 @@
 
 !----------------------------------------------------------------------
 
+   subroutine glissade_add_smb(nx,         ny,         &
+                               nlyr,       ntracer,    &
+                               dt,                     &
+                               thck_layer, tracer,     &
+                               acab,       tsfc,       &
+                               bmlt,       tbed)
+      ! Input/output arguments
+
+      integer, intent(in) ::   &
+         nx, ny,               &! horizontal array size
+         nlyr,                 &! number of vertical layers
+         ntracer
+
+      real(dp), intent(in) ::   &
+         dt                     ! time step (s)
+
+      real(dp), dimension (nx,ny,nlyr), intent(inout) ::     &
+         thck_layer             ! ice layer thickness
+
+      real(dp), dimension (nx,ny,ntracer,nlyr), intent(inout) ::     &
+         tracer                 ! tracer values
+
+      real(dp), intent(in), dimension(nx,ny) :: &
+         acab                   ! surface mass balance (m/s)
+
+      real(dp), intent(in), dimension(nx,ny), optional :: &
+         tsfc                   ! surface temperature (deg C)
+
+      real(dp), intent(in), dimension(nx,ny) :: &
+         bmlt                   ! basal melt rate (m/s)
+                                ! > 0 for melting, < 0 for freeze-on
+
+      real(dp), intent(in), dimension(nx,ny), optional :: &
+         tbed                   ! basal temperature (deg C)
+
+      ! Local variables
+
+      real(dp), dimension(nx,ny,ntracer,nlyr) ::  &
+         thck_tracer       ! thck_layer * tracer
+
+      real(dp) :: sfc_accum, sfc_ablat  ! surface accumulation/ablation, from acab
+      real(dp) :: bed_accum, bed_ablat  ! bed accumulation/ablation, from bmlt
+      real(dp) :: new_bmlt              ! bmlt adjusted for residual surface ablation
+
+      integer :: i, j, k
+
+      character(len=100) :: message
+
+!WHL - debug
+      real(dp) :: init_thck, new_thck
+
+      do j = 1, ny
+         do i = 1, nx
+
+            ! initialize accumulation/ablation terms
+            sfc_accum = 0.d0
+            sfc_ablat = 0.d0
+            bed_accum = 0.d0
+            bed_ablat = 0.d0
+            
+!WHL - debug
+!            init_thck = sum(thck_layer(i,j,:))
+!            if (i==idiag .and. j==jdiag) then
+!               print*, 'starting thck 1 =', thck_layer(i,j,1)
+!               print*, 'starting thck =', sum(thck_layer(i,j,:))
+!               print*, 'acab*dt =', acab(i,j)*dt
+!               print*, 'bmlt*dt =', bmlt(i,j)*dt
+!               print*, 'thck + acab*dt - bmlt*dt =', sum(thck_layer(i,j,:)) + acab(i,j)*dt - bmlt(i,j)*dt
+!            endif
+
+            ! Add surface accumulation/ablation to ice thickness
+            ! Also modify tracers conservatively.
+            ! Assume tracer(:,:,1,:) is temperature and is always present
+            ! Asumme tracer(:,:,2,:) is ice age and is optionally present
+
+            if (acab(i,j) > 0.d0) then       ! accumulation, added to layer 1
+
+               sfc_accum = acab(i,j)*dt
+
+               ! temperature of top layer
+               if (ntracer >= 1) then
+                  thck_tracer(i,j,1,1) = thck_layer(i,j,1) * tracer(i,j,1,1)  &
+                                       + sfc_accum * tsfc(i,j)
+               endif
+
+               ! ice age (= 0 for new accumulation)
+               if (ntracer >= 2) then  
+                  thck_tracer(i,j,2,1) = thck_layer(i,j,1) * tracer(i,j,2,1) 
+                                     ! + sfc_accum * 0.d0
+
+                  !TODO - Add other tracers here, as needed
+               endif
+
+               ! new top layer thickess
+               thck_layer(i,j,1) = thck_layer(i,j,1) + sfc_accum
+
+               ! new tracer values in top layer
+               tracer(i,j,:,1) = thck_tracer(i,j,:,1) / thck_layer(i,j,1)
+
+            elseif (acab(i,j) < 0.d0) then   ! ablation             
+                                             ! allow for ablation of multiple layers
+
+               !TODO - Consider a 2nd-order accurate scheme allowing for linear
+               !       tracer gradients within layers.
+
+               ! reduce ice thickness (tracer values will not change)
+
+               sfc_ablat = -acab(i,j)*dt   ! positive by definition
+
+               !WHL - debug
+!               if (init_thck > 0.d0 .and. init_thck < sfc_ablat) then
+!                  print*, 'Surface ablation of entire ice thickness for cell', i, j
+!                  print*, 'thck, sfc_ablat:', init_thck, sfc_ablat
+!               endif
+
+               do k = 1, nlyr
+                  if (sfc_ablat > thck_layer(i,j,k)) then
+                     sfc_ablat = sfc_ablat - thck_layer(i,j,k)
+                     thck_layer(i,j,k) = 0.d0
+                     tracer(i,j,:,k) = 0.d0
+                  else
+                     thck_layer(i,j,k) = thck_layer(i,j,k) - sfc_ablat
+                     sfc_ablat = 0.d0
+                     exit
+                  endif
+               enddo
+  
+            endif  ! acab > 0
+
+            !TODO - Figure out how to handle energy conservation if we are left with sfc_ablat > 0.
+            !       Include in the heat flux passed back to CLM?
+            !       (This doesn't matter for EISMINT-type runs where acab < 0 in many ice-free cells.
+            !        But in coupled runs, acab < 0 implies that we should melt a certain mass of ice.)
+
+            !WHL - debug
+!            if (init_thck > 0.d0 .and. sfc_ablat > 0.d0) then
+!               print*, 'Residual energy for sfc ablation: i, j, sfc_ablat =', i, j, sfc_ablat
+!            endif
+!            new_thck = sum(thck_layer(i,j,:))
+
+            ! Note: It is theoretically possible that we could have residual energy remaining for surface
+            ! ablation while ice is freezing on at the bed, in which case the surface ablation should
+            ! be subtracted from the bed accumulation.  But I'm going to ignore this possibility.
+
+            if (bmlt(i,j) < 0.d0) then       ! freeze-on, added to lowest layer
+
+               bed_accum = -bmlt(i,j)*dt
+
+               ! temperature of bottom layer
+               if (ntracer >= 1) then
+                  thck_tracer(i,j,1,nlyr) = thck_layer(i,j,nlyr) * tracer(i,j,1,nlyr)  &
+                                          + bed_accum * tbed(i,j)
+               endif
+
+               ! ice age (= 0 for new accumulation)
+               if (ntracer >= 2) then  
+                  thck_tracer(i,j,2,nlyr) = thck_layer(i,j,nlyr) * tracer(i,j,2,nlyr) 
+                                        ! + bed_accum * 0.d0
+
+                  !TODO - Add other tracers here, as needed
+               endif
+
+               ! new bottom layer thickess
+               thck_layer(i,j,nlyr) = thck_layer(i,j,nlyr) + bed_accum
+
+               ! new tracer values in bottom layer
+               tracer(i,j,:,nlyr) = thck_tracer(i,j,:,nlyr) / thck_layer(i,j,nlyr)
+
+            elseif (bmlt(i,j) > 0.d0) then   ! basal melting             
+                                             ! allow for melting of multiple layers
+
+               !TODO - Consider a 2nd-order accurate scheme allowing for linear
+               !       tracer gradients within layers.
+
+               ! reduce ice thickness (tracer values will not change)
+
+               bed_ablat = bmlt(i,j)*dt   ! positive by definition
+
+               !WHL - debug
+!               if (new_thck > 0.d0 .and. new_thck < bed_ablat) then
+!                  print*, 'Basal ablation of entire ice thickness for cell', i, j
+!                  print*, 'thck, bed_ablat =', new_thck, bed_ablat
+!               endif
+
+               do k = nlyr, 1, -1
+                  if (bed_ablat > thck_layer(i,j,k)) then
+                     bed_ablat = bed_ablat - thck_layer(i,j,k)
+                     thck_layer(i,j,k) = 0.d0
+                     tracer(i,j,:,k) = 0.d0
+                  else
+                     thck_layer(i,j,k) = thck_layer(i,j,k) - bed_ablat
+                     bed_ablat = 0.d0
+                     exit
+                  endif
+               enddo
+  
+               !TODO - Figure out how to handle energy conservation if we are left with bed_ablat > 0.
+               !       Include in the heat flux passed back to CLM?
+
+               !WHL - debug
+!               if (new_thck > 0.d0 .and. bed_ablat > 0.d0) then
+!                  print*, 'Residual basal melting potential: i, j, bed_ablat =', i, j, bed_ablat
+!               endif
+
+            endif  ! bmlt < 0
+
+!WHL - debug
+!            if (i==idiag .and. j==jdiag) then
+!               print*, 'ending thck 1 =', thck_layer(i,j,1)
+!               print*, 'ending thck =', sum(thck_layer(i,j,:))
+!            endif
+
+         enddo   ! nx
+      enddo      ! ny
+
+      end subroutine glissade_add_smb
+
+!----------------------------------------------------------------------
+
     subroutine glissade_vertical_remap(nx,       ny,        &
                                        nlyr,     ntracer,   &
                                        sigma,    hlyr,      &
@@ -574,7 +1004,7 @@
     ! Conservative remapping of tracer fields from one set of vertical 
     ! coordinates to another.  The remapping is first-order accurate.
     !
-    !whl - TODO - Add a 2nd-order accurate vertical remapping scheme.
+    ! TODO - Add a 2nd-order accurate vertical remapping scheme.
     !
     ! Author: William Lipscomb, LANL
 

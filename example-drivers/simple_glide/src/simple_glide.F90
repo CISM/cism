@@ -52,8 +52,6 @@ program simple_glide
   use glimmer_commandline
   use glimmer_writestats
   use glimmer_filenames, only : filenames_init
-
-!TODO - These could be removed if we all a subroutine in glide.F90.
   use glide_io, only: glide_io_writeall
   use glide_lithot_io, only: glide_lithot_io_writeall
 
@@ -61,8 +59,11 @@ program simple_glide
 !!                                horiz_bcs_unstag_scalar, horiz_bcs_stag_scalar
 
   use glide_stop, only: glide_finalise
-
   use glide_diagnostics
+
+!WHL - debug
+  use glimmer_paramets
+  use glimmer_scales, only: scale_acab
 
   implicit none
 
@@ -74,6 +75,9 @@ program simple_glide
   integer :: clock,clock_rate,ret
 
   integer :: tstep_count
+
+!WHL - debug
+  integer :: j
 
 !TODO - parallel (glissade) only
   call parallel_initialise     
@@ -103,9 +107,7 @@ program simple_glide
 
   call glide_config(model,config)
 
-!TODO - Is this call always needed?   
-! MJH says: simple_initialise is only needed when using simple_massbalance and simple_surftemp.  
-! If those are removed, this should be removed too.
+  ! This call is needed only if running the EISMINT test cases
   call simple_initialise(climate,config)
 
   if (model%options%whichdycore == DYCORE_GLIDE) then
@@ -113,6 +115,18 @@ program simple_glide
   else       ! glam/glissade dycore	
      call glissade_initialise(model)
   endif
+
+!WHL - debug
+!    print*, ' '
+!    print*, 'After glide/glissade initialise:'
+!    print*, 'max, min thck (m)=', maxval(model%geometry%thck)*thk0, minval(model%geometry%thck)*thk0
+!    print*, 'max, min acab (m/yr) =', maxval(model%climate%acab)*scale_acab, minval(model%climate%acab)*scale_acab
+!    print*, 'max, min artm =', maxval(model%climate%artm), minval(model%climate%artm)
+!    print*, 'max, min temp =', maxval(model%temper%temp), minval(model%temper%temp)
+!    print*, 'thck:'
+!    do j = model%general%nsn, 1, -1
+!       write(6,'(30f5.0)') thk0 * model%geometry%thck(3:32,j)
+!    enddo
 
   call CheckSections(config)
  
@@ -123,16 +137,13 @@ program simple_glide
   tstep_count = 0
   model%numerics%time = time    ! MJH added 1/10/13 - the initial diagnostic glissade solve won't know the correct time on a restart unless we set it here.
 
-!### !TODO - Are these calls always needed?
-!### !TODO MJH These aren't needed for the initial state - only during time-stepping.  
-     !         So delete the calls here and only call them in the time-stepping routine
-!### !  call simple_massbalance(climate,model,time)
-!### !  call simple_surftemp(climate,model,time)
+     ! These calls are needed only for the EISMINT test cases, and they are not needed
+     ! for initialization provided they are called at the start of each timestep.
+!### ! call simple_massbalance(climate,model,time)
+!### ! call simple_surftemp(climate,model,time)
 
   call spinup_lithot(model)
     call t_stopf('glide initialization')
-
-!###   !tstep_count = 0 !TODO MJH delete this line - moved up above
 
   !MJH Created this block here to fill out initial state without needing to enter time stepping loop.  This allows
   ! a run with tend=tstart to be run without time-stepping at all.  It requires solving all diagnostic (i.e. not
@@ -234,6 +245,7 @@ program simple_glide
 
      ! --- First assign forcings ----
      ! Because this is Forward Euler, the forcings should be from the previous time step (e.g. H1 = f(H0, V0, SMB0))
+
      ! TODO Write generic forcing subroutines that could call simple_massbalance/surftemp or some other forcing module.  
      ! simple_massbalance/surftemp are only used for the EISMINT experiments.  
      ! If they are called without EISMINT options in the config file, they will do nothing.
@@ -242,6 +254,18 @@ program simple_glide
 
      call simple_massbalance(climate,model,time)
      call simple_surftemp(climate,model,time)
+
+!WHL - debug
+!    print*, ' '
+!    print*, 'After simple_massbalance, time =', time
+!    print*, 'max, min thck (m)=', maxval(model%geometry%thck)*thk0, minval(model%geometry%thck)*thk0
+!    print*, 'max, min acab (m/yr) =', maxval(model%climate%acab)*scale_acab, minval(model%climate%acab)*scale_acab
+!    print*, 'max, min artm =', maxval(model%climate%artm), minval(model%climate%artm)
+!    print*, 'max, min temp =', maxval(model%temper%temp), minval(model%temper%temp)
+!    print*, 'thck:'
+!    do j = model%general%nsn, 1, -1
+!       write(6,'(30f5.0)') thk0 * model%geometry%thck(3:32,j)
+!    enddo
 
 
      ! --- Increment time before performing time step operations ---
@@ -289,6 +313,19 @@ program simple_glide
         call glide_write_diag(model, time, model%numerics%idiag_global,  &
                                            model%numerics%jdiag_global)
      endif
+
+!WHL - debug
+!    print*, ' '
+!    print*, 'After glide/glissade tstep, time =', time
+!    print*, 'max, min thck (m)=', maxval(model%geometry%thck)*thk0, minval(model%geometry%thck)*thk0
+!    print*, 'max, min acab (m/yr) =', maxval(model%climate%acab)*scale_acab, minval(model%climate%acab)*scale_acab
+!    print*, 'max, min bmlt (m/yr) =', maxval(model%temper%bmlt) *scale_acab, minval(model%temper%bmlt) *scale_acab
+!    print*, 'max, min artm =', maxval(model%climate%artm), minval(model%climate%artm)
+!    print*, 'max, min temp =', maxval(model%temper%temp), minval(model%temper%temp)
+!    print*, 'thck:'
+!    do j = model%general%nsn, 1, -1
+!       write(6,'(30f5.0)') thk0 * model%geometry%thck(3:32,j)
+!    enddo
 
   end do   ! time < model%numerics%tend
 

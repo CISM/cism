@@ -86,7 +86,6 @@ contains
           end do
        end do
 
-!TODO - Remove for glissade case?
        ! apply periodic BC
        if (model%options%periodic_ew) then
           do ns = 2,model%general%nsn-1
@@ -128,8 +127,8 @@ contains
     ! now also calculate basal water in velocity (staggered) coord system
     call stagvarb(model%temper%bwat, &
                   model%temper%stagbwat ,&
-                  model%general%  ewn, &
-                  model%general%  nsn)
+                  model%general%ewn, &
+                  model%general%nsn)
 
   contains
 

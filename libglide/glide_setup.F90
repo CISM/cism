@@ -476,6 +476,7 @@ contains
     call GetValue(section,'dycore',model%options%whichdycore)
     call GetValue(section,'evolution',model%options%whichevol)
     call GetValue(section,'temperature',model%options%whichtemp)
+    call GetValue(section,'temp_init',model%options%temp_init)
     call GetValue(section,'flow_law',model%options%whichflwa)
     call GetValue(section,'basal_proc',model%options%which_bproc)
     call GetValue(section,'basal_water',model%options%whichbwat)
@@ -562,6 +563,11 @@ contains
          'full               ', &
          'steady             ', &
          'remapping advection' /)
+
+    character(len=*), dimension(0:2), parameter :: temp_init = (/ &
+         'set to 0 C             ', &
+         'set to surface air temp', &
+         'linear vertical profile' /)
 
     character(len=*), dimension(0:2), parameter :: flow_law = (/ &
          'Paterson and Budd                ', &
@@ -678,12 +684,17 @@ contains
     write(message,*) 'I/O parameter file      : ',trim(model%funits%ncfile)
     call write_log(message)
 
+    if (model%options%whichdycore < 0 .or. model%options%whichdycore >= size(dycore)) then
+       call write_log('Error, dycore option out of range',GM_FATAL)
+    end if
+    write(message,*) 'Dycore                  : ',model%options%whichdycore,dycore(model%options%whichdycore)
+    call write_log(message)
+
     if (model%options%whichtemp < 0 .or. model%options%whichtemp >= size(temperature)) then
-       call write_log('Error, temperature out of range',GM_FATAL)
+       call write_log('Error, temperature option out of range',GM_FATAL)
     end if
     write(message,*) 'temperature calculation : ',model%options%whichtemp,temperature(model%options%whichtemp)
     call write_log(message)
-
 
     if ((model%options%whichtemp == TEMP_REMAP_ADV .and. model%options%whichevol /= EVOL_INC_REMAP) .and. &
         (model%options%whichtemp == TEMP_REMAP_ADV .and. model%options%whichevol /= EVOL_NO_THICKNESS)) then
@@ -754,28 +765,28 @@ contains
 !!       endif
 !!    endif
 
-    if (model%options%whichdycore < 0 .or. model%options%whichdycore >= size(dycore)) then
-       call write_log('Error, dycore out of range',GM_FATAL)
+    if (model%options%temp_init < 0 .or. model%options%temp_init >= size(temp_init)) then
+       call write_log('Error, temp_init option out of range',GM_FATAL)
     end if
+    ! Note: If reading temperature from an input or restart file, the temp_init option is overridden,
+    !        so it could be confusing to write the option to the log file.
+    !       The method actually used is written to the log file by glide_init_temp. 
 
     if (model%options%whichflwa < 0 .or. model%options%whichflwa >= size(flow_law)) then
        call write_log('Error, flow_law out of range',GM_FATAL)
     end if
-
     write(message,*) 'flow law                : ',model%options%whichflwa,flow_law(model%options%whichflwa)
     call write_log(message)
 
     if (model%options%which_bproc < 0 .or. model%options%which_bproc >= size(which_bproc)) then
        call write_log('Error, basal_proc out of range',GM_FATAL)
     end if
-
     write(message,*) 'basal_proc              : ',model%options%which_bproc,which_bproc(model%options%which_bproc)
     call write_log(message)
 
     if (model%options%whichbwat < 0 .or. model%options%whichbwat >= size(basal_water)) then
        call write_log('Error, basal_water out of range',GM_FATAL)
     end if
-
     write(message,*) 'basal_water             : ',model%options%whichbwat,basal_water(model%options%whichbwat)
     call write_log(message)
 

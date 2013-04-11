@@ -96,7 +96,7 @@ module glimmer_paramets
 ! (necessary to be compatible with alternate dycores) 
 
 #ifndef NO_RESCALE
-! The following are the old Glimmer scaling parameters. These are now deprecated.
+! The following are the old Glimmer scaling parameters. These are to be deprecated.
   real(dp), parameter :: thk0 = 2000.0d0        ! m 
   real(dp), parameter :: len0 = 200.0d3         ! m 
   real(dp), parameter :: vel0 = 500.0 / scyr    ! m yr^{-1} converted to S.I. units
@@ -116,7 +116,7 @@ module glimmer_paramets
   !Note: Both the SIA and HO solvers fail unless tim0 = len0/vel0. Not sure if this can be changed.
   !      With the above scaling, tim0 = scyr.
   real(dp), parameter :: tim0 = len0 / vel0          ! s
-  real(dp), parameter :: acc0 = thk0 * vel0 / len0   ! same units as velo
+  real(dp), parameter :: acc0 = thk0 * vel0 / len0   ! m s^{-1}
 
 !TODO - With thk0 = 1, can replace tau0 by rhoi*grav in code and remove stress scaling.
 !       Similarly can redefine vis0 and evs0

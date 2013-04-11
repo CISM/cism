@@ -222,90 +222,195 @@ contains
           write(*,*)"       Re-run code with alternate option selected for 'whichbwat'."
           stop
 
-       end select
+    end select
 
-      !==== Initialize ice temperature.============
+    !==== Initialize ice temperature.============
 
-      !This block of code is similar to that in glissade_init_temp
-      !WHL - Old glide has this code in timeevoltemp
+    ! Five possibilities:
+    ! (1) Set ice temperature to 0 C everywhere in column (TEMP_INIT_ZERO)
+    ! (2) Set ice temperature to surface air temperature everywhere in column (TEMP_INIT_ARTM)
+    ! (3) Set up a linear temperature profile, with T = artm at the surface and T <= Tpmp
+    !     at the bed (TEMP_INIT_LINEAR). 
+    !     A parameter (pmpt_offset) controls how far below Tpmp the initial bed temp is set.
+    ! (4) Read ice temperature from an initial input file.
+    ! (5) Read ice temperature from a restart file.
+    !
+    ! If restarting, we always do (5).
+    ! If not restarting and the temperature field is present in the input file, we do (4).
+    ! If (4) or (5), then the temperature field should already have been read from a file,
+    !  and the rest of this subroutine will do nothing.
+    ! Otherwise, the initial temperature is controlled by model%options%temp_init,
+    !  which can be read from the config file.
+    !
+    !TODO - Remove halo parameters below, since uhalo = lhalo = 0 for glide.
+    !TODO - For reading from restart or input file, make sure that values in 
+    !       the Glide temperature halo are reasonable (and preferably not -999).
 
-!TODO - Remove halo parameters below, since uhalo = lhalo = 0 for glide
 
-      if (model%options%is_restart == 1) then
+    if (model%options%is_restart == 1) then
 
-         ! If we are restarting, use the field from the restart input file. (Temp is always a restart variable.)
-          call write_log('Using temp values from restart file for temperature initial condition.')
+       ! Temperature has already been initialized from a restart file. 
+       ! (Temperature is always a restart variable.)
 
-!TODO - For restart, make sure that values in the temperature halo are reasonable.
+       call write_log('Initializing ice temperature from the restart file')
 
-      elseif ( minval(model%temper%temp(1:model%general%upn, &
-                  1+lhalo:model%general%ewn-lhalo, 1+uhalo:model%general%nsn-uhalo)) < &
-                  (-1.0d0 * trpt) ) then    ! trpt = 273.15 K
-                                            ! Default initial temps in glide_types are -999
+    elseif ( minval(model%temper%temp(1:model%general%upn, &
+                    1+lhalo:model%general%ewn-lhalo, 1+uhalo:model%general%nsn-uhalo)) > &
+                    (-1.0d0 * trpt) ) then    ! trpt = 273.15 K
+                                              ! Default initial temps in glide_types are -999
 
-          ! If a temperature field was not provided on a cold start, then use the air temp.
-          ! (Check if any of -999.0 default values remain for temp in the physical domain now that the input file has been read.)
+       ! Temperature has already been initialized from an input file.
+       ! (We know this because the default initial temps have been overwritten.)
 
-!WHL - Previously, temps in the temperature halo cells were left at -999 after initialization.
-!      This doesn't seem like a good idea.
+       call write_log('Initializing ice temperature from an input file')
 
-          model%temper%temp(:,:,:) = 0.0d0  ! initialize to 0 
-                                            ! including temperature halo: ew = 0, ewn+1
-                                            !                             ns = 0, nsn+1   
+    else   ! not reading temperature from restart or input file, so initialize it here
 
-          ! Initialize ice temperature to air temperature (for each column). 
-          ! Loop over physical cells where artm should be defined (not temperature halo cells)
+       ! First set T = 0 C everywhere (including Glide temperature halo: ew = 0, ewn+1, ns = 0, nsn+1).
 
-!WHL - Note: Old glide sets temp = artm everywhere without regard to whether ice exists in a column.
-!TODO - Verify that this makes no difference for model results.
+       model%temper%temp(:,:,:) = 0.0d0                                              
+                                                    
+       if (model%options%temp_init == TEMP_INIT_ZERO) then
 
-          call write_log('Initializing ice temperature to the air temperature.')
+          ! Nothing else to do; just write to log
+          call write_log('Initializing ice temperature to 0 deg C')
+
+       elseif (model%options%temp_init == TEMP_INIT_ARTM) then
+
+          ! Initialize ice column temperature to surface air temperature
+          ! If artm > 0 C, then set T = 0 C.
+          ! Loop over physical cells where artm is defined (not temperature halo cells).
+
+          !Note: Old glide sets temp = artm everywhere without regard to whether ice exists in a column.
+          !TODO - Verify that this makes no difference for model results.
+          !TODO - Change dmin1 to min?
+
+          call write_log('Initializing ice temperature to the surface air temperature')
 
           do ns = 1, model%general%nsn
              do ew = 1, model%general%ewn
 
-               if (oldglide) then
-                model%temper%temp(:,ew,ns) = dmin1(0.0d0,dble(model%climate%artm(ew,ns)))  
-               else
-                if (model%geometry%thck(ew,ns) > 0.0d0) then  ! TODO should this be thin ice?
-                   ! initialize ice-covered areas to the min of artm and 0
-                   model%temper%temp(:,ew,ns) = dmin1(0.0d0,dble(model%climate%artm(ew,ns)))  
-                endif
-               endif   ! oldglide
+                call glide_init_temp_column(model%options%temp_init,         &
+                                            model%numerics%sigma(:),         &
+                                            dble(model%climate%artm(ew,ns)), &
+                                            model%geometry%thck(ew,ns),      &
+                                            model%temper%temp(:,ew,ns) )
              end do
           end do
 
-      else
+       elseif (model%options%temp_init == TEMP_INIT_LINEAR) then
 
-          ! If temp values have been included in the input file on a cold start, use them!
-          call write_log('Using temp values from input file for temperature initial condition.')
+          ! Initialize ice column temperature with a linear profile:
+          ! T = artm at the surface, and T <= Tpmp at the bed.
+          ! Loop over physical cells where artm is defined (not temperature halo cells)
 
-!TODO - For reading input file, make sure that values in the temperature halo are reasonable.
+          call write_log('Initializing ice temperature to a linear profile in each column')
 
-      endif
+          do ns = 1, model%general%nsn
+             do ew = 1, model%general%ewn
 
-      ! ====== Calculate initial value of flwa ==================
+                call glide_init_temp_column(model%options%temp_init,         &
+                                            model%numerics%sigma(:),         &
+                                            dble(model%climate%artm(ew,ns)), &
+                                            model%geometry%thck(ew,ns),      &
+                                            model%temper%temp(:,ew,ns) )
+             end do
+          end do
 
-      if (model%options%is_restart == 0) then
-         call write_log("Calculating initial flwa from temp and thk fields.")
+       endif ! model%options%temp_init
 
-         ! Calculate Glen's A --------------------------------------------------------   
+    endif    ! restart file, input file, or other options
 
-         call glide_calcflwa(model%numerics%sigma,        &
-                             model%numerics%thklim,       &
-                             model%temper%flwa,           &
-                             model%temper%temp(:,1:model%general%ewn,1:model%general%nsn), &
-                             model%geometry%thck,         &
-                             model%paramets%flow_factor,  &
-                             model%paramets%default_flwa, &
-                             model%options%whichflwa) 
-      else
-         call write_log("Using flwa values from restart file for flwa initial condition.") 
-      endif
+
+    ! ====== Calculate initial value of flwa ==================
+
+    if (model%options%is_restart == 0) then
+       call write_log("Calculating initial flwa from temp and thk fields")
+
+       ! Calculate Glen's A --------------------------------------------------------   
+
+       call glide_calcflwa(model%numerics%sigma,        &
+                           model%numerics%thklim,       &
+                           model%temper%flwa,           &
+                           model%temper%temp(:,1:model%general%ewn,1:model%general%nsn), &
+                           model%geometry%thck,         &
+                           model%paramets%flow_factor,  &
+                           model%paramets%default_flwa, &
+                           model%options%whichflwa) 
+    else
+       call write_log("Using flwa values from restart file for flwa initial condition.") 
+    endif
 
   end subroutine glide_init_temp
 
 !****************************************************    
+
+  subroutine glide_init_temp_column(temp_init,                 &
+                                    sigma,       artm,         &
+                                    thck,        temp)
+
+  ! Initialize temperatures in a column based on the value of temp_temp
+  ! Threee possibilities:
+  ! (1) Set ice temperature in column to 0 C (TEMP_INIT_ZERO)
+  ! (2) Set ice temperature in column to surface air temperature (TEMP_INIT_ARTM)
+  ! (3) Set up a linear temperature profile, with T = artm at the surface and T <= Tpmp
+  !     at the bed (TEMP_INIT_LINEAR). 
+  !     A local parameter (pmpt_offset) controls how far below Tpmp the initial bed temp is set.
+
+  ! In/out arguments
+ 
+  integer, intent(in) :: temp_init         ! option for temperature initialization
+
+  real(dp), dimension(:), intent(in)    :: sigma  ! vertical coordinate
+  real(dp), intent(in)                  :: artm   ! surface air temperature (deg C)
+                                                  ! Note: artm should be passed in as double precision
+  real(dp), intent(in)                  :: thck   ! ice thickness
+  real(dp), dimension(:), intent(inout) :: temp   ! ice column temperature (deg C)
+
+  ! Local variables and parameters
+
+  real(dp) :: tbed                           ! initial temperature at bed
+  real(dp) :: pmptb                          ! pressure melting point temp at the bed
+  real(dp), dimension(size(sigma)) :: pmpt   ! pressure melting point temp thru the column
+
+  real(dp), parameter :: pmpt_offset = 2.d0  ! offset of initial Tbed from pressure melting point temperature (deg C)
+                                             ! Note: pmtp_offset is positive for T < Tpmp
+
+  ! Set the temperature in the column
+
+  select case(temp_init)
+
+  case(TEMP_INIT_ZERO)     ! set T = 0 C
+
+     temp(:) = 0.d0
+
+  case(TEMP_INIT_ARTM)     ! initialize ice-covered areas to the min of artm and 0 C
+
+     if (thck > 0.0d0) then
+        temp(:) = dmin1(0.0d0, artm)  !TODO - dmin1 --> min?
+     else
+        temp(:) = 0.d0
+     endif
+
+  case(TEMP_INIT_LINEAR)
+
+     ! Tsfc = artm, Tbed = Tpmp = pmpt_offset, linear profile in between 
+
+     call calcpmptb (pmptb, thck)
+     tbed = pmptb - pmpt_offset
+
+     temp(:) = artm + (tbed - artm)*sigma(:) 
+                               
+     ! Make sure T <= Tpmp - pmpt_offset throughout column
+     ! TODO: Change condition to T <= Tpmp?
+
+     call calcpmpt(pmpt(:), thck, sigma(:))
+     temp(:) = min(temp(:), pmpt(:) - pmpt_offset)
+
+  end select
+
+  end subroutine glide_init_temp_column
+
 
   subroutine glide_temp_driver(model,whichtemp)
 
@@ -446,7 +551,7 @@ contains
 
        do ns = 2,model%general%nsn-1
           do ew = 2,model%general%ewn-1
-             if(model%geometry%thck(ew,ns) > model%numerics%thklim) then
+             if (model%geometry%thck(ew,ns) > model%numerics%thklim) then
 
                 weff = model%velocity%wvel(:,ew,ns) - model%velocity%wgrd(:,ew,ns)
 
@@ -526,9 +631,9 @@ contains
 !                   enddo
 !                endif
 
-             endif
-          end do
-       end do
+             endif   ! thk > thklim
+          end do     ! ew
+       end do        ! ns
 
 !WHL - debug
 !    print*, ' '
@@ -542,7 +647,6 @@ contains
 !    do j = model%general%nsn+1, 0, -1
 !       write(6,'(14f12.7)') model%temper%temp(2,3:16,j)
 !    enddo
-
 
        do while (tempresid > tempthres .and. iter <= mxit)
 
@@ -588,33 +692,70 @@ contains
                                  model%numerics%sigma,           &
                                  model%general%upn)
 
-
                    tempresid = max(tempresid, maxval(abs(model%temper%temp(:,ew,ns)-prevtemp(:))))
 
-                endif
-             end do
-          end do
+                endif   ! temp > thklim
+             end do     ! ew
+          end do        ! ns
 
           iter = iter + 1
 
        end do   ! tempresid > tempthres .and. iter <= mxit
 
        model%temper%niter = max(model%temper%niter, iter)
-       
-       ! set temperature of thin ice to the air temperature and set ice free nodes to zero
+ 
+!WHL - debug
+!       ew = model%numerics%idiag_global
+!       ns = model%numerics%jdiag_global
+!       print*, ' '
+!       print*, 'Before thin ice temps: ew, ns =', ew, ns
+!       print*, 'thck, thklim =', model%geometry%thck(ew,ns)*thk0, model%numerics%thklim*thk0
+!       print*, 'temp_init =', model%options%temp_init
+!       do k = 1, model%general%upn
+!          print*, k, model%temper%temp(k, ew, ns)
+!       enddo
 
-!LOOP: all scalar points
-       do ns = 1,model%general%nsn
-          do ew = 1,model%general%ewn
+       ! Set temperature of thin ice based on model%options%temp_init
+       !   T = 0 for TEMP_INIT_ZERO
+       !   T = artm for TEMP_INIT_ARTM
+       !   Linear vertical profile for TEMP_INIT_LINEAR
+       ! Set T = 0 for ice-free cells
+       !
+       ! NOTE: Calling this subroutine will maintain a sensible temperature profile
+       !        for thin ice, but in general does *not* conserve energy.
+       !       To conserve energy, we need either thklim = 0, or some additional
+       !        energy accounting and correction.
+   
+       do ns = 1, model%general%nsn
+          do ew = 1, model%general%ewn
+
              if (GLIDE_IS_THIN(model%geometry%thkmask(ew,ns))) then
-                model%temper%temp(:,ew,ns) = min(0.0d0,dble(model%climate%artm(ew,ns)))
+
+                !WHL - For older versions of the code we simply set T = min(artm,0)
+!!                model%temper%temp(:,ew,ns) = min(0.0d0,dble(model%climate%artm(ew,ns)))
+
+                call glide_init_temp_column(model%options%temp_init,         &
+                                            model%numerics%sigma(:),         &
+                                            dble(model%climate%artm(ew,ns)), &
+                                            model%geometry%thck(ew,ns),      &
+                                            model%temper%temp(:,ew,ns) )
+
              else if (GLIDE_NO_ICE(model%geometry%thkmask(ew,ns))) then
-                !JCC - one of these
-                !model%temper%temp(:,ew,ns) = min(0.0d0,dble(model%climate%artm(ew,ns)))
+
                 model%temper%temp(:,ew,ns) = 0.0d0
+
              end if
           end do
        end do
+
+!WHL - debug
+!       ew = model%numerics%idiag_global
+!       ns = model%numerics%jdiag_global
+!       print*, ' '
+!       print*, 'After thin ice temps: ew, ns =', ew, ns
+!       do k = 1, model%general%upn
+!          print*, k, model%temper%temp(k, ew, ns)
+!       enddo
 
        ! apply periodic ew BC
        if (model%options%periodic_ew) then
@@ -687,8 +828,6 @@ contains
 !    do j = model%general%nsn+1, 0, -1
 !       write(6,'(14e12.5)') model%temper%flwa(2,3:16,j)
 !    enddo
-
-
 
     ! Output some information ----------------------------------------------------
 
@@ -986,7 +1125,8 @@ contains
     type(glide_global_type) :: model
     real(dp), dimension(:,0:,0:), intent(in) :: temp
     real(dp), dimension(:,:), intent(in) :: thck,  stagthck, dusrfdew, dusrfdns, ubas, vbas  
-    real(dp), dimension(:,:), intent(inout) :: bmlt
+    real(dp), dimension(:,:), intent(inout) :: bmlt   ! scaled basal melting, m/s * tim0/thk0
+                                                      ! > 0 for melting, < 0 for freeze-on
     logical, dimension(:,:), intent(in) :: floater
     integer, intent(in) :: whichbmelt
 

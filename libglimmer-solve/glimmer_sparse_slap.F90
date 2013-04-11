@@ -240,7 +240,7 @@ contains
             ierr = 0
             niters = 0
             solution = 0
-            call write_log("RHS of all zeros passed to BCG method; iteration not perfomred.", &
+            call write_log("RHS of all zeros passed to BCG method; iteration not performed.", &
                            GM_WARNING, __FILE__, __LINE__)        
         else
 

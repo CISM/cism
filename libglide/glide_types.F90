@@ -105,6 +105,11 @@ module glide_types
   integer, parameter :: TEMP_STEADY = 2
   integer, parameter :: TEMP_REMAP_ADV = 3
 
+!WHL - New options for temperature initialization
+  integer, parameter :: TEMP_INIT_ZERO = 0
+  integer, parameter :: TEMP_INIT_ARTM = 1
+  integer, parameter :: TEMP_INIT_LINEAR = 2
+
   integer, parameter :: FLWA_PATERSON_BUDD = 0
   integer, parameter :: FLWA_PATERSON_BUDD_CONST_TEMP = 1
   integer, parameter :: FLWA_CONST_FLWA = 2
@@ -146,6 +151,9 @@ module glide_types
   integer, parameter :: FIRSTORDER_BMELT = 1
   integer, parameter :: SSA_BMELT = 2
 
+  integer, parameter :: BASAL_MBAL_NO_CONTINUITY = 0
+  integer, parameter :: BASAL_MBAL_CONTINUITY = 1
+
 !WHL - added options 2 and 3
   integer, parameter :: HO_SPARSE_BICG = 0
   integer, parameter :: HO_SPARSE_GMRES = 1
@@ -184,6 +192,9 @@ module glide_types
 
     integer :: whichtemp = 1
 
+    !TODO: Make sure option 0 is working as desired
+    !      Not sure we will support option 3 independent of evolution = 3
+
     !*FD Method of ice temperature calculation:
     !*FD \begin{description} 
     !*FD \item[0] Set column to surface air temperature
@@ -193,9 +204,23 @@ module glide_types
     !*FD \item[3] Use remapping to advect temperature (no advection by glide_temp)
     !*FD \end{description}
 
-    integer :: whichflwa = 0
+    !WHL - new options for temperature initialization
+    !TODO: At some point, change the default to temp_init = 2.
+    !      Setting default = 1 for now so that existing config files will get the same results.
+
+    integer :: temp_init = 1
+
+    ! Temperature initialization:
+    !*FD \begin{description} 
+    !*FD \item[0] Initialize temperature to 0 C
+    !*FD \item[1] Initialize temperature to surface air temperature
+    !*FD \item[2] Initialize temperature with a linear profile in each column
+    !*FD \end{description}
 
     !*FD Method for calculating flow factor $A$:
+
+    integer :: whichflwa = 0
+
     !*FD \begin{description} 
     !*FD \item[0] \emph{Paterson and Budd} relationship 
     !*FD \item[1] \emph{Paterson and Budd} relationship, 

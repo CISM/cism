@@ -243,8 +243,13 @@ contains
 !      but does not set the temperature or compute flwa until later call to timeevoltemp
 !WHL - In old glide I added artm as a hotstart variable
 
-    ! initialize temperature field - this needs to happen after input file is
-    ! read so we can assign artm (which could possibly be read in) if temp has not been input.
+    ! Initialize temperature field - this needs to happen after input file is
+    !  read so we can assign artm (which could possibly be read in) if temp has not been input.
+    !
+    ! Note: If the temperature field has not been read already from an input or restart file, 
+    !        then temperature is initialized by this subroutine based on model%options%temp_init.  
+    !       If the temperature has been read already, this subroutine will *not* overwrite it.
+  
     call glide_init_temp(model)
 
     ! initialise thickness evolution calc
@@ -255,13 +260,17 @@ contains
        call init_lithot(model)
     end if
 
-!WHL - old glide has this call in addition to init_temp, to compute flwa
+!WHL - This call will set the ice column temperature to artm as in old glide,
+!       regardless of the value of model%options%temp_init
+!      Commented out at least for now.  To reproduce results of old_glide, make sure
+!       model%options%temp_init = TEMP_INIT_ARTM.
+!!  if (oldglide) then
 !!    if (model%options%hotstart.ne.1) then
 !!       ! initialise Glen's flow parameter A using an isothermal temperature distribution
-!!       call timeevoltemp(model,0)
-!!    end if
-
-
+!!       call glide_temp_driver(model,0)
+!!    endif
+!!  endif  ! oldglide
+    
 !WHL - This option is disabled for now.
     ! *mb* added; initialization of basal proc. module
 !!    if (model%options%which_bproc == BAS_PROC_FULLCALC .or. &
@@ -464,29 +473,29 @@ contains
     ! We could iterate on this, but for simplicity that is not done.
 
     call glide_calcbmlt(model, &
-                           model%options%which_bmelt, &
-                           model%temper%temp, &
-                           model%geometry%thck, &
-                           model%geomderv%stagthck, &
-                           model%geomderv%dusrfdew, &
-                           model%geomderv%dusrfdns, &
-                           model%velocity%ubas, &
-                           model%velocity%vbas, &
-                           model%temper%bmlt, &
-                           GLIDE_IS_FLOAT(model%geometry%thkmask))
+                        model%options%which_bmelt, &
+                        model%temper%temp, &
+                        model%geometry%thck, &
+                        model%geomderv%stagthck, &
+                        model%geomderv%dusrfdew, &
+                        model%geomderv%dusrfdns, &
+                        model%velocity%ubas, &
+                        model%velocity%vbas, &
+                        model%temper%bmlt, &
+                        GLIDE_IS_FLOAT(model%geometry%thkmask))
 
     ! Calculate basal water depth ------------------------------------------------
 
     call calcbwat(model, &
-                     model%options%whichbwat, &
-                     model%temper%bmlt, &
-                     model%temper%bwat, &
-                     model%temper%bwatflx, &
-                     model%geometry%thck, &
-                     model%geometry%topg, &
-                     model%temper%temp(model%general%upn,:,:), &
-                     GLIDE_IS_FLOAT(model%geometry%thkmask), &
-                     model%tempwk%wphi)
+                  model%options%whichbwat, &
+                  model%temper%bmlt, &
+                  model%temper%bwat, &
+                  model%temper%bwatflx, &
+                  model%geometry%thck, &
+                  model%geometry%topg, &
+                  model%temper%temp(model%general%upn,:,:), &
+                  GLIDE_IS_FLOAT(model%geometry%thkmask), &
+                  model%tempwk%wphi)
 
     ! ------------------------------------------------------------------------ 
     ! Calculate basal traction factor
