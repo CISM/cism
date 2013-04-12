@@ -1,6 +1,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! WARNING: this file was automatically generated on
-! Fri, 05 Apr 2013 18:25:24 +0000
+! Fri, 12 Apr 2013 21:07:15 +0000
 ! from ncdf_template.F90.in
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -100,9 +100,6 @@ contains
     type(glide_global_type) :: model
     logical, optional :: atend
     type(glimmer_nc_output),optional,pointer :: outfiles
-!WHLTSTEP - Changed time to dp
-!           This change affects all the *_io.F90 files
-!    real(sp),optional :: time
     real(dp),optional :: time
 
     ! local variables
@@ -263,16 +260,11 @@ contains
     !*FD the model instance
 
     ! local variables
-!WHLTSTEP - Changed tavgf to dp
-!    real tavgf
     real(dp) :: tavgf
     integer status, varid
     integer up
      
     tavgf = outfile%total_time
-!WHLTSTEP - Changed tavgf to dp
-!    if (tavgf.ne.0.) then
-!       tavgf = 1./tavgf
     if (tavgf.ne.0.d0) then
        tavgf = 1.d0/tavgf
     end if
@@ -411,8 +403,6 @@ contains
     type(glide_global_type) :: data
 
     ! local variables
-!WHLTSTEP - Changed factor to dp
-!    real :: factor
     real(dp) :: factor
     integer status, varid
 
@@ -435,9 +425,7 @@ contains
     integer status, varid
 
     ! reset total time
-!WHLTSTEP - Change to dp
-    outfile%total_time = 0.
-!    outfile%total_time = 0.d0
+    outfile%total_time = 0.d0
 
   end subroutine glide_lithot_avg_reset
 #endif

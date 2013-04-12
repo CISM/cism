@@ -1,6 +1,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! WARNING: this file was automatically generated on
-! Fri, 05 Apr 2013 18:25:24 +0000
+! Fri, 12 Apr 2013 21:07:15 +0000
 ! from ncdf_template.F90.in
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -101,9 +101,6 @@ contains
     type(glide_global_type) :: model
     logical, optional :: atend
     type(glimmer_nc_output),optional,pointer :: outfiles
-!WHLTSTEP - Changed time to dp
-!           This change affects all the *_io.F90 files
-!    real(sp),optional :: time
     real(dp),optional :: time
 
     ! local variables
@@ -447,7 +444,7 @@ contains
        end if
      end if
 
-    !     bheatflx -- basal heat flux
+    !     bheatflx -- upward basal heat flux
     pos = index(NCO%vars,' bheatflx ')
     status = parallel_inq_varid(NCO%id,'bheatflx',varid)
     if (pos.ne.0) then
@@ -457,7 +454,8 @@ contains
        call write_log('Creating variable bheatflx')
        status = parallel_def_var(NCO%id,'bheatflx',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
-       status = parallel_put_att(NCO%id, varid, 'long_name', 'basal heat flux')
+       status = parallel_put_att(NCO%id, varid, 'scale_factor',(scale_bflx))
+       status = parallel_put_att(NCO%id, varid, 'long_name', 'upward basal heat flux')
        status = parallel_put_att(NCO%id, varid, 'units', 'watt/meter2')
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
@@ -1607,16 +1605,11 @@ contains
     !*FD the model instance
 
     ! local variables
-!WHLTSTEP - Changed tavgf to dp
-!    real tavgf
     real(dp) :: tavgf
     integer status, varid
     integer up
      
     tavgf = outfile%total_time
-!WHLTSTEP - Changed tavgf to dp
-!    if (tavgf.ne.0.) then
-!       tavgf = 1./tavgf
     if (tavgf.ne.0.d0) then
        tavgf = 1.d0/tavgf
     end if
@@ -2286,7 +2279,9 @@ contains
        call nc_errorhandle(__FILE__,__LINE__,status)
        status = parallel_get_att(NCI%id, varid,'scale_factor',scaling_factor)
        if (status.ne.NF90_NOERR) then
-          scaling_factor = 1.0d0
+          scaling_factor = 1.0d0/(scale_bflx)
+       else
+          scaling_factor = scaling_factor/(scale_bflx)
        end if
        if (abs(scaling_factor-1.0d0).gt.1.d-17) then
           call write_log("scaling bheatflx",GM_DIAGNOSTIC)
@@ -2851,8 +2846,6 @@ contains
     type(glide_global_type) :: data
 
     ! local variables
-!WHLTSTEP - Changed factor to dp
-!    real :: factor
     real(dp) :: factor
     integer status, varid
 
@@ -2899,9 +2892,7 @@ contains
     integer status, varid
 
     ! reset total time
-!WHLTSTEP - Change to dp
-    outfile%total_time = 0.
-!    outfile%total_time = 0.d0
+    outfile%total_time = 0.d0
 
     ! reset acab
     status = parallel_inq_varid(NCO%id,'acab_tavg',varid)
@@ -3028,7 +3019,7 @@ contains
     type(glide_global_type) :: data
     real, dimension(:,:), intent(out) :: outarray
 
-    outarray = data%temper%bheatflx
+    outarray = (scale_bflx)*(data%temper%bheatflx)
   end subroutine glide_get_bheatflx
 
   subroutine glide_set_bheatflx(data,inarray)
@@ -3039,7 +3030,7 @@ contains
     type(glide_global_type) :: data
     real, dimension(:,:), intent(in) :: inarray
 
-    data%temper%bheatflx = inarray
+    data%temper%bheatflx = inarray/(scale_bflx)
   end subroutine glide_set_bheatflx
 
   subroutine glide_get_bmlt(data,outarray)
