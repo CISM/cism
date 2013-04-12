@@ -212,7 +212,8 @@ contains
 
     endif   ! vertical_levels
 
-    if (model%options%gthf > 0) then
+!!    if (model%options%gthf > 0) then
+    if (model%options%gthf == GTHF_COMPUTE) then
        status = parallel_inq_varid(NCO%id,'lithoz',varid)
        status= parallel_put_var(NCO%id,varid,model%lithot%deltaz)
        call nc_errorhandle(__FILE__,__LINE__,status)

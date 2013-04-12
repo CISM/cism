@@ -198,6 +198,8 @@ contains
     model%velocity%bed_softness = model%velowk%btrac_const
 
     ! set uniform basal heat flux (positive down)
+    !NOTE: This value will be overridden if we read bheatflx from an input file 
+    !      (model%options%gthf = 1) or compute it (model%options%gthf = 2)
     model%temper%bheatflx = model%paramets%geot
 
 !WHL - debug
@@ -218,7 +220,8 @@ contains
     call glimmap_printproj(model%projection)
 
     ! read lithot if required
-    if (model%options%gthf > 0) then
+!!    if (model%options%gthf > 0) then
+    if (model%options%gthf == GTHF_COMPUTE) then
        call glide_lithot_io_readall(model,model)
     end if
 
@@ -239,12 +242,28 @@ contains
     ! create glide variables
     call glide_io_createall(model)
 
-
 !WHL - debug
     print*, ' '
     print*, 'Created Glide variables'
     print*, 'max, min bheatflx (W/m2)=', maxval(model%temper%bheatflx), minval(model%temper%bheatflx)
 
+    ! If a 2D bheatflx field is present in the input file, it will have been written 
+    !  to model%temper%bheatflx.  For the case model%options%gthf = 0, we want to use
+    !  a uniform heat flux instead.
+    ! If no bheatflx field is present in the input file, then we default to the 
+    !  prescribed uniform value, model%paramets%geot.
+
+    if (model%options%gthf == GTHF_UNIFORM) then
+       ! set uniform basal heat flux (positive down)
+       model%temper%bheatflx = model%paramets%geot
+
+!WHL - debug
+       print*, ' '
+       print*, 'Use uniform bheatflx'
+       print*, 'max, min bheatflx (W/m2)=', maxval(model%temper%bheatflx), minval(model%temper%bheatflx)
+
+    endif
+ 
 !TODO - Change names to glide_init_velo, glide_init_thck
 
     ! initialise velocity calc
@@ -266,7 +285,8 @@ contains
     ! initialise thickness evolution calc
     call init_thck(model)
 
-    if (model%options%gthf > 0) then
+!!    if (model%options%gthf > 0) then
+    if (model%options%gthf == GTHF_COMPUTE) then
        call glide_lithot_io_createall(model)
        call init_lithot(model)
     end if
@@ -612,7 +632,8 @@ contains
     ! calculate geothermal heat flux
     ! ------------------------------------------------------------------------ 
 
-    if (model%options%gthf > 0) then
+!!    if (model%options%gthf > 0) then
+    if (model%options%gthf == GTHF_COMPUTE) then
        call calc_lithot(model)
     end if
 
@@ -918,7 +939,8 @@ contains
        call glide_io_writeall(model,model)
       call t_stopf('glide_io_writeall')
 
-       if (model%options%gthf > 0) then
+!!       if (model%options%gthf > 0) then
+       if (model%options%gthf == GTHF_COMPUTE) then
          call t_startf('glide_lithot_io_writeall')
           call glide_lithot_io_writeall(model,model)
          call t_stopf('glide_lithot_io_writeall')

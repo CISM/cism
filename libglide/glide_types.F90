@@ -73,6 +73,8 @@ module glide_types
 
   implicit none
 
+!TODO - Add a 'save' here?
+
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   type glide_general
@@ -121,7 +123,7 @@ module glide_types
   integer, parameter :: EVOL_ADI = 1
   integer, parameter :: EVOL_DIFFUSION = 2
   integer, parameter :: EVOL_INC_REMAP = 3
-  integer, parameter :: EVOL_FO_UPWIND = 4 
+!!  integer, parameter :: EVOL_FO_UPWIND = 4 
 
   integer, parameter :: SIGMA_BUILTIN_DEFAULT = 0 !Use default Sigma coordinate spacing
   integer, parameter :: SIGMA_BUILTIN_EVEN = 1 !Use an evenly spaced Sigma coordinate
@@ -133,7 +135,7 @@ module glide_types
   integer, parameter :: BWATER_BASAL_PROC = 3  !*mb* basal water available from basal proc. module
   integer, parameter :: BWATER_CONST = 4       !*mb* Constant thickness of water, e.g., to force Tpmp.
 
-!whl - added a case here
+!WHL - added a case here
   integer, parameter :: HO_EFVS_FULL = 0
   integer, parameter :: HO_EFVS_FLOWFACT = 1
   integer, parameter :: HO_EFVS_CONSTANT = 2
@@ -153,6 +155,11 @@ module glide_types
 
   integer, parameter :: BASAL_MBAL_NO_CONTINUITY = 0
   integer, parameter :: BASAL_MBAL_CONTINUITY = 1
+
+!WHL - added an option here
+  integer, parameter :: GTHF_UNIFORM = 0
+  integer, parameter :: GTHF_PRESCRIBED_2D = 1
+  integer, parameter :: GTHF_COMPUTE = 2
 
 !WHL - added options 2 and 3
   integer, parameter :: HO_SPARSE_BICG = 0
@@ -297,6 +304,23 @@ module glide_types
     !*FD \item[2] first time slice of input topo is in isostatic equilibrium
     !*FD \end{description}
 
+    integer :: basal_mbal = 0
+    !*FD basal melt rate:
+    !*FD \begin{description}
+    !*FD \item[0] Basal melt rate not included in continuity equation
+    !*FD \item[1] Basal melt rate included in continuity equation
+    !*FD \end{description}
+
+    !WHL - Made distinct options for prescribed uniform value
+    !      v. reading from input file 
+    integer :: gthf = 0
+    !*FD geothermal heat flux:
+    !*FD \begin{description}
+    !*FD \item[0] prescribed uniform geothermal heat flux
+    !*FD \item[1] read 2D geothermal flux field from input file (if present)
+    !*FD \item[2] calculate geothermal flux using 3d diffusion
+    !*FD \end{description}
+
     integer :: is_restart = 0
     !*FD if the run is a restart of a previous run
     !*FD \begin{description}
@@ -408,12 +432,6 @@ module glide_types
 
     logical :: periodic_ns = .false.
 
-    integer :: gthf = 0
-    !*FD \begin{description}
-    !*FD \item[0] no geothermal heat flux calculations
-    !*FD \item[1] calculate gthf using 3d diffusion
-    !*FD \end{description}
-
     integer :: which_sigma = 0
     !*FD \begin{description}
     !*FD \item[0] calculate sigma coordinates
@@ -436,12 +454,6 @@ module glide_types
     !*FD \begin{description}
     !*FD \item[0] standard bmlt calculation
     !*FD \item[1] use plume to calculate bmlt
-    !*FD \end{description}
-
-    integer :: basal_mbal = 0
-    !*FD \begin{description}
-    !*FD \item[0] Basal melt rate not included in continuity equation
-    !*FD \item[1] Basal melt rate included in continuity equation
     !*FD \end{description}
 
 !TODO - Does this belong under 'options' or elsewhere?

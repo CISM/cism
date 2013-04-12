@@ -140,7 +140,8 @@ contains
     call glimmap_printproj(model%projection)
 
     ! read lithot if required
-    if (model%options%gthf > 0) then
+!!    if (model%options%gthf > 0) then
+    if (model%options%gthf == GTHF_COMPUTE) then
        call glide_lithot_io_readall(model,model)
     end if
 
@@ -170,9 +171,8 @@ contains
 
     call glissade_init_temp(model)  ! temperature lives at layer centers
 
-!WHL - Removed call to glide_initialise_backstress; used only by old glide_marinlim case(5)
-
-    if (model%options%gthf > 0) then
+!!    if (model%options%gthf > 0) then
+    if (model%options%gthf == GTHF_COMPUTE) then
        call not_parallel(__FILE__,__LINE__)
        call glide_lithot_io_createall(model)
        call init_lithot(model)
@@ -320,7 +320,8 @@ contains
     ! calculate geothermal heat flux
     ! ------------------------------------------------------------------------ 
     !TODO Not sure if this is in the right place.  G1=f(G0,T0) and T1=g(G0,T0)  If we update G1 now, then we will be doing T1=g(G1,T0).
-    if (model%options%gthf > 0) then
+!!    if (model%options%gthf > 0) then
+    if (model%options%gthf == GTHF_COMPUTE) then
        call not_parallel(__FILE__,__LINE__)
        call calc_lithot(model)
     end if
@@ -728,7 +729,8 @@ contains
        call glide_io_writeall(model,model)
       call t_stopf('glide_io_writeall')
 
-       if (model%options%gthf > 0) then
+!!       if (model%options%gthf > 0) then
+       if (model%options%gthf == GTHF_COMPUTE) then
          call t_startf('glide_lithot_io_writeall')
           call glide_lithot_io_writeall(model,model)
          call t_stopf('glide_lithot_io_writeall')

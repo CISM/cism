@@ -93,16 +93,22 @@ contains
 
     ! read parameters
     call GetSection(config,section,'parameters')
-
     if (associated(section)) then
        call handle_parameters(section, model)
     end if
+
     ! read GTHF 
     call GetSection(config,section,'GTHF')
+!WHL - debug
+    print*, 'associated(GTHF) =', associated(section)
+    print*, 'options%gthf =', model%options%gthf
+
     if (associated(section)) then
-       model%options%gthf = 1
+!!       model%options%gthf = 1       
+       model%options%gthf = GTHF_COMPUTE
        call handle_gthf(section, model)
     end if
+
     ! read till parameters
     call GetSection(config,section,'till_options')
     if (associated(section)) then
@@ -491,6 +497,7 @@ contains
     call GetValue(section,'restart',model%options%is_restart)
     call GetValue(section,'periodic_ew',model%options%periodic_ew)
     call GetValue(section,'basal_mass_balance',model%options%basal_mbal)
+    call GetValue(section,'gthf',model%options%gthf)
     call GetValue(section,'periodic_ns',model%options%periodic_ns)
     call GetValue(section,'diagnostic_run',model%options%diagnostic_run)
     !call GetValue(section, 'use_plume',model%options%use_plume)   !! For future releases
@@ -678,6 +685,11 @@ contains
          'not in continuity eqn', &
          'in continuity eqn    ' /)
 
+    character(len=*), dimension(0:2), parameter :: gthf = (/ &
+         'uniform geothermal flux         ', &
+         'read flux from file, if present ', &
+         'compute flux from diffusion eqn ' /)
+
     call write_log('GLIDE options')
     call write_log('-------------')
 
@@ -822,6 +834,14 @@ contains
     end if
 
     write(message,*) 'basal_mass_balance      : ',model%options%basal_mbal,b_mbal(model%options%basal_mbal)
+    call write_log(message)
+
+    if (model%options%gthf < 0 .or. model%options%gthf >= size(gthf)) then
+       print*, 'gthf =', model%options%gthf
+       call write_log('Error, geothermal flux option out of range',GM_FATAL)
+    end if
+
+    write(message,*) 'geothermal heat flux    : ',model%options%gthf,gthf(model%options%gthf)
     call write_log(message)
 
     if (model%options%whichrelaxed==1) then
@@ -975,7 +995,7 @@ contains
        write(message,*) 'ice fraction lost due to calving : ', model%numerics%calving_fraction
        call write_log(message)
     end if
-    write(message,*) 'geothermal heat flux (pos down) : ', model%paramets%geot
+    write(message,*) 'geothermal heat flux  : ', model%paramets%geot
     call write_log(message)
     write(message,*) 'flow enhancement      : ', model%paramets%flow_factor
     call write_log(message)
@@ -1150,7 +1170,8 @@ contains
     type(glide_global_type)  :: model
     character(len=100) :: message
     
-    if (model%options%gthf > 0) then
+!!    if (model%options%gthf > 0) then
+    if (model%options%gthf == GTHF_COMPUTE) then
        call write_log('GTHF configuration')
        call write_log('------------------')
        if (model%lithot%num_dim==1) then
@@ -1276,7 +1297,8 @@ contains
     end select
 
     ! if the GTHF calculation is enabled, litho_temp needs to be a restart variable
-    if (options%gthf /= 0) then
+!!    if (options%gthf /= 0) then
+    if (options%gthf == GTHF_COMPUTE) then
         ! (Note the call to the glide_lithot_io module instead of glide_io module here)
         call glide_lithot_add_to_restart_variable_list('litho_temp')
     endif
