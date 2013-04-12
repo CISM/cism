@@ -629,8 +629,8 @@ contains
 !                write(50,*) 'ffric =', model%temper%bfricflx(ew,ns)
 !                write(50,*) 'fgeo =', -model%temper%bheatflx(ew,ns)
 !                write(50,*) 'flux for bottom melting =', model%temper%bfricflx(ew,ns)   &
-!                                                             - model%temper%bheatflx(ew,ns)   &
-!                                                             + model%temper%lcondflx(ew,ns)
+!                                                       - model%temper%bheatflx(ew,ns)   &
+!                                                       + model%temper%lcondflx(ew,ns)
              endif
 
 !WHL - No call here to corrpmpt.  Temperatures above pmpt are set to pmpt 
@@ -1049,6 +1049,10 @@ contains
              ! Basal friction term is computed above in subroutine glissade_calcbfric
 
              ! Compute basal melting
+             ! Note: bmlt > 0 for melting, < 0 for freeze-on
+             !       bfricflx >= 0 by definition
+             !       bheatflx is positive down, so usually bheatflx < 0 (with negative values contributing to melt)
+             !       lcondflx is positive down, so lcondflx < 0 for heat is flowing from the bed toward the surface
 
              !TODO - This equation allows for freeze-on (bmlt < 0) if the conductive term 
              !       (lcondflx, positive down) is carrying enough heat away from the boundary.  

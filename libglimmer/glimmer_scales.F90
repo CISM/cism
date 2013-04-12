@@ -42,6 +42,11 @@ module glimmer_scales
   real(dp) :: scale_uvel, scale_uflx, scale_diffu, scale_acab, scale_wvel, scale_btrc 
   real(dp) :: scale_beta, scale_flwa, scale_tau, scale_efvs
 
+!WHL - Added this factor simply to flip the sign.  Typically the basal heat flux has
+!      a sign convention of positive up in input data, but the Glimmer-CISM convention
+!      is positive down.
+  real(dp) :: scale_bflx
+ 
 contains
 
 !SCALING - Removed the scale factors that were not used and renamed the rest.
@@ -76,7 +81,9 @@ contains
     scale_flwa  = scyr * vis0                     ! flwa
     scale_tau   = tau0                            ! tauf, tauxz, btractx
     scale_efvs  = evs0 / scyr                     ! efvs
-
+    scale_bflx  = -1.d0                           ! bheatflx (Glimmer-CISM sign convention is positive down,
+                                                  !           whereas input data usually assumes positive up)
+ 
   end subroutine glimmer_init_scales
 
 end module glimmer_scales

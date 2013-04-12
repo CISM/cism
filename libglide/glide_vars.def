@@ -330,11 +330,13 @@ coordinates:   lon lat
 average:       1
 load:          1
 
+#WHL: scale_bflux = -1, to reverse sign convention from + up to + down
 [bheatflx]
 dimensions:    time, y1, x1
 units:         watt/meter2
-long_name:     basal heat flux
+long_name:     upward basal heat flux
 data:          data%temper%bheatflx
+factor:        scale_bflx
 load:          1
 coordinates:   lon lat
 

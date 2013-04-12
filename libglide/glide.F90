@@ -197,8 +197,13 @@ contains
     ! initialise bed softness to uniform parameter
     model%velocity%bed_softness = model%velowk%btrac_const
 
-    ! set uniform basal heat flux 
+    ! set uniform basal heat flux (positive down)
     model%temper%bheatflx = model%paramets%geot
+
+!WHL - debug
+    print*, ' '
+    print*, 'In glide_initialise, geot =:', model%paramets%geot
+    print*, 'max, min bheatflx (W/m2)=', maxval(model%temper%bheatflx), minval(model%temper%bheatflx)
 
     ! load sigma file
     call glide_load_sigma(model,dummyunit)
@@ -233,6 +238,12 @@ contains
 
     ! create glide variables
     call glide_io_createall(model)
+
+
+!WHL - debug
+    print*, ' '
+    print*, 'Created Glide variables'
+    print*, 'max, min bheatflx (W/m2)=', maxval(model%temper%bheatflx), minval(model%temper%bheatflx)
 
 !TODO - Change names to glide_init_velo, glide_init_thck
 

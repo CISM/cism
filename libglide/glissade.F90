@@ -124,7 +124,7 @@ contains
     ! initialise bed softness to uniform parameter
     model%velocity%bed_softness = model%velowk%btrac_const
 
-    ! set uniform basal heat flux 
+    ! set uniform basal heat flux (positive down)
     model%temper%bheatflx = model%paramets%geot
 
     ! load sigma file

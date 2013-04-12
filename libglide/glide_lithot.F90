@@ -80,14 +80,15 @@ contains
     model%lithot%zfactors(:,k) = 0.5*model%lithot%diffu*tim0*model%numerics%dt / &
          (model%lithot%deltaz(k)-model%lithot%deltaz(k-1))**2
 
+    !TODO - Make sure the sign is correct here.
+    !NOTE: Glimmer-CISM convention is that geot is positive down, so geot < 0 for upward geothermal flux
     if (model%options%is_restart /= 1) then
        ! set initial temp distribution to thermal gradient
-       factor = model%paramets%geot/model%lithot%con_r
+       factor = model%paramets%geot / model%lithot%con_r
        do k=1,model%lithot%nlayer
-          model%lithot%temp(:,:,k) = model%lithot%surft+model%lithot%deltaz(k)*factor
+          model%lithot%temp(:,:,k) = model%lithot%surft + model%lithot%deltaz(k)*factor
        end do
     end if
-
 
     if (model%lithot%num_dim==1) then
        call init_lithot1d(model)
@@ -96,6 +97,7 @@ contains
     else
        call write_log('Wrong number of dimensions.',GM_FATAL,__FILE__,__LINE__)
     end if
+
   end subroutine init_lithot    
 
   subroutine spinup_lithot(model)

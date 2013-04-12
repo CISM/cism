@@ -935,22 +935,22 @@ contains
 
     call GetValue(section,'log_level',loglevel)
     call glimmer_set_msg_level(loglevel)
-    call GetValue(section,'ice_limit',model%numerics%thklim)
-    call GetValue(section,'marine_limit',model%numerics%mlimit)
-    call GetValue(section,'calving_fraction',model%numerics%calving_fraction)
-    call GetValue(section,'geothermal',model%paramets%geot)
-    call GetValue(section,'flow_factor',model%paramets%flow_factor)
-    call GetValue(section,'default_flwa',model%paramets%default_flwa)
-    call GetValue(section,'hydro_time',model%paramets%hydtim)
-    call GetValue(section,'basal_tract',temp,5)
+    call GetValue(section,'ice_limit',        model%numerics%thklim)
+    call GetValue(section,'marine_limit',     model%numerics%mlimit)
+    call GetValue(section,'calving_fraction', model%numerics%calving_fraction)
+    call GetValue(section,'geothermal',       model%paramets%geot)
+    call GetValue(section,'flow_factor',      model%paramets%flow_factor)
+    call GetValue(section,'default_flwa',     model%paramets%default_flwa)
+    call GetValue(section,'hydro_time',       model%paramets%hydtim)
+    call GetValue(section,'basal_tract',      temp,5)
     if (associated(temp)) then
        model%paramets%btrac_const=temp(1)
        deallocate(temp)
     end if
-    call GetValue(section,'basal_tract_const',model%paramets%btrac_const)
-    call GetValue(section,'basal_tract_max',model%paramets%btrac_max)
-    call GetValue(section,'basal_tract_slope',model%paramets%btrac_slope)
-    call GetValue(section,'sliding_constant',model%climate%slidconst)
+    call GetValue(section,'basal_tract_const', model%paramets%btrac_const)
+    call GetValue(section,'basal_tract_max',   model%paramets%btrac_max)
+    call GetValue(section,'basal_tract_slope', model%paramets%btrac_slope)
+    call GetValue(section,'sliding_constant',  model%climate%slidconst)
 
 !WHL - added for ismip-hom
     call GetValue(section,'periodic_offset_ew',model%numerics%periodic_offset_ew)
@@ -972,21 +972,21 @@ contains
     write(message,*) 'marine depth limit    : ',model%numerics%mlimit
     call write_log(message)
     if (model%options%whichmarn==3) then
-       write(message,*) 'ice fraction lost due to calving :', model%numerics%calving_fraction
+       write(message,*) 'ice fraction lost due to calving : ', model%numerics%calving_fraction
        call write_log(message)
     end if
-    write(message,*) 'geothermal heat flux  : ',model%paramets%geot
+    write(message,*) 'geothermal heat flux (pos down) : ', model%paramets%geot
     call write_log(message)
-    write(message,*) 'flow enhancement      : ',model%paramets%flow_factor
+    write(message,*) 'flow enhancement      : ', model%paramets%flow_factor
     call write_log(message)
-    write(message,*) 'basal hydro time const: ',model%paramets%hydtim
+    write(message,*) 'basal hydro time const: ', model%paramets%hydtim
     call write_log(message)
     if (model%options%whichbtrc==1 .or. model%options%whichbtrc==2 .or. model%options%whichbtrc==4) then
-       write(message,*) 'basal traction param  : ',model%paramets%btrac_const
+       write(message,*) 'basal traction param  : ', model%paramets%btrac_const
        call write_log(message)
     end if
     if (model%options%whichbtrc==4) then
-       write(message,*) 'basal traction max  : ',model%paramets%btrac_max
+       write(message,*) 'basal traction max    : ',model%paramets%btrac_max
        call write_log(message)
        write(message,*) 'basal traction slope  : ',model%paramets%btrac_slope
        call write_log(message)

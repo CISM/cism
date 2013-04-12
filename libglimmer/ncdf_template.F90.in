@@ -95,9 +95,6 @@ contains
     type(glide_global_type) :: model
     logical, optional :: atend
     type(glimmer_nc_output),optional,pointer :: outfiles
-!WHLTSTEP - Changed time to dp
-!           This change affects all the *_io.F90 files
-!    real(sp),optional :: time
     real(dp),optional :: time
 
     ! local variables
@@ -215,16 +212,11 @@ contains
     !*FD the model instance
 
     ! local variables
-!WHLTSTEP - Changed tavgf to dp
-!    real tavgf
     real(dp) :: tavgf
     integer status, varid
     integer up
      
     tavgf = outfile%total_time
-!WHLTSTEP - Changed tavgf to dp
-!    if (tavgf.ne.0.) then
-!       tavgf = 1./tavgf
     if (tavgf.ne.0.d0) then
        tavgf = 1.d0/tavgf
     end if
@@ -350,8 +342,6 @@ contains
     type(DATATYPE) :: data
 
     ! local variables
-!WHLTSTEP - Changed factor to dp
-!    real :: factor
     real(dp) :: factor
     integer status, varid
 
@@ -375,9 +365,7 @@ contains
     integer status, varid
 
     ! reset total time
-!WHLTSTEP - Change to dp
-    outfile%total_time = 0.
-!    outfile%total_time = 0.d0
+    outfile%total_time = 0.d0
 
     !GENVAR_RESETAVG!
   end subroutine NAME_avg_reset

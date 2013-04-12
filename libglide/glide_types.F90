@@ -678,24 +678,26 @@ module glide_types
 
     !WHL - added some heat flux terms: bfricflx, ucondflx, lcondflx, dissipcol
     !      Note: bheatflx, ucondflx, and lcondflx are defined as positive down,
-    !            so they will generally be < 0.  
+    !            so they will often be < 0.  
     !      However, bfricflx and dissipcol are defined to be >= 0.
+    !NOTE: If bheatflx is read from a data file, be careful about the sign!
+    !      In input data, the geothermal heat flux is likely to be defined as positive upward.
 
-    real(dp),dimension(:,:,:),pointer :: temp => null() !*FD 3D temperature field.
-    real(dp),dimension(:,:),  pointer :: bheatflx => null() !*FD basal heat flux (geothermal)
-    real(dp),dimension(:,:,:),pointer :: flwa => null() !*FD Glen's flow factor $A$.
-    real(dp),dimension(:,:),  pointer :: bwat => null() !*FD Basal water depth
-    real(dp),dimension(:,:),  pointer :: bwatflx => null() !*FD Basal water flux 
-    real(dp),dimension(:,:),  pointer :: stagbwat => null() !*FD Basal water depth in velo grid
-    real(dp),dimension(:,:),  pointer :: bmlt => null() !*FD Basal melt-rate
+    real(dp),dimension(:,:,:),pointer :: temp => null()      !*FD 3D temperature field.
+    real(dp),dimension(:,:),  pointer :: bheatflx => null()  !*FD basal heat flux (geothermal, positive down)
+    real(dp),dimension(:,:,:),pointer :: flwa => null()      !*FD Glen's flow factor $A$.
+    real(dp),dimension(:,:),  pointer :: bwat => null()      !*FD Basal water depth
+    real(dp),dimension(:,:),  pointer :: bwatflx => null()   !*FD Basal water flux 
+    real(dp),dimension(:,:),  pointer :: stagbwat => null()  !*FD Basal water depth on velo grid
+    real(dp),dimension(:,:),  pointer :: bmlt => null()      !*FD Basal melt-rate (> 0 for melt, < 0 for freeze-on)
     real(dp),dimension(:,:),  pointer :: bmlt_tavg => null() !*FD Basal melt-rate
     real(dp),dimension(:,:),  pointer :: stagbtemp => null() !*FD Basal temperature on velo grid
-    real(dp),dimension(:,:),  pointer :: bpmp => null() !*FD Basal pressure melting point
-    real(dp),dimension(:,:),  pointer :: stagbpmp => null() !*FD Basal pressure melting point on velo grid
-    real(dp),dimension(:,:),  pointer :: bfricflx => null() !*FD basal heat flux from friction
-    real(dp),dimension(:,:),  pointer :: ucondflx => null() !*FD conductive heat flux at upper sfc
-    real(dp),dimension(:,:),  pointer :: lcondflx => null() !*FD conductive heat flux at lower sfc
-    real(dp),dimension(:,:),  pointer :: dissipcol => null() !*FD total heat dissipation in column
+    real(dp),dimension(:,:),  pointer :: bpmp => null()      !*FD Basal pressure melting point
+    real(dp),dimension(:,:),  pointer :: stagbpmp => null()  !*FD Basal pressure melting point on velo grid
+    real(dp),dimension(:,:),  pointer :: bfricflx => null()  !*FD basal heat flux from friction (>= 0)
+    real(dp),dimension(:,:),  pointer :: ucondflx => null()  !*FD conductive heat flux at upper sfc (positive down)
+    real(dp),dimension(:,:),  pointer :: lcondflx => null()  !*FD conductive heat flux at lower sfc (positive down)
+    real(dp),dimension(:,:),  pointer :: dissipcol => null() !*FD total heat dissipation in column (>= 0)
     
     integer  :: niter   = 0      !*FD
     real(sp) :: perturb = 0.0    !*FD
@@ -895,17 +897,19 @@ module glide_types
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 !TODO - Check units of hydtim.
+!TODO - Is bpar still used?
+
   type glide_paramets
     real(dp),dimension(5) :: bpar = (/ 0.2d0, 0.5d0, 0.0d0 ,1.0d-2, 1.0d0/)
-    real(dp) :: btrac_const = 0.d0 ! m yr^{-1} Pa^{-1} (gets scaled during init)
-    real(dp) :: btrac_slope = 0.0d0 ! Pa^{-1} (gets scaled during init)
-    real(dp) :: btrac_max = 0.d0  !  m yr^{-1} Pa^{-1} (gets scaled during init)
-    real(dp) :: geot   = -5.0d-2  ! W m^{-2}
-    real(dp) :: flow_factor = 3.0d0   ! "fiddle" parameter for the Arrhenius relationship
-    real(dp) :: slip_ratio = 1.0d0 ! Slip ratio, used only in higher order code when the slip ratio beta computation is requested
-    real(dp) :: hydtim = 1000.0d0 ! yr^{-1} converted to s^{-1} and scaled, 
-                                  ! 0 if no drainage = 0.0d0 * tim0 / scyr
-    real(dp) :: bwat_smooth = 0.01d0 ! basal water field smoothing strength
+    real(dp) :: btrac_const = 0.d0     ! m yr^{-1} Pa^{-1} (gets scaled during init)
+    real(dp) :: btrac_slope = 0.0d0    ! Pa^{-1} (gets scaled during init)
+    real(dp) :: btrac_max = 0.d0       ! m yr^{-1} Pa^{-1} (gets scaled during init)
+    real(dp) :: geot   = -5.0d-2       ! W m^{-2}, positive down
+    real(dp) :: flow_factor = 3.0d0    ! "fiddle" parameter for the Arrhenius relationship
+    real(dp) :: slip_ratio = 1.0d0     ! Slip ratio, used only in higher order code when the slip ratio beta computation is requested
+    real(dp) :: hydtim = 1000.0d0      ! yr^{-1} converted to s^{-1} and scaled, 
+                                       ! 0 if no drainage = 0.0d0 * tim0 / scyr
+    real(dp) :: bwat_smooth = 0.01d0   ! basal water field smoothing strength
     real(dp) :: default_flwa = 1.0d-16 ! Glen's A to use in isothermal case, in units Pa^{-n} yr^{-1} 
                                        ! (would change to e.g. 4.6e-18 in EISMINT-ROSS case)
   end type glide_paramets
