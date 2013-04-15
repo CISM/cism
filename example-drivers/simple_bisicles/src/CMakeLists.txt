@@ -14,12 +14,12 @@ ENDIF()
 #message("     ${CMAKE_Fortran_IMPLICIT_LINK_LIBRARIES} ")
 
 # Need include directories from Trilinos but also mod files from glimmer
-include_directories (${GLIMMER_BINARY_DIR}/include
+include_directories (${GLIMMER_BINARY_DIR}/include  ${PYTHON_INC_DIR}
                      ${Trilinos_INCLUDE_DIRS} ${Trilinos_TPL_INCLUDE_DIRS})
 
 link_directories (${Trilinos_LIBRARY_DIRS} ${Trilinos_TPL_LIBRARY_DIRS}
                   ${GLIMMER_DYCORE_DIR} ${GLIMMER_BISICLES_DIR} ${BISICLES_INTERFACE_DIR}
-                  ${CISM_HDF5_LIB_DIR} )
+                  ${CISM_HDF5_LIB_DIR} ${PYTHON_LIB_DIR} )
 
 # These are local source files needed to make  simple_bisicles  executable
 add_executable(simple_bisicles  simple_bisicles.F90 simple_forcing.F90 testsfg.F90)
@@ -35,11 +35,13 @@ target_link_libraries(simple_bisicles
       DyCoreToGlimmer
       libBisicles.a
       libChomboLibs.a
-      ${CISM_HDF5_LIBS}
+      ${PYTHON_LIBS}
       ${GLIMMER_NETCDF_LIBS}
+      ${CISM_HDF5_LIBS}
       ${GLIMMER_MPI_LIBS}
       ${CISM_TRILINOS_LIBS}
-      ${GLIMMER_EXTRA_LIBS})
+      ${GLIMMER_EXTRA_LIBS}
+      )
 
 
 
