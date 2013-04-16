@@ -83,29 +83,36 @@ contains
 
     select case (which)
 
-!WHL - debug - temporary case(0) to exercise this subroutine in the dome problem
-    case(0) ! set thickness to zero at the ice margin, land or ocean
-
-!SFP - commented out for now so that this option remains consistent w/ prev. versions of the code
-! where case(0) was "do nothing".
-!
+!WHL - debug - temporary case to exercise this subroutine in the dome problem
 !      print*, ' '
-!      print*, 'Calving case 0: Remove ice at margin'
+!      print*, 'Calving: Remove ice at margin'
 !      where (GLIDE_IS_MARGIN(mask))
 !        calving_field = thck
 !        thck = 0.0d0
 !      end where
-        
-    case(1) ! Set thickness to zero if ice is floating
 
-!LOOP TODO - Change to do loops over scalar cells?
+!!    case(0)    ! do nothing
+
+    case(MARINE_NONE)    ! do nothing
+
+
+! set thickness to zero at the ice margin, land or ocean
+!SFP - commented out for now so that this option remains consistent w/ prev. versions of the code
+! where case(0) was "do nothing".
+!
+        
+!!    case(1) ! Set thickness to zero if ice is floating
+    case(MARINE_FLOAT_ZERO) ! Set thickness to zero if ice is floating
+
+      !LOOP TODO - Change to do loops over scalar cells?
 
       where (GLIDE_IS_FLOAT(mask))
         calving_field = thck
         thck = 0.0d0
       end where
 
-    case(2) ! Set thickness to zero if relaxed bedrock is below a given level
+!!    case(2) ! Set thickness to zero if relaxed bedrock is below a given level
+    case(MARINE_RELX_THRESHOLD) ! Set thickness to zero if relaxed bedrock is below a given level
 
 !LOOP TODO - Change to do loops over scalar cells?
 
@@ -114,7 +121,8 @@ contains
          thck = 0.0d0
       end where
 
-    case(3) ! remove fraction of ice when floating
+!!    case(3) ! remove fraction of ice when floating
+    case(MARINE_FLOAT_FRACTION) ! remove fraction of ice when floating
 
 !LOOP TODO - Why is the outer row of cells skipped here?
 
@@ -132,9 +140,10 @@ contains
 
 !TODO - Cases 2 and 4 are very similar; can we combine them?
 
-    case(4) ! Set thickness to zero at marine edge if present bedrock is below a given level
+!!    case(4) ! Set thickness to zero at marine edge if present bedrock is below a given level
+    case(MARINE_TOPG_THRESHOLD) ! Set thickness to zero at marine edge if present bedrock is below a given level
 
-!LOOP TODO - Change to do loops over scalar cells?
+      !LOOP TODO - Change to do loops over scalar cells?
 
       where (GLIDE_IS_MARINE_ICE_EDGE(mask) .and. topg < mlimit+eus)
         calving_field = thck
@@ -144,11 +153,10 @@ contains
 !WHL - Removed old case (5) based on recommendation from Jesse Johnson
 !      Then changed old case(7) to new case(5) to avoid having a gap in the case numbering.
 
-!TODO - not sure we want to support this case
-
     !Huybrechts grounding line scheme for Greenland initialization
 
-    case(5)   ! used to be case(7)
+!!    case(5)   ! used to be case(7)
+    case(MARINE_HUYBRECHTS)   ! used to be case(7)
 
       if(eus > -80.d0) then
         where (relx <= 2.d0*eus)
@@ -162,33 +170,30 @@ contains
         end where
       end if
 
-
-!TODO - not sure we want to support this case
-    case(6)
+!WHL - Commenting out this case for now
+!!    case(6)
 
       ! not serial as far as I can tell as well; for parallelization, issues
       ! arise from components of ground being updated, and corresponding halos
       ! also need to be updated? Waiting until serial fixes are implemented
 
-      call not_parallel(__FILE__, __LINE__) ! not serial as far as I can tell as well
-      call update_ground_line(ground, topg, thck, eus, dew, dns, ewn, nsn, mask)
+!!      call not_parallel(__FILE__, __LINE__) ! not serial as far as I can tell as well
+!!      call update_ground_line(ground, topg, thck, eus, dew, dns, ewn, nsn, mask)
 
-      where (GLIDE_IS_FLOAT(mask))
-        calving_field = thck
-        thck = 0.0d0
-      end where
+!!      where (GLIDE_IS_FLOAT(mask))
+!!        calving_field = thck
+!!        thck = 0.0d0
+!!      end where
     
     end select
 
   end subroutine glide_marinlim
 
-!HALO - This routine may not be supported.  I doubt it's accurate for HO flow.
-!       If we do leave in this routine (or something similar), the loop should be 
-!        over locally owned velocity points.
-
-  !simple subroutine to calculate the flux at the grounding line
+!-------------------------------------------------------------------------
 
   subroutine calc_gline_flux(stagthk, velnorm, mask, gline_flux, ubas, vbas, dew)
+
+  !simple subroutine to calculate the flux at the grounding line
 
     use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
     implicit none
@@ -208,7 +213,7 @@ contains
     ewn = size(gline_flux, 1)
     nsn = size(gline_flux, 2)
        
-!LOOP - Loop over velocity points?
+   !LOOP - Loop over velocity points?
 
     where (GLIDE_IS_GROUNDING_LINE(mask))
          gline_flux = stagthk * ((4.0/5.0)* velnorm(1,:,:) + &
@@ -226,32 +231,60 @@ contains
 
 !-------------------------------------------------------------------------
 
-!TODO - Is this function needed? Currently not called from anywhere I can find.
+!TODO - Is this needed? Only called from case 6.
 
-  !This function returns the correct grounding line using the data given 
-  ! the mask reference point.  dir is specifying 'ew' or 'ns', but can be 
-  ! left null if there's only one option.
+  !Loops through the mask and does the interpolation for all the grounding lines
 
-  real function get_ground_line(ground,ew1,ns1,ew2,ns2)
+  subroutine update_ground_line(ground, topg, thck, eus, dew, dns, ewn, nsn, mask)
 
-     use glide_types
      implicit none
-     type(glide_grnd) :: ground       !*FD glide ground instance
-     integer ns1,ew1,ns2,ew2,slot_ns,slot_ew !grounding line in ns/ew direction
-     real appr_ground !grounding line
-     
-     if (ns1 == ns2) then
-         slot_ew = min(ew1,ew2)
-         appr_ground = ground%gl_ns(slot_ew,ns1)
-     else if (ew1 == ew2) then
-         slot_ns = min(ns1,ns2)
-         appr_ground = ground%gl_ew(ew1,slot_ns)
-     end if
-     get_ground_line = appr_ground
-     return
+     type(glide_grnd) :: ground        !*FD ground instance
+     real(dp),dimension(:,:),intent(in)    :: topg    !*FD Present bedrock topography (scaled)
+     real(dp),dimension(:,:),intent(in)    :: thck    !*FD Present thickness (scaled)
+     real, intent(in) :: eus                       !*FD eustatic sea level
+     real(dp), intent(in) ::  dew, dns
+     integer, intent(in) ::  ewn, nsn
+     !JEFF remove pointer attribute integer, dimension(:,:),pointer :: mask    !*FD grid type mask
+     integer, dimension(:,:) :: mask    !*FD grid type mask
+     integer ew,ns,jns,jew,j1ns,j1ew
+     real(sp) :: xg                        !grounding line
+     !this is assuming the grounding line is the last grounded pt on the mask
+     !reset grounding line data to zero
+     ground%gl_ew = 0.0
+     ground%gl_ns = 0.0
+     do ns = 1,nsn
+        do ew = 1,ewn
+            if (GLIDE_IS_GROUNDING_LINE(mask(ew,ns))) then
+                !the grounding line always rounds down so it is grounded.
+                !southern grounding line
+                if (GLIDE_IS_OCEAN(mask(ew,ns - 1)) &
+                        .or. (GLIDE_IS_FLOAT(mask(ew,ns - 1)))) then
+                    xg = lin_reg_xg(topg,thck,eus,dew,dns,ew,ns,ew,ns-1)
+                    call set_ground_line(ground,ew,ns,ew,ns-1,xg)
+                !northern grounding line
+                else if (GLIDE_IS_OCEAN(mask(ew,ns + 1)) &
+                        .or. (GLIDE_IS_FLOAT(mask(ew,ns + 1)))) then
+                    xg = lin_reg_xg(topg,thck,eus,dew,dns,ew,ns,ew,ns+1)
+                    call set_ground_line(ground,ew,ns,ew,ns+1,xg) 
+                end if 
+                
+                !western grounding line
+                if (GLIDE_IS_OCEAN(mask(ew - 1,ns)) &
+                        .or. GLIDE_IS_FLOAT(mask(ew - 1,ns))) then
+                    xg = lin_reg_xg(topg,thck,eus,dew,dns,ew,ns,ew - 1,ns)
+                    call set_ground_line(ground,ew,ns,ew-1,ns,xg)
+                !eastern grounding line
+                else if (GLIDE_IS_OCEAN(mask(ew + 1,ns)) &
+                        .or. GLIDE_IS_FLOAT(mask(ew + 1,ns))) then
+                    xg = lin_reg_xg(topg,thck,eus,dew,dns,ew,ns,ew + 1,ns)
+                    call set_ground_line(ground,ew,ns,ew + 1,ns,xg)
+                end if
+            end if 
+        end do
+     end do
 
-  end function get_ground_line
-    
+  end subroutine update_ground_line
+
 !-------------------------------------------------------------------------
 
 !TODO - Is this function needed? Only called from update_ground_line (case 6).
@@ -325,62 +358,6 @@ contains
 
 !-------------------------------------------------------------------------
 
-!TODO - Is this needed? Only called from case 6.
-
-  !Loops through the mask and does the interpolation for all the grounding lines
-
-  subroutine update_ground_line(ground, topg, thck, eus, dew, dns, ewn, nsn, mask)
-
-     implicit none
-     type(glide_grnd) :: ground        !*FD ground instance
-     real(dp),dimension(:,:),intent(in)    :: topg    !*FD Present bedrock topography (scaled)
-     real(dp),dimension(:,:),intent(in)    :: thck    !*FD Present thickness (scaled)
-     real, intent(in) :: eus                       !*FD eustatic sea level
-     real(dp), intent(in) ::  dew, dns
-     integer, intent(in) ::  ewn, nsn
-     !JEFF remove pointer attribute integer, dimension(:,:),pointer :: mask    !*FD grid type mask
-     integer, dimension(:,:) :: mask    !*FD grid type mask
-     integer ew,ns,jns,jew,j1ns,j1ew
-     real(sp) :: xg                        !grounding line
-     !this is assuming the grounding line is the last grounded pt on the mask
-     !reset grounding line data to zero
-     ground%gl_ew = 0.0
-     ground%gl_ns = 0.0
-     do ns = 1,nsn
-        do ew = 1,ewn
-            if (GLIDE_IS_GROUNDING_LINE(mask(ew,ns))) then
-                !the grounding line always rounds down so it is grounded.
-                !southern grounding line
-                if (GLIDE_IS_OCEAN(mask(ew,ns - 1)) &
-                        .or. (GLIDE_IS_FLOAT(mask(ew,ns - 1)))) then
-                    xg = lin_reg_xg(topg,thck,eus,dew,dns,ew,ns,ew,ns-1)
-                    call set_ground_line(ground,ew,ns,ew,ns-1,xg)
-                !northern grounding line
-                else if (GLIDE_IS_OCEAN(mask(ew,ns + 1)) &
-                        .or. (GLIDE_IS_FLOAT(mask(ew,ns + 1)))) then
-                    xg = lin_reg_xg(topg,thck,eus,dew,dns,ew,ns,ew,ns+1)
-                    call set_ground_line(ground,ew,ns,ew,ns+1,xg) 
-                end if 
-                
-                !western grounding line
-                if (GLIDE_IS_OCEAN(mask(ew - 1,ns)) &
-                        .or. GLIDE_IS_FLOAT(mask(ew - 1,ns))) then
-                    xg = lin_reg_xg(topg,thck,eus,dew,dns,ew,ns,ew - 1,ns)
-                    call set_ground_line(ground,ew,ns,ew-1,ns,xg)
-                !eastern grounding line
-                else if (GLIDE_IS_OCEAN(mask(ew + 1,ns)) &
-                        .or. GLIDE_IS_FLOAT(mask(ew + 1,ns))) then
-                    xg = lin_reg_xg(topg,thck,eus,dew,dns,ew,ns,ew + 1,ns)
-                    call set_ground_line(ground,ew,ns,ew + 1,ns,xg)
-                end if
-            end if 
-        end do
-     end do
-
-  end subroutine update_ground_line
-
-  !-------------------------------------------------------------------------
-
 !TODO - Is this needed?  Currently not called.
 
   real function get_ground_thck(ground,topg,usrf,dew,dns,ew1,ns1,ew2,ns2)
@@ -431,5 +408,37 @@ contains
      get_ground_thck = hg
      return
   end function get_ground_thck
+
+!-------------------------------------------------------------------------
+
+!TODO - Is this function needed? Currently not called from anywhere I can find.
+
+  !This function returns the correct grounding line using the data given 
+  ! the mask reference point.  dir is specifying 'ew' or 'ns', but can be 
+  ! left null if there's only one option.
+
+  real function get_ground_line(ground,ew1,ns1,ew2,ns2)
+
+     use glide_types
+     implicit none
+     type(glide_grnd) :: ground       !*FD glide ground instance
+     integer ns1,ew1,ns2,ew2,slot_ns,slot_ew !grounding line in ns/ew direction
+     real appr_ground !grounding line
+     
+     if (ns1 == ns2) then
+         slot_ew = min(ew1,ew2)
+         appr_ground = ground%gl_ns(slot_ew,ns1)
+     else if (ew1 == ew2) then
+         slot_ns = min(ns1,ns2)
+         appr_ground = ground%gl_ew(ew1,slot_ns)
+     end if
+     get_ground_line = appr_ground
+     return
+
+  end function get_ground_line
+    
 !---------------------------------------------------------------------------
+
 end module glide_ground
+
+!---------------------------------------------------------------------------

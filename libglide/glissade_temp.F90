@@ -1,8 +1,3 @@
-!CLEANUP - glissade_temp.F90
-! Changed case(1) to case(3) so that the column calculation is carried out.
-! Added contents of glide_temp_utils, adapted to HO solver only.
-
-!TODO - Modify the opening comments (since not part of old Glimmer)
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
 ! +  glissade_temp.f90 - part of the GLIMMER ice model        +
@@ -64,6 +59,7 @@
 module glissade_temp
 
     use glide_types
+    use glimmer_log
 
     implicit none
 
@@ -89,7 +85,7 @@ contains
     use glimmer_physcon, only : rhoi, shci, coni, scyr, grav, gn, lhci, rhow, trpt
     use glimmer_paramets, only : tim0, thk0, len0, vis0, vel0, tau0
     use glimmer_global, only : dp 
-    use glimmer_log
+    use glide_bwater, only: find_dt_wat
     use parallel, only: lhalo, uhalo
 
     type(glide_global_type),intent(inout) :: model       !*FD Ice model parameters.
@@ -174,7 +170,9 @@ contains
                         !*sfp* added the last term in the vect above for HO and SSA dissip. calc. 
 
     select case(model%options%whichbwat)
-       case(0)
+
+!!       case(0)
+       case(BWATER_LOCAL)
           model%paramets%hydtim = tim0 / (model%paramets%hydtim * scyr)
           estimate = 0.2d0 / model%paramets%hydtim
           
@@ -182,18 +180,25 @@ contains
                               1.0d0 - 0.5d0 * model%tempwk%dt_wat * model%paramets%hydtim, &
                               1.0d0 + 0.5d0 * model%tempwk%dt_wat * model%paramets%hydtim, &
                               0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0 /) 
-       case(1)
 
-       case(3)
+!!       case(1)
+       case(BWATER_FLUX) ! steady-state routing using flux calculation
 
-         write(*,*)"ERROR: Current release does not support use of the basal processes module."
-         write(*,*)"       Re-run code with alternate option selected for 'whichbwat'."
-         stop
+         !TODO - Test this option for one-processor runs.
+         !       It has not been parallelized.
+
+          model%tempwk%watvel = model%paramets%hydtim * tim0 / (scyr * len0)
+          estimate = (0.2d0 * model%tempwk%watvel) / min(model%numerics%dew,model%numerics%dns)
+          call find_dt_wat(model%numerics%dttem,estimate,model%tempwk%dt_wat,model%tempwk%nwat)
+
+          !print *, model%numerics%dttem*tim0/scyr, model%tempwk%dt_wat*tim0/scyr, model%tempwk%nwat
+
+          model%tempwk%c = (/ rhow * grav, rhoi * grav, 2.0d0 * model%numerics%dew, 2.0d0 * model%numerics%dns, &
+	         0.25d0 * model%tempwk%dt_wat / model%numerics%dew, 0.25d0 * model%tempwk%dt_wat / model%numerics%dns, &
+               0.5d0 * model%tempwk%dt_wat / model%numerics%dew, 0.5d0 * model%tempwk%dt_wat / model%numerics%dns /)
           
     end select
  
-!TODO - Test this new code.
-
       !==== Initialize ice temperature.============
       !This block of code is similar to that in glide_init_temp
 
@@ -215,7 +220,7 @@ contains
     !
     !TODO - For reading from restart or input file, make sure that halo values are correct.
 
-    if (model%options%is_restart == 1) then
+    if (model%options%is_restart == RESTART_TRUE) then
 
        ! Temperature has already been initialized from a restart file. 
        ! (Temperature is always a restart variable.)
@@ -296,7 +301,7 @@ contains
 
       go to 100
 
-      if (model%options%is_restart == 1) then
+      if (model%options%is_restart == RESTART_FALSE) then
 
          ! If we are restarting, use the field from the restart input file. (Temp is always a restart variable.)
           call write_log('Using tempstag values from restart file for temperature initial condition.')
@@ -426,7 +431,9 @@ contains
     use glimmer_physcon, only: shci, coni, rhoi
     use glide_mask
     use glide_bwater
-    use glimmer_log
+
+    !TODO - Use glam_grid_operators instead?
+    use glide_grid_operators, only: stagvarb
 
     !------------------------------------------------------------------------------------
     ! Subroutine arguments
@@ -460,7 +467,8 @@ contains
 
     select case(whichtemp)
 
-    case(0) ! Set column to surface air temperature -------------------------------------
+!!    case(0) ! Set column to surface air temperature -------------------------------------
+    case(TEMP_SURFACE_AIR_TEMP)  ! Set column to surface air temperature ------------------
 
        ! JEFF - OK for distributed since using air temperature at grid point to initialize.
 
@@ -470,7 +478,8 @@ contains
           end do
        end do
 
-    case(3) ! Local column calculation (with advection done elsewhere)
+!!    case(3) ! Local column calculation (with advection done elsewhere)
+    case(TEMP_REMAP_ADV) ! Local column calculation (with advection done elsewhere)
 
             ! No horizontal or vertical advection; vertical diffusion and strain heating only.
             ! Temperatures are vertically staggered relative to velocities.  
@@ -512,8 +521,9 @@ contains
 
        ! Calculate heating from basal friction -----------------------------------
 
+       !WHL - Removed which_melt option
        call glissade_calcbfric( model,                        &
-                                model%options%which_bmelt,    &
+!!                                model%options%which_bmelt,    &
                                 model%geometry%thck,          &
                                 model%velocity%btraction,     &
                                 model%geomderv%dusrfdew,      &
@@ -545,8 +555,7 @@ contains
 
              call glissade_findvtri( model, ew,   ns,             &
                                      subd,  diag, supd, rhsd,     &            
-                                     GLIDE_IS_FLOAT(model%geometry%thkmask(ew,ns)), &
-                                     model%options%which_bmelt )
+                                     GLIDE_IS_FLOAT(model%geometry%thkmask(ew,ns)))
                 
              prevtemp_stag(:) = model%temper%temp(:,ew,ns)
 
@@ -720,7 +729,7 @@ contains
 !       stagthck, dusrfdew, dusrfdns, ubas, vbas
 
        call glissade_calcbmlt( model,                     &
-                               model%options%which_bmelt, &
+!!                               model%options%which_bmelt, &
                                model%temper%temp,         &
                                Tstagsigma,                &
                                model%geometry%thck,       &
@@ -747,11 +756,32 @@ contains
                       GLIDE_IS_FLOAT(model%geometry%thkmask),   &
                       model%tempwk%wphi)
 
+!WHL - Here I restored some Glimmer calls that were removed earlier.
+!      We need stagbpmp for one of the basal traction cases.
+
+!TODO - Think about whether Glissade will support the same basal traction cases as Glide.
+!TODO - Use a staggered difference routine from glam_grid_operators?
+
+       ! Transform basal temperature and pressure melting point onto velocity grid
+
+       call stagvarb(model%temper%temp(model%general%upn, 1:model%general%ewn, 1:model%general%nsn), &
+                     model%temper%stagbtemp ,&
+                     model%general%  ewn, &
+                     model%general%  nsn)
+       
+       call glissade_calcbpmp(model, &
+                              model%geometry%thck,  &
+                              model%temper%bpmp)
+
+       call stagvarb(model%temper%bpmp, &
+                     model%temper%stagbpmp ,&
+                     model%general%  ewn, &
+                     model%general%  nsn)
+
 !WHL - Removed glissade_calcflwa call here; moved it to glissade_diagnostic_variable_solve.
 
-   case(2) ! do nothing
-
-!TODO - Should the do-nothing option have a different case number, such as 0 or -1?
+!!   case(2) ! do nothing
+   case(TEMP_STEADY) ! do nothing
 
    end select
 
@@ -761,7 +791,7 @@ contains
 
   subroutine glissade_findvtri (model, ew,   ns,          &
                                 subd,  diag, supd, rhsd,  &
-                                float, whichbmlt)
+                                float)
 
     ! compute matrix elements for the tridiagonal solve
 
@@ -778,8 +808,6 @@ contains
     integer, intent(in) :: ew, ns
     real(dp), dimension(:), intent(out) :: subd, diag, supd, rhsd
     logical, intent(in) :: float
-    integer, intent(in) :: whichbmlt   ! SIA or higher-order
-                                       !TODO - whichbmlt is not used by this subroutine
 
     ! local variables
 
@@ -906,7 +934,9 @@ contains
 
   !-----------------------------------------------------------------------
 
-  subroutine glissade_calcbfric (model,    whichbmlt,   &
+!WHL - Remove whichbmlt since there is only one option for HO dycore
+!!  subroutine glissade_calcbfric (model,    whichbmlt,   &
+  subroutine glissade_calcbfric (model,                 &
                                  thck,     btraction,   &
                                  dusrfdew, dusrfdns,    &
                                  ubas,     vbas,        &
@@ -919,7 +949,7 @@ contains
     use glimmer_paramets, only: thk0, vel0, vel_scale
 
     type(glide_global_type) :: model
-    integer, intent(in) :: whichbmlt
+!!    integer, intent(in) :: whichbmlt
     real(dp), dimension(:,:), intent(in) :: thck, dusrfdew, dusrfdns
     real(dp), dimension(:,:), intent(in) :: ubas, vbas
     real(dp), dimension(:,:,:), intent(in) :: btraction
@@ -941,25 +971,26 @@ contains
           slterm = 0.d0
           slide_count = 0
 
-          select case( whichbmlt)
+!WHL - Removed whichbmlt option.
 
-          case( SIA_BMELT)      ! taub*ub = -rhoi * g * H * (grad(S) * ubas) 
+!!          select case(whichbmlt)
 
-!TODO - Print an error message and exit gracefully.
-!       If there's only one option, maybe we don't need to supply a case.
+!!          case( SIA_BMELT)      ! taub*ub = -rhoi * g * H * (grad(S) * ubas) 
 
-          case( FIRSTORDER_BMELT) 
+!!             call write_log('Error, must use first-order bmelt with higher-order dycore', GM_FATAL)
+
+!!          case( FIRSTORDER_BMELT)
 
              !WHL - copied Steve Price's formulation from calcbmlt
              ! btraction is computed in glam_strs2.F90
 
-!HALO - Make sure we have btraction for all locally owned velocity cells.
+!TODO - Make sure we have btraction for all locally owned velocity cells.
 
              if (thck(ew,ns) > model%numerics%thklim .and. .not. float(ew,ns)) then
                 do nsp = ns-1,ns
                 do ewp = ew-1,ew
 
-!SCALING - WHL: Multiply ubas by vel0/vel_scale so we get the same result in these two cases:
+!SCALING - WHL: Multiplied ubas by vel0/vel_scale so we get the same result in these two cases:
 !           (1) Old Glimmer with scaling:         vel0 = vel_scale = 500/scyr, and ubas is non-dimensional
 !           (2) New Glimmer-CISM without scaling: vel0 = 1, vel_scale = 500/scyr, and ubas is in m/s.
 
@@ -978,7 +1009,7 @@ contains
 
              endif  ! thk > thklim, not floating
 
-          end select  ! whichbmlt
+!!          end select  ! whichbmlt
 
           ! include sliding contrib only if temperature node is surrounded by sliding velo nodes
           !TODO - This may result in non-conservation of energy.
@@ -1002,7 +1033,10 @@ contains
 !TODO - Some of these arguments are not needed:
 !       stagthck, dusrfdew, dusrfdns, ubas, vbas
 
-  subroutine glissade_calcbmlt( model,    whichbmelt,    &
+!WHL = Removed whichbmelt
+
+!!  subroutine glissade_calcbmlt( model,    whichbmelt,    &
+  subroutine glissade_calcbmlt( model,                   &
                                 temp,     stagsigma,     &
                                 thck,     stagthck,      &
                                 dusrfdew, dusrfdns,      &
@@ -1030,7 +1064,7 @@ contains
     real(dp), dimension(:,:),    intent(out):: bmlt    ! scaled melt rate (m/s * tim0/thk0)
                                                        ! > 0 for melting, < 0 for freeze-on
     logical,  dimension(:,:),    intent(in) :: floater
-    integer,  intent(in) ::      whichbmelt
+!!    integer,  intent(in) ::      whichbmelt
 
     real(dp), dimension(size(stagsigma))    :: pmptemp   ! pressure melting point temperature
     real(dp) :: bflx    ! heat flux available for basal melting (W/m^2)
@@ -1039,7 +1073,7 @@ contains
 
     bmlt(:,:) = 0.0d0
 
-!LOOP TODO - This loop should be over locally owned cells? (ilo:ihi,jlo:jhi)
+    !LOOP TODO - This loop should be over locally owned cells? (ilo:ihi,jlo:jhi)
 
     do ns = 2, model%general%nsn-1
        do ew = 2, model%general%ewn-1
@@ -1145,7 +1179,7 @@ contains
 
     model%tempwk%dissip(:,:,:) = 0.0d0
 
-!LOOP TODO: Locally owned cells only
+    !LOOP TODO: Locally owned cells only
     do ns = 2, model%general%nsn-1
        do ew = 2, model%general%ewn-1
           if (thck(ew,ns) > model%numerics%thklim) then
@@ -1181,7 +1215,7 @@ contains
         !TODO - Write an error message and exit gracefully
     endif
 
-!LOOP TODO: Locally owned cells only
+    !LOOP TODO: Locally owned cells only
 
     do ns = 1, model%general%nsn
        do ew = 1, model%general%ewn
@@ -1257,6 +1291,29 @@ contains
     pmptemp(:) = fact * thck * stagsigma(:)
 
   end subroutine glissade_calcpmpt
+
+  !-----------------------------------------------------------------------
+
+  subroutine glissade_calcbpmp(model,thck,bpmp)
+
+    ! Calculate the pressure melting point at the base of the ice sheet
+
+    type(glide_global_type) :: model
+    real(dp), dimension(:,:), intent(in)  :: thck
+    real(dp), dimension(:,:), intent(out) :: bpmp
+
+    integer :: ew,ns
+
+    bpmp = 0.d0
+
+    do ns = 2, model%general%nsn-1
+       do ew = 2, model%general%ewn-1
+          !TODO - Inline this code?
+          call glissade_calcpmpt_bed(bpmp(ew,ns),thck(ew,ns))
+       end do
+    end do
+
+  end subroutine glissade_calcbpmp
 
   !-------------------------------------------------------------------
 

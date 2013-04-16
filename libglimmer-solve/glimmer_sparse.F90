@@ -37,11 +37,13 @@ module glimmer_sparse
   use glimmer_sparse_type
   use glimmer_sparse_slap
 
-!WHL - Removed umfpack and pardiso options
-!TODO - Remove umfpack and pardiso modules
-!!  use glimmer_sparse_umfpack
-!!  use glimmer_sparse_pardiso
+    ! Would like to use glide_types for HO_NONLIN and HO_SPARSE options
+    ! The automake build system does not allow this, because libglimmer-solve
+    !  is built before libglide.
+    ! The cmake build system is more flexible and is OK with 'use glide_types'
 
+!!  use glide_types 
+ 
   implicit none
 
   type sparse_solver_options
@@ -57,27 +59,23 @@ module glimmer_sparse
 !!        type(pardiso_solver_workspace),  pointer :: pardiso  => null()
   end type
 
-    integer, parameter :: HO_NONLIN_PICARD = 0
-    integer, parameter :: HO_NONLIN_JFNK = 1
+    !TODO - The following parameters are redundant with glide_types but are included here 
+    !        because of automake issues.  (This module cannot use glide_types.)
+    !       Can remove these parameters and use glide_types if we stop supporting automake.
 
-!WHL - Replaced umfpack and pardiso options with SLAP pcg options
-!      Added standalone PCG options 5 and 6
-!TODO - These SPARSE_SOLVER options are redundant with HO_SPARSE options in glide_types.
-!       Combine into one list? (e.g., by having glide_setup use this module)
-!        Or pass in which_ho_sparse?
+    integer, parameter :: SPARSE_HO_NONLIN_PICARD = 0
+    integer, parameter :: SPARSE_HO_NONLIN_JFNK = 1
 
     ! The first three options use the SLAP solver and work only on one processor.
-    integer, parameter :: SPARSE_SOLVER_BICG = 0
-    integer, parameter :: SPARSE_SOLVER_GMRES = 1
-    integer, parameter :: SPARSE_SOLVER_PCG_INCH = 2  ! PCG with incomplete Cholesky preconditioner
+    integer, parameter :: SPARSE_SOLVER_BICG = 0          ! SLAP biconjugate gradient
+    integer, parameter :: SPARSE_SOLVER_GMRES = 1         ! SLAP GMRES
+    integer, parameter :: SPARSE_SOLVER_PCG_INCH = 2      ! SLAP PCG with incomplete Cholesky preconditioner
+    integer, parameter :: STANDALONE_PCG_STRUC = 3        ! PCG with structured (k,i,j) matrix storage
+                                                          ! Not SLAP; see cism_sparse_pcg.F90
+    integer, parameter :: STANDALONE_TRILINOS_SOLVER = 4  ! Trilinos solver
+                                                          ! Does not go through sparse_easy_solve because 
+                                                          !  it has a different sparse matrix format  
 
-    ! This option does not use SLAP.  It is designed to work for both serial and parallel.
-    integer, parameter :: STANDALONE_PCG_STRUC = 3    ! PCG with structured (k,i,j) matrix storage
-                                                    
-    ! This Trilinos solver does not go through sparse_easy_solve
-    !   because it has a different sparse matrix format
-    integer, parameter :: STANDALONE_TRILINOS_SOLVER = 4
-    ! These two solvers go through the cism_sparse_pcg module without SLAP
 
 !EIB!  !MAKE_RESTART
 !EIB!#ifdef RESTARTS
@@ -106,8 +104,8 @@ contains
         opt%base%maxiters = 200
 
         if ( present(nonlinear) )then
-            if (nonlinear .eq. HO_NONLIN_PICARD) opt%base%tolerance  = 1e-11 ! Picard
-            if (nonlinear .eq. HO_NONLIN_JFNK) opt%base%tolerance  = 1e-03 ! JFNK
+            if (nonlinear .eq. SPARSE_HO_NONLIN_PICARD) opt%base%tolerance  = 1e-11 ! Picard
+            if (nonlinear .eq. SPARSE_HO_NONLIN_JFNK) opt%base%tolerance  = 1e-03 ! JFNK
         else
             opt%base%tolerance  = 1e-11 ! Picard
         end if
@@ -399,7 +397,7 @@ contains
         if (present(nonlinear_solver)) then
             nonlinear = nonlinear_solver
         else
-            nonlinear = HO_NONLIN_PICARD  
+            nonlinear = SPARSE_HO_NONLIN_PICARD  
         endif
 
 !WHL - debug

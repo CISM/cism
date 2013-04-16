@@ -97,7 +97,7 @@ contains
     call glide_readconfig (model,config)
     call glide_printconfig(model)
 
-    ! read alternate sigma levels from config file, if necessary
+    ! read sigma levels from config file, if present
     call glide_read_sigma(model,config)
 
     ! read isostasy configuration file
@@ -203,11 +203,12 @@ contains
     model%temper%bheatflx = model%paramets%geot
 
 !WHL - debug
-    print*, ' '
-    print*, 'In glide_initialise, geot =:', model%paramets%geot
-    print*, 'max, min bheatflx (W/m2)=', maxval(model%temper%bheatflx), minval(model%temper%bheatflx)
+!    print*, ' '
+!    print*, 'In glide_initialise, geot =:', model%paramets%geot
+!    print*, 'max, min bheatflx (W/m2)=', maxval(model%temper%bheatflx), minval(model%temper%bheatflx)
 
-    ! load sigma file
+    ! compute sigma levels or load from external file
+    ! (if not already read from config file)
     call glide_load_sigma(model,dummyunit)
 
     ! open all input files
@@ -229,10 +230,11 @@ contains
     ! Initialise isostasy first
     call init_isostasy(model)
 
+    !TODO - Should we do anything for default case 0?
     select case(model%options%whichrelaxed)
-    case(1) ! Supplied topography is relaxed
+    case(RELAXED_TOPO_INPUT)   ! Supplied topography is relaxed
        model%isos%relx = model%geometry%topg
-    case(2) ! Supplied topography is in equilibrium
+    case(RELAXED_TOPO_COMPUTE) ! Supplied topography is in equilibrium
        call isos_relaxed(model)
     end select
 
@@ -243,9 +245,9 @@ contains
     call glide_io_createall(model)
 
 !WHL - debug
-    print*, ' '
-    print*, 'Created Glide variables'
-    print*, 'max, min bheatflx (W/m2)=', maxval(model%temper%bheatflx), minval(model%temper%bheatflx)
+!    print*, ' '
+!    print*, 'Created Glide variables'
+!    print*, 'max, min bheatflx (W/m2)=', maxval(model%temper%bheatflx), minval(model%temper%bheatflx)
 
     ! If a 2D bheatflx field is present in the input file, it will have been written 
     !  to model%temper%bheatflx.  For the case model%options%gthf = 0, we want to use
@@ -254,13 +256,21 @@ contains
     !  prescribed uniform value, model%paramets%geot.
 
     if (model%options%gthf == GTHF_UNIFORM) then
+
+       ! Check to see if this flux was present in the input file
+       ! (by checking whether the flux is nonuniform over the domain)
+       if (abs(maxval(model%temper%bheatflx) - minval(model%temper%bheatflx)) > 1.d-6) then  
+          call write_log('Setting uniform prescribed geothermal flux')
+          call write_log('(Set gthf = 1 to read geothermal flux field from input file)')
+       endif
+
        ! set uniform basal heat flux (positive down)
        model%temper%bheatflx = model%paramets%geot
 
 !WHL - debug
-       print*, ' '
-       print*, 'Use uniform bheatflx'
-       print*, 'max, min bheatflx (W/m2)=', maxval(model%temper%bheatflx), minval(model%temper%bheatflx)
+!       print*, ' '
+!       print*, 'Use uniform bheatflx'
+!       print*, 'max, min bheatflx (W/m2)=', maxval(model%temper%bheatflx), minval(model%temper%bheatflx)
 
     endif
  
@@ -504,7 +514,7 @@ contains
     ! We could iterate on this, but for simplicity that is not done.
 
     call glide_calcbmlt(model, &
-                        model%options%which_bmelt, &
+!!                        model%options%which_bmelt, & 
                         model%temper%temp, &
                         model%geometry%thck, &
                         model%geomderv%stagthck, &
@@ -545,7 +555,7 @@ contains
     ! The evolution=0 (linear diffusion) option requires that uvel/vvel be restart variables.  So use input values if
     ! that option is selected on a restart.  Otherwise calculate velocity now.
 
-    if ((model%options%is_restart == 1) .and. (model%options%whichevol == EVOL_PSEUDO_DIFF)) then
+    if ((model%options%is_restart == RESTART_TRUE) .and. (model%options%whichevol == EVOL_PSEUDO_DIFF)) then
        call write_log('Using restart file values for uvel and vvel for the initial time because evolution=0.')
     else
        ! Calculate velocity

@@ -1,8 +1,3 @@
-!CLEANUP - glide_temp.F90 
-! Moved the contents of glide_temp_utils.F90 back to this module.
-! Decided it was easier to support two different versions of these routines
-!  rather than make one version work for both SIA and HO
-
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
 ! +  glide_temp.f90 - part of the GLIMMER ice model           +
@@ -192,7 +187,8 @@ contains
 
     select case(model%options%whichbwat)
 
-       case(0)
+!!       case(0)
+       case(BWATER_LOCAL)
           model%paramets%hydtim = tim0 / (model%paramets%hydtim * scyr)
           estimate = 0.2d0 / model%paramets%hydtim
           !EIB! following not in lanl glide_temp
@@ -201,27 +197,21 @@ contains
           model%tempwk%c = (/ model%tempwk%dt_wat, 1.0d0 - 0.5d0 * model%tempwk%dt_wat * model%paramets%hydtim, &
                1.0d0 + 0.5d0 * model%tempwk%dt_wat * model%paramets%hydtim, 0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0 /) 
 
-!TODO - This option is part of old glide.  Why was it removed?
-!       Option 1 is like option 0 (local basal water balance), but with constant horizontal flow
+       !TODO - Test this option.
 
-       case(1)
-          !EIB! not in lanl
-          !model%tempwk%watvel = model%paramets%hydtim * tim0 / (scyr * len0)
-          !estimate = (0.2d0 * model%tempwk%watvel) / min(model%numerics%dew,model%numerics%dns)
-          !call find_dt_wat(model%numerics%dttem,estimate,model%tempwk%dt_wat,model%tempwk%nwat) 
+!!       case(1)
+       case(BWATER_FLUX)    ! steady-state routing using flux calculation
+
+          model%tempwk%watvel = model%paramets%hydtim * tim0 / (scyr * len0)
+          estimate = (0.2d0 * model%tempwk%watvel) / min(model%numerics%dew,model%numerics%dns)
+          call find_dt_wat(model%numerics%dttem,estimate,model%tempwk%dt_wat,model%tempwk%nwat) 
           
           !print *, model%numerics%dttem*tim0/scyr, model%tempwk%dt_wat*tim0/scyr, model%tempwk%nwat
 
-          !model%tempwk%c = (/ rhow * grav, rhoi * grav, 2.0d0 * model%numerics%dew, 2.0d0 * model%numerics%dns, &
-          !     0.25d0 * model%tempwk%dt_wat / model%numerics%dew, 0.25d0 * model%tempwk%dt_wat / model%numerics%dns, &
-          !     0.5d0 * model%tempwk%dt_wat / model%numerics%dew, 0.5d0 * model%tempwk%dt_wat / model%numerics%dns /)
+          model%tempwk%c = (/ rhow * grav, rhoi * grav, 2.0d0 * model%numerics%dew, 2.0d0 * model%numerics%dns, &
+               0.25d0 * model%tempwk%dt_wat / model%numerics%dew, 0.25d0 * model%tempwk%dt_wat / model%numerics%dns, &
+               0.5d0 * model%tempwk%dt_wat / model%numerics%dew, 0.5d0 * model%tempwk%dt_wat / model%numerics%dns /)
           
-       case(3)
-
-          write(*,*)"ERROR: Current release does not support use of the basal processes module."
-          write(*,*)"       Re-run code with alternate option selected for 'whichbwat'."
-          stop
-
     end select
 
     !==== Initialize ice temperature.============
@@ -247,7 +237,7 @@ contains
     !       the Glide temperature halo are reasonable (and preferably not -999).
 
 
-    if (model%options%is_restart == 1) then
+    if (model%options%is_restart == RESTART_TRUE) then
 
        ! Temperature has already been initialized from a restart file. 
        ! (Temperature is always a restart variable.)
@@ -324,7 +314,7 @@ contains
 
     ! ====== Calculate initial value of flwa ==================
 
-    if (model%options%is_restart == 0) then
+    if (model%options%is_restart == RESTART_FALSE) then
        call write_log("Calculating initial flwa from temp and thk fields")
 
        ! Calculate Glen's A --------------------------------------------------------   
@@ -421,6 +411,7 @@ contains
     use glimmer_global, only : dp
     use glimmer_paramets, only : thk0, GLC_DEBUG
     use glide_bwater
+    use glide_grid_operators, only: stagvarb
 
     !------------------------------------------------------------------------------------
     ! Subroutine arguments
@@ -459,7 +450,8 @@ contains
 
     select case(whichtemp)
 
-    case(0) ! Set column to surface air temperature -------------------------------------
+!!    case(0) ! Set column to surface air temperature -------------------------------------
+    case(TEMP_SURFACE_AIR_TEMP)  ! Set column to surface air temperature ------------------
 
        do ns = 1,model%general%nsn
           do ew = 1,model%general%ewn
@@ -467,7 +459,8 @@ contains
           end do
        end do
 
-    case(1) ! Do full temperature solution as in Glimmer---------------------------------
+!!    case(1)
+    case(TEMP_GLIDE)     ! Do full temperature solution as in standard Glide-------------
 
       ! Note: In older versions of Glimmer, the vertical velocity was computed here.
       !       It is now computed in glide_tstep_p3 to support exact restart.
@@ -768,7 +761,7 @@ contains
        ! Calculate basal melt rate --------------------------------------------------
 
        call glide_calcbmlt(model, &
-                           model%options%which_bmelt, &
+!!                           model%options%which_bmelt, &
                            model%temper%temp, &
                            model%geometry%thck, &
                            model%geomderv%stagthck, &
@@ -792,12 +785,27 @@ contains
                      GLIDE_IS_FLOAT(model%geometry%thkmask), &
                      model%tempwk%wphi)
 
-!HALO - If bwat is computed only on local cells, do we need a halo update here?
+!WHL - Here I restored some Glimmer calls.
+!      We need stagbpmp for one of the basal traction cases.
 
-    case(2) ! *sfp* stealing this un-used option ... 
+       ! Transform basal temperature and pressure melting point onto velocity grid
+
+       call stagvarb(model%temper%temp(model%general%upn,1:model%general%ewn,1:model%general%nsn), &
+                     model%temper%stagbtemp ,&
+                     model%general%  ewn, &
+                     model%general%  nsn)
+       
+       call calcbpmp(model,model%geometry%thck,model%temper%bpmp)
+
+       call stagvarb(model%temper%bpmp, &
+                     model%temper%stagbpmp ,&
+                     model%general%  ewn, &
+                     model%general%  nsn)
+
+!!    case(2) ! *sfp* stealing this un-used option ... 
+    case(TEMP_STEADY) ! *sfp* stealing this un-used option ... 
 
         ! DO NOTHING. That is, hold T const. at initially assigned value
-        !TODO whl - Should the do-nothing option have a different case number, such as 0 or -1? 
 
     end select   ! whichtemp
 
@@ -1116,9 +1124,15 @@ contains
 
   end subroutine findvtri_rhs
 
-  !-----------------------------------------------------------------------
+!-------------------------------------------------------------------
 
-  subroutine glide_calcbmlt(model,whichbmelt,temp,thck,stagthck,dusrfdew,dusrfdns,ubas,vbas,bmlt,floater)
+  !WHL - Removed whichbmelt option
+
+  subroutine glide_calcbmlt(model,    temp,          &
+                            thck,     stagthck,      &
+                            dusrfdew, dusrfdns,      &
+                            ubas,     vbas,          &
+                            bmlt,     floater)
 
     use glimmer_global, only : dp 
 
@@ -1128,14 +1142,14 @@ contains
     real(dp), dimension(:,:), intent(inout) :: bmlt   ! scaled basal melting, m/s * tim0/thk0
                                                       ! > 0 for melting, < 0 for freeze-on
     logical, dimension(:,:), intent(in) :: floater
-    integer, intent(in) :: whichbmelt
+!!    integer, intent(in) :: whichbmelt
 
     real(dp), dimension(size(model%numerics%sigma)) :: pmptemp
     real(dp) :: slterm, newmlt
  
     integer :: ewp, nsp, up, ew, ns
 
-!LOOP: all scalar points except outer row
+    !LOOP: all scalar points except outer row
 
     do ns = 2, model%general%nsn-1
        do ew = 2, model%general%ewn-1
@@ -1147,64 +1161,29 @@ contains
 
                 slterm = 0.0d0
 
-                select case( whichbmelt )    !*sfp* added for calculating differently based on model physics
+!!                select case( whichbmelt )    !*sfp* added for calculating differently based on model physics
 
-                case( SIA_BMELT )                   ! 0-order SIA approx. --> Tau_d = Tau_b                                     
+!!                case( SIA_BMELT )                   
 
-                    do nsp = ns-1,ns
-                        do ewp = ew-1,ew
-                            slterm = slterm - stagthck(ewp,nsp) * &
-                            (dusrfdew(ewp,nsp) * ubas(ewp,nsp) + dusrfdns(ewp,nsp) * vbas(ewp,nsp))
-                        end do
-                    end do
+                  ! 0-order SIA approx. --> Tau_d = Tau_b
 
-                    !*sfp* NOTE that multiplication by this term has been moved up from below
-                    slterm = model%tempwk%f(4) * slterm 
+                  do nsp = ns-1,ns
+                     do ewp = ew-1,ew
+                        slterm = slterm - stagthck(ewp,nsp) * &
+                                 (dusrfdew(ewp,nsp) * ubas(ewp,nsp) + dusrfdns(ewp,nsp) * vbas(ewp,nsp))
+                     end do
+                 end do
 
-!TODO - Remove this case.  Commenting out for now.
+                 !*sfp* NOTE that multiplication by this term has been moved up from below
+                 slterm = model%tempwk%f(4) * slterm 
 
-!!                case( FIRSTORDER_BMELT )                   ! 1st-order SIA approx. (HO model)
-!!                    do nsp = ns-1,ns 
-!!                        do ewp = ew-1,ew
-!!                        !*sfp* Note that vel and stress arrays have diff vert dims (upn for vel, upn-1 for stress)
-!!                        ! so that for now, basal vel at upn is multiplied by basal stress at upn-1 to get frictional
-!!                        ! heating term. This may not be entirely correct ... 
-!!                             slterm = slterm - &
-                                
-!!                                !! NEW version: uses consistent basal tractions                
-!!                                ( -model%velocity%btraction(1,ewp,nsp) * &
-!!                                   model%velocity%uvel(model%general%upn,ewp,nsp)  &
-!!                                  -model%velocity%btraction(2,ewp,nsp) * &
-!!                                   model%velocity%vvel(model%general%upn,ewp,nsp) )
-                                
-!!                                !!!! OLD version: uses HO basal shear stress calc. from FD                
-!!                                !( model%stress%tau%xz(model%general%upn-1,ewp,nsp) * &
-!!                                !  model%stress%uvel(model%general%upn,ewp,nsp) + &
-!!                                !  model%stress%tau%yz(model%general%upn-1,ewp,nsp) * &
-!!                                !  model%stress%vvel(model%general%upn,ewp,nsp) )
-
-!!                        end do
-!!                    end do
-
-!!                    slterm = model%tempwk%f(5) * slterm
-
-!                case( SSA_BMELT )                  ! 1st-order, depth-integrated approx. (SSA) 
-!                                            ! NOTE: need to pass 2d basal shear stress arrays from SSA model
-!                   do nsp = ns-1,ns 
-!                         do ewp = ew-1,ew
-!                             slterm = slterm - &
-!                                 ( taubxs(upn,ewp,nsp) * ubas(ewp,nsp) + taubys(upn,ewp,nsp) * vbas(ewp,nsp))
-!                         end do
-!                   end do
-!
-!                   slterm = model%tempwk%f(5) * slterm
-
-                end select
+!!                end select
 
                 bmlt(ew,ns) = 0.0d0
 
                 !*sfp* changed this so that 'slterm' is multiplied by f(4) const. above ONLY for the 0-order SIA case,
                 ! since for the HO and SSA cases a diff. const. needs to be used
+                !TODO - Could go back to old version since HO case is no longer treated here
 
                 ! OLD version
 !                newmlt = model%tempwk%f(4) * slterm - model%tempwk%f(2)*model%temper%bheatflx(ew,ns) + model%tempwk%f(3) * &
@@ -1399,6 +1378,29 @@ contains
     pmptemp(:) = fact * thck * sigma(:)
 
   end subroutine calcpmpt
+
+  !-----------------------------------------------------------------------
+  !WHL - This subroutine was removed from Glimmer at some point.  I put it back.
+
+  subroutine calcbpmp(model,thck,bpmp)
+
+    ! Calculate the pressure melting point at the base of the ice sheet
+
+    type(glide_global_type) :: model
+    real(dp), dimension(:,:), intent(in)  :: thck
+    real(dp), dimension(:,:), intent(out) :: bpmp
+
+    integer :: ew,ns
+
+    bpmp = 0.d0
+
+    do ns = 2, model%general%nsn-1
+       do ew = 2, model%general%ewn-1
+          call calcpmptb(bpmp(ew,ns),thck(ew,ns))
+       end do
+    end do
+
+  end subroutine calcbpmp
 
 !-------------------------------------------------------------------
 

@@ -30,12 +30,13 @@ module glissade
 
   ! Driver for Glissade (parallel, higher-order) dynamical core
 
+  use glimmer_global
+  use glimmer_log
   use glide_types
   use glide_io
   use glide_lithot_io
   use glide_lithot
   use glimmer_config
-  use glimmer_global
 
   implicit none
 
@@ -46,6 +47,10 @@ module glissade
   integer, private, parameter :: dummyunit=99
 
 contains
+
+!=======================================================================
+
+! Note: There is no glissade_config subroutine; glide_config works for all dycores.
 
 !=======================================================================
 
@@ -60,7 +65,6 @@ contains
     use glimmer_ncio
     use glide_velo, only: init_velo  !TODO - Remove this
     use glissade_temp, only: glissade_init_temp
-    use glimmer_log
     use glimmer_scales
     use glide_mask
     use isostasy
@@ -127,7 +131,8 @@ contains
     ! set uniform basal heat flux (positive down)
     model%temper%bheatflx = model%paramets%geot
 
-    ! load sigma file
+    ! compute sigma levels or load from external file
+    ! (if not already read from config file)
     call glide_load_sigma(model,dummyunit)
 
     ! open all input files
@@ -150,9 +155,9 @@ contains
     call init_isostasy(model)
 
     select case(model%options%whichrelaxed)
-    case(1) ! Supplied topography is relaxed
+    case(RELAXED_TOPO_INPUT)   ! Supplied topography is relaxed
        model%isos%relx = model%geometry%topg
-    case(2) ! Supplied topography is in equilibrium
+    case(RELAXED_TOPO_COMPUTE) ! Supplied topography is in equilibrium
        call not_parallel(__FILE__,__LINE__)
        call isos_relaxed(model)
     end select
@@ -162,6 +167,26 @@ contains
 
     ! create glide variables
     call glide_io_createall(model)
+
+    ! If a 2D bheatflx field is present in the input file, it will have been written 
+    !  to model%temper%bheatflx.  For the case model%options%gthf = 0, we want to use
+    !  a uniform heat flux instead.
+    ! If no bheatflx field is present in the input file, then we default to the 
+    !  prescribed uniform value, model%paramets%geot.
+
+    if (model%options%gthf == GTHF_UNIFORM) then
+
+       ! Check to see if this flux was present in the input file
+       ! (by checking whether the flux is nonuniform over the domain)
+       if (abs(maxval(model%temper%bheatflx) - minval(model%temper%bheatflx)) > 1.d-6) then  
+          call write_log('Setting uniform prescribed geothermal flux')
+          call write_log('(Set gthf = 1 to read geothermal flux field from input file)')
+       endif
+
+       ! set uniform basal heat flux (positive down)
+       model%temper%bheatflx = model%paramets%geot
+
+    endif
 
     ! initialise glissade components
 
@@ -998,11 +1023,14 @@ contains
     ! ------------------------------------------------------------------------ 
 
     ! Do not solve velocity for initial time on a restart because that breaks an exact restart.
-    if ( (model%options%is_restart == 1) .and. &
+
+    if ( (model%options%is_restart == RESTART_TRUE) .and. &
          (model % numerics % time == model % numerics % tstart) ) then
-       call write_log('Using uvel, vvel from restart file at initial time.')
-       model%velocity%is_velocity_valid = .true.  ! TODO I don't think this flag is used anywhere, but I am setting it anyway.
+  
+       call write_log('Using uvel, vvel from restart file at initial time')
+
     else
+
        ! If this is not a restart or we are not at the initial time, then proceed normally.
 
        if ( (model % numerics % time == model % numerics % tstart) .and. &

@@ -1,6 +1,3 @@
-!CLEANUP - glide_types.F90
-! Added which_dycore option (DYCORE_GLIDE, DYCORE_GLAM, DYCORE_GLISSADE)
-
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
 ! +  glide_types.f90 - part of the Glimmer-CISM ice model     + 
@@ -49,8 +46,7 @@ module glide_types
   !*FD Note that this \emph{is} now where the defaults are defined for these
   !*FD variables.
 
-!TODO - Move some types to the higher-level instance type, per suggestion above?
-!       Maybe best to defer this until later, and clean up the glide_global_type first
+!TODO - Reorganize the types, per suggestion above?
 
 !TODO - We might consider cleaning up the glide_global type so that it doesn't
 !        include as many subtypes.
@@ -62,7 +58,6 @@ module glide_types
 !        * Timestep stuff would go in 'time' type?
 !       However, this would take a lot of work.
 
-  use glimmer_sparse
   use glimmer_sparse_type
   use glimmer_global
   use glimmer_ncdf
@@ -98,16 +93,27 @@ module glide_types
 
   !Constants that describe the options available
 
+!WHL - Tried to include all the important options here, to avoid hardwiring
+!      of case numbers
+
+  ! basic Glimmer/Glide options
+
   integer, parameter :: DYCORE_GLIDE = 0     ! old shallow-ice dycore from Glimmer
   integer, parameter :: DYCORE_GLAM = 1      ! Payne-Price finite-difference solver
   integer, parameter :: DYCORE_GLISSADE = 2  ! prototype finite-element solver
+
+  integer, parameter :: EVOL_NO_THICKNESS = -1
+  integer, parameter :: EVOL_PSEUDO_DIFF = 0
+  integer, parameter :: EVOL_ADI = 1
+  integer, parameter :: EVOL_DIFFUSION = 2
+  integer, parameter :: EVOL_INC_REMAP = 3
+  integer, parameter :: EVOL_UPWIND = 4
 
   integer, parameter :: TEMP_SURFACE_AIR_TEMP = 0
   integer, parameter :: TEMP_GLIDE = 1
   integer, parameter :: TEMP_STEADY = 2
   integer, parameter :: TEMP_REMAP_ADV = 3
 
-!WHL - New options for temperature initialization
   integer, parameter :: TEMP_INIT_ZERO = 0
   integer, parameter :: TEMP_INIT_ARTM = 1
   integer, parameter :: TEMP_INIT_LINEAR = 2
@@ -116,52 +122,103 @@ module glide_types
   integer, parameter :: FLWA_PATERSON_BUDD_CONST_TEMP = 1
   integer, parameter :: FLWA_CONST_FLWA = 2
 
-  !...etc, don't have time to do all of these now
+  integer, parameter :: BTRC_ZERO = 0
+  integer, parameter :: BTRC_CONSTANT = 1
+  integer, parameter :: BTRC_CONSTANT_BWAT = 2
+  integer, parameter :: BTRC_TANH_BWAT = 3
+  integer, parameter :: BTRC_LINEAR_BMLT = 4
+  integer, parameter :: BTRC_CONSTANT_TPMP = 5
 
-  integer, parameter :: EVOL_NO_THICKNESS = -1
-  integer, parameter :: EVOL_PSEUDO_DIFF = 0
-  integer, parameter :: EVOL_ADI = 1
-  integer, parameter :: EVOL_DIFFUSION = 2
-  integer, parameter :: EVOL_INC_REMAP = 3
-!!  integer, parameter :: EVOL_FO_UPWIND = 4 
-
-  integer, parameter :: SIGMA_BUILTIN_DEFAULT = 0 !Use default Sigma coordinate spacing
-  integer, parameter :: SIGMA_BUILTIN_EVEN = 1 !Use an evenly spaced Sigma coordinate
-  integer, parameter :: SIGMA_BUILTIN_PATTYN = 2 !Use Pattyn's sigma coordinates
-
+  !TODO - Change 'NONE' to 0 and 'LOCAL' to 2?
   integer, parameter :: BWATER_LOCAL = 0
   integer, parameter :: BWATER_FLUX  = 1
   integer, parameter :: BWATER_NONE  = 2
-  integer, parameter :: BWATER_BASAL_PROC = 3  !*mb* basal water available from basal proc. module
-  integer, parameter :: BWATER_CONST = 4       !*mb* Constant thickness of water, e.g., to force Tpmp.
-
-!WHL - added a case here
-  integer, parameter :: HO_EFVS_FULL = 0
-  integer, parameter :: HO_EFVS_FLOWFACT = 1
-  integer, parameter :: HO_EFVS_CONSTANT = 2
-    !*FD Flag that indicates how effective viscosity is computed
-    !*FD \begin{description}
-    !*FD \item[0] compute from effective strain rate
-    !*FD \item[1] multiple of flow factor
-    !*FD \item[2] constant value
-
-  integer, parameter :: SIA_DISP = 0
-  integer, parameter :: FIRSTORDER_DISP = 1
-  integer, parameter :: SSA_DISP = 2
-
-  integer, parameter :: SIA_BMELT = 0
-  integer, parameter :: FIRSTORDER_BMELT = 1
-  integer, parameter :: SSA_BMELT = 2
+  integer, parameter :: BWATER_CONST = 3       !*mb* Constant thickness of water, e.g., to force Tpmp.
+!!  integer, parameter :: BWATER_BASAL_PROC = 4  ! not currently supported
 
   integer, parameter :: BASAL_MBAL_NO_CONTINUITY = 0
   integer, parameter :: BASAL_MBAL_CONTINUITY = 1
 
-!WHL - added an option here
   integer, parameter :: GTHF_UNIFORM = 0
   integer, parameter :: GTHF_PRESCRIBED_2D = 1
   integer, parameter :: GTHF_COMPUTE = 2
 
-!WHL - added options 2 and 3
+  !TODO - Rearrange numbering?
+  integer, parameter :: MARINE_NONE = 0
+  integer, parameter :: MARINE_FLOAT_ZERO = 1
+  integer, parameter :: MARINE_RELX_THRESHOLD = 2
+  integer, parameter :: MARINE_FLOAT_FRACTION = 3
+  integer, parameter :: MARINE_TOPG_THRESHOLD = 4
+  integer, parameter :: MARINE_HUYBRECHTS = 5
+
+  integer, parameter :: VERTINT_STANDARD = 0
+  integer, parameter :: VERTINT_KINEMATIC_BC = 1
+
+  !WHL - added the even and Pattyn options
+  integer, parameter :: SIGMA_COMPUTE_GLIDE = 0
+  integer, parameter :: SIGMA_EXTERNAL = 1
+  integer, parameter :: SIGMA_CONFIG = 2
+  integer, parameter :: SIGMA_COMPUTE_EVEN = 3
+  integer, parameter :: SIGMA_COMPUTE_PATTYN = 4
+
+  !WHL - Removed this one
+!!  integer, parameter :: SIGMA_BUILTIN_DEFAULT = 0 ! Use default Sigma coordinate spacing
+!!  integer, parameter :: SIGMA_BUILTIN_EVEN = 1    ! Use an evenly spaced Sigma coordinate
+!!  integer, parameter :: SIGMA_BUILTIN_PATTYN = 2  ! Use Pattyn's sigma coordinates
+
+  integer, parameter :: RELAXED_TOPO_NONE = 0     ! Do nothing
+  integer, parameter :: RELAXED_TOPO_INPUT = 1    ! Input topo is relaxed
+  integer, parameter :: RELAXED_TOPO_COMPUTE = 2  ! Input topo in isostatic equilibrium
+                                                  ! compute relaxed topo
+
+  !TODO - Make this a logical variable?
+  integer, parameter :: RESTART_FALSE = 0
+  integer, parameter :: RESTART_TRUE = 1
+
+  !basal proc option disabled for now
+  integer, parameter :: BAS_PROC_DISABLED = 0
+!!  integer, parameter :: BAS_PROC_FULLCALC = 1
+!!  integer, parameter :: BAS_PROC_FASTCALC = 2
+
+
+  ! higher-order options
+
+  !TODO - Swap 0 and 2?
+  integer, parameter :: HO_EFVS_FULL = 0
+  integer, parameter :: HO_EFVS_FLOWFACT = 1
+  integer, parameter :: HO_EFVS_CONSTANT = 2
+
+  integer, parameter :: SIA_DISP = 0
+  integer, parameter :: FIRSTORDER_DISP = 1
+!!  integer, parameter :: SSA_DISP = 2  ! not supported
+
+  integer, parameter :: HO_BABC_CONSTANT = 0
+  integer, parameter :: HO_BABC_SIMPLE = 1
+  integer, parameter :: HO_BABC_YIELD_PICARD = 2
+  integer, parameter :: HO_BABC_CIRCULAR_SHELF = 3
+  integer, parameter :: HO_BABC_LARGE_BETA = 4
+  integer, parameter :: HO_BABC_EXTERNAL_BETA = 5
+  integer, parameter :: HO_BABC_NO_SLIP = 6
+  integer, parameter :: HO_BABC_YIELD_NEWTON = 7
+
+  !WHL - removed this option
+!!  integer, parameter :: SIA_BMELT = 0
+!!  integer, parameter :: FIRSTORDER_BMELT = 1
+!!  integer, parameter :: SSA_BMELT = 2
+
+  !WHL - removed this option
+!!  integer, parameter :: HO_SOURCE_AVERAGED = 0
+!!  integer, parameter :: HO_SOURCE_EXPLICIT = 1
+!!  integer, parameter :: HO_SOURCE_DISABLED = 2
+
+  integer, parameter :: HO_NONLIN_PICARD = 0
+  integer, parameter :: HO_NONLIN_JFNK = 1
+
+  integer, parameter :: HO_RESID_MAX = 0
+  integer, parameter :: HO_RESID_MAX_NO_UBAS = 1
+  integer, parameter :: HO_RESID_MEAN = 2
+  integer, parameter :: HO_RESID_L2NORM = 3
+
   integer, parameter :: HO_SPARSE_BICG = 0
   integer, parameter :: HO_SPARSE_GMRES = 1
   integer, parameter :: HO_SPARSE_PCG_INCH = 2
@@ -175,19 +232,16 @@ module glide_types
 !!  integer, parameter :: HO_APPROX_SSA = 1
 !!  integer, parameter :: HO_APPROX_BP = 2
 
-  integer, parameter :: HO_SOURCE_AVERAGED = 0
-  integer, parameter :: HO_SOURCE_EXPLICIT = 1
-  integer, parameter :: HO_SOURCE_DISABLED = 2
-
-  !*mb* added option to use the basal proc. model
-  integer, parameter :: BAS_PROC_DISABLED = 0
-  integer, parameter :: BAS_PROC_FULLCALC = 1
-  integer, parameter :: BAS_PROC_FASTCALC = 2
-
   type glide_options
 
-    !*FD Holds user options controlling the methods used in the ice-model
-    !*FD integration.
+    !*FD Holds user options controlling the methods used in the ice-model integration.
+
+    !TODO - Review default settings
+    !       Make sure descriptions are consistent with above declarations
+
+    !-----------------------------------------------------------------------
+    ! standard options
+    !-----------------------------------------------------------------------
 
     integer :: whichdycore = 1
 
@@ -195,6 +249,16 @@ module glide_types
     !*FD \begin{description} 
     !*FD \item[0] Glide dycore (SIA, serial only)
     !*FD \item[1] Glissade dycore (HO, serial or parallel)
+    !*FD \end{description}
+
+    integer :: whichevol = 0
+
+    !*FD Thickness evolution method:
+    !*FD \begin{description}
+    !*FD \item[0] Pseudo-diffusion approach 
+    !*FD \item[2] Diffusion approach (also calculates velocities) 
+    !*FD \item[3] Incremental remapping
+    !*FD \item[4] 1st-order upwind scheme
     !*FD \end{description}
 
     integer :: whichtemp = 1
@@ -236,13 +300,18 @@ module glide_types
     !*FD \,\mathrm{Pa}^{-n}$
     !*FD \end{description}
 
-    ! This option is currently disabled.
-    integer :: which_bproc = 0
-    !Options for the basal processes code
+    integer :: whichbtrc = 0
+
+    !*FD Basal slip coefficient:
     !*FD \begin{description}
-    !*FD \item[0] Disabled
-    !*FD \item[1] Full calculation, with at least 3 nodes to represent the till layer
-    !*FD \item[2] Fast calculation, using Tulaczyk empirical parametrization
+    !*FD \item[0] Set equal to zero everywhere
+    !*FD \item[1] Set to (non--zero) constant
+!!    !*FD \item[2] Set to (non--zero) constant where temperature is at pressure melting point of ice, otherwise to zero
+    !*FD \item[2] Set to (non--zero) constant where basal water is present, otherwise to zero
+    !*FD \item[3] \texttt{tanh} function of basal water depth 
+    !*FD \item[4] linear function of basal melt rate
+    !*FD \item[5] Set to (non--zero) constant where temperature is at pressure melting point of ice, otherwise to zero
+!!    !*FD \item[5] function of taub^{-3}
     !*FD \end{description}
 
     integer :: whichbwat = 2
@@ -256,6 +325,23 @@ module glide_types
     !*FD \item[4] Set to constant everywhere (10m).
     !*FD \end{description}
 
+    integer :: basal_mbal = 0
+
+    !*FD basal melt rate:
+    !*FD \begin{description}
+    !*FD \item[0] Basal melt rate not included in continuity equation
+    !*FD \item[1] Basal melt rate included in continuity equation
+    !*FD \end{description}
+
+    integer :: gthf = 0
+
+    !*FD geothermal heat flux:
+    !*FD \begin{description}
+    !*FD \item[0] prescribed uniform geothermal heat flux
+    !*FD \item[1] read 2D geothermal flux field from input file (if present)
+    !*FD \item[2] calculate geothermal flux using 3d diffusion
+    !*FD \end{description}
+
     integer :: whichmarn = 1
 
     !*FD Ice thickness: 
@@ -267,26 +353,6 @@ module glide_types
     !*FD \item[3] Lose fraction of ice when edge cell
     !*FD \end{description}
 
-    integer :: whichbtrc = 0
-
-    !*FD Basal slip coefficient: 
-    !*FD \begin{description}
-    !*FD \item[0] Set equal to zero everywhere
-    !*FD \item[1] Set (non--zero) constant
-    !*FD \item[2] Set to (non--zero) constant where temperature is at pressure melting point of ice, otherwise to zero
-    !*FD \item[3] \texttt{tanh} function of basal water depth 
-    !*FD \end{description}
-
-    integer :: whichevol = 0
-
-    !*FD Thickness evolution method:
-    !*FD \begin{description}
-    !*FD \item[0] Pseudo-diffusion approach 
-    !*FD \item[2] Diffusion approach (also calculates velocities) 
-    !*FD \item[3] Incremental remapping
-    !*FD \item[4] 1st-order upwind scheme
-    !*FD \end{description}
-
     integer :: whichwvel = 0
 
     !*FD Vertical velocities: 
@@ -296,30 +362,35 @@ module glide_types
     !*FD upper kinematic B.C. obeyed 
     !*FD \end{description}
 
+    integer :: which_sigma = 0
+
+    !*FD \begin{description}
+    !*FD \item[0] calculate sigma coordinates
+    !*FD \item[1] sigma coordinates are given in external file
+    !*FD \item[2] sigma coordinates are given in configuration file
+    !*FD \end{description}
+
+    !WHL - Removed this option
+!!    integer :: which_sigma_builtin = 0
+
+!!    !If Glimmer generates the sigma coordinates, selects which built-in sigma to use
+!!    !*FD \begin{description}
+!!    !*FD \item[0] standard Glimmer setup
+!!    !*FD \item[1] evenly spaced levels
+!!    !*FD \item[2] Pattyn's sigma levels
+!!    !*FD \end{description}
+
+    !TODO - Should the default be = 1?  Nothing happens for case 0.
     integer :: whichrelaxed = 0
+
     !*FD relaxed topography:
     !*FD \begin{description}
-    !*FD \item[0] get relaxed topo from separate variable
+    !*FD \item[0] get relaxed topo from separate variable (in practice, do nothing)
     !*FD \item[1] first time slice of input topo is relaxed
     !*FD \item[2] first time slice of input topo is in isostatic equilibrium
     !*FD \end{description}
 
-    integer :: basal_mbal = 0
-    !*FD basal melt rate:
-    !*FD \begin{description}
-    !*FD \item[0] Basal melt rate not included in continuity equation
-    !*FD \item[1] Basal melt rate included in continuity equation
-    !*FD \end{description}
-
-    !WHL - Made distinct options for prescribed uniform value
-    !      v. reading from input file 
-    integer :: gthf = 0
-    !*FD geothermal heat flux:
-    !*FD \begin{description}
-    !*FD \item[0] prescribed uniform geothermal heat flux
-    !*FD \item[1] read 2D geothermal flux field from input file (if present)
-    !*FD \item[2] calculate geothermal flux using 3d diffusion
-    !*FD \end{description}
+    !TODO - Make this a logical variable?
 
     integer :: is_restart = 0
     !*FD if the run is a restart of a previous run
@@ -328,10 +399,39 @@ module glide_types
     !*FD \item[1] restart model from previous run
     !*FD \end{description}
 
-!TODO - Make a separate section for HO options?
+    ! This is a Glimmer serial option
+    ! The parallel code enforces periodic EW and NS boundary conditions by default
+    logical :: periodic_ew = .false.
 
-    ! options for using the Payne/Price higher-order dynamical core
+    !*FD \begin{description}
+    !*FD \item[0] no periodic EW boundary conditions
+    !*FD \item[1] periodic EW boundary conditions
+    !*FD \end{description}
+
+    !-----------------------------------------------------------------------
+    ! Higher-order options
+    ! Associated with Payne-Price dycore (glam) and newer glissade dycore
+    !-----------------------------------------------------------------------
+
+    integer :: which_ho_efvs = 0
+
+    !*FD Flag that indicates how effective viscosity is computed
+    !*FD \begin{description}
+    !*FD \item[0] compute from effective strain rate
+    !*FD \item[1] multiple of flow factor
+    !*FD \item[2] constant value
+
+    integer :: which_disp = 0
+
+    !*FD Flag that indicates method for computing the dissipation during the temperature calc.
+    !*FD \begin{description}
+    !*FD \item[0] for 0-order SIA approx
+    !*FD \item[1] for 1-st order solution (e.g. Blatter-Pattyn)
+    !*FD \item[2] for 1-st order depth-integrated solution (SSA)
+    !*FD \end{description}
+
     integer :: which_ho_babc = 4
+
     !*FD Flag that describes basal boundary condition for PP dyn core: 
     !*FD \begin{description}
     !*FD \item[0] constant value (hardcoded in, useful for debugging)
@@ -344,11 +444,20 @@ module glide_types
     !*FD \item[7] use till yield stress (Newton-type iteration)
     !*FD \end{description}
 
-    integer :: which_ho_efvs = 0
-    !*FD Flag that indicates how effective viscosity is computed for PP dyn core:
-    !*FD \begin{description}
-    !*FD \item[0] compute from effective strain rate
-    !*FD \item[1] constant value
+    !WHL - no longer used
+!!    integer :: which_bmelt = 0
+!!    !*FD Flag that indicates method for computing the frictional melt rate terms during temperature calc.
+!!    !*FD \begin{description}
+!!    !*FD \item[0] for 0-order SIA approx
+!!    !*FD \item[1] for 1-st order solution (e.g. Blatter-Pattyn)
+!!    !*FD \item[2] for 1-st order depth-integrated solution (SSA)
+!!    !*FD \begin{description}
+
+    integer :: which_ho_nonlinear = 0
+    !*FD Flag that indicates method for solving the nonlinear iteration when solving 
+    !*FD the first-order momentum balance
+    !*FD \item[0] use the standard Picard iteration
+    !*FD \item[1] use Jacobian Free Newton Krylov (JFNK) method
 
     integer :: which_ho_resid = 3
     !*FD Flag that indicates method for computing residual in PP dyn core: 
@@ -359,29 +468,6 @@ module glide_types
     !*FD \item[3] L2 norm of system residual, Ax-b=resid
     !*FD \begin{description}
 
-    integer :: which_disp = 0
-    !*FD Flag that indicates method for computing the dissipation during the temperature calc.
-    !*FD \begin{description}
-    !*FD \item[0] for 0-order SIA approx
-    !*FD \item[1] for 1-st order solution (e.g. Blatter-Pattyn)
-    !*FD \item[2] for 1-st order depth-integrated solution (SSA)
-    !*FD \end{description}
-
-    integer :: which_bmelt = 0
-    !*FD Flag that indicates method for computing the frictional melt rate terms during temperature calc.
-    !*FD \begin{description}
-    !*FD \item[0] for 0-order SIA approx
-    !*FD \item[1] for 1-st order solution (e.g. Blatter-Pattyn)
-    !*FD \item[2] for 1-st order depth-integrated solution (SSA)
-    !*FD \begin{description}
-
-    integer :: which_ho_nonlinear = 0
-    !*FD Flag that indicates method for solving the nonlinear iteration when solving 
-    !*FD the first-order momentum balance
-    !*FD \item[0] use the standard Picard iteration
-    !*FD \item[1] use Jacobian Free Newton Krylov (JFNK) method
-
-!WHL - Removed old options 2 and 3 (UMF direct and PARDISO), replaced with PCG
     integer :: which_ho_sparse = 0
     !*FD Flag that indicates method for solving the sparse linear system
     !*FD that arises from the higher-order solver
@@ -393,13 +479,16 @@ module glide_types
     !*FD \item[4] standalone interface to Trilinos
     !*FD \end{description}
 
-!TODO - Is the fallback option still needed?
-    integer :: which_ho_sparse_fallback = -1
-    !*FD Flag that indicates a sparse matrix solver that the higher-order 
-    !*FD computation should fall back on if the primary choice fails.
-    !*FD By default, this is set to -1 which indicates no fallback.
-    !*FD Optimally, this should be set to a direct solver (such as UMFPACK)
-    !*FD that can be used if the iterative solver fails.
+    ! parameters to store external dycore options/information -- Doug Ranken 04/20/12
+    integer :: external_dycore_type = 0  
+    !*FD Flag to select an external dynamic core.
+    !*FD \begin{description}
+    !*FD \item[0] Do not use an external dynamic core
+    !*FD \item[1] Use the BISICLES external dynamic core
+    !*FD \end{description}
+
+    character(fname_length) :: dycore_input_file=''
+    !FD Name of a file containing external dycore settings.
 
 !WHL - Added a glissade option to choose which Stokes approximation (SIA, SSA or Blatter-Pattyn HO)
 !WHL - Commented out for now
@@ -414,59 +503,39 @@ module glide_types
     !*FD \item[2] Blatter-Pattyn with both vertical-shear and horizontal-plane stresses
     !*FD \end{description}
 
-    integer :: which_ho_source = 0
-    !*FD Flag that indicates how to compute the source term of an ice shelf
+    !WHL - no longer used
+!!    integer :: which_ho_sparse_fallback = -1
+!!    !*FD Flag that indicates a sparse matrix solver that the higher-order 
+!!    !*FD computation should fall back on if the primary choice fails.
+!!    !*FD By default, this is set to -1 which indicates no fallback.
+!!    !*FD Optimally, this should be set to a direct solver (such as UMFPACK)
+!!    !*FD that can be used if the iterative solver fails.
+
+!!    integer :: which_ho_source = 0
+!!    !*FD Flag that indicates how to compute the source term of an ice shelf
+!!    !*FD \begin{description}
+!!    !*FD \item[0] Vertically averaged formulation (uniform pressure applied regardless of depth)
+!!    !*FD \item[1] Vertically explicit formulation (pressue dependent on depth)
+!!    !*FD \end{description}
+
+!!    logical :: ho_include_thinice = .true.
+!!    !*FD Whether or not to include thin ice in the higher order computation
+
+    ! The remaining options are not currently supported
+
+    !integer :: which_bproc = 0
+    !Options for the basal processes code
     !*FD \begin{description}
-    !*FD \item[0] Vertically averaged formulation (uniform pressure applied regardless of depth)
-    !*FD \item[1] Vertically explicit formulation (pressue dependent on depth)
+    !*FD \item[0] Disabled
+    !*FD \item[1] Full calculation, with at least 3 nodes to represent the till layer
+    !*FD \item[2] Fast calculation, using Tulaczyk empirical parametrization
     !*FD \end{description}
-
-    logical :: ho_include_thinice = .true.
-    !*FD Whether or not to include thin ice in the higher order computation
-
-    logical :: periodic_ew = .false.
-    !*FD \begin{description}
-    !*FD \item[0] no periodic EW boundary conditions
-    !*FD \item[1] periodic EW boundary conditions
-    !*FD \end{description}
-
-    logical :: periodic_ns = .false.
-
-    integer :: which_sigma = 0
-    !*FD \begin{description}
-    !*FD \item[0] calculate sigma coordinates
-    !*FD \item[1] sigma coordinates are given in external file
-    !*FD \item[2] sigma coordinates are given in configuration file
-    !*FD \end{description}
-
-    integer :: which_sigma_builtin = 0
-    !If Glimmer generates the sigma coordinates, selects which built-in sigma to
-    !use
-    !*FD \begin{description}
-    !*FD \item[0] standard Glimmer setup
-    !*FD \item[1] evenly spaced levels
-    !*FD \item[2] Pattyn's sigma levels
-    !*FD \end{description}
-
-    integer :: diagnostic_run = 0
 
     !integer :: use_plume = 0   !! Option to be supported in future releases
     !*FD \begin{description}
     !*FD \item[0] standard bmlt calculation
     !*FD \item[1] use plume to calculate bmlt
     !*FD \end{description}
-
-!TODO - Does this belong under 'options' or elsewhere?
-    ! parameters to store external dycore options/information -- Doug Ranken 04/20/12
-    integer :: external_dycore_type = 0  
-    !*FD Flag to select an external dynamic core.
-    !*FD \begin{description}
-    !*FD \item[0] Do not use an external dynamic core
-    !*FD \item[1] Use the BISICLES external dynamic core
-    !*FD \end{description}
-
-    character(fname_length) :: dycore_input_file=''
-    !FD Name of a file containing external dycore settings.
 
   end type glide_options
 
@@ -627,8 +696,6 @@ module glide_types
     real(dp),dimension(:,:,:),pointer :: uvel_icegrid => null() !*FD 3D $x$-velocity
     real(dp),dimension(:,:,:),pointer :: vvel_icegrid => null() !*FD 3D $x$-velocity
 
-    logical :: is_velocity_valid = .false. !*FD True if uvel, vvel contains a HOM-computed velocity (and thus is valid as initial guess)
-
     real(dp),dimension(:,:)  ,pointer :: bed_softness => null() !*FD bed softness parameter
     real(dp),dimension(:,:)  ,pointer :: btrc  => null()        !*FD  basal traction (scaler field)
     real(dp),dimension(:,:,:),pointer :: btraction => null()    !*FD x(1,:,:) and y(2,:,:) "consistent" basal traction fields 
@@ -663,9 +730,10 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - Should calving, eus, and slidconst be part of some other type?
+!TODO - Should calving and eus be part of some other type?
 !WHL - Removed backstress and other variables that were used only by the old glide_marinlim case(5),
-!      which was removed.
+!       which was removed.
+!      Commented out slidconst, used by unsupported Huybrechts basal traction option
 
   type glide_climate
      !*FD Holds fields used to drive the model
@@ -676,7 +744,7 @@ module glide_types
      real(sp),dimension(:,:),pointer :: loni     => null() !*FD Longitudes of model grid points
      real(sp),dimension(:,:),pointer :: calving  => null() !*FD Calving flux (scaled as mass balance, thickness, etc)
      real(sp) :: eus = 0.0                                 !*FD eustatic sea level
-     real(sp) :: slidconst = 0.0
+!!     real(sp) :: slidconst = 0.0     ! not currently used
   end type glide_climate
 
   type glide_temper
@@ -908,8 +976,8 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - Check units of hydtim.
-!TODO - Is bpar still used?
+  !TODO - Check units of hydtim.
+  !TODO - Set btrac_const to nonzero value?  Probably in range 1.e-5 to 1.e-3
 
   type glide_paramets
     real(dp),dimension(5) :: bpar = (/ 0.2d0, 0.5d0, 0.0d0 ,1.0d-2, 1.0d0/)

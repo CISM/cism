@@ -114,8 +114,6 @@ contains
 
     ! local variables
     integer :: status,timedimid,ntime,timeid
-!WHLTSTEP - changed last_time to dp
-!    real(sp),dimension(1) :: last_time
     real(dp),dimension(1) :: last_time
     character(len=msglen) :: message
 
@@ -235,14 +233,10 @@ contains
     type(glimmer_nc_output), pointer :: outfile    
     type(glide_global_type) :: model
     logical forcewrite
-!WHLTSTEP - Changed time to dp
-!    real(sp),optional :: time
     real(dp),optional :: time
 
     character(len=msglen) :: message
     integer status
-!WHLTSTEP - Changed sub_time to dp
-!    real(sp) :: sub_time
     real(dp) :: sub_time
 
     ! Check for optional time argument
@@ -269,13 +263,16 @@ contains
           NCO%just_processed = .FALSE.
        end if
     end if
-    if (sub_time >= outfile%next_write .or. (forcewrite.and.sub_time > outfile%next_write-outfile%freq)) then
+
+    !TODO - Deal with roundoff issues.
+    !       e.g., if sub_time = 0.99999999999 and next_write = 1.00000000000, we want to write.
+    if (sub_time >= outfile%next_write .or. (forcewrite .and. sub_time > outfile%next_write-outfile%freq)) then
        if (sub_time <= outfile%end_write .and. .not.NCO%just_processed) then
           call write_log_div
           write(message,*) 'Writing to file ', trim(process_path(NCO%filename)), ' at time ', sub_time
           call write_log(trim(message))
           ! increase next_write
-          outfile%next_write=outfile%next_write+outfile%freq
+          outfile%next_write = outfile%next_write + outfile%freq
           NCO%processsed_time = sub_time
           ! write time
           status = parallel_put_var(NCO%id,NCO%timevar,sub_time,(/outfile%timecounter/))
@@ -283,6 +280,7 @@ contains
           NCO%just_processed = .TRUE.         
        end if
     end if
+
   end subroutine glimmer_nc_checkwrite
 
   !*****************************************************************************
@@ -487,30 +485,21 @@ contains
     use glide_types
     use glimmer_filenames
     implicit none
-    type(glimmer_nc_input), pointer :: infile
-    !*FD structure containg output netCDF descriptor
-    type(glide_global_type) :: model
-    !*FD the model instance
-!WHLTSTEP - Changed time to dp
-!    real(sp),optional :: time
-    real(dp),optional :: time
-    !*FD Optional alternative time
+    type(glimmer_nc_input), pointer :: infile  !*FD structure containg output netCDF descriptor
+    type(glide_global_type) :: model    !*FD the model instance
+    real(dp),optional :: time           !*FD Optional alternative time
 
     character(len=msglen) :: message
-!WHLTSTEP - Changed sub_time to dp
-!    real(sp) :: sub_time
     real(dp) :: sub_time
 
     integer :: pos  ! to identify restart files
 
-!WHLTSTEP - Changed restart_time to dp
-!    real(rk) :: restart_time   ! time of restart (yr)
     real(dp) :: restart_time   ! time of restart (yr)
 
     if (present(time)) then
-       sub_time=time
+       sub_time = time
     else
-       sub_time=model%numerics%time
+       sub_time = model%numerics%time
     end if
 
     if (infile%current_time <= infile%nt) then
@@ -522,8 +511,6 @@ contains
           call write_log(message)
           pos = index(infile%nc%filename,'.r.')  ! use CESM naming convention for restart files
           if (pos /= 0) then   ! get the start time based on the current time slice
-!WHLTSTEP - Changed restart_time to dp
-!             restart_time = real(infile%times(infile%current_time))  ! years
              restart_time = infile%times(infile%current_time)      ! years
              model%numerics%tstart = restart_time
              model%numerics%time = restart_time
@@ -538,6 +525,7 @@ contains
           NCI%processsed_time = sub_time
        end if
     end if
+
     if (sub_time > NCI%processsed_time) then
        if (NCI%just_processed) then
           ! finished reading during last time step, need to increase counter...
@@ -545,6 +533,7 @@ contains
           NCI%just_processed = .FALSE.
        end if
     end if
+
   end subroutine glimmer_nc_checkread
 
 end module glimmer_ncio

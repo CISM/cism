@@ -36,6 +36,8 @@
     use glimmer_log, only: write_log
     use glimmer_sparse_type
     use glimmer_sparse
+     
+    use glide_types  ! for HO_EFVS and other options
 
     use cism_sparse_pcg, only: pcg_solver_structured
 
@@ -449,9 +451,6 @@
 
 !TODO - Something like this may be needed if building with Trilinos.
 !!    use glam_strs2, only: linearSolveTime, totalLinearSolveTime
-
-!TODO - Is this 'use' better than hardwiring the numbers?
-!!    use glide_types, only: HO_APPROX_SIA, HO_APPROX_SSA 
 
     !----------------------------------------------------------------
     ! Input-output arguments
@@ -1442,7 +1441,7 @@
        ! "Can't use main_task flag because main_task is true for all processors in case of parallel_single"
 
        if (main_task) then
-          if (whichresid == 3 )then
+          if (whichresid == HO_RESID_L2NORM) then
              if (verbose) then
                 print*, ' '
                 print*, 'Using L2 norm convergence criterion'
@@ -2918,7 +2917,8 @@
 
     select case(whichefvs)
 
-    case(0)      ! calculate effective viscosity based on effective strain rate
+!!    case(0)      ! calculate effective viscosity based on effective strain rate
+    case(HO_EFVS_FULL)    ! calculate effective viscosity based on effective strain rate
 
        du_dx = 0.d0
        dv_dx = 0.d0
@@ -2970,7 +2970,8 @@
           print*, 'flwafact, effstrain (s-1), efvs (Pa s) =', flwafact, effstrain, efvs
        endif
 
-    case(1)      ! set the effective viscosity to a multiple of the flow factor, 0.5*A^(-1/n)
+!!    case(1)      ! set the effective viscosity to a multiple of the flow factor, 0.5*A^(-1/n)
+    case(HO_EFVS_FLOWFACT)      ! set the effective viscosity to a multiple of the flow factor, 0.5*A^(-1/n)
                  
                  !SCALING: Set the effective strain rate (s^{-1}) based on typical 
                  !         velocity and length scales, to agree with GLAM.
@@ -2982,9 +2983,8 @@
           print*, 'flwafact, effstrain, efvs =', flwafact, effstrain, efvs       
        endif
 
-!WHL - adding an option to set viscosity to the same value everywhere
-
-    case(2)
+!!    case(2)
+    case(HO_EFVS_CONSTANT)
 
        efvs = 1.d7 * scyr   ! Steve Price recommends 10^6 to 10^7 Pa yr
 

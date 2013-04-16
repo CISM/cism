@@ -43,18 +43,20 @@ module glide_setup
 
   private
   public :: glide_readconfig, glide_printconfig, glide_scale_params, &
-            glide_calclsrf, glide_load_sigma, glide_read_sigma, glide_calc_sigma
+            glide_load_sigma, glide_read_sigma, glide_calc_sigma,  &
+            glide_calclsrf  !TODO - Move glide_calclsrf elsewhere?
+
+!-------------------------------------------------------------------------
 
 contains
 
-!TODO - Do we need a glissade_readconfig and glissade_printconfig subroutine?
-!       This subroutine uses glide_global_type.
-!       Would be nice if we didn't have to rewrite everything for glissade.
-!       One option would be to pass in subtypes (e.g., general, numerics) that
-!        are shared between glide and glissade.
-  
+!-------------------------------------------------------------------------
+
   subroutine glide_readconfig(model,config)
-    !*FD read GLIDE configuration file
+
+    ! read GLIDE configuration file
+    ! Note: sigma coordinates are handled by a subsequent call to glide_read_sigma
+ 
     use glide_types
     use glimmer_config
     implicit none
@@ -69,16 +71,19 @@ contains
     if (associated(section)) then
        call handle_grid(section, model)
     end if
+
     ! read time parameters
     call GetSection(config,section,'time')
     if (associated(section)) then
        call handle_time(section, model)
     end if
+
     ! read options parameters
     call GetSection(config,section,'options')
     if (associated(section)) then
        call handle_options(section, model)
     end if
+
     !read options for higher-order computation
     call GetSection(config,section,'ho_options')
     if (associated(section)) then
@@ -99,33 +104,33 @@ contains
 
     ! read GTHF 
     call GetSection(config,section,'GTHF')
-!WHL - debug
-    print*, 'associated(GTHF) =', associated(section)
-    print*, 'options%gthf =', model%options%gthf
-
     if (associated(section)) then
 !!       model%options%gthf = 1       
        model%options%gthf = GTHF_COMPUTE
        call handle_gthf(section, model)
     end if
 
+    !WHL - disabled for now
     ! read till parameters
-    call GetSection(config,section,'till_options')
-    if (associated(section)) then
-       call handle_till_options(section, model)
-    end if
+!!    call GetSection(config,section,'till_options')
+!!    if (associated(section)) then
+!!       call handle_till_options(section, model)
+!!    end if
 
     ! Construct the list of necessary restart variables based on the config options 
     ! selected by the user in the config file (specific to the glide & glide_litho sections - other sections,
     ! e.g. glint, isos, are handled separately by their setup routines).
     ! This is done regardless of whether or not a restart ouput file is going 
     ! to be created for this run, but this information is needed before setting up outputs.   MJH 1/17/13
+
     call define_glide_restart_variables(model%options)
-    ! TODO Should this be called glimmer or cism?  Keeping the word glide for consistency with the module.
 
   end subroutine glide_readconfig
 
+!-------------------------------------------------------------------------
+
   subroutine glide_printconfig(model)
+
     !*FD print model configuration to log
     use glimmer_log
     use glide_types
@@ -138,12 +143,14 @@ contains
     call print_options(model)
     call print_parameters(model)
     call print_gthf(model)
-    call print_till_options(model)
+!!    call print_till_options(model)  ! disabled for now
+
   end subroutine glide_printconfig
+
+!-------------------------------------------------------------------------
     
-!TODO - Remove scaling?  At least from glissade.
-! But recall that some time steps are in hours, others in years.
-! model%numerics%tinc is in years
+!TODO - Remove most of the scaling?
+!       (Probably will need to keep scyr)
 
   subroutine glide_scale_params(model)
     !*FD scale parameters
@@ -185,8 +192,13 @@ contains
 
   end subroutine glide_scale_params
 
+!-------------------------------------------------------------------------
+
   subroutine glide_read_sigma(model,config)
-    !*FD read sigma levels from configuration file
+
+    ! read sigma levels from configuration file, if present
+    ! called immediately after glide_readconfig
+
     use glide_types
     use glimmer_config
     implicit none
@@ -196,7 +208,10 @@ contains
     ! local variables
     type(ConfigSection), pointer :: section
 
-    ! read grid size  parameters
+    ! read sigma levels
+    ! NOTE: If a sigma section is present in the config file, then we will always
+    !       use the sigma levels set there, regardless of the value of model%options%which_sigma
+
     call GetSection(config,section,'sigma')
     if (associated(section)) then
        call handle_sigma(section, model)
@@ -206,7 +221,194 @@ contains
 
 !-------------------------------------------------------------------------
 
-!++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  subroutine glide_load_sigma(model,unit)
+
+    ! Loads a file containing sigma vertical coordinates.
+    ! Note: This subroutine is called from glide_initialise or glissade_initialise.
+    !       If sigma levels are provided in the config file, then they are read
+    !        in by glide_read_sigma, and model%options%which_sigma is set to
+    !        SIGMA_CONFIG, in which case this subroutine does nothing.
+
+    use glide_types
+    use glimmer_log
+    use glimmer_filenames
+    use glimmer_global, only: dp
+    use parallel
+
+    implicit none
+
+    ! Arguments
+    type(glide_global_type),intent(inout) :: model !*FD Ice model to use
+    integer,               intent(in)    :: unit   !*FD Logical file unit to use. 
+                                                   !*FD (Must not already be in use)
+
+    ! Internal variables
+
+    integer :: up,upn
+    logical :: there
+    real(dp) :: level
+
+    ! Beginning of code
+
+    upn=model%general%upn
+
+    select case(model%options%which_sigma)
+
+!!    case(0)    
+    case(SIGMA_COMPUTE_GLIDE)   !  compute standard Glide sigma levels
+
+       do up = 1,upn
+          level = real(up-1,kind=dp) / real(upn-1,kind=dp)
+!!          model%numerics%sigma(up) = glide_find_level(level, model%options%which_sigma_builtin, up, upn)
+          model%numerics%sigma(up) = glide_calc_sigma(level, 2.d0)
+       end do
+
+       call write_log('Computing Glide sigma levels')
+
+!!    case(1)
+    case(SIGMA_EXTERNAL)        ! read from external file
+
+       if (main_task) inquire (exist=there, file=process_path(model%funits%sigfile))
+       call broadcast(there)
+       if (.not.there) then
+          call write_log('Sigma levels file: '//trim(process_path(model%funits%sigfile))// &
+               ' does not exist',GM_FATAL)
+       end if
+       call write_log('Reading sigma file: '//process_path(model%funits%sigfile))
+       if (main_task) then
+          open(unit,file=process_path(model%funits%sigfile))
+          read(unit,'(f9.7)',err=10,end=10) (model%numerics%sigma(up), up=1,upn)
+          close(unit)
+       end if
+       call broadcast(model%numerics%sigma)
+
+!!    case(2)
+    case(SIGMA_CONFIG)          ! read from config file
+
+       ! sigma levels have already been read from glide_read_sigma
+
+       call write_log('Getting sigma levels from main configuration file')
+
+    case(SIGMA_COMPUTE_EVEN)
+
+       do up = 1,upn
+          model%numerics%sigma(up) = real(up-1,kind=dp) / real(upn-1,kind=dp)
+       enddo
+
+       call write_log('Computing evenly spaced sigma levels')
+
+    case(SIGMA_COMPUTE_PATTYN)
+
+       do up = 1,upn
+          if (up == 1) then
+             model%numerics%sigma(up) = 0.d0
+          else if (up == upn) then
+             model%numerics%sigma(up) = 1.d0
+          else
+             level = real(up-1,kind=dp) / real(upn-1,kind=dp)
+             model%numerics%sigma(up) = glide_calc_sigma_pattyn(level)
+          end if
+       enddo
+
+       call write_log('Computing Pattyn sigma levels')
+
+    end select
+
+
+    !WHL - adding logic so that Glam will always use evenly spaced levels,
+    !      overriding other values of which_sigma (including sigma levels in config file)
+
+    if (model%options%whichdycore == DYCORE_GLAM) then   ! evenly spaced levels are required
+
+       do up = 1,upn
+          model%numerics%sigma(up) = real(up-1,kind=dp) / real(upn-1,kind=dp)
+       enddo
+
+       call write_log('Using evenly spaced sigma levels for Glam as required')
+
+    endif
+
+    ! Compute stagsigma (= sigma values at layers midpoints)
+
+    model%numerics%stagsigma(1:upn-1) =   &
+            (model%numerics%sigma(1:upn-1) + model%numerics%sigma(2:upn)) / 2.0_dp
+
+    ! Compute stagwbndsigma, adding the boundaries to stagsigma
+
+    model%numerics%stagwbndsigma(1:upn-1) = model%numerics%stagsigma(1:upn-1)
+    model%numerics%stagwbndsigma(0) = 0.d0
+    model%numerics%stagwbndsigma(upn) = 1.d0        
+
+    call print_sigma(model)
+
+    return
+
+10  call write_log('something wrong with sigma coord file',GM_FATAL)
+    
+  end subroutine glide_load_sigma
+
+!--------------------------------------------------------------------------------
+
+!WHL - I removed the call to this function.
+!      I added the 'even' and 'Pattyn' options to the whichsigma options.
+
+!!  function glide_find_level(level, scheme, up, upn)
+
+  !Returns the sigma coordinate of one level using a specific builtin scheme
+
+!!    use glide_types
+!!    use glimmer_global, only: dp
+!!    real(dp) :: level
+!!    integer  :: scheme, up, upn
+!!    real(dp) :: glide_find_level
+
+!!    select case(scheme)
+!!      case (SIGMA_BUILTIN_DEFAULT)
+!!        glide_find_level = glide_calc_sigma(level,2D0)
+!!      case (SIGMA_BUILTIN_EVEN)
+!!        glide_find_level = level
+!!      case (SIGMA_BUILTIN_PATTYN)
+!!        if (up == 1) then
+!!          glide_find_level = 0
+!!        else if (up == upn) then
+!!          glide_find_level = 1
+!!        else
+!!           glide_find_level = glide_calc_sigma_pattyn(level)
+!!        end if
+!!    end select
+     
+!!  end function glide_find_level
+
+!--------------------------------------------------------------------------------
+
+  function glide_calc_sigma(x,n)
+
+     use glimmer_global, only: dp
+     implicit none
+     real(dp) :: glide_calc_sigma, x, n
+      
+     glide_calc_sigma = (1-(x+1)**(-n)) / (1-2**(-n))
+
+  end function glide_calc_sigma
+
+!--------------------------------------------------------------------------------
+
+  function glide_calc_sigma_pattyn(x)
+
+     ! Implements an alternate set of sigma levels that encourages better
+     ! convergence for higher-order velocities
+
+     use glimmer_global, only:dp
+     implicit none
+     real(dp) :: glide_calc_sigma_pattyn, x
+
+     glide_calc_sigma_pattyn =   &
+         (-2.5641025641d-4)*(41d0*x)**2+3.5256410256d-2*(41d0*x)-8.0047080075d-13
+
+  end function glide_calc_sigma_pattyn
+
+!-------------------------------------------------------------------------
+
 !TODO - This is a utility subroutine called at every timestep; move to another module?
 !       Note that it loops over all grid cells, not just locally owned.
 !       This means that halos must be updated before it is called.
@@ -235,132 +437,13 @@ contains
     end where
   end subroutine glide_calclsrf
 
-!-------------------------------------------------------------------------
-
-  subroutine glide_load_sigma(model,unit)
-
-    !*FD Loads a file containing
-    !*FD sigma vertical coordinates.
-    use glide_types
-    use glimmer_log
-    use glimmer_filenames
-    use glimmer_global, only: dp
-    use parallel
-
-    implicit none
-
-    ! Arguments
-    type(glide_global_type),intent(inout) :: model !*FD Ice model to use
-    integer,               intent(in)    :: unit  !*FD Logical file unit to use. 
-                                                  !*FD The logical file unit specified 
-                                                  !*FD must not already be in use
-
-    ! Internal variables
-
-    integer :: up,upn
-    logical :: there
-    real(dp) :: level
-
-    ! Beginning of code
-
-    upn=model%general%upn
-    select case(model%options%which_sigma)
-
-    case(0)
-       call write_log('Calculating sigma levels')
-       do up=1,upn
-          level = real(up-1,kind=dp)/real(upn-1,kind=dp)
-          model%numerics%sigma(up) = glide_find_level(level, model%options%which_sigma_builtin, up, upn)
-       end do
-
-    case(1)
-       if (main_task) inquire (exist=there,file=process_path(model%funits%sigfile))
-       call broadcast(there)
-       if (.not.there) then
-          call write_log('Sigma levels file: '//trim(process_path(model%funits%sigfile))// &
-               ' does not exist',GM_FATAL)
-       end if
-       call write_log('Reading sigma file: '//process_path(model%funits%sigfile))
-       if (main_task) then
-       open(unit,file=process_path(model%funits%sigfile))
-       read(unit,'(f9.7)',err=10,end=10) (model%numerics%sigma(up), up=1,upn)
-       close(unit)
-       end if
-       call broadcast(model%numerics%sigma)
-    case(2)
-       call write_log('Using sigma levels from main configuration file')
-
-    end select
-
-    model%numerics%stagsigma(1:upn-1) =   &
-            (model%numerics%sigma(1:upn-1) + model%numerics%sigma(2:upn)) / 2.0_dp
-    !MJH Setup stagwbndsigma, adding the boundaries to stagsigma
-    model%numerics%stagwbndsigma(1:upn-1) = model%numerics%stagsigma(1:upn-1)
-    model%numerics%stagwbndsigma(0) = 0.0
-    model%numerics%stagwbndsigma(upn) = 1.0        
-
-    call print_sigma(model)
-
-    return
-
-10  call write_log('something wrong with sigma coord file',GM_FATAL)
-    
-  end subroutine glide_load_sigma
-
-!TODO - Is this function needed?  Will we use the PATTYN option?
-
-  function glide_find_level(level, scheme, up, upn)
-
-  !Returns the sigma coordinate of one level using a specific builtin scheme
-
-    use glide_types
-    use glimmer_global, only: dp
-    real(dp) :: level
-    integer  :: scheme, up, upn
-    real(dp) :: glide_find_level
-
-    select case(scheme)
-      case (SIGMA_BUILTIN_DEFAULT)
-        glide_find_level = glide_calc_sigma(level,2D0)
-      case (SIGMA_BUILTIN_EVEN)
-        glide_find_level = level
-      case (SIGMA_BUILTIN_PATTYN)
-        if (up == 1) then
-          glide_find_level = 0
-        else if (up == upn) then
-          glide_find_level = 1
-        else
-           glide_find_level = glide_calc_sigma_pattyn(level)
-        end if
-    end select
-     
-  end function glide_find_level
-
-!TODO - Are these the optimal sigma levels?
-  function glide_calc_sigma(x,n)
-      use glimmer_global, only:dp
-      implicit none
-      real(dp) :: glide_calc_sigma,x,n
-      
-      glide_calc_sigma = (1-(x+1)**(-n))/(1-2**(-n))
-  end function glide_calc_sigma
-
-!TODO - Remove this one?  Or make it an option?
-  !Implements an alternate set of sigma levels that encourages better
-  !convergence for higher-order velocities
-  function glide_calc_sigma_pattyn(x)
-        use glimmer_global, only:dp
-        implicit none
-        real(dp) :: glide_calc_sigma_pattyn, x
-
-        glide_calc_sigma_pattyn=(-2.5641025641D-4)*(41D0*x)**2+3.5256410256D-2*(41D0*x)-&
-          8.0047080075D-13
-  end function glide_calc_sigma_pattyn
+!--------------------------------------------------------------------------------
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   ! private procedures
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   ! grid sizes
+
   subroutine handle_grid(section, model)
     use glimmer_config
     use glide_types
@@ -375,7 +458,8 @@ contains
     call GetValue(section,'dew',model%numerics%dew)
     call GetValue(section,'dns',model%numerics%dns)
     call GetValue(section,'sigma_file',model%funits%sigfile)
-    call GetValue(section,'sigma_builtin',model%options%which_sigma_builtin)
+      !WHL - removed this option
+!!    call GetValue(section,'sigma_builtin',model%options%which_sigma_builtin)
 
     ! We set this flag to one to indicate we've got a sigfile name.
     ! A warning/error is generated if sigma levels are specified in some other way
@@ -386,6 +470,8 @@ contains
     end if
 
   end subroutine handle_grid
+
+!--------------------------------------------------------------------------------
 
   subroutine print_grid(model)
     use glide_types
@@ -412,6 +498,8 @@ contains
     call write_log('')
   end subroutine print_grid
 
+!--------------------------------------------------------------------------------
+
   ! time
   subroutine handle_time(section, model)
     use glimmer_config
@@ -433,11 +521,16 @@ contains
     call GetValue(section,'ntem',model%numerics%ntem)
     call GetValue(section,'nvel',model%numerics%nvel)
     call GetValue(section,'profile',model%numerics%profile_period)
+
+    !TODO - Should these be in a different config section?
     call GetValue(section,'ndiag',model%numerics%ndiag)
     call GetValue(section,'idiag',model%numerics%idiag_global)
     call GetValue(section,'jdiag',model%numerics%jdiag_global)
+
   end subroutine handle_time
   
+!--------------------------------------------------------------------------------
+
   subroutine print_time(model)
     use glide_types
     use glimmer_log
@@ -447,11 +540,11 @@ contains
 
     call write_log('Time steps')
     call write_log('----------')
-    write(message,*) 'start time        : ',model%numerics%tstart
+    write(message,*) 'start time (yr)   : ',model%numerics%tstart
     call write_log(message)
-    write(message,*) 'end time          : ',model%numerics%tend
+    write(message,*) 'end time (yr)     : ',model%numerics%tend
     call write_log(message)
-    write(message,*) 'main time step    : ',model%numerics%tinc
+    write(message,*) 'time step (yr)    : ',model%numerics%tinc
     call write_log(message)
     write(message,*) 'thermal dt factor : ',model%numerics%ntem
     call write_log(message)
@@ -463,10 +556,19 @@ contains
     call write_log(message)
     write(message,*) 'profile frequency : ',model%numerics%profile_period
     call write_log(message)
+
+    !TODO - Should these be in a different config section?
     write(message,*) 'diag frequency    : ',model%numerics%ndiag
     call write_log(message)
+    write(message,*) 'idiag             : ',model%numerics%idiag_global
+    call write_log(message)
+    write(message,*) 'jdiag             : ',model%numerics%jdiag_global
+    call write_log(message)
     call write_log('')
+
   end subroutine print_time
+
+!--------------------------------------------------------------------------------
 
   ! options
   subroutine handle_options(section, model)
@@ -478,33 +580,43 @@ contains
     type(ConfigSection), pointer :: section
     type(glide_global_type)  :: model
 
-    call GetValue(section,'ioparams',model%funits%ncfile)
     call GetValue(section,'dycore',model%options%whichdycore)
     call GetValue(section,'evolution',model%options%whichevol)
     call GetValue(section,'temperature',model%options%whichtemp)
     call GetValue(section,'temp_init',model%options%temp_init)
     call GetValue(section,'flow_law',model%options%whichflwa)
-    call GetValue(section,'basal_proc',model%options%which_bproc)
-    call GetValue(section,'basal_water',model%options%whichbwat)
-    call GetValue(section,'marine_margin',model%options%whichmarn)
     call GetValue(section,'slip_coeff',model%options%whichbtrc)
-    call GetValue(section,'vertical_integration',model%options%whichwvel)
-    call GetValue(section,'topo_is_relaxed',model%options%whichrelaxed)
-    ! Both terms 'hotstart' and 'restart' are supported in the config file, 
-    ! but if they are both supplied for some reason, then restart will be used.
-    ! 'restart' is the preferred term moving forward.  'hotstart' is retained for backward compatability.
-    call GetValue(section,'hotstart',model%options%is_restart)
-    call GetValue(section,'restart',model%options%is_restart)
-    call GetValue(section,'periodic_ew',model%options%periodic_ew)
+    call GetValue(section,'basal_water',model%options%whichbwat)
     call GetValue(section,'basal_mass_balance',model%options%basal_mbal)
     call GetValue(section,'gthf',model%options%gthf)
-    call GetValue(section,'periodic_ns',model%options%periodic_ns)
-    call GetValue(section,'diagnostic_run',model%options%diagnostic_run)
-    !call GetValue(section, 'use_plume',model%options%use_plume)   !! For future releases
+    call GetValue(section,'marine_margin',model%options%whichmarn)
+    call GetValue(section,'vertical_integration',model%options%whichwvel)
+    call GetValue(section,'topo_is_relaxed',model%options%whichrelaxed)
+    call GetValue(section,'periodic_ew',model%options%periodic_ew)
+
+    !TODO - Not sure if this is still needed
+    call GetValue(section,'ioparams',model%funits%ncfile)
+
+    ! Both terms 'hotstart' and 'restart' are supported in the config file, 
+    ! but if they are both supplied for some reason, then restart will be used.
+    ! 'restart' is the preferred term moving forward.  
+    ! 'hotstart' is retained for backward compatability.
+    call GetValue(section,'hotstart',model%options%is_restart)
+    call GetValue(section,'restart',model%options%is_restart)
+
+    ! These are not currently supported
+    !call GetValue(section, 'use_plume',model%options%use_plume)
+    !call GetValue(section,'basal_proc',model%options%which_bproc)
+
+!WHL - Removed these (no longer used)
+!!    call GetValue(section,'periodic_ns',model%options%periodic_ns)  ! not used
+!!    call GetValue(section,'diagnostic_run',model%options%diagnostic_run)
 
   end subroutine handle_options
 
-    !Higher order options
+!--------------------------------------------------------------------------------
+
+  !Higher order options
   subroutine handle_ho_options(section, model)
     use glimmer_config
     use glide_types
@@ -512,26 +624,26 @@ contains
     type(ConfigSection), pointer :: section
     type(glide_global_type) :: model
     
-!TODO - Are there other options here that can be removed? 
-!TODO MJH I don't think is_velocity_valid gets used anywhere.
-    call GetValue(section, 'guess_specified',    model%velocity%is_velocity_valid)
-    call GetValue(section, 'which_ho_source',    model%options%which_ho_source)
-    call GetValue(section, 'include_thin_ice',   model%options%ho_include_thinice)
-    call GetValue(section, 'which_ho_babc',      model%options%which_ho_babc)
     call GetValue(section, 'which_ho_efvs',      model%options%which_ho_efvs)
-    call GetValue(section, 'which_ho_resid',     model%options%which_ho_resid)
     call GetValue(section, 'which_disp',         model%options%which_disp)
-    call GetValue(section, 'which_bmelt',        model%options%which_bmelt)
+    call GetValue(section, 'which_ho_babc',      model%options%which_ho_babc)
+    call GetValue(section, 'which_ho_resid',     model%options%which_ho_resid)
     call GetValue(section, 'which_ho_nonlinear', model%options%which_ho_nonlinear)
     call GetValue(section, 'which_ho_sparse',    model%options%which_ho_sparse)
-    call GetValue(section, 'which_ho_sparse_fallback', model%options%which_ho_sparse_fallback)
 
-!WHL  - Added which_ho_approx option for glissade dycore.
-!TODO - Remove this option?
-!!       Commented out for now
-!!    call GetValue(section, 'which_ho_approx',    model%options%which_ho_approx)
+!WHL  - Added which_ho_approx option for glissade dycore. Commented out for now
+!    call GetValue(section, 'which_ho_approx',    model%options%which_ho_approx)
+
+    !WHL - Removed HO options that are not used
+!!    call GetValue(section, 'which_bmelt',        model%options%which_bmelt)
+!!    call GetValue(section, 'which_ho_source',    model%options%which_ho_source)
+!!    call GetValue(section, 'include_thin_ice',   model%options%ho_include_thinice)
+!!    call GetValue(section, 'guess_specified',    model%velocity%is_velocity_valid)
+!!    call GetValue(section, 'which_ho_sparse_fallback', model%options%which_ho_sparse_fallback)
 
   end subroutine handle_ho_options
+
+!--------------------------------------------------------------------------------
 
   ! Handles external dycore options -- Doug Ranken 03/26/12
   subroutine handle_dycore_options(section, model)
@@ -547,8 +659,11 @@ contains
              model%options%external_dycore_type,model%options%dycore_input_file 
   end subroutine handle_dycore_options
 
+!--------------------------------------------------------------------------------
+
   subroutine print_options(model)
 
+    !TODO - Make sure these are consistent with options in glide_types
     use glide_types
     use glimmer_log
 
@@ -559,61 +674,12 @@ contains
     type(glide_global_type)  :: model
     character(len=500) :: message
 
-    ! local variables
+    ! basic Glide/Glimmer options
+
     character(len=*), dimension(0:2), parameter :: dycore = (/ &
-         'glide              ', &
+         'glide              ', &  ! Glimmer SIA
          'glam               ', &  ! Payne-Price finite difference
          'glissade           ' /)  ! prototype finite element
-
-    character(len=*), dimension(0:3), parameter :: temperature = (/ &
-         'isothermal         ', &
-         'full               ', &
-         'steady             ', &
-         'remapping advection' /)
-
-    character(len=*), dimension(0:2), parameter :: temp_init = (/ &
-         'set to 0 C             ', &
-         'set to surface air temp', &
-         'linear vertical profile' /)
-
-    character(len=*), dimension(0:2), parameter :: flow_law = (/ &
-         'Paterson and Budd                ', &
-         'Paterson and Budd (temp=-10degC) ', &
-         'const 1e-16a^-1Pa^-n             ' /)
-
-  !*mb* added options for basal processes model
-!!    character(len=*), dimension(0:2), parameter :: which_bproc = (/ &
-!!         'Basal proc mod disabled '  , &
-!!         'Basal proc, high res.   '   , &
-!!         'Basal proc, fast calc.  ' /)
-  !WHL - Assumed to be disabled for now.
-    character(len=*), dimension(0:0), parameter :: which_bproc = (/ &
-         'Basal process model disabled ' /)
-
-    character(len=*), dimension(0:4), parameter :: basal_water = (/ &
-         'local water balance   ', &
-         'local + const flux    ', &
-         'none                  ', &
-         'From basal proc model ', &
-         'Constant value (=10m) '/)
-
-    character(len=*), dimension(0:7), parameter :: marine_margin = (/ &
-         'ignore              ', &
-         'no ice shelf        ', &
-         'threshold           ', &
-         'const calving rate  ', &
-         'edge threshold      ', &
-         'van der Veen        ', &
-         'Pattyn Grnd Line    ', &
-         'Huybrechts Greenland'/)
-
-    character(len=*), dimension(0:5), parameter :: slip_coeff = (/ &
-         'zero        ', &
-         'const       ', &
-         'const if T>0', &
-         '~basal water', &
-         '~basal melt ', &
-         'taub^3      ' /)
 
     character(len=*), dimension(-1:4), parameter :: evolution = (/ &
          'no thickness evolution                ', &
@@ -623,9 +689,82 @@ contains
          'remap thickness                       ', &   
          '1st order upwind                      ' /)   
 
+    character(len=*), dimension(0:3), parameter :: temperature = (/ &
+         'isothermal         ', &
+         'full prognostic    ', &
+         'constant in time   ', &
+         'remapping advection' /)
+
+    character(len=*), dimension(0:2), parameter :: temp_init = (/ &
+         'set to 0 C             ', &
+         'set to surface air temp', &
+         'linear vertical profile' /)
+
+    character(len=*), dimension(0:2), parameter :: flow_law = (/ &
+         'Paterson and Budd           ', &
+         'Paterson and Budd (T = -5 C)', &
+         'const 1e-16 Pa^-n a^-1      ' /)
+
+    !WHL - Rename to something like which_btrc?
+    character(len=*), dimension(0:5), parameter :: slip_coeff = (/ &
+         'zero                   ', &
+         'constant               ', &
+         'constant where bwat > 0', &
+         'tanh function of bwat  ', &
+         'linear function of bmlt', &
+         'constant where T = Tpmp' /)
+
+    character(len=*), dimension(0:3), parameter :: basal_water = (/ &
+         'local water balance   ', &
+         'local + const flux    ', &
+         'none                  ', &
+         'Constant value (=10 m)'/)
+!!         'From basal proc model '/) ! not supported
+
+  !WHL - basal proc model is disabled for now.
+!!    character(len=*), dimension(0:2), parameter :: which_bproc = (/ &
+!!         'Basal proc mod disabled '  , &
+!!         'Basal proc, high res.   '   , &
+!!         'Basal proc, fast calc.  ' /)
+    character(len=*), dimension(0:0), parameter :: which_bproc = (/ &
+         'Basal process model disabled ' /)
+
+    character(len=*), dimension(0:1), parameter :: b_mbal = (/ &
+         'not in continuity eqn', &
+         'in continuity eqn    ' /)
+
+    ! NOTE: Set gthf = 1 in the config file to read the geothermal heat flux from an input file.
+    !       Otherwise it will be overwritten, even if the 'bheatflx' field is present.
+
+    character(len=*), dimension(0:2), parameter :: gthf = (/ &
+         'uniform geothermal flux         ', &
+         'read flux from file, if present ', &
+         'compute flux from diffusion eqn ' /)
+
+    character(len=*), dimension(0:5), parameter :: marine_margin = (/ &
+         'do nothing at marine margin    ', &
+         'remove all floating ice        ', &
+         'relaxed bedrock threshold      ', &
+         'remove fraction of floating ice', &
+         'present bedrock threshold      ', &
+         'Huybrechts Greenland           ' /)
+         !WHL - Not currently supporting case 6 (Pattyn grounding line)
+
     character(len=*), dimension(0:1), parameter :: vertical_integration = (/ &
          'standard     ', &
          'obey upper BC' /)
+
+    ! higher-order options
+
+    character(len=*), dimension(0:2), parameter :: ho_whichefvs = (/ &
+         'from eff strain rate    ', &
+         'multiple of flow factor ', &
+         'constant value          ' /)
+
+    character(len=*), dimension(0:1), parameter :: dispwhich = (/ &
+         '0-order SIA                       ', &
+         '1-st order model (Blatter-Pattyn) ' /)
+!!         '1-st order depth-integrated (SSA) ' /)  ! not supported
 
     character(len=*), dimension(0:7), parameter :: ho_whichbabc = (/ &
          'constant B^2                           ', &
@@ -637,35 +776,29 @@ contains
          'no slip (Dirichlet implementation)     ', &
          'till yield stress (Newton)             ' /)
 
-    character(len=*), dimension(0:2), parameter :: ho_whichefvs = (/ &
-         'from eff strain rate    ', &
-         'multiple of flow factor ', &
-         'constant value          ' /)
+    !WHL - Removed this option
+    !      Glide always uses 0-order SIA, glam/glissade always uses 1st order,
+    !      and SSA has never been supported
+!!    character(len=*), dimension(0:2), parameter :: bmeltwhich = (/ &
+!!         '0-order SIA                       ', &
+!!         '1-st order model (Blatter-Pattyn) ', &
+!!         '1-st order depth-integrated (SSA) ' /)
+
+    !WHL - Removed this option
+!!    character(len=*), dimension(0:2), parameter :: ho_whichsource = (/ &
+!!         'vertically averaged     ', &
+!!         'vertically explicit     ', &
+!!         'shelf front disabled    '/)
+
+    character(len=*), dimension(0:1), parameter :: which_ho_nonlinear = (/ &
+         'use standard Picard iteration  ', &
+         'use JFNK                       '/)
 
     character(len=*), dimension(0:3), parameter :: ho_whichresid = (/ &
          'max value               ', &
          'max value ignoring ubas ', &
          'mean value              ', &
          'L2 norm of Ax-b=resid   ' /)
-
-    character(len=*), dimension(0:2), parameter :: ho_whichsource = (/ &
-         'vertically averaged     ', &
-         'vertically explicit     ', &
-         'shelf front disabled    '/)
-
-    character(len=*), dimension(0:2), parameter :: dispwhich = (/ &
-         '0-order SIA                       ', &
-         '1-st order model (Blatter-Pattyn) ', &
-         '1-st order depth-integrated (SSA) ' /)
-
-    character(len=*), dimension(0:2), parameter :: bmeltwhich = (/ &
-         '0-order SIA                       ', &
-         '1-st order model (Blatter-Pattyn) ', &
-         '1-st order depth-integrated (SSA) ' /)
-
-    character(len=*), dimension(0:1), parameter :: which_ho_nonlinear = (/ &
-         'use standard Picard iteration  ', &
-         'use JFNK                       '/)
 
     character(len=*), dimension(0:4), parameter :: ho_whichsparse = (/ &
          'BiCG with LU preconditioner                ', &
@@ -681,14 +814,6 @@ contains
 !!         'SSA only (glissade dycore)         ', &
 !!         'Blatter-Pattyn HO (glissade dycore)' /)
 
-    character(len=*), dimension(0:1), parameter :: b_mbal = (/ &
-         'not in continuity eqn', &
-         'in continuity eqn    ' /)
-
-    character(len=*), dimension(0:2), parameter :: gthf = (/ &
-         'uniform geothermal flux         ', &
-         'read flux from file, if present ', &
-         'compute flux from diffusion eqn ' /)
 
     call write_log('GLIDE options')
     call write_log('-------------')
@@ -790,12 +915,6 @@ contains
     write(message,*) 'flow law                : ',model%options%whichflwa,flow_law(model%options%whichflwa)
     call write_log(message)
 
-    if (model%options%which_bproc < 0 .or. model%options%which_bproc >= size(which_bproc)) then
-       call write_log('Error, basal_proc out of range',GM_FATAL)
-    end if
-    write(message,*) 'basal_proc              : ',model%options%which_bproc,which_bproc(model%options%which_bproc)
-    call write_log(message)
-
     if (model%options%whichbwat < 0 .or. model%options%whichbwat >= size(basal_water)) then
        call write_log('Error, basal_water out of range',GM_FATAL)
     end if
@@ -856,39 +975,26 @@ contains
        call write_log('  Slightly cheated with how temperature is implemented.',GM_WARNING)
     end if
 
-    if (model%options%is_restart==1) then
+    if (model%options%is_restart == RESTART_TRUE) then
        call write_log('Restarting model from a previous run')
     end if
 
+!!     This option is not currently supported
+!!    if (model%options%which_bproc < 0 .or. model%options%which_bproc >= size(which_bproc)) then
+!!       call write_log('Error, basal_proc out of range',GM_FATAL)
+!!    end if
+!!    write(message,*) 'basal_proc              : ',model%options%which_bproc,which_bproc(model%options%which_bproc)
+!!    call write_log(message)
+
     !HO options
-    call write_log("***Higher-order options:")
-
-    if (model%options%which_ho_source < 0 .or. model%options%which_ho_source >= size(ho_whichsource)) then
-        call write_log('Error, which_ho_source out of range', GM_FATAL)
-    end if
-    write(message,*) 'ice_shelf_source_term   :',model%options%which_ho_source, &
-                       ho_whichsource(model%options%which_ho_source)
-    call write_log(message)
-
-    write(message,*) 'ho_whichbabc            :',model%options%which_ho_babc,  &
-                      ho_whichbabc(model%options%which_ho_babc)
-    call write_log(message)
-    if (model%options%which_ho_babc < 0 .or. model%options%which_ho_babc >= size(ho_whichbabc)) then
-        call write_log('Error, HO basal BC input out of range', GM_FATAL)
-    end if
+    call write_log(' ')
+    call write_log('***Higher-order options:')
 
     write(message,*) 'ho_whichefvs            :',model%options%which_ho_efvs,  &
                       ho_whichefvs(model%options%which_ho_efvs)
     call write_log(message)
     if (model%options%which_ho_efvs < 0 .or. model%options%which_ho_efvs >= size(ho_whichefvs)) then
         call write_log('Error, HO effective viscosity input out of range', GM_FATAL)
-    end if
-
-    write(message,*) 'ho_whichresid           :',model%options%which_ho_resid,  &
-                      ho_whichresid(model%options%which_ho_resid)
-    call write_log(message)
-    if (model%options%which_ho_resid < 0 .or. model%options%which_ho_resid >= size(ho_whichresid)) then
-        call write_log('Error, HO residual input out of range', GM_FATAL)
     end if
 
     write(message,*) 'dispwhich               :',model%options%which_disp,  &
@@ -898,11 +1004,11 @@ contains
         call write_log('Error, which dissipation input out of range', GM_FATAL)
     end if
 
-    write(message,*) 'bmeltwhich              :',model%options%which_bmelt,  &
-                      bmeltwhich(model%options%which_bmelt)
+    write(message,*) 'ho_whichbabc            :',model%options%which_ho_babc,  &
+                      ho_whichbabc(model%options%which_ho_babc)
     call write_log(message)
-    if (model%options%which_bmelt < 0 .or. model%options%which_bmelt >= size(bmeltwhich)) then
-        call write_log('Error, which bmelt input out of range', GM_FATAL)
+    if (model%options%which_ho_babc < 0 .or. model%options%which_ho_babc >= size(ho_whichbabc)) then
+        call write_log('Error, HO basal BC input out of range', GM_FATAL)
     end if
 
     write(message,*) 'which_ho_nonlinear      :',model%options%which_ho_nonlinear,  &
@@ -910,6 +1016,13 @@ contains
     call write_log(message)
     if (model%options%which_ho_nonlinear < 0 .or. model%options%which_ho_nonlinear >= size(which_ho_nonlinear)) then
         call write_log('Error, HO nonlinear solution input out of range', GM_FATAL)
+    end if
+
+    write(message,*) 'ho_whichresid           :',model%options%which_ho_resid,  &
+                      ho_whichresid(model%options%which_ho_resid)
+    call write_log(message)
+    if (model%options%which_ho_resid < 0 .or. model%options%which_ho_resid >= size(ho_whichresid)) then
+        call write_log('Error, HO residual input out of range', GM_FATAL)
     end if
 
     write(message,*) 'ho_whichsparse          :',model%options%which_ho_sparse,  &
@@ -927,17 +1040,28 @@ contains
 !!        call write_log('Error, Stokes approximation out of range', GM_FATAL)
 !!    end if
 
-    ! other options
+    !WHL - Removed this option
+!!    write(message,*) 'bmeltwhich              :',model%options%which_bmelt,  &
+!!                      bmeltwhich(model%options%which_bmelt)
+!!    call write_log(message)
+!!    if (model%options%which_bmelt < 0 .or. model%options%which_bmelt >= size(bmeltwhich)) then
+!!        call write_log('Error, which bmelt input out of range', GM_FATAL)
+!!    end if
 
-    if (model%numerics%idiag_global < 1 .or. model%numerics%idiag_global > model%general%ewn     &
-                                        .or.                                                     &
-        model%numerics%jdiag_global < 1 .or. model%numerics%jdiag_global > model%general%nsn) then
-        call write_log('Error, global diagnostic point (idiag, jdiag) is out of bounds', GM_FATAL)
-    endif
+      !WHL - Removed this option
+!!    if (model%options%which_ho_source < 0 .or. model%options%which_ho_source >= size(ho_whichsource)) then
+!!        call write_log('Error, which_ho_source out of range', GM_FATAL)
+!!    end if
+!!    write(message,*) 'ice_shelf_source_term   :',model%options%which_ho_source, &
+!!                       ho_whichsource(model%options%which_ho_source)
+!!    call write_log(message)
+
 
     call write_log('')
 
   end subroutine print_options
+
+!--------------------------------------------------------------------------------
 
   ! parameters
   subroutine handle_parameters(section, model)
@@ -948,7 +1072,7 @@ contains
     implicit none
     type(ConfigSection), pointer :: section
     type(glide_global_type)  :: model
-    real, pointer, dimension(:) :: temp => NULL()
+    real, pointer, dimension(:) :: tempvar => NULL()
     integer :: loglevel
 
     loglevel = GM_levels-GM_ERROR
@@ -962,23 +1086,36 @@ contains
     call GetValue(section,'flow_factor',      model%paramets%flow_factor)
     call GetValue(section,'default_flwa',     model%paramets%default_flwa)
     call GetValue(section,'hydro_time',       model%paramets%hydtim)
-    call GetValue(section,'basal_tract',      temp,5)
-    if (associated(temp)) then
-       model%paramets%btrac_const=temp(1)
-       deallocate(temp)
-    end if
+
+    ! NOTE: bpar is used only for BTRC_TANH_BWAT
+    !       btrac_max and btrac_slope are used (with btrac_const) for BTRC_LINEAR_BMLT
+    !       btrac_const is used for several options
+
     call GetValue(section,'basal_tract_const', model%paramets%btrac_const)
     call GetValue(section,'basal_tract_max',   model%paramets%btrac_max)
     call GetValue(section,'basal_tract_slope', model%paramets%btrac_slope)
-    call GetValue(section,'sliding_constant',  model%climate%slidconst)
 
-!WHL - added for ismip-hom
+    !WHL - Changed this so that bpar can be read correctly from config file.
+    !      Parameter is now called 'basal_tract_tanh' instead of 'basal_tract'.
+    call GetValue(section,'basal_tract_tanh',  tempvar, 5)
+    if (associated(tempvar)) then
+!!       model%paramets%btrac_const = tempvar(1)  ! old code
+       model%paramets%bpar(:) = tempvar(:)
+       deallocate(tempvar)
+    end if
+
+!!    call GetValue(section,'sliding_constant',  model%climate%slidconst)  ! not currently used
+
+    !WHL - added for ismip-hom
     call GetValue(section,'periodic_offset_ew',model%numerics%periodic_offset_ew)
     call GetValue(section,'periodic_offset_ns',model%numerics%periodic_offset_ns)
 
   end subroutine handle_parameters
 
+!--------------------------------------------------------------------------------
+
   subroutine print_parameters(model)
+
     use glide_types
     use glimmer_log
     implicit none
@@ -987,42 +1124,61 @@ contains
 
     call write_log('Parameters')
     call write_log('----------')
-    write(message,*) 'ice limit             : ',model%numerics%thklim
+
+    write(message,*) 'ice limit                     : ',model%numerics%thklim
     call write_log(message)
-    write(message,*) 'marine depth limit    : ',model%numerics%mlimit
+
+    write(message,*) 'marine depth limit            : ',model%numerics%mlimit
     call write_log(message)
-    if (model%options%whichmarn==3) then
+
+    if (model%options%whichmarn == MARINE_FLOAT_FRACTION) then
        write(message,*) 'ice fraction lost due to calving : ', model%numerics%calving_fraction
        call write_log(message)
     end if
-    write(message,*) 'geothermal heat flux  : ', model%paramets%geot
+
+    write(message,*) 'geothermal heat flux          : ', model%paramets%geot
     call write_log(message)
-    write(message,*) 'flow enhancement      : ', model%paramets%flow_factor
+
+    write(message,*) 'flow enhancement              : ', model%paramets%flow_factor
     call write_log(message)
-    write(message,*) 'basal hydro time const: ', model%paramets%hydtim
+
+    write(message,*) 'basal hydro time const        : ', model%paramets%hydtim
     call write_log(message)
-    if (model%options%whichbtrc==1 .or. model%options%whichbtrc==2 .or. model%options%whichbtrc==4) then
-       write(message,*) 'basal traction param  : ', model%paramets%btrac_const
+
+    if (model%options%whichbtrc == BTRC_CONSTANT      .or.  &
+        model%options%whichbtrc == BTRC_CONSTANT_BWAT .or.  &
+        model%options%whichbtrc == BTRC_LINEAR_BMLT   .or.  &
+        model%options%whichbtrc == BTRC_CONSTANT_TPMP) then
+       write(message,*) 'basal traction param (m/yr/Pa): ', model%paramets%btrac_const
        call write_log(message)
     end if
-    if (model%options%whichbtrc==4) then
-       write(message,*) 'basal traction max    : ',model%paramets%btrac_max
+
+    if (model%options%whichbtrc == BTRC_TANH_BWAT) then
+       write(message,*) 'basal traction tanh factors: ',model%paramets%bpar(1)
        call write_log(message)
-       write(message,*) 'basal traction slope  : ',model%paramets%btrac_slope
+       write(message,*) '                             ',model%paramets%bpar(2)
        call write_log(message)
-    end if
-    if (model%options%whichbtrc==3) then
-       write(message,*) 'basal traction factors: ',model%paramets%bpar(1)
+       write(message,*) '                             ',model%paramets%bpar(3)
        call write_log(message)
-       write(message,*) '                        ',model%paramets%bpar(2)
+       write(message,*) '                             ',model%paramets%bpar(4)
        call write_log(message)
-       write(message,*) '                        ',model%paramets%bpar(3)
-       call write_log(message)
-       write(message,*) '                        ',model%paramets%bpar(4)
-       call write_log(message)
-       write(message,*) '                        ',model%paramets%bpar(5)
+       write(message,*) '                             ',model%paramets%bpar(5)
        call write_log(message)
     end if
+
+    if (model%options%whichbtrc == BTRC_LINEAR_BMLT) then
+       write(message,*) 'basal traction max            : ',model%paramets%btrac_max
+       call write_log(message)
+       write(message,*) 'basal traction slope          : ',model%paramets%btrac_slope
+       call write_log(message)
+    end if
+
+    !TODO - Should this be in a different subroutine?
+    if (model%numerics%idiag_global < 1 .or. model%numerics%idiag_global > model%general%ewn     &
+                                        .or.                                                     &
+        model%numerics%jdiag_global < 1 .or. model%numerics%jdiag_global > model%general%nsn) then
+        call write_log('Error, global diagnostic point (idiag, jdiag) is out of bounds', GM_FATAL)
+    endif
 
 !WHL - added for ismip-hom
     if (model%numerics%periodic_offset_ew /= 0.d0) then
@@ -1038,76 +1194,11 @@ contains
     call write_log('')
   end subroutine print_parameters
 
-!WHL - These options are disabled for now.
-!Till options
-  subroutine handle_till_options(section,model)
-    use glimmer_config
-    use glide_types
-    implicit none
-    type(ConfigSection), pointer :: section
-    type(glide_global_type) :: model
-
-    if (model%options%which_bproc==1) then
-        call GetValue(section, 'fric',  model%basalproc%fric)
-        call GetValue(section, 'etillo',  model%basalproc%etillo)
-        call GetValue(section, 'No',  model%basalproc%No)
-        call GetValue(section, 'Comp',  model%basalproc%Comp)
-        call GetValue(section, 'Cv',  model%basalproc%Cv)
-        call GetValue(section, 'Kh',  model%basalproc%Kh)
-    else if (model%options%which_bproc==2) then
-        call GetValue(section, 'aconst',  model%basalproc%aconst)
-        call GetValue(section, 'bconst',  model%basalproc%bconst)
-    end if
-    if (model%options%which_bproc > 0) then
-        call GetValue(section, 'Zs',  model%basalproc%Zs)
-        call GetValue(section, 'tnodes',  model%basalproc%tnodes)
-        call GetValue(section, 'till_hot', model%basalproc%till_hot)
-    end if  
-
-  end subroutine handle_till_options    
-
-!WHL - These options are disabled for now.
-  subroutine print_till_options(model)
-    use glide_types
-    use glimmer_log
-    implicit none
-    type(glide_global_type)  :: model
-    character(len=100) :: message
-
-    if (model%options%which_bproc > 0) then 
-        call write_log('Till options')
-        call write_log('----------')
-        if (model%options%which_bproc==1) then
-            write(message,*) 'Internal friction           : ',model%basalproc%fric
-            call write_log(message)
-            write(message,*) 'Reference void ratio        : ',model%basalproc%etillo
-            call write_log(message)
-            write(message,*) 'Reference effective Stress  : ',model%basalproc%No
-            call write_log(message)
-            write(message,*) 'Compressibility             : ',model%basalproc%Comp
-            call write_log(message)
-            write(message,*) 'Diffusivity                 : ',model%basalproc%Cv
-            call write_log(message)
-            write(message,*) 'Hyd. conductivity           : ',model%basalproc%Kh
-            call write_log(message)
-        end if
-        if (model%options%which_bproc==2) then
-            write(message,*) 'aconst  : ',model%basalproc%aconst
-            call write_log(message)
-            write(message,*) 'bconst  : ',model%basalproc%aconst
-            call write_log(message)
-        end if
-        write(message,*) 'Solid till thickness : ',model%basalproc%Zs
-        call write_log(message)
-        write(message,*) 'Till nodes number : ',model%basalproc%tnodes
-        call write_log(message)
-        write(message,*) 'till_hot  :',model%basalproc%till_hot
-        call write_log(message)
-    end if
-  end subroutine print_till_options
+!--------------------------------------------------------------------------------
 
   ! Sigma levels
   subroutine handle_sigma(section, model)
+
     use glimmer_config
     use glide_types
     use glimmer_log
@@ -1115,15 +1206,17 @@ contains
     type(ConfigSection), pointer :: section
     type(glide_global_type)  :: model
 
-    if (model%options%which_sigma==1) then
+    if (model%options%which_sigma==SIGMA_EXTERNAL) then
        call write_log('Sigma levels specified twice - use only'// &
             ' config file or separate file, not both',GM_FATAL)
     else
-       model%options%which_sigma = 2
+       model%options%which_sigma = SIGMA_CONFIG   ! override any previously set value
        call GetValue(section,'sigma_levels',model%numerics%sigma,model%general%upn)
     end if
 
   end subroutine handle_sigma
+
+!--------------------------------------------------------------------------------
 
   subroutine print_sigma(model)
     use glide_types
@@ -1137,13 +1230,15 @@ contains
     call write_log('------------------')
     message=''
     do i=1,model%general%upn
-       write(temp,'(F5.2)') model%numerics%sigma(i)
+       write(temp,'(f5.2)') model%numerics%sigma(i)
        message=trim(message)//trim(temp)
     enddo
     call write_log(trim(message))
     call write_log('')
     
   end subroutine print_sigma
+
+!--------------------------------------------------------------------------------
 
   ! geothermal heat flux calculations
   subroutine handle_gthf(section, model)
@@ -1162,6 +1257,8 @@ contains
     call GetValue(section,'shc',model%lithot%shc_r)
     call GetValue(section,'con',model%lithot%con_r)
   end subroutine handle_gthf
+
+!--------------------------------------------------------------------------------
 
   subroutine print_gthf(model)
     use glide_types
@@ -1198,6 +1295,77 @@ contains
        call write_log('')
     end if
   end subroutine print_gthf
+
+!--------------------------------------------------------------------------------
+
+!WHL - These options are disabled for now.
+!Till options
+!!  subroutine handle_till_options(section,model)
+!!    use glimmer_config
+!!    use glide_types
+!!    implicit none
+!!    type(ConfigSection), pointer :: section
+!!    type(glide_global_type) :: model
+
+!!    if (model%options%which_bproc==1) then
+!!        call GetValue(section, 'fric',  model%basalproc%fric)
+!!        call GetValue(section, 'etillo',  model%basalproc%etillo)
+!!        call GetValue(section, 'No',  model%basalproc%No)
+!!        call GetValue(section, 'Comp',  model%basalproc%Comp)
+!!        call GetValue(section, 'Cv',  model%basalproc%Cv)
+!!        call GetValue(section, 'Kh',  model%basalproc%Kh)
+!!    else if (model%options%which_bproc==2) then
+!!        call GetValue(section, 'aconst',  model%basalproc%aconst)
+!!        call GetValue(section, 'bconst',  model%basalproc%bconst)
+!!    end if
+!!    if (model%options%which_bproc > 0) then
+!!        call GetValue(section, 'Zs',  model%basalproc%Zs)
+!!        call GetValue(section, 'tnodes',  model%basalproc%tnodes)
+!!        call GetValue(section, 'till_hot', model%basalproc%till_hot)
+!!    end if  
+!!  end subroutine handle_till_options    
+
+!WHL - These options are disabled for now.
+!!  subroutine print_till_options(model)
+!!    use glide_types
+!!    use glimmer_log
+!!    implicit none
+!!    type(glide_global_type)  :: model
+!!    character(len=100) :: message
+
+!!    if (model%options%which_bproc > 0) then 
+!!        call write_log('Till options')
+!!        call write_log('----------')
+!!        if (model%options%which_bproc==1) then
+!!            write(message,*) 'Internal friction           : ',model%basalproc%fric
+!!            call write_log(message)
+!!            write(message,*) 'Reference void ratio        : ',model%basalproc%etillo
+!!            call write_log(message)
+!!            write(message,*) 'Reference effective Stress  : ',model%basalproc%No
+!!            call write_log(message)
+!!            write(message,*) 'Compressibility             : ',model%basalproc%Comp
+!!            call write_log(message)
+!!            write(message,*) 'Diffusivity                 : ',model%basalproc%Cv
+!!            call write_log(message)
+!!            write(message,*) 'Hyd. conductivity           : ',model%basalproc%Kh
+!!            call write_log(message)
+!!        end if
+!!        if (model%options%which_bproc==2) then
+!!            write(message,*) 'aconst  : ',model%basalproc%aconst
+!!            call write_log(message)
+!!            write(message,*) 'bconst  : ',model%basalproc%aconst
+!!            call write_log(message)
+!!        end if
+!!        write(message,*) 'Solid till thickness : ',model%basalproc%Zs
+!!        call write_log(message)
+!!        write(message,*) 'Till nodes number : ',model%basalproc%tnodes
+!!        call write_log(message)
+!!        write(message,*) 'till_hot  :',model%basalproc%till_hot
+!!        call write_log(message)
+!!    end if
+!!  end subroutine print_till_options
+
+!--------------------------------------------------------------------------------
 
   subroutine define_glide_restart_variables(options)
     !*FD This subroutine analyzes the glide/glissade options input by the user in the config file
@@ -1304,9 +1472,9 @@ contains
     endif
 
     ! basal processes module - requires tauf for a restart
-    if (options%which_bproc /= BAS_PROC_DISABLED ) then
-        call glide_add_to_restart_variable_list('tauf')
-    endif
+!!    if (options%which_bproc /= BAS_PROC_DISABLED ) then
+!!        call glide_add_to_restart_variable_list('tauf')
+!!    endif
 
     ! TODO bmlt was set as a restart variable, but I'm not sure when or if it is needed.
 
@@ -1322,4 +1490,8 @@ contains
 
   end subroutine define_glide_restart_variables
 
+!--------------------------------------------------------------------------------
+
 end module glide_setup
+
+!--------------------------------------------------------------------------------

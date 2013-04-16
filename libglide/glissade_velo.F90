@@ -18,13 +18,13 @@ module glissade_velo
     use glimmer_global, only : dp
     use glimmer_physcon, only: gn, scyr
     use glimmer_paramets, only: thk0, len0, vel0, vis0
-
-    use glam_strs2, only: glam_velo_solver, JFNK_velo_solver
-    use glissade_velo_higher, only: glissade_velo_higher_solve
-
+    use glimmer_log
     use glide_types
     use glide_grid_operators, only: stagvarb
     use glide_mask
+
+    use glam_strs2, only: glam_velo_solver, JFNK_velo_solver
+    use glissade_velo_higher, only: glissade_velo_higher_solve
 
     implicit none
     
@@ -96,7 +96,8 @@ contains
 
            if (model%options%which_ho_nonlinear == HO_NONLIN_PICARD ) then ! Picard (standard solver)
 
-             !TODO - Are all these options still supported?  Probably can remove periodic_ew/ns.
+             !TODO - Are all these options still supported?
+             !WHL - Removed periodic_ew, periodic_ns
 
              call t_startf('glam_velo_solver')
               call glam_velo_solver( model%general%ewn,       model%general%nsn,                 &
@@ -117,8 +118,6 @@ contains
                                      model%options%which_ho_resid,                               &
                                      model%options%which_ho_nonlinear,                           &
                                      model%options%which_ho_sparse,                              &
-                                     model%options%periodic_ew,                                  &
-                                     model%options%periodic_ns,                                  &
                                      model%velocity%beta,                                        & 
                                      model%velocity%uvel, model%velocity%vvel,                   &
                                      model%velocity%uflx, model%velocity%vflx,                   &
@@ -210,11 +209,9 @@ contains
         ! Velocity-related computations that are independent of the solver
         !-------------------------------------------------------------------
 
-        ! compute the velocity norm
+        ! compute the velocity norm (for diagnostic output)
 
-!TODO - Since velnorm is strictly diagnostic, it probably could be computed only for I/O.
         model%velocity%velnorm = sqrt(model%velocity%uvel**2 + model%velocity%vvel**2)
-        model%velocity%is_velocity_valid = .true.
 
         ! WHL - Copy uvel and vvel to arrays uvel_icegrid and vvel_icegrid.
         !       These arrays have horizontal dimensions (nx,ny) instead of (nx-1,ny-1).
@@ -227,6 +224,7 @@ contains
 
         model%velocity%uvel_icegrid(:,:,:) = 0.d0
         model%velocity%vvel_icegrid(:,:,:) = 0.d0
+
         do j = 1, model%general%nsn-1
            do i = 1, model%general%ewn-1
               model%velocity%uvel_icegrid(:,i,j) = model%velocity%uvel(:,i,j)

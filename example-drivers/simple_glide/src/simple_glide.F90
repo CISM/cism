@@ -201,13 +201,14 @@ program simple_glide
   !leaving out that if-construct here.  If simple_glide actually does support a nowrite option, then a check for it would
   ! need to occur here!
 
+  !TODO - Here, call a driver subroutine that calls both glide_io_writeall and glide_lithot_io_writeall
   call t_startf('glide_io_writeall')                                                          
   call glide_io_writeall(model, model, time=time)          ! MJH The optional time argument needs to be supplied 
                                                            !     since we have not yet set model%numerics%time
+                                                           !WHL - model%numerics%time is now set above
   call t_stopf('glide_io_writeall')
 
-!TODO Do we want to write out litho output here too?  I think so, but I'm not sure what it is exactly.
-  if (model%options%gthf > 0) then
+  if (model%options%gthf == GTHF_COMPUTE) then             ! lithosphere model computes geothermal flux
      call t_startf('glide_lithot_io_writeall')                                                                    
      call glide_lithot_io_writeall(model, model, time=time)          ! MJH The optional time argument needs to be supplied
                                                                      !     since we have not yet set model%numerics%time
@@ -267,7 +268,6 @@ program simple_glide
 !       write(6,'(30f5.0)') thk0 * model%geometry%thck(3:32,j)
 !    enddo
 
-
      ! --- Increment time before performing time step operations ---
      ! We are solving variables at the new time level using values from the previous time level.
      ! TODO Can we just use model%numerics%time and model%numerics%timecounter?  
@@ -313,6 +313,9 @@ program simple_glide
         call glide_write_diag(model, time, model%numerics%idiag_global,  &
                                            model%numerics%jdiag_global)
      endif
+
+  !TODO - Here, call a driver subroutine that calls both glide_io_writeall and glide_lithot_io_writeall
+  !       Could put call to glide_write_diag there too?
 
 !WHL - debug
 !    print*, ' '

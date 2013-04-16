@@ -1,4 +1,4 @@
-!CLEANUP - glam_strs2.F90
+!TODO - Add header
 !
 ! "glam_strs2.F90"
 !
@@ -250,7 +250,6 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                             whichresid,             &
                             whichnonlinear,         &
                             whichsparse,            &
-                            periodic_ew,periodic_ns,&
                             beta,                   &
                             uvel,     vvel,         &
                             uflx,     vflx,         &
@@ -292,7 +291,6 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
   integer, intent(in) :: whichresid   ! options for method to use when calculating vel residul
   integer, intent(in) :: whichnonlinear  ! options for which method for doing elliptic solve
   integer, intent(in) :: whichsparse  ! options for which method for doing elliptic solve
-  logical, intent(in) :: periodic_ew, periodic_ns  ! options for applying periodic bcs or not
 
   real(dp), dimension(:,:,:), intent(inout) :: uvel, vvel  ! horiz vel components: u(z), v(z)
   real(dp), dimension(:,:),   intent(out) :: uflx, vflx  ! horiz fluxs: u_bar*H, v_bar*H
@@ -456,6 +454,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
      print *, ' '
      print *, 'Running Payne/Price higher-order dynamics solver'
      print *, ' '
+     !TODO - Remove hardwired numbers for whichresid (see glide_types.F90)
      if( whichresid == 3 )then
        print *, 'iter #     resid (L2 norm)       target resid'
      else
@@ -485,6 +484,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
 
   ! choose outer loop stopping criterion
   if( counter > 1 )then
+     !TODO - Remove hardwired numbers for whichresid (see glide_types.F90)
     if( whichresid == 3 )then
       outer_it_criterion = L2norm
       outer_it_target = NL_target
@@ -601,22 +601,6 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
     ! This is necessary since we have not yet solved for the x-comp of vel, which needs the
     ! old prev. guess as an input (NOT the new guess).
 
-!TODO - Can we eliminate the periodic option here?  Periodic BC should be handled automatically.
-
-! implement periodic boundary conditions in y (if flagged)
-! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    if( periodic_ns )then
-        call not_parallel(__FILE__, __LINE__)
-
-        tvel(:,:,nsn-1) = tvel(:,:,2)
-        tvel(:,:,1) = tvel(:,:,nsn-2)
-    end if
-    if( periodic_ew )then
-        call not_parallel(__FILE__, __LINE__)
-
-        tvel(:,ewn-1,:) = tvel(:,2,:)
-        tvel(:,1,:) = tvel(:,ewn-2,:)
-    end if
 ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
  call t_startf("PICARD_findcoefstr2")
@@ -751,29 +735,13 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
 
     !call dumpvels("After mindcrsh", uvel, vvel)
 
-!TODO - Remove periodic BC stuff?
-
-! implement periodic boundary conditions in x (if flagged)
-! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    if( periodic_ns )then
-        call not_parallel(__FILE__, __LINE__)
-
-        uvel(:,:,nsn-1) = uvel(:,:,2)
-        uvel(:,:,1) = uvel(:,:,nsn-2)
-    end if
-    if( periodic_ew )then
-        call not_parallel(__FILE__, __LINE__)
-
-        uvel(:,ewn-1,:) = uvel(:,2,:)
-        uvel(:,1,:) = uvel(:,ewn-2,:)
-    end if
-! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-
 !TODO - Does this comment still apply, or is parallel_single defunct?
     if (this_rank == 0) then
         ! Can't use main_task flag because main_task is true for all processors in case of parallel_single
         ! output the iteration status: iteration number, max residual, and location of max residual
         ! (send output to the screen or to the log file, per whichever line is commented out) 
+
+        !TODO - Remove hardwired numbers for whichresid (see glide_types.F90)
         if( whichresid == 3 )then
             print '(i4,3g20.6)', counter, L2norm, NL_target    ! Output when using L2norm for convergence
             !print '(a,i4,3g20.6)', "sup-norm uvel, vvel=", counter, resid(1), resid(2), minres
@@ -931,7 +899,6 @@ subroutine JFNK_velo_solver  (model,umask)
   integer :: whichresid
   integer :: whichsparse
   integer :: whichnonlinear
-  logical :: periodic_ew, periodic_ns
 
 !TODO - Should the following be passed out explicitly?
 ! intent(out)
@@ -984,8 +951,6 @@ subroutine JFNK_velo_solver  (model,umask)
   whichresid = model%options%which_ho_resid
   whichsparse = model%options%which_ho_sparse
   whichnonlinear = model%options%which_ho_nonlinear
-  periodic_ew = model%options%periodic_ew
-  periodic_ns = model%options%periodic_ns
   beta => model%velocity%beta(:,:)
 
   uvel => model%velocity%uvel(:,:,:)
@@ -1412,6 +1377,7 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
 
   select case(whichefvs)
 
+  !TODO - Remove hardwired case numbers
   case(0)       ! calculate eff. visc. using eff. strain rate
 
 !LOOP - all scalars except for outer layer
@@ -2718,6 +2684,8 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
 
   ! RESIDUAL CALCULATION
 
+  !TODO - Remove hardwired numbers for whichresid (see glide_types.F90)
+
   select case (whichresid)
   ! options for residual calculation method, as specified in configuration file
   ! (see additional notes in "higher-order options" section of documentation)
@@ -2980,6 +2948,8 @@ function mindcrshstr2(pt,whichresid,vel,counter,resid)
   end if
 
 !  print *, 'usav_avg(1)',usav_avg(1),'usav_avg(2)',usav_avg(2)
+
+  !TODO - Remove hardwired numbers for whichresid (see glide_types.F90)
 
   select case (whichresid)
 
@@ -3458,6 +3428,7 @@ subroutine bodyset(ew,  ns,  up,           &
            slopex = -dusrfdew(ew,ns); slopey = -dusrfdns(ew,ns); nz = 1.d0
         else                             ! specify necessary variables and flags for basal bc
    
+           !TODO - Replace hardwired numbers for whichbabc options
            if( whichbabc == 6 )then
                 bcflag = (/0,0/)             ! flag for u=v=0 at bed; doesn't work well so commented out here...
                                              ! better to specify very large value for betasquared below
@@ -3672,6 +3643,7 @@ subroutine bodyset(ew,  ns,  up,           &
            slopex = -dusrfdew(ew,ns); slopey = -dusrfdns(ew,ns); nz = 1.d0
         else                             ! specify necessary variables and flags for basal bc
 
+           !TODO - Replace hardwired numbers for whichbabc options
            if( whichbabc == 6 )then
                 bcflag = (/0,0/)             ! flag for u=v=0 at bed; doesn't work well so commented out here...
                                              ! better to specify very large value for betasquared below
@@ -5168,6 +5140,8 @@ function indshift( which, ew, ns, up, ewn, nsn, upn, loc_array, thck )
       upshift = 0
   end if
 
+  !TODO - Remove hardwired case numbers?
+
   select case(which)
 
       case(0)   !! internal to lateral boundaries; no shift to ew,ns indices
@@ -5242,6 +5216,7 @@ subroutine calcbetasquared (whichbabc,               &
 
   ! subroutine to calculate map of betasquared sliding parameter, based on 
   ! user input ("whichbabc" flag, from config file as "which_ho_babc").
+
   implicit none
 
   integer, intent(in) :: whichbabc
@@ -5269,6 +5244,8 @@ subroutine calcbetasquared (whichbabc,               &
   ! any hardwired values have units of Pa yr/m. 
 
 !TODO - Remove scaling here?
+
+!TODO - Replace hardwired case numbers for whichbabc (see glide_types.F90)
 
   select case(whichbabc)
 
@@ -5312,7 +5289,6 @@ subroutine calcbetasquared (whichbabc,               &
 
     case(5)    ! use value passed in externally from CISM (NOTE not dimensional when passed in) 
 
-!TODO - Careful with scaling here.
       ! scale CISM input value to dimensional units of (Pa yr/m)
 
       betasquared(:,:) = beta(:,:) * ( tau0 / vel0 / scyr )
@@ -5320,7 +5296,6 @@ subroutine calcbetasquared (whichbabc,               &
       ! this is a check for NaNs, which indicate, and are replaced by no slip
       !TODO: Not sure I follow the logic of this ... keep/omit? Added by the UMT crew at some point
 
-!LOOP - all velocity points       
       do ns=1, nsn-1
       do ew=1, ewn-1 
         if( betasquared(ew,ns) /= betasquared(ew,ns) )then
@@ -5650,7 +5625,7 @@ subroutine putpcgc(value,col,row,pt)
   integer, intent(in), optional :: pt
   real(dp), intent(in) :: value 
 
-   !*SFP*or now, ignoring the possibility of using JFNK w/ Trilinos ...
+   !*SFP*for now, ignoring the possibility of using JFNK w/ Trilinos ...
    if( nonlinear == HO_NONLIN_PICARD )then
 
     if (whatsparse /= STANDALONE_TRILINOS_SOLVER) then

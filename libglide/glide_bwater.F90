@@ -12,8 +12,6 @@ module glide_bwater
 
 contains
 
-!TODO - Would be better not to pass 'model'
-
   subroutine calcbwat(model, which, bmlt, bwat, bwatflx, thck, topg, btem, floater, wphi)
 
     use parallel
@@ -39,7 +37,9 @@ contains
     real(dp),  dimension(model%general%ewn,model%general%nsn) :: N, flux, lakes
     real(dp) :: c_effective_pressure,c_flux_to_depth,p_flux_to_depth,q_flux_to_depth
 
-! TODO: move these declarations into a parameters derived type
+    real(dp), parameter :: const_bwat = 10.d0   ! constant value for basal water depth (m)
+
+! TODO: move these declarations into a parameters derived type?
     c_effective_pressure = 0.0d0       ! For now estimated with c/w
     c_flux_to_depth = 1./(1.8d-3*12.0d0)  ! 
     p_flux_to_depth = 2.0d0            ! exponent on the depth
@@ -47,9 +47,9 @@ contains
 
     select case (which)
 
+    ! which = BWATER_NONE Nothing, basal water depth = 0.
     ! which = BWATER_LOCAL Completely local, bwat_new = c1 * melt_rate + c2 * bwat_old
     ! which = BWATER_FLUX Flux based calculation
-    ! which = BWATER_NONE Nothing, basal water = 0.
     ! which = BWATER_BASAL_PROC, till water content in the basal processes module
 
     case(BWATER_LOCAL)
@@ -60,7 +60,7 @@ contains
 
        do t_wat = 1, model%tempwk%nwat
 
-!LOOP - For glissade, loop should be over locally owned cells (ilo:ihi,jo:jhi).
+          !LOOP - For glissade, loop should be over locally owned cells (ilo:ihi,jo:jhi).
 
           do ns = 1,model%general%nsn
              do ew = 1,model%general%ewn
@@ -99,29 +99,34 @@ contains
 
     ! Case added by Jesse Johnson 11/15/08
     ! Steady state routing of basal water using flux calculation
+
     case(BWATER_FLUX)
-      call not_parallel(__FILE__,__LINE__)
 
-      call effective_pressure(bwat,c_effective_pressure,N)
-      call pressure_wphi(thck,topg,N,wphi,model%numerics%thklim,floater)
-      call route_basal_water(wphi,bmlt,model%numerics%dew,model%numerics%dns,bwatflx,lakes)
-      call flux_to_depth(bwatflx,wphi,c_flux_to_depth,p_flux_to_depth,q_flux_to_depth,model%numerics%dew,model%numerics%dns,bwat)
+       !TODO - Test this option
 
-    case(BWATER_BASAL_PROC)
-    !Normalized basal water 
+       call not_parallel(__FILE__,__LINE__)
 
-!    bwat=model%basalproc%Hwater/thk0
-    write(*,*)"ERROR: Current release does not support use of the basal processes module."
-    write(*,*)"       Re-run code with alternate option selected for 'whichbwat'."
-    stop
+       call effective_pressure(bwat,c_effective_pressure,N)
+       call pressure_wphi(thck,topg,N,wphi,model%numerics%thklim,floater)
+       call route_basal_water(wphi,bmlt,model%numerics%dew,model%numerics%dns,bwatflx,lakes)
+       call flux_to_depth(bwatflx,wphi,c_flux_to_depth,p_flux_to_depth,q_flux_to_depth,model%numerics%dew,model%numerics%dns,bwat)
 
+    !WHL - not currently supported
+!!    case(BWATER_BASAL_PROC)
+
+       ! Normalized basal water 
+
+!!     bwat = model%basalproc%Hwater / thk0
 
     case(BWATER_CONST)
-    !Use a constant thickness of water, to force Tpmp. Normalized too.
-    bwat=10.0/thk0
 
-    case default
-      bwat = 0.0d0
+       ! Use a constant thickness of water, to force Tpmp.
+       bwat(:,:) = const_bwat / thk0
+
+    case default   ! includes BWATER_NONE
+
+       bwat(:,:) = 0.0d0
+
     end select
 
     ! now also calculate basal water in velocity (staggered) coord system
@@ -132,7 +137,6 @@ contains
 
   contains
 
-!TODO - Inline this subroutine?  Is it needed in all cases?
     ! Internal subroutine for smoothing
     subroutine smooth_bwat(ewm,ew,ewp,nsm,ns,nsp)
       ! smoothing basal water distrib
@@ -162,9 +166,9 @@ contains
 
   end subroutine find_dt_wat
 
-!TODO - Note: This routing is supported in serial code only.
+  ! Note: This routing is supported in serial code only.
 
-   subroutine route_basal_water(wphi,melt,dx,dy,flux,lakes)
+  subroutine route_basal_water(wphi,melt,dx,dy,flux,lakes)
     !*FD Routes water from melt field to its destination, recording flux
     !*FD of water along the route. Water flow direction is determined according
     !*FD to the gradient of a wphi elevation field. For the algorithm to 

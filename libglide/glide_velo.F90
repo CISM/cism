@@ -665,7 +665,8 @@ contains
 
      select case(model%options%whichwvel)
 
-     case(0)     ! Usual vertical integration
+!!     case(0)     ! Usual vertical integration
+     case(VERTINT_STANDARD)     ! Usual vertical integration
 
         call wvelintg(model%velocity%uvel,                        &
                       model%velocity%vvel,                        &
@@ -677,7 +678,8 @@ contains
                       model%temper%bmlt,                          &
                       model%velocity%wvel)
 
-     case(1)     ! Vertical integration constrained so kinematic upper BC obeyed.
+!!     case(1)     ! Vertical integration constrained so kinematic upper BC obeyed.
+     case(VERTINT_KINEMATIC_BC)     ! Vertical integration constrained so kinematic upper BC obeyed.
 
         call wvelintg(model%velocity%uvel,                        &
                       model%velocity%vvel,                        &
@@ -1093,7 +1095,7 @@ contains
     ! Internal variables
     !------------------------------------------------------------------------------------
 
-    real(dp) :: stagbwat 
+    real(dp) :: stagbwat, stagbmlt 
     integer :: ew,ns,nsn,ewn
     real :: Asl = 1.8d-10 !in units N^-3 yr^-1 m^8 for case(5)
     real :: Z !accounts for reduced basal traction due to pressure of
@@ -1109,12 +1111,16 @@ contains
     nsn=model%general%nsn
 
     !------------------------------------------------------------------------------------
-    Asl = model%climate%slidconst
+
     select case(flag)
-    case(1)
+
+!!    case(1)
+    case(BTRC_CONSTANT)
        ! constant everywhere
        btrc = model%velocity%bed_softness
-    case(2)
+
+!!    case(2)
+    case(BTRC_CONSTANT_BWAT)
        ! constant where basal melt water is present
 !LOOP - all velocity points
        do ns = 1,nsn-1
@@ -1126,9 +1132,11 @@ contains
              end if
           end do
        end do
-    case(3)
-       ! function of basal water depth
-!LOOP - all velocity points
+
+!!    case(3)
+    case(BTRC_TANH_BWAT)
+       ! tanh function of basal water depth
+       ! The 'velowk%c' parameters are derived above from the 5-part parameter bpar
        do ns = 1,nsn-1
           do ew = 1,ewn-1
              if (0.0d0 < model%temper%stagbwat(ew,ns)) then
@@ -1144,57 +1152,74 @@ contains
              end if
           end do
        end do
-    case(4)
+
+!!    case(4)
+    case(BTRC_LINEAR_BMLT)
        ! linear function of basal melt rate
 !LOOP - all velocity points
        do ns = 1,nsn-1
           do ew = 1,ewn-1
-             stagbwat = 0.25d0*sum(model%temper%bmlt(ew:ew+1,ns:ns+1))
+             stagbmlt = 0.25d0*sum(model%temper%bmlt(ew:ew+1,ns:ns+1))
              
-             if (stagbwat > 0.0d0) then
+             if (stagbmlt > 0.0d0) then
                 btrc(ew,ns) = min(model%velowk%btrac_max, &
-                                  model%velocity%bed_softness(ew,ns)+model%velowk%btrac_slope*stagbwat)
+                                  model%velocity%bed_softness(ew,ns) + model%velowk%btrac_slope*stagbmlt)
              else
                 btrc(ew,ns) = 0.0d0
              end if
           end do
        end do
-    case(5)
+
+!!    case(5)
+    case(BTRC_CONSTANT_TPMP)
        ! constant where basal temperature equal to pressure melting point
        ! This is the actual EISMINT condition, which may not be the same
        ! as case(2) above, depending on the hydrology
 
-       ! increases with the third power of the basal shear stress, from
-       ! Huybrechts
-!LOOP - all velocity points
-       do ns = 1, nsn-1
-         do ew = 1, ewn-1
-!TODO - Scaling looks wrong here: stagthck and thklim should have the same scaling.
-           if ((model%geomderv%stagthck(ew,ns)*thk0) > model%numerics%thklim) then 
-             if((model%geomderv%stagtopg(ew,ns)*thk0) > (model%climate%eus*thk0)) then
-               Z = model%geomderv%stagthck(ew,ns)*thk0
+       do ns = 1,nsn-1
+          do ew = 1,ewn-1
+             if (abs(model%temper%stagbpmp(ew,ns) - model%temper%stagbtemp(ew,ns))<0.001) then
+                btrc(ew,ns) = model%velocity%bed_softness(ew,ns)
              else
-               Z = model%geomderv%stagthck(ew,ns)*thk0 + rhoi*((model%geomderv%stagtopg(ew,ns) *thk0 &
-                   - model%climate%eus*thk0)/ rhoo)
-   
-             end if 
-              
-            if(Z <= model%numerics%thklim) then !avoid division by zero
-                Z = model%numerics%thklim
-            end if 
-            
-             tau = ((tau_factor*model%stress%tau_x(ew,ns))**2 +&
-             (model%stress%tau_y(ew,ns)*tau_factor)**2)**(0.5d0)
-             
-             btrc(ew,ns) = (Asl*(tau)**2)/Z !assuming that that btrc is later
-                                             !multiplied again by the basal shear stress
-       
-           end if  
+                btrc(ew,ns) = 0.0d0
+             end if
           end do
        end do
-    case default
+
+!WHL - I'm not aware of anyone using this parameterization. Commented out for now.
+!!    case(6)
+!!       ! increases with the third power of the basal shear stress, from Huybrechts
+
+!!       Asl = model%climate%slidconst
+!!       do ns = 1, nsn-1
+!!         do ew = 1, ewn-1
+!TODO - Scaling looks wrong here: stagthck and thklim should have the same scaling.
+!!           if ((model%geomderv%stagthck(ew,ns)*thk0) > model%numerics%thklim) then 
+!!             if((model%geomderv%stagtopg(ew,ns)*thk0) > (model%climate%eus*thk0)) then
+!!               Z = model%geomderv%stagthck(ew,ns)*thk0
+!!             else
+!!               Z = model%geomderv%stagthck(ew,ns)*thk0 + rhoi*((model%geomderv%stagtopg(ew,ns) *thk0 &
+!!                   - model%climate%eus*thk0)/ rhoo)   
+!!             end if 
+              
+!!            if(Z <= model%numerics%thklim) then !avoid division by zero
+!!                Z = model%numerics%thklim
+!!            end if 
+            
+!!             tau = ((tau_factor*model%stress%tau_x(ew,ns))**2 +&
+!!             (model%stress%tau_y(ew,ns)*tau_factor)**2)**(0.5d0)
+             
+!!             btrc(ew,ns) = (Asl*(tau)**2)/Z !assuming that that btrc is later
+!!                                             !multiplied again by the basal shear stress
+       
+!!           end if  
+!!          end do
+!!       end do
+
+    case default   ! includes BTRC_ZERO
        ! zero everywhere
        btrc = 0.0d0
+
     end select
 
   end subroutine calc_btrc
