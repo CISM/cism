@@ -386,13 +386,13 @@ contains
        case(EVOL_INC_REMAP, EVOL_NO_THICKNESS) 
 
        ! Use incremental remapping scheme for advecting ice thickness ---
-       ! (and temperature too, if whichtemp = TEMP_REMAP_ADV)
+       ! (and temperature too, if whichtemp = TEMP_PROGNOSTIC)
        ! MJH: I put the no thickness evolution option here so that it is still possible 
        ! (but not required) to use IR to advect temperature when thickness evolution is turned off.
 
        ! TODO  MJH If we really want to support no evolution, then we may want to implement it so that IR does not occur 
-       !at all - right now a run can fail because of a CFL violation in IR even if evolution is turned off.  Do we want
-       ! to support temperature evolution without thickness evolution?  If so, then the current implementation may be preferred approach.
+       !       at all - right now a run can fail because of a CFL violation in IR even if evolution is turned off.  Do we want
+       !       to support temperature evolution without thickness evolution?  If so, then the current implementation may be preferred approach.
 
        if (model%options%whichevol == EVOL_NO_THICKNESS) then
           ! store old thickness
@@ -431,7 +431,7 @@ contains
        call parallel_halo(model%geometry%thck)
 !       call horiz_bcs_unstag_scalar(model%geometry%thck)
 
-       if (model%options%whichtemp == TEMP_REMAP_ADV) then
+       if (model%options%whichtemp == TEMP_PROGNOSTIC) then
           call parallel_halo(model%temper%temp)
 !          call horiz_bcs_unstag_scalar(model%temper%temp)
        endif
@@ -461,9 +461,9 @@ contains
        do sc = 1 , model%numerics%subcyc
           if (model%numerics%subcyc > 1) write(*,*) 'Subcycling transport: Cycle ',sc
 
-          if (model%options%whichtemp == TEMP_REMAP_ADV) then  ! Use IR to transport thickness, temperature
-                                                               ! (and other tracers, if present)
-                                                               ! Note: We are passing arrays in SI units.
+          if (model%options%whichtemp == TEMP_PROGNOSTIC) then  ! Use IR to transport thickness, temperature
+                                                                ! (and other tracers, if present)
+                                                                ! Note: We are passing arrays in SI units.
 
              ! temporary thickness array in SI units (m)                               
              thck_unscaled(:,:) = model%geometry%thck(:,:) * thk0
@@ -483,7 +483,7 @@ contains
              ! convert thck back to scaled units
              model%geometry%thck(:,:) = thck_unscaled(:,:) / thk0
 
-!TODO - Will we continue to support this option?  May not be needed.
+          !TODO - Will we continue to support this option?  May not be needed.
 
           else  ! Use IR to transport thickness only
                 ! Note: In glissade_transport_driver, the ice thickness is transported layer by layer,

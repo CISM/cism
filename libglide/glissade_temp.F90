@@ -478,8 +478,8 @@ contains
           end do
        end do
 
-!!    case(3) ! Local column calculation (with advection done elsewhere)
-    case(TEMP_REMAP_ADV) ! Local column calculation (with advection done elsewhere)
+!!    case(1)   !WHL - used to be case(3); now all prognostic temperature calcs are case(1)
+    case(TEMP_PROGNOSTIC) ! Local column calculation (with advection done elsewhere)
 
             ! No horizontal or vertical advection; vertical diffusion and strain heating only.
             ! Temperatures are vertically staggered relative to velocities.  

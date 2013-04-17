@@ -223,7 +223,7 @@ contains
 
   subroutine glide_load_sigma(model,unit)
 
-    ! Loads a file containing sigma vertical coordinates.
+    ! Compute sigma coordinates or read them from a file
     ! Note: This subroutine is called from glide_initialise or glissade_initialise.
     !       If sigma levels are provided in the config file, then they are read
     !        in by glide_read_sigma, and model%options%which_sigma is set to
@@ -464,9 +464,9 @@ contains
     ! We set this flag to one to indicate we've got a sigfile name.
     ! A warning/error is generated if sigma levels are specified in some other way
     ! and mangle the name
-    if (trim(model%funits%sigfile)/='') then
+    if (trim(model%funits%sigfile) /= '') then
        model%funits%sigfile = filenames_inputname(model%funits%sigfile)
-       model%options%which_sigma=1
+       model%options%which_sigma = SIGMA_EXTERNAL
     end if
 
   end subroutine handle_grid
@@ -594,6 +594,9 @@ contains
     call GetValue(section,'topo_is_relaxed',model%options%whichrelaxed)
     call GetValue(section,'periodic_ew',model%options%periodic_ew)
 
+    !WHL - added this one
+    call GetValue(section,'sigma',model%options%which_sigma)
+
     !TODO - Not sure if this is still needed
     call GetValue(section,'ioparams',model%funits%ncfile)
 
@@ -687,8 +690,9 @@ contains
          'ADI scheme                            ', &
          'iterated diffusion                    ', &
          'remap thickness                       ', &   
-         '1st order upwind                      ' /)   
+         '1st order upwind                      ' /)
 
+    !TODO : Remove option 3 (after cleaning up config files)
     character(len=*), dimension(0:3), parameter :: temperature = (/ &
          'isothermal         ', &
          'full prognostic    ', &
@@ -798,7 +802,7 @@ contains
          'max value               ', &
          'max value ignoring ubas ', &
          'mean value              ', &
-         'L2 norm of Ax-b=resid   ' /)
+         'L2 norm of Ax-b = resid ' /)
 
     character(len=*), dimension(0:4), parameter :: ho_whichsparse = (/ &
          'BiCG with LU preconditioner                ', &
@@ -827,64 +831,43 @@ contains
     write(message,*) 'Dycore                  : ',model%options%whichdycore,dycore(model%options%whichdycore)
     call write_log(message)
 
+    !WHL - Option 3 (TEMP_REMAP_ADV) is now deprecated.  
+    ! If this has been set, then change to option 1 (TEMP_PROGNOSTIC), which applies to any dycore.
+    !TODO - Remove this option after cleaning up config files.
+    if (model%options%whichtemp == TEMP_REMAP_ADV) model%options%whichtemp = TEMP_PROGNOSTIC
+
     if (model%options%whichtemp < 0 .or. model%options%whichtemp >= size(temperature)) then
        call write_log('Error, temperature option out of range',GM_FATAL)
     end if
     write(message,*) 'temperature calculation : ',model%options%whichtemp,temperature(model%options%whichtemp)
     call write_log(message)
 
-    if ((model%options%whichtemp == TEMP_REMAP_ADV .and. model%options%whichevol /= EVOL_INC_REMAP) .and. &
-        (model%options%whichtemp == TEMP_REMAP_ADV .and. model%options%whichevol /= EVOL_NO_THICKNESS)) then
-        call write_log('Error, must use remapping for thickness evolution (or no thickness evolution) if remapping temperature', GM_FATAL)
-    end if
-
     ! Forbidden options to use with the Glide dycore
     if (model%options%whichdycore == DYCORE_GLIDE) then
-
-       if (model%options%whichtemp == TEMP_REMAP_ADV) then 
-          call write_log('Error, cannot use remapping scheme to advect temperature with Glide dycore', GM_FATAL)
-       endif
 
        if (model%options%whichevol==EVOL_INC_REMAP) then
           call write_log('Error, incremental remapping evolution is not supported for the Glide dycore', GM_FATAL)
        endif
 
-       if ( tasks > 1 ) then
-          call write_log('Error, Glide dycore not supported for distributed parallel runs with more than one processor',GM_FATAL)
+       if (tasks > 1) then
+          call write_log('Error, Glide dycore not supported for runs with more than one processor', GM_FATAL)
        end if
-
-       if (model%options%whichtemp==TEMP_GLIDE .and. (tasks>1) ) then
-          ! Note: this should never be executed because the previous check of (tasks>1) will catch that situation.
-          ! I am leaving it here for completeness.  I moved it from before the Glide-specific checks
-          ! because in that location the code issued the 'temp=1 can't use multiple processors' error
-          ! instead of the 'glide can't use multiple processors' error, which is more informative.  MJH 1/15/13
-          call write_log('Error, Glimmer temperature scheme (temperature = TEMP_GLIMMER) &
-                       &not supported for distributed parallel runs with more than one processor',GM_FATAL)
-       end if
-
 
        if (model%options%whichevol==EVOL_ADI) then
           call write_log('Warning, exact restarts are not currently possible with ADI evolution', GM_WARNING)
        endif
 
-    endif
-
-    ! Forbidden options associated with the Glissade dycore
-!TODO - Any other forbidden options with Glissade dycore?
-    if (model%options%whichdycore == DYCORE_GLISSADE) then
-
-       if (model%options%whichtemp == TEMP_GLIDE) then
-          call write_log('Error, Glimmer temperature scheme can be used only with Glide dycore', GM_FATAL)
-       endif
+    else   ! glam/glissade dycore
 
        if (model%options%whichevol==EVOL_PSEUDO_DIFF .or.  &
            model%options%whichevol==EVOL_ADI         .or.  &
            model%options%whichevol==EVOL_DIFFUSION) then
-          call write_log('Error, Glimmer thickness evolution options can be used only with Glide dycore', GM_FATAL)
+          call write_log('Error, Glide thickness evolution options can be used only with Glide dycore', GM_FATAL)
        endif
 
-!TODO - Get rid of this?
-    else   ! not DYCORE_GLISSADE
+    endif
+
+    if (model%options%whichdycore /= DYCORE_GLISSADE) then 
 
        if (model%options%which_ho_sparse == HO_SPARSE_PCG_STRUC) then
           call write_log('Error, structured PCG solver requires glissade dycore')
@@ -906,7 +889,7 @@ contains
        call write_log('Error, temp_init option out of range',GM_FATAL)
     end if
     ! Note: If reading temperature from an input or restart file, the temp_init option is overridden,
-    !        so it could be confusing to write the option to the log file.
+    !        in which case it could be confusing here to write the option to the log file.
     !       The method actually used is written to the log file by glide_init_temp. 
 
     if (model%options%whichflwa < 0 .or. model%options%whichflwa >= size(flow_law)) then
@@ -987,77 +970,80 @@ contains
 !!    call write_log(message)
 
     !HO options
-    call write_log(' ')
-    call write_log('***Higher-order options:')
 
-    write(message,*) 'ho_whichefvs            :',model%options%which_ho_efvs,  &
-                      ho_whichefvs(model%options%which_ho_efvs)
-    call write_log(message)
-    if (model%options%which_ho_efvs < 0 .or. model%options%which_ho_efvs >= size(ho_whichefvs)) then
-        call write_log('Error, HO effective viscosity input out of range', GM_FATAL)
-    end if
+    if (model%options%whichdycore /= DYCORE_GLIDE) then   ! glam/glissade higher-order
 
-    write(message,*) 'dispwhich               :',model%options%which_disp,  &
-                      dispwhich(model%options%which_disp)
-    call write_log(message)
-    if (model%options%which_disp < 0 .or. model%options%which_disp >= size(dispwhich)) then
-        call write_log('Error, which dissipation input out of range', GM_FATAL)
-    end if
+       call write_log(' ')
+       call write_log('Higher-order options:')
+       call write_log('----------')
 
-    write(message,*) 'ho_whichbabc            :',model%options%which_ho_babc,  &
-                      ho_whichbabc(model%options%which_ho_babc)
-    call write_log(message)
-    if (model%options%which_ho_babc < 0 .or. model%options%which_ho_babc >= size(ho_whichbabc)) then
-        call write_log('Error, HO basal BC input out of range', GM_FATAL)
-    end if
+       write(message,*) 'ho_whichefvs            : ',model%options%which_ho_efvs,  &
+                         ho_whichefvs(model%options%which_ho_efvs)
+       call write_log(message)
+       if (model%options%which_ho_efvs < 0 .or. model%options%which_ho_efvs >= size(ho_whichefvs)) then
+          call write_log('Error, HO effective viscosity input out of range', GM_FATAL)
+       end if
 
-    write(message,*) 'which_ho_nonlinear      :',model%options%which_ho_nonlinear,  &
-                      which_ho_nonlinear(model%options%which_ho_nonlinear)
-    call write_log(message)
-    if (model%options%which_ho_nonlinear < 0 .or. model%options%which_ho_nonlinear >= size(which_ho_nonlinear)) then
-        call write_log('Error, HO nonlinear solution input out of range', GM_FATAL)
-    end if
+       write(message,*) 'dispwhich               : ',model%options%which_disp,  &
+                         dispwhich(model%options%which_disp)
+       call write_log(message)
+       if (model%options%which_disp < 0 .or. model%options%which_disp >= size(dispwhich)) then
+          call write_log('Error, which dissipation input out of range', GM_FATAL)
+       end if
 
-    write(message,*) 'ho_whichresid           :',model%options%which_ho_resid,  &
-                      ho_whichresid(model%options%which_ho_resid)
-    call write_log(message)
-    if (model%options%which_ho_resid < 0 .or. model%options%which_ho_resid >= size(ho_whichresid)) then
-        call write_log('Error, HO residual input out of range', GM_FATAL)
-    end if
+       write(message,*) 'ho_whichbabc            : ',model%options%which_ho_babc,  &
+                         ho_whichbabc(model%options%which_ho_babc)
+       call write_log(message)
+       if (model%options%which_ho_babc < 0 .or. model%options%which_ho_babc >= size(ho_whichbabc)) then
+          call write_log('Error, HO basal BC input out of range', GM_FATAL)
+       end if
 
-    write(message,*) 'ho_whichsparse          :',model%options%which_ho_sparse,  &
-                      ho_whichsparse(model%options%which_ho_sparse)
-    call write_log(message)
-    if (model%options%which_ho_sparse < 0 .or. model%options%which_ho_sparse >= size(ho_whichsparse)) then
-        call write_log('Error, HO sparse solver input out of range', GM_FATAL)
-    end if
+       write(message,*) 'which_ho_nonlinear      : ',model%options%which_ho_nonlinear,  &
+                         which_ho_nonlinear(model%options%which_ho_nonlinear)
+       call write_log(message)
+       if (model%options%which_ho_nonlinear < 0 .or. model%options%which_ho_nonlinear >= size(which_ho_nonlinear)) then
+          call write_log('Error, HO nonlinear solution input out of range', GM_FATAL)
+       end if
+
+       write(message,*) 'ho_whichresid           : ',model%options%which_ho_resid,  &
+                         ho_whichresid(model%options%which_ho_resid)
+       call write_log(message)
+       if (model%options%which_ho_resid < 0 .or. model%options%which_ho_resid >= size(ho_whichresid)) then
+          call write_log('Error, HO residual input out of range', GM_FATAL)
+       end if
+
+       write(message,*) 'ho_whichsparse          : ',model%options%which_ho_sparse,  &
+                         ho_whichsparse(model%options%which_ho_sparse)
+       call write_log(message)
+       if (model%options%which_ho_sparse < 0 .or. model%options%which_ho_sparse >= size(ho_whichsparse)) then
+          call write_log('Error, HO sparse solver input out of range', GM_FATAL)
+       end if
 
 !WHL - commented out for now
-!!    write(message,*) 'ho_whichapprox          :',model%options%which_ho_approx,  &
-!!                      ho_whichapprox(model%options%which_ho_approx)
-!!    call write_log(message)
-!!    if (model%options%which_ho_approx < 0 .or. model%options%which_ho_approx >= size(ho_whichapprox)) then
-!!        call write_log('Error, Stokes approximation out of range', GM_FATAL)
-!!    end if
+!!       write(message,*) 'ho_whichapprox          : ',model%options%which_ho_approx,  &
+!!                         ho_whichapprox(model%options%which_ho_approx)
+!!       call write_log(message)
+!!       if (model%options%which_ho_approx < 0 .or. model%options%which_ho_approx >= size(ho_whichapprox)) then
+!!          call write_log('Error, Stokes approximation out of range', GM_FATAL)
+!!       end if
 
-    !WHL - Removed this option
-!!    write(message,*) 'bmeltwhich              :',model%options%which_bmelt,  &
-!!                      bmeltwhich(model%options%which_bmelt)
-!!    call write_log(message)
-!!    if (model%options%which_bmelt < 0 .or. model%options%which_bmelt >= size(bmeltwhich)) then
-!!        call write_log('Error, which bmelt input out of range', GM_FATAL)
-!!    end if
+         !WHL - Removed this option
+!!       write(message,*) 'bmeltwhich              : ',model%options%which_bmelt,  &
+!!                         bmeltwhich(model%options%which_bmelt)
+!!       call write_log(message)
+!!       if (model%options%which_bmelt < 0 .or. model%options%which_bmelt >= size(bmeltwhich)) then
+!!          call write_log('Error, which bmelt input out of range', GM_FATAL)
+!!       end if
 
-      !WHL - Removed this option
-!!    if (model%options%which_ho_source < 0 .or. model%options%which_ho_source >= size(ho_whichsource)) then
-!!        call write_log('Error, which_ho_source out of range', GM_FATAL)
-!!    end if
-!!    write(message,*) 'ice_shelf_source_term   :',model%options%which_ho_source, &
-!!                       ho_whichsource(model%options%which_ho_source)
-!!    call write_log(message)
+         !WHL - Removed this option
+!!       if (model%options%which_ho_source < 0 .or. model%options%which_ho_source >= size(ho_whichsource)) then
+!!          call write_log('Error, which_ho_source out of range', GM_FATAL)
+!!       end if
+!!       write(message,*) 'ice_shelf_source_term   :',model%options%which_ho_source, &
+!!                         ho_whichsource(model%options%which_ho_source)
+!!       call write_log(message)
 
-
-    call write_log('')
+    endif   ! whichdycore
 
   end subroutine print_options
 
@@ -1122,6 +1108,7 @@ contains
     type(glide_global_type)  :: model
     character(len=100) :: message
 
+    call write_log(' ')
     call write_log('Parameters')
     call write_log('----------')
 
@@ -1230,7 +1217,7 @@ contains
     call write_log('------------------')
     message=''
     do i=1,model%general%upn
-       write(temp,'(f5.2)') model%numerics%sigma(i)
+       write(temp,'(f6.3)') model%numerics%sigma(i)
        message=trim(message)//trim(temp)
     enddo
     call write_log(trim(message))

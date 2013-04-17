@@ -136,6 +136,7 @@ contains
     use glide_types
     use DATAMOD
     use glimmer_ncdf
+    use glimmer_ncio
     use glimmer_map_types
     use glimmer_log
     use glimmer_paramets
@@ -264,8 +265,8 @@ contains
     !*FD read from netCDF file
     use DATAMOD
     use glide_types
-    use glimmer_ncio
     use glimmer_ncdf
+    use glimmer_ncio
     implicit none
     type(DATATYPE) :: data
     type(glide_global_type) :: model

@@ -109,8 +109,10 @@ module glide_types
   integer, parameter :: EVOL_INC_REMAP = 3
   integer, parameter :: EVOL_UPWIND = 4
 
+  !WHL - Option 3 is now deprecated.
+  !      Use option 1 for prognostic temperature with any dycore
   integer, parameter :: TEMP_SURFACE_AIR_TEMP = 0
-  integer, parameter :: TEMP_GLIDE = 1
+  integer, parameter :: TEMP_PROGNOSTIC = 1
   integer, parameter :: TEMP_STEADY = 2
   integer, parameter :: TEMP_REMAP_ADV = 3
 
@@ -264,15 +266,14 @@ module glide_types
     integer :: whichtemp = 1
 
     !TODO: Make sure option 0 is working as desired
-    !      Not sure we will support option 3 independent of evolution = 3
+    !TODO: Remove option 3 (after cleaning up config files)
 
     !*FD Method of ice temperature calculation:
     !*FD \begin{description} 
     !*FD \item[0] Set column to surface air temperature
-    !*FD \item[1] Do full temperature solution (also find vertical velocity
-    !*FD and apparent vertical velocity)
+    !*FD \item[1] Full prognostic temperature solution 
     !*FD \item[2] Do NOTHING - hold temperatures steady at initial value  
-    !*FD \item[3] Use remapping to advect temperature (no advection by glide_temp)
+    !*FD \item[3] Use remapping to advect temperature (deprecated; now combined with [1])
     !*FD \end{description}
 
     !WHL - new options for temperature initialization
@@ -365,9 +366,11 @@ module glide_types
     integer :: which_sigma = 0
 
     !*FD \begin{description}
-    !*FD \item[0] calculate sigma coordinates
+    !*FD \item[0] compute standard Glimmer sigma coordinates
     !*FD \item[1] sigma coordinates are given in external file
     !*FD \item[2] sigma coordinates are given in configuration file
+    !*FD \item[3] evenly spaced levels, as required for glam dycore
+    !*FD \item[2] compute Pattyn sigma coordinates
     !*FD \end{description}
 
     !WHL - Removed this option
@@ -1215,7 +1218,7 @@ contains
     call coordsystem_allocate(model%general%ice_grid, model%temper%lcondflx)
     call coordsystem_allocate(model%general%ice_grid, model%temper%dissipcol)
 
-!WHL - In the glide dycore (whichtemp = TEMP_GLIDE), temperature and 
+!WHL - In the glide dycore (whichdycore = DYCORE_GLIDE), temperature and 
 !       flow factor live on the unstaggered vertical grid, and extra rows and columns 
 !       (with indices 0:ewn+1, 0:nsn+1) are needed.
 !    - In the glam/glissade dycore, temperature and flow factor live on the 
@@ -1223,29 +1226,18 @@ contains
 !       center of each layer k = 1:upn-1.  The temperature (but not flwa)
 !       is defined at the upper surface (k = 0) and lower surface (k = upn).
 
-    if (model%options%whichtemp == TEMP_GLIDE) then
-
-!TODO - I put a similar check in glide_setup.F90, based on distributed_execution().
-!      Which is correct?
-
-       !JEFF We decided to not support the wide temperature array for parallel.  Kept for serial compatibility.
-!       if ( distributed_isparallel() ) then
-!          write(*,*) "temperature == 1 is not supported in parallel execution"
-!          ! Calling not_parallel will cause abort
-!          call not_parallel(__FILE__, __LINE__)
-!       end if
-
+    if (model%options%whichdycore == DYCORE_GLIDE) then
        allocate(model%temper%temp(upn,0:ewn+1,0:nsn+1))
        call coordsystem_allocate(model%general%ice_grid, upn, model%temper%flwa)
-    else
+    else   ! glam/glissade dycore
        allocate(model%temper%temp(0:upn,1:ewn,1:nsn))
        call coordsystem_allocate(model%general%ice_grid, upn-1, model%temper%flwa)
     endif
 
     ! MJH set these to physically unrealistic values so we can tell later if 
     !  arrays were initialized correctly
-    model%temper%temp = -999.0d0
-    model%temper%flwa = -999.0d0
+    model%temper%temp(:,:,:) = -999.0d0
+    model%temper%flwa(:,:,:) = -999.0d0
  
     allocate(model%lithot%temp(1:ewn,1:nsn,model%lithot%nlayer)); model%lithot%temp = 0.0
     call coordsystem_allocate(model%general%ice_grid, model%lithot%mask)

@@ -460,7 +460,7 @@ contains
        end do
 
 !!    case(1)
-    case(TEMP_GLIDE)     ! Do full temperature solution as in standard Glide-------------
+    case(TEMP_PROGNOSTIC)     ! Do full temperature solution as in standard Glide-------------
 
       ! Note: In older versions of Glimmer, the vertical velocity was computed here.
       !       It is now computed in glide_tstep_p3 to support exact restart.
