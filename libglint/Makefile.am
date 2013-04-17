@@ -10,7 +10,7 @@ EXTRA_DIST = f90_dep.mak
 BUILT_SOURCES = glint_io.F90 glint_mbal_io.F90
 CLEANFILES = $(BUILT_SOURCES) f90_dep.mak $(wildcard *.mod)
 
-libglint_la_SOURCES = glimmer_daily_pdd.F90 glimmer_pdd.F90 \
+libglint_la_SOURCES = glint_daily_pdd.F90 glint_pdd.F90 \
                       glint_climate.F90 glint_initialise.F90 glint_io.F90 \
                       glint_timestep.F90 glint_type.F90 glint_main.F90 \
                       glint_interp.F90 glint_global_grid.F90 \

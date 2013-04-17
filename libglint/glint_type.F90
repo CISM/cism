@@ -476,26 +476,35 @@ contains
 
     character(len=100) :: message
 
+    !TODO - Make these messages more informative
+    !TODO - Remove hardwired option number
+    call write_log(' ')
     call write_log('GLINT climate')
     call write_log('-------------')
     write(message,*) 'precip_mode ',instance%whichprecip
     call write_log(message)
     write(message,*) 'acab_mode   ',instance%whichacab
     call write_log(message)
-    write(message,*) 'ice_albedo  ',instance%ice_albedo
-    call write_log(message)
-    write(message,*) 'lapse_rate  ',instance%lapse_rate
-    call write_log(message)
-    write(message,*) 'data_lapse_rate',instance%data_lapse_rate
-    call write_log(message)
+
+    if (instance%whichacab /= 0) then  ! not getting SMB from GCM
+       write(message,*) 'ice_albedo  ',instance%ice_albedo
+       call write_log(message)
+       write(message,*) 'lapse_rate  ',instance%lapse_rate
+       call write_log(message)
+       write(message,*) 'data_lapse_rate',instance%data_lapse_rate
+       call write_log(message)
+    endif
+
     if (instance%mbal_accum_time==-1) then
        call write_log('Mass-balance accumulation time == ice time-step')
     else
        write(message,*) 'Mass-balance accumulation time:',instance%mbal_accum_time * hours2years,' years'
        call write_log(message)
     end if
+
     write(message,*) 'ice_tstep_multiply',instance%ice_tstep_multiply
     call write_log(message)
+
     select case(instance%use_mpint)
     case(1)
        write(message,*) 'Using mean-preserving interpolation'
@@ -507,8 +516,6 @@ contains
        write(message,*) 'Unrecognised value of instance%use_mpint'
        call write_log(message,GM_FATAL)
     end select
-
-    call write_log('')
 
   end subroutine glint_i_printconfig
 

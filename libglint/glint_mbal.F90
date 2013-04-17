@@ -33,9 +33,9 @@
 
 module glint_mbal
 
-  use glimmer_pdd
-  use glimmer_daily_pdd
   use glimmer_global
+  use glint_pdd
+  use glint_daily_pdd
 
 #ifdef USE_ENMABAL
   use smb_mecons
@@ -48,8 +48,8 @@ module glint_mbal
   !*FD Unified wrapper for different mass-balance codes
 
   type glint_mbal_params
-     type(glimmer_pdd_params),      pointer :: annual_pdd => null() !*FD Pointer to annual PDD params
-     type(glimmer_daily_pdd_params),pointer :: daily_pdd => null()  !*FD Pointer to daily PDD params
+     type(glint_pdd_params),      pointer :: annual_pdd => null() !*FD Pointer to annual PDD params
+     type(glint_daily_pdd_params),pointer :: daily_pdd => null()  !*FD Pointer to daily PDD params
      type(smb_params),              pointer :: smb => null()        !*FD Pointer to SMB params
      integer :: which !*FD Flag for chosen mass-balance type
      integer :: tstep !*FD Timestep of mass-balance scheme in hours
@@ -91,7 +91,7 @@ contains
        params%tstep=years2hours   ! mbal tstep = 1 year
     case(1)
        allocate(params%annual_pdd)
-       call glimmer_pdd_init(params%annual_pdd,config)
+       call glint_pdd_init(params%annual_pdd,config)
        params%tstep=years2hours
     case(2)
        params%tstep=years2hours
@@ -101,7 +101,7 @@ contains
        call SMBInitWrapper(params%smb,nx,ny,nint(dxr),params%tstep*60,'/data/ggdagw/src/smb/smb_config/online')
     case(4)
        allocate(params%daily_pdd)
-       call glimmer_daily_pdd_init(params%daily_pdd,config)
+       call glint_daily_pdd_init(params%daily_pdd,config)
        params%tstep=days2hours
     case default
        call write_log('Invalid value of whichacab',GM_FATAL,__FILE__,__LINE__)
@@ -137,7 +137,7 @@ contains
 
     select case(params%which)
     case(1)
-       call glimmer_pdd_mbal(params%annual_pdd,artm,arng,prcp,ablt,acab,landsea) 
+       call glint_pdd_mbal(params%annual_pdd,artm,arng,prcp,ablt,acab,landsea) 
     case(2) 
        acab = prcp
     case(3)
@@ -155,7 +155,7 @@ contains
           siced=0.0
        end where
     case(4)
-       call glimmer_daily_pdd_mbal(params%daily_pdd,artm,arng,prcp,snowd,siced,ablt,acab,landsea)
+       call glint_daily_pdd_mbal(params%daily_pdd,artm,arng,prcp,snowd,siced,ablt,acab,landsea)
     end select
 
   end subroutine glint_mbal_calc

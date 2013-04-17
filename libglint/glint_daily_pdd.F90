@@ -1,6 +1,6 @@
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                             +
-! +  glimmer_daily_pdd.f90 - part of the Glimmer-CISM ice model + 
+! +  glint_daily_pdd.f90 - part of the Glimmer-CISM ice model   + 
 ! +                                                             +
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! 
@@ -31,7 +31,7 @@
 #include "config.inc"
 #endif
 
-module glimmer_daily_pdd
+module glint_daily_pdd
 
   !*FD The daily PDD model.
   !*FD N.B. all quantities, inputs and outputs are in m water equivalent.
@@ -42,7 +42,7 @@ module glimmer_daily_pdd
 
   implicit none
 
-  type glimmer_daily_pdd_params
+  type glint_daily_pdd_params
 
      !*FD Holds parameters for daily positive-degree-day mass-balance
      !*FD calculation. 
@@ -59,21 +59,21 @@ module glimmer_daily_pdd
      real(sp) :: tstep = 24.0_sp*60.0_sp*60.0_sp !*FD Scheme time-step (seconds)
      real(sp) :: a1,a2,a3                  !*FD Factors for relaxation of depth
 
-  end type glimmer_daily_pdd_params
+  end type glint_daily_pdd_params
 
   real(sp),parameter :: one_over_pi=1.0_sp/pi
 
   private
-  public :: glimmer_daily_pdd_params, glimmer_daily_pdd_init, glimmer_daily_pdd_mbal
+  public :: glint_daily_pdd_params, glint_daily_pdd_init, glint_daily_pdd_mbal
 
 contains
 
-  subroutine glimmer_daily_pdd_init(params,config)
+  subroutine glint_daily_pdd_init(params,config)
 
     use glimmer_physcon, only : rhow, rhoi
     use glimmer_config
   
-    type(glimmer_daily_pdd_params) :: params
+    type(glint_daily_pdd_params) :: params
     type(ConfigSection), pointer         :: config !*FD structure holding sections of configuration file
 
     ! Read the config file and output to log
@@ -85,7 +85,7 @@ contains
     params%a2=1.0-params%a1/2.0
     params%a3=1.0+params%a1/2.0
 
-  end subroutine glimmer_daily_pdd_init
+  end subroutine glint_daily_pdd_init
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -95,7 +95,7 @@ contains
 
     use glimmer_config
 
-    type(glimmer_daily_pdd_params),intent(inout) :: params !*FD The positive-degree-day parameters
+    type(glint_daily_pdd_params),intent(inout) :: params !*FD The positive-degree-day parameters
     type(ConfigSection), pointer         :: config !*FD structure holding sections of configuration file   
 
     ! local variables
@@ -104,7 +104,7 @@ contains
 
     tau0=params%tau0/scyr
 
-    call GetSection(config,section,'GLIMMER daily pdd')
+    call GetSection(config,section,'GLINT daily pdd')
     if (associated(section)) then
        call GetValue(section,'wmax',params%wmax)
        call GetValue(section,'pddfac_ice',params%pddfac_ice)
@@ -127,12 +127,12 @@ contains
 
     use glimmer_log
 
-    type(glimmer_daily_pdd_params),intent(inout) :: params !*FD The positive-degree-day parameters
+    type(glint_daily_pdd_params),intent(inout) :: params !*FD The positive-degree-day parameters
     character(len=100) :: message
 
     call write_log_div
 
-    call write_log('GLIMMER daily PDD Scheme parameters:')
+    call write_log('GLINT daily PDD Scheme parameters:')
     call write_log('-----------------------------------')
     write(message,*) 'Snow refreezing fraction',params%wmax
     call write_log(message)
@@ -158,9 +158,9 @@ contains
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  subroutine glimmer_daily_pdd_mbal(params,artm,arng,prcp,snowd,siced,ablt,acab,landsea)
+  subroutine glint_daily_pdd_mbal(params,artm,arng,prcp,snowd,siced,ablt,acab,landsea)
 
-    type(glimmer_daily_pdd_params)        :: params !*FD Daily PDD scheme parameters
+    type(glint_daily_pdd_params)          :: params !*FD Daily PDD scheme parameters
     real(sp),dimension(:,:),intent(in)    :: artm   !*FD Daily mean air-temperature ($^{\circ}$C)
     real(sp),dimension(:,:),intent(in)    :: arng   !*FD Daily temperature half-range ($^{\circ}$C)
     real(sp),dimension(:,:),intent(in)    :: prcp   !*FD Daily precipitation (m)
@@ -202,7 +202,7 @@ contains
        end do
     end do
 
-  end subroutine glimmer_daily_pdd_mbal
+  end subroutine glint_daily_pdd_mbal
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -291,7 +291,7 @@ contains
     !*FD \texttt{sicedepth}, and \texttt{gicedepth}, which give the new depths
     !*FD of snow, superimposed ice and glacial ice, respectively.
 
-    type(glimmer_daily_pdd_params) :: params !*FD PDD parameters
+    type(glint_daily_pdd_params) :: params !*FD PDD parameters
     real(sp), intent(inout) :: snowdepth     !*FD Snow depth (m)
     real(sp), intent(inout) :: sicedepth     !*FD Superimposed ice depth (m)
     real(sp), intent(inout) :: gicedepth     !*FD Glacial ice depth (m)
@@ -371,7 +371,7 @@ contains
 
   subroutine firn_densify(params,snowdepth,sicedepth)
 
-    type(glimmer_daily_pdd_params) :: params !*FD PDD parameters
+    type(glint_daily_pdd_params) :: params   !*FD PDD parameters
     real(sp), intent(inout) :: snowdepth     !*FD Snow depth (m)
     real(sp), intent(inout) :: sicedepth     !*FD Superimposed ice depth (m)
 
@@ -397,4 +397,4 @@ contains
 
   end subroutine firn_densify
 
-end module glimmer_daily_pdd
+end module glint_daily_pdd

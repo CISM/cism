@@ -187,6 +187,7 @@ contains
 
 !WHL - debug
     print*, ' '
+    print*, 'associated(out_first) =', associated(instance%out_first)
     print*, 'call glide_nc_fillall, outfiles =', instance%out_first%nc%filename
     call glide_nc_fillall(instance%model, outfiles=instance%out_first,  &
                                           vertical_level_flag = .false.)
@@ -304,12 +305,11 @@ contains
 
    ! Write initial ice sheet diagnostics for this instance
 
-    timeyr = 0.d0
-    if (main_task) write(stdout,*) 'Write initial model diagnostics, time =', timeyr
+!!    timeyr = 0.d0
 
-    call glide_write_diag(instance%model,         timeyr,        &
-                          instance%model%numerics%idiag_global,  &
-                          instance%model%numerics%jdiag_global)
+      call glide_write_diagnostics(instance%model,                  &
+                                   instance%model%numerics%time,    &
+                                   tstep_count = instance%model%numerics%timecounter)
 
     ! Write netCDF output for this instance
 
@@ -428,6 +428,8 @@ contains
     else       ! glam/glissade dycore     
        call glissade_initialise(instance%model)
     endif
+
+!TODO - Add call to diagnostic velocity solve
 
     instance%ice_tstep = get_tinc(instance%model)*years2hours
     idts = instance%ice_tstep
@@ -582,12 +584,11 @@ contains
 
    ! Write initial ice sheet diagnostics for this instance
 
-    timeyr = 0.d0
-    if (main_task) write(stdout,*) 'Write initial model diagnostics, time =', timeyr
+!!    timeyr = 0.d0
 
-    call glide_write_diag(instance%model,         timeyr,        &
-                          instance%model%numerics%idiag_global,  &
-                          instance%model%numerics%jdiag_global)
+    call glide_write_diagnostics(instance%model,                  &
+                                 instance%model%numerics%time,    &
+                                 tstep_count = instance%model%numerics%timecounter)
 
     ! Write netCDF output for this instance
 

@@ -1314,6 +1314,10 @@ contains
 !       write (stdout,*) 'tstep_mbal =', params%tstep_mbal
     end if
 
+!TODO - The timestepping might be less confusing if we defined time to be the time
+!       at the end of this step, not the beginning.
+!       Then we could get rid of terms like '+ params%time_step' below
+
     ! Check we're expecting a call now --------------------------------------------------------------
 
     if (params%new_av) then
@@ -1371,13 +1375,13 @@ contains
     ! for each model instance
     ! ---------------------------------------------------------
 
-    if (time-params%av_start_time+params%time_step > params%tstep_mbal) then
+    if (time - params%av_start_time + params%time_step > params%tstep_mbal) then
 
        write(message,*) &
             'Incomplete forcing of GLINT mass-balance time-step detected at time ', time
        call write_log(message,GM_FATAL,__FILE__,__LINE__)
 
-    else if (time-params%av_start_time+params%time_step == params%tstep_mbal) then
+    else if (time - params%av_start_time + params%time_step == params%tstep_mbal) then
 
        ! Set output_flag
 
@@ -1485,6 +1489,7 @@ contains
           params%g_av_qsmb(:,:,:) = params%g_av_qsmb(:,:,:) * params%tstep_mbal * hours2seconds / 1000._rk
 
        ! Do a timestep for each instance
+       !TODO - If we pass in the time at the end of the current step, this subroutine will need to be modified.
 
        do i=1,params%ninstances
           

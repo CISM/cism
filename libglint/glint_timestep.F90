@@ -99,6 +99,7 @@ contains
     ! ------------------------------------------------------------------------  
     ! Arguments
     ! ------------------------------------------------------------------------  
+    !TODO - Make 'current time' the time at the end of the step, not the beginning?
 
     integer,                intent(in)   :: time         !*FD Current time in hours
     type(glint_instance), intent(inout)  :: instance     !*FD Model instance
@@ -273,6 +274,7 @@ contains
     ! ICE TIMESTEP begins HERE ***********************************************
     ! ------------------------------------------------------------------------  
 
+    !TODO - Modify if time = time at end of step?
     if (time - instance%mbal_accum%start_time + instance%mbal_tstep == instance%mbal_accum_time) then
 
        if (instance%mbal_accum_time < instance%ice_tstep) then 
@@ -337,8 +339,8 @@ contains
           ! Put climate inputs in the appropriate places, with conversion ----------
 
           ! Note on units: 
-          ! For this subroutine, input acab is in m/yr; this value is multiplied 
-          !  by tim0/(scyr*thk0) and copied to data%climate%acab.
+          ! For this subroutine, input acab is in m/yr; this value is divided 
+          !  by scale_acab = scyr*thk0/tim0 and copied to data%climate%acab.
           ! Input artm is in deg C; this value is copied to data%climate%artm (no unit conversion).
 
           call glide_set_acab(instance%model, instance%acab*real(rhow/rhoi))
@@ -375,6 +377,9 @@ contains
              call glide_tstep_p3(instance%model)
              !EIB! call glide_tstep_p3(instance%model,no_write=.true.)
 
+             !TODO - Instead of calling with no_write = .true, we could move the I/O write out of glide_tstep_p3.
+             !       Note: glide_io_writeall is called below.
+
           else   ! glam/glissade dycore
 
              call glissade_tstep(instance%model,instance%glide_time)
@@ -398,22 +403,21 @@ contains
              ablat_temp = ablat_temp + instance%ablt*instance%model%numerics%tinc
           endif
 
+          !TODO - Could write a small subroutine at the top of glide_diagnostics module
+          !        to determine whether it's time to write.
+          !       Use real time in years instead of integer timecounter?
           ! write ice sheet diagnostics for this instance
 
-          if (mod(instance%model%numerics%timecounter,  &
-                  instance%model%numerics%ndiag)==0)  then
+          ! write ice sheet diagnostics at specified interval (model%numerics%dt_diag)
 
-             if (main_task) &
-                write(stdout,*) 'Write model diagnostics, time (yr) =', instance%model%numerics%time
-
-             call glide_write_diag(instance%model,                        &
-                                   instance%model%numerics%time,          &
-                                   instance%model%numerics%idiag_global,  &
-                                   instance%model%numerics%jdiag_global)
-
-          endif !   time to write diagnostics
+          call glide_write_diagnostics(instance%model,                  &
+                                       instance%model%numerics%time,    &
+                                       tstep_count = instance%model%numerics%timecounter)
 
           ! write netCDf output
+
+          !TODO - Make sure lithot variables are included in glide_io_writeall?
+          !TODO - Make sure mbal variables are included in glint_io_writeall?
 
           call glide_io_writeall(instance%model,instance%model)
           call glint_io_writeall(instance,instance%model)
@@ -950,20 +954,11 @@ contains
 !!             ablat_temp = ablat_temp + instance%ablt*instance%model%numerics%tinc
 !!          endif
 
-          ! write ice sheet diagnostics for this instance
+          ! write ice sheet diagnostics at specified interval (model%numerics%dt_diag)
 
-          if (mod(instance%model%numerics%timecounter,  &
-                  instance%model%numerics%ndiag)==0)  then
-
-             if (main_task) &
-                write(stdout,*) 'Write model diagnostics, time (yr) =', instance%model%numerics%time
-
-             call glide_write_diag(instance%model,                        &
-                                   instance%model%numerics%time,          &
-                                   instance%model%numerics%idiag_global,  &
-                                   instance%model%numerics%jdiag_global)
-
-          endif !   time to write diagnostics
+          call glide_write_diagnostics(instance%model,                  &
+                                       instance%model%numerics%time,    &
+                                       tstep_count = instance%model%numerics%timecounter)
 
           ! write netCDF output
 
