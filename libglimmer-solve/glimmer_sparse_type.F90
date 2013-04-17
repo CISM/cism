@@ -45,8 +45,10 @@
 #endif
 
 module glimmer_sparse_type
+ 
   use glimmer_global, only:dp
-
+  implicit none
+  
   !*FD sparse matrix type
   type sparse_matrix_type
      integer :: nonzeros  !*FD number of nonzero elements currently stored
