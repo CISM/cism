@@ -44,6 +44,7 @@ program glint_example
   use glint_commandline
   use glimmer_writestats
   use glimmer_paramets, only: GLC_DEBUG
+
   implicit none
 
   ! Program variables -------------------------------------------------------------------
@@ -116,7 +117,14 @@ program glint_example
   nxo=200 ; nyo=100                          ! Example grid used for orographic output
 
   ! start logging
-  call open_log(unit=101)  
+  call open_log(unit=101, fname=logname(commandline_configname))  
+
+
+!WHL - debug
+  print*, 'Starting program glint_example'
+  print*, 'climatename = ', trim(commandline_climatename)
+  print*, 'configname = ', trim(commandline_configname)
+  print*, ' '
 
   ! Allocate arrays appropriately
 
@@ -149,16 +157,16 @@ program glint_example
   ! Initialise the ice model
 
   call initialise_glint(ice_sheet, &
-       climate%clim_grid%lats, &
-       climate%clim_grid%lons, &
-       climate%climate_tstep, &
-       (/commandline_configname/), &
-       orog=orog_out, &
-       albedo=albedo, &
-       ice_frac=ice_frac, &
-       orog_longs=lons_orog, &
-       orog_lats=lats_orog, &
-       daysinyear=climate%days_in_year)
+                        climate%clim_grid%lats, &
+                        climate%clim_grid%lons, &
+                        climate%climate_tstep, &
+                        (/commandline_configname/), &
+                        orog=orog_out, &
+                        albedo=albedo, &
+                        ice_frac=ice_frac, &
+                        orog_longs=lons_orog, &
+                        orog_lats=lats_orog, &
+                        daysinyear=climate%days_in_year)
 
   ! Set the message level (1 is the default - only fatal errors)
   ! N.B. Must do this after initialisation
@@ -172,18 +180,29 @@ program glint_example
      stop
   endif
 
+!WHL - debug
+  print*, ' '
+  print*, 'Start timestep loop'
+
   ! Do timesteps ---------------------------------------------------------------------------
+
+  !TODO - Timestepping as in simple_glide?  Initialize with time = 0, then update time right after 'do'
+  !       This would require changing some time logic inside the glint subroutines.
 
   time=climate%climate_tstep
 
   do
+
      call example_climate(climate,precip,temp,real(time,rk))
-     call glint(ice_sheet,time,temp,precip,orog, &
-          orog_out=orog_out,   albedo=albedo,         output_flag=out, &
-          ice_frac=ice_frac,   water_out=fw,          water_in=fw_in, &
-          total_water_in=twin, total_water_out=twout, ice_volume=ice_vol) 
+
+     call glint(ice_sheet,   time,   temp,      precip,     orog,            &
+                orog_out=orog_out,   albedo=albedo,         output_flag=out, &
+                ice_frac=ice_frac,   water_out=fw,          water_in=fw_in,  &
+                total_water_in=twin, total_water_out=twout, ice_volume=ice_vol) 
+
      time=time+climate%climate_tstep
      if (time>climate%total_years*climate%hours_in_year) exit
+
   end do
 
   if (GLC_DEBUG) then

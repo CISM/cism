@@ -187,9 +187,10 @@ program simple_glide
 
   end if
 
-!WHL - Write initial diagnostic output to log file
-  call glide_write_diag(model, time, model%numerics%idiag_global,  &
-                                     model%numerics%jdiag_global)
+  ! Write initial diagnostic output to log file
+
+  call glide_write_diagnostics(model,        time,       &
+                               tstep_count = tstep_count)
 
   ! --- Output the initial state -------------
   ! TODO MJH Copied this below from glissade_post_tstep().  May want to make a subroutine that just has this 
@@ -308,11 +309,10 @@ program simple_glide
 
      ! override masking stuff for now  !TODO - What does this mean?
 
-     ! write ice sheet diagnostics
-     if (mod(tstep_count, model%numerics%ndiag)==0)  then
-        call glide_write_diag(model, time, model%numerics%idiag_global,  &
-                                           model%numerics%jdiag_global)
-     endif
+     ! write ice sheet diagnostics at specified interval (model%numerics%dt_diag)
+
+     call glide_write_diagnostics(model,        time,       &
+                                  tstep_count = tstep_count)
 
   !TODO - Here, call a driver subroutine that calls both glide_io_writeall and glide_lithot_io_writeall
   !       Could put call to glide_write_diag there too?
