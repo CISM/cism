@@ -120,10 +120,12 @@ module glide_types
   integer, parameter :: TEMP_INIT_ARTM = 1
   integer, parameter :: TEMP_INIT_LINEAR = 2
 
+  !TODO: Swap 0 and 2
   integer, parameter :: FLWA_PATERSON_BUDD = 0
   integer, parameter :: FLWA_PATERSON_BUDD_CONST_TEMP = 1
   integer, parameter :: FLWA_CONST_FLWA = 2
 
+  !TODO: Swap 3 and 5
   integer, parameter :: BTRC_ZERO = 0
   integer, parameter :: BTRC_CONSTANT = 1
   integer, parameter :: BTRC_CONSTANT_BWAT = 2
@@ -131,7 +133,7 @@ module glide_types
   integer, parameter :: BTRC_LINEAR_BMLT = 4
   integer, parameter :: BTRC_CONSTANT_TPMP = 5
 
-  !TODO - Change 'NONE' to 0 and 'LOCAL' to 2?
+  !TODO: NONE = 0, LOCAL = 1, FLUX = 2
   integer, parameter :: BWATER_LOCAL = 0
   integer, parameter :: BWATER_FLUX  = 1
   integer, parameter :: BWATER_NONE  = 2
@@ -145,7 +147,7 @@ module glide_types
   integer, parameter :: GTHF_PRESCRIBED_2D = 1
   integer, parameter :: GTHF_COMPUTE = 2
 
-  !TODO - Rearrange numbering?
+  !TODO: Swap 2 and 3
   integer, parameter :: MARINE_NONE = 0
   integer, parameter :: MARINE_FLOAT_ZERO = 1
   integer, parameter :: MARINE_RELX_THRESHOLD = 2
@@ -185,7 +187,7 @@ module glide_types
 
   ! higher-order options
 
-  !TODO - Swap 0 and 2?
+  !TODO: Swap 0 and 2
   integer, parameter :: HO_EFVS_FULL = 0
   integer, parameter :: HO_EFVS_FLOWFACT = 1
   integer, parameter :: HO_EFVS_CONSTANT = 2
