@@ -77,7 +77,7 @@ contains
     call coordsystem_allocate(model%general%ice_grid,climate%landsea)
 
     call eismint3_io_readall(climate,model)
-    call glimmer_pdd_init(climate%pdd_scheme,config)
+    call glint_pdd_init(climate%pdd_scheme,config)
 
     select case(climate%loadthk)
     case(0)
@@ -90,7 +90,7 @@ contains
        end where
 
        call eismint3_temp(climate%artm,climate%arng,climate%presusurf,model%climate%lati,0.0_sp)
-       call glimmer_pdd_mbal(climate%pdd_scheme,climate%artm,climate%arng, &
+       call glint_pdd_mbal(climate%pdd_scheme,climate%artm,climate%arng, &
             climate%presprcp,climate%ablt,climate%acab,climate%landsea)
 
        ! Convert to ice-equivalent depth
@@ -175,7 +175,7 @@ contains
 
     call eismint3_temp(climate%artm,climate%arng,climate%usrf,model%climate%lati,climate%temp_perturb)
     call eismint3_prcp(climate%prcp,climate%artm,climate%presartm,climate%presprcp,climate%pfac)
-    call glimmer_pdd_mbal(climate%pdd_scheme,climate%artm,climate%arng,climate%prcp,climate%ablt,climate%acab,climate%landsea)
+    call glint_pdd_mbal(climate%pdd_scheme,climate%artm,climate%arng,climate%prcp,climate%ablt,climate%acab,climate%landsea)
 
     where (.not.climate%landsea) climate%acab=0.0
 

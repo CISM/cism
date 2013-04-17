@@ -34,7 +34,7 @@
 module eismint3_types
 
   use glimmer_global, only: sp
-  use glimmer_pdd
+  use glint_pdd
 
   implicit none
 
@@ -49,7 +49,7 @@ module eismint3_types
      real(sp),dimension(:,:),pointer :: presartm  !*FD Present-day surface temperature
      real(sp),dimension(:,:),pointer :: presprcp  !*FD Present-day precip (water-equivalent)
      logical,dimension(:,:),pointer :: landsea !*FD Land-sea mask
-     type(glimmer_pdd_params) :: pdd_scheme
+     type(glint_pdd_params) :: pdd_scheme
      integer :: loadthk=0 !*FD Load thickness from file or start from scratch
      real(sp) :: pfac=1.0533 !*FD Precip enhancement factor (default is supposed EISMINT value)
      real(sp) :: temp_perturb = 0.0 !*FD Climate temperature perturbation
