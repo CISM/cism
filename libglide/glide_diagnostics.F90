@@ -1,7 +1,6 @@
-!TODO - Change to cism_diagnostics?
-!TODO - May want to eliminate calculations of iarea, iareaf, and areag in calc_iareaf_iareag() and 
-!TODO - glide_set_mask().  Instead just use the calculations made here.  If so, the values calculated 
-!TODO - here should be saved to the model derived type (model%geometry%iarea, etc.), in case those fields are to be output.
+!TODO - May want to eliminate calculations of iarea, iareaf, and areag in calc_iareaf_iareag() and glide_set_mask().  
+!       Instead just use the calculations made here.  These should be saved to the model derived type 
+!        (model%geometry%iarea, etc.) for output.
 
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                             +
@@ -32,46 +31,113 @@
 !
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!CLEANUP - glide_diagnostics.F90 
-! Fixed the total energy diagnostic.
-! Added a max temp diagnostic.
-! Added a call to this subroutine in simple_glide.
- 
 module glide_diagnostics
 
   ! subroutines for computing various useful diagnostics
   ! Author: William Lipscomb, LANL 
  
+  use glimmer_global
+  use glimmer_log
+  use glide_types
+
   implicit none
 
 contains
 
-  subroutine glide_write_diag (model,        time,   &
-                               idiag_global, jdiag_global,  &
-                               minthick_in)
+  subroutine glide_write_diagnostics (model,  time,    &
+                                      tstep_count,     &
+                                      minthick_in)
+
+    ! Short driver subroutine to decide whether it's time to write diagnostics.
+    ! If so, it calls glide_write_diag.   
+
+    ! input/output arguments
+
+    type(glide_global_type), intent(in) :: model    ! model instance
+    real(dp), intent(in)   :: time                  ! current time in years
+
+    integer, intent(in), optional :: tstep_count    ! current timestep
+
+    real(dp), intent(in), optional :: &
+       minthick_in       ! ice thickness threshold (m) for including in diagnostics
+
+    ! local arguments
+
+    real(dp) :: minthick ! ice thickness threshold (m) for including in diagnostics
+                         ! defaults to eps (a small number) if not passed in
+
+    real(dp), parameter ::   &
+       eps = 1.0d-11     ! small number
+
+    if (present(minthick_in)) then
+       minthick = minthick_in
+    else
+       minthick = eps  
+    endif
+ 
+
+!WHL - debug
+!      print*, '	'
+!      print*, 'In glide_write_diagnostics'
+!      print*, 'time =', time
+!      print*, 'dt_diag =', model%numerics%dt_diag
+!      print*, 'ndiag =', model%numerics%ndiag
+!      print*, 'tstep_count =', tstep_count
+
+    !WHL - ndiag has been deprecated, but retained here for backward compatibility
+    !TODO - Remove this option and the optional tstep_count argument.
+
+    if (model%numerics%dt_diag > 0.d0) then                            ! usual case
+
+       if (mod(time, model%numerics%dt_diag) < eps) then  ! time to write
+
+          call glide_write_diag(model, time,                  &
+                                minthick,                     &
+                                model%numerics%idiag_global,  &
+                                model%numerics%jdiag_global)
+       endif
+
+    elseif (present(tstep_count) .and. model%numerics%ndiag > 0) then  ! decide based on ndiag
+
+       if (mod(tstep_count, model%numerics%ndiag) == 0)  then          ! time to write
+          call glide_write_diag(model, time,                  &
+                                minthick,                     &
+                                model%numerics%idiag_global,  &
+                                model%numerics%jdiag_global)
+       endif
+
+    endif    ! dt_diag > 0
+
+  end subroutine glide_write_diagnostics
+ 
+!--------------------------------------------------------------------------
+
+  subroutine glide_write_diag (model,        time,         &
+                               minthick,                   &
+                               idiag_global, jdiag_global)
 
     ! Write global diagnostics
     ! Optionally, write local diagnostics for a selected grid cell
  
     use parallel
-    use glimmer_log
 !TODO - Remove scaling
     use glimmer_paramets, only: thk0, len0, vel0, tim0
     use glimmer_physcon, only: scyr, rhoi, shci
-    use glide_types
  
     implicit none
  
+    ! input/output arguments
+
     type(glide_global_type), intent(in) :: model    ! model instance
-    real(dp),  intent(in)   :: time                 ! current time in years
+    real(dp),  intent(in) :: time                   ! current time in years
+    real(dp), intent(in)  :: &
+         minthick          ! ice thickness threshold (m) for including in diagnostics
+
     integer, intent(in), optional :: &
          idiag_global, jdiag_global         ! global (i,j) for diagnostics
-    real(dp), intent(in), optional :: &
-         minthick_in       ! ice thickness threshold (m) for including in diagnostics
  
-    real(dp) ::      & 
-         minthick          ! ice thickness threshold (m) for including in diagnostics
-                           ! defaults to thickness > eps (a very small number) if not passed in
+    ! local arguments
+
     real(dp) ::                         &
          tot_area,                      &    ! total ice area (km^2)
          tot_volume,                    &    ! total ice volume (km^3)
@@ -120,12 +186,6 @@ contains
     nsn = model%general%nsn
     upn = model%general%upn
     
-    if (present(minthick_in)) then
-       minthick = minthick_in
-    else
-       minthick = eps   ! small number
-    endif
- 
     if (uhalo > 0) then
        velo_ns_ubound = nsn-uhalo
        velo_ew_ubound = ewn-uhalo
@@ -186,17 +246,11 @@ contains
     ! Compute and write global diagnostics
     !-----------------------------------------------------------------
  
-    if (main_task) then
-       print*, ' '
-       print*, 'Writing diagnostics to log file, time(yr) =', time
-!!       print*, 'minthick (m) =', minthick
-    endif
-
     call write_log(' ')
     write(message,'(a32,f24.16)') 'Global diagnostic output, time =', time
     call write_log(trim(message), type = GM_DIAGNOSTIC)
     call write_log(' ')
- 
+
     ! total ice area (m^2)
  
     tot_area = 0.d0
@@ -543,9 +597,6 @@ contains
        
        if (this_rank == rdiag_local) then
 
-          print*, 'idiag_global, jdiag_global:', idiag_global, jdiag_global
-          print*, 'local rank, i, j:', rdiag_local, idiag_local, jdiag_local
-
           i = idiag_local
           j = jdiag_local
           thck_diag = model%geometry%thck(i,j)*thk0
@@ -572,8 +623,8 @@ contains
        write(message,'(a39,2i4)')  &
             'Grid point diagnostics: global (i,j) =', idiag_global, jdiag_global
        call write_log(trim(message), type = GM_DIAGNOSTIC)
-       write(message,'(a25,3i4)')  &
-            'local rank, i ,j =', rdiag_local, idiag_local, jdiag_local
+       write(message,'(a39,3i4)')  &
+            '                  local (i ,j, rank) =', idiag_local, jdiag_local, rdiag_local
        call write_log(trim(message), type = GM_DIAGNOSTIC)
        call write_log(' ')
  
@@ -599,7 +650,10 @@ contains
        enddo
 
     endif     ! idiag and jdiag present
- 
+
+    call write_log(' ')
+    call write_log('----------------------------------------------------------')
+
   end subroutine glide_write_diag
      
 !==============================================================

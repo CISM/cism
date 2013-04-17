@@ -885,10 +885,14 @@ module glide_types
     real(dp),dimension(:),pointer :: stagsigma => null() !*FD Staggered values of sigma (layer midpts)
     real(dp),dimension(:),pointer :: stagwbndsigma => null() !*FD Staggered values of sigma (layer midpts) with boundaries
 
-    integer :: profile_period = 100            !*FD profile frequency
-    integer :: ndiag = 9999999                 !*FD diagnostic frequency
-    integer :: idiag_global = 1                !*FD grid indices for diagnostic point
-    integer :: jdiag_global = 1
+    integer :: profile_period = 100            ! profile frequency
+
+    !WHL - I am replacing ndiag with dt_diag
+    !TODO - Remove ndiag, after changing config files appropriately
+    real(dp) :: dt_diag = 0.d0            ! diagnostic time interval (write diagnostics every dt_diag years)
+    integer  :: ndiag = -999              ! diagnostic period (write output every ndiag steps)
+    integer  :: idiag_global = 1          ! grid indices for diagnostic point
+    integer  :: jdiag_global = 1
   end type glide_numerics
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

@@ -522,10 +522,12 @@ contains
     call GetValue(section,'nvel',model%numerics%nvel)
     call GetValue(section,'profile',model%numerics%profile_period)
 
-    !TODO - Should these be in a different config section?
-    call GetValue(section,'ndiag',model%numerics%ndiag)
+    call GetValue(section,'dt_diag',model%numerics%dt_diag)
     call GetValue(section,'idiag',model%numerics%idiag_global)
     call GetValue(section,'jdiag',model%numerics%jdiag_global)
+
+    !WHL - ndiag replaced by dt_diag, but retained (for now) for backward compatibility
+    call GetValue(section,'ndiag',model%numerics%ndiag)
 
   end subroutine handle_time
   
@@ -540,29 +542,41 @@ contains
 
     call write_log('Time steps')
     call write_log('----------')
-    write(message,*) 'start time (yr)   : ',model%numerics%tstart
+    write(message,*) 'start time (yr)     : ',model%numerics%tstart
     call write_log(message)
-    write(message,*) 'end time (yr)     : ',model%numerics%tend
+    write(message,*) 'end time (yr)       : ',model%numerics%tend
     call write_log(message)
-    write(message,*) 'time step (yr)    : ',model%numerics%tinc
+    write(message,*) 'time step (yr)      : ',model%numerics%tinc
     call write_log(message)
-    write(message,*) 'thermal dt factor : ',model%numerics%ntem
+    write(message,*) 'thermal dt factor   : ',model%numerics%ntem
     call write_log(message)
     if ( (model%numerics%ntem < 1.0d0) .or. & 
        (floor(model%numerics%ntem) /= model%numerics%ntem) ) then
        call write_log('ntem is a multiplier on the basic time step.  It should be a positive integer.  Aborting.',GM_FATAL)
     endif
-    write(message,*) 'velo dt factor    : ',model%numerics%nvel
+    write(message,*) 'velo dt factor      : ',model%numerics%nvel
     call write_log(message)
-    write(message,*) 'profile frequency : ',model%numerics%profile_period
+    write(message,*) 'profile frequency   : ',model%numerics%profile_period
     call write_log(message)
 
-    !TODO - Should these be in a different config section?
-    write(message,*) 'diag frequency    : ',model%numerics%ndiag
+    if (model%numerics%dt_diag > 0.d0) then
+       write(message,*) 'diagnostic time (yr): ',model%numerics%dt_diag
+       call write_log(message)
+       if (mod(model%numerics%dt_diag, model%numerics%dt) > 1.e-11) then
+          write(message,*) 'Warning: diagnostic interval does not divide evenly into ice timestep dt'
+          call write_log(message)
+       endif
+    endif
+
+    !WHL - ndiag replaced by dt_diag, but retained (for now) for backward compatibility
+    if (model%numerics%ndiag > 0) then
+       write(message,*) 'diag time (steps)   : ',model%numerics%ndiag
+       call write_log(message)
+    endif
+
+    write(message,*) 'idiag_global        : ',model%numerics%idiag_global
     call write_log(message)
-    write(message,*) 'idiag             : ',model%numerics%idiag_global
-    call write_log(message)
-    write(message,*) 'jdiag             : ',model%numerics%jdiag_global
+    write(message,*) 'jdiag_global        : ',model%numerics%jdiag_global
     call write_log(message)
     call write_log('')
 
