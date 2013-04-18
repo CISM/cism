@@ -57,7 +57,8 @@ module glide_thck
 
 !TODO - Move or remove subroutines that are not used by the Glide dycore
 
-  public :: init_thck, thck_nonlin_evolve, thck_lin_evolve, stagleapthck, glide_thck_index
+  public :: init_thck, thck_nonlin_evolve, thck_lin_evolve, stagleapthck, &
+            glide_thck_index, glide_calclsrf
 
   ! debugging Picard iteration
   integer, private, parameter :: picard_unit=101
@@ -427,7 +428,6 @@ contains
     !*FD set up sparse matrix and solve matrix equation to find new ice thickness distribution
     !*FD this routine does not override the old thickness distribution
 
-    use glide_setup, only: glide_calclsrf
     use glimmer_global, only : dp
     use glimmer_log
     use glimmer_paramets, only: vel0, thk0, GLC_DEBUG
@@ -852,72 +852,6 @@ contains
 
   end subroutine glide_thck_index
 
-!---------------------------------------------------------------------------------
-
-!TODO - This subroutine is not used.  Remove it?
-
-  subroutine filterthck(thck,ewn,nsn)
-
-    use glimmer_global, only : dp ! ew, ewn, ns, nsn
-
-    implicit none
-
-    real(dp), dimension(:,:), intent(inout) :: thck
-    real(dp), dimension(:,:), allocatable :: smth
-    integer :: ewn,nsn
-
-    real(dp), parameter :: f = 0.1d0 / 16.0d0
-    integer :: count
-    integer :: ns,ew
-
-    allocate(smth(ewn,nsn))
-    count = 1
-
-    do ns = 3,nsn-2
-      do ew = 3,ewn-2
-
-        if (all((thck(ew-2:ew+2,ns) > 0.0d0)) .and. all((thck(ew,ns-2:ns+2) > 0.0d0))) then
-          smth(ew,ns) =  thck(ew,ns) + f * &
-                        (thck(ew-2,ns) - 4.0d0 * thck(ew-1,ns) + 12.0d0 * thck(ew,ns) - &
-                         4.0d0 * thck(ew+1,ns) + thck(ew+2,ns) + &
-                         thck(ew,ns-2) - 4.0d0 * thck(ew,ns-1) - &
-                         4.0d0 * thck(ew,ns+1) + thck(ew,ns+2))
-          count = count + 1
-        else
-          smth(ew,ns) = thck(ew,ns)
-        end if
-
-      end do
-    end do
-
-    thck(3:ewn-2,3:nsn-2) = smth(3:ewn-2,3:nsn-2)
-    print *, count
-
-    deallocate(smth)            
-
-  end subroutine filterthck
-
-!----------------------------------------------------------------------
-
-!TODO - This subroutine is not used.  Remove it?
-
-  subroutine swapbndh(bc,a,b,c,d)
-
-    use glimmer_global, only : dp
-
-    implicit none
-
-    real(dp), intent(out), dimension(:) :: a, c
-    real(dp), intent(in), dimension(:) :: b, d
-    integer, intent(in) :: bc
-
-    if (bc == 0) then
-      a = b
-      c = d
-    end if
-
-  end subroutine swapbndh
-
   !-----------------------------------------------------------------------------
   ! ADI routines
   !-----------------------------------------------------------------------------
@@ -930,7 +864,6 @@ contains
     !TODO The ADI scheme has not been checked for consistency with the new time-stepping convention.  
     !     If it is retained, that should be done.
 
-    use glide_setup, only: glide_calclsrf
     use glide_velo
     use glimmer_utils, only: tridiag
     use glimmer_paramets, only: GLC_DEBUG
@@ -1141,9 +1074,101 @@ contains
 
   end subroutine adi_tri
 
+!-------------------------------------------------------------------------
+
+  subroutine glide_calclsrf(thck,topg,eus,lsrf)
+
+    ! Calculates the elevation of the lower surface of the ice, 
+    ! by considering whether it is floating or not.
+    !
+    ! NOTE: This subroutine computes over all grid cells, not just locally owned.
+    !       Halos should be updated before it is called.
+
+    use glimmer_global, only : dp
+    use glimmer_physcon, only : rhoi, rhoo
+
+    implicit none
+
+    real(dp), intent(in),  dimension(:,:) :: thck !*FD Ice thickness
+    real(dp), intent(in),  dimension(:,:) :: topg !*FD Bedrock topography elevation
+    real, intent(in)                      :: eus  !*FD global sea level
+    real(dp), intent(out), dimension(:,:) :: lsrf !*FD Lower ice surface elevation
+
+    real(dp), parameter :: con = - rhoi / rhoo
+
+    where (topg - eus < con * thck)
+       lsrf = con * thck
+    elsewhere
+       lsrf = topg
+    end where
+
+  end subroutine glide_calclsrf
+
 !---------------------------------------------------------------------------------
 
-!WHL - Removed subroutine geometry_derivs_unstag, which is no longer used.
+!TODO - This subroutine is not used.  Remove it?
+
+  subroutine filterthck(thck,ewn,nsn)
+
+    use glimmer_global, only : dp ! ew, ewn, ns, nsn
+
+    implicit none
+
+    real(dp), dimension(:,:), intent(inout) :: thck
+    real(dp), dimension(:,:), allocatable :: smth
+    integer :: ewn,nsn
+
+    real(dp), parameter :: f = 0.1d0 / 16.0d0
+    integer :: count
+    integer :: ns,ew
+
+    allocate(smth(ewn,nsn))
+    count = 1
+
+    do ns = 3,nsn-2
+      do ew = 3,ewn-2
+
+        if (all((thck(ew-2:ew+2,ns) > 0.0d0)) .and. all((thck(ew,ns-2:ns+2) > 0.0d0))) then
+          smth(ew,ns) =  thck(ew,ns) + f * &
+                        (thck(ew-2,ns) - 4.0d0 * thck(ew-1,ns) + 12.0d0 * thck(ew,ns) - &
+                         4.0d0 * thck(ew+1,ns) + thck(ew+2,ns) + &
+                         thck(ew,ns-2) - 4.0d0 * thck(ew,ns-1) - &
+                         4.0d0 * thck(ew,ns+1) + thck(ew,ns+2))
+          count = count + 1
+        else
+          smth(ew,ns) = thck(ew,ns)
+        end if
+
+      end do
+    end do
+
+    thck(3:ewn-2,3:nsn-2) = smth(3:ewn-2,3:nsn-2)
+    print *, count
+
+    deallocate(smth)            
+
+  end subroutine filterthck
+
+!----------------------------------------------------------------------
+
+!TODO - This subroutine is not used.  Remove it?
+
+  subroutine swapbndh(bc,a,b,c,d)
+
+    use glimmer_global, only : dp
+
+    implicit none
+
+    real(dp), intent(out), dimension(:) :: a, c
+    real(dp), intent(in), dimension(:) :: b, d
+    integer, intent(in) :: bc
+
+    if (bc == 0) then
+      a = b
+      c = d
+    end if
+
+  end subroutine swapbndh
 
 !---------------------------------------------------------------------------------
 

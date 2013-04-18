@@ -121,7 +121,7 @@ contains
     use glimmer_log
     use glide_types
     use glide_io
-    use glide_lithot_io
+!    use glide_lithot_io
     use profile
     implicit none
     type(glide_global_type) :: model        !*FD model instance
@@ -132,11 +132,12 @@ contains
     if (present(crash)) then
        if (crash) then
           call glide_io_writeall(model,model,.true.)
-          !EIB! from gc2, not sure necessary
-          if (model%options%gthf > 0) then
-             call glide_lithot_io_writeall(model,model,.true.)
-          end if
-          !EIB!
+           
+           !WHL - Should be handled by glide_io_writeall
+!          if (model%options%gthf == GTHF_COMPUTE) then
+!             call glide_lithot_io_writeall(model,model,.true.)
+!          end if
+
        end if
     end if
 

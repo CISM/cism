@@ -239,6 +239,8 @@ contains
     integer status
     real(dp) :: sub_time
 
+    real(dp), parameter :: eps = 1.d-11
+
     ! Check for optional time argument
     if (present(time)) then
        sub_time=time
@@ -264,9 +266,9 @@ contains
        end if
     end if
 
-    !TODO - Deal with roundoff issues.
-    !       e.g., if sub_time = 0.99999999999 and next_write = 1.00000000000, we want to write.
-    if (sub_time >= outfile%next_write .or. (forcewrite .and. sub_time > outfile%next_write-outfile%freq)) then
+    !WHL - Allow for small roundoff error in computing the time
+!!    if (sub_time >= outfile%next_write .or. (forcewrite .and. sub_time > outfile%next_write-outfile%freq)) then  ! prone to roundoff error
+    if (sub_time + eps >= outfile%next_write .or. (forcewrite .and. sub_time > outfile%next_write-outfile%freq)) then
        if (sub_time <= outfile%end_write .and. .not.NCO%just_processed) then
           call write_log_div
           write(message,*) 'Writing to file ', trim(process_path(NCO%filename)), ' at time ', sub_time

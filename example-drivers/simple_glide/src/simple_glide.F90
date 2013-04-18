@@ -53,7 +53,7 @@ program simple_glide
   use glimmer_writestats
   use glimmer_filenames, only : filenames_init
   use glide_io, only: glide_io_writeall
-  use glide_lithot_io, only: glide_lithot_io_writeall
+!  use glide_lithot_io, only: glide_lithot_io_writeall
 
 !!  use glimmer_horiz_bcs, only : horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns, &
 !!                                horiz_bcs_unstag_scalar, horiz_bcs_stag_scalar
@@ -135,7 +135,8 @@ program simple_glide
 
   time = model%numerics%tstart
   tstep_count = 0
-  model%numerics%time = time    ! MJH added 1/10/13 - the initial diagnostic glissade solve won't know the correct time on a restart unless we set it here.
+  model%numerics%time = time    ! MJH added 1/10/13 - the initial diagnostic glissade solve won't know 
+                                !                     the correct time on a restart unless we set it here.
 
      ! These calls are needed only for the EISMINT test cases, and they are not needed
      ! for initialization provided they are called at the start of each timestep.
@@ -159,10 +160,11 @@ program simple_glide
       ! disable further profiling in normal usage
       call t_adj_detailf(+10)
 
-!WHL - Don't call this when running old glide
+!WHL - Don't call glide_init_state_diagnostic when running old glide
 !      Instead, start with zero velocity
 
   if (.not. oldglide) then
+!!     print*, 'oldglide =', oldglide
      print*, 'Initializing Glide diagnostic state'
      call glide_init_state_diagnostic(model)
   endif
@@ -208,13 +210,14 @@ program simple_glide
                                                            !     since we have not yet set model%numerics%time
                                                            !WHL - model%numerics%time is now set above
   call t_stopf('glide_io_writeall')
-
-  if (model%options%gthf == GTHF_COMPUTE) then             ! lithosphere model computes geothermal flux
-     call t_startf('glide_lithot_io_writeall')                                                                    
-     call glide_lithot_io_writeall(model, model, time=time)          ! MJH The optional time argument needs to be supplied
-                                                                     !     since we have not yet set model%numerics%time
-     call t_stopf('glide_lithot_io_writeall')
-  endif 
+ 
+  !WHL - should have been handled by glide_io_writeall
+!  if (model%options%gthf == GTHF_COMPUTE) then             ! lithosphere model computes geothermal flux
+!     call t_startf('glide_lithot_io_writeall')                                                                    
+!     call glide_lithot_io_writeall(model, model, time=time)          ! MJH The optional time argument needs to be supplied
+!                                                                     !     since we have not yet set model%numerics%time
+!     call t_stopf('glide_lithot_io_writeall')
+!  endif 
 
 !==============================
 ! if-block here is for forcing glide code to match old glide code.  It is left here 
@@ -303,19 +306,25 @@ program simple_glide
 
      endif   ! glide v. glam/glissade dycore
 
-!WHL - Combined glide_tstep_postp3 with glide_tstep_p3, to be
-!      consistent with other drivers.
-!    - Also combined glissade_post_tstep with glissade_tstep
-
-     ! override masking stuff for now  !TODO - What does this mean?
-
-     ! write ice sheet diagnostics at specified interval (model%numerics%dt_diag)
+     ! write ice sheet diagnostics to log file at desired interval (model%numerics%dt_diag)
 
      call glide_write_diagnostics(model,        time,       &
                                   tstep_count = tstep_count)
 
-  !TODO - Here, call a driver subroutine that calls both glide_io_writeall and glide_lithot_io_writeall
-  !       Could put call to glide_write_diag there too?
+     ! Write to output netCDF files at desired intervals
+     !WHL - Pulled these calls out of glide_tstep_p3 and glissade_tstep
+     !WHL - In old glide, this was done at the start of tstep_p2.
+
+     call t_startf('glide_io_writeall')
+     call glide_io_writeall(model,model)
+     call t_stopf('glide_io_writeall')
+
+     !WHL - should have been handled by glide_io_writeall
+!     if (model%options%gthf == GTHF_COMPUTE) then
+!        call t_startf('glide_lithot_io_writeall')
+!        call glide_lithot_io_writeall(model,model)   !TODO - Combine with glide_io?
+!        call t_stopf('glide_lithot_io_writeall')
+!     end if
 
 !WHL - debug
 !    print*, ' '

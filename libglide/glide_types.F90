@@ -1015,8 +1015,7 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  !TODO - Check units of hydtim.
-  !TODO - Set btrac_const to nonzero value?  Probably in range 1.e-5 to 1.e-3
+  !TODO - Set btrac_const to nonzero value?
 
   type glide_paramets
     real(dp),dimension(5) :: bpar = (/ 0.2d0, 0.5d0, 0.0d0 ,1.0d-2, 1.0d0/)
@@ -1026,8 +1025,8 @@ module glide_types
     real(dp) :: geot   = -5.0d-2       ! W m^{-2}, positive down
     real(dp) :: flow_factor = 3.0d0    ! "fiddle" parameter for the Arrhenius relationship
     real(dp) :: slip_ratio = 1.0d0     ! Slip ratio, used only in higher order code when the slip ratio beta computation is requested
-    real(dp) :: hydtim = 1000.0d0      ! yr^{-1} converted to s^{-1} and scaled, 
-                                       ! 0 if no drainage = 0.0d0 * tim0 / scyr
+    real(dp) :: hydtim = 1000.0d0      ! years, converted to s^{-1} and scaled
+                                       ! 0 if no drainage
     real(dp) :: bwat_smooth = 0.01d0   ! basal water field smoothing strength
     real(dp) :: default_flwa = 1.0d-16 ! Glen's A to use in isothermal case, in units Pa^{-n} yr^{-1} 
                                        ! (would change to e.g. 4.6e-18 in EISMINT-ROSS case)

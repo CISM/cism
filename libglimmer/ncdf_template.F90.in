@@ -181,7 +181,7 @@ contains
 
     ! Convert temp and flwa to versions on stag grid, if needed
     ! Note: this check must occur after restart variables are expanded which happens in glimmer_nc_readparams
-    call check_for_tempstag(model%options%whichtemp,NCO)
+    call check_for_tempstag(model%options%whichdycore,NCO)
 
     ! checking if we need to handle time averages
     pos = index(NCO%vars,AVG_SUFF)

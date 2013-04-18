@@ -34,7 +34,7 @@ module glissade
   use glimmer_log
   use glide_types
   use glide_io
-  use glide_lithot_io
+!  use glide_lithot_io
   use glide_lithot
   use glimmer_config
 
@@ -70,6 +70,7 @@ contains
     use isostasy
     use glimmer_map_init
     use glide_ground
+    use glide_thck, only : glide_calclsrf
     use glam_strs2, only : glam_velo_init
     use glissade_velo_higher, only: glissade_velo_higher_init
 
@@ -144,11 +145,11 @@ contains
     ! Write projection info to log
     call glimmap_printproj(model%projection)
 
+    !WHL - Should have been read by glide_io_readall
     ! read lithot if required
-!!    if (model%options%gthf > 0) then
-    if (model%options%gthf == GTHF_COMPUTE) then
-       call glide_lithot_io_readall(model,model)
-    end if
+!    if (model%options%gthf == GTHF_COMPUTE) then
+!       call glide_lithot_io_readall(model,model)
+!    end if
 
     ! handle relaxed/equilibrium topo
     ! Initialise isostasy first
@@ -196,10 +197,9 @@ contains
 
     call glissade_init_temp(model)  ! temperature lives at layer centers
 
-!!    if (model%options%gthf > 0) then
     if (model%options%gthf == GTHF_COMPUTE) then
        call not_parallel(__FILE__,__LINE__)
-       call glide_lithot_io_createall(model)
+!       call glide_lithot_io_createall(model)  !WHL - should have been done by glide_io_createall
        call init_lithot(model)
     end if
 
@@ -289,7 +289,7 @@ contains
     use glimmer_global, only : rk
     use glimmer_paramets, only: tim0, len0, vel0, thk0
     use glimmer_physcon, only: scyr
-    use glide_setup
+!    use glide_setup
     use glissade_temp, only: glissade_temp_driver
     use glissade_transport, only: glissade_transport_driver
     use glide_mask, only: glide_set_mask, calc_iareaf_iareag
@@ -344,8 +344,8 @@ contains
     ! ------------------------------------------------------------------------ 
     ! calculate geothermal heat flux
     ! ------------------------------------------------------------------------ 
-    !TODO Not sure if this is in the right place.  G1=f(G0,T0) and T1=g(G0,T0)  If we update G1 now, then we will be doing T1=g(G1,T0).
-!!    if (model%options%gthf > 0) then
+    !TODO Not sure if this is in the right place.  G1=f(G0,T0) and T1=g(G0,T0)  
+    !     If we update G1 now, then we will be doing T1=g(G1,T0).
     if (model%options%gthf == GTHF_COMPUTE) then
        call not_parallel(__FILE__,__LINE__)
        call calc_lithot(model)
@@ -739,31 +739,14 @@ contains
 
     call glissade_diagnostic_variable_solve(model)
 
+!TODO - Any halo updates needed at the end?  
+
     !---------------------------------------------------------------------
     ! write to netCDF file
     ! ------------------------------------------------------------------------
 
-    if (present(no_write)) then
-       nw = no_write
-    else
-       nw = .false.
-    end if
-   
-    if (.not. nw) then
-      call t_startf('glide_io_writeall')
-       call glide_io_writeall(model,model)
-      call t_stopf('glide_io_writeall')
-
-!!       if (model%options%gthf > 0) then
-       if (model%options%gthf == GTHF_COMPUTE) then
-         call t_startf('glide_lithot_io_writeall')
-          call glide_lithot_io_writeall(model,model)
-         call t_stopf('glide_lithot_io_writeall')
-       end if
-
-    end if
-
-!TODO - Any halo updates needed at the end?  
+!WHL - Moved netCDF output to simple_glide
+!      Might have to do the same for other drivers
 
   end subroutine glissade_tstep
 
@@ -777,8 +760,8 @@ contains
      ! It is also needed to fill out the initial state from the fields that have been read in.
 
     use parallel
-    use glide_setup
 
+    use glide_thck, only: glide_calclsrf
     use glissade_temp, only: glissade_calcflwa
     use glissade_velo, only: glissade_velo_driver
     use glimmer_paramets, only: tim0, len0, vel0

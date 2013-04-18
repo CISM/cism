@@ -47,6 +47,7 @@ module glimmer_paramets
 !      of Glimmer 1.0.18 for the dome and EISMINT-2 test cases.
 
   logical, parameter :: oldglide = .false.
+!  logical, parameter :: oldglide = .true.
 
 !TODO - redundant output units  
 !           It is redundant to define both stdout (which is public) and 

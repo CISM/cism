@@ -66,6 +66,9 @@ contains
     real(dp) :: minthick ! ice thickness threshold (m) for including in diagnostics
                          ! defaults to eps (a small number) if not passed in
 
+    real(dp) ::   &
+       quotient, nint_quotient
+
     real(dp), parameter ::   &
        eps = 1.0d-11     ! small number
 
@@ -75,7 +78,6 @@ contains
        minthick = eps  
     endif
  
-
 !WHL - debug
 !      print*, '	'
 !      print*, 'In glide_write_diagnostics'
@@ -89,7 +91,11 @@ contains
 
     if (model%numerics%dt_diag > 0.d0) then                            ! usual case
 
-       if (mod(time, model%numerics%dt_diag) < eps) then  ! time to write
+!!       if (mod(time,model%numerics%dt_diag)) < eps) then  ! not robust because of roundoff error
+
+       quotient = time/model%numerics%dt_diag
+       nint_quotient = nint(quotient)
+       if (abs(quotient - real(nint_quotient,dp)) < eps) then  ! time to write
 
           call glide_write_diag(model, time,                  &
                                 minthick,                     &
@@ -246,8 +252,9 @@ contains
     ! Compute and write global diagnostics
     !-----------------------------------------------------------------
  
+    call write_log('----------------------------------------------------------')
     call write_log(' ')
-    write(message,'(a32,f24.16)') 'Global diagnostic output, time =', time
+    write(message,'(a25,f24.16)') 'Diagnostic output, time =', time
     call write_log(trim(message), type = GM_DIAGNOSTIC)
     call write_log(' ')
 
@@ -652,7 +659,6 @@ contains
     endif     ! idiag and jdiag present
 
     call write_log(' ')
-    call write_log('----------------------------------------------------------')
 
   end subroutine glide_write_diag
      

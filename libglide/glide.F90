@@ -52,7 +52,7 @@ module glide
   use glide_types
   use glide_stop
   use glide_io
-  use glide_lithot_io
+!  use glide_lithot_io
   use glide_lithot
   use glide_profile
   use glimmer_config
@@ -219,12 +219,13 @@ contains
 
     ! write projection info to log
     call glimmap_printproj(model%projection)
-
+   
+    !WHL - Should have been read from glide_io_readall
     ! read lithot if required
 !!    if (model%options%gthf > 0) then
-    if (model%options%gthf == GTHF_COMPUTE) then
-       call glide_lithot_io_readall(model,model)
-    end if
+!    if (model%options%gthf == GTHF_COMPUTE) then
+!       call glide_lithot_io_readall(model,model)
+!    end if
 
     ! handle relaxed/equilibrium topo
     ! Initialise isostasy first
@@ -295,11 +296,11 @@ contains
     ! initialise thickness evolution calc
     call init_thck(model)
 
-!!    if (model%options%gthf > 0) then
-    if (model%options%gthf == GTHF_COMPUTE) then
-       call glide_lithot_io_createall(model)
+     !WHL - Variables should have been created by glide_io_createall
+!    if (model%options%gthf == GTHF_COMPUTE) then
+!       call glide_lithot_io_createall(model)
        call init_lithot(model)
-    end if
+!    end if
 
 !WHL - This call will set the ice column temperature to artm as in old glide,
 !       regardless of the value of model%options%temp_init
@@ -389,7 +390,6 @@ contains
     use glimmer_global, only : rk
     use glide_thck
     use glide_velo
-    use glide_setup
     use glide_temp
     use glide_mask
     use glimmer_paramets, only: tim0
@@ -596,7 +596,6 @@ contains
     use glimmer_global, only : dp
     use glide_thck
     use glide_velo
-    use glide_setup
     use glide_temp
     use glide_mask
     use glimmer_paramets, only: tim0
@@ -642,7 +641,6 @@ contains
     ! calculate geothermal heat flux
     ! ------------------------------------------------------------------------ 
 
-!!    if (model%options%gthf > 0) then
     if (model%options%gthf == GTHF_COMPUTE) then
        call calc_lithot(model)
     end if
@@ -715,11 +713,9 @@ contains
 
     use glide_thck
     use glide_velo
-    use glide_setup
     use glide_temp
     use glide_mask
     use isostasy
-!!    use fo_upwind_advect, only: fo_upwind_advect_driver
     use glide_ground, only: glide_marinlim
 
     type(glide_global_type), intent(inout) :: model    ! model instance
@@ -877,6 +873,7 @@ contains
     use isostasy
     use glide_setup
     use glide_velo, only: glide_velo_vertical
+    use glide_thck, only: glide_calclsrf
     implicit none
 
     type(glide_global_type), intent(inout) :: model     ! model instance
@@ -928,35 +925,10 @@ contains
 
  endif  ! oldglide = F
 
-    !---------------------------------------------------------------------
-    ! write output to netCDF file
-    ! ------------------------------------------------------------------------
-    !TODO - Put the following code in a subroutine?
+!WHL - Moved netCDF output to simple_glide
+!      Might have to do the same for other drivers
 
-!WHL - In old glide, this is done at the start of tstep_p2.
-!      Leave here for now, bearing in mind that netcdf output could be
-!       displaced by a timestep between old and new glide.
-
-    if (present(no_write)) then
-       nw = no_write
-    else
-       nw=.false.
-    end if
-   
-    if (.not. nw) then
-
-      call t_startf('glide_io_writeall')
-       call glide_io_writeall(model,model)
-      call t_stopf('glide_io_writeall')
-
-!!       if (model%options%gthf > 0) then
-       if (model%options%gthf == GTHF_COMPUTE) then
-         call t_startf('glide_lithot_io_writeall')
-          call glide_lithot_io_writeall(model,model)
-         call t_stopf('glide_lithot_io_writeall')
-       end if
-
-    end if
+!!       call glide_io_writeall(model,model)
 
   end subroutine glide_tstep_p3
 

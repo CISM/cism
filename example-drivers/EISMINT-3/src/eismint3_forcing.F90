@@ -51,7 +51,7 @@ contains
     use glimmer_config
     use eismint3_io
     use glide_io
-    use glide_setup
+    use glide_thck, only: glide_calclsrf
     use glimmer_log
     use glimmer_physcon, only: rhoi,rhow
     use glimmer_paramets, only: thk0

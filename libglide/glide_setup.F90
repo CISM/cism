@@ -43,8 +43,7 @@ module glide_setup
 
   private
   public :: glide_readconfig, glide_printconfig, glide_scale_params, &
-            glide_load_sigma, glide_read_sigma, glide_calc_sigma,  &
-            glide_calclsrf  !TODO - Move glide_calclsrf elsewhere?
+            glide_load_sigma, glide_read_sigma, glide_calc_sigma
 
 !-------------------------------------------------------------------------
 
@@ -406,36 +405,6 @@ contains
 
   end function glide_calc_sigma_pattyn
 
-!-------------------------------------------------------------------------
-
-!TODO - This is a utility subroutine called at every timestep; move to another module?
-!       Note that it loops over all grid cells, not just locally owned.
-!       This means that halos must be updated before it is called.
-
-  subroutine glide_calclsrf(thck,topg,eus,lsrf)
-
-    !*FD Calculates the elevation of the lower surface of the ice, 
-    !*FD by considering whether it is floating or not.
-
-    use glimmer_global, only : dp
-    use glimmer_physcon, only : rhoi, rhoo
-
-    implicit none
-
-    real(dp), intent(in),  dimension(:,:) :: thck !*FD Ice thickness
-    real(dp), intent(in),  dimension(:,:) :: topg !*FD Bedrock topography elevation
-    real, intent(in)                      :: eus  !*FD global sea level
-    real(dp), intent(out), dimension(:,:) :: lsrf !*FD Lower ice surface elevation
-
-    real(dp), parameter :: con = - rhoi / rhoo
-
-    where (topg - eus < con * thck)
-      lsrf = con * thck
-    elsewhere
-      lsrf = topg
-    end where
-  end subroutine glide_calclsrf
-
 !--------------------------------------------------------------------------------
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -726,8 +695,8 @@ contains
     !WHL - Changed order
     !TODO - Rename to something like which_btrc?
     character(len=*), dimension(0:5), parameter :: slip_coeff = (/ &
-         'zero                   ', &
-         'constant               ', &
+         'no basal sliding       ', &
+         'constant basal traction', &
          'constant where bwat > 0', &
          'constant where T = Tpmp', &
          'linear function of bmlt', &
@@ -1129,10 +1098,10 @@ contains
     call write_log('Parameters')
     call write_log('----------')
 
-    write(message,*) 'ice limit                     : ',model%numerics%thklim
+    write(message,*) 'ice limit (m)                 : ',model%numerics%thklim
     call write_log(message)
 
-    write(message,*) 'marine depth limit            : ',model%numerics%mlimit
+    write(message,*) 'marine depth limit (m)        : ',model%numerics%mlimit
     call write_log(message)
 
     if (model%options%whichmarn == MARINE_FLOAT_FRACTION) then
@@ -1140,13 +1109,13 @@ contains
        call write_log(message)
     end if
 
-    write(message,*) 'geothermal heat flux          : ', model%paramets%geot
+    write(message,*) 'geothermal flux  (W/m2)       : ', model%paramets%geot
     call write_log(message)
 
-    write(message,*) 'flow enhancement              : ', model%paramets%flow_factor
+    write(message,*) 'flow enhancement factor       : ', model%paramets%flow_factor
     call write_log(message)
 
-    write(message,*) 'basal hydro time const        : ', model%paramets%hydtim
+    write(message,*) 'basal hydro time constant (yr): ', model%paramets%hydtim
     call write_log(message)
 
     if (model%options%whichbtrc == BTRC_CONSTANT      .or.  &
@@ -1379,7 +1348,8 @@ contains
 
     use glide_types
     use glide_io, only: glide_add_to_restart_variable_list
-    use glide_lithot_io, only: glide_lithot_add_to_restart_variable_list
+
+!    use glide_lithot_io, only: glide_lithot_add_to_restart_variable_list
     implicit none
 
     !------------------------------------------------------------------------------------
@@ -1468,12 +1438,11 @@ contains
         call glide_add_to_restart_variable_list('bwat')
     end select
 
+    !WHL - This should be handled by glide_add_to_restart_variable_list
     ! if the GTHF calculation is enabled, litho_temp needs to be a restart variable
-!!    if (options%gthf /= 0) then
-    if (options%gthf == GTHF_COMPUTE) then
-        ! (Note the call to the glide_lithot_io module instead of glide_io module here)
-        call glide_lithot_add_to_restart_variable_list('litho_temp')
-    endif
+!!    if (options%gthf == GTHF_COMPUTE) then
+!!        call glide_lithot_add_to_restart_variable_list('litho_temp')
+!!    endif
 
     ! basal processes module - requires tauf for a restart
 !!    if (options%which_bproc /= BAS_PROC_DISABLED ) then

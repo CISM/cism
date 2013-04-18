@@ -252,8 +252,6 @@ data:          data%climate%calving
 factor:        thk0
 coordinates:   lon lat
 
-#WHL - Removed backstress
-
 [ivol]
 dimensions:    time
 units:         km3
@@ -412,7 +410,6 @@ data:          data%geomderv%dthckdtm
 factor:        scale_acab
 coordinates:   lon lat
 
-
 [uvel]
 dimensions:    time, level, y0, x0
 units:         meter/year
@@ -535,8 +532,6 @@ factor:        scale_wvel
 coordinates:   lon lat
 load:          1
 
-#WHL - Removed surfvel; was equivalent to velnorm
-
 [flwa]
 dimensions:    time, level, y1, x1
 units:         pascal/year
@@ -591,7 +586,7 @@ dimensions:    time, lithoz, y1, x1
 units:         degree_Celsius
 long_name:     lithosphere temperature
 data:          data%lithot%temp
-load:          0
+load:          1
 coordinates:   lon lat
 
 [age]

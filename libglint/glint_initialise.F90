@@ -135,13 +135,23 @@ contains
     endif
 
     !WHL - added option for glissade dycore
-    if (instance%model%options%whichdycore == DYCORE_GLIDE) then
-       call glide_initialise(instance%model)
-    else       ! glam/glissade dycore     
-       call glissade_initialise(instance%model)
-    endif
+    if (instance%model%options%whichdycore == DYCORE_GLIDE) then  ! SIA dycore
 
-!TODO - Add call to diagnostic velocity solve
+       ! initialise the model
+       call glide_initialise(instance%model)
+
+       ! compute the initial diagnostic state
+       call glide_init_state_diagnostic(instance%model)
+
+    else       ! glam/glissade HO dycore     
+
+       ! initialise the model
+       call glissade_initialise(instance%model)
+
+       ! compute the initial diagnostic state
+       call glissade_diagnostic_variable_solve(instance%model)
+
+    endif
 
     instance%ice_tstep = get_tinc(instance%model)*years2hours
     instance%glide_time = instance%model%numerics%tstart
@@ -163,15 +173,14 @@ contains
     call define_glint_restart_variables(instance)
  
 !WHL - debug
-    print*, ' '
-    print*, 'create glint variables (glint_io)'
+!!    print*, ' '
+!!    print*, 'create glint variables (glint_io)'
 
     ! create glint variables for the glide output files
     call glint_io_createall(instance%model, data=instance)
 
 !WHL - debug
-    print*, ' '
-    print*, 'create glint variables (glint_mbal_io)'
+!!    print*, 'create glint variables (glint_mbal_io)'
 
     ! create instantaneous glint variables
 
@@ -181,14 +190,15 @@ contains
     ! fill dimension variables
 
 !WHL - debug
-    print*, ' '
-    print*, 'call glide_nc_fillall'
+!!    print*, 'call glide_nc_fillall 1'
+
     call glide_nc_fillall(instance%model, vertical_level_flag = .false.)
 
 !WHL - debug
-    print*, ' '
-    print*, 'associated(out_first) =', associated(instance%out_first)
-    print*, 'call glide_nc_fillall, outfiles =', instance%out_first%nc%filename
+!!    print*, 'associated(out_first) =', associated(instance%out_first)
+!!    if (associated(instance%out_first)) print*, instance%out_first%nc%filename
+!!    print*, 'call glide_nc_fillall 2'
+
     call glide_nc_fillall(instance%model, outfiles=instance%out_first,  &
                                           vertical_level_flag = .false.)
 
@@ -625,12 +635,9 @@ contains
 
   subroutine glint_i_readdata(instance)
     !*FD read data from netCDF file and initialise climate
-    use glimmer_log
-    use glimmer_ncdf
-    use glint_climate
+
     use glint_io
-    use glide_setup
-    use glide_temp
+    use glide_thck, only: glide_calclsrf
     implicit none
 
     type(glint_instance),intent(inout)   :: instance    !*FD Instance whose elements are to be allocated.

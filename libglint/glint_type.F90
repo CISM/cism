@@ -435,8 +435,6 @@ contains
     ! setup outputs
     call GetSection(config,section,'GLINT output')
     do while(associated(section))
-!WHLTSTEP - changed time to dp
-!       output => handle_output(section,output,0.0,configstring)
        output => handle_output(section,output,0.d0,configstring)
        if (.not.associated(instance%out_first)) then
           instance%out_first => output
