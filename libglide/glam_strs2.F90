@@ -189,9 +189,6 @@ subroutine glam_velo_init( ewn,   nsn,   upn,    &
     dup = (/ ( (sigma(2)-sigma(1)), up = 1, upn) /)
     dupm = - 0.25d0 / dup
 
-!whl - Moved stagsigma calculation to glide_setup module
-!!    stagsigma(1:upn-1) = (sigma(1:upn-1) + sigma(2:upn)) / 2.d0
-
     ! p1 = -1/n   - used with rate factor in eff. visc. def.
     ! p2 = (1-n)/2n   - used with eff. strain rate in eff. visc. def. 
     ! p3 = (1-n)/n   !TODO - Remove p3?  It is never used.
@@ -454,8 +451,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
      print *, ' '
      print *, 'Running Payne/Price higher-order dynamics solver'
      print *, ' '
-     !TODO - Remove hardwired numbers for whichresid (see glide_types.F90)
-     if( whichresid == 3 )then
+     if( whichresid == HO_RESID_L2NORM ) then
        print *, 'iter #     resid (L2 norm)       target resid'
      else
        print *, 'iter #     uvel resid         vvel resid       target resid'
@@ -484,13 +480,12 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
 
   ! choose outer loop stopping criterion
   if( counter > 1 )then
-     !TODO - Remove hardwired numbers for whichresid (see glide_types.F90)
-    if( whichresid == 3 )then
+    if( whichresid == HO_RESID_L2NORM )then
       outer_it_criterion = L2norm
       outer_it_target = NL_target
     else
       outer_it_criterion = maxval(resid)
-      outer_it_target = minres   
+      outer_it_target = minres
     end if
   else
     outer_it_criterion = 1.0d10
@@ -741,8 +736,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
         ! output the iteration status: iteration number, max residual, and location of max residual
         ! (send output to the screen or to the log file, per whichever line is commented out) 
 
-        !TODO - Remove hardwired numbers for whichresid (see glide_types.F90)
-        if( whichresid == 3 )then
+        if( whichresid == HO_RESID_L2NORM ) then
             print '(i4,3g20.6)', counter, L2norm, NL_target    ! Output when using L2norm for convergence
             !print '(a,i4,3g20.6)', "sup-norm uvel, vvel=", counter, resid(1), resid(2), minres
             !write(message,'(i4,3g20.6)') counter, L2norm, NL_target
@@ -1377,8 +1371,39 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
 
   select case(whichefvs)
 
-  !TODO - Remove hardwired case numbers
-  case(0)       ! calculate eff. visc. using eff. strain rate
+  case(HO_EFVS_CONSTANT)       ! set the eff visc to a constant value
+
+!LOOP - all scalars except for outer layer
+   do ns = 2,nsn-1
+     do ew = 2,ewn-1
+        if (thck(ew,ns) > 0.d0) then
+           ! Steve recommends 10^6 to 10^7 Pa yr
+           efvs(1:upn-1,ew,ns) = 1.d7  * scyr/tim0 / tau0    ! tau0 = rhoi*grav*thk0   
+        else        
+           efvs(:,ew,ns) = effstrminsq ! if the point is associated w/ no ice, set to min value
+        endif
+     enddo
+   enddo
+
+  case(HO_EFVS_FLOWFACT)    ! set the eff visc to a value based on the flow rate factor 
+
+!   *SFP* changed default setting for linear viscosity so that the value of the rate
+!   factor is taken into account
+
+!LOOP - all scalars except for outer layer
+  do ns = 2,nsn-1
+      do ew = 2,ewn-1
+       if (thck(ew,ns) > 0.d0) then
+! KJE code used to have this
+!       efvs(1:upn-1,ew,ns) = 0.5d0 * flwa(1:upn-1,ew,ns)**(-1.d0)
+        efvs(1:upn-1,ew,ns) = flwafact(1:upn-1,ew,ns)
+        else
+           efvs(:,ew,ns) = effstrminsq ! if the point is associated w/ no ice, set to min value
+       end if
+      end do
+  end do
+
+  case(HO_EFVS_NONLINEAR)      ! calculate eff. visc. using eff. strain rate
 
 !LOOP - all scalars except for outer layer
 !TODO - This code may not work correctly if nhalo = 1.  
@@ -1464,40 +1489,6 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
 
        end do   ! end ew
    end do       ! end ns
-
-  case(1)       ! set the eff visc to a value based on the rate factor 
-
-!   *SFP* changed default setting for linear viscosity so that the value of the rate
-!   factor is taken into account
-
-!LOOP - all scalars except for outer layer
-  do ns = 2,nsn-1
-      do ew = 2,ewn-1
-       if (thck(ew,ns) > 0.d0) then
-! KJE code used to have this
-!       efvs(1:upn-1,ew,ns) = 0.5d0 * flwa(1:upn-1,ew,ns)**(-1.d0)
-        efvs(1:upn-1,ew,ns) = flwafact(1:upn-1,ew,ns)
-        else
-           efvs(:,ew,ns) = effstrminsq ! if the point is associated w/ no ice, set to min value
-       end if
-      end do
-  end do
-
-!WHL - added case(2)
-
-  case(2)       ! set the eff visc to a constant value
-
-!LOOP - all scalars except for outer layer
-   do ns = 2,nsn-1
-     do ew = 2,ewn-1
-        if (thck(ew,ns) > 0.d0) then
-           ! Steve recommends 10^6 to 10^7 Pa yr
-           efvs(1:upn-1,ew,ns) = 1.d7  * scyr/tim0 / tau0    ! tau0 = rhoi*grav*thk0   
-        else        
-           efvs(:,ew,ns) = effstrminsq ! if the point is associated w/ no ice, set to min value
-        endif
-     enddo
-   enddo
 
   end select
 
@@ -2694,7 +2685,7 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
   ! case(2): use mean of abs( vel_old - vel ) / vel )
   ! case(3): use max of abs( vel_old - vel ) / vel ) (in addition to L2 norm calculated externally)
 
-   case(0)
+   case(HO_RESID_MAXU)
 
     ! resid = maxval( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel /= 0.d0)
     resid = 0.d0
@@ -2714,7 +2705,7 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
     !locat is only used in diagnostic print statement below.
     !locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel /= 0.d0)
 
-   case(1)
+   case(HO_RESID_MAXU_NO_UBAS)
     ! nr = size( vel, dim=1 ) ! number of grid points in vertical ...
     ! resid = maxval( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ), MASK = vel /= 0.d0)
     resid = 0.d0
@@ -2734,7 +2725,7 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
     !locat = maxloc( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ),  &
     !        MASK = vel /= 0.d0)
 
-   case(2)
+   case(HO_RESID_MEANU)
     call not_parallel(__FILE__, __LINE__)
     !JEFF This has not been translated to parallel.
     resid = 0.d0
@@ -2761,7 +2752,7 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
     !      since we are using the mean resid for convergence testing
     ! locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel /= 0.d0)
 
-   case(3)
+   case(HO_RESID_L2NORM)
     ! resid = maxval( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel /= 0.d0)
     resid = 0.d0
 
@@ -2959,7 +2950,7 @@ function mindcrshstr2(pt,whichresid,vel,counter,resid)
   ! case(1): use max of abs( vel_old - vel ) / vel ) but ignore basal vels
   ! case(2): use mean of abs( vel_old - vel ) / vel )
 
-   case(0)
+   case(HO_RESID_MAXU)
     rel_diff = 0.d0
     vel_ne_0 = 0
     where ( mindcrshstr2 /= 0.d0 )
@@ -2978,7 +2969,7 @@ function mindcrshstr2(pt,whichresid,vel,counter,resid)
     !write(*,*) 'locat', locat
     !call write_xls('resid1.txt',abs((usav(1,:,:,pt) - mindcrshstr2(1,:,:)) / (mindcrshstr2(1,:,:) + 1e-20)))
 
-   case(1)
+   case(HO_RESID_MAXU_NO_UBAS)
     !**cvg*** should replace vel by mindcrshstr2 in the following lines, I belive
     nr = size( vel, dim=1 ) ! number of grid points in vertical ...
     resid = maxval( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ),  &
@@ -2986,7 +2977,7 @@ function mindcrshstr2(pt,whichresid,vel,counter,resid)
     locat = maxloc( abs((usav(1:nr-1,:,:,pt) - vel(1:nr-1,:,:) ) / vel(1:nr-1,:,:) ),  &
             MASK = vel /= 0.d0)
 
-   case(2)
+   case(HO_RESID_MEANU)
     !**cvg*** should replace vel by mindcrshstr2 in the following lines, I believe
     nr = size( vel, dim=1 )
     vel_ne_0 = 0
@@ -3428,11 +3419,14 @@ subroutine bodyset(ew,  ns,  up,           &
            slopex = -dusrfdew(ew,ns); slopey = -dusrfdns(ew,ns); nz = 1.d0
         else                             ! specify necessary variables and flags for basal bc
    
-           !TODO - Replace hardwired numbers for whichbabc options
-           if( whichbabc == 6 )then
+!!           if( whichbabc == 6 )then
+           if( whichbabc == HO_BABC_NO_SLIP )then
                 bcflag = (/0,0/)             ! flag for u=v=0 at bed; doesn't work well so commented out here...
                                              ! better to specify very large value for betasquared below
-           elseif( whichbabc >=0 .and. whichbabc <= 5 )then
+!!           elseif( whichbabc >=0 .and. whichbabc <= 5 )then
+           elseif( whichbabc == HO_BABC_CONSTANT     .or. whichbabc == HO_BABC_SIMPLE         .or.  &
+                   whichbabc == HO_BABC_YIELD_PICARD .or. whichbabc == HO_BABC_CIRCULAR_SHELF .or.  &
+                   whichbabc == HO_BABC_LARGE_BETA   .or. whichbabc == HO_BABC_EXTERNAL_BETA) then
                 bcflag = (/1,1/)              ! flag for specififed stress at bed: Tau_zx = betasquared * u_bed,
                                               ! where betasquared is MacAyeal-type traction parameter
            end if   
@@ -3632,9 +3626,6 @@ subroutine bodyset(ew,  ns,  up,           &
 ! *********************************************************************************************
 ! higher-order sfc and bed boundary conditions in main body of ice sheet (NOT at lat. boundry)
 
-!TODO - whichbabc option numbers should not be hardwired.
-!       This code will break if we change the numbering.
-
   if(  ( up == upn  .or. up == 1 ) .and. .not. lateralboundry) then
 
         if( up == 1 )then                ! specify necessary variables and flags for free sfc
@@ -3643,11 +3634,15 @@ subroutine bodyset(ew,  ns,  up,           &
            slopex = -dusrfdew(ew,ns); slopey = -dusrfdns(ew,ns); nz = 1.d0
         else                             ! specify necessary variables and flags for basal bc
 
-           !TODO - Replace hardwired numbers for whichbabc options
-           if( whichbabc == 6 )then
+!!           if( whichbabc == 6 )then
+           if( whichbabc == HO_BABC_NO_SLIP )then
                 bcflag = (/0,0/)             ! flag for u=v=0 at bed; doesn't work well so commented out here...
                                              ! better to specify very large value for betasquared below
-           elseif( whichbabc >=0 .and. whichbabc <= 5 )then
+
+!!           elseif( whichbabc >=0 .and. whichbabc <= 5 )then
+           elseif( whichbabc == HO_BABC_CONSTANT     .or. whichbabc == HO_BABC_SIMPLE         .or.  &
+                   whichbabc == HO_BABC_YIELD_PICARD .or. whichbabc == HO_BABC_CIRCULAR_SHELF .or.  &
+                   whichbabc == HO_BABC_LARGE_BETA   .or. whichbabc == HO_BABC_EXTERNAL_BETA) then
                 bcflag = (/1,1/)              ! flag for specififed stress at bed: Tau_zx = betasquared * u_bed,
                                               ! where betasquared is MacAyeal-type traction parameter
            end if
@@ -5140,8 +5135,6 @@ function indshift( which, ew, ns, up, ewn, nsn, upn, loc_array, thck )
       upshift = 0
   end if
 
-  !TODO - Remove hardwired case numbers?
-
   select case(which)
 
       case(0)   !! internal to lateral boundaries; no shift to ew,ns indices
@@ -5249,12 +5242,14 @@ subroutine calcbetasquared (whichbabc,               &
 
   select case(whichbabc)
 
-    case(0)     ! constant value; useful for debugging and test cases
+!!    case(0)     
+    case(HO_BABC_CONSTANT)  ! constant value; useful for debugging and test cases
 
       betasquared(:,:) = 10.d0       ! Pa yr/m
 
-    case(1)     ! simple pattern; also useful for debugging and test cases
-                ! (here, a strip of weak bed surrounded by stronger bed to simulate an ice stream)
+!!    case(1)
+    case(HO_BABC_SIMPLE)    ! simple pattern; also useful for debugging and test cases
+                            ! (here, a strip of weak bed surrounded by stronger bed to simulate an ice stream)
 
       betasquared(:,:) = 1.d4        ! Pa yr/m
 
@@ -5267,8 +5262,9 @@ subroutine calcbetasquared (whichbabc,               &
       end do
       end do
 
-    case(2)     ! take input value for till yield stress and force betasquared to be implemented such
-                ! that plastic-till sliding behavior is enforced (see additional notes in documentation).
+!!    case(2)
+    case(HO_BABC_YIELD_PICARD)  ! take input value for till yield stress and force betasquared to be implemented such
+                                ! that plastic-till sliding behavior is enforced (see additional notes in documentation).
 
       !!! NOTE: Eventually, this option will provide the till yield stress as calculate from the basal processes
       !!! submodel. Currently, to enable sliding over plastic till, simple specify the value of "betasquared" as 
@@ -5278,16 +5274,19 @@ subroutine calcbetasquared (whichbabc,               &
       betasquared(:,:) = ( beta(:,:) * ( tau0 / vel0 / scyr ) ) &     ! Pa yr/m
                          / dsqrt( (thisvel(:,:)*vel0*scyr)**2 + (othervel(:,:)*vel0*scyr)**2 + (smallnum)**2 )
 
-    case(3)     ! circular ice shelf: set B^2 ~ 0 except for at center, where B^2 >> 0 to enforce u,v=0 there
+!!    case(3)     
+    case(HO_BABC_CIRCULAR_SHELF)  ! circular ice shelf: set B^2 ~ 0 except for at center, where B^2 >> 0 to enforce u,v=0 there
 
       betasquared(:,:) = 1.d-5       ! Pa yr/m
       betasquared( (ewn-1)/2:(ewn-1)/2+1, (nsn-1)/2:(nsn-1)/2+1 ) = 1.d10       ! Pa yr/m
 
-    case(4)    ! frozen (u=v=0) ice-bed interface
+!!    case(4)
+    case(HO_BABC_LARGE_BETA)      ! frozen (u=v=0) ice-bed interface
 
       betasquared(:,:) = 1.d10       ! Pa yr/m
 
-    case(5)    ! use value passed in externally from CISM (NOTE not dimensional when passed in) 
+!!    case(5)
+    case(HO_BABC_EXTERNAL_BETA)   ! use value passed in externally from CISM (NOTE not dimensional when passed in) 
 
       ! scale CISM input value to dimensional units of (Pa yr/m)
 
@@ -5321,7 +5320,7 @@ subroutine calcbetasquared (whichbabc,               &
       end do
       end do
 
-    ! NOTE: cases (6) and (7) are handled external to this subroutine
+    ! NOTE: cases (HO_BABC_NO_SLIP) and (HO_BABC_YIELD_NEWTON) are handled external to this subroutine
 
   end select
 

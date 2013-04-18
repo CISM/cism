@@ -49,14 +49,8 @@ module glide_types
 !TODO - Reorganize the types, per suggestion above?
 
 !TODO - We might consider cleaning up the glide_global type so that it doesn't
-!        include as many subtypes.
-!       A modified glide_global_type could include subtypes for mesh, state, options, and params.
-!        * 'general' and some 'numerics' stuff would go under 'mesh'
-!        * 'geometry', 'temper', and 'velocity' arrays would go under 'state'
-!        * Diagnosed arrays under 'geomderv' and 'tensors' could go away 
-!        * Work types 'tempwk', 'velowk', etc. could go away
-!        * Timestep stuff would go in 'time' type?
-!       However, this would take a lot of work.
+!        include as many subtypes.  For example, we might be able to remove
+!        replace some work types (tempwk, velowk) with local arrays and parameters.
 
   use glimmer_sparse_type
   use glimmer_global
@@ -120,25 +114,39 @@ module glide_types
   integer, parameter :: TEMP_INIT_ARTM = 1
   integer, parameter :: TEMP_INIT_LINEAR = 2
 
-  !TODO: Swap 0 and 2
-  integer, parameter :: FLWA_PATERSON_BUDD = 0
+  !WHL - Swapped 0 and 2
+!  integer, parameter :: FLWA_PATERSON_BUDD = 0
+!  integer, parameter :: FLWA_PATERSON_BUDD_CONST_TEMP = 1
+!  integer, parameter :: FLWA_CONST_FLWA = 2
+  integer, parameter :: FLWA_CONST_FLWA = 0
   integer, parameter :: FLWA_PATERSON_BUDD_CONST_TEMP = 1
-  integer, parameter :: FLWA_CONST_FLWA = 2
+  integer, parameter :: FLWA_PATERSON_BUDD = 2
 
-  !TODO: Swap 3 and 5
+  !WHL: Swapped 3 and 5
+!!  integer, parameter :: BTRC_ZERO = 0
+!!  integer, parameter :: BTRC_CONSTANT = 1
+!!  integer, parameter :: BTRC_CONSTANT_BWAT = 2
+!!  integer, parameter :: BTRC_TANH_BWAT = 3
+!!  integer, parameter :: BTRC_LINEAR_BMLT = 4
+!!  integer, parameter :: BTRC_CONSTANT_TPMP = 5
   integer, parameter :: BTRC_ZERO = 0
   integer, parameter :: BTRC_CONSTANT = 1
   integer, parameter :: BTRC_CONSTANT_BWAT = 2
-  integer, parameter :: BTRC_TANH_BWAT = 3
+  integer, parameter :: BTRC_CONSTANT_TPMP = 3
   integer, parameter :: BTRC_LINEAR_BMLT = 4
-  integer, parameter :: BTRC_CONSTANT_TPMP = 5
+  integer, parameter :: BTRC_TANH_BWAT = 5
 
-  !TODO: NONE = 0, LOCAL = 1, FLUX = 2
-  integer, parameter :: BWATER_LOCAL = 0
-  integer, parameter :: BWATER_FLUX  = 1
-  integer, parameter :: BWATER_NONE  = 2
-  integer, parameter :: BWATER_CONST = 3       !*mb* Constant thickness of water, e.g., to force Tpmp.
-!!  integer, parameter :: BWATER_BASAL_PROC = 4  ! not currently supported
+  !WHL - Set NONE = 0, LOCAL = 1, FLUX = 2
+!!  integer, parameter :: BWATER_LOCAL = 0
+!!  integer, parameter :: BWATER_FLUX  = 1
+!!  integer, parameter :: BWATER_NONE  = 2
+!!  integer, parameter :: BWATER_CONST = 3
+!!  !integer, parameter :: BWATER_BASAL_PROC = 4  ! not currently supported
+  integer, parameter :: BWATER_NONE  = 0
+  integer, parameter :: BWATER_LOCAL = 1
+  integer, parameter :: BWATER_FLUX  = 2
+  integer, parameter :: BWATER_CONST = 3
+  !integer, parameter :: BWATER_BASAL_PROC = 4  ! not currently supported
 
   integer, parameter :: BASAL_MBAL_NO_CONTINUITY = 0
   integer, parameter :: BASAL_MBAL_CONTINUITY = 1
@@ -147,11 +155,17 @@ module glide_types
   integer, parameter :: GTHF_PRESCRIBED_2D = 1
   integer, parameter :: GTHF_COMPUTE = 2
 
-  !TODO: Swap 2 and 3
+  !WHL - Swapped 2 and 3
+!!  integer, parameter :: MARINE_NONE = 0
+!!  integer, parameter :: MARINE_FLOAT_ZERO = 1
+!!  integer, parameter :: MARINE_RELX_THRESHOLD = 2
+!!  integer, parameter :: MARINE_FLOAT_FRACTION = 3
+!!  integer, parameter :: MARINE_TOPG_THRESHOLD = 4
+!!  integer, parameter :: MARINE_HUYBRECHTS = 5
   integer, parameter :: MARINE_NONE = 0
   integer, parameter :: MARINE_FLOAT_ZERO = 1
-  integer, parameter :: MARINE_RELX_THRESHOLD = 2
-  integer, parameter :: MARINE_FLOAT_FRACTION = 3
+  integer, parameter :: MARINE_FLOAT_FRACTION = 2
+  integer, parameter :: MARINE_RELX_THRESHOLD = 3
   integer, parameter :: MARINE_TOPG_THRESHOLD = 4
   integer, parameter :: MARINE_HUYBRECHTS = 5
 
@@ -187,10 +201,13 @@ module glide_types
 
   ! higher-order options
 
-  !TODO: Swap 0 and 2
-  integer, parameter :: HO_EFVS_FULL = 0
+  !WHL: Swapped 0 and 2
+!  integer, parameter :: HO_EFVS_NONLINEAR = 0
+!  integer, parameter :: HO_EFVS_FLOWFACT = 1
+!  integer, parameter :: HO_EFVS_CONSTANT = 2
+  integer, parameter :: HO_EFVS_CONSTANT = 0
   integer, parameter :: HO_EFVS_FLOWFACT = 1
-  integer, parameter :: HO_EFVS_CONSTANT = 2
+  integer, parameter :: HO_EFVS_NONLINEAR = 2
 
   integer, parameter :: SIA_DISP = 0
   integer, parameter :: FIRSTORDER_DISP = 1
@@ -218,9 +235,9 @@ module glide_types
   integer, parameter :: HO_NONLIN_PICARD = 0
   integer, parameter :: HO_NONLIN_JFNK = 1
 
-  integer, parameter :: HO_RESID_MAX = 0
-  integer, parameter :: HO_RESID_MAX_NO_UBAS = 1
-  integer, parameter :: HO_RESID_MEAN = 2
+  integer, parameter :: HO_RESID_MAXU = 0
+  integer, parameter :: HO_RESID_MAXU_NO_UBAS = 1
+  integer, parameter :: HO_RESID_MEANU = 2
   integer, parameter :: HO_RESID_L2NORM = 3
 
   integer, parameter :: HO_SPARSE_BICG = 0
@@ -293,16 +310,20 @@ module glide_types
 
     !*FD Method for calculating flow factor $A$:
 
-    integer :: whichflwa = 0
+!WHL - Changed option numbers; default FLWA_PATERSON_BUDD is now option 2
+
+!!    integer :: whichflwa = 0
+    integer :: whichflwa = 2
 
     !*FD \begin{description} 
-    !*FD \item[0] \emph{Paterson and Budd} relationship 
+    !*FD \item[0] Set equal to $1\times 10^{-16}\,\mathrm{yr}^{-1}
     !*FD \item[1] \emph{Paterson and Budd} relationship, 
     !*FD with temperature set to $-10^{\circ}\mathrm{C}$ 
-    !*FD \item[2] Set equal to $1\times 10^{-16}\,\mathrm{yr}^{-1}
+    !*FD \item[2] \emph{Paterson and Budd} relationship 
     !*FD \,\mathrm{Pa}^{-n}$
     !*FD \end{description}
 
+!WHL - Change option numbers, but default unchanged
     integer :: whichbtrc = 0
 
     !*FD Basal slip coefficient:
@@ -311,21 +332,23 @@ module glide_types
     !*FD \item[1] Set to (non--zero) constant
 !!    !*FD \item[2] Set to (non--zero) constant where temperature is at pressure melting point of ice, otherwise to zero
     !*FD \item[2] Set to (non--zero) constant where basal water is present, otherwise to zero
-    !*FD \item[3] \texttt{tanh} function of basal water depth 
+    !*FD \item[3] Set to (non--zero) constant where temperature is at pressure melting point of ice, otherwise to zero
     !*FD \item[4] linear function of basal melt rate
-    !*FD \item[5] Set to (non--zero) constant where temperature is at pressure melting point of ice, otherwise to zero
+    !*FD \item[5] \texttt{tanh} function of basal water depth 
 !!    !*FD \item[5] function of taub^{-3}
     !*FD \end{description}
 
-    integer :: whichbwat = 2
+!WHL - Changed option numbers; default BWATER_NONE is now option 0
+!!    integer :: whichbwat = 2
+    integer :: whichbwat = 0
 
     !*FD Basal water depth: 
     !*FD \begin{description} 
-    !*FD \item[0] Calculated from local basal water balance 
-    !*FD \item[1] Compute the basal water flux, then find depth via calculation
-    !*FD \item[2] Set to zero everywhere 
-    !*FD \item[3] Calculated from till water content, in the basal processes module
-    !*FD \item[4] Set to constant everywhere (10m).
+    !*FD \item[0] Set to zero everywhere 
+    !*FD \item[1] Compute from local basal water balance 
+    !*FD \item[2] Compute the basal water flux, then find depth via calculation
+    !*FD \item[3] Set to constant (10 m) everywhere, to force T = Tpmp.
+    !*FD \item[4] Calculated from till water content, in the basal processes module
     !*FD \end{description}
 
     integer :: basal_mbal = 0
@@ -345,15 +368,19 @@ module glide_types
     !*FD \item[2] calculate geothermal flux using 3d diffusion
     !*FD \end{description}
 
+!WHL - Changed order, but default unchanged
     integer :: whichmarn = 1
 
-    !*FD Ice thickness: 
+    !*FD Marine limit: 
     !*FD \begin{description} 
     !*FD \item[0] No action 
     !*FD \item[1] Set thickness to zero if floating 
-    !*FD \item[2] Set thickness to zero if relaxed bedrock is more 
-    !*FD than certain water depth (variable "mlimit" in glide_types)  
-    !*FD \item[3] Lose fraction of ice when edge cell
+    !*FD \item[2] Lose fraction of ice when edge cell
+    !*FD \item[3] Set thickness to zero if relaxed bedrock is more than
+    !*FD          certain water depth (variable "mlimit" in glide_types)  
+    !*FD \item[4] Set thickness to zero if present bedrock is more than
+    !*FD          certain water depth (variable "mlimit" in glide_types)  
+    !*FD \item[5] Huybrechts grounding line scheme for Greenland initialization
     !*FD \end{description}
 
     integer :: whichwvel = 0
@@ -418,13 +445,16 @@ module glide_types
     ! Associated with Payne-Price dycore (glam) and newer glissade dycore
     !-----------------------------------------------------------------------
 
-    integer :: which_ho_efvs = 0
+!WHL - Changed option numbers; default HO_EFVS_NONLINEAR is now option 2
+
+!!    integer :: which_ho_efvs = 0
+    integer :: which_ho_efvs = 2
 
     !*FD Flag that indicates how effective viscosity is computed
     !*FD \begin{description}
-    !*FD \item[0] compute from effective strain rate
+    !*FD \item[0] constant value
     !*FD \item[1] multiple of flow factor
-    !*FD \item[2] constant value
+    !*FD \item[2] compute from effective strain rate
 
     integer :: which_disp = 0
 

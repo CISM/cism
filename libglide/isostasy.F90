@@ -54,6 +54,7 @@ contains
     implicit none
     type(glide_global_type) :: model
 
+    !TODO : Remove hardwiring of lithosphere option numbers
     if (model%isos%lithosphere == 1) then
        call not_parallel(__FILE__,__LINE__)
        call init_elastic(model%isos%rbel,model%numerics%dew)
@@ -100,6 +101,7 @@ contains
     implicit none
     type(glide_global_type) :: model
 
+    !TODO : Remove hardwiring of asthenosphere option numbers
     ! update load if necessary
     if (model%isos%new_load) then
        call isos_lithosphere(model,model%isos%load,model%isos%load_factors)
@@ -122,6 +124,7 @@ contains
     real(dp), dimension(:,:), intent(out) :: load !*FD loading effect due to load_factors
     real(dp), dimension(:,:), intent(in)  :: load_factors !*FD load mass divided by mantle density
 
+    !TODO : Remove hardwiring of lithosphere option numbers
     if (model%isos%lithosphere == 0) then
        ! local lithosphere
        load = load_factors

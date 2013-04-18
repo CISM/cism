@@ -86,6 +86,7 @@ contains
 
     character(len=100) :: message
 
+    !TODO : Remove hardwiring of lithosphere option numbers
     if (isos%do_isos) then
        call write_log('Isostasy setup')
        call write_log('--------------')
@@ -106,6 +107,7 @@ contains
           stop
        end if
 
+       !TODO : Remove hardwiring of asthenosphere option numbers
        if (isos%asthenosphere==0) then
           call write_log('using fluid mantle')
        else if (isos%asthenosphere==1) then
@@ -145,7 +147,8 @@ contains
     ! restart variables needed for isostasy calculation
     if (isos%do_isos) then
         call glide_add_to_restart_variable_list('relx')
-        ! TODO I suspect that relx is only needed when asthenosphere=1 (relaxing mantle), but I'm not sure - this should be tested when isostasy implementation is finalized/tested.
+        ! TODO I suspect that relx is only needed when asthenosphere=1 (relaxing mantle), but I'm not sure - 
+        !      this should be tested when isostasy implementation is finalized/tested.
     endif
   end subroutine define_isos_restart_variables
 

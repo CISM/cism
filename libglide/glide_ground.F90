@@ -92,7 +92,6 @@ contains
 !      end where
 
 !!    case(0)    ! do nothing
-
     case(MARINE_NONE)    ! do nothing
 
 
@@ -111,17 +110,7 @@ contains
         thck = 0.0d0
       end where
 
-!!    case(2) ! Set thickness to zero if relaxed bedrock is below a given level
-    case(MARINE_RELX_THRESHOLD) ! Set thickness to zero if relaxed bedrock is below a given level
-
-!LOOP TODO - Change to do loops over scalar cells?
-
-      where (relx <= mlimit+eus)
-         calving_field = thck
-         thck = 0.0d0
-      end where
-
-!!    case(3) ! remove fraction of ice when floating
+!!    case(2) ! remove fraction of ice when floating
     case(MARINE_FLOAT_FRACTION) ! remove fraction of ice when floating
 
 !LOOP TODO - Why is the outer row of cells skipped here?
@@ -138,7 +127,15 @@ contains
 
       ! if uncomment above mask update, then call parallel_halo(mask)
 
-!TODO - Cases 2 and 4 are very similar; can we combine them?
+!!    case(3) ! Set thickness to zero if relaxed bedrock is below a given level
+    case(MARINE_RELX_THRESHOLD) ! Set thickness to zero if relaxed bedrock is below a given level
+
+      !LOOP TODO - Change to do loops over scalar cells?
+
+      where (relx <= mlimit+eus)
+         calving_field = thck
+         thck = 0.0d0
+      end where
 
 !!    case(4) ! Set thickness to zero at marine edge if present bedrock is below a given level
     case(MARINE_TOPG_THRESHOLD) ! Set thickness to zero at marine edge if present bedrock is below a given level
@@ -153,7 +150,7 @@ contains
 !WHL - Removed old case (5) based on recommendation from Jesse Johnson
 !      Then changed old case(7) to new case(5) to avoid having a gap in the case numbering.
 
-    !Huybrechts grounding line scheme for Greenland initialization
+    ! Huybrechts grounding line scheme for Greenland initialization
 
 !!    case(5)   ! used to be case(7)
     case(MARINE_HUYBRECHTS)   ! used to be case(7)

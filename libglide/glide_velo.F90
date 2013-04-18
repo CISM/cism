@@ -1117,12 +1117,15 @@ contains
 !!    case(1)
     case(BTRC_CONSTANT)
        ! constant everywhere
+       ! This option is used for EISMINT-2 experiment G
        btrc = model%velocity%bed_softness
 
 !!    case(2)
     case(BTRC_CONSTANT_BWAT)
-       ! constant where basal melt water is present
-!LOOP - all velocity points
+       ! constant where basal melt water is present, else = 0
+       ! This option can be used for EISMINT-2 experiment H, provided that 
+       ! basal water is present where T = Tpmp (e.g., BWATER_LOCAL)
+
        do ns = 1,nsn-1
           do ew = 1,ewn-1
              if (0.0d0 < model%temper%stagbwat(ew,ns)) then
@@ -1133,20 +1136,16 @@ contains
           end do
        end do
 
-!!    case(3)
-    case(BTRC_TANH_BWAT)
-       ! tanh function of basal water depth
-       ! The 'velowk%c' parameters are derived above from the 5-part parameter bpar
+!!    case(5)
+    case(BTRC_CONSTANT_TPMP)
+       ! constant where basal temperature equal to pressure melting point, else = 0
+       ! This is the actual condition for EISMINT-2 experiment H, which may not be 
+       ! the same as case BTRC_CONSTANT_BWAT above, depending on the hydrology
+
        do ns = 1,nsn-1
           do ew = 1,ewn-1
-             if (0.0d0 < model%temper%stagbwat(ew,ns)) then
-               
-                btrc(ew,ns) = model%velowk%c(1) + model%velowk%c(2) * tanh(model%velowk%c(3) * &
-                     model%temper%stagbwat(ew,ns) - model%velowk%c(4))
-                
-                if (0.0d0 > sum(model%isos%relx(ew:ew+1,ns:ns+1))) then
-                   btrc(ew,ns) = btrc(ew,ns) * model%velowk%marine  
-                end if
+             if (abs(model%temper%stagbpmp(ew,ns) - model%temper%stagbtemp(ew,ns))<0.001) then
+                btrc(ew,ns) = model%velocity%bed_softness(ew,ns)
              else
                 btrc(ew,ns) = 0.0d0
              end if
@@ -1156,7 +1155,7 @@ contains
 !!    case(4)
     case(BTRC_LINEAR_BMLT)
        ! linear function of basal melt rate
-!LOOP - all velocity points
+
        do ns = 1,nsn-1
           do ew = 1,ewn-1
              stagbmlt = 0.25d0*sum(model%temper%bmlt(ew:ew+1,ns:ns+1))
@@ -1171,15 +1170,20 @@ contains
        end do
 
 !!    case(5)
-    case(BTRC_CONSTANT_TPMP)
-       ! constant where basal temperature equal to pressure melting point
-       ! This is the actual EISMINT condition, which may not be the same
-       ! as case(2) above, depending on the hydrology
+    case(BTRC_TANH_BWAT)
+       ! tanh function of basal water depth
+       ! The 'velowk%c' parameters are derived above from the 5-part parameter bpar
 
        do ns = 1,nsn-1
           do ew = 1,ewn-1
-             if (abs(model%temper%stagbpmp(ew,ns) - model%temper%stagbtemp(ew,ns))<0.001) then
-                btrc(ew,ns) = model%velocity%bed_softness(ew,ns)
+             if (0.0d0 < model%temper%stagbwat(ew,ns)) then
+               
+                btrc(ew,ns) = model%velowk%c(1) + model%velowk%c(2) * tanh(model%velowk%c(3) * &
+                     model%temper%stagbwat(ew,ns) - model%velowk%c(4))
+                
+                if (0.0d0 > sum(model%isos%relx(ew:ew+1,ns:ns+1))) then
+                   btrc(ew,ns) = btrc(ew,ns) * model%velowk%marine  
+                end if
              else
                 btrc(ew,ns) = 0.0d0
              end if
@@ -1218,6 +1222,7 @@ contains
 
     case default   ! includes BTRC_ZERO
        ! zero everywhere
+       ! This is used for EISMINT-2 experiments A to F
        btrc = 0.0d0
 
     end select

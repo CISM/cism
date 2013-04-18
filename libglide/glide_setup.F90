@@ -181,7 +181,6 @@ contains
 
     model%numerics%mlimit = model%numerics%mlimit / thk0   ! remove
 
-!WHL - added for ismip-hom
     model%numerics%periodic_offset_ew = model%numerics%periodic_offset_ew / thk0
     model%numerics%periodic_offset_ns = model%numerics%periodic_offset_ns / thk0
 
@@ -718,28 +717,31 @@ contains
          'set to surface air temp', &
          'linear vertical profile' /)
 
+    !WHL - Changed order
     character(len=*), dimension(0:2), parameter :: flow_law = (/ &
-         'Paterson and Budd           ', &
+         'const 1e-16 Pa^-n a^-1      ', &
          'Paterson and Budd (T = -5 C)', &
-         'const 1e-16 Pa^-n a^-1      ' /)
+         'Paterson and Budd           ' /)
 
-    !WHL - Rename to something like which_btrc?
+    !WHL - Changed order
+    !TODO - Rename to something like which_btrc?
     character(len=*), dimension(0:5), parameter :: slip_coeff = (/ &
          'zero                   ', &
          'constant               ', &
          'constant where bwat > 0', &
-         'tanh function of bwat  ', &
+         'constant where T = Tpmp', &
          'linear function of bmlt', &
-         'constant where T = Tpmp' /)
+         'tanh function of bwat  ' /)
 
+    !WHL - Changed order
     character(len=*), dimension(0:3), parameter :: basal_water = (/ &
-         'local water balance   ', &
-         'local + const flux    ', &
-         'none                  ', &
-         'Constant value (=10 m)'/)
-!!         'From basal proc model '/) ! not supported
+         'none                     ', &
+         'local water balance      ', &
+         'local + steady-state flux', &
+         'Constant value (= 10 m)  ' /)
+!!         'From basal proc model    '/) ! not supported
 
-  !WHL - basal proc model is disabled for now.
+      !WHL - basal proc model is disabled for now.
 !!    character(len=*), dimension(0:2), parameter :: which_bproc = (/ &
 !!         'Basal proc mod disabled '  , &
 !!         'Basal proc, high res.   '   , &
@@ -759,14 +761,14 @@ contains
          'read flux from file, if present ', &
          'compute flux from diffusion eqn ' /)
 
+    !WHL - changed order
     character(len=*), dimension(0:5), parameter :: marine_margin = (/ &
-         'do nothing at marine margin    ', &
-         'remove all floating ice        ', &
-         'relaxed bedrock threshold      ', &
-         'remove fraction of floating ice', &
-         'present bedrock threshold      ', &
-         'Huybrechts Greenland           ' /)
-         !WHL - Not currently supporting case 6 (Pattyn grounding line)
+         'do nothing at marine margin     ', &
+         'remove all floating ice         ', &
+         'remove fraction of floating ice ', &
+         'relaxed bedrock threshold       ', &
+         'present bedrock threshold       ', &
+         'Huybrechts grounding line scheme' /)
 
     character(len=*), dimension(0:1), parameter :: vertical_integration = (/ &
          'standard     ', &
@@ -774,10 +776,11 @@ contains
 
     ! higher-order options
 
+    !WHL - Changed order
     character(len=*), dimension(0:2), parameter :: ho_whichefvs = (/ &
-         'from eff strain rate    ', &
-         'multiple of flow factor ', &
-         'constant value          ' /)
+         'constant value                 ', & 
+         'multiple of flow factor        ', &
+         'nonlinear, from eff strain rate' /)
 
     character(len=*), dimension(0:1), parameter :: dispwhich = (/ &
          '0-order SIA                       ', &

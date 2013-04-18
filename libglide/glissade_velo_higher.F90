@@ -32,7 +32,7 @@
     use glimmer_global, only: sp, dp
     use glimmer_physcon, only: gn, rhoi, rhoo, grav, scyr
     use glimmer_paramets, only: thk0, len0, tim0, tau0, vel0   !TODO - remove these later
-    use glimmer_paramets, only: vel_scale, len_scale   ! used for whichefvs = 1
+    use glimmer_paramets, only: vel_scale, len_scale   ! used for whichefvs = HO_EFVS_FLOWFACT
     use glimmer_log, only: write_log
     use glimmer_sparse_type
     use glimmer_sparse
@@ -912,9 +912,9 @@
        print *, ' '
        print *, 'Running Glissade higher-order dynamics solver'
        print *, ' '
-       if (whichresid == 3) then                 ! use L2 norm of residual
+       if (whichresid == HO_RESID_L2NORM) then  ! use L2 norm of residual
           print *, 'iter #     resid (L2 norm)       target resid'
-       else                                     ! use max value of residual
+       else                                     ! residual based on velocity
           print *, 'iter #     velo resid            target resid'
        end if
        print *, ' '
@@ -1468,7 +1468,7 @@
        ! update the outer loop stopping criterion
        !---------------------------------------------------------------------------
 
-       if (whichresid == 3) then
+       if (whichresid == HO_RESID_L2NORM) then
           outer_it_criterion = L2_norm
           outer_it_target = L2_target      ! L2_target is currently set to 1.d-4 and held constant
        else
@@ -2917,8 +2917,33 @@
 
     select case(whichefvs)
 
-!!    case(0)      ! calculate effective viscosity based on effective strain rate
-    case(HO_EFVS_FULL)    ! calculate effective viscosity based on effective strain rate
+!!    case(2)
+    case(HO_EFVS_CONSTANT)
+
+       efvs = 1.d7 * scyr   ! Steve Price recommends 10^6 to 10^7 Pa yr
+
+!WHL - This is the glam-type scaling
+!!       efvs = efvs * scyr/tim0 / tau0   ! tau0 = rhoi*grav*thk0
+
+       if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+          print*, 'Set efvs = constant:', efvs
+       endif
+
+!!    case(1)
+    case(HO_EFVS_FLOWFACT)      ! set the effective viscosity to a multiple of the flow factor, 0.5*A^(-1/n)
+                 
+                 !SCALING: Set the effective strain rate (s^{-1}) based on typical 
+                 !         velocity and length scales, to agree with GLAM.
+  
+       effstrain = vel_scale/len_scale   ! typical strain rate, s^{-1}  
+       efvs = flwafact * effstrain**p_effstr  
+
+       if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+          print*, 'flwafact, effstrain, efvs =', flwafact, effstrain, efvs       
+       endif
+
+!!    case(0)
+    case(HO_EFVS_NONLINEAR)    ! calculate effective viscosity based on effective strain rate, n = 3
 
        du_dx = 0.d0
        dv_dx = 0.d0
@@ -2968,31 +2993,6 @@
           print*, 'du/dx, du/dy, du/dz =', du_dx, du_dy, du_dz
           print*, 'dv/dx, dv/dy, dv/dz =', dv_dx, dv_dy, dv_dz
           print*, 'flwafact, effstrain (s-1), efvs (Pa s) =', flwafact, effstrain, efvs
-       endif
-
-!!    case(1)      ! set the effective viscosity to a multiple of the flow factor, 0.5*A^(-1/n)
-    case(HO_EFVS_FLOWFACT)      ! set the effective viscosity to a multiple of the flow factor, 0.5*A^(-1/n)
-                 
-                 !SCALING: Set the effective strain rate (s^{-1}) based on typical 
-                 !         velocity and length scales, to agree with GLAM.
-  
-       effstrain = vel_scale/len_scale   ! typical strain rate, s^{-1}  
-       efvs = flwafact * effstrain**p_effstr  
-
-       if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
-          print*, 'flwafact, effstrain, efvs =', flwafact, effstrain, efvs       
-       endif
-
-!!    case(2)
-    case(HO_EFVS_CONSTANT)
-
-       efvs = 1.d7 * scyr   ! Steve Price recommends 10^6 to 10^7 Pa yr
-
-!WHL - This is the glam-type scaling
-!!       efvs = efvs * scyr/tim0 / tau0   ! tau0 = rhoi*grav*thk0
-
-       if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
-          print*, 'Set efvs = constant:', efvs
        endif
 
     end select
@@ -3955,7 +3955,7 @@
 
     select case (whichresid)
 
-    case(1)   ! max speed difference, excluding the bed
+    case(HO_RESID_MAXU_NO_UBAS)   ! max speed difference, excluding the bed
 
        ! Loop over locally owned vertices
 
@@ -3980,7 +3980,7 @@
        ! take global max
        resid_velo = parallel_reduce_max(resid_velo)
 
-    case(2)   ! mean relative speed difference
+    case(HO_RESID_MEANU)   ! mean relative speed difference
 
        count = 0
 
@@ -4007,7 +4007,8 @@
        call not_parallel(__FILE__, __LINE__)
 
 
-   case default    ! max speed difference, including basal speeds  (case 0 or 3)
+   case default    ! max speed difference, including basal speeds
+                   ! (case HO_RESID_MAXU or HO_RESID_L2NORM)
 
        ! Loop over locally owned vertices
 
