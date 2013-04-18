@@ -32,9 +32,9 @@ geometry.basalSlope = 0 0 0
 
 #amr.gridsFile = grids.dat
 
-amr.maxLevel = 2   # finest level allowed in simulation
+amr.maxLevel = 0   # finest level allowed in simulation
 amr.ref_ratio = 2 2 2
-amr.num_cells = 128 128 128   #number of cells in base grid
+#amr.num_cells = 128 128 128   #number of cells in base grid
 amr.num_cells = 32 32 32   #number of cells in base grid
 
 amr.is_periodic = 1 1 1      # 1 if domain is periodic 
@@ -57,7 +57,7 @@ amr.max_dt_grow_factor = 1.1 #max amount dt can grow from one timestep to anothe
 
 
 amr.plot_interval = 1
-amr.plot_prefix = plot.dome.0128.
+amr.plot_prefix = plot.dome.0032.
 amr.write_solver_rhs = 1
 amr.write_preSolve_plotfiles = true
 amr.write_flux_velocities = true
@@ -79,7 +79,7 @@ amr.max_box_size = 32         # largest box length allowed
 amr.tag_on_grad_velocity = 0
 amr.tag_on_laplacian_velocity = 1
 amr.lap_vel_tagging_val = 100 # value for fast-sliding case
-amr.lap_vel_tagging_val = 0.0001 # value for no-slip case
+amr.lap_vel_tagging_val = 0.1 # value for no-slip case
 amr.tag_on_strain_rate_invariant = 0
 amr.strain_rate_invariant_tagging_val = 1
 
@@ -95,42 +95,10 @@ picardSolver.vtopSafety = 0.50
 
 JFNKSolver.vtopSafety = 0.50
 JFNKSolver.minPicardIterations = 2
-JFNKSolver.switchRate = 3.0
-
-JFNKSolver.vtopSafety = 0.9
-JFNKSolver.minPicardIterations = 2
-JFNKSolver.switchRate = 5.0
-#JFNKSolver.numMGSmooth = @NSMOOTH
-JFNKSolver.numMGSmooth = 8
-JFNKSolver.maxIter = 100
-
-JFNKSolver.absTol = 1.0e-2
-JFNKSolver.relTol = 1.0e-10
-#JFNKSolver.BiCGStabRelTol = 4.0e-3
-JFNKSolver.BiCGStabRelTol = 1.0e-5
-JFNKSolver.maxBiCGStabIter = 10
-JFNKSolver.maxBiCGStabIter = 40
-JFNKSolver.normType = 0
-JFNKSolver.verbosity = 5
-JFNKSolver.vtopRelaxMinIter = 4
-JFNKSolver.vtopRelaxTol = 0
-JFNKSolver.numMGIter = 1
-JFNKSolver.h = 0.025
-JFNKSolver.hAdaptive = true 
-JFNKSolver.mgProlongType = 1
-
-# 0 = relax, 1 = BiCGStab, 2 = GMRES, 3 = MultiGrid
-JFNKSolver.solverType = 0
-JFNKSolver.maxBiCGStabIter = 50
-JFNKSolver.MGtol = 1.0e-5
-JFNKSolver.RelaxTol = 1.0e-5
-JFNKSolver.maxRelaxIter = 50
-JFNKSolver.vtopRelaxTol = 0
-
 
 #inputs for solver benchmark code
 
-main.filename = plot.dome.0128.preSolve.000000.2d.hdf5
+main.filename = plot.dome.0032.preSolve.000000.2d.hdf5
 main.setVelToZero = false
 main.interpFinestLevel = false
-main.writePlotfile = true
+main.writePlotfile = true>>>>>>> 1.3
