@@ -168,9 +168,11 @@ print *,"In gtd_init, dycore_model_index = ",dycore_model_index
 
     dtype_name = 'velocity'//char(0)
 
-!    print *,'uvel ndims,shape = ',size(shape(model%velocity%uvel)),shape(model%velocity%uvel)
+    print *,'uvel ndims,shape = ',size(shape(model%velocity%uvel)),shape(model%velocity%uvel)
 
-!    print *,'vvel ndims,shape = ',size(shape(model%velocity%vvel)),shape(model%velocity%vvel)
+    print *,'vvel ndims,shape = ',size(shape(model%velocity%vvel)),shape(model%velocity%vvel)
+
+    print *,'wvel ndims,shape = ',size(shape(model%velocity%wvel)),shape(model%velocity%wvel)
 
 
     var_name = 'uvel'//char(0)       
@@ -233,8 +235,18 @@ print *,"In gtd_init, dycore_model_index = ",dycore_model_index
 
     var_name = 'temp'//char(0)       
     call dycore_set_ptr_double_var(model%temper%temp,var_name,dtype_name,dycore_model_index)
+
+    var_name = 'bheatflx'//char(0)       
+    call dycore_set_ptr_double_var(model%temper%bheatflx,var_name,dtype_name,dycore_model_index)
+
+    var_name = 'bmlt'//char(0)       
+    call dycore_set_ptr_double_var(model%temper%bmlt,var_name,dtype_name,dycore_model_index)
       
-    !print *,'temp ndims,shape = ',size(shape(model%temper%temp)),shape(model%temper%temp)
+    print *,'temp ndims,shape = ',size(shape(model%temper%temp)),shape(model%temper%temp)
+
+    print *,'bheatflx ndims,shape = ',size(shape(model%temper%bheatflx)),shape(model%temper%bheatflx)
+
+    print *,'bmlt ndims,shape = ',size(shape(model%temper%bmlt)),shape(model%temper%bmlt)
 
     call gtd_set_dim_info(shape(model%temper%temp),dim_info)
 

@@ -30,6 +30,7 @@ DyCoreToGlimmer::setDoubleVar(double *var, const char *var_name,  const char *st
   if (strcmp(struct_name,"geometry") == 0) {
     if (strcmp(var_name,"thck") == 0) geometry.thck = var;
     if (strcmp(var_name,"topg") == 0) geometry.topg = var;
+    if (strcmp(var_name,"usrf") == 0) geometry.usrf = var;
   }
 
   if (strcmp(struct_name,"velocity") == 0) {
@@ -45,6 +46,8 @@ DyCoreToGlimmer::setDoubleVar(double *var, const char *var_name,  const char *st
 
   if (strcmp(struct_name,"temper") == 0) {
     if (strcmp(var_name,"temp") == 0) temper.temp = var;
+    if (strcmp(var_name,"bheatflx") == 0) temper.bheatflx = var;
+    if (strcmp(var_name,"bmlt") == 0) temper.bmlt = var;
   }  
   
   if (strcmp(struct_name,"climate") == 0) {
@@ -90,6 +93,13 @@ DyCoreToGlimmer::getDoubleVar(const char *var_name, const  char *struct_name)
 
     //cout << "Set velocity var, " << var_name << endl;
   }
+
+  if (strcmp(struct_name,"temper") == 0) {
+    if (strcmp(var_name,"temp") == 0) var = temper.temp;
+    if (strcmp(var_name,"bheatflx") == 0) var = temper.bheatflx;
+    if (strcmp(var_name,"bmlt") == 0) var = temper.bmlt;
+  }
+
 
   return(var);
 }
