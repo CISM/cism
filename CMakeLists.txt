@@ -256,7 +256,7 @@ file(GLOB FORTRANSOURCES
      libglimmer-solve/SLAP/*.f
      libglimmer-solve/*.F90
      libglimmer/*.F90 libglimmer/writestats.c
-     libglide/*.F90 libglide/fgmresD.f90
+     libglide/*.F90
      ${GLINT_SOURCES}
      ${GLIMMER_TO_DYCORE})
 

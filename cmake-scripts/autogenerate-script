@@ -5,7 +5,7 @@
 # of the autoconf system.
 
 echo
-echo "Auto-generating config.inc, glimmer_vers.F90, glide_io.F90, glide_lithot.F90, "
+echo "Auto-generating config.inc, glimmer_vers.F90, glide_io.F90, "
 echo "glint_io.F90, glint_mbal_io.F90, and eis_io.F90."
 echo
 
@@ -30,8 +30,6 @@ popd
 pushd ../libglide
 echo "  --creating glide_io.F90"
  python ../scripts/generate_ncvars.py glide_vars.def ../libglimmer/ncdf_template.F90.in
-echo "  --creating glide_lithot_io.F90"
- python ../scripts/generate_ncvars.py glide_lithot_vars.def ../libglimmer/ncdf_template.F90.in
 popd
 
 pushd ../libglint

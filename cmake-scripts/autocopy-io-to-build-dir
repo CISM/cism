@@ -9,12 +9,11 @@
 # List of files to copy
 # These will have the '.default' stripped from their names
 files=(libglide/glide_io.F90.default
-       libglide/glide_lithot_io.F90.default 
        libglint/glint_io.F90.default
        libglint/glint_mbal_io.F90.default)
 
 echo
-echo "Automated copy of default versions of glide_io.F90, glide_lithot_io.F90,"
+echo "Automated copy of default versions of glide_io.F90,"
 echo "glint_io.F90, glint_mbal_io.F90 to build directory"
 echo
 

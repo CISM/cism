@@ -6,7 +6,7 @@
 # of the autoconf system.
 
 echo
-echo "Auto-generating glide_io.F90, glide_lithot_io.F90, "
+echo "Auto-generating glide_io.F90, "
 echo "glint_io.F90, glint_mbal_io.F90 in build directory."
 echo
 
@@ -32,11 +32,9 @@ cp $CISM_SOURCE_DIR/libglimmer/ncdf_template.F90.in .
 # The following lines generate several *_io.F90 files, based on variable definition files:
 
 # Use python scripts
-echo "  --creating glide_io.F90 and glide_lithot_io.F90"
+echo "  --creating glide_io.F90"
 cp $CISM_SOURCE_DIR/libglide/glide_vars.def .
-cp $CISM_SOURCE_DIR/libglide/glide_lithot_vars.def .
 python $CISM_SOURCE_DIR/scripts/generate_ncvars.py glide_vars.def ncdf_template.F90.in
-python $CISM_SOURCE_DIR/scripts/generate_ncvars.py glide_lithot_vars.def ncdf_template.F90.in
 
 #echo "  --creating glint_io.F90 and glint_mbal_io.F90 "
 #cp $CISM_SOURCE_DIR/libglint/glint_vars.def .

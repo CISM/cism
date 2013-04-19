@@ -1,6 +1,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! WARNING: this file was automatically generated on
-! Fri, 12 Apr 2013 21:07:15 +0000
+! Fri, 19 Apr 2013 19:12:50 +0000
 ! from ncdf_template.F90.in
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -142,6 +142,7 @@ contains
     use glide_types
     use glide_types
     use glimmer_ncdf
+    use glimmer_ncio
     use glimmer_map_types
     use glimmer_log
     use glimmer_paramets
@@ -246,7 +247,7 @@ contains
 
     ! Convert temp and flwa to versions on stag grid, if needed
     ! Note: this check must occur after restart variables are expanded which happens in glimmer_nc_readparams
-    call check_for_tempstag(model%options%whichtemp,NCO)
+    call check_for_tempstag(model%options%whichdycore,NCO)
 
     ! checking if we need to handle time averages
     pos = index(NCO%vars,"_tavg")
@@ -2148,8 +2149,8 @@ contains
     !*FD read from netCDF file
     use glide_types
     use glide_types
-    use glimmer_ncio
     use glimmer_ncdf
+    use glimmer_ncio
     implicit none
     type(glide_global_type) :: data
     type(glide_global_type) :: model
@@ -2410,6 +2411,22 @@ contains
        if (abs(scaling_factor-1.0d0).gt.1.d-17) then
           call write_log("scaling lat",GM_DIAGNOSTIC)
           data%climate%lati = data%climate%lati*scaling_factor
+       end if
+    end if
+
+    status = parallel_inq_varid(NCI%id,'litho_temp',varid)
+    if (status .eq. nf90_noerr) then
+       call write_log('  Loading litho_temp')
+       status = distributed_get_var(NCI%id, varid, &
+            data%lithot%temp, (/1,1,1,infile%current_time/))
+       call nc_errorhandle(__FILE__,__LINE__,status)
+       status = parallel_get_att(NCI%id, varid,'scale_factor',scaling_factor)
+       if (status.ne.NF90_NOERR) then
+          scaling_factor = 1.0d0
+       end if
+       if (abs(scaling_factor-1.0d0).gt.1.d-17) then
+          call write_log("scaling litho_temp",GM_DIAGNOSTIC)
+          data%lithot%temp = data%lithot%temp*scaling_factor
        end if
     end if
 

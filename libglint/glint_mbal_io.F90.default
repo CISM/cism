@@ -1,6 +1,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! WARNING: this file was automatically generated on
-! Fri, 12 Apr 2013 21:07:15 +0000
+! Fri, 19 Apr 2013 19:12:50 +0000
 ! from ncdf_template.F90.in
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -141,6 +141,7 @@ contains
     use glide_types
     use glint_type
     use glimmer_ncdf
+    use glimmer_ncio
     use glimmer_map_types
     use glimmer_log
     use glimmer_paramets
@@ -217,7 +218,7 @@ contains
 
     ! Convert temp and flwa to versions on stag grid, if needed
     ! Note: this check must occur after restart variables are expanded which happens in glimmer_nc_readparams
-    call check_for_tempstag(model%options%whichtemp,NCO)
+    call check_for_tempstag(model%options%whichdycore,NCO)
 
     ! checking if we need to handle time averages
     pos = index(NCO%vars,"_tavg")
@@ -639,8 +640,8 @@ contains
     !*FD read from netCDF file
     use glint_type
     use glide_types
-    use glimmer_ncio
     use glimmer_ncdf
+    use glimmer_ncio
     implicit none
     type(glint_instance) :: data
     type(glide_global_type) :: model
