@@ -93,6 +93,8 @@ print *,"In gtd_init, dycore_model_index = ",dycore_model_index
 !    print *,'thck ndims,shape = ',size(shape(model%geometry%thck)),shape(model%geometry%thck)
 !    print *,'topg ndims,shape = ',size(shape(model%geometry%topg)),shape(model%geometry%topg)
 
+!    print *,'usrf ndims,shape = ',size(shape(model%geometry%usrf)),shape(model%geometry%usrf)
+
     dtype_name = 'geometry'//char(0)
      
     var_name = 'thck'//char(0)
@@ -102,6 +104,11 @@ print *,"In gtd_init, dycore_model_index = ",dycore_model_index
     var_name = 'topg'//char(0)
     !call gtd_set_dim_info(shape(model%geometry%topg),dim_info)
     call dycore_set_ptr_double_var(model%geometry%topg,var_name,dtype_name,dycore_model_index)
+
+    var_name = 'usrf'//char(0)
+    !call gtd_set_dim_info(shape(model%geometry%usrf),dim_info)
+    call dycore_set_ptr_double_var(model%geometry%usrf,var_name,dtype_name,dycore_model_index)
+
 
     print *,"this_rank, ewlb, ewub, nslb, nsub", this_rank,  ewlb, ewub, nslb, nsub
  

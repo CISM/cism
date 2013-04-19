@@ -73,6 +73,10 @@ DyCoreToGlimmer::getDoubleVar(const char *var_name, const  char *struct_name)
     {
       return(geometry.topg);
     }
+    if (strcmp(var_name,"usrf") == 0)
+    {
+      return(geometry.usrf);
+    }
   }
   if (strcmp(struct_name,"numerics") == 0) {
     if (strcmp(var_name,"dew") == 0) return(numerics.dew);
