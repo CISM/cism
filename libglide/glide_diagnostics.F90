@@ -66,11 +66,11 @@ contains
     real(dp) :: minthick ! ice thickness threshold (m) for including in diagnostics
                          ! defaults to eps (a small number) if not passed in
 
+    real(dp), parameter ::   &
+       eps = 1.0d-11
+
     real(dp) ::   &
        quotient, nint_quotient
-
-    real(dp), parameter ::   &
-       eps = 1.0d-11     ! small number
 
     if (present(minthick_in)) then
        minthick = minthick_in
@@ -159,14 +159,19 @@ contains
          max_spd_bas, max_spd_bas_global,   &    ! max basal ice speed (m/yr)
          thck,                          &    ! thickness
          spd,                           &    ! speed
-         thck_diag,                     &    ! local column diagnostics
-         artm_diag,                     &
-         ubas_diag,                     &
-         tbas_diag
+         thck_diag, usrf_diag,          &    ! local column diagnostics
+         topg_diag, relx_diag,          &    
+         artm_diag, acab_diag,          &
+         bmlt_diag, bwat_diag,          &
+         bheatflx_diag, level
 
     real(dp), dimension(model%general%upn) ::  &
-         temp_diag,                     &    ! local column diagnostics
+         temp_diag,                     &    ! Note: sfc temp not included if temps are staggered
+                                             !       (use artm instead)
          spd_diag
+
+    real(dp), dimension(model%lithot%nlayer) ::  &
+         lithtemp_diag                       ! lithosphere column diagnostics
 
     integer :: i, j, k, kbed,                     &
                imax, imin,                        &
@@ -176,12 +181,14 @@ contains
                jmax_global, jmin_global,          &
                kmax_global, kmin_global,          &
                ewn, nsn, upn,                     &    ! model%numerics%ewn, etc.
+               nlith,                             &    ! model%lithot%nlayer
                velo_ew_ubound, velo_ns_ubound          ! upper bounds for velocity variables
  
     character(len=100) :: message
  
     real(dp), parameter ::   &
-         eps = 1.0d-11     ! small number
+       eps = 1.0d-11,           &! small number
+       unphys_val = -999999.d0   ! unphysical negative number
  
     integer ::   &
          global_row, global_col,    &! global row and column indices for diagnostic point
@@ -191,7 +198,9 @@ contains
     ewn = model%general%ewn
     nsn = model%general%nsn
     upn = model%general%upn
-    
+
+    nlith = model%lithot%nlayer
+
     if (uhalo > 0) then
        velo_ns_ubound = nsn-uhalo
        velo_ew_ubound = ewn-uhalo
@@ -591,12 +600,18 @@ contains
     ! local diagnostics
 
     ! initialize to unphysical negative values
-    thck_diag = -9999.d0
-    artm_diag = -9999.d0
-    tbas_diag = -9999.d0
-    ubas_diag = -9999.d0 
-    temp_diag(:) = -9999.d0
-    spd_diag(:) = -9999.d0
+    usrf_diag     = unphys_val
+    thck_diag     = unphys_val
+    topg_diag     = unphys_val
+    relx_diag     = unphys_val
+    artm_diag     = unphys_val
+    acab_diag     = unphys_val
+    bmlt_diag     = unphys_val
+    bwat_diag     = unphys_val
+    bheatflx_diag = unphys_val
+    temp_diag(:)  = unphys_val
+    spd_diag (:)  = unphys_val
+    lithtemp_diag(:) = unphys_val    
 
     if (present(idiag_global) .and. present(jdiag_global)) then
 
@@ -606,24 +621,40 @@ contains
 
           i = idiag_local
           j = jdiag_local
+          usrf_diag = model%geometry%usrf(i,j)*thk0
           thck_diag = model%geometry%thck(i,j)*thk0
+          topg_diag = model%geometry%topg(i,j)*thk0
+          relx_diag = model%isostasy%relx(i,j)*thk0
           artm_diag = model%climate%artm(i,j)
-          tbas_diag = model%temper%temp(upn,i,j)
-          ubas_diag = sqrt(model%velocity%ubas(i,j)**2   &
-                         + model%velocity%vbas(i,j)**2) * vel0*scyr
+          acab_diag = model%climate%acab(i,j) * thk0*scyr/tim0
+          bmlt_diag = model%temper%bmlt(i,j) * thk0*scyr/tim0
+          bwat_diag = model%temper%bwat(i,j) * thk0
+          bheatflx_diag = model%temper%bheatflx(i,j)
+  
           temp_diag(:) = model%temper%temp(1:upn,i,j)          
           spd_diag(:) = sqrt(model%velocity%uvel(1:upn,i,j)**2   &
                            + model%velocity%vvel(1:upn,i,j)**2) * vel0*scyr
+          lithtemp_diag(:) = model%lithot%temp(:,i,j)
 
        endif
 
+       usrf_diag = parallel_reduce_max(usrf_diag)
        thck_diag = parallel_reduce_max(thck_diag)
+       topg_diag = parallel_reduce_max(topg_diag)
+       relx_diag = parallel_reduce_max(relx_diag)
        artm_diag = parallel_reduce_max(artm_diag)
-       tbas_diag = parallel_reduce_max(tbas_diag)
-       ubas_diag = parallel_reduce_max(ubas_diag)
+       acab_diag = parallel_reduce_max(acab_diag)
+       bmlt_diag = parallel_reduce_max(bmlt_diag)
+       bwat_diag = parallel_reduce_max(bwat_diag)
+       bheatflx_diag = parallel_reduce_max(bheatflx_diag)
+
        do k = 1, upn
           temp_diag(k) = parallel_reduce_max(temp_diag(k))
           spd_diag(k)  = parallel_reduce_max(spd_diag(k))
+       enddo
+
+       do k = 1, nlith
+          lithtemp_diag(k) = parallel_reduce_max(lithtemp_diag(k))
        enddo
 
        call write_log(' ')
@@ -635,26 +666,96 @@ contains
        call write_log(trim(message), type = GM_DIAGNOSTIC)
        call write_log(' ')
  
+       write(message,'(a25,f24.16)') 'Upper surface (m)        ', thck_diag
+       call write_log(trim(message), type = GM_DIAGNOSTIC)
+
        write(message,'(a25,f24.16)') 'Thickness (m)            ', thck_diag
        call write_log(trim(message), type = GM_DIAGNOSTIC)
- 
-       write(message,'(a25,f24.16)') 'Sfc air temperature (C)  ', artm_diag
+
+       write(message,'(a25,f24.16)') 'Bedrock topo (m)         ', topg_diag
        call write_log(trim(message), type = GM_DIAGNOSTIC)
- 
-       write(message,'(a25,f24.16)') 'Basal temperature (C)    ', tbas_diag
-       call write_log(trim(message), type = GM_DIAGNOSTIC)
- 
-       write(message,'(a25,f24.16)') 'Basal speed (m/yr)       ', ubas_diag
-       call write_log(trim(message), type = GM_DIAGNOSTIC)
- 
-       call write_log(' ')
-       write(message,'(a50)') 'Level     Speed (m/yr)             Temperature (C)'
-       call write_log(trim(message), type = GM_DIAGNOSTIC)
- 
-       do k = 1, upn
-          write (message,'(i4,2f24.16)') k, spd_diag(k), temp_diag(k)
+
+       if (model%options%isostasy == ISOSTASY_COMPUTE) then
+          write(message,'(a25,f24.16)') 'Relaxed bedrock (m)   ', relx_diag
           call write_log(trim(message), type = GM_DIAGNOSTIC)
-       enddo
+       endif
+
+!!       write(message,'(a25,f24.16)') 'Basal speed (m/yr)       ', ubas_diag
+!!       call write_log(trim(message), type = GM_DIAGNOSTIC)
+
+!!       write(message,'(a25,f24.16)') 'Sfc air temperature (C)  ', artm_diag
+!!       call write_log(trim(message), type = GM_DIAGNOSTIC)
+ 
+       write(message,'(a25,f24.16)') 'Sfc mass balance (m/yr)  ', acab_diag
+       call write_log(trim(message), type = GM_DIAGNOSTIC)
+
+       write(message,'(a25,f24.16)') 'Basal melt rate (m/yr)   ', bmlt_diag
+       call write_log(trim(message), type = GM_DIAGNOSTIC)
+
+       write(message,'(a25,f24.16)') 'Basal water depth (m)    ', bwat_diag
+       call write_log(trim(message), type = GM_DIAGNOSTIC)
+
+       write(message,'(a25,f24.16)') 'Basal heat flux (W/m^2)  ', bheatflx_diag
+       call write_log(trim(message), type = GM_DIAGNOSTIC)
+ 
+       ! Vertical profile of ice speed and temperature
+
+       call write_log(' ')
+       write(message,'(a55)') ' Sigma       Ice speed (m/yr)       Ice temperature (C)'
+       call write_log(trim(message), type = GM_DIAGNOSTIC)
+ 
+       if (size(model%temper%temp,1) == upn+1) then   ! temperatures staggered in vertical
+                                                      ! (at layer midpoints)
+
+           ! upper surface 
+           write (message,'(f6.3,2f24.16)') model%numerics%sigma(1), spd_diag(1), artm_diag
+           call write_log(trim(message), type = GM_DIAGNOSTIC)
+
+           ! internal
+           do k = 1, upn-1
+
+              ! speed at top of layer
+              if (k > 1) then
+                 write (message,'(f6.3,f24.16)') model%numerics%sigma(k), spd_diag(k)
+                 call write_log(trim(message), type = GM_DIAGNOSTIC)
+              endif
+
+              ! temp at layer midpoint
+              write (message,'(f6.3,24x,f24.16)') model%numerics%stagsigma(k), temp_diag(k)
+              call write_log(trim(message), type = GM_DIAGNOSTIC)
+
+           enddo
+
+           ! lower surface
+           write (message,'(f6.3,2f24.16)') model%numerics%sigma(upn), spd_diag(upn), temp_diag(upn)
+           call write_log(trim(message), type = GM_DIAGNOSTIC)
+           
+       else    ! temperatures unstaggered in vertical (at layer interfaces)
+ 
+           do k = 1, upn
+             write (message,'(f6.3,2f24.16)') model%numerics%sigma(k), spd_diag(k), temp_diag(k)
+!!             write (message,'(i4,2f24.16)') k, spd_diag(k), temp_diag(k)
+             call write_log(trim(message), type = GM_DIAGNOSTIC)
+          enddo
+
+       endif  ! temps staggered
+
+       ! Vertical profile of upper lithosphere temperature
+
+       if (model%options%gthf == GTHF_COMPUTE) then
+
+          call write_log(' ')
+          write(message,'(a41)') '  Level (m)          Lithosphere temp (C)'
+          call write_log(trim(message), type = GM_DIAGNOSTIC)
+
+          level = 0.d0
+          do k = 1, nlith
+             level = level + model%lithot%deltaz(nlith)
+             write (message,'(f10.0,6x,f24.16)') level, lithtemp_diag(k)
+             call write_log(trim(message), type = GM_DIAGNOSTIC)
+          enddo
+
+       endif  ! gthf_compute
 
     endif     ! idiag and jdiag present
 
