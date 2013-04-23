@@ -100,6 +100,9 @@ DyCoreToGlimmer::getDoubleVar(const char *var_name, const  char *struct_name)
     if (strcmp(var_name,"bmlt") == 0) var = temper.bmlt;
   }
 
+  if (strcmp(struct_name,"climate") == 0) {
+    if (strcmp(var_name,"acab") == 0) var = climate.acab;
+  }
 
   return(var);
 }
