@@ -530,7 +530,7 @@ contains
     if (model%numerics%dt_diag > 0.d0) then
        write(message,*) 'diagnostic time (yr): ',model%numerics%dt_diag
        call write_log(message)
-       if (mod(model%numerics%dt_diag, model%numerics%dt) > 1.e-11) then
+       if (mod(model%numerics%dt_diag, model%numerics%tinc) > 1.e-11) then
           write(message,*) 'Warning: diagnostic interval does not divide evenly into ice timestep dt'
           call write_log(message)
        endif
