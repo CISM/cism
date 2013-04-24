@@ -634,7 +634,7 @@ contains
           temp_diag(:) = model%temper%temp(1:upn,i,j)          
           spd_diag(:) = sqrt(model%velocity%uvel(1:upn,i,j)**2   &
                            + model%velocity%vvel(1:upn,i,j)**2) * vel0*scyr
-          lithtemp_diag(:) = model%lithot%temp(:,i,j)
+          lithtemp_diag(:) = model%lithot%temp(i,j,:)
 
        endif
 
