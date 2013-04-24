@@ -52,7 +52,6 @@ module glide
   use glide_types
   use glide_stop
   use glide_io
-!  use glide_lithot_io
   use glide_lithot
   use glide_profile
   use glimmer_config
@@ -100,9 +99,9 @@ contains
     ! read sigma levels from config file, if present
     call glide_read_sigma(model,config)
 
-    ! read isostasy configuration file
-    call isos_readconfig(model%isos,config)
-    call isos_printconfig(model%isos)
+    !WHL - Moved isostasy configuration to glide_setup
+!    call isos_readconfig(model%isos,config)
+!    call isos_printconfig(model%isos)
 
     ! read mapping from config file
     ! **** Use of dew and dns here is an ugly fudge that
@@ -233,9 +232,11 @@ contains
 
     !TODO - Should we do anything for default case 0?
     select case(model%options%whichrelaxed)
+
     case(RELAXED_TOPO_INPUT)   ! Supplied topography is relaxed
-       model%isos%relx = model%geometry%topg
+       model%isostasy%relx = model%geometry%topg
     case(RELAXED_TOPO_COMPUTE) ! Supplied topography is in equilibrium
+                               !TODO - test this case
        call isos_relaxed(model)
     end select
 
@@ -296,11 +297,10 @@ contains
     ! initialise thickness evolution calc
     call init_thck(model)
 
-     !WHL - Variables should have been created by glide_io_createall
-!    if (model%options%gthf == GTHF_COMPUTE) then
-!       call glide_lithot_io_createall(model)
+    if (model%options%gthf == GTHF_COMPUTE) then
+!!       call glide_lithot_io_createall(model)  !WHL - Variables should have been created by glide_io_createall
        call init_lithot(model)
-!    end if
+    end if
 
 !WHL - This call will set the ice column temperature to artm as in old glide,
 !       regardless of the value of model%options%temp_init
@@ -416,7 +416,7 @@ contains
 
     call glide_marinlim(model%options%whichmarn, &
                         model%geometry%thck,      &
-                        model%isos%relx,      &
+                        model%isostasy%relx,      &
                         model%geometry%topg,   &
                         model%geometry%thkmask,    &
                         model%numerics%mlimit,     &
@@ -449,8 +449,7 @@ contains
     ! ------------------------------------------------------------------------    
 
 !TODO Update ice/water load here?
-
-!TODO Calculate isostasy here?
+!TODO Calculate isostasy here instead of in tstep_p3?
 
     ! ------------------------------------------------------------------------
     ! calculate upper and lower ice surface
@@ -776,7 +775,7 @@ contains
 
     call glide_marinlim(model%options%whichmarn, &
                         model%geometry%thck,      &
-                        model%isos%relx,      &
+                        model%isostasy%relx,      &
                         model%geometry%topg,   &
                         model%geometry%thkmask,    &
                         model%numerics%mlimit,     &
@@ -789,9 +788,8 @@ contains
                         model%general%nsn, &
                         model%general%ewn)
 
-!TODO - This call is not in old Glide.
-!TODO - Write a better comment here.  The mask needs to be recalculated after marinlim.
-    !issues with ice shelf, calling it again fixes the mask
+    ! Recalculate the mask following calving
+    ! Note - This call is not in old Glide (but should have been).
 
  if (.not. oldglide) then   ! recalculate the thickness mask after calving
     call glide_set_mask(model%numerics,                                &
@@ -815,11 +813,11 @@ contains
 
     call glide_prof_start(model,model%glide_prof%isos_water)
 
-    if (model%isos%do_isos) then
-       if (model%numerics%time >= model%isos%next_calc) then
-          model%isos%next_calc = model%isos%next_calc + model%isos%period
+    if (model%options%isostasy == ISOSTASY_COMPUTE) then
+       if (model%numerics%time >= model%isostasy%next_calc) then
+          model%isostasy%next_calc = model%isostasy%next_calc + model%isostasy%period
           call isos_icewaterload(model)
-          model%isos%new_load = .true.
+          model%isostasy%new_load = .true.
        end if
     end if
 
@@ -888,9 +886,11 @@ contains
     ! ------------------------------------------------------------------------ 
 
     call glide_prof_start(model,model%glide_prof%isos)
-    if (model%isos%do_isos) then
-       call isos_isostasy(model)
+
+    if (model%options%isostasy == ISOSTASY_COMPUTE) then
+       call isos_compute(model)
     end if
+
     call glide_prof_stop(model,model%glide_prof%isos)
 
     ! ------------------------------------------------------------------------
@@ -902,7 +902,7 @@ contains
 
     model%geometry%usrf = max(0.d0,model%geometry%thck + model%geometry%lsrf)
 
-!TODO - Is this the right place to increment the timecounter?  
+!TODO - Move timecounter to simple_glide/glint driver?
 !CESM Glimmer code has this after the netCDF write.
 
     ! increment time counter
@@ -927,19 +927,9 @@ contains
 
 !WHL - Moved netCDF output to simple_glide
 !      Might have to do the same for other drivers
-
 !!       call glide_io_writeall(model,model)
 
   end subroutine glide_tstep_p3
-
-!=======================================================================
-
-!WHL - Moved the code in this subroutine back to glide_tstep_p3 for 
-!      compatibility with most drivers.
-!      (simple_glide was calling this separately, but other drivers were not.)
-
-!!  subroutine glide_tstep_postp3(model, no_write)
-!!  end subroutine glide_tstep_postp3
 
 !=======================================================================
 

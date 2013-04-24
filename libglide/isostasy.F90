@@ -1,3 +1,6 @@
+!TODO - Swap out old for new isostasy
+!       Physics is the same, but some type names are different.
+
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
 ! +  isostasy.f90 - part of the Glimmer-CISM ice model        + 
@@ -36,41 +39,48 @@ module isostasy
   !*FD calculate isostatic adjustment due to changing surface loads
 
   use glimmer_global, only : dp
-  use isostasy_setup
-  use isostasy_types
-  use isostasy_el
+  use isostasy_elastic
 
   implicit none
 
   private :: relaxing_mantle
-  
+
+!-------------------------------------------------------------------------
+
 contains
+
+!-------------------------------------------------------------------------
+
   subroutine init_isostasy(model)
+
     !*FD initialise isostasy calculations
     use parallel
     use glide_types
     use glimmer_physcon,  only: scyr
     use glimmer_paramets, only: tim0
     implicit none
+
     type(glide_global_type) :: model
 
-    !TODO : Remove hardwiring of lithosphere option numbers
-    if (model%isos%lithosphere == 1) then
+    if (model%isostasy%lithosphere == LITHOSPHERE_ELASTIC) then
        call not_parallel(__FILE__,__LINE__)
-       call init_elastic(model%isos%rbel,model%numerics%dew)
+       call init_elastic(model%isostasy%rbel,model%numerics%dew)
     end if
-    model%isos%next_calc = model%numerics%tstart
 
-    ! scale tau
-    model%isos%relaxed_tau = model%isos%relaxed_tau * scyr / tim0
+    model%isostasy%next_calc = model%numerics%tstart
+    model%isostasy%relaxed_tau = model%isostasy%relaxed_tau * scyr / tim0
 
   end subroutine init_isostasy
+
+!-------------------------------------------------------------------------
   
   subroutine isos_icewaterload(model)
+
     !*FD calculate surface load factors due to water and ice distribution
     use glimmer_physcon
     use glide_types
     implicit none
+
     type(glide_global_type) :: model
 
     real(dp) :: ice_mass, water_depth, water_mass
@@ -79,80 +89,114 @@ contains
      do ns=1,model%general%nsn
        do ew=1,model%general%ewn
           ice_mass = rhoi * model%geometry%thck(ew,ns)
-          if (model%geometry%topg(ew,ns)-model%climate%eus < 0.d0) then   ! check if we are below sea level
+
+          if (model%geometry%topg(ew,ns) - model%climate%eus < 0.d0) then   ! check if we are below sea level
+
              water_depth = model%climate%eus - model%geometry%topg(ew,ns)
              water_mass = rhoo * water_depth
+
              ! Just the water load due to changes in sea-level
-             model%isos%load_factors(ew,ns) = rhoo* model%climate%eus/rhom
+             model%isostasy%load_factors(ew,ns) = rhoo* model%climate%eus/rhom
+
              ! Check if ice is not floating
              if ( ice_mass > water_mass ) then
-                model%isos%load_factors(ew,ns) = model%isos%load_factors(ew,ns) + (ice_mass - water_mass)/rhom
+                model%isostasy%load_factors(ew,ns) = model%isostasy%load_factors(ew,ns) + (ice_mass - water_mass)/rhom
              end if
+
           else                                       ! bedrock is above sea level
-             model%isos%load_factors(ew,ns) = ice_mass/rhom
+
+             model%isostasy%load_factors(ew,ns) = ice_mass/rhom
+
           end if
+
        end do
     end do
+
   end subroutine isos_icewaterload
 
-  subroutine isos_isostasy(model)
+!-------------------------------------------------------------------------
+
+  subroutine isos_compute(model)
+
     !*FD calculate isostatic adjustment due to changing surface loads
+
     use glide_types
     implicit none
+
     type(glide_global_type) :: model
 
-    !TODO : Remove hardwiring of asthenosphere option numbers
     ! update load if necessary
-    if (model%isos%new_load) then
-       call isos_lithosphere(model,model%isos%load,model%isos%load_factors)
-       ! update bed rock with (non-viscous) fluid mantle
-       if (model%isos%asthenosphere == 0) then
-          model%geometry%topg = model%isos%relx - model%isos%load
+    if (model%isostasy%new_load) then
+       call isos_lithosphere(model, model%isostasy%load, model%isostasy%load_factors)
+       ! update bedrock with (non-viscous) fluid mantle
+       if (model%isostasy%asthenosphere == ASTHENOSPHERE_FLUID) then
+          model%geometry%topg = model%isostasy%relx - model%isostasy%load
        end if
-       model%isos%new_load = .false.
+       model%isostasy%new_load = .false.
     end if
-    ! update bed rock with relaxing mantle
-    if (model%isos%asthenosphere == 1) then
+
+    ! update bedrock with relaxing mantle
+    if (model%isostasy%asthenosphere == ASTHENOSPHERE_RELAXING) then
        call relaxing_mantle(model)
     end if
-  end subroutine isos_isostasy
+
+  end subroutine isos_compute
+
+!-------------------------------------------------------------------------
 
   subroutine isos_lithosphere(model,load,load_factors)
+
     use glide_types
     implicit none
     type(glide_global_type) :: model
     real(dp), dimension(:,:), intent(out) :: load !*FD loading effect due to load_factors
     real(dp), dimension(:,:), intent(in)  :: load_factors !*FD load mass divided by mantle density
 
-    !TODO : Remove hardwiring of lithosphere option numbers
-    if (model%isos%lithosphere == 0) then
-       ! local lithosphere
+    if (model%isostasy%lithosphere == LITHOSPHERE_LOCAL) then
        load = load_factors
-    else if (model%isos%lithosphere == 1) then
-       call calc_elastic(model%isos%rbel,load,load_factors)
+    else if (model%isostasy%lithosphere == LITHOSPHERE_ELASTIC) then
+       call calc_elastic(model%isostasy%rbel, load, load_factors)
     end if
+
   end subroutine isos_lithosphere
 
+!-------------------------------------------------------------------------
+
   subroutine isos_relaxed(model)
+
     !*FD Calculate the relaxed topography, assuming the isostatic depression
     !*FD is the equilibrium state for the current topography.
+
     use glide_types
     implicit none
     type(glide_global_type) :: model
 
+!WHL - debug
+    integer :: i, j
+
     ! Calculate the load
     call isos_icewaterload(model)
+
     ! Apply lithosphere model
-    call isos_lithosphere(model,model%isos%load,model%isos%load_factors)
+    call isos_lithosphere(model, model%isostasy%load, model%isostasy%load_factors)
+
     ! Add to present topography to get relaxed topography
-    model%isos%relx = model%geometry%topg + model%isos%load
+    model%isostasy%relx = model%geometry%topg + model%isostasy%load
+
+!WHL - debug
+!    i = model%numerics%idiag_global
+!    j = model%numerics%jdiag_global
+!    print*, ' '
+!    print*, 'i, j, topg, load, relx:', i, j, model%geometry%topg(i,j), model%isostasy%load(i,j), model%isostasy%relx(i,j) 
 
   end subroutine isos_relaxed
 
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  ! private subroutines
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!-------------------------------------------------------------------------
+! private subroutines
+!-------------------------------------------------------------------------
+
   subroutine relaxing_mantle(model)
+
     !*FD approximate mantle with a relaxing half-space: dh/dt=-1/tau*(w-h)
     use glide_types
     implicit none
@@ -161,14 +205,20 @@ contains
     integer :: ew,ns
     real(dp) :: ft1, ft2
 
-    ft1 = exp(-model%numerics%dt/model%isos%relaxed_tau)
-    ft2 = 1. - ft1
-    
+    ft1 = exp(-model%numerics%dt/model%isostasy%relaxed_tau)
+    ft2 = 1. - ft1  !TODO - 1.d0
+
     do ns=1,model%general%nsn
        do ew=1,model%general%ewn
-          model%geometry%topg(ew,ns) = ft2*(model%isos%relx(ew,ns)-model%isos%load(ew,ns)) + ft1*model%geometry%topg(ew,ns)
+          model%geometry%topg(ew,ns) = ft2 * (model%isostasy%relx(ew,ns) - model%isostasy%load(ew,ns)) &
+                                     + ft1 *  model%geometry%topg(ew,ns)
        end do
     end do
+
   end subroutine relaxing_mantle
 
+!-------------------------------------------------------------------------
+
 end module isostasy
+
+!-------------------------------------------------------------------------

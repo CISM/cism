@@ -101,12 +101,21 @@ contains
        call handle_parameters(section, model)
     end if
 
+    !TODO - Should we call handle_gthf only if model%options%gthf = GTHF_COMPUTE
     ! read GTHF 
     call GetSection(config,section,'GTHF')
     if (associated(section)) then
-!!       model%options%gthf = 1       
        model%options%gthf = GTHF_COMPUTE
        call handle_gthf(section, model)
+    end if
+
+    !WHL - New isostasy option
+    !TODO - Should we call handle_isostasy only if model%options%isostasy = ISOSTASY_COMPUTE?
+    ! read isostasy
+    call GetSection(config,section,'isostasy')
+    if (associated(section)) then
+       model%options%isostasy = ISOSTASY_COMPUTE
+       call handle_isostasy(section, model)
     end if
 
     !WHL - disabled for now
@@ -117,8 +126,8 @@ contains
 !!    end if
 
     ! Construct the list of necessary restart variables based on the config options 
-    ! selected by the user in the config file (specific to the glide & glide_litho sections - other sections,
-    ! e.g. glint, isos, are handled separately by their setup routines).
+    ! selected by the user in the config file.
+    ! (Glint restart variables are handled separately by Glint setup routines.)
     ! This is done regardless of whether or not a restart ouput file is going 
     ! to be created for this run, but this information is needed before setting up outputs.   MJH 1/17/13
 
@@ -142,6 +151,7 @@ contains
     call print_options(model)
     call print_parameters(model)
     call print_gthf(model)
+    call print_isostasy(model)
 !!    call print_till_options(model)  ! disabled for now
 
   end subroutine glide_printconfig
@@ -173,7 +183,7 @@ contains
 
     model%numerics%dt     = model%numerics%tinc * scyr / tim0   ! keep scyr?  (or let dt be in yr)
     model%numerics%dttem  = model%numerics%ntem * scyr / tim0   ! keep scyr?  (or let dt be in yr)
-    model%numerics%thklim = model%numerics%thklim  / thk0       ! can remove scaling here 
+    model%numerics%thklim = model%numerics%thklim  / thk0       ! can remove scaling here
 
     model%numerics%dew = model%numerics%dew / len0         ! remove
     model%numerics%dns = model%numerics%dns / len0         ! remove
@@ -530,6 +540,7 @@ contains
     if (model%numerics%dt_diag > 0.d0) then
        write(message,*) 'diagnostic time (yr): ',model%numerics%dt_diag
        call write_log(message)
+       !TODO - Verify that this mod statement works for real numbers.  Might need different logic.
        if (mod(model%numerics%dt_diag, model%numerics%tinc) > 1.e-11) then
           write(message,*) 'Warning: diagnostic interval does not divide evenly into ice timestep dt'
           call write_log(message)
@@ -1240,10 +1251,9 @@ contains
     type(glide_global_type)  :: model
     character(len=100) :: message
     
-!!    if (model%options%gthf > 0) then
     if (model%options%gthf == GTHF_COMPUTE) then
-       call write_log('GTHF configuration')
-       call write_log('------------------')
+       call write_log('Geothermal heat flux configuration')
+       call write_log('----------------------------------')
        if (model%lithot%num_dim==1) then
           call write_log('solve 1D diffusion equation')
        else if (model%lithot%num_dim==3) then          
@@ -1268,6 +1278,77 @@ contains
        call write_log('')
     end if
   end subroutine print_gthf
+
+!--------------------------------------------------------------------------------
+
+  !WHL - new subroutine based on isos_readconfig
+  subroutine handle_isostasy(section, model)
+    use glimmer_config
+    use glide_types
+    implicit none
+    type(ConfigSection), pointer :: section
+    type(glide_global_type)  :: model
+
+!!    isos%do_isos = .true.  !TODO - Redundant with options%isostasy
+    call GetValue(section,'lithosphere',model%isostasy%lithosphere)
+    call GetValue(section,'asthenosphere',model%isostasy%asthenosphere)
+    call GetValue(section,'relaxed_tau',model%isostasy%relaxed_tau)
+    call GetValue(section,'update',model%isostasy%period)
+
+    !NOTE: This value used to be in a separate section ('elastic lithosphere')
+    !      Now part of 'isostasy' section
+    call GetValue(section,'flexural_rigidity',model%isostasy%rbel%d)
+
+!!    call GetSection(config,section,'elastic lithosphere')
+!!    if (associated(section)) then
+!!       call GetValue(section,'flexural_rigidity',isos%rbel%d)
+!!    end if
+
+  end subroutine handle_isostasy
+
+!--------------------------------------------------------------------------------
+
+  !WHL - new subroutine based on isos_printconfig
+  subroutine print_isostasy(model)
+    use glide_types
+    use glimmer_log
+    use parallel, only: tasks
+    implicit none
+    type(glide_global_type)  :: model
+    character(len=100) :: message
+    
+    if (model%options%isostasy == ISOSTASY_COMPUTE) then
+       call write_log('Isostasy')
+       call write_log('--------')
+
+       if (model%isostasy%lithosphere==LITHOSPHERE_LOCAL) then
+          call write_log('using local lithosphere approximation')
+       else if (model%isostasy%lithosphere==LITHOSPHERE_ELASTIC) then
+          if (tasks > 1) then
+             call write_log('Error, elastic lithosphere not supported for multiple processors',GM_FATAL)
+          endif
+          call write_log('using elastic lithosphere approximation')
+          write(message,*) ' flexural rigidity : ', model%isostasy%rbel%d
+          call write_log(message)
+          write(message,*) ' update period (yr): ', model%isostasy%period
+          call write_log(message)
+       else
+          call write_log('Error, unknown lithosphere option',GM_FATAL)
+       end if
+
+       if (model%isostasy%asthenosphere==ASTHENOSPHERE_FLUID) then
+          call write_log('using fluid mantle')
+       else if (model%isostasy%asthenosphere==ASTHENOSPHERE_RELAXING) then
+          call write_log('using relaxing mantle')
+          write(message,*) ' characteristic time constant (yr): ', model%isostasy%relaxed_tau
+          call write_log(message)
+       else
+          call write_log('Error, unknown asthenosphere option',GM_FATAL)
+       end if
+       call write_log('')
+    endif   ! compute isostasy
+
+  end subroutine print_isostasy
 
 !--------------------------------------------------------------------------------
 
@@ -1432,17 +1513,32 @@ contains
     ! basal water option
     select case (options%whichbwat)
       case (BWATER_NONE, BWATER_CONST)
-        ! no restart needed
+        ! no restart variables needed
       case default
         ! restart needs to know bwat value
         call glide_add_to_restart_variable_list('bwat')
     end select
 
-    !WHL - This should be handled by glide_add_to_restart_variable_list
-    ! if the GTHF calculation is enabled, litho_temp needs to be a restart variable
-!!    if (options%gthf == GTHF_COMPUTE) then
-!!        call glide_lithot_add_to_restart_variable_list('litho_temp')
-!!    endif
+    ! geothermal heat flux option
+    select case (options%gthf)
+      case(GTHF_COMPUTE)
+         ! restart needs to know lithosphere temperature
+         call glide_add_to_restart_variable_list('litho_temp')
+      case default
+         ! no restart variables needed
+    end select
+
+    !WHL - added isostasy option
+    select case (options%isostasy)
+      case(ISOSTASY_COMPUTE)
+         ! restart needs to know relaxation depth
+         ! TODO MJH: I suspect that relx is only needed when asthenosphere=1 (relaxing mantle), but I'm not sure -
+         !      this should be tested when isostasy implementation is finalized/tested.
+         call glide_add_to_restart_variable_list('relx')
+      case default
+         ! no new restart variables needed
+    end select
+
 
     ! basal processes module - requires tauf for a restart
 !!    if (options%which_bproc /= BAS_PROC_DISABLED ) then

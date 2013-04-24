@@ -55,7 +55,6 @@ module glide_types
   use glimmer_sparse_type
   use glimmer_global
   use glimmer_ncdf
-  use isostasy_types
   use profile
   use glimmer_coordinates
   use glimmer_map_types
@@ -96,6 +95,7 @@ module glide_types
   integer, parameter :: DYCORE_GLAM = 1      ! Payne-Price finite-difference solver
   integer, parameter :: DYCORE_GLISSADE = 2  ! prototype finite-element solver
 
+  !TODO - Get rid of -1 option?
   integer, parameter :: EVOL_NO_THICKNESS = -1
   integer, parameter :: EVOL_PSEUDO_DIFF = 0
   integer, parameter :: EVOL_ADI = 1
@@ -155,6 +155,21 @@ module glide_types
   integer, parameter :: GTHF_PRESCRIBED_2D = 1
   integer, parameter :: GTHF_COMPUTE = 2
 
+  integer, parameter :: RELAXED_TOPO_NONE = 0     ! Do nothing
+  integer, parameter :: RELAXED_TOPO_INPUT = 1    ! Input topo is relaxed
+  integer, parameter :: RELAXED_TOPO_COMPUTE = 2  ! Input topo in isostatic equilibrium
+                                                  ! compute relaxed topo
+
+  !WHL - added these isostasy/lithosphere/asthenosphere options
+  integer, parameter :: ISOSTASY_NONE = 0
+  integer, parameter :: ISOSTASY_COMPUTE = 1
+
+  integer, parameter :: LITHOSPHERE_LOCAL = 0
+  integer, parameter :: LITHOSPHERE_ELASTIC = 1
+
+  integer, parameter :: ASTHENOSPHERE_FLUID = 0
+  integer, parameter :: ASTHENOSPHERE_RELAXING = 1
+
   !WHL - Swapped 2 and 3
 !!  integer, parameter :: MARINE_NONE = 0
 !!  integer, parameter :: MARINE_FLOAT_ZERO = 1
@@ -183,11 +198,6 @@ module glide_types
 !!  integer, parameter :: SIGMA_BUILTIN_DEFAULT = 0 ! Use default Sigma coordinate spacing
 !!  integer, parameter :: SIGMA_BUILTIN_EVEN = 1    ! Use an evenly spaced Sigma coordinate
 !!  integer, parameter :: SIGMA_BUILTIN_PATTYN = 2  ! Use Pattyn's sigma coordinates
-
-  integer, parameter :: RELAXED_TOPO_NONE = 0     ! Do nothing
-  integer, parameter :: RELAXED_TOPO_INPUT = 1    ! Input topo is relaxed
-  integer, parameter :: RELAXED_TOPO_COMPUTE = 2  ! Input topo in isostatic equilibrium
-                                                  ! compute relaxed topo
 
   !TODO - Make this a logical variable?
   integer, parameter :: RESTART_FALSE = 0
@@ -311,8 +321,6 @@ module glide_types
     !*FD Method for calculating flow factor $A$:
 
 !WHL - Changed option numbers; default FLWA_PATERSON_BUDD is now option 2
-
-!!    integer :: whichflwa = 0
     integer :: whichflwa = 2
 
     !*FD \begin{description} 
@@ -323,25 +331,21 @@ module glide_types
     !*FD \,\mathrm{Pa}^{-n}$
     !*FD \end{description}
 
-!WHL - Change option numbers, but default unchanged
     integer :: whichbtrc = 0
 
     !*FD Basal slip coefficient:
     !*FD \begin{description}
     !*FD \item[0] Set equal to zero everywhere
     !*FD \item[1] Set to (non--zero) constant
-!!    !*FD \item[2] Set to (non--zero) constant where temperature is at pressure melting point of ice, otherwise to zero
     !*FD \item[2] Set to (non--zero) constant where basal water is present, otherwise to zero
     !*FD \item[3] Set to (non--zero) constant where temperature is at pressure melting point of ice, otherwise to zero
     !*FD \item[4] linear function of basal melt rate
     !*FD \item[5] \texttt{tanh} function of basal water depth 
-!!    !*FD \item[5] function of taub^{-3}
     !*FD \end{description}
 
-!WHL - Changed option numbers; default BWATER_NONE is now option 0
-!!    integer :: whichbwat = 2
     integer :: whichbwat = 0
 
+!WHL - Changed option numbers; default BWAT_NONE is now option 0
     !*FD Basal water depth: 
     !*FD \begin{description} 
     !*FD \item[0] Set to zero everywhere 
@@ -368,7 +372,26 @@ module glide_types
     !*FD \item[2] calculate geothermal flux using 3d diffusion
     !*FD \end{description}
 
-!WHL - Changed order, but default unchanged
+    !WHL - new isostasy option; replaces model%isos%do_isos
+    integer :: isostasy = 0
+
+    !*FD isostasy:
+    !*FD \begin{description}
+    !*FD \item[0] no isostatic adjustment
+    !*FD \item[1] compute isostatic adjustment using lithosphere/asthenosphere model
+    !*FD \end{description}
+
+    !TODO - Should this move from the options to the isostasy section?
+    !TODO - Should the default be = 1?  Nothing happens for case 0.
+    integer :: whichrelaxed = 0
+
+    !*FD relaxed topography:
+    !*FD \begin{description}
+    !*FD \item[0] get relaxed topo from separate variable (in practice, do nothing)
+    !*FD \item[1] first time slice of input topo is relaxed
+    !*FD \item[2] first time slice of input topo is in isostatic equilibrium
+    !*FD \end{description}
+
     integer :: whichmarn = 1
 
     !*FD Marine limit: 
@@ -412,17 +435,7 @@ module glide_types
 !!    !*FD \item[2] Pattyn's sigma levels
 !!    !*FD \end{description}
 
-    !TODO - Should the default be = 1?  Nothing happens for case 0.
-    integer :: whichrelaxed = 0
-
-    !*FD relaxed topography:
-    !*FD \begin{description}
-    !*FD \item[0] get relaxed topo from separate variable (in practice, do nothing)
-    !*FD \item[1] first time slice of input topo is relaxed
-    !*FD \item[2] first time slice of input topo is in isostatic equilibrium
-    !*FD \end{description}
-
-    !TODO - Make this a logical variable?
+    !TODO - Make is_restart a logical variable?
 
     integer :: is_restart = 0
     !*FD if the run is a restart of a previous run
@@ -782,6 +795,8 @@ module glide_types
 !!     real(sp) :: slidconst = 0.0     ! not currently used
   end type glide_climate
 
+  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
   type glide_temper
 
     !*FD Holds fields relating to temperature.
@@ -821,6 +836,8 @@ module glide_types
     logical  :: first1  = .true. !*FD
     logical  :: newtemps = .false. !*FD new temperatures
   end type glide_temper
+
+  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   type glide_lithot_type
      !*FD holds variables for temperature calculations in the lithosphere
@@ -864,6 +881,56 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+!WHL - Move these two isostasy types from isostasy_types.F90
+!      What is now called 'isostasy_type' used to be 'isos_type'.
+!      What is now called 'isos_elastic' used to be 'isostasy_elastic'.
+ 
+  type isos_elastic
+     !*FD Holds data used by isostatic adjustment calculations
+
+     real(dp) :: d = 0.24e25                !*FD flexural rigidity  !TODO - Units?
+     real(dp) :: lr                         !*FD radius of relative stiffness
+     real(dp) :: a                          !*FD radius of disk
+     real(dp) :: c1,c2,cd3,cd4              !*FD coefficients
+     real(dp), dimension(:,:), pointer :: w !*FD matrix operator for lithosphere deformation
+     integer :: wsize                       !*FD size of operator (0:rbel_wsize, 0:rbel_wsize), operator is axis symmetric
+  end type isos_elastic
+
+  type isostasy_type
+     !*FD contains isostasy configuration
+
+     !WHL - do_isos replaced by  model%options%isostasy
+!!     logical :: do_isos = .false.    ! set to .true. if isostatic adjustment should be handled
+
+     integer :: lithosphere = 0
+     !*FD method for calculating equilibrium bedrock depression
+     !*FD \begin{description}
+     !*FD \item[0] local lithosphere, equilibrium bedrock depression is found using Archimedes' principle
+     !*FD \item[1] elastic lithosphere, flexural rigidity is taken into account
+     !*FD \end{description}
+
+     integer :: asthenosphere = 0
+     !*FD method for approximating the mantle
+     !*FD \begin{description}
+     !*FD \item[0] fluid mantle, isostatic adjustment happens instantaneously
+     !*FD \item[1] relaxing mantle, mantle is approximated by a half-space
+     !*FD \end{description}
+
+     !TODO - Make these dp?
+     real :: relaxed_tau = 4000.    ! characteristic time constant of relaxing mantle (yr)
+     real :: period = 500.          ! lithosphere update period (yr)
+     real :: next_calc              ! when to update lithosphere
+     logical :: new_load = .false.  ! set to true if there is a new surface load
+     type(isos_elastic) :: rbel     ! structure holding elastic lithosphere setup
+
+     real(dp),dimension(:,:),pointer :: relx => null()  ! elevation of relaxed topography, by \texttt{thck0}.
+     real(dp),dimension(:,:),pointer :: load => null()  ! load imposed on lithosphere
+     real(dp),dimension(:,:),pointer :: load_factors => null() ! temporary used for load calculation
+
+  end type isostasy_type
+
+  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
   type glide_funits
     character(fname_length) :: sigfile=''                      !*FD sigma coordinates file
     character(fname_length) :: ncfile=''                       !*FD configuration file for netCDF I/O
@@ -884,12 +951,6 @@ module glide_types
     real(dp) :: tinc   =    1.d0 !*FD time step of main loop in years 
     real(dp) :: ntem   =    1.d0 !*FD temperature time step (multiplier of main time step)
     real(dp) :: nvel   =    1.d0 !*FD velocity time step (multiplier of main time step)
-!    real(sp) :: tstart = 0.0      !*FD starting time
-!    real(sp) :: tend   = 20000.0  !*FD end time
-!    real(sp) :: time   =    0.0   !*FD main loop counter in years
-!    real(sp) :: tinc   =   20.0   !*FD time step of main loop in years 
-!    real(sp) :: ntem   =    1.0   !*FD temperature time step (multiplier of main time step)
-!    real(sp) :: nvel   =    1.0   !*FD velocity time step (multiplier of main time step)
     real(dp) :: alpha  =    0.5d0 !*FD richard suggests 1.5 - was a parameter in original
     real(dp) :: alphas =    0.5d0 !*FD was a parameter in the original
     real(dp) :: thklim =  100.0   
@@ -1130,8 +1191,8 @@ module glide_types
     type(glimmap_proj)   :: projection
     type(glide_basalproc):: basalproc
     type(profile_type)   :: profile
-    type(glide_prof_type) :: glide_prof
-    type(isos_type)      :: isos
+    type(glide_prof_type):: glide_prof
+    type(isostasy_type)  :: isostasy
     type(glide_phaml)    :: phaml
     type(glide_grnd)     :: ground
     type(glissade_solver):: solver_data
@@ -1140,15 +1201,16 @@ module glide_types
 
 contains
 
+  !WHL - Update description?  Make sure list is complete
   subroutine glide_allocarr(model)    
     !*FD Allocates the model arrays, and initialises some of them to zero.
     !*FD These are the arrays allocated, and their dimensions:
     !*FD
     !*FD In \texttt{model\%temper}:
     !*FD \begin{itemize}
-    !*FD \item \texttt{temp(upn,0:ewn+1,0:nsn+1))}
+    !*FD \item \texttt{temp(upn,0:ewn+1,0:nsn+1))}   !WHL - 2 choices
     !*FD \item \texttt{bheatflx(ewn,nsn))}
-    !*FD \item \texttt{flwa(upn,ewn,nsn))}
+    !*FD \item \texttt{flwa(upn,ewn,nsn))}           !WHL - 2 choices
     !*FD \item \texttt{bwat(ewn,nsn))}
     !*FD \item \texttt{bmlt(ewn,nsn))}
     !*FD \item \texttt{bfricflx(ewn,nsn))}
@@ -1274,9 +1336,6 @@ contains
     model%temper%temp(:,:,:) = -999.0d0
     model%temper%flwa(:,:,:) = -999.0d0
  
-    allocate(model%lithot%temp(1:ewn,1:nsn,model%lithot%nlayer)); model%lithot%temp = 0.0
-    call coordsystem_allocate(model%general%ice_grid, model%lithot%mask)
-
     call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%uvel)
     call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%vvel)
 
@@ -1387,7 +1446,6 @@ contains
        allocate(model%numerics%sigma(upn))
     endif
 
-    !whl - to do - might be useful to change to (0:upn)
     allocate(model%numerics%stagsigma(upn-1))
     allocate(model%numerics%stagwbndsigma(0:upn))  !MJH added (0:upn) as separate variable
 
@@ -1400,9 +1458,16 @@ contains
 
     call new_sparse_matrix(ewn*nsn, 5*ewn*nsn, model%solver_data%matrix)
 
-    ! allocate isostasy grids
-    call isos_allocate(model%isos,ewn,nsn)
+    allocate(model%lithot%temp(1:ewn,1:nsn,model%lithot%nlayer)); model%lithot%temp = 0.d0
+    call coordsystem_allocate(model%general%ice_grid, model%lithot%mask)
 
+    ! allocate isostasy grids
+
+    call coordsystem_allocate(model%general%ice_grid, model%isostasy%relx)
+    call coordsystem_allocate(model%general%ice_grid, model%isostasy%load)
+    call coordsystem_allocate(model%general%ice_grid, model%isostasy%load_factors)
+
+    !TODO - Are these needed?
     !allocate phaml variables
     call coordsystem_allocate(model%general%ice_grid, model%phaml%init_phaml)
     call coordsystem_allocate(model%general%ice_grid, model%phaml%rs_phaml)
@@ -1660,8 +1725,15 @@ contains
 !KJE do we need this at all here, the parts within are allocated in glam_strs2
     call del_sparse_matrix(model%solver_data%matrix)
 
-    ! allocate isostasy grids
-    call isos_deallocate(model%isos)
+    ! deallocate isostasy grids
+
+    ! new isostasy
+    if (associated(model%isostasy%relx)) &
+       deallocate(model%isostasy%relx)
+    if (associated(model%isostasy%load)) &
+       deallocate(model%isostasy%load)
+    if (associated(model%isostasy%load_factors)) &
+       deallocate(model%isostasy%load_factors)
 
     !deallocate phaml variables
     if (associated(model%phaml%init_phaml)) &

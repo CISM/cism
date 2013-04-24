@@ -157,8 +157,9 @@ contains
 
     select case(model%options%whichrelaxed)
     case(RELAXED_TOPO_INPUT)   ! Supplied topography is relaxed
-       model%isos%relx = model%geometry%topg
+       model%isostasy%relx = model%geometry%topg
     case(RELAXED_TOPO_COMPUTE) ! Supplied topography is in equilibrium
+                               !TODO - Test this case
        call not_parallel(__FILE__,__LINE__)
        call isos_relaxed(model)
     end select
@@ -600,8 +601,8 @@ contains
     call parallel_halo(model%geometry%thkmask) 
 !    call horiz_bcs_unstag_scalar(model%geometry%thkmask)
 
-    call parallel_halo(model%isos%relx)
-!    call horiz_bcs_unstag_scalar(model%isos%relx)
+    call parallel_halo(model%isostasy%relx)
+!    call horiz_bcs_unstag_scalar(model%isostasy%relx)
 
 !WHL - Removed old case(5), allowing for removal of some arguments
 
@@ -609,7 +610,7 @@ contains
 !!    call glide_marinlim(0, &
     call glide_marinlim(model%options%whichmarn, &
          model%geometry%thck,  &
-         model%isos%relx,      &
+         model%isostasy%relx,      &
          model%geometry%topg,  &
          model%geometry%thkmask,    &
          model%numerics%mlimit,     &
@@ -706,17 +707,14 @@ contains
     ! update ice/water load if necessary
     ! ------------------------------------------------------------------------
 
-!TODO - Are we supporting an isostasy calculation in the parallel model?
-!       While this may be a low priority in the near term, we should do so eventually.
+    if (model%options%isostasy == ISOSTASY_COMPUTE) then
 
-    if (model%isos%do_isos) then
-       !JEFF the isos_icewaterload() is passed the entire model, so I don't know what gathered variables it needs.
        call not_parallel(__FILE__, __LINE__)
 
-       if (model%numerics%time >= model%isos%next_calc) then
-          model%isos%next_calc = model%isos%next_calc + model%isos%period
+       if (model%numerics%time >= model%isostasy%next_calc) then
+          model%isostasy%next_calc = model%isostasy%next_calc + model%isostasy%period
           call isos_icewaterload(model)
-          model%isos%new_load = .true.
+          model%isostasy%new_load = .true.
        end if
     end if
    
@@ -726,11 +724,12 @@ contains
     ! Calculate isostasy
     ! ------------------------------------------------------------------------ 
 
-    if (model%isos%do_isos) then
-       !JEFF the isos_isostasy() is passed the entire model, so I don't know what gathered variables it needs.
-       call not_parallel(__FILE__, __LINE__)
+!TODO - Test the local isostasy schemes in the parallel model.
+!       The elastic lithosphere scheme is not expected to work in parallel.
 
-       call isos_isostasy(model)
+    if (model%options%isostasy == ISOSTASY_COMPUTE) then
+       call not_parallel(__FILE__, __LINE__)
+       call isos_compute(model)
     end if
 
     ! ------------------------------------------------------------------------

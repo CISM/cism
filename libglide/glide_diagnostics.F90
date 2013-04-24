@@ -97,6 +97,9 @@ contains
        nint_quotient = nint(quotient)
        if (abs(quotient - real(nint_quotient,dp)) < eps) then  ! time to write
 
+!WHL - debug
+          print*, 'Write diagnostics, time =', time
+
           call glide_write_diag(model, time,                  &
                                 minthick,                     &
                                 model%numerics%idiag_global,  &
@@ -666,7 +669,7 @@ contains
        call write_log(trim(message), type = GM_DIAGNOSTIC)
        call write_log(' ')
  
-       write(message,'(a25,f24.16)') 'Upper surface (m)        ', thck_diag
+       write(message,'(a25,f24.16)') 'Upper surface (m)        ', usrf_diag
        call write_log(trim(message), type = GM_DIAGNOSTIC)
 
        write(message,'(a25,f24.16)') 'Thickness (m)            ', thck_diag

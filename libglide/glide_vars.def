@@ -100,7 +100,7 @@ standard_name: longitude
 dimensions:    time, y1, x1
 units:         meter
 long_name:     relaxed bedrock topography
-data:          data%isos%relx
+data:          data%isostasy%relx
 factor:        thk0
 load:          1
 coordinates:   lon lat
@@ -117,7 +117,7 @@ standard_name: global_average_sea_level_change
 dimensions:    time, y1, x1
 units:         meter
 long_name:     isostatic adjustment
-data:          data%isos%relx-data%geometry%topg
+data:          data%isostasy%relx - data%geometry%topg
 factor:        thk0
 standard_name: bedrock_altitude_change_due_to_isostatic_adjustment
 coordinates:   lon lat

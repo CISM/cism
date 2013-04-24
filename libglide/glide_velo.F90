@@ -1181,7 +1181,7 @@ contains
                 btrc(ew,ns) = model%velowk%c(1) + model%velowk%c(2) * tanh(model%velowk%c(3) * &
                      model%temper%stagbwat(ew,ns) - model%velowk%c(4))
                 
-                if (0.0d0 > sum(model%isos%relx(ew:ew+1,ns:ns+1))) then
+                if (0.0d0 > sum(model%isostasy%relx(ew:ew+1,ns:ns+1))) then
                    btrc(ew,ns) = btrc(ew,ns) * model%velowk%marine  
                 end if
              else
