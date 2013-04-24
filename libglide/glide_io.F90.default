@@ -1,6 +1,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! WARNING: this file was automatically generated on
-! Fri, 19 Apr 2013 19:12:50 +0000
+! Wed, 24 Apr 2013 16:50:08 +0000
 ! from ncdf_template.F90.in
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -1886,14 +1886,14 @@ contains
     status = parallel_inq_varid(NCO%id,'relx',varid)
     if (status .eq. nf90_noerr) then
        status = distributed_put_var(NCO%id, varid, &
-            data%isos%relx, (/1,1,outfile%timecounter/))
+            data%isostasy%relx, (/1,1,outfile%timecounter/))
        call nc_errorhandle(__FILE__,__LINE__,status)
     end if
 
     status = parallel_inq_varid(NCO%id,'slc',varid)
     if (status .eq. nf90_noerr) then
        status = distributed_put_var(NCO%id, varid, &
-            data%isos%relx-data%geometry%topg, (/1,1,outfile%timecounter/))
+            data%isostasy%relx - data%geometry%topg, (/1,1,outfile%timecounter/))
        call nc_errorhandle(__FILE__,__LINE__,status)
     end if
 
@@ -2466,7 +2466,7 @@ contains
     if (status .eq. nf90_noerr) then
        call write_log('  Loading relx')
        status = distributed_get_var(NCI%id, varid, &
-            data%isos%relx, (/1,1,infile%current_time/))
+            data%isostasy%relx, (/1,1,infile%current_time/))
        call nc_errorhandle(__FILE__,__LINE__,status)
        status = parallel_get_att(NCI%id, varid,'scale_factor',scaling_factor)
        if (status.ne.NF90_NOERR) then
@@ -2476,7 +2476,7 @@ contains
        end if
        if (abs(scaling_factor-1.0d0).gt.1.d-17) then
           call write_log("scaling relx",GM_DIAGNOSTIC)
-          data%isos%relx = data%isos%relx*scaling_factor
+          data%isostasy%relx = data%isostasy%relx*scaling_factor
        end if
     end if
 
@@ -3619,7 +3619,7 @@ contains
     type(glide_global_type) :: data
     real, dimension(:,:), intent(out) :: outarray
 
-    outarray = (thk0)*(data%isos%relx)
+    outarray = (thk0)*(data%isostasy%relx)
   end subroutine glide_get_relx
 
   subroutine glide_set_relx(data,inarray)
@@ -3630,7 +3630,7 @@ contains
     type(glide_global_type) :: data
     real, dimension(:,:), intent(in) :: inarray
 
-    data%isos%relx = inarray/(thk0)
+    data%isostasy%relx = inarray/(thk0)
   end subroutine glide_set_relx
 
   subroutine glide_get_slc(data,outarray)
@@ -3641,7 +3641,7 @@ contains
     type(glide_global_type) :: data
     real, dimension(:,:), intent(out) :: outarray
 
-    outarray = (thk0)*(data%isos%relx-data%geometry%topg)
+    outarray = (thk0)*(data%isostasy%relx - data%geometry%topg)
   end subroutine glide_get_slc
 
   subroutine glide_get_soft(data,outarray)
