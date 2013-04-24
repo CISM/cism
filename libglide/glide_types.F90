@@ -194,11 +194,6 @@ module glide_types
   integer, parameter :: SIGMA_COMPUTE_EVEN = 3
   integer, parameter :: SIGMA_COMPUTE_PATTYN = 4
 
-  !WHL - Removed this one
-!!  integer, parameter :: SIGMA_BUILTIN_DEFAULT = 0 ! Use default Sigma coordinate spacing
-!!  integer, parameter :: SIGMA_BUILTIN_EVEN = 1    ! Use an evenly spaced Sigma coordinate
-!!  integer, parameter :: SIGMA_BUILTIN_PATTYN = 2  ! Use Pattyn's sigma coordinates
-
   !TODO - Make this a logical variable?
   integer, parameter :: RESTART_FALSE = 0
   integer, parameter :: RESTART_TRUE = 1

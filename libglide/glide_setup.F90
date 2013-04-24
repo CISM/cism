@@ -101,24 +101,27 @@ contains
        call handle_parameters(section, model)
     end if
 
-    !TODO - Should we call handle_gthf only if model%options%gthf = GTHF_COMPUTE
     ! read GTHF 
-    call GetSection(config,section,'GTHF')
-    if (associated(section)) then
-       model%options%gthf = GTHF_COMPUTE
-       call handle_gthf(section, model)
-    end if
+    ! NOTE: The [GTHF] section is ignored unless model%options%gthf = GTHF_COMPUTE
+    if (model%options%gthf == GTHF_COMPUTE) then
+       call GetSection(config,section,'GTHF')
+       if (associated(section)) then
+          call handle_gthf(section, model)
+       end if
+    endif
 
     !WHL - New isostasy option
-    !TODO - Should we call handle_isostasy only if model%options%isostasy = ISOSTASY_COMPUTE?
-    ! read isostasy
-    call GetSection(config,section,'isostasy')
-    if (associated(section)) then
-       model%options%isostasy = ISOSTASY_COMPUTE
-       call handle_isostasy(section, model)
-    end if
 
-    !WHL - disabled for now
+    ! read isostasy
+    ! NOTE: The [isostasy] section is ignored unless model%options%isostasy = ISOSTASY_COMPUTE
+    if (model%options%isostasy == ISOSTASY_COMPUTE) then
+       call GetSection(config,section,'isostasy')
+       if (associated(section)) then
+          call handle_isostasy(section, model)
+       end if
+    endif
+
+    !WHL - till options not currently supported
     ! read till parameters
 !!    call GetSection(config,section,'till_options')
 !!    if (associated(section)) then
@@ -206,10 +209,13 @@ contains
 
     ! read sigma levels from configuration file, if present
     ! called immediately after glide_readconfig
+    !TODO - Combine with glide_readconfig?
 
     use glide_types
     use glimmer_config
+    use glimmer_log
     implicit none
+
     type(glide_global_type) :: model        !*FD model instance
     type(ConfigSection), pointer :: config  !*FD structure holding sections of configuration file
         
@@ -217,13 +223,17 @@ contains
     type(ConfigSection), pointer :: section
 
     ! read sigma levels
-    ! NOTE: If a sigma section is present in the config file, then we will always
-    !       use the sigma levels set there, regardless of the value of model%options%which_sigma
+    ! NOTE: The [sigma] section is ignored unless model%options%which_sigma = SIGMA_CONFIG
 
-    call GetSection(config,section,'sigma')
-    if (associated(section)) then
-       call handle_sigma(section, model)
-    end if
+    if (model%options%which_sigma == SIGMA_CONFIG) then
+       call GetSection(config,section,'sigma')
+       if (associated(section)) then
+          call handle_sigma(section, model)
+       else
+          model%options%which_sigma = SIGMA_COMPUTE_GLIDE  ! default to standard sigma levels
+          call write_log('No [sigma] section present; will compute standard Glide sigma levels')
+       end if
+    endif
 
   end subroutine glide_read_sigma
 
@@ -267,7 +277,6 @@ contains
 
        do up = 1,upn
           level = real(up-1,kind=dp) / real(upn-1,kind=dp)
-!!          model%numerics%sigma(up) = glide_find_level(level, model%options%which_sigma_builtin, up, upn)
           model%numerics%sigma(up) = glide_calc_sigma(level, 2.d0)
        end do
 
@@ -295,7 +304,7 @@ contains
 
        ! sigma levels have already been read from glide_read_sigma
 
-       call write_log('Getting sigma levels from main configuration file')
+       call write_log('Getting sigma levels from configuration file')
 
     case(SIGMA_COMPUTE_EVEN)
 
@@ -582,6 +591,7 @@ contains
     call GetValue(section,'basal_water',model%options%whichbwat)
     call GetValue(section,'basal_mass_balance',model%options%basal_mbal)
     call GetValue(section,'gthf',model%options%gthf)
+    call GetValue(section,'isostasy',model%options%isostasy)
     call GetValue(section,'marine_margin',model%options%whichmarn)
     call GetValue(section,'vertical_integration',model%options%whichwvel)
     call GetValue(section,'topo_is_relaxed',model%options%whichrelaxed)
@@ -740,6 +750,11 @@ contains
          'uniform geothermal flux         ', &
          'read flux from file, if present ', &
          'compute flux from diffusion eqn ' /)
+
+    !WHL - added this option (replaces old do_isos option)
+    character(len=*), dimension(0:1), parameter :: isostasy = (/ &
+         'no isostasy calculation         ', &
+         'compute isostasy with model     ' /)
 
     !WHL - changed order
     character(len=*), dimension(0:5), parameter :: marine_margin = (/ &
@@ -943,8 +958,16 @@ contains
     write(message,*) 'geothermal heat flux    : ',model%options%gthf,gthf(model%options%gthf)
     call write_log(message)
 
+    if (model%options%isostasy < 0 .or. model%options%gthf >= size(isostasy)) then
+       print*, 'isostasy =', model%options%isostasy
+       call write_log('Error, isostasy option out of range',GM_FATAL)
+    end if
+
+    write(message,*) 'isostasy                : ',model%options%isostasy,isostasy(model%options%isostasy)
+    call write_log(message)
+
     if (model%options%whichrelaxed==1) then
-       call write_log('First topo time slice is relaxed')
+       call write_log('First topo time slice has relaxed bedrock topography')
     end if
 
     if (model%options%periodic_ew) then
@@ -1194,7 +1217,6 @@ contains
        call write_log('Sigma levels specified twice - use only'// &
             ' config file or separate file, not both',GM_FATAL)
     else
-       model%options%which_sigma = SIGMA_CONFIG   ! override any previously set value
        call GetValue(section,'sigma_levels',model%numerics%sigma,model%general%upn)
     end if
 
