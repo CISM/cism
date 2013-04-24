@@ -684,20 +684,20 @@ contains
          'glam               ', &  ! Payne-Price finite difference
          'glissade           ' /)  ! prototype finite element
 
-    character(len=*), dimension(-1:4), parameter :: evolution = (/ &
-         'no thickness evolution                ', &
+    !WHL - Removed option -1 (replaced by new glint option: evolve_ice)
+    character(len=*), dimension(0:5), parameter :: evolution = (/ &
+!!         'no thickness evolution                ', &
          'pseudo-diffusion                      ', &
          'ADI scheme                            ', &
          'iterated diffusion                    ', &
-         'remap thickness                       ', &   
-         '1st order upwind                      ' /)
+         'incremental remapping                 ', &   
+         '1st order upwind                      ', &
+         'thickness fixed at initial value      '  /)
 
-    !TODO : Remove option 3 (after cleaning up config files)
-    character(len=*), dimension(0:3), parameter :: temperature = (/ &
+    character(len=*), dimension(0:2), parameter :: temperature = (/ &
          'isothermal         ', &
          'full prognostic    ', &
-         'constant in time   ', &
-         'remapping advection' /)
+         'constant in time   ' /)
 
     character(len=*), dimension(0:2), parameter :: temp_init = (/ &
          'set to 0 C             ', &
@@ -854,8 +854,10 @@ contains
     ! Forbidden options to use with the Glide dycore
     if (model%options%whichdycore == DYCORE_GLIDE) then
 
-       if (model%options%whichevol==EVOL_INC_REMAP) then
-          call write_log('Error, incremental remapping evolution is not supported for the Glide dycore', GM_FATAL)
+       if (model%options%whichevol==EVOL_INC_REMAP     .or.  &
+           model%options%whichevol==EVOL_UPWIND        .or.  &
+           model%options%whichevol==EVOL_NO_THICKNESS) then
+          call write_log('Error, Glam/glissade thickness evolution options cannot be used with Glide dycore', GM_FATAL)
        endif
 
        if (tasks > 1) then
@@ -871,7 +873,7 @@ contains
        if (model%options%whichevol==EVOL_PSEUDO_DIFF .or.  &
            model%options%whichevol==EVOL_ADI         .or.  &
            model%options%whichevol==EVOL_DIFFUSION) then
-          call write_log('Error, Glide thickness evolution options can be used only with Glide dycore', GM_FATAL)
+          call write_log('Error, Glide thickness evolution options cannot be used with glam/glissade dycore', GM_FATAL)
        endif
 
     endif
@@ -926,7 +928,8 @@ contains
     write(message,*) 'slip_coeff              : ', model%options%whichbtrc, slip_coeff(model%options%whichbtrc)
     call write_log(message)
 
-    if (model%options%whichevol < -1 .or. model%options%whichevol >= (size(evolution)-1)) then
+    !WHL - Removed option -1
+    if (model%options%whichevol < 0 .or. model%options%whichevol >= size(evolution)) then
        call write_log('Error, evolution out of range',GM_FATAL)
     end if
 
@@ -1308,7 +1311,6 @@ contains
     type(ConfigSection), pointer :: section
     type(glide_global_type)  :: model
 
-!!    isos%do_isos = .true.  !TODO - Redundant with options%isostasy
     call GetValue(section,'lithosphere',model%isostasy%lithosphere)
     call GetValue(section,'asthenosphere',model%isostasy%asthenosphere)
     call GetValue(section,'relaxed_tau',model%isostasy%relaxed_tau)

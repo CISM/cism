@@ -91,7 +91,7 @@ contains
 
     ! allocate memory for ADI scheme
 
-    if (model%options%whichevol==1) then
+    if (model%options%whichevol == EVOL_ADI) then
        allocate(model%thckwk%alpha(max(model%general%ewn, model%general%nsn)))
        allocate(model%thckwk%beta (max(model%general%ewn, model%general%nsn)))
        allocate(model%thckwk%gamma(max(model%general%ewn, model%general%nsn)))

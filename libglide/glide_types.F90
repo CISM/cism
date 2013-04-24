@@ -62,26 +62,7 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  type glide_general
-
-    !*FD Holds fundamental parameters of the ice model geometry.
-
-    integer :: ewn = 0  !*FD The number of grid-points in the E-W direction.
-    integer :: nsn = 0  !*FD The number of grid-points in the N-S direction.
-    integer :: upn = 1  !*FD The number of vertical levels in the model.
-
-    type(coordsystem_type) :: ice_grid  !*FD coordinate system of the ice grid
-    type(coordsystem_type) :: velo_grid !*FD coordinate system of the velocity grid
-
-    real(sp), dimension(:),pointer :: x0 => null() !original x0 grid 
-    real(sp), dimension(:),pointer :: y0 => null() !original y0 grid
-    real(sp), dimension(:),pointer :: x1 => null() !original x1 grid
-    real(sp), dimension(:),pointer :: y1 => null() !original y1 grid
-  end type glide_general
-
-  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-  !Constants that describe the options available
+  ! Constants that describe the options available
 
 !WHL - Tried to include all the important options here, to avoid hardwiring
 !      of case numbers
@@ -92,13 +73,15 @@ module glide_types
   integer, parameter :: DYCORE_GLAM = 1      ! Payne-Price finite-difference solver
   integer, parameter :: DYCORE_GLISSADE = 2  ! prototype finite-element solver
 
-  !TODO - Get rid of -1 option?
-  integer, parameter :: EVOL_NO_THICKNESS = -1
-  integer, parameter :: EVOL_PSEUDO_DIFF = 0
-  integer, parameter :: EVOL_ADI = 1
-  integer, parameter :: EVOL_DIFFUSION = 2
-  integer, parameter :: EVOL_INC_REMAP = 3
-  integer, parameter :: EVOL_UPWIND = 4
+  !WHL - Removed -1 option (replaced by new glint option: evolve_ice)
+  !      Switched EVOL_NO_THICKNESS to option 5 
+!!  integer, parameter :: EVOL_NO_THICKNESS = -1
+  integer, parameter :: EVOL_PSEUDO_DIFF = 0    ! glide only
+  integer, parameter :: EVOL_ADI = 1            ! glide only
+  integer, parameter :: EVOL_DIFFUSION = 2      ! glide only
+  integer, parameter :: EVOL_INC_REMAP = 3      ! glam/glissade only
+  integer, parameter :: EVOL_UPWIND = 4         ! glam/glissade only
+  integer, parameter :: EVOL_NO_THICKNESS = 5   ! glam/glissade only
 
   !WHL - Option 3 is now deprecated.
   !      Use option 1 for prognostic temperature with any dycore
@@ -255,6 +238,28 @@ module glide_types
 !!  integer, parameter :: HO_APPROX_SSA = 1
 !!  integer, parameter :: HO_APPROX_BP = 2
 
+  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+  type glide_general
+
+    !*FD Holds fundamental parameters of the ice model geometry.
+
+    integer :: ewn = 0  !*FD The number of grid-points in the E-W direction.
+    integer :: nsn = 0  !*FD The number of grid-points in the N-S direction.
+    integer :: upn = 1  !*FD The number of vertical levels in the model.
+
+    type(coordsystem_type) :: ice_grid  !*FD coordinate system of the ice grid
+    type(coordsystem_type) :: velo_grid !*FD coordinate system of the velocity grid
+
+    real(sp), dimension(:),pointer :: x0 => null() !original x0 grid 
+    real(sp), dimension(:),pointer :: y0 => null() !original y0 grid
+    real(sp), dimension(:),pointer :: x1 => null() !original x1 grid
+    real(sp), dimension(:),pointer :: y1 => null() !original y1 grid
+
+  end type glide_general
+
+  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
   type glide_options
 
     !*FD Holds user options controlling the methods used in the ice-model integration.
@@ -278,10 +283,12 @@ module glide_types
 
     !*FD Thickness evolution method:
     !*FD \begin{description}
-    !*FD \item[0] Pseudo-diffusion approach 
-    !*FD \item[2] Diffusion approach (also calculates velocities) 
+    !*FD \item[0] Pseudo-diffusion 
+    !*FD \item[1] Alternating direction implicit (ADI)
+    !*FD \item[2] Diffusion (also calculates velocities) 
     !*FD \item[3] Incremental remapping
     !*FD \item[4] 1st-order upwind scheme
+    !*FD \item[5] Temperature evolves but thickness does not
     !*FD \end{description}
 
     integer :: whichtemp = 1
@@ -1450,6 +1457,9 @@ contains
 
     call new_sparse_matrix(ewn*nsn, 5*ewn*nsn, model%solver_data%matrix)
 
+    !TODO - The lithosphere temperature has the vertical layer as the 3rd index,
+    !        whereas the ice temperature has the vertical layer as the 1st index.
+    !       Should we switch to the ice temperature convention?
     allocate(model%lithot%temp(1:ewn,1:nsn,model%lithot%nlayer)); model%lithot%temp = 0.d0
     call coordsystem_allocate(model%general%ice_grid, model%lithot%mask)
 

@@ -407,6 +407,10 @@ contains
     ! Calculate flow evolution by various different methods
     ! ------------------------------------------------------------------------ 
     ! MJH: This now uses velocity from the previous time step, which is appropriate for a Forward Euler time-stepping scheme
+    ! WHL: We used to have EVOL_NO_THICKNESS = -1 as a Glide option, used to hold the ice surface elevation fixed during CESM runs.  
+    !      This option has been replaced by a Glint option, evolve_ice.
+    !      We now have EVOL_NO_THICKESS = 5 as a glam/glissade option.  It is used to hold the ice surface elevation fixed
+    !       while allowing temperature to evolve, which can be useful for model spinup.  This option might need more testing.
 
     select case(model%options%whichevol)
 
@@ -474,7 +478,7 @@ contains
 
        if (model%options%basal_mbal == BASAL_MBAL_CONTINUITY) then    ! include bmlt in continuity equation
           bmlt_continuity(:,:) = model%temper%bmlt(:,:) * thk0/tim0   ! convert to m/s
-        else   ! do not include bmlt in continuity equation
+       else                                                           ! do not include bmlt in continuity equation
           bmlt_continuity(:,:) = 0.d0
        endif
 
@@ -484,6 +488,8 @@ contains
        !       * dew, dns, thck (m)
        !       * uvel, vvel, acab, blmt (m/s)
        !       Since thck has intent(inout), we create and pass a temporary array with units of m.
+
+       !TODO: Test this driver for 1st order upwind transport.
 
        do sc = 1 , model%numerics%subcyc
           if (model%numerics%subcyc > 1) write(*,*) 'Subcycling transport: Cycle ',sc
