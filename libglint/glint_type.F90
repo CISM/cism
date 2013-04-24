@@ -42,11 +42,20 @@ module glint_type
 
   implicit none
 
-!TODO - glint_instance includes information that is not needed if the SMB is received from a GCM.
-!       Maybe we should create a new, cleaner derived type (glint_gcm_instance?) without the extra information.
+  ! Constants that describe the options available
 
-!TODO - Note that this type includes 'model', of type glide_global_type, which is a grabbag for many other types.
-!       Some dycore-independent components of glide_global_type could be moved up to glint_gcm_instance
+  ! basic Glint options
+
+  integer, parameter :: EVOLVE_ICE_FALSE = 0   ! do not let the ice sheet evolve
+                                               ! (hold the ice state fixed at initial condition)
+  integer, parameter :: EVOLVE_ICE_TRUE  = 1   ! let the ice sheet evolve
+
+  !TODO - Add other Glint options to avoid hardwiring of case numbers
+
+  !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+!TODO - glint_instance includes information that is not needed if the SMB is received from a GCM.
+!       Maybe we should create a new derived type (glint_instance_gcm?) without the extra information.
 
   type glint_instance
 
@@ -75,8 +84,6 @@ module glint_type
                                                             !*FD (defaults to ice time-step)
      integer                          :: ice_tstep_multiply=1 !*FD Ice time multiplier (non-dimensional)
      integer                          :: n_icetstep         !*FD Number of ice time-steps per mass-balance accumulation
-!WHLTSTEP - Changed glide_time to dp
-!     real(rk)                         :: glide_time         !*FD Time as seen by glide (years)
      real(dp)                         :: glide_time         !*FD Time as seen by glide (years)
      integer                          :: next_time          !*FD The next time we expect to be called (hours)
 
@@ -124,6 +131,13 @@ module glint_type
      !*FD when upscaling data for output. 1 means use, 0 means ignore.
 
      ! Climate options -------------------------------------------
+
+     integer :: evolve_ice = 1
+
+     !*FD Whether the ice sheet can evolve:
+     !*FD \begin{description}
+     !*FD \item[0] The ice sheet cannot evolve; hold fixed at initial state
+     !*FD \item[1] The ice sheet can evolve
 
      integer :: whichacab = 1
 
@@ -388,6 +402,7 @@ contains
 
     call GetSection(config,section,'GLINT climate')
     if (associated(section)) then
+       call GetValue(section,'evolve_ice',instance%evolve_ice)  !WHL - new option
        call GetValue(section,'precip_mode',instance%whichprecip)
        call GetValue(section,'acab_mode',instance%whichacab)
        call GetValue(section,'ice_albedo',instance%ice_albedo)
@@ -399,7 +414,7 @@ contains
        call GetValue(section,'mean_preserving',instance%use_mpint)
     end if
 
-    if (mbal_time_temp>0.0) then
+    if (mbal_time_temp > 0.0) then
        instance%mbal_accum_time = mbal_time_temp * years2hours
     else
        instance%mbal_accum_time = -1
@@ -472,14 +487,21 @@ contains
     character(len=100) :: message
 
     !TODO - Make these messages more informative
-    !TODO - Remove hardwired option number
+    !TODO - Remove hardwired option numbers
+
     call write_log(' ')
     call write_log('GLINT climate')
     call write_log('-------------')
+    write(message,*) 'evolve_ice  ',instance%evolve_ice
+    call write_log(message)
     write(message,*) 'precip_mode ',instance%whichprecip
     call write_log(message)
     write(message,*) 'acab_mode   ',instance%whichacab
     call write_log(message)
+
+    if (instance%evolve_ice == EVOLVE_ICE_FALSE) then
+       call write_log('The ice sheet state will not evolve after initialization')
+    endif
 
     if (instance%whichacab /= 0) then  ! not getting SMB from GCM
        write(message,*) 'ice_albedo  ',instance%ice_albedo
@@ -490,7 +512,7 @@ contains
        call write_log(message)
     endif
 
-    if (instance%mbal_accum_time==-1) then
+    if (instance%mbal_accum_time == -1) then
        call write_log('Mass-balance accumulation time == ice time-step')
     else
        write(message,*) 'Mass-balance accumulation time:',instance%mbal_accum_time * hours2years,' years'

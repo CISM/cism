@@ -361,9 +361,12 @@ contains
 
           instance%glide_time = instance%glide_time + instance%model%numerics%tinc
 
-          ! call the dynamic ice sheet model
+          ! call the dynamic ice sheet model (provided the ice is allowed to evolve)
 
-          !WHL - added option for glissade dycore
+       !TODO - Test the evolve_ice option
+
+       if (instance%evolve_ice == EVOLVE_ICE_TRUE) then
+
           if (instance%model%options%whichdycore == DYCORE_GLIDE) then
 
              call glide_tstep_p1(instance%model,instance%glide_time)
@@ -382,6 +385,8 @@ contains
              call glissade_tstep(instance%model,instance%glide_time)
 
           endif
+
+       endif   ! evolve_ice
 
           ! Add the calved ice to the ablation field
 
@@ -914,7 +919,11 @@ contains
 
           instance%glide_time = instance%glide_time + instance%model%numerics%tinc
 
-          ! call the dynamic ice sheet model
+          ! call the dynamic ice sheet model (provided the ice is allowed to evolve)
+
+       !TODO - Test the evolve_ice option
+
+       if (instance%evolve_ice == EVOLVE_ICE_TRUE) then
 
           !WHL - added option for glissade dycore
           if (instance%model%options%whichdycore == DYCORE_GLIDE) then
@@ -932,6 +941,8 @@ contains
              call glissade_tstep(instance%model,instance%glide_time)
 
           endif
+
+       endif  ! evolve_ice
 
           ! Add the calved ice to the ablation field
 
