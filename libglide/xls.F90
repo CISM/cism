@@ -1,45 +1,29 @@
 !TODO - This is not currently used.  Move to libglimmer or a utilities directory?
-! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-! +                                                           +
-! +  xls.f90 - part of the Glimmer-CISM ice model             + 
-! +                                                           +
-! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-! 
-! Copyright (C) 2004-9 Glimmer-CISM contributors - see COPYRIGHT file 
-! for list of contributors.
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!                                                             
+!   xls.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!                                                              
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-! This program is free software; you can redistribute it and/or 
-! modify it under the terms of the GNU General Public License as 
-! published by the Free Software Foundation; either version 2 of 
-! the License, or (at your option) any later version.
+!   Copyright (C) 2005-2013
+!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
 !
-! This program is distributed in the hope that it will be useful, 
-! but WITHOUT ANY WARRANTY; without even the implied warranty of 
-! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
-! GNU General Public License for more details.
+!   This file is part of Glimmer-CISM.
 !
-! You should have received a copy of the GNU General Public License 
-! along with this program; if not, write to the Free Software 
-! Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 
-! 02111-1307 USA
+!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   under the terms of the Lesser GNU General Public License as published
+!   by the Free Software Foundation, either version 3 of the License, or
+!   (at your option) any later version.
 !
-! The Glimmer-CISM maintainer is:
+!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   but WITHOUT ANY WARRANTY; without even the implied warranty of
+!   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!   Lesser GNU General Public License for more details.
 !
-! Ian Rutt
-! School of the Environment and Society
-! Swansea University
-! Singleton Park
-! Swansea
-! SA2 8PP
-! UK
+!   You should have received a copy of the Lesser GNU General Public License
+!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
 !
-! email: <i.c.rutt@swansea.ac.uk> or <ian.rutt@physics.org>
-!
-! Glimmer-CISM is hosted on berliOS.de:
-!
-! https://developer.berlios.de/projects/glimmer-cism/
-!
-! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 !Debugging module: contains routines to write out data fields quickly
 !that can be read into Matlab
