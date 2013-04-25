@@ -11,6 +11,7 @@
 
 import sys, os, glob, shutil, numpy
 from netCDF import *
+from math import sqrt
 from ConfigParser import ConfigParser
 
 # Check to see if a config file was specified on the command line.
@@ -138,6 +139,20 @@ topg[0,:,nx-4:] = -440
 beta[0,:,:] = 0 
 
 acab[:] = 0.25
+
+# Domain size
+Lx = nx*dx
+Ly = ny*dy
+
+for i in range(nx):
+  x = float(i)/(nx-1) - 0.5   # -1/2 < x < 1/2 
+  xx = x*Lx                   # -L/2 < xx < L/2
+  for j in range(ny):
+    y = float(j)/(ny-1) - 0.5 # -1/2 < y < 1/2
+    r = sqrt(x*x+y*y)     # radial distance from the center
+    if r < 0.24:          # Inside a circle we have
+      acab[0,j,i] = -1000     # really strong melting
+
 acab[0,ny-3:,:]  = 0    # zero out accum at edges to avoid buildup where u=0
 acab[0,:,:3] = 0
 acab[0,:,nx-3:] = 0
@@ -164,14 +179,6 @@ netCDFfile.createVariable('uvel',  'f',('time','level','y0','x0'))[:] = zero.tol
 netCDFfile.createVariable('vvel',  'f',('time','level','y0','x0'))[:] = zero.tolist()
 
 netCDFfile.close()
-
-# Run Glimmer
-print 'Running Glimmer/CISM'
-if len(sys.argv) > 2:
-#   os.system('aprun -n'+nprocs+' ./simple_glide '+configfile+'')  # support for MPI runs on Jaguar
-   os.system('mpirun -np '+nprocs+' ./simple_glide '+configfile+'')  # support for MPI runs on other machines
-else:
-   os.system('echo '+configfile+' | simple_glide')
 
 # Clean up by moving extra files written by Glimmer to the "scratch" subdirectory
 # Look for files with extension "txt", "log", or "nc"
