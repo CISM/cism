@@ -173,7 +173,7 @@ contains
     real(dp), dimension(model%lithot%nlayer) ::  &
          lithtemp_diag                       ! lithosphere column diagnostics
 
-    integer :: i, j, k, kbed,                     &
+    integer :: i, j, k, ktop, kbed,               &
                imax, imin,                        &
                jmax, jmin,                        &
                kmax, kmin,                        &
@@ -454,11 +454,8 @@ contains
 
     ! max temperature
 
-    if (size(model%temper%temp,1) == upn+1) then  ! staggered temps
-       kbed = upn+1
-    else   ! unstaggered temps
-       kbed = upn
-    endif
+    ktop = lbound(model%temper%temp,1)
+    kbed = ubound(model%temper%temp,1)
 
     imax = 0
     jmax = 0
@@ -467,7 +464,7 @@ contains
     do j = lhalo+1, nsn-uhalo
        do i = lhalo+1, ewn-uhalo
           if (model%geometry%thck(i,j) * thk0 > minthick) then
-             do k = 1, kbed
+             do k = ktop, kbed
                 if (model%temper%temp(k,i,j) > max_temp) then
                    max_temp = model%temper%temp(k,i,j)
                    imax = i
@@ -501,7 +498,7 @@ contains
     do j = lhalo+1, nsn-uhalo
        do i = lhalo+1, ewn-uhalo
           if (model%geometry%thck(i,j) * thk0 > minthick) then
-             do k = 1, kbed
+             do k = ktop, kbed
                 if (model%temper%temp(k,i,j) < min_temp) then
                    min_temp = model%temper%temp(k,i,j)
                    imin = i
