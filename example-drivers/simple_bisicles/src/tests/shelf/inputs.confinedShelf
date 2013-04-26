@@ -18,6 +18,7 @@ main.domain_size = 240000 240000
 
 CalvingModel.type = NoCalvingModel
 
+surfaceFlux.type = fortran
 surfaceFlux.type = zeroFlux
 basalFlux.type = zeroFlux
 
@@ -39,7 +40,7 @@ geometry.basalSlope = 0 0 0
 
 #amr.gridsFile = grids.dat
 
-amr.maxLevel = 2   # finest level allowed in simulation
+amr.maxLevel = 3   # finest level allowed in simulation
 amr.ref_ratio = 2 2 2 2 2
 #amr.num_cells = 128 128 128   #number of cells in base grid
 amr.num_cells = 48 48 10   #number of cells in base grid

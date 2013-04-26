@@ -103,7 +103,7 @@ program simple_bisicles
   time = model%numerics%tstart
   time_inc = model%numerics%tinc
 
-  call simple_massbalance(climate,model,time)
+!  call simple_massbalance(climate,model,time)
   call simple_surftemp(climate,model,time)
   call spinup_lithot(model)
 
@@ -112,11 +112,19 @@ program simple_bisicles
   print *,"Initializing external dycore interface."
   call gtd_init_dycore_interface()
 
+!  print*, "acab before dycore:"
+!  print*, model%climate%acab
+
   call parallel_barrier()
   print *,"Initializing external dycore."
   call gtd_init_dycore(model,dycore_model_index)
   call parallel_barrier()
 
+!  print*, "acab after dycore:"
+!  print*, model%climate%acab
+
+
+  
 ! write nc files
   call glide_io_writeall(model, model, time=time)         
 
@@ -124,6 +132,8 @@ program simple_bisicles
   do while (cur_time < model%numerics%tend)
       print *, "CISM timestep: time = ", cur_time, ", dt = ", time_inc
       call gtd_run_dycore(dycore_model_index,cur_time,time_inc)
+!     write nc files                                           
+      call glide_io_writeall(model, model, time=time)          
   end do
   print *,"Completed Dycore Run."
   call parallel_barrier()
