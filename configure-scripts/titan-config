@@ -19,7 +19,7 @@
   --disable-shared \
   --with-netcdf=$NETCDF_DIR \
   EXTRA_LDLIBS="/opt/pgi/12.9.0/linux86-64/12.9/lib/f90main.o" \
-  --with-trilinos=/tmp/work/4ue/trilinos-11.0.3-Source/PGI_BUILD/install \
+  --with-trilinos=/tmp/proj/cli054/trilinos-10.12/FEB2013_FAST_PGI/install \
   --with-blas=-lsci_pgi \
   --enable-mpi="yes" \
   --prefix="$HOME/seacism"
