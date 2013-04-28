@@ -1,6 +1,6 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glint_smb.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glint_ebm.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
@@ -28,35 +28,42 @@
 #include "config.inc"
 #endif
 
-module smb_dummy
+!WHL - Changed name of file from glint_smb.F90 to glint_ebm.F90
+!      (since this module is a dummy wrapper for a non-existent energy balance model).
+!      Changed module name to glint_ebm
+!      Changes 'smb' to 'ebm' elsewhere in module
+!      The goal here is to avoid confusion with the subroutines that
+!       work with the SMB from a GCM.
+
+module glint_ebm
 
   ! This module provides a dummy, hopefully warning-free interface
-  ! in place of the Energy-balance mass-balance scheme. If either
+  ! in place of an energy-balance mass-balance scheme. If either
   ! subroutine is called, a fatal error is flagged.
 
   use glimmer_global
 
   implicit none
 
-  type smb_params
+  type ebm_params
      integer       :: dummyint
      real(rk)      :: dummyreal
      character(40) :: dummypath
-  end type smb_params
+  end type ebm_params
 
 contains
 
-  subroutine SMBInitWrapper(params,nx,ny,dxr,tstep,path)
+  subroutine EBMInitWrapper(params,nx,ny,dxr,tstep,path)
 
     use glimmer_log
 
-    type(smb_params) :: params
+    type(ebm_params) :: params
     integer :: nx,ny,dxr,tstep
     character(*) :: path
 
     ! Fatal error
 
-    call write_log('Glimmer not compiled with EBMB mass-balance scheme',GM_FATAL, &
+    call write_log('Glimmer not compiled with EBM mass-balance scheme',GM_FATAL, &
          __FILE__,__LINE__)
 
     ! Need these lines to avoid warnings, though they are never executed
@@ -67,26 +74,26 @@ contains
     params%dummyint=tstep
     params%dummypath=path
 
-  end subroutine SMBInitWrapper
+  end subroutine EBMInitWrapper
 
   !---------------------------------------------------------------------------------------------
 
-  subroutine SMBStepWrapper(params,temp,thck,artm,prcp,U10m,V10m,humidity,SWdown,LWdown,Psurf)
+  subroutine EBMStepWrapper(params,temp,thck,artm,prcp,U10m,V10m,humidity,SWdown,LWdown,Psurf)
 
     use glimmer_log
 
-    type(smb_params)        :: params
+    type(ebm_params)        :: params
     real(rk),dimension(:,:) :: temp,thck,artm,prcp,U10m,V10m,humidity,SWdown,LWdown,Psurf
 
     ! Fatal error
 
-    call write_log('Glimmer not compiled with EBMB mass-balance scheme',GM_FATAL, &
+    call write_log('Glimmer not compiled with EBM mass-balance scheme',GM_FATAL, &
          __FILE__,__LINE__)
 
     ! Need this line to avoid warnings, though it is never executed
 
-    params%dummyreal=sum(temp+thck+artm+prcp+U10m+V10m+humidity+SWdown+LWdown+Psurf)
+    params%dummyreal = sum(temp+thck+artm+prcp+U10m+V10m+humidity+SWdown+LWdown+Psurf)
 
-  end subroutine SMBStepWrapper
+  end subroutine EBMStepWrapper
 
-end module smb_dummy
+end module glint_ebm

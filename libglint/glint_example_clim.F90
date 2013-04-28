@@ -30,7 +30,7 @@
 
 module glint_example_clim
 
-  !*FD Module containing the glint example climate driver.
+  ! Subroutines used to initialize and compute forcing for the glint_example climate driver
 
   use glimmer_global
   use glint_global_grid
@@ -38,31 +38,42 @@ module glint_example_clim
   implicit none
 
   type glex_climate
+
      ! Mass-balance coupling timing parameters --------------------------
      integer                 :: total_years=10   ! Length of run in years
      integer                 :: climate_tstep=6  ! Climate time-step in hours
+
      ! Filenames --------------------------------------------------------
      character(fname_length) :: precip_file = '' !*FD Name of precip file
      character(fname_length) :: stemp_file  = '' !*FD Name of surface temp file
      character(fname_length) :: orog_file   = '' !*FD Name of orography file
+
      ! Variable names ---------------------------------------------------
      character(fname_length) :: precip_varname = '' !*FD precip variable name
      character(fname_length) :: stemp_varname  = '' !*FD temperature variable name
      character(fname_length) :: orog_varname   = '' !*FD orography variable name
+
      ! Arrays for holding climatology -----------------------------------
      real(rk),dimension(:,:),  pointer :: orog_clim     => null()  !*FD Orography
      real(rk),dimension(:,:,:),pointer :: precip_clim   => null()  !*FD Precip
      real(rk),dimension(:,:,:),pointer :: surftemp_clim => null()  !*FD Surface temperature
+
      ! Grid variables ---------------------------------------------------
      type(global_grid) :: clim_grid
+
      ! Time variables ---------------------------------------------------
      real(rk),dimension(:),pointer :: pr_time => null() !*FD Time in precip climatology
      real(rk),dimension(:),pointer :: st_time => null() !*FD Time in surftemp climatology
+
      ! Other parameters -------------------------------------------------
      integer  :: days_in_year=365
      integer  :: hours_in_year=365*24
      real(rk) :: precip_scale=1.0 ! Factor to scale precip by
      logical  :: temp_in_kelvin=.true. ! Set if temperature field is in Kelvin
+
+     !WHL - added this one
+     logical :: gcm_smb = .false.   ! if true, pass SMB to glint instead of PDD info
+
   end type glex_climate
 
   interface read_ncdf
@@ -137,29 +148,36 @@ contains
     type(ConfigSection), pointer :: config !*FD structure holding sections of configuration file   
     type(ConfigSection), pointer :: section
 
+    call GetSection(config,section,'GLEX climate')
+    if (associated(section)) then
+       call GetValue(section,'days_in_year',params%days_in_year)
+       call GetValue(section,'total_years',params%total_years)
+       call GetValue(section,'climate_tstep',params%climate_tstep)
+
+!WHL - added this one so we can switch between smb and pdd input based on config file
+       call GetValue(section,'gcm_smb',params%gcm_smb)
+
+       params%hours_in_year=params%days_in_year*24
+    end if
+
     call GetSection(config,section,'GLEX precip')
     if (associated(section)) then
        call GetValue(section,'filename',params%precip_file)
        call GetValue(section,'variable',params%precip_varname)
        call GetValue(section,'scaling',params%precip_scale)
     end if
+
     call GetSection(config,section,'GLEX temps')
     if (associated(section)) then
        call GetValue(section,'filename',params%stemp_file)
        call GetValue(section,'variable',params%stemp_varname)
        call GetValue(section,'kelvin',  params%temp_in_kelvin)
     end if
+
     call GetSection(config,section,'GLEX orog')
     if (associated(section)) then
        call GetValue(section,'filename',params%orog_file)
        call GetValue(section,'variable',params%orog_varname)
-    end if
-    call GetSection(config,section,'GLEX climate')
-    if (associated(section)) then
-       call GetValue(section,'days_in_year',params%days_in_year)
-       call GetValue(section,'total_years',params%total_years)
-       call GetValue(section,'climate_tstep',params%climate_tstep)
-       params%hours_in_year=params%days_in_year*24
     end if
 
     if (params%precip_file=='') &
@@ -207,6 +225,11 @@ contains
        call write_log(message)
     end if
 
+    !WHL - added this one
+    if (params%gcm_smb) then
+       call write_log ('Will pass surface mass balance (not PDD info) to Glint')
+    endif
+       
     call write_log('')
 
   end subroutine glex_clim_printconfig
@@ -744,5 +767,90 @@ contains
 
   end subroutine fixbounds
 
+  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+  !WHL - added this subroutine to test SMB interfaces in glint_example
+
+  subroutine compute_gcm_smb(temp,        precip,   &
+                             orog,                  &
+                             qsmb,        tsfc,     &
+                             topo,                  &
+                             glc_nec,     glc_topomax)
+
+     use glimmer_physcon, only: scyr
+
+     ! This is a crude parameterization for estimating qsmb and tsfc in each elevation class,
+     !  given temp and precip at a given mean surface elevation.
+     ! With these estimates we can run the standalone model (glint_example) as if we were
+     !  getting qsmb and tsfc from a GCM.
+     ! By tuning ablt_const, we can get an SMB that is not so different from what the PDD scheme computes.
+
+     ! input fields on global grid
+     real(rk), dimension(:,:), intent(in) :: temp     ! 2 m air temp (deg C)
+     real(rk), dimension(:,:), intent(in) :: precip   ! precip rate  (mm/s = kg/m2/s)
+     real(rk), dimension(:,:), intent(in) :: orog     ! global orography (m)
+
+     ! output fields on global grid, with elevation class index
+     real(rk), dimension(:,:,:), intent(inout) :: qsmb    ! ice sfc mass balance (kg/m2/s)
+     real(rk), dimension(:,:,:), intent(inout) :: tsfc    ! ice sfc temp (deg C)
+     real(rk), dimension(:,:,:), intent(inout) :: topo    ! ice sfc elevation (m)
+
+     integer, intent(in) :: glc_nec                       ! number of elevation classes
+
+     real(rk), dimension(0:glc_nec), intent(in) :: glc_topomax  ! upper elevation of each class (m)
+
+     integer :: nx, ny, nec
+     integer :: i, j, k
+
+     real(rk), dimension(glc_nec) :: glc_topomid   ! midrange elevation of each class (m)
+
+     real(rk) :: ablt                              ! ablation rate (kg/m2/s)
+
+     real(rk), parameter :: lapse_rate = 0.006d0   ! temp lapse rate (deg/m)
+
+     real(rk), parameter :: ablt_const = 5000.d0/scyr  ! ablation rate per degree above 0 C (converted from kg/m2/yr to kg/m2/s)
+                                                       ! can be tuned to agree (more or less) with acab from PDD scheme
+     ! get global grid size
+     nx = size(temp,1)
+     ny = size(temp,2)
+
+     ! compute mid-range elevation of each class
+     do k = 1, glc_nec-1
+        glc_topomid(k) = 0.5d0 * (glc_topomax(k-1) + glc_topomax(k))
+     enddo
+     k = glc_nec
+     glc_topomid(k) = 2.d0*glc_topomax(k-1) - glc_topomax(k-2)
+
+     do k = 1, glc_nec
+
+        do j = 1, ny
+        do i = 1, nx
+
+           ! set topo to midrange value for this elevation class
+           topo(i,j,k) = glc_topomid(k)
+
+           ! set tsfc assuming a fixed lapse rate
+           tsfc(i,j,k) = temp(i,j) - lapse_rate * (topo(i,j,k) - orog(i,j))
+
+           ! simple parameterization for ablation as function of temperature
+           if (tsfc(i,j,k) > 0.d0) then
+              ablt = ablt_const * tsfc(i,j,k)
+           else
+              ablt = 0.d0
+           endif
+
+           ! set smb as function of precip and ablation
+           qsmb(i,j,k) = precip(i,j) - ablt
+
+        enddo
+
+     enddo   ! i
+     enddo   ! j
+
+  end subroutine compute_gcm_smb
+
+!++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 end module glint_example_clim
  
+!++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

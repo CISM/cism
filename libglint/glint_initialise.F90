@@ -50,6 +50,9 @@ module glint_initialise
 
 contains
 
+  !TODO - Simplify by removing GCM arguments and operations now handled
+  !       by glint_i_initialise_gcm
+
   subroutine glint_i_initialise(config,           instance,         &
                                 grid,             grid_orog,        &
                                 mbts,             idts,             &
@@ -131,14 +134,16 @@ contains
       endif
     endif
 
-    !WHL - added option for glissade dycore
     if (instance%model%options%whichdycore == DYCORE_GLIDE) then  ! SIA dycore
 
        ! initialise the model
        call glide_initialise(instance%model)
 
        ! compute the initial diagnostic state
+!WHL - Do not call this if comparing to oldglide (cism1) results
+      if (.not. oldglide) then
        call glide_init_state_diagnostic(instance%model)
+      endif
 
     else       ! glam/glissade HO dycore     
 
@@ -170,14 +175,13 @@ contains
     call define_glint_restart_variables(instance)
  
 !WHL - debug
-!!    print*, ' '
-!!    print*, 'create glint variables (glint_io)'
+!    print*, 'create glint variables (glint_io)'
 
     ! create glint variables for the glide output files
     call glint_io_createall(instance%model, data=instance)
 
 !WHL - debug
-!!    print*, 'create glint variables (glint_mbal_io)'
+    print*, 'create glint variables (glint_mbal_io)'
 
     ! create instantaneous glint variables
 
@@ -187,17 +191,19 @@ contains
     ! fill dimension variables
 
 !WHL - debug
-!!    print*, 'call glide_nc_fillall 1'
+    print*, 'call glide_nc_fillall 1'
 
-    call glide_nc_fillall(instance%model, vertical_level_flag = .false.)
+!    call glide_nc_fillall(instance%model, vertical_level_flag = .false.)
+    call glide_nc_fillall(instance%model)
 
 !WHL - debug
+    print*, 'call glide_nc_fillall 2'
 !!    print*, 'associated(out_first) =', associated(instance%out_first)
 !!    if (associated(instance%out_first)) print*, instance%out_first%nc%filename
-!!    print*, 'call glide_nc_fillall 2'
 
-    call glide_nc_fillall(instance%model, outfiles=instance%out_first,  &
-                                          vertical_level_flag = .false.)
+!    call glide_nc_fillall(instance%model, outfiles=instance%out_first,  &
+!                                          vertical_level_flag = .false.)
+    call glide_nc_fillall(instance%model, outfiles=instance%out_first)
 
     ! Check we've used all the config sections
 
@@ -208,6 +214,7 @@ contains
     ! WJS (1-11-13): I'm not sure if it's correct to set the origin to (0,0) when running
     ! on multiple tasks, with a decomposed grid. However, as far as I can tell, the
     ! origin of this variable isn't important, so I'm not trying to fix it right now.
+
     instance%lgrid = coordsystem_new(0.d0, 0.d0, &
                                      get_dew(instance%model), &
                                      get_dns(instance%model), &
@@ -229,8 +236,6 @@ contains
     call setup_lgrid_fulldomain(instance, grid, grid_orog)
 
     ! initialise the mass-balance accumulation
-
-!TODO - Skip this call for whichacab = 0 (smb from gcm)?
 
     call glint_mbc_init(instance%mbal_accum, &
                         instance%lgrid, &
@@ -297,7 +302,7 @@ contains
     end if
 
 !This was commented out because it destroys exact restart
-!lipscomb - TODO - Find another way to set thk to snowd?
+!TODO - Find another way to set thk to snowd?
     ! Copy snow-depth to thickness if no thickness is present
 
 !!    allocate(thk(get_ewn(instance%model),get_nsn(instance%model)))
@@ -312,11 +317,9 @@ contains
 
    ! Write initial ice sheet diagnostics for this instance
 
-!!    timeyr = 0.d0
-
-      call glide_write_diagnostics(instance%model,                  &
-                                   instance%model%numerics%time,    &
-                                   tstep_count = instance%model%numerics%timecounter)
+    call glide_write_diagnostics(instance%model,                  &
+                                 instance%model%numerics%time,    &
+                                 tstep_count = instance%model%numerics%timecounter)
 
     ! Write netCDF output for this instance
 
@@ -334,16 +337,7 @@ contains
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!WHL - Working copy of new subroutine for GCM coupling
-!TODO - Test new subroutine
-
-!!  subroutine glint_i_initialise(config,           instance,         &
-!!                                grid,             grid_orog,        &
-!!                                mbts,             idts,             &
-!!                                need_winds,       enmabal,          &
-!!                                force_start,      force_dt,         &
-!!                                gcm_restart,      gcm_restart_file, &
-!!                                gcm_config_unit)
+!WHL - New subroutine for running Glint with SMB input from GCM
 
   subroutine glint_i_initialise_gcm(config,           instance,         &
                                     grid,             &
@@ -376,24 +370,18 @@ contains
     type(ConfigSection), pointer         :: config           ! structure holding sections of configuration file   
     type(glint_instance),  intent(inout) :: instance         ! The instance being initialised.
     type(global_grid),     intent(in)    :: grid             ! Global grid to use
-!!    type(global_grid),     intent(in)    :: grid_orog        ! Global grid to use for orography
     integer,               intent(out)   :: mbts             ! mass-balance time-step (hours)
     integer,               intent(out)   :: idts             ! ice dynamics time-step (hours)
-!!    logical,               intent(inout) :: need_winds       ! Set if this instance needs wind input
-!!    logical,               intent(inout) :: enmabal          ! Set if this instance uses the energy balance
-                                                             !    mass-bal model
 
-!TODO - Change names of force_start and force_dt?
+    !TODO - Change names of force_start and force_dt?
     integer,               intent(in)    :: force_start      ! glint forcing start time (hours)
     integer,               intent(in)    :: force_dt         ! glint forcing time step (hours)
+
     logical,     optional, intent(in)    :: gcm_restart      ! logical flag to read from a restart file
     character(*),optional, intent(in)    :: gcm_restart_file ! restart filename for restart
     integer,     optional, intent(in)    :: gcm_config_unit  ! fileunit for reading config files
 
     ! Internal
-
-    real(sp),dimension(:,:),allocatable :: thk
-    real(dp) :: timeyr       ! time in years
 
     integer :: config_fileunit, restart_fileunit
 
@@ -401,6 +389,9 @@ contains
     if (present(gcm_config_unit)) then
        config_fileunit = gcm_config_unit
     endif
+
+!WHL - debug
+    print*, 'Starting glint_i_initialise_gcm'
 
     ! initialise model
 
@@ -429,14 +420,26 @@ contains
       endif
     endif
 
-    !WHL - added option for glissade dycore
-    if (instance%model%options%whichdycore == DYCORE_GLIDE) then
-       call glide_initialise(instance%model)
-    else       ! glam/glissade dycore     
-       call glissade_initialise(instance%model)
-    endif
+    if (instance%model%options%whichdycore == DYCORE_GLIDE) then  ! SIA dycore
 
-!TODO - Add call to diagnostic velocity solve
+       ! initialise the model
+       call glide_initialise(instance%model)
+
+       ! compute the initial diagnostic state
+!WHL - Do not call this if comparing to oldglide (cism1) results
+      if (.not. oldglide) then
+       call glide_init_state_diagnostic(instance%model)
+      endif
+
+    else       ! glam/glissade HO dycore     
+
+       ! initialise the model
+       call glissade_initialise(instance%model)
+
+       ! compute the initial diagnostic state
+       call glissade_diagnostic_variable_solve(instance%model)
+
+    endif
 
     instance%ice_tstep = get_tinc(instance%model)*years2hours
     idts = instance%ice_tstep
@@ -456,9 +459,13 @@ contains
     ! Note: the corresponding call for glide is placed within *_readconfig, which is probably more appropriate,
     ! but putting this call into glint_i_readconfig creates a circular dependency.  
 
+!WHL - debug
+    print*, 'Define glint restart vars'
+
     call define_glint_restart_variables(instance)
  
-!TODO - Generate and call glint_gcm_io.F90 file?
+!WHL - debug
+    print*, 'Create glint vars'
 
     ! create glint variables for the glide output files
     call glint_io_createall(instance%model, data=instance)
@@ -467,11 +474,15 @@ contains
     call openall_out(instance%model, outfiles=instance%out_first)
     call glint_mbal_io_createall(instance%model, data=instance, outfiles=instance%out_first)
 
-
-!TODO - Add optional vertical level argument as above.
+!WHL - debug
+    print*, 'call glide_nc_fillall 1'
 
     ! fill dimension variables
     call glide_nc_fillall(instance%model)
+
+!WHL - debug
+    print*, 'call glide_nc_fillall 2'
+
     call glide_nc_fillall(instance%model, outfiles=instance%out_first)
 
     ! Check we've used all the config sections
@@ -502,26 +513,14 @@ contains
     ! upscaling. Note that, currently, these variables only have valid data on the main
     ! task, since all downscaling & upscaling is done there
     
-!!    call setup_lgrid_fulldomain(instance, grid, grid_orog)
     call setup_lgrid_fulldomain(instance, grid)
 
     ! initialise the mass-balance accumulation
 
-!!    call glint_mbc_init(instance%mbal_accum, &
-!!                        instance%lgrid, &
-!!                        config,         &
-!!                        instance%whichacab, &
-!!                        instance%snowd, &
-!!                        instance%siced, &
-!!                        instance%lgrid%size%pt(1), &
-!!                        instance%lgrid%size%pt(2), &
-!!                        real(instance%lgrid%delta%pt(1),rk))
-
-!TODO - Test this subroutine
     call glint_mbc_init_gcm(instance%mbal_accum, &
                             instance%lgrid)
 
-!TODO - Do we need two copies of this tstep variable?
+    !TODO - Do we need two copies of this tstep variable?
     instance%mbal_tstep = instance%mbal_accum%mbal%tstep
 
     mbts=instance%mbal_tstep
@@ -535,38 +534,37 @@ contains
        write (6,*) 'start_time =', instance%mbal_accum%start_time
     end if
 
+!WHL - debug
+       write (6,*) 'Called glint_mbc_init'
+       write (6,*) 'mbal tstep =', mbts
+       write (6,*) 'next_time =', instance%next_time
+       write (6,*) 'start_time =', instance%mbal_accum%start_time
+
     ! Mass-balance accumulation length
 
     if (instance%mbal_accum_time == -1) then
        instance%mbal_accum_time = max(instance%ice_tstep,instance%mbal_tstep)
-       if (GLC_DEBUG) then
-          !Set mbal_accum_time = mbal_tstep
-          ! lipscomb - TODO - Make it easy to run Glimmer/Glint for ~5 days, e.g. for CESM smoke tests,
-          !         with all major components exercised. 
-          !!          instance%mbal_accum_time = instance%mbal_tstep
-          !!          write(6,*) 'WARNING: Seting mbal_accum_time =', instance%mbal_accum_time
-       end if
     end if
 
     if (instance%mbal_accum_time < instance%mbal_tstep) then
        call write_log('Mass-balance accumulation timescale must be as '//&
-            'long as mass-balance time-step',GM_FATAL,__FILE__,__LINE__)
+                      'long as mass-balance time-step',GM_FATAL,__FILE__,__LINE__)
     end if
 
     if (mod(instance%mbal_accum_time,instance%mbal_tstep) /= 0) then
        call write_log('Mass-balance accumulation timescale must be an '// &
-            'integer multiple of the mass-balance time-step',GM_FATAL,__FILE__,__LINE__)
+                      'integer multiple of the mass-balance time-step',GM_FATAL,__FILE__,__LINE__)
     end if
 
     if (.not. (mod(instance%mbal_accum_time, instance%ice_tstep)==0 .or.   &
                mod(instance%ice_tstep, instance%mbal_accum_time)==0)) then
        call write_log('Mass-balance accumulation timescale and ice dynamics '//&
-            'timestep must divide into one another',GM_FATAL,__FILE__,__LINE__)
+                      'timestep must divide into one another',GM_FATAL,__FILE__,__LINE__)
     end if
 
     if (instance%ice_tstep_multiply/=1 .and. mod(instance%mbal_accum_time,int(years2hours)) /= 0.0) then
        call write_log('For ice time-step multiplication, mass-balance accumulation timescale '//&
-            'must be an integer number of years',GM_FATAL,__FILE__,__LINE__)
+                      'must be an integer number of years',GM_FATAL,__FILE__,__LINE__)
     end if
 
     ! Initialise some other stuff
@@ -577,21 +575,7 @@ contains
        instance%n_icetstep = instance%ice_tstep_multiply
     end if
 
-    ! Copy snow-depth to thickness if no thickness is present
-
-!!    allocate(thk(get_ewn(instance%model),get_nsn(instance%model)))
-!!    call glide_get_thk(instance%model,thk)
-!!    where (instance%snowd>0.0 .and. thk==0.0)
-!!       thk=instance%snowd
-!!    elsewhere
-!!       thk=thk
-!!    endwhere
-!!    call glide_set_thk(instance%model,thk)
-!!    deallocate(thk)
-
    ! Write initial ice sheet diagnostics for this instance
-
-!!    timeyr = 0.d0
 
     call glide_write_diagnostics(instance%model,                  &
                                  instance%model%numerics%time,    &
@@ -602,12 +586,6 @@ contains
     call glide_io_writeall(instance%model, instance%model)
     call glint_io_writeall(instance, instance%model)
     call glint_mbal_io_writeall(instance, instance%model, outfiles=instance%out_first)
-
-!!    if (instance%whichprecip == 2) need_winds=.true.
-!!    if (instance%whichacab == 3) then
-!!       need_winds = .true.
-!!       enmabal = .true.
-!!    end if
 
   end subroutine glint_i_initialise_gcm
 
@@ -723,11 +701,10 @@ contains
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  subroutine calc_coverage(lgrid_fulldomain,ups,grid,mask_fulldomain,frac_coverage)
+  subroutine calc_coverage(lgrid_fulldomain, ups,     grid,   &
+                           mask_fulldomain,  frac_coverage)
 
-    !*FD Calculates the fractional
-    !*FD coverage of the global grid-boxes by the ice model
-    !*FD domain.
+    ! Calculates the fractional coverage of the global grid-boxes by the ice model domain
 
     use glimmer_map_types
     use glimmer_coordinates
@@ -758,12 +735,12 @@ contains
 
     do i=1,grid%nx
        do j=1,grid%ny
-          if (tempcount(i,j)==0) then
-             frac_coverage(i,j)=0.0
+          if (tempcount(i,j) == 0) then
+             frac_coverage(i,j) = 0.0
           else
-             frac_coverage(i,j)=(tempcount(i,j)*lgrid_fulldomain%delta%pt(1)*lgrid_fulldomain%delta%pt(2))/ &
-                  (lon_diff(grid%lon_bound(i+1),grid%lon_bound(i))*D2R*EQ_RAD**2*    &
-                  (sin(grid%lat_bound(j)*D2R)-sin(grid%lat_bound(j+1)*D2R)))
+             frac_coverage(i,j) = (tempcount(i,j)*lgrid_fulldomain%delta%pt(1)*lgrid_fulldomain%delta%pt(2))/ &
+                                  (lon_diff(grid%lon_bound(i+1),grid%lon_bound(i))*D2R*EQ_RAD**2*    &
+                                  (sin(grid%lat_bound(j)*D2R)-sin(grid%lat_bound(j+1)*D2R)))
           endif
        enddo
     enddo
@@ -774,42 +751,42 @@ contains
 
     do i=2,grid%nx-1
        do j=2,grid%ny-1
-          if ((frac_coverage(i,j) /= 0).and. &
-               (frac_coverage(i+1,j) /= 0).and. &
-               (frac_coverage(i,j+1) /= 0).and. &
-               (frac_coverage(i-1,j) /= 0).and. &
-               (frac_coverage(i,j-1) /= 0)) &
-               frac_coverage(i,j)=1.0
+          if ((frac_coverage(i,j)   /= 0).and. &
+              (frac_coverage(i+1,j) /= 0).and. &
+              (frac_coverage(i,j+1) /= 0).and. &
+              (frac_coverage(i-1,j) /= 0).and. &
+              (frac_coverage(i,j-1) /= 0)) &
+                   frac_coverage(i,j) = 1.0
        enddo
     enddo
 
     ! top and bottom edges
 
     do i=2,grid%nx/2
-       if ((frac_coverage(i,1) /= 0).and. &
+       if ((frac_coverage(i,1)   /= 0).and. &
            (frac_coverage(i+1,1) /= 0).and. &
-           (frac_coverage(i,2) /= 0).and. &
+           (frac_coverage(i,2)   /= 0).and. &
            (frac_coverage(i-1,1) /= 0).and. &
            (frac_coverage(i+grid%nx/2,1) /= 0)) &
-            frac_coverage(i,1)=1.0
+                frac_coverage(i,1) = 1.0
     enddo
 
     do i=grid%nx/2+1,grid%nx-1
-       if ((frac_coverage(i,1) /= 0).and. &
+       if ((frac_coverage(i,1)   /= 0).and. &
            (frac_coverage(i+1,1) /= 0).and. &
-           (frac_coverage(i,2) /= 0).and. &
+           (frac_coverage(i,2)   /= 0).and. &
            (frac_coverage(i-1,1) /= 0).and. &
            (frac_coverage(i-grid%nx/2,1) /= 0)) &
-            frac_coverage(i,1)=1.0
+                frac_coverage(i,1) = 1.0
     enddo
 
     do i=2,grid%nx/2
-       if ((frac_coverage(i,grid%ny) /= 0).and. &
+       if ((frac_coverage(i,grid%ny)   /= 0).and. &
            (frac_coverage(i+1,grid%ny) /= 0).and. &
            (frac_coverage(i+grid%nx/2,grid%ny) /= 0).and. &
            (frac_coverage(i-1,grid%ny) /= 0).and. &
            (frac_coverage(i,grid%ny-1) /= 0)) &
-            frac_coverage(i,grid%ny)=1.0
+                frac_coverage(i,grid%ny) = 1.0
     enddo
 
     do i=grid%nx/2+1,grid%nx-1
@@ -818,7 +795,7 @@ contains
            (frac_coverage(i-grid%nx/2,grid%ny) /= 0).and. &
            (frac_coverage(i-1,grid%ny) /= 0).and. &
            (frac_coverage(i,grid%ny-1) /= 0)) &
-            frac_coverage(i,grid%ny)=1.0
+                frac_coverage(i,grid%ny) = 1.0
     enddo
 
     ! left and right edges
@@ -829,13 +806,13 @@ contains
            (frac_coverage(1,j+1) /= 0).and. &
            (frac_coverage(grid%nx,j) /= 0).and. &
            (frac_coverage(1,j-1) /= 0)) &
-            frac_coverage(1,j)=1.0
+                frac_coverage(1,j) = 1.0
        if ((frac_coverage(grid%nx,j) /= 0).and. &
            (frac_coverage(1,j) /= 0).and. &
            (frac_coverage(grid%nx,j+1) /= 0).and. &
            (frac_coverage(grid%nx-1,j) /= 0).and. &
            (frac_coverage(grid%nx,j-1) /= 0)) &
-            frac_coverage(grid%nx,j)=1.0
+                frac_coverage(grid%nx,j) = 1.0
     enddo
 
     ! corners
@@ -845,28 +822,28 @@ contains
         (frac_coverage(1,2) /= 0).and. &
         (frac_coverage(grid%nx,1) /= 0).and. &
         (frac_coverage(grid%nx/2+1,1) /= 0)) &
-         frac_coverage(1,1)=1.0
+             frac_coverage(1,1) = 1.0
 
     if ((frac_coverage(1,grid%ny) /= 0).and. &
         (frac_coverage(2,grid%ny) /= 0).and. &
         (frac_coverage(grid%nx/2+1,grid%ny) /= 0).and. &
         (frac_coverage(grid%nx,grid%ny) /= 0).and. &
         (frac_coverage(1,grid%ny-1) /= 0)) &
-         frac_coverage(1,grid%ny)=1.0
+             frac_coverage(1,grid%ny) = 1.0
 
     if ((frac_coverage(grid%nx,1) /= 0).and. &
         (frac_coverage(1,1) /= 0).and. &
         (frac_coverage(grid%nx,2) /= 0).and. &
         (frac_coverage(grid%nx-1,1) /= 0).and. &
         (frac_coverage(grid%nx/2,1) /= 0)) &
-         frac_coverage(grid%nx,1)=1.0
+             frac_coverage(grid%nx,1) = 1.0
 
     if ((frac_coverage(grid%nx,grid%ny) /= 0).and. &
         (frac_coverage(1,grid%ny) /= 0).and. &
         (frac_coverage(grid%nx/2,grid%ny) /= 0).and. &
         (frac_coverage(grid%nx-1,grid%ny) /= 0).and. &
         (frac_coverage(grid%nx,grid%ny-1) /= 0)) &
-         frac_coverage(grid%nx,grid%ny)=1.0
+             frac_coverage(grid%nx,grid%ny) = 1.0
 
     ! Finally fix any rogue points > 1.0
 
@@ -886,11 +863,11 @@ contains
     aa=a ; bb=b
 
     do
-       if (aa>bb) exit
-       aa=aa+360.0
+       if (aa > bb) exit
+       aa = aa + 360.0
     enddo
 
-    lon_diff=aa-bb
+    lon_diff = aa - bb
 
   end function lon_diff
 

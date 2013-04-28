@@ -37,7 +37,7 @@ module glint_mbal
 #ifdef USE_ENMABAL
   use smb_mecons
 #else
-  use smb_dummy
+  use glint_ebm
 #endif
 
   implicit none
@@ -47,7 +47,7 @@ module glint_mbal
   type glint_mbal_params
      type(glint_pdd_params),      pointer :: annual_pdd => null() !*FD Pointer to annual PDD params
      type(glint_daily_pdd_params),pointer :: daily_pdd => null()  !*FD Pointer to daily PDD params
-     type(smb_params),              pointer :: smb => null()        !*FD Pointer to SMB params
+     type(ebm_params),            pointer :: ebm => null()        !*FD Pointer to EBM params
      integer :: which !*FD Flag for chosen mass-balance type
      integer :: tstep !*FD Timestep of mass-balance scheme in hours
   end type glint_mbal_params
@@ -65,8 +65,8 @@ contains
     type(glint_mbal_params)      :: params !*FD parameters to be initialised
     type(ConfigSection), pointer :: config !*FD structure holding sections of configuration file
     integer,intent(in)           :: which  !*FD selector for pdd type
-    integer                      :: nx,ny  !*FD grid dimensions (for SMB)
-    real(rk)                     :: dxr    !* Grid length (for SMB)
+    integer                      :: nx,ny  !*FD grid dimensions (for EBM)
+    real(rk)                     :: dxr    !* Grid length (for EBM)
 
     ! Copy selector
 
@@ -76,7 +76,7 @@ contains
 
     if (associated(params%annual_pdd)) deallocate(params%annual_pdd)
     if (associated(params%daily_pdd))  deallocate(params%daily_pdd)
-    if (associated(params%smb))        deallocate(params%smb)
+    if (associated(params%ebm))        deallocate(params%ebm)
 
     ! Allocate desired type and initialise
     ! Also check we have a valid value of which
@@ -93,9 +93,9 @@ contains
     case(2)
        params%tstep=years2hours
     case(3)
-       allocate(params%smb)
+       allocate(params%ebm)
        params%tstep=6
-       call SMBInitWrapper(params%smb,nx,ny,nint(dxr),params%tstep*60,'/data/ggdagw/src/smb/smb_config/online')
+       call EBMInitWrapper(params%ebm,nx,ny,nint(dxr),params%tstep*60,'/data/ggdagw/src/ebm/ebm_config/online')
     case(4)
        allocate(params%daily_pdd)
        call glint_daily_pdd_init(params%daily_pdd,config)
@@ -140,7 +140,7 @@ contains
     case(3)
        ! The energy-balance model will go here...
        ! NB SLM will be thickness array...
-       call SMBStepWrapper(params%smb,acab_temp,thck,real(artm,rk),real(prcp*1000.0,rk),U10m,V10m,humidity,SWdown,LWdown,Psurf)
+       call EBMStepWrapper(params%ebm,acab_temp,thck,real(artm,rk),real(prcp*1000.0,rk),U10m,V10m,humidity,SWdown,LWdown,Psurf)
        acab=acab_temp
        acab=acab/1000.0  ! Convert to metres
        ablt=prcp-acab    ! Construct ablation field (in m)
@@ -157,6 +157,8 @@ contains
 
   end subroutine glint_mbal_calc
 
+  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
   logical function mbal_has_snow_model(params)
 
     type(glint_mbal_params)      :: params 
@@ -168,5 +170,7 @@ contains
     end if
 
   end function mbal_has_snow_model
+
+  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 end module glint_mbal

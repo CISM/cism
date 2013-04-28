@@ -201,6 +201,11 @@ module glint_type
      logical :: ice_vol      !*FD Set if we need to calculate the total ice volume
   end type output_flags
 
+  !WHL - parameters for debugging
+  !TODO - Define diagnostic points for Glint global grid
+  integer, parameter :: iglint_global = 56     ! SW Greenland point on 64 x 32 glint_example global grid
+  integer, parameter :: jglint_global = 4      ! j increases from north to south
+
 contains
 
   subroutine glint_i_allocate(instance,nxg,nyg,nxgo,nygo)
@@ -286,10 +291,6 @@ contains
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!WHL - Added a new version for GCM coupling
-!TODO - Test this subroutine.  Move elsewhere?
-
-!!  subroutine glint_i_allocate(instance,nxg,nyg,nxgo,nygo)
   subroutine glint_i_allocate_gcm(instance,nxg,nyg)
 
     !*FD Allocate top-level arrays in the model instance, and ice model arrays.
@@ -299,8 +300,6 @@ contains
     type(glint_instance),intent(inout) :: instance  !*FD Instance whose elements are to be allocated.
     integer,             intent(in)    :: nxg       !*FD Longitudinal size of global grid (grid-points).
     integer,             intent(in)    :: nyg       !*FD Latitudinal size of global grid (grid-points).
-!!    integer,             intent(in)    :: nxgo      !*FD Longitudinal size of global orog grid (grid-points).
-!!    integer,             intent(in)    :: nygo      !*FD Latitudinal size of global orog grid (grid-points).
 
     integer ewn,nsn
 
@@ -308,72 +307,25 @@ contains
     nsn = get_nsn(instance%model)
 
     ! First deallocate if necessary
-    ! Downscaled global arrays
 
     if (associated(instance%artm))          deallocate(instance%artm)
-!!    if (associated(instance%arng))          deallocate(instance%arng)
-!!    if (associated(instance%prcp))          deallocate(instance%prcp)
-!!    if (associated(instance%snowd))         deallocate(instance%snowd)
-!!    if (associated(instance%siced))         deallocate(instance%siced)
-!!    if (associated(instance%xwind))         deallocate(instance%xwind)
-!!    if (associated(instance%ywind))         deallocate(instance%ywind)
-!!    if (associated(instance%humid))         deallocate(instance%humid)
-!!    if (associated(instance%lwdown))        deallocate(instance%lwdown)
-!!    if (associated(instance%swdown))        deallocate(instance%swdown)
-!!    if (associated(instance%airpress))      deallocate(instance%airpress)
-!!    if (associated(instance%global_orog))   deallocate(instance%global_orog) 
-!!    if (associated(instance%local_orog))    deallocate(instance%local_orog)
-
-    ! Local climate arrays
-
-!!    if (associated(instance%ablt))          deallocate(instance%ablt)
     if (associated(instance%acab))          deallocate(instance%acab)
-
-    ! Fractional coverage
-
     if (associated(instance%frac_coverage)) deallocate(instance%frac_coverage)
-!!    if (associated(instance%frac_cov_orog)) deallocate(instance%frac_cov_orog)
-
-    ! Output mask
-    !TODO - Is this needed?
-
-    if (associated(instance%out_mask))      deallocate(instance%out_mask)
+    if (associated(instance%out_mask))      deallocate(instance%out_mask)  !TODO - Is this needed?
 
     ! Then reallocate and zero...
-    ! Global input fields
 
-    allocate(instance%artm(ewn,nsn));        instance%artm        = 0.0
-!!    allocate(instance%arng(ewn,nsn));        instance%arng        = 0.0
-!!    allocate(instance%prcp(ewn,nsn));        instance%prcp        = 0.0
-!!    allocate(instance%snowd(ewn,nsn));       instance%snowd       = 0.0
-!!    allocate(instance%siced(ewn,nsn));       instance%siced       = 0.0
-!!    allocate(instance%xwind(ewn,nsn));       instance%xwind       = 0.0
-!!    allocate(instance%ywind(ewn,nsn));       instance%ywind       = 0.0
-!!    allocate(instance%humid(ewn,nsn));       instance%humid       = 0.0
-!!    allocate(instance%lwdown(ewn,nsn));      instance%lwdown      = 0.0
-!!    allocate(instance%swdown(ewn,nsn));      instance%swdown      = 0.0
-!!    allocate(instance%airpress(ewn,nsn));    instance%airpress    = 0.0
-!!    allocate(instance%global_orog(ewn,nsn)); instance%global_orog = 0.0
-!!    allocate(instance%local_orog(ewn,nsn));  instance%local_orog  = 0.0
-
-    ! Local fields
-
-!!    allocate(instance%ablt(ewn,nsn)); instance%ablt = 0.0
-    allocate(instance%acab(ewn,nsn)); instance%acab = 0.0
-
-    ! Fractional coverage map
-
+    allocate(instance%artm(ewn,nsn));          instance%artm = 0.0
+    allocate(instance%acab(ewn,nsn));          instance%acab = 0.0
     allocate(instance%frac_coverage(nxg,nyg)); instance%frac_coverage = 0.0
-!!    allocate(instance%frac_cov_orog(nxgo,nygo)); instance%frac_cov_orog = 0.0
-
-    ! Output mask
-    !TODO - Is this needed?
-
-    allocate(instance%out_mask(ewn,nsn)); instance%out_mask = 1
+    allocate(instance%out_mask(ewn,nsn));      instance%out_mask = 1   !TODO - Is this needed?
 
   end subroutine glint_i_allocate_gcm
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+  !TODO - Should the next two subroutines go in a new module called glint_setup?
+  !       This would be analogous to the organization of Glide.
 
   subroutine glint_i_readconfig(instance,config)
 
@@ -393,11 +345,8 @@ contains
     ! Internals
 
     type(ConfigSection), pointer :: section
-!WHLTSTEP - Changed mbal_time_temp to dp
-!    real(rk) :: mbal_time_temp ! Accumulation time in years
     real(dp) :: mbal_time_temp ! Accumulation time in years
 
-!    mbal_time_temp = -1.0
     mbal_time_temp = -1.d0
 
     call GetSection(config,section,'GLINT climate')
@@ -427,11 +376,14 @@ contains
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   
   subroutine glint_nc_readparams(instance,config)
+
     !*FD read netCDF I/O related configuration file
     !*FD based on glimmer_ncparams
+
     use glimmer_config
     use glimmer_ncparams, only: handle_output, handle_input, configstring
     implicit none
+
     type(glint_instance)         :: instance  !*FD GLINT instance
     type(ConfigSection), pointer :: config !*FD structure holding sections of configuration file
     
@@ -538,352 +490,16 @@ contains
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  subroutine get_i_upscaled_fields(instance,                    &
-                                   orog,         albedo,        &
-                                   ice_frac,     veg_frac,      &
-                                   snowice_frac, snowveg_frac,  &
-                                   snow_depth)
-
-    !*FD Upscales and returns certain fields
-    !*FD Output fields are only valid on the main task
-    !*FD 
-    !*FD \begin{itemize}
-    !*FD \item \texttt{orog} --- the orographic elevation (m)
-    !*FD \item \texttt{albedo} --- the albedo of ice/snow (this is only a notional value --- need to do
-    !*FD some work here)
-    !*FD \item \texttt{ice\_frac} --- The fraction covered by ice
-    !*FD \item \texttt{veg\_frac} --- The fraction of exposed vegetation
-    !*FD \item \texttt{snowice\_frac} --- The fraction of snow-covered ice
-    !*FD \item \texttt{snowveg\_frac} --- The fraction of snow-covered vegetation
-    !*FD \item \texttt{snow_depth} --- The mean snow-depth over those parts covered in snow (m w.e.)
-    !*FD \end{itemize}
-
-    use glimmer_paramets
-
-    ! Arguments ----------------------------------------------------------------------------------------
-
-    type(glint_instance),   intent(in)  :: instance      !*FD the model instance
-!TODO - Change to dp?
-    real(rk),dimension(:,:),intent(out) :: orog          !*FD the orographic elevation (m)
-    real(rk),dimension(:,:),intent(out) :: albedo        !*FD the albedo of ice/snow
-    real(rk),dimension(:,:),intent(out) :: ice_frac      !*FD The fraction covered by ice
-    real(rk),dimension(:,:),intent(out) :: veg_frac      !*FD The fraction of exposed vegetation
-    real(rk),dimension(:,:),intent(out) :: snowice_frac  !*FD The fraction of snow-covered ice
-    real(rk),dimension(:,:),intent(out) :: snowveg_frac  !*FD The fraction of snow-covered vegetation
-    real(rk),dimension(:,:),intent(out) :: snow_depth    !*FD The mean snow-depth over those 
-    !*FD parts covered in snow (m w.e.)
-
-    ! Internal variables -------------------------------------------------------------------------------
-
-    real(rk),dimension(:,:),pointer :: temp => null()
-
-    ! --------------------------------------------------------------------------------------------------
-    ! Orography
-
-    call mean_to_global(instance%ups_orog, &
-         instance%model%geometry%usrf, &
-         orog,    &
-         instance%out_mask)
-    orog=thk0*orog
-
-    call coordsystem_allocate(instance%lgrid,temp)
-
-    ! Ice-no-snow fraction
-    where (instance%mbal_accum%snowd==0.0.and.instance%model%geometry%thck>0.0)
-       temp=1.0
-    elsewhere
-       temp=0.0
-    endwhere
-    call mean_to_global(instance%ups, &
-         temp, &
-         ice_frac,    &
-         instance%out_mask)
-
-    ! Ice-with-snow fraction
-    where (instance%mbal_accum%snowd>0.0.and.instance%model%geometry%thck>0.0)
-       temp=1.0
-    elsewhere
-       temp=0.0
-    endwhere
-    call mean_to_global(instance%ups, &
-         temp, &
-         snowice_frac,    &
-         instance%out_mask)
-
-    ! Veg-with-snow fraction (if ice <10m thick)
-    where (instance%mbal_accum%snowd>0.0.and.instance%model%geometry%thck<=(10.0/thk0))
-       temp=1.0
-    elsewhere
-       temp=0.0
-    endwhere
-    call mean_to_global(instance%ups, &
-         temp, &
-         snowveg_frac,    &
-         instance%out_mask)
-
-    ! Remainder is veg only
-    veg_frac=1.0-ice_frac-snowice_frac-snowveg_frac
-
-    ! Snow depth
-
-    call mean_to_global(instance%ups, &
-         instance%mbal_accum%snowd, &
-         snow_depth,    &
-         instance%out_mask)
-
-    ! Albedo
-
-    where ((ice_frac+snowice_frac)>0.0)
-       albedo=instance%ice_albedo
-    elsewhere
-       albedo=0.0
-    endwhere
-
-    deallocate(temp)
-    temp => null()
-
-  end subroutine get_i_upscaled_fields
-
-  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-  subroutine get_i_upscaled_fields_gcm(instance,    nec,      &
-                                       nxl,         nyl,      &
-                                       nxg,         nyg,      &
-                                       gfrac,       gtopo,    &
-                                       grofi,       grofl,    &
-                                       ghflx)
-
-    ! Upscale fields from the local grid to the global grid (with multiple elevation classes).
-    ! Output fields are only valid on the main task.
-    ! The upscaled fields are passed to the GCM land surface model, which has the option
-    !  of updating the fractional area and surface elevation of glaciated gridcells.
-
-    use glimmer_paramets, only: thk0, GLC_DEBUG
-    use glimmer_log
-    use parallel, only: tasks, main_task
-
-    ! Arguments ----------------------------------------------------------------------------
- 
-    type(glint_instance),     intent(in)  :: instance      ! the model instance
-    integer,                  intent(in)  :: nec           ! number of elevation classes
-    integer,                  intent(in)  :: nxl,nyl       ! local grid dimensions 
-    integer,                  intent(in)  :: nxg,nyg       ! global grid dimensions 
-
-    real(dp),dimension(nxg,nyg,nec),intent(out) :: gfrac   ! ice-covered fraction [0,1]
-    real(dp),dimension(nxg,nyg,nec),intent(out) :: gtopo   ! surface elevation (m)
-    real(dp),dimension(nxg,nyg,nec),intent(out) :: grofi   ! ice runoff (calving) flux (kg/m^2/s)
-    real(dp),dimension(nxg,nyg,nec),intent(out) :: grofl   ! liquid runoff (basal melt) flux (kg/m^2/s)
-    real(dp),dimension(nxg,nyg,nec),intent(out) :: ghflx   ! heat flux (m)
- 
-    ! Internal variables ----------------------------------------------------------------------
- 
-    real(dp),dimension(nxl,nyl) :: local_field
-    real(dp),dimension(nxl,nyl) :: local_topo   ! local surface elevation (m)
-    real(dp),dimension(nxl,nyl) :: local_thck   ! local ice thickness (m)
-    real(dp), parameter :: min_thck = 1.0_dp    ! min thickness (m) for setting gfrac = 1
-
-    integer :: i, j            ! indices
- 
-    integer :: il, jl, ig, jg
-    character(len=100) :: message
-
-!lipscomb - TODO - Read topomax from data file at initialization
-    real(dp), dimension(0:nec) :: topomax   ! upper elevation limit of each class
-
-    ! Given the value of nec, specify the upper and lower elevation boundaries of each class.
-    ! Note: These must be consistent with the values in the GCM.  Better to pass as an argument.
-    if (nec == 1) then
-       topomax = (/ 0._dp, 10000._dp, 10000._dp, 10000._dp, 10000._dp, 10000._dp,  &
-                           10000._dp, 10000._dp, 10000._dp, 10000._dp, 10000._dp /)
-    elseif (nec == 3) then
-       topomax = (/ 0._dp,  1000._dp,  2000._dp, 10000._dp, 10000._dp, 10000._dp,  &
-                           10000._dp, 10000._dp, 10000._dp, 10000._dp, 10000._dp /)
-    elseif (nec == 5) then
-       topomax = (/ 0._dp,   500._dp,  1000._dp,  1500._dp,  2000._dp, 10000._dp,  &
-                           10000._dp, 10000._dp, 10000._dp, 10000._dp, 10000._dp /)
-    elseif (nec == 10) then
-       topomax = (/ 0._dp,   200._dp,   400._dp,   700._dp,  1000._dp,  1300._dp,  &
-                            1600._dp,  2000._dp,  2500._dp,  3000._dp, 10000._dp /)
-    elseif (nec == 36) then
-       topomax = (/ 0._dp,   200._dp,   400._dp,   600._dp,   800._dp,  &
-                 1000._dp,  1200._dp,  1400._dp,  1600._dp,  1800._dp,  &
-                 2000._dp,  2200._dp,  2400._dp,  2600._dp,  2800._dp,  &
-                 3000._dp,  3200._dp,  3400._dp,  3600._dp,  3800._dp,  &
-                 4000._dp,  4200._dp,  4400._dp,  4600._dp,  4800._dp,  &
-                 5000._dp,  5200._dp,  5400._dp,  5600._dp,  5800._dp,  &
-                 6000._dp,  6200._dp,  6400._dp,  6600._dp,  6800._dp,  &
-                 7000._dp, 10000._dp /)
-    else
-       if (GLC_DEBUG .and. main_task) then
-          write(message,'(a6,i3)') 'nec =', nec
-          call write_log(trim(message), GM_DIAGNOSTIC)
-       end if
-       call write_log('ERROR: Current supported values of nec (no. of elevation classes) are 1, 3, 5, or 10', &
-                       GM_FATAL,__FILE__,__LINE__)
-    endif
-
-    local_topo(:,:) = thk0 * instance%model%geometry%usrf(:,:)
-    local_thck(:,:) = thk0 * instance%model%geometry%thck(:,:)
-
-    ! The following output only works correctly if running with a single task
-    if (GLC_DEBUG .and. tasks==1) then
-       ig = itest
-       jg = jjtest
-       il = itest_local
-       jl = jtest_local
-       write(stdout,*) 'In get_i_upscaled_fields_gcm'
-       write(stdout,*) 'il, jl =', il, jl
-       write(stdout,*) 'ig, jg =', ig, jg
-       write(stdout,*) 'nxl, nyl =', nxl,nyl
-       write(stdout,*) 'nxg, nyg =', nxg,nyg
-       write(stdout,*) 'topo =', local_topo(il,jl) 
-       write(stdout,*) 'thck =', local_thck(il,jl) 
-       write(stdout,*) 'local out_mask =', instance%out_mask(il,jl)
-    end if
-
-    ! temporary field: = 1 where ice thickness exceeds threshold, else = 0
-
-    do j = 1, nyl
-    do i = 1, nxl
-       if (local_thck(i,j) > min_thck) then
-          local_field(i,j) = 1._dp
-       else
-          local_field(i,j) = 0._dp
-       endif
-    enddo
-    enddo
-
-    ! ice fraction
-
-    call mean_to_global_mec(instance%ups,                       &
-                            nxl,                nyl,            &
-                            nxg,                nyg,            &
-                            nec,                topomax,        &
-                            local_field,        gfrac,          &
-                            local_topo,         instance%out_mask)
-
-    ! surface elevation
-
-    call mean_to_global_mec(instance%ups,                   &
-                            nxl,                 nyl,       &
-                            nxg,                 nyg,       &
-                            nec,                 topomax,   &
-                            local_topo,          gtopo,     &
-                            local_topo,          instance%out_mask)
-
-!lipscomb - TODO - Copy the appropriate fields into local_field array
-
-    ! ice runoff
-
-    local_field(:,:) = 0._dp
-
-    call mean_to_global_mec(instance%ups,                   &
-                            nxl,                 nyl,       &
-                            nxg,                 nyg,       &
-                            nec,                 topomax,   &
-                            local_field,         grofi,     &
-                            local_topo,          instance%out_mask)
-
-    ! liquid runoff
-
-    local_field(:,:) = 0._dp
-
-    call mean_to_global_mec(instance%ups,                   &
-                            nxl,                 nyl,       &
-                            nxg,                 nyg,       &
-                            nec,                 topomax,   &
-                            local_field,         grofl,     &
-                            local_topo,          instance%out_mask)
-
-    ! heat flux
-
-    local_field(:,:) = 0._dp
-
-    call mean_to_global_mec(instance%ups,                   &
-                            nxl,                 nyl,       &
-                            nxg,                 nyg,       &
-                            nec,                 topomax,   &
-                            local_field,         ghflx,     &
-                            local_topo,          instance%out_mask)
-    
-    if (GLC_DEBUG .and. main_task) then
-!       write(stdout,*) ' '
-!       write(stdout,*) 'global ifrac:'
-!       do n = 1, nec
-!          write(stdout,*) n, gfrac(ig, jg, n)
-!       enddo
-
-!       write(stdout,*) ' '
-!       write(stdout,*) 'global gtopo:'
-!       do n = 1, nec
-!          write(stdout,*) n, gtopo(ig, jg, n)
-!       enddo
-
-!       write(stdout,*) ' '
-!       write(stdout,*) 'global grofi:'
-!       do n = 1, nec
-!          write(stdout,*) n, grofi(ig, jg, n)
-!       enddo
-
-!       write(stdout,*) ' '
-!       write(stdout,*) 'global grofl:'
-!       do n = 1, nec
-!          write(stdout,*) n, grofl(ig, jg, n)
-!       enddo
-
-!       write(stdout,*) ' '
-!       write(stdout,*) 'global ghflx:'
-!       do n = 1, nec
-!          write(stdout,*) n, ghflx(ig, jg, n)
-!       enddo
-    end if
-
-  end subroutine get_i_upscaled_fields_gcm
-
-  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  !TODO - Can we remove this function and only use mbal_has_snow_model?
 
   logical function glint_has_snow_model(instance)
 
+    use glint_mbal, only: mbal_has_snow_model
+
     type(glint_instance),            intent(in)  :: instance
 
-    glint_has_snow_model=mbal_has_snow_model(instance%mbal_accum%mbal)
+    glint_has_snow_model = mbal_has_snow_model(instance%mbal_accum%mbal)
 
   end function glint_has_snow_model
-
-  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-  subroutine populate_output_flags(out_f,orog_out,albedo,ice_frac,veg_frac,snowice_frac, &
-       snowveg_frac,snow_depth,water_in,water_out,total_water_in,total_water_out,ice_volume)
-
-    type(output_flags),intent(inout) :: out_f
-!TODO - Change to dp?
-    real(rk),dimension(:,:),optional,intent(inout) :: orog_out        !*FD The fed-back, output orography (m)
-    real(rk),dimension(:,:),optional,intent(inout) :: albedo          !*FD surface albedo
-    real(rk),dimension(:,:),optional,intent(inout) :: ice_frac        !*FD grid-box ice-fraction
-    real(rk),dimension(:,:),optional,intent(inout) :: veg_frac        !*FD grid-box veg-fraction
-    real(rk),dimension(:,:),optional,intent(inout) :: snowice_frac    !*FD grid-box snow-covered ice fraction
-    real(rk),dimension(:,:),optional,intent(inout) :: snowveg_frac    !*FD grid-box snow-covered veg fraction
-    real(rk),dimension(:,:),optional,intent(inout) :: snow_depth      !*FD grid-box mean snow depth (m water equivalent)
-    real(rk),dimension(:,:),optional,intent(inout) :: water_in        !*FD Input water flux          (mm)
-    real(rk),dimension(:,:),optional,intent(inout) :: water_out       !*FD Output water flux         (mm)
-    real(rk),               optional,intent(inout) :: total_water_in  !*FD Area-integrated water flux in (kg)
-    real(rk),               optional,intent(inout) :: total_water_out !*FD Area-integrated water flux out (kg)
-    real(rk),               optional,intent(inout) :: ice_volume      !*FD Total ice volume (m$^3$)
-
-
-    out_f%orog         = present(orog_out)
-    out_f%albedo       = present(albedo)
-    out_f%ice_frac     = present(ice_frac)
-    out_f%veg_frac     = present(veg_frac)
-    out_f%snowice_frac = present(snowice_frac)
-    out_f%snowveg_frac = present(snowveg_frac)
-    out_f%snow_depth   = present(snow_depth)
-    out_f%water_out    = present(water_out)
-    out_f%water_in     = present(water_in)
-    out_f%total_win    = present(total_water_in)
-    out_f%total_wout   = present(total_water_out)
-    out_f%ice_vol      = present(ice_volume)
-
-  end subroutine populate_output_flags
 
 end module glint_type

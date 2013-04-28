@@ -30,14 +30,13 @@
 
 module glint_interp
 
-  !*FD Downscaling and upscaling routines for use in GLIMMER.
+  !*FD Downscaling and upscaling routines for use in Glint
 
   use glimmer_global
   use glimmer_map_types
   use glint_mpinterp
-  use glimmer_paramets, only: stdout, itest, jtest, jjtest, itest_local, &
-                              jtest_local, GLC_DEBUG
-  
+  use glimmer_paramets, only: stdout, GLC_DEBUG
+
   implicit none
 
   type downscale
@@ -82,6 +81,7 @@ module glint_interp
      integer, dimension(:,:),pointer :: gboxn => null() !*FD Number of local grid-boxes 
                                                         !*FD contained in each global box.
      logical                         :: set = .false.   !*FD Set if the type has been initialised.
+
   end type upscale
 
   interface mean_to_global
@@ -281,7 +281,6 @@ contains
     integer :: x1, x2, x3, x4
     integer :: y1, y2, y3, y4
 
-
     if (present(z_constrain)) then
        zc=z_constrain
     else
@@ -341,8 +340,8 @@ contains
 
              ! Compile the temporary array f from adjacent points 
 
-             !lipscomb - TO DO - This could be handled more efficiently by precomputing arrays that specify
-             !                   which neighbor gridcell supplies values in each masked-out global gridcell.
+             !TODO - This could be handled more efficiently by precomputing arrays that specify
+             !       which neighbor gridcell supplies values in each masked-out global gridcell.
 
              if (present(gmask) .and. present(maskval)) then
 
@@ -682,8 +681,7 @@ contains
 
   subroutine mean_to_global_dp(ups,local,global,mask)
 
-    !*FD Upscale to global domain by
-    !*FD areal averaging.
+    !*FD Upscale to global domain by areal averaging.
     !*FD
     !*FD Note that:
     !*FD \begin{itemize}
@@ -768,7 +766,7 @@ contains
     ! Upscale from the local domain to a global domain with multiple elevation classes
     ! by areal averaging.
     !
-    ! This subroutine is adapted from subroutine mean_to_global in GLIMMER.
+    ! This subroutine is adapted from subroutine mean_to_global.
     ! The difference is that local topography is upscaled to multiple elevation classes
     !  in each global grid cell.
     !
@@ -814,7 +812,6 @@ contains
     real(dp),dimension(:,:),allocatable :: local_fulldomain
     real(dp),dimension(:,:),allocatable :: ltopo_fulldomain
     integer ,dimension(:,:),allocatable :: tempmask_fulldomain
-
 
     integer :: il, jl
     integer :: nxl_full, nyl_full  ! nxl & nyl spanning the full domain (all tasks)
@@ -1153,29 +1150,35 @@ contains
     ! This output should work for any number of tasks, since the variables here span the
     ! full local domain. Because of where it falls in the call chain, only the main task
     ! should reach this point, but we check that anyway to avoid problems.
-    if (GLC_DEBUG .and. main_task) then
-       write(stdout,*) ' '
-       write(stdout,*) 'Mask in neighborhood of i, j = ', itest_local, jtest_local
-       do j = jtest_local-1, jtest_local+1
-          write(stdout,*) lmask(itest_local-1:itest_local+1,j)
-       enddo
 
-       write(stdout,*) ' '
-       write(stdout,*) 'Global mask near Greenland'
-       do j = 1, 20
-          write(stdout,150) ggrid%mask(nxg-29:nxg,j)
-       enddo
+    !WHL - Commenting out for now
+    !      If uncommented, then probably should pass in itest_local and jtest_local
+    !       as optional arguments
 
-       write(stdout,*) ' '
-       write(stdout,*) 'Local mask'
-       do j = ny, 1, -1
-          write(stdout,200) lmask(1:nx,j)
-       enddo
+!!    if (GLC_DEBUG .and. main_task) then
 
-  100  format(144i2)
-  150  format(30i2)
-  200  format(76i2)
-    end if
+!!       write(stdout,*) ' '
+!!       write(stdout,*) 'Mask in neighborhood of i, j = ', itest_local, jtest_local
+!!       do j = jtest_local-1, jtest_local+1
+!!          write(stdout,*) lmask(itest_local-1:itest_local+1,j)
+!!       enddo
+     
+!!       write(stdout,*) ' '
+!!       write(stdout,*) 'Global mask near Greenland'
+!!       do j = 1, 20
+!!          ! This is hardwired for a particular global grid 
+!!          write(stdout,150) ggrid%mask(nxg-29:nxg,j)   
+!!       enddo
+
+!!       write(stdout,*) ' '
+!!       write(stdout,*) 'Local mask'
+!!       do j = ny, 1, -1
+!!          write(stdout,200) lmask(1:nx,j)
+!!       enddo
+
+!!  150  format(30i2)
+!!  200  format(76i2)
+!!    end if
 
   end subroutine index_local_boxes
 
@@ -1439,6 +1442,5 @@ contains
   end subroutine calc_fractional
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
 
 end module glint_interp

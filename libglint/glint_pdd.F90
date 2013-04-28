@@ -333,7 +333,7 @@ contains
     ! Internal variables
 
     real(sp)           :: tma,dtmj
-    real(sp),parameter :: twopi = 3.1416 * 2.0 
+    real(sp),parameter :: twopi = 3.1416 * 2.0   !TODO - Change to 2.0 * pi 
     integer  :: kx,ky, i,j
 
     !--------------------------------------------------------------------
