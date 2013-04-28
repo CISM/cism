@@ -977,8 +977,10 @@ module glide_types
 
     integer :: profile_period = 100            ! profile frequency
 
-    !WHL - I am replacing ndiag with dt_diag
+    !WHL - Replaced ndiag with dt_diag
     !TODO - Remove ndiag, after changing config files appropriately
+    !TODO - Change names of idiag_global and jdiag_global?
+    !       These are indices for the full ice sheet grid (before decomposition), but not a true global grid.
     real(dp) :: dt_diag = 0.d0            ! diagnostic time interval (write diagnostics every dt_diag years)
     integer  :: ndiag = -999              ! diagnostic period (write output every ndiag steps)
     integer  :: idiag_global = 1          ! grid indices for diagnostic point

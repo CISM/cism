@@ -56,15 +56,12 @@ module glimmer_paramets
 
   integer :: stdout = 6
 
-!TODO - Make the diagnostic points parallel-friendly.
-!       E.g., choose desired global indices on standard Greenland 5-km grid,
-!        and convert to local indices on a particular processor at run-time.
-
+!WHL - Commented out; to be replaced with parallel-friendly Glint diagnostics
 ! some parameters for debugging and diagnostics
-   integer, parameter ::   &
-      itest = 133, jtest = 84,  &          ! in Greenland (FV2), lat 67.3 N, lon 330 E
-                  jjtest = 97 - jtest,  &  ! reversed for N to S indexing (FV2, ny = 96)
-      itest_local = 60, jtest_local = 54   ! Greenland 20 deg grid, initial usrf = 491 m
+!!   integer, parameter ::   &
+!!      itest = 133, jtest = 84,  &          ! in Greenland (FV2), lat 67.3 N, lon 330 E
+!!                  jjtest = 97 - jtest,  &  ! reversed for N to S indexing (FV2, ny = 96)
+!!      itest_local = 60, jtest_local = 54   ! Greenland 20 deg grid, initial usrf = 491 m
 
 ! logical flag to turn on special DEBUG output (related to test points), false by default
    logical :: GLC_DEBUG = .false.

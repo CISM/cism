@@ -19,9 +19,9 @@ libglide_la_SOURCES = glide.F90 glide_types.F90 glide_setup.F90 \
                       glide_io.F90 \
                       glide_lithot.F90 glide_lithot3d.F90 glide_lithot1d.F90 \
                       isostasy.F90 isostasy_elastic.F90 \
-                      glide_bwater.F90 glimmer_routing.F90 \
+                      glide_bwater.F90 glide_ground.F90 \
 		      glam_strs2.F90 glam_grid_operators.F90 \
-                      glide_stress.F90 glide_ground.F90 glide_vertint.F90 xls.f90 \
+                      glide_stress.F90 glide_vertint.F90 xls.f90 \
 		      glide_mask.inc glide_nan.inc \
                       glimmer_restart_gcm.F90 \
                       glissade.F90 glissade_velo.F90 glissade_temp.F90 \
