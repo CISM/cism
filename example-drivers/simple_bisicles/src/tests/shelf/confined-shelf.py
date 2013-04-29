@@ -152,7 +152,7 @@ for i in range(nx):
     y = float(j)/(ny-1) - 0.5 # -1/2 < y < 1/2
     r = sqrt(x*x+y*y)     # radial distance from the center
     if r < 0.15:          # Inside a circle we have
-      acab[0,j,i] = -25.0     # really strong melting
+      acab[0,j,i] = -150.0     # really strong melting
 
 acab[0,ny-3:,:]  = 0    # zero out accum at edges to avoid buildup where u=0
 acab[0,:,:3] = 0
