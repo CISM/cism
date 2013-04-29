@@ -146,7 +146,7 @@ contains
     type(coordsystem_type) :: lgrid
 
 !!    type(ConfigSection), pointer :: config !*FD structure holding sections of configuration file
-    integer          :: whichacab    ! whichacab = 0 is assumed
+    integer, parameter :: whichacab = 0
 !!    real(sp),dimension(:,:),intent(in) :: snowd !*FD Initial snow-depth field
 !!    real(sp),dimension(:,:),intent(in) :: siced !*FD Initial superimposed ice field
 
