@@ -50,9 +50,6 @@ module glint_initialise
 
 contains
 
-  !TODO - Simplify by removing GCM arguments and operations now handled
-  !       by glint_i_initialise_gcm
-
   subroutine glint_i_initialise(config,           instance,         &
                                 grid,             grid_orog,        &
                                 mbts,             idts,             &
@@ -174,14 +171,8 @@ contains
 
     call define_glint_restart_variables(instance)
  
-!WHL - debug
-!    print*, 'create glint variables (glint_io)'
-
     ! create glint variables for the glide output files
     call glint_io_createall(instance%model, data=instance)
-
-!WHL - debug
-    print*, 'create glint variables (glint_mbal_io)'
 
     ! create instantaneous glint variables
 
@@ -190,19 +181,7 @@ contains
 
     ! fill dimension variables
 
-!WHL - debug
-    print*, 'call glide_nc_fillall 1'
-
-!    call glide_nc_fillall(instance%model, vertical_level_flag = .false.)
     call glide_nc_fillall(instance%model)
-
-!WHL - debug
-    print*, 'call glide_nc_fillall 2'
-!!    print*, 'associated(out_first) =', associated(instance%out_first)
-!!    if (associated(instance%out_first)) print*, instance%out_first%nc%filename
-
-!    call glide_nc_fillall(instance%model, outfiles=instance%out_first,  &
-!                                          vertical_level_flag = .false.)
     call glide_nc_fillall(instance%model, outfiles=instance%out_first)
 
     ! Check we've used all the config sections
@@ -247,8 +226,8 @@ contains
                         instance%lgrid%size%pt(2), &
                         real(instance%lgrid%delta%pt(1),rk))
 
-    instance%mbal_tstep=instance%mbal_accum%mbal%tstep
-    mbts=instance%mbal_tstep
+    instance%mbal_tstep = instance%mbal_accum%mbal%tstep
+    mbts = instance%mbal_tstep
 
     instance%next_time = force_start-force_dt+instance%mbal_tstep
 
@@ -263,13 +242,6 @@ contains
 
     if (instance%mbal_accum_time == -1) then
        instance%mbal_accum_time = max(instance%ice_tstep,instance%mbal_tstep)
-       if (GLC_DEBUG) then
-          !Set mbal_accum_time = mbal_tstep
-          ! lipscomb - TODO - Make it easy to run Glimmer/Glint for ~5 days, e.g. for CESM smoke tests,
-          !         with all major components exercised. 
-          !!          instance%mbal_accum_time = instance%mbal_tstep
-          !!          write(6,*) 'WARNING: Seting mbal_accum_time =', instance%mbal_accum_time
-       end if
     end if
 
     if (instance%mbal_accum_time < instance%mbal_tstep) then
@@ -277,12 +249,12 @@ contains
             'long as mass-balance time-step',GM_FATAL,__FILE__,__LINE__)
     end if
 
-    if (mod(instance%mbal_accum_time,instance%mbal_tstep)/=0) then
+    if (mod(instance%mbal_accum_time,instance%mbal_tstep) /= 0) then
        call write_log('Mass-balance accumulation timescale must be an '// &
             'integer multiple of the mass-balance time-step',GM_FATAL,__FILE__,__LINE__)
     end if
 
-    if (.not.(mod(instance%mbal_accum_time,instance%ice_tstep)==0.or.&
+    if (.not.(mod(instance%mbal_accum_time,instance%ice_tstep)==0 .or. &
          mod(instance%ice_tstep,instance%mbal_accum_time)==0)) then
        call write_log('Mass-balance accumulation timescale and ice dynamics '//&
             'timestep must divide into one another',GM_FATAL,__FILE__,__LINE__)
@@ -301,8 +273,8 @@ contains
        instance%n_icetstep = instance%ice_tstep_multiply
     end if
 
-!This was commented out because it destroys exact restart
-!TODO - Find another way to set thk to snowd?
+    !This was commented out because it destroys exact restart
+    !TODO - Find another way to set thk to snowd?
     ! Copy snow-depth to thickness if no thickness is present
 
 !!    allocate(thk(get_ewn(instance%model),get_nsn(instance%model)))
@@ -336,8 +308,6 @@ contains
   end subroutine glint_i_initialise
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-!WHL - New subroutine for running Glint with SMB input from GCM
 
   subroutine glint_i_initialise_gcm(config,           instance,         &
                                     grid,             &
@@ -389,9 +359,6 @@ contains
     if (present(gcm_config_unit)) then
        config_fileunit = gcm_config_unit
     endif
-
-!WHL - debug
-    print*, 'Starting glint_i_initialise_gcm'
 
     ! initialise model
 
@@ -459,14 +426,8 @@ contains
     ! Note: the corresponding call for glide is placed within *_readconfig, which is probably more appropriate,
     ! but putting this call into glint_i_readconfig creates a circular dependency.  
 
-!WHL - debug
-    print*, 'Define glint restart vars'
-
     call define_glint_restart_variables(instance)
  
-!WHL - debug
-    print*, 'Create glint vars'
-
     ! create glint variables for the glide output files
     call glint_io_createall(instance%model, data=instance)
 
@@ -474,15 +435,8 @@ contains
     call openall_out(instance%model, outfiles=instance%out_first)
     call glint_mbal_io_createall(instance%model, data=instance, outfiles=instance%out_first)
 
-!WHL - debug
-    print*, 'call glide_nc_fillall 1'
-
     ! fill dimension variables
     call glide_nc_fillall(instance%model)
-
-!WHL - debug
-    print*, 'call glide_nc_fillall 2'
-
     call glide_nc_fillall(instance%model, outfiles=instance%out_first)
 
     ! Check we've used all the config sections
@@ -524,7 +478,7 @@ contains
     !TODO - Do we need two copies of this tstep variable?
     instance%mbal_tstep = instance%mbal_accum%mbal%tstep
 
-    mbts=instance%mbal_tstep
+    mbts = instance%mbal_tstep
 
     instance%next_time = force_start - force_dt + instance%mbal_tstep
 
@@ -534,12 +488,6 @@ contains
        write (6,*) 'next_time =', instance%next_time
        write (6,*) 'start_time =', instance%mbal_accum%start_time
     end if
-
-!WHL - debug
-       write (6,*) 'Called glint_mbc_init'
-       write (6,*) 'mbal tstep =', mbts
-       write (6,*) 'next_time =', instance%next_time
-       write (6,*) 'start_time =', instance%mbal_accum%start_time
 
     ! Mass-balance accumulation length
 
@@ -594,7 +542,7 @@ contains
 
   subroutine glint_i_end(instance)
 
-    !*FD Performs tidying-up for an ice model. 
+    !*FD Tidy up 
 
     use glide
     use glimmer_ncio
@@ -875,8 +823,9 @@ contains
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   subroutine define_glint_restart_variables(instance)
-    !*FD This subroutine analyzes the glint options input by the user in the config file
-    !*FD and determines which variables are necessary for an exact restart.  MJH 1/11/2013
+
+    ! This subroutine analyzes the glint options input by the user in the config file
+    ! and determines which variables are necessary for an exact restart.  MJH 1/11/2013
 
     ! Please comment thoroughly the reasons why a particular variable needs to be a restart variable for a given config.
 
@@ -897,6 +846,7 @@ contains
 
     ! Variables needed for restart with glint.
     ! TODO I am simply inserting outmask because it was the only variable with hot=1 in glint_vars.def
+    !      Not sure it is needed
     call glint_add_to_restart_variable_list('outmask')
 
     ! Variables needed for restart with glint_mbal

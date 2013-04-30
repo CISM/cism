@@ -49,7 +49,7 @@ module glint_main
   ! ------------------------------------------------------------
 
   !TODO - Move this definition to glint_type?
-  !       Create a simpler type (glint_params_gcm) for gcm_smb runs?
+  !       Create a simpler type (glint_params_gcm) for GCM coupling?
 
   type glint_params 
 
@@ -173,7 +173,8 @@ module glint_main
 
 contains
 
-  !TODO - Simplify by removing GCM arguments and operations that are now handled by initialise_glint_gcm
+  !TODO - Try calling this subroutine from CESM to estimate SMB in PDD mode?
+  !       We would have only one elevation class per grid cell and would not return upscaled fields.
 
   subroutine initialise_glint(params,                         &
                               lats,         longs,            &
@@ -188,10 +189,7 @@ contains
                               output_flag,  daysinyear,       &
                               snow_model,   ice_dt,           &
                               extraconfigs, start_time,       &
-                              gcm_nec,      gcm_smb,          &
-                              gfrac,        gtopo,            &
-                              grofi,        grofl,            &
-                              ghflx,        gmask,            &
+                              gmask,                          &
                               gcm_restart,  gcm_restart_file, &
                               gcm_debug,    gcm_fileunit)
 
@@ -204,7 +202,7 @@ contains
     use glint_initialise
     use glimmer_log
     use glimmer_filenames
-    use glint_timestep, only: get_i_upscaled_fields, get_i_upscaled_fields_gcm
+    use glint_timestep, only: get_i_upscaled_fields
     use parallel, only: main_task
     implicit none
 
@@ -242,13 +240,6 @@ contains
     type(ConfigData),dimension(:),optional ::  extraconfigs !*FD Additional configuration information - overwrites
                                                                   !*FD config data read from files
     integer,                optional,intent(in)    :: start_time  !*FD Time of first call to glint (hours)
-    integer,                  optional,intent(in)  :: gcm_nec     !*FD number of elevation classes for GCM input
-    logical,                  optional,intent(in)  :: gcm_smb     !*FD true if getting sfc mass balance from a GCM
-    real(rk),dimension(:,:,:),optional,intent(out) :: gfrac       !*FD ice fractional area [0,1]
-    real(rk),dimension(:,:,:),optional,intent(out) :: gtopo       !*FD surface elevation (m)
-    real(rk),dimension(:,:,:),optional,intent(out) :: grofi       !*FD ice runoff (kg/m^2/s = mm H2O/s)
-    real(rk),dimension(:,:,:),optional,intent(out) :: grofl       !*FD liquid runoff (kg/m^2/s = mm H2O/s)
-    real(rk),dimension(:,:,:),optional,intent(out) :: ghflx       !*FD heat flux (W/m^2, positive down)
     integer, dimension(:,:),  optional,intent(in)  :: gmask       !*FD mask = 1 where global data are valid
     logical,                  optional,intent(in)  :: gcm_restart ! logical flag to restart from a GCM restart file
     character(*),             optional, intent(in) :: gcm_restart_file ! restart filename for a GCM restart
@@ -262,19 +253,11 @@ contains
     character(len=100) :: message                                            ! For log-writing
     character(fname_length),dimension(:),pointer :: config_fnames=>null()    ! array of config filenames
     type(ConfigSection), pointer :: econf
-    integer :: i
+    integer :: i, j, n
     real(rk),dimension(:,:),allocatable :: orog_temp, if_temp, vf_temp, sif_temp,  &
                                            svf_temp,  sd_temp, alb_temp      ! Temporary output arrays
     integer,dimension(:),allocatable :: mbts,idts ! Array of mass-balance and ice dynamics timesteps
     logical :: anomaly_check ! Set if we've already initialised anomaly coupling
-
-    real(dp) :: timeyr       ! time in years
-
-    real(rk),dimension(:,:,:),allocatable ::   &
-               gfrac_temp, gtopo_temp, grofi_temp, grofl_temp, ghflx_temp    ! Temporary output arrays
-    integer :: n
-    integer :: nec       ! number of elevation classes
-    integer :: j, ii, jj
 
     if (present(gcm_debug)) then
        GLC_DEBUG = gcm_debug
@@ -297,13 +280,8 @@ contains
 
     params%next_av_start = params%start_time
 
-    ! Initialisation for runs where the surface mass balance is received from a GCM
+    ! Initialisation for runs coupled to a GCM
  
-    params%gcm_smb = .false.
-    if (present(gcm_smb)) then
-       params%gcm_smb = gcm_smb
-    endif
-
     params%gcm_restart = .false.
     if (present(gcm_restart)) then
        params%gcm_restart = gcm_restart
@@ -319,10 +297,10 @@ contains
        params%gcm_fileunit = gcm_fileunit
     endif
 
-    nec = 1
-    if (present(gcm_nec)) then
-       nec = gcm_nec
-    endif
+!    nec = 1
+!    if (present(gcm_nec)) then
+!       nec = gcm_nec
+!    endif
 
     if (GLC_DEBUG .and. main_task) then
        write(stdout,*) 'time_step =', params%time_step
@@ -344,9 +322,9 @@ contains
     ! Initialise main global grid --------------------------------------------------------------
 
     if (present(gmask)) then
-       call new_global_grid(params%g_grid, longs, lats, lonb=lonb, latb=latb, nec=nec, mask=gmask)
+       call new_global_grid(params%g_grid, longs, lats, lonb=lonb, latb=latb, mask=gmask)
     else
-       call new_global_grid(params%g_grid, longs, lats, lonb=lonb, latb=latb, nec=nec)
+       call new_global_grid(params%g_grid, longs, lats, lonb=lonb, latb=latb)
     endif
 
     if (GLC_DEBUG .and. main_task) then
@@ -385,8 +363,6 @@ contains
 
     call glint_allocate_arrays(params)
 
-    if (params%gcm_smb) call glint_allocate_arrays_gcm(params)
-
     ! Initialise arrays ---------------------------------------------
 
     params%g_av_precip  = 0.0
@@ -400,12 +376,6 @@ contains
     params%g_av_lwdown  = 0.0
     params%g_av_swdown  = 0.0
     params%g_av_airpress = 0.0
-
-    if (params%gcm_smb) then
-       params%g_av_qsmb    = 0.0
-       params%g_av_tsfc    = 0.0
-       params%g_av_topo    = 0.0
-    endif
 
     ! ---------------------------------------------------------------
     ! Zero coverage maps and normalisation fields for main grid and
@@ -464,9 +434,6 @@ contains
           end if
        end if
 
-!WHL - debug
-    print*, 'call glint_i_initialise'
- 
        call glint_i_initialise(instance_config,    params%instances(i),     &
                                params%g_grid,      params%g_grid_orog,      &
                                mbts(i),            idts(i),                 &
@@ -510,12 +477,6 @@ contains
        if (present(ice_dt)) write(stdout,*) 'ice_dt =', ice_dt
     end if
 
-!WHL - debug
-       write(stdout,*) 'tstep_mbal =', params%tstep_mbal
-       write(stdout,*) 'start_time =', params%start_time
-       write(stdout,*) 'time_step =',  params%time_step
-       if (present(ice_dt)) write(stdout,*) 'ice_dt =', ice_dt
-
     ! Check time-steps divide into one another appropriately.
 
     if (.not.(mod(params%tstep_mbal,params%time_step)==0)) then
@@ -540,12 +501,6 @@ contains
     if (present(snowveg_frac)) snowveg_frac = 0.0
     if (present(snow_depth)) snow_depth = 0.0
 
-    if (present(gfrac)) gfrac = 0.0
-    if (present(gtopo)) gtopo = 0.0
-    if (present(grofi)) grofi = 0.0
-    if (present(grofl)) grofl = 0.0
-    if (present(ghflx)) ghflx = 0.0
-
     ! Allocate arrays
 
     allocate(orog_temp(params%g_grid_orog%nx, params%g_grid_orog%ny))
@@ -556,20 +511,9 @@ contains
     allocate(svf_temp (params%g_grid%nx, params%g_grid%ny))
     allocate(sd_temp  (params%g_grid%nx, params%g_grid%ny))
 
-    if (params%gcm_smb) then
-       allocate(gfrac_temp(params%g_grid%nx,params%g_grid%ny,params%g_grid%nec))
-       allocate(gtopo_temp(params%g_grid%nx,params%g_grid%ny,params%g_grid%nec))
-       allocate(grofi_temp(params%g_grid%nx,params%g_grid%ny,params%g_grid%nec))
-       allocate(grofl_temp(params%g_grid%nx,params%g_grid%ny,params%g_grid%nec))
-       allocate(ghflx_temp(params%g_grid%nx,params%g_grid%ny,params%g_grid%nec))
-    endif
-
     if (GLC_DEBUG .and. main_task) then
        write(stdout,*) 'Upscale and splice the initial fields'
     end if
-
-!WHL - debug
-    print*, 'Splice and return'
 
     ! Get initial fields from instances, splice together and return
 
@@ -615,66 +559,11 @@ contains
 
        end if
 
-!TODO - Remove this SMB code
-
-       if (params%gcm_smb) then
-
-          call get_i_upscaled_fields_gcm(params%instances(i), params%g_grid%nec,  &
-                                         params%instances(i)%lgrid%size%pt(1),    &
-                                         params%instances(i)%lgrid%size%pt(2),    &
-                                         params%g_grid%nx,    params%g_grid%ny,   &
-                                         gfrac_temp,          gtopo_temp,         &
-                                         grofi_temp,          grofl_temp,         &
-                                         ghflx_temp)
-
-          ! Add this contribution to the global output
-          ! Only the main task has valid values for the global output fields
-          if (main_task) then
-
-             do n = 1, params%g_grid%nec
-
-                if (present(gfrac))    &
-                   gfrac(:,:,n) = splice_field(gfrac(:,:,n),                      &
-                                               gfrac_temp(:,:,n),                 &
-                                               params%instances(i)%frac_coverage, &
-                                               params%cov_normalise)
-
-                if (present(gtopo))    &
-                   gtopo(:,:,n) = splice_field(gtopo(:,:,n),                      &
-                                               gtopo_temp(:,:,n),                 &
-                                               params%instances(i)%frac_coverage, &
-                                               params%cov_normalise)
-
-                if (present(grofi))    &
-                   grofi(:,:,n) = splice_field(grofi(:,:,n),                      &
-                                               grofi_temp(:,:,n),                 &
-                                               params%instances(i)%frac_coverage, &
-                                               params%cov_normalise)
-
-                if (present(grofl))    &
-                   grofl(:,:,n) = splice_field(grofl(:,:,n),                      &
-                                               grofl_temp(:,:,n),                 &
-                                               params%instances(i)%frac_coverage, &
-                                               params%cov_normalise)
-
-                if (present(ghflx))    &
-                   ghflx(:,:,n) = splice_field(ghflx(:,:,n),                      &
-                                               ghflx_temp(:,:,n),                 &
-                                               params%instances(i)%frac_coverage, &
-                                               params%cov_normalise)
-
-             enddo  ! nec
-
-          endif  ! main_task
-
-       endif     ! gcm_smb
-
-    end do
+    end do  ! ninstances
 
     ! Deallocate
 
     deallocate(orog_temp, alb_temp, if_temp, vf_temp, sif_temp, svf_temp,sd_temp)
-    if (params%gcm_smb) deallocate(gfrac_temp, gtopo_temp, grofi_temp, grofl_temp, ghflx_temp)
 
     ! Sort out snow_model flag
 
@@ -692,8 +581,6 @@ contains
   end subroutine initialise_glint
 
   !================================================================================
-
-!WHL - New subroutine for GCM initialization
 
   subroutine initialise_glint_gcm(params,                         &
                                   lats,         longs,            &
@@ -773,9 +660,6 @@ contains
        write(stdout,*) 'Initializing glint'
     end if
 
-!WHL - debug
-       write(stdout,*) 'Initializing glint'
-
     ! Initialise start time and calling model time-step (time_step = integer number of hours)
     ! We ignore t=0 by default 
 
@@ -817,11 +701,6 @@ contains
        write(stdout,*) 'start_time    =', params%start_time
        write(stdout,*) 'next_av_start =', params%next_av_start
     end if
-
-!WHL - debug
-       write(stdout,*) 'time_step     =', params%time_step
-       write(stdout,*) 'start_time    =', params%start_time
-       write(stdout,*) 'next_av_start =', params%next_av_start
 
     ! Initialise year-length -------------------------------------------------------------------
 
@@ -875,7 +754,7 @@ contains
 
     ! Initialise arrays ---------------------------------------------
 
-       !TODO - Make these arrays dp?
+    !TODO - Make these arrays dp
     params%g_av_qsmb    = 0.0
     params%g_av_tsfc    = 0.0
     params%g_av_topo    = 0.0
@@ -935,9 +814,6 @@ contains
 !!          end if
 !!       end if
  
-!WHL - debug
-    print*, 'call glint_i_initialise_gcm'
-
        call glint_i_initialise_gcm(instance_config,     params%instances(i),     &
                                    params%g_grid,                                &
                                    mbts(i),             idts(i),                 &
@@ -945,17 +821,10 @@ contains
                                    params%gcm_restart,  params%gcm_restart_file, &
                                    params%gcm_fileunit )
 
-
-!WHL - debug
-    print*, 'Back in glint_initialise'
-
        params%total_coverage = params%total_coverage + params%instances(i)%frac_coverage
        where (params%total_coverage > 0.0) params%cov_normalise = params%cov_normalise + 1.0
 
     end do    ! ninstances
-
-!WHL - debug
-    print*, 'Check mbal tsteps'
 
     ! Check that all mass-balance time-steps are the same length and 
     ! assign that value to the top-level variable
@@ -973,12 +842,6 @@ contains
        if (present(ice_dt)) write(stdout,*) 'ice_dt =', ice_dt
     end if
 
-!WHL - debug
-       write(stdout,*) 'tstep_mbal =', params%tstep_mbal
-       write(stdout,*) 'start_time =', params%start_time
-       write(stdout,*) 'time_step =',  params%time_step
-       if (present(ice_dt)) write(stdout,*) 'ice_dt =', ice_dt
-
     ! Check time-steps divide into one another appropriately.
 
     if (.not. (mod (params%tstep_mbal, params%time_step) == 0)) then
@@ -993,7 +856,7 @@ contains
 
     ! Zero optional outputs, if present
 
-    !TODO - Change to dp?
+    !TODO - Change to dp
     if (present(gfrac)) gfrac = 0.0
     if (present(gtopo)) gtopo = 0.0
     if (present(grofi)) grofi = 0.0
@@ -1016,7 +879,7 @@ contains
 
     do i = 1, params%ninstances
 
-!TODO - These *_temp arrays are not yet upscaled correctly
+       !TODO - These *_temp arrays are not yet upscaled correctly
 
        ! Upscale the output fields for this instance
 
@@ -1053,8 +916,6 @@ contains
 
   !================================================================================
 
-  !TODO - Simplify by removing GCM arguments and operations that are now handled by glint_gcm
-
   subroutine glint(params,         time,            &
                    rawtemp,        rawprecip,       &
                    orog,                            &
@@ -1068,11 +929,7 @@ contains
                    snow_depth,                      &
                    water_in,       water_out,       &
                    total_water_in, total_water_out, &
-                   ice_volume,     ice_tstep,       &
-                   qsmb,           tsfc,            &
-                   topo,           gfrac,           &
-                   gtopo,          grofi,           &
-                   grofl,          ghflx)
+                   ice_volume,     ice_tstep)
 
     !*FD Main Glint subroutine.
     !*FD
@@ -1130,14 +987,6 @@ contains
     real(rk),               optional,intent(inout) :: ice_volume      !*FD Total ice volume (m$^3$)
     logical,                optional,intent(out)   :: ice_tstep       !*FD Set when an ice-timestep has been done, and
                                                                       !*FD water balance information is available
-    real(rk),dimension(:,:,:),optional,intent(in)    :: qsmb          ! flux of glacier ice (kg/m^2/s)
-    real(rk),dimension(:,:,:),optional,intent(in)    :: tsfc          ! surface ground temperature (deg C)
-    real(rk),dimension(:,:,:),optional,intent(in)    :: topo          ! surface elevation (m)
-    real(rk),dimension(:,:,:),optional,intent(inout) :: gfrac         ! ice fractional area [0,1]
-    real(rk),dimension(:,:,:),optional,intent(inout) :: gtopo         ! surface elevation (m)
-    real(rk),dimension(:,:,:),optional,intent(inout) :: grofi         ! ice runoff (kg/m^2/s = mm H2O/s)
-    real(rk),dimension(:,:,:),optional,intent(inout) :: grofl         ! liquid runoff (kg/m^2/s = mm H2O/s)
-    real(rk),dimension(:,:,:),optional,intent(inout) :: ghflx         ! heat flux (W/m^2, positive down)
 
     ! Internal variables ----------------------------------------------------------------------------
 
@@ -1155,13 +1004,6 @@ contains
     real(rk) :: yearfrac
     integer :: j, ig, jg
 
-    real(rk), dimension(:,:,:), allocatable ::   &
-       gfrac_temp    ,&! gfrac for a single instance
-       gtopo_temp    ,&! gtopo for a single instance
-       grofi_temp    ,&! grofi for a single instance
-       grofl_temp    ,&! grofl for a single instance
-       ghflx_temp      ! ghflx for a single instance
-
     if (GLC_DEBUG .and. main_task) then
 !       write (stdout,*) 'In subroutine glint, current time (hr) =', time
 !       write (stdout,*) 'av_start_time =', params%av_start_time
@@ -1169,10 +1011,6 @@ contains
 !       write (stdout,*) 'new_av =', params%new_av
 !       write (stdout,*) 'tstep_mbal =', params%tstep_mbal
     end if
-
-!TODO - The timestepping might be less confusing if we defined time to be the time
-!       at the end of this step, not the beginning.
-!       Then we could get rid of terms like '+ params%time_step' below
 
     ! Check we're expecting a call now --------------------------------------------------------------
 
@@ -1185,7 +1023,7 @@ contains
           call write_log(message,GM_FATAL,__FILE__,__LINE__)
        end if
     else
-       if (mod(time-params%av_start_time,params%time_step)/=0) then
+       if (mod(time-params%av_start_time,params%time_step) /= 0) then
           write(message,*) 'Unexpected calling of GLINT at time ', time
           call write_log(message,GM_FATAL,__FILE__,__LINE__)
        end if
@@ -1219,8 +1057,6 @@ contains
                              zonwind, merwind, &
                              humid,   lwdown,  &
                              swdown,  airpress)
-
-    if (params%gcm_smb) call accumulate_averages_gcm(params, qsmb, tsfc, topo)
 
     ! Increment step counter
 
@@ -1262,13 +1098,6 @@ contains
        allocate(sd_temp(size(orog,1),size(orog,2)))
        allocate(wout_temp(size(orog,1),size(orog,2)))
        allocate(win_temp(size(orog,1),size(orog,2)))
-       if (params%gcm_smb) then
-          allocate(gfrac_temp(params%g_grid%nx,params%g_grid%ny,params%g_grid%nec))
-          allocate(gtopo_temp(params%g_grid%nx,params%g_grid%ny,params%g_grid%nec))
-          allocate(grofi_temp(params%g_grid%nx,params%g_grid%ny,params%g_grid%nec))
-          allocate(grofl_temp(params%g_grid%nx,params%g_grid%ny,params%g_grid%nec))
-          allocate(ghflx_temp(params%g_grid%nx,params%g_grid%ny,params%g_grid%nec))
-       endif
 
        ! Populate output flag derived type
 
@@ -1296,51 +1125,10 @@ contains
        if (present(total_water_out)) total_water_out = 0.0
        if (present(ice_volume))      ice_volume      = 0.0
 
-       if (present(gfrac)) gfrac(:,:,:) = 0.d0
-       if (present(gtopo)) gtopo(:,:,:) = 0.d0
-       if (present(grofi)) grofi(:,:,:) = 0.d0
-       if (present(grofl)) grofl(:,:,:) = 0.d0
-       if (present(ghflx)) ghflx(:,:,:) = 0.d0
-
-!WHL - debug
-       if (params%gcm_smb) then
-          print*, ' '
-          print*, 'Present:'
-          print*, 'gfrac:', present(gfrac)
-          print*, 'gtopo:', present(gtopo)
-          print*, 'grofi:', present(grofi)
-          print*, 'grofl:', present(grofl)
-          print*, 'ghflx:', present(ghflx)
-          print*, ' '
-          print*, 'Zero outputs:'
-          print*, 'max, min(gfrac) =', maxval(gfrac), minval(gfrac)
-          print*, 'max, min(gtopo) =', maxval(gtopo), minval(gtopo)
-          print*, 'max, min(grofi) =', maxval(grofi), minval(grofi)
-          print*, 'max, min(grofl) =', maxval(grofl), minval(grofl)
-          print*, 'max, min(ghflx) =', maxval(ghflx), minval(ghflx)
-       endif
-
-!WHL - debug
-          if (params%gcm_smb) then
-             i = params%instances(1)%model%numerics%idiag_global
-             j = params%instances(1)%model%numerics%jdiag_global
-             print*, ' '
-             print*, 'Before average calc:'
-             do n = 1, params%g_grid%nec
-                write (stdout,*) ' '
-                write (stdout,*) 'n =', n
-                write (stdout,*) 'g_av_topo (m)    =', params%g_av_topo(i,j,n)
-                write (stdout,*) 'g_av_tsfc (degC) =', params%g_av_tsfc(i,j,n)
-                write (stdout,*) 'g_av_qsmb (m/yr) =', params%g_av_qsmb(i,j,n)*scyr/1000.d0
-!                write (stdout,*) 'g_av_qsmb (kg/m2/s) =', params%g_av_qsmb(i,j,n)
-             enddo
-          endif
-
        ! Calculate averages by dividing by number of steps elapsed
        ! since last model timestep.
 
        call calculate_averages(params)
-       if (params%gcm_smb) call calculate_averages_gcm(params)
 
        ! Calculate total accumulated precipitation - multiply
        ! by time since last model timestep
@@ -1349,10 +1137,9 @@ contains
 
        ! Calculate temperature half-range
 
-       params%g_temp_range=(params%g_max_temp-params%g_min_temp)/2.0
+       params%g_temp_range = (params%g_max_temp-params%g_min_temp)/2.0
 
-!WHL - debug
-!!!!       if (GLC_DEBUG .and. main_task) then
+       if (GLC_DEBUG .and. main_task) then
           i = params%instances(1)%model%numerics%idiag_global
           j = params%instances(1)%model%numerics%jdiag_global
           write(stdout,*) ' '
@@ -1360,87 +1147,32 @@ contains
           write(stdout,*) 'av_steps =', real(params%av_steps,rk)
           write(stdout,*) 'tstep_mbal (hr) =', params%tstep_mbal
           write(stdout,*) 'i, j =', i, j
-          if (params%gcm_smb) then
-             do n = 1, params%g_grid%nec
-                write (stdout,*) ' '
-                write (stdout,*) 'n =', n
-                write (stdout,*) 'g_av_topo (m)    =', params%g_av_topo(i,j,n)
-                write (stdout,*) 'g_av_tsfc (degC) =', params%g_av_tsfc(i,j,n)
-                write (stdout,*) 'g_av_qsmb (m/yr) =', params%g_av_qsmb(i,j,n)*scyr/1000.d0
-!                write (stdout,*) 'g_av_qsmb (kg/m2/s) =', params%g_av_qsmb(i,j,n)
-             enddo
-          endif
           write(stdout,*) 'call glint_i_tstep'
-!!!!       end if
-
-!WHL - debug
-       print*, 'gcm_smb =', params%gcm_smb
-
-       ! Calculate total surface mass balance - multiply by time since last model timestep
-       ! Note on units: We want g_av_qsmb to have units of m per time step.
-       ! Divide by 1000 to convert from mm to m.
-       ! Multiply by 3600 to convert from 1/s to 1/hr.  (tstep_mbal has units of hours)
-
-       if (params%gcm_smb) &
-          params%g_av_qsmb(:,:,:) = params%g_av_qsmb(:,:,:) * params%tstep_mbal * hours2seconds / 1000._rk
+       end if
 
        ! Do a timestep for each instance
-       !TODO - If we pass in the time at the end of the current step, this subroutine will need to be modified.
 
-       do i=1,params%ninstances
+       do i = 1,params%ninstances
           
-          if (params%gcm_smb) then
-
-             !WHL - TODO - Make some of these arguments optional?
-
-             call glint_i_tstep(time,      params%instances(i),          &
-                  params%g_av_temp,        params%g_temp_range,          &
-                  params%g_av_precip,      params%g_av_zonwind,          &
-                  params%g_av_merwind,     params%g_av_humid,            &
-                  params%g_av_lwdown,      params%g_av_swdown,           &
-                  params%g_av_airpress,                                  &
-                  orog,                    orog_out_temp,                &
-                  albedo_temp,             if_temp,                      &
-                  vf_temp,                 sif_temp,                     &
-                  svf_temp,                sd_temp,                      &
-                  win_temp,                wout_temp,                    &
-                  twin_temp,               twout_temp,                   &
-                  icevol_temp,             out_f,                        &
-                  .true.,                  icets,                        &
-                  gcm_smb_in = params%gcm_smb,                           &
-                  qsmb_g = params%g_av_qsmb, tsfc_g = params%g_av_tsfc,  &
-                  topo_g = params%g_av_topo, gmask  = params%g_grid%mask,&
-                  gfrac  = gfrac_temp,       gtopo  = gtopo_temp,        &
-                  grofi  = grofi_temp,       grofl  = grofl_temp,        &
-                  ghflx  = ghflx_temp  )
-
-          else 
-
-             call glint_i_tstep(time,                    params%instances(i),       &
-                                params%g_av_temp,        params%g_temp_range,       &
-                                params%g_av_precip,      params%g_av_zonwind,       &
-                                params%g_av_merwind,     params%g_av_humid,         &
-                                params%g_av_lwdown,      params%g_av_swdown,        &
-                                params%g_av_airpress,                               &
-                                orog,                    orog_out_temp,             &
-                                albedo_temp,             if_temp,                   &
-                                vf_temp,                 sif_temp,                  &
-                                svf_temp,                sd_temp,                   &
-                                win_temp,                wout_temp,                 &
-                                twin_temp,               twout_temp,                &
-                                icevol_temp,             out_f,                     &
-                                .true.,                  icets)
-
-          endif
+          call glint_i_tstep(time,                    params%instances(i),       &
+                             params%g_av_temp,        params%g_temp_range,       &
+                             params%g_av_precip,      params%g_av_zonwind,       &
+                             params%g_av_merwind,     params%g_av_humid,         &
+                             params%g_av_lwdown,      params%g_av_swdown,        &
+                             params%g_av_airpress,                               &
+                             orog,                    orog_out_temp,             &
+                             albedo_temp,             if_temp,                   &
+                             vf_temp,                 sif_temp,                  &
+                             svf_temp,                sd_temp,                   &
+                             win_temp,                wout_temp,                 &
+                             twin_temp,               twout_temp,                &
+                             icevol_temp,             out_f,                     &
+                             .true.,                  icets)
 
           if (GLC_DEBUG .and. main_task) then
              write(stdout,*) 'Finished glc_glint_ice tstep, instance =', i
              write(stdout,*) 'Upscale fields to global grid'
           end if
-
-!WHL - debug
-          write(stdout,*) 'Finished glc_glint_ice tstep, instance =', i
-          print*, ' '
 
           ! Add this contribution to the global output
           ! Only the main task has valid values for the global output fields
@@ -1506,92 +1238,6 @@ contains
              ice_tstep = (ice_tstep .or. icets)
           end if
 
-          ! Upscale the output to elevation classes on the global grid
-
-!TODO - Remove this SMB code
-          if (params%gcm_smb) then
-
-!WHL - debug
-          write(stdout,*) 'get_i_upscaled_fields'
-
-             call get_i_upscaled_fields_gcm(params%instances(i), params%g_grid%nec, &
-                                            params%instances(i)%lgrid%size%pt(1),   &
-                                            params%instances(i)%lgrid%size%pt(2),   &
-                                            params%g_grid%nx,    params%g_grid%ny,  &
-                                            gfrac_temp,          gtopo_temp,        &
-                                            grofi_temp,          grofl_temp,        &
-                                            ghflx_temp )
-
-             if (GLC_DEBUG .and. main_task) then
-                ig = iglint_global   !WHL - in glint_type; make sure the values here are appropriate
-                jg = jglint_global
-                write(stdout,*) ' '
-                write(stdout,*) 'After upscaling, instance', i
-                do n = 1, params%g_grid%nec
-                  write(stdout,*) ' '
-                  write(stdout,*) 'n =', n
-                  write(stdout,*) 'gfrac_temp(n) =', gfrac_temp(ig,jg,n)
-                  write(stdout,*) 'gtopo_temp(n) =', gtopo_temp(ig,jg,n)
-                  write(stdout,*) 'grofi_temp(n) =', grofi_temp(ig,jg,n)
-                  write(stdout,*) 'grofl_temp(n) =', grofl_temp(ig,jg,n)
-                  write(stdout,*) 'ghflx_temp(n) =', ghflx_temp(ig,jg,n)
-                enddo
-             end if
-
-!WHL - debug
-          print*, ' '
-          print*, 'max, min(gfrac_temp) =', maxval(gfrac_temp), minval(gfrac_temp)
-          print*, 'max, min(gtopo_temp) =', maxval(gtopo_temp), minval(gtopo_temp)
-          print*, 'max, min(grofi_temp) =', maxval(grofi_temp), minval(grofi_temp)
-          print*, 'max, min(grofl_temp) =', maxval(grofl_temp), minval(grofl_temp)
-          print*, 'max, min(ghflx_temp) =', maxval(ghflx_temp), minval(ghflx_temp)
-
-          print*, ' '
-          print*, 'max, min(gfrac) =', maxval(gfrac), minval(gfrac)
-          print*, 'max, min(gtopo) =', maxval(gtopo), minval(gtopo)
-          print*, 'max, min(grofi) =', maxval(grofi), minval(grofi)
-          print*, 'max, min(grofl) =', maxval(grofl), minval(grofl)
-          print*, 'max, min(ghflx) =', maxval(ghflx), minval(ghflx)
-
-          write(stdout,*) 'splice fields'
-
-             ! Add this contribution to the global output
-             ! Only the main task has valid values for the global output fields
-             if (main_task) then
-
-                do n = 1, params%g_grid%nec
-
-                   gfrac(:,:,n) = splice_field(gfrac(:,:,n),                      &
-                                               gfrac_temp(:,:,n),                 &
-                                               params%instances(i)%frac_coverage, &
-                                               params%cov_normalise)
- 
-                   gtopo(:,:,n) = splice_field(gtopo(:,:,n),                      &
-                                               gtopo_temp(:,:,n),                 &
-                                               params%instances(i)%frac_coverage, &
-                                               params%cov_normalise)
-
-                   grofi(:,:,n) = splice_field(grofi(:,:,n),                      &
-                                               grofi_temp(:,:,n),                 &
-                                               params%instances(i)%frac_coverage, &
-                                               params%cov_normalise)
-
-                   grofl(:,:,n) = splice_field(grofl(:,:,n),                      &
-                                               grofl_temp(:,:,n),                 &
-                                               params%instances(i)%frac_coverage, &
-                                               params%cov_normalise)
-
-                   ghflx(:,:,n) = splice_field(ghflx(:,:,n),                      &
-                                               ghflx_temp(:,:,n),                 &
-                                               params%instances(i)%frac_coverage, &
-                                               params%cov_normalise)
-
-                enddo   ! nec
-
-             endif  ! main_task
-
-          endif   ! gcm_smb
-
        enddo    ! ninstances
 
        ! Scale output water fluxes to be in mm/s
@@ -1606,40 +1252,29 @@ contains
        ! Reset averaging fields, flags and counters
        ! ---------------------------------------------------------
 
-       if (params%gcm_smb) then
-          params%g_av_qsmb    = 0.0
-          params%g_av_tsfc    = 0.0
-          params%g_av_topo    = 0.0
-       else
-          params%g_av_temp    = 0.0
-          params%g_av_precip  = 0.0
-          params%g_av_zonwind = 0.0
-          params%g_av_merwind = 0.0
-          params%g_av_humid   = 0.0
-          params%g_av_lwdown  = 0.0
-          params%g_av_swdown  = 0.0
-          params%g_av_airpress = 0.0
-          params%g_temp_range = 0.0
-          params%g_max_temp   = -1000.0
-          params%g_min_temp   = 1000.0
-       endif
+       params%g_av_temp    = 0.0
+       params%g_av_precip  = 0.0
+       params%g_av_zonwind = 0.0
+       params%g_av_merwind = 0.0
+       params%g_av_humid   = 0.0
+       params%g_av_lwdown  = 0.0
+       params%g_av_swdown  = 0.0
+       params%g_av_airpress = 0.0
+       params%g_temp_range = 0.0
+       params%g_max_temp   = -1000.0
+       params%g_min_temp   = 1000.0
 
        params%av_steps      = 0
        params%new_av        = .true.
        params%next_av_start = time+params%time_step
 
        deallocate(albedo_temp,if_temp,vf_temp,sif_temp,svf_temp,sd_temp,wout_temp,win_temp,orog_out_temp)
-       if (params%gcm_smb) then
-          deallocate(gfrac_temp, gtopo_temp, grofi_temp, grofl_temp, ghflx_temp)
-       endif
 
     endif    ! time - params%av_start_time + params%time_step > params%tstep_mbal
 
   end subroutine glint
 
   !===================================================================
-
-!WHL - New subroutine for running glint with SMB input from GCM
 
   subroutine glint_gcm(params,         time,            &
                        qsmb,           tsfc,            &
@@ -1777,32 +1412,19 @@ contains
 
        ! Zero global outputs if present
 
+       !TODO - Change to dp
        if (present(gfrac)) gfrac = 0.0
        if (present(gtopo)) gtopo = 0.0
        if (present(grofi)) grofi = 0.0
        if (present(grofl)) grofl = 0.0
        if (present(ghflx)) ghflx = 0.0
 
-!WHL - debug
-             i = params%instances(1)%model%numerics%idiag_global
-             j = params%instances(1)%model%numerics%jdiag_global
-             print*, ' '
-             print*, 'Before average calc:'
-             do n = 1, params%g_grid%nec
-                write (stdout,*) ' '
-                write (stdout,*) 'n =', n
-                write (stdout,*) 'g_av_topo (m)    =', params%g_av_topo(i,j,n)
-                write (stdout,*) 'g_av_tsfc (degC) =', params%g_av_tsfc(i,j,n)
-                write (stdout,*) 'g_av_qsmb (m/yr) =', params%g_av_qsmb(i,j,n)*scyr/1000.d0
-!                write (stdout,*) 'g_av_qsmb (kg/m2/s) =', params%g_av_qsmb(i,j,n)
-             enddo
-
        ! Calculate averages by dividing by number of steps elapsed
        ! since last model timestep.
 
        call calculate_averages_gcm(params)
 
-!!!!       if (GLC_DEBUG .and. main_task) then
+       if (GLC_DEBUG .and. main_task) then
           i = params%instances(1)%model%numerics%idiag_global
           j = params%instances(1)%model%numerics%jdiag_global
           write(stdout,*) 'Take a mass balance timestep, time (hr) =', time
@@ -1820,7 +1442,7 @@ contains
              enddo
           endif
           write(stdout,*) 'call glint_i_tstep'
-!!!!       end if
+       end if
 
        ! Calculate total surface mass balance - multiply by time since last model timestep
        ! Note on units: We want g_av_qsmb to have units of m per time step.
@@ -1851,19 +1473,10 @@ contains
              write(stdout,*) 'Upscale fields to global grid'
           end if
 
-!WHL - debug
-          write(stdout,*) 'Finished glc_glint_ice tstep, instance =', i
-          print*, ' '
-
           ! Set flag
           if (present(ice_tstep)) then
              ice_tstep = (ice_tstep .or. icets)
           end if
-
-          !TODO - Put the following in a subroutine
-
-!WHL - debug
-          write(stdout,*) 'get_i_upscaled_fields_gcm'
 
           ! Upscale the output to elevation classes on the global grid
 
@@ -1891,16 +1504,6 @@ contains
              enddo
           end if
 
-!WHL - debug
-!          print*, ' '
-!          print*, 'max, min(gfrac_temp) =', maxval(gfrac_temp), minval(gfrac_temp)
-!          print*, 'max, min(gtopo_temp) =', maxval(gtopo_temp), minval(gtopo_temp)
-!          print*, 'max, min(grofi_temp) =', maxval(grofi_temp), minval(grofi_temp)
-!          print*, 'max, min(grofl_temp) =', maxval(grofl_temp), minval(grofl_temp)
-!          print*, 'max, min(ghflx_temp) =', maxval(ghflx_temp), minval(ghflx_temp)
-
-          write(stdout,*) 'splice fields'
-
           ! Add this contribution to the global output
 
           call splice_fields_gcm(gfrac_temp, gtopo_temp,    &
@@ -1915,19 +1518,11 @@ contains
                          
        enddo    ! ninstances
 
-!WHL - debug
-!          print*, ' '
-!          print*, 'max, min(gfrac) =', maxval(gfrac), minval(gfrac)
-!          print*, 'max, min(gtopo) =', maxval(gtopo), minval(gtopo)
-!          print*, 'max, min(grofi) =', maxval(grofi), minval(grofi)
-!          print*, 'max, min(grofl) =', maxval(grofl), minval(grofl)
-!          print*, 'max, min(ghflx) =', maxval(ghflx), minval(ghflx)
-
        ! ---------------------------------------------------------
        ! Reset averaging fields, flags and counters
        ! ---------------------------------------------------------
 
-       !TODO - Change to dp?
+       !TODO - Change to dp
        params%g_av_qsmb    = 0.0
        params%g_av_tsfc    = 0.0
        params%g_av_topo    = 0.0
@@ -1946,7 +1541,7 @@ contains
 
   subroutine end_glint(params,close_logfile)
 
-    !*FD perform tidying-up operations for glimmer
+    !*FD tidy-up operations for Glint
     use glint_initialise
     use glimmer_log
     implicit none
@@ -2136,6 +1731,8 @@ contains
   end function splice_field
 
   !========================================================
+
+  !TODO - Move this subroutine to a glint_setup module?
 
   subroutine glint_readconfig(config, ninstances, fnames, infnames)
 
@@ -2390,7 +1987,7 @@ contains
     params%g_av_topo(:,:,:) = params%g_av_topo(:,:,:) + topo(:,:,:)
 
     !TODO - No need to accumulate and average topo?
-    !       Probably will not change during a mass balance timestep.
+    !       topo should not change during a mass balance timestep.
 
   end subroutine accumulate_averages_gcm
 
@@ -2419,7 +2016,7 @@ contains
 
     type(glint_params),              intent(inout) :: params   !*FD parameters for this run
 
-!lipscomb - TO DO - Do not average topo?  Remove 'rk' here?
+    !TODO - Do not average topo?
     params%g_av_qsmb(:,:,:) = params%g_av_qsmb(:,:,:) / real(params%av_steps,rk)
     params%g_av_tsfc(:,:,:) = params%g_av_tsfc(:,:,:) / real(params%av_steps,rk)
     params%g_av_topo(:,:,:) = params%g_av_topo(:,:,:) / real(params%av_steps,rk)
@@ -2427,27 +2024,6 @@ contains
   end subroutine calculate_averages_gcm
 
   !========================================================
-
-  !TODO - Remove this module when no longer called from subroutine glint
-  !       (Code was inlined in subrotine glint_gcm)
-
-  subroutine glint_allocate_arrays_gcm(params)
-
-    !*FD allocates glimmer arrays for GCM input fields
-
-    implicit none
-
-    type(glint_params),intent(inout) :: params !*FD ice model parameters
-
-    ! input fields from GCM
-
-    allocate(params%g_av_qsmb (params%g_grid%nx, params%g_grid%ny, params%g_grid%nec))
-    allocate(params%g_av_tsfc (params%g_grid%nx, params%g_grid%ny, params%g_grid%nec))
-    allocate(params%g_av_topo (params%g_grid%nx, params%g_grid%ny, params%g_grid%nec))
-
-  end subroutine glint_allocate_arrays_gcm
-
-  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   subroutine populate_output_flags(out_f,                     &
                                    orog_out,       albedo,    &
@@ -2459,7 +2035,7 @@ contains
                                    ice_volume)
 
     type(output_flags),intent(inout) :: out_f
-    !TODO - Change to dp?
+
     real(rk),dimension(:,:),optional,intent(inout) :: orog_out        !*FD The fed-back, output orography (m)
     real(rk),dimension(:,:),optional,intent(inout) :: albedo          !*FD surface albedo
     real(rk),dimension(:,:),optional,intent(inout) :: ice_frac        !*FD grid-box ice-fraction
@@ -2494,4 +2070,3 @@ contains
 end module glint_main
 
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-

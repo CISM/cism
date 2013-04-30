@@ -51,9 +51,6 @@ module glint_timestep
 
 contains
 
-!TODO - Simplify by removing GCM arguments and operations that are now handled 
-!       by glint_i_tstep_gcm
-
   subroutine glint_i_tstep(time,            instance,       &
                            g_temp,          g_temp_range,   &
                            g_precip,        g_zonwind,      &
@@ -67,13 +64,7 @@ contains
                            g_water_in,      g_water_out,    &
                            t_win,           t_wout,         &
                            ice_vol,         out_f,          &
-                           orogflag,        ice_tstep,      &
-                           gcm_smb_in,                      &
-                           qsmb_g,          tsfc_g,         &
-                           topo_g,          gmask,          &
-                           gfrac,           gtopo,          &
-                           grofi,           grofl,          &
-                           ghflx )
+                           orogflag,        ice_tstep)
 
     !*FD Performs time-step of an ice model instance. 
     !*FD Note that input quantities here are accumulated/average totals since the
@@ -129,16 +120,6 @@ contains
     type(output_flags),     intent(in)   :: out_f        !*FD Flags to tell us whether to do output   
     logical,                intent(in)   :: orogflag     !*FD Set if we have new global orog
     logical,                intent(out)  :: ice_tstep    !*FD Set if we have done an ice time step
-    logical,                  optional,intent(in)  :: gcm_smb_in ! true if getting sfc mass balance from a GCM
-    real(rk),dimension(:,:,:),optional,intent(in)  :: qsmb_g    ! Depth of new ice (m)
-    real(rk),dimension(:,:,:),optional,intent(in)  :: tsfc_g    ! Surface temperature (C)
-    real(rk),dimension(:,:,:),optional,intent(in)  :: topo_g    ! Surface elevation (m)
-    integer, dimension(:,:),  optional,intent(in)  :: gmask     ! = 1 where global data are valid, else = 0
-    real(rk),dimension(:,:,:),optional,intent(out) :: gfrac     ! ice fractional area [0,1]
-    real(rk),dimension(:,:,:),optional,intent(out) :: gtopo     ! surface elevation (m)
-    real(rk),dimension(:,:,:),optional,intent(out) :: grofi     ! ice runoff (kg/m^2/s = mm H2O/s)
-    real(rk),dimension(:,:,:),optional,intent(out) :: grofl     ! liquid runoff (kg/m^2/s = mm H2O/s)
-    real(rk),dimension(:,:,:),optional,intent(out) :: ghflx     ! heat flux (W/m^2, positive down)
 
     ! ------------------------------------------------------------------------  
     ! Internal variables
@@ -162,32 +143,6 @@ contains
        write(stdout,*) 'next_time =', instance%next_time
     end if
 
-!WHL - debug
-    ig = iglint_global   ! in glint_types
-    jg = jglint_global    
-    il = instance%model%numerics%idiag_global
-    jl = instance%model%numerics%jdiag_global
-
-!WHL - debug
-       write(stdout,*) ' '
-       write(stdout,*) 'In glint_i_tstep, time =', time
-       write(stdout,*) 'next_time =', instance%next_time
-       print*, 'ig, jg =', ig, jg        
-       print*, 'il, jl =', il, jl        
-
-    gcm_smb = .false.
-    if (present(gcm_smb_in)) then
-       gcm_smb = gcm_smb_in
-    endif
-
-    ! Zero outputs
-
-    if (present(gfrac)) gfrac(:,:,:) = 0._rk
-    if (present(gtopo)) gtopo(:,:,:) = 0._rk
-    if (present(grofi)) grofi(:,:,:) = 0._rk
-    if (present(grofl)) grofl(:,:,:) = 0._rk
-    if (present(ghflx)) ghflx(:,:,:) = 0._rk
-
     ! Check whether we're doing anything this time.
 
     if (time /= instance%next_time) then
@@ -205,19 +160,13 @@ contains
     ! Downscale input fields from global to local grid
     ! This subroutine computes instance%acab and instance%artm, the key inputs to GLIDE.
 
-    if (gcm_smb) then
-       call glint_downscaling_gcm (instance,              &
-                                   qsmb_g,      tsfc_g,   &
-                                   topo_g,      gmask)
-    else
-       call glint_downscaling(instance,                  &
-                              g_temp,     g_temp_range,  &
-                              g_precip,   g_orog,        &
-                              g_zonwind,  g_merwind,     &
-                              g_humid,    g_lwdown,      &
-                              g_swdown,   g_airpress,    &
-                              orogflag)
-    endif
+    call glint_downscaling(instance,                  &
+                           g_temp,     g_temp_range,  &
+                           g_precip,   g_orog,        &
+                           g_zonwind,  g_merwind,     &
+                           g_humid,    g_lwdown,      &
+                           g_swdown,   g_airpress,    &
+                           orogflag)
 
     ! ------------------------------------------------------------------------  
     ! Sort out some local orography and remove bathymetry. This relies on the 
@@ -228,22 +177,18 @@ contains
     call glide_get_usurf(instance%model, instance%local_orog)
     call glint_remove_bath(instance%local_orog,1,1)
 
-    if (.not. gcm_smb) then
+    ! ------------------------------------------------------------------------  
+    ! Adjust the surface temperatures using the lapse-rate, by reducing to
+    ! sea-level and then back up to high-res orography
+    ! ------------------------------------------------------------------------  
 
-       ! ------------------------------------------------------------------------  
-       ! Adjust the surface temperatures using the lapse-rate, by reducing to
-       ! sea-level and then back up to high-res orography
-       ! ------------------------------------------------------------------------  
+    call glint_lapserate(instance%artm, real(instance%global_orog,rk), real(-instance%data_lapse_rate,rk))
+    call glint_lapserate(instance%artm, real(instance%local_orog,rk),  real(instance%lapse_rate,rk))
 
-       call glint_lapserate(instance%artm, real(instance%global_orog,rk), real(-instance%data_lapse_rate,rk))
-       call glint_lapserate(instance%artm, real(instance%local_orog,rk),  real(instance%lapse_rate,rk))
+    ! Process the precipitation field if necessary ---------------------------
+    ! and convert from mm/s to m/s
 
-       ! Process the precipitation field if necessary ---------------------------
-       ! and convert from mm/s to m/s
-
-       call glint_calc_precip(instance)
-
-    endif   ! not gcm_smb
+    call glint_calc_precip(instance)
 
     ! Get ice thickness ----------------------------------------
 
@@ -251,14 +196,10 @@ contains
 
     ! Do accumulation --------------------------------------------------------
 
-    if (gcm_smb) then
-       call glint_accumulate_gcm(instance%mbal_accum, time, instance%acab, instance%artm)
-    else
-       call glint_accumulate(instance%mbal_accum, time, instance%artm, instance%arng, instance%prcp, &
-                             instance%snowd, instance%siced, instance%xwind, instance%ywind, &
-                             instance%local_orog, real(thck_temp,rk), instance%humid,    &
-                             instance%swdown, instance%lwdown, instance%airpress)
-    endif
+    call glint_accumulate(instance%mbal_accum, time, instance%artm, instance%arng, instance%prcp, &
+                          instance%snowd, instance%siced, instance%xwind, instance%ywind, &
+                          instance%local_orog, real(thck_temp,rk), instance%humid,    &
+                          instance%swdown, instance%lwdown, instance%airpress)
 
     ! Initialise water budget quantities to zero. These will be over-ridden if
     ! there's an ice-model time-step
@@ -304,9 +245,6 @@ contains
        thck_temp = thck_temp*real(rhoi/rhow)
        start_volume = sum(thck_temp)
 
-!WHL - debug
-    write(stdout,*) 'Take an ice sheet timestep'
-
        ! ---------------------------------------------------------------------
        ! Timestepping for the dynamic ice sheet model
        ! ---------------------------------------------------------------------
@@ -350,7 +288,7 @@ contains
           !  by scale_acab = scyr*thk0/tim0 and copied to data%climate%acab.
           ! Input artm is in deg C; this value is copied to data%climate%artm (no unit conversion).
 
-          !TODO - Just rhow/rhoi without 'real'?
+          !TODO - Change to dp
           call glide_set_acab(instance%model, instance%acab*real(rhow/rhoi))
           call glide_set_artm(instance%model, instance%artm)
 
@@ -363,13 +301,6 @@ contains
              write (stdout,*) 'acab (m/y), artm (C) =', instance%acab(il,jl)*rhow/rhoi, instance%artm(il,jl)
           end if
 
-!WHL - debug
-          il = instance%model%numerics%idiag_global
-          jl = instance%model%numerics%jdiag_global
-          write (stdout,*) ' '
-          write (stdout,*) 'i, j, acab (m/y), artm (C) =', &
-                            il, jl, instance%acab(il,jl)*rhow/rhoi, instance%artm(il,jl)
-
           ! Adjust glint acab and ablt for output
  
           where (instance%acab < -thck_temp .and. thck_temp > 0.0)
@@ -381,41 +312,23 @@ contains
 
           ! call the dynamic ice sheet model (provided the ice is allowed to evolve)
 
-!WHL - debug
-          k  = instance%model%general%upn
-          il = instance%model%numerics%idiag_global
-          jl = instance%model%numerics%jdiag_global
-          write (stdout,*) ' '
-          write (stdout,*) 'old usfc, thck, btemp =', il, jl, instance%model%geometry%usrf(il,jl) * thk0, &
-                                                              instance%model%geometry%thck(il,jl) * thk0, &
-                                                              instance%model%temper%temp(k,il,jl)
+          if (instance%evolve_ice == EVOLVE_ICE_TRUE) then
 
-       if (instance%evolve_ice == EVOLVE_ICE_TRUE) then
+             if (instance%model%options%whichdycore == DYCORE_GLIDE) then
 
-          if (instance%model%options%whichdycore == DYCORE_GLIDE) then
+                call glide_tstep_p1(instance%model,instance%glide_time)
 
-             call glide_tstep_p1(instance%model,instance%glide_time)
+                call glide_tstep_p2(instance%model)
 
-             call glide_tstep_p2(instance%model)
+                call glide_tstep_p3(instance%model)
 
-             call glide_tstep_p3(instance%model)
+             else   ! glam/glissade dycore
 
-          else   ! glam/glissade dycore
+                call glissade_tstep(instance%model,instance%glide_time)
 
-             call glissade_tstep(instance%model,instance%glide_time)
+             endif
 
-          endif
-
-       endif   ! evolve_ice
-
-!WHL - debug
-          k  = instance%model%general%upn
-          il = instance%model%numerics%idiag_global
-          jl = instance%model%numerics%jdiag_global
-          write (stdout,*) ' '
-          write (stdout,*) 'new usfc, thck, btemp =', il, jl, instance%model%geometry%usrf(il,jl) * thk0, &
-                                                              instance%model%geometry%thck(il,jl) * thk0, &
-                                                              instance%model%temper%temp(k,il,jl)
+          endif   ! evolve_ice
 
           ! Add the calved ice to the ablation field
 
@@ -431,8 +344,7 @@ contains
              ablat_temp = ablat_temp + instance%ablt*instance%model%numerics%tinc
           endif
 
-          ! write ice sheet diagnostics at specified interval (model%numerics%dt_diag)
-          !TODO - Do not need optional argument timecounter?
+          ! write ice sheet diagnostics at specified interval
 
           call glide_write_diagnostics(instance%model,                  &
                                        instance%model%numerics%time,    &
@@ -605,17 +517,14 @@ contains
        calve_temp => null()
     end if
 
-    deallocate(thck_temp)
-    thck_temp => null()
-
-!WHL - debug
-    print*, 'Done in glint_i_tstep'
+    if (associated(thck_temp)) then
+       deallocate(thck_temp)
+       thck_temp => null()
+    endif
 
   end subroutine glint_i_tstep
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-!WHL - New subroutine for running Glint with SMB input from GCM
 
   subroutine glint_i_tstep_gcm(time,            instance,       &
                                ice_tstep,                       &
@@ -667,7 +576,7 @@ contains
     ! Internal variables
     ! ------------------------------------------------------------------------  
 
-!WHL - Are these needed?
+    !TODO - Are these needed?
     real(rk),dimension(:,:),pointer :: upscale_temp => null() ! temporary array for upscaling
     real(sp),dimension(:,:),pointer :: thck_temp    => null() ! temporary array for volume calcs
     real(sp),dimension(:,:),pointer :: calve_temp   => null() ! temporary array for calving flux
@@ -680,22 +589,9 @@ contains
        write(stdout,*) 'next_time =', instance%next_time
     end if
 
-!WHL - debug
-    ig = iglint_global    ! in glint_type
-    jg = jglint_global    
-    il = instance%model%numerics%idiag_global
-    jl = instance%model%numerics%jdiag_global
-
-!WHL - debug
-       write(stdout,*) ' '
-       write(stdout,*) 'In glint_i_tstep, time =', time
-       write(stdout,*) 'next_time =', instance%next_time
-       print*, 'ig, jg =', ig, jg        
-       print*, 'il, jl =', il, jl       
-
     ! Zero outputs
 
-    !TODO - Change to dp?
+    !TODO - Change to dp
     if (present(gfrac)) gfrac(:,:,:) = 0._rk
     if (present(gtopo)) gtopo(:,:,:) = 0._rk
     if (present(grofi)) grofi(:,:,:) = 0._rk
@@ -719,9 +615,6 @@ contains
     ! Downscale input fields from global to local grid
     ! This subroutine computes instance%acab and instance%artm, the key inputs to GLIDE.
 
-!WHL - debug
-       write(stdout,*) 'Downscale fields'
-
        call glint_downscaling_gcm (instance,              &
                                    qsmb_g,      tsfc_g,   &
                                    topo_g,      gmask)
@@ -731,7 +624,6 @@ contains
     ! point 1,1 being underwater. However, it's a better method than just 
     ! setting all points < 0.0 to zero
     ! ------------------------------------------------------------------------  
-
 
 !TODO: Determine if glint_remove_bath is needed in a CESM run. If so, fix it to work with
 !      multiple tasks. 
@@ -769,9 +661,6 @@ contains
 
        ice_tstep = .true.
 
-!WHL - debug
-    write(stdout,*) 'Take an ice sheet timestep'
-
        ! ---------------------------------------------------------------------
        ! Timestepping for ice sheet model
        ! ---------------------------------------------------------------------
@@ -797,6 +686,7 @@ contains
                                   
           ! Mask out non-accumulation in ice-free areas
 
+          !TODO - Change to dp
           where(thck_temp <= 0.0 .and. instance%acab < 0.0)
              instance%acab = 0.0
           end where
@@ -827,12 +717,6 @@ contains
              write (stdout,*) 'acab (m/y), artm (C) =', instance%acab(il,jl)*rhow/rhoi, instance%artm(il,jl)
           end if
 
-!WHL - debug
-          il = instance%model%numerics%idiag_global
-          jl = instance%model%numerics%jdiag_global
-          write (stdout,*) ' '
-          write (stdout,*) 'i, j, acab (m/y), artm (C) =', il, jl, instance%acab(il,jl)*rhow/rhoi, instance%artm(il,jl)
-
           ! Adjust glint acab and ablt for output
  
           where (instance%acab < -thck_temp .and. thck_temp > 0.0)
@@ -842,15 +726,6 @@ contains
           instance%glide_time = instance%glide_time + instance%model%numerics%tinc
 
           ! call the dynamic ice sheet model (provided the ice is allowed to evolve)
-
-!WHL - debug
-          k  = instance%model%general%upn
-          il = instance%model%numerics%idiag_global
-          jl = instance%model%numerics%jdiag_global
-          write (stdout,*) ' '
-          write (stdout,*) 'old usfc, thck, btemp =', il, jl, instance%model%geometry%usrf(il,jl) * thk0, &
-                                                              instance%model%geometry%thck(il,jl) * thk0, &
-                                                              instance%model%temper%temp(k,il,jl)
 
           if (instance%evolve_ice == EVOLVE_ICE_TRUE) then
 
@@ -870,19 +745,10 @@ contains
 
           endif  ! evolve_ice
 
-!WHL - debug
-          k  = instance%model%general%upn
-          il = instance%model%numerics%idiag_global
-          jl = instance%model%numerics%jdiag_global
-          write (stdout,*) ' '
-          write (stdout,*) 'new usfc, thck, btemp =', il, jl, instance%model%geometry%usrf(il,jl) * thk0, &
-                                                              instance%model%geometry%thck(il,jl) * thk0, &
-                                                              instance%model%temper%temp(k,il,jl)
-
           ! Add the calved ice to the ablation field
 
-          !TODO - Use this to set the ice runoff?
-          !       Also add basal melting (bmlt) to the liquid runoff.
+          !TODO - Use this to compute the solid ice runoff,grofi?
+          !       Also add basal melting (bmlt) to the liquid runoff, grofl.
 
           call glide_get_calving(instance%model, calve_temp)
           calve_temp = calve_temp * real(rhoi/rhow)
@@ -915,17 +781,16 @@ contains
        calve_temp => null()
     end if
 
-    if (associated(calve_temp)) then
+    if (associated(thck_temp)) then
        deallocate(thck_temp)
        thck_temp => null()
     endif
 
-!WHL - debug
-    print*, 'Done in glint_i_tstep_gcm'
-
   end subroutine glint_i_tstep_gcm
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+  !TODO - Rewrite to support multiple tasks?
 
   subroutine glint_remove_bath(orog,x,y)
 
@@ -1007,12 +872,13 @@ contains
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  !TODO - Remove when we switch to dp
+
   subroutine glint_lapserate_sp(temp,topo,lr)
 
-    !*FD Corrects the temperature field
-    !*FD for height, using a constant lapse rate.
+    !*FD Corrects the temperature field for height, using a constant lapse rate.
     !*FD
-    !*FD This the single-precision version, aliased as \texttt{glimmer\_lapserate}.
+    !*FD This is the single-precision version, aliased as \texttt{glimmer\_lapserate}.
 
     implicit none
 
@@ -1304,7 +1170,7 @@ contains
     ! Arguments ----------------------------------------------------------------------------------------
 
     type(glint_instance),   intent(in)  :: instance      !*FD the model instance
-!TODO - Change to dp?
+
     real(rk),dimension(:,:),intent(out) :: orog          !*FD the orographic elevation (m)
     real(rk),dimension(:,:),intent(out) :: albedo        !*FD the albedo of ice/snow
     real(rk),dimension(:,:),intent(out) :: ice_frac      !*FD The fraction covered by ice
@@ -1329,6 +1195,7 @@ contains
 
     call coordsystem_allocate(instance%lgrid,temp)
 
+    !TODO - Change to dp
     ! Ice-no-snow fraction
     where (instance%mbal_accum%snowd==0.0.and.instance%model%geometry%thck>0.0)
        temp=1.0
@@ -1412,7 +1279,7 @@ contains
     integer,                  intent(in)  :: nxl,nyl       ! local grid dimensions 
     integer,                  intent(in)  :: nxg,nyg       ! global grid dimensions 
 
-    !WHL - Should these be inout?
+    !TODO - Should these be inout?
     real(dp),dimension(nxg,nyg,nec),intent(out) :: gfrac   ! ice-covered fraction [0,1]
     real(dp),dimension(nxg,nyg,nec),intent(out) :: gtopo   ! surface elevation (m)
     real(dp),dimension(nxg,nyg,nec),intent(out) :: grofi   ! ice runoff (calving) flux (kg/m^2/s)
@@ -1433,7 +1300,7 @@ contains
     integer :: il, jl, ig, jg
     character(len=100) :: message
 
-!lipscomb - TODO - Read topomax from data file at initialization
+    !TODO - Pass in topomax as an argument instead of hardwiring it here
     real(dp), dimension(0:nec) :: topomax   ! upper elevation limit of each class
 
     ! Given the value of nec, specify the upper and lower elevation boundaries of each class.
@@ -1473,12 +1340,8 @@ contains
 
     ! The following output only works correctly if running with a single task
     if (GLC_DEBUG .and. tasks==1) then
-!       ig = itest
-!       jg = jjtest
-       ig = iglint_global
+       ig = iglint_global    ! defined in glint_type
        jg = jglint_global
-!       il = itest_local
-!       jl = jtest_local
        il = instance%model%numerics%idiag_global
        jl = instance%model%numerics%jdiag_global
        write(stdout,*) 'In get_i_upscaled_fields_gcm'
@@ -1515,14 +1378,6 @@ contains
                             local_field,        gfrac,          &
                             local_topo,         instance%out_mask)
 
-!WHL - debug
-    print*, 'mean_to_global:'
-    print*, ' '
-    print*, 'new max, min gfrac=', maxval(gfrac), minval(gfrac)
-    print*, ' '
-    print*, 'gtopo'
-    print*, 'start max, min gtopo=', maxval(gtopo), minval(gtopo)
-
     ! surface elevation
 
     call mean_to_global_mec(instance%ups,                   &
@@ -1532,12 +1387,7 @@ contains
                             local_topo,          gtopo,     &
                             local_topo,          instance%out_mask)
 
-!lipscomb - TODO - Copy the appropriate fields into local_field array
-
-    print*, 'new max, min gtopo=', maxval(gtopo), minval(gtopo)
-    print*, ' '
-    print*, 'grofi'
-    print*, 'start max, min grofi=', maxval(grofi), minval(grofi)
+    !TODO - For upscaling, need to copy the appropriate Glide fields into the local_field array
 
     ! ice runoff
 
@@ -1550,11 +1400,6 @@ contains
                             local_field,         grofi,     &
                             local_topo,          instance%out_mask)
 
-    print*, 'new max, min grofi=', maxval(grofi), minval(grofi)
-    print*, ' '
-    print*, 'grofl'
-    print*, 'start max, min grofl=', maxval(grofl), minval(grofl)
-
     ! liquid runoff
 
     local_field(:,:) = 0._dp
@@ -1565,11 +1410,6 @@ contains
                             nec,                 topomax,   &
                             local_field,         grofl,     &
                             local_topo,          instance%out_mask)
-
-    print*, 'new max, min grofl=', maxval(grofl), minval(grofl)
-    print*, ' '
-    print*, 'ghflx'
-    print*, 'start max, min ghflx=', maxval(ghflx), minval(ghflx)
 
     ! heat flux
 
@@ -1582,8 +1422,6 @@ contains
                             local_field,         ghflx,     &
                             local_topo,          instance%out_mask)
     
-    print*, 'new max, min ghflx=', maxval(ghflx), minval(ghflx)
-
     if (GLC_DEBUG .and. main_task) then
 
 !       write(stdout,*) ' '
