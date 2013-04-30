@@ -136,8 +136,10 @@ contains
        ! initialise the model
        call glide_initialise(instance%model)
 
+       !TODO - Remove the oldglide option?
+
        ! compute the initial diagnostic state
-!WHL - Do not call this if comparing to oldglide (cism1) results
+       !WHL - Do not call this if comparing to oldglide (cism1) results
       if (.not. oldglide) then
        call glide_init_state_diagnostic(instance%model)
       endif
@@ -391,6 +393,8 @@ contains
 
        ! initialise the model
        call glide_initialise(instance%model)
+
+       !TODO - Remove the oldglide option?
 
        ! compute the initial diagnostic state
 !WHL - Do not call this if comparing to oldglide (cism1) results

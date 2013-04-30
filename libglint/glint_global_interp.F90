@@ -28,6 +28,8 @@
 #include "config.inc"
 #endif
 
+!TODO - Is this module still needed?  It is not currently used by other Glint modules.
+
 module glint_global_interp
 
   use glint_global_grid

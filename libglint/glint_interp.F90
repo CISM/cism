@@ -601,6 +601,8 @@ contains
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  !TODO - Remove when we switch to dp
+
   subroutine mean_to_global_sp(ups,local,global,mask)
 
     !*FD Upscale to global domain by
@@ -1151,9 +1153,8 @@ contains
     ! full local domain. Because of where it falls in the call chain, only the main task
     ! should reach this point, but we check that anyway to avoid problems.
 
-    !WHL - Commenting out for now
-    !      If uncommented, then probably should pass in itest_local and jtest_local
-    !       as optional arguments
+    !WHL - Commenting out these diagnostics for now
+    !TODO - Modify this code for multiple tasks
 
 !!    if (GLC_DEBUG .and. main_task) then
 

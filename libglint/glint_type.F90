@@ -50,7 +50,7 @@ module glint_type
                                                ! (hold the ice state fixed at initial condition)
   integer, parameter :: EVOLVE_ICE_TRUE  = 1   ! let the ice sheet evolve
 
-  !TODO - Add other Glint options to avoid hardwiring of case numbers
+  !TODO - Add other Glint options here to avoid hardwiring of case numbers
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -89,7 +89,7 @@ module glint_type
 
      ! Climate inputs from global model --------------------------
 
-!TODO - Change to dp?
+     !TODO - Change to dp
      real(sp),dimension(:,:),pointer :: artm        => null() !*FD Annual mean air temperature
      real(sp),dimension(:,:),pointer :: arng        => null() !*FD Annual air temperature half-range
      real(sp),dimension(:,:),pointer :: prcp        => null() !*FD Precipitation (mm or m)
@@ -115,10 +115,10 @@ module glint_type
 
      ! Fractional coverage information ---------------------------
 
-!TODO - Change to dp?
      real(rk) ,dimension(:,:),pointer :: frac_coverage => null() 
      !*FD Fractional coverage of each global gridbox by the projected grid.
      !*FD (ONLY VALID ON MAIN TASK)
+
      real(rk) ,dimension(:,:),pointer :: frac_cov_orog => null() 
      !*FD Fractional coverage of each global gridbox by the projected grid (orography).
      !*FD (ONLY VALID ON MAIN TASK)
@@ -163,7 +163,7 @@ module glint_type
 
      ! Climate parameters ----------------------------------------------------------
 
-!TODO - Change to dp?
+     !TODO - Change to dp
      real(sp) :: ice_albedo   =   0.4 !*FD Ice albedo. (fraction)
      real(sp) :: lapse_rate   =   8.0 !*FD Uniform lapse rate in deg C/km 
      !*FD (N.B. This should be \emph{positive} for temperature falling with height!)
@@ -201,8 +201,12 @@ module glint_type
      logical :: ice_vol      !*FD Set if we need to calculate the total ice volume
   end type output_flags
 
-  !WHL - parameters for debugging
-  !TODO - Define diagnostic points for Glint global grid
+
+  !TODO - These diagnostic points are grid-specific.  
+  !       For GCM coupling, they should be set based on the global GCM grid.
+
+  ! diagnostic points on global grid, useful for debugging
+
   integer, parameter :: iglint_global = 56     ! SW Greenland point on 64 x 32 glint_example global grid
   integer, parameter :: jglint_global = 4      ! j increases from north to south
 
@@ -293,7 +297,7 @@ contains
 
   subroutine glint_i_allocate_gcm(instance,nxg,nyg)
 
-    !*FD Allocate top-level arrays in the model instance, and ice model arrays.
+    ! Allocate top-level arrays in the model instance, and ice model arrays.
 
     implicit none
 
@@ -351,7 +355,7 @@ contains
 
     call GetSection(config,section,'GLINT climate')
     if (associated(section)) then
-       call GetValue(section,'evolve_ice',instance%evolve_ice)  !WHL - new option
+       call GetValue(section,'evolve_ice',instance%evolve_ice)
        call GetValue(section,'precip_mode',instance%whichprecip)
        call GetValue(section,'acab_mode',instance%whichacab)
        call GetValue(section,'ice_albedo',instance%ice_albedo)
@@ -438,7 +442,8 @@ contains
 
     character(len=100) :: message
 
-    !TODO - Make these messages more informative
+    !TODO - Make these messages more informative 
+    !       (Print a description instead of just the option number.)
     !TODO - Remove hardwired option numbers
 
     call write_log(' ')

@@ -34,10 +34,10 @@ module glint_mbal
   use glint_pdd
   use glint_daily_pdd
 
-#ifdef USE_ENMABAL
-  use smb_mecons
+#ifdef USE_ENMABAL  ! This option is *not* suppported
+  use smb_mecons       ! might exist somewhere, but not part of a Glint release
 #else
-  use glint_ebm
+  use glint_ebm        ! dummy wrapper
 #endif
 
   implicit none
@@ -83,7 +83,6 @@ contains
 
     select case(which)
     ! Note: Mass balance timestep and accum time are typically assumed to be one year.
-!lipscomb - TO DO - Allow mbal accum time to be set in config file, so we can do 5-day smoke tests.
     case(0)
        params%tstep=years2hours   ! mbal tstep = 1 year
     case(1)

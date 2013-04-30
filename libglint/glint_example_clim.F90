@@ -71,7 +71,10 @@ module glint_example_clim
      real(rk) :: precip_scale=1.0 ! Factor to scale precip by
      logical  :: temp_in_kelvin=.true. ! Set if temperature field is in Kelvin
 
-     !WHL - added this one
+     !NOTE: The glint_example driver assumes we will read in precip, surface air temp,
+     !       and surface orography as required for a PDD scheme.
+     !      But this module includes a subroutine (compute_smb_gcm) that computes a crude SMB 
+     !       based on these inputs, so we can run Glint in SMB mode instead of PDD mode. 
      logical :: gcm_smb = .false.   ! if true, pass SMB to glint instead of PDD info
 
   end type glex_climate
@@ -153,8 +156,6 @@ contains
        call GetValue(section,'days_in_year',params%days_in_year)
        call GetValue(section,'total_years',params%total_years)
        call GetValue(section,'climate_tstep',params%climate_tstep)
-
-!WHL - added this one so we can switch between smb and pdd input based on config file
        call GetValue(section,'gcm_smb',params%gcm_smb)
 
        params%hours_in_year=params%days_in_year*24
@@ -225,7 +226,6 @@ contains
        call write_log(message)
     end if
 
-    !WHL - added this one
     if (params%gcm_smb) then
        call write_log ('Will pass surface mass balance (not PDD info) to Glint')
     endif
@@ -768,8 +768,6 @@ contains
   end subroutine fixbounds
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-  !WHL - added this subroutine to test SMB interfaces in glint_example
 
   subroutine compute_gcm_smb(temp,        precip,   &
                              orog,                  &

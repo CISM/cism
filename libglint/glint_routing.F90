@@ -45,6 +45,8 @@ contains
     !*FD according to a surface elevation field. The method used 
     !*FD is by Quinn et. al. (1991)
 
+    !NOTE: This subroutine will *not* work for multiple tasks.
+
     real(sp),dimension(:,:),intent(in)  :: surface !*FD Surface elevation
     real(rk),dimension(:,:),intent(in)  :: input   !*FD Input water field
     real(rk),dimension(:,:),intent(out) :: output  !*FD Output water field

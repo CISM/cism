@@ -134,11 +134,12 @@ contains
 
   ! +++++++++++++++++++++++++++++++++++++++++++++++++
 
-!WHL - New version for gcm coupling
-
   subroutine glint_mbc_init_gcm(params,  &
                                 lgrid,   &
                                 whichacab)
+
+    ! Simplified version of glint_mbc_init, used when coupling
+    ! to a GCM that provides the surface mass balance
 
     use glimmer_coordinates
     use glint_constants, only: years2hours
@@ -157,6 +158,7 @@ contains
 
     ! Allocate arrays and zero
 
+    !TODO - Change to dp
     call coordsystem_allocate(lgrid,params%acab_save);  params%acab_save = 0.0
     call coordsystem_allocate(lgrid,params%artm_save);  params%artm_save = 0.0
     call coordsystem_allocate(lgrid,params%acab);       params%acab = 0.0
@@ -314,8 +316,6 @@ contains
   end subroutine glint_get_mbal
 
   ! +++++++++++++++++++++++++++++++++++++++++++++++++
-
-!TODO - Test this subroutine
 
   subroutine glint_get_mbal_gcm(params, dt, acab, artm)
 

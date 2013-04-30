@@ -31,7 +31,7 @@
 module glint_constants
 
   use glimmer_global
-  use glimmer_physcon, only: pi   ! making this available to glint modules that use pi
+  use glimmer_physcon, only: pi   ! make this constant available to glint modules that use pi
 
   implicit none
 
@@ -39,6 +39,7 @@ module glint_constants
   ! global parameters
   ! ------------------------------------------------------------
 
+  !TODO - Change to dp
 !!  real(rk),parameter :: pi=3.141592654          !*FD The value of pi (defined in glimmer_paramets)
   real(rk),parameter :: days2hours = 24.0
   real(rk),parameter :: hours2seconds = 3600.0    !*FD Hours to seconds conversion factor

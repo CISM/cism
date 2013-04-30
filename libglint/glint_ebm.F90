@@ -28,18 +28,13 @@
 #include "config.inc"
 #endif
 
-!WHL - Changed name of file from glint_smb.F90 to glint_ebm.F90
-!      (since this module is a dummy wrapper for a non-existent energy balance model).
-!      Changed module name to glint_ebm
-!      Changes 'smb' to 'ebm' elsewhere in module
-!      The goal here is to avoid confusion with the subroutines that
-!       work with the SMB from a GCM.
-
 module glint_ebm
 
   ! This module provides a dummy, hopefully warning-free interface
-  ! in place of an energy-balance mass-balance scheme. If either
-  ! subroutine is called, a fatal error is flagged.
+  ! in place of an energy-balance model to compute the surface mass balance. 
+  ! If either subroutine is called, a fatal error is flagged.
+  !
+  ! The old module name was 'glint_smb'.
 
   use glimmer_global
 

@@ -44,6 +44,7 @@ module glint_daily_pdd
      !*FD Holds parameters for daily positive-degree-day mass-balance
      !*FD calculation. 
 
+     !TODO - Change to dp
      real(sp) :: wmax        = 0.6_sp   !*FD Fraction of firn that must be ice before run-off occurs
      real(sp) :: pddfac_ice  = 0.008_sp !*FD PDD factor for ice (m water day$^{-1}$ $^{\circ}C$^{-1}$)
      real(sp) :: pddfac_snow = 0.003_sp !*FD PDD factor for snow (m water day$^{-1}$ $^{\circ}C$^{-1}$)
