@@ -65,14 +65,14 @@ module glimmer_sparse_slap
 
     end type slap_solver_options
 
-!WHL - parameters for debugging
+    !WHL - debug
     logical, parameter :: verbose_slap = .false.
     integer, parameter :: ndiagmax = 10
 
 contains
 
-!TODO - This call may not be needed.
-!       Better to set the desired defaults for each individual method (GMRES, BiCG, PCG, etc.)?
+!TODO - It may be better to set the desired defaults for each method individually (GMRES, BiCG, PCG, etc.)
+
     subroutine slap_default_options(opt, base)
 
         !*FD Populates a slap_solver_options (defined above) with default
@@ -84,8 +84,8 @@ contains
         type(slap_solver_options), intent(out) :: opt
         type(sparse_solver_options_base), intent(in), target :: base
 
-!TODO - This value of itol may not be optimal for all solver options.
-!       The PCG solver fails for simple test matrices with itol=2, but does fine with itol=1.
+        !TODO - This value of itol may not be optimal for all solver options.
+        !       The PCG solver fails for simple test matrices with itol=2, but does fine with itol=1.
         opt%itol = 2
         opt%gmres_saved_vectors = 20
         opt%base => base
@@ -114,8 +114,8 @@ contains
             max_nonzeros = matrix%nonzeros
         end if
 
-        !Only allocate the memory if it hasn't been allocated or it needs
-        !to grow
+        !Only allocate the memory if it hasn't been allocated or it needs to grow
+
         if (.not. associated(workspace%rwork) .or. workspace%max_nelt < max_nonzeros) then
             !If memory is already allocated get rid of it
             if (associated(workspace%rwork)) then
@@ -146,7 +146,6 @@ contains
         end if
     end subroutine slap_allocate_workspace
 
-!TODO - Remove this subroutine?  It does nothing.
 
     subroutine slap_solver_preprocess(matrix, options, workspace)
 
@@ -166,6 +165,8 @@ contains
         type(slap_solver_options) :: options
         type(slap_solver_workspace) :: workspace
 
+        ! Nothing to do here.  Move along.
+
     end subroutine slap_solver_preprocess
 
     function slap_solve (matrix, rhs, solution, options, workspace,err,niters, verbose)
@@ -177,8 +178,8 @@ contains
         !*FD and the number of iterations needed to converge, these should *not*
         !*FD be relied upon as not every slap linear solver may report them.
 
-!WHL - Changed intent from (inout) to (in) so that the matrix is not changed.
-!      This requires making a local copy of some data.
+       !Note: The matrix should be intent(in) rather than (inout).
+       !      This requires making a local copy of some data.
 
         type(sparse_matrix_type), intent(in) :: matrix 
         !*FD Sparse matrix to solve.  
@@ -205,7 +206,6 @@ contains
         !*FD If present and true, this argument may cause diagnostic information
         !*FD to be printed by the solver (not every solver may implement this).
         
-!WHL - Added these local arrays
         integer, dimension(matrix%nonzeros) ::  &
            matrix_row,      &! local copy of matrix%row
            matrix_col        ! local copy of matrix%col
@@ -222,9 +222,8 @@ contains
         logical :: allzeros
         integer :: i
 
-!WHL - debug
+        !WHL - debug (for checking matrix symmetry)
         integer :: n, m, j
-
         logical, parameter ::  &
            check_symmetry = .false.   ! if true, check matrix symmetry (takes a long time for big matrices)
         logical :: sym_partner
@@ -245,6 +244,7 @@ contains
         end if
 
         allzeros = .true.
+
         !Check if the RHS is zero; if it is, don't iterate!  The biconjugate
         !gradient method doesn't work in this case
         zero_check: do i = 1, size(rhs)
@@ -270,11 +270,10 @@ contains
                            GM_WARNING, __FILE__, __LINE__)        
         else
 
-!TODO - This call to slap_solver_preprocess seems to be unnecessary
             !Set up SLAP if it hasn't been already
             call slap_solver_preprocess(matrix, options, workspace)
 
-!WHL - debug
+            !WHL - debug
             if (verbose_slap) then
                print*, ' '
                print*, 'In slap_solve'
@@ -292,7 +291,7 @@ contains
                print*, 'size(iwork) =', size(workspace%iwork)
             endif
   
-!WHL - debug
+        !WHL - debug
         if (verbose_slap) then
            print*, ' '
            print*, 'Matrix: n, row, col, val:'
@@ -313,10 +312,9 @@ contains
            matrix_val(n) = matrix%val(n)
         enddo
 
-!TODO - Remove this code when no longer needed for debugging
-!WHL - debug
-!  This can take a long time.  It's more efficient to check symmetry at a higher level,
-!  in the glissade velo solver.
+        !TODO - Remove this code when no longer needed for debugging
+        !  This can take a long time.  It's more efficient to check symmetry at a higher level,
+        !  in the glissade velo solver.
 
         if (check_symmetry) then
            print*, 'Check symmetry...could take a while'
@@ -376,17 +374,15 @@ contains
 
                   if (verbose_slap) print*, 'GMRES: iters, err =', niters, err
 
-                !WHL - added an option: PCG for symmetric positive-definite matrices
-
                 case(2)  ! PCG with incomplete Cholesky preconditioner 
 
                   if (verbose_slap) then
                      print*, 'Call dsiccg (PCG, incomplete Cholesky)'
                   endif
 
-!TODO - Pass in just half the matrix?
-!       If we pass in the entire matrix, then the preconditioner is fragile in the sense
-!        that it can fail with very small departures from symmetry (due to roundoff errors)
+                   !TODO - Pass in just half the matrix?
+                   !       If we pass in the entire matrix, then the preconditioner is fragile in the sense
+                   !        that it can fail with very small departures from symmetry (due to roundoff errors)
 
                    call dsiccg(matrix%order, rhs, solution, matrix%nonzeros, &
                                matrix_row, matrix_col, matrix_val, &
@@ -413,7 +409,7 @@ contains
 
             end select   ! slap solver
   
-!WHL - bug check
+       !WHL - debug
        if (verbose_slap) then
           print*, ' '
           print*, 'After slap solve: n, row, col, val:'
@@ -429,7 +425,6 @@ contains
 
     end function slap_solve
 
-!TODO - Remove this subroutine?
     subroutine slap_solver_postprocess(matrix, options, workspace)
         type(sparse_matrix_type), intent(in) :: matrix
         type(slap_solver_options) :: options
@@ -483,4 +478,5 @@ contains
             write(*,*) tmp_error_string
         endif
     end subroutine slap_interpret_error
+
 end module glimmer_sparse_slap

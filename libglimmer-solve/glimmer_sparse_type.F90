@@ -479,4 +479,5 @@ contains
         values(j+1) = currentvalue
     end do
   end subroutine
+
 end module glimmer_sparse_type
