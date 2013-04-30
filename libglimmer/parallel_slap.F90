@@ -29,19 +29,15 @@ module parallel
   use netcdf
   implicit none
 
-!WHL - These are the old values with no halos for slap code
-!  integer, save :: lhalo = 0
-!  integer, save :: uhalo = 0
-!  integer, save :: staggered_lhalo = lhalo
-!  integer, save :: staggered_uhalo = uhalo
-
-!WHL - The glissade solver uses nhalo.
-!TODO -  If we will always have lhalo = uhalo, then maybe we should set nhalo = 2 and
-!        define lhalo and uhalo in terms of nhalo.
-!      Note: These can be reset to zero (as appropriate for Glide dycore)
-!            by calling distributed_grid with optional argument nhalo = 0.
+  !NOTE: The glam/glissade dycore currently requires nhalo = 2,
+  !       whereas the glide dycore requires nhalo = 0.
+  !      For glide simulations, we set nhalo = 0 by calling distributed_grid 
+  !       with optional argument nhalo = 0.
 
   integer, save :: nhalo = 2
+
+  !TODO - If we will always have lhalo = uhalo = nhalo, then we should 
+  !       define lhalo and uhalo in terms of nhalo.
 
   integer, save :: lhalo = 2
   integer, save :: uhalo = 2
@@ -70,7 +66,8 @@ module parallel
   ! global IDs
   integer,parameter :: ProcsEW = 1
 
-!TODO - OK to remove these now?
+  !TODO - Remove these declarations.
+
   ! JEFF Declarations for undistributed variables on main_task.
   ! Later move to separate module?  These are only temporary until code is completely distributed.
   real(8),dimension(:,:,:),allocatable :: gathered_efvs  ! Output var from glam_velo_fordsiapstr(), used often
@@ -152,6 +149,8 @@ module parallel
      module procedure distributed_put_var_real4_2d
      module procedure distributed_put_var_real8_2d
      module procedure distributed_put_var_real8_3d
+
+     !TODO - Should the parallel_put_var routines be part of this interface?
      module procedure parallel_put_var_real4
      module procedure parallel_put_var_real8
   end interface
@@ -178,7 +177,6 @@ module parallel
      module procedure distributed_scatter_var_real8_3d
   end interface
 
-!WHLTSTEP - Added parallel_get_var_real8_1d
   interface parallel_get_var
      module procedure parallel_get_var_integer_1d
      module procedure parallel_get_var_real4_1d
@@ -199,8 +197,6 @@ module parallel
      module procedure parallel_halo_verify_real8_3d
   end interface
 
-!WHL - added staggered_parallel_halo_integer_2d and _3d
-!    - added staggered_parallel_halo_real8_6d
   interface staggered_parallel_halo
      module procedure staggered_parallel_halo_integer_2d
      module procedure staggered_parallel_halo_integer_3d
@@ -223,14 +219,12 @@ module parallel
      module procedure parallel_put_att_real8_1d
   end interface
 
-!WHLTSTEP - Added parellel_put_var_real8
   interface parallel_put_var
      module procedure parallel_put_var_real4
      module procedure parallel_put_var_real8
      module procedure parallel_put_var_real8_1d
   end interface
 
-!WHL - added this interface and associated procedures
   interface parallel_reduce_max
      module procedure parallel_reduce_max_integer
      module procedure parallel_reduce_max_real4
@@ -278,10 +272,6 @@ contains
     real(8),dimension(:) :: a
   end subroutine broadcast_real8_1d
 
-
-!WHL - Rewrote the following distributed_get_var functions
-!      to allow for halo cells in local arrays
-
   function distributed_get_var_integer_2d(ncid,varid,values,start)
 
     implicit none
@@ -292,8 +282,6 @@ contains
     integer :: ilo, ihi, jlo, jhi
 
     ! begin
-!WHL - original code
-!!!    if (main_task) distributed_get_var_integer_2d = nf90_get_var(ncid,varid,values(:,:),start)
 
     if (main_task) then
 
@@ -330,9 +318,6 @@ contains
 
     ! begin
 
-!WHL - original code
-!!!    if (main_task) distributed_get_var_real4_1d = nf90_get_var(ncid,varid,values(:),start)
-
     if (main_task) then
 
        status = nf90_inq_varid(ncid,"x1",x1id)
@@ -364,8 +349,6 @@ contains
     integer :: ilo, ihi, jlo, jhi
 
     ! begin
-!WHL - original code
-!!!    if (main_task) distributed_get_var_real4_2d = nf90_get_var(ncid,varid,values(:,:),start)
 
     if (main_task) then
 
@@ -399,8 +382,6 @@ contains
     integer :: ilo, ihi, jlo, jhi
 
     ! begin
-!WHL - original code
-!!!    if (main_task) distributed_get_var_real8_2d = nf90_get_var(ncid,varid,values(:,:),start)
 
     if (main_task) then
 
@@ -436,9 +417,6 @@ contains
 
     ! begin
 
-!WHL - original code
-!!!    if (main_task) distributed_get_var_real8_3d = nf90_get_var(ncid,varid,values(:,:,:),start)
-
     if (main_task) then
 
        if (size(values,1)==local_ewn) then
@@ -462,8 +440,6 @@ contains
 
   end function distributed_get_var_real8_3d
 
-!WHL - Modified so that the serial grid can have the same dimensions as the parallel 
-!      single-proc grid, with halo cells
 
   subroutine distributed_grid(ewn, nsn, nhalo_in)
 
@@ -475,8 +451,8 @@ contains
     integer :: ewrank,ewtasks,nsrank,nstasks
 
     ! Optionally, change the halo values
-    ! Note: The higher-order dycores (glam, glissade) have been tested only with nhalo = 2.
-    !       The Glide SIA dycore has been tested only with nhalo = 0.
+    ! Note: The higher-order dycores (glam, glissade) currently require nhalo = 2.
+    !       The Glide SIA dycore requires nhalo = 0.
     ! The default halo values at the top of the module are appropriate for
     !  the higher-order dycores.  Here they can be reset to zero for Glide.
 
@@ -513,8 +489,7 @@ contains
     north = 0
     south = 0
 
-!WHL
-! Here is Trey's original code
+! Trey's original code
 !    ewlb = 1
 !    ewub = global_ewn
 !    local_ewn = ewub-ewlb+1
@@ -527,8 +502,7 @@ contains
 !    own_nsn = local_nsn-lhalo-uhalo
 !    nsn = local_nsn
 
-!WHL
-!Here is the modified code (different ewlb, ewub, nslb, nsub)
+!WHL - modified code for nonzero halo values
     ewlb = 1 - lhalo
     ewub = global_ewn + uhalo
     local_ewn = ewub - ewlb + 1
@@ -805,8 +779,6 @@ contains
     close(u)
   end subroutine distributed_print_real8_3d
 
-!WHL - Rewrote the following distributed_put_var functions
-!      to allow for halo cells in local arrays
 
   function distributed_put_var_integer_2d(ncid,varid,values,start)
 
@@ -818,10 +790,6 @@ contains
     integer :: ilo,ihi,jlo,jhi
 
     ! begin
-
-!WHL - original code 
-!    if (main_task) distributed_put_var_integer_2d = nf90_put_var(ncid,varid,values,start)
-!    call broadcast(distributed_put_var_integer_2d)
 
     if (main_task) then
 
@@ -855,10 +823,6 @@ contains
     integer :: ilo, ihi
 
     ! begin
-
-!WHL - original code
-!    if (main_task) distributed_put_var_real4_1d = nf90_put_var(ncid,varid,values)
-!    call broadcast(distributed_put_var_real4_1d)
 
     if (main_task) then
 
@@ -900,10 +864,6 @@ contains
 
     ! begin
 
-!WHL - original code 
-!    if (main_task) distributed_put_var_real4_2d = nf90_put_var(ncid,varid,values,start)
-!    call broadcast(distributed_put_var_real4_2d)
-
     if (main_task) then
 
        if (size(values,1)==local_ewn) then
@@ -936,10 +896,6 @@ contains
     integer :: ilo,ihi,jlo,jhi
 
     ! begin
-
-!WHL - original code
-!    if (main_task) distributed_put_var_real8_2d = nf90_put_var(ncid,varid,values,start)
-!    call broadcast(distributed_put_var_real8_2d)
 
     if (main_task) then
 
@@ -974,10 +930,6 @@ contains
     integer :: ilo,ihi,jlo,jhi
 
     ! begin
-
-!WHL - original code
-!    if (main_task) distributed_put_var_real8_3d = nf90_put_var(ncid,varid,values,start)
-!    call broadcast(distributed_put_var_real8_3d)
 
     if (main_task) then
 
@@ -1269,7 +1221,6 @@ contains
          nf90_get_var(ncid,varid,values)
   end function parallel_get_var_real4_1d
 
-!WHLTSTEP - Added parallel_get_var_real8_1d
   function parallel_get_var_real8_1d(ncid,varid,values)
     implicit none
     integer :: ncid,parallel_get_var_real8_1d,varid
@@ -1279,7 +1230,9 @@ contains
          nf90_get_var(ncid,varid,values)
   end function parallel_get_var_real8_1d
 
-!TODO - Pass locew in first position and locns in second position?
+  !TODO - Pass locew in first position and locns in second position?
+  !TODO - Remove his function if no longer needed?
+
   function parallel_globalID(locns, locew, upstride)
     ! Returns a unique ID for a given row and column reference that is identical across all processors.
     ! For instance if Proc 2: (17,16) is the same global cell as Proc 3: (17,1), then the globalID will be the same for both.
@@ -1306,12 +1259,14 @@ contains
 	parallel_globalID = global_ID
   end function parallel_globalID
 
-!WHL - New function similar to parallel_globalID, but assigns 0's to cells outside the global domain
-
   function parallel_globalID_scalar(locew, locns, upstride)
+
+    !WHL - This function is similar to parallel_globalID, but assigns 0's to cells outside the global domain
+
     ! Returns a unique ID for a given row and column reference that is identical across all processors.
     ! For instance if Proc 0: (17,16) is the same global cell as Proc 3: (17,1), then the globalID will be the same for both.
     ! These IDs are spaced upstride apart.  upstride = number of vertical layers.
+
     integer,intent(IN) :: locns, locew, upstride
     integer :: parallel_globalID_scalar
     ! locns is local NS (row) grid index
@@ -1335,11 +1290,6 @@ contains
 
   end function parallel_globalID_scalar
 
-!WHL - replaced this stub with a working subroutine
-!  subroutine parallel_halo_integer_2d(a)
-!    implicit none
-!    integer,dimension(:,:) :: a
-!  end subroutine parallel_halo_integer_2d
 
   subroutine parallel_halo_integer_2d(a)
 
@@ -1375,12 +1325,6 @@ contains
   end subroutine parallel_halo_integer_2d
 
 
-!WHL - replaced this stub with a working subroutine
-!  subroutine parallel_halo_logical_2d(a)
-!    implicit none
-!    logical,dimension(:,:) :: a
-!  end subroutine parallel_halo_logical_2d
-
   subroutine parallel_halo_logical_2d(a)
 
     implicit none
@@ -1415,12 +1359,6 @@ contains
   end subroutine parallel_halo_logical_2d
 
 
-!WHL - replaced this stub with a working subroutine
-!  subroutine parallel_halo_real4_2d(a)
-!    implicit none
-!    real(4),dimension(:,:) :: a
-!  end subroutine parallel_halo_real4_2d
-
   subroutine parallel_halo_real4_2d(a)
 
     implicit none
@@ -1454,14 +1392,10 @@ contains
 
   end subroutine parallel_halo_real4_2d
 
-!WHL - replaced this stub with a working subroutine
-!  subroutine parallel_halo_real8_2d(a)
-!    implicit none
-!    real(8),dimension(:,:) :: a
-!  end subroutine parallel_halo_real8_2d
 
-!WHL - added optional arguments for periodic offsets, to support ismip-hom test cases
   subroutine parallel_halo_real8_2d(a, periodic_offset_ew, periodic_offset_ns)
+
+    !WHL - added optional arguments for periodic offsets, to support ismip-hom test cases
 
     implicit none
     real(8),dimension(:,:) :: a
@@ -1516,12 +1450,6 @@ contains
   end subroutine parallel_halo_real8_2d
 
 
-!WHL - replaced this stub with a working subroutine
-!  subroutine parallel_halo_real8_3d(a)
-!    implicit none
-!    real(8),dimension(:,:,:) :: a
-!  end subroutine parallel_halo_real8_3d
-
   subroutine parallel_halo_real8_3d(a)
 
     implicit none
@@ -1563,6 +1491,7 @@ contains
     parallel_halo_verify_integer_2d = .true.
   end function parallel_halo_verify_integer_2d
 
+  !TODO - Remove this subroutine
   subroutine parallel_halo_temperature(a)
     !JEFF This routine is for updating the halo for the variable model%temper%temp.
     ! This variable is two larger in each dimension, because of the current advection code.
@@ -1600,6 +1529,7 @@ contains
 
   ! parallel_set_info should be called directly when cism is nested inside a climate model
   ! (then, mpi_init has already been called, so do NOT use parallel_initialise)
+
   subroutine parallel_set_info(my_comm, my_main_rank)
     use mpi_mod
     implicit none
@@ -1895,7 +1825,6 @@ contains
     return
   end function parallel_reduce_sum
 
-!WHL - added three versions of this procedure to replace the original real8 version
   function parallel_reduce_max_integer(x)
     ! Max x across all of the nodes.
     ! In parallel_slap mode just return x.
@@ -1962,12 +1891,6 @@ contains
     real(8),dimension(:,:) :: a
   end subroutine parallel_velo_halo
 
-!WHL - replaced this stub with a working subroutine
-!  subroutine staggered_parallel_halo_integer_2d(a)
-!    implicit none
-!    integer,dimension(:,:) :: a
-!  end subroutine staggered_parallel_halo_integer_2d
-
   subroutine staggered_parallel_halo_integer_2d(a)
 
     implicit none
@@ -2008,7 +1931,7 @@ contains
 
   end subroutine staggered_parallel_halo_integer_2d
 
-!WHL - added this subroutine
+
   subroutine staggered_parallel_halo_integer_3d(a)
 
     implicit none
@@ -2050,12 +1973,6 @@ contains
   end subroutine staggered_parallel_halo_integer_3d
 
 
-!WHL - replaced this stub with a working subroutine
-!  subroutine staggered_parallel_halo_real8_2d(a)
-!    implicit none
-!    real(8),dimension(:,:) :: a
-!  end subroutine staggered_parallel_halo_real8_2d
-
   subroutine staggered_parallel_halo_real8_2d(a)
 
     implicit none
@@ -2096,11 +2013,6 @@ contains
 
   end subroutine staggered_parallel_halo_real8_2d
 
-!WHL - replaced this stub with a working subroutine
-!  subroutine staggered_parallel_halo_real8_3d(a)
-!    implicit none
-!    real(8),dimension(:,:,:) :: a
-!  end subroutine staggered_parallel_halo_real8_3d
 
   subroutine staggered_parallel_halo_real8_3d(a)
 
@@ -2142,6 +2054,7 @@ contains
 
   end subroutine staggered_parallel_halo_real8_3d
 
+
   subroutine staggered_parallel_halo_real8_6d(a)
 
     ! Implements a staggered grid halo update for a 6D field.
@@ -2151,7 +2064,7 @@ contains
     ! The vertical dimension is assumed to precede the i and j indices, i.e., a(:,:,:,k,i,j).
 
     ! NOTE: The first three dimensions are -1:1. 
-    !The subroutine is very specific for matrix arrays with this structure.
+    !       The subroutine is specifically designed for matrix arrays with this structure.
 
     implicit none
     real(8),dimension(-1:,-1:,-1:,:,:,:) :: a

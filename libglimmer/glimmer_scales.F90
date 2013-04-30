@@ -39,19 +39,20 @@ module glimmer_scales
   real(dp) :: scale_uvel, scale_uflx, scale_diffu, scale_acab, scale_wvel, scale_btrc 
   real(dp) :: scale_beta, scale_flwa, scale_tau, scale_efvs
 
-!WHL - Added this factor simply to flip the sign.  Typically the basal heat flux has
-!      a sign convention of positive up in input data, but the Glimmer-CISM convention
-!      is positive down.
+  !WHL - Added this factor simply to flip the sign of bheatflx.  Typically, this flux has
+  !      a sign convention of positive up in input data, but the Glimmer-CISM convention
+  !      is positive down.
+  !TODO - Change the sign convention of bheatflx to positive up?
+  !       This would require changes in several modules.
+
   real(dp) :: scale_bflx
  
 contains
 
-!SCALING - Removed the scale factors that were not used and renamed the rest.
-!          Can simplify these if thk0, etc. are removed from code.
-!          If code is entirely in SI units, then the scale factor scyr
-!           will convert m/s to m/yr, etc.
-!TODO    - Use the same scale for btrc (SIA) and beta (HO)?
-!          Consolidate scale_acab and scale_wvel into a single scale?
+!TODO - CCan simplify these if thk0, etc. are removed from code.
+!       If the dycore variables are stricly in SI units, we will probably
+!        want to retain the scale factor scyr to convert m/s to m/yr, etc.
+!TODO - Use the same scale for btrc (SIA) and beta (HO)?
 
   subroutine glimmer_init_scales
 
@@ -84,4 +85,3 @@ contains
   end subroutine glimmer_init_scales
 
 end module glimmer_scales
-

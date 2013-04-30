@@ -28,6 +28,8 @@
 #include "config.inc"
 #endif
 
+!TODO - Move this program to another directory so that this directory contains no programs?
+
 program testconfig
   !*FD testing config module
   !*FD written by Magnus Hagdorn, May 2004

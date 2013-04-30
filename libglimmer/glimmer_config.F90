@@ -737,8 +737,6 @@ contains
     ! local variables
     character(len=valuelen) :: value
 
-!WHLTSTEP - Changed temp to dp
-!    real :: temp
     real(kind=dp) :: temp
 
     integer ios

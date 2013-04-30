@@ -28,6 +28,8 @@
 #include "config.inc"
 #endif
 
+!TODO - Move this program to another directory so that this directory contains no programs?
+
 program test_ts
   !*FD testing the time series module
   use glimmer_ts

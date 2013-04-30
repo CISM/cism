@@ -30,7 +30,7 @@ module parallel
   implicit none
 
 !PW - Repeat from glimmer_horiz_bcs_parallel.F90; needs to be set some place
-!PW   form which can be 'used' by both the parallel and glimmer_horiz_bcs modules
+!     which can be 'used' by both the parallel and glimmer_horiz_bcs modules
   integer, parameter, private :: HORIZ_BCS_WALL_SLIP = 0
   integer, parameter, private :: HORIZ_BCS_CYCLIC = 1
 
@@ -44,17 +44,18 @@ module parallel
   integer,parameter :: DEBUG_LEVEL = 1 
 	! If > 0, then debug code executed.  Added for parallel_halo_verify()
 
-!WHL - The glissade solver uses nhalo.
-!TODO -  If we will always have lhalo = uhalo, then maybe we should set nhalo = 2 and
-!        define lhalo and uhalo in terms of nhalo.
+  !NOTE: The glam/glissade dycore currently requires nhalo = 2,
+  !       whereas the glide dycore requires nhalo = 0.
+  !      For glide simulations, we set nhalo = 0 by calling distributed_grid 
+  !       with optional argument nhalo = 0.
 
   integer, save :: nhalo = 2
 
+  !TODO - If we will always have lhalo = uhalo = nhalo, then we should 
+  !       define lhalo and uhalo in terms of nhalo.
+
   integer, save :: lhalo = 2
   integer, save :: uhalo = 2
-
-!WHL - Changed staggered_whalo and staggered_shalo to staggered_lhalo
-!      Changed staggered_ehalo and staggered_nhalo to staggered_uhalo
 
   ! halo widths for staggered grid
 !  integer,parameter :: staggered_lhalo = lhalo
@@ -92,6 +93,8 @@ module parallel
 
   ! global IDs
   integer,save :: ProcsEW
+
+  !TODO - Remove these declarations
 
   ! JEFF Declarations for undistributed variables on main_task.
   ! Later move to separate module?  These are only temporary until code is completely distributed.
@@ -174,6 +177,8 @@ module parallel
      module procedure distributed_put_var_real4_2d
      module procedure distributed_put_var_real8_2d
      module procedure distributed_put_var_real8_3d
+
+     !TODO - Should the parallel_put_var routines be part of this interface?
      module procedure parallel_put_var_real4
      module procedure parallel_put_var_real8
   end interface
@@ -200,7 +205,6 @@ module parallel
      module procedure parallel_get_att_real8_1d
   end interface
 
-!WHLTSTEP - added parallel_get_var_real8_1d
   interface parallel_get_var
      module procedure parallel_get_var_integer_1d
      module procedure parallel_get_var_real4_1d
@@ -221,8 +225,6 @@ module parallel
      module procedure parallel_halo_verify_real8_3d
   end interface
 
-!WHL - added staggered_parallel_halo_integer_2d and _3d
-!    - added staggered_parallel_halo_real8_6d
   interface staggered_parallel_halo
      module procedure staggered_parallel_halo_integer_2d
      module procedure staggered_parallel_halo_integer_3d
@@ -246,14 +248,12 @@ module parallel
      module procedure parallel_put_att_real8_1d
   end interface
 
-!WHLTSTEP - added parallel_put_var_real8
   interface parallel_put_var
      module procedure parallel_put_var_real4
      module procedure parallel_put_var_real8
      module procedure parallel_put_var_real8_1d
   end interface
 
-!WHL - added this interface and associated procedures
   interface parallel_reduce_max
      module procedure parallel_reduce_max_integer
      module procedure parallel_reduce_max_real4
@@ -342,10 +342,12 @@ contains
   end function distributed_execution
 
   subroutine distributed_gather_var_integer_2d(values, global_values)
+
     ! JEFF Gather a distributed variable back to main_task node
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task will store the variable.
     ! If global_values is allocated, then it will be deallocated and reallocated.  It will be unused on other nodes.
+
     use mpi_mod
     implicit none
     integer,dimension(:,:),intent(in) :: values
@@ -416,10 +418,12 @@ contains
   end subroutine distributed_gather_var_integer_2d
 
   subroutine distributed_gather_var_logical_2d(values, global_values)
+
     ! JEFF Gather a distributed variable back to main_task node
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task will store the variable.
     ! If global_values is allocated, then it will be deallocated and reallocated.  It will be unused on other nodes.
+
     use mpi_mod
     implicit none
     logical,dimension(:,:),intent(in) :: values
@@ -490,10 +494,12 @@ contains
   end subroutine distributed_gather_var_logical_2d
 
   subroutine distributed_gather_var_real4_2d(values, global_values)
+
     ! JEFF Gather a distributed variable back to main_task node
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task will store the variable.
     ! If global_values is allocated, then it will be deallocated and reallocated.  It will be unused on other nodes.
+
     use mpi_mod
     implicit none
     real(4),dimension(:,:),intent(in) :: values
@@ -564,10 +570,12 @@ contains
   end subroutine distributed_gather_var_real4_2d
 
   subroutine distributed_gather_var_real4_3d(values, global_values, ld1, ud1)
+
     ! JEFF Gather a distributed variable back to main_task node
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task will store the variable.
     ! If global_values is allocated, then it will be deallocated and reallocated.  It will be unused on other nodes.
+
     use mpi_mod
     implicit none
     real(4),dimension(:,:,:),intent(in) :: values
@@ -657,10 +665,12 @@ contains
   end subroutine distributed_gather_var_real4_3d
 
   subroutine distributed_gather_var_real8_2d(values, global_values)
+
     ! JEFF Gather a distributed variable back to main_task node
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task will store the variable.
     ! If global_values is allocated, then it will be deallocated and reallocated.  It will be unused on other nodes.
+
     use mpi_mod
     implicit none
     real(8),dimension(:,:),intent(in) :: values
@@ -731,10 +741,12 @@ contains
   end subroutine distributed_gather_var_real8_2d
 
   subroutine distributed_gather_var_real8_3d(values, global_values, ld1, ud1)
+
     ! JEFF Gather a distributed variable back to main_task node
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task will store the variable.
     ! If global_values is allocated, then it will be deallocated and reallocated.  It will be unused on other nodes.
+
     use mpi_mod
     implicit none
     real(8),dimension(:,:,:),intent(in) :: values
@@ -1170,11 +1182,6 @@ contains
      distributed_isparallel = .true.
   end function distributed_isparallel
 
-!WHL - added nhalo as an optional argument
-!      If present, the value of nhalo is used to set lhalo, uhalo, etc.
-!      Note that the parallel dycore will normally be used with the 
-!       default values specified at the top of the module, so it is
-!       not necessary to provide this argument.
 
   subroutine distributed_grid(ewn, nsn, nhalo_in)
 
@@ -1188,7 +1195,10 @@ contains
     ! begin
 
     ! Optionally, change the halo values
-    ! Note: The parallel dycores have been tested only with nhalo = 2.
+    ! Note: The higher-order dycores (glam, glissade) currently require nhalo = 2.
+    !       The Glide SIA dycore requires nhalo = 0.
+    ! The default halo values at the top of the module are appropriate for
+    !  the higher-order dycores.  Here they can be reset to zero for Glide.
 
     if (present(nhalo_in)) then
        if (main_task) then
@@ -1205,7 +1215,7 @@ contains
        uhalo = nhalo
        staggered_lhalo = lhalo
        staggered_uhalo = max(uhalo-1, 0)
-!TODO - the following variables are to be removed from the code
+       !TODO - Remove the following variables
        staggered_whalo = lhalo
        staggered_shalo = lhalo
        staggered_ehalo = max(uhalo-1, 0)
@@ -1307,6 +1317,7 @@ contains
 !    write(*,*) "Process ", this_rank, " north = ", north, " south = ", south
 !    write(*,*) "Process ", this_rank, " ew_vars = ", own_ewn, " ns_vars = ", own_nsn
     call distributed_print_grid(own_ewn, own_nsn)
+
   end subroutine distributed_grid
 
   function distributed_owner(ew,ewn,ns,nsn)
@@ -2528,7 +2539,6 @@ contains
     call broadcast(values)
   end function parallel_get_var_real4_1d
 
-!WHLTSTEP - added parallel_get_var_real8_1d
   function parallel_get_var_real8_1d(ncid,varid,values)
     implicit none
     integer :: ncid,parallel_get_var_real8_1d,varid
@@ -2540,7 +2550,9 @@ contains
     call broadcast(values)
   end function parallel_get_var_real8_1d
 
-!TODO - Pass locew in first position and locns in second position?
+  !TODO - Pass locew in first position and locns in second position?
+  !TODO - Remove his function if no longer needed?
+
   function parallel_globalID(locns, locew, upstride)
     ! Returns a unique ID for a given row and column reference that is identical across all processors.
     ! For instance if Proc 0: (17,16) is the same global cell as Proc 3: (17,1), then the globalID will be the same for both.
@@ -2582,7 +2594,6 @@ contains
       endif
     endif
 
-
     ! including global domain halo adds (lhalo + uhalo) to global_ewn
     global_ID = ((global_row - 1) * (global_ewn + lhalo + uhalo) + (global_col - 1)) * upstride + 1
 
@@ -2595,9 +2606,11 @@ contains
 
   end function parallel_globalID
 
-!WHL - New function similar to parallel_globalID, but assigns 0's to cells outside the global domain
-!TODO - Remove function parallel_globalID if no longer needed?
+
   function parallel_globalID_scalar(locew, locns, upstride)
+
+    !WHL - This function is similar to parallel_globalID, but assigns 0's to cells outside the global domain
+
     ! Returns a unique ID for a given row and column reference that is identical across all processors.
     ! For instance if Proc 0: (17,16) is the same global cell as Proc 3: (17,1), then the globalID will be the same for both.
     ! These IDs are spaced upstride apart.  upstride = number of vertical layers.
@@ -2786,9 +2799,11 @@ contains
     a(:,local_nsn-uhalo+1:) = nrecv(:,:)
   end subroutine parallel_halo_real4_2d
 
-!WHL - added optional arguments for periodic offsets, to support ismip-hom test cases
 
   subroutine parallel_halo_real8_2d(a, periodic_offset_ew, periodic_offset_ns)
+
+    !WHL - added optional arguments for periodic offsets, to support ismip-hom test cases
+
     use mpi_mod
     implicit none
     real(8),dimension(:,:) :: a
@@ -2933,6 +2948,7 @@ contains
 
   end subroutine parallel_halo_real8_3d
 
+  !TODO - Remove this subroutine?
   subroutine parallel_halo_temperature(a)
     !JEFF This routine is for updating the halo for the variable model%temper%temp.
     ! This variable is two larger in each dimension, because of the current advection code.
@@ -3180,6 +3196,7 @@ contains
 
   ! parallel_initialise should generally just be called by standalone cism drivers
   ! When cism is nested inside a climate model (so mpi_init has already been called) use parallel_set_info instead
+
   subroutine parallel_initialise
     use mpi_mod 
     implicit none
@@ -3192,6 +3209,7 @@ contains
 
   ! parallel_set_info should be called directly when cism is nested inside a climate model
   ! (then, mpi_init has already been called, so do NOT use parallel_initialise)
+
   subroutine parallel_set_info(my_comm, my_main_rank)
     use mpi_mod
     implicit none
@@ -3529,7 +3547,6 @@ contains
     return
   end function parallel_reduce_sum
 
-!WHL - added three versions of this procedure to replace the original real8 version
   function parallel_reduce_max_integer(x)
     use mpi_mod
     implicit none
@@ -3617,8 +3634,9 @@ contains
     call broadcast(parallel_sync)
   end function parallel_sync
 
-!PW used only in periodic_boundaries routine
-!PW needs to be reworked?
+  !TODO - This subroutine is called only from periodic_boundaries subroutine, which is not
+  !       currently used.  Remove it?
+
   subroutine parallel_velo_halo(a)
     use mpi_mod
     implicit none
@@ -3649,7 +3667,7 @@ contains
 
   end subroutine parallel_velo_halo
 
-!WHL - Added subroutine staggered_parallel_halo_integer_2d
+
   subroutine staggered_parallel_halo_integer_2d(a)
     use mpi_mod
     implicit none
@@ -3664,28 +3682,26 @@ contains
     ! and have one less 'southern' halo row than other processes. Likewise, the West-most processes own one 
     ! additional column of staggered variables on the western edge and have one less 'western' halo column. 
     ! This is implemented by a modification to the staggered_lhalo value on these processes. 
-!WHL - I'm no longer sure we should say that the South-most processes "own" an additional row of
-!      staggered variables on the southern edge.  It may be possible to treat the southern edge as a halo row
-!      and still enforce the various global BC we'd like.
+
+    !WHL - I don't think we need to say that the South-most processes "own" an additional row of
+    !      staggered variables on the southern edge.  I think we can treat the southern edge as a halo row
+    !      and still enforce the various global BC we want.
 
     ! Maintaining global boundary conditions are not addressed within this routine (yet).
 
     ! integer :: erequest,ierror,one,nrequest,srequest,wrequest
     integer :: ierror,nrequest,srequest,erequest,wrequest
 
-!    integer,dimension(staggered_whalo,size(a,2)-staggered_shalo-staggered_nhalo) :: esend,wrecv
-!    integer,dimension(staggered_ehalo,size(a,2)-staggered_shalo-staggered_nhalo) :: erecv,wsend
-!    integer,dimension(size(a,1),staggered_shalo) :: nsend,srecv
-!    integer,dimension(size(a,1),staggered_nhalo) :: nrecv,ssend
     integer,dimension(staggered_lhalo,size(a,2)-staggered_lhalo-staggered_uhalo) :: esend,wrecv
     integer,dimension(staggered_uhalo,size(a,2)-staggered_lhalo-staggered_uhalo) :: erecv,wsend
     integer,dimension(size(a,1),staggered_lhalo) :: nsend,srecv
     integer,dimension(size(a,1),staggered_uhalo) :: nrecv,ssend
 
-!WHL - temporary logical variable to determine whether or not to fill in halo cells
-!      at edge of the global domain.  I am setting it to true by default to support
-!      cyclic global BCs.
-!TODO - Set to true in all cases? (Or simply remove the 'if's?)  
+    !WHL - I defined a logical variable to determine whether or not to fill halo cells
+    !      at the edge of the global domain.  I am setting it to true by default to support
+    !      cyclic global BCs.
+
+    !TODO - Set to true in all cases? (Or simply remove the 'if's?)  
 
     logical :: fill_global_halos = .true.
 
@@ -3783,7 +3799,6 @@ contains
 
   end subroutine staggered_parallel_halo_integer_2d
 
-!WHL - added this subroutine
 
   subroutine staggered_parallel_halo_integer_3d(a)
     use mpi_mod
@@ -3811,10 +3826,11 @@ contains
     integer,dimension(size(a,1),size(a,2),staggered_lhalo) :: nsend,srecv
     integer,dimension(size(a,1),size(a,2),staggered_uhalo) :: nrecv,ssend
 
-!WHL - temporary logical variable to determine whether or not to fill in halo cells
-!      at edge of the global domain.  I am setting it to true by default to support
-!      cyclic global BCs.
-!TODO - Set to true in all cases?
+    !WHL - I defined a logical variable to determine whether or not to fill halo cells
+    !      at the edge of the global domain.  I am setting it to true by default to support
+    !      cyclic global BCs.
+
+    !TODO - Set to true in all cases? (Or simply remove the 'if's?)  
 
     logical :: fill_global_halos = .true.
 
@@ -3897,9 +3913,9 @@ contains
   end subroutine staggered_parallel_halo_integer_3d
 
 
-!WHL - Edited the original subroutine so that values from N and E edges
-!      of global domain can be written to halo cells at the S and W edges,
-!      to allow cyclic BCs for staggered variables
+  !WHL - Edited the original subroutine so that values from N and E edges
+  !      of global domain can be written to halo cells at the S and W edges,
+  !      to allow cyclic BCs for staggered variables
 
   subroutine staggered_parallel_halo_real8_2d(a)
 
@@ -3930,10 +3946,11 @@ contains
     real(8),dimension(size(a,1),staggered_lhalo) :: nsend,srecv
     real(8),dimension(size(a,1),staggered_uhalo) :: nrecv,ssend
 
-!WHL - temporary logical variable to determine whether or not to fill in halo cells
-!      at edge of the global domain.  I am setting it to true by default to support
-!      cyclic global BCs
-!TODO - Set to true in all cases?
+    !WHL - I defined a logical variable to determine whether or not to fill halo cells
+    !      at the edge of the global domain.  I am setting it to true by default to support
+    !      cyclic global BCs.
+
+    !TODO - Set to true in all cases? (Or simply remove the 'if's?)  
 
     logical :: fill_global_halos = .true.
 
@@ -4031,9 +4048,9 @@ contains
 
   end subroutine staggered_parallel_halo_real8_2d
 
-!WHL - Edited the original subroutine so that values from N and E edges
-!      of global domain can be written to halo cells at the S and W edges,
-!      to allow cyclic BCs for staggered variables
+  !WHL - Edited the original subroutine so that values from N and E edges
+  !      of global domain can be written to halo cells at the S and W edges,
+  !      to allow cyclic BCs for staggered variables
 
   subroutine staggered_parallel_halo_real8_3d(a)
 
@@ -4066,10 +4083,11 @@ contains
     real(8),dimension(size(a,1),size(a,2),staggered_lhalo) :: nsend,srecv
     real(8),dimension(size(a,1),size(a,2),staggered_uhalo) :: nrecv,ssend
 
-!WHL - temporary logical variable to determine whether or not to fill in halo cells
-!      at edge of the global domain.  I am setting it to true by default to support
-!      cyclic global BCs.
-!TODO - Set to true in all cases?
+    !WHL - I defined a logical variable to determine whether or not to fill halo cells
+    !      at the edge of the global domain.  I am setting it to true by default to support
+    !      cyclic global BCs.
+
+    !TODO - Set to true in all cases? (Or simply remove the 'if's?)  
 
     logical :: fill_global_halos = .true.
 
@@ -4181,7 +4199,7 @@ contains
     ! The vertical dimension is assumed to precede the i and j indices, i.e., a(:,:,:,k,i,j).
 
     ! NOTE: The first three dimensions are -1:1.
-    ! The subroutine is very specific for matrix arrays with this structure.
+    ! The subroutine is specifically designed for matrix arrays with this structure.
 
     ! The grid is laid out from the SW, and the lower left corner is assigned to this_rank = 0.
     ! It's eastern nbhr is task_id = 1, proceeding rowwise and starting from the western edge.
@@ -4202,10 +4220,11 @@ contains
     real(8),dimension(-1:1,-1:1,-1:1,size(a,4),size(a,5),staggered_lhalo) :: nsend,srecv
     real(8),dimension(-1:1,-1:1,-1:1,size(a,4),size(a,5),staggered_uhalo) :: nrecv,ssend
 
-!WHL - temporary logical variable to determine whether or not to fill in halo cells
-!      at edge of the global domain.  I am setting it to true by default to support
-!      cyclic global BCs.
-!TODO - Set to true in all cases?
+    !WHL - I defined a logical variable to determine whether or not to fill halo cells
+    !      at the edge of the global domain.  I am setting it to true by default to support
+    !      cyclic global BCs.
+
+    !TODO - Set to true in all cases? (Or simply remove the 'if's?)  
 
     logical :: fill_global_halos = .true.
 

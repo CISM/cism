@@ -29,6 +29,8 @@
 !! \author Magnus Hagdorn
 !! \date April 2009
 
+!TODO - Move this program to another directory so that this directory contains no programs?
+
 program test_writestats
   use glimmer_writestats
   use glimmer_global, only : dp

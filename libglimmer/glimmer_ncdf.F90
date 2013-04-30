@@ -75,7 +75,10 @@ module glimmer_ncdf
      !*FD id of time dimension
      integer timevar
      !*FD id of time variable 
-     ! TODO Create a variable for vars length so it can be made longer - apply it here for vars, vars_copy and to restart_variable_list in glimmer_ncparams.F90
+
+     ! TODO - Create a variable for vars length so it can be made longer
+     !        Apply it here for vars, vars_copy and to restart_variable_list in glimmer_ncparams.F90
+
      character(len=310) vars
      !*FD string containing variables to be processed
      logical :: restartfile = .false.
@@ -108,18 +111,14 @@ module glimmer_ncdf
      !NO_RESTART previous
 
      type(glimmer_nc_stat) :: nc                          !< structure containg file info
-!WHLTSTEP - Changed freq, next_write, end_write and total_time to dp
-!     real :: freq = 1000                                  !< frequency at which data is written to file
-!     real :: next_write=0                                 !< next time step at which data is dumped
-!     real :: end_write=glimmer_nc_max_time                !< stop writing after this year
      real(dp) :: freq = 1000.d0                           !< frequency at which data is written to file
      real(dp) :: next_write = 0.d0                        !< next time step at which data is dumped
      real(dp) :: end_write = glimmer_nc_max_time          !< stop writing after this year
      integer :: timecounter = 1                           !< time counter
-!     real :: total_time = 0.0                             !< accumulate time steps (used for taking time averages)
      real(dp) :: total_time = 0.d0                        !< accumulate time steps (used for taking time averages)
 
-!TODO - I'd like to understand how the default xtype is overridden
+     !TODO - Change default_xtype to dp?
+     !       I'm unclear on how the default xtype is overridden
      integer :: default_xtype = NF90_REAL                 !< the default external type for storing flointing point values
      logical :: do_averages = .false.                     !< set to .true. if we need to handle averages
 
@@ -139,8 +138,6 @@ module glimmer_ncdf
      !NO_RESTART previous
      type(glimmer_nc_stat) :: nc
      !*FD structure containg file info
-!WHLTSTEP - Changed times pointer to real(dp)
-!     integer, pointer, dimension(:) :: times => NULL()     
      real(dp), pointer, dimension(:) :: times => NULL()     
      !*FD pointer to array holding times
      integer                        :: nt, current_time=1

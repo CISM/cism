@@ -37,12 +37,12 @@ module glimmer_utils
 
   implicit none
 
-!TODO - Remove these array_bcs functions?  I can't find where they are used
+  !TODO - Remove these array_bcs functions?  I can't find where they are used
   interface array_bcs
     module procedure array_bcs1d,array_bcs2d
   end interface
 
-!TODO - Move check_conformal to glint?  Used by glint_interp only.
+  !TODO - Move check_conformal to glint?  Used by glint_interp only.
   interface check_conformal
     module procedure check_conformal_2d_real
   end interface
@@ -173,11 +173,12 @@ contains
 
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - Move to glint?  Used by glint_interp only.
-  !> Adjusts array location indices
-  !! so that they fall within the domain.
+  !TODO - Move to glint?  Used by glint_interp only.
+
   subroutine fix_bcs2d(i,j,nx,ny)
 
+  !> Adjusts array location indices
+  !! so that they fall within the domain.
 
     integer,intent(inout) :: i !< The location of interest
     integer,intent(inout) :: j !< The location of interest
@@ -208,11 +209,11 @@ contains
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  !> Checks that two arrays are of the same size.
   subroutine check_conformal_2d_real(array1,array2,label)
 
-    use glimmer_log
+  !> Checks that two arrays are of the same size.
 
+    use glimmer_log
 
     real(rk),dimension(:,:),intent(in) :: array1 !< The array 1 to be checked
     real(rk),dimension(:,:),intent(in) :: array2 !< The array 2 to be checked
@@ -257,7 +258,7 @@ contains
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - Move lsum to glint?  Used by glint_interp only.
+  !TODO - Move lsum to glint?  Used by glint_interp only.
   !> Calculates the sum of a given two-dimensional field along one axis.
   !! Within GLIMMER, this function calculates the mean vertical profile
   !! in a 2D vertical slice. 
@@ -265,6 +266,7 @@ contains
   !! A one-dimensional array of the same size as the first dimension of
   !! inp is returned, containing the sum of inp for 
   !! each row.
+
   function lsum(inp)
 
 
@@ -281,6 +283,7 @@ contains
 
   !> Tridiagonal solver. All input/output arrays should have the 
   !! same number of elements.
+
   subroutine tridiag(a,b,c,x,y)
 
 

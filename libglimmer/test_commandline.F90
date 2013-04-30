@@ -24,6 +24,8 @@
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+!TODO - Move this program to another directory so that this directory contains no programs?
+
 program test_commandline
   use glimmer_commandline
   implicit none

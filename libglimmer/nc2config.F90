@@ -36,6 +36,8 @@
 #define GETARG  getarg
 #endif
 
+!TODO - Move this program to another directory so that this directory contains no programs?
+
 program nc2config
 
   !*FD Program to extract the config file data from a

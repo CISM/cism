@@ -28,7 +28,6 @@
 #include "config.inc"
 #endif
 
-!WHL - Changed module name to test_integ
 module test_integ
   use glimmer_global, only : dp, sp
   implicit none
@@ -70,6 +69,8 @@ contains
     sf = p(1)*sin(p(2)*x)
   end function sf
 end module test_integ
+
+!TODO - Move this program to another directory so that this directory contains no programs?
 
 program test_integrate
   !*FD test numerical integration schemes

@@ -32,6 +32,9 @@
 !!
 !! \author Magnus Hagdorn
 !! \date September 2009
+
+!TODO - Move this program to another directory so that this directory contains no programs?
+
 program test_filenames
   use glimmer_filenames
   implicit none

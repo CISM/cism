@@ -33,9 +33,6 @@ module glimmer_global
   !*FD Module holding global variables for Glimmer. Holds real-type
   !*FD kind values, and other global code parameters.
 
-  !EIB! in gc2 glimmer_vers is not a module
-  !use glimmer_vers
-
   implicit none
 
   integer,parameter :: sp = kind(1.0) 
