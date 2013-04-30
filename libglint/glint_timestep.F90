@@ -1504,12 +1504,6 @@ contains
     enddo
     enddo
 
-!WHL - debug
-    print*, 'mean_to_global:'
-    print*, ' '
-    print*, 'gfrac'
-    print*, 'start max, min gfrac=', maxval(gfrac), minval(gfrac)
-
     ! ice fraction
     !TODO - gfrac should be fraction of total grid cell with ice in each elevation class
     !       Currently is ice-covered fraction of cells in a given elevation class
@@ -1521,6 +1515,9 @@ contains
                             local_field,        gfrac,          &
                             local_topo,         instance%out_mask)
 
+!WHL - debug
+    print*, 'mean_to_global:'
+    print*, ' '
     print*, 'new max, min gfrac=', maxval(gfrac), minval(gfrac)
     print*, ' '
     print*, 'gtopo'
