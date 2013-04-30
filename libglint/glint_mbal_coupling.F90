@@ -135,81 +135,37 @@ contains
   ! +++++++++++++++++++++++++++++++++++++++++++++++++
 
 !WHL - New version for gcm coupling
-!TODO - Test this subroutine
 
-  subroutine glint_mbc_init_gcm(params, lgrid)
+  subroutine glint_mbc_init_gcm(params,  &
+                                lgrid,   &
+                                whichacab)
 
     use glimmer_coordinates
     use glint_constants, only: years2hours
 
-    type(glint_mbc)  :: params
-    type(coordsystem_type) :: lgrid
-
-!!    type(ConfigSection), pointer :: config !*FD structure holding sections of configuration file
-    integer, parameter :: whichacab = 0
-!!    real(sp),dimension(:,:),intent(in) :: snowd !*FD Initial snow-depth field
-!!    real(sp),dimension(:,:),intent(in) :: siced !*FD Initial superimposed ice field
-
-!!    integer          :: nx,ny  ! grid dimensions (for SMB)
-!!    real(rk)         :: dx     ! grid length (for SMB)
+    type(glint_mbc)        :: params      ! mass balance parameters
+    type(coordsystem_type) :: lgrid       ! local grid
+    integer, intent(in)    :: whichacab   ! mass balance method
+                                          ! = 0 for GCM coupling
 
     ! Deallocate if necessary
 
-!!    if (associated(params%prcp_save))  deallocate(params%prcp_save)
-!!    if (associated(params%ablt_save))  deallocate(params%ablt_save)
     if (associated(params%acab_save))  deallocate(params%acab_save)
     if (associated(params%artm_save))  deallocate(params%artm_save)
-!!    if (associated(params%snowd))      deallocate(params%snowd)
-!!    if (associated(params%siced))      deallocate(params%siced)
-!!    if (associated(params%prcp))       deallocate(params%prcp)
-!!    if (associated(params%ablt))       deallocate(params%ablt)
     if (associated(params%acab))       deallocate(params%acab)
     if (associated(params%artm))       deallocate(params%artm)
-!!    if (associated(params%xwind))      deallocate(params%xwind)
-!!    if (associated(params%ywind))      deallocate(params%ywind)
-!!    if (associated(params%humidity))   deallocate(params%humidity)
-!!    if (associated(params%SWdown))     deallocate(params%SWdown)
-!!    if (associated(params%LWdown))     deallocate(params%LWdown)
-!!    if (associated(params%Psurf))      deallocate(params%Psurf)
-!!    if (associated(params%snowd_save)) deallocate(params%snowd_save)
-!!    if (associated(params%siced_save)) deallocate(params%siced_save)
 
     ! Allocate arrays and zero
 
-!!    call coordsystem_allocate(lgrid,params%prcp_save);  params%prcp_save = 0.0
-!!    call coordsystem_allocate(lgrid,params%ablt_save);  params%ablt_save = 0.0
     call coordsystem_allocate(lgrid,params%acab_save);  params%acab_save = 0.0
     call coordsystem_allocate(lgrid,params%artm_save);  params%artm_save = 0.0
-!!    call coordsystem_allocate(lgrid,params%snowd);      params%snowd = 0.0
-!!    call coordsystem_allocate(lgrid,params%siced);      params%siced = 0.0
-!!    call coordsystem_allocate(lgrid,params%prcp);       params%prcp = 0.0
-!!    call coordsystem_allocate(lgrid,params%ablt);       params%ablt = 0.0
     call coordsystem_allocate(lgrid,params%acab);       params%acab = 0.0
     call coordsystem_allocate(lgrid,params%artm);       params%artm = 0.0
-!!    call coordsystem_allocate(lgrid,params%xwind);      params%xwind = 0.0
-!!    call coordsystem_allocate(lgrid,params%ywind);      params%ywind = 0.0
-!!    call coordsystem_allocate(lgrid,params%humidity);   params%humidity = 0.0
-!!    call coordsystem_allocate(lgrid,params%SWdown);     params%SWdown = 0.0
-!!    call coordsystem_allocate(lgrid,params%LWdown);     params%LWdown = 0.0
-!!    call coordsystem_allocate(lgrid,params%Psurf);      params%Psurf = 0.0
-!!    call coordsystem_allocate(lgrid,params%snowd_save); params%snowd_save = 0.0
-!!    call coordsystem_allocate(lgrid,params%siced_save); params%siced_save = 0.0
 
-    ! Initialise the mass-balance scheme and other components
+    ! Set the mbal method and tstep
 
-!WHL - This subroutine sets the mbal method and tstep
-!!    call glint_mbal_init(params%mbal,config,whichacab,nx,ny,dx)
-
-!TODO - Pass in whichacab?
-      params%mbal%which = whichacab   
-      params%mbal%tstep = years2hours   ! mbal tstep = 1 year = 8760 hr
-
-    ! Copy snow and ice depths if relevant
-
-!!    if (mbal_has_snow_model(params%mbal)) then
-!!       params%snowd=snowd
-!!       params%siced=siced
-!!    end if
+    params%mbal%which = whichacab     ! = 0 for GCM coupling
+    params%mbal%tstep = years2hours   ! no. of hours in 1 year
 
   end subroutine glint_mbc_init_gcm
 

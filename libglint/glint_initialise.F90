@@ -518,7 +518,8 @@ contains
     ! initialise the mass-balance accumulation
 
     call glint_mbc_init_gcm(instance%mbal_accum, &
-                            instance%lgrid)
+                            instance%lgrid,      &
+                            instance%whichacab)
 
     !TODO - Do we need two copies of this tstep variable?
     instance%mbal_tstep = instance%mbal_accum%mbal%tstep
