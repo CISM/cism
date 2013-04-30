@@ -551,8 +551,8 @@ contains
     ! The evolution=0 (linear diffusion) option requires that uvel/vvel be restart variables.  So use input values if
     ! that option is selected on a restart.  Otherwise calculate velocity now.
 
-    if ((model%options%is_restart == RESTART_TRUE) .and. (model%options%whichevol == EVOL_PSEUDO_DIFF)) then
-       call write_log('Using restart file values for uvel and vvel for the initial time because evolution=0.')
+    if (model%options%is_restart == RESTART_TRUE) then
+       call write_log('Using restart file values for uvel and vvel for the initial time.')
     else
        ! Calculate velocity
        call velo_calc_velo(model%velowk,            model%geomderv%stagthck,  &

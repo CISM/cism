@@ -1476,6 +1476,7 @@ contains
     ! bheatflx, artm, acab - boundary conditions.  Of course if these fields are 0 they don't need 
     !        to be in the restart file, but without adding a check for that we cannot assume any of them are.
     !        There are some options where artm would not be needed.  Logic could be added to make that distinction.
+    !        Note that bheatflx may not be an input variable but can also be assigned as a parameter in the config file!
     call glide_add_to_restart_variable_list('topg thk temp bheatflx artm acab')
 
     ! add dycore specific restart variables
@@ -1500,7 +1501,7 @@ contains
         !        before thk evolution.  This means flwa is calculated from the current temp and 
         !        the old thk.  The old thk is not available on a restart (just the current thk).
         !        (thk is needed to calculate flwa for 1) a mask for where ice is, 2) correction for pmp.)
-        call glide_add_to_restart_variable_list('thkmask wgrd wvel flwa')
+        call glide_add_to_restart_variable_list('thkmask wgrd wvel flwa uvel vvel')
     
         ! slip option for SIA
         select case (options%whichbtrc)
@@ -1509,14 +1510,6 @@ contains
           case default
             call glide_add_to_restart_variable_list('btrc')
         end select
-
-        if (options%whichevol == EVOL_PSEUDO_DIFF) then
-          ! uvel,vvel are needed for linear diffusion evolution.  Their values
-          ! cannot be reconstructed from the current thk or diffu because their
-          ! values were originaly calculated from the old thk, which is not available
-          ! on a restart.
-          call glide_add_to_restart_variable_list('uvel vvel')
-        endif
 
       case (DYCORE_GLAM, DYCORE_GLISSADE)
         ! uvel,vvel - these are needed for an exact restart because we can only 
