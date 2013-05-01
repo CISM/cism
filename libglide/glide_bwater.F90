@@ -26,8 +26,7 @@
 
 !TODO - Much of this module consists of Jesse's water-routing code,
 !        which is serial only.
-!       Add a subroutine with local options that are supported for parallel code 
-!        and have the desired loop ranges?
+!       Add a subroutine that is supported for parallel code?
 
 module glide_bwater
 
@@ -137,17 +136,16 @@ contains
        call route_basal_water(wphi,bmlt,model%numerics%dew,model%numerics%dns,bwatflx,lakes)
        call flux_to_depth(bwatflx,wphi,c_flux_to_depth,p_flux_to_depth,q_flux_to_depth,model%numerics%dew,model%numerics%dns,bwat)
 
-    !WHL - not currently supported
-!!    case(BWATER_BASAL_PROC)
-
-       ! Normalized basal water 
-
-!!     bwat = model%basalproc%Hwater / thk0
-
     case(BWATER_CONST)
 
        ! Use a constant thickness of water, to force Tpmp.
        bwat(:,:) = const_bwat / thk0
+
+!!    case(BWATER_BASAL_PROC)   ! not currently supported
+
+       ! Normalized basal water 
+
+!!     bwat = model%basalproc%Hwater / thk0
 
     case default   ! includes BWATER_NONE
 

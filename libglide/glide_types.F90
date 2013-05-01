@@ -83,8 +83,9 @@ module glide_types
   integer, parameter :: EVOL_UPWIND = 4         ! glam/glissade only
   integer, parameter :: EVOL_NO_THICKNESS = 5   ! glam/glissade only
 
-  !WHL - Option 3 is now deprecated.
+  !NOTE: Option 3 is now deprecated.
   !      Use option 1 for prognostic temperature with any dycore
+  !TODO: Remove option 3
   integer, parameter :: TEMP_SURFACE_AIR_TEMP = 0
   integer, parameter :: TEMP_PROGNOSTIC = 1
   integer, parameter :: TEMP_STEADY = 2
@@ -811,6 +812,8 @@ module glide_types
     !      However, bfricflx and dissipcol are defined to be >= 0.
     !NOTE: If bheatflx is read from a data file, be careful about the sign!
     !      In input data, the geothermal heat flux is likely to be defined as positive upward.
+    !TODO: Create a field for basal melt beneath floating ice, separate from bmlt
+    !      (which would apply only to grounded ice)
 
     real(dp),dimension(:,:,:),pointer :: temp => null()      !*FD 3D temperature field.
     real(dp),dimension(:,:),  pointer :: bheatflx => null()  !*FD basal heat flux (geothermal, positive down)

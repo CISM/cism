@@ -210,7 +210,7 @@ contains
             norm5 = norm5 + vec_new(i) ** 2
         end do
 
-!TODO - Declare pi as an ordinary real(dp) variable
+        !TODO - Change PI to pi.
         !Compute the angle between successive correction vectors
         if ((abs(norm2) < 1d-10) .or. (abs(norm3) < 1d-10)) then
             theta=PI/2.

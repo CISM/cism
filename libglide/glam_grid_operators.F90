@@ -24,10 +24,7 @@
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!WHL Changed the filename from glide_deriv to glam_grid_operators.
-!    Moved and renamed subroutine geometry_derivs from glide_thck.F90.
-!TODO - Make sure all these subroutines are currently used, or might
-!       be in the future.
+!TODO - Make sure all these subroutines are currently used, or might be in the future.
 
 ! Various grid operators for glide dycore, including routines for computing gradients
 ! and switching between staggered and unstaggered grids
@@ -111,8 +108,6 @@ contains
            model%geomderv%dthckdns = 0.d0
     endwhere
 
-    !TODO: correct signs
-    !WHL - These seem correct to me.
     model%geomderv%dlsrfdew = model%geomderv%dusrfdew - model%geomderv%dthckdew
     model%geomderv%dlsrfdns = model%geomderv%dusrfdns - model%geomderv%dthckdns
       
@@ -135,7 +130,7 @@ contains
   !! A special staggering algorithm that is meant to conserve mass when operating on thickness fields.
   !! This incorporates Ann LeBroque's nunatak fix and the calving front fix.
 
-!WHL - Note that this subroutine, used by the glam HO dycore, is different from stagvarb, 
+!NOTE: This subroutine, used by the glam HO dycore, is different from stagvarb, 
 !      which is used by the glide SIA dycore.  Here, zero-thickness values are
 !      ignored when thickness is averaged over four adjacent grid cells.
 !      In stagvarb, zero-thickness values are included in the average.
@@ -152,8 +147,6 @@ contains
     
     integer :: ewn,nsn,ew,ns,n
     real(dp) :: tot
-
-!LOOP - all velocity points
 
         do ns = 1,nsn-1
             do ew = 1,ewn-1
@@ -302,9 +295,7 @@ contains
             end do  
         end do
 
-
-!HALO - If these updates are needed, they should be done at a higher level,
-!        and only for fields whose halo values are needed.
+!NOTE:  If halo updates are needed, they should be done at a higher level.
 
 !!        call parallel_halo(out_dfdx)
 !!        call parallel_halo(out_dfdy)
@@ -320,7 +311,7 @@ contains
 
 !TODO - This is the subroutine used to compute dusrfdew/ns, dthkdew/ns.
 !       Not sure if mods are needed for parallel code.
-!TODO - thck and thklim are no longer used in this subroutine.  Should they be removed from the call?
+!TODO - thck and thklim are no longer used in this subroutine.  Remove from argument list.
 
     subroutine df_field_2d_staggered(f,                  &
                                      deltax,   deltay,   &
@@ -350,7 +341,7 @@ contains
         ! accurate one-sided diffs.
 
 !TODO - Use old calls or new calls?
-!LOOP: all velocity points
+
         do x = 1, nx - 1  ! We go to nx - 1 because we're using a staggered grid
             do y = 1, ny - 1
                 out_dfdx(x,y) = dfdx_2d_stag(f, x, y, deltax) !*SFP* old call
@@ -726,7 +717,7 @@ contains
 
         f_array(1,1) = f(i,j); f_array(2,1) = f(i+1,j); f_array(1,2) = f(i,j+1); f_array(2,2) = f(i+1,j+1);
 
-        !TODO - Change reals to double precision
+        !TODO - Change reals to dp
         if( sum( f_array/ f_array, MASK = f_array /= 0.0d0 ) == 4.0 )then
 
             ! normal differencing for interior points
@@ -1230,8 +1221,8 @@ contains
             end do
         end do
 
-!TODO - If these updates are needed, they should be done at a higher level,
-!       and only for fields whose halo values are needed.
+!TODO:  If halo updates are needed, they should be done at a higher level.
+
         call parallel_halo(d2fdx2)
 !        call horiz_bcs_unstag_scalar(d2fdx2)
         call parallel_halo(d2fdy2)
@@ -1468,7 +1459,7 @@ contains
 !       end do
 !       
 !       
-!       !TODO: CHange this to use the scheme above
+!       !TODO: Change this to use the scheme above
 !       !We have neglected so far to take care of the four points that occur at the
 !       !maximum two indices in x and y.  If no periodic boundaries are being used,
 !       !we compute the value zt (nx-1, ny-1) using upwinding schemes.

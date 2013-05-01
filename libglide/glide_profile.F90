@@ -28,6 +28,9 @@
 #include "config.inc"
 #endif
 
+!TODO - We have more than one method of timing different parts of the code.
+!       Should we remove this method?
+
 module glide_profile
 
   ! profiling for glide
@@ -87,8 +90,6 @@ contains
 
     call profile_stop(model%profile,profn)
     if (mod(model%numerics%timecounter,model%numerics%profile_period)==0) then
-!WHLTSTEP - Since model%numerics%time is now dp, I converted it to sp here.
-!       write(timestring,*) model%numerics%time
        write(timestring,*) real(model%numerics%time)
        call profile_log(model%profile,profn,trim(timestring))
     end if

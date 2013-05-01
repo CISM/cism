@@ -24,13 +24,7 @@
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!WHL Changed the filename from glide_grids to glide_grid_operators.
-!    Moved some glam-specific subroutines to module glam_grid_operators (formerly glide_deriv)
-!    Moved subroutine geomders here from glide_thck.F90.
-!    Added a geometry driver subroutine, glide_geometry_derivs, to call stagvarb and geomders in turn,
-!     as required by the various evolution subroutines in glide_thck.F90.
-
-! Various grid operators for glide dycore, including routines for computing gradients
+! Various grid operators for the Glide dycore, including routines for computing gradients
 ! and switching between staggered and unstaggered grids
 
 #ifdef HAVE_CONFIG_H
@@ -57,15 +51,9 @@ contains
 
     use glide_types, only: glide_global_type
 
-!WHL - debug
-    use glimmer_paramets, only: thk0
-
     implicit none
 
     type(glide_global_type), intent(inout) :: model
-
-!WHL - debug
-    integer :: j
 
     ! Interpolate ice thickness to velocity points
  
@@ -73,13 +61,6 @@ contains
                   model%geomderv% stagthck,      &
                   model%general%  ewn,           &
                   model%general%  nsn)
-
-!WHL - debug
-!    print*, ' '
-!    print*, 'stagthck from stagvarb:'
-!    do j = model%general%nsn-1, 1, -1
-!       write(6,'(29f6.1)') thk0 * model%geomderv%stagthck(:,j)
-!    enddo
 
     ! Compute EW and NS gradients in usrf and thck
 
@@ -95,22 +76,7 @@ contains
                   model%geomderv% dthckdew, &
                   model%geomderv% dthckdns)
 
-!WHL - debug
-!    print*, ' '
-!    print*, 'dusrfdew from geomders:'
-!    do j = model%general%nsn-1, 1, -1
-!       write(6,'(14f8.0)') thk0 * model%geomderv%dusrfdew(3:16,j)
-!    enddo
-
-!WHL - debug
-!    print*, ' '
-!    print*, 'dusrfdew from df_field_2d:'
-!    do j = model%general%nsn-1, 1, -1
-!       write(6,'(14f8.0)') thk0 * model%geomderv%dusrfdew(3:16,j)
-!    enddo
-
-!TODO - Should this code, which is in stagthickness, be included?
-!     - Check the effect of zeroing out gradients where stagthck = 0.
+!TODO - Should the following code, which is in stagthickness, be added?
 
     ! Make sure the derivatives are 0 where stagthck = 0
 
@@ -129,13 +95,14 @@ contains
 
   ! Interpolate a scalar variable such as ice thickness from cell centers to cell corners.
 
-!WHL - Note that this subroutine, used by the glide SIA dycore, is different from 
-!      stagthickness, which is used by the glam HO dycore.  In stagthickness, zero-thickness 
-!      values are ignored when thickness is averaged over four adjacent grid cells.
-!      In stagvarb, zero-thickness values are included in the average.
-!      The glam approach works better for calving. We have retained the old glide
-!      approach in stagvarb for backward compatibility (and because calving is less
-!      important to treat realistically in a shallow-ice model).
+  !NOTE: This subroutine, used by the glide SIA dycore, is different from 
+  !      stagthickness, which is used by the glam HO dycore.  In stagthickness, zero-thickness 
+  !      values are ignored when thickness is averaged over four adjacent grid cells.
+  !      In stagvarb, zero-thickness values are included in the average.
+  !      The glam approach works better for calving. For now we have kept the old glide
+  !      approach in stagvarb for backward compatibility (and because calving is less
+  !      important to treat realistically in a shallow-ice model).
+  !TODO - Switch to the stagthickness approach?
 
     implicit none 
 
@@ -179,8 +146,6 @@ contains
 
         opvr(1:ewn-1,1:nsn-1) = (ipvr(2:ewn,1:nsn-1) + ipvr(1:ewn-1,2:nsn) + &
                                  ipvr(2:ewn,2:nsn)   + ipvr(1:ewn-1,1:nsn-1)) / 4.0d0
-
-!LOOP: all velocity points
 
         do ns = 1,nsn-1
             do ew = 1,ewn-1
@@ -239,8 +204,6 @@ contains
   end subroutine stagvarb_3d_mask
 
 !----------------------------------------------------------------------------
-!TODO: Move to glide_grid_operators?
-!      Not sure if it's OK for glide_grid_operators to use glide_types (cmake build issue)
 
   subroutine geomders(numerics,ipvr,stagthck,opvrew,opvrns)
 
@@ -279,11 +242,12 @@ contains
 
 !----------------------------------------------------------------------------
 
-!TODO - This is never used.  Remove it?
-    ! Copies a staggered grid onto a nonstaggered grid.  This version
-    ! assumes periodic boundary conditions.
+    !TODO - This subroutine is not currently used.  Remove it?
 
     subroutine unstagger_field_2d(f_stag, f, periodic_x, periodic_y)
+
+    ! Copies a staggered grid onto a nonstaggered grid.  This version
+    ! assumes periodic boundary conditions.
 
         use nan_mod, only : NaN
 
@@ -375,7 +339,8 @@ contains
 
 !----------------------------------------------------------------------------
 
-!TODO - This is never used.  Remove it?
+    !TODO - This subroutine is not used.  Remove it?
+
     subroutine unstagger_field_3d(f, f_stag, periodic_x, periodic_y)
 
         real(dp), dimension(:,:,:) :: f, f_stag
@@ -391,8 +356,8 @@ contains
 
 !----------------------------------------------------------------------------
 
+    !TODO - This is not used.  Remove it?
 
-!TODO - This is never used.  Remove it?
     subroutine periodic_boundaries(m, apply_to_x, apply_to_y, nlayers_arg)
 
       use parallel
@@ -438,7 +403,7 @@ contains
 
 !----------------------------------------------------------------------------
     
-!TODO - This is never used.  Remove it?
+    !TODO - This is not used.  Remove it?
 
     subroutine periodic_boundaries_3d(m, apply_to_x, apply_to_y, nlayers_arg)
 

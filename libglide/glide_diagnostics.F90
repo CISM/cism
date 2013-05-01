@@ -75,7 +75,7 @@ contains
        minthick = eps  
     endif
  
-!WHL - debug
+! debug
 !      print*, '	'
 !      print*, 'In glide_write_diagnostics'
 !      print*, 'time =', time
@@ -83,8 +83,9 @@ contains
 !      print*, 'ndiag =', model%numerics%ndiag
 !      print*, 'tstep_count =', tstep_count
 
-    !WHL - ndiag has been deprecated, but retained here for backward compatibility
-    !TODO - Remove this option and the optional tstep_count argument.
+    !TODO - Make this method more robust (i.e., less prone to accumulated roundoff errors).
+    !       Might want to derive ndiag from dt_diag at initialization.
+    !       Then we would work with integers (tstep_count and ndiag) and avoid roundoff errors.
 
     if (model%numerics%dt_diag > 0.d0) then                            ! usual case
 
@@ -93,9 +94,6 @@ contains
        quotient = time/model%numerics%dt_diag
        nint_quotient = nint(quotient)
        if (abs(quotient - real(nint_quotient,dp)) < eps) then  ! time to write
-
-!WHL - debug
-          print*, 'Write diagnostics, time =', time
 
           call glide_write_diag(model, time,                  &
                                 minthick,                     &
@@ -126,7 +124,8 @@ contains
     ! Optionally, write local diagnostics for a selected grid cell
  
     use parallel
-!TODO - Remove scaling
+
+    !TODO - Remove scaling
     use glimmer_paramets, only: thk0, len0, vel0, tim0
     use glimmer_physcon, only: scyr, rhoi, shci
  
@@ -211,12 +210,12 @@ contains
        velo_ew_ubound = ewn-uhalo-1
     end if
 
-!WHL - Some of the global reductions below may seem unnecessary.
+!NOTE: Some of the global reductions below may seem unnecessary.
 !      But at present, subroutine write_log permits writes only from main_task,
 !       and the broadcast subroutines allow broadcasts only from main_task,
 !       not from other processors.
 !      So the way we get info to main_task is by parallel reductions.
-!      Might want to change this later.
+!TODO: Support broadcasting from tasks other than main.
 
     !-----------------------------------------------------------------
     ! Determine whether global diagnostic point is on this processor.
@@ -677,12 +676,6 @@ contains
           call write_log(trim(message), type = GM_DIAGNOSTIC)
        endif
 
-!!       write(message,'(a25,f24.16)') 'Basal speed (m/yr)       ', ubas_diag
-!!       call write_log(trim(message), type = GM_DIAGNOSTIC)
-
-!!       write(message,'(a25,f24.16)') 'Sfc air temperature (C)  ', artm_diag
-!!       call write_log(trim(message), type = GM_DIAGNOSTIC)
- 
        write(message,'(a25,f24.16)') 'Sfc mass balance (m/yr)  ', acab_diag
        call write_log(trim(message), type = GM_DIAGNOSTIC)
 
@@ -731,7 +724,6 @@ contains
  
            do k = 1, upn
              write (message,'(f6.3,2f24.16)') model%numerics%sigma(k), spd_diag(k), temp_diag(k)
-!!             write (message,'(i4,2f24.16)') k, spd_diag(k), temp_diag(k)
              call write_log(trim(message), type = GM_DIAGNOSTIC)
           enddo
 

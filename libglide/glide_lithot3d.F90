@@ -1,5 +1,3 @@
-!TODO - Is this something we want to support in parallel?
-
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
 !   glide_lithot3d.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
@@ -33,6 +31,9 @@
 #include "glide_mask.inc"
 
 ! module for 3D temperature calculations in the upper lithosphere
+! (serial only)
+
+!TODO - Is this something we want to support in parallel?
 
 module glide_lithot3d
 

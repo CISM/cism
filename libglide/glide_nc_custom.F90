@@ -38,7 +38,9 @@ module glide_nc_custom
 
 contains
 
-!WHL - Added optional vertical_level_flag for calls from glint
+  !WHL - Added optional vertical_level_flag for case of 2D variables
+  !      without a vertical dimension
+  !TODO - Remove this flag?  Current code seems to work fine without it.
 
   subroutine glide_nc_fillall(model, outfiles, vertical_level_flag)
 
@@ -75,7 +77,9 @@ contains
 
   end subroutine glide_nc_fillall
 
-!WHL - Added optional vertical_level_flag for calls from glint
+  !WHL - Added optional vertical_level_flag for case of 2D variables
+  !      without a vertical dimension
+  !TODO - Remove this flag?  Current code seems to work fine without it.
 
   subroutine glide_nc_filldvars(outfile, model, vertical_level_flag)
 
@@ -168,12 +172,6 @@ contains
     end if   ! associated(model%funits%in_first)
 
     ! vertical dimension
-
-    ! Note: If this subroutine is called from glint, then the output fields
-    !  will be 2D without a vertical dimension, and the optional
-    !  input argument vertical_level_flag should be set to .false.
-    ! The default (e.g., for ice sheet dycore output) is to include
-    !  the vertical dimension.
 
     if (present(vertical_level_flag)) then
        vertical_levels = vertical_level_flag

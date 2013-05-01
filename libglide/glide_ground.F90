@@ -1,6 +1,6 @@
-!TODO - Consider a glissade_ground (or glissade_calving?) module that contains
-!        a parallel-friendly version of glide_marinlim.
-!       Other subroutines in this module not currently used by parallel code.  
+!TODO - Change module name to something more appropriate (glide_marine?)
+!       Make glide_marinlim fully parallel.
+!       Implement a better calving scheme.
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
 !   glide_ground.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
@@ -42,17 +42,6 @@ module glide_ground
 
 contains
 !-------------------------------------------------------------------------------  
-!WHL - Removed this subroutine, which was used only by old case(5)
-
-!!!  subroutine glide_initialise_backstress(thck,backstressmap,backstress,sigmabin,sigmabout)
-!!!  end subroutine glide_initialise_backstress
-
-!-------------------------------------------------------------------------
-
-!WHL - Removed old case (5) as recommended by Jesse Johnson
-!      Then changed old case(7) to new case(5) to avoid having a gap in the case numbering.
-!TODO - Remove any other cases?
-!       At some point, we should add a proper calving law for parallel code.
 
   subroutine glide_marinlim(which,                        &
                             thck,       relx,             &    
@@ -73,7 +62,7 @@ contains
     ! Subroutine arguments
     !---------------------------------------------------------------------
 
-!TODO: real(dp) for calving_field, eus?
+!TODO: dp for calving_field, eus
 !TODO: Change mask to thkmask?
 
     integer,                intent(in)    :: which   !*FD Calving method option
@@ -95,43 +84,23 @@ contains
     integer :: ew,ns
     !---------------------------------------------------------------------
    
-!HALO - Moved parallel_halo updates from this subroutine to glissade.F90
-
     calving_field(:,:) = 0.d0   ! using dp for constants in case calving_field changed to dp
 
     select case (which)
 
-!WHL - debug - temporary case to exercise this subroutine in the dome problem
-!      print*, ' '
-!      print*, 'Calving: Remove ice at margin'
-!      where (GLIDE_IS_MARGIN(mask))
-!        calving_field = thck
-!        thck = 0.0d0
-!      end where
-
-!!    case(0)    ! do nothing
     case(MARINE_NONE)    ! do nothing
 
-
-! set thickness to zero at the ice margin, land or ocean
-!SFP - commented out for now so that this option remains consistent w/ prev. versions of the code
-! where case(0) was "do nothing".
-!
         
-!!    case(1) ! Set thickness to zero if ice is floating
     case(MARINE_FLOAT_ZERO) ! Set thickness to zero if ice is floating
-
-      !LOOP TODO - Change to do loops over scalar cells?
 
       where (GLIDE_IS_FLOAT(mask))
         calving_field = thck
         thck = 0.0d0
       end where
 
-!!    case(2) ! remove fraction of ice when floating
     case(MARINE_FLOAT_FRACTION) ! remove fraction of ice when floating
 
-!LOOP TODO - Why is the outer row of cells skipped here?
+      ! TODO - Why is the outer row of cells skipped here?
 
       do ns = 2,size(thck,2)-1
         do ew = 2,size(thck,1)-1
@@ -145,20 +114,14 @@ contains
 
       ! if uncomment above mask update, then call parallel_halo(mask)
 
-!!    case(3) ! Set thickness to zero if relaxed bedrock is below a given level
     case(MARINE_RELX_THRESHOLD) ! Set thickness to zero if relaxed bedrock is below a given level
-
-      !LOOP TODO - Change to do loops over scalar cells?
 
       where (relx <= mlimit+eus)
          calving_field = thck
          thck = 0.0d0
       end where
 
-!!    case(4) ! Set thickness to zero at marine edge if present bedrock is below a given level
     case(MARINE_TOPG_THRESHOLD) ! Set thickness to zero at marine edge if present bedrock is below a given level
-
-      !LOOP TODO - Change to do loops over scalar cells?
 
       where (GLIDE_IS_MARINE_ICE_EDGE(mask) .and. topg < mlimit+eus)
         calving_field = thck
@@ -170,7 +133,6 @@ contains
 
     ! Huybrechts grounding line scheme for Greenland initialization
 
-!!    case(5)   ! used to be case(7)
     case(MARINE_HUYBRECHTS)   ! used to be case(7)
 
       if(eus > -80.d0) then
@@ -185,7 +147,7 @@ contains
         end where
       end if
 
-!WHL - Commenting out this case for now
+      ! Commenting out this case for now
 !!    case(6)
 
       ! not serial as far as I can tell as well; for parallelization, issues
@@ -208,7 +170,7 @@ contains
 
   subroutine calc_gline_flux(stagthk, velnorm, mask, gline_flux, ubas, vbas, dew)
 
-  !simple subroutine to calculate the flux at the grounding line
+    ! simple subroutine to calculate the flux at the grounding line
 
     use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
     implicit none
@@ -225,28 +187,24 @@ contains
 
     !TODO: get the grounding line flux on the velo grid - right now it seems
     !to be using both the ice grid and the velo grid.
+
     ewn = size(gline_flux, 1)
     nsn = size(gline_flux, 2)
        
-   !LOOP - Loop over velocity points?
-
     where (GLIDE_IS_GROUNDING_LINE(mask))
          gline_flux = stagthk * ((4.0/5.0)* velnorm(1,:,:) + &
          (ubas**2.0 + vbas**2.0)**(1.0/2.0))  * dew  
     end where
 
-!HALO - Pretty sure this is not needed.  gline_flux is just a diagnostic.
+    !TODO - Pretty sure this is not needed.  gline_flux is just a diagnostic.
     call parallel_halo(gline_flux)
     call horiz_bcs_unstag_scalar(gline_flux)
 
   end subroutine calc_gline_flux
 
-!TODO - The rest of this module is associated with case 6.
-!       Not sure if it should be supported.
-
+!TODO - The next few subroutines are associated with case 6, which is not currently supported.
+!       Remove them?
 !-------------------------------------------------------------------------
-
-!TODO - Is this needed? Only called from case 6.
 
   !Loops through the mask and does the interpolation for all the grounding lines
 
@@ -302,8 +260,6 @@ contains
 
 !-------------------------------------------------------------------------
 
-!TODO - Is this function needed? Only called from update_ground_line (case 6).
-
   subroutine set_ground_line(ground,ew1,ns1,ew2,ns2,value)
 
      use glide_types
@@ -327,7 +283,6 @@ contains
   end subroutine set_ground_line
 
 !-------------------------------------------------------------------------
-!TODO - Is this needed? Only called from update_ground_line (case 6).
 
   !does the pattyn interpolation for the grounding line
 
@@ -426,7 +381,7 @@ contains
 
 !-------------------------------------------------------------------------
 
-!TODO - Is this function needed? Currently not called from anywhere I can find.
+!TODO - Is this function needed? Currently not called.
 
   !This function returns the correct grounding line using the data given 
   ! the mask reference point.  dir is specifying 'ew' or 'ns', but can be 

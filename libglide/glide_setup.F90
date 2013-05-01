@@ -107,8 +107,6 @@ contains
        end if
     endif
 
-    !WHL - New isostasy option
-
     ! read isostasy
     ! NOTE: The [isostasy] section is ignored unless model%options%isostasy = ISOSTASY_COMPUTE
     if (model%options%isostasy == ISOSTASY_COMPUTE) then
@@ -118,7 +116,7 @@ contains
        end if
     endif
 
-    !WHL - till options not currently supported
+    ! Till options are not currently supported
     ! read till parameters
 !!    call GetSection(config,section,'till_options')
 !!    if (associated(section)) then
@@ -181,22 +179,22 @@ contains
     model%numerics%ntem = model%numerics%ntem * model%numerics%tinc   ! keep
     model%numerics%nvel = model%numerics%nvel * model%numerics%tinc   ! keep
 
-    model%numerics%dt     = model%numerics%tinc * scyr / tim0   ! keep scyr?  (or let dt be in yr)
-    model%numerics%dttem  = model%numerics%ntem * scyr / tim0   ! keep scyr?  (or let dt be in yr)
+    model%numerics%dt     = model%numerics%tinc * scyr / tim0   ! keep scyr?
+    model%numerics%dttem  = model%numerics%ntem * scyr / tim0   ! keep scyr?
     model%numerics%thklim = model%numerics%thklim  / thk0       ! can remove scaling here
 
-    model%numerics%dew = model%numerics%dew / len0         ! remove
-    model%numerics%dns = model%numerics%dns / len0         ! remove
+    model%numerics%dew = model%numerics%dew / len0         ! remove scaling
+    model%numerics%dns = model%numerics%dns / len0         ! remove scaling
 
-    model%numerics%mlimit = model%numerics%mlimit / thk0   ! remove
+    model%numerics%mlimit = model%numerics%mlimit / thk0   ! remove scaling
 
-    model%numerics%periodic_offset_ew = model%numerics%periodic_offset_ew / thk0
-    model%numerics%periodic_offset_ns = model%numerics%periodic_offset_ns / thk0
+    model%numerics%periodic_offset_ew = model%numerics%periodic_offset_ew / thk0  ! remove scaling
+    model%numerics%periodic_offset_ns = model%numerics%periodic_offset_ns / thk0  ! remove scaling
 
-    model%velowk%trc0   = vel0 * len0 / (thk0**2)          ! keep scyr
-    model%velowk%btrac_const = model%paramets%btrac_const/model%velowk%trc0/scyr  ! remove? 
-    model%velowk%btrac_max = model%paramets%btrac_max/model%velowk%trc0/scyr      ! remove?
-    model%velowk%btrac_slope = model%paramets%btrac_slope*acc0/model%velowk%trc0  ! remove?
+    model%velowk%trc0   = vel0 * len0 / (thk0**2)          ! keep scyr?
+    model%velowk%btrac_const = model%paramets%btrac_const/model%velowk%trc0/scyr  ! keep scyr? 
+    model%velowk%btrac_max = model%paramets%btrac_max/model%velowk%trc0/scyr      ! keep scyr?
+    model%velowk%btrac_slope = model%paramets%btrac_slope*acc0/model%velowk%trc0  ! remove scaling?
 
   end subroutine glide_scale_params
 
@@ -269,7 +267,6 @@ contains
 
     select case(model%options%which_sigma)
 
-!!    case(0)    
     case(SIGMA_COMPUTE_GLIDE)   !  compute standard Glide sigma levels
 
        do up = 1,upn
@@ -279,7 +276,6 @@ contains
 
        call write_log('Computing Glide sigma levels')
 
-!!    case(1)
     case(SIGMA_EXTERNAL)        ! read from external file
 
        if (main_task) inquire (exist=there, file=process_path(model%funits%sigfile))
@@ -296,7 +292,6 @@ contains
        end if
        call broadcast(model%numerics%sigma)
 
-!!    case(2)
     case(SIGMA_CONFIG)          ! read from config file
 
        ! sigma levels have already been read from glide_read_sigma
@@ -329,8 +324,9 @@ contains
     end select
 
 
-    !WHL - adding logic so that Glam will always use evenly spaced levels,
-    !      overriding other values of which_sigma (including sigma levels in config file)
+    !NOTE: Glam will always use evenly spaced levels,
+    !      overriding other values of which_sigma 
+    !      (including sigma levels in config file)
 
     if (model%options%whichdycore == DYCORE_GLAM) then   ! evenly spaced levels are required
 
@@ -360,38 +356,6 @@ contains
 10  call write_log('something wrong with sigma coord file',GM_FATAL)
     
   end subroutine glide_load_sigma
-
-!--------------------------------------------------------------------------------
-
-!WHL - I removed the call to this function.
-!      I added the 'even' and 'Pattyn' options to the whichsigma options.
-
-!!  function glide_find_level(level, scheme, up, upn)
-
-  !Returns the sigma coordinate of one level using a specific builtin scheme
-
-!!    use glide_types
-!!    use glimmer_global, only: dp
-!!    real(dp) :: level
-!!    integer  :: scheme, up, upn
-!!    real(dp) :: glide_find_level
-
-!!    select case(scheme)
-!!      case (SIGMA_BUILTIN_DEFAULT)
-!!        glide_find_level = glide_calc_sigma(level,2D0)
-!!      case (SIGMA_BUILTIN_EVEN)
-!!        glide_find_level = level
-!!      case (SIGMA_BUILTIN_PATTYN)
-!!        if (up == 1) then
-!!          glide_find_level = 0
-!!        else if (up == upn) then
-!!          glide_find_level = 1
-!!        else
-!!           glide_find_level = glide_calc_sigma_pattyn(level)
-!!        end if
-!!    end select
-     
-!!  end function glide_find_level
 
 !--------------------------------------------------------------------------------
 
@@ -442,8 +406,6 @@ contains
     call GetValue(section,'dew',model%numerics%dew)
     call GetValue(section,'dns',model%numerics%dns)
     call GetValue(section,'sigma_file',model%funits%sigfile)
-      !WHL - removed this option
-!!    call GetValue(section,'sigma_builtin',model%options%which_sigma_builtin)
 
     ! We set this flag to one to indicate we've got a sigfile name.
     ! A warning/error is generated if sigma levels are specified in some other way
@@ -593,8 +555,6 @@ contains
     call GetValue(section,'vertical_integration',model%options%whichwvel)
     call GetValue(section,'topo_is_relaxed',model%options%whichrelaxed)
     call GetValue(section,'periodic_ew',model%options%periodic_ew)
-
-    !WHL - added this one
     call GetValue(section,'sigma',model%options%which_sigma)
 
     !TODO - Not sure if this is still needed
@@ -610,10 +570,6 @@ contains
     ! These are not currently supported
     !call GetValue(section, 'use_plume',model%options%use_plume)
     !call GetValue(section,'basal_proc',model%options%which_bproc)
-
-!WHL - Removed these (no longer used)
-!!    call GetValue(section,'periodic_ns',model%options%periodic_ns)  ! not used
-!!    call GetValue(section,'diagnostic_run',model%options%diagnostic_run)
 
   end subroutine handle_options
 
@@ -637,13 +593,6 @@ contains
 !WHL  - Added which_ho_approx option for glissade dycore. Commented out for now
 !    call GetValue(section, 'which_ho_approx',    model%options%which_ho_approx)
 
-    !WHL - Removed HO options that are not used
-!!    call GetValue(section, 'which_bmelt',        model%options%which_bmelt)
-!!    call GetValue(section, 'which_ho_source',    model%options%which_ho_source)
-!!    call GetValue(section, 'include_thin_ice',   model%options%ho_include_thinice)
-!!    call GetValue(section, 'guess_specified',    model%velocity%is_velocity_valid)
-!!    call GetValue(section, 'which_ho_sparse_fallback', model%options%which_ho_sparse_fallback)
-
   end subroutine handle_ho_options
 
 !--------------------------------------------------------------------------------
@@ -666,7 +615,6 @@ contains
 
   subroutine print_options(model)
 
-    !TODO - Make sure these are consistent with options in glide_types
     use glide_types
     use glimmer_log
 
@@ -684,9 +632,7 @@ contains
          'glam               ', &  ! Payne-Price finite difference
          'glissade           ' /)  ! prototype finite element
 
-    !WHL - Removed option -1 (replaced by new glint option: evolve_ice)
     character(len=*), dimension(0:5), parameter :: evolution = (/ &
-!!         'no thickness evolution                ', &
          'pseudo-diffusion                      ', &
          'ADI scheme                            ', &
          'iterated diffusion                    ', &
@@ -704,13 +650,11 @@ contains
          'set to surface air temp', &
          'linear vertical profile' /)
 
-    !WHL - Changed order
     character(len=*), dimension(0:2), parameter :: flow_law = (/ &
          'const 1e-16 Pa^-n a^-1      ', &
          'Paterson and Budd (T = -5 C)', &
          'Paterson and Budd           ' /)
 
-    !WHL - Changed order
     !TODO - Rename to something like which_btrc?
     character(len=*), dimension(0:5), parameter :: slip_coeff = (/ &
          'no basal sliding       ', &
@@ -720,7 +664,6 @@ contains
          'linear function of bmlt', &
          'tanh function of bwat  ' /)
 
-    !WHL - Changed order
     character(len=*), dimension(0:3), parameter :: basal_water = (/ &
          'none                     ', &
          'local water balance      ', &
@@ -728,7 +671,7 @@ contains
          'Constant value (= 10 m)  ' /)
 !!         'From basal proc model    '/) ! not supported
 
-      !WHL - basal proc model is disabled for now.
+      ! basal proc model is disabled for now.
 !!    character(len=*), dimension(0:2), parameter :: which_bproc = (/ &
 !!         'Basal proc mod disabled '  , &
 !!         'Basal proc, high res.   '   , &
@@ -748,12 +691,11 @@ contains
          'read flux from file, if present ', &
          'compute flux from diffusion eqn ' /)
 
-    !WHL - added this option (replaces old do_isos option)
+    ! NOTE: This option has replaced the old do_isos option
     character(len=*), dimension(0:1), parameter :: isostasy = (/ &
          'no isostasy calculation         ', &
          'compute isostasy with model     ' /)
 
-    !WHL - changed order
     character(len=*), dimension(0:5), parameter :: marine_margin = (/ &
          'do nothing at marine margin     ', &
          'remove all floating ice         ', &
@@ -768,7 +710,6 @@ contains
 
     ! higher-order options
 
-    !WHL - Changed order
     character(len=*), dimension(0:2), parameter :: ho_whichefvs = (/ &
          'constant value                 ', & 
          'multiple of flow factor        ', &
@@ -788,20 +729,6 @@ contains
          'B^2 passed from CISM                   ', &
          'no slip (Dirichlet implementation)     ', &
          'till yield stress (Newton)             ' /)
-
-    !WHL - Removed this option
-    !      Glide always uses 0-order SIA, glam/glissade always uses 1st order,
-    !      and SSA has never been supported
-!!    character(len=*), dimension(0:2), parameter :: bmeltwhich = (/ &
-!!         '0-order SIA                       ', &
-!!         '1-st order model (Blatter-Pattyn) ', &
-!!         '1-st order depth-integrated (SSA) ' /)
-
-    !WHL - Removed this option
-!!    character(len=*), dimension(0:2), parameter :: ho_whichsource = (/ &
-!!         'vertically averaged     ', &
-!!         'vertically explicit     ', &
-!!         'shelf front disabled    '/)
 
     character(len=*), dimension(0:1), parameter :: which_ho_nonlinear = (/ &
          'use standard Picard iteration  ', &
@@ -840,9 +767,9 @@ contains
     write(message,*) 'Dycore                  : ',model%options%whichdycore,dycore(model%options%whichdycore)
     call write_log(message)
 
-    !WHL - Option 3 (TEMP_REMAP_ADV) is now deprecated.  
+    !NOTE : Option 3 (TEMP_REMAP_ADV) is now deprecated.  
     ! If this has been set, then change to option 1 (TEMP_PROGNOSTIC), which applies to any dycore.
-    !TODO - Remove this option after cleaning up config files.
+    !TODO - Remove this option here and in glide_types.
     if (model%options%whichtemp == TEMP_REMAP_ADV) model%options%whichtemp = TEMP_PROGNOSTIC
 
     if (model%options%whichtemp < 0 .or. model%options%whichtemp >= size(temperature)) then
@@ -928,7 +855,6 @@ contains
     write(message,*) 'slip_coeff              : ', model%options%whichbtrc, slip_coeff(model%options%whichbtrc)
     call write_log(message)
 
-    !WHL - Removed option -1
     if (model%options%whichevol < 0 .or. model%options%whichevol >= size(evolution)) then
        call write_log('Error, evolution out of range',GM_FATAL)
     end if
@@ -1047,22 +973,6 @@ contains
 !!          call write_log('Error, Stokes approximation out of range', GM_FATAL)
 !!       end if
 
-         !WHL - Removed this option
-!!       write(message,*) 'bmeltwhich              : ',model%options%which_bmelt,  &
-!!                         bmeltwhich(model%options%which_bmelt)
-!!       call write_log(message)
-!!       if (model%options%which_bmelt < 0 .or. model%options%which_bmelt >= size(bmeltwhich)) then
-!!          call write_log('Error, which bmelt input out of range', GM_FATAL)
-!!       end if
-
-         !WHL - Removed this option
-!!       if (model%options%which_ho_source < 0 .or. model%options%which_ho_source >= size(ho_whichsource)) then
-!!          call write_log('Error, which_ho_source out of range', GM_FATAL)
-!!       end if
-!!       write(message,*) 'ice_shelf_source_term   :',model%options%which_ho_source, &
-!!                         ho_whichsource(model%options%which_ho_source)
-!!       call write_log(message)
-
     endif   ! whichdycore
 
   end subroutine print_options
@@ -1102,7 +1012,7 @@ contains
     call GetValue(section,'basal_tract_slope', model%paramets%btrac_slope)
 
     !WHL - Changed this so that bpar can be read correctly from config file.
-    !      Parameter is now called 'basal_tract_tanh' instead of 'basal_tract'.
+    !      This parameter is now called 'basal_tract_tanh' instead of 'basal_tract'.
     call GetValue(section,'basal_tract_tanh',  tempvar, 5)
     if (associated(tempvar)) then
 !!       model%paramets%btrac_const = tempvar(1)  ! old code
@@ -1112,7 +1022,7 @@ contains
 
 !!    call GetValue(section,'sliding_constant',  model%climate%slidconst)  ! not currently used
 
-    !WHL - added for ismip-hom
+    ! added for ismip-hom
     call GetValue(section,'periodic_offset_ew',model%numerics%periodic_offset_ew)
     call GetValue(section,'periodic_offset_ns',model%numerics%periodic_offset_ns)
 
@@ -1187,7 +1097,7 @@ contains
         call write_log('Error, global diagnostic point (idiag, jdiag) is out of bounds', GM_FATAL)
     endif
 
-!WHL - added for ismip-hom
+    ! added for ismip-hom
     if (model%numerics%periodic_offset_ew /= 0.d0) then
        write(message,*) 'periodic offset_ew (m)  :  ',model%numerics%periodic_offset_ew
        call write_log(message)
@@ -1199,6 +1109,7 @@ contains
     endif
    
     call write_log('')
+
   end subroutine print_parameters
 
 !--------------------------------------------------------------------------------
@@ -1303,7 +1214,6 @@ contains
 
 !--------------------------------------------------------------------------------
 
-  !WHL - new subroutine based on isos_readconfig
   subroutine handle_isostasy(section, model)
     use glimmer_config
     use glide_types
@@ -1329,7 +1239,6 @@ contains
 
 !--------------------------------------------------------------------------------
 
-  !WHL - new subroutine based on isos_printconfig
   subroutine print_isostasy(model)
     use glide_types
     use glimmer_log
@@ -1373,9 +1282,10 @@ contains
 
 !--------------------------------------------------------------------------------
 
-!WHL - These options are disabled for now.
-!Till options
+! These options are disabled for now.
+
 !!  subroutine handle_till_options(section,model)
+!!    !Till options
 !!    use glimmer_config
 !!    use glide_types
 !!    implicit none
@@ -1400,7 +1310,6 @@ contains
 !!    end if  
 !!  end subroutine handle_till_options    
 
-!WHL - These options are disabled for now.
 !!  subroutine print_till_options(model)
 !!    use glide_types
 !!    use glimmer_log
@@ -1452,7 +1361,6 @@ contains
     use glide_types
     use glide_io, only: glide_add_to_restart_variable_list
 
-!    use glide_lithot_io, only: glide_lithot_add_to_restart_variable_list
     implicit none
 
     !------------------------------------------------------------------------------------

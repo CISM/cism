@@ -1,4 +1,3 @@
-!TODO - Any changes needed for parallel code?
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
 !   glide_lithot.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
@@ -30,6 +29,8 @@
 #endif
 
 ! module for temperature calculations in the upper lithosphere
+
+!TODO - Any changes needed for parallel code?
 
 module glide_lithot
 
@@ -79,6 +80,7 @@ contains
 
     !TODO - Make sure the sign is correct here.
     !NOTE: Glimmer-CISM convention is that geot is positive down, so geot < 0 for upward geothermal flux
+
     if (model%options%is_restart == RESTART_FALSE) then
        ! set initial temp distribution to thermal gradient
        factor = model%paramets%geot / model%lithot%con_r
@@ -117,7 +119,8 @@ contains
     end if
   end subroutine spinup_lithot
 
-!TODO - Pretty sure that calc_lithot3d is not parallel.  What about 1d?
+  !TODO - Pretty sure that calc_lithot3d is not parallel.  What about 1d?
+
   subroutine calc_lithot(model)
     use glide_types
     use glimmer_log
@@ -148,6 +151,7 @@ contains
 
     factor = model%lithot%con_r/(model%lithot%deltaz(2)-model%lithot%deltaz(1))
     model%temper%bheatflx(:,:) = factor*(model%lithot%temp(:,:,2)-model%lithot%temp(:,:,1))
+
   end subroutine calc_geoth
 
   subroutine finalise_lithot(model)

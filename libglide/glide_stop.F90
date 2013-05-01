@@ -30,6 +30,8 @@
 
 module glide_stop
 
+  !TODO - Put model registration subroutines elsewhere?
+
   use glide_types
   use glimmer_log
 
@@ -38,7 +40,6 @@ module glide_stop
   !*FD module containing finalisation of glide
   !*FD this subroutine had to be split out from glide.f90 to avoid circular dependencies
 
-!TODO - Put model registration elsewhere?
   !*FD Updated by Tim Bocek to allow for several models to be
   !*FD registered and finalized with a single call without needing
   !*FD the model at call time
@@ -58,6 +59,7 @@ module glide_stop
 contains
 
 !EIB! register and finalise_all not present in gc2, are present in lanl, therefore added here
+
   subroutine register_model(model)
     !*FD Registers a model, ensuring that it is finalised in the case of an error
     type(glide_global_type), target :: model
@@ -87,7 +89,9 @@ contains
     end if
   end subroutine
 
-!TODO - Currently, this subroutine is never called.
+  !TODO - Currently, this subroutine is never called.
+  !       (glide_finalise is called from simple_glide) 
+
   subroutine glide_finalise_all(crash_arg)
     !*FD Finalises all models in the model registry
     logical, optional :: crash_arg
@@ -108,8 +112,6 @@ contains
     end do 
   end subroutine
 
-!TODO - Write a glissade_finalise routine
-!     - Does it need a glissade_io_writeall subroutine?
 
   subroutine glide_finalise(model,crash)
 
@@ -118,7 +120,6 @@ contains
     use glimmer_log
     use glide_types
     use glide_io
-!    use glide_lithot_io
     use profile
     implicit none
     type(glide_global_type) :: model        !*FD model instance
@@ -129,19 +130,13 @@ contains
     if (present(crash)) then
        if (crash) then
           call glide_io_writeall(model,model,.true.)
-           
-           !WHL - Should be handled by glide_io_writeall
-!          if (model%options%gthf == GTHF_COMPUTE) then
-!             call glide_lithot_io_writeall(model,model,.true.)
-!          end if
-
        end if
     end if
 
     call closeall_in(model)
     call closeall_out(model)
 
-!TODO - Has this been done yet?
+    !TODO - Has this been done yet?
     ! *sfp* Note that a finalization routine, "glam_velo_fordsiapstr_final", for the PP HO core needs 
     ! to be written, added to "glam_strs2.F90", and called from "glide_stop".
   
