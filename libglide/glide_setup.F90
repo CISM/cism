@@ -1447,6 +1447,7 @@ contains
     !*FD and determines which variables are necessary for an exact restart.  MJH 1/11/2013
 
     ! Please comment thoroughly the reasons why a particular variable needs to be a restart variable for a given config.
+    ! Note: this subroutine assumes that any restart variables you add you loadable.  Check glide_vars.def to make sure any variables you add have load: 1
 
     use glide_types
     use glide_io, only: glide_add_to_restart_variable_list

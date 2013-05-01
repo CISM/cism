@@ -404,36 +404,42 @@ contains
     ! ------------------------------------------------------------------------ 
     ! ***Part 1: Make geometry consistent with calving law, if necessary
     ! ------------------------------------------------------------------------       
-    ! ------------------------------------------------------------------------ 
-    ! Remove ice which is either floating, or is present below prescribed
-    ! depth, depending on value of whichmarn
-    ! ------------------------------------------------------------------------ 
 
-!TODO - Remove this call?  There is a call to glide_marinlim in glide_tstep_p2.
+    if (model%options%is_restart /= RESTART_TRUE) then
+            ! Only apply the calving law on a cold start.
 
-    call glide_marinlim(model%options%whichmarn, &
-                        model%geometry%thck,      &
-                        model%isostasy%relx,      &
-                        model%geometry%topg,   &
-                        model%geometry%thkmask,    &
-                        model%numerics%mlimit,     &
-                        model%numerics%calving_fraction, &
-                        model%climate%eus,         &
-                        model%climate%calving,  &
-                        model%ground, &
-                        model%numerics%dew,    &
-                        model%numerics%dns, &
-                        model%general%nsn, &
-                        model%general%ewn)
+            ! ------------------------------------------------------------------------ 
+            ! Remove ice which is either floating, or is present below prescribed
+            ! depth, depending on value of whichmarn
+            ! ------------------------------------------------------------------------ 
 
-!TODO - There are two calls to glide_set_mask, one before and one after the call to glide_marinlim.
-!       Keep the second call here?
+            !  On a cold start, marinlim needs the mask to be calculated, but a call to 
+            !  glide_set_mask occurs in glide_initialise, so we should be set here without calling it again.
 
-    call glide_set_mask(model%numerics,                                &
-                        model%geometry%thck,  model%geometry%topg,     &
-                        model%general%ewn,    model%general%nsn,       &
-                        model%climate%eus,    model%geometry%thkmask,  &
-                        model%geometry%iarea, model%geometry%ivol)
+            call glide_marinlim(model%options%whichmarn, &
+                                model%geometry%thck,      &
+                                model%isostasy%relx,      &
+                                model%geometry%topg,   &
+                                model%geometry%thkmask,    &
+                                model%numerics%mlimit,     &
+                                model%numerics%calving_fraction, &
+                                model%climate%eus,         &
+                                model%climate%calving,  &
+                                model%ground, &
+                                model%numerics%dew,    &
+                                model%numerics%dns, &
+                                model%general%nsn, &
+                                model%general%ewn)
+
+            ! We now need to recalculate the mask because marinlim may have modified the geometry.
+            call glide_set_mask(model%numerics,                                &
+                                model%geometry%thck,  model%geometry%topg,     &
+                                model%general%ewn,    model%general%nsn,       &
+                                model%climate%eus,    model%geometry%thkmask,  &
+                                model%geometry%iarea, model%geometry%ivol)
+
+    end if
+
 
 !TODO - Remove this call?
     call calc_iareaf_iareag(model%numerics%dew,    model%numerics%dns,     &
@@ -548,9 +554,7 @@ contains
                   model%velocity% ubas,          &
                   model%velocity% vbas)
 
-    ! The evolution=0 (linear diffusion) option requires that uvel/vvel be restart variables.  So use input values if
-    ! that option is selected on a restart.  Otherwise calculate velocity now.
-
+    ! Use input values for btrc/uvel/vel if doing a restart.  Otherwise calculate velocity now.
     if (model%options%is_restart == RESTART_TRUE) then
        call write_log('Using restart file values for uvel and vvel for the initial time.')
     else
