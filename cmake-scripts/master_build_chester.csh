@@ -1,5 +1,5 @@
 #!/bin/csh
-# BETA Master build script for titan, last updated 01/17/2013 with v1699
+# BETA Master build script for chester, last updated 01/17/2013 with v1699
 # build the code in the 3* ways currently supported and submits some test jobs
 
 # (1) *serial build not working yet, commented out
@@ -13,12 +13,18 @@
 #add logic at the top to decide which versions to build 
 setenv TEST_DIR "/tmp/work/$USER/higher-order"
 setenv CODE_DIR "/tmp/work/$USER/seacism"
+setenv REG_DIR  "/tmp/work/$USER/reg_test"
 cd $CODE_DIR
 setenv build_no 0
 setenv build_autoconf 1
-setenv build_cmake 0
+setenv build_cmake 1
 
 mkdir -p $TEST_DIR
+if ( !( -e $TEST_DIR/reg_test ) ) then
+  echo 'copying over reg_test'
+  mkdir -p $TEST_DIR/reg_test
+  cp -rf $REG_DIR/* $TEST_DIR/reg_test
+endif
 
 # even if these are set in your env you need these when running the script
 echo 'set the pgi env'
@@ -49,7 +55,7 @@ if ( $build_autoconf == 1 ) then
   # SERIAL BUILD WITH AUTOCONF PGI
   echo 'AUTOCONF PGI SERIAL BUILD'
   echo 'configure serial autoconf build'
-  ./configure-scripts/titan-config-serial >& conf_autoconf_serial_pgi.out
+  ./configure-scripts/chester-config-serial >& conf_autoconf_serial_pgi.out
   if ($status != 0) then
     echo 'ERROR: configure for autoconf, serial, PGI build'
     echo "cat $PWD/conf_autoconf_serial_pgi.out"
@@ -84,7 +90,7 @@ if ( $build_autoconf == 1 ) then
     @ build_no = 1
   endif
   echo 'configure parallel autoconf build'
-  ./configure-scripts/titan-config >& conf_autoconf_parallel_pgi.out
+  ./configure-scripts/chester-config >& conf_autoconf_parallel_pgi.out
   if ($status != 0) then
     echo 'ERROR: configure for autoconf, parallel, PGI build'
     echo "cat $PWD/conf_autoconf_parallel_pgi.out"
@@ -126,14 +132,14 @@ if ( $build_cmake == 1 ) then
   # PARALLEL BUILD WITH CMAKE PGI
   echo 'CMAKE PGI PARALLEL BUILD'
   cd $CODE_DIR
-  rm -rf titan-pgi
-  mkdir titan-pgi
-  cp cmake-scripts/titan-pgi-cmake titan-pgi
-  cd $CODE_DIR/titan-pgi
+  rm -rf chester-pgi
+  mkdir chester-pgi
+  cp cmake-scripts/chester-pgi-cmake chester-pgi
+  cd $CODE_DIR/chester-pgi
   echo 'clean out the build dir'
   rm -rf CMakeCache.txt CMakeFiles fortran_mod_files lib libglimmer-trilinos autogenerate.log cmake_install.cmake
   echo 'configure pgi cmake build'
-  ./titan-pgi-cmake >& conf_cmake_parallel_pgi.out
+  ./chester-pgi-cmake >& conf_cmake_parallel_pgi.out
   if ($status != 0) then
     echo 'ERROR: configure for cmake, parallel, PGI build'
     echo "cat $PWD/conf_cmake_parallel_pgi.out"
@@ -160,14 +166,14 @@ if ( $build_cmake == 1 ) then
   module list
   echo 'CMAKE GNU PARALLEL BUILD'
   cd $CODE_DIR
-  rm -rf titan-gnu
-  mkdir titan-gnu
-  cp cmake-scripts/titan-gnu-cmake titan-gnu
-  cd $CODE_DIR/titan-gnu
+  rm -rf chester-gnu
+  mkdir chester-gnu
+  cp cmake-scripts/chester-gnu-cmake chester-gnu
+  cd $CODE_DIR/chester-gnu
   echo 'clean out the build dir'
   rm -rf CMakeCache.txt CMakeFiles fortran_mod_files lib libglimmer-trilinos autogenerate.log cmake_install.cmake
   echo 'configure gnu cmake build'
-  ./titan-gnu-cmake >& conf_cmake_parallel_gnu.out
+  ./chester-gnu-cmake >& conf_cmake_parallel_gnu.out
   if ($status != 0) then
     echo 'ERROR: configure for cmake, parallel, GNU build'
     echo "cat $PWD/conf_cmake_parallel_gnu.out"
@@ -190,7 +196,7 @@ else # build with cmake option
   echo 'not building cmake code option'
 endif # build with cmake option
 
-# execute tests on titan
+# execute tests on chester
 # TODO the small jobs need to be combined into one ijob submission to get through the queue
 if ($build_no == 1 ) then
   echo "no job sumbitted, build/builds failed"
@@ -198,12 +204,12 @@ else
   # simplest case, runs all builds and on a range of small processor counts 
   echo 'submitting jobs to compute nodes'
   #diagnostic dome test case
-  #cd $TEST_DIR/reg_test/dome30/diagnostic
-  #qsub ijob
+  cd $TEST_DIR/reg_test/dome30/diagnostic
+  qsub ijob
 
   #evolving dome test case
-  #cd $TEST_DIR/reg_test/dome30/evolving
-  #qsub ijob
+  cd $TEST_DIR/reg_test/dome30/evolving
+  qsub ijob
 
   # ISMIP test case A - not operational until BC set
   #cd $TEST_DIR/reg_test/ismip-hom-a/80km
@@ -226,7 +232,7 @@ else
   #qsub ijob
 
   # non regression test cases, default not run: 
-  # large but not challenging case, to test large processor counts, not yet configured for titan
+  # large but not challenging case, to test large processor counts, not yet configured for chester
   #cd $TEST_DIR/dome500
   #qsub hopjob
 
