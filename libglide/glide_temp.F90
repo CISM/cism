@@ -63,8 +63,8 @@ module glide_temp
 
   use glide_types
 
-!WHL - debug
-    use glimmer_paramets, only : oldglide
+  !TODO - Remove 'oldglide' logic when comparisons are complete  
+  use glimmer_paramets, only : oldglide
 
   implicit none
 
@@ -721,14 +721,16 @@ contains
 
              if (GLIDE_IS_THIN(model%geometry%thkmask(ew,ns))) then
 
-                !WHL - For older versions of the code we simply set T = min(artm,0)
-!!                model%temper%temp(:,ew,ns) = min(0.0d0,dble(model%climate%artm(ew,ns)))
-
+               !TODO - Remove 'oldglide' logic when comparisons are complete
+               if (oldglide) then
+                model%temper%temp(:,ew,ns) = min(0.0d0,dble(model%climate%artm(ew,ns)))
+               else
                 call glide_init_temp_column(model%options%temp_init,         &
                                             model%numerics%sigma(:),         &
                                             dble(model%climate%artm(ew,ns)), &
                                             model%geometry%thck(ew,ns),      &
                                             model%temper%temp(:,ew,ns) )
+               endif
 
              else if (GLIDE_NO_ICE(model%geometry%thkmask(ew,ns))) then
 
