@@ -1417,7 +1417,17 @@ contains
           case (0)
             ! no restart variable needed when no-slip is chosen
           case default
-            call glide_add_to_restart_variable_list('btrc')
+            ! when a slip option is chosen, ubas & vbas are needed by the temperature solver
+            ! for calculating basal heating prior to the first calculation of velocity.
+            ! Rather than recalculate the sliding field on restart, it is easier and 
+            ! less error-prone to have them be restart variables.  
+            ! This could either be done by making ubas, vbas restart variables or
+            ! having them assigned from the bottom level of uvel,vvel on init
+            ! Note that btrc and soft are not needed as restart variables because
+            ! their current implementation is as a scalar ('basal_tract_const' config parameter).
+            ! If they are ever implemented as 2-d fields, then they (probably just one of them)
+            ! should become restart variables.
+            call glide_add_to_restart_variable_list('ubas vbas')
         end select
 
       case (DYCORE_GLAM, DYCORE_GLISSADE)

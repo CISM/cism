@@ -383,6 +383,8 @@ contains
     ! This is analagous to glissade_diagnostic_variable_solve but is only 
     ! called from init.  The glide tstep routines take care of these calculations
     ! during time stepping.  
+    ! Note that none of this is needed on a restart - this code ensures a complete 
+    ! set of diagnostic output fields for the initial state.
 
     use glimmer_global, only : rk
     use glide_thck
@@ -401,12 +403,13 @@ contains
 
     type(glide_global_type), intent(inout) :: model     ! model instance
 
+
+    if (model%options%is_restart /= RESTART_TRUE) then
+       ! Only make the calculations on a cold start.
+
     ! ------------------------------------------------------------------------ 
     ! ***Part 1: Make geometry consistent with calving law, if necessary
     ! ------------------------------------------------------------------------       
-
-    if (model%options%is_restart /= RESTART_TRUE) then
-            ! Only apply the calving law on a cold start.
 
             ! ------------------------------------------------------------------------ 
             ! Remove ice which is either floating, or is present below prescribed
@@ -416,7 +419,7 @@ contains
             !  On a cold start, marinlim needs the mask to be calculated, but a call to 
             !  glide_set_mask occurs in glide_initialise, so we should be set here without calling it again.
 
-            call glide_marinlim(model%options%whichmarn, &
+       call glide_marinlim(model%options%whichmarn, &
                                 model%geometry%thck,      &
                                 model%isostasy%relx,      &
                                 model%geometry%topg,   &
@@ -432,17 +435,15 @@ contains
                                 model%general%ewn)
 
             ! We now need to recalculate the mask because marinlim may have modified the geometry.
-            call glide_set_mask(model%numerics,                                &
+       call glide_set_mask(model%numerics,                                &
                                 model%geometry%thck,  model%geometry%topg,     &
                                 model%general%ewn,    model%general%nsn,       &
                                 model%climate%eus,    model%geometry%thkmask,  &
                                 model%geometry%iarea, model%geometry%ivol)
 
-    end if
-
 
 !TODO - Remove this call?
-    call calc_iareaf_iareag(model%numerics%dew,    model%numerics%dns,     &
+       call calc_iareaf_iareag(model%numerics%dew,    model%numerics%dns,     &
                             model%geometry%iarea,  model%geometry%thkmask, &
                             model%geometry%iareaf, model%geometry%iareag)
 
@@ -458,10 +459,10 @@ contains
     ! calculate upper and lower ice surface
     ! ------------------------------------------------------------------------
 
-    call glide_calclsrf(model%geometry%thck, model%geometry%topg, &
+       call glide_calclsrf(model%geometry%thck, model%geometry%topg, &
                         model%climate%eus,   model%geometry%lsrf)
 
-    model%geometry%usrf = max(0.d0,model%geometry%thck + model%geometry%lsrf)
+       model%geometry%usrf = max(0.d0,model%geometry%thck + model%geometry%lsrf)
 
     ! ------------------------------------------------------------------------ 
     ! Calculate various derivatives
@@ -470,13 +471,13 @@ contains
     ! the same way as in thck_lin_evolve/thck_nonlin_evolve
     ! ------------------------------------------------------------------------     
 
-    call glide_prof_start(model,model%glide_prof%geomderv)
+       call glide_prof_start(model,model%glide_prof%geomderv)
 
-    call glide_geometry_derivs(model)   ! stagvarb, geomders as in old Glide
+       call glide_geometry_derivs(model)   ! stagvarb, geomders as in old Glide
 
-    call glide_prof_stop(model,model%glide_prof%geomderv)
+       call glide_prof_stop(model,model%glide_prof%geomderv)
 
-    call glide_prof_start(model,model%glide_prof%ice_mask1)
+       call glide_prof_start(model,model%glide_prof%ice_mask1)
 
     !TREY This sets local values of dom, mask, totpts, and empty
     !EIB! call veries between lanl and gc2, this is lanl version
@@ -485,14 +486,15 @@ contains
 !WHL - Modified this subroutine so that ice can accumulate in regions with
 !      a small positive mass balance.
 
-    call glide_thck_index(model%geometry% thck,      &
+       call glide_thck_index(model%geometry% thck,      &
                           model%climate%  acab,      &
                           model%geometry% thck_index,  &
                           model%geometry% totpts,    &
                           .true.,                    &
                           model%geometry% empty)
 
-    call glide_prof_stop(model,model%glide_prof%ice_mask1)
+       call glide_prof_stop(model,model%glide_prof%ice_mask1)
+
 
     ! ------------------------------------------------------------------------ 
     ! Part 3: Solve velocity
@@ -501,11 +503,11 @@ contains
     ! initial value for flwa should already be calculated as part of glide_init_temp()
     ! calculate the part of the vertically averaged velocity field which solely depends on the temperature
 
-    call velo_integrate_flwa(model%velowk,model%geomderv%stagthck,model%temper%flwa)
+        call velo_integrate_flwa(model%velowk,model%geomderv%stagthck,model%temper%flwa)
 
     ! Calculate diffusivity
 
-    call velo_calc_diffu(model%velowk,model%geomderv%stagthck,model%geomderv%dusrfdew, &
+       call velo_calc_diffu(model%velowk,model%geomderv%stagthck,model%geomderv%dusrfdew, &
             model%geomderv%dusrfdns,model%velocity%diffu)
 
 !TODO - Remove the next two calls, assume bwat is in restart file.
@@ -515,7 +517,7 @@ contains
     ! supplied in the input file) to get an initial guess of sliding heating.
     ! We could iterate on this, but for simplicity that is not done.
 
-    call glide_calcbmlt(model, &
+       call glide_calcbmlt(model, &
 !!                        model%options%which_bmelt, & 
                         model%temper%temp, &
                         model%geometry%thck, &
@@ -529,7 +531,7 @@ contains
 
     ! Calculate basal water depth ------------------------------------------------
 
-    call calcbwat(model, &
+       call calcbwat(model, &
                   model%options%whichbwat, &
                   model%temper%bmlt, &
                   model%temper%bwat, &
@@ -544,20 +546,17 @@ contains
     ! Calculate basal traction factor
     ! ------------------------------------------------------------------------ 
 
-    call calc_btrc(model,                    &
+       call calc_btrc(model,                    &
                    model%options%whichbtrc,  &
                    model%velocity%btrc)
 
-    call slipvelo(model,                &
+       call slipvelo(model,                &
                   0,                             &
                   model%velocity% btrc,          &
                   model%velocity% ubas,          &
                   model%velocity% vbas)
 
-    ! Use input values for btrc/uvel/vel if doing a restart.  Otherwise calculate velocity now.
-    if (model%options%is_restart == RESTART_TRUE) then
-       call write_log('Using restart file values for uvel and vvel for the initial time.')
-    else
+
        ! Calculate velocity
        call velo_calc_velo(model%velowk,            model%geomderv%stagthck,  &
                            model%geomderv%dusrfdew, model%geomderv%dusrfdns,  &
@@ -566,7 +565,13 @@ contains
                            model%velocity%uvel,     model%velocity%vvel,      &
                            model%velocity%uflx,     model%velocity%vflx,      &
                            model%velocity%velnorm)    
-    endif
+
+
+    endif  ! if a restart
+
+
+    ! MJH: I have left these calls outside of the restart if-construct so that there will
+    ! always be a velnorm field calculated, which can be helpful for debugging.
 
     ! ------------------------------------------------------------------------ 
     ! Part 4: Calculate other diagnostic fields that depend on velocity
