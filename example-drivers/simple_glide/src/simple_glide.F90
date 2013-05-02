@@ -1,5 +1,3 @@
-!TODO - Change name to cism_driver?
-
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
 !   simple_glide.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
@@ -30,8 +28,6 @@
 #include "config.inc"
 #endif
 
-!TODO - Want a program that can call either glide or glissade init, run, and finalize subroutines.
-!       Call it cism_driver?
 
 program simple_glide
   !*FD This is a simple GLIDE test driver. It can be used to run
@@ -50,7 +46,6 @@ program simple_glide
   use glimmer_writestats
   use glimmer_filenames, only : filenames_init
   use glide_io, only: glide_io_writeall
-!  use glide_lithot_io, only: glide_lithot_io_writeall
 
 !!  use glimmer_horiz_bcs, only : horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns, &
 !!                                horiz_bcs_unstag_scalar, horiz_bcs_stag_scalar
@@ -58,10 +53,8 @@ program simple_glide
   use glide_stop, only: glide_finalise
   use glide_diagnostics
 
-!WHL - debug
-  use glimmer_paramets
-  use glimmer_scales, only: scale_acab
-
+  !TODO - Remove oldglide when code comparisons are complete
+  use glimmer_paramets, only: oldglide
   implicit none
 
   type(glide_global_type) :: model        ! model instance
@@ -73,10 +66,7 @@ program simple_glide
 
   integer :: tstep_count
 
-!WHL - debug
-  integer :: j
-
-!TODO - parallel (glissade) only
+  !TODO - call this only for parallel runs?
   call parallel_initialise     
 
   call glimmer_GetCommandline()
@@ -113,18 +103,6 @@ program simple_glide
      call glissade_initialise(model)
   endif
 
-!WHL - debug
-!    print*, ' '
-!    print*, 'After glide/glissade initialise:'
-!    print*, 'max, min thck (m)=', maxval(model%geometry%thck)*thk0, minval(model%geometry%thck)*thk0
-!    print*, 'max, min acab (m/yr) =', maxval(model%climate%acab)*scale_acab, minval(model%climate%acab)*scale_acab
-!    print*, 'max, min artm =', maxval(model%climate%artm), minval(model%climate%artm)
-!    print*, 'max, min temp =', maxval(model%temper%temp), minval(model%temper%temp)
-!    print*, 'thck:'
-!    do j = model%general%nsn, 1, -1
-!       write(6,'(30f5.0)') thk0 * model%geometry%thck(3:32,j)
-!    enddo
-
   call CheckSections(config)
  
  ! fill dimension variables on output files
@@ -157,14 +135,12 @@ program simple_glide
       ! disable further profiling in normal usage
       call t_adj_detailf(+10)
 
-!WHL - Don't call glide_init_state_diagnostic when running old glide
-!      Instead, start with zero velocity
+     ! Don't call glide_init_state_diagnostic when running old glide
+     ! Instead, start with zero velocity
 
-  if (.not. oldglide) then
-!!     print*, 'oldglide =', oldglide
-     print*, 'Initializing Glide diagnostic state'
+    if (.not. oldglide) then
      call glide_init_state_diagnostic(model)
-  endif
+    endif
 
       ! restore profiling to normal settings
       call t_adj_detailf(-10)
@@ -178,7 +154,6 @@ program simple_glide
 
      ! solve the remaining diagnostic variables for the initial state
      call glissade_diagnostic_variable_solve(model)  !velocity, usrf, etc.
-     ! TODO HALO UPDATES?  Hopefully these are done in the subroutine
 
       ! restore profiling to normal settings
       call t_adj_detailf(-10)
@@ -192,54 +167,13 @@ program simple_glide
                                tstep_count = tstep_count)
 
   ! --- Output the initial state -------------
-  ! TODO MJH Copied this below from glissade_post_tstep().  May want to make a subroutine that just has this 
-  !block in it.  It could be called glimmer_write_output and be in simple_glide if it can be used by both glide
-  ! and glissade.  Or else separate routines at the glissade/glide module level.
 
-  !TODO - the write operation in post_step is inside an if-construct that checks an optional 'nowrite' logical variable. 
-  ! However the call to that subroutine at the end of this module does not supply the optional variable.  Therefore I am 
-  !leaving out that if-construct here.  If simple_glide actually does support a nowrite option, then a check for it would
-  ! need to occur here!
-
-  !TODO - Here, call a driver subroutine that calls both glide_io_writeall and glide_lithot_io_writeall
   call t_startf('glide_io_writeall')                                                          
   call glide_io_writeall(model, model, time=time)          ! MJH The optional time argument needs to be supplied 
                                                            !     since we have not yet set model%numerics%time
                                                            !WHL - model%numerics%time is now set above
   call t_stopf('glide_io_writeall')
  
-  !WHL - should have been handled by glide_io_writeall
-!  if (model%options%gthf == GTHF_COMPUTE) then             ! lithosphere model computes geothermal flux
-!     call t_startf('glide_lithot_io_writeall')                                                                    
-!     call glide_lithot_io_writeall(model, model, time=time)          ! MJH The optional time argument needs to be supplied
-!                                                                     !     since we have not yet set model%numerics%time
-!     call t_stopf('glide_lithot_io_writeall')
-!  endif 
-
-!==============================
-! if-block here is for forcing glide code to match old glide code.  It is left here 
-! just for testing purposes, but otherwise should not be used.  In the old code,
-! velocity fields were all 0 on the first temperature solve.  In the new 
-! organization of time-stepping there is a diagnostic solve for the initial state
-! prior to time-stepping, which results in velocity being non-zero on the first 
-! temperature solve.  This changes the result due to dissipation and sliding heating.
-  !if (model%options%whichdycore == DYCORE_GLIDE) then
-  ! zero out velocity fields for GLIDE dycore if you want to get same answers as old versions of the code.  
-  ! Zeroing all of these might not be necessary.
-  !  model%velocity%uvel = 0.0
-  !  model%velocity%vvel = 0.0
-  !  model%velocity%velnorm = 0.0
-  !  model%velocity%wvel = 0.0
-  !  model%velocity%wgrd = 0.0
-  !  model%velocity%surfvel = 0.0
-  !  model%velocity%uflx = 0.0
-  !  model%velocity%vflx = 0.0
-  !  model%velocity%diffu = 0.0
-  !  model%velocity%ubas = 0.0
-  !  model%velocity%vbas = 0.0
-  !  model%velocity%btrc = 0.0
-  !endif
-!==============================
 
   ! ------------- Begin time step loop -----------------
 
@@ -257,22 +191,10 @@ program simple_glide
      call simple_massbalance(climate,model,time)
      call simple_surftemp(climate,model,time)
 
-!WHL - debug
-!    print*, ' '
-!    print*, 'After simple_massbalance, time =', time
-!    print*, 'max, min thck (m)=', maxval(model%geometry%thck)*thk0, minval(model%geometry%thck)*thk0
-!    print*, 'max, min acab (m/yr) =', maxval(model%climate%acab)*scale_acab, minval(model%climate%acab)*scale_acab
-!    print*, 'max, min artm =', maxval(model%climate%artm), minval(model%climate%artm)
-!    print*, 'max, min temp =', maxval(model%temper%temp), minval(model%temper%temp)
-!    print*, 'thck:'
-!    do j = model%general%nsn, 1, -1
-!       write(6,'(30f5.0)') thk0 * model%geometry%thck(3:32,j)
-!    enddo
-
      ! --- Increment time before performing time step operations ---
      ! We are solving variables at the new time level using values from the previous time level.
-     ! TODO Can we just use model%numerics%time and model%numerics%timecounter?  
-     !      That would be less confusing than having time-keeping done separately here and in glissade.
+
+     ! TODO Should we just use model%numerics%time and model%numerics%timecounter?  
 
      time = time + model%numerics%tinc
      tstep_count = tstep_count + 1
@@ -309,40 +231,16 @@ program simple_glide
                                   tstep_count = tstep_count)
 
      ! Write to output netCDF files at desired intervals
-     !WHL - Pulled these calls out of glide_tstep_p3 and glissade_tstep
-     !WHL - In old glide, this was done at the start of tstep_p2.
 
      call t_startf('glide_io_writeall')
      call glide_io_writeall(model,model)
      call t_stopf('glide_io_writeall')
 
-     !WHL - should have been handled by glide_io_writeall
-!     if (model%options%gthf == GTHF_COMPUTE) then
-!        call t_startf('glide_lithot_io_writeall')
-!        call glide_lithot_io_writeall(model,model)   !TODO - Combine with glide_io?
-!        call t_stopf('glide_lithot_io_writeall')
-!     end if
-
-!WHL - debug
-!    print*, ' '
-!    print*, 'After glide/glissade tstep, time =', time
-!    print*, 'max, min thck (m)=', maxval(model%geometry%thck)*thk0, minval(model%geometry%thck)*thk0
-!    print*, 'max, min acab (m/yr) =', maxval(model%climate%acab)*scale_acab, minval(model%climate%acab)*scale_acab
-!    print*, 'max, min bmlt (m/yr) =', maxval(model%temper%bmlt) *scale_acab, minval(model%temper%bmlt) *scale_acab
-!    print*, 'max, min artm =', maxval(model%climate%artm), minval(model%climate%artm)
-!    print*, 'max, min temp =', maxval(model%temper%temp), minval(model%temper%temp)
-!    print*, 'thck:'
-!    do j = model%general%nsn, 1, -1
-!       write(6,'(30f5.0)') thk0 * model%geometry%thck(3:32,j)
-!    enddo
-
   end do   ! time < model%numerics%tend
 
   call t_stopf('simple glide')
 
-!TODO - Write a separate glissade_finalise routine?
   ! finalise GLIDE
-
   call glide_finalise(model)
 
   call system_clock(clock,clock_rate)
@@ -353,7 +251,7 @@ program simple_glide
 
   call close_log
 
-!TODO - parallel only
+  !TODO - call this only for parallel runs?
   call parallel_finalise
 
 end program simple_glide

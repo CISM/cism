@@ -98,8 +98,8 @@ program glint_example
   real(kind=dp) t1,t2
   integer clock,clock_rate
 
-!WHL - adding fields we can use for passing in the SMB and sfc temp in multiple
-!      elevation classes, as in CESM
+  ! fields passed to and from a GCM 
+  ! (useful for testing the GCM subroutines in standalone mode)
 
   real(rk),dimension(:,:,:), allocatable :: qsmb     ! surface mass balance (kg/m^2/s)
   real(rk),dimension(:,:,:), allocatable :: tsfc     ! surface temperature (degC) 
@@ -119,16 +119,6 @@ program glint_example
 
   logical :: ice_tstep                      ! true if ice timestep was done
   logical :: output_flag                    ! true if outputs have been set
-
-!  logical, parameter :: gcm_smb = .true.       ! if true, pass SMB to Glint in multiple elev classes
-!  logical, parameter :: gcm_smb = .false.      ! if false, use Glint PDD scheme
-           
-!WHL - debug (put these in glint_type)
-!  integer, parameter :: iglint_global = 56     ! SW Greenland point on 64 x 32 glint_example global grid
-!  integer, parameter :: jglint_global = 4      ! j increases from north to south
-                                        
-!  logical, parameter :: gcm_interface = .false.
-  logical, parameter :: gcm_interface = .true.
 
   integer :: ig, jg, k
 
@@ -154,8 +144,6 @@ program glint_example
   ! start logging
   call open_log(unit=101, fname=logname(commandline_configname))  
 
-
-!WHL - debug
   print*, 'Starting program glint_example'
   print*, 'climatename = ', trim(commandline_climatename)
   print*, 'configname = ', trim(commandline_configname)
@@ -168,6 +156,7 @@ program glint_example
   allocate(coverage(nx,ny),orog_out(nxo,nyo),albedo(nx,ny),ice_frac(nx,ny),fw(nx,ny))
   allocate(lats_orog(nyo),lons_orog(nxo),cov_orog(nxo,nyo),fw_in(nx,ny))
 
+  !TODO - Change to dp
   ! Initialize global arrays
 
   temp     = 0.0
@@ -176,11 +165,9 @@ program glint_example
   orog_out = 0.0
   orog     = real(climate%orog_clim)    ! Put orography where it belongs
 
-  !WHL - Allocate and initialize GCM input/output
+  ! Allocate and initialize GCM arrays
   
   if (climate%gcm_smb) then
-
-     print*, 'Allocate SMB arrays'
 
      ! input from GCM
      allocate(tsfc(nx,ny,glc_nec))
@@ -222,10 +209,7 @@ program glint_example
 
   ! Initialise the ice model
 
-!WHL - Adding some code here for testing acab_mode = 0 (as though we were
-!      getting the SMB from a GCM).
-
-  if (climate%gcm_smb) then
+  if (climate%gcm_smb) then   ! act as if we are receiving the SMB from a GCM
 
      call initialise_glint_gcm(ice_sheet,                       &
                                climate%clim_grid%lats,          &
@@ -256,20 +240,12 @@ program glint_example
 
   endif  ! gcm_smb
 
-!WHL - debug
-  print*, ' '
-  print*, 'max, min orog (m):', maxval(orog), minval(orog)
-
   ! Set the message level (1 is the default - only fatal errors)
   ! N.B. Must do this after initialisation
 
   call glimmer_set_msg_level(6)
 
   ! Get coverage maps for the ice model instances
-
-!WHL - debug
-  print*, ' '
-  print*, 'Get coverage maps'
 
   if (climate%gcm_smb) then     ! not using cov_orog
      if (glint_coverage_map(ice_sheet, coverage) .ne. 0) then
@@ -283,20 +259,15 @@ program glint_example
      endif
   endif
 
-!WHL - debug
-  print*, ' '
-  print*, 'Start timestep loop'
-
   ! Do timesteps ---------------------------------------------------------------------------
 
   !TODO - Timestepping as in simple_glide?  Initialize with time = 0, then update time right after 'do'
-  !       This would require changing some time logic inside the glint subroutines.
+  !       This would require changing some time logic inside the Glint subroutines.
 
   time = climate%climate_tstep     ! time in integer hours
 
   do
 
-    !WHL - I added an option to test SMB forcing as we would receive from a GCM.
     !      The SMB is computed crudely for now, just to test the GCM interfaces.
     !      At some point we could read in a realistic SMB as in CESM TG runs.
 
@@ -304,8 +275,8 @@ program glint_example
 
      call example_climate(climate, precip, temp, real(time,rk))
 
-     if (climate%gcm_smb) then   ! SMB 'computed' by GCM
-
+     if (climate%gcm_smb) then   ! act as if we are receiving the SMB from a GCM
+                                  
         ! call a simple subroutine to estimate qsmb and tsfc in different elevation classes
 
         call compute_gcm_smb(temp,        precip,   &
@@ -328,7 +299,6 @@ program glint_example
         !        print*, topo(ig,jg,k), tsfc(ig,jg,k), qsmb(ig,jg,k)*scyr
         !     enddo
         !
-!        print*, 'call glint, time (days), ice_tstep:', real(time)/24.d0, ice_tstep
 
         ! call glint
 
