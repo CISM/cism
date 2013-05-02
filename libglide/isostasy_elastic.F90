@@ -32,6 +32,8 @@ module isostasy_elastic
 
   !*FD handle elastic lithosphere
 
+  !NOTE: This works for serial simulations only.
+
   use glimmer_global, only : dp
   use glide_types, only: isos_elastic
 

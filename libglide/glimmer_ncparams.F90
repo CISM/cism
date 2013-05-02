@@ -146,15 +146,12 @@ contains
     use glimmer_ncdf
     use glimmer_config
     use glimmer_log
-!WHLTSTEP
     use glimmer_global, only: dp
     implicit none
 
     type(ConfigSection), pointer :: section
     type(glimmer_nc_output), pointer :: output
     type(glimmer_nc_output), pointer :: handle_output
-!WHLTSTEP - changed start_yr to dp
-!    real, intent(in) :: start_yr
     real(dp), intent(in) :: start_yr
     character(*),intent(in) :: configstring
     character(10) :: mode_str,xtype_str

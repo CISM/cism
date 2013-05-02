@@ -53,7 +53,9 @@ module glide_velo
 
 contains
 
-!TODO - Pretty sure that none of the arrays in this subroutine are needed for HO.
+!TODO - Pretty sure that none of the arrays in this subroutine are needed for HO,
+!        so we may not need to call this subroutine from glissade_initialise.
+
 !       Some velowk arrays are used in wvelintg, but not hard to rewrite wvelintg without these arrays.
 
   subroutine init_velo(model)
@@ -137,7 +139,6 @@ contains
           !Compute everything inside the exponentiation
           !(we factor out -rhoi*g*H*\sigma so it's only computed once
 !TODO - Where is g defined as the gravitational constant?  Should be grav.
-!TODO - There is no 'implicit none' in this subroutine or at the top of the module.
           zx = -rhoi*g*sigma(i)*stagthck(j,k)
           zy = zx*dusrfdns(j,k)
           zx = zx*dusrfdew(j,k)
@@ -159,7 +160,8 @@ contains
     end do
   end subroutine
 
-!TODO - This subroutine is not called either.  
+!TODO - This subroutine is not called.  Remove it?
+  
   !*FD Integrates the strain rates to compute both the 3d velocity fields and the
   !*FD vertically averaged velocities
 
@@ -179,9 +181,6 @@ contains
   end subroutine velo_integrate_strain
 #endif
   
-!TODO - The rest of the subroutines in this module are needed for SIA only?
-!       Currently, the HO solver calls gridwvel, wvelintg, and chckwvel, but not sure these calls are needed.
-
   !*****************************************************************************
   ! new velo functions come here
   !*****************************************************************************
@@ -298,9 +297,10 @@ contains
 
     upn=size(flwa,1) ; ewn=size(stagthck,1) ; nsn=size(stagthck,2)
     
-!LOOP: All velocity points
 !      Note: Here (confusingly), nsn = size(stagthck,2) = model%general%nsn-1
 !                                ewn = size(stagthck,1) = model%general%ewn-1
+!TODO - Change loop limits to nsn-1, ewn-1
+!       (provided ewn = size(stagthck,1)-1, etc.)
 
     do ns = 1,nsn
        do ew = 1,ewn
@@ -626,7 +626,7 @@ contains
 
      ! Compute the ice vertical velocity
 
-     !WHL - This is a new subroutine created by combining calls to several existing subroutines.
+     ! This is a new subroutine created by combining calls to several existing subroutines.
 
      ! Note: It is now called at the end of glide_tstep_p3, so that exact restart is easier.
      !       In older versions of Glimmer the vertical velocity was computed at the start of 
@@ -662,7 +662,6 @@ contains
 
      select case(model%options%whichwvel)
 
-!!     case(0)     ! Usual vertical integration
      case(VERTINT_STANDARD)     ! Usual vertical integration
 
         call wvelintg(model%velocity%uvel,                        &
@@ -675,7 +674,6 @@ contains
                       model%temper%bmlt,                          &
                       model%velocity%wvel)
 
-!!     case(1)     ! Vertical integration constrained so kinematic upper BC obeyed.
      case(VERTINT_KINEMATIC_BC)     ! Vertical integration constrained so kinematic upper BC obeyed.
 
         call wvelintg(model%velocity%uvel,                        &
@@ -707,7 +705,6 @@ contains
   end subroutine glide_velo_vertical
 
 !---------------------------------------------------------------
-!WHL - Moved this subroutine from glide_thck.F90 to glide_velo.F90.
 
   subroutine timeders(thckwk,ipvr,opvr,mask,time,which)
 
@@ -735,8 +732,6 @@ contains
     else
        factor = 1.d0/factor
        where (mask /= 0)
-!WHL - Replaced conv with tim0/scyr (not used anywhere else in code)
-!!!          opvr = conv * (ipvr - thckwk%olds(:,:,which)) * factor
           opvr = (tim0/scyr) * (ipvr - thckwk%olds(:,:,which)) * factor
        elsewhere
           opvr = 0.0d0
@@ -818,16 +813,13 @@ contains
       end do
     end do
 
-!TODO - I think wgrd is needed only for the old temperature code, which is not supported in parallel.
+!TODO - Remove halo call? wgrd is needed only for the old temperature code, which is not supported in parallel.
     call parallel_halo(wgrd)
 !    call horiz_bcs_unstag_scalar(wgrd)
 
   end subroutine gridwvel
 
 !------------------------------------------------------------------------------------------
-
-!TODO - Eliminate velowk from the argument list if we are going to call this from HO code.
-!       Currently use velowk%suvel, svvel, dupsw, depthw; would need to allocate and define here.
 
   subroutine wvelintg(uvel,vvel,geomderv,numerics,velowk,wgrd,thck,bmlt,wvel)
 
@@ -939,7 +931,7 @@ contains
       end do
     end do
 
-!TODO - I think wvel is needed only for the old temperature code, which is not supported in parallel.
+!TODO - Remove halo call? wvel is needed only for the old temperature code, which is not supported in parallel.
     call parallel_halo(wvel)
 !    call horiz_bcs_unstag_scalar(wvel)
 
@@ -1022,7 +1014,7 @@ contains
       end do
     end do
 
-!TODO - I think wvel is needed only for the old temperature code, which is not supported in parallel.
+!TODO - Remove halo call?  wvel is needed only for the old temperature code, which is not supported in parallel.
     call parallel_halo(wvel)
 !    call horiz_bcs_unstag_scalar(wvel)
 
@@ -1032,7 +1024,7 @@ contains
 ! PRIVATE subroutines
 !------------------------------------------------------------------------------------------
 
-!TODO - Note: There is a copy of this function in glam_strs2.  
+!TODO - Note: There is another copy of this function in glam_strs2.  
 !       Maybe better to move this subroutine to another module to avoid duplication.
  
   function vertintg(velowk,in)
@@ -1111,13 +1103,11 @@ contains
 
     select case(flag)
 
-!!    case(1)
     case(BTRC_CONSTANT)
        ! constant everywhere
        ! This option is used for EISMINT-2 experiment G
        btrc = model%velocity%bed_softness
 
-!!    case(2)
     case(BTRC_CONSTANT_BWAT)
        ! constant where basal melt water is present, else = 0
        ! This option can be used for EISMINT-2 experiment H, provided that 
@@ -1133,7 +1123,6 @@ contains
           end do
        end do
 
-!!    case(5)
     case(BTRC_CONSTANT_TPMP)
        ! constant where basal temperature equal to pressure melting point, else = 0
        ! This is the actual condition for EISMINT-2 experiment H, which may not be 
@@ -1149,7 +1138,6 @@ contains
           end do
        end do
 
-!!    case(4)
     case(BTRC_LINEAR_BMLT)
        ! linear function of basal melt rate
 
@@ -1166,7 +1154,6 @@ contains
           end do
        end do
 
-!!    case(5)
     case(BTRC_TANH_BWAT)
        ! tanh function of basal water depth
        ! The 'velowk%c' parameters are derived above from the 5-part parameter bpar
@@ -1253,7 +1240,6 @@ contains
     real(dp),dimension(:,:),intent(out) :: tau_x
     real(dp),dimension(:,:),intent(out) :: tau_y
 
-!LOOP - all velocity points 
     tau_x(:,:) = -rhoi*grav*stagthck(:,:)
     tau_y(:,:) = tau_x * dusrfdns(:,:)
     tau_x(:,:) = tau_x * dusrfdew(:,:)

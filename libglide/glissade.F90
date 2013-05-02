@@ -36,9 +36,8 @@
 !
 ! This is a new module, originally copied from glide.F90 (William Lipscomb, June 2012)
 ! Removed SIA-specific code, leaving only the HO code with remapping transport
-! In general, all parallel_halo updates should go in this module, except
-!  for the uvel and vvel updates required by the velocity solvers.
-! Also, we would like to eliminate use of the 'model' derived type below this level.
+! Whenever possible, parallel_halo updates should go in this module rather
+!  than at lower levels.
 !
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
@@ -60,7 +59,6 @@ module glissade
   use glimmer_log
   use glide_types
   use glide_io
-!  use glide_lithot_io
   use glide_lithot
   use glimmer_config
 
@@ -101,22 +99,16 @@ contains
     use glissade_velo_higher, only: glissade_velo_higher_init
 
 !!    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
-!!    use fo_upwind_advect, only : fo_upwind_advect_init
-!!    use glam_Basal_Proc, only : Basal_Proc_init
-
-!WHL - debug
-    use glimmer_paramets, only: thk0
 
     implicit none
 
     type(glide_global_type), intent(inout) :: model   ! model instance
 
-!lipscomb - TODO - build glimmer_vers file or put this character elsewhere?
+    !TODO - build glimmer_vers file or put this character elsewhere?
     character(len=100), external :: glimmer_version_char
 
 !WHL - debug
-!    logical, parameter :: test_parallel = .true.   ! if true, call test_parallel subroutine
-    logical, parameter :: test_parallel = .false.   ! if true, call test_parallel subroutine
+!    logical, parameter :: test_parallel = .false.   ! if true, call test_parallel subroutine
     integer :: i, j, nx, ny
 
 !WHL - for artificial adjustment to ismip-hom surface elevation
@@ -125,7 +117,6 @@ contains
 
     call write_log(trim(glimmer_version_char()))
 
-!SCALING - to be removed?
     ! initialise scales
     call glimmer_init_scales
 
@@ -141,7 +132,7 @@ contains
                                              model%numerics%dew, model%numerics%dns, &
                                              model%general%ewn,  model%general%nsn)
 
-!TODO - Change 2. to 2.d0
+    !TODO - Change 2. to 2.d0
     model%general%velo_grid = coordsystem_new(model%numerics%dew/2., model%numerics%dns/2., &
                                               model%numerics%dew,    model%numerics%dns,    &
                                               model%general%ewn-1,   model%general%nsn-1)
@@ -150,8 +141,9 @@ contains
     ! allocate arrays
     call glide_allocarr(model)
 
-!TODO - May be able to eliminate the bed softness parameter 
-!       and set btrc to model%velowo%btrac_const in glide_velo
+    !TODO - May be able to eliminate the bed softness parameter 
+    !       and set btrc to model%velowo%btrac_const in glide_velo
+
     ! initialise bed softness to uniform parameter
     model%velocity%bed_softness = model%velowk%btrac_const
 
@@ -170,12 +162,6 @@ contains
 
     ! Write projection info to log
     call glimmap_printproj(model%projection)
-
-    !WHL - Should have been read by glide_io_readall
-    ! read lithot if required
-!    if (model%options%gthf == GTHF_COMPUTE) then
-!       call glide_lithot_io_readall(model,model)
-!    end if
 
     ! handle relaxed/equilibrium topo
     ! Initialise isostasy first
@@ -218,15 +204,14 @@ contains
 
     ! initialise glissade components
 
-!TODO - Most of what's done in init_velo is needed for SIA only
-!       Can remove this call provided velowk is not used elsewhere (e.g., to call wvelintg)
+    !TODO - Most of what's done in init_velo is needed for SIA only
+    !       Can remove this call provided velowk is not used elsewhere (e.g., to call wvelintg)
     call init_velo(model)
 
     call glissade_init_temp(model)  ! temperature lives at layer centers
 
     if (model%options%gthf == GTHF_COMPUTE) then
        call not_parallel(__FILE__,__LINE__)
-!       call glide_lithot_io_createall(model)  !WHL - should have been done by glide_io_createall
        call init_lithot(model)
     end if
 
@@ -239,7 +224,6 @@ contains
 
     elseif (model%options%whichdycore == DYCORE_GLISSADE ) then  ! glissade finite-element
 
-!WHL - Removed scaling of dew and dns
         call glissade_velo_higher_init
 
     endif
@@ -258,9 +242,8 @@ contains
                            model%general%ewn,    model%general%nsn,       &
                            model%climate%eus,    model%geometry%thkmask,  &
                            model%geometry%iarea, model%geometry%ivol)
-!       call horiz_bcs_unstag_scalar(model%geometry%thkmask)
 
-!TODO- Not sure why this needs to be called here.
+    !TODO- Not sure why this needs to be called here.
     call calc_iareaf_iareag(model%numerics%dew,model%numerics%dns, &
                             model%geometry%iarea, model%geometry%thkmask, &
                             model%geometry%iareaf, model%geometry%iareag)
@@ -276,7 +259,6 @@ contains
 !      Then we correct the thickness to ensure that lsrf + thck = usrf to double precision.
 !      
 !      A better way would be to read double-precision data from the input files.
-!
 
     if (ismip_hom_adjust_usrf) then
        do i = 1, model%general%ewn
@@ -288,21 +270,16 @@ contains
        model%geometry%thck(:,:) = model%geometry%usrf(:,:) - model%geometry%lsrf(:,:) 
     endif
 
-!TODO - Pretty sure these are SIA only
-    ! initialise thckwk variables; used in timeders subroutine
-!!    model%thckwk%olds(:,:,1) = model%geometry%thck(:,:)
-!!    model%thckwk%olds(:,:,2) = model%geometry%usrf(:,:)
-
     ! register the newly created model so that it can be finalised in the case
     ! of an error without needing to pass the whole thing around to every
     ! function that might cause an error
     call register_model(model)
 
-!WHL - debug
-    if (test_parallel) then
-       call glissade_test_parallel (model)
-       call parallel_finalise
-    endif
+     !WHL - debug
+!    if (test_parallel) then
+!       call glissade_test_parallel (model)
+!       call parallel_finalise
+!    endif
      
   end subroutine glissade_initialise
   
@@ -316,7 +293,6 @@ contains
     use glimmer_global, only : rk
     use glimmer_paramets, only: tim0, len0, vel0, thk0
     use glimmer_physcon, only: scyr
-!    use glide_setup
     use glissade_temp, only: glissade_temp_driver
     use glissade_transport, only: glissade_transport_driver
     use glide_mask, only: glide_set_mask, calc_iareaf_iareag
@@ -328,15 +304,12 @@ contains
 !!    use glimmer_horiz_bcs, only: horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns, &
 !!                                 horiz_bcs_unstag_scalar
 
-!WHL - debug
-    use glimmer_scales, only: scale_acab
-
     implicit none
 
     type(glide_global_type), intent(inout) :: model   ! model instance
     real(dp),  intent(in)   :: time         !*FD Current time in years
 
-!TODO - Change no_write to write, to avoid double negatives?
+    !TODO - Remove this argument; it is not used 
     logical, optional, intent(in) :: no_write
 
     logical nw
@@ -358,9 +331,6 @@ contains
        bmlt_continuity  ! = bmlt if basal mass balance is included in continuity equation
                         ! else = 0
     
-!WHL - debug
-    integer :: i, j
-
     ! ========================
 
     ! Update internal clock
@@ -438,14 +408,12 @@ contains
           print *, 'Compute dH/dt'
        endif
 
-!WHL - Testing a new subroutine that updates all the key scalars (thck, temp, etc.) at once
-!TODO - Do we need updates of lsrf, usrf, or topg?
+         !WHL - Testing a new subroutine that updates all the key scalars (thck, temp, etc.) at once
+         !TODO - Do we need updates of lsrf, usrf, or topg?
 
 !!       call parallel_halo_scalars(model%geometry%thck,   &
 !!                                  model%temper%temp)
 
-
-!HALO - Here I think we need halo updates for thck and temp.  
 
 !       Velocity update may be needed if velo was not updated in halo at the end of the previous diagnostic solve
 !        (just to be on the safe side).
@@ -471,8 +439,8 @@ contains
 
       call t_startf('glissade_transport_driver')
 
-!TODO  It would be less confusing to just store the subcycling dt in a local/module variable - 
-!       really only needs to be calculated once on init
+       !TODO  It would be less confusing to just store the subcycling dt in a local/module variable - 
+       !       really only needs to be calculated once on init
 
        model%numerics%dt = model%numerics%dt / model%numerics%subcyc
 
@@ -574,7 +542,7 @@ contains
 
        enddo     ! subcycling
 
-!TODO: Don't divide and multiple this variable
+!TODO: Don't divide and multiply this variable
        model%numerics%dt = model%numerics%dt * model%numerics%subcyc
 
       call t_stopf('glissade_transport_driver')
@@ -589,7 +557,7 @@ contains
 
     end select
 
-!HALO - What halo updates needed here?
+!HALO TODO - What halo updates needed here?
 !       We could put the various geometry halo updates here, after thickness and temperature evolution.
 !       This would include thck and tracer at a minimum.
 !       Also include topg if basal topography is evolving.
@@ -607,18 +575,6 @@ contains
                         model%general%ewn,    model%general%nsn,       &
                         model%climate%eus,    model%geometry%thkmask)
 
-!WHL - debug - print thickness field before calving
-!    if (main_task) then
-!       print*, ' '
-!       print*, 'size(thck) =', size(model%geometry%thck,1), size(model%geometry%thck,2)
-!       print*, 'Thickness before calving:'
-!       do j = model%general%nsn, 1, -1
-!          write(6,100) model%geometry%thck(:,j)
-!       enddo 
-!    endif
-
-!100 format(34f6.2)
-100 format(19f6.2)
 
     ! ------------------------------------------------------------------------ 
     ! Remove ice which is either floating, or is present below prescribed
@@ -636,10 +592,6 @@ contains
     call parallel_halo(model%isostasy%relx)
 !    call horiz_bcs_unstag_scalar(model%isostasy%relx)
 
-!WHL - Removed old case(5), allowing for removal of some arguments
-
-!WHL - debug - temporary case(0) to test glide_marinlim for dome problem
-!!    call glide_marinlim(0, &
     call glide_marinlim(model%options%whichmarn, &
          model%geometry%thck,  &
          model%isostasy%relx,      &
@@ -656,39 +608,12 @@ contains
          model%general%ewn)
          ! model%geometry%usrf) not used in routine
 
-!WHL - debug - print thickness field after calving
-!  if (main_task) then
-!    print*, ' '
-!    print*, 'Thickness after calving:'
-!    do j = model%general%nsn, 1, -1
-!       write(6,100) model%geometry%thck(:,j)
-!    enddo 
-!  endif
-
-!WHL - debug - print calving field
-!  if (main_task) then
-!    print*, ' '
-!    print*, 'Calving:'
-!    do j = model%general%nsn, 1, -1
-!       write(6,100) model%climate%calving(:,j)
-!    enddo 
-!  endif
-
 !HALO TODO: Test the effect of these updates with a nonzero calving field
 
     ! halo updates
 
     call parallel_halo(model%geometry%thck)    ! Updated halo values of thck are needed below in calc_lsrf
 !    call horiz_bcs_unstag_scalar(model%geometry%thck)   
-
-!WHL - debug - print thickness field after halo update
-!  if (main_task) then
-!    print*, ' '
-!    print*, 'Thickness after halo update:'
-!    do j = model%general%nsn, 1, -1
-!       write(6,100) model%geometry%thck(:,j)
-!    enddo 
-!  endif
 
 !TODO - Remove this call to glide_set_mask?
 !      This subroutine is called at the beginning of glissade_velo_driver,
@@ -713,15 +638,14 @@ contains
     ! call horiz_bcs_unstag_scalar(model%geometry%thkmask)
 
     ! --- Calculate area of ice that is floating and grounded.
-!TODO This subroutine does not use iarea - remove from the call/subroutine.
-!TODO May want to only calculate iarea, iareaf, iareag in glide_write_diag() and remove those calculations here.  
-!     It seems hazardous to make those calculations in two different places.
+    !TODO This subroutine does not use iarea - remove from the call/subroutine.
+    !TODO May want to only calculate iarea, iareaf, iareag in glide_write_diag() and remove those calculations here.  
 
     call calc_iareaf_iareag(model%numerics%dew,    model%numerics%dns,     &
                             model%geometry%iarea,  model%geometry%thkmask, &
                             model%geometry%iareaf, model%geometry%iareag)
 
-!HALO - Need a global sum here (currently done inside calc_iareaf_iareag)
+    !TODO - Need a global sum here? (currently done inside calc_iareaf_iareag)
 
 !TODO These isostasy calls may be in the wrong place.  
 ! Consider for a forward Euler time step:
@@ -756,8 +680,8 @@ contains
     ! Calculate isostasy
     ! ------------------------------------------------------------------------ 
 
-!TODO - Test the local isostasy schemes in the parallel model.
-!       The elastic lithosphere scheme is not expected to work in parallel.
+    !TODO - Test the local isostasy schemes in the parallel model.
+    !       The elastic lithosphere scheme is not expected to work in parallel.
 
     if (model%options%isostasy == ISOSTASY_COMPUTE) then
        call not_parallel(__FILE__, __LINE__)
@@ -770,14 +694,7 @@ contains
 
     call glissade_diagnostic_variable_solve(model)
 
-!TODO - Any halo updates needed at the end?  
-
-    !---------------------------------------------------------------------
-    ! write to netCDF file
-    ! ------------------------------------------------------------------------
-
-!WHL - Moved netCDF output to simple_glide
-!      Might have to do the same for other drivers
+    !TODO - Any halo updates needed at the end?  
 
   end subroutine glissade_tstep
 
@@ -820,7 +737,7 @@ contains
     ! ------------------------------------------------------------------------ 
     ! ------------------------------------------------------------------------ 
 
-!WHL - Moved this calculation here from glissade_temp, since flwa is a diagnostic variable.
+    !WHL - Moved this calculation here from glissade_temp, since flwa is a diagnostic variable.
 
     ! Calculate Glen's A --------------------------------------------------------
     !
@@ -829,10 +746,6 @@ contains
     ! 
     ! Note: We are passing in only vertical elements (1:upn-1) of the temp array,
     !       so that it has the same vertical dimensions as flwa.
-
-!WHL - debug
-!    print*, ' '
-!    print*, 'call glissade_calcflwa'
 
     call glissade_calcflwa(model%numerics%stagsigma,    &
                            model%numerics%thklim,       &
@@ -972,7 +885,6 @@ contains
 !you are not populating the stag field global halos with bad information that may have been sitting in the 
 !associated non-stag field halos in the case that you forgot to update them. Maybe?
 
-!WHL - Changed these updates from parallel_halo to staggered_parallel_halo
 !TODO - Not sure these are needed.
        !Halo updates required for inputs to glide_stress?
        call staggered_parallel_halo (model%geomderv%dusrfdew)

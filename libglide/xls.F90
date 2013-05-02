@@ -1,4 +1,3 @@
-!TODO - This is not currently used.  Move to libglimmer or a utilities directory?
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
 !   xls.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
@@ -27,6 +26,9 @@
 
 !Debugging module: contains routines to write out data fields quickly
 !that can be read into Matlab
+
+!TODO - This module is not currently used.  Move to libglimmer or a utilities directory?
+
 module xls
 
    implicit none
@@ -88,4 +90,5 @@ contains
     write(11,*)(a(i),i=1,nelt)
     close(11)
   end subroutine write_sparse_system
+
 end module xls

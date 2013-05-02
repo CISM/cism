@@ -78,7 +78,7 @@
       real(dp), parameter ::   &
          puny = 1.e-11       ! small number
 
-!TODO - Test with bugcheck = true, but set to false for greater efficiency
+      !TODO - Test with bugcheck = true, but set to false for greater efficiency
       logical, parameter :: bugcheck = .true.
 
 !TODO - Remove comments that are not relevant for CISM?

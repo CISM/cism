@@ -1,5 +1,3 @@
-!TODO - This is a program.  Move to another directory?
-
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
 !   test_setup.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
@@ -29,6 +27,8 @@
 #ifdef HAVE_CONFIG_H
 #include "config.inc"
 #endif
+
+!TODO - This is a program.  Move to a test or utilities directory?
 
 program testsetup
   !*FD testing setup module

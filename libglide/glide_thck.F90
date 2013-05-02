@@ -45,14 +45,12 @@ module glide_thck
   !DEBUG only
 !!  use xls
 
-!WHL - debug
+  !TODO - Remove oldglide when code comparisons are complete
   use glimmer_paramets, only: oldglide
 
   implicit none
 
   private
-
-!TODO - Move or remove subroutines that are not used by the Glide dycore
 
   public :: init_thck, thck_nonlin_evolve, thck_lin_evolve, stagleapthck, &
             glide_thck_index, glide_calclsrf
@@ -72,7 +70,7 @@ contains
     implicit none
     type(glide_global_type) :: model
 
-!WHL - Removed this array
+      ! Removed this messy array
 !!    model%solver_data%fc2 = (/ model%numerics%alpha * model%numerics%dt / (2.0d0 * model%numerics%dew * model%numerics%dew), &
 !!                               model%numerics%dt,                                   &
 !!                               (1.0d0 - model%numerics%alpha) / model%numerics%alpha, &
@@ -111,17 +109,11 @@ contains
     use glimmer_paramets, only: GLC_DEBUG
     use glide_grid_operators, only: glide_geometry_derivs
 
-!WHL - debug
-    use glimmer_paramets, only: tim0, scyr
-
     implicit none
 
     ! subroutine arguments
     type(glide_global_type) :: model
     logical, intent(in) :: newtemps                     !*FD true when we should recalculate Glen's A
-
-!WHL - debug
-    integer :: j
 
     if (model%geometry%empty) then
 
@@ -294,14 +286,6 @@ contains
        model%thckwk%oldthck2 = model%geometry%thck
 
        do p = 1, pmax
-          !EIB moved! model%thckwk%oldthck2 = model%geometry%thck
-
-!WHL: Here I replaced a call to geometry_derivs (used by the glam dycore)
-!      with a call to glide_geometry derivs, which in turn calls
-!      stagvarb and geomders as in the old Glide code.
-!     Note that stagvarb includes zero thickness values in ice-free cells
-!      when computing averages, but stagthickness (used by glam) does not.
-!     Answers are now in agreement with old Glide.
 
           ! update stagthck, dusrfdew/dns, dthckdew/dns
 
@@ -471,7 +455,7 @@ contains
 
     ! Boundary Conditions ---------------------------------------------------------------
 
-!LOOP - BCs are for scalar points in outer layer of cells
+    ! BCs are for scalar points in outer layer of cells
 
     ! north and south BC
 
@@ -500,8 +484,6 @@ contains
        end if
 
     end do
-
-!TODO - Remove periodic option?
 
     ! east and west BC
 
@@ -552,8 +534,6 @@ contains
     end if   ! periodic_ew
 
     ! ice interior -------------------------------------------------------------------------
-
-!LOOP - all scalars except for outer layer
 
     do ns = 2,model%general%nsn-1
        do ew = 2,model%general%ewn-1
@@ -649,10 +629,6 @@ contains
                                              + model%geometry%lsrf(ew,nsp) * sumd(4)) &
             + model%climate%acab(ew,ns) * model%numerics%dt
 
-!WHL - This piece of code was inadvertently removed from the LANL/seacism branch a while ago. 
-!TODO - Run a test (EISMINT-2?) with this option turned on.  
-!       The default is basal_mbal = 0 (basal melt rate not included in continuity equation).
-
          if (model%options%basal_mbal==1) then   ! basal melt rate included in continuity equation
              model%solver_data%rhsd(model%geometry%thck_index(ew,ns)) =                     &
                    model%solver_data%rhsd(model%geometry%thck_index(ew,ns))                 &
@@ -713,8 +689,6 @@ contains
 
 !WHL - This subroutine used to be called glide_maskthck and located in its own module, 
 !       but I put it in glide_thck.F90 since it is used only for the glide thickness calculation. 
-!      Removed thklim from the argument list (best to have threshold of 0.0)
-!      Removed dom from argument list (not used anywhere)
 
   subroutine glide_thck_index(thck,             acab,  &
                               thck_index,       totpts,  &
@@ -810,9 +784,6 @@ contains
       real(dp),dimension(:,:),intent(in) :: ca 
       real(sp),               intent(in) :: cb
 
-!WHL - As in old glide, use 0.0 rather than thklim as the threshold.  
-!      With thklim > 0, we will prevent ice from accumulating in regions with 
-!       a small positive mass balance.
 
 !TODO - Is there any case in which we would not want to include adjacent cells
 !       in the mask for the thickness calculation?
@@ -822,7 +793,6 @@ contains
         ! Include only points with ice in the mask
         ! ca(2,2) corresponds to the current (ew,ns)
  
-!!        if ( ca(2,2) > thklim .or. cb > thklim) then
         if ( ca(2,2) > 0.d0 .or. cb > 0.d0) then
           thckcrit = .true.
         else
@@ -836,7 +806,6 @@ contains
         ! This means that the mask includes points that have no
         ! ice but are adjacent to points that do have ice
 
-!!        if ( any((ca(:,:) > thklim)) .or. cb > thklim ) then
         if ( any((ca(:,:) > 0.d0)) .or. cb > 0.d0 ) then
           thckcrit = .true.
         else
@@ -859,7 +828,6 @@ contains
     !*FD diffusivities are updated for each half time step
 
     !TODO The ADI scheme has not been checked for consistency with the new time-stepping convention.  
-    !     If it is retained, that should be done.
 
     use glide_velo
     use glimmer_utils, only: tridiag

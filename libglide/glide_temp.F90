@@ -184,7 +184,6 @@ contains
 
     select case(model%options%whichbwat)
 
-!!       case(0)
        case(BWATER_LOCAL)
           model%paramets%hydtim = tim0 / (model%paramets%hydtim * scyr)
           estimate = 0.2d0 / model%paramets%hydtim
@@ -196,7 +195,6 @@ contains
 
        !TODO - Test this option.
 
-!!       case(1)
        case(BWATER_FLUX)    ! steady-state routing using flux calculation
 
           model%tempwk%watvel = model%paramets%hydtim * tim0 / (scyr * len0)
@@ -230,9 +228,9 @@ contains
     !  which can be read from the config file.
     !
     !TODO - Remove halo parameters below, since uhalo = lhalo = 0 for glide.
-    !TODO - For reading from restart or input file, make sure that values in 
-    !       the Glide temperature halo are reasonable (and preferably not -999).
-
+    !TODO - For reading from restart or input file, make sure that cells in
+    !       the Glide temperature halo are initialized to reasonable values
+    !       (preferably not -999).
 
     if (model%options%is_restart == RESTART_TRUE) then
 
@@ -434,7 +432,7 @@ contains
 
     real(dp), dimension(size(model%numerics%sigma)) :: weff
 
-!WHLdebug
+! debug
     integer :: j, k
     integer :: idiag, jdiag
     idiag = model%numerics%idiag_global
@@ -447,7 +445,6 @@ contains
 
     select case(whichtemp)
 
-!!    case(0) ! Set column to surface air temperature -------------------------------------
     case(TEMP_SURFACE_AIR_TEMP)  ! Set column to surface air temperature ------------------
 
        do ns = 1,model%general%nsn
@@ -456,35 +453,18 @@ contains
           end do
        end do
 
-!!    case(1)
     case(TEMP_PROGNOSTIC)     ! Do full temperature solution as in standard Glide-------------
 
       ! Note: In older versions of Glimmer, the vertical velocity was computed here.
       !       It is now computed in glide_tstep_p3 to support exact restart.
-
-!WHL - debug
-!    print*, ' '
-!    print*, 'Starting glide_temp_driver'
-!    print*, ' '
-!    print*, 'basal uvel:'
-!    do j = model%general%nsn+1, 0, -1
-!       write(6,'(14f12.7)') model%velocity%uvel(model%general%upn,3:16,j)
-!    enddo
-!    print*, 'basal temp:'
-!    do j = model%general%nsn+1, 0, -1
-!       write(6,'(14f12.7)') model%temper%temp(model%general%upn,3:16,j)
-!    enddo
-!    print*, 'temp, k = 2:'
-!    do j = model%general%nsn+1, 0, -1
-!       write(6,'(14f12.7)') model%temper%temp(2,3:16,j)
-!    enddo
 
        model%tempwk%inittemp = 0.0d0
        model%tempwk%initadvt = 0.0d0
        !*MH model%tempwk%dissip   = 0.0d0  is also set to zero in finddisp
 
        ! ----------------------------------------------------------------------------------
-!TODO - I think efvs is not needed here
+       !TODO - I think efvs is not needed here
+
        call glide_finddisp(model,          &
                            model%geometry%thck,     &
                            model%options%which_disp,&
@@ -494,22 +474,8 @@ contains
                            model%geomderv%dusrfdns, &
                            model%temper%flwa)
 
-!WHLdebug
-!!       i = itest
-!!       j = jtest
-!!       write(6,*) ' '
-!!       write(6,*) 'i, j =', i, j
-!!       write(6,*) 'which_disp =', model%options%which_disp
-!!       write(6,*) ' '
-!!       write(6,*) 'efvs =',   model%stress%efvs(:,i,j)
-!!       write(6,*) ' '
-!!       write(6,*) 'flwa =',   model%temper%flwa(:,i,j)
-!!       write(6,*) ' '
-!!       write(6,*) 'dissip =', model%tempwk%dissip(:,i,j)
-!!       write(6,*) ' '
-    
-!LOOP: all scalar points except outer row
-!      Outer row of cells is omitted because velo points are not available at boundaries
+       ! Loop over all scalar points except outer row
+       ! Outer row of cells is omitted because velo points are not available at boundaries
 
        ! translate velo field
        do ns = 2,model%general%nsn-1
@@ -525,19 +491,12 @@ contains
                     model%temper%temp, &
                     model%geometry%thck)
 
-!WHL - debug
-!    print*, ' '
-!    print*, 'basal dissipation:'
-!    do j = model%general%nsn+1, 0, -1
-!       write(6,'(14f12.7)') model%tempwk%dissip(model%general%upn,3:16,j)
-!    enddo
-
        ! zeroth iteration
        iter = 0
        tempresid = 0.0d0
 
-!LOOP: all scalar points except outer row
-!      Note: temperature array has dimensions (upn, 0:ewn+1, 0:nsn+1)
+       ! Loop over all scalar points except outer row
+       ! Note: temperature array has dimensions (upn, 0:ewn+1, 0:nsn+1)
 
        do ns = 2,model%general%nsn-1
           do ew = 2,model%general%ewn-1
@@ -550,17 +509,6 @@ contains
                    weff = 0.0d0
                 end if
 
-!WHL - debug
-!                if (ew == idiag .and. ns == jdiag) then
-!                   print*, ' ' 
-!                   print*, 'Before findvtri, i, j =', idiag, jdiag
-!                   print*, ' '
-!                   print*, 'iteradvt, diagadvt, temp:'
-!                   do k = 1, model%general%upn
-!                      write(6,'(5f16.7)') iteradvt(k), diagadvt(k), model%temper%temp(k,ew,ns)
-!                   enddo
-!                endif
-
                 call hadvpnt(iteradvt,                       &
                              diagadvt,                               &
                              model%temper%temp(:,ew-2:ew+2,ns),      &
@@ -571,17 +519,6 @@ contains
                 call findvtri(model,ew,ns,subd,diag,supd,diagadvt, &
                      weff, &
                      GLIDE_IS_FLOAT(model%geometry%thkmask(ew,ns)))
-
-!WHL - debug
-!                if (ew == idiag .and. ns == jdiag) then
-!                   print*, ' ' 
-!                   print*, 'After findvtri, i, j =', idiag, jdiag
-!                   print*, ' '
-!                   print*, 'subd, diag, supd, rhsd, new temp:'
-!                   do k = 1, model%general%upn
-!                      write(6,'(5f16.7)') subd(k), diag(k), supd(k), rhsd(k), model%temper%temp(k,ew,ns)
-!                   enddo
-!                endif
 
                 call findvtri_init(model,ew,ns,subd,diag,supd,weff,model%temper%temp(:,ew,ns), &
                      model%geometry%thck(ew,ns),GLIDE_IS_FLOAT(model%geometry%thkmask(ew,ns)))
@@ -605,44 +542,13 @@ contains
             
                 tempresid = max(tempresid,maxval(abs(model%temper%temp(:,ew,ns)-prevtemp(:))))
 
-!WHL - debug
-!                if (ew == idiag .and. ns == jdiag) then
-!                   print*, ' ' 
-!                   print*, 'After tridiag, i, j =', idiag, jdiag
-!                   print*, ' ' 
-!                   print*, 'hadv_u, hadv_v, weff:'
-!                   do k = 1, model%general%upn
-!                      write(6,'(3f16.7)') model%tempwk%hadv_u(k,ew,ns), model%tempwk%hadv_v(k,ew,ns), weff(k)
-!                   enddo
-!                   print*, ' '
-!                   print*, 'subd, diag, supd, rhsd, new temp:'
-!                   do k = 1, model%general%upn
-!                      write(6,'(5f16.7)') subd(k), diag(k), supd(k), rhsd(k), model%temper%temp(k,ew,ns)
-!                   enddo
-!                endif
-
              endif   ! thk > thklim
           end do     ! ew
        end do        ! ns
 
-!WHL - debug
-!    print*, ' '
-!    print*, 'After zeroth iteration:'
-!    print*, ' '
-!    print*, 'basal temp:'
-!    do j = model%general%nsn+1, 0, -1
-!       write(6,'(14f12.7)') model%temper%temp(model%general%upn,3:16,j)
-!    enddo
-!    print*, 'temp, k = 2:'
-!    do j = model%general%nsn+1, 0, -1
-!       write(6,'(14f12.7)') model%temper%temp(2,3:16,j)
-!    enddo
-
        do while (tempresid > tempthres .and. iter <= mxit)
 
           tempresid = 0.0d0
-
-!LOOP: all scalar points except outer row
 
           do ns = 2,model%general%nsn-1
              do ew = 2,model%general%ewn-1
@@ -694,17 +600,6 @@ contains
 
        model%temper%niter = max(model%temper%niter, iter)
  
-!WHL - debug
-!       ew = model%numerics%idiag_global
-!       ns = model%numerics%jdiag_global
-!       print*, ' '
-!       print*, 'Before thin ice temps: ew, ns =', ew, ns
-!       print*, 'thck, thklim =', model%geometry%thck(ew,ns)*thk0, model%numerics%thklim*thk0
-!       print*, 'temp_init =', model%options%temp_init
-!       do k = 1, model%general%upn
-!          print*, k, model%temper%temp(k, ew, ns)
-!       enddo
-
        ! Set temperature of thin ice based on model%options%temp_init
        !   T = 0 for TEMP_INIT_ZERO
        !   T = artm for TEMP_INIT_ARTM
@@ -740,15 +635,6 @@ contains
           end do
        end do
 
-!WHL - debug
-!       ew = model%numerics%idiag_global
-!       ns = model%numerics%jdiag_global
-!       print*, ' '
-!       print*, 'After thin ice temps: ew, ns =', ew, ns
-!       do k = 1, model%general%upn
-!          print*, k, model%temper%temp(k, ew, ns)
-!       enddo
-
        ! apply periodic ew BC
        if (model%options%periodic_ew) then
           model%temper%temp(:,0,:) = model%temper%temp(:,model%general%ewn-2,:)
@@ -760,7 +646,6 @@ contains
        ! Calculate basal melt rate --------------------------------------------------
 
        call glide_calcbmlt(model, &
-!!                           model%options%which_bmelt, &
                            model%temper%temp, &
                            model%geometry%thck, &
                            model%geomderv%stagthck, &
@@ -784,10 +669,8 @@ contains
                      GLIDE_IS_FLOAT(model%geometry%thkmask), &
                      model%tempwk%wphi)
 
-!WHL - Here I restored some Glimmer calls.
-!      We need stagbpmp for one of the basal traction cases.
-
        ! Transform basal temperature and pressure melting point onto velocity grid
+       ! We need stagbpmp for one of the basal traction cases.
 
        call stagvarb(model%temper%temp(model%general%upn,1:model%general%ewn,1:model%general%nsn), &
                      model%temper%stagbtemp ,&
@@ -801,7 +684,6 @@ contains
                      model%general%  ewn, &
                      model%general%  nsn)
 
-!!    case(2) ! *sfp* stealing this un-used option ... 
     case(TEMP_STEADY) ! *sfp* stealing this un-used option ... 
 
         ! DO NOTHING. That is, hold T const. at initially assigned value
@@ -818,23 +700,6 @@ contains
                         model%paramets%flow_factor,  &
                         model%paramets%default_flwa, &
                         model%options%whichflwa) 
-
-!WHL - debug
-!    print*, ' '
-!    print*, 'Found new temps'
-!    print*, ' '
-!    print*, 'basal temp:'
-!    do j = model%general%nsn+1, 0, -1
-!       write(6,'(14f12.7)') model%temper%temp(model%general%upn,3:16,j)
-!    enddo
-!    print*, 'temp, k = 2:'
-!    do j = model%general%nsn+1, 0, -1
-!       write(6,'(14f12.7)') model%temper%temp(2,3:16,j)
-!    enddo
-!    print*, 'flwa, k = 2:'
-!    do j = model%general%nsn+1, 0, -1
-!       write(6,'(14e12.5)') model%temper%flwa(2,3:16,j)
-!    enddo
 
     ! Output some information ----------------------------------------------------
 
@@ -930,8 +795,6 @@ contains
 
     model%tempwk%initadvt = 0.0d0
 
-!LOOP: all scalar points except outer row
-
     do ns = 2,model%general%nsn-1
        do ew = 2,model%general%ewn-1
           if (thck(ew,ns) > model%numerics%thklim) then
@@ -962,11 +825,6 @@ contains
 
     real(dp) :: fact(3)  !TODO - fact(2)?
 
-!WHL - debug
-    integer :: idiag, jdiag, k
-    idiag = model%numerics%idiag_global
-    jdiag = model%numerics%jdiag_global
-
 ! These constants are precomputed:
 ! model%tempwk%cons(1) = 2.0d0 * tim0 * model%numerics%dttem * coni / (2.0d0 * rhoi * shci * thk0**2)
 ! model%tempwk%cons(2) = model%numerics%dttem / 2.0d0 
@@ -974,19 +832,6 @@ contains
     fact(1) = VERT_DIFF*model%tempwk%cons(1) / model%geometry%thck(ew,ns)**2
     fact(2) = VERT_ADV*model%tempwk%cons(2) / model%geometry%thck(ew,ns)    
     
-!WHL - debug
-!Note: dups will be different if sigma levels are different
-!    if (ew==idiag .and.	ns==jdiag) then
-!       print*, ' '
-!       print*, 'fact(1) =', fact(1)
-!       print*, 'fact(2) =', fact(2)
-!       print*, ' '
-!       print*, 'dups(1:3):'
-!       do k = 1, model%general%upn
-!          write(6,'(3f16.7)') model%tempwk%dups(k,1:3)
-!       enddo
-!    endif
-
     subd(2:model%general%upn-1) = fact(2) * weff(2:model%general%upn-1) * &
          model%tempwk%dups(2:model%general%upn-1,3)
 
@@ -1125,8 +970,6 @@ contains
 
 !-------------------------------------------------------------------
 
-  !WHL - Removed whichbmelt option
-
   subroutine glide_calcbmlt(model,    temp,          &
                             thck,     stagthck,      &
                             dusrfdew, dusrfdns,      &
@@ -1141,7 +984,6 @@ contains
     real(dp), dimension(:,:), intent(inout) :: bmlt   ! scaled basal melting, m/s * tim0/thk0
                                                       ! > 0 for melting, < 0 for freeze-on
     logical, dimension(:,:), intent(in) :: floater
-!!    integer, intent(in) :: whichbmelt
 
     real(dp), dimension(size(model%numerics%sigma)) :: pmptemp
     real(dp) :: slterm, newmlt
@@ -1160,23 +1002,17 @@ contains
 
                 slterm = 0.0d0
 
-!!                select case( whichbmelt )    !*sfp* added for calculating differently based on model physics
+                ! 0-order SIA approx. --> Tau_d = Tau_b
 
-!!                case( SIA_BMELT )                   
+                do nsp = ns-1,ns
+                   do ewp = ew-1,ew
+                       slterm = slterm - stagthck(ewp,nsp) * &
+                                (dusrfdew(ewp,nsp) * ubas(ewp,nsp) + dusrfdns(ewp,nsp) * vbas(ewp,nsp))
+                   end do
+                end do
 
-                  ! 0-order SIA approx. --> Tau_d = Tau_b
-
-                  do nsp = ns-1,ns
-                     do ewp = ew-1,ew
-                        slterm = slterm - stagthck(ewp,nsp) * &
-                                 (dusrfdew(ewp,nsp) * ubas(ewp,nsp) + dusrfdns(ewp,nsp) * vbas(ewp,nsp))
-                     end do
-                 end do
-
-                 !*sfp* NOTE that multiplication by this term has been moved up from below
-                 slterm = model%tempwk%f(4) * slterm 
-
-!!                end select
+                !*sfp* NOTE that multiplication by this term has been moved up from below
+                slterm = model%tempwk%f(4) * slterm 
 
                 bmlt(ew,ns) = 0.0d0
 
@@ -1196,7 +1032,7 @@ contains
 
                 up = model%general%upn - 1
 
-!TODO - Change reals to DP
+                !TODO - Change reals to dp
                 do while (abs(temp(up,ew,ns)-pmptemp(up)) < 0.001 .and. up >= 3)
                    bmlt(ew,ns) = bmlt(ew,ns) + newmlt
                    newmlt = model%tempwk%f(3) * model%tempwk%dupc(up) * thck(ew,ns) * model%tempwk%dissip(up,ew,ns)
@@ -1283,8 +1119,6 @@ contains
 
     model%tempwk%dissip(:,:,:) = 0.0d0
 
-!LOOP: all scalar points except outer row
-
     do ns = 2, model%general%nsn-1
        do ew = 2, model%general%ewn-1
           if (thck(ew,ns) > model%numerics%thklim) then
@@ -1307,7 +1141,7 @@ contains
 
     case( FIRSTORDER_DISP )
 
-!TODO - Print an error message and exit gracefully
+        !TODO - Print an error message and exit gracefully
 
 !   case( SSA_DISP )     !!! Waiting for an SSA solver !!!
 !    !*sfp* 1st-order, depth-integrated case only (SSA model) 
@@ -1379,7 +1213,6 @@ contains
   end subroutine calcpmpt
 
   !-----------------------------------------------------------------------
-  !WHL - This subroutine was removed from Glimmer at some point.  I put it back.
 
   subroutine calcbpmp(model,thck,bpmp)
 
@@ -1469,10 +1302,10 @@ contains
 
     !------------------------------------------------------------------------------------ 
    
-!WHL - Some notes:
-!      vis0 = 1.39E-032 Pa-3 s-1 for glam dycore (and here for glide)
+!      Some notes:
+!      vis0 = 1.39e-032 Pa-3 s-1 for glam dycore (and here for glide)
 !           = tau0**(-gn) * (vel0/len0) where tau0 = rhoi*grav*thk0
-!      vis0*scyr = 4.39E-025 Pa-2 yr-1
+!      vis0*scyr = 4.39e-025 Pa-2 yr-1
 !      For glam: default_flwa_arg = 1.0d-16 Pa-3 yr-1 by default
 !      Result is default_flwa =   227657117 (unitless) if flow factor = 1
 !        This is the value given to thin ice.

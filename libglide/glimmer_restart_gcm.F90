@@ -28,11 +28,13 @@
 
  module glimmer_restart_gcm
 
+ !TODO - Should this be moved to the Glint directory?  Used only by glint_initialise.
+
 !BOP
 ! !MODULE: glimmer_restart_gcm
 
 ! !DESCRIPTION:
-!  Contains routines for specialized glimmer restarts called by gcm's
+!  Contains routines for specialized glimmer restarts called by GCMs
 !
 ! !REVISION HISTORY:
 !
@@ -56,7 +58,6 @@
 !BOC
 !EOC
 !***********************************************************************
-!***********************************************************************
 
  contains
 
@@ -75,8 +76,6 @@
     ! local variables
     type(glimmer_nc_input),  pointer :: ic => null()
 
-!-----------------------------------------------------------------------
-
     ! create the input unit
     allocate(ic)
     ic%get_time_slice = 1
@@ -91,4 +90,8 @@
 
   end subroutine glimmer_read_restart_gcm
 
+!-----------------------------------------------------------------------
+
 end module glimmer_restart_gcm
+
+!-----------------------------------------------------------------------

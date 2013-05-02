@@ -89,7 +89,7 @@ contains
     end if
   end subroutine
 
-  !TODO - Currently, this subroutine is never called.
+  !TODO - Currently, glide_finalise_all is never called.
   !       (glide_finalise is called from simple_glide) 
 
   subroutine glide_finalise_all(crash_arg)
@@ -116,6 +116,9 @@ contains
   subroutine glide_finalise(model,crash)
 
     !*FD finalise GLIDE model instance
+    !TODO - Make sure this subroutine does what's needed to
+    !       finalize the HO dycores
+
     use glimmer_ncio
     use glimmer_log
     use glide_types
@@ -136,10 +139,6 @@ contains
     call closeall_in(model)
     call closeall_out(model)
 
-    !TODO - Has this been done yet?
-    ! *sfp* Note that a finalization routine, "glam_velo_fordsiapstr_final", for the PP HO core needs 
-    ! to be written, added to "glam_strs2.F90", and called from "glide_stop".
-  
     call glide_deallocarr(model)
     call deregister_model(model)
 

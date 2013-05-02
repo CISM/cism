@@ -64,7 +64,7 @@
 !TODO - Code uses Protex documenting.  Revise for doxygen
 
 !WHL = debug
-      integer, parameter :: idiag = 31, jdiag = 31
+!!      integer, parameter :: idiag = 31, jdiag = 31
 
 
 !=======================================================================
@@ -282,7 +282,7 @@
 
          if (present(age) .and. ntracer >= 2) tracer(:,:,2,k) = age(k,:,:)
 
-         !whl - Other tracer fields could be added here
+         !TODO - Other tracer fields could be added here
 
       enddo
 
@@ -304,8 +304,6 @@
     !-------------------------------------------------------------------
 
       if (conservation_check) then
-
-         !TODO - Account for basal melt too.
 
          ! Compute initial values of globally conserved quantities,
          !  accounting for surface accumulation.
@@ -464,7 +462,7 @@
 
       endif                     ! conservation_check
 
-!TODO - Test upwind transport option
+      !TODO - Test upwind transport option
 
       if (upwind_transport) then
 
@@ -668,8 +666,6 @@
     ! Check global conservation of mass and mass*tracers.  (Optional)
     !-------------------------------------------------------------------
 
-      !TODO - Call a subroutine without optional arguments acab and bmlt?
-
       if (conservation_check) then
 
          ! Compute final values of globally conserved quantities.
@@ -685,19 +681,6 @@
          enddo
          enddo
          call global_sum(mtsum_final)
-
-!WHL - debug
-!               print*, ' '
-!               print*, 'msum_init =', mtsum_init(0)
-!               print*, 'msum_final =', mtsum_final(0)
-!               print*, 'diff =', mtsum_init(0) - mtsum_final(0)
-!               print*, ' '
-!               do nt = 1, ntracer              
-!                  print*, nt, 'mtsum_init =', mtsum_init(nt)
-!                  print*, nt, 'mtsum_final =', mtsum_final(nt)
-!                  print*, 'diff =', mtsum_init(nt) - mtsum_final(nt)
-!                  print*, ' '
-!               enddo
 
          if (main_task) then
             call global_conservation (mtsum_init(0), mtsum_final(0),  &
@@ -894,6 +877,7 @@
                                      ! + sfc_accum * 0.d0
 
                   !TODO - Add other tracers here, as needed
+
                endif
 
                ! new top layer thickess
@@ -1008,12 +992,6 @@
 !               endif
 
             endif  ! bmlt < 0
-
-!WHL - debug
-!            if (i==idiag .and. j==jdiag) then
-!               print*, 'ending thck 1 =', thck_layer(i,j,1)
-!               print*, 'ending thck =', sum(thck_layer(i,j,:))
-!            endif
 
          enddo   ! nx
       enddo      ! ny
@@ -1170,7 +1148,6 @@
 
     end subroutine glissade_vertical_remap
 
-!TODO - Test the first-order upwind scheme.
 !=======================================================================
 !BOP
 !

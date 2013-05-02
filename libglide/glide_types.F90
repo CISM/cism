@@ -37,13 +37,15 @@ module glide_types
   !*FD ice model instances meant that the nested derived types were instituted
   !*FD instead. However, there is probably one too many levels in this scheme. 
   !*FD It would be better if the different types here were contained in the 
-  !*FD higher-level instance type (\texttt{glimmer\_params}), rather than 
-  !*FD the intermediate model type (\texttt{glimmer\_global\_type}). 
+  !*FD higher-level instance type (\texttt{glint\_instance}), rather than 
+  !*FD the intermediate model type (\texttt{glide\_global\_type}). 
   !*FD 
   !*FD Note that this \emph{is} now where the defaults are defined for these
   !*FD variables.
 
-!TODO - Reorganize the types, per suggestion above?
+!TODO - Reorganize the types, as suggested above?
+!       The higher-level glint_instance type is defined in glint_type.F90.
+!       The various instances are contained in the highest-level type, glint_params.
 
 !TODO - We might consider cleaning up the glide_global type so that it doesn't
 !        include as many subtypes.  For example, we might be able to remove
@@ -58,14 +60,11 @@ module glide_types
 
   implicit none
 
-!TODO - Add a 'save' here?
-
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   ! Constants that describe the options available
-
-!WHL - Tried to include all the important options here, to avoid hardwiring
-!      of case numbers
+  ! We use these integer parameters elsewhere in the code to avoid
+  !  hardwiring of option numbers
 
   ! basic Glimmer/Glide options
 
@@ -74,8 +73,6 @@ module glide_types
   integer, parameter :: DYCORE_GLISSADE = 2  ! prototype finite-element solver
 
   !WHL - Removed -1 option (replaced by new glint option: evolve_ice)
-  !      Switched EVOL_NO_THICKNESS to option 5 
-!!  integer, parameter :: EVOL_NO_THICKNESS = -1
   integer, parameter :: EVOL_PSEUDO_DIFF = 0    ! glide only
   integer, parameter :: EVOL_ADI = 1            ! glide only
   integer, parameter :: EVOL_DIFFUSION = 2      ! glide only
@@ -141,7 +138,6 @@ module glide_types
   integer, parameter :: RELAXED_TOPO_COMPUTE = 2  ! Input topo in isostatic equilibrium
                                                   ! compute relaxed topo
 
-  !WHL - added these isostasy/lithosphere/asthenosphere options
   integer, parameter :: ISOSTASY_NONE = 0
   integer, parameter :: ISOSTASY_COMPUTE = 1
 
@@ -168,7 +164,6 @@ module glide_types
   integer, parameter :: VERTINT_STANDARD = 0
   integer, parameter :: VERTINT_KINEMATIC_BC = 1
 
-  !WHL - added the even and Pattyn options
   integer, parameter :: SIGMA_COMPUTE_GLIDE = 0
   integer, parameter :: SIGMA_EXTERNAL = 1
   integer, parameter :: SIGMA_CONFIG = 2
@@ -207,16 +202,6 @@ module glide_types
   integer, parameter :: HO_BABC_EXTERNAL_BETA = 5
   integer, parameter :: HO_BABC_NO_SLIP = 6
   integer, parameter :: HO_BABC_YIELD_NEWTON = 7
-
-  !WHL - removed this option
-!!  integer, parameter :: SIA_BMELT = 0
-!!  integer, parameter :: FIRSTORDER_BMELT = 1
-!!  integer, parameter :: SSA_BMELT = 2
-
-  !WHL - removed this option
-!!  integer, parameter :: HO_SOURCE_AVERAGED = 0
-!!  integer, parameter :: HO_SOURCE_EXPLICIT = 1
-!!  integer, parameter :: HO_SOURCE_DISABLED = 2
 
   integer, parameter :: HO_NONLIN_PICARD = 0
   integer, parameter :: HO_NONLIN_JFNK = 1
@@ -265,9 +250,6 @@ module glide_types
 
     !*FD Holds user options controlling the methods used in the ice-model integration.
 
-    !TODO - Review default settings
-    !       Make sure descriptions are consistent with above declarations
-
     !-----------------------------------------------------------------------
     ! standard options
     !-----------------------------------------------------------------------
@@ -294,7 +276,6 @@ module glide_types
 
     integer :: whichtemp = 1
 
-    !TODO: Make sure option 0 is working as desired
     !TODO: Remove option 3 (after cleaning up config files)
 
     !*FD Method of ice temperature calculation:
@@ -305,7 +286,6 @@ module glide_types
     !*FD \item[3] Use remapping to advect temperature (deprecated; now combined with [1])
     !*FD \end{description}
 
-    !WHL - new options for temperature initialization
     !TODO: At some point, change the default to temp_init = 2.
     !      Setting default = 1 for now so that existing config files will get the same results.
 
@@ -320,7 +300,6 @@ module glide_types
 
     !*FD Method for calculating flow factor $A$:
 
-!WHL - Changed option numbers; default FLWA_PATERSON_BUDD is now option 2
     integer :: whichflwa = 2
 
     !*FD \begin{description} 
@@ -345,7 +324,6 @@ module glide_types
 
     integer :: whichbwat = 0
 
-!WHL - Changed option numbers; default BWAT_NONE is now option 0
     !*FD Basal water depth: 
     !*FD \begin{description} 
     !*FD \item[0] Set to zero everywhere 
@@ -425,16 +403,6 @@ module glide_types
     !*FD \item[2] compute Pattyn sigma coordinates
     !*FD \end{description}
 
-    !WHL - Removed this option
-!!    integer :: which_sigma_builtin = 0
-
-!!    !If Glimmer generates the sigma coordinates, selects which built-in sigma to use
-!!    !*FD \begin{description}
-!!    !*FD \item[0] standard Glimmer setup
-!!    !*FD \item[1] evenly spaced levels
-!!    !*FD \item[2] Pattyn's sigma levels
-!!    !*FD \end{description}
-
     !TODO - Make is_restart a logical variable?
 
     integer :: is_restart = 0
@@ -458,9 +426,6 @@ module glide_types
     ! Associated with Payne-Price dycore (glam) and newer glissade dycore
     !-----------------------------------------------------------------------
 
-!WHL - Changed option numbers; default HO_EFVS_NONLINEAR is now option 2
-
-!!    integer :: which_ho_efvs = 0
     integer :: which_ho_efvs = 2
 
     !*FD Flag that indicates how effective viscosity is computed
@@ -491,15 +456,6 @@ module glide_types
     !*FD \item[6] no slip everywhere (using Dirichlet, no slip basal bc)
     !*FD \item[7] use till yield stress (Newton-type iteration)
     !*FD \end{description}
-
-    !WHL - no longer used
-!!    integer :: which_bmelt = 0
-!!    !*FD Flag that indicates method for computing the frictional melt rate terms during temperature calc.
-!!    !*FD \begin{description}
-!!    !*FD \item[0] for 0-order SIA approx
-!!    !*FD \item[1] for 1-st order solution (e.g. Blatter-Pattyn)
-!!    !*FD \item[2] for 1-st order depth-integrated solution (SSA)
-!!    !*FD \begin{description}
 
     integer :: which_ho_nonlinear = 0
     !*FD Flag that indicates method for solving the nonlinear iteration when solving 
@@ -539,7 +495,7 @@ module glide_types
     !FD Name of a file containing external dycore settings.
 
 !WHL - Added a glissade option to choose which Stokes approximation (SIA, SSA or Blatter-Pattyn HO)
-!WHL - Commented out for now
+!      Commented out for now
 
     ! Blatter-Pattyn HO by default
 !!    integer :: which_ho_approx = 2    
@@ -550,24 +506,6 @@ module glide_types
     !*FD \item[1] Shallow-shelf approximation, horizontal-plane stresses only
     !*FD \item[2] Blatter-Pattyn with both vertical-shear and horizontal-plane stresses
     !*FD \end{description}
-
-    !WHL - no longer used
-!!    integer :: which_ho_sparse_fallback = -1
-!!    !*FD Flag that indicates a sparse matrix solver that the higher-order 
-!!    !*FD computation should fall back on if the primary choice fails.
-!!    !*FD By default, this is set to -1 which indicates no fallback.
-!!    !*FD Optimally, this should be set to a direct solver (such as UMFPACK)
-!!    !*FD that can be used if the iterative solver fails.
-
-!!    integer :: which_ho_source = 0
-!!    !*FD Flag that indicates how to compute the source term of an ice shelf
-!!    !*FD \begin{description}
-!!    !*FD \item[0] Vertically averaged formulation (uniform pressure applied regardless of depth)
-!!    !*FD \item[1] Vertically explicit formulation (pressue dependent on depth)
-!!    !*FD \end{description}
-
-!!    logical :: ho_include_thinice = .true.
-!!    !*FD Whether or not to include thin ice in the higher order computation
 
     ! The remaining options are not currently supported
 
@@ -622,8 +560,6 @@ module glide_types
     !*FD margin of an ice shelf, in which case contains the angle
     !*FD of the normal to the ice front. 
 
-!WHL - Renamed mask to thck_index, since it is an integer index.
-!!    integer, dimension(:,:),pointer :: mask => null()
     integer, dimension(:,:),pointer :: thck_index => null()
     ! Set to nonzero integer for ice-covered cells (thck > 0), cells adjacent to ice-covered cells,
     !  and cells with acab > 0.  The non-zero points are numbered in sequence from the bottom left 
@@ -638,7 +574,7 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - Some of these are PBJ variables that can be removed.
+  !TODO - Some of these are PBJ variables that can be removed.
 
   type glide_geomderv
 
@@ -689,7 +625,7 @@ module glide_types
     real(dp),dimension(:,:),pointer :: dusrfdtm => null() !*FD Temporal derivative of upper surface elevation.
 
     !TODO - These staggered variables are not derivatives.
-    !       They could move to 'glide_geometry' or to a new 'glissade_state' type.
+    !       Shoud they be part of the glide_geometry type?
 
     !Staggered grid versions of geometry variables
     real(dp),dimension(:,:),pointer :: stagthck => null() !*FD Thickness averaged onto the staggered grid.
@@ -737,7 +673,6 @@ module glide_types
 !    real(dp),dimension(:,:,:),pointer :: vres  => null() !*FD 3D $y$-residual.
 !    real(dp),dimension(:,:,:),pointer :: magres  => null() !*FD 3D $magnitude$-residual.
 
-
     !! WHL - next 2 used for output of uvel, vvel on ice grid 
     !! (e.g., for problems with periodic BC, where the number of velocity points is
     !!  equal to the number of grid cells)
@@ -779,9 +714,8 @@ module glide_types
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 !TODO - Should calving and eus be part of some other type?
-!WHL - Removed backstress and other variables that were used only by the old glide_marinlim case(5),
-!       which was removed.
 !      Commented out slidconst, used by unsupported Huybrechts basal traction option
+!TODO - Change to dp
 
   type glide_climate
      !*FD Holds fields used to drive the model
@@ -800,20 +734,22 @@ module glide_types
   type glide_temper
 
     !*FD Holds fields relating to temperature.
-    !WHL - In the glide dycore, temp and flwa live on the unstaggered vertical grid
+
+    !Note: In the glide dycore, temp and flwa live on the unstaggered vertical grid
     !       at layer interfaces and have vertical dimension (1:upn).
     !      In the glam/glissade dycore, with remapping advection of temperature, 
     !       temp and flwa live on the staggered vertical grid at layer midpoints.  
     !       The vertical dimensions are temp(0:upn) and flwa(1:upn-1).
-
-    !WHL - added some heat flux terms: bfricflx, ucondflx, lcondflx, dissipcol
-    !      Note: bheatflx, ucondflx, and lcondflx are defined as positive down,
-    !            so they will often be < 0.  
+    !
+    !      bheatflx, ucondflx, and lcondflx are defined as positive down,
+    !       so they will often be < 0.  
     !      However, bfricflx and dissipcol are defined to be >= 0.
-    !NOTE: If bheatflx is read from a data file, be careful about the sign!
+    !
+    !      If bheatflx is read from a data file, be careful about the sign!
     !      In input data, the geothermal heat flux is likely to be defined as positive upward.
-    !TODO: Create a field for basal melt beneath floating ice, separate from bmlt
-    !      (which would apply only to grounded ice)
+    !
+    !TODO: Create separate fields for basal melt beneath grounded and floating ice.
+
 
     real(dp),dimension(:,:,:),pointer :: temp => null()      !*FD 3D temperature field.
     real(dp),dimension(:,:),  pointer :: bheatflx => null()  !*FD basal heat flux (geothermal, positive down)
@@ -883,10 +819,6 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!WHL - Move these two isostasy types from isostasy_types.F90
-!      What is now called 'isostasy_type' used to be 'isos_type'.
-!      What is now called 'isos_elastic' used to be 'isostasy_elastic'.
- 
   type isos_elastic
      !*FD Holds data used by isostatic adjustment calculations
 
@@ -901,7 +833,7 @@ module glide_types
   type isostasy_type
      !*FD contains isostasy configuration
 
-     !WHL - do_isos replaced by  model%options%isostasy
+     ! do_isos has been replaced by model%options%isostasy
 !!     logical :: do_isos = .false.    ! set to .true. if isostatic adjustment should be handled
 
      integer :: lithosphere = 0
@@ -918,7 +850,7 @@ module glide_types
      !*FD \item[1] relaxing mantle, mantle is approximated by a half-space
      !*FD \end{description}
 
-     !TODO - Make these dp?
+     !TODO - Make these dp
      real :: relaxed_tau = 4000.    ! characteristic time constant of relaxing mantle (yr)
      real :: period = 500.          ! lithosphere update period (yr)
      real :: next_calc              ! when to update lithosphere
@@ -944,9 +876,7 @@ module glide_types
 
   type glide_numerics
 
-    !*FD Parameters relating to the model numerics.
-!WHLTSTEP - Changed time variables to dp
-!           Reduced default values of tstart and tend
+    !*FD Parameters relating to the model numerics
     real(dp) :: tstart =    0.d0 !*FD starting time
     real(dp) :: tend   = 1000.d0 !*FD end time
     real(dp) :: time   =    0.d0 !*FD main loop counter in years
@@ -962,8 +892,7 @@ module glide_types
     real(dp) :: dns    =   20.0d3
     real(dp) :: dt     =    0.0
     real(dp) :: dttem  =    0.0
-!TODO - Should nshlf be dp?
-    real(sp) :: nshlf  =    0.0
+    real(sp) :: nshlf  =    0.0   !TODO - Change to dp
     integer  :: subcyc =    1
     real(dp) :: periodic_offset_ew = 0.d0 ! optional periodic_offsets for ismip-hom and similar tests
     real(dp) :: periodic_offset_ns = 0.d0 ! These may be needed to ensure continuous ice geometry at
@@ -980,8 +909,8 @@ module glide_types
 
     integer :: profile_period = 100            ! profile frequency
 
-    !WHL - Replaced ndiag with dt_diag
-    !TODO - Remove ndiag, after changing config files appropriately
+    !TODO - Compute ndiag as a function of dt_diag and pass to glide_diagnostics?
+    !       This is more robust than computing mods of real numbers. 
     !TODO - Change names of idiag_global and jdiag_global?
     !       These are indices for the full ice sheet grid (before decomposition), but not a true global grid.
     real(dp) :: dt_diag = 0.d0            ! diagnostic time interval (write diagnostics every dt_diag years)
@@ -1018,7 +947,7 @@ module glide_types
     real(dp) :: trcmin = 0.0d0
     real(dp) :: marine = 1.0d0
     real(dp) :: trcmax = 10.0d0
-    real(dp) :: btrac_const = 0.0d0
+    real(dp) :: btrac_const = 0.0d0  !TODO - Do we need two of these?  Also in glide_paramets below.
     real(dp) :: btrac_slope = 0.0d0
     real(dp) :: btrac_max = 0.d0
   end type glide_velowk
@@ -1062,7 +991,7 @@ module glide_types
     real(dp),dimension(:,:,:),pointer :: hadv_u   => null()
     real(dp),dimension(:,:,:),pointer :: hadv_v   => null()
 
-!TODO - Do we need these?  If so, change to 0.d0
+    !TODO - Do we need these?
     !*sfp** added space to the next 2 (cons, f) for use w/ HO and SSA dissip. calc. 
     real(dp),dimension(5)             :: cons     = 0.d0
     real(dp),dimension(5)             :: f        = 0.d0
@@ -1099,7 +1028,7 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - This type is not currently used.  Should it be removed?
+  !TODO - This type is not currently used.  Should it be removed?
   type glide_basalproc
     !Tuneables, set in the config file 
     real(dp):: fric=0.45d0                   ! Till coeff of internal friction: ND
@@ -1127,7 +1056,6 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - Is this type used?
   type glide_prof_type
      integer :: geomderv
      integer :: hvelos
@@ -1175,7 +1103,7 @@ module glide_types
   end type glissade_solver
 
        
-  type glide_global_type
+  type glide_global_type    ! type containing all of the above for an ice sheet model instance
     integer              :: model_id !*FD Used in the global model list for error handling purposes
     type(glide_general)  :: general
     type(glide_options)  :: options
@@ -1205,7 +1133,8 @@ module glide_types
 
 contains
 
-  !WHL - Update description?  Make sure list is complete
+  !TODO - Make sure these itemized lists are complete.
+
   subroutine glide_allocarr(model)    
     !*FD Allocates the model arrays, and initialises some of them to zero.
     !*FD These are the arrays allocated, and their dimensions:
@@ -1319,13 +1248,13 @@ contains
     call coordsystem_allocate(model%general%ice_grid, model%temper%lcondflx)
     call coordsystem_allocate(model%general%ice_grid, model%temper%dissipcol)
 
-!WHL - In the glide dycore (whichdycore = DYCORE_GLIDE), temperature and 
-!       flow factor live on the unstaggered vertical grid, and extra rows and columns 
-!       (with indices 0:ewn+1, 0:nsn+1) are needed.
-!    - In the glam/glissade dycore, temperature and flow factor live on the 
-!       staggered vertical grid, with temperature and flwa defined at the
-!       center of each layer k = 1:upn-1.  The temperature (but not flwa)
-!       is defined at the upper surface (k = 0) and lower surface (k = upn).
+!NOTE: - In the glide dycore (whichdycore = DYCORE_GLIDE), temperature and 
+!        flow factor live on the unstaggered vertical grid, and extra rows and columns 
+!        (with indices 0:ewn+1, 0:nsn+1) are needed.
+!      - In the glam/glissade dycore, temperature and flow factor live on the 
+!        staggered vertical grid, with temperature and flwa defined at the
+!        center of each layer k = 1:upn-1.  The temperature (but not flwa)
+!        is defined at the upper surface (k = 0) and lower surface (k = upn).
 
     if (model%options%whichdycore == DYCORE_GLIDE) then
        allocate(model%temper%temp(upn,0:ewn+1,0:nsn+1))
@@ -1348,7 +1277,6 @@ contains
 !    call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%vres)
 !    call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%magres)
 
-    !!WHL - next 2 used for output of uvel, vvel on ice grid
     call coordsystem_allocate(model%general%ice_grid, upn, model%velocity%uvel_icegrid)
     call coordsystem_allocate(model%general%ice_grid, upn, model%velocity%vvel_icegrid)
 
@@ -1382,8 +1310,6 @@ contains
     call coordsystem_allocate(model%general%ice_grid, upn-1, model%stress%efvs)
     call coordsystem_allocate(model%general%velo_grid, model%stress%tau_x)
     call coordsystem_allocate(model%general%velo_grid, model%stress%tau_y)
-!    call coordsystem_allocate(model%general%velo_grid, upn, model%stress%gdsx) !*sfp* not currently used anywhere
-!    call coordsystem_allocate(model%general%velo_grid, upn, model%stress%gdsy)
 
     call coordsystem_allocate(model%general%ice_grid, model%climate%acab)
     call coordsystem_allocate(model%general%ice_grid, model%climate%acab_tavg)
@@ -1489,7 +1415,10 @@ contains
   end subroutine glide_allocarr
 
   subroutine glide_deallocarr(model)
+
     !*FD deallocate model arrays
+    !TODO - Verify that all arrays allocated above are deallocated here.
+
     implicit none
     type(glide_global_type),intent(inout) :: model
 
@@ -1554,7 +1483,6 @@ contains
 !    deallocate(model%velocity%vres)
 !    deallocate(model%velocity%magres)
 
-    !! WHL - next 2 used for output of uvel, vvel on ice grid
     if (associated(model%velocity%uvel_icegrid)) &
        deallocate(model%velocity%uvel_icegrid)
     if (associated(model%velocity%vvel_icegrid)) &
@@ -1620,8 +1548,6 @@ contains
        deallocate(model%stress%tau_x)
     if (associated(model%stress%tau_y)) &
        deallocate(model%stress%tau_y)
-!    deallocate(model%stress%gdsx)  *sfp* not currently used anywhere
-!    deallocate(model%stress%gdsy)
 
     if (associated(model%climate%acab)) &
        deallocate(model%climate%acab)
@@ -1795,7 +1721,6 @@ contains
   function get_tend(model)
     !*FD return end time
     implicit none
-!    real(sp) :: get_tend
     real(dp) :: get_tend
     type(glide_global_type) :: model
     
@@ -1805,7 +1730,6 @@ contains
   function get_tinc(model)
     !*FD return time increment
     implicit none
-!    real(sp) :: get_tinc
     real(dp) :: get_tinc
     type(glide_global_type) :: model
     

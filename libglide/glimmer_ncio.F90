@@ -537,8 +537,6 @@ contains
 
 !------------------------------------------------------------------------------
 
-    !WHL - Moved this subroutine here from libglimmer/glimmer_ncdf.F90 so we can use glide_types
-
     subroutine check_for_tempstag(whichdycore, nc)
       ! Check for the need to output tempstag and update the output variables if needed.
       !
@@ -560,6 +558,7 @@ contains
       integer :: i
 
       ! Check if tempstag should be output
+
       ! TODO If both temp and tempstag are specified, should one be removed?
       ! TODO Modify this to work if multiple output files are specified?
 
@@ -612,4 +611,3 @@ contains
 end module glimmer_ncio
 
 !------------------------------------------------------------------------------
-

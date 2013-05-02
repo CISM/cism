@@ -1,6 +1,3 @@
-!TODO - Swap out old for new isostasy
-!       Physics is the same, but some type names are different.
-
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
 !   isostasy.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
@@ -32,6 +29,10 @@
 #endif
 
 module isostasy
+
+  !TODO - Test the isostasy for parallel simulations.
+  !       Elastic lithosphere take some work to parallelize, but local calculations
+  !        should be OK.
   
   !*FD calculate isostatic adjustment due to changing surface loads
 
@@ -74,6 +75,7 @@ contains
   subroutine isos_icewaterload(model)
 
     !*FD calculate surface load factors due to water and ice distribution
+
     use glimmer_physcon
     use glide_types
     implicit none
@@ -168,9 +170,6 @@ contains
     implicit none
     type(glide_global_type) :: model
 
-!WHL - debug
-    integer :: i, j
-
     ! Calculate the load
     call isos_icewaterload(model)
 
@@ -179,12 +178,6 @@ contains
 
     ! Add to present topography to get relaxed topography
     model%isostasy%relx = model%geometry%topg + model%isostasy%load
-
-!WHL - debug
-!    i = model%numerics%idiag_global
-!    j = model%numerics%jdiag_global
-!    print*, ' '
-!    print*, 'i, j, topg, load, relx:', i, j, model%geometry%topg(i,j), model%isostasy%load(i,j), model%isostasy%relx(i,j) 
 
   end subroutine isos_relaxed
 

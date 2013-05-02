@@ -1,4 +1,3 @@
-!TODO - This is a program.  Move to another directory?
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
 !   relaxed.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
@@ -32,7 +31,11 @@
 #define NCI infile%nc
 #define NCO outfile%nc
 
+!TODO - This is a program.  Move to a utilities directory?
+
 program relaxed
+
+  ! utility to add relaxed bedrock topography to GLIMMER netcdf input files
 
   use glimmer_global
   use glimmer_ncdf
@@ -225,7 +228,6 @@ contains
 
     integer :: ew, ns,nsn,ewn
 
-!TODO - These parameters should be declared elsewhere
     real(dp), save :: thklim = 100.0d0   
     real(dp), parameter :: grav = 9.81 
     real(dp), parameter :: pi = 3.1416

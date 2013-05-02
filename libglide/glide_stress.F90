@@ -102,7 +102,7 @@ module glide_stress
         dew2 = 2.0_dp * dew; dns2 = 2.0_dp * dns        ! *sp* 2x the standard grid spacing
         dew4 = 4.0_dp * dew; dns4 = 4.0_dp * dns        ! *sp* 4x the standard grid spacing
 
-!HALO - This loop should be over locally owned cells only.
+!TODO - I think this loop should be over locally owned cells only.
         do ns = 2,nsn-1
             do ew = 2,ewn-1;
 
@@ -143,7 +143,7 @@ module glide_stress
             end do
         end do
 
-!HALO - This should be over locally owned cells only.  Move into loop above?
+        !TODO - This should be over locally owned cells only.  Move into loop above?
         tauxz = f1 * efvs * tauxz     
         tauyz = f1 * efvs * tauyz     
         tauxx = 2.0_dp * efvs * tauxx 
@@ -155,7 +155,7 @@ module glide_stress
         ! 1st order approx. to the 2nd strain-rate invariant (outlined in model description document).
         tau = sqrt(tauxz**2 + tauyz**2 + tauxx**2 + tauyy**2 + tauxx*tauyy + tauxy**2)
 
-!HALO - I don't think these halo updates are needed.  
+!TODO - I don't think these halo updates are needed.  
 !       (If they are, they should be moved up to the glissade driver level.)
 
         call parallel_halo(tauxx)

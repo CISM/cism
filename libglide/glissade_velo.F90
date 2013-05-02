@@ -171,7 +171,6 @@ contains
           ! Thus we have grid cell dimensions and ice thickness in meters,
           !  velocity in m/s, and the rate factor in Pa^(-n) s(-1).
           !----------------------------------------------------------------
-          !TODO - Switch to SI elsewhere in the code?
 
            if (model%options%which_ho_nonlinear == HO_NONLIN_PICARD ) then ! Picard (standard solver)
 
