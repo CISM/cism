@@ -404,7 +404,14 @@ contains
     type(glide_global_type), intent(inout) :: model     ! model instance
 
 
-    if (model%options%is_restart /= RESTART_TRUE) then
+    if (model%options%is_restart == RESTART_TRUE) then
+       ! On a restart, just assign the basal velocity from uvel/vvel (which are restart variables)
+       ! to ubas/vbas which are used by the temperature solver to calculate basal heating.
+       ! During time stepping ubas/vbas are calculated by slipvelo during thickness evolution or below on a cold start.
+       model%velocity%ubas = model%velocity%uvel(model%general%upn,:,:)
+       model%velocity%vbas = model%velocity%vvel(model%general%upn,:,:)
+
+    else
        ! Only make the calculations on a cold start.
 
     ! ------------------------------------------------------------------------ 

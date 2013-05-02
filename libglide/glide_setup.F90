@@ -1427,7 +1427,8 @@ contains
             ! their current implementation is as a scalar ('basal_tract_const' config parameter).
             ! If they are ever implemented as 2-d fields, then they (probably just one of them)
             ! should become restart variables.
-            call glide_add_to_restart_variable_list('ubas vbas')
+            
+            ! Nothing needs to happen because ubas,vbas are assigned from uvel,vel in glide_init_state_diagnostic()
         end select
 
       case (DYCORE_GLAM, DYCORE_GLISSADE)
