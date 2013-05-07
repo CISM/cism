@@ -977,7 +977,7 @@ contains
                                                         !*FD level (scaled, on staggered grid).
     real(dp),dimension(:,:,:),intent(inout) :: wvel     !*FD Vertical velocity field, 
     real(dp),dimension(:,:),  intent(in)    :: thck     !*FD Ice thickness (scaled)
-    real(sp),dimension(:,:),  intent(in)    :: acab     !*FD Mass-balance (scaled)
+    real(dp),dimension(:,:),  intent(in)    :: acab     !*FD Mass-balance (scaled)
 
     !------------------------------------------------------------------------------------
     ! Internal variables

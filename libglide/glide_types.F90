@@ -719,7 +719,7 @@ module glide_types
 
   type glide_climate
      !*FD Holds fields used to drive the model
-     real(sp),dimension(:,:),pointer :: acab     => null() !*FD Annual mass balance.
+     real(dp),dimension(:,:),pointer :: acab     => null() !*FD Annual mass balance.
      real(sp),dimension(:,:),pointer :: acab_tavg     => null() !*FD Annual mass balance (time average).
      real(sp),dimension(:,:),pointer :: artm     => null() !*FD Annual mean air temperature
      real(sp),dimension(:,:),pointer :: lati     => null() !*FD Latitudes of model grid points

@@ -705,7 +705,7 @@ contains
     !-------------------------------------------------------------------------
 
     real(dp),dimension(:,:),intent(in)  :: thck       !*FD Ice thickness
-    real(sp),dimension(:,:),intent(in)  :: acab       !*FD Mass balance
+    real(dp),dimension(:,:),intent(in)  :: acab       !*FD Mass balance
     integer, dimension(:,:),intent(out) :: thck_index !*FD integer index (1, 2, 3, ..., totpts)
     integer,                intent(out) :: totpts     !*FD Total number of points in mask
     logical, intent(in)       :: include_adjacent     ! If true, points with no ice but that are adjacent
@@ -782,7 +782,7 @@ contains
       implicit none
 
       real(dp),dimension(:,:),intent(in) :: ca 
-      real(sp),               intent(in) :: cb
+      real(dp),               intent(in) :: cb
 
 
 !TODO - Is there any case in which we would not want to include adjacent cells
@@ -993,7 +993,7 @@ contains
     
     real(dp), dimension(:), intent(in) :: thk   !*FD ice thickness
     real(dp), dimension(:), intent(in) :: tpg   !*FD lower surface of ice
-    real(sp), dimension(:), intent(in) :: mb    !*FD mass balance
+    real(dp), dimension(:), intent(in) :: mb    !*FD mass balance
     real(dp), dimension(:), intent(in) :: flx_p !*FD flux +1/2
     real(dp), dimension(:), intent(in) :: flx_m !*FD flux -1/2
     real(dp), dimension(:), intent(in) :: dif_p !*FD diffusivity +1/2
