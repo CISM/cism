@@ -51,7 +51,7 @@
 
   module glissade_velo_higher
 
-    use glimmer_global, only: sp, dp
+    use glimmer_global, only: dp
     use glimmer_physcon, only: gn, rhoi, rhoo, grav, scyr
     use glimmer_paramets, only: thk0, len0, tim0, tau0, vel0   !TODO - remove these later
     use glimmer_paramets, only: vel_scale, len_scale   ! used for whichefvs = HO_EFVS_FLOWFACT
@@ -518,14 +518,14 @@
     real(dp), intent(in) ::   & 
        thklim                 ! minimum ice thickness for active cells (m)
 
-    real (dp), dimension(:,:,:), intent(in) ::  &
+    real(dp), dimension(:,:,:), intent(in) ::  &
        flwa                   ! flow factor in units of Pa^(-n) s^(-1)
 
-    real (dp), dimension(:,:,:), intent(inout) ::  &
+    real(dp), dimension(:,:,:), intent(inout) ::  &
        uvel, vvel             ! velocity components (m/s)
 
     !TODO - Uncomment and pass in
-!!    real (dp), dimension(:,:), intent(in) ::  &
+!!    real(dp), dimension(:,:), intent(in) ::  &
 !!       beta                   ! basal traction parameter
 
     integer, intent(in) :: whichefvs      ! option for effective viscosity calculation 
@@ -611,7 +611,7 @@
        ssa_factor         ! = 1. if SSA terms are included, else = 0.
 
     !TODO - Pass in as an argument instead
-    real (dp), dimension(nx-1,ny-1) ::  &
+    real(dp), dimension(nx-1,ny-1) ::  &
        beta                   ! basal traction parameter
 
     ! The following are used only for the single-processor SLAP solver
@@ -1608,7 +1608,7 @@
        dx,  dy                ! grid cell length and width (m)
                               ! assumed to have the same value for each grid cell
 
-    real (dp), dimension(nx,ny), intent(in) ::  &
+    real(dp), dimension(nx,ny), intent(in) ::  &
        thck                   ! ice thickness
 
     real(dp), intent(in) ::   & 
@@ -2362,7 +2362,7 @@
     real(dp), dimension(nx-1,ny-1), intent(in) ::   &
        xVertex, yVertex     ! x and y coordinates of vertices
 
-    real (dp), dimension(nz,nx-1,ny-1), intent(in) ::  &
+    real(dp), dimension(nz,nx-1,ny-1), intent(in) ::  &
        uvel, vvel         ! velocity components (m/s)
 
     real(dp), dimension(nx-1,ny-1), intent(in) ::  &
@@ -2679,7 +2679,7 @@
     integer :: n, row, col
 
 !WHL - debug
-    real (dp), dimension(3,3) :: prod     ! Jac * Jinv (should be identity matrix)
+    real(dp), dimension(3,3) :: prod     ! Jac * Jinv (should be identity matrix)
 
     !------------------------------------------------------------------
     ! Compute the Jacobian for the transformation from the reference
@@ -3393,7 +3393,7 @@
     integer :: n, row, col
 
 !WHL - debug
-    real (dp), dimension(2,2) :: prod     ! Jac * Jinv (should be identity matrix)
+    real(dp), dimension(2,2) :: prod     ! Jac * Jinv (should be identity matrix)
 
     !------------------------------------------------------------------
     ! Compute the Jacobian for the transformation from the reference

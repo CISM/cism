@@ -88,7 +88,7 @@ implicit none
 
   !SCALING - This corresponds to an effective min strain rate of 1.0d-20 s^(-1).
   real(dp), parameter :: effstrminsq = (1.0d-20 * tim0)**2
-  real(dp) :: homotopy = 0.0
+  real(dp) :: homotopy = 0.d0
 
   real(dp) :: p1, p2, p3    ! variants of Glen's "n" (e.g. n, (1-n)/n)
   real(dp) :: dew2, dns2, dew4, dns4
@@ -137,8 +137,8 @@ implicit none
 
   logical, save :: inisoln = .false.      ! true only if a converged solution (velocity fields) exists
 
-  real(dp) :: linearSolveTime = 0
-  real(dp) :: totalLinearSolveTime = 0 ! total linear solve time
+  real(dp) :: linearSolveTime = 0.d0
+  real(dp) :: totalLinearSolveTime = 0.d0 ! total linear solve time
 
   ! AGS: partition information for distributed solves
   ! JEFF: Moved to module-level scope for globalIDs
@@ -316,7 +316,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
   integer :: ew, ns, up     ! counters for horiz and vert do loops
 
   real(dp), parameter :: minres = 1.0d-4    ! assume vel fields converged below this resid 
-  real(dp), parameter :: NL_tol = 1.0d-06   ! to have same criterion than with JFNK
+  real(dp), parameter :: NL_tol = 1.0d-6    ! to have same criterion than with JFNK
   real(dp), save, dimension(2) :: resid     ! vector for storing u resid and v resid 
 
   integer, parameter :: cmax = 100                  ! max no. of iterations
@@ -460,11 +460,11 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
   ! set residual and iteration counter to initial values
   resid = 1.d0
   counter = 1
-  L2norm = 1.0d20
+  L2norm = 1.d20
 
   ! intialize outer loop test vars
-  outer_it_criterion = 1.0
-  outer_it_target = 0.0
+  outer_it_criterion = 1.d0
+  outer_it_target = 0.d0
 
   if (main_task) then
      ! print some info to the screen to update on iteration progress
@@ -492,8 +492,8 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
   ! or the max no. of iterations is exceeded
 
   !JEFF Guarantees at least one loop
-  outer_it_criterion = 1.0
-  outer_it_target = 0.0
+  outer_it_criterion = 1.d0
+  outer_it_target = 0.d0
 
   do while ( outer_it_criterion >= outer_it_target .and. counter < cmax)    ! use L2 norm for resid calculation
  call t_startf("PICARD_in_iter")
@@ -508,8 +508,8 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
       outer_it_target = minres
     end if
   else
-    outer_it_criterion = 1.0d10
-    outer_it_target = 1.0d-12
+    outer_it_criterion = 1.d10
+    outer_it_target = 1.d-12
   end if
 
   ! WJS: commenting out the following block, because it leads to lots of extra files,
@@ -917,7 +917,7 @@ subroutine JFNK_velo_solver  (model,umask)
   real(dp), dimension(:,:,:) ,pointer :: efvs
 
   integer :: ew, ns, up, nele
-  real(dp), parameter :: NL_tol = 1.0d-06
+  real(dp), parameter :: NL_tol = 1.0d-6
 
 ! currently needed to assess whether basal traction is updated after each nonlinear iteration
 !  integer :: k 
@@ -2023,7 +2023,7 @@ subroutine forcing_term ( k, L2normk_1, gamma_l )
 
       gamma_ini = 0.9d0
       gamma_min = 0.01d0
-      expo      = 2d0
+      expo      = 2.d0
 
       if (k == 1) then
          gamma_l = gamma_ini
@@ -2183,8 +2183,8 @@ subroutine reset_effstrmin (esm_factor) bind(C, name='reset_effstrmin')
 !  effstrminsq = effstrminsq_target * 10.0**(2.0 * esm_factor)
   
   ! Homotopy parameter needs to be zero when esm_factor hits zero
-  if (esm_factor > 1.0e-10) then
-    homotopy = 10**( esm_factor - 9.0 )
+  if (esm_factor > 1.0d-10) then
+    homotopy = 10.0**( esm_factor - 9.0 )
   else
     homotopy = 0.0;
   endif
@@ -2895,10 +2895,10 @@ function mindcrshstr2(pt,whichresid,vel,counter,resid)
   
   theta = acos( in_prod / (len_new * len_old + small) )
     
-   if (theta  < (1.0/8.0)*pi) then
+   if (theta  < (1.d0/8.d0)*pi) then
         mindcrshstr2 = usav(:,:,:,pt) + cvg_accel * corr(:,:,:,new(pt),pt)
 !        print *, theta/pi, 'increased correction'
-   else if(theta < (19.0/20.0)*pi) then
+   else if(theta < (19.d0/20.d0)*pi) then
         mindcrshstr2 = vel
 !        print *, theta/pi, 'standard correction'
    else
@@ -2951,7 +2951,7 @@ function mindcrshstr2(pt,whichresid,vel,counter,resid)
     locat = maxloc( rel_diff, MASK = mindcrshstr2 /= 0.d0 )
 
 !    mean_rel_diff = sum(rel_diff) / sum(vel_ne_0)
-!    sig_rel_diff = sqrt( sum((rel_diff - mean_rel_diff) ** 2.0 )/ sum(vel_ne_0) )
+!    sig_rel_diff = sqrt( sum((rel_diff - mean_rel_diff) ** 2.d0 )/ sum(vel_ne_0) )
 !    print *, 'mean', mean_rel_diff, 'sig', sig_rel_diff
 
     !write(*,*) 'locat', locat
@@ -3997,7 +3997,7 @@ function vertimainbc(thck, bcflag, dup, efvs, betasquared, g_vert, nz )
     ! for higher-order FREE SURFACE B.C. for x ('which'=1) or y ('which'=2) direction ...
     if( bcflag(1) == 1 )then
 
-           c = nz / thck / (2*dup) * (len0**2 / thk0**2)   ! value of coefficient
+           c = nz / thck / (2.d0*dup) * (len0**2 / thk0**2)   ! value of coefficient
 
            vertimainbc(:) = 0.d0
            vertimainbc(3) = -c
@@ -4067,7 +4067,7 @@ function vertimainbcos(thck, bcflag, dup, efvs, betasquared, g_vert, nz )
     ! for higher-order FREE SURFACE B.C. for x ('which'=1) or y ('which'=2) direction ...
     if( bcflag(1) == 1 .and. bcflag(2) == 0 )then
 
-           c = nz / thck / (2*dup) * (len0**2 / thk0**2) * efvsbar_sfc ! value of coefficient
+           c = nz / thck / (2.d0*dup) * (len0**2 / thk0**2) * efvsbar_sfc ! value of coefficient
 
            vertimainbcos(:) = 0.d0
            vertimainbcos(1) = 3.d0*c
@@ -4083,7 +4083,7 @@ function vertimainbcos(thck, bcflag, dup, efvs, betasquared, g_vert, nz )
    ! for higher-order BASAL B.C. w/ specified basal traction, add on the necessary source term ...
    if( bcflag(1) == 1 .and. bcflag(2) == 1 )then
 
-           c = nz / thck / (2*dup) * (len0**2 / thk0**2) * efvsbar_bed ! value of coefficient
+           c = nz / thck / (2.d0*dup) * (len0**2 / thk0**2) * efvsbar_bed ! value of coefficient
 
            vertimainbcos(:) = 0.d0
            vertimainbcos(1) = -1.d0*c
@@ -4174,9 +4174,9 @@ function normhorizmainbcos(dew,       dns,      &
            ! first, coeff. that go with du/dsigma, and thus are associated
            ! with u(1,2,2) and u(3,2,2) ...
 !           c = ( fourorone(which) * dusrfdew * dsigmadew   &
-!               + oneorfour(which) * dusrfdns * dsigmadns )/(2*dup)
+!               + oneorfour(which) * dusrfdns * dsigmadns )/(2.d0*dup)
            c = ( fourorone(which) * dusrfdew * dsigmadew   &
-               + oneorfour(which) * dusrfdns * dsigmadns )/(2*dup) * ( sum( efvs(1,:,:) ) / 4.d0 )
+               + oneorfour(which) * dusrfdns * dsigmadns )/(2.d0*dup) * ( sum( efvs(1,:,:) ) / 4.d0 )
 
            g(1,2,2) = 3.d0*c
            g(2,2,2) = -4.d0*c
@@ -4212,12 +4212,12 @@ function normhorizmainbcos(dew,       dns,      &
 
            ! next, coeff. that go with du/dxhat and du/dyhat terms ...
 !           c = fourorone(which) * dusrfdew / (2*dew)
-           c = fourorone(which) * dusrfdew / (2*dew) * ( sum( efvs(2,:,:) ) / 4.d0 )
+           c = fourorone(which) * dusrfdew / (2.d0*dew) * ( sum( efvs(2,:,:) ) / 4.d0 )
            g(3,3,2) = c
            g(3,1,2) = -c
 
 !           c = oneorfour(which) * dusrfdns / (2*dns)
-           c = oneorfour(which) * dusrfdns / (2*dns) * ( sum( efvs(2,:,:) ) / 4.d0 )
+           c = oneorfour(which) * dusrfdns / (2.d0*dns) * ( sum( efvs(2,:,:) ) / 4.d0 )
            g(3,2,3) = c
            g(3,2,1) = -c
 
@@ -4284,9 +4284,9 @@ function croshorizmainbcos(dew,       dns,       &
            ! first, coeff. that go with du/dsigma, and thus are associated
            ! with u(1,2,2) and u(3,2,2) ...
 !           c = ( - twoorone(which) * dusrfdew * dsigmadns   &
-!                 - oneortwo(which) * dusrfdns * dsigmadew )/(2*dup)
+!                 - oneortwo(which) * dusrfdns * dsigmadew )/(2.d0*dup)
            c = ( - twoorone(which) * dusrfdew * dsigmadns   &
-                 - oneortwo(which) * dusrfdns * dsigmadew )/(2*dup) * ( sum( efvs(1,:,:) ) / 4.d0 )
+                 - oneortwo(which) * dusrfdns * dsigmadew )/(2.d0*dup) * ( sum( efvs(1,:,:) ) / 4.d0 )
 
            g(1,2,2) = 3.d0*c
            g(2,2,2) = -4.d0*c
@@ -4294,12 +4294,12 @@ function croshorizmainbcos(dew,       dns,       &
 
            ! next, coeff. that go with du/dxhat and du/dyhat terms ...
 !           c = - oneortwo(which) * dusrfdns / (2*dew)
-           c = - oneortwo(which) * dusrfdns / (2*dew) * ( sum( efvs(1,:,:) ) / 4.d0 )
+           c = - oneortwo(which) * dusrfdns / (2.d0*dew) * ( sum( efvs(1,:,:) ) / 4.d0 )
            g(1,3,2) = c
            g(1,1,2) = -c
 
 !           c = - twoorone(which) * dusrfdew / (2*dns)
-           c = - twoorone(which) * dusrfdew / (2*dns) * ( sum( efvs(1,:,:) ) / 4.d0 )
+           c = - twoorone(which) * dusrfdew / (2.d0*dns) * ( sum( efvs(1,:,:) ) / 4.d0 )
            g(1,2,3) = c
            g(1,2,1) = -c
 
@@ -4314,7 +4314,7 @@ function croshorizmainbcos(dew,       dns,       &
 !           c = ( - twoorone(which) * dusrfdew * dsigmadns   &
 !                 - oneortwo(which) * dusrfdns * dsigmadew )/(2*dup)
            c = ( - twoorone(which) * dusrfdew * dsigmadns   &
-                 - oneortwo(which) * dusrfdns * dsigmadew )/(2*dup) * ( sum( efvs(2,:,:) ) / 4.d0 )
+                 - oneortwo(which) * dusrfdns * dsigmadew )/(2.d0*dup) * ( sum( efvs(2,:,:) ) / 4.d0 )
 
            g(1,2,2) = -1.d0*c
            g(2,2,2) = 4.d0*c
@@ -4322,13 +4322,13 @@ function croshorizmainbcos(dew,       dns,       &
 
            ! next, coeff. that go with du/dxhat and du/dyhat terms ...
 !           c = - oneortwo(which) * dusrfdns / (2*dew)
-           c = - oneortwo(which) * dusrfdns / (2*dew) * ( sum( efvs(2,:,:) ) / 4.d0 )
+           c = - oneortwo(which) * dusrfdns / (2.d0*dew) * ( sum( efvs(2,:,:) ) / 4.d0 )
            g(3,3,2) = c
            g(3,1,2) = -c
 
 
 !           c = - twoorone(which) * dusrfdew / (2*dns)
-           c = - twoorone(which) * dusrfdew / (2*dns) * ( sum( efvs(2,:,:) ) / 4.d0 )
+           c = - twoorone(which) * dusrfdew / (2.d0*dns) * ( sum( efvs(2,:,:) ) / 4.d0 )
            g(3,2,3) = c
            g(3,2,1) = -c
 
@@ -4343,7 +4343,7 @@ function croshorizmainbcos(dew,       dns,       &
         g(:,:,:) = 0.d0
 
         where( local_othervel /= 0.d0 )
-            g = 1
+            g = 1.d0
         elsewhere
             g = 0.d0
         endwhere
@@ -4444,21 +4444,21 @@ function normhorizmainbc_lat(dew,       dns,   &
            if( foew )then
                c =  -1.d0 * fwdorbwd(1) * fourorone(which) * dusrfdew / dew * efvsbar
            else
-               c = fourorone(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdew / (2*dew) * efvsbar
+               c = fourorone(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdew / (2.d0*dew) * efvsbar
            endif
            g(2,2-int(fwdorbwd(1)),2) = c
 
            if( foew )then
                c = fwdorbwd(1)*fourorone(which) * dusrfdew / dew * efvsbar
            else
-               c = fourorone(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdew / (2*dew) * efvsbar
+               c = fourorone(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdew / (2.d0*dew) * efvsbar
            endif
            g(2,2,2) = c
 
            if( foew )then
                c = 0.d0
            else
-               c = fourorone(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdew / (2*dew) * efvsbar
+               c = fourorone(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdew / (2.d0*dew) * efvsbar
            endif
            g(2,2+int(fwdorbwd(1)),2) = c
 
@@ -4476,21 +4476,21 @@ function normhorizmainbc_lat(dew,       dns,   &
            if( fons )then
                c =  -1.d0 * fwdorbwd(2) * oneorfour(which) * dusrfdns / dns * efvsbar
            else
-               c = oneorfour(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdns / (2*dns) * efvsbar
+               c = oneorfour(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdns / (2.d0*dns) * efvsbar
            endif
            g(1,2,2-int(fwdorbwd(2))) = c
 
            if( fons )then
                c = fwdorbwd(2)*oneorfour(which) * dusrfdns / dns * efvsbar
            else
-               c = oneorfour(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdns / (2*dns) * efvsbar
+               c = oneorfour(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdns / (2.d0*dns) * efvsbar
            endif
            g(1,2,2) = c
 
            if( fons )then
                c = 0.d0
            else
-               c = oneorfour(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdns / (2*dns) * efvsbar
+               c = oneorfour(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdns / (2.d0*dns) * efvsbar
            endif
            g(1,2,2+int(fwdorbwd(2))) = c
 
@@ -4557,13 +4557,13 @@ function croshorizmainbc_lat (dew,       dns,       &
     ! first, coeff. that go with du/dsigma, and thus are associated with u(1,2,2) and u(3,2,2) 
     ! ... note that these are stored in a separate vector (to avoid being overwritten if stored in normal 'g')  
     c = ( - twoorone(which) * dusrfdew * dsigmadns   &
-              - oneortwo(which) * dusrfdns * dsigmadew )/(2*dup) * efvsbar
+              - oneortwo(which) * dusrfdns * dsigmadew )/(2.d0*dup) * efvsbar
     gvert(3) = -c * whichbc(what)
     gvert(1) = c * whichbc(what)
 
     if( normal(1) == 0.d0 )then        ! centered in x ...
 
-           c = -oneortwo(which) * dusrfdns / (2*dew) * efvsbar
+           c = -oneortwo(which) * dusrfdns / (2.d0*dew) * efvsbar
            g(2,3,2) = c
            g(2,1,2) = -c
 
@@ -4573,21 +4573,21 @@ function croshorizmainbc_lat (dew,       dns,       &
            if( foew )then
                c =  oneortwo(which) * fwdorbwd(1) * dusrfdns / dew * efvsbar
            else
-               c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdns / (2*dew) * efvsbar
+               c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(1) * dusrfdns / (2.d0*dew) * efvsbar
            endif
            g(2,2-int(fwdorbwd(1)),2) = c
 
            if( foew )then
                c = -oneortwo(which) * fwdorbwd(1) * dusrfdns / dew * efvsbar
            else
-               c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdns / (2*dew) * efvsbar
+               c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(2) * dusrfdns / (2.d0*dew) * efvsbar
            endif
            g(2,2,2) = c
 
            if( foew )then
                c = 0.d0
            else
-               c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdns / (2*dew) * efvsbar
+               c = -oneortwo(which) * fwdorbwd(1) * onesideddiff(3) * dusrfdns / (2.d0*dew) * efvsbar
            endif
            g(2,2+int(fwdorbwd(1)),2) = c
 
@@ -4596,7 +4596,7 @@ function croshorizmainbc_lat (dew,       dns,       &
     if( normal(2) == 0.d0 )then    ! centered in y ...
                                        ! (NOTE that y coeff. are stored in g(1,:,:) )
 
-           c = -twoorone(which) * dusrfdew / (2*dns) * efvsbar
+           c = -twoorone(which) * dusrfdew / (2.d0*dns) * efvsbar
            g(1,2,3) = c
            g(1,2,1) = -c
 
@@ -4605,21 +4605,21 @@ function croshorizmainbc_lat (dew,       dns,       &
            if( fons )then
                c =  twoorone(which) * fwdorbwd(2) * dusrfdew / dns * efvsbar
            else
-               c = -twoorone(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdew / (2*dns) * efvsbar
+               c = -twoorone(which) * fwdorbwd(2) * onesideddiff(1) * dusrfdew / (2.d0*dns) * efvsbar
            endif
            g(1,2,2-int(fwdorbwd(2))) = c
 
            if( fons )then
                c = -twoorone(which) * fwdorbwd(2) * dusrfdew / dns * efvsbar
            else
-               c = -twoorone(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdew / (2*dns) * efvsbar
+               c = -twoorone(which) * fwdorbwd(2) * onesideddiff(2) * dusrfdew / (2.d0*dns) * efvsbar
            endif
            g(1,2,2) = c
 
            if( fons )then
                c = 0.d0
            else
-               c = -twoorone(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdew / (2*dns) * efvsbar
+               c = -twoorone(which) * fwdorbwd(2) * onesideddiff(3) * dusrfdew / (2.d0*dns) * efvsbar
            endif
            g(1,2,2+int(fwdorbwd(2))) = c
 
@@ -4960,8 +4960,9 @@ subroutine getlatboundinfo( ew, ns, up, ewn, nsn, upn,    &
   thck(:,:) = thckin(2:4,2:4)
   thckinmask = 0
 
-  deg2rad = 3.141592654d0 / 180.d0
-  loc_latbc = 0; phi = 0
+!  deg2rad = 3.141592654d0 / 180.d0
+  deg2rad = pi / 180.d0
+  loc_latbc = 0; phi = 0.d0
   mask(:,1) = (/ 0.d0, 180.d0, 0.d0 /)
   mask(:,2) = (/ 270.d0, 0.d0, 90.d0 /)
   mask(:,3) = (/ 0.d0, 360.d0, 0.d0 /)
@@ -5095,7 +5096,8 @@ function indshift( which, ew, ns, up, ewn, nsn, upn, loc_array, thck )
   real(dp), dimension(3) :: testvect
   real(dp) :: phi, deg2rad
 
-  deg2rad = 3.141592654d0 / 180.d0
+!  deg2rad = 3.141592654d0 / 180.d0
+  deg2rad = pi / 180.d0
   mask(:,1) = (/ 0.d0, 180.d0, 0.d0 /)
   mask(:,2) = (/ 270.d0, 0.d0, 90.d0 /)
   mask(:,3) = (/ 0.d0, 360.d0, 0.d0 /)

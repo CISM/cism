@@ -34,6 +34,7 @@ module glide_nc_custom
 
   !module for filling in dimension variables
 
+  use glimmer_global, only: dp
   implicit none
 
 contains
@@ -95,10 +96,10 @@ contains
        vertical_level_flag   ! if false, do not fill vertical dimensions
 
     integer i,status,varid
-    real(sp),dimension(model%general%ewn-1) :: x0
-    real(sp),dimension(model%general%ewn) :: x1
-    real(sp),dimension(model%general%nsn-1) :: y0
-    real(sp),dimension(model%general%nsn) :: y1
+    real(dp),dimension(model%general%ewn-1) :: x0
+    real(dp),dimension(model%general%ewn) :: x1
+    real(dp),dimension(model%general%nsn-1) :: y0
+    real(dp),dimension(model%general%nsn) :: y1
     logical :: vertical_levels
 
     ! check if we are still in define mode and if so leave it

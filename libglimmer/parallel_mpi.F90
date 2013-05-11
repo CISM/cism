@@ -160,6 +160,7 @@ module parallel
      module procedure distributed_get_var_integer_2d
      module procedure distributed_get_var_real4_1d
      module procedure distributed_get_var_real4_2d
+     module procedure distributed_get_var_real8_1d
      module procedure distributed_get_var_real8_2d
      module procedure distributed_get_var_real8_3d
   end interface
@@ -175,6 +176,7 @@ module parallel
      module procedure distributed_put_var_integer_2d
      module procedure distributed_put_var_real4_1d
      module procedure distributed_put_var_real4_2d
+     module procedure distributed_put_var_real8_1d
      module procedure distributed_put_var_real8_2d
      module procedure distributed_put_var_real8_3d
 
@@ -1037,6 +1039,73 @@ contains
     !automatic deallocation
   end function distributed_get_var_real4_2d
 
+  !WHL - added this function
+  function distributed_get_var_real8_1d(ncid,varid,values,start)
+    use mpi_mod
+    use netcdf
+    implicit none
+    integer :: distributed_get_var_real8_1d,ncid,varid
+    integer,dimension(:) :: start
+    real(8),dimension(:) :: values
+
+    integer :: i,ierror,myn,status,x1id,y1id
+    integer,dimension(2) :: mybounds
+    integer,dimension(:),allocatable :: displs,sendcounts
+    integer,dimension(:,:),allocatable :: bounds
+    real(8),dimension(:),allocatable :: global_values,sendbuf
+
+    ! begin
+
+    if (main_task) then
+       allocate(bounds(2,tasks))
+       status = nf90_inq_varid(ncid,"x1",x1id)
+       status = nf90_inq_varid(ncid,"y1",y1id)
+    else
+       allocate(bounds(1,1))
+    end if
+    call broadcast(x1id)
+    call broadcast(y1id)
+    if (varid==x1id) then
+       mybounds(1) = ewlb
+       mybounds(2) = ewub
+       myn = global_ewn
+    else if (varid==y1id) then
+       mybounds(1) = nslb
+       mybounds(2) = nsub
+       myn = global_nsn
+    else
+       call parallel_stop(__FILE__,__LINE__)
+    end if
+    call fc_gather_int(mybounds,2,mpi_integer,bounds,2,&
+       mpi_integer,main_rank,comm)
+    if (main_task) then
+       allocate(global_values(minval(bounds(1,:)):maxval(bounds(2,:))))
+       global_values(:) = 0
+       distributed_get_var_real8_1d = &
+            nf90_get_var(ncid,varid,global_values(1:myn),start)
+       allocate(displs(tasks+1))
+       allocate(sendcounts(tasks))
+       sendcounts(:) = bounds(2,:)-bounds(1,:)+1
+       displs(1) = 0
+       do i = 1,tasks
+          displs(i+1) = displs(i)+sendcounts(i)
+       end do
+       allocate(sendbuf(displs(tasks+1)))
+       do i = 1,tasks
+          sendbuf(displs(i)+1:displs(i+1)) = &
+               global_values(bounds(1,i):bounds(2,i))
+       end do
+    else
+       allocate(displs(1))
+       allocate(sendcounts(1))
+       allocate(sendbuf(1))
+    end if
+    call broadcast(distributed_get_var_real8_1d)
+    call mpi_scatterv(sendbuf,sendcounts,displs,mpi_real8,&
+         values,size(values),mpi_real8,main_rank,comm,ierror)
+    !automatic deallocation
+  end function distributed_get_var_real8_1d
+
   function distributed_get_var_real8_2d(ncid,varid,values,start)
     use mpi_mod
     implicit none
@@ -1817,6 +1886,87 @@ contains
     call broadcast(distributed_put_var_real4_2d)
     !automatic deallocation
   end function distributed_put_var_real4_2d
+
+  !WHL - added this function
+  function distributed_put_var_real8_1d(ncid,varid,values)
+    use mpi_mod
+    use netcdf
+    implicit none
+    integer :: distributed_put_var_real8_1d,ncid,varid
+    real(8),dimension(:) :: values
+
+    integer :: i,ierror,myn,status,x0id,x1id,y0id,y1id
+
+    integer,dimension(2) :: mybounds
+    integer,dimension(:),allocatable :: displs,recvcounts
+    integer,dimension(:,:),allocatable :: bounds
+    real(8),dimension(:),allocatable :: global_values,recvbuf
+
+    ! begin
+
+    if (main_task) then
+       allocate(bounds(2,tasks))
+       status = nf90_inq_varid(ncid,"x0",x0id)
+       status = nf90_inq_varid(ncid,"x1",x1id)
+       status = nf90_inq_varid(ncid,"y0",y0id)
+       status = nf90_inq_varid(ncid,"y1",y1id)
+    else
+       allocate(bounds(1,1))
+    end if
+    call broadcast(x0id)
+    call broadcast(x1id)
+    call broadcast(y0id)
+    call broadcast(y1id)
+    if (varid==x0id) then
+       mybounds(1) = ewlb
+       mybounds(2) = ewub-1
+       myn = global_ewn-1
+    else if (varid==x1id) then
+       mybounds(1) = ewlb
+       mybounds(2) = ewub
+       myn = global_ewn
+    else if (varid==y0id) then
+       mybounds(1) = nslb
+       mybounds(2) = nsub-1
+       myn = global_nsn-1
+    else if (varid==y1id) then
+       mybounds(1) = nslb
+       mybounds(2) = nsub
+       myn = global_nsn
+    else
+       call parallel_stop(__FILE__,__LINE__)
+    end if
+    call fc_gather_int(mybounds,2,mpi_integer,bounds,2,&
+       mpi_integer,main_rank,comm)
+    if (main_task) then
+       allocate(global_values(minval(bounds(1,:)):maxval(bounds(2,:))))
+       global_values(:) = 0
+       allocate(displs(tasks+1))
+       allocate(recvcounts(tasks))
+       recvcounts(:) = bounds(2,:)-bounds(1,:)+1
+       displs(1) = 0
+       do i = 1,tasks
+          displs(i+1) = displs(i)+recvcounts(i)
+       end do
+       allocate(recvbuf(displs(tasks+1)))
+    else
+       allocate(displs(1))
+       allocate(recvcounts(1))
+       allocate(recvbuf(1))
+    end if
+    call fc_gatherv_real8(values,size(values),mpi_real8,&
+       recvbuf,recvcounts,displs,mpi_real8,main_rank,comm)
+    if (main_task) then
+       do i = 1,tasks
+          global_values(bounds(1,i):bounds(2,i)) = &
+               recvbuf(displs(i)+1:displs(i+1))
+       end do
+       distributed_put_var_real8_1d = &
+            nf90_put_var(ncid,varid,global_values(1:myn))
+    end if
+    call broadcast(distributed_put_var_real8_1d)
+    !automatic deallocation
+  end function distributed_put_var_real8_1d
 
   function distributed_put_var_real8_2d(ncid,varid,values,start)
     use mpi_mod

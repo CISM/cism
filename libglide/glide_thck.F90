@@ -38,6 +38,7 @@
 
 module glide_thck
 
+  use glimmer_global, only : dp
   use glide_types
   use glimmer_sparse
   use glimmer_sparse_type
@@ -212,7 +213,6 @@ contains
     !*FD non-linear iteration to update the diffusivities and in inner, linear
     !*FD iteration to calculate the new ice thickness distrib
 
-    use glimmer_global, only : dp
     use glide_velo
     use glide_setup
     use glide_nonlin !For unstable manifold correction
@@ -409,7 +409,6 @@ contains
     !*FD set up sparse matrix and solve matrix equation to find new ice thickness distribution
     !*FD this routine does not override the old thickness distribution
 
-    use glimmer_global, only : dp
     use glimmer_log
     use glimmer_paramets, only: vel0, thk0, GLC_DEBUG
 
@@ -572,8 +571,8 @@ contains
 
     if (GLC_DEBUG) then
        print *, "* thck ", model%numerics%time, linit, model%geometry%totpts, &
-            real(thk0*new_thck(model%general%ewn/2+1,model%general%nsn/2+1)), &
-            real(vel0*maxval(abs(model%velocity%ubas))), real(vel0*maxval(abs(model%velocity%vbas))) 
+            real(thk0 * new_thck(model%general%ewn/2+1,model%general%nsn/2+1)), &
+            real(vel0 * maxval(abs(model%velocity%ubas))), real(vel0*maxval(abs(model%velocity%vbas))) 
     end if
 
     !TODO Why are lsrf and usrf calculated here?  This is confusing because model%geometry%thck has only been updated 
@@ -697,8 +696,6 @@ contains
     ! Compute an integer mask for the glide thickness calculation.
     ! The mask generally includes ice-covered cells (thck > 0), cells adjacent to 
     !  ice-covered cells, and cells with a positive mass balance (acab > 0).
-
-    use glimmer_global, only : dp, sp 
 
     !-------------------------------------------------------------------------
     ! Subroutine arguments
@@ -983,7 +980,7 @@ contains
   subroutine adi_tri(a,b,c,d,thk,tpg,mb,flx_p,flx_m,dif_p,dif_m,dt,ds1, ds2)
 
     !*FD construct tri-diagonal matrix system for a column/row
-    use glimmer_global, only : dp, sp
+
     implicit none
     
     real(dp), dimension(:), intent(out) :: a !*FD alpha (subdiagonal)
@@ -1049,14 +1046,13 @@ contains
     ! NOTE: This subroutine computes over all grid cells, not just locally owned.
     !       Halos should be updated before it is called.
 
-    use glimmer_global, only : dp
     use glimmer_physcon, only : rhoi, rhoo
 
     implicit none
 
     real(dp), intent(in),  dimension(:,:) :: thck !*FD Ice thickness
     real(dp), intent(in),  dimension(:,:) :: topg !*FD Bedrock topography elevation
-    real, intent(in)                      :: eus  !*FD global sea level
+    real(dp), intent(in)                  :: eus  !*FD global sea level
     real(dp), intent(out), dimension(:,:) :: lsrf !*FD Lower ice surface elevation
 
     real(dp), parameter :: con = - rhoi / rhoo
@@ -1074,8 +1070,6 @@ contains
 !TODO - This subroutine is not used.  Remove it?
 
   subroutine filterthck(thck,ewn,nsn)
-
-    use glimmer_global, only : dp ! ew, ewn, ns, nsn
 
     implicit none
 
@@ -1119,8 +1113,6 @@ contains
 !TODO - This subroutine is not used.  Remove it?
 
   subroutine swapbndh(bc,a,b,c,d)
-
-    use glimmer_global, only : dp
 
     implicit none
 

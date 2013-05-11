@@ -245,7 +245,6 @@ contains
     use glide_types
     use glimmer_log
     use glimmer_filenames
-    use glimmer_global, only: dp
     use parallel
 
     implicit none
@@ -361,7 +360,6 @@ contains
 
   function glide_calc_sigma(x,n)
 
-     use glimmer_global, only: dp
      implicit none
      real(dp) :: glide_calc_sigma, x, n
       
@@ -376,7 +374,6 @@ contains
      ! Implements an alternate set of sigma levels that encourages better
      ! convergence for higher-order velocities
 
-     use glimmer_global, only:dp
      implicit none
      real(dp) :: glide_calc_sigma_pattyn, x
 
@@ -988,7 +985,7 @@ contains
     implicit none
     type(ConfigSection), pointer :: section
     type(glide_global_type)  :: model
-    real, pointer, dimension(:) :: tempvar => NULL()
+    real(dp), pointer, dimension(:) :: tempvar => NULL()
     integer :: loglevel
 
     loglevel = GM_levels-GM_ERROR

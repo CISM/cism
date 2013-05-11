@@ -33,7 +33,7 @@ module glide_diagnostics
   ! subroutines for computing various useful diagnostics
   ! Author: William Lipscomb, LANL 
  
-  use glimmer_global
+  use glimmer_global, only: dp
   use glimmer_log
   use glide_types
 

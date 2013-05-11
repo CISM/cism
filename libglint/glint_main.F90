@@ -33,7 +33,7 @@ module glint_main
   !*FD  This is the main glimmer module, which contains the top-level 
   !*FD  subroutines and derived types comprising the glimmer ice model.
 
-  use glimmer_global
+  use glimmer_global, only: dp, fname_length
   use glint_type
   use glint_global_grid
   use glint_constants
@@ -91,30 +91,30 @@ module glint_main
 
      ! Averaging arrays -----------------------------------------
 
-     real(rk),pointer,dimension(:,:) :: g_av_precip  => null()  !*FD globally averaged precip
-     real(rk),pointer,dimension(:,:) :: g_av_temp    => null()  !*FD globally averaged temperature 
-     real(rk),pointer,dimension(:,:) :: g_max_temp   => null()  !*FD global maximum temperature
-     real(rk),pointer,dimension(:,:) :: g_min_temp   => null()  !*FD global minimum temperature
-     real(rk),pointer,dimension(:,:) :: g_temp_range => null()  !*FD global temperature range
-     real(rk),pointer,dimension(:,:) :: g_av_zonwind => null()  !*FD globally averaged zonal wind 
-     real(rk),pointer,dimension(:,:) :: g_av_merwind => null()  !*FD globally averaged meridional wind 
-     real(rk),pointer,dimension(:,:) :: g_av_humid   => null()  !*FD globally averaged humidity (%)
-     real(rk),pointer,dimension(:,:) :: g_av_lwdown  => null()  !*FD globally averaged downwelling longwave (W/m$^2$)
-     real(rk),pointer,dimension(:,:) :: g_av_swdown  => null()  !*FD globally averaged downwelling shortwave (W/m$^2$)
-     real(rk),pointer,dimension(:,:) :: g_av_airpress => null() !*FD globally averaged surface air pressure (Pa)
-     real(rk),pointer,dimension(:,:,:) :: g_av_qsmb => null()   ! globally averaged surface mass balance (kg m-2 s-1)
-     real(rk),pointer,dimension(:,:,:) :: g_av_tsfc => null()   ! globally averaged surface temperature (deg C)
-     real(rk),pointer,dimension(:,:,:) :: g_av_topo => null()   ! globally averaged surface elevation   (m)
+     real(dp),pointer,dimension(:,:) :: g_av_precip  => null()  !*FD globally averaged precip
+     real(dp),pointer,dimension(:,:) :: g_av_temp    => null()  !*FD globally averaged temperature 
+     real(dp),pointer,dimension(:,:) :: g_max_temp   => null()  !*FD global maximum temperature
+     real(dp),pointer,dimension(:,:) :: g_min_temp   => null()  !*FD global minimum temperature
+     real(dp),pointer,dimension(:,:) :: g_temp_range => null()  !*FD global temperature range
+     real(dp),pointer,dimension(:,:) :: g_av_zonwind => null()  !*FD globally averaged zonal wind 
+     real(dp),pointer,dimension(:,:) :: g_av_merwind => null()  !*FD globally averaged meridional wind 
+     real(dp),pointer,dimension(:,:) :: g_av_humid   => null()  !*FD globally averaged humidity (%)
+     real(dp),pointer,dimension(:,:) :: g_av_lwdown  => null()  !*FD globally averaged downwelling longwave (W/m$^2$)
+     real(dp),pointer,dimension(:,:) :: g_av_swdown  => null()  !*FD globally averaged downwelling shortwave (W/m$^2$)
+     real(dp),pointer,dimension(:,:) :: g_av_airpress => null() !*FD globally averaged surface air pressure (Pa)
+     real(dp),pointer,dimension(:,:,:) :: g_av_qsmb => null()   ! globally averaged surface mass balance (kg m-2 s-1)
+     real(dp),pointer,dimension(:,:,:) :: g_av_tsfc => null()   ! globally averaged surface temperature (deg C)
+     real(dp),pointer,dimension(:,:,:) :: g_av_topo => null()   ! globally averaged surface elevation   (m)
 
      ! Fractional coverage information --------------------------
      ! Note: these are only valid on the main task
-     real(rk),pointer,dimension(:,:) :: total_coverage  => null()     !*FD Fractional coverage by 
+     real(dp),pointer,dimension(:,:) :: total_coverage  => null()     !*FD Fractional coverage by 
                                                                       !*FD all ice model instances.
-     real(rk),pointer,dimension(:,:) :: cov_normalise   => null()     !*FD Normalisation values 
+     real(dp),pointer,dimension(:,:) :: cov_normalise   => null()     !*FD Normalisation values 
                                                                       !*FD for coverage calculation.
-     real(rk),pointer,dimension(:,:) :: total_cov_orog  => null()     !*FD Fractional coverage by 
+     real(dp),pointer,dimension(:,:) :: total_cov_orog  => null()     !*FD Fractional coverage by 
                                                                       !*FD all ice model instances (orog).
-     real(rk),pointer,dimension(:,:) :: cov_norm_orog   => null()     !*FD Normalisation values 
+     real(dp),pointer,dimension(:,:) :: cov_norm_orog   => null()     !*FD Normalisation values 
                                                                       !*FD for coverage calculation (orog).
      logical                         :: coverage_calculated = .false. !*FD Have we calculated the
                                                                       !*FD coverage map yet?
@@ -209,28 +209,28 @@ contains
     ! Subroutine argument declarations --------------------------------------------------------
 
     type(glint_params),              intent(inout) :: params      !*FD parameters to be set
-    real(rk),dimension(:),           intent(in)    :: lats,longs  !*FD location of gridpoints 
+    real(dp),dimension(:),           intent(in)    :: lats,longs  !*FD location of gridpoints 
                                                                   !*FD in global data.
     integer,                         intent(in)    :: time_step   !*FD Timestep of calling model (hours)
     character(*),dimension(:),       intent(in)    :: paramfile   !*FD array of configuration filenames.
-    real(rk),dimension(:),  optional,intent(in)    :: latb        !*FD Locations of the latitudinal 
+    real(dp),dimension(:),  optional,intent(in)    :: latb        !*FD Locations of the latitudinal 
                                                                   !*FD boundaries of the grid-boxes.
-    real(rk),dimension(:),  optional,intent(in)    :: lonb        !*FD Locations of the longitudinal
+    real(dp),dimension(:),  optional,intent(in)    :: lonb        !*FD Locations of the longitudinal
                                                                   !*FD boundaries of the grid-boxes.
-    real(rk),dimension(:,:),optional,intent(out)   :: orog        !*FD Initial global orography
-    real(rk),dimension(:,:),optional,intent(out)   :: albedo      !*FD Initial albedo
-    real(rk),dimension(:,:),optional,intent(out)   :: ice_frac    !*FD Initial ice fraction 
-    real(rk),dimension(:,:),optional,intent(out)   :: veg_frac    !*FD Initial veg fraction
-    real(rk),dimension(:,:),optional,intent(out)   :: snowice_frac !*FD Initial snow-covered ice fraction
-    real(rk),dimension(:,:),optional,intent(out)   :: snowveg_frac !*FD Initial snow-covered veg fraction
-    real(rk),dimension(:,:),optional,intent(out)   :: snow_depth  !*FD Initial snow depth 
-    real(rk),dimension(:),  optional,intent(in)    :: orog_lats   !*FD Latitudinal location of gridpoints 
+    real(dp),dimension(:,:),optional,intent(out)   :: orog        !*FD Initial global orography
+    real(dp),dimension(:,:),optional,intent(out)   :: albedo      !*FD Initial albedo
+    real(dp),dimension(:,:),optional,intent(out)   :: ice_frac    !*FD Initial ice fraction 
+    real(dp),dimension(:,:),optional,intent(out)   :: veg_frac    !*FD Initial veg fraction
+    real(dp),dimension(:,:),optional,intent(out)   :: snowice_frac !*FD Initial snow-covered ice fraction
+    real(dp),dimension(:,:),optional,intent(out)   :: snowveg_frac !*FD Initial snow-covered veg fraction
+    real(dp),dimension(:,:),optional,intent(out)   :: snow_depth  !*FD Initial snow depth 
+    real(dp),dimension(:),  optional,intent(in)    :: orog_lats   !*FD Latitudinal location of gridpoints 
                                                                   !*FD for global orography output.
-    real(rk),dimension(:),  optional,intent(in)    :: orog_longs  !*FD Longitudinal location of gridpoints 
+    real(dp),dimension(:),  optional,intent(in)    :: orog_longs  !*FD Longitudinal location of gridpoints 
                                                                   !*FD for global orography output.
-    real(rk),dimension(:),  optional,intent(in)    :: orog_latb   !*FD Locations of the latitudinal 
+    real(dp),dimension(:),  optional,intent(in)    :: orog_latb   !*FD Locations of the latitudinal 
                                                                   !*FD boundaries of the grid-boxes (orography).
-    real(rk),dimension(:),  optional,intent(in)    :: orog_lonb   !*FD Locations of the longitudinal
+    real(dp),dimension(:),  optional,intent(in)    :: orog_lonb   !*FD Locations of the longitudinal
                                                                   !*FD boundaries of the grid-boxes (orography).
     logical,                optional,intent(out)   :: output_flag !*FD Flag to show output set (provided for
                                                                   !*FD consistency)
@@ -254,7 +254,7 @@ contains
     character(fname_length),dimension(:),pointer :: config_fnames=>null()    ! array of config filenames
     type(ConfigSection), pointer :: econf
     integer :: i, j, n
-    real(rk),dimension(:,:),allocatable :: orog_temp, if_temp, vf_temp, sif_temp,  &
+    real(dp),dimension(:,:),allocatable :: orog_temp, if_temp, vf_temp, sif_temp,  &
                                            svf_temp,  sd_temp, alb_temp      ! Temporary output arrays
     integer,dimension(:),allocatable :: mbts,idts ! Array of mass-balance and ice dynamics timesteps
     logical :: anomaly_check ! Set if we've already initialised anomaly coupling
@@ -611,7 +611,7 @@ contains
     ! Subroutine argument declarations --------------------------------------------------------
 
     type(glint_params),              intent(inout) :: params      !*FD parameters to be set
-    real(rk),dimension(:),           intent(in)    :: lats,longs  !*FD location of gridpoints 
+    real(dp),dimension(:),           intent(in)    :: lats,longs  !*FD location of gridpoints 
                                                                   !*FD in global data.
     integer,                         intent(in)    :: time_step   !*FD Timestep of calling model (hours)
     character(*),dimension(:),       intent(in)    :: paramfile   !*FD array of configuration filenames.
@@ -620,11 +620,11 @@ contains
     integer,                optional,intent(out)   :: ice_dt      !*FD Ice dynamics time-step in hours
     logical,                optional,intent(out)   :: output_flag !*FD Flag to show output set (provided for consistency)
     integer,                  optional,intent(in)  :: glc_nec     !*FD number of elevation classes for GCM input
-    real(rk),dimension(:,:,:),optional,intent(out) :: gfrac       !*FD ice fractional area [0,1]
-    real(rk),dimension(:,:,:),optional,intent(out) :: gtopo       !*FD surface elevation (m)
-    real(rk),dimension(:,:,:),optional,intent(out) :: grofi       !*FD ice runoff (kg/m^2/s = mm H2O/s)
-    real(rk),dimension(:,:,:),optional,intent(out) :: grofl       !*FD liquid runoff (kg/m^2/s = mm H2O/s)
-    real(rk),dimension(:,:,:),optional,intent(out) :: ghflx       !*FD heat flux (W/m^2, positive down)
+    real(dp),dimension(:,:,:),optional,intent(out) :: gfrac       !*FD ice fractional area [0,1]
+    real(dp),dimension(:,:,:),optional,intent(out) :: gtopo       !*FD surface elevation (m)
+    real(dp),dimension(:,:,:),optional,intent(out) :: grofi       !*FD ice runoff (kg/m^2/s = mm H2O/s)
+    real(dp),dimension(:,:,:),optional,intent(out) :: grofl       !*FD liquid runoff (kg/m^2/s = mm H2O/s)
+    real(dp),dimension(:,:,:),optional,intent(out) :: ghflx       !*FD heat flux (W/m^2, positive down)
     integer, dimension(:,:),  optional,intent(in)  :: gmask       !*FD mask = 1 where global data are valid
     logical,                  optional,intent(in)  :: gcm_restart ! logical flag to restart from a GCM restart file
     character(*),             optional, intent(in) :: gcm_restart_file ! restart filename for a GCM restart
@@ -645,7 +645,7 @@ contains
 
     integer,dimension(:),allocatable :: mbts,idts ! Array of mass-balance and ice dynamics timesteps
 
-    real(rk),dimension(:,:,:),allocatable ::   &
+    real(dp),dimension(:,:,:),allocatable ::   &
                gfrac_temp, gtopo_temp, grofi_temp, grofl_temp, ghflx_temp    ! Temporary output arrays
 
     integer :: n
@@ -963,45 +963,45 @@ contains
 
     type(glint_params),              intent(inout) :: params          !*FD parameters for this run
     integer,                         intent(in)    :: time            !*FD Current model time        (hours)
-    real(rk),dimension(:,:),target,  intent(in)    :: rawtemp         !*FD Surface temperature field (deg C)
-    real(rk),dimension(:,:),target,  intent(in)    :: rawprecip       !*FD Precipitation rate        (mm/s)
-    real(rk),dimension(:,:),         intent(in)    :: orog            !*FD The large-scale orography (m)
-    real(rk),dimension(:,:),optional,intent(in)    :: zonwind,merwind !*FD Zonal and meridional components 
+    real(dp),dimension(:,:),target,  intent(in)    :: rawtemp         !*FD Surface temperature field (deg C)
+    real(dp),dimension(:,:),target,  intent(in)    :: rawprecip       !*FD Precipitation rate        (mm/s)
+    real(dp),dimension(:,:),         intent(in)    :: orog            !*FD The large-scale orography (m)
+    real(dp),dimension(:,:),optional,intent(in)    :: zonwind,merwind !*FD Zonal and meridional components 
                                                                       !*FD of the wind field         (m/s)
-    real(rk),dimension(:,:),optional,intent(in)    :: humid           !*FD Surface humidity (%)
-    real(rk),dimension(:,:),optional,intent(in)    :: lwdown          !*FD Downwelling longwave (W/m$^2$)
-    real(rk),dimension(:,:),optional,intent(in)    :: swdown          !*FD Downwelling shortwave (W/m$^2$)
-    real(rk),dimension(:,:),optional,intent(in)    :: airpress        !*FD surface air pressure (Pa)
+    real(dp),dimension(:,:),optional,intent(in)    :: humid           !*FD Surface humidity (%)
+    real(dp),dimension(:,:),optional,intent(in)    :: lwdown          !*FD Downwelling longwave (W/m$^2$)
+    real(dp),dimension(:,:),optional,intent(in)    :: swdown          !*FD Downwelling shortwave (W/m$^2$)
+    real(dp),dimension(:,:),optional,intent(in)    :: airpress        !*FD surface air pressure (Pa)
     logical,                optional,intent(out)   :: output_flag     !*FD Set true if outputs set
-    real(rk),dimension(:,:),optional,intent(inout) :: orog_out        !*FD The fed-back, output orography (m)
-    real(rk),dimension(:,:),optional,intent(inout) :: albedo          !*FD surface albedo
-    real(rk),dimension(:,:),optional,intent(inout) :: ice_frac        !*FD grid-box ice-fraction
-    real(rk),dimension(:,:),optional,intent(inout) :: veg_frac        !*FD grid-box veg-fraction
-    real(rk),dimension(:,:),optional,intent(inout) :: snowice_frac    !*FD grid-box snow-covered ice fraction
-    real(rk),dimension(:,:),optional,intent(inout) :: snowveg_frac    !*FD grid-box snow-covered veg fraction
-    real(rk),dimension(:,:),optional,intent(inout) :: snow_depth      !*FD grid-box mean snow depth (m water equivalent)
-    real(rk),dimension(:,:),optional,intent(inout) :: water_in        !*FD Input water flux          (mm)
-    real(rk),dimension(:,:),optional,intent(inout) :: water_out       !*FD Output water flux         (mm)
-    real(rk),               optional,intent(inout) :: total_water_in  !*FD Area-integrated water flux in (kg)
-    real(rk),               optional,intent(inout) :: total_water_out !*FD Area-integrated water flux out (kg)
-    real(rk),               optional,intent(inout) :: ice_volume      !*FD Total ice volume (m$^3$)
+    real(dp),dimension(:,:),optional,intent(inout) :: orog_out        !*FD The fed-back, output orography (m)
+    real(dp),dimension(:,:),optional,intent(inout) :: albedo          !*FD surface albedo
+    real(dp),dimension(:,:),optional,intent(inout) :: ice_frac        !*FD grid-box ice-fraction
+    real(dp),dimension(:,:),optional,intent(inout) :: veg_frac        !*FD grid-box veg-fraction
+    real(dp),dimension(:,:),optional,intent(inout) :: snowice_frac    !*FD grid-box snow-covered ice fraction
+    real(dp),dimension(:,:),optional,intent(inout) :: snowveg_frac    !*FD grid-box snow-covered veg fraction
+    real(dp),dimension(:,:),optional,intent(inout) :: snow_depth      !*FD grid-box mean snow depth (m water equivalent)
+    real(dp),dimension(:,:),optional,intent(inout) :: water_in        !*FD Input water flux          (mm)
+    real(dp),dimension(:,:),optional,intent(inout) :: water_out       !*FD Output water flux         (mm)
+    real(dp),               optional,intent(inout) :: total_water_in  !*FD Area-integrated water flux in (kg)
+    real(dp),               optional,intent(inout) :: total_water_out !*FD Area-integrated water flux out (kg)
+    real(dp),               optional,intent(inout) :: ice_volume      !*FD Total ice volume (m$^3$)
     logical,                optional,intent(out)   :: ice_tstep       !*FD Set when an ice-timestep has been done, and
                                                                       !*FD water balance information is available
 
     ! Internal variables ----------------------------------------------------------------------------
 
     integer :: i, n
-    real(rk),dimension(:,:),allocatable :: albedo_temp, if_temp, vf_temp, sif_temp, svf_temp,  &
+    real(dp),dimension(:,:),allocatable :: albedo_temp, if_temp, vf_temp, sif_temp, svf_temp,  &
                                            sd_temp, wout_temp, orog_out_temp, win_temp
-    real(rk) :: twin_temp,twout_temp,icevol_temp
+    real(dp) :: twin_temp,twout_temp,icevol_temp
     type(output_flags) :: out_f
     logical :: icets
     character(250) :: message
-    real(rk),dimension(size(rawprecip,1),size(rawprecip,2)),target :: anomprecip
-    real(rk),dimension(size(rawtemp,1),  size(rawtemp,2)),  target :: anomtemp
-    real(rk),dimension(:,:),pointer :: precip
-    real(rk),dimension(:,:),pointer :: temp
-    real(rk) :: yearfrac
+    real(dp),dimension(size(rawprecip,1),size(rawprecip,2)),target :: anomprecip
+    real(dp),dimension(size(rawtemp,1),  size(rawtemp,2)),  target :: anomtemp
+    real(dp),dimension(:,:),pointer :: precip
+    real(dp),dimension(:,:),pointer :: temp
+    real(dp) :: yearfrac
     integer :: j, ig, jg
 
     if (GLC_DEBUG .and. main_task) then
@@ -1041,7 +1041,7 @@ contains
     ! Sort out anomaly coupling
 
     if (params%anomaly_params%enabled) then
-       yearfrac = real(mod(time,days_in_year),rk)/real(days_in_year,rk)
+       yearfrac = real(mod(time,days_in_year),dp)/real(days_in_year,dp)
        call anomaly_calc(params%anomaly_params, yearfrac, rawtemp, rawprecip, anomtemp, anomprecip)
        precip => anomprecip
        temp   => anomtemp
@@ -1144,7 +1144,7 @@ contains
           j = params%instances(1)%model%numerics%jdiag_global
           write(stdout,*) ' '
           write(stdout,*) 'Take a mass balance timestep, time (hr) =', time
-          write(stdout,*) 'av_steps =', real(params%av_steps,rk)
+          write(stdout,*) 'av_steps =', real(params%av_steps,dp)
           write(stdout,*) 'tstep_mbal (hr) =', params%tstep_mbal
           write(stdout,*) 'i, j =', i, j
           write(stdout,*) 'call glint_i_tstep'
@@ -1310,20 +1310,20 @@ contains
     type(glint_params),              intent(inout) :: params          !*FD parameters for this run
     integer,                         intent(in)    :: time            !*FD Current model time        (hours)
 
-    real(rk),dimension(:,:,:),intent(in)    :: qsmb          ! input surface mass balance of glacier ice (kg/m^2/s)
-    real(rk),dimension(:,:,:),intent(in)    :: tsfc          ! input surface ground temperature (deg C)
-    real(rk),dimension(:,:,:),intent(in)    :: topo          ! input surface elevation (m)
+    real(dp),dimension(:,:,:),intent(in)    :: qsmb          ! input surface mass balance of glacier ice (kg/m^2/s)
+    real(dp),dimension(:,:,:),intent(in)    :: tsfc          ! input surface ground temperature (deg C)
+    real(dp),dimension(:,:,:),intent(in)    :: topo          ! input surface elevation (m)
 
     !TODO - Do we need both of these?
     logical,                optional,intent(out)   :: output_flag     ! Set true if outputs are set
     logical,                optional,intent(out)   :: ice_tstep       ! Set when an ice dynamic timestep has been done
                                                                       !  and new output is available
 
-    real(rk),dimension(:,:,:),optional,intent(inout) :: gfrac         ! output ice fractional area [0,1]
-    real(rk),dimension(:,:,:),optional,intent(inout) :: gtopo         ! output surface elevation (m)
-    real(rk),dimension(:,:,:),optional,intent(inout) :: grofi         ! output ice runoff (kg/m^2/s = mm H2O/s)
-    real(rk),dimension(:,:,:),optional,intent(inout) :: grofl         ! output liquid runoff (kg/m^2/s = mm H2O/s)
-    real(rk),dimension(:,:,:),optional,intent(inout) :: ghflx         ! output heat flux (W/m^2, positive down)
+    real(dp),dimension(:,:,:),optional,intent(inout) :: gfrac         ! output ice fractional area [0,1]
+    real(dp),dimension(:,:,:),optional,intent(inout) :: gtopo         ! output surface elevation (m)
+    real(dp),dimension(:,:,:),optional,intent(inout) :: grofi         ! output ice runoff (kg/m^2/s = mm H2O/s)
+    real(dp),dimension(:,:,:),optional,intent(inout) :: grofl         ! output liquid runoff (kg/m^2/s = mm H2O/s)
+    real(dp),dimension(:,:,:),optional,intent(inout) :: ghflx         ! output heat flux (W/m^2, positive down)
 
     ! Internal variables ----------------------------------------------------------------------------
 
@@ -1332,7 +1332,7 @@ contains
     logical :: icets
     character(250) :: message
 
-    real(rk), dimension(:,:,:), allocatable ::   &
+    real(dp), dimension(:,:,:), allocatable ::   &
        gfrac_temp    ,&! gfrac for a single instance
        gtopo_temp    ,&! gtopo for a single instance
        grofi_temp    ,&! grofi for a single instance
@@ -1428,7 +1428,7 @@ contains
           i = params%instances(1)%model%numerics%idiag_global
           j = params%instances(1)%model%numerics%jdiag_global
           write(stdout,*) 'Take a mass balance timestep, time (hr) =', time
-          write(stdout,*) 'av_steps =', real(params%av_steps,rk)
+          write(stdout,*) 'av_steps =', real(params%av_steps,dp)
           write(stdout,*) 'tstep_mbal (hr) =', params%tstep_mbal
           write(stdout,*) 'i, j =', i, j
           if (params%gcm_smb) then
@@ -1449,7 +1449,7 @@ contains
        ! Divide by 1000 to convert from mm to m.
        ! Multiply by hours2seconds = 3600 to convert from 1/s to 1/hr.  (tstep_mbal has units of hours)
 
-       params%g_av_qsmb(:,:,:) = params%g_av_qsmb(:,:,:) * params%tstep_mbal * hours2seconds / 1000._rk
+       params%g_av_qsmb(:,:,:) = params%g_av_qsmb(:,:,:) * params%tstep_mbal * hours2seconds / 1000.d0
 
        ! Do a timestep for each instance
 
@@ -1583,8 +1583,8 @@ contains
     implicit none
 
     type(glint_params),intent(in) :: params                  !*FD ice model parameters
-    real(rk),dimension(:,:),intent(out) :: coverage          !*FD array to hold coverage map
-    real(rk),dimension(:,:),intent(out),optional :: cov_orog !*FD Orography coverage
+    real(dp),dimension(:,:),intent(out) :: coverage          !*FD array to hold coverage map
+    real(dp),dimension(:,:),intent(out),optional :: cov_orog !*FD Orography coverage
 
     if (.not. params%coverage_calculated) then
        glint_coverage_map = 1
@@ -1652,23 +1652,23 @@ contains
 
      ! Add the output for this instance to the global output
 
-     real(rk), dimension(:,:,:), intent(in) :: gfrac_temp  ! output fields for this instance
-     real(rk), dimension(:,:,:), intent(in) :: gtopo_temp  ! output fields for this instance
-     real(rk), dimension(:,:,:), intent(in) :: grofi_temp  ! output fields for this instance
-     real(rk), dimension(:,:,:), intent(in) :: grofl_temp  ! output fields for this instance
-     real(rk), dimension(:,:,:), intent(in) :: ghflx_temp  ! output fields for this instance
+     real(dp), dimension(:,:,:), intent(in) :: gfrac_temp  ! output fields for this instance
+     real(dp), dimension(:,:,:), intent(in) :: gtopo_temp  ! output fields for this instance
+     real(dp), dimension(:,:,:), intent(in) :: grofi_temp  ! output fields for this instance
+     real(dp), dimension(:,:,:), intent(in) :: grofl_temp  ! output fields for this instance
+     real(dp), dimension(:,:,:), intent(in) :: ghflx_temp  ! output fields for this instance
 
-     real(rk), dimension(:,:,:), intent(inout) :: gfrac    ! spliced global output field
-     real(rk), dimension(:,:,:), intent(inout) :: gtopo    ! spliced global output field
-     real(rk), dimension(:,:,:), intent(inout) :: grofi    ! spliced global output field
-     real(rk), dimension(:,:,:), intent(inout) :: grofl    ! spliced global output field
-     real(rk), dimension(:,:,:), intent(inout) :: ghflx    ! spliced global output field
+     real(dp), dimension(:,:,:), intent(inout) :: gfrac    ! spliced global output field
+     real(dp), dimension(:,:,:), intent(inout) :: gtopo    ! spliced global output field
+     real(dp), dimension(:,:,:), intent(inout) :: grofi    ! spliced global output field
+     real(dp), dimension(:,:,:), intent(inout) :: grofl    ! spliced global output field
+     real(dp), dimension(:,:,:), intent(inout) :: ghflx    ! spliced global output field
 
      integer, intent(in) :: nec   ! number of elevation classes
 
-     real(rk), dimension(:,:), intent(in) :: frac_coverage  ! map of fractional coverage of global gridcells
+     real(dp), dimension(:,:), intent(in) :: frac_coverage  ! map of fractional coverage of global gridcells
                                                 ! by local gridcells
-     real(rk), dimension(:,:), intent(in) :: cov_normalise  ! normalisation values
+     real(dp), dimension(:,:), intent(in) :: cov_normalise  ! normalisation values
      
      integer :: n
 
@@ -1715,12 +1715,12 @@ contains
 
     !*FD Splices an upscaled field into a global field
 
-    real(rk),dimension(:,:),intent(in) :: global    !*FD Field to receive the splice
-    real(rk),dimension(:,:),intent(in) :: local     !*FD The field to be spliced in
-    real(rk),dimension(:,:),intent(in) :: coverage  !*FD The coverage fraction
-    real(rk),dimension(:,:),intent(in) :: normalise !*FD The normalisation field
+    real(dp),dimension(:,:),intent(in) :: global    !*FD Field to receive the splice
+    real(dp),dimension(:,:),intent(in) :: local     !*FD The field to be spliced in
+    real(dp),dimension(:,:),intent(in) :: coverage  !*FD The coverage fraction
+    real(dp),dimension(:,:),intent(in) :: normalise !*FD The normalisation field
 
-    real(rk),dimension(size(global,1),size(global,2)) :: splice_field
+    real(dp),dimension(size(global,1),size(global,2)) :: splice_field
 
     where (coverage == 0.0)
        splice_field = global
@@ -1801,10 +1801,10 @@ contains
 
     implicit none
 
-    real(rk),dimension(:),intent(in) :: lon,lat    !*FD locations of global grid-points (degrees)
-    real(rk),dimension(:),intent(out) :: lonb,latb !*FD boundaries of grid-boxes (degrees)
+    real(dp),dimension(:),intent(in) :: lon,lat    !*FD locations of global grid-points (degrees)
+    real(dp),dimension(:),intent(out) :: lonb,latb !*FD boundaries of grid-boxes (degrees)
 
-    real(rk) :: dlon
+    real(dp) :: dlon
 
     integer :: nxg,nyg,i,j
 
@@ -1829,7 +1829,7 @@ contains
        dlon=lon(1)-lon(nxg)
     endif
     lonb(1)=lon(nxg)+dlon/2
-    lonb(1)=loncorrect(lonb(1),0.0_rk)      
+    lonb(1)=loncorrect(lonb(1),0.d0)      
 
     lonb(nxg+1)=lonb(1)
 
@@ -1840,7 +1840,7 @@ contains
           dlon=lon(i)-lon(i-1)
        endif
        lonb(i)=lon(i-1)+dlon/2
-       lonb(i)=loncorrect(lonb(i),0.0_rk)      
+       lonb(i)=loncorrect(lonb(i),0.d0)      
     enddo
 
   end subroutine calc_bounds
@@ -1887,10 +1887,10 @@ contains
 
     use glimmer_log
 
-    real(rk),dimension(:),optional,intent(in) :: orog_lats 
-    real(rk),dimension(:),optional,intent(in) :: orog_longs 
-    real(rk),dimension(:),optional,intent(in) :: orog_latb
-    real(rk),dimension(:),optional,intent(in) :: orog_lonb 
+    real(dp),dimension(:),optional,intent(in) :: orog_lats 
+    real(dp),dimension(:),optional,intent(in) :: orog_longs 
+    real(dp),dimension(:),optional,intent(in) :: orog_latb
+    real(dp),dimension(:),optional,intent(in) :: orog_lonb 
 
     integer :: args
     integer,dimension(5) :: allowed=(/0,3,7,11,15/)
@@ -1916,12 +1916,12 @@ contains
     use glimmer_log
 
     type(glint_params),              intent(inout) :: params   !*FD parameters for this run
-    real(rk),dimension(:,:),optional,intent(in)    :: humid    !*FD Surface humidity (%)
-    real(rk),dimension(:,:),optional,intent(in)    :: lwdown   !*FD Downwelling longwave (W/m$^2$)
-    real(rk),dimension(:,:),optional,intent(in)    :: swdown   !*FD Downwelling shortwave (W/m$^2$)
-    real(rk),dimension(:,:),optional,intent(in)    :: airpress !*FD surface air pressure (Pa)
-    real(rk),dimension(:,:),optional,intent(in)    :: zonwind  !*FD Zonal component of the wind field (m/s)
-    real(rk),dimension(:,:),optional,intent(in)    :: merwind  !*FD Meridional component of the wind field (m/s)
+    real(dp),dimension(:,:),optional,intent(in)    :: humid    !*FD Surface humidity (%)
+    real(dp),dimension(:,:),optional,intent(in)    :: lwdown   !*FD Downwelling longwave (W/m$^2$)
+    real(dp),dimension(:,:),optional,intent(in)    :: swdown   !*FD Downwelling shortwave (W/m$^2$)
+    real(dp),dimension(:,:),optional,intent(in)    :: airpress !*FD surface air pressure (Pa)
+    real(dp),dimension(:,:),optional,intent(in)    :: zonwind  !*FD Zonal component of the wind field (m/s)
+    real(dp),dimension(:,:),optional,intent(in)    :: merwind  !*FD Meridional component of the wind field (m/s)
 
     if (params%enmabal) then
        if (.not.(present(humid).and.present(lwdown).and. &
@@ -1944,14 +1944,14 @@ contains
   subroutine accumulate_averages(params, temp, precip, zonwind, merwind, humid, lwdown, swdown, airpress)
 
     type(glint_params),              intent(inout) :: params   !*FD parameters for this run
-    real(rk),dimension(:,:),         intent(in)    :: temp     !*FD Surface temperature field (celsius)
-    real(rk),dimension(:,:),         intent(in)    :: precip   !*FD Precipitation rate        (mm/s)
-    real(rk),dimension(:,:),optional,intent(in)    :: zonwind  !*FD Zonal component of the wind field (m/s)
-    real(rk),dimension(:,:),optional,intent(in)    :: merwind  !*FD Meridional component of the wind field (m/s)
-    real(rk),dimension(:,:),optional,intent(in)    :: humid    !*FD Surface humidity (%)
-    real(rk),dimension(:,:),optional,intent(in)    :: lwdown   !*FD Downwelling longwave (W/m$^2$)
-    real(rk),dimension(:,:),optional,intent(in)    :: swdown   !*FD Downwelling shortwave (W/m$^2$)
-    real(rk),dimension(:,:),optional,intent(in)    :: airpress !*FD surface air pressure (Pa)
+    real(dp),dimension(:,:),         intent(in)    :: temp     !*FD Surface temperature field (celsius)
+    real(dp),dimension(:,:),         intent(in)    :: precip   !*FD Precipitation rate        (mm/s)
+    real(dp),dimension(:,:),optional,intent(in)    :: zonwind  !*FD Zonal component of the wind field (m/s)
+    real(dp),dimension(:,:),optional,intent(in)    :: merwind  !*FD Meridional component of the wind field (m/s)
+    real(dp),dimension(:,:),optional,intent(in)    :: humid    !*FD Surface humidity (%)
+    real(dp),dimension(:,:),optional,intent(in)    :: lwdown   !*FD Downwelling longwave (W/m$^2$)
+    real(dp),dimension(:,:),optional,intent(in)    :: swdown   !*FD Downwelling shortwave (W/m$^2$)
+    real(dp),dimension(:,:),optional,intent(in)    :: airpress !*FD surface air pressure (Pa)
 
     params%g_av_temp    = params%g_av_temp    + temp
     params%g_av_precip  = params%g_av_precip  + precip
@@ -1978,9 +1978,9 @@ contains
   subroutine accumulate_averages_gcm(params, qsmb, tsfc, topo)
 
     type(glint_params), intent(inout)   :: params     ! model parameters
-    real(rk),dimension(:,:,:),intent(in)  :: qsmb     ! flux of glacier ice (kg/m^2/s)
-    real(rk),dimension(:,:,:),intent(in)  :: tsfc     ! surface ground temperature (C)
-    real(rk),dimension(:,:,:),intent(in)  :: topo     ! surface elevation (m)
+    real(dp),dimension(:,:,:),intent(in)  :: qsmb     ! flux of glacier ice (kg/m^2/s)
+    real(dp),dimension(:,:,:),intent(in)  :: tsfc     ! surface ground temperature (C)
+    real(dp),dimension(:,:,:),intent(in)  :: topo     ! surface elevation (m)
 
     params%g_av_qsmb(:,:,:) = params%g_av_qsmb(:,:,:) + qsmb(:,:,:)
     params%g_av_tsfc(:,:,:) = params%g_av_tsfc(:,:,:) + tsfc(:,:,:)
@@ -1997,15 +1997,15 @@ contains
 
     type(glint_params),              intent(inout) :: params   !*FD parameters for this run
 
-    params%g_av_temp    = params%g_av_temp   /real(params%av_steps)
-    params%g_av_precip  = params%g_av_precip /real(params%av_steps)
-    if (params%need_winds) params%g_av_zonwind = params%g_av_zonwind/real(params%av_steps)
-    if (params%need_winds) params%g_av_merwind = params%g_av_merwind/real(params%av_steps)
+    params%g_av_temp    = params%g_av_temp   / real(params%av_steps,dp)
+    params%g_av_precip  = params%g_av_precip / real(params%av_steps,dp)
+    if (params%need_winds) params%g_av_zonwind = params%g_av_zonwind / real(params%av_steps,dp)
+    if (params%need_winds) params%g_av_merwind = params%g_av_merwind / real(params%av_steps,dp)
     if (params%enmabal) then
-       params%g_av_humid    = params%g_av_humid   /real(params%av_steps)
-       params%g_av_lwdown   = params%g_av_lwdown  /real(params%av_steps)
-       params%g_av_swdown   = params%g_av_swdown  /real(params%av_steps)
-       params%g_av_airpress = params%g_av_airpress/real(params%av_steps)
+       params%g_av_humid    = params%g_av_humid   /real(params%av_steps,dp)
+       params%g_av_lwdown   = params%g_av_lwdown  /real(params%av_steps,dp)
+       params%g_av_swdown   = params%g_av_swdown  /real(params%av_steps,dp)
+       params%g_av_airpress = params%g_av_airpress/real(params%av_steps,dp)
     endif
 
   end subroutine calculate_averages
@@ -2017,9 +2017,9 @@ contains
     type(glint_params),              intent(inout) :: params   !*FD parameters for this run
 
     !TODO - Do not average topo?
-    params%g_av_qsmb(:,:,:) = params%g_av_qsmb(:,:,:) / real(params%av_steps,rk)
-    params%g_av_tsfc(:,:,:) = params%g_av_tsfc(:,:,:) / real(params%av_steps,rk)
-    params%g_av_topo(:,:,:) = params%g_av_topo(:,:,:) / real(params%av_steps,rk)
+    params%g_av_qsmb(:,:,:) = params%g_av_qsmb(:,:,:) / real(params%av_steps,dp)
+    params%g_av_tsfc(:,:,:) = params%g_av_tsfc(:,:,:) / real(params%av_steps,dp)
+    params%g_av_topo(:,:,:) = params%g_av_topo(:,:,:) / real(params%av_steps,dp)
 
   end subroutine calculate_averages_gcm
 
@@ -2036,18 +2036,18 @@ contains
 
     type(output_flags),intent(inout) :: out_f
 
-    real(rk),dimension(:,:),optional,intent(inout) :: orog_out        !*FD The fed-back, output orography (m)
-    real(rk),dimension(:,:),optional,intent(inout) :: albedo          !*FD surface albedo
-    real(rk),dimension(:,:),optional,intent(inout) :: ice_frac        !*FD grid-box ice-fraction
-    real(rk),dimension(:,:),optional,intent(inout) :: veg_frac        !*FD grid-box veg-fraction
-    real(rk),dimension(:,:),optional,intent(inout) :: snowice_frac    !*FD grid-box snow-covered ice fraction
-    real(rk),dimension(:,:),optional,intent(inout) :: snowveg_frac    !*FD grid-box snow-covered veg fraction
-    real(rk),dimension(:,:),optional,intent(inout) :: snow_depth      !*FD grid-box mean snow depth (m water equivalent)
-    real(rk),dimension(:,:),optional,intent(inout) :: water_in        !*FD Input water flux          (mm)
-    real(rk),dimension(:,:),optional,intent(inout) :: water_out       !*FD Output water flux         (mm)
-    real(rk),               optional,intent(inout) :: total_water_in  !*FD Area-integrated water flux in (kg)
-    real(rk),               optional,intent(inout) :: total_water_out !*FD Area-integrated water flux out (kg)
-    real(rk),               optional,intent(inout) :: ice_volume      !*FD Total ice volume (m$^3$)
+    real(dp),dimension(:,:),optional,intent(inout) :: orog_out        !*FD The fed-back, output orography (m)
+    real(dp),dimension(:,:),optional,intent(inout) :: albedo          !*FD surface albedo
+    real(dp),dimension(:,:),optional,intent(inout) :: ice_frac        !*FD grid-box ice-fraction
+    real(dp),dimension(:,:),optional,intent(inout) :: veg_frac        !*FD grid-box veg-fraction
+    real(dp),dimension(:,:),optional,intent(inout) :: snowice_frac    !*FD grid-box snow-covered ice fraction
+    real(dp),dimension(:,:),optional,intent(inout) :: snowveg_frac    !*FD grid-box snow-covered veg fraction
+    real(dp),dimension(:,:),optional,intent(inout) :: snow_depth      !*FD grid-box mean snow depth (m water equivalent)
+    real(dp),dimension(:,:),optional,intent(inout) :: water_in        !*FD Input water flux          (mm)
+    real(dp),dimension(:,:),optional,intent(inout) :: water_out       !*FD Output water flux         (mm)
+    real(dp),               optional,intent(inout) :: total_water_in  !*FD Area-integrated water flux in (kg)
+    real(dp),               optional,intent(inout) :: total_water_out !*FD Area-integrated water flux out (kg)
+    real(dp),               optional,intent(inout) :: ice_volume      !*FD Total ice volume (m$^3$)
 
 
     out_f%orog         = present(orog_out)

@@ -519,7 +519,9 @@ class PrintNC_template(PrintVars):
             if var['type'] == 'int':
                 vtype = 'integer'
             else:
-                vtype = 'real'
+#WHL - Changing the default type to real(dp)
+#                vtype = 'real'
+                vtype = 'real(dp)'
             self.stream.write("    %s%s, intent(out) :: outarray\n\n"%(vtype,dimstring))
             if 'factor' in var:
                 self.stream.write("    outarray = (%s)*(%s)\n"%(var['factor'], var['data']))
@@ -538,7 +540,9 @@ class PrintNC_template(PrintVars):
                 if var['type'] == 'int':
                     vtype = 'integer'
                 else:
-                    vtype = 'real'
+#WHL - Changing the default type to real(dp)
+#                    vtype = 'real'
+                    vtype = 'real(dp)'
                 self.stream.write("    %s%s, intent(in) :: inarray\n\n"%(vtype,dimstring))
                 if 'factor' in var:
                     self.stream.write("    %s = inarray/(%s)\n"%(var['data'], var['factor']))

@@ -69,7 +69,6 @@ contains
         !For HO masking
         logical :: empty
         integer :: totpts
-        real(sp), dimension(model%general%ewn-1, model%general%nsn-1) :: stagmassb
 
         integer, dimension(model%general%ewn-1, model%general%nsn-1)  :: geom_mask_stag
         real(dp), dimension(model%general%ewn-1, model%general%nsn-1) :: latbc_norms_stag

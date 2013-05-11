@@ -52,7 +52,7 @@ module glide
   use glide_lithot
   use glide_profile
   use glimmer_config
-  use glimmer_global
+  use glimmer_global, only: dp
 
   use glimmer_paramets, only: oldglide
 
@@ -137,6 +137,7 @@ contains
     use glide_mask
     use isostasy
     use glimmer_map_init
+    use glimmer_coordinates, only: coordsystem_new
 !!    use fo_upwind_advect, only : fo_upwind_advect_init
 !!    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
 
@@ -386,7 +387,6 @@ contains
     ! Note that none of this is needed on a restart - this code ensures a complete 
     ! set of diagnostic output fields for the initial state.
 
-    use glimmer_global, only : rk
     use glide_thck
     use glide_velo
     use glide_temp
@@ -605,7 +605,6 @@ contains
     ! Perform first part of time-step of an ice model instance:
     ! temperature advection, vertical conduction, and internal dissipation.
 
-    use glimmer_global, only : dp
     use glide_thck
     use glide_velo
     use glide_temp

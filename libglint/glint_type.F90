@@ -35,7 +35,7 @@ module glint_type
 
   !*FD contains type definitions for GLINT
 
-  use glimmer_global
+  use glimmer_global, only: dp
   use glint_interp
   use glide_types
   use glint_mbal_coupling, only: glint_mbc, mbal_has_snow_model
@@ -89,25 +89,24 @@ module glint_type
 
      ! Climate inputs from global model --------------------------
 
-     !TODO - Change to dp
-     real(sp),dimension(:,:),pointer :: artm        => null() !*FD Annual mean air temperature
-     real(sp),dimension(:,:),pointer :: arng        => null() !*FD Annual air temperature half-range
-     real(sp),dimension(:,:),pointer :: prcp        => null() !*FD Precipitation (mm or m)
-     real(sp),dimension(:,:),pointer :: snowd       => null() !*FD Snow depth (m)
-     real(sp),dimension(:,:),pointer :: siced       => null() !*FD Superimposed ice depth (m)
-     real(rk),dimension(:,:),pointer :: xwind       => null() !*FD $x$-component of surface winds (m/s)
-     real(rk),dimension(:,:),pointer :: ywind       => null() !*FD $y$-component of surface winds (m/s)
-     real(rk),dimension(:,:),pointer :: humid       => null() !*FD Surface humidity (%)
-     real(rk),dimension(:,:),pointer :: lwdown      => null() !*FD Downwelling longwave (W/m^2)
-     real(rk),dimension(:,:),pointer :: swdown      => null() !*FD Downwelling shortwave (W/m^2)
-     real(rk),dimension(:,:),pointer :: airpress    => null() !*FD Surface air pressure (Pa)
+     real(dp),dimension(:,:),pointer :: artm        => null() !*FD Annual mean air temperature
+     real(dp),dimension(:,:),pointer :: arng        => null() !*FD Annual air temperature half-range
+     real(dp),dimension(:,:),pointer :: prcp        => null() !*FD Precipitation (mm or m)
+     real(dp),dimension(:,:),pointer :: snowd       => null() !*FD Snow depth (m)
+     real(dp),dimension(:,:),pointer :: siced       => null() !*FD Superimposed ice depth (m)
+     real(dp),dimension(:,:),pointer :: xwind       => null() !*FD $x$-component of surface winds (m/s)
+     real(dp),dimension(:,:),pointer :: ywind       => null() !*FD $y$-component of surface winds (m/s)
+     real(dp),dimension(:,:),pointer :: humid       => null() !*FD Surface humidity (%)
+     real(dp),dimension(:,:),pointer :: lwdown      => null() !*FD Downwelling longwave (W/m^2)
+     real(dp),dimension(:,:),pointer :: swdown      => null() !*FD Downwelling shortwave (W/m^2)
+     real(dp),dimension(:,:),pointer :: airpress    => null() !*FD Surface air pressure (Pa)
      real(dp),dimension(:,:),pointer :: global_orog => null() !*FD Global orography (m)
-     real(sp),dimension(:,:),pointer :: local_orog  => null() !*FD Local orography (m)
+     real(dp),dimension(:,:),pointer :: local_orog  => null() !*FD Local orography (m)
 
      ! Locally calculated climate/mass-balance fields ------------
 
-     real(sp),dimension(:,:),pointer :: ablt => null() !*FD Annual ablation
-     real(sp),dimension(:,:),pointer :: acab => null() !*FD Annual mass-balance
+     real(dp),dimension(:,:),pointer :: ablt => null() !*FD Annual ablation
+     real(dp),dimension(:,:),pointer :: acab => null() !*FD Annual mass-balance
 
      ! Arrays to accumulate mass-balance quantities --------------
 
@@ -115,11 +114,11 @@ module glint_type
 
      ! Fractional coverage information ---------------------------
 
-     real(rk) ,dimension(:,:),pointer :: frac_coverage => null() 
+     real(dp) ,dimension(:,:),pointer :: frac_coverage => null() 
      !*FD Fractional coverage of each global gridbox by the projected grid.
      !*FD (ONLY VALID ON MAIN TASK)
 
-     real(rk) ,dimension(:,:),pointer :: frac_cov_orog => null() 
+     real(dp) ,dimension(:,:),pointer :: frac_cov_orog => null() 
      !*FD Fractional coverage of each global gridbox by the projected grid (orography).
      !*FD (ONLY VALID ON MAIN TASK)
 
@@ -163,12 +162,11 @@ module glint_type
 
      ! Climate parameters ----------------------------------------------------------
 
-     !TODO - Change to dp
-     real(sp) :: ice_albedo   =   0.4 !*FD Ice albedo. (fraction)
-     real(sp) :: lapse_rate   =   8.0 !*FD Uniform lapse rate in deg C/km 
+     real(dp) :: ice_albedo   =   0.4d0 !*FD Ice albedo. (fraction)
+     real(dp) :: lapse_rate   =   8.d0  !*FD Uniform lapse rate in deg C/km 
      !*FD (N.B. This should be \emph{positive} for temperature falling with height!)
-     real(sp) :: data_lapse_rate = 8.0 !*FD Implied lapse rate in large-scale data (used for
-     !*FD tuning). Set equal to lapse\_rate if not supplied.
+     real(dp) :: data_lapse_rate = 8.d0 !*FD Implied lapse rate in large-scale data (used for
+                                        !*FD tuning). Set equal to lapse\_rate if not supplied.
 
      ! Counter for averaging temperature input --------------------------------------
 
@@ -263,29 +261,29 @@ contains
     ! Then reallocate and zero...
     ! Global input fields
 
-    allocate(instance%artm(ewn,nsn));        instance%artm        = 0.0
-    allocate(instance%arng(ewn,nsn));        instance%arng        = 0.0
-    allocate(instance%prcp(ewn,nsn));        instance%prcp        = 0.0
-    allocate(instance%snowd(ewn,nsn));       instance%snowd       = 0.0
-    allocate(instance%siced(ewn,nsn));       instance%siced       = 0.0
-    allocate(instance%xwind(ewn,nsn));       instance%xwind       = 0.0
-    allocate(instance%ywind(ewn,nsn));       instance%ywind       = 0.0
-    allocate(instance%humid(ewn,nsn));       instance%humid       = 0.0
-    allocate(instance%lwdown(ewn,nsn));      instance%lwdown      = 0.0
-    allocate(instance%swdown(ewn,nsn));      instance%swdown      = 0.0
-    allocate(instance%airpress(ewn,nsn));    instance%airpress    = 0.0
-    allocate(instance%global_orog(ewn,nsn)); instance%global_orog = 0.0
-    allocate(instance%local_orog(ewn,nsn));  instance%local_orog  = 0.0
+    allocate(instance%artm(ewn,nsn));        instance%artm        = 0.d0
+    allocate(instance%arng(ewn,nsn));        instance%arng        = 0.d0
+    allocate(instance%prcp(ewn,nsn));        instance%prcp        = 0.d0
+    allocate(instance%snowd(ewn,nsn));       instance%snowd       = 0.d0
+    allocate(instance%siced(ewn,nsn));       instance%siced       = 0.d0
+    allocate(instance%xwind(ewn,nsn));       instance%xwind       = 0.d0
+    allocate(instance%ywind(ewn,nsn));       instance%ywind       = 0.d0
+    allocate(instance%humid(ewn,nsn));       instance%humid       = 0.d0
+    allocate(instance%lwdown(ewn,nsn));      instance%lwdown      = 0.d0
+    allocate(instance%swdown(ewn,nsn));      instance%swdown      = 0.d0
+    allocate(instance%airpress(ewn,nsn));    instance%airpress    = 0.d0
+    allocate(instance%global_orog(ewn,nsn)); instance%global_orog = 0.d0
+    allocate(instance%local_orog(ewn,nsn));  instance%local_orog  = 0.d0
 
     ! Local fields
 
-    allocate(instance%ablt(ewn,nsn)); instance%ablt = 0.0
-    allocate(instance%acab(ewn,nsn)); instance%acab = 0.0
+    allocate(instance%ablt(ewn,nsn)); instance%ablt = 0.d0
+    allocate(instance%acab(ewn,nsn)); instance%acab = 0.d0
 
     ! Fractional coverage map
 
-    allocate(instance%frac_coverage(nxg,nyg)); instance%frac_coverage = 0.0
-    allocate(instance%frac_cov_orog(nxgo,nygo)); instance%frac_cov_orog = 0.0
+    allocate(instance%frac_coverage(nxg,nyg)); instance%frac_coverage = 0.d0
+    allocate(instance%frac_cov_orog(nxgo,nygo)); instance%frac_cov_orog = 0.d0
 
     ! Output mask
 
@@ -319,9 +317,9 @@ contains
 
     ! Then reallocate and zero...
 
-    allocate(instance%artm(ewn,nsn));          instance%artm = 0.0
-    allocate(instance%acab(ewn,nsn));          instance%acab = 0.0
-    allocate(instance%frac_coverage(nxg,nyg)); instance%frac_coverage = 0.0
+    allocate(instance%artm(ewn,nsn));          instance%artm = 0.d0
+    allocate(instance%acab(ewn,nsn));          instance%acab = 0.d0
+    allocate(instance%frac_coverage(nxg,nyg)); instance%frac_coverage = 0.d0
     allocate(instance%out_mask(ewn,nsn));      instance%out_mask = 1   !TODO - Is this needed?
 
   end subroutine glint_i_allocate_gcm

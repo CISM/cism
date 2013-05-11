@@ -52,10 +52,10 @@ module glide_types
 !        replace some work types (tempwk, velowk) with local arrays and parameters.
 
   use glimmer_sparse_type
-  use glimmer_global
+  use glimmer_global, only: sp, dp
   use glimmer_ncdf
   use profile
-  use glimmer_coordinates
+  use glimmer_coordinates, only: coordsystem_type
   use glimmer_map_types
 
   implicit none
@@ -237,10 +237,10 @@ module glide_types
     type(coordsystem_type) :: ice_grid  !*FD coordinate system of the ice grid
     type(coordsystem_type) :: velo_grid !*FD coordinate system of the velocity grid
 
-    real(sp), dimension(:),pointer :: x0 => null() !original x0 grid 
-    real(sp), dimension(:),pointer :: y0 => null() !original y0 grid
-    real(sp), dimension(:),pointer :: x1 => null() !original x1 grid
-    real(sp), dimension(:),pointer :: y1 => null() !original y1 grid
+    real(dp), dimension(:),pointer :: x0 => null() !original x0 grid 
+    real(dp), dimension(:),pointer :: y0 => null() !original y0 grid
+    real(dp), dimension(:),pointer :: x1 => null() !original x1 grid
+    real(dp), dimension(:),pointer :: y1 => null() !original y1 grid
 
   end type glide_general
 
@@ -532,9 +532,10 @@ module glide_types
     !*FD Holds fields and other information relating to the
     !*FD geometry of the ice sheet and bedrock.
 
-    real, dimension(:,:), pointer :: temporary0 => null()
+    !TODO - These temporary arrays are not used; remove them?
+    real(dp), dimension(:,:), pointer :: temporary0 => null()
     !*FD temporary array used for masking velocity grid
-    real, dimension(:,:), pointer :: temporary1 => null()
+    real(dp), dimension(:,:), pointer :: temporary1 => null()
     !*FD temporary array used for masking temperature grid
 
     real(dp),dimension(:,:),pointer :: thck => null()
@@ -715,18 +716,19 @@ module glide_types
 
 !TODO - Should calving and eus be part of some other type?
 !      Commented out slidconst, used by unsupported Huybrechts basal traction option
+
 !TODO - Change to dp
 
   type glide_climate
      !*FD Holds fields used to drive the model
      real(dp),dimension(:,:),pointer :: acab     => null() !*FD Annual mass balance.
-     real(sp),dimension(:,:),pointer :: acab_tavg     => null() !*FD Annual mass balance (time average).
-     real(sp),dimension(:,:),pointer :: artm     => null() !*FD Annual mean air temperature
-     real(sp),dimension(:,:),pointer :: lati     => null() !*FD Latitudes of model grid points
-     real(sp),dimension(:,:),pointer :: loni     => null() !*FD Longitudes of model grid points
-     real(sp),dimension(:,:),pointer :: calving  => null() !*FD Calving flux (scaled as mass balance, thickness, etc)
-     real(sp) :: eus = 0.0                                 !*FD eustatic sea level
-!!     real(sp) :: slidconst = 0.0     ! not currently used
+     real(dp),dimension(:,:),pointer :: acab_tavg     => null() !*FD Annual mass balance (time average).
+     real(dp),dimension(:,:),pointer :: artm     => null() !*FD Annual mean air temperature
+     real(dp),dimension(:,:),pointer :: lati     => null() !*FD Latitudes of model grid points
+     real(dp),dimension(:,:),pointer :: loni     => null() !*FD Longitudes of model grid points
+     real(dp),dimension(:,:),pointer :: calving  => null() !*FD Calving flux (scaled as mass balance, thickness, etc)
+     real(dp) :: eus = 0.d0                                 !*FD eustatic sea level
+!!     real(dp) :: slidconst = 0.d0     ! not currently used
   end type glide_climate
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -767,9 +769,9 @@ module glide_types
     real(dp),dimension(:,:),  pointer :: lcondflx => null()  !*FD conductive heat flux at lower sfc (positive down)
     real(dp),dimension(:,:),  pointer :: dissipcol => null() !*FD total heat dissipation in column (>= 0)
     
-    integer  :: niter   = 0      !*FD
-    real(sp) :: perturb = 0.0    !*FD
-    real(sp) :: grid    = 0.0    !*FD
+    integer  :: niter   = 0   
+    real(dp) :: perturb = 0.d0
+    real(dp) :: grid    = 0.d0 
     integer  :: tpt     = 0      !*FD Pointer to time series data
     logical  :: first1  = .true. !*FD
     logical  :: newtemps = .false. !*FD new temperatures
@@ -802,10 +804,10 @@ module glide_types
      real(dp) :: xfactor,yfactor !*FD factors for finite differences of horizontal diffu
 
 
-     real :: surft = 2.         !*FD surface temperature, used for calculating initial temperature distribution
-     real :: mart  = 2.         !*FD sea floor temperature 
-     integer :: nlayer = 20     !*FD number of layers in lithosphere
-     real :: rock_base = -5000. !*FD depth below sea-level at which geothermal heat gradient is applied
+     real(dp) :: surft = 2.d0          !*FD surface temperature, used for calculating initial temperature distribution
+     real(dp) :: mart  = 2.d0          !*FD sea floor temperature 
+     integer  :: nlayer = 20           !*FD number of layers in lithosphere
+     real(dp) :: rock_base = -5000.d0  !*FD depth below sea-level at which geothermal heat gradient is applied
      
      integer :: numt = 0        !*FD number time steps for spinning up GTHF calculations
 
@@ -822,7 +824,7 @@ module glide_types
   type isos_elastic
      !*FD Holds data used by isostatic adjustment calculations
 
-     real(dp) :: d = 0.24e25                !*FD flexural rigidity  !TODO - Units?
+     real(dp) :: d = 0.24d25                !*FD flexural rigidity  !TODO - Units?
      real(dp) :: lr                         !*FD radius of relative stiffness
      real(dp) :: a                          !*FD radius of disk
      real(dp) :: c1,c2,cd3,cd4              !*FD coefficients
@@ -850,12 +852,11 @@ module glide_types
      !*FD \item[1] relaxing mantle, mantle is approximated by a half-space
      !*FD \end{description}
 
-     !TODO - Make these dp
-     real :: relaxed_tau = 4000.    ! characteristic time constant of relaxing mantle (yr)
-     real :: period = 500.          ! lithosphere update period (yr)
-     real :: next_calc              ! when to update lithosphere
-     logical :: new_load = .false.  ! set to true if there is a new surface load
-     type(isos_elastic) :: rbel     ! structure holding elastic lithosphere setup
+     real(dp) :: relaxed_tau = 4000.d0    ! characteristic time constant of relaxing mantle (yr)
+     real(dp) :: period = 500.d0          ! lithosphere update period (yr)
+     real(dp) :: next_calc                ! when to update lithosphere
+     logical :: new_load = .false.        ! set to true if there is a new surface load
+     type(isos_elastic) :: rbel           ! structure holding elastic lithosphere setup
 
      real(dp),dimension(:,:),pointer :: relx => null()  ! elevation of relaxed topography, by \texttt{thck0}.
      real(dp),dimension(:,:),pointer :: load => null()  ! load imposed on lithosphere
@@ -877,23 +878,23 @@ module glide_types
   type glide_numerics
 
     !*FD Parameters relating to the model numerics
-    real(dp) :: tstart =    0.d0 !*FD starting time
-    real(dp) :: tend   = 1000.d0 !*FD end time
-    real(dp) :: time   =    0.d0 !*FD main loop counter in years
-    real(dp) :: tinc   =    1.d0 !*FD time step of main loop in years 
-    real(dp) :: ntem   =    1.d0 !*FD temperature time step (multiplier of main time step)
-    real(dp) :: nvel   =    1.d0 !*FD velocity time step (multiplier of main time step)
+    real(dp) :: tstart =     0.d0 !*FD starting time
+    real(dp) :: tend   =  1000.d0 !*FD end time
+    real(dp) :: time   =     0.d0 !*FD main loop counter in years
+    real(dp) :: tinc   =     1.d0 !*FD time step of main loop in years 
+    real(dp) :: ntem   =     1.d0 !*FD temperature time step (multiplier of main time step)
+    real(dp) :: nvel   =     1.d0 !*FD velocity time step (multiplier of main time step)
     real(dp) :: alpha  =    0.5d0 !*FD richard suggests 1.5 - was a parameter in original
     real(dp) :: alphas =    0.5d0 !*FD was a parameter in the original
-    real(dp) :: thklim =  100.0   
-    real(dp) :: mlimit = -200.0d0
+    real(dp) :: thklim =   100.d0   
+    real(dp) :: mlimit =  -200.d0
     real(dp) :: calving_fraction = 0.8d0
-    real(dp) :: dew    =   20.0d3
-    real(dp) :: dns    =   20.0d3
-    real(dp) :: dt     =    0.0
-    real(dp) :: dttem  =    0.0
-    real(sp) :: nshlf  =    0.0   !TODO - Change to dp
-    integer  :: subcyc =    1
+    real(dp) :: dew    =    20.d3
+    real(dp) :: dns    =    20.d3
+    real(dp) :: dt     =     0.d0
+    real(dp) :: dttem  =     0.d0
+    real(dp) :: nshlf  =     0.d0          !TODO - not currently used; remove?
+    integer  :: subcyc =     1
     real(dp) :: periodic_offset_ew = 0.d0 ! optional periodic_offsets for ismip-hom and similar tests
     real(dp) :: periodic_offset_ns = 0.d0 ! These may be needed to ensure continuous ice geometry at
                                           !  the edges of the global domain.
@@ -943,7 +944,7 @@ module glide_types
     real(dp),dimension(4) :: c = 0.d0
     real(dp) :: watwd  = 3.0d0
     real(dp) :: watct  = 10.0d0
-    real(dp) :: trc0   = 0.0
+    real(dp) :: trc0   = 0.d0
     real(dp) :: trcmin = 0.0d0
     real(dp) :: marine = 1.0d0
     real(dp) :: trcmax = 10.0d0
@@ -1039,7 +1040,7 @@ module glide_types
     real(dp):: Kh = 1.0d-10                  !Till hydraulic conductivity: m/s
     real(dp):: Zs = 3.0d0                    ! Solid till thickness: m
     real(dp):: aconst=994000000d0            ! Constant in till strength eq. (Pa)
-    real(dp):: bconst=21.7                   ! Constant in till strength eq. (ND)
+    real(dp):: bconst=21.7d0                 ! Constant in till strength eq. (ND)
     integer:: till_hot = 0
     integer:: tnodes = 5
 
@@ -1213,6 +1214,7 @@ contains
 !KJE add the new ones, once working and complete
 
     use glimmer_log
+    use glimmer_coordinates, only: coordsystem_allocate
     use parallel
 
     implicit none
@@ -1229,10 +1231,10 @@ contains
     
     ! Allocate appropriately
 
-    allocate(model%general%x0(ewn-1))!; model%general%x0 = 0.0
-    allocate(model%general%y0(nsn-1))!; model%general%y0 = 0.0
-    allocate(model%general%x1(ewn))!; model%general%x1 = 0.0
-    allocate(model%general%y1(nsn))!; model%general%y1 = 0.0
+    allocate(model%general%x0(ewn-1))!; model%general%x0 = 0.d0
+    allocate(model%general%y0(nsn-1))!; model%general%y0 = 0.d0
+    allocate(model%general%x1(ewn))!; model%general%x1 = 0.d0
+    allocate(model%general%y1(nsn))!; model%general%y1 = 0.d0
     call coordsystem_allocate(model%general%ice_grid, model%temper%bheatflx)
     call coordsystem_allocate(model%general%ice_grid, model%temper%bwat)
     call coordsystem_allocate(model%general%ice_grid, model%temper%bwatflx)
@@ -1362,7 +1364,7 @@ contains
     call coordsystem_allocate(model%general%ice_grid, upn-1, model%geometry%age)
 
     allocate(model%thckwk%olds(ewn,nsn,model%thckwk%nwhich))
-    model%thckwk%olds = 0.0d0
+    model%thckwk%olds = 0.d0
     call coordsystem_allocate(model%general%ice_grid, model%thckwk%oldthck)
     call coordsystem_allocate(model%general%ice_grid, model%thckwk%oldthck2)
     call coordsystem_allocate(model%general%ice_grid, model%thckwk%float)

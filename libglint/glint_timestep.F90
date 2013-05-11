@@ -38,16 +38,18 @@ module glint_timestep
 
   use glint_type
   use glint_constants
-
+  use glimmer_global, only: dp
   implicit none
 
   private
   public glint_i_tstep, glint_i_tstep_gcm, &
          get_i_upscaled_fields, get_i_upscaled_fields_gcm
 
-  interface glint_lapserate
-     module procedure glint_lapserate_dp, glint_lapserate_sp
-  end interface
+  !WHL - Removed glint_lapserate_sp
+  !      Changed glint_lapserate_dp to glint_lapserate
+!  interface glint_lapserate
+!     module procedure glint_lapserate_dp, glint_lapserate_sp
+!  end interface
 
 contains
 
@@ -67,14 +69,14 @@ contains
                            orogflag,        ice_tstep)
 
     !*FD Performs time-step of an ice model instance. 
-    !*FD Note that input quantities here are accumulated/average totals since the
-    !*FD last call.
+    !*FD Note that input quantities here are accumulated/average totals since the last call.
     !*FD Global output arrays are only valid on the main task.
     !
     
     use glimmer_paramets
     use glimmer_physcon, only: rhow,rhoi
     use glimmer_log
+    use glimmer_coordinates, only: coordsystem_allocate
     use glide
     use glissade
     use glide_io
@@ -93,30 +95,30 @@ contains
 
     integer,                intent(in)   :: time         !*FD Current time in hours
     type(glint_instance), intent(inout)  :: instance     !*FD Model instance
-    real(rk),dimension(:,:),intent(in)   :: g_temp       !*FD Global mean surface temperature field ($^{\circ}$C)
-    real(rk),dimension(:,:),intent(in)   :: g_temp_range !*FD Global surface temperature half-range field ($^{\circ}$C)
-    real(rk),dimension(:,:),intent(in)   :: g_precip     !*FD Global precip field total (mm)
+    real(dp),dimension(:,:),intent(in)   :: g_temp       !*FD Global mean surface temperature field ($^{\circ}$C)
+    real(dp),dimension(:,:),intent(in)   :: g_temp_range !*FD Global surface temperature half-range field ($^{\circ}$C)
+    real(dp),dimension(:,:),intent(in)   :: g_precip     !*FD Global precip field total (mm)
 
-    real(rk),dimension(:,:),intent(in)   :: g_zonwind    !*FD Global mean surface zonal wind (m/s)
-    real(rk),dimension(:,:),intent(in)   :: g_merwind    !*FD Global mean surface meridonal wind (m/s)
-    real(rk),dimension(:,:),intent(in)   :: g_humid      !*FD Global surface humidity (%)
-    real(rk),dimension(:,:),intent(in)   :: g_lwdown     !*FD Global downwelling longwave (W/m^2)
-    real(rk),dimension(:,:),intent(in)   :: g_swdown     !*FD Global downwelling shortwave (W/m^2)
-    real(rk),dimension(:,:),intent(in)   :: g_airpress   !*FD Global surface air pressure (Pa)
+    real(dp),dimension(:,:),intent(in)   :: g_zonwind    !*FD Global mean surface zonal wind (m/s)
+    real(dp),dimension(:,:),intent(in)   :: g_merwind    !*FD Global mean surface meridonal wind (m/s)
+    real(dp),dimension(:,:),intent(in)   :: g_humid      !*FD Global surface humidity (%)
+    real(dp),dimension(:,:),intent(in)   :: g_lwdown     !*FD Global downwelling longwave (W/m^2)
+    real(dp),dimension(:,:),intent(in)   :: g_swdown     !*FD Global downwelling shortwave (W/m^2)
+    real(dp),dimension(:,:),intent(in)   :: g_airpress   !*FD Global surface air pressure (Pa)
 
-    real(rk),dimension(:,:),intent(in)   :: g_orog       !*FD Input global orography (m)
-    real(rk),dimension(:,:),intent(out)  :: g_orog_out   !*FD Output orography (m)
-    real(rk),dimension(:,:),intent(out)  :: g_albedo     !*FD Output surface albedo 
-    real(rk),dimension(:,:),intent(out)  :: g_ice_frac   !*FD Output ice fraction
-    real(rk),dimension(:,:),intent(out)  :: g_veg_frac   !*FD Output veg fraction
-    real(rk),dimension(:,:),intent(out)  :: g_snowice_frac !*FD Output snow-ice fraction
-    real(rk),dimension(:,:),intent(out)  :: g_snowveg_frac !*FD Output snow-veg fraction
-    real(rk),dimension(:,:),intent(out)  :: g_snow_depth !*FD Output snow depth (m)
-    real(rk),dimension(:,:),intent(out)  :: g_water_in   !*FD Input water flux (m)
-    real(rk),dimension(:,:),intent(out)  :: g_water_out  !*FD Output water flux (m)
-    real(rk),               intent(out)  :: t_win        !*FD Total water input (kg)
-    real(rk),               intent(out)  :: t_wout       !*FD Total water output (kg)
-    real(rk),               intent(out)  :: ice_vol      !*FD Output ice volume (m$^3$)
+    real(dp),dimension(:,:),intent(in)   :: g_orog       !*FD Input global orography (m)
+    real(dp),dimension(:,:),intent(out)  :: g_orog_out   !*FD Output orography (m)
+    real(dp),dimension(:,:),intent(out)  :: g_albedo     !*FD Output surface albedo 
+    real(dp),dimension(:,:),intent(out)  :: g_ice_frac   !*FD Output ice fraction
+    real(dp),dimension(:,:),intent(out)  :: g_veg_frac   !*FD Output veg fraction
+    real(dp),dimension(:,:),intent(out)  :: g_snowice_frac !*FD Output snow-ice fraction
+    real(dp),dimension(:,:),intent(out)  :: g_snowveg_frac !*FD Output snow-veg fraction
+    real(dp),dimension(:,:),intent(out)  :: g_snow_depth !*FD Output snow depth (m)
+    real(dp),dimension(:,:),intent(out)  :: g_water_in   !*FD Input water flux (m)
+    real(dp),dimension(:,:),intent(out)  :: g_water_out  !*FD Output water flux (m)
+    real(dp),               intent(out)  :: t_win        !*FD Total water input (kg)
+    real(dp),               intent(out)  :: t_wout       !*FD Total water output (kg)
+    real(dp),               intent(out)  :: ice_vol      !*FD Output ice volume (m$^3$)
     type(output_flags),     intent(in)   :: out_f        !*FD Flags to tell us whether to do output   
     logical,                intent(in)   :: orogflag     !*FD Set if we have new global orog
     logical,                intent(out)  :: ice_tstep    !*FD Set if we have done an ice time step
@@ -125,14 +127,14 @@ contains
     ! Internal variables
     ! ------------------------------------------------------------------------  
 
-    real(rk),dimension(:,:),pointer :: upscale_temp => null() ! temporary array for upscaling
-    real(rk),dimension(:,:),pointer :: routing_temp => null() ! temporary array for flow routing
-    real(rk),dimension(:,:),pointer :: accum_temp   => null() ! temporary array for accumulation
-    real(rk),dimension(:,:),pointer :: ablat_temp   => null() ! temporary array for ablation
+    real(dp),dimension(:,:),pointer :: upscale_temp => null() ! temporary array for upscaling
+    real(dp),dimension(:,:),pointer :: routing_temp => null() ! temporary array for flow routing
+    real(dp),dimension(:,:),pointer :: accum_temp   => null() ! temporary array for accumulation
+    real(dp),dimension(:,:),pointer :: ablat_temp   => null() ! temporary array for ablation
     integer, dimension(:,:),pointer :: fudge_mask   => null() ! temporary array for fudging
-    real(sp),dimension(:,:),pointer :: thck_temp    => null() ! temporary array for volume calcs
-    real(sp),dimension(:,:),pointer :: calve_temp   => null() ! temporary array for calving flux
-    real(rk) :: start_volume,end_volume,flux_fudge            ! note: only valid for single-task runs
+    real(dp),dimension(:,:),pointer :: thck_temp    => null() ! temporary array for volume calcs
+    real(dp),dimension(:,:),pointer :: calve_temp   => null() ! temporary array for calving flux
+    real(dp) :: start_volume,end_volume,flux_fudge            ! note: only valid for single-task runs
     integer :: i, j, k, ii, jj, nx, ny, il, jl, ig, jg
 
     logical :: gcm_smb   ! true if getting sfc mass balance from a GCM
@@ -143,7 +145,7 @@ contains
        write(stdout,*) 'next_time =', instance%next_time
     end if
 
-    ! Check whether we're doing anything this time.
+    ! Check whether we're doing anything this time
 
     if (time /= instance%next_time) then
        return
@@ -182,8 +184,8 @@ contains
     ! sea-level and then back up to high-res orography
     ! ------------------------------------------------------------------------  
 
-    call glint_lapserate(instance%artm, real(instance%global_orog,rk), real(-instance%data_lapse_rate,rk))
-    call glint_lapserate(instance%artm, real(instance%local_orog,rk),  real(instance%lapse_rate,rk))
+    call glint_lapserate(instance%artm, real(instance%global_orog,dp), real(-instance%data_lapse_rate,dp))
+    call glint_lapserate(instance%artm, real(instance%local_orog, dp), real( instance%lapse_rate,dp))
 
     ! Process the precipitation field if necessary ---------------------------
     ! and convert from mm/s to m/s
@@ -198,14 +200,14 @@ contains
 
     call glint_accumulate(instance%mbal_accum, time, instance%artm, instance%arng, instance%prcp, &
                           instance%snowd, instance%siced, instance%xwind, instance%ywind, &
-                          instance%local_orog, real(thck_temp,rk), instance%humid,    &
+                          instance%local_orog, real(thck_temp,dp), instance%humid,    &
                           instance%swdown, instance%lwdown, instance%airpress)
 
     ! Initialise water budget quantities to zero. These will be over-ridden if
     ! there's an ice-model time-step
 
-    t_win=0.0       ; t_wout=0.0
-    g_water_out=0.0 ; g_water_in=0.0
+    t_win = 0.d0       ; t_wout = 0.d0
+    g_water_out = 0.d0 ; g_water_in = 0.d0
 
     if (GLC_DEBUG .and. main_task) then
        write(stdout,*) ' '
@@ -233,8 +235,8 @@ contains
        if (out_f%water_out .or. out_f%total_wout .or. out_f%water_in .or. out_f%total_win) then
           call coordsystem_allocate(instance%lgrid, accum_temp)
           call coordsystem_allocate(instance%lgrid, ablat_temp)
-          accum_temp = 0.0
-          ablat_temp = 0.0
+          accum_temp = 0.d0
+          ablat_temp = 0.d0
        end if
 
        ! Calculate the initial ice volume (scaled and converted to water equivalent)
@@ -242,7 +244,7 @@ contains
        ! where it is used)
 
        call glide_get_thk(instance%model, thck_temp)
-       thck_temp = thck_temp*real(rhoi/rhow)
+       thck_temp = thck_temp * rhoi/rhow
        start_volume = sum(thck_temp)
 
        ! ---------------------------------------------------------------------
@@ -257,7 +259,7 @@ contains
 
           ! Calculate the initial ice volume (scaled and converted to water equivalent)
           call glide_get_thk(instance%model,thck_temp)
-          thck_temp = thck_temp*real(rhoi/rhow)
+          thck_temp = thck_temp * rhoi/rhow
 
           ! Get latest upper-surface elevation (needed for masking)
           call glide_get_usurf(instance%model, instance%local_orog)
@@ -270,15 +272,15 @@ contains
 
           ! Mask out non-accumulation in ice-free areas
 
-          where(thck_temp <= 0.0 .and. instance%acab < 0.0)
-             instance%acab = 0.0
+          where(thck_temp <= 0.d0 .and. instance%acab < 0.d0)
+             instance%acab = 0.d0
              instance%ablt = instance%prcp
           end where
 
           ! Set acab to zero for ocean cells (bed below sea level, no ice present)
 
           where (GLIDE_IS_OCEAN(instance%model%geometry%thkmask))
-             instance%acab = 0.0
+             instance%acab = 0.d0
           endwhere
 
           ! Put climate inputs in the appropriate places, with conversion ----------
@@ -288,8 +290,7 @@ contains
           !  by scale_acab = scyr*thk0/tim0 and copied to data%climate%acab.
           ! Input artm is in deg C; this value is copied to data%climate%artm (no unit conversion).
 
-          !TODO - Change to dp
-          call glide_set_acab(instance%model, instance%acab*real(rhow/rhoi))
+          call glide_set_acab(instance%model, instance%acab * rhow/rhoi)
           call glide_set_artm(instance%model, instance%artm)
 
           ! This will work only for single-processor runs
@@ -303,7 +304,7 @@ contains
 
           ! Adjust glint acab and ablt for output
  
-          where (instance%acab < -thck_temp .and. thck_temp > 0.0)
+          where (instance%acab < -thck_temp .and. thck_temp > 0.d0)
              instance%acab = -thck_temp
              instance%ablt =  thck_temp
           end where
@@ -333,7 +334,7 @@ contains
           ! Add the calved ice to the ablation field
 
           call glide_get_calving(instance%model, calve_temp)
-          calve_temp = calve_temp * real(rhoi/rhow)
+          calve_temp = calve_temp * rhoi/rhow
 
           instance%ablt = instance%ablt + calve_temp/instance%model%numerics%tinc
           instance%acab = instance%acab - calve_temp/instance%model%numerics%tinc
@@ -373,7 +374,7 @@ contains
           call glide_get_thk(instance%model,thck_temp)
           end_volume = sum(thck_temp)
 
-          where (thck_temp > 0.0)
+          where (thck_temp > 0.d0)
              fudge_mask = 1
           elsewhere
              fudge_mask = 0
@@ -383,7 +384,7 @@ contains
 
           ! Apply fudge_factor
 
-          where(thck_temp > 0.0)
+          where(thck_temp > 0.d0)
              ablat_temp = ablat_temp + flux_fudge
           endwhere
           
@@ -398,10 +399,10 @@ contains
        if (out_f%water_in) then
           call coordsystem_allocate(instance%lgrid, upscale_temp)
 
-          where (thck_temp > 0.0)
+          where (thck_temp > 0.d0)
              upscale_temp = accum_temp
           elsewhere
-             upscale_temp = 0.0
+             upscale_temp = 0.d0
           endwhere
 
           call mean_to_global(instance%ups,   &
@@ -427,19 +428,19 @@ contains
           call coordsystem_allocate(instance%lgrid, upscale_temp)
           call coordsystem_allocate(instance%lgrid, routing_temp)
 
-          where (thck_temp > 0.0)
+          where (thck_temp > 0.d0)
              upscale_temp = ablat_temp
           elsewhere
-             upscale_temp = 0.0
+             upscale_temp = 0.d0
           endwhere
 
           call glide_get_usurf(instance%model, instance%local_orog)
           call flow_router(instance%local_orog, &
-                           upscale_temp, &
-                           routing_temp, &
-                           instance%out_mask, &
-                           real(instance%lgrid%delta%pt(1),rk), &
-                           real(instance%lgrid%delta%pt(2),rk))
+                           upscale_temp,        &
+                           routing_temp,        &
+                           instance%out_mask,   &
+                           real(instance%lgrid%delta%pt(1),dp), &
+                           real(instance%lgrid%delta%pt(2),dp))
 
           call mean_to_global(instance%ups,   &
                               routing_temp,   &
@@ -541,6 +542,7 @@ contains
     use glimmer_paramets
     use glimmer_physcon, only: rhow, rhoi
     use glimmer_log
+    use glimmer_coordinates, only: coordsystem_allocate
     use glide
     use glissade
     use glide_io
@@ -560,26 +562,26 @@ contains
     type(glint_instance), intent(inout)  :: instance     ! Model instance
     logical,                intent(out)  :: ice_tstep    ! Set if we have done an ice time step
 
-    real(rk),dimension(:,:,:),intent(in)  :: qsmb_g    ! Depth of new ice (m)
-    real(rk),dimension(:,:,:),intent(in)  :: tsfc_g    ! Surface temperature (C)
-    real(rk),dimension(:,:,:),intent(in)  :: topo_g    ! Surface elevation (m)
+    real(dp),dimension(:,:,:),intent(in)  :: qsmb_g    ! Depth of new ice (m)
+    real(dp),dimension(:,:,:),intent(in)  :: tsfc_g    ! Surface temperature (C)
+    real(dp),dimension(:,:,:),intent(in)  :: topo_g    ! Surface elevation (m)
 
     integer, dimension(:,:),  optional,intent(in)  :: gmask     ! = 1 where global data are valid, else = 0
 
-    real(rk),dimension(:,:,:),optional,intent(out) :: gfrac     ! ice fractional area [0,1]
-    real(rk),dimension(:,:,:),optional,intent(out) :: gtopo     ! surface elevation (m)
-    real(rk),dimension(:,:,:),optional,intent(out) :: grofi     ! ice runoff (kg/m^2/s = mm H2O/s)
-    real(rk),dimension(:,:,:),optional,intent(out) :: grofl     ! liquid runoff (kg/m^2/s = mm H2O/s)
-    real(rk),dimension(:,:,:),optional,intent(out) :: ghflx     ! heat flux (W/m^2, positive down)
+    real(dp),dimension(:,:,:),optional,intent(out) :: gfrac     ! ice fractional area [0,1]
+    real(dp),dimension(:,:,:),optional,intent(out) :: gtopo     ! surface elevation (m)
+    real(dp),dimension(:,:,:),optional,intent(out) :: grofi     ! ice runoff (kg/m^2/s = mm H2O/s)
+    real(dp),dimension(:,:,:),optional,intent(out) :: grofl     ! liquid runoff (kg/m^2/s = mm H2O/s)
+    real(dp),dimension(:,:,:),optional,intent(out) :: ghflx     ! heat flux (W/m^2, positive down)
 
     ! ------------------------------------------------------------------------  
     ! Internal variables
     ! ------------------------------------------------------------------------  
 
     !TODO - Are these needed?
-    real(rk),dimension(:,:),pointer :: upscale_temp => null() ! temporary array for upscaling
-    real(sp),dimension(:,:),pointer :: thck_temp    => null() ! temporary array for volume calcs
-    real(sp),dimension(:,:),pointer :: calve_temp   => null() ! temporary array for calving flux
+    real(dp),dimension(:,:),pointer :: upscale_temp => null() ! temporary array for upscaling
+    real(dp),dimension(:,:),pointer :: thck_temp    => null() ! temporary array for volume calcs
+    real(dp),dimension(:,:),pointer :: calve_temp   => null() ! temporary array for calving flux
 
     integer :: i, j, k, nx, ny, il, jl, ig, jg
 
@@ -591,12 +593,11 @@ contains
 
     ! Zero outputs
 
-    !TODO - Change to dp
-    if (present(gfrac)) gfrac(:,:,:) = 0._rk
-    if (present(gtopo)) gtopo(:,:,:) = 0._rk
-    if (present(grofi)) grofi(:,:,:) = 0._rk
-    if (present(grofl)) grofl(:,:,:) = 0._rk
-    if (present(ghflx)) ghflx(:,:,:) = 0._rk
+    if (present(gfrac)) gfrac(:,:,:) = 0.d0
+    if (present(gtopo)) gtopo(:,:,:) = 0.d0
+    if (present(grofi)) grofi(:,:,:) = 0.d0
+    if (present(grofl)) grofl(:,:,:) = 0.d0
+    if (present(ghflx)) ghflx(:,:,:) = 0.d0
 
     ! Check whether we're doing anything this time.
 
@@ -673,7 +674,7 @@ contains
 
           ! Calculate the initial ice volume (scaled and converted to water equivalent)
           call glide_get_thk(instance%model,thck_temp)
-          thck_temp = thck_temp * real(rhoi/rhow)
+          thck_temp = thck_temp * rhoi/rhow
 
           !TODO: Determine if glint_remove_bath is needed in a CESM run. If so, fix it to work with
           !      multiple tasks.  (And decide whether the call is needed both here and above) 
@@ -686,15 +687,14 @@ contains
                                   
           ! Mask out non-accumulation in ice-free areas
 
-          !TODO - Change to dp
-          where(thck_temp <= 0.0 .and. instance%acab < 0.0)
-             instance%acab = 0.0
+          where(thck_temp <= 0.d0 .and. instance%acab < 0.d0)
+             instance%acab = 0.d0
           end where
 
           ! Set acab to zero for ocean cells (bed below sea level, no ice present)
 
           where (GLIDE_IS_OCEAN(instance%model%geometry%thkmask))
-             instance%acab = 0.0
+             instance%acab = 0.d0
           endwhere
 
           ! Put climate inputs in the appropriate places, with conversion ----------
@@ -704,8 +704,7 @@ contains
           !  by tim0/(scyr*thk0) and copied to data%climate%acab.
           ! Input artm is in deg C; this value is copied to data%climate%artm (no unit conversion).
 
-          !TODO - Just rhow/rhoi without 'real'?
-          call glide_set_acab(instance%model, instance%acab*real(rhow/rhoi))
+          call glide_set_acab(instance%model, instance%acab * rhow/rhoi)
           call glide_set_artm(instance%model, instance%artm)
 
           ! This will work only for single-processor runs
@@ -719,7 +718,7 @@ contains
 
           ! Adjust glint acab and ablt for output
  
-          where (instance%acab < -thck_temp .and. thck_temp > 0.0)
+          where (instance%acab < -thck_temp .and. thck_temp > 0.d0)
              instance%acab = -thck_temp
           end where
 
@@ -751,7 +750,7 @@ contains
           !       Also add basal melting (bmlt) to the liquid runoff, grofl.
 
           call glide_get_calving(instance%model, calve_temp)
-          calve_temp = calve_temp * real(rhoi/rhow)
+          calve_temp = calve_temp * rhoi/rhow
 
           ! write ice sheet diagnostics at specified interval (model%numerics%dt_diag)
 
@@ -800,7 +799,7 @@ contains
     use glimmer_log
     use parallel, only : tasks
 
-    real(sp),dimension(:,:),intent(inout) :: orog !*FD Orography --- used for input and output
+    real(dp),dimension(:,:),intent(inout) :: orog !*FD Orography --- used for input and output
     integer,                intent(in)    :: x,y  !*FD Location of starting point (index)
 
     integer :: nx,ny
@@ -816,7 +815,7 @@ contains
 
     nx=size(orog,1) ; ny=size(orog,2)
 
-    if (orog(x,y) < 0.0) orog(x,y)=0.0
+    if (orog(x,y) < 0.d0) orog(x,y) = 0.d0
     call glint_find_bath(orog,x,y,nx,ny)
 
   end subroutine glint_remove_bath
@@ -827,19 +826,20 @@ contains
 
     !*FD Recursive subroutine called by {\tt glimmer\_remove\_bath}.
 
-    real(sp),dimension(:,:),intent(inout) :: orog  !*FD Orography --- used for input and output
+    real(dp),dimension(:,:),intent(inout) :: orog  !*FD Orography --- used for input and output
     integer,                intent(in)    :: x,y   !*FD Starting point
     integer,                intent(in)    :: nx,ny !*FD Size of array {\tt orography}
 
-    integer,dimension(4) :: xi=(/ -1,1,0,0 /)
-    integer,dimension(4) :: yi=(/ 0,0,-1,1 /)
-    integer :: ns=4,i
+    integer,dimension(4) :: xi = (/ -1,1,0,0 /)
+    integer,dimension(4) :: yi = (/ 0,0,-1,1 /)
+    integer :: ns = 4
+    integer :: i
 
     do i=1,ns
-       if (x+xi(i) <= nx.and.x+xi(i) > 0.and. &
-            y+yi(i) <= ny.and.y+yi(i) > 0) then
-          if (orog(x+xi(i),y+yi(i)) < 0.0) then
-             orog(x+xi(i),y+yi(i))=0.0
+       if (x+xi(i) <= nx .and. x+xi(i) > 0 .and. &
+           y+yi(i) <= ny .and. y+yi(i) > 0) then
+          if (orog(x+xi(i),y+yi(i)) < 0.d0) then
+             orog(x+xi(i),y+yi(i)) = 0.d0
              call glint_find_bath(orog,x+xi(i),y+yi(i),nx,ny)
           endif
        endif
@@ -849,50 +849,32 @@ contains
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  subroutine glint_lapserate_dp(temp,topo,lr)
+!WHL - This used to be called glint_lapserate_dp
+
+  subroutine glint_lapserate(temp,topo,lr)
 
     !*FD Corrects the temperature field
     !*FD for height, using a constant lapse rate.
     !*FD
-    !*FD This the double-precision version, aliased as \texttt{glimmer\_lapserate}.
+    !*FD This is the double-precision version, aliased as \texttt{glimmer\_lapserate}.
 
     implicit none
 
     real(dp),dimension(:,:), intent(inout) :: temp !*FD temperature at sea-level in $^{\circ}$C
                                                    !*FD used for input and output
-    real(rk),dimension(:,:), intent(in)    :: topo !*FD topography field (m above msl)
-    real(rk),                intent(in)    :: lr   !*FD Lapse rate ($^{\circ}\mathrm{C\,km}^{-1}$).
+    real(dp),dimension(:,:), intent(in)    :: topo !*FD topography field (m above msl)
+    real(dp),                intent(in)    :: lr   !*FD Lapse rate ($^{\circ}\mathrm{C\,km}^{-1}$).
                                                    !*FD
                                                    !*FD NB: the lapse rate is positive for 
                                                    !*FD falling temp with height\ldots
 
-    temp=temp-(lr*topo/1000.0)                     ! The lapse rate calculation.
+    temp = temp-(lr*topo/1000.d0)                  ! The lapse rate calculation.
 
-  end subroutine glint_lapserate_dp
+  end subroutine glint_lapserate
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  !TODO - Remove when we switch to dp
-
-  subroutine glint_lapserate_sp(temp,topo,lr)
-
-    !*FD Corrects the temperature field for height, using a constant lapse rate.
-    !*FD
-    !*FD This is the single-precision version, aliased as \texttt{glimmer\_lapserate}.
-
-    implicit none
-
-    real(sp),dimension(:,:),intent(inout) :: temp  !*FD temperature at sea-level in $^{\circ}$C
-                                                   !*FD used for input and output
-    real(rk),dimension(:,:), intent(in)    :: topo !*FD topography field (m above msl)
-    real(rk),                intent(in)    :: lr   !*FD Lapse rate ($^{\circ}\mathrm{C\,km}^{-1}$).
-                                                   !*FD
-                                                   !*FD NB: the lapse rate is positive for 
-                                                   !*FD falling temp with height\ldots
-
-    temp=temp-(lr*topo/1000.0)                     ! The lapse rate calculation.
-
-  end subroutine glint_lapserate_sp
+!WHL - Removed subroutine glint_lapserate_sp
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -917,8 +899,8 @@ contains
                          instance%ywind, &
                          instance%artm, &
                          instance%local_orog, &
-                         real(instance%lgrid%delta%pt(1),rk), &
-                         real(instance%lgrid%delta%pt(2),rk), &
+                         real(instance%lgrid%delta%pt(1),dp), &
+                         real(instance%lgrid%delta%pt(2),dp), &
                          fixed_a=.true.)
 
     case default
@@ -929,7 +911,8 @@ contains
 
     ! Convert from mm/s to m/s - very important!
 
-    instance%prcp = instance%prcp*0.001
+!WHL    instance%prcp = instance%prcp*0.001
+    instance%prcp = instance%prcp * 1.d-3
 
   end subroutine glint_calc_precip
 
@@ -948,27 +931,30 @@ contains
     !*FD Downscale global fields to the local ice sheet grid
 
     type(glint_instance) :: instance
-    real(rk),dimension(:,:),intent(in)   :: g_temp       !*FD Global mean surface temperature field ($^{\circ}$C)
-    real(rk),dimension(:,:),intent(in)   :: g_temp_range !*FD Global surface temperature half-range field ($^{\circ}$C)
-    real(rk),dimension(:,:),intent(in)   :: g_precip     !*FD Global precip field total (mm)
-    real(rk),dimension(:,:),intent(in)   :: g_orog       !*FD Input global orography (m)
-    real(rk),dimension(:,:),intent(in)   :: g_zonwind    !*FD Global mean surface zonal wind (m/s)
-    real(rk),dimension(:,:),intent(in)   :: g_merwind    !*FD Global mean surface meridonal wind (m/s)
-    real(rk),dimension(:,:),intent(in)   :: g_humid      !*FD Global surface humidity (%)
-    real(rk),dimension(:,:),intent(in)   :: g_lwdown     !*FD Global downwelling longwave (W/m^2)
-    real(rk),dimension(:,:),intent(in)   :: g_swdown     !*FD Global downwelling shortwave (W/m^2)
-    real(rk),dimension(:,:),intent(in)   :: g_airpress   !*FD Global surface air pressure (Pa)
+    real(dp),dimension(:,:),intent(in)   :: g_temp       !*FD Global mean surface temperature field ($^{\circ}$C)
+    real(dp),dimension(:,:),intent(in)   :: g_temp_range !*FD Global surface temperature half-range field ($^{\circ}$C)
+    real(dp),dimension(:,:),intent(in)   :: g_precip     !*FD Global precip field total (mm)
+    real(dp),dimension(:,:),intent(in)   :: g_orog       !*FD Input global orography (m)
+    real(dp),dimension(:,:),intent(in)   :: g_zonwind    !*FD Global mean surface zonal wind (m/s)
+    real(dp),dimension(:,:),intent(in)   :: g_merwind    !*FD Global mean surface meridonal wind (m/s)
+    real(dp),dimension(:,:),intent(in)   :: g_humid      !*FD Global surface humidity (%)
+    real(dp),dimension(:,:),intent(in)   :: g_lwdown     !*FD Global downwelling longwave (W/m^2)
+    real(dp),dimension(:,:),intent(in)   :: g_swdown     !*FD Global downwelling shortwave (W/m^2)
+    real(dp),dimension(:,:),intent(in)   :: g_airpress   !*FD Global surface air pressure (Pa)
     logical,                intent(in)   :: orogflag
 
-    call interp_to_local(instance%lgrid_fulldomain,g_temp,      instance%downs,localsp=instance%artm)
-    call interp_to_local(instance%lgrid_fulldomain,g_temp_range,instance%downs,localsp=instance%arng,z_constrain=.true.)
-    call interp_to_local(instance%lgrid_fulldomain,g_precip,    instance%downs,localsp=instance%prcp,z_constrain=.true.)
+!WHL    call interp_to_local(instance%lgrid_fulldomain,g_temp,      instance%downs,localsp=instance%artm)
+!       call interp_to_local(instance%lgrid_fulldomain,g_temp_range,instance%downs,localsp=instance%arng,z_constrain=.true.)
+!       call interp_to_local(instance%lgrid_fulldomain,g_precip,    instance%downs,localsp=instance%prcp,z_constrain=.true.)
+    call interp_to_local(instance%lgrid_fulldomain,g_temp,      instance%downs,localdp=instance%artm)
+    call interp_to_local(instance%lgrid_fulldomain,g_temp_range,instance%downs,localdp=instance%arng,z_constrain=.true.)
+    call interp_to_local(instance%lgrid_fulldomain,g_precip,    instance%downs,localdp=instance%prcp,z_constrain=.true.)
 
     if (instance%whichacab==3) then
-       call interp_to_local(instance%lgrid_fulldomain,g_humid,   instance%downs,localrk=instance%humid,z_constrain=.true.)
-       call interp_to_local(instance%lgrid_fulldomain,g_lwdown,  instance%downs,localrk=instance%lwdown)
-       call interp_to_local(instance%lgrid_fulldomain,g_swdown,  instance%downs,localrk=instance%swdown)
-       call interp_to_local(instance%lgrid_fulldomain,g_airpress,instance%downs,localrk=instance%airpress,z_constrain=.true.)
+       call interp_to_local(instance%lgrid_fulldomain,g_humid,   instance%downs,localdp=instance%humid,z_constrain=.true.)
+       call interp_to_local(instance%lgrid_fulldomain,g_lwdown,  instance%downs,localdp=instance%lwdown)
+       call interp_to_local(instance%lgrid_fulldomain,g_swdown,  instance%downs,localdp=instance%swdown)
+       call interp_to_local(instance%lgrid_fulldomain,g_airpress,instance%downs,localdp=instance%airpress,z_constrain=.true.)
     end if
 
     if (orogflag) call interp_to_local(instance%lgrid_fulldomain,g_orog,instance%downs,localdp=instance%global_orog,z_constrain=.true.)
@@ -1166,23 +1152,24 @@ contains
     !*FD \end{itemize}
 
     use glimmer_paramets
+    use glimmer_coordinates, only: coordsystem_allocate
 
     ! Arguments ----------------------------------------------------------------------------------------
 
     type(glint_instance),   intent(in)  :: instance      !*FD the model instance
 
-    real(rk),dimension(:,:),intent(out) :: orog          !*FD the orographic elevation (m)
-    real(rk),dimension(:,:),intent(out) :: albedo        !*FD the albedo of ice/snow
-    real(rk),dimension(:,:),intent(out) :: ice_frac      !*FD The fraction covered by ice
-    real(rk),dimension(:,:),intent(out) :: veg_frac      !*FD The fraction of exposed vegetation
-    real(rk),dimension(:,:),intent(out) :: snowice_frac  !*FD The fraction of snow-covered ice
-    real(rk),dimension(:,:),intent(out) :: snowveg_frac  !*FD The fraction of snow-covered vegetation
-    real(rk),dimension(:,:),intent(out) :: snow_depth    !*FD The mean snow-depth over those 
+    real(dp),dimension(:,:),intent(out) :: orog          !*FD the orographic elevation (m)
+    real(dp),dimension(:,:),intent(out) :: albedo        !*FD the albedo of ice/snow
+    real(dp),dimension(:,:),intent(out) :: ice_frac      !*FD The fraction covered by ice
+    real(dp),dimension(:,:),intent(out) :: veg_frac      !*FD The fraction of exposed vegetation
+    real(dp),dimension(:,:),intent(out) :: snowice_frac  !*FD The fraction of snow-covered ice
+    real(dp),dimension(:,:),intent(out) :: snowveg_frac  !*FD The fraction of snow-covered vegetation
+    real(dp),dimension(:,:),intent(out) :: snow_depth    !*FD The mean snow-depth over those 
     !*FD parts covered in snow (m w.e.)
 
     ! Internal variables -------------------------------------------------------------------------------
 
-    real(rk),dimension(:,:),pointer :: temp => null()
+    real(dp),dimension(:,:),pointer :: temp => null()
 
     ! --------------------------------------------------------------------------------------------------
     ! Orography
@@ -1195,23 +1182,23 @@ contains
 
     call coordsystem_allocate(instance%lgrid,temp)
 
-    !TODO - Change to dp
     ! Ice-no-snow fraction
-    where (instance%mbal_accum%snowd==0.0.and.instance%model%geometry%thck>0.0)
-       temp=1.0
+    where (instance%mbal_accum%snowd == 0.d0 .and. instance%model%geometry%thck > 0.d0)
+       temp = 1.d0
     elsewhere
-       temp=0.0
+       temp = 0.d0
     endwhere
+
     call mean_to_global(instance%ups, &
                         temp, &
                         ice_frac,    &
                         instance%out_mask)
 
     ! Ice-with-snow fraction
-    where (instance%mbal_accum%snowd>0.0.and.instance%model%geometry%thck>0.0)
-       temp=1.0
+    where (instance%mbal_accum%snowd > 0.d0 .and. instance%model%geometry%thck > 0.d0)
+       temp = 1.d0
     elsewhere
-       temp=0.0
+       temp = 0.d0
     endwhere
     call mean_to_global(instance%ups, &
                         temp, &
@@ -1219,10 +1206,10 @@ contains
                         instance%out_mask)
 
     ! Veg-with-snow fraction (if ice <10m thick)
-    where (instance%mbal_accum%snowd>0.0.and.instance%model%geometry%thck<=(10.0/thk0))
-       temp=1.0
+    where (instance%mbal_accum%snowd > 0.d0 .and. instance%model%geometry%thck <= (10.d0/thk0))
+       temp = 1.d0
     elsewhere
-       temp=0.0
+       temp = 0.d0
     endwhere
     call mean_to_global(instance%ups, &
                         temp, &
@@ -1230,7 +1217,7 @@ contains
                         instance%out_mask)
 
     ! Remainder is veg only
-    veg_frac=1.0-ice_frac-snowice_frac-snowveg_frac
+    veg_frac = 1.d0 - ice_frac - snowice_frac - snowveg_frac
 
     ! Snow depth
 
@@ -1241,10 +1228,10 @@ contains
 
     ! Albedo
 
-    where ((ice_frac+snowice_frac)>0.0)
-       albedo=instance%ice_albedo
+    where ((ice_frac+snowice_frac) > 0.d0)
+       albedo = instance%ice_albedo
     elsewhere
-       albedo=0.0
+       albedo = 0.d0
     endwhere
 
     deallocate(temp)
@@ -1391,7 +1378,7 @@ contains
 
     ! ice runoff
 
-    local_field(:,:) = 0._dp
+    local_field(:,:) = 0.d0
 
     call mean_to_global_mec(instance%ups,                   &
                             nxl,                 nyl,       &
@@ -1402,7 +1389,7 @@ contains
 
     ! liquid runoff
 
-    local_field(:,:) = 0._dp
+    local_field(:,:) = 0.d0
 
     call mean_to_global_mec(instance%ups,                   &
                             nxl,                 nyl,       &
@@ -1413,7 +1400,7 @@ contains
 
     ! heat flux
 
-    local_field(:,:) = 0._dp
+    local_field(:,:) = 0.d0
 
     call mean_to_global_mec(instance%ups,                   &
                             nxl,                 nyl,       &

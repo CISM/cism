@@ -30,7 +30,7 @@
 
 module glint_routing
 
-  use glimmer_global,only: rk,sp
+  use glimmer_global,only: dp
 
   implicit none
 
@@ -47,20 +47,20 @@ contains
 
     !NOTE: This subroutine will *not* work for multiple tasks.
 
-    real(sp),dimension(:,:),intent(in)  :: surface !*FD Surface elevation
-    real(rk),dimension(:,:),intent(in)  :: input   !*FD Input water field
-    real(rk),dimension(:,:),intent(out) :: output  !*FD Output water field
+    real(dp),dimension(:,:),intent(in)  :: surface !*FD Surface elevation
+    real(dp),dimension(:,:),intent(in)  :: input   !*FD Input water field
+    real(dp),dimension(:,:),intent(out) :: output  !*FD Output water field
     integer, dimension(:,:),intent(in)  :: mask    !*FD Masked points
-    real(rk),               intent(in)  :: dx      !*FD $x$ grid-length
-    real(rk),               intent(in)  :: dy      !*FD $y$ grid-length
+    real(dp),               intent(in)  :: dx      !*FD $x$ grid-length
+    real(dp),               intent(in)  :: dy      !*FD $y$ grid-length
 
     ! Internal variables --------------------------------------
 
     integer :: nx,ny,k,nn,cx,cy,px,py,x,y
     integer, dimension(:,:),allocatable :: sorted
-    real(rk),dimension(:,:),allocatable :: flats,surfcopy
-    real(rk),dimension(-1:1,-1:1) :: slopes
-    real(rk),dimension(-1:1,-1:1) :: dists
+    real(dp),dimension(:,:),allocatable :: flats,surfcopy
+    real(dp),dimension(-1:1,-1:1) :: slopes
+    real(dp),dimension(-1:1,-1:1) :: dists
     logical :: flag
 
     ! Set up grid dimensions ----------------------------------
@@ -156,17 +156,17 @@ contains
 
     implicit none
 
-    real(rk),dimension(:,:),intent(inout) :: phi
-    real(rk),dimension(:,:),intent(inout) :: flats
+    real(dp),dimension(:,:),intent(inout) :: phi
+    real(dp),dimension(:,:),intent(inout) :: flats
     integer, dimension(:,:),intent(in)    :: mask
 
     ! Internal variables --------------------------------------
 
-    real(rk),allocatable,dimension(:,:) :: old_phi
+    real(dp),allocatable,dimension(:,:) :: old_phi
     integer, allocatable,dimension(:,:) :: pool
 
-    real(rk) :: pvs(9), max_val
-    real(rk), parameter :: null = 1e+20
+    real(dp) :: pvs(9), max_val
+    real(dp), parameter :: null = 1e+20
     integer :: flag,nx,ny,i,j
 
     ! ---------------------------------------------------------
@@ -233,11 +233,11 @@ contains
 
   subroutine heights_sort(surface,sorted)
 
-    real(rk),dimension(:,:) :: surface
+    real(dp),dimension(:,:) :: surface
     integer,dimension(:,:) :: sorted
 
     integer :: nx,ny,nn,i,j,k
-    real(rk),dimension(:),allocatable :: vect
+    real(dp),dimension(:),allocatable :: vect
     integer,dimension(:),allocatable :: ind
 
     nx=size(surface,1) ; ny=size(surface,2)
@@ -296,7 +296,7 @@ contains
     !*FD in C, and issued under the GNU General Public License. The conversion to 
     !*FD Fortran 90, and modification to do an index sort was done by Ian Rutt.
 
-    real(rk),dimension(:) :: array !*FD Array to be indexed.
+    real(dp),dimension(:) :: array !*FD Array to be indexed.
     integer, dimension(:) :: index !*FD Index of elements of \texttt{array}.
     integer :: i
 
@@ -326,13 +326,13 @@ contains
 
     implicit none
 
-    real(rk),dimension(:) :: numbers !*FD Numbers being sorted
+    real(dp),dimension(:) :: numbers !*FD Numbers being sorted
     integer, dimension(:) :: index   !*FD Returned index
     integer :: left, right           !*FD Limit of sort region
 
     integer :: ll,rr
     integer :: pv_int,l_hold, r_hold,pivpos
-    real(rk) :: pivot
+    real(dp) :: pivot
 
     ll=left
     rr=right

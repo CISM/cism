@@ -132,6 +132,7 @@ module parallel
      module procedure distributed_get_var_integer_2d
      module procedure distributed_get_var_real4_1d
      module procedure distributed_get_var_real4_2d
+     module procedure distributed_get_var_real8_1d
      module procedure distributed_get_var_real8_2d
      module procedure distributed_get_var_real8_3d
   end interface
@@ -147,6 +148,7 @@ module parallel
      module procedure distributed_put_var_integer_2d
      module procedure distributed_put_var_real4_1d
      module procedure distributed_put_var_real4_2d
+     module procedure distributed_put_var_real8_1d
      module procedure distributed_put_var_real8_2d
      module procedure distributed_put_var_real8_3d
 
@@ -372,6 +374,41 @@ contains
     endif
 
   end function distributed_get_var_real4_2d
+
+  !WHL - added this function
+
+  function distributed_get_var_real8_1d(ncid,varid,values,start)
+
+    implicit none
+    integer :: distributed_get_var_real8_1d,ncid,varid
+    integer,dimension(:) :: start
+    real(8),dimension(:) :: values
+
+    integer :: status, x1id, y1id
+    integer :: ilo, ihi
+
+    ! begin
+
+    if (main_task) then
+
+       status = nf90_inq_varid(ncid,"x1",x1id)
+       status = nf90_inq_varid(ncid,"y1",y1id)
+       if (varid==x1id) then
+          ilo = 1+lhalo
+          ihi = local_ewn - uhalo
+       else if (varid==y1id) then
+          ilo = 1+lhalo
+          ihi = local_nsn - uhalo
+       else
+          call parallel_stop(__FILE__,__LINE__)
+       end if
+
+       distributed_get_var_real8_1d = &
+              nf90_get_var(ncid,varid,values(ilo:ihi),start)
+
+    endif
+
+  end function distributed_get_var_real8_1d
 
   function distributed_get_var_real8_2d(ncid,varid,values,start)
     implicit none
@@ -886,6 +923,47 @@ contains
     endif
 
   end function distributed_put_var_real4_2d
+
+  !WHL - added this function
+  function distributed_put_var_real8_1d(ncid,varid,values)
+    implicit none
+    integer :: distributed_put_var_real8_1d,ncid,varid
+    real(8),dimension(:) :: values
+
+    integer :: status, x0id, x1id, y0id, y1id
+    integer :: ilo, ihi
+
+    ! begin
+
+    if (main_task) then
+
+       status = nf90_inq_varid(ncid,"x0",x0id)
+       status = nf90_inq_varid(ncid,"x1",x1id)
+       status = nf90_inq_varid(ncid,"y0",y0id)
+       status = nf90_inq_varid(ncid,"y1",y1id)
+
+       if (varid==x0id) then         ! staggered grid
+          ilo = 1 + lhalo
+          ihi = local_ewn - 1 - uhalo
+       else if (varid==x1id) then    ! unstaggered grid
+          ilo = 1 + lhalo
+          ihi = local_ewn - uhalo
+       else if (varid==y0id) then    ! staggered grid
+          ilo = 1 + lhalo
+          ihi = local_nsn - 1 - uhalo
+       else if (varid==y1id) then    ! unstaggered grid
+          ilo = 1 + lhalo
+          ihi = local_nsn - uhalo
+       else
+          call parallel_stop(__FILE__,__LINE__)
+       end if
+
+       distributed_put_var_real8_1d = nf90_put_var(ncid,varid,values(ilo:ihi))
+
+    endif
+
+  end function distributed_put_var_real8_1d
+
 
   function distributed_put_var_real8_2d(ncid,varid,values,start)
     implicit none
