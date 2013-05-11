@@ -339,10 +339,8 @@ contains
 
     !WHL - Note: By using a more accurate value of pi, instead of 3.1416,
     !      we change answers in around the fifth decimal place 
-    !TODO - Switch value
 !    real(sp),parameter :: twopi = 3.1416 * 2.0   ! old sp value
-    real(dp),parameter :: twopi = 3.1416 * 2.0   ! temporary value, to be replaced
-!    real(dp),parameter :: twopi = pi * 2.d0
+    real(dp),parameter :: twopi = pi * 2.d0
 
     integer  :: kx,ky, i,j
 
