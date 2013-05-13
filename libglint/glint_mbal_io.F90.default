@@ -1,6 +1,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! WARNING: this file was automatically generated on
-! Wed, 24 Apr 2013 18:24:59 +0000
+! Mon, 13 May 2013 22:48:03 +0000
 ! from ncdf_template.F90.in
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -207,7 +207,8 @@ contains
           call write_log('Adding restart variables has made the list of output variables too long for file ' // NCO%filename, GM_FATAL)
        else
           ! Expand the restart variable list 
-          NCO%vars = trim(NCO%vars) // ' ' // trim(restart_variable_list) // ' ' ! (a module variable)  ! Need to maintain a space at beginning and end of list
+          ! Need to maintain a space at beginning and end of list
+          NCO%vars = trim(NCO%vars) // ' ' // trim(restart_variable_list) // ' ' ! (a module variable)  
           ! Set the xtype to be double (required for an exact restart)
           outfile%default_xtype = NF90_DOUBLE   
        endif
@@ -806,7 +807,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%mbal_accum%ablt
   end subroutine glint_mbal_get_instant_ablt
@@ -817,7 +818,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%mbal_accum%ablt = inarray
   end subroutine glint_mbal_set_instant_ablt
@@ -828,7 +829,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%mbal_accum%acab
   end subroutine glint_mbal_get_instant_acab
@@ -839,7 +840,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%mbal_accum%acab = inarray
   end subroutine glint_mbal_set_instant_acab
@@ -850,7 +851,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%mbal_accum%artm
   end subroutine glint_mbal_get_instant_artm
@@ -861,7 +862,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%mbal_accum%artm = inarray
   end subroutine glint_mbal_set_instant_artm
@@ -872,7 +873,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%mbal_accum%humidity
   end subroutine glint_mbal_get_instant_humidity
@@ -883,7 +884,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%mbal_accum%humidity = inarray
   end subroutine glint_mbal_set_instant_humidity
@@ -894,7 +895,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%mbal_accum%lwdown
   end subroutine glint_mbal_get_instant_lwdown
@@ -905,7 +906,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%mbal_accum%lwdown = inarray
   end subroutine glint_mbal_set_instant_lwdown
@@ -916,7 +917,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%mbal_accum%prcp
   end subroutine glint_mbal_get_instant_prcp
@@ -927,7 +928,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%mbal_accum%prcp = inarray
   end subroutine glint_mbal_set_instant_prcp
@@ -938,7 +939,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%mbal_accum%psurf
   end subroutine glint_mbal_get_instant_psurf
@@ -949,7 +950,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%mbal_accum%psurf = inarray
   end subroutine glint_mbal_set_instant_psurf
@@ -960,7 +961,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%mbal_accum%siced
   end subroutine glint_mbal_get_instant_siced
@@ -971,7 +972,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%mbal_accum%siced = inarray
   end subroutine glint_mbal_set_instant_siced
@@ -982,7 +983,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%mbal_accum%snowd
   end subroutine glint_mbal_get_instant_snowd
@@ -993,7 +994,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%mbal_accum%snowd = inarray
   end subroutine glint_mbal_set_instant_snowd
@@ -1004,7 +1005,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%mbal_accum%swdown
   end subroutine glint_mbal_get_instant_swdown
@@ -1015,7 +1016,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%mbal_accum%swdown = inarray
   end subroutine glint_mbal_set_instant_swdown
@@ -1026,7 +1027,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%mbal_accum%xwind
   end subroutine glint_mbal_get_instant_xwind
@@ -1037,7 +1038,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%mbal_accum%xwind = inarray
   end subroutine glint_mbal_set_instant_xwind
@@ -1048,7 +1049,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%mbal_accum%ywind
   end subroutine glint_mbal_get_instant_ywind
@@ -1059,7 +1060,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%mbal_accum%ywind = inarray
   end subroutine glint_mbal_set_instant_ywind

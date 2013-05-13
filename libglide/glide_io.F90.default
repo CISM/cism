@@ -1,6 +1,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! WARNING: this file was automatically generated on
-! Wed, 24 Apr 2013 18:24:59 +0000
+! Mon, 13 May 2013 22:48:03 +0000
 ! from ncdf_template.F90.in
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -236,7 +236,8 @@ contains
           call write_log('Adding restart variables has made the list of output variables too long for file ' // NCO%filename, GM_FATAL)
        else
           ! Expand the restart variable list 
-          NCO%vars = trim(NCO%vars) // ' ' // trim(restart_variable_list) // ' ' ! (a module variable)  ! Need to maintain a space at beginning and end of list
+          ! Need to maintain a space at beginning and end of list
+          NCO%vars = trim(NCO%vars) // ' ' // trim(restart_variable_list) // ' ' ! (a module variable)  
           ! Set the xtype to be double (required for an exact restart)
           outfile%default_xtype = NF90_DOUBLE   
        endif
@@ -2965,7 +2966,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = (scale_acab)*(data%climate%acab)
   end subroutine glide_get_acab
@@ -2976,7 +2977,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%climate%acab = inarray/(scale_acab)
   end subroutine glide_set_acab
@@ -2987,7 +2988,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%climate%artm
   end subroutine glide_get_artm
@@ -2998,7 +2999,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%climate%artm = inarray
   end subroutine glide_set_artm
@@ -3009,7 +3010,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = (scale_beta)*(data%velocity%beta)
   end subroutine glide_get_beta
@@ -3020,7 +3021,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%velocity%beta = inarray/(scale_beta)
   end subroutine glide_set_beta
@@ -3031,7 +3032,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = (scale_bflx)*(data%temper%bheatflx)
   end subroutine glide_get_bheatflx
@@ -3042,7 +3043,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%temper%bheatflx = inarray/(scale_bflx)
   end subroutine glide_set_bheatflx
@@ -3053,7 +3054,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = (scale_acab)*(data%temper%bmlt)
   end subroutine glide_get_bmlt
@@ -3064,7 +3065,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%temper%bmlt = inarray/(scale_acab)
   end subroutine glide_set_bmlt
@@ -3075,7 +3076,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%temper%temp(data%general%upn,1:data%general%ewn,1:data%general%nsn)
   end subroutine glide_get_btemp
@@ -3086,7 +3087,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = (scale_tau)*(data%velocity%btraction(1,:,:))
   end subroutine glide_get_btractx
@@ -3097,7 +3098,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%velocity%btraction(1,:,:) = inarray/(scale_tau)
   end subroutine glide_set_btractx
@@ -3108,7 +3109,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = (scale_tau)*(data%velocity%btraction(2,:,:))
   end subroutine glide_get_btracty
@@ -3119,7 +3120,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%velocity%btraction(2,:,:) = inarray/(scale_tau)
   end subroutine glide_set_btracty
@@ -3130,7 +3131,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = (scale_btrc)*(data%velocity%btrc)
   end subroutine glide_get_btrc
@@ -3141,7 +3142,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%velocity%btrc = inarray/(scale_btrc)
   end subroutine glide_set_btrc
@@ -3152,7 +3153,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = (thk0)*(data%temper%bwat)
   end subroutine glide_get_bwat
@@ -3163,7 +3164,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%temper%bwat = inarray/(thk0)
   end subroutine glide_set_bwat
@@ -3174,7 +3175,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = (thk0)*(data%temper%bwatflx)
   end subroutine glide_get_bwatflx
@@ -3185,7 +3186,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%temper%bwatflx = inarray/(thk0)
   end subroutine glide_set_bwatflx
@@ -3196,7 +3197,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = (thk0)*(data%climate%calving)
   end subroutine glide_get_calving
@@ -3207,7 +3208,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%climate%calving = inarray/(thk0)
   end subroutine glide_set_calving
@@ -3218,7 +3219,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = (scale_diffu)*(data%velocity%diffu)
   end subroutine glide_get_diffu
@@ -3229,7 +3230,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%velocity%diffu = inarray/(scale_diffu)
   end subroutine glide_set_diffu
@@ -3240,7 +3241,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = (scale_acab)*(data%geomderv%dthckdtm)
   end subroutine glide_get_dthckdtm
@@ -3251,7 +3252,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%geomderv%dthckdtm = inarray/(scale_acab)
   end subroutine glide_set_dthckdtm
@@ -3262,7 +3263,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = (scale_acab)*(data%geomderv%dusrfdtm)
   end subroutine glide_get_dusrfdtm
@@ -3273,7 +3274,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%geomderv%dusrfdtm = inarray/(scale_acab)
   end subroutine glide_set_dusrfdtm
@@ -3306,7 +3307,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, intent(out) :: outarray
+    real(dp), intent(out) :: outarray
 
     outarray = (thk0)*(data%climate%eus)
   end subroutine glide_get_eus
@@ -3317,7 +3318,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, intent(in) :: inarray
+    real(dp), intent(in) :: inarray
 
     data%climate%eus = inarray/(thk0)
   end subroutine glide_set_eus
@@ -3328,7 +3329,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%ground%gl_ew
   end subroutine glide_get_gl_ew
@@ -3339,7 +3340,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%ground%gl_ew = inarray
   end subroutine glide_set_gl_ew
@@ -3350,7 +3351,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%ground%gl_ns
   end subroutine glide_get_gl_ns
@@ -3361,7 +3362,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%ground%gl_ns = inarray
   end subroutine glide_set_gl_ns
@@ -3372,7 +3373,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%ground%gline_flux
   end subroutine glide_get_gline_flux
@@ -3383,7 +3384,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%ground%gline_flux = inarray
   end subroutine glide_set_gline_flux
@@ -3394,7 +3395,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, intent(out) :: outarray
+    real(dp), intent(out) :: outarray
 
     outarray = (len0*len0*1.e-6)*(data%geometry%iarea)
   end subroutine glide_get_iarea
@@ -3405,7 +3406,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, intent(in) :: inarray
+    real(dp), intent(in) :: inarray
 
     data%geometry%iarea = inarray/(len0*len0*1.e-6)
   end subroutine glide_set_iarea
@@ -3416,7 +3417,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, intent(out) :: outarray
+    real(dp), intent(out) :: outarray
 
     outarray = (len0*len0*1.e-6)*(data%geometry%iareaf)
   end subroutine glide_get_iareaf
@@ -3427,7 +3428,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, intent(in) :: inarray
+    real(dp), intent(in) :: inarray
 
     data%geometry%iareaf = inarray/(len0*len0*1.e-6)
   end subroutine glide_set_iareaf
@@ -3438,7 +3439,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, intent(out) :: outarray
+    real(dp), intent(out) :: outarray
 
     outarray = (len0*len0*1.e-6)*(data%geometry%iareag)
   end subroutine glide_get_iareag
@@ -3449,7 +3450,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, intent(in) :: inarray
+    real(dp), intent(in) :: inarray
 
     data%geometry%iareag = inarray/(len0*len0*1.e-6)
   end subroutine glide_set_iareag
@@ -3460,7 +3461,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%phaml%init_phaml
   end subroutine glide_get_init_phaml
@@ -3471,7 +3472,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%phaml%init_phaml = inarray
   end subroutine glide_set_init_phaml
@@ -3482,7 +3483,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, intent(out) :: outarray
+    real(dp), intent(out) :: outarray
 
     outarray = (thk0*len0*len0*1.e-9)*(data%geometry%ivol)
   end subroutine glide_get_ivol
@@ -3493,7 +3494,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, intent(in) :: inarray
+    real(dp), intent(in) :: inarray
 
     data%geometry%ivol = inarray/(thk0*len0*len0*1.e-9)
   end subroutine glide_set_ivol
@@ -3526,7 +3527,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%climate%lati
   end subroutine glide_get_lat
@@ -3537,7 +3538,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%climate%lati = inarray
   end subroutine glide_set_lat
@@ -3548,7 +3549,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%climate%loni
   end subroutine glide_get_lon
@@ -3559,7 +3560,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%climate%loni = inarray
   end subroutine glide_set_lon
@@ -3570,7 +3571,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = (thk0)*(data%geometry%lsrf)
   end subroutine glide_get_lsurf
@@ -3581,7 +3582,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%geometry%lsrf = inarray/(thk0)
   end subroutine glide_set_lsurf
@@ -3592,7 +3593,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%phaml%uphaml
   end subroutine glide_get_phaml
@@ -3603,7 +3604,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%phaml%uphaml = inarray
   end subroutine glide_set_phaml
@@ -3614,7 +3615,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = (thk0)*(data%isostasy%relx)
   end subroutine glide_get_relx
@@ -3625,7 +3626,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%isostasy%relx = inarray/(thk0)
   end subroutine glide_set_relx
@@ -3636,7 +3637,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = (thk0)*(data%isostasy%relx - data%geometry%topg)
   end subroutine glide_get_slc
@@ -3647,7 +3648,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = (scale_btrc)*(data%velocity%bed_softness)
   end subroutine glide_get_soft
@@ -3658,7 +3659,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%velocity%bed_softness = inarray/(scale_btrc)
   end subroutine glide_set_soft
@@ -3669,7 +3670,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = (thk0)*(data%geomderv%stagthck)
   end subroutine glide_get_stagthk
@@ -3680,7 +3681,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%geomderv%stagthck = inarray/(thk0)
   end subroutine glide_set_stagthk
@@ -3691,7 +3692,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%climate%artm
   end subroutine glide_get_surftemp
@@ -3702,7 +3703,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%climate%artm = inarray
   end subroutine glide_set_surftemp
@@ -3713,7 +3714,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = (scale_tau)*(data%basalproc%minTauf)
   end subroutine glide_get_tauf
@@ -3724,7 +3725,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%basalproc%minTauf = inarray/(scale_tau)
   end subroutine glide_set_tauf
@@ -3735,7 +3736,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = (1e-3*thk0*thk0/len0)*(data%stress%tau_x)
   end subroutine glide_get_taux
@@ -3746,7 +3747,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%stress%tau_x = inarray/(1e-3*thk0*thk0/len0)
   end subroutine glide_set_taux
@@ -3757,7 +3758,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = (1e-3*thk0*thk0/len0)*(data%stress%tau_y)
   end subroutine glide_get_tauy
@@ -3768,7 +3769,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%stress%tau_y = inarray/(1e-3*thk0*thk0/len0)
   end subroutine glide_set_tauy
@@ -3779,7 +3780,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = (thk0)*(data%geometry%thck)
   end subroutine glide_get_thk
@@ -3790,7 +3791,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%geometry%thck = inarray/(thk0)
   end subroutine glide_set_thk
@@ -3823,7 +3824,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = (thk0)*(data%geometry%topg)
   end subroutine glide_get_topg
@@ -3834,7 +3835,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%geometry%topg = inarray/(thk0)
   end subroutine glide_set_topg
@@ -3845,7 +3846,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = (scale_uvel)*(data%velocity%ubas)
   end subroutine glide_get_ubas
@@ -3856,7 +3857,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%velocity%ubas = inarray/(scale_uvel)
   end subroutine glide_set_ubas
@@ -3867,7 +3868,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = (scale_uflx)*(data%velocity%uflx)
   end subroutine glide_get_uflx
@@ -3878,7 +3879,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%velocity%uflx = inarray/(scale_uflx)
   end subroutine glide_set_uflx
@@ -3889,7 +3890,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = (thk0)*(data%geometry%usrf)
   end subroutine glide_get_usurf
@@ -3900,7 +3901,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%geometry%usrf = inarray/(thk0)
   end subroutine glide_set_usurf
@@ -3911,7 +3912,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = (scale_uvel)*(data%velocity%vbas)
   end subroutine glide_get_vbas
@@ -3922,7 +3923,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%velocity%vbas = inarray/(scale_uvel)
   end subroutine glide_set_vbas
@@ -3933,7 +3934,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = (scale_uflx)*(data%velocity%vflx)
   end subroutine glide_get_vflx
@@ -3944,7 +3945,7 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%velocity%vflx = inarray/(scale_uflx)
   end subroutine glide_set_vflx

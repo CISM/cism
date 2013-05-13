@@ -1,6 +1,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! WARNING: this file was automatically generated on
-! Wed, 24 Apr 2013 18:24:59 +0000
+! Mon, 13 May 2013 22:48:03 +0000
 ! from ncdf_template.F90.in
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -185,7 +185,8 @@ contains
           call write_log('Adding restart variables has made the list of output variables too long for file ' // NCO%filename, GM_FATAL)
        else
           ! Expand the restart variable list 
-          NCO%vars = trim(NCO%vars) // ' ' // trim(restart_variable_list) // ' ' ! (a module variable)  ! Need to maintain a space at beginning and end of list
+          ! Need to maintain a space at beginning and end of list
+          NCO%vars = trim(NCO%vars) // ' ' // trim(restart_variable_list) // ' ' ! (a module variable)  
           ! Set the xtype to be double (required for an exact restart)
           outfile%default_xtype = NF90_DOUBLE   
        endif
@@ -685,7 +686,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%ablt
   end subroutine glint_get_ablt
@@ -696,7 +697,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%ablt = inarray
   end subroutine glint_set_ablt
@@ -707,7 +708,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%arng
   end subroutine glint_get_arng
@@ -718,7 +719,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%arng = inarray
   end subroutine glint_set_arng
@@ -729,7 +730,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%global_orog
   end subroutine glint_get_global_orog
@@ -740,7 +741,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%global_orog = inarray
   end subroutine glint_set_global_orog
@@ -751,7 +752,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%downs%lmask
   end subroutine glint_get_inmask
@@ -762,7 +763,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%downs%lmask = inarray
   end subroutine glint_set_inmask
@@ -773,7 +774,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%local_orog
   end subroutine glint_get_local_orog
@@ -784,7 +785,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%local_orog = inarray
   end subroutine glint_set_local_orog
@@ -795,7 +796,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%out_mask
   end subroutine glint_get_outmask
@@ -806,7 +807,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%out_mask = inarray
   end subroutine glint_set_outmask
@@ -817,7 +818,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%prcp
   end subroutine glint_get_prcp
@@ -828,7 +829,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%prcp = inarray
   end subroutine glint_set_prcp
@@ -839,7 +840,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%siced
   end subroutine glint_get_siced
@@ -850,7 +851,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%siced = inarray
   end subroutine glint_set_siced
@@ -861,7 +862,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(out) :: outarray
+    real(dp), dimension(:,:), intent(out) :: outarray
 
     outarray = data%snowd
   end subroutine glint_get_snowd
@@ -872,7 +873,7 @@ contains
     use glint_type
     implicit none
     type(glint_instance) :: data
-    real, dimension(:,:), intent(in) :: inarray
+    real(dp), dimension(:,:), intent(in) :: inarray
 
     data%snowd = inarray
   end subroutine glint_set_snowd
