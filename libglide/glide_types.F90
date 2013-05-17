@@ -532,12 +532,6 @@ module glide_types
     !*FD Holds fields and other information relating to the
     !*FD geometry of the ice sheet and bedrock.
 
-    !TODO - These temporary arrays are not used; remove them?
-    real(dp), dimension(:,:), pointer :: temporary0 => null()
-    !*FD temporary array used for masking velocity grid
-    real(dp), dimension(:,:), pointer :: temporary1 => null()
-    !*FD temporary array used for masking temperature grid
-
     real(dp),dimension(:,:),pointer :: thck => null()
     !*FD The thickness of the ice, divided by \texttt{thk0}.
 
@@ -556,7 +550,8 @@ module glide_types
     integer, dimension(:,:),pointer :: thkmask => null()
     !*FD see glide_mask.f90 for possible values
 
-    real(dp),dimension(:,:),pointer :: marine_bc_normal => null()
+    !WHL - no longer used
+!!    real(dp),dimension(:,:),pointer :: marine_bc_normal => null()
     !*FD NaN for all points except those that occur on the marine
     !*FD margin of an ice shelf, in which case contains the angle
     !*FD of the normal to the ice front. 
@@ -603,38 +598,19 @@ module glide_types
     real(dp),dimension(:,:),pointer :: d2thckdew2 => null()
     real(dp),dimension(:,:),pointer :: d2thckdns2 => null()
 
-    !First derivatives on a nonstaggered grid
-    !*tb* added all of these
-    !TODO - I think these can be removed
-    real(dp),dimension(:,:),pointer :: dthckdew_unstag => null() !*FD E-W derivative of thickness.
-    real(dp),dimension(:,:),pointer :: dusrfdew_unstag => null() !*FD E-W derivative of upper surface elevation.
-    real(dp),dimension(:,:),pointer :: dthckdns_unstag => null() !*FD N-S derivative of thickness.
-    real(dp),dimension(:,:),pointer :: dusrfdns_unstag => null() !*FD N-S derivative of upper surface elevation.
-    real(dp),dimension(:,:),pointer :: dlsrfdew_unstag => null()
-    real(dp),dimension(:,:),pointer :: dlsrfdns_unstag => null()
-
-    !Second derivatives on a nonstaggered grid
-    !*tb* added all of these
-    !TODO - I think these can be removed
-    real(dp),dimension(:,:),pointer :: d2usrfdew2_unstag => null()
-    real(dp),dimension(:,:),pointer :: d2usrfdns2_unstag => null()
-    real(dp),dimension(:,:),pointer :: d2thckdew2_unstag => null()
-    real(dp),dimension(:,:),pointer :: d2thckdns2_unstag => null()
-
     !Time derivatives
     real(dp),dimension(:,:),pointer :: dthckdtm => null() !*FD Temporal derivative of thickness.
     real(dp),dimension(:,:),pointer :: dusrfdtm => null() !*FD Temporal derivative of upper surface elevation.
 
     !TODO - These staggered variables are not derivatives.
-    !       Shoud they be part of the glide_geometry type?
+    !       Shoud they be part of the glide_geometry type instead?
 
     !Staggered grid versions of geometry variables
     real(dp),dimension(:,:),pointer :: stagthck => null() !*FD Thickness averaged onto the staggered grid.
-
-    !*tb* added everything below
     real(dp),dimension(:,:),pointer :: stagusrf => null() !*FD Upper surface averaged onto the staggered grid
     real(dp),dimension(:,:),pointer :: staglsrf => null() !*FD Lower surface averaged onto the staggered grid
     real(dp),dimension(:,:),pointer :: stagtopg => null() !*FD Bedrock topography averaged onto the staggered grid
+
   end type glide_geomderv
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -664,6 +640,8 @@ module glide_types
     real(dp),dimension(:,:)  ,pointer :: diffu_x => null() !*sfp* moved from velocity_hom deriv type
     real(dp),dimension(:,:)  ,pointer :: diffu_y => null() 
     real(dp),dimension(:,:)  ,pointer :: total_diffu => null() !*FD total diffusivity
+
+    !TODO - Remove ubas and vbas (since basal velocities are included in uvel and vvel)
     real(dp),dimension(:,:)  ,pointer :: ubas  => null()   !*FD 
     real(dp),dimension(:,:)  ,pointer :: ubas_tavg  => null()
     real(dp),dimension(:,:)  ,pointer :: vbas  => null()   !*FD 
@@ -685,32 +663,32 @@ module glide_types
     real(dp),dimension(:,:,:),pointer :: btraction => null()    !*FD x(1,:,:) and y(2,:,:) "consistent" basal traction fields 
     real(dp),dimension(:,:)  ,pointer :: beta  => null()        !*FD basal shear coefficient
                                                                 !*FD calculated from matrix coeffs in PP dyn core
+    real(dp),dimension(:,:)  ,pointer :: tau_x => null()        !*FD SIA basal shear stress, x-dir
+    real(dp),dimension(:,:)  ,pointer :: tau_y => null()        !*FD SIA basal shear stress, y-dir
 
     !*FD A mask similar to glide_geometry%thck_index, but on the velocity grid instead of the
     !*FD ice grid.  This is to aid in converging higher-order velocities
-    integer, dimension(:,:), pointer    :: velmask => null()
+!!    integer, dimension(:,:), pointer    :: velmask => null()    ! No longer used
 
     !*FD A mask that specifies where the velocity being read in should be held constant as a dirichlet condition
-    integer, dimension(:,:), pointer    :: kinbcmask => null()
+    integer, dimension(:,:), pointer    :: kinbcmask => null()    
 
     !*sfp* mask on vel grid showing which dyn bc is applied at each grid cell (mainly for debugging)
-    integer, dimension(:,:), pointer    :: dynbcmask => null()
+    integer, dimension(:,:), pointer    :: dynbcmask => null()    
 
   end type glide_velocity
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  type glide_stress_t      
+  type glide_stress      
 
-    type(glide_tensor) :: tau
+    type(glide_tensor) :: tau    ! HO only
     real(dp),dimension(:,:,:),pointer :: efvs => null()
-    real(dp),dimension(:,:)  ,pointer :: tau_x => null() !*FD SIA basal shear stress, x-dir
-    real(dp),dimension(:,:)  ,pointer :: tau_y => null() !*FD SIA basal shear stress, y-dir
 !*sfp* neither of the next two are currently used anywhere in the code (moved here from velocity_hom)
 !    real(dp),dimension(:,:,:)  ,pointer :: gdsx => null() !*FD basal shear stress, x-dir
 !    real(dp),dimension(:,:,:)  ,pointer :: gdsy => null() !*FD basal shear stress, y-dir
 
-  end type glide_stress_t      
+  end type glide_stress      
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -724,9 +702,11 @@ module glide_types
      real(dp),dimension(:,:),pointer :: acab     => null() !*FD Annual mass balance.
      real(dp),dimension(:,:),pointer :: acab_tavg     => null() !*FD Annual mass balance (time average).
      real(dp),dimension(:,:),pointer :: artm     => null() !*FD Annual mean air temperature
-     real(dp),dimension(:,:),pointer :: lati     => null() !*FD Latitudes of model grid points
-     real(dp),dimension(:,:),pointer :: loni     => null() !*FD Longitudes of model grid points
      real(dp),dimension(:,:),pointer :: calving  => null() !*FD Calving flux (scaled as mass balance, thickness, etc)
+
+     !TODO - lati and loni are not currently used.  Are they needed?
+     real(dp),dimension(:,:),pointer :: lati     => null() !*FD Latitudes of model grid points 
+     real(dp),dimension(:,:),pointer :: loni     => null() !*FD Longitudes of model grid points
      real(dp) :: eus = 0.d0                                 !*FD eustatic sea level
 !!     real(dp) :: slidconst = 0.d0     ! not currently used
   end type glide_climate
@@ -751,7 +731,6 @@ module glide_types
     !      In input data, the geothermal heat flux is likely to be defined as positive upward.
     !
     !TODO: Create separate fields for basal melt beneath grounded and floating ice.
-
 
     real(dp),dimension(:,:,:),pointer :: temp => null()      !*FD 3D temperature field.
     real(dp),dimension(:,:),  pointer :: bheatflx => null()  !*FD basal heat flux (geothermal, positive down)
@@ -921,8 +900,9 @@ module glide_types
   end type glide_numerics
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  ! variables for tracking the grounding line    
+  !TODO - Are these still needed?
   type glide_grnd
+    ! variables for tracking the grounding line    
     real(dp),dimension(:,:),pointer :: gl_ew => null()
     real(dp),dimension(:,:),pointer :: gl_ns => null()
     real(dp),dimension(:,:),pointer :: gline_flux => null() !*FD flux at the
@@ -958,11 +938,12 @@ module glide_types
   type glide_thckwk
      real(dp),dimension(:,:),  pointer :: oldthck   => null()
      real(dp),dimension(:,:),  pointer :: oldthck2  => null()
-     real(dp),dimension(:,:),pointer :: float => null()
+!!     real(dp),dimension(:,:),pointer :: float => null()   ! no longer used
      real(dp),dimension(:,:,:),pointer :: olds      => null()
      integer  :: nwhich  = 2
      real(dp) :: oldtime = 0.d0
      
+     ! next four are for ADI evolution only
      real(dp), dimension(:), pointer :: alpha => null()
      real(dp), dimension(:), pointer :: beta  => null()
      real(dp), dimension(:), pointer :: gamma => null()
@@ -1029,29 +1010,30 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  !TODO - This type is not currently used.  Should it be removed?
+  !TODO - Should this type be removed?
+  !       Keeping it for now because glam_strs2 uses mintauf (but this could be moved to another type).
   type glide_basalproc
     !Tuneables, set in the config file 
-    real(dp):: fric=0.45d0                   ! Till coeff of internal friction: ND
-    real(dp):: etillo=0.7d0                  ! Till void ratio at No
-    real(dp):: No=1000.d0                    ! Reference value of till effective stress
-    real(dp):: Comp=0.12d0                   ! Till coeff of compressibility: ND
-    real(dp):: Cv = 1.0d-8                   ! Till hydraulic diffusivity: m2/s
-    real(dp):: Kh = 1.0d-10                  !Till hydraulic conductivity: m/s
-    real(dp):: Zs = 3.0d0                    ! Solid till thickness: m
-    real(dp):: aconst=994000000d0            ! Constant in till strength eq. (Pa)
-    real(dp):: bconst=21.7d0                 ! Constant in till strength eq. (ND)
-    integer:: till_hot = 0
-    integer:: tnodes = 5
+!    real(dp):: fric=0.45d0                   ! Till coeff of internal friction: ND
+!    real(dp):: etillo=0.7d0                  ! Till void ratio at No
+!    real(dp):: No=1000.d0                    ! Reference value of till effective stress
+!    real(dp):: Comp=0.12d0                   ! Till coeff of compressibility: ND
+!    real(dp):: Cv = 1.0d-8                   ! Till hydraulic diffusivity: m2/s
+!    real(dp):: Kh = 1.0d-10                  !Till hydraulic conductivity: m/s
+!    real(dp):: Zs = 3.0d0                    ! Solid till thickness: m
+!    real(dp):: aconst=994000000d0            ! Constant in till strength eq. (Pa)
+!    real(dp):: bconst=21.7d0                 ! Constant in till strength eq. (ND)
+!    integer:: till_hot = 0
+!    integer:: tnodes = 5
 
     real(dp), dimension (:) , pointer :: till_dz => null()  !holds inital till layer spacing - 
     
     !Model variables that will be passed to other subroutines
-    real(dp),dimension(:,:)  ,pointer :: minTauf => null() !Bed strength calculated with basal proc. mod.
-    real(dp),dimension(:,:)  ,pointer :: Hwater  => null() !Water available from till layer (m)
+    real(dp),dimension(:,:)  ,pointer :: mintauf => null() !Bed strength calculated with basal proc. mod.
+!    real(dp),dimension(:,:)  ,pointer :: Hwater  => null() !Water available from till layer (m)
     !Model variabled necessary for restart
-    real(dp),dimension(:,:,:)  ,pointer :: u => null()     !Till excess pore pressure (Pa)
-    real(dp),dimension(:,:,:)  ,pointer :: etill  => null()  !Till void ratio (ND)  
+!    real(dp),dimension(:,:,:)  ,pointer :: u => null()     !Till excess pore pressure (Pa)
+!    real(dp),dimension(:,:,:)  ,pointer :: etill  => null()  !Till void ratio (ND)  
     
   end type glide_basalproc
 
@@ -1070,13 +1052,13 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - Is this type used?
-  type glide_phaml
-    real(dp),dimension(:,:),pointer :: uphaml => null()
-    real(dp),dimension(:,:),pointer :: init_phaml => null()
-    real(dp),dimension(:,:),pointer :: rs_phaml => null()
-    !maybe put the x/y vectors here too just for simplicity
-  end type glide_phaml
+!TODO - Is this type used?  Commented out for now
+!!  type glide_phaml
+!!    real(dp),dimension(:,:),pointer :: uphaml => null()
+!!    real(dp),dimension(:,:),pointer :: init_phaml => null()
+!!    real(dp),dimension(:,:),pointer :: rs_phaml => null()
+!!    !maybe put the x/y vectors here too just for simplicity
+!!  end type glide_phaml
   
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -1111,7 +1093,7 @@ module glide_types
     type(glide_geometry) :: geometry
     type(glide_geomderv) :: geomderv
     type(glide_velocity) :: velocity
-    type(glide_stress_t) :: stress   
+    type(glide_stress)   :: stress   
     type(glide_climate)  :: climate
     type(glide_temper)   :: temper
     type(glide_lithot_type) :: lithot
@@ -1122,11 +1104,11 @@ module glide_types
     type(glide_tempwk)   :: tempwk
     type(glide_paramets) :: paramets
     type(glimmap_proj)   :: projection
-    type(glide_basalproc):: basalproc
+    type(glide_basalproc):: basalproc   !TODO - Remove?
     type(profile_type)   :: profile
     type(glide_prof_type):: glide_prof
     type(isostasy_type)  :: isostasy
-    type(glide_phaml)    :: phaml
+!!    type(glide_phaml)    :: phaml
     type(glide_grnd)     :: ground
     type(glissade_solver):: solver_data
 
@@ -1134,12 +1116,17 @@ module glide_types
 
 contains
 
-  !TODO - Make sure these itemized lists are complete.
-
   subroutine glide_allocarr(model)    
+
     !*FD Allocates the model arrays, and initialises some of them to zero.
     !*FD These are the arrays allocated, and their dimensions:
     !*FD
+
+    !WHL - Modified this subroutine to allocate memory for arrays only
+    !      as needed for particular options (e.g., model%options%dycore)
+
+    !TODO - Make sure these itemized lists are complete.
+
     !*FD In \texttt{model\%temper}:
     !*FD \begin{itemize}
     !*FD \item \texttt{temp(upn,0:ewn+1,0:nsn+1))}   !WHL - 2 choices
@@ -1211,11 +1198,8 @@ contains
     !*FD \item \texttt{stagsigma(upn-1))}
     !*FD \end{itemize}
 
-!KJE add the new ones, once working and complete
-
     use glimmer_log
     use glimmer_coordinates, only: coordsystem_allocate
-    use parallel
 
     implicit none
 
@@ -1225,153 +1209,22 @@ contains
 
     ! for simplicity, copy these values...
 
-    ewn=model%general%ewn
-    nsn=model%general%nsn
-    upn=model%general%upn
+    ewn = model%general%ewn
+    nsn = model%general%nsn
+    upn = model%general%upn
     
-    ! Allocate appropriately
+    ! horizontal coordinates
 
-    allocate(model%general%x0(ewn-1))!; model%general%x0 = 0.d0
+    allocate(model%general%x0(ewn-1))!; model%general%x0 = 0.d0  ! velocity grid
     allocate(model%general%y0(nsn-1))!; model%general%y0 = 0.d0
-    allocate(model%general%x1(ewn))!; model%general%x1 = 0.d0
+    allocate(model%general%x1(ewn))!; model%general%x1 = 0.d0    ! ice grid (for scalars)
     allocate(model%general%y1(nsn))!; model%general%y1 = 0.d0
-    call coordsystem_allocate(model%general%ice_grid, model%temper%bheatflx)
-    call coordsystem_allocate(model%general%ice_grid, model%temper%bwat)
-    call coordsystem_allocate(model%general%ice_grid, model%temper%bwatflx)
-    call coordsystem_allocate(model%general%velo_grid, model%temper%stagbwat)
-    call coordsystem_allocate(model%general%ice_grid, model%temper%bmlt)
-    call coordsystem_allocate(model%general%ice_grid, model%temper%bmlt_tavg)
-    call coordsystem_allocate(model%general%velo_grid, model%temper%stagbtemp)
-    call coordsystem_allocate(model%general%ice_grid, model%temper%bpmp)
-    call coordsystem_allocate(model%general%ice_grid, model%temper%bwatflx)
-    call coordsystem_allocate(model%general%velo_grid, model%temper%stagbpmp)
-    call coordsystem_allocate(model%general%ice_grid, model%temper%bfricflx)
-    call coordsystem_allocate(model%general%ice_grid, model%temper%ucondflx)
-    call coordsystem_allocate(model%general%ice_grid, model%temper%lcondflx)
-    call coordsystem_allocate(model%general%ice_grid, model%temper%dissipcol)
 
-!NOTE: - In the glide dycore (whichdycore = DYCORE_GLIDE), temperature and 
-!        flow factor live on the unstaggered vertical grid, and extra rows and columns 
-!        (with indices 0:ewn+1, 0:nsn+1) are needed.
-!      - In the glam/glissade dycore, temperature and flow factor live on the 
-!        staggered vertical grid, with temperature and flwa defined at the
-!        center of each layer k = 1:upn-1.  The temperature (but not flwa)
-!        is defined at the upper surface (k = 0) and lower surface (k = upn).
-
-    if (model%options%whichdycore == DYCORE_GLIDE) then
-       allocate(model%temper%temp(upn,0:ewn+1,0:nsn+1))
-       call coordsystem_allocate(model%general%ice_grid, upn, model%temper%flwa)
-    else   ! glam/glissade dycore
-       allocate(model%temper%temp(0:upn,1:ewn,1:nsn))
-       call coordsystem_allocate(model%general%ice_grid, upn-1, model%temper%flwa)
-    endif
-
-    ! MJH set these to physically unrealistic values so we can tell later if 
-    !  arrays were initialized correctly
-    model%temper%temp(:,:,:) = -999.0d0
-    model%temper%flwa(:,:,:) = -999.0d0
- 
-    call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%uvel)
-    call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%vvel)
-
-    !! next 3 used for output of residual fields (when relevant code in glam_strs2 is active)
-!    call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%ures)
-!    call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%vres)
-!    call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%magres)
-
-    call coordsystem_allocate(model%general%ice_grid, upn, model%velocity%uvel_icegrid)
-    call coordsystem_allocate(model%general%ice_grid, upn, model%velocity%vvel_icegrid)
-
-    call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%velnorm)
-    call coordsystem_allocate(model%general%ice_grid, upn, model%velocity%wvel)
-    call coordsystem_allocate(model%general%ice_grid, upn, model%velocity%wgrd)
-    call coordsystem_allocate(model%general%velo_grid, model%velocity%uflx)
-    call coordsystem_allocate(model%general%velo_grid, model%velocity%vflx)
-    call coordsystem_allocate(model%general%velo_grid, model%velocity%diffu)
-    call coordsystem_allocate(model%general%velo_grid, model%velocity%diffu_x)
-    call coordsystem_allocate(model%general%velo_grid, model%velocity%diffu_y)
-    call coordsystem_allocate(model%general%velo_grid, model%velocity%total_diffu)
-    call coordsystem_allocate(model%general%velo_grid, model%velocity%bed_softness)
-    call coordsystem_allocate(model%general%velo_grid, model%velocity%btrc)
-    call coordsystem_allocate(model%general%velo_grid, 2, model%velocity%btraction)
-    call coordsystem_allocate(model%general%velo_grid, model%velocity%beta)
-    call coordsystem_allocate(model%general%velo_grid, model%velocity%ubas)
-    call coordsystem_allocate(model%general%velo_grid, model%velocity%ubas_tavg)
-    call coordsystem_allocate(model%general%velo_grid, model%velocity%vbas)
-    call coordsystem_allocate(model%general%velo_grid, model%velocity%vbas_tavg)
-    call coordsystem_allocate(model%general%velo_grid, model%velocity%velmask)
-    call coordsystem_allocate(model%general%velo_grid, model%velocity%kinbcmask)
-    call coordsystem_allocate(model%general%velo_grid, model%velocity%dynbcmask)
-
-    call coordsystem_allocate(model%general%ice_grid, upn-1, model%stress%tau%scalar)
-    call coordsystem_allocate(model%general%ice_grid, upn-1, model%stress%tau%xz)
-    call coordsystem_allocate(model%general%ice_grid, upn-1, model%stress%tau%yz)
-    call coordsystem_allocate(model%general%ice_grid, upn-1, model%stress%tau%xx)
-    call coordsystem_allocate(model%general%ice_grid, upn-1, model%stress%tau%yy)
-    call coordsystem_allocate(model%general%ice_grid, upn-1, model%stress%tau%xy)
-    call coordsystem_allocate(model%general%ice_grid, upn-1, model%stress%efvs)
-    call coordsystem_allocate(model%general%velo_grid, model%stress%tau_x)
-    call coordsystem_allocate(model%general%velo_grid, model%stress%tau_y)
-
-    call coordsystem_allocate(model%general%ice_grid, model%climate%acab)
-    call coordsystem_allocate(model%general%ice_grid, model%climate%acab_tavg)
-    call coordsystem_allocate(model%general%ice_grid, model%climate%artm)
-    call coordsystem_allocate(model%general%ice_grid, model%climate%lati)
-    call coordsystem_allocate(model%general%ice_grid, model%climate%loni)
-    call coordsystem_allocate(model%general%ice_grid, model%climate%calving)
-
-    call coordsystem_allocate(model%general%velo_grid, model%geomderv%dthckdew)
-    call coordsystem_allocate(model%general%velo_grid, model%geomderv%dusrfdew)
-    call coordsystem_allocate(model%general%velo_grid, model%geomderv%dlsrfdew)    
-    call coordsystem_allocate(model%general%velo_grid, model%geomderv%dthckdns)
-    call coordsystem_allocate(model%general%velo_grid, model%geomderv%dusrfdns)
-    call coordsystem_allocate(model%general%velo_grid, model%geomderv%dlsrfdns)
-    
-    call coordsystem_allocate(model%general%velo_grid, model%geomderv%d2usrfdew2)
-    call coordsystem_allocate(model%general%velo_grid, model%geomderv%d2usrfdns2)
-    call coordsystem_allocate(model%general%velo_grid, model%geomderv%d2thckdew2)
-    call coordsystem_allocate(model%general%velo_grid, model%geomderv%d2thckdns2)
-    
-    call coordsystem_allocate(model%general%ice_grid, model%geomderv%dthckdew_unstag)
-    call coordsystem_allocate(model%general%ice_grid, model%geomderv%dusrfdew_unstag)
-    call coordsystem_allocate(model%general%ice_grid, model%geomderv%dlsrfdew_unstag)    
-    call coordsystem_allocate(model%general%ice_grid, model%geomderv%dthckdns_unstag)
-    call coordsystem_allocate(model%general%ice_grid, model%geomderv%dusrfdns_unstag)
-    call coordsystem_allocate(model%general%ice_grid, model%geomderv%dlsrfdns_unstag)
-    
-    call coordsystem_allocate(model%general%ice_grid, model%geomderv%d2usrfdew2_unstag)
-    call coordsystem_allocate(model%general%ice_grid, model%geomderv%d2usrfdns2_unstag)
-    call coordsystem_allocate(model%general%ice_grid, model%geomderv%d2thckdew2_unstag)
-    call coordsystem_allocate(model%general%ice_grid, model%geomderv%d2thckdns2_unstag)
-
-    call coordsystem_allocate(model%general%ice_grid, model%geomderv%dthckdtm)
-    call coordsystem_allocate(model%general%ice_grid, model%geomderv%dusrfdtm)
-
-    call coordsystem_allocate(model%general%velo_grid, model%geomderv%stagthck)
-    call coordsystem_allocate(model%general%velo_grid, model%geomderv%staglsrf)
-    call coordsystem_allocate(model%general%velo_grid, model%geomderv%stagusrf)
-    call coordsystem_allocate(model%general%velo_grid, model%geomderv%stagtopg)
-  
-    call coordsystem_allocate(model%general%velo_grid, model%geometry%temporary0)
-    call coordsystem_allocate(model%general%ice_grid, model%geometry%temporary1)
-    call coordsystem_allocate(model%general%ice_grid, model%geometry%thck)
-    call coordsystem_allocate(model%general%ice_grid, model%geometry%usrf)
-    call coordsystem_allocate(model%general%ice_grid, model%geometry%lsrf)
-    call coordsystem_allocate(model%general%ice_grid, model%geometry%topg)
-    call coordsystem_allocate(model%general%ice_grid, model%geometry%thck_index)
-    call coordsystem_allocate(model%general%ice_grid, model%geometry%thkmask)
-    call coordsystem_allocate(model%general%ice_grid, model%geometry%marine_bc_normal)
-    call coordsystem_allocate(model%general%ice_grid, upn-1, model%geometry%age)
-
-    allocate(model%thckwk%olds(ewn,nsn,model%thckwk%nwhich))
-    model%thckwk%olds = 0.d0
-    call coordsystem_allocate(model%general%ice_grid, model%thckwk%oldthck)
-    call coordsystem_allocate(model%general%ice_grid, model%thckwk%oldthck2)
-    call coordsystem_allocate(model%general%ice_grid, model%thckwk%float)
-
+    ! vertical sigma coordinates
     ! If we already have sigma, don't reallocate
+
     if (associated(model%numerics%sigma)) then
-       if (size(model%numerics%sigma)/=upn) then
+       if (size(model%numerics%sigma) /= upn) then
           call write_log('Wrong number of sigma levels given',GM_FATAL)
        end if
     else
@@ -1381,10 +1234,146 @@ contains
     allocate(model%numerics%stagsigma(upn-1))
     allocate(model%numerics%stagwbndsigma(0:upn))  !MJH added (0:upn) as separate variable
 
-    ! allocate memory for grounding line
-    allocate (model%ground%gl_ew(ewn-1,nsn))
-    allocate (model%ground%gl_ns(ewn,nsn-1))
-    allocate (model%ground%gline_flux(ewn,nsn)) 
+    ! temperature arrays
+
+    !NOTE: In the glide dycore (whichdycore = DYCORE_GLIDE), the temperature and 
+    !       flow factor live on the unstaggered vertical grid, and extra rows and columns 
+    !       (with indices 0:ewn+1, 0:nsn+1) are needed.
+    !      In the glam/glissade dycore, the temperature and flow factor live on
+    !       the staggered vertical grid, with temp and flwa defined at the
+    !       center of each layer k = 1:upn-1.  The temperature (but not flwa)
+    !       is defined at the upper surface (k = 0) and lower surface (k = upn).
+
+    if (model%options%whichdycore == DYCORE_GLIDE) then
+       allocate(model%temper%temp(upn,0:ewn+1,0:nsn+1))
+       call coordsystem_allocate(model%general%ice_grid, upn, model%temper%flwa)
+    else    ! glam/glissade dycore
+       allocate(model%temper%temp(0:upn,1:ewn,1:nsn))
+       call coordsystem_allocate(model%general%ice_grid, upn-1, model%temper%flwa)
+    endif
+
+    ! MJH - Set these to physically unrealistic values so we can tell later if 
+    !       arrays were initialized correctly
+    model%temper%temp(:,:,:) = -999.0d0
+    model%temper%flwa(:,:,:) = -999.0d0
+
+    call coordsystem_allocate(model%general%ice_grid,  model%temper%bheatflx)
+    call coordsystem_allocate(model%general%ice_grid,  model%temper%bwat)
+    call coordsystem_allocate(model%general%ice_grid,  model%temper%bwatflx)
+    call coordsystem_allocate(model%general%velo_grid, model%temper%stagbwat)
+    call coordsystem_allocate(model%general%ice_grid,  model%temper%bmlt)
+    call coordsystem_allocate(model%general%ice_grid,  model%temper%bmlt_tavg)
+    call coordsystem_allocate(model%general%ice_grid,  model%temper%bpmp)
+    call coordsystem_allocate(model%general%velo_grid, model%temper%stagbpmp)
+    call coordsystem_allocate(model%general%velo_grid, model%temper%stagbtemp)
+
+    if (model%options%whichdycore /= DYCORE_GLIDE) then   ! glam/glissade only
+      call coordsystem_allocate(model%general%ice_grid, model%temper%bfricflx)
+      call coordsystem_allocate(model%general%ice_grid, model%temper%ucondflx)
+      call coordsystem_allocate(model%general%ice_grid, model%temper%lcondflx)
+      call coordsystem_allocate(model%general%ice_grid, model%temper%dissipcol)
+    endif
+
+    ! velocity arrays
+
+    call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%uvel)
+    call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%vvel)
+    call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%velnorm)
+    call coordsystem_allocate(model%general%ice_grid,  upn, model%velocity%wvel)
+    call coordsystem_allocate(model%general%velo_grid, model%velocity%uflx)
+    call coordsystem_allocate(model%general%velo_grid, model%velocity%vflx)
+    call coordsystem_allocate(model%general%velo_grid, model%velocity%bed_softness)
+    call coordsystem_allocate(model%general%velo_grid, model%velocity%btrc)
+    call coordsystem_allocate(model%general%velo_grid, 2, model%velocity%btraction)
+    call coordsystem_allocate(model%general%ice_grid,  upn, model%velocity%uvel_icegrid)
+    call coordsystem_allocate(model%general%ice_grid,  upn, model%velocity%vvel_icegrid)
+
+    !TODO - Remove ubas and vbas (already contained in uvel and vvel)
+    call coordsystem_allocate(model%general%velo_grid, model%velocity%ubas)
+    call coordsystem_allocate(model%general%velo_grid, model%velocity%ubas_tavg)
+    call coordsystem_allocate(model%general%velo_grid, model%velocity%vbas)
+    call coordsystem_allocate(model%general%velo_grid, model%velocity%vbas_tavg)
+
+!!    call coordsystem_allocate(model%general%velo_grid, model%velocity%velmask)    ! no longer used
+
+    if (model%options%whichdycore == DYCORE_GLIDE) then
+       call coordsystem_allocate(model%general%ice_grid,  upn, model%velocity%wgrd)
+       call coordsystem_allocate(model%general%velo_grid, model%velocity%diffu)
+       call coordsystem_allocate(model%general%velo_grid, model%velocity%diffu_x)
+       call coordsystem_allocate(model%general%velo_grid, model%velocity%diffu_y)
+       call coordsystem_allocate(model%general%velo_grid, model%velocity%total_diffu)
+       call coordsystem_allocate(model%general%velo_grid, model%velocity%tau_x)
+       call coordsystem_allocate(model%general%velo_grid, model%velocity%tau_y)
+    else   ! glam/glissade dycore
+       call coordsystem_allocate(model%general%velo_grid, model%velocity%beta)     
+       call coordsystem_allocate(model%general%velo_grid, model%velocity%kinbcmask)
+       call coordsystem_allocate(model%general%velo_grid, model%velocity%dynbcmask)
+         ! next 3 used for output of residual fields (when relevant code in glam_strs2 is active)
+!       call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%ures)
+!       call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%vres)
+!       call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%magres)
+    endif
+
+    ! higher-order stress arrays
+
+    if (model%options%whichdycore /= DYCORE_GLIDE) then   ! glam/glissade dycore
+       call coordsystem_allocate(model%general%ice_grid, upn-1, model%stress%efvs)
+       call coordsystem_allocate(model%general%ice_grid, upn-1, model%stress%tau%scalar) 
+       call coordsystem_allocate(model%general%ice_grid, upn-1, model%stress%tau%xz)
+       call coordsystem_allocate(model%general%ice_grid, upn-1, model%stress%tau%yz)
+       call coordsystem_allocate(model%general%ice_grid, upn-1, model%stress%tau%xx)
+       call coordsystem_allocate(model%general%ice_grid, upn-1, model%stress%tau%yy)
+       call coordsystem_allocate(model%general%ice_grid, upn-1, model%stress%tau%xy)
+    endif
+
+    ! geometry arrays
+
+    call coordsystem_allocate(model%general%ice_grid, model%geometry%thck)
+    call coordsystem_allocate(model%general%ice_grid, model%geometry%usrf)
+    call coordsystem_allocate(model%general%ice_grid, model%geometry%lsrf)
+    call coordsystem_allocate(model%general%ice_grid, model%geometry%topg)
+    call coordsystem_allocate(model%general%ice_grid, model%geometry%thkmask)
+    call coordsystem_allocate(model%general%velo_grid, model%geomderv%dthckdew)
+    call coordsystem_allocate(model%general%velo_grid, model%geomderv%dthckdns)
+    call coordsystem_allocate(model%general%velo_grid, model%geomderv%dusrfdew)
+    call coordsystem_allocate(model%general%velo_grid, model%geomderv%dusrfdns)
+    call coordsystem_allocate(model%general%velo_grid, model%geomderv%stagthck)
+
+!!    call coordsystem_allocate(model%general%ice_grid, model%geometry%marine_bc_normal)   ! no longer used
+
+    if (model%options%whichdycore == DYCORE_GLIDE) then
+       call coordsystem_allocate(model%general%ice_grid, model%geometry%thck_index)
+       call coordsystem_allocate(model%general%ice_grid,  model%geomderv%dthckdtm)
+       call coordsystem_allocate(model%general%ice_grid,  model%geomderv%dusrfdtm)
+       allocate(model%thckwk%olds(ewn,nsn,model%thckwk%nwhich))
+       model%thckwk%olds = 0.d0
+       call coordsystem_allocate(model%general%ice_grid, model%thckwk%oldthck)
+       call coordsystem_allocate(model%general%ice_grid, model%thckwk%oldthck2)
+!!       call coordsystem_allocate(model%general%ice_grid, model%thckwk%float)  ! no loger used
+    else   ! glam/glissade dycore
+       call coordsystem_allocate(model%general%ice_grid, upn-1, model%geometry%age)
+       call coordsystem_allocate(model%general%velo_grid, model%geomderv%dlsrfdew)
+       call coordsystem_allocate(model%general%velo_grid, model%geomderv%dlsrfdns)
+       call coordsystem_allocate(model%general%velo_grid, model%geomderv%staglsrf)
+       call coordsystem_allocate(model%general%velo_grid, model%geomderv%stagusrf)
+       call coordsystem_allocate(model%general%velo_grid, model%geomderv%stagtopg)
+       call coordsystem_allocate(model%general%velo_grid, model%geomderv%d2usrfdew2)
+       call coordsystem_allocate(model%general%velo_grid, model%geomderv%d2usrfdns2)
+       call coordsystem_allocate(model%general%velo_grid, model%geomderv%d2thckdew2)
+       call coordsystem_allocate(model%general%velo_grid, model%geomderv%d2thckdns2)
+    endif
+
+    ! climate arrays
+
+    call coordsystem_allocate(model%general%ice_grid, model%climate%acab)
+    call coordsystem_allocate(model%general%ice_grid, model%climate%acab_tavg)
+    call coordsystem_allocate(model%general%ice_grid, model%climate%artm)
+    call coordsystem_allocate(model%general%ice_grid, model%climate%calving)
+    call coordsystem_allocate(model%general%ice_grid, model%climate%lati)     !TODO - Are lati and loni needed? 
+    call coordsystem_allocate(model%general%ice_grid, model%climate%loni)
+
+    ! matrix solver arrays
+
     allocate (model%solver_data%rhsd(ewn*nsn))
     allocate (model%solver_data%answ(ewn*nsn))
 
@@ -1393,28 +1382,48 @@ contains
     !TODO - The lithosphere temperature has the vertical layer as the 3rd index,
     !        whereas the ice temperature has the vertical layer as the 1st index.
     !       Should we switch to the ice temperature convention?
-    allocate(model%lithot%temp(1:ewn,1:nsn,model%lithot%nlayer)); model%lithot%temp = 0.d0
-    call coordsystem_allocate(model%general%ice_grid, model%lithot%mask)
 
-    ! allocate isostasy grids
+    ! lithosphere arrays
 
-    call coordsystem_allocate(model%general%ice_grid, model%isostasy%relx)
-    call coordsystem_allocate(model%general%ice_grid, model%isostasy%load)
-    call coordsystem_allocate(model%general%ice_grid, model%isostasy%load_factors)
+    if (model%options%gthf == GTHF_COMPUTE) then
+       allocate(model%lithot%temp(1:ewn,1:nsn,model%lithot%nlayer)); model%lithot%temp = 0.d0
+       call coordsystem_allocate(model%general%ice_grid, model%lithot%mask)
+    endif
 
-    !TODO - Are these needed?
-    !allocate phaml variables
-    call coordsystem_allocate(model%general%ice_grid, model%phaml%init_phaml)
-    call coordsystem_allocate(model%general%ice_grid, model%phaml%rs_phaml)
-    call coordsystem_allocate(model%general%ice_grid, model%phaml%uphaml)
+    ! isostasy arrays
 
-    !allocate basal processes variables
-    call coordsystem_allocate(model%general%ice_grid, model%basalproc%Hwater)
-    call coordsystem_allocate(model%general%velo_grid, model%basalproc%minTauf)
-    allocate(model%basalproc%u (ewn-1,nsn-1,model%basalproc%tnodes)); model%basalproc%u=41.0d3
-    allocate(model%basalproc%etill (ewn-1,nsn-1,model%basalproc%tnodes));model%basalproc%etill=0.5d0
+    if (model%options%isostasy /= ISOSTASY_COMPUTE) then
+       call coordsystem_allocate(model%general%ice_grid, model%isostasy%relx)
+       call coordsystem_allocate(model%general%ice_grid, model%isostasy%load)
+       call coordsystem_allocate(model%general%ice_grid, model%isostasy%load_factors)
+    endif
+
+    !TODO - Are these needed?  Commented out for now
+    ! phaml arrays
+!!    call coordsystem_allocate(model%general%ice_grid, model%phaml%init_phaml)
+!!    call coordsystem_allocate(model%general%ice_grid, model%phaml%rs_phaml)
+!!    call coordsystem_allocate(model%general%ice_grid, model%phaml%uphaml)
+
+    ! grounding line arrays (not currently supported)
+
+!!    if (model%options%whichdycore /= DYCORE_GLIDE) then   ! glam/glissade dycore
+!!       allocate (model%ground%gl_ew(ewn-1,nsn))
+!!       allocate (model%ground%gl_ns(ewn,nsn-1))
+!!       allocate (model%ground%gline_flux(ewn,nsn)) 
+!!    endif
+
+    ! basal process arrays
+    ! not currently supported, except that glam_strs2 uses mintauf
+
+    if (model%options%whichdycore /= DYCORE_GLIDE) then   ! glam/glissade dycore
+!!       call coordsystem_allocate(model%general%ice_grid, model%basalproc%Hwater)
+       call coordsystem_allocate(model%general%velo_grid, model%basalproc%mintauf)
+!!       allocate(model%basalproc%u (ewn-1,nsn-1,model%basalproc%tnodes)); model%basalproc%u=41.0d3
+!!       allocate(model%basalproc%etill (ewn-1,nsn-1,model%basalproc%tnodes));model%basalproc%etill=0.5d0
+    endif
 
   end subroutine glide_allocarr
+
 
   subroutine glide_deallocarr(model)
 
@@ -1424,271 +1433,279 @@ contains
     implicit none
     type(glide_global_type),intent(inout) :: model
 
+    ! horizontal coordinates
+
     if (associated(model%general%x0)) &
-       deallocate(model%general%x0) 
+        deallocate(model%general%x0) 
     if (associated(model%general%y0)) &
-       deallocate(model%general%y0) 
+        deallocate(model%general%y0) 
     if (associated(model%general%x1)) &
-       deallocate(model%general%x1) 
+        deallocate(model%general%x1) 
     if (associated(model%general%y1)) &
-       deallocate(model%general%y1) 
+        deallocate(model%general%y1) 
+
+    ! vertical sigma coordinates
+
+    if (associated(model%numerics%sigma)) &
+        deallocate(model%numerics%sigma)
+    if (associated(model%numerics%stagsigma)) &
+        deallocate(model%numerics%stagsigma)
+    if (associated(model%numerics%stagwbndsigma)) &
+        deallocate(model%numerics%stagwbndsigma)
+
+    ! temperature arrays
 
     if (associated(model%temper%temp)) &
-       deallocate(model%temper%temp)
+        deallocate(model%temper%temp)
     if (associated(model%temper%flwa)) &
-       deallocate(model%temper%flwa)
+        deallocate(model%temper%flwa)
     if (associated(model%temper%bheatflx)) &
-       deallocate(model%temper%bheatflx)
+        deallocate(model%temper%bheatflx)
     if (associated(model%temper%bwat)) &
-       deallocate(model%temper%bwat)
+        deallocate(model%temper%bwat)
     if (associated(model%temper%bwatflx)) &
-       deallocate(model%temper%bwatflx)
+        deallocate(model%temper%bwatflx)
     if (associated(model%temper%stagbwat)) &
-       deallocate(model%temper%stagbwat)
+        deallocate(model%temper%stagbwat)
     if (associated(model%temper%bmlt)) &
-       deallocate(model%temper%bmlt)
+        deallocate(model%temper%bmlt)
     if (associated(model%temper%bmlt_tavg)) &
-       deallocate(model%temper%bmlt_tavg)
-    if (associated(model%temper%bfricflx)) &
-       deallocate(model%temper%bfricflx)
-    if (associated(model%temper%ucondflx)) &
-       deallocate(model%temper%ucondflx)
-    if (associated(model%temper%lcondflx)) &
-       deallocate(model%temper%lcondflx)
-    if (associated(model%temper%dissipcol)) &
-       deallocate(model%temper%dissipcol)
-    if (associated(model%temper%stagbtemp)) &
-       deallocate(model%temper%stagbtemp)
+        deallocate(model%temper%bmlt_tavg)
     if (associated(model%temper%bpmp)) &
-       deallocate(model%temper%bpmp)
+        deallocate(model%temper%bpmp)
     if (associated(model%temper%stagbpmp)) &
-       deallocate(model%temper%stagbpmp)
-    if (associated(model%ground%gl_ns)) &
-       deallocate(model%ground%gl_ns)
-    if (associated(model%ground%gl_ew)) &
-       deallocate(model%ground%gl_ew)
-    if (associated(model%ground%gline_flux)) &
-       deallocate(model%ground%gline_flux)
+        deallocate(model%temper%stagbpmp)
+    if (associated(model%temper%stagbtemp)) &
+        deallocate(model%temper%stagbtemp)
+    if (associated(model%temper%bfricflx)) &
+        deallocate(model%temper%bfricflx)
+    if (associated(model%temper%ucondflx)) &
+        deallocate(model%temper%ucondflx)
+    if (associated(model%temper%lcondflx)) &
+        deallocate(model%temper%lcondflx)
+    if (associated(model%temper%dissipcol)) &
+        deallocate(model%temper%dissipcol)
 
-    if (associated(model%lithot%temp)) &
-       deallocate(model%lithot%temp)
-    if (associated(model%lithot%mask)) &
-       deallocate(model%lithot%mask)
+    ! velocity arrays
 
     if (associated(model%velocity%uvel)) &
-       deallocate(model%velocity%uvel)
+        deallocate(model%velocity%uvel)
     if (associated(model%velocity%vvel)) &
-       deallocate(model%velocity%vvel)
+        deallocate(model%velocity%vvel)
+    if (associated(model%velocity%velnorm)) &
+        deallocate(model%velocity%velnorm)
+    if (associated(model%velocity%wvel)) &
+        deallocate(model%velocity%wvel)
+    if (associated(model%velocity%uflx)) &
+        deallocate(model%velocity%uflx)
+    if (associated(model%velocity%vflx)) &
+        deallocate(model%velocity%vflx)
+    if (associated(model%velocity%bed_softness)) &
+        deallocate(model%velocity%bed_softness)
+    if (associated(model%velocity%btrc)) &
+        deallocate(model%velocity%btrc)
+    if (associated(model%velocity%btraction)) &
+        deallocate(model%velocity%btraction)
+    if (associated(model%velocity%uvel_icegrid)) &
+        deallocate(model%velocity%uvel_icegrid)
+    if (associated(model%velocity%vvel_icegrid)) &
+        deallocate(model%velocity%vvel_icegrid)
+
+    !TODO - Remove ubas and vbas
+    if (associated(model%velocity%ubas)) &
+        deallocate(model%velocity%ubas)
+    if (associated(model%velocity%ubas_tavg)) &
+        deallocate(model%velocity%ubas_tavg)
+    if (associated(model%velocity%vbas)) &
+        deallocate(model%velocity%vbas)
+    if (associated(model%velocity%vbas_tavg)) &
+        deallocate(model%velocity%vbas_tavg)
+
+    if (associated(model%velocity%wgrd)) &
+        deallocate(model%velocity%wgrd)
+    if (associated(model%velocity%diffu)) &
+        deallocate(model%velocity%diffu)
+    if (associated(model%velocity%diffu_x)) &
+        deallocate(model%velocity%diffu_x)
+    if (associated(model%velocity%diffu_y)) &
+        deallocate(model%velocity%diffu_y)
+    if (associated(model%velocity%total_diffu)) &
+        deallocate(model%velocity%total_diffu)
+    if (associated(model%velocity%tau_x)) &
+        deallocate(model%velocity%tau_x)
+    if (associated(model%velocity%tau_y)) &
+        deallocate(model%velocity%tau_y)
+
+!!    if (associated(model%velocity%velmask)) &   ! no longer used
+!!       deallocate(model%velocity%velmask) 
+
+    if (associated(model%velocity%beta)) &
+        deallocate(model%velocity%beta)
+    if (associated(model%velocity%kinbcmask)) &
+        deallocate(model%velocity%kinbcmask)
+    if (associated(model%velocity%dynbcmask)) &
+        deallocate(model%velocity%dynbcmask)
 
     !! next 3 used for output of residual fields (when relevant code in glam_strs2 is active)
-!    deallocate(model%velocity%ures) 
-!    deallocate(model%velocity%vres)
-!    deallocate(model%velocity%magres)
+!    if (associated(model%velocity%ures)) & 
+!        deallocate(model%velocity%ures) 
+!    if (associated(model%velocity%vres)) & 
+!        deallocate(model%velocity%vres) 
+!    if (associated(model%velocity%magres)) & 
+!        deallocate(model%velocity%magres) 
 
-    if (associated(model%velocity%uvel_icegrid)) &
-       deallocate(model%velocity%uvel_icegrid)
-    if (associated(model%velocity%vvel_icegrid)) &
-       deallocate(model%velocity%vvel_icegrid)
+    ! higher-order stress arrays
 
-    if (associated(model%velocity%velnorm)) &
-       deallocate(model%velocity%velnorm)
-    if (associated(model%velocity%wvel)) &
-       deallocate(model%velocity%wvel)
-    if (associated(model%velocity%wgrd)) &
-       deallocate(model%velocity%wgrd)
-
-    if (associated(model%velocity%uflx)) &
-       deallocate(model%velocity%uflx)
-    if (associated(model%velocity%vflx)) &
-       deallocate(model%velocity%vflx)
-    if (associated(model%velocity%diffu)) &
-       deallocate(model%velocity%diffu)
-    if (associated(model%velocity%diffu_x)) &
-       deallocate(model%velocity%diffu_x)
-    if (associated(model%velocity%diffu_y)) &
-       deallocate(model%velocity%diffu_y)
-    if (associated(model%velocity%total_diffu)) &
-       deallocate(model%velocity%total_diffu)
-    if (associated(model%velocity%bed_softness)) &
-       deallocate(model%velocity%bed_softness)
-    if (associated(model%velocity%btrc)) &
-       deallocate(model%velocity%btrc)
-    if (associated(model%velocity%btraction)) &
-       deallocate(model%velocity%btraction)
-    if (associated(model%velocity%beta)) &
-       deallocate(model%velocity%beta)
-    if (associated(model%velocity%ubas)) &
-       deallocate(model%velocity%ubas)
-    if (associated(model%velocity%ubas_tavg)) &
-       deallocate(model%velocity%ubas_tavg)
-    if (associated(model%velocity%vbas)) &
-       deallocate(model%velocity%vbas)
-    if (associated(model%velocity%vbas_tavg)) &
-       deallocate(model%velocity%vbas_tavg)
-    if (associated(model%velocity%velmask)) &
-       deallocate(model%velocity%velmask)
-    if (associated(model%velocity%kinbcmask)) &
-       deallocate(model%velocity%kinbcmask)
-    if (associated(model%velocity%dynbcmask)) &
-       deallocate(model%velocity%dynbcmask)
-
-    if (associated(model%stress%tau%scalar)) &
-       deallocate(model%stress%tau%scalar)
-    if (associated(model%stress%tau%xz)) &
-       deallocate(model%stress%tau%xz)
-    if (associated(model%stress%tau%yz)) &
-       deallocate(model%stress%tau%yz)
-    if (associated(model%stress%tau%xx)) &
-       deallocate(model%stress%tau%xx)
-    if (associated(model%stress%tau%yy)) &
-       deallocate(model%stress%tau%yy)
-    if (associated(model%stress%tau%xy)) &
-       deallocate(model%stress%tau%xy)
     if (associated(model%stress%efvs)) &
-       deallocate(model%stress%efvs)
-    if (associated(model%stress%tau_x)) &
-       deallocate(model%stress%tau_x)
-    if (associated(model%stress%tau_y)) &
-       deallocate(model%stress%tau_y)
+        deallocate(model%stress%efvs)
+    if (associated(model%stress%tau%scalar)) &
+        deallocate(model%stress%tau%scalar)
+    if (associated(model%stress%tau%xz)) &
+        deallocate(model%stress%tau%xz)
+    if (associated(model%stress%tau%yz)) &
+        deallocate(model%stress%tau%yz)
+    if (associated(model%stress%tau%xx)) &
+        deallocate(model%stress%tau%xx)
+    if (associated(model%stress%tau%yy)) &
+        deallocate(model%stress%tau%yy)
+    if (associated(model%stress%tau%xy)) &
+        deallocate(model%stress%tau%xy)
+
+    ! geometry arrays
+
+    if (associated(model%geometry%thck)) &
+        deallocate(model%geometry%thck)
+    if (associated(model%geometry%usrf)) &
+        deallocate(model%geometry%usrf)
+    if (associated(model%geometry%lsrf)) &
+        deallocate(model%geometry%lsrf)
+    if (associated(model%geometry%topg)) &
+        deallocate(model%geometry%topg)
+    if (associated(model%geometry%thkmask)) &
+        deallocate(model%geometry%thkmask)
+    if (associated(model%geomderv%dthckdew)) &
+        deallocate(model%geomderv%dthckdew)
+    if (associated(model%geomderv%dthckdns)) &
+        deallocate(model%geomderv%dthckdns)
+    if (associated(model%geomderv%dusrfdew)) &
+        deallocate(model%geomderv%dusrfdew)
+    if (associated(model%geomderv%dusrfdns)) &
+        deallocate(model%geomderv%dusrfdns)
+    if (associated(model%geomderv%stagthck)) &
+        deallocate(model%geomderv%stagthck)
+!!    if (associated(model%geometry%marine_bc_normal)) &
+!!       deallocate(model%geometry%marine_bc_normal)
+
+    if (associated(model%geometry%thck_index)) &
+        deallocate(model%geometry%thck_index)
+    if (associated(model%geomderv%dthckdtm)) &
+        deallocate(model%geomderv%dthckdtm)
+    if (associated(model%geomderv%dusrfdtm)) &
+        deallocate(model%geomderv%dusrfdtm)
+    if (associated(model%thckwk%olds)) &
+        deallocate(model%thckwk%olds)
+    if (associated(model%thckwk%oldthck)) &
+        deallocate(model%thckwk%oldthck)
+    if (associated(model%thckwk%oldthck2)) &
+        deallocate(model%thckwk%oldthck2)
+!!    if (associated(model%thckwk%float)) &  ! no longer used
+!!        deallocate(model%thckwk%float)
+
+    if (associated(model%geometry%age)) &
+        deallocate(model%geometry%age)
+    if (associated(model%geomderv%dlsrfdew)) &
+        deallocate(model%geomderv%dlsrfdew)
+    if (associated(model%geomderv%dlsrfdns)) &
+        deallocate(model%geomderv%dlsrfdns)
+    if (associated(model%geomderv%staglsrf)) &
+        deallocate(model%geomderv%staglsrf)
+    if (associated(model%geomderv%stagusrf)) &
+        deallocate(model%geomderv%stagusrf)
+    if (associated(model%geomderv%stagtopg)) &
+        deallocate(model%geomderv%stagtopg)
+    if (associated(model%geomderv%d2usrfdew2)) &
+        deallocate(model%geomderv%d2usrfdew2)
+    if (associated(model%geomderv%d2usrfdns2)) &
+        deallocate(model%geomderv%d2usrfdns2)
+    if (associated(model%geomderv%d2thckdew2)) &
+        deallocate(model%geomderv%d2thckdew2)
+    if (associated(model%geomderv%d2thckdns2)) &
+        deallocate(model%geomderv%d2thckdns2)
+
+    ! climate arrays
 
     if (associated(model%climate%acab)) &
-       deallocate(model%climate%acab)
+        deallocate(model%climate%acab)
     if (associated(model%climate%acab_tavg)) &
-       deallocate(model%climate%acab_tavg)
+        deallocate(model%climate%acab_tavg)
     if (associated(model%climate%artm)) &
-       deallocate(model%climate%artm)
+        deallocate(model%climate%artm)
+    if (associated(model%climate%calving)) &
+        deallocate(model%climate%calving)
     if (associated(model%climate%lati)) &
-       deallocate(model%climate%lati)
+        deallocate(model%climate%lati)
     if (associated(model%climate%loni)) &
-       deallocate(model%climate%loni)
+        deallocate(model%climate%loni)
 
-    if (associated(model%geomderv%dthckdew)) &
-       deallocate(model%geomderv%dthckdew)
-    if (associated(model%geomderv%dusrfdew)) &
-       deallocate(model%geomderv%dusrfdew)
-    if (associated(model%geomderv%dlsrfdew)) &
-       deallocate(model%geomderv%dlsrfdew)
-    if (associated(model%geomderv%dthckdns)) &
-       deallocate(model%geomderv%dthckdns)
-    if (associated(model%geomderv%dusrfdns)) &
-       deallocate(model%geomderv%dusrfdns)
-    if (associated(model%geomderv%dlsrfdns)) &
-       deallocate(model%geomderv%dlsrfdns)
+    ! matrix solver arrays
 
-    if (associated(model%geomderv%d2usrfdew2)) &
-       deallocate(model%geomderv%d2usrfdew2)
-    if (associated(model%geomderv%d2thckdew2)) &
-       deallocate(model%geomderv%d2thckdew2)
-    if (associated(model%geomderv%d2usrfdns2)) &
-       deallocate(model%geomderv%d2usrfdns2)
-    if (associated(model%geomderv%d2thckdns2)) &
-       deallocate(model%geomderv%d2thckdns2)
+    if (associated(model%solver_data%rhsd))  &  
+        deallocate(model%solver_data%rhsd)
+    if (associated(model%solver_data%answ))  &
+        deallocate(model%solver_data%answ)
 
-    if (associated(model%geomderv%dthckdew_unstag)) &
-       deallocate(model%geomderv%dthckdew_unstag)
-    if (associated(model%geomderv%dusrfdew_unstag)) &
-       deallocate(model%geomderv%dusrfdew_unstag)
-    if (associated(model%geomderv%dlsrfdew_unstag)) &
-       deallocate(model%geomderv%dlsrfdew_unstag)
-    if (associated(model%geomderv%dthckdns_unstag)) &
-       deallocate(model%geomderv%dthckdns_unstag)
-    if (associated(model%geomderv%dusrfdns_unstag)) &
-       deallocate(model%geomderv%dusrfdns_unstag)
-    if (associated(model%geomderv%dlsrfdns_unstag)) &
-       deallocate(model%geomderv%dlsrfdns_unstag)
-
-    if (associated(model%geomderv%d2usrfdew2_unstag)) &
-       deallocate(model%geomderv%d2usrfdew2_unstag)
-    if (associated(model%geomderv%d2thckdew2_unstag)) &
-       deallocate(model%geomderv%d2thckdew2_unstag)
-    if (associated(model%geomderv%d2usrfdns2_unstag)) &
-       deallocate(model%geomderv%d2usrfdns2_unstag)
-    if (associated(model%geomderv%d2thckdns2_unstag)) &
-       deallocate(model%geomderv%d2thckdns2_unstag)
-
-    if (associated(model%geomderv%dthckdtm)) &
-       deallocate(model%geomderv%dthckdtm)
-    if (associated(model%geomderv%dusrfdtm)) &
-       deallocate(model%geomderv%dusrfdtm)
-    if (associated(model%geomderv%stagthck)) &
-       deallocate(model%geomderv%stagthck)
-    if (associated(model%geomderv%stagusrf)) &
-       deallocate(model%geomderv%stagusrf)
-    if (associated(model%geomderv%staglsrf)) &
-       deallocate(model%geomderv%staglsrf)
-    if (associated(model%geomderv%stagtopg)) &
-       deallocate(model%geomderv%stagtopg)
-
-    if (associated(model%geometry%temporary0)) &
-       deallocate(model%geometry%temporary0)
-    if (associated(model%geometry%temporary1)) &
-       deallocate(model%geometry%temporary1)
-    if (associated(model%geometry%thck)) &
-       deallocate(model%geometry%thck)
-    if (associated(model%geometry%usrf)) &
-       deallocate(model%geometry%usrf)
-    if (associated(model%geometry%lsrf)) &
-       deallocate(model%geometry%lsrf)
-    if (associated(model%geometry%topg)) &
-       deallocate(model%geometry%topg)
-    if (associated(model%geometry%age)) &
-       deallocate(model%geometry%age)
-    if (associated(model%geometry%thck_index)) &
-       deallocate(model%geometry%thck_index)
-    if (associated(model%geometry%thkmask)) &
-       deallocate(model%geometry%thkmask)
-    if (associated(model%geometry%marine_bc_normal)) &
-       deallocate(model%geometry%marine_bc_normal)
-
-    if (associated(model%thckwk%olds)) &
-       deallocate(model%thckwk%olds)
-    if (associated(model%thckwk%oldthck)) &
-       deallocate(model%thckwk%oldthck)
-    if (associated(model%thckwk%oldthck2)) &
-       deallocate(model%thckwk%oldthck2)
-    if (associated(model%thckwk%float)) &
-       deallocate(model%thckwk%float)
-    if (associated(model%numerics%sigma)) &
-       deallocate(model%numerics%sigma)
-    if (associated(model%numerics%stagsigma)) &
-       deallocate(model%numerics%stagsigma)
-    if (associated(model%numerics%stagwbndsigma)) &
-       deallocate(model%numerics%stagwbndsigma)
-    if (associated(model%solver_data%rhsd,model%solver_data%answ)) &
-       deallocate(model%solver_data%rhsd,model%solver_data%answ)
-
-!KJE do we need this at all here, the parts within are allocated in glam_strs2
+    !KJE do we need this here? The parts within are allocated in glam_strs2
     call del_sparse_matrix(model%solver_data%matrix)
 
-    ! deallocate isostasy grids
+    ! lithosphere arrays
 
-    ! new isostasy
+    if (associated(model%lithot%temp)) &
+        deallocate(model%lithot%temp)
+    if (associated(model%lithot%mask)) &
+        deallocate(model%lithot%mask)
+
+    ! isostasy arrays
+
     if (associated(model%isostasy%relx)) &
-       deallocate(model%isostasy%relx)
+        deallocate(model%isostasy%relx)
     if (associated(model%isostasy%load)) &
-       deallocate(model%isostasy%load)
+        deallocate(model%isostasy%load)
     if (associated(model%isostasy%load_factors)) &
-       deallocate(model%isostasy%load_factors)
+        deallocate(model%isostasy%load_factors)
 
-    !deallocate phaml variables
-    if (associated(model%phaml%init_phaml)) &
-       deallocate(model%phaml%init_phaml)
-    if (associated(model%phaml%rs_phaml)) &
-       deallocate(model%phaml%rs_phaml)    
-    if (associated(model%phaml%uphaml)) &
-       deallocate(model%phaml%uphaml)
+    ! TODO - Are these needed?  Commented out for now
+    ! phaml arrays
 
-    ! deallocate till variables
-    if (associated(model%basalproc%Hwater)) &
-       deallocate(model%basalproc%Hwater)
-    if (associated(model%basalproc%minTauf)) &
-       deallocate(model%basalproc%minTauf)
-    if (associated(model%basalproc%u)) &
-       deallocate(model%basalproc%u)
-    if (associated(model%basalproc%etill)) &
-       deallocate(model%basalproc%etill)
+!!    if (associated(model%phaml%init_phaml)) &
+!!       deallocate(model%phaml%init_phaml)
+!!    if (associated(model%phaml%rs_phaml)) &
+!!       deallocate(model%phaml%rs_phaml)    
+!!    if (associated(model%phaml%uphaml)) &
+!!       deallocate(model%phaml%uphaml)
+
+    ! grounding line arrays (not currently supported)
+
+    if (associated(model%ground%gl_ns)) &
+        deallocate(model%ground%gl_ns)
+    if (associated(model%ground%gl_ew)) &
+        deallocate(model%ground%gl_ew)
+    if (associated(model%ground%gline_flux)) &
+        deallocate(model%ground%gline_flux)
+
+    ! basal process arrays
+    ! not currently supported, except that glam_strs2 uses mintauf
+
+!!    if (associated(model%basalproc%Hwater)) &
+!!       deallocate(model%basalproc%Hwater)
+    if (associated(model%basalproc%mintauf)) &
+       deallocate(model%basalproc%mintauf)
+!!    if (associated(model%basalproc%u)) &
+!!       deallocate(model%basalproc%u)
+!!    if (associated(model%basalproc%etill)) &
+!!       deallocate(model%basalproc%etill)
 
   end subroutine glide_deallocarr
+
 
   ! some accessor functions
   function get_dew(model)

@@ -55,7 +55,8 @@ contains
 
 !TODO - Pretty sure that none of the arrays in this subroutine are needed for HO,
 !        so we may not need to call this subroutine from glissade_initialise.
-
+!       Make sure the arrays allocated here are deallocated at the end.
+!        Might want to move allocation/deallocation to subroutines in glide_types.
 !       Some velowk arrays are used in wvelintg, but not hard to rewrite wvelintg without these arrays.
 
   subroutine init_velo(model)

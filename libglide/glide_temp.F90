@@ -97,6 +97,10 @@ contains
     if (VERT_ADV==0.)    call write_log('Vertical advection is switched off')
     if (STRAIN_HEAT==0.) call write_log('Strain heating is switched off')
 
+    !TODO - Should these allocations be done in glide_allocarr?
+    !TODO -  Make sure the arrays allocated here are deallocated at the end of the run.
+    !        Might want to move allocation/deallocation to subroutines in glide_types.
+
     ! horizontal advection stuff
     allocate(model%tempwk%hadv_u(model%general%upn,model%general%ewn,model%general%nsn))
     allocate(model%tempwk%hadv_v(model%general%upn,model%general%ewn,model%general%nsn))
@@ -462,12 +466,10 @@ contains
        !*MH model%tempwk%dissip   = 0.0d0  is also set to zero in finddisp
 
        ! ----------------------------------------------------------------------------------
-       !TODO - I think efvs is not needed here
 
        call glide_finddisp(model,          &
                            model%geometry%thck,     &
                            model%options%which_disp,&
-                           model%stress%efvs, &
                            model%geomderv%stagthck, &
                            model%geomderv%dusrfdew, &
                            model%geomderv%dusrfdns, &
@@ -1069,7 +1071,7 @@ contains
 
 !-------------------------------------------------------------------
 
-  subroutine glide_finddisp(model,thck,whichdisp,efvs,stagthck,dusrfdew,dusrfdns,flwa)
+  subroutine glide_finddisp(model,thck,whichdisp,stagthck,dusrfdew,dusrfdns,flwa)
 
     ! Compute the dissipation source term associated with strain heating.
     ! Note that the dissipation is computed in the same way on either a staggered or an
@@ -1081,7 +1083,7 @@ contains
 
     type(glide_global_type) :: model
     real(dp), dimension(:,:), intent(in) :: thck, stagthck, dusrfdew, dusrfdns
-    real(dp), dimension(:,:,:), intent(in) :: flwa, efvs
+    real(dp), dimension(:,:,:), intent(in) :: flwa
     integer, intent(in) :: whichdisp
 
     integer, parameter :: p1 = gn + 1  

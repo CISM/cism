@@ -293,7 +293,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
   real(dp), dimension(:,:),   intent(in)  :: dusrfdew, dusrfdns     ! upper surf grads
   real(dp), dimension(:,:),   intent(in)  :: dlsrfdew, dlsrfdns     ! basal surf grads
   real(dp), dimension(:,:),   intent(in)  :: stagthck               ! staggered thickness
-  real(dp), dimension(:,:),   intent(in)  :: minTauf                ! till yield stress
+  real(dp), dimension(:,:),   intent(in)  :: mintauf                ! till yield stress
   real(dp), dimension(:,:,:), intent(inout) :: btraction            ! consistent basal traction array
   real(dp), dimension(:,:,:), intent(in)  :: flwa                   ! flow law rate factor
 
@@ -557,7 +557,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      stagthck,    whichbabc,      &
                      uindx,       umask,          &
                      lsrf,        topg,           &
-                     minTauf,     flwa,           &
+                     mintauf,     flwa,           &
                      beta,        btraction,      &
                      0 )
  call t_stopf("PICARD_findcoefstr1")
@@ -631,7 +631,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      stagthck,    whichbabc,      &
                      uindx,       umask,          &
                      lsrf,        topg,           &
-                     minTauf,     flwa,           &
+                     mintauf,     flwa,           &
                      beta,        btraction,      &
                      0 )
  call t_stopf("PICARD_findcoefstr2")
@@ -701,7 +701,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      stagthck,    whichbabc,      &
                      uindx,       umask,          &
                      lsrf,        topg,           &
-                     minTauf,     flwa,           &
+                     mintauf,     flwa,           &
                      beta,        btraction,      &
                      1 )
 
@@ -719,7 +719,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      stagthck,    whichbabc,      &
                      uindx,       umask,          &
                      lsrf,        topg,           &
-                     minTauf,     flwa,           &
+                     mintauf,     flwa,           &
                      beta,        btraction,      &
                      1 )
  call t_stopf("PICARD_findcoefstr3")
@@ -895,7 +895,7 @@ subroutine JFNK_velo_solver  (model,umask)
   real(dp), dimension(:,:)   ,pointer :: dlsrfdew, dlsrfdns
   real(dp), dimension(:,:)   ,pointer :: stagthck
   real(dp), dimension(:,:,:) ,pointer :: flwa
-  real(dp), dimension(:,:)   ,pointer :: minTauf
+  real(dp), dimension(:,:)   ,pointer :: mintauf
   real(dp), dimension(:,:,:) ,pointer :: btraction            ! consistent basal traction array
   
 !TODO - Anything to update here?
@@ -954,7 +954,7 @@ subroutine JFNK_velo_solver  (model,umask)
   dlsrfdns => model%geomderv%dlsrfdns(:,:)
   stagthck => model%geomderv%stagthck(:,:)
   flwa => model%temper%flwa(:,:,:)
-  mintauf => model%basalproc%minTauf(:,:)
+  mintauf => model%basalproc%mintauf(:,:)
   btraction => model%velocity%btraction(:,:,:)
   whichbabc = model%options%which_ho_babc
   whichefvs = model%options%which_ho_efvs
@@ -1159,7 +1159,7 @@ end if
                      stagthck,    whichbabc,      &
                      uindx,       umask,          &
                      lsrf,        topg,           &
-                     minTauf,     flwa,           &
+                     mintauf,     flwa,           &
                      beta,        btraction,      &
                      1 )
 
@@ -1177,7 +1177,7 @@ end if
                      stagthck,    whichbabc,      &
                      uindx,       umask,          &
                      lsrf,        topg,           &
-                     minTauf,     flwa,           &
+                     mintauf,     flwa,           &
                      beta,        btraction,      &
                      1 )
 
@@ -2225,7 +2225,7 @@ end subroutine reset_effstrmin
   real(dp) :: dew, dns
   real(dp), dimension(:)  ,pointer :: sigma, stagsigma
   real(dp), dimension(:,:) ,pointer :: thck, dusrfdew, dthckdew, dusrfdns, dthckdns, &
-                                         dlsrfdew, dlsrfdns, stagthck, lsrf, topg, minTauf, beta
+                                         dlsrfdew, dlsrfdns, stagthck, lsrf, topg, mintauf, beta
   real(dp), dimension(:,:) ,pointer ::  d2usrfdew2, d2thckdew2, d2usrfdns2, d2thckdns2
   real(dp), dimension(:,:,:) ,pointer :: efvs, btraction
   real(dp), dimension(:,:,:) ,pointer :: uvel, vvel, flwa
@@ -2269,7 +2269,7 @@ end subroutine reset_effstrmin
   d2thckdns2 => fptr%geomderv%d2thckdns2(:,:)
   d2usrfdew2 => fptr%geomderv%d2usrfdew2(:,:)
   d2usrfdns2 => fptr%geomderv%d2usrfdns2(:,:)
-  minTauf => fptr%basalproc%minTauf(:,:)
+  mintauf => fptr%basalproc%mintauf(:,:)
   beta => fptr%velocity%beta(:,:)
 !intent (inout) terms
   btraction => fptr%velocity%btraction(:,:,:)
@@ -2343,7 +2343,7 @@ end subroutine reset_effstrmin
                      stagthck,    whichbabc,      &
                      ui,       um,          &
                      lsrf,        topg,           &
-                     minTauf,     flwa,           &
+                     mintauf,     flwa,           &
                      beta,        btraction,      &
                      0 )
 
@@ -2394,7 +2394,7 @@ end subroutine reset_effstrmin
                      stagthck,    whichbabc,      &
                      ui,       um,          &
                      lsrf,        topg,           &
-                     minTauf,     flwa,           &
+                     mintauf,     flwa,           &
                      beta,        btraction,      &
                      0 )
 
@@ -3011,7 +3011,7 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                        stagthck,    whichbabc,      &
                        uindx,       mask,           &
                        lsrf,        topg,           &
-                       minTauf,     flwa,           &
+                       mintauf,     flwa,           &
                        beta,        btraction,      &
                        assembly )
 
@@ -3039,7 +3039,7 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                                                   dlsrfdew,   dlsrfdns,      &
                                                   thck, lsrf, topg
 
-  real(dp), dimension(:,:), intent(in) :: minTauf
+  real(dp), dimension(:,:), intent(in) :: mintauf
   real(dp), dimension(:,:), intent(in) :: beta
   real(dp), dimension(:,:,:), intent(in) :: flwa
   real(dp), dimension(:,:,:), intent(inout) :: btraction
@@ -3078,7 +3078,7 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                         thck,                   &
                         thisvel(upn,:,:),       &
                         othervel(upn,:,:),      &
-                        minTauf, beta,          &
+                        mintauf, beta,          &
                         betasquared, mask )
   ! intent(out) betasquared
 
@@ -5182,7 +5182,7 @@ subroutine calcbetasquared (whichbabc,               &
                             lsrf,        topg,       &
                             thck,                    &
                             thisvel,     othervel,   &
-                            minTauf, beta,           &
+                            mintauf, beta,           &
                             betasquared, mask,       &
                             betafile)
 
@@ -5196,7 +5196,7 @@ subroutine calcbetasquared (whichbabc,               &
 
   real(dp), intent(in) :: dew, dns
   real(dp), intent(in), dimension(:,:) :: lsrf, topg, thck
-  real(dp), intent(in), dimension(:,:) :: thisvel, othervel, minTauf, beta
+  real(dp), intent(in), dimension(:,:) :: thisvel, othervel, mintauf, beta
 
   integer, intent(in), dimension(:,:) :: mask 
 
@@ -5243,7 +5243,9 @@ subroutine calcbetasquared (whichbabc,               &
       !!! NOTE: Eventually, this option will provide the till yield stress as calculate from the basal processes
       !!! submodel. Currently, to enable sliding over plastic till, simple specify the value of "betasquared" as 
       !!! if it were the till yield stress (in units of Pascals).
-!      betasquared = minTauf*tau0 / dsqrt( (thisvel*vel0*scyr)**2 + (othervel*vel0*scyr)**2 + (smallnum)**2 )
+
+       !TODO - Will we ever use mintauf?  It is passed throughout the code but never used
+!      betasquared = mintauf*tau0 / dsqrt( (thisvel*vel0*scyr)**2 + (othervel*vel0*scyr)**2 + (smallnum)**2 )
 
       betasquared(:,:) = ( beta(:,:) * ( tau0 / vel0 / scyr ) ) &     ! Pa yr/m
                          / dsqrt( (thisvel(:,:)*vel0*scyr)**2 + (othervel(:,:)*vel0*scyr)**2 + (smallnum)**2 )

@@ -88,6 +88,9 @@ contains
     !    end if
     ! end if
 
+!TODO -  Make sure the arrays allocated here are deallocated at the end of the run.
+!        Might want to move allocation/deallocation to subroutines in glide_types.
+
     ! allocate memory for ADI scheme
 
     if (model%options%whichevol == EVOL_ADI) then

@@ -584,14 +584,13 @@ contains
     ! Part 4: Calculate other diagnostic fields that depend on velocity
     ! ------------------------------------------------------------------------    
 
-!TODO Remove this call?  Or maybe not, if we want to have tau available at time zero.
     ! ------------------------------------------------------------------------
     ! basal shear stress calculation
     ! ------------------------------------------------------------------------
 
     call calc_basal_shear(model%geomderv%stagthck,                          &
                           model%geomderv%dusrfdew, model%geomderv%dusrfdns, &
-                          model%stress%tau_x,      model%stress%tau_y)
+                          model%velocity%tau_x,    model%velocity%tau_y)
 
     ! velocity norm
     model%velocity%velnorm = sqrt(model%velocity%uvel**2 + model%velocity%vvel**2)
@@ -843,7 +842,7 @@ contains
 
     call calc_basal_shear(model%geomderv%stagthck,                          &
                           model%geomderv%dusrfdew, model%geomderv%dusrfdns, &
-                          model%stress%tau_x,      model%stress%tau_y)
+                          model%velocity%tau_x,    model%velocity%tau_y)
 
 ! not in old glide, but this is a useful diagnostic
 

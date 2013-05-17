@@ -74,6 +74,10 @@ contains
     integer up, ns, ew
     real(dp) :: estimate
 
+    !TODO - Should these allocations be done in glide_allocarr?
+    !TODO -  Make sure the arrays allocated here are deallocated at the end of the run.
+    !        Might want to move allocation/deallocation to subroutines in glide_types.
+
     ! Note vertical dimensions here.  Dissipation is computed for each of (upn-1) layers.
     ! Temperature is defined at midpoint of each layer, plus upper and lower surfaces.
     allocate(model%tempwk%dups(model%general%upn+1,2))
@@ -88,7 +92,7 @@ contains
     allocate(model%tempwk%dupb(model%general%upn))
     allocate(model%tempwk%dupc(model%general%upn))
 
-    allocate(model%tempwk%smth(model%general%ewn,model%general%nsn))
+    allocate(model%tempwk%smth(model%general%ewn,model%general%nsn))  !TODO - Is this used for glissade?
     allocate(model%tempwk%wphi(model%general%ewn,model%general%nsn))
     allocate(model%tempwk%bwatu(model%general%ewn,model%general%nsn))
     allocate(model%tempwk%bwatv(model%general%ewn,model%general%nsn))
