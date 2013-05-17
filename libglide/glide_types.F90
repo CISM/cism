@@ -80,13 +80,13 @@ module glide_types
   integer, parameter :: EVOL_UPWIND = 4         ! glam/glissade only
   integer, parameter :: EVOL_NO_THICKNESS = 5   ! glam/glissade only
 
-  !NOTE: Option 3 is now deprecated.
-  !      Use option 1 for prognostic temperature with any dycore
-  !TODO: Remove option 3
+  !NOTE: Use option 1 for prognostic temperature with any dycore
+  !      Option 3 is under construction
+
   integer, parameter :: TEMP_SURFACE_AIR_TEMP = 0
   integer, parameter :: TEMP_PROGNOSTIC = 1
   integer, parameter :: TEMP_STEADY = 2
-  integer, parameter :: TEMP_REMAP_ADV = 3
+  integer, parameter :: TEMP_ENTHALPY = 3
 
   integer, parameter :: TEMP_INIT_ZERO = 0
   integer, parameter :: TEMP_INIT_ARTM = 1
@@ -276,14 +276,12 @@ module glide_types
 
     integer :: whichtemp = 1
 
-    !TODO: Remove option 3 (after cleaning up config files)
-
     !*FD Method of ice temperature calculation:
     !*FD \begin{description} 
     !*FD \item[0] Set column to surface air temperature
-    !*FD \item[1] Full prognostic temperature solution 
+    !*FD \item[1] Prognostic temperature solution 
     !*FD \item[2] Do NOTHING - hold temperatures steady at initial value  
-    !*FD \item[3] Use remapping to advect temperature (deprecated; now combined with [1])
+    !*FD \item[3] Prognostic enthalpy solution
     !*FD \end{description}
 
     !TODO: At some point, change the default to temp_init = 2.
@@ -747,6 +745,9 @@ module glide_types
     real(dp),dimension(:,:),  pointer :: ucondflx => null()  !*FD conductive heat flux at upper sfc (positive down)
     real(dp),dimension(:,:),  pointer :: lcondflx => null()  !*FD conductive heat flux at lower sfc (positive down)
     real(dp),dimension(:,:),  pointer :: dissipcol => null() !*FD total heat dissipation in column (>= 0)
+
+    ! for enthalpy scheme under construction
+    real(dp),dimension(:,:,:),pointer :: waterfrac => null() !*FD fractional water content in layer (0 <= waterfrac <= 1)
     
     integer  :: niter   = 0   
     real(dp) :: perturb = 0.d0
@@ -1138,6 +1139,7 @@ contains
     !*FD \item \texttt{ucondflx(ewn,nsn))}
     !*FD \item \texttt{lcondflx(ewn,nsn))}
     !*FD \item \texttt{dissipcol(ewn,nsn))}
+    !*FD \item \texttt{waterfrac(ewn,nsn))}   ! for enthalpy scheme under construction
     !*FD \end{itemize}
 
     !*FD In \texttt{model\%velocity}:
@@ -1268,10 +1270,15 @@ contains
     call coordsystem_allocate(model%general%velo_grid, model%temper%stagbtemp)
 
     if (model%options%whichdycore /= DYCORE_GLIDE) then   ! glam/glissade only
-      call coordsystem_allocate(model%general%ice_grid, model%temper%bfricflx)
-      call coordsystem_allocate(model%general%ice_grid, model%temper%ucondflx)
-      call coordsystem_allocate(model%general%ice_grid, model%temper%lcondflx)
-      call coordsystem_allocate(model%general%ice_grid, model%temper%dissipcol)
+       call coordsystem_allocate(model%general%ice_grid, model%temper%bfricflx)
+       call coordsystem_allocate(model%general%ice_grid, model%temper%ucondflx)
+       call coordsystem_allocate(model%general%ice_grid, model%temper%lcondflx)
+       call coordsystem_allocate(model%general%ice_grid, model%temper%dissipcol)
+    endif
+
+    if (model%options%whichtemp == TEMP_ENTHALPY) then   ! enthalpy scheme (under construction)
+       ! water fraction lives at the midpoint of each layer (with temp and flwa)
+       call coordsystem_allocate(model%general%ice_grid, upn-1, model%temper%waterfrac)
     endif
 
     ! velocity arrays
@@ -1485,6 +1492,8 @@ contains
         deallocate(model%temper%lcondflx)
     if (associated(model%temper%dissipcol)) &
         deallocate(model%temper%dissipcol)
+    if (associated(model%temper%waterfrac)) &
+        deallocate(model%temper%waterfrac)
 
     ! velocity arrays
 

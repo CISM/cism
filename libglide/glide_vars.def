@@ -531,6 +531,14 @@ factor:        scale_wvel
 coordinates:   lon lat
 load:          1
 
+[waterfrac]
+dimensions:    time, level, y1, x1
+units:         unitless [0,1]
+long_name:     internal water fraction
+data:          data%temper%waterfrac(up,:,:)
+coordinates:   lon lat
+load:          1
+
 [flwa]
 dimensions:    time, level, y1, x1
 units:         pascal/year

@@ -98,6 +98,7 @@ contains
     use glam_strs2, only : glam_velo_init
     use glissade_velo_higher, only: glissade_velo_higher_init
     use glimmer_coordinates, only: coordsystem_new
+    use glissade_enthalpy, only: glissade_init_enthalpy
 
 !!    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
 
@@ -209,7 +210,14 @@ contains
     !       Can remove this call provided velowk is not used elsewhere (e.g., to call wvelintg)
     call init_velo(model)
 
-    call glissade_init_temp(model)  ! temperature lives at layer centers
+    !WHL - Alternatively, could call both glissade_init_enthalpy and glissade_init_temp
+    !      to initialize the enthalpy scheme
+
+    if (model%options%whichtemp == TEMP_ENTHALPY) then
+       call glissade_init_enthalpy(model)   ! under construction
+    else
+       call glissade_init_temp(model)
+    endif    
 
     if (model%options%gthf == GTHF_COMPUTE) then
        call not_parallel(__FILE__,__LINE__)
@@ -299,6 +307,7 @@ contains
     use glide_ground, only: glide_marinlim
     use glide_grid_operators
     use isostasy
+    use glissade_enthalpy, only: glissade_enthalpy_driver
 
     use parallel
 !!    use glimmer_horiz_bcs, only: horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns, &
@@ -360,7 +369,12 @@ contains
 !HALO TODO - Modify glissade_temp_driver to compute over locally owned cells only?
 
       call t_startf('glissade_temp_driver')
-       call glissade_temp_driver(model, model%options%whichtemp)
+
+       if (model%options%whichtemp == TEMP_ENTHALPY) then
+          call glissade_enthalpy_driver(model)   ! under construction
+       else
+          call glissade_temp_driver(model, model%options%whichtemp)
+       endif
       call t_stopf('glissade_temp_driver')
 
        model%temper%newtemps = .true.

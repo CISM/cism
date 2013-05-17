@@ -637,10 +637,11 @@ contains
          '1st order upwind                      ', &
          'thickness fixed at initial value      '  /)
 
-    character(len=*), dimension(0:2), parameter :: temperature = (/ &
-         'isothermal         ', &
-         'full prognostic    ', &
-         'constant in time   ' /)
+    character(len=*), dimension(0:3), parameter :: temperature = (/ &
+         'isothermal            ', &
+         'prognostic temperature', &
+         'constant in time      ', &
+         'prognostic enthalpy   ' /)
 
     character(len=*), dimension(0:2), parameter :: temp_init = (/ &
          'set to 0 C             ', &
@@ -764,16 +765,19 @@ contains
     write(message,*) 'Dycore                  : ',model%options%whichdycore,dycore(model%options%whichdycore)
     call write_log(message)
 
-    !NOTE : Option 3 (TEMP_REMAP_ADV) is now deprecated.  
+    !NOTE : Old option 3 (TEMP_REMAP_ADV) has been removed.
     ! If this has been set, then change to option 1 (TEMP_PROGNOSTIC), which applies to any dycore.
-    !TODO - Remove this option here and in glide_types.
-    if (model%options%whichtemp == TEMP_REMAP_ADV) model%options%whichtemp = TEMP_PROGNOSTIC
 
     if (model%options%whichtemp < 0 .or. model%options%whichtemp >= size(temperature)) then
        call write_log('Error, temperature option out of range',GM_FATAL)
     end if
     write(message,*) 'temperature calculation : ',model%options%whichtemp,temperature(model%options%whichtemp)
     call write_log(message)
+
+    !TODO - Remove this when enthalpy scheme is up and running
+    if (model%options%whichtemp == TEMP_ENTHALPY) then
+       call write_log('Error, Glissade enthalpy scheme is still under construction', GM_FATAL)
+    endif
 
     ! Forbidden options to use with the Glide dycore
     if (model%options%whichdycore == DYCORE_GLIDE) then
@@ -782,6 +786,10 @@ contains
            model%options%whichevol==EVOL_UPWIND        .or.  &
            model%options%whichevol==EVOL_NO_THICKNESS) then
           call write_log('Error, Glam/glissade thickness evolution options cannot be used with Glide dycore', GM_FATAL)
+       endif
+
+       if (model%options%whichtemp == TEMP_ENTHALPY) then
+          call write_log('Error, Enthalpy scheme cannot be used with Glide dycore', GM_FATAL)
        endif
 
        if (tasks > 1) then
@@ -1448,6 +1456,15 @@ contains
       case default
         ! restart needs to know bwat value
         call glide_add_to_restart_variable_list('bwat')
+    end select
+
+    ! internal water option (for enthalpy scheme)
+    select case (options%whichtemp)
+      case (TEMP_ENTHALPY)
+        ! restart needs to know internal water fraction
+        call glide_add_to_restart_variable_list('waterfrac')
+      case default
+        ! no restart variables needed
     end select
 
     ! geothermal heat flux option
