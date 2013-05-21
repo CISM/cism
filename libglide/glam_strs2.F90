@@ -2745,21 +2745,13 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
     ! locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel /= 0.d0)
 
    case(HO_RESID_L2NORM)
-    ! resid = maxval( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel /= 0.d0)
-    resid = 0.d0
 
-    do ns = 1 + staggered_lhalo, size(vel,3) - staggered_uhalo
-      do ew = 1 + staggered_lhalo, size(vel,2) - staggered_uhalo
-        do nr = 1, size(vel, 1)
-          if (vel(nr,ew,ns) /= 0.d0) then
-            resid = max(resid, abs(usav(nr,ew,ns,pt) - vel(nr,ew,ns)) / vel(nr,ew,ns))
-          endif
-        enddo
-      enddo
-    enddo
-
-    resid = parallel_reduce_max(resid)
-    !locat = maxloc( abs((usav(:,:,:,pt) - vel ) / vel ), MASK = vel /= 0.d0)
+!! SFP - the L2norm option is handled entirely external to this subroutine. That is, if the L2norm option
+!! for the residul is specified (it is currently the default), the residual is calculated as the L2norm of 
+!! the system residul, r = Ax - b (rather than defining the residual according to the velocity update, as
+!! is done in all the parts of this subroutine). If the L2norm option is active, the value of "residual" 
+!! passed out of this subroutine is NOT used for determining when to halt iterations on the velocity solution.
+!! The original code that was here for this option has been removed.
 
   end select
 
