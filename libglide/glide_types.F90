@@ -406,8 +406,8 @@ module glide_types
     integer :: is_restart = 0
     !*FD if the run is a restart of a previous run
     !*FD \begin{description}
-    !*FD \item[0] normal start-up
-    !*FD \item[1] restart model from previous run
+    !*FD \item[0] normal start-up (take init fields from .nc input file OR if absent, use default options)
+    !*FD \item[1] restart model from previous run (do not calc. temp, rate factor, or vel)
     !*FD \end{description}
 
     ! This is a Glimmer serial option
@@ -438,21 +438,20 @@ module glide_types
     !*FD \begin{description}
     !*FD \item[0] for 0-order SIA approx
     !*FD \item[1] for 1-st order solution (e.g. Blatter-Pattyn)
-    !*FD \item[2] for 1-st order depth-integrated solution (SSA)
     !*FD \end{description}
 
     integer :: which_ho_babc = 4
 
     !*FD Flag that describes basal boundary condition for PP dyn core: 
     !*FD \begin{description}
-    !*FD \item[0] constant value (hardcoded in, useful for debugging)
-    !*FD \item[1] simple pattern ("     ")
-    !*FD \item[2] use till yield stress (Picard-type iteration)
-    !*FD \item[3] circular ice shelf
-    !*FD \item[4] no slip everywhere (using stress basal bc and large value for B^2)
-    !*FD \item[5] beta^2 field passed in from CISM
-    !*FD \item[6] no slip everywhere (using Dirichlet, no slip basal bc)
-    !*FD \item[7] use till yield stress (Newton-type iteration)
+    !*FD \item[0] constant value of 10 Pa/yr (useful for debugging)
+    !*FD \item[1] simple hard-coded pattern (useful for debugging)
+    !*FD \item[2] treat betasquared value as a till yield stress (in Pa) using Picard iteration 
+    !*FD \item[3] for circular ice shelf test case (not needed anymore)
+    !*FD \item[4] very large value for betasquared to enforce no slip everywhere 
+    !*FD \item[5] betasquared field passed in from .nc input file as part of standard i/o
+    !*FD \item[6] no slip everywhere (using Dirichlet BC rather than large betasquared)
+    !*FD \item[7] treat betasquared value as till yield stress (in Pa) using Newton-type iteration (in devel.)
     !*FD \end{description}
 
     integer :: which_ho_nonlinear = 0
