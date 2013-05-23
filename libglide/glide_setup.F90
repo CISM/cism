@@ -889,7 +889,7 @@ contains
     write(message,*) 'geothermal heat flux    : ',model%options%gthf,gthf(model%options%gthf)
     call write_log(message)
 
-    if (model%options%isostasy < 0 .or. model%options%gthf >= size(isostasy)) then
+    if (model%options%isostasy < 0 .or. model%options%isostasy >= size(isostasy)) then
        print*, 'isostasy =', model%options%isostasy
        call write_log('Error, isostasy option out of range',GM_FATAL)
     end if
