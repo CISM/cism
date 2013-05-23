@@ -259,7 +259,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                             dusrfdew, dusrfdns,     &
                             dlsrfdew, dlsrfdns,     &
                             stagthck, flwa,         &
-                            mintauf,                &
+                            bwat,     mintauf,      &
                             btraction,              &
                             umask,                  &
                             whichbabc,              &
@@ -293,6 +293,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
   real(dp), dimension(:,:),   intent(in)  :: dusrfdew, dusrfdns     ! upper surf grads
   real(dp), dimension(:,:),   intent(in)  :: dlsrfdew, dlsrfdns     ! basal surf grads
   real(dp), dimension(:,:),   intent(in)  :: stagthck               ! staggered thickness
+  real(dp), dimension(:,:),   intent(in)  :: bwat                   ! thickness of basal water layer
   real(dp), dimension(:,:),   intent(in)  :: mintauf                ! till yield stress
   real(dp), dimension(:,:,:), intent(inout) :: btraction            ! consistent basal traction array
   real(dp), dimension(:,:,:), intent(in)  :: flwa                   ! flow law rate factor
@@ -559,7 +560,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      lsrf,        topg,           &
                      mintauf,     flwa,           &
                      beta,        btraction,      &
-                     0 )
+                     bwat,        0 )
  call t_stopf("PICARD_findcoefstr1")
 
  call t_startf("PICARD_solver_pre1")
@@ -633,7 +634,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      lsrf,        topg,           &
                      mintauf,     flwa,           &
                      beta,        btraction,      &
-                     0 )
+                     bwat,        0 )
  call t_stopf("PICARD_findcoefstr2")
 
  call t_startf("PICARD_solver_pre2")
@@ -703,7 +704,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      lsrf,        topg,           &
                      mintauf,     flwa,           &
                      beta,        btraction,      &
-                     1 )
+                     bwat,        1 )
 
     call findcoefstr(ewn,  nsn,   upn,            &
                      dew,  dns,   sigma,          &
@@ -721,7 +722,8 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      lsrf,        topg,           &
                      mintauf,     flwa,           &
                      beta,        btraction,      &
-                     1 )
+                     bwat,        1 )
+
  call t_stopf("PICARD_findcoefstr3")
 
     ! apply unstable manifold correction to converged velocities
@@ -904,6 +906,8 @@ subroutine JFNK_velo_solver  (model,umask)
   ! will simply be included as another option within that subroutine) 
   real(dp), dimension(:,:)  ,pointer :: beta 
 
+  real(dp), dimension(:,:)  ,pointer :: bwat 
+
   integer :: whichbabc
   integer :: whichefvs
   integer :: whichresid
@@ -962,7 +966,7 @@ subroutine JFNK_velo_solver  (model,umask)
   whichsparse = model%options%which_ho_sparse
   whichnonlinear = model%options%which_ho_nonlinear
   beta => model%velocity%beta(:,:)
-
+  bwat => model%temper%bwat(:,:)
   uvel => model%velocity%uvel(:,:,:)
   vvel => model%velocity%vvel(:,:,:)
   uflx => model%velocity%uflx(:,:)
@@ -1161,7 +1165,7 @@ end if
                      lsrf,        topg,           &
                      mintauf,     flwa,           &
                      beta,        btraction,      &
-                     1 )
+                     bwat,        1 )
 
    call findcoefstr(ewn,  nsn,   upn,             &
                      dew,  dns,   sigma,          &
@@ -1179,7 +1183,7 @@ end if
                      lsrf,        topg,           &
                      mintauf,     flwa,           &
                      beta,        btraction,      &
-                     1 )
+                     bwat,        1 )
 
   inisoln = .true.
 
@@ -2225,7 +2229,7 @@ end subroutine reset_effstrmin
   real(dp) :: dew, dns
   real(dp), dimension(:)  ,pointer :: sigma, stagsigma
   real(dp), dimension(:,:) ,pointer :: thck, dusrfdew, dthckdew, dusrfdns, dthckdns, &
-                                         dlsrfdew, dlsrfdns, stagthck, lsrf, topg, mintauf, beta
+                                         dlsrfdew, dlsrfdns, stagthck, lsrf, topg, mintauf, beta, bwat
   real(dp), dimension(:,:) ,pointer ::  d2usrfdew2, d2thckdew2, d2usrfdns2, d2thckdns2
   real(dp), dimension(:,:,:) ,pointer :: efvs, btraction
   real(dp), dimension(:,:,:) ,pointer :: uvel, vvel, flwa
@@ -2271,6 +2275,7 @@ end subroutine reset_effstrmin
   d2usrfdns2 => fptr%geomderv%d2usrfdns2(:,:)
   mintauf => fptr%basalproc%mintauf(:,:)
   beta => fptr%velocity%beta(:,:)
+  bwat => fptr%temper%bwat(:,:)
 !intent (inout) terms
   btraction => fptr%velocity%btraction(:,:,:)
   flwa => fptr%temper%flwa(:,:,:)
@@ -2345,7 +2350,7 @@ end subroutine reset_effstrmin
                      lsrf,        topg,           &
                      mintauf,     flwa,           &
                      beta,        btraction,      &
-                     0 )
+                     bwat,        0 )
 
  call t_stopf("Calc_F_findcoefstr1")
 
@@ -2396,7 +2401,7 @@ end subroutine reset_effstrmin
                      lsrf,        topg,           &
                      mintauf,     flwa,           &
                      beta,        btraction,      &
-                     0 )
+                     bwat,        0 )
 
  call t_stopf("Calc_F_findcoefstr2")
 
@@ -3005,7 +3010,7 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                        lsrf,        topg,           &
                        mintauf,     flwa,           &
                        beta,        btraction,      &
-                       assembly )
+                       bwat,        assembly )
 
   ! Main subroutine for determining coefficients that go into the LHS matrix A 
   ! in the expression Au = b. Calls numerous other subroutines, including boundary
@@ -3033,6 +3038,7 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
 
   real(dp), dimension(:,:), intent(in) :: mintauf
   real(dp), dimension(:,:), intent(in) :: beta
+  real(dp), dimension(:,:), intent(in) :: bwat 
   real(dp), dimension(:,:,:), intent(in) :: flwa
   real(dp), dimension(:,:,:), intent(inout) :: btraction
 
@@ -3071,7 +3077,8 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                         thisvel(upn,:,:),       &
                         othervel(upn,:,:),      &
                         mintauf, beta,          &
-                        betasquared, mask )
+                        betasquared, mask,      &
+                        bwat )
   ! intent(out) betasquared
 
   ! Note loc2_array is defined only for non-halo ice grid points.
@@ -3394,7 +3401,7 @@ subroutine bodyset(ew,  ns,  up,           &
                 bcflag = (/0,0/)             ! flag for u=v=0 at bed; doesn't work well so commented out here...
                                              ! better to specify very large value for betasquared below
            elseif( whichbabc == HO_BABC_CONSTANT     .or. whichbabc == HO_BABC_SIMPLE         .or.  &
-                   whichbabc == HO_BABC_YIELD_PICARD .or. whichbabc == HO_BABC_CIRCULAR_SHELF .or.  &
+                   whichbabc == HO_BABC_YIELD_PICARD .or. whichbabc == HO_BABC_BETA_BWAT .or.  &
                    whichbabc == HO_BABC_LARGE_BETA   .or. whichbabc == HO_BABC_EXTERNAL_BETA) then
                 bcflag = (/1,1/)              ! flag for specififed stress at bed: Tau_zx = betasquared * u_bed,
                                               ! where betasquared is MacAyeal-type traction parameter
@@ -3427,9 +3434,7 @@ subroutine bodyset(ew,  ns,  up,           &
 
         !! scale basal bc coeffs when using JFNK solver 
         scalebabc = scalebasalbc( g, bcflag, lateralboundry, betasquared, local_efvs )
-        g = g / scalebabc
-
-        ! put the coeff. for the b.c. equation in the same place as the prev. equation
+        g = g / scalebabc ! put the coeff. for the b.c. equation in the same place as the prev. equation
         ! (w.r.t. cols), on a new row ...
         call fillsprsebndy( g, loc2plusup(1), loc_latbc, up, normal, pt )
 
@@ -3609,7 +3614,7 @@ subroutine bodyset(ew,  ns,  up,           &
                                              ! better to specify very large value for betasquared below
 
            elseif( whichbabc == HO_BABC_CONSTANT     .or. whichbabc == HO_BABC_SIMPLE         .or.  &
-                   whichbabc == HO_BABC_YIELD_PICARD .or. whichbabc == HO_BABC_CIRCULAR_SHELF .or.  &
+                   whichbabc == HO_BABC_YIELD_PICARD .or. whichbabc == HO_BABC_BETA_BWAT .or.  &
                    whichbabc == HO_BABC_LARGE_BETA   .or. whichbabc == HO_BABC_EXTERNAL_BETA) then
                 bcflag = (/1,1/)              ! flag for specififed stress at bed: Tau_zx = betasquared * u_bed,
                                               ! where betasquared is MacAyeal-type traction parameter
@@ -5176,6 +5181,7 @@ subroutine calcbetasquared (whichbabc,               &
                             thisvel,     othervel,   &
                             mintauf, beta,           &
                             betasquared, mask,       &
+                            bwat,                    &
                             betafile)
 
   ! subroutine to calculate map of betasquared sliding parameter, based on 
@@ -5188,7 +5194,7 @@ subroutine calcbetasquared (whichbabc,               &
 
   real(dp), intent(in) :: dew, dns
   real(dp), intent(in), dimension(:,:) :: lsrf, topg, thck
-  real(dp), intent(in), dimension(:,:) :: thisvel, othervel, mintauf, beta
+  real(dp), intent(in), dimension(:,:) :: thisvel, othervel, mintauf, beta, bwat
 
   integer, intent(in), dimension(:,:) :: mask 
 
@@ -5197,8 +5203,12 @@ subroutine calcbetasquared (whichbabc,               &
   character (len=30), intent(in), optional :: betafile
   real(dp) :: smallnum = 1.0d-2
   real(dp), dimension(ewn) :: grounded
-  real(dp) :: alpha, dx, thck_gl, betalow, betahigh, roughness
+  real(dp) :: alpha, dx, thck_gl, betalow, betahigh, roughness 
   integer :: ew, ns
+
+  ! SFP added for making beta a function of basal water flux 
+  real(dp), dimension(:,:), allocatable :: unstagbetasquared
+  real(dp) :: C, m
 
   ! Note that the dimensional scale (tau0 / vel0 / scyr ) is used here for making the basal traction coeff.
   ! betasquared dimensional, within the subroutine (mainly for debugging purposes), and then non-dimensional 
@@ -5242,10 +5252,24 @@ subroutine calcbetasquared (whichbabc,               &
       betasquared(:,:) = ( beta(:,:) * ( tau0 / vel0 / scyr ) ) &     ! Pa yr/m
                          / dsqrt( (thisvel(:,:)*vel0*scyr)**2 + (othervel(:,:)*vel0*scyr)**2 + (smallnum)**2 )
 
-    case(HO_BABC_CIRCULAR_SHELF)  ! circular ice shelf: set B^2 ~ 0 except for at center, where B^2 >> 0 to enforce u,v=0 there
+    case(HO_BABC_BETA_BWAT)  ! set value of beta as proportional to value of bwat                                         
 
-      betasquared(:,:) = 1.d-5       ! Pa yr/m
-      betasquared( (ewn-1)/2:(ewn-1)/2+1, (nsn-1)/2:(nsn-1)/2+1 ) = 1.d10       ! Pa yr/m
+      C = 10.d0
+      m = 1.d0
+
+      allocate(unstagbetasquared(ewn,nsn))
+
+      unstagbetasquared(:,:) = 200.d0       
+
+      where ( bwat > 0.d0 .and. unstagbetasquared > 200.d0 )
+          unstagbetasquared = C / ( bwat**m )
+      endwhere
+
+      ! average betas from unstag grid onto stag grid
+      betasquared = 0.5d0 * ( unstagbetasquared(1:ewn-1,:) + unstagbetasquared(2:ewn,:) )
+      betasquared = 0.5d0 * ( unstagbetasquared(:,1:nsn-1) + unstagbetasquared(:,2:nsn) )
+   
+      deallocate(unstagbetasquared) 
 
     case(HO_BABC_LARGE_BETA)      ! frozen (u=v=0) ice-bed interface
 

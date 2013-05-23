@@ -722,7 +722,7 @@ contains
          'constant B^2                           ', &
          'simple pattern of B^2                  ', &
          'till yield stress (Picard)             ', &
-         'circular ice shelf                     ', &
+         'function of bwat                       ', &
          'no slip (using large B^2)              ', &
          'B^2 passed from CISM                   ', &
          'no slip (Dirichlet implementation)     ', &

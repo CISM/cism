@@ -136,7 +136,7 @@ contains
                                      model%geomderv%dusrfdew, model%geomderv%dusrfdns,           &
                                      model%geomderv%dlsrfdew, model%geomderv%dlsrfdns,           & 
                                      model%geomderv%stagthck, model%temper%flwa,                 &
-                                     model%basalproc%mintauf,                                    & 
+                                     model%temper%bwat,       model%basalproc%mintauf,           & 
                                      model%velocity%btraction,                                   & 
                                      geom_mask_stag,                                             &
                                      model%options%which_ho_babc,                                &

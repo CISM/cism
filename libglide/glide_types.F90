@@ -197,7 +197,7 @@ module glide_types
   integer, parameter :: HO_BABC_CONSTANT = 0
   integer, parameter :: HO_BABC_SIMPLE = 1
   integer, parameter :: HO_BABC_YIELD_PICARD = 2
-  integer, parameter :: HO_BABC_CIRCULAR_SHELF = 3
+  integer, parameter :: HO_BABC_BETA_BWAT = 3
   integer, parameter :: HO_BABC_LARGE_BETA = 4
   integer, parameter :: HO_BABC_EXTERNAL_BETA = 5
   integer, parameter :: HO_BABC_NO_SLIP = 6
@@ -398,7 +398,7 @@ module glide_types
     !*FD \item[1] sigma coordinates are given in external file
     !*FD \item[2] sigma coordinates are given in configuration file
     !*FD \item[3] evenly spaced levels, as required for glam dycore
-    !*FD \item[2] compute Pattyn sigma coordinates
+    !*FD \item[4] compute Pattyn sigma coordinates
     !*FD \end{description}
 
     !TODO - Make is_restart a logical variable?
@@ -447,7 +447,7 @@ module glide_types
     !*FD \item[0] constant value of 10 Pa/yr (useful for debugging)
     !*FD \item[1] simple hard-coded pattern (useful for debugging)
     !*FD \item[2] treat betasquared value as a till yield stress (in Pa) using Picard iteration 
-    !*FD \item[3] for circular ice shelf test case (not needed anymore)
+    !*FD \item[3] linear (inverse) function of bwat 
     !*FD \item[4] very large value for betasquared to enforce no slip everywhere 
     !*FD \item[5] betasquared field passed in from .nc input file as part of standard i/o
     !*FD \item[6] no slip everywhere (using Dirichlet BC rather than large betasquared)
