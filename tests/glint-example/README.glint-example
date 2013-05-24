@@ -15,6 +15,11 @@ that can be downloaded from the BerliOS repository:
 
      http://developer.berlios.de/projects/glimmer-cism/
 
+These files are also available in the CESM inputdata repository, here:
+https://svn-ccsm-inputdata.cgd.ucar.edu/trunk/inputdata/glc/cism/gland20.input.nc
+and:
+https://svn-ccsm-inputdata.cgd.ucar.edu/trunk/inputdata/glc/cism/glint_example/
+
 To run a 5-km Greenland test case, you will need to download one of the files here:
 
      http://websrv.cs.umt.edu/isis/index.php/Present_Day_Greenland
