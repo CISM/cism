@@ -1,6 +1,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! WARNING: this file was automatically generated on
-! Mon, 13 May 2013 22:48:03 +0000
+! Fri, 21 Jun 2013 19:06:01 +0000
 ! from ncdf_template.F90.in
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -891,25 +891,6 @@ contains
        end if
      end if
 
-    !     init_phaml -- phaml initial conditions
-    pos = index(NCO%vars,' init_phaml ')
-    status = parallel_inq_varid(NCO%id,'init_phaml',varid)
-    if (pos.ne.0) then
-      NCO%vars(pos+1:pos+10) = '          '
-    end if
-    if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-       call write_log('Creating variable init_phaml')
-       status = parallel_def_var(NCO%id,'init_phaml',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
-       call nc_errorhandle(__FILE__,__LINE__,status)
-       status = parallel_put_att(NCO%id, varid, 'long_name', 'phaml initial conditions')
-       status = parallel_put_att(NCO%id, varid, 'standard_name', 'phaml_initial_conditions')
-       status = parallel_put_att(NCO%id, varid, 'units', 'meter')
-       if (glimmap_allocated(model%projection)) then
-          status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
-          status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
-       end if
-     end if
-
     !     ivol -- ice volume
     pos = index(NCO%vars,' ivol ')
     status = parallel_inq_varid(NCO%id,'ivol',varid)
@@ -1011,25 +992,6 @@ contains
        call nc_errorhandle(__FILE__,__LINE__,status)
        status = parallel_put_att(NCO%id, varid, 'scale_factor',(thk0))
        status = parallel_put_att(NCO%id, varid, 'long_name', 'ice lower surface elevation')
-       status = parallel_put_att(NCO%id, varid, 'units', 'meter')
-       if (glimmap_allocated(model%projection)) then
-          status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
-          status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
-       end if
-     end if
-
-    !     phaml -- phaml true solution
-    pos = index(NCO%vars,' phaml ')
-    status = parallel_inq_varid(NCO%id,'phaml',varid)
-    if (pos.ne.0) then
-      NCO%vars(pos+1:pos+5) = '     '
-    end if
-    if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-       call write_log('Creating variable phaml')
-       status = parallel_def_var(NCO%id,'phaml',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
-       call nc_errorhandle(__FILE__,__LINE__,status)
-       status = parallel_put_att(NCO%id, varid, 'long_name', 'phaml true solution')
-       status = parallel_put_att(NCO%id, varid, 'standard_name', 'phaml_solution')
        status = parallel_put_att(NCO%id, varid, 'units', 'meter')
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
@@ -1551,6 +1513,24 @@ contains
        end if
      end if
 
+    !     waterfrac -- internal water fraction
+    pos = index(NCO%vars,' waterfrac ')
+    status = parallel_inq_varid(NCO%id,'waterfrac',varid)
+    if (pos.ne.0) then
+      NCO%vars(pos+1:pos+9) = '         '
+    end if
+    if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+       call write_log('Creating variable waterfrac')
+       status = parallel_def_var(NCO%id,'waterfrac',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, level_dimid, time_dimid/),varid)
+       call nc_errorhandle(__FILE__,__LINE__,status)
+       status = parallel_put_att(NCO%id, varid, 'long_name', 'internal water fraction')
+       status = parallel_put_att(NCO%id, varid, 'units', 'unitless [0,1]')
+       if (glimmap_allocated(model%projection)) then
+          status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
+          status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
+       end if
+     end if
+
     !     wgrd -- Vertical grid velocity
     pos = index(NCO%vars,' wgrd ')
     status = parallel_inq_varid(NCO%id,'wgrd',varid)
@@ -1825,13 +1805,6 @@ contains
        call nc_errorhandle(__FILE__,__LINE__,status)
     end if
 
-    status = parallel_inq_varid(NCO%id,'init_phaml',varid)
-    if (status .eq. nf90_noerr) then
-       status = distributed_put_var(NCO%id, varid, &
-            data%phaml%init_phaml, (/1,1,outfile%timecounter/))
-       call nc_errorhandle(__FILE__,__LINE__,status)
-    end if
-
     status = parallel_inq_varid(NCO%id,'ivol',varid)
     if (status .eq. nf90_noerr) then
        status = distributed_put_var(NCO%id, varid, &
@@ -1871,13 +1844,6 @@ contains
     if (status .eq. nf90_noerr) then
        status = distributed_put_var(NCO%id, varid, &
             data%geometry%lsrf, (/1,1,outfile%timecounter/))
-       call nc_errorhandle(__FILE__,__LINE__,status)
-    end if
-
-    status = parallel_inq_varid(NCO%id,'phaml',varid)
-    if (status .eq. nf90_noerr) then
-       status = distributed_put_var(NCO%id, varid, &
-            data%phaml%uphaml, (/1,1,outfile%timecounter/))
        call nc_errorhandle(__FILE__,__LINE__,status)
     end if
 
@@ -1937,21 +1903,21 @@ contains
     status = parallel_inq_varid(NCO%id,'tauf',varid)
     if (status .eq. nf90_noerr) then
        status = distributed_put_var(NCO%id, varid, &
-            data%basalproc%minTauf, (/1,1,outfile%timecounter/))
+            data%basalproc%mintauf, (/1,1,outfile%timecounter/))
        call nc_errorhandle(__FILE__,__LINE__,status)
     end if
 
     status = parallel_inq_varid(NCO%id,'taux',varid)
     if (status .eq. nf90_noerr) then
        status = distributed_put_var(NCO%id, varid, &
-            data%stress%tau_x, (/1,1,outfile%timecounter/))
+            data%velocity%tau_x, (/1,1,outfile%timecounter/))
        call nc_errorhandle(__FILE__,__LINE__,status)
     end if
 
     status = parallel_inq_varid(NCO%id,'tauy',varid)
     if (status .eq. nf90_noerr) then
        status = distributed_put_var(NCO%id, varid, &
-            data%stress%tau_y, (/1,1,outfile%timecounter/))
+            data%velocity%tau_y, (/1,1,outfile%timecounter/))
        call nc_errorhandle(__FILE__,__LINE__,status)
     end if
 
@@ -2084,6 +2050,15 @@ contains
        do up=1,NCO%nlevel
           status = distributed_put_var(NCO%id, varid, &
                data%velocity%vvel_icegrid(up,:,:), (/1,1,up,outfile%timecounter/))
+          call nc_errorhandle(__FILE__,__LINE__,status)
+       end do
+    end if
+
+    status = parallel_inq_varid(NCO%id,'waterfrac',varid)
+    if (status .eq. nf90_noerr) then
+       do up=1,NCO%nlevel
+          status = distributed_put_var(NCO%id, varid, &
+               data%temper%waterfrac(up,:,:), (/1,1,up,outfile%timecounter/))
           call nc_errorhandle(__FILE__,__LINE__,status)
        end do
     end if
@@ -2364,22 +2339,6 @@ contains
        end do
     end if
 
-    status = parallel_inq_varid(NCI%id,'init_phaml',varid)
-    if (status .eq. nf90_noerr) then
-       call write_log('  Loading init_phaml')
-       status = distributed_get_var(NCI%id, varid, &
-            data%phaml%init_phaml, (/1,1,infile%current_time/))
-       call nc_errorhandle(__FILE__,__LINE__,status)
-       status = parallel_get_att(NCI%id, varid,'scale_factor',scaling_factor)
-       if (status.ne.NF90_NOERR) then
-          scaling_factor = 1.0d0
-       end if
-       if (abs(scaling_factor-1.0d0).gt.1.d-17) then
-          call write_log("scaling init_phaml",GM_DIAGNOSTIC)
-          data%phaml%init_phaml = data%phaml%init_phaml*scaling_factor
-       end if
-    end if
-
     status = parallel_inq_varid(NCI%id,'kinbcmask',varid)
     if (status .eq. nf90_noerr) then
        call write_log('  Loading kinbcmask')
@@ -2444,22 +2403,6 @@ contains
        end if
     end if
 
-    status = parallel_inq_varid(NCI%id,'phaml',varid)
-    if (status .eq. nf90_noerr) then
-       call write_log('  Loading phaml')
-       status = distributed_get_var(NCI%id, varid, &
-            data%phaml%uphaml, (/1,1,infile%current_time/))
-       call nc_errorhandle(__FILE__,__LINE__,status)
-       status = parallel_get_att(NCI%id, varid,'scale_factor',scaling_factor)
-       if (status.ne.NF90_NOERR) then
-          scaling_factor = 1.0d0
-       end if
-       if (abs(scaling_factor-1.0d0).gt.1.d-17) then
-          call write_log("scaling phaml",GM_DIAGNOSTIC)
-          data%phaml%uphaml = data%phaml%uphaml*scaling_factor
-       end if
-    end if
-
     status = parallel_inq_varid(NCI%id,'relx',varid)
     if (status .eq. nf90_noerr) then
        call write_log('  Loading relx')
@@ -2516,7 +2459,7 @@ contains
     if (status .eq. nf90_noerr) then
        call write_log('  Loading tauf')
        status = distributed_get_var(NCI%id, varid, &
-            data%basalproc%minTauf, (/1,1,infile%current_time/))
+            data%basalproc%mintauf, (/1,1,infile%current_time/))
        call nc_errorhandle(__FILE__,__LINE__,status)
        status = parallel_get_att(NCI%id, varid,'scale_factor',scaling_factor)
        if (status.ne.NF90_NOERR) then
@@ -2526,7 +2469,7 @@ contains
        end if
        if (abs(scaling_factor-1.0d0).gt.1.d-17) then
           call write_log("scaling tauf",GM_DIAGNOSTIC)
-          data%basalproc%minTauf = data%basalproc%minTauf*scaling_factor
+          data%basalproc%mintauf = data%basalproc%mintauf*scaling_factor
        end if
     end if
 
@@ -2708,6 +2651,24 @@ contains
           if (abs(scaling_factor-1.0d0).gt.1.d-17) then
              call write_log("scaling vvel",GM_DIAGNOSTIC)
              data%velocity%vvel(up,:,:) = data%velocity%vvel(up,:,:)*scaling_factor
+          end if
+       end do
+    end if
+
+    status = parallel_inq_varid(NCI%id,'waterfrac',varid)
+    if (status .eq. nf90_noerr) then
+       call write_log('  Loading waterfrac')
+       do up=1,NCI%nlevel
+          status = distributed_get_var(NCI%id, varid, &
+               data%temper%waterfrac(up,:,:), (/1,1,up,infile%current_time/))
+          call nc_errorhandle(__FILE__,__LINE__,status)
+          status = parallel_get_att(NCI%id, varid,'scale_factor',scaling_factor)
+          if (status.ne.NF90_NOERR) then
+             scaling_factor = 1.0d0
+          end if
+          if (abs(scaling_factor-1.0d0).gt.1.d-17) then
+             call write_log("scaling waterfrac",GM_DIAGNOSTIC)
+             data%temper%waterfrac(up,:,:) = data%temper%waterfrac(up,:,:)*scaling_factor
           end if
        end do
     end if
@@ -3455,28 +3416,6 @@ contains
     data%geometry%iareag = inarray/(len0*len0*1.e-6)
   end subroutine glide_set_iareag
 
-  subroutine glide_get_init_phaml(data,outarray)
-    use glimmer_scales
-    use glimmer_paramets
-    use glide_types
-    implicit none
-    type(glide_global_type) :: data
-    real(dp), dimension(:,:), intent(out) :: outarray
-
-    outarray = data%phaml%init_phaml
-  end subroutine glide_get_init_phaml
-
-  subroutine glide_set_init_phaml(data,inarray)
-    use glimmer_scales
-    use glimmer_paramets
-    use glide_types
-    implicit none
-    type(glide_global_type) :: data
-    real(dp), dimension(:,:), intent(in) :: inarray
-
-    data%phaml%init_phaml = inarray
-  end subroutine glide_set_init_phaml
-
   subroutine glide_get_ivol(data,outarray)
     use glimmer_scales
     use glimmer_paramets
@@ -3587,28 +3526,6 @@ contains
     data%geometry%lsrf = inarray/(thk0)
   end subroutine glide_set_lsurf
 
-  subroutine glide_get_phaml(data,outarray)
-    use glimmer_scales
-    use glimmer_paramets
-    use glide_types
-    implicit none
-    type(glide_global_type) :: data
-    real(dp), dimension(:,:), intent(out) :: outarray
-
-    outarray = data%phaml%uphaml
-  end subroutine glide_get_phaml
-
-  subroutine glide_set_phaml(data,inarray)
-    use glimmer_scales
-    use glimmer_paramets
-    use glide_types
-    implicit none
-    type(glide_global_type) :: data
-    real(dp), dimension(:,:), intent(in) :: inarray
-
-    data%phaml%uphaml = inarray
-  end subroutine glide_set_phaml
-
   subroutine glide_get_relx(data,outarray)
     use glimmer_scales
     use glimmer_paramets
@@ -3716,7 +3633,7 @@ contains
     type(glide_global_type) :: data
     real(dp), dimension(:,:), intent(out) :: outarray
 
-    outarray = (scale_tau)*(data%basalproc%minTauf)
+    outarray = (scale_tau)*(data%basalproc%mintauf)
   end subroutine glide_get_tauf
 
   subroutine glide_set_tauf(data,inarray)
@@ -3727,7 +3644,7 @@ contains
     type(glide_global_type) :: data
     real(dp), dimension(:,:), intent(in) :: inarray
 
-    data%basalproc%minTauf = inarray/(scale_tau)
+    data%basalproc%mintauf = inarray/(scale_tau)
   end subroutine glide_set_tauf
 
   subroutine glide_get_taux(data,outarray)
@@ -3738,7 +3655,7 @@ contains
     type(glide_global_type) :: data
     real(dp), dimension(:,:), intent(out) :: outarray
 
-    outarray = (1e-3*thk0*thk0/len0)*(data%stress%tau_x)
+    outarray = (1e-3*thk0*thk0/len0)*(data%velocity%tau_x)
   end subroutine glide_get_taux
 
   subroutine glide_set_taux(data,inarray)
@@ -3749,7 +3666,7 @@ contains
     type(glide_global_type) :: data
     real(dp), dimension(:,:), intent(in) :: inarray
 
-    data%stress%tau_x = inarray/(1e-3*thk0*thk0/len0)
+    data%velocity%tau_x = inarray/(1e-3*thk0*thk0/len0)
   end subroutine glide_set_taux
 
   subroutine glide_get_tauy(data,outarray)
@@ -3760,7 +3677,7 @@ contains
     type(glide_global_type) :: data
     real(dp), dimension(:,:), intent(out) :: outarray
 
-    outarray = (1e-3*thk0*thk0/len0)*(data%stress%tau_y)
+    outarray = (1e-3*thk0*thk0/len0)*(data%velocity%tau_y)
   end subroutine glide_get_tauy
 
   subroutine glide_set_tauy(data,inarray)
@@ -3771,7 +3688,7 @@ contains
     type(glide_global_type) :: data
     real(dp), dimension(:,:), intent(in) :: inarray
 
-    data%stress%tau_y = inarray/(1e-3*thk0*thk0/len0)
+    data%velocity%tau_y = inarray/(1e-3*thk0*thk0/len0)
   end subroutine glide_set_tauy
 
   subroutine glide_get_thk(data,outarray)
