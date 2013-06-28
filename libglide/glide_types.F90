@@ -57,6 +57,7 @@ module glide_types
   use profile
   use glimmer_coordinates, only: coordsystem_type
   use glimmer_map_types
+  use glimmer_physcon
 
   implicit none
 
@@ -546,6 +547,26 @@ module glide_types
 
     integer, dimension(:,:),pointer :: thkmask => null()
     !*FD see glide_mask.f90 for possible values
+
+    !TODO
+    !*SFP - consider moving these to their own type at some point?
+    !* (DFM ----------------- added for BISICLES interface --------------)
+!    real(dp),dimension(:,:),pointer :: floating_mask => null()
+!    !*(DFM) Real-valued mask indicated where ice is grounded or floating
+!
+!    !* (DFM ----------------- added for BISICLES interface --------------)
+!    real(dp),dimension(:,:),pointer :: ice_mask => null()
+!    !*(DFM) Real-valued mask indicating where ice is present or absent
+!
+!
+!    !* (DFM ----------------- added for BISICLES interface --------------)
+!    real(dp),dimension(:,:),pointer :: lower_cell_loc => null()
+!    !*(DFM) The z-location of the center of the lowest ice cell center
+!
+!    !* (DFM ----------------- added for BISICLES interface --------------)
+!    real(dp),dimension(:,:),pointer :: lower_cell_temp => null()
+!    !*(DFM) The temperature in the cell located at lower_cell_loc
+
 
     !WHL - no longer used
 !!    real(dp),dimension(:,:),pointer :: marine_bc_normal => null()
@@ -1345,6 +1366,18 @@ contains
     call coordsystem_allocate(model%general%velo_grid, model%geomderv%dusrfdns)
     call coordsystem_allocate(model%general%velo_grid, model%geomderv%stagthck)
 
+
+    !TODO
+    !*SFP: These will need to be wrapped in their own logic at some point. For now, we 
+    !      are just commenting them out by default.
+    !* (DFM) -- added floating_mask, ice_mask, lower_cell_loc, and lower_cell_temp here
+!    call coordsystem_allocate(model%general%ice_grid, model%geometry%floating_mask)
+!    call coordsystem_allocate(model%general%ice_grid, model%geometry%ice_mask)
+!    call coordsystem_allocate(model%general%ice_grid, model%geometry%lower_cell_loc)
+!    call coordsystem_allocate(model%general%ice_grid, model%geometry%lower_cell_temp)
+
+
+
 !!    call coordsystem_allocate(model%general%ice_grid, model%geometry%marine_bc_normal)   ! no longer used
 
     if (model%options%whichdycore == DYCORE_GLIDE) then
@@ -1603,6 +1636,17 @@ contains
         deallocate(model%geomderv%stagthck)
 !!    if (associated(model%geometry%marine_bc_normal)) &
 !!       deallocate(model%geometry%marine_bc_normal)
+
+    !*SFP: fields that need to be passed to POP for ice ocean coupling
+    !* (DFM -- deallocate floating_mask, ice_mask, lower_cell_loc, and lower_cell_temp)
+!    if (associated(model%geometry%floating_mask)) &
+!       deallocate(model%geometry%floating_mask)
+!    if (associated(model%geometry%ice_mask)) &
+!       deallocate(model%geometry%ice_mask)
+!    if (associated(model%geometry%lower_cell_loc)) &
+!       deallocate(model%geometry%lower_cell_loc)
+!    if (associated(model%geometry%lower_cell_temp)) &
+!       deallocate(model%geometry%lower_cell_temp)
 
     if (associated(model%geometry%thck_index)) &
         deallocate(model%geometry%thck_index)
