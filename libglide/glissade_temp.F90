@@ -67,6 +67,7 @@ contains
     use glimmer_paramets, only : tim0, thk0, len0, vis0, vel0, tau0
     use glide_bwater, only: find_dt_wat
     use parallel, only: lhalo, uhalo
+    use glissade_enthalpy, only: glissade_init_enthalpy
 
     type(glide_global_type),intent(inout) :: model       !*FD Ice model parameters.
 
@@ -283,6 +284,11 @@ contains
 !WHL - Removed glissade_calcflwa call here; now computed in glissade_diagnostic_variable_solve.
 !TODO - If only locally owned values are filled here, then make sure there is a halo update in glissade_initialise. 
 
+    !BDM - make call to glissade_enthalpy_init if using enthalpy approach
+    if (model%options%whichtemp == TEMP_ENTHALPY) then
+       call glissade_init_enthalpy(model)
+    end if
+
   end subroutine glissade_init_temp
 
 !****************************************************    
@@ -376,6 +382,7 @@ contains
     use glimmer_physcon, only: shci, coni, rhoi
     use glide_mask
     use glide_bwater
+    use glissade_enthalpy
 
     !TODO - Use glam_grid_operators instead?
     use glide_grid_operators, only: stagvarb
@@ -399,7 +406,7 @@ contains
     real(dp), dimension(size(model%temper%temp,1)) :: subd, diag, supd, rhsd
 
     ! These have the same dimensions as staggered temperature
-    real(dp),dimension(0:model%general%upn) :: Tstagsigma, prevtemp_stag
+    real(dp),dimension(0:model%general%upn) :: Tstagsigma, prevtemp_stag, enthalpy
 
     ! for energy conservation check
     real(dp) :: einit, efinal, delta_e, dTtop, dTbot
@@ -666,9 +673,172 @@ contains
 
        !WHL - Removed glissade_calcflwa call here; moved it to glissade_diagnostic_variable_solve.
 
-   case(TEMP_STEADY) ! do nothing
+   case(TEMP_STEADY)! do nothing
 
-   end select
+   case(TEMP_ENTHALPY)! BDM Local column calculation (with advection done elsewhere)
+
+      ! No horizontal or vertical advection; vertical diffusion and strain heating only.
+      ! Enthalpy is vertically staggered relative to velocities.  
+      ! That is, enthalpy is defined at the midpoint of each layer 
+      ! (and at the top and bottom surfaces).
+
+      ! BDM Enthalpy Gradient Method is used here to solve for temp. and water content.
+
+      ! BDM If I'm using TEMP_ENTHALPY, should I make a call to glissade_init_enthalpy here?
+
+      !TODO - Change to stagwbndsigma
+      ! Set Tstagsigma (= stagsigma except that it has values at the top and bottom surfaces).
+
+      Tstagsigma(0) = 0.d0
+      Tstagsigma(1:model%general%upn-1) = model%numerics%stagsigma(1:model%general%upn-1)
+      Tstagsigma(model%general%upn) = 1.d0
+
+      ! Calculate interior heat dissipation -------------------------------------
+
+      call glissade_finddisp(  model,                   &
+                               model%geometry%thck,     &
+                               model%options%which_disp,&
+                               model%stress%efvs,       &
+                               model%geomderv%stagthck, &
+                               model%geomderv%dusrfdew, &
+                               model%geomderv%dusrfdns, &
+                               model%temper%flwa)
+
+      ! Calculate heating from basal friction -----------------------------------
+
+      call glissade_calcbfric( model,                        &
+                               model%geometry%thck,          &
+                               model%velocity%btraction,     &
+                               model%geomderv%dusrfdew,      &
+                               model%geomderv%dusrfdns,      &
+                               model%velocity%ubas,          &
+                               model%velocity%vbas,          &
+                               GLIDE_IS_FLOAT(model%geometry%thkmask) )
+
+      ! Note: No iteration is needed here since we are doing a local tridiagonal solve without advection.
+
+      !LOOP TODO: Change to 1+lhalo, nsn-uhalo?
+      !           If so, don't forget to do halo updates later for temp and flwa.
+
+      do ns = 2,model%general%nsn-1
+         do ew = 2,model%general%ewn-1
+            if(model%geometry%thck(ew,ns) > model%numerics%thklim) then
+
+               ! BDM compute matrix elements using Enthalpy Gradient Method
+
+               call glissade_enthalpy_findvtri(model, ew, ns, subd, diag, supd, rhsd, &
+                                               GLIDE_IS_FLOAT(model%geometry%thkmask(ew,ns)))
+					
+               ! BDM leave as prevtemp because it's only used for dT/dsigma at top and bottom boundaries,
+               ! we don't want this as enthalpy
+               prevtemp_stag(:) = model%temper%temp(:,ew,ns)
+
+               ! solve the tridiagonal system
+               ! Note: Temperature is indexed from 0 to upn, with indices 1 to upn-1 colocated
+               ! with stagsigma values of the same index.
+               ! However, the matrix elements are indexed 1 to upn+1, with the first row
+               ! corresponding to the surface temperature, temp(0,:,:).
+
+               call tridiag(subd(1:model%general%upn+1),   &
+                            diag(1:model%general%upn+1),   &
+                            supd(1:model%general%upn+1),   &
+                            enthalpy(0:model%general%upn), &
+                            rhsd(1:model%general%upn+1))
+							  
+               ! BDM convert back to temperature and water content
+               call enth2temp(enthalpy(0:model%general%upn),                       &
+                              model%temper%temp(0:model%general%upn,ew,ns),        &
+                              model%temper%waterfrac(1:model%general%upn-1,ew,ns), &
+                              model%geometry%thck(ew,ns),                          &
+                              model%numerics%stagsigma(1:model%general%upn-1))	
+
+            endif  ! thck > thklim
+         end do    ! ew
+      end do    ! ns
+
+      ! set temperature of thin ice to the air temperature and set ice-free nodes to zero
+
+      !TODO - Loop over locally owned cells only?
+      do ns = 1, model%general%nsn
+         do ew = 1, model%general%ewn
+
+            if (GLIDE_IS_THIN(model%geometry%thkmask(ew,ns))) then
+               model%temper%temp(:,ew,ns) = min(0.0d0, dble(model%climate%artm(ew,ns)))
+            else if (model%geometry%thkmask(ew,ns) < 0) then
+               model%temper%temp(:,ew,ns) = min(0.0d0, dble(model%climate%artm(ew,ns)))
+            !else if (model%geometry%thkmask(ew,ns) < -1) then
+            !   model%temper%temp(:,ew,ns) = 0.0d0
+            end if
+
+!TODO - Maybe it should be done in the following way, so that the temperature profile for thin ice
+!       is consistent with the temp_init option, with T = 0 for ice-free cells.
+
+! NOTE: Calling this subroutine will maintain a sensible temperature profile
+!        for thin ice, but in general does *not* conserve energy.
+!       To conserve energy, we need either thklim = 0, or some additional
+!        energy accounting and correction.
+ 
+!TODO - Why not simply 0 < thck < thklim?
+!             if (GLIDE_IS_THIN(model%geometry%thkmask(ew,ns))) then
+!                call glissade_init_temp_column(model%options%temp_init,         &
+!                                               model%numerics%stagsigma(:),     &
+!                                               dble(model%climate%artm(ew,ns)), &
+!                                               model%geometry%thck(ew,ns),      &
+!                                               model%temper%temp(:,ew,ns) )
+!             else if (model%geometry%thkmask(ew,ns) < 0) then
+!                model%temper%temp(:,ew,ns) = 0.d0
+!             end if
+
+         end do !ew
+      end do !ns
+
+      ! BDM since there will be no temps above PMP, need new subroutine to calculate basal melt
+      ! and basal water depth
+      call glissade_enthalpy_calcbmlt(model,                     &
+                                      model%temper%temp,         &
+                                      model%temper%waterfrac,    &
+                                      Tstagsigma,                &
+                                      model%geometry%thck,       &
+                                      model%geomderv%stagthck,   &
+                                      model%temper%bmlt,         &
+                                      GLIDE_IS_FLOAT(model%geometry%thkmask))
+
+      call calcbwat( model,                                    &
+                     model%options%whichbwat,                  &
+                     model%temper%bmlt,                        &
+                     model%temper%bwat,                        &
+                     model%temper%bwatflx,                     &
+                     model%geometry%thck,                      &
+                     model%geometry%topg,                      &
+                     model%temper%temp(model%general%upn,:,:), &
+                     GLIDE_IS_FLOAT(model%geometry%thkmask),   &
+                     model%tempwk%wphi)
+
+!WHL - Here I restored some Glimmer calls that were removed earlier.
+!      We need stagbpmp for one of the basal traction cases.
+
+!TODO - Think about whether Glissade will support the same basal traction cases as Glide.
+!TODO - Use a staggered difference routine from glam_grid_operators?
+
+       ! Transform basal temperature and pressure melting point onto velocity grid
+
+      call stagvarb(model%temper%temp(model%general%upn, 1:model%general%ewn, 1:model%general%nsn), &
+                    model%temper%stagbtemp ,                                                        &
+                    model%general%  ewn,                                                            &
+                    model%general%  nsn)
+       
+      call glissade_calcbpmp(model,                &
+                             model%geometry%thck,  &
+                             model%temper%bpmp)
+
+      call stagvarb(model%temper%bpmp,      &
+                    model%temper%stagbpmp,  &
+                    model%general%ewn,      &
+                    model%general%nsn)
+
+      !WHL - Removed glissade_calcflwa call here; moved it to glissade_diagnostic_variable_solve.
+
+    end select
 
   end subroutine glissade_temp_driver
 
@@ -969,7 +1139,11 @@ contains
              do up = 1, model%general%upn-1
                  if (temp(up,ew,ns) > pmptemp(up)) then
                     hmlt = (shci * thck(ew,ns) * (temp(up,ew,ns) - pmptemp(up))) / (rhoi * lhci) 
+                    !BDM adding in what I think should be correct hmlt and bmlt for temp. based
+                    !hmlt = (rhoi * shci * (model%numerics%sigma(up+1) - model%numerics%sigma(up))&
+                    !       * (temp(up,ew,ns) - pmptemp(up))) / (rhow * lhci * thk0)
                     bmlt(ew,ns) = bmlt(ew,ns) + hmlt / model%numerics%dttem 
+                    !bmlt(ew,ns) = bmlt(ew,ns) + hmlt * tim0 / (model%numerics%dttem)
                     temp(up,ew,ns) = pmptemp(up)
                  endif
              enddo
@@ -1194,7 +1368,8 @@ contains
 
   !-------------------------------------------------------------------
 
-  subroutine glissade_calcflwa(stagsigma, thklim, flwa, temp, thck, flow_factor, default_flwa_arg, flag)
+  subroutine glissade_calcflwa(stagsigma, thklim, flwa, temp, thck, flow_factor, &
+                               default_flwa_arg, flag, waterfrac)
 
     !*FD Calculates Glen's $A$ over the three-dimensional domain,
     !*FD using one of three possible methods.
@@ -1236,6 +1411,7 @@ contains
     integer,                    intent(in)    :: flag      !*FD Flag to select the method
                                                            !*FD of calculation
     real(dp),dimension(:,:,:),  intent(out)   :: flwa      !*FD The calculated values of $A$
+    real(dp),dimension(:,:,:),  intent(in), optional :: waterfrac!internal water content fraction, 0 to 1
 
     !*FD \begin{description}
     !*FD \item[0] {\em Paterson and Budd} relationship.
@@ -1290,6 +1466,7 @@ contains
 !       Might be cheaper to compute in all cells and avoid a halo call.
 
       ! This is the Paterson and Budd relationship
+      ! BDM add waterfrac relationship for whichtemp=TEMP_ENTHALPY case
 
       do ns = 1,nsn
          do ew = 1,ewn
@@ -1309,6 +1486,14 @@ contains
                      flwa(up,ew,ns) = flow_factor * arrfact(1) * exp(arrfact(3)/(tempcor + trpt))
                   else
                      flwa(up,ew,ns) = flow_factor * arrfact(2) * exp(arrfact(4)/(tempcor + trpt))
+                  endif
+
+                  ! BDM add correction for a liquid water fraction 
+                  ! Using Greve and Blatter, 2009 formulation for Glen's A 
+                  ! Flow Law Parameter.  
+                  ! A = A(theta_PMP) * (1 + 181.25 * waterfrac)
+                  if (present(waterfrac) .and. waterfrac(up,ew,ns) > 0.0d0) then
+                     flwa(up,ew,ns) = flwa(up,ew,ns) * (1 + 181.25 * waterfrac(up,ew,ns))      
                   endif
 
                enddo

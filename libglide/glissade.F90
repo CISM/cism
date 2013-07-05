@@ -64,8 +64,9 @@ module glissade
 
   implicit none
 
-  integer, parameter :: &
+  integer :: &
      ntracer = 1   ! number of tracers to transport (just temperature for now)
+                   ! BDM change ntracer from parameter so it's not a constant
                    !TODO - Declare elsewhere?
 
   integer, private, parameter :: dummyunit=99
@@ -98,7 +99,6 @@ contains
     use glam_strs2, only : glam_velo_init
     use glissade_velo_higher, only: glissade_velo_higher_init
     use glimmer_coordinates, only: coordsystem_new
-    use glissade_enthalpy, only: glissade_init_enthalpy
 
 !!    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
 
@@ -210,14 +210,10 @@ contains
     !       Can remove this call provided velowk is not used elsewhere (e.g., to call wvelintg)
     call init_velo(model)
 
-    !WHL - Alternatively, could call both glissade_init_enthalpy and glissade_init_temp
-    !      to initialize the enthalpy scheme
+    !BDM - Just call glissade_init_temp, which will call glissade_init_enthalpy
+    !      if necessary
 
-    if (model%options%whichtemp == TEMP_ENTHALPY) then
-       call glissade_init_enthalpy(model)   ! under construction
-    else
-       call glissade_init_temp(model)
-    endif    
+    call glissade_init_temp(model) 
 
     if (model%options%gthf == GTHF_COMPUTE) then
        call not_parallel(__FILE__,__LINE__)
@@ -307,7 +303,7 @@ contains
     use glide_ground, only: glide_marinlim
     use glide_grid_operators
     use isostasy
-    use glissade_enthalpy, only: glissade_enthalpy_driver
+    use glissade_enthalpy
 
     use parallel
 !!    use glimmer_horiz_bcs, only: horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns, &
@@ -369,12 +365,7 @@ contains
 !HALO TODO - Modify glissade_temp_driver to compute over locally owned cells only?
 
       call t_startf('glissade_temp_driver')
-
-       if (model%options%whichtemp == TEMP_ENTHALPY) then
-          call glissade_enthalpy_driver(model)   ! under construction
-       else
-          call glissade_temp_driver(model, model%options%whichtemp)
-       endif
+      call glissade_temp_driver(model, model%options%whichtemp)
       call t_stopf('glissade_temp_driver')
 
        model%temper%newtemps = .true.
@@ -449,6 +440,13 @@ contains
 !          call horiz_bcs_unstag_scalar(model%temper%temp)
        endif
 
+       if (model%options%whichtemp == TEMP_ENTHALPY) then
+          call parallel_halo(model%temper%temp)
+          call parallel_halo(model%temper%waterfrac)
+!          call horiz_bcs_unstag_scalar(model%temper%temp)
+!          call horiz_bcs_unstag_scalar(model%temper%waterfrac)
+       endif
+
       call t_stopf('new_remap_halo_upds')
 
       call t_startf('glissade_transport_driver')
@@ -498,6 +496,33 @@ contains
              ! convert thck back to scaled units
              model%geometry%thck(:,:) = thck_unscaled(:,:) / thk0
 
+          elseif (model%options%whichtemp == TEMP_ENTHALPY) then  ! Use IR to transport thickness, temperature,
+                                                                ! and waterfrac.  Also set ntracer = 3
+                                                                ! Note: We are passing arrays in SI units.
+
+             ! temporary thickness array in SI units (m)                               
+             thck_unscaled(:,:) = model%geometry%thck(:,:) * thk0
+
+             ! BDM Set ntracer = 3 since temp and waterfrac need to be passed (and maybe ice age).
+             !     If no ice age is present, a dummy array will be passed for tracer = 2
+             ntracer = 3
+
+             call glissade_transport_driver(model%numerics%dt * tim0,                             &
+                                            model%numerics%dew * len0, model%numerics%dns * len0, &
+                                            model%general%ewn,         model%general%nsn,         &
+                                            model%general%upn-1,       model%numerics%sigma,      &
+                                            nhalo,                     ntracer,                 &
+                                            model%velocity%uvel(:,:,:) * vel0,                    &
+                                            model%velocity%vvel(:,:,:) * vel0,                    &
+                                            thck_unscaled(:,:),                                   &
+                                            dble(model%climate%acab(:,:)) * thk0/tim0,            &
+                                            bmlt_continuity(:,:),                                 &
+                                            model%temper%temp(:,:,:),                             & 
+                                            model%temper%waterfrac(:,:,:)  )
+
+             ! convert thck back to scaled units
+             model%geometry%thck(:,:) = thck_unscaled(:,:) / thk0
+         
           !TODO - Will we continue to support this option?  May not be needed.
 
           else  ! Use IR to transport thickness only
@@ -544,13 +569,17 @@ contains
 
          call t_startf('after_remap_haloupds')
 
-          call parallel_halo(model%geometry%thck)
-!          call horiz_bcs_unstag_scalar(model%geometry%thck)
+         call parallel_halo(model%geometry%thck)
+!         call horiz_bcs_unstag_scalar(model%geometry%thck)
 
-          call parallel_halo(model%temper%temp)
-!          call horiz_bcs_unstag_scalar(model%temper%temp)
+         call parallel_halo(model%temper%temp)
+!         call horiz_bcs_unstag_scalar(model%temper%temp)
 
           ! Halo updates of other tracers, if present, would need to go here
+         if (model%options%whichtemp == TEMP_ENTHALPY) then
+            call parallel_halo(model%temper%waterfrac)
+!            call horiz_bcs_unstag_scalar(model%temper%waterfrac)
+         endif
 
          call t_stopf('after_remap_haloupds')
 
@@ -760,15 +789,27 @@ contains
     ! 
     ! Note: We are passing in only vertical elements (1:upn-1) of the temp array,
     !       so that it has the same vertical dimensions as flwa.
-
-    call glissade_calcflwa(model%numerics%stagsigma,    &
-                           model%numerics%thklim,       &
-                           model%temper%flwa,           &
-                           model%temper%temp(1:model%general%upn-1,:,:),  &
-                           model%geometry%thck,         &
-                           model%paramets%flow_factor,  &
-                           model%paramets%default_flwa, &
-                           model%options%whichflwa)
+    ! BDM - adding in a call for whichtemp = TEMP_ENTHALPY that includes waterfrac as input
+    if (model%options%whichtemp == TEMP_ENTHALPY) then
+       call glissade_calcflwa(model%numerics%stagsigma,    &
+                              model%numerics%thklim,       &
+                              model%temper%flwa,           &
+                              model%temper%temp(1:model%general%upn-1,:,:),  &
+                              model%geometry%thck,         &
+                              model%paramets%flow_factor,  &
+                              model%paramets%default_flwa, &
+                              model%options%whichflwa,      &
+                              model%temper%waterfrac(:,:,:))
+    else
+       call glissade_calcflwa(model%numerics%stagsigma,    &
+                              model%numerics%thklim,       &
+                              model%temper%flwa,           &
+                              model%temper%temp(1:model%general%upn-1,:,:),  &
+                              model%geometry%thck,         &
+                              model%paramets%flow_factor,  &
+                              model%paramets%default_flwa, &
+                              model%options%whichflwa)
+    endif
 
     ! Halo update for flwa
 

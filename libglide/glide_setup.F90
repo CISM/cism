@@ -774,11 +774,6 @@ contains
     write(message,*) 'temperature calculation : ',model%options%whichtemp,temperature(model%options%whichtemp)
     call write_log(message)
 
-    !TODO - Remove this when enthalpy scheme is up and running
-    if (model%options%whichtemp == TEMP_ENTHALPY) then
-       call write_log('Error, Glissade enthalpy scheme is still under construction', GM_FATAL)
-    endif
-
     ! Forbidden options to use with the Glide dycore
     if (model%options%whichdycore == DYCORE_GLIDE) then
 
