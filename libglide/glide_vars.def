@@ -725,10 +725,10 @@ data:          shci
 factor:        noscale
 standard_name: ice_specific_heat
 
-[ice_thermal_con]
+[ice_thermal_conductivity]
 dimensions:    time
 units:         J/(K kg)
-long_name:     ice thermal cnductivity 
+long_name:     ice thermal conductivity 
 data:          coni
 factor:        noscale
 standard_name: ice_thermal_conductivity
