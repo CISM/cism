@@ -232,7 +232,7 @@ contains
     instance%mbal_tstep = instance%mbal_accum%mbal%tstep
     mbts = instance%mbal_tstep
 
-    instance%next_time = force_start-force_dt+instance%mbal_tstep
+    instance%next_time = force_start - force_dt + instance%mbal_tstep
 
     if (GLC_DEBUG .and. main_task) then
        write (6,*) 'Called glint_mbc_init'
@@ -326,7 +326,7 @@ contains
     use glimmer_config
     use glimmer_coordinates, only : coordsystem_new
     use glint_global_grid
-    use glint_mbal_coupling
+    use glint_downscale   , only: glint_init_input_gcm
     use glint_io          , only: glint_io_createall     , glint_io_writeall
     use glint_mbal_io     , only: glint_mbal_io_createall, glint_mbal_io_writeall
     use glimmer_ncio
@@ -477,9 +477,9 @@ contains
 
     ! initialise the mass-balance accumulation
 
-    call glint_mbc_init_gcm(instance%mbal_accum, &
-                            instance%lgrid,      &
-                            instance%whichacab)
+    call glint_init_input_gcm(instance%mbal_accum, &
+                              instance%lgrid,      &
+                              instance%whichacab)
 
     !TODO - Do we need two copies of this tstep variable?
     instance%mbal_tstep = instance%mbal_accum%mbal%tstep

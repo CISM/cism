@@ -92,6 +92,7 @@ contains
     integer up, ns, ew
     real(dp) :: estimate
 
+    !TODO - Change VERT_DIFF, etc. to integers?
     if (VERT_DIFF==0.)   call write_log('Vertical diffusion is switched off')
     if (HORIZ_ADV==0.)   call write_log('Horizontal advection is switched off')
     if (VERT_ADV==0.)    call write_log('Vertical advection is switched off')
@@ -338,8 +339,8 @@ contains
                                     sigma,       artm,         &
                                     thck,        temp)
 
-  ! Initialize temperatures in a column based on the value of temp_temp
-  ! Threee possibilities:
+  ! Initialize temperatures in a column based on the value of temp_init
+  ! Three possibilities:
   ! (1) Set ice temperature in column to 0 C (TEMP_INIT_ZERO)
   ! (2) Set ice temperature in column to surface air temperature (TEMP_INIT_ARTM)
   ! (3) Set up a linear temperature profile, with T = artm at the surface and T <= Tpmp
@@ -438,8 +439,8 @@ contains
 ! debug
     integer :: j, k
     integer :: idiag, jdiag
-    idiag = model%numerics%idiag_global
-    jdiag = model%numerics%jdiag_global
+    idiag = model%numerics%idiag
+    jdiag = model%numerics%jdiag
 
     !------------------------------------------------------------------------------------
     ! ewbc/nsbc set the type of boundary condition aplied at the end of
@@ -516,7 +517,7 @@ contains
                              model%temper%temp(:,ew,ns-2:ns+2),      &
                              model%tempwk%hadv_u(:,ew,ns), &
                              model%tempwk%hadv_v(:,ew,ns))
-               
+
                 call findvtri(model,ew,ns,subd,diag,supd,diagadvt, &
                      weff, &
                      GLIDE_IS_FLOAT(model%geometry%thkmask(ew,ns)))

@@ -669,12 +669,12 @@ contains
 
        call glide_prof_start(model,model%glide_prof%temperature)
 
-     if (oldglide) then   ! compute vertical velocity in glide_tstep_p1 
+       if (oldglide) then   ! compute vertical velocity in glide_tstep_p1 
                           ! In new glide, this is called in glide_tstep_p3
          
-       call glide_velo_vertical(model)
+          call glide_velo_vertical(model)
 
-     endif   ! oldglide = T
+       endif   ! oldglide = T
 
        ! temperature advection, vertical conduction, and internal dissipation
 
@@ -710,7 +710,6 @@ contains
 !    do j = model%general%nsn+1, 0, -1
 !       write(6,'(14f12.7)') model%temper%temp(model%general%upn,3:16,j)
 !    enddo
-
 
   end subroutine glide_tstep_p1
 

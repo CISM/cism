@@ -713,14 +713,16 @@ module glide_types
 !TODO - Should calving and eus be part of some other type?
 !      Commented out slidconst, used by unsupported Huybrechts basal traction option
 
-!TODO - Change to dp
+!TODO - Here, acab has units of m/y ice, whereas in Glint, acab has units of m/y water equiv.
+!       Consider renaming acab here to avoid confusion (e.g., acab_ice?)
 
   type glide_climate
      !*FD Holds fields used to drive the model
-     real(dp),dimension(:,:),pointer :: acab     => null() !*FD Annual mass balance.
-     real(dp),dimension(:,:),pointer :: acab_tavg     => null() !*FD Annual mass balance (time average).
-     real(dp),dimension(:,:),pointer :: artm     => null() !*FD Annual mean air temperature
-     real(dp),dimension(:,:),pointer :: calving  => null() !*FD Calving flux (scaled as mass balance, thickness, etc)
+     real(dp),dimension(:,:),pointer :: acab      => null() !*FD Annual mass balance (m/y ice)
+     real(dp),dimension(:,:),pointer :: acab_tavg => null() !*FD Annual mass balance (time average).
+     real(dp),dimension(:,:),pointer :: artm      => null() !*FD Annual mean air temperature (degC)
+     real(dp),dimension(:,:),pointer :: calving   => null() !*FD Calving flux 
+                                                            !    (scaled as mass balance, thickness, etc)
 
      !TODO - lati and loni are not currently used.  Are they needed?
      real(dp),dimension(:,:),pointer :: lati     => null() !*FD Latitudes of model grid points 
@@ -912,12 +914,11 @@ module glide_types
 
     !TODO - Compute ndiag as a function of dt_diag and pass to glide_diagnostics?
     !       This is more robust than computing mods of real numbers. 
-    !TODO - Change names of idiag_global and jdiag_global?
-    !       These are indices for the full ice sheet grid (before decomposition), but not a true global grid.
-    real(dp) :: dt_diag = 0.d0            ! diagnostic time interval (write diagnostics every dt_diag years)
-    integer  :: ndiag = -999              ! diagnostic period (write output every ndiag steps)
-    integer  :: idiag_global = 1          ! grid indices for diagnostic point
-    integer  :: jdiag_global = 1
+
+    real(dp) :: dt_diag = 0.d0     ! diagnostic time interval (write diagnostics every dt_diag years)
+    integer  :: ndiag = -999       ! diagnostic period (write output every ndiag steps)
+    integer  :: idiag = 1          ! grid indices for diagnostic point
+    integer  :: jdiag = 1          ! These are for the full grid; indices may vary on local processor
   end type glide_numerics
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

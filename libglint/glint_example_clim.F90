@@ -688,17 +688,16 @@ contains
 
     real(dp) :: fyear
 
-
     ! Calculate fraction of year
     fyear = real(mod(time,real(params%hours_in_year,dp))) / real(params%hours_in_year,dp)
     
     ! Do temperature interpolation
-    call bracket_point(fyear,params%st_time,lower,upper,pos)
-    temp=linear_interp(params%surftemp_clim(:,:,lower),params%surftemp_clim(:,:,upper),pos)
+    call bracket_point(fyear, params%st_time, lower, upper, pos)
+    temp = linear_interp(params%surftemp_clim(:,:,lower), params%surftemp_clim(:,:,upper), pos)
 
     ! precip
-    call bracket_point(fyear,params%pr_time,lower,upper,pos)
-    precip=linear_interp(params%precip_clim(:,:,lower),params%precip_clim(:,:,upper),pos)
+    call bracket_point(fyear, params%pr_time, lower, upper, pos)
+    precip = linear_interp(params%precip_clim(:,:,lower), params%precip_clim(:,:,upper), pos)
 
   end subroutine example_climate
 
@@ -728,21 +727,21 @@ contains
     integer :: na
 
     ! Array bounds
-    na=size(a)
+    na = size(a)
     aa(1:na) = a
-    aa(0) = -1+a(na)
-    aa(na+1) = 1+aa(1)
+    aa(0)    = -1 + a(na)
+    aa(na+1) =  1 + aa(1)
 
     lower = 0
     upper = 1
     do
-       if (n>=aa(lower) .and. n<aa(upper)) then
+       if (n >= aa(lower) .and. n < aa(upper)) then
           exit
        end if
-       lower = lower+1
-       upper = upper+1
+       lower = lower + 1
+       upper = upper + 1
     end do
-    frac = (n-aa(lower))/(aa(upper)-aa(lower))
+    frac = (n-aa(lower)) / (aa(upper)-aa(lower))
 
     call fixbounds(lower,1,na)
     call fixbounds(upper,1,na)

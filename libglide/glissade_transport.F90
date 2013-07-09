@@ -120,6 +120,9 @@
          dx, dy                 ! gridcell dimensions (m)
                                 ! (cells assumed to be rectangular)
 
+      !TODO - Pass in dx and dy as 3D fields to allow for spatially varying
+      !       cell dimensions as in POP/CICE?
+
       !TODO - Use nhalo in parallel module instead of passing in
       !     - Declare ntracer somewhere instead of passing in?
 
@@ -510,7 +513,9 @@
             !-----------------------------------------------------------------
             ! Upwind transport
             !-----------------------------------------------------------------
-
+            !TODO - Pass in dx and dy as 3D fields to allow for spatially varying
+            !       cell dimensions as in POP/CICE?
+ 
             do nt = 0, ntracer
                call upwind_field (nx,             ny,                  &
                                   ilo, ihi,       jlo, jhi,            &
@@ -591,6 +596,8 @@
          !-------------------------------------------------------------------
          ! Main remapping routine: Step ice thickness and tracers forward in time.
          !-------------------------------------------------------------------
+         !TODO - Pass in dx and dy as 3D fields to allow for spatially varying
+         !       cell dimensions as in POP/CICE?
 
             call glissade_horizontal_remap (dt,                                  &
                                             dx,                dy,               &

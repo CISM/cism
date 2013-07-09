@@ -466,8 +466,8 @@ contains
     call GetValue(section,'profile',model%numerics%profile_period)
 
     call GetValue(section,'dt_diag',model%numerics%dt_diag)
-    call GetValue(section,'idiag',model%numerics%idiag_global)
-    call GetValue(section,'jdiag',model%numerics%jdiag_global)
+    call GetValue(section,'idiag',model%numerics%idiag)
+    call GetValue(section,'jdiag',model%numerics%jdiag)
 
     !WHL - ndiag replaced by dt_diag, but retained (for now) for backward compatibility
     call GetValue(section,'ndiag',model%numerics%ndiag)
@@ -518,9 +518,9 @@ contains
        call write_log(message)
     endif
 
-    write(message,*) 'idiag_global        : ',model%numerics%idiag_global
+    write(message,*) 'idiag               : ',model%numerics%idiag
     call write_log(message)
-    write(message,*) 'jdiag_global        : ',model%numerics%jdiag_global
+    write(message,*) 'jdiag               : ',model%numerics%jdiag
     call write_log(message)
     call write_log('')
 
@@ -1090,10 +1090,9 @@ contains
        call write_log(message)
     end if
 
-    !TODO - Should this be in a different subroutine?
-    if (model%numerics%idiag_global < 1 .or. model%numerics%idiag_global > model%general%ewn     &
+    if (model%numerics%idiag < 1 .or. model%numerics%idiag > model%general%ewn     &
                                         .or.                                                     &
-        model%numerics%jdiag_global < 1 .or. model%numerics%jdiag_global > model%general%nsn) then
+        model%numerics%jdiag < 1 .or. model%numerics%jdiag > model%general%nsn) then
         call write_log('Error, global diagnostic point (idiag, jdiag) is out of bounds', GM_FATAL)
     endif
 

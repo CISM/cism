@@ -105,8 +105,8 @@ module glint_type
 
      ! Locally calculated climate/mass-balance fields ------------
 
-     real(dp),dimension(:,:),pointer :: ablt => null() !*FD Annual ablation
-     real(dp),dimension(:,:),pointer :: acab => null() !*FD Annual mass-balance
+     real(dp),dimension(:,:),pointer :: ablt => null() !*FD Annual ablation (m/y water equiv)
+     real(dp),dimension(:,:),pointer :: acab => null() !*FD Annual mass balance (m/y water equiv)
 
      ! Arrays to accumulate mass-balance quantities --------------
 
@@ -172,6 +172,15 @@ module glint_type
 
      integer  :: av_count = 0 !*FD Counter for averaging temperature input
 
+     !WHL - added these for upscaling
+     ! Counters and fields for averaging dycore output
+
+     integer  :: av_count_output = 0       ! step counter
+     logical  :: new_tavg_output = .true.  ! if true, start new averaging
+     real(dp), dimension(:,:), pointer :: hflx_tavg => null()   ! conductive heat flux at top surface (W m-2)
+     real(dp), dimension(:,:), pointer :: rofi_tavg => null()   ! solid ice runoff (kg m-2 s-1)
+     real(dp), dimension(:,:), pointer :: rofl_tavg => null()   ! liquid runoff from basal/interior melting (kg m-2 s-1)
+
      ! Pointers to file input and output
 
      type(glimmer_nc_output),pointer :: out_first => null() !*FD first element of linked list defining netCDF outputs
@@ -205,7 +214,8 @@ module glint_type
 
   ! diagnostic points on global grid, useful for debugging
 
-  integer, parameter :: iglint_global = 56     ! SW Greenland point on 64 x 32 glint_example global grid
+  integer, parameter :: iglint_global = 56     ! SW Greenland point on 64 x 32 glint_example global grid (mostly ice covered)
+!  integer, parameter :: iglint_global = 57     ! SW Greenland point on 64 x 32 glint_example global grid (totally ice covered)
   integer, parameter :: jglint_global = 4      ! j increases from north to south
 
 contains
@@ -303,24 +313,35 @@ contains
     integer,             intent(in)    :: nxg       !*FD Longitudinal size of global grid (grid-points).
     integer,             intent(in)    :: nyg       !*FD Latitudinal size of global grid (grid-points).
 
-    integer ewn,nsn
+    integer :: ewn,nsn    ! dimensions of local grid
 
     ewn = get_ewn(instance%model)
     nsn = get_nsn(instance%model)
 
     ! First deallocate if necessary
 
-    if (associated(instance%artm))          deallocate(instance%artm)
-    if (associated(instance%acab))          deallocate(instance%acab)
     if (associated(instance%frac_coverage)) deallocate(instance%frac_coverage)
     if (associated(instance%out_mask))      deallocate(instance%out_mask)  !TODO - Is this needed?
 
+    if (associated(instance%artm))          deallocate(instance%artm)
+    if (associated(instance%acab))          deallocate(instance%acab)
+
+    if (associated(instance%rofi_tavg))     deallocate(instance%rofi_tavg)
+    if (associated(instance%rofl_tavg))     deallocate(instance%rofl_tavg)
+    if (associated(instance%hflx_tavg))     deallocate(instance%hflx_tavg)
+
+
     ! Then reallocate and zero...
+
+    allocate(instance%frac_coverage(nxg,nyg)); instance%frac_coverage = 0.d0
+    allocate(instance%out_mask(ewn,nsn));      instance%out_mask = 1   !TODO - Is this needed?
 
     allocate(instance%artm(ewn,nsn));          instance%artm = 0.d0
     allocate(instance%acab(ewn,nsn));          instance%acab = 0.d0
-    allocate(instance%frac_coverage(nxg,nyg)); instance%frac_coverage = 0.d0
-    allocate(instance%out_mask(ewn,nsn));      instance%out_mask = 1   !TODO - Is this needed?
+
+    allocate(instance%rofi_tavg(ewn,nsn));     instance%rofi_tavg = 0.d0
+    allocate(instance%rofl_tavg(ewn,nsn));     instance%rofl_tavg = 0.d0
+    allocate(instance%hflx_tavg(ewn,nsn));     instance%hflx_tavg = 0.d0
 
   end subroutine glint_i_allocate_gcm
 
@@ -468,13 +489,13 @@ contains
     endif
 
     if (instance%mbal_accum_time == -1) then
-       call write_log('Mass-balance accumulation time == ice time-step')
+       call write_log('Mass-balance accumulation time will be set to max(ice timestep, mbal timestep)')
     else
        write(message,*) 'Mass-balance accumulation time:',instance%mbal_accum_time * hours2years,' years'
        call write_log(message)
     end if
 
-    write(message,*) 'ice_tstep_multiply',instance%ice_tstep_multiply
+    write(message,*) 'ice_tstep_multiply:',instance%ice_tstep_multiply
     call write_log(message)
 
     select case(instance%use_mpint)

@@ -134,47 +134,9 @@ contains
 
   ! +++++++++++++++++++++++++++++++++++++++++++++++++
 
-  subroutine glint_mbc_init_gcm(params,  &
-                                lgrid,   &
-                                whichacab)
-
-    ! Simplified version of glint_mbc_init, used when coupling
-    ! to a GCM that provides the surface mass balance
-
-    use glimmer_coordinates
-    use glint_constants, only: years2hours
-
-    type(glint_mbc)        :: params      ! mass balance parameters
-    type(coordsystem_type) :: lgrid       ! local grid
-    integer, intent(in)    :: whichacab   ! mass balance method
-                                          ! = 0 for GCM coupling
-
-    ! Deallocate if necessary
-
-    if (associated(params%acab_save))  deallocate(params%acab_save)
-    if (associated(params%artm_save))  deallocate(params%artm_save)
-    if (associated(params%acab))       deallocate(params%acab)
-    if (associated(params%artm))       deallocate(params%artm)
-
-    ! Allocate arrays and zero
-
-    call coordsystem_allocate(lgrid,params%acab_save);  params%acab_save = 0.d0
-    call coordsystem_allocate(lgrid,params%artm_save);  params%artm_save = 0.d0
-    call coordsystem_allocate(lgrid,params%acab);       params%acab = 0.d0
-    call coordsystem_allocate(lgrid,params%artm);       params%artm = 0.d0
-
-    ! Set the mbal method and tstep
-
-    params%mbal%which = whichacab     ! = 0 for GCM coupling
-    params%mbal%tstep = years2hours   ! no. of hours in 1 year
-
-  end subroutine glint_mbc_init_gcm
-
-  ! +++++++++++++++++++++++++++++++++++++++++++++++++
-
-  subroutine glint_accumulate(params, time,     artm,    arng,    prcp,       &
-                              snowd,  siced,    xwind,   ywind,   local_orog, &
-                              thck,   humidity, SWdown,  LWdown,  Psurf)
+  subroutine glint_accumulate_mbal(params, time,     artm,    arng,    prcp,       &
+                                   snowd,  siced,    xwind,   ywind,   local_orog, &
+                                   thck,   humidity, SWdown,  LWdown,  Psurf)
 
     type(glint_mbc)  :: params
     integer :: time
@@ -245,64 +207,24 @@ contains
     params%LWdown = LWdown
     params%Psurf = Psurf
 
-  end subroutine glint_accumulate
+  end subroutine glint_accumulate_mbal
 
   ! +++++++++++++++++++++++++++++++++++++++++++++++++
 
-  subroutine glint_accumulate_gcm(params, time, acab, artm)
-
-    type(glint_mbc)  :: params
-    integer :: time
-
-    real(dp),dimension(:,:),intent(in), optional :: acab   ! Surface mass balance (m/s)
-    real(dp),dimension(:,:),intent(inout) :: artm          ! Mean air temperature (degC)
-
-    ! Things to do the first time
-
-    if (params%new_accum) then
-
-       params%new_accum = .false.
-       params%av_count  = 0
-
-       ! Initialise
-
-       params%acab_save = 0.d0
-       params%artm_save = 0.d0
-       params%start_time = time
-
-    end if
-
-    params%av_count = params%av_count + 1
-
-    ! Accumulate
-
-    params%acab_save = params%acab_save + acab
-    params%artm_save = params%artm_save + artm
-
-    ! Copy instantaneous fields
-
-    params%acab = acab
-    params%artm = artm
-
-  end subroutine glint_accumulate_gcm
-
-  ! +++++++++++++++++++++++++++++++++++++++++++++++++
-
-  subroutine glint_get_mbal(params,artm,prcp,ablt,acab,snowd,siced,dt)
+  subroutine glint_average_mbal(params,artm,prcp,ablt,acab,snowd,siced,dt)
 
     use glint_constants, only: hours2years
 
     type(glint_mbc)  :: params
     real(dp),dimension(:,:),intent(out)   :: artm   !*FD Mean air temperature (degC)
-    real(dp),dimension(:,:),intent(out)   :: prcp   !*FD Precipitation (m)
-    real(dp),dimension(:,:),intent(out)   :: ablt   !*FD Ablation
-    real(dp),dimension(:,:),intent(out)   :: acab   !*FD Mass-balance
+    real(dp),dimension(:,:),intent(out)   :: prcp   !*FD Precipitation (m/yr)
+    real(dp),dimension(:,:),intent(out)   :: ablt   !*FD Ablation (m/yr)
+    real(dp),dimension(:,:),intent(out)   :: acab   !*FD Mass-balance (m/yr)
     real(dp),dimension(:,:),intent(inout) :: snowd  !*FD Snow depth (m)
     real(dp),dimension(:,:),intent(inout) :: siced  !*FD Superimposed ice depth (m)
     integer,                intent(in)    :: dt     !*FD accumulation time in hours
 
     if (.not. params%new_accum) then
-!WHL       params%artm_save = params%artm_save/real(params%av_count)
        params%artm_save = params%artm_save / real(params%av_count,dp)
     end if
 
@@ -318,29 +240,10 @@ contains
     where (snowd < 0.d0) snowd = 0.d0
     where (siced < 0.d0) siced = 0.d0
 
-  end subroutine glint_get_mbal
+  end subroutine glint_average_mbal
 
-  ! +++++++++++++++++++++++++++++++++++++++++++++++++
-
-  subroutine glint_get_mbal_gcm(params, dt, acab, artm)
-
-    use glint_constants, only: hours2years
-
-    type(glint_mbc)  :: params
-    integer,                intent(in)    :: dt     !*FD accumulation time in hours
-    real(dp),dimension(:,:),intent(out)   :: artm   !*FD Mean air temperature (degC)
-    real(dp),dimension(:,:),intent(out)   :: acab   !*FD Mass-balance
-
-    if (.not. params%new_accum) then
-!WHL       params%artm_save = params%artm_save/real(params%av_count)
-       params%artm_save = params%artm_save / real(params%av_count,dp)
-    end if
-
-    params%new_accum = .true.
-
-    artm  = params%artm_save
-    acab  = params%acab_save / real(dt*hours2years,dp)
-
-  end subroutine glint_get_mbal_gcm
+!++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 end module glint_mbal_coupling
+
+!++++++++++++++++++++++++++++++++++++++++++++++++++++++

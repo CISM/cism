@@ -74,9 +74,9 @@ module glint_interp
      !*FD Derived type containing indexing information
      !*FD for upscaling by areal averaging.
 
-     integer, dimension(:,:),pointer :: gboxx => null() !*FD $x$-indicies of global grid-box 
+     integer, dimension(:,:),pointer :: gboxx => null() !*FD $x$-indices of global grid-box 
                                                         !*FD containing given local grid-box.
-     integer, dimension(:,:),pointer :: gboxy => null() !*FD $y$-indicies of global grid-box 
+     integer, dimension(:,:),pointer :: gboxy => null() !*FD $y$-indices of global grid-box 
                                                         !*FD containing given local grid-box.
      integer, dimension(:,:),pointer :: gboxn => null() !*FD Number of local grid-boxes 
                                                         !*FD contained in each global box.
@@ -730,13 +730,13 @@ contains
 
        do i=1,nxl_full
           do j=1,nyl_full
-             global(ups%gboxx(i,j),ups%gboxy(i,j))= &
-                  global(ups%gboxx(i,j),ups%gboxy(i,j))+local_fulldomain(i,j)*tempmask_fulldomain(i,j)
+             global(ups%gboxx(i,j),ups%gboxy(i,j)) = global(ups%gboxx(i,j),ups%gboxy(i,j)) &
+                                                   + local_fulldomain(i,j)*tempmask_fulldomain(i,j)
           enddo
        enddo
 
        where (ups%gboxn /= 0)
-          global = global/ups%gboxn
+          global = global / real(ups%gboxn,dp)
        elsewhere
           global = 0.d0
        endwhere
@@ -749,6 +749,9 @@ contains
   end subroutine mean_to_global_dp
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+!TODO - Remove this subroutine?  No longer used.
+!       But note conservation check--add this to mean_to_global?
 
   subroutine mean_to_global_mec(ups,                &
                                 nxl,      nyl,      &
