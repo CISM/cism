@@ -108,9 +108,9 @@ program glint_example
 
   real(dp),dimension(:,:,:), allocatable :: gfrac    ! fractional glacier area [0,1] 
   real(dp),dimension(:,:,:), allocatable :: gtopo    ! glacier surface elevation (m) 
-  real(dp),dimension(:,:,:), allocatable :: grofi    ! ice runoff (calving) flux (kg/m^2/s)
-  real(dp),dimension(:,:,:), allocatable :: grofl    ! ice runoff (liquid) flux (kg/m^2/s)
   real(dp),dimension(:,:,:), allocatable :: ghflx    ! heat flux from glacier interior, positive down (W/m^2)
+  real(dp),dimension(:,:),   allocatable :: grofi    ! ice runoff (calving) flux (kg/m^2/s)
+  real(dp),dimension(:,:),   allocatable :: grofl    ! ice runoff (liquid) flux (kg/m^2/s)
 
   integer, parameter :: glc_nec = 10               ! number of elevation classes
 
@@ -182,14 +182,14 @@ program glint_example
      allocate(gfrac(nx,ny,glc_nec))
      allocate(gtopo(nx,ny,glc_nec))
      allocate(ghflx(nx,ny,glc_nec))
-     allocate(grofi(nx,ny,glc_nec))
-     allocate(grofl(nx,ny,1))
+     allocate(grofi(nx,ny))
+     allocate(grofl(nx,ny))
 
      gfrac(:,:,:) = 0.d0
      gtopo(:,:,:) = 0.d0
      ghflx(:,:,:) = 0.d0
-     grofi(:,:,:) = 0.d0
-     grofl(:,:,:) = 0.d0
+     grofi(:,:)   = 0.d0
+     grofl(:,:)   = 0.d0
 
   endif
 

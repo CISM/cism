@@ -179,12 +179,11 @@ contains
 
     !TODO - Should these be inout?
     !       Remove hardwired dimensions?
-    !       Remove 3rd dimension of grofi and grofl?
     real(dp),dimension(nxg,nyg,nec),intent(out) :: gfrac   ! ice-covered fraction [0,1]
     real(dp),dimension(nxg,nyg,nec),intent(out) :: gtopo   ! surface elevation (m)
     real(dp),dimension(nxg,nyg,nec),intent(out) :: ghflx   ! heat flux (m)
-    real(dp),dimension(nxg,nyg,1),  intent(out) :: grofi   ! ice runoff (calving) flux (kg/m^2/s)
-    real(dp),dimension(nxg,nyg,1),  intent(out) :: grofl   ! liquid runoff (basal melt) flux (kg/m^2/s)
+    real(dp),dimension(nxg,nyg),    intent(out) :: grofi   ! ice runoff (calving) flux (kg/m^2/s)
+    real(dp),dimension(nxg,nyg),    intent(out) :: grofl   ! liquid runoff (basal melt) flux (kg/m^2/s)
  
     ! Internal variables ----------------------------------------------------------------------
  
@@ -297,8 +296,8 @@ contains
     gfrac(:,:,:) = 0.d0
     gtopo(:,:,:) = 0.d0
     ghflx(:,:,:) = 0.d0
-    grofi(:,:,:) = 0.d0
-    grofl(:,:,:) = 0.d0
+    grofi(:,:)   = 0.d0
+    grofl(:,:)   = 0.d0
 
     area_l(:,:) = dew*dns   ! if all grid cells are identical rectangles
     area_g(:,:) = 0.d0
@@ -489,12 +488,12 @@ contains
 
        ! Find mean ice runoff from calving 
        if (area_g(i,j) > 0.d0) then
-          grofi(i,j,1) = area_rofi_g(i,j) / area_g(i,j)
+          grofi(i,j) = area_rofi_g(i,j) / area_g(i,j)
        endif
 
        ! Find mean liquid runoff from internal/basal melting 
        if (area_g(i,j) > 0.d0) then      
-          grofl(i,j,1) = area_rofl_g(i,j) / area_g(i,j)
+          grofl(i,j) = area_rofl_g(i,j) / area_g(i,j)
        endif
 
 !WHL - debug
@@ -504,8 +503,8 @@ contains
           print*, 'area_g =', area_g(i,j)
           print*, 'area_rofi_g =', area_rofi_g(i,j)
           print*, 'area_rofl_g =', area_rofl_g(i,j)
-          print*, 'grofi =', grofi(i,j,1)
-          print*, 'grofl =', grofl(i,j,1)
+          print*, 'grofi =', grofi(i,j)
+          print*, 'grofl =', grofl(i,j)
        endif
 
     enddo   ! i
@@ -535,11 +534,11 @@ contains
 
 !       write(stdout,*) ' '
 !       write(stdout,*) 'global grofi:'
-!       write(stdout,*) grofi(ig, jg, 1)
+!       write(stdout,*) grofi(ig, jg)
 
 !       write(stdout,*) ' '
 !       write(stdout,*) 'global grofl:'
-!       write(stdout,*) grofl(ig, jg, 1)
+!       write(stdout,*) grofl(ig, jg)
 
     end if
 

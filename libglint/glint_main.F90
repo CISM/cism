@@ -613,23 +613,23 @@ contains
     ! Subroutine argument declarations --------------------------------------------------------
 
     type(glint_params),              intent(inout) :: params      !*FD parameters to be set
-    real(dp),dimension(:),           intent(in)    :: lats,longs  !*FD location of gridpoints 
+    real(dp),dimension(:),             intent(in)  :: lats,longs  !*FD location of gridpoints 
                                                                   !*FD in global data.
-    integer,                         intent(in)    :: time_step   !*FD Timestep of calling model (hours)
-    character(*),dimension(:),       intent(in)    :: paramfile   !*FD array of configuration filenames.
-    integer,                optional,intent(in)    :: daysinyear  !*FD Number of days in the year
-    integer,                optional,intent(in)    :: start_time  !*FD Time of first call to glint (hours)
-    integer,                optional,intent(out)   :: ice_dt      !*FD Ice dynamics time-step in hours
-    logical,                optional,intent(out)   :: output_flag !*FD Flag to show output set (provided for consistency)
+    integer,                           intent(in)  :: time_step   !*FD Timestep of calling model (hours)
+    character(*),dimension(:),         intent(in)  :: paramfile   !*FD array of configuration filenames.
+    integer,                  optional,intent(in)  :: daysinyear  !*FD Number of days in the year
+    integer,                  optional,intent(in)  :: start_time  !*FD Time of first call to glint (hours)
+    integer,                  optional,intent(out) :: ice_dt      !*FD Ice dynamics time-step in hours
+    logical,                  optional,intent(out) :: output_flag !*FD Flag to show output set (provided for consistency)
     integer,                  optional,intent(in)  :: glc_nec     !*FD number of elevation classes for GCM input
     real(dp),dimension(:,:,:),optional,intent(out) :: gfrac       !*FD ice fractional area [0,1]
     real(dp),dimension(:,:,:),optional,intent(out) :: gtopo       !*FD surface elevation (m)
-    real(dp),dimension(:,:,:),optional,intent(out) :: grofi       !*FD ice runoff (kg/m^2/s = mm H2O/s)
-    real(dp),dimension(:,:,:),optional,intent(out) :: grofl       !*FD liquid runoff (kg/m^2/s = mm H2O/s)
     real(dp),dimension(:,:,:),optional,intent(out) :: ghflx       !*FD heat flux (W/m^2, positive down)
+    real(dp),dimension(:,:),  optional,intent(out) :: grofi       !*FD ice runoff (kg/m^2/s = mm H2O/s)
+    real(dp),dimension(:,:),  optional,intent(out) :: grofl       !*FD liquid runoff (kg/m^2/s = mm H2O/s)
     integer, dimension(:,:),  optional,intent(in)  :: gmask       !*FD mask = 1 where global data are valid
     logical,                  optional,intent(in)  :: gcm_restart ! logical flag to restart from a GCM restart file
-    character(*),             optional, intent(in) :: gcm_restart_file ! restart filename for a GCM restart
+    character(*),             optional,intent(in)  :: gcm_restart_file ! restart filename for a GCM restart
                                                                   ! (currently assumed to be CESM)
     logical,                  optional,intent(in)  :: gcm_debug   ! logical flag from GCM to output debug information
     integer,                  optional,intent(in)  :: gcm_fileunit! fileunit for reading config files
@@ -648,7 +648,10 @@ contains
     integer,dimension(:),allocatable :: mbts,idts ! Array of mass-balance and ice dynamics timesteps
 
     real(dp),dimension(:,:,:),allocatable ::   &
-               gfrac_temp, gtopo_temp, grofi_temp, grofl_temp, ghflx_temp    ! Temporary output arrays
+               gfrac_temp, gtopo_temp, ghflx_temp ! Temporary output arrays
+
+    real(dp),dimension(:,:),allocatable ::   &
+               grofi_temp, grofl_temp             ! Temporary output arrays
 
     integer :: n
     integer :: nec       ! number of elevation classes
@@ -862,17 +865,17 @@ contains
 
     if (present(gfrac)) gfrac(:,:,:) = 0.d0
     if (present(gtopo)) gtopo(:,:,:) = 0.d0
-    if (present(grofi)) grofi(:,:,:) = 0.d0
-    if (present(grofl)) grofl(:,:,:) = 0.d0
     if (present(ghflx)) ghflx(:,:,:) = 0.d0
+    if (present(grofi)) grofi(:,:)   = 0.d0
+    if (present(grofl)) grofl(:,:)   = 0.d0
 
     ! Allocate arrays
 
     allocate(gfrac_temp(params%g_grid%nx, params%g_grid%ny, params%g_grid%nec))
     allocate(gtopo_temp(params%g_grid%nx, params%g_grid%ny, params%g_grid%nec))
     allocate(ghflx_temp(params%g_grid%nx, params%g_grid%ny, params%g_grid%nec))
-    allocate(grofi_temp(params%g_grid%nx, params%g_grid%ny, 1))
-    allocate(grofl_temp(params%g_grid%nx, params%g_grid%ny, 1))
+    allocate(grofi_temp(params%g_grid%nx, params%g_grid%ny))
+    allocate(grofl_temp(params%g_grid%nx, params%g_grid%ny))
 
     if (GLC_DEBUG .and. main_task) then
        write(stdout,*) 'Upscale and splice the initial fields'
@@ -1367,9 +1370,9 @@ contains
 
     real(dp),dimension(:,:,:),optional,intent(inout) :: gfrac         ! output ice fractional area [0,1]
     real(dp),dimension(:,:,:),optional,intent(inout) :: gtopo         ! output surface elevation (m)
-    real(dp),dimension(:,:,:),optional,intent(inout) :: grofi         ! output ice runoff (kg/m^2/s = mm H2O/s)
-    real(dp),dimension(:,:,:),optional,intent(inout) :: grofl         ! output liquid runoff (kg/m^2/s = mm H2O/s)
     real(dp),dimension(:,:,:),optional,intent(inout) :: ghflx         ! output heat flux (W/m^2, positive down)
+    real(dp),dimension(:,:),  optional,intent(inout) :: grofi         ! output ice runoff (kg/m^2/s = mm H2O/s)
+    real(dp),dimension(:,:),  optional,intent(inout) :: grofl         ! output liquid runoff (kg/m^2/s = mm H2O/s)
 
     ! Internal variables ----------------------------------------------------------------------------
 
@@ -1381,9 +1384,11 @@ contains
     real(dp), dimension(:,:,:), allocatable ::   &
        gfrac_temp    ,&! gfrac for a single instance
        gtopo_temp    ,&! gtopo for a single instance
-       grofi_temp    ,&! grofi for a single instance
-       grofl_temp    ,&! grofl for a single instance
        ghflx_temp      ! ghflx for a single instance
+
+    real(dp), dimension(:,:), allocatable ::   &
+       grofi_temp    ,&! grofi for a single instance
+       grofl_temp      ! grofl for a single instance
 
     if (GLC_DEBUG .and. main_task) then
        if (params%new_av) then
@@ -1452,20 +1457,19 @@ contains
        ! Each *_temp field contains the output for one ice sheet instance.
        ! If there are multiple instances, the various *_temp fields are spliced together.
 
-!TODO - Make grofl and grofi 2D?
        allocate(gfrac_temp(params%g_grid%nx, params%g_grid%ny, params%g_grid%nec))
        allocate(gtopo_temp(params%g_grid%nx, params%g_grid%ny, params%g_grid%nec))
        allocate(ghflx_temp(params%g_grid%nx, params%g_grid%ny, params%g_grid%nec))
-       allocate(grofi_temp(params%g_grid%nx, params%g_grid%ny, 1))
-       allocate(grofl_temp(params%g_grid%nx, params%g_grid%ny, 1))
+       allocate(grofi_temp(params%g_grid%nx, params%g_grid%ny))
+       allocate(grofl_temp(params%g_grid%nx, params%g_grid%ny))
 
        ! Zero global outputs if present
 
        if (present(gfrac)) gfrac(:,:,:) = 0.d0
        if (present(gtopo)) gtopo(:,:,:) = 0.d0
        if (present(ghflx)) ghflx(:,:,:) = 0.d0
-       if (present(grofi)) grofi(:,:,:) = 0.d0
-       if (present(grofl)) grofl(:,:,:) = 0.d0
+       if (present(grofi)) grofi(:,:)   = 0.d0
+       if (present(grofl)) grofl(:,:)   = 0.d0
 
        ! Calculate averages by dividing by number of steps elapsed
        ! since last model timestep.
@@ -1558,8 +1562,8 @@ contains
                    write(stdout,*) 'ghflx_temp(n) =', ghflx_temp(ig,jg,n)
                 enddo
                 write(stdout,*) ' '
-                write(stdout,*) 'grofi_temp(1) =', grofi_temp(ig,jg,1)
-                write(stdout,*) 'grofl_temp(1) =', grofl_temp(ig,jg,1)
+                write(stdout,*) 'grofi_temp =', grofi_temp(ig,jg)
+                write(stdout,*) 'grofl_temp =', grofl_temp(ig,jg)
 !!             end if
 
              ! Add the contribution from this instance to the global output
@@ -1717,15 +1721,15 @@ contains
 
      real(dp), dimension(:,:,:), intent(in) :: gfrac_temp  ! output fields for this instance
      real(dp), dimension(:,:,:), intent(in) :: gtopo_temp  ! output fields for this instance
-     real(dp), dimension(:,:,:), intent(in) :: grofi_temp  ! output fields for this instance
-     real(dp), dimension(:,:,:), intent(in) :: grofl_temp  ! output fields for this instance
      real(dp), dimension(:,:,:), intent(in) :: ghflx_temp  ! output fields for this instance
+     real(dp), dimension(:,:),   intent(in) :: grofi_temp  ! output fields for this instance
+     real(dp), dimension(:,:),   intent(in) :: grofl_temp  ! output fields for this instance
 
      real(dp), dimension(:,:,:), intent(inout) :: gfrac    ! spliced global output field
      real(dp), dimension(:,:,:), intent(inout) :: gtopo    ! spliced global output field
-     real(dp), dimension(:,:,:), intent(inout) :: grofi    ! spliced global output field
-     real(dp), dimension(:,:,:), intent(inout) :: grofl    ! spliced global output field
      real(dp), dimension(:,:,:), intent(inout) :: ghflx    ! spliced global output field
+     real(dp), dimension(:,:),   intent(inout) :: grofi    ! spliced global output field
+     real(dp), dimension(:,:),   intent(inout) :: grofl    ! spliced global output field
 
      integer, intent(in) :: nec   ! number of elevation classes
 
@@ -1761,20 +1765,17 @@ contains
 
         enddo   ! nec
 
-        grofi(:,:,1) = splice_field(grofi(:,:,1),            &
-                                    grofi_temp(:,:,1),       &
-                                    frac_coverage,           &
-                                    cov_normalise)
+        grofi(:,:) = splice_field(grofi(:,:),              &
+                                  grofi_temp(:,:),         &
+                                  frac_coverage,           &
+                                  cov_normalise)
 
-        grofl(:,:,1) = splice_field(grofl(:,:,1),            &
-                                    grofl_temp(:,:,1),       &
-                                    frac_coverage,           &
-                                    cov_normalise)
+        grofl(:,:) = splice_field(grofl(:,:),              &
+                                  grofl_temp(:,:),         &
+                                  frac_coverage,           &
+                                  cov_normalise)
 
      endif  ! main_task
-
-!WHL - debug
-   print*, 'Done in splice_fields_gcm'
 
   end subroutine splice_fields_gcm
 
