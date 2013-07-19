@@ -36,7 +36,8 @@ echo "Doing CMake Configuration step"
 
 #set Netcdf installation directory here
 #setenv NETCDF_HOME /home/loren/users/dmartin/util/netcdf/netcdf-4.1.2 
-setenv NETCDF_HOME /usr/local/netcdf 
+#setenv NETCDF_HOME /usr/local/netcdf 
+setenv NETCDF_HOME ${NETCDF_HOME_DIR}
 
 cmake \
   -D NO_TRILINOS:BOOL=ON \
