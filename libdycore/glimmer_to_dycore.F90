@@ -45,6 +45,7 @@ print *,"In gtd_init, dycore_model_index = ",dycore_model_index
     call gtd_set_temper_vars(model,dycore_model_index)
     call gtd_set_climate_vars(model,dycore_model_index)
     call gtd_set_mpi_vars(model,dycore_model_index)
+    call gtd_set_constants(model,dycore_model_index)
 
     print *,"In gtd_init_dycore, dycore_type, dycore_index  =  " , &
              dycore_names(dycore_type+1),dycore_model_index
@@ -55,7 +56,7 @@ print *,"In gtd_init, dycore_model_index = ",dycore_model_index
 
   subroutine gtd_run_dycore(dycore_model_index,cur_time,time_inc)
     integer*4 dycore_model_index
-    real(sp) cur_time, time_inc
+    real(dp) cur_time, time_inc
 
     call dycore_run_model(dycore_model_index,cur_time,time_inc)
   end subroutine gtd_run_dycore
@@ -108,6 +109,27 @@ print *,"In gtd_init, dycore_model_index = ",dycore_model_index
     var_name = 'usrf'//char(0)
     !call gtd_set_dim_info(shape(model%geometry%usrf),dim_info)
     call dycore_set_ptr_double_var(model%geometry%usrf,var_name,dtype_name,dycore_model_index)
+
+    var_name = 'lsrf'//char(0)
+    !call gtd_set_dim_info(shape(model%geometry%lsrf),dim_info)
+    call dycore_set_ptr_double_var(model%geometry%lsrf,var_name,dtype_name,dycore_model_index)
+
+    !* (DFM -- added floating_mask, ice_mask, lower_cell_loc, and lower_cell_temp
+    var_name = 'floating_mask'//char(0)
+    !call gtd_set_dim_info(shape(model%geometry%floating_mask),dim_info)
+    call dycore_set_ptr_double_var(model%geometry%floating_mask,var_name,dtype_name,dycore_model_index)
+
+    var_name = 'ice_mask'//char(0)
+    !call gtd_set_dim_info(shape(model%geometry%ice_mask),dim_info)
+    call dycore_set_ptr_double_var(model%geometry%ice_mask,var_name,dtype_name,dycore_model_index)
+
+    var_name = 'lower_cell_loc'//char(0)
+    !call gtd_set_dim_info(shape(model%geometry%lower_cell_loc),dim_info)
+    call dycore_set_ptr_double_var(model%geometry%lower_cell_loc,var_name,dtype_name,dycore_model_index)
+
+    var_name = 'lower_cell_temp'//char(0)
+    !call gtd_set_dim_info(shape(model%geometry%lower_cell_temp),dim_info)
+    call dycore_set_ptr_double_var(model%geometry%lower_cell_temp,var_name,dtype_name,dycore_model_index)
 
 
     print *,"this_rank, ewlb, ewub, nslb, nsub", this_rank,  ewlb, ewub, nslb, nsub
@@ -184,6 +206,7 @@ print *,"In gtd_init, dycore_model_index = ",dycore_model_index
     var_name = 'wvel'//char(0)
     call dycore_set_ptr_double_var(model%velocity%wvel,var_name, &
                               dtype_name,dycore_model_index);
+
     var_name = 'wgrd'//char(0)
     call dycore_set_ptr_double_var(model%velocity%wgrd,var_name, &
                               dtype_name,dycore_model_index);
@@ -222,6 +245,36 @@ print *,"In gtd_init, dycore_model_index = ",dycore_model_index
     call dycore_copy_in_double_var(model%numerics%dns,var_name,dtype_name,dim_info2,dycore_model_index)
 
   end subroutine gtd_set_numerics_vars
+
+  subroutine gtd_set_constants(model,dycore_model_index)
+    use glimmer_physcon, only: grav, scyr, rhoi, rhoo
+
+    type(glide_global_type) :: model
+    integer*4 dycore_model_index
+
+    character*20 var_name
+    character*20 dtype_name
+    integer*4 var_name_len, dtype_name_len
+    integer*8 dim_info2(2)
+
+    dtype_name = 'constants'//char(0)
+
+    dim_info2(1) = 1
+    dim_info2(2) = 1
+
+    var_name = 'gravity'//char(0)    
+    call dycore_copy_in_double_var(grav,var_name,dtype_name,dim_info2,dycore_model_index)
+
+    var_name = 'seconds_per_year'//char(0)    
+    call dycore_copy_in_double_var(scyr,var_name,dtype_name,dim_info2,dycore_model_index)
+
+    var_name = 'rho_ice'//char(0)    
+    call dycore_copy_in_double_var(rhoi,var_name,dtype_name,dim_info2,dycore_model_index)
+
+    var_name = 'rho_seawater'//char(0)    
+    call dycore_copy_in_double_var(rhoo,var_name,dtype_name,dim_info2,dycore_model_index)
+
+  end subroutine gtd_set_constants
 
   subroutine gtd_set_temper_vars(model,dycore_model_index)
     type(glide_global_type) :: model

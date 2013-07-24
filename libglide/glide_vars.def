@@ -317,41 +317,41 @@ load:          1
 standard_name: bedrock_altitude
 coordinates:   lon lat
 
-## D. Martin added - fields that need to be passed to POP for ice-ocean coupling
-#[floating_mask]
-#dimensions:    time, y1, x1
-#units:         1
-#long_name:     real-valued mask denoting grounded/floating 
-#data:          data%geometry%floating_mask
-#factor:        1.0
-#coordinates:   lon lat
+# D. Martin added - fields that need to be passed to POP for ice-ocean coupling
+[floating_mask]
+dimensions:    time, y1, x1
+units:         1
+long_name:     real-valued mask denoting grounded/floating 
+data:          data%geometry%floating_mask
+factor:        1.0
+coordinates:   lon lat
 
-## D. Martin added - fields that need to be passed to POP for ice-ocean coupling
-#[ice_mask]
-#dimensions:    time, y1, x1
-#units:         1
-#long_name:     real-valued mask denoting ice (1) or no ice (0)
-#data:          data%geometry%ice_mask
-#factor:        1.0
-#coordinates:   lon lat
+# D. Martin added - fields that need to be passed to POP for ice-ocean coupling
+[ice_mask]
+dimensions:    time, y1, x1
+units:         1
+long_name:     real-valued mask denoting ice (1) or no ice (0)
+data:          data%geometry%ice_mask
+factor:        1.0
+coordinates:   lon lat
 
-## D. Martin added - fields that need to be passed to POP for ice-ocean coupling
-#[lower_cell_loc]
-#dimensions:    time, y1, x1
-#units:         meter
-#long_name:     location in z of lower cell location
-#data:          data%geometry%lower_cell_loc
-#factor:        1.0
-#coordinates:   lon lat
+# D. Martin added - fields that need to be passed to POP for ice-ocean coupling
+[lower_cell_loc]
+dimensions:    time, y1, x1
+units:         meter
+long_name:     location in z of lower cell location
+data:          data%geometry%lower_cell_loc
+factor:        1.0
+coordinates:   lon lat
 
-## D. Martin added - fields that need to be passed to POP for ice-ocean coupling
-#[lower_cell_temp]
-#dimensions:    time, y1, x1
-#units:         degrees K
-#long_name:     temperature at lower_cell_loc
-#data:          data%geometry%lower_cell_temp
-#factor:        1.0
-#coordinates:   lon lat
+# D. Martin added - fields that need to be passed to POP for ice-ocean coupling
+[lower_cell_temp]
+dimensions:    time, y1, x1
+units:         degrees K
+long_name:     temperature at lower_cell_loc
+data:          data%geometry%lower_cell_temp
+factor:        1.0
+coordinates:   lon lat
 
 [acab]
 dimensions:    time, y1, x1

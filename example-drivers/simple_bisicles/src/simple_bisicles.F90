@@ -35,7 +35,7 @@ program simple_bisicles
 !  use parallel, only: nsub, ewub, nslb, ewlb, global_nsn, global_ewn, own_ewn, own_nsn, lhalo, uhalo, &
 !                        rank => this_rank, ewtasks => ProcsEW, tasks, comm
   use parallel
-  use glimmer_global, only:rk
+  use glimmer_global, only:dp
   use glide
   use glissade
   use simple_forcing
@@ -59,11 +59,11 @@ program simple_bisicles
   type(glide_global_type) :: model        ! model instance
   type(simple_climate) :: climate         ! climate
   type(ConfigSection), pointer :: config  ! configuration stuff
-  real(kind=rk) time
+  real(kind=dp) time
   real(kind=dp) t1,t2
   integer clock,clock_rate,ret
 
-  real(kind=sp) cur_time, time_inc
+  real(kind=dp) cur_time, time_inc
 
   integer :: tstep_count
 
@@ -101,6 +101,7 @@ program simple_bisicles
   ! fill dimension variables
   call glide_nc_fillall(model)
   time = model%numerics%tstart
+  cur_time = time
   time_inc = model%numerics%tinc
 
 !  call simple_massbalance(climate,model,time)
@@ -112,18 +113,13 @@ program simple_bisicles
   print *,"Initializing external dycore interface."
   call gtd_init_dycore_interface()
 
-!  print*, "acab before dycore:"
-!  print*, model%climate%acab
-
   call parallel_barrier()
   print *,"Initializing external dycore."
   call gtd_init_dycore(model,dycore_model_index)
   call parallel_barrier()
 
-!  print*, "acab after dycore:"
-!  print*, model%climate%acab
-
-
+!  print *, "lower_cell_loc = "
+!  print *, model%geometry%lower_cell_loc
   
 ! write nc files
   call glide_io_writeall(model, model, time=time)         

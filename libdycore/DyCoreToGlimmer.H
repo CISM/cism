@@ -34,7 +34,10 @@ class DyCoreToGlimmer
     double * usrf;
     double * lsrf;
     double * topg;
-    double * mask;
+    double * floating_mask;
+    double * ice_mask;
+    double * lower_cell_loc;
+    double * lower_cell_temp;
     long * dimInfo;
     long * ewlb;
     long * ewub;
@@ -50,8 +53,8 @@ class DyCoreToGlimmer
     double * uvel; //output
     double * vvel; //output
     double * wvel;
+    double * wgrd;
     double * btrc; // basal traction coefficient
-    //double * wgrd;
     long * dimInfo;
   } velocity;
 
@@ -90,6 +93,16 @@ class DyCoreToGlimmer
                         // traction fields (calculated from matrix coeffs)
     long dimInfo;
   } velocity_hom;
+
+  struct {
+    double seconds_per_year;
+    double gravity;
+    double rho_ice; 
+    double rho_seawater;  
+    double therm_diffusivity_ice;
+    double heat_capacity_ice;
+  } constants;
+
 
   struct {
     long * communicator;

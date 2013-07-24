@@ -551,21 +551,21 @@ module glide_types
     !TODO
     !*SFP - consider moving these to their own type at some point?
     !* (DFM ----------------- added for BISICLES interface --------------)
-!    real(dp),dimension(:,:),pointer :: floating_mask => null()
-!    !*(DFM) Real-valued mask indicated where ice is grounded or floating
-!
-!    !* (DFM ----------------- added for BISICLES interface --------------)
-!    real(dp),dimension(:,:),pointer :: ice_mask => null()
-!    !*(DFM) Real-valued mask indicating where ice is present or absent
-!
-!
-!    !* (DFM ----------------- added for BISICLES interface --------------)
-!    real(dp),dimension(:,:),pointer :: lower_cell_loc => null()
-!    !*(DFM) The z-location of the center of the lowest ice cell center
-!
-!    !* (DFM ----------------- added for BISICLES interface --------------)
-!    real(dp),dimension(:,:),pointer :: lower_cell_temp => null()
-!    !*(DFM) The temperature in the cell located at lower_cell_loc
+    real(dp),dimension(:,:),pointer :: floating_mask => null()
+    !*(DFM) Real-valued mask indicated where ice is grounded or floating
+
+    !* (DFM ----------------- added for BISICLES interface --------------)
+    real(dp),dimension(:,:),pointer :: ice_mask => null()
+    !*(DFM) Real-valued mask indicating where ice is present or absent
+
+
+    !* (DFM ----------------- added for BISICLES interface --------------)
+    real(dp),dimension(:,:),pointer :: lower_cell_loc => null()
+    !*(DFM) The z-location of the center of the lowest ice cell center
+
+    !* (DFM ----------------- added for BISICLES interface --------------)
+    real(dp),dimension(:,:),pointer :: lower_cell_temp => null()
+    !*(DFM) The temperature in the cell located at lower_cell_loc
 
 
     !WHL - no longer used
@@ -621,7 +621,7 @@ module glide_types
     real(dp),dimension(:,:),pointer :: dusrfdtm => null() !*FD Temporal derivative of upper surface elevation.
 
     !TODO - These staggered variables are not derivatives.
-    !       Shoud they be part of the glide_geometry type instead?
+    !       Should they be part of the glide_geometry type instead?
 
     !Staggered grid versions of geometry variables
     real(dp),dimension(:,:),pointer :: stagthck => null() !*FD Thickness averaged onto the staggered grid.
@@ -1202,6 +1202,11 @@ contains
     !*FD \item \texttt{usrf(ewn,nsn))}
     !*FD \item \texttt{lsrf(ewn,nsn))}
     !*FD \item \texttt{topg(ewn,nsn))}
+    !* (DFM) added floating_mask, ice_mask, lower_cell_loc, and lower_cell_temp
+    !*FD \item \texttt{floating_mask(ewn,nsn))}
+    !*FD \item \texttt{ice_mask(ewn,nsn))}
+    !*FD \item \texttt{lower_cell_loc(ewn,nsn))}
+    !*FD \item \texttt{lower_cell_temp(ewn,nsn))}
     !*FD \item \texttt{mask(ewn,nsn))}
     !*FD \item \texttt{age(ewn,nsn))}
     !*FD \end{itemize}
@@ -1372,10 +1377,10 @@ contains
     !*SFP: These will need to be wrapped in their own logic at some point. For now, we 
     !      are just commenting them out by default.
     !* (DFM) -- added floating_mask, ice_mask, lower_cell_loc, and lower_cell_temp here
-!    call coordsystem_allocate(model%general%ice_grid, model%geometry%floating_mask)
-!    call coordsystem_allocate(model%general%ice_grid, model%geometry%ice_mask)
-!    call coordsystem_allocate(model%general%ice_grid, model%geometry%lower_cell_loc)
-!    call coordsystem_allocate(model%general%ice_grid, model%geometry%lower_cell_temp)
+    call coordsystem_allocate(model%general%ice_grid, model%geometry%floating_mask)
+    call coordsystem_allocate(model%general%ice_grid, model%geometry%ice_mask)
+    call coordsystem_allocate(model%general%ice_grid, model%geometry%lower_cell_loc)
+    call coordsystem_allocate(model%general%ice_grid, model%geometry%lower_cell_temp)
 
 
 
@@ -1640,14 +1645,14 @@ contains
 
     !*SFP: fields that need to be passed to POP for ice ocean coupling
     !* (DFM -- deallocate floating_mask, ice_mask, lower_cell_loc, and lower_cell_temp)
-!    if (associated(model%geometry%floating_mask)) &
-!       deallocate(model%geometry%floating_mask)
-!    if (associated(model%geometry%ice_mask)) &
-!       deallocate(model%geometry%ice_mask)
-!    if (associated(model%geometry%lower_cell_loc)) &
-!       deallocate(model%geometry%lower_cell_loc)
-!    if (associated(model%geometry%lower_cell_temp)) &
-!       deallocate(model%geometry%lower_cell_temp)
+    if (associated(model%geometry%floating_mask)) &
+       deallocate(model%geometry%floating_mask)
+    if (associated(model%geometry%ice_mask)) &
+       deallocate(model%geometry%ice_mask)
+    if (associated(model%geometry%lower_cell_loc)) &
+       deallocate(model%geometry%lower_cell_loc)
+    if (associated(model%geometry%lower_cell_temp)) &
+       deallocate(model%geometry%lower_cell_temp)
 
     if (associated(model%geometry%thck_index)) &
         deallocate(model%geometry%thck_index)
