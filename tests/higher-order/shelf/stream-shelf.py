@@ -69,7 +69,6 @@ topg  = numpy.zeros([1,ny,nx],dtype='float32')
 beta = numpy.empty([1,ny-1,nx-1],dtype='float32')
 kbc  = numpy.zeros([1,ny-1,nx-1],dtype='int')
 acab = numpy.zeros([1,ny,nx],dtype='float32') # *sfp* added acab field for prog. runs 
-temp = numpy.zeros([1,nz,ny,nx],dtype='float32') 
 zero = numpy.zeros([1,nz,ny-1,nx-1],dtype='float32')
 
 # init vel fields (need to be zeroed at margins to set up kinbc of u=v=0 in seacism)
@@ -77,9 +76,8 @@ uvel = numpy.zeros([1,nz,ny-1,nx-1],dtype='float32')
 vvel = numpy.zeros([1,nz,ny-1,nx-1],dtype='float32')
 
 # feel out other fields
-acab[:] = 0.25
-beta[0,:,:] = 0 
-temp[:] = -10.0        
+acab[:] = 0.3           # value from Goldberg et al. (2012) test case (Table 1 - m/yr)
+beta[0,:,:] = 30.4582   # value from Goldberg et al. (2012) test case (Table 1 - converted from Pa s/m to Pa yr/m)
 
 # Domain size
 Lx = (nx-1)*dx
@@ -118,7 +116,6 @@ acab[0,ny-3:,:] = 0
 # Create the required variables in the netCDF file.
 netCDFfile.createVariable('thk',      'f',('time','y1','x1'))[:] = thk.tolist()
 netCDFfile.createVariable('acab',     'f',('time','y1','x1'))[:] = acab.tolist()
-netCDFfile.createVariable('temp',     'f',('time','level','y1','x1'))[:] = temp.tolist()
 netCDFfile.createVariable('kinbcmask','i',('time','y0','x0'))[:] = kbc.tolist()
 netCDFfile.createVariable('topg',     'f',('time','y1','x1'))[:] = topg.tolist()
 netCDFfile.createVariable('beta',     'f',('time','y0','x0'))[:] = beta.tolist()
