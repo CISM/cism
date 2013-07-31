@@ -88,16 +88,16 @@ for i in range(nx):
   xx = float(i) * dx #- 0.5   # -1/2 < x < 1/2 
   for j in range(ny):
     yy = float(j) * dy #- 0.5 # -1/2 < y < 1/2
-#    topg[0,j,i] = -(300.0 + 600.0) * sin( pi*(xx-3.0*dx) / (Lx-6.0*dx) )    # shelf front at domain bottom
-    topg[0,j,i] = -(300.0 + 600.0) * sin( pi*(yy-3.0*dy) / (Ly-6.0*dy) )    # shelf front at domain right 
+#    topg[0,j,i] = -(300.0 + 600.0 * sin( pi*(xx-2.0*dx) / (Lx-4.0*dx) ) )    # shelf front at domain bottom
+    topg[0,j,i] = -(300.0 + 600.0 * sin( pi*(yy-2.0*dy) / (Ly-4.0*dy) ) )    # shelf front at domain right 
 
 # shelf front at domain bottom 
 #thk[0,4:-2,2:-2] = 500.     
 #kbc[0,ny-4:,:]  = 1
 #kbc[0,:,:3] = 1
 #kbc[0,:,nx-4:] = 1
-#topg[0,:,:4] = 0
-#topg[0,:,nx-4:] = 0
+#topg[0,:,:4] = -300.0
+#topg[0,:,nx-4:] = -300.0
 #acab[0,ny-3:,:]  = 0    # zero out accum at edges to avoid buildup where u=0
 #acab[0,:,:3] = 0
 #acab[0,:,nx-3:] = 0
@@ -107,8 +107,8 @@ thk[0,2:-2,2:-4] = 500.
 kbc[0,:,:3]  = 1
 kbc[0,:3,:] = 1
 kbc[0,ny-4:,:] = 1
-topg[0,:4,:] = 0
-topg[0,ny-4:,:] = 0
+topg[0,:4,:] = -300.0
+topg[0,ny-4:,:] = -300.0
 acab[0,:,:3]  = 0    # zero out accum at edges to avoid buildup where u=0
 acab[0,:3,:] = 0
 acab[0,ny-3:,:] = 0
