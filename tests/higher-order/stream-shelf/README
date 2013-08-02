@@ -1,0 +1,33 @@
+
+Scripts and .config files in this dir build the Goldberg test case for use w/ native CISM dycores (e.g. seacism) and
+for use w/ the Bisicles and POP2x dycores.
+
+To build the necessary input .config files, first execute the .py script to build the base .nc input files, e.g. ...
+
+    ./stream-shelf.py stream-shelf.config   # build input for seacism dycore
+
+or ...
+
+    ./stream-shelf-pop.py stream-shelf-pop.config   # build input for pop2x / bike dycore
+
+After this, we need to add Dan's input thickness and vel fields (as init guesses). To do this, first run the respective
+.m script to build the .mat file (e.g. run 'stream_shelf.m' to build 'stream-shelf.mat' for use w/ seacism).
+
+Next, copy the original .nc input file to a temp file, 
+
+>  cp stream-shelf.nc temp.nc
+
+Convert the new fields from the .mat file to a .nc file using, e.g. ...
+
+>  ./nc_from_mat-POP.py stream-shelf-pop.config
+
+Finally, use NCO to place the converted .mat fields into the original .nc file ...
+
+>  ncks -A -v thk,uvel,vvel stream-shelf.nc temp.nc
+>  mv temp.nc stream-shelf.nc     
+
+This .nc file is the input file to be read in by CISM when used w/ the respective .config file
+(that is 'stream-shelf.nc' and ' stream-shelf.config' vs. 'stream-shelf-pop.nc' and 'stream-shelf-pop.config')
+
+SFP 7/30/13
+
