@@ -29,5 +29,11 @@ Finally, use NCO to place the converted .mat fields into the original .nc file .
 This .nc file is the input file to be read in by CISM when used w/ the respective .config file
 (that is 'stream-shelf.nc' and ' stream-shelf.config' vs. 'stream-shelf-pop.nc' and 'stream-shelf-pop.config')
 
+Note that the test case does not run automatically anymore. E.g., one would need to do ...
+
+> ./simple_glide stream-shelf.config
+
+... to run the test case using seacism.
+
 SFP 7/30/13
 
