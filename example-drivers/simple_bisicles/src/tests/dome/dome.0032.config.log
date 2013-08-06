@@ -1,60 +1,72 @@
  *******************************************************************************
- Started logging at 2012-04-19 15:37:06.214
+ Started logging at 2013-08-06 01:59:49.250
  *******************************************************************************
  *******************************************************************************
    Grid specification
    ------------------
-    ewn             :          1024
-    nsn             :          1024
-    upn             :             2
-    EW grid spacing :     40.00000000000000
-    NS grid spacing :     40.00000000000000
+    ewn             :         1024
+    nsn             :         1024
+    upn             :           10
+    EW grid spacing :    60.000000000000000
+    NS grid spacing :    60.000000000000000
     sigma file      :
  
    Time steps
    ----------
-    start time        :     0.000000
-    end time          :     0.000000
-    main time step    :     1.000000
-    thermal dt factor :     1.000000
-    velo dt factor    :     1.000000
-    profile frequency :           100
-    diag frequency    :       9999999
+    start time (yr)     :    0.0000000000000000
+    end time (yr)       :    0.0000000000000000
+    time step (yr)      :    1.0000000000000000
+    thermal dt factor   :    1.0000000000000000
+    velo dt factor      :    1.0000000000000000
+    profile frequency   :          100
+    idiag               :            1
+    jdiag               :            1
  
    GLIDE options
    -------------
     I/O parameter file      :
-    temperature calculation :             1 full
-    flow law                :             2 const 1e-16a^-1Pa^-n
-    basal_proc              :             0 Basal proc mod disabled
-    basal_water             :             2 none
-    marine_margin           :             1 no ice shelf
-    slip_coeff              :             0 zero
-    evolution               :             3 remap thickness
-    vertical_integration    :             0 standard
-    basal_mass_balance      :             0 not in continutity eqn
+    Dycore                  :            1 glam
+    temperature calculation :            3 prognostic enthalpy
+    flow law                :            2 Paterson and Budd
+    basal_water             :            0 none
+    marine_margin           :            1 remove all floating ice
+    slip_coeff              :            0 no basal sliding
+    evolution               :            3 incremental remapping
+    vertical_integration    :            0 standard
+    basal_mass_balance      :            0 not in continuity eqn
+    geothermal heat flux    :            0 uniform geothermal flux
+    isostasy                :            0 no isostasy calculation
    Periodic EW lateral boundary condition
   * WARNING:   Slightly cheated with how temperature is implemented.
-   ***Higher-order options:
-    ho_diagnostic           :            1 Payne/Price (on B-grid)
-    ho_prognostic :            0 Evolve ice with SIA only
-    ice_shelf_source_term   :            0 vertically averaged
-    ho_whichbabc            :            4 no slip (using large B^2)
-    ho_whichefvs            :            0 from eff strain rate
-    ho_whichresid           :            3 L2 norm of Ax-b=resid
+ 
+   Higher-order options:
+   ----------
+    ho_whichefvs            :            0 constant value
     dispwhich               :            0 0-order SIA
-    bmeltwhich              :            0 0-order SIA
-    which_ho_nonlinear       :            0 use standard Picard iteration
-    ho_whichsparse          :            1 GMRES with LU precondition
+    ho_whichbabc            :            4 no slip (using large B^2)
+    which_ho_nonlinear      :            0 use standard Picard iteration
+    ho_whichresid           :            3 L2 norm of Ax-b = resid
+    ho_whichsparse          :            1 GMRES with LU preconditioner
  
    Parameters
    ----------
-    ice limit             :     100.0000000000000
-    marine depth limit    :    -200.0000000000000
-    geothermal heat flux  :   -5.0000000000000003E-002
-    flow enhancement      :     1.000000000000000
-    basal hydro time const:     1000.000000000000
+    ice limit (m)                 :    0.0000000000000000
+    marine depth limit (m)        :   -200.00000000000000
+    geothermal flux  (W/m2)       :  -5.00000000000000028E-002
+    flow enhancement factor       :    1.0000000000000000
+    basal hydro time constant (yr):    1000.0000000000000
+ 
+   GLIMMER v. ??: (CMake build does not get version)
+   Computing Glide sigma levels
+   Using evenly spaced sigma levels for Glam as required
+   Sigma levels:
+   ------------------
+    0.000 0.111 0.222 0.333 0.444 0.556 0.667 0.778 0.889 1.000
  
  *******************************************************************************
- 
-   GLIMMER v. 1.7.1
+   opening file dome.1024.nc for input
+  * WARNING: No map projection found
+  * FATAL ERROR :  deltax1 of file dome.1024.nc does not match with config deltax:    40.000000       60.000000000000000
+ *******************************************************************************
+ Finished logging at 2013-08-06 01:59:50.413
+ *******************************************************************************

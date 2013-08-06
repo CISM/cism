@@ -18,7 +18,7 @@ glimmerInterface.nodalInitialData = 1
 main.domain_size = 50000 50000
 
 CalvingModel.type = NoCalvingModel
-
+ 
 surfaceFlux.type = zeroFlux
 basalFlux.type = zeroFlux
 
@@ -62,10 +62,10 @@ amr.temporal_accuracy = 1
 amr.cfl = 0.01  # "cfl" number
 amr.initial_cfl = 0.01  # "cfl" number
 amr.max_dt_grow_factor = 1.1 #max amount dt can grow from one timestep to another
-
+#amr.do_initial_velocity_solve = 0 #debugging help -- makes runs go faster
 
 amr.plot_interval = 1
-amr.plot_prefix = plot.shelf.0040.
+amr.plot_prefix = plot.circularShelf.0040.
 amr.write_solver_rhs = 1
 amr.write_preSolve_plotfiles = true
 amr.write_flux_velocities = true
@@ -92,7 +92,7 @@ amr.tag_on_strain_rate_invariant = 0
 amr.strain_rate_invariant_tagging_val = 1
 
 
-amr.velocity_solver_tolerance = 1.0e-10
+amr.velocity_solver_tolerance = 1.0e-5
 
 #velocity solve type -- 0 = Picard, 1 = JFNK
 amr.velocity_solver_type = 1
@@ -110,7 +110,7 @@ JFNKSolver.numMGSmooth = 8
 JFNKSolver.maxIter = 100
 
 JFNKSolver.absTol = 1.0e-2
-JFNKSolver.relTol = 1.0e-10
+JFNKSolver.relTol = 1.0e-5
 #JFNKSolver.BiCGStabRelTol = 4.0e-3
 JFNKSolver.BiCGStabRelTol = 1.0e-5
 JFNKSolver.maxBiCGStabIter = 10

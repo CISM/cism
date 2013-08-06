@@ -1,7 +1,7 @@
 #inputs file for Amr ice-sheet solver
 main.maxTime = 10000000000  # maximum time to run to
-main.maxStep = 1   # maximum number of steps to runx
-#main.maxStep = 20000   # maximum number of steps to runx
+main.maxStep = 1   # maximum number of steps to run
+#main.maxStep = 20000   # maximum number of steps to run
 main.constitutiveRelation = GlensLaw
 main.constitutiveRelation = L1L2
 #main.constitutiveRelation = constMu
@@ -40,10 +40,11 @@ geometry.basalSlope = 0 0 0
 
 #amr.gridsFile = grids.dat
 
-amr.maxLevel = 3   # finest level allowed in simulation
+amr.maxLevel = 0   # finest level allowed in simulation
 amr.ref_ratio = 2 2 2 2 2
 #amr.num_cells = 128 128 128   #number of cells in base grid
 amr.num_cells = 48 48 10   #number of cells in base grid
+amr.num_cells = 24 24 10   #number of cells in base grid
 
 amr.is_periodic = 1 1 1      # 1 if domain is periodic 
 # (note that periodic BC's override physical BC types)
@@ -59,9 +60,11 @@ amr.temporal_accuracy = 1
 #amr.temporal_accuracy = 2
 #amr.temporal_accuracy = 4
 
-amr.cfl = 0.01  # "cfl" number
-amr.initial_cfl = 0.01  # "cfl" number
+amr.cfl = 0.1  # "cfl" number
+amr.initial_cfl = 0.1  # "cfl" number
 amr.max_dt_grow_factor = 1.1 #max amount dt can grow from one timestep to another
+
+#amr.do_initial_velocity_solve = 0 #debugging help -- makes runs go faster
 
 
 amr.plot_interval = 1
@@ -78,10 +81,11 @@ amr.verbosity = 5
 amr.ref_ratio = 2 2 2   # refinement ratios
 amr.regrid_interval = 10   # number of timesteps between regridding
 amr.blockFactor = 4           # block factor used in grid generation
+amr.blockFactor = 2           # block factor used in grid generation
 amr.fill_ratio = 0.8          # how efficient are the grids
 amr.nestingRadius = 1         # proper nesting radius required
 amr.tags_grow = 2             # amount to buffer tags
-amr.max_box_size = 32         # largest box length allowed
+amr.max_box_size = 12         # largest box length allowed
 #amr.max_box_size = 10000         # largest box length allowed
 
 amr.tag_on_grad_velocity = 0

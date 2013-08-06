@@ -134,6 +134,7 @@ program simple_bisicles
   print *,"Completed Dycore Run."
   call parallel_barrier()
 
+
   ! finalise 
   call glide_finalise(model)
   call system_clock(clock,clock_rate)
