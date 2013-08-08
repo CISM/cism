@@ -1,0 +1,14 @@
+This directory contains files needed to build the simple_felix prototype
+driver.  Simple_felix connects CISM to the Albany/FELIX external dynamic core.
+Building simple_felix requires access to the Albany/FELIX installation.
+For more information on Albany/FELIX, please send an email to
+ikalash@sandia.gov or agsalin@sandia.gov.
+
+A test of simple_felix specific to hopper.nersc.gov can be found in
+...
+(TO DO: put in tests!  currently these are cut/paste from simple_bisicles)
+
+For a description of FELIX, see:
+.....
+
+Last Revised: 08/06/13 IK
