@@ -71,24 +71,27 @@ DyCoreModelRegistry::setDyCoreByType(int index,int dycore_type)
 
   switch (entry[index].dycore_type) {
     case 0:
+       entry[index].dycore_to_glimmer = NULL;
+       break;
+    case 1: // BISICLES dycore
 //IK, 8/6/13: added ifdefs here to allow multiple external dycores
-#ifdef CISM_HAS_BISICLES
+#ifdef CISM_HAS_BISICLES 
        entry[index].dycore_to_glimmer = new BisiclesToGlimmer;
 #else 
        entry[index].dycore_to_glimmer = NULL;
 #endif
-       break;
-    case 1:
-      //entry[index].dycore_to_glimmer = new YmirToGlimmer;
-       break;
-//IK, 8/6/13: added case for FELIX dycore 
-    case 2: 
+       break;    
+    case 2: //IK, 8/6/13: added case for FELIX dycore   
 #ifdef CISM_HAS_FELIX
        entry[index].dycore_to_glimmer = new FelixToGlimmer;
 #else 
        entry[index].dycore_to_glimmer = NULL;
 #endif
        break;
+    case 3:
+      //entry[index].dycore_to_glimmer = new YmirToGlimmer;
+       break; 
+
     default: entry[index].dycore_to_glimmer = NULL;
        break; 
   }
