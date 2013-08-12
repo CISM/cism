@@ -1,0 +1,21 @@
+# install script for Blizzard: 01/2013
+# build instructions for top level directory 
+# (1) module load python subversion netcdf-hdf5parallel/4.2.0 
+# (2) run a make distclean (else you may get a dimension error at runtime)
+# (3) ./bootstrap
+# (5) configure-scripts/blizzard-config (this file)
+# (6) make
+
+./configure                                                                    \
+  CXXFLAGS="-O3 -msse4.2 -mfpmath=sse"                                         \
+  CPPFLAGS="-DHAVE_MPI -DMPICH_IGNORE_CXX_SEEK -I/usr/lib64"                   \
+  FCFLAGS="-O3 -msse4.2 -mfpmath=sse -ffree-line-length-none -fno-range-check" \
+  F77FLAGS="-O3 -msse4.2 -mfpmath=sse -fno-range-check"                        \
+  CFLAGS="-O3 -msse4.2 -mfpmath=sse "                                          \
+  FFLAGS="-O3 -msse4.2 -mfpmath=sse -ffree-line-length-none -fno-range-check"  \
+  --disable-shared                                                             \
+  --with-netcdf=$NETCDF_DIR                                                    \
+  --with-blas=-lblas                                                           \
+  --prefix="$HOME/seacism"
+
+
