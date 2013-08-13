@@ -2,13 +2,13 @@
 // without using global variables, and allowing retrieval by an
 // integer model index.  --DMR 5/24/10
 
-//#include "DyCoreToGlimmer.H"
+#include "DyCoreToGlimmer.H"
 //IK, 8/6/13: added some ifdefs here to allow for other external dycores than just bisicles
 
 #ifdef CISM_HAS_BISICLES
 #include "BISICLES/BisiclesToGlimmer.H"
 #endif
-#include "Ymir/YmirToGlimmer.H"
+//#include "Ymir/YmirToGlimmer.H"
 //IK, 8/6/13: added the following for FELIX as external dycore
 #ifdef CISM_HAS_FELIX
 #include "FELIX/FelixToGlimmer.H"
