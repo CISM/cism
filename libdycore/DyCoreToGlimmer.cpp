@@ -30,6 +30,7 @@ DyCoreToGlimmer::DyCoreToGlimmer()
   geometry.ewub = NULL;
   geometry.nslb = NULL;
   geometry.nsub = NULL;
+  geometry.nhalo = NULL;
   
   // velocity
   velocity.uvel = NULL; //output
@@ -256,25 +257,46 @@ DyCoreToGlimmer::getLongVar( const char *var_name,  const char *struct_name)
 
   if (strcmp(struct_name,"geometry") == 0) {
     if (strcmp(var_name,"dimInfo") == 0) var = geometry.dimInfo;
-    if (strcmp(var_name,"ewlb") == 0) var = geometry.ewlb;
-    if (strcmp(var_name,"ewub") == 0) var = geometry.ewub;
-    if (strcmp(var_name,"nslb") == 0) var = geometry.nslb;
-    if (strcmp(var_name,"nsub") == 0) var = geometry.nsub;
+    else if (strcmp(var_name,"ewlb") == 0) var = geometry.ewlb;
+    else if (strcmp(var_name,"ewub") == 0) var = geometry.ewub;
+    else if (strcmp(var_name,"nslb") == 0) var = geometry.nslb;
+    else if (strcmp(var_name,"nsub") == 0) var = geometry.nsub;
+    else if (strcmp(var_name,"nhalo") == 0) var = geometry.nhalo;
+    else
+      {
+        cerr << "unknonwn variable " << var_name << " in "
+             << struct_name << endl;
+      }        
   }
-  if (strcmp(struct_name,"mpi_vars") == 0) {
+  else if (strcmp(struct_name,"mpi_vars") == 0) {
     if (strcmp(var_name,"communicator") == 0) var = mpi_vars.communicator;
-    if (strcmp(var_name,"process_count") == 0) var = mpi_vars.process_count;
-    if (strcmp(var_name,"my_rank") == 0) var = mpi_vars.my_rank;
+    else if (strcmp(var_name,"process_count") == 0) var = mpi_vars.process_count;
+    else if (strcmp(var_name,"my_rank") == 0) var = mpi_vars.my_rank;
+    else
+      {
+        cerr << "unknonwn variable " << var_name << " in "
+             << struct_name << endl;
+      }
   }
 
-  if (strcmp(struct_name,"velocity") == 0) {
+  else if (strcmp(struct_name,"velocity") == 0) {
     if (strcmp(var_name,"dimInfo") == 0) var = velocity.dimInfo;
+    else
+      {
+        cerr << "unknonwn variable " << var_name << " in "
+             << struct_name << endl;
+      }
   }
-
-  if (strcmp(struct_name,"climate") == 0) {
+  
+  else if (strcmp(struct_name,"climate") == 0) {
     if (strcmp(var_name,"dimInfo") == 0) var = climate.dimInfo;
+    else
+      {
+        cerr << "unknonwn variable " << var_name << " in "
+             << struct_name << endl;
+      }
   }
-
+  
   return(var);
 }
 
@@ -302,20 +324,26 @@ DyCoreToGlimmer::copyInDoubleVar( const double *var,  const char *var_name,
   }
  
   if (strcmp(struct_name,"numerics") == 0) {
-    if (strcmp(var_name,"dew") == 0) {
-      numerics.dew = new double[elem_count];
-      for (i=0;i<elem_count;i++) numerics.dew[i] = var[i];
-      //cout << "Copy dew. dew, elem_count = "  << *numerics.dew << "  " << elem_count << endl;
-    }  
-    if (strcmp(var_name,"dns") == 0) {
-      numerics.dns = new double[elem_count];
-      for (i=0;i<elem_count;i++) numerics.dns[i] = var[i];
+    if (strcmp(var_name,"dew") == 0) 
+      {
+        numerics.dew = new double[elem_count];
+        for (i=0;i<elem_count;i++) numerics.dew[i] = var[i];
+        //cout << "Copy dew. dew, elem_count = "  << *numerics.dew << "  " << elem_count << endl;
+      }  
+    else if (strcmp(var_name,"dns") == 0) 
+      {
+        numerics.dns = new double[elem_count];
+        for (i=0;i<elem_count;i++) numerics.dns[i] = var[i];
       //cout << "Copy dns. dns, elem_count = "  << *numerics.dns << "  " << elem_count << endl;
     }
+    else 
+      {
+        cerr << "Unknown double variable name " << endl;
+      }
   }
   
   // note that constants aren't pointers
-  if (strcmp(struct_name,"constants") == 0) {
+  else if (strcmp(struct_name,"constants") == 0) {
     if (strcmp(var_name,"seconds_per_year") == 0) {
       constants.seconds_per_year = var[0];
     }
@@ -336,17 +364,26 @@ DyCoreToGlimmer::copyInDoubleVar( const double *var,  const char *var_name,
     }    
     else
       {
-        cerr << "Bsd double type: " << struct_name << "." 
+        cerr << "Unknown double type: " << struct_name << "." 
              << var_name << endl;
       }
   }
   
-  if (strcmp(struct_name,"climate") == 0) {
+  else if (strcmp(struct_name,"climate") == 0) {
     if (strcmp(var_name,"eus") == 0) {
       climate.eus = new double[elem_count];
       for (i=0;i<elem_count;i++) climate.eus[i] = var[i];
     }
+    else
+      {
+        cerr << "Unknown climate double variable name: " << var_name << endl;
+      }
   }
+  else
+    {
+      cerr << "Unknown double structure name: " << struct_name << endl;
+    }
+  
   return(0);
 }
 
@@ -367,54 +404,84 @@ DyCoreToGlimmer::copyInLongVar(const long *var, const char *var_name,
       velocity.dimInfo = new long[elem_count];
       for (i=0;i<elem_count;i++) velocity.dimInfo[i] = var[i];
     }  
+    else
+      {
+        cerr << "Unknown velocity integer var name: " << var_name << endl;
+      }
   }
-  if (strcmp(struct_name,"geometry") == 0) {
+  else if (strcmp(struct_name,"geometry") == 0) {
     if (strcmp(var_name,"dimInfo") == 0) {
       geometry.dimInfo = new long[elem_count];
       for (i=0;i<elem_count;i++) geometry.dimInfo[i] = var[i];
     }  
-    if (strcmp(var_name,"ewlb") == 0) {
+    else if (strcmp(var_name,"ewlb") == 0) {
       geometry.ewlb = new long[elem_count];
       for (i=0;i<elem_count;i++) geometry.ewlb[i] = var[i];
     }  
-    if (strcmp(var_name,"ewub") == 0) {
+    else if (strcmp(var_name,"ewub") == 0) {
       geometry.ewub = new long[elem_count];
       for (i=0;i<elem_count;i++) geometry.ewub[i] = var[i];
     }  
-    if (strcmp(var_name,"nslb") == 0) {
+    else if (strcmp(var_name,"nslb") == 0) {
       geometry.nslb = new long[elem_count];
       for (i=0;i<elem_count;i++) geometry.nslb[i] = var[i];
     }  
-    if (strcmp(var_name,"nsub") == 0) {
+    else if (strcmp(var_name,"nsub") == 0) {
       geometry.nsub = new long[elem_count];
       for (i=0;i<elem_count;i++) geometry.nsub[i] = var[i];
     }  
+    else if (strcmp(var_name,"nhalo") == 0) {
+      geometry.nhalo = new long[elem_count];
+      for (i=0;i<elem_count;i++) geometry.nhalo[i] = var[i];
+    }  
+    else
+      {
+        cerr << "Unknown geometry integer variable name: " << var_name << endl;
+      }
   }
-  if (strcmp(struct_name,"climate") == 0) {
+  else if (strcmp(struct_name,"climate") == 0) {
     if (strcmp(var_name,"dimInfo") == 0) {
       climate.dimInfo = new long[elem_count];
       for (i=0;i<elem_count;i++) climate.dimInfo[i] = var[i];
     }  
+    else
+      {
+        cerr << "Unknown climate integer variable name: " << var_name << endl;
+      }
   }
-  if (strcmp(struct_name,"mpi_vars") == 0) {
+  else if (strcmp(struct_name,"temper") == 0) {
+    if (strcmp(var_name,"dimInfo") == 0) {
+      temper.dimInfo = new long[elem_count];
+      for (i=0;i<elem_count;i++) temper.dimInfo[i] = var[i];
+    }  
+    else
+      {
+        cerr << "Unknown temper integer variable name: " << var_name << endl;
+      }
+  }
+  else if (strcmp(struct_name,"mpi_vars") == 0) {
     if (strcmp(var_name,"communicator") == 0) {
       mpi_vars.communicator = new long[elem_count];
       for (i=0;i<elem_count;i++) mpi_vars.communicator[i] = var[i];
     }
-  }
-  if (strcmp(struct_name,"mpi_vars") == 0) {
-    if (strcmp(var_name,"process_count") == 0) {
+    else if (strcmp(var_name,"process_count") == 0) {
       mpi_vars.process_count = new long[elem_count];
       for (i=0;i<elem_count;i++) mpi_vars.process_count[i] = var[i];
     }
-  }
-  if (strcmp(struct_name,"mpi_vars") == 0) {
-    if (strcmp(var_name,"my_rank") == 0) {
+    else if (strcmp(var_name,"my_rank") == 0) {
       mpi_vars.my_rank = new long[elem_count];
       for (i=0;i<elem_count;i++) mpi_vars.my_rank[i] = var[i];
     }
+    else
+      {
+        cerr << "Unknown mpi_vars integer variable name: " << var_name << endl;
+      }
   }
-
+  else 
+    {
+      cerr << "Unknown integer struc_name: " << struct_name << endl;
+    }
+  
   return(0);
 }
 

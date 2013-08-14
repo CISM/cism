@@ -87,7 +87,7 @@ print *,"In gtd_init, dycore_model_index = ",dycore_model_index
 
     integer*8 dim_info(11)
     integer*8 dim_info2(2)
-    integer*8 ewlbl, ewubl, nslbl, nsubl
+    integer*8 ewlbl, ewubl, nslbl, nsubl, nhalol
 
 !    print *,"In gtd_set_geometry_vars, dycore_model_index = ",dycore_model_index
     
@@ -159,6 +159,7 @@ print *,"In gtd_init, dycore_model_index = ",dycore_model_index
     ewubl = ewub
     nslbl = nslb
     nsubl = nsub
+    nhalol = nhalo
 
     dim_info2(1) = 1
     dim_info2(2) = 1
@@ -170,6 +171,9 @@ print *,"In gtd_init, dycore_model_index = ",dycore_model_index
     call dycore_copy_in_long_var(nslbl,var_name,dtype_name,dim_info2, dycore_model_index)
     var_name = 'nsub'//char(0)
     call dycore_copy_in_long_var(nsubl,var_name,dtype_name,dim_info2, dycore_model_index)
+    var_name = 'nhalo'//char(0)
+    call dycore_copy_in_long_var(nhalol,var_name,dtype_name,dim_info2, dycore_model_index)
+
 
 !    print *,"leaving gtd_set_geometry_vars, dim_info =  ",dim_info
   end subroutine gtd_set_geometry_vars 

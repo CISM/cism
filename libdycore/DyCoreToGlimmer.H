@@ -43,6 +43,7 @@ class DyCoreToGlimmer
     long * ewub;
     long * nslb;
     long * nsub;
+    long * nhalo;
 
     //double * thkmask;
     //double * marine_bc_normal;
@@ -62,6 +63,7 @@ class DyCoreToGlimmer
     double * temp; // Three-dimensional temperature field.
     double * bheatflx; // basal heat flux (2D)
     double * bmlt;  // Basal melt-rate
+    long * dimInfo;
   } temper;
 
   struct {
