@@ -65,7 +65,7 @@ cmake \
   -D CMAKE_CXX_FLAGS:STRING="-g -DH5_USE_16_API" \
   -D GLIMMER_Fortran_FLAGS:STRING="-g  -ffree-line-length-none -fno-range-check -DNO_RESCALE" \
   -D GLIMMER_EXTRA_LIBS:STRING="-lblas" \
-  -D BISICLES_INTERFACE_DIR=$PWD/../../../BISICLES/code/interface \
+  -D BISICLES_INTERFACE_DIR=$PWD/../../../BISICLES/CISM-interface/interface \
  ../..
 
 # Note: last argument above  "../.."  is path to top seacism directory
