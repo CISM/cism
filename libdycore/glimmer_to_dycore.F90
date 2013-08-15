@@ -29,7 +29,7 @@ module glimmer_to_dycore
 
     integer*4 error_code
     integer*4 dycore_type  ! 0=BISICLES, 1=Ymir
-    character(8),DIMENSION(2) :: dycore_names = (/"BISICLES","Ymir    "/)
+    character(8),DIMENSION(3) :: dycore_names = (/"Native  ","BISICLES","FELIX   "/)
 
 print *,"In gtd_init, dycore_model_index = ",dycore_model_index
 
