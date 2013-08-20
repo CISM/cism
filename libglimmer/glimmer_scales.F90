@@ -62,6 +62,7 @@ contains
     use glimmer_paramets, only : thk0, tim0, vel0, vis0, len0, acc0, tau0, evs0
     implicit none
 
+#ifndef NO_RESCALE
     scale_uvel  = scyr * vel0                     ! uvel, vvel, ubas, vbas, etc.
     scale_uflx  = scyr * vel0 * thk0              ! uflx, vflx
     scale_diffu = scyr * vel0 * len0              ! diffu
@@ -81,6 +82,22 @@ contains
     scale_efvs  = evs0 / scyr                     ! efvs
     scale_bflx  = -1.d0                           ! bheatflx (Glimmer-CISM sign convention is positive down,
                                                   !           whereas input data usually assumes positive up)
+#else
+! (no rescaling)
+    scale_uvel  = 1.0d0                     ! uvel, vvel, ubas, vbas, etc.
+    scale_uflx  = 1.0d0              ! uflx, vflx
+    scale_diffu = 1.0d0              ! diffu
+    scale_acab  = 1.0d0              ! acab, bmlt
+    scale_wvel  = 1.0d0              ! wvel, wgrd
+    scale_btrc  = 1.0d0              ! btrc, soft
+    scale_beta  = 1.0d0              
+
+    scale_flwa  = 1.0d0              ! flwa
+    scale_tau   = 1.0d0              ! tauf, tauxz, btractx
+    scale_efvs  = 1.0d0              ! efvs
+    scale_bflx  = -1.d0              ! bheatflx (keeping this one -- Glimmer-CISM sign convention is 
+                                     !           positive down, whereas input data usually assumes positive up)
+#endif
  
   end subroutine glimmer_init_scales
 
