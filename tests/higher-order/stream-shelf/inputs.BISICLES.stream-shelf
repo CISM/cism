@@ -25,16 +25,12 @@ basalFlux.type = zeroFlux
 
 geometry.problem_type = fortran
 
-geometry.beta_type = fortran
-#geometry.betaValue = 1000000.0
-#geometry.betaValue =   1000.0
-#geometry.betaValue = 0.0
-
-#geometry.beta_type = constantBeta
-#geometry.betaValue = 10e10
+#geometry.beta_type = fortran
+geometry.beta_type = constantBeta
+geometry.betaValue = 30.4582 # value from Goldberg et al
 
 # don't reset floating friction to zero for circular shelf problem
-amr.reset_floating_friction = true
+#amr.reset_floating_friction = true
 
 geometry.basalSlope = 0 0 0 
 #geometry.basalSlope = 0  0
@@ -50,7 +46,7 @@ amr.is_periodic = 0 0 0       # 1 if domain is periodic
 # velocity BC types:  0 = homogeneous Dirichlet
 #                     1 = homogeneous Neumann
 bc.lo_bc = 0 0 0  
-bc.hi_bc = 0 0 0   
+bc.hi_bc = 1 0 0   
 
 #include vertical shear
 amr.additional_velocity = 1
@@ -93,6 +89,12 @@ amr.lap_vel_tagging_val = 100
 amr.tag_on_strain_rate_invariant = 0
 amr.strain_rate_invariant_tagging_val = 1
 
+#initial guess 
+amr.do_initial_velocity_guess = 1
+amr.do_initial_velocity_solve = 1
+amr.initial_velocity_guess_type = 1 # linear PDE
+amr.initial_velocity_guess_const_mu = 9.9e+6
+amr.initial_velocity_guess_solver_type = 0 # Picard
 
 amr.velocity_solver_tolerance = 1.0e-10
 
@@ -100,12 +102,12 @@ amr.velocity_solver_tolerance = 1.0e-10
 amr.velocity_solver_type = 1
 
 picardSolver.num_smooth = 8
-picardSolver.linearSolver = BiCGStab
+picardSolver.linearSolver = multigrid
 picardSolver.max_iterations = 50
 picardSolver.vtopSafety = 0.9
 
 JFNKSolver.vtopSafety = 0.9
-JFNKSolver.minPicardIterations = 2
+JFNKSolver.minPicardIterations = 3
 
 JFNKSolver.switchRate = 5.0
 JFNKSolver.numMGSmooth = 8
@@ -125,6 +127,7 @@ JFNKSolver.numMGIter = 1
 JFNKSolver.h = 0.025
 JFNKSolver.hAdaptive = true 
 JFNKSolver.mgProlongType = 1
+#JFNKSolver.writeResiduals = 1
 
 # 0 = relax, 1 = BiCGStab, 2 = GMRES, 3 = MultiGrid
 JFNKSolver.solverType = 0
