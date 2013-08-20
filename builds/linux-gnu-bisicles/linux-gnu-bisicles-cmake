@@ -23,7 +23,7 @@
 
 
 # remove old build data:
-rm ./CMakeCache.txt
+rm -f ./CMakeCache.txt
 
 # run a script that creates some CISM source files:
 #pushd .
