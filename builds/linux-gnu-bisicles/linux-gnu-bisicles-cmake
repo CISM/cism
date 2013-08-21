@@ -66,8 +66,7 @@ cmake \
   -D GLIMMER_Fortran_FLAGS:STRING="-g  -ffree-line-length-none -fno-range-check -DNO_RESCALE" \
   -D GLIMMER_EXTRA_LIBS:STRING="-lblas" \
   -D BISICLES_INTERFACE_DIR=$PWD/../../../BISICLES/CISM-interface/interface \
-  -D BISICLES_LIB_SUBDIR=libgnu \  
-  
+  -D BISICLES_LIB_SUBDIR=libgnu \
  ../..
 
 # Note: last argument above  "../.."  is path to top seacism directory
