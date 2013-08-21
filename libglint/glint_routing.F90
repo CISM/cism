@@ -68,9 +68,9 @@ contains
     nx=size(surface,1) ; ny=size(surface,2)
     nn=nx*ny
 
-    dists(-1,:)=(/4d0,2d0*dx/dy,4d0/)
-    dists(0,:)=(/2d0*dy/dx,0d0,2d0*dy/dx/)
-    dists(1,:)=dists(-1,:)
+    dists(-1,:)= (/4.d0,       2.d0*dx/dy, 4.d0/)
+    dists(0,:) = (/2.d0*dy/dx, 0.d0,       2.d0*dy/dx/)
+    dists(1,:) = dists(-1,:)
 
     ! Allocate internal arrays and copy data ------------------
 
@@ -82,8 +82,7 @@ contains
     call fillholes(surfcopy,flats,mask)
     call heights_sort(surfcopy,sorted)
 
-    ! Initialise output with input, which will then be --------
-    ! redistributed -------------------------------------------
+    ! Initialise output with input, which will then be redistributed
 
     output=input
 
@@ -99,13 +98,14 @@ contains
       ! Reset flags and slope arrays --------------------------
 
       flag=.true.
-      slopes=0.0
+      slopes=0.d0
 
       ! Loop over adjacent points, and calculate slopes -------
 
       do cx=-1,1,1
         do cy=-1,1,1
           ! If this is the centre point, ignore
+          !TODO - The following statement will not prevent a slope calculation with a potential divzero
           if (cx == 0 .and. cy == 0) continue
           ! Otherwise do slope calculation 
           px=x+cx ; py=y+cy
@@ -117,16 +117,15 @@ contains
         enddo
       enddo
 
-      ! If there are places for the water to drain to, --------
-      ! distribute it accordingly -----------------------------
+      ! If there are places for the water to drain to, distribute it accordingly
 
-      if (sum(slopes)/=0.0) then
+      if (sum(slopes)/=0.d0) then
 
         slopes=slopes/sum(slopes)
         do cx=-1,1
           do cy=-1,1
             px=x+cx ;py=y+cy
-            if (slopes(cx,cy)/=0.0) then
+            if (slopes(cx,cy)/=0.d0) then
               output(px,py)=output(px,py)+output(x,y)*slopes(cx,cy)
             endif
           enddo
@@ -134,7 +133,7 @@ contains
 
         ! Having distributed the water, zero the source -------
 
-        output(x,y)=0.0
+        output(x,y) = 0.d0
 
       endif
 
@@ -237,8 +236,8 @@ contains
     integer,dimension(:,:) :: sorted
 
     integer :: nx,ny,nn,i,j,k
-    real(dp),dimension(:),allocatable :: vect
-    integer,dimension(:),allocatable :: ind
+    real(dp),dimension(:),pointer :: vect
+    integer,dimension(:),pointer :: ind
 
     nx=size(surface,1) ; ny=size(surface,2)
     nn=size(sorted,1)
@@ -261,6 +260,7 @@ contains
 
     call indexx(vect,ind)
 
+    !TODO - Make these dp?
     do k=1,nn
       sorted(k,1)=floor(real(ind(k)-1)/real(ny))+1
       sorted(k,2)=mod(ind(k)-1,ny)+1
@@ -296,8 +296,8 @@ contains
     !*FD in C, and issued under the GNU General Public License. The conversion to 
     !*FD Fortran 90, and modification to do an index sort was done by Ian Rutt.
 
-    real(dp),dimension(:) :: array !*FD Array to be indexed.
-    integer, dimension(:) :: index !*FD Index of elements of \texttt{array}.
+    real(dp),dimension(:), pointer :: array !*FD Array to be indexed.
+    integer, dimension(:), pointer :: index !*FD Index of elements of \texttt{array}.
     integer :: i
 
     if (size(array) /= size(index)) then
@@ -326,8 +326,8 @@ contains
 
     implicit none
 
-    real(dp),dimension(:) :: numbers !*FD Numbers being sorted
-    integer, dimension(:) :: index   !*FD Returned index
+    real(dp),dimension(:), pointer :: numbers !*FD Numbers being sorted
+    integer, dimension(:), pointer :: index   !*FD Returned index
     integer :: left, right           !*FD Limit of sort region
 
     integer :: ll,rr

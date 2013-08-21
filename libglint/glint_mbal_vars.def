@@ -42,15 +42,15 @@ long_name:     Cartesian y-coordinate
 standard_name: projection_y_coordinate
 dimlen:        data%model%general%nsn
 
-#WHL - Removed [level] and [lithoz], since glint output fields are 2D only
-#[level]
-#dimensions:    level
-#units:         1
-#long_name:     sigma layers
-#standard_name: land_ice_sigma_coordinate
-#formula_terms: sigma: level topo: topg thick: thk
-#dimlen:        model%general%upn
+[level]
+dimensions:    level
+units:         1
+long_name:     sigma layers
+standard_name: land_ice_sigma_coordinate
+formula_terms: sigma: level topo: topg thick: thk
+dimlen:        model%general%upn
 
+#WHL - Removed [lithoz], since not relevant for glint
 #[lithoz]
 #dimensions:    lithoz
 #units:         meter

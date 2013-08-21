@@ -645,12 +645,24 @@ contains
     character(*),         intent(in)    :: units
 
     select case(trim(units))
+
     case('years')
        ! Do nothing
+
     case('hours')
-       time=time/real(params%hours_in_year,dp)
+       time = time/real(params%hours_in_year,dp)
+
+    !WHL - Added 'months' and 'days'
+    !TODO - Test these options
+    case('months')
+       time = time/12.d0      
+
+    case('days')
+       time = time/real(params%days_in_year,dp)
+
     case default
        call write_log('Time units '//trim(units)//' unrecognised',GM_FATAL)
+
     end select
 
   end subroutine scale_time
@@ -690,7 +702,7 @@ contains
 
     ! Calculate fraction of year
     fyear = real(mod(time,real(params%hours_in_year,dp))) / real(params%hours_in_year,dp)
-    
+
     ! Do temperature interpolation
     call bracket_point(fyear, params%st_time, lower, upper, pos)
     temp = linear_interp(params%surftemp_clim(:,:,lower), params%surftemp_clim(:,:,upper), pos)
@@ -717,8 +729,8 @@ contains
 
   subroutine bracket_point(n,a,lower,upper,frac)
 
-    real(dp),             intent(in)  :: n
-    real(dp),dimension(:),intent(in)  :: a
+    real(dp),             intent(in)  :: n      ! current fraction of year
+    real(dp),dimension(:),intent(in)  :: a      ! array of fractional year values
     integer,              intent(out) :: lower
     integer,              intent(out) :: upper
     real(dp),             intent(out) :: frac
