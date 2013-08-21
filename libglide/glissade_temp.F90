@@ -454,11 +454,10 @@ contains
 
        ! Calculate heating from basal friction -----------------------------------
 
+       !TODO - dusrfdew/dns are not needed as inputs
        call glissade_calcbfric( model,                        &
                                 model%geometry%thck,          &
                                 model%velocity%btraction,     &
-                                model%geomderv%dusrfdew,      &
-                                model%geomderv%dusrfdns,      &
                                 model%velocity%ubas,          &
                                 model%velocity%vbas,          &
                                 GLIDE_IS_FLOAT(model%geometry%thkmask) )
@@ -709,8 +708,6 @@ contains
       call glissade_calcbfric( model,                        &
                                model%geometry%thck,          &
                                model%velocity%btraction,     &
-                               model%geomderv%dusrfdew,      &
-                               model%geomderv%dusrfdns,      &
                                model%velocity%ubas,          &
                                model%velocity%vbas,          &
                                GLIDE_IS_FLOAT(model%geometry%thkmask) )
@@ -990,7 +987,6 @@ contains
 
   subroutine glissade_calcbfric (model,                 &
                                  thck,     btraction,   &
-                                 dusrfdew, dusrfdns,    &
                                  ubas,     vbas,        &
                                  float)
 
@@ -1000,7 +996,7 @@ contains
     use glimmer_paramets, only: thk0, vel0, vel_scale
 
     type(glide_global_type) :: model
-    real(dp), dimension(:,:), intent(in) :: thck, dusrfdew, dusrfdns
+    real(dp), dimension(:,:), intent(in) :: thck
     real(dp), dimension(:,:), intent(in) :: ubas, vbas
     real(dp), dimension(:,:,:), intent(in) :: btraction
     logical, dimension(:,:), intent(in) :: float
@@ -1207,6 +1203,7 @@ contains
 !        appropriate to the dycore.
 
     case( SIA_DISP )
+
     !*sfp* 0-order SIA case only 
     ! two methods of doing this. 
     ! 1. find dissipation at u-pts and then average
@@ -1489,13 +1486,13 @@ contains
                   endif
 
                   ! BDM add correction for a liquid water fraction 
-                  ! Using Greve and Blatter, 2009 formulation for Glen's A 
-                  ! Flow Law Parameter.  
-                  ! A = A(theta_PMP) * (1 + 181.25 * waterfrac)
-                  if (present(waterfrac) .and. waterfrac(up,ew,ns) > 0.0d0) then
-                     flwa(up,ew,ns) = flwa(up,ew,ns) * (1 + 181.25 * waterfrac(up,ew,ns))      
+                  ! Using Greve and Blatter, 2009 formulation for Glen's A flow rate factor:
+                  !    A = A(theta_PMP) * (1 + 181.25 * waterfrac)
+                  if (present(waterfrac)) then
+                     if (waterfrac(up,ew,ns) > 0.0d0) then
+                        flwa(up,ew,ns) = flwa(up,ew,ns) * (1.d0 + 181.25d0 * waterfrac(up,ew,ns))      
+                     endif
                   endif
-
                enddo
 
             else   ! thck < thklim

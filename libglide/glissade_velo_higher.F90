@@ -135,6 +135,10 @@
     integer, dimension(nNodesPerElement, nNodesPerElement) ::  &
        ishift, jshift, kshift   ! matrices describing relative indices of nodes in an element
 
+    integer, dimension(-1:1,-1:1,-1:1) :: &
+       indxA                 ! maps relative (x,y,z) coordinates to an index between 1 and 27
+                             ! index order is (i,j,k)
+
     real(dp), dimension(3,3) ::  &
        identity3                ! 3 x 3 identity matrix
 
@@ -148,27 +152,28 @@
        check_symmetry = .true.   ! if true, then check matrix symmetry
 
 !WHL - debug
-    logical :: verbose_init = .false.   ! for debug print statements
+    logical :: verbose = .false.        ! for debug print statements
+!    logical :: verbose = .true.  
+    logical :: verbose_init = .false.   
     logical :: verbose_Jac = .false.
-    logical :: verbose = .true.  
 
     integer, parameter :: &
-!       itest = 26, jtest = 19, ktest = 1, ptest = 1  ! for dome global (i,j) = (24,17), 1 proc
+       itest = 26, jtest = 19, ktest = 1, ptest = 1  ! for dome global (i,j) = (24,17), 1 proc
 !       itest = 26, jtest = 19, ktest = 2, ptest = 1
 !       itest = 26, jtest = 19, ktest = 10, ptest = 1
 !       itest = 17, jtest = 10, ktest = 1, ptest = 1
 !       itest = 10, jtest = 17, ktest = 1, ptest = 1
 
-        itest = 3, jtest = 3, ktest = 1, ptest = 1    ! for ishom.a.80km global (i,j) = (1,1)
+!        itest = 3, jtest = 3, ktest = 1, ptest = 1    ! for ishom.a.80km global (i,j) = (1,1)
 !        itest = 22, jtest = 7, ktest = 1, ptest = 1    ! for ishom.a.80km symmetry check
 
-!    integer, parameter :: ntest = 2371  ! nodeID for dome global (24,17,1)    
+    integer, parameter :: ntest = 2371  ! nodeID for dome global (24,17,1)    
 !    integer, parameter :: ntest = 2372  ! nodeID for dome global (24,17,2)
 !    integer, parameter :: ntest = 2380  ! nodeID for dome global (24,17,10)
 !    integer, parameter :: ntest = 411  ! nodeID for dome global (17,10,1)
 !    integer, parameter :: ntest = 1771  ! nodeID for dome global (10,17,1)
     
-    integer, parameter :: ntest = 1    ! for ishom.a.80km global (i,j) = (1,1)
+!    integer, parameter :: ntest = 1    ! for ishom.a.80km global (i,j) = (1,1)
 !    integer, parameter :: ntest = 882    ! for ishom.a.80km symmetry check
 
     integer, parameter :: rtest = 0    ! rank for any single-process run
@@ -191,7 +196,7 @@
     ! Initial calculations for glissade higher-order solver.
     !----------------------------------------------------------------
 
-    integer :: i, j, n, p
+    integer :: i, j, k, m, n, p
 
 !WHL - debug
     real(dp) :: sumx, sumy, sumz
@@ -449,6 +454,25 @@
 
     enddo   ! nQuadPoints_2d
 
+    ! Compute indxA; maps displacements i,j,k = (-1,0,1) onto an index from 1 to 27
+    ! Numbering starts in SW corner of layers k-1, finishes in NE corner of layer k+1
+    ! Diagonal term has index 14
+
+    ! Layer k-1:           Layer k:            Layer k+1:
+    !
+    !   7    8    9          16   17   18        25   26   27 
+    !   4    5    6          13   14   15        22   23   24
+    !   1    2    3          10   11   12        19   20   21                                                                                               
+    m = 0
+    do k = -1,1
+       do j = -1,1
+          do i = -1,1
+             m = m + 1
+             indxA(i,j,k) = m
+          enddo
+       enddo
+    enddo
+
   end subroutine glissade_velo_higher_init
 
 !****************************************************************************
@@ -584,11 +608,9 @@
     logical, dimension(nz,nx-1,ny-1) ::    &
        umask_dirichlet    ! Dirichlet mask for velocity (if true, u = v = 0)
 
-    real(dp), dimension(-1:1,-1:1,-1:1,nz,nx-1,ny-1) ::  &
+    real(dp), dimension(27,nz,nx-1,ny-1) ::  &
        Auu, Auv,    &     ! assembled stiffness matrix, divided into 4 parts
-       Avu, Avv           ! 1st dimension = 3 (node and its 2 neighbors in z direction) 
-                          ! 2nd dimension = 3 (node and its 2 neighbors in x direction) 
-                          ! 3rd dimension = 3 (node and its 2 neighbors in y direction) 
+       Avu, Avv           ! 1st dimension = 27 (node and its nearest neighbors in x, y and z direction) 
                           ! other dimensions = (k,i,j)
 
     real(dp) :: &
@@ -641,7 +663,7 @@
        nNonzero           ! upper bound for number of nonzero entries in sparse matrix
 
 !WHL - debug
-    integer :: i, j, k, n, r
+    integer :: i, j, k, m, n, r
     integer :: iA, jA, kA, colA
     real(dp) :: ds_dx, ds_dy
     real(dp) :: maxthck, maxusrf
@@ -659,8 +681,6 @@
     !  that are not quite so large.
 
     vol0 = dx * dy * 1000.d0    ! typical volume of ice column (m^3)
-
-!TODO - Pass in whichapprox?
 
     if (present(whichapprox)) then
 !!       if (whichapprox == HO_APPROX_SIA) then   ! SIA
@@ -723,25 +743,28 @@
        print*, ' '
        print*, 'Thickness field, rank =', rtest
        do j = ny, 1, -1
-          write(6,'(34f6.0)') thck(:,j)
+          write(6,'(30f6.0)') thck(3:32,j)
        enddo
        print*, ' '
        print*, 'Topography field, rank =', rtest
        do j = ny, 1, -1
-          write(6,'(34f6.0)') topg(:,j)
+          write(6,'(30f6.0)') topg(3:32,j)
        enddo
        print*, ' '
        print*, 'Upper surface field, rank =', rtest
        do j = ny, 1, -1
-          write(6,'(34f6.0)') usrf(:,j)
+          write(6,'(30f6.0)') usrf(3:32,j)
        enddo
        print*, ' '
        print*, 'flwa, k = 1, rank =', rtest
        do j = ny, 1, -1
-          write(6,'(34e12.5)') flwa(1,:,j)
+          write(6,'(30e12.5)') flwa(1,3:32,j)
        enddo
     endif
  
+!WHLt2 - If iterating on the velocity during the remapping transport calculation,
+!        we do not want these masks to change.
+!TODO - Pull these out into a separate subroutine?
     !------------------------------------------------------------------------------
     ! Compute masks: 
     ! (1) real mask = 1 where ice is present, 0 elsewhere
@@ -1045,12 +1068,13 @@
           print*, ' '
           print*, 'Auu after assembly: rank, i, j, k, n =', r, i, j, k, n
 !          print*, 'Auv after assembly: rank, i, j, k, n =', r, i, j, k, n
+          do kA = -1, 1
           do jA = -1, 1
           do iA = -1, 1
-          do kA = -1, 1
-             print*, 'iA, jA, kA, Auu:', iA, jA, kA, Auu(kA, iA, jA, k, i, j)
+             m = indxA(iA,jA,kA)
+             print*, 'iA, jA, kA, Auu:', iA, jA, kA, Auu(m, k, i, j)
 !             if (iA==1 .and. jA==0 .and. kA==1) &
-!                print*, 'iA, jA, kA, Auv:', iA, jA, kA, Auv(kA, iA, jA, k, i, j)
+!                print*, 'iA, jA, kA, Auv:', iA, jA, kA, Auvm, k, i, j)
           enddo
           enddo
           enddo
@@ -1085,10 +1109,11 @@
           n = ntest
 !          print*, ' '
 !          print*, 'Auu after basal sliding BC: rank, i, j, k, n =', r, i, j, k, n
+          do kA = -1, 1
           do jA = -1, 1
           do iA = -1, 1
-          do kA = -1, 1
-!             print*, 'iA, jA, kA, Auu:', iA, jA, kA, Auu(kA, iA, jA, k, i, j)
+              m = indxA(iA,jA,kA)
+!             print*, 'iA, jA, kA, Auu:', iA, jA, kA, Auu(m, k, i, j)
           enddo
           enddo
           enddo
@@ -1098,9 +1123,9 @@
        !---------------------------------------------------------------------------
 
        ! For now, simply impose zero sliding everywhere at the bed.
-       ! TODO: Modify for confined shelf.
-
-       umask_dirichlet(nz,:,:) = .true.   ! u = v = 0 at bed
+       ! TODO: Modify for confined shelf.  Read into subroutine?                                                                                            
+       umask_dirichlet(1:nz-1,:,:) = .false.
+       umask_dirichlet(  nz,  :,:) = .true.   ! u = v = 0 at bed
 
        if (verbose .and. main_task) then
           print*, ' '
@@ -1133,23 +1158,25 @@
 !WHL - debug
     if (verbose .and. this_rank==rtest) then
 !       print*, ' '
+!       m = indxA(0,0,0)
 !       print*, 'Before halo update, Auu(0,0,0,1,:,:), rank =', rtest
 !       do j = ny-1, 1, -1
-!          write(6,'(23e10.3)') Auu(0,0,0,1,:,j)
+!          write(6,'(23e10.3)') Auu(m,1,:,j)
 !       enddo
     endif
 
-        call staggered_parallel_halo(Auu(:,:,:,:,:,:))
-        call staggered_parallel_halo(Auv(:,:,:,:,:,:))
-        call staggered_parallel_halo(Avu(:,:,:,:,:,:))
-        call staggered_parallel_halo(Avv(:,:,:,:,:,:))
+        call staggered_parallel_halo(Auu(:,:,:,:))
+        call staggered_parallel_halo(Auv(:,:,:,:))
+        call staggered_parallel_halo(Avu(:,:,:,:))
+        call staggered_parallel_halo(Avv(:,:,:,:))
 
 !WHL - debug
     if (verbose .and. this_rank==rtest) then
 !       print*, ' '
-!       print*, 'After halo update, Auu(0,0,0,1,:,:), rank =', rtest
+!       print*, 'After halo update, Auu_diag(1,:,:), rank =', rtest
+!       m = indxA(0,0,0)
 !       do j = ny-1, 1, -1
-!          write(6,'(23e10.3)') Auu(0,0,0,1,:,j)
+!          write(6,'(23e10.3)') Auu(m,1,:,j)
 !       enddo
     endif
 
@@ -1189,20 +1216,21 @@
 
              ! Set Auv = Avu = 0
 
-             Auv(:,:,:,:,:,:) = 0.d0 
-             Avu(:,:,:,:,:,:) = 0.d0 
+             Auv(:,:,:,:) = 0.d0 
+             Avu(:,:,:,:) = 0.d0 
 
              ! Remove terms from iA and jA columns
 
              do j = 1, ny-1
              do i = 1, nx-1
              do k = 1, nz
+                do kA = -1,1
                 do jA = -1,1
                 do iA = -1,1
-                do kA = -1,1
                    if (iA /= 0 .or. jA /= 0) then
-                      Auu(kA,iA,jA,k,i,j) = 0.d0
-                      Avv(kA,iA,jA,k,i,j) = 0.d0
+                      m = indxA(iA,jA,kA)
+                      Auu(m,k,i,j) = 0.d0
+                      Avv(m,k,i,j) = 0.d0
                    endif
                 enddo
                 enddo
@@ -1222,13 +1250,14 @@
        do i = nhalo+1, nx-nhalo
           if (active_vertex(i,j)) then
              do k = 1, nz
+                do kA = -1, 1
                 do jA = -1, 1
                 do iA = -1, 1
-                do kA = -1, 1
-                   if (Auu(kA,iA,jA,k,i,j) /= 0.d0) nNonzeros = nNonzeros + 1
-                   if (Auv(kA,iA,jA,k,i,j) /= 0.d0) nNonzeros = nNonzeros + 1
-                   if (Avu(kA,iA,jA,k,i,j) /= 0.d0) nNonzeros = nNonzeros + 1
-                   if (Avv(kA,iA,jA,k,i,j) /= 0.d0) nNonzeros = nNonzeros + 1
+                   m = indxA(iA,jA,kA)
+                   if (Auu(m,k,i,j) /= 0.d0) nNonzeros = nNonzeros + 1
+                   if (Auv(m,k,i,j) /= 0.d0) nNonzeros = nNonzeros + 1
+                   if (Avu(m,k,i,j) /= 0.d0) nNonzeros = nNonzeros + 1
+                   if (Avv(m,k,i,j) /= 0.d0) nNonzeros = nNonzeros + 1
                 enddo 
                 enddo
                 enddo
@@ -1252,27 +1281,39 @@
 
           print*, ' '
       	  print*, 'i,j,k,n =', i, j, k, n
-          print*, 'Auu sum =', sum(Auu(:,:,:,k,i,j))
-          print*, 'Auv sum =', sum(Auv(:,:,:,k,i,j))
-          print*, 'Avu sum =', sum(Avu(:,:,:,k,i,j))
-          print*, 'Avv sum =', sum(Avv(:,:,:,k,i,j))
+          print*, 'Auu sum =', sum(Auu(:,k,i,j))
+          print*, 'Auv sum =', sum(Auv(:,k,i,j))
+          print*, 'Avu sum =', sum(Avu(:,k,i,j))
+          print*, 'Avv sum =', sum(Avv(:,k,i,j))
 
+          print*, ' '
+          print*, 'iA, jA, kA, Auu:'
+          do kA = -1, 1
           do jA = -1, 1
           do iA = -1, 1
+             m = indxA(iA,jA,kA)
+             print*, iA, jA, kA, Auu(m,k,i,j) 
+          enddo
+          enddo
+          enddo
+     
           do kA = -1, 1
+          do jA = -1, 1
+          do iA = -1, 1
              if ( (k+kA >= 1 .and. k+kA <= nz)       &
                              .and.                   &
                   (i+iA >= 1 .and. i+iA <= nx-1)     &
                              .and.                   &
                   (j+jA >= 1 .and. j+jA <= ny-1) ) then
                 colA = NodeID(k+kA, i+iA, j+jA)   ! ID for neighboring node
+                m = indxA(iA,jA,kA)
                 print*, ' '
                 print*, 'iA, jA, kA, colA =', iA, jA, kA, colA
                 print*, 'i, j, k for colA:', iNodeIndex(colA), jNodeIndex(colA), kNodeIndex(colA)
-                print*, 'Auu =', Auu(kA,iA,jA,k,i,j)
-                print*, 'Auv =', Auv(kA,iA,jA,k,i,j)
-                print*, 'Avu =', Avu(kA,iA,jA,k,i,j)
-                print*, 'Avv =', Avv(kA,iA,jA,k,i,j)
+                print*, 'Auu =', Auu(m,k,i,j)
+                print*, 'Auv =', Auv(m,k,i,j)
+                print*, 'Avu =', Avu(m,k,i,j)
+                print*, 'Avv =', Avv(m,k,i,j)
              endif
           enddo
           enddo
@@ -1321,7 +1362,7 @@
 
           call pcg_solver_structured(nx,        ny,            &
                                      nz,        nhalo,         &
-                                     active_vertex,            &
+                                     indxA,     active_vertex, &
                                      Auu,       Auv,           &
                                      Avu,       Avv,           &
                                      bu,        bv,            &
@@ -2377,7 +2418,7 @@
     integer, intent(in) :: whichefvs      ! option for effective viscosity calculation 
                                           ! (calculate it or make it uniform)
 
-    real(dp), dimension(-1:1,-1:1,-1:1,nz,nx-1,ny-1), intent(out) ::  &
+    real(dp), dimension(27,nz,nx-1,ny-1), intent(out) ::  &
        Auu, Auv,    &     ! assembled stiffness matrix, divided into 4 parts
        Avu, Avv                                    
 
@@ -2445,10 +2486,10 @@
     !TODO - Initialize at higher level and pass as inout?
     !       Compute load vector in different subroutine?
 
-    Auu(:,:,:,:,:,:) = 0.d0
-    Auv(:,:,:,:,:,:) = 0.d0
-    Avu(:,:,:,:,:,:) = 0.d0
-    Avv(:,:,:,:,:,:) = 0.d0
+    Auu(:,:,:,:) = 0.d0
+    Auv(:,:,:,:) = 0.d0
+    Avu(:,:,:,:) = 0.d0
+    Avv(:,:,:,:) = 0.d0
 
     ! Sum over elements in active cells 
     ! Loop over all cells that border locally owned vertices.
@@ -3139,12 +3180,12 @@
     real(dp), dimension(nNodesPerElement,nNodesPerElement), intent(in) ::  &
        Kmat              ! element matrix
 
-    real(dp), dimension(-1:1,-1:1,-1:1,nz,nx-1,ny-1), intent(inout) ::    &
+    real(dp), dimension(27,nz,nx-1,ny-1), intent(inout) ::    &
        Amat              ! assembled matrix
 
-    integer :: i, j, k
+    integer :: i, j, k, m
     integer :: iA, jA, kA
-    integer :: m, n
+    integer :: n, nr, nc
 
 !WHL - debug
     if (verbose .and. this_rank==rtest .and. iElement==itest .and. jElement==jtest .and. kElement==ktest) then
@@ -3155,37 +3196,38 @@
        enddo
     endif
 
-!TODO - Switch loops or switch order of indices in K(m,n)?
-!       Inner index m is currently the outer loop
+!TODO - Switch loops or switch order of indices in K(nr,nc)?
+!       Inner index nr is currently the outer loop
 
-    do m = 1, nNodesPerElement       ! rows of K
+    do nr = 1, nNodesPerElement       ! rows of K
 
        ! Determine (k,i,j) for this node
        ! The reason for the '7' is that node 7, in the NE corner of the upper layer, has index (k,i,j).
        ! Indices for other nodes are computed relative to this node.
-       i = iElement + ishift(7,m)
-       j = jElement + jshift(7,m)
-       k = kElement + kshift(7,m)
+       i = iElement + ishift(7,nr)
+       j = jElement + jshift(7,nr)
+       k = kElement + kshift(7,nr)
       
-       do n = 1, nNodesPerElement    ! columns of K
+       do nc = 1, nNodesPerElement    ! columns of K
 
-          kA = kshift(m,n)           ! k index of A into which K(m,n) is summed
-          iA = ishift(m,n)           ! similarly for i and j indices 
-          jA = jshift(m,n)           ! these indices can take values -1, 0 and 1
+          kA = kshift(nr,nc)           ! k index of A into which K(m,n) is summed
+          iA = ishift(nr,nc)           ! similarly for i and j indices 
+          jA = jshift(nr,nc)           ! these indices can take values -1, 0 and 1
 
-          Amat(kA,iA,jA,k,i,j) = Amat(kA,iA,jA,k,i,j) + Kmat(m,n)
+          m = indxA(iA,jA,kA)
+          Amat(m,k,i,j) = Amat(m,k,i,j) + Kmat(nr,nc)
 
 !WHL - debug
 !          if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest  &
 !                      .and. iA == iAtest .and. jA==jAtest .and. kA==kAtest) then
 !             print*, ' '
 !             print*, 'i, j, k, iA, jA, kA:', i, j, k, iA, jA, kA
-!             print*, 'm, n, Kmat, new Amat:', m, n, Kmat(m,n), Amat(kA,iA,jA,k,i,j)
+!             print*, 'nr, nc, Kmat, new Amat:', nr, nc, Kmat(nr,nc), Amat(kA,iA,jA,k,i,j)
 !          endif
 
-       enddo     ! n
+       enddo     ! nc
 
-    enddo        ! m
+    enddo        ! nr
 
   end subroutine element_to_global_matrix
 
@@ -3225,7 +3267,7 @@
     real(dp), dimension(nx-1,ny-1), intent(in) ::   &
        xVertex, yVertex     ! x and y coordinates of vertices
 
-    real(dp), dimension(-1:1,-1:1,-1:1,nz,nx-1,ny-1), intent(inout) ::  &
+    real(dp), dimension(27,nz,nx-1,ny-1), intent(inout) ::  &
        Auu, Avv             ! parts of stiffness matrix
 
     !----------------------------------------------------------------
@@ -3628,12 +3670,12 @@
     real(dp), dimension(nNodesPerElement_2d,nNodesPerElement_2d), intent(in) ::  &
        Kmat              ! element matrix
 
-    real(dp), dimension(-1:1,-1:1,-1:1,nz,nx-1,ny-1), intent(inout) ::    &
+    real(dp), dimension(27,nz,nx-1,ny-1), intent(inout) ::    &
        Amat              ! assembled matrix
 
-    integer :: i, j, k
+    integer :: i, j, k, m
     integer :: iA, jA, kA
-    integer :: m, n
+    integer :: nr, nc
 
     if (verbose .and. this_rank==rtest .and. iElement==itest .and. jElement==jtest) then
        print*, 'Basal BC: First row of K:'
@@ -3644,25 +3686,26 @@
 !       Inner index m is currently the outer loop
 
     k = kLayer   ! all nodes lie in one horizontal layer, typically k = nz for basal BC
-    kA = 0       ! k index of A into which K(m,n) is summed
+    kA = 0       ! k index of A into which K(nr,n) is summed
                  ! = 0 since all nodes lie in the same layer
 
-    do m = 1, nNodesPerElement       ! rows of K
+    do nr = 1, nNodesPerElement       ! rows of K
 
        ! Determine (i,j) for this node
        ! The reason for the '3' is that node 3, in the NE corner of the layer, has horizontal indices (i,j).
        ! Indices for other nodes are computed relative to this node.
 
-       i = iElement + ishift(3,m)
-       j = jElement + jshift(3,m)
+       i = iElement + ishift(3,nr)
+       j = jElement + jshift(3,nr)
       
-       do n = 1, nNodesPerElement    ! columns of K
+       do nc = 1, nNodesPerElement    ! columns of K
 
-          iA = ishift(m,n)           ! iA index of A into which K(m,n) is summed
-          jA = jshift(m,n)           ! similary for jA
-                                     ! these indices can take values -1, 0 and 1
+          iA = ishift(nr,nc)          ! iA index of A into which K(nr,nc) is summed
+          jA = jshift(nr,nc)          ! similarly for jA
+                                      ! these indices can take values -1, 0 and 1
 
-          Amat(kA,iA,jA,k,i,j) = Amat(kA,iA,jA,k,i,j) + Kmat(m,n)
+          m = indxA(iA,jA,kA)
+          Amat(m,k,i,j) = Amat(m,k,i,j) + Kmat(nr,nc)
 
        enddo     ! n
 
@@ -3701,7 +3744,7 @@
     logical, dimension(nz,nx-1,ny-1), intent(in) ::  &
        umask_dirichlet     ! Dirichlet mask for velocity (if true, u = 0)
 
-    real(dp), dimension(-1:1,-1:1,-1:1,nz,nx-1,ny-1), intent(inout) ::   &
+    real(dp), dimension(27,nz,nx-1,ny-1), intent(inout) ::   &
        Auu, Auv,    &      ! assembled stiffness matrix, divided into 4 parts
        Avu, Avv                                    
 
@@ -3714,9 +3757,37 @@
     
     integer :: i, j, k     ! Cartesian indices of nodes
     integer :: iA, jA, kA  ! i, j, and k offsets of neighboring nodes 
+    integer :: m
 
 !PARALLEL - Make sure not to step out of bounds here.
 !           This requires nhalo >= 2.
+
+!WHL - debug
+!       integer :: n, r
+!       integer, dimension(nz,nx-1,ny-1) :: umask3  ! integer mask for umask_dirichlet
+    
+!          umask3(:,:,:) = 0
+!          do j = nhalo, ny-nhalo+1
+!             do i = nhalo, nx-nhalo+1
+!                do k = 1, nz
+!                   if (umask_dirichlet(k,i,j)) umask3(k,i,j) = 1
+!                enddo
+!             enddo
+!          enddo
+
+!          print*, ' '
+!          print*, 'umask_dirichlet, k = 1:'
+!          k = 1
+!          do j = ny-nhalo, nhalo+1, -1
+!             write(6,'(28i4)') umask3(k,3:30,j)
+!          enddo
+
+!          print*, ' '
+!          print*, 'umask_dirichlet, k =', nz
+!          k = nz
+!          do j = ny-nhalo, nhalo+1, -1
+!             write(6,'(28i4)') umask3(k,3:30,j)
+!          enddo
 
 ! Loop over all vertices that border locally owned vertices.
 ! Locally owned vertices are (nhalo+1:ny-nhalo, nhalo+1:nx-nhalo)
@@ -3730,9 +3801,9 @@
                    ! loop through potential nonzero matrix values in the row associated with this vertex
                    ! Note: row = NodeID(k,i,j) if we were forming a matrix with one row per node
 
+                   do kA = -1,1
                    do jA = -1,1
                    do iA = -1,1
-                   do kA = -1,1
 
                       if ( (k+kA >= 1 .and. k+kA <= nz)         &
                                       .and.                     &
@@ -3755,14 +3826,17 @@
 !                            Avu( kA,  iA,  jA, row) = 0.d0
 !                            Avu(-kA, -iA, -jA, col) = 0.d0
 
-                         Auu( kA,  iA,  jA, k,    i,    j   ) = 0.d0
-                         Auu(-kA, -iA, -jA, k+kA, i+iA, j+jA) = 0.d0
-                         Avv( kA,  iA,  jA, k,    i,    j   ) = 0.d0
-                         Avv(-kA, -iA, -jA, k+kA, i+iA, j+jA) = 0.d0
-                         Auv( kA,  iA,  jA, k,    i,    j   ) = 0.d0
-                         Auv(-kA, -iA, -jA, k+kA, i+iA, j+jA) = 0.d0
-                         Avu( kA,  iA,  jA, k,    i,    j   ) = 0.d0
-                         Avu(-kA, -iA, -jA, k+kA, i+iA, j+jA) = 0.d0
+                         m = indxA(iA,jA,kA)
+                         Auu(m, k, i, j) = 0.d0
+                         Auv(m, k, i, j) = 0.d0
+                         Avu(m, k, i, j) = 0.d0
+                         Avv(m, k, i, j) = 0.d0
+
+                         m = indxA(-iA,-jA,-kA)
+                         Auu(m, k+kA, i+iA, j+jA) = 0.d0
+                         Auv(m, k+kA, i+iA, j+jA) = 0.d0
+                         Avu(m, k+kA, i+iA, j+jA) = 0.d0
+                         Avv(m, k+kA, i+iA, j+jA) = 0.d0
 
                       endif     ! i+iA, j+jA, and k+kA in bounds
 
@@ -3771,8 +3845,9 @@
                    enddo        ! jA
 
                    ! put back 1's on the main diagonal
-                   Auu(0,0,0,k,i,j) = 1.d0
-                   Avv(0,0,0,k,i,j) = 1.d0
+                   m = indxA(0,0,0)
+                   Auu(m,k,i,j) = 1.d0
+                   Avv(m,k,i,j) = 1.d0
 
                    ! force u = v = 0 for this node by zeroing the rhs  
                    bu(k,i,j) = 0.d0            
@@ -3809,11 +3884,9 @@
     logical, dimension(nx-1,ny-1), intent(in) ::   &
        active_vertex          ! T for columns (i,j) where velocity is computed, else F
 
-    real(dp), dimension(-1:1,-1:1,-1:1,nz,nx-1,ny-1), intent(in) ::   &
+    real(dp), dimension(27,nz,nx-1,ny-1), intent(in) ::   &
        Auu, Auv, Avu, Avv     ! four components of assembled matrix
-                              ! 1st dimension = 3 (node and its 2 neighbors in z direction)
-                              ! 2nd dimension = 3 (node and its 2 neighbors in x direction)
-                              ! 3rd dimension = 3 (node and its 2 neighbors in y direction)
+                              ! 1st dimension = 3 (node and its nearest neighbors in x, y and z direction)
                               ! other dimensions = (z,x,y) indices
                               !
                               !    Auu  | Auv
@@ -3834,8 +3907,7 @@
     real(dp), intent(out) ::    &
        L2_norm             ! L2 norm of residual vector
 
-    integer :: i, j, k
-    integer :: iA, jA, kA 
+    integer :: i, j, k, iA, jA, kA, m 
 
     if (verbose .and. this_rank==rtest) then
        print*, ' '
@@ -3863,9 +3935,9 @@
 
           do k = 1, nz
 
+             do kA = -1,1
              do jA = -1,1
              do iA = -1,1
-             do kA = -1,1
 
                 if ( (k+kA >= 1 .and. k+kA <= nz)     &
                                 .and.                     &
@@ -3873,13 +3945,15 @@
                              .and.                     &
                      (j+jA >= 1 .and. j+jA <= ny-1) ) then
 
+                   m = indxA(iA,jA,kA)
+
                    resid_vec_u(k,i,j) = resid_vec_u(k,i,j)                        & 
-                                      + Auu(kA,iA,jA,k,i,j)*uvel(k+kA,i+iA,j+jA)  &
-                                      + Auv(kA,iA,jA,k,i,j)*vvel(k+kA,i+iA,j+jA)
+                                      + Auu(m,k,i,j)*uvel(k+kA,i+iA,j+jA)  &
+                                      + Auv(m,k,i,j)*vvel(k+kA,i+iA,j+jA)
 
                    resid_vec_v(k,i,j) = resid_vec_v(k,i,j)                        &
-                                      + Avu(kA,iA,jA,k,i,j)*uvel(k+kA,i+iA,j+jA)  &
-                                      + Avv(kA,iA,jA,k,i,j)*vvel(k+kA,i+iA,j+jA)
+                                      + Avu(m,k,i,j)*uvel(k+kA,i+iA,j+jA)  &
+                                      + Avv(m,k,i,j)*vvel(k+kA,i+iA,j+jA)
 
                 endif   ! in bounds
 
@@ -4101,11 +4175,9 @@
     integer, dimension(:), intent(in) ::   &
        iNodeIndex, jNodeIndex, kNodeIndex   ! i, j and k indices of active nodes
 
-    real(dp), dimension(-1:1,-1:1,-1:1,nz,nx-1,ny-1), intent(in) ::  &
+    real(dp), dimension(27,nz,nx-1,ny-1), intent(in) ::  &
        Auu, Auv,    &     ! assembled stiffness matrix, divided into 4 parts
-       Avu, Avv           ! 1st dimension = node and its 2 neighbors in z direction 
-                          ! 2nd dimension = node and its 2 neighbors in x direction 
-                          ! 3rd dimension = node and its 2 neighbors in y direction 
+       Avu, Avv           ! 1st dimension = node and its nearest neighbors in x, y and z direction 
                           ! other dimensions = (k,i,j) indices
 
     real(dp), dimension(nz,nx-1,ny-1), intent(in) ::  &
@@ -4130,7 +4202,7 @@
     ! Local variables
     !---------------------------------------------------------
 
-    integer :: i, j, k, iA, jA, kA, n, ct
+    integer :: i, j, k, iA, jA, kA, m, mm, n, ct
 
     integer :: rowA, colA   ! row and column of A submatrices (order = nNodesSolve)
     integer :: row, col     ! row and column of sparse matrix (order = 2*nNodesSolve) 
@@ -4152,9 +4224,9 @@
 
 !TODO: Make sure that this procedure captures all the nonzero entries
 
+       do kA = -1, 1
        do jA = -1, 1
        do iA = -1, 1
-       do kA = -1, 1
 
           if ( (k+kA >= 1 .and. k+kA <= nz)         &
                           .and.                     &
@@ -4163,9 +4235,10 @@
                (j+jA >= 1 .and. j+jA <= ny-1) ) then
 
              colA = NodeID(k+kA, i+iA, j+jA)   ! ID for neighboring node
+             m = indxA(iA,jA,kA)
 
              ! Auu
-             val = Auu(kA,iA,jA,k,i,j)
+             val = Auu(m,k,i,j)
              if (val /= 0.d0) then
                 ct = ct + 1
                 matrix%row(ct) = 2*rowA - 1
@@ -4174,7 +4247,7 @@
              endif
 
              ! Auv 
-             val = Auv(kA,iA,jA,k,i,j)
+             val = Auv(m,k,i,j)
              if (val /= 0.d0) then
                 ct = ct + 1
                 matrix%row(ct) = 2*rowA - 1
@@ -4186,8 +4259,9 @@
                print*, ' '
                print*, 'rowA, colA, i, j, k =', rowA, colA, i, j, k
                print*, 'iA, jA, kA:', iA, jA, kA
-               print*, 'Auv(iA,jA,kA,i,j,k) =', Auv(kA,iA,jA,k,i,j)
-               print*, 'Avu(-iA,-jA,-kA,i+iA,j+jA,k+kA) =', Avu(-kA,-iA,-jA, k+kA, i+iA, j+jA)
+               print*, 'Auv(iA,jA,kA,i,j,k) =', Auv(m,k,i,j)
+               mm = indxA(-iA,-jA,-kA)
+               print*, 'Avu(-iA,-jA,-kA,i+iA,j+jA,k+kA) =', Avu(mm, k+kA, i+iA, j+jA)
                print*, ' '
                print*, 'ct, row, col, val:', ct, matrix%row(ct), matrix%col(ct), matrix%val(ct)
              endif
@@ -4201,10 +4275,9 @@
        ! Load the nonzero values associated with Avu and Avv
        ! These are assigned a value of matrix%row = 2*rowA
 
+       do kA = -1, 1
        do jA = -1, 1
        do iA = -1, 1
-       do kA = -1, 1
-
 
           if ( (k+kA >= 1 .and. k+kA <= nz)         &
                           .and.                     &
@@ -4213,9 +4286,11 @@
                (j+jA >= 1 .and. j+jA <= ny-1) ) then
 
              colA = NodeID(k+kA, i+iA, j+jA)   ! ID for neighboring node
+             m  = indxA( iA, jA, kA)
+             mm = indxA(-iA,-jA,-kA)
 
              ! Avu 
-             val = Avu(kA,iA,jA,k,i,j)
+             val = Avu(m,k,i,j)
              if (val /= 0.d0) then
                 ct = ct + 1
                 matrix%row(ct) = 2*rowA
@@ -4228,14 +4303,14 @@
                print*, ' '
                print*, 'rowA, colA, i, j, k =', rowA, colA, i, j, k
                print*, 'iA, jA, kA:', iA, jA, kA
-               print*, 'Avu(iA,jA,kA,i,j,k) =', Avu(kA,iA,jA,k,i,j)
-               print*, 'Auv(-iA,-jA,-kA,i+iA,j+jA,k+kA) =', Auv(-kA,-iA,-jA, k+kA, i+iA, j+jA)
+               print*, 'Avu(iA,jA,kA,i,j,k) =', Avu(m,k,i,j)
+               print*, 'Auv(-iA,-jA,-kA,i+iA,j+jA,k+kA) =', Auv(mm, k+kA, i+iA, j+jA)
                print*, ' '
                print*, 'ct, row, col, val:', ct, matrix%row(ct), matrix%col(ct), matrix%val(ct)
              endif
 
              ! Avv 
-             val = Avv(kA,iA,jA,k,i,j)
+             val = Avv(m,k,i,j)
              if (val /= 0.d0) then
                 ct = ct + 1
                 matrix%row(ct) = 2*rowA
@@ -4492,7 +4567,7 @@
     logical, dimension(nx-1,ny-1), intent(in) ::   &
        active_vertex            ! T for columns (i,j) where velocity is computed, else F
 
-    real(dp), dimension(-1:1,-1:1,-1:1,nz,nx-1,ny-1), intent(inout) ::   &
+    real(dp), dimension(27,nz,nx-1,ny-1), intent(inout) ::   &
        Auu, Auv, Avu, Avv       ! components of assembled stiffness matrix
                                 !
                                 !    Auu  | Auv
@@ -4500,7 +4575,7 @@
                                 !         |
                                 !    Avu  | Avv                                    
 
-    integer :: i, j, k, iA, jA, kA
+    integer :: i, j, k, iA, jA, kA, m, mm
 
     real(dp) :: val1, val2          ! values of matrix coefficients
 
@@ -4527,18 +4602,22 @@
 
                 ! Check Auu and Auv for symmetry
 
-                diag_entry = Auu(0,0,0,k,i,j)
+                m = indxA(0,0,0)
+                diag_entry = Auu(m,k,i,j)
 
+                do kA = -1, 1
                 do jA = -1, 1
                 do iA = -1, 1
-                do kA = -1, 1
+
+                   m =  indxA( iA, jA, kA)
+                   mm = indxA(-iA,-jA,-kA)
 
                    ! Check that Auu = Auu^T
 
                    if (k+kA >= 1 .and. k+kA <=nz) then  ! to keep k index in bounds
 
-                      val1 = Auu( kA,  iA,  jA, k,    i,    j   )   ! value of Auu(row,col)
-                      val2 = Auu(-kA, -iA, -jA, k+kA, i+iA, j+jA)   ! value of Auu(col,row)
+                      val1 = Auu( m, k,    i,    j   )   ! value of Auu(row,col)
+                      val2 = Auu(mm, k+kA, i+iA, j+jA)   ! value of Auu(col,row)
 
                       if (val2 /= val1) then
                           
@@ -4549,8 +4628,8 @@
 
                          if ( abs(val2-val1) < eps12*diag_entry ) then
                             avg_val = 0.5d0 * (val1 + val2)
-                            Auu( kA, iA, jA, k,   i,   j   ) = avg_val
-                            Auu(-kA,-iA,-jA, k+kA,i+iA,j+jA) = avg_val
+                            Auu( m, k,   i,   j   ) = avg_val
+                            Auu(mm, k+kA,i+iA,j+jA) = avg_val
 !!                            print*, 'Auu, i, j, k, iA, jA, kA, val1, val2:', i, j, k, iA, jA, kA, val1, val2
                          else
                             print*, ' '
@@ -4563,8 +4642,8 @@
                 
                       ! Check that Auv = (Avu)^T
 
-                      val1 = Auv( kA,  iA,  jA, k,    i,    j)      ! value of Auv(row,col)
-                      val2 = Avu(-kA, -iA, -jA, k+kA, i+iA, j+jA)   ! value of Avu(col,row)
+                      val1 = Auv( m, k,    i,    j)      ! value of Auv(row,col)
+                      val2 = Avu(mm, k+kA, i+iA, j+jA)   ! value of Avu(col,row)
 
                       if (val2 /= val1) then
 
@@ -4575,8 +4654,8 @@
 
                          if ( abs(val2-val1) < eps12*diag_entry ) then
                             avg_val = 0.5d0 * (val1 + val2)
-                            Auv( kA, iA, jA, k,   i,   j   ) = avg_val
-                            Avu(-kA,-iA,-jA, k+kA,i+iA,j+jA) = avg_val
+                            Auv( m, k,   i,   j   ) = avg_val
+                            Avu(mm, k+kA,i+iA,j+jA) = avg_val
 !!                            print*, 'Auv, i, j, k, iA, jA, kA, val1, val2:', i, j, k, iA, jA, kA, val1, val2
                          else
                             print*, ' '
@@ -4595,18 +4674,22 @@
 
                 ! Now check Avu and Avv
 
-                diag_entry = Avv(0,0,0,k,i,j)
+                m = indxA(0,0,0)
+                diag_entry = Avv(m,k,i,j)
 
                 ! check that Avv = (Avv)^T
 
+                do kA = -1, 1
                 do jA = -1, 1
                 do iA = -1, 1
-                do kA = -1, 1
 
                    if (k+kA >= 1 .and. k+kA <=nz) then  ! to keep k index in bounds
 
-                      val1 = Avv( kA,  iA,  jA, k,    i,    j)      ! value of Avv(row,col)
-                      val2 = Avv(-kA, -iA, -jA, k+kA, i+iA, j+jA)   ! value of Avv(col,row)
+                      m  = indxA( iA, jA, kA)
+                      mm = indxA(-iA,-jA,-kA)
+
+                      val1 = Avv( m, k,    i,    j)      ! value of Avv(row,col)
+                      val2 = Avv(mm, k+kA, i+iA, j+jA)   ! value of Avv(col,row)
 
                       if (val2 /= val1) then
                           
@@ -4617,8 +4700,8 @@
 
                          if ( abs(val2-val1) < eps12*diag_entry ) then
                             avg_val = 0.5d0 * (val1 + val2)
-                            Avv( kA, iA, jA, k,   i,   j   ) = avg_val
-                            Avv(-kA,-iA,-jA, k+kA,i+iA,j+jA) = avg_val
+                            Avv( m, k,   i,   j   ) = avg_val
+                            Avv(mm, k+kA,i+iA,j+jA) = avg_val
 !!                            print*, 'Avv, i, j, k, iA, jA, kA, val1, val2:', i, j, k, iA, jA, kA, val1, val2
                          else
                             print*, ' '
@@ -4631,8 +4714,8 @@
 
                       ! Check that Avu = (Auv)^T
 
-                      val1 = Avu( kA,  iA,  jA, k,    i,    j)      ! value of Avu(row,col)
-                      val2 = Auv(-kA, -iA, -jA, k+kA, i+iA, j+jA)   ! value of Auv(col,row)
+                      val1 = Avu( m, k,    i,    j)      ! value of Avu(row,col)
+                      val2 = Auv(mm, k+kA, i+iA, j+jA)   ! value of Auv(col,row)
 
                       if (abs(val2 - val1) > maxdiff) maxdiff = abs(val2 - val1)
 
@@ -4643,8 +4726,8 @@
 
                          if ( abs(val2-val1) < eps12*diag_entry ) then
                             avg_val = 0.5d0 * (val1 + val2)
-                            Avu( kA, iA, jA, k,   i,   j   ) = avg_val
-                            Auv(-kA,-iA,-jA, k+kA,i+iA,j+jA) = avg_val
+                            Avu( m, k,   i,   j   ) = avg_val
+                            Auv(mm, k+kA,i+iA,j+jA) = avg_val
 !!                            print*, 'Avu, i, j, k, iA, jA, kA, val1, val2:', i, j, k, iA, jA, kA, val1, val2
                          else
                             print*, ' '
@@ -4848,7 +4931,7 @@
        nx, ny,                  &    ! horizontal grid dimensions
        nz                            ! number of vertical layers at which velocity is computed
 
-    real(dp), dimension(-1:1,-1:1,-1:1,nz,nx-1,ny-1), intent(inout) ::  &
+    real(dp), dimension(27,nz,nx-1,ny-1), intent(inout) ::  &
        Auu, Auv,    &     ! assembled stiffness matrix, divided into 4 parts
        Avu, Avv                                    
 
@@ -4856,7 +4939,7 @@
     ! Local variables
     !---------------------------------------------------------
 
-    integer :: i, j, k, iA, jA, kA
+    integer :: i, j, k, m, iA, jA, kA
 
     real(dp) ::       &
        diag_entry,   &! mean size of diagonal entries
@@ -4868,27 +4951,29 @@
 
        ! Compute threshold value of matrix entries for Auu/Auv row
 
-       diag_entry = Auu(0,0,0,k,i,j)
+       m = indxA(0,0,0)
+       diag_entry = Auu(m,k,i,j)
        min_entry = eps12 * diag_entry
 
        ! Remove very small values
 
+       do kA = -1, 1
        do jA = -1, 1
        do iA = -1, 1
-       do kA = -1, 1
 
-          if (abs(Auu(kA,iA,jA,k,i,j)) < min_entry) then
-!             if (abs(Auu(kA,iA,jA,k,i,j)) > 0.d0) then
-!                print*, 'Dropping Auu term:, i, j, k, iA, jA, kA, val:', i, j, k, iA, jA, kA, Auu(kA,iA,jA,k,i,j)
+          m = indxA(iA,jA,kA)
+          if (abs(Auu(m,k,i,j)) < min_entry) then
+!             if (abs(Auu(m,k,i,j)) > 0.d0) then
+!                print*, 'Dropping Auu term:, i, j, k, iA, jA, kA, val:', i, j, k, iA, jA, kA, Auu(m,k,i,j)
 !             endif
-             Auu(kA,iA,jA,k,i,j) = 0.d0
+             Auu(m,k,i,j) = 0.d0
           endif
 
-          if (abs(Auv(kA,iA,jA,k,i,j)) < min_entry) then
-!             if (abs(Auv(kA,iA,jA,k,i,j)) > 0.d0) then
-!                print*, 'Dropping Auv term:, i, j, k, iA, jA, kA, val:', i, j, k, iA, jA, kA, Auv(kA,iA,jA,k,i,j)
+          if (abs(Auv(m,k,i,j)) < min_entry) then
+!             if (abs(Auv(m,k,i,j)) > 0.d0) then
+!                print*, 'Dropping Auv term:, i, j, k, iA, jA, kA, val:', i, j, k, iA, jA, kA, Auv(m,k,i,j)
 !             endif
-             Auv(kA,iA,jA,k,i,j) = 0.d0
+             Auv(m,k,i,j) = 0.d0
           endif
 
        enddo
@@ -4897,27 +4982,30 @@
 
        ! Compute threshold value of matrix entries for Avu/Avv row
 
-       diag_entry = Avv(0,0,0,k,i,j)
+       m = indxA(0,0,0)
+       diag_entry = Avv(m,k,i,j)
        min_entry = eps12 * diag_entry
 
        ! Remove very small values
 
+       do kA = -1, 1
        do jA = -1, 1
        do iA = -1, 1
-       do kA = -1, 1
 
-          if (abs(Avu(kA,iA,jA,k,i,j)) < min_entry) then
-!             if (abs(Avu(kA,iA,jA,k,i,j)) > 0.d0) then
-!                print*, 'Dropping Avu term:, i, j, k, iA, jA, kA, val:', i, j, k, iA, jA, kA, Avu(kA,iA,jA,k,i,j)
+          m = indxA(iA,jA,kA)
+
+          if (abs(Avu(m,k,i,j)) < min_entry) then
+!             if (abs(Avu(m,k,i,j)) > 0.d0) then
+!                print*, 'Dropping Avu term:, i, j, k, iA, jA, kA, val:', i, j, k, iA, jA, kA, Avu(m,k,i,j)
 !             endif
-             Avu(kA,iA,jA,k,i,j) = 0.d0
+             Avu(m,k,i,j) = 0.d0
           endif
 
-          if (abs(Avv(kA,iA,jA,k,i,j)) < min_entry) then
-!             if (abs(Avv(kA,iA,jA,k,i,j)) > 0.d0) then
-!                print*, 'Dropping Avv term:, i, j, k, iA, jA, kA, val:', i, j, k, iA, jA, kA, Avv(kA,iA,jA,k,i,j)
+          if (abs(Avv(m,k,i,j)) < min_entry) then
+!             if (abs(Avv(m,k,i,j)) > 0.d0) then
+!                print*, 'Dropping Avv term:, i, j, k, iA, jA, kA, val:', i, j, k, iA, jA, kA, Avv(m,k,i,j)
 !             endif
-             Avv(kA,iA,jA,k,i,j) = 0.d0
+             Avv(m,k,i,j) = 0.d0
           endif
 
        enddo

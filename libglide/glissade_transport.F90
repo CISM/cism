@@ -41,24 +41,24 @@
 
 ! !INTERFACE:
 
-      module glissade_transport
+  module glissade_transport
 !
 ! !USES:
-      use glimmer_global, only: dp
-      use glimmer_log
-      use glissade_remap, only: glissade_horizontal_remap, make_remap_mask, puny
+    use glimmer_global, only: dp
+    use glimmer_log
+    use glissade_remap, only: glissade_horizontal_remap, make_remap_mask, puny
 
-      use parallel 
+    use parallel 
 
 !
 !EOP
 !
-      implicit none
-      save
-      private
-      public :: glissade_transport_driver
+    implicit none
+    save
+    private
+    public :: glissade_transport_driver
 
-      logical, parameter ::  &
+    logical, parameter ::  &
          prescribed_area = .false.  ! if true, prescribe the area fluxed across each edge
 
 !TODO - Code uses Protex documenting.  Revise for doxygen
@@ -69,7 +69,7 @@
 
 !=======================================================================
 
-      contains
+  contains
 
 !=======================================================================
 !BOP
@@ -78,17 +78,17 @@
 !
 ! !INTERFACE:
 !
-      subroutine glissade_transport_driver(dt,                   &
-                                           dx,       dy,         &
-                                           nx,       ny,         &
-                                           nlyr,     sigma,      &
-                                           nhalo,    ntracer,    &
-                                           uvel,     vvel,       &
-                                           thck,                 &
-                                           acab,     bmlt,       &
-                                           temp,     age,        &
-                                           waterfrac,            &
-                                           upwind_transport_in)
+    subroutine glissade_transport_driver(dt,                   &
+                                         dx,       dy,         &
+                                         nx,       ny,         &
+                                         nlyr,     sigma,      &
+                                         nhalo,    ntracer,    &
+                                         uvel,     vvel,       &
+                                         thck,                 &
+                                         acab,     bmlt,       &
+                                         temp,     age,        &
+                                         waterfrac,            &
+                                         upwind_transport_in)
 
 !
 ! !DESCRIPTION:
@@ -715,7 +715,7 @@
 
       endif                     ! conservation_check
 
-      end subroutine glissade_transport_driver
+    end subroutine glissade_transport_driver
 
 !=======================================================================
 !
