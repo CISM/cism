@@ -232,7 +232,7 @@ module parallel
      module procedure staggered_parallel_halo_integer_3d
      module procedure staggered_parallel_halo_real8_2d
      module procedure staggered_parallel_halo_real8_3d
-     module procedure staggered_parallel_halo_real8_6d
+     module procedure staggered_parallel_halo_real8_4d
   end interface
 
   interface parallel_print
@@ -4336,23 +4336,22 @@ contains
 
   end subroutine staggered_parallel_halo_real8_3d
 
-  subroutine staggered_parallel_halo_real8_6d(a)
+!WHL - New subroutine for 4D arrays.
+  subroutine staggered_parallel_halo_real8_4d(a)
 
     use mpi_mod
     implicit none
-    real(8),dimension(-1:,-1:,-1:,:,:,:) :: a
+    real(8),dimension(:,:,:,:) :: a
 
-    ! Implements a staggered grid halo update for a 6D field.
-    ! This subroutine is custom-made for the 6D arrays that hold matrix entries.
+    ! Implements a staggered grid halo update for a 4D field.
+    ! This subroutine is used for the 4D arrays that hold matrix entries.
 
-    ! As the grid is staggered, the array 'a' is one smaller in both dimensions than an unstaggered array.
-    ! The vertical dimension is assumed to precede the i and j indices, i.e., a(:,:,:,k,i,j).
-
-    ! NOTE: The first three dimensions are -1:1.
-    ! The subroutine is specifically designed for matrix arrays with this structure.
+    ! As the grid is staggered, the array 'a' is one smaller in x and y dimensions than an unstaggered array.
+    ! The vertical dimension is assumed to precede the i and j indices, i.e., a(:,k,i,j).
+    ! The first dimension holds matrix elements for a single row.
 
     ! The grid is laid out from the SW, and the lower left corner is assigned to this_rank = 0.
-    ! It's eastern nbhr is task_id = 1, proceeding rowwise and starting from the western edge.
+    ! It's eastern neighbor is task_id = 1, proceeding rowwise and starting from the western edge.
     ! The South-most processes own one additional row of stagggered variables on the southern edge
     ! and have one less 'southern' halo row than other processes. Likewise, the West-most processes own one 
     ! additional column of staggered variables on the western edge and have one less 'western' halo column. 
@@ -4363,12 +4362,12 @@ contains
     ! integer :: erequest,ierror,one,nrequest,srequest,wrequest
     integer :: ierror,nrequest,srequest,erequest,wrequest
 
-    real(8),dimension(-1:1,-1:1,-1:1,size(a,4), &
-                      staggered_lhalo,size(a,6)-staggered_lhalo-staggered_uhalo) :: esend,wrecv
-    real(8),dimension(-1:1,-1:1,-1:1,size(a,4), &
-                      staggered_uhalo,size(a,6)-staggered_lhalo-staggered_uhalo) :: erecv,wsend
-    real(8),dimension(-1:1,-1:1,-1:1,size(a,4),size(a,5),staggered_lhalo) :: nsend,srecv
-    real(8),dimension(-1:1,-1:1,-1:1,size(a,4),size(a,5),staggered_uhalo) :: nrecv,ssend
+    real(8),dimension(size(a,1),size(a,2), &
+                      staggered_lhalo,size(a,4)-staggered_lhalo-staggered_uhalo) :: esend,wrecv
+    real(8),dimension(size(a,1),size(a,2), &
+                      staggered_uhalo,size(a,4)-staggered_lhalo-staggered_uhalo) :: erecv,wsend
+    real(8),dimension(size(a,1),size(a,2),size(a,3),staggered_lhalo) :: nsend,srecv
+    real(8),dimension(size(a,1),size(a,2),size(a,3),staggered_uhalo) :: nrecv,ssend
 
     !WHL - I defined a logical variable to determine whether or not to fill halo cells
     !      at the edge of the global domain.  I am setting it to true by default to support
@@ -4381,7 +4380,7 @@ contains
     ! begin
 
     ! Confirm staggered array
-    if (size(a,5)/=local_ewn-1 .or. size(a,6)/=local_nsn-1) then
+    if (size(a,3)/=local_ewn-1 .or. size(a,4)/=local_nsn-1) then
          write(*,*) "staggered_parallel_halo() requires staggered arrays."
          call parallel_stop(__FILE__,__LINE__)
     endif
@@ -4405,56 +4404,56 @@ contains
     endif
 
     if (this_rank > west .or. fill_global_halos) then
-      wsend(:,:,:,:,:,1:size(a,6)-staggered_lhalo-staggered_uhalo) = &
-        a(:,:,:,:,1+staggered_lhalo:1+staggered_lhalo+staggered_uhalo-1, &
-                  1+staggered_lhalo:size(a,6)-staggered_uhalo)
+      wsend(:,:,:,1:size(a,4)-staggered_lhalo-staggered_uhalo) = &
+        a(:,:,1+staggered_lhalo:1+staggered_lhalo+staggered_uhalo-1, &
+              1+staggered_lhalo:size(a,4)-staggered_uhalo)
       call mpi_send(wsend,size(wsend),mpi_real8,west,this_rank,comm,ierror)
     endif
 
     if (this_rank < east .or. fill_global_halos) then
-      esend(:,:,:,:,:,1:size(a,6)-staggered_lhalo-staggered_uhalo) = &
-        a(:,:,:,:,size(a,5)-staggered_uhalo-staggered_lhalo+1:size(a,5)-staggered_uhalo, &
-                  1+staggered_lhalo:size(a,6)-staggered_uhalo)
+      esend(:,:,:,1:size(a,4)-staggered_lhalo-staggered_uhalo) = &
+        a(:,:,size(a,3)-staggered_uhalo-staggered_lhalo+1:size(a,3)-staggered_uhalo, &
+                                        1+staggered_lhalo:size(a,4)-staggered_uhalo)
       call mpi_send(esend,size(esend),mpi_real8,east,this_rank,comm,ierror)
     endif
 
     if (this_rank < east .or. fill_global_halos) then
       call mpi_wait(erequest,mpi_status_ignore,ierror)
-      a(:,:,:,:,size(a,5)-staggered_uhalo+1:size(a,5), &
-                1+staggered_lhalo:size(a,6)-staggered_uhalo) = &
-          erecv(:,:,:,:,:,1:size(a,6)-staggered_lhalo-staggered_uhalo)
+      a(:,:,size(a,3)-staggered_uhalo+1:size(a,3), &
+                    1+staggered_lhalo:size(a,4)-staggered_uhalo) = &
+          erecv(:,:,:,1:size(a,4)-staggered_lhalo-staggered_uhalo)
     endif
 
     if (this_rank > west .or. fill_global_halos) then
       call mpi_wait(wrequest,mpi_status_ignore,ierror)
-      a(:,:,:,:,1:staggered_lhalo, &
-                1+staggered_lhalo:size(a,6)-staggered_uhalo) = &
-          wrecv(:,:,:,:,:,1:size(a,6)-staggered_lhalo-staggered_uhalo)
+      a(:,:,1:staggered_lhalo, &
+            1+staggered_lhalo:size(a,4)-staggered_uhalo) = &
+          wrecv(:,:,:,1:size(a,4)-staggered_lhalo-staggered_uhalo)
     endif
 
     if (this_rank > south .or. fill_global_halos) then
-      ssend(:,:,:,:,:,:) = &
-        a(:,:,:,:,:,1+staggered_lhalo:1+staggered_lhalo+staggered_uhalo-1)
+      ssend(:,:,:,:) = &
+        a(:,:,:,1+staggered_lhalo:1+staggered_lhalo+staggered_uhalo-1)
       call mpi_send(ssend,size(ssend),mpi_real8,south,this_rank,comm,ierror)
     endif
 
     if (this_rank < north .or. fill_global_halos) then
-      nsend(:,:,:,:,:,:) = &
-        a(:,:,:,:,:,size(a,6)-staggered_uhalo-staggered_lhalo+1:size(a,6)-staggered_uhalo)
+      nsend(:,:,:,:) = &
+        a(:,:,:,size(a,4)-staggered_uhalo-staggered_lhalo+1:size(a,4)-staggered_uhalo)
       call mpi_send(nsend,size(nsend),mpi_real8,north,this_rank,comm,ierror)
     endif
 
     if (this_rank < north .or. fill_global_halos) then
       call mpi_wait(nrequest,mpi_status_ignore,ierror)
-      a(:,:,:,:,:,size(a,6)-staggered_uhalo+1:size(a,6)) = nrecv(:,:,:,:,:,:)
+      a(:,:,:,size(a,4)-staggered_uhalo+1:size(a,4)) = nrecv(:,:,:,:)
     endif
 
     if (this_rank > south .or. fill_global_halos) then
       call mpi_wait(srequest,mpi_status_ignore,ierror)
-      a(:,:,:,:,:,1:staggered_lhalo) = srecv(:,:,:,:,:,:)
+      a(:,:,:,1:staggered_lhalo) = srecv(:,:,:,:)
     endif
 
-  end subroutine staggered_parallel_halo_real8_6d
+  end subroutine staggered_parallel_halo_real8_4d
 
 ! Following routines imported from the Community Earth System Model
 ! (models/utils/mct/mpeu.m_FcComms.F90)
