@@ -36,6 +36,9 @@ module cism_sparse_pcg
 
   implicit none
 
+  private
+  public :: pcg_solver_structured
+
 !WHL - debug
     logical :: verbose_pcg
 
@@ -63,7 +66,7 @@ contains
 
   subroutine pcg_solver_structured(nx,        ny,            &
                                    nz,        nhalo,         &
-                                   active_vertex,            &
+                                   indxA,     active_vertex, &
                                    Auu,       Auv,           &
                                    Avu,       Avv,           &
                                    bu,        bv,            &
@@ -98,7 +101,7 @@ contains
     !  eta0 = 1
     !
     !  while (not converged)
-    !     z = (M-1)r
+    !     z = (Minv)r
     !     eta1 = (r,z)
     !     beta = eta1/eta0
     !     d = z + beta*d
@@ -111,11 +114,11 @@ contains
     !     Check for convergence: err = sqrt(r,r)/sqrt(b,b) < tolerance
     !  end while
     !
-    !  where X = solution (initial value = x0)
+    !  where x = solution (initial value = x0)
     !        d = conjugate direction vector (initial value = d0)
     !        r = residual vector (initial value = r0)
-    !      M-1 = inverse of preconditioning matrix M
-    !            (can be implemented by solving Mz = r without forming M-1)
+    !     Minv = inverse of preconditioning matrix M
+    !            (can be implemented by solving Mz = r without forming Minv)
     !    (r,z) = dot product of vectors r and z
     !            and similarly for (d,y)
     !       
@@ -131,14 +134,15 @@ contains
        nz,                   &  ! number of vertical levels where velocity is computed
        nhalo                    ! number of halo layers (for scalars)
 
+    integer, dimension(-1:1,-1:1,-1:1), intent(in) :: &
+       indxA                 ! maps relative (x,y,z) coordinates to an index between 1 and 27
+
     logical, dimension(nx-1,ny-1), intent(in) ::   &
        active_vertex          ! T for columns (i,j) where velocity is computed, else F
  
-    real(dp), dimension(-1:1,-1:1,-1:1,nz,nx-1,ny-1), intent(in) ::   &
+    real(dp), dimension(27,nz,nx-1,ny-1), intent(in) ::   &
        Auu, Auv, Avu, Avv     ! four components of assembled matrix
-                              ! 1st dimension = 3 (node and its 2 neighbors in z direction)
-                              ! 2nd dimension = 3 (node and its 2 neighbors in x direction)
-                              ! 3rd dimension = 3 (node and its 2 neighbors in y direction)
+                              ! 1st dimension = 27 (node and its nearest neighbors in x, y and z direction)
                               ! other dimensions = (z,x,y) indices
                               !
                               !    Auu  | Auv
@@ -167,7 +171,8 @@ contains
 
     integer ::  i, j, k      ! grid indices
     integer ::  iA, jA, kA   ! grid offsets ranging from -1 to 1
-    integer ::  m            ! iteration counter
+    integer ::  m            ! matrix element index
+    integer ::  n            ! iteration counter
 
     real(dp) ::           &
        eta0, eta1, eta2,  &! scalar inner product results
@@ -236,8 +241,9 @@ contains
 
     if (precond == 1) then    ! form diagonal matrix for preconditioning
 
-       Adiagu(:,:,:) = Auu(0,0,0,:,:,:)
-       Adiagv(:,:,:) = Avv(0,0,0,:,:,:)
+       m = indxA(0,0,0)
+       Adiagu(:,:,:) = Auu(m,:,:,:)
+       Adiagv(:,:,:) = Avv(m,:,:,:)
 
        if (verbose_pcg .and. this_rank==rtest) then
           print*, ' '
@@ -268,17 +274,19 @@ contains
        do j = 1, ny-1
        do i = 1, nx-1
        do k = 1, nz
-          do kA = -1,1
+             ! Remove horizontal coupling by summing over iA = -1:1, jA = -1:1 for each layer
+             ! Note: In dome tests this is slightly better than setting Muu and Muv to
+             !       the matrix elements corresponding to iA = jA = 0
 
-             ! Remove horizontal coupling by summing over iA = -1:1, jA = -1:1
-             ! Note: In dome tests this is slightly better than setting 
-             !       Muu(ka,k,i,j) = Auu(kA,0,0,k,i,j) 
-             !       Mvv(ka,k,i,j) = Avv(kA,0,0,k,i,j) 
+           Muu(-1,k,i,j) = sum(Auu(1:9,k,i,j))
+           Mvv(-1,k,i,j) = sum(Avv(1:9,k,i,j))
 
-             Muu(kA,k,i,j) = sum(Auu(kA,:,:,k,i,j))
-             Mvv(kA,k,i,j) = sum(Avv(kA,:,:,k,i,j))
+           Muu( 0,k,i,j) = sum(Auu(10:18,k,i,j))
+           Mvv( 0,k,i,j) = sum(Avv(10:18,k,i,j))
 
-          enddo
+           Muu( 1,k,i,j) = sum(Auu(19:27,k,i,j))
+           Mvv( 1,k,i,j) = sum(Avv(19:27,k,i,j))
+
        enddo
        enddo
        enddo
@@ -323,7 +331,7 @@ contains
 
     call matvec_multiply_structured(nx,        ny,            &
                                     nz,        nhalo,         &
-                                    active_vertex,            &
+                                    indxA,     active_vertex, &
                                     Auu,       Auv,           &
                                     Avu,       Avv,           &
                                     xu,        xv,            &
@@ -366,7 +374,7 @@ contains
 
     ! Iterate to solution
 
-    iter_loop: do m = 1, maxiters
+    iter_loop: do n = 1, maxiters
 
        ! Compute (PC)r = solution z of Mz = r
 
@@ -466,7 +474,7 @@ contains
                                                     ! where beta_(i+1) = --------------------  
                                                     !                        (r_i, PC(r_i)) 
                                                     ! Initially eta0 = 1  
-                                                    ! For m >=2, eta0 = old eta1
+                                                    ! For n >=2, eta0 = old eta1
 
        ! Halo update for d
 
@@ -478,7 +486,7 @@ contains
 
        call matvec_multiply_structured(nx,        ny,            &
                                        nz,        nhalo,         &
-                                       active_vertex,            &
+                                       indxA,     active_vertex, &
                                        Auu,       Auv,           &
                                        Avu,       Avv,           &
                                        du,        dv,            &
@@ -523,7 +531,7 @@ contains
        ! Most of the time we do things the cheap way, but occasionally we use the expensive way
        !  to avoid cumulative loss of accuracy.
 
-       if (mod(m,solv_resid) == 0) then    ! r = b - Ax every solv_resid iterations
+       if (mod(n,solv_resid) == 0) then    ! r = b - Ax every solv_resid iterations
 
           ! Halo update for x
 
@@ -534,7 +542,7 @@ contains
            
           call matvec_multiply_structured(nx,        ny,            &
                                           nz,        nhalo,         &
-                                          active_vertex,            &
+                                          indxA,     active_vertex, &
                                           Auu,       Auv,           &
                                           Avu,       Avv,           &
                                           xu,        xv,            &
@@ -565,7 +573,7 @@ contains
 
        ! Check for convergence
 
-       if (mod(m,solv_ncheck) == 0) then
+       if (mod(n,solv_ncheck) == 0) then
 
           ! Compute squared L2 norm of (r, r)
 
@@ -584,11 +592,11 @@ contains
 
           if (verbose_pcg .and. main_task) then
 !             print*, ' '
-             print*, 'iter, L2_resid, error =', m, L2_resid, err
+             print*, 'iter, L2_resid, error =', n, L2_resid, err
           endif
 
           if (err < tolerance) then
-             niters = m
+             niters = n
              exit iter_loop
           endif            
 
@@ -668,7 +676,7 @@ contains
 
   subroutine matvec_multiply_structured(nx,        ny,            &
                                         nz,        nhalo,         &
-                                        active_vertex,            &
+                                        indxA,     active_vertex, &
                                         Auu,       Auv,           &
                                         Avu,       Avv,           &
                                         xu,        xv,            &
@@ -697,14 +705,15 @@ contains
        nz,                 &  ! number of vertical layers at which velocity is computed
        nhalo                  ! number of halo layers (for scalars)
 
+    integer, dimension(-1:1,-1:1,-1:1), intent(in) :: &
+       indxA                 ! maps relative (x,y,z) coordinates to an index between 1 and 27
+    
     logical, dimension(nx-1,ny-1), intent(in) ::   &
        active_vertex          ! T for columns (i,j) where velocity is computed, else F
 
-    real(dp), dimension(-1:1,-1:1,-1:1,nz,nx-1,ny-1), intent(in) ::   &
+    real(dp), dimension(27,nz,nx-1,ny-1), intent(in) ::   &
        Auu, Auv, Avu, Avv     ! four components of assembled matrix
-                              ! 1st dimension = 3 (node and its 2 neighbors in z direction)
-                              ! 2nd dimension = 3 (node and its 2 neighbors in x direction)
-                              ! 3rd dimension = 3 (node and its 2 neighbors in y direction)
+                              ! 1st dimension = 27 (node and its nearest neighbors in x, y and z direction)
                               ! other dimensions = (z,x,y) indices
                               !
                               !    Auu  | Auv
@@ -723,7 +732,7 @@ contains
     ! local variables
     !---------------------------------------------------------------
 
-    integer :: i, j, k
+    integer :: i, j, k, m
     integer :: iA, jA, kA
     
 !WHL= debug
@@ -749,24 +758,26 @@ contains
           do k = 1, nz
 
              !TODO - Replace these three short loops with long multadds for better GPU efficiency?
+             do kA = -1,1
              do jA = -1,1
              do iA = -1,1
-             do kA = -1,1
 
              !TODO - Can we somehow get rid of this 'if' statement and still keep the xu/xv indices in bounds?
-                if ( (k+kA >= 1 .and. k+kA <= nz)     &
-      	                        .and.                     &
-                     (i+iA >= 1 .and. i+iA <= nx-1)         &
-                             .and.                     &
+                if ( (k+kA >= 1 .and. k+kA <= nz)         &
+                                .and.                     &
+                     (i+iA >= 1 .and. i+iA <= nx-1)       &
+                                .and.                     &
                      (j+jA >= 1 .and. j+jA <= ny-1) ) then
 
+                   m = indxA(iA,jA,kA)
+
                    yu(k,i,j) = yu(k,i,j)   &
-                             + Auu(kA,iA,jA,k,i,j)*xu(k+kA,i+iA,j+jA)  &
-                             + Auv(kA,iA,jA,k,i,j)*xv(k+kA,i+iA,j+jA)
+                             + Auu(m,k,i,j)*xu(k+kA,i+iA,j+jA)  &
+                             + Auv(m,k,i,j)*xv(k+kA,i+iA,j+jA)
 
                    yv(k,i,j) = yv(k,i,j)   &
-                             + Avu(kA,iA,jA,k,i,j)*xu(k+kA,i+iA,j+jA)  &
-                             + Avv(kA,iA,jA,k,i,j)*xv(k+kA,i+iA,j+jA)
+                             + Avu(m,k,i,j)*xu(k+kA,i+iA,j+jA)  &
+                             + Avv(m,k,i,j)*xv(k+kA,i+iA,j+jA)
  
                 endif   ! k+kA, i+iA, j+jA in bounds
 
@@ -961,3 +972,5 @@ contains
 !****************************************************************************
 
 end module cism_sparse_pcg
+
+!****************************************************************************
