@@ -1,0 +1,82 @@
+# run this script by typing: source mac-gnu-cmake
+# After this script completes, type: make -j 8
+# If rebuilding, type 'make clean' before running 'make -j 8'
+
+# This cmake configuration script builds simple_glide, simple_bisicles and cism_driver
+# on a Mac using the Gnu compiler suite.  If Trilinos is used, it relies on a build
+# of Trilinos located in ~/Trilinos. If BISICLES is used, it relies on a build of
+# BISICLES located in ~/BISICLES.
+
+# This script should be run from the builds/mac-gnu subdirectory
+# of the main seacism repository (reflected in the two instances
+# of "../.." below).
+
+# BUILD OPTIONS:
+# The call to cmake below include several input ON/OFF switch parameters, to
+# provide a simple way to select different build options.  These are:
+# NO_TRILINOS -- OFF by default, set to on for builds without Trilinos
+# CISM_MPI_MODE -- ON by default, only set to OFF for serial builds
+# CISM_SERIAL_MODE -- OFF by default, set to ON for serial builds.
+# CISM_BUILD_SIMPLE_GLIDE -- ON by default, set to OFF to not build simple_glide
+# CISM_BUILD_SIMPLE_BISICLES -- OFF by default, set to ON to build simple_bisicles
+#      Setting NO_TRILINOS to ON will generate a much smaller executable for this build.
+# CISM_BUILD_EXTRA_EXECUTABLES -- OFF by default, set to ON to build eis_glide and others
+# CISM_USE_GPTL_INSTRUMENTATION -- OFF by default, set to ON to use GPTL instrumentation
+
+# Serial Build Notes:  Setting NO_TRILINOS=ON, CISM_MPI_MODE=OFF, CISM_SERIAL_MODE=ON will
+# configure for a serial build.  (Note that the openmpi compilers will be used, but act as
+# pass-throughs to the underlying serial compilers in this case.  If MPI is not installed,
+# set the serial compilers directly.)
+
+# NOTE: There is currently an incompatibility between simple_bisicles and GPTL.  If
+# the CISM_BUILD_SIMPLE_BISICLES is ON, the GPTL instrumentation is turned OFF.
+
+echo
+echo Run this script by typing: source mac-cmake
+echo
+
+# remove old build data:
+rm ./CMakeCache.txt
+rm -r ./CMakeFiles
+
+echo
+echo "Doing CMake Configuration step"
+
+
+cmake \
+  -D NO_TRILINOS:BOOL=OFF \
+  -D CISM_COUPLED:BOOL=OFF \
+  -D CISM_MPI_MODE:BOOL=ON \
+  -D CISM_SERIAL_MODE:BOOL=OFF \
+  -D CISM_BUILD_SIMPLE_GLIDE:BOOL=ON \
+  -D CISM_BUILD_SIMPLE_BISICLES:BOOL=OFF \
+  -D CISM_BUILD_EXTRA_EXECUTABLES:BOOL=OFF \
+  -D CISM_USE_GPTL_INSTRUMENTATION:BOOL=OFF \
+  -D CISM_USE_CISM_FRONT_END:BOOL=OFF \
+\
+  -D CISM_GNU=ON \
+\
+  -D GLIMMER_TRILINOS_DIR=~/Trilinos/gcc-build/install \
+  -D GLIMMER_NETCDF_DIR=/opt/local \
+\
+  -D CMAKE_INSTALL_PREFIX:PATH=$PWD/install \
+  -D CMAKE_VERBOSE_MAKEFILE:BOOL=ON \
+  -D CMAKE_VERBOSE_CONFIGURE:BOOL=ON \
+\
+  -D CMAKE_CXX_COMPILER=openmpicxx \
+  -D CMAKE_C_COMPILER=openmpicc \
+  -D CMAKE_Fortran_COMPILER=openmpif90 \
+\
+  -D CISM_MPI_BASE_DIR=/opt/local \
+\
+  -D CMAKE_CXX_FLAGS:STRING="-g -02" \
+  -D CMAKE_Fortran_FLAGS="-g -O2 -ffree-line-length-none" \
+\
+  -D GLIMMER_EXTRA_LIBS="-lblas" \
+\
+  -D CISM_MPI_INC_DIR=/opt/local/lib \
+\
+  -D BISICLES_INTERFACE_DIR=~/BISICLES/code/interface \
+  ../..
+
+# Note: last argument above  "../.."  is path to top seacism directory
