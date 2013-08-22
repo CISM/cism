@@ -1537,7 +1537,14 @@ function vertideriv(upn, varb, thck)
   ! increases moving downward in the ice column (up=1 is the sfc, 
   ! up=upn is the bed).
 
-  vertideriv(1:upn-1) = dupm * (varb(2:upn) - varb(1:upn-1)) / thck
+  integer :: k
+
+!WHL - Rewriting to get code to run on Mac with array bounds checking
+!!  vertideriv(1:upn-1) = dupm * (varb(2:upn) - varb(1:upn-1)) / thck
+
+  do k = 1, upn-1 
+     vertideriv(k) = dupm(k) * (varb(k+1) - varb(k)) / thck
+  enddo
 
   return
 
