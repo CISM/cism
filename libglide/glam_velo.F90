@@ -55,13 +55,10 @@ contains
         !TODO - Determine how much of the following is needed by glam solver only.
 
         use glimmer_global, only : dp
-        use glimmer_physcon, only: gn, scyr
-        use glimmer_paramets, only: thk0, len0, vel0, vis0
         use glimmer_log
         use glide_types
         use glam_strs2, only: glam_velo_solver, JFNK_velo_solver
-        use glissade_velo_higher, only: glissade_velo_higher_solve
-        
+        use glissade_basal_traction, only: calcbeta
         use glam_grid_operators,  only: glam_geometry_derivs, df_field_2d_staggered
         use glide_grid_operators, only: stagvarb    !TODO - Is this needed?  Seems redundant with df_field_2d_staggered
         use glide_mask
@@ -71,13 +68,6 @@ contains
 
         integer, dimension(model%general%ewn-1, model%general%nsn-1)  :: geom_mask_stag
         real(dp), dimension(model%general%ewn-1, model%general%nsn-1) :: latbc_norms_stag
-
-!WHL - temporary velocity arrays to remove scaling
-!!        real(dp), dimension(model%general%upn, model%general%ewn-1, model%general%nsn-1) ::  &
-!!             uvel, vvel    ! uvel and vvel with scale factor (vel0) removed
-
-        !WHL - debug
-!!        integer :: i, j
 
         !-------------------------------------------------------------------
         ! Velocity prep; compute geometry info.
@@ -196,10 +186,23 @@ contains
         ! save the final mask to 'dynbcmask' for exporting to netCDF output file
         model%velocity%dynbcmask = geom_mask_stag
 
+        ! Compute or prescribe the basal traction field 'beta'
+        ! Note: The initial value of model%velocity%beta can change depending on
+        !       the value of model%options%which_ho_babc.
+
+        call calcbeta (model%options%which_ho_babc,                  & 
+                       model%numerics%dew,      model%numerics%dns,  &
+                       model%general%ewn,       model%general%nsn,   &
+                       model%velocity%uvel(model%general%upn,:,:),   &
+                       model%velocity%vvel(model%general%upn,:,:),   &
+                       model%temper%bwat,                            &
+                       model%basalproc%mintauf,                      &
+                       geom_mask_stag,                               &
+                       model%velocity%beta)
+
         !-------------------------------------------------------------------
         ! Compute the velocity field
         !-------------------------------------------------------------------
-
 
         if (model%options%which_ho_nonlinear == HO_NONLIN_PICARD ) then ! Picard (standard solver)
 
@@ -217,7 +220,7 @@ contains
                                   model%geomderv%dusrfdew, model%geomderv%dusrfdns,           &
                                   model%geomderv%dlsrfdew, model%geomderv%dlsrfdns,           & 
                                   model%geomderv%stagthck, model%temper%flwa,                 &
-                                  model%temper%bwat,       model%basalproc%mintauf,           & 
+!!                                  model%temper%bwat,       model%basalproc%mintauf,           & 
                                   model%velocity%btraction,                                   & 
                                   geom_mask_stag,                                             &
                                   model%options%which_ho_babc,                                &

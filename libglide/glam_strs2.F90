@@ -259,7 +259,6 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                             dusrfdew, dusrfdns,     &
                             dlsrfdew, dlsrfdns,     &
                             stagthck, flwa,         &
-                            bwat,     mintauf,      &
                             btraction,              &
                             umask,                  &
                             whichbabc,              &
@@ -293,18 +292,12 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
   real(dp), dimension(:,:),   intent(in)  :: dusrfdew, dusrfdns     ! upper surf grads
   real(dp), dimension(:,:),   intent(in)  :: dlsrfdew, dlsrfdns     ! basal surf grads
   real(dp), dimension(:,:),   intent(in)  :: stagthck               ! staggered thickness
-  real(dp), dimension(:,:),   intent(in)  :: bwat                   ! thickness of basal water layer
-  real(dp), dimension(:,:),   intent(in)  :: mintauf                ! till yield stress
   real(dp), dimension(:,:,:), intent(inout) :: btraction            ! consistent basal traction array
   real(dp), dimension(:,:,:), intent(in)  :: flwa                   ! flow law rate factor
 
-  ! This is the betasquared field from CISM (externally specified), and should eventually
-  ! take the place of the subroutine 'calcbetasquared' below. For now, there is simply an option
-  ! in the subroutine 'calcbetasquared' (case 9) to use this external, CISM specified value for
-  ! the betasquared field as opposed to one of the values calculated internally.
-  real(dp), dimension(:,:),   intent(in)  :: beta
+  real(dp), dimension(:,:),   intent(in)  :: beta  ! basal traction coefficient, computed in calcbeta
 
-  integer, intent(in) :: whichbabc    ! options for betasquared field to use
+  integer, intent(in) :: whichbabc    ! options for beta basal boundary condition
   integer, intent(in) :: whichefvs    ! options for efvs calculation (calculate it or make it uniform)
   integer, intent(in) :: whichresid   ! options for method to use when calculating vel residul
   integer, intent(in) :: whichnonlinear  ! options for which method for doing elliptic solve
@@ -558,9 +551,9 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      stagthck,    whichbabc,      &
                      uindx,       umask,          &
                      lsrf,        topg,           &
-                     mintauf,     flwa,           &
+                     flwa,                        &
                      beta,        btraction,      &
-                     bwat,        0 )
+                     0 )
  call t_stopf("PICARD_findcoefstr1")
 
  call t_startf("PICARD_solver_pre1")
@@ -632,9 +625,10 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      stagthck,    whichbabc,      &
                      uindx,       umask,          &
                      lsrf,        topg,           &
-                     mintauf,     flwa,           &
+                     flwa,                        &
                      beta,        btraction,      &
-                     bwat,        0 )
+                     0 )
+
  call t_stopf("PICARD_findcoefstr2")
 
  call t_startf("PICARD_solver_pre2")
@@ -702,9 +696,9 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      stagthck,    whichbabc,      &
                      uindx,       umask,          &
                      lsrf,        topg,           &
-                     mintauf,     flwa,           &
+                     flwa,                        &
                      beta,        btraction,      &
-                     bwat,        1 )
+                     0 )
 
     call findcoefstr(ewn,  nsn,   upn,            &
                      dew,  dns,   sigma,          &
@@ -720,9 +714,9 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      stagthck,    whichbabc,      &
                      uindx,       umask,          &
                      lsrf,        topg,           &
-                     mintauf,     flwa,           &
+                     flwa,                        &
                      beta,        btraction,      &
-                     bwat,        1 )
+                     0 )
 
  call t_stopf("PICARD_findcoefstr3")
 
@@ -897,16 +891,8 @@ subroutine JFNK_velo_solver  (model,umask)
   real(dp), dimension(:,:)   ,pointer :: dlsrfdew, dlsrfdns
   real(dp), dimension(:,:)   ,pointer :: stagthck
   real(dp), dimension(:,:,:) ,pointer :: flwa
-  real(dp), dimension(:,:)   ,pointer :: mintauf
-  real(dp), dimension(:,:,:) ,pointer :: btraction            ! consistent basal traction array
-  
-!TODO - Anything to update here?
-  !*SFP* This is the betasquared field from CISM (externally specified), and should eventually
-  ! take the place of the subroutine 'calcbetasquared' below (for now, using this value instead
-  ! will simply be included as another option within that subroutine) 
-  real(dp), dimension(:,:)  ,pointer :: beta 
-
-  real(dp), dimension(:,:)  ,pointer :: bwat 
+  real(dp), dimension(:,:,:) ,pointer :: btraction ! consistent basal traction array
+  real(dp), dimension(:,:)  ,pointer :: beta       ! basal traction coefficient, computed in calcbeta 
 
   integer :: whichbabc
   integer :: whichefvs
@@ -958,15 +944,14 @@ subroutine JFNK_velo_solver  (model,umask)
   dlsrfdns => model%geomderv%dlsrfdns(:,:)
   stagthck => model%geomderv%stagthck(:,:)
   flwa => model%temper%flwa(:,:,:)
-  mintauf => model%basalproc%mintauf(:,:)
   btraction => model%velocity%btraction(:,:,:)
   whichbabc = model%options%which_ho_babc
   whichefvs = model%options%which_ho_efvs
   whichresid = model%options%which_ho_resid
   whichsparse = model%options%which_ho_sparse
   whichnonlinear = model%options%which_ho_nonlinear
-  beta => model%velocity%beta(:,:)
-  bwat => model%temper%bwat(:,:)
+  !Note: The beta passed into the solver is equal to model%velocity%beta
+  beta => model%velocity%beta(:,:)   
   uvel => model%velocity%uvel(:,:,:)
   vvel => model%velocity%vvel(:,:,:)
   uflx => model%velocity%uflx(:,:)
@@ -1163,9 +1148,9 @@ end if
                      stagthck,    whichbabc,      &
                      uindx,       umask,          &
                      lsrf,        topg,           &
-                     mintauf,     flwa,           &
+                     flwa,                        &
                      beta,        btraction,      &
-                     bwat,        1 )
+                     0 )
 
    call findcoefstr(ewn,  nsn,   upn,             &
                      dew,  dns,   sigma,          &
@@ -1181,9 +1166,9 @@ end if
                      stagthck,    whichbabc,      &
                      uindx,       umask,          &
                      lsrf,        topg,           &
-                     mintauf,     flwa,           &
+                     flwa,                        &
                      beta,        btraction,      &
-                     bwat,        1 )
+                     0 )
 
   inisoln = .true.
 
@@ -2236,7 +2221,7 @@ end subroutine reset_effstrmin
   real(dp) :: dew, dns
   real(dp), dimension(:)  ,pointer :: sigma, stagsigma
   real(dp), dimension(:,:) ,pointer :: thck, dusrfdew, dthckdew, dusrfdns, dthckdns, &
-                                         dlsrfdew, dlsrfdns, stagthck, lsrf, topg, mintauf, beta, bwat
+                                         dlsrfdew, dlsrfdns, stagthck, lsrf, topg, beta
   real(dp), dimension(:,:) ,pointer ::  d2usrfdew2, d2thckdew2, d2usrfdns2, d2thckdns2
   real(dp), dimension(:,:,:) ,pointer :: efvs, btraction
   real(dp), dimension(:,:,:) ,pointer :: uvel, vvel, flwa
@@ -2280,9 +2265,8 @@ end subroutine reset_effstrmin
   d2thckdns2 => fptr%geomderv%d2thckdns2(:,:)
   d2usrfdew2 => fptr%geomderv%d2usrfdew2(:,:)
   d2usrfdns2 => fptr%geomderv%d2usrfdns2(:,:)
-  mintauf => fptr%basalproc%mintauf(:,:)
+  !Note: The beta passed into the solver is equal to model%velocity%beta
   beta => fptr%velocity%beta(:,:)
-  bwat => fptr%temper%bwat(:,:)
 !intent (inout) terms
   btraction => fptr%velocity%btraction(:,:,:)
   flwa => fptr%temper%flwa(:,:,:)
@@ -2355,9 +2339,9 @@ end subroutine reset_effstrmin
                      stagthck,    whichbabc,      &
                      ui,       um,          &
                      lsrf,        topg,           &
-                     mintauf,     flwa,           &
+                     flwa,                        &
                      beta,        btraction,      &
-                     bwat,        0 )
+                     0 )
 
  call t_stopf("Calc_F_findcoefstr1")
 
@@ -2404,11 +2388,11 @@ end subroutine reset_effstrmin
                      d2usrfdewdns,d2thckdewdns,   &
                      dlsrfdew,    dlsrfdns,       &
                      stagthck,    whichbabc,      &
-                     ui,       um,          &
+                     ui,          um,             &
                      lsrf,        topg,           &
-                     mintauf,     flwa,           &
+                     flwa,                        &
                      beta,        btraction,      &
-                     bwat,        0 )
+                     0 )
 
  call t_stopf("Calc_F_findcoefstr2")
 
@@ -3015,14 +2999,15 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                        stagthck,    whichbabc,      &
                        uindx,       mask,           &
                        lsrf,        topg,           &
-                       mintauf,     flwa,           &
+                       flwa,                        &
                        beta,        btraction,      &
-                       bwat,        assembly )
+                       assembly )
 
   ! Main subroutine for determining coefficients that go into the LHS matrix A 
   ! in the expression Au = b. Calls numerous other subroutines, including boundary
   ! condition subroutines, which determine "b".
 
+!!  use glissade_basal_traction, only: calcbeta
   use parallel
 !!  use glimmer_horiz_bcs, only: ghost_shift
 
@@ -3043,16 +3028,13 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                                                   dlsrfdew,   dlsrfdns,      &
                                                   thck, lsrf, topg
 
-  real(dp), dimension(:,:), intent(in) :: mintauf
   real(dp), dimension(:,:), intent(in) :: beta
-  real(dp), dimension(:,:), intent(in) :: bwat 
   real(dp), dimension(:,:,:), intent(in) :: flwa
   real(dp), dimension(:,:,:), intent(inout) :: btraction
 
   integer, dimension(:,:), intent(in) :: mask, uindx
   integer, intent(in) :: pt, whichbabc
 
-  real(dp), dimension(ewn-1,nsn-1) :: betasquared
   real(dp), dimension(2,2,2) :: localefvs
   real(dp), dimension(3,3,3) :: localothervel
   real(dp), dimension(upn) :: boundaryvel
@@ -3073,20 +3055,9 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
     up_start = 1
   end if
 
-  ! calculate/specify the map of 'betasquared', for use in the basal boundary condition. 
-  ! Input to the subroutine 'bodyset' (below) ... 
-
-  call calcbetasquared (whichbabc,              &
-                        dew,        dns,        &
-                        ewn,        nsn,        &
-                        lsrf,       topg,       &
-                        thck,                   &
-                        thisvel(upn,:,:),       &
-                        othervel(upn,:,:),      &
-                        mintauf, beta,          &
-                        betasquared, mask,      &
-                        bwat )
-  ! intent(out) betasquared
+  ! OLD CODE: calculate/specify the map of 'beta', for use in the basal boundary condition. 
+  !           Input to the subroutine 'bodyset' (below) ... 
+  ! WHL: beta is now computed outside the glam solver and passed to the solver with intent(in)
 
   ! Note loc2_array is defined only for non-halo ice grid points.
   ! JEFFLOC returns an array with starting indices into solution vector for each ice grid point.
@@ -3222,7 +3193,7 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                        thisvel(up-1+shift(1):up+1+shift(1),  &
                        ew-1+shift(2):ew+1+shift(2),  &
                        ns-1+shift(3):ns+1+shift(3)), &
-                       betasquared(ew,ns),           &
+                       beta(ew,ns),                  &
                        btraction,                    &
                        whichbabc, assembly )
         enddo  ! upn
@@ -3267,7 +3238,7 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                        thisvel(up-1+shift(1):up+1+shift(1),  &
                        ew-1+shift(2):ew+1+shift(2),  &
                        ns-1+shift(3):ns+1+shift(3)), &
-                       betasquared(ew,ns),           &
+                       beta(ew,ns),                  &
                        btraction,                    &
                        whichbabc, assembly,          &              
                        abar=flwabar)
@@ -3322,7 +3293,7 @@ subroutine bodyset(ew,  ns,  up,           &
                    local_efvs,             &
                    local_othervel,         &
                    local_thisvel,          &
-                   betasquared,            &
+                   beta,                   &
                    btraction,              &
                    whichbabc, assembly,    &
                    abar)
@@ -3349,7 +3320,7 @@ subroutine bodyset(ew,  ns,  up,           &
   ! "local_othervel" is the other vel component (i.e. u when v is being calc and vice versa),
   ! which is taken as a known value (terms involving it are moved to the RHS and treated as sources)
   real(dp), dimension(3,3,3), intent(in) :: local_othervel, local_thisvel
-  real(dp), intent(in) :: betasquared
+  real(dp), intent(in) :: beta
   real(dp), dimension(:,:,:), intent(inout) :: btraction
   real(dp), intent(in), optional :: abar
 
@@ -3406,12 +3377,12 @@ subroutine bodyset(ew,  ns,  up,           &
    
            if( whichbabc == HO_BABC_NO_SLIP )then
                 bcflag = (/0,0/)             ! flag for u=v=0 at bed; doesn't work well so commented out here...
-                                             ! better to specify very large value for betasquared below
+                                             ! better to specify very large value for beta below
            elseif( whichbabc == HO_BABC_CONSTANT     .or. whichbabc == HO_BABC_SIMPLE         .or.  &
                    whichbabc == HO_BABC_YIELD_PICARD .or. whichbabc == HO_BABC_BETA_BWAT .or.  &
                    whichbabc == HO_BABC_LARGE_BETA   .or. whichbabc == HO_BABC_EXTERNAL_BETA) then
-                bcflag = (/1,1/)              ! flag for specififed stress at bed: Tau_zx = betasquared * u_bed,
-                                              ! where betasquared is MacAyeal-type traction parameter
+                bcflag = (/1,1/)              ! flag for specififed stress at bed: Tau_zx = beta * u_bed,
+                                              ! where beta is MacAyeal-type traction parameter
            end if   
 
            loc2plusup = loc2(1,:) + up + 1   ! advance the sparse matrix / rhs row vector index by 1 ...
@@ -3437,10 +3408,10 @@ subroutine bodyset(ew,  ns,  up,           &
         ! add on coeffs. associated with vertical shear stresses
         g(:,3,3) = g(:,3,3) &
                  + vertimainbc( stagthck(ew,ns), bcflag, dup(up),              &
-                                local_efvs,      betasquared,   g_vert,  nz ) 
+                                local_efvs,      beta,   g_vert,  nz ) 
 
         !! scale basal bc coeffs when using JFNK solver 
-        scalebabc = scalebasalbc( g, bcflag, lateralboundry, betasquared, local_efvs )
+        scalebabc = scalebasalbc( g, bcflag, lateralboundry, beta, local_efvs )
         g = g / scalebabc ! put the coeff. for the b.c. equation in the same place as the prev. equation
         ! (w.r.t. cols), on a new row ...
         call fillsprsebndy( g, loc2plusup(1), loc_latbc, up, normal, pt )
@@ -3618,13 +3589,13 @@ subroutine bodyset(ew,  ns,  up,           &
 
            if( whichbabc == HO_BABC_NO_SLIP )then
                 bcflag = (/0,0/)             ! flag for u=v=0 at bed; doesn't work well so commented out here...
-                                             ! better to specify very large value for betasquared below
+                                             ! better to specify very large value for beta below
 
            elseif( whichbabc == HO_BABC_CONSTANT     .or. whichbabc == HO_BABC_SIMPLE         .or.  &
                    whichbabc == HO_BABC_YIELD_PICARD .or. whichbabc == HO_BABC_BETA_BWAT .or.  &
                    whichbabc == HO_BABC_LARGE_BETA   .or. whichbabc == HO_BABC_EXTERNAL_BETA) then
-                bcflag = (/1,1/)              ! flag for specififed stress at bed: Tau_zx = betasquared * u_bed,
-                                              ! where betasquared is MacAyeal-type traction parameter
+                bcflag = (/1,1/)              ! flag for specififed stress at bed: Tau_zx = beta * u_bed,
+                                              ! where beta is MacAyeal-type traction parameter
            end if
            
            loc2plusup = loc2(1,:) + up + 1   ! advance the sparse matrix / rhs row vector index by 1 ...
@@ -3646,10 +3617,10 @@ subroutine bodyset(ew,  ns,  up,           &
         ! get matrix coefficients that go with vertical stresses at sfc or basal boundary 
         g(:,2,2) = g(:,2,2)   &
                  + vertimainbcos( stagthck(ew,ns),bcflag,dup(up),local_efvs, &
-                                    betasquared, g_vert, nz )
+                                    beta, g_vert, nz )
 
         !! scale basal bc coeffs when using JFNK solver 
-        scalebabc = scalebasalbc( g, bcflag, lateralboundry, betasquared, local_efvs )
+        scalebabc = scalebasalbc( g, bcflag, lateralboundry, beta, local_efvs )
         g = g / scalebabc
    
         loc2plusup = loc2(1,:) + up  ! Need to reset this index since we want the bc on the actual row
@@ -3979,14 +3950,14 @@ end function croshorizmain
 ! start of functions to deal with higher-order boundary conditions at sfc and bed
 ! ***************************************************************************
 
-function vertimainbc(thck, bcflag, dup, efvs, betasquared, g_vert, nz )
+function vertimainbc(thck, bcflag, dup, efvs, beta, g_vert, nz )
 
 ! altered form of 'vertimain' that calculates coefficients for higher-order
 ! b.c. that go with the 'normhorizmain' term: -(X/H)^2 * dsigma/dzhat * du/dsigma 
 
     implicit none
 
-    real(dp), intent(in) :: dup, thck, betasquared 
+    real(dp), intent(in) :: dup, thck, beta 
     real(dp), intent(in) :: nz                      ! sfc normal vect comp in z-dir
     real(dp), intent(in), dimension(2,2,2) :: efvs
     real(dp), intent(out), dimension(3,3,3) :: g_vert
@@ -4017,12 +3988,12 @@ function vertimainbc(thck, bcflag, dup, efvs, betasquared, g_vert, nz )
 
             ! last set of terms is mean visc. of ice nearest to the bed
             vertimainbc(2) = vertimainbc(2)   &
-                           + ( betasquared / ( sum( efvs(2,:,:) ) / 4.d0 ) ) * (len0 / thk0)
+                           + ( beta / ( sum( efvs(2,:,:) ) / 4.d0 ) ) * (len0 / thk0)
     end if
 
     ! for higher-order BASAL B.C. U=V=0, in x ('which'=1) or y ('which'=2) direction ...
     ! NOTE that this is not often implemented, as it is generally sufficient to implement 
-    ! an "almost" no slip BC by just making the coeff. for betasquared very large (and the 
+    ! an "almost" no slip BC by just making the coeff. for beta very large (and the 
     ! the code converges more quickly/stably in this case than for actual no-slip).
     else if( bcflag(1) == 0 )then
 
@@ -4037,14 +4008,14 @@ end function vertimainbc
 
 !***********************************************************************
 
-function vertimainbcos(thck, bcflag, dup, efvs, betasquared, g_vert, nz )
+function vertimainbcos(thck, bcflag, dup, efvs, beta, g_vert, nz )
 
 ! altered form of 'vertimain' that calculates coefficients for higher-order
 ! b.c. that go with the 'normhorizmain' term: -(X/H)^2 * dsigma/dzhat * du/dsigma
 
     implicit none
 
-    real (dp), intent(in) :: dup, thck, betasquared
+    real (dp), intent(in) :: dup, thck, beta
     real (dp), intent(in) :: nz                      ! sfc normal vect comp in z-dir
     real (dp), intent(in), dimension(2,2,2) :: efvs
     real (dp), intent(out), dimension(3,3,3) :: g_vert
@@ -4105,15 +4076,15 @@ function vertimainbcos(thck, bcflag, dup, efvs, betasquared, g_vert, nz )
 
             ! last set of terms is mean visc. of ice nearest to the bed
 !            vertimainbcos(3) = vertimainbcos(3)   &
-!                           + ( betasquared / efvsbar_bed ) * (len0 / thk0)
+!                           + ( beta / efvsbar_bed ) * (len0 / thk0)
             vertimainbcos(3) = vertimainbcos(3)   &
-                           + ( betasquared ) * (len0 / thk0)
+                           + ( beta ) * (len0 / thk0)
 
     end if
 
     ! for higher-order BASAL B.C. U=V=0, in x ('which'=1) or y ('which'=2) direction ...
     ! NOTE that this is not often implemented, as it is generally sufficient to implement
-    ! an "almost" no slip BC by just making the coeff. for betasquared very large (and the
+    ! an "almost" no slip BC by just making the coeff. for beta very large (and the
     ! the code converges more quickly/stably in this case than for actual no-slip).
     if( bcflag(1) == 0 )then
 
@@ -5180,153 +5151,6 @@ end function indshift
 
 !***********************************************************************
 
-subroutine calcbetasquared (whichbabc,               &
-                            dew,         dns,        &
-                            ewn,         nsn,        &
-                            lsrf,        topg,       &
-                            thck,                    &
-                            thisvel,     othervel,   &
-                            mintauf, beta,           &
-                            betasquared, mask,       &
-                            bwat,                    &
-                            betafile)
-
-  ! subroutine to calculate map of betasquared sliding parameter, based on 
-  ! user input ("whichbabc" flag, from config file as "which_ho_babc").
-
-  implicit none
-
-  integer, intent(in) :: whichbabc
-  integer, intent(in) :: ewn, nsn
-
-  real(dp), intent(in) :: dew, dns
-  real(dp), intent(in), dimension(:,:) :: lsrf, topg, thck
-  real(dp), intent(in), dimension(:,:) :: thisvel, othervel, mintauf, beta, bwat
-
-  integer, intent(in), dimension(:,:) :: mask 
-
-  real(dp), intent(out), dimension(ewn-1,nsn-1) :: betasquared
-
-  character (len=30), intent(in), optional :: betafile
-  real(dp) :: smallnum = 1.0d-2
-  real(dp), dimension(ewn) :: grounded
-  real(dp) :: alpha, dx, thck_gl, betalow, betahigh, roughness 
-  integer :: ew, ns
-
-  ! SFP added for making beta a function of basal water flux 
-  real(dp), dimension(:,:), allocatable :: unstagbetasquared
-  real(dp) :: C, m
-
-  ! Note that the dimensional scale (tau0 / vel0 / scyr ) is used here for making the basal traction coeff.
-  ! betasquared dimensional, within the subroutine (mainly for debugging purposes), and then non-dimensional 
-  ! again before being sent back out for use in the code. This scale is the same as "scale_beta" defined in 
-  ! libglimmer/glimmer_scales.F90. See additional notes where that scale is defined. In general, below, it is
-  ! assumed that values for betasquared being accessed from inside the code are already dimensionless and 
-  ! any hardwired values have units of Pa yr/m. 
-
-!TODO - Remove scaling here?
-
-  select case(whichbabc)
-
-    case(HO_BABC_CONSTANT)  ! constant value; useful for debugging and test cases
-
-      betasquared(:,:) = 10.d0       ! Pa yr/m
-
-    case(HO_BABC_SIMPLE)    ! simple pattern; also useful for debugging and test cases
-                            ! (here, a strip of weak bed surrounded by stronger bed to simulate an ice stream)
-
-      betasquared(:,:) = 1.d4        ! Pa yr/m
-
-!TODO - Should these 5's be hardwired?  This will give strange results in parallel.
-!       Could fix by applying small value of betasquared on global domain and scattering to local.  
-!TODO - Is 10.d1 correct?  (Change to 100.d0?)
-      do ns=5, nsn-5
-      do ew=1, ewn-1
-        betasquared(ew,ns) = 10.d1      ! Pa yr/m
-      end do
-      end do
-
-    case(HO_BABC_YIELD_PICARD)  ! take input value for till yield stress and force betasquared to be implemented such
-                                ! that plastic-till sliding behavior is enforced (see additional notes in documentation).
-
-      !!! NOTE: Eventually, this option will provide the till yield stress as calculate from the basal processes
-      !!! submodel. Currently, to enable sliding over plastic till, simple specify the value of "betasquared" as 
-      !!! if it were the till yield stress (in units of Pascals).
-
-       !TODO - Will we ever use mintauf?  It is passed throughout the code but never used
-!      betasquared = mintauf*tau0 / dsqrt( (thisvel*vel0*scyr)**2 + (othervel*vel0*scyr)**2 + (smallnum)**2 )
-
-      betasquared(:,:) = ( beta(:,:) * ( tau0 / vel0 / scyr ) ) &     ! Pa yr/m
-                         / dsqrt( (thisvel(:,:)*vel0*scyr)**2 + (othervel(:,:)*vel0*scyr)**2 + (smallnum)**2 )
-
-    case(HO_BABC_BETA_BWAT)  ! set value of beta as proportional to value of bwat                                         
-
-      C = 10.d0
-      m = 1.d0
-
-      allocate(unstagbetasquared(ewn,nsn))
-
-      unstagbetasquared(:,:) = 200.d0       
-
-      where ( bwat > 0.d0 .and. unstagbetasquared > 200.d0 )
-          unstagbetasquared = C / ( bwat**m )
-      endwhere
-
-      ! average betas from unstag grid onto stag grid
-      betasquared = 0.5d0 * ( unstagbetasquared(1:ewn-1,:) + unstagbetasquared(2:ewn,:) )
-      betasquared = 0.5d0 * ( unstagbetasquared(:,1:nsn-1) + unstagbetasquared(:,2:nsn) )
-   
-      deallocate(unstagbetasquared) 
-
-    case(HO_BABC_LARGE_BETA)      ! frozen (u=v=0) ice-bed interface
-
-      betasquared(:,:) = 1.d10       ! Pa yr/m
-
-    case(HO_BABC_EXTERNAL_BETA)   ! use value passed in externally from CISM (NOTE not dimensional when passed in) 
-
-      ! scale CISM input value to dimensional units of (Pa yr/m)
-
-      betasquared(:,:) = beta(:,:) * ( tau0 / vel0 / scyr )
-
-      ! this is a check for NaNs, which indicate, and are replaced by no slip
-      !TODO: Not sure I follow the logic of this ... keep/omit? Added by the UMT crew at some point
-
-      do ns=1, nsn-1
-      do ew=1, ewn-1 
-        if( betasquared(ew,ns) /= betasquared(ew,ns) )then
-          betasquared(ew,ns) = 1.d10     ! Pa yr/m
-        endif 
-      end do
-      end do
-
-      ! check for areas where ice is floating or grounded and make sure beta in these regions is 0  
-
-      !TODO: Ideally, these mask values should not be hardwired, but keeping it this way for now until
-      ! we decide which mask values to keep/remove
-
-      do ns=1, nsn-1
-      do ew=1, ewn-1 
-        !if( ( mask(ew,ns) >= 21 .and. mask(ew,ns) <= 23 ) .or. ( mask(ew,ns) >= 41 .and. mask(ew,ns) <= 57 ) &
-        !! less agressive than apply beta = 0 at g.l., which will make some test cases fail (e.g. circ. shelf)
-        !! because of lack of fully grounded area.
-        if( ( mask(ew,ns) >= 41 .and. mask(ew,ns) <= 43 ) &     
-             .or. mask(ew,ns) == 9 .or. mask(ew,ns) == 11 )then
-           betasquared(ew,ns) = 0.d0
-        endif
-      end do
-      end do
-
-    ! NOTE: cases (HO_BABC_NO_SLIP) and (HO_BABC_YIELD_NEWTON) are handled external to this subroutine
-
-  end select
-
-  ! convert the dimensional value of betasquared to non-dimensional units by dividing by scale factor.
-  betasquared(:,:) = betasquared(:,:) / ( tau0 / vel0 / scyr )    !! scale in parentheses is: Pa * sec/m * yr/sec = Pa yr/m
-
-end subroutine calcbetasquared
-
-!***********************************************************************
-
 function vertintg(upn, sigma, in)
 
   implicit none
@@ -5843,7 +5667,7 @@ function scalebasalbc( coeffblock, bcflag, lateralboundry, beta, efvs )
   logical :: lateralboundry
   real(dp), dimension(:,:,:), intent(in) :: coeffblock 
   real(dp), dimension(:,:,:), intent(in) :: efvs       
-  real(dp), intent(in) :: beta
+  real(dp), intent(in) :: beta   !TODO - Remove? Commented out in computation below
 
   real(dp) :: scale, scalebasalbc 
 
@@ -5857,13 +5681,13 @@ function scalebasalbc( coeffblock, bcflag, lateralboundry, beta, efvs )
            ! NOTE that relevant coeffs are stored in diff parts of block depending 
            ! on type of boudnary     
            if( lateralboundry )then
-               scale = abs( coeffblock(3,3,3) );  
+              scale = abs( coeffblock(3,3,3) );  
            else
-               scale = abs( coeffblock(3,2,2) );     
+              scale = abs( coeffblock(3,2,2) );     
            end if                
 
            if( scale <= 0.d0 )then
-            scale = 1.d0
+              scale = 1.d0
            end if
 
         else
