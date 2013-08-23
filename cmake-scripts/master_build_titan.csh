@@ -200,28 +200,32 @@ else
   # simplest case, runs all builds and on a range of small processor counts 
   echo 'submitting jobs to compute nodes'
   #diagnostic dome test case
-  #cd $TEST_DIR/reg_test/dome30/diagnostic
-  #qsub ijob
+  cd $TEST_DIR/reg_test/dome30/diagnostic
+  qsub ijob
 
   #evolving dome test case
   #cd $TEST_DIR/reg_test/dome30/evolving
   #qsub ijob
 
-  # ISMIP test case A - not operational until BC set
-  #cd $TEST_DIR/reg_test/ismip-hom-a/80km
-  #qsub ijob
+  # ISMIP test case A 
+  cd $TEST_DIR/reg_test/ismip-hom-a/80km
+  qsub ijob
+
+  # ISMIP test case A 
+  cd $TEST_DIR/reg_test/ismip-hom-a/20km
+  qsub ijob
 
   # ISMIP test case C - not operational until BC set
   #cd $TEST_DIR/reg_test/ismip-hom-c/80km
   #qsub ijob
 
   # confined shelf to periodic BC
-  #cd $TEST_DIR/reg_test/confined-shelf
-  #qsub ijob
+  cd $TEST_DIR/reg_test/confined-shelf
+  qsub ijob
 
   # circular shelf to periodic BC
-  #cd $TEST_DIR/reg_test/circular-shelf
-  #qsub ijob
+  cd $TEST_DIR/reg_test/circular-shelf
+  qsub ijob
 
   # smaller GIS case to test realistic ice sheet configuration
   #cd $TEST_DIR/reg_test/gis_10km

@@ -65,12 +65,16 @@ cd $TEST_DIR/reg_test/dome30/diagnostic
 sh macjob
 
 #evolving dome test case
-cd $TEST_DIR/reg_test/dome30/evolving
+#cd $TEST_DIR/reg_test/dome30/evolving
+#sh macjob
+
+## ISMIP test case A - not operational until BC set
+cd $TEST_DIR/reg_test/ismip-hom-a/80km
 sh macjob
 
 ## ISMIP test case A - not operational until BC set
-#cd $TEST_DIR/reg_test/ismip-hom-a/80km
-#sh macjob
+cd $TEST_DIR/reg_test/ismip-hom-a/20km
+sh macjob
 
 ## ISMIP test case C - not operational until BC set
 #cd $TEST_DIR/reg_test/ismip-hom-c/80km
@@ -85,7 +89,7 @@ cd $TEST_DIR/reg_test/circular-shelf
 sh macjob
 
 ## GIS 10km test, 1 time step
-cd $TEST_DIR/reg_test/gis_10km
-sh macjob
+#cd $TEST_DIR/reg_test/gis_10km
+#sh macjob
 
 endif

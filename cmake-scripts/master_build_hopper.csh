@@ -132,16 +132,20 @@ cd $TEST_DIR/reg_test/dome30/diagnostic
 qsub hopjob
 
 #evolving dome test case
-cd $TEST_DIR/reg_test/dome30/evolving
-qsub hopjob
+#cd $TEST_DIR/reg_test/dome30/evolving
+#qsub hopjob
 
-# ISMIP test case A - not operational until BC set
+# ISMIP test case A 
 cd $TEST_DIR/reg_test/ismip-hom-a/80km
 qsub hopjob
 
-# ISMIP test case C - not operational until BC set
-cd $TEST_DIR/reg_test/ismip-hom-c/80km
+# ISMIP test case A 
+cd $TEST_DIR/reg_test/ismip-hom-a/20km
 qsub hopjob
+
+# ISMIP test case C - not operational until BC set
+#cd $TEST_DIR/reg_test/ismip-hom-c/80km
+#qsub hopjob
 
 # confined shelf to periodic BC
 cd $TEST_DIR/reg_test/confined-shelf
@@ -152,8 +156,8 @@ cd $TEST_DIR/reg_test/circular-shelf
 qsub hopjob
 
 # smaller GIS case to test realistic ice sheet configuration
-cd $TEST_DIR/reg_test/gis_10km
-qsub hopjob
+#cd $TEST_DIR/reg_test/gis_10km
+#qsub hopjob
 
 # non regression test cases, default not run: 
 
