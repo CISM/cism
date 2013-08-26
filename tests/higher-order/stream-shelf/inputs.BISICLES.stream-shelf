@@ -2,6 +2,7 @@
 main.maxTime = 10000000000  # maximum time to run to
 main.maxStep = 1   # maximum number of steps to run
 #main.maxStep = 20000   # maximum number of steps to run
+main.poutBaseName = pout-L1L2
 main.constitutiveRelation = GlensLaw
 main.constitutiveRelation = L1L2
 #main.constitutiveRelation = constMu
@@ -16,6 +17,7 @@ glimmerInterface.numGhost = 2 2
 glimmerInterface.nodalInitialData = 0
 
 main.domain_size = 154000 54000
+main.domain_size = 308000 54000
 
 CalvingModel.type = NoCalvingModel
 
@@ -24,6 +26,10 @@ surfaceFlux.type = zeroFlux
 basalFlux.type = zeroFlux
 
 geometry.problem_type = fortran
+geometry.setDefaultValues = true
+geometry.thicknessDefault = 0.0
+geometry.topographyDefault = -1000.0                         
+
 
 #geometry.beta_type = fortran
 geometry.beta_type = constantBeta
@@ -40,6 +46,7 @@ geometry.basalSlope = 0 0 0
 amr.maxLevel = 0   # finest level allowed in simulation
 amr.ref_ratio = 2 2 2 2 2
 amr.num_cells = 168 56 10   #number of cells in base grid
+amr.num_cells = 336 56 10   #number of cells in base grid
 
 amr.is_periodic = 0 0 0       # 1 if domain is periodic 
 # (note that periodic BC's override physical BC types)
@@ -63,7 +70,7 @@ amr.max_dt_grow_factor = 1.1 #max amount dt can grow from one timestep to anothe
 
 
 amr.plot_interval = 1
-amr.plot_prefix = plot.stream-shelf.054.
+amr.plot_prefix = plot.stream-shelf.
 amr.write_solver_rhs = 1
 amr.write_preSolve_plotfiles = true
 amr.write_flux_velocities = true
