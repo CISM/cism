@@ -69,6 +69,10 @@ module glide_types
 
   ! basic Glimmer/Glide options
 
+  !WHL - added global boundary conditions
+  integer, parameter :: GLOBAL_BC_PERIODIC = 0  ! doubly periodic
+  integer, parameter :: GLOBAL_BC_OPEN = 1      ! open; scalars in global halo set to zero
+  
   integer, parameter :: DYCORE_GLIDE = 0     ! old shallow-ice dycore from Glimmer
   integer, parameter :: DYCORE_GLAM = 1      ! Payne-Price finite-difference solver
   integer, parameter :: DYCORE_GLISSADE = 2  ! prototype finite-element solver
@@ -242,6 +246,9 @@ module glide_types
     real(dp), dimension(:),pointer :: y0 => null() !original y0 grid
     real(dp), dimension(:),pointer :: x1 => null() !original x1 grid
     real(dp), dimension(:),pointer :: y1 => null() !original y1 grid
+
+    !WHL - added global boundary conditions.  Periodic is default.
+    integer :: global_bc = 0     ! 0 for periodic, 1 for open
 
   end type glide_general
 

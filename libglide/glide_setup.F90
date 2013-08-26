@@ -404,6 +404,9 @@ contains
     call GetValue(section,'dns',model%numerics%dns)
     call GetValue(section,'sigma_file',model%funits%sigfile)
 
+    !WHL - added global boundary conditions
+    call GetValue(section,'global_bc',model%general%global_bc)
+
     ! We set this flag to one to indicate we've got a sigfile name.
     ! A warning/error is generated if sigma levels are specified in some other way
     ! and mangle the name
@@ -436,9 +439,16 @@ contains
     call write_log(trim(message))
     write(message,*) 'NS grid spacing : ',model%numerics%dns
     call write_log(trim(message))
+    if (model%general%global_bc==GLOBAL_BC_PERIODIC) then
+       write(message,*) 'Periodic global boundary conditions'
+    elseif (model%general%global_bc==GLOBAL_BC_OPEN) then
+       write(message,*) 'Open global boundary conditions; scalars in global halo will be set to zero'
+    endif
+
     write(message,*) 'sigma file      : ',trim(model%funits%sigfile)
     call write_log(trim(message))
     call write_log('')
+
   end subroutine print_grid
 
 !--------------------------------------------------------------------------------

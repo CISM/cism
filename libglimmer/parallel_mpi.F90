@@ -84,6 +84,12 @@ module parallel
   integer,save :: ewlb,ewub,nslb,nsub
   integer,save :: east,north,south,west
 
+  !WHL - added global boundary conditions
+  ! global boundary conditions
+  logical,save :: periodic_bc  ! doubly periodic                       
+  logical,save :: open_bc      ! if true, set scalars in global halo to zero
+                               ! does not apply to staggered variables (e.g., uvel, vvel)
+
   ! common work space
   integer,dimension(4),save :: d_gs_mybounds
   integer,dimension(:,:),allocatable,save :: d_gs_bounds
@@ -1251,12 +1257,16 @@ contains
      distributed_isparallel = .true.
   end function distributed_isparallel
 
-
-  subroutine distributed_grid(ewn, nsn, nhalo_in)
+  !WHL - added global boundary conditions
+  subroutine distributed_grid(ewn, nsn, nhalo_in, periodic_bc_in, open_bc_in)
 
     implicit none
     integer, intent(inout) :: ewn, nsn        ! global grid dimensions
     integer, intent(in), optional :: nhalo_in ! number of rows of halo cells
+    logical, intent(in), optional :: periodic_bc_in  ! true for periodic global BCs
+    logical, intent(in), optional :: open_bc_in ! true for open global BCs
+                                                ! (scalars in global halo set to zero)
+
     integer :: best,i,j,metric
     integer :: ewrank,ewtasks,nsrank,nstasks
     real(8) :: rewtasks,rnstasks
@@ -1373,6 +1383,21 @@ contains
     if ((local_ewn  - lhalo - uhalo) .lt. (lhalo + uhalo + 1)) then
         write(*,*) "EW halos overlap on processor ", this_rank
         call parallel_stop(__FILE__, __LINE__)
+    endif
+
+    !WHL - added global boundary conditions
+
+    periodic_bc = .true.  ! this is the default
+    open_bc = .false.
+
+    if (present(open_bc_in)) then
+       open_bc = open_bc_in
+       if (open_bc) periodic_bc = .false.
+    endif
+
+    if (present(periodic_bc_in)) then
+       periodic_bc = periodic_bc_in 
+       if (periodic_bc) open_bc = .false.
     endif
 
     ! Print grid geometry
@@ -2701,7 +2726,7 @@ contains
   end function parallel_get_var_real8_1d
 
   !TODO - Pass locew in first position and locns in second position?
-  !TODO - Remove his function if no longer needed?
+  !TODO - Remove this function if no longer needed?
 
   function parallel_globalID(locns, locew, upstride)
     ! Returns a unique ID for a given row and column reference that is identical across all processors.
@@ -2839,6 +2864,28 @@ contains
     a(:,:lhalo) = srecv(:,:)
     call mpi_wait(nrequest,mpi_status_ignore,ierror)
     a(:,local_nsn-uhalo+1:) = nrecv(:,:)
+
+    if (open_bc) then   ! set values in global halo to zero
+                        ! interior halo cells should not be affected
+
+       if (this_rank >= east) then  ! at east edge of global domain
+          a(local_ewn-uhalo+1:,:) = 0
+       endif
+
+       if (this_rank <= west) then  ! at west edge of global domain
+          a(:lhalo,:) = 0
+       endif
+
+       if (this_rank >= north) then  ! at north edge of global domain
+          a(:,local_nsn-uhalo+1:) = 0
+       endif
+
+       if (this_rank <= south) then  ! at south edge of global domain
+          a(:,:lhalo) = 0
+       endif
+
+    endif   ! open BC
+
   end subroutine parallel_halo_integer_2d
 
   subroutine parallel_halo_logical_2d(a)
@@ -2893,6 +2940,28 @@ contains
     a(:,:lhalo) = srecv(:,:)
     call mpi_wait(nrequest,mpi_status_ignore,ierror)
     a(:,local_nsn-uhalo+1:) = nrecv(:,:)
+
+    if (open_bc) then   ! set values in global halo to zero
+                        ! interior halo cells should not be affected
+
+       if (this_rank >= east) then  ! at east edge of global domain
+          a(local_ewn-uhalo+1:,:) = .false.
+       endif
+
+       if (this_rank <= west) then  ! at west edge of global domain
+          a(:lhalo,:) = .false.
+       endif
+
+       if (this_rank >= north) then  ! at north edge of global domain
+          a(:,local_nsn-uhalo+1:) = .false.
+       endif
+
+       if (this_rank <= south) then  ! at south edge of global domain
+          a(:,:lhalo) = .false.
+       endif
+
+    endif   ! open BC
+
   end subroutine parallel_halo_logical_2d
 
   subroutine parallel_halo_real4_2d(a)
@@ -2947,6 +3016,28 @@ contains
     a(:,:lhalo) = srecv(:,:)
     call mpi_wait(nrequest,mpi_status_ignore,ierror)
     a(:,local_nsn-uhalo+1:) = nrecv(:,:)
+
+    if (open_bc) then   ! set values in global halo to zero
+                        ! interior halo cells should not be affected
+
+       if (this_rank >= east) then  ! at east edge of global domain
+          a(local_ewn-uhalo+1:,:) = 0.
+       endif
+
+       if (this_rank <= west) then  ! at west edge of global domain
+          a(:lhalo,:) = 0.
+       endif
+
+       if (this_rank >= north) then  ! at north edge of global domain
+          a(:,local_nsn-uhalo+1:) = 0.
+       endif
+
+       if (this_rank <= south) then  ! at south edge of global domain
+          a(:,:lhalo) = 0.
+       endif
+
+    endif   ! open BC
+
   end subroutine parallel_halo_real4_2d
 
 
@@ -3039,6 +3130,27 @@ contains
        endif
     endif
 
+    if (open_bc) then   ! set values in global halo to zero
+                        ! interior halo cells should not be affected
+
+       if (this_rank >= east) then  ! at east edge of global domain
+          a(local_ewn-uhalo+1:,:) = 0.d0
+       endif
+
+       if (this_rank <= west) then  ! at west edge of global domain
+          a(:lhalo,:) = 0.d0
+       endif
+
+       if (this_rank >= north) then  ! at north edge of global domain
+          a(:,local_nsn-uhalo+1:) = 0.d0
+       endif
+
+       if (this_rank <= south) then  ! at south edge of global domain
+          a(:,:lhalo) = 0.d0
+       endif
+
+    endif   ! open BC
+
   end subroutine parallel_halo_real8_2d
 
   subroutine parallel_halo_real8_3d(a)
@@ -3096,59 +3208,29 @@ contains
     call mpi_wait(nrequest,mpi_status_ignore,ierror)
     a(:,:,local_nsn-uhalo+1:) = nrecv(:,:,:)
 
+    if (open_bc) then   ! set values in global halo to zero
+                        ! interior halo cells should not be affected
+
+       if (this_rank >= east) then  ! at east edge of global domain
+          a(:,local_ewn-uhalo+1:,:) = 0.d0
+       endif
+
+       if (this_rank <= west) then  ! at west edge of global domain
+          a(:,:lhalo,:) = 0.d0
+       endif
+
+       if (this_rank >= north) then  ! at north edge of global domain
+          a(:,:,local_nsn-uhalo+1:) = 0.d0
+       endif
+
+       if (this_rank <= south) then  ! at south edge of global domain
+          a(:,:,:lhalo) = 0.d0
+       endif
+
+    endif   ! open BC
+
   end subroutine parallel_halo_real8_3d
 
-  !TODO - Remove this subroutine?
-  subroutine parallel_halo_temperature(a)
-    !JEFF This routine is for updating the halo for the variable model%temper%temp.
-    ! This variable is two larger in each dimension, because of the current advection code.
-    ! Per Bill L, we will remove this difference when we update the remapping code.
-    use mpi_mod
-    implicit none
-    real(8),dimension(:,:,:) :: a
-
-    integer :: erequest,ierror,one,nrequest,srequest,wrequest
-    real(8),dimension(size(a,1),lhalo,local_nsn-lhalo-uhalo) :: esend,wrecv
-    real(8),dimension(size(a,1),uhalo,local_nsn-lhalo-uhalo) :: erecv,wsend
-    real(8),dimension(size(a,1),local_ewn,lhalo) :: nsend,srecv
-    real(8),dimension(size(a,1),local_ewn,uhalo) :: nrecv,ssend
-
-    ! begin
-    call mpi_irecv(wrecv,size(wrecv),mpi_real8,west,west,&
-         comm,wrequest,ierror)
-    call mpi_irecv(erecv,size(erecv),mpi_real8,east,east,&
-         comm,erequest,ierror)
-    call mpi_irecv(srecv,size(srecv),mpi_real8,south,south,&
-         comm,srequest,ierror)
-    call mpi_irecv(nrecv,size(nrecv),mpi_real8,north,north,&
-         comm,nrequest,ierror)
-
-    esend(:,:,:) = &
-      a(:,local_ewn-uhalo-lhalo+1:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
-    call mpi_send(esend,size(esend),mpi_real8,east,this_rank,comm,ierror)
-    wsend(:,:,:) = a(:,1+lhalo:1+lhalo+uhalo-1,1+lhalo:local_nsn-uhalo)
-    call mpi_send(wsend,size(wsend),mpi_real8,west,this_rank,comm,ierror)
-
-    call mpi_wait(wrequest,mpi_status_ignore,ierror)
-    !JEFF Change middle index to put halo into correct place for temperature.
-    a(:,2:lhalo+1,1+lhalo:local_nsn-uhalo) = wrecv(:,:,:)
-    call mpi_wait(erequest,mpi_status_ignore,ierror)
-    !JEFF Put an upper bound on middle index to prevent overrunning index
-    a(:,local_ewn-uhalo+1:local_ewn-uhalo+2,1+lhalo:local_nsn-uhalo) = erecv(:,:,:)
-
-    nsend(:,:,:) = a(:,:,local_nsn-uhalo-lhalo+1:local_nsn-uhalo)
-    call mpi_send(nsend,size(nsend),mpi_real8,north,this_rank,comm,ierror)
-    !JEFF Change middle to move one index further in
-    ssend(:,:,:) = a(:,2:local_ewn+1,1+lhalo:1+lhalo+uhalo-1)
-    call mpi_send(ssend,size(ssend),mpi_real8,south,this_rank,comm,ierror)
-
-    call mpi_wait(srequest,mpi_status_ignore,ierror)
-    !JEFF Change middle to move one index further in
-    a(:,2:local_ewn+1,:lhalo) = srecv(:,:,:)
-    call mpi_wait(nrequest,mpi_status_ignore,ierror)
-    !JEFF Limit last index to size of halo and middle to one index further in
-    a(:,2:local_ewn+1,local_nsn-uhalo+1:local_nsn) = nrecv(:,:,:)
-  end subroutine parallel_halo_temperature
 
   function parallel_halo_verify_integer_2d(a)
     use mpi_mod
@@ -3850,8 +3932,7 @@ contains
     !WHL - I defined a logical variable to determine whether or not to fill halo cells
     !      at the edge of the global domain.  I am setting it to true by default to support
     !      cyclic global BCs.
-
-    !TODO - Set to true in all cases? (Or simply remove the 'if's?)  
+    !TODO: Assume true in all cases and remove the if's?
 
     logical :: fill_global_halos = .true.
 

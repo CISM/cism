@@ -63,6 +63,11 @@ module parallel
   integer,save :: ewlb,ewub,nslb,nsub
   integer,save :: east,north,south,west
 
+  ! global boundary conditions
+  logical,save :: periodic_bc  ! doubly periodic
+  logical,save :: open_bc      ! if true, set scalars in global halo to zero
+                               ! does not apply to staggered variables (e.g., uvel, vvel)
+
   ! global IDs
   integer,parameter :: ProcsEW = 1
 
@@ -478,13 +483,16 @@ contains
   end function distributed_get_var_real8_3d
 
 
-  subroutine distributed_grid(ewn, nsn, nhalo_in)
+  subroutine distributed_grid(ewn, nsn, nhalo_in, periodic_bc_in, open_bc_in)
 
     implicit none
 
     integer, intent(inout) :: ewn, nsn          ! global grid dimensions
     integer, intent(in), optional :: nhalo_in   ! number of rows of halo cells
-
+    logical, intent(in), optional :: periodic_bc_in  ! true for periodic global BCs
+    logical, intent(in), optional :: open_bc_in ! true for open global BCs
+                                                ! (scalars in global halo set to zero)
+           
     integer :: ewrank,ewtasks,nsrank,nstasks
 
     ! Optionally, change the halo values
@@ -551,6 +559,25 @@ contains
     local_nsn = nsub - nslb + 1
     own_nsn = local_nsn - lhalo - uhalo
     nsn = local_nsn
+
+    !WHL - added global boundary conditions
+
+    periodic_bc = .true.  ! this is the default
+    open_bc = .false.
+
+    if (present(open_bc_in)) then
+       open_bc = open_bc_in
+       if (open_bc) periodic_bc = .false.
+    endif
+
+    if (present(periodic_bc_in)) then
+       periodic_bc = periodic_bc_in 
+       if (periodic_bc) open_bc = .false.
+    endif
+    
+    !WHL - debug
+    if (open_bc) write(*,*) "Open global boundary conditions"
+    if (periodic_bc) write(*,*) "Periodic global boundary conditions"
 
     ! Print grid geometry
     write(*,*) "Process ", this_rank, " Total = ", tasks, " ewtasks = ", ewtasks, " nstasks = ", nstasks
@@ -1390,15 +1417,26 @@ contains
          call parallel_stop(__FILE__,__LINE__)
     endif
 
-    ecopy(:,:) = a(local_ewn-uhalo-lhalo+1:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
-    wcopy(:,:) = a(1+lhalo:1+lhalo+uhalo-1,1+lhalo:local_nsn-uhalo)
-    a(:lhalo,1+lhalo:local_nsn-uhalo) = ecopy(:,:)
-    a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = wcopy(:,:)
+    if (open_bc) then
 
-    ncopy(:,:) = a(:,local_nsn-uhalo-lhalo+1:local_nsn-uhalo)
-    scopy(:,:) = a(:,1+lhalo:1+lhalo+uhalo-1)
-    a(:,:lhalo) = ncopy(:,:)
-    a(:,local_nsn-uhalo+1:) = scopy(:,:)
+       a(:lhalo,1+lhalo:local_nsn-uhalo) = 0
+       a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = 0
+       a(:,:lhalo) = 0
+       a(:,local_nsn-uhalo+1:) = 0
+
+    else    ! periodic BC
+
+       ecopy(:,:) = a(local_ewn-uhalo-lhalo+1:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
+       wcopy(:,:) = a(1+lhalo:1+lhalo+uhalo-1,1+lhalo:local_nsn-uhalo)
+       a(:lhalo,1+lhalo:local_nsn-uhalo) = ecopy(:,:)
+       a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = wcopy(:,:)
+
+       ncopy(:,:) = a(:,local_nsn-uhalo-lhalo+1:local_nsn-uhalo)
+       scopy(:,:) = a(:,1+lhalo:1+lhalo+uhalo-1)
+       a(:,:lhalo) = ncopy(:,:)
+       a(:,local_nsn-uhalo+1:) = scopy(:,:)
+
+    endif
 
   end subroutine parallel_halo_integer_2d
 
@@ -1424,15 +1462,26 @@ contains
        call parallel_stop(__FILE__,__LINE__)
     endif
 
-    ecopy(:,:) = a(local_ewn-uhalo-lhalo+1:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
-    wcopy(:,:) = a(1+lhalo:1+lhalo+uhalo-1,1+lhalo:local_nsn-uhalo)
-    a(:lhalo,1+lhalo:local_nsn-uhalo) = ecopy(:,:)
-    a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = wcopy(:,:)
+    if (open_bc) then
 
-    ncopy(:,:) = a(:,local_nsn-uhalo-lhalo+1:local_nsn-uhalo)
-    scopy(:,:) = a(:,1+lhalo:1+lhalo+uhalo-1)
-    a(:,:lhalo) = ncopy(:,:)
-    a(:,local_nsn-uhalo+1:) = scopy(:,:)
+       a(:lhalo,1+lhalo:local_nsn-uhalo) = .false.
+       a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = .false.
+       a(:,:lhalo) = .false.
+       a(:,local_nsn-uhalo+1:) = .false.
+
+    else    ! periodic BC
+
+       ecopy(:,:) = a(local_ewn-uhalo-lhalo+1:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
+       wcopy(:,:) = a(1+lhalo:1+lhalo+uhalo-1,1+lhalo:local_nsn-uhalo)
+       a(:lhalo,1+lhalo:local_nsn-uhalo) = ecopy(:,:)
+       a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = wcopy(:,:)
+
+       ncopy(:,:) = a(:,local_nsn-uhalo-lhalo+1:local_nsn-uhalo)
+       scopy(:,:) = a(:,1+lhalo:1+lhalo+uhalo-1)
+       a(:,:lhalo) = ncopy(:,:)
+       a(:,local_nsn-uhalo+1:) = scopy(:,:)
+
+    endif
 
   end subroutine parallel_halo_logical_2d
 
@@ -1458,15 +1507,26 @@ contains
        call parallel_stop(__FILE__,__LINE__)
     endif
 
-    ecopy(:,:) = a(local_ewn-uhalo-lhalo+1:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
-    wcopy(:,:) = a(1+lhalo:1+lhalo+uhalo-1,1+lhalo:local_nsn-uhalo)
-    a(:lhalo,1+lhalo:local_nsn-uhalo) = ecopy(:,:)
-    a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = wcopy(:,:)
+    if (open_bc) then
 
-    ncopy(:,:) = a(:,local_nsn-uhalo-lhalo+1:local_nsn-uhalo)
-    scopy(:,:) = a(:,1+lhalo:1+lhalo+uhalo-1)
-    a(:,:lhalo) = ncopy(:,:)
-    a(:,local_nsn-uhalo+1:) = scopy(:,:)
+       a(:lhalo,1+lhalo:local_nsn-uhalo) = 0.
+       a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = 0.
+       a(:,:lhalo) = 0.
+       a(:,local_nsn-uhalo+1:) = 0.
+
+    else    ! periodic BC
+
+       ecopy(:,:) = a(local_ewn-uhalo-lhalo+1:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
+       wcopy(:,:) = a(1+lhalo:1+lhalo+uhalo-1,1+lhalo:local_nsn-uhalo)
+       a(:lhalo,1+lhalo:local_nsn-uhalo) = ecopy(:,:)
+       a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = wcopy(:,:)
+
+       ncopy(:,:) = a(:,local_nsn-uhalo-lhalo+1:local_nsn-uhalo)
+       scopy(:,:) = a(:,1+lhalo:1+lhalo+uhalo-1)
+       a(:,:lhalo) = ncopy(:,:)
+       a(:,local_nsn-uhalo+1:) = scopy(:,:)
+
+    endif
 
   end subroutine parallel_halo_real4_2d
 
@@ -1499,31 +1559,42 @@ contains
          call parallel_stop(__FILE__,__LINE__)
     endif
 
-    ecopy(:,:) = a(local_ewn-uhalo-lhalo+1:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
-    wcopy(:,:) = a(1+lhalo:1+lhalo+uhalo-1,1+lhalo:local_nsn-uhalo)
-    a(:lhalo,1+lhalo:local_nsn-uhalo) = ecopy(:,:)
-    a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = wcopy(:,:)
+    if (open_bc) then
 
-    if (present(periodic_offset_ew)) then
-       if (periodic_offset_ew /= 0.d0) then
-          a(:lhalo,1+lhalo:local_nsn-uhalo) =   &
-             a(:lhalo,1+lhalo:local_nsn-uhalo) + periodic_offset_ew
-          a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) =    &
-             a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) - periodic_offset_ew
+       a(:lhalo,1+lhalo:local_nsn-uhalo) = 0.d0
+       a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = 0.d0
+       a(:,:lhalo) = 0.d0
+       a(:,local_nsn-uhalo+1:) = 0.d0
+
+    else    ! periodic BC
+
+       ecopy(:,:) = a(local_ewn-uhalo-lhalo+1:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
+       wcopy(:,:) = a(1+lhalo:1+lhalo+uhalo-1,1+lhalo:local_nsn-uhalo)
+       a(:lhalo,1+lhalo:local_nsn-uhalo) = ecopy(:,:)
+       a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = wcopy(:,:)
+
+       if (present(periodic_offset_ew)) then
+          if (periodic_offset_ew /= 0.d0) then
+             a(:lhalo,1+lhalo:local_nsn-uhalo) =   &
+                  a(:lhalo,1+lhalo:local_nsn-uhalo) + periodic_offset_ew
+             a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) =    &
+                  a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) - periodic_offset_ew
+          endif
        endif
-    endif
 
-    ncopy(:,:) = a(:,local_nsn-uhalo-lhalo+1:local_nsn-uhalo)
-    scopy(:,:) = a(:,1+lhalo:1+lhalo+uhalo-1)
-    a(:,:lhalo) = ncopy(:,:)
-    a(:,local_nsn-uhalo+1:) = scopy(:,:)
+       ncopy(:,:) = a(:,local_nsn-uhalo-lhalo+1:local_nsn-uhalo)
+       scopy(:,:) = a(:,1+lhalo:1+lhalo+uhalo-1)
+       a(:,:lhalo) = ncopy(:,:)
+       a(:,local_nsn-uhalo+1:) = scopy(:,:)
 
-    if (present(periodic_offset_ns)) then
-       if (periodic_offset_ns /= 0.d0) then
-          a(:,:lhalo) = a(:,:lhalo) + periodic_offset_ns
-          a(:,local_nsn-uhalo+1:) = a(:,local_nsn-uhalo+1:) - periodic_offset_ns
+       if (present(periodic_offset_ns)) then
+          if (periodic_offset_ns /= 0.d0) then
+             a(:,:lhalo) = a(:,:lhalo) + periodic_offset_ns
+             a(:,local_nsn-uhalo+1:) = a(:,local_nsn-uhalo+1:) - periodic_offset_ns
+          endif
        endif
-    endif
+
+    endif  ! open or periodic BC
 
   end subroutine parallel_halo_real8_2d
 
@@ -1549,15 +1620,26 @@ contains
          call parallel_stop(__FILE__,__LINE__)
     endif
 
-    ecopy(:,:,:) = a(:,local_ewn-uhalo-lhalo+1:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
-    wcopy(:,:,:) = a(:,1+lhalo:1+lhalo+uhalo-1,1+lhalo:local_nsn-uhalo)
-    a(:,:lhalo,1+lhalo:local_nsn-uhalo) = ecopy(:,:,:)
-    a(:,local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = wcopy(:,:,:)
+    if (open_bc) then
 
-    ncopy(:,:,:) = a(:,:,local_nsn-uhalo-lhalo+1:local_nsn-uhalo)
-    scopy(:,:,:) = a(:,:,1+lhalo:1+lhalo+uhalo-1)
-    a(:,:,:lhalo) = ncopy(:,:,:)
-    a(:,:,local_nsn-uhalo+1:) = scopy(:,:,:)
+       a(:,:lhalo,1+lhalo:local_nsn-uhalo) = 0.d0
+       a(:,local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = 0.d0
+       a(:,:,:lhalo) = 0.d0
+       a(:,:,local_nsn-uhalo+1:) = 0.d0
+
+    else    ! periodic BC
+
+       ecopy(:,:,:) = a(:,local_ewn-uhalo-lhalo+1:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
+       wcopy(:,:,:) = a(:,1+lhalo:1+lhalo+uhalo-1,1+lhalo:local_nsn-uhalo)
+       a(:,:lhalo,1+lhalo:local_nsn-uhalo) = ecopy(:,:,:)
+       a(:,local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = wcopy(:,:,:)
+
+       ncopy(:,:,:) = a(:,:,local_nsn-uhalo-lhalo+1:local_nsn-uhalo)
+       scopy(:,:,:) = a(:,:,1+lhalo:1+lhalo+uhalo-1)
+       a(:,:,:lhalo) = ncopy(:,:,:)
+       a(:,:,local_nsn-uhalo+1:) = scopy(:,:,:)
+
+    endif
 
   end subroutine parallel_halo_real8_3d
 
@@ -1568,15 +1650,6 @@ contains
     logical :: parallel_halo_verify_integer_2d
     parallel_halo_verify_integer_2d = .true.
   end function parallel_halo_verify_integer_2d
-
-  !TODO - Remove this subroutine
-  subroutine parallel_halo_temperature(a)
-    !JEFF This routine is for updating the halo for the variable model%temper%temp.
-    ! This variable is two larger in each dimension, because of the current advection code.
-    ! Per Bill L, we will remove this difference when we update the remapping code.
-    implicit none
-    real(8),dimension(:,:,:) :: a
-  end subroutine parallel_halo_temperature
 
   function parallel_halo_verify_real8_2d(a)
     implicit none

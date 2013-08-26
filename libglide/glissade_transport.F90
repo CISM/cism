@@ -664,6 +664,9 @@
 
       enddo
 
+
+      !WHL - Halo updates were here
+
       !-------------------------------------------------------------------
       ! Recompute thickness, temperature and other tracers.
       !-------------------------------------------------------------------
@@ -684,6 +687,9 @@
     !-------------------------------------------------------------------
     ! Compute final values of globally conserved quantities.
     ! Check global conservation of mass and mass*tracers.  (Optional)
+    ! Note: Conservation errors will occur if the global domain is open
+    !       and ice has left the domain. So depending on the application,
+    !       there may or may not be a problem when ice is not conserved.
     !-------------------------------------------------------------------
 
       if (conservation_check) then
@@ -707,9 +713,12 @@
                                       l_stop,        ntracer,         &
                                       mtsum_init(1:ntracer), mtsum_final(1:ntracer))
             if (l_stop) then
-               write(message,*) 'CONSERVATION ERROR in glissade_transport; Aborting'
-               call write_log(message,GM_FATAL)
-!               call write_log(message,GM_DIAGNOSTIC)  ! uncomment for debugging
+               write(message,*) 'WARNING: Conservation error in glissade_transport'
+!               call write_log(message,GM_FATAL)      ! uncomment if conservation errors should never happen
+               call write_log(message,GM_DIAGNOSTIC)  ! uncomment for debugging
+               write(message,*) 'May be OK if global domain is open'
+               call write_log(message,GM_DIAGNOSTIC)  ! uncomment for debugging
+
             endif
          endif
 
@@ -795,7 +804,7 @@
                call write_log(message)
                write (message,*) 'Final global mass*tracer =', mtsum_final(nt)
                call write_log(message)
-               write (message,*) 'Fractional error =', abs(diff)/mtsum_init(nt)
+               write (message,*) 'Fractional difference =', abs(diff)/mtsum_init(nt)
                call write_log(message)
             endif
          endif

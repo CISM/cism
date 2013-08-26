@@ -111,7 +111,7 @@ contains
     character(len=100), external :: glimmer_version_char
 
 !WHL - debug
-!    logical, parameter :: test_parallel = .false.   ! if true, call test_parallel subroutine
+    logical, parameter :: test_parallel = .false.   ! if true, call test_parallel subroutine
     integer :: i, j, nx, ny
 
 !WHL - for artificial adjustment to ismip-hom surface elevation
@@ -129,7 +129,12 @@ contains
     ! set up coordinate systems
     ! time to change to the parallel values of ewn and nsn
 
-    call distributed_grid(model%general%ewn,model%general%nsn)
+    !WHL - added choice between periodic and open global boundary conditions
+    if (model%general%global_bc == GLOBAL_BC_OPEN) then
+       call distributed_grid(model%general%ewn,model%general%nsn,open_bc_in=.true.)
+    else
+       call distributed_grid(model%general%ewn,model%general%nsn)
+    endif
 
     model%general%ice_grid = coordsystem_new(0.d0,               0.d0,               &
                                              model%numerics%dew, model%numerics%dns, &
@@ -282,10 +287,10 @@ contains
     call register_model(model)
 
      !WHL - debug
-!    if (test_parallel) then
-!       call glissade_test_parallel (model)
-!       call parallel_finalise
-!    endif
+    if (test_parallel) then
+       call glissade_test_parallel (model)
+       call parallel_finalise
+    endif
      
   end subroutine glissade_initialise
   
@@ -1059,9 +1064,10 @@ contains
 
     type(glide_global_type), intent(inout) :: model      ! model instance
 
-    integer, dimension (:,:), allocatable ::  pgID    ! unique global ID for parallel runs  
-    real(dp), dimension (:,:), allocatable ::  pgIDr    ! unique global ID for parallel runs  
-    real(dp), dimension (:,:,:), allocatable ::  pgIDr3    ! unique global ID for parallel runs  
+    integer, dimension (:,:), allocatable ::  pgID       ! unique global ID for parallel runs  
+    real(dp), dimension (:,:), allocatable ::  pgIDr4    ! unique global ID for parallel runs  
+    real(dp), dimension (:,:), allocatable ::  pgIDr8    ! unique global ID for parallel runs  
+    real(dp), dimension (:,:,:), allocatable ::  pgIDr8_3d    ! unique global ID for parallel runs  
 
     integer, dimension (:,:), allocatable ::  pgIDstagi    ! unique global ID for parallel runs  
     real(dp), dimension (:,:), allocatable ::  pgIDstagr    ! unique global ID for parallel runs  
@@ -1070,25 +1076,30 @@ contains
     real(dp), dimension(:,:,:), allocatable :: uvel, vvel   ! uniform velocity field
 
     logical, dimension(:,:), allocatable :: logvar
- 
+    integer, dimension(:,:), allocatable :: intvar
+    real, dimension(:,:), allocatable :: r4var
+    real(dp), dimension(:,:), allocatable :: r8var
+    real(dp), dimension(:,:,:), allocatable :: r8var_3d
+
     integer :: i, j, k, n
     integer :: nx, ny, nz
 
     integer, parameter :: rdiag = 0    ! rank for diagnostic prints 
 
     real(dp), parameter :: dt = 1.0       ! time step in yr
-    integer, parameter  :: ntstep = 10     ! run for this number of timesteps
+    integer, parameter  :: ntstep = 20     ! run for this number of timesteps
 
 !    real(dp), parameter :: umag = 100.    ! uniform speed (m/yr)
     real(dp), parameter :: umag = 1000.   ! uniform speed (m/yr)
 
     !WHL - Tested all three of these angles (eastward, northward, and northeastward)
 !    real(dp), parameter :: theta = 0.d0     ! eastward
-    real(dp), parameter :: theta = pi/4.d0   ! northeastward
+!    real(dp), parameter :: theta = pi/4.d0   ! northeastward
 !    real(dp), parameter :: theta = pi/2.d0  ! northward
+    real(dp), parameter :: theta = pi     ! westward
 
 
-    real(dp) :: global_row, global_col, global_ID
+!    real(dp) :: global_row, global_col, global_ID
 
     print*, ' '
     print*, 'In test_parallel, this_rank =', this_rank
@@ -1098,9 +1109,15 @@ contains
     nz = model%general%upn
 
     allocate(logvar(nx,ny))
+    allocate(intvar(nx,ny))
+    allocate(r4var(nx,ny))
+    allocate(r8var(nx,ny))
+    allocate(r8var_3d(nz,nx,ny))
+
     allocate(pgID(nx,ny))
-    allocate(pgIDr(nx,ny))
-    allocate(pgIDr3(nz,nx,ny))
+    allocate(pgIDr4(nx,ny))
+    allocate(pgIDr8(nx,ny))
+    allocate(pgIDr8_3d(nz,nx,ny))
     allocate(pgIDstagi(nx-1,ny-1))
     allocate(pgIDstagr(nx-1,ny-1))
     allocate(pgIDstagr3(nz,nx-1,ny-1))
@@ -1116,6 +1133,8 @@ contains
 
     print*, 'this_rank, global_row/col offset =', this_rank, global_row_offset, global_col_offset
 
+    ! Test the 5 standard parallel_halo routines for scalars: logical_2d, integer_2d, real4_2d, real8_2d, real8_3d
+
     ! logical 2D field
 
     logvar(:,:) = .false.
@@ -1128,9 +1147,9 @@ contains
 
     if (this_rank == rdiag) then
        write(6,*) ' '
-       print*, 'Logical field, this_rank =', this_rank
+       print*, 'logvar: this_rank =', this_rank
        do j = ny, 1, -1
-          write(6,*) logvar(1:34,j)
+          write(6,'(35l3)') logvar(:,j)
        enddo
     endif
 
@@ -1140,15 +1159,136 @@ contains
        write(6,*) ' '
        write(6,*) 'After parallel_halo_update, this_rank =', this_rank
        do j = ny, 1, -1
-          write(6,*) logvar(:,j)
+          write(6,'(35l3)') logvar(:,j)
        enddo
     endif
 
+!WHL - Skip the next few sections since the global IDs aren't correct in parallel.
+    go to 100
+
     ! integer 2D field
+
+    intvar(:,:) = 1
+
+    do j = 1+lhalo, ny-uhalo
+    do i = 1+lhalo, nx-uhalo
+       intvar(i,j) = (nx-2*nhalo)*(j-nhalo-1) + i-nhalo
+    enddo
+    enddo 
+
+    if (this_rank == rdiag) then
+       write(6,*) ' '
+       print*, 'intvar: this_rank =', this_rank
+       do j = ny, 1, -1
+          write(6,'(35i5)') intvar(:,j)
+       enddo
+    endif
+
+    call parallel_halo(intvar)
+
+    if (this_rank == rdiag) then
+       write(6,*) ' '
+       write(6,*) 'After parallel_halo_update:'
+       do j = ny, 1, -1
+          write(6,'(35i5)') intvar(:,j)
+       enddo
+    endif
+
+    ! real 2D
+    
+    r4var(:,:) = 1.
+
+    do j = 1+lhalo, ny-uhalo
+    do i = 1+lhalo, nx-uhalo
+       r4var(i,j) = (nx-2.*real(nhalo))*(real(j)-real(nhalo)-1.) + real(i)-real(nhalo)
+    enddo
+    enddo
+
+    if (this_rank == rdiag) then
+       write(6,*) ' '
+       print*, 'r4var: this_rank =', this_rank
+       do j = ny, 1, -1
+          write(6,'(35f6.0)') r4var(:,j)
+       enddo
+    endif
+
+    call parallel_halo(r4var)
+
+    if (this_rank == rdiag) then
+       write(6,*) ' '
+       write(6,*) 'After parallel_halo_update:'
+       do j = ny, 1, -1
+          write(6,'(35f6.0)') r4var(:,j)
+       enddo
+    endif
+
+    ! double 2D
+    
+    r8var(:,:) = 1.d0
+
+    do j = 1+lhalo, ny-uhalo
+    do i = 1+lhalo, nx-uhalo
+       r8var(i,j) = (real(nx,dp)-2.d0*real(nhalo,dp))*(real(j,dp)-real(nhalo,dp)-1.d0) + real(i,dp)-real(nhalo,dp)
+    enddo
+    enddo
+
+    if (this_rank == rdiag) then
+       write(6,*) ' '
+       print*, 'r8var: this_rank =', this_rank
+       do j = ny, 1, -1
+          write(6,'(35f6.0)') r8var(:,j)
+       enddo
+    endif
+
+    call parallel_halo(r8var)
+
+    if (this_rank == rdiag) then
+       write(6,*) ' '
+       write(6,*) 'After parallel_halo_update:'
+       do j = ny, 1, -1
+          write(6,'(35f6.0)') r8var(:,j)
+       enddo
+    endif
+
+    ! double 3D
+
+    r8var_3d(:,:,:) = 1.d0
+
+    do j = 1+lhalo, ny-uhalo
+    do i = 1+lhalo, nx-uhalo
+       do k = 1, nz
+          r8var_3d(k,i,j) = (real(nx,dp)-2.d0*real(nhalo,dp))*(real(j,dp)-real(nhalo,dp)-1.d0) + real(i,dp)-real(nhalo,dp)
+       enddo
+    enddo
+    enddo
+
+    k = 1
+
+    if (this_rank == rdiag) then
+       write(6,*) ' '
+       print*, 'r8var_3d: this_rank, k =', this_rank, k
+       do j = ny, 1, -1
+          write(6,'(35f6.0)') r8var_3d(k,:,j)
+       enddo
+    endif
+
+    call parallel_halo(r8var_3d)
+
+    if (this_rank == rdiag) then
+       write(6,*) ' '
+       write(6,*) 'After parallel_halo_update:'
+       do j = ny, 1, -1
+          write(6,'(35f6.0)') r8var_3d(k,:,j)
+       enddo
+    endif
+
+100 continue
+
+    ! The next part of the code concerns parallel global IDs
 
     ! Compute parallel global ID for each grid cell
 
-    pgID(:,:) = 0
+    pgID(:,:) = 0   ! integer
 
     do j = 1+lhalo, ny-uhalo
     do i = 1+lhalo, nx-uhalo
@@ -1160,7 +1300,7 @@ contains
        write(6,*) ' '
        print*, 'Parallel global ID (integer), this_rank =', this_rank
        do j = ny, 1, -1
-          write(6,'(34i5)') pgID(:,j)
+          write(6,'(35i5)') pgID(:,j)
        enddo
     endif
 
@@ -1170,46 +1310,74 @@ contains
        write(6,*) ' '
        write(6,*) 'After parallel_halo_update, this_rank =', this_rank
        do j = ny, 1, -1
-          write(6,'(34i5)') pgID(:,j)
+          write(6,'(35i5)') pgID(:,j)
        enddo
     endif
 
     ! real 2D
     
-    pgIDr(:,:) = 0
+    pgIDr4(:,:) = 0
 
     do j = 1+lhalo, ny-uhalo
     do i = 1+lhalo, nx-uhalo
-       pgIDr(i,j) = real(parallel_globalID_scalar(i,j,nz), dp)
+       pgIDr4(i,j) = real(parallel_globalID_scalar(i,j,nz))
     enddo
     enddo
 
     if (this_rank == rdiag) then
        write(6,*) ' '
-       print*, 'Parallel global ID (real 2D), this_rank =', this_rank
+       print*, 'Parallel global ID (r4 2D), this_rank =', this_rank
        do j = ny, 1, -1
-          write(6,'(34f6.0)') pgIDr(:,j)
+          write(6,'(35f6.0)') pgIDr4(:,j)
        enddo
     endif
 
-    call parallel_halo(pgIDr)
+    call parallel_halo(pgIDr4)
 
     if (this_rank == rdiag) then
        write(6,*) ' '
        write(6,*) 'After parallel_halo_update, this_rank =', this_rank
        do j = ny, 1, -1
-          write(6,'(34f6.0)') pgIDr(:,j)
+          write(6,'(35f6.0)') pgIDr4(:,j)
        enddo
     endif
 
-    ! real 3D
+    ! double 2D
+    
+    pgIDr8(:,:) = 0
 
-    pgIDr3(:,:,:) = 0
+    do j = 1+lhalo, ny-uhalo
+    do i = 1+lhalo, nx-uhalo
+       pgIDr8(i,j) = real(parallel_globalID_scalar(i,j,nz), dp)
+    enddo
+    enddo
+
+    if (this_rank == rdiag) then
+       write(6,*) ' '
+       print*, 'Parallel global ID (r8 2D), this_rank =', this_rank
+       do j = ny, 1, -1
+          write(6,'(35f6.0)') pgIDr8(:,j)
+       enddo
+    endif
+
+    call parallel_halo(pgIDr8)
+
+    if (this_rank == rdiag) then
+       write(6,*) ' '
+       write(6,*) 'After parallel_halo_update, this_rank =', this_rank
+       do j = ny, 1, -1
+          write(6,'(35f6.0)') pgIDr8(:,j)
+       enddo
+    endif
+
+    ! double 3D
+
+    pgIDr8_3d(:,:,:) = 0
 
     do j = 1+lhalo, ny-uhalo
     do i = 1+lhalo, nx-uhalo
        do k = 1, nz
-          pgIDr3(k,i,j) = real(parallel_globalID_scalar(i,j,nz),dp) + real(k,dp)    ! function in parallel_mpi.F90
+          pgIDr8_3d(k,i,j) = real(parallel_globalID_scalar(i,j,nz),dp) + real(k,dp)    ! function in parallel_mpi.F90
        enddo
     enddo
     enddo
@@ -1220,17 +1388,17 @@ contains
        write(6,*) ' '
        print*, 'Parallel global ID (real 3D), this_rank =', this_rank
        do j = ny, 1, -1
-          write(6,'(34f6.0)') pgIDr3(k,:,j)
+          write(6,'(35f6.0)') pgIDr8_3d(k,:,j)
        enddo
     endif
 
-    call parallel_halo(pgIDr3)
+    call parallel_halo(pgIDr8_3d)
 
     if (this_rank == rdiag) then
        write(6,*) ' '
        write(6,*) 'After parallel_halo_update, this_rank =', this_rank
        do j = ny, 1, -1
-          write(6,'(34f6.0)') pgIDr3(k,:,j)
+          write(6,'(35f6.0)') pgIDr8_3d(k,:,j)
        enddo
     endif
 
@@ -1251,7 +1419,7 @@ contains
        write(6,*) ' '
        write(6,*) 'Staggered parallel global ID (integer), this_rank =', this_rank
        do j = ny-1, 1, -1
-          write(6,'(33i5)') pgIDstagi(:,j)
+          write(6,'(34i5)') pgIDstagi(:,j)
        enddo
     endif
 
@@ -1261,7 +1429,7 @@ contains
        write(6,*) ' '
        write(6,*) 'After staggered_parallel_halo_update, this_rank =', this_rank
        do j = ny-1, 1, -1
-          write(6,'(33i5)') pgIDstagi(:,j)
+          write(6,'(34i5)') pgIDstagi(:,j)
        enddo
     endif
 
@@ -1280,7 +1448,7 @@ contains
        write(6,*) ' '
        write(6,*) 'Staggered parallel global ID (real 2D), this_rank =', this_rank
        do j = ny-1, 1, -1
-          write(6,'(33f6.0)') pgIDstagr(:,j)
+          write(6,'(34f6.0)') pgIDstagr(:,j)
        enddo
     endif
 
@@ -1290,7 +1458,7 @@ contains
        write(6,*) ' '
        write(6,*) 'After staggered_parallel_halo_update, this_rank =', this_rank
        do j = ny-1, 1, -1
-          write(6,'(33f6.0)') pgIDstagr(:,j)
+          write(6,'(34f6.0)') pgIDstagr(:,j)
        enddo
     endif
 
@@ -1312,7 +1480,7 @@ contains
        write(6,*) ' '
        write(6,*) 'Staggered parallel global ID (real 3D), k, this_rank =', k, this_rank
        do j = ny-1, 1, -1
-          write(6,'(33f6.0)') pgIDstagr3(k,:,j)
+          write(6,'(34f6.0)') pgIDstagr3(k,:,j)
        enddo
     endif
 
@@ -1322,7 +1490,7 @@ contains
        write(6,*) ' '
        write(6,*) 'After staggered_parallel_halo_update, this_rank =', this_rank
        do j = ny-1, 1, -1
-          write(6,'(33f6.0)') pgIDstagr3(k,:,j)
+          write(6,'(34f6.0)') pgIDstagr3(k,:,j)
        enddo
     endif
 
@@ -1347,12 +1515,12 @@ contains
           write(6,*) 'Before halo update:'
           write(6,*) 'uvel, this_rank =', this_rank
           do j = ny-1, 1, -1
-             write(6,'(33f6.1)') uvel(1,:,j)
+             write(6,'(34f6.0)') uvel(1,:,j)
           enddo
           write(6,*) ' '
           write(6,*) 'vvel, this_rank =', this_rank
           do j = ny-1, 1, -1
-             write(6,'(33f6.1)') vvel(1,:,j)
+             write(6,'(34f6.0)') vvel(1,:,j)
           enddo
        endif
 
@@ -1366,12 +1534,12 @@ contains
           write(6,*) 'After halo update:'
           write(6,*) 'uvel, this_rank =', this_rank
           do j = ny-1, 1, -1
-             write(6,'(33f6.1)') uvel(1,:,j)
+             write(6,'(34f6.0)') uvel(1,:,j)
           enddo
           write(6,*) ' '
           write(6,*) 'vvel, this_rank =', this_rank
           do j = ny-1, 1, -1
-             write(6,'(33f6.1)') vvel(1,:,j)
+             write(6,'(34f6.0)') vvel(1,:,j)
           enddo
        endif
 
@@ -1406,9 +1574,14 @@ contains
     if (main_task) print*, 'Done in parallel diagnostic test'
 
     deallocate(logvar)
+    deallocate(intvar)
+    deallocate(r4var)
+    deallocate(r8var)
+    deallocate(r8var_3d)
     deallocate(pgID)
-    deallocate(pgIDr)
-    deallocate(pgIDr3)
+    deallocate(pgIDr4)
+    deallocate(pgIDr8)
+    deallocate(pgIDr8_3d)
     deallocate(pgIDstagi)
     deallocate(pgIDstagr)
     deallocate(pgIDstagr3)
