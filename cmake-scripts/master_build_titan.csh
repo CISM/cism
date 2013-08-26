@@ -12,7 +12,7 @@
 
 #add logic at the top to decide which versions to build 
 setenv TEST_DIR "/tmp/work/$USER/higher-order"
-setenv CODE_DIR "/ccs/home/$USER/seacism"
+setenv CODE_DIR "/ccs/home/$USER/PISCEES/trunk"
 cd $CODE_DIR
 # 0 is a successful build
 setenv build_no 0

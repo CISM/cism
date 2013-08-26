@@ -52,7 +52,7 @@
  --disable-python \
  --disable-shared \
  --with-netcdf=$CRAY_NETCDF_DIR \
- EXTRA_LDLIBS="/opt/pgi/12.5.0/linux86-64/12.5/lib/f90main.o /project/projectdirs/ccsm1/libgptl/libgptl-pgi/libgptl.a "\
+ EXTRA_LDLIBS="/opt/pgi/13.3.0/linux86-64/13.3/lib/f90main.o /project/projectdirs/ccsm1/libgptl/libgptl-pgi/libgptl.a "\
  --with-trilinos=/project/projectdirs/ccsm1/Trilinos/trilinos-10.12.2/hopper-pgi/install \
  --enable-mpi="yes" \
  --with-blas=-lsci_pgi \

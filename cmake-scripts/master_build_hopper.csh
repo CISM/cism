@@ -8,7 +8,7 @@
 
 #add logic at the top to decide which versions to build 
 setenv TEST_DIR "$GSCRATCH/higher-order"
-setenv CODE_DIR "$HOME/seacism"
+setenv CODE_DIR "$HOME/PISCEES/trunk"
 cd $CODE_DIR
 setenv build_no 0
 setenv build_autoconf 1
@@ -18,14 +18,16 @@ setenv build_cmake 1
 # even if these are set in your env you need these when running the script
 echo 'set the pgi env'
 module unload cmake netcdf python
-module swap PrgEnv-gnu PrgEnv-pgi; module load cmake/2.8.7 python netcdf-hdf5parallel/4.2.0 subversion usg-default-modules/1.0
+module swap PrgEnv-gnu PrgEnv-pgi
+module swap xt-asyncpe xt-asyncpe/5.16
+module load cmake/2.8.7 python netcdf-hdf5parallel/4.2.0 subversion usg-default-modules/1.0
 
 # NEEDED AFTER A FRESH CHECKOUT
 echo 'bootstrap'
 ./bootstrap
 
-echo $build_autoconf
 if ($build_autoconf == 1 ) then
+echo 'build with autoconf'
 #SERIAL BUILD WITH AUTOCONF
 echo 'make distclean'
 make distclean 
