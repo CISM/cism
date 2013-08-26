@@ -130,8 +130,8 @@ contains
     ! time to change to the parallel values of ewn and nsn
 
     !WHL - added choice between periodic and open global boundary conditions
-    if (model%general%global_bc == GLOBAL_BC_OPEN) then
-       call distributed_grid(model%general%ewn,model%general%nsn,open_bc_in=.true.)
+    if (model%general%global_bc == GLOBAL_BC_OUTFLOW) then
+       call distributed_grid(model%general%ewn,model%general%nsn,outflow_bc_in=.true.)
     else
        call distributed_grid(model%general%ewn,model%general%nsn)
     endif

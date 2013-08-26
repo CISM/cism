@@ -65,7 +65,7 @@ module parallel
 
   ! global boundary conditions
   logical,save :: periodic_bc  ! doubly periodic
-  logical,save :: open_bc      ! if true, set scalars in global halo to zero
+  logical,save :: outflow_bc   ! if true, set scalars in global halo to zero
                                ! does not apply to staggered variables (e.g., uvel, vvel)
 
   ! global IDs
@@ -483,15 +483,15 @@ contains
   end function distributed_get_var_real8_3d
 
 
-  subroutine distributed_grid(ewn, nsn, nhalo_in, periodic_bc_in, open_bc_in)
+  subroutine distributed_grid(ewn, nsn, nhalo_in, periodic_bc_in, outflow_bc_in)
 
     implicit none
 
     integer, intent(inout) :: ewn, nsn          ! global grid dimensions
     integer, intent(in), optional :: nhalo_in   ! number of rows of halo cells
-    logical, intent(in), optional :: periodic_bc_in  ! true for periodic global BCs
-    logical, intent(in), optional :: open_bc_in ! true for open global BCs
-                                                ! (scalars in global halo set to zero)
+    logical, intent(in), optional :: periodic_bc_in ! true for periodic global BCs
+    logical, intent(in), optional :: outflow_bc_in  ! true for outflow global BCs
+                                                    ! (scalars in global halo set to zero)
            
     integer :: ewrank,ewtasks,nsrank,nstasks
 
@@ -563,20 +563,20 @@ contains
     !WHL - added global boundary conditions
 
     periodic_bc = .true.  ! this is the default
-    open_bc = .false.
+    outflow_bc = .false.
 
-    if (present(open_bc_in)) then
-       open_bc = open_bc_in
-       if (open_bc) periodic_bc = .false.
+    if (present(outflow_bc_in)) then
+       outflow_bc = outflow_bc_in
+       if (outflow_bc) periodic_bc = .false.
     endif
 
     if (present(periodic_bc_in)) then
        periodic_bc = periodic_bc_in 
-       if (periodic_bc) open_bc = .false.
+       if (periodic_bc) outflow_bc = .false.
     endif
     
     !WHL - debug
-    if (open_bc) write(*,*) "Open global boundary conditions"
+    if (outflow_bc) write(*,*) "Outflow global boundary conditions"
     if (periodic_bc) write(*,*) "Periodic global boundary conditions"
 
     ! Print grid geometry
@@ -1417,7 +1417,7 @@ contains
          call parallel_stop(__FILE__,__LINE__)
     endif
 
-    if (open_bc) then
+    if (outflow_bc) then
 
        a(:lhalo,1+lhalo:local_nsn-uhalo) = 0
        a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = 0
@@ -1462,7 +1462,7 @@ contains
        call parallel_stop(__FILE__,__LINE__)
     endif
 
-    if (open_bc) then
+    if (outflow_bc) then
 
        a(:lhalo,1+lhalo:local_nsn-uhalo) = .false.
        a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = .false.
@@ -1507,7 +1507,7 @@ contains
        call parallel_stop(__FILE__,__LINE__)
     endif
 
-    if (open_bc) then
+    if (outflow_bc) then
 
        a(:lhalo,1+lhalo:local_nsn-uhalo) = 0.
        a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = 0.
@@ -1559,7 +1559,7 @@ contains
          call parallel_stop(__FILE__,__LINE__)
     endif
 
-    if (open_bc) then
+    if (outflow_bc) then
 
        a(:lhalo,1+lhalo:local_nsn-uhalo) = 0.d0
        a(local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = 0.d0
@@ -1620,7 +1620,7 @@ contains
          call parallel_stop(__FILE__,__LINE__)
     endif
 
-    if (open_bc) then
+    if (outflow_bc) then
 
        a(:,:lhalo,1+lhalo:local_nsn-uhalo) = 0.d0
        a(:,local_ewn-uhalo+1:,1+lhalo:local_nsn-uhalo) = 0.d0

@@ -71,7 +71,7 @@ module glide_types
 
   !WHL - added global boundary conditions
   integer, parameter :: GLOBAL_BC_PERIODIC = 0  ! doubly periodic
-  integer, parameter :: GLOBAL_BC_OPEN = 1      ! open; scalars in global halo set to zero
+  integer, parameter :: GLOBAL_BC_OUTFLOW = 1   ! free outflow; scalars in global halo set to zero
   
   integer, parameter :: DYCORE_GLIDE = 0     ! old shallow-ice dycore from Glimmer
   integer, parameter :: DYCORE_GLAM = 1      ! Payne-Price finite-difference solver
@@ -224,10 +224,9 @@ module glide_types
 
 !WHL - added options for different Stokes approximations
 !      (for glissade dycore only)
-!      commented out for now
-!!  integer, parameter :: HO_APPROX_SIA = 0
-!!  integer, parameter :: HO_APPROX_SSA = 1
-!!  integer, parameter :: HO_APPROX_BP = 2
+  integer, parameter :: HO_APPROX_SIA = 0
+  integer, parameter :: HO_APPROX_SSA = 1
+  integer, parameter :: HO_APPROX_BP = 2
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -248,7 +247,7 @@ module glide_types
     real(dp), dimension(:),pointer :: y1 => null() !original y1 grid
 
     !WHL - added global boundary conditions.  Periodic is default.
-    integer :: global_bc = 0     ! 0 for periodic, 1 for open
+    integer :: global_bc = 0     ! 0 for periodic, 1 for outflow
 
   end type glide_general
 
@@ -500,10 +499,9 @@ module glide_types
     !FD Name of a file containing external dycore settings.
 
 !WHL - Added a glissade option to choose which Stokes approximation (SIA, SSA or Blatter-Pattyn HO)
-!      Commented out for now
 
     ! Blatter-Pattyn HO by default
-!!    integer :: which_ho_approx = 2    
+    integer :: which_ho_approx = 2    
     !*FD Flag that indicates which Stokes approximation to use in the glissade dycore.
     !*FD Not valid for other dycores 
     !*FD \begin{description}

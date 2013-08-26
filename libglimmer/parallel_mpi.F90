@@ -87,7 +87,7 @@ module parallel
   !WHL - added global boundary conditions
   ! global boundary conditions
   logical,save :: periodic_bc  ! doubly periodic                       
-  logical,save :: open_bc      ! if true, set scalars in global halo to zero
+  logical,save :: outflow_bc   ! if true, set scalars in global halo to zero
                                ! does not apply to staggered variables (e.g., uvel, vvel)
 
   ! common work space
@@ -1258,14 +1258,14 @@ contains
   end function distributed_isparallel
 
   !WHL - added global boundary conditions
-  subroutine distributed_grid(ewn, nsn, nhalo_in, periodic_bc_in, open_bc_in)
+  subroutine distributed_grid(ewn, nsn, nhalo_in, periodic_bc_in, outflow_bc_in)
 
     implicit none
     integer, intent(inout) :: ewn, nsn        ! global grid dimensions
     integer, intent(in), optional :: nhalo_in ! number of rows of halo cells
-    logical, intent(in), optional :: periodic_bc_in  ! true for periodic global BCs
-    logical, intent(in), optional :: open_bc_in ! true for open global BCs
-                                                ! (scalars in global halo set to zero)
+    logical, intent(in), optional :: periodic_bc_in ! true for periodic global BCs
+    logical, intent(in), optional :: outflow_bc_in  ! true for outflow global BCs
+                                                    ! (scalars in global halo set to zero)
 
     integer :: best,i,j,metric
     integer :: ewrank,ewtasks,nsrank,nstasks
@@ -1388,16 +1388,16 @@ contains
     !WHL - added global boundary conditions
 
     periodic_bc = .true.  ! this is the default
-    open_bc = .false.
+    outflow_bc = .false.
 
-    if (present(open_bc_in)) then
-       open_bc = open_bc_in
-       if (open_bc) periodic_bc = .false.
+    if (present(outflow_bc_in)) then
+       outflow_bc = outflow_bc_in
+       if (outflow_bc) periodic_bc = .false.
     endif
 
     if (present(periodic_bc_in)) then
        periodic_bc = periodic_bc_in 
-       if (periodic_bc) open_bc = .false.
+       if (periodic_bc) outflow_bc = .false.
     endif
 
     ! Print grid geometry
@@ -2865,7 +2865,7 @@ contains
     call mpi_wait(nrequest,mpi_status_ignore,ierror)
     a(:,local_nsn-uhalo+1:) = nrecv(:,:)
 
-    if (open_bc) then   ! set values in global halo to zero
+    if (outflow_bc) then   ! set values in global halo to zero
                         ! interior halo cells should not be affected
 
        if (this_rank >= east) then  ! at east edge of global domain
@@ -2941,7 +2941,7 @@ contains
     call mpi_wait(nrequest,mpi_status_ignore,ierror)
     a(:,local_nsn-uhalo+1:) = nrecv(:,:)
 
-    if (open_bc) then   ! set values in global halo to zero
+    if (outflow_bc) then   ! set values in global halo to zero
                         ! interior halo cells should not be affected
 
        if (this_rank >= east) then  ! at east edge of global domain
@@ -3017,7 +3017,7 @@ contains
     call mpi_wait(nrequest,mpi_status_ignore,ierror)
     a(:,local_nsn-uhalo+1:) = nrecv(:,:)
 
-    if (open_bc) then   ! set values in global halo to zero
+    if (outflow_bc) then   ! set values in global halo to zero
                         ! interior halo cells should not be affected
 
        if (this_rank >= east) then  ! at east edge of global domain
@@ -3130,7 +3130,7 @@ contains
        endif
     endif
 
-    if (open_bc) then   ! set values in global halo to zero
+    if (outflow_bc) then   ! set values in global halo to zero
                         ! interior halo cells should not be affected
 
        if (this_rank >= east) then  ! at east edge of global domain
@@ -3208,7 +3208,7 @@ contains
     call mpi_wait(nrequest,mpi_status_ignore,ierror)
     a(:,:,local_nsn-uhalo+1:) = nrecv(:,:,:)
 
-    if (open_bc) then   ! set values in global halo to zero
+    if (outflow_bc) then   ! set values in global halo to zero
                         ! interior halo cells should not be affected
 
        if (this_rank >= east) then  ! at east edge of global domain
@@ -3227,7 +3227,7 @@ contains
           a(:,:,:lhalo) = 0.d0
        endif
 
-    endif   ! open BC
+    endif   ! outflow BC
 
   end subroutine parallel_halo_real8_3d
 

@@ -441,8 +441,8 @@ contains
     call write_log(trim(message))
     if (model%general%global_bc==GLOBAL_BC_PERIODIC) then
        write(message,*) 'Periodic global boundary conditions'
-    elseif (model%general%global_bc==GLOBAL_BC_OPEN) then
-       write(message,*) 'Open global boundary conditions; scalars in global halo will be set to zero'
+    elseif (model%general%global_bc==GLOBAL_BC_OUTFLOW) then
+       write(message,*) 'Outflow global boundary conditions; scalars in global halo will be set to zero'
     endif
 
     write(message,*) 'sigma file      : ',trim(model%funits%sigfile)
@@ -597,8 +597,8 @@ contains
     call GetValue(section, 'which_ho_nonlinear', model%options%which_ho_nonlinear)
     call GetValue(section, 'which_ho_sparse',    model%options%which_ho_sparse)
 
-!WHL  - Added which_ho_approx option for glissade dycore. Commented out for now
-!    call GetValue(section, 'which_ho_approx',    model%options%which_ho_approx)
+!WHL  - Added which_ho_approx option for glissade dycore.
+    call GetValue(section, 'which_ho_approx',    model%options%which_ho_approx)
 
   end subroutine handle_ho_options
 
@@ -756,11 +756,11 @@ contains
          'Standalone Trilinos interface              '/)
 
 !WHL - added glissade options for solving different Stokes approximations
-!      commented out for now
-!!    character(len=*), dimension(0:2), parameter :: ho_whichapprox = (/ &
-!!         'SIA only (glissade dycore)         ', &
-!!         'SSA only (glissade dycore)         ', &
-!!         'Blatter-Pattyn HO (glissade dycore)' /)
+
+    character(len=*), dimension(0:2), parameter :: ho_whichapprox = (/ &
+         'SIA only (glissade dycore)         ', &
+         'SSA only (glissade dycore)         ', &
+         'Blatter-Pattyn HO (glissade dycore)' /)
 
 
     call write_log('GLIDE options')
@@ -825,13 +825,12 @@ contains
 
     ! Forbidden options associated with Glam dycore
    
-!WHL - commented out for now
-!!    if (model%options%whichdycore == DYCORE_GLAM) then
-!!       if (model%options%which_ho_approx == HO_APPROX_SIA .or.   &
-!!           model%options%which_ho_approx == HO_APPROX_SSA) then 
-!!          call write_log('Error, Glide dycore must use higher-order Blatter-Pattyn approximation', GM_FATAL)
-!!       endif
-!!    endif
+    if (model%options%whichdycore == DYCORE_GLAM) then
+       if (model%options%which_ho_approx == HO_APPROX_SIA .or.   &
+           model%options%which_ho_approx == HO_APPROX_SSA) then 
+          call write_log('Error, Glide dycore must use higher-order Blatter-Pattyn approximation', GM_FATAL)
+       endif
+    endif
 
     if (model%options%temp_init < 0 .or. model%options%temp_init >= size(temp_init)) then
        call write_log('Error, temp_init option out of range',GM_FATAL)
@@ -975,13 +974,12 @@ contains
           call write_log('Error, HO sparse solver input out of range', GM_FATAL)
        end if
 
-!WHL - commented out for now
-!!       write(message,*) 'ho_whichapprox          : ',model%options%which_ho_approx,  &
-!!                         ho_whichapprox(model%options%which_ho_approx)
-!!       call write_log(message)
-!!       if (model%options%which_ho_approx < 0 .or. model%options%which_ho_approx >= size(ho_whichapprox)) then
-!!          call write_log('Error, Stokes approximation out of range', GM_FATAL)
-!!       end if
+       write(message,*) 'ho_whichapprox          : ',model%options%which_ho_approx,  &
+                         ho_whichapprox(model%options%which_ho_approx)
+       call write_log(message)
+       if (model%options%which_ho_approx < 0 .or. model%options%which_ho_approx >= size(ho_whichapprox)) then
+          call write_log('Error, Stokes approximation out of range', GM_FATAL)
+       end if
 
     endif   ! whichdycore
 
