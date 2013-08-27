@@ -393,19 +393,20 @@ contains
     type(glide_global_type) :: model        !*FD model instance
     real(dp), intent(in) :: time            !*FD current time
 
+    !WHL - Changed 'periodic_bc' to 'periodic' to avoid a name conflict with parallel modules
     ! local variables
     integer  :: ns,ew
     real(dp) :: dist, ewct, nsct, grid, rel
-    real(dp) :: periodic_bc = 1.d0  !TODO - Make this an integer?
+    real(dp) :: periodic = 1.d0  !TODO - Make this an integer?
 
     ewct = (real(model%general%ewn,dp) + 1.d0) / 2.d0
     nsct = (real(model%general%nsn,dp) + 1.d0) / 2.d0
     grid = real(model%numerics%dew,dp) * len0
 
     if (model%options%periodic_ew) then
-        periodic_bc = 0.d0
+        periodic = 0.d0
     else
-        periodic_bc = 1.d0
+        periodic = 1.d0
     end if
 
     select case(climate%eismint_type)
@@ -430,7 +431,7 @@ contains
 !!       call not_parallel(__FILE__,__LINE__)
        do ns = 1,model%general%nsn
           do ew = 1,model%general%ewn
-             dist = grid * sqrt(periodic_bc*(real(ew,kind=dp) - ewct)**2 + (real(ns,kind=dp) - nsct)**2)
+             dist = grid * sqrt(periodic*(real(ew,kind=dp) - ewct)**2 + (real(ns,kind=dp) - nsct)**2)
              model%climate%acab(ew,ns) = min(climate%nmsb(1), climate%nmsb(2) * (rel - dist))
           end do
        end do
@@ -443,7 +444,7 @@ contains
 !!       call not_parallel(__FILE__,__LINE__)
        do ns = 1,model%general%nsn
           do ew = 1,model%general%ewn
-             dist = grid * sqrt(periodic_bc*(real(ew,kind=dp) - ewct)**2 + (real(ns,kind=dp) - nsct)**2)
+             dist = grid * sqrt(periodic*(real(ew,kind=dp) - ewct)**2 + (real(ns,kind=dp) - nsct)**2)
              model%climate%acab(ew,ns) = min(climate%nmsb(1), climate%nmsb(2) * (rel - dist))
           end do
        end do
@@ -479,16 +480,16 @@ contains
     ! local variables
     integer  :: ns,ew
     real(dp) :: dist, ewct, nsct, grid
-    real(dp) :: periodic_bc = 1.d0
+    real(dp) :: periodic = 1.d0
 
     ewct = (real(model%general%ewn,dp)+1.d0) / 2.d0
     nsct = (real(model%general%nsn,dp)+1.d0) / 2.d0
     grid = real(model%numerics%dew,dp) * len0
 
     if (model%options%periodic_ew) then
-        periodic_bc = 0.d0
+        periodic = 0.d0
     else
-        periodic_bc = 1.d0
+        periodic = 1.d0
     end if
 
     select case(climate%eismint_type)
@@ -498,7 +499,7 @@ contains
        ! EISMINT-1 fixed margin
        do ns = 1,model%general%nsn
           do ew = 1,model%general%ewn
-             dist = grid * max(periodic_bc*abs(real(ew,kind=dp) - ewct),abs(real(ns,kind=dp) - nsct))*1d-3
+             dist = grid * max(periodic*abs(real(ew,kind=dp) - ewct),abs(real(ns,kind=dp) - nsct))*1d-3
              model%climate%artm(ew,ns) = climate%airt(1) + climate%airt(2) * dist*dist*dist
           end do
        end do
@@ -519,7 +520,7 @@ contains
        ! EISMINT-2
        do ns = 1,model%general%nsn
           do ew = 1,model%general%ewn
-             dist = grid * sqrt(periodic_bc*(real(ew,kind=dp) - ewct)**2 + (real(ns,kind=dp) - nsct)**2)
+             dist = grid * sqrt(periodic*(real(ew,kind=dp) - ewct)**2 + (real(ns,kind=dp) - nsct)**2)
              model%climate%artm(ew,ns) = climate%airt(1)+climate%airt(2) * dist
           end do
        end do
