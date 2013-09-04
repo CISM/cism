@@ -1,9 +1,9 @@
 #inputs file for Amr ice-sheet solver
 main.maxTime = 10000000000  # maximum time to run to
-main.maxStep = 1   # maximum number of steps to run
-#main.maxStep = 20000   # maximum number of steps to run
+main.maxStep = 10   # maximum number of steps to run
+main.maxStep = 1000   # maximum number of steps to run
 main.poutBaseName = pout-L1L2
-main.constitutiveRelation = GlensLaw
+#main.constitutiveRelation = GlensLaw
 main.constitutiveRelation = L1L2
 #main.constitutiveRelation = constMu
 #constMu.mu = 1.279e8
@@ -19,7 +19,8 @@ glimmerInterface.nodalInitialData = 0
 main.domain_size = 154000 54000
 main.domain_size = 308000 54000
 
-CalvingModel.type = NoCalvingModel
+CalvingModel.type = FixedFrontCalvingModel
+CalvingModel.min_thickness = 10.0
 
 surfaceFlux.type = fortran
 surfaceFlux.type = zeroFlux
