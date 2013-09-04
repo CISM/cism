@@ -28,11 +28,11 @@ module cism_external_dycore_interface
 
 contains
 
-  subroutine cism_external_dycore_interface(model)
+subroutine cism_external_dycore_interface(external_dycore_type,model)
 
  
   use parallel
-  use glimmer_global, only:rk
+  use glimmer_global
   use glide
   use glissade
   use simple_forcing
@@ -46,34 +46,41 @@ contains
 
   use glide_diagnostics
 
+#ifdef CISM_HAS_BISICLES || CISM_HAS_FELIX
   use glimmer_to_dycore
+#endif
 
   implicit none
 
+  integer :: external_dycore_type
   type(glide_global_type), intent(inout) :: model
 
-  real(kind=sp) cur_time, time_inc
+  real(kind=dp) cur_time, time_inc
 
   ! for external dycore:
   integer*4 dycore_model_index
   integer argc
   integer*4 p_index
 
-    dycore_model_index = this_rank + 1
-  
-    print *,"Initializing external dycore interface."
-    call gtd_init_dycore_interface()
+  dycore_model_index = this_rank + 1
 
-    call parallel_barrier()
-    print *,"Initializing external dycore."
-    call gtd_init_dycore(model,dycore_model_index)
-    call parallel_barrier()
+#ifdef CISM_HAS_BISICLES || CISM_HAS_FELIX
+  print *,"Initializing external dycore interface."
+  call gtd_init_dycore_interface()
 
-    print *,"Running external dycore."
-    call gtd_run_dycore(dycore_model_index,cur_time,time_inc)
-    print *,"Completed Dycore Run."
-    call parallel_barrier()
+  call parallel_barrier()
+  print *,"Initializing external dycore."
+  call gtd_init_dycore(model,dycore_model_index)
+  call parallel_barrier()
 
-  end subroutine cism_external_dycore_interface
+  print *,"Running external dycore."
+  call gtd_run_dycore(dycore_model_index,cur_time,time_inc)
+  print *,"Completed Dycore Run."
+  call parallel_barrier()
+#else
+  print *,"ERROR: The program was not built with an external dynamic core."
+#endif
+
+end subroutine cism_external_dycore_interface
 
 end module cism_external_dycore_interface

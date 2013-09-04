@@ -28,11 +28,12 @@ module cism_internal_dycore_interface
 
 contains
 
-  subroutine cism_internal_dycore_interface(model)
 
- 
+subroutine cism_internal_dycore_interface(whichdycore,model,climate,time,tstep_count)
+
+
   use parallel
-  use glimmer_global, only:rk
+  use glimmer_global
   use glide
   use glissade
   use simple_forcing
@@ -46,19 +47,81 @@ contains
 
   use glide_diagnostics
 
-  use glimmer_to_dycore
-
   implicit none
 
-  type(glide_global_type), intent(inout) :: model
+    integer, intent(in) :: whichdycore        ! internale dycore selector
+    type(glide_global_type) :: model
+    type(simple_climate) :: climate         ! climate
+    real(kind=dp), intent(inout) :: time      ! model time in years
+    integer :: tstep_count
 
-  real(kind=sp) cur_time, time_inc
 
-  ! for external dycore:
-  integer*4 dycore_model_index
-  integer argc
-  integer*4 p_index
+  real(kind=dp) cur_time, time_inc
 
-  end subroutine cism_internal_dycore_interface
+print *,'In internal_dycore_interface'
+print *,'time, tend = ',time,model%numerics%tend
+
+  do while(time < model%numerics%tend)
+
+     ! --- First assign forcings ----
+     ! Because this is Forward Euler, the forcings should be from the previous time step (e.g. H1 = f(H0, V0, SMB0))
+
+     ! TODO Write generic forcing subroutines that could call simple_massbalance/surftemp or some other forcing module.  
+     ! simple_massbalance/surftemp are only used for the EISMINT experiments.  
+     ! If they are called without EISMINT options in the config file, they will do nothing.
+     ! TODO May want to move them to the glissade/glide time steppers.  
+     ! If so be careful about using the right time level (i.e. the old one).
+
+     call simple_massbalance(climate,model,time)
+     call simple_surftemp(climate,model,time)
+
+     ! --- Increment time before performing time step operations ---
+     ! We are solving variables at the new time level using values from the previous time level.
+
+     ! TODO Should we just use model%numerics%time and model%numerics%timecounter?  
+
+     time = time + model%numerics%tinc
+     tstep_count = tstep_count + 1
+
+     if (model%options%whichdycore == DYCORE_GLIDE) then
+
+       call t_startf('glide_tstep')
+
+       call t_startf('glide_tstep_p1')
+       call glide_tstep_p1(model,time)
+       call t_stopf('glide_tstep_p1')
+
+       call t_startf('glide_tstep_p2')
+       call glide_tstep_p2(model)
+       call t_stopf('glide_tstep_p2')
+
+       call t_startf('glide_tstep_p3')
+       call glide_tstep_p3(model)
+       call t_stopf('glide_tstep_p3')
+
+       call t_stopf('glide_tstep')
+
+     else   ! glam/glissade dycore
+
+       call t_startf('glissade_tstep')
+       call glissade_tstep(model,time)
+       call t_stopf('glissade_tstep')
+
+     endif   ! glide v. glam/glissade dycore
+
+     ! write ice sheet diagnostics to log file at desired interval (model%numerics%dt_diag)
+
+     call glide_write_diagnostics(model,        time,       &
+                                  tstep_count = tstep_count)
+
+     ! Write to output netCDF files at desired intervals
+
+     call t_startf('glide_io_writeall')
+     call glide_io_writeall(model,model)
+     call t_stopf('glide_io_writeall')
+
+  end do   ! time < model%numerics%tend
+
+end subroutine cism_internal_dycore_interface
 
 end module cism_internal_dycore_interface
