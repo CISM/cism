@@ -432,18 +432,14 @@ IF (CISM_BUILD_SIMPLE_GLIDE AND (NOT GLIMMER_NO_EXECUTABLE))
   add_subdirectory(example-drivers/simple_glide/src)
 ENDIF()
 
-
-#IK, 8/6/13: there are redundancies in the below logic! 
+IF (CISM_USE_CISM_FRONT_END)
+  add_subdirectory(cism_driver)
+ENDIF()
+ 
 IF (CISM_BUILD_SIMPLE_BISICLES)
   add_subdirectory(example-drivers/simple_bisicles/src)
   add_subdirectory(libdycore)
 
-  IF (CISM_USE_CISM_FRONT_END)
-    add_subdirectory(cism_driver)
-  ENDIF()
-
-  SET(GLIMMER_EXTERNAL_DYCORE_DIR ${GLIMMER_SOURCE_DIR}/libdycore)
-  SET(GLIMMER_BISICLES_DIR ${GLIMMER_EXTERNAL_DYCORE_DIR}/BISICLES)
   include_directories (${GLIMMER_EXTERNAL_DYCORE_DIR}
                        ${GLIMMER_BISICLES_DIR})
 
@@ -454,15 +450,10 @@ IF (CISM_BUILD_SIMPLE_BISICLES)
 
 ENDIF()
 
-#IK, 8/6/13: added the following for simple_felix.  Removed redundancies 
-#that are found in the above logic for bisicles. 
+#IK, 8/6/13: added the following for simple_felix.
 IF (CISM_BUILD_SIMPLE_FELIX)
   add_subdirectory(example-drivers/simple_felix/src)
   add_subdirectory(libdycore)
-
-  IF (CISM_USE_CISM_FRONT_END)
-    add_subdirectory(cism_driver)
-  ENDIF()
 
   include_directories (${GLIMMER_DYCORE_DIR}
                        ${GLIMMER_FELIX_DIR})
