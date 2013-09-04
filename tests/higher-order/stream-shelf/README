@@ -37,3 +37,21 @@ Note that the test case does not run automatically anymore. E.g., one would need
 
 SFP 7/30/13
 
+
+Notes for Hopper.nersc.gov:
+
+This currently works on hopper.nersc.gov with the following modules (which are not the current defaults):
+
+python/2.7.1
+hdf5/1.8.5.0
+netcdf/4.1.1.0
+nco/4.0.8
+
+(one way to ensure a consistent set of modules is to do the following:
+module unload hdf5
+module unload netcdf
+module load nco
+
+(loading nco also loads the compatible hdf5 and netcdf modules)
+
+DFM 9/4/13

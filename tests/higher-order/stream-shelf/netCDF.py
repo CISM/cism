@@ -80,7 +80,7 @@ except ImportError:
 
     class NetCDFvariable(object):
       def __init__(self,FILE,name,datatype,dimensions):
-        if isinstance(FILE,pycdf.pycdf.CDFVar): 
+        if isinstance(FILE,pycdf.CDFVar): 
         # FILE is an already defined netCDF variable (not a file)
           self.VARIABLE = FILE
         else:
