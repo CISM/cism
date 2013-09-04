@@ -52,6 +52,11 @@ netCDFfile.createDimension('y0',ny-1)
 x = dx*numpy.arange(nx,dtype='float32')
 y = dx*numpy.arange(ny,dtype='float32')
 
+# inflow flux for placement in upstream-boundary cells (From Goldberg)
+flux = 1.5e6/dx
+
+print 'Flux = ', flux
+
 netCDFfile.createVariable('time','f',('time',))[:] = [0]
 netCDFfile.createVariable('x1','f',('x1',))[:] = x.tolist()
 netCDFfile.createVariable('y1','f',('y1',))[:] = y.tolist()
@@ -71,6 +76,7 @@ acab = numpy.zeros([1,ny,nx],dtype='float32')
 
 # feel out other fields
 acab[:] = 0.3           # value from Goldberg et al. (2012) test case (Table 1 - m/yr)
+acab[0,:,0] = flux 
 beta[0,:,:] = 30.4582   # value from Goldberg et al. (2012) test case (Table 1 - converted from Pa s/m to Pa yr/m)
 
 # Domain size
@@ -83,6 +89,7 @@ for i in range(nx):
   for j in range(ny):
     yy = float(j) * dy + 0.5*dy # -1/2 < y < 1/2
     topg[0,j,i] = -(300.0 + 600.0 * sin( pi*yy / Ly ) )    # shelf front at domain right 
+
 
 # Create the required variables in the netCDF file.
 netCDFfile.createVariable('thk',      'f',('time','y1','x1'))[:] = thk.tolist()
