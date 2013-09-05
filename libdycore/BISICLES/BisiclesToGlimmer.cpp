@@ -33,7 +33,7 @@ BisiclesToGlimmer::initDyCore(const char * input_fname)
 
 // updates cur_time_yr to match time update in dycore
 int
-BisiclesToGlimmer::runDyCore(float& cur_time_yr, const float time_inc_yr)
+BisiclesToGlimmer::runDyCore(double& cur_time_yr, const double time_inc_yr)
 {
   cout << "In BISICLES runDyCore" << endl;
   bike_driver_run(this,cur_time_yr,time_inc_yr);

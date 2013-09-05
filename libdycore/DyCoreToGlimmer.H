@@ -36,8 +36,8 @@ class DyCoreToGlimmer
     double * topg;
     double * floating_mask;
     double * ice_mask;
-    double * lower_cell_loc;
-    double * lower_cell_temp;
+    double * lower_cell_loc; // z-location of lowest cell-center
+    double * lower_cell_temp; // temperature in lowest cell 
     long * dimInfo;
     long * ewlb;
     long * ewub;
@@ -130,7 +130,7 @@ class DyCoreToGlimmer
 		      const char *struct_name,  const long *var_dim_info);
     
   virtual int initDyCore(const char *input_fname);    // = 0;
-  virtual int runDyCore(float& cur_time_yr, const float time_inc_yr);     // = 0;
+  virtual int runDyCore(double& cur_time_yr, const double time_inc_yr);     // = 0;
   virtual int deleteDyCore(); // = 0; 
 
   int setDyCoreType(const int dycore_type);

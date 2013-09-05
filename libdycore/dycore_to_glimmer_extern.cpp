@@ -16,7 +16,7 @@ extern "C" {
   void dycore_reset_registry_();
   void dycore_get_new_model_(int * dycore_type,int * index,int * error_code);
   void dycore_init_model_(int * dycore_type,int * index,char * input_fname,int * error_code);
-  void dycore_run_model_(int * model_index, float * cur_time_yr, float * time_inc_yr);
+  void dycore_run_model_(int * model_index, double * cur_time_yr, double * time_inc_yr);
   void dycore_delete_model_(int * dycore_model_index);
 
   void dycore_set_ptr_double_var_(double *var, char *var_name_in,
@@ -134,7 +134,7 @@ void dycore_init_model_(int * dycore_type,int * model_index,char * input_fname,i
   dtg -> initDyCore(input_fname);
 }
 
-void dycore_run_model_(int * model_index, float * cur_time_yr, float * time_inc_yr)
+void dycore_run_model_(int * model_index, double * cur_time_yr, double * time_inc_yr)
 {
   DyCoreToGlimmer * dtg;
   
