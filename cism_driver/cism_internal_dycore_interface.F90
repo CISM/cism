@@ -24,7 +24,7 @@
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-module cism_internal_dycore_interface
+module cism_internal_dycore_interface_module
 
 contains
 
@@ -124,4 +124,4 @@ print *,'time, tend = ',time,model%numerics%tend
 
 end subroutine cism_internal_dycore_interface
 
-end module cism_internal_dycore_interface
+end module cism_internal_dycore_interface_module

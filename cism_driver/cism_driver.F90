@@ -27,13 +27,13 @@ program cism_driver
 
   use parallel
   use glimmer_commandline
-  use cism_front_end 
+  use cism_front_end_module 
 
   call parallel_initialise
   call glimmer_GetCommandline()
 
   call cism_front_end()
-  call parallel_finalise
+!  call parallel_finalise
 end program cism_driver
 
 ! need in LD_LIBRARY_PATH: /opt/cray/xt-tools/lgdb/1.4/lib/alps

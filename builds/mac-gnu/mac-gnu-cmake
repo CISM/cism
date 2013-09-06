@@ -52,7 +52,7 @@ cmake \
   -D CISM_BUILD_SIMPLE_BISICLES:BOOL=OFF \
   -D CISM_BUILD_EXTRA_EXECUTABLES:BOOL=OFF \
   -D CISM_USE_GPTL_INSTRUMENTATION:BOOL=OFF \
-  -D CISM_USE_CISM_FRONT_END:BOOL=OFF \
+  -D CISM_USE_CISM_FRONT_END:BOOL=ON \
 \
   -D CISM_GNU=ON \
 \
@@ -69,8 +69,8 @@ cmake \
 \
   -D CISM_MPI_BASE_DIR=/opt/local \
 \
-  -D CMAKE_CXX_FLAGS:STRING="-g -02" \
-  -D CMAKE_Fortran_FLAGS="-g -O2 -ffree-line-length-none" \
+  -D CMAKE_CXX_FLAGS:STRING="-g " \
+  -D CMAKE_Fortran_FLAGS="-g -ffree-line-length-none" \
 \
   -D GLIMMER_EXTRA_LIBS="-lblas" \
 \

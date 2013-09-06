@@ -28,7 +28,7 @@
 #include "config.inc"
 #endif
 
-module cism_front_end
+module cism_front_end_module
 
 contains
 
@@ -52,8 +52,8 @@ contains
   use glimmer_filenames, only : filenames_init
   use glide_io, only: glide_io_writeall
 
-  use cism_internal_dycore_interface
-  use cism_external_dycore_interface
+  use cism_internal_dycore_interface_module
+  use cism_external_dycore_interface_module
   
 
 !!  use glimmer_horiz_bcs, only : horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns, &
@@ -216,4 +216,4 @@ print *,"external_dycore_type: ",model%options%external_dycore_type
   ; call parallel_finalise
   end subroutine cism_front_end
 
-end module cism_front_end
+end module cism_front_end_module

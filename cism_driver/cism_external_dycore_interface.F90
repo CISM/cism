@@ -24,7 +24,7 @@
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-module cism_external_dycore_interface
+module cism_external_dycore_interface_module
 
 contains
 
@@ -83,4 +83,4 @@ subroutine cism_external_dycore_interface(external_dycore_type,model)
 
 end subroutine cism_external_dycore_interface
 
-end module cism_external_dycore_interface
+end module cism_external_dycore_interface_module

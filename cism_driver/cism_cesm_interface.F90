@@ -25,16 +25,16 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
-module cism_cesm_interface
+module cism_cesm_interface_module
 
 contains
 
   subroutine cism_cesm_interface()
   
-    use cism_front_end
+    use cism_front_end_module
     
     call cism_front_end()
 
   end subroutine cism_cesm_interface   
 
-end module cism_cesm_interface
+end module cism_cesm_interface_module
