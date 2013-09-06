@@ -23,7 +23,7 @@ CalvingModel.type = FixedFrontCalvingModel
 CalvingModel.min_thickness = 10.0
 
 surfaceFlux.type = fortran
-surfaceFlux.type = zeroFlux
+surfaceFlux.backgroundFlux = 0.3
 basalFlux.type = zeroFlux
 
 geometry.problem_type = fortran
