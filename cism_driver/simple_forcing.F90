@@ -457,7 +457,7 @@ contains
     case(5)
        !verification 
        call not_parallel(__FILE__,__LINE__)
-!!       call exact_surfmass(climate,model,time,1.d0,climate%airt(2))
+       call exact_surfmass(climate,model,time,1.d0,climate%airt(2))
 
     end select
 
@@ -534,7 +534,7 @@ contains
        !call both massbalance and surftemp at the same time to save computing time. 
 !WHL - Commenting out call to exact_surfmass for now
 !TODO - Do we want to support this option?
-!!       call exact_surfmass(climate,model,time,0.d0,climate%airt(2))
+       call exact_surfmass(climate,model,time,0.d0,climate%airt(2))
     end select
 
   end subroutine simple_surftemp
@@ -544,92 +544,92 @@ contains
 
 !WHL - Commenting out this subroutine for now
 
-!  subroutine exact_surfmass(climate,model,time,which_call,which_test)
+  subroutine exact_surfmass(climate,model,time,which_call,which_test)
 
-!    use glide_types
-!    use testsFG
-!    implicit none
+    use glide_types
+    use testsFG
+    implicit none
 
-!    type(simple_climate) :: climate             !*FD structure holding climate info
-!    type(glide_global_type) :: model            !*FD model instance
-!    real(dp), intent(in) :: time                !*FD current time
-!    real(dp), intent(in) :: which_test          !*FD  Which exact test (F=0, G=1)
-!    real(dp), intent(in) :: which_call          !*FD  0 = surface temp, 1 = mass balance
-!    integer  :: ns,ew,lev,center
-!
-!    !verification
-!    real(dp) ::  t, r, z, x, y                    !in variables
-!    real(dp) ::  H, TT, U, w, Sig, M, Sigc        !out variables
-!    real(dp) :: H_0
-!
+    type(simple_climate) :: climate             !*FD structure holding climate info
+    type(glide_global_type) :: model            !*FD model instance
+    real(dp), intent(in) :: time                !*FD current time
+    real(dp), intent(in) :: which_test          !*FD  Which exact test (F=0, G=1)
+    real(dp), intent(in) :: which_call          !*FD  0 = surface temp, 1 = mass balance
+    integer  :: ns,ew,lev,center
 
-!    center = (model%general%ewn - 1) * 0.5
+    !verification
+    real(dp) ::  t, r, z, x, y                    !in variables
+    real(dp) ::  H, TT, U, w, Sig, M, Sigc        !out variables
+    real(dp) :: H_0
 
-!    !TODO - Change which_call to an integer?
-!    if (which_call .eq. 0.d0 .or. which_call .eq. 2.d0) then
-!
 
-!        !point by point call to the function 
-!        do ns = 1,model%general%nsn
-!            do ew = 1,model%general%ewn
-!                x = (ew - center)*model%numerics%dew
-!                y = (ns - center)*model%numerics%dns
-!                r = sqrt(x**2 + y**2)
-!                do lev = 1, model%general%upn
-!                    z = model%geometry%thck(ew,ns)*model%numerics%sigma(lev)
-!                    !the function only returns values within the radius
-!                    if(r>0.d0 .and. r<L) then
-!                        if (which_test .eq. 0.d0) then
-!                            call testF(r,z,H,TT,U,w,Sig,M,Sigc)
-!                        else if (which_test .eq. 1.d0) then
-!                            call testG(time,r,z,H,TT,U,w,Sig,M,Sigc)
-!                        else if (which_test .eq. 2.d0) then
-!                            !H_0 = H0
-!                            H_0 = model%geometry%thck(center,center)
-!                            !TT = 0.d0
-!                            TT = model%tempwk%dissip(lev,ew,ns)
-!                            call model_exact(time,r,z,model%geometry%thck(ew,ns),H_0,TT,U,w,Sig,M,Sigc)
-!                        end if
-!                        model%tempwk%compheat(lev,ew,ns) = -Sigc*SperA*1.0d6 ! (10^(-3) deg mK/a) (*10^3)
-!                    else
-!                        model%tempwk%compheat(lev,ew,ns) = 0.d0
-!                    end if
-!                end do
-!            end do
-!        end do
+    center = (model%general%ewn - 1) * 0.5
 
-!    else if (which_call .eq. 1.d0 .or. which_call .eq. 2.d0) then
+    !TODO - Change which_call to an integer?
+    if (which_call .eq. 0.d0 .or. which_call .eq. 2.d0) then
 
-!        do ns = 1,model%general%nsn
-!            do ew = 1,model%general%ewn
-!                x = (ew - center)*model%numerics%dew
-!                y = (ns - center)*model%numerics%dns
-!                r = sqrt(x**2 + y**2)
-!                z = model%geometry%thck(ew,ns)
-!                !the function only returns values within the radius
-!                if(r>0.d0 .and. r<L) then
-!                    if (which_test .eq. 0.d0) then
-!                        call testF(r,z,H,TT,U,w,Sig,M,Sigc)
-!                    else if (which_test .eq. 1.d0) then
-!                        call testG(time,r,z,H,TT,U,w,Sig,M,Sigc)
-!                    else if (which_test .eq. 2.d0) then
-!                        H_0 = H0 !H_0 = model%geometry%thck(center,center)
-!                        TT = 0.d0 !TT = model%tempwk%dissip(lev,ew,ns)
-!                        call model_exact(time,r,z,model%geometry%thck(ew,ns),H_0,TT,U,w,Sig,M,Sigc)
-!                    end if
-!                    model%climate%acab(ew,ns) = M*SperA  !m/a
-!                else
-!                    if(r .eq. 0.d0) then
-!                        model%climate%acab(ew,ns) = 0.d0
-!                        !model%climate%acab(ew,ns) = H0 - model%geometry%thck(center,center) !set it back to H0
-!                    else
-!                        model%climate%acab(ew,ns) = -0.1d0  !outside the glacier we use .1 m ablation as specified in the paper
-!                    end if
-!                end if
-!            end do
-!        end do
-!    end if
 
-!  end subroutine exact_surfmass
+        !point by point call to the function 
+        do ns = 1,model%general%nsn
+            do ew = 1,model%general%ewn
+                x = (ew - center)*model%numerics%dew
+                y = (ns - center)*model%numerics%dns
+                r = sqrt(x**2 + y**2)
+                do lev = 1, model%general%upn
+                    z = model%geometry%thck(ew,ns)*model%numerics%sigma(lev)
+                    !the function only returns values within the radius
+                    if(r>0.d0 .and. r<L) then
+                        if (which_test .eq. 0.d0) then
+                            call testF(r,z,H,TT,U,w,Sig,M,Sigc)
+                        else if (which_test .eq. 1.d0) then
+                            call testG(time,r,z,H,TT,U,w,Sig,M,Sigc)
+                        else if (which_test .eq. 2.d0) then
+                            !H_0 = H0
+                            H_0 = model%geometry%thck(center,center)
+                            !TT = 0.d0
+                            TT = model%tempwk%dissip(lev,ew,ns)
+                            call model_exact(time,r,z,model%geometry%thck(ew,ns),H_0,TT,U,w,Sig,M,Sigc)
+                        end if
+                        model%tempwk%compheat(lev,ew,ns) = -Sigc*SperA*1.0d6 ! (10^(-3) deg mK/a) (*10^3)
+                    else
+                        model%tempwk%compheat(lev,ew,ns) = 0.d0
+                    end if
+                end do
+            end do
+        end do
+
+    else if (which_call .eq. 1.d0 .or. which_call .eq. 2.d0) then
+
+        do ns = 1,model%general%nsn
+            do ew = 1,model%general%ewn
+                x = (ew - center)*model%numerics%dew
+                y = (ns - center)*model%numerics%dns
+                r = sqrt(x**2 + y**2)
+                z = model%geometry%thck(ew,ns)
+                !the function only returns values within the radius
+                if(r>0.d0 .and. r<L) then
+                    if (which_test .eq. 0.d0) then
+                        call testF(r,z,H,TT,U,w,Sig,M,Sigc)
+                    else if (which_test .eq. 1.d0) then
+                        call testG(time,r,z,H,TT,U,w,Sig,M,Sigc)
+                    else if (which_test .eq. 2.d0) then
+                        H_0 = H0 !H_0 = model%geometry%thck(center,center)
+                        TT = 0.d0 !TT = model%tempwk%dissip(lev,ew,ns)
+                        call model_exact(time,r,z,model%geometry%thck(ew,ns),H_0,TT,U,w,Sig,M,Sigc)
+                    end if
+                    model%climate%acab(ew,ns) = M*SperA  !m/a
+                else
+                    if(r .eq. 0.d0) then
+                        model%climate%acab(ew,ns) = 0.d0
+                        !model%climate%acab(ew,ns) = H0 - model%geometry%thck(center,center) !set it back to H0
+                    else
+                        model%climate%acab(ew,ns) = -0.1d0  !outside the glacier we use .1 m ablation as specified in the paper
+                    end if
+                end if
+            end do
+        end do
+    end if
+
+  end subroutine exact_surfmass
   
 end module simple_forcing
