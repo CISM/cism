@@ -78,7 +78,7 @@ echo "Doing CMake Configuration step"
 
 
 cmake \
-  -D NO_TRILINOS:BOOL=OFF \
+  -D CISM_USE_TRILINOS:BOOL=ON \
   -D CISM_COUPLED:BOOL=OFF \
   -D CISM_MPI_MODE:BOOL=ON \
   -D CISM_SERIAL_MODE:BOOL=OFF \

@@ -3,6 +3,14 @@
 cmake_minimum_required(VERSION 2.8.6)
 
 OPTION (NO_TRILINOS "Toggle to Not use Trilinos: defaults to OFF (Trilinos on by default)" OFF)
+IF (DEFINED CISM_USE_TRILINOS)
+  IF (CISM_USE_TRILINOS)
+    SET(NO_TRILINOS "OFF")
+    ELSE()
+    SET(NO_TRILINOS "ON")
+  ENDIF()
+ENDIF()
+
 OPTION (CISM_MPI_MODE "Toggle to Configure with MPI: defaults to ON" ON)
 OPTION (CISM_SERIAL_MODE "Toggle to Configure in Serial mode: defaults to OFF " OFF)
 OPTION (CISM_USE_MPI_WITH_SLAP "Toggle to use mpi when using SLAP solver, only relevant if CISM_SERIAL_MODE=ON: defaults to OFF" OFF)
