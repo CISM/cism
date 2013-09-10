@@ -8,7 +8,8 @@ main.constitutiveRelation = L1L2
 #main.constitutiveRelation = constMu
 #constMu.mu = 1.279e8
 main.rateFactor = constRate
-constRate.A = 5.7e-18
+#constRate.A = 5.7e-18
+constRate.A = 3.0e-25 #from Goldberg (2012)
 constRate.epsSqr0 = 1.0e-16
 
 # CISM uses 2 ghost cells
@@ -49,10 +50,11 @@ geometry.basalSlope = 0 0 0
 
 #amr.gridsFile = grids.dat
 
-amr.maxLevel = 2   # finest level allowed in simulation
+amr.maxLevel = 0   # finest level allowed in simulation
 amr.ref_ratio = 2 2 2 2 2
 amr.num_cells = 168 56 10   #number of cells in base grid
 amr.num_cells = 336 56 10   #number of cells in base grid
+amr.num_cells = 178 28 10   #number of cells in base grid
 
 amr.is_periodic = 0 0 0       # 1 if domain is periodic 
 # (note that periodic BC's override physical BC types)
@@ -89,7 +91,7 @@ amr.verbosity = 5
 amr.ref_ratio = 2 2 2   # refinement ratios
 amr.regrid_interval = 10   # number of timesteps between regridding
 amr.blockFactor = 4           # block factor used in grid generation
-#amr.blockFactor = 2           # block factor used in grid generation
+amr.blockFactor = 2           # block factor used in grid generation
 amr.fill_ratio = 0.8          # how efficient are the grids
 amr.nestingRadius = 1         # proper nesting radius required
 amr.tags_grow = 2             # amount to buffer tags
