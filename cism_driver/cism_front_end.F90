@@ -213,7 +213,7 @@ print *,"external_dycore_type: ",model%options%external_dycore_type
   call close_log
 
   !TODO - call this only for parallel runs?
-  ; call parallel_finalise
+   call parallel_finalise
   end subroutine cism_front_end
 
 end module cism_front_end_module
