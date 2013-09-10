@@ -2,7 +2,7 @@
 main.maxTime = 10000000000  # maximum time to run to
 main.maxStep = 10   # maximum number of steps to run
 main.maxStep = 1000   # maximum number of steps to run
-main.poutBaseName = pout-L1L2
+main.poutBaseName = pout.l2
 #main.constitutiveRelation = GlensLaw
 main.constitutiveRelation = L1L2
 #main.constitutiveRelation = constMu
@@ -16,11 +16,16 @@ glimmerInterface.numGhost = 2 2
 # latest setup is cell-centered for thickness                        
 glimmerInterface.nodalInitialData = 0
 
-main.domain_size = 154000 54000
-main.domain_size = 308000 54000
+main.domain_size = 150000 50000
+main.domain_size = 300000 50000
 
 CalvingModel.type = FixedFrontCalvingModel
 CalvingModel.min_thickness = 10.0
+
+#CalvingModel.type = DomainEdgeCalvingModel
+#CalvingModel.front_lo = 0 0 # for half-domain
+#CalvingModel.front_lo = 1 0 # for full-domain
+#CalvingModel.front_hi = 1 0
 
 surfaceFlux.type = fortran
 surfaceFlux.backgroundFlux = 0.3
@@ -44,7 +49,7 @@ geometry.basalSlope = 0 0 0
 
 #amr.gridsFile = grids.dat
 
-amr.maxLevel = 0   # finest level allowed in simulation
+amr.maxLevel = 2   # finest level allowed in simulation
 amr.ref_ratio = 2 2 2 2 2
 amr.num_cells = 168 56 10   #number of cells in base grid
 amr.num_cells = 336 56 10   #number of cells in base grid
@@ -57,7 +62,7 @@ bc.lo_bc = 0 0 0
 bc.hi_bc = 1 0 0   
 
 #include vertical shear
-amr.additional_velocity = 1
+amr.additional_velocity = 0
 
 amr.temporal_accuracy = 1
 #amr.temporal_accuracy = 2
@@ -84,7 +89,7 @@ amr.verbosity = 5
 amr.ref_ratio = 2 2 2   # refinement ratios
 amr.regrid_interval = 10   # number of timesteps between regridding
 amr.blockFactor = 4           # block factor used in grid generation
-amr.blockFactor = 2           # block factor used in grid generation
+#amr.blockFactor = 2           # block factor used in grid generation
 amr.fill_ratio = 0.8          # how efficient are the grids
 amr.nestingRadius = 1         # proper nesting radius required
 amr.tags_grow = 2             # amount to buffer tags
@@ -93,9 +98,16 @@ amr.max_box_size = 10000         # largest box length allowed
 
 amr.tag_on_grad_velocity = 0
 amr.tag_on_laplacian_velocity = 1
+#amr.tag_on_grounded_laplacian_velocity = 1 #for now, tag on shelf as well
 amr.lap_vel_tagging_val = 100
 amr.tag_on_strain_rate_invariant = 0
 amr.strain_rate_invariant_tagging_val = 1
+amr.tag_grounding_line = 1 
+amr.grounding_line_tagging_min_vel = 100
+#amr.grounding_line_tagging_max_basal_friction_coef = 1000.0
+
+amr.tagSubsetBoxesFile = tag-subset.stream-shelf
+
 
 #initial guess 
 amr.do_initial_velocity_guess = 1
