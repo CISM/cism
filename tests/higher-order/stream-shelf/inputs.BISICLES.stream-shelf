@@ -1,7 +1,7 @@
 #inputs file for Amr ice-sheet solver
 main.maxTime = 10000000000  # maximum time to run to
 main.maxStep = 10   # maximum number of steps to run
-main.maxStep = 1000   # maximum number of steps to run
+main.maxStep = 10000000000   # maximum number of steps to run
 main.poutBaseName = pout.newA
 #main.constitutiveRelation = GlensLaw
 main.constitutiveRelation = L1L2
@@ -70,7 +70,7 @@ amr.temporal_accuracy = 1
 #amr.temporal_accuracy = 2
 #amr.temporal_accuracy = 4
 
-amr.cfl = 0.1  # "cfl" number
+amr.cfl = 0.3  # "cfl" number
 amr.initial_cfl = 0.1  # "cfl" number
 amr.max_dt_grow_factor = 1.1 #max amount dt can grow from one timestep to another
 
