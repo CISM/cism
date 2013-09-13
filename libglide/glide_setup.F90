@@ -634,10 +634,11 @@ contains
 
     ! basic Glide/Glimmer options
 
-    character(len=*), dimension(0:2), parameter :: dycore = (/ &
+    character(len=*), dimension(0:3), parameter :: dycore = (/ &
          'glide              ', &  ! Glimmer SIA
          'glam               ', &  ! Payne-Price finite difference
-         'glissade           ' /)  ! prototype finite element
+         'glissade           ', &  ! prototype finite element
+         'albany-felix       ' /)  ! External Albany-FELIX finite element 
 
     character(len=*), dimension(0:5), parameter :: evolution = (/ &
          'pseudo-diffusion                      ', &
@@ -775,15 +776,6 @@ contains
     write(message,*) 'Dycore                  : ',model%options%whichdycore,dycore(model%options%whichdycore)
     call write_log(message)
 
-    !NOTE : Old option 3 (TEMP_REMAP_ADV) has been removed.
-    ! If this has been set, then change to option 1 (TEMP_PROGNOSTIC), which applies to any dycore.
-
-    if (model%options%whichtemp < 0 .or. model%options%whichtemp >= size(temperature)) then
-       call write_log('Error, temperature option out of range',GM_FATAL)
-    end if
-    write(message,*) 'temperature calculation : ',model%options%whichtemp,temperature(model%options%whichtemp)
-    call write_log(message)
-
     ! Forbidden options to use with the Glide dycore
     if (model%options%whichdycore == DYCORE_GLIDE) then
 
@@ -831,6 +823,22 @@ contains
           call write_log('Error, Glide dycore must use higher-order Blatter-Pattyn approximation', GM_FATAL)
        endif
     endif
+
+
+    ! Config specific to Albany-Felix dycore   
+    if (model%options%whichdycore == DYCORE_ALBANYFELIX) then
+       call write_log('Warning, Albany-FELIX dycore requires external libraries, and it is still in development!!!', GM_WARNING)
+    endif
+
+
+    !NOTE : Old option 3 (TEMP_REMAP_ADV) has been removed.
+    ! If this has been set, then change to option 1 (TEMP_PROGNOSTIC), which applies to any dycore.
+
+    if (model%options%whichtemp < 0 .or. model%options%whichtemp >= size(temperature)) then
+       call write_log('Error, temperature option out of range',GM_FATAL)
+    end if
+    write(message,*) 'temperature calculation : ',model%options%whichtemp,temperature(model%options%whichtemp)
+    call write_log(message)
 
     if (model%options%temp_init < 0 .or. model%options%temp_init >= size(temp_init)) then
        call write_log('Error, temp_init option out of range',GM_FATAL)

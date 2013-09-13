@@ -76,6 +76,7 @@ module glide_types
   integer, parameter :: DYCORE_GLIDE = 0     ! old shallow-ice dycore from Glimmer
   integer, parameter :: DYCORE_GLAM = 1      ! Payne-Price finite-difference solver
   integer, parameter :: DYCORE_GLISSADE = 2  ! prototype finite-element solver
+  integer, parameter :: DYCORE_ALBANYFELIX = 3  ! External Albany-Felix finite-element solver
 
   !WHL - Removed -1 option (replaced by new glint option: evolve_ice)
   integer, parameter :: EVOL_PSEUDO_DIFF = 0    ! glide only

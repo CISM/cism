@@ -100,6 +100,7 @@ contains
     use glimmer_coordinates, only: coordsystem_new
 
     use glissade_velo_higher, only: glissade_velo_higher_init
+    use felix_dycore_interface, only: felix_velo_init
 
 !!    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
 
@@ -226,18 +227,26 @@ contains
        call init_lithot(model)
     end if
 
-    if (model%options%whichdycore == DYCORE_GLAM ) then  ! glam finite-difference
+
+    ! Dycore-specific velocity solver initialization
+    select case (model%options%whichdycore)
+    case ( DYCORE_GLAM )   ! glam finite-difference
 
        call glam_velo_init(model%general%ewn,    model%general%nsn,  &
                            model%general%upn,                        &
                            model%numerics%dew,   model%numerics%dns, &
                            model%numerics%sigma)
 
-    elseif (model%options%whichdycore == DYCORE_GLISSADE ) then  ! glissade finite-element
+    case ( DYCORE_GLISSADE )   ! glissade finite-element
 
        call glissade_velo_higher_init
 
-    endif
+    case ( DYCORE_ALBANYFELIX)
+
+       call felix_velo_init(model)
+
+    end select
+
 
 !WHL - This option is disabled for now.
     ! *mb* added; initialization of basal proc. module
@@ -772,6 +781,7 @@ contains
 !!    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar, horiz_bcs_stag_scalar, horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns
 
     use glam_grid_operators, only: glam_geometry_derivs
+    use felix_dycore_interface, only: felix_velo_driver
 
     implicit none
 
@@ -910,20 +920,29 @@ contains
 
        !WHL - Broke up into separate calls to glam_velo_driver and glissade_velo_driver
        !      Previously had a single call to glissade_velo_driver
+       ! MJH - modified Bill's organization to add felix, as well.
 
-       if (model%options%whichdycore == DYCORE_GLAM) then    ! glam finite-difference dycore
+       ! Call the appropriate velocity solver
+       select case (model%options%whichdycore)
+       case ( DYCORE_GLAM )   ! glam finite-difference
 
-         call t_startf('glam_velo_driver')
+          call t_startf('glam_velo_driver')
           call glam_velo_driver(model)
-         call t_stopf('glam_velo_driver')
+          call t_stopf('glam_velo_driver')
 
-       else
+       case ( DYCORE_GLISSADE )   ! glissade finite-element
 
-         call t_startf('glissade_velo_driver')
+          call t_startf('glissade_velo_driver')
           call glissade_velo_driver(model)
-         call t_stopf('glissade_velo_driver')
+          call t_stopf('glissade_velo_driver')
 
-       endif  ! whichdycore
+       case ( DYCORE_ALBANYFELIX)
+
+          call t_startf('glissade_velo_driver')
+          call felix_velo_driver(model)
+          call t_stopf('glissade_velo_driver')
+
+       end select
  
     endif     ! is_restart
 
