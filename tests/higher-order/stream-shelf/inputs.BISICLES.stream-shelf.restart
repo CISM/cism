@@ -13,7 +13,7 @@ constRate.A = 9.467e-18 #from Goldberg (2012)
 constRate.epsSqr0 = 1.0e-16
 
 #restarting from a BISICLES checkpoint overrides the info from CISM
-amr.restart_file = chk.2d.hdf5
+amr.restart_file = chk.restart.2d.hdf5
 
 # CISM uses 2 ghost cells
 glimmerInterface.numGhost = 2 2 
@@ -33,7 +33,10 @@ CalvingModel.min_thickness = 10.0
 
 surfaceFlux.type = fortran
 surfaceFlux.backgroundFlux = 0.3
-basalFlux.type = zeroFlux
+basalFlux.type = maskedFlux
+basalFlux.grounded.type = zeroFlux
+basalFlux.floating.type = fortran
+basalFlux.floating.backgroundFlux = 0.0 
 
 geometry.problem_type = fortran
 geometry.setDefaultValues = true
@@ -87,8 +90,9 @@ amr.write_preSolve_plotfiles = true
 amr.write_flux_velocities = true
 amr.write_base_velocities = true
 
-amr.check_interval = 1
+amr.check_interval = 10
 amr.check_prefix = chk
+amr.check_overwrite = false
 amr.verbosity = 5
 
 amr.ref_ratio = 2 2 2   # refinement ratios
