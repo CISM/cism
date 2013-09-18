@@ -107,7 +107,7 @@ contains
       !-----------------------------------------------------------------
 
 
-      print *, 'DEBUG: Inside felix_velo_init.'
+      if (this_rank == 0) print *, 'DEBUG: Inside felix_velo_init.'
 
       ! === First do any preparations needed on the CISM side (if any)
 
@@ -199,7 +199,7 @@ contains
       !-----------------------------------------------------------------
 
 
-      print *, 'DEBUG: Inside felix_velo_driver.'
+      if (this_rank == 0) print *, 'DEBUG: Inside felix_velo_driver.'
 
       ! === First do any preparations needed on the CISM side
 

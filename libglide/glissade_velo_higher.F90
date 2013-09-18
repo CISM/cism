@@ -68,6 +68,8 @@
     implicit none
 
     private
+    !IK, 9/18/13: added staggered_scalar here so it can be called from
+    !felix_dycore_interface.F90 
     public :: glissade_velo_higher_init, glissade_velo_higher_solve, staggered_scalar
 
     !----------------------------------------------------------------
