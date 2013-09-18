@@ -68,7 +68,7 @@
     implicit none
 
     private
-    public :: glissade_velo_higher_init, glissade_velo_higher_solve
+    public :: glissade_velo_higher_init, glissade_velo_higher_solve, staggered_scalar
 
     !----------------------------------------------------------------
     ! Here are some definitions:
