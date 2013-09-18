@@ -14,6 +14,8 @@ constRate.epsSqr0 = 1.0e-16
 
 #restarting from a BISICLES checkpoint overrides the info from CISM
 amr.restart_file = chk.restart.2d.hdf5
+#uncomment this at initial restart to set time back to zero
+amr.restart_time = 0.0
 
 # CISM uses 2 ghost cells
 glimmerInterface.numGhost = 2 2 
