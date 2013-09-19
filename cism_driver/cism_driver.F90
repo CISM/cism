@@ -27,13 +27,16 @@ program cism_driver
 
   use parallel
   use glimmer_commandline
-  use cism_front_end_module 
+  use glide
+  use gcm_cism_interface
 
-  call parallel_initialise
-  call glimmer_GetCommandline()
+  integer :: which_gcm = GCM_DATA_MODEL
+  integer :: gcm_model = 0  ! temporary placeholder
+  type(glide_global_type) :: cism_model        ! model instance
 
-  call cism_front_end()
+  call gcm_init_interface(which_gcm,gcm_model,cism_model)
+  call gcm_run_model(gcm_model,cism_model)
+  call gcm_finalize_interface(gcm_model,cism_model)
+
 !  call parallel_finalise
 end program cism_driver
-
-! need in LD_LIBRARY_PATH: /opt/cray/xt-tools/lgdb/1.4/lib/alps

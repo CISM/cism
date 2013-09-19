@@ -453,7 +453,6 @@ contains
        !mismip 1
        model%climate%acab = climate%nmsb(1)
 
-!WHL - Commenting out call to exact_surfmass for now
     case(5)
        !verification 
        call not_parallel(__FILE__,__LINE__)
@@ -532,8 +531,6 @@ contains
     case(5)
        call not_parallel(__FILE__,__LINE__)
        !call both massbalance and surftemp at the same time to save computing time. 
-!WHL - Commenting out call to exact_surfmass for now
-!TODO - Do we want to support this option?
        call exact_surfmass(climate,model,time,0.d0,climate%airt(2))
     end select
 
@@ -541,8 +538,6 @@ contains
   
   !which_call - simple_surftemp(0)/simple_massbalance(1)/both(2)
   !which_test - test f(0)/test g(1)/exact(2)
-
-!WHL - Commenting out this subroutine for now
 
   subroutine exact_surfmass(climate,model,time,which_call,which_test)
 
@@ -562,12 +557,10 @@ contains
     real(dp) ::  H, TT, U, w, Sig, M, Sigc        !out variables
     real(dp) :: H_0
 
-
     center = (model%general%ewn - 1) * 0.5
 
     !TODO - Change which_call to an integer?
     if (which_call .eq. 0.d0 .or. which_call .eq. 2.d0) then
-
 
         !point by point call to the function 
         do ns = 1,model%general%nsn

@@ -28,18 +28,17 @@
 #include "config.inc"
 #endif
 
-module cism_front_end_module
-
-contains
-
-  subroutine cism_front_end()
+module cism_front_end
   !*FD The CISM front-end is used to connect both the standalone driver
   !*FD (cism_driver) or the CISM interface to CESM (cism_cesm_interface),
   !*FD to the internal and external dycore interface programs.  These are
   !* cism_internal_dycore_interface and cism_external_dycore_interface.
 
-  use parallel
+contains
 
+subroutine cism_init_dycore(model)
+
+  use parallel
   use glimmer_global
   use glide
   use glissade
@@ -52,8 +51,7 @@ contains
   use glimmer_filenames, only : filenames_init
   use glide_io, only: glide_io_writeall
 
-  use cism_internal_dycore_interface_module
-  use cism_external_dycore_interface_module
+  use cism_external_dycore_interface
   
 
 !!  use glimmer_horiz_bcs, only : horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns, &
@@ -73,7 +71,7 @@ contains
   integer :: clock,clock_rate,ret
 
   integer :: tstep_count
-    print *,'Entering CISM Front End'
+    print *,'Entering cism_init_dycore'
 
   !TODO - call this only for parallel runs?
 !  call parallel_initialise     
@@ -130,6 +128,7 @@ contains
   call spinup_lithot(model)
   call t_stopf('glide initialization')
 
+  if (model%options%external_dycore_type .EQ. 0) then    
   !MJH Created this block here to fill out initial state without needing to enter time stepping loop.  This allows
   ! a run with tend=tstart to be run without time-stepping at all.  It requires solving all diagnostic (i.e. not
   ! time depdendent) variables (most important of which is velocity) for the initial state and then writing the 
@@ -182,21 +181,104 @@ contains
                                                            !     since we have not yet set model%numerics%time
                                                            !WHL - model%numerics%time is now set above
   call t_stopf('glide_io_writeall')
+  end if
+
+end subroutine cism_init_dycore
+
+
+subroutine cism_run_dycore(model)
+
+  use parallel
+  use glimmer_global
+  use glide
+  use glissade
+  use simple_forcing
+  use glimmer_log
+  use glimmer_config
+  use glide_nc_custom, only: glide_nc_fillall
+  use glimmer_commandline
+  use glimmer_writestats
+  use glimmer_filenames, only : filenames_init
+  use glide_io, only: glide_io_writeall
+
+  use cism_external_dycore_interface
+  
+
+!!  use glimmer_horiz_bcs, only : horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns, &
+!!                                horiz_bcs_unstag_scalar, horiz_bcs_stag_scalar
+
+  use glide_stop, only: glide_finalise
+  use glide_diagnostics
+
+  implicit none
+
+
+  type(glide_global_type) :: model        ! model instance
+  type(simple_climate) :: climate         ! climate
+  type(ConfigSection), pointer :: config  ! configuration stuff
+  real(kind=dp) :: time                   ! model time in years
+  real(kind=dp) :: t1,t2
+  integer :: clock,clock_rate,ret
+  integer :: tstep_count
+
+  integer :: external_dycore_model_index
+
+  time = model%numerics%tstart
+  tstep_count = 0
  
 
   ! ------------- Begin time step loop -----------------
  
   ! run an internal or external dycore, depending on setting external_dycore_type
+  do while(time < model%numerics%tend)
 
-print *,"external_dycore_type: ",model%options%external_dycore_type
+! print *,"external_dycore_type: ",model%options%external_dycore_type
 
-  if (model%options%external_dycore_type .EQ. 0) then      ! NO_EXTERNAL_DYCORE) then
-    call cism_internal_dycore_interface(model%options%whichdycore,model,climate,time,tstep_count)
-    print *,'Exited Internal Dycore'
-  else
-    print *,'Using External Dycore' 
-    call cism_external_dycore_interface(model%options%external_dycore_type,model)
-  endif
+
+    if (model%options%external_dycore_type .EQ. 0) then      ! NO_EXTERNAL_DYCORE) then
+      if (model%options%whichdycore == DYCORE_GLIDE) then
+        call t_startf('glide_tstep')
+
+        call t_startf('glide_tstep_p1')
+        call glide_tstep_p1(model,time)
+        call t_stopf('glide_tstep_p1')
+
+        call t_startf('glide_tstep_p2')
+        call glide_tstep_p2(model)
+        call t_stopf('glide_tstep_p2')
+
+        call t_startf('glide_tstep_p3')
+        call glide_tstep_p3(model)
+        call t_stopf('glide_tstep_p3')
+
+        call t_stopf('glide_tstep')
+
+      else   ! glam/glissade dycore
+
+        call t_startf('glissade_tstep')
+        call glissade_tstep(model,time)
+        call t_stopf('glissade_tstep')
+
+      endif   ! glide v. glam/glissade dycore
+
+      print *,'Exited Internal Dycore'
+    else
+      print *,'Using External Dycore'
+      call cism_run_external_dycore(external_dycore_model_index,time,model%numerics%tinc)
+      time = time + model%numerics%tinc
+    endif
+    ! write ice sheet diagnostics to log file at desired interval (model%numerics%dt_diag)
+
+    call glide_write_diagnostics(model,        time,       &
+                                  tstep_count = tstep_count)
+
+    ! Write to output netCDF files at desired intervals
+
+    call t_startf('glide_io_writeall')
+    call glide_io_writeall(model,model)
+    call t_stopf('glide_io_writeall')
+  
+  end do   ! time < model%numerics%tend
 
   call t_stopf('simple glide')
 
@@ -214,6 +296,6 @@ print *,"external_dycore_type: ",model%options%external_dycore_type
 
   !TODO - call this only for parallel runs?
    call parallel_finalise
-  end subroutine cism_front_end
+end subroutine cism_run_dycore
 
-end module cism_front_end_module
+end module cism_front_end
