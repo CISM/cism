@@ -129,7 +129,7 @@ program simple_bisicles
       print *, "CISM timestep: time = ", cur_time, ", dt = ", time_inc
       call gtd_run_dycore(dycore_model_index,cur_time,time_inc)
 !     write nc files                                           
-      call glide_io_writeall(model, model, time=time)          
+      call glide_io_writeall(model, model, time=cur_time)          
   end do
   print *,"Completed Dycore Run."
   call parallel_barrier()
