@@ -46,6 +46,10 @@ DyCoreToGlimmer::DyCoreToGlimmer()
   temper.bmlt = NULL;  // Basal melt-rate
 
   // numerics
+  numerics.tstart = NULL; // start time
+  numerics.tend = NULL; // end time
+  numerics.time = NULL; // current time
+
   numerics.dew = NULL; // ew cell size
   numerics.dns = NULL; // ns cell size
 
@@ -112,7 +116,13 @@ DyCoreToGlimmer::setDoubleVar(double *var, const char *var_name,  const char *st
     else cerr << "unknown variable type = " << struct_name
               << "." << var_name << " undefined!" << endl;
   }  
-  
+  else if (strcmp(struct_name,"numerics") == 0) { 
+    if (strcmp(var_name,"tstart") == 0) numerics.tstart = var;    
+    else if (strcmp(var_name,"tend") == 0) numerics.tend = var;    
+    else if (strcmp(var_name,"time") == 0) numerics.time = var;    
+    else cerr << "unknown variable type = " << struct_name
+              << "." << var_name << " undefined!" << endl;
+  }
   else if (strcmp(struct_name,"climate") == 0) {
     if (strcmp(var_name,"acab") == 0) climate.acab = var;
     else if (strcmp(var_name,"acab_tavg") == 0) climate.acab_tavg = var;
@@ -177,6 +187,9 @@ DyCoreToGlimmer::getDoubleVar(const char *var_name, const  char *struct_name)
   else if (strcmp(struct_name,"numerics") == 0) {
     if (strcmp(var_name,"dew") == 0) return(numerics.dew);
     else if (strcmp(var_name,"dns") == 0) return(numerics.dns);
+    else if (strcmp(var_name,"tstart") == 0) return(numerics.tstart);
+    else if (strcmp(var_name,"tend") == 0) return(numerics.tend);
+    else if (strcmp(var_name,"time") == 0) return(numerics.time);
     else {   
       cerr << "unknown variable type = " << struct_name
            << "." << var_name << " undefined!" << endl;

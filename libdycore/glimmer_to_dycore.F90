@@ -243,6 +243,14 @@ print *,"In gtd_init, dycore_model_index = ",dycore_model_index
     dim_info2(1) = 1
     dim_info2(2) = 1
 
+
+    var_name = 'tstart'//char(0)    
+    call dycore_set_ptr_double_var(model%numerics%tstart,var_name,dtype_name,dycore_model_index)
+    var_name = 'tend'//char(0)    
+    call dycore_set_ptr_double_var(model%numerics%tend,var_name,dtype_name,dycore_model_index)
+    var_name = 'time'//char(0)    
+    call dycore_set_ptr_double_var(model%numerics%time,var_name,dtype_name,dycore_model_index)
+
     var_name = 'dew'//char(0)    
     call dycore_copy_in_double_var(model%numerics%dew,var_name,dtype_name,dim_info2,dycore_model_index)
     var_name = 'dns'//char(0)

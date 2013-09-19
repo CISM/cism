@@ -71,9 +71,9 @@ class DyCoreToGlimmer
   } lithot_type;
 
   struct {
-    //double * tstart;
-    //double * tend;
-    //double * time; 
+    double * tstart;
+    double * tend;
+    double * time; 
     //double * tinc;  
 
     double * dew; // ew cell size
