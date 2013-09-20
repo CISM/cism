@@ -2,7 +2,7 @@
 main.maxTime = 10000000000  # maximum time to run to
 main.maxStep = 10   # maximum number of steps to run
 main.maxStep = 10000000000   # maximum number of steps to run
-main.poutBaseName = pout.crseBase
+main.poutBaseName = pout.singleLev
 #main.constitutiveRelation = GlensLaw
 main.constitutiveRelation = L1L2
 #main.constitutiveRelation = constMu
@@ -42,7 +42,7 @@ geometry.topographyDefault = -1000.0
 geometry.beta_type = constantBeta
 geometry.betaValue = 30.4582 # value from Goldberg et al
 
-# don't reset floating friction to zero for circular shelf problem
+# don't reset floating fiction to zero for circular shelf problem
 #amr.reset_floating_friction = true
 
 geometry.basalSlope = 0 0 0 
@@ -50,11 +50,11 @@ geometry.basalSlope = 0 0 0
 
 #amr.gridsFile = grids.dat
 
-amr.maxLevel = 1   # finest level allowed in simulation
-amr.ref_ratio = 2 2 2 2 2 2
+amr.maxLevel = 0   # finest level allowed in simulation
+amr.ref_ratio = 2 2 2 2 2
 amr.num_cells = 168 56 10   #number of cells in base grid
-#amr.num_cells = 336 56 10   #grown domain (2x length in x)
-amr.num_cells = 168 28 10   #coarsened grown domain (2x length in x)
+amr.num_cells = 336 56 10   #grown domain (2x length in x)
+#amr.num_cells = 168 28 10   #coarsened grown domain (2x length in x)
 
 amr.is_periodic = 0 0 0       # 1 if domain is periodic 
 # (note that periodic BC's override physical BC types)
@@ -78,16 +78,17 @@ amr.max_dt_grow_factor = 1.1 #max amount dt can grow from one timestep to anothe
 
 
 amr.plot_interval = 1
-amr.plot_prefix = plot.crseBase.
+amr.plot_prefix = plot.singleLev.
 amr.write_solver_rhs = 1
 amr.write_preSolve_plotfiles = true
 amr.write_flux_velocities = true
 amr.write_base_velocities = true
 
 amr.check_interval = 1
-amr.check_prefix = chk.crseBase
+amr.check_prefix = chk.singleLev.
 amr.verbosity = 5
 
+amr.ref_ratio = 2 2 2   # refinement ratios
 amr.regrid_interval = 10   # number of timesteps between regridding
 amr.blockFactor = 4           # block factor used in grid generation
 amr.blockFactor = 2           # block factor used in grid generation
@@ -95,7 +96,6 @@ amr.fill_ratio = 0.8          # how efficient are the grids
 amr.nestingRadius = 1         # proper nesting radius required
 amr.tags_grow = 2             # amount to buffer tags
 amr.max_box_size = 28         # largest box length allowed
-amr.max_base_grid_size = 14         # largest box length allowed
 #amr.max_box_size = 10000         # largest box length allowed
 
 amr.tag_on_grad_velocity = 0
