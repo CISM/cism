@@ -98,6 +98,14 @@ subroutine cism_run_external_dycore(dycore_model_index,cur_time,time_inc)
                                 horiz_bcs_stag_vector_ns, horiz_bcs_stag_scalar
 
   use glide_diagnostics
+
+#if defined CISM_HAS_BISICLES || defined CISM_HAS_FELIX
+#define CISM_HAS_EXTERNAL_DYCORE 1
+#endif
+
+#ifdef CISM_HAS_EXTERNAL_DYCORE
+  use glimmer_to_dycore
+#endif
   
   integer*4 dycore_model_index
   real(kind=dp) :: cur_time, time_inc
