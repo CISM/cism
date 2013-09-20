@@ -19,6 +19,7 @@ glimmerInterface.nodalInitialData = 0
 
 main.domain_size = 150000 50000
 main.domain_size = 300000 50000
+#main.domain_size = 175000  50000
 
 CalvingModel.type = FixedFrontCalvingModel
 CalvingModel.min_thickness = 10.0
@@ -72,7 +73,7 @@ amr.temporal_accuracy = 1
 
 amr.cfl = 0.3  # "cfl" number
 amr.initial_cfl = 0.1  # "cfl" number
-amr.max_dt_grow_factor = 1.1 #max amount dt can grow from one timestep to another
+amr.max_dt_grow_factor = 100000000.1 #max amount dt can grow from one timestep to another
 
 #amr.do_initial_velocity_solve = 0 #debugging help -- makes runs go faster
 
@@ -90,11 +91,12 @@ amr.verbosity = 5
 
 amr.regrid_interval = 10   # number of timesteps between regridding
 amr.blockFactor = 4           # block factor used in grid generation
-amr.blockFactor = 2           # block factor used in grid generation
+#amr.blockFactor = 2           # block factor used in grid generation
 amr.fill_ratio = 0.8          # how efficient are the grids
 amr.nestingRadius = 1         # proper nesting radius required
 amr.tags_grow = 2             # amount to buffer tags
-amr.max_box_size = 28         # largest box length allowed
+amr.max_box_size = 32         # largest box length allowed
+amr.max_base_grid_size = 28
 amr.max_base_grid_size = 14         # largest box length allowed
 #amr.max_box_size = 10000         # largest box length allowed
 
