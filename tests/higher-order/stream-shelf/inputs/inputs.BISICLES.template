@@ -84,7 +84,8 @@ amr.temporal_accuracy = 1
 
 amr.cfl = 0.3  # "cfl" number
 amr.initial_cfl = 0.1  # "cfl" number
-amr.max_dt_grow_factor = 1.1 #max amount dt can grow from one timestep to another
+#amr.max_dt_grow_factor = 1.1 #max amount dt can grow from one timestep to another
+amr.max_dt_grow_factor = 1000000 #max amount dt can grow from one timestep to another
 
 #amr.do_initial_velocity_solve = 0 #debugging help -- makes runs go faster
 
