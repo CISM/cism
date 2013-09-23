@@ -19,7 +19,7 @@ esac
 
 for STEPSPERYEAR in 12 24 6 3 
 do
-echo "generating inputs for" $STEPSPERYEAR
+echo "generating inputs for" $STEPSPERYEAR " steps per year"
 
 PERYEAR=_per_year
 DIR=$STEPSPERYEAR$PERYEAR/
@@ -38,7 +38,7 @@ mkdir -p $DIR
 
 LASTSTEP=""
 NSTEP=0
-for STEP in 00000 00001 00002 00003 00004 00005 00006 00007 00008 
+for STEP in 00000 00001 00002 00003 00004 00005 00006 00007 00008 00009 00010 00011 00012 00013 00014 00015 00016 00017 00018 00019
 do
     
 #    TSTART=$(($STEP * $DT))
@@ -49,10 +49,10 @@ do
     of3=$DIR$FIXNC_INFILE_BASE.$STEP
     of4=$DIR$FIXNC_CONFIGFILE_BASE.$STEP.$CONFIGSUFFIX
 
-    echo $of1
-    echo $of2
-    echo $of3
-    echo $of4
+#    echo $of1
+#    echo $of2
+#    echo $of3
+#    echo $of4
 
     sed  -e s/@STEPSPERYEAR/$STEPSPERYEAR/ -e s/@STEP/$STEP/ -e s/@LASTSTEP/$LASTSTEP/   $INFILE_TEMPLATE > $of1
     sed  -e s/@STEPSPERYEAR/$STEPSPERYEAR/ -e s/@STEP/$STEP/ -e s/@LASTSTEP/$LASTSTEP/ -e s/@DT/$DT/ -e s/@TEND/$TEND/ -e s/@TSTART/$TSTART/   $CONFIGFILE_TEMPLATE > $of2
@@ -64,42 +64,10 @@ do
     TEND=$((TEND + DT))
     LASTSTEP=$STEP
 
-    echo $NSTEP
+#    echo $NSTEP
 done
 
 done 
-
-exit 1
-    outfile1="run.petsc-gamg.$RES"
-    innerConvergename1="solverConverge/resid.petsc-gamg.$RES"
-    outerConvergename1="solverConverge/resid.petsc-gamg.$RES.outer"
-    poutname1="pout.petsc.l0.$RES.0"
-    runcommand1="mpirun -np $NPROC $EXECFILE1 $of1 > $outfile1"
-    echo "echo \"doing $RES run\" " >> $RUNFILE1
-    echo $runcommand1 >> $RUNFILE1
-    echo "$SCRIPTDIR/innerJFNK.awk < $poutname1 > $TEMPFILE1 " >> $RUNFILE1
-    echo "$SCRIPTDIR/parseMg $TEMPFILE1  $innerConvergename1" >> $RUNFILE1
-    echo "$SCRIPTDIR/jfnk.awk < $poutname1 > $TEMPFILE1" >> $RUNFILE1
-    echo "$SCRIPTDIR/parseJFNK  $TEMPFILE1  $outerConvergename1" >> $RUNFILE1
-
-    outfile2="run.MG-JFNK.$RES"
-    innerConvergename2="solverConverge/resid.MG-JFNK.$RES"
-    outerConvergename2="solverConverge/resid.MG-JFNK.$RES.outer"
-    runcommand2="mpirun -np $NPROC $EXECFILE2 $of2 > $outfile2"
-    echo "echo \"doing $RES run\" " >> $RUNFILE2
-    poutname2="pout.MG-JFNK.l0.$RES.0"
-    echo $runcommand2 >> $RUNFILE2
-    echo "$SCRIPTDIR/innerJFNK.awk < $poutname2 > $TEMPFILE2 " >> $RUNFILE2
-    echo "$SCRIPTDIR/parseMg $TEMPFILE2  $innerConvergename2" >> $RUNFILE2
-    echo "$SCRIPTDIR/jfnk.awk < $poutname2 > $TEMPFILE2" >> $RUNFILE2
-    echo "$SCRIPTDIR/parseJFNK  $TEMPFILE2  $outerConvergename2" >> $RUNFILE2
-
-
-
-CRSERES=$RES
-done 
-
-done
 
 exit 0
 
