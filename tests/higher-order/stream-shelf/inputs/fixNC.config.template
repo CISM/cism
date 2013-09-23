@@ -8,9 +8,9 @@ dew = 892.8569946
 dns = 892.8569946
 
 [time]
-tstart = 0.3333333333332
-tend =   0.5
-dt =     0.1666666666668
+tstart = @TSTART
+tend =   @TSTART
+dt =     @DT
 
 [options]
 dycore = 1              # 0 = SIA, 1 = 1st-order Payne-Price
@@ -36,16 +36,16 @@ comment = Shelf test case from Goldberg et al. paper (JGR, 117, 2012, doi:10.102
 title = Goldberg et al. ice steam-shelf test case (POP2 / BISICLES setup) 
 
 [CF input]
-name = stream-shelf.6_per_year_00002.nc
-time = 1
+name = stream-shelf.@STEPSPERYEAR_per_year_@STEP-orig.nc
+time = 2
 
 [CF output]
 variables = thk topg usurf lsurf uvel vvel velnorm acab bmlt floating_mask ice_mask lower_cell_loc lower_cell_temp  seconds_per_year gravity  rho_ice rho_seawater ice_thermal_conductivity ice_specific_heat
 frequency = 0.000000001
-name = stream-shelf.6_per_year_00003.nc
+name = stream-shelf.@STEPSPERYEAR_per_year_@STEP.nc
 
 [external_dycore_options]
 external_dycore_type = 1
-dycore_input_file = inputs.BISICLES.6_per_year.restart00002
+dycore_input_file = inputs.fixNC.@STEPSPERYEAR_per_year.@STEP
 
 

@@ -1,8 +1,11 @@
+amr.restart_file = chk.@STEPSPERYEAR_per_year_@STEP.2d.hdf5
+main.poutBaseName = pout.@STEPSPERYEAR_per_year_fixNC
+
 #inputs file for Amr ice-sheet solver
 main.maxTime = 10000000000  # maximum time to run to
 main.maxStep = 10   # maximum number of steps to run
 main.maxStep = 10000000000   # maximum number of steps to run
-main.poutBaseName = pout.3_per_year_00001
+
 #main.constitutiveRelation = GlensLaw
 main.constitutiveRelation = L1L2
 #main.constitutiveRelation = constMu
@@ -13,10 +16,8 @@ constRate.A = 9.467e-18 #from Goldberg (2012)
 constRate.epsSqr0 = 1.0e-16
 
 #restarting from a BISICLES checkpoint overrides the info from CISM
-amr.restart_file = chk.3_per_year_00000.2d.hdf5
 #uncomment this at initial restart to set time back to zero
-#amr.restart_time = 0.0
-#amr.restart_step = 0
+#amr.restart_time = 0.0833333333333
 
 # CISM uses 2 ghost cells
 glimmerInterface.numGhost = 2 2 
@@ -87,14 +88,14 @@ amr.max_dt_grow_factor = 1.1 #max amount dt can grow from one timestep to anothe
 
 
 amr.plot_interval = 1
-amr.plot_prefix = plot.3_per_year.
+amr.plot_prefix = plot.12_per_year.restart.
 amr.write_solver_rhs = 1
 amr.write_preSolve_plotfiles = false
 amr.write_flux_velocities = true
 amr.write_base_velocities = true
 
-amr.check_interval = 10
-amr.check_prefix = chk.3_per_year_00001
+amr.check_interval = -1
+amr.check_prefix = chk.12_per_year_restart
 amr.check_overwrite = true
 amr.verbosity = 5
 
@@ -169,9 +170,5 @@ JFNKSolver.RelaxTol = 1.0e-5
 JFNKSolver.maxRelaxIter = 50
 JFNKSolver.vtopRelaxTol = 0
 
-#inputs for solver benchmark code
 
-main.filename = plot.stream-shelf.0054.preSolve.000001.2d.hdf5
-main.setVelToZero = false
-main.interpFinestLevel = false
-main.writePlotfile = true
+
