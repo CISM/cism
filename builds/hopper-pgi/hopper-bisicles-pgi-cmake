@@ -88,6 +88,7 @@ cmake \
 \
   -D CMAKE_CXX_FLAGS:STRING="-g --diag_suppress 554,111,611 -DH5_USE_16_API" \
   -D GLIMMER_Fortran_FLAGS:STRING="-g -DNO_RESCALE" \
+  -D BISICLES_LIB_SUBDIR=libpgi \
   -D BISICLES_INTERFACE_DIR=$PWD/../../../BISICLES/CISM-interface/interface \
   ../..
 
