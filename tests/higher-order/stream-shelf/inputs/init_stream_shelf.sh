@@ -4,6 +4,7 @@
 NEND=30 # number of iterations we're doing
 #RUNHOME=/scratch/users/dmartin/newXylar
 RUNHOME=.
+#directory containing input nc files
 
 
 
@@ -38,6 +39,13 @@ FIXNC_INFILE_BASE=inputs.fixNC.$STEPSPERYEAR$PERYEAR
 FIXNC_CONFIGFILE_BASE=fixNC.$STEPSPERYEAR$PERYEAR
 CONFIGSUFFIX=config
 QSBSUFFIX=qsb
+
+#INDIR=.
+INDIR="\/global\/project\/projectdirs\/iceocean\/bisicles-pop\/XylarToDan\/$STEPSPERYEAR$PERYEAR"
+#directory containing output nc files
+#OUTDIR=.
+OUTDIR="\/global\/project\/projectdirs\/iceocean\/bisicles-pop\/DanToXylar\/$STEPSPERYEAR$PERYEAR"
+
 
 echo $DIR
 mkdir -p $DIR
@@ -84,9 +92,9 @@ do
 #    echo $of4
 
     sed  -e s/@STEPSPERYEAR/$STEPSPERYEAR/ -e s/@STEP/$STEP/ -e s/@LASTSTEP/$LASTSTEP/   $INFILE_TEMPLATE > $of1
-    sed  -e s/@STEPSPERYEAR/$STEPSPERYEAR/ -e s/@STEP/$STEP/ -e s/@LASTSTEP/$LASTSTEP/ -e s/@DT/$DT/ -e s/@TEND/$TEND/ -e s/@TSTART/$TSTART/   $CONFIGFILE_TEMPLATE > $of2
-    sed  -e s/@STEPSPERYEAR/$STEPSPERYEAR/ -e s/@STEP/$STEP/ -e s/@LASTSTEP/$LASTSTEP/ -e s/@DT/$DT/ -e s/@TEND/$TEND/ -e s/@TSTART/$TSTART/   $FIXNC_INFILE_TEMPLATE > $of3
-    sed  -e s/@STEPSPERYEAR/$STEPSPERYEAR/ -e s/@STEP/$STEP/ -e s/@LASTSTEP/$LASTSTEP/ -e s/@DT/$DT/ -e s/@TEND/$TEND/ -e s/@TSTART/$TSTART/   $FIXNC_CONFIGFILE_TEMPLATE > $of4
+    sed  -e s/@STEPSPERYEAR/$STEPSPERYEAR/ -e s/@STEP/$STEP/ -e s/@LASTSTEP/$LASTSTEP/ -e s/@DT/$DT/ -e s/@TEND/$TEND/ -e s/@TSTART/$TSTART/ -e s/@INDIR/$INDIR/ -e s/@OUTDIR/$OUTDIR/  $CONFIGFILE_TEMPLATE > $of2
+    sed  -e s/@STEPSPERYEAR/$STEPSPERYEAR/ -e s/@STEP/$STEP/ -e s/@LASTSTEP/$LASTSTEP/ -e s/@DT/$DT/ -e s/@TEND/$TEND/ -e s/@TSTART/$TSTART/  -e s/@INDIR/$INDIR/ -e s/@OUTDIR/$OUTDIR/  $FIXNC_INFILE_TEMPLATE > $of3
+    sed  -e s/@STEPSPERYEAR/$STEPSPERYEAR/ -e s/@STEP/$STEP/ -e s/@LASTSTEP/$LASTSTEP/ -e s/@DT/$DT/ -e s/@TEND/$TEND/ -e s/@TSTART/$TSTART/ -e s/@INDIR/$INDIR/ -e s/@OUTDIR/$OUTDIR/   $FIXNC_CONFIGFILE_TEMPLATE > $of4
 
     TSTART=$TEND
     NSTEP=$((NSTEP + 1))

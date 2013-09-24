@@ -42,7 +42,7 @@ time = 2
 [CF output]
 variables = thk topg usurf lsurf uvel vvel velnorm acab bmlt floating_mask ice_mask lower_cell_loc lower_cell_temp  seconds_per_year gravity  rho_ice rho_seawater ice_thermal_conductivity ice_specific_heat
 frequency = 0.000000001
-name = stream-shelf.@STEPSPERYEAR_per_year_@STEP.nc
+name = @OUTDIR/stream-shelf.@STEPSPERYEAR_per_year_@STEP.nc
 
 [external_dycore_options]
 external_dycore_type = 1

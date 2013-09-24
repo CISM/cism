@@ -36,7 +36,7 @@ comment = Shelf test case from Goldberg et al. paper (JGR, 117, 2012, doi:10.102
 title = Goldberg et al. ice steam-shelf test case (POP2 / BISICLES setup) 
 
 [CF input]
-name = stream-shelf.@STEPSPERYEAR_per_year_@LASTSTEP.nc
+name = @INDIR/stream-shelf.@STEPSPERYEAR_per_year_@LASTSTEP.nc
 time = 1
 
 [CF output]
