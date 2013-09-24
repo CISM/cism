@@ -3,6 +3,7 @@ INFILE_TEMPLATE=inputs.BISICLES.template
 CONFIGFILE_TEMPLATE=stream-shelf.config.template
 FIXNC_INFILE_TEMPLATE=inputs.fixNC.template
 FIXNC_CONFIGFILE_TEMPLATE=fixNC.config.template
+QSUBFILE_TEMPLATE=hopper.qsb.template
 
 
 #function to get dt
@@ -30,6 +31,7 @@ CONFIGFILE_BASE=stream-shelf.$STEPSPERYEAR$PERYEAR
 FIXNC_INFILE_BASE=inputs.fixNC.$STEPSPERYEAR$PERYEAR
 FIXNC_CONFIGFILE_BASE=fixNC.$STEPSPERYEAR$PERYEAR
 CONFIGSUFFIX=config
+QSBSUFFIX=qsb
 
 echo $DIR
 mkdir -p $DIR
@@ -90,6 +92,37 @@ do
 done
 
 done 
+
+#generate hopper qsub files
+QSUBFILE_BASE=BISICLES.hopper
+LASTSTEP=""
+NSTEP=0
+while [ $NSTEP -le $NEND ]
+do 
+#  echo $NSTEP
+  if [ $NSTEP -le 9 ]
+  then
+    STEP="0000"$NSTEP
+  elif [ $NSTEP -lt 99 ]
+  then 
+    STEP="000"$NSTEP
+  elif [ $NSTEP -lt 999 ]
+  then 
+    STEP="00"$NSTEP
+  elif [ $NSTEP -lt 9999 ]
+  then 
+    STEP="0"$NSTEP
+  else
+    STEP=$n
+  fi
+
+    qfile=$RUNHOME/$QSUBFILE_BASE.$STEP
+
+    sed  -e s/@STEPSPERYEAR/$STEPSPERYEAR/ -e s/@STEP/$STEP/ -e s/@LASTSTEP/$LASTSTEP/   $QSUBFILE_TEMPLATE > $qfile
+
+    NSTEP=$((NSTEP + 1))
+
+done
 
 exit 0
 
