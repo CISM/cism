@@ -1,4 +1,12 @@
 #!/bin/ksh
+
+#commonly changed parameters
+NEND=30 # number of iterations we're doing
+#RUNHOME=/scratch/users/dmartin/newXylar
+RUNHOME=.
+
+
+
 INFILE_TEMPLATE=inputs.BISICLES.template
 CONFIGFILE_TEMPLATE=stream-shelf.config.template
 FIXNC_INFILE_TEMPLATE=inputs.fixNC.template
@@ -23,8 +31,6 @@ do
 echo "generating inputs for" $STEPSPERYEAR " steps per year"
 
 PERYEAR=_per_year
-#RUNHOME=/scratch/users/dmartin/newXylar
-RUNHOME=.
 DIR=$RUNHOME/$STEPSPERYEAR$PERYEAR/
 INFILE1_BASE=inputs.BISICLES.$STEPSPERYEAR$PERYEAR
 CONFIGFILE_BASE=stream-shelf.$STEPSPERYEAR$PERYEAR
@@ -44,7 +50,6 @@ mkdir -p $DIR
  
 LASTSTEP=""
 NSTEP=0
-NEND=30
 while [ $NSTEP -le $NEND ]
 do 
 #  echo $NSTEP
