@@ -22,7 +22,8 @@ do
 echo "generating inputs for" $STEPSPERYEAR " steps per year"
 
 PERYEAR=_per_year
-RUNHOME=/scratch/users/dmartin/newXylar
+#RUNHOME=/scratch/users/dmartin/newXylar
+RUNHOME=.
 DIR=$RUNHOME/$STEPSPERYEAR$PERYEAR/
 INFILE1_BASE=inputs.BISICLES.$STEPSPERYEAR$PERYEAR
 CONFIGFILE_BASE=stream-shelf.$STEPSPERYEAR$PERYEAR
@@ -38,11 +39,29 @@ mkdir -p $DIR
 
  TSTART=0.0
  TEND=$DT
-
+ 
 LASTSTEP=""
 NSTEP=0
-for STEP in 00000 00001 00002 00003 00004 00005 00006 00007 00008 00009 00010 00011 00012 00013 00014 00015 00016 00017 00018 00019
-do
+NEND=30
+while [ $NSTEP -le $NEND ]
+do 
+#  echo $NSTEP
+  if [ $NSTEP -le 9 ]
+  then
+    STEP="0000"$NSTEP
+  elif [ $NSTEP -lt 99 ]
+  then 
+    STEP="000"$NSTEP
+  elif [ $NSTEP -lt 999 ]
+  then 
+    STEP="00"$NSTEP
+  elif [ $NSTEP -lt 9999 ]
+  then 
+    STEP="0"$NSTEP
+  else
+    STEP=$n
+  fi
+#  echo $STEP
     
 #    TSTART=$(($STEP * $DT))
 #   echo $TSTART
