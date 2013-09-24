@@ -99,6 +99,8 @@ done
 done 
 
 #generate hopper qsub files
+
+echo "generating qsub files for hopper"
 QSUBFILE_BASE=BISICLES.hopper
 LASTSTEP=""
 NSTEP=0
@@ -123,7 +125,7 @@ do
 
     qfile=$RUNHOME/$QSUBFILE_BASE.$STEP
 
-    sed  -e s/@STEPSPERYEAR/$STEPSPERYEAR/ -e s/@STEP/$STEP/ -e s/@LASTSTEP/$LASTSTEP/   $QSUBFILE_TEMPLATE > $qfile
+    sed  -e s/@STEPSPERYEAR/$STEPSPERYEAR/ -e s/@STEP/$STEP/ -e s/@FIXSTEP/$STEP/ -e s/@LASTSTEP/$LASTSTEP/   $QSUBFILE_TEMPLATE > $qfile
 
     NSTEP=$((NSTEP + 1))
 
