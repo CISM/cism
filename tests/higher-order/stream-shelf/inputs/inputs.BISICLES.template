@@ -91,7 +91,7 @@ amr.max_dt_grow_factor = 1000000 #max amount dt can grow from one timestep to an
 
 
 amr.plot_interval = 1
-amr.plot_prefix = plot.12_per_year.
+amr.plot_prefix = plot.@STEPSPERYEAR_per_year.
 amr.write_solver_rhs = 1
 amr.write_preSolve_plotfiles = false
 amr.write_flux_velocities = true
