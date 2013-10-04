@@ -66,7 +66,7 @@ cmake \
 \
   -D CMAKE_CXX_FLAGS:STRING="-g -DH5_USE_16_API" \
   -D GLIMMER_Fortran_FLAGS:STRING="-g  -ffree-line-length-none -fno-range-check -DNO_RESCALE" \
-  -D GLIMMER_EXTRA_LIBS:STRING="-L$PETSC_DIR/lib -lpetsc -llapack -lblas" \
+  -D GLIMMER_EXTRA_LIBS:STRING="-L$PETSC_DIR/$PETSC_ARCH/lib -lpetsc -llapack -lblas" \
   -D BISICLES_INTERFACE_DIR=$PWD/../../../BISICLES/CISM-interface/interface \
   -D BISICLES_LIB_SUBDIR=libgnu \
  ../..
