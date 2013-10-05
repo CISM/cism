@@ -133,7 +133,7 @@ if ( $build_cmake == 1 ) then
   cp cmake-scripts/titan-pgi-cmake titan-pgi
   cd $CODE_DIR/titan-pgi
   echo 'clean out the build dir'
-  rm -rf CMakeCache.txt CMakeFiles fortran_mod_files lib libglimmer-trilinos autogenerate.log cmake_install.cmake
+  rm -rf CMakeCache.txt CMakeFiles fortran_mod_files lib libglimmer-trilinos autogenerate.log cmake_install.cmake fortran_autogen_srcs fortran_autocopy_includes fortran_mod_files autocopy.log example-drivers Makefile
   echo 'configure pgi cmake build'
   ./titan-pgi-cmake >& conf_cmake_parallel_pgi.out
   if ($status != 0) then
@@ -167,7 +167,7 @@ if ( $build_cmake == 1 ) then
   cp cmake-scripts/titan-gnu-cmake titan-gnu
   cd $CODE_DIR/titan-gnu
   echo 'clean out the build dir'
-  rm -rf CMakeCache.txt CMakeFiles fortran_mod_files lib libglimmer-trilinos autogenerate.log cmake_install.cmake
+  rm -rf CMakeCache.txt CMakeFiles fortran_mod_files lib libglimmer-trilinos autogenerate.log cmake_install.cmake fortran_autogen_srcs fortran_mod_files s fortran_autocopy_includes autocopy.log example-drivers Makefile
   echo 'configure gnu cmake build'
   ./titan-gnu-cmake >& conf_cmake_parallel_gnu.out
   if ($status != 0) then

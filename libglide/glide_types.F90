@@ -1443,7 +1443,7 @@ contains
 
     ! isostasy arrays
 
-    if (model%options%isostasy == ISOSTASY_COMPUTE) then
+    if (model%options%isostasy /= ISOSTASY_COMPUTE) then
        call coordsystem_allocate(model%general%ice_grid, model%isostasy%relx)
        call coordsystem_allocate(model%general%ice_grid, model%isostasy%load)
        call coordsystem_allocate(model%general%ice_grid, model%isostasy%load_factors)

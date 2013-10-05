@@ -90,7 +90,7 @@ void FC_FUNC(noxinit,NOXINIT) ( int* nelems, double* statevector,
   printProc = (Comm_->MyPID() == 0);
   Teuchos::MpiComm<int> tcomm(Teuchos::opaqueWrapper(mpi_comm_c));
   
-  if (printProc) cout << "NOXINIT CALLED    for nelem=" << *nelems << endl;
+  if (printProc) std::cout << "NOXINIT CALLED    for nelem=" << *nelems << std::endl;
 
     try { // Check that the parameter list is valid at the top
       RCP<Teuchos::ParameterList> pl =
@@ -104,14 +104,14 @@ void FC_FUNC(noxinit,NOXINIT) ( int* nelems, double* statevector,
       paramList = Teuchos::sublist(pl,"Piro",true);
     }
     catch (std::exception& e) {
-      cout << "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
+      std::cout << "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
            << e.what() << "\nExiting: Invalid trilinosOptions.xml file."
-           << "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" << endl;
+           << "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" << std::endl;
       exit(1);
     }
   
   paramList->set("Lean Matrix Free",true); // Saves some GMRES steps
-  if (printProc) cout << "NOXInit: param list is: (delete this debug line)\n" << *paramList << endl;
+  if (printProc) std::cout << "NOXInit: param list is: (delete this debug line)\n" << *paramList << std::endl;
 
   model = rcp(new trilinosModelEvaluator(*nelems, statevector, Comm, blackbox_res));
     
@@ -128,7 +128,7 @@ void FC_FUNC(noxinit,NOXINIT) ( int* nelems, double* statevector,
   if (timeStep <= numStepsToUseLOCA) useLoca=true;
 
   if (useLoca) if (printProc)
-    cout << "\nUsing LOCA continuation for first " << numStepsToUseLOCA << "  time steps." << endl;
+    std::cout << "\nUsing LOCA continuation for first " << numStepsToUseLOCA << "  time steps." << std::endl;
 
   if (useLoca) {
     setCismLocaDefaults(paramList->sublist("LOCA"));
@@ -169,7 +169,7 @@ void FC_FUNC(noxsolve,NOXSOLVE) (int* nelems, double* statevector, void* blackbo
     TEUCHOS_TEST_FOR_EXCEPTION(Nsolver==Teuchos::null, logic_error, 
                           "Exception: noxsolve called with solver=null: \n"
        << "You either did not call noxinit first, or called noxfinish already");
-    if (printProc) cout << "NOXSolve called" << endl;
+    if (printProc) std::cout << "NOXSolve called" << std::endl;
 
     // Solve    
     Nsolver->evalModel(inArgs,outArgs);
@@ -188,7 +188,7 @@ void FC_FUNC(noxsolve,NOXSOLVE) (int* nelems, double* statevector, void* blackbo
 /****************************************************/ 
 void FC_FUNC(noxfinish,NOXFINISH) (void)
 {
- if (printProc) cout << "NOXFinish called" << endl;
+ if (printProc) std::cout << "NOXFinish called" << std::endl;
 
  // Free memory
  Nsolver   = Teuchos::null;

@@ -103,7 +103,7 @@ extern "C" {
        int flag;
        MPI_Initialized(&flag);
        if (!flag) {
-	 cout << "ERROR in inittrilinos: MPI not initialized according to C++ code" << endl;
+	 std::cout << "ERROR in inittrilinos: MPI not initialized according to C++ code" << std::endl;
 	 exit(1);
        }
     MPI_Comm mpi_comm_c = MPI_Comm_f2c(*mpi_comm_f);
@@ -126,9 +126,9 @@ extern "C" {
     comm.MinAll(&mySize, &minSize, 1);
     comm.MaxAll(&mySize, &maxSize, 1);
     if (comm.MyPID()==0) 
-      cout << "\nPartition Info in init_trilinos: Total nodes = " << rowMap->NumGlobalElements()
+      std::cout << "\nPartition Info in init_trilinos: Total nodes = " << rowMap->NumGlobalElements()
            << "  Max = " << maxSize << "  Min = " << minSize 
-           << "  Ave = " << rowMap->NumGlobalElements() / comm.NumProc() << endl;
+           << "  Ave = " << rowMap->NumGlobalElements() / comm.NumProc() << std::endl;
 
     soln = Teuchos::rcp(new Epetra_Vector(*rowMap));
 
@@ -142,22 +142,22 @@ extern "C" {
        pl->validateParameters(validPL, 0);
     }
     catch (std::exception& e) {
-      cout << "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n" 
+      std::cout << "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n" 
            << e.what() << "\nExiting: Invalid trilinosOptions.xml file."
-           << "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" << endl;
+           << "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" << std::endl;
       exit(1);
     }
     catch (...) {
-      cout << "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n" 
+      std::cout << "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n" 
            << "\nExiting: Invalid trilinosOptions.xml file."
-           << "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" << endl;
+           << "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" << std::endl;
       exit(1);
     }
 
     try { 
       // Set the coordinate position of the nodes for ML for repartitioning (important for #procs > 100s)
       if (pl->sublist("Stratimikos").isParameter("Preconditioner Type")) {
-         if ("ML" == pl->sublist("Stratimikos").get<string>("Preconditioner Type")) {
+         if ("ML" == pl->sublist("Stratimikos").get<std::string>("Preconditioner Type")) {
            Teuchos::ParameterList& mlList =
               pl->sublist("Stratimikos").sublist("Preconditioner Types").sublist("ML").sublist("ML Settings");
            mlList.set("x-coordinates",myX);
@@ -211,8 +211,8 @@ extern "C" {
 
       // The matrix has not been "FillComplete()"ed. First fill of time step.
       ierr = matrix.InsertGlobalValues(rowInd, 1, &val, &colInd);
-      if (ierr<0) {cout << "Error Code for " << rowInd << "  " << colInd << "  = ("<< ierr <<")"<<endl; exit(1);}
-      else if (ierr>0) cout << "Warning Code for " << rowInd << "  " << colInd << "  = ("<< ierr <<")"<<endl;
+      if (ierr<0) {std::cout << "Error Code for " << rowInd << "  " << colInd << "  = ("<< ierr <<")"<<std::endl; exit(1);}
+      else if (ierr>0) std::cout << "Warning Code for " << rowInd << "  " << colInd << "  = ("<< ierr <<")"<<std::endl;
     }
     else {
       // Subsequent matrix fills of each time step.
@@ -278,7 +278,7 @@ extern "C" {
 
     soln->ExtractCopy(answer);
 
-    //elapsedTime = linearTime.stop(); *out << "Total time elapsed for calling Solve(): " << elapsedTime << endl;
+    //elapsedTime = linearTime.stop(); *out << "Total time elapsed for calling Solve(): " << elapsedTime << std::endl;
    }
    TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, success);
    if (!success) exit(1);
@@ -374,8 +374,8 @@ extern "C" {
       // The matrix has not been "FillComplete()"ed. First fill of time step.
       // Inserted values at this stage will be summed together later
       int ierr = matrix.InsertGlobalValues(rowInd, numEntries, val, colInd);
-      if (ierr<0) {cout << "Error Code for " << rowInd << "  " << colInd[0] << "  = ("<< ierr <<")"<<endl; exit(1);}
-      else if (ierr>0) cout << "Warning Code for " << rowInd << "  " << colInd[0] << "  = ("<< ierr <<")"<<endl;
+      if (ierr<0) {std::cout << "Error Code for " << rowInd << "  " << colInd[0] << "  = ("<< ierr <<")"<<std::endl; exit(1);}
+      else if (ierr>0) std::cout << "Warning Code for " << rowInd << "  " << colInd[0] << "  = ("<< ierr <<")"<<std::endl;
     }
     else {
       // Subsequent matrix fills of each time step.
@@ -420,7 +420,7 @@ extern "C" {
              << linearSolveIters_last << " its (avg: " 
              << linearSolveIters_total / (double) linearSolveCount << " its/slv, " 
              << 100.0* linearSolveSuccessCount / (double) linearSolveCount << "% success)"
-             << endl;
+             << std::endl;
       }
     }
   }
@@ -446,7 +446,7 @@ extern "C" {
     // If any rogue columns, exit now (or just get nans later)
     if (nrm>=1.0) {
       *out << "ERROR: Column map has " << nrm 
-           << " rogue entries that are not associated with any row." << endl;
+           << " rogue entries that are not associated with any row." << std::endl;
        rowMap.Comm().Barrier();
        exit(-3);
     }
