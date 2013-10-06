@@ -21,8 +21,9 @@
   EXTRA_LDLIBS="/opt/pgi/12.9.0/linux86-64/12.9/lib/f90main.o /tmp/proj/cli017/worley/libgptl_pgi/libgptl.a" \
   --with-trilinos=/tmp/proj/cli017/worley/Trilinos_trunk_wc/titan-pgi-ci-nophal-noboost/install \
   --with-blas=-lsci_pgi \
-  --enable-mpi="yes" \
-  --prefix="$HOME/seacism"
+  --enable-mpi="yes"
+
+#  --prefix="$HOME/seacism"
 
 # worked intitan 1/2013
 #Currently Loaded Modulefiles:

@@ -20,7 +20,7 @@ echo 'set the pgi env'
 module unload cmake netcdf python
 module swap PrgEnv-gnu PrgEnv-pgi
 module swap xt-asyncpe xt-asyncpe/5.16
-module load cmake/2.8.7 python netcdf-hdf5parallel/4.2.0 subversion usg-default-modules/1.0
+module load cmake python netcdf-hdf5parallel/4.2.0 subversion usg-default-modules/1.0
 
 # NEEDED AFTER A FRESH CHECKOUT
 echo 'bootstrap'
@@ -99,7 +99,7 @@ echo $build_no
 # PARALLEL BUILD WITH CMAKE GNU
 echo 'change to gnu env'
 module unload cmake netcdf-hdf5parallel/4.2.0 python
-module swap PrgEnv-pgi PrgEnv-gnu; module load cmake/2.8.7 python netcdf-hdf5parallel/4.2.0 usg-default-modules/1.0
+module swap PrgEnv-pgi PrgEnv-gnu; module load cmake/2.8.10.1 python netcdf-hdf5parallel/4.2.0 usg-default-modules/1.0 boost/1.49.0
 
 cd $CODE_DIR/xe6-gnu
 echo 'clean out the build dir'

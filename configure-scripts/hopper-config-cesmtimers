@@ -45,17 +45,17 @@
  FC=ftn   F77=ftn   \
  CC=cc  CXX=CC \
  CXXFLAGS="-O2 --diag_suppress 554,111,611" \
- CPPFLAGS="-I/project/projectdirs/ccsm1/libgptl/libgptl-pgi -DHAVE_MPI -DMPICH_IGNORE_CXX_SEEK -DCESMTIMERS" \
+ CPPFLAGS="-I/project/projectdirs/ccsm1/libgptl/libgptl-hopper-pgi -DHAVE_MPI -DMPICH_IGNORE_CXX_SEEK -DCESMTIMERS" \
  FCFLAGS="-Mfree -O2" \
  F77FLAGS="-Mfixed" \
  CFLAGS="-O2" \
  --disable-python \
  --disable-shared \
  --with-netcdf=$CRAY_NETCDF_DIR \
- EXTRA_LDLIBS="/opt/pgi/13.3.0/linux86-64/13.3/lib/f90main.o /project/projectdirs/ccsm1/libgptl/libgptl-pgi/libgptl.a "\
- --with-trilinos=/project/projectdirs/ccsm1/Trilinos/trilinos-10.12.2/hopper-pgi/install \
+ EXTRA_LDLIBS="/opt/pgi/13.3.0/linux86-64/13.3/lib/f90main.o /project/projectdirs/ccsm1/libgptl/libgptl-hopper-pgi/libgptl.a "\
+ --with-trilinos=/project/projectdirs/ccsm1/Trilinos/Trilinos_trunk_wc/hopper-pgi-ci-noboost-nopamgen/install \
  --enable-mpi="yes" \
- --with-blas=-lsci_pgi \
+ --with-blas=-lsci_pgi
 
 # --prefix="$HOME/seacism"
 
