@@ -90,7 +90,7 @@ program simple_glide
   call t_startf('simple glide')
 
   ! initialise GLIDE
-    call t_startf('glide initialization')
+  call t_startf('glide initialization')
 
   call glide_config(model,config)
 
@@ -119,7 +119,7 @@ program simple_glide
 !### ! call simple_surftemp(climate,model,time)
 
   call spinup_lithot(model)
-    call t_stopf('glide initialization')
+  call t_stopf('glide initialization')
 
   !MJH Created this block here to fill out initial state without needing to enter time stepping loop.  This allows
   ! a run with tend=tstart to be run without time-stepping at all.  It requires solving all diagnostic (i.e. not
@@ -132,31 +132,39 @@ program simple_glide
   if (model%options%whichdycore == DYCORE_GLIDE) then
 
      call t_startf('glide_initial_diag_var_solve')
-      ! disable further profiling in normal usage
-      call t_adj_detailf(+10)
+     ! disable further profiling in normal usage
+     if (time < model%numerics%tend) then
+        call t_adj_detailf(+10)
+     endif
 
      ! Don't call glide_init_state_diagnostic when running old glide
      ! Instead, start with zero velocity
 
-    if (.not. oldglide) then
-     call glide_init_state_diagnostic(model)
-    endif
+     if (.not. oldglide) then
+        call glide_init_state_diagnostic(model)
+     endif
 
-      ! restore profiling to normal settings
-      call t_adj_detailf(-10)
+     ! restore profiling to normal settings
+     if (time < model%numerics%tend) then
+        call t_adj_detailf(-10)
+     endif
      call t_stopf('glide_initial_diag_var_solve')
 
   else   ! glam/glissade dycore
 
      call t_startf('glissade_initial_diag_var_solve')
-      ! disable further profiling in normal usage
-      call t_adj_detailf(+10)
+     ! disable further profiling in normal usage
+     if (time < model%numerics%tend) then
+        call t_adj_detailf(+10)
+     endif
 
      ! solve the remaining diagnostic variables for the initial state
      call glissade_diagnostic_variable_solve(model)  !velocity, usrf, etc.
 
-      ! restore profiling to normal settings
-      call t_adj_detailf(-10)
+     ! restore profiling to normal settings
+     if (time < model%numerics%tend) then
+        call t_adj_detailf(-10)
+     endif
      call t_stopf('glissade_initial_diag_var_solve')
 
   end if

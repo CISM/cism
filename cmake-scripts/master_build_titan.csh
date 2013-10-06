@@ -32,7 +32,7 @@ module rm PrgEnv-intel
 module rm PrgEnv-cray
 module rm PrgEnv-pathscale
 module add PrgEnv-pgi
-module add netcdf-hdf5parallel/4.2.0 python subversion cmake
+module add netcdf-hdf5parallel/4.2.0 python subversion cmake boost/1.53.0
 module swap xt-asyncpe xt-asyncpe/5.16
 module list
 
@@ -86,7 +86,7 @@ if ( $build_autoconf == 1 ) then
     @ build_no = 1
   endif
   echo 'configure parallel autoconf build'
-  ./configure-scripts/titan-config >& conf_autoconf_parallel_pgi.out
+  ./configure-scripts/titan-config-cesmtimers >& conf_autoconf_parallel_pgi.out
   if ($status != 0) then
     echo 'ERROR: configure for autoconf, parallel, PGI build'
     echo "cat $PWD/conf_autoconf_parallel_pgi.out"
@@ -130,12 +130,12 @@ if ( $build_cmake == 1 ) then
   cd $CODE_DIR
   rm -rf titan-pgi
   mkdir titan-pgi
-  cp cmake-scripts/titan-pgi-cmake titan-pgi
+  cp cmake-scripts/titan-pgi-cmake-cesmtimers titan-pgi
   cd $CODE_DIR/titan-pgi
   echo 'clean out the build dir'
   rm -rf CMakeCache.txt CMakeFiles fortran_mod_files lib libglimmer-trilinos autogenerate.log cmake_install.cmake fortran_autogen_srcs fortran_autocopy_includes fortran_mod_files autocopy.log example-drivers Makefile
   echo 'configure pgi cmake build'
-  ./titan-pgi-cmake >& conf_cmake_parallel_pgi.out
+  ./titan-pgi-cmake-cesmtimers >& conf_cmake_parallel_pgi.out
   if ($status != 0) then
     echo 'ERROR: configure for cmake, parallel, PGI build'
     echo "cat $PWD/conf_cmake_parallel_pgi.out"
@@ -156,20 +156,20 @@ if ( $build_cmake == 1 ) then
 
   # PARALLEL BUILD WITH CMAKE GNU
   echo 'change to gnu env'
-  module rm cmake netcdf-hdf5parallel/4.2.0 netcdf hdf5 python
+  module rm cmake netcdf-hdf5parallel/4.2.0 netcdf hdf5 python boost
   module swap PrgEnv-pgi PrgEnv-gnu
-  module add cmake/2.8.6 python netcdf-hdf5parallel/4.2.0 
+  module add cmake/2.8.6 python netcdf-hdf5parallel/4.2.0 boost/1.49.0
   module list
   echo 'CMAKE GNU PARALLEL BUILD'
   cd $CODE_DIR
   rm -rf titan-gnu
   mkdir titan-gnu
-  cp cmake-scripts/titan-gnu-cmake titan-gnu
+  cp cmake-scripts/titan-gnu-cmake-cesmtimers titan-gnu
   cd $CODE_DIR/titan-gnu
   echo 'clean out the build dir'
   rm -rf CMakeCache.txt CMakeFiles fortran_mod_files lib libglimmer-trilinos autogenerate.log cmake_install.cmake fortran_autogen_srcs fortran_mod_files s fortran_autocopy_includes autocopy.log example-drivers Makefile
   echo 'configure gnu cmake build'
-  ./titan-gnu-cmake >& conf_cmake_parallel_gnu.out
+  ./titan-gnu-cmake-cesmtimers >& conf_cmake_parallel_gnu.out
   if ($status != 0) then
     echo 'ERROR: configure for cmake, parallel, GNU build'
     echo "cat $PWD/conf_cmake_parallel_gnu.out"
