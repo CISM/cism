@@ -17,6 +17,7 @@ module perf_utils
 !-----------------------------------------------------------------------
    implicit none
    private                   ! Make the default access private
+#include <mpif.h>  
    save
 
 !-----------------------------------------------------------------------
@@ -46,7 +47,6 @@ module perf_utils
 !-----------------------------------------------------------------------
 !- include statements --------------------------------------------------
 !-----------------------------------------------------------------------
-#include <mpif.h>  
 #include "gptl.inc"
 
 !-----------------------------------------------------------------------
@@ -130,7 +130,9 @@ SUBROUTINE shr_sys_abort(string)
    call shr_sys_flush(pu_logunit)
    call mpi_abort(MPI_COMM_WORLD,0,ierr)
    call shr_sys_flush(pu_logunit)
+#ifndef CPRNAG
    call abort()
+#endif
 
    stop
 
@@ -155,14 +157,14 @@ SUBROUTINE shr_sys_flush(unit)
 !-------------------------------------------------------------------------------
 
 #if (defined IRIX64 || defined CRAY || defined OSF1 || defined SUNOS || defined LINUX || defined NEC_SX || defined UNICOSMP)
+#ifdef CPRNAG
+   flush(unit)
+#else
    call flush(unit)
+#endif
 #endif
 #if (defined AIX)
    call flush_(unit)
-#endif
-
-#if (!defined CRAY && !defined IRIX64 && !defined AIX && !defined OSF1 && !defined SUNOS && !defined LINUX && !defined NEC_SX && !defined UNICOSMP)
-!pw if (s_loglev > 0) write(pu_logunit,F00) 'WARNING: no implementation of flush for this architecture'
 #endif
 
 END SUBROUTINE shr_sys_flush

@@ -30,6 +30,7 @@ module perf_mod
 !-----------------------------------------------------------------------
    implicit none
    private                   ! Make the default access private
+#include <mpif.h>
    save
 
 !-----------------------------------------------------------------------
@@ -62,7 +63,6 @@ module perf_mod
 !-----------------------------------------------------------------------
 !- include statements --------------------------------------------------
 !-----------------------------------------------------------------------
-#include <mpif.h>  
 #include "gptl.inc"
 
 !-----------------------------------------------------------------------
@@ -130,6 +130,9 @@ module perf_mod
    logical, private   :: perf_global_stats = def_perf_global_stats
                          ! collect and print out global performance statistics
                          ! (for this component communicator)
+#ifdef HAVE_NANOTIME
+   integer, parameter :: def_perf_timer = GPTLnanotime         ! default
+#else
 #ifdef HAVE_MPI
    integer, parameter :: def_perf_timer = GPTLmpiwtime         ! default
 #else
@@ -139,6 +142,9 @@ module perf_mod
    integer,parameter :: def_perf_timer = GPTLgettimeofday
 #endif
 #endif
+#endif
+
+
    integer, private   :: perf_timer = def_perf_timer           ! default
                          ! integer indicating which timer to use
                          ! (as defined in gptl.inc)
