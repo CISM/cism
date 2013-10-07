@@ -21,6 +21,7 @@ OPTION (CISM_BUILD_SIMPLE_FELIX "Toggle to build simple_felix, off by default" O
 OPTION (CISM_BUILD_EXTRA_EXECUTABLES "Toggle to other executables, off by default" OFF)
 OPTION (CISM_USE_GPTL_INSTRUMENTATION "Toggle to use GPTL instrumentation, on by default " ON)
 OPTION (CISM_BUILD_GLINT "Toggle to build glint, off by default" OFF)
+OPTION (CISM_BUILD_GLINT_EXAMPLE "Toggle to build glint_example, off by default" OFF)
 OPTION (CISM_COUPLED "Toggle to build CISM for use with CESM, off by default" OFF)
 OPTION (CISM_USE_CISM_FRONT_END "Toggle to use cism_driver or cism_cesm_interface with cism_front_end, off by default" OFF)
 OPTION (CISM_USE_DEFAULT_IO "Toggle to use default i/o files rather than running python script, off by default" OFF)
@@ -36,6 +37,10 @@ ENDIF()
 
 IF (NOT CISM_MPI_MODE AND NOT CISM_SERIAL_MODE)
   SET(CISM_MPI_MODE "ON")
+ENDIF()
+
+IF (CISM_BUILD_GLINT_EXAMPLE)
+  SET(CISM_BUILD_GLINT "ON")
 ENDIF()
 
 #MESSAGE("CISM MPI Mode Setting:    ${CISM_MPI_MODE}")
@@ -444,6 +449,10 @@ IF (CISM_USE_CISM_FRONT_END)
   add_subdirectory(cism_driver)
 ENDIF()
  
+IF (CISM_BUILD_GLINT_EXAMPLE)
+  add_subdirectory(example-drivers/glint/src)
+ENDIF()
+
 IF (CISM_BUILD_SIMPLE_BISICLES)
   add_subdirectory(example-drivers/simple_bisicles/src)
   add_subdirectory(libdycore)
