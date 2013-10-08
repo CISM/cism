@@ -4,6 +4,7 @@
 
 import sys
 import datetime
+import subprocess
 try:
   from Scientific.IO.NetCDF import NetCDFFile
   netCDF_module = 'Scientific.IO.NetCDF'
@@ -24,6 +25,7 @@ from halfarDome import halfarDome   # located in current directory
 parser = OptionParser()
 parser.add_option("-f", "--file", dest="filename", help="file to test", metavar="FILE")
 parser.add_option("-t", "--time", dest="t", help="which time level to use", metavar="T")
+parser.add_option("-c", "--config", dest="configfile", help="name of config file used for model run", metavar="CONFIG")
 
 options, args = parser.parse_args()
 if not options.filename:
@@ -34,6 +36,28 @@ if options.t:
 else:
    timelev = -1
    print 'No time level specified.  Attempting to use final time.'
+if options.configfile:
+   configfile = options.configfile
+else:
+   configfile = 'halfar.config'
+   print 'No config file specified.  Attempting to use halfar.config.'
+
+
+# Get the value of flwa specified in the default_flwa parameter in the config file.
+# This is the only way this test case supports specifying flwa.
+try: 
+   flwa=float( subprocess.check_output( 'grep "^default_flwa" ' + configfile + ' | cut -f 3 -d " "', shell='/bin/bash') )
+   print 'Parameter used: ' + configfile + ' has specified a flwa value of ' + str(flwa)
+except:
+   sys.exit('Error: problem getting default_flwa parameter value from the config file')
+
+# Try to get ice density used by the model
+try:
+   rhoi = float( subprocess.check_output( 'grep "real(dp),parameter :: rhoi =" ../../../libglimmer/glimmer_physcon.F90 | cut -d " " -f 7 | cut -d "." -f 1', shell='/bin/bash' ) )
+   print 'Parameter used: ../../../libglimmer/glimmer_physcon.F90 has specified a rhoi value of ' + str(rhoi)
+except:
+   print 'Warning: problem getting ice density value from ../../../libglimmer/glimmer_physcon.F90  Assuming 910.0 kg/m^3 as a default value.'
+   rhoi = 910.0
 
 
 
@@ -47,7 +71,7 @@ if netCDF_module == 'Scientific.IO.NetCDF':
    thk = thk * filein.variables['thk'].scale_factor
 
 # Call the halfar function
-thkHalfar = halfarDome(time[timelev]-time[0], x1, y1)
+thkHalfar = halfarDome(time[timelev]-time[0], x1, y1, flwa, rhoi)
 
 thkDiff = thk[timelev, :, :] - thkHalfar
 

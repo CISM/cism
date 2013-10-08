@@ -15,6 +15,7 @@ from netCDF import *
 from math import sqrt
 from ConfigParser import ConfigParser
 from halfarDome import halfarDome  # This is located in the current directory
+import subprocess
 
 # Check to see if a config file was specified on the command line.
 # If not, halfar.config is used.
@@ -71,8 +72,26 @@ netCDFfile.createVariable('y0','f',('y0',))[:] = dy/2 + y[:-1]
 thk  = numpy.zeros([1,ny,nx],dtype='float32')
 topg = numpy.zeros([1,ny,nx],dtype='float32')
 
+# Get the value of flwa specified in the default_flwa parameter in the config file.
+# This is the only way this test case supports specifying flwa.
+try: 
+   #flwa=os.system( 'grep "^default_flwa" ' + configfile+ ' | cut -f 3 -d " "')
+   flwa=float( subprocess.check_output( 'grep "^default_flwa" ' + configfile+ ' | cut -f 3 -d " "', shell='/bin/bash') )
+   print 'Parameter used: ' + configfile + ' has specified a flwa value of ' + str(flwa)
+except:
+   sys.exit('Error: problem getting default_flwa parameter value from the config file')
+
+# Try to get ice density used by the model
+try:
+   rhoi = float( subprocess.check_output( 'grep "real(dp),parameter :: rhoi =" ../../../libglimmer/glimmer_physcon.F90 | cut -d " " -f 7 | cut -d "." -f 1', shell='/bin/bash' ) )
+   print 'Parameter used: ../../../libglimmer/glimmer_physcon.F90 has specified a rhoi value of ' + str(rhoi)
+except:
+   print 'Warning: problem getting ice density value from ../../../libglimmer/glimmer_physcon.F90  Assuming 910.0 kg/m^3 as a default value.'
+   rhoi = 910.0
+
+
 # Calculate the thickness of the halfar dome of ice
-thk = halfarDome(0.0, x, y)  # Get the initial time shape from the halfar function
+thk = halfarDome(0.0, x, y, flwa, rhoi)  # Get the initial time shape from the halfar function
 # Note: The halfar solution will assume flwa = 1.0e-16, 
 #   so don't modify the default temperature settings.
 

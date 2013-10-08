@@ -8,19 +8,23 @@ import numpy as np
 
 # Define the function to calculate the Halfar thickness
 # Halfar, P. 1983. On the Dynamics of the Ice Sheets 2.  Journal of Geophysical Research, 88, 6043-6051.
-def halfarDome(t,x,y):
+def halfarDome(t,x,y,flwa,rhoi):
+  # Input: t - time in years
+  # Input: x - 1-d array of cell center x-positions
+  # Input: y - 1-d array of cell center y-positions
+  # Input: flwa - flow law parameter A in units of Pa^-3 yr^-1
+  # Input: rhoi - ice density in kg/m3
+
   # Initial radius and central thickness of dome
   R0 = 60000.0 * np.sqrt(0.125)
   H0 = 2000.0 * np.sqrt(0.125)
 
   n = 3.0
-  rho = 900.0  # Assuming an ice density here!
   grav = 9.8101
   alpha = 1.0/9.0
   beta = 1.0/18.0
   secpera = 31556926.0
-  flwa = 1.0e-16 # Assuming a flwa value here!
-  Gamma = 2.0/(n+2.0) * flwa * (rho * grav)**n
+  Gamma = 2.0/(n+2.0) * flwa * (rhoi * grav)**n
 
   xcenter = max(x)/2.0
   ycenter = max(y)/2.0
