@@ -69,9 +69,10 @@ cmake \
   -D CISM_BUILD_SIMPLE_BISICLES:BOOL=ON \
   -D CISM_BUILD_EXTRA_EXECUTABLES:BOOL=OFF \
   -D CISM_USE_GPTL_INSTRUMENTATION:BOOL=OFF \
+  -D CISM_USE_CISM_FRONT_END:BOOL=OFF \
 \
   -D GLIMMER_TRILINOS_DIR=/global/project/projectdirs/piscees/trilinos-default/hopper-pgi/install \
-  -D GLIMMER_NETCDF_DIR=/opt/cray/netcdf/4.1.2/pgi/109 \
+  -D GLIMMER_NETCDF_DIR=/opt/cray/netcdf/4.2.1.1/pgi/119 \
   -D GLIMMER_FMAIN=/opt/pgi/13.3.0/linux86-64/13.3/lib/f90main.o \
 \
   -D CMAKE_INSTALL_PREFIX:PATH=$PWD/install \
@@ -82,15 +83,16 @@ cmake \
   -D CMAKE_C_COMPILER=cc \
   -D CMAKE_Fortran_COMPILER=ftn \
 \
-  -D CISM_MPI_BASE_DIR=/opt/cray/mpt/5.4.5/xt/gemini/mpich2-pgi/109 \
-  -D CISM_SCI_LIB_DIR=/opt/xt-libsci/11.0.06/pgi/109/mc12/lib \
+  -D CISM_MPI_BASE_DIR=/opt/cray/mpt/5.6.4/gni/mpich2-pgi/119 \
+  -D CISM_SCI_LIB_DIR=/opt/xt-libsci/11.1.01/PGI/119/mc12/lib \
   -D GLIMMER_GPTL_DIR=/project/projectdirs/ccsm1/libgptl/libgptl-pgi \
 \
   -D CMAKE_CXX_FLAGS:STRING="-g --diag_suppress 554,111,611 -DH5_USE_16_API" \
   -D GLIMMER_Fortran_FLAGS:STRING="-g -DNO_RESCALE" \
-  -D GLIMMER_EXTRA_LIBS:STRING="-L$PETSC_DIR/$PETSC_ARCH/lib -lpetsc -llapack -lblas" \
+  -D GLIMMER_EXTRA_LIBS:STRING="-L$PETSC_DIR/$PETSC_ARCH/lib -lpetsc -lHYPRE -lmetis -lparmetis -llapack -lblas" \
   -D BISICLES_LIB_SUBDIR=libpgi \
   -D BISICLES_INTERFACE_DIR=$PWD/../../../BISICLES/CISM-interface/interface \
+  -D GLIMMER_MPI_LIBS:STRING="mpichf90" \
   ../..
 
 
