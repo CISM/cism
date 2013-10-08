@@ -167,7 +167,20 @@ IF (NOT CISM_USE_DEFAULT_IO)
                   ${GLIMMER_SOURCE_DIR} 
                   WORKING_DIRECTORY ${CISM_BINARY_DIR}
                   OUTPUT_FILE ${CISM_BINARY_DIR}/autogenerate.log)
+ 
   MESSAGE(">> see ${CISM_BINARY_DIR}/autogenerate.log")
+
+  IF (CISM_BUILD_GLINT_EXAMPLE OR CISM_USE_CISM_FRONT_END)
+    # Auto-generate the *_io.F90 files in the build directory:
+    MESSAGE(">> Calling cmake-scripts/autogenerate-in-build-dir")
+    EXECUTE_PROCESS(COMMAND  ${GLIMMER_SOURCE_DIR}/cmake-scripts/autogen-for-glint-in-build-dir
+                    ${GLIMMER_SOURCE_DIR} 
+                    WORKING_DIRECTORY ${CISM_BINARY_DIR}
+                    OUTPUT_FILE ${CISM_BINARY_DIR}/autogen-for-glint.log)
+ 
+    MESSAGE(">> see ${CISM_BINARY_DIR}/autogen-for-glint.log")
+  ENDIF()
+
 ELSE()
   # Simply copy the default io files into the build directory
   MESSAGE(">> Calling cmake-scripts/autocopy-io-to-build-dir")
