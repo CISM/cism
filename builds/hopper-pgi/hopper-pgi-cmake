@@ -107,7 +107,7 @@ cmake \
 \
   -D CMAKE_CXX_FLAGS:STRING="-O2 --diag_suppress 554,111,611" \
   -D GLIMMER_Fortran_FLAGS:STRING="-g -DNO_RESCALE" \
-  -D BISICLES_INTERFACE_DIR=/global/u1/r/ranken/BISICLES/CISM-interface/interface \
+  -D BISICLES_INTERFACE_DIR=$PWD/../../../BISICLES/CISM-interface/interface \
   -D BISICLES_LIB_SUBDIR=libpgi \
   -D GLIMMER_MPI_LIBS:STRING="mpichf90" \
   ../..
