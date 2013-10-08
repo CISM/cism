@@ -26,10 +26,10 @@
     <Parameter name="Preconditioner Type" type="string" value="Ifpack"/>
     <ParameterList name="Preconditioner Types">
       <ParameterList name="Ifpack">
-        <Parameter name="Overlap" type="int" value="0"/>
+        <Parameter name="Overlap" type="int" value="1"/>
         <Parameter name="Prec Type" type="string" value="ILU"/>
         <ParameterList name="Ifpack Settings">
-          <Parameter name="fact: level-of-fill" type="int" value="0"/>
+          <Parameter name="fact: level-of-fill" type="int" value="1"/>
         </ParameterList>
       </ParameterList>
       <ParameterList name="ML">

@@ -14,7 +14,7 @@ import sys, os, glob, shutil, numpy
 from netCDF import *
 from math import sqrt
 from ConfigParser import ConfigParser
-from halfarDome import halfarDome  # This is located in the current directory
+from halfarDomeHO import halfarDome  # This is located in the current directory
 import subprocess
 
 # Check to see if a config file was specified on the command line.
@@ -94,6 +94,12 @@ except:
 thk = halfarDome(0.0, x, y, flwa, rhoi)  # Get the initial time shape from the halfar function
 # Note: The halfar solution will assume flwa = 1.0e-16, 
 #   so don't modify the default temperature settings.
+
+# remove thin ice at edges in order to allow for advection w/ IR
+thk[ny-2:,:] = 0.0
+thk[:,:2] = 0.0
+thk[:,nx-2:] = 0.0
+thk[:2,:] = 0.0
 
 # Create the required variables in the netCDF file.
 netCDFfile.createVariable('thk', 'f',('time','y1','x1'))[:] = thk
