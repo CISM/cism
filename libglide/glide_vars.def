@@ -578,7 +578,7 @@ load:          1
 
 [flwa]
 dimensions:    time, level, y1, x1
-units:         pascal/year
+units:         pascal^(-n) year^(-1)
 long_name:     Pre-exponential flow law parameter
 data:          data%temper%flwa(up,:,:)
 factor:        scale_flwa
@@ -587,7 +587,7 @@ coordinates:   lon lat
 
 [flwastag]
 dimensions:    time, staglevel, y1, x1
-units:         pascal/year
+units:         pascal^(-n) year^(-1)
 long_name:     Pre-exponential flow law parameter
 data:          data%temper%flwa(up,:,:)
 factor:        scale_flwa
