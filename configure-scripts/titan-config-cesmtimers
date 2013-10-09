@@ -10,7 +10,7 @@
   FC=ftn  F77=ftn   \
   CC=cc  CXX=CC \
   CXXFLAGS="-O2 " \
-  CPPFLAGS="-I/tmp/proj/cli017/worley/libgptl_pgi -DHAVE_MPI -DMPICH_IGNORE_CXX_SEEK -DCESMTIMERS" \
+  CPPFLAGS="-I/tmp/proj/cli062/worley/libgptl_pgi -DHAVE_MPI -DMPICH_IGNORE_CXX_SEEK -DCESMTIMERS" \
   FCFLAGS="-Mfree -O2" \
   F77FLAGS="-Mfixed" \
   CFLAGS="-O2 " \
@@ -18,8 +18,8 @@
   --disable-python \
   --disable-shared \
   --with-netcdf=$NETCDF_DIR \
-  EXTRA_LDLIBS="/opt/pgi/12.9.0/linux86-64/12.9/lib/f90main.o /tmp/proj/cli017/worley/libgptl_pgi/libgptl.a" \
-  --with-trilinos=/tmp/proj/cli017/worley/Trilinos_trunk_wc/titan-pgi-ci-nophal-noboost/install \
+  EXTRA_LDLIBS="/opt/pgi/12.9.0/linux86-64/12.9/lib/f90main.o /tmp/proj/cli062/worley/libgptl_pgi/libgptl.a" \
+  --with-trilinos=/tmp/proj/cli062/worley/Trilinos_trunk_wc/titan-pgi-ci-nophal-noboost/install \
   --with-blas=-lsci_pgi \
   --enable-mpi="yes"
 
