@@ -24,7 +24,9 @@ link_directories (${Trilinos_LIBRARY_DIRS} ${Trilinos_TPL_LIBRARY_DIRS}
 
 # These are local source files needed to make the cism_driver executable and CISM front-end
 add_executable(cism_driver cism_driver.F90 cism_front_end.F90 gcm_cism_interface.F90
-               cism_external_dycore_interface.F90 simple_forcing.F90 testsfg.F90)
+               gcm_to_cism_glint.F90 cism_external_dycore_interface.F90
+	       ../example-drivers/simple_glide/src/simple_forcing.F90
+	       ../example-drivers/simple_glide/src/testsfg.F90)
 
 MESSAGE("GLIMMER_BISICLES_DIR: " ${GLIMMER_BISICLES_DIR})
 MESSAGE("CISM_HDF5_LIBS: " ${CISM_HDF5_LIBS})

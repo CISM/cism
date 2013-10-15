@@ -1,6 +1,6 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   cism_gcm_interface.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   gcm_cism_interface.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
@@ -24,6 +24,12 @@
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+! from glide_types.F90:
+!  integer, parameter :: DYCORE_GLIDE = 0     ! old shallow-ice dycore from Glimmer
+!  integer, parameter :: DYCORE_GLAM = 1      ! Payne-Price finite-difference solver
+!  integer, parameter :: DYCORE_GLISSADE = 2  ! prototype finite-element solver
+!  integer, parameter :: DYCORE_ALBANYFELIX = 3  ! External Albany-Felix finite-element solver
+!  integer, parameter :: DYCORE_BISICLES = 4     ! BISICLES external dycore
 
 module gcm_cism_interface
 
@@ -32,66 +38,134 @@ module gcm_cism_interface
   use glide
   use cism_front_end
 
-  integer, parameter :: GCM_DATA_MODEL = 0  
-  integer, parameter :: GCM_CESM = 1 
+  use glint_example_clim
+  use glint_main
+  use gcm_to_cism_glint
+
+
+  integer, parameter :: GCM_MINIMAL_MODEL = 0
+  integer, parameter :: GCM_DATA_MODEL = 1
+  integer, parameter :: GCM_CESM = 2
 
 contains
 
-subroutine gcm_init_interface(which_gcm,gcm_model,cism_model)
+subroutine gci_init_interface(which_gcm,g2c)
   use parallel
-  use glimmer_commandline
+  use glint_commandline
+  use glimmer_config
   use glide
+  use glide_types
+ 
   use cism_front_end 
 
   integer, intent(in) :: which_gcm
-  integer :: gcm_model   ! temporary decl
-  type(glide_global_type) :: cism_model    ! CISM  model instance 
+  type(gcm_to_cism_type) :: g2c   ! holds everthing
 
+  integer :: whichdycore, precip_mode=-10, assoc_flag
+  type(ConfigSection), pointer :: config  ! configuration stuff
+  type(ConfigSection), pointer :: section  !< pointer to the section to be checked
 
   call parallel_initialise
-  select case (which_gcm)
+  
+  ! get the CISM dycore to be used:
+  call glint_GetCommandline()
+  call open_log(unit=50, fname=logname(commandline_configname))
+  call ConfigRead(commandline_configname,config)
+  call GetSection(config,section,'options')
+  call GetValue(section,'dycore',whichdycore)
+  print *,'CISM dycore type = ',whichdycore  
+
+  ! check to see if running minimal GCM or data GCM.  Still need to add CESM GCM:
+  call GetSection(config,section,'GLINT climate')
+
+  if (associated(section)) then
+    g2c%which_gcm = GCM_DATA_MODEL
+  else 
+    g2c%which_gcm = GCM_MINIMAL_MODEL
+  end if
+  print *,'g2c%which_gcm = ',g2c%which_gcm
+
+!  call GetValue(section,'precip_mode',precip_mode)
+!  print *,'precip_mode = ',precip_mode
+
+  select case (g2c%which_gcm)
+    case (GCM_MINIMAL_MODEL)
+      call cism_init_dycore(g2c%glide_model)
+ 
     case (GCM_DATA_MODEL)
-      call glimmer_GetCommandline()
+      call g2c_glint_init(g2c)
+
     case (GCM_CESM)
-      ! call gcm_glimmer_GetCommandline_proxy()
+      ! call gcm_glint_GetCommandline_proxy()
+      ! call g2c_glint_init(g2c) 
+
+    case default
+      print *,"Error -- unknown GCM type."
+  end select
+
+end subroutine gci_init_interface   
+
+subroutine gci_run_model(g2c)
+
+  type(gcm_to_cism_type) :: g2c 
+
+  logical :: finished = .false.
+
+  print *,'which_gcm = ',g2c%which_gcm
+
+  do while (.not. finished)
+    select case (g2c%which_gcm)
+      case (GCM_MINIMAL_MODEL)
+        ! call gcm_update_model(gcm_model,cism_model)
+        print *,"In gci_run_model, calling cism_run_dycore"
+        call cism_run_dycore(g2c%glide_model)
+
+        ! call gci_finished(gcm_model,finished)
+        ! if (gci_finished(g2c) .EQ. 1) exit
+        finished = .true.
+      case (GCM_DATA_MODEL)
+        call g2c_glint_run(g2c)
+
+!     case (GCM_CESM)
+      ! call gcm_glint_GetCommandline_proxy()
+      ! call g2c_glint_init(g2c) 
+
+      case default
+    end select
+  end do
+end subroutine gci_run_model
+
+
+! gci_finished is used to test status of GCM
+function gci_finished(g2c) result(finished)
+
+  type(gcm_to_cism_type) :: g2c
+  logical :: finished
+ 
+  ! do something with g2c
+  finished = .true.
+end function gci_finished
+
+
+subroutine gci_finalize_interface(g2c)
+
+  type(gcm_to_cism_type) :: g2c
+
+  select case (g2c%which_gcm)
+    case (GCM_MINIMAL_MODEL)
+      call cism_init_dycore(g2c%glide_model)
+ 
+    case (GCM_DATA_MODEL)
+      call g2c_glint_init(g2c)
+
+    case (GCM_CESM)
+      ! call gcm_glint_GetCommandline_proxy()
+      ! call g2c_glint_init(g2c) 
+
     case default
   end select
 
-  call cism_init_dycore(cism_model)
-
-end subroutine gcm_init_interface   
-
-
-subroutine gcm_run_model(gcm_model,cism_model)
-  integer :: gcm_model   ! temporary decl
-  type(glide_global_type) :: cism_model    ! CISM  model instance 
-
-  integer :: finished = 0
-
-  do
-    ! call gcm_update_model(gcm_model,cism_model)
-    ! print *,"In gcm_run_model, calling cism_run_dycore"
-    call cism_run_dycore(cism_model)
-    ! call gcm_finished(gcm_model,finished)
-    if (gcm_finished(gcm_model) .EQ. 1) exit
-  end do
-end subroutine gcm_run_model
-
-
-function gcm_finished(gcm_model) result(finished)
-  integer :: gcm_model   ! temporary decl
-  integer :: finished
- 
-  ! do something with gcm_model
-  finished = 1
-end function gcm_finished
-  
-
-subroutine gcm_finalize_interface(gcm_model,cism_model)
-  integer :: gcm_model   ! temporary decl
-  type(glide_global_type) :: cism_model    ! CISM  model instance 
-
-end subroutine gcm_finalize_interface
+end subroutine gci_finalize_interface
 
 
 end module gcm_cism_interface

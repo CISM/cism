@@ -76,7 +76,7 @@ subroutine cism_init_dycore(model)
   !TODO - call this only for parallel runs?
 !  call parallel_initialise     
 
-!  call glimmer_GetCommandline()
+  call glimmer_GetCommandline()
 
   ! start logging
   call open_log(unit=50, fname=logname(commandline_configname))

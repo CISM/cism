@@ -31,12 +31,11 @@ program cism_driver
   use gcm_cism_interface
 
   integer :: which_gcm = GCM_DATA_MODEL
-  integer :: gcm_model = 0  ! temporary placeholder
-  type(glide_global_type) :: cism_model        ! model instance
+  type(gcm_to_cism_type) :: g2c
 
-  call gcm_init_interface(which_gcm,gcm_model,cism_model)
-  call gcm_run_model(gcm_model,cism_model)
-  call gcm_finalize_interface(gcm_model,cism_model)
+  call gci_init_interface(which_gcm,g2c)
+  call gci_run_model(g2c)
+  call gci_finalize_interface(g2c)
 
 !  call parallel_finalise
 end program cism_driver
