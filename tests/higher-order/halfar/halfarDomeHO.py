@@ -39,8 +39,8 @@ def halfarDome(t,x,y,flwa,rhoi):
       r=r/R0
 #   This sets a halo of dynamically inactive thin ice around the region
 #   of thickness for which we want active, dynamic ice.
-#      inside = max(0.0, 1.0 - (r / tr**beta)**((n+1.0) / n))   # initial function
-      inside = max(1.0/H0, 1.0 - (r / tr**beta)**((n+1.0) / n))
+      inside = max(0.0, 1.0 - (r / tr**beta)**((n+1.0) / n))   # initial function (no thin ice)
+#      inside = max(1.0/H0, 1.0 - (r / tr**beta)**((n+1.0) / n))
 
       H[j,i] = H0 * inside**(n / (2.0*n+1.0)) / tr**alpha
   return H.astype(np.float32)
