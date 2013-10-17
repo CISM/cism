@@ -99,7 +99,9 @@ echo $build_no
 # PARALLEL BUILD WITH CMAKE GNU
 echo 'change to gnu env'
 module unload cmake netcdf-hdf5parallel/4.2.0 python
-module swap PrgEnv-pgi PrgEnv-gnu; module load cmake/2.8.10.1 python netcdf-hdf5parallel/4.2.0 usg-default-modules/1.0 boost/1.49.0
+module swap PrgEnv-pgi PrgEnv-gnu; 
+module swap xt-asyncpe xt-asyncpe/5.19
+module load cmake/2.8.10.1 python netcdf-hdf5parallel/4.2.0 usg-default-modules/1.0 boost/1.49.0
 
 cd $CODE_DIR/xe6-gnu
 echo 'clean out the build dir'
