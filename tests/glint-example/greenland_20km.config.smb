@@ -35,8 +35,8 @@ restart = 0              # 0 = initial run, 1 = restart
 [time]
 dt = 1.
 dt_diag = 1.
-idiag = 34
-jdiag = 29
+idiag = 25
+jdiag = 74
 
 [parameters]
 log_level = 6
