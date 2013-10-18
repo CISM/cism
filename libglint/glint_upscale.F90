@@ -87,10 +87,10 @@ contains
     ! --------------------------------------------------------------------------------------------------
     ! Orography
 
-    call mean_to_global(instance%ups_orog, &
-                        instance%model%geometry%usrf, &
-                        orog,    &
-                        instance%out_mask)
+    call local_to_global_avg(instance%ups_orog, &
+                             instance%model%geometry%usrf, &
+                             orog,    &
+                             instance%out_mask)
     orog=thk0*orog
 
     call coordsystem_allocate(instance%lgrid,temp)
@@ -102,10 +102,10 @@ contains
        temp = 0.d0
     endwhere
 
-    call mean_to_global(instance%ups, &
-                        temp, &
-                        ice_frac,    &
-                        instance%out_mask)
+    call local_to_global_avg(instance%ups, &
+                             temp, &
+                             ice_frac,    &
+                             instance%out_mask)
 
     ! Ice-with-snow fraction
     where (instance%mbal_accum%snowd > 0.d0 .and. instance%model%geometry%thck > 0.d0)
@@ -113,10 +113,10 @@ contains
     elsewhere
        temp = 0.d0
     endwhere
-    call mean_to_global(instance%ups, &
-                        temp, &
-                        snowice_frac,    &
-                        instance%out_mask)
+    call local_to_global_avg(instance%ups, &
+                             temp, &
+                             snowice_frac,    &
+                             instance%out_mask)
 
     ! Veg-with-snow fraction (if ice <10m thick)
     where (instance%mbal_accum%snowd > 0.d0 .and. instance%model%geometry%thck <= (10.d0/thk0))
@@ -124,20 +124,20 @@ contains
     elsewhere
        temp = 0.d0
     endwhere
-    call mean_to_global(instance%ups, &
-                        temp, &
-                        snowveg_frac,    &
-                        instance%out_mask)
+    call local_to_global_avg(instance%ups, &
+                             temp, &
+                             snowveg_frac,    &
+                             instance%out_mask)
 
     ! Remainder is veg only
     veg_frac = 1.d0 - ice_frac - snowice_frac - snowveg_frac
 
     ! Snow depth
 
-    call mean_to_global(instance%ups, &
-                        instance%mbal_accum%snowd, &
-                        snow_depth,    &
-                        instance%out_mask)
+    call local_to_global_avg(instance%ups, &
+                             instance%mbal_accum%snowd, &
+                             snow_depth,    &
+                             instance%out_mask)
 
     ! Albedo
 
@@ -201,12 +201,12 @@ contains
 
     real(dp) ::   &
        usrf,               &! surface elevation (m)
-       thck,               &! ice thickness (m)
-       ucondflx,           &! conductive heat flux at upper surface (W m-2)
-                            ! defined as positive down
-       calving,            &! time-average calving rate (kg m-2 s-1)
-       bmlting              ! time-average rate of basal/internal melting (kg m-2 s-1)
-                            ! (melting at top surface is handled by GCM)
+       thck                 ! ice thickness (m)
+!       ucondflx,           &! conductive heat flux at upper surface (W m-2)
+!                            ! defined as positive down
+!       calving,            &! time-average calving rate (kg m-2 s-1)
+!       bmlting              ! time-average rate of basal/internal melting (kg m-2 s-1)
+!                            ! (melting at top surface is handled by GCM)
 
     real(dp), dimension(nxl,nyl) ::  &
        area_l               ! local gridcell area
@@ -236,7 +236,8 @@ contains
     real(dp), dimension(0:nec) :: topomax   ! upper elevation limit of each class
 
 !WHL - debug
-    print*, 'Start upscaling'
+!    integer :: nloc
+!    print*, 'Start upscaling'
 
     dew = get_dew(instance%model)
     dns = get_dns(instance%model)
@@ -275,7 +276,7 @@ contains
     endif
 
     ! The following output only works correctly if running with a single task
-!!    if (GLC_DEBUG .and. tasks==1) then
+    if (GLC_DEBUG .and. tasks==1) then
        ig = iglint_global    ! defined in glint_type
        jg = jglint_global
        il = instance%model%numerics%idiag
@@ -287,9 +288,8 @@ contains
        write(stdout,*) 'nxg, nyg =', nxg,nyg
        write(stdout,*) 'av_count_output =', instance%av_count_output
        write(stdout,*) 'local out_mask =', instance%out_mask(il,jl)
-       write(stdout,*) 'max, min out_mask =', maxval(instance%out_mask), minval(instance%out_mask)
-       
-!!    end if
+       write(stdout,*) 'max, min out_mask =', maxval(instance%out_mask), minval(instance%out_mask)       
+    end if
 
     ! Initialize some fields
 
@@ -336,7 +336,7 @@ contains
     
     ! Loop over local grid cells
     ! Note: The area calculation is not strictly needed on a uniform grid, but is included
-    !       to suppoort the general case of spatially varying grid dimensions.
+    !       to support the general case of spatially varying grid dimensions.
 
     do j = 1, nyl
     do i = 1, nxl
@@ -345,13 +345,13 @@ contains
        thck = thk0 * instance%model%geometry%thck(i,j)
 
 !WHL - debug
-       if (i==il .and. j==jl) then
-          write(stdout,*) 'usrf =', usrf
-          write(stdout,*) 'thck =', thck
-          write(stdout,*) 'hflx =', instance%hflx_tavg(i,j)
-          write(stdout,*) 'rofi =', instance%rofi_tavg(i,j)
-          write(stdout,*) 'rofl =', instance%rofl_tavg(i,j)
-       endif
+!       if (i==il .and. j==jl) then
+!          write(stdout,*) 'usrf =', usrf
+!          write(stdout,*) 'thck =', thck
+!          write(stdout,*) 'hflx =', instance%hflx_tavg(i,j)
+!          write(stdout,*) 'rofi =', instance%rofi_tavg(i,j)
+!          write(stdout,*) 'rofl =', instance%rofl_tavg(i,j)
+!       endif
 
        if (thck > min_thck) then   ! this cell is ice-covered
 
@@ -362,13 +362,14 @@ contains
                 area_hflx_l(i,j,n) = dew*dns * instance%hflx_tavg(i,j)
 
                 !WHL - debug
-                if (i==il .and. j==jl) then
-                   print*, ' '
-                   print*, 'n =', n
-                   print*, 'dew*dns =', dew*dns
-                   print*, 'dew*dns*usrf =', area_topo_l(i,j,n)
-                   print*, 'dew*dns*hflx =', area_hflx_l(i,j,n)
-                endif
+!                if (i==il .and. j==jl) then
+!                   print*, ' '
+!                   print*, 'n =', n
+!                   nloc = n
+!                   print*, 'dew*dns =', dew*dns
+!                   print*, 'dew*dns*usrf =', area_topo_l(i,j,n)
+!                   print*, 'dew*dns*hflx =', area_hflx_l(i,j,n)
+!                endif
 
                 exit
              endif
@@ -382,11 +383,11 @@ contains
        area_rofl_l(i,j) = dew*dns * instance%rofl_tavg(i,j)
 
        !WHL - debug
-       if (i==il .and. j==jl) then
-          print*, ' '
-          print*, 'dew*dns*rofi =', area_rofi_l(i,j)
-          print*, 'dew*dns*rofl =', area_rofl_l(i,j)
-       endif
+!       if (i==il .and. j==jl) then
+!          print*, ' '
+!          print*, 'dew*dns*rofi =', area_rofi_l(i,j)
+!          print*, 'dew*dns*rofl =', area_rofl_l(i,j)
+!       endif
 
     enddo         ! i
     enddo         ! j
@@ -395,35 +396,61 @@ contains
 
     ! Gridcell area
 
-    call mean_to_global(instance%ups, &
-                        area_l,       &
-                        area_g,       &
-                        instance%out_mask)
+    call local_to_global_sum(instance%ups, &
+                             area_l,       &
+                             area_g,       &
+                             instance%out_mask)
+
+!WHL - debug
+!    print*, ' '
+!    print*, 'il, jl, area_l:', il, jl, area_l(il,jl)
+!    print*, 'ig, jg, area_g:', ig, jg, area_g(ig,jg)
+!    print*, 'area_g/area_l:', area_g(ig,jg)/area_l(il,jl)
 
     ! Loop over elevation classes for gfrac, gtopo, ghflx
 
     do n = 1, nec
 
+!WHL - debug
+!       print*, ' '
+!       print*, 'n =', n
+
        ! area-weighted gfrac
 
-       call mean_to_global(instance%ups,         &
-                           area_frac_l(:,:,n),   &
-                           area_frac_g(:,:,n),   &
-                           instance%out_mask)
+       call local_to_global_sum(instance%ups,         &
+                                area_frac_l(:,:,n),   &
+                                area_frac_g(:,:,n),   &
+                                instance%out_mask)
+
+!WHL - debug
+!       if (n==nloc) then
+!          print*, ' '
+!          print*, 'il, jl, area_frac_l(il,jl,n):', il, jl, area_frac_l(il,jl,n)
+!          print*, 'ig, jg, area_frac_g(ig,jg,n):', ig, jg, area_frac_g(ig,jg,n)
+!          print*, 'area_frac_g/area_frac_l:', area_frac_g(ig,jg,n)/area_frac_l(il,jl,n)
+!       endif
 
        ! area-weighted gtopo
 
-       call mean_to_global(instance%ups,         &
-                           area_topo_l(:,:,n),   &
-                           area_topo_g(:,:,n),   &
-                           instance%out_mask)
+       call local_to_global_sum(instance%ups,         &
+                                area_topo_l(:,:,n),   &
+                                area_topo_g(:,:,n),   &
+                                instance%out_mask)
+
+!WHL - debug
+!       if (n==nloc) then
+!          print*, ' '
+!          print*, 'il, jl, area_topo_l(il,jl,n):', il, jl, area_topo_l(il,jl,n)
+!          print*, 'ig, jg, area_topo_g(ig,jg,n):', ig, jg, area_topo_g(ig,jg,n)
+!          print*, 'area_topo_g/area_topo_l:', area_topo_g(ig,jg,n)/area_topo_l(il,jl,n)
+!       endif
 
        ! area-weighted ghflx
 
-       call mean_to_global(instance%ups,         &
-                           area_hflx_l(:,:,n),   &
-                           area_hflx_g(:,:,n),   &
-                           instance%out_mask)
+       call local_to_global_sum(instance%ups,         &
+                                area_hflx_l(:,:,n),   &
+                                area_hflx_g(:,:,n),   &
+                                instance%out_mask)
 
        ! Compute the mean ice fraction, surface elevation, and surface heat flux in each global grid cell
 
@@ -446,40 +473,36 @@ contains
           endif
 
 !WHL - debug
-          if (i==ig .and. j==jg) then
-             print*, ' '
-             print*, 'i, j, n =', i, j, n
-             print*, 'area_g =', area_g(i,j)
-             print*, 'area_frac_g =', area_frac_g(i,j,n)
-             print*, 'area_topo_g =', area_topo_g(i,j,n)
-             print*, 'area_hflx_g =', area_hflx_g(i,j,n)
-             print*, 'gfrac =', gfrac(i,j,n)
-             print*, 'gtopo =', gtopo(i,j,n)
-             print*, 'ghflx =', ghflx(i,j,n)
-          endif
+!          if (i==ig .and. j==jg) then
+!             print*, ' '
+!             print*, 'ig, jg, n =', i, j, n
+!             print*, 'area_g =', area_g(i,j)
+!             print*, 'area_frac_g =', area_frac_g(i,j,n)
+!             print*, 'area_topo_g =', area_topo_g(i,j,n)
+!             print*, 'area_hflx_g =', area_hflx_g(i,j,n)
+!             print*, 'gfrac =', gfrac(i,j,n)
+!             print*, 'gtopo =', gtopo(i,j,n)
+!             print*, 'ghflx =', ghflx(i,j,n)
+!          endif
 
        enddo  ! i
        enddo  ! j
 
     enddo     ! nec
 
-!TODO - Modify mean_to_global subroutine so that it upscales correctly
-!       regardless of whether ice is present in a given local cell
-
     ! area-weighted grofi
 
-    call mean_to_global(instance%ups,       &
-                        area_rofi_l(:,:),   &
-                        area_rofi_g(:,:),   &
-                        instance%out_mask)
+    call local_to_global_sum(instance%ups,       &
+                             area_rofi_l(:,:),   &
+                             area_rofi_g(:,:),   &
+                             instance%out_mask)
 
     ! area-weighted grofl
 
-    call mean_to_global(instance%ups,       &
-                        area_rofl_l(:,:),   &
-                        area_rofl_g(:,:),   &
-                        instance%out_mask)
-
+    call local_to_global_sum(instance%ups,       &
+                             area_rofl_l(:,:),   &
+                             area_rofl_g(:,:),   &
+                             instance%out_mask)
 
     ! Compute the mean ice and liquid runoff in each global grid cell
 
@@ -497,50 +520,20 @@ contains
        endif
 
 !WHL - debug
-       if (i==ig .and. j==jg) then
-          print*, ' '
-          print*, 'i, j =', i, j
-          print*, 'area_g =', area_g(i,j)
-          print*, 'area_rofi_g =', area_rofi_g(i,j)
-          print*, 'area_rofl_g =', area_rofl_g(i,j)
-          print*, 'grofi =', grofi(i,j)
-          print*, 'grofl =', grofl(i,j)
-       endif
+!       if (i==ig .and. j==jg) then
+!          print*, ' '
+!          print*, 'i, j =', i, j
+!          print*, 'area_g =', area_g(i,j)
+!          print*, 'area_rofi_g =', area_rofi_g(i,j)
+!          print*, 'area_rofl_g =', area_rofl_g(i,j)
+!          print*, 'grofi(kg/m2/s) =', grofi(i,j)
+!          print*, 'grofi(m ice/yr) =', grofi(i,j)/rhoi*scyr
+!          print*, 'grofl(kg/m2/s) =', grofl(i,j)
+!          print*, 'grofl(m ice/yr) =', grofl(i,j)/rhoi*scyr
+!       endif
 
     enddo   ! i
     enddo   ! j
-
-!WHL - Old code follows
-
-    if (GLC_DEBUG .and. main_task) then
-
-!       write(stdout,*) ' '
-!       write(stdout,*) 'global gfrac:'
-!       do n = 1, nec
-!          write(stdout,*) n, gfrac(ig, jg, n)
-!       enddo
-
-!       write(stdout,*) ' '
-!       write(stdout,*) 'global gtopo:'
-!       do n = 1, nec
-!          write(stdout,*) n, gtopo(ig, jg, n)
-!       enddo
-
-!       write(stdout,*) ' '
-!       write(stdout,*) 'global ghflx:'
-!       do n = 1, nec
-!          write(stdout,*) n, ghflx(ig, jg, n)
-!       enddo
-
-!       write(stdout,*) ' '
-!       write(stdout,*) 'global grofi:'
-!       write(stdout,*) grofi(ig, jg)
-
-!       write(stdout,*) ' '
-!       write(stdout,*) 'global grofl:'
-!       write(stdout,*) grofl(ig, jg)
-
-    end if
 
   end subroutine glint_upscaling_gcm
 
@@ -556,7 +549,14 @@ contains
     ! Given the calving, basal melting, and conductive heat flux fields from the dycore,
     ! accumulate contributions to the rofi, rofl, and hflx fields to be sent to the coupler.
 
+    use glimmer_paramets, only: thk0, tim0
+
+!WHL - debug - Uncomment if specifying the model fields for testing
+!    use glimmer_scales, only: scale_acab
+
+!WHL - debug - Set to inout if specifying the model fields for testing
     type(glide_global_type), intent(in)  :: model
+!    type(glide_global_type), intent(inout)  :: model
 
     integer,  intent(inout) :: av_count_output     ! step counter 
     logical,  intent(inout) :: new_tavg_output     ! if true, start new averaging
@@ -564,13 +564,22 @@ contains
     real(dp), dimension(:,:), intent(inout) :: rofl_tavg    ! liquid runoff from basal/interior melting (kg m-2 s-1)
     real(dp), dimension(:,:), intent(inout) :: hflx_tavg    ! conductive heat flux at top surface (W m-2)
 
-    ! things to do the first time                                                                                                                           
+!WHL - debug - Uncomment if specifying the model fields for testing
+
+    ! calving field for testing (10 m, scaled to model units)
+!    model%climate%calving(:,:) = 10.d0 / thk0
+          
+    ! bmlt field for testing (1 m/yr, scaled to model units)
+!    model%temper%bmlt(:,:) = 1.0d0 / scale_acab
+
+    ! things to do the first time
+
     if (new_tavg_output) then
 
        new_tavg_output = .false.
        av_count_output  = 0
 
-       ! Initialise                                                                                                                                         
+       ! Initialise
        rofi_tavg(:,:) = 0.d0
        rofl_tavg(:,:) = 0.d0
        hflx_tavg(:,:) = 0.d0
@@ -579,26 +588,52 @@ contains
 
     av_count_output = av_count_output + 1
 
-    ! Accumulate
-    !TODO - Make sure this works with the real Glide fields
-                                                                                                                               
-!!    if (associated(model%climate%calving)) &
-!!         rofi_tavg(:,:) = rofi_tavg(:,:) + model%climate%calving(:,:)  !TODO - Check units
+    !--------------------------------------------------------------------
+    ! Accumulate solid runoff (calving)
+    !--------------------------------------------------------------------
+                       
+    ! Note on units: model%climate%calving has dimensionless ice thickness units
+    !                Multiply by thk0 to convert to meters of ice
+    !                Multiply by rhoi to convert to kg/m^2 water equiv.
+    !                Divide by (dt*tim0) to convert to kg/m^2/s
 
-!!    if (associated(model%temper%bmlt)) &
-!!         rofl_tavg(:,:) = rofl_tavg(:,:) + model%temper%bmlt(:,:)
+    ! Convert to kg/m^2/s
+    rofi_tavg(:,:) = rofi_tavg(:,:)  &
+                   + model%climate%calving(:,:) * thk0 * rhoi / (model%numerics%dt * tim0)
+
+    !--------------------------------------------------------------------
+    ! Accumulate liquid runoff (basal melting)
+    !--------------------------------------------------------------------
+    !TODO - Add internal melting for enthalpy case
+                       
+    ! Note on units: model%temper%bmlt has dimensionless units of ice thickness per unit time
+    !                Multiply by thk0/tim0 to convert to meters ice per second
+    !                Multiply by rhoi to convert to kg/m^2/s water equiv.
+
+    ! Convert to kg/m^2/s
+    rofl_tavg(:,:) = rofl_tavg(:,:)  &
+                   + model%temper%bmlt(:,:) * thk0/tim0 * rhoi
+
+    !--------------------------------------------------------------------
+    ! Accumulate basal heat flux
+    !--------------------------------------------------------------------
 
     !TODO - Associate and compute uncondflx for SIA dycore
     !       Currently computed only for HO dycore
  
-!!    if (associated(model%temper%ucondflx)) &
-!!         hflx_tavg(:,:) = hflx_tavg(:,:) + model%temper%ucondflx(:,:)
+    if (associated(model%temper%ucondflx)) then
 
-!WHL - debug - fake values for now
+    ! Note on units: model%temper%ucondflx has units of W/m^2, positive down
+    !                Flip the sign so that hflx_tavg is positive up.
 
-    rofi_tavg(:,:) = rofi_tavg(:,:) + 1.d0
-    rofl_tavg(:,:) = rofl_tavg(:,:) + 1.d-1
-    hflx_tavg(:,:) = hflx_tavg(:,:) - 1.d0
+       hflx_tavg(:,:) = hflx_tavg(:,:) &
+                      - model%temper%ucondflx(:,:)
+
+    else
+
+       ! do nothing; hflx will be zero
+
+    endif
 
   end subroutine glint_accumulate_output_gcm
 

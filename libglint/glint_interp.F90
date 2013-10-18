@@ -84,11 +84,6 @@ module glint_interp
 
   end type upscale
 
-  !TODO - Remove mean_to_global_sp?
-  interface mean_to_global
-     module procedure mean_to_global_sp,mean_to_global_dp
-  end interface
-
 contains
 
   subroutine new_downscale(downs,proj,ggrid,lgrid,mpint)
@@ -592,87 +587,9 @@ contains
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  !TODO - Remove this subroutine and keep only mean_to_global_dp?
+  !WHL - Changed name from mean_to_global to local_to_global_avg
 
-  subroutine mean_to_global_sp(ups,local,global,mask)
-
-    !*FD Upscale to global domain by
-    !*FD areal averaging.
-    !*FD
-    !*FD Note that:
-    !*FD \begin{itemize}
-    !*FD \item \texttt{global} output is only valid on the main task
-    !*FD \item \texttt{ups} input only needs to be valid on the main task
-    !*FD \item \texttt{gboxx} and \texttt{gboxy} are the same size as \texttt{local_fulldomain}
-    !*FD \item \texttt{gboxn} is the same size as \texttt{global}
-    !*FD \item This method is \emph{not} the mathematical inverse of the
-    !*FD \texttt{interp\_to\_local} routine.
-    !*FD \end{itemize}
-
-    use parallel, only : main_task, distributed_gather_var
-    use nan_mod , only : NaN
-
-    ! Arguments
-
-    type(upscale),          intent(in)  :: ups    !*FD Upscaling indexing data.
-    real(sp),dimension(:,:),intent(in)  :: local  !*FD Data on projected grid (input).
-    real(dp),dimension(:,:),intent(out) :: global !*FD Data on global grid (output).
-    integer, dimension(:,:),intent(in),optional :: mask !*FD Mask for upscaling
-
-    ! Internal variables
-
-    integer :: nxl_full,nyl_full,i,j
-    real(dp),dimension(size(local,1),size(local,2)) :: tempmask
-
-    ! values of 'local' and 'tempmask' spanning full domain (all tasks)
-    real(sp),dimension(:,:), allocatable            :: local_fulldomain
-    real(dp),dimension(:,:), allocatable            :: tempmask_fulldomain
-
-    ! Beginning of code
-
-    global=NaN
-
-    if (present(mask)) then
-       tempmask=mask
-    else
-       tempmask=1
-    endif
-
-    ! Gather 'local' and 'tempmask' onto main task, which is the only one that does the regridding
-
-    call distributed_gather_var(local, local_fulldomain)
-    call distributed_gather_var(tempmask, tempmask_fulldomain)
-
-    ! Main task does regridding
-
-    if (main_task) then
-
-       nxl_full=size(local_fulldomain,1) ; nyl_full=size(local_fulldomain,2)
-       global = 0.0
-
-       do i=1,nxl_full
-          do j=1,nyl_full
-             global(ups%gboxx(i,j),ups%gboxy(i,j))= &
-                  global(ups%gboxx(i,j),ups%gboxy(i,j))+local_fulldomain(i,j)*tempmask_fulldomain(i,j)
-          enddo
-       enddo
-
-       where (ups%gboxn.ne.0)
-          global=global/ups%gboxn
-       elsewhere
-          global=0.0
-       endwhere
-
-    end if  ! main_task
-
-    if (allocated(local_fulldomain)) deallocate(local_fulldomain)
-    if (allocated(tempmask_fulldomain)) deallocate(tempmask_fulldomain)
-
-  end subroutine mean_to_global_sp
-
-  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-  subroutine mean_to_global_dp(ups,local,global,mask)
+  subroutine local_to_global_avg(ups,local,global,mask)
 
     !*FD Upscale to global domain by areal averaging.
     !*FD
@@ -746,204 +663,116 @@ contains
     if (allocated(local_fulldomain)) deallocate(local_fulldomain)
     if (allocated(tempmask_fulldomain)) deallocate(tempmask_fulldomain)
 
-  end subroutine mean_to_global_dp
+  end subroutine local_to_global_avg
 
-  !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - Remove this subroutine?  No longer used.
-!       But note conservation check--add this to mean_to_global?
+  subroutine local_to_global_sum(ups,local,global,mask)
 
-  subroutine mean_to_global_mec(ups,                &
-                                nxl,      nyl,      &
-                                nxg,      nyg,      &
-                                nec,      topomax,  &
-                                local,    global,   &
-                                ltopo,    mask)
- 
-    ! Upscale from the local domain to a global domain with multiple elevation classes
-    ! by areal averaging.
-    !
-    ! This subroutine is adapted from subroutine mean_to_global.
-    ! The difference is that local topography is upscaled to multiple elevation classes
-    !  in each global grid cell.
-    !
-    ! Note that the 'global' output is only valid on the main task.
-    ! The global inputs (ups, nxg, nyg) only need to be valid on the main task.
-    !
-    ! Note: This method is not the inverse of the interp_to_local routine.
-    ! Also note that each local grid cell is weighted equally.
-    ! In the future we may want to use the CESM coupler for upscaling.
- 
-    use glimmer_log
+    !*FD Upscale to global domain by summing local field.
+    !*FD The result is an accumulated sum, not an average.
+    !*FD
+    !*FD Note that:
+    !*FD \begin{itemize}
+    !*FD \item \texttt{global} output is only valid on the main task
+    !*FD \item \texttt{ups} input only needs to be valid on the main task
+    !*FD \item \texttt{gboxx} and \texttt{gboxy} are the same size as \texttt{local_fulldomain}
+    !*FD \item \texttt{gboxn} is the same size as \texttt{global}
+    !*FD \end{itemize}
+
     use parallel, only : main_task, distributed_gather_var
     use nan_mod , only : NaN
 
     ! Arguments
- 
-    type(upscale),            intent(in)    :: ups     ! upscaling indexing data
-    integer,                  intent(in)    :: nxl,nyl ! local grid dimensions 
-    integer,                  intent(in)    :: nxg,nyg ! global grid dimensions 
-    integer,                  intent(in)    :: nec     ! number of elevation classes 
-    real(dp),dimension(0:nec),intent(in)    :: topomax ! max elevation in each class 
-    real(dp),dimension(nxl,nyl),  intent(in)      :: local   ! data on local grid
-    real(dp),dimension(nxg,nyg,nec),intent(out)   :: global  ! data on global grid
-    real(dp),dimension(nxl,nyl),  intent(in)      :: ltopo   ! surface elevation on local grid (m)
-    integer, dimension(nxl,nyl),intent(in),optional :: mask ! mask for upscaling
+
+    type(upscale),          intent(in)  :: ups    !*FD Upscaling indexing data.
+    real(dp),dimension(:,:),intent(in)  :: local  !*FD Data on projected grid (input).
+    real(dp),dimension(:,:),intent(out) :: global !*FD Data on global grid (output).
+    integer, dimension(:,:),intent(in),optional :: mask !*FD Mask for upscaling
 
     ! Internal variables
- 
-    integer ::  &
-       i, j, n,    &! indices
-       ig, jg       ! indices
 
-    integer, dimension(nxl,nyl) ::  &
-        tempmask      ! temporary mask
+    integer :: nxl_full,nyl_full,i,j
+    real(dp),dimension(size(local,1),size(local,2)) :: tempmask
 
-    integer, dimension(:,:), allocatable ::  &
-        gboxec        ! elevation class into which local data is upscaled
+    ! values of 'local' and 'tempmask' spanning full domain (all tasks)
+    real(dp),dimension(:,:), allocatable            :: local_fulldomain
+    real(dp),dimension(:,:), allocatable            :: tempmask_fulldomain
 
-    integer, dimension(nxg,nyg,nec) ::  &
-        gnumloc       ! no. of local cells within each global cell in each elevation class
 
-    ! values of 'local', 'ltopo' and 'tempmask' spanning full domain (all tasks)
-    real(dp),dimension(:,:),allocatable :: local_fulldomain
-    real(dp),dimension(:,:),allocatable :: ltopo_fulldomain
-    integer ,dimension(:,:),allocatable :: tempmask_fulldomain
-
-    integer :: il, jl
-    integer :: nxl_full, nyl_full  ! nxl & nyl spanning the full domain (all tasks)
-    real(dp) :: lsum, gsum
+!WHL - debug
+!WHL - debug
+!!    use glint_type, only: iglint_global, jglint_global  ! circular
+    integer, parameter :: iglint_global = 56, jglint_global = 4
+    integer :: ig, jg, boxcount
 
     ! Beginning of code
 
-    global(:,:,:) = NaN
- 
+    global = NaN
+
     if (present(mask)) then
-       tempmask(:,:) = mask(:,:)
+       tempmask = mask
     else
-       tempmask(:,:) = 1
+       tempmask = 1.d0
     endif
 
-    ! Gather 'local', 'ltopo' and 'tempmask' onto main task, which is the only one that
-    ! does the regridding
+    ! Gather 'local' and 'tempmask' onto main task, which is the only one that does the regridding
 
     call distributed_gather_var(local, local_fulldomain)
-    call distributed_gather_var(ltopo, ltopo_fulldomain)
     call distributed_gather_var(tempmask, tempmask_fulldomain)
 
     ! Main task does regridding
 
+!WHL - debug
+!    print*, ' '
+!    print*, 'In local_to_global_sum'
+!    print*, 'count, ig, jg, il, jl:'
+!    print*, ' '
+    boxcount = 0
+
     if (main_task) then
 
-       ! Compute global elevation class for each local grid cell
-       ! Also compute number of local cells within each global cell in each elevation class
-       
        nxl_full = size(local_fulldomain,1)
        nyl_full = size(local_fulldomain,2)
+       global = 0.d0
 
-       allocate(gboxec(nxl_full, nyl_full))
-       
-       gboxec(:,:) = 0
-       gnumloc(:,:,:) = 0
+       do i=1,nxl_full
+          do j=1,nyl_full
+             global(ups%gboxx(i,j),ups%gboxy(i,j)) = global(ups%gboxx(i,j),ups%gboxy(i,j)) &
+                                                   + local_fulldomain(i,j)*tempmask_fulldomain(i,j)
 
-       do n = 1, nec
-          do j = 1, nyl_full
-             do i = 1, nxl_full
-                if (ltopo_fulldomain(i,j) >= topomax(n-1) .and. ltopo_fulldomain(i,j) < topomax(n)) then
-                   gboxec(i,j) = n
-                   if (tempmask_fulldomain(i,j)==1) then
-                      ig = ups%gboxx(i,j)
-                      jg = ups%gboxy(i,j)
-                      gnumloc(ig,jg,n) = gnumloc(ig,jg,n) + 1
-                   endif
-                endif
-             enddo
-          enddo
-       enddo
-
-       global(:,:,:) = 0._dp
-
-       do j = 1, nyl_full
-          do i = 1, nxl_full
+!WHL - debug
              ig = ups%gboxx(i,j)
              jg = ups%gboxy(i,j)
-             n = gboxec(i,j)
-             if (n==0) then
-                if (GLC_DEBUG) then
-                   write(stdout,*) 'Upscaling error: local topography out of bounds'
-                   write(stdout,*) 'i, j, ltopo_fulldomain:', i, j, ltopo_fulldomain(i,j)
-                   write(stdout,*) 'topomax =', topomax(:)
-                end if
-                call write_log('Upscaling error: local topography out of bounds', &
-                     GM_FATAL,__FILE__,__LINE__)
+             if (ig==iglint_global .and. jg==jglint_global) then
+                boxcount = boxcount + 1
+!                print*, boxcount, ig, jg, i, j
              endif
-
-             global(ig,jg,n) = global(ig,jg,n) + local_fulldomain(i,j)*tempmask_fulldomain(i,j)
-
+          
           enddo
        enddo
 
-       do n = 1, nec
-          do j = 1, nyg
-             do i = 1, nxg
-                if (gnumloc(i,j,n) /= 0) then
-                   global(i,j,n) = global(i,j,n) / gnumloc(i,j,n)
-                else
-                   global(i,j,n) = 0._dp
-                endif
-             enddo
-          enddo
-       enddo
+!WHL - debug
+       ig = iglint_global
+       jg = jglint_global
+!       print*, ' '
+!       print*, 'ig, jg, boxcount, gboxn:', ig, jg, boxcount, ups%gboxn(ig,jg)
 
-       ! conservation check
+!WHL - Delete these lines because we are summing, not averaging.
+!       where (ups%gboxn /= 0)
+!          global = global / real(ups%gboxn,dp)
+!       elsewhere
+!          global = 0.d0
+!       endwhere
 
-       lsum = 0._dp
-       do j = 1, nyl_full
-          do i = 1, nxl_full
-             lsum = lsum + local_fulldomain(i,j)*tempmask_fulldomain(i,j)
-          enddo
-       enddo
-
-       gsum = 0._dp
-       do n = 1, nec
-          do j = 1, nyg
-             do i = 1, nxg
-                gsum = gsum + global(i,j,n)*gnumloc(i,j,n)
-             enddo
-          enddo
-       enddo
-
-       if (abs(lsum) > 1.e-10_dp) then
-          if (abs(gsum-lsum)/abs(lsum) > 1.e-10_dp) then 
-             if (GLC_DEBUG) then
-                write(stdout,*) 'local and global sums disagree'
-                write (stdout,*) 'lsum, gsum =', lsum, gsum 
-             end if
-             call write_log('Upscaling error: local and glocal sums disagree', &
-                  GM_FATAL,__FILE__,__LINE__)
-          endif
-       else  ! lsum is close to zero
-          if (abs(gsum-lsum) > 1.e-10_dp) then
-             if (GLC_DEBUG) then
-                write(stdout,*) 'local and global sums disagree'
-                write (stdout,*) 'lsum, gsum =', lsum, gsum 
-             end if
-             call write_log('Upscaling error: local and glocal sums disagree', &
-                  GM_FATAL,__FILE__,__LINE__)
-          endif
-       endif
-
-       deallocate(gboxec)
-
-    endif  ! main_task
+    end if  ! main_task
 
     if (allocated(local_fulldomain)) deallocate(local_fulldomain)
-    if (allocated(ltopo_fulldomain)) deallocate(ltopo_fulldomain)
     if (allocated(tempmask_fulldomain)) deallocate(tempmask_fulldomain)
 
-  end subroutine mean_to_global_mec
-  
-  !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  end subroutine local_to_global_sum
+
+  !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   real(dp) function bilinear_interp(xp,yp,f)
 

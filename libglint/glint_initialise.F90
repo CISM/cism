@@ -848,17 +848,25 @@ contains
     ! Internal variables
     !------------------------------------------------------------------------------------
 
-    !------------------------------------------------------------------------------------
-
     ! Variables needed for restart with glint.
-    ! TODO I am simply inserting outmask because it was the only variable with hot=1 in glint_vars.def
-    !      Not sure it is needed
+    ! TODO I am inserting out_mask because it was the only variable with hot=1 in the old glint_vars.def
+    !      Not sure outflux is needed
     call glint_add_to_restart_variable_list('outmask')
+
+    ! The variables rofi_tavg, rofl_tavg, and hflx_tavg are time-averaged fluxes on the local grid
+    !  from the previous coupling interval. They are included here so that the coupler can be sent
+    !  the correct fluxes after restart; otherwise these fluxes would be zeroed out.
+    ! These arrays are associated only when Glint is run in gcm mode.
+
+    if (associated(instance%rofi_tavg)) call glint_add_to_restart_variable_list('rofi_tavg')
+    if (associated(instance%rofl_tavg)) call glint_add_to_restart_variable_list('rofl_tavg')
+    if (associated(instance%hflx_tavg)) call glint_add_to_restart_variable_list('hflx_tavg')
 
     ! Variables needed for restart with glint_mbal
     ! No variables had hot=1 in glint_mbal_vars.def, so I am not adding any restart variables here.
     ! call glint_mbal_add_to_restart_variable_list('')
 
   end subroutine define_glint_restart_variables
+
 
 end module glint_initialise

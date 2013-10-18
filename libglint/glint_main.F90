@@ -605,6 +605,7 @@ contains
     use glint_initialise
     use glimmer_log
     use glimmer_filenames
+    use glimmer_physcon, only: rearth
     use glint_upscale, only: glint_upscaling_gcm
     use parallel, only: main_task
 
@@ -722,9 +723,9 @@ contains
     !TODO - Will gmask always be present for GCM runs?
 
     if (present(gmask)) then
-       call new_global_grid(params%g_grid, longs, lats, nec=nec, mask=gmask)
+       call new_global_grid(params%g_grid, longs, lats, nec=nec, mask=gmask, radius=rearth)
     else
-       call new_global_grid(params%g_grid, longs, lats, nec=nec)
+       call new_global_grid(params%g_grid, longs, lats, nec=nec, radius=rearth)
     endif
 
     if (GLC_DEBUG .and. main_task) then
@@ -825,9 +826,6 @@ contains
                                    params%gcm_restart,  params%gcm_restart_file, &
                                    params%gcm_fileunit )
 
-!WHL - debug
-    print*, 'glint_i_initialise_gcm done'
-
        params%total_coverage = params%total_coverage + params%instances(i)%frac_coverage
        where (params%total_coverage > 0.d0) params%cov_normalise = params%cov_normalise + 1.d0
 
@@ -890,8 +888,9 @@ contains
 
        ! Upscale the output fields for this instance
 
-!WHL - debug
-    print*, 'Do upscaling, i =', i
+       if (GLC_DEBUG .and. main_task) then
+          print*, 'Do upscaling, i =', i
+       endif
 
 !WHL - New gcm subroutine for upscaling
        call glint_upscaling_gcm(params%instances(i), params%g_grid%nec, &
@@ -902,11 +901,11 @@ contains
                                 grofi_temp,          grofl_temp,        &
                                 ghflx_temp )
 
-!WHL - debug
-       print*, ' '
-       print*, 'Upscaled'
-
        ! Splice together with the global output
+
+       if (GLC_DEBUG .and. main_task) then
+          print*, 'Spliced, i =', i
+       endif
 
        call splice_fields_gcm(gfrac_temp, gtopo_temp,    &
                               grofi_temp, grofl_temp,    &
@@ -918,9 +917,6 @@ contains
                               params%instances(i)%frac_coverage, &
                               params%cov_normalise)
 
-!WHL - debug
-       print*, 'Spliced'
-
     end do       ! ninstances
 
     ! Deallocate
@@ -930,8 +926,9 @@ contains
     ! Set output flag       !TODO - Is this ever used?
     if (present(output_flag)) output_flag = .true.
 
-!WHL - debug
+!    if (GLC_DEBUG .and. main_task) then
        print*, 'Done in initialise_glint_gcm'
+!    endif
 
   end subroutine initialise_glint_gcm
 
@@ -1478,31 +1475,28 @@ contains
 
 !WHL - debug
 !!       if (GLC_DEBUG .and. main_task) then
-          i = params%instances(1)%model%numerics%idiag
-          j = params%instances(1)%model%numerics%jdiag
+          ig = iglint_global
+          jg = jglint_global
+          write(stdout,*) ' '
           write(stdout,*) 'Take a mass balance timestep, time (hr) =', time
-          write(stdout,*) 'av_steps =', real(params%av_steps,dp)
+!          write(stdout,*) 'av_steps =', real(params%av_steps,dp)
           write(stdout,*) 'tstep_mbal (hr) =', params%tstep_mbal
-          write(stdout,*) 'i, j =', i, j
-          if (params%gcm_smb) then
-             do n = 1, params%g_grid%nec
-                write (stdout,*) ' '
-                write (stdout,*) 'n =', n
-                write (stdout,*) 'g_av_topo (m)    =', params%g_av_topo(i,j,n)
-                write (stdout,*) 'g_av_tsfc (degC) =', params%g_av_tsfc(i,j,n)
-                write (stdout,*) 'g_av_qsmb (m/yr) =', params%g_av_qsmb(i,j,n)*scyr/1000.d0
-!                write (stdout,*) 'g_av_qsmb (kg/m2/s) =', params%g_av_qsmb(i,j,n)
-             enddo
-          endif
-          write(stdout,*) 'call glint_i_tstep'
+          write (stdout,*) 'Global diagnostic points: i, j = ', ig, jg
+          do n = 1, params%g_grid%nec
+             write (stdout,*) ' '
+             write (stdout,*) 'n =', n
+             write (stdout,*) 'g_av_qsmb (m/yr) =', params%g_av_qsmb(ig,jg,n)*scyr/1000.d0
+             write (stdout,*) 'g_av_tsfc (degC) =', params%g_av_tsfc(ig,jg,n)
+             write (stdout,*) 'g_av_topo (m)    =', params%g_av_topo(ig,jg,n)
+          enddo
 !!       end if
-!!
-       !TODO - Modify code so that qsmb and acab are always in kg m-2 s-1 water equivalent?
+
        ! Calculate total surface mass balance - multiply by time since last model timestep
        ! Note on units: We want g_av_qsmb to have units of meters w.e. (accumulated over mass balance time step)
        ! Initial units are kg m-2 s-1 = mm s-1
        ! Divide by 1000 to convert from mm to m
        ! Multiply by hours2seconds = 3600 to convert from 1/s to 1/hr.  (tstep_mbal has units of hours)
+       !TODO - Modify code so that qsmb and acab are always in kg m-2 s-1 water equivalent?
 
        params%g_av_qsmb(:,:,:) = params%g_av_qsmb(:,:,:) * params%tstep_mbal * hours2seconds / 1000.d0
 
@@ -1519,19 +1513,28 @@ contains
              ! Downscale input fields from global to local grid
              ! This subroutine computes instance%acab and instance%artm, the key inputs to Glide.
 
+!!             if (GLC_DEBUG .and. main_task) then
+                write(stdout,*) ' '
+                write(stdout,*) 'Downscale fields to local grid, time (hr) =', time
+!!             end if
+
              call glint_downscaling_gcm (params%instances(i),   &
                                          params%g_av_qsmb,      &
                                          params%g_av_tsfc,      &
                                          params%g_av_topo,      &
                                          params%g_grid%mask)
 
+!!             if (GLC_DEBUG .and. main_task) then
+                write(stdout,*) ' '
+                write(stdout,*) 'Take a glint time step, instance', i
+!!
              call glint_i_tstep_gcm(time,                  &
                                     params%instances(i),   &
                                     icets)
 
 !!             if (GLC_DEBUG .and. main_task) then
-                write(stdout,*) 'Finished glc_glint_ice tstep, instance', i
-                write(stdout,*) 'Upscale fields to global grid, time =', time
+                write(stdout,*) ' '
+                write(stdout,*) 'Upscale fields to global grid, time(hr) =', time
 !!             end if
 
              ! Set flag
@@ -1562,8 +1565,10 @@ contains
                    write(stdout,*) 'ghflx_temp(n) =', ghflx_temp(ig,jg,n)
                 enddo
                 write(stdout,*) ' '
-                write(stdout,*) 'grofi_temp =', grofi_temp(ig,jg)
-                write(stdout,*) 'grofl_temp =', grofl_temp(ig,jg)
+                write(stdout,*) 'grofi_temp (kg/m2/s) =', grofi_temp(ig,jg)
+                write(stdout,*) 'grofl_temp (kg/m2/s)=', grofl_temp(ig,jg)
+                write(stdout,*) 'grofi_temp (m/yr) =', grofi_temp(ig,jg) * scyr/rhoi
+                write(stdout,*) 'grofl_temp (m/yr) =', grofl_temp(ig,jg) * scyr/rhoi
 !!             end if
 
              ! Add the contribution from this instance to the global output
@@ -1597,8 +1602,10 @@ contains
        deallocate(gfrac_temp, gtopo_temp, grofi_temp, grofl_temp, ghflx_temp)
 
 !WHL - debug
-  print*, 'Done in glint_gcm'
-
+!!    if (GLC_DEBUG .and. main_task) then
+       write(stdout,*) ' '
+       write(stdout,*) 'Done in glint_gcm'
+!!    endif
 
     endif    ! time - params%av_start_time + params%time_step > params%tstep_mbal
 
@@ -1740,9 +1747,6 @@ contains
      integer :: n
 
      ! Only the main task has valid values for the global output fields
-
-!WHL - debug
-   print*, 'In splice_fields_gcm'
 
      if (main_task) then
 
