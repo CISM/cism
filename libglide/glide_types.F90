@@ -1300,10 +1300,10 @@ contains
     call coordsystem_allocate(model%general%ice_grid,  model%temper%bpmp)
     call coordsystem_allocate(model%general%velo_grid, model%temper%stagbpmp)
     call coordsystem_allocate(model%general%velo_grid, model%temper%stagbtemp)
+    call coordsystem_allocate(model%general%ice_grid,  model%temper%ucondflx)
 
     if (model%options%whichdycore /= DYCORE_GLIDE) then   ! glam/glissade only
        call coordsystem_allocate(model%general%ice_grid, model%temper%bfricflx)
-       call coordsystem_allocate(model%general%ice_grid, model%temper%ucondflx)
        call coordsystem_allocate(model%general%ice_grid, model%temper%lcondflx)
        call coordsystem_allocate(model%general%ice_grid, model%temper%dissipcol)
     endif

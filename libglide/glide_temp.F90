@@ -426,6 +426,7 @@ contains
     real(dp),dimension(size(model%numerics%sigma)) :: subd, diag, supd, rhsd
     real(dp),dimension(size(model%numerics%sigma)) :: prevtemp, iteradvt, diagadvt
     real(dp) :: tempresid
+    real(dp) :: dTtop, dthck
 
     integer :: iter
     integer :: ew,ns
@@ -590,6 +591,22 @@ contains
                                  model%numerics%sigma,           &
                                  model%general%upn)
 
+                   ! Compute conductive flux = (k/H * dT/dsigma) at upper surface; positive down
+                   ! This is computed in case it needs to be upscaled and passed back to a GCM.
+
+                   dTtop = 0.5d0 * ( model%temper%temp(2,ew,ns) - model%temper%temp(1,ew,ns) &
+                                   +          prevtemp(2)       -          prevtemp(1) )
+                   dthck = model%geometry%thck(ew,ns)*thk0 * (model%numerics%sigma(2) - model%numerics%sigma(1))
+                   model%temper%ucondflx(ew,ns) = -coni * dTtop / dthck
+
+!WHL - debug
+!                   if (ew==model%numerics%idiag .and. ns==model%numerics%jdiag) then
+!                      print*, ' '
+!                      print*, 'glide_temp, ew, ns:', ew, ns
+!                      print*, 'dTtop, coni, dthck, ucondflx =', dTtop, coni, dthck, model%temper%ucondflx(ew,ns)
+!                   endif
+
+                   ! Check whether the temperature has converged everywhere
                    tempresid = max(tempresid, maxval(abs(model%temper%temp(:,ew,ns)-prevtemp(:))))
 
                 endif   ! temp > thklim
