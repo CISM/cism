@@ -165,13 +165,16 @@ JFNKSolver.hAdaptive = true
 JFNKSolver.mgProlongType = 1
 #JFNKSolver.writeResiduals = 1
 
-# 0 = relax, 1 = BiCGStab, 2 = GMRES, 3 = MultiGrid
-JFNKSolver.solverType = 0
+# 0 = relax, 1 = BiCGStab, 2 = GMRES, 3 = MultiGrid 4 =petsc
+JFNKSolver.solverType = 4
 JFNKSolver.maxBiCGStabIter = 50
 JFNKSolver.MGtol = 1.0e-5
 JFNKSolver.RelaxTol = 1.0e-5
 JFNKSolver.maxRelaxIter = 50
 JFNKSolver.vtopRelaxTol = 0
+
+# bottom solver for multigrid: 0 = BiCGStab, 1 = petsc
+JFNKSolver.bottom_solver_type = 1
 
 #inputs for solver benchmark code
 
