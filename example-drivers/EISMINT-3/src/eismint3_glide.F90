@@ -73,7 +73,7 @@ program eismint3_glide
   call glide_config(model,config)
   call glide_initialise(model)
   call eismint3_initialise(climate,config,model)
-  call eismint3_io_createall(model)
+  call eismint3_io_createall(model, climate)
   call CheckSections(config)
   ! fill dimension variables
   call glide_nc_fillall(model)

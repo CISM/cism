@@ -280,6 +280,15 @@ class PrintNC_template(PrintVars):
             self.stream.write("      NCO%%vars(pos+1:pos+%d) = '%s'\n"%(len(var['name']),len(var['name'])*' '))
             self.stream.write("    end if\n")
             self.stream.write("    if (pos.ne.0 .and. status.eq.nf90_enotvar) then\n")
+
+            # MJH, 10/21/13: Adding a check here if variable has a size greater than 0.
+            # This is because of recently added checks in glide_types.F90 that don't fully allocate
+            # some variables if certain model options are disabled.  This is to lower memory requirements while running the model.
+            # See *_create_all in ncdf_template.F90.in to see where these changes have effect.
+            data = var['data']
+            if 'avg_factor' in var:   # MJH 10/21/13
+                data = '(%s)*(%s)'%(var['avg_factor'],data)   # MJH 10/21/13
+            self.stream.write("    if (is_enabled(" + data + ")) then\n")   # MJH 10/21/13
         else:
             spaces=3
             self.stream.write("    if (.not.outfile%append) then\n")
@@ -309,7 +318,13 @@ class PrintNC_template(PrintVars):
             if attrib in var:
                 self.stream.write("%s       status = parallel_put_att(NCO%%id, %s, '%s', '%s')\n"%(spaces*' ',idstring,attrib,var[attrib]))
             self.stream.write("%s    end if\n"%(spaces*' '))
+
+            self.stream.write("%s  else\n"%(spaces*' ')) # MJH 10/21/13
+            self.stream.write("%s  call write_log('Variable "%(spaces*' ') + var['name'] + " was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)\n") # MJH 10/21/13
+            self.stream.write("%s  end if\n"%(spaces*' '))   # MJH 10/21/13
+
             self.stream.write("%s  end if\n"%(spaces*' '))
+
         else:
             self.stream.write("%s  end if\n"%(spaces*' '))
         self.stream.write("\n")
@@ -435,6 +450,7 @@ class PrintNC_template(PrintVars):
                     dims[i] = dims[i].strip()
                 self.stream.write("    status = parallel_inq_varid(NCI%%id,'%s',varid)\n"%var['name'])
                 self.stream.write("    if (status .eq. nf90_noerr) then\n")
+                self.stream.write("    if (is_enabled(" + var['data'] + ")) then\n")   # MJH 10/21/13
                 self.stream.write("       call write_log('  Loading %s')\n"%var['name'])
                 dimstring = ''
                 spaces = ''
@@ -499,6 +515,10 @@ class PrintNC_template(PrintVars):
                 #*MJH* added to handle writing of vars associated w/ stag vert coord w/ bnd
                 if  'stagwbndlevel' in dims:
                     self.stream.write("       end do\n")
+
+                self.stream.write("    else\n") # MJH 10/21/13
+                self.stream.write("    call write_log('Variable " + var['name'] + " was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)\n") # MJH 10/21/13
+                self.stream.write("    end if\n\n")  # MJH 10/21/13
                 
                 self.stream.write("    end if\n\n")
 

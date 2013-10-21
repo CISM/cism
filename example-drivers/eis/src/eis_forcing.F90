@@ -50,7 +50,7 @@ contains
     ! print config
     call eis_printconfig(climate)
     ! create eis variables
-    call eis_io_createall(model)
+    call eis_io_createall(model, climate)
 
     ! initialise subsystems
     call eis_init_cony(climate%cony,model)

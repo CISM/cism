@@ -37,7 +37,6 @@ module verif
   use verifD
   use glimmer_global, only : dp
 
-  private :: dp
 
   type verif_type
      type(verifBC_type), pointer :: vb => NULL()

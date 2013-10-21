@@ -39,12 +39,24 @@ module NAME_io
   !*FD template for creating subsystem specific I/O routines
   !*FD written by Magnus Hagdorn, 2004
 
+  use DATAMOD
+
   implicit none
 
-  private :: get_xtype
+  private :: get_xtype, is_enabled, is_enabled_0dint, is_enabled_1dint, is_enabled_2dint, is_enabled_0dreal, is_enabled_1dreal, is_enabled_2dreal, is_enabled_3dreal
 
   character(310), save :: restart_variable_list=''    !*FD list of variables needed for a restart
 !TODO change 310 to a variable - see glimmer_ncdf.F90 in the definition for type glimmer_nc_stat for other instances of this value.
+
+  interface is_enabled  ! MJH 10/21/13: Interface needed for determining if arrays have been enabled.  See notes below in NAME_io_create.
+    module procedure is_enabled_0dint
+    module procedure is_enabled_1dint
+    module procedure is_enabled_2dint
+    module procedure is_enabled_0dreal
+    module procedure is_enabled_1dreal
+    module procedure is_enabled_2dreal
+    module procedure is_enabled_3dreal
+  end interface is_enabled
 
 contains
 
@@ -59,7 +71,7 @@ contains
     use glimmer_ncio
     implicit none
     type(glide_global_type) :: model
-    type(DATATYPE), optional :: data
+    type(DATATYPE) :: data ! MJH 10/21/13: Making 'data' mandatory.  See notes below in NAME_io_create
     type(glimmer_nc_output),optional,pointer :: outfiles
     
     ! local variables
@@ -72,11 +84,7 @@ contains
     end if
 
     do while(associated(oc))
-       if (present(data)) then
-          call NAME_io_create(oc,model,data)
-       else
-          call NAME_io_create(oc,model)
-       end if
+       call NAME_io_create(oc,model,data)
        oc=>oc%next
     end do
   end subroutine NAME_io_createall
@@ -142,9 +150,13 @@ contains
     implicit none
     type(glimmer_nc_output), pointer :: outfile
     type(glide_global_type) :: model
-    type(DATATYPE), optional :: data
+    type(DATATYPE) :: data    ! MJH 10/21/13: Making 'data' mandatory.  See note below
 
     integer status,varid,pos
+
+    ! MJH 10/21/13: Local variables needed for checking if a variable is enabled.
+    real(dp) :: tavgf
+    integer :: up
 
     !GENVAR_DIMS!
 
@@ -194,6 +206,23 @@ contains
        call write_log('The list of output variables is too long for file ' // NCO%filename, GM_FATAL)
     endif
 
+
+    ! MJH, 10/21/13: In the auto-generated code below, the creation of each output variable is wrapped by a check if the data for that 
+    !   variable has a size greater than 0.  This is because of recently added checks in glide_types.F90 that don't fully allocate
+    !   some variables if certain model options are disabled.  This is to lower memory requirements while running the model.
+    !   The reason they have to be allocated with size zero rather than left unallocated is because the data for
+    !   some netCDF output variables is defined with math, which causes an error if the operands are unallocated.
+    !   Note that if a variable is not created, then it will not be subsequently written to.
+    !   Also note that this change requires that data be a mandatory argument to this subroutine.
+
+    ! Some output variables will need tavgf.  The value does not matter, but it must exist.  
+    ! Nonetheless, for completeness give it the proper value that it has in NAME_io_write.
+    tavgf = outfile%total_time
+    if (tavgf.ne.0.d0) then
+       tavgf = 1.d0/tavgf
+    end if
+    ! Similarly, some output variables use the variable up.  Give it value of 0 here.
+    up = 0
 
     !GENVAR_VARDEF!
   end subroutine NAME_io_create
@@ -254,6 +283,79 @@ contains
     endif
 
   end subroutine NAME_add_to_restart_variable_list
+
+
+  ! Functions for the interface 'is_enabled'.  These are needed by the auto-generated code in NAME_io_create
+  !   to determine if a variable is 'turned on', and should be written.
+
+  function is_enabled_0dint(var)
+    integer, intent(in) :: var
+    logical :: is_enabled_0dint
+    is_enabled_0dint = .true.  ! scalars are always enabled
+    return
+  end function is_enabled_0dint
+
+  function is_enabled_1dint(var)
+    integer, dimension(:), intent(in) :: var
+    logical :: is_enabled_1dint
+    if (size(var)>0) then
+      is_enabled_1dint = .true.
+    else
+      is_enabled_1dint = .false.
+    endif
+    return
+  end function is_enabled_1dint
+
+  function is_enabled_2dint(var)
+    integer, dimension(:,:), intent(in) :: var
+    logical :: is_enabled_2dint
+    if (size(var)>0) then
+      is_enabled_2dint = .true.
+    else
+      is_enabled_2dint = .false.
+    endif
+    return
+  end function is_enabled_2dint
+
+  function is_enabled_0dreal(var)
+    real(dp), intent(in) :: var
+    logical :: is_enabled_0dreal
+    is_enabled_0dreal = .true.  ! scalars are always enabled
+    return
+  end function is_enabled_0dreal
+
+  function is_enabled_1dreal(var)
+    real(dp), dimension(:), intent(in) :: var
+    logical :: is_enabled_1dreal
+    if (size(var)>0) then
+      is_enabled_1dreal = .true.
+    else
+      is_enabled_1dreal = .false.
+    endif
+    return
+  end function is_enabled_1dreal
+
+  function is_enabled_2dreal(var)
+    real(dp), dimension(:,:), intent(in) :: var
+    logical :: is_enabled_2dreal
+    if (size(var)>0) then
+      is_enabled_2dreal = .true.
+    else
+      is_enabled_2dreal = .false.
+    endif
+    return
+  end function is_enabled_2dreal
+
+  function is_enabled_3dreal(var)
+    real(dp), dimension(:,:,:), intent(in) :: var
+    logical :: is_enabled_3dreal
+    if (size(var)>0) then
+      is_enabled_3dreal = .true.
+    else
+      is_enabled_3dreal = .false.
+    endif
+    return
+  end function is_enabled_3dreal
 
 
   !*****************************************************************************

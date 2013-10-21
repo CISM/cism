@@ -77,7 +77,7 @@ program verifglide
   call glide_initialise(model)
   ! fill dimension variables
   ! create verif variables
-  call verif_io_createall(model)
+  call verif_io_createall(model, veri)
   call glide_nc_fillall(model)
   ! get current time from start time
   time = get_tstart(model)

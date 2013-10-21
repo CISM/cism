@@ -189,7 +189,7 @@ contains
     call openall_out(model)
 
     ! create glide variables
-    call glide_io_createall(model)
+    call glide_io_createall(model, model)
 
     ! If a 2D bheatflx field is present in the input file, it will have been written 
     !  to model%temper%bheatflx.  For the case model%options%gthf = 0, we want to use
