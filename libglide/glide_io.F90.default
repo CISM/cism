@@ -1,6 +1,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! WARNING: this file was automatically generated on
-! Fri, 21 Jun 2013 19:06:01 +0000
+! Mon, 21 Oct 2013 18:58:53 +0000
 ! from ncdf_template.F90.in
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -652,6 +652,24 @@ contains
        end if
      end if
 
+    !     dissip -- dissipation divided by rhoi Ci
+    pos = index(NCO%vars,' dissip ')
+    status = parallel_inq_varid(NCO%id,'dissip',varid)
+    if (pos.ne.0) then
+      NCO%vars(pos+1:pos+6) = '      '
+    end if
+    if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+       call write_log('Creating variable dissip')
+       status = parallel_def_var(NCO%id,'dissip',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, level_dimid, time_dimid/),varid)
+       call nc_errorhandle(__FILE__,__LINE__,status)
+       status = parallel_put_att(NCO%id, varid, 'long_name', 'dissipation divided by rhoi Ci')
+       status = parallel_put_att(NCO%id, varid, 'units', 'deg C')
+       if (glimmap_allocated(model%projection)) then
+          status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
+          status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
+       end if
+     end if
+
     !     dthckdtm -- tendency of ice thickness
     pos = index(NCO%vars,' dthckdtm ')
     status = parallel_inq_varid(NCO%id,'dthckdtm',varid)
@@ -745,6 +763,25 @@ contains
        end if
      end if
 
+    !     floating_mask -- real-valued mask denoting grounded/floating
+    pos = index(NCO%vars,' floating_mask ')
+    status = parallel_inq_varid(NCO%id,'floating_mask',varid)
+    if (pos.ne.0) then
+      NCO%vars(pos+1:pos+13) = '             '
+    end if
+    if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+       call write_log('Creating variable floating_mask')
+       status = parallel_def_var(NCO%id,'floating_mask',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
+       call nc_errorhandle(__FILE__,__LINE__,status)
+       status = parallel_put_att(NCO%id, varid, 'scale_factor',(1.0))
+       status = parallel_put_att(NCO%id, varid, 'long_name', 'real-valued mask denoting grounded/floating')
+       status = parallel_put_att(NCO%id, varid, 'units', '1')
+       if (glimmap_allocated(model%projection)) then
+          status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
+          status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
+       end if
+     end if
+
     !     flwa -- Pre-exponential flow law parameter
     pos = index(NCO%vars,' flwa ')
     status = parallel_inq_varid(NCO%id,'flwa',varid)
@@ -757,7 +794,7 @@ contains
        call nc_errorhandle(__FILE__,__LINE__,status)
        status = parallel_put_att(NCO%id, varid, 'scale_factor',(scale_flwa))
        status = parallel_put_att(NCO%id, varid, 'long_name', 'Pre-exponential flow law parameter')
-       status = parallel_put_att(NCO%id, varid, 'units', 'pascal/year')
+       status = parallel_put_att(NCO%id, varid, 'units', 'pascal^(-n) year^(-1)')
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
@@ -776,7 +813,7 @@ contains
        call nc_errorhandle(__FILE__,__LINE__,status)
        status = parallel_put_att(NCO%id, varid, 'scale_factor',(scale_flwa))
        status = parallel_put_att(NCO%id, varid, 'long_name', 'Pre-exponential flow law parameter')
-       status = parallel_put_att(NCO%id, varid, 'units', 'pascal/year')
+       status = parallel_put_att(NCO%id, varid, 'units', 'pascal^(-n) year^(-1)')
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
@@ -819,7 +856,7 @@ contains
        end if
      end if
 
-    !     gline_flux -- grounding line flux
+    !     gline_flux -- grounding line fluxu
     pos = index(NCO%vars,' gline_flux ')
     status = parallel_inq_varid(NCO%id,'gline_flux',varid)
     if (pos.ne.0) then
@@ -829,11 +866,30 @@ contains
        call write_log('Creating variable gline_flux')
        status = parallel_def_var(NCO%id,'gline_flux',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
-       status = parallel_put_att(NCO%id, varid, 'long_name', 'grounding line flux')
+       status = parallel_put_att(NCO%id, varid, 'long_name', 'grounding line fluxu')
        status = parallel_put_att(NCO%id, varid, 'units', 'meter2/year')
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
-          status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
+          status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon f')
+       end if
+     end if
+
+    !     gravity -- gravitational acceleration
+    pos = index(NCO%vars,' gravity ')
+    status = parallel_inq_varid(NCO%id,'gravity',varid)
+    if (pos.ne.0) then
+      NCO%vars(pos+1:pos+7) = '       '
+    end if
+    if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+       call write_log('Creating variable gravity')
+       status = parallel_def_var(NCO%id,'gravity',get_xtype(outfile,NF90_FLOAT),(/time_dimid/),varid)
+       call nc_errorhandle(__FILE__,__LINE__,status)
+       status = parallel_put_att(NCO%id, varid, 'scale_factor',1.0)
+       status = parallel_put_att(NCO%id, varid, 'long_name', 'gravitational acceleration')
+       status = parallel_put_att(NCO%id, varid, 'standard_name', 'gravity')
+       status = parallel_put_att(NCO%id, varid, 'units', 'meter/s/s')
+       if (glimmap_allocated(model%projection)) then
+          status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
      end if
 
@@ -886,6 +942,63 @@ contains
        status = parallel_put_att(NCO%id, varid, 'scale_factor',(len0*len0*1.e-6))
        status = parallel_put_att(NCO%id, varid, 'long_name', 'area covered by ice')
        status = parallel_put_att(NCO%id, varid, 'units', 'km2')
+       if (glimmap_allocated(model%projection)) then
+          status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
+       end if
+     end if
+
+    !     ice_mask -- real-valued mask denoting ice (1) or no ice (0)
+    pos = index(NCO%vars,' ice_mask ')
+    status = parallel_inq_varid(NCO%id,'ice_mask',varid)
+    if (pos.ne.0) then
+      NCO%vars(pos+1:pos+8) = '        '
+    end if
+    if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+       call write_log('Creating variable ice_mask')
+       status = parallel_def_var(NCO%id,'ice_mask',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
+       call nc_errorhandle(__FILE__,__LINE__,status)
+       status = parallel_put_att(NCO%id, varid, 'scale_factor',(1.0))
+       status = parallel_put_att(NCO%id, varid, 'long_name', 'real-valued mask denoting ice (1) or no ice (0)')
+       status = parallel_put_att(NCO%id, varid, 'units', '1')
+       if (glimmap_allocated(model%projection)) then
+          status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
+          status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
+       end if
+     end if
+
+    !     ice_specific_heat -- ice specific heat
+    pos = index(NCO%vars,' ice_specific_heat ')
+    status = parallel_inq_varid(NCO%id,'ice_specific_heat',varid)
+    if (pos.ne.0) then
+      NCO%vars(pos+1:pos+17) = '                 '
+    end if
+    if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+       call write_log('Creating variable ice_specific_heat')
+       status = parallel_def_var(NCO%id,'ice_specific_heat',get_xtype(outfile,NF90_FLOAT),(/time_dimid/),varid)
+       call nc_errorhandle(__FILE__,__LINE__,status)
+       status = parallel_put_att(NCO%id, varid, 'scale_factor',1.0)
+       status = parallel_put_att(NCO%id, varid, 'long_name', 'ice specific heat')
+       status = parallel_put_att(NCO%id, varid, 'standard_name', 'ice_specific_heat')
+       status = parallel_put_att(NCO%id, varid, 'units', 'J/kg/K')
+       if (glimmap_allocated(model%projection)) then
+          status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
+       end if
+     end if
+
+    !     ice_thermal_conductivity -- ice thermal conductivity
+    pos = index(NCO%vars,' ice_thermal_conductivity ')
+    status = parallel_inq_varid(NCO%id,'ice_thermal_conductivity',varid)
+    if (pos.ne.0) then
+      NCO%vars(pos+1:pos+24) = '                        '
+    end if
+    if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+       call write_log('Creating variable ice_thermal_conductivity')
+       status = parallel_def_var(NCO%id,'ice_thermal_conductivity',get_xtype(outfile,NF90_FLOAT),(/time_dimid/),varid)
+       call nc_errorhandle(__FILE__,__LINE__,status)
+       status = parallel_put_att(NCO%id, varid, 'scale_factor',1.0)
+       status = parallel_put_att(NCO%id, varid, 'long_name', 'ice thermal conductivity')
+       status = parallel_put_att(NCO%id, varid, 'standard_name', 'ice_thermal_conductivity')
+       status = parallel_put_att(NCO%id, varid, 'units', 'J/(K kg)')
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
@@ -980,6 +1093,44 @@ contains
        end if
      end if
 
+    !     lower_cell_loc -- location in z of lower cell location
+    pos = index(NCO%vars,' lower_cell_loc ')
+    status = parallel_inq_varid(NCO%id,'lower_cell_loc',varid)
+    if (pos.ne.0) then
+      NCO%vars(pos+1:pos+14) = '              '
+    end if
+    if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+       call write_log('Creating variable lower_cell_loc')
+       status = parallel_def_var(NCO%id,'lower_cell_loc',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
+       call nc_errorhandle(__FILE__,__LINE__,status)
+       status = parallel_put_att(NCO%id, varid, 'scale_factor',(1.0))
+       status = parallel_put_att(NCO%id, varid, 'long_name', 'location in z of lower cell location')
+       status = parallel_put_att(NCO%id, varid, 'units', 'meter')
+       if (glimmap_allocated(model%projection)) then
+          status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
+          status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
+       end if
+     end if
+
+    !     lower_cell_temp -- temperature at lower_cell_loc
+    pos = index(NCO%vars,' lower_cell_temp ')
+    status = parallel_inq_varid(NCO%id,'lower_cell_temp',varid)
+    if (pos.ne.0) then
+      NCO%vars(pos+1:pos+15) = '               '
+    end if
+    if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+       call write_log('Creating variable lower_cell_temp')
+       status = parallel_def_var(NCO%id,'lower_cell_temp',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
+       call nc_errorhandle(__FILE__,__LINE__,status)
+       status = parallel_put_att(NCO%id, varid, 'scale_factor',(1.0))
+       status = parallel_put_att(NCO%id, varid, 'long_name', 'temperature at lower_cell_loc')
+       status = parallel_put_att(NCO%id, varid, 'units', 'degrees K')
+       if (glimmap_allocated(model%projection)) then
+          status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
+          status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
+       end if
+     end if
+
     !     lsurf -- ice lower surface elevation
     pos = index(NCO%vars,' lsurf ')
     status = parallel_inq_varid(NCO%id,'lsurf',varid)
@@ -1015,6 +1166,63 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
+       end if
+     end if
+
+    !     rho_ice -- ice density
+    pos = index(NCO%vars,' rho_ice ')
+    status = parallel_inq_varid(NCO%id,'rho_ice',varid)
+    if (pos.ne.0) then
+      NCO%vars(pos+1:pos+7) = '       '
+    end if
+    if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+       call write_log('Creating variable rho_ice')
+       status = parallel_def_var(NCO%id,'rho_ice',get_xtype(outfile,NF90_FLOAT),(/time_dimid/),varid)
+       call nc_errorhandle(__FILE__,__LINE__,status)
+       status = parallel_put_att(NCO%id, varid, 'scale_factor',1.0)
+       status = parallel_put_att(NCO%id, varid, 'long_name', 'ice density')
+       status = parallel_put_att(NCO%id, varid, 'standard_name', 'rho_ice')
+       status = parallel_put_att(NCO%id, varid, 'units', 'kg/meter^3')
+       if (glimmap_allocated(model%projection)) then
+          status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
+       end if
+     end if
+
+    !     rho_seawater -- seawater density
+    pos = index(NCO%vars,' rho_seawater ')
+    status = parallel_inq_varid(NCO%id,'rho_seawater',varid)
+    if (pos.ne.0) then
+      NCO%vars(pos+1:pos+12) = '            '
+    end if
+    if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+       call write_log('Creating variable rho_seawater')
+       status = parallel_def_var(NCO%id,'rho_seawater',get_xtype(outfile,NF90_FLOAT),(/time_dimid/),varid)
+       call nc_errorhandle(__FILE__,__LINE__,status)
+       status = parallel_put_att(NCO%id, varid, 'scale_factor',1.0)
+       status = parallel_put_att(NCO%id, varid, 'long_name', 'seawater density')
+       status = parallel_put_att(NCO%id, varid, 'standard_name', 'rho_seawater')
+       status = parallel_put_att(NCO%id, varid, 'units', 'kg/meter^3')
+       if (glimmap_allocated(model%projection)) then
+          status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
+       end if
+     end if
+
+    !     seconds_per_year -- seconds per year
+    pos = index(NCO%vars,' seconds_per_year ')
+    status = parallel_inq_varid(NCO%id,'seconds_per_year',varid)
+    if (pos.ne.0) then
+      NCO%vars(pos+1:pos+16) = '                '
+    end if
+    if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+       call write_log('Creating variable seconds_per_year')
+       status = parallel_def_var(NCO%id,'seconds_per_year',get_xtype(outfile,NF90_FLOAT),(/time_dimid/),varid)
+       call nc_errorhandle(__FILE__,__LINE__,status)
+       status = parallel_put_att(NCO%id, varid, 'scale_factor',1.0)
+       status = parallel_put_att(NCO%id, varid, 'long_name', 'seconds per year')
+       status = parallel_put_att(NCO%id, varid, 'standard_name', 'seconds_per_year')
+       status = parallel_put_att(NCO%id, varid, 'units', 's/yr')
+       if (glimmap_allocated(model%projection)) then
+          status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
      end if
 
@@ -1708,6 +1916,15 @@ contains
        call nc_errorhandle(__FILE__,__LINE__,status)
     end if
 
+    status = parallel_inq_varid(NCO%id,'dissip',varid)
+    if (status .eq. nf90_noerr) then
+       do up=1,NCO%nlevel
+          status = distributed_put_var(NCO%id, varid, &
+               data%tempwk%dissip, (/1,1,up,outfile%timecounter/))
+          call nc_errorhandle(__FILE__,__LINE__,status)
+       end do
+    end if
+
     status = parallel_inq_varid(NCO%id,'dthckdtm',varid)
     if (status .eq. nf90_noerr) then
        status = distributed_put_var(NCO%id, varid, &
@@ -1742,6 +1959,13 @@ contains
     if (status .eq. nf90_noerr) then
        status = distributed_put_var(NCO%id, varid, &
             data%climate%eus, (/outfile%timecounter/))
+       call nc_errorhandle(__FILE__,__LINE__,status)
+    end if
+
+    status = parallel_inq_varid(NCO%id,'floating_mask',varid)
+    if (status .eq. nf90_noerr) then
+       status = distributed_put_var(NCO%id, varid, &
+            data%geometry%floating_mask, (/1,1,outfile%timecounter/))
        call nc_errorhandle(__FILE__,__LINE__,status)
     end if
 
@@ -1784,6 +2008,13 @@ contains
        call nc_errorhandle(__FILE__,__LINE__,status)
     end if
 
+    status = parallel_inq_varid(NCO%id,'gravity',varid)
+    if (status .eq. nf90_noerr) then
+       status = distributed_put_var(NCO%id, varid, &
+            grav, (/outfile%timecounter/))
+       call nc_errorhandle(__FILE__,__LINE__,status)
+    end if
+
     status = parallel_inq_varid(NCO%id,'iarea',varid)
     if (status .eq. nf90_noerr) then
        status = distributed_put_var(NCO%id, varid, &
@@ -1802,6 +2033,27 @@ contains
     if (status .eq. nf90_noerr) then
        status = distributed_put_var(NCO%id, varid, &
             data%geometry%iareag, (/outfile%timecounter/))
+       call nc_errorhandle(__FILE__,__LINE__,status)
+    end if
+
+    status = parallel_inq_varid(NCO%id,'ice_mask',varid)
+    if (status .eq. nf90_noerr) then
+       status = distributed_put_var(NCO%id, varid, &
+            data%geometry%ice_mask, (/1,1,outfile%timecounter/))
+       call nc_errorhandle(__FILE__,__LINE__,status)
+    end if
+
+    status = parallel_inq_varid(NCO%id,'ice_specific_heat',varid)
+    if (status .eq. nf90_noerr) then
+       status = distributed_put_var(NCO%id, varid, &
+            shci, (/outfile%timecounter/))
+       call nc_errorhandle(__FILE__,__LINE__,status)
+    end if
+
+    status = parallel_inq_varid(NCO%id,'ice_thermal_conductivity',varid)
+    if (status .eq. nf90_noerr) then
+       status = distributed_put_var(NCO%id, varid, &
+            coni, (/outfile%timecounter/))
        call nc_errorhandle(__FILE__,__LINE__,status)
     end if
 
@@ -1840,6 +2092,20 @@ contains
        call nc_errorhandle(__FILE__,__LINE__,status)
     end if
 
+    status = parallel_inq_varid(NCO%id,'lower_cell_loc',varid)
+    if (status .eq. nf90_noerr) then
+       status = distributed_put_var(NCO%id, varid, &
+            data%geometry%lower_cell_loc, (/1,1,outfile%timecounter/))
+       call nc_errorhandle(__FILE__,__LINE__,status)
+    end if
+
+    status = parallel_inq_varid(NCO%id,'lower_cell_temp',varid)
+    if (status .eq. nf90_noerr) then
+       status = distributed_put_var(NCO%id, varid, &
+            data%geometry%lower_cell_temp, (/1,1,outfile%timecounter/))
+       call nc_errorhandle(__FILE__,__LINE__,status)
+    end if
+
     status = parallel_inq_varid(NCO%id,'lsurf',varid)
     if (status .eq. nf90_noerr) then
        status = distributed_put_var(NCO%id, varid, &
@@ -1851,6 +2117,27 @@ contains
     if (status .eq. nf90_noerr) then
        status = distributed_put_var(NCO%id, varid, &
             data%isostasy%relx, (/1,1,outfile%timecounter/))
+       call nc_errorhandle(__FILE__,__LINE__,status)
+    end if
+
+    status = parallel_inq_varid(NCO%id,'rho_ice',varid)
+    if (status .eq. nf90_noerr) then
+       status = distributed_put_var(NCO%id, varid, &
+            rhoi, (/outfile%timecounter/))
+       call nc_errorhandle(__FILE__,__LINE__,status)
+    end if
+
+    status = parallel_inq_varid(NCO%id,'rho_seawater',varid)
+    if (status .eq. nf90_noerr) then
+       status = distributed_put_var(NCO%id, varid, &
+            rhoo, (/outfile%timecounter/))
+       call nc_errorhandle(__FILE__,__LINE__,status)
+    end if
+
+    status = parallel_inq_varid(NCO%id,'seconds_per_year',varid)
+    if (status .eq. nf90_noerr) then
+       status = distributed_put_var(NCO%id, varid, &
+            scyr, (/outfile%timecounter/))
        call nc_errorhandle(__FILE__,__LINE__,status)
     end if
 
@@ -1903,7 +2190,7 @@ contains
     status = parallel_inq_varid(NCO%id,'tauf',varid)
     if (status .eq. nf90_noerr) then
        status = distributed_put_var(NCO%id, varid, &
-            data%basalproc%mintauf, (/1,1,outfile%timecounter/))
+            data%basalproc%minTauf, (/1,1,outfile%timecounter/))
        call nc_errorhandle(__FILE__,__LINE__,status)
     end if
 
@@ -2459,7 +2746,7 @@ contains
     if (status .eq. nf90_noerr) then
        call write_log('  Loading tauf')
        status = distributed_get_var(NCI%id, varid, &
-            data%basalproc%mintauf, (/1,1,infile%current_time/))
+            data%basalproc%minTauf, (/1,1,infile%current_time/))
        call nc_errorhandle(__FILE__,__LINE__,status)
        status = parallel_get_att(NCI%id, varid,'scale_factor',scaling_factor)
        if (status.ne.NF90_NOERR) then
@@ -2469,7 +2756,7 @@ contains
        end if
        if (abs(scaling_factor-1.0d0).gt.1.d-17) then
           call write_log("scaling tauf",GM_DIAGNOSTIC)
-          data%basalproc%mintauf = data%basalproc%mintauf*scaling_factor
+          data%basalproc%minTauf = data%basalproc%minTauf*scaling_factor
        end if
     end if
 
@@ -3284,6 +3571,28 @@ contains
     data%climate%eus = inarray/(thk0)
   end subroutine glide_set_eus
 
+  subroutine glide_get_floating_mask(data,outarray)
+    use glimmer_scales
+    use glimmer_paramets
+    use glide_types
+    implicit none
+    type(glide_global_type) :: data
+    real(dp), dimension(:,:), intent(out) :: outarray
+
+    outarray = (1.0)*(data%geometry%floating_mask)
+  end subroutine glide_get_floating_mask
+
+  subroutine glide_set_floating_mask(data,inarray)
+    use glimmer_scales
+    use glimmer_paramets
+    use glide_types
+    implicit none
+    type(glide_global_type) :: data
+    real(dp), dimension(:,:), intent(in) :: inarray
+
+    data%geometry%floating_mask = inarray/(1.0)
+  end subroutine glide_set_floating_mask
+
   subroutine glide_get_gl_ew(data,outarray)
     use glimmer_scales
     use glimmer_paramets
@@ -3350,6 +3659,28 @@ contains
     data%ground%gline_flux = inarray
   end subroutine glide_set_gline_flux
 
+  subroutine glide_get_gravity(data,outarray)
+    use glimmer_scales
+    use glimmer_paramets
+    use glide_types
+    implicit none
+    type(glide_global_type) :: data
+    real(dp), intent(out) :: outarray
+
+    outarray = grav
+  end subroutine glide_get_gravity
+
+  subroutine glide_set_gravity(data,inarray)
+    use glimmer_scales
+    use glimmer_paramets
+    use glide_types
+    implicit none
+    type(glide_global_type) :: data
+    real(dp), intent(in) :: inarray
+
+!  no rescaling here
+  end subroutine glide_set_gravity
+
   subroutine glide_get_iarea(data,outarray)
     use glimmer_scales
     use glimmer_paramets
@@ -3415,6 +3746,72 @@ contains
 
     data%geometry%iareag = inarray/(len0*len0*1.e-6)
   end subroutine glide_set_iareag
+
+  subroutine glide_get_ice_mask(data,outarray)
+    use glimmer_scales
+    use glimmer_paramets
+    use glide_types
+    implicit none
+    type(glide_global_type) :: data
+    real(dp), dimension(:,:), intent(out) :: outarray
+
+    outarray = (1.0)*(data%geometry%ice_mask)
+  end subroutine glide_get_ice_mask
+
+  subroutine glide_set_ice_mask(data,inarray)
+    use glimmer_scales
+    use glimmer_paramets
+    use glide_types
+    implicit none
+    type(glide_global_type) :: data
+    real(dp), dimension(:,:), intent(in) :: inarray
+
+    data%geometry%ice_mask = inarray/(1.0)
+  end subroutine glide_set_ice_mask
+
+  subroutine glide_get_ice_specific_heat(data,outarray)
+    use glimmer_scales
+    use glimmer_paramets
+    use glide_types
+    implicit none
+    type(glide_global_type) :: data
+    real(dp), intent(out) :: outarray
+
+    outarray = shci
+  end subroutine glide_get_ice_specific_heat
+
+  subroutine glide_set_ice_specific_heat(data,inarray)
+    use glimmer_scales
+    use glimmer_paramets
+    use glide_types
+    implicit none
+    type(glide_global_type) :: data
+    real(dp), intent(in) :: inarray
+
+!  no rescaling here
+  end subroutine glide_set_ice_specific_heat
+
+  subroutine glide_get_ice_thermal_conductivity(data,outarray)
+    use glimmer_scales
+    use glimmer_paramets
+    use glide_types
+    implicit none
+    type(glide_global_type) :: data
+    real(dp), intent(out) :: outarray
+
+    outarray = coni
+  end subroutine glide_get_ice_thermal_conductivity
+
+  subroutine glide_set_ice_thermal_conductivity(data,inarray)
+    use glimmer_scales
+    use glimmer_paramets
+    use glide_types
+    implicit none
+    type(glide_global_type) :: data
+    real(dp), intent(in) :: inarray
+
+!  no rescaling here
+  end subroutine glide_set_ice_thermal_conductivity
 
   subroutine glide_get_ivol(data,outarray)
     use glimmer_scales
@@ -3504,6 +3901,50 @@ contains
     data%climate%loni = inarray
   end subroutine glide_set_lon
 
+  subroutine glide_get_lower_cell_loc(data,outarray)
+    use glimmer_scales
+    use glimmer_paramets
+    use glide_types
+    implicit none
+    type(glide_global_type) :: data
+    real(dp), dimension(:,:), intent(out) :: outarray
+
+    outarray = (1.0)*(data%geometry%lower_cell_loc)
+  end subroutine glide_get_lower_cell_loc
+
+  subroutine glide_set_lower_cell_loc(data,inarray)
+    use glimmer_scales
+    use glimmer_paramets
+    use glide_types
+    implicit none
+    type(glide_global_type) :: data
+    real(dp), dimension(:,:), intent(in) :: inarray
+
+    data%geometry%lower_cell_loc = inarray/(1.0)
+  end subroutine glide_set_lower_cell_loc
+
+  subroutine glide_get_lower_cell_temp(data,outarray)
+    use glimmer_scales
+    use glimmer_paramets
+    use glide_types
+    implicit none
+    type(glide_global_type) :: data
+    real(dp), dimension(:,:), intent(out) :: outarray
+
+    outarray = (1.0)*(data%geometry%lower_cell_temp)
+  end subroutine glide_get_lower_cell_temp
+
+  subroutine glide_set_lower_cell_temp(data,inarray)
+    use glimmer_scales
+    use glimmer_paramets
+    use glide_types
+    implicit none
+    type(glide_global_type) :: data
+    real(dp), dimension(:,:), intent(in) :: inarray
+
+    data%geometry%lower_cell_temp = inarray/(1.0)
+  end subroutine glide_set_lower_cell_temp
+
   subroutine glide_get_lsurf(data,outarray)
     use glimmer_scales
     use glimmer_paramets
@@ -3547,6 +3988,72 @@ contains
 
     data%isostasy%relx = inarray/(thk0)
   end subroutine glide_set_relx
+
+  subroutine glide_get_rho_ice(data,outarray)
+    use glimmer_scales
+    use glimmer_paramets
+    use glide_types
+    implicit none
+    type(glide_global_type) :: data
+    real(dp), intent(out) :: outarray
+
+    outarray = rhoi
+  end subroutine glide_get_rho_ice
+
+  subroutine glide_set_rho_ice(data,inarray)
+    use glimmer_scales
+    use glimmer_paramets
+    use glide_types
+    implicit none
+    type(glide_global_type) :: data
+    real(dp), intent(in) :: inarray
+
+!  no rescaling here
+  end subroutine glide_set_rho_ice
+
+  subroutine glide_get_rho_seawater(data,outarray)
+    use glimmer_scales
+    use glimmer_paramets
+    use glide_types
+    implicit none
+    type(glide_global_type) :: data
+    real(dp), intent(out) :: outarray
+
+    outarray = rhoo
+  end subroutine glide_get_rho_seawater
+
+  subroutine glide_set_rho_seawater(data,inarray)
+    use glimmer_scales
+    use glimmer_paramets
+    use glide_types
+    implicit none
+    type(glide_global_type) :: data
+    real(dp), intent(in) :: inarray
+
+!  no rescaling here
+  end subroutine glide_set_rho_seawater
+
+  subroutine glide_get_seconds_per_year(data,outarray)
+    use glimmer_scales
+    use glimmer_paramets
+    use glide_types
+    implicit none
+    type(glide_global_type) :: data
+    real(dp), intent(out) :: outarray
+
+    outarray = scyr
+  end subroutine glide_get_seconds_per_year
+
+  subroutine glide_set_seconds_per_year(data,inarray)
+    use glimmer_scales
+    use glimmer_paramets
+    use glide_types
+    implicit none
+    type(glide_global_type) :: data
+    real(dp), intent(in) :: inarray
+
+!  no rescaling here
+  end subroutine glide_set_seconds_per_year
 
   subroutine glide_get_slc(data,outarray)
     use glimmer_scales
@@ -3633,7 +4140,7 @@ contains
     type(glide_global_type) :: data
     real(dp), dimension(:,:), intent(out) :: outarray
 
-    outarray = (scale_tau)*(data%basalproc%mintauf)
+    outarray = (scale_tau)*(data%basalproc%minTauf)
   end subroutine glide_get_tauf
 
   subroutine glide_set_tauf(data,inarray)
@@ -3644,7 +4151,7 @@ contains
     type(glide_global_type) :: data
     real(dp), dimension(:,:), intent(in) :: inarray
 
-    data%basalproc%mintauf = inarray/(scale_tau)
+    data%basalproc%minTauf = inarray/(scale_tau)
   end subroutine glide_set_tauf
 
   subroutine glide_get_taux(data,outarray)
