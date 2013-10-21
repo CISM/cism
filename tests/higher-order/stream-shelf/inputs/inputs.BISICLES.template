@@ -1,10 +1,15 @@
+#-------------  inputs file for Amr ice-sheet solver --------------
+# --------------- input options set by the script -----------------
+
 main.poutBaseName = pout.@STEPSPERYEAR_per_year_@STEP
 amr.restart_file = chk.@STEPSPERYEAR_per_year_@LASTSTEP.2d.hdf5
+amr.plot_prefix = plot.@STEPSPERYEAR_per_year.
 amr.check_prefix = chk.@STEPSPERYEAR_per_year_@STEP
 
-#inputs file for Amr ice-sheet solver
+# ------- input options below here are kept constant across runs --------
+
 main.maxTime = 10000000000  # maximum time to run to
-main.maxStep = 10   # maximum number of steps to run
+#main.maxStep = 10   # maximum number of steps to run
 main.maxStep = 10000000000   # maximum number of steps to run
 
 #main.constitutiveRelation = GlensLaw
@@ -23,7 +28,7 @@ constRate.epsSqr0 = 1.0e-16
 
 # CISM uses 2 ghost cells
 glimmerInterface.numGhost = 2 2 
-# latest setup is cell-centered for thickness                        
+# current setup is cell-centered for thickness                        
 glimmerInterface.nodalInitialData = 0
 
 main.domain_size = 150000 50000
@@ -44,6 +49,7 @@ basalFlux.grounded.type = zeroFlux
 basalFlux.floating.type = fortran
 basalFlux.floating.backgroundFlux = 0.0 
 
+# these are over-ridden by the checkpoint file upon restart
 geometry.problem_type = fortran
 geometry.setDefaultValues = true
 geometry.thicknessDefault = 0.0
@@ -53,9 +59,6 @@ geometry.topographyDefault = -1000.0
 #geometry.beta_type = fortran
 geometry.beta_type = constantBeta
 geometry.betaValue = 30.4582 # value from Goldberg et al
-
-# don't reset floating friction to zero for circular shelf problem
-#amr.reset_floating_friction = true
 
 geometry.basalSlope = 0 0 0 
 #geometry.basalSlope = 0  0
@@ -79,23 +82,20 @@ bc.hi_bc = 1 0 0
 amr.additional_velocity = 0
 
 amr.temporal_accuracy = 1
-#amr.temporal_accuracy = 2
-#amr.temporal_accuracy = 4
 
 amr.cfl = 0.3  # "cfl" number
 amr.initial_cfl = 0.1  # "cfl" number
-#amr.max_dt_grow_factor = 1.1 #max amount dt can grow from one timestep to another
-amr.max_dt_grow_factor = 1000000 #max amount dt can grow from one timestep to another
+#amr.max_dt_grow_factor = 1.1 # max amount dt can grow from one timestep to another
+amr.max_dt_grow_factor = 1000000 # max amount dt can grow from one timestep to another
 
-#amr.do_initial_velocity_solve = 0 #debugging help -- makes runs go faster
-
+#amr.do_initial_velocity_solve = 0 # debugging aid for testing
 
 amr.plot_interval = 1
-amr.plot_prefix = plot.@STEPSPERYEAR_per_year.
 amr.write_solver_rhs = 1
 amr.write_preSolve_plotfiles = false
 amr.write_flux_velocities = true
 amr.write_base_velocities = true
+amr.write_thickness_sources = true
 
 amr.check_interval = 10
 
@@ -132,6 +132,7 @@ amr.initial_velocity_guess_type = 1 # linear PDE
 amr.initial_velocity_guess_const_mu = 9.9e+6
 amr.initial_velocity_guess_solver_type = 0 # Picard
 
+#------------- solver parameters ---------------------
 amr.velocity_solver_tolerance = 1.0e-10
 
 #velocity solve type -- 0 = Picard, 1 = JFNK
@@ -149,6 +150,10 @@ JFNKSolver.switchRate = 5.0
 JFNKSolver.numMGSmooth = 8
 JFNKSolver.maxIter = 100
 
+
+# 0 = relax, 1 = BiCGStab, 2 = GMRES, 3 = CG, 4=petsc
+JFNKSolver.solverType = 4
+
 JFNKSolver.absTol = 1.0e-2
 JFNKSolver.relTol = 1.0e-10
 #JFNKSolver.BiCGStabRelTol = 4.0e-3
@@ -165,8 +170,6 @@ JFNKSolver.hAdaptive = true
 JFNKSolver.mgProlongType = 1
 #JFNKSolver.writeResiduals = 1
 
-# 0 = relax, 1 = BiCGStab, 2 = GMRES, 3 = MultiGrid 4 =petsc
-JFNKSolver.solverType = 4
 JFNKSolver.maxBiCGStabIter = 50
 JFNKSolver.MGtol = 1.0e-5
 JFNKSolver.RelaxTol = 1.0e-5
