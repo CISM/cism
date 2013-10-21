@@ -1,6 +1,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! WARNING: this file was automatically generated on
-! Mon, 21 Oct 2013 18:58:53 +0000
+! Mon, 21 Oct 2013 20:01:29 +0000
 ! from ncdf_template.F90.in
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -45,12 +45,24 @@ module glide_io
   !*FD template for creating subsystem specific I/O routines
   !*FD written by Magnus Hagdorn, 2004
 
+  use glide_types
+
   implicit none
 
-  private :: get_xtype
+  private :: get_xtype, is_enabled, is_enabled_0dint, is_enabled_1dint, is_enabled_2dint, is_enabled_0dreal, is_enabled_1dreal, is_enabled_2dreal, is_enabled_3dreal
 
   character(310), save :: restart_variable_list=''    !*FD list of variables needed for a restart
 !TODO change 310 to a variable - see glimmer_ncdf.F90 in the definition for type glimmer_nc_stat for other instances of this value.
+
+  interface is_enabled  ! MJH 10/21/13: Interface needed for determining if arrays have been enabled.  See notes below in glide_io_create.
+    module procedure is_enabled_0dint
+    module procedure is_enabled_1dint
+    module procedure is_enabled_2dint
+    module procedure is_enabled_0dreal
+    module procedure is_enabled_1dreal
+    module procedure is_enabled_2dreal
+    module procedure is_enabled_3dreal
+  end interface is_enabled
 
 contains
 
@@ -65,7 +77,7 @@ contains
     use glimmer_ncio
     implicit none
     type(glide_global_type) :: model
-    type(glide_global_type), optional :: data
+    type(glide_global_type) :: data ! MJH 10/21/13: Making 'data' mandatory.  See notes below in glide_io_create
     type(glimmer_nc_output),optional,pointer :: outfiles
     
     ! local variables
@@ -78,11 +90,7 @@ contains
     end if
 
     do while(associated(oc))
-       if (present(data)) then
-          call glide_io_create(oc,model,data)
-       else
-          call glide_io_create(oc,model)
-       end if
+       call glide_io_create(oc,model,data)
        oc=>oc%next
     end do
   end subroutine glide_io_createall
@@ -148,9 +156,13 @@ contains
     implicit none
     type(glimmer_nc_output), pointer :: outfile
     type(glide_global_type) :: model
-    type(glide_global_type), optional :: data
+    type(glide_global_type) :: data    ! MJH 10/21/13: Making 'data' mandatory.  See note below
 
     integer status,varid,pos
+
+    ! MJH 10/21/13: Local variables needed for checking if a variable is enabled.
+    real(dp) :: tavgf
+    integer :: up
 
     integer :: level_dimid
     integer :: lithoz_dimid
@@ -261,6 +273,23 @@ contains
     endif
 
 
+    ! MJH, 10/21/13: In the auto-generated code below, the creation of each output variable is wrapped by a check if the data for that 
+    !   variable has a size greater than 0.  This is because of recently added checks in glide_types.F90 that don't fully allocate
+    !   some variables if certain model options are disabled.  This is to lower memory requirements while running the model.
+    !   The reason they have to be allocated with size zero rather than left unallocated is because the data for
+    !   some netCDF output variables is defined with math, which causes an error if the operands are unallocated.
+    !   Note that if a variable is not created, then it will not be subsequently written to.
+    !   Also note that this change requires that data be a mandatory argument to this subroutine.
+
+    ! Some output variables will need tavgf.  The value does not matter, but it must exist.  
+    ! Nonetheless, for completeness give it the proper value that it has in glide_io_write.
+    tavgf = outfile%total_time
+    if (tavgf.ne.0.d0) then
+       tavgf = 1.d0/tavgf
+    end if
+    ! Similarly, some output variables use the variable up.  Give it value of 0 here.
+    up = 0
+
     !     level -- sigma layers
     if (.not.outfile%append) then
        call write_log('Creating variable level')
@@ -350,6 +379,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%climate%acab)) then
        call write_log('Creating variable acab')
        status = parallel_def_var(NCO%id,'acab',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -361,6 +391,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable acab was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     acab_tavg -- accumulation, ablation rate (time average)
@@ -370,6 +403,7 @@ contains
       NCO%vars(pos+1:pos+9) = '         '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled((tavgf)*(data%climate%acab_tavg))) then
        call write_log('Creating variable acab_tavg')
        status = parallel_def_var(NCO%id,'acab_tavg',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -383,6 +417,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable acab_tavg was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     age -- ice age
@@ -392,6 +429,7 @@ contains
       NCO%vars(pos+1:pos+3) = '   '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%geometry%age(up,:,:))) then
        call write_log('Creating variable age')
        status = parallel_def_var(NCO%id,'age',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, level_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -403,6 +441,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable age was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     artm -- annual mean air temperature
@@ -412,6 +453,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%climate%artm)) then
        call write_log('Creating variable artm')
        status = parallel_def_var(NCO%id,'artm',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -423,6 +465,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable artm was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     beta -- higher-order bed stress coefficient
@@ -432,6 +477,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%velocity%beta)) then
        call write_log('Creating variable beta')
        status = parallel_def_var(NCO%id,'beta',get_xtype(outfile,NF90_FLOAT),(/x0_dimid, y0_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -441,6 +487,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable beta was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     bheatflx -- upward basal heat flux
@@ -450,6 +499,7 @@ contains
       NCO%vars(pos+1:pos+8) = '        '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%temper%bheatflx)) then
        call write_log('Creating variable bheatflx')
        status = parallel_def_var(NCO%id,'bheatflx',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -460,6 +510,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable bheatflx was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     bmlt -- basal melt rate
@@ -469,6 +522,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%temper%bmlt)) then
        call write_log('Creating variable bmlt')
        status = parallel_def_var(NCO%id,'bmlt',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -480,6 +534,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable bmlt was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     bmlt_tavg -- basal melt rate (time average)
@@ -489,6 +546,7 @@ contains
       NCO%vars(pos+1:pos+9) = '         '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled((tavgf)*(data%temper%bmlt_tavg))) then
        call write_log('Creating variable bmlt_tavg')
        status = parallel_def_var(NCO%id,'bmlt_tavg',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -502,6 +560,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable bmlt_tavg was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     btemp -- basal ice temperature
@@ -511,6 +572,7 @@ contains
       NCO%vars(pos+1:pos+5) = '     '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%temper%temp(data%general%upn,1:data%general%ewn,1:data%general%nsn))) then
        call write_log('Creating variable btemp')
        status = parallel_def_var(NCO%id,'btemp',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -521,6 +583,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable btemp was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     btractx -- consistent basal traction (x-direction comp)
@@ -530,6 +595,7 @@ contains
       NCO%vars(pos+1:pos+7) = '       '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%velocity%btraction(1,:,:))) then
        call write_log('Creating variable btractx')
        status = parallel_def_var(NCO%id,'btractx',get_xtype(outfile,NF90_FLOAT),(/x0_dimid, y0_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -539,6 +605,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable btractx was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     btracty -- consistent basal traction (y-direction comp)
@@ -548,6 +617,7 @@ contains
       NCO%vars(pos+1:pos+7) = '       '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%velocity%btraction(2,:,:))) then
        call write_log('Creating variable btracty')
        status = parallel_def_var(NCO%id,'btracty',get_xtype(outfile,NF90_FLOAT),(/x0_dimid, y0_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -557,6 +627,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable btracty was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     btrc -- basal slip coefficient
@@ -566,6 +639,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%velocity%btrc)) then
        call write_log('Creating variable btrc')
        status = parallel_def_var(NCO%id,'btrc',get_xtype(outfile,NF90_FLOAT),(/x0_dimid, y0_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -575,6 +649,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable btrc was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     bwat -- basal water depth
@@ -584,6 +661,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%temper%bwat)) then
        call write_log('Creating variable bwat')
        status = parallel_def_var(NCO%id,'bwat',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -594,6 +672,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable bwat was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     bwatflx -- basal water flux
@@ -603,6 +684,7 @@ contains
       NCO%vars(pos+1:pos+7) = '       '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%temper%bwatflx)) then
        call write_log('Creating variable bwatflx')
        status = parallel_def_var(NCO%id,'bwatflx',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -613,6 +695,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable bwatflx was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     calving -- ice margin calving
@@ -622,6 +707,7 @@ contains
       NCO%vars(pos+1:pos+7) = '       '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%climate%calving)) then
        call write_log('Creating variable calving')
        status = parallel_def_var(NCO%id,'calving',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -632,6 +718,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable calving was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     diffu -- apparent diffusivity
@@ -641,6 +730,7 @@ contains
       NCO%vars(pos+1:pos+5) = '     '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%velocity%diffu)) then
        call write_log('Creating variable diffu')
        status = parallel_def_var(NCO%id,'diffu',get_xtype(outfile,NF90_FLOAT),(/x0_dimid, y0_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -650,6 +740,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable diffu was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     dissip -- dissipation divided by rhoi Ci
@@ -659,6 +752,7 @@ contains
       NCO%vars(pos+1:pos+6) = '      '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%tempwk%dissip)) then
        call write_log('Creating variable dissip')
        status = parallel_def_var(NCO%id,'dissip',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, level_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -668,6 +762,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable dissip was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     dthckdtm -- tendency of ice thickness
@@ -677,6 +774,7 @@ contains
       NCO%vars(pos+1:pos+8) = '        '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%geomderv%dthckdtm)) then
        call write_log('Creating variable dthckdtm')
        status = parallel_def_var(NCO%id,'dthckdtm',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -687,6 +785,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable dthckdtm was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     dusrfdtm -- rate of upper ice surface elevation change
@@ -696,6 +797,7 @@ contains
       NCO%vars(pos+1:pos+8) = '        '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%geomderv%dusrfdtm)) then
        call write_log('Creating variable dusrfdtm')
        status = parallel_def_var(NCO%id,'dusrfdtm',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -706,6 +808,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable dusrfdtm was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     dynbcmask -- 2d array of higher-order model boundary condition mask values
@@ -715,6 +820,7 @@ contains
       NCO%vars(pos+1:pos+9) = '         '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%velocity%dynbcmask)) then
        call write_log('Creating variable dynbcmask')
        status = parallel_def_var(NCO%id,'dynbcmask',get_xtype(outfile,NF90_INT),(/x0_dimid, y0_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -723,6 +829,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable dynbcmask was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     efvs -- effective viscosity
@@ -732,6 +841,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%stress%efvs(up,:,:))) then
        call write_log('Creating variable efvs')
        status = parallel_def_var(NCO%id,'efvs',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, staglevel_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -742,6 +852,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable efvs was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     eus -- global average sea level
@@ -751,6 +864,7 @@ contains
       NCO%vars(pos+1:pos+3) = '   '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%climate%eus)) then
        call write_log('Creating variable eus')
        status = parallel_def_var(NCO%id,'eus',get_xtype(outfile,NF90_FLOAT),(/time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -761,6 +875,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable eus was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     floating_mask -- real-valued mask denoting grounded/floating
@@ -770,6 +887,7 @@ contains
       NCO%vars(pos+1:pos+13) = '             '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%geometry%floating_mask)) then
        call write_log('Creating variable floating_mask')
        status = parallel_def_var(NCO%id,'floating_mask',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -780,6 +898,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable floating_mask was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     flwa -- Pre-exponential flow law parameter
@@ -789,6 +910,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%temper%flwa(up,:,:))) then
        call write_log('Creating variable flwa')
        status = parallel_def_var(NCO%id,'flwa',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, level_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -799,6 +921,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable flwa was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     flwastag -- Pre-exponential flow law parameter
@@ -808,6 +933,7 @@ contains
       NCO%vars(pos+1:pos+8) = '        '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%temper%flwa(up,:,:))) then
        call write_log('Creating variable flwastag')
        status = parallel_def_var(NCO%id,'flwastag',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, staglevel_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -818,6 +944,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable flwastag was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     gl_ew -- grounding line movement in ew directions
@@ -827,6 +956,7 @@ contains
       NCO%vars(pos+1:pos+5) = '     '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%ground%gl_ew)) then
        call write_log('Creating variable gl_ew')
        status = parallel_def_var(NCO%id,'gl_ew',get_xtype(outfile,NF90_FLOAT),(/x0_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -836,6 +966,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable gl_ew was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     gl_ns -- grounding line movement in ns directions
@@ -845,6 +978,7 @@ contains
       NCO%vars(pos+1:pos+5) = '     '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%ground%gl_ns)) then
        call write_log('Creating variable gl_ns')
        status = parallel_def_var(NCO%id,'gl_ns',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y0_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -854,6 +988,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable gl_ns was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     gline_flux -- grounding line fluxu
@@ -863,6 +1000,7 @@ contains
       NCO%vars(pos+1:pos+10) = '          '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%ground%gline_flux)) then
        call write_log('Creating variable gline_flux')
        status = parallel_def_var(NCO%id,'gline_flux',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -872,6 +1010,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon f')
        end if
+     else
+     call write_log('Variable gline_flux was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     gravity -- gravitational acceleration
@@ -881,6 +1022,7 @@ contains
       NCO%vars(pos+1:pos+7) = '       '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(grav)) then
        call write_log('Creating variable gravity')
        status = parallel_def_var(NCO%id,'gravity',get_xtype(outfile,NF90_FLOAT),(/time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -891,6 +1033,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable gravity was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     iarea -- area covered by ice
@@ -900,6 +1045,7 @@ contains
       NCO%vars(pos+1:pos+5) = '     '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%geometry%iarea)) then
        call write_log('Creating variable iarea')
        status = parallel_def_var(NCO%id,'iarea',get_xtype(outfile,NF90_FLOAT),(/time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -909,6 +1055,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable iarea was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     iareaf -- area covered by ice
@@ -918,6 +1067,7 @@ contains
       NCO%vars(pos+1:pos+6) = '      '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%geometry%iareaf)) then
        call write_log('Creating variable iareaf')
        status = parallel_def_var(NCO%id,'iareaf',get_xtype(outfile,NF90_FLOAT),(/time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -927,6 +1077,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable iareaf was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     iareag -- area covered by ice
@@ -936,6 +1089,7 @@ contains
       NCO%vars(pos+1:pos+6) = '      '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%geometry%iareag)) then
        call write_log('Creating variable iareag')
        status = parallel_def_var(NCO%id,'iareag',get_xtype(outfile,NF90_FLOAT),(/time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -945,6 +1099,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable iareag was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     ice_mask -- real-valued mask denoting ice (1) or no ice (0)
@@ -954,6 +1111,7 @@ contains
       NCO%vars(pos+1:pos+8) = '        '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%geometry%ice_mask)) then
        call write_log('Creating variable ice_mask')
        status = parallel_def_var(NCO%id,'ice_mask',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -964,6 +1122,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable ice_mask was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     ice_specific_heat -- ice specific heat
@@ -973,6 +1134,7 @@ contains
       NCO%vars(pos+1:pos+17) = '                 '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(shci)) then
        call write_log('Creating variable ice_specific_heat')
        status = parallel_def_var(NCO%id,'ice_specific_heat',get_xtype(outfile,NF90_FLOAT),(/time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -983,6 +1145,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable ice_specific_heat was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     ice_thermal_conductivity -- ice thermal conductivity
@@ -992,6 +1157,7 @@ contains
       NCO%vars(pos+1:pos+24) = '                        '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(coni)) then
        call write_log('Creating variable ice_thermal_conductivity')
        status = parallel_def_var(NCO%id,'ice_thermal_conductivity',get_xtype(outfile,NF90_FLOAT),(/time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1002,6 +1168,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable ice_thermal_conductivity was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     ivol -- ice volume
@@ -1011,6 +1180,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%geometry%ivol)) then
        call write_log('Creating variable ivol')
        status = parallel_def_var(NCO%id,'ivol',get_xtype(outfile,NF90_FLOAT),(/time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1020,6 +1190,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable ivol was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     kinbcmask -- Mask of locations where uvel, vvel value should be held
@@ -1029,6 +1202,7 @@ contains
       NCO%vars(pos+1:pos+9) = '         '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%velocity%kinbcmask(:,:))) then
        call write_log('Creating variable kinbcmask')
        status = parallel_def_var(NCO%id,'kinbcmask',get_xtype(outfile,NF90_INT),(/x0_dimid, y0_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1037,6 +1211,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable kinbcmask was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     lat -- latitude
@@ -1046,6 +1223,7 @@ contains
       NCO%vars(pos+1:pos+3) = '   '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%climate%lati)) then
        call write_log('Creating variable lat')
        status = parallel_def_var(NCO%id,'lat',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1055,6 +1233,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable lat was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     litho_temp -- lithosphere temperature
@@ -1064,6 +1245,7 @@ contains
       NCO%vars(pos+1:pos+10) = '          '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%lithot%temp)) then
        call write_log('Creating variable litho_temp')
        status = parallel_def_var(NCO%id,'litho_temp',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, lithoz_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1073,6 +1255,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable litho_temp was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     lon -- longitude
@@ -1082,6 +1267,7 @@ contains
       NCO%vars(pos+1:pos+3) = '   '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%climate%loni)) then
        call write_log('Creating variable lon')
        status = parallel_def_var(NCO%id,'lon',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1091,6 +1277,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable lon was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     lower_cell_loc -- location in z of lower cell location
@@ -1100,6 +1289,7 @@ contains
       NCO%vars(pos+1:pos+14) = '              '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%geometry%lower_cell_loc)) then
        call write_log('Creating variable lower_cell_loc')
        status = parallel_def_var(NCO%id,'lower_cell_loc',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1110,6 +1300,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable lower_cell_loc was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     lower_cell_temp -- temperature at lower_cell_loc
@@ -1119,6 +1312,7 @@ contains
       NCO%vars(pos+1:pos+15) = '               '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%geometry%lower_cell_temp)) then
        call write_log('Creating variable lower_cell_temp')
        status = parallel_def_var(NCO%id,'lower_cell_temp',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1129,6 +1323,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable lower_cell_temp was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     lsurf -- ice lower surface elevation
@@ -1138,6 +1335,7 @@ contains
       NCO%vars(pos+1:pos+5) = '     '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%geometry%lsrf)) then
        call write_log('Creating variable lsurf')
        status = parallel_def_var(NCO%id,'lsurf',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1148,6 +1346,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable lsurf was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     relx -- relaxed bedrock topography
@@ -1157,6 +1358,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%isostasy%relx)) then
        call write_log('Creating variable relx')
        status = parallel_def_var(NCO%id,'relx',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1167,6 +1369,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable relx was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     rho_ice -- ice density
@@ -1176,6 +1381,7 @@ contains
       NCO%vars(pos+1:pos+7) = '       '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(rhoi)) then
        call write_log('Creating variable rho_ice')
        status = parallel_def_var(NCO%id,'rho_ice',get_xtype(outfile,NF90_FLOAT),(/time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1186,6 +1392,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable rho_ice was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     rho_seawater -- seawater density
@@ -1195,6 +1404,7 @@ contains
       NCO%vars(pos+1:pos+12) = '            '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(rhoo)) then
        call write_log('Creating variable rho_seawater')
        status = parallel_def_var(NCO%id,'rho_seawater',get_xtype(outfile,NF90_FLOAT),(/time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1205,6 +1415,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable rho_seawater was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     seconds_per_year -- seconds per year
@@ -1214,6 +1427,7 @@ contains
       NCO%vars(pos+1:pos+16) = '                '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(scyr)) then
        call write_log('Creating variable seconds_per_year')
        status = parallel_def_var(NCO%id,'seconds_per_year',get_xtype(outfile,NF90_FLOAT),(/time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1224,6 +1438,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable seconds_per_year was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     slc -- isostatic adjustment
@@ -1233,6 +1450,7 @@ contains
       NCO%vars(pos+1:pos+3) = '   '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%isostasy%relx - data%geometry%topg)) then
        call write_log('Creating variable slc')
        status = parallel_def_var(NCO%id,'slc',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1244,6 +1462,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable slc was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     soft -- bed softness parameter
@@ -1253,6 +1474,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%velocity%bed_softness)) then
        call write_log('Creating variable soft')
        status = parallel_def_var(NCO%id,'soft',get_xtype(outfile,NF90_FLOAT),(/x0_dimid, y0_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1262,6 +1484,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable soft was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     stagthk -- staggered ice thickness
@@ -1271,6 +1496,7 @@ contains
       NCO%vars(pos+1:pos+7) = '       '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%geomderv%stagthck)) then
        call write_log('Creating variable stagthk')
        status = parallel_def_var(NCO%id,'stagthk',get_xtype(outfile,NF90_FLOAT),(/x0_dimid, y0_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1282,6 +1508,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable stagthk was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     surftemp -- annual mean surface temperature
@@ -1291,6 +1520,7 @@ contains
       NCO%vars(pos+1:pos+8) = '        '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%climate%artm)) then
        call write_log('Creating variable surftemp')
        status = parallel_def_var(NCO%id,'surftemp',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1302,6 +1532,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable surftemp was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     tau_xz -- X component vertical shear stress
@@ -1311,6 +1544,7 @@ contains
       NCO%vars(pos+1:pos+6) = '      '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%stress%tau%xz(up,:,:))) then
        call write_log('Creating variable tau_xz')
        status = parallel_def_var(NCO%id,'tau_xz',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, staglevel_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1320,6 +1554,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable tau_xz was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     tau_yz -- Y component vertical shear stress
@@ -1329,6 +1566,7 @@ contains
       NCO%vars(pos+1:pos+6) = '      '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%stress%tau%yz(up,:,:))) then
        call write_log('Creating variable tau_yz')
        status = parallel_def_var(NCO%id,'tau_yz',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, staglevel_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1338,6 +1576,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable tau_yz was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     tauf -- higher-order basal yield stress
@@ -1347,6 +1588,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%basalproc%minTauf)) then
        call write_log('Creating variable tauf')
        status = parallel_def_var(NCO%id,'tauf',get_xtype(outfile,NF90_FLOAT),(/x0_dimid, y0_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1356,6 +1598,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable tauf was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     taux -- basal shear stress in x direction
@@ -1365,6 +1610,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%velocity%tau_x)) then
        call write_log('Creating variable taux')
        status = parallel_def_var(NCO%id,'taux',get_xtype(outfile,NF90_FLOAT),(/x0_dimid, y0_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1374,6 +1620,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable taux was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     tauy -- basal shear stress in y direction
@@ -1383,6 +1632,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%velocity%tau_y)) then
        call write_log('Creating variable tauy')
        status = parallel_def_var(NCO%id,'tauy',get_xtype(outfile,NF90_FLOAT),(/x0_dimid, y0_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1392,6 +1642,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable tauy was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     temp -- ice temperature
@@ -1401,6 +1654,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%temper%temp(up,1:data%general%ewn,1:data%general%nsn))) then
        call write_log('Creating variable temp')
        status = parallel_def_var(NCO%id,'temp',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, level_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1411,6 +1665,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable temp was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     tempstag -- ice temperature on staggered vertical levels with boundaries
@@ -1420,6 +1677,7 @@ contains
       NCO%vars(pos+1:pos+8) = '        '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%temper%temp(up,1:data%general%ewn,1:data%general%nsn))) then
        call write_log('Creating variable tempstag')
        status = parallel_def_var(NCO%id,'tempstag',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, stagwbndlevel_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1430,6 +1688,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable tempstag was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     thk -- ice thickness
@@ -1439,6 +1700,7 @@ contains
       NCO%vars(pos+1:pos+3) = '   '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%geometry%thck)) then
        call write_log('Creating variable thk')
        status = parallel_def_var(NCO%id,'thk',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1450,6 +1712,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable thk was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     thkmask -- mask
@@ -1459,6 +1724,7 @@ contains
       NCO%vars(pos+1:pos+7) = '       '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%geometry%thkmask)) then
        call write_log('Creating variable thkmask')
        status = parallel_def_var(NCO%id,'thkmask',get_xtype(outfile,NF90_INT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1468,6 +1734,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable thkmask was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     topg -- bedrock topography
@@ -1477,6 +1746,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%geometry%topg)) then
        call write_log('Creating variable topg')
        status = parallel_def_var(NCO%id,'topg',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1488,6 +1758,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable topg was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     ubas -- basal slip velocity in x direction
@@ -1497,6 +1770,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%velocity%ubas)) then
        call write_log('Creating variable ubas')
        status = parallel_def_var(NCO%id,'ubas',get_xtype(outfile,NF90_FLOAT),(/x0_dimid, y0_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1507,6 +1781,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable ubas was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     ubas_tavg -- basal slip velocity in x direction (time average)
@@ -1516,6 +1793,7 @@ contains
       NCO%vars(pos+1:pos+9) = '         '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled((tavgf)*(data%velocity%ubas_tavg))) then
        call write_log('Creating variable ubas_tavg')
        status = parallel_def_var(NCO%id,'ubas_tavg',get_xtype(outfile,NF90_FLOAT),(/x0_dimid, y0_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1528,6 +1806,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable ubas_tavg was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     uflx -- flux in x direction
@@ -1537,6 +1818,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%velocity%uflx)) then
        call write_log('Creating variable uflx')
        status = parallel_def_var(NCO%id,'uflx',get_xtype(outfile,NF90_FLOAT),(/x0_dimid, y0_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1546,6 +1828,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable uflx was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     usurf -- ice upper surface elevation
@@ -1555,6 +1840,7 @@ contains
       NCO%vars(pos+1:pos+5) = '     '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%geometry%usrf)) then
        call write_log('Creating variable usurf')
        status = parallel_def_var(NCO%id,'usurf',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1566,6 +1852,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable usurf was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     uvel -- ice velocity in x direction
@@ -1575,6 +1864,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%velocity%uvel(up,:,:))) then
        call write_log('Creating variable uvel')
        status = parallel_def_var(NCO%id,'uvel',get_xtype(outfile,NF90_FLOAT),(/x0_dimid, y0_dimid, level_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1585,6 +1875,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable uvel was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     uvel_icegrid -- ice velocity in x direction
@@ -1594,6 +1887,7 @@ contains
       NCO%vars(pos+1:pos+12) = '            '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%velocity%uvel_icegrid(up,:,:))) then
        call write_log('Creating variable uvel_icegrid')
        status = parallel_def_var(NCO%id,'uvel_icegrid',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, level_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1604,6 +1898,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable uvel_icegrid was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     vbas -- basal slip velocity in y direction
@@ -1613,6 +1910,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%velocity%vbas)) then
        call write_log('Creating variable vbas')
        status = parallel_def_var(NCO%id,'vbas',get_xtype(outfile,NF90_FLOAT),(/x0_dimid, y0_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1623,6 +1921,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable vbas was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     vbas_tavg -- basal slip velocity in y direction (time average)
@@ -1632,6 +1933,7 @@ contains
       NCO%vars(pos+1:pos+9) = '         '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled((tavgf)*(data%velocity%vbas_tavg))) then
        call write_log('Creating variable vbas_tavg')
        status = parallel_def_var(NCO%id,'vbas_tavg',get_xtype(outfile,NF90_FLOAT),(/x0_dimid, y0_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1644,6 +1946,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable vbas_tavg was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     velnorm -- Horizontal ice velocity magnitude
@@ -1653,6 +1958,7 @@ contains
       NCO%vars(pos+1:pos+7) = '       '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%velocity%velnorm(up,:,:))) then
        call write_log('Creating variable velnorm')
        status = parallel_def_var(NCO%id,'velnorm',get_xtype(outfile,NF90_FLOAT),(/x0_dimid, y0_dimid, level_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1663,6 +1969,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable velnorm was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     vflx -- flux in x direction
@@ -1672,6 +1981,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%velocity%vflx)) then
        call write_log('Creating variable vflx')
        status = parallel_def_var(NCO%id,'vflx',get_xtype(outfile,NF90_FLOAT),(/x0_dimid, y0_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1681,6 +1991,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable vflx was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     vvel -- ice velocity in y direction
@@ -1690,6 +2003,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%velocity%vvel(up,:,:))) then
        call write_log('Creating variable vvel')
        status = parallel_def_var(NCO%id,'vvel',get_xtype(outfile,NF90_FLOAT),(/x0_dimid, y0_dimid, level_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1700,6 +2014,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable vvel was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     vvel_icegrid -- ice velocity in y direction
@@ -1709,6 +2026,7 @@ contains
       NCO%vars(pos+1:pos+12) = '            '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%velocity%vvel_icegrid(up,:,:))) then
        call write_log('Creating variable vvel_icegrid')
        status = parallel_def_var(NCO%id,'vvel_icegrid',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, level_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1719,6 +2037,9 @@ contains
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
+     else
+     call write_log('Variable vvel_icegrid was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     waterfrac -- internal water fraction
@@ -1728,6 +2049,7 @@ contains
       NCO%vars(pos+1:pos+9) = '         '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%temper%waterfrac(up,:,:))) then
        call write_log('Creating variable waterfrac')
        status = parallel_def_var(NCO%id,'waterfrac',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, level_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1737,6 +2059,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable waterfrac was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     wgrd -- Vertical grid velocity
@@ -1746,6 +2071,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%velocity%wgrd(up,:,:))) then
        call write_log('Creating variable wgrd')
        status = parallel_def_var(NCO%id,'wgrd',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, level_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1756,6 +2082,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable wgrd was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     wvel -- vertical ice velocity
@@ -1765,6 +2094,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%velocity%wvel(up,:,:))) then
        call write_log('Creating variable wvel')
        status = parallel_def_var(NCO%id,'wvel',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, level_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1775,6 +2105,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable wvel was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
   end subroutine glide_io_create
@@ -2402,6 +2735,79 @@ contains
   end subroutine glide_add_to_restart_variable_list
 
 
+  ! Functions for the interface 'is_enabled'.  These are needed by the auto-generated code in glide_io_create
+  !   to determine if a variable is 'turned on', and should be written.
+
+  function is_enabled_0dint(var)
+    integer, intent(in) :: var
+    logical :: is_enabled_0dint
+    is_enabled_0dint = .true.  ! scalars are always enabled
+    return
+  end function is_enabled_0dint
+
+  function is_enabled_1dint(var)
+    integer, dimension(:), intent(in) :: var
+    logical :: is_enabled_1dint
+    if (size(var)>0) then
+      is_enabled_1dint = .true.
+    else
+      is_enabled_1dint = .false.
+    endif
+    return
+  end function is_enabled_1dint
+
+  function is_enabled_2dint(var)
+    integer, dimension(:,:), intent(in) :: var
+    logical :: is_enabled_2dint
+    if (size(var)>0) then
+      is_enabled_2dint = .true.
+    else
+      is_enabled_2dint = .false.
+    endif
+    return
+  end function is_enabled_2dint
+
+  function is_enabled_0dreal(var)
+    real(dp), intent(in) :: var
+    logical :: is_enabled_0dreal
+    is_enabled_0dreal = .true.  ! scalars are always enabled
+    return
+  end function is_enabled_0dreal
+
+  function is_enabled_1dreal(var)
+    real(dp), dimension(:), intent(in) :: var
+    logical :: is_enabled_1dreal
+    if (size(var)>0) then
+      is_enabled_1dreal = .true.
+    else
+      is_enabled_1dreal = .false.
+    endif
+    return
+  end function is_enabled_1dreal
+
+  function is_enabled_2dreal(var)
+    real(dp), dimension(:,:), intent(in) :: var
+    logical :: is_enabled_2dreal
+    if (size(var)>0) then
+      is_enabled_2dreal = .true.
+    else
+      is_enabled_2dreal = .false.
+    endif
+    return
+  end function is_enabled_2dreal
+
+  function is_enabled_3dreal(var)
+    real(dp), dimension(:,:,:), intent(in) :: var
+    logical :: is_enabled_3dreal
+    if (size(var)>0) then
+      is_enabled_3dreal = .true.
+    else
+      is_enabled_3dreal = .false.
+    endif
+    return
+  end function is_enabled_3dreal
+
+
   !*****************************************************************************
   ! netCDF input
   !*****************************************************************************  
@@ -2450,6 +2856,7 @@ contains
     ! read variables
     status = parallel_inq_varid(NCI%id,'x1',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%general%x1)) then
        call write_log('  Loading x1')
        status = distributed_get_var(NCI%id, varid, &
             data%general%x1, (/1/))
@@ -2462,10 +2869,15 @@ contains
           call write_log("scaling x1",GM_DIAGNOSTIC)
           data%general%x1 = data%general%x1*scaling_factor
        end if
+    else
+    call write_log('Variable x1 was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'y1',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%general%y1)) then
        call write_log('  Loading y1')
        status = distributed_get_var(NCI%id, varid, &
             data%general%y1, (/1/))
@@ -2478,10 +2890,15 @@ contains
           call write_log("scaling y1",GM_DIAGNOSTIC)
           data%general%y1 = data%general%y1*scaling_factor
        end if
+    else
+    call write_log('Variable y1 was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'acab',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%climate%acab)) then
        call write_log('  Loading acab')
        status = distributed_get_var(NCI%id, varid, &
             data%climate%acab, (/1,1,infile%current_time/))
@@ -2496,10 +2913,15 @@ contains
           call write_log("scaling acab",GM_DIAGNOSTIC)
           data%climate%acab = data%climate%acab*scaling_factor
        end if
+    else
+    call write_log('Variable acab was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'artm',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%climate%artm)) then
        call write_log('  Loading artm')
        status = distributed_get_var(NCI%id, varid, &
             data%climate%artm, (/1,1,infile%current_time/))
@@ -2512,10 +2934,15 @@ contains
           call write_log("scaling artm",GM_DIAGNOSTIC)
           data%climate%artm = data%climate%artm*scaling_factor
        end if
+    else
+    call write_log('Variable artm was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'beta',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%velocity%beta)) then
        call write_log('  Loading beta')
        status = distributed_get_var(NCI%id, varid, &
             data%velocity%beta, (/1,1,infile%current_time/))
@@ -2530,10 +2957,15 @@ contains
           call write_log("scaling beta",GM_DIAGNOSTIC)
           data%velocity%beta = data%velocity%beta*scaling_factor
        end if
+    else
+    call write_log('Variable beta was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'bheatflx',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%temper%bheatflx)) then
        call write_log('  Loading bheatflx')
        status = distributed_get_var(NCI%id, varid, &
             data%temper%bheatflx, (/1,1,infile%current_time/))
@@ -2548,10 +2980,15 @@ contains
           call write_log("scaling bheatflx",GM_DIAGNOSTIC)
           data%temper%bheatflx = data%temper%bheatflx*scaling_factor
        end if
+    else
+    call write_log('Variable bheatflx was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'bmlt',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%temper%bmlt)) then
        call write_log('  Loading bmlt')
        status = distributed_get_var(NCI%id, varid, &
             data%temper%bmlt, (/1,1,infile%current_time/))
@@ -2566,10 +3003,15 @@ contains
           call write_log("scaling bmlt",GM_DIAGNOSTIC)
           data%temper%bmlt = data%temper%bmlt*scaling_factor
        end if
+    else
+    call write_log('Variable bmlt was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'bwat',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%temper%bwat)) then
        call write_log('  Loading bwat')
        status = distributed_get_var(NCI%id, varid, &
             data%temper%bwat, (/1,1,infile%current_time/))
@@ -2584,10 +3026,15 @@ contains
           call write_log("scaling bwat",GM_DIAGNOSTIC)
           data%temper%bwat = data%temper%bwat*scaling_factor
        end if
+    else
+    call write_log('Variable bwat was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'flwa',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%temper%flwa(up,:,:))) then
        call write_log('  Loading flwa')
        do up=1,NCI%nlevel
           status = distributed_get_var(NCI%id, varid, &
@@ -2604,10 +3051,15 @@ contains
              data%temper%flwa(up,:,:) = data%temper%flwa(up,:,:)*scaling_factor
           end if
        end do
+    else
+    call write_log('Variable flwa was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'flwastag',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%temper%flwa(up,:,:))) then
        call write_log('  Loading flwastag')
        do up=1,NCI%nstaglevel
           status = distributed_get_var(NCI%id, varid, &
@@ -2624,10 +3076,15 @@ contains
              data%temper%flwa(up,:,:) = data%temper%flwa(up,:,:)*scaling_factor
           end if
        end do
+    else
+    call write_log('Variable flwastag was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'kinbcmask',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%velocity%kinbcmask(:,:))) then
        call write_log('  Loading kinbcmask')
        status = distributed_get_var(NCI%id, varid, &
             data%velocity%kinbcmask(:,:), (/1,1,infile%current_time/))
@@ -2640,10 +3097,15 @@ contains
           call write_log("scaling kinbcmask",GM_DIAGNOSTIC)
           data%velocity%kinbcmask(:,:) = data%velocity%kinbcmask(:,:)*scaling_factor
        end if
+    else
+    call write_log('Variable kinbcmask was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'lat',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%climate%lati)) then
        call write_log('  Loading lat')
        status = distributed_get_var(NCI%id, varid, &
             data%climate%lati, (/1,1,infile%current_time/))
@@ -2656,10 +3118,15 @@ contains
           call write_log("scaling lat",GM_DIAGNOSTIC)
           data%climate%lati = data%climate%lati*scaling_factor
        end if
+    else
+    call write_log('Variable lat was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'litho_temp',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%lithot%temp)) then
        call write_log('  Loading litho_temp')
        status = distributed_get_var(NCI%id, varid, &
             data%lithot%temp, (/1,1,1,infile%current_time/))
@@ -2672,10 +3139,15 @@ contains
           call write_log("scaling litho_temp",GM_DIAGNOSTIC)
           data%lithot%temp = data%lithot%temp*scaling_factor
        end if
+    else
+    call write_log('Variable litho_temp was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'lon',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%climate%loni)) then
        call write_log('  Loading lon')
        status = distributed_get_var(NCI%id, varid, &
             data%climate%loni, (/1,1,infile%current_time/))
@@ -2688,10 +3160,15 @@ contains
           call write_log("scaling lon",GM_DIAGNOSTIC)
           data%climate%loni = data%climate%loni*scaling_factor
        end if
+    else
+    call write_log('Variable lon was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'relx',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%isostasy%relx)) then
        call write_log('  Loading relx')
        status = distributed_get_var(NCI%id, varid, &
             data%isostasy%relx, (/1,1,infile%current_time/))
@@ -2706,10 +3183,15 @@ contains
           call write_log("scaling relx",GM_DIAGNOSTIC)
           data%isostasy%relx = data%isostasy%relx*scaling_factor
        end if
+    else
+    call write_log('Variable relx was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'soft',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%velocity%bed_softness)) then
        call write_log('  Loading soft')
        status = distributed_get_var(NCI%id, varid, &
             data%velocity%bed_softness, (/1,1,infile%current_time/))
@@ -2724,10 +3206,15 @@ contains
           call write_log("scaling soft",GM_DIAGNOSTIC)
           data%velocity%bed_softness = data%velocity%bed_softness*scaling_factor
        end if
+    else
+    call write_log('Variable soft was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'surftemp',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%climate%artm)) then
        call write_log('  Loading surftemp')
        status = distributed_get_var(NCI%id, varid, &
             data%climate%artm, (/1,1,infile%current_time/))
@@ -2740,10 +3227,15 @@ contains
           call write_log("scaling surftemp",GM_DIAGNOSTIC)
           data%climate%artm = data%climate%artm*scaling_factor
        end if
+    else
+    call write_log('Variable surftemp was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'tauf',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%basalproc%minTauf)) then
        call write_log('  Loading tauf')
        status = distributed_get_var(NCI%id, varid, &
             data%basalproc%minTauf, (/1,1,infile%current_time/))
@@ -2758,10 +3250,15 @@ contains
           call write_log("scaling tauf",GM_DIAGNOSTIC)
           data%basalproc%minTauf = data%basalproc%minTauf*scaling_factor
        end if
+    else
+    call write_log('Variable tauf was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'temp',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%temper%temp(up,1:data%general%ewn,1:data%general%nsn))) then
        call write_log('  Loading temp')
        do up=1,NCI%nlevel
           status = distributed_get_var(NCI%id, varid, &
@@ -2776,10 +3273,15 @@ contains
              data%temper%temp(up,1:data%general%ewn,1:data%general%nsn) = data%temper%temp(up,1:data%general%ewn,1:data%general%nsn)*scaling_factor
           end if
        end do
+    else
+    call write_log('Variable temp was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'tempstag',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%temper%temp(up,1:data%general%ewn,1:data%general%nsn))) then
        call write_log('  Loading tempstag')
        do up=0,NCI%nstagwbndlevel
           status = distributed_get_var(NCI%id, varid, &
@@ -2794,10 +3296,15 @@ contains
              data%temper%temp(up,1:data%general%ewn,1:data%general%nsn) = data%temper%temp(up,1:data%general%ewn,1:data%general%nsn)*scaling_factor
           end if
        end do
+    else
+    call write_log('Variable tempstag was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'thk',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%geometry%thck)) then
        call write_log('  Loading thk')
        status = distributed_get_var(NCI%id, varid, &
             data%geometry%thck, (/1,1,infile%current_time/))
@@ -2812,10 +3319,15 @@ contains
           call write_log("scaling thk",GM_DIAGNOSTIC)
           data%geometry%thck = data%geometry%thck*scaling_factor
        end if
+    else
+    call write_log('Variable thk was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'thkmask',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%geometry%thkmask)) then
        call write_log('  Loading thkmask')
        status = distributed_get_var(NCI%id, varid, &
             data%geometry%thkmask, (/1,1,infile%current_time/))
@@ -2828,10 +3340,15 @@ contains
           call write_log("scaling thkmask",GM_DIAGNOSTIC)
           data%geometry%thkmask = data%geometry%thkmask*scaling_factor
        end if
+    else
+    call write_log('Variable thkmask was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'topg',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%geometry%topg)) then
        call write_log('  Loading topg')
        status = distributed_get_var(NCI%id, varid, &
             data%geometry%topg, (/1,1,infile%current_time/))
@@ -2846,10 +3363,15 @@ contains
           call write_log("scaling topg",GM_DIAGNOSTIC)
           data%geometry%topg = data%geometry%topg*scaling_factor
        end if
+    else
+    call write_log('Variable topg was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'ubas',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%velocity%ubas)) then
        call write_log('  Loading ubas')
        status = distributed_get_var(NCI%id, varid, &
             data%velocity%ubas, (/1,1,infile%current_time/))
@@ -2864,10 +3386,15 @@ contains
           call write_log("scaling ubas",GM_DIAGNOSTIC)
           data%velocity%ubas = data%velocity%ubas*scaling_factor
        end if
+    else
+    call write_log('Variable ubas was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'usurf',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%geometry%usrf)) then
        call write_log('  Loading usurf')
        status = distributed_get_var(NCI%id, varid, &
             data%geometry%usrf, (/1,1,infile%current_time/))
@@ -2882,10 +3409,15 @@ contains
           call write_log("scaling usurf",GM_DIAGNOSTIC)
           data%geometry%usrf = data%geometry%usrf*scaling_factor
        end if
+    else
+    call write_log('Variable usurf was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'uvel',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%velocity%uvel(up,:,:))) then
        call write_log('  Loading uvel')
        do up=1,NCI%nlevel
           status = distributed_get_var(NCI%id, varid, &
@@ -2902,10 +3434,15 @@ contains
              data%velocity%uvel(up,:,:) = data%velocity%uvel(up,:,:)*scaling_factor
           end if
        end do
+    else
+    call write_log('Variable uvel was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'vbas',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%velocity%vbas)) then
        call write_log('  Loading vbas')
        status = distributed_get_var(NCI%id, varid, &
             data%velocity%vbas, (/1,1,infile%current_time/))
@@ -2920,10 +3457,15 @@ contains
           call write_log("scaling vbas",GM_DIAGNOSTIC)
           data%velocity%vbas = data%velocity%vbas*scaling_factor
        end if
+    else
+    call write_log('Variable vbas was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'vvel',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%velocity%vvel(up,:,:))) then
        call write_log('  Loading vvel')
        do up=1,NCI%nlevel
           status = distributed_get_var(NCI%id, varid, &
@@ -2940,10 +3482,15 @@ contains
              data%velocity%vvel(up,:,:) = data%velocity%vvel(up,:,:)*scaling_factor
           end if
        end do
+    else
+    call write_log('Variable vvel was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'waterfrac',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%temper%waterfrac(up,:,:))) then
        call write_log('  Loading waterfrac')
        do up=1,NCI%nlevel
           status = distributed_get_var(NCI%id, varid, &
@@ -2958,10 +3505,15 @@ contains
              data%temper%waterfrac(up,:,:) = data%temper%waterfrac(up,:,:)*scaling_factor
           end if
        end do
+    else
+    call write_log('Variable waterfrac was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'wgrd',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%velocity%wgrd(up,:,:))) then
        call write_log('  Loading wgrd')
        do up=1,NCI%nlevel
           status = distributed_get_var(NCI%id, varid, &
@@ -2978,10 +3530,15 @@ contains
              data%velocity%wgrd(up,:,:) = data%velocity%wgrd(up,:,:)*scaling_factor
           end if
        end do
+    else
+    call write_log('Variable wgrd was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'wvel',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%velocity%wvel(up,:,:))) then
        call write_log('  Loading wvel')
        do up=1,NCI%nlevel
           status = distributed_get_var(NCI%id, varid, &
@@ -2998,6 +3555,10 @@ contains
              data%velocity%wvel(up,:,:) = data%velocity%wvel(up,:,:)*scaling_factor
           end if
        end do
+    else
+    call write_log('Variable wvel was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
   end subroutine glide_io_read

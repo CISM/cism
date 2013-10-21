@@ -1,6 +1,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! WARNING: this file was automatically generated on
-! Mon, 21 Oct 2013 18:58:53 +0000
+! Mon, 21 Oct 2013 20:01:29 +0000
 ! from ncdf_template.F90.in
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -44,12 +44,24 @@ module glint_io
   !*FD template for creating subsystem specific I/O routines
   !*FD written by Magnus Hagdorn, 2004
 
+  use glint_type
+
   implicit none
 
-  private :: get_xtype
+  private :: get_xtype, is_enabled, is_enabled_0dint, is_enabled_1dint, is_enabled_2dint, is_enabled_0dreal, is_enabled_1dreal, is_enabled_2dreal, is_enabled_3dreal
 
   character(310), save :: restart_variable_list=''    !*FD list of variables needed for a restart
 !TODO change 310 to a variable - see glimmer_ncdf.F90 in the definition for type glimmer_nc_stat for other instances of this value.
+
+  interface is_enabled  ! MJH 10/21/13: Interface needed for determining if arrays have been enabled.  See notes below in glint_io_create.
+    module procedure is_enabled_0dint
+    module procedure is_enabled_1dint
+    module procedure is_enabled_2dint
+    module procedure is_enabled_0dreal
+    module procedure is_enabled_1dreal
+    module procedure is_enabled_2dreal
+    module procedure is_enabled_3dreal
+  end interface is_enabled
 
 contains
 
@@ -64,7 +76,7 @@ contains
     use glimmer_ncio
     implicit none
     type(glide_global_type) :: model
-    type(glint_instance), optional :: data
+    type(glint_instance) :: data ! MJH 10/21/13: Making 'data' mandatory.  See notes below in glint_io_create
     type(glimmer_nc_output),optional,pointer :: outfiles
     
     ! local variables
@@ -77,11 +89,7 @@ contains
     end if
 
     do while(associated(oc))
-       if (present(data)) then
-          call glint_io_create(oc,model,data)
-       else
-          call glint_io_create(oc,model)
-       end if
+       call glint_io_create(oc,model,data)
        oc=>oc%next
     end do
   end subroutine glint_io_createall
@@ -147,9 +155,13 @@ contains
     implicit none
     type(glimmer_nc_output), pointer :: outfile
     type(glide_global_type) :: model
-    type(glint_instance), optional :: data
+    type(glint_instance) :: data    ! MJH 10/21/13: Making 'data' mandatory.  See note below
 
     integer status,varid,pos
+
+    ! MJH 10/21/13: Local variables needed for checking if a variable is enabled.
+    real(dp) :: tavgf
+    integer :: up
 
     integer :: time_dimid
     integer :: x1_dimid
@@ -210,6 +222,23 @@ contains
     endif
 
 
+    ! MJH, 10/21/13: In the auto-generated code below, the creation of each output variable is wrapped by a check if the data for that 
+    !   variable has a size greater than 0.  This is because of recently added checks in glide_types.F90 that don't fully allocate
+    !   some variables if certain model options are disabled.  This is to lower memory requirements while running the model.
+    !   The reason they have to be allocated with size zero rather than left unallocated is because the data for
+    !   some netCDF output variables is defined with math, which causes an error if the operands are unallocated.
+    !   Note that if a variable is not created, then it will not be subsequently written to.
+    !   Also note that this change requires that data be a mandatory argument to this subroutine.
+
+    ! Some output variables will need tavgf.  The value does not matter, but it must exist.  
+    ! Nonetheless, for completeness give it the proper value that it has in glint_io_write.
+    tavgf = outfile%total_time
+    if (tavgf.ne.0.d0) then
+       tavgf = 1.d0/tavgf
+    end if
+    ! Similarly, some output variables use the variable up.  Give it value of 0 here.
+    up = 0
+
     !     ablt -- ablation
     pos = index(NCO%vars,' ablt ')
     status = parallel_inq_varid(NCO%id,'ablt',varid)
@@ -217,6 +246,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%ablt)) then
        call write_log('Creating variable ablt')
        status = parallel_def_var(NCO%id,'ablt',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -226,6 +256,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable ablt was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     arng -- air temperature half-range
@@ -235,6 +268,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%arng)) then
        call write_log('Creating variable arng')
        status = parallel_def_var(NCO%id,'arng',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -244,6 +278,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable arng was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     global_orog -- orographic elevation provided by global model
@@ -253,6 +290,7 @@ contains
       NCO%vars(pos+1:pos+11) = '           '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%global_orog)) then
        call write_log('Creating variable global_orog')
        status = parallel_def_var(NCO%id,'global_orog',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -263,6 +301,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable global_orog was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     hflx_tavg -- heat flux to ice surface
@@ -272,6 +313,7 @@ contains
       NCO%vars(pos+1:pos+9) = '         '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%hflx_tavg)) then
        call write_log('Creating variable hflx_tavg')
        status = parallel_def_var(NCO%id,'hflx_tavg',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -281,6 +323,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable hflx_tavg was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     inmask -- downscaling mask
@@ -290,6 +335,7 @@ contains
       NCO%vars(pos+1:pos+6) = '      '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%downs%lmask)) then
        call write_log('Creating variable inmask')
        status = parallel_def_var(NCO%id,'inmask',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -299,6 +345,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable inmask was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     local_orog -- orographic elevation provided by local model
@@ -308,6 +357,7 @@ contains
       NCO%vars(pos+1:pos+10) = '          '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%local_orog)) then
        call write_log('Creating variable local_orog')
        status = parallel_def_var(NCO%id,'local_orog',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -318,6 +368,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable local_orog was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     outmask -- upscaling mask
@@ -327,6 +380,7 @@ contains
       NCO%vars(pos+1:pos+7) = '       '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%out_mask)) then
        call write_log('Creating variable outmask')
        status = parallel_def_var(NCO%id,'outmask',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -336,6 +390,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable outmask was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     prcp -- precipitation
@@ -345,6 +402,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%prcp)) then
        call write_log('Creating variable prcp')
        status = parallel_def_var(NCO%id,'prcp',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -355,6 +413,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable prcp was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     rofi_tavg -- solid calving flux
@@ -364,6 +425,7 @@ contains
       NCO%vars(pos+1:pos+9) = '         '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%rofi_tavg)) then
        call write_log('Creating variable rofi_tavg')
        status = parallel_def_var(NCO%id,'rofi_tavg',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -373,6 +435,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable rofi_tavg was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     rofl_tavg -- liquid runoff flux
@@ -382,6 +447,7 @@ contains
       NCO%vars(pos+1:pos+9) = '         '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%rofl_tavg)) then
        call write_log('Creating variable rofl_tavg')
        status = parallel_def_var(NCO%id,'rofl_tavg',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -391,6 +457,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable rofl_tavg was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     siced -- superimposed ice depth
@@ -400,6 +469,7 @@ contains
       NCO%vars(pos+1:pos+5) = '     '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%siced)) then
        call write_log('Creating variable siced')
        status = parallel_def_var(NCO%id,'siced',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -409,6 +479,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable siced was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     snowd -- snow depth
@@ -418,6 +491,7 @@ contains
       NCO%vars(pos+1:pos+5) = '     '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%snowd)) then
        call write_log('Creating variable snowd')
        status = parallel_def_var(NCO%id,'snowd',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -428,6 +502,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable snowd was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
   end subroutine glint_io_create
@@ -573,6 +650,79 @@ contains
   end subroutine glint_add_to_restart_variable_list
 
 
+  ! Functions for the interface 'is_enabled'.  These are needed by the auto-generated code in glint_io_create
+  !   to determine if a variable is 'turned on', and should be written.
+
+  function is_enabled_0dint(var)
+    integer, intent(in) :: var
+    logical :: is_enabled_0dint
+    is_enabled_0dint = .true.  ! scalars are always enabled
+    return
+  end function is_enabled_0dint
+
+  function is_enabled_1dint(var)
+    integer, dimension(:), intent(in) :: var
+    logical :: is_enabled_1dint
+    if (size(var)>0) then
+      is_enabled_1dint = .true.
+    else
+      is_enabled_1dint = .false.
+    endif
+    return
+  end function is_enabled_1dint
+
+  function is_enabled_2dint(var)
+    integer, dimension(:,:), intent(in) :: var
+    logical :: is_enabled_2dint
+    if (size(var)>0) then
+      is_enabled_2dint = .true.
+    else
+      is_enabled_2dint = .false.
+    endif
+    return
+  end function is_enabled_2dint
+
+  function is_enabled_0dreal(var)
+    real(dp), intent(in) :: var
+    logical :: is_enabled_0dreal
+    is_enabled_0dreal = .true.  ! scalars are always enabled
+    return
+  end function is_enabled_0dreal
+
+  function is_enabled_1dreal(var)
+    real(dp), dimension(:), intent(in) :: var
+    logical :: is_enabled_1dreal
+    if (size(var)>0) then
+      is_enabled_1dreal = .true.
+    else
+      is_enabled_1dreal = .false.
+    endif
+    return
+  end function is_enabled_1dreal
+
+  function is_enabled_2dreal(var)
+    real(dp), dimension(:,:), intent(in) :: var
+    logical :: is_enabled_2dreal
+    if (size(var)>0) then
+      is_enabled_2dreal = .true.
+    else
+      is_enabled_2dreal = .false.
+    endif
+    return
+  end function is_enabled_2dreal
+
+  function is_enabled_3dreal(var)
+    real(dp), dimension(:,:,:), intent(in) :: var
+    logical :: is_enabled_3dreal
+    if (size(var)>0) then
+      is_enabled_3dreal = .true.
+    else
+      is_enabled_3dreal = .false.
+    endif
+    return
+  end function is_enabled_3dreal
+
+
   !*****************************************************************************
   ! netCDF input
   !*****************************************************************************  
@@ -621,6 +771,7 @@ contains
     ! read variables
     status = parallel_inq_varid(NCI%id,'hflx_tavg',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%hflx_tavg)) then
        call write_log('  Loading hflx_tavg')
        status = distributed_get_var(NCI%id, varid, &
             data%hflx_tavg, (/1,1,infile%current_time/))
@@ -633,10 +784,15 @@ contains
           call write_log("scaling hflx_tavg",GM_DIAGNOSTIC)
           data%hflx_tavg = data%hflx_tavg*scaling_factor
        end if
+    else
+    call write_log('Variable hflx_tavg was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'outmask',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%out_mask)) then
        call write_log('  Loading outmask')
        status = distributed_get_var(NCI%id, varid, &
             data%out_mask, (/1,1,infile%current_time/))
@@ -649,10 +805,15 @@ contains
           call write_log("scaling outmask",GM_DIAGNOSTIC)
           data%out_mask = data%out_mask*scaling_factor
        end if
+    else
+    call write_log('Variable outmask was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'rofi_tavg',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%rofi_tavg)) then
        call write_log('  Loading rofi_tavg')
        status = distributed_get_var(NCI%id, varid, &
             data%rofi_tavg, (/1,1,infile%current_time/))
@@ -665,10 +826,15 @@ contains
           call write_log("scaling rofi_tavg",GM_DIAGNOSTIC)
           data%rofi_tavg = data%rofi_tavg*scaling_factor
        end if
+    else
+    call write_log('Variable rofi_tavg was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'rofl_tavg',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%rofl_tavg)) then
        call write_log('  Loading rofl_tavg')
        status = distributed_get_var(NCI%id, varid, &
             data%rofl_tavg, (/1,1,infile%current_time/))
@@ -681,10 +847,15 @@ contains
           call write_log("scaling rofl_tavg",GM_DIAGNOSTIC)
           data%rofl_tavg = data%rofl_tavg*scaling_factor
        end if
+    else
+    call write_log('Variable rofl_tavg was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'siced',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%siced)) then
        call write_log('  Loading siced')
        status = distributed_get_var(NCI%id, varid, &
             data%siced, (/1,1,infile%current_time/))
@@ -697,10 +868,15 @@ contains
           call write_log("scaling siced",GM_DIAGNOSTIC)
           data%siced = data%siced*scaling_factor
        end if
+    else
+    call write_log('Variable siced was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
     status = parallel_inq_varid(NCI%id,'snowd',varid)
     if (status .eq. nf90_noerr) then
+    if (is_enabled(data%snowd)) then
        call write_log('  Loading snowd')
        status = distributed_get_var(NCI%id, varid, &
             data%snowd, (/1,1,infile%current_time/))
@@ -713,6 +889,10 @@ contains
           call write_log("scaling snowd",GM_DIAGNOSTIC)
           data%snowd = data%snowd*scaling_factor
        end if
+    else
+    call write_log('Variable snowd was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
     end if
 
   end subroutine glint_io_read

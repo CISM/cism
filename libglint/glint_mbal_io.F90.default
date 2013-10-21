@@ -1,6 +1,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! WARNING: this file was automatically generated on
-! Mon, 21 Oct 2013 18:58:53 +0000
+! Mon, 21 Oct 2013 20:01:29 +0000
 ! from ncdf_template.F90.in
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -44,12 +44,24 @@ module glint_mbal_io
   !*FD template for creating subsystem specific I/O routines
   !*FD written by Magnus Hagdorn, 2004
 
+  use glint_type
+
   implicit none
 
-  private :: get_xtype
+  private :: get_xtype, is_enabled, is_enabled_0dint, is_enabled_1dint, is_enabled_2dint, is_enabled_0dreal, is_enabled_1dreal, is_enabled_2dreal, is_enabled_3dreal
 
   character(310), save :: restart_variable_list=''    !*FD list of variables needed for a restart
 !TODO change 310 to a variable - see glimmer_ncdf.F90 in the definition for type glimmer_nc_stat for other instances of this value.
+
+  interface is_enabled  ! MJH 10/21/13: Interface needed for determining if arrays have been enabled.  See notes below in glint_mbal_io_create.
+    module procedure is_enabled_0dint
+    module procedure is_enabled_1dint
+    module procedure is_enabled_2dint
+    module procedure is_enabled_0dreal
+    module procedure is_enabled_1dreal
+    module procedure is_enabled_2dreal
+    module procedure is_enabled_3dreal
+  end interface is_enabled
 
 contains
 
@@ -64,7 +76,7 @@ contains
     use glimmer_ncio
     implicit none
     type(glide_global_type) :: model
-    type(glint_instance), optional :: data
+    type(glint_instance) :: data ! MJH 10/21/13: Making 'data' mandatory.  See notes below in glint_mbal_io_create
     type(glimmer_nc_output),optional,pointer :: outfiles
     
     ! local variables
@@ -77,11 +89,7 @@ contains
     end if
 
     do while(associated(oc))
-       if (present(data)) then
-          call glint_mbal_io_create(oc,model,data)
-       else
-          call glint_mbal_io_create(oc,model)
-       end if
+       call glint_mbal_io_create(oc,model,data)
        oc=>oc%next
     end do
   end subroutine glint_mbal_io_createall
@@ -147,9 +155,13 @@ contains
     implicit none
     type(glimmer_nc_output), pointer :: outfile
     type(glide_global_type) :: model
-    type(glint_instance), optional :: data
+    type(glint_instance) :: data    ! MJH 10/21/13: Making 'data' mandatory.  See note below
 
     integer status,varid,pos
+
+    ! MJH 10/21/13: Local variables needed for checking if a variable is enabled.
+    real(dp) :: tavgf
+    integer :: up
 
     integer :: level_dimid
     integer :: time_dimid
@@ -239,6 +251,23 @@ contains
     endif
 
 
+    ! MJH, 10/21/13: In the auto-generated code below, the creation of each output variable is wrapped by a check if the data for that 
+    !   variable has a size greater than 0.  This is because of recently added checks in glide_types.F90 that don't fully allocate
+    !   some variables if certain model options are disabled.  This is to lower memory requirements while running the model.
+    !   The reason they have to be allocated with size zero rather than left unallocated is because the data for
+    !   some netCDF output variables is defined with math, which causes an error if the operands are unallocated.
+    !   Note that if a variable is not created, then it will not be subsequently written to.
+    !   Also note that this change requires that data be a mandatory argument to this subroutine.
+
+    ! Some output variables will need tavgf.  The value does not matter, but it must exist.  
+    ! Nonetheless, for completeness give it the proper value that it has in glint_mbal_io_write.
+    tavgf = outfile%total_time
+    if (tavgf.ne.0.d0) then
+       tavgf = 1.d0/tavgf
+    end if
+    ! Similarly, some output variables use the variable up.  Give it value of 0 here.
+    up = 0
+
     !     level -- sigma layers
     if (.not.outfile%append) then
        call write_log('Creating variable level')
@@ -297,6 +326,7 @@ contains
       NCO%vars(pos+1:pos+12) = '            '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%mbal_accum%ablt)) then
        call write_log('Creating variable instant_ablt')
        status = parallel_def_var(NCO%id,'instant_ablt',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -306,6 +336,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable instant_ablt was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     instant_acab -- instantaneous mass-balance
@@ -315,6 +348,7 @@ contains
       NCO%vars(pos+1:pos+12) = '            '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%mbal_accum%acab)) then
        call write_log('Creating variable instant_acab')
        status = parallel_def_var(NCO%id,'instant_acab',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -324,6 +358,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable instant_acab was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     instant_artm -- instantaneous air temperature
@@ -333,6 +370,7 @@ contains
       NCO%vars(pos+1:pos+12) = '            '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%mbal_accum%artm)) then
        call write_log('Creating variable instant_artm')
        status = parallel_def_var(NCO%id,'instant_artm',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -342,6 +380,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable instant_artm was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     instant_humidity -- instantaneous humidity
@@ -351,6 +392,7 @@ contains
       NCO%vars(pos+1:pos+16) = '                '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%mbal_accum%humidity)) then
        call write_log('Creating variable instant_humidity')
        status = parallel_def_var(NCO%id,'instant_humidity',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -360,6 +402,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable instant_humidity was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     instant_lwdown -- instantaneous lw down
@@ -369,6 +414,7 @@ contains
       NCO%vars(pos+1:pos+14) = '              '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%mbal_accum%lwdown)) then
        call write_log('Creating variable instant_lwdown')
        status = parallel_def_var(NCO%id,'instant_lwdown',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -378,6 +424,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable instant_lwdown was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     instant_prcp -- instantaneous precip
@@ -387,6 +436,7 @@ contains
       NCO%vars(pos+1:pos+12) = '            '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%mbal_accum%prcp)) then
        call write_log('Creating variable instant_prcp')
        status = parallel_def_var(NCO%id,'instant_prcp',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -396,6 +446,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable instant_prcp was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     instant_psurf -- instantaneous surface pressure
@@ -405,6 +458,7 @@ contains
       NCO%vars(pos+1:pos+13) = '             '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%mbal_accum%psurf)) then
        call write_log('Creating variable instant_psurf')
        status = parallel_def_var(NCO%id,'instant_psurf',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -414,6 +468,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable instant_psurf was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     instant_siced -- superimposed ice depth
@@ -423,6 +480,7 @@ contains
       NCO%vars(pos+1:pos+13) = '             '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%mbal_accum%siced)) then
        call write_log('Creating variable instant_siced')
        status = parallel_def_var(NCO%id,'instant_siced',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -432,6 +490,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable instant_siced was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     instant_snowd -- snow depth
@@ -441,6 +502,7 @@ contains
       NCO%vars(pos+1:pos+13) = '             '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%mbal_accum%snowd)) then
        call write_log('Creating variable instant_snowd')
        status = parallel_def_var(NCO%id,'instant_snowd',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -450,6 +512,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable instant_snowd was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     instant_swdown -- instantaneous sw down
@@ -459,6 +524,7 @@ contains
       NCO%vars(pos+1:pos+14) = '              '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%mbal_accum%swdown)) then
        call write_log('Creating variable instant_swdown')
        status = parallel_def_var(NCO%id,'instant_swdown',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -468,6 +534,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable instant_swdown was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     instant_xwind -- instantaneous x-wind
@@ -477,6 +546,7 @@ contains
       NCO%vars(pos+1:pos+13) = '             '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%mbal_accum%xwind)) then
        call write_log('Creating variable instant_xwind')
        status = parallel_def_var(NCO%id,'instant_xwind',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -486,6 +556,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable instant_xwind was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
     !     instant_ywind -- instantaneous y-wind
@@ -495,6 +568,7 @@ contains
       NCO%vars(pos+1:pos+13) = '             '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%mbal_accum%ywind)) then
        call write_log('Creating variable instant_ywind')
        status = parallel_def_var(NCO%id,'instant_ywind',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -504,6 +578,9 @@ contains
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
+     else
+     call write_log('Variable instant_ywind was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
      end if
 
   end subroutine glint_mbal_io_create
@@ -647,6 +724,79 @@ contains
     endif
 
   end subroutine glint_mbal_add_to_restart_variable_list
+
+
+  ! Functions for the interface 'is_enabled'.  These are needed by the auto-generated code in glint_mbal_io_create
+  !   to determine if a variable is 'turned on', and should be written.
+
+  function is_enabled_0dint(var)
+    integer, intent(in) :: var
+    logical :: is_enabled_0dint
+    is_enabled_0dint = .true.  ! scalars are always enabled
+    return
+  end function is_enabled_0dint
+
+  function is_enabled_1dint(var)
+    integer, dimension(:), intent(in) :: var
+    logical :: is_enabled_1dint
+    if (size(var)>0) then
+      is_enabled_1dint = .true.
+    else
+      is_enabled_1dint = .false.
+    endif
+    return
+  end function is_enabled_1dint
+
+  function is_enabled_2dint(var)
+    integer, dimension(:,:), intent(in) :: var
+    logical :: is_enabled_2dint
+    if (size(var)>0) then
+      is_enabled_2dint = .true.
+    else
+      is_enabled_2dint = .false.
+    endif
+    return
+  end function is_enabled_2dint
+
+  function is_enabled_0dreal(var)
+    real(dp), intent(in) :: var
+    logical :: is_enabled_0dreal
+    is_enabled_0dreal = .true.  ! scalars are always enabled
+    return
+  end function is_enabled_0dreal
+
+  function is_enabled_1dreal(var)
+    real(dp), dimension(:), intent(in) :: var
+    logical :: is_enabled_1dreal
+    if (size(var)>0) then
+      is_enabled_1dreal = .true.
+    else
+      is_enabled_1dreal = .false.
+    endif
+    return
+  end function is_enabled_1dreal
+
+  function is_enabled_2dreal(var)
+    real(dp), dimension(:,:), intent(in) :: var
+    logical :: is_enabled_2dreal
+    if (size(var)>0) then
+      is_enabled_2dreal = .true.
+    else
+      is_enabled_2dreal = .false.
+    endif
+    return
+  end function is_enabled_2dreal
+
+  function is_enabled_3dreal(var)
+    real(dp), dimension(:,:,:), intent(in) :: var
+    logical :: is_enabled_3dreal
+    if (size(var)>0) then
+      is_enabled_3dreal = .true.
+    else
+      is_enabled_3dreal = .false.
+    endif
+    return
+  end function is_enabled_3dreal
 
 
   !*****************************************************************************
