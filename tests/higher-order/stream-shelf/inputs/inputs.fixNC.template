@@ -1,5 +1,7 @@
 amr.restart_file = chk.@STEPSPERYEAR_per_year_@STEP.2d.hdf5
 main.poutBaseName = pout.@STEPSPERYEAR_per_year_fixNC
+amr.plot_prefix = plot.@STEPSPERYEAR_per_year.fixNC.
+
 
 #inputs file for Amr ice-sheet solver
 main.maxTime = 10000000000  # maximum time to run to
@@ -16,8 +18,9 @@ constRate.A = 9.467e-18 #from Goldberg (2012)
 constRate.epsSqr0 = 1.0e-16
 
 #restarting from a BISICLES checkpoint overrides the info from CISM
+
 #uncomment this at initial restart to set time back to zero
-#amr.restart_time = 0.0833333333333
+#amr.restart_time = 0.0
 
 # CISM uses 2 ghost cells
 glimmerInterface.numGhost = 2 2 
@@ -52,11 +55,10 @@ geometry.topographyDefault = -1000.0
 geometry.beta_type = constantBeta
 geometry.betaValue = 30.4582 # value from Goldberg et al
 
-# don't reset floating friction to zero for circular shelf problem
+# don't reset floating friction to zero (for circular shelf problem)
 #amr.reset_floating_friction = true
 
 geometry.basalSlope = 0 0 0 
-#geometry.basalSlope = 0  0
 
 #amr.gridsFile = grids.dat
 
@@ -77,25 +79,22 @@ bc.hi_bc = 1 0 0
 amr.additional_velocity = 0
 
 amr.temporal_accuracy = 1
-#amr.temporal_accuracy = 2
-#amr.temporal_accuracy = 4
 
 amr.cfl = 0.3  # "cfl" number
 amr.initial_cfl = 0.1  # "cfl" number
 amr.max_dt_grow_factor = 1.1 #max amount dt can grow from one timestep to another
 
-#amr.do_initial_velocity_solve = 0 #debugging help -- makes runs go faster
+#amr.do_initial_velocity_solve = 0 # debugging aid
 
 
-amr.plot_interval = 1
-amr.plot_prefix = plot.12_per_year.restart.
-amr.write_solver_rhs = 1
+amr.plot_interval = -1
+amr.write_solver_rhs = 0
 amr.write_preSolve_plotfiles = false
-amr.write_flux_velocities = true
-amr.write_base_velocities = true
+amr.write_flux_velocities = false
+amr.write_base_velocities = false
 
 amr.check_interval = -1
-amr.check_prefix = chk.12_per_year_restart
+amr.check_prefix = chk.fixNC.
 amr.check_overwrite = true
 amr.verbosity = 5
 
@@ -128,6 +127,8 @@ amr.do_initial_velocity_solve = 1
 amr.initial_velocity_guess_type = 1 # linear PDE
 amr.initial_velocity_guess_const_mu = 9.9e+6
 amr.initial_velocity_guess_solver_type = 0 # Picard
+
+#------------- solver parameters ---------------------
 
 amr.velocity_solver_tolerance = 1.0e-10
 
@@ -170,5 +171,6 @@ JFNKSolver.RelaxTol = 1.0e-5
 JFNKSolver.maxRelaxIter = 50
 JFNKSolver.vtopRelaxTol = 0
 
-
+# bottom solver for multigrid: 0 = BiCGStab, 1 = petsc
+JFNKSolver.bottom_solver_type = 1
 

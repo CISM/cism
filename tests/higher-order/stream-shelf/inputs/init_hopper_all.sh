@@ -61,23 +61,10 @@ NSTEP=0
 while [ $NSTEP -le $NEND ]
 do 
 #  echo $NSTEP
-  if [ $NSTEP -le 9 ]
-  then
-    STEP="0000"$NSTEP
-  elif [ $NSTEP -lt 99 ]
-  then 
-    STEP="000"$NSTEP
-  elif [ $NSTEP -lt 999 ]
-  then 
-    STEP="00"$NSTEP
-  elif [ $NSTEP -lt 9999 ]
-  then 
-    STEP="0"$NSTEP
-  else
-    STEP=$n
-  fi
+
+STEP=$(printf "%05i" $NSTEP)
 #  echo $STEP
-    
+
 #    TSTART=$(($STEP * $DT))
 #   echo $TSTART
 
