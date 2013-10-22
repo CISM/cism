@@ -1,9 +1,9 @@
 #!/bin/ksh
 
 #commonly changed parameters
-NEND=30 # number of iterations we're doing
-#RUNHOME=/scratch/users/dmartin/newXylar
-RUNHOME=.
+NEND=800 # number of iterations we're doing
+RUNHOME=/scratch2/scratchdirs/dmartin/Goldberg/bisicles-rerun/bisicles
+#RUNHOME=.
 #directory containing input nc files
 
 
@@ -61,7 +61,6 @@ NSTEP=0
 while [ $NSTEP -le $NEND ]
 do 
 #  echo $NSTEP
-
 STEP=$(printf "%05i" $NSTEP)
 #  echo $STEP
 
@@ -92,7 +91,7 @@ done
 #generate hopper qsub file
 
 echo "generating qsub file for hopper"
-QSUBFILE=BISICLES-all.$STEPSPERYEAR$PERYEAR.hopper
+QSUBFILE=$RUNHOME/BISICLES-all.$STEPSPERYEAR$PERYEAR.hopper
 
 #clean up pre-existing files
 rm -f $QSUBFILE
@@ -102,30 +101,18 @@ echo "#PBS -l mppwidth=24" >> $QSUBFILE
 echo "#PBS -l walltime=6:00:00" >> $QSUBFILE
 echo "#PBS -N BISICLES-all-$STEPSPERYEAR$PERYEAR" >> $QSUBFILE
 echo "#PBS -V " >> $QSUBFILE
+echo "#PBS -m abe" >> $QSUBFILE
 echo "  " >> $QSUBFILE
 echo "cd \$PBS_O_WORKDIR/$STEPSPERYEAR$PERYEAR" >> $QSUBFILE
 
 LASTSTEP=""
-NSTEP=2
+#NSTEP=2
+NSTEP=98
 
 while [ $NSTEP -le $NEND ]
 do 
 #  echo "step = "  $NSTEP
-  if [ $NSTEP -le 9 ]
-  then
-    STEP="0000"$NSTEP
-  elif [ $NSTEP -lt 99 ]
-  then 
-    STEP="000"$NSTEP
-  elif [ $NSTEP -lt 999 ]
-  then 
-    STEP="00"$NSTEP
-  elif [ $NSTEP -lt 9999 ]
-  then 
-    STEP="0"$NSTEP
-  else
-    STEP=$n
-  fi
+  STEP=$(printf "%05i" $NSTEP)
 
   echo "aprun -n 16 ../simple_bisicles stream-shelf.3_per_year.$STEP.config " >> $QSUBFILE
 
