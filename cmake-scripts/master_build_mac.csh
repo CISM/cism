@@ -10,9 +10,13 @@
 #add logic at the top to decide which versions to build 
 
 # !!! moved this to .bashrc !!!
-setenv TEST_DIR "~/work/modeling/cism/seacism-oceans11/tests/higher-order"
 
-setenv CODE_DIR "~/work/modeling/cism/seacism-oceans11"
+setenv TEST_DIR "/Users/abi/mac_run"
+
+setenv CODE_DIR "/usr/local/trunk"
+
+setenv GLIMMER_TRILINOS_DIR "/usr/local/trilinos-11.4.1-Install"
+
 cd $CODE_DIR
 setenv build_no 0
 setenv build_cmake 1

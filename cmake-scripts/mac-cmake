@@ -15,7 +15,7 @@ echo
 echo "Doing CMake Configuration step"
 
 cmake \
-  -D GLIMMER_TRILINOS_DIR=/Users/agsalin/Trilinos/glimmer12/install \
+  -D GLIMMER_TRILINOS_DIR=$GLIMMER_TRILINOS_DIR \
   -D GLIMMER_NETCDF_DIR="/opt/local" \
   -D CMAKE_Fortran_FLAGS="-g -O2 -ffree-line-length-none" \
   -D CMAKE_VERBOSE_MAKEFILE=OFF \
