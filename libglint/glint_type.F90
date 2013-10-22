@@ -39,6 +39,7 @@ module glint_type
   use glint_interp
   use glide_types
   use glint_mbal_coupling, only: glint_mbc, mbal_has_snow_model
+  use glint_mbal
 
   implicit none
 
@@ -50,7 +51,18 @@ module glint_type
                                                ! (hold the ice state fixed at initial condition)
   integer, parameter :: EVOLVE_ICE_TRUE  = 1   ! let the ice sheet evolve
 
-  !TODO - Add other Glint options here to avoid hardwiring of case numbers
+!  These are defined in glint_mbal to avoid a circular dependency
+!  integer, parameter :: MASS_BALANCE_GCM = 0       ! receive mass balance from global climate model
+!  integer, parameter :: MASS_BALANCE_PDD = 1       ! compute mass balance using positive-degree-day scheme
+!  integer, parameter :: MASS_BALANCE_ACCUM = 2     ! accumulation only 
+!  integer, parameter :: MASS_BALANCE_EBM = 3       ! compute mass balance using energy-balance model
+!  integer, parameter :: MASS_BALANCE_DAILY_PDD = 4 ! compute mass balance using energy-balance model
+!  Note: Option 3 is not presently supported.
+    
+  integer, parameter :: PRECIP_STANDARD = 1    ! use large-scale precip field as is
+  integer, parameter :: PRECIP_RL = 2          ! use Roe-Lindzen paramterization
+  
+  !TODO - Add other Glint options here to avoid hardwiring of case numbers?
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -146,14 +158,15 @@ module glint_type
      !*FD \item[1] PDD mass-balance model
      !*FD \item[2] Accumulation only 
      !*FD \item[3] RAPID energy balance model
+     !*FD \item[4] daily PDD mass-balance model
      !*FD \end{description}
 
      integer :: whichprecip = 1
 
      !*FD Source of precipitation:
      !*FD \begin{description}
-     !*FD \item[1] Use large-scale precip as is.
-     !*FD \item[2] Use parameterization of \emph{Roe and Lindzen} 
+     !*FD \item[1] Use large-scale precip as is
+     !*FD \item[2] Use parameterization of Roe and Lindzen
      !*FD \end{description}
 
      integer :: use_mpint = 0
@@ -479,7 +492,7 @@ contains
        call write_log('The ice sheet state will not evolve after initialization')
     endif
 
-    if (instance%whichacab /= 0) then  ! not getting SMB from GCM
+    if (instance%whichacab /= MASS_BALANCE_GCM) then  ! not getting SMB from GCM
        write(message,*) 'ice_albedo  ',instance%ice_albedo
        call write_log(message)
        write(message,*) 'lapse_rate  ',instance%lapse_rate

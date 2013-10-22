@@ -76,7 +76,7 @@ contains
     call interp_to_local(instance%lgrid_fulldomain,g_temp_range,instance%downs,localdp=instance%arng,z_constrain=.true.)
     call interp_to_local(instance%lgrid_fulldomain,g_precip,    instance%downs,localdp=instance%prcp,z_constrain=.true.)
 
-    if (instance%whichacab==3) then
+    if (instance%whichacab==MASS_BALANCE_EBM) then
        call interp_to_local(instance%lgrid_fulldomain,g_humid,   instance%downs,localdp=instance%humid,z_constrain=.true.)
        call interp_to_local(instance%lgrid_fulldomain,g_lwdown,  instance%downs,localdp=instance%lwdown)
        call interp_to_local(instance%lgrid_fulldomain,g_swdown,  instance%downs,localdp=instance%swdown)
@@ -85,7 +85,7 @@ contains
 
     if (orogflag) call interp_to_local(instance%lgrid_fulldomain,g_orog,instance%downs,localdp=instance%global_orog,z_constrain=.true.)
 
-    if (instance%whichprecip==2 .or. instance%whichacab==3) &
+    if (instance%whichprecip==PRECIP_RL .or. instance%whichacab==MASS_BALANCE_EBM) &
          call interp_wind_to_local(instance%lgrid_fulldomain,g_zonwind,g_merwind,instance%downs,instance%xwind,instance%ywind)
 
   end subroutine glint_downscaling

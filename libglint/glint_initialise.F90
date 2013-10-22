@@ -302,8 +302,8 @@ contains
     call glint_io_writeall(instance, instance%model)
     call glint_mbal_io_writeall(instance, instance%model, outfiles=instance%out_first)
 
-    if (instance%whichprecip == 2) need_winds=.true.
-    if (instance%whichacab == 3) then
+    if (instance%whichprecip == PRECIP_RL) need_winds=.true.
+    if (instance%whichacab == MASS_BALANCE_EBM) then   ! not currently supported
        need_winds = .true.
        enmabal = .true.
     end if
@@ -855,12 +855,13 @@ contains
 
     ! The variables rofi_tavg, rofl_tavg, and hflx_tavg are time-averaged fluxes on the local grid
     !  from the previous coupling interval. They are included here so that the coupler can be sent
-    !  the correct fluxes after restart; otherwise these fluxes would be zeroed out.
-    ! These arrays are associated only when Glint is run in gcm mode.
-
-    if (associated(instance%rofi_tavg)) call glint_add_to_restart_variable_list('rofi_tavg')
-    if (associated(instance%rofl_tavg)) call glint_add_to_restart_variable_list('rofl_tavg')
-    if (associated(instance%hflx_tavg)) call glint_add_to_restart_variable_list('hflx_tavg')
+    !  the correct fluxes after restart; otherwise these fluxes would have values of zero.
+    ! These arrays are created only when Glint is run in GCM mode.
+    !TODO - Add av_count_output so we can restart in the middle of a mass balance timestep?
+   
+    if (instance%whichacab == MASS_BALANCE_GCM) then
+       call glint_add_to_restart_variable_list('rofi_tavg rofl_tavg hflx_tavg')
+    endif
 
     ! Variables needed for restart with glint_mbal
     ! No variables had hot=1 in glint_mbal_vars.def, so I am not adding any restart variables here.

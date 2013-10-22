@@ -157,9 +157,11 @@ contains
   subroutine glint_upscaling_gcm(instance,    nec,      &
                                  nxl,         nyl,      &
                                  nxg,         nyg,      &
+                                 box_areas,             &
                                  gfrac,       gtopo,    &
                                  grofi,       grofl,    &
-                                 ghflx)
+                                 ghflx,                 &
+                                 init_call)
 
     ! Upscale fields from the local grid to the global grid (with multiple elevation classes).
     ! Output fields are only valid on the main task.
@@ -170,6 +172,9 @@ contains
     use glimmer_log
     use parallel, only: tasks, main_task
 
+!WHL - debug
+    use glimmer_paramets, only: tim0
+
     ! Arguments ----------------------------------------------------------------------------
  
     type(glint_instance), intent(inout) :: instance      ! the model instance
@@ -177,18 +182,17 @@ contains
     integer,              intent(in)    :: nxl,nyl       ! local grid dimensions 
     integer,              intent(in)    :: nxg,nyg       ! global grid dimensions 
 
-    !TODO - Should these be inout?
-    !       Remove hardwired dimensions?
+    real(dp),dimension(nxg,nyg),    intent(in)  :: box_areas ! global grid cell areas (m^2)
     real(dp),dimension(nxg,nyg,nec),intent(out) :: gfrac   ! ice-covered fraction [0,1]
     real(dp),dimension(nxg,nyg,nec),intent(out) :: gtopo   ! surface elevation (m)
     real(dp),dimension(nxg,nyg,nec),intent(out) :: ghflx   ! heat flux (m)
     real(dp),dimension(nxg,nyg),    intent(out) :: grofi   ! ice runoff (calving) flux (kg/m^2/s)
     real(dp),dimension(nxg,nyg),    intent(out) :: grofl   ! liquid runoff (basal melt) flux (kg/m^2/s)
  
+    logical, intent(in), optional :: init_call   ! true if called during initialization
+
     ! Internal variables ----------------------------------------------------------------------
  
-!    real(dp),dimension(nxl,nyl) :: local_field, local_topo, local_thck
-
     !TODO - Put this parameter elsewhere? 
     real(dp), parameter :: min_thck = 0.d0    ! min thickness (m) for setting gfrac = 1
 
@@ -202,11 +206,6 @@ contains
     real(dp) ::   &
        usrf,               &! surface elevation (m)
        thck                 ! ice thickness (m)
-!       ucondflx,           &! conductive heat flux at upper surface (W m-2)
-!                            ! defined as positive down
-!       calving,            &! time-average calving rate (kg m-2 s-1)
-!       bmlting              ! time-average rate of basal/internal melting (kg m-2 s-1)
-!                            ! (melting at top surface is handled by GCM)
 
     real(dp), dimension(nxl,nyl) ::  &
        area_l               ! local gridcell area
@@ -235,9 +234,13 @@ contains
     !TODO - Pass in topomax as an argument instead of hardwiring it here
     real(dp), dimension(0:nec) :: topomax   ! upper elevation limit of each class
 
-!WHL - debug
-!    integer :: nloc
-!    print*, 'Start upscaling'
+    logical :: first_call   ! if calling the first time, then do not average the accumulated fluxes
+                            ! use values from restart file if available
+
+    first_call = .false.
+    if (present(init_call)) then
+       if (init_call) first_call = .true.
+    endif 
 
     dew = get_dew(instance%model)
     dns = get_dns(instance%model)
@@ -276,11 +279,11 @@ contains
     endif
 
     ! The following output only works correctly if running with a single task
+    ig = iglint_global    ! defined in glint_type
+    jg = jglint_global
+    il = instance%model%numerics%idiag
+    jl = instance%model%numerics%jdiag
     if (GLC_DEBUG .and. tasks==1) then
-       ig = iglint_global    ! defined in glint_type
-       jg = jglint_global
-       il = instance%model%numerics%idiag
-       jl = instance%model%numerics%jdiag
        write(stdout,*) 'In glint_upscaling_gcm'
        write(stdout,*) 'il, jl =', il, jl
        write(stdout,*) 'ig, jg =', ig, jg
@@ -317,17 +320,20 @@ contains
     area_rofl_l(:,:) = 0.d0
     area_rofl_g(:,:) = 0.d0
 
-    !TODO - Call a short subroutine to compute these?
-    ! Compute time-average fluxes
+    ! Compute time-average fluxes (unless called during initialization)
 
-    if (instance%av_count_output > 0) then
-       instance%rofi_tavg(:,:) = instance%rofi_tavg(:,:) / real(instance%av_count_output,dp)
-       instance%rofl_tavg(:,:) = instance%rofl_tavg(:,:) / real(instance%av_count_output,dp)
-       instance%hflx_tavg(:,:) = instance%hflx_tavg(:,:) / real(instance%av_count_output,dp)
+    if (first_call) then
+       ! do nothing; use values from restart file if restarting
     else
-       instance%rofi_tavg(:,:) = 0.d0
-       instance%rofl_tavg(:,:) = 0.d0
-       instance%hflx_tavg(:,:) = 0.d0
+       if (instance%av_count_output > 0) then
+          instance%rofi_tavg(:,:) = instance%rofi_tavg(:,:) / real(instance%av_count_output,dp)
+          instance%rofl_tavg(:,:) = instance%rofl_tavg(:,:) / real(instance%av_count_output,dp)
+          instance%hflx_tavg(:,:) = instance%hflx_tavg(:,:) / real(instance%av_count_output,dp)
+       else
+          instance%rofi_tavg(:,:) = 0.d0
+          instance%rofl_tavg(:,:) = 0.d0
+          instance%hflx_tavg(:,:) = 0.d0
+       endif
     endif
 
     ! Reset the logical variable for averaging output
@@ -405,6 +411,7 @@ contains
 !    print*, ' '
 !    print*, 'il, jl, area_l:', il, jl, area_l(il,jl)
 !    print*, 'ig, jg, area_g:', ig, jg, area_g(ig,jg)
+!    print*, 'ig, jg, box_area:', ig, jg, box_areas(ig,jg)
 !    print*, 'area_g/area_l:', area_g(ig,jg)/area_l(il,jl)
 
     ! Loop over elevation classes for gfrac, gtopo, ghflx
@@ -510,13 +517,18 @@ contains
     do i = 1, nxg
 
        ! Find mean ice runoff from calving 
+       ! Note: Here we divide by box_areas (the area of the global grid cell), which in general is not equal
+       !       to area_g (the sum over area of the local grid cells associated with the global cell).
+       !       We do this to ensure conservation of ice mass (=flux*area) when multiplying later by the
+       !       area of the global grid cell.
+
        if (area_g(i,j) > 0.d0) then
-          grofi(i,j) = area_rofi_g(i,j) / area_g(i,j)
+          grofi(i,j) = area_rofi_g(i,j) / box_areas(i,j)
        endif
 
        ! Find mean liquid runoff from internal/basal melting 
        if (area_g(i,j) > 0.d0) then      
-          grofl(i,j) = area_rofl_g(i,j) / area_g(i,j)
+          grofl(i,j) = area_rofl_g(i,j) / box_areas(i,j)
        endif
 
 !WHL - debug
@@ -524,6 +536,7 @@ contains
 !          print*, ' '
 !          print*, 'i, j =', i, j
 !          print*, 'area_g =', area_g(i,j)
+!          print*, 'box_areas =', box_areas(i,j)
 !          print*, 'area_rofi_g =', area_rofi_g(i,j)
 !          print*, 'area_rofl_g =', area_rofl_g(i,j)
 !          print*, 'grofi(kg/m2/s) =', grofi(i,j)
@@ -551,8 +564,7 @@ contains
 
     use glimmer_paramets, only: thk0, tim0
 
-!WHL - debug - Uncomment if specifying the model fields for testing
-!    use glimmer_scales, only: scale_acab
+    use glimmer_scales, only: scale_acab  ! for testing
 
 !WHL - debug - Set to inout if specifying the model fields for testing
     type(glide_global_type), intent(in)  :: model
@@ -566,8 +578,8 @@ contains
 
 !WHL - debug - Uncomment if specifying the model fields for testing
 
-    ! calving field for testing (10 m, scaled to model units)
-!    model%climate%calving(:,:) = 10.d0 / thk0
+    ! calving field for testing (1 m, scaled to model units)
+!    model%climate%calving(:,:) = 1.0d0 / thk0
           
     ! bmlt field for testing (1 m/yr, scaled to model units)
 !    model%temper%bmlt(:,:) = 1.0d0 / scale_acab
@@ -618,22 +630,11 @@ contains
     ! Accumulate basal heat flux
     !--------------------------------------------------------------------
 
-    !TODO - Associate and compute uncondflx for SIA dycore
-    !       Currently computed only for HO dycore
- 
-    if (associated(model%temper%ucondflx)) then
-
     ! Note on units: model%temper%ucondflx has units of W/m^2, positive down
     !                Flip the sign so that hflx_tavg is positive up.
 
-       hflx_tavg(:,:) = hflx_tavg(:,:) &
-                      - model%temper%ucondflx(:,:)
-
-    else
-
-       ! do nothing; hflx will be zero
-
-    endif
+    hflx_tavg(:,:) = hflx_tavg(:,:) &
+                   - model%temper%ucondflx(:,:)
 
   end subroutine glint_accumulate_output_gcm
 

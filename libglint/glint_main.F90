@@ -889,17 +889,18 @@ contains
        ! Upscale the output fields for this instance
 
        if (GLC_DEBUG .and. main_task) then
-          print*, 'Do upscaling, i =', i
+          print*, 'Do initial upscaling, i =', i
        endif
 
-!WHL - New gcm subroutine for upscaling
        call glint_upscaling_gcm(params%instances(i), params%g_grid%nec, &
                                 params%instances(i)%lgrid%size%pt(1),   &
                                 params%instances(i)%lgrid%size%pt(2),   &
                                 params%g_grid%nx,    params%g_grid%ny,  &
+                                params%g_grid%box_areas,                &   
                                 gfrac_temp,          gtopo_temp,        &
                                 grofi_temp,          grofl_temp,        &
-                                ghflx_temp )
+                                ghflx_temp,                             &
+                                init_call = .true.)
 
        ! Splice together with the global output
 
@@ -1548,6 +1549,7 @@ contains
                                       params%instances(i)%lgrid%size%pt(1),   &
                                       params%instances(i)%lgrid%size%pt(2),   &
                                       params%g_grid%nx,    params%g_grid%ny,  &
+                                      params%g_grid%box_areas,                &
                                       gfrac_temp,          gtopo_temp,        &
                                       grofi_temp,          grofl_temp,        &
                                       ghflx_temp )

@@ -35,9 +35,9 @@ module glint_mbal
   use glint_daily_pdd
 
 #ifdef USE_ENMABAL  ! This option is *not* suppported
-  use smb_mecons       ! might exist somewhere, but not part of a Glint release
+  use smb_mecons  ! might exist somewhere, but not part of a Glint release
 #else
-  use glint_ebm        ! dummy wrapper
+  use glint_ebm   ! dummy wrapper
 #endif
 
   implicit none
@@ -52,9 +52,16 @@ module glint_mbal
      integer :: tstep !*FD Timestep of mass-balance scheme in hours
   end type glint_mbal_params
 
+  integer, parameter :: MASS_BALANCE_GCM = 0       ! receive mass balance from global climate model
+  integer, parameter :: MASS_BALANCE_PDD = 1       ! compute mass balance using positive-degree-day scheme
+  integer, parameter :: MASS_BALANCE_ACCUM = 2     ! accumulation only 
+  integer, parameter :: MASS_BALANCE_EBM = 3       ! compute mass balance using energy-balance model
+  integer, parameter :: MASS_BALANCE_DAILY_PDD = 4 ! compute mass balance using energy-balance model
+!  Note: Option 3 is not presently supported.
+    
 contains
 
-  subroutine glint_mbal_init(params,config,which,nx,ny,dxr)
+  subroutine glint_mbal_init(params,config,whichacab,nx,ny,dxr)
 
     use glimmer_config
     use glimmer_log
@@ -64,13 +71,13 @@ contains
 
     type(glint_mbal_params)      :: params !*FD parameters to be initialised
     type(ConfigSection), pointer :: config !*FD structure holding sections of configuration file
-    integer,intent(in)           :: which  !*FD selector for pdd type
+    integer,intent(in)           :: whichacab  !*FD selector for mass balance type
     integer                      :: nx,ny  !*FD grid dimensions (for EBM)
     real(dp)                     :: dxr    !* Grid length (for EBM)
 
     ! Copy selector
 
-    params%which=which
+    params%which=whichacab
 
     ! Deallocate if necessary
 
@@ -81,21 +88,21 @@ contains
     ! Allocate desired type and initialise
     ! Also check we have a valid value of which
 
-    select case(which)
+    select case(whichacab)
     ! Note: Mass balance timestep and accum time are typically assumed to be one year.
-    case(0)
+    case(MASS_BALANCE_GCM)
        params%tstep=years2hours   ! mbal tstep = 1 year
-    case(1)
+    case(MASS_BALANCE_PDD)
        allocate(params%annual_pdd)
        call glint_pdd_init(params%annual_pdd,config)
        params%tstep=years2hours
-    case(2)
+    case(MASS_BALANCE_ACCUM)
        params%tstep=years2hours
-    case(3)
+    case(MASS_BALANCE_EBM)
        allocate(params%ebm)
        params%tstep=6
        call EBMInitWrapper(params%ebm,nx,ny,nint(dxr),params%tstep*60,'/data/ggdagw/src/ebm/ebm_config/online')
-    case(4)
+    case(MASS_BALANCE_DAILY_PDD)
        allocate(params%daily_pdd)
        call glint_daily_pdd_init(params%daily_pdd,config)
        params%tstep=days2hours
@@ -139,11 +146,11 @@ contains
     real(dp),dimension(size(acab,1),size(acab,2)) :: acab_temp
 
     select case(params%which)
-    case(1)
+    case(MASS_BALANCE_PDD)
        call glint_pdd_mbal(params%annual_pdd,artm,arng,prcp,ablt,acab,landsea) 
-    case(2) 
+    case(MASS_BALANCE_ACCUM) 
        acab = prcp
-    case(3)
+    case(MASS_BALANCE_EBM)
        ! The energy-balance model will go here...
        ! NB SLM will be thickness array...
        call EBMStepWrapper(params%ebm,acab_temp,thck,real(artm,dp),real(prcp*1000.d0,dp),U10m,V10m,humidity,SWdown,LWdown,Psurf)
@@ -157,7 +164,7 @@ contains
           snowd= 0.d0
           siced= 0.d0
        end where
-    case(4)
+    case(MASS_BALANCE_DAILY_PDD)
        call glint_daily_pdd_mbal(params%daily_pdd,artm,arng,prcp,snowd,siced,ablt,acab,landsea)
     end select
 
@@ -169,7 +176,7 @@ contains
 
     type(glint_mbal_params)      :: params 
 
-    if (params%which==4) then
+    if (params%which==MASS_BALANCE_DAILY_PDD) then
        mbal_has_snow_model=.true.
     else
        mbal_has_snow_model=.false.

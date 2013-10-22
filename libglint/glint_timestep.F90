@@ -816,10 +816,10 @@ contains
 
     select case (instance%whichprecip)
 
-    case(1)
+    case(PRECIP_STANDARD)
        ! Do nothing to the precip field
 
-    case(2)
+    case(PRECIP_RL)
        ! Use the Roe/Lindzen parameterisation
        call glint_precip(instance%prcp, &
                          instance%xwind, &
@@ -838,7 +838,6 @@ contains
 
     ! Convert from mm/s to m/s - very important!
 
-!WHL    instance%prcp = instance%prcp*0.001
     instance%prcp = instance%prcp * 1.d-3
 
   end subroutine glint_calc_precip
