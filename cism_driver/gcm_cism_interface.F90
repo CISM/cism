@@ -120,18 +120,13 @@ subroutine gci_run_model(g2c)
         print *,"In gci_run_model, calling cism_run_dycore"
         call cism_run_dycore(g2c%glide_model)
 
-        ! call gci_finished(gcm_model,finished)
-        ! if (gci_finished(g2c) .EQ. 1) exit
-        finished = .true.
-      case (GCM_DATA_MODEL)
+      case (GCM_DATA_MODEL,GCM_CESM)
+        ! print *,"In gci_run_model, calling g2c_glint_run"
         call g2c_glint_run(g2c)
-
-!     case (GCM_CESM)
-      ! call gcm_glint_GetCommandline_proxy()
-      ! call g2c_glint_init(g2c) 
-
+        call g2c_glint_climate_time_step(g2c)
       case default
     end select
+    finished = (gci_finished(g2c))
   end do
 end subroutine gci_run_model
 
@@ -142,8 +137,16 @@ function gci_finished(g2c) result(finished)
   type(gcm_to_cism_type) :: g2c
   logical :: finished
  
-  ! do something with g2c
-  finished = .true.
+  select case (g2c%which_gcm)
+    case (GCM_MINIMAL_MODEL)
+      finished = .true.
+
+    case (GCM_DATA_MODEL,GCM_CESM)
+      call g2c_glint_check_finished(g2c,finished)
+      ! print *,"In gci_run_model, finished = ",finished
+    case default
+  end select
+  
 end function gci_finished
 
 
@@ -156,7 +159,7 @@ subroutine gci_finalize_interface(g2c)
       call cism_init_dycore(g2c%glide_model)
  
     case (GCM_DATA_MODEL)
-      call g2c_glint_init(g2c)
+      call g2c_glint_end(g2c)
 
     case (GCM_CESM)
       ! call gcm_glint_GetCommandline_proxy()

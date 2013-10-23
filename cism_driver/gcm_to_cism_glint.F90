@@ -317,8 +317,9 @@ subroutine g2c_glint_init(g2c)
      endif
   endif
 
-!WHL - debug                                  
-    print*, 'g2c_glint_init is done'
+  g2c%time = g2c%climate%climate_tstep     ! time in integer hours
+                                 
+  print*, 'g2c_glint_init is done'
 
 end subroutine g2c_glint_init
 
@@ -332,9 +333,9 @@ subroutine g2c_glint_run(g2c)
   !TODO - Timestepping as in simple_glide?  Initialize with time = 0, then update time right after 'do'
   !       This would require changing some time logic inside the Glint subroutines.
 
-  g2c%time = g2c%climate%climate_tstep     ! time in integer hours
+!  g2c%time = g2c%climate%climate_tstep     ! time in integer hours
 
-  do
+!  do
 
     !      The SMB is computed crudely for now, just to test the GCM interfaces.
     !      At some point we could read in a realistic SMB as in CESM TG runs.
@@ -393,10 +394,10 @@ subroutine g2c_glint_run(g2c)
 
      endif   ! gcm_smb
 
-     g2c%time = g2c%time + g2c%climate%climate_tstep
-     if (g2c%time > g2c%climate%total_years*g2c%climate%hours_in_year) exit
+     !g2c%time = g2c%time + g2c%climate%climate_tstep
+     !  if (g2c%time > g2c%climate%total_years*g2c%climate%hours_in_year) exit
 
-  end do  ! main timestep loop
+!  end do  ! main timestep loop
 
   if (GLC_DEBUG) then
      ! Print time so as to have something to watch while the code runs
@@ -404,9 +405,23 @@ subroutine g2c_glint_run(g2c)
   end if
 end subroutine g2c_glint_run
 
-subroutine g2c_glint_end(g2c)
 
+subroutine g2c_glint_climate_time_step(g2c)
+  type(gcm_to_cism_type) :: g2c
+
+  g2c%time = g2c%time + g2c%climate%climate_tstep
+end subroutine g2c_glint_climate_time_step
+
+subroutine g2c_glint_check_finished(g2c,finished)
    type(gcm_to_cism_type) :: g2c
+   logical :: finished
+
+   if (g2c%time > g2c%climate%total_years*g2c%climate%hours_in_year) finished = .true.
+end subroutine g2c_glint_check_finished
+
+
+subroutine g2c_glint_end(g2c)
+  type(gcm_to_cism_type) :: g2c
 
   ! Finalise/tidy up everything -----------------------------------------------------------
 
