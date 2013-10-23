@@ -614,8 +614,12 @@ contains
     
     call GetValue(section, 'external_dycore_type', model%options%external_dycore_type)
     call GetValue(section, 'dycore_input_file',  model%options%dycore_input_file)
-    print *,"In handle_dycore_options, type_code, input file = ", &
+    if (model%options%external_dycore_type .eq. 1) model%options%whichdycore = 4 ! DYCORE_BISICLES
+    if (model%options%external_dycore_type .eq. 2) model%options%whichdycore = 3 ! DYCORE_ALBANYFELIX
+
+    print *,"In handle_dycore_options, external dycore type, input file = ", &
              model%options%external_dycore_type,model%options%dycore_input_file 
+    ! print *,"In handle_dycore_options, whichdycore = ",model%options%whichdycore
   end subroutine handle_dycore_options
 
 !--------------------------------------------------------------------------------
@@ -634,11 +638,12 @@ contains
 
     ! basic Glide/Glimmer options
 
-    character(len=*), dimension(0:3), parameter :: dycore = (/ &
+    character(len=*), dimension(0:4), parameter :: dycore = (/ &
          'glide              ', &  ! Glimmer SIA
          'glam               ', &  ! Payne-Price finite difference
          'glissade           ', &  ! prototype finite element
-         'albany-felix       ' /)  ! External Albany-FELIX finite element 
+         'albany-felix       ', &  ! External Albany-FELIX finite element
+         'bisicles           ' /)  ! External BISICLES-Chombo FVM 
 
     character(len=*), dimension(0:5), parameter :: evolution = (/ &
          'pseudo-diffusion                      ', &
