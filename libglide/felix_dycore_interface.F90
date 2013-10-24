@@ -27,6 +27,8 @@
 
 module felix_dycore_interface
 
+   use glimmer_physcon,  only : scyr
+   use glimmer_paramets, only : vel0, tau0, vis0
    use glide_types
    use glimmer_log
    use parallel
@@ -107,7 +109,7 @@ contains
       !-----------------------------------------------------------------
 
 
-      if (this_rank == 0) print *, 'DEBUG: Inside felix_velo_init.'
+      if (this_rank == 3) print *, 'DEBUG: Inside felix_velo_init.'
 
       ! === First do any preparations needed on the CISM side (if any)
 
@@ -181,10 +183,16 @@ contains
                                                  thk0 * model%geometry%thck, &
                                                  thk0 * model%geometry%usrf, &
                                                  thk0 * model%geometry%topg,&
-                                                 thk0 * model%numerics%thklim)
+                                                 thk0 * model%numerics%thklim, &
+                                                 (tau0 / vel0 / scyr) *model%velocity%beta, &
+                                                 (vis0*scyr) *model%temper%flwa)
 
 
-
+      !IK, 10/24/13, notes to self:
+      !To use constant flwa = 1e-16, set flow_law = 0 in input (config) file
+      !To use beta field from .nc file, set which_ho_babc = 5 in input (config)
+      !file; to use no-slip, set which_ho_babc = 4
+     
 
       !-----------------------------------------------------------------
       !
@@ -199,7 +207,7 @@ contains
       !-----------------------------------------------------------------
 
 
-      if (this_rank == 0) print *, 'DEBUG: Inside felix_velo_driver.'
+      if (this_rank == 3) print *, 'DEBUG: Inside felix_velo_driver.'
 
       ! === First do any preparations needed on the CISM side
 
@@ -302,9 +310,6 @@ contains
 ! codes.  Note also that this needs to be converted to km as Albany/FELIX uses meshes in km not
 ! meters. 
 !
-! NOTE: The above list of stuff to be passed to Albany/FELIX is not complete but
-! a startint point.  Ultimately beta will need to be passed as well (anything
-! else?). 
 !
 !-----------------------------------------------------------------------
 
@@ -314,7 +319,8 @@ contains
                                                     dx,         dy,           &
                                                     thck,       usrf,         &
                                                     topg,                     &
-                                                    thklim)
+                                                    thklim,     beta,         &
+                                                    flwa)
 
       !-----------------------------------------------------------------
       !
@@ -343,8 +349,13 @@ contains
 
 
        real(dp), intent(in) ::   &
-       thklim                 ! minimum ice thickness for active cells (m)
+       thklim                   ! minimum ice thickness for active cells (m)
 
+       real(dp), dimension(:,:), intent(in) ::  &
+       beta                     ! basal traction parameter
+
+       real(dp), dimension(:,:,:), intent(in) ::  &
+       flwa                     ! flow factor parameter
 
 
       !-----------------------------------------------------------------
@@ -416,6 +427,25 @@ contains
                                           !local -> global IDs for the
                                           !elements
 
+      !IK, 10/24/13: beta_at_nodes will need to be passed to Albany/FELIX 
+      !These values are divided by 1000 to convert from meters to kPa a m^(-1),
+      !as
+      !Albany/FELIX takes meshes in km (so beta needs to be converted to the
+      !appropriate units).  
+      !TO DO: make beta_at_nodes  have intent(out) 
+      real(dp), dimension((nx-2*nhalo+1)*(ny-2*nhalo+1)*nz) ::  &
+      beta_at_nodes                         !This is an extension of
+                                            !beta to 3D        
+
+      !IK, 10/24/13: flwa_at_active_cells will need to be passed to Albany/FELIX 
+      !This is the value of the flow factor at the elements
+      !These values are multilied by 1.0e12 to convert to Albany/FELIX units
+      !TO DO: make flwa_at_active_cells  have intent(out) 
+      real(dp), dimension(:, :), allocatable ::  &
+      flwa_at_active_cells                  !This is essentially flwa in 
+                                            !vector form and at only the active
+                                            !cells      
+
 
       !-----------------------------------------------------------------
       !
@@ -463,6 +493,11 @@ contains
                                       !Next 4 columns give the connectivity for the boundary
                                       !face   
 
+      real(dp), dimension((nx-2*nhalo)*(ny-2*nhalo)*(nz-1)) ::  &
+      flwa_at_cells                 !This is a vector form of flwa, defined at
+                                    !all the elements
+
+
       integer :: i, j, k, l
       real(dp) :: x, y !x and y coordinates of vertices
       integer :: gnx, gny !for temporary calculation of global vertex/cell # in x  global vertex/cell # in y
@@ -477,8 +512,6 @@ contains
      ! TO DO (IK, 9/18/13): 
      ! - Make stuff that needs to be passed to Albany/FELIX an out argument of
      ! this function 
-     ! - Ultimately will need to have this function return other stuff, e.g.,
-     ! beta, temperature, etc. 
      !--------------------------------------------------------------------
 
      !IK, 9/9/13: printing for debug 
@@ -561,10 +594,10 @@ contains
          do i = nhalo, nx-nhalo
       !  do j = 1+nhalo, ny-nhalo+1
       !  do i = 1+nhalo, nx-nhalo+1
-           xyz_at_nodes(k,3) = (stagusrf(i,j) - sigma(l)*stagthck(i,j))/1000.0
            !divide by 1000 to convert to km for Albany/FELIX
-           surf_height_at_nodes(k) = stagusrf(i,j)/1000.0 !divide by 1000 to convert to km
-                                                !for Albany/FELIX
+           xyz_at_nodes(k,3) = (stagusrf(i,j) - sigma(l)*stagthck(i,j))/1000.0
+           surf_height_at_nodes(k) = stagusrf(i,j)/1000.0 
+           beta_at_nodes(k) = beta(i,j)/1000.0;
            k = k + 1
          enddo
        enddo
@@ -572,11 +605,12 @@ contains
 
      !IK, 9/12/13: printing output for debugging/checking node
      !numbering/coordinates 
-     if (this_rank == 0) then
+     if (this_rank == 3) then
        do l=1, (nx-2*nhalo+1)*(ny-2*nhalo+1)*nz
          print *, 'x, y, z: ',  xyz_at_nodes(l,1), xyz_at_nodes(l,2), xyz_at_nodes(l,3)
          print *, 'global node: ', global_node_id_owned_map(l)
          print *, 'sh: ', surf_height_at_nodes(l)
+         print *, 'beta: ', beta_at_nodes(l)
        enddo
       endif
 
@@ -596,6 +630,22 @@ contains
        endif
      enddo
      enddo
+
+     !IK, 10/24/13: populate flwa_at_cells array from flwa array, and change
+     !units to Albany/FELIX units
+     k = 1
+     do l = 1, nz-1
+       do j = 1+nhalo, ny-nhalo
+         do i = 1+nhalo, nx-nhalo
+           flwa_at_cells(k) = flwa(l,i,j)*(1.0E12) !scale flwa by 1e12 to get units
+                                                   !consistent with those in
+                                                   !Albany/FELIX
+           k = k + 1;
+         enddo
+       enddo
+     enddo
+
+
 
      !--------------------------------------------------------------------------
      ! Creation of hexahedral mesh and global numbering of elements (IK, 9/8/13)
@@ -656,18 +706,19 @@ contains
        global_element_conn(i, 9) = x_GID      + nodes_x*y_GIDplus1 + nNodes2D*z_GIDplus1 + 1
      enddo
 
-     !dynamically allocate global_element_conn_active, global_basal_face_conn_active arrays
+     !dynamically allocate arrays that depent on # active cells
      allocate(global_element_conn_active(nCellsActive*(nz-1), 8))
      allocate(global_element_id_active_owned_map(nCellsActive*(nz-1),1))
      allocate(global_basal_face_conn_active(nCellsActive, 5))
      allocate(global_basal_face_id_active_owned_map(nCellsActive,1))
-     !IK, 9/9/13: do dynamically-allocated array GlobalEles_3D_active, 
-     !global_basal_face_conn_active arrays need to be deallocated/deleted?  
+     allocate(flwa_at_active_cells(nCellsActive*(nz-1), 1))
+     !IK, 9/9/13: do dynamically-allocated arrays need to be deallocated/deleted?  
      k = 1
      do i = 1, nElesProc3D
        if (active_cell_vector3D(i)) then
          global_element_conn_active(k, 1:8) = global_element_conn(i,2:9)
          global_element_id_active_owned_map(k,1) = global_element_conn(i,1)
+         flwa_at_active_cells(k,1) = flwa_at_cells(i)
          k = k + 1
        endif
      enddo
@@ -681,15 +732,16 @@ contains
      enddo
 
     !IK, 9/12/13: printing output for debugging/checking element numbering 
-    if (this_rank == 0) then
+    if (this_rank == 3) then
      do l=1, nCellsActive*(nz-1)
        print *, 'element connectivity active: ', global_element_conn_active(l,1:8)
        print *, 'global element #: ', global_element_id_active_owned_map(l,1)
+       print *, 'flwa: ', flwa_at_active_cells(l,1)
      enddo
      endif
 
     !IK, 9/12/13: printing output for debugging/checking basal face numbering 
-    if (this_rank == 0) then
+    if (this_rank == 3) then
     do l=1, nCellsActive
       print *, 'face connectivity active: ', global_basal_face_conn_active(l,1:5)
       print *, 'global face #: ', global_basal_face_id_active_owned_map(l,1)
