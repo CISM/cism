@@ -109,7 +109,7 @@ contains
       !-----------------------------------------------------------------
 
 
-      if (this_rank == 3) print *, 'DEBUG: Inside felix_velo_init.'
+      if (this_rank == 0) print *, 'DEBUG: Inside felix_velo_init.'
 
       ! === First do any preparations needed on the CISM side (if any)
 
@@ -207,7 +207,7 @@ contains
       !-----------------------------------------------------------------
 
 
-      if (this_rank == 3) print *, 'DEBUG: Inside felix_velo_driver.'
+      if (this_rank == 0) print *, 'DEBUG: Inside felix_velo_driver.'
 
       ! === First do any preparations needed on the CISM side
 
@@ -605,7 +605,7 @@ contains
 
      !IK, 9/12/13: printing output for debugging/checking node
      !numbering/coordinates 
-     if (this_rank == 3) then
+     if (this_rank == 0) then
        do l=1, (nx-2*nhalo+1)*(ny-2*nhalo+1)*nz
          print *, 'x, y, z: ',  xyz_at_nodes(l,1), xyz_at_nodes(l,2), xyz_at_nodes(l,3)
          print *, 'global node: ', global_node_id_owned_map(l)
@@ -696,14 +696,14 @@ contains
        !IK, 9/8/13: below the +1 is added to make the connectivity 1-based
        !like in Fortran -- the node numbering has been created with this
        !convention    
-       global_element_conn(i, 2) = x_GID      + nodes_x*y_GID      + nNodes2D*z_GID + 1
-       global_element_conn(i, 3) = x_GIDplus1 + nodes_x*y_GID      + nNodes2D*z_GID + 1
-       global_element_conn(i, 4) = x_GIDplus1 + nodes_x*y_GIDplus1 + nNodes2D*z_GID + 1
-       global_element_conn(i, 5) = x_GID      + nodes_x*y_GIDplus1 + nNodes2D*z_GID + 1
-       global_element_conn(i, 6) = x_GID      + nodes_x*y_GID      + nNodes2D*z_GIDplus1 + 1
-       global_element_conn(i, 7) = x_GIDplus1 + nodes_x*y_GID      + nNodes2D*z_GIDplus1 + 1
-       global_element_conn(i, 8) = x_GIDplus1 + nodes_x*y_GIDplus1 + nNodes2D*z_GIDplus1 + 1
-       global_element_conn(i, 9) = x_GID      + nodes_x*y_GIDplus1 + nNodes2D*z_GIDplus1 + 1
+       global_element_conn(i, 2) = x_GID      + nodes_x*y_GID      + nNodes2D*z_GIDplus1 + 1
+       global_element_conn(i, 3) = x_GIDplus1 + nodes_x*y_GID      + nNodes2D*z_GIDplus1 + 1
+       global_element_conn(i, 4) = x_GIDplus1 + nodes_x*y_GIDplus1 + nNodes2D*z_GIDplus1 + 1
+       global_element_conn(i, 5) = x_GID      + nodes_x*y_GIDplus1 + nNodes2D*z_GIDplus1 + 1
+       global_element_conn(i, 6) = x_GID      + nodes_x*y_GID      + nNodes2D*z_GID + 1
+       global_element_conn(i, 7) = x_GIDplus1 + nodes_x*y_GID      + nNodes2D*z_GID + 1
+       global_element_conn(i, 8) = x_GIDplus1 + nodes_x*y_GIDplus1 + nNodes2D*z_GID + 1
+       global_element_conn(i, 9) = x_GID      + nodes_x*y_GIDplus1 + nNodes2D*z_GID + 1
      enddo
 
      !dynamically allocate arrays that depent on # active cells
@@ -732,7 +732,7 @@ contains
      enddo
 
     !IK, 9/12/13: printing output for debugging/checking element numbering 
-    if (this_rank == 3) then
+    if (this_rank == 0) then
      do l=1, nCellsActive*(nz-1)
        print *, 'element connectivity active: ', global_element_conn_active(l,1:8)
        print *, 'global element #: ', global_element_id_active_owned_map(l,1)
@@ -741,7 +741,7 @@ contains
      endif
 
     !IK, 9/12/13: printing output for debugging/checking basal face numbering 
-    if (this_rank == 3) then
+    if (this_rank == 0) then
     do l=1, nCellsActive
       print *, 'face connectivity active: ', global_basal_face_conn_active(l,1:5)
       print *, 'global face #: ', global_basal_face_id_active_owned_map(l,1)
