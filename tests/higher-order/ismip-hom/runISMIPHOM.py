@@ -253,11 +253,11 @@ if __name__ == '__main__':
 
               if netCDF_module == 'Scientific.IO.NetCDF':
                 if experiment in ('a','c'):
-                  ISMIP_HOMfile.write('\t'.join(map(str,[x,y]+[v[0,level,j,i][0]*scale_factor for (v,level,scale_factor) in data]))+'\n')
+                  ISMIP_HOMfile.write('\t'.join(map(str,[x,y]+[v[0,level,j,i]*scale_factor[0] for (v,level,scale_factor) in data]))+'\n')
                 if experiment in ('b','d','e'):
-                  ISMIP_HOMfile.write('\t'.join(map(str,[x]+[v[0,level,ny/2,i][0]*scale_factor for (v,level,scale_factor) in data]))+'\n')
+                  ISMIP_HOMfile.write('\t'.join(map(str,[x]+[v[0,level,ny/2,i]*scale_factor[0] for (v,level,scale_factor) in data]))+'\n')
                 elif experiment == 'f':
-                  ISMIP_HOMfile.write('\t'.join(map(str,[x,y,data[0][0][-1,j,i][0]]+[v[-1,level,j,i][0]*scale_factor for (v,level,scale_factor) in data[1:]]))+'\n')
+                  ISMIP_HOMfile.write('\t'.join(map(str,[x,y,data[0][0][-1,j,i][0]]+[v[-1,level,j,i]*scale_factor[0] for (v,level,scale_factor) in data[1:]]))+'\n')
               else:
                 if experiment in ('a','c'):
                   ISMIP_HOMfile.write('\t'.join(map(str,[x,y]+[v[0,level,j,i]*scale_factor for (v,level,scale_factor) in data]))+'\n')

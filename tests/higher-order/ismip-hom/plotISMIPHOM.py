@@ -192,7 +192,7 @@ if __name__ == '__main__':
 
 #     Calculate statistics of the other model results
       if sum(count) == 0:
-        print 'To compare with other models you need to download the ISMIP-HOM results from: http://www.the-cryosphere.net/2/95/2008/tc-2-95-2008-supplement.zipand unzip to a directory named ismip_all.  The ismip_all directory must be in the directory from which you are running this script.'
+        print 'To compare with other models you need to download the ISMIP-HOM results from: http://www.the-cryosphere.net/2/95/2008/tc-2-95-2008-supplement.zip and unzip the contained file tc-2007-0019-sp2.zip into a directory named ismip_all.  The ismip_all directory must be in the directory from which you are running this script.'
       else:
 #       Find the mean and standard deviation of the velocities at each x
         for index in (firstOrder,fullStokes):
