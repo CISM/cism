@@ -59,16 +59,14 @@ if ($build_no == 1 ) then
 else
 # simplest case, runs build and on a range of small processor counts 
  echo 'submitting jobs to compute nodes'
-##diagnostic dome test case
-#cd $TEST_DIR/reg_test/dome30/diagnostic
-#sh macjob
 
-#evolving dome test case
+#diagnostic dome test case
 cd $TEST_DIR/reg_test/dome30/diagnostic
 sh macjob
 
-#cd $TEST_DIR/reg_test/dome30/evolving
-#sh macjob
+#evolving dome test case
+cd $TEST_DIR/reg_test/dome30/evolving
+sh macjob
 
 # confined shelf to periodic BC
 cd $TEST_DIR/reg_test/confined-shelf
