@@ -145,7 +145,7 @@
        identity3                ! 3 x 3 identity matrix
 
     real(dp), parameter ::   &
-       eps12 = 1.d-12           ! small number
+       eps11 = 1.d-11           ! small number
 
 !WHL - TODO - Keep volume scale?
     real(dp) :: vol0    ! volume scale = dx * dy * (1000 m)
@@ -5000,7 +5000,7 @@
 
     do j = 1, nNodesPerElement
        do i = j, nNodesPerElement
-          if (abs(Kuu(i,j) - Kuu(j,i)) > eps12) then
+          if (abs(Kuu(i,j) - Kuu(j,i)) > eps11) then
              print*, 'Kuu is not symmetric'
              print*, 'i, j, Kuu(i,j), Kuu(j,i):', i, j, Kuu(i,j), Kuu(j,i)
              stop
@@ -5012,7 +5012,7 @@
 
     do j = 1, nNodesPerElement
        do i = j, nNodesPerElement
-          if (abs(Kvv(i,j) - Kvv(j,i)) > eps12) then
+          if (abs(Kvv(i,j) - Kvv(j,i)) > eps11) then
              print*, 'Kvv is not symmetric'
              print*, 'i, j, Kvv(i,j), Kvv(j,i):', i, j, Kvv(i,j), Kvv(j,i)
              stop
@@ -5024,7 +5024,7 @@
 
     do j = 1, nNodesPerElement
        do i = 1, nNodesPerElement
-          if (abs(Kuv(i,j) - Kvu(j,i)) > eps12) then
+          if (abs(Kuv(i,j) - Kvu(j,i)) > eps11) then
              print*, 'Kuv .ne. (Kvu)^T'
              print*, 'i, j, Kuv(i,j), Kvu(j,i):', i, j, Kuv(i,j), Kvu(j,i)
              stop
@@ -5119,7 +5119,7 @@
                          ! if difference is small, then fix the asymmetry by averaging values
                          ! else print a warning and abort
 
-                         if ( abs(val2-val1) < eps12*diag_entry ) then
+                         if ( abs(val2-val1) < eps11*diag_entry ) then
                             avg_val = 0.5d0 * (val1 + val2)
                             Auu( m, k,   i,   j   ) = avg_val
                             Auu(mm, k+kA,i+iA,j+jA) = avg_val
@@ -5145,7 +5145,7 @@
                          ! if difference is small, then fix the asymmetry by averaging values
                          ! else print a warning and abort
 
-                         if ( abs(val2-val1) < eps12*diag_entry ) then
+                         if ( abs(val2-val1) < eps11*diag_entry ) then
                             avg_val = 0.5d0 * (val1 + val2)
                             Auv( m, k,   i,   j   ) = avg_val
                             Avu(mm, k+kA,i+iA,j+jA) = avg_val
@@ -5191,7 +5191,7 @@
                          ! if difference is small, then fix the asymmetry by averaging values
                          ! else print a warning and abort
 
-                         if ( abs(val2-val1) < eps12*diag_entry ) then
+                         if ( abs(val2-val1) < eps11*diag_entry ) then
                             avg_val = 0.5d0 * (val1 + val2)
                             Avv( m, k,   i,   j   ) = avg_val
                             Avv(mm, k+kA,i+iA,j+jA) = avg_val
@@ -5217,7 +5217,7 @@
                          ! if difference is small, then fix the asymmetry by averaging values
                          ! else print a warning and abort
 
-                         if ( abs(val2-val1) < eps12*diag_entry ) then
+                         if ( abs(val2-val1) < eps11*diag_entry ) then
                             avg_val = 0.5d0 * (val1 + val2)
                             Avu( m, k,   i,   j   ) = avg_val
                             Auv(mm, k+kA,i+iA,j+jA) = avg_val
@@ -5446,7 +5446,7 @@
 
        m = indxA(0,0,0)
        diag_entry = Auu(m,k,i,j)
-       min_entry = eps12 * diag_entry
+       min_entry = eps11 * diag_entry
 
        ! Remove very small values
 
@@ -5477,7 +5477,7 @@
 
        m = indxA(0,0,0)
        diag_entry = Avv(m,k,i,j)
-       min_entry = eps12 * diag_entry
+       min_entry = eps11 * diag_entry
 
        ! Remove very small values
 
