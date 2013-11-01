@@ -196,7 +196,7 @@ contains
                        model%velocity%uvel(model%general%upn,:,:),   &
                        model%velocity%vvel(model%general%upn,:,:),   &
                        model%temper%bwat,                            &
-                       model%basalproc%mintauf,                      &
+                       model%paramets%ho_beta_const,                 &
                        geom_mask_stag,                               &
                        model%velocity%beta)
 
@@ -220,7 +220,6 @@ contains
                                   model%geomderv%dusrfdew, model%geomderv%dusrfdns,           &
                                   model%geomderv%dlsrfdew, model%geomderv%dlsrfdns,           & 
                                   model%geomderv%stagthck, model%temper%flwa,                 &
-!!                                  model%temper%bwat,       model%basalproc%mintauf,           & 
                                   model%velocity%btraction,                                   & 
                                   geom_mask_stag,                                             &
                                   model%options%which_ho_babc,                                &

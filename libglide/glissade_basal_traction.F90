@@ -71,12 +71,12 @@ contains
 
 !***********************************************************************
 
-  subroutine calcbeta (whichbabc,               &
-                       dew,         dns,        &
-                       ewn,         nsn,        &
-                       thisvel,     othervel,   &
-                       bwat,        mintauf,    &
-                       mask,        beta,       &
+  subroutine calcbeta (whichbabc,                  &
+                       dew,         dns,           &
+                       ewn,         nsn,           &
+                       thisvel,     othervel,      &
+                       bwat,        beta_const,    &
+                       mask,        beta,          &
                        betafile)
 
   ! subroutine to calculate map of beta sliding parameter, based on 
@@ -90,7 +90,12 @@ contains
   integer, intent(in) :: ewn, nsn
 
   real(dp), intent(in) :: dew, dns
-  real(dp), intent(in), dimension(:,:) :: thisvel, othervel, mintauf, bwat
+  real(dp), intent(in), dimension(:,:) :: thisvel, othervel
+
+  real(dp), intent(in), dimension(:,:) :: bwat  ! basal water depth
+
+  real(dp), intent(in) :: beta_const  ! spatially uniform beta (Pa yr/m)
+
   integer, intent(in), dimension(:,:) :: mask 
 
   real(dp), intent(inout), dimension(ewn-1,nsn-1) :: beta
@@ -116,11 +121,16 @@ contains
 
 !TODO - Remove scaling here?
 
+!WHL - debug
+  print*, ' '
+  print*, 'In calcbeta, whichbabc =', whichbabc
+
   select case(whichbabc)
 
-    case(HO_BABC_CONSTANT)  ! constant value; useful for debugging and test cases
+    case(HO_BABC_CONSTANT)  ! spatially uniform value; useful for debugging and test cases
 
-      beta(:,:) = 10.d0       ! Pa yr/m
+!      beta(:,:) = 10.d0       ! This is the default value (Pa yr/m)
+      beta(:,:) = beta_const   ! Pa yr/m
 
     case(HO_BABC_SIMPLE)    ! simple pattern; also useful for debugging and test cases
                             ! (here, a strip of weak bed surrounded by stronger bed to simulate an ice stream)
@@ -142,9 +152,6 @@ contains
       !!! NOTE: Eventually, this option will provide the till yield stress as calculate from the basal processes
       !!! submodel. Currently, to enable sliding over plastic till, simple specify the value of "beta" as 
       !!! if it were the till yield stress (in units of Pascals).
-
-       !TODO - Will we ever use mintauf?  It is passed throughout the code but never used
-!      beta = mintauf*tau0 / dsqrt( (thisvel*vel0*scyr)**2 + (othervel*vel0*scyr)**2 + (smallnum)**2 )
 
       beta(:,:) = ( beta(:,:) * ( tau0 / vel0 / scyr ) ) &     ! Pa yr/m
                          / dsqrt( (thisvel(:,:)*vel0*scyr)**2 + (othervel(:,:)*vel0*scyr)**2 + (smallnum)**2 )

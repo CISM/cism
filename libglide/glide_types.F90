@@ -451,16 +451,16 @@ module glide_types
 
     integer :: which_ho_babc = 4
 
-    !*FD Flag that describes basal boundary condition for PP dyn core: 
+    !*FD Flag that describes basal boundary condition for HO dyn core: 
     !*FD \begin{description}
-    !*FD \item[0] constant value of 10 Pa/yr (useful for debugging)
+    !*FD \item[0] spatially uniform value (low value of 10 Pa/yr by default)
     !*FD \item[1] simple hard-coded pattern (useful for debugging)
-    !*FD \item[2] treat betasquared value as a till yield stress (in Pa) using Picard iteration 
+    !*FD \item[2] treat beta value as a till yield stress (in Pa) using Picard iteration 
     !*FD \item[3] linear (inverse) function of bwat 
-    !*FD \item[4] very large value for betasquared to enforce no slip everywhere 
-    !*FD \item[5] betasquared field passed in from .nc input file as part of standard i/o
-    !*FD \item[6] no slip everywhere (using Dirichlet BC rather than large betasquared)
-    !*FD \item[7] treat betasquared value as till yield stress (in Pa) using Newton-type iteration (in devel.)
+    !*FD \item[4] very large value for beta to enforce no slip everywhere 
+    !*FD \item[5] beta field passed in from .nc input file as part of standard i/o
+    !*FD \item[6] no slip everywhere (using Dirichlet BC rather than large beta)
+    !*FD \item[7] treat beta value as till yield stress (in Pa) using Newton-type iteration (in devel.)
     !*FD \end{description}
 
     integer :: which_ho_nonlinear = 0
@@ -1020,8 +1020,6 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  !TODO - Set btrac_const to nonzero value?
-
   type glide_paramets
     real(dp),dimension(5) :: bpar = (/ 0.2d0, 0.5d0, 0.0d0 ,1.0d-2, 1.0d0/)
     real(dp) :: btrac_const = 0.d0     ! m yr^{-1} Pa^{-1} (gets scaled during init)
@@ -1035,6 +1033,8 @@ module glide_types
     real(dp) :: bwat_smooth = 0.01d0   ! basal water field smoothing strength
     real(dp) :: default_flwa = 1.0d-16 ! Glen's A to use in isothermal case, in units Pa^{-n} yr^{-1} 
                                        ! (would change to e.g. 4.6e-18 in EISMINT-ROSS case)
+    real(dp) :: ho_beta_const = 10.d0  ! spatially uniform beta for HO dycores, Pa yr m^{-1} (gets scaled during init)
+
   end type glide_paramets
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

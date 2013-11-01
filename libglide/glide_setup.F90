@@ -1043,6 +1043,8 @@ contains
 
 !!    call GetValue(section,'sliding_constant',  model%climate%slidconst)  ! not currently used
 
+    call GetValue(section,'ho_beta_const',     model%paramets%ho_beta_const)
+
     ! added for ismip-hom
     call GetValue(section,'periodic_offset_ew',model%numerics%periodic_offset_ew)
     call GetValue(section,'periodic_offset_ns',model%numerics%periodic_offset_ns)
@@ -1108,6 +1110,11 @@ contains
        write(message,*) 'basal traction max            : ',model%paramets%btrac_max
        call write_log(message)
        write(message,*) 'basal traction slope          : ',model%paramets%btrac_slope
+       call write_log(message)
+    end if
+
+    if (model%options%which_ho_babc == HO_BABC_CONSTANT) then
+       write(message,*) 'uniform beta (Pa yr/m)        : ',model%paramets%ho_beta_const
        call write_log(message)
     end if
 

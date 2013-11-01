@@ -103,7 +103,7 @@ contains
                      model%velocity%uvel(model%general%upn,:,:),   &
                      model%velocity%vvel(model%general%upn,:,:),   &
                      model%temper%bwat,                            &
-                     model%basalproc%mintauf,                      &
+                     model%paramets%ho_beta_const,                 &
                      geom_mask_stag,                               &
                      model%velocity%beta)
 
