@@ -241,6 +241,11 @@ module parallel
      module procedure staggered_parallel_halo_real8_4d
   end interface
 
+  interface staggered_parallel_halo_extrapolate
+     module procedure staggered_parallel_halo_extrapolate_integer_2d
+     ! *_real8_2d, etc. could be added here if needed
+  end interface
+
   interface parallel_print
      ! Writes a parallel (same on all processors) variable to file by just writing from main_task
      module procedure parallel_print_integer_2d
@@ -3209,7 +3214,7 @@ contains
     a(:,:,local_nsn-uhalo+1:) = nrecv(:,:,:)
 
     if (outflow_bc) then   ! set values in global halo to zero
-                        ! interior halo cells should not be affected
+                           ! interior halo cells should not be affected
 
        if (this_rank >= east) then  ! at east edge of global domain
           a(:,local_ewn-uhalo+1:,:) = 0.d0
@@ -3898,6 +3903,58 @@ contains
     a(1+lhalo:,size(a,2)) = nrecv(:)
 
   end subroutine parallel_velo_halo
+
+  !WHL - new subroutine for extrapolating values into the global halo
+  subroutine staggered_parallel_halo_extrapolate_integer_2d(a)
+
+    implicit none
+    integer,dimension(:,:) :: a
+    integer :: i, j
+
+    ! begin
+
+    ! Confirm staggered array
+    if (size(a,1)/=local_ewn-1 .or. size(a,2)/=local_nsn-1) then
+         write(*,*) "staggered_parallel_halo() requires staggered arrays."
+         call parallel_stop(__FILE__,__LINE__)
+    endif
+
+    ! Extrapolate the staggered field into halo cells along the global boundary.
+    ! Currently this is used only for kinbcmask.
+    ! Note: The extrapolation region includes locally owned cells along
+    !       the north and east boundaries of the global domain.
+
+    if (this_rank >= east) then  ! at east edge of global domain
+       ! extrapolate eastward
+       do i = size(a,1)-staggered_uhalo, size(a,1)
+          a(i, staggered_lhalo+1:size(a,2)-staggered_uhalo-1) = &
+               a(size(a,1)-staggered_uhalo-1, staggered_lhalo+1:size(a,2)-staggered_uhalo-1)
+       enddo
+    endif
+
+    if (this_rank <= west) then  ! at west edge of global domain
+       ! extrapolate westward
+       do i = 1, staggered_lhalo
+          a(i, staggered_lhalo+1:size(a,2)-staggered_uhalo-1) = &
+               a(staggered_lhalo+1, staggered_lhalo+1:size(a,2)-staggered_uhalo-1)
+       enddo
+    endif
+
+    if (this_rank >= north) then  ! at north edge of global domain
+       ! extrapolate northward
+       do j = size(a,2)-staggered_uhalo, size(a,2)
+          a(1:size(a,1), j) = a(1:size(a,1), size(a,2)-staggered_uhalo-1)
+       enddo
+    endif
+
+    if (this_rank <= south) then  ! at south edge of global domain
+       ! extrapolate southward
+       do j = 1, staggered_lhalo
+          a(1:size(a,1), j) = a(1:size(a,1), staggered_lhalo+1)
+       enddo
+    endif
+
+  end subroutine staggered_parallel_halo_extrapolate_integer_2d
 
 
   subroutine staggered_parallel_halo_integer_2d(a)
