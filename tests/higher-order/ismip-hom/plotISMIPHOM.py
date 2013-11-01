@@ -33,7 +33,7 @@ def read(filename,experiment):
     X = 0 # X=0 => plot v vs x;  X=1 => plot v vs y 
     Y = 1 - X
     VX,VY = 2,3
-    target = 0.25
+    target = 0.25  # desired dimensionless y-position to use for the profile
 
   inputfile = open(filename)
   data = list()
@@ -53,6 +53,7 @@ def read(filename,experiment):
 #     Extract the points with the desired (target) y
       return [(row[X],sqrt(row[VX]**2+row[VY]**2)) for row in data if row[Y]==target]
     else:
+      #print "Note: Plotting model output data along profile at dimensionless y-position "+str(target)+" requires interpolation."+filename
 #     Interpolate to the desired (target) y value
       below = 0
       above = 1
@@ -78,7 +79,7 @@ if __name__ == '__main__':
   parser = OptionParser()
   parser.add_option('-e','--exp',dest='experiments',type='string',action='callback',callback=appendToList,help='Which ISMIP-HOM experiments to run')
   parser.add_option('-s','--size',dest='sizes',type='string',action='callback',callback=appendToList,help='Which domain sizes to run')
-  parser.add_option('-p','--prefix',dest='prefix',default='glm1',help='Prefix to use for model output files (defaults to glm1)')
+  parser.add_option('-p','--prefix',dest='prefix',default='cis1',help='Prefix to use for model output files (defaults to cis1)')
   parser.add_option('-t','--title',dest='subtitle',help='Subtitle to place on the created graph')
   parser.add_option('-l','--lmla',dest='lmla',action='store_true',help='Compare to lmla models instead of all partial stokes models')
   options, args = parser.parse_args()
@@ -111,6 +112,7 @@ if __name__ == '__main__':
 
 #   Loop over the sizes requested on the command line
     for i, size in enumerate(map(int,options.sizes)):
+     try:
 
       if experiment == 'f': 
         if size != 100 or len(options.sizes) > 1:
@@ -161,6 +163,9 @@ if __name__ == '__main__':
           else:
             index = firstOrder
           count[index] += 1
+
+          #axes.plot([row[0] for row in data], [row[1] for row in data] )   ## OPTIONAL: print out every individual model in its native x-coordinates.
+
 #         Interpolate onto the x values from the Glimmer model run
           for (i,target) in enumerate([row[0] for row in glimmerData]):
             below = -999
@@ -218,13 +223,21 @@ if __name__ == '__main__':
 
           if index == firstOrder:
 #           Calculate some statistics comparing the Glimmer data with the other models
-            error = [abs(v-m)/m for (v,m) in zip([row[1] for row in glimmerData],mean)]
-            maximum = max(error)
-            position = glimmerData[error.index(maximum)][0]
-            total   = sum([e for e in error])
+            pcterror = [100.0*abs(glimmer-others)/others for (glimmer,others) in zip([row[1] for row in glimmerData],mean)]
+            abserror = [abs(glimmer-others)        for (glimmer,others) in zip([row[1] for row in glimmerData],mean)]
+            maximum = max(pcterror)
+            position = glimmerData[pcterror.index(maximum)][0]
+            total   = sum([e for e in pcterror])
             compare = sum([(s/m) for (s,m) in zip(standardDeviation,mean)])
             n = len(glimmerData)
-            print '\t'.join([str(size)+' km',str(total/n),str(compare/n),str(position)])
+            #print '\t'.join([str(size)+' km',str(total/n),str(compare/n),str(position)])
+            print 'Size='+str(size)+' km' 
+            print '  Mean percent error along flowline of CISM relative to mean of first-order models='+str(total/float(n))+'%'
+            print '  Mean COD (stdev/mean) along flowline of mean of first-order models (excluding CISM)='+str(compare/float(n)*100.0)+'%'
+            print '  Max. CISM percent error='+str(maximum)+'% at x-position '+str(position)
+            print '  Max. CISM absolute error='+str(max(abserror))+' m/yr at x-position '+str(glimmerData[abserror.index(max(abserror))][0])
+     except:
+      print "Error in analyzing/plotting experiment ",experiment," at size ",size," km"
 
     if savePlotInFile:
       filename = os.path.join('output','ISMIP-HOM-'+experiment.upper()+'-'+options.prefix+plotType)
