@@ -34,6 +34,8 @@
 echo
 echo Run this script by typing: source mac-cmake
 echo
+echo Set GLIMMER_TRILINOS_DIR to your Trilinos installation directory.
+echo
 
 # remove old build data:
 rm ./CMakeCache.txt
@@ -57,7 +59,7 @@ cmake \
 \
   -D CISM_GNU=ON \
 \
-  -D GLIMMER_TRILINOS_DIR=~/Trilinos/gcc-build/install \
+  -D GLIMMER_TRILINOS_DIR=$GLIMMER_TRILINOS_DIR \
   -D GLIMMER_NETCDF_DIR=/opt/local \
 \
   -D CMAKE_INSTALL_PREFIX:PATH=$PWD/install \
@@ -70,8 +72,8 @@ cmake \
 \
   -D CISM_MPI_BASE_DIR=/opt/local \
 \
-  -D CMAKE_CXX_FLAGS:STRING="-g " \
-  -D CMAKE_Fortran_FLAGS="-g -ffree-line-length-none" \
+  -D CMAKE_CXX_FLAGS="" \
+  -D CMAKE_Fortran_FLAGS="-g -O2 -ffree-line-length-none" \
 \
   -D GLIMMER_EXTRA_LIBS="-lblas" \
 \
