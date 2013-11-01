@@ -53,7 +53,7 @@
 
     use glimmer_global, only: dp
     use glimmer_physcon, only: gn, rhoi, rhoo, grav, scyr
-    use glimmer_paramets, only: thk0, len0, tim0, tau0, vel0   !TODO - remove these later
+    use glimmer_paramets, only: thk0, len0, tim0, tau0, vel0   !TODO - remove these later?
     use glimmer_paramets, only: vel_scale, len_scale   ! used for whichefvs = HO_EFVS_FLOWFACT
     use glimmer_log, only: write_log
     use glimmer_sparse_type
@@ -160,30 +160,33 @@
 !    logical :: verbose_init = .true.   
     logical :: verbose_Jac = .false.
 !    logical :: verbose_Jac = .true.
+    logical :: verbose_residual = .false.
+!    logical :: verbose_residual = .true.
 
     integer, parameter :: &
-       itest = 26, jtest = 19, ktest = 1, ptest = 1  ! for dome, global (i,j) = (24,17), 1 proc
-!       itest = 26, jtest = 19, ktest = 2, ptest = 1
+       itest = 9, jtest = 19, ktest = 1, ptest = 1  ! for dome, global (i,j) = (7,17), 1 proc
+!       itest = 26, jtest = 19, ktest = 1, ptest = 1  ! for dome, global (i,j) = (24,17), 1 proc
 !       itest = 26, jtest = 19, ktest = 10, ptest = 1
 
-!        itest = 3, jtest = 3, ktest = 1, ptest = 1    ! for ishom.a.80km, global (i,j) = (1,1)
+!        itest = 3, jtest = 3, ktest = 1, ptest = 1    ! for ishom.a, global (i,j) = (1,1)
 !        itest = 22, jtest = 7, ktest = 1, ptest = 1    ! for ishom.a.80km symmetry check
 
 !       itest = 24, jtest = 6, ktest = 1, ptest = 1  ! for confined (south-flowing) shelf, global (i,j) = (22,4), 1 proc
 !       itest = 24, jtest = 42, ktest = 1, ptest = 1  ! for confined (north-flowing) shelf, global (i,j) = (22,40), 1 proc
+!       itest = 11, jtest = 11, ktest = 1, ptest = 1  ! for circular shelf, global (i,j) = (9,9), 1 proc
 
     integer, parameter :: ntest = 2371  ! nodeID for dome global (24,17,1)    
 !    integer, parameter :: ntest = 2372  ! nodeID for dome global (24,17,2)
 !    integer, parameter :: ntest = 2380  ! nodeID for dome global (24,17,10)
     
-!    integer, parameter :: ntest = 1    ! for ishom.a.80km global (i,j) = (1,1)
+!    integer, parameter :: ntest = 1    ! for ishom.a, global (i,j) = (1,1)
 !    integer, parameter :: ntest = 882    ! for ishom.a.80km symmetry check
 
 !    integer, parameter :: ntest = 101  ! nodeID for confined (south-flowing) shelf, global (22,4,1)    
 !    integer, parameter :: ntest = 7701  ! nodeID for confined shelf global (22,40,1)    
+!    integer, parameter :: ntest = 8276  ! nodeID for periodic shelf global (22,40,1)    
 
     integer, parameter :: rtest = 0    ! rank for any single-process run
-!    integer, parameter :: rtest = 0    ! rank for (17,10) with 4 procs
 
 !WHL = debug
     integer, parameter :: rowtest = -999
@@ -491,17 +494,15 @@
                                         dx,         dy,           &
                                         thck,       usrf,         &
                                         topg,       eus,          &
-!!                                        stagthck, stagusrf,     &
                                         thklim,                   &
                                         flwa,                     &
-                                        uvel,     vvel,           &
-!                                        beta,                    &
-!                                        whichbabc,               &
+                                        uvel,       vvel,         &
                                         whichefvs,                &
                                         whichresid,               &
                                         whichnonlinear,           &
                                         whichsparse,              &
                                         whichapprox,              &
+                                        beta,                     &
                                         kinbcmask)
 
 !TODO - Something like this may be needed if building with Trilinos.
@@ -557,10 +558,6 @@
     real(dp), dimension(:,:,:), intent(inout) ::  &
        uvel, vvel             ! velocity components (m/s)
 
-    !TODO - Uncomment and pass in
-!!    real(dp), dimension(:,:), intent(in) ::  &
-!!       beta                   ! basal traction parameter
-
     !TODO: Make these optional with default values? 
     integer, intent(in) :: whichefvs      ! option for effective viscosity calculation 
                                           ! (calculate it or make it uniform)
@@ -571,6 +568,10 @@
     integer, intent(in), optional :: whichapprox  ! options for which Stokes approximation to use
                                                   ! 0 = SIA, 1 = SSA, 2 = Blatter-Pattyn HO
                                                   ! default = 2
+
+    real(dp), dimension(:,:), intent(in), optional ::  &
+       beta                   ! basal traction parameter
+
     integer,  dimension(:,:), intent(in), optional ::   &
        kinbcmask              ! = 1 at vertices where u = v = 0 (Dirichlet BC)
                               ! = 0 elsewhere
@@ -585,6 +586,11 @@
 
     real(dp), parameter :: resid_target = 1.0d-04   ! assume velocity fields have converged below this resid 
     real(dp), parameter :: NL_tol   = 1.0d-06   ! to have same criterion as JFNK
+
+!WHL - UMC
+    logical, parameter ::  &                 !TODO - Make this an input argument?
+       unstable_manifold = .false. ! if true, do an unstable manifold correction
+                                   ! (based on Hindmarsh & Payne, Ann Glac, 1996)
 
     !--------------------------------------------------------
     ! Local variables
@@ -645,9 +651,9 @@
        sia_factor,      & ! = 1. if SIA terms are included, else = 0.
        ssa_factor         ! = 1. if SSA terms are included, else = 0.
 
-    !TODO - Pass in as an argument instead
-    real(dp), dimension(nx-1,ny-1) ::  &
-       beta                   ! basal traction parameter
+!!    !Passed in as an argument instead
+!!    real(dp), dimension(nx-1,ny-1) ::  &
+!!       beta                   ! basal traction parameter
 
     ! The following are used only for the single-processor SLAP solver
 
@@ -690,8 +696,13 @@
 
     integer :: nNonzeros    ! number of nonzero entries in structured matrices
 
+!WHL - UMC
+    real(dp), dimension(nz,nx-1,ny-1) ::   &
+       uvel_old, vvel_old,         &! uvel and vvel from previous iteration
+       ucorr_old, vcorr_old         ! correction vectors from previous iteration
+
     ! Set volume scale
-    ! This is not necessary, but dividing by this scale gives matrix coefficients 
+    ! This is not strictly necessary, but dividing by this scale gives matrix coefficients 
     !  that are not quite so large.
 
     vol0 = dx * dy * 1000.d0    ! typical volume of ice column (m^3)
@@ -761,22 +772,22 @@
        print*, ' '
        print*, 'Thickness field, rank =', rtest
        do j = ny, 1, -1
-          write(6,'(30f6.0)') thck(3:32,j)
+          write(6,'(24f6.0)') thck(1:24,j)
        enddo
-!       print*, ' '
-!       print*, 'Topography field, rank =', rtest
-!       do j = ny, 1, -1
-!          write(6,'(30f6.0)') topg(3:32,j)
-!       enddo
-!       print*, ' '
-!       print*, 'Upper surface field, rank =', rtest
-!       do j = ny, 1, -1
-!          write(6,'(30f6.0)') usrf(3:32,j)
-!       enddo
+       print*, ' '
+       print*, 'Topography field, rank =', rtest
+       do j = ny, 1, -1
+          write(6,'(24f6.0)') topg(1:24,j)
+       enddo
+       print*, ' '
+       print*, 'Upper surface field, rank =', rtest
+       do j = ny, 1, -1
+          write(6,'(24f6.0)') usrf(1:24,j)
+       enddo
        print*, ' '
        print*, 'flwa (Pa-3 yr-1), k = 1, rank =', rtest
        do j = ny, 1, -1
-          write(6,'(15e12.5)') flwa(1,18:32,j)*scyr
+          write(6,'(24e12.5)') flwa(1,1:24,j)*scyr
        enddo
     endif
  
@@ -786,6 +797,16 @@
 
     ! initialize
     umask_dirichlet(:,:,:) = .false.   
+
+    if (present(beta)) then
+       if (verbose) then
+          print*, ' '
+          print*, 'beta passed in: maxval =', maxval(beta)
+       endif
+    else
+       ! In the absence of beta, impose zero sliding everywhere at the bed.
+       umask_dirichlet(nz,:,:) = .true.    ! u = v = 0 at bed
+    endif 
 
     if (present(kinbcmask)) then
        ! use kinbcmask, typically read from file at initialization
@@ -798,23 +819,29 @@
           enddo
        enddo
     else
-       ! For now, simply impose zero sliding everywhere at the bed.
-       umask_dirichlet(nz,:,:) = .true.   ! u = v = 0 at bed (for dome)
     endif
 
 !WHL - debug
+
+    print*, ' '
+    print*, 'beta:'
+    k = 1
+    do j = ny-1, 1, -1
+       write(6,'(23d9.1)') beta(1:23,j)
+    enddo
+
     print*, ' '
     print*, 'umask_dirichlet, k = 1:'
     k = 1
     do j = ny-1, 1, -1
-       write(6,'(33L3)') umask_dirichlet(k,1:33,j)
+       write(6,'(23L3)') umask_dirichlet(k,1:23,j)
     enddo
     
     print*, ' '
     print*, 'umask_dirichlet, k =', nz
     k = nz
     do j = ny-1, 1, -1
-       write(6,'(33L3)') umask_dirichlet(k,1:33,j)
+       write(6,'(23L3)') umask_dirichlet(k,1:23,j)
     enddo
 
 !WHLt2 - If iterating on the velocity during the remapping transport calculation,
@@ -871,12 +898,12 @@
        print*, ' '
        print*, 'stagthck, rank =', rtest
        do j = ny-1, 1, -1
-          write(6,'(30f6.0)') stagthck(3:32,j)
+          write(6,'(20f6.0)') stagthck(3:22,j)
        enddo
 !       print*, ' '
 !       print*, 'stagusrf, rank =', rtest
 !       do j = ny-1, 1, -1
-!          write(6,'(30f6.0)') stagusrf(3:32,j)
+!          write(6,'(20f6.0)') stagusrf(3:22,j)
 !       enddo
     endif
 
@@ -885,10 +912,10 @@
     ! Identify the active cells (i.e., cells with thck > thklim,
     !  bordering a locally owned vertex) and active vertices (all vertices
     !  of active cells).
-    !------------------------------------------------------------------------------
-
+    !
     ! For the SLAP solver, count and assign a unique ID to each active node.
-    !TODO - Move SLAP-only calculation to another subroutine?
+    ! TODO - Move SLAP-only calculation to another subroutine?
+    !------------------------------------------------------------------------------
 
     call get_vertex_geometry(nx,          ny,         nz,  &   
                              nhalo,       sigma,           &
@@ -905,7 +932,7 @@
        print*, ' '
        print*, 'NodeID before halo update, k = 1:'
        do j = ny-1, 1, -1
-          write(6,'(33i5)') NodeID(1,:,j)
+          write(6,'(23i5)') NodeID(1,1:23,j)
        enddo
     endif
 
@@ -920,12 +947,13 @@
        print*, ' '
        print*, 'NodeID after halo update, k = 1:'
        do j = ny-1, 1, -1
-          write(6,'(33i5)') NodeID(1,:,j)
+          write(6,'(23i5)') NodeID(1,1:23,j)
        enddo
     endif
 
     !------------------------------------------------------------------------------
     ! Compute the factor A^(-1/n) appearing in the expression for effective viscosity.
+    ! This factor is often denoted as B in the literature.
     ! Note: The rate factor (flwa = A) is assumed to have units of Pa^(-n) s^(-1).
     !       Thus flwafact = 0.5 * A^(-1/n) has units Pa s^(1/n).
     !------------------------------------------------------------------------------
@@ -973,7 +1001,6 @@
                (yVertex(i,j+1) - yVertex(i,j))
        print*, 'Finite-difference ds/dx, ds_dy:', ds_dx, ds_dy
        print*, ' '                
-       print*, 'flwa, flwafact:', flwa(k,i,j), flwafact(k,i,j)
     endif
 
     !------------------------------------------------------------------------------
@@ -1026,6 +1053,9 @@
     !------------------------------------------------------------------------------
     ! set initial values 
     !------------------------------------------------------------------------------
+
+!WHL - UMC
+!TODO - Replace usav, vsav with uvel_old, vvel_old?
 
     counter = 0
     resid_velo = 1.d0
@@ -1141,18 +1171,23 @@
        !       however, allows for more general sliding laws.
        !---------------------------------------------------------------------------
 
-       ! Set beta to zero to deactivate this subroutine for now
-       !TODO = Pass in as argument
-       beta(:,:) = 0.d0
-
 !TODO - Test this subroutine
 
-!       call basal_sliding_bc(nx,               ny,              &
-!                             nz,               nhalo,           &
-!                             nNodesPerElement_2d,               &
-!                             active_cell,      beta,            &
-!                             xVertex,          yVertex,         &
-!                             Auu,              Avv)
+       if (present(beta)) then
+
+       !WHL - debug
+       print*, ' '
+       print*, 'max, min beta (Pa/(m/yr)) =', maxval(beta)/scyr, minval(beta)/scyr
+       print*, 'Call basal_sliding_bc'
+
+          call basal_sliding_bc(nx,               ny,              &
+                                nz,               nhalo,           &
+                                nNodesPerElement_2d,               &
+                                active_cell,      beta,            &
+                                xVertex,          yVertex,         &
+                                Auu,              Avv)
+
+       endif
 
        i = itest
        j = jtest
@@ -1223,6 +1258,32 @@
 !       m = indxA(0,0,0)
 !       do j = ny-1, 1, -1
 !          write(6,'(23e10.3)') Auu(m,1,:,j)
+!       enddo
+    endif
+
+       !---------------------------------------------------------------------------
+       ! Halo updates for load vectors
+       !WHL - Not sure if these are necessary
+       !---------------------------------------------------------------------------
+
+!WHL - debug
+    if (verbose .and. this_rank==rtest) then
+!       print*, ' '
+!       print*, 'Before halo update, bu(1,:,:), rank =', rtest
+!       do j = ny-1, 1, -1
+!          write(6,'(23e10.3)') bu(1,:,j)
+!       enddo
+    endif
+
+        call staggered_parallel_halo(bu(:,:,:))
+        call staggered_parallel_halo(bv(:,:,:))
+
+!WHL - debug
+    if (verbose .and. this_rank==rtest) then
+!       print*, ' '
+!       print*, 'After halo update, bu(1,:,:), rank =', rtest
+!       do j = ny-1, 1, -1
+!          write(6,'(23e10.3)') bu(1,:,j)
 !       enddo
     endif
 
@@ -1397,7 +1458,7 @@
           print*, ' '
           print*, 'bu, k =', k
           do j = ny-1, 1, -1
-             write(6,'(i3,33f5.1)'), j, bu(k,1:33,j)
+             write(6,'(i3,23f5.1)'), j, bu(k,1:23,j)
           enddo
 
           print*, ' '
@@ -1409,9 +1470,24 @@
           print*, ' '
           print*, 'bv, k =', k
           do j = ny-1, 1, -1
-             write(6,'(i3,33f5.1)'), j, bv(k,1:33,j)
+             write(6,'(i3,23f5.1)'), j, bv(k,1:23,j)
           enddo
           
+          k = nz-1
+
+          m = indxA(0,0,0)
+          print*, ' '
+          print*, 'Avv_diag, k =', k
+          do j = ny-1, 1, -1
+             write(6,'(i3,23e10.2)'), j, Avv(m,k,1:23,j)
+          enddo
+
+          print*, ' '
+          print*, 'bv, k =', k
+          do j = ny-1, 1, -1
+             write(6,'(i3,23f5.1)'), j, bv(k,1:23,j)
+          enddo
+
           k = nz
 
           m = indxA(0,0,0)
@@ -1424,7 +1500,7 @@
           print*, ' '
           print*, 'bv, k =', k
           do j = ny-1, 1, -1
-             write(6,'(i3,33f5.2)'), j, bv(k,1:33,j)
+             write(6,'(i3,23f5.1)'), j, bv(k,1:23,j)
           enddo
 
 
@@ -1581,14 +1657,14 @@
 !WHL - bug check
        if (verbose .and. this_rank==rtest) then
 
-          i = itest+1
-          j = jtest
-          print*, ' '
-          print*, 'After postprocess: rank, i, j =', this_rank, i, j
-          print*, 'k, uvel, vvel (m/yr):'
-          do k = 1, nz
-             print*, k, scyr*uvel(k,i,j), scyr*vvel(k,i,j)               
-          enddo
+!          i = itest+1
+!          j = jtest
+!          print*, ' '
+!          print*, 'After postprocess: rank, i, j =', this_rank, i, j
+!          print*, 'k, uvel, vvel (m/yr):'
+!          do k = 1, nz
+!             print*, k, scyr*uvel(k,i,j), scyr*vvel(k,i,j)               
+!          enddo
 
           i = itest
           j = jtest
@@ -1611,8 +1687,53 @@
                                       resid_velo)
   
        if (verbose .and. this_rank==rtest) then
+!!       if (verbose_residual .and. this_rank==rtest) then
+
           print*, ' '
           print*, 'whichresid, resid_velo =', whichresid, resid_velo
+
+          print*, ' '
+          print*, 'uvel - usav, k = 1:'
+          do j = ny-1, 1, -1
+             write(6,'(23f7.3)') (uvel(1,:,j) - usav(1,:,j))*scyr
+          enddo
+          print*, ' '
+          print*, 'vvel - vsav, k = 1:'
+          do j = ny-1, 1, -1
+             write(6,'(23f7.3)') (vvel(1,:,j) - vsav(1,:,j))*scyr
+          enddo
+       endif
+
+       !WHL - UMC
+       !---------------------------------------------------------------------------
+       ! Optionally, do an unstable manifold correction to improve convergence
+       ! of the Picard iteration.
+       !---------------------------------------------------------------------------
+
+       if (unstable_manifold) then
+
+          !TODO - Replace usav, vsav with uvel_old, vvel_old?
+          if (counter==1) then
+             uvel_old(:,:,:) = uvel(:,:,:)
+             vvel_old(:,:,:) = vvel(:,:,:)
+             ucorr_old(:,:,:) = 0.d0
+             vcorr_old(:,:,:) = 0.d0
+          endif                      
+
+          ! correct uvel and vvel as needed
+
+          call unstable_manifold_correction(nx,        ny,        &
+                                            nz,        nhalo,     &
+                                            uvel,      vvel,      &
+                                            uvel_old,  vvel_old,  &
+                                            ucorr_old, vcorr_old)
+
+          ! Halo updates for uvel and vvel
+          ! TODO - Are these needed?
+
+          call staggered_parallel_halo(uvel)
+          call staggered_parallel_halo(vvel)
+
        endif
 
        !---------------------------------------------------------------------------
@@ -2128,8 +2249,8 @@
           print*, 'i, j =', i, j
 !          print*, 'active =', active_cell(i,j)
           print*, 'floating =', floating_cell(i,j)
-          print*, 'ocean (j+1)=', ocean_cell(i-1:i, j+1) 
-          print*, 'ocean (j  )=', ocean_cell(i-1:i, j) 
+          print*, 'ocean (i-1:i,j)  =', ocean_cell(i-1:i, j) 
+          print*, 'ocean (i-1:i,j-1)=', ocean_cell(i-1:i, j-1) 
        endif
 
        if (floating_cell(i,j)) then   ! ice is present and is floating
@@ -3102,8 +3223,10 @@
     ! Local parameters
     !----------------------------------------------------------------
 
+!TODO - Test sensitivity of model convergence to this parameter
     real(dp), parameter ::   &
        effstrain_min = 1.d-20,          &! minimum value of effective strain rate, s^{-1}
+!!       effstrain_min = 1.d-10,          &! minimum value of effective strain rate, s^{-1}
                                          ! GLAM uses 1.d-20 s^{-1} for minimum effective strain rate
        p_effstr = (1.d0 - real(gn,dp)) / real(gn,dp)    ! exponent (1-n)/n in effective viscosity relation
                                                                
@@ -3128,11 +3251,10 @@
 
     select case(whichefvs)
 
-!!    case(2)
     case(HO_EFVS_CONSTANT)
 
        efvs = 1.d7 * scyr   ! Steve Price recommends 10^6 to 10^7 Pa yr
-
+                            ! (~10^14 Pa s)
 !WHL - This is the glam-type scaling
 !!       efvs = efvs * scyr/tim0 / tau0   ! tau0 = rhoi*grav*thk0
 
@@ -3140,7 +3262,6 @@
           print*, 'Set efvs = constant:', efvs
        endif
 
-!!    case(1)
     case(HO_EFVS_FLOWFACT)      ! set the effective viscosity to a multiple of the flow factor, 0.5*A^(-1/n)
                  
                  !SCALING: Set the effective strain rate (s^{-1}) based on typical 
@@ -3153,7 +3274,6 @@
           print*, 'flwafact, effstrain, efvs =', flwafact, effstrain, efvs       
        endif
 
-!!    case(0)
     case(HO_EFVS_NONLINEAR)    ! calculate effective viscosity based on effective strain rate, n = 3
 
        du_dx = 0.d0
@@ -3284,17 +3404,17 @@
 
           !WHL - Note volume scaling such that detJ/vol0 is closer to unity
 
-          Kuu(i,j) = Kuu(i,j) + efvs*wqp*detJ/vol0 *                                               &
+          Kuu(i,j) = Kuu(i,j) + efvs * wqp * detJ/vol0 *                                           &
                               ( ssa_factor * (4.d0*dphi_dx(j)*dphi_dx(i) + dphi_dy(j)*dphi_dy(i))  &
                               + sia_factor * (dphi_dz(j)*dphi_dz(i)) )
 
-          Kuv(i,j) = Kuv(i,j) + efvs*wqp*detJ/vol0 *                                               &
+          Kuv(i,j) = Kuv(i,j) + efvs * wqp * detJ/vol0 *                                           &
                                 ssa_factor * (2.d0*dphi_dx(j)*dphi_dy(i) + dphi_dy(j)*dphi_dx(i))
 
-          Kvu(i,j) = Kvu(i,j) + efvs*wqp*detJ/vol0 *                                               &
+          Kvu(i,j) = Kvu(i,j) + efvs * wqp * detJ/vol0 *                                           &
                                 ssa_factor * (2.d0*dphi_dy(j)*dphi_dx(i) + dphi_dx(j)*dphi_dy(i))
 
-          Kvv(i,j) = Kvv(i,j) + efvs*wqp*detJ/vol0 *                                               &
+          Kvv(i,j) = Kvv(i,j) + efvs * wqp * detJ/vol0 *                                           &
                               ( ssa_factor * (4.d0*dphi_dy(j)*dphi_dy(i) + dphi_dx(j)*dphi_dx(i))  &
                               + sia_factor * (dphi_dz(j)*dphi_dz(i)) )
 
@@ -3380,7 +3500,7 @@
   end subroutine element_to_global_matrix
 
 !****************************************************************************
-!TODO - Add basal BC here.  Start with linear sliding law.
+!WHL -  Added basal BC here.  Start with linear sliding law.
 !       Similar to lateral shelf BC in terms of doing surface integrals.
 !       Integrate over all faces that contain at least one node with a stress BC. (Not Dirichlet or free-slip)
 !       Dirichlet BCs are enforced after matrix assembly. 
@@ -3414,9 +3534,8 @@
     logical, dimension(nx,ny), intent(in) ::  &
        active_cell                   ! true if cell contains ice and borders a locally owned vertex
 
-    !TODO - Change to stagbeta?
     real(dp), dimension(nx-1,ny-1), intent(in) ::    &
-       beta                          ! basal traction field
+       beta                          ! basal traction field (Pa/(m/s)) at cell vertices
 
     real(dp), dimension(nx-1,ny-1), intent(in) ::   &
        xVertex, yVertex     ! x and y coordinates of vertices
@@ -3452,6 +3571,9 @@
     ! Loop over all cells that contain locally owned vertices
     !TODO - Make sure we don't step out of bounds
     !       With more care, we could skip some computations for vertices that are not locally owned.
+
+    !WHL- debug
+    if (verbose) print*, 'In basal_sliding_bc: itest, jtest =', itest, jtest
 
     do j = nhalo+1, ny-nhalo+1
     do i = nhalo+1, nx-nhalo+1
@@ -3511,10 +3633,7 @@
                 print*, 'Increment basal traction, i, j, p =', i, j, p
                 print*, 'beta_qp =', beta_qp
                 print*, 'detJ/vol0 =', detJ/vol0
-                print*, 'detJ/vol0 * beta_qp =', detJ/vol0 * beta_qp
              endif
-
-             !TODO - Test this subroutine
 
              call element_matrix_basal_sliding(nNodesPerElement_2d,       &
                                                wqp_2d(p),   detJ,         & 
@@ -3761,7 +3880,7 @@
     real(dp), dimension(nNodesPerElement_2d), intent(in) ::  &
              phi_2d       ! 2D basis functions phi evaluated at this quadrature point
 
-    real(dp), dimension(nNodesPerElement_2d,nNodesPerElement_2d), intent(inout) :: &
+    real(dp), dimension(nNodesPerElement_2d,nNodesPerElement_2d), intent(out) :: &
              Kuu          ! components of stiffness matrix for this element face
 
     !----------------------------------------------------------------
@@ -3773,22 +3892,22 @@
     if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest) then
        print*, ' '
        print*, 'Increment element matrix for basal BC, p =', p
+       print*, 'phi_2d:', phi_2d(1:4)
+       print*, ' '
+       print*, 'phi_2d(nr)*phi_2d(nc):'
+       do nr = 1, nNodesPerElement_2d   ! rows of K
+          print*, phi_2d(nr)*phi_2d(1:4)
+       enddo       
     endif
 
     ! Increment the stiffness matrix for this quadrature point.
     
+    Kuu(:,:) = 0.d0
+
     do nc = 1, nNodesPerElement_2d      ! columns of K
        do nr = 1, nNodesPerElement_2d   ! rows of K
 
-       if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. p==ptest &
-                   .and.  nc==1     .and.  nr==1) then
-          print*, 'beta, wqp, detJ/vol0 =', beta, wqp_2d, detJ/vol0
-          print*, 'phi_2d(1) =', phi_2d(1)
-          print*, 'Kuu phi increment(1,1) =', beta*wqp_2d*detJ/vol0*phi_2d(1)*phi_2d(1)
-       endif
-
-!WHL - Note volume scaling such that detJ/vol0 is closer to unity
-!TODO - Do we want vol0, or rather area0 = dx*dy?
+          !WHL - Note volume scaling
 
           Kuu(nr,nc) = Kuu(nr,nc) + beta * wqp_2d * detJ/vol0 * phi_2d(nr)*phi_2d(nc)
 
@@ -3833,8 +3952,11 @@
     integer :: nr, nc
 
     if (verbose .and. this_rank==rtest .and. iElement==itest .and. jElement==jtest) then
-       print*, 'Basal BC: First row of K:'
-       write(6, '(8e12.4)') Kmat(1,:)
+       print*, ' '
+       print*, 'Basal BC: K matrix:'
+       do nr = 1, nNodesPerElement_2d
+          write(6, '(4e14.6)') Kmat(nr,:)
+       enddo
     endif
 
 !TODO - Switch loops or switch order of indices in K(m,n)?
@@ -3844,7 +3966,7 @@
     kA = 0       ! k index of A into which K(nr,nc) is summed
                  ! = 0 since all nodes lie in the same layer
 
-    do nr = 1, nNodesPerElement       ! rows of K
+    do nr = 1, nNodesPerElement_2d     ! rows of K
 
        ! Determine (i,j) for this node
        ! The reason for the '3' is that node 3, in the NE corner of the cell, has horizontal indices (i,j).
@@ -3853,7 +3975,7 @@
        i = iElement + ishift(3,nr)
        j = jElement + jshift(3,nr)
       
-       do nc = 1, nNodesPerElement    ! columns of K
+       do nc = 1, nNodesPerElement_2d ! columns of K
 
           iA = ishift(nr,nc)          ! iA index of A into which K(nr,nc) is summed
           jA = jshift(nr,nc)          ! similarly for jA
@@ -3861,7 +3983,6 @@
 
           m = indxA(iA,jA,kA)
           Amat(m,k,i,j) = Amat(m,k,i,j) + Kmat(nr,nc)
-          !TODO - Verify that + sign is correct
 
        enddo     ! n
 
@@ -3915,10 +4036,6 @@
     integer :: iA, jA, kA  ! i, j, and k offsets of neighboring nodes 
     integer :: m
 
-!WHL - debug
-!    logical :: diag_ones = .true.   ! if true, put 1s on the main diagonal
-    logical :: diag_ones = .false.   ! if true, put 1s on the main diagonal
-
 !PARALLEL - Make sure not to step out of bounds here.
 !           This requires nhalo >= 2.
 
@@ -3962,19 +4079,17 @@
 !                            Avu( kA,  iA,  jA, row) = 0.d0
 !                            Avu(-kA, -iA, -jA, col) = 0.d0
 
-!WHL - Instead of putting 1's on the main diagnonal, leave the main diagonal unchanged
-
-
                          if (iA==0 .and. jA==0 .and. kA==0) then
-                            !WHL - debug
-                            if (diag_ones) then
-                               ! put 1 on the main diagonal
-                               m = indxA(0,0,0)
-                               Auu(m,k,i,j) = 1.d0
-                               Avv(m,k,i,j) = 1.d0
-                            else  
-                               ! leave diag term unchanged
-                            endif
+                            !! uncomment to put 1 on the main diagonal
+                            !m = indxA(0,0,0)
+                            !Auu(m,k,i,j) = 1.d0
+                            !Avv(m,k,i,j) = 1.d0
+
+                            !leave the diagonal term unchanged
+                            !WHL: For the dome problem, it seems to make no difference whether we put a '1'
+                            !     on the diagonal or leave the diagonal term unchanged. Answers are BFB
+                            !     for diagonal preconditioner, SIA preconditioner, and GMRES/ILU
+
                          else
 
                             ! zero out the associated term in this row
@@ -3990,7 +4105,8 @@
                             Auv(m, k+kA, i+iA, j+jA) = 0.d0
                             Avu(m, k+kA, i+iA, j+jA) = 0.d0
                             Avv(m, k+kA, i+iA, j+jA) = 0.d0
-                         endif   ! not the diagonal terms
+
+                         endif   ! not on the diagonal
 
                       endif     ! i+iA, j+jA, and k+kA in bounds
 
@@ -4280,6 +4396,234 @@
   end select
 
   end subroutine compute_residual_velocity
+
+!---------------------------------------------------------------------------
+
+  subroutine unstable_manifold_correction(nx,        ny,        &
+                                          nz,        nhalo,     &
+                                          uvel,      vvel,      &
+                                          uvel_old,  vvel_old,  &
+                                          ucorr_old, vcorr_old)
+
+    ! Correct the velocity to improve convergence of the Picard solution
+
+    ! input/output arguments
+
+    integer, intent(in) ::     &
+         nx, ny, nz,           &! grid dimensions
+         nhalo                  ! number of halo layers 
+
+    real(dp), dimension(nz,nx-1,ny-1), intent(inout) :: &
+         uvel, vvel,           &! velocity: on input, from linear solution
+                                !           on output, corrected based on UMC
+         uvel_old, vvel_old,   &! old velocity solution
+         ucorr_old, vcorr_old   ! old correction vector
+
+    ! local variables
+
+    real(dp), dimension(nz,nx-1,ny-1) ::   &
+         ucorr, vcorr                 ! correction vectors, uvel-uvel_old and vvel-vvel_old
+
+    real(dp) ::     &
+         cnorm, cnorm_old,           &! norm of correction vectors
+         cdot,                       &! dot product of correction vectors
+         cdiff, cdiff_u, cdiff_v,    &! difference of correction vectors
+         theta,                      &! angle theta between succesive correction vectors (radians)
+         cos_theta,                  &! cosine of angle theta
+         alpha                        ! factor multiplying correction vector for underrelaxation
+
+    integer :: i, j, k
+
+    ! local parameters
+
+    logical, parameter :: umc_split = .true.
+
+    real(dp), parameter ::    &  
+       theta_umc_underrelax = 5.d0*pi/6.d0   ! threshold angle for underrelaxation
+                                             ! value of 5*pi/6 suggested by Hindmarsh and Payne
+    real(dp), parameter ::    &
+       small_velo = 1.d-16 * vel0            ! as in GLAM code, but adjusted for scaling
+
+
+    ! compute preliminary correction vector based on linear solution
+
+    ucorr(:,:,:) = uvel(:,:,:) - uvel_old(:,:,:)
+    vcorr(:,:,:) = vvel(:,:,:) - vvel_old(:,:,:)
+
+    if (umc_split) then     ! compute u and v corrections independently (as in glam)
+
+       do j = nhalo+1, ny-nhalo
+          do i = nhalo+1, nx-nhalo
+             do k = 1, nz
+
+                ! uvel
+                !!    tmp_vel = uvel(k,i,j)
+                cnorm = abs(ucorr(k,i,j))
+                cnorm_old = abs(ucorr_old(k,i,j))
+                cdot = ucorr(k,i,j)*ucorr_old(k,i,j)
+                cdiff = ucorr(k,i,j) - ucorr_old(k,i,j)
+
+                if (cnorm*cnorm_old > 0.d0) then
+                   !!  theta = acos(cdot/(cnorm*cnorm_old + small_velo))
+                   !WHL - debug = Make sure cos_theta is in range before taking acos.
+                   cos_theta = cdot / (cnorm*cnorm_old + small_velo)
+                   if (cos_theta < -1.d0) then
+                      print*, ' '
+                      print*, 'COSINE OUT OF RANGE: i, j, k =', i, j, k
+                      print*, 'cdot, cnorm, cnorm_old, cos_theta:', cdot, cnorm, cnorm_old, cos_theta
+                      print*, 'Setting cos_theta = -1'
+                      cos_theta = -1.d0
+                   elseif (cos_theta > 1.d0) then
+                      print*, ' '
+                      print*, 'COSINE OUT OF RANGE: i, j, k =', i, j, k
+                      print*, 'cdot, cnorm, cnorm_old, cos_theta:', cdot, cnorm, cnorm_old, cos_theta
+                      print*, 'Setting cos_theta = -1'
+                      cos_theta = 1.d0
+                   endif
+                   theta = acos(cos_theta)
+                else
+                   theta = 0.d0
+                endif
+
+                if (theta > theta_umc_underrelax .and. cdiff /= 0.d0) then
+                   alpha = cnorm / cdiff
+                   uvel(k,i,j) = uvel_old(k,i,j) + alpha*ucorr(k,i,j)
+
+                   if (verbose .and. this_rank==rtest) then
+                      print*, ' '
+                      print*, 'Underrelax: i, j, k, theta (deg), alpha:', &
+                           i, j, k, theta*180.d0/pi, alpha
+!                      print*, 'cnorm, cnorm_old, cdot:', cnorm, cnorm_old, cdot
+                   endif
+
+                endif
+                !!  uvel_old(k,i,j) = tmp_vel
+
+                ! vvel
+                !!  tmp_vel = vvel(k,i,j)
+                cnorm = abs(vcorr(k,i,j))
+                cnorm_old = abs(vcorr_old(k,i,j))
+                cdot = vcorr(k,i,j)*vcorr_old(k,i,j)
+                cdiff = vcorr(k,i,j) - vcorr_old(k,i,j)
+
+                if (cnorm*cnorm_old > 0.d0) then
+                   !!  theta = acos(cdot/(cnorm*cnorm_old + small_velo))
+                   !WHL - debug = Make sure cos_theta is in range before taking acos.
+                   cos_theta = cdot / (cnorm*cnorm_old + small_velo)
+                   if (cos_theta < -1.d0) then
+                      print*, ' '
+                      print*, 'COSINE OUT OF RANGE: i, j, k =', i, j, k
+                      print*, 'cdot, cnorm, cnorm_old, cos_theta:', cdot, cnorm, cnorm_old, cos_theta
+                      print*, 'Setting cos_theta = -1'
+                      cos_theta = -1.d0
+                   elseif (cos_theta > 1.d0) then
+                      print*, ' '
+                      print*, 'COSINE OUT OF RANGE: i, j, k =', i, j, k
+                      print*, 'cdot, cnorm, cnorm_old, cos_theta:', cdot, cnorm, cnorm_old, cos_theta
+                      print*, 'Setting cos_theta = -1'
+                      cos_theta = 1.d0
+                   endif
+                   theta = acos(cos_theta)
+                else
+                   theta = 0.d0
+                endif
+
+                if (theta > theta_umc_underrelax .and. cdiff /= 0.d0) then
+                   alpha = cnorm / cdiff
+                   vvel(k,i,j) = vvel_old(k,i,j) + alpha*vcorr(k,i,j)
+
+                   if (verbose .and. this_rank==rtest) then
+                      print*, ' '
+                      print*, 'Underrelax: i, j, k, theta (deg), alpha:', &
+                           i, j, k, theta*180.d0/pi, alpha
+!                      print*, 'cnorm, cnorm_old, cdot:', cnorm, cnorm_old, cdot
+                   endif
+
+                endif
+
+                !!  vvel_old(k,i,j) = tmp_vel
+
+             enddo  ! k
+          enddo     ! i
+       enddo        ! j
+
+    else    ! not split between u and v
+
+       do j = nhalo+1, ny-nhalo
+          do i = nhalo+1, nx-nhalo
+             do k = 1, nz
+
+                cnorm = sqrt(ucorr(k,i,j)*ucorr(k,i,j)   &
+                           + vcorr(k,i,j)*vcorr(k,i,j))
+
+                cnorm_old = sqrt(ucorr_old(k,i,j)*ucorr_old(k,i,j)  &
+                               + vcorr_old(k,i,j)*vcorr_old(k,i,j))
+
+                cdot = ucorr(k,i,j)*ucorr_old(k,i,j) + vcorr(k,i,j)*vcorr_old(k,i,j)
+
+                cdiff_u = ucorr(k,i,j) - ucorr_old(k,i,j)
+                cdiff_v = vcorr(k,i,j) - vcorr_old(k,i,j)
+                cdiff = sqrt(cdiff_u*cdiff_u + cdiff_v*cdiff_v)
+
+                ! compute angle theta between these two correction vectors
+                !
+                !              |   (c_n, c_(n-1))    |
+                ! theta= arccos| ------------------- |
+                !              |  |c_n| * |c_(n-1)|  |
+
+                if (cnorm*cnorm_old > 0.d0) then
+                   cos_theta = cdot / (cnorm*cnorm_old + small_velo)
+                   if (cos_theta < -1.d0) then
+                      print*, ' '
+                      print*, 'COSINE OUT OF RANGE: i, j, k =', i, j, k
+                      print*, 'cdot, cnorm, cnorm_old, cos_theta:', cdot, cnorm, cnorm_old, cos_theta
+                      print*, 'Setting cos_theta = -1'
+                      cos_theta = -1.d0
+                   elseif (cos_theta > 1.d0) then
+                      print*, ' '
+                      print*, 'COSINE OUT OF RANGE: i, j, k =', i, j, k
+                      print*, 'cdot, cnorm, cnorm_old, cos_theta:', cdot, cnorm, cnorm_old, cos_theta
+                      print*, 'Setting cos_theta = -1'
+                      cos_theta = 1.d0
+                   endif
+                   theta = acos(cos_theta)
+                else
+                   theta = 0.d0
+                endif
+
+                if (theta > theta_umc_underrelax .and. cdiff /= 0.d0) then
+
+                   !!  alpha = cnorm/cdiff  !TODO - Compare to line below
+                   alpha = min(cnorm/cdiff,1.d0)
+
+                   uvel(k,i,j) = uvel_old(k,i,j) + alpha*ucorr(k,i,j)
+                   vvel(k,i,j) = vvel_old(k,i,j) + alpha*ucorr(k,i,j)
+
+                   if (verbose .and. this_rank==rtest) then
+                      print*, ' '
+                      print*, 'Underrelax: i, j, k, theta (deg), alpha:', &
+                           i, j, k, theta*180.d0/pi, alpha
+                      print*, 'cnorm, cnorm_old, cdot:', cnorm, cnorm_old, cdot
+                   endif
+
+                endif   ! theta > theta_umc_underrelax
+
+             enddo    ! k
+          enddo       ! i
+       enddo          ! j
+
+    endif   ! umc_split
+
+    ! Copy new to old vectors
+
+    uvel_old(:,:,:) = uvel(:,:,:)
+    vvel_old(:,:,:) = vvel(:,:,:)
+
+    ucorr_old(:,:,:) = ucorr(:,:,:)
+    vcorr_old(:,:,:) = vcorr(:,:,:)
+
+  end subroutine unstable_manifold_correction
+
 
 !****************************************************************************
 ! The next three subroutines are used for the SLAP solver only.

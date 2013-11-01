@@ -51,22 +51,17 @@ contains
         
     subroutine glissade_velo_driver(model)
 
-        ! Glissade higher-order velocity driver
-        !TODO - Determine how much of the following is needed by glam solver only.
+      ! Glissade higher-order velocity driver
 
       use glimmer_global, only : dp
       use glimmer_physcon, only: gn, scyr
-      use glimmer_paramets, only: thk0, len0, vel0, vis0
+      use glimmer_paramets, only: thk0, len0, vel0, vis0, tau0
       use glimmer_log
       use glide_types
       use glissade_velo_higher, only: glissade_velo_higher_solve
+      use glissade_basal_traction, only: calcbeta
       use glide_mask
-!!        use glimmer_horiz_bcs, only: horiz_bcs_stag_scalar
 
-!WHL - debug
-      use glam_grid_operators
-      use glide_grid_operators, only: stagvarb
-        
       type(glide_global_type),intent(inout) :: model
 
 
@@ -74,39 +69,12 @@ contains
       real(dp), dimension(model%general%upn, model%general%ewn-1, model%general%nsn-1) ::  &
            uvel, vvel    ! uvel and vvel with scale factor (vel0) removed
 
-      !WHL - Is this needed?
+      !TODO - Replace with a different mask?
+      !       This is used for now as an input to subroutine calcbeta.
       integer, dimension(model%general%ewn-1, model%general%nsn-1)  :: geom_mask_stag
 
-!      call glam_geometry_derivs(model)
-
-!        call stagvarb(model%geometry%usrf, model%geomderv%stagusrf,&
-!                      model%general%ewn,   model%general%nsn)
-
-!        call stagvarb(model%geometry%lsrf, model%geomderv%staglsrf,&
-!                      model%general%ewn,   model%general%nsn)
-
-!        call stagvarb(model%geometry%topg, model%geomderv%stagtopg,&
-!                      model%general%ewn,   model%general%nsn)
-
-!        call stagvarb(model%geometry%thck, model%geomderv%stagthck,&    ! SFP: this call was already here. Calls to calc 
-!                      model%general%ewn,   model%general%nsn)           ! stagusrf, staglsrf, and stagtopg were added
-
-
-!        call df_field_2d_staggered(model%geometry%usrf, &
-!                                   model%numerics%dew,      model%numerics%dns, &
-!                                   model%geomderv%dusrfdew, model%geomderv%dusrfdns, &
-!                                   model%geometry%thck,     model%numerics%thklim )
-
-!        call df_field_2d_staggered(model%geometry%thck, &
-!                                   model%numerics%dew,      model%numerics%dns, &
-!                                   model%geomderv%dthckdew, model%geomderv%dthckdns, &
-!                                   model%geometry%thck,     model%numerics%thklim )
-
-!      call staggered_parallel_halo (model%geomderv%dusrfdew)
-!      call staggered_parallel_halo (model%geomderv%dusrfdns)
-!      call staggered_parallel_halo (model%geomderv%dthckdew)
-!      call staggered_parallel_halo (model%geomderv%dthckdns)
-
+!WHL - debug
+      integer :: j        
 
       !-------------------------------------------------------------------
       ! Compute masks
@@ -114,13 +82,35 @@ contains
       !  multiple times while solving the thickness transport equation.
       !-------------------------------------------------------------------
 
-      !TODO - This subroutine is not needed for the glissade solver.
-      !       But some different masks may need to be set here.
+      !TODO - This subroutine is used for now to compute geom_mask_stag,
+      !       an input to calcbeta.  Might replace later.
 
-!      call glide_set_mask(model%numerics,                                     &
-!                          model%geomderv%stagthck, model%geomderv%stagtopg,   &
-!                          model%general%ewn-1,     model%general%nsn-1,       &
-!                          model%climate%eus,       geom_mask_stag)
+      call glide_set_mask(model%numerics,                                     &
+                          model%geomderv%stagthck, model%geomderv%stagtopg,   &
+                          model%general%ewn-1,     model%general%nsn-1,       &
+                          model%climate%eus,       geom_mask_stag)
+
+      !-------------------------------------------------------------------
+      ! Compute or prescribe the basal traction field 'beta'.                                                              
+      !
+      ! Note: The initial value of model%velocity%beta can change depending on
+      !       the value of model%options%which_ho_babc.     
+      !-------------------------------------------------------------------
+
+      call calcbeta (model%options%which_ho_babc,                  & 
+                     model%numerics%dew,      model%numerics%dns,  &
+                     model%general%ewn,       model%general%nsn,   &
+                     model%velocity%uvel(model%general%upn,:,:),   &
+                     model%velocity%vvel(model%general%upn,:,:),   &
+                     model%temper%bwat,                            &
+                     model%basalproc%mintauf,                      &
+                     geom_mask_stag,                               &
+                     model%velocity%beta)
+
+      !WHL - debug
+      print*, ' '
+      print*, 'After calcbeta: max, min of beta (Pa/(m/yr)) =', &
+           tau0/vel0/scyr * maxval(model%velocity%beta), tau0/vel0/scyr * minval(model%velocity%beta)
 
       !----------------------------------------------------------------
       ! Note: The glissade solver uses SI units.
@@ -137,9 +127,30 @@ contains
 
          print*, ' '
          print*, 'Call glissade_velo_higher_solve'
-         print*, 'scaled flwa(1,26,19) =', model%temper%flwa(1,26,19)
-         print*, 'unscaled flwa(1,26,19) =', model%temper%flwa(1,26,19) *vis0*scyr
  
+!WHL - debug
+         print*, 'nx, ny =', model%general%ewn, model%general%nsn
+         print*, 'size(kinbcmask) =', size(model%velocity%kinbcmask,1), size(model%velocity%kinbcmask,2)
+         print*, ' '
+         print*, 'kinbcmask before halo update:'
+         do j = model%general%nsn-1, 1, -1
+            write(6,'(46i3)') model%velocity%kinbcmask(:,j)
+         enddo
+
+         !WHL - Instead of assuming that kinbcmask is periodic, extrapolate
+         !       the kinbcmask into the global halo region
+         !       (and also into the north and east rows of the global domain,
+         !       which are not included on the global staggered grid).
+
+         call staggered_parallel_halo_extrapolate (model%velocity%kinbcmask)  ! = 1 for Dirichlet BCs
+
+!WHL - debug
+         print*, ' '
+         print*, 'kinbcmask after halo update:'
+         do j = model%general%nsn-1, 1, -1
+            write(6,'(46i3)') model%velocity%kinbcmask(:,j)
+         enddo 
+
          ! compute the unscaled velocity (m/yr)
          uvel(:,:,:) = vel0 * model%velocity%uvel(:,:,:)
          vvel(:,:,:) = vel0 * model%velocity%vvel(:,:,:)
@@ -155,15 +166,16 @@ contains
                                          thk0 * model%geometry%topg,                        &
                                          real(model%climate%eus,dp),                        &
                                          thk0 * model%numerics%thklim,                      &
-                                         vis0 * model%temper%flwa,                   &
+                                         vis0 * model%temper%flwa,                          &
 !!                                              model%velocity%uvel,  model%velocity%vvel,       &
                                          uvel,                   vvel,                      &
-!                                              model%velocity%beta,               &  ! add this one later 
-!                                              model%options%which_ho_babc,       &  ! add this one later
-                                         model%options%which_ho_efvs,       &
-                                         model%options%which_ho_resid,      &
-                                         model%options%which_ho_nonlinear,  &
-                                         model%options%which_ho_sparse)
+                                         model%options%which_ho_efvs,                       &
+                                         model%options%which_ho_resid,                      &
+                                         model%options%which_ho_nonlinear,                  &
+                                         model%options%which_ho_sparse,                     &
+                                         whichapprox = model%options%which_ho_approx,       &
+                                         kinbcmask   = model%velocity%kinbcmask,            &
+                                         beta = tau0/vel0 * model%velocity%beta)   ! convert to Pa/(m/s)
 
          ! rescale the velocity since the rest of the code expects it
          model%velocity%uvel(:,:,:) = uvel(:,:,:) / vel0
