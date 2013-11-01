@@ -166,7 +166,16 @@ data:          data%velocity%beta
 factor:        scale_beta
 load:          1
 
-#Why is this 3D?
+#WHL - added unstagbeta, which lives on the scalar ice grid
+#      (unlike beta, which lives on the staggered grid)
+[unstagbeta]
+dimensions:    time, y0, x0
+units:         unknown
+long_name:     higher-order bed stress coefficient
+data:          data%velocity%unstagbeta
+factor:        scale_beta
+load:          1
+
 [tauf]
 dimensions:    time, y0, x0
 units:         Pa

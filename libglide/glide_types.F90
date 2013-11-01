@@ -686,8 +686,8 @@ module glide_types
     real(dp),dimension(:,:)  ,pointer :: bed_softness => null() !*FD bed softness parameter
     real(dp),dimension(:,:)  ,pointer :: btrc  => null()        !*FD  basal traction (scaler field)
     real(dp),dimension(:,:,:),pointer :: btraction => null()    !*FD x(1,:,:) and y(2,:,:) "consistent" basal traction fields 
-    real(dp),dimension(:,:)  ,pointer :: beta  => null()        !*FD basal shear coefficient
-                                                                !*FD calculated from matrix coeffs in PP dyn core
+    real(dp),dimension(:,:)  ,pointer :: beta  => null()        !*FD basal shear coefficient on velo grid (Pa yr/m by default)
+    real(dp),dimension(:,:)  ,pointer :: unstagbeta  => null()  !*FD basal shear coefficient on ice grid (Pa yr/m by default)
     real(dp),dimension(:,:)  ,pointer :: tau_x => null()        !*FD SIA basal shear stress, x-dir
     real(dp),dimension(:,:)  ,pointer :: tau_y => null()        !*FD SIA basal shear stress, y-dir
 
@@ -1373,9 +1373,14 @@ contains
 
 
     if (model%options%whichdycore /= DYCORE_GLIDE) then  ! glam/glissade dycore
-       call coordsystem_allocate(model%general%velo_grid, model%velocity%beta)     
        call coordsystem_allocate(model%general%velo_grid, model%velocity%kinbcmask)
        call coordsystem_allocate(model%general%velo_grid, model%velocity%dynbcmask)
+       call coordsystem_allocate(model%general%velo_grid, model%velocity%beta)     
+       call coordsystem_allocate(model%general%ice_grid, model%velocity%unstagbeta)     
+       ! WHL - Set unstagbeta to a physically unrealistic values so we can tell later if 
+       !       it was read correctly from an input file 
+       model%velocity%unstagbeta(:,:) = -999.0d0
+
          ! next 3 used for output of residual fields (when relevant code in glam_strs2 is active)
 !       call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%ures)
 !       call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%vres)
@@ -1391,6 +1396,7 @@ contains
        call coordsystem_allocate(model%general%ice_grid, upn-1, model%stress%tau%xy)
     else
        allocate(model%velocity%beta(1:0, 1:0))
+       allocate(model%velocity%unstagbeta(1:0, 1:0))
        allocate(model%velocity%kinbcmask(1:0, 1:0))
        allocate(model%velocity%dynbcmask(1:0, 1:0))
 
@@ -1660,6 +1666,8 @@ contains
 
     if (associated(model%velocity%beta)) &
         deallocate(model%velocity%beta)
+    if (associated(model%velocity%unstagbeta)) &
+        deallocate(model%velocity%unstagbeta)
     if (associated(model%velocity%kinbcmask)) &
         deallocate(model%velocity%kinbcmask)
     if (associated(model%velocity%dynbcmask)) &

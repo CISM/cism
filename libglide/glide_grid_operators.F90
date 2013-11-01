@@ -99,10 +99,7 @@ contains
   !      stagthickness, which is used by the glam HO dycore.  In stagthickness, zero-thickness 
   !      values are ignored when thickness is averaged over four adjacent grid cells.
   !      In stagvarb, zero-thickness values are included in the average.
-  !      The glam approach works better for calving. For now we have kept the old glide
-  !      approach in stagvarb for backward compatibility (and because calving is less
-  !      important to treat realistically in a shallow-ice model).
-  !TODO - Switch to the stagthickness approach?
+  !      The glam approach works better for calving. 
 
     implicit none 
 

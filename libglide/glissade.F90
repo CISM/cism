@@ -98,9 +98,13 @@ contains
     use glide_thck, only : glide_calclsrf
     use glam_strs2, only : glam_velo_init
     use glimmer_coordinates, only: coordsystem_new
-
+    use glide_grid_operators, only: stagvarb
     use glissade_velo_higher, only: glissade_velo_higher_init
     use felix_dycore_interface, only: felix_velo_init
+
+!WHL - debug
+    use glimmer_paramets, only: tau0, vel0
+    use glimmer_physcon, only: scyr
 
 !!    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
 
@@ -247,6 +251,37 @@ contains
 
     end select
 
+    ! If unstagbeta (i.e., beta on the scalar ice grid) was read from an input file,
+    ! then interpolate it to beta on the staggered grid.
+    ! NOTE: unstagbeta is initialized to -999.d0, so its maxval will be > 0 only if
+    !       the field is read in.
+
+    if (maxval(model%velocity%unstagbeta) > 0.d0) then  ! interpolate to staggered grid
+       call write_log('Interpolating beta from unstaggered to staggered grid')
+       call parallel_halo(model%velocity%unstagbeta)    ! fill in halo values
+       call stagvarb(model%velocity%unstagbeta,  &      ! interpolate
+                     model%velocity%beta,        &
+                     model%general%ewn,          &
+                     model%general%nsn)
+       !NOTE: The following will override any other value of which_ho_babc set in the config file
+       model%options%which_ho_babc = HO_BABC_EXTERNAL_BETA  
+
+!WHL - debug
+       write(6,*) ' '
+       write(6,*) 'Interpolating beta from unstaggered to staggered grid'
+       write(6,*) ' '
+       write(6,*) 'unstagbeta (Pa yr/m):'
+       do j = model%general%nsn, 1, -1
+          write(6,'(24f8.2)') model%velocity%unstagbeta(1:24,j) * tau0/vel0/scyr
+       enddo
+!WHL - debug
+       write(6,*) ' '
+       write(6,*) 'beta (Pa yr/m:)'
+       do j = model%general%nsn-1, 1, -1
+          write(6,'(23f8.2)') model%velocity%beta(1:23,j) * tau0/vel0/scyr
+       enddo
+
+    endif
 
 !WHL - This option is disabled for now.
     ! *mb* added; initialization of basal proc. module
