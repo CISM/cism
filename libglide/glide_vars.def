@@ -166,10 +166,10 @@ data:          data%velocity%beta
 factor:        scale_beta
 load:          1
 
-#WHL - added unstagbeta, which lives on the scalar ice grid
-#      (unlike beta, which lives on the staggered grid)
+#WHL - added unstagbeta, which lives on the unstaggered ice grid
+#      (unlike beta, which lives on the staggered velocity grid)
 [unstagbeta]
-dimensions:    time, y0, x0
+dimensions:    time, y1, x1
 units:         unknown
 long_name:     higher-order bed stress coefficient
 data:          data%velocity%unstagbeta
