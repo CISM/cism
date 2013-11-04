@@ -115,8 +115,7 @@ if __name__ == '__main__':
       thk  = netCDFfile.createVariable('thk' ,'f',('time','y1','x1'))
       topg = netCDFfile.createVariable('topg','f',('time','y1','x1'))
       if experiment in ('c','d'):
-        #beta = netCDFfile.createVariable('beta','f',('time','y0','x0'))
-        beta = netCDFfile.createVariable('beta','f',('time','y1','x1'))
+        unstagbeta = netCDFfile.createVariable('unstagbeta','f',('time','y1','x1'))
       time[0] = 0
       x1[:] = [(i+0.5)*dx for i in range(nx)] # unstaggered grid
       y1[:] = [(j+0.5)*dy for j in range(ny)]
@@ -187,14 +186,12 @@ if __name__ == '__main__':
         thk [:] = ny*[nx*[1000]]
         topg[:] = ny*[zz]
 #        if not options.cyclic:         # options to allow for truly periodic domain setup
-#        beta[:] = basalFriction[:-1]
-        beta[:] = basalFriction[:]
+        unstagbeta[:] = basalFriction[:]
       netCDFfile.close()
 
       if not options.format_only:
 
 #       Run CISM (NOTE two options here.)
-        print options.parallel
         print 'Running',options.executable,'for experiment',experiment.upper(),'with domain size',size,'km'
         if options.parallel != None:
            if options.parallel > 0:
@@ -222,6 +219,10 @@ if __name__ == '__main__':
 
     #         Open the netCDF file that was written by CISM
               netCDFfile = NetCDFFile(filename+'.out.nc','r')
+              if netCDF_module == 'Scientific.IO.NetCDF':
+                 velscale = netCDFfile.variables['uvel_icegrid'].scale_factor
+              else:
+                 velscale = 1.0
 
               # Make x,y position arrays that can be used by all test cases.
               #   Want x/y positions to include the periodic edge at both the beginning and end
@@ -234,16 +235,16 @@ if __name__ == '__main__':
 
 
               # Figure out u,v since all experiments needs at least one of them (avoids duplicate code in each case below
-              us = netCDFfile.variables['uvel_icegrid'][0,0,:,:] * netCDFfile.variables['uvel_icegrid'].scale_factor  # top level of first time
+              us = netCDFfile.variables['uvel_icegrid'][0,0,:,:] * velscale  # top level of first time
               us = np.concatenate( (us[:,-1:], us), axis=1)  # copy the column at x=1.0 to x=0.0
               us = np.concatenate( (us[-1:,:], us), axis=0)  # copy the row at y=1.0 to y=0.0
-              vs = netCDFfile.variables['vvel_icegrid'][0,0,:,:] * netCDFfile.variables['vvel_icegrid'].scale_factor  # top level of first time
+              vs = netCDFfile.variables['vvel_icegrid'][0,0,:,:] * velscale  # top level of first time
               vs = np.concatenate( (vs[:,-1:], vs), axis=1)  # copy the column at x=1.0 to x=0.0
               vs = np.concatenate( (vs[-1:,:], vs), axis=0)  # copy the row at y=1.0 to y=0.0
-              ub = netCDFfile.variables['uvel_icegrid'][0,-1,:,:] * netCDFfile.variables['uvel_icegrid'].scale_factor  # bottom level of first time
+              ub = netCDFfile.variables['uvel_icegrid'][0,-1,:,:] * velscale  # bottom level of first time
               ub = np.concatenate( (ub[:,-1:], ub), axis=1)  # copy the column at x=1.0 to x=0.0
               ub = np.concatenate( (ub[-1:,:], ub), axis=0)  # copy the row at y=1.0 to y=0.0
-              vb = netCDFfile.variables['vvel_icegrid'][0,-1,:,:] * netCDFfile.variables['vvel_icegrid'].scale_factor  # bottom level of first time
+              vb = netCDFfile.variables['vvel_icegrid'][0,-1,:,:] * velscale  # bottom level of first time
               vb = np.concatenate( (vb[:,-1:], vb), axis=1)  # copy the column at x=1.0 to x=0.0
               vb = np.concatenate( (vb[-1:,:], vb), axis=0)  # copy the row at y=1.0 to y=0.0
               nan = ub*np.NaN  # create a dummy matrix for uncalculated values.
