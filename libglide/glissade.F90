@@ -267,19 +267,19 @@ contains
        model%options%which_ho_babc = HO_BABC_EXTERNAL_BETA  
 
 !WHL - debug
-       write(6,*) ' '
-       write(6,*) 'Interpolating beta from unstaggered to staggered grid'
-       write(6,*) ' '
-       write(6,*) 'unstagbeta (Pa yr/m):'
-       do j = model%general%nsn, 1, -1
-          write(6,'(24f8.2)') model%velocity%unstagbeta(1:24,j) * tau0/vel0/scyr
-       enddo
+!       write(6,*) ' '
+!       write(6,*) 'Interpolating beta from unstaggered to staggered grid'
+!       write(6,*) ' '
+!       write(6,*) 'unstagbeta (Pa yr/m):'
+!       do j = model%general%nsn, 1, -1
+!          write(6,'(24f8.2)') model%velocity%unstagbeta(1:24,j) * tau0/vel0/scyr
+!       enddo
 !WHL - debug
-       write(6,*) ' '
-       write(6,*) 'beta (Pa yr/m:)'
-       do j = model%general%nsn-1, 1, -1
-          write(6,'(23f8.2)') model%velocity%beta(1:23,j) * tau0/vel0/scyr
-       enddo
+!       write(6,*) ' '
+!       write(6,*) 'beta (Pa yr/m:)'
+!       do j = model%general%nsn-1, 1, -1
+!          write(6,'(23f8.2)') model%velocity%beta(1:23,j) * tau0/vel0/scyr
+!       enddo
 
     endif
 
