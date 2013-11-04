@@ -231,7 +231,7 @@ if __name__ == '__main__':
               yy = netCDFfile.variables['y0'][:]/(1000.0*float(size))
               yy = np.concatenate(([0.0],yy,[1.0]))
               if experiment in ('b','d'):
-                 yy = yy[len(yy)/2]  # for the 2-d experiments, just use the middle y-index
+                 yy = (yy[len(yy)/2],)  # for the 2-d experiments, just use the middle y-index
 
 
               # Figure out u,v since all experiments needs at least one of them (avoids duplicate code in each case below
