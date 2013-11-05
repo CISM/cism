@@ -93,6 +93,13 @@ if __name__ == '__main__':
   if options.experiments == None: options.experiments = defaultExperiments
   if options.sizes == None: options.sizes = defaultSizes
 
+  if options.lmla:
+       nonFSmodelType='First Order'
+  else:
+       nonFSmodelType='All Partial Stokes'
+  print 'NOTE: The category being used for models approximating Full Stokes is: '+nonFSmodelType
+  print 'For more information, see details of option -l by invoking:   python plotISMIPHOM.py --help \n'
+
 # Loop over the experiments requested on the command line
   for experiment in options.experiments:
     print 'ISMIP-HOM', experiment.upper()
@@ -114,7 +121,7 @@ if __name__ == '__main__':
     figure.legend([Line2D,Patch],['Full Stokes Mean','Full Stokes Std. Dev.'],loc=(0.3,0.02),prop=prop).draw_frame(False)
     Line2D.set_color((0,0,1))
     Patch.set_facecolor((0,0,1))
-    figure.legend([Line2D,Patch],['First Order Mean','First Order Std. Dev.'],loc=(0.55,0.02),prop=prop).draw_frame(False)
+    figure.legend([Line2D,Patch],[nonFSmodelType+' Mean',nonFSmodelType+' Std. Dev.'],loc=(0.55,0.02),prop=prop).draw_frame(False)
 
 #   Loop over the sizes requested on the command line
     for i, size in enumerate(map(int,options.sizes)):
