@@ -21,7 +21,7 @@ def appendToList(option,str_opt,value,parser):
   setattr(parser.values,option.dest,listOfValues)
 
 defaultExperiments = ['a','b']      # ['a','b','c','d']
-defaultSizes = ['160','80','40','20','10','5']
+defaultSizes = ['5','10','20','40','80','160']
 
 if __name__ == '__main__':
   import os
@@ -195,7 +195,7 @@ if __name__ == '__main__':
         print 'Running',options.executable,'for experiment',experiment.upper(),'with domain size',size,'km'
         if options.parallel != None:
            if options.parallel > 0:
-              exitCode = os.system('mpirun -np ' + str(options.parallel) + ' ./simple_glide '+filename+'.config')
+              exitCode = os.system('mpirun -np ' + str(options.parallel) + ' ' + options.executable + ' ' + filename + '.config')
            else:
               print 'Number of processors specified for parallel run is <=0.  Skipping the running of the model.'
               exitCode = 0

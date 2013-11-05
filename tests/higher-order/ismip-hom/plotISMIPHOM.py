@@ -20,6 +20,8 @@ plotType = '.png'
 # Lists of model classifications
 fullStokesModels = ['aas1','aas2','cma1','fpa2','ghg1','jvj1','mmr1','oga1','rhi1','rhi3','spr1','ssu1','yko1']
 lmlaModels = ['ahu1','ahu2','bds1','fpa1','mbr1','rhi2','tpa1']
+# Classification used in Pattyn et al. 2008 paper, but not used by this script.
+#nonFSModels = ['ahu1','ahu2','bds1','cma2','dpo1','fpa1','lpe1','mbr1','mtk1','oso1','rhi2','rhi4','rhi5','tpa1']
 
 # Function to read data files
 # Returns a list of tuples [(x0,|v0|),(x1,|v1|),...,(xm,|vm|)]
@@ -27,6 +29,8 @@ def read(filename,experiment):
   if experiment in ['b','d','e','f']:
 #   Read two numbers, x and vx, from each line in the file
     n = 2 
+    VX = 1  # VX is in 1 position for the 2d tests
+    X = 0
   else:
 #   Read four numbers, x, y, vx, and vy, from each line in the file
     n = 4
@@ -47,7 +51,7 @@ def read(filename,experiment):
   inputfile.close()
 
   if experiment in ['b','d','e','f']:
-    return data
+    return [( row[X], abs(row[VX]) ) for row in data]  # use the absolute value of the x-velocity
   else:
     if target in [row[Y] for row in data]:
 #     Extract the points with the desired (target) y
