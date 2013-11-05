@@ -29,7 +29,7 @@ echo 'csh, tcsh:  setenv GLIMMER_TRILINOS_DIR "/Users/$USER/Trilinos/gcc-build/i
 echo 'bash:       export GLIMMER_TRILINOS_DIR="/Users/$USER/Trilinos/gcc-build/install"'
 echo
 echo 'Setting TEST_DIR to the standard location (bash):'
-echo 'export TEST_DIR="/Users/ranken/work/modeling/cism/seacism-oceans11/tests/higher-order"'
+echo 'export TEST_DIR="/Users/$USER/work/modeling/cism/seacism-oceans11/tests/higher-order"'
 
 # PARALLEL BUILD WITH CMAKE GNU
 
@@ -93,17 +93,11 @@ else  # execute tests:
  echo "Test runs completed."
  echo 
 
-# cd $TEST_DIR/livv
-# bash mac_VV.bash from-script
+ cd $TEST_DIR/livv
+ bash mac_VV_new.bash from-script $1
 
-# echo
-# echo "If there are errors finding ncl, add the ncl installation directory to your PATH in ~/.bashrc."
-# echo
-
-# echo 
-# echo "Created LIVV results HTML files in:"
-# echo "$TEST_DIR/htmllivv"
-# echo "To view in your browser, in the above directory open the file: livv_kit_main.html"
-# echo
+ echo
+ echo "If there were errors finding ncl, add the ncl installation directory to your PATH in ~/.bashrc."
+ echo
 
 endif
