@@ -18,9 +18,11 @@ savePlotInFile = True
 plotType = '.png'
 
 # Lists of model classifications
+# Note: 'aas1' is skipped below -- see line ~165
 fullStokesModels = ['aas1','aas2','cma1','fpa2','ghg1','jvj1','mmr1','oga1','rhi1','rhi3','spr1','ssu1','yko1']
 lmlaModels = ['ahu1','ahu2','bds1','fpa1','mbr1','rhi2','tpa1']
-# Classification used in Pattyn et al. 2008 paper, but not used by this script.
+
+# Classification used in Pattyn et al. 2008 paper, but not used by this script.  Listed here for reference only.
 #nonFSModels = ['ahu1','ahu2','bds1','cma2','dpo1','fpa1','lpe1','mbr1','mtk1','oso1','rhi2','rhi4','rhi5','tpa1']
 
 # Function to read data files
@@ -158,6 +160,9 @@ if __name__ == '__main__':
           modelName = filename[0:4]
           modelExperiment = filename[4]
           modelSize = filename[5:8]
+          if modelName == 'aas1':
+              # Skip the 'aas1' model because its output files in the tc-2007-0019-sp2.zip file do not follow the proper naming convention.  MJH 11/5/13
+              continue
           if (modelExperiment != experiment) or (int(modelSize) != size) \
             or (options.lmla and not modelName in lmlaModels + fullStokesModels):
               continue
