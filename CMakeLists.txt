@@ -11,6 +11,8 @@ IF (DEFINED CISM_USE_TRILINOS)
   ENDIF()
 ENDIF()
 
+
+
 OPTION (CISM_MPI_MODE "Toggle to Configure with MPI: defaults to ON" ON)
 OPTION (CISM_SERIAL_MODE "Toggle to Configure in Serial mode: defaults to OFF " OFF)
 OPTION (CISM_USE_MPI_WITH_SLAP "Toggle to use mpi when using SLAP solver, only relevant if CISM_SERIAL_MODE=ON: defaults to OFF" OFF)
@@ -37,6 +39,10 @@ ENDIF()
 
 IF (NOT CISM_MPI_MODE AND NOT CISM_SERIAL_MODE)
   SET(CISM_MPI_MODE "ON")
+ENDIF()
+
+IF (CISM_USE_CISM_FRONT_END)
+  SET(CISM_BUILD_GLINT_EXAMPLE "ON")
 ENDIF()
 
 IF (CISM_BUILD_GLINT_EXAMPLE)

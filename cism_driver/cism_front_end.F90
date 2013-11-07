@@ -52,7 +52,6 @@ subroutine cism_init_dycore(model)
   use glide_io, only: glide_io_writeall
 
   use cism_external_dycore_interface
-  
 
 !!  use glimmer_horiz_bcs, only : horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns, &
 !!                                horiz_bcs_unstag_scalar, horiz_bcs_stag_scalar
@@ -70,8 +69,15 @@ subroutine cism_init_dycore(model)
   real(kind=dp) :: t1,t2
   integer :: clock,clock_rate,ret
 
+  integer*4 external_dycore_model_index
+
+  integer :: wd
+  logical :: do_glide_init
+
   integer :: tstep_count
+
     print *,'Entering cism_init_dycore'
+
 
   !TODO - call this only for parallel runs?
 !  call parallel_initialise     
@@ -104,7 +110,10 @@ subroutine cism_init_dycore(model)
   ! This call is needed only if running the EISMINT test cases
   call simple_initialise(climate,config)
 
-  if (model%options%whichdycore == DYCORE_GLIDE) then
+  wd = model%options%whichdycore 
+  do_glide_init = (wd == DYCORE_GLIDE) .OR. (wd == DYCORE_BISICLES) .OR. (wd == DYCORE_ALBANYFELIX)
+
+  if (do_glide_init) then
      call glide_initialise(model)
   else       ! glam/glissade dycore	
      call glissade_initialise(model)
@@ -127,6 +136,11 @@ subroutine cism_init_dycore(model)
 
   call spinup_lithot(model)
   call t_stopf('glide initialization')
+
+  if ((model%options%whichdycore == DYCORE_BISICLES) .OR. (model%options%whichdycore == DYCORE_ALBANYFELIX)) then
+    print *,"Initializing external dycore interface."
+    call cism_init_external_dycore(model%options%whichdycore,model)
+  endif
 
   if (model%options%whichdycore .ne. DYCORE_BISICLES) then
   !MJH Created this block here to fill out initial state without needing to enter time stepping loop.  This allows
@@ -222,8 +236,9 @@ subroutine cism_run_dycore(model)
   integer :: clock,clock_rate,ret
   integer :: tstep_count
 
-  integer :: external_dycore_model_index
+  integer*4 :: external_dycore_model_index
 
+  external_dycore_model_index = this_rank + 1
 
   time = model%numerics%tstart
   tstep_count = 0
@@ -269,10 +284,11 @@ subroutine cism_run_dycore(model)
       case (DYCORE_BISICLES,DYCORE_ALBANYFELIX)
         print *,'Using External Dycore'
         call cism_run_external_dycore(external_dycore_model_index,time,model%numerics%tinc)
-        time = time + model%numerics%tinc
+        ! time = time + model%numerics%tinc
       case default
     end select
     !endif
+    time = time + model%numerics%tinc
 
     ! write ice sheet diagnostics to log file at desired interval (model%numerics%dt_diag)
 
@@ -286,6 +302,37 @@ subroutine cism_run_dycore(model)
     call t_stopf('glide_io_writeall')
   
   end do   ! time < model%numerics%tend
+end subroutine cism_run_dycore
+
+subroutine cism_finalize_dycore(model)
+
+  use parallel
+  use glimmer_global
+  use glide
+  use glissade
+  use simple_forcing
+  use glimmer_log
+  use glimmer_config
+  use glide_nc_custom, only: glide_nc_fillall
+  use glimmer_commandline
+  use glimmer_writestats
+  use glimmer_filenames, only : filenames_init
+  use glide_io, only: glide_io_writeall
+
+  use cism_external_dycore_interface
+  
+
+!!  use glimmer_horiz_bcs, only : horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns, &
+!!                                horiz_bcs_unstag_scalar, horiz_bcs_stag_scalar
+
+  use glide_stop, only: glide_finalise
+  use glide_diagnostics
+
+  implicit none
+
+  type(glide_global_type) :: model        ! model instance
+  integer :: clock,clock_rate,ret
+
 
   call t_stopf('simple glide')
 
@@ -293,16 +340,16 @@ subroutine cism_run_dycore(model)
   call glide_finalise(model)
 
   call system_clock(clock,clock_rate)
-  t2 = real(clock,kind=dp)/real(clock_rate,kind=dp)
+!  t2 = real(clock,kind=dp)/real(clock_rate,kind=dp)
 
 #if (! defined CCSMCOUPLED && ! defined CESMTIMERS)
-  call glimmer_write_stats(commandline_resultsname,commandline_configname,t2-t1)
+!  call glimmer_write_stats(commandline_resultsname,commandline_configname,t2-t1)
 #endif
 
   call close_log
 
   !TODO - call this only for parallel runs?
   ! call parallel_finalise
-end subroutine cism_run_dycore
+end subroutine cism_finalize_dycore
 
 end module cism_front_end

@@ -143,10 +143,10 @@ function gci_finished(g2c) result(finished)
 
     case (GCM_DATA_MODEL,GCM_CESM)
       call g2c_glint_check_finished(g2c,finished)
-      ! print *,"In gci_run_model, finished = ",finished
     case default
   end select
-  
+print *,"In gci_finished, finished = ",finished  
+
 end function gci_finished
 
 
@@ -156,15 +156,13 @@ subroutine gci_finalize_interface(g2c)
 
   select case (g2c%which_gcm)
     case (GCM_MINIMAL_MODEL)
-      call cism_init_dycore(g2c%glide_model)
+      call cism_finalize_dycore(g2c%glide_model)
  
     case (GCM_DATA_MODEL)
       call g2c_glint_end(g2c)
 
     case (GCM_CESM)
-      ! call gcm_glint_GetCommandline_proxy()
-      ! call g2c_glint_init(g2c) 
-
+      ! call g2c_glint_end(g2c)
     case default
   end select
 
