@@ -87,18 +87,18 @@ if __name__ == '__main__':
   parser.add_option('-s','--size',dest='sizes',type='string',action='callback',callback=appendToList,help='Which domain sizes to run')
   parser.add_option('-p','--prefix',dest='prefix',default='cis1',help='Prefix to use for model output files (defaults to cis1)')
   parser.add_option('-t','--title',dest='subtitle',help='Subtitle to place on the created graph')
-  parser.add_option('-l','--lmla',dest='lmla',action='store_true',help='Compare to lmla models instead of all partial stokes models')
+  parser.add_option('-a','--all',dest='allPS',default=False,action='store_true',help='Compare to all partial stokes models instead of just lmla models' )
   options, args = parser.parse_args()
 # If the user didn't specify a list of experiments or domain sizes, run the whole suite
   if options.experiments == None: options.experiments = defaultExperiments
   if options.sizes == None: options.sizes = defaultSizes
 
-  if options.lmla:
-       nonFSmodelType='First Order'
-  else:
+  if options.allPS:
        nonFSmodelType='All Partial Stokes'
+  else:
+       nonFSmodelType='First Order'
   print 'NOTE: The category being used for models approximating Full Stokes is: '+nonFSmodelType
-  print 'For more information, see details of option -l by invoking:   python plotISMIPHOM.py --help \n'
+  print 'For more information, see details of option -a by invoking:   python plotISMIPHOM.py --help \n'
 
 # Loop over the experiments requested on the command line
   for experiment in options.experiments:
@@ -171,8 +171,8 @@ if __name__ == '__main__':
               # Skip the 'aas1' model because its output files in the tc-2007-0019-sp2.zip file do not follow the proper naming convention.  MJH 11/5/13
               continue
           if (modelExperiment != experiment) or (int(modelSize) != size) \
-            or (options.lmla and not modelName in lmlaModels + fullStokesModels):
-              continue
+            or (not options.allPS and not modelName in lmlaModels + fullStokesModels):
+              continue # continue next loop iteration if not the size or not the experiment desired or if we just want FO comparison and this model is not FO or FS.
           data = read(os.path.join(path,filename),experiment)
           if modelName in fullStokesModels:
             index = fullStokes
