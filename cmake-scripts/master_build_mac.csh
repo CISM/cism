@@ -20,6 +20,16 @@ setenv GLIMMER_TRILINOS_DIR "/usr/local/trilinos-11.4.1-Install"
 cd $CODE_DIR
 setenv build_no 0
 setenv build_cmake 1
+setenv build_gptl 1
+
+echo $build_no
+echo 'flag to build libgptl:' $build_gptl
+if ($build_gptl == 1 ) then
+cd $CODE_DIR/libgptl
+make -f Makefile.osx clean
+make -f Makefile.osx
+cd $CODE_DIR
+endif
 
 echo $build_no
 echo 'flag to build cmake option:' $build_cmake
@@ -27,7 +37,7 @@ if ($build_cmake == 1 ) then
 # make directories for building cmake executables
 rm -rf mac-gnu
 mkdir mac-gnu
-cp cmake-scripts/mac-cmake mac-gnu/
+cp cmake-scripts/mac-cmake-cesmtimers mac-gnu/
 
 echo $build_no
 # PARALLEL BUILD WITH CMAKE GNU
