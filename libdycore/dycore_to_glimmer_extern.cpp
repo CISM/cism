@@ -166,8 +166,8 @@ void dycore_set_ptr_double_var_(double *var, char *var_name,
   dtg -> setDoubleVar(var,var_name,struct_name);
 }
 
-void dycore_set_ptr_long_var_(long *var, char *var_name, int *var_name_len,
-                           char *struct_name, int *struct_name_len, int *model_index)
+void dycore_set_ptr_long_var_(long *var, char *var_name,
+                           char *struct_name, int *model_index)
 {
   DyCoreToGlimmer * dtg;
 
