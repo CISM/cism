@@ -547,16 +547,37 @@ coordinates:   lon lat
 # higher-order vertical shear stresses, required for ISMIP-HOM intercomparison
 [tau_xz]
 dimensions: time, staglevel, y1, x1
-units:      kPa
-long_name:  X component vertical shear stress
+units:      Pa
+long_name:  X component vertical shear stress 
 data:       data%stress%tau%xz(up,:,:)
 factor:     scale_tau
 
 [tau_yz]
 dimensions: time, staglevel, y1, x1
-units:      kPa
-long_name:  Y component vertical shear stress
+units:      Pa
+long_name:  Y component vertical shear stress 
 data:       data%stress%tau%yz(up,:,:)
+factor:     scale_tau
+
+[tau_xx]
+dimensions: time, staglevel, y1, x1
+units:      Pa
+long_name:  x component of horiz. normal stress
+data:       data%stress%tau%xx(up,:,:)
+factor:     scale_tau
+
+[tau_yy]
+dimensions: time, staglevel, y1, x1
+units:      Pa
+long_name:  y component of horiz. normal stress 
+data:       data%stress%tau%yy(up,:,:)
+factor:     scale_tau
+
+[tau_xy]
+dimensions: time, staglevel, y1, x1
+units:      Pa
+long_name:  horiz. shear stress
+data:       data%stress%tau%xy(up,:,:)
 factor:     scale_tau
 
 [wvel]
