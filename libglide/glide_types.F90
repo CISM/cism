@@ -1372,7 +1372,7 @@ contains
     endif
 
 
-    if (model%options%whichdycore /= DYCORE_GLIDE) then  ! glam/glissade dycore
+    if ( (model%options%whichdycore /= DYCORE_GLIDE) .OR. (model%options%whichdycore /= DYCORE_GLISSADE) ) then  ! glam/glissade dycore
        call coordsystem_allocate(model%general%velo_grid, model%velocity%kinbcmask)
        call coordsystem_allocate(model%general%velo_grid, model%velocity%dynbcmask)
        call coordsystem_allocate(model%general%velo_grid, model%velocity%beta)     
