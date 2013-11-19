@@ -124,6 +124,9 @@ class DyCoreToGlimmer
   int setLongVar( long * var,  const char * var_name,  const char *struct_name);
   long * getLongVar( const char * var_name,  const char *struct_name);
 
+  int setInt4Var( int * var,  const char * var_name,  const char *struct_name);
+  int * getInt4Var( const char * var_name,  const char *struct_name);
+
   int copyInDoubleVar( const double *var,  const char *var_name, 
 		        const char *struct_name,  const long *var_dim_info);
   int copyInLongVar( const long *var,  const char *var_name, 

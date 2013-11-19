@@ -21,7 +21,9 @@ extern "C" {
 
   void dycore_set_ptr_double_var_(double *var, char *var_name_in,
 			          char *struct_name_in, int *model_index);
-  void dycore_set_ptr_long_var_(long *var, char *var_name,
+  void dycore_set_ptr_long8_var_(long *var, char *var_name,
+			         char *struct_name, int *model_index);
+  void dycore_set_ptr_int4_var_(int *var, char *var_name,
 			        char *struct_name, int *model_index);
 
   void dycore_copy_in_double_var_(double *var, char *var_name, char *struct_name,
@@ -166,7 +168,7 @@ void dycore_set_ptr_double_var_(double *var, char *var_name,
   dtg -> setDoubleVar(var,var_name,struct_name);
 }
 
-void dycore_set_ptr_long_var_(long *var, char *var_name,
+void dycore_set_ptr_long8_var_(long *var, char *var_name,
                            char *struct_name, int *model_index)
 {
   DyCoreToGlimmer * dtg;
@@ -175,6 +177,17 @@ void dycore_set_ptr_long_var_(long *var, char *var_name,
  
   dycore_registry(0,1,model_index,&dtg,-1,0);
   dtg -> setLongVar(var,var_name,struct_name);
+}
+
+void dycore_set_ptr_int4_var_(int *var, char *var_name,
+                           char *struct_name, int *model_index)
+{
+  DyCoreToGlimmer * dtg;
+
+  // cout << "var_name::" << var_name << "::" << endl;
+ 
+  dycore_registry(0,1,model_index,&dtg,-1,0);
+  dtg -> setInt4Var(var,var_name,struct_name);
 }
 
 void dycore_copy_in_double_var_(double *var, char *var_name, char *struct_name,

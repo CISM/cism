@@ -248,8 +248,6 @@ DyCoreToGlimmer::getDoubleVar(const char *var_name, const  char *struct_name)
 int
 DyCoreToGlimmer::setLongVar(long * var,  const char *var_name,  const char *struct_name)
 {
-  // cout << "struct_name::" << struct_name << "::" << endl;
-
   if (strcmp(struct_name,"geometry") == 0) {
     if (strcmp(var_name,"dimInfo") == 0) geometry.dimInfo = var;
   }
@@ -262,6 +260,8 @@ DyCoreToGlimmer::setLongVar(long * var,  const char *var_name,  const char *stru
   }
   return(0);
 }
+
+
 
 long * 
 DyCoreToGlimmer::getLongVar( const char *var_name,  const char *struct_name)
@@ -312,6 +312,44 @@ DyCoreToGlimmer::getLongVar( const char *var_name,  const char *struct_name)
   
   return(var);
 }
+
+
+int
+DyCoreToGlimmer::setInt4Var(int * var,  const char *var_name,  const char *struct_name)
+{
+  // cout << "struct_name::" << struct_name << "::" << endl;
+
+  if (strcmp(struct_name,"felix_struct_name") == 0) {
+    // if (strcmp(var_name,"dimInfo") == 0) geometry.dimInfo = var;
+  }
+  else if (strcmp(struct_name,"velocity") == 0) {
+    //cout << "Set velocity var, " << var_name << endl;
+  }
+  else {
+    cerr << "unknown int4Var type = " << struct_name
+         << "." << var_name << endl;
+  }
+  return(0);
+}
+
+
+int * 
+DyCoreToGlimmer::getInt4Var( const char *var_name,  const char *struct_name)
+{
+  int * var;
+
+  if (strcmp(struct_name,"felix_struct_name") == 0) {
+    if (strcmp(var_name,"dimInfo") == 0) var = 0;
+    else
+      {
+        cerr << "unknonwn variable " << var_name << " in "
+             << struct_name << endl;
+      }        
+  }
+  
+  return(var);
+}
+
 
 
 int
