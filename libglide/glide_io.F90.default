@@ -1,6 +1,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! WARNING: this file was automatically generated on
-! Mon, 21 Oct 2013 20:01:29 +0000
+! Thu, 21 Nov 2013 17:59:31 +0000
 ! from ncdf_template.F90.in
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -1537,6 +1537,50 @@ contains
      end if
      end if
 
+    !     tau_xx -- x component of horiz. normal stress
+    pos = index(NCO%vars,' tau_xx ')
+    status = parallel_inq_varid(NCO%id,'tau_xx',varid)
+    if (pos.ne.0) then
+      NCO%vars(pos+1:pos+6) = '      '
+    end if
+    if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%stress%tau%xx(up,:,:))) then
+       call write_log('Creating variable tau_xx')
+       status = parallel_def_var(NCO%id,'tau_xx',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, staglevel_dimid, time_dimid/),varid)
+       call nc_errorhandle(__FILE__,__LINE__,status)
+       status = parallel_put_att(NCO%id, varid, 'scale_factor',(scale_tau))
+       status = parallel_put_att(NCO%id, varid, 'long_name', 'x component of horiz. normal stress')
+       status = parallel_put_att(NCO%id, varid, 'units', 'Pa')
+       if (glimmap_allocated(model%projection)) then
+          status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
+       end if
+     else
+     call write_log('Variable tau_xx was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
+     end if
+
+    !     tau_xy -- horiz. shear stress
+    pos = index(NCO%vars,' tau_xy ')
+    status = parallel_inq_varid(NCO%id,'tau_xy',varid)
+    if (pos.ne.0) then
+      NCO%vars(pos+1:pos+6) = '      '
+    end if
+    if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%stress%tau%xy(up,:,:))) then
+       call write_log('Creating variable tau_xy')
+       status = parallel_def_var(NCO%id,'tau_xy',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, staglevel_dimid, time_dimid/),varid)
+       call nc_errorhandle(__FILE__,__LINE__,status)
+       status = parallel_put_att(NCO%id, varid, 'scale_factor',(scale_tau))
+       status = parallel_put_att(NCO%id, varid, 'long_name', 'horiz. shear stress')
+       status = parallel_put_att(NCO%id, varid, 'units', 'Pa')
+       if (glimmap_allocated(model%projection)) then
+          status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
+       end if
+     else
+     call write_log('Variable tau_xy was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
+     end if
+
     !     tau_xz -- X component vertical shear stress
     pos = index(NCO%vars,' tau_xz ')
     status = parallel_inq_varid(NCO%id,'tau_xz',varid)
@@ -1550,12 +1594,34 @@ contains
        call nc_errorhandle(__FILE__,__LINE__,status)
        status = parallel_put_att(NCO%id, varid, 'scale_factor',(scale_tau))
        status = parallel_put_att(NCO%id, varid, 'long_name', 'X component vertical shear stress')
-       status = parallel_put_att(NCO%id, varid, 'units', 'kPa')
+       status = parallel_put_att(NCO%id, varid, 'units', 'Pa')
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
      else
      call write_log('Variable tau_xz was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
+     end if
+
+    !     tau_yy -- y component of horiz. normal stress
+    pos = index(NCO%vars,' tau_yy ')
+    status = parallel_inq_varid(NCO%id,'tau_yy',varid)
+    if (pos.ne.0) then
+      NCO%vars(pos+1:pos+6) = '      '
+    end if
+    if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%stress%tau%yy(up,:,:))) then
+       call write_log('Creating variable tau_yy')
+       status = parallel_def_var(NCO%id,'tau_yy',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, staglevel_dimid, time_dimid/),varid)
+       call nc_errorhandle(__FILE__,__LINE__,status)
+       status = parallel_put_att(NCO%id, varid, 'scale_factor',(scale_tau))
+       status = parallel_put_att(NCO%id, varid, 'long_name', 'y component of horiz. normal stress')
+       status = parallel_put_att(NCO%id, varid, 'units', 'Pa')
+       if (glimmap_allocated(model%projection)) then
+          status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
+       end if
+     else
+     call write_log('Variable tau_yy was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
      end if
      end if
 
@@ -1572,7 +1638,7 @@ contains
        call nc_errorhandle(__FILE__,__LINE__,status)
        status = parallel_put_att(NCO%id, varid, 'scale_factor',(scale_tau))
        status = parallel_put_att(NCO%id, varid, 'long_name', 'Y component vertical shear stress')
-       status = parallel_put_att(NCO%id, varid, 'units', 'kPa')
+       status = parallel_put_att(NCO%id, varid, 'units', 'Pa')
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
        end if
@@ -1830,6 +1896,28 @@ contains
        end if
      else
      call write_log('Variable uflx was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
+     end if
+
+    !     unstagbeta -- higher-order bed stress coefficient
+    pos = index(NCO%vars,' unstagbeta ')
+    status = parallel_inq_varid(NCO%id,'unstagbeta',varid)
+    if (pos.ne.0) then
+      NCO%vars(pos+1:pos+10) = '          '
+    end if
+    if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%velocity%unstagbeta)) then
+       call write_log('Creating variable unstagbeta')
+       status = parallel_def_var(NCO%id,'unstagbeta',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
+       call nc_errorhandle(__FILE__,__LINE__,status)
+       status = parallel_put_att(NCO%id, varid, 'scale_factor',(scale_beta))
+       status = parallel_put_att(NCO%id, varid, 'long_name', 'higher-order bed stress coefficient')
+       status = parallel_put_att(NCO%id, varid, 'units', 'unknown')
+       if (glimmap_allocated(model%projection)) then
+          status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
+       end if
+     else
+     call write_log('Variable unstagbeta was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
      end if
      end if
 
@@ -2502,11 +2590,38 @@ contains
        call nc_errorhandle(__FILE__,__LINE__,status)
     end if
 
+    status = parallel_inq_varid(NCO%id,'tau_xx',varid)
+    if (status .eq. nf90_noerr) then
+       do up=1,NCO%nstaglevel
+          status = distributed_put_var(NCO%id, varid, &
+               data%stress%tau%xx(up,:,:), (/1,1,up,outfile%timecounter/))
+          call nc_errorhandle(__FILE__,__LINE__,status)
+       end do
+    end if
+
+    status = parallel_inq_varid(NCO%id,'tau_xy',varid)
+    if (status .eq. nf90_noerr) then
+       do up=1,NCO%nstaglevel
+          status = distributed_put_var(NCO%id, varid, &
+               data%stress%tau%xy(up,:,:), (/1,1,up,outfile%timecounter/))
+          call nc_errorhandle(__FILE__,__LINE__,status)
+       end do
+    end if
+
     status = parallel_inq_varid(NCO%id,'tau_xz',varid)
     if (status .eq. nf90_noerr) then
        do up=1,NCO%nstaglevel
           status = distributed_put_var(NCO%id, varid, &
                data%stress%tau%xz(up,:,:), (/1,1,up,outfile%timecounter/))
+          call nc_errorhandle(__FILE__,__LINE__,status)
+       end do
+    end if
+
+    status = parallel_inq_varid(NCO%id,'tau_yy',varid)
+    if (status .eq. nf90_noerr) then
+       do up=1,NCO%nstaglevel
+          status = distributed_put_var(NCO%id, varid, &
+               data%stress%tau%yy(up,:,:), (/1,1,up,outfile%timecounter/))
           call nc_errorhandle(__FILE__,__LINE__,status)
        end do
     end if
@@ -2598,6 +2713,13 @@ contains
     if (status .eq. nf90_noerr) then
        status = distributed_put_var(NCO%id, varid, &
             data%velocity%uflx, (/1,1,outfile%timecounter/))
+       call nc_errorhandle(__FILE__,__LINE__,status)
+    end if
+
+    status = parallel_inq_varid(NCO%id,'unstagbeta',varid)
+    if (status .eq. nf90_noerr) then
+       status = distributed_put_var(NCO%id, varid, &
+            data%velocity%unstagbeta, (/1,1,outfile%timecounter/))
        call nc_errorhandle(__FILE__,__LINE__,status)
     end if
 
@@ -3388,6 +3510,29 @@ contains
        end if
     else
     call write_log('Variable ubas was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
+    end if
+
+    status = parallel_inq_varid(NCI%id,'unstagbeta',varid)
+    if (status .eq. nf90_noerr) then
+    if (is_enabled(data%velocity%unstagbeta)) then
+       call write_log('  Loading unstagbeta')
+       status = distributed_get_var(NCI%id, varid, &
+            data%velocity%unstagbeta, (/1,1,infile%current_time/))
+       call nc_errorhandle(__FILE__,__LINE__,status)
+       status = parallel_get_att(NCI%id, varid,'scale_factor',scaling_factor)
+       if (status.ne.NF90_NOERR) then
+          scaling_factor = 1.0d0/(scale_beta)
+       else
+          scaling_factor = scaling_factor/(scale_beta)
+       end if
+       if (abs(scaling_factor-1.0d0).gt.1.d-17) then
+          call write_log("scaling unstagbeta",GM_DIAGNOSTIC)
+          data%velocity%unstagbeta = data%velocity%unstagbeta*scaling_factor
+       end if
+    else
+    call write_log('Variable unstagbeta was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
     end if
 
     end if
@@ -4868,6 +5013,28 @@ contains
 
     data%velocity%uflx = inarray/(scale_uflx)
   end subroutine glide_set_uflx
+
+  subroutine glide_get_unstagbeta(data,outarray)
+    use glimmer_scales
+    use glimmer_paramets
+    use glide_types
+    implicit none
+    type(glide_global_type) :: data
+    real(dp), dimension(:,:), intent(out) :: outarray
+
+    outarray = (scale_beta)*(data%velocity%unstagbeta)
+  end subroutine glide_get_unstagbeta
+
+  subroutine glide_set_unstagbeta(data,inarray)
+    use glimmer_scales
+    use glimmer_paramets
+    use glide_types
+    implicit none
+    type(glide_global_type) :: data
+    real(dp), dimension(:,:), intent(in) :: inarray
+
+    data%velocity%unstagbeta = inarray/(scale_beta)
+  end subroutine glide_set_unstagbeta
 
   subroutine glide_get_usurf(data,outarray)
     use glimmer_scales
