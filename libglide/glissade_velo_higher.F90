@@ -151,7 +151,11 @@
     real(dp) :: vol0    ! volume scale = dx * dy * (1000 m)
 
     logical, parameter ::  &
-       check_symmetry = .true.   ! if true, then check matrix symmetry
+       check_symmetry = .true.   ! if true, then check symmetry of assembled matrix
+
+    logical, parameter ::  &
+       remove_small_values = .false.   ! if true, then check for and remove
+                                       ! small values from assembled matrix
 
 !WHL - debug
 !    logical :: verbose = .false.        ! for debug print statements
@@ -162,18 +166,41 @@
 !    logical :: verbose_Jac = .true.
     logical :: verbose_residual = .false.
 !    logical :: verbose_residual = .true.
+    logical :: verbose_state = .false.
+!    logical :: verbose_state = .true.
+    logical :: verbose_load = .false.
+!    logical :: verbose_load = .true.
+    logical :: verbose_shelf = .false.
+!    logical :: verbose_shelf = .true.
+    logical :: verbose_matrix = .false.
+!    logical :: verbose_matrix = .true.
+    logical :: verbose_basal = .false.
+!    logical :: verbose_basal = .true.
+    logical :: verbose_umc = .false.
+!    logical :: verbose_umc = .true.
+    logical :: verbose_slapsolve = .false.
+!    logical :: verbose_slapsolve = .true.
+
+!    logical :: verbose_efvs = .false.
+    logical :: verbose_efvs = .true.
+
+!WHL - debug
+    logical :: trial_efvs = .true.   ! if true, compute what nonlinear efvs would be (if not constant)
+
 
     integer, parameter :: &
-       itest = 9, jtest = 19, ktest = 1, ptest = 1  ! for dome, global (i,j) = (7,17), 1 proc
+!       itest = 9, jtest = 19, ktest = 1, ptest = 1  ! for dome, global (i,j) = (7,17), 1 proc
 !       itest = 26, jtest = 19, ktest = 1, ptest = 1  ! for dome, global (i,j) = (24,17), 1 proc
 !       itest = 26, jtest = 19, ktest = 10, ptest = 1
 
 !        itest = 3, jtest = 3, ktest = 1, ptest = 1    ! for ishom.a, global (i,j) = (1,1)
 !        itest = 22, jtest = 7, ktest = 1, ptest = 1    ! for ishom.a.80km symmetry check
 
-!       itest = 24, jtest = 6, ktest = 1, ptest = 1  ! for confined (south-flowing) shelf, global (i,j) = (22,4), 1 proc
-!       itest = 24, jtest = 42, ktest = 1, ptest = 1  ! for confined (north-flowing) shelf, global (i,j) = (22,40), 1 proc
+!       itest = 24, jtest = 6, ktest = 1, ptest = 1  ! for confined/linear (south-flowing) shelf, global (i,j) = (22,4), 1 proc
+!!       itest = 24, jtest = 42, ktest = 1, ptest = 1  ! for confined/linear (north-flowing) shelf, global (i,j) = (22,40), 1 proc
 !       itest = 11, jtest = 11, ktest = 1, ptest = 1  ! for circular shelf, global (i,j) = (9,9), 1 proc
+!       itest = 5, jtest = 42, ktest = 1, ptest = 1  ! for confined/linear (north-flowing) shelf, global (i,j) = (3,40), 1 proc
+       itest = 9, jtest = 9, ktest = 1, ptest = 1  ! for confined/linear shelf, global (i,j) = (7,7), 1 proc
 
     integer, parameter :: ntest = 2371  ! nodeID for dome global (24,17,1)    
 !    integer, parameter :: ntest = 2372  ! nodeID for dome global (24,17,2)
@@ -184,7 +211,7 @@
 
 !    integer, parameter :: ntest = 101  ! nodeID for confined (south-flowing) shelf, global (22,4,1)    
 !    integer, parameter :: ntest = 7701  ! nodeID for confined shelf global (22,40,1)    
-!    integer, parameter :: ntest = 8276  ! nodeID for periodic shelf global (22,40,1)    
+!!    integer, parameter :: ntest = 8276  ! nodeID for linear shelf global (22,40,1)    
 
     integer, parameter :: rtest = 0    ! rank for any single-process run
 
@@ -768,6 +795,7 @@
     endif
 
 !WHL - debug
+!!    if (verbose_state .and. this_rank==rtest) then
     if (verbose .and. this_rank==rtest) then
        print*, ' '
        print*, 'Thickness field, rank =', rtest
@@ -822,27 +850,30 @@
     endif
 
 !WHL - debug
+    if (verbose_state .and. this_rank==rtest) then
 
-    print*, ' '
-    print*, 'beta:'
-    k = 1
-    do j = ny-1, 1, -1
-       write(6,'(23d9.1)') beta(1:23,j)
-    enddo
+       print*, ' '
+       print*, 'beta:'
+       k = 1
+       do j = ny-1, 1, -1
+          write(6,'(23d9.1)') beta(1:23,j)
+       enddo
 
-    print*, ' '
-    print*, 'umask_dirichlet, k = 1:'
-    k = 1
-    do j = ny-1, 1, -1
-       write(6,'(23L3)') umask_dirichlet(k,1:23,j)
-    enddo
-    
-    print*, ' '
-    print*, 'umask_dirichlet, k =', nz
-    k = nz
-    do j = ny-1, 1, -1
-       write(6,'(23L3)') umask_dirichlet(k,1:23,j)
-    enddo
+       print*, ' '
+       print*, 'umask_dirichlet, k = 1:'
+       k = 1
+       do j = ny-1, 1, -1
+          write(6,'(23L3)') umask_dirichlet(k,1:23,j)
+       enddo
+       
+       print*, ' '
+       print*, 'umask_dirichlet, k =', nz
+       k = nz
+       do j = ny-1, 1, -1
+          write(6,'(23L3)') umask_dirichlet(k,1:23,j)
+       enddo
+
+    endif   ! verbose_state
 
 !WHLt2 - If iterating on the velocity during the remapping transport calculation,
 !        we do not want these masks to change.
@@ -894,7 +925,7 @@
                           usrf,         stagusrf)
 
 !WHL - debug
-    if (verbose .and. this_rank==rtest) then
+    if (verbose_state .and. this_rank==rtest) then
        print*, ' '
        print*, 'stagthck, rank =', rtest
        do j = ny-1, 1, -1
@@ -1018,7 +1049,7 @@
        allocate(matrix%row(nNonzero), matrix%col(nNonzero), matrix%val(nNonzero))
        allocate(rhs(matrix_order), answer(matrix_order), resid_vec(matrix_order))
 
-       if (verbose) then
+       if (verbose_matrix) then
           print*, 'matrix_order =', matrix_order
           print*, 'nNonzero = ', nNonzero
        endif
@@ -1126,7 +1157,7 @@
        ! Assemble the stiffness matrix A
        !---------------------------------------------------------------------------
 
-       if (verbose .and. this_rank==rtest) print*, 'call assemble_stiffness_matrix'
+       if (verbose_matrix .and. this_rank==rtest) print*, 'call assemble_stiffness_matrix'
 
        call assemble_stiffness_matrix(nx,               ny,              &
                                       nz,               nhalo,           &
@@ -1139,10 +1170,10 @@
                                       Avu,              Avv,             &
                                       sia_factor,       ssa_factor)
        
-       if (verbose .and. this_rank==rtest) print*, 'Assembled the stiffness matrix'
+       if (verbose_matrix .and. this_rank==rtest) print*, 'Assembled the stiffness matrix'
 
 !WHL - debug
-       if (verbose .and. this_rank==rtest) then
+       if (verbose_matrix .and. this_rank==rtest) then
 
           i = itest
           j = jtest
@@ -1176,9 +1207,11 @@
        if (present(beta)) then
 
        !WHL - debug
-       print*, ' '
-       print*, 'max, min beta (Pa/(m/yr)) =', maxval(beta)/scyr, minval(beta)/scyr
-       print*, 'Call basal_sliding_bc'
+          if (verbose .and. main_task) then
+             print*, ' '
+             print*, 'max, min beta (Pa/(m/yr)) =', maxval(beta)/scyr, minval(beta)/scyr
+             print*, 'Call basal_sliding_bc'
+          endif
 
           call basal_sliding_bc(nx,               ny,              &
                                 nz,               nhalo,           &
@@ -1189,21 +1222,23 @@
 
        endif
 
-       i = itest
-       j = jtest
-       k = ktest
-       n = ntest
+       if (verbose_matrix .and. this_rank==rtest) then
+          i = itest
+          j = jtest
+          k = ktest
+          n = ntest
 !          print*, ' '
 !          print*, 'Auu after basal sliding BC: rank, i, j, k, n =', r, i, j, k, n
-       do kA = -1, 1
-          do jA = -1, 1
-             do iA = -1, 1
-               m = indxA(iA,jA,kA)
-                !             print*, 'iA, jA, kA, Auu:', iA, jA, kA, Auu(m, k, i, j)
+          do kA = -1, 1
+             do jA = -1, 1
+                do iA = -1, 1
+                   m = indxA(iA,jA,kA)
+                   !             print*, 'iA, jA, kA, Auu:', iA, jA, kA, Auu(m, k, i, j)
+                enddo
              enddo
           enddo
-       enddo
-       
+       endif
+
        !---------------------------------------------------------------------------
        ! Incorporate Dirichlet (u = 0) boundary conditions
        !---------------------------------------------------------------------------
@@ -1237,7 +1272,7 @@
      
 
 !WHL - debug
-    if (verbose .and. this_rank==rtest) then
+    if (verbose_matrix .and. this_rank==rtest) then
 !       print*, ' '
 !       m = indxA(0,0,0)
 !       print*, 'Before halo update, Auu(0,0,0,1,:,:), rank =', rtest
@@ -1252,7 +1287,7 @@
         call staggered_parallel_halo(Avv(:,:,:,:))
 
 !WHL - debug
-    if (verbose .and. this_rank==rtest) then
+    if (verbose_matrix .and. this_rank==rtest) then
 !       print*, ' '
 !       print*, 'After halo update, Auu_diag(1,:,:), rank =', rtest
 !       m = indxA(0,0,0)
@@ -1267,7 +1302,7 @@
        !---------------------------------------------------------------------------
 
 !WHL - debug
-    if (verbose .and. this_rank==rtest) then
+    if (verbose_matrix .and. this_rank==rtest) then
 !       print*, ' '
 !       print*, 'Before halo update, bu(1,:,:), rank =', rtest
 !       do j = ny-1, 1, -1
@@ -1279,7 +1314,7 @@
         call staggered_parallel_halo(bv(:,:,:))
 
 !WHL - debug
-    if (verbose .and. this_rank==rtest) then
+    if (verbose_matrix .and. this_rank==rtest) then
 !       print*, ' '
 !       print*, 'After halo update, bu(1,:,:), rank =', rtest
 !       do j = ny-1, 1, -1
@@ -1309,6 +1344,24 @@
                                                active_vertex,        &
                                                Auu,         Auv,     &
                                                Avu,         Avv)
+
+       endif
+
+       !WHL - debug
+       !TODO - Determine how these very small values get in the matrix.
+
+       !---------------------------------------------------------------------------
+       ! 
+
+       !---------------------------------------------------------------------------
+
+       if (remove_small_values) then
+
+          call remove_small_values_assembled_matrix(nx,          ny,      &
+                                                    nz,          nhalo,   &
+                                                    active_vertex,        &
+                                                    Auu,         Auv,     &
+                                                    Avu,         Avv)
 
        endif
 
@@ -1373,13 +1426,14 @@
        enddo        ! i
        enddo        ! j
 
-       if (verbose .and. this_rank==rtest) then
+       if (verbose_matrix .and. this_rank==rtest) then
           print*, ' '
           print*, 'nNonzeros in structured matrices =', nNonzeros
        endif
 
 !WHL - debug - print out some matrix values for test point
 
+!!       if (verbose_matrix .and. this_rank==rtest) then
        if (verbose .and. this_rank==rtest) then
           i = itest
           j = jtest
@@ -1404,7 +1458,7 @@
           enddo
           enddo
      
-          i = itest-1
+          i = itest+1
           print*, ' '
       	  print*, 'i,j,k,n =', i, j, k, n
           print*, 'iA, jA, kA, Auu, Avv, Auv, Avu:'
@@ -1446,6 +1500,10 @@
           print*, 'bu =', bu(k,i,j)
           print*, 'bv =', bv(k,i,j)
 
+       endif  ! verbose_matrix
+
+       if (verbose_matrix .and. this_rank==rtest) then
+
           k = 1
           
           m = indxA(0,0,0)
@@ -1476,17 +1534,17 @@
           k = nz-1
 
           m = indxA(0,0,0)
-          print*, ' '
-          print*, 'Avv_diag, k =', k
-          do j = ny-1, 1, -1
-             write(6,'(i3,23e10.2)'), j, Avv(m,k,1:23,j)
-          enddo
+!          print*, ' '
+!          print*, 'Avv_diag, k =', k
+!          do j = ny-1, 1, -1
+!             write(6,'(i3,23e10.2)'), j, Avv(m,k,1:23,j)
+!          enddo
 
-          print*, ' '
-          print*, 'bv, k =', k
-          do j = ny-1, 1, -1
-             write(6,'(i3,23f5.1)'), j, bv(k,1:23,j)
-          enddo
+!          print*, ' '
+!          print*, 'bv, k =', k
+!          do j = ny-1, 1, -1
+!             write(6,'(i3,23f5.1)'), j, bv(k,1:23,j)
+!          enddo
 
           k = nz
 
@@ -1503,8 +1561,7 @@
              write(6,'(i3,23f5.1)'), j, bv(k,1:23,j)
           enddo
 
-
-       endif   ! verbose, this_rank==rtest
+       endif   ! verbose_matrix, this_rank==rtest
 
        if (whichsparse == STANDALONE_PCG_STRUC) then   ! standalone PCG for structured grid
                                                        ! works for both serial and parallel runs
@@ -1686,7 +1743,7 @@
                                       usav,   vsav,        &
                                       resid_velo)
   
-       if (verbose .and. this_rank==rtest) then
+       if (verbose_state .and. this_rank==rtest) then
 !!       if (verbose_residual .and. this_rank==rtest) then
 
           print*, ' '
@@ -2145,7 +2202,7 @@
                    ds_dy = ds_dy + dphi_dy(n) * s(n)
                 enddo
 
-                if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+                if (verbose_load .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
                    print*, ' '
                    print*, 'Increment load vector, i, j, k, p =', i, j, k, p
                    print*, 'ds/dx, ds/dy =', ds_dx, ds_dy
@@ -2166,7 +2223,7 @@
                    bu(kNode,iNode,jNode) = bu(kNode,iNode,jNode) - rhoi*grav * wqp(p) * detJ/vol0 * ds_dx * phi(n,p)
                    bv(kNode,iNode,jNode) = bv(kNode,iNode,jNode) - rhoi*grav * wqp(p) * detJ/vol0 * ds_dy * phi(n,p)
 
-                   if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest .and. p==ptest) then
+                   if (verbose_load .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest .and. p==ptest) then
 !                      print*, ' '
                       print*, 'n, phi(n), delta(bu), delta(bv):', n, phi(n,p), &
                                rhoi*grav*wqp(p)*detJ/vol0 * ds_dx * phi(n,p), &
@@ -2245,7 +2302,7 @@
     do i = nhalo+1, nx-nhalo+1
        
        !WHL - debug
-       if (verbose .and. i==itest .and. j==jtest .and. this_rank==rtest) then
+       if (verbose_shelf .and. i==itest .and. j==jtest .and. this_rank==rtest) then
           print*, 'i, j =', i, j
 !          print*, 'active =', active_cell(i,j)
           print*, 'floating =', floating_cell(i,j)
@@ -2313,7 +2370,7 @@
 !          print*, '   Ocean north:', i, j+1
 
              !WHL - debug
-             if (i==itest .and. j==jtest .and. this_rank==rtest) then
+             if (verbose_shelf .and. i==itest .and. j==jtest .and. this_rank==rtest) then
                 print*, 'Call lateral_shelf_bc, north face, i, j =', i, j
              endif
 
@@ -2344,8 +2401,7 @@
                               xVertex,             yVertex,      &
                               bu,                  bv)
 
-!TODO - Test this subroutine.
-!       Verify that the sum of contributions to bu or bv over an entire column
+!TODO -  Verify that the sum of contributions to bu or bv over an entire column
 !        is equal to p_av times the surface area of the column.
 
     !----------------------------------------------------------------------------------
@@ -2545,7 +2601,7 @@
           !       Should we modify the subroutine so that derivatives are optional?
 
           !WHL - debug
-          if (iCell==itest .and. jCell==jtest .and. k==ktest) then
+          if (verbose_shelf .and. this_rank==rtest .and. iCell==itest .and. jCell==jtest .and. k==ktest) then
              print*, ' '
              print*, 'Get detJ, i, j, k, p =', iCell, jCell, k, p
              print*, 'x =', x(:)
@@ -2566,7 +2622,7 @@
           !WHL - debug
           ! Should always have detJ < 0 for north face as it's been computed
           if (trim(face)=='north' .and. detJ > 0.d0) then
-             print*, 'north detJ > 0: i, j, k, p, detJ =', iCell, jCell, k, p, detJ
+!             print*, 'north detJ > 0: i, j, k, p, detJ =', iCell, jCell, k, p, detJ
           endif
 
           detJ = abs(detJ)
@@ -2578,7 +2634,7 @@
              hqp = hqp + phi_2d(n,p) * h(n)
           enddo
 
-          if (verbose .and. this_rank==rtest .and. iCell==itest .and. jCell==jtest .and. k==ktest) then
+          if (verbose_shelf .and. this_rank==rtest .and. iCell==itest .and. jCell==jtest .and. k==ktest) then
              print*, ' '
              print*, 'Increment shelf load vector, i, j, face, k, p =', iCell, jCell, trim(face), k, p
              print*, 'hqp =', hqp
@@ -2608,7 +2664,7 @@
                 bu(kNode(n),iNode(n),jNode(n)) = bu(kNode(n),iNode(n),jNode(n))    &
                                                + rhoeff*grav * hqp * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
 
-                if (verbose .and. this_rank==rtest .and. iCell==itest .and. jCell==jtest .and. k==ktest) then
+                if (verbose_shelf .and. this_rank==rtest .and. iCell==itest .and. jCell==jtest .and. k==ktest) then
                    print*, 'n, p, phi(n), delta(bu):', n, p, phi_2d(n,p), &
                             rhoeff*grav * hqp * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
                 endif
@@ -2621,7 +2677,7 @@
                 bv(kNode(n),iNode(n),jNode(n)) = bv(kNode(n),iNode(n),jNode(n))    &
                                                - rhoeff*grav * hqp * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
 
-                if (verbose .and. this_rank==rtest .and. iCell==itest .and. jCell==jtest .and. k==ktest) then
+                if (verbose_shelf .and. this_rank==rtest .and. iCell==itest .and. jCell==jtest .and. k==ktest) then
                    print*, 'n, p, phi(n), delta(bv):', n, p, phi_2d(n,p), &
                            -rhoeff*grav * hqp * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
                 endif
@@ -2634,7 +2690,7 @@
              do n = 1, nNodesPerElement_2d
                 bv(kNode(n),iNode(n),jNode(n)) = bv(kNode(n),iNode(n),jNode(n))    &
                                                + rhoeff*grav * hqp * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
-                if (verbose .and. this_rank==rtest .and. iCell==itest .and. jCell==jtest .and. k==ktest) then
+                if (verbose_shelf .and. this_rank==rtest .and. iCell==itest .and. jCell==jtest .and. k==ktest) then
                    print*, 'n, p, phi_2d(n,p), delta(bv):', n, p, phi_2d(n,p), &
                             rhoeff*grav * hqp * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
                 endif
@@ -2716,10 +2772,12 @@
     ! Local variables
     !---------------------------------------------------------
 
-    real(dp) ::   &
+!WHL - giving these a p index
+
+    real(dp), dimension(nQuadPoints) ::   &
        detJ               ! determinant of J
 
-    real(dp), dimension(nNodesPerElement) ::   &
+    real(dp), dimension(nNodesPerElement,nQuadPoints) ::   &
        dphi_dx, dphi_dy, dphi_dz   ! derivatives of basis function, evaluated at quad pts
 
     !----------------------------------------------------------------
@@ -2755,15 +2813,24 @@
        u, v,            & ! u and v at nodes
        s                  ! upper surface elevation at nodes
 
-    real(dp) ::    &
-       efvs               ! effective viscosity
+    real(dp), dimension(nQuadPoints) ::    &
+       efvs               ! effective viscosity at a quad pt
+
+    real(dp) ::         &
+       efvs_avg           ! efvs averaged over quad pts
+
+    logical, parameter ::   &
+       efvs_element_avg = .false.   ! if true, then average efvs over quad pts
 
     integer :: i, j, k, n, p
     integer :: iA, jA, kA
 
     integer :: iNode, jNode, kNode
 
-    if (verbose .and. main_task) then
+!WHL - debug
+    integer :: jj
+
+    if (verbose_matrix .and. main_task) then
        print*, ' '
        print*, 'In assemble_stiffness_matrix'
     endif
@@ -2788,7 +2855,7 @@
        do k = 1, nz-1    ! loop over elements in this column 
                          ! assume k increases from upper surface to bed
 
-          if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+          if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
              print*, 'i, j, k:', i, j, k
              print*, ' '
           endif
@@ -2817,7 +2884,7 @@
              v(n) = vvel(kNode,iNode,jNode)
              s(n) = stagusrf(iNode,jNode)
 
-             if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+             if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
                 print*, 'i, j, k, n, x, y, z:', i, j, k, n, x(n), y(n), z(n)
                 print*, 's, u, v:', s(n), u(n), v(n)
              endif
@@ -2830,6 +2897,36 @@
           !       computed only once per nonlinear solve, whereas efvs must be recomputed
           !       after each linear solve.
 
+             if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+                print*, ' '
+                print*, 'Current uvel (m/yr): i, k =', itest, ktest
+                do jj = jtest+2, jtest-2, -1
+                   write(6, '(i4, 5e15.8)') jj, uvel(ktest,itest-2:itest+2,jj)*scyr
+                enddo
+                print*, 'Current uvel (m/yr): i, k =', itest, ktest+1
+                do jj = jtest+2, jtest-2, -1
+                   write(6, '(i4, 5e15.8)') jj, uvel(ktest+1,itest-2:itest+2,jj)*scyr
+                enddo
+                print*, ' '
+                print*, 'Current vvel (m/yr): i, k =', itest, ktest
+                do jj = jtest+2, jtest-2, -1
+                   write(6, '(i4, 5e15.8)') jj, vvel(ktest,itest-2:itest+2,jj)*scyr
+                enddo
+                print*, 'Current vvel (m/yr): i, k =', itest, ktest+1
+                do jj = jtest+2, jtest-2, -1
+                   write(6, '(i4, 5e15.8)') jj, vvel(ktest+1,itest-2:itest+2,jj)*scyr
+                enddo
+
+                print*, ' '
+                print*, 'Current uvel(lower, upper, m/yr):'
+                write(6, '(2e15.8,a10,2e15.8)') u(4)*scyr, u(3)*scyr, '          ', u(8)*scyr, u(7)*scyr
+                write(6, '(2e15.8,a10,2e15.8)') u(1)*scyr, u(2)*scyr, '          ', u(5)*scyr, u(6)*scyr
+                print*, ' '
+                print*, 'Current vvel(lower, upper, m/yr):'
+                write(6, '(2e15.8,a10,2e15.8)') v(4)*scyr, v(3)*scyr, '          ', v(8)*scyr, v(7)*scyr
+                write(6, '(2e15.8,a10,2e15.8)') v(1)*scyr, v(2)*scyr, '          ', v(5)*scyr, v(6)*scyr
+             endif
+
           do p = 1, nQuadPoints
 
              ! Evaluate the derivatives of the element basis functions
@@ -2840,10 +2937,10 @@
              call get_basis_function_derivatives(nNodesPerElement, &
                                                  x(:),          y(:),          z(:),           &
                                                  dphi_dxr(:,p), dphi_dyr(:,p), dphi_dzr(:,p),  &
-                                                 dphi_dx(:),    dphi_dy(:),    dphi_dz(:),     &
-                                                 detJ , i, j, k, p                      )
+                                                 dphi_dx(:,p),  dphi_dy(:,p),  dphi_dz(:,p),   &
+                                                 detJ(p) , i, j, k, p                      )
 
-             if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+             if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
 !!                print*, ' '
 !!                print*, 'Derivatives of basis functions, p =', p
                 do n = 1, nNodesPerElement
@@ -2851,33 +2948,78 @@
                 enddo
              endif
 
+          enddo   ! nQuadPoints
+
+          do p = 1, nQuadPoints
 
 !WHL - debug - Pass in i, j, k, and p for now
 
              call compute_effective_viscosity(whichefvs,        nNodesPerElement,             &
-                                              dphi_dx(:),       dphi_dy(:),     dphi_dz(:),   &
+                                              dphi_dx(:,p),     dphi_dy(:,p),   dphi_dz(:,p), &
                                               u(:),             v(:),                         & 
-                                              flwafact(k,i,j),  efvs,                         &
+                                              flwafact(k,i,j),  efvs(p),                      &
                                               sia_factor,       ssa_factor,  i, j, k, p )
 
-             if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+!             if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
 !                print*, ' '
-!                print*, 'efvs:', efvs
+!                print*, 'i, j, k, p, efvs (Pa yr):', i, j, k, p, efvs(p)/scyr
+!             endif
+
+          enddo   ! nQuadPoints
+
+          if (efvs_element_avg) then  ! apply element-average efvs instead of a different efvs for each quad pt
+                                      ! less accurate but smoother?
+
+             ! Compute average over quad pts
+             efvs_avg = 0.d0
+             do p = 1, nQuadPoints
+                efvs_avg = efvs_avg + efvs(p)
+             enddo
+             efvs_avg = efvs_avg/nQuadPoints
+
+             if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+                print*, ' '
+                print*, 'i, j, k, efvs_avg (Pa yr):', i, j, k, efvs_avg/scyr
              endif
 
-             ! Increment the element stiffness matrix with the contribution from
-             ! this quadrature point.
+             ! Assign average to each quad pt
+             efvs(:) = efvs_avg
+
+          endif   ! efvs_element_avg
+
+          ! Increment the element stiffness matrix with the contribution from
+          ! this quadrature point.
+
+          do p = 1, nQuadPoints
 
 !WHL - debug - Pass in i, j, k, and p for now
 
-             call element_matrix_blatter_pattyn(nNodesPerElement,                          &
-                                                wqp(p),           detJ,        efvs,       &
-                                                dphi_dx(:),       dphi_dy(:),  dphi_dz(:), &
-                                                Kuu(:,:),         Kuv(:,:),                &
-                                                Kvu(:,:),         Kvv(:,:),                &
-                                                sia_factor,       ssa_factor,  i, j, k, p )
+             call element_matrix_blatter_pattyn(nNodesPerElement,                              & 
+                                                wqp(p),           detJ(p),       efvs(p),      &
+                                                dphi_dx(:,p),     dphi_dy(:,p),  dphi_dz(:,p), &
+                                                Kuu(:,:),         Kuv(:,:),                    &
+                                                Kvu(:,:),         Kvv(:,:),                    &
+                                                sia_factor,       ssa_factor,    i, j, k, p )
 
           enddo   ! nQuadPoints
+
+!WHL - debug
+          if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+             print*, ' '
+             print*, 'Kvv: i, j, k =', i, j, k 
+             do jj = 1, nNodesPerElement
+                write(6,'(i4,8e18.11)') jj, Kvv(1:8,jj)
+             enddo
+          endif
+
+!WHL - debug
+          if (verbose .and. this_rank==rtest .and. i==itest+1 .and. j==jtest .and. k==ktest) then
+             print*, ' '
+             print*, 'Kvv: i, j, k =', i, j, k 
+             do jj = 1, nNodesPerElement
+                write(6,'(i4,8e18.11)') jj, Kvv(1:8,jj)
+             enddo
+          endif
 
           if (check_symmetry) then
 
@@ -2888,10 +3030,10 @@
 
          ! If solving in parallel with Trilinos, we have the option at this point to 
          ! call a sum_into_global_matrix routine, passing one row at a time of the
-         ! element matrix.  Trilinos will handle the rest.
+         ! element matrix.  Trilinos should handle the rest.
          !
 
-          if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+          if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
              print*, ' '
              print*, 'Insert Kuu into Auu'
           endif
@@ -2901,7 +3043,7 @@
                                         i,            j,           k,           &
                                         Kuu,          Auu)
 
-          if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+          if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
              print*, ' '
              print*, 'Insert Kuv into Auv'
           endif
@@ -2911,7 +3053,7 @@
                                         i,            j,           k,           &
                                         Kuv,          Auv)
 
-          if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+          if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
              print*, ' '
              print*, 'Insert Kvu into Avu'
           endif
@@ -2921,7 +3063,7 @@
                                         i,            j,           k,           &
                                         Kvu,          Avu)
 
-          if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+          if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
              print*, ' '
              print*, 'Insert Kvv into Avv'
           endif
@@ -3244,7 +3386,7 @@
     integer :: n
 
 !WHL - debug
-    if (verbose .and. i==itest .and. j==jtest .and. k==ktest) then
+    if (verbose_efvs .and. i==itest .and. j==jtest .and. k==ktest) then
        print*, ' '
        print*, 'Compute efvs, i, j, k, p =', i, j, k, p
     endif
@@ -3253,14 +3395,75 @@
 
     case(HO_EFVS_CONSTANT)
 
-       efvs = 1.d7 * scyr   ! Steve Price recommends 10^6 to 10^7 Pa yr
-                            ! (~10^14 Pa s)
+!WHL - debug
+       if (trial_efvs) then
+
+          if (verbose_efvs .and. i==itest .and. j==jtest .and. k==ktest) then
+             print*, 'Computing trial efvs'
+             print*, ' '
+          endif
+
+          du_dx = 0.d0
+          dv_dx = 0.d0
+          du_dy = 0.d0
+          dv_dy = 0.d0
+          du_dz = 0.d0
+          dv_dz = 0.d0
+
+          ! Compute strain rate components at this quadrature point
+          ! by summing over basis functions
+
+          do n = 1, nNodesPerElement
+
+             du_dx = du_dx + dphi_dx(n)*uvel(n)
+             dv_dx = dv_dx + dphi_dx(n)*vvel(n)
+
+             du_dy = du_dy + dphi_dy(n)*uvel(n)
+             dv_dy = dv_dy + dphi_dy(n)*vvel(n)
+
+             du_dz = du_dz + dphi_dz(n)*uvel(n)
+             dv_dz = dv_dz + dphi_dz(n)*vvel(n)
+
+          enddo   ! nNodesPerElement
+
+          ! Compute effective strain rate at this quadrature point (PGB 2012, eq. 3 and 9)
+          ! Units are s^(-1)
+
+          effstrainsq = effstrain_min**2                                      &
+                      + ssa_factor * (du_dx**2 + dv_dy**2 + du_dx*dv_dy       &
+                                      + 0.25d0 * (dv_dx + du_dy)**2)          &
+                      + sia_factor * 0.25d0 * (du_dz**2 + dv_dz**2)
+
+          effstrain = sqrt(effstrainsq)
+
+          ! Compute effective viscosity (PGB 2012, eq. 4)
+          ! Units: flwafact has units Pa s^{1/n}
+          !        effstrain has units s^{-1}
+          !        p_effstr = (1-n)/n 
+          !                 = -2/3 for n=3
+          ! Thus efvs has units Pa s
+ 
+          efvs = flwafact * effstrain**p_effstr
+
+          if (verbose_efvs .and. i==itest .and. j==jtest .and. k==ktest) then
+!             print*, 'effstrain_min (yr-1)=', effstrain_min*scyr
+!             print*, 'Trial du/dx, du/dy, du/dz (yr-1) =', du_dx*scyr, du_dy*scyr, du_dz*scyr
+             print*, 'Trial dv/dx, dv/dy, dv/dz (yr-1) =', dv_dx*scyr, dv_dy*scyr, dv_dz*scyr
+             print*, 'Trial flwafact, effstrain (yr-1), efvs(Pa yr) =', flwafact, effstrain*scyr, efvs/scyr
+          endif
+
+       endif  ! trial_efvs
+!WHL - end debug (next the real thing)
+
+       efvs = 1.d7 * scyr   ! Steve Price recommends 10^7 Pa yr
+                            ! (~3e14 Pa s)
 !WHL - This is the glam-type scaling
 !!       efvs = efvs * scyr/tim0 / tau0   ! tau0 = rhoi*grav*thk0
 
-       if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
-          print*, 'Set efvs = constant:', efvs
+       if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+          print*, 'Set efvs = constant (Pa yr):', efvs/scyr
        endif
+
 
     case(HO_EFVS_FLOWFACT)      ! set the effective viscosity to a multiple of the flow factor, 0.5*A^(-1/n)
                  
@@ -3270,8 +3473,8 @@
        effstrain = vel_scale/len_scale   ! typical strain rate, s^{-1}  
        efvs = flwafact * effstrain**p_effstr  
 
-       if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
-          print*, 'flwafact, effstrain, efvs =', flwafact, effstrain, efvs       
+       if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+          print*, 'flwafact, effstrain (yr-1), efvs (Pa yr)=', flwafact, effstrain*scyr, efvs/scyr       
        endif
 
     case(HO_EFVS_NONLINEAR)    ! calculate effective viscosity based on effective strain rate, n = 3
@@ -3318,12 +3521,11 @@
  
        efvs = flwafact * effstrain**p_effstr
 
-       if (verbose .and. i==itest .and. j==jtest .and. k==ktest) then
-!!       if (verbose .and. i==itest .and. j==jtest+1 .and. k==ktest) then
-          print*, 'effstrain_min =', effstrain_min
-          print*, 'du/dx, du/dy, du/dz =', du_dx, du_dy, du_dz
-          print*, 'dv/dx, dv/dy, dv/dz =', dv_dx, dv_dy, dv_dz
-          print*, 'flwafact, effstrain (s-1), efvs (Pa s) =', flwafact, effstrain, efvs
+       if (verbose_efvs .and. i==itest .and. j==jtest .and. k==ktest) then
+!          print*, 'effstrain_min (yr-1)=', effstrain_min*scyr
+          print*, 'du/dx, du/dy, du/dz (yr-1) =', du_dx*scyr, du_dy*scyr, du_dz*scyr
+          print*, 'dv/dx, dv/dy, dv/dz (yr-1) =', dv_dx*scyr, dv_dy*scyr, dv_dz*scyr
+          print*, 'flwafact, effstrain (yr-1), efvs(Pa yr) =', flwafact, effstrain*scyr, efvs/scyr
        endif
 
     end select
@@ -3382,7 +3584,7 @@
     integer :: i, j
 
 !WHL - debug
-    if (verbose .and. this_rank==rtest .and. ii==itest .and. jj==jtest .and. k==ktest) then
+    if (verbose_matrix .and. this_rank==rtest .and. ii==itest .and. jj==jtest .and. k==ktest) then
        print*, ' '
        print*, 'Increment element matrix, p =', p
     endif
@@ -3394,7 +3596,7 @@
     do j = 1, nNodesPerElement      ! columns of K
        do i = 1, nNodesPerElement   ! rows of K
 
-!       if (verbose .and. this_rank==rtest .and. ii==itest .and. jj==jtest .and. k==ktest .and. p==ptest) then
+!       if (verbose_matrix .and. this_rank==rtest .and. ii==itest .and. jj==jtest .and. k==ktest .and. p==ptest) then
 !          print*, 'efvs, wqp, detJ/vol0 =', efvs, wqp, detJ/vol0
 !          print*, 'dphi_dz(1) =', dphi_dz(1)
 !          print*, 'dphi_dx(1) =', dphi_dx(1)
@@ -3456,7 +3658,7 @@
     integer :: n, nr, nc
 
 !WHL - debug
-    if (verbose .and. this_rank==rtest .and. iElement==itest .and. jElement==jtest .and. kElement==ktest) then
+    if (verbose_matrix .and. this_rank==rtest .and. iElement==itest .and. jElement==jtest .and. kElement==ktest) then
        print*, 'Element i, j, k:', iElement, jElement, kElement 
        print*, 'Rows of K:'
        do n = 1, nNodesPerElement
@@ -3486,7 +3688,7 @@
           Amat(m,k,i,j) = Amat(m,k,i,j) + Kmat(nr,nc)
 
 !WHL - debug
-!          if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest  &
+!          if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest  &
 !                      .and. iA == iAtest .and. jA==jAtest .and. kA==kAtest) then
 !             print*, ' '
 !             print*, 'i, j, k, iA, jA, kA:', i, j, k, iA, jA, kA
@@ -3573,7 +3775,7 @@
     !       With more care, we could skip some computations for vertices that are not locally owned.
 
     !WHL- debug
-    if (verbose) print*, 'In basal_sliding_bc: itest, jtest =', itest, jtest
+    if (verbose_basal) print*, 'In basal_sliding_bc: itest, jtest =', itest, jtest
 
     do j = nhalo+1, ny-nhalo+1
     do i = nhalo+1, nx-nhalo+1
@@ -3628,7 +3830,7 @@
                 beta_qp = beta_qp + phi_2d(n,p) * b(n)
              enddo
 
-             if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest) then
+             if (verbose_basal .and. this_rank==rtest .and. i==itest .and. j==jtest) then
                 print*, ' '
                 print*, 'Increment basal traction, i, j, p =', i, j, p
                 print*, 'beta_qp =', beta_qp
@@ -3889,7 +4091,7 @@
 
     integer :: nc, nr
 
-    if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest) then
+    if (verbose_basal .and. this_rank==rtest .and. i==itest .and. j==jtest) then
        print*, ' '
        print*, 'Increment element matrix for basal BC, p =', p
        print*, 'phi_2d:', phi_2d(1:4)
@@ -3951,7 +4153,7 @@
     integer :: iA, jA, kA
     integer :: nr, nc
 
-    if (verbose .and. this_rank==rtest .and. iElement==itest .and. jElement==jtest) then
+    if (verbose_basal .and. this_rank==rtest .and. iElement==itest .and. jElement==jtest) then
        print*, ' '
        print*, 'Basal BC: K matrix:'
        do nr = 1, nNodesPerElement_2d
@@ -4174,7 +4376,7 @@
 
     integer :: i, j, k, iA, jA, kA, m 
 
-    if (verbose .and. this_rank==rtest) then
+    if (verbose_residual .and. this_rank==rtest) then
        print*, ' '
        i = itest
        j = jtest
@@ -4234,7 +4436,7 @@
     enddo   ! j
 
 
-    if (verbose .and. this_rank==rtest) then
+    if (verbose_residual .and. this_rank==rtest) then
 !       print*, ' '
 !       print*, 'Compute residual:'
 !       print*, 'k, i, j, Axu, bu:'
@@ -4489,7 +4691,7 @@
                    alpha = cnorm / cdiff
                    uvel(k,i,j) = uvel_old(k,i,j) + alpha*ucorr(k,i,j)
 
-                   if (verbose .and. this_rank==rtest) then
+                   if (verbose_umc .and. this_rank==rtest) then
                       print*, ' '
                       print*, 'Underrelax: i, j, k, theta (deg), alpha:', &
                            i, j, k, theta*180.d0/pi, alpha
@@ -4532,7 +4734,7 @@
                    alpha = cnorm / cdiff
                    vvel(k,i,j) = vvel_old(k,i,j) + alpha*vcorr(k,i,j)
 
-                   if (verbose .and. this_rank==rtest) then
+                   if (verbose_umc .and. this_rank==rtest) then
                       print*, ' '
                       print*, 'Underrelax: i, j, k, theta (deg), alpha:', &
                            i, j, k, theta*180.d0/pi, alpha
@@ -4599,7 +4801,7 @@
                    uvel(k,i,j) = uvel_old(k,i,j) + alpha*ucorr(k,i,j)
                    vvel(k,i,j) = vvel_old(k,i,j) + alpha*ucorr(k,i,j)
 
-                   if (verbose .and. this_rank==rtest) then
+                   if (verbose_umc .and. this_rank==rtest) then
                       print*, ' '
                       print*, 'Underrelax: i, j, k, theta (deg), alpha:', &
                            i, j, k, theta*180.d0/pi, alpha
@@ -4748,7 +4950,7 @@
                 matrix%val(ct) = val
              endif
 
-             if (2*colA==rowtest .and. 2*rowA-1==coltest) then
+             if (verbose_slapsolve .and. 2*colA==rowtest .and. 2*rowA-1==coltest) then
                print*, ' '
                print*, 'rowA, colA, i, j, k =', rowA, colA, i, j, k
                print*, 'iA, jA, kA:', iA, jA, kA
@@ -4792,7 +4994,7 @@
              endif
 
 !WHL - debug
-             if (2*rowA==rowtest .and. 2*colA-1==coltest) then
+             if (verbose_slapsolve .and. 2*rowA==rowtest .and. 2*colA-1==coltest) then
                print*, ' '
                print*, 'rowA, colA, i, j, k =', rowA, colA, i, j, k
                print*, 'iA, jA, kA:', iA, jA, kA
@@ -4825,7 +5027,7 @@
     matrix%nonzeros = ct
     matrix%symmetric = .false.
 
-    if (verbose) then
+    if (verbose_slapsolve) then
        print*, ' '
        print*, 'solver preprocess'
        print*, 'order, nonzeros =', matrix%order, matrix%nonzeros
@@ -4842,7 +5044,7 @@
        answer(2*n-1) = uvel(k,i,j)
        answer(2*n)   = vvel(k,i,j)
 
-       if (verbose .and. n==ntest) then
+       if (verbose_slapsolve .and. n==ntest) then
           print*, ' '
           print*, 'n, initial uvel =', n, answer(2*n-1)
           print*, 'n, initial vvel =', n, answer(2*n)
@@ -4861,7 +5063,7 @@
        rhs(2*n-1) = bu(k,i,j)
        rhs(2*n)   = bv(k,i,j)
 
-       if (verbose .and. n==ntest) then
+       if (verbose_slapsolve .and. n==ntest) then
           print*, ' '
           print*, 'n, initial bu =', n, rhs(2*n-1)
           print*, 'n, initial bv =', n, rhs(2*n)
@@ -4897,7 +5099,7 @@
 
     integer :: i, j, k, n
 
-       if (verbose) then
+       if (verbose_slapsolve) then
           print*, ' '
           print*, 'solver postprocess: n, i, j, k, u, v'
        endif
@@ -4939,7 +5141,7 @@
 
     integer :: i, j, n
 
-    if (verbose) then
+    if (verbose_residual) then
        print*, ' '
        print*, 'Residual vector: order, nonzeros =', matrix%order, matrix%nonzeros 
        print*, 'ntest, u answer, u rhs:', ntest, answer(2*ntest-1), rhs(2*ntest-1)
@@ -5119,7 +5321,7 @@
                          ! if difference is small, then fix the asymmetry by averaging values
                          ! else print a warning and abort
 
-                         if ( abs(val2-val1) < eps11*diag_entry ) then
+                         if ( abs(val2-val1) < eps11*abs(diag_entry) ) then
                             avg_val = 0.5d0 * (val1 + val2)
                             Auu( m, k,   i,   j   ) = avg_val
                             Auu(mm, k+kA,i+iA,j+jA) = avg_val
@@ -5145,7 +5347,7 @@
                          ! if difference is small, then fix the asymmetry by averaging values
                          ! else print a warning and abort
 
-                         if ( abs(val2-val1) < eps11*diag_entry ) then
+                         if ( abs(val2-val1) < eps11*abs(diag_entry) ) then
                             avg_val = 0.5d0 * (val1 + val2)
                             Auv( m, k,   i,   j   ) = avg_val
                             Avu(mm, k+kA,i+iA,j+jA) = avg_val
@@ -5191,7 +5393,7 @@
                          ! if difference is small, then fix the asymmetry by averaging values
                          ! else print a warning and abort
 
-                         if ( abs(val2-val1) < eps11*diag_entry ) then
+                         if ( abs(val2-val1) < eps11*abs(diag_entry) ) then
                             avg_val = 0.5d0 * (val1 + val2)
                             Avv( m, k,   i,   j   ) = avg_val
                             Avv(mm, k+kA,i+iA,j+jA) = avg_val
@@ -5217,7 +5419,7 @@
                          ! if difference is small, then fix the asymmetry by averaging values
                          ! else print a warning and abort
 
-                         if ( abs(val2-val1) < eps11*diag_entry ) then
+                         if ( abs(val2-val1) < eps11*abs(diag_entry) ) then
                             avg_val = 0.5d0 * (val1 + val2)
                             Avu( m, k,   i,   j   ) = avg_val
                             Auv(mm, k+kA,i+iA,j+jA) = avg_val
@@ -5243,12 +5445,119 @@
     enddo              ! j
 
     maxdiff = parallel_reduce_max(maxdiff)
-    if (verbose .and. main_task) then
+    if (verbose_matrix .and. main_task) then
        print*, ' '
        print*, 'Max difference from symmetry =', maxdiff
     endif
 
   end subroutine check_symmetry_assembled_matrix
+
+!****************************************************************************
+
+  subroutine remove_small_values_assembled_matrix(nx,  ny,  nz, nhalo,   &
+                                                  active_vertex,         &
+                                                  Auu, Auv, Avu, Avv)
+
+    !------------------------------------------------------------------
+    ! Remove very small values from the assembled matrix.
+    ! "Very small" means much smaller than the diagonal terms.
+    !------------------------------------------------------------------    
+
+    integer, intent(in) ::   &
+       nx, ny,               &  ! horizontal grid dimensions
+       nz,                   &  ! number of vertical levels where velocity is computed
+       nhalo                    ! number of halo layers
+
+    logical, dimension(nx-1,ny-1), intent(in) ::   &
+       active_vertex            ! T for columns (i,j) where velocity is computed, else F
+
+    real(dp), dimension(27,nz,nx-1,ny-1), intent(inout) ::   &
+       Auu, Auv, Avu, Avv       ! components of assembled stiffness matrix
+                                !
+                                !    Auu  | Auv
+                                !    _____|____          
+                                !         |
+                                !    Avu  | Avv                                    
+
+    integer :: i, j, k, iA, jA, kA, m, mm
+
+    real(dp) :: val        ! value of matrix coefficients
+
+    real(dp) :: diag_entry
+
+    ! Look for small values and remove them, along with symmetric counterparts.
+
+    do j = nhalo+1, ny-nhalo
+       do i = nhalo+1, nx-nhalo
+          if (active_vertex(i,j)) then
+             do k = 1, nz
+
+                m = indxA(0,0,0)
+                diag_entry = Auu(m,k,i,j)
+
+                do kA = -1, 1
+                do jA = -1, 1
+                do iA = -1, 1
+
+                   m =  indxA( iA, jA, kA)
+                   mm = indxA(-iA,-jA,-kA)
+
+                   val = Auu( m, k,    i,    j   )   ! value of Auu(row,col)
+                   if ( abs(val) < eps11*abs(diag_entry) ) then
+                      Auu(m,k,i,j) = 0.d0             ! Auu(row,col)
+                      if (k+kA >= 1 .and. k+kA <= nz) then
+                         Auu(mm,k+kA,i+iA,j+jA) = 0.d0   ! Auu(col,row)
+                      endif
+                   endif
+
+                   val = Auv( m, k,    i,    j   )   ! value of Auv(row,col)
+                   if ( abs(val) < eps11*abs(diag_entry) ) then
+                      Auv(m,k,i,j) = 0.d0             
+                      if (k+kA >= 1 .and. k+kA <= nz) then
+                         Avu(mm,k+kA,i+iA,j+jA) = 0.d0
+                      endif
+                   endif
+
+                enddo  ! iA
+                enddo  ! jA
+                enddo  ! kA
+
+                m = indxA(0,0,0)
+                diag_entry = Avv(m,k,i,j)
+
+                do kA = -1, 1
+                do jA = -1, 1
+                do iA = -1, 1
+
+                   m =  indxA( iA, jA, kA)
+                   mm = indxA(-iA,-jA,-kA)
+
+                   val = Avv( m, k,    i,    j   )   ! value of Avv(row,col)
+                   if ( abs(val) < eps11*abs(diag_entry) ) then
+                      Avv(m,k,i,j) = 0.d0             ! Avv(row,col)
+                      if (k+kA >= 1 .and. k+kA <= nz) then
+                         Avv(mm,k+kA,i+iA,j+jA) = 0.d0   ! Avv(col,row)
+                      endif
+                   endif
+
+                   val = Avu( m, k,    i,    j   )   ! value of Avu(row,col)
+                   if ( abs(val) < eps11*abs(diag_entry) ) then
+                      Avu(m,k,i,j) = 0.d0             ! Avu(row,col)
+                      if (k+kA >= 1 .and. k+kA <= nz) then
+                         Auv(mm,k+kA,i+iA,j+jA) = 0.d0   ! Auv(col,row)
+                      endif
+                   endif
+
+                enddo  ! iA
+                enddo  ! jA
+                enddo  ! kA
+
+             enddo     ! k
+          endif        ! active_vertex
+       enddo           ! i
+    enddo              ! j
+
+    end subroutine remove_small_values_assembled_matrix
 
 !****************************************************************************
 
