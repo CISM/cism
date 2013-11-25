@@ -55,7 +55,7 @@ contains
 
       use glimmer_global, only : dp
       use glimmer_physcon, only: gn, scyr
-      use glimmer_paramets, only: thk0, len0, vel0, vis0, tau0
+      use glimmer_paramets, only: thk0, len0, vel0, vis0, tau0, evs0
       use glimmer_log
       use glide_types
       use glissade_velo_higher, only: glissade_velo_higher_solve
@@ -169,6 +169,7 @@ contains
                                          vis0 * model%temper%flwa,                          &
 !!                                              model%velocity%uvel,  model%velocity%vvel,       &
                                          uvel,                   vvel,                      &
+                                         model%stress%efvs,                                 &
                                          model%options%which_ho_efvs,                       &
                                          model%options%which_ho_resid,                      &
                                          model%options%which_ho_nonlinear,                  &
@@ -180,6 +181,20 @@ contains
          ! rescale the velocity since the rest of the code expects it
          model%velocity%uvel(:,:,:) = uvel(:,:,:) / vel0
          model%velocity%vvel(:,:,:) = vvel(:,:,:) / vel0
+
+!WHL - debug
+         print*, ' '
+         print*, 'efvs (Pa yr, k = 1):'
+         do j = model%general%nsn, 1, -1
+            write(6,'(8e15.8)') model%stress%efvs(1,1:8,j)/scyr
+         enddo
+
+         ! similarly, rescale the efffective viscosity
+         ! efvs is returned with units Pa s; dividing by evs0 makes it dimensionless
+         ! for output, efvs is rescaled to units Pa yr
+
+         model%stress%efvs(:,:,:) = model%stress%efvs(:,:,:) / evs0
+
 
       else if ( model%options%which_ho_nonlinear == HO_NONLIN_JFNK ) then ! JFNK
 

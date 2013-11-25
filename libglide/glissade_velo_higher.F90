@@ -190,7 +190,10 @@
 
     integer, parameter :: &
 !       itest = 9, jtest = 19, ktest = 1, ptest = 1  ! for dome, global (i,j) = (7,17), 1 proc
+
 !       itest = 26, jtest = 19, ktest = 1, ptest = 1  ! for dome, global (i,j) = (24,17), 1 proc
+!       integer, parameter :: ntest = 2371  ! nodeID for dome global (24,17,1)    
+
 !       itest = 26, jtest = 19, ktest = 10, ptest = 1
 
 !        itest = 3, jtest = 3, ktest = 1, ptest = 1    ! for ishom.a, global (i,j) = (1,1)
@@ -200,9 +203,11 @@
 !!       itest = 24, jtest = 42, ktest = 1, ptest = 1  ! for confined/linear (north-flowing) shelf, global (i,j) = (22,40), 1 proc
 !       itest = 11, jtest = 11, ktest = 1, ptest = 1  ! for circular shelf, global (i,j) = (9,9), 1 proc
 !       itest = 5, jtest = 42, ktest = 1, ptest = 1  ! for confined/linear (north-flowing) shelf, global (i,j) = (3,40), 1 proc
-       itest = 9, jtest = 9, ktest = 1, ptest = 1  ! for confined/linear shelf, global (i,j) = (7,7), 1 proc
 
-    integer, parameter :: ntest = 2371  ! nodeID for dome global (24,17,1)    
+       itest = 9, jtest = 9, ktest = 1, ptest = 1  ! for confined/linear shelf, global (i,j) = (7,7), 1 proc
+       integer, parameter :: ntest = 231  
+
+
 !    integer, parameter :: ntest = 2372  ! nodeID for dome global (24,17,2)
 !    integer, parameter :: ntest = 2380  ! nodeID for dome global (24,17,10)
     
@@ -524,6 +529,7 @@
                                         thklim,                   &
                                         flwa,                     &
                                         uvel,       vvel,         &
+                                        efvs,                     &
                                         whichefvs,                &
                                         whichresid,               &
                                         whichnonlinear,           &
@@ -584,6 +590,8 @@
 
     real(dp), dimension(:,:,:), intent(inout) ::  &
        uvel, vvel             ! velocity components (m/s)
+
+    real(dp), dimension(:,:,:), intent(out) :: efvs   ! effective viscosity (Pa s)
 
     !TODO: Make these optional with default values? 
     integer, intent(in) :: whichefvs      ! option for effective viscosity calculation 
@@ -795,8 +803,8 @@
     endif
 
 !WHL - debug
-!!    if (verbose_state .and. this_rank==rtest) then
-    if (verbose .and. this_rank==rtest) then
+    if (verbose_state .and. this_rank==rtest) then
+!!    if (verbose .and. this_rank==rtest) then
        print*, ' '
        print*, 'Thickness field, rank =', rtest
        do j = ny, 1, -1
@@ -959,7 +967,7 @@
                              iNodeIndex,  jNodeIndex,  kNodeIndex)
 
 !WHL - debug
-    if (verbose .and. this_rank==rtest) then
+    if (verbose_state .and. this_rank==rtest) then
        print*, ' '
        print*, 'NodeID before halo update, k = 1:'
        do j = ny-1, 1, -1
@@ -974,7 +982,7 @@
     call staggered_parallel_halo(NodeID)
 
 !WHL - debug
-    if (verbose .and. this_rank==rtest) then
+    if (verbose_state .and. this_rank==rtest) then
        print*, ' '
        print*, 'NodeID after halo update, k = 1:'
        do j = ny-1, 1, -1
@@ -1165,7 +1173,8 @@
                                       xVertex,          yVertex,         &
                                       uvel,             vvel,            &
                                       stagusrf,         stagthck,        &
-                                      flwafact,         whichefvs,       &
+                                      flwafact,                          &
+                                      efvs,             whichefvs,       &
                                       Auu,              Auv,             &
                                       Avu,              Avv,             &
                                       sia_factor,       ssa_factor)
@@ -1675,7 +1684,7 @@
           if (verbose) then
              print*, 'Solved the linear system, niters, err =', niters, err
              print*, ' '
-             print*, 'n, u, v (m/yr):', ntest, scyr*answer(2*ntest-1), scyr*answer(2*ntest)
+!!             print*, 'n, u, v (m/yr):', ntest, scyr*answer(2*ntest-1), scyr*answer(2*ntest)
 !!           do n = 1, matrix%order 
 !!              print*, n, answer(n)
 !!           enddo
@@ -2057,7 +2066,7 @@
              jNodeIndex(nNodesSolve) = j
              kNodeIndex(nNodesSolve) = k
 
-             if (verbose .and. this_rank==rtest .and. nNodesSolve==ntest) then
+             if (verbose .and. this_rank==rtest .and. nNodesSolve==ntest .and. k < nz) then
                 print*, ' '
                 print*, 'i, j, k, n:', i, j, k, nNodesSolve
                 print*, 'sigma, stagusrf, stagthck:', sigma(k), stagusrf(i,j), stagthck(i,j)
@@ -2719,7 +2728,8 @@
                                        xVertex,          yVertex,         &
                                        uvel,             vvel,            &
                                        stagusrf,         stagthck,        &
-                                       flwafact,         whichefvs,       &
+                                       flwafact,                          &
+                                       efvs,             whichefvs,       &
                                        Auu,              Auv,             &
                                        Avu,              Avv,             &
                                        sia_factor,       ssa_factor)
@@ -2760,6 +2770,9 @@
     integer, intent(in) :: whichefvs      ! option for effective viscosity calculation 
                                           ! (calculate it or make it uniform)
 
+    real(dp), dimension(nz-1,nx,ny), intent(out) ::  &
+       efvs               ! effective viscosity (Pa s)
+
     real(dp), dimension(27,nz,nx-1,ny-1), intent(out) ::  &
        Auu, Auv,    &     ! assembled stiffness matrix, divided into 4 parts
        Avu, Avv                                    
@@ -2771,8 +2784,6 @@
     !---------------------------------------------------------
     ! Local variables
     !---------------------------------------------------------
-
-!WHL - giving these a p index
 
     real(dp), dimension(nQuadPoints) ::   &
        detJ               ! determinant of J
@@ -2814,7 +2825,7 @@
        s                  ! upper surface elevation at nodes
 
     real(dp), dimension(nQuadPoints) ::    &
-       efvs               ! effective viscosity at a quad pt
+       efvs_qp            ! effective viscosity at a quad pt
 
     real(dp) ::         &
        efvs_avg           ! efvs averaged over quad pts
@@ -2835,9 +2846,11 @@
        print*, 'In assemble_stiffness_matrix'
     endif
 
-    ! Initialize global stiffness matrix and load vector
+    ! Initialize effective viscosity
+    efvs(:,:,:) = 0.d0
+
+    ! Initialize global stiffness matrix
     !TODO - Initialize at higher level and pass as inout?
-    !       Compute load vector in different subroutine?
 
     Auu(:,:,:,:) = 0.d0
     Auv(:,:,:,:) = 0.d0
@@ -2894,7 +2907,7 @@
           ! Loop over quadrature points for this element
    
           !TODO - Think about how often to compute things.  Geometric quantities need to be
-          !       computed only once per nonlinear solve, whereas efvs must be recomputed
+          !       computed only once per nonlinear solve, whereas efv smust be recomputed
           !       after each linear solve.
 
              if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
@@ -2957,45 +2970,48 @@
              call compute_effective_viscosity(whichefvs,        nNodesPerElement,             &
                                               dphi_dx(:,p),     dphi_dy(:,p),   dphi_dz(:,p), &
                                               u(:),             v(:),                         & 
-                                              flwafact(k,i,j),  efvs(p),                      &
+                                              flwafact(k,i,j),  efvs_qp(p),                   &
                                               sia_factor,       ssa_factor,  i, j, k, p )
 
 !             if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
 !                print*, ' '
-!                print*, 'i, j, k, p, efvs (Pa yr):', i, j, k, p, efvs(p)/scyr
+!                print*, 'i, j, k, p, efvs (Pa yr):', i, j, k, p, efvs_qp(p)/scyr
 !             endif
 
           enddo   ! nQuadPoints
 
+
+          ! Compute average of effective viscosity over quad pts
+          efvs_avg = 0.d0
+          do p = 1, nQuadPoints
+             efvs_avg = efvs_avg + efvs_qp(p)
+          enddo
+          efvs_avg = efvs_avg/nQuadPoints
+
+          ! Fill efvs array for output
+          efvs(k,i,j) = efvs_avg
+
+          if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+             print*, ' '
+             print*, 'i, j, k, efvs_avg (Pa yr):', i, j, k, efvs_avg/scyr
+          endif
+
           if (efvs_element_avg) then  ! apply element-average efvs instead of a different efvs for each quad pt
                                       ! less accurate but smoother?
-
-             ! Compute average over quad pts
-             efvs_avg = 0.d0
-             do p = 1, nQuadPoints
-                efvs_avg = efvs_avg + efvs(p)
-             enddo
-             efvs_avg = efvs_avg/nQuadPoints
-
-             if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
-                print*, ' '
-                print*, 'i, j, k, efvs_avg (Pa yr):', i, j, k, efvs_avg/scyr
-             endif
-
              ! Assign average to each quad pt
-             efvs(:) = efvs_avg
+             efvs_qp(:) = efvs_avg
 
           endif   ! efvs_element_avg
 
           ! Increment the element stiffness matrix with the contribution from
-          ! this quadrature point.
+          ! each quadrature point.
 
           do p = 1, nQuadPoints
 
 !WHL - debug - Pass in i, j, k, and p for now
 
              call element_matrix_blatter_pattyn(nNodesPerElement,                              & 
-                                                wqp(p),           detJ(p),       efvs(p),      &
+                                                wqp(p),           detJ(p),       efvs_qp(p),   &
                                                 dphi_dx(:,p),     dphi_dy(:,p),  dphi_dz(:,p), &
                                                 Kuu(:,:),         Kuv(:,:),                    &
                                                 Kvu(:,:),         Kvv(:,:),                    &
