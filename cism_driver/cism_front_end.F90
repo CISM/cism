@@ -53,6 +53,8 @@ subroutine cism_init_dycore(model)
 
   use cism_external_dycore_interface
 
+  use glimmer_to_dycore
+
 !!  use glimmer_horiz_bcs, only : horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns, &
 !!                                horiz_bcs_unstag_scalar, horiz_bcs_stag_scalar
 
@@ -80,7 +82,7 @@ subroutine cism_init_dycore(model)
 
 
   !TODO - call this only for parallel runs?
-!  call parallel_initialise     
+  ! call parallel_initialise     
 
   call glimmer_GetCommandline()
 
@@ -111,7 +113,8 @@ subroutine cism_init_dycore(model)
   call simple_initialise(climate,config)
 
   wd = model%options%whichdycore 
-  do_glide_init = (wd == DYCORE_GLIDE) .OR. (wd == DYCORE_BISICLES) .OR. (wd == DYCORE_ALBANYFELIX)
+!  do_glide_init = (wd == DYCORE_GLIDE) .OR. (wd == DYCORE_BISICLES) .OR. (wd == DYCORE_ALBANYFELIX)
+  do_glide_init = (wd == DYCORE_GLIDE)
 
   if (do_glide_init) then
      call glide_initialise(model)
@@ -138,8 +141,7 @@ subroutine cism_init_dycore(model)
   call t_stopf('glide initialization')
 
   if ((model%options%whichdycore == DYCORE_BISICLES) .OR. (model%options%whichdycore == DYCORE_ALBANYFELIX)) then
-    print *,"Initializing external dycore interface."
-    call cism_init_external_dycore(model%options%whichdycore,model)
+    call cism_init_external_dycore(model%options%external_dycore_type,model)
   endif
 
   if (model%options%whichdycore .ne. DYCORE_BISICLES) then
@@ -238,7 +240,8 @@ subroutine cism_run_dycore(model)
 
   integer*4 :: external_dycore_model_index
 
-  external_dycore_model_index = this_rank + 1
+!  external_dycore_model_index = this_rank + 1
+  external_dycore_model_index = 1
 
   time = model%numerics%tstart
   tstep_count = 0
@@ -283,7 +286,7 @@ subroutine cism_run_dycore(model)
       !else
       case (DYCORE_BISICLES,DYCORE_ALBANYFELIX)
         print *,'Using External Dycore'
-        call cism_run_external_dycore(external_dycore_model_index,time,model%numerics%tinc)
+        call cism_run_external_dycore(model%options%external_dycore_model_index,time,model%numerics%tinc)
         ! time = time + model%numerics%tinc
       case default
     end select

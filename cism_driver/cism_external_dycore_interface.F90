@@ -62,11 +62,10 @@ subroutine cism_init_external_dycore(external_dycore_type,model)
   real(kind=dp) :: cur_time, time_inc
 
   ! for external dycore:
-  integer*4 dycore_model_index
+  integer*4 external_dycore_model_index
   integer argc
   integer*4 p_index
 
-  dycore_model_index = this_rank + 1
 
 #ifdef CISM_HAS_EXTERNAL_DYCORE
   print *,"Initializing external dycore interface."
@@ -74,7 +73,8 @@ subroutine cism_init_external_dycore(external_dycore_type,model)
 
   call parallel_barrier()
   print *,"Initializing external dycore."
-  call gtd_init_dycore(model,dycore_model_index)
+  call gtd_init_dycore(model,external_dycore_model_index)
+  model%options%external_dycore_model_index = external_dycore_model_index
   call parallel_barrier()
 #else
   print *,"ERROR: The program was not built with an external dynamic core."
@@ -83,7 +83,7 @@ subroutine cism_init_external_dycore(external_dycore_type,model)
 end subroutine cism_init_external_dycore
 
 
-subroutine cism_run_external_dycore(dycore_model_index,cur_time,time_inc)
+subroutine cism_run_external_dycore(external_dycore_model_index,cur_time,time_inc)
   use parallel
   use glimmer_global
   use glide
@@ -105,15 +105,16 @@ subroutine cism_run_external_dycore(dycore_model_index,cur_time,time_inc)
 
 #ifdef CISM_HAS_EXTERNAL_DYCORE
   use glimmer_to_dycore
-#endif
-  
-  integer*4 dycore_model_index
+
+  integer*4 external_dycore_model_index
   real(kind=dp) :: cur_time, time_inc
 
-#ifdef CISM_HAS_EXTERNAL_DYCORE
+!  dycore_model_index = this_rank + 1
+  dycore_model_index = 1
+
   call parallel_barrier()
   print *,"Running external dycore."
-  call gtd_run_dycore(dycore_model_index,cur_time,time_inc)
+  call gtd_run_dycore(external_dycore_model_index,cur_time,time_inc)
   print *,"Completed Dycore Run."
   call parallel_barrier()
 #else

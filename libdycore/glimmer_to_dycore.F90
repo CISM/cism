@@ -31,8 +31,6 @@ module glimmer_to_dycore
     integer*4 dycore_type  ! 0=BISICLES, 1=Ymir
     character(8),DIMENSION(3) :: dycore_names = (/"Native  ","BISICLES","FELIX   "/)
 
-print *,"In gtd_init, dycore_model_index = ",dycore_model_index
-
 !print *,'in init -- topg ndims,shape = ',size(shape(model%geometry%topg)),shape(model%geometry%topg)
     dycore_type = model%options%external_dycore_type
 !print *,"In gtd_init_dycore, calling get_new_model"

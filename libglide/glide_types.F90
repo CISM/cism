@@ -490,11 +490,13 @@ module glide_types
     !*FD \end{description}
 
     ! parameters to store external dycore options/information -- Doug Ranken 04/20/12
-    integer :: external_dycore_type = 0  
+    integer*4 :: external_dycore_type = 0
+    integer*4 :: external_dycore_model_index = -1  
     !*FD Flag to select an external dynamic core.
     !*FD \begin{description}
     !*FD \item[0] Do not use an external dynamic core
     !*FD \item[1] Use the BISICLES external dynamic core
+    !*FD \item[2] Use the ALBANY_FELIX external dynamic core
     !*FD \end{description}
 
     character(fname_length) :: dycore_input_file=''

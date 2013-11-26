@@ -108,8 +108,8 @@ program simple_bisicles
   call simple_surftemp(climate,model,time)
   call spinup_lithot(model)
 
-  dycore_model_index = this_rank + 1
-  
+!  dycore_model_index = this_rank + 1
+
   print *,"Initializing external dycore interface."
   call gtd_init_dycore_interface()
 
@@ -124,11 +124,11 @@ program simple_bisicles
 ! write nc files
   call glide_io_writeall(model, model, time=time)         
 
-  print *,"Running external dycore."
+  print *,"Running external dycore. Dycore model index = ",dycore_model_index
   do while (cur_time < model%numerics%tend)
       print *, "CISM timestep: time = ", cur_time, ", dt = ", time_inc
       call gtd_run_dycore(dycore_model_index,cur_time,time_inc)
-!     write nc files                                           
+!     write nc files
       call glide_io_writeall(model, model, time=cur_time)          
   end do
   print *,"Completed Dycore Run."
