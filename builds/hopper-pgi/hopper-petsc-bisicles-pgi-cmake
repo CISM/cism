@@ -51,11 +51,11 @@ module unload python
 module unload cray-shmem
 module unload cray-mpich2
 
-module --silent purge
+#module --silent purge
 
 module load modules/3.2.6.6
 module load cmake/2.8.7
-module load PrgEnv-pgi/4.1.40
+module load PrgEnv-pgi/
 module load hdf5-parallel/1.8.8
 module load python/2.7.1
 module load cray-shmem/5.5.2
@@ -101,8 +101,8 @@ cmake \
   -D CISM_SCI_LIB_DIR=/opt/xt-libsci/11.1.01/PGI/119/mc12/lib \
   -D GLIMMER_GPTL_DIR=/project/projectdirs/ccsm1/libgptl/libgptl-pgi \
 \
-  -D CMAKE_CXX_FLAGS:STRING="-O2 --diag_suppress 554,111,611 -DH5_USE_16_API" \
-  -D GLIMMER_Fortran_FLAGS:STRING="-O2 -DNO_RESCALE" \
+  -D CMAKE_CXX_FLAGS:STRING="-O2 -g --diag_suppress 554,111,611 -DH5_USE_16_API" \
+  -D GLIMMER_Fortran_FLAGS:STRING="-O2 -g -DNO_RESCALE" \
   -D GLIMMER_EXTRA_LIBS:STRING="-L$PETSC_DIR/$PETSC_ARCH/lib -lpetsc -lHYPRE -lmetis -lparmetis -llapack -lblas" \
   -D BISICLES_LIB_SUBDIR=libpgi \
   -D BISICLES_INTERFACE_DIR=$PWD/../../../BISICLES/CISM-interface/interface \

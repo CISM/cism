@@ -51,7 +51,7 @@ module unload python
 module unload cray-shmem
 module unload cray-mpich2
 
-module --silent purge
+#module --silent purge
 
 module load modules/3.2.6.6
 module load cmake/2.8.7
