@@ -107,9 +107,12 @@ contains
              argumentIdx(nfiles) = i
           end if
        end do
-       if (numargs > 1) then
+       if (numargs >= 1) then
           call GETARG(1,commandline_configname)
-          call GETARG(2,commandline_climatename)
+          if (numargs > 1) then
+             ! call GETARG(1,commandline_configname)
+             call GETARG(2,commandline_climatename)
+          endif
        else
           write(*,*) 'Need at least one argument'
           call glint_commandlineHelp()

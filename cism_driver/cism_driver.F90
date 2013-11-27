@@ -29,13 +29,16 @@ program cism_driver
 !  use glimmer_commandline
 !  use glide
   use gcm_cism_interface
+  use parallel
 
   integer :: which_gcm = GCM_DATA_MODEL
   type(gcm_to_cism_type) :: g2c
+
+  call parallel_initialise
 
   call gci_init_interface(which_gcm,g2c)
   call gci_run_model(g2c)
   call gci_finalize_interface(g2c)
 
-!  call parallel_finalise
+  call parallel_finalise
 end program cism_driver

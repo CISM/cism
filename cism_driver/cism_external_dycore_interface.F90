@@ -56,14 +56,14 @@ subroutine cism_init_external_dycore(external_dycore_type,model)
 
   implicit none
 
-  integer :: external_dycore_type
+  integer*4 :: external_dycore_type
   type(glide_global_type), intent(inout) :: model
 
   real(kind=dp) :: cur_time, time_inc
 
   ! for external dycore:
   integer*4 external_dycore_model_index
-  integer argc
+  ! integer argc
   integer*4 p_index
 
 
@@ -105,10 +105,12 @@ subroutine cism_run_external_dycore(external_dycore_model_index,cur_time,time_in
 
 #ifdef CISM_HAS_EXTERNAL_DYCORE
   use glimmer_to_dycore
+#endif
 
   integer*4 external_dycore_model_index
   real(kind=dp) :: cur_time, time_inc
 
+#ifdef CISM_HAS_EXTERNAL_DYCORE
 !  dycore_model_index = this_rank + 1
   dycore_model_index = 1
 

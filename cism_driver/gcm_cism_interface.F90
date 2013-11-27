@@ -65,7 +65,7 @@ subroutine gci_init_interface(which_gcm,g2c)
   type(ConfigSection), pointer :: config  ! configuration stuff
   type(ConfigSection), pointer :: section  !< pointer to the section to be checked
 
-  call parallel_initialise
+  ! call parallel_initialise
   
   ! get the CISM dycore to be used:
   call glint_GetCommandline()

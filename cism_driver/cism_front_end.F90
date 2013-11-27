@@ -53,7 +53,7 @@ subroutine cism_init_dycore(model)
 
   use cism_external_dycore_interface
 
-  use glimmer_to_dycore
+!  use glimmer_to_dycore
 
 !!  use glimmer_horiz_bcs, only : horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns, &
 !!                                horiz_bcs_unstag_scalar, horiz_bcs_stag_scalar
