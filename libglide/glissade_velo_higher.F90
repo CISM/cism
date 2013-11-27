@@ -53,7 +53,7 @@
 
     use glimmer_global, only: dp
     use glimmer_physcon, only: gn, rhoi, rhoo, grav, scyr
-    use glimmer_paramets, only: thk0, len0, tim0, tau0, vel0   !TODO - remove these later?
+    use glimmer_paramets, only: thk0, len0, tim0, tau0, vel0, vis0, evs0
     use glimmer_paramets, only: vel_scale, len_scale   ! used for whichefvs = HO_EFVS_FLOWFACT
     use glimmer_log, only: write_log
     use glimmer_sparse_type
@@ -147,18 +147,20 @@
     real(dp), parameter ::   &
        eps11 = 1.d-11           ! small number
 
-!WHL - TODO - Keep volume scale?
     real(dp) :: vol0    ! volume scale = dx * dy * (1000 m)
 
     logical, parameter ::  &
        check_symmetry = .true.   ! if true, then check symmetry of assembled matrix
 
     logical, parameter ::  &
-       remove_small_values = .false.   ! if true, then check for and remove
-                                       ! small values from assembled matrix
+       remove_small_values = .false.   ! if true, then remove small values from assembled matrix
+                                       ! (resulting from taking the difference of two large terms)
+    logical, parameter ::  &
+       zero_uvel = .false.,  &         ! if true, zero out uvel everywhere
+       zero_vvel = .false.             ! if true, zero out vvel everywhere
 
 !WHL - debug
-!    logical :: verbose = .false.        ! for debug print statements
+!    logical :: verbose = .false.      ! for debug print statements
     logical :: verbose = .true.  
     logical :: verbose_init = .false.   
 !    logical :: verbose_init = .true.   
@@ -166,14 +168,14 @@
 !    logical :: verbose_Jac = .true.
     logical :: verbose_residual = .false.
 !    logical :: verbose_residual = .true.
-    logical :: verbose_state = .false.
-!    logical :: verbose_state = .true.
+!    logical :: verbose_state = .false.
+    logical :: verbose_state = .true.
     logical :: verbose_load = .false.
 !    logical :: verbose_load = .true.
     logical :: verbose_shelf = .false.
 !    logical :: verbose_shelf = .true.
-    logical :: verbose_matrix = .false.
-!    logical :: verbose_matrix = .true.
+!    logical :: verbose_matrix = .false.
+    logical :: verbose_matrix = .true.
     logical :: verbose_basal = .false.
 !    logical :: verbose_basal = .true.
     logical :: verbose_umc = .false.
@@ -225,7 +227,10 @@
     integer, parameter :: coltest = -999
 
     integer, parameter :: &
-      iAtest=0, jAtest=0, kAtest=0
+      iAtest=1, jAtest=0, kAtest=0
+
+    integer, parameter :: &
+      Krowtest=1, Kcoltest=2
 
     contains
 
@@ -520,37 +525,28 @@
 
 !****************************************************************************
 
-  subroutine glissade_velo_higher_solve(nx,         ny,           &
-                                        nz,         sigma,        &
-                                        nhalo,                    &
-                                        dx,         dy,           &
-                                        thck,       usrf,         &
-                                        topg,       eus,          &
-                                        thklim,                   &
-                                        flwa,                     &
-                                        uvel,       vvel,         &
-                                        efvs,                     &
-                                        whichefvs,                &
-                                        whichresid,               &
-                                        whichnonlinear,           &
-                                        whichsparse,              &
-                                        whichapprox,              &
-                                        beta,                     &
-                                        kinbcmask)
+  subroutine glissade_velo_higher_solve(model,                &
+                                        nx,     ny,     nz)
+
+!TODO - Remove nx, ny, nz from argument list?
+!       Would then have to allocate many local arrays.
 
 !TODO - Something like this may be needed if building with Trilinos.
 !!    use glam_strs2, only: linearSolveTime, totalLinearSolveTime
 
+    use parallel, only: nhalo
+
     !----------------------------------------------------------------
     ! Input-output arguments
     !----------------------------------------------------------------
-    !
+
+    type(glide_global_type), intent(inout) :: model   ! derived type holding ice-sheet info
+
+    !----------------------------------------------------------------
     ! Note that the glissade solver uses SI units.
     ! Thus we have grid cell dimensions and ice thickness in meters,
     !  velocity in m/s, and the rate factor in Pa^(-n) s(-1).
     !----------------------------------------------------------------
-
-!TODO - Compute nx, ny, and nlyr based on size(thck) and size(flwa)?
 
     !----------------------------------------------------------------
     ! Note: nx and ny are the horizontal dimensions of scalar arrays (e.g., thck and temp)
@@ -562,54 +558,54 @@
 
     integer, intent(in) ::   &
        nx, ny,               &  ! number of grid cells in each direction
-       nz,                   &  ! number of vertical levels where velocity is computed
+       nz                       ! number of vertical levels where velocity is computed
                                 ! (same as model%general%upn)
-       nhalo                    ! number of rows/columns of halo cells
  
-    real(dp), dimension(:), intent(in) :: &
-       sigma
+    !----------------------------------------------------------------
+    ! Local variables and pointers set to components of model derived type 
+    !----------------------------------------------------------------
 
-    real(dp), intent(in) ::  &
+!    integer, pointer ::   &
+!       nx, ny,               &  ! number of grid cells in each direction
+!       nz                       ! number of vertical levels where velocity is computed
+                                 ! (same as model%general%upn)
+    real(dp) ::  &
        dx,  dy                  ! grid cell length and width (m)
                                 ! assumed to have the same value for each grid cell
 
-    real(dp), dimension(:,:), intent(in) ::  &
-       thck,                 &  ! ice thickness (m)
-       usrf,                 &  ! upper surface elevation (m)
-       topg                     ! elevation of topography (m)
+    real(dp), dimension(:), pointer :: &
+       sigma                    ! vertical sigma coordinate, [0,1]
 
-    real(dp), intent(in) ::   &
+    real(dp)  ::   & 
+       thklim, &                ! minimum ice thickness for active cells (m)
        eus                      ! eustatic sea level (m)
                                 ! = 0. by default
 
-    real(dp), intent(in) ::   & 
-       thklim                 ! minimum ice thickness for active cells (m)
+    real(dp), dimension(:,:), pointer ::  &
+       thck,                 &  ! ice thickness (m)
+       usrf,                 &  ! upper surface elevation (m)
+       topg,                 &  ! elevation of topography (m)
+       beta                     ! basal traction parameter (Pa/(m/yr))
 
-    real(dp), dimension(:,:,:), intent(in) ::  &
-       flwa                   ! flow factor in units of Pa^(-n) s^(-1)
+    real(dp), dimension(:,:,:), pointer ::  &
+       flwa,   &                ! flow factor in units of Pa^(-n) yr^(-1)
+       efvs,   &                ! effective viscosity (Pa yr)
+       uvel, vvel               ! velocity components (m/yr)
 
-    real(dp), dimension(:,:,:), intent(inout) ::  &
-       uvel, vvel             ! velocity components (m/s)
+    integer,  dimension(:,:), pointer ::   &
+       kinbcmask                ! = 1 at vertices where u = v = 0 (Dirichlet BC)
+                                ! = 0 elsewhere
 
-    real(dp), dimension(:,:,:), intent(out) :: efvs   ! effective viscosity (Pa s)
-
-    !TODO: Make these optional with default values? 
-    integer, intent(in) :: whichefvs      ! option for effective viscosity calculation 
-                                          ! (calculate it or make it uniform)
-    integer, intent(in) :: whichresid     ! option for method to use when calculating residual
-    integer, intent(in) :: whichnonlinear ! options for which nonlinear method (Picard or JFNK)
-    integer, intent(in) :: whichsparse    ! options for which method for doing elliptic solve
-                                          ! (BiCG, GMRES, standalone Trilinos, etc.)
-    integer, intent(in), optional :: whichapprox  ! options for which Stokes approximation to use
-                                                  ! 0 = SIA, 1 = SSA, 2 = Blatter-Pattyn HO
-                                                  ! default = 2
-
-    real(dp), dimension(:,:), intent(in), optional ::  &
-       beta                   ! basal traction parameter
-
-    integer,  dimension(:,:), intent(in), optional ::   &
-       kinbcmask              ! = 1 at vertices where u = v = 0 (Dirichlet BC)
-                              ! = 0 elsewhere
+    integer ::   &
+       whichefvs, &             ! option for effective viscosity calculation 
+                                ! (calculate it or make it uniform)
+       whichresid, &            ! option for method of calculating residual
+       whichsparse, &           ! option for method of doing elliptic solve
+                                ! (BiCG, GMRES, standalone Trilinos, etc.)
+       whichbabc,  &            ! option for basal boundary condition
+       whichapprox              ! option for which Stokes approximation to use
+                                ! 0 = SIA, 1 = SSA, 2 = Blatter-Pattyn HO
+                                ! default = 2
 
     !--------------------------------------------------------
     ! Local parameters
@@ -652,7 +648,7 @@
     real(dp), dimension(nz-1,nx,ny) ::  &
        flwafact           ! temperature-based flow factor, 0.5 * A^(-1/n), 
                           ! used to compute effective viscosity
-                          ! units: Pa s^(1/n)
+                          ! units: Pa yr^(1/n)
 
     real(dp), dimension(nz,nx-1,ny-1) ::   &
        usav, vsav,                 &! previous guess for velocity solution
@@ -736,36 +732,81 @@
        uvel_old, vvel_old,         &! uvel and vvel from previous iteration
        ucorr_old, vcorr_old         ! correction vectors from previous iteration
 
+    if (verbose) print*, 'In glissade_velo_higher_solve'
+
+    !--------------------------------------------------------
+    ! Assign local pointers to derived type components
+    !--------------------------------------------------------
+
+!    nx = model%general%ewn
+!    ny = model%general%nsn
+!    nz = model%general%upn
+
+     dx = model%numerics%dew
+     dy = model%numerics%dns
+
+     thklim = model%numerics%thklim
+     eus = model%climate%eus
+ 
+     sigma => model%numerics%sigma(:)     
+     thck => model%geometry%thck(:,:)
+     usrf => model%geometry%usrf(:,:)
+     topg => model%geometry%topg(:,:)
+
+     flwa => model%temper%flwa(:,:,:)
+     efvs => model%stress%efvs(:,:,:)
+     beta => model%velocity%beta(:,:)
+
+     uvel => model%velocity%uvel(:,:,:)
+     vvel => model%velocity%vvel(:,:,:)
+
+     kinbcmask => model%velocity%kinbcmask(:,:)
+
+     whichefvs   = model%options%which_ho_efvs
+     whichresid  = model%options%which_ho_resid
+     whichsparse = model%options%which_ho_sparse
+     whichapprox = model%options%which_ho_approx
+     whichbabc   = model%options%which_ho_babc
+
+    !--------------------------------------------------------
+    ! Convert input variables to appropriate units for this solver
+    !TODO - Add some comments about units for this module
+    !--------------------------------------------------------
+
+    if (verbose) print*, 'Scale input'
+
+    call glissade_velo_higher_scale_input(dx,     dy,      &
+                                          thck,   usrf,    &
+                                          topg,            &
+                                          eus,    thklim,  &
+                                          flwa,   efvs,    &
+                                          beta,            &
+                                          uvel,   vvel)
+
     ! Set volume scale
     ! This is not strictly necessary, but dividing by this scale gives matrix coefficients 
     !  that are not quite so large.
 
     vol0 = dx * dy * 1000.d0    ! typical volume of ice column (m^3)
 
-    if (present(whichapprox)) then
-       if (whichapprox == HO_APPROX_SIA) then   ! SIA
+    if (whichapprox == HO_APPROX_SIA) then   ! SIA
 !!          if (verbose .and. main_task) print*, 'Solving shallow-ice approximation'
-          if (main_task) print*, 'Solving shallow-ice approximation'
-          sia_factor = 1.d0
-          ssa_factor = 0.d0
-       elseif (whichapprox == HO_APPROX_SSA) then  ! SSA
+       if (main_task) print*, 'Solving shallow-ice approximation'
+       sia_factor = 1.d0
+       ssa_factor = 0.d0
+    elseif (whichapprox == HO_APPROX_SSA) then  ! SSA
 !!          if (verbose .and. main_task) print*, 'Solving shallow-shelf approximation'
-          if (main_task) print*, 'Solving shallow-shelf approximation'
-          sia_factor = 0.d0
-          ssa_factor = 1.d0
-       else   ! Blatter-Pattyn higher-order 
+       if (main_task) print*, 'Solving shallow-shelf approximation'
+       sia_factor = 0.d0
+       ssa_factor = 1.d0
+    else   ! Blatter-Pattyn higher-order 
 !!          if (verbose .and. main_task) print*, 'Solving Blatter-Pattyn higher-order approximation'
-          if (main_task) print*, 'Solving Blatter-Pattyn higher-order approximation'
-          sia_factor = 1.d0
-          ssa_factor = 1.d0
-       endif
-    else   ! Blatter-Pattyn higher-order by default
-!!       if (verbose .and. main_task) print*, 'Solving Blatter-Pattyn higher-order approximation'
        if (main_task) print*, 'Solving Blatter-Pattyn higher-order approximation'
        sia_factor = 1.d0
        ssa_factor = 1.d0
-    endif  ! present(whichapprox)
+    endif
 
+    print*, 'gn =', gn
     print*, 'itest, jtest, ktest =', itest, jtest, ktest
 
     if (test_matrix) then
@@ -804,27 +845,42 @@
 
 !WHL - debug
     if (verbose_state .and. this_rank==rtest) then
-!!    if (verbose .and. this_rank==rtest) then
+
        print*, ' '
        print*, 'Thickness field, rank =', rtest
        do j = ny, 1, -1
-          write(6,'(24f6.0)') thck(1:24,j)
+          do i = 1, nx
+             write(6,'(f6.0)',advance='no') thck(i,j)
+          enddo
+          write(6,*) ' '
        enddo
+
        print*, ' '
        print*, 'Topography field, rank =', rtest
        do j = ny, 1, -1
-          write(6,'(24f6.0)') topg(1:24,j)
+          do i = 1, nx
+             write(6,'(f6.0)',advance='no') topg(i,j)
+          enddo
+          write(6,*) ' '
        enddo
        print*, ' '
+
        print*, 'Upper surface field, rank =', rtest
        do j = ny, 1, -1
-          write(6,'(24f6.0)') usrf(1:24,j)
+          do i = 1, nx
+             write(6,'(f6.0)',advance='no') usrf(i,j)
+          enddo
+          write(6,*) ' '
        enddo
+
        print*, ' '
        print*, 'flwa (Pa-3 yr-1), k = 1, rank =', rtest
        do j = ny, 1, -1
-          write(6,'(24e12.5)') flwa(1,1:24,j)*scyr
+          do i = 1, nx
+             write(6,'(e12.5)',advance='no') flwa(1,i,j)
+          enddo
        enddo
+
     endif
  
     !------------------------------------------------------------------------------
@@ -834,28 +890,20 @@
     ! initialize
     umask_dirichlet(:,:,:) = .false.   
 
-    if (present(beta)) then
-       if (verbose) then
-          print*, ' '
-          print*, 'beta passed in: maxval =', maxval(beta)
-       endif
-    else
-       ! In the absence of beta, impose zero sliding everywhere at the bed.
+    if (whichbabc == HO_BABC_NO_SLIP) then
+       ! Impose zero sliding everywhere at the bed.
        umask_dirichlet(nz,:,:) = .true.    ! u = v = 0 at bed
-    endif 
-
-    if (present(kinbcmask)) then
-       ! use kinbcmask, typically read from file at initialization
-       ! zero out entire column where kinbcmask = 1
-       do j = 1,ny-1
-          do i = 1, nx-1
-             if (kinbcmask(i,j) == 1) then
-                umask_dirichlet(:,i,j) = .true.
-             endif
-          enddo
-       enddo
-    else
     endif
+
+    ! use kinbcmask, typically read from file at initialization
+    ! zero out entire column where kinbcmask = 1
+    do j = 1,ny-1
+       do i = 1, nx-1
+          if (kinbcmask(i,j) == 1) then
+             umask_dirichlet(:,i,j) = .true.
+          endif
+       enddo
+    enddo
 
 !WHL - debug
     if (verbose_state .and. this_rank==rtest) then
@@ -864,21 +912,30 @@
        print*, 'beta:'
        k = 1
        do j = ny-1, 1, -1
-          write(6,'(23d9.1)') beta(1:23,j)
+          do i = 1, nx-1
+             write(6,'(d9.1)',advance='no') beta(i,j)
+          enddo
+          print*, ' '
        enddo
 
        print*, ' '
        print*, 'umask_dirichlet, k = 1:'
        k = 1
        do j = ny-1, 1, -1
-          write(6,'(23L3)') umask_dirichlet(k,1:23,j)
+          do i = 1, nx-1
+             write(6,'(L3)',advance='no') umask_dirichlet(k,i,j)
+          enddo
+          print*, ' '
        enddo
-       
+
        print*, ' '
        print*, 'umask_dirichlet, k =', nz
        k = nz
        do j = ny-1, 1, -1
-          write(6,'(23L3)') umask_dirichlet(k,1:23,j)
+          do i = 1, nx-1
+             write(6,'(L3)',advance='no') umask_dirichlet(k,i,j)
+          enddo
+          print*, ' '
        enddo
 
     endif   ! verbose_state
@@ -937,13 +994,11 @@
        print*, ' '
        print*, 'stagthck, rank =', rtest
        do j = ny-1, 1, -1
-          write(6,'(20f6.0)') stagthck(3:22,j)
+          do i = 1, nx-1
+             write(6,'(f6.0)',advance='no') stagthck(i,j)
+          enddo
+          print*, ' '
        enddo
-!       print*, ' '
-!       print*, 'stagusrf, rank =', rtest
-!       do j = ny-1, 1, -1
-!          write(6,'(20f6.0)') stagusrf(3:22,j)
-!       enddo
     endif
 
     !------------------------------------------------------------------------------
@@ -971,7 +1026,10 @@
        print*, ' '
        print*, 'NodeID before halo update, k = 1:'
        do j = ny-1, 1, -1
-          write(6,'(23i5)') NodeID(1,1:23,j)
+          do i = 1, nx-1
+             write(6,'(i5)',advance='no') NodeID(1,i,j)
+          enddo
+          print*, ' '
        enddo
     endif
 
@@ -986,15 +1044,18 @@
        print*, ' '
        print*, 'NodeID after halo update, k = 1:'
        do j = ny-1, 1, -1
-          write(6,'(23i5)') NodeID(1,1:23,j)
+          do i = 1, nx-1
+             write(6,'(i5)',advance='no') NodeID(1,i,j)
+          enddo
+          print*, ' '
        enddo
     endif
 
     !------------------------------------------------------------------------------
     ! Compute the factor A^(-1/n) appearing in the expression for effective viscosity.
     ! This factor is often denoted as B in the literature.
-    ! Note: The rate factor (flwa = A) is assumed to have units of Pa^(-n) s^(-1).
-    !       Thus flwafact = 0.5 * A^(-1/n) has units Pa s^(1/n).
+    ! Note: The rate factor (flwa = A) is assumed to have units of Pa^(-n) yr^(-1).
+    !       Thus flwafact = 0.5 * A^(-1/n) has units Pa yr^(1/n).
     !------------------------------------------------------------------------------
 
     flwafact(:,:,:) = 0.d0
@@ -1213,7 +1274,7 @@
 
 !TODO - Test this subroutine
 
-       if (present(beta)) then
+       if (whichbabc /= HO_BABC_NO_SLIP) then
 
        !WHL - debug
           if (verbose .and. main_task) then
@@ -1279,31 +1340,10 @@
        !  they will be reconciled by the subroutine check_symmetry_assembled_matrix.
        !---------------------------------------------------------------------------
      
-
-!WHL - debug
-    if (verbose_matrix .and. this_rank==rtest) then
-!       print*, ' '
-!       m = indxA(0,0,0)
-!       print*, 'Before halo update, Auu(0,0,0,1,:,:), rank =', rtest
-!       do j = ny-1, 1, -1
-!          write(6,'(23e10.3)') Auu(m,1,:,j)
-!       enddo
-    endif
-
         call staggered_parallel_halo(Auu(:,:,:,:))
         call staggered_parallel_halo(Auv(:,:,:,:))
         call staggered_parallel_halo(Avu(:,:,:,:))
         call staggered_parallel_halo(Avv(:,:,:,:))
-
-!WHL - debug
-    if (verbose_matrix .and. this_rank==rtest) then
-!       print*, ' '
-!       print*, 'After halo update, Auu_diag(1,:,:), rank =', rtest
-!       m = indxA(0,0,0)
-!       do j = ny-1, 1, -1
-!          write(6,'(23e10.3)') Auu(m,1,:,j)
-!       enddo
-    endif
 
        !---------------------------------------------------------------------------
        ! Halo updates for load vectors
@@ -1315,7 +1355,10 @@
 !       print*, ' '
 !       print*, 'Before halo update, bu(1,:,:), rank =', rtest
 !       do j = ny-1, 1, -1
-!          write(6,'(23e10.3)') bu(1,:,j)
+!          do i = 1, nx-1
+!             write(6,'(e10.3)',advance='no') bu(1,:,j)
+!          enddo
+!          print*, ' '
 !       enddo
     endif
 
@@ -1327,7 +1370,10 @@
 !       print*, ' '
 !       print*, 'After halo update, bu(1,:,:), rank =', rtest
 !       do j = ny-1, 1, -1
-!          write(6,'(23e10.3)') bu(1,:,j)
+!          do i = 1, nx-1
+!             write(6,'(e10.3)',advance='no') bu(1,:,j)
+!          enddo
+!          print*, ' '
 !       enddo
     endif
 
@@ -1374,6 +1420,41 @@
 
        endif
 
+
+       if (zero_uvel) then  ! enforce uvel = 0 everywhere
+
+          print*, 'Zeroing out u components of velocity'
+
+          ! zero out all matrices except Avv
+          Auu(:,:,:,:) = 0.d0
+          Auv(:,:,:,:) = 0.d0
+          Avu(:,:,:,:) = 0.d0
+
+          ! Put 1's on main diagnonal of Auu
+          m = indxA(0,0,0)
+          Auu(m,:,:,:) = 1.d0
+
+          ! zero out u terms on RHS
+          bu(:,:,:) = 0.d0
+
+       elseif (zero_vvel) then   ! enforce vvel = 0 everywhere
+
+          print*, 'Zeroing out v components of velocity'
+
+          ! zero out all matrices except Auu
+          Avv(:,:,:,:) = 0.d0
+          Auv(:,:,:,:) = 0.d0
+          Avu(:,:,:,:) = 0.d0
+
+          ! Put 1's on main diagnonal of Avv
+          m = indxA(0,0,0)
+          Avv(m,:,:,:) = 1.d0
+
+          ! zero out v terms on RHS
+          bv(:,:,:) = 0.d0
+
+       endif
+           
 !WHL - debug - Try stripping out columns from the matrix and see if it can still solve an SIA problem.
 
           if (sia_test) then
@@ -1519,57 +1600,39 @@
           print*, ' '
           print*, 'Auu_diag, k =', k
           do j = ny-1, 1, -1
-             write(6,'(i3,23e10.2)'), j, Auu(m,k,1:23,j)
+             do i = 1, nx-1
+                write(6,'(e10.2)',advance='no'), Auu(m,k,i,j)
+             enddo
+             print*, ' '
           enddo
 
           print*, ' '
           print*, 'bu, k =', k
           do j = ny-1, 1, -1
-             write(6,'(i3,23f5.1)'), j, bu(k,1:23,j)
+             do i = 1, nx-1
+                write(6,'(f6.1)',advance='no'), bu(k,i,j)
+             enddo
+             print*, ' '
           enddo
 
           print*, ' '
           print*, 'Avv_diag, k =', k
           do j = ny-1, 1, -1
-             write(6,'(i3,23e10.2)'), j, Avv(m,k,1:23,j)
+             do i = 1, nx-1
+                write(6,'(e10.2)',advance='no'), Avv(m,k,i,j)
+             enddo
+             print*, ' '
           enddo
 
           print*, ' '
           print*, 'bv, k =', k
           do j = ny-1, 1, -1
-             write(6,'(i3,23f5.1)'), j, bv(k,1:23,j)
+             do i = 1, nx-1
+                write(6,'(f6.1)',advance='no'), bv(k,i,j)
+             enddo
+             print*, ' '
           enddo
           
-          k = nz-1
-
-          m = indxA(0,0,0)
-!          print*, ' '
-!          print*, 'Avv_diag, k =', k
-!          do j = ny-1, 1, -1
-!             write(6,'(i3,23e10.2)'), j, Avv(m,k,1:23,j)
-!          enddo
-
-!          print*, ' '
-!          print*, 'bv, k =', k
-!          do j = ny-1, 1, -1
-!             write(6,'(i3,23f5.1)'), j, bv(k,1:23,j)
-!          enddo
-
-          k = nz
-
-          m = indxA(0,0,0)
-          print*, ' '
-          print*, 'Avv_diag, k =', k
-          do j = ny-1, 1, -1
-             write(6,'(i3,23e10.2)'), j, Avv(m,k,1:23,j)
-          enddo
-
-          print*, ' '
-          print*, 'bv, k =', k
-          do j = ny-1, 1, -1
-             write(6,'(i3,23f5.1)'), j, bv(k,1:23,j)
-          enddo
-
        endif   ! verbose_matrix, this_rank==rtest
 
        if (whichsparse == STANDALONE_PCG_STRUC) then   ! standalone PCG for structured grid
@@ -1729,7 +1792,7 @@
 !          print*, 'After postprocess: rank, i, j =', this_rank, i, j
 !          print*, 'k, uvel, vvel (m/yr):'
 !          do k = 1, nz
-!             print*, k, scyr*uvel(k,i,j), scyr*vvel(k,i,j)               
+!             print*, k, uvel(k,i,j), vvel(k,i,j)               
 !          enddo
 
           i = itest
@@ -1738,7 +1801,7 @@
           print*, 'After postprocess: rank, i, j =', this_rank, i, j
           print*, 'k, uvel, vvel (m/yr):'
           do k = 1, nz
-             print*, k, scyr*uvel(k,i,j), scyr*vvel(k,i,j)               
+             print*, k, uvel(k,i,j), vvel(k,i,j)               
           enddo
 
        endif
@@ -1761,12 +1824,18 @@
           print*, ' '
           print*, 'uvel - usav, k = 1:'
           do j = ny-1, 1, -1
-             write(6,'(23f7.3)') (uvel(1,:,j) - usav(1,:,j))*scyr
+             do i = 1, nx-1
+                write(6,'(f6.2)',advance='no') (uvel(1,i,j) - usav(1,i,j))
+             enddo 
+             print*, ' '
           enddo
           print*, ' '
           print*, 'vvel - vsav, k = 1:'
           do j = ny-1, 1, -1
-             write(6,'(23f7.3)') (vvel(1,:,j) - vsav(1,:,j))*scyr
+             do i = 1, nx-1
+                write(6,'(f6.2)',advance='no') (vvel(1,i,j) - vsav(1,i,j))
+             enddo 
+             print*, ' '
           enddo
        endif
 
@@ -1869,7 +1938,129 @@
        deallocate(rhs, answer, resid_vec)
     endif
 
+    !------------------------------------------------------------------------------
+    ! Convert output variables to appropriate units for Glimmer-CISM
+    ! (generally dimensionless)
+    !------------------------------------------------------------------------------
+
+    call glissade_velo_higher_scale_output(thck,   usrf,   &
+                                           topg,           &
+                                           flwa,   efvs,   &
+                                           beta,           &
+                                           uvel,   vvel)
+
   end subroutine glissade_velo_higher_solve
+
+!****************************************************************************
+
+    subroutine glissade_velo_higher_scale_input(dx,     dy,     &
+                                                thck,   usrf,   &
+                                                topg,           &
+                                                eus,    thklim, &
+                                                flwa,   efvs,   &
+                                                beta,           &
+                                                uvel,   vvel)
+
+    !--------------------------------------------------------
+    ! Convert input variables (generally dimensionless)
+    ! to appropriate units for the glissade_velo_higher solver.
+    !--------------------------------------------------------
+
+    real(dp), intent(inout) ::   &
+       dx, dy                  ! grid cell length and width 
+
+    real(dp), dimension(:,:), intent(inout) ::   &
+       thck,                &  ! ice thickness
+       usrf,                &  ! upper surface elevation
+       topg                    ! elevation of topography
+
+    real(dp), intent(inout) ::   &
+       eus,  &                 ! eustatic sea level (= 0 by default)
+       thklim                  ! minimum cell thickness for active cells
+
+    real(dp), dimension(:,:,:), intent(inout) ::  &
+       flwa,   &               ! flow factor in units of Pa^(-n) yr^(-1)
+       efvs                    ! effective viscosity (Pa yr)
+
+    real(dp), dimension(:,:), intent(inout)  ::  &
+       beta                    ! basal traction parameter (Pa/(m/yr))
+
+    real(dp), dimension(:,:,:), intent(inout) ::  &
+       uvel, vvel              ! velocity components (m/yr)
+
+    ! grid cell dimensions: rescale from dimensionless to m
+    dx = dx * len0
+    dy = dy * len0
+
+    ! ice geometry: rescale from dimensionless to m
+    thck = thck * thk0
+    usrf = usrf * thk0
+    topg = topg * thk0
+    eus  = eus  * thk0
+    thklim = thklim * thk0
+
+    ! rate factor: rescale from dimensionless to Pa^(-n) yr^(-1)
+    flwa = flwa * (vis0*scyr)
+
+    ! effective viscosity: rescale from dimensionless to Pa yr
+    efvs = efvs * (evs0/scyr)
+
+    ! beta: rescale from dimensionless to Pa/(m/yr)
+    beta = beta * tau0/(vel0*scyr)
+
+    ! ice velocity: rescale from dimensionless to m/yr
+    uvel = uvel * (vel0*scyr)
+    vvel = vvel * (vel0*scyr)
+
+    end subroutine glissade_velo_higher_scale_input
+
+!****************************************************************************
+
+    subroutine glissade_velo_higher_scale_output(thck,   usrf,   &
+                                                 topg,           &
+                                                 flwa,   efvs,   &
+                                                 beta,           &
+                                                 uvel,   vvel)
+
+    !--------------------------------------------------------
+    ! Convert output variables to appropriate Glimmer-CISM units
+    ! (generally dimensionless)
+    !--------------------------------------------------------
+
+    real(dp), dimension(:,:), intent(inout) ::  &
+       thck,                 &  ! ice thickness
+       usrf,                 &  ! upper surface elevation
+       topg                     ! elevation of topography
+
+    real(dp), dimension(:,:,:), intent(inout) ::  &
+       flwa,   &                ! flow factor in units of Pa^(-n) yr^(-1)
+       efvs                     ! effective viscosity (Pa yr)
+
+    real(dp), dimension(:,:), intent(inout)  ::  &
+       beta                     ! basal traction parameter (Pa/(m/yr))
+
+    real(dp), dimension(:,:,:), intent(inout) ::  &
+       uvel, vvel               ! velocity components (m/yr)
+
+    ! Convert geometry variables from m to dimensionless units
+    thck = thck / thk0
+    usrf = usrf / thk0
+    topg = topg / thk0
+
+    ! Convert flow factor from Pa^(-n) yr^(-1) to dimensionless units
+    flwa = flwa / (vis0*scyr)
+
+    ! Convert effective viscosity from Pa yr to dimensionless units
+    efvs = efvs / (evs0/scyr)
+
+    ! Convert beta from Pa/(m/yr) to dimensionless units
+    beta = beta / (tau0/(vel0*scyr))
+
+    ! Convert velocity from m/yr to dimensionless units
+    uvel = uvel / (vel0*scyr)
+    vvel = vvel / (vel0*scyr)
+
+    end subroutine glissade_velo_higher_scale_output
 
 !****************************************************************************
 
@@ -2756,7 +2947,7 @@
        xVertex, yVertex     ! x and y coordinates of vertices
 
     real(dp), dimension(nz,nx-1,ny-1), intent(in) ::  &
-       uvel, vvel         ! velocity components (m/s)
+       uvel, vvel         ! velocity components (m/yr)
 
     real(dp), dimension(nx-1,ny-1), intent(in) ::  &
        stagusrf,       &  ! upper surface elevation on staggered grid (m)
@@ -2765,13 +2956,13 @@
     real(dp), dimension(nz-1,nx,ny), intent(in) ::  &
        flwafact           ! temperature-based flow factor, 0.5 * A^(-1/n), 
                           ! used to compute the effective viscosity
-                          ! units: Pa s^(1/n)
+                          ! units: Pa yr^(1/n)
 
     integer, intent(in) :: whichefvs      ! option for effective viscosity calculation 
                                           ! (calculate it or make it uniform)
 
     real(dp), dimension(nz-1,nx,ny), intent(out) ::  &
-       efvs               ! effective viscosity (Pa s)
+       efvs               ! effective viscosity (Pa yr)
 
     real(dp), dimension(27,nz,nx-1,ny-1), intent(out) ::  &
        Auu, Auv,    &     ! assembled stiffness matrix, divided into 4 parts
@@ -2914,30 +3105,30 @@
                 print*, ' '
                 print*, 'Current uvel (m/yr): i, k =', itest, ktest
                 do jj = jtest+2, jtest-2, -1
-                   write(6, '(i4, 5e15.8)') jj, uvel(ktest,itest-2:itest+2,jj)*scyr
+                   write(6, '(i4, 5e15.8)') jj, uvel(ktest,itest-2:itest+2,jj)
                 enddo
                 print*, 'Current uvel (m/yr): i, k =', itest, ktest+1
                 do jj = jtest+2, jtest-2, -1
-                   write(6, '(i4, 5e15.8)') jj, uvel(ktest+1,itest-2:itest+2,jj)*scyr
+                   write(6, '(i4, 5e15.8)') jj, uvel(ktest+1,itest-2:itest+2,jj)
                 enddo
                 print*, ' '
                 print*, 'Current vvel (m/yr): i, k =', itest, ktest
                 do jj = jtest+2, jtest-2, -1
-                   write(6, '(i4, 5e15.8)') jj, vvel(ktest,itest-2:itest+2,jj)*scyr
+                   write(6, '(i4, 5e15.8)') jj, vvel(ktest,itest-2:itest+2,jj)
                 enddo
                 print*, 'Current vvel (m/yr): i, k =', itest, ktest+1
                 do jj = jtest+2, jtest-2, -1
-                   write(6, '(i4, 5e15.8)') jj, vvel(ktest+1,itest-2:itest+2,jj)*scyr
+                   write(6, '(i4, 5e15.8)') jj, vvel(ktest+1,itest-2:itest+2,jj)
                 enddo
 
                 print*, ' '
                 print*, 'Current uvel(lower, upper, m/yr):'
-                write(6, '(2e15.8,a10,2e15.8)') u(4)*scyr, u(3)*scyr, '          ', u(8)*scyr, u(7)*scyr
-                write(6, '(2e15.8,a10,2e15.8)') u(1)*scyr, u(2)*scyr, '          ', u(5)*scyr, u(6)*scyr
+                write(6, '(2e15.8,a10,2e15.8)') u(4), u(3), '          ', u(8), u(7)
+                write(6, '(2e15.8,a10,2e15.8)') u(1)*scyr, u(2)*scyr, '          ', u(5), u(6)
                 print*, ' '
                 print*, 'Current vvel(lower, upper, m/yr):'
-                write(6, '(2e15.8,a10,2e15.8)') v(4)*scyr, v(3)*scyr, '          ', v(8)*scyr, v(7)*scyr
-                write(6, '(2e15.8,a10,2e15.8)') v(1)*scyr, v(2)*scyr, '          ', v(5)*scyr, v(6)*scyr
+                write(6, '(2e15.8,a10,2e15.8)') v(4), v(3), '          ', v(8), v(7)
+                write(6, '(2e15.8,a10,2e15.8)') v(1), v(2), '          ', v(5), v(6)
              endif
 
           do p = 1, nQuadPoints
@@ -2954,10 +3145,10 @@
                                                  detJ(p) , i, j, k, p                      )
 
              if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
-!!                print*, ' '
-!!                print*, 'Derivatives of basis functions, p =', p
+                print*, ' '
+                print*, 'Derivatives of basis functions, p =', p
                 do n = 1, nNodesPerElement
-!!                   print*, 'n, dphi_dx, dphi_dy, dphi_dz:', n, dphi_dx(n), dphi_dy(n), dphi_dz(n)
+                   print*, 'n, dphi_dx, dphi_dy, dphi_dz:', n, dphi_dx(n,p), dphi_dy(n,p), dphi_dz(n,p)
                 enddo
              endif
 
@@ -2975,7 +3166,7 @@
 
 !             if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
 !                print*, ' '
-!                print*, 'i, j, k, p, efvs (Pa yr):', i, j, k, p, efvs_qp(p)/scyr
+!                print*, 'i, j, k, p, efvs (Pa yr):', i, j, k, p, efvs_qp(p)
 !             endif
 
           enddo   ! nQuadPoints
@@ -3030,11 +3221,11 @@
 
 !WHL - debug
           if (verbose .and. this_rank==rtest .and. i==itest+1 .and. j==jtest .and. k==ktest) then
-             print*, ' '
-             print*, 'Kvv: i, j, k =', i, j, k 
-             do jj = 1, nNodesPerElement
-                write(6,'(i4,8e18.11)') jj, Kvv(1:8,jj)
-             enddo
+!             print*, ' '
+!             print*, 'Kvv: i, j, k =', i, j, k 
+!             do jj = 1, nNodesPerElement
+!                write(6,'(i4,8e18.11)') jj, Kvv(1:8,jj)
+!             enddo
           endif
 
           if (check_symmetry) then
@@ -3126,7 +3317,7 @@
                                                !  wrt x, y and z in reference element
 
     real(dp), dimension(nNodesPerElement), intent(out) :: &
-                dphi_dx , dphi_dy, dphi_dz     ! derivatives of basis functions at quad pt
+                dphi_dx, dphi_dy, dphi_dz      ! derivatives of basis functions at quad pt
                                                !  wrt x, y and z in true Cartesian coordinates  
 
     real(dp), intent(out) :: &
@@ -3363,14 +3554,14 @@
                                          ! evaluated at this quadrature point
 
     real(dp), dimension(nNodesPerElement), intent(in) ::  &
-       uvel, vvel      ! current guess for velocity at each node of element (m/s)
+       uvel, vvel      ! current guess for velocity at each node of element (m/yr)
 
     real(dp), intent(in) ::  &
        flwafact        ! temperature-based flow factor for this element, 0.5 * A^{-1/n}
-                       ! units: Pa s^{1/n}
+                       ! units: Pa yr^{1/n}
 
     real(dp), intent(out) ::   &
-       efvs            ! effective viscosity at this quadrature point (Pa s)
+       efvs            ! effective viscosity at this quadrature point (Pa yr)
                        ! computed as 0.5 * A^{-1/n) * effstrain^{(1-n)/n)}
                        
     real(dp), intent(in) ::  &
@@ -3383,8 +3574,8 @@
 
 !TODO - Test sensitivity of model convergence to this parameter
     real(dp), parameter ::   &
-       effstrain_min = 1.d-20,          &! minimum value of effective strain rate, s^{-1}
-!!       effstrain_min = 1.d-10,          &! minimum value of effective strain rate, s^{-1}
+!!       effstrain_min = 1.d-20,          &! minimum value of effective strain rate, s^{-1}
+       effstrain_min = 1.d-20*scyr,     &! minimum value of effective strain rate, yr^{-1}
                                          ! GLAM uses 1.d-20 s^{-1} for minimum effective strain rate
        p_effstr = (1.d0 - real(gn,dp)) / real(gn,dp)    ! exponent (1-n)/n in effective viscosity relation
                                                                
@@ -3443,7 +3634,7 @@
           enddo   ! nNodesPerElement
 
           ! Compute effective strain rate at this quadrature point (PGB 2012, eq. 3 and 9)
-          ! Units are s^(-1)
+          ! Units are yr^(-1)
 
           effstrainsq = effstrain_min**2                                      &
                       + ssa_factor * (du_dx**2 + dv_dy**2 + du_dx*dv_dy       &
@@ -3453,11 +3644,11 @@
           effstrain = sqrt(effstrainsq)
 
           ! Compute effective viscosity (PGB 2012, eq. 4)
-          ! Units: flwafact has units Pa s^{1/n}
-          !        effstrain has units s^{-1}
+          ! Units: flwafact has units Pa yr^{1/n}
+          !        effstrain has units yr^{-1}
           !        p_effstr = (1-n)/n 
           !                 = -2/3 for n=3
-          ! Thus efvs has units Pa s
+          ! Thus efvs has units Pa yr
  
           efvs = flwafact * effstrain**p_effstr
 
@@ -3465,14 +3656,14 @@
 !             print*, 'effstrain_min (yr-1)=', effstrain_min*scyr
 !             print*, 'Trial du/dx, du/dy, du/dz (yr-1) =', du_dx*scyr, du_dy*scyr, du_dz*scyr
              print*, 'Trial dv/dx, dv/dy, dv/dz (yr-1) =', dv_dx*scyr, dv_dy*scyr, dv_dz*scyr
-             print*, 'Trial flwafact, effstrain (yr-1), efvs(Pa yr) =', flwafact, effstrain*scyr, efvs/scyr
+             print*, 'Trial flwafact, effstrain (yr-1), efvs(Pa yr) =', flwafact, effstrain, efvs
           endif
 
        endif  ! trial_efvs
 !WHL - end debug (next the real thing)
 
-       efvs = 1.d7 * scyr   ! Steve Price recommends 10^7 Pa yr
-                            ! (~3e14 Pa s)
+       efvs = 1.d7      ! Steve Price recommends 10^7 Pa yr
+                        ! (~3e14 Pa s)
 !WHL - This is the glam-type scaling
 !!       efvs = efvs * scyr/tim0 / tau0   ! tau0 = rhoi*grav*thk0
 
@@ -3490,7 +3681,7 @@
        efvs = flwafact * effstrain**p_effstr  
 
        if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
-          print*, 'flwafact, effstrain (yr-1), efvs (Pa yr)=', flwafact, effstrain*scyr, efvs/scyr       
+          print*, 'flwafact, effstrain (yr-1), efvs (Pa yr)=', flwafact, effstrain, efvs
        endif
 
     case(HO_EFVS_NONLINEAR)    ! calculate effective viscosity based on effective strain rate, n = 3
@@ -3519,7 +3710,7 @@
        enddo   ! nNodesPerElement
 
        ! Compute effective strain rate at this quadrature point (PGB 2012, eq. 3 and 9)
-       ! Units are s^(-1)
+       ! Units are yr^(-1)
 
        effstrainsq = effstrain_min**2                                      &
                    + ssa_factor * (du_dx**2 + dv_dy**2 + du_dx*dv_dy       &
@@ -3529,19 +3720,19 @@
        effstrain = sqrt(effstrainsq)
 
        ! Compute effective viscosity (PGB 2012, eq. 4)
-       ! Units: flwafact has units Pa s^{1/n}
-       !        effstrain has units s^{-1}
+       ! Units: flwafact has units Pa yr^{1/n}
+       !        effstrain has units yr^{-1}
        !        p_effstr = (1-n)/n 
        !                 = -2/3 for n=3
-       ! Thus efvs has units Pa s
+       ! Thus efvs has units Pa yr
  
        efvs = flwafact * effstrain**p_effstr
 
        if (verbose_efvs .and. i==itest .and. j==jtest .and. k==ktest) then
 !          print*, 'effstrain_min (yr-1)=', effstrain_min*scyr
-          print*, 'du/dx, du/dy, du/dz (yr-1) =', du_dx*scyr, du_dy*scyr, du_dz*scyr
-          print*, 'dv/dx, dv/dy, dv/dz (yr-1) =', dv_dx*scyr, dv_dy*scyr, dv_dz*scyr
-          print*, 'flwafact, effstrain (yr-1), efvs(Pa yr) =', flwafact, effstrain*scyr, efvs/scyr
+          print*, 'du/dx, du/dy, du/dz (yr-1) =', du_dx, du_dy, du_dz
+          print*, 'dv/dx, dv/dy, dv/dz (yr-1) =', dv_dx, dv_dy, dv_dz
+          print*, 'flwafact, effstrain (yr-1), efvs(Pa yr) =', flwafact, effstrain, efvs
        endif
 
     end select
@@ -3589,7 +3780,9 @@
     real(dp), dimension(nNodesPerElement,nNodesPerElement), intent(inout) :: &
              Kuu, Kuv, Kvu, Kvv     ! components of element stiffness matrix
 
-    real(dp), intent(in) ::  &
+!WHL - debug (Make intent(in) again after testing)
+!    real(dp), intent(in) ::  &
+    real(dp) ::  &
        sia_factor,      & ! = 1. if SIA terms are included, else = 0.
        ssa_factor         ! = 1. if SSA terms are included, else = 0.
 
@@ -3600,9 +3793,13 @@
     integer :: i, j
 
 !WHL - debug
+!    sia_factor = 0.d0
+!    ssa_factor = 0.d0
+ 
+!WHL - debug
     if (verbose_matrix .and. this_rank==rtest .and. ii==itest .and. jj==jtest .and. k==ktest) then
        print*, ' '
-       print*, 'Increment element matrix, p =', p
+       print*, 'Increment element matrix, i, j, k, p =', ii, jj, k, p
     endif
 
     ! Increment the element stiffness matrices for the first-order Blatter-Pattyn equations.
@@ -3620,19 +3817,35 @@
 !          print*, 'Kuu dphi/dx increment(1,1) =', efvs*wqp*detJ/vol0*4.d0*dphi_dx(1)*dphi_dx(1)
 !       endif
 
+       if (verbose_matrix .and. this_rank==rtest .and. ii==itest .and. jj==jtest .and. k==ktest & !.and. p==ptest &
+                          .and. i==Krowtest .and. j==Kcoltest) then
+          print*, 'irow, jcol =', i, j
+!          print*, 'efvs, wqp, detJ/vol0 =', efvs, wqp, detJ/vol0
+          print*, 'dphi_dx, dphi_dy, dphi_dz(irow) =', dphi_dx(i), dphi_dy(i), dphi_dz(i)
+          print*, 'dphi_dx, dphi_dy, dphi_dz(jcol) =', dphi_dx(j), dphi_dy(j), dphi_dz(j)
+          print*, 'Kuu SSA increment(irow,jcol) =', efvs*wqp*detJ/vol0*(4.d0*dphi_dx(i)*dphi_dx(j) + dphi_dy(j)*dphi_dy(i))
+          print*, 'Kvv SSA increment(irow,jcol) =', efvs*wqp*detJ/vol0*(4.d0*dphi_dy(i)*dphi_dy(j) + dphi_dx(j)*dphi_dx(i))
+          print*, 'SIA increment(irow,jcol) =', efvs*wqp*detJ/vol0*dphi_dz(i)*dphi_dz(j)
+       endif
+
+
           !WHL - Note volume scaling such that detJ/vol0 is closer to unity
 
-          Kuu(i,j) = Kuu(i,j) + efvs * wqp * detJ/vol0 *                                           &
+          Kuu(i,j) = Kuu(i,j) + &
+                                efvs * wqp * detJ/vol0 *                                         &
                               ( ssa_factor * (4.d0*dphi_dx(j)*dphi_dx(i) + dphi_dy(j)*dphi_dy(i))  &
                               + sia_factor * (dphi_dz(j)*dphi_dz(i)) )
 
-          Kuv(i,j) = Kuv(i,j) + efvs * wqp * detJ/vol0 *                                           &
+          Kuv(i,j) = Kuv(i,j) + &
+                                efvs * wqp * detJ/vol0 *                                         &
                                 ssa_factor * (2.d0*dphi_dx(j)*dphi_dy(i) + dphi_dy(j)*dphi_dx(i))
 
-          Kvu(i,j) = Kvu(i,j) + efvs * wqp * detJ/vol0 *                                           &
+          Kvu(i,j) = Kvu(i,j) + &
+                                efvs * wqp * detJ/vol0 *                                         &
                                 ssa_factor * (2.d0*dphi_dy(j)*dphi_dx(i) + dphi_dx(j)*dphi_dy(i))
 
-          Kvv(i,j) = Kvv(i,j) + efvs * wqp * detJ/vol0 *                                           &
+          Kvv(i,j) = Kvv(i,j) + &
+                                efvs * wqp * detJ/vol0 *                                         &
                               ( ssa_factor * (4.d0*dphi_dy(j)*dphi_dy(i) + dphi_dx(j)*dphi_dx(i))  &
                               + sia_factor * (dphi_dz(j)*dphi_dz(i)) )
 
@@ -3682,6 +3895,7 @@
        enddo
     endif
 
+
 !TODO - Switch loops or switch order of indices in K(nr,nc)?
 !       Inner index nr is currently the outer loop
 
@@ -3704,12 +3918,13 @@
           Amat(m,k,i,j) = Amat(m,k,i,j) + Kmat(nr,nc)
 
 !WHL - debug
-!          if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest  &
-!                      .and. iA == iAtest .and. jA==jAtest .and. kA==kAtest) then
-!             print*, ' '
-!             print*, 'i, j, k, iA, jA, kA:', i, j, k, iA, jA, kA
-!             print*, 'nr, nc, Kmat, new Amat:', nr, nc, Kmat(nr,nc), Amat(kA,iA,jA,k,i,j)
-!          endif
+          if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest  &
+                      .and. iA == iAtest .and. jA==jAtest .and. kA==kAtest) then
+             print*, ' '
+             print*, 'i, j, k, iA, jA, kA:', i, j, k, iA, jA, kA
+             print*, 'i, j, k of element:', iElement, jElement, kElement
+             print*, 'nr, nc, Kmat, new Amat:', nr, nc, Kmat(nr,nc), Amat(m,k,i,j)
+          endif
 
        enddo     ! nc
 
@@ -3753,7 +3968,7 @@
        active_cell                   ! true if cell contains ice and borders a locally owned vertex
 
     real(dp), dimension(nx-1,ny-1), intent(in) ::    &
-       beta                          ! basal traction field (Pa/(m/s)) at cell vertices
+       beta                          ! basal traction field (Pa/(m/yr)) at cell vertices
 
     real(dp), dimension(nx-1,ny-1), intent(in) ::   &
        xVertex, yVertex     ! x and y coordinates of vertices
@@ -4381,7 +4596,7 @@
        bu, bv              ! assembled load (rhs) vector, divided into 2 parts
 
    real(dp), dimension(nz,nx-1,ny-1), intent(in) ::   &
-       uvel, vvel          ! u and v components of velocity (m/s)
+       uvel, vvel          ! u and v components of velocity (m/yr)
 
     real(dp), dimension(nz,nx-1,ny-1), intent(out) ::   &
        resid_vec_u,      & ! residual vector, divided into 2 parts
@@ -5214,7 +5429,10 @@
 
     integer :: i, j
 
-    ! check that Kuu = (Kuu)^T
+    real(dp) :: avg_val
+
+
+    ! make sure Kuu = (Kuu)^T
 
     do j = 1, nNodesPerElement
        do i = j, nNodesPerElement
@@ -5316,16 +5534,16 @@
                 m = indxA(0,0,0)
                 diag_entry = Auu(m,k,i,j)
 
-                do kA = -1, 1
                 do jA = -1, 1
                 do iA = -1, 1
-
-                   m =  indxA( iA, jA, kA)
-                   mm = indxA(-iA,-jA,-kA)
-
-                   ! Check that Auu = Auu^T
+                do kA = -1, 1
 
                    if (k+kA >= 1 .and. k+kA <=nz) then  ! to keep k index in bounds
+
+                      m =  indxA( iA, jA, kA)
+                      mm = indxA(-iA,-jA,-kA)
+
+                      ! Check that Auu = Auu^T
 
                       val1 = Auu( m, k,    i,    j   )   ! value of Auu(row,col)
                       val2 = Auu(mm, k+kA, i+iA, j+jA)   ! value of Auu(col,row)
@@ -5390,9 +5608,9 @@
 
                 ! check that Avv = (Avv)^T
 
-                do kA = -1, 1
                 do jA = -1, 1
                 do iA = -1, 1
+                do kA = -1, 1
 
                    if (k+kA >= 1 .and. k+kA <=nz) then  ! to keep k index in bounds
 
@@ -5511,62 +5729,60 @@
                 m = indxA(0,0,0)
                 diag_entry = Auu(m,k,i,j)
 
-                do kA = -1, 1
                 do jA = -1, 1
                 do iA = -1, 1
+                do kA = -1, 1
 
-                   m =  indxA( iA, jA, kA)
-                   mm = indxA(-iA,-jA,-kA)
+                   if (k+kA >= 1 .and. k+kA <= nz) then
 
-                   val = Auu( m, k,    i,    j   )   ! value of Auu(row,col)
-                   if ( abs(val) < eps11*abs(diag_entry) ) then
-                      Auu(m,k,i,j) = 0.d0             ! Auu(row,col)
-                      if (k+kA >= 1 .and. k+kA <= nz) then
+                      m =  indxA( iA, jA, kA)
+                      mm = indxA(-iA,-jA,-kA)
+
+                      val = Auu( m, k,    i,    j   )   ! value of Auu(row,col)
+                      if ( abs(val) < eps11*abs(diag_entry) ) then
+                         Auu(m,k,i,j) = 0.d0             ! Auu(row,col)
                          Auu(mm,k+kA,i+iA,j+jA) = 0.d0   ! Auu(col,row)
                       endif
-                   endif
 
-                   val = Auv( m, k,    i,    j   )   ! value of Auv(row,col)
-                   if ( abs(val) < eps11*abs(diag_entry) ) then
-                      Auv(m,k,i,j) = 0.d0             
-                      if (k+kA >= 1 .and. k+kA <= nz) then
+                      val = Auv( m, k,    i,    j   )   ! value of Auv(row,col)
+                      if ( abs(val) < eps11*abs(diag_entry) ) then
+                         Auv(m,k,i,j) = 0.d0             
                          Avu(mm,k+kA,i+iA,j+jA) = 0.d0
                       endif
                    endif
 
+                enddo  ! kA
                 enddo  ! iA
                 enddo  ! jA
-                enddo  ! kA
 
                 m = indxA(0,0,0)
                 diag_entry = Avv(m,k,i,j)
 
-                do kA = -1, 1
                 do jA = -1, 1
                 do iA = -1, 1
+                do kA = -1, 1
 
-                   m =  indxA( iA, jA, kA)
-                   mm = indxA(-iA,-jA,-kA)
+                   if (k+kA >= 1 .and. k+kA <= nz) then
+                      m =  indxA( iA, jA, kA)
+                      mm = indxA(-iA,-jA,-kA)
 
-                   val = Avv( m, k,    i,    j   )   ! value of Avv(row,col)
-                   if ( abs(val) < eps11*abs(diag_entry) ) then
-                      Avv(m,k,i,j) = 0.d0             ! Avv(row,col)
-                      if (k+kA >= 1 .and. k+kA <= nz) then
+                      val = Avv( m, k,    i,    j   )   ! value of Avv(row,col)
+                      if ( abs(val) < eps11*abs(diag_entry) ) then
+                         Avv(m,k,i,j) = 0.d0             ! Avv(row,col)
                          Avv(mm,k+kA,i+iA,j+jA) = 0.d0   ! Avv(col,row)
                       endif
-                   endif
 
-                   val = Avu( m, k,    i,    j   )   ! value of Avu(row,col)
-                   if ( abs(val) < eps11*abs(diag_entry) ) then
-                      Avu(m,k,i,j) = 0.d0             ! Avu(row,col)
-                      if (k+kA >= 1 .and. k+kA <= nz) then
+                      val = Avu( m, k,    i,    j   )   ! value of Avu(row,col)
+                      if ( abs(val) < eps11*abs(diag_entry) ) then
+                         Avu(m,k,i,j) = 0.d0             ! Avu(row,col)
                          Auv(mm,k+kA,i+iA,j+jA) = 0.d0   ! Auv(col,row)
                       endif
+
                    endif
 
+                enddo  ! kA
                 enddo  ! iA
                 enddo  ! jA
-                enddo  ! kA
 
              enddo     ! k
           endif        ! active_vertex

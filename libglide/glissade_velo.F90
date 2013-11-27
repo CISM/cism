@@ -151,50 +151,16 @@ contains
             write(6,'(46i3)') model%velocity%kinbcmask(:,j)
          enddo 
 
-         ! compute the unscaled velocity (m/yr)
-         uvel(:,:,:) = vel0 * model%velocity%uvel(:,:,:)
-         vvel(:,:,:) = vel0 * model%velocity%vvel(:,:,:)
-
-         call glissade_velo_higher_solve(model%general%ewn,      model%general%nsn,         &
-                                         model%general%upn,                                 &  
-                                         model%numerics%sigma,                              &
-                                         nhalo,                                             &  
-                                         len0 * model%numerics%dew,                         &
-                                         len0 * model%numerics%dns,                         &
-                                         thk0 * model%geometry%thck,                        &
-                                         thk0 * model%geometry%usrf,                        &
-                                         thk0 * model%geometry%topg,                        &
-                                         real(model%climate%eus,dp),                        &
-                                         thk0 * model%numerics%thklim,                      &
-                                         vis0 * model%temper%flwa,                          &
-!!                                              model%velocity%uvel,  model%velocity%vvel,       &
-                                         uvel,                   vvel,                      &
-                                         model%stress%efvs,                                 &
-                                         model%options%which_ho_efvs,                       &
-                                         model%options%which_ho_resid,                      &
-                                         model%options%which_ho_nonlinear,                  &
-                                         model%options%which_ho_sparse,                     &
-                                         whichapprox = model%options%which_ho_approx,       &
-                                         kinbcmask   = model%velocity%kinbcmask,            &
-                                         beta = tau0/vel0 * model%velocity%beta)   ! convert to Pa/(m/s)
-
-         ! rescale the velocity since the rest of the code expects it
-         model%velocity%uvel(:,:,:) = uvel(:,:,:) / vel0
-         model%velocity%vvel(:,:,:) = vvel(:,:,:) / vel0
+         call glissade_velo_higher_solve(model,                                             &
+                                         model%general%ewn,      model%general%nsn,         &
+                                         model%general%upn)
 
 !WHL - debug
          print*, ' '
          print*, 'efvs (Pa yr, k = 1):'
          do j = model%general%nsn, 1, -1
-            write(6,'(8e15.8)') model%stress%efvs(1,1:8,j)/scyr
+            write(6,'(8e15.8)') model%stress%efvs(1,1:8,j) * evs0/scyr
          enddo
-
-         ! similarly, rescale the efffective viscosity
-         ! efvs is returned with units Pa s; dividing by evs0 makes it dimensionless
-         ! for output, efvs is rescaled to units Pa yr
-
-         model%stress%efvs(:,:,:) = model%stress%efvs(:,:,:) / evs0
-
 
       else if ( model%options%which_ho_nonlinear == HO_NONLIN_JFNK ) then ! JFNK
 
@@ -202,7 +168,7 @@ contains
          !       (i.e., glissade as well as glam)
          ! noxsolve could eventually go here 
 
-         call write_log('JFNK not yet supported for glissade velocity solver',GM_FATAL)
+         call write_log('JFNK not supported for glissade velocity solver',GM_FATAL)
 
       else   
          call write_log('Invalid which_ho_nonlinear option.',GM_FATAL)
