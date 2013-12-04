@@ -10,6 +10,8 @@ main.rateFactor = constRate
 constRate.A = 5.7e-18
 constRate.epsSqr0 = 1.0e-16
 
+#main.poutBaseName = pout.confinedShelf
+
 # CISM uses 2 ghost cells
 glimmerInterface.numGhost = 2 2 
 glimmerInterface.nodalInitialData = 0

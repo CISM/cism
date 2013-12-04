@@ -1,0 +1,16 @@
+#PBS -q premium
+#PBS -l mppwidth=24
+#PBS -l walltime=0:10:00
+#PBS -N BISICLES.circularShelf
+#PBS -V 
+#PBS -m abe
+
+cd $PBS_O_WORKDIR
+#aprun -n 24 ./../../../../builds/hopper-pgi/cism_driver/cism_driver circular-shelf.BISISCLES.config
+
+aprun -n 24 ./../../../../builds/hopper-pgi/example-drivers/simple_bisicles/src/simple_bisicles circular-shelf.BISICLES.config
+
+
+
+
+

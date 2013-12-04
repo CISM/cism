@@ -1,0 +1,14 @@
+#PBS -q premium
+#PBS -l mppwidth=24
+#PBS -l walltime=0:10:00
+#PBS -N BISICLES.confinedShelf
+#PBS -V 
+#PBS -m abe
+
+cd $PBS_O_WORKDIR
+aprun -n 24 ./../../../../builds/hopper-pgi/cism_driver/cism_driver confined-shelf.BISICLES.config
+
+
+
+
+
