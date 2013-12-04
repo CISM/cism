@@ -8,7 +8,7 @@
 cd $PBS_O_WORKDIR
 aprun -n 24 ./../../../../builds/hopper-pgi/cism_driver/cism_driver confined-shelf.BISICLES.config
 
-
-
+# this one runs simple_bisicles instead of cism_driver
+#aprun -n 24 ./../../../../builds/hopper-pgi/example-drivers/simple_bisicles/src/simple_bisicles confined-shelf.BISICLES.config
 
 
