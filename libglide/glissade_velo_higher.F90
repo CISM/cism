@@ -145,7 +145,7 @@
        identity3                ! 3 x 3 identity matrix
 
     real(dp), parameter ::   &
-       eps11 = 1.d-11           ! small number
+       eps10 = 1.d-10           ! small number
 
     real(dp) :: vol0    ! volume scale = dx * dy * (1000 m)
 
@@ -196,6 +196,8 @@
 !       itest = 26, jtest = 19, ktest = 1, ptest = 1  ! for dome, global (i,j) = (24,17), 1 proc
 !       integer, parameter :: ntest = 2371  ! nodeID for dome global (24,17,1)    
 
+        itest = 8, jtest = 8, ktest = 1, ptest = 1    ! for block test, global (i,j) = (6,6)
+
 !       itest = 26, jtest = 19, ktest = 10, ptest = 1
 
 !        itest = 3, jtest = 3, ktest = 1, ptest = 1    ! for ishom.a, global (i,j) = (1,1)
@@ -206,8 +208,9 @@
 !       itest = 11, jtest = 11, ktest = 1, ptest = 1  ! for circular shelf, global (i,j) = (9,9), 1 proc
 !       itest = 5, jtest = 42, ktest = 1, ptest = 1  ! for confined/linear (north-flowing) shelf, global (i,j) = (3,40), 1 proc
 
-       itest = 9, jtest = 9, ktest = 1, ptest = 1  ! for confined/linear shelf, global (i,j) = (7,7), 1 proc
-       integer, parameter :: ntest = 231  
+!       itest = 9, jtest = 9, ktest = 1, ptest = 1  ! for confined/linear shelf, global (i,j) = (7,7), 1 proc
+
+       integer, parameter :: ntest = 73
 
 
 !    integer, parameter :: ntest = 2372  ! nodeID for dome global (24,17,2)
@@ -218,7 +221,6 @@
 
 !    integer, parameter :: ntest = 101  ! nodeID for confined (south-flowing) shelf, global (22,4,1)    
 !    integer, parameter :: ntest = 7701  ! nodeID for confined shelf global (22,40,1)    
-!!    integer, parameter :: ntest = 8276  ! nodeID for linear shelf global (22,40,1)    
 
     integer, parameter :: rtest = 0    ! rank for any single-process run
 
@@ -231,6 +233,9 @@
 
     integer, parameter :: &
       Krowtest=1, Kcoltest=2
+
+    logical, parameter :: write_matrix = .false.
+    character(*), parameter :: matrix_label = 'block5'   ! Change depending on the case we're running
 
     contains
 
@@ -724,7 +729,6 @@
     logical, parameter :: sia_test = .false.
 !    logical, parameter :: sia_test = .true.
 
-
     integer :: nNonzeros    ! number of nonzero entries in structured matrices
 
 !WHL - UMC
@@ -787,7 +791,7 @@
     ! This is not strictly necessary, but dividing by this scale gives matrix coefficients 
     !  that are not quite so large.
 
-    vol0 = dx * dy * 1000.d0    ! typical volume of ice column (m^3)
+    vol0 = 1.0d9    ! volume scale (m^3)
 
     if (whichapprox == HO_APPROX_SIA) then   ! SIA
 !!          if (verbose .and. main_task) print*, 'Solving shallow-ice approximation'
@@ -846,6 +850,11 @@
 !WHL - debug
     if (verbose_state .and. this_rank==rtest) then
 
+       print*, 'sigma coordinate:'
+       do k = 1, nz
+          print*, k, sigma(k)
+       enddo
+
        print*, ' '
        print*, 'Thickness field, rank =', rtest
        do j = ny, 1, -1
@@ -879,6 +888,7 @@
           do i = 1, nx
              write(6,'(e12.5)',advance='no') flwa(1,i,j)
           enddo
+          write(6,*) ' '
        enddo
 
     endif
@@ -1196,6 +1206,7 @@
                                 nNodesPerElement_2d,               &
                                 sigma,                             &
                                 floating_cell,    ocean_cell,      &
+                                active_cell,                       &
                                 xVertex,          yVertex,         &
                                 stagusrf,         stagthck,        &
                                 bu,               bv)
@@ -1279,7 +1290,7 @@
        !WHL - debug
           if (verbose .and. main_task) then
              print*, ' '
-             print*, 'max, min beta (Pa/(m/yr)) =', maxval(beta)/scyr, minval(beta)/scyr
+             print*, 'max, min beta (Pa/(m/yr)) =', maxval(beta), minval(beta)
              print*, 'Call basal_sliding_bc'
           endif
 
@@ -1610,7 +1621,7 @@
           print*, 'bu, k =', k
           do j = ny-1, 1, -1
              do i = 1, nx-1
-                write(6,'(f6.1)',advance='no'), bu(k,i,j)
+                write(6,'(e10.2)',advance='no'), bu(k,i,j)
              enddo
              print*, ' '
           enddo
@@ -1628,12 +1639,29 @@
           print*, 'bv, k =', k
           do j = ny-1, 1, -1
              do i = 1, nx-1
-                write(6,'(f6.1)',advance='no'), bv(k,i,j)
+                write(6,'(e10.2)',advance='no'), bv(k,i,j)
              enddo
              print*, ' '
           enddo
           
        endif   ! verbose_matrix, this_rank==rtest
+
+       if (write_matrix) then
+
+          if (counter == 1) then    ! first outer iteration only
+ 
+             call write_matrix_elements(nx,    ny,   nz,  &
+                                        nNodesSolve, NodeID,       &
+                                        iNodeIndex,  jNodeIndex,  &
+                                        kNodeIndex,            &
+                                        Auu,         Auv,   &
+                                        Avu,         Avv,   &
+                                        bu,          bv)
+
+          endif
+
+       endif
+
 
        if (whichsparse == STANDALONE_PCG_STRUC) then   ! standalone PCG for structured grid
                                                        ! works for both serial and parallel runs
@@ -1747,7 +1775,7 @@
           if (verbose) then
              print*, 'Solved the linear system, niters, err =', niters, err
              print*, ' '
-!!             print*, 'n, u, v (m/yr):', ntest, scyr*answer(2*ntest-1), scyr*answer(2*ntest)
+!!             print*, 'n, u, v (m/yr):', ntest, answer(2*ntest-1), answer(2*ntest)
 !!           do n = 1, matrix%order 
 !!              print*, n, answer(n)
 !!           enddo
@@ -1834,6 +1862,23 @@
           do j = ny-1, 1, -1
              do i = 1, nx-1
                 write(6,'(f6.2)',advance='no') (vvel(1,i,j) - vsav(1,i,j))
+             enddo 
+             print*, ' '
+          enddo
+
+          print*, ' '
+          print*, 'uvel (m/yr), k = 1:'
+          do j = ny-1, 1, -1
+             do i = 1, nx-1
+                write(6,'(f12.0)',advance='no') uvel(1,i,j)
+             enddo 
+             print*, ' '
+          enddo
+          print*, ' '
+          print*, 'vvel (m/yr), k = 1:'
+          do j = ny-1, 1, -1
+             do i = 1, nx-1
+                write(6,'(f12.0)',advance='no') vvel(1,i,j)
              enddo 
              print*, ' '
           enddo
@@ -2367,7 +2412,9 @@
                 s(n) = stagusrf(iNode,jNode)
  
                 if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+!!                   print*, ' '
                    print*, 'i, j, k, n, x, y, z, s:', i, j, k, n, x(n), y(n), z(n), s(n)
+!!                   print*, 'iNode, jNode, kNode, sigma:', iNode, jNode, kNode, sigma(kNode)
                 endif
 
              enddo   ! nodes per element
@@ -2450,6 +2497,7 @@
                                     nNodesPerElement_2d,               &
                                     sigma,                             &
                                     floating_cell,    ocean_cell,      &
+                                    active_cell,                       &
                                     xVertex,          yVertex,         &
                                     stagusrf,         stagthck,        &
                                     bu,               bv)
@@ -2465,8 +2513,9 @@
     real(dp), dimension(nz), intent(in) ::    &
        sigma                         ! sigma vertical coordinate
 
-    !TODO - Replace with active_cell?
+    !TODO - Use active_cell and not floating/ocean?
     logical, dimension(nx,ny), intent(in) ::  &
+       active_cell,                 &! true if cell contains ice and borders a locally owned vertex
        floating_cell,               &! true if ice is present and is floating
        ocean_cell                    ! true if topography is below sea level and ice is absent
 
@@ -2504,13 +2553,14 @@
        !WHL - debug
        if (verbose_shelf .and. i==itest .and. j==jtest .and. this_rank==rtest) then
           print*, 'i, j =', i, j
-!          print*, 'active =', active_cell(i,j)
+          print*, 'active =', active_cell(i,j)
           print*, 'floating =', floating_cell(i,j)
           print*, 'ocean (i-1:i,j)  =', ocean_cell(i-1:i, j) 
           print*, 'ocean (i-1:i,j-1)=', ocean_cell(i-1:i, j-1) 
        endif
 
-       if (floating_cell(i,j)) then   ! ice is present and is floating
+       if (active_cell(i,j)) then    ! ice is present
+!!       if (floating_cell(i,j)) then   ! ice is present and is floating
 
 !WHL - debug
 !          print*, 'Floating:', i, j
@@ -2519,7 +2569,8 @@
           !       It will not work for marine-based ice that borders the ocean but is not floating.
           !TODO - Make the BC more general.
 
-          if (ocean_cell(i-1,j)) then ! compute lateral BC for west face
+          if (.not. active_cell(i-1,j)) then  ! compute lateral BC for west face
+!!          if (ocean_cell(i-1,j)) then ! compute lateral BC for west face
 
 !WHL - debug
 !          print*, '   Ocean west:', i-1, j
@@ -2534,7 +2585,8 @@
 
           endif
 
-          if (ocean_cell(i+1,j)) then ! compute lateral BC for east face
+          if (.not. active_cell(i+1,j)) then  ! compute lateral BC for east face
+!!          if (ocean_cell(i+1,j)) then ! compute lateral BC for east face
 
 !WHL - debug
 !          print*, '   Ocean east:', i+1, j
@@ -2549,7 +2601,8 @@
 
           endif
 
-          if (ocean_cell(i,j-1)) then ! compute lateral BC for south face
+          if (.not. active_cell(i,j-1)) then  ! compute lateral BC for south face
+!!          if (ocean_cell(i,j-1)) then ! compute lateral BC for south face
 
 !WHL - debug
 !          print*, '   Ocean south:', i, j-1
@@ -2564,7 +2617,8 @@
 
           endif
 
-          if (ocean_cell(i,j+1)) then ! compute lateral BC for north face
+          if (.not. active_cell(i,j+1)) then  ! compute lateral BC for north face
+!!          if (ocean_cell(i,j+1)) then ! compute lateral BC for north face
 
 !WHL - debug
 !          print*, '   Ocean north:', i, j+1
@@ -2606,29 +2660,33 @@
 
     !----------------------------------------------------------------------------------
     ! Determine the contribution to the load vector from ice and water pressure at the
-    !  shelf/ocean boundary.
+    !  vertical boundary between ice and ocean (or alternatively, from ice pressure alone
+    !  at a vertical boundary between ice and air).
     !
-    ! This subroutine computes the vertically averaged hydrostatic pressure at a shelf face
+    ! This subroutine computes the vertically averaged hydrostatic pressure at a vertical face
     !  associated with the grid cell column (iCell, jCell).
     !
     ! At a given point, this pressure is proportional to the difference between
-    ! (1) the vertically averaged pressure exerted by the ice front toward the ocean
+    ! (1) the vertically averaged pressure exerted outward (toward the ocean) by the ice front
     ! (2) the vertically averaged pressure exerted by the ocean back toward the ice
     ! 
-    ! (1) is given by   p_ice = 0.5*rhoi*grav*H
-    ! (2) is given by p_water = 0.5*rhoi*grav*H*(rhoi/rhoo)
+    ! (1) is given by p_out = 0.5*rhoi*grav*H
+    ! (2) is given by p_in  = 0.5*rhoi*grav*H*(rhoi/rhoo) for a floating shelf
+    !                       = 0.5*rhoo*grav*H*(1 - s/H)^2 for s <= H but ice not necessarily afloat
     !
+    ! The second term goes to zero for a land-terminating cliff. 
     ! The two pressure terms are opposite in sign, so the net vertically averaged pressure,
-    !  directed toward the ocean, is given by
+    !  directed toward the ocean (or air), is given by
     ! 
-    !                    p_av = 0.5*rhoi*grav*H * (1 - rhoi/rhoo)
+    !                    p_av = 0.5*rhoi*grav*H 
+    !                         - 0.5*rhoo*grav*H * (1 - min((s/H),1)^2
     ! 
     ! Here we sum over quadrature points for each ocean-bordering face of each element.
     ! The contribution from each quadrature point to node N is proportional to the product
     !
-    !                    rho_eff * grav * H * detJ * phi(n,p)
+    !                    p_av(s,H) * detJ * phi(n,p)
     !
-    ! where rho_eff = 0.5*rhoi*(1 - rhoi/rhoo), H is the ice thickness evaluated at that point,
+    ! where s and H are the surface elevation and ice thickness evaluated at that point,
     !  detJ is the determinant of the transformation linking the reference 2D element coordinates
     !  to the true coordinates at that point, and phi(n,p) is the basis function evaluated at that point.
     !
@@ -2661,8 +2719,8 @@
     ! Local variables
     !----------------------------------------------------------------
 
-    real(dp), parameter :: &
-       rhoeff = 0.5d0*rhoi*(1.d0 - rhoi/rhoo)  ! term in expression for vertical avg pressure
+!    real(dp), parameter :: &
+!       rhoeff = 0.5d0*rhoi*(1.d0 - rhoi/rhoo)  ! term in expression for vertical avg pressure
 
     real(dp), dimension(nNodesPerElement_2d) ::     &
        x, y,               & ! local coordinates of nodes
@@ -2678,6 +2736,8 @@
 
     real(dp)  ::        &
        hqp,             & ! ice thickness at a given quadrature point (m)
+       sqp,             & ! ice surface elevation at a given quadrature point (m)
+       p_av,            & ! net outward pressure from ice, p_out - p_in
        detJ               ! determinant of Jacobian for the transformation
                           !  between the reference element and true element
 
@@ -2827,17 +2887,19 @@
 
           detJ = abs(detJ)
 
-          ! Evaluate the ice thickness at this quadrature point
- 
+          ! Evaluate the ice thickness and surface elevation at this quadrature point
+
           hqp = 0.d0
+          sqp = 0.d0
           do n = 1, nNodesPerElement_2d
              hqp = hqp + phi_2d(n,p) * h(n)
+             sqp = sqp + phi_2d(n,p) * s(n)
           enddo
 
           if (verbose_shelf .and. this_rank==rtest .and. iCell==itest .and. jCell==jtest .and. k==ktest) then
              print*, ' '
              print*, 'Increment shelf load vector, i, j, face, k, p =', iCell, jCell, trim(face), k, p
-             print*, 'hqp =', hqp
+             print*, 'hqp, sqp =', hqp, sqp
              print*, 'detJ/vol0 =', detJ/vol0
           endif
 
@@ -2847,13 +2909,18 @@
 
           if (trim(face) == 'west') then  ! net force in -x direction
 
+             p_av = 0.5*rhoi*grav*hqp &     ! p_out
+                  - 0.5*rhoo*grav*hqp * (1.d0 - min(sqp/hqp,1.d0))**2   ! p_in
+
              do n = 1, nNodesPerElement_2d
+
                 bu(kNode(n),iNode(n),jNode(n)) = bu(kNode(n),iNode(n),jNode(n))    &
-                                               - rhoeff*grav * hqp * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
+!                                               - rhoeff * hqp * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
+                                               - p_av * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
 
                 if (verbose .and. this_rank==rtest .and. iCell==itest .and. jCell==jtest .and. k==ktest) then
                    print*, 'n, p, phi(n), delta(bu):', n, p, phi_2d(n,p), &
-                           -rhoeff*grav * hqp * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
+                           -p_av * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
                 endif
 
              enddo
@@ -2862,11 +2929,12 @@
 
              do n = 1, nNodesPerElement_2d
                 bu(kNode(n),iNode(n),jNode(n)) = bu(kNode(n),iNode(n),jNode(n))    &
-                                               + rhoeff*grav * hqp * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
+!                                               + rhoeff*grav * hqp * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
+                                               + p_av * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
 
                 if (verbose_shelf .and. this_rank==rtest .and. iCell==itest .and. jCell==jtest .and. k==ktest) then
                    print*, 'n, p, phi(n), delta(bu):', n, p, phi_2d(n,p), &
-                            rhoeff*grav * hqp * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
+                            p_av * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
                 endif
 
              enddo
@@ -2875,24 +2943,26 @@
 
              do n = 1, nNodesPerElement_2d
                 bv(kNode(n),iNode(n),jNode(n)) = bv(kNode(n),iNode(n),jNode(n))    &
-                                               - rhoeff*grav * hqp * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
+!                                               - rhoeff*grav * hqp * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
+                                               - p_av * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
 
                 if (verbose_shelf .and. this_rank==rtest .and. iCell==itest .and. jCell==jtest .and. k==ktest) then
                    print*, 'n, p, phi(n), delta(bv):', n, p, phi_2d(n,p), &
-                           -rhoeff*grav * hqp * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
+                           -p_av * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
                 endif
 
              enddo
-
 
           elseif (trim(face) == 'north') then  ! net force in y direction
  
              do n = 1, nNodesPerElement_2d
                 bv(kNode(n),iNode(n),jNode(n)) = bv(kNode(n),iNode(n),jNode(n))    &
-                                               + rhoeff*grav * hqp * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
+!                                               + rhoeff*grav * hqp * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
+                                               + p_av * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
+
                 if (verbose_shelf .and. this_rank==rtest .and. iCell==itest .and. jCell==jtest .and. k==ktest) then
                    print*, 'n, p, phi_2d(n,p), delta(bv):', n, p, phi_2d(n,p), &
-                            rhoeff*grav * hqp * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
+                            p_av * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
                 endif
 
              enddo
@@ -3029,7 +3099,6 @@
 
     integer :: iNode, jNode, kNode
 
-!WHL - debug
     integer :: jj
 
     if (verbose_matrix .and. main_task) then
@@ -3124,7 +3193,7 @@
                 print*, ' '
                 print*, 'Current uvel(lower, upper, m/yr):'
                 write(6, '(2e15.8,a10,2e15.8)') u(4), u(3), '          ', u(8), u(7)
-                write(6, '(2e15.8,a10,2e15.8)') u(1)*scyr, u(2)*scyr, '          ', u(5), u(6)
+                write(6, '(2e15.8,a10,2e15.8)') u(1), u(2), '          ', u(5), u(6)
                 print*, ' '
                 print*, 'Current vvel(lower, upper, m/yr):'
                 write(6, '(2e15.8,a10,2e15.8)') v(4), v(3), '          ', v(8), v(7)
@@ -3184,7 +3253,7 @@
 
           if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
              print*, ' '
-             print*, 'i, j, k, efvs_avg (Pa yr):', i, j, k, efvs_avg/scyr
+             print*, 'i, j, k, efvs_avg (Pa yr):', i, j, k, efvs_avg
           endif
 
           if (efvs_element_avg) then  ! apply element-average efvs instead of a different efvs for each quad pt
@@ -3287,7 +3356,6 @@
     enddo      ! i
     enddo      ! j
 
-
   end subroutine assemble_stiffness_matrix
 
 !****************************************************************************
@@ -3361,9 +3429,7 @@
 
     do n = 1, nNodesPerElement
        if (verbose_Jac .and. i==itest .and. j==jtest .and. k==ktest) then
-          print*, ' '
-          print*, 'n, x, y, z:', n, xNode(n), yNode(n), zNode(n)
-          print*, 'dphi_dxyz:', dphi_dxr(n), dphi_dyr(n), dphi_dzr(n) 
+          print*, 'n, dphi_d(xyz)r:', n, dphi_dxr(n), dphi_dyr(n), dphi_dzr(n) 
        endif
        Jac(1,1) = Jac(1,1) + dphi_dxr(n) * xNode(n)
        Jac(1,2) = Jac(1,2) + dphi_dxr(n) * yNode(n)
@@ -3478,6 +3544,7 @@
     dphi_dy(:) = 0.d0
     dphi_dz(:) = 0.d0
 
+    !TODO - Don't need first terms on RHS since it's always zero?
     do n = 1, nNodesPerElement
        dphi_dx(n) = dphi_dx(n) + Jinv(1,1)*dphi_dxr(n)  &
                                + Jinv(1,2)*dphi_dyr(n)  &
@@ -3488,6 +3555,11 @@
        dphi_dz(n) = dphi_dz(n) + Jinv(3,1)*dphi_dxr(n)  &
                                + Jinv(3,2)*dphi_dyr(n)  &
                                + Jinv(3,3)*dphi_dzr(n)
+
+       if (verbose_Jac .and. i==itest .and. j==jtest .and. k==ktest) then
+          print*, 'n, dphi_d(xyz):', n, dphi_dx(n), dphi_dy(n), dphi_dz(n) 
+       endif
+
     enddo
 
     ! debug - Check that the sum of dphi_dx, etc. is close to zero  
@@ -3575,8 +3647,10 @@
 !TODO - Test sensitivity of model convergence to this parameter
     real(dp), parameter ::   &
 !!       effstrain_min = 1.d-20,          &! minimum value of effective strain rate, s^{-1}
-       effstrain_min = 1.d-20*scyr,     &! minimum value of effective strain rate, yr^{-1}
+!!       effstrain_min = 1.d-20*scyr,     &! minimum value of effective strain rate, yr^{-1}
                                          ! GLAM uses 1.d-20 s^{-1} for minimum effective strain rate
+       effstrain_min = 1.d-8,     &! minimum value of effective strain rate, yr^{-1}
+                                   ! Mauro suggests 1.d-8 yr^{-1}
        p_effstr = (1.d0 - real(gn,dp)) / real(gn,dp)    ! exponent (1-n)/n in effective viscosity relation
                                                                
     !----------------------------------------------------------------
@@ -3653,9 +3727,9 @@
           efvs = flwafact * effstrain**p_effstr
 
           if (verbose_efvs .and. i==itest .and. j==jtest .and. k==ktest) then
-!             print*, 'effstrain_min (yr-1)=', effstrain_min*scyr
-!             print*, 'Trial du/dx, du/dy, du/dz (yr-1) =', du_dx*scyr, du_dy*scyr, du_dz*scyr
-             print*, 'Trial dv/dx, dv/dy, dv/dz (yr-1) =', dv_dx*scyr, dv_dy*scyr, dv_dz*scyr
+!             print*, 'effstrain_min (yr-1)=', effstrain_min
+!             print*, 'Trial du/dx, du/dy, du/dz (yr-1) =', du_dx, du_dy, du_dz
+             print*, 'Trial dv/dx, dv/dy, dv/dz (yr-1) =', dv_dx, dv_dy, dv_dz
              print*, 'Trial flwafact, effstrain (yr-1), efvs(Pa yr) =', flwafact, effstrain, efvs
           endif
 
@@ -3668,7 +3742,7 @@
 !!       efvs = efvs * scyr/tim0 / tau0   ! tau0 = rhoi*grav*thk0
 
        if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
-          print*, 'Set efvs = constant (Pa yr):', efvs/scyr
+          print*, 'Set efvs = constant (Pa yr):', efvs
        endif
 
 
@@ -3729,7 +3803,7 @@
        efvs = flwafact * effstrain**p_effstr
 
        if (verbose_efvs .and. i==itest .and. j==jtest .and. k==ktest) then
-!          print*, 'effstrain_min (yr-1)=', effstrain_min*scyr
+!          print*, 'effstrain_min (yr-1)=', effstrain_min
           print*, 'du/dx, du/dy, du/dz (yr-1) =', du_dx, du_dy, du_dz
           print*, 'dv/dx, dv/dy, dv/dz (yr-1) =', dv_dx, dv_dy, dv_dz
           print*, 'flwafact, effstrain (yr-1), efvs(Pa yr) =', flwafact, effstrain, efvs
@@ -3831,23 +3905,19 @@
 
           !WHL - Note volume scaling such that detJ/vol0 is closer to unity
 
-          Kuu(i,j) = Kuu(i,j) + &
-                                efvs * wqp * detJ/vol0 *                                         &
-                              ( ssa_factor * (4.d0*dphi_dx(j)*dphi_dx(i) + dphi_dy(j)*dphi_dy(i))  &
-                              + sia_factor * (dphi_dz(j)*dphi_dz(i)) )
+          Kuu(i,j) = Kuu(i,j) + efvs * wqp * detJ/vol0 *                                         &
+                              ( ssa_factor * (4.d0*dphi_dx(i)*dphi_dx(j) + dphi_dy(i)*dphi_dy(j))  &
+                              + sia_factor * (dphi_dz(i)*dphi_dz(j)) )
 
-          Kuv(i,j) = Kuv(i,j) + &
-                                efvs * wqp * detJ/vol0 *                                         &
-                                ssa_factor * (2.d0*dphi_dx(j)*dphi_dy(i) + dphi_dy(j)*dphi_dx(i))
+          Kuv(i,j) = Kuv(i,j) + efvs * wqp * detJ/vol0 *                                         &
+                                ssa_factor * (2.d0*dphi_dx(i)*dphi_dy(j) + dphi_dy(i)*dphi_dx(j))
 
-          Kvu(i,j) = Kvu(i,j) + &
-                                efvs * wqp * detJ/vol0 *                                         &
-                                ssa_factor * (2.d0*dphi_dy(j)*dphi_dx(i) + dphi_dx(j)*dphi_dy(i))
+          Kvu(i,j) = Kvu(i,j) + efvs * wqp * detJ/vol0 *                                         &
+                                ssa_factor * (2.d0*dphi_dy(i)*dphi_dx(j) + dphi_dx(i)*dphi_dy(j))
 
-          Kvv(i,j) = Kvv(i,j) + &
-                                efvs * wqp * detJ/vol0 *                                         &
-                              ( ssa_factor * (4.d0*dphi_dy(j)*dphi_dy(i) + dphi_dx(j)*dphi_dx(i))  &
-                              + sia_factor * (dphi_dz(j)*dphi_dz(i)) )
+          Kvv(i,j) = Kvv(i,j) + efvs * wqp * detJ/vol0 *                                         &
+                              ( ssa_factor * (4.d0*dphi_dy(i)*dphi_dy(j) + dphi_dx(i)*dphi_dx(j))  &
+                              + sia_factor * (dphi_dz(i)*dphi_dz(j)) )
 
        enddo  ! i (rows)
     enddo     ! j (columns)
@@ -4514,11 +4584,13 @@
 
                          if (iA==0 .and. jA==0 .and. kA==0) then
                             !! uncomment to put 1 on the main diagonal
-                            !m = indxA(0,0,0)
-                            !Auu(m,k,i,j) = 1.d0
-                            !Avv(m,k,i,j) = 1.d0
+                            m = indxA(0,0,0)
+                            Auu(m,k,i,j) = 1.d0
+                            Auv(m,k,i,j) = 0.d0
+                            Avu(m,k,i,j) = 0.d0
+                            Avv(m,k,i,j) = 1.d0
 
-                            !leave the diagonal term unchanged
+                            !else leave the diagonal term unchanged
                             !WHL: For the dome problem, it seems to make no difference whether we put a '1'
                             !     on the diagonal or leave the diagonal term unchanged. Answers are BFB
                             !     for diagonal preconditioner, SIA preconditioner, and GMRES/ILU
@@ -5436,7 +5508,7 @@
 
     do j = 1, nNodesPerElement
        do i = j, nNodesPerElement
-          if (abs(Kuu(i,j) - Kuu(j,i)) > eps11) then
+          if (abs(Kuu(i,j) - Kuu(j,i)) > eps10) then
              print*, 'Kuu is not symmetric'
              print*, 'i, j, Kuu(i,j), Kuu(j,i):', i, j, Kuu(i,j), Kuu(j,i)
              stop
@@ -5448,7 +5520,7 @@
 
     do j = 1, nNodesPerElement
        do i = j, nNodesPerElement
-          if (abs(Kvv(i,j) - Kvv(j,i)) > eps11) then
+          if (abs(Kvv(i,j) - Kvv(j,i)) > eps10) then
              print*, 'Kvv is not symmetric'
              print*, 'i, j, Kvv(i,j), Kvv(j,i):', i, j, Kvv(i,j), Kvv(j,i)
              stop
@@ -5460,7 +5532,7 @@
 
     do j = 1, nNodesPerElement
        do i = 1, nNodesPerElement
-          if (abs(Kuv(i,j) - Kvu(j,i)) > eps11) then
+          if (abs(Kuv(i,j) - Kvu(j,i)) > eps10) then
              print*, 'Kuv .ne. (Kvu)^T'
              print*, 'i, j, Kuv(i,j), Kvu(j,i):', i, j, Kuv(i,j), Kvu(j,i)
              stop
@@ -5555,7 +5627,7 @@
                          ! if difference is small, then fix the asymmetry by averaging values
                          ! else print a warning and abort
 
-                         if ( abs(val2-val1) < eps11*abs(diag_entry) ) then
+                         if ( abs(val2-val1) < eps10*abs(diag_entry) ) then
                             avg_val = 0.5d0 * (val1 + val2)
                             Auu( m, k,   i,   j   ) = avg_val
                             Auu(mm, k+kA,i+iA,j+jA) = avg_val
@@ -5581,7 +5653,7 @@
                          ! if difference is small, then fix the asymmetry by averaging values
                          ! else print a warning and abort
 
-                         if ( abs(val2-val1) < eps11*abs(diag_entry) ) then
+                         if ( abs(val2-val1) < eps10*abs(diag_entry) ) then
                             avg_val = 0.5d0 * (val1 + val2)
                             Auv( m, k,   i,   j   ) = avg_val
                             Avu(mm, k+kA,i+iA,j+jA) = avg_val
@@ -5627,7 +5699,7 @@
                          ! if difference is small, then fix the asymmetry by averaging values
                          ! else print a warning and abort
 
-                         if ( abs(val2-val1) < eps11*abs(diag_entry) ) then
+                         if ( abs(val2-val1) < eps10*abs(diag_entry) ) then
                             avg_val = 0.5d0 * (val1 + val2)
                             Avv( m, k,   i,   j   ) = avg_val
                             Avv(mm, k+kA,i+iA,j+jA) = avg_val
@@ -5653,7 +5725,7 @@
                          ! if difference is small, then fix the asymmetry by averaging values
                          ! else print a warning and abort
 
-                         if ( abs(val2-val1) < eps11*abs(diag_entry) ) then
+                         if ( abs(val2-val1) < eps10*abs(diag_entry) ) then
                             avg_val = 0.5d0 * (val1 + val2)
                             Avu( m, k,   i,   j   ) = avg_val
                             Auv(mm, k+kA,i+iA,j+jA) = avg_val
@@ -5739,13 +5811,13 @@
                       mm = indxA(-iA,-jA,-kA)
 
                       val = Auu( m, k,    i,    j   )   ! value of Auu(row,col)
-                      if ( abs(val) < eps11*abs(diag_entry) ) then
+                      if ( abs(val) < eps10*abs(diag_entry) ) then
                          Auu(m,k,i,j) = 0.d0             ! Auu(row,col)
                          Auu(mm,k+kA,i+iA,j+jA) = 0.d0   ! Auu(col,row)
                       endif
 
                       val = Auv( m, k,    i,    j   )   ! value of Auv(row,col)
-                      if ( abs(val) < eps11*abs(diag_entry) ) then
+                      if ( abs(val) < eps10*abs(diag_entry) ) then
                          Auv(m,k,i,j) = 0.d0             
                          Avu(mm,k+kA,i+iA,j+jA) = 0.d0
                       endif
@@ -5767,13 +5839,13 @@
                       mm = indxA(-iA,-jA,-kA)
 
                       val = Avv( m, k,    i,    j   )   ! value of Avv(row,col)
-                      if ( abs(val) < eps11*abs(diag_entry) ) then
+                      if ( abs(val) < eps10*abs(diag_entry) ) then
                          Avv(m,k,i,j) = 0.d0             ! Avv(row,col)
                          Avv(mm,k+kA,i+iA,j+jA) = 0.d0   ! Avv(col,row)
                       endif
 
                       val = Avu( m, k,    i,    j   )   ! value of Avu(row,col)
-                      if ( abs(val) < eps11*abs(diag_entry) ) then
+                      if ( abs(val) < eps10*abs(diag_entry) ) then
                          Avu(m,k,i,j) = 0.d0             ! Avu(row,col)
                          Auv(mm,k+kA,i+iA,j+jA) = 0.d0   ! Auv(col,row)
                       endif
@@ -5987,7 +6059,7 @@
 
        m = indxA(0,0,0)
        diag_entry = Auu(m,k,i,j)
-       min_entry = eps11 * diag_entry
+       min_entry = eps10 * diag_entry
 
        ! Remove very small values
 
@@ -6018,7 +6090,7 @@
 
        m = indxA(0,0,0)
        diag_entry = Avv(m,k,i,j)
-       min_entry = eps11 * diag_entry
+       min_entry = eps10 * diag_entry
 
        ! Remove very small values
 
@@ -6052,6 +6124,149 @@
      
   end subroutine remove_small_matrix_terms
 
+!****************************************************************************
+
+  subroutine write_matrix_elements(nx,    ny,   nz,     &
+                                   nNodesSolve, NodeID, &
+                                   iNodeIndex,  jNodeIndex,  &
+                                   kNodeIndex,          &
+                                   Auu,         Auv,    &
+                                   Avu,         Avv,    &
+                                   bu,          bv)
+
+    integer, intent(in) ::   &
+       nx, ny,               &  ! horizontal grid dimensions
+       nz,                   &  ! number of vertical levels at which velocity is computed
+       nNodesSolve              ! number of nodes where we solve for velocity
+
+    integer, dimension(nz,nx-1,ny-1), intent(in) ::  &
+       NodeID             ! ID for each node
+
+    integer, dimension(:), intent(in) ::   &
+       iNodeIndex, jNodeIndex, kNodeIndex   ! i, j and k indices of active nodes
+
+    real(dp), dimension(27,nz,nx-1,ny-1), intent(in) ::  &
+       Auu, Auv,    &     ! assembled stiffness matrix, divided into 4 parts
+       Avu, Avv           ! 1st dimension = node and its nearest neighbors in x, y and z direction 
+                          ! other dimensions = (k,i,j) indices
+
+    real(dp), dimension(nz,nx-1,ny-1), intent(in) ::  &
+       bu, bv             ! assembled load (rhs) vector, divided into 2 parts
+
+
+    ! Local variables
+
+    integer :: rowA, colA
+    integer :: i, j, k, m, iA, jA, kA
+
+    real(dp), dimension(nNodesSolve, nNodesSolve) ::   &
+       Auu_val, Auv_val, Avu_val, Avv_val   ! dense matrices
+
+    real(dp), dimension(nNodesSolve) :: nonzeros
+
+    Auu_val(:,:) = 0.d0
+    Auv_val(:,:) = 0.d0
+    Avu_val(:,:) = 0.d0
+    Avv_val(:,:) = 0.d0
+
+    do rowA = 1, nNodesSolve
+
+       i = iNodeIndex(rowA)
+       j = jNodeIndex(rowA)
+       k = kNodeIndex(rowA)
+
+       do kA = -1, 1
+       do jA = -1, 1
+       do iA = -1, 1
+
+          if ( (k+kA >= 1 .and. k+kA <= nz)         &
+                          .and.                     &
+               (i+iA >= 1 .and. i+iA <= nx-1)       &
+                          .and.                     &
+               (j+jA >= 1 .and. j+jA <= ny-1) ) then
+
+             colA = NodeID(k+kA, i+iA, j+jA)   ! ID for neighboring node
+             m = indxA(iA,jA,kA)
+
+             if (colA > 0) then 
+                Auu_val(rowA, colA) = Auu(m,k,i,j)
+                Auv_val(rowA, colA) = Auv(m,k,i,j)
+                Avu_val(rowA, colA) = Avu(m,k,i,j)
+                Avv_val(rowA, colA) = Avv(m,k,i,j)
+             else
+!                print*, 'row, i, j, k, iA, jA, kA, col:', rowA, i, j, k, iA, jA, kA, colA
+             endif
+
+          endif     ! i+iA, j+jA, and k+kA in bounds
+
+       enddo        ! kA
+       enddo        ! iA
+       enddo        ! jA
+
+    enddo           ! rowA 
+
+    !WHL - bug check
+    print*, ' '
+    print*, 'nonzeros per row:'
+    do rowA = 1, nNodesSolve
+       nonzeros(rowA) = 0
+       do colA = 1, nNodesSolve
+          if (abs(Auu_val(rowA,colA)) > 1.d-11) then
+             nonzeros(rowA) = nonzeros(rowA) + 1
+          endif
+       enddo
+!       print*, rowA, nonzeros(rowA)
+    enddo
+
+    print*, 'Write matrix elements to file, label =', matrix_label
+
+    ! Write matrices to file (one line of file corresponding to each row of matrix)
+
+    open(unit=10, file='Auu.'//matrix_label, status='unknown')
+    open(unit=11, file='Auv.'//matrix_label, status='unknown')
+    open(unit=12, file='Avu.'//matrix_label, status='unknown')
+    open(unit=13, file='Avv.'//matrix_label, status='unknown')
+
+    do rowA = 1, nNodesSolve
+!       print*, 'row =', rowA
+       write(10,'(i6)',advance='no') rowA
+       write(11,'(i6)',advance='no') rowA
+       write(12,'(i6)',advance='no') rowA
+       write(13,'(i6)',advance='no') rowA
+       do colA = 1, nNodesSolve
+          write(10,'(e16.8)',advance='no') Auu_val(rowA,colA)
+          write(11,'(e16.8)',advance='no') Auv_val(rowA,colA)
+          write(12,'(e16.8)',advance='no') Avu_val(rowA,colA)
+          write(13,'(e16.8)',advance='no') Avv_val(rowA,colA)
+       enddo
+       write(10,*) ' '
+       write(11,*) ' '
+       write(12,*) ' '
+       write(13,*) ' '
+    enddo
+
+    close(10)
+    close(11)
+    close(12)
+    close(13)
+
+    print*, 'Done writing matrix elements'
+
+    ! write load vectors to file
+    open(unit=14, file='bu.'//matrix_label, status='unknown')
+    open(unit=15, file='bv.'//matrix_label, status='unknown')
+    do rowA = 1, nNodesSolve
+       i = iNodeIndex(rowA)
+       j = jNodeIndex(rowA)
+       k = kNodeIndex(rowA)
+       write(14,'(i6, e16.8)') rowA, bu(k,i,j)
+       write(15,'(i6, e16.8)') rowA, bv(k,i,j)
+    enddo
+    close(14)
+    close(15)
+
+  end subroutine write_matrix_elements
+  
 !****************************************************************************
 
   end module glissade_velo_higher

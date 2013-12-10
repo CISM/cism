@@ -74,7 +74,7 @@ contains
       integer, dimension(model%general%ewn-1, model%general%nsn-1)  :: geom_mask_stag
 
 !WHL - debug
-      integer :: j        
+      integer :: i, j        
 
       !-------------------------------------------------------------------
       ! Compute masks
@@ -134,7 +134,10 @@ contains
          print*, ' '
          print*, 'kinbcmask before halo update:'
          do j = model%general%nsn-1, 1, -1
-            write(6,'(46i3)') model%velocity%kinbcmask(:,j)
+            do i = 1, model%general%ewn-1
+               write(6,'(46i3)',advance='no') model%velocity%kinbcmask(i,j)
+            enddo
+            write(6,*) ' '
          enddo
 
          !WHL - Instead of assuming that kinbcmask is periodic, extrapolate
@@ -148,8 +151,11 @@ contains
          print*, ' '
          print*, 'kinbcmask after halo update:'
          do j = model%general%nsn-1, 1, -1
-            write(6,'(46i3)') model%velocity%kinbcmask(:,j)
-         enddo 
+            do i = 1, model%general%ewn-1
+               write(6,'(46i3)',advance='no') model%velocity%kinbcmask(i,j)
+            enddo
+            write(6,*) ' '
+         enddo
 
          call glissade_velo_higher_solve(model,                                             &
                                          model%general%ewn,      model%general%nsn,         &
@@ -159,7 +165,10 @@ contains
          print*, ' '
          print*, 'efvs (Pa yr, k = 1):'
          do j = model%general%nsn, 1, -1
-            write(6,'(8e15.8)') model%stress%efvs(1,1:8,j) * evs0/scyr
+            do i = 1, model%general%ewn
+               write(6,'(8e10.2)',advance='no') model%stress%efvs(1,i,j) * evs0/scyr
+            enddo
+            write(6,*) ' '
          enddo
 
       else if ( model%options%which_ho_nonlinear == HO_NONLIN_JFNK ) then ! JFNK
