@@ -594,8 +594,7 @@ contains
                    ! Compute conductive flux = (k/H * dT/dsigma) at upper surface; positive down
                    ! This is computed in case it needs to be upscaled and passed back to a GCM.
 
-                   dTtop = 0.5d0 * ( model%temper%temp(2,ew,ns) - model%temper%temp(1,ew,ns) &
-                                   +          prevtemp(2)       -          prevtemp(1) )
+                   dTtop = model%temper%temp(2,ew,ns) - model%temper%temp(1,ew,ns)
                    dthck = model%geometry%thck(ew,ns)*thk0 * (model%numerics%sigma(2) - model%numerics%sigma(1))
                    model%temper%ucondflx(ew,ns) = -coni * dTtop / dthck
 
