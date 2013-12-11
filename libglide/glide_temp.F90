@@ -609,7 +609,11 @@ contains
                    ! Check whether the temperature has converged everywhere
                    tempresid = max(tempresid, maxval(abs(model%temper%temp(:,ew,ns)-prevtemp(:))))
 
-                endif   ! temp > thklim
+                else    ! thck <= thklim
+                   ! Still need to set ucondflx, even for thin ice, so that something is
+                   ! passed to the coupler. Arbitrarily setting the flux to 0 in this case.
+                   model%temper%ucondflx(ew,ns) = 0.0d0
+                endif   ! thck > thklim
              end do     ! ew
           end do        ! ns
 
