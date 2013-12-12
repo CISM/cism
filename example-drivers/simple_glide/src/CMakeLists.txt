@@ -22,6 +22,12 @@ link_directories (${Trilinos_LIBRARY_DIRS} ${Trilinos_TPL_LIBRARY_DIRS})
 # These are local source files needed to make  simple_glide  executable
 add_executable(simple_glide  simple_glide.F90 simple_forcing.F90 testsfg.F90)
 
+IF (CISM_STATIC_LINKING)
+  SET_TARGET_PROPERTIES(simple_glide PROPERTIES LINK_SEARCH_START_STATIC 1)
+  SET_TARGET_PROPERTIES(simple_glide PROPERTIES LINK_SEARCH_END_STATIC 1)
+ENDIF()
+
+
 # Executable depends on several glimmer libraries and Trilinos,
 # and potentially an f90main.o file (on jaguar with PGI at least)
 

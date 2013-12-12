@@ -25,6 +25,11 @@ link_directories (${Trilinos_LIBRARY_DIRS} ${Trilinos_TPL_LIBRARY_DIRS}
 # These are local source files needed to make  simple_bisicles  executable
 add_executable(simple_bisicles  simple_bisicles.F90 simple_forcing.F90 testsfg.F90)
 
+IF (CISM_STATIC_LINKING)
+  SET_TARGET_PROPERTIES(simple_bisicles PROPERTIES LINK_SEARCH_START_STATIC 1)
+  SET_TARGET_PROPERTIES(simple_bisicles PROPERTIES LINK_SEARCH_END_STATIC 1)
+ENDIF()
+
 MESSAGE("GLIMMER_BISICLES_DIR: " ${GLIMMER_BISICLES_DIR})
 MESSAGE("CISM_HDF5_LIBS: " ${CISM_HDF5_LIBS})
 

@@ -3,9 +3,9 @@
 # If rebuilding, type 'make clean' before running 'make -j 8'
 
 # This cmake configuration script builds simple_glide and simple_bisicles
-# on hopper using the PGI compiler suite.  It relies on a build of Trilinos
-# located in /global/project/projectdirs/piscees, and a build of BISICLES
-# located in the ranken home directory: /global/u1/r/ranken/BISICLES
+# on hopper using the PGI compiler suite.  It no longer relies on a build
+# of Trilinos, but does need a BISICLES build located in BISICLES_INTERFACE_DIR
+# (currently set to /global/u2/d/dmartin/BISICLES/code/interface)
 
 
 # This script should be run from the builds/hopper-pgi subdirectory
@@ -55,13 +55,11 @@ module unload cray-mpich2
 
 module load modules/3.2.6.6
 module load cmake/2.8.7
-module load PrgEnv-pgi/4.1.40
+module load PrgEnv-pgi/
 module load hdf5-parallel/1.8.8
 module load python/2.7.1
-module load cray-shmem/5.5.2
-module load cray-mpich2/5.5.2
-
-
+module load cray-shmem/6.0.1
+module load cray-mpich/6.0.1
 
 # remove old build data:
 rm ./CMakeCache.txt
@@ -76,7 +74,6 @@ rm -r ./CMakeFiles
 echo
 echo "Doing CMake Configuration step"
 
-
 cmake \
   -D CISM_USE_TRILINOS:BOOL=ON \
   -D CISM_COUPLED:BOOL=OFF \
@@ -84,8 +81,7 @@ cmake \
   -D CISM_SERIAL_MODE:BOOL=OFF \
   -D CISM_BUILD_SIMPLE_GLIDE:BOOL=ON \
   -D CISM_BUILD_SIMPLE_BISICLES:BOOL=OFF \
-  -D CISM_BUILD_SIMPLE_FELIX:BOOL=OFF \
-  -D CISM_BUILD_EXTRA_EXECUTABLES:BOOL=OFF \
+  -D CISM_BUILD_GLINT_EXAMPLE:BOOL=OFF \
   -D CISM_USE_GPTL_INSTRUMENTATION:BOOL=OFF \
   -D CISM_USE_CISM_FRONT_END:BOOL=OFF \
 \
@@ -105,12 +101,14 @@ cmake \
   -D CISM_SCI_LIB_DIR=/opt/xt-libsci/11.1.01/PGI/119/mc12/lib \
   -D GLIMMER_GPTL_DIR=/project/projectdirs/ccsm1/libgptl/libgptl-pgi \
 \
-  -D CMAKE_CXX_FLAGS:STRING="-O2 --diag_suppress 554,111,611" \
-  -D GLIMMER_Fortran_FLAGS:STRING="-g -DNO_RESCALE" \
-  -D BISICLES_INTERFACE_DIR=$PWD/../../../BISICLES/CISM-interface/interface \
+  -D CMAKE_CXX_FLAGS:STRING="-O2 --diag_suppress 554,111,611 -DH5_USE_16_API" \
+  -D GLIMMER_Fortran_FLAGS:STRING="-O2 -DNO_RESCALE" \
   -D BISICLES_LIB_SUBDIR=libpgi \
+  -D BISICLES_INTERFACE_DIR=$PWD/../../../BISICLES/CISM-interface/interface \
   -D GLIMMER_MPI_LIBS:STRING="mpichf90" \
+  -D CISM_STATIC_LINKING:BOOL=ON \
   ../..
+
 
 # Note: last argument above  "../.."  is path to top seacism directory
 

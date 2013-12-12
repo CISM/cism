@@ -30,6 +30,7 @@ OPTION (CISM_USE_DEFAULT_IO "Toggle to use default i/o files rather than running
 # WJS (1-3-13): We could avoid CISM_GNU by using something like CMAKE_Fortran_COMPILER_ID or CMAKE_COMPILER_IS_GNUCC, 
 # but it's not clear to me if those work consistently
 OPTION (CISM_GNU "Toggle to set compilation flags needed for the gnu compiler, off by default" OFF)
+OPTION (CISM_STATIC_LINKING "Toggle to set static linking for executables, off by default" OFF)
 
 # override CISM_SERIAL_MODE setting, if it conflicts with CISM_MPI_MODE setting:
 IF (CISM_MPI_MODE)

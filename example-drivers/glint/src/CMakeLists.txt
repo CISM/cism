@@ -20,6 +20,11 @@ include_directories (${GLIMMER_BINARY_DIR}/include)
 add_executable(glint_example glint_example.F90 
                ${GLIMMER_BINARY_DIR}/fortran_autogen_srcs/glint_io.F90)
 
+IF (CISM_STATIC_LINKING)
+  SET_TARGET_PROPERTIES(glint_example PROPERTIES LINK_SEARCH_START_STATIC 1)
+  SET_TARGET_PROPERTIES(glint_example PROPERTIES LINK_SEARCH_END_STATIC 1)
+ENDIF()
+
 # Executable depends on several glimmer libraries and Trilinos,
 # and potentially an f90main.o file (on jaguar with PGI at least)
 target_link_libraries(glint_example

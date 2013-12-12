@@ -28,6 +28,12 @@ add_executable(cism_driver cism_driver.F90 cism_front_end.F90 gcm_cism_interface
 	       ../example-drivers/simple_glide/src/simple_forcing.F90
 	       ../example-drivers/simple_glide/src/testsfg.F90)
 
+#SET(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+IF (CISM_STATIC_LINKING)
+  SET_TARGET_PROPERTIES(cism_driver PROPERTIES LINK_SEARCH_START_STATIC 1)
+  SET_TARGET_PROPERTIES(cism_driver PROPERTIES LINK_SEARCH_END_STATIC 1)
+ENDIF()
+
 MESSAGE("GLIMMER_BISICLES_DIR: " ${GLIMMER_BISICLES_DIR})
 MESSAGE("CISM_HDF5_LIBS: " ${CISM_HDF5_LIBS})
 
