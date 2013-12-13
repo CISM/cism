@@ -44,6 +44,18 @@ def is_dimvar(var):
         return True
     else:
         return False
+
+
+def varname(full_varname):
+    """Given a full variable name, which may include a parenthesized array slice, return
+    the name of the variable itself, by removing the right-most parethesized expression
+
+    Example:
+    varname('foo%bar(1,:,:)') returns 'foo%bar'
+    """
+
+    return re.sub(r'\([^)]*\)$', '', full_varname)
+    
     
 class Variables(dict):
     """Dictionary containing variable definitions."""
@@ -285,10 +297,7 @@ class PrintNC_template(PrintVars):
             # This is because of recently added checks in glide_types.F90 that don't fully allocate
             # some variables if certain model options are disabled.  This is to lower memory requirements while running the model.
             # See *_create_all in ncdf_template.F90.in to see where these changes have effect.
-            data = var['data']
-            if 'avg_factor' in var:   # MJH 10/21/13
-                data = '(%s)*(%s)'%(var['avg_factor'],data)   # MJH 10/21/13
-            self.stream.write("    if (is_enabled(" + data + ")) then\n")   # MJH 10/21/13
+            self.stream.write("    if (is_enabled(" + varname(var['data']) + ")) then\n")   # MJH 10/21/13
         else:
             spaces=3
             self.stream.write("    if (.not.outfile%append) then\n")
@@ -450,7 +459,7 @@ class PrintNC_template(PrintVars):
                     dims[i] = dims[i].strip()
                 self.stream.write("    status = parallel_inq_varid(NCI%%id,'%s',varid)\n"%var['name'])
                 self.stream.write("    if (status .eq. nf90_noerr) then\n")
-                self.stream.write("    if (is_enabled(" + var['data'] + ")) then\n")   # MJH 10/21/13
+                self.stream.write("    if (is_enabled(" + varname(var['data']) + ")) then\n")   # MJH 10/21/13
                 self.stream.write("       call write_log('  Loading %s')\n"%var['name'])
                 dimstring = ''
                 spaces = ''

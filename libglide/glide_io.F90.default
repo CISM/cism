@@ -1,6 +1,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! WARNING: this file was automatically generated on
-! Thu, 21 Nov 2013 17:59:31 +0000
+! Thu, 12 Dec 2013 19:36:43 +0000
 ! from ncdf_template.F90.in
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -403,7 +403,7 @@ contains
       NCO%vars(pos+1:pos+9) = '         '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-    if (is_enabled((tavgf)*(data%climate%acab_tavg))) then
+    if (is_enabled(data%climate%acab_tavg)) then
        call write_log('Creating variable acab_tavg')
        status = parallel_def_var(NCO%id,'acab_tavg',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -429,7 +429,7 @@ contains
       NCO%vars(pos+1:pos+3) = '   '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-    if (is_enabled(data%geometry%age(up,:,:))) then
+    if (is_enabled(data%geometry%age)) then
        call write_log('Creating variable age')
        status = parallel_def_var(NCO%id,'age',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, level_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -546,7 +546,7 @@ contains
       NCO%vars(pos+1:pos+9) = '         '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-    if (is_enabled((tavgf)*(data%temper%bmlt_tavg))) then
+    if (is_enabled(data%temper%bmlt_tavg)) then
        call write_log('Creating variable bmlt_tavg')
        status = parallel_def_var(NCO%id,'bmlt_tavg',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -572,7 +572,7 @@ contains
       NCO%vars(pos+1:pos+5) = '     '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-    if (is_enabled(data%temper%temp(data%general%upn,1:data%general%ewn,1:data%general%nsn))) then
+    if (is_enabled(data%temper%temp)) then
        call write_log('Creating variable btemp')
        status = parallel_def_var(NCO%id,'btemp',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -595,7 +595,7 @@ contains
       NCO%vars(pos+1:pos+7) = '       '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-    if (is_enabled(data%velocity%btraction(1,:,:))) then
+    if (is_enabled(data%velocity%btraction)) then
        call write_log('Creating variable btractx')
        status = parallel_def_var(NCO%id,'btractx',get_xtype(outfile,NF90_FLOAT),(/x0_dimid, y0_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -617,7 +617,7 @@ contains
       NCO%vars(pos+1:pos+7) = '       '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-    if (is_enabled(data%velocity%btraction(2,:,:))) then
+    if (is_enabled(data%velocity%btraction)) then
        call write_log('Creating variable btracty')
        status = parallel_def_var(NCO%id,'btracty',get_xtype(outfile,NF90_FLOAT),(/x0_dimid, y0_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -841,7 +841,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-    if (is_enabled(data%stress%efvs(up,:,:))) then
+    if (is_enabled(data%stress%efvs)) then
        call write_log('Creating variable efvs')
        status = parallel_def_var(NCO%id,'efvs',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, staglevel_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -910,7 +910,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-    if (is_enabled(data%temper%flwa(up,:,:))) then
+    if (is_enabled(data%temper%flwa)) then
        call write_log('Creating variable flwa')
        status = parallel_def_var(NCO%id,'flwa',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, level_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -933,7 +933,7 @@ contains
       NCO%vars(pos+1:pos+8) = '        '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-    if (is_enabled(data%temper%flwa(up,:,:))) then
+    if (is_enabled(data%temper%flwa)) then
        call write_log('Creating variable flwastag')
        status = parallel_def_var(NCO%id,'flwastag',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, staglevel_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1202,7 +1202,7 @@ contains
       NCO%vars(pos+1:pos+9) = '         '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-    if (is_enabled(data%velocity%kinbcmask(:,:))) then
+    if (is_enabled(data%velocity%kinbcmask)) then
        call write_log('Creating variable kinbcmask')
        status = parallel_def_var(NCO%id,'kinbcmask',get_xtype(outfile,NF90_INT),(/x0_dimid, y0_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1544,7 +1544,7 @@ contains
       NCO%vars(pos+1:pos+6) = '      '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-    if (is_enabled(data%stress%tau%xx(up,:,:))) then
+    if (is_enabled(data%stress%tau%xx)) then
        call write_log('Creating variable tau_xx')
        status = parallel_def_var(NCO%id,'tau_xx',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, staglevel_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1566,7 +1566,7 @@ contains
       NCO%vars(pos+1:pos+6) = '      '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-    if (is_enabled(data%stress%tau%xy(up,:,:))) then
+    if (is_enabled(data%stress%tau%xy)) then
        call write_log('Creating variable tau_xy')
        status = parallel_def_var(NCO%id,'tau_xy',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, staglevel_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1588,7 +1588,7 @@ contains
       NCO%vars(pos+1:pos+6) = '      '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-    if (is_enabled(data%stress%tau%xz(up,:,:))) then
+    if (is_enabled(data%stress%tau%xz)) then
        call write_log('Creating variable tau_xz')
        status = parallel_def_var(NCO%id,'tau_xz',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, staglevel_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1610,7 +1610,7 @@ contains
       NCO%vars(pos+1:pos+6) = '      '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-    if (is_enabled(data%stress%tau%yy(up,:,:))) then
+    if (is_enabled(data%stress%tau%yy)) then
        call write_log('Creating variable tau_yy')
        status = parallel_def_var(NCO%id,'tau_yy',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, staglevel_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1632,7 +1632,7 @@ contains
       NCO%vars(pos+1:pos+6) = '      '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-    if (is_enabled(data%stress%tau%yz(up,:,:))) then
+    if (is_enabled(data%stress%tau%yz)) then
        call write_log('Creating variable tau_yz')
        status = parallel_def_var(NCO%id,'tau_yz',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, staglevel_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1720,7 +1720,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-    if (is_enabled(data%temper%temp(up,1:data%general%ewn,1:data%general%nsn))) then
+    if (is_enabled(data%temper%temp)) then
        call write_log('Creating variable temp')
        status = parallel_def_var(NCO%id,'temp',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, level_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1743,7 +1743,7 @@ contains
       NCO%vars(pos+1:pos+8) = '        '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-    if (is_enabled(data%temper%temp(up,1:data%general%ewn,1:data%general%nsn))) then
+    if (is_enabled(data%temper%temp)) then
        call write_log('Creating variable tempstag')
        status = parallel_def_var(NCO%id,'tempstag',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, stagwbndlevel_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1859,7 +1859,7 @@ contains
       NCO%vars(pos+1:pos+9) = '         '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-    if (is_enabled((tavgf)*(data%velocity%ubas_tavg))) then
+    if (is_enabled(data%velocity%ubas_tavg)) then
        call write_log('Creating variable ubas_tavg')
        status = parallel_def_var(NCO%id,'ubas_tavg',get_xtype(outfile,NF90_FLOAT),(/x0_dimid, y0_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1952,7 +1952,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-    if (is_enabled(data%velocity%uvel(up,:,:))) then
+    if (is_enabled(data%velocity%uvel)) then
        call write_log('Creating variable uvel')
        status = parallel_def_var(NCO%id,'uvel',get_xtype(outfile,NF90_FLOAT),(/x0_dimid, y0_dimid, level_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -1975,7 +1975,7 @@ contains
       NCO%vars(pos+1:pos+12) = '            '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-    if (is_enabled(data%velocity%uvel_icegrid(up,:,:))) then
+    if (is_enabled(data%velocity%uvel_icegrid)) then
        call write_log('Creating variable uvel_icegrid')
        status = parallel_def_var(NCO%id,'uvel_icegrid',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, level_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -2021,7 +2021,7 @@ contains
       NCO%vars(pos+1:pos+9) = '         '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-    if (is_enabled((tavgf)*(data%velocity%vbas_tavg))) then
+    if (is_enabled(data%velocity%vbas_tavg)) then
        call write_log('Creating variable vbas_tavg')
        status = parallel_def_var(NCO%id,'vbas_tavg',get_xtype(outfile,NF90_FLOAT),(/x0_dimid, y0_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -2046,7 +2046,7 @@ contains
       NCO%vars(pos+1:pos+7) = '       '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-    if (is_enabled(data%velocity%velnorm(up,:,:))) then
+    if (is_enabled(data%velocity%velnorm)) then
        call write_log('Creating variable velnorm')
        status = parallel_def_var(NCO%id,'velnorm',get_xtype(outfile,NF90_FLOAT),(/x0_dimid, y0_dimid, level_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -2091,7 +2091,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-    if (is_enabled(data%velocity%vvel(up,:,:))) then
+    if (is_enabled(data%velocity%vvel)) then
        call write_log('Creating variable vvel')
        status = parallel_def_var(NCO%id,'vvel',get_xtype(outfile,NF90_FLOAT),(/x0_dimid, y0_dimid, level_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -2114,7 +2114,7 @@ contains
       NCO%vars(pos+1:pos+12) = '            '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-    if (is_enabled(data%velocity%vvel_icegrid(up,:,:))) then
+    if (is_enabled(data%velocity%vvel_icegrid)) then
        call write_log('Creating variable vvel_icegrid')
        status = parallel_def_var(NCO%id,'vvel_icegrid',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, level_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -2137,7 +2137,7 @@ contains
       NCO%vars(pos+1:pos+9) = '         '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-    if (is_enabled(data%temper%waterfrac(up,:,:))) then
+    if (is_enabled(data%temper%waterfrac)) then
        call write_log('Creating variable waterfrac')
        status = parallel_def_var(NCO%id,'waterfrac',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, level_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -2159,7 +2159,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-    if (is_enabled(data%velocity%wgrd(up,:,:))) then
+    if (is_enabled(data%velocity%wgrd)) then
        call write_log('Creating variable wgrd')
        status = parallel_def_var(NCO%id,'wgrd',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, level_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -2182,7 +2182,7 @@ contains
       NCO%vars(pos+1:pos+4) = '    '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-    if (is_enabled(data%velocity%wvel(up,:,:))) then
+    if (is_enabled(data%velocity%wvel)) then
        call write_log('Creating variable wvel')
        status = parallel_def_var(NCO%id,'wvel',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, level_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
@@ -3156,7 +3156,7 @@ contains
 
     status = parallel_inq_varid(NCI%id,'flwa',varid)
     if (status .eq. nf90_noerr) then
-    if (is_enabled(data%temper%flwa(up,:,:))) then
+    if (is_enabled(data%temper%flwa)) then
        call write_log('  Loading flwa')
        do up=1,NCI%nlevel
           status = distributed_get_var(NCI%id, varid, &
@@ -3181,7 +3181,7 @@ contains
 
     status = parallel_inq_varid(NCI%id,'flwastag',varid)
     if (status .eq. nf90_noerr) then
-    if (is_enabled(data%temper%flwa(up,:,:))) then
+    if (is_enabled(data%temper%flwa)) then
        call write_log('  Loading flwastag')
        do up=1,NCI%nstaglevel
           status = distributed_get_var(NCI%id, varid, &
@@ -3206,7 +3206,7 @@ contains
 
     status = parallel_inq_varid(NCI%id,'kinbcmask',varid)
     if (status .eq. nf90_noerr) then
-    if (is_enabled(data%velocity%kinbcmask(:,:))) then
+    if (is_enabled(data%velocity%kinbcmask)) then
        call write_log('  Loading kinbcmask')
        status = distributed_get_var(NCI%id, varid, &
             data%velocity%kinbcmask(:,:), (/1,1,infile%current_time/))
@@ -3380,7 +3380,7 @@ contains
 
     status = parallel_inq_varid(NCI%id,'temp',varid)
     if (status .eq. nf90_noerr) then
-    if (is_enabled(data%temper%temp(up,1:data%general%ewn,1:data%general%nsn))) then
+    if (is_enabled(data%temper%temp)) then
        call write_log('  Loading temp')
        do up=1,NCI%nlevel
           status = distributed_get_var(NCI%id, varid, &
@@ -3403,7 +3403,7 @@ contains
 
     status = parallel_inq_varid(NCI%id,'tempstag',varid)
     if (status .eq. nf90_noerr) then
-    if (is_enabled(data%temper%temp(up,1:data%general%ewn,1:data%general%nsn))) then
+    if (is_enabled(data%temper%temp)) then
        call write_log('  Loading tempstag')
        do up=0,NCI%nstagwbndlevel
           status = distributed_get_var(NCI%id, varid, &
@@ -3562,7 +3562,7 @@ contains
 
     status = parallel_inq_varid(NCI%id,'uvel',varid)
     if (status .eq. nf90_noerr) then
-    if (is_enabled(data%velocity%uvel(up,:,:))) then
+    if (is_enabled(data%velocity%uvel)) then
        call write_log('  Loading uvel')
        do up=1,NCI%nlevel
           status = distributed_get_var(NCI%id, varid, &
@@ -3610,7 +3610,7 @@ contains
 
     status = parallel_inq_varid(NCI%id,'vvel',varid)
     if (status .eq. nf90_noerr) then
-    if (is_enabled(data%velocity%vvel(up,:,:))) then
+    if (is_enabled(data%velocity%vvel)) then
        call write_log('  Loading vvel')
        do up=1,NCI%nlevel
           status = distributed_get_var(NCI%id, varid, &
@@ -3635,7 +3635,7 @@ contains
 
     status = parallel_inq_varid(NCI%id,'waterfrac',varid)
     if (status .eq. nf90_noerr) then
-    if (is_enabled(data%temper%waterfrac(up,:,:))) then
+    if (is_enabled(data%temper%waterfrac)) then
        call write_log('  Loading waterfrac')
        do up=1,NCI%nlevel
           status = distributed_get_var(NCI%id, varid, &
@@ -3658,7 +3658,7 @@ contains
 
     status = parallel_inq_varid(NCI%id,'wgrd',varid)
     if (status .eq. nf90_noerr) then
-    if (is_enabled(data%velocity%wgrd(up,:,:))) then
+    if (is_enabled(data%velocity%wgrd)) then
        call write_log('  Loading wgrd')
        do up=1,NCI%nlevel
           status = distributed_get_var(NCI%id, varid, &
@@ -3683,7 +3683,7 @@ contains
 
     status = parallel_inq_varid(NCI%id,'wvel',varid)
     if (status .eq. nf90_noerr) then
-    if (is_enabled(data%velocity%wvel(up,:,:))) then
+    if (is_enabled(data%velocity%wvel)) then
        call write_log('  Loading wvel')
        do up=1,NCI%nlevel
           status = distributed_get_var(NCI%id, varid, &
