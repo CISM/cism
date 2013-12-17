@@ -88,7 +88,7 @@ if __name__ == '__main__':
   baseElevation = 1000.0 # arbitrary height to keep us well away from sea level
   for i in range(nx):
     topg[0,:,i] = x[i] * tan(theta * pi/180.0) + baseElevation
-  offset = float(nx)*dx * tan(theta * pi/180.0)
+  offset = -1.0 * float(nx)*dx * tan(theta * pi/180.0)
   parser.set('parameters', 'periodic_offset_ew', str(offset))
   #     Write the new configuration file
   configFile = open(configfile,'w')
