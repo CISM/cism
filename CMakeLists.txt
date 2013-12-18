@@ -315,6 +315,7 @@ file(GLOB FORTRANSOURCES
      ${GLIMMER_TO_DYCORE})
 
 LIST(REMOVE_ITEM FORTRANSOURCES
+   ${GLIMMER_SOURCE_DIR}/libglimmer-solve/SLAP/dlapqc.f
    ${GLIMMER_SOURCE_DIR}/libglimmer/unittest_glimmer_deriv.F90 
    ${GLIMMER_SOURCE_DIR}/libglide/relaxed.F90
    ${GLIMMER_SOURCE_DIR}/libglide/test_setup.F90
