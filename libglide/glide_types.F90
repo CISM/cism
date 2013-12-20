@@ -209,6 +209,7 @@ module glide_types
   integer, parameter :: HO_BABC_EXTERNAL_BETA = 5
   integer, parameter :: HO_BABC_NO_SLIP = 6
   integer, parameter :: HO_BABC_YIELD_NEWTON = 7
+  integer, parameter :: HO_BABC_ISHOMC = 8
 
   integer, parameter :: HO_NONLIN_PICARD = 0
   integer, parameter :: HO_NONLIN_JFNK = 1
@@ -461,6 +462,7 @@ module glide_types
     !*FD \item[5] beta field passed in from .nc input file as part of standard i/o
     !*FD \item[6] no slip everywhere (using Dirichlet BC rather than large beta)
     !*FD \item[7] treat beta value as till yield stress (in Pa) using Newton-type iteration (in devel.)
+    !*FD \item[8] beta field as prescribed for ISMIP-HOM test C
     !*FD \end{description}
 
     integer :: which_ho_nonlinear = 0

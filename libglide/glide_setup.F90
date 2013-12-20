@@ -731,18 +731,19 @@ contains
 
     character(len=*), dimension(0:1), parameter :: dispwhich = (/ &
          '0-order SIA                       ', &
-         '1-st order model (Blatter-Pattyn) ' /)
+         '1st order model (Blatter-Pattyn)  ' /)
 !!         '1-st order depth-integrated (SSA) ' /)  ! not supported
 
-    character(len=*), dimension(0:7), parameter :: ho_whichbabc = (/ &
-         'constant B^2                           ', &
-         'simple pattern of B^2                  ', &
+    character(len=*), dimension(0:8), parameter :: ho_whichbabc = (/ &
+         'constant beta                          ', &
+         'simple pattern of beta                 ', &
          'till yield stress (Picard)             ', &
          'function of bwat                       ', &
          'no slip (using large B^2)              ', &
-         'B^2 passed from CISM                   ', &
+         'beta passed from CISM                  ', &
          'no slip (Dirichlet implementation)     ', &
-         'till yield stress (Newton)             ' /)
+         'till yield stress (Newton)             ', &
+         'beta as in ISMIP-HOM test C            '/)
 
     character(len=*), dimension(0:1), parameter :: which_ho_nonlinear = (/ &
          'use standard Picard iteration  ', &
@@ -1117,6 +1118,12 @@ contains
        write(message,*) 'uniform beta (Pa yr/m)        : ',model%paramets%ho_beta_const
        call write_log(message)
     end if
+
+    if (model%options%which_ho_babc == HO_BABC_ISHOMC) then
+       if (model%general%ewn /= model%general%nsn) then
+          call write_log('Error, must have ewn = nsn for ISMIP-HOM test C', GM_FATAL)
+       endif
+    endif
 
     if (model%numerics%idiag < 1 .or. model%numerics%idiag > model%general%ewn     &
                                         .or.                                                     &

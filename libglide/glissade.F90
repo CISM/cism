@@ -255,33 +255,44 @@ contains
     ! then interpolate it to beta on the staggered grid.
     ! NOTE: unstagbeta is initialized to -999.d0, so its maxval will be > 0 only if
     !       the field is read in.
+    ! We make an exception for ISHOM case C, in which case for greater accuracy we want to
+    !  set beta in subroutine calcbeta instead of interpolating from unstagbeta.
 
-    if (maxval(model%velocity%unstagbeta) > 0.d0) then  ! interpolate to staggered grid
+    if (maxval(model%velocity%unstagbeta) > 0.d0 .and.   &
+               model%options%which_ho_babc /= HO_BABC_ISHOMC) then  ! interpolate to staggered grid
        call write_log('Interpolating beta from unstaggered to staggered grid')
+
        call parallel_halo(model%velocity%unstagbeta)    ! fill in halo values
        call stagvarb(model%velocity%unstagbeta,  &      ! interpolate
                      model%velocity%beta,        &
                      model%general%ewn,          &
                      model%general%nsn)
+
        !NOTE: The following will override any other value of which_ho_babc set in the config file
        model%options%which_ho_babc = HO_BABC_EXTERNAL_BETA  
 
-!WHL - debug
-!       write(6,*) ' '
-!       write(6,*) 'Interpolating beta from unstaggered to staggered grid'
-!       write(6,*) ' '
-!       write(6,*) 'unstagbeta (Pa yr/m):'
-!       do j = model%general%nsn, 1, -1
-!          write(6,'(24f8.2)') model%velocity%unstagbeta(1:24,j) * tau0/vel0/scyr
-!       enddo
-!WHL - debug
-!       write(6,*) ' '
-!       write(6,*) 'beta (Pa yr/m:)'
-!       do j = model%general%nsn-1, 1, -1
-!          write(6,'(23f8.2)') model%velocity%beta(1:23,j) * tau0/vel0/scyr
-!       enddo
+       !WHL - debug
+       print*, ' '
+       print*, 'Interpolating beta from unstaggered to staggered grid'
+       print*, ' '
+       print*, 'unstagbeta, Pa/(m/yr):'
+       do j = model%general%nsn, 1, -1
+          do i = 1, model%general%ewn
+             write(6,'(f8.0)',advance='no') model%velocity%unstagbeta(i,j) * tau0/vel0/scyr
+          enddo
+          print*, ' '
+       enddo
 
-    endif
+       print*, ' '
+       print*, 'beta, Pa/(m/yr):'
+       do j = model%general%nsn-1, 1, -1
+          do i = 1, model%general%ewn-1
+             write(6,'(f8.0)',advance='no') model%velocity%beta(i,j) * tau0/vel0/scyr
+          enddo
+          print*, ' '
+       enddo
+
+    endif  ! unstagbeta > 0
 
 !WHL - This option is disabled for now.
     ! *mb* added; initialization of basal proc. module

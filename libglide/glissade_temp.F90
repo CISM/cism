@@ -405,6 +405,7 @@ contains
     !  upn+1 on the staggered grid.
     real(dp), dimension(size(model%temper%temp,1)) :: subd, diag, supd, rhsd
 
+    !TODO - Is prevtemp_stag needed for energy conservation?  If not, we can probably remove it.
     ! These have the same dimensions as staggered temperature
     real(dp),dimension(0:model%general%upn) :: Tstagsigma, prevtemp_stag, enthalpy
 

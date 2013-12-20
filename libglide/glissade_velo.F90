@@ -107,6 +107,8 @@ contains
                      geom_mask_stag,                               &
                      model%velocity%beta)
 
+      call staggered_parallel_halo(model%velocity%beta)
+
       !WHL - debug
       print*, ' '
       print*, 'After calcbeta: max, min of beta (Pa/(m/yr)) =', &
@@ -162,13 +164,13 @@ contains
                                          model%general%upn)
 
 !WHL - debug
-         print*, ' '
-         print*, 'efvs (Pa yr, k = 1):'
+!         print*, ' '
+!         print*, 'efvs (Pa yr, k = 1):'
          do j = model%general%nsn, 1, -1
             do i = 1, model%general%ewn
-               write(6,'(8e10.2)',advance='no') model%stress%efvs(1,i,j) * evs0/scyr
+!               write(6,'(8e10.2)',advance='no') model%stress%efvs(1,i,j) * evs0/scyr
             enddo
-            write(6,*) ' '
+!            write(6,*) ' '
          enddo
 
       else if ( model%options%which_ho_nonlinear == HO_NONLIN_JFNK ) then ! JFNK

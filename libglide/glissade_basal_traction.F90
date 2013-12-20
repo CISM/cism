@@ -82,6 +82,9 @@ contains
   ! subroutine to calculate map of beta sliding parameter, based on 
   ! user input ("whichbabc" flag, from config file as "which_ho_babc").
 
+  use glimmer_paramets, only: len0
+  use parallel, only: nhalo
+
   implicit none
 
   ! Input/output arguments
@@ -111,6 +114,12 @@ contains
   ! SFP added for making beta a function of basal water flux 
   real(dp), dimension(:,:), allocatable :: unstagbeta
   real(dp) :: C, m
+
+  real(dp) :: Ldomain   ! size of full domain
+  real(dp) :: omega     ! frequency of beta field
+  real(dp) :: dx, dy
+  integer :: ilo, ihi, jlo, jhi  ! limits of beta field for ISHOM C case
+  integer :: i, j
 
   ! Note that the dimensional scale (tau0 / vel0 / scyr ) is used here for making the basal traction coeff.
   ! beta dimensional, within the subroutine (mainly for debugging purposes), and then non-dimensional 
@@ -179,6 +188,45 @@ contains
 
       beta(:,:) = 1.d10       ! Pa yr/m
 
+    case(HO_BABC_ISHOMC)          ! prescribe according to ISMIP-HOM test C
+
+       !Note: Ideally, beta would be read in from an external netCDF file.
+       !      However, this is not possible given that the global velocity grid is smaller
+       !       than the ice grid and hence not able to fit the full beta field.
+       !      The following code sets beta on the full grid as prescribed by Pattyn et al. (2008).
+
+       !TODO - Abort if domain is not square
+       Ldomain = (ewn-2*nhalo) * dew*len0   ! size of full domain (must be square)
+       omega = 2.d0*pi / Ldomain
+
+       ilo = nhalo
+       ihi = ewn-nhalo
+       jlo = nhalo
+       jhi = nsn-nhalo
+       
+       print*, 'ilo, ihi =', ilo, ihi
+       print*, 'jlo, jhi =', jlo, jhi
+
+       ! Prescribe beta as in Pattyn et al., The Cryosphere, 2008
+       beta(:,:) = 0.d0
+       do j = jlo, jhi
+          do i = ilo, ihi
+             dx = dew*len0 * (i-ilo)
+             dy = dns*len0 * (j-jlo)
+             beta(i,j) = 1000.d0 + 1000.d0 * sin(omega*dx) * sin(omega*dy)
+          enddo
+       enddo
+
+       print*, ' '
+       print*, 'In calcbeta: beta, Pa/(m/yr):'
+       do j = nsn-1, 1, -1
+          do i = 1, ewn-1
+             write(6,'(f8.0)',advance='no') beta(i,j)
+          enddo
+          print*, ' '
+       enddo
+
+
     case(HO_BABC_EXTERNAL_BETA)   ! use value passed in externally from CISM (NOTE not dimensional when passed in) 
 
       ! scale CISM input value to dimensional units of (Pa yr/m)
@@ -196,7 +244,7 @@ contains
       end do
       end do
 
-      ! check for areas where ice is floating or grounded and make sure beta in these regions is 0  
+      ! check for areas where ice is floating (or grounding line?) and make sure beta in these regions is 0  
 
       !TODO: Ideally, these mask values should not be hardwired, but keeping it this way for now until
       ! we decide which mask values to keep/remove
