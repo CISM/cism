@@ -52,7 +52,7 @@
   module glissade_velo_higher
 
     use glimmer_global, only: dp
-    use glimmer_physcon, only: gn, rhoi, rhoo, grav, scyr
+    use glimmer_physcon, only: gn, rhoi, rhoo, grav, scyr, pi
     use glimmer_paramets, only: thk0, len0, tim0, tau0, vel0, vis0, evs0
     use glimmer_paramets, only: vel_scale, len_scale   ! used for whichefvs = HO_EFVS_FLOWFACT
     use glimmer_log, only: write_log
@@ -174,8 +174,8 @@
 !    logical :: verbose_load = .true.
     logical :: verbose_shelf = .false.
 !    logical :: verbose_shelf = .true.
-!    logical :: verbose_matrix = .false.
-    logical :: verbose_matrix = .true.
+    logical :: verbose_matrix = .false.
+!    logical :: verbose_matrix = .true.
     logical :: verbose_basal = .false.
 !    logical :: verbose_basal = .true.
     logical :: verbose_umc = .false.
@@ -183,8 +183,8 @@
     logical :: verbose_slapsolve = .false.
 !    logical :: verbose_slapsolve = .true.
 
-!    logical :: verbose_efvs = .false.
-    logical :: verbose_efvs = .true.
+    logical :: verbose_efvs = .false.
+!    logical :: verbose_efvs = .true.
 
 !WHL - debug
     logical :: trial_efvs = .true.   ! if true, compute what nonlinear efvs would be (if not constant)
@@ -196,12 +196,12 @@
 !       itest = 26, jtest = 19, ktest = 1, ptest = 1  ! for dome, global (i,j) = (24,17), 1 proc
 !       integer, parameter :: ntest = 2371  ! nodeID for dome global (24,17,1)    
 
-        itest = 8, jtest = 8, ktest = 1, ptest = 1    ! for block test, global (i,j) = (6,6)
+!        itest = 8, jtest = 8, ktest = 1, ptest = 1    ! for block test, global (i,j) = (6,6)
 
-!       itest = 26, jtest = 19, ktest = 10, ptest = 1
+!        itest = 3, jtest = 3, ktest = 1, ptest = 1    ! for ishom, global (i,j) = (1,1)
+!        itest = 7, jtest = 7, ktest = 1, ptest = 1    ! for ishom, global (i,j) = (5,5)
+        itest = 6, jtest = 6, ktest = 1, ptest = 1    ! for ishom, global (i,j) = (4,4)
 
-!        itest = 3, jtest = 3, ktest = 1, ptest = 1    ! for ishom.a, global (i,j) = (1,1)
-!        itest = 22, jtest = 7, ktest = 1, ptest = 1    ! for ishom.a.80km symmetry check
 
 !       itest = 24, jtest = 6, ktest = 1, ptest = 1  ! for confined/linear (south-flowing) shelf, global (i,j) = (22,4), 1 proc
 !!       itest = 24, jtest = 42, ktest = 1, ptest = 1  ! for confined/linear (north-flowing) shelf, global (i,j) = (22,40), 1 proc
@@ -210,7 +210,8 @@
 
 !       itest = 9, jtest = 9, ktest = 1, ptest = 1  ! for confined/linear shelf, global (i,j) = (7,7), 1 proc
 
-       integer, parameter :: ntest = 73
+!       integer, parameter :: ntest = 73    ! for 5x5 test, northeast corner node at upper surface
+       integer, parameter :: ntest = 48    ! for 4x4 test, northeast corner node at bed
 
 
 !    integer, parameter :: ntest = 2372  ! nodeID for dome global (24,17,2)
@@ -235,7 +236,10 @@
       Krowtest=1, Kcoltest=2
 
     logical, parameter :: write_matrix = .false.
-    character(*), parameter :: matrix_label = 'block5'   ! Change depending on the case we're running
+!    character(*), parameter :: matrix_label = 'ishomC_block'   ! Change depending on the case we're running
+!    character(*), parameter :: matrix_label = 'block'   ! Change depending on the case we're running
+!    character(*), parameter :: matrix_label = 'ishomC_periodic'   ! Change depending on the case we're running
+    character(*), parameter :: matrix_label = 'shelf'   ! Change depending on the case we're running
 
     contains
 
@@ -787,6 +791,13 @@
                                           beta,            &
                                           uvel,   vvel)
 
+!WHL - hack for ishomC test
+    if (trim(matrix_label) == 'ishomC_block') then
+       print*, ' '
+       print*, 'Re-initializing for ishomC block'
+       call ishomC_block_init(model, dx, dy, thck, usrf, topg, beta)
+    endif
+
     ! Set volume scale
     ! This is not strictly necessary, but dividing by this scale gives matrix coefficients 
     !  that are not quite so large.
@@ -877,7 +888,7 @@
        print*, 'Upper surface field, rank =', rtest
        do j = ny, 1, -1
           do i = 1, nx
-             write(6,'(f6.0)',advance='no') usrf(i,j)
+             write(6,'(f9.3)',advance='no') usrf(i,j)
           enddo
           write(6,*) ' '
        enddo
@@ -920,10 +931,9 @@
 
        print*, ' '
        print*, 'beta:'
-       k = 1
        do j = ny-1, 1, -1
           do i = 1, nx-1
-             write(6,'(d9.1)',advance='no') beta(i,j)
+             write(6,'(f8.0)',advance='no') beta(i,j)
           enddo
           print*, ' '
        enddo
@@ -1211,6 +1221,16 @@
                                 stagusrf,         stagthck,        &
                                 bu,               bv)
 
+    !WHL - debug
+    print*, ' '
+    print*, 'After lateral BC, bv:'
+    do n = 1, nNodesSolve
+       i = iNodeIndex(n)
+       j = jNodeIndex(n)
+       k = kNodeIndex(n) 
+       print*, n, bv(k,i,j)
+    enddo
+
     !------------------------------------------------------------------------------
     ! main outer loop: iteration to solve the nonlinear problem
     !------------------------------------------------------------------------------
@@ -1346,7 +1366,7 @@
        !  entry 2 is owned by processor B.  
        ! Processor A might compute a local version of entry 2 in its halo, with 
        !  entry 2 = entry 1 locally.  But processor B's entry 2 might be different
-       !  because of roundoff.  We need to make sure that processor B's value of 
+       !  because of roundoff.  We need to make sure that processor B's value 
        !  is communicated to processor A.  If these values are slightly different, 
        !  they will be reconciled by the subroutine check_symmetry_assembled_matrix.
        !---------------------------------------------------------------------------
@@ -1361,6 +1381,19 @@
        !WHL - Not sure if these are necessary
        !---------------------------------------------------------------------------
 
+    !WHL - debug
+    print*, ' '
+    print*, 'After Dirichlet conditions, bv:'
+    do n = 1, nNodesSolve
+       i = iNodeIndex(n)
+       j = jNodeIndex(n)
+       k = kNodeIndex(n) 
+       print*, n, bv(k,i,j)
+    enddo
+
+!WHL - debug - adjust bv.
+!      For small shelf, small changes in bv have a weirdly large effect on the flow.
+!!    bv(:,:,:) = bv(:,:,:) / 1.001
 !WHL - debug
     if (verbose_matrix .and. this_rank==rtest) then
 !       print*, ' '
@@ -1882,6 +1915,8 @@
              enddo 
              print*, ' '
           enddo
+
+          print*, 'max(uvel, vvel) =', maxval(uvel), maxval(vvel)
        endif
 
        !WHL - UMC
@@ -2559,8 +2594,8 @@
           print*, 'ocean (i-1:i,j-1)=', ocean_cell(i-1:i, j-1) 
        endif
 
-       if (active_cell(i,j)) then    ! ice is present
-!!       if (floating_cell(i,j)) then   ! ice is present and is floating
+!!       if (active_cell(i,j)) then    ! ice is present
+       if (floating_cell(i,j)) then   ! ice is present and is floating
 
 !WHL - debug
 !          print*, 'Floating:', i, j
@@ -2569,8 +2604,8 @@
           !       It will not work for marine-based ice that borders the ocean but is not floating.
           !TODO - Make the BC more general.
 
-          if (.not. active_cell(i-1,j)) then  ! compute lateral BC for west face
-!!          if (ocean_cell(i-1,j)) then ! compute lateral BC for west face
+!!          if (.not. active_cell(i-1,j)) then  ! compute lateral BC for west face
+          if (ocean_cell(i-1,j)) then ! compute lateral BC for west face
 
 !WHL - debug
 !          print*, '   Ocean west:', i-1, j
@@ -2585,8 +2620,8 @@
 
           endif
 
-          if (.not. active_cell(i+1,j)) then  ! compute lateral BC for east face
-!!          if (ocean_cell(i+1,j)) then ! compute lateral BC for east face
+!!          if (.not. active_cell(i+1,j)) then  ! compute lateral BC for east face
+          if (ocean_cell(i+1,j)) then ! compute lateral BC for east face
 
 !WHL - debug
 !          print*, '   Ocean east:', i+1, j
@@ -2601,8 +2636,8 @@
 
           endif
 
-          if (.not. active_cell(i,j-1)) then  ! compute lateral BC for south face
-!!          if (ocean_cell(i,j-1)) then ! compute lateral BC for south face
+!!          if (.not. active_cell(i,j-1)) then  ! compute lateral BC for south face
+          if (ocean_cell(i,j-1)) then ! compute lateral BC for south face
 
 !WHL - debug
 !          print*, '   Ocean south:', i, j-1
@@ -2617,8 +2652,8 @@
 
           endif
 
-          if (.not. active_cell(i,j+1)) then  ! compute lateral BC for north face
-!!          if (ocean_cell(i,j+1)) then ! compute lateral BC for north face
+!!          if (.not. active_cell(i,j+1)) then  ! compute lateral BC for north face
+          if (ocean_cell(i,j+1)) then ! compute lateral BC for north face
 
 !WHL - debug
 !          print*, '   Ocean north:', i, j+1
@@ -3170,24 +3205,24 @@
           !       computed only once per nonlinear solve, whereas efv smust be recomputed
           !       after each linear solve.
 
-             if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+             if (verbose_state .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
                 print*, ' '
                 print*, 'Current uvel (m/yr): i, k =', itest, ktest
-                do jj = jtest+2, jtest-2, -1
-                   write(6, '(i4, 5e15.8)') jj, uvel(ktest,itest-2:itest+2,jj)
+                do jj = jtest+1, jtest-1, -1
+                   write(6, '(i4, 5e15.8)') jj, uvel(ktest,itest-1:itest+1,jj)
                 enddo
                 print*, 'Current uvel (m/yr): i, k =', itest, ktest+1
-                do jj = jtest+2, jtest-2, -1
-                   write(6, '(i4, 5e15.8)') jj, uvel(ktest+1,itest-2:itest+2,jj)
+                do jj = jtest+1, jtest-1, -1
+                   write(6, '(i4, 5e15.8)') jj, uvel(ktest+1,itest-1:itest+1,jj)
                 enddo
                 print*, ' '
                 print*, 'Current vvel (m/yr): i, k =', itest, ktest
-                do jj = jtest+2, jtest-2, -1
-                   write(6, '(i4, 5e15.8)') jj, vvel(ktest,itest-2:itest+2,jj)
+                do jj = jtest+1, jtest-1, -1
+                   write(6, '(i4, 5e15.8)') jj, vvel(ktest,itest-1:itest+1,jj)
                 enddo
                 print*, 'Current vvel (m/yr): i, k =', itest, ktest+1
-                do jj = jtest+2, jtest-2, -1
-                   write(6, '(i4, 5e15.8)') jj, vvel(ktest+1,itest-2:itest+2,jj)
+                do jj = jtest+1, jtest-1, -1
+                   write(6, '(i4, 5e15.8)') jj, vvel(ktest+1,itest-1:itest+1,jj)
                 enddo
 
                 print*, ' '
@@ -3214,11 +3249,11 @@
                                                  detJ(p) , i, j, k, p                      )
 
              if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
-                print*, ' '
-                print*, 'Derivatives of basis functions, p =', p
-                do n = 1, nNodesPerElement
-                   print*, 'n, dphi_dx, dphi_dy, dphi_dz:', n, dphi_dx(n,p), dphi_dy(n,p), dphi_dz(n,p)
-                enddo
+!                print*, ' '
+!                print*, 'Derivatives of basis functions, p =', p
+!                do n = 1, nNodesPerElement
+!                   print*, 'n, dphi_dx, dphi_dy, dphi_dz:', n, dphi_dx(n,p), dphi_dy(n,p), dphi_dz(n,p)
+!                enddo
              endif
 
           enddo   ! nQuadPoints
@@ -6267,6 +6302,76 @@
 
   end subroutine write_matrix_elements
   
+!****************************************************************************
+
+!WHL TODO - Remove this subroutine when done with test case
+  subroutine ishomC_block_init(model,  &
+                               dx,   dy,  &
+                               thck, usrf, topg, beta)
+
+!WHL - Hack for removing periodic BC and isolating the ISHOM C geometry to a 4x4 block
+!      at the center of the domain
+
+    type(glide_global_type), intent(inout) :: model   ! derived type holding ice-sheet info
+
+    real(dp), intent(in) :: dx, dy   ! gridcell dimensions
+
+    real(dp), dimension(:,:), intent(inout) ::  &
+       thck, usrf, topg, beta
+
+    real(dp), parameter :: alpha = 0.1d0 * pi/180.d0   ! slope angle
+    real(dp) :: L   ! domain size
+    real(dp) :: omega  ! frequency of beta variation
+    real(dp) :: xdiff, ydiff
+
+    integer :: ilo, imid, ihi, jlo, jmid, jhi
+    integer :: i, j
+
+    imid = model%general%ewn / 2
+    jmid = model%general%nsn / 2
+
+    ilo = imid-1
+    ihi = imid+2
+
+    jlo = jmid-1
+    jhi = jmid+2
+
+    print*, 'ilo, ihi =', ilo, ihi
+    print*, 'jlo, jhi =', jlo, jhi
+    print*, 'tan(alpha) =', tan(alpha)
+
+    ! Reset thck, usrf, topg
+    thck(:,:) = 0.d0
+    usrf(:,:) = 0.d0
+    do j = jlo, jhi
+       do i = ilo, ihi
+          thck(i,j) = 1000.d0
+          xdiff = dx * (i-ilo+0.5d0)
+          usrf(i,j) = 1000.d0 - xdiff * tan(alpha)
+       enddo
+    enddo
+    topg(:,:) = usrf(:,:) - thck(:,:)
+
+
+    ! Reset beta
+
+    beta(:,:) = 0.d0
+!    L = model%general%ewn * dx ! for full domain
+    L = 4 * dx    ! for 4x4 block
+
+    omega = 2.d0*pi / L
+
+    print*, 'L, omega =', L, omega
+    do j = jlo-1, jhi
+       do i = ilo-1, ihi
+          xdiff = dx * (i-ilo+1)
+          ydiff = dy * (j-jlo+1)
+          beta(i,j) = 1000.d0 + 1000.d0 * sin(omega*xdiff) * sin(omega*ydiff)
+       enddo
+    enddo
+
+  end subroutine ishomC_block_init
+
 !****************************************************************************
 
   end module glissade_velo_higher
