@@ -18,10 +18,11 @@ echo
 echo "Doing CMake Configuration step"
 
 cmake \
-  -D GLIMMER_TRILINOS_DIR=/tmp/proj/cli062/worley/Trilinos_trunk_wc/titan-pgi-ci-nophal/install \
+  -D GLIMMER_TRILINOS_DIR=/ccs/proj/cli062/worley/Trilinos/titan-pgi-ci-nophal/install \
   -D GLIMMER_NETCDF_DIR=$NETCDF_DIR \
-  -D GLIMMER_FMAIN="/opt/pgi/12.9.0/linux86-64/12.9/lib/f90main.o" \
-  -D GLIMMER_GPTL_DIR=/tmp/proj/cli062/worley/libgptl_pgi \
+  -D GLIMMER_FMAIN="/opt/pgi/13.7.0/linux86-64/13.7/lib/f90main.o" \
+  -D GLIMMER_GPTL_DIR=/ccs/proj/cli062/worley/libgptl/PGI \
+  -D CMAKE_EXE_LINKER_FLAGS:STRING="-Wl,-z,muldefs" \
   -D CMAKE_VERBOSE_MAKEFILE:BOOL=OFF \
  ..
 

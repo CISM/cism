@@ -20,10 +20,10 @@ echo
 echo "Doing CMake Configuration step"
 
 cmake \
-  -D GLIMMER_TRILINOS_DIR=/tmp/proj/cli062/worley/Trilinos_trunk_wc/titan-gnu-albany-ci-nophal/install \
+  -D GLIMMER_TRILINOS_DIR=/ccs/proj/cli062/worley/Trilinos/titan-gnu-albany-ci-nophal/install \
   -D GLIMMER_NETCDF_DIR=$NETCDF_DIR \
   -D CMAKE_VERBOSE_MAKEFILE:BOOL=OFF \
-  -D GLIMMER_GPTL_DIR=/tmp/proj/cli062/worley/libgptl_gnu \
+  -D GLIMMER_GPTL_DIR=/ccs/proj/cli062/worley/libgptl/GNU \
   -D GLIMMER_Fortran_FLAGS="-ffree-line-length-none" \
   -D CISM_GNU:BOOL=ON \
  ..
