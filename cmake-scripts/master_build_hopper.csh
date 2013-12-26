@@ -17,10 +17,10 @@ setenv build_cmake 1
 
 # even if these are set in your env you need these when running the script
 echo 'set the pgi env'
-module unload cmake netcdf python
+module unload cmake netcdf python netcdf-hdf5parallel
 module swap PrgEnv-gnu PrgEnv-pgi
-module swap xt-asyncpe xt-asyncpe/5.23
 module load cmake python netcdf-hdf5parallel/4.2.0 subversion usg-default-modules/1.0
+module load boost/1.49.0
 
 # NEEDED AFTER A FRESH CHECKOUT
 echo 'bootstrap'
@@ -98,11 +98,27 @@ make distclean
 echo $build_no
 # PARALLEL BUILD WITH CMAKE GNU
 echo 'change to gnu env'
-module unload cmake netcdf-hdf5parallel/4.2.0 python
-module swap PrgEnv-pgi PrgEnv-gnu; 
-module swap xt-asyncpe xt-asyncpe/5.23
+module unload cmake
+module unload PrgEnv-cray PrgEnv-gnu PrgEnv-intel PrgEnv-pathscale PrgEnv-pgi
+module unload hdf5 hdf5-parallel netcdf-hdf5parallel netcdf
+module unload python cray-shmem cray-mpich2
+module unload boost
+
+#module --silent purge
+
+module load PrgEnv-gnu/4.1.40
 module swap gcc gcc/4.7.2
-module load cmake/2.8.10.1 python netcdf-hdf5parallel/4.2.0 usg-default-modules/1.0 boost/1.49.0
+
+module load modules/3.2.6.6
+module load cmake/2.8.7
+module load python/2.7.1
+module load cray-shmem/6.0.1
+module load cray-mpich/6.0.1
+module load torque/4.2.3.h5_notcpretry
+module load netcdf-hdf5parallel/4.3.0
+module load boost
+
+module list
 
 cd $CODE_DIR/xe6-gnu
 echo 'clean out the build dir'

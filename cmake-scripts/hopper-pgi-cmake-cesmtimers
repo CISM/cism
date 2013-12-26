@@ -58,9 +58,9 @@ echo
 echo "Doing CMake Configuration step"
 
 cmake \
-  -D GLIMMER_TRILINOS_DIR=/project/projectdirs/piscees/trilinos/hopper-pgi-ci-noboost-nopamgen/install \
+  -D GLIMMER_TRILINOS_DIR=/project/projectdirs/piscees/trilinos/hopper-pgi-ci-nophal/install \
   -D GLIMMER_NETCDF_DIR=$CRAY_NETCDF_DIR \
-  -D GLIMMER_FMAIN="/opt/pgi/13.3.0/linux86-64/13.3/lib/f90main.o" \
+  -D GLIMMER_FMAIN="/opt/pgi/13.6.0/linux86-64/13.6/lib/f90main.o" \
   -D GLIMMER_GPTL_DIR=/project/projectdirs/piscees/libgptl/libgptl-hopper-pgi \
   -D CMAKE_VERBOSE_MAKEFILE:BOOL=OFF \
  ..
