@@ -51,6 +51,24 @@ module glissade_temp
     private
     public :: glissade_init_temp, glissade_temp_driver, glissade_calcflwa
 
+    ! time stepping scheme
+    !WHL: I am setting this to false.  
+    !     For the dome test case, the Crank-Nicolson scheme can give unstable 
+    !      temperature fluctuations for thin ice immediately after the ice 
+    !      becomes thick enough for the temperature calculation.
+    !     The fully implicit scheme seems stable for all cases (but is only
+    !      first-order accurate in time). 
+
+    logical, parameter::   &
+         crank_nicolson = .false.  ! if true, use Crank-Nicholson time-stepping
+                                   ! if false, use fully implicit
+
+    ! max and min allowed temperatures
+    ! Temperatures can go below -100 for cases where Crank-Nicholson is unstable
+    real(dp), parameter ::   &
+       maxtemp_threshold = 1.d11,   &
+       mintemp_threshold = -100.d0
+
 contains
 
 !****************************************************    
@@ -136,7 +154,7 @@ contains
 !      in the denominator of the dups coefficients.  On the vertically staggered grid, there is no
 !      factor of 0.5 in the dups coefficients, so there is no factor of 2 here.
 !WHL - The factor of 2 in the denominator is a Crank-Nicolson averaging factor.
-
+!      If doing fully implicit timestepping, model%tempwk%cons(1) is multiplied by 2 below.
 !!    model%tempwk%cons(1) = 2.0d0 * tim0 * model%numerics%dttem * coni / (2.0d0 * rhoi * shci * thk0**2)
     model%tempwk%cons(1) = tim0 * model%numerics%dttem * coni / (2.0d0 * rhoi * shci * thk0**2)
 
@@ -375,7 +393,7 @@ contains
 
   subroutine glissade_temp_driver(model, whichtemp)
 
-    ! Calculates the ice temperature 
+    ! Calculates the new ice temperature 
 
     use glimmer_utils,  only : tridiag
     use glimmer_paramets, only : thk0, tim0
@@ -411,6 +429,13 @@ contains
 
     ! for energy conservation check
     real(dp) :: einit, efinal, delta_e, dTtop, dTbot
+
+    real(dp) :: maxtemp, mintemp   ! max and min temps in column
+
+!WHL - debug
+    logical, parameter:: verbose = .false.
+    integer :: k
+    integer :: itest = 1, jtest = 1
 
     upn = model%general%upn
 
@@ -455,7 +480,6 @@ contains
 
        ! Calculate heating from basal friction -----------------------------------
 
-       !TODO - dusrfdew/dns are not needed as inputs
        call glissade_calcbfric( model,                        &
                                 model%geometry%thck,          &
                                 model%velocity%btraction,     &
@@ -470,7 +494,18 @@ contains
 
        do ns = 2,model%general%nsn-1
        do ew = 2,model%general%ewn-1
-          if(model%geometry%thck(ew,ns) > model%numerics%thklim) then
+
+          if(model%geometry%thck(ew,ns) > model%numerics%thklim_temp) then
+
+             if (verbose .and. ew==itest .and. ns==jtest) then
+                print*, ' '
+                print*, 'Before prognostic temp, i, j =', ew, ns
+                print*, 'thck =', model%geometry%thck(ew,ns)*thk0
+                print*, 'Temp:'
+                do k = 0, upn
+                   print*, k, model%temper%temp(k,ew,ns)
+                enddo
+             endif
 
              ! compute initial internal energy in column (for energy conservation check)
              einit = 0.0d0
@@ -487,6 +522,14 @@ contains
                                      subd,  diag, supd, rhsd,     &            
                                      GLIDE_IS_FLOAT(model%geometry%thkmask(ew,ns)))
                 
+             if (verbose .and. ew==itest .and. ns==jtest) then
+                print*, 'After glissade_findvtri, i, j =', ew,ns
+                print*, 'k, subd, diag, supd, rhsd:'
+                do k = 1, upn+1
+                   print*, k, subd(k), diag(k), supd(k), rhsd(k)
+                enddo
+             endif
+
              prevtemp_stag(:) = model%temper%temp(:,ew,ns)
 
              ! solve the tridiagonal system
@@ -501,6 +544,15 @@ contains
                           supd(1:model%general%upn+1), &
                           model%temper%temp(0:model%general%upn,ew,ns), &
                           rhsd(1:model%general%upn+1))
+
+             if (verbose .and. ew==itest .and. ns==jtest) then
+                print*, ' '
+                print*, 'After prognostic temp, i, j =', ew, ns
+                print*, 'Temp:'
+                do k = 0, upn
+                   print*, k, model%temper%temp(k,ew,ns)
+                enddo
+             endif
 
              ! Check that the net input of energy to the column is equal to the difference
              !  between the initial and final internal energy.
@@ -519,14 +571,21 @@ contains
 
              ! conductive flux = (k/H * dT/dsigma) at upper and lower surfaces; positive down
 
-             dTtop = 0.5d0 * ( model%temper%temp(1,ew,ns) - model%temper%temp(0,ew,ns) &
-                             +     prevtemp_stag(1)       -     prevtemp_stag(0) )
+             if (crank_nicolson) then
+                ! average temperatures between start and end of timestep
+                dTtop = 0.5d0 * ( model%temper%temp(1,ew,ns) - model%temper%temp(0,ew,ns) &
+                                +     prevtemp_stag(1)       -     prevtemp_stag(0) )
+                dTbot = 0.5d0 * ( model%temper%temp(upn,ew,ns) - model%temper%temp(upn-1,ew,ns) &
+                                +     prevtemp_stag(upn)       -   prevtemp_stag(upn-1) )
+             else    ! fully implicit
+                ! use temperatures at end of timestep
+                dTtop = model%temper%temp(1,ew,ns) - model%temper%temp(0,ew,ns)
+                dTbot = model%temper%temp(upn,ew,ns) - model%temper%temp(upn-1,ew,ns)
+             endif
+
              model%temper%ucondflx(ew,ns) = (-coni / (model%geometry%thck(ew,ns)*thk0) )         &
                                            * dTtop / (Tstagsigma(1) - Tstagsigma(0))
 
-
-             dTbot = 0.5d0 * ( model%temper%temp(upn,ew,ns) - model%temper%temp(upn-1,ew,ns) &
-                            +     prevtemp_stag(upn)       -   prevtemp_stag(upn-1) )
              model%temper%lcondflx(ew,ns) = (-coni / (model%geometry%thck(ew,ns)*thk0) )         &
                                            * dTbot / (Tstagsigma(upn) - Tstagsigma(upn-1))
 
@@ -548,34 +607,55 @@ contains
                       + model%temper%dissipcol(ew,ns)) * tim0*model%numerics%dttem
 
              if ( abs((efinal-einit-delta_e)/(tim0*model%numerics%dttem)) > 1.0d-8 ) then
+
+                if (verbose) then
+                   print*, 'Ice thickness:', thk0*model%geometry%thck(ew,ns)
+                   print*, 'thklim_temp:', thk0*model%numerics%thklim_temp
+                   print*, ' '
+                   print*, 'Interior fluxes:'
+                   print*, 'ftop (pos up)=', -model%temper%ucondflx(ew,ns) 
+                   print*, 'fbot (pos up)=', -model%temper%lcondflx(ew,ns)
+                   print*, 'fdissip =',       model%temper%dissipcol(ew,ns)
+                   print*, 'Net flux =', delta_e/(tim0*model%numerics%dttem)
+                   print*, ' '
+                   print*, 'delta_e =', delta_e
+                   print*, 'einit =',  einit
+                   print*, 'efinal =', efinal
+                   print*, 'einit + delta_e =', einit + delta_e
+                   print*, ' '
+                   print*, 'Energy imbalance =', efinal - einit - delta_e
+                   print*, ' '
+                   print*, 'Basal fluxes:'
+                   print*, 'ffric =', model%temper%bfricflx(ew,ns)
+                   print*, 'fgeo =', -model%temper%bheatflx(ew,ns)
+                   print*, 'flux for bottom melting =', model%temper%bfricflx(ew,ns)   &
+                                                          - model%temper%bheatflx(ew,ns)   &
+                                                          + model%temper%lcondflx(ew,ns)
+                endif   ! verbose
+
                 write(message,*) 'WARNING: Energy conservation error, ew, ns =', ew, ns
-                call write_log(message)
-! Can uncomment the following for diagnostics
-!                write(50,*) 'Interior fluxes:'
-!                write(50,*) 'ftop (pos up)=', -model%temper%ucondflx(ew,ns) 
-!                write(50,*) 'fbot (pos up)=', -model%temper%lcondflx(ew,ns)
-!                write(50,*) 'fdissip =',       model%temper%dissipcol(ew,ns)
-!                write(50,*) 'Net flux =', delta_e/(tim0*model%numerics%dttem)
-!                write(50,*) ' '
-!                write(50,*) 'delta_e =', delta_e
-!                write(50,*) 'einit =',  einit
-!                write(50,*) 'efinal =', efinal
-!                write(50,*) 'einit + delta_e =', einit + delta_e
-!                write(50,*) ' '
-!                write(50,*) 'Energy imbalance =', efinal - einit - delta_e
-!                write(50,*) ' '
-!                write(50,*) 'Basal fluxes:'
-!                write(50,*) 'ffric =', model%temper%bfricflx(ew,ns)
-!                write(50,*) 'fgeo =', -model%temper%bheatflx(ew,ns)
-!                write(50,*) 'flux for bottom melting =', model%temper%bfricflx(ew,ns)   &
-!                                                       - model%temper%bheatflx(ew,ns)   &
-!                                                       + model%temper%lcondflx(ew,ns)
+                call write_log(message,GM_FATAL)
              endif
 
 !WHL - No call here to corrpmpt.  Temperatures above pmpt are set to pmpt 
 !      in glissade_calcbmlt (conserving energy).
 
-          endif  ! thck > thklim
+             ! Check for temperatures that are too high or too low.
+
+             maxtemp = maxval(model%temper%temp(:,ew,ns))
+             mintemp = minval(model%temper%temp(:,ew,ns))
+       
+             if (maxtemp > maxtemp_threshold) then
+                write(message,*) 'maxtemp > 0: i, j, maxtemp =', ew, ns, maxtemp
+                call write_log(message,GM_FATAL)
+             endif
+
+             if (mintemp < mintemp_threshold) then
+                write(message,*) 'mintemp < mintemp_threshold: i, j, mintemp =', ew, ns, mintemp
+                call write_log(message,GM_FATAL)
+             endif
+
+          endif  ! thck > thklim_temp
        end do    ! ew
        end do    ! ns
 
@@ -585,23 +665,27 @@ contains
        do ns = 1, model%general%nsn
           do ew = 1, model%general%ewn
 
-             if (GLIDE_IS_THIN(model%geometry%thkmask(ew,ns))) then
-                model%temper%temp(:,ew,ns) = min(0.0d0, dble(model%climate%artm(ew,ns)))
-             else if (model%geometry%thkmask(ew,ns) < 0) then
-                model%temper%temp(:,ew,ns) = min(0.0d0, dble(model%climate%artm(ew,ns)))
-             !else if (model%geometry%thkmask(ew,ns) < -1) then
-             !   model%temper%temp(:,ew,ns) = 0.0d0
-             end if
+!             if (GLIDE_IS_THIN(model%geometry%thkmask(ew,ns))) then
+!                model%temper%temp(:,ew,ns) = min(0.0d0, dble(model%climate%artm(ew,ns)))
+!             else if (model%geometry%thkmask(ew,ns) < 0) then
+!                model%temper%temp(:,ew,ns) = min(0.0d0, dble(model%climate%artm(ew,ns)))
+!             !else if (model%geometry%thkmask(ew,ns) < -1) then
+!             !   model%temper%temp(:,ew,ns) = 0.0d0
+!             end if
+
+             !WHL - Changed threshold to thklim_temp, set at the top of this module
+              if (model%geometry%thck(ew,ns) <= model%numerics%thklim_temp) then
+                 model%temper%temp(:,ew,ns) = min(0.0d0, dble(model%climate%artm(ew,ns)))
+              endif
 
 !TODO - Maybe it should be done in the following way, so that the temperature profile for thin ice
 !       is consistent with the temp_init option, with T = 0 for ice-free cells.
 
              ! NOTE: Calling this subroutine will maintain a sensible temperature profile
              !        for thin ice, but in general does *not* conserve energy.
-             !       To conserve energy, we need either thklim = 0, or some additional
+             !       To conserve energy, we need either thklim_temp = 0, or some additional
              !        energy accounting and correction.
  
-             !TODO - Why not simply 0 < thck < thklim?
 !             if (GLIDE_IS_THIN(model%geometry%thkmask(ew,ns))) then
 !                call glissade_init_temp_column(model%options%temp_init,         &
 !                                               model%numerics%stagsigma(:),     &
@@ -677,6 +761,8 @@ contains
 
    case(TEMP_ENTHALPY)! BDM Local column calculation (with advection done elsewhere)
 
+      !TODO - Rearrange code to avoid duplication of many calls.
+
       ! No horizontal or vertical advection; vertical diffusion and strain heating only.
       ! Enthalpy is vertically staggered relative to velocities.  
       ! That is, enthalpy is defined at the midpoint of each layer 
@@ -720,7 +806,7 @@ contains
 
       do ns = 2,model%general%nsn-1
          do ew = 2,model%general%ewn-1
-            if(model%geometry%thck(ew,ns) > model%numerics%thklim) then
+            if (model%geometry%thck(ew,ns) > model%numerics%thklim_temp) then
 
                ! BDM compute matrix elements using Enthalpy Gradient Method
 
@@ -750,7 +836,7 @@ contains
                               model%geometry%thck(ew,ns),                          &
                               model%numerics%stagsigma(1:model%general%upn-1))	
 
-            endif  ! thck > thklim
+            endif  ! thck > thklim_temp
          end do    ! ew
       end do    ! ns
 
@@ -768,15 +854,19 @@ contains
             !   model%temper%temp(:,ew,ns) = 0.0d0
             end if
 
+            !WHL - Changed threshold to thklim_temp, set at the top of this module
+            if (model%geometry%thck(ew,ns) <= model%numerics%thklim_temp) then
+               model%temper%temp(:,ew,ns) = min(0.0d0, dble(model%climate%artm(ew,ns)))
+            endif
+
 !TODO - Maybe it should be done in the following way, so that the temperature profile for thin ice
 !       is consistent with the temp_init option, with T = 0 for ice-free cells.
 
 ! NOTE: Calling this subroutine will maintain a sensible temperature profile
 !        for thin ice, but in general does *not* conserve energy.
-!       To conserve energy, we need either thklim = 0, or some additional
+!       To conserve energy, we need either thklim_temp = 0, or some additional
 !        energy accounting and correction.
  
-!TODO - Why not simply 0 < thck < thklim?
 !             if (GLIDE_IS_THIN(model%geometry%thkmask(ew,ns))) then
 !                call glissade_init_temp_column(model%options%temp_init,         &
 !                                               model%numerics%stagsigma(:),     &
@@ -882,21 +972,39 @@ contains
 
     ! ice interior. layers 1:upn-1  (matrix elements 2:upn)
 
-    ! model%tempwk%cons(1) = 2.0d0 * tim0 * model%numerics%dttem * coni / (2.0d0 * rhoi * shci * thk0**2)
+    ! model%tempwk%cons(1) = tim0 * model%numerics%dttem * coni / (2.0d0 * rhoi * shci * thk0**2)
 
-    fact = model%tempwk%cons(1) / model%geometry%thck(ew,ns)**2
-    subd(2:model%general%upn) = -fact * model%tempwk%dups(1:model%general%upn-1,1)
-    supd(2:model%general%upn) = -fact * model%tempwk%dups(1:model%general%upn-1,2)
-    diag(2:model%general%upn) = 1.0d0 - subd(2:model%general%upn)     &
-                                      - supd(2:model%general%upn)
+    if (crank_nicolson) then
 
-    model%tempwk%inittemp(1:model%general%upn-1,ew,ns) =   &
-           model%temper%temp(1:model%general%upn-1,ew,ns) * (2.0d0 - diag(2:model%general%upn)) &
-         - model%temper%temp(0:model%general%upn-2,ew,ns) * subd(2:model%general%upn) &
-         - model%temper%temp(2:model%general%upn,  ew,ns) * supd(2:model%general%upn) & 
-         + model%tempwk%dissip(1:model%general%upn-1,ew,ns)
+       fact = model%tempwk%cons(1) / model%geometry%thck(ew,ns)**2
+       subd(2:model%general%upn) = -fact * model%tempwk%dups(1:model%general%upn-1,1)
+       supd(2:model%general%upn) = -fact * model%tempwk%dups(1:model%general%upn-1,2)
+       diag(2:model%general%upn) = 1.0d0 - subd(2:model%general%upn)     &
+                                         - supd(2:model%general%upn)
+
+       model%tempwk%inittemp(1:model%general%upn-1,ew,ns) =   &
+                model%temper%temp(1:model%general%upn-1,ew,ns) * (2.0d0 - diag(2:model%general%upn)) &
+              - model%temper%temp(0:model%general%upn-2,ew,ns) * subd(2:model%general%upn) &
+              - model%temper%temp(2:model%general%upn,  ew,ns) * supd(2:model%general%upn) & 
+              + model%tempwk%dissip(1:model%general%upn-1,ew,ns)
     
-    rhsd(2:model%general%upn) = model%tempwk%inittemp(1:model%general%upn-1,ew,ns)
+       rhsd(2:model%general%upn) = model%tempwk%inittemp(1:model%general%upn-1,ew,ns)
+
+    else   ! fully implicit
+
+       fact = 2.d0 * model%tempwk%cons(1) / model%geometry%thck(ew,ns)**2  ! Remove factor of 2 in denominator
+       subd(2:model%general%upn) = -fact * model%tempwk%dups(1:model%general%upn-1,1)
+       supd(2:model%general%upn) = -fact * model%tempwk%dups(1:model%general%upn-1,2)
+       diag(2:model%general%upn) = 1.0d0 - subd(2:model%general%upn)     &
+                                         - supd(2:model%general%upn)
+       
+       model%tempwk%inittemp(1:model%general%upn-1,ew,ns) =   &
+                model%temper%temp(1:model%general%upn-1,ew,ns)  &
+              + model%tempwk%dissip(1:model%general%upn-1,ew,ns)
+    
+       rhsd(2:model%general%upn) = model%tempwk%inittemp(1:model%general%upn-1,ew,ns)
+
+    endif    ! crank_nicolson
 
     ! basal boundary:
     ! for grounded ice, a heat flux is applied
@@ -953,7 +1061,7 @@ contains
           diag(model%general%upn+1) = 1.0d0 
 
           model%tempwk%inittemp(model%general%upn,ew,ns) =    &
-             (model%temper%bfricflx(ew,ns)  - model%temper%bheatflx(ew,ns)) &
+             (model%temper%bfricflx(ew,ns) - model%temper%bheatflx(ew,ns)) &
              * dsigbot * model%geometry%thck(ew,ns) * thk0 / coni
           rhsd(model%general%upn+1) = model%tempwk%inittemp(model%general%upn,ew,ns)
           
@@ -1023,6 +1131,9 @@ contains
              ! btraction is computed in glam_strs2.F90
 
              !TODO - Make sure we have btraction for all locally owned velocity cells.
+
+             !WHL - Using thklim instead of thklim_temp because ice thinner than thklim
+             !      is assumed to be at rest.
 
              if (thck(ew,ns) > model%numerics%thklim .and. .not. float(ew,ns)) then
                 do nsp = ns-1,ns
@@ -1109,7 +1220,7 @@ contains
     do ns = 2, model%general%nsn-1
        do ew = 2, model%general%ewn-1
 
-          if (thck(ew,ns) > model%numerics%thklim .and. .not. floater(ew,ns)) then
+          if (thck(ew,ns) > model%numerics%thklim_temp .and. .not. floater(ew,ns)) then
 
              ! Basal friction term is computed above in subroutine glissade_calcbfric
 
@@ -1151,7 +1262,7 @@ contains
              call glissade_calcpmpt_bed(pmptemp(up), thck(ew,ns))
              temp(up,ew,ns) = min (temp(up,ew,ns), pmptemp(up))
 
-          endif   ! thk > thklim
+          endif   ! thk > thklim_temp
 
        enddo
     enddo
@@ -1216,6 +1327,9 @@ contains
     !LOOP TODO: Locally owned cells only
     do ns = 2, model%general%nsn-1
        do ew = 2, model%general%ewn-1
+
+          !WHL - Using thklim instead of thklim_temp because ice thinner than thklim
+          !      is assumed to be at rest.
           if (thck(ew,ns) > model%numerics%thklim) then
              
              c2 = (0.25*sum(stagthck(ew-1:ew,ns-1:ns)) * dsqrt((0.25*sum(dusrfdew(ew-1:ew,ns-1:ns)))**2 &
@@ -1253,6 +1367,9 @@ contains
 
     do ns = 1, model%general%nsn
        do ew = 1, model%general%ewn
+
+          !WHL - Using thklim instead of thklim_temp because ice thinner than thklim
+          !      is assumed to be at rest.
           if (thck(ew,ns) > model%numerics%thklim) then
 
              c5(:) = 0.0d0

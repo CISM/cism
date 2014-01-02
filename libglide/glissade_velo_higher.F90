@@ -147,6 +147,9 @@
     real(dp), parameter ::   &
        eps10 = 1.d-10           ! small number
 
+!    real(dp), parameter ::   &
+!       eps09 = 1.d-09           ! small number
+
     real(dp) :: vol0    ! volume scale = dx * dy * (1000 m)
 
     logical, parameter ::  &
@@ -168,8 +171,8 @@
 !    logical :: verbose_Jac = .true.
     logical :: verbose_residual = .false.
 !    logical :: verbose_residual = .true.
-!    logical :: verbose_state = .false.
-    logical :: verbose_state = .true.
+    logical :: verbose_state = .false.
+!    logical :: verbose_state = .true.
     logical :: verbose_load = .false.
 !    logical :: verbose_load = .true.
     logical :: verbose_shelf = .false.
@@ -187,20 +190,20 @@
 !    logical :: verbose_efvs = .true.
 
 !WHL - debug
-    logical :: trial_efvs = .true.   ! if true, compute what nonlinear efvs would be (if not constant)
+    logical :: trial_efvs = .false.   ! if true, compute what nonlinear efvs would be (if not constant)
 
 
     integer, parameter :: &
 !       itest = 9, jtest = 19, ktest = 1, ptest = 1  ! for dome, global (i,j) = (7,17), 1 proc
 
-!       itest = 26, jtest = 19, ktest = 1, ptest = 1  ! for dome, global (i,j) = (24,17), 1 proc
+       itest = 26, jtest = 19, ktest = 1, ptest = 1  ! for dome, global (i,j) = (24,17), 1 proc
 !       integer, parameter :: ntest = 2371  ! nodeID for dome global (24,17,1)    
 
 !        itest = 8, jtest = 8, ktest = 1, ptest = 1    ! for block test, global (i,j) = (6,6)
 
 !        itest = 3, jtest = 3, ktest = 1, ptest = 1    ! for ishom, global (i,j) = (1,1)
 !        itest = 7, jtest = 7, ktest = 1, ptest = 1    ! for ishom, global (i,j) = (5,5)
-        itest = 6, jtest = 6, ktest = 1, ptest = 1    ! for ishom, global (i,j) = (4,4)
+!        itest = 6, jtest = 6, ktest = 1, ptest = 1    ! for ishom, global (i,j) = (4,4)
 
 
 !       itest = 24, jtest = 6, ktest = 1, ptest = 1  ! for confined/linear (south-flowing) shelf, global (i,j) = (22,4), 1 proc
@@ -210,10 +213,11 @@
 
 !       itest = 9, jtest = 9, ktest = 1, ptest = 1  ! for confined/linear shelf, global (i,j) = (7,7), 1 proc
 
+
 !       integer, parameter :: ntest = 73    ! for 5x5 test, northeast corner node at upper surface
-       integer, parameter :: ntest = 48    ! for 4x4 test, northeast corner node at bed
+!       integer, parameter :: ntest = 48    ! for 4x4 test, northeast corner node at bed
 
-
+    integer, parameter :: ntest = 1
 !    integer, parameter :: ntest = 2372  ! nodeID for dome global (24,17,2)
 !    integer, parameter :: ntest = 2380  ! nodeID for dome global (24,17,10)
     
@@ -740,7 +744,9 @@
        uvel_old, vvel_old,         &! uvel and vvel from previous iteration
        ucorr_old, vcorr_old         ! correction vectors from previous iteration
 
-    if (verbose) print*, 'In glissade_velo_higher_solve'
+    if (verbose) then
+       print*, 'In glissade_velo_higher_solve'
+    endif
 
     !--------------------------------------------------------
     ! Assign local pointers to derived type components
@@ -1224,12 +1230,12 @@
     !WHL - debug
     print*, ' '
     print*, 'After lateral BC, bv:'
-    do n = 1, nNodesSolve
-       i = iNodeIndex(n)
-       j = jNodeIndex(n)
-       k = kNodeIndex(n) 
-       print*, n, bv(k,i,j)
-    enddo
+!    do n = 1, nNodesSolve
+!       i = iNodeIndex(n)
+!       j = jNodeIndex(n)
+!       k = kNodeIndex(n) 
+!       print*, n, bv(k,i,j)
+!    enddo
 
     !------------------------------------------------------------------------------
     ! main outer loop: iteration to solve the nonlinear problem
@@ -1382,14 +1388,14 @@
        !---------------------------------------------------------------------------
 
     !WHL - debug
-    print*, ' '
-    print*, 'After Dirichlet conditions, bv:'
-    do n = 1, nNodesSolve
-       i = iNodeIndex(n)
-       j = jNodeIndex(n)
-       k = kNodeIndex(n) 
-       print*, n, bv(k,i,j)
-    enddo
+!    print*, ' '
+!    print*, 'After Dirichlet conditions, bv:'
+!    do n = 1, nNodesSolve
+!       i = iNodeIndex(n)
+!       j = jNodeIndex(n)
+!       k = kNodeIndex(n) 
+!       print*, n, bv(k,i,j)
+!    enddo
 
 !WHL - debug - adjust bv.
 !      For small shelf, small changes in bv have a weirdly large effect on the flow.
@@ -5671,7 +5677,7 @@
                             print*, ' '
                             print*, 'Auu is not symmetric: i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
                             print*, 'Auu(row,col), Auu(col,row), diff:', val1, val2, val2 - val1
-                            stop  !TODO - Put in a proper abort
+!!                            stop  !TODO - Put in a proper abort
                          endif
 
                       endif   ! val2 /= val1

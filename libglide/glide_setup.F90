@@ -157,7 +157,7 @@ contains
 !-------------------------------------------------------------------------
     
 !TODO - Remove most of the scaling?
-!       (Probably will need to keep scyr)
+!       (Will need to keep scyr)
 
   subroutine glide_scale_params(model)
     !*FD scale parameters
@@ -182,6 +182,7 @@ contains
     model%numerics%dt     = model%numerics%tinc * scyr / tim0   ! keep scyr?
     model%numerics%dttem  = model%numerics%ntem * scyr / tim0   ! keep scyr?
     model%numerics%thklim = model%numerics%thklim  / thk0       ! can remove scaling here
+    model%numerics%thklim_temp = model%numerics%thklim_temp  / thk0       ! can remove scaling here
 
     model%numerics%dew = model%numerics%dew / len0         ! remove scaling
     model%numerics%dns = model%numerics%dns / len0         ! remove scaling
@@ -1018,6 +1019,7 @@ contains
     call GetValue(section,'log_level',loglevel)
     call glimmer_set_msg_level(loglevel)
     call GetValue(section,'ice_limit',        model%numerics%thklim)
+    call GetValue(section,'ice_limit_temp',   model%numerics%thklim_temp)
     call GetValue(section,'marine_limit',     model%numerics%mlimit)
     call GetValue(section,'calving_fraction', model%numerics%calving_fraction)
     call GetValue(section,'geothermal',       model%paramets%geot)
@@ -1066,8 +1068,13 @@ contains
     call write_log('Parameters')
     call write_log('----------')
 
-    write(message,*) 'ice limit (m)                 : ',model%numerics%thklim
+    write(message,*) 'ice limit for dynamics (m)    : ',model%numerics%thklim
     call write_log(message)
+
+    if (model%options%whichdycore /= DYCORE_GLIDE) then
+       write(message,*) 'ice limit for temperature (m) : ',model%numerics%thklim_temp
+       call write_log(message)
+    endif
 
     write(message,*) 'marine depth limit (m)        : ',model%numerics%mlimit
     call write_log(message)

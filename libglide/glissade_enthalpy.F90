@@ -30,6 +30,8 @@
 
 #include "glide_mask.inc"
 
+!TODO - This module needs to be tested.
+!       Might want to add a fully implicit option to replace Crank-Nicolson.
 module glissade_enthalpy
 
     use glimmer_global, only : dp
@@ -61,7 +63,6 @@ contains
 
     ! write out cons(1) which is coefficient before diffusion terms 
     ! thk0 is just a scaling parameter, not actual thickness at ew, ns
-    ! Usually thk0 = 1?
     model%tempwk%cons(1) = tim0 * model%numerics%dttem/ (2.0d0 * thk0**2)
 
   end subroutine glissade_init_enthalpy
@@ -149,6 +150,9 @@ contains
     ! fact is (dt * tim0) / (2 * H^2 * thk0^2)
     fact = model%tempwk%cons(1) / model%geometry%thck(ew,ns)**2
 
+    !WHL - TODO - These are the Crank-Nicolson matrix elements.
+    !             Allow fully implicit and make it the default as in glissade_temp?
+
     ! ice interior. layers 1:upn-1  (matrix elements 2:upn)
     subd(2:model%general%upn) = -fact * alpha_half(1:model%general%upn-1)        &
                                 * model%tempwk%dups(1:model%general%upn-1,1)
@@ -161,6 +165,8 @@ contains
          - enthalpy(0:model%general%upn-2) * subd(2:model%general%upn)           &
          - enthalpy(2:model%general%upn)   * supd(2:model%general%upn)           & 
          + model%tempwk%dissip(1:model%general%upn-1,ew,ns) * rhoi * shci
+
+
     ! BDM I'm assuming that model%tempwk%dissip has units of phi/rhoi/shci.
     ! For an enthalpy calc, we want just phi, so model%tempwk%dissip * rhoi * shci
 	
@@ -399,7 +405,7 @@ contains
     do ns = 2, model%general%nsn-1
        do ew = 2, model%general%ewn-1
 
-          if (thck(ew,ns) > model%numerics%thklim .and. .not. floater(ew,ns)) then
+          if (thck(ew,ns) > model%numerics%thklim_temp .and. .not. floater(ew,ns)) then
 
              ! Basal friction term is computed above in subroutine glissade_calcbfric
 
@@ -438,7 +444,7 @@ contains
              call glissade_calcpmpt_bed(pmptemp(up), thck(ew,ns))
              temp(up,ew,ns) = min (temp(up,ew,ns), pmptemp(up))
 
-          endif   ! thk > thklim
+          endif   ! thk > thklim_temp
 
        enddo
     enddo

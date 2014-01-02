@@ -899,7 +899,8 @@ module glide_types
     real(dp) :: nvel   =     1.d0 !*FD velocity time step (multiplier of main time step)
     real(dp) :: alpha  =    0.5d0 !*FD richard suggests 1.5 - was a parameter in original
     real(dp) :: alphas =    0.5d0 !*FD was a parameter in the original
-    real(dp) :: thklim =   100.d0   
+    real(dp) :: thklim =   100.d0 ! min thickness for computing ice dynamics (m) 
+    real(dp) :: thklim_temp =   1.d0 ! min thickness for computing vertical temperature (m) (higher-order only)
     real(dp) :: mlimit =  -200.d0
     real(dp) :: calving_fraction = 0.8d0
     real(dp) :: dew    =    20.d3
