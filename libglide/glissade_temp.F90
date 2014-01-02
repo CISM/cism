@@ -640,21 +640,6 @@ contains
 !WHL - No call here to corrpmpt.  Temperatures above pmpt are set to pmpt 
 !      in glissade_calcbmlt (conserving energy).
 
-             ! Check for temperatures that are too high or too low.
-
-             maxtemp = maxval(model%temper%temp(:,ew,ns))
-             mintemp = minval(model%temper%temp(:,ew,ns))
-       
-             if (maxtemp > maxtemp_threshold) then
-                write(message,*) 'maxtemp > 0: i, j, maxtemp =', ew, ns, maxtemp
-                call write_log(message,GM_FATAL)
-             endif
-
-             if (mintemp < mintemp_threshold) then
-                write(message,*) 'mintemp < mintemp_threshold: i, j, mintemp =', ew, ns, mintemp
-                call write_log(message,GM_FATAL)
-             endif
-
           endif  ! thck > thklim_temp
        end do    ! ew
        end do    ! ns
@@ -927,6 +912,28 @@ contains
       !WHL - Removed glissade_calcflwa call here; moved it to glissade_diagnostic_variable_solve.
 
     end select
+
+    ! Check for temperatures that are physically unrealistic.
+    ! Thresholds are set at the top of this module.
+
+    do ns = 1, model%general%nsn
+       do ew = 1, model%general%ewn
+
+          maxtemp = maxval(model%temper%temp(:,ew,ns))
+          mintemp = minval(model%temper%temp(:,ew,ns))
+          
+          if (maxtemp > maxtemp_threshold) then
+             write(message,*) 'maxtemp > 0: i, j, maxtemp =', ew, ns, maxtemp
+             call write_log(message,GM_FATAL)
+          endif
+          
+          if (mintemp < mintemp_threshold) then
+             write(message,*) 'mintemp < mintemp_threshold: i, j, mintemp =', ew, ns, mintemp
+             call write_log(message,GM_FATAL)
+          endif
+          
+       enddo
+    enddo
 
   end subroutine glissade_temp_driver
 
