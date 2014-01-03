@@ -268,10 +268,11 @@ module glide_types
 
     ! Choice of two Glimmer dycores:
     !*FD \begin{description} 
-    !*FD \item[0] Glide dycore (SIA, serial only)
-    !*FD \item[1] SEACISM/Glam dycore (1st-order, FDM, serial or parallel)
-    !*FD \item[2] Glissade dycore (1st-order, FEM based on Dukowicz et al., serial or parallel)
-    !*FD \item[3] FELIX-Albany dycore (1st-order, FEM based on Dukowicz et al., parallel, uses mesh information from Glissade)
+    !*FD \item[0] Glide dycore (SIA, serial (SLAP) only)
+    !*FD \item[1] SEACISM/Glam dycore (1st-order, FDM, serial (SLAP) or parallel (Trilinos))
+    !*FD \item[2] Glissade dycore (1st-order, FEM, serial (SLAP) or parallel (F90 native PCG solver) )
+    !*FD \item[3] FELIX-Albany dycore (1st-order, FEM, using Trilino/Albany, mesh information from Glissade)
+    !*FD \item[4] BISICLES dycore (L1L2, FVM, parallel using Chombo AMR)
     !*FD \end{description}
 
     integer :: whichevol = 0
