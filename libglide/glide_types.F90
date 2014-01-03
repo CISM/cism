@@ -269,7 +269,9 @@ module glide_types
     ! Choice of two Glimmer dycores:
     !*FD \begin{description} 
     !*FD \item[0] Glide dycore (SIA, serial only)
-    !*FD \item[1] Glissade dycore (HO, serial or parallel)
+    !*FD \item[1] SEACISM/Glam dycore (1st-order, FDM, serial or parallel)
+    !*FD \item[2] Glissade dycore (1st-order, FEM based on Dukowicz et al., serial or parallel)
+    !*FD \item[3] FELIX-Albany dycore (1st-order, FEM based on Dukowicz et al., parallel, uses mesh information from Glissade)
     !*FD \end{description}
 
     integer :: whichevol = 0
@@ -484,8 +486,8 @@ module glide_types
     !*FD Flag that indicates method for solving the sparse linear system
     !*FD that arises from the higher-order solver
     !*FD \begin{description}
-    !*FD \item[0] Biconjugate gradient, incomplete LU preconditioner
-    !*FD \item[1] GMRES, incomplete LU preconditioner
+    !*FD \item[0] SLAP (serial): Biconjugate gradient, incomplete LU preconditioner
+    !*FD \item[1] SLAP (serial): GMRES, incomplete LU preconditioner
     !*FD \item[2] Conjugate gradient, incomplete LU preconditioner
     !*FD \item[3] Conjugate gradient, structured grid, parallel-enabled
     !*FD \item[4] standalone interface to Trilinos
