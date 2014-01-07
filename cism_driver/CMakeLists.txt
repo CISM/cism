@@ -2,7 +2,7 @@
 # Get libraries for link line from Trilinos build information
 # 
 
-IF (NOT ${NO_TRILINOS})
+IF (${CISM_USE_TRILINOS})
   set(CISM_TRILINOS_LIBS glimmercismcpp ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES}
      ${Trilinos_EXTRA_LD_FLAGS} ${CMAKE_Fortran_IMPLICIT_LINK_LIBRARIES})
 ELSE()
@@ -51,6 +51,7 @@ IF (NOT ${CISM_USE_EXTERNAL_DYCORE})
                   ${CISM_HDF5_LIB_DIR} ${PYTHON_LIB_DIR} )
 
   target_link_libraries(cism_driver
+      ${GLIMMER_FMAIN}
       glimmercismfortran
       ${PYTHON_LIBS}
       ${GLIMMER_NETCDF_LIBS}
@@ -58,6 +59,7 @@ IF (NOT ${CISM_USE_EXTERNAL_DYCORE})
       ${GLIMMER_MPI_LIBS}
       ${CISM_TRILINOS_LIBS}
       ${GLIMMER_EXTRA_LIBS}
+      ${GLIMMER_GPTL_LIB}
   )
 ELSEIF (${CISM_BUILD_SIMPLE_BISICLES})
 MESSAGE("GLIMMER_DYCORE_DIR: " ${GLIMMER_DYCORE_DIR})
@@ -77,10 +79,11 @@ MESSAGE("GLIMMER_DYCORE_DIR: " ${GLIMMER_DYCORE_DIR})
       ${GLIMMER_MPI_LIBS}
       ${CISM_TRILINOS_LIBS}
       ${GLIMMER_EXTRA_LIBS}
+      ${GLIMMER_GPTL_LIB}
       )
 ENDIF()
 
 # Helpful(?) message near end of configuration step
-MESSAGE("\n   Execute 'make -j 8'")
-MESSAGE("   Executable  simple_bisicles  should appear in dir: build/example-drivers/simple_bisicles/src")
+MESSAGE("")
+MESSAGE("   Executable cism_driver should appear in dir: build_dir/cism_driver")
 MESSAGE("")

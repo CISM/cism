@@ -2,7 +2,7 @@
 # Get libraries for link line from Trilinos build information
 # 
 
-IF (NOT ${NO_TRILINOS})
+IF (${CISM_USE_TRILINOS})
   set(CISM_TRILINOS_LIBS glimmercismcpp ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES}
      ${Trilinos_EXTRA_LD_FLAGS} ${CMAKE_Fortran_IMPLICIT_LINK_LIBRARIES})
 ELSE()
@@ -14,7 +14,7 @@ ENDIF()
 #message("     ${CMAKE_Fortran_IMPLICIT_LINK_LIBRARIES} ")
 
 # Need include directories from Trilinos but also mod files from glimmer
-include_directories (${GLIMMER_BINARY_DIR}/include  ${PYTHON_INC_DIR}
+include_directories (${GLIMMER_BINARY_DIR} ${PYTHON_INC_DIR}
                      ${Trilinos_INCLUDE_DIRS} ${Trilinos_TPL_INCLUDE_DIRS})
 
 link_directories (${Trilinos_LIBRARY_DIRS} ${Trilinos_TPL_LIBRARY_DIRS}
@@ -23,7 +23,9 @@ link_directories (${Trilinos_LIBRARY_DIRS} ${Trilinos_TPL_LIBRARY_DIRS}
                   ${CISM_HDF5_LIB_DIR} ${PYTHON_LIB_DIR} )
 
 # These are local source files needed to make  simple_bisicles  executable
-add_executable(simple_bisicles  simple_bisicles.F90 simple_forcing.F90 testsfg.F90)
+add_executable(simple_bisicles  simple_bisicles.F90
+               ../../simple_glide/src/simple_forcing.F90
+               ../../simple_glide/src/testsfg.F90)
 
 IF (CISM_STATIC_LINKING)
   SET_TARGET_PROPERTIES(simple_bisicles PROPERTIES LINK_SEARCH_START_STATIC 1)
@@ -48,8 +50,6 @@ target_link_libraries(simple_bisicles
       ${CISM_TRILINOS_LIBS}
       ${GLIMMER_EXTRA_LIBS}
       )
-
-
 
 # Helpful(?) message near end of configuration step
 MESSAGE("\n   Execute 'make -j 8'")

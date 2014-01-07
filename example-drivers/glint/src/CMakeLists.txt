@@ -2,7 +2,7 @@
 # Get libraries for link line from Trilinos build information
 # 
 
-IF (NOT ${NO_TRILINOS})
+IF (${CISM_USE_TRILINOS})
   set(CISM_TRILINOS_LIBS glimmercismcpp ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES}
      ${Trilinos_EXTRA_LD_FLAGS} ${CMAKE_Fortran_IMPLICIT_LINK_LIBRARIES})
 ELSE()
@@ -28,6 +28,7 @@ ENDIF()
 # Executable depends on several glimmer libraries and Trilinos,
 # and potentially an f90main.o file (on jaguar with PGI at least)
 target_link_libraries(glint_example
+      ${GLIMMER_FMAIN}
       glimmercismfortran
       ${GLIMMER_NETCDF_LIBS}
       ${GLIMMER_GPTL_LIB}

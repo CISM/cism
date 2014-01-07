@@ -10,7 +10,13 @@ IF (DEFINED CISM_USE_TRILINOS)
     SET(NO_TRILINOS "ON")
   ENDIF()
 ENDIF()
+IF (NOT NO_TRILINOS)
+  SET(CISM_USE_TRILINOS "ON")
+  ELSE()
+  SET(CISM_USE_TRILINOS "OFF")
+ENDIF()
 
+MESSAGE("CISM_USE_TRILINOS = ${CISM_USE_TRILINOS}")
 
 
 OPTION (CISM_MPI_MODE "Toggle to Configure with MPI: defaults to ON" ON)
@@ -20,6 +26,7 @@ OPTION (CISM_BUILD_SIMPLE_GLIDE "Toggle to build simple_glide, ON by default" ON
 OPTION (CISM_BUILD_SIMPLE_BISICLES "Toggle to build simple_bisicles, off by default" OFF)
 #IK, 8/6/13: added option to build simple_felix executable.  Off by default. 
 OPTION (CISM_BUILD_SIMPLE_FELIX "Toggle to build simple_felix, off by default" OFF)
+OPTION (CISM_BUILD_CISM_DRIVER "Toggle to build cism_driver, off by default" OFF)
 OPTION (CISM_BUILD_EXTRA_EXECUTABLES "Toggle to other executables, off by default" OFF)
 OPTION (CISM_USE_GPTL_INSTRUMENTATION "Toggle to use GPTL instrumentation, on by default " ON)
 OPTION (CISM_BUILD_GLINT "Toggle to build glint, off by default" OFF)
@@ -42,8 +49,12 @@ IF (NOT CISM_MPI_MODE AND NOT CISM_SERIAL_MODE)
   SET(CISM_MPI_MODE "ON")
 ENDIF()
 
+IF (CISM_BUILD_CISM_DRIVER)
+  SET(CISM_USE_CISM_FRONT_END "ON")
+ENDIF()
+
 IF (CISM_USE_CISM_FRONT_END)
-  SET(CISM_BUILD_GLINT_EXAMPLE "ON")
+  SET(CISM_BUILD_GLINT "ON")
 ENDIF()
 
 IF (CISM_BUILD_GLINT_EXAMPLE)
@@ -59,6 +70,8 @@ IF (CISM_COUPLED)
   SET(GLIMMER_NO_EXECUTABLE "ON")
   SET(CISM_BUILD_SIMPLE_GLIDE "OFF")
   SET(CISM_BUILD_SIMPLE_BISICLES "OFF")
+  SET(CISM_BUILD_GLINT_EXAMPLE "OFF")
+  SET(CISM_USE_CISM_FRONT_END "OFF")
 #IK, 8/6/13: simple_felix executable option
   SET(CISM_BUILD_SIMPLE_FELIX "OFF")
   SET(CISM_BUILD_EXTRA_EXECUTABLES "OFF")
@@ -74,10 +87,18 @@ ENDIF()
 
 MESSAGE("Building in: ${CISM_BINARY_DIR}")
 
-IF (NOT ${NO_TRILINOS})
+IF (CISM_USE_TRILINOS)
   OPTION(GLIMMER_TRILINOS_DIR "Required path to installed Trilinos")
   OPTION(GLIMMER_NETCDF_DIR "Required path to installed Netcdf")
 
+
+  IF (CISM_USE_GPTL_INSTRUMENTATION)
+     IF (DEFINED GLIMMER_TRILINOS_GPTL_DIR)
+       SET(GLIMMER_TRILINOS_DIR ${GLIMMER_TRILINOS_GPTL_DIR})
+     ENDIF()
+  ENDIF()
+
+  
   # Error check up front
   IF (NOT DEFINED GLIMMER_TRILINOS_DIR)
     MESSAGE(FATAL_ERROR "\nGLIMMER Error: cmake must define GLIMMER_TRILINOS_DIR:
@@ -122,7 +143,7 @@ ENABLE_LANGUAGE(Fortran)
 # Only include C++ support if it's really needed, to avoid problems
 # caused by broken C++ compilers.
 #IK, 8/3/13: added simple_felix option 
-IF ((NOT NO_TRILINOS) OR CISM_BUILD_SIMPLE_BISICLES OR CISM_BUILD_SIMPLE_FELIX)
+IF (CISM_USE_TRILINOS OR CISM_BUILD_SIMPLE_BISICLES OR CISM_BUILD_SIMPLE_FELIX)
   ENABLE_LANGUAGE(CXX)
 ENDIF()
 
@@ -226,7 +247,7 @@ IF (NOT CMAKE_Fortran_FLAGS)
 ENDIF()
 SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${GLIMMER_Fortran_FLAGS}")
 
-IF (NOT ${NO_TRILINOS}) 
+IF (CISM_USE_TRILINOS) 
    ## GLIMMER requires Trilinos to include the Piro build 
    MESSAGE("-- Looking for Piro within Trilinos:")
    MESSAGE("Trilinos pkg list: " ${Trilinos_PACKAGE_LIST})
@@ -328,7 +349,7 @@ LIST(REMOVE_ITEM FORTRANSOURCES
    ${GLIMMER_SOURCE_DIR}/libglimmer/nc2config.F90 )
 
 
-IF ((NOT ${NO_TRILINOS}) OR CISM_MPI_MODE)
+IF (CISM_USE_TRILINOS OR CISM_MPI_MODE)
    LIST(REMOVE_ITEM FORTRANSOURCES
       ${GLIMMER_SOURCE_DIR}/libglimmer/parallel_slap.F90   
       ${GLIMMER_SOURCE_DIR}/libglimmer/glimmer_horiz_bcs_serial.F90)
@@ -454,7 +475,7 @@ add_library(glimmercismfortran ${FORTRANSOURCES} ${SOURCEMODFILES})
 
 #####Build C++ Sources #####
 
-IF (NOT ${NO_TRILINOS})
+IF (CISM_USE_TRILINOS)
   add_subdirectory(libglimmer-trilinos)
 ENDIF()
 
