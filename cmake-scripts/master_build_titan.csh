@@ -11,7 +11,7 @@
 # (2) set the next two commands 
 
 #add logic at the top to decide which versions to build 
-setenv TEST_DIR "/tmp/work/$USER/higher-order"
+setenv TEST_DIR "/lustre/atlas/scratch/$USER/cli062/higher-order"
 setenv CODE_DIR "/ccs/home/$USER/PISCEES/trunk"
 cd $CODE_DIR
 # 0 is a successful build
@@ -206,8 +206,8 @@ else
   qsub ijob
 
   #evolving dome test case
-  #cd $TEST_DIR/reg_test/dome30/evolving
-  #qsub ijob
+  cd $TEST_DIR/reg_test/dome30/evolving
+  qsub ijob
 
   # ISMIP test case A 
   cd $TEST_DIR/reg_test/ismip-hom-a/80km
@@ -218,8 +218,8 @@ else
   qsub ijob
 
   # ISMIP test case C - not operational until BC set
-  #cd $TEST_DIR/reg_test/ismip-hom-c/80km
-  #qsub ijob
+  cd $TEST_DIR/reg_test/ismip-hom-c/80km
+  qsub ijob
 
   # confined shelf to periodic BC
   cd $TEST_DIR/reg_test/confined-shelf
