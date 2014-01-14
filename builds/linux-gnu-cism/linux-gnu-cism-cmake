@@ -1,0 +1,46 @@
+# cmake configuration script that works on the Linux box in Matt's office (blueskies) with GCC
+# Others will need to modify the Netcdf path.
+# This config script is setup to perform a parallel build WITHOUT Trilinos.
+# It could be modified to use Trilinos, if desired.
+#
+# After this executes, do:
+#   make -j 8
+#
+
+rm ./CMakeCache.txt
+
+echo
+echo "Doing CMake Configuration step"
+
+cmake \
+  -D CISM_USE_TRILINOS:BOOL=OFF \
+  -D CISM_COUPLED:BOOL=OFF \
+  -D CISM_MPI_MODE:BOOL=ON \
+  -D CISM_SERIAL_MODE:BOOL=OFF \
+  -D CISM_BUILD_SIMPLE_GLIDE:BOOL=ON \
+  -D CISM_BUILD_SIMPLE_FELIX:BOOL=OFF \
+  -D CISM_BUILD_SIMPLE_BISICLES:BOOL=OFF \
+  -D CISM_BUILD_GLINT_EXAMPLE:BOOL=OFF \
+  -D CISM_USE_GPTL_INSTRUMENTATION:BOOL=OFF \
+  -D CISM_USE_DEFAULT_IO:BOOL=OFF \
+  -D CISM_USE_CISM_FRONT_END:BOOL=OFF \
+\
+  -D CISM_GNU=ON \
+\
+  -D GLIMMER_NETCDF_DIR="/usr" \
+  -D GLIMMER_NETCDF_LIBS="netcdff" \
+  -D CMAKE_Fortran_FLAGS="-g -O2 -ffree-line-length-none -fPIC -fno-range-check" \
+  -D CMAKE_CXX_COMPILER=mpicxx \
+  -D CMAKE_C_COMPILER=mpicc \
+  -D CMAKE_Fortran_COMPILER=mpif90 \
+  -D GLIMMER_EXTRA_LIBS:STRING="-lblas" \
+\
+  -D CISM_MPI_BASE_DIR=/usr \
+  -D CISM_MPI_INC_DIR=/usr/lib/openmpi/lib \
+  -D CISM_MPI_LIB_DIR=/usr/lib/openmpi/lib \
+\
+  -D CMAKE_VERBOSE_MAKEFILE=OFF \
+  ../..
+
+# Note: last argument above  "../.."  is path to top seacism directory
+
