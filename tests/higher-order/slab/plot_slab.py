@@ -70,14 +70,12 @@ zprime = x[xp] * sin(thetar) + z * cos(thetar)
 #uvelStokesAnalyticScaled =  sin(theta * pi/180.0) * cos(theta * pi/180.0) * (0.5 * zprime**2 - zprime - 1.0/eta)
 uvelStokesAnalyticScaled = (-1)**n * 2**((1.0-n)/2.0) * sin(thetar)**n * cos(thetar) / (n+1) \
                 * ( (zprime - 1.0)**(n+1) - (-1.0)**(n+1) ) + sin(thetar) * cos(thetar) / eta
-uvelStokesAnalyticScaled = uvelStokesAnalyticScaled * cos(thetar)  # get the component in the CISM uvel direction 
 
 # Calculate the BP FO solution for x-component of velocity (Ducowicz, in prep. paper, Eq.30, n=3)
 #uvelFOAnalyticScaled = (tan(theta * pi/180.0))**3 / (8.0 * (1.0 + 3.0 * (sin(theta * pi/180.0)**2))**2) \
 uvelFOAnalyticScaled = (-1)**n * 2**((1.0-n)/2.0) * tan(thetar)**n /  \
                        ( (n + 1) * (1.0 + 3.0 * sin(thetar)**2)**((n+1.0)/2.0) )  \
                        * ( (zprime - 1.0)**(n+1) - (-1.0)**(n+1) ) + tan(thetar) / eta
-uvelFOAnalyticScaled = uvelFOAnalyticScaled * cos(thetar)  # get the component in the CISM uvel direction 
 
 ### 1. Plot as nondimensional variables
 # Plot analytic solution 
@@ -100,7 +98,7 @@ plt.plot(uvelStokesAnalyticScaled * velscale, z * thk[0,yp,xp] + topg[0,yp,xp], 
 plt.plot(uvelFOAnalyticScaled * velscale, z * thk[0,yp,xp] + topg[0,yp,xp], '-ko', label='Analytic FO')
 # Plot model results
 plt.plot(uvel[0,:,yp,xp], z * thk[0,yp,xp] + topg[0,yp,xp], '--ro', label='CISM') 
-plt.legend(loc='northwest')
+plt.legend(loc='best')
 plt.xlabel('velocity (m/yr)')
 plt.ylabel('elevation (m)')
 plt.title('Velocity profile at x=' + str(x0[xp]) + ' m, y=' + str(y0[yp]) + ' m\n(Unscaled coordinates)')
