@@ -9,14 +9,22 @@
 # Test case described in sections 5.1-2 of:
 # J.K. Dukoqicz, 2012. Reformulating the full-Stokes ice sheet model for a more efficient computational solution. The Cryosphere, 6, 21-34.
 # www.the-cryosphere.net/6/21/2012/
+# However, the implementation used here is based on a more recent unpublished manuscript by J. Dukowicz
+
+# === Physical parameters to adjust, if desired =======================
+n = 1 # flow law parameter - only the n=1 case is currently supported
+# (implementing the n=3 case would probably require implementing a new efvs option in CISM)
+rhoi = 910.0 # kg/m3
+grav = 9.1801 # m^2/s
 
 # === Test case parameters to adjust, if desired =======================
-theta = 18  # basal inclination angle (degrees)
-thickness = 1000.0  # m  thickness in the rotated coordinate sytem, not in CISM coordinates
+theta = 18  # basal inclination angle (degrees)  unpub. man. uses example with theta=18
+thickness = 1000.0  # m  thickness in the rotated coordinate system, not in CISM coordinates
 # =====================================================================
-efvs = 1.0e7      # hardcoded in CISM (10^7 Pa yr)
+efvs = 1.0e7      # hardcoded in CISM for constant viscosity setting (10^7 Pa yr)
 # =====================================================================
-beta = 18.0 / thickness * efvs  # Pa yr m^-1
+eta = 10.0   # unpub. man. uses example with eta=10.0
+beta = eta / thickness / efvs**-n / (rhoi * grav * thickness)**(n-1)  # Pa yr m^-1
 # Note: Fig. 3 in Ducowicz (2013) uses eta=18, where eta=beta*H/efvs
 # =====================================================================
 
@@ -86,9 +94,10 @@ if __name__ == '__main__':
   # Calculate the geometry of the slab of ice
   thk[:] = thickness / cos(theta * pi/180.0)
   baseElevation = 1000.0 # arbitrary height to keep us well away from sea level
+  xmax = x[:].max()
   for i in range(nx):
-    topg[0,:,i] = x[i] * tan(theta * pi/180.0) + baseElevation
-  offset = -1.0 * float(nx)*dx * tan(theta * pi/180.0)
+    topg[0,:,i] = (xmax - x[i]) * tan(theta * pi/180.0) + baseElevation
+  offset = 1.0 * float(nx)*dx * tan(theta * pi/180.0)
   parser.set('parameters', 'periodic_offset_ew', str(offset))
   #     Write the new configuration file
   configFile = open(configfile,'w')
