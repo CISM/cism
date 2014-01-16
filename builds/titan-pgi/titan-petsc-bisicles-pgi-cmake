@@ -41,20 +41,20 @@ module unload PrgEnv-cray PrgEnv-gnu PrgEnv-intel PrgEnv-pathscale PrgEnv-pgi
 module unload hdf5 
 module unload hdf5-parallel
 module unload netcdf
-module unload python
-module unload cray-shmem
-module unload cray-mpich2
+#module unload python
+#module unload cray-shmem
+#module unload cray-mpich2
 
 #module --silent purge
 
 module load modules
 module load cmake
 module load PrgEnv-pgi/
-module load hdf5-parallel
-module load netcdf-hdf5parallel
-module load python
-module load cray-shmem
-module load cray-mpich
+module load cray-hdf5-parallel
+module load cray-netcdf-hdf5parallel/4.2.1.1
+#module load python
+#module load cray-shmem
+#module load cray-mpich
 
 # remove old build data:
 rm ./CMakeCache.txt
