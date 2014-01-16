@@ -245,13 +245,21 @@ subroutine cism_run_dycore(model)
 
   time = model%numerics%tstart
   tstep_count = 0
- 
+
 
   ! ------------- Begin time step loop -----------------
  
   ! run an internal or external dycore, depending on setting external_dycore_type
   do while(time < model%numerics%tend)
 
+    ! TODO: need to fix program to get initialized climate variable
+    ! NOTE: these only do something when an EISMINT case is run
+    ! call simple_massbalance(climate,model,time)
+    ! call simple_surftemp(climate,model,time)
+ 
+    time = time + model%numerics%tinc
+    tstep_count = tstep_count + 1
+  
 ! print *,"external_dycore_type: ",model%options%external_dycore_type
 
     !if (model%options%external_dycore_type .EQ. 0) then      ! NO_EXTERNAL_DYCORE) then
@@ -291,7 +299,7 @@ subroutine cism_run_dycore(model)
       case default
     end select
     !endif
-    time = time + model%numerics%tinc
+
 
     ! write ice sheet diagnostics to log file at desired interval (model%numerics%dt_diag)
 
