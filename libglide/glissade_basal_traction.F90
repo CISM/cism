@@ -130,9 +130,6 @@ contains
 
 !TODO - Remove scaling here?
 
-!WHL - debug
-  print*, ' '
-  print*, 'In calcbeta, whichbabc =', whichbabc
 
   select case(whichbabc)
 

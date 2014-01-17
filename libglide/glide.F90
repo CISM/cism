@@ -138,6 +138,7 @@ contains
     use isostasy
     use glimmer_map_init
     use glimmer_coordinates, only: coordsystem_new
+    use glide_diagnostics, only: glide_init_diag
 !!    use fo_upwind_advect, only : fo_upwind_advect_init
 !!    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
 
@@ -349,6 +350,10 @@ contains
     ! function that might cause an error
 
     call register_model(model)
+
+    ! initialise model diagnostics                                                                                                                 \
+                                                                                                                                                  
+    call glide_init_diag(model)
 
 !WHL - debug
 !    print*, 'After glide_initialise:'

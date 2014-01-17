@@ -100,6 +100,7 @@ contains
     use glimmer_coordinates, only: coordsystem_new
     use glide_grid_operators, only: stagvarb
     use glissade_velo_higher, only: glissade_velo_higher_init
+    use glide_diagnostics, only: glide_init_diag
     use felix_dycore_interface, only: felix_velo_init
 
 !WHL - debug
@@ -340,6 +341,10 @@ contains
     ! of an error without needing to pass the whole thing around to every
     ! function that might cause an error
     call register_model(model)
+
+    ! initialise model diagnostics                                                                                                                 \
+                                                                                                                                                  
+    call glide_init_diag(model)
 
      !WHL - debug
     if (test_parallel) then

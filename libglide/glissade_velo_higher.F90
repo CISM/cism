@@ -171,8 +171,8 @@
 !    logical :: verbose_Jac = .true.
     logical :: verbose_residual = .false.
 !    logical :: verbose_residual = .true.
-    logical :: verbose_state = .false.
-!    logical :: verbose_state = .true.
+!    logical :: verbose_state = .false.
+    logical :: verbose_state = .true.
     logical :: verbose_load = .false.
 !    logical :: verbose_load = .true.
     logical :: verbose_shelf = .false.
@@ -192,11 +192,21 @@
 !WHL - debug
     logical :: trial_efvs = .false.   ! if true, compute what nonlinear efvs would be (if not constant)
 
+    integer :: itest, jtest    ! coordinates of diagnostic point
+    integer :: rtest           ! task number for processor containing diagnostic point
 
-    integer, parameter :: &
+    integer, parameter :: ktest = 1     ! vertical level of diagnostic point
+    integer, parameter :: ptest = 1     ! diagnostic quadrature point
+
+    !TODO - Compute ntest on the fly.
+    integer, parameter :: ntest = 1
+
+!    integer, parameter :: rtest = 0    ! rank for any single-process run
+!    integer, parameter :: rtest = 1
+
+!    integer, parameter :: &
 !       itest = 9, jtest = 19, ktest = 1, ptest = 1  ! for dome, global (i,j) = (7,17), 1 proc
-
-       itest = 26, jtest = 19, ktest = 1, ptest = 1  ! for dome, global (i,j) = (24,17), 1 proc
+!       itest = 26, jtest = 19, ktest = 1, ptest = 1  ! for dome, global (i,j) = (24,17), 1 proc
 !       integer, parameter :: ntest = 2371  ! nodeID for dome global (24,17,1)    
 
 !        itest = 8, jtest = 8, ktest = 1, ptest = 1    ! for block test, global (i,j) = (6,6)
@@ -217,7 +227,6 @@
 !       integer, parameter :: ntest = 73    ! for 5x5 test, northeast corner node at upper surface
 !       integer, parameter :: ntest = 48    ! for 4x4 test, northeast corner node at bed
 
-    integer, parameter :: ntest = 1
 !    integer, parameter :: ntest = 2372  ! nodeID for dome global (24,17,2)
 !    integer, parameter :: ntest = 2380  ! nodeID for dome global (24,17,10)
     
@@ -227,7 +236,6 @@
 !    integer, parameter :: ntest = 101  ! nodeID for confined (south-flowing) shelf, global (22,4,1)    
 !    integer, parameter :: ntest = 7701  ! nodeID for confined shelf global (22,40,1)    
 
-    integer, parameter :: rtest = 0    ! rank for any single-process run
 
 !WHL = debug
     integer, parameter :: rowtest = -999
@@ -744,8 +752,18 @@
        uvel_old, vvel_old,         &! uvel and vvel from previous iteration
        ucorr_old, vcorr_old         ! correction vectors from previous iteration
 
-    if (verbose) then
+    rtest = -999
+    itest = 1
+    jtest = 1
+    if (this_rank == model%numerics%rdiag_local) then
+       rtest = model%numerics%rdiag_local
+       itest = model%numerics%idiag_local
+       jtest = model%numerics%jdiag_local
+    endif
+
+    if (verbose .and. main_task) then
        print*, 'In glissade_velo_higher_solve'
+       print*, 'itest, jtest, ktest =', itest, jtest, ktest
     endif
 
     !--------------------------------------------------------
@@ -787,8 +805,6 @@
     !TODO - Add some comments about units for this module
     !--------------------------------------------------------
 
-    if (verbose) print*, 'Scale input'
-
     call glissade_velo_higher_scale_input(dx,     dy,      &
                                           thck,   usrf,    &
                                           topg,            &
@@ -827,8 +843,6 @@
        ssa_factor = 1.d0
     endif
 
-    print*, 'gn =', gn
-    print*, 'itest, jtest, ktest =', itest, jtest, ktest
 
     if (test_matrix) then
        call solve_test_matrix(test_order, whichsparse)
@@ -855,7 +869,6 @@
 
     if (verbose .and. main_task) then
        print*, ' '
-       print*, 'In glissade_velo_higher_solve'
        print*, 'nx, ny, nz:', nx, ny, nz
        print*, 'vol0:', vol0
        print*, ' '
@@ -894,7 +907,7 @@
        print*, 'Upper surface field, rank =', rtest
        do j = ny, 1, -1
           do i = 1, nx
-             write(6,'(f9.3)',advance='no') usrf(i,j)
+             write(6,'(f6.0)',advance='no') usrf(i,j)
           enddo
           write(6,*) ' '
        enddo
@@ -939,7 +952,7 @@
        print*, 'beta:'
        do j = ny-1, 1, -1
           do i = 1, nx-1
-             write(6,'(f8.0)',advance='no') beta(i,j)
+             write(6,'(e12.5)',advance='no') beta(i,j)
           enddo
           print*, ' '
        enddo
@@ -1048,6 +1061,7 @@
                              iNodeIndex,  jNodeIndex,  kNodeIndex)
 
 !WHL - debug
+    !TODO - Change to global node ID
     if (verbose_state .and. this_rank==rtest) then
        print*, ' '
        print*, 'NodeID before halo update, k = 1:'
@@ -1060,12 +1074,13 @@
     endif
 
     ! Assign the appropriate ID to nodes in the halo.
-    ! Note: This will work for single-processor runs with periodic BCs
+    ! NOTE: This will work for single-processor runs with periodic BCs
     !       (e.g., ISMIP-HOM), but not for multiple processors.
 
     call staggered_parallel_halo(NodeID)
 
 !WHL - debug
+    !TODO - Change to global node ID
     if (verbose_state .and. this_rank==rtest) then
        print*, ' '
        print*, 'NodeID after halo update, k = 1:'
@@ -1228,8 +1243,8 @@
                                 bu,               bv)
 
     !WHL - debug
-    print*, ' '
-    print*, 'After lateral BC, bv:'
+!    print*, ' '
+!    print*, 'After lateral BC, bv:'
 !    do n = 1, nNodesSolve
 !       i = iNodeIndex(n)
 !       j = jNodeIndex(n)
@@ -1883,7 +1898,7 @@
                                       resid_velo)
   
        if (verbose_state .and. this_rank==rtest) then
-!!       if (verbose_residual .and. this_rank==rtest) then
+!!       if verbose_residual .and. this_rank==rtest) then
 
           print*, ' '
           print*, 'whichresid, resid_velo =', whichresid, resid_velo
@@ -2585,8 +2600,8 @@
     !          if (.not. active_cell(i-1,j)) call lateral_bc('west')
     !            etc.
 !WHL - debug
-    print*, ' '
-    print*, 'In load_vector_lateral_bc'
+!    print*, ' '
+!    print*, 'In load_vector_lateral_bc'
 
     do j = nhalo+1, ny-nhalo+1
     do i = nhalo+1, nx-nhalo+1
@@ -3463,13 +3478,13 @@
 
     Jac(:,:) = 0.d0
 
-    if (verbose_Jac .and. i==itest .and. j==jtest .and. k==ktest) then
+    if (verbose_Jac .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
        print*, ' '
        print*, 'In get_basis_function_derivatives: i, j, k, p =', i, j, k, p
     endif
 
     do n = 1, nNodesPerElement
-       if (verbose_Jac .and. i==itest .and. j==jtest .and. k==ktest) then
+       if (verbose_Jac .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
           print*, 'n, dphi_d(xyz)r:', n, dphi_dxr(n), dphi_dyr(n), dphi_dzr(n) 
        endif
        Jac(1,1) = Jac(1,1) + dphi_dxr(n) * xNode(n)
@@ -3499,7 +3514,7 @@
 
     detJ = Jac(1,1)*cofactor(1,1) + Jac(1,2)*cofactor(1,2) + Jac(1,3)*cofactor(1,3)
 
-    if (verbose_Jac .and. i==itest .and. j==jtest .and. k==ktest) then
+    if (verbose_Jac .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
        print*, ' '
        print*, 'detJ1:', Jac(1,1)*cofactor(1,1) + Jac(1,2)*cofactor(1,2) + Jac(1,3)*cofactor(1,3)
        print*, 'detJ2:', Jac(2,1)*cofactor(2,1) + Jac(2,2)*cofactor(2,2) + Jac(2,3)*cofactor(2,3)
@@ -3524,7 +3539,7 @@
        stop
     endif
 
-    if (verbose_Jac .and. i==itest .and. j==jtest .and. k==ktest) then
+    if (verbose_Jac .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
        print*, ' '
        print*, 'Jacobian calc, p =', p
        print*, 'det J =', detJ
@@ -3597,7 +3612,7 @@
                                + Jinv(3,2)*dphi_dyr(n)  &
                                + Jinv(3,3)*dphi_dzr(n)
 
-       if (verbose_Jac .and. i==itest .and. j==jtest .and. k==ktest) then
+       if (verbose_Jac .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
           print*, 'n, dphi_d(xyz):', n, dphi_dx(n), dphi_dy(n), dphi_dz(n) 
        endif
 
@@ -3707,8 +3722,9 @@
         
     integer :: n
 
+
 !WHL - debug
-    if (verbose_efvs .and. i==itest .and. j==jtest .and. k==ktest) then
+    if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
        print*, ' '
        print*, 'Compute efvs, i, j, k, p =', i, j, k, p
     endif
@@ -3720,7 +3736,7 @@
 !WHL - debug
        if (trial_efvs) then
 
-          if (verbose_efvs .and. i==itest .and. j==jtest .and. k==ktest) then
+          if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
              print*, 'Computing trial efvs'
              print*, ' '
           endif
@@ -3767,7 +3783,7 @@
  
           efvs = flwafact * effstrain**p_effstr
 
-          if (verbose_efvs .and. i==itest .and. j==jtest .and. k==ktest) then
+          if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
 !             print*, 'effstrain_min (yr-1)=', effstrain_min
 !             print*, 'Trial du/dx, du/dy, du/dz (yr-1) =', du_dx, du_dy, du_dz
              print*, 'Trial dv/dx, dv/dy, dv/dz (yr-1) =', dv_dx, dv_dy, dv_dz
@@ -3843,7 +3859,7 @@
  
        efvs = flwafact * effstrain**p_effstr
 
-       if (verbose_efvs .and. i==itest .and. j==jtest .and. k==ktest) then
+       if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
 !          print*, 'effstrain_min (yr-1)=', effstrain_min
           print*, 'du/dx, du/dy, du/dz (yr-1) =', du_dx, du_dy, du_dz
           print*, 'dv/dx, dv/dy, dv/dz (yr-1) =', dv_dx, dv_dy, dv_dz
@@ -4117,7 +4133,9 @@
     !       With more care, we could skip some computations for vertices that are not locally owned.
 
     !WHL- debug
-    if (verbose_basal) print*, 'In basal_sliding_bc: itest, jtest =', itest, jtest
+    if (verbose_basal .and. this_rank==rtest) then 
+       print*, 'In basal_sliding_bc: itest, jtest, rank =', itest, jtest, rtest
+    endif
 
     do j = nhalo+1, ny-nhalo+1
     do i = nhalo+1, nx-nhalo+1
@@ -4271,13 +4289,13 @@
 
     Jac(:,:) = 0.d0
 
-    if (verbose_Jac .and. i==itest .and. j==jtest .and. k==ktest) then
+    if (verbose_Jac .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
        print*, ' '
        print*, 'In get_basis_function_derivatives_2d: i, j, k, p =', i, j, k, p
     endif
 
     do n = 1, nNodesPerElement_2d
-       if (verbose_Jac .and. i==itest .and. j==jtest .and. k==ktest) then
+       if (verbose_Jac .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
           print*, ' '
           print*, 'n, x, y:', n, xNode(n), yNode(n)
           print*, 'dphi_dxr, dphi_dyr:', dphi_dxr(n), dphi_dyr(n) 
@@ -4309,7 +4327,7 @@
        stop
     endif
 
-    if (verbose_Jac .and. i==itest .and. j==jtest .and. k==ktest) then
+    if (verbose_Jac .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
        print*, ' '
        print*, 'Jacobian calc, p =', p
        print*, 'det J =', detJ

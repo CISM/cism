@@ -76,6 +76,7 @@ contains
 !WHL - debug
       integer :: i, j        
 
+      real(dp) :: maxbeta, minbeta
       !-------------------------------------------------------------------
       ! Compute masks
       ! These masks will not change even if we iterate on the velocity
@@ -109,10 +110,18 @@ contains
 
       call staggered_parallel_halo(model%velocity%beta)
 
+      maxbeta = maxval(model%velocity%beta)
+      maxbeta = parallel_reduce_max(maxbeta)
+      minbeta = minval(model%velocity%beta)
+      minbeta = -parallel_reduce_max(-minbeta)
+
       !WHL - debug
-      print*, ' '
-      print*, 'After calcbeta: max, min of beta (Pa/(m/yr)) =', &
-           tau0/vel0/scyr * maxval(model%velocity%beta), tau0/vel0/scyr * minval(model%velocity%beta)
+      if (this_rank==model%numerics%rdiag_local) then
+         print*, ' '
+         print*, 'task, which_ho_babc =', this_rank, model%options%which_ho_babc
+         print*, 'After calcbeta: max, min of beta (Pa/(m/yr)) =', &
+              tau0/vel0/scyr * maxbeta, tau0/vel0/scyr * minbeta
+      endif
 
       !----------------------------------------------------------------
       ! Note: The glissade solver uses SI units.
@@ -127,20 +136,22 @@ contains
          !       These updates are done in subroutine glissade_diagnostic_variable_solve
          !        in module glissade.F90.
 
-         print*, ' '
-         print*, 'Call glissade_velo_higher_solve'
- 
+            
 !WHL - debug
-         print*, 'nx, ny =', model%general%ewn, model%general%nsn
-         print*, 'size(kinbcmask) =', size(model%velocity%kinbcmask,1), size(model%velocity%kinbcmask,2)
-         print*, ' '
-         print*, 'kinbcmask before halo update:'
-         do j = model%general%nsn-1, 1, -1
-            do i = 1, model%general%ewn-1
-               write(6,'(46i3)',advance='no') model%velocity%kinbcmask(i,j)
+         if (this_rank==model%numerics%rdiag_local) then
+            print*, ' '
+            print*, 'Call glissade_velo_higher_solve, task', this_rank
+            print*, 'nx, ny =', model%general%ewn, model%general%nsn
+            print*, 'size(kinbcmask) =', size(model%velocity%kinbcmask,1), size(model%velocity%kinbcmask,2)
+            print*, ' '
+!            print*, 'kinbcmask before halo update:'
+            do j = model%general%nsn-1, 1, -1
+               do i = 1, model%general%ewn-1
+!                  write(6,'(46i3)',advance='no') model%velocity%kinbcmask(i,j)
+               enddo
+!               write(6,*) ' '
             enddo
-            write(6,*) ' '
-         enddo
+         endif    ! main_task
 
          !WHL - Instead of assuming that kinbcmask is periodic, extrapolate
          !       the kinbcmask into the global halo region
@@ -150,28 +161,32 @@ contains
          call staggered_parallel_halo_extrapolate (model%velocity%kinbcmask)  ! = 1 for Dirichlet BCs
 
 !WHL - debug
-         print*, ' '
-         print*, 'kinbcmask after halo update:'
-         do j = model%general%nsn-1, 1, -1
-            do i = 1, model%general%ewn-1
-               write(6,'(46i3)',advance='no') model%velocity%kinbcmask(i,j)
+         if (this_rank==model%numerics%rdiag_local) then
+            print*, ' '
+!            print*, 'kinbcmask after halo update:'
+            do j = model%general%nsn-1, 1, -1
+               do i = 1, model%general%ewn-1
+!                  write(6,'(46i3)',advance='no') model%velocity%kinbcmask(i,j)
+               enddo
+!               write(6,*) ' '
             enddo
-            write(6,*) ' '
-         enddo
+         endif
 
          call glissade_velo_higher_solve(model,                                             &
                                          model%general%ewn,      model%general%nsn,         &
                                          model%general%upn)
 
 !WHL - debug
-!         print*, ' '
-!         print*, 'efvs (Pa yr, k = 1):'
-         do j = model%general%nsn, 1, -1
-            do i = 1, model%general%ewn
-!               write(6,'(8e10.2)',advance='no') model%stress%efvs(1,i,j) * evs0/scyr
+         if (this_rank==model%numerics%rdiag_local) then
+!            print*, ' '
+!            print*, 'efvs (Pa yr, k = 1):'
+            do j = model%general%nsn, 1, -1
+               do i = 1, model%general%ewn
+!                  write(6,'(8e10.2)',advance='no') model%stress%efvs(1,i,j) * evs0/scyr
+               enddo
+!               write(6,*) ' '
             enddo
-!            write(6,*) ' '
-         enddo
+         endif
 
       else if ( model%options%which_ho_nonlinear == HO_NONLIN_JFNK ) then ! JFNK
 

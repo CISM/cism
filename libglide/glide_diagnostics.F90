@@ -97,9 +97,7 @@ contains
 
           call glide_write_diag(model,                 &
                                 time,                  &
-                                minthick,              &
-                                model%numerics%idiag,  &
-                                model%numerics%jdiag)
+                                minthick)
        endif
 
     elseif (present(tstep_count) .and. model%numerics%ndiag > 0) then  ! decide based on ndiag
@@ -107,9 +105,7 @@ contains
        if (mod(tstep_count, model%numerics%ndiag) == 0)  then          ! time to write
           call glide_write_diag(model,                 &
                                 time,                  &
-                                minthick,              &
-                                model%numerics%idiag,  &
-                                model%numerics%jdiag)
+                                minthick)
        endif
 
     endif    ! dt_diag > 0
@@ -118,12 +114,91 @@ contains
  
 !--------------------------------------------------------------------------
 
+  subroutine glide_init_diag (model)
+
+    use parallel
+
+    implicit none
+
+    ! input/output arguments
+
+    type(glide_global_type), intent(inout) :: model    ! model instance
+
+    ! local variables
+
+    integer ::   &
+         global_row, global_col      ! global row and column indices for diagnostic point
+
+    integer :: i, j
+
+    character(len=100) :: message
+
+    !-----------------------------------------------------------------
+    ! Determine whether global diagnostic point is on this processor.
+    !-----------------------------------------------------------------
+
+    model%numerics%rdiag_local = -999
+    model%numerics%idiag_local = -999
+    model%numerics%jdiag_local = -999
+
+    ! loop over gridcells owned by this processor
+    do j = lhalo+1, model%general%nsn-uhalo
+       do i = lhalo+1, model%general%ewn-uhalo
+          global_row = (j - lhalo) + global_row_offset
+          global_col = (i - lhalo) + global_col_offset
+          if (global_col == model%numerics%idiag .and.   &
+              global_row == model%numerics%jdiag) then   ! diag point lives on this processor
+             model%numerics%rdiag_local = this_rank
+             model%numerics%idiag_local = i 
+             model%numerics%jdiag_local = j 
+          endif
+       enddo   ! i
+    enddo   ! j
+
+    !-----------------------------------------------------------------
+    ! Communicate this information to the main processor.
+    !-----------------------------------------------------------------
+    !NOTE: At present, the broadcast subroutines allow broadcasts only from main_task,
+    !       not from other processors.
+    !      So the way we get info to main_task is by parallel reductions.
+    !TODO: Allow global broadcasts from all processors.
+    !-----------------------------------------------------------------
+
+    model%numerics%rdiag_local = parallel_reduce_max(model%numerics%rdiag_local)
+    model%numerics%idiag_local = parallel_reduce_max(model%numerics%idiag_local)
+    model%numerics%jdiag_local = parallel_reduce_max(model%numerics%jdiag_local)
+
+    if (main_task) then
+
+       write(message,'(a25,2i6)') 'Global idiag, jdiag:     ',   &
+                                   model%numerics%idiag, model%numerics%jdiag
+       call write_log(trim(message), type = GM_DIAGNOSTIC)
+
+       write(message,'(a25,3i6)') 'Local idiag, jdiag, task:',   &
+                                   model%numerics%idiag_local,  &
+                                   model%numerics%jdiag_local,  &
+                                   model%numerics%rdiag_local
+       call write_log(trim(message), type = GM_DIAGNOSTIC)
+
+       !WHL - debug
+       write(6,'(a25,2i6)') 'Global idiag, jdiag:     ',   &
+                             model%numerics%idiag, model%numerics%jdiag
+       write(6,'(a25,3i6)') 'Local idiag, jdiag, task:',   &
+                             model%numerics%idiag_local,  &
+                             model%numerics%jdiag_local,  &
+                             model%numerics%rdiag_local
+
+    endif  ! main_task
+
+  end subroutine glide_init_diag
+
+!--------------------------------------------------------------------------
+
   subroutine glide_write_diag (model,       time,         &
-                               minthick,                  &
-                               idiag,       jdiag)
+                               minthick)
 
     ! Write global diagnostics
-    ! Optionally, write local diagnostics for a selected grid cell
+    ! Also write local diagnostics for a selected grid cell
  
     use parallel
 
@@ -140,11 +215,7 @@ contains
     real(dp), intent(in)  :: &
          minthick          ! ice thickness threshold (m) for including in diagnostics
 
-    integer, intent(in), optional :: &
-         idiag, jdiag         ! i,j indices for diagnostics (on full grid)
-                              ! indices will generally be different on local processor
- 
-    ! local arguments
+    ! local variables
 
     real(dp) ::                         &
          tot_area,                      &    ! total ice area (km^2)
@@ -193,9 +264,7 @@ contains
        unphys_val = -999999.d0   ! unphysical negative number
  
     integer ::   &
-         global_row, global_col,    &! global row and column indices for diagnostic point
-         idiag_local, jdiag_local,  &! local indices of diagnostic point 
-         rdiag_local                 ! this_rank for diagnostic point
+         global_row, global_col  ! global row and column indices for diagnostic point
 
     ewn = model%general%ewn
     nsn = model%general%nsn
@@ -219,45 +288,6 @@ contains
 !       not from other processors.
 !      So the way we get info to main_task is by parallel reductions.
 !TODO: Support broadcasting from tasks other than main.
-
-    !-----------------------------------------------------------------
-    ! Determine whether global diagnostic point is on this processor.
-    ! If so, communicate this information to the main processor.
-    !-----------------------------------------------------------------
-
-    if (present(idiag) .and. present(jdiag)) then
-
-       rdiag_local = -999
-       idiag_local = -999
-       jdiag_local = -999
-
-       if (idiag >= 1 .and. idiag <= global_ewn  &
-                      .and.                             &
-           jdiag >= 1 .and. jdiag <= global_nsn) then
-
-          ! loop over gridcells owned by this processor
-          do j = lhalo+1, nsn-uhalo
-          do i = lhalo+1, ewn-uhalo
-             global_row = (j - lhalo) + global_row_offset
-             global_col = (i - lhalo) + global_col_offset
-             if (global_col == idiag .and.   &
-                 global_row == jdiag) then   ! diag point lives on this processor
-                rdiag_local = this_rank
-                idiag_local = i 
-                jdiag_local = j 
-             endif
-          enddo   ! i
-          enddo   ! j
-
-       else
-          call write_log('Error, global diagnostic point (idiag, jdiag) is out of bounds', GM_FATAL)
-       endif      ! diagnostic point in bounds
-
-       rdiag_local = parallel_reduce_max(rdiag_local)
-       idiag_local = parallel_reduce_max(idiag_local)
-       jdiag_local = parallel_reduce_max(jdiag_local)
-
-    endif         ! present(idiag, jdiag)
 
     !-----------------------------------------------------------------
     ! Compute and write global diagnostics
@@ -612,14 +642,16 @@ contains
     spd_diag (:)  = unphys_val
     lithtemp_diag(:) = unphys_val    
 
-    if (present(idiag) .and. present(jdiag)) then
-
-       ! Set local diagnostic values, and communicate them to main_task
+    ! Set local diagnostic values, and communicate them to main_task
        
-       if (this_rank == rdiag_local) then
+    if (model%numerics%idiag_local >= 1 .and. model%numerics%idiag_local <= ewn  &
+                                        .and.                                    &
+        model%numerics%jdiag_local >= 1 .and. model%numerics%jdiag_local <= nsn) then
 
-          i = idiag_local
-          j = jdiag_local
+       if (this_rank == model%numerics%rdiag_local) then
+
+          i = model%numerics%idiag_local
+          j = model%numerics%jdiag_local
           usrf_diag = model%geometry%usrf(i,j)*thk0
           thck_diag = model%geometry%thck(i,j)*thk0
           topg_diag = model%geometry%topg(i,j)*thk0
@@ -629,12 +661,12 @@ contains
           bmlt_diag = model%temper%bmlt(i,j) * thk0*scyr/tim0
           bwat_diag = model%temper%bwat(i,j) * thk0
           bheatflx_diag = model%temper%bheatflx(i,j)
-  
+       
           temp_diag(:) = model%temper%temp(1:upn,i,j)          
           spd_diag(:) = sqrt(model%velocity%uvel(1:upn,i,j)**2   &
                            + model%velocity%vvel(1:upn,i,j)**2) * vel0*scyr
           if (model%options%gthf == GTHF_COMPUTE) &
-             lithtemp_diag(:) = model%lithot%temp(i,j,:)
+               lithtemp_diag(:) = model%lithot%temp(i,j,:)
        endif
 
        usrf_diag = parallel_reduce_max(usrf_diag)
@@ -657,11 +689,14 @@ contains
        enddo
 
        call write_log(' ')
-       write(message,'(a39,2i4)')  &
-            'Grid point diagnostics: (i,j) =', idiag, jdiag
+       write(message,'(a39,2i6)')  &
+            'Grid point diagnostics: (i,j) =', model%numerics%idiag, &
+                                               model%numerics%jdiag
        call write_log(trim(message), type = GM_DIAGNOSTIC)
-       write(message,'(a39,3i4)')  &
-            '                  Local (i,j,rank) =', idiag_local, jdiag_local, rdiag_local
+       write(message,'(a39,3i6)')  &
+            'Local (i,j,rank) =             ', model%numerics%idiag_local, &
+                                               model%numerics%jdiag_local, &
+                                               model%numerics%rdiag_local
        call write_log(trim(message), type = GM_DIAGNOSTIC)
        call write_log(' ')
  
@@ -749,7 +784,7 @@ contains
 
        endif  ! gthf_compute
 
-    endif     ! idiag and jdiag present
+    endif     ! idiag_local and jdiag_local in bounds
 
     call write_log(' ')
 

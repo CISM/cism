@@ -57,7 +57,7 @@ module glimmer_physcon
   real(dp),parameter :: rearth  = 6.37122d6      ! radius of earth (m)
   real(dp),parameter :: grav = 9.81d0            !< The acceleration due to gravity (m s<SUP>-2</SUP>)
 
-  integer, parameter :: gn = 3                   !< The power dependency of Glenn's flow law.
+  integer, parameter :: gn = 3                   !< The power dependency of Glen's flow law.
 
   real(dp),parameter :: arrmlh = 1.733d3         !< Constant of proportionality in Arrhenius relation
                                                  !< in \texttt{patebudd}, for \f$T^{*}\geq263\f$K.

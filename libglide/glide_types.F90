@@ -932,8 +932,12 @@ module glide_types
 
     real(dp) :: dt_diag = 0.d0     ! diagnostic time interval (write diagnostics every dt_diag years)
     integer  :: ndiag = -999       ! diagnostic period (write output every ndiag steps)
-    integer  :: idiag = 1          ! grid indices for diagnostic point
-    integer  :: jdiag = 1          ! These are for the full grid; indices may vary on local processor
+    integer  :: idiag = 1          ! global grid indices for diagnostic point
+    integer  :: jdiag = 1          ! 
+    integer  :: idiag_local = 1    ! local grid indices for diagnostic point
+    integer  :: jdiag_local = 1
+    integer  :: rdiag_local = 0    ! task number for diagnostic point
+
   end type glide_numerics
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

@@ -529,10 +529,12 @@ contains
        call write_log(message)
     endif
 
-    write(message,*) 'idiag               : ',model%numerics%idiag
-    call write_log(message)
-    write(message,*) 'jdiag               : ',model%numerics%jdiag
-    call write_log(message)
+     !WHL - Written to log in glide_init_diag
+!    write(message,*) 'idiag               : ',model%numerics%idiag
+!    call write_log(message)
+!    write(message,*) 'jdiag               : ',model%numerics%jdiag
+!    call write_log(message)
+
     call write_log('')
 
   end subroutine print_time
@@ -814,12 +816,17 @@ contains
 
     endif
 
-    if (model%options%whichdycore /= DYCORE_GLISSADE) then 
 
+    if (tasks > 1 .and. (model%options%which_ho_sparse==HO_SPARSE_BICG  .or.  &
+                         model%options%which_ho_sparse==HO_SPARSE_GMRES .or.  &
+                         model%options%which_ho_sparse==HO_SPARSE_PCG_INCH) ) then
+       call write_log('Error, SLAP solver not supported for more than one processor', GM_FATAL)
+    end if
+
+    if (model%options%whichdycore /= DYCORE_GLISSADE) then 
        if (model%options%which_ho_sparse == HO_SPARSE_PCG_STRUC) then
           call write_log('Error, structured PCG solver requires glissade dycore')
        endif
-
     endif
 
     ! Forbidden options associated with Glam dycore
