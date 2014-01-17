@@ -20,6 +20,10 @@ setenv build_no 0
 setenv build_autoconf 1
 setenv build_cmake 1
 
+#flags set for regression and performance suites
+setenv REG_TEST 1
+setenv PERF_TEST 0
+
 mkdir -p $TEST_DIR
 
 # even if these are set in your env you need these when running the script
@@ -196,51 +200,80 @@ endif # build with cmake option
 
 # execute tests on titan
 # TODO the small jobs need to be combined into one ijob submission to get through the queue
-if ($build_no == 1 ) then
-  echo "no job sumbitted, build/builds failed"
+i
+#if ($build_no == 1 ) then
+#  echo "no job sumbitted, build/builds failed"
+#else
+  # simplest case, runs all builds and on a range of small processor counts 
+#  echo 'submitting jobs to compute nodes'
+
+
+
+if ($REG_TEST == 0 ) then
+  echo "no regression suite jobs submitted"
 else
   # simplest case, runs all builds and on a range of small processor counts 
-  echo 'submitting jobs to compute nodes'
-  #diagnostic dome test case
+  echo 'submitting regression jobs to compute nodes'
+    
+  #diagnostic dome 30 test case
   cd $TEST_DIR/reg_test/dome30/diagnostic
   qsub ijob
-
-  #evolving dome test case
+    
+  #evolving dome 30 test case
   cd $TEST_DIR/reg_test/dome30/evolving
   qsub ijob
-
-  # ISMIP test case A 
-  cd $TEST_DIR/reg_test/ismip-hom-a/80km
-  qsub ijob
-
-  # ISMIP test case A 
-  cd $TEST_DIR/reg_test/ismip-hom-a/20km
-  qsub ijob
-
-  # ISMIP test case C - not operational until BC set
-  cd $TEST_DIR/reg_test/ismip-hom-c/80km
-  qsub ijob
-
-  # confined shelf to periodic BC
+    
+  #confined shelf to periodic BC
   cd $TEST_DIR/reg_test/confined-shelf
   qsub ijob
-
-  # circular shelf to periodic BC
+    
+  #circular shelf to periodic BC
   cd $TEST_DIR/reg_test/circular-shelf
   qsub ijob
-
-  # smaller GIS case to test realistic ice sheet configuration
-  #cd $TEST_DIR/reg_test/gis_10km
+    
+  #ISMIP 80 test case A 
+  cd $TEST_DIR/reg_test/ismip-hom-a/80km
+  qsub ijob
+    
+  # ISMIP 20 test case A 
+  cd $TEST_DIR/reg_test/ismip-hom-a/20km
+  qsub ijob
+    
+  # ISMIP test case C - not operational until BC set
+  #cd $TEST_DIR/reg_test/ismip-hom-c/80km
   #qsub ijob
-
-  # non regression test cases, default not run: 
-  # large but not challenging case, to test large processor counts, not yet configured for titan
-  #cd $TEST_DIR/dome500
-  #qsub hopjob
-
-  # high resolution GIS case to test realistic ice sheet configuration and longer time series, current setup gives
-  #convergence problems
-  #cd $TEST_DIR/gis_5km
-  #qsub hopjob
+    
+  # smaller GIS case to test realistic ice sheet configuration
+  cd $TEST_DIR/reg_test/gis_10km
+  qsub ijob
 endif
+    
+if ($PERF_TEST == 0 ) then
+  echo "no performance suite jobs submitted"
+else
+  echo 'submitting performance jobs to compute nodes'
 
+#dome 30 test case
+  cd $TEST_DIR/perf_test/dome30
+  qsub ijob
+
+#dome 60 test case
+  cd $TEST_DIR/perf_test/dome60
+  qsub ijob
+
+#dome 120 test case
+  cd $TEST_DIR/perf_test/dome120
+  qsub ijob
+
+#dome 240 test case
+  cd $TEST_DIR/perf_test/dome240
+  qsub ijob
+
+#dome 500 test case
+  cd $TEST_DIR/perf_test/dome500
+  qsub ijob
+
+#dome 1000 test case
+  cd $TEST_DIR/perf_test/dome1000
+  qsub ijob
+endif
