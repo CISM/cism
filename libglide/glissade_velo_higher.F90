@@ -248,6 +248,7 @@
       Krowtest=1, Kcoltest=2
 
     logical, parameter :: write_matrix = .false.
+!    logical, parameter :: write_matrix = .true.
 !    character(*), parameter :: matrix_label = 'ishomC_block'   ! Change depending on the case we're running
 !    character(*), parameter :: matrix_label = 'block'   ! Change depending on the case we're running
 !    character(*), parameter :: matrix_label = 'ishomC_periodic'   ! Change depending on the case we're running
@@ -1015,6 +1016,30 @@
        enddo
     enddo
 
+!WHL - debug
+    if (verbose_state .and. this_rank==rtest) then
+       print*, ' '
+       print*, 'ocean_cell, rank =', rtest
+       do j = ny-1, 1, -1
+          do i = 1, nx-1
+             write(6,'(L3)',advance='no') ocean_cell(i,j)
+          enddo
+          print*, ' '
+       enddo
+    endif
+
+!WHL - debug
+    if (verbose_state .and. this_rank==rtest) then
+       print*, ' '
+       print*, 'floating_cell, rank =', rtest
+       do j = ny-1, 1, -1
+          do i = 1, nx-1
+             write(6,'(L3)',advance='no') floating_cell(i,j)
+          enddo
+          print*, ' '
+       enddo
+    endif
+
     !------------------------------------------------------------------------------
     ! Compute ice thickness and upper surface on staggered grid
     ! (requires that thck and usrf are up to date in halo cells)
@@ -1227,6 +1252,16 @@
                              xVertex,          yVertex,         &
                              stagusrf,         stagthck,        &
                              bu,               bv)
+
+    !WHL - debug
+!    print*, ' '
+!    print*, 'After gravity, bv:'
+!    do n = 1, nNodesSolve
+!       i = iNodeIndex(n)
+!       j = jNodeIndex(n)
+!       k = kNodeIndex(n) 
+!       print*, n, bv(k,i,j)
+!    enddo
 
     !------------------------------------------------------------------------------
     ! lateral pressure at vertical ice edge
@@ -2963,10 +2998,10 @@
           !  this quadrature point.
           ! Increment bu for east/west faces and bv for north/south faces.
 
-          if (trim(face) == 'west') then  ! net force in -x direction
+          p_av = 0.5*rhoi*grav*hqp &     ! p_out
+               - 0.5*rhoo*grav*hqp * (1.d0 - min(sqp/hqp,1.d0))**2   ! p_in
 
-             p_av = 0.5*rhoi*grav*hqp &     ! p_out
-                  - 0.5*rhoo*grav*hqp * (1.d0 - min(sqp/hqp,1.d0))**2   ! p_in
+          if (trim(face) == 'west') then  ! net force in -x direction
 
              do n = 1, nNodesPerElement_2d
 
@@ -3019,6 +3054,10 @@
                 if (verbose_shelf .and. this_rank==rtest .and. iCell==itest .and. jCell==jtest .and. k==ktest) then
                    print*, 'n, p, phi_2d(n,p), delta(bv):', n, p, phi_2d(n,p), &
                             p_av * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
+!WHL - debug
+!!                if (verbose_shelf .and. this_rank==rtest .and. k==ktest) then
+!!                   print*, 'i, j, n, p, p_av, delta(bv):', iCell, jCell, n, p, p_av, &
+!!                            p_av * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
                 endif
 
              enddo
