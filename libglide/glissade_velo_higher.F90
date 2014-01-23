@@ -1628,8 +1628,7 @@
 
 !WHL - debug - print out some matrix values for test point
 
-!!       if (verbose_matrix .and. this_rank==rtest) then
-       if (verbose .and. this_rank==rtest) then
+       if (verbose_matrix .and. this_rank==rtest) then
           i = itest
           j = jtest
           k = ktest
@@ -1787,10 +1786,10 @@
           ! preprocessing is not needed because the matrix, rhs, and solution already
           ! have the required data structure
 
-          if (verbose .and. this_rank==rtest) then
-             print*, ' '
-             print*, 'Calling structured PCG solver'
-          endif
+!          if (verbose .and. this_rank==rtest) then
+!             print*, ' '
+!             print*, 'Calling structured PCG solver'
+!          endif
 
           !------------------------------------------------------------------------
           ! Call linear PCG solver, compute uvel and vvel on local processor
@@ -1806,7 +1805,7 @@
                                      whichprecond, err,           &
                                      niters)
 
-          if (verbose) then
+          if (verbose .and. this_rank==rtest) then
              print*, 'Solved the linear system, niters, err =', niters, err
           endif
 
@@ -1869,7 +1868,7 @@
           call sparse_easy_solve(matrix, rhs,    answer,  &
                                  err,    niters, whichsparse)
 
-          if (verbose) then
+          if (verbose .and. this_rank==rtest) then
              print*, 'Solved the linear system, niters, err =', niters, err
              print*, ' '
 !!             print*, 'n, u, v (m/yr):', ntest, answer(2*ntest-1), answer(2*ntest)
@@ -2500,7 +2499,7 @@
                 z(n) = stagusrf(iNode,jNode) - sigma(kNode)*stagthck(iNode,jNode)
                 s(n) = stagusrf(iNode,jNode)
  
-                if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+                if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
 !!                   print*, ' '
                    print*, 'i, j, k, n, x, y, z, s:', i, j, k, n, x(n), y(n), z(n), s(n)
 !!                   print*, 'iNode, jNode, kNode, sigma:', iNode, jNode, kNode, sigma(kNode)
@@ -3374,21 +3373,12 @@
           enddo   ! nQuadPoints
 
 !WHL - debug
-          if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+          if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
              print*, ' '
              print*, 'Kvv: i, j, k =', i, j, k 
              do jj = 1, nNodesPerElement
                 write(6,'(i4,8e18.11)') jj, Kvv(1:8,jj)
              enddo
-          endif
-
-!WHL - debug
-          if (verbose .and. this_rank==rtest .and. i==itest+1 .and. j==jtest .and. k==ktest) then
-!             print*, ' '
-!             print*, 'Kvv: i, j, k =', i, j, k 
-!             do jj = 1, nNodesPerElement
-!                write(6,'(i4,8e18.11)') jj, Kvv(1:8,jj)
-!             enddo
           endif
 
           if (check_symmetry) then
@@ -5731,7 +5721,7 @@
 !!                            print*, 'Auu, i, j, k, iA, jA, kA, val1, val2:', i, j, k, iA, jA, kA, val1, val2
                          else
                             print*, ' '
-                            print*, 'Auu is not symmetric: i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
+                            print*, 'WARNING: Auu is not symmetric: i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
                             print*, 'Auu(row,col), Auu(col,row), diff:', val1, val2, val2 - val1
 !!                            stop  !TODO - Put in a proper abort
                          endif
@@ -5757,9 +5747,9 @@
 !!                            print*, 'Auv, i, j, k, iA, jA, kA, val1, val2:', i, j, k, iA, jA, kA, val1, val2
                          else
                             print*, ' '
-                            print*, 'Auv is not equal to (Avu)^T, i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
+                            print*, 'WARNING: Auv is not equal to (Avu)^T, i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
                             print*, 'Auv(row,col), Avu(col,row), diff:', val1, val2, val2 - val1
-                            stop  !TODO - Put in a proper abort
+!!                            stop  !TODO - Put in a proper abort
                          endif
 
                       endif  ! val2 /= val1
@@ -5803,9 +5793,9 @@
 !!                            print*, 'Avv, i, j, k, iA, jA, kA, val1, val2:', i, j, k, iA, jA, kA, val1, val2
                          else
                             print*, ' '
-                            print*, 'Avv is not symmetric: i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
+                            print*, 'WARNING: Avv is not symmetric: i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
                             print*, 'Avv(row,col), Avv(col,row), diff:', val1, val2, val2 - val1
-                            stop  !TODO - Put in a proper abort
+!!                            stop  !TODO - Put in a proper abort
                          endif
 
                       endif   ! val2 /= val1
