@@ -316,7 +316,7 @@ module glide_types
     !*FD \begin{description} 
     !*FD \item[0] Set equal to $1\times 10^{-16}\,\mathrm{yr}^{-1}
     !*FD \item[1] \emph{Paterson and Budd} relationship, 
-    !*FD with temperature set to $-10^{\circ}\mathrm{C}$ 
+    !*FD with temperature set to $-5^{\circ}\mathrm{C}$ 
     !*FD \item[2] \emph{Paterson and Budd} relationship 
     !*FD \,\mathrm{Pa}^{-n}$
     !*FD \end{description}
