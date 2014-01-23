@@ -175,8 +175,8 @@
     logical :: verbose_state = .true.
     logical :: verbose_load = .false.
 !    logical :: verbose_load = .true.
-    logical :: verbose_shelf = .false.
-!    logical :: verbose_shelf = .true.
+!    logical :: verbose_shelf = .false.
+    logical :: verbose_shelf = .true.
     logical :: verbose_matrix = .false.
 !    logical :: verbose_matrix = .true.
     logical :: verbose_basal = .false.
@@ -625,9 +625,12 @@
        whichsparse, &           ! option for method of doing elliptic solve
                                 ! (BiCG, GMRES, standalone Trilinos, etc.)
        whichbabc,  &            ! option for basal boundary condition
-       whichapprox              ! option for which Stokes approximation to use
+       whichapprox, &           ! option for which Stokes approximation to use
                                 ! 0 = SIA, 1 = SSA, 2 = Blatter-Pattyn HO
                                 ! default = 2
+       whichprecond             ! option for which preconditioner to use with 
+                                !  structured PCG solver
+                                ! 0 = none, 1 = diag, 2 = SIA
 
     !--------------------------------------------------------
     ! Local parameters
@@ -795,12 +798,13 @@
 
      kinbcmask => model%velocity%kinbcmask(:,:)
 
-     whichefvs   = model%options%which_ho_efvs
-     whichresid  = model%options%which_ho_resid
-     whichsparse = model%options%which_ho_sparse
-     whichapprox = model%options%which_ho_approx
-     whichbabc   = model%options%which_ho_babc
-
+     whichefvs    = model%options%which_ho_efvs
+     whichresid   = model%options%which_ho_resid
+     whichsparse  = model%options%which_ho_sparse
+     whichbabc    = model%options%which_ho_babc
+     whichapprox  = model%options%which_ho_approx
+     whichprecond = model%options%which_ho_precond
+     
     !--------------------------------------------------------
     ! Convert input variables to appropriate units for this solver
     !TODO - Add some comments about units for this module
@@ -1020,8 +1024,8 @@
     if (verbose_state .and. this_rank==rtest) then
        print*, ' '
        print*, 'ocean_cell, rank =', rtest
-       do j = ny-1, 1, -1
-          do i = 1, nx-1
+       do j = ny, 1, -1
+          do i = 1, nx
              write(6,'(L3)',advance='no') ocean_cell(i,j)
           enddo
           print*, ' '
@@ -1032,8 +1036,8 @@
     if (verbose_state .and. this_rank==rtest) then
        print*, ' '
        print*, 'floating_cell, rank =', rtest
-       do j = ny-1, 1, -1
-          do i = 1, nx-1
+       do j = ny, 1, -1
+          do i = 1, nx
              write(6,'(L3)',advance='no') floating_cell(i,j)
           enddo
           print*, ' '
@@ -1287,6 +1291,10 @@
 !       print*, n, bv(k,i,j)
 !    enddo
 
+!WHL - debug - adjust bu and bv.
+!!    bu(:,:,:) = bu(:,:,:) / 1.09d0
+!!    bv(:,:,:) = bv(:,:,:) / 1.09d0
+
     !------------------------------------------------------------------------------
     ! main outer loop: iteration to solve the nonlinear problem
     !------------------------------------------------------------------------------
@@ -1447,9 +1455,6 @@
 !       print*, n, bv(k,i,j)
 !    enddo
 
-!WHL - debug - adjust bv.
-!      For small shelf, small changes in bv have a weirdly large effect on the flow.
-!!    bv(:,:,:) = bv(:,:,:) / 1.001
 !WHL - debug
     if (verbose_matrix .and. this_rank==rtest) then
 !       print*, ' '
@@ -1791,22 +1796,25 @@
           ! Call linear PCG solver, compute uvel and vvel on local processor
           !------------------------------------------------------------------------
 
-          call pcg_solver_structured(nx,        ny,            &
-                                     nz,        nhalo,         &
-                                     indxA,     active_vertex, &
-                                     Auu,       Auv,           &
-                                     Avu,       Avv,           &
-                                     bu,        bv,            &
-                                     uvel,      vvel,          &
-                                     err,       niters)
+          call pcg_solver_structured(nx,           ny,            &
+                                     nz,           nhalo,         &
+                                     indxA,        active_vertex, &
+                                     Auu,          Auv,           &
+                                     Avu,          Avv,           &
+                                     bu,           bv,            &
+                                     uvel,         vvel,          &
+                                     whichprecond, err,           &
+                                     niters)
+
+          if (verbose) then
+             print*, 'Solved the linear system, niters, err =', niters, err
+          endif
 
           ! Halo updates for uvel and vvel
           !TODO - Put these after the 'endif'?
 
           call staggered_parallel_halo(uvel)
           call staggered_parallel_halo(vvel)
-!          call horiz_bcs_stag_vector_ew(uvel)
-!          call horiz_bcs_stag_vector_ns(vvel)
 
        elseif (whichsparse /= STANDALONE_TRILINOS_SOLVER) then   ! one-processor SLAP solve   
           
@@ -1884,8 +1892,6 @@
 
           call staggered_parallel_halo(uvel)
           call staggered_parallel_halo(vvel)
-!          call horiz_bcs_stag_vector_ew(uvel)
-!          call horiz_bcs_stag_vector_ns(vvel)
 
 #ifdef TRILINOS
        else    ! solve with Trilinos
@@ -1902,15 +1908,6 @@
 
 !WHL - bug check
        if (verbose .and. this_rank==rtest) then
-
-!          i = itest+1
-!          j = jtest
-!          print*, ' '
-!          print*, 'After postprocess: rank, i, j =', this_rank, i, j
-!          print*, 'k, uvel, vvel (m/yr):'
-!          do k = 1, nz
-!             print*, k, uvel(k,i,j), vvel(k,i,j)               
-!          enddo
 
           i = itest
           j = jtest
@@ -1938,21 +1935,22 @@
           print*, ' '
           print*, 'whichresid, resid_velo =', whichresid, resid_velo
 
-          print*, ' '
-          print*, 'uvel - usav, k = 1:'
+!          print*, ' '
+!          print*, 'uvel - usav, k = 1:'
           do j = ny-1, 1, -1
              do i = 1, nx-1
-                write(6,'(f6.2)',advance='no') (uvel(1,i,j) - usav(1,i,j))
+!                write(6,'(f6.2)',advance='no') (uvel(1,i,j) - usav(1,i,j))
              enddo 
-             print*, ' '
+!         print*, ' '
           enddo
-          print*, ' '
-          print*, 'vvel - vsav, k = 1:'
+
+!          print*, ' '
+!          print*, 'vvel - vsav, k = 1:'
           do j = ny-1, 1, -1
              do i = 1, nx-1
-                write(6,'(f6.2)',advance='no') (vvel(1,i,j) - vsav(1,i,j))
+!                write(6,'(f6.2)',advance='no') (vvel(1,i,j) - vsav(1,i,j))
              enddo 
-             print*, ' '
+!             print*, ' '
           enddo
 
           print*, ' '
@@ -2650,8 +2648,8 @@
           print*, 'ocean (i-1:i,j-1)=', ocean_cell(i-1:i, j-1) 
        endif
 
-!!       if (active_cell(i,j)) then    ! ice is present
-       if (floating_cell(i,j)) then   ! ice is present and is floating
+       if (active_cell(i,j)) then    ! ice is present
+!!       if (floating_cell(i,j)) then   ! ice is present and is floating
 
 !WHL - debug
 !          print*, 'Floating:', i, j
@@ -2692,8 +2690,8 @@
 
           endif
 
-!!          if (.not. active_cell(i,j-1)) then  ! compute lateral BC for south face
-          if (ocean_cell(i,j-1)) then ! compute lateral BC for south face
+          if (.not. active_cell(i,j-1)) then  ! compute lateral BC for south face
+!!          if (ocean_cell(i,j-1)) then ! compute lateral BC for south face
 
 !WHL - debug
 !          print*, '   Ocean south:', i, j-1
@@ -2708,8 +2706,8 @@
 
           endif
 
-!!          if (.not. active_cell(i,j+1)) then  ! compute lateral BC for north face
-          if (ocean_cell(i,j+1)) then ! compute lateral BC for north face
+          if (.not. active_cell(i,j+1)) then  ! compute lateral BC for north face
+!!          if (ocean_cell(i,j+1)) then ! compute lateral BC for north face
 
 !WHL - debug
 !          print*, '   Ocean north:', i, j+1
@@ -2992,21 +2990,25 @@
              print*, 'Increment shelf load vector, i, j, face, k, p =', iCell, jCell, trim(face), k, p
              print*, 'hqp, sqp =', hqp, sqp
              print*, 'detJ/vol0 =', detJ/vol0
+             print*, 'grav =', grav
           endif
 
           ! Increment the load vector with the shelf water pressure contribution from 
           !  this quadrature point.
           ! Increment bu for east/west faces and bv for north/south faces.
 
-          p_av = 0.5*rhoi*grav*hqp &     ! p_out
-               - 0.5*rhoo*grav*hqp * (1.d0 - min(sqp/hqp,1.d0))**2   ! p_in
+          ! This formula works for ice that either is floating or is partially submerged without floating
+!!          p_av = 0.5*rhoi*grav*hqp &     ! p_out
+!!               - 0.5*rhoo*grav*hqp * (1.d0 - min(sqp/hqp,1.d0))**2   ! p_in
+
+          ! This formula works for floating ice.
+          p_av = 0.5*rhoi*grav*hqp * (1.d0 - rhoi/rhoo)
 
           if (trim(face) == 'west') then  ! net force in -x direction
 
              do n = 1, nNodesPerElement_2d
 
                 bu(kNode(n),iNode(n),jNode(n)) = bu(kNode(n),iNode(n),jNode(n))    &
-!                                               - rhoeff * hqp * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
                                                - p_av * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
 
                 if (verbose .and. this_rank==rtest .and. iCell==itest .and. jCell==jtest .and. k==ktest) then
@@ -3020,7 +3022,6 @@
 
              do n = 1, nNodesPerElement_2d
                 bu(kNode(n),iNode(n),jNode(n)) = bu(kNode(n),iNode(n),jNode(n))    &
-!                                               + rhoeff*grav * hqp * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
                                                + p_av * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
 
                 if (verbose_shelf .and. this_rank==rtest .and. iCell==itest .and. jCell==jtest .and. k==ktest) then
@@ -3034,7 +3035,6 @@
 
              do n = 1, nNodesPerElement_2d
                 bv(kNode(n),iNode(n),jNode(n)) = bv(kNode(n),iNode(n),jNode(n))    &
-!                                               - rhoeff*grav * hqp * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
                                                - p_av * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
 
                 if (verbose_shelf .and. this_rank==rtest .and. iCell==itest .and. jCell==jtest .and. k==ktest) then
@@ -3048,11 +3048,10 @@
  
              do n = 1, nNodesPerElement_2d
                 bv(kNode(n),iNode(n),jNode(n)) = bv(kNode(n),iNode(n),jNode(n))    &
-!                                               + rhoeff*grav * hqp * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
                                                + p_av * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
 
                 if (verbose_shelf .and. this_rank==rtest .and. iCell==itest .and. jCell==jtest .and. k==ktest) then
-                   print*, 'n, p, phi_2d(n,p), delta(bv):', n, p, phi_2d(n,p), &
+                   print*, 'n, p, phi_2d(n,p), p_av, detJ, delta(bv):', n, p, phi_2d(n,p), p_av, detJ, &
                             p_av * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
 !WHL - debug
 !!                if (verbose_shelf .and. this_rank==rtest .and. k==ktest) then

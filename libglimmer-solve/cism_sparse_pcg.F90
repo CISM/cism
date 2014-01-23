@@ -51,7 +51,8 @@ module cism_sparse_pcg
    integer, parameter :: &
 !       itest = 24, jtest = 17, ktest = 1
 !       itest = 17, jtest = 10, ktest = 1
-       itest = 10, jtest = 17, ktest = 1
+!       itest = 10, jtest = 17, ktest = 1
+        itest = 6, jtest = 7, ktest = 1
 
    integer, parameter :: &
 !       ntest = 2371   ! nodeID for (24,17,1)
@@ -59,6 +60,16 @@ module cism_sparse_pcg
        ntest = 1771   ! nodeID for (10,17,1)
 
     integer, parameter :: rtest = 0    ! rank for (17,10) with 4 procs
+
+    !WHL - These options are redundant with glide_types but are included here
+    !       because of automake issues.  (This module cannot use glide_types if libglimmer-solve
+    !       is built before libglide.)
+    !      Can remove these parameters and use glide_types if we stop supporting automake,
+    !       or move this module to libglide.
+
+    integer, parameter :: SPARSE_PRECOND_NONE = 0      ! no preconditioner
+    integer, parameter :: SPARSE_PRECOND_DIAG = 1      ! diagonal preconditioner
+    integer, parameter :: SPARSE_PRECOND_SIA  = 2      ! SIA preconditioner
 
 contains
 
@@ -71,8 +82,8 @@ contains
                                    Avu,       Avv,           &
                                    bu,        bv,            &
                                    xu,        xv,            &
-                                   err,       niters,        &
-                                   verbose) 
+                                   precond,   err,           &
+                                   niters,    verbose) 
 
     !---------------------------------------------------------------
     !  This subroutine uses a preconditioned conjugate-gradient solver
@@ -156,6 +167,11 @@ contains
     real(dp), dimension(nz,nx-1,ny-1), intent(inout) ::   &
        xu, xv             ! u and v components of solution (i.e., uvel and vvel)
 
+    integer, intent(in)  ::   &
+       precond           ! = 0 for no preconditioning
+                         ! = 1 for diagonal preconditioning (best option for SSA-dominated flow)
+                         ! = 2 for preconditioning with SIA solver (works well for SIA-dominated flow)
+
     real(dp), intent(out) ::  &
        err                               ! error (L2 norm of residual) in final solution
 
@@ -204,14 +220,9 @@ contains
     real(dp), parameter ::   &
        tolerance = 1.d-11    ! tolerance for linear solver
 
-    ! WHL: With SIA preconconditioning, up to 210 iterations are needed
-    !       for convergence with ismip-hom test A, 20 km resolution
-    !      More are probably needed at higher resolutions.
-    ! TODO: Implement a better preconditioner for higher-order problems!
- 
     integer, parameter ::    &
-!       maxiters = 200        ! max number of linear iterations before quitting
-       maxiters = 300        ! max number of linear iterations before quitting
+       maxiters = 200        ! max number of linear iterations before quitting
+!       maxiters = 1000        ! max number of linear iterations before quitting
                              
     integer, parameter :: &
        solv_ncheck = 1       ! check for convergence every solv_ncheck iterations
@@ -220,10 +231,6 @@ contains
     integer, parameter :: &
        solv_resid = 50       ! solve for residual as r = b - Ax every solv_resid iterations
                              ! else compute residual as r = r - alpha*(Ad)
-    integer, parameter :: &
-       precond = 2           ! = 0 for no preconditioning
-                             ! = 1 for diagonal preconditioning (does not work well for SIA-dominated flow)
-                             ! = 2 for preconditioning with SIA solver (works well for SIA-dominated flow)
 
     if (present(verbose)) then
        verbose_pcg = verbose
@@ -235,11 +242,12 @@ contains
        print*, ' '
        print*, 'In structured pcg solver'
        print*, 'tolerance, maxiters =', tolerance, maxiters
+       print*, 'precond =', precond
     endif
 
     ! Set up preconditioning
 
-    if (precond == 1) then    ! form diagonal matrix for preconditioning
+    if (precond == SPARSE_PRECOND_DIAG) then    ! form diagonal matrix for preconditioning
 
        m = indxA(0,0,0)
        Adiagu(:,:,:) = Auu(m,:,:,:)
@@ -247,7 +255,7 @@ contains
 
        if (verbose_pcg .and. this_rank==rtest) then
           print*, ' '
-          print*, 'Using diagonal solver for preconditioning'
+          print*, 'Using diagonal matrix for preconditioning'
 !          print*, ' '
 !          print*, 'i, j, k, diagonal entries, initial guess, residual:'
 !          m = 0
@@ -266,7 +274,7 @@ contains
 !          enddo
        endif  ! verbose_pcg
 
-    elseif (precond == 2) then  ! form SIA matrices Muu and Mvv with vertical coupling only
+    elseif (precond == SPARSE_PRECOND_SIA) then  ! form SIA matrices Muu and Mvv with vertical coupling only
 
        Muu(:,:,:,:) = 0.d0
        Mvv(:,:,:,:) = 0.d0
@@ -274,31 +282,42 @@ contains
        do j = 1, ny-1
        do i = 1, nx-1
        do k = 1, nz
-             ! Remove horizontal coupling by summing over iA = -1:1, jA = -1:1 for each layer
-             ! Note: In dome tests this is slightly better than setting Muu and Muv to
-             !       the matrix elements corresponding to iA = jA = 0
+           ! Remove horizontal coupling by using only the iA=0, jA=0 term in each layer.
 
-           Muu(-1,k,i,j) = sum(Auu(1:9,k,i,j))
-           Mvv(-1,k,i,j) = sum(Avv(1:9,k,i,j))
+            !WHL - Summing over the terms in each layer does not work for simple shelf problems
+            !      because the matrix can be singular.
+!           Muu(-1,k,i,j) = sum(Auu(1:9,k,i,j))
+!           Mvv(-1,k,i,j) = sum(Avv(1:9,k,i,j))
 
-           Muu( 0,k,i,j) = sum(Auu(10:18,k,i,j))
-           Mvv( 0,k,i,j) = sum(Avv(10:18,k,i,j))
+!           Muu( 0,k,i,j) = sum(Auu(10:18,k,i,j))
+!           Mvv( 0,k,i,j) = sum(Avv(10:18,k,i,j))
 
-           Muu( 1,k,i,j) = sum(Auu(19:27,k,i,j))
-           Mvv( 1,k,i,j) = sum(Avv(19:27,k,i,j))
+!           Muu( 1,k,i,j) = sum(Auu(19:27,k,i,j))
+!           Mvv( 1,k,i,j) = sum(Avv(19:27,k,i,j))
 
+           ! WHL: Taking the (0,0) term in each layer does not give singular matrices for
+           !       the confined-shelf and circular-shelf problems.
+           !      The solution converges even though the preconditioner is not expected
+           !       to be very good.
+           Muu(-1,k,i,j) = Auu(5,k,i,j)
+           Mvv(-1,k,i,j) = Avv(5,k,i,j)
+           Muu( 0,k,i,j) = Auu(14,k,i,j)
+           Mvv( 0,k,i,j) = Avv(14,k,i,j)
+           Muu( 1,k,i,j) = Auu(23,k,i,j)
+           Mvv( 1,k,i,j) = Avv(23,k,i,j)
        enddo
        enddo
        enddo
 
 !WHL - debug
-       if (verbose_pcg .and. this_rank==rtest) then
-          print*, ' '
-          print*, 'Using easy SIA solver for preconditioning'
+!       if (verbose_pcg .and. this_rank==rtest) then
+!          print*, ' '
+!          print*, 'Using easy SIA solver for preconditioning'
 !          i = itest
 !          j = jtest
 !          print*, ' '
 !          print*, 'i, j =', i, j
+!          print*, ' '
 !          print*, ' '
 !          print*, 'k, Muu(-1:1):'
 !          do k = 1, nz
@@ -309,7 +328,15 @@ contains
 !          do k = 1, nz
 !             print*, k, Mvv(-1:1,k,i,j)
 !          enddo
+!       endif
+
+    else   ! no preconditioning
+
+       if (verbose_pcg .and. this_rank==rtest) then
+          print*, ' '
+          print*, 'Using no preconditioner'
        endif
+
 
     endif      ! precond
 
@@ -402,51 +429,15 @@ contains
           enddo    ! i
           enddo    ! j
 
-!WHL - debug
-          if (verbose_pcg .and. this_rank==rtest) then
-!             i = itest
-!             j = jtest
-!             print*, ' '
-!             print*, 'Diagonal preconditioning, i, j =', i, j
-!             print*, ' '
-!             print*, 'k, ru, PC(ru):'
-!             do k = 1, nz
-!                print*, k, ru(k,i,j), zu(k,i,j)
-!             enddo
-!             print*, ' '
-!             print*, 'k, rv, PC(rv):'
-!             do k = 1, nz
-!                print*, k, rv(k,i,j), zv(k,i,j)
-!             enddo
-           endif
-
        elseif (precond == 2) then   ! local vertical shallow-ice solver for preconditioning
 
           call easy_sia_solver(nx,   ny,   nz,        &
                                active_vertex,         &
-                               Muu,  ru,   zu)      ! solve Muu*zu = ru 
+                               Muu,  ru,   zu)      ! solve Muu*zu = ru for zu 
 
           call easy_sia_solver(nx,   ny,   nz,        &
                                active_vertex,         &
-                               Mvv,  rv,   zv)      ! solve Mvv*zv = rv 
-
-!WHL - debug
-          if (verbose_pcg .and. this_rank==rtest) then
-!             i = itest
-!             j = jtest
-!             print*, ' '
-!             print*, 'SIA preconditioning, i, j =', i, j
-!             print*, ' '
-!             print*, 'k, ru, PC(ru):'
-!             do k = 1, nz
-!                print*, k, ru(k,i,j), zu(k,i,j)
-!             enddo
-!             print*, ' '
-!             print*, 'k, rv, PC(rv):'
-!             do k = 1, nz
-!                print*, k, rv(k,i,j), zv(k,i,j)
-!             enddo
-           endif
+                               Mvv,  rv,   zv)      ! solve Mvv*zv = rv for zv
 
        endif    ! precond
 
@@ -460,13 +451,17 @@ contains
                                  eta1,           &
                                  work0u, work0v)
 
+       !WHL - If the SIA solver has failed due to singular matrices,
+       !      then eta1 will be NaN.
+
+       if (isnan(eta1)) then
+          write(6,*) 'Error, SIA preconditioner has failed, eta1 = NaN'
+          stop    !TODO - Put in a proper abort
+       endif
+
        ! Update the conjugate direction vector d
 
        beta = eta1/eta0
-
-       if (verbose_pcg .and. this_rank==rtest) then
-!          print*, 'eta0, eta1, beta =', eta0, eta1, beta
-       endif
 
        du(:,:,:) = zu(:,:,:) + beta*du(:,:,:)       ! d_(i+1) = PC(r_(i+1)) + beta_(i+1)*d_i
        dv(:,:,:) = zv(:,:,:) + beta*dv(:,:,:)       !
@@ -513,12 +508,6 @@ contains
                               !          (d, A*d)
        
 
-       if (verbose_pcg .and. this_rank==rtest) then
-!          print*, '(r, PC(r)) =', eta1
-!          print*, '(d, Ad) =', eta2
-!          print*, 'alpha =', alpha
-       endif
-
        ! Compute the new solution
 
        xu(:,:,:) = xu(:,:,:) + alpha * du(:,:,:)    ! new solution, x_(i+1) = x_i + alpha*d
@@ -560,17 +549,6 @@ contains
 
        endif
 
-       if (verbose_pcg .and. this_rank==rtest) then
-!          i = itest
-!          j = jtest
-!          print*, ' '
-!          print*, 'i, j, =', i, j
-!          print*, 'k, xu, ru:'
-!          do k = 1, nz
-!             print*, k, xu(k,i,j), ru(k,i,j)
-!          enddo
-       endif
-
        ! Check for convergence
 
        if (mod(n,solv_ncheck) == 0) then
@@ -592,7 +570,7 @@ contains
 
           if (verbose_pcg .and. main_task) then
 !             print*, ' '
-             print*, 'iter, L2_resid, error =', n, L2_resid, err
+!             print*, 'iter, L2_resid, error =', n, L2_resid, err
           endif
 
           if (err < tolerance) then
@@ -663,12 +641,6 @@ contains
      ! take the global sum
 
      global_sum = parallel_reduce_sum(local_sum)
-
-
-     if (verbose_pcg .and. this_rank==rtest) then
-!        print*, 'this_rank, local sum =', this_rank, local_sum 
-!        print*, 'global sum =', global_sum 
-     endif
 
     end subroutine global_sum_staggered
 
@@ -866,6 +838,10 @@ contains
 
     integer :: i, j, k
 
+!WHL - debug
+    real(dp), dimension(nz) :: gamma
+    real(dp) :: beta 
+
     do j = 1, ny-1
     do i = 1, nx-1
 
@@ -896,13 +872,46 @@ contains
           k = nz 
           sbdiag(k) = A(-1,k,i,j)
           diag(k)   = A( 0,k,i,j)
-          spdiag(k) = 0.d0           
+          spdiag(k) = 0.d0
          
           ! solve
+
+!WHL - debug
+          if (i==itest .and. j==jtest) then
+
+!             print*, ' '
+!             print*, 'Tridiag soln, i, j =', i, j
+             beta = diag(1)
+             soln(1) = rhs(1) / beta
+
+!             print*, 'k, beta, soln =', 1, beta, soln(1)
+
+             do k = 2, nz
+                gamma(k) = spdiag(k-1) / beta
+                beta = diag(k) - sbdiag(k)*gamma(k)
+                soln(k) = (rhs(k) - sbdiag(k)*soln(k-1)) / beta
+!                print*, 'k, gamma, beta, soln =', k, gamma(k), beta, soln(k)
+             enddo
+
+             do k = nz-1, 1, -1
+                soln(k) = soln(k) - gamma(k+1)*soln(k+1)
+!                print*, 'k, soln =', k, soln(k)
+             enddo
+
+          endif
 
           call tridiag_solver(nz,    sbdiag,   &
                               diag,  spdiag,   &
                               rhs,   soln)
+
+!          if (verbose_pcg .and. this_rank==rtest .and. i==itest .and. j==jtest) then
+!             print*, ' '
+!             print*, 'In easy SIA solver, i, j =', i, j
+!             print*, 'k, sbdiag, diag, spdiag, rhs, soln:'
+!             do k = 1, nz
+!                print*, k, sbdiag(k), diag(k), spdiag(k), rhs(k), soln(k)
+!             enddo
+!          endif
 
           x(:,i,j) = soln(:)
 

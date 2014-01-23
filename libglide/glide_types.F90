@@ -231,6 +231,12 @@ module glide_types
   integer, parameter :: HO_APPROX_SSA = 1
   integer, parameter :: HO_APPROX_BP = 2
 
+!WHL - added options for different preconditioners
+!      (for glissade dycore only)
+  integer, parameter :: HO_PRECOND_NONE = 0
+  integer, parameter :: HO_PRECOND_DIAG = 1
+  integer, parameter :: HO_PRECOND_SIA  = 2
+
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   type glide_general
@@ -508,7 +514,6 @@ module glide_types
     !FD Name of a file containing external dycore settings.
 
 !WHL - Added a glissade option to choose which Stokes approximation (SIA, SSA or Blatter-Pattyn HO)
-
     ! Blatter-Pattyn HO by default
     integer :: which_ho_approx = 2    
     !*FD Flag that indicates which Stokes approximation to use in the glissade dycore.
@@ -517,6 +522,16 @@ module glide_types
     !*FD \item[0] Shallow-ice approximation, vertical shear stress only
     !*FD \item[1] Shallow-shelf approximation, horizontal-plane stresses only
     !*FD \item[2] Blatter-Pattyn with both vertical-shear and horizontal-plane stresses
+    !*FD \end{description}
+
+!WHL - Added a glissade option to choose preconditioner (none, diagonal, or physics-based SIA)
+    integer :: which_ho_precond = 2    
+    !*FD Flag that indicates which Stokes preconditioner to use in the glissade dycore.
+    !*FD Not valid for other dycores 
+    !*FD \begin{description}
+    !*FD \item[0] No preconditioner
+    !*FD \item[1] Diagonal preconditioner
+    !*FD \item[2] Physics-based shallow-ice preconditioner
     !*FD \end{description}
 
     ! The remaining options are not currently supported

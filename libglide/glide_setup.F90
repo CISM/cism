@@ -600,8 +600,9 @@ contains
     call GetValue(section, 'which_ho_nonlinear', model%options%which_ho_nonlinear)
     call GetValue(section, 'which_ho_sparse',    model%options%which_ho_sparse)
 
-!WHL  - Added which_ho_approx option for glissade dycore.
+!WHL  - Added which_ho_approx and which_ho_precond options for glissade dycore.
     call GetValue(section, 'which_ho_approx',    model%options%which_ho_approx)
+    call GetValue(section, 'which_ho_precond',   model%options%which_ho_precond)
 
   end subroutine handle_ho_options
 
@@ -766,12 +767,16 @@ contains
          'Standalone Trilinos interface              '/)
 
 !WHL - added glissade options for solving different Stokes approximations
-
     character(len=*), dimension(0:2), parameter :: ho_whichapprox = (/ &
          'SIA only (glissade dycore)         ', &
          'SSA only (glissade dycore)         ', &
          'Blatter-Pattyn HO (glissade dycore)' /)
 
+!WHL - added glissade options for different preconditioners
+    character(len=*), dimension(0:2), parameter :: ho_whichprecond = (/ &
+         'No preconditioner (glissade dycore)      ', &
+         'Diagonal preconditioner (glissade dycore)', &
+         'SIA preconditioner (glissade dycore)     ' /)
 
     call write_log('GLIDE options')
     call write_log('-------------')
@@ -834,7 +839,7 @@ contains
     if (model%options%whichdycore == DYCORE_GLAM) then
        if (model%options%which_ho_approx == HO_APPROX_SIA .or.   &
            model%options%which_ho_approx == HO_APPROX_SSA) then 
-          call write_log('Error, Glide dycore must use higher-order Blatter-Pattyn approximation', GM_FATAL)
+          call write_log('Error, Glam dycore must use higher-order Blatter-Pattyn approximation', GM_FATAL)
        endif
     endif
 
@@ -996,11 +1001,23 @@ contains
           call write_log('Error, HO sparse solver input out of range', GM_FATAL)
        end if
 
-       write(message,*) 'ho_whichapprox          : ',model%options%which_ho_approx,  &
-                         ho_whichapprox(model%options%which_ho_approx)
-       call write_log(message)
-       if (model%options%which_ho_approx < 0 .or. model%options%which_ho_approx >= size(ho_whichapprox)) then
-          call write_log('Error, Stokes approximation out of range', GM_FATAL)
+       if (model%options%whichdycore == DYCORE_GLISSADE) then
+          write(message,*) 'ho_whichapprox          : ',model%options%which_ho_approx,  &
+                            ho_whichapprox(model%options%which_ho_approx)
+          call write_log(message)
+          if (model%options%which_ho_approx < 0 .or. model%options%which_ho_approx >= size(ho_whichapprox)) then
+             call write_log('Error, Stokes approximation out of range', GM_FATAL)
+          end if
+       end if
+
+       if (model%options%whichdycore == DYCORE_GLISSADE .and. &
+           model%options%which_ho_sparse == HO_SPARSE_PCG_STRUC) then 
+          write(message,*) 'ho_whichprecond         : ',model%options%which_ho_precond,  &
+                            ho_whichprecond(model%options%which_ho_precond)
+          call write_log(message)
+          if (model%options%which_ho_precond < 0 .or. model%options%which_ho_precond >= size(ho_whichprecond)) then
+             call write_log('Error, glissade preconditioner out of range', GM_FATAL)
+          end if
        end if
 
     endif   ! whichdycore
