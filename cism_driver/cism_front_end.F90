@@ -257,9 +257,10 @@ subroutine cism_run_dycore(model)
     ! call simple_massbalance(climate,model,time)
     ! call simple_surftemp(climate,model,time)
  
-    time = time + model%numerics%tinc
-    tstep_count = tstep_count + 1
-  
+    if (model%options%whichdycore /= DYCORE_BISICLES) then
+      time = time + model%numerics%tinc
+      tstep_count = tstep_count + 1
+    endif
 ! print *,"external_dycore_type: ",model%options%external_dycore_type
 
     !if (model%options%external_dycore_type .EQ. 0) then      ! NO_EXTERNAL_DYCORE) then
@@ -281,20 +282,19 @@ subroutine cism_run_dycore(model)
         call t_stopf('glide_tstep_p3')
 
         call t_stopf('glide_tstep')
+
       case (DYCORE_GLAM)
-      !else   ! glam/glissade dycore
+        ! glam/glissade dycore
 
         call t_startf('glissade_tstep')
         call glissade_tstep(model,time)
         call t_stopf('glissade_tstep')
 
-      !endif   ! glide v. glam/glissade dycore
-
-      ! print *,'Exited Internal Dycore'
-      !else
       case (DYCORE_BISICLES,DYCORE_ALBANYFELIX)
         print *,'Using External Dycore'
-        call cism_run_external_dycore(model%options%external_dycore_model_index,time,model%numerics%tinc)
+        ! The time variable gets incremented within this call:
+        call cism_run_external_dycore(model%options%external_dycore_model_index, &
+                                      time,model%numerics%tinc)
         ! time = time + model%numerics%tinc
       case default
     end select
