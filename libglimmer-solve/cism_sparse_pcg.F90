@@ -453,11 +453,12 @@ contains
 
        !WHL - If the SIA solver has failed due to singular matrices,
        !      then eta1 will be NaN.
-
-       if (isnan(eta1)) then
-          write(6,*) 'Error, SIA preconditioner has failed, eta1 = NaN'
-          stop    !TODO - Put in a proper abort
-       endif
+       ! This code is commented out because 'isnan' does not work for all compilers.
+ 
+!       if (isnan(eta1)) then
+!          write(6,*) 'Error, SIA preconditioner has failed, eta1 = NaN'
+!          stop    !TODO - Put in a proper abort
+!       endif
 
        ! Update the conjugate direction vector d
 
