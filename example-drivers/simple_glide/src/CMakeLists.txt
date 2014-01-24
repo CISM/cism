@@ -27,6 +27,9 @@ IF (CISM_STATIC_LINKING)
   SET_TARGET_PROPERTIES(simple_glide PROPERTIES LINK_SEARCH_END_STATIC 1)
 ENDIF()
 
+IF (CISM_FORCE_FORTRAN_LINKER)
+  SET_PROPERTY(TARGET simple_glide PROPERTY LINKER_LANGUAGE Fortran)
+ENDIF()
 
 # Executable depends on several glimmer libraries and Trilinos,
 # and potentially an f90main.o file (on jaguar with PGI at least)

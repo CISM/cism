@@ -38,6 +38,7 @@ OPTION (CISM_USE_DEFAULT_IO "Toggle to use default i/o files rather than running
 # but it's not clear to me if those work consistently
 OPTION (CISM_GNU "Toggle to set compilation flags needed for the gnu compiler, off by default" OFF)
 OPTION (CISM_STATIC_LINKING "Toggle to set static linking for executables, off by default" OFF)
+OPTION (CISM_FORCE_FORTRAN_LINKER "Toggle to force using a fortran linker for building executables, off by default" OFF)
 
 # override CISM_SERIAL_MODE setting, if it conflicts with CISM_MPI_MODE setting:
 IF (CISM_MPI_MODE)

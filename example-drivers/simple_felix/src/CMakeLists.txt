@@ -29,6 +29,10 @@ link_directories (${Trilinos_LIBRARY_DIRS} ${Trilinos_TPL_LIBRARY_DIRS}
 # These are local source files needed to make  simple_felix  executable
 add_executable(simple_felix  simple_felix.F90 simple_forcing.F90 testsfg.F90)
 
+IF (CISM_FORCE_FORTRAN_LINKER)
+  SET_PROPERTY(TARGET simple_felix PROPERTY LINKER_LANGUAGE Fortran)
+ENDIF()
+
 MESSAGE("GLIMMER_ALBANY_DIR: " ${GLIMMER_ALBANY_DIR})
 MESSAGE("CISM_HDF5_LIBS: " ${CISM_HDF5_LIBS})
 
