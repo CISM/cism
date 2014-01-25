@@ -610,9 +610,10 @@
        beta                     ! basal traction parameter (Pa/(m/yr))
 
     real(dp), dimension(:,:,:), pointer ::  &
+       uvel, vvel,  &           ! velocity components (m/yr)
        flwa,   &                ! flow factor in units of Pa^(-n) yr^(-1)
        efvs,   &                ! effective viscosity (Pa yr)
-       uvel, vvel               ! velocity components (m/yr)
+       resid_u, resid_v         ! u and v components of residual Ax - b (Pa/m)
 
     integer,  dimension(:,:), pointer ::   &
        kinbcmask                ! = 1 at vertices where u = v = 0 (Dirichlet BC)
@@ -677,8 +678,7 @@
 
     real(dp), dimension(nz,nx-1,ny-1) ::   &
        usav, vsav,                 &! previous guess for velocity solution
-       bu, bv,                     &! assembled load vector, divided into 2 parts
-       resid_vec_u, resid_vec_v     ! residual vector, divided into 2 parts
+       bu, bv                       ! assembled load vector, divided into 2 parts
 
     logical, dimension(nz,nx-1,ny-1) ::    &
        umask_dirichlet    ! Dirichlet mask for velocity (if true, u = v = 0)
@@ -795,6 +795,9 @@
 
      uvel => model%velocity%uvel(:,:,:)
      vvel => model%velocity%vvel(:,:,:)
+
+     resid_u => model%velocity%resid_u(:,:,:)
+     resid_v => model%velocity%resid_v(:,:,:)
 
      kinbcmask => model%velocity%kinbcmask(:,:)
 
@@ -1775,7 +1778,7 @@
                                        Avu,         Avv,           &
                                        bu,          bv,            &
                                        uvel,        vvel,          &
-                                       resid_vec_u, resid_vec_v,   &
+                                       resid_u,     resid_v,       &
                                        L2_norm)
 
           if (verbose .and. this_rank==rtest) then
@@ -1881,9 +1884,11 @@
           ! Put the velocity solution back into 3D arrays
           !------------------------------------------------------------------------
 
-          call slap_postprocess(nNodesSolve,  answer,                   &
+          call slap_postprocess(nNodesSolve,                            &
                                 iNodeIndex,   jNodeIndex,  kNodeIndex,  &
-                                uvel,         vvel)
+                                answer,       resid_vec,                &
+                                uvel,         vvel,                     &
+                                resid_u,      resid_v)
 
           !------------------------------------------------------------------------
           ! Halo updates for uvel and vvel
@@ -2076,11 +2081,12 @@
     ! (generally dimensionless)
     !------------------------------------------------------------------------------
 
-    call glissade_velo_higher_scale_output(thck,   usrf,   &
-                                           topg,           &
-                                           flwa,   efvs,   &
-                                           beta,           &
-                                           uvel,   vvel)
+    call glissade_velo_higher_scale_output(thck,    usrf,    &
+                                           topg,             &
+                                           flwa,    efvs,    &
+                                           beta,             &
+                                           resid_u, resid_v, &
+                                           uvel,    vvel)
 
   end subroutine glissade_velo_higher_solve
 
@@ -2149,11 +2155,12 @@
 
 !****************************************************************************
 
-    subroutine glissade_velo_higher_scale_output(thck,   usrf,   &
-                                                 topg,           &
-                                                 flwa,   efvs,   &
-                                                 beta,           &
-                                                 uvel,   vvel)
+    subroutine glissade_velo_higher_scale_output(thck,    usrf,    &
+                                                 topg,             &
+                                                 flwa,    efvs,    &
+                                                 beta,             &
+                                                 resid_u, resid_v, &
+                                                 uvel,    vvel)
 
     !--------------------------------------------------------
     ! Convert output variables to appropriate Glimmer-CISM units
@@ -2175,6 +2182,9 @@
     real(dp), dimension(:,:,:), intent(inout) ::  &
        uvel, vvel               ! velocity components (m/yr)
 
+    real(dp), dimension(:,:,:), intent(inout) ::  &
+       resid_u, resid_v         ! components of residual Ax - b (Pa/m)
+
     ! Convert geometry variables from m to dimensionless units
     thck = thck / thk0
     usrf = usrf / thk0
@@ -2192,6 +2202,10 @@
     ! Convert velocity from m/yr to dimensionless units
     uvel = uvel / (vel0*scyr)
     vvel = vvel / (vel0*scyr)
+
+    ! Convert residual from Pa/m to dimensionless units
+    resid_u = resid_u / (tau0/len0)
+    resid_v = resid_v / (tau0/len0)
 
     end subroutine glissade_velo_higher_scale_output
 
@@ -2647,8 +2661,8 @@
           print*, 'ocean (i-1:i,j-1)=', ocean_cell(i-1:i, j-1) 
        endif
 
-       if (active_cell(i,j)) then    ! ice is present
-!!       if (floating_cell(i,j)) then   ! ice is present and is floating
+!!       if (active_cell(i,j)) then    ! ice is present
+       if (floating_cell(i,j)) then   ! ice is present and is floating
 
 !WHL - debug
 !          print*, 'Floating:', i, j
@@ -2689,8 +2703,8 @@
 
           endif
 
-          if (.not. active_cell(i,j-1)) then  ! compute lateral BC for south face
-!!          if (ocean_cell(i,j-1)) then ! compute lateral BC for south face
+!!          if (.not. active_cell(i,j-1)) then  ! compute lateral BC for south face
+          if (ocean_cell(i,j-1)) then ! compute lateral BC for south face
 
 !WHL - debug
 !          print*, '   Ocean south:', i, j-1
@@ -2705,8 +2719,8 @@
 
           endif
 
-          if (.not. active_cell(i,j+1)) then  ! compute lateral BC for north face
-!!          if (ocean_cell(i,j+1)) then ! compute lateral BC for north face
+!!          if (.not. active_cell(i,j+1)) then  ! compute lateral BC for north face
+          if (ocean_cell(i,j+1)) then ! compute lateral BC for north face
 
 !WHL - debug
 !          print*, '   Ocean north:', i, j+1
@@ -4727,7 +4741,7 @@
                                      Avu,         Avv,           &
                                      bu,          bv,            &
                                      uvel,        vvel,          &
-                                     resid_vec_u, resid_vec_v,   &
+                                     resid_u,     resid_v,       &
                                      L2_norm)
 
     ! Compute the residual vector Ax - b and its L2 norm.
@@ -4758,8 +4772,8 @@
        uvel, vvel          ! u and v components of velocity (m/yr)
 
     real(dp), dimension(nz,nx-1,ny-1), intent(out) ::   &
-       resid_vec_u,      & ! residual vector, divided into 2 parts
-       resid_vec_v
+       resid_u,      & ! residual vector, divided into 2 parts
+       resid_v
 
     real(dp), intent(out) ::    &
        L2_norm             ! L2 norm of residual vector
@@ -4777,8 +4791,8 @@
 
     ! Compute u and v components of A*x
 
-    resid_vec_u(:,:,:) = 0.d0
-    resid_vec_v(:,:,:) = 0.d0
+    resid_u(:,:,:) = 0.d0
+    resid_v(:,:,:) = 0.d0
 
 !    do j = 1, ny-1
 !    do i = 1, nx-1
@@ -4804,13 +4818,13 @@
 
                    m = indxA(iA,jA,kA)
 
-                   resid_vec_u(k,i,j) = resid_vec_u(k,i,j)                        & 
-                                      + Auu(m,k,i,j)*uvel(k+kA,i+iA,j+jA)  &
-                                      + Auv(m,k,i,j)*vvel(k+kA,i+iA,j+jA)
+                   resid_u(k,i,j) = resid_u(k,i,j)                        & 
+                                  + Auu(m,k,i,j)*uvel(k+kA,i+iA,j+jA)  &
+                                  + Auv(m,k,i,j)*vvel(k+kA,i+iA,j+jA)
 
-                   resid_vec_v(k,i,j) = resid_vec_v(k,i,j)                        &
-                                      + Avu(m,k,i,j)*uvel(k+kA,i+iA,j+jA)  &
-                                      + Avv(m,k,i,j)*vvel(k+kA,i+iA,j+jA)
+                   resid_v(k,i,j) = resid_v(k,i,j)                        &
+                                  + Avu(m,k,i,j)*uvel(k+kA,i+iA,j+jA)  &
+                                  + Avv(m,k,i,j)*vvel(k+kA,i+iA,j+jA)
 
                 endif   ! in bounds
 
@@ -4843,10 +4857,10 @@
     do i = nhalo+1, nx-nhalo
        if (active_vertex(i,j)) then
           do k = 1, nz
-             resid_vec_u(k,i,j) = resid_vec_u(k,i,j) - bu(k,i,j)
-             resid_vec_v(k,i,j) = resid_vec_v(k,i,j) - bv(k,i,j)
-             L2_norm = L2_norm + resid_vec_u(k,i,j)*resid_vec_u(k,i,j)  &
-                               + resid_vec_v(k,i,j)*resid_vec_v(k,i,j)
+             resid_u(k,i,j) = resid_u(k,i,j) - bu(k,i,j)
+             resid_v(k,i,j) = resid_v(k,i,j) - bv(k,i,j)
+             L2_norm = L2_norm + resid_u(k,i,j)*resid_u(k,i,j)  &
+                               + resid_v(k,i,j)*resid_v(k,i,j)
           enddo  ! k
        endif     ! active vertex
     enddo        ! i
@@ -5465,9 +5479,11 @@
 
 !****************************************************************************
 
-  subroutine slap_postprocess(nNodesSolve,  answer,                   &
+  subroutine slap_postprocess(nNodesSolve,                            &
                               iNodeIndex,   jNodeIndex,  kNodeIndex,  &
-                              uvel,         vvel)
+                              answer,       resid_vec,                &
+                              uvel,         vvel,                     &
+                              resid_u,      resid_v)
 
   ! Extract the velocities from the solution vector.
   ! Note: This works only for single-processor runs with the SLAP solver.
@@ -5479,13 +5495,15 @@
     integer, intent(in) :: nNodesSolve     ! number of nodes where we solve for velocity
 
     real(dp), dimension(:), intent(in) ::  &
-       answer             ! velocity solution vector
+       answer,           &! velocity solution vector
+       resid_vec          ! residual vector
 
     integer, dimension(:), intent(in) ::   &
        iNodeIndex, jNodeIndex, kNodeIndex  ! i, j and k indices of active nodes
 
     real(dp), dimension(:,:,:), intent(inout) ::   &
-       uvel, vvel         ! u and v components of velocity
+       uvel, vvel,       &! u and v components of velocity
+       resid_u, resid_v   ! u and v components of residual
 
     integer :: i, j, k, n
 
@@ -5502,6 +5520,9 @@
 
        uvel(k,i,j) = answer(2*n-1)
        vvel(k,i,j) = answer(2*n)
+
+       resid_u(k,i,j) = resid_vec(2*n-1)
+       resid_v(k,i,j) = resid_vec(2*n)
 
     enddo
 
@@ -5551,9 +5572,6 @@
        resid_vec(i) = resid_vec(i) - rhs(i)
        L2_norm = L2_norm + resid_vec(i)*resid_vec(i)
     enddo
-
-!PARALLEL - Parallel sum needed here?  Or will we never call this subroutine in parallel?
-!    L2_norm = parallel_reduce_sum(L2_norm)
 
     L2_norm = sqrt(L2_norm)
 

@@ -723,6 +723,10 @@ module glide_types
     !*sfp* mask on vel grid showing which dyn bc is applied at each grid cell (mainly for debugging)
     integer, dimension(:,:), pointer    :: dynbcmask => null()    
 
+    !WHL - for viewing the spatial pattern of residuals
+    real(dp),dimension(:,:,:),pointer :: resid_u => null()     ! u component of residual Ax - b where x is the velocity
+    real(dp),dimension(:,:,:),pointer :: resid_v => null()     ! v component of residual Ax - b where x is the velocity
+
   end type glide_velocity
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -1371,6 +1375,8 @@ contains
     call coordsystem_allocate(model%general%velo_grid, 2, model%velocity%btraction)
     call coordsystem_allocate(model%general%ice_grid,  upn, model%velocity%uvel_icegrid)
     call coordsystem_allocate(model%general%ice_grid,  upn, model%velocity%vvel_icegrid)
+    call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%resid_u)
+    call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%resid_v)
 
     !TODO - Remove ubas and vbas (already contained in uvel and vvel)
     call coordsystem_allocate(model%general%velo_grid, model%velocity%ubas)
@@ -1400,6 +1406,7 @@ contains
 
 
     if ( (model%options%whichdycore /= DYCORE_GLIDE) .OR. (model%options%whichdycore /= DYCORE_GLISSADE) ) then  ! glam/glissade dycore
+
        call coordsystem_allocate(model%general%velo_grid, model%velocity%kinbcmask)
        call coordsystem_allocate(model%general%velo_grid, model%velocity%dynbcmask)
        call coordsystem_allocate(model%general%velo_grid, model%velocity%beta)     
@@ -1662,6 +1669,10 @@ contains
         deallocate(model%velocity%uvel_icegrid)
     if (associated(model%velocity%vvel_icegrid)) &
         deallocate(model%velocity%vvel_icegrid)
+    if (associated(model%velocity%resid_u)) &
+        deallocate(model%velocity%resid_u)
+    if (associated(model%velocity%resid_v)) &
+        deallocate(model%velocity%resid_v)
 
     !TODO - Remove ubas and vbas
     if (associated(model%velocity%ubas)) &
