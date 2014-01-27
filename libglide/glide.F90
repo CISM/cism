@@ -394,7 +394,6 @@ contains
 
     use glide_thck
     use glide_velo
-    use glide_temp
     use glide_mask
     use glimmer_paramets, only: tim0
     use glimmer_physcon, only: scyr
