@@ -37,7 +37,7 @@ module glimmer_scales
   implicit none
 
   real(dp) :: scale_uvel, scale_uflx, scale_diffu, scale_acab, scale_wvel, scale_btrc 
-  real(dp) :: scale_beta, scale_flwa, scale_tau, scale_efvs
+  real(dp) :: scale_beta, scale_flwa, scale_tau, scale_efvs, scale_resid
 
   !WHL - Added this factor simply to flip the sign of bheatflx.  Typically, this flux has
   !      a sign convention of positive up in input data, but the Glimmer-CISM convention
@@ -80,11 +80,12 @@ contains
     scale_flwa  = scyr * vis0                     ! flwa
     scale_tau   = tau0                            ! tauf, tauxz, btractx
     scale_efvs  = evs0 / scyr                     ! efvs
+    scale_resid=  tau0 / len0                     ! resid_u, resid_v
     scale_bflx  = -1.d0                           ! bheatflx (Glimmer-CISM sign convention is positive down,
                                                   !           whereas input data usually assumes positive up)
 #else
 ! (no rescaling)
-    scale_uvel  = 1.0d0                     ! uvel, vvel, ubas, vbas, etc.
+    scale_uvel  = 1.0d0              ! uvel, vvel, ubas, vbas, etc.
     scale_uflx  = 1.0d0              ! uflx, vflx
     scale_diffu = 1.0d0              ! diffu
     scale_acab  = 1.0d0              ! acab, bmlt
@@ -95,6 +96,7 @@ contains
     scale_flwa  = 1.0d0              ! flwa
     scale_tau   = 1.0d0              ! tauf, tauxz, btractx
     scale_efvs  = 1.0d0              ! efvs
+    scale_resid = 1.0d0              ! resid_u, resid_v
     scale_bflx  = -1.d0              ! bheatflx (keeping this one -- Glimmer-CISM sign convention is 
                                      !           positive down, whereas input data usually assumes positive up)
 #endif
