@@ -26,7 +26,7 @@ mkdir -p $TEST_DIR
 # even if these are set in your env you need these when running the script
 echo 'set the pgi env'
 source /opt/modules/default/init/csh
-module rm cmake netcdf python
+module rm cmake netcdf python boost cray-hdf5-parallel netcdf-hdf5parallel
 module rm PrgEnv-pgi
 module rm PrgEnv-gnu
 module rm PrgEnv-intel
@@ -34,7 +34,6 @@ module rm PrgEnv-cray
 module rm PrgEnv-pathscale
 module add PrgEnv-pgi
 module add netcdf-hdf5parallel/4.2.0 python subversion cmake boost/1.53.0
-module swap xt-asyncpe xt-asyncpe/5.16
 module list
 
 # 0 is a successful build
@@ -125,8 +124,6 @@ endif
 ###################################################################################
 ### CMAKE BUILDS
 ###################################################################################
-module swap xt-asyncpe/5.16 xt-asyncpe 
-
 echo "build_cmake==$build_cmake"
 if ( $build_cmake == 1 ) then
 
@@ -161,9 +158,9 @@ if ( $build_cmake == 1 ) then
 
   # PARALLEL BUILD WITH CMAKE GNU
   echo 'change to gnu env'
-  module rm cmake netcdf-hdf5parallel/4.2.0 netcdf hdf5 python boost
+  module rm cmake netcdf-hdf5parallel cray-netcdf-hdf5parallel netcdf hdf5 python boost
   module swap PrgEnv-pgi PrgEnv-gnu
-  module add cmake/2.8.6 python netcdf-hdf5parallel/4.2.0 boost/1.49.0
+  module add cmake/2.8.6 python netcdf-hdf5parallel/4.3.0 boost/1.53.0
   module list
   echo 'CMAKE GNU PARALLEL BUILD'
   cd $CODE_DIR

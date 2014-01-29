@@ -10,7 +10,7 @@
   FC=ftn  F77=ftn   \
   CC=cc  CXX=CC \
   CXXFLAGS="-O2 " \
-  CPPFLAGS="-I/tmp/proj/cli062/worley/libgptl_pgi -DHAVE_MPI -DMPICH_IGNORE_CXX_SEEK -DCESMTIMERS" \
+  CPPFLAGS="-I/ccs/proj/cli062/worley/libgptl/PGI -DHAVE_MPI -DMPICH_IGNORE_CXX_SEEK -DCESMTIMERS" \
   FCFLAGS="-Mfree -O2" \
   F77FLAGS="-Mfixed" \
   CFLAGS="-O2 " \
