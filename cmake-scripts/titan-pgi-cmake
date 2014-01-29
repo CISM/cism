@@ -11,6 +11,7 @@
 #   cp example-drivers/simple_glide/src/sgcmake .
 #  --If you get an error about missing mod files, try make multiple times.
 
+# 12/2013 KJE this has not been updated to use new filesystem infrastructure
 
 rm ./CMakeCache.txt
 
