@@ -296,9 +296,9 @@ contains
   end function is_enabled_0dint
 
   function is_enabled_1dint(var)
-    integer, dimension(:), intent(in) :: var
+    integer, dimension(:), pointer, intent(in) :: var
     logical :: is_enabled_1dint
-    if (size(var)>0) then
+    if (associated(var)) then
       is_enabled_1dint = .true.
     else
       is_enabled_1dint = .false.
@@ -307,9 +307,9 @@ contains
   end function is_enabled_1dint
 
   function is_enabled_2dint(var)
-    integer, dimension(:,:), intent(in) :: var
+    integer, dimension(:,:), pointer, intent(in) :: var
     logical :: is_enabled_2dint
-    if (size(var)>0) then
+    if (associated(var)) then
       is_enabled_2dint = .true.
     else
       is_enabled_2dint = .false.
@@ -325,9 +325,9 @@ contains
   end function is_enabled_0dreal
 
   function is_enabled_1dreal(var)
-    real(dp), dimension(:), intent(in) :: var
+    real(dp), dimension(:), pointer, intent(in) :: var
     logical :: is_enabled_1dreal
-    if (size(var)>0) then
+    if (associated(var)) then
       is_enabled_1dreal = .true.
     else
       is_enabled_1dreal = .false.
@@ -336,9 +336,9 @@ contains
   end function is_enabled_1dreal
 
   function is_enabled_2dreal(var)
-    real(dp), dimension(:,:), intent(in) :: var
+    real(dp), dimension(:,:), pointer, intent(in) :: var
     logical :: is_enabled_2dreal
-    if (size(var)>0) then
+    if (associated(var)) then
       is_enabled_2dreal = .true.
     else
       is_enabled_2dreal = .false.
@@ -347,9 +347,9 @@ contains
   end function is_enabled_2dreal
 
   function is_enabled_3dreal(var)
-    real(dp), dimension(:,:,:), intent(in) :: var
+    real(dp), dimension(:,:,:), pointer, intent(in) :: var
     logical :: is_enabled_3dreal
-    if (size(var)>0) then
+    if (associated(var)) then
       is_enabled_3dreal = .true.
     else
       is_enabled_3dreal = .false.
