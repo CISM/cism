@@ -1,13 +1,25 @@
 
 EISMINT-1 test cases
+--------------------
 
-To run a particular test case, one would type the following (for example):
+To run a particular test case, first create a symbolic link (or copy of) your executable:
 
-make e1-fm.1.nc
+> ln -s ../../../example_drivers/simple_glide/src/simple_glide ./
 
-This will run the model and create the output file:
+For a serial build, the EISMINT-1, moving margin, test case 3 can be run using:
 
-e1-fm.1.nc
+> ./simple_glide e1-mm.3.config
 
+and likewise for other test cases ("mm" = moving margin; "fm" = fixed margin).
 
-sfp 10/2711
+For a parallel build, one would use:
+
+> mpirun -np 1 ./simple_glide e1-mm.3.config
+
+To view the results use ncview or another utility for viewing netCDF files.
+
+More information on the EISMINT test cases can be found here:
+Huybrechts, P. , Payne, T. and EISMINT, I. G. (1996): The EISMINT benchmarks for testing ice-sheet models , Annals of Glaciology, 23 , pp. 1-12.  
+http://homepages.vub.ac.be/~phuybrec/eismint.html
+
+(last edited on 2-6-14 by SFP)
