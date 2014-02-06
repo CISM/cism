@@ -1,29 +1,32 @@
-ho-other
+Halfar Test Case
 ========
 This directory contains Python scripts for running an experiment involving
 an ice sheet with a "dome" shape on a flat base.  The time evolution of this dome shape 
 using the shallow-ice approximation has an analytic solution.
+
 To run the experiment, enter the following on a terminal command line:
+* For a serial job: python halfar.py
+* Parallel runs, using higher-order dycores, are still being tested at this time.
 
-For a serial job: python halfar.py dome.config
-
-Parallel runs, using higher-order dycores, are still being tested at this time.
-
-The script performs the following three steps:
-1. Create a netCDF input file for Glimmer.
-2. Run Glimmer, creating a netCDF output file.
+The script performs the following steps:
+1. Create a netCDF input file for CISM.
+2. Run CISM, generating a netCDF output file.
 
 Input and output .nc files are written into the root level dir for this test case.
 
+To compare the results to the analytic solution, type:
+python halfar_results.py
+
 PREREQUISITES:
-In order to use the halfar.py script, you will need to have Python and one of the
+* The simple_glide executable must be available to the halfar.py script.  The easiest 
+to do this is to link it, e.g.:
+ln -s ../../../example_drivers/simple_glide/src/simple_glide .
+
+* In order to use the halfar.py script, you will need to have Python and one of the
 following Python modules installed:
 Scientific.IO.NetCDF, netCDF4, or pycdf
 
-To view the results use ncview or another utility for viewing netCDF files.
+* To view the results use ncview or another utility for viewing netCDF files.
 
-To compare the results to the analytic solution, type:
 
-python halfar_results.py
-
-(last edited on 10-8-13 by MJH & SFP)
+(last edited on 2-5-14 by MJH & SFP)

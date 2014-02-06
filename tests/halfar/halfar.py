@@ -5,10 +5,9 @@
 # 1. Create a netCDF input file for Glimmer.
 # 2. Run Glimmer, creating a netCDF output file.
 # 3. Move any additional files written by Glimmer to the "scratch" subdirectory.
-# Written by Glen Granzow at the University of Montana on April 13, 2010
+# Modified from dome.py script written by Glen Granzow at the University of Montana on April 13, 2010
 # Modified for Halfar test case by Matt Hoffman, October 2013.
 
-# Slight alterations by SFP on 2-3-11 for Glimmer-CISM 2.0 relase
 
 import sys, os, glob, shutil, numpy
 from netCDF import *
@@ -46,7 +45,7 @@ dx = float(parser.get('grid','dew'))
 dy = float(parser.get('grid','dns'))
 filename = parser.get('CF input', 'name')
 
-print 'Writing', filename
+print 'Creating', filename
 try:
   netCDFfile = NetCDFFile(filename,'w',format='NETCDF3_CLASSIC')
 except TypeError:
@@ -75,16 +74,18 @@ topg = numpy.zeros([1,ny,nx],dtype='float32')
 # Get the value of flwa specified in the default_flwa parameter in the config file.
 # This is the only way this test case supports specifying flwa.
 try: 
-   #flwa=os.system( 'grep "^default_flwa" ' + configfile+ ' | cut -f 3 -d " "')
-   flwa=float( subprocess.check_output( 'grep "^default_flwa" ' + configfile+ ' | cut -f 3 -d " "', shell='/bin/bash') )
+   flwa = float(parser.get('parameters','default_flwa'))
    print 'Parameter used: ' + configfile + ' has specified a flwa value of ' + str(flwa)
+   flow_law = int(parser.get('options','flow_law'))
+   if flow_law != 0:
+      sys.exit('Error: The option "flow_law" must be set to 0 for the test case to work properly.')
 except:
    sys.exit('Error: problem getting default_flwa parameter value from the config file')
 
 # Try to get ice density used by the model
 try:
-   rhoi = float( subprocess.check_output( 'grep "real(dp),parameter :: rhoi =" ../../../libglimmer/glimmer_physcon.F90 | cut -d " " -f 7 | cut -d "." -f 1', shell='/bin/bash' ) )
-   print 'Parameter used: ../../../libglimmer/glimmer_physcon.F90 has specified a rhoi value of ' + str(rhoi)
+   rhoi = float( subprocess.check_output( 'grep "real(dp),parameter :: rhoi =" ../../libglimmer/glimmer_physcon.F90 | cut -d " " -f 7 | cut -d "." -f 1', shell='/bin/bash' ) )
+   print 'Parameter used: ../../libglimmer/glimmer_physcon.F90 has specified a rhoi value of ' + str(rhoi)
 except:
    print 'Warning: problem getting ice density value from ../../../libglimmer/glimmer_physcon.F90  Assuming 910.0 kg/m^3 as a default value.'
    rhoi = 910.0
@@ -112,5 +113,5 @@ else:
 print ''
 print '================ '
 print ''
-print 'CISM run completed.  Run python ./halfar_results.py to analyze the results.'
+print 'CISM run completed.  Run python halfar_results.py to analyze the results.'
 

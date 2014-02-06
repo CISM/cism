@@ -18,7 +18,9 @@ except ImportError:
       print 'One of them must be installed.'
       raise ImportError('No netCDF module found')
 from optparse import OptionParser
+from ConfigParser import ConfigParser
 import numpy as np
+import numpy.ma as ma
 import matplotlib.pyplot as plt
 from halfarDome import halfarDome   # located in current directory
 
@@ -42,19 +44,25 @@ else:
    configfile = 'halfar.config'
    print 'No config file specified.  Attempting to use halfar.config.'
 
+# Open config file for reading
+conparser = ConfigParser()
+conparser.read(configfile)
 
 # Get the value of flwa specified in the default_flwa parameter in the config file.
 # This is the only way this test case supports specifying flwa.
 try: 
-   flwa=float( subprocess.check_output( 'grep "^default_flwa" ' + configfile + ' | cut -f 3 -d " "', shell='/bin/bash') )
+   flwa = float(conparser.get('parameters','default_flwa'))
    print 'Parameter used: ' + configfile + ' has specified a flwa value of ' + str(flwa)
+   flow_law = int(conparser.get('options','flow_law'))
+   if flow_law != 0:
+      sys.exit('Error: The option "flow_law" must be set to 0 for the test case to work properly.')
 except:
    sys.exit('Error: problem getting default_flwa parameter value from the config file')
 
 # Try to get ice density used by the model
 try:
-   rhoi = float( subprocess.check_output( 'grep "real(dp),parameter :: rhoi =" ../../../libglimmer/glimmer_physcon.F90 | cut -d " " -f 7 | cut -d "." -f 1', shell='/bin/bash' ) )
-   print 'Parameter used: ../../../libglimmer/glimmer_physcon.F90 has specified a rhoi value of ' + str(rhoi)
+   rhoi = float( subprocess.check_output( 'grep "real(dp),parameter :: rhoi =" ../../libglimmer/glimmer_physcon.F90 | cut -d " " -f 7 | cut -d "." -f 1', shell='/bin/bash' ) )
+   print 'Parameter used: ../../libglimmer/glimmer_physcon.F90 has specified a rhoi value of ' + str(rhoi)
 except:
    print 'Warning: problem getting ice density value from ../../../libglimmer/glimmer_physcon.F90  Assuming 910.0 kg/m^3 as a default value.'
    rhoi = 910.0
@@ -74,35 +82,46 @@ if netCDF_module == 'Scientific.IO.NetCDF':
 thkHalfar = halfarDome(time[timelev]-time[0], x1, y1, flwa, rhoi)
 
 thkDiff = thk[timelev, :, :] - thkHalfar
+thkDiffIce = thkDiff[ np.where( thk[timelev,:,:] > 0.0) ]  # Restrict to cells modeled to have ice
+RMS = ( (thkDiffIce**2).sum() / float(len(thkDiffIce)) )**0.5
 
 # Print some stats about the error
-print 'Error statistics for cells modeled to have ice:'
-print '* Maximum error is ' + str( thkDiff[ np.where( thk[timelev,:,:] > 0.0) ].max() )
-print '* Minimum error is ' + str( thkDiff[ np.where( thk[timelev,:,:] > 0.0) ].min() )
-print '* Mean error is ' + str( thkDiff[ np.where( thk[timelev,:,:] > 0.0) ].mean() )
-print '* Median error is ' + str( np.median(thkDiff[ np.where( thk[timelev,:,:] > 0.0) ]) )
+print '\nError statistics for cells modeled to have ice:'
+print '* RMS error = ' + str( RMS )
+print '* Maximum error is ' + str( thkDiffIce.max() )
+print '* Minimum error is ' + str( thkDiffIce.min() )
+print '* Mean error is ' + str( thkDiffIce.mean() )
+print '* Median error is ' + str( np.median(thkDiffIce) )
+print '* Mean absolute error = ' + str( np.absolute(thkDiffIce).mean() )
+print '* Median absolute error = ' + str( np.median(np.absolute(thkDiffIce)) )
+print ''
 
+
+# =========================
 # Plot the results
-fig = plt.figure(1, facecolor='w')
-markersize = 30.0
+fig = plt.figure(1, facecolor='w', figsize=(10, 4), dpi=100)
+gray = np.ones(3)*0.8
 
 fig.add_subplot(1,3,1)
-plt.pcolor(x1,y1,thk[timelev,:,:])
+plt.pcolor(x1/1000.0,y1/1000.0,  ma.masked_values(thk[timelev,:,:], 0.0) )
 plt.colorbar()
 plt.axis('equal')
 plt.title('Modeled thickness (m) \n at time ' + str(time[timelev]) )
+plt.xlabel('x (km)'); plt.ylabel('y (km)')
 
 fig.add_subplot(1,3,2)
-plt.pcolor(x1,y1,thkHalfar)
+plt.pcolor(x1/1000.0,y1/1000.0, ma.masked_values(thkHalfar, 0.0) )
 plt.colorbar()
 plt.axis('equal')
 plt.title('Analytic thickness (m) \n at time ' + str(time[timelev]) )
+plt.xlabel('x (km)'); plt.ylabel('y (km)')
 
 fig.add_subplot(1,3,3)
-plt.pcolor(x1,y1,thkDiff)
+plt.pcolor(x1/1000.0,y1/1000.0, ma.masked_values(thkDiff, 0.0))
 plt.colorbar()
 plt.axis('equal')
 plt.title('Modeled thickness - Analytic thickness \n at time ' + str(time[timelev]) ) 
+plt.xlabel('x (km)'); plt.ylabel('y (km)')
 
 plt.draw()
 plt.show()
