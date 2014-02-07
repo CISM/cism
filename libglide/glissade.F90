@@ -777,9 +777,6 @@ contains
     ! ------------------------------------------------------------------------
 
     if (model%options%isostasy == ISOSTASY_COMPUTE) then
-
-       call not_parallel(__FILE__, __LINE__)
-
        if (model%numerics%time >= model%isostasy%next_calc) then
           model%isostasy%next_calc = model%isostasy%next_calc + model%isostasy%period
           call isos_icewaterload(model)
@@ -797,7 +794,6 @@ contains
     !       The elastic lithosphere scheme is not expected to work in parallel.
 
     if (model%options%isostasy == ISOSTASY_COMPUTE) then
-       call not_parallel(__FILE__, __LINE__)
        call isos_compute(model)
     end if
 
