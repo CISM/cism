@@ -273,6 +273,12 @@ module parallel
      module procedure parallel_reduce_max_real8
   end interface
 
+  interface parallel_reduce_sum
+     module procedure parallel_reduce_sum_integer
+     module procedure parallel_reduce_sum_real4
+     module procedure parallel_reduce_sum_real8
+  end interface
+
 contains
 
   subroutine broadcast_character(c)
@@ -3770,19 +3776,44 @@ contains
     call broadcast(parallel_redef)
   end function parallel_redef
 
-  function parallel_reduce_sum(x)
+  function parallel_reduce_sum_integer(x)
+    use mpi_mod
+    implicit none
+    integer :: x
+    integer :: ierror
+    integer :: recvbuf,sendbuf, parallel_reduce_sum_integer
+    ! begin
+    sendbuf = x
+    call mpi_allreduce(sendbuf,recvbuf,1,mpi_integer,mpi_sum,comm,ierror)
+    parallel_reduce_sum_integer = recvbuf
+    return
+  end function parallel_reduce_sum_integer
+
+  function parallel_reduce_sum_real4(x)
+    use mpi_mod
+    implicit none
+    real(4) :: x
+    integer :: ierror
+    real(4) :: recvbuf,sendbuf, parallel_reduce_sum_real4
+    ! begin
+    sendbuf = x
+    call mpi_allreduce(sendbuf,recvbuf,1,mpi_real4,mpi_sum,comm,ierror)
+    parallel_reduce_sum_real4 = recvbuf
+    return
+  end function parallel_reduce_sum_real4
+
+  function parallel_reduce_sum_real8(x)
     use mpi_mod
     implicit none
     real(8) :: x
-
     integer :: ierror
-    real(8) :: recvbuf,sendbuf, parallel_reduce_sum
+    real(8) :: recvbuf,sendbuf, parallel_reduce_sum_real8
     ! begin
     sendbuf = x
     call mpi_allreduce(sendbuf,recvbuf,1,mpi_real8,mpi_sum,comm,ierror)
-    parallel_reduce_sum = recvbuf
+    parallel_reduce_sum_real8 = recvbuf
     return
-  end function parallel_reduce_sum
+  end function parallel_reduce_sum_real8
 
   function parallel_reduce_max_integer(x)
     use mpi_mod

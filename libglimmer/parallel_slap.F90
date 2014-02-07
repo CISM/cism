@@ -237,6 +237,12 @@ module parallel
      module procedure parallel_put_var_real8_1d
   end interface
 
+  interface parallel_reduce_sum
+     module procedure parallel_reduce_sum_integer
+     module procedure parallel_reduce_sum_real4
+     module procedure parallel_reduce_sum_real8
+  end interface
+
   interface parallel_reduce_max
      module procedure parallel_reduce_max_integer
      module procedure parallel_reduce_max_real4
@@ -1971,15 +1977,35 @@ contains
     call broadcast(parallel_redef)
   end function parallel_redef
 
-  function parallel_reduce_sum(x)
+  function parallel_reduce_sum_integer(x)
     ! Sum x across all of the nodes.
     ! In parallel_slap mode just return x.
     implicit none
-    real(8) :: x, parallel_reduce_sum
+    integer :: x, parallel_reduce_sum_integer
 
-    parallel_reduce_sum = x
+    parallel_reduce_sum_integer = x
     return
-  end function parallel_reduce_sum
+  end function parallel_reduce_sum_integer
+
+  function parallel_reduce_sum_real4(x)
+    ! Sum x across all of the nodes.
+    ! In parallel_slap mode just return x.
+    implicit none
+    real(4) :: x, parallel_reduce_sum_real4
+
+    parallel_reduce_sum_real4 = x
+    return
+  end function parallel_reduce_sum_real4
+
+  function parallel_reduce_sum_real8(x)
+    ! Sum x across all of the nodes.
+    ! In parallel_slap mode just return x.
+    implicit none
+    real(8) :: x, parallel_reduce_sum_real8
+
+    parallel_reduce_sum_real8 = x
+    return
+  end function parallel_reduce_sum_real8
 
   function parallel_reduce_max_integer(x)
     ! Max x across all of the nodes.

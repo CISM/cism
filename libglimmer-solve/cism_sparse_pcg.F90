@@ -39,27 +39,11 @@ module cism_sparse_pcg
   private
   public :: pcg_solver_structured
 
-!WHL - debug
-    logical :: verbose_pcg
+  logical :: verbose_pcg
 
 !WHL - debug
     integer, parameter :: &
         ndiagmax = 10      ! number of values to print out for debugging
-
-!WHL - debug
-
-   integer, parameter :: &
-!       itest = 24, jtest = 17, ktest = 1
-!       itest = 17, jtest = 10, ktest = 1
-!       itest = 10, jtest = 17, ktest = 1
-        itest = 6, jtest = 7, ktest = 1
-
-   integer, parameter :: &
-!       ntest = 2371   ! nodeID for (24,17,1)
-!       ntest = 411    ! nodeID for (17,10,1)
-       ntest = 1771   ! nodeID for (10,17,1)
-
-    integer, parameter :: rtest = 0    ! rank for (17,10) with 4 procs
 
     !WHL - These options are redundant with glide_types but are included here
     !       because of automake issues.  (This module cannot use glide_types if libglimmer-solve
@@ -83,7 +67,9 @@ contains
                                    bu,        bv,            &
                                    xu,        xv,            &
                                    precond,   err,           &
-                                   niters,    verbose) 
+                                   niters,                   &
+                                   itest_in,  jtest_in,  rtest_in,   &
+                                   verbose) 
 
     !---------------------------------------------------------------
     !  This subroutine uses a preconditioned conjugate-gradient solver
@@ -178,6 +164,9 @@ contains
     integer, intent(out) ::   &
        niters                            ! iterations needed to solution
 
+    integer, intent(in), optional :: &
+       itest_in, jtest_in, rtest_in      ! point for debugging diagnostics
+
     logical, intent(in), optional :: &
        verbose                           ! if true, print diagnostic output
     
@@ -212,6 +201,8 @@ contains
     real(dp), dimension(-1:1,nz,nx-1,ny-1) ::  &
        Muu, Mvv            ! simplified SIA matrices for preconditioning
 
+    integer :: itest, jtest, rtest
+
     !---------------------------------------------------------------
     ! Solver parameters
     ! TODO: Pass these in as arguments?
@@ -232,17 +223,38 @@ contains
        solv_resid = 50       ! solve for residual as r = b - Ax every solv_resid iterations
                              ! else compute residual as r = r - alpha*(Ad)
 
+!WHL - debug
+    real(dp) :: maxu, maxv
+    integer :: imax, jmax, kmax
+
+    if (present(itest_in)) then
+       itest = itest_in
+    else
+       itest = nx/2
+    endif
+
+    if (present(itest_in)) then
+       jtest = jtest_in
+    else
+       jtest = ny/2
+    endif
+
+    if (present(itest_in)) then
+       rtest = rtest_in
+    else
+       rtest = 0
+    endif
+
     if (present(verbose)) then
        verbose_pcg = verbose
     else
        verbose_pcg = .true.   ! for debugging
     endif
 
-    if (verbose_pcg .and. this_rank==rtest) then
+    if (verbose_pcg .and. main_task) then
        print*, ' '
        print*, 'In structured pcg solver'
-       print*, 'tolerance, maxiters =', tolerance, maxiters
-       print*, 'precond =', precond
+       print*, 'tolerance, maxiters, precond =', tolerance, maxiters, precond
     endif
 
     ! Set up preconditioning
@@ -254,24 +266,7 @@ contains
        Adiagv(:,:,:) = Avv(m,:,:,:)
 
        if (verbose_pcg .and. this_rank==rtest) then
-          print*, ' '
           print*, 'Using diagonal matrix for preconditioning'
-!          print*, ' '
-!          print*, 'i, j, k, diagonal entries, initial guess, residual:'
-!          m = 0
-!          do j = 1, ny-1
-!          do i = 1, nx-1
-!          do k = 1, nz
-!             if (Adiagu(k,i,j) > 0.d0 .and. m < ndiagmax) then
-!                m = m + 2
-!                print*, i, j, k, Adiagu(k,i,j), xu(k,i,j), ru(k,i,j)
-!                print*, i, j, k, Adiagv(k,i,j), xv(k,i,j), rv(k,i,j)
-!             else
-!                exit
-!             endif
-!          enddo
-!          enddo
-!          enddo
        endif  ! verbose_pcg
 
     elseif (precond == SPARSE_PRECOND_SIA) then  ! form SIA matrices Muu and Mvv with vertical coupling only
@@ -310,14 +305,12 @@ contains
        enddo
 
 !WHL - debug
-!       if (verbose_pcg .and. this_rank==rtest) then
-!          print*, ' '
-!          print*, 'Using easy SIA solver for preconditioning'
-!          i = itest
-!          j = jtest
+       if (verbose_pcg .and. this_rank==rtest) then
+          print*, 'Using easy SIA solver for preconditioning'
+          i = itest
+          j = jtest
 !          print*, ' '
 !          print*, 'i, j =', i, j
-!          print*, ' '
 !          print*, ' '
 !          print*, 'k, Muu(-1:1):'
 !          do k = 1, nz
@@ -328,12 +321,11 @@ contains
 !          do k = 1, nz
 !             print*, k, Mvv(-1:1,k,i,j)
 !          enddo
-!       endif
+       endif
 
     else   ! no preconditioning
 
        if (verbose_pcg .and. this_rank==rtest) then
-          print*, ' '
           print*, 'Using no preconditioner'
        endif
 
@@ -397,7 +389,7 @@ contains
     ! take square root
 
     L2_rhs = sqrt(L2_rhs)       ! L2 norm of RHS
-    if (verbose_pcg .and. this_rank==rtest) print*, 'Global L2_rhs =', L2_rhs
+!!    if (verbose_pcg .and. this_rank==rtest) print*, 'Global L2_rhs =', L2_rhs
 
     ! Iterate to solution
 
@@ -435,9 +427,49 @@ contains
                                active_vertex,         &
                                Muu,  ru,   zu)      ! solve Muu*zu = ru for zu 
 
+!WHL - debug
+          if (verbose_pcg .and. n==1 .and. this_rank==rtest) then  ! first iteration only
+             imax = 1; jmax = 1; kmax = 1
+             maxu = 0.d0
+             do j = nhalo+1, ny-nhalo
+                do i = nhalo+1, nx-nhalo
+                   do k = 1, nz
+                      if (abs(ru(k,i,j)) > maxu) then
+                         maxu = ru(k,i,j)
+                         imax = i
+                         jmax = j
+                         kmax = k
+                      endif
+                   enddo
+                enddo
+             enddo
+!!             print*, 'iter, rank, i, j, k, max ru, zu:', &
+!!                     n, this_rank, imax, jmax, kmax, ru(kmax,imax,jmax), zu(kmax,imax,jmax)
+          endif
+         
           call easy_sia_solver(nx,   ny,   nz,        &
                                active_vertex,         &
                                Mvv,  rv,   zv)      ! solve Mvv*zv = rv for zv
+
+!WHL - debug
+          if (verbose_pcg .and. this_rank==rtest .and. n==1) then
+             maxv = 0.d0
+             imax = 1; jmax = 1; kmax = 1
+             do j = 1, ny-1
+                do i = 1, nx-1
+                   do k = 1, nz
+                      if (abs(zv(k,i,j)) > maxv) then
+                         maxv = zv(k,i,j)
+                         imax = i
+                         jmax = j
+                         kmax = k
+                      endif
+                   enddo
+                enddo
+             enddo
+!!             print*, 'iter, rank, i, j, k, max rv, zv:', &
+!!                     n, this_rank, imax, jmax, kmax, rv(kmax,imax,jmax), zv(kmax,imax,jmax)
+          endif
 
        endif    ! precond
 
@@ -453,12 +485,11 @@ contains
 
        !WHL - If the SIA solver has failed due to singular matrices,
        !      then eta1 will be NaN.
-       ! This code is commented out because 'isnan' does not work for all compilers.
  
-!       if (isnan(eta1)) then
-!          write(6,*) 'Error, SIA preconditioner has failed, eta1 = NaN'
-!          stop    !TODO - Put in a proper abort
-!       endif
+       if (eta1 /= eta1) then  ! eta1 is NaN
+          write(6,*) 'Error, PCG solver has failed, eta1 = NaN'
+          stop    !TODO - Put in a proper abort
+       endif
 
        ! Update the conjugate direction vector d
 
@@ -508,6 +539,13 @@ contains
        alpha = eta1/eta2      ! alpha = ----------
                               !          (d, A*d)
        
+       !WHL - If eta2 = 0 (e.g., because all matrix entries are zero), then alpha = NaN
+ 
+       if (alpha /= alpha) then  ! alpha is NaN
+          write(6,*) 'eta1, eta2, alpha:', eta1, eta2, alpha
+          write(6,*) 'Error, PCG solver has failed, alpha = NaN'
+          stop    !TODO - Put in a proper abort
+       endif
 
        ! Compute the new solution
 
@@ -876,30 +914,6 @@ contains
           spdiag(k) = 0.d0
          
           ! solve
-
-!WHL - debug
-          if (i==itest .and. j==jtest) then
-
-!             print*, ' '
-!             print*, 'Tridiag soln, i, j =', i, j
-             beta = diag(1)
-             soln(1) = rhs(1) / beta
-
-!             print*, 'k, beta, soln =', 1, beta, soln(1)
-
-             do k = 2, nz
-                gamma(k) = spdiag(k-1) / beta
-                beta = diag(k) - sbdiag(k)*gamma(k)
-                soln(k) = (rhs(k) - sbdiag(k)*soln(k-1)) / beta
-!                print*, 'k, gamma, beta, soln =', k, gamma(k), beta, soln(k)
-             enddo
-
-             do k = nz-1, 1, -1
-                soln(k) = soln(k) - gamma(k+1)*soln(k+1)
-!                print*, 'k, soln =', k, soln(k)
-             enddo
-
-          endif
 
           call tridiag_solver(nz,    sbdiag,   &
                               diag,  spdiag,   &

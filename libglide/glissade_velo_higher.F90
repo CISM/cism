@@ -171,12 +171,12 @@
 !    logical :: verbose_Jac = .true.
     logical :: verbose_residual = .false.
 !    logical :: verbose_residual = .true.
-!    logical :: verbose_state = .false.
-    logical :: verbose_state = .true.
+    logical :: verbose_state = .false.
+!    logical :: verbose_state = .true.
     logical :: verbose_load = .false.
 !    logical :: verbose_load = .true.
-!    logical :: verbose_shelf = .false.
-    logical :: verbose_shelf = .true.
+    logical :: verbose_shelf = .false.
+!    logical :: verbose_shelf = .true.
     logical :: verbose_matrix = .false.
 !    logical :: verbose_matrix = .true.
     logical :: verbose_basal = .false.
@@ -735,7 +735,11 @@
 
     integer ::    &
        matrix_order,    & ! order of matrix = number of rows
-       nNonzero           ! upper bound for number of nonzero entries in sparse matrix
+       max_nonzeros       ! upper bound for number of nonzero entries in sparse matrix
+
+    integer :: nNonzeros          ! number of nonzero matrix entries on local processor
+    integer :: nNonzeros_global   ! number of nonzero matrix entries globally
+    logical :: solve_flag         ! if false, skip solution and return
 
 !WHL - debug
     integer :: i, j, k, m, n, r
@@ -748,8 +752,6 @@
     integer :: rowi
     logical, parameter :: sia_test = .false.
 !    logical, parameter :: sia_test = .true.
-
-    integer :: nNonzeros    ! number of nonzero entries in structured matrices
 
 !WHL - UMC
     real(dp), dimension(nz,nx-1,ny-1) ::   &
@@ -812,6 +814,11 @@
     ! Convert input variables to appropriate units for this solver
     !TODO - Add some comments about units for this module
     !--------------------------------------------------------
+
+!WHL - debug
+!    thck(:,:) = 0.d0
+!    usrf(:,:) = 0.d0
+!    topg(:,:) = 0.d0
 
     call glissade_velo_higher_scale_input(dx,     dy,      &
                                           thck,   usrf,    &
@@ -879,10 +886,8 @@
        print*, ' '
        print*, 'nx, ny, nz:', nx, ny, nz
        print*, 'vol0:', vol0
-       print*, ' '
        print*, 'thklim:', thklim
-       print*, 'max thck:', maxthck
-       print*, 'max usrf:', maxusrf
+       print*, 'max thck, usrf:', maxthck, maxusrf
     endif
 
 !WHL - debug
@@ -1145,14 +1150,14 @@
        enddo
     enddo
 
-    if (verbose .and. this_rank==rtest) then
-       n = ntest
-       i = iNodeIndex(n)
-       j = jNodeIndex(n)
-       k = kNodeIndex(n)
-       print*, ' '
-       print*, 'ntest, i, j, k:', n, i, j, k
-    endif
+!    if (verbose .and. this_rank==rtest) then
+!       n = ntest
+!       i = iNodeIndex(n)
+!       j = jNodeIndex(n)
+!       k = kNodeIndex(n)
+!       print*, ' '
+!       print*, 'ntest, i, j, k:', n, i, j, k
+!    endif
  
     if (verbose .and. this_rank==rtest) then
        print*, ' '
@@ -1163,17 +1168,17 @@
 !       print*, 'thck(j+1):', thck(i:i+1,j+1)
 !       print*, 'thck(j)  :', thck(i:i+1,j)
 !       print*, 'stagthck :', stagthck(i,j)
-       print*, ' '
-       print*, 'usrf(j+1):', usrf(i:i+1,j+1)
-       print*, 'usrf(j)  :', usrf(i:i+1,j)
-       print*, 'stagusrf :', stagusrf(i,j)
-       print*, ' '
+!       print*, ' '
+!       print*, 'usrf(j+1):', usrf(i:i+1,j+1)
+!       print*, 'usrf(j)  :', usrf(i:i+1,j)
+!       print*, 'stagusrf :', stagusrf(i,j)
+!       print*, ' '
        ds_dx = 0.5d0 * (stagusrf(i,j) + stagusrf(i,j-1) - stagusrf(i-1,j) - stagusrf(i-1,j-1)) / &
                (xVertex(i+1,j) - xVertex(i,j))
        ds_dy = 0.5d0 * (stagusrf(i,j) - stagusrf(i,j-1) + stagusrf(i-1,j) - stagusrf(i-1,j-1)) / &
                (yVertex(i,j+1) - yVertex(i,j))
-       print*, 'Finite-difference ds/dx, ds_dy:', ds_dx, ds_dy
-       print*, ' '                
+!       print*, 'Finite-difference ds/dx, ds_dy:', ds_dx, ds_dy
+!       print*, ' '                
     endif
 
     !------------------------------------------------------------------------------
@@ -1185,23 +1190,22 @@
         whichsparse /= STANDALONE_TRILINOS_SOLVER) then   
 
        matrix_order = 2*nNodesSolve    ! Is this exactly enough?
-       nNonzero = matrix_order*54      ! 27 = node plus 26 nearest neighbors in hexahedral lattice   
+       max_nonzeros = matrix_order*54  ! 27 = node plus 26 nearest neighbors in hexahedral lattice   
                                        ! 54 = 2 * 27 (since solving for both u and v)
 
-       allocate(matrix%row(nNonzero), matrix%col(nNonzero), matrix%val(nNonzero))
+       allocate(matrix%row(max_nonzeros), matrix%col(max_nonzeros), matrix%val(max_nonzeros))
        allocate(rhs(matrix_order), answer(matrix_order), resid_vec(matrix_order))
 
        if (verbose_matrix) then
           print*, 'matrix_order =', matrix_order
-          print*, 'nNonzero = ', nNonzero
+          print*, 'max_nonzeros = ', max_nonzeros
        endif
 
     endif   ! SLAP solver
  
     if (verbose .and. this_rank==rtest) then
        print*, 'size(uvel, vvel) =', size(uvel), size(vvel)
-       print*, 'sum (uvel, vvel) =', sum(uvel), sum(vvel)
-       print*, 'size(usav, vsav) =', size(usav), size(vsav)
+!       print*, 'size(usav, vsav) =', size(usav), size(vsav)
     endif
 
     !---------------------------------------------------------------
@@ -1311,9 +1315,9 @@
        if (verbose .and. main_task) then
           print*, ' '
           print*, 'Outer counter =', counter
-          print*, 'whichresid =', whichresid
-          print*, 'L2_norm, L2_target =', L2_norm, L2_target
-          print*, 'resid_velo, resid_target =', resid_velo, resid_target
+!          print*, 'whichresid =', whichresid
+!          print*, 'L2_norm, L2_target =', L2_norm, L2_target
+!          print*, 'resid_velo, resid_target =', resid_velo, resid_target
        endif
 
        ! save current velocity
@@ -1370,16 +1374,13 @@
        !       however, allows for more general sliding laws.
        !---------------------------------------------------------------------------
 
-!TODO - Test this subroutine
-
        if (whichbabc /= HO_BABC_NO_SLIP) then
 
-       !WHL - debug
-          if (verbose .and. main_task) then
-             print*, ' '
-             print*, 'max, min beta (Pa/(m/yr)) =', maxval(beta), minval(beta)
-             print*, 'Call basal_sliding_bc'
+          if (verbose .and. counter==1 .and. this_rank==rtest) then
+             print*, 'rank, max, min beta (Pa/(m/yr)) =', this_rank, maxval(beta), minval(beta)
           endif
+
+!          if (verbose .and. main_task) print*, 'Call basal_sliding_bc'
 
           call basal_sliding_bc(nx,               ny,              &
                                 nz,               nhalo,           &
@@ -1412,8 +1413,7 @@
        !---------------------------------------------------------------------------
 
        if (verbose .and. main_task) then
-          print*, ' '
-          print*, 'Call dirichlet_bc'
+!          print*, 'Call Dirichlet_bc'
        endif
 
        call dirichlet_boundary_conditions(nx,              ny,                &
@@ -1497,8 +1497,6 @@
        !       For example, the SLAP PCG solver with incomplete Cholesky preconditioning
        !       can crash if symmetry is not perfect. 
        !---------------------------------------------------------------------------
-
-       if (verbose .and. main_task) print*, 'Check matrix symmetry'
 
        if (check_symmetry) then
 
@@ -1600,11 +1598,11 @@
           endif   ! sia_test             
 
        !---------------------------------------------------------------------------
-       ! Count nonzero elements in structured matrices (strictly diagnostic)
+       ! Count nonzero elements in structured matrices
        !---------------------------------------------------------------------------
 
        nNonzeros = 0
-       do j = nhalo+1, ny-nhalo
+       do j = nhalo+1, ny-nhalo  ! loop over locally owned vertices
        do i = nhalo+1, nx-nhalo
           if (active_vertex(i,j)) then
              do k = 1, nz
@@ -1624,9 +1622,35 @@
        enddo        ! i
        enddo        ! j
 
-       if (verbose_matrix .and. this_rank==rtest) then
-          print*, ' '
-          print*, 'nNonzeros in structured matrices =', nNonzeros
+       if (verbose .and. this_rank==rtest) then
+!          print*, ' '
+!          print*, 'rank, nNonzeros (local) =', this_rank, nNonzeros
+       endif
+
+       ! Count the total number of nonzero elements on all processors.
+       ! If there are no such elements, then return.
+
+       nNonzeros_global = parallel_reduce_sum(nNonzeros)
+
+       if (verbose .and. main_task) print*, 'nNonzeros (global) =', nNonzeros_global
+
+       if (nNonzeros_global == 0) then  ! clean up and return
+
+          resid_u(:,:,:) = 0.d0
+          resid_v(:,:,:) = 0.d0
+          uvel(:,:,:) = 0.d0
+          vvel(:,:,:) = 0.d0
+
+          call glissade_velo_higher_scale_output(thck,    usrf,    &
+                                                 topg,             &
+                                                 flwa,    efvs,    &
+                                                 beta,             &
+                                                 resid_u, resid_v, &
+                                                 uvel,    vvel)
+
+          if (main_task) print*, 'No nonzeros in matrix; exit glissade_velo_higher_solve'
+          return
+
        endif
 
 !WHL - debug - print out some matrix values for test point
@@ -1758,7 +1782,6 @@
 
        endif
 
-
        if (whichsparse == STANDALONE_PCG_STRUC) then   ! standalone PCG for structured grid
                                                        ! works for both serial and parallel runs
 
@@ -1766,9 +1789,8 @@
           ! Compute the residual vector and its L2 norm
           !------------------------------------------------------------------------
 
-          if (verbose .and. this_rank==rtest) then
-             print*, ' '
-             print*, 'Compute residual vector'
+          if (verbose .and. main_task) then
+!!             print*, 'Compute residual vector'
           endif
 
           call compute_residual_vector(nx,          ny,            &
@@ -1781,22 +1803,18 @@
                                        resid_u,     resid_v,       &
                                        L2_norm)
 
-          if (verbose .and. this_rank==rtest) then
-             print*, ' '
-             print*, 'counter, L2_norm =', counter, L2_norm
+          if (verbose .and. main_task) then
+!!             print*, 'L2_norm, L2_target =', L2_norm, L2_target
           endif
 
-          ! preprocessing is not needed because the matrix, rhs, and solution already
+          ! Preprocessing is not needed because the matrix, rhs, and solution already
           ! have the required data structure
-
-!          if (verbose .and. this_rank==rtest) then
-!             print*, ' '
-!             print*, 'Calling structured PCG solver'
-!          endif
 
           !------------------------------------------------------------------------
           ! Call linear PCG solver, compute uvel and vvel on local processor
           !------------------------------------------------------------------------
+
+          !WHL - Pass itest, jtest, rtest for debugging
 
           call pcg_solver_structured(nx,           ny,            &
                                      nz,           nhalo,         &
@@ -1806,9 +1824,10 @@
                                      bu,           bv,            &
                                      uvel,         vvel,          &
                                      whichprecond, err,           &
-                                     niters)
+                                     niters,                      &
+                                     itest, jtest, rtest)
 
-          if (verbose .and. this_rank==rtest) then
+          if (verbose .and. main_task) then
              print*, 'Solved the linear system, niters, err =', niters, err
           endif
 
@@ -1828,7 +1847,7 @@
           if (verbose) print*, 'Form global matrix in sparse format'
  
           matrix%order = matrix_order
-          matrix%nonzeros = nNonzero
+          matrix%nonzeros = max_nonzeros
           matrix%symmetric = .false.
 
           call slap_preprocess(nx,           ny,          &   
@@ -1840,7 +1859,7 @@
                                Avu,          Avv,         &
                                bu,           bv,          &
                                uvel,         vvel,        &
-                               matrix_order, nNonzero,    &
+                               matrix_order, max_nonzeros,&
                                matrix,       rhs,         &
                                answer)
 
@@ -1853,12 +1872,12 @@
 
 !WHL - bug check
           if (verbose) then
-             print*, ' '
-             print*, 'Before linear solve: n, row, col, val:'
-             print*, ' '
-             do n = 1, 10              
-                print*, n, matrix%row(n), matrix%col(n), matrix%val(n)
-             enddo
+!             print*, ' '
+!             print*, 'Before linear solve: n, row, col, val:'
+!             print*, ' '
+!             do n = 1, 10              
+!                print*, n, matrix%row(n), matrix%col(n), matrix%val(n)
+!             enddo
 
              print*, 'L2_norm of residual =', L2_norm
              print*, 'Call sparse_easy_solve, counter =', counter
@@ -1871,7 +1890,8 @@
           call sparse_easy_solve(matrix, rhs,    answer,  &
                                  err,    niters, whichsparse)
 
-          if (verbose .and. this_rank==rtest) then
+!!          if (verbose .and. this_rank==rtest) then
+          if (main_task) then
              print*, 'Solved the linear system, niters, err =', niters, err
              print*, ' '
 !!             print*, 'n, u, v (m/yr):', ntest, answer(2*ntest-1), answer(2*ntest)
@@ -1911,7 +1931,7 @@
        ! Any ghost postprocessing needed, as in glam_strs2?
 
 !WHL - bug check
-       if (verbose .and. this_rank==rtest) then
+       if (verbose_state .and. this_rank==rtest) then
 
           i = itest
           j = jtest
@@ -2320,7 +2340,7 @@
        nNodesSolve            ! number of nodes where we solve for velocity
 
     integer, dimension(nz,nx-1,ny-1), intent(out) ::  &
-       NodeID                 ! ID for each node where we solve for velocity
+       NodeID                 ! local ID for each node where we solve for velocity
 
     integer, dimension((nx-1)*(ny-1)*nz), intent(out) ::   &
        iNodeIndex, jNodeIndex, kNodeIndex   ! i, j and k indices of nodes
@@ -2399,19 +2419,19 @@
        if (active_vertex(i,j)) then   ! all nodes in column are active
           do k = 1, nz               
              nNodesSolve = nNodesSolve + 1   
-             NodeID(k,i,j) = nNodesSolve   ! unique index for each node
+             NodeID(k,i,j) = nNodesSolve   ! unique local index for each node
              iNodeIndex(nNodesSolve) = i
              jNodeIndex(nNodesSolve) = j
              kNodeIndex(nNodesSolve) = k
 
-             if (verbose .and. this_rank==rtest .and. nNodesSolve==ntest .and. k < nz) then
-                print*, ' '
-                print*, 'i, j, k, n:', i, j, k, nNodesSolve
-                print*, 'sigma, stagusrf, stagthck:', sigma(k), stagusrf(i,j), stagthck(i,j)
-                print*, 'dx, dy, dz:', xVertex(i,j) - xVertex(i-1,j), &
-                                       yVertex(i,j) - yVertex(i,j-1), &
-                                       (sigma(k+1) - sigma(k)) * stagthck(i,j)
-             endif
+!             if (verbose .and. this_rank==rtest .and. nNodesSolve==ntest .and. k < nz) then
+!                print*, ' '
+!                print*, 'i, j, k, n:', i, j, k, nNodesSolve
+!                print*, 'sigma, stagusrf, stagthck:', sigma(k), stagusrf(i,j), stagthck(i,j)
+!                print*, 'dx, dy, dz:', xVertex(i,j) - xVertex(i-1,j), &
+!                                       yVertex(i,j) - yVertex(i,j-1), &
+!                                       (sigma(k+1) - sigma(k)) * stagthck(i,j)
+!             endif
 
            enddo   ! k
         endif      ! active vertex
@@ -3613,7 +3633,7 @@
     prod = matmul(Jac,Jinv)
     do col = 1, 3
        do row = 1, 3
-          if (abs(prod(row,col) - identity3(row,col)) > 1.d-12) then
+          if (abs(prod(row,col) - identity3(row,col)) > 1.d-11) then
              !TODO - do a proper abort here 
              print*, 'stopping, Jac * Jinv /= identity'
              print*, 'i, j, k, p:', i, j, k, p
@@ -5244,7 +5264,7 @@
                              Avu,          Avv,         &  
                              bu,           bv,          &
                              uvel,         vvel,        &
-                             matrix_order, nNonzero,    &
+                             matrix_order, max_nonzeros,&
                              matrix,       rhs,         &
                              answer)
 
@@ -5269,7 +5289,7 @@
        nNodesSolve              ! number of nodes where we solve for velocity
 
     integer, dimension(nz,nx-1,ny-1), intent(in) ::  &
-       NodeID             ! ID for each node
+       NodeID             ! local ID for each node
 
     integer, dimension(:), intent(in) ::   &
        iNodeIndex, jNodeIndex, kNodeIndex   ! i, j and k indices of active nodes
@@ -5287,7 +5307,7 @@
 
     integer, intent(in) ::    &
        matrix_order,  &   ! order of matrix = number of rows
-       nNonzero           ! upper bound for number of nonzero entries in sparse matrix
+       max_nonzeros       ! upper bound for number of nonzero entries in sparse matrix
 
     type(sparse_matrix_type), intent(inout) ::  &    ! TODO: inout or out?
        matrix             ! sparse matrix, defined in glimmer_sparse_types
@@ -5333,7 +5353,7 @@
                           .and.                     &
                (j+jA >= 1 .and. j+jA <= ny-1) ) then
 
-             colA = NodeID(k+kA, i+iA, j+jA)   ! ID for neighboring node
+             colA = NodeID(k+kA, i+iA, j+jA)   ! local ID for neighboring node
              m = indxA(iA,jA,kA)
 
              ! Auu
