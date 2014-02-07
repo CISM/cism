@@ -86,7 +86,7 @@ thkDiffIce = thkDiff[ np.where( thk[timelev,:,:] > 0.0) ]  # Restrict to cells m
 RMS = ( (thkDiffIce**2).sum() / float(len(thkDiffIce)) )**0.5
 
 # Print some stats about the error
-print '\nError statistics for cells modeled to have ice:'
+print '\nError statistics for cells modeled to have ice (in m):'
 print '* RMS error = ' + str( RMS )
 print '* Maximum error is ' + str( thkDiffIce.max() )
 print '* Minimum error is ' + str( thkDiffIce.min() )

@@ -8,42 +8,35 @@
 # Modified from dome.py script written by Glen Granzow at the University of Montana on April 13, 2010
 # Modified for Halfar test case by Matt Hoffman, October 2013.
 
+# Parse options
+from optparse import OptionParser
+optparser = OptionParser()
+optparser.add_option("-c", "--config", dest="configfile", type='string', default='halfar.config', help="Name of .config file to use to setup and run the Halfar test case.  (Defaults to 'halfar.config')", metavar="FILE")
+optparser.add_option('-m','--parallel',dest='parallel',type='int', help='Number of processors to run the model with: if specified then execute run in parallel.  If absent, the run will be in serial (which is required for Glide SIA dycore).', metavar="NUMPROCS")
+optparser.add_option('-e','--exec',dest='executable',default='./simple_glide',help='Set path to the CISM executable (defaults to "./simple_glide")')
+options, args = optparser.parse_args()
 
-import sys, os, glob, shutil, numpy
+import sys, os, numpy
 from netCDF import *
 from math import sqrt
 from ConfigParser import ConfigParser
 from halfarDome import halfarDome  # This is located in the current directory
 import subprocess
 
-# Check to see if a config file was specified on the command line.
-# If not, halfar.config is used.
-if len(sys.argv) > 1:
-  if sys.argv[1][0] == '-': # The filename can't begin with a hyphen
-    print '\nUsage:  python halfar.py [FILE.CONFIG]\n'
-    sys.exit(0)
-  else:
-    configfile = sys.argv[1]
-else:
-  configfile = 'halfar.config'
 
-# Check to see if #procs specified, relevant when running the code in parallel. 
-# If not, serial run (#procs==1) is performed. To run in parallel, the configure
-# file must be specifed, but the nu,ber of processors does not
-if len(sys.argv) > 2:
-    nprocs = sys.argv[2]
-else:
-  nprocs = '1'
-
+# =====================================
 # Create a netCDF file according to the information in the config file.
-parser = ConfigParser()
-parser.read(configfile)
-nx = int(parser.get('grid','ewn'))
-ny = int(parser.get('grid','nsn'))
-nz = int(parser.get('grid','upn'))
-dx = float(parser.get('grid','dew'))
-dy = float(parser.get('grid','dns'))
-filename = parser.get('CF input', 'name')
+try:
+    parser = ConfigParser()
+    parser.read(options.configfile)
+    nx = int(parser.get('grid','ewn'))
+    ny = int(parser.get('grid','nsn'))
+    nz = int(parser.get('grid','upn'))
+    dx = float(parser.get('grid','dew'))
+    dy = float(parser.get('grid','dns'))
+    filename = parser.get('CF input', 'name')
+except:
+    sys.exit('Error parsing ' + options.configfile)
 
 print 'Creating', filename
 try:
@@ -75,12 +68,12 @@ topg = numpy.zeros([1,ny,nx],dtype='float32')
 # This is the only way this test case supports specifying flwa.
 try: 
    flwa = float(parser.get('parameters','default_flwa'))
-   print 'Parameter used: ' + configfile + ' has specified a flwa value of ' + str(flwa)
+   print 'Parameter used: ' + options.configfile + ' has specified a flwa value of ' + str(flwa)
    flow_law = int(parser.get('options','flow_law'))
    if flow_law != 0:
       sys.exit('Error: The option "flow_law" must be set to 0 for the test case to work properly.')
 except:
-   sys.exit('Error: problem getting default_flwa parameter value from the config file')
+   sys.exit('Error: problem getting default_flwa parameter value from the config file ' + options.configfile)
 
 # Try to get ice density used by the model
 try:
@@ -102,13 +95,32 @@ netCDFfile.createVariable('topg','f',('time','y1','x1'))[:] = topg
 
 netCDFfile.close()
 
-# Run Glimmer
-print 'Running Glimmer/CISM'
-if len(sys.argv) > 2:
-   #os.system('aprun -n'+nprocs+' ./simple_glide '+configfile+'')  # support for MPI runs is here
-   os.system('mpirun -np '+nprocs+' ./simple_glide '+configfile+'') 
+
+# =====================================
+# Run CISM
+print 'Running CISM'
+print '============\n'
+if options.parallel == None:
+   # Perform a serial run
+   os.system(options.executable + ' ' + options.configfile)
 else:
-   os.system('echo '+configfile+' | ./simple_glide')
+   # Perform a parallel run
+   if options.parallel <= 0:
+      sys.exit( 'Error: Number of processors specified for parallel run is <=0.' )
+   else:
+      # These calls to os.system will return the exit status: 0 for success (the command exists), some other integer for failure
+      if os.system('which openmpirun > /dev/null') == 0:
+         mpiexec = 'openmpirun -np '
+      elif os.system('which mpirun > /dev/null') == 0:
+         mpiexec = 'mpirun -np '
+      elif os.system('which aprun > /dev/null') == 0:
+         mpiexec = 'aprun -n '
+      else:
+         sys.exit('Unable to execute parallel run.  Please edit the script to use your MPI run command, or run the model manually with something like: mpirun -np 4 ./simple_glide dome.config')
+      runstring = mpiexec + str(options.parallel) + ' ' + options.executable + ' ' + options.configfile
+      print 'Executing parallel run with:  ' + runstring + '\n\n'
+      os.system(runstring)  # Here is where the parallel run is actually executed!
+
 
 print ''
 print '================ '
