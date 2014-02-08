@@ -21,9 +21,8 @@ tests as input files, so the tests should be run sequentially, starting with tes
 
 To view the results use ncview or another utility for viewing netCDF files.
 
-More information on the EISMINT test cases can be found here:
-Huybrechts, P. , Payne, T. and EISMINT, I. G. (1996): The EISMINT benchmarks for testing ice-sheet models , Annals of
-Glaciology, 23 , pp. 1-12.
+More information on the EISMINT-2 test cases can be found here:
+Payne, A. J. and Coauthors, 2000: Results from the EISMINT model intercomparison: the effects of thermomechanical coupling. J Glaciol, 46, 227–238.
 http://homepages.vub.ac.be/~phuybrec/eismint.html
 
 (last edited on 2-6-14 by SFP)
