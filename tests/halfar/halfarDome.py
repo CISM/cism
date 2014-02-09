@@ -29,7 +29,7 @@ def halfarDome(t,x,y,flwa,rhoi):
   xcenter = max(x)/2.0
   ycenter = max(y)/2.0
 
-  t0 = (beta/Gamma) * (7.0/4.0)**3 * (R0**4/H0**7)
+  t0 = (beta/Gamma) * (7.0/4.0)**3 * (R0**4/H0**7)  # Note: this line assumes n=3!
   tr=(t+t0)/t0 
 
   H=np.zeros((len(y), len(x)))

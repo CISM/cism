@@ -125,5 +125,5 @@ else:
 print ''
 print '================ '
 print ''
-print 'CISM run completed.  Run python halfar_results.py to analyze the results.'
+print 'CISM run completed.  Run "python halfar_results.py" to analyze the results.'
 
