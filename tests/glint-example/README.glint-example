@@ -16,15 +16,19 @@ that can be downloaded from the BerliOS repository:
      http://developer.berlios.de/projects/glimmer-cism/
 
 These files are also available in the CESM inputdata repository, here:
-https://svn-ccsm-inputdata.cgd.ucar.edu/trunk/inputdata/glc/cism/gland20.input.nc
+     https://svn-ccsm-inputdata.cgd.ucar.edu/trunk/inputdata/glc/cism/gland20.input.nc
 and:
-https://svn-ccsm-inputdata.cgd.ucar.edu/trunk/inputdata/glc/cism/glint_example/
+     https://svn-ccsm-inputdata.cgd.ucar.edu/trunk/inputdata/glc/cism/glint_example/
 
-To run a 5-km Greenland test case, you will need to download one of the files here:
+To run a 5-km Greenland test case, you can download one of the files here:
 
      http://websrv.cs.umt.edu/isis/index.php/Present_Day_Greenland
 
-The default is Greenland_5km_v1.1.nc. This file is also available in the CESM inputdata repo.
+The default is Greenland_5km_v1.1.nc. 
+
+A 5-km file is also available in the CESM inputdata repo:
+
+     https://svn-ccsm-inputdata.cgd.ucar.edu/trunk/inputdata/glc/cism/gland5.input.nc
 
 The 5-km test case and 20-km test case use the same climate files.
 
