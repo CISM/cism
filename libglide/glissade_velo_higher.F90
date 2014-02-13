@@ -523,9 +523,11 @@
 
     enddo   ! nQuadPoints_2d
 
+    !----------------------------------------------------------------
     ! Compute indxA; maps displacements i,j,k = (-1,0,1) onto an index from 1 to 27
     ! Numbering starts in SW corner of layers k-1, finishes in NE corner of layer k+1
     ! Diagonal term has index 14
+    !----------------------------------------------------------------
 
     ! Layer k-1:           Layer k:            Layer k+1:
     !
@@ -587,10 +589,6 @@
     ! Local variables and pointers set to components of model derived type 
     !----------------------------------------------------------------
 
-!    integer, pointer ::   &
-!       nx, ny,               &  ! number of grid cells in each direction
-!       nz                       ! number of vertical levels where velocity is computed
-                                 ! (same as model%general%upn)
     real(dp) ::  &
        dx,  dy                  ! grid cell length and width (m)
                                 ! assumed to have the same value for each grid cell
@@ -711,18 +709,32 @@
 !!    real(dp), dimension(nx-1,ny-1) ::  &
 !!       beta                   ! basal traction parameter
 
-    ! The following are used only for the single-processor SLAP solver
+    ! The following are used for the SLAP and Trilinos solvers
 
     integer ::            &
        nNodesSolve            ! number of nodes where we solve for velocity
 
+    !TODO - Change to local_node_id? 
     integer, dimension(nz,nx-1,ny-1) ::  &
-       NodeID                 ! ID for each node where we solve for velocity
+       NodeID                 ! local ID for each node where we solve for velocity
                               ! For periodic BCs, halo node IDs will be copied
                               !  from the other side of the grid
 
     integer, dimension((nx-1)*(ny-1)*nz) ::   &
        iNodeIndex, jNodeIndex, kNodeIndex   ! i, j and k indices of nodes
+
+    ! The following are used for the Trilinos solver
+
+    real(dp), dimension(nz,nx-1,ny-1) ::  &
+       global_node_id      ! unique global ID for nodes on this processor
+
+    integer, dimension(:), allocatable ::    &
+       active_owned_unknown_map    ! maps owned active nodes to global IDs
+
+    real(dp), dimension(:), allocatable ::   &
+       velocityResult     ! velocity solution vector from Trilinos
+
+    ! The following are used for the SLAP solver
 
     type(sparse_matrix_type) ::  &
        matrix             ! sparse matrix for SLAP solver, defined in glimmer_sparse_types
@@ -1078,13 +1090,12 @@
     endif
 
     !------------------------------------------------------------------------------
-    ! Compute vertices of each element.
+    ! Compute the vertices of each element.
     ! Identify the active cells (i.e., cells with thck > thklim,
     !  bordering a locally owned vertex) and active vertices (all vertices
     !  of active cells).
-    !
-    ! For the SLAP solver, count and assign a unique ID to each active node.
-    ! TODO - Move SLAP-only calculation to another subroutine?
+    ! Count the number of owned active nodes on this processor, and assign a 
+    !  unique local ID to each such node.
     !------------------------------------------------------------------------------
 
     call get_vertex_geometry(nx,          ny,         nz,  &   
@@ -1098,7 +1109,7 @@
                              iNodeIndex,  jNodeIndex,  kNodeIndex)
 
 !WHL - debug
-    !TODO - Change to global node ID
+    !TODO - Write out global node ID?
     if (verbose_state .and. this_rank==rtest) then
        print*, ' '
        print*, 'NodeID before halo update, k = 1:'
@@ -1128,6 +1139,30 @@
           print*, ' '
        enddo
     endif
+
+    ! For the Trilinos solver, compute an array that maps the local index for
+    ! owned active nodes to a unique global ID
+
+#ifdef TRILINOS
+    if (whichsparse == STANDALONE_TRILINOS_SOLVER) then   
+
+       allocate(active_owned_unknown_map(2*nNodesSolve))
+
+       call trilinos_global_id(nx,         ny,         nz,   &
+                               nNodesSolve,                  &
+                               iNodeIndex, jNodeIndex, kNodeIndex,  &
+                               global_node_id,               &
+                               active_owned_unknown_map)
+
+       call initializetgs(2*nNodesSolve, active_owned_unknown_map, comm)
+
+    endif
+#endif
+
+    !----------------------------------------------------------------
+    ! Compute global IDs needed to initialize the Trilinos solver
+    !----------------------------------------------------------------
+
 
     !------------------------------------------------------------------------------
     ! Compute the factor A^(-1/n) appearing in the expression for effective viscosity.
@@ -1793,6 +1828,7 @@
 !!             print*, 'Compute residual vector'
           endif
 
+          !TODO - Move this call before the 'if'?
           call compute_residual_vector(nx,          ny,            &
                                        nz,          nhalo,         &
                                        active_vertex,              &
@@ -1837,7 +1873,76 @@
           call staggered_parallel_halo(uvel)
           call staggered_parallel_halo(vvel)
 
-       elseif (whichsparse /= STANDALONE_TRILINOS_SOLVER) then   ! one-processor SLAP solve   
+#ifdef TRILINOS
+       elseif (whichsparse == STANDALONE_TRILINOS_SOLVER) then   ! solve with Trilinos
+
+!WHL - Commented out for now until testing later with Trilinos
+!!           call solvewithtrilinos(rhs, answer, linearSolveTime)
+!!           totalLinearSolveTime = totalLinearSolveTime + linearSolveTime
+          !  write(*,*) 'Total linear solve time so far', totalLinearSolveTime                                           
+
+          !------------------------------------------------------------------------
+          ! Compute the residual vector and its L2 norm
+          !------------------------------------------------------------------------
+
+          if (verbose .and. main_task) then
+             print*, 'Compute residual vector'
+          endif
+
+          !TODO - Put this call before the 'if'?
+          call compute_residual_vector(nx,          ny,            &
+                                       nz,          nhalo,         &
+                                       active_vertex,              &
+                                       Auu,         Auv,           &
+                                       Avu,         Avv,           &
+                                       bu,          bv,            &
+                                       uvel,        vvel,          &
+                                       resid_u,     resid_v,       &
+                                       L2_norm)
+
+          if (verbose .and. main_task) then
+!!             print*, 'L2_norm, L2_target =', L2_norm, L2_target
+          endif
+          if (verbose .and. main_task) print*, 'Form global matrix in sparse format'
+
+          !------------------------------------------------------------------------
+          ! Given Auu, bu, etc., assemble the matrix and RHS in a form
+          ! suitable for Trilinos
+          !------------------------------------------------------------------------
+
+          call trilinos_assemble(nx,           ny,               &   
+                                 nz,           nNodesSolve,      &
+                                 iNodeIndex,   jNodeIndex,       &
+                                 kNodeIndex,   global_node_id,   &
+                                 Auu,          Auv,              &
+                                 Avu,          Avv,              &
+                                 bu,           bv)
+
+          !------------------------------------------------------------------------
+          ! Solve the linear matrix problem
+          !------------------------------------------------------------------------
+
+          call solvevelocitytgs(velocityResult)
+
+          !------------------------------------------------------------------------
+          ! Put the velocity solution back into 3D arrays
+          !------------------------------------------------------------------------
+
+          call trilinos_postprocess(nx,           ny,                       &
+                                    nz,           nNodesSolve,              &
+                                    iNodeIndex,   jNodeIndex,               &
+                                    kNodeIndex,                             &
+                                    velocityResult,                         &
+                                    uvel,         vvel)
+
+          !------------------------------------------------------------------------
+          ! Halo updates for uvel and vvel
+          !------------------------------------------------------------------------
+
+          call staggered_parallel_halo(uvel)
+          call staggered_parallel_halo(vvel)
+#endif
+       else   ! one-processor SLAP solve   
           
           !------------------------------------------------------------------------
           ! Given the stiffness matrices (Auu, etc.) and load vector (bu, bv) in
@@ -1863,6 +1968,7 @@
                                matrix,       rhs,         &
                                answer)
 
+          !TODO - Can we use subroutine compute_residual_vector instead?
           !------------------------------------------------------------------------
           ! Compute the residual vector and its L2_norm
           !------------------------------------------------------------------------
@@ -1916,15 +2022,6 @@
 
           call staggered_parallel_halo(uvel)
           call staggered_parallel_halo(vvel)
-
-#ifdef TRILINOS
-       else    ! solve with Trilinos
-
-!WHL - Commented out for now until testing later with Trilinos
-!!           call solvewithtrilinos(rhs, answer, linearSolveTime)
-!!           totalLinearSolveTime = totalLinearSolveTime + linearSolveTime
-          !  write(*,*) 'Total linear solve time so far', totalLinearSolveTime                                           
-#endif
 
        endif   ! whichsparse (STANDALONE_PCG_STRUC or not) 
 
@@ -2294,8 +2391,8 @@
     ! Active cells include all cells that contain ice (thck > thklin) and border locally owned vertices.
     ! Active vertices include all vertices of active cells.
     !
-    ! Also compute some node indices needed for the SLAP single-processor solver.
-    !TODO - Move SLAP part to different subroutine?
+    ! Also compute some node indices needed for the SLAP and Trilinos solvers.
+    !TODO - Move SLAP/Trilinos part to different subroutine?
     !----------------------------------------------------------------
 
     !----------------------------------------------------------------
@@ -2334,10 +2431,10 @@
     logical, dimension(nx-1,ny-1), intent(out) :: &
        active_vertex          ! true for vertices of active cells
 
-    ! The remaining input/output arguments are for the SLAP solver
+    ! The remaining input/output arguments are for the SLAP and Trilinos solvers
 
     integer, intent(out) :: &
-       nNodesSolve            ! number of nodes where we solve for velocity
+       nNodesSolve            ! number of locally owned nodes where we solve for velocity
 
     integer, dimension(nz,nx-1,ny-1), intent(out) ::  &
        NodeID                 ! local ID for each node where we solve for velocity
@@ -2404,7 +2501,7 @@
 
     ! Identify and count the nodes where we must solve for the velocity.
     ! This indexing is used for pre- and post-processing of the assembled matrix
-    !  when we call the SLAP solver (one processor only).
+    !  when we call the SLAP or Trilinos solver (one processor only).
     ! It is not required by the structured solver.
     !TODO - Move to separate subroutine?
 
@@ -3189,11 +3286,9 @@
     !  the 8 elements sharing a given node.
     !
     ! The homegrown structured PCG solver works with the dense A matrices in the form
-    ! computed here.  For a SLAP solver, the terms of the A matrices are put
-    ! in a sparse matrix during preprocessing.
-    !
-    ! For a Trilinos solve, the terms of the element matrices should be sent to
-    ! Trilinos a row at a time.  This capability has not been implemented as of Jan. 2013.
+    ! computed here.  For the SLAP solver, the terms of the A matrices are put
+    ! in a sparse matrix during preprocessing.  For the Trilinos solver, the terms
+    ! of the A matrices are passed to Trilinos one row at a time. 
     !----------------------------------------------------------------
 
     real(dp), dimension(nNodesPerElement, nNodesPerElement) ::   &   !
@@ -3422,10 +3517,6 @@
 
           endif
 
-         ! If solving in parallel with Trilinos, we have the option at this point to 
-         ! call a sum_into_global_matrix routine, passing one row at a time of the
-         ! element matrix.  Trilinos should handle the rest.
-         !
 
           if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
              print*, ' '
@@ -5505,8 +5596,7 @@
                               uvel,         vvel,                     &
                               resid_u,      resid_v)
 
-  ! Extract the velocities from the solution vector.
-  ! Note: This works only for single-processor runs with the SLAP solver.
+  ! Extract the velocities from the SLAP solution vector.
                                             
     !----------------------------------------------------------------
     ! Input-output arguments
@@ -5598,7 +5688,282 @@
   end subroutine slap_compute_residual_vector
 
 !****************************************************************************
-! The remaining subroutines are used for testing and bug-checking but may 
+
+    ! The next three subroutines are used for the Trilinos solver
+
+#ifdef TRILINOS
+  subroutine trilinos_global_id(nx,         ny,         nz,   &
+                                nNodesSolve,                  &
+                                iNodeIndex, jNodeIndex, kNodeIndex,  &
+                                global_node_id,               &
+                                active_owned_unknown_map)
+
+    !----------------------------------------------------------------
+    ! Compute global IDs needed to initialize the Trilinos solver
+    !----------------------------------------------------------------
+
+    !----------------------------------------------------------------
+    ! Input-output arguments
+    !----------------------------------------------------------------
+
+    integer, intent(in) ::   &
+       nx, ny,             &  ! number of grid cells in each direction
+       nz                     ! number of vertical levels where velocity is computed
+
+    integer, intent(in) ::             &
+       nNodesSolve            ! number of nodes where we solve for velocity
+
+    integer, dimension((nx-1)*(ny-1)*nz), intent(in) ::   &
+       iNodeIndex, jNodeIndex, kNodeIndex   ! i, j and k indices of nodes
+
+    real(dp), dimension(nz,nx-1,ny-1), intent(out) ::  &
+       global_node_id      ! unique global ID for nodes on this processor
+
+    integer, dimension(2*nNodesSolve), intent(out) ::   &
+       active_owned_unknown_map
+
+    !----------------------------------------------------------------
+    ! Local variables
+    !----------------------------------------------------------------
+
+    real(dp) ::   &
+       global_vertex_id    ! unique global ID for vertices on this processor
+
+    integer :: gnx, gny
+
+    integer :: i, j, k, n
+
+    !----------------------------------------------------------------
+    ! Compute unique global IDs for nodes.
+    !----------------------------------------------------------------
+
+    do j = 1, ny-1         ! loop over all vertices, including halo
+       do i = 1, nx-1
+          gnx = ewlb + i   ! global x index
+          gny = nslb + j   ! global y index
+          global_vertex_id = (global_ewn+1)*(gny-1) + gnx
+          do k = 1, nz
+             global_node_id(k,i,j) = global_vertex_id*nz + k
+          enddo
+       enddo
+    enddo
+
+    !----------------------------------------------------------------
+    ! Associate a unique global ID with each active node owned by
+    ! this processor.
+    !----------------------------------------------------------------
+
+    do n = 1, nNodesSolve
+       i = iNodeIndex(n)
+       j = jNodeIndex(n)
+       k = kNodeIndex(n)
+       active_owned_unknown_map(2*n-1) = 2*global_node_id(k,i,j) - 1  ! u unknowns
+       active_owned_unknown_map(2*n)   = 2*global_node_id(k,i,j)      ! v unknowns
+    enddo
+
+  end subroutine trilinos_global_id
+
+!****************************************************************************
+
+  subroutine trilinos_assemble(nx,           ny,             &   
+                               nz,           nNodesSolve,    &
+                               iNodeIndex,   jNodeIndex,     &
+                               kNodeIndex,   global_node_id, &
+                               Auu,          Auv,            &
+                               Avu,          Avv,            &
+                               bu,           bv)
+
+    !------------------------------------------------------------------------
+    ! Given Auu, bu, etc., assemble the matrix and RHS in a form
+    ! suitable for Trilinos
+    !------------------------------------------------------------------------
+
+    !----------------------------------------------------------------
+    ! Input-output arguments
+    !----------------------------------------------------------------
+
+    integer, intent(in) ::   &
+       nx, ny,             &  ! number of grid cells in each direction
+       nz                     ! number of vertical levels where velocity is computed
+
+    integer, intent(in) ::             &
+       nNodesSolve            ! number of nodes where we solve for velocity
+
+    integer, dimension((nx-1)*(ny-1)*nz), intent(in) ::   &
+       iNodeIndex, jNodeIndex, kNodeIndex   ! i, j and k indices of nodes
+
+    real(dp), dimension(nz,nx-1,ny-1), intent(in) ::  &
+       global_node_id      ! unique global ID for nodes on this processor
+
+    real(dp), dimension(27,nz,nx-1,ny-1), intent(in) ::  &
+       Auu, Auv,    &     ! assembled stiffness matrix, divided into 4 parts
+       Avu, Avv           ! 1st dimension = node and its nearest neighbors in x, y and z direction 
+                          ! other dimensions = (k,i,j) indices
+
+    real(dp), dimension(nz,nx-1,ny-1), intent(in) ::  &
+       bu, bv             ! assembled load (rhs) vector, divided into 2 parts
+                          
+    !----------------------------------------------------------------
+    ! Local variables
+    !----------------------------------------------------------------
+
+    integer :: global_row   ! global ID for this matrix row
+
+    integer :: ncol         ! number of columns with nonzero entries in this row
+
+    integer, dimension(54) ::   &
+       global_column        ! global ID for this column
+                            ! 54 is max number of columns with nonzero entries
+
+    real(dp), dimension(54) ::  &
+       matrix_value         ! matrix value for this column
+
+    real(dp) :: rhs_value   ! right-hand side value (bu or bv)
+
+    integer :: i, j, k, m, n, iA, jA, kA
+
+    do n = 1, nNodesSolve
+
+       i = iNodeIndex(n)
+       j = jNodeIndex(n)
+       k = kNodeIndex(n)
+
+       ! uvel equation for this node
+
+       global_row = 2*global_node_id(k,i,j) - 1
+       
+       ncol = 0
+       global_column(:) = 0
+       matrix_value(:) = 0.d0
+
+       do kA = -1, 1
+       do jA = -1, 1
+       do iA = -1, 1
+
+          if ( (k+kA >= 1 .and. k+kA <= nz)         &
+                          .and.                     &
+               (i+iA >= 1 .and. i+iA <= nx-1)       &
+                          .and.                     &
+               (j+jA >= 1 .and. j+jA <= ny-1) ) then
+
+             m = indxA(iA,jA,kA)
+             if (Auu(m,k,i,j) /= 0.d0) then
+                ncol = ncol + 1
+                global_column(ncol) = 2*global_node_id(k+kA,i+iA,j+jA) - 1
+                matrix_value(ncol) = Auu(m,k,i,j)
+             endif
+             if (Auv(m,k,i,j) /= 0.d0) then
+                ncol = ncol + 1
+                global_column(ncol) = 2*global_node_id(k+kA,i+iA,j+jA)
+                matrix_value(ncol) = Auv(m,k,i,j)
+             endif
+
+          endif   ! i+iA, j+jA, k+kA in bounds
+       enddo    ! iA
+       enddo    ! jA
+       enddo    ! kA
+
+       rhs_value = bu(k,i,j)
+
+       call insertRowTGS(global_row, ncol, global_column, matrix_value, rhs_value)
+
+       ! vvel equation for this node
+
+       global_row = 2*global_node_id(k,i,j)
+       
+       ncol = 0
+       global_column(:) = 0
+       matrix_value(:) = 0.d0
+
+       do kA = -1, 1
+       do jA = -1, 1
+       do iA = -1, 1
+
+          if ( (k+kA >= 1 .and. k+kA <= nz)         &
+                          .and.                     &
+               (i+iA >= 1 .and. i+iA <= nx-1)       &
+                          .and.                     &
+               (j+jA >= 1 .and. j+jA <= ny-1) ) then
+
+             m = indxA(iA,jA,kA)
+             if (Avu(m,k,i,j) /= 0.d0) then
+                ncol = ncol + 1
+                global_column(ncol) = 2*global_node_id(k+kA,i+iA,j+jA) - 1
+                matrix_value(ncol) = Avu(m,k,i,j)
+             endif
+             if (Avv(m,k,i,j) /= 0.d0) then
+                ncol = ncol + 1
+                global_column(ncol) = 2*global_node_id(k+kA,i+iA,j+jA)
+                matrix_value(ncol) = Avv(m,k,i,j)
+             endif
+
+          endif   ! i+iA, j+jA, k+kA in bounds
+       enddo    ! iA
+       enddo    ! jA
+       enddo    ! kA
+
+       rhs_value = bv(k,i,j)
+
+       call insertrowtgs(global_row, ncol, global_column, matrix_value, rhs_value)
+
+    enddo   ! nNodesSolve
+
+  end subroutine trilinos_assemble
+
+!****************************************************************************
+
+  subroutine trilinos_postprocess(nx,           ny,                       &
+                                  nz,           nNodesSolve,              &
+                                  iNodeIndex,   jNodeIndex,  kNodeIndex,  &
+                                  velocityResult,                         &
+                                  uvel,         vvel)
+
+  ! Extract the velocities from the Trilinos solution vector.
+
+    !----------------------------------------------------------------
+    ! Input-output arguments
+    !----------------------------------------------------------------
+
+    integer, intent(in) ::   &
+       nx, ny,             &  ! number of grid cells in each direction
+       nz                     ! number of vertical levels where velocity is computed
+
+    integer, intent(in) ::             &
+       nNodesSolve            ! number of nodes where we solve for velocity
+
+    integer, dimension((nx-1)*(ny-1)*nz), intent(in) ::   &
+       iNodeIndex, jNodeIndex, kNodeIndex   ! i, j and k indices of nodes
+
+    real(dp), dimension(2*nNodesSolve), intent(in) :: &
+       velocityResult         ! velocity solution vector from Trilinos
+
+    real(dp), dimension(nz,nx-1,ny-1), intent(out) ::   &
+       uvel, vvel             ! u and v components of velocity
+
+    !----------------------------------------------------------------
+    ! Local variables
+    !----------------------------------------------------------------
+
+    integer :: i, j, k, n
+
+    uvel(:,:,:) = 0.d0
+    vvel(:,:,:) = 0.d0
+
+    do n = 1, nNodesSolve
+       i = iNodeIndex(n)
+       j = jNodeIndex(n)
+       k = kNodeIndex(n)
+       uvel(k,i,j) = velocityResult(2*n-1)
+       vvel(k,i,j) = velocityResult(2*n)
+    enddo
+
+  end subroutine trilinos_postprocess
+#endif
+!****************************************************************************
+
+
+!****************************************************************************
+! The remaining subroutines are used for testing and bug-checking but might
 ! not need to be called for production runs.
 !****************************************************************************
 

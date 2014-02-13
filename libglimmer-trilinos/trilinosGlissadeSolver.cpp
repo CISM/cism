@@ -95,7 +95,7 @@ extern "C" {
   void FC_FUNC(initializetgs,initializetgs) 
       (int& mySize, int* myIndicies, int* mpi_comm_f) {
     // mySize: the number of active_owned_unknowns on this processor
-    // myIndices[]: global_active_owned_unknowns integer array in glissade-speak
+    // myIndicies[]: global_active_owned_unknowns integer array in glissade-speak
     // mpi_comm_f: CISM's fortran mpi communicator
 
     // Define output stream that only prints on Proc 0
@@ -111,7 +111,7 @@ extern "C" {
        int flag;
        MPI_Initialized(&flag);
        if (!flag) {
-	 *tout << "ERROR in inittrilinos: MPI not initialized according to C++ code" << std::endl;
+	 *tout << "ERROR in initializetgs: MPI not initialized according to C++ code" << std::endl;
 	 exit(1);
        }
     MPI_Comm mpi_comm_c = MPI_Comm_f2c(*mpi_comm_f);
@@ -182,7 +182,7 @@ extern "C" {
         Teuchos::rcp(new Epetra_Map(-1, mySize, myIndicies, 1, comm) );
 
       TEUCHOS_TEST_FOR_EXCEPTION(!rowMap->UniqueGIDs(), std::logic_error,
-         "Error: inittrilinos, myIndices array needs to have Unique entries" 
+         "Error: initializetgs, myIndicies array needs to have unique entries" 
           << " across all processor.");
 
       // Diagnostic output for partitioning
@@ -218,7 +218,7 @@ extern "C" {
 	       (int& rowInd, int& numColumns, int* columns,
                 double* matrixValues, double& rhsValue ) {
    // rowInd: global row number
-   // numColumns: number of columns in this row (typically 54, but lest on boundaries)
+   // numColumns: number of columns in this row (typically 54, but less on boundaries)
    // columns[]: array with numColumns valid entries of global column numbers
    // matrixValues[]: array with corresponding matrix entries
    // rhsValue: entry into "b" vector for that same row.
@@ -229,7 +229,7 @@ extern "C" {
 
     // If this row is not owned on this processor, then throw error
     TEUCHOS_TEST_FOR_EXCEPTION(!rowMap.MyGID(rowInd), std::logic_error,
-       "Error: Trilinos matrix has detected an invalide row entry (row=" 
+       "Error: Trilinos matrix has detected an invalid row entry (row=" 
         << rowInd << ").\n");
 
     // Insert contribution to rhs a.k.a. b vector (as in  Au=b)
