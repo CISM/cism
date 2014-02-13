@@ -205,6 +205,7 @@ else
   else
     # simplest case, runs all builds and on a range of small processor counts 
     echo 'submitting regression jobs to compute nodes'
+    echo 'Go to rhea.ccs.ornl.gov to complete Visualization and Verification (LIVV)'
   
   #diagnostic dome 30 test case
     cd $TEST_DIR/reg_test/dome30/diagnostic
@@ -243,6 +244,7 @@ else
     echo "no performance suite jobs submitted"
   else
     echo 'submitting performance jobs to compute nodes'
+    echo 'Go to rhea.ccs.ornl.gov to complete Visualization and Verification (LIVV)'
 
   #dome 30 test case
     cd $TEST_DIR/perf_test/dome30

@@ -10,9 +10,13 @@
 setenv TEST_DIR "$GSCRATCH/higher-order"
 setenv CODE_DIR "$HOME/PISCEES/trunk"
 cd $CODE_DIR
-setenv build_no 0
+# setting to 0 mens don't build that version
 setenv build_autoconf 1
 setenv build_cmake 1
+# flags set for regression and performance suites
+setenv REG_TEST 1
+setenv PERF_TEST 0
+
 #mkdir -pv $TEST_DIR/configure_output
 
 # even if these are set in your env you need these when running the script
@@ -21,6 +25,9 @@ module unload cmake netcdf python netcdf-hdf5parallel
 module swap PrgEnv-gnu PrgEnv-pgi
 module load cmake python netcdf-hdf5parallel/4.2.0 subversion usg-default-modules/1.0
 module load boost/1.49.0
+
+# 0 is a successful build
+setenv build_no 0
 
 # NEEDED AFTER A FRESH CHECKOUT
 echo 'bootstrap'
@@ -142,49 +149,82 @@ endif # build with cmake option
 
 echo $build_no
 # execute tests on hopper
-# TODO the small jobs need to be combined into one hopjob submission to get through the queue
 if ($build_no == 1 ) then
   echo "no job sumbitted, build/builds failed"
 else
-# simplest case, runs all builds and on a range of small processor counts 
  echo 'submitting jobs to compute nodes'
-#diagnostic dome test case
-cd $TEST_DIR/reg_test/dome30/diagnostic
-qsub hopjob
 
-#evolving dome test case
-#cd $TEST_DIR/reg_test/dome30/evolving
-#qsub hopjob
+  if ($REG_TEST == 0 ) then
+    echo "no regression suite jobs submitted"
+  else
+  # simplest case, runs all builds and on a range of small processor counts
+    echo 'submitting regression jobs to compute nodes'
+    echo 'Go to carver.nersc.gov to complete Visualization and Verification (LIVV)'
 
-# ISMIP test case A 
-cd $TEST_DIR/reg_test/ismip-hom-a/80km
-qsub hopjob
+  #diagnostic dome test case
+    cd $TEST_DIR/reg_test/dome30/diagnostic
+    qsub hopjob
 
-# ISMIP test case A 
-cd $TEST_DIR/reg_test/ismip-hom-a/20km
-qsub hopjob
+  #evolving dome test case
+    cd $TEST_DIR/reg_test/dome30/evolving
+    qsub hopjob
 
-# ISMIP test case C - not operational until BC set
-#cd $TEST_DIR/reg_test/ismip-hom-c/80km
-#qsub hopjob
+  #confined shelf to periodic BC
+    cd $TEST_DIR/reg_test/confined-shelf
+    qsub hopjob
 
-# confined shelf to periodic BC
-cd $TEST_DIR/reg_test/confined-shelf
-qsub hopjob
+  #circular shelf to periodic BC
+    cd $TEST_DIR/reg_test/circular-shelf
+    qsub hopjob
+  
+  #ISMIP test case A 
+    cd $TEST_DIR/reg_test/ismip-hom-a/80km
+    qsub hopjob
 
-# circular shelf to periodic BC
-cd $TEST_DIR/reg_test/circular-shelf
-qsub hopjob
+  #ISMIP test case A 
+    cd $TEST_DIR/reg_test/ismip-hom-a/20km
+    qsub hopjob
 
-# smaller GIS case to test realistic ice sheet configuration
-#cd $TEST_DIR/reg_test/gis_10km
-#qsub hopjob
+  #ISMIP test case C - not operational until BC set
+    #cd $TEST_DIR/reg_test/ismip-hom-c/80km
+    #qsub hopjob
 
-# non regression test cases, default not run: 
+  #smaller GIS case to test realistic ice sheet configuration
+    cd $TEST_DIR/reg_test/gis_10km
+    qsub hopjob
+  endif
 
 # large but not challenging case, to test large processor counts, not yet configured for hopper
-#cd $TEST_DIR/dome500
-#qsub hopjob
+  if ($PERF_TEST == 0 ) then
+    echo "no performance suite jobs submitted"
+  else
+    echo 'submitting performance jobs to compute nodes'
+    echo 'Go to carver.nersc.gov to complete Visualization and Verification (LIVV)'
+
+  #dome 30 test case
+    cd $TEST_DIR/perf_test/dome30
+    qsub hopjob
+
+  #dome 60 test case
+    cd $TEST_DIR/perf_test/dome60
+    qsub hopjob
+
+  #dome 120 test case
+    cd $TEST_DIR/perf_test/dome120
+    qsub hopjob
+
+  #dome 240 test case
+    cd $TEST_DIR/perf_test/dome240
+    qsub hopjob
+
+  #dome 500 test case
+    cd $TEST_DIR/perf_test/dome500
+    qsub hopjob
+
+  #dome 1000 test case
+    cd $TEST_DIR/perf_test/dome1000
+    qsub hopjob
+  endif
 
 # high resolution GIS case to test realistic ice sheet configuration and longer time series, current setup gives
 #convergence problems
