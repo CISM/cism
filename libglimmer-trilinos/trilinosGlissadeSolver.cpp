@@ -63,13 +63,13 @@ int solvecount=0;
 // Define variables that are global to this file.
 // If this were a C++ class, these would be member data.
 Teuchos::RCP<Epetra_Vector> rhs;
-Teuchos::RCP<Teuchos::ParameterList> pl;
-Teuchos::RCP<Teuchos::FancyOStream> out;
+Teuchos::RCP<Teuchos::ParameterList> paramList;
+Teuchos::RCP<Teuchos::FancyOStream> tout;
 Teuchos::RCP<Epetra_CrsMatrix> matrix;
-Teuchos::RCP<Thyra::LinearOpWithSolveBase<double> > lows;
-Teuchos::RCP<Thyra::LinearOpWithSolveFactoryBase<double> > lowsFactory;
-Teuchos::RCP<const Thyra::LinearOpBase<double> > thyraOper;
-bool success = true;
+Teuchos::RCP<Thyra::LinearOpWithSolveBase<double> > linOp;
+Teuchos::RCP<Thyra::LinearOpWithSolveFactoryBase<double> > linOpFactory;
+Teuchos::RCP<const Thyra::LinearOpBase<double> > thyraOp;
+bool successFlag = true;
 
 // Flag for operations done once per time step (e.g. define active unknowns)
 bool firstMatrixAssemblyForTimeStep = true;
@@ -77,15 +77,15 @@ bool firstMatrixAssemblyForTimeStep = true;
 // Flag for operations done once per run (e.g. read in trilinosOPtions.xml)
 bool firstCallToInitializeTGS = true;
 
-int linearSolveCount=0, linearSolveSuccessCount=0, linearSolveIters_last=0,  linearSolveIters_total=0;
-double linearSolveAchievedTol;
-bool printDetails=true; // Need to set in input file.
+int linSolveCount=0, linSolveSuccessCount=0, linSolveIters_last=0,  linSolveIters_total=0;
+double linSolveAchievedTol;
+bool printLinSolDetails=true; // Need to set in input file.
 
 extern "C" {
 
   // Prototypes for locally called functions
-  void linSolveDetails(Thyra::SolveStatus<double>& status);
-  void check_for_rogue_columns( Epetra_CrsMatrix& mat);
+  void linSolveDetails_tgs(Thyra::SolveStatus<double>& status);
+  void check_for_rogue_columns_tgs( Epetra_CrsMatrix& mat);
 
   //================================================================
   // This needs to be called only once per time step in the beginning 
@@ -99,7 +99,7 @@ extern "C" {
     // mpi_comm_f: CISM's fortran mpi communicator
 
     // Define output stream that only prints on Proc 0
-    out = Teuchos::VerboseObjectBase::getDefaultOStream();
+    tout = Teuchos::VerboseObjectBase::getDefaultOStream();
 
 #ifdef GLIMMER_MPI
     // Make sure the MPI_Init in Fortran is recognized by C++.
@@ -111,7 +111,7 @@ extern "C" {
        int flag;
        MPI_Initialized(&flag);
        if (!flag) {
-	 *out << "ERROR in inittrilinos: MPI not initialized according to C++ code" << std::endl;
+	 *tout << "ERROR in inittrilinos: MPI not initialized according to C++ code" << std::endl;
 	 exit(1);
        }
     MPI_Comm mpi_comm_c = MPI_Comm_f2c(*mpi_comm_f);
@@ -128,20 +128,20 @@ extern "C" {
       // Set flag so following code is executed only once per code run
       firstCallToInitializeTGS = false;
       try { 
-        pl = Teuchos::rcp(new Teuchos::ParameterList("Trilinos Options"));
-        Teuchos::updateParametersFromXmlFileAndBroadcast("trilinosOptions.xml", pl.ptr(), tcomm);
+        paramList = Teuchos::rcp(new Teuchos::ParameterList("Trilinos Options"));
+        Teuchos::updateParametersFromXmlFileAndBroadcast("trilinosOptions.xml", paramList.ptr(), tcomm);
 
         Teuchos::ParameterList validPL("Valid List");;
         validPL.sublist("Stratimikos"); validPL.sublist("Piro");
-        pl->validateParameters(validPL, 0);
+        paramList->validateParameters(validPL, 0);
 
         // Set the coordinate position of the nodes for ML for repartitioning (important for #procs > 100s)
-        if (pl->sublist("Stratimikos").isParameter("Preconditioner Type")) {
-           if ("ML" == pl->sublist("Stratimikos").get<std::string>("Preconditioner Type")) {
-             *out << "\nNOTE: ML preconditioner can work much better when interface is extended\n"
+        if (paramList->sublist("Stratimikos").isParameter("Preconditioner Type")) {
+           if ("ML" == paramList->sublist("Stratimikos").get<std::string>("Preconditioner Type")) {
+             *tout << "\nNOTE: ML preconditioner can work much better when interface is extended\n"
                   << "\tto include Nodal XYZ coordinates.\n" << std::endl;
              //Teuchos::ParameterList& mlList =
-             //   pl->sublist("Stratimikos").sublist("Preconditioner Types").sublist("ML").sublist("ML Settings");
+             //   paramList->sublist("Stratimikos").sublist("Preconditioner Types").sublist("ML").sublist("ML Settings");
              //mlList.set("x-coordinates",myX);
              //mlList.set("y-coordinates",myY);
              //mlList.set("z-coordinates",myZ);
@@ -151,13 +151,13 @@ extern "C" {
 
         // Set up solver (preconditioner, iterative method) based on XML file
         Stratimikos::DefaultLinearSolverBuilder linearSolverBuilder;
-        linearSolverBuilder.setParameterList(Teuchos::sublist(pl, "Stratimikos"));
-        lowsFactory = linearSolverBuilder.createLinearSolveStrategy("");
-        lowsFactory->setOStream(out);
-        lowsFactory->setVerbLevel(Teuchos::VERB_LOW);
+        linearSolverBuilder.setParameterList(Teuchos::sublist(paramList, "Stratimikos"));
+        linOpFactory = linearSolverBuilder.createLinearSolveStrategy("");
+        linOpFactory->setOStream(tout);
+        linOpFactory->setVerbLevel(Teuchos::VERB_LOW);
 
-        lows=Teuchos::null;
-        thyraOper=Teuchos::null;
+        linOp=Teuchos::null;
+        thyraOp=Teuchos::null;
       }
       catch (std::exception& e) {
         std::cout << "\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n" 
@@ -190,7 +190,7 @@ extern "C" {
       comm.MinAll(&mySize, &minSize, 1);
       comm.MaxAll(&mySize, &maxSize, 1);
       if (comm.MyPID()==0) 
-        *out << "\nPartition Info in init_trilinos: Total nodes = " << rowMap->NumGlobalElements()
+        *tout << "\nPartition Info in init_trilinos: Total nodes = " << rowMap->NumGlobalElements()
              << "  Max = " << maxSize << "  Min = " << minSize 
              << "  Ave = " << rowMap->NumGlobalElements() / comm.NumProc() << std::endl;
 
@@ -198,16 +198,16 @@ extern "C" {
       rhs  = Teuchos::rcp(new Epetra_Vector(*rowMap));
 
       // Reset counters every time step: can remove these lines to have averages over entire run
-      linearSolveIters_total = 0;
-      linearSolveCount=0;
-      linearSolveSuccessCount = 0;
+      linSolveIters_total = 0;
+      linSolveCount=0;
+      linSolveSuccessCount = 0;
 
       // Construct the CrsMatrix based on the row map and bandwidth estimate
       const int bandwidth = 54;
       matrix = Teuchos::rcp(new Epetra_CrsMatrix(View, *rowMap, bandwidth));
     }
-    TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, success);
-    if (!success) exit(1);
+    TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, successFlag);
+    if (!successFlag) exit(1);
   }
 
   //============================================================
@@ -252,8 +252,8 @@ extern "C" {
         << rowInd << ")\n\t that did not exist before.");
     }
   }
-  TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, success);
-  if (!success) exit(1);
+  TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, successFlag);
+  if (!successFlag) exit(1);
   }
 
   //============================================================
@@ -273,12 +273,12 @@ extern "C" {
 
       matrix->FillComplete();
 #ifdef CHECK_FOR_ROGUE_COLUMNS
-      check_for_rogue_columns(*matrix);
+      check_for_rogue_columns_tgs(*matrix);
 #endif
 
       // Associate matrix with solver strategy layers
-      thyraOper = Thyra::epetraLinearOp(matrix);
-      lows = Thyra::linearOpWithSolve(*lowsFactory, thyraOper);
+      thyraOp = Thyra::epetraLinearOp(matrix);
+      linOp = Thyra::linearOpWithSolve(*linOpFactory, thyraOp);
     }
 
     // Wrap velocity vector inside Epetra Vector data structure
@@ -295,52 +295,52 @@ extern "C" {
 
     // Wrap Epetra Vetors as Thyra vectors, as the solver requires
     Teuchos::RCP<Thyra::MultiVectorBase<double> >
-      thyraRhs = Thyra::create_Vector(rhs, thyraOper->range() );
+      thyraRhs = Thyra::create_Vector(rhs, thyraOp->range() );
     Teuchos::RCP<Thyra::MultiVectorBase<double> >
-      thyraSol = Thyra::create_Vector(solution, thyraOper->domain() );
+      thyraSol = Thyra::create_Vector(solution, thyraOp->domain() );
     Thyra::SolveStatus<double>
-      status = Thyra::solve(*lows, Thyra::NOTRANS, *thyraRhs, thyraSol.ptr());
+      status = Thyra::solve(*linOp, Thyra::NOTRANS, *thyraRhs, thyraSol.ptr());
 
-    if (printDetails) linSolveDetails(status);
+    if (printLinSolDetails) linSolveDetails_tgs(status);
 
     //elapsedTime = linearTime.stop(); 
-    //*out << "Total time elapsed for calling Solve(): " << elapsedTime << std::endl;
+    //*tout << "Total time elapsed for calling Solve(): " << elapsedTime << std::endl;
    }
-   TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, success);
-   if (!success) exit(1);
+   TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, successFlag);
+   if (!successFlag) exit(1);
   }
 
   //============================================================
 
-  void linSolveDetails(Thyra::SolveStatus<double>& status) {
-    ++linearSolveCount;
+  void linSolveDetails_tgs(Thyra::SolveStatus<double>& status) {
+    ++linSolveCount;
     bool haveData=false;
     if (status.extraParameters != Teuchos::null) {
       if (status.extraParameters->isParameter("Belos/Iteration Count")) {
-        linearSolveIters_last = status.extraParameters->get<int>("Belos/Iteration Count");
-        linearSolveIters_total += linearSolveIters_last;
+        linSolveIters_last = status.extraParameters->get<int>("Belos/Iteration Count");
+        linSolveIters_total += linSolveIters_last;
         haveData=true;
       }
       if (status.extraParameters->isParameter("Belos/Achieved Tolerance"))
-        linearSolveAchievedTol = status.extraParameters->get<double>("Belos/Achieved Tolerance");
+        linSolveAchievedTol = status.extraParameters->get<double>("Belos/Achieved Tolerance");
       if (status.extraParameters->isParameter("AztecOO/Iteration Count")) {
-        linearSolveIters_last = status.extraParameters->get<int>("AztecOO/Iteration Count");
-        linearSolveIters_total += linearSolveIters_last;
+        linSolveIters_last = status.extraParameters->get<int>("AztecOO/Iteration Count");
+        linSolveIters_total += linSolveIters_last;
         haveData=true;
       }
       if (status.extraParameters->isParameter("AztecOO/Achieved Tolerance"))
-        linearSolveAchievedTol = status.extraParameters->get<double>("AztecOO/Achieved Tolerance");
+        linSolveAchievedTol = status.extraParameters->get<double>("AztecOO/Achieved Tolerance");
 
       if (haveData) {
-        *out <<  "Precon Linear Solve ";
+        *tout <<  "Precon Linear Solve ";
         if (status.solveStatus == Thyra::SOLVE_STATUS_CONVERGED)
-         {*out <<  "Succeeded: "; ++linearSolveSuccessCount;}
-        else  *out <<  "Failed: ";
-        *out << std::setprecision(3) 
-             << linearSolveAchievedTol << " drop in " 
-             << linearSolveIters_last << " its (avg: " 
-             << linearSolveIters_total / (double) linearSolveCount << " its/slv, " 
-             << 100.0* linearSolveSuccessCount / (double) linearSolveCount << "% success)"
+         {*tout <<  "Succeeded: "; ++linSolveSuccessCount;}
+        else  *tout <<  "Failed: ";
+        *tout << std::setprecision(3) 
+             << linSolveAchievedTol << " drop in " 
+             << linSolveIters_last << " its (avg: " 
+             << linSolveIters_total / (double) linSolveCount << " its/slv, " 
+             << 100.0* linSolveSuccessCount / (double) linSolveCount << "% success)"
              << std::endl;
       }
     }
@@ -349,7 +349,7 @@ extern "C" {
   /* Debugging utility to check if columns have been Inserted into the 
    * matrix that do not correspond to a row on any processor
    */
-  void check_for_rogue_columns( Epetra_CrsMatrix& mat) {
+  void check_for_rogue_columns_tgs( Epetra_CrsMatrix& mat) {
     // Set up rowVector of 0s and column vector of 1s
     const Epetra_Map& rowMap = mat.RowMap();
     const Epetra_Map& colMap = mat.ColMap();
@@ -366,13 +366,13 @@ extern "C" {
 
     // If any rogue columns, exit now (or just get nans later)
     if (nrm>=1.0) {
-      *out << "ERROR: Column map has " << nrm 
+      *tout << "ERROR: Column map has " << nrm 
            << " rogue entries that are not associated with any row." << std::endl;
        rowMap.Comm().Barrier();
        exit(-3);
     }
     else {
-      *out << "Debugging check for rogue Column indices passed." 
+      *tout << "Debugging check for rogue Column indices passed." 
            << " Turn off for production runs.\n" << std::endl;
     }
   }
