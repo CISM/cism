@@ -204,7 +204,7 @@ extern "C" {
 
       // Construct the CrsMatrix based on the row map and bandwidth estimate
       const int bandwidth = 54;
-      matrix = Teuchos::rcp(new Epetra_CrsMatrix(View, *rowMap, bandwidth));
+      matrix = Teuchos::rcp(new Epetra_CrsMatrix(Copy, *rowMap, bandwidth));
     }
     TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, successFlag);
     if (!successFlag) exit(1);
@@ -222,6 +222,12 @@ extern "C" {
    // columns[]: array with numColumns valid entries of global column numbers
    // matrixValues[]: array with corresponding matrix entries
    // rhsValue: entry into "b" vector for that same row.
+   //
+ /* Verbose debugging: remove soon
+   std::cout << "Insert: row " << rowInd << "  num " << numColumns;
+   for (int i=0; i<numColumns; i++) std::cout << " c " << columns[i] << " m " << matrixValues[i];
+   std::cout << " rhs " << rhsValue << std::endl;;
+*/
 
   try {
     int ierr;
@@ -245,7 +251,7 @@ extern "C" {
     }
     else {
       // Subsequent matrix fills of each time step.
-      ierr = matrix->InsertGlobalValues(rowInd, numColumns, matrixValues, columns);
+      ierr = matrix->ReplaceGlobalValues(rowInd, numColumns, matrixValues, columns);
 
       TEUCHOS_TEST_FOR_EXCEPTION(ierr != 0, std::logic_error,
         "Error: Trilinos matrix has detected a new entry (" 
