@@ -117,10 +117,10 @@ contains
 
       !WHL - debug
       if (this_rank==model%numerics%rdiag_local) then
-         print*, ' '
-         print*, 'task, which_ho_babc =', this_rank, model%options%which_ho_babc
-         print*, 'After calcbeta: max, min of beta (Pa/(m/yr)) =', &
-              tau0/vel0/scyr * maxbeta, tau0/vel0/scyr * minbeta
+!!         print*, ' '
+!!         print*, 'task, which_ho_babc =', this_rank, model%options%which_ho_babc
+!!         print*, 'After calcbeta: max, min of beta (Pa/(m/yr)) =', &
+!!              tau0/vel0/scyr * maxbeta, tau0/vel0/scyr * minbeta
       endif
 
       !----------------------------------------------------------------
@@ -139,17 +139,17 @@ contains
             
 !WHL - debug
          if (this_rank==model%numerics%rdiag_local) then
-            print*, ' '
-            print*, 'Call glissade_velo_higher_solve, task', this_rank
-            print*, 'nx, ny =', model%general%ewn, model%general%nsn
-            print*, 'size(kinbcmask) =', size(model%velocity%kinbcmask,1), size(model%velocity%kinbcmask,2)
-            print*, ' '
-!            print*, 'kinbcmask before halo update:'
+!!            print*, ' '
+!!            print*, 'Call glissade_velo_higher_solve, task', this_rank
+!!            print*, 'nx, ny =', model%general%ewn, model%general%nsn
+!!            print*, 'size(kinbcmask) =', size(model%velocity%kinbcmask,1), size(model%velocity%kinbcmask,2)
+!!            print*, ' '
+!!            print*, 'kinbcmask before halo update:'
             do j = model%general%nsn-1, 1, -1
                do i = 1, model%general%ewn-1
-!                  write(6,'(46i3)',advance='no') model%velocity%kinbcmask(i,j)
+!!                  write(6,'(46i3)',advance='no') model%velocity%kinbcmask(i,j)
                enddo
-!               write(6,*) ' '
+!!               write(6,*) ' '
             enddo
          endif    ! main_task
 
@@ -163,12 +163,12 @@ contains
 !WHL - debug
          if (this_rank==model%numerics%rdiag_local) then
             print*, ' '
-!            print*, 'kinbcmask after halo update:'
+!!            print*, 'kinbcmask after halo update:'
             do j = model%general%nsn-1, 1, -1
                do i = 1, model%general%ewn-1
-!                  write(6,'(46i3)',advance='no') model%velocity%kinbcmask(i,j)
+!!                  write(6,'(46i3)',advance='no') model%velocity%kinbcmask(i,j)
                enddo
-!               write(6,*) ' '
+!!               write(6,*) ' '
             enddo
          endif
 
