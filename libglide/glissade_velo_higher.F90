@@ -1155,6 +1155,7 @@
     if (whichsparse == STANDALONE_TRILINOS_SOLVER) then   
 
        allocate(active_owned_unknown_map(2*nNodesSolve))
+       allocate(velocityResult(2*nNodesSolve))
 
        call trilinos_global_id(nx,         ny,         nz,   &
                                nNodesSolve,                  &
@@ -1884,7 +1885,7 @@
 #ifdef TRILINOS
        elseif (whichsparse == STANDALONE_TRILINOS_SOLVER) then   ! solve with Trilinos
 
-!WHL - Commented out for now until testing later with Trilinos
+!WHL - Commented out lines from glam: add something like this for glissade?
 !!           call solvewithtrilinos(rhs, answer, linearSolveTime)
 !!           totalLinearSolveTime = totalLinearSolveTime + linearSolveTime
           !  write(*,*) 'Total linear solve time so far', totalLinearSolveTime                                           
@@ -1929,8 +1930,6 @@
           !------------------------------------------------------------------------
           ! Solve the linear matrix problem
           !------------------------------------------------------------------------
-
-          allocate(velocityResult(2*nNodesSolve))
 
           call solvevelocitytgs(velocityResult)
 
@@ -2034,8 +2033,6 @@
           call staggered_parallel_halo(vvel)
 
        endif   ! whichsparse (STANDALONE_PCG_STRUC or not) 
-
-       ! Any ghost postprocessing needed, as in glam_strs2?
 
 !WHL - bug check
        if (verbose_state .and. this_rank==rtest) then
@@ -2202,6 +2199,13 @@
        deallocate(matrix%row, matrix%col, matrix%val)
        deallocate(rhs, answer, resid_vec)
     endif
+
+#ifdef TRILINOS
+    if (whichsparse == STANDALONE_TRILINOS_SOLVER) then
+       deallocate(active_owned_unknown_map)
+       deallocate(velocityResult)
+    endif
+#endif
 
     !------------------------------------------------------------------------------
     ! Convert output variables to appropriate units for Glimmer-CISM
@@ -6048,7 +6052,87 @@
 
     elseif (tasks == 2) then
 
+       ! Set up a 4x4 matrix problem on 2 processors
+       ! This one has 16 active unknowns
+
+       ! Here is the problem:
+       ! |  1   2   0   3  | | 1 |    | 7  |
+       ! |  4   5   6   0  | | 0 |    | 10 |
+       ! |  7   8   9  10  | | 1 | =  | 36 |
+       ! |  0  11  12  13  | | 2 |    | 38 |
+
+       ! initialize
+
+       allocate(global_column(4))
+       allocate(matrix_value(4))
+
+       nNodesSolve = 1
+       allocate(active_owned_unknown_map(2*nNodesSolve))
+       if (this_rank==0) then
+          active_owned_unknown_map(:) = (/ 1,3 /)
+       elseif (this_rank==1) then
+          active_owned_unknown_map(:) = (/ 4,6 /)
+       endif
+       print*, 'initializetgs, rank =', this_rank
+       call initializetgs(2*nNodesSolve, active_owned_unknown_map, comm)
+
+       ! insert rows
+
+       if (this_rank==0) then
+
+          ! row 1 (global ID = 1)
+          global_row = 1   
+          ncol = 3
+          global_column(:) = (/ 1,3,6,0 /)
+          matrix_value(:)  = (/ 1,2,3,0 /)
+          rhs_value = 7
+          print*, 'insertrowtgs, rank, row =', this_rank, global_row
+          call insertrowtgs(global_row, ncol, global_column, matrix_value, rhs_value)
+       
+          ! row 2 (global ID = 3)
+          global_row = 3   
+          ncol = 3
+          global_column(:) = (/ 1,3,4,0 /)
+          matrix_value(:)  = (/ 4,5,6,0 /)
+          rhs_value = 10
+          print*, 'insertrowtgs, rank, row =', this_rank, global_row
+          call insertrowtgs(global_row, ncol, global_column, matrix_value, rhs_value)
+
+       elseif (this_rank==1) then
+
+          ! row 1 (global ID = 4)
+          global_row = 4   
+          ncol = 4
+          global_column(:) = (/ 1,3,4,6 /)
+          matrix_value(:)  = (/ 7,8,9,10 /)
+          rhs_value = 36
+          print*, 'insertrowtgs, rank, row =', this_rank, global_row
+          call insertrowtgs(global_row, ncol, global_column, matrix_value, rhs_value)
+
+          ! row 2 (global ID = 6)
+          global_row = 6   
+          ncol = 3
+          global_column(:) = (/ 3,4,6,0 /)
+          matrix_value(:)  = (/ 11,12,13,0 /)
+          rhs_value = 38
+          print*, 'insertrowtgs, rank, row =', this_rank, global_row
+          call insertrowtgs(global_row, ncol, global_column, matrix_value, rhs_value)
+
+       endif
+
+       ! solve
+       allocate(velocityResult(2*nNodesSolve))
+       print*, 'solvevelocitytgs, rank =', this_rank
+       call solvevelocitytgs(velocityResult)
+
+       ! print solution
+       print*, 'rank, solution:', this_rank, velocityResult(:)
+
+       deallocate(active_owned_unknown_map)
+       deallocate(velocityResult)
+
        ! Set up 4x4 matrix problem on 2 processors
+       ! This one has 12 active unknowns
 
        ! Here is the problem:
        ! |  1   2   3   0  | | 1 |    | 4  |
@@ -6061,38 +6145,30 @@
        nNodesSolve = 1
        allocate(active_owned_unknown_map(2*nNodesSolve))
        if (this_rank==0) then
-          active_owned_unknown_map(:) = (/ 1,2 /)
-!          active_owned_unknown_map(:) = (/ 1,3 /)
+          active_owned_unknown_map(:) = (/ 1,3 /)
        elseif (this_rank==1) then
-          active_owned_unknown_map(:) = (/ 3,4 /)
-!          active_owned_unknown_map(:) = (/ 4,6 /)
+          active_owned_unknown_map(:) = (/ 4,6 /)
        endif
        print*, 'initializetgs, rank =', this_rank
        call initializetgs(2*nNodesSolve, active_owned_unknown_map, comm)
 
        ! insert rows
 
-       allocate(global_column(4))
-       allocate(matrix_value(4))
-
        if (this_rank==0) then
 
           ! row 1 (global ID = 1)
           global_row = 1   
           ncol = 3
-          global_column(:) = (/ 1,2,3,0 /)
-!          global_column(:) = (/ 1,3,4,0 /)
+          global_column(:) = (/ 1,3,4,0 /)
           matrix_value(:)  = (/ 1,2,3,0 /)
           rhs_value = 4
           print*, 'insertrowtgs, rank, row =', this_rank, global_row
           call insertrowtgs(global_row, ncol, global_column, matrix_value, rhs_value)
        
           ! row 2 (global ID = 3)
-          global_row = 2   
-!          global_row = 3   
+          global_row = 3   
           ncol = 3
-          global_column(:) = (/ 2,3,4,0 /)
-!          global_column(:) = (/ 3,4,6,0 /)
+          global_column(:) = (/ 3,4,6,0 /)
           matrix_value(:)  = (/ 4,5,6,0 /)
           rhs_value = 17
           print*, 'insertrowtgs, rank, row =', this_rank, global_row
@@ -6101,22 +6177,18 @@
        elseif (this_rank==1) then
 
           ! row 1 (global ID = 4)
-          global_row = 3   
-!          global_row = 4   
+          global_row = 4   
           ncol = 3
-          global_column(:) = (/ 1,2,3,0 /)
-!          global_column(:) = (/ 1,3,4,0 /)
+          global_column(:) = (/ 1,3,4,0 /)
           matrix_value(:)  = (/ 7,8,9,0 /)
           rhs_value = 16
           print*, 'insertrowtgs, rank, row =', this_rank, global_row
           call insertrowtgs(global_row, ncol, global_column, matrix_value, rhs_value)
 
           ! row 2 (global ID = 6)
-          global_row = 4   
-!          global_row = 6   
+          global_row = 6   
           ncol = 3
-          global_column(:) = (/ 2,3,4,0 /)
-!          global_column(:) = (/ 3,4,6,0 /)
+          global_column(:) = (/ 3,4,6,0 /)
           matrix_value(:)  = (/ 10,11,12,0 /)
           rhs_value = 35
           print*, 'insertrowtgs, rank, row =', this_rank, global_row
@@ -6131,6 +6203,9 @@
 
        ! print solution
        print*, 'rank, solution:', this_rank, velocityResult(:)
+
+       deallocate(active_owned_unknown_map)
+       deallocate(velocityResult)
 
     else
        print*, 'Error: Trilinos test requires 1 or 2 processors'
