@@ -250,12 +250,24 @@ extern "C" {
       else if (ierr>0) std::cout << "Warning Code for " << rowInd << "  = ("<< ierr <<")"<<std::endl;
     }
     else {
+#define ONE_ENTRY_DEBUG 
+#ifdef ONE_ENTRY_DEBUG
+      for (int col=0; col<numColumns; col++) {
+      ierr = matrix->ReplaceGlobalValues(rowInd, 1, &matrixValues[col], &columns[col]);
+
+      TEUCHOS_TEST_FOR_EXCEPTION(ierr != 0, std::logic_error,
+        "Error: Trilinos matrix has detected a new column entry A(" 
+        << rowInd << ", " << columns[col] << " = " << matrixValues[col]  
+        << ")\n\t that did not exist before.");
+      }
+#else
       // Subsequent matrix fills of each time step.
       ierr = matrix->ReplaceGlobalValues(rowInd, numColumns, matrixValues, columns);
 
       TEUCHOS_TEST_FOR_EXCEPTION(ierr != 0, std::logic_error,
-        "Error: Trilinos matrix has detected a new entry (" 
+        "Error: Trilinos matrix has detected a new column entry in row (" 
         << rowInd << ")\n\t that did not exist before.");
+#endif
     }
   }
   TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, successFlag);
