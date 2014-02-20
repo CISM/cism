@@ -15,7 +15,7 @@ setenv TEST_DIR "/lustre/atlas/scratch/$USER/cli062/higher-order"
 setenv CODE_DIR "/lustre/atlas/scratch/$USER/cli062/PISCEES/trunk"
 cd $CODE_DIR
 # setting to 0 means don't build that version
-setenv build_autoconf 1
+setenv build_autoconf 0
 setenv build_cmake 1
 #flags set for regression and performance suites
 setenv REG_TEST 1
@@ -40,8 +40,8 @@ module list
 setenv build_no 0
 
 # NEEDED AFTER A FRESH CHECKOUT
-echo 'bootstrap'
-./bootstrap >& bootstrap.out
+#echo 'bootstrap'
+#./bootstrap >& bootstrap.out
 
 
 ###################################################################################

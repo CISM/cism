@@ -11,7 +11,7 @@ setenv TEST_DIR "$GSCRATCH/higher-order"
 setenv CODE_DIR "$HOME/PISCEES/trunk"
 cd $CODE_DIR
 # setting to 0 mens don't build that version
-setenv build_autoconf 1
+setenv build_autoconf 0
 setenv build_cmake 1
 # flags set for regression and performance suites
 setenv REG_TEST 1
@@ -30,8 +30,8 @@ module load boost/1.49.0
 setenv build_no 0
 
 # NEEDED AFTER A FRESH CHECKOUT
-echo 'bootstrap'
-./bootstrap
+#echo 'bootstrap'
+#./bootstrap
 
 if ($build_autoconf == 1 ) then
 echo 'build with autoconf'
