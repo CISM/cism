@@ -243,6 +243,16 @@ extern "C" {
 
     if (firstMatrixAssemblyForTimeStep) {
 
+#define ONE_PROC_DEBUG 
+#ifdef ONE_PROC_DEBUG
+      if (rowMap.Comm().NumProc()==1) 
+        for (int col=0; col<numColumns; col++) {
+          TEUCHOS_TEST_FOR_EXCEPTION(!rowMap.MyGID(columns[col]), std::logic_error,
+            "Error: Trilinos matrix has column that is not in row map: entry A(" 
+            << rowInd << ", " << columns[col] << ") = " << matrixValues[col]  
+            << "\n\t(This is not an error for parallel runs.");
+          }
+#endif
       // The matrix has not been "FillComplete()"ed. First fill of time step.
       ierr = matrix->InsertGlobalValues(rowInd, numColumns, matrixValues, columns);
 
@@ -257,8 +267,8 @@ extern "C" {
 
       TEUCHOS_TEST_FOR_EXCEPTION(ierr != 0, std::logic_error,
         "Error: Trilinos matrix has detected a new column entry A(" 
-        << rowInd << ", " << columns[col] << " = " << matrixValues[col]  
-        << ")\n\t that did not exist before.");
+        << rowInd << ", " << columns[col] << ") = " << matrixValues[col]  
+        << "\n\t that did not exist before.");
       }
 #else
       // Subsequent matrix fills of each time step.
@@ -287,7 +297,8 @@ extern "C" {
 
     // Lock in sparsity pattern of CrsMatrix -- first solve only
     if (firstMatrixAssemblyForTimeStep) {
-      firstMatrixAssemblyForTimeStep = false;
+std::cout << "AGS: New matrix logic change #1!!\n" << std::endl;
+//      firstMatrixAssemblyForTimeStep = false;
 
       matrix->FillComplete();
 #ifdef CHECK_FOR_ROGUE_COLUMNS
@@ -320,6 +331,11 @@ extern "C" {
       status = Thyra::solve(*linOp, Thyra::NOTRANS, *thyraRhs, thyraSol.ptr());
 
     if (printLinSolDetails) linSolveDetails_tgs(status);
+
+std::cout << "AGS: New matrix logic change #2!!\n" << std::endl;
+const Epetra_Map&  rm = matrix->RowMap();
+const int bandwidth = 54;
+matrix = Teuchos::rcp(new Epetra_CrsMatrix(Copy, rm, bandwidth));
 
     //elapsedTime = linearTime.stop(); 
     //*tout << "Total time elapsed for calling Solve(): " << elapsedTime << std::endl;
