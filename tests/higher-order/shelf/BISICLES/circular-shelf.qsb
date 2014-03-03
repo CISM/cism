@@ -6,7 +6,7 @@
 #PBS -m abe
 
 cd $PBS_O_WORKDIR
-aprun -n 24 ./../../../../builds/hopper-pgi/cism_driver/cism_driver circular-shelf.BISISCLES.config
+aprun -n 24 ./../../../../builds/hopper-pgi/cism_driver/cism_driver circular-shelf.BISICLES.config
 
 # this one runs simple_bisicles instead of cism_driver
 #aprun -n 24 ./../../../../builds/hopper-pgi/example-drivers/simple_bisicles/src/simple_bisicles circular-shelf.BISICLES.config
