@@ -1,6 +1,6 @@
 #inputs file for Amr ice-sheet solver
 main.maxTime = 10000000000  # maximum time to run to
-main.maxStep = 1   # maximum number of steps to run
+main.maxStep = 1000   # maximum number of steps to run
 #main.maxStep = 20000   # maximum number of steps to run
 main.constitutiveRelation = GlensLaw
 main.constitutiveRelation = L1L2
@@ -130,7 +130,7 @@ JFNKSolver.hAdaptive = true
 JFNKSolver.mgProlongType = 1
 
 # 0 = relax, 1 = BiCGStab, 2 = GMRES, 3 = MultiGrid, 4 = petsc
-JFNKSolver.solverType = 4
+JFNKSolver.solverType = 0
 JFNKSolver.maxBiCGStabIter = 50
 JFNKSolver.MGtol = 1.0e-5
 JFNKSolver.RelaxTol = 1.0e-5
