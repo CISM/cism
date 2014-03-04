@@ -66,6 +66,13 @@ amr.cfl = 0.1  # "cfl" number
 amr.initial_cfl = 0.1  # "cfl" number
 amr.max_dt_grow_factor = 1.1 #max amount dt can grow from one timestep to another
 
+#initial guess 
+amr.do_initial_velocity_guess = 1
+amr.do_initial_velocity_solve = 1
+amr.initial_velocity_guess_type = 1 # linear PDE
+amr.initial_velocity_guess_const_mu = 1.0e+6
+amr.initial_velocity_guess_solver_type = 1 # use JFNK solver's linear mode
+
 #amr.do_initial_velocity_solve = 0 #debugging help -- makes runs go faster
 
 
@@ -77,7 +84,7 @@ amr.write_flux_velocities = true
 amr.write_base_velocities = true
 
 amr.check_interval = 1
-amr.check_prefix = chk
+amr.check_prefix = chk.confinedShelf
 amr.verbosity = 5
 
 amr.ref_ratio = 2 2 2   # refinement ratios
