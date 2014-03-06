@@ -173,6 +173,8 @@
 !    logical :: verbose_residual = .true.
     logical :: verbose_state = .false.
 !    logical :: verbose_state = .true.
+    logical :: verbose_id = .false.
+!    logical :: verbose_id = .true.
     logical :: verbose_load = .false.
 !    logical :: verbose_load = .true.
     logical :: verbose_shelf = .false.
@@ -734,8 +736,7 @@
     !       should be filled, based on the geometry of active nodes
 
     logical, dimension(:,:,:,:), allocatable ::  &
-       Auu_fill, Auv_fill,  &! true wherever the matrix element is nonzero
-       Avu_fill, Avv_fill
+       Afill              ! true wherever the matrix value is potentially nonzero
 
     real(dp), dimension(:), allocatable ::   &
        velocityResult     ! velocity solution vector from Trilinos
@@ -1125,8 +1126,7 @@
                              iNodeIndex,  jNodeIndex,  kNodeIndex)
 
 !WHL - debug
-    !TODO - Write out global node ID?
-    if (verbose_state .and. this_rank==rtest) then
+    if (verbose_id .and. this_rank==rtest) then
        print*, ' '
        print*, 'NodeID before halo update, k = 1:'
        do j = ny-1, 1, -1
@@ -1144,8 +1144,7 @@
     call staggered_parallel_halo(NodeID)
 
 !WHL - debug
-    !TODO - Change to global node ID
-    if (verbose_state .and. this_rank==rtest) then
+    if (verbose_id .and. this_rank==rtest) then
        print*, ' '
        print*, 'NodeID after halo update, k = 1:'
        do j = ny-1, 1, -1
@@ -1166,10 +1165,11 @@
 
        allocate(active_owned_unknown_map(2*nNodesSolve))
        allocate(velocityResult(2*nNodesSolve))
-       allocate(Auu_fill(27,nz,nx-1,ny-1))
-       allocate(Auv_fill(27,nz,nx-1,ny-1))
-       allocate(Avu_fill(27,nz,nx-1,ny-1))
-       allocate(Avv_fill(27,nz,nx-1,ny-1))
+       allocate(Afill(27,nz,nx-1,ny-1))
+
+       !----------------------------------------------------------------
+       ! Compute global IDs needed to initialize the Trilinos solver
+       !----------------------------------------------------------------
 
        call trilinos_global_id(nx,         ny,         nz,   &
                                nNodesSolve,                  &
@@ -1180,16 +1180,25 @@
        !TODO - Set velocityResult to combination of uvel/vvel
        velocityResult(:) = 0.d0
 
+       !----------------------------------------------------------------
        ! Send this information to Trilinos (trilinosGlissadeSolver.cpp)
+       !----------------------------------------------------------------
+
        call initializetgs(2*nNodesSolve, active_owned_unknown_map, comm)
+
+       !----------------------------------------------------------------
+       ! If this is the first outer iteration, then save the pattern of matrix
+       ! values that are potentially nonzero and should be sent to Trilinos.
+       ! Trilinos requires that this pattern remains fixed during the outer loop.
+       !----------------------------------------------------------------
+
+       call get_fill_pattern(nx,    ny,     nz,   &
+                             active_vertex, nNodesSolve,  &
+                             iNodeIndex,    jNodeIndex,   &
+                             kNodeIndex,    Afill)
 
     endif
 #endif
-
-    !----------------------------------------------------------------
-    ! Compute global IDs needed to initialize the Trilinos solver
-    !----------------------------------------------------------------
-
 
     !------------------------------------------------------------------------------
     ! Compute the factor A^(-1/n) appearing in the expression for effective viscosity.
@@ -1903,21 +1912,6 @@
        elseif (whichsparse == STANDALONE_TRILINOS_SOLVER) then   ! solve with Trilinos
 
           !------------------------------------------------------------------------
-          ! If this is the first outer iteration, then save the pattern of nonzero
-          ! matrix values.  Trilinos requires that this pattern remains fixed during
-          ! the outer loop.
-          !------------------------------------------------------------------------
-
-          if (counter == 1) then   ! first outer iteration only
-
-             call get_fill_pattern(nx,       ny,     nz,   &
-                                   Auu,      Auv,          &
-                                   Avu,      Avv,          &
-                                   Auu_fill, Auv_fill,     &
-                                   Avu_fill, Avv_fill)
-          endif
-
-          !------------------------------------------------------------------------
           ! Compute the residual vector and its L2 norm
           !------------------------------------------------------------------------
 
@@ -1951,8 +1945,7 @@
                                  kNodeIndex,   global_node_id,   &
                                  Auu,          Auv,              &
                                  Avu,          Avv,              &
-                                 Auu_fill,     Auv_fill,         &
-                                 Avu_fill,     Avv_fill,         &
+                                 Afill,                          &
                                  bu,           bv)
 
           !------------------------------------------------------------------------
@@ -2237,10 +2230,7 @@
     if (whichsparse == STANDALONE_TRILINOS_SOLVER) then
        deallocate(active_owned_unknown_map)
        deallocate(velocityResult)
-       deallocate(Auu_fill)
-       deallocate(Auv_fill)
-       deallocate(Avu_fill)
-       deallocate(Avv_fill)
+       deallocate(Afill)
     endif
 #endif
 
@@ -5739,11 +5729,10 @@
 
 !****************************************************************************
 
-  subroutine get_fill_pattern(nx,       ny,     nz,   &
-                              Auu,      Auv,          &
-                              Avu,      Avv,          &
-                              Auu_fill, Auv_fill,     &
-                              Avu_fill, Avv_fill)
+  subroutine get_fill_pattern(nx,    ny,     nz,   &
+                              active_vertex, nNodesSolve,  &
+                              iNodeIndex,    jNodeIndex,   &
+                              kNodeIndex,    Afill)
 
     !------------------------------------------------------------------------
     ! Construct logical arrays identifying which matrix elements are nonzero.
@@ -5764,36 +5753,96 @@
        nx, ny,             &  ! number of grid cells in each direction
        nz                     ! number of vertical levels where velocity is computed
 
-    real(dp), dimension(27,nz,nx-1,ny-1), intent(in) ::  &
-       Auu, Auv,    &     ! assembled stiffness matrix, divided into 4 parts
-       Avu, Avv           ! 1st dimension = node and its nearest neighbors in x, y and z direction 
-                          ! other dimensions = (k,i,j) indices
+    logical, dimension(nx-1,ny-1), intent(in) ::   &
+       active_vertex          ! T for columns (i,j) where velocity is computed, else F
+
+    integer, intent(in) :: nNodesSolve     ! number of nodes where we solve for velocity
+
+    integer, dimension(:), intent(in) ::   &
+       iNodeIndex, jNodeIndex, kNodeIndex  ! i, j and k indices of active nodes
 
     logical, dimension(27,nz,nx-1,ny-1), intent(out) ::  &
-       Auu_fill, Auv_fill,  &! true wherever the matrix value should be sent to Trilinos
-       Avu_fill, Avv_fill
+       Afill        ! true wherever the matrix value is potentially nonzero
+                    ! and should be sent to Trilinos
 
     !----------------------------------------------------------------
     ! Local variables
     !----------------------------------------------------------------
 
-    integer :: i, j, k, m, mdiag
+    integer :: i, j, k, m, n, iA, jA, kA
 
-    Auu_fill(:,:,:,:) = .true.
-    Auv_fill(:,:,:,:) = .true.
-    Avu_fill(:,:,:,:) = .true.
-    Avv_fill(:,:,:,:) = .true.
- 
-    !TODO: Add logic to set A**_fill = .false. for boundary nodes.                        
-!    do j = 1, ny-1
-!       do i = 1, nx-1
-!          do k = 1, nz
-!             do m = 1, 27
-!             enddo
-!          enddo
-!       enddo
-!    enddo
-  
+    Afill(:,:,:,:) = .false.
+
+    ! Loop over nodes we are solving
+
+    do n = 1, nNodesSolve
+
+       i = iNodeIndex(n)
+       j = jNodeIndex(n)
+
+       if (active_vertex(i,j)) then
+
+          k = kNodeIndex(n)
+
+          do kA = -1,1
+          do jA = -1,1
+          do iA = -1,1
+
+             if ( (k+kA >= 1 .and. k+kA <= nz)         &
+                             .and.                     &
+                  (i+iA >= 1 .and. i+iA <= nx-1)       &
+                             .and.                     &
+                  (j+jA >= 1 .and. j+jA <= ny-1) ) then
+
+                if (active_vertex(i+iA,j+jA)) then
+
+                   m = indxA(iA,jA,kA)
+                   Afill(m,k,i,j) = .true.
+                   
+                endif  ! active_vertex(i+iA,j+jA)
+
+             endif     ! neighbor node is in bounds
+               
+          enddo        ! iA
+          enddo        ! jA
+          enddo        ! kA
+
+       endif           ! active_vertex(i,j)
+
+    enddo              ! n
+
+!WHL - debug - Write out pattern of active vertices
+
+    if (verbose_id .and. this_rank==rtest) then
+       print*, ' '
+       print*, 'active_vertex:'
+       do j = ny-nhalo, nhalo+1, -1
+          do i = nhalo+1, nx-nhalo
+             write(6,'(l4)',advance='no') active_vertex(i,j)
+          enddo
+          print*, ' '
+       enddo
+
+!WHL - debug - write out Afill for test point
+       i = itest
+       j = jtest
+       k = 1
+       print*, ' '
+       print*, 'Afill, i, j, k =', i, j, k
+
+       do kA = -1, 1
+          do jA = 1, -1, -1
+             do iA = -1, 1
+                m = indxA(iA,jA,kA)
+                write(6,'(l4)',advance='no') Afill(m,k,i,j) 
+             enddo  ! iA
+             print*, ' '
+          enddo     ! jA
+          print*, ' '
+       enddo        ! kA
+
+    endif  ! verbose_id
+
   end subroutine get_fill_pattern
                
 !****************************************************************************
@@ -5857,7 +5906,7 @@
     enddo
 
 !WHL - debug
-    if (verbose .and. this_rank==rtest) then
+    if (verbose_id .and. this_rank==rtest) then
        print*, ' '
        print*, 'global_vertex_id before halo update:'
        do j = ny-1, 1, -1
@@ -5871,7 +5920,7 @@
     call staggered_parallel_halo(global_vertex_id)
 
 !WHL - debug
-    if (verbose .and. this_rank==rtest) then
+    if (verbose_id .and. this_rank==rtest) then
        print*, ' '
        print*, 'global_vertex_id after halo update:'
        do j = ny-1, 1, -1
@@ -5891,7 +5940,7 @@
     enddo
 
 !WHL - debug
-    if (verbose .and. this_rank==rtest) then
+    if (verbose_id .and. this_rank==rtest) then
        print*, ' '
        print*, 'global_node_id, k = 1:'
        do j = ny-1, 1, -1
@@ -5925,8 +5974,7 @@
                                kNodeIndex,   global_node_id, &
                                Auu,          Auv,            &
                                Avu,          Avv,            &
-                               Auu_fill,     Auv_fill,       &
-                               Avu_fill,     Avv_fill,       &
+                               Afill,                        &
                                bu,           bv)
 
     !------------------------------------------------------------------------
@@ -5964,8 +6012,7 @@
                           ! other dimensions = (k,i,j) indices
 
     logical, dimension(27,nz,nx-1,ny-1), intent(in) ::  &
-       Auu_fill, Auv_fill,  &! true for matrix values to be sent to Trilinos
-       Avu_fill, Avv_fill
+       Afill              ! true for matrix values to be sent to Trilinos
 
     real(dp), dimension(nz,nx-1,ny-1), intent(in) ::  &
        bu, bv             ! assembled load (rhs) vector, divided into 2 parts
@@ -6015,16 +6062,16 @@
 
              m = indxA(iA,jA,kA)
 
-             if (Auu_fill(m,k,i,j)) then
+             if (Afill(m,k,i,j)) then
+
                 ncol = ncol + 1
                 global_column(ncol) = 2*global_node_id(k+kA,i+iA,j+jA) - 1
                 matrix_value(ncol) = Auu(m,k,i,j)
-             endif
 
-             if (Auv_fill(m,k,i,j)) then
                 ncol = ncol + 1
                 global_column(ncol) = 2*global_node_id(k+kA,i+iA,j+jA)
                 matrix_value(ncol) = Auv(m,k,i,j)
+
              endif
 
           endif   ! i+iA, j+jA, k+kA in bounds
@@ -6056,16 +6103,16 @@
 
              m = indxA(iA,jA,kA)
 
-             if (Avu_fill(m,k,i,j)) then
+             if (Afill(m,k,i,j)) then
+
                 ncol = ncol + 1
                 global_column(ncol) = 2*global_node_id(k+kA,i+iA,j+jA) - 1
                 matrix_value(ncol) = Avu(m,k,i,j)
-             endif
 
-             if (Avv_fill(m,k,i,j)) then
                 ncol = ncol + 1
                 global_column(ncol) = 2*global_node_id(k+kA,i+iA,j+jA)
                 matrix_value(ncol) = Avv(m,k,i,j)
+
              endif
 
           endif   ! i+iA, j+jA, k+kA in bounds
