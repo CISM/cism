@@ -126,6 +126,9 @@ program simple_bisicles
 
   print *,"Running external dycore. Dycore model index = ",dycore_model_index
   do while (cur_time < model%numerics%tend)
+      if (cur_time + time_inc > model%numerics%tend) then
+         time_inc = model%numerics%tend - cur_time
+      endif
       print *, "CISM timestep: time = ", cur_time, ", dt = ", time_inc
       call gtd_run_dycore(dycore_model_index,cur_time,time_inc)
 !     write nc files

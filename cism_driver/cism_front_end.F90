@@ -234,6 +234,7 @@ subroutine cism_run_dycore(model)
   type(simple_climate) :: climate         ! climate
   type(ConfigSection), pointer :: config  ! configuration stuff
   real(kind=dp) :: time                   ! model time in years
+  real(kind=dp) :: dt                     ! current time step to use
   real(kind=dp) :: t1,t2
   integer :: clock,clock_rate,ret
   integer :: tstep_count
@@ -293,8 +294,12 @@ subroutine cism_run_dycore(model)
       case (DYCORE_BISICLES,DYCORE_ALBANYFELIX)
         print *,'Using External Dycore'
         ! The time variable gets incremented within this call:
+        dt = model%numerics%tinc
+        if (time + dt > model%numerics%tend) then
+           dt = model%numerics%tend - time
+        endif
         call cism_run_external_dycore(model%options%external_dycore_model_index, &
-                                      time,model%numerics%tinc)
+                                      time,dt)
         ! time = time + model%numerics%tinc
       case default
     end select
