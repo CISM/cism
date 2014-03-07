@@ -23,6 +23,7 @@ CalvingModel.type = NoCalvingModel
  
 surfaceFlux.type = zeroFlux
 basalFlux.type = zeroFlux
+basalFlux.type = fortran
 
 geometry.problem_type = fortran
 
@@ -46,6 +47,7 @@ amr.maxLevel = 2   # finest level allowed in simulation
 amr.ref_ratio = 2 2 2
 #amr.num_cells = 128 128 128   #number of cells in base grid
 amr.num_cells = 40 40 10   #number of cells in base grid
+#amr.num_cells = 20 20 10   #number of cells in base grid 
 
 amr.is_periodic = 1 1 1      # 1 if domain is periodic 
 # (note that periodic BC's override physical BC types)
@@ -95,6 +97,7 @@ amr.tags_grow = 2             # amount to buffer tags
 amr.max_box_size = 32         # largest box length allowed
 #amr.max_box_size = 10000         # largest box length allowed
 
+#amr.tag_all_ice_on_level_0 = 1
 amr.tag_on_grad_velocity = 0
 amr.tag_on_laplacian_velocity = 1
 amr.lap_vel_tagging_val = 1000 # value for fast-sliding case
