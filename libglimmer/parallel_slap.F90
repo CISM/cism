@@ -889,9 +889,10 @@ contains
 
   end function distributed_put_var_integer_2d
 
-  function distributed_put_var_real4_1d(ncid,varid,values)
+  function distributed_put_var_real4_1d(ncid,varid,values,start)
     implicit none
     integer :: distributed_put_var_real4_1d,ncid,varid
+    integer,dimension(:),optional :: start
     real(4),dimension(:) :: values
 
     integer :: status, x0id, x1id, y0id, y1id
@@ -922,7 +923,11 @@ contains
           call parallel_stop(__FILE__,__LINE__)
        end if
 
-       distributed_put_var_real4_1d = nf90_put_var(ncid,varid,values(ilo:ihi))
+       if (present(start)) then
+         distributed_put_var_real4_1d = nf90_put_var(ncid,varid,values(ilo:ihi),start)
+       else
+         distributed_put_var_real4_1d = nf90_put_var(ncid,varid,values(ilo:ihi))
+       endif
 
     endif
 
@@ -963,9 +968,10 @@ contains
   end function distributed_put_var_real4_2d
 
   !WHL - added this function
-  function distributed_put_var_real8_1d(ncid,varid,values)
+  function distributed_put_var_real8_1d(ncid,varid,values,start)
     implicit none
     integer :: distributed_put_var_real8_1d,ncid,varid
+    integer,dimension(:),optional :: start
     real(8),dimension(:) :: values
 
     integer :: status, x0id, x1id, y0id, y1id
@@ -996,7 +1002,11 @@ contains
           call parallel_stop(__FILE__,__LINE__)
        end if
 
-       distributed_put_var_real8_1d = nf90_put_var(ncid,varid,values(ilo:ihi))
+       if (present(start)) then
+         distributed_put_var_real8_1d = nf90_put_var(ncid,varid,values(ilo:ihi),start)
+       else
+         distributed_put_var_real8_1d = nf90_put_var(ncid,varid,values(ilo:ihi))
+       endif
 
     endif
 

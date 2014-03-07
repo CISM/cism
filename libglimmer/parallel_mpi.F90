@@ -1773,11 +1773,12 @@ contains
     !automatic deallocation
   end function distributed_put_var_integer_2d
 
-  function distributed_put_var_real4_1d(ncid,varid,values)
+  function distributed_put_var_real4_1d(ncid,varid,values,start)
     use mpi_mod
     use netcdf
     implicit none
     integer :: distributed_put_var_real4_1d,ncid,varid
+    integer,dimension(:),optional :: start
     real(4),dimension(:) :: values
 
     integer :: i,ierror,myn,status,x0id,x1id,y0id,y1id
@@ -1846,8 +1847,13 @@ contains
           global_values(bounds(1,i):bounds(2,i)) = &
                recvbuf(displs(i)+1:displs(i+1))
        end do
-       distributed_put_var_real4_1d = &
+       if (present(start)) then
+         distributed_put_var_real4_1d = &
+            nf90_put_var(ncid,varid,global_values(1:myn),start)
+       else
+         distributed_put_var_real4_1d = &
             nf90_put_var(ncid,varid,global_values(1:myn))
+       endif
     end if
     call broadcast(distributed_put_var_real4_1d)
     !automatic deallocation
@@ -1924,11 +1930,12 @@ contains
   end function distributed_put_var_real4_2d
 
   !WHL - added this function
-  function distributed_put_var_real8_1d(ncid,varid,values)
+  function distributed_put_var_real8_1d(ncid,varid,values,start)
     use mpi_mod
     use netcdf
     implicit none
     integer :: distributed_put_var_real8_1d,ncid,varid
+    integer,dimension(:),optional :: start
     real(8),dimension(:) :: values
 
     integer :: i,ierror,myn,status,x0id,x1id,y0id,y1id
@@ -1997,8 +2004,13 @@ contains
           global_values(bounds(1,i):bounds(2,i)) = &
                recvbuf(displs(i)+1:displs(i+1))
        end do
-       distributed_put_var_real8_1d = &
+       if (present(start)) then
+         distributed_put_var_real8_1d = &
+            nf90_put_var(ncid,varid,global_values(1:myn),start)
+       else
+         distributed_put_var_real8_1d = &
             nf90_put_var(ncid,varid,global_values(1:myn))
+       endif
     end if
     call broadcast(distributed_put_var_real8_1d)
     !automatic deallocation
