@@ -93,7 +93,7 @@ cmake \
   -D GLIMMER_TRILINOS_GPTL_DIR=/project/projectdirs/piscees/trilinos-default/hopper-pgi-gptl/install \
   -D GLIMMER_TRILINOS_ALBANY_DIR=/project/projectdirs/piscees/trilinos-default/hopper-pgi-albany/install \
 \
-  -D GLIMMER_NETCDF_DIR=$(NETCDF_DIR) \
+  -D GLIMMER_NETCDF_DIR=$NETCDF_DIR \
   -D GLIMMER_FMAIN=/opt/pgi/13.6.0/linux86-64/13.6/lib/f90main.o \
 \
   -D CMAKE_INSTALL_PREFIX:PATH=$PWD/install \
@@ -104,8 +104,8 @@ cmake \
   -D CMAKE_C_COMPILER=cc \
   -D CMAKE_Fortran_COMPILER=ftn \
 \
-  -D CISM_MPI_BASE_DIR=$(CRAY_MPICH2_DIR) \
-  -D CISM_SCI_LIB_DIR=$(CRAY_LIBSCI_PREFIX_DIR)/lib \
+  -D CISM_MPI_BASE_DIR=$CRAY_MPICH2_DIR \
+  -D CISM_SCI_LIB_DIR=$CRAY_LIBSCI_PREFIX_DIR/lib \
   -D GLIMMER_GPTL_DIR=/project/projectdirs/ccsm1/libgptl/libgptl-pgi \
 \
   -D CMAKE_CXX_FLAGS:STRING="-O2 -g --diag_suppress 554,111,611 -DH5_USE_16_API" \
@@ -122,10 +122,10 @@ cmake \
 
 # ADD: 
 
-#  -D CMAKE_PREFIX_PATH="$(HDF5_DIR)" \
+#  -D CMAKE_PREFIX_PATH="$HDF5_DIR" \
 
 #  -D TPL_ENABLE_MPI:BOOL=ON \
 
 
-#  -D CISM_HDF5_LIB_DIR=$(HDF5_DIR)/lib \
+#  -D CISM_HDF5_LIB_DIR=$HDF5_DIR/lib \
 #  -D CISM_HDF5_LIBS="-lhdf5_pgi_parallel -lz" \
