@@ -1379,7 +1379,7 @@ contains
        call coordsystem_allocate(model%general%velo_grid, model%velocity%tau_y)
     else   ! glam/glissade dycore
        call coordsystem_allocate(model%general%velo_grid, model%velocity%beta)     
-       call coordsystem_allocate(model%general%velo_grid, model%velocity%unstagbeta)
+       call coordsystem_allocate(model%general%ice_grid, model%velocity%unstagbeta)
        ! WHL - Set unstagbeta to a physically unrealistic values so we can tell later if
        !       it was read correctly from an input file
        model%velocity%unstagbeta(:,:) = -999.0d0
