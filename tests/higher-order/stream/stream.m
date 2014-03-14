@@ -8,10 +8,10 @@ rho = 910;
 g = -9.81;
 
 flag = 0;       %% USE RAYMOND PROFILE
-flag = 1;       %% USE SCHOOF PROFILE 
+%flag = 1;       %% USE SCHOOF PROFILE 
 
 kinflag = 1;    %% apply kinematic bc (analytic soln) at up/downstream ends
-% kinflag = 0;    %% apply 0 vel bc at up/downstream ends
+%kinflag = 0;    %% apply 0 vel bc at up/downstream ends
 
 n = 3;
 m = 1.55;
@@ -165,7 +165,8 @@ uvel = uvelhom; vvel = vvelhom;
 
 beta = tauf;    %% for now, beta is being used as a proxy for tauf
 
-save stream.mat usrf topg thck beta uvel vvel kinbcmask levels 
+%save stream.mat usrf topg thck beta uvel vvel kinbcmask levels 
+save stream.mat usrf topg thck beta levels 
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
