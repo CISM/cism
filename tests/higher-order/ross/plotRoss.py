@@ -48,13 +48,15 @@ def cmap_discretize(cmap, N):
 # Read the Glimmer output file
 filename = os.path.join('output','ross.out.nc')
 inputfile1 = NetCDFFile(filename,'r')
-velnorm = numpy.array(inputfile1.variables['velnorm'][0,0,2:-2,2:-2])
+#velnorm = numpy.array(inputfile1.variables['velnorm'][0,0,2:-2,2:-2])
+velnorm = numpy.array(inputfile1.variables['velnorm'][0,0,:,:])
 inputfile1.close()
 
 if options.use_mask:
   filename = os.path.join('output','ross.nc')
   inputfile2 = NetCDFFile(filename,'r')
-  mask = numpy.array(inputfile2.variables['kinbcmask'][0,2:-2,2:-2])
+#  mask = numpy.array(inputfile2.variables['kinbcmask'][0,2:-2,2:-2])
+  mask = numpy.array(inputfile2.variables['kinbcmask'][0,:,:])
   inputfile2.close()
 
 # Read the grid coordinates 
