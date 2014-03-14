@@ -15,34 +15,25 @@ from math import sqrt, exp
 from optparse import OptionParser
 from ConfigParser import ConfigParser
 
-# Parse the command line arguments
-parser = OptionParser()
-parser.add_option('-b','--smooth-beta',dest='smooth_beta',action='store_true',help='Use a Gaussian function for beta')
-parser.add_option('-d','--dirichlet-center',dest='dirichlet_center',action='store_true',help='Apply Dirichlet boundary condition at the center')
-parser.add_option('-s','--sloped',dest='sloped',action='store_true',help='Use a conically topped ice thickness')
-options, args = parser.parse_args()
 
-# Check to see if a config file was specified on the command line.
-# If not, circular-shelf.config is used.
-if len(args) == 0:
-  configfile = 'circular-shelf.config'
-elif len(args) >= 1:
-  configfile = args[0]
-else:
-  print '\nUsage:  python circular-shelf.py [FILE.CONFIG] [-b|--smooth-beta] [-d|--dirichlet-center] [-s|--sloped]\n'
-  sys.exit(0)
+# Parse command-line options
+from optparse import OptionParser
+optparser = OptionParser()
+optparser.add_option("-c", "--config", dest="configfile", type='string', default='circular-shelf.config', help="Name of .config file to use for the run", metavar="FILE")
+optparser.add_option('-m','--parallel',dest='parallel',type='int', help='Number of processors to run the model with: if specified then execute run in parallel [default: perform a serial run]', metavar="NUMPROCS")
+optparser.add_option('-e','--exec',dest='executable',default='./simple_glide',help='Set path to the CISM executable')
+optparser.add_option('-b','--smooth-beta',dest='smooth_beta',action='store_true',help='Use a Gaussian function for beta')
+optparser.add_option('-d','--dirichlet-center',dest='dirichlet_center',action='store_true',help='Apply Dirichlet boundary condition at the center')
+optparser.add_option('-s','--sloped',dest='sloped',action='store_true',help='Use a conically topped ice thickness')
+for option in optparser.option_list:
+    if option.default != ("NO", "DEFAULT"):
+        option.help += (" " if option.help else "") + "[default: %default]"
+options, args = optparser.parse_args()
 
-# Check to see if #procs specified, relevant when running the code in parallel.
-# If not, serial run (#procs==1) is performed. To run in parallel, the configure
-# file must be specifed, but the nu,ber of processors does not
-if len(sys.argv) > 2:
-    nprocs = sys.argv[2]
-else:
-  nprocs = '1'
 
 # Create a netCDF file according to the information in the config file.
 parser = ConfigParser()
-parser.read(configfile)
+parser.read(options.configfile)
 nx = int(parser.get('grid','ewn'))
 ny = int(parser.get('grid','nsn'))
 nz = int(parser.get('grid','upn'))
@@ -126,19 +117,32 @@ if options.dirichlet_center:  # command line option
 
 netCDFfile.close()
 
-# Run Glimmer
-print 'Running Glimmer/CISM'
-if len(sys.argv) > 2:
-   os.system('mpirun -np '+nprocs+' ./simple_glide '+configfile+'')  # support for MPI runs is here (other)
-   #os.system('aprun -n'+nprocs+' ./simple_glide '+configfile+'')  # support for MPI runs is here (Jaguar)
-else:
-   os.system('echo '+configfile+' | ./simple_glide')
 
-# Clean up by moving extra files written by Glimmer to the "scratch" subdirectory
-# Look for files with extension "txt", "log", or "nc"
-for files in glob.glob('*.txt')+glob.glob('*.log'):
-# Delete any files already in scratch with these filenames 
-  if files in os.listdir('scratch'):
-    os.remove(os.path.join('scratch',files))
-# Move the new files to scratch
-  shutil.move(files,'scratch')
+# =====================================
+# Run CISM
+print 'Running CISM for the circular-shelf experiment'
+print '==============================================\n'
+if options.parallel == None:
+   # Perform a serial run
+   runstring = options.executable + ' ' + options.configfile
+   print 'Executing serial run with:  ' + runstring + '\n\n'
+   os.system(runstring)
+else:
+   # Perform a parallel run
+   if options.parallel <= 0:
+      sys.exit( 'Error: Number of processors specified for parallel run is <=0.' )
+   else:
+      # These calls to os.system will return the exit status: 0 for success (the command exists), some other integer for failure
+      if os.system('which openmpirun > /dev/null') == 0:
+         mpiexec = 'openmpirun -np '
+      elif os.system('which mpirun > /dev/null') == 0:
+         mpiexec = 'mpirun -np '
+      elif os.system('which aprun > /dev/null') == 0:
+         mpiexec = 'aprun -n '
+      else:
+         sys.exit('Unable to execute parallel run.  Please edit the script to use your MPI run command, or run the model manually with something like: mpirun -np 4 ./simple_glide circular-shelf.config')
+      runstring = mpiexec + str(options.parallel) + ' ' + options.executable + ' ' + options.configfile
+      print 'Executing parallel run with:  ' + runstring + '\n\n'
+      os.system(runstring)  # Here is where the parallel run is actually executed!
+
+

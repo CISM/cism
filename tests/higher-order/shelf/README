@@ -15,51 +15,49 @@ To run the confined shelf experiment, enter the following on a terminal
 command line:
 
 For a serial job: 
+python confined-shelf.py 
 
-python confined-shelf.py confined-shelf.config
+For a parallel job: 
+python confined-shelf.py -m number_of_processors, for example:
 
-For a parallel job: confined-shelf.py confined-shelf.config number_of_processors, for example:
-
-python confined-shelf.py confined-shelf.config 8
+python confined-shelf.py -m 8
 
 ... will run the test case on 8 processors.
 
-Note that parallel support in the current "confined-shelf.py" script may be machine specific
-and you may need to make minor alterations to the relevant lines of code that make the call
-to MPI (e.g. "aprun" vs "mpirun"). To make one or the other active, grep for the phrase "MPI" 
-in the .py script.
+Note that parallel support in the current "confined-shelf.py" script attempts to 
+determine how an mpi job is executed on your machine, but if you see an error
+you may need to make minor alterations to the relevant lines of code that make the call
+to MPI.
 
-If you want to run in parallel, the configuration file and number of processors
-must be specified (but can be 1). If no parameters are specified, the code will
-run in serial using the 'confined-shelf.config' configuration file. Otherwise, it will run
-the script using the configuration file that you specify.
+If there are problems with running in serial on a multicore machine, try:
+python confined-shelf.py -m 1
+
+For details of options for running the script use:
+python confined-shelf.py --help
+
 Unlike in previous releases, there is only one configuration file which uses
 the Payne/Price higher-order dynamical core (the Pattyn/Bocek/Johnson higher-
 order core, while still present in the code, is no longer supported).
 
-If there are problems with running in serial on a multcore machine, try
-
-confined-shelf.py confined-shelf.config 1
 
 The script performs the following three steps:
 1. Create a netCDF input file for Glimmer.
 2. Run Glimmer, creating a netCDF output file.
-3. Move any additional files written by Glimmer to the "scratch" subdirectory.
 
-The netCDF files are written in the "output" subdirectory. This is controlled
+The netCDF files are written in the current subdirectory. This is controlled
 by a parameter in the configuration file so if you use your own configuration
 file the output may be written elsewhere. The file "confined-shelf.config"  
 includes the lines:
 
 [CF input]
-name = output/confined-shelf.nc
+name = confined-shelf.nc
 
 and
 
 [CF output]
-name = output/confined-shelf.out.nc
+name = confined-shelf.out.nc
 
-which are what direct the output to the "output" subdirectory.
+which are what specify the name and location of the files.
 
 PREREQUISITES:
 In order to use the confined-shelf.py script, you will need to have Python and 
@@ -68,13 +66,9 @@ Scientific.IO.NetCDF, netCDF4, or pycdf
 
 To view the results use ncview or another utility for viewing netCDF files.
 
-WARNING: If you have files with names ending ".txt", ".log", or ".nc" in the
-directory from which you are running confined-shelf.py they will get moved to 
-the "scratch" subdirectory when you run confined-shelf.py.  In addition, if you
-use a configuration file that specifies netCDF files (with names ending ".nc") 
-are to be written in the current directory, they will get moved to the "scratch"
-subdirectory after they are written.
 
+
+=========================
 Circular Shelf Experiment
 =========================
 
@@ -83,16 +77,19 @@ command line:
 
 For a serial job: 
 
-python circular-shelf.py circular-shelf.config
+python circular-shelf.py
 
-For a parallel job: circular-shelf.py circular-shelf.config number_of_processors, for example:
+For a parallel job: 
+python circular-shelf.py -m number_of_processors, for example:
 
-python circular-shelf.py circular-shelf.config 8
+python circular-shelf.py -m 8
 
 ... will run the test case on 8 processors.
 
-In addition to specifying a configuration file, you can also specify one or 
-more of the following options on the command line:
+For details of options for running the script use:
+python circular-shelf.py --help
+
+This script has a few more options:
 
 --smooth-beta (or the short version, -b) specifies that a Gaussian function
 will be used for beta.  The default is that there is a small square region
@@ -108,40 +105,25 @@ center of the domain.
 have a conical top.  The default is that the ice thickness is constant (that is,
 a flat top).
 
-Note that these additional commands must come AFTER the processor count, e.g.
-
-python circular-shelf.py circular-shelf.config 8 --smooth-beta
-
-In addition, if invoking these additional commands you must specify that at least one 
-processor is being used, e.g. for a single processor run with the smooth-beta option
-you would use the command,
-
-python circular-shelf.py circular-shelf.config 1 --smooth-beta
-
-
-To summarize, the syntax for running the circular shelf experiment is:
-
-python circular-shelf.py circular-shelf.config [-n|proc_count] [-b|--smooth-beta] [-d|--dirichlet-center] [-s|--sloped]
 
 The script performs the following three steps:
 1. Create a netCDF input file for Glimmer.
 2. Run Glimmer, creating a netCDF output file.
-3. Move any additional files written by Glimmer to the "scratch" subdirectory.
 
-The netCDF files are written in the "output" subdirectory. This is controlled
+The netCDF files are written in the current subdirectory. This is controlled
 by a parameter in the configuration file so if you use your own configuration
-file the output may be written elsewhere. The file "circular-shelf.config"
+file the output may be written elsewhere. The file "confined-shelf.config"  
 includes the lines:
 
 [CF input]
-name = output/circular-shelf.nc
+name = circular-shelf.nc
 
 and
 
 [CF output]
-name = output/circular-shelf.out.nc
+name = circular-shelf.out.nc
 
-which are what direct the output to the "output" subdirectory.
+which are what specify the name and location of the files.
 
 PREREQUISITES:
 In order to use the circular-shelf.py script, you will need to have Python and 
@@ -150,12 +132,5 @@ Scientific.IO.NetCDF, netCDF4, or pycdf
 
 To view the results use ncview or another utility for viewing netCDF files.
 
-WARNING: If you have files with names ending ".txt", ".log", or ".nc" in the
-directory from which you are running circular-shelf.py they will get moved to 
-the "scratch" subdirectory when you run circular-shelf.py.  In addition, if you
-use a configuration file that specifies netCDF files (with names ending ".nc") 
-are to be written in the current directory, they will get moved to the "scratch"
-subdirectory after they are written.
 
-
-(last edited on 2-3-11 by SFP)
+(last edited on 2-3-11 by SFP; 3-13-14 by MJH)
