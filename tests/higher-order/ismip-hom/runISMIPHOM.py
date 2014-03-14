@@ -89,6 +89,11 @@ if __name__ == '__main__':
         elif experiment in ('c','d'):
           offset = float(size)*1000.0 * tan(0.1 * pi/180.0) 
         configParser.set('parameters', 'periodic_offset_ew', str(offset))
+
+##      #Optional: if doing experiment C, one can alternatively use the ho_babc option setup for this test case rather than passing in a beta
+##      if experiment in ('c'):
+##        configParser.set('ho_options', 'which_ho_babc', '8')
+
 #     Make additional changes if requested on the command line
       if options.vertical_grid_size != None:
         configParser.set('grid','upn',str(options.vertical_grid_size))
@@ -195,7 +200,19 @@ if __name__ == '__main__':
         print 'Running',options.executable,'for experiment',experiment.upper(),'with domain size',size,'km'
         if options.parallel != None:
            if options.parallel > 0:
-              exitCode = os.system('mpirun -np ' + str(options.parallel) + ' ' + options.executable + ' ' + filename + '.config')
+              # These calls to os.system will return the exit status: 0 for success (the command exists), some other integer for failure
+              if os.system('which openmpirun > /dev/null') == 0:
+                 mpiexec = 'openmpirun -np '
+              elif os.system('which mpirun > /dev/null') == 0:
+                 mpiexec = 'mpirun -np '
+              elif os.system('which aprun > /dev/null') == 0:
+                 mpiexec = 'aprun -n '
+              else:
+                 sys.exit('Unable to execute parallel run.  Please edit the script to use your MPI run command.')
+              # Now run the model
+              runstring = mpiexec + str(options.parallel) + ' ' + options.executable + ' ' + filename + '.config'
+              print 'Executing parallel run with:  ' + runstring + '\n\n'
+              exitCode = os.system(runstring)
            else:
               print 'Number of processors specified for parallel run is <=0.  Skipping the running of the model.'
               exitCode = 0
