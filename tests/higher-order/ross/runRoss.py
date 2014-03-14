@@ -16,14 +16,34 @@ import numpy
 import ConfigParser
 from netCDF import *
 
-create_files = True 
-run_glimmer  = False
-executable   = 'simple_glide'
+
+# =============================================
+# === Manually set these options as desired ===
+# =============================================
+create_files = True
 fake_shelf   = False
 verbose      = False
 use_inlets   = (False, True, 'reverse')[1]
-mask_llc     = False # The previous script (makerossnc.py) masked the lower left corner
+mask_llc     = False # The previous script (makerossnc.py) masked the lower left corner  -- MJH: I don't see the "previous script" anywhere...
 offset_error = 1     # offset_error should be 1 
+# =============================================
+# Developer Note: some of these could become command line options below.
+
+# Parse command-line options
+from optparse import OptionParser
+optparser = OptionParser()
+optparser.add_option("-r", "--run", dest="doRun", default=False, action="store_true", help="Including this flag will run CISM.  Excluding it will cause the script to only setup the initial condition file")
+optparser.add_option("-c", "--config", dest="configfile", type='string', default='ross.config', help="Name of .config file to use to setup and run the Ross Ice Shelf test case", metavar="FILE")
+optparser.add_option('-m','--parallel',dest='parallel',type='int', help='Number of processors to run the model with: if specified then execute run in parallel [default: perform a serial run]', metavar="NUMPROCS")
+optparser.add_option('-e','--exec',dest='executable',default='./simple_glide',help='Set path to the CISM executable')
+
+for option in optparser.option_list:
+    if option.default != ("NO", "DEFAULT"):
+        option.help += (" " if option.help else "") + "[default: %default]"
+options, args = optparser.parse_args()
+
+
+
 
 def addBorder(data,dtype,value=0):
   field = numpy.empty((ny,nx),dtype)
@@ -252,22 +272,42 @@ if create_files:
 
   netCDFfile.close()
 
+
+
 ########## PART IV: RUN GLIMMER ##########
+if options.doRun:
+    # =====================================
+    # Run CISM
+    print 'Running CISM for the Ross Ice Shelf experiment'
+    print '==============================================\n'
+    if options.parallel == None:
+       # Perform a serial run
+       runstring = options.executable + ' ' + options.configfile
+       print 'Executing serial run with:  ' + runstring + '\n\n'
+       os.system(runstring)
+    else:
+       # Perform a parallel run
+       if options.parallel <= 0:
+          sys.exit( 'Error: Number of processors specified for parallel run is <=0.' )
+       else:
+          # These calls to os.system will return the exit status: 0 for success (the command exists), some other integer for failure
+          if os.system('which openmpirun > /dev/null') == 0:
+             mpiexec = 'openmpirun -np '
+          elif os.system('which mpirun > /dev/null') == 0:
+             mpiexec = 'mpirun -np '
+          elif os.system('which aprun > /dev/null') == 0:
+             mpiexec = 'aprun -n '
+          else:
+             sys.exit('Unable to execute parallel run.  Please edit the script to use your MPI run command, or run the model manually with something like: mpirun -np 4 ./simple_glide dome.config')
+          runstring = mpiexec + str(options.parallel) + ' ' + options.executable + ' ' + options.configfile
+          print 'Executing parallel run with:  ' + runstring + '\n\n'
+          os.system(runstring)  # Here is where the parallel run is actually executed!
+    # Clean up by moving .log file for this run to the 'output' directory 
+    try:
+      shutil.move(options.configfile+'.log', './output')
+    except:
+      pass  # if there was a problem, don't worry about it...
+else:
+    print "\nInitial condition file " + filename + " has been created, but CISM has not been run.  Either run the model manually or use 'python runRoss.py --help' for details of how to run the model with this script."
 
-if run_glimmer:
-  print '\nRunning',executable,'for the Ross Ice Shelf experiment'
-  os.system('echo ross.config'+' | '+executable)
 
-# Clean up by moving extra files written by Glimmer to the 'scratch' subdirectory
-print '\nMoving files to the scratch subdirectory: (*) indicates an old file was deleted'
-# Look for files with extension 'txt', 'log', or 'nc'
-for files in glob.glob('*.txt')+glob.glob('*.log')+glob.glob('*.nc'):
-  star = ''
-# Delete any files already in scratch with these filenames 
-  if files in os.listdir('scratch'):
-    os.remove(os.path.join('scratch',files))
-    star = '*'
-# Move the new files to scratch
-  shutil.move(files,'scratch')
-  print files+star,
-print
