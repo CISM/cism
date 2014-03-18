@@ -770,9 +770,10 @@
 !
 ! === Locals
       integer :: k
-      real(dp), dimension(nlyr, ewn, nsn) :: uvel_layer, vvel_layer  ! velocities at layer midpoints
-      real(dp), dimension(nlyr, ewn, nsn) :: flux_layer_ew, flux_layer_ns  ! flux for each layer
-      real(dp), dimension(ewn, nsn) :: flux_ew, flux_ns  ! flux for entire thickness
+      integer :: xs, xe, ys, ye  ! start and end indices for locally owned cells on the staggered grid in the x and y directions
+      real(dp), dimension(nlyr, ewn-1, nsn-1) :: uvel_layer, vvel_layer  ! velocities at layer midpoints, stag. grid
+      real(dp), dimension(nlyr, ewn-1, nsn-1) :: flux_layer_ew, flux_layer_ns  ! flux for each layer, stag. grid
+      real(dp), dimension(ewn-1, nsn-1) :: flux_ew, flux_ns  ! flux for entire thickness, stag. grid
       character(len=12)  :: dt_string
       character(len=300) :: message
       real(dp) :: allowable_dt_diff_here ! temporary calculation at each cell of allowable_dt_diff
@@ -784,6 +785,12 @@
       integer :: ierr ! flag for CFL violation
 
       ierr = 0
+
+      ! Setup some mesh information - start and end indices for locally owned cells on the staggered grid in the x and y directions
+      xs = 1+staggered_lhalo
+      xe = ewn - 1 - staggered_uhalo
+      ys = 1+staggered_lhalo
+      ye = nsn - 1 - staggered_uhalo
 
       ! ------------------------------------------------------------------------
       ! Advective CFL
@@ -807,9 +814,9 @@
       flux_ew(:,:) = sum(flux_layer_ew, 1)
       flux_ns(:,:) = sum(flux_layer_ns, 1)
 
-      ! Advective CFL calculation - using all layers
-      allowable_dt_adv = dew / (maxval(abs(uvel_layer)) + 1.0d-20)   ! CFL limit in the x-direction
-      allowable_dt_adv = min(allowable_dt_adv, dsn / (maxval(abs(vvel_layer)) + 1.0d-20) )  ! check the y-direction separately, in case dew /= dns is ever allowed
+      ! Advective CFL calculation - using all layers. Check locally owned cells only!
+      allowable_dt_adv = dew / (maxval(abs(uvel_layer(:,xs:xe,ys:ye))) + 1.0d-20)   ! CFL limit in the x-direction
+      allowable_dt_adv = min(allowable_dt_adv, dsn / (maxval(abs(vvel_layer(:,xs:xe,ys:ye))) + 1.0d-20) )  ! check the y-direction separately, in case dew /= dns is ever allowed
 
       ! ------------------------------------------------------------------------
       ! Diffusive CFL
@@ -819,8 +826,9 @@
       allowable_dt_diff = 1.0d20  ! start with a huge value
       diff_limiting_posx = 1 ! Initialize these to something, on the off-chance they never get set... (e.g., no ice on this processor)
       diff_limiting_posy = 1
-      do j = 1, nsn-1
-         do i = 1, ewn-1
+      ! Loop over locally-owned cells only!
+      do j = ys, ye
+         do i = xs, xe
             if (stagthk(i,j) > 0.0d0) then  ! don't bother doing all this for non-ice cells
                 ! Find downslope vector
                 slopemag = dsqrt(dusrfdew(i,j)**2 + dusrfdns(i,j)**2 + 1.0d-20)
