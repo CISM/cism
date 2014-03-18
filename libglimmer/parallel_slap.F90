@@ -255,6 +255,15 @@ module parallel
      module procedure parallel_reduce_min_real8
   end interface
 
+  ! This reduce interface determines the global min value and the processor on which it occurs
+  interface parallel_reduce_minloc
+     module procedure parallel_reduce_minloc_integer
+     module procedure parallel_reduce_minloc_real4
+     module procedure parallel_reduce_minloc_real8
+  end interface
+
+  ! (a similar interface could be added for maxloc if needed)
+
 contains
 
   subroutine broadcast_character(c, proc)
@@ -2002,7 +2011,7 @@ contains
   end function parallel_redef
 
 ! ------------------------------------------
-! functions for paralle_reduce_sum interface
+! functions for parallel_reduce_sum interface
 ! ------------------------------------------
   function parallel_reduce_sum_integer(x)
     ! Sum x across all of the nodes.
@@ -2035,7 +2044,7 @@ contains
   end function parallel_reduce_sum_real8
 
 ! ------------------------------------------
-! functions for paralle_reduce_max interface
+! functions for parallel_reduce_max interface
 ! ------------------------------------------
   function parallel_reduce_max_integer(x)
     ! Max x across all of the nodes.
@@ -2068,10 +2077,10 @@ contains
   end function parallel_reduce_max_real8
 
 ! ------------------------------------------
-! functions for paralle_reduce_min interface
+! functions for parallel_reduce_min interface
 ! ------------------------------------------
   function parallel_reduce_min_integer(x)
-    ! Max x across all of the nodes.
+    ! Min x across all of the nodes.
     ! In parallel_slap mode just return x.
     implicit none
     integer :: x, parallel_reduce_min_integer
@@ -2081,7 +2090,7 @@ contains
   end function parallel_reduce_min_integer
 
   function parallel_reduce_min_real4(x)
-    ! Max x across all of the nodes.
+    ! Min x across all of the nodes.
     ! In parallel_slap mode just return x.
     implicit none
     real(4) :: x, parallel_reduce_min_real4
@@ -2091,7 +2100,7 @@ contains
   end function parallel_reduce_min_real4
 
   function parallel_reduce_min_real8(x)
-    ! Max x across all of the nodes.
+    ! Min x across all of the nodes.
     ! In parallel_slap mode just return x.
     implicit none
     real(8) :: x, parallel_reduce_min_real8
@@ -2099,6 +2108,45 @@ contains
     parallel_reduce_min_real8 = x
     return
   end function parallel_reduce_min_real8
+
+! ------------------------------------------
+! routines for parallel_reduce_minloc interface
+! ------------------------------------------
+  subroutine parallel_reduce_minloc_integer(xin, xout, xprocout)
+    ! Min x across all of the nodes and its proc number
+    ! In parallel_slap mode just return x.
+    implicit none
+    integer, intent(in) :: xin         ! variable to reduce
+    integer, intent(out) :: xout       ! value resulting from the reduction
+    integer, intent(out) :: xprocout   ! processor on which reduced value occurs
+
+    xout = xin
+    xprocout = this_rank
+  end subroutine parallel_reduce_minloc_integer
+
+  subroutine parallel_reduce_minloc_real4(xin, xout, xprocout)
+    ! Min x across all of the nodes and its proc number
+    ! In parallel_slap mode just return x.
+    implicit none
+    real(4), intent(in) :: xin         ! variable to reduce
+    real(4), intent(out) :: xout       ! value resulting from the reduction
+    integer, intent(out) :: xprocout   ! processor on which reduced value occurs
+
+    xout = xin
+    xprocout = this_rank
+  end subroutine parallel_reduce_minloc_real4
+
+  subroutine parallel_reduce_minloc_real8(xin, xout, xprocout)
+    ! Min x across all of the nodes and its proc number
+    ! In parallel_slap mode just return x.
+    implicit none
+    real(8), intent(in) :: xin         ! variable to reduce
+    real(8), intent(out) :: xout       ! value resulting from the reduction
+    integer, intent(out) :: xprocout   ! processor on which reduced value occurs
+
+    xout = xin
+    xprocout = this_rank
+  end subroutine parallel_reduce_minloc_real8
 
 
   subroutine parallel_show_minmax(label,values)

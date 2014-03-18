@@ -285,6 +285,15 @@ module parallel
      module procedure parallel_reduce_sum_real8
   end interface
 
+  ! This reduce interface determines the global min value and the processor on which it occurs
+  interface parallel_reduce_minloc
+     module procedure parallel_reduce_minloc_integer
+     module procedure parallel_reduce_minloc_real4
+     module procedure parallel_reduce_minloc_real8
+  end interface
+
+  ! (a similar interface could be added for maxloc if needed)
+
 contains
 
   subroutine broadcast_character(c, proc)
@@ -3851,7 +3860,7 @@ contains
   end function parallel_redef
 
 ! ------------------------------------------
-! functions for paralle_reduce_sum interface
+! functions for parallel_reduce_sum interface
 ! ------------------------------------------
   function parallel_reduce_sum_integer(x)
     use mpi_mod
@@ -3893,7 +3902,7 @@ contains
   end function parallel_reduce_sum_real8
 
 ! ------------------------------------------
-! functions for paralle_reduce_max interface
+! functions for parallel_reduce_max interface
 ! ------------------------------------------
   function parallel_reduce_max_integer(x)
     use mpi_mod
@@ -3938,7 +3947,7 @@ contains
   end function parallel_reduce_max_real8
 
 ! ------------------------------------------
-! functions for paralle_reduce_min interface
+! functions for parallel_reduce_min interface
 ! ------------------------------------------
   function parallel_reduce_min_integer(x)
     use mpi_mod
@@ -3981,6 +3990,60 @@ contains
     parallel_reduce_min_real8 = recvbuf
     return
   end function parallel_reduce_min_real8
+
+! ------------------------------------------
+! routines for parallel_reduce_minloc interface
+! ------------------------------------------
+  subroutine parallel_reduce_minloc_integer(xin, xout, xprocout)
+    use mpi_mod
+    implicit none
+    integer, intent(in) :: xin         ! variable to reduce
+    integer, intent(out) :: xout       ! value resulting from the reduction
+    integer, intent(out) :: xprocout   ! processor on which reduced value occurs
+
+    integer :: ierror
+    integer, dimension(2,1) :: recvbuf, sendbuf
+    ! begin
+    sendbuf(1,1) = xin
+    sendbuf(2,1) = this_rank  ! This is the processor number associated with the value x
+    call mpi_allreduce(sendbuf,recvbuf,1,mpi_integer,mpi_minloc,comm,ierror)
+    xout = recvbuf(1,1)
+    xprocout = recvbuf(2,1)
+  end subroutine parallel_reduce_minloc_integer
+
+  subroutine parallel_reduce_minloc_real4(xin, xout, xprocout)
+    use mpi_mod
+    implicit none
+    real(4), intent(in) :: xin         ! variable to reduce
+    real(4), intent(out) :: xout       ! value resulting from the reduction
+    integer, intent(out) :: xprocout   ! processor on which reduced value occurs
+
+    integer :: ierror
+    real(4), dimension(2,1) :: recvbuf, sendbuf
+    ! begin
+    sendbuf(1,1) = xin
+    sendbuf(2,1) = this_rank  ! This is the processor number associated with the value x (coerced to a real)
+    call mpi_allreduce(sendbuf,recvbuf,1,mpi_real4,mpi_minloc,comm,ierror)
+    xout = recvbuf(1,1)
+    xprocout = recvbuf(2,1) ! coerced back to integer
+  end subroutine parallel_reduce_minloc_real4
+
+  subroutine parallel_reduce_minloc_real8(xin, xout, xprocout)
+    use mpi_mod
+    implicit none
+    real(8), intent(in) :: xin         ! variable to reduce
+    real(8), intent(out) :: xout       ! value resulting from the reduction
+    integer, intent(out) :: xprocout   ! processor on which reduced value occurs
+
+    integer :: ierror
+    real(8), dimension(2,1) :: recvbuf, sendbuf
+    ! begin
+    sendbuf(1,1) = xin
+    sendbuf(2,1) = this_rank  ! This is the processor number associated with the value x (coerced to a real)
+    call mpi_allreduce(sendbuf,recvbuf,1,mpi_real4,mpi_minloc,comm,ierror)
+    xout = recvbuf(1,1)
+    xprocout = recvbuf(2,1) ! coerced back to integer
+  end subroutine parallel_reduce_minloc_real8
 
 
   ! Andy removed support for returnownedvector in October 2011.
