@@ -122,7 +122,7 @@ cmake \
   -D BISICLES_LIB_SUBDIR=libintel \
   -D BISICLES_INTERFACE_DIR=$PWD/../../../BISICLES/CISM-interface/interface \
   -D GLIMMER_MPI_LIBS:STRING="mpichf90" \
-  -D CISM_STATIC_LINKING:BOOL=OFF \
+  -D CISM_STATIC_LINKING:BOOL=ON \
   ../..
 
 
