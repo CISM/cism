@@ -863,9 +863,9 @@
       endif
 
       ! Now that we have checked both, throw a fatal error for an ACFL violation
-      if (ierr == 1) then
-         call write_log('Advective CFL violation is a fatal error.  See log for details.', GM_FATAL)
-      endif
+      !if (ierr == 1) then
+      !   call write_log('Advective CFL violation is a fatal error.  See log for details.', GM_FATAL)
+      !endif
 
     end subroutine glissade_check_cfl
 
