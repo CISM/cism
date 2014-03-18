@@ -273,6 +273,12 @@ module parallel
      module procedure parallel_reduce_max_real8
   end interface
 
+  interface parallel_reduce_min
+     module procedure parallel_reduce_min_integer
+     module procedure parallel_reduce_min_real4
+     module procedure parallel_reduce_min_real8
+  end interface
+
   interface parallel_reduce_sum
      module procedure parallel_reduce_sum_integer
      module procedure parallel_reduce_sum_real4
@@ -3844,6 +3850,9 @@ contains
     call broadcast(parallel_redef)
   end function parallel_redef
 
+! ------------------------------------------
+! functions for paralle_reduce_sum interface
+! ------------------------------------------
   function parallel_reduce_sum_integer(x)
     use mpi_mod
     implicit none
@@ -3883,6 +3892,9 @@ contains
     return
   end function parallel_reduce_sum_real8
 
+! ------------------------------------------
+! functions for paralle_reduce_max interface
+! ------------------------------------------
   function parallel_reduce_max_integer(x)
     use mpi_mod
     implicit none
@@ -3924,6 +3936,52 @@ contains
     parallel_reduce_max_real8 = recvbuf
     return
   end function parallel_reduce_max_real8
+
+! ------------------------------------------
+! functions for paralle_reduce_min interface
+! ------------------------------------------
+  function parallel_reduce_min_integer(x)
+    use mpi_mod
+    implicit none
+    integer :: x
+
+    integer :: ierror
+    integer :: recvbuf,sendbuf, parallel_reduce_min_integer
+    ! begin
+    sendbuf = x
+    call mpi_allreduce(sendbuf,recvbuf,1,mpi_integer,mpi_min,comm,ierror)
+    parallel_reduce_min_integer = recvbuf
+    return
+  end function parallel_reduce_min_integer
+
+  function parallel_reduce_min_real4(x)
+    use mpi_mod
+    implicit none
+    real(4) :: x
+
+    integer :: ierror
+    real(4) :: recvbuf,sendbuf, parallel_reduce_min_real4
+    ! begin
+    sendbuf = x
+    call mpi_allreduce(sendbuf,recvbuf,1,mpi_real4,mpi_min,comm,ierror)
+    parallel_reduce_min_real4 = recvbuf
+    return
+  end function parallel_reduce_min_real4
+
+  function parallel_reduce_min_real8(x)
+    use mpi_mod
+    implicit none
+    real(8) :: x
+
+    integer :: ierror
+    real(8) :: recvbuf,sendbuf, parallel_reduce_min_real8
+    ! begin
+    sendbuf = x
+    call mpi_allreduce(sendbuf,recvbuf,1,mpi_real8,mpi_min,comm,ierror)
+    parallel_reduce_min_real8 = recvbuf
+    return
+  end function parallel_reduce_min_real8
+
 
   ! Andy removed support for returnownedvector in October 2011.
   ! subroutine parallel_set_trilinos_return_vect

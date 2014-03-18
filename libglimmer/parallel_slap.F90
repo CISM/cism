@@ -249,6 +249,12 @@ module parallel
      module procedure parallel_reduce_max_real8
   end interface
 
+  interface parallel_reduce_min
+     module procedure parallel_reduce_min_integer
+     module procedure parallel_reduce_min_real4
+     module procedure parallel_reduce_min_real8
+  end interface
+
 contains
 
   subroutine broadcast_character(c, proc)
@@ -1995,6 +2001,9 @@ contains
     call broadcast(parallel_redef)
   end function parallel_redef
 
+! ------------------------------------------
+! functions for paralle_reduce_sum interface
+! ------------------------------------------
   function parallel_reduce_sum_integer(x)
     ! Sum x across all of the nodes.
     ! In parallel_slap mode just return x.
@@ -2025,6 +2034,9 @@ contains
     return
   end function parallel_reduce_sum_real8
 
+! ------------------------------------------
+! functions for paralle_reduce_max interface
+! ------------------------------------------
   function parallel_reduce_max_integer(x)
     ! Max x across all of the nodes.
     ! In parallel_slap mode just return x.
@@ -2054,6 +2066,40 @@ contains
     parallel_reduce_max_real8 = x
     return
   end function parallel_reduce_max_real8
+
+! ------------------------------------------
+! functions for paralle_reduce_min interface
+! ------------------------------------------
+  function parallel_reduce_min_integer(x)
+    ! Max x across all of the nodes.
+    ! In parallel_slap mode just return x.
+    implicit none
+    integer :: x, parallel_reduce_min_integer
+
+    parallel_reduce_min_integer = x
+    return
+  end function parallel_reduce_min_integer
+
+  function parallel_reduce_min_real4(x)
+    ! Max x across all of the nodes.
+    ! In parallel_slap mode just return x.
+    implicit none
+    real(4) :: x, parallel_reduce_min_real4
+
+    parallel_reduce_min_real4 = x
+    return
+  end function parallel_reduce_min_real4
+
+  function parallel_reduce_min_real8(x)
+    ! Max x across all of the nodes.
+    ! In parallel_slap mode just return x.
+    implicit none
+    real(8) :: x, parallel_reduce_min_real8
+
+    parallel_reduce_min_real8 = x
+    return
+  end function parallel_reduce_min_real8
+
 
   subroutine parallel_show_minmax(label,values)
     implicit none
