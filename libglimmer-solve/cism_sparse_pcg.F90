@@ -32,6 +32,7 @@ module cism_sparse_pcg
 
   use glimmer_global, only: dp
   use glimmer_sparse_type, only: sparse_matrix_type
+  use profile
   use parallel
 
   implicit none
@@ -343,11 +344,14 @@ contains
 
     ! Halo update for x (initial guess for velocity solution)
 
+    call t_startf("pcg_halo_xx_init")
     call staggered_parallel_halo(xu)
     call staggered_parallel_halo(xv)
+    call t_stopf("pcg_halo_xx_init")
 
     ! Compute y = Ax
 
+    call t_startf("pcg_matmult_init")
     call matvec_multiply_structured(nx,        ny,            &
                                     nz,        nhalo,         &
                                     indxA,     active_vertex, &
@@ -355,6 +359,7 @@ contains
                                     Avu,       Avv,           &
                                     xu,        xv,            &
                                     yu,        yv)
+    call t_stopf("pcg_matmult_init")
 
     ! Compute the initial residual r(0) = b - Ax(0)
     ! This will be correct for locally owned vertices.
@@ -381,10 +386,12 @@ contains
 
     ! find global sum of the squared L2 norm
 
+    call t_startf("pcg_glbsum_l2norm")
     call global_sum_staggered(nx,     ny,     &
                               nz,     nhalo,  &
                               L2_rhs,         &
                               work0u, work0v)
+    call t_stopf("pcg_glbsum_l2norm")
 
     ! take square root
 
@@ -423,9 +430,11 @@ contains
 
        elseif (precond == 2) then   ! local vertical shallow-ice solver for preconditioning
 
+          call t_startf("pcg_sia_solve1")
           call easy_sia_solver(nx,   ny,   nz,        &
                                active_vertex,         &
                                Muu,  ru,   zu)      ! solve Muu*zu = ru for zu 
+          call t_stopf("pcg_sia_solve1")
 
 !WHL - debug
           if (verbose_pcg .and. n==1 .and. this_rank==rtest) then  ! first iteration only
@@ -447,9 +456,11 @@ contains
 !!                     n, this_rank, imax, jmax, kmax, ru(kmax,imax,jmax), zu(kmax,imax,jmax)
           endif
          
+          call t_startf("pcg_sia_solve2")
           call easy_sia_solver(nx,   ny,   nz,        &
                                active_vertex,         &
                                Mvv,  rv,   zv)      ! solve Mvv*zv = rv for zv
+          call t_stopf("pcg_sia_solve2")
 
 !WHL - debug
           if (verbose_pcg .and. this_rank==rtest .and. n==1) then
@@ -478,10 +489,12 @@ contains
        work0u(:,:,:) = ru(:,:,:)*zu(:,:,:)    ! terms of dot product (r, PC(r))
        work0v(:,:,:) = rv(:,:,:)*zv(:,:,:)    
 
+       call t_startf("pcg_glbsum_eta1")
        call global_sum_staggered(nx,     ny,     &
                                  nz,     nhalo,  &
                                  eta1,           &
                                  work0u, work0v)
+       call t_stopf("pcg_glbsum_eta1")
 
        !WHL - If the SIA solver has failed due to singular matrices,
        !      then eta1 will be NaN.
@@ -505,12 +518,15 @@ contains
 
        ! Halo update for d
 
+       call t_startf("pcg_halo_dx")
        call staggered_parallel_halo(du)
        call staggered_parallel_halo(dv)
+       call t_stopf("pcg_halo_dx")
   
        ! Compute y = A*d
        ! This is the one matvec multiply required for each iteration
 
+       call t_startf("pcg_matmult_iter")
        call matvec_multiply_structured(nx,        ny,            &
                                        nz,        nhalo,         &
                                        indxA,     active_vertex, &
@@ -518,6 +534,7 @@ contains
                                        Avu,       Avv,           &
                                        du,        dv,            &
                                        yu,        yv)
+       call t_stopf("pcg_matmult_iter")
 
        ! Copy old eta1 = (r, PC(r)) to eta0
 
@@ -528,10 +545,12 @@ contains
        work0u(:,:,:) = yu(:,:,:) * du(:,:,:)       ! terms of dot product (d, Ad)
        work0v(:,:,:) = yv(:,:,:) * dv(:,:,:)
 
+       call t_startf("pcg_glbsum_eta2")
        call global_sum_staggered(nx,     ny,     &
                                  nz,     nhalo,  &
                                  eta2,           &
                                  work0u, work0v)
+       call t_stopf("pcg_glbsum_eta2")
 
        ! Compute alpha
 
@@ -563,11 +582,14 @@ contains
 
           ! Halo update for x
 
+          call t_startf("pcg_halo_xx_resid")
           call staggered_parallel_halo(xu)
           call staggered_parallel_halo(xv)
+          call t_stopf("pcg_halo_xx_resid")
 
           ! Compute y = Ax
            
+          call t_startf("pcg_matmult_resid")
           call matvec_multiply_structured(nx,        ny,            &
                                           nz,        nhalo,         &
                                           indxA,     active_vertex, &
@@ -575,6 +597,7 @@ contains
                                           Avu,       Avv,           &
                                           xu,        xv,            &
                                           yu,        yv)
+          call t_stopf("pcg_matmult_resid")
 
           ! Compute residual r = b - Ax
 
@@ -597,10 +620,12 @@ contains
           work0u(:,:,:) = ru(:,:,:)*ru(:,:,:)   ! terms of dot product (r, r)
           work0v(:,:,:) = rv(:,:,:)*rv(:,:,:)
 
+          call t_startf("pcg_glbsum_conv")
           call global_sum_staggered(nx,     ny,       &
                                     nz,     nhalo,    &
                                     L2_resid,         &
                                     work0u, work0v)
+          call t_stopf("pcg_glbsum_conv")
 
           ! take square root
           L2_resid = sqrt(L2_resid)       ! L2 norm of residual

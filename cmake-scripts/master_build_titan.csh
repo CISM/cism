@@ -26,14 +26,28 @@ mkdir -p $TEST_DIR
 # even if these are set in your env you need these when running the script
 echo 'set the pgi env'
 source /opt/modules/default/init/csh
-module rm cmake netcdf python boost cray-hdf5-parallel netcdf-hdf5parallel
-module rm PrgEnv-pgi
-module rm PrgEnv-gnu
-module rm PrgEnv-intel
-module rm PrgEnv-cray
-module rm PrgEnv-pathscale
-module add PrgEnv-pgi
-module add netcdf-hdf5parallel/4.2.0 python subversion cmake boost/1.53.0
+module unload cmake
+module unload cray-hdf5 
+module unload cray-hdf5-parallel
+module unload netcdf
+module unload python
+module unload cray-shmem
+module unload cray-mpich cray-mpich2
+module unload netcdf-hdf5parallel cray-netcdf-hdf5parallel
+module unload boost pgi
+module unload PrgEnv-cray PrgEnv-gnu PrgEnv-intel PrgEnv-pathscale PrgEnv-pgi
+
+module load modules
+module load cmake/2.8.10.2
+module load PrgEnv-pgi/4.1.40
+module load pgi/13.10.0
+module load cray-shmem
+module load cray-mpich
+module load cray-hdf5-parallel/1.8.11
+module load cray-netcdf-hdf5parallel/4.3.0
+module load python
+module load boost/1.53.0
+
 module list
 
 # 0 is a successful build
@@ -144,7 +158,7 @@ if ( $build_cmake == 1 ) then
     @ build_no = 1
   endif
   echo 'make parallel pgi'
-  make -j16         >& build_cmake_parallel_pgi.out
+  make -j8         >& build_cmake_parallel_pgi.out
   if ($status != 0) then
     echo 'ERROR: build for cmake, parallel, PGI build'
     echo "cat $PWD/build_cmake_parallel_pgi.out"
@@ -158,9 +172,30 @@ if ( $build_cmake == 1 ) then
 
   # PARALLEL BUILD WITH CMAKE GNU
   echo 'change to gnu env'
-  module rm cmake netcdf-hdf5parallel cray-netcdf-hdf5parallel netcdf hdf5 python boost
-  module swap PrgEnv-pgi PrgEnv-gnu
-  module add cmake/2.8.6 python netcdf-hdf5parallel/4.3.0 boost/1.53.0
+  module unload cmake
+  module unload cray-hdf5 
+  module unload cray-hdf5-parallel
+  module unload netcdf
+  module unload python
+  module unload cray-shmem
+  module unload cray-mpich2
+  module unload netcdf-hdf5parallel cray-netcdf-hdf5parallel 
+  module unload boost gcc
+  module unload PrgEnv-cray PrgEnv-gnu PrgEnv-intel PrgEnv-pathscale PrgEnv-pgi
+
+  # Commented out on titan, because of project path that get cleared
+  # if you do this:
+  # module --silent purge
+
+  module load modules
+  module load cmake/2.8.10.2
+  module load PrgEnv-gnu
+  module load gcc/4.8.2
+  module load cray-shmem
+  module load cray-mpich
+  module load netcdf-hdf5parallel/4.3.0
+  module load python
+  module load boost/1.54.0
   module list
   echo 'CMAKE GNU PARALLEL BUILD'
   cd $CODE_DIR
@@ -178,7 +213,7 @@ if ( $build_cmake == 1 ) then
     @ build_no = 1
   endif
   echo 'make parallel gnu'
-  make -j16         >& build_cmake_parallel_gnu.out
+  make -j8         >& build_cmake_parallel_gnu.out
   if ($status != 0) then
     echo 'ERROR: build for cmake, parallel, GNU build'
     echo "cat $PWD/build_cmake_parallel_gnu.out"

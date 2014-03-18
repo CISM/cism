@@ -1,11 +1,11 @@
-# run this script by typing: source titan-gnu-cmake
+# run this script by typing: source titan-pgi-cmake
 # After thus script completes, type: make -j 8
 # If rebuilding, type 'make clean' before running 'make -j 8'
 
 # This cmake configuration script builds simple_glide and simple_bisicles
-# on titan using the GNU compiler suite.
+# on titan using the PGI compiler suite.
 
-# This script should be run from the builds/titan-gnu subdirectory
+# This script should be run from the builds/titan-pgi subdirectory
 # of the main CISM repository (reflected in the two instances
 # of "../.." below).
 
@@ -30,7 +30,7 @@
 # module unload modules
 
 echo
-echo Run this script by typing: source titan-gnu-cmake
+echo Run this script by typing: source titan-pgi-cmake
 echo
 
 module unload cmake
@@ -39,7 +39,8 @@ module unload cray-hdf5-parallel
 module unload netcdf
 module unload python
 module unload cray-shmem
-module unload cray-mpich2
+module unload cray-mpich cray-mpich2
+module unload netcdf-hdf5parallel boost pgi
 module unload PrgEnv-cray PrgEnv-gnu PrgEnv-intel PrgEnv-pathscale PrgEnv-pgi
 
 # Commented out on titan, because of project path that get cleared
@@ -47,11 +48,15 @@ module unload PrgEnv-cray PrgEnv-gnu PrgEnv-intel PrgEnv-pathscale PrgEnv-pgi
 # module --silent purge
 
 module load modules
-module load cmake
-module load PrgEnv-gnu
-module load netcdf-hdf5parallel/4.3.0
+module load cmake/2.8.10.2
+module load PrgEnv-pgi/4.1.40
+module load pgi/13.10.0
 module load cray-shmem
 module load cray-mpich
+module load cray-hdf5-parallel/1.8.11
+module load cray-netcdf-hdf5parallel/4.3.0
+module load python
+module load boost/1.53.0
 
 # remove old build data:
 rm ./CMakeCache.txt
@@ -71,18 +76,20 @@ cmake \
   -D CISM_COUPLED:BOOL=OFF \
   -D CISM_MPI_MODE:BOOL=ON \
   -D CISM_SERIAL_MODE:BOOL=OFF \
-  -D CISM_USE_GPTL_INSTRUMENTATION:BOOL=OFF \
+  -D CISM_USE_GPTL_INSTRUMENTATION:BOOL=ON \
 \
   -D CISM_BUILD_SIMPLE_GLIDE:BOOL=ON \
   -D CISM_BUILD_SIMPLE_BISICLES:BOOL=OFF \
   -D CISM_BUILD_GLINT_EXAMPLE:BOOL=OFF \
-  -D CISM_BUILD_CISM_DRIVER:BOOL=OFF \
+  -D CISM_BUILD_CISM_DRIVER:BOOL=ON \
 \
-  -D GLIMMER_TRILINOS_DIR=/ccs/proj/cli062/cism-albany/Trilinos/build_jan28_2014/install \
-  -D GLIMMER_TRILINOS_GPTL_DIR= \
+  -D GLIMMER_TRILINOS_DIR=/ccs/proj/cli062/Trilinos/cism-standard/default-pgi/install \
+  -D GLIMMER_TRILINOS_GPTL_DIR=/ccs/proj/cli062/worley/Trilinos/titan-pgi-ci-nophal/install \
   -D GLIMMER_TRILINOS_ALBANY_DIR= \
 \
-  -D GLIMMER_NETCDF_DIR=/opt/cray/netcdf-hdf5parallel/4.3.0/GNU/48 \
+  -D GLIMMER_GPTL_DIR=/ccs/proj/cli062/worley/libgptl/PGI \
+  -D GLIMMER_NETCDF_DIR=/opt/cray/netcdf-hdf5parallel/4.3.0/pgi/121 \
+  -D GLIMMER_FMAIN=/opt/pgi/13.10.0/linux86-64/13.10/lib/f90main.o \
 \
   -D CMAKE_INSTALL_PREFIX:PATH=$PWD/install \
   -D CMAKE_VERBOSE_MAKEFILE:BOOL=ON \
@@ -92,9 +99,9 @@ cmake \
   -D CMAKE_C_COMPILER=cc \
   -D CMAKE_Fortran_COMPILER=ftn \
 \
-  -D CMAKE_CXX_FLAGS:STRING="-O2" \
-  -D GLIMMER_Fortran_FLAGS:STRING="-O2 -ffree-line-length-none -fno-range-check" \
-  -D BISICLES_LIB_SUBDIR=libgnu \
+  -D CMAKE_CXX_FLAGS:STRING="-fast -Kieee --diag_suppress 554,111,611" \
+  -D GLIMMER_Fortran_FLAGS:STRING="-fast -Kieee" \
+  -D BISICLES_LIB_SUBDIR=libpgi \
   -D BISICLES_INTERFACE_DIR=$PWD/../../../BISICLES/CISM-interface/interface \
   -D GLIMMER_MPI_LIBS:STRING="mpichf90" \
   -D CISM_USE_CXX_IMPLICIT_LIBS:BOOL=OFF \

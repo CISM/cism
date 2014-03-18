@@ -998,9 +998,9 @@ contains
 
        case ( DYCORE_ALBANYFELIX)
 
-          call t_startf('glissade_velo_driver')
+          call t_startf('felix_velo_driver')
           call felix_velo_driver(model)
-          call t_stopf('glissade_velo_driver')
+          call t_stopf('felix_velo_driver')
 
        end select
  

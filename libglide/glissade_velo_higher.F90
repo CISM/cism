@@ -782,6 +782,7 @@
        uvel_old, vvel_old,         &! uvel and vvel from previous iteration
        ucorr_old, vcorr_old         ! correction vectors from previous iteration
 
+    call t_startf('glissade_vhs_init')
     rtest = -999
     itest = 1
     jtest = 1
@@ -849,6 +850,7 @@
 !    usrf(:,:) = 0.d0
 !    topg(:,:) = 0.d0
 
+!pw call t_startf('glissade_velo_higher_scale_input')
     call glissade_velo_higher_scale_input(dx,     dy,      &
                                           thck,   usrf,    &
                                           topg,            &
@@ -856,6 +858,7 @@
                                           flwa,   efvs,    &
                                           beta,            &
                                           uvel,   vvel)
+!pw call t_stopf('glissade_velo_higher_scale_input')
 
 !WHL - hack for ishomC test
     if (trim(matrix_label) == 'ishomC_block') then
@@ -1086,6 +1089,7 @@
     ! (requires that thck and usrf are up to date in halo cells)
     !------------------------------------------------------------------------------
 
+!pw call t_startf('glissade_staggered_scalar')
     call staggered_scalar(nx,           ny,         &
                           nhalo,        rmask,      &
                           thck,         stagthck)
@@ -1093,6 +1097,7 @@
     call staggered_scalar(nx,           ny,         &
                           nhalo,        rmask,      &
                           usrf,         stagusrf)
+!pw call t_stopf('glissade_staggered_scalar')
 
 !WHL - debug
     if (verbose_state .and. this_rank==rtest) then
@@ -1115,6 +1120,7 @@
     !  unique local ID to each such node.
     !------------------------------------------------------------------------------
 
+!pw call t_startf('glissade_get_vertex_geom')
     call get_vertex_geometry(nx,          ny,         nz,  &   
                              nhalo,       sigma,           &
                              dx,          dy,              &
@@ -1124,6 +1130,7 @@
                              active_cell, active_vertex,   &
                              nNodesSolve, NodeID,          &
                              iNodeIndex,  jNodeIndex,  kNodeIndex)
+!pw call t_stopf('glissade_get_vertex_geom')
 
 !WHL - debug
     if (verbose_id .and. this_rank==rtest) then
@@ -1141,7 +1148,9 @@
     ! NOTE: This will work for single-processor runs with periodic BCs
     !       (e.g., ISMIP-HOM), but not for multiple processors.
 
+    call t_startf('glissade_halo_NodeID')
     call staggered_parallel_halo(NodeID)
+    call t_stopf('glissade_halo_NodeID')
 
 !WHL - debug
     if (verbose_id .and. this_rank==rtest) then
@@ -1171,11 +1180,13 @@
        ! Compute global IDs needed to initialize the Trilinos solver
        !----------------------------------------------------------------
 
+       call t_startf('glissade_trilinos_glbid')
        call trilinos_global_id(nx,         ny,         nz,   &
                                nNodesSolve,                  &
                                iNodeIndex, jNodeIndex, kNodeIndex,  &
                                global_node_id,               &
                                active_owned_unknown_map)
+       call t_stopf('glissade_trilinos_glbid')
 
        !TODO - Set velocityResult to combination of uvel/vvel
        velocityResult(:) = 0.d0
@@ -1184,7 +1195,9 @@
        ! Send this information to Trilinos (trilinosGlissadeSolver.cpp)
        !----------------------------------------------------------------
 
+       call t_startf('glissade_init_tgs')
        call initializetgs(2*nNodesSolve, active_owned_unknown_map, comm)
+       call t_stopf('glissade_init_tgs')
 
        !----------------------------------------------------------------
        ! If this is the first outer iteration, then save the pattern of matrix
@@ -1192,10 +1205,12 @@
        ! Trilinos requires that this pattern remains fixed during the outer loop.
        !----------------------------------------------------------------
 
+       call t_startf('glissade_get_fill_pattern')
        call get_fill_pattern(nx,    ny,     nz,   &
                              active_vertex, nNodesSolve,  &
                              iNodeIndex,    jNodeIndex,   &
                              kNodeIndex,    Afill)
+       call t_stopf('glissade_get_fill_pattern')
 
     endif
 #endif
@@ -1327,6 +1342,7 @@
     ! gravitational forcing
     !------------------------------------------------------------------------------
 
+    call t_startf('glissade_load_vector_gravity')
     call load_vector_gravity(nx,               ny,              &
                              nz,               nhalo,           &
                              nNodesPerElement,                  &
@@ -1334,6 +1350,7 @@
                              xVertex,          yVertex,         &
                              stagusrf,         stagthck,        &
                              bu,               bv)
+    call t_stopf('glissade_load_vector_gravity')
 
     !WHL - debug
 !    print*, ' '
@@ -1349,6 +1366,7 @@
     ! lateral pressure at vertical ice edge
     !------------------------------------------------------------------------------
 
+    call t_startf('glissade_load_vector_lateral_bc')
     call load_vector_lateral_bc(nx,               ny,              &
                                 nz,               nhalo,           &
                                 nNodesPerElement_2d,               &
@@ -1358,6 +1376,7 @@
                                 xVertex,          yVertex,         &
                                 stagusrf,         stagthck,        &
                                 bu,               bv)
+    call t_stopf('glissade_load_vector_lateral_bc')
 
     !WHL - debug
 !    print*, ' '
@@ -1372,11 +1391,13 @@
 !WHL - debug - adjust bu and bv.
 !!    bu(:,:,:) = bu(:,:,:) / 1.09d0
 !!    bv(:,:,:) = bv(:,:,:) / 1.09d0
+    call t_stopf('glissade_vhs_init')
 
     !------------------------------------------------------------------------------
     ! main outer loop: iteration to solve the nonlinear problem
     !------------------------------------------------------------------------------
 
+    call t_startf('glissade_vhs_nonlinear_loop')
     do while (outer_it_criterion >= outer_it_target .and. counter < cmax)
 
        ! Advance the iteration counter
@@ -1401,6 +1422,7 @@
 
        if (verbose_matrix .and. this_rank==rtest) print*, 'call assemble_stiffness_matrix'
 
+       call t_startf('glissade_assemble_stiffness_mat')
        call assemble_stiffness_matrix(nx,               ny,              &
                                       nz,               nhalo,           &
                                       sigma,            active_cell,     &
@@ -1412,6 +1434,7 @@
                                       Auu,              Auv,             &
                                       Avu,              Avv,             &
                                       sia_factor,       ssa_factor)
+       call t_stopf('glissade_assemble_stiffness_mat')
        
        if (verbose_matrix .and. this_rank==rtest) print*, 'Assembled the stiffness matrix'
 
@@ -1453,12 +1476,14 @@
 
 !          if (verbose .and. main_task) print*, 'Call basal_sliding_bc'
 
+!pw       call t_startf('glissade_basal_sliding_bc')
           call basal_sliding_bc(nx,               ny,              &
                                 nz,               nhalo,           &
                                 nNodesPerElement_2d,               &
                                 active_cell,      beta,            &
                                 xVertex,          yVertex,         &
                                 Auu,              Avv)
+!pw       call t_stopf('glissade_basal_sliding_bc')
 
        endif
 
@@ -1487,12 +1512,14 @@
 !          print*, 'Call Dirichlet_bc'
        endif
 
+!pw    call t_startf('glissade_dirichlet_bcs')
        call dirichlet_boundary_conditions(nx,              ny,                &
                                           nz,              nhalo,             &
                                           active_vertex,   umask_dirichlet,   &
                                           Auu,             Auv,               &
                                           Avu,             Avv,               &
                                           bu,              bv)
+!pw    call t_stopf('glissade_dirichlet_bcs')
 
        !---------------------------------------------------------------------------
        ! Halo updates for matrices
@@ -1509,10 +1536,12 @@
        !  they will be reconciled by the subroutine check_symmetry_assembled_matrix.
        !---------------------------------------------------------------------------
      
+        call t_startf('glissade_halo_Axxs')
         call staggered_parallel_halo(Auu(:,:,:,:))
         call staggered_parallel_halo(Auv(:,:,:,:))
         call staggered_parallel_halo(Avu(:,:,:,:))
         call staggered_parallel_halo(Avv(:,:,:,:))
+        call t_stopf('glissade_halo_Axxs')
 
        !---------------------------------------------------------------------------
        ! Halo updates for load vectors
@@ -1541,8 +1570,10 @@
 !       enddo
     endif
 
+        call t_startf('glissade_halo_bxxs')
         call staggered_parallel_halo(bu(:,:,:))
         call staggered_parallel_halo(bv(:,:,:))
+        call t_stopf('glissade_halo_bxxs')
 
 !WHL - debug
     if (verbose_matrix .and. this_rank==rtest) then
@@ -1571,11 +1602,13 @@
 
        if (check_symmetry) then
 
+          call t_startf('glissade_chk_symmetry')
           call check_symmetry_assembled_matrix(nx,          ny,      &
                                                nz,          nhalo,   &
                                                active_vertex,        &
                                                Auu,         Auv,     &
                                                Avu,         Avv)
+          call t_stopf('glissade_chk_symmetry')
 
        endif
 
@@ -1589,11 +1622,13 @@
 
        if (remove_small_values) then
 
+!pw       call t_startf('glissade_rmv_small_values')
           call remove_small_values_assembled_matrix(nx,          ny,      &
                                                     nz,          nhalo,   &
                                                     active_vertex,        &
                                                     Auu,         Auv,     &
                                                     Avu,         Avv)
+!pw       call t_stopf('glissade_rmv_small_values')
 
        endif
 
@@ -1712,12 +1747,14 @@
           uvel(:,:,:) = 0.d0
           vvel(:,:,:) = 0.d0
 
+          call t_startf('glissade_velo_higher_scale_outp')
           call glissade_velo_higher_scale_output(thck,    usrf,    &
                                                  topg,             &
                                                  flwa,    efvs,    &
                                                  beta,             &
                                                  resid_u, resid_v, &
                                                  uvel,    vvel)
+          call t_stopf('glissade_velo_higher_scale_outp')
 
           if (main_task) print*, 'No nonzeros in matrix; exit glissade_velo_higher_solve'
           return
@@ -1841,6 +1878,7 @@
 
           if (counter == 1) then    ! first outer iteration only
  
+             call t_startf('glissade_wrt_mat')
              call write_matrix_elements(nx,    ny,   nz,  &
                                         nNodesSolve, NodeID,       &
                                         iNodeIndex,  jNodeIndex,  &
@@ -1848,6 +1886,7 @@
                                         Auu,         Auv,   &
                                         Avu,         Avv,   &
                                         bu,          bv)
+             call t_stopf('glissade_wrt_mat')
 
           endif
 
@@ -1864,6 +1903,7 @@
 !!             print*, 'Compute residual vector'
           endif
 
+          call t_startf('glissade_resid_vec')
           call compute_residual_vector(nx,          ny,            &
                                        nz,          nhalo,         &
                                        active_vertex,              &
@@ -1873,6 +1913,7 @@
                                        uvel,        vvel,          &
                                        resid_u,     resid_v,       &
                                        L2_norm)
+          call t_stopf('glissade_resid_vec')
 
           if (verbose .and. main_task) then
 !!             print*, 'L2_norm, L2_target =', L2_norm, L2_target
@@ -1887,6 +1928,7 @@
 
           !WHL - Pass itest, jtest, rtest for debugging
 
+          call t_startf('glissade_pcg_slv_struct')
           call pcg_solver_structured(nx,           ny,            &
                                      nz,           nhalo,         &
                                      indxA,        active_vertex, &
@@ -1897,6 +1939,7 @@
                                      whichprecond, err,           &
                                      niters,                      &
                                      itest, jtest, rtest)
+          call t_stopf('glissade_pcg_slv_struct')
 
           if (verbose .and. main_task) then
              print*, 'Solved the linear system, niters, err =', niters, err
@@ -1905,8 +1948,10 @@
           ! Halo updates for uvel and vvel
           !TODO - Put these after the 'endif'?
 
+          call t_startf('glissade_halo_xvel')
           call staggered_parallel_halo(uvel)
           call staggered_parallel_halo(vvel)
+          call t_stopf('glissade_halo_xvel')
 
 #ifdef TRILINOS
        elseif (whichsparse == STANDALONE_TRILINOS_SOLVER) then   ! solve with Trilinos
@@ -1919,6 +1964,7 @@
              print*, 'Compute residual vector'
           endif
 
+          call t_startf('glissade_resid_vec')
           call compute_residual_vector(nx,          ny,            &
                                        nz,          nhalo,         &
                                        active_vertex,              &
@@ -1928,6 +1974,7 @@
                                        uvel,        vvel,          &
                                        resid_u,     resid_v,       &
                                        L2_norm)
+          call t_stopf('glissade_resid_vec')
 
           !------------------------------------------------------------------------
           ! Given Auu, bu, etc., assemble the matrix and RHS in a form
@@ -1939,6 +1986,7 @@
           endif
           if (verbose .and. main_task) print*, 'Assemble matrix for Trilinos'
 
+          call t_startf('glissade_trilinos_assemble')
           call trilinos_assemble(nx,           ny,               &   
                                  nz,           nNodesSolve,      &
                                  iNodeIndex,   jNodeIndex,       &
@@ -1947,6 +1995,7 @@
                                  Avu,          Avv,              &
                                  Afill,                          &
                                  bu,           bv)
+          call t_stopf('glissade_trilinos_assemble')
 
           !------------------------------------------------------------------------
           ! Solve the linear matrix problem
@@ -1954,25 +2003,31 @@
 
           if (verbose .and. main_task) print*, 'Solve the matrix'
 
+          call t_startf('glissade_vel_tgs')
           call solvevelocitytgs(velocityResult)
+          call t_stopf('glissade_vel_tgs')
 
           !------------------------------------------------------------------------
           ! Put the velocity solution back into 3D arrays
           !------------------------------------------------------------------------
 
+          call t_startf('glissade_trilinos_post')
           call trilinos_postprocess(nx,           ny,                       &
                                     nz,           nNodesSolve,              &
                                     iNodeIndex,   jNodeIndex,               &
                                     kNodeIndex,                             &
                                     velocityResult,                         &
                                     uvel,         vvel)
+          call t_stopf('glissade_trilinos_post')
 
           !------------------------------------------------------------------------
           ! Halo updates for uvel and vvel
           !------------------------------------------------------------------------
 
+          call t_startf('glissade_halo_xvel')
           call staggered_parallel_halo(uvel)
           call staggered_parallel_halo(vvel)
+          call t_stopf('glissade_halo_xvel')
 #endif
        else   ! one-processor SLAP solve   
           
@@ -1987,6 +2042,7 @@
           matrix%nonzeros = max_nonzeros
           matrix%symmetric = .false.
 
+          call t_startf('glissade_slap_preprocess')
           call slap_preprocess(nx,           ny,          &   
                                nz,           nNodesSolve, &
                                NodeID,                    &
@@ -1999,14 +2055,17 @@
                                matrix_order, max_nonzeros,&
                                matrix,       rhs,         &
                                answer)
+          call t_stopf('glissade_slap_preprocess')
 
           !TODO - Can we use subroutine compute_residual_vector instead?
           !------------------------------------------------------------------------
           ! Compute the residual vector and its L2_norm
           !------------------------------------------------------------------------
 
+          call t_startf('glissade_slap_resid_vec')
           call slap_compute_residual_vector(matrix,    answer,   rhs,  &
                                             resid_vec, L2_norm)
+          call t_stopf('glissade_slap_resid_vec')
 
 !WHL - bug check
           if (verbose) then
@@ -2025,8 +2084,10 @@
           ! Solve the linear matrix problem
           !------------------------------------------------------------------------
 
+          call t_startf('glissade_easy_slv')
           call sparse_easy_solve(matrix, rhs,    answer,  &
                                  err,    niters, whichsparse)
+          call t_stopf('glissade_easy_slv')
 
 !!          if (verbose .and. this_rank==rtest) then
           if (main_task) then
@@ -2042,18 +2103,22 @@
           ! Put the velocity solution back into 3D arrays
           !------------------------------------------------------------------------
 
+          call t_startf('glissade_slap_post')
           call slap_postprocess(nNodesSolve,                            &
                                 iNodeIndex,   jNodeIndex,  kNodeIndex,  &
                                 answer,       resid_vec,                &
                                 uvel,         vvel,                     &
                                 resid_u,      resid_v)
+          call t_stopf('glissade_slap_post')
 
           !------------------------------------------------------------------------
           ! Halo updates for uvel and vvel
           !------------------------------------------------------------------------
 
+          call t_startf('glissade_halo_xvel')
           call staggered_parallel_halo(uvel)
           call staggered_parallel_halo(vvel)
+          call t_stopf('glissade_halo_xvel')
 
        endif   ! whichsparse (STANDALONE_PCG_STRUC or not) 
 
@@ -2076,10 +2141,12 @@
        ! Compute residual quantities based on the velocity solution
        !---------------------------------------------------------------------------
 
+       call t_startf('glissade_resid_vec2')
        call compute_residual_velocity(nhalo,  whichresid,   &
                                       uvel,   vvel,        &
                                       usav,   vsav,        &
                                       resid_velo)
+       call t_stopf('glissade_resid_vec2')
   
 !WHL - debug
        if (verbose_state .and. this_rank==rtest) then
@@ -2145,17 +2212,21 @@
 
           ! correct uvel and vvel as needed
 
+          call t_startf('glissade_unstable_manifold')
           call unstable_manifold_correction(nx,        ny,        &
                                             nz,        nhalo,     &
                                             uvel,      vvel,      &
                                             uvel_old,  vvel_old,  &
                                             ucorr_old, vcorr_old)
+          call t_stopf('glissade_unstable_manifold')
 
           ! Halo updates for uvel and vvel
           ! TODO - Are these needed?
 
+          call t_startf('glissade_um_halo_xvel')
           call staggered_parallel_halo(uvel)
           call staggered_parallel_halo(vvel)
+          call t_stopf('glissade_um_halo_xvel')
 
        endif
 
@@ -2204,6 +2275,7 @@
        end if
 
     enddo  ! while (outer_it_criterion >= outer_it_target .and. counter < cmax)
+    call t_stopf('glissade_vhs_nonlinear_loop')
 
     if (counter < cmax) converged_soln = .true.
 
@@ -2220,6 +2292,7 @@
     ! Clean up
     !------------------------------------------------------------------------------
 
+    call t_startf('glissade_vhs_cleanup')
     if (whichsparse /= STANDALONE_PCG_STRUC .and.   &
         whichsparse /= STANDALONE_TRILINOS_SOLVER) then
        deallocate(matrix%row, matrix%col, matrix%val)
@@ -2239,12 +2312,15 @@
     ! (generally dimensionless)
     !------------------------------------------------------------------------------
 
+!pw call t_startf('glissade_velo_higher_scale_output')
     call glissade_velo_higher_scale_output(thck,    usrf,    &
                                            topg,             &
                                            flwa,    efvs,    &
                                            beta,             &
                                            resid_u, resid_v, &
                                            uvel,    vvel)
+!pw call t_stopf('glissade_velo_higher_scale_output')
+    call t_stopf('glissade_vhs_cleanup')
 
   end subroutine glissade_velo_higher_solve
 

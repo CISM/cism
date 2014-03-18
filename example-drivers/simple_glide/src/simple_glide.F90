@@ -80,9 +80,14 @@ program simple_glide
   ! read configuration
   call ConfigRead(commandline_configname,config)
 
+#if (! defined CCSMCOUPLED && ! defined CESMTIMERS)
   ! start timing
   call system_clock(clock,clock_rate)
   t1 = real(clock,kind=dp)/real(clock_rate,kind=dp)
+#else
+  t1 = 0.0
+  t2 = 0.0
+#endif
 
   ! initialise profiling
   call profile_init(model%profile,'glide.profile')
@@ -251,9 +256,9 @@ program simple_glide
   ! finalise GLIDE
   call glide_finalise(model)
 
+#if (! defined CCSMCOUPLED && ! defined CESMTIMERS)
   call system_clock(clock,clock_rate)
   t2 = real(clock,kind=dp)/real(clock_rate,kind=dp)
-#if (! defined CCSMCOUPLED && ! defined CESMTIMERS)
   call glimmer_write_stats(commandline_resultsname,commandline_configname,t2-t1)
 #endif
 

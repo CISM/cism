@@ -173,9 +173,11 @@ contains
             enddo
          endif
 
+         call t_startf('glissade_velo_higher_solver')
          call glissade_velo_higher_solve(model,                                             &
                                          model%general%ewn,      model%general%nsn,         &
                                          model%general%upn)
+         call t_stopf('glissade_velo_higher_solver')
 
 !WHL - debug
          if (this_rank==model%numerics%rdiag_local) then

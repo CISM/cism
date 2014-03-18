@@ -34,26 +34,29 @@ echo Run this script by typing: source titan-pgi-cmake
 echo
 
 module unload cmake
-module unload PrgEnv-cray PrgEnv-gnu PrgEnv-intel PrgEnv-pathscale PrgEnv-pgi
 module unload cray-hdf5 
 module unload cray-hdf5-parallel
 module unload netcdf
 module unload python
 module unload cray-shmem
 module unload cray-mpich2
+module unload netcdf-hdf5parallel boost pgi
+module unload PrgEnv-cray PrgEnv-gnu PrgEnv-intel PrgEnv-pathscale PrgEnv-pgi
 
 # Commented out on titan, because of project path that get cleared
 # if you do this:
 # module --silent purge
 
 module load modules
-module load cmake
+module load cmake/2.8.10.2
 module load PrgEnv-pgi/4.1.40
+module load pgi/13.10.0
+module load cray-shmem
+module load cray-mpich
 module load cray-hdf5-parallel/1.8.11
 module load cray-netcdf-hdf5parallel/4.3.0
 module load python
-module load cray-shmem
-module load cray-mpich
+module load boost/1.53.0
 
 # remove old build data:
 rm ./CMakeCache.txt
@@ -84,7 +87,7 @@ cmake \
   -D GLIMMER_TRILINOS_GPTL_DIR= \
   -D GLIMMER_TRILINOS_ALBANY_DIR= \
 \
-  -D GLIMMER_NETCDF_DIR=/opt/cray/netcdf-hdf5parallel/4.2.0/pgi/119 \
+  -D GLIMMER_NETCDF_DIR=/opt/cray/netcdf-hdf5parallel/4.3.0/pgi/121 \
   -D GLIMMER_FMAIN=/opt/pgi/13.10.0/linux86-64/13.10/lib/f90main.o \
 \
   -D CMAKE_INSTALL_PREFIX:PATH=$PWD/install \
