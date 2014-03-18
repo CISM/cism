@@ -8,21 +8,22 @@ rho = 910;
 g = -9.81;
 
 flag = 0;       %% USE RAYMOND PROFILE
-%flag = 1;       %% USE SCHOOF PROFILE 
+% flag = 1;       %% USE SCHOOF PROFILE 
 
 kinflag = 1;    %% apply kinematic bc (analytic soln) at up/downstream ends
-%kinflag = 0;    %% apply 0 vel bc at up/downstream ends
+% kinflag = 0;    %% apply 0 vel bc at up/downstream ends
 
 n = 3;
 m = 1.55;
 
 % r = 20;         % !! r needs to be even # divisible by 2 !!
 % c = 20;
-% % c = 200;
 
 r = 40;
 c = 40;
-% c = 400;
+
+% r = 80;
+% c = 80;
 
 levels = 5;
 % levels  = 11;
@@ -163,22 +164,28 @@ end
 %% for newer code, uvelhom = uvel, etc.
 uvel = uvelhom; vvel = vvelhom;
 
-beta = tauf;    %% for now, beta is being used as a proxy for tauf
 
-%save stream.mat usrf topg thck beta uvel vvel kinbcmask levels 
-save stream.mat usrf topg thck beta levels 
+% save stream.mat usrf topg thck beta uvel vvel kinbcmask levels 
+save stream.mat usrf topg thck tauf levels 
+
+%% spit out some other vars needed in the .config file
+periodic_offset = dx*(c-1)*dsdx;
+dx
+periodic_offset
+
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% plot output
 
-%% open file
-if( flag == 0 )
-    filename = 'stream.raymond.nc'; 
-else
-    filename = 'stream.schoof.nc'; 
-end
+% %% open file
+% if( flag == 0 )
+%     filename = 'stream.raymond.nc'; 
+% else
+%     filename = 'stream.schoof.nc'; 
+% end
 
 filename = 'stream.out.nc'; 
 
@@ -190,14 +197,14 @@ id_uvel = netcdf.inqvarid( ncid, 'uvel' );
 id_vvel = netcdf.inqvarid( ncid, 'vvel' );
 vel_scale = netcdf.getAtt(ncid,id_uvel,'scale_factor' );
 
-id_btractx = netcdf.inqvarid( ncid, 'btractx' );
-id_btracty = netcdf.inqvarid( ncid, 'btracty' );
-btract_scale = netcdf.getAtt(ncid,id_btractx,'scale_factor' );
+% id_btractx = netcdf.inqvarid( ncid, 'btractx' );
+% id_btracty = netcdf.inqvarid( ncid, 'btracty' );
+% btract_scale = netcdf.getAtt(ncid,id_btractx,'scale_factor' );
 
 uvel = permute( netcdf.getvar(ncid, id_uvel ), [ 2 1 3 ] ) * vel_scale;
 vvel = permute( netcdf.getvar(ncid, id_vvel ), [ 2 1 3 ] ) * vel_scale;
-btractx = netcdf.getvar(ncid, id_btractx )' * btract_scale;
-btracty = netcdf.getvar(ncid, id_btracty )' * btract_scale;
+% btractx = netcdf.getvar(ncid, id_btractx )' * btract_scale;
+% btracty = netcdf.getvar(ncid, id_btracty )' * btract_scale;
 
 yy2 = [ yy yy(end)+dx yy(end)+2*dx ];
 yy2 = [ -fliplr(yy2(2:end)), yy2 ];
@@ -209,8 +216,8 @@ if( flag == 0 )
     plot( yy2/1e3, uvel(:,end,1), 'b*' )              %% boundary value
     legend( 'analytic', 'model', 'boundary' )
     subplot(2,1,2), hold on
-    plot( yy2/1e3, tauf(:,round(c/2))/1e3, 'r-', 'linewidth', 2.0 )
-    plot( yy2/1e3, -btractx(:,round(c/2),1)/1e3, 'bo:' )
+%     plot( yy2/1e3, tauf(:,round(c/2))/1e3, 'r-', 'linewidth', 2.0 )
+%     plot( yy2/1e3, -btractx(:,round(c/2),1)/1e3, 'bo:' )
     legend( 'specified', 'model' )
 else
     figure(199)
@@ -219,8 +226,8 @@ else
     plot( yy2/1e3, uvel(:,end,1), 'b*' )              %% boundary value
     legend( 'analytic', 'model', 'boundary' )
     subplot(2,1,2), hold on
-    plot( yy2/1e3, tauf(:,round(c/2))/1e3, 'r-', 'linewidth', 2.0 )
-    plot( yy2/1e3, -btractx(:,round(c/2),1)/1e3, 'bo:' )
+%     plot( yy2/1e3, tauf(:,round(c/2))/1e3, 'r-', 'linewidth', 2.0 )
+%     plot( yy2/1e3, -btractx(:,round(c/2),1)/1e3, 'bo:' )
     legend( 'specified', 'model' )
 end
 

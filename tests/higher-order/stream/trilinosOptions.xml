@@ -91,7 +91,7 @@
       <Parameter name="Nonlinear Solver" type="string" value="Line Search Based"/>
       <ParameterList name="Line Search">
         <!--Parameter name="Method" type="string" value="Full Step"/-->
-        <!--Parameter name="Method" type="string" value="Backtrack"/-->
+        <Parameter name="Method" type="string" value="Backtrack"/>
       </ParameterList>
       <ParameterList name="Printing">
         <ParameterList name="Output Information">
@@ -114,7 +114,7 @@
         </ParameterList>
         <ParameterList name="Test 1">
           <Parameter name="Test Type" type="string" value="MaxIters"/>
-          <Parameter name="Maximum Iterations" type="int" value="30"/>
+          <Parameter name="Maximum Iterations" type="int" value="100"/>
         </ParameterList>
       </ParameterList>
     </ParameterList>
