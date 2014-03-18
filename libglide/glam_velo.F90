@@ -186,21 +186,6 @@ contains
         ! save the final mask to 'dynbcmask' for exporting to netCDF output file
         model%velocity%dynbcmask = geom_mask_stag
 
-!!sp
-!        ! Compute or prescribe the basal traction field 'beta'
-!        ! Note: The initial value of model%velocity%beta can change depending on
-!        !       the value of model%options%which_ho_babc.
-!
-!        call calcbeta (model%options%which_ho_babc,                  & 
-!                       model%numerics%dew,      model%numerics%dns,  &
-!                       model%general%ewn,       model%general%nsn,   &
-!                       model%velocity%uvel(model%general%upn,:,:),   &
-!                       model%velocity%vvel(model%general%upn,:,:),   &
-!                       model%temper%bwat,                            &
-!                       model%paramets%ho_beta_const,                 &
-!                       geom_mask_stag,                               &
-!                       model%velocity%beta)
-
         !-------------------------------------------------------------------
         ! Compute the velocity field
         !-------------------------------------------------------------------
