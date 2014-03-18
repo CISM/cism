@@ -8,7 +8,7 @@ rho = 910;
 g = -9.81;
 
 flag = 0;       %% USE RAYMOND PROFILE
-% flag = 1;       %% USE SCHOOF PROFILE 
+ flag = 1;       %% USE SCHOOF PROFILE 
 
 kinflag = 1;    %% apply kinematic bc (analytic soln) at up/downstream ends
 % kinflag = 0;    %% apply 0 vel bc at up/downstream ends
@@ -25,7 +25,7 @@ c = 40;
 % r = 80;
 % c = 80;
 
-levels = 5;
+levels = 3;
 % levels  = 11;
 
 L = 1.4e4;
@@ -50,12 +50,12 @@ taud = rho * g * H * dsdx;
 tau0s = taud * abs( yy / L ).^m;
 
 % yield stress (for Raymond solution only)
-% tau0r = mean( tau0s );
 tau0r = 5.2e3;
 
 % Raymond solution
 ur = 2 * A / (n+1) * ( (taud - tau0r)/H )^n * ( W^(n+1) - yy.^(n+1) );
 
+% Schoof solution
 us = -2*taud^3*L^4/(B^3*H^3) * ( ((yy/L).^4 - (m+1)^(4/m))/4 - 3*( abs(yy/L).^(m+4) ...
     - (m+1)^(1+4/m) )/((m+1)*(m+4)) + 3*( abs(yy/L).^(2*m+4) - (m-1)^(2+4/m) )/((m+1)^2*(2*m+4)) ...
     - ( abs(yy/L).^(3*m+4) - (m+1)^(3+4/m) )/ ( (m+1)^3*(3*m+4)) );
@@ -131,7 +131,6 @@ xlabel( 'dist (m)' ), ylabel( 'across-flow component of vel (m/a)' )
 
 v_profile = repmat( v_profile, levels, 1 );
 
-
 % figure(200),clf
 % subplot(2,2,1),hold on
 % imagesc( thck ), axis xy, axis equal, axis tight, colorbar, title( 'thickness (m)' )
@@ -142,17 +141,10 @@ v_profile = repmat( v_profile, levels, 1 );
 % subplot(2,2,4),hold on
 % imagesc( tauf/1e3 ), axis xy, axis equal, axis tight, colorbar, title( 'yield stress (kPa)' )
 
-
 %% optional: add analytic solution at up/downstream ends as kin vel bc
 kinbcmask = zeros(size(tauf));
 uvelhom = zeros( levels, r-1, c-1 );
 vvelhom = zeros( levels, r-1, c-1 );
-
-% %% HACKS
-% tauf(3:end-2,end-1) = 2.19e4; tauf(3:end-2,2) = 2.19e4;
-% ind = find( tauf == max( max( tauf ) ) ); tauf(ind) = 4e4;
-% kinbcmask(:,1:2) = 1; kinbcmask(:,end-1:end) = 1;
-% kinbcmask(1,:) = 1; kinbcmask(end,:) = 1;
 
 if( kinflag == 1)
     uvelhom( :, :, end ) = u_profile; uvelhom( :, :, 1 ) = u_profile; 
@@ -164,8 +156,6 @@ end
 %% for newer code, uvelhom = uvel, etc.
 uvel = uvelhom; vvel = vvelhom;
 
-
-% save stream.mat usrf topg thck beta uvel vvel kinbcmask levels 
 save stream.mat usrf topg thck tauf levels 
 
 %% spit out some other vars needed in the .config file
@@ -180,16 +170,7 @@ periodic_offset
 
 %% plot output
 
-% %% open file
-% if( flag == 0 )
-%     filename = 'stream.raymond.nc'; 
-% else
-%     filename = 'stream.schoof.nc'; 
-% end
-
 filename = 'stream.out.nc'; 
-
-    
 ncid = netcdf.open( filename, 'nowrite' );
 
 %% get id for variable names (use ncview to find var names?)
@@ -197,14 +178,8 @@ id_uvel = netcdf.inqvarid( ncid, 'uvel' );
 id_vvel = netcdf.inqvarid( ncid, 'vvel' );
 vel_scale = netcdf.getAtt(ncid,id_uvel,'scale_factor' );
 
-% id_btractx = netcdf.inqvarid( ncid, 'btractx' );
-% id_btracty = netcdf.inqvarid( ncid, 'btracty' );
-% btract_scale = netcdf.getAtt(ncid,id_btractx,'scale_factor' );
-
 uvel = permute( netcdf.getvar(ncid, id_uvel ), [ 2 1 3 ] ) * vel_scale;
 vvel = permute( netcdf.getvar(ncid, id_vvel ), [ 2 1 3 ] ) * vel_scale;
-% btractx = netcdf.getvar(ncid, id_btractx )' * btract_scale;
-% btracty = netcdf.getvar(ncid, id_btracty )' * btract_scale;
 
 yy2 = [ yy yy(end)+dx yy(end)+2*dx ];
 yy2 = [ -fliplr(yy2(2:end)), yy2 ];
@@ -216,8 +191,6 @@ if( flag == 0 )
     plot( yy2/1e3, uvel(:,end,1), 'b*' )              %% boundary value
     legend( 'analytic', 'model', 'boundary' )
     subplot(2,1,2), hold on
-%     plot( yy2/1e3, tauf(:,round(c/2))/1e3, 'r-', 'linewidth', 2.0 )
-%     plot( yy2/1e3, -btractx(:,round(c/2),1)/1e3, 'bo:' )
     legend( 'specified', 'model' )
 else
     figure(199)
@@ -226,8 +199,6 @@ else
     plot( yy2/1e3, uvel(:,end,1), 'b*' )              %% boundary value
     legend( 'analytic', 'model', 'boundary' )
     subplot(2,1,2), hold on
-%     plot( yy2/1e3, tauf(:,round(c/2))/1e3, 'r-', 'linewidth', 2.0 )
-%     plot( yy2/1e3, -btractx(:,round(c/2),1)/1e3, 'bo:' )
     legend( 'specified', 'model' )
 end
 
