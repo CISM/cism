@@ -56,7 +56,7 @@
     implicit none
     save
     private
-    public :: glissade_transport_driver
+    public :: glissade_transport_driver, glissade_check_cfl
 
     logical, parameter ::  &
          prescribed_area = .false.  ! if true, prescribe the area fluxed across each edge
@@ -725,6 +725,151 @@
       endif                     ! conservation_check
 
     end subroutine glissade_transport_driver
+
+
+
+!=======================================================================
+    subroutine glissade_check_cfl(ewn, nsn, nlyr, dew, dsn, sigma,      &
+                     stagthk, dusrfdew, dusrfdns, uvel, vvel, deltat,   &
+                     allowable_dt_adv, allowable_dt_diff)
+!
+! !DESCRIPTION:
+!
+! Calculate maximum allowable time step based on both 
+! advective and diffusive CFL limits.
+!
+! !REVISION HISTORY:
+!
+! author Matt Hoffman, LANL, March 2014
+!
+! !USES:
+! !INPUT/OUTPUT PARAMETERS:
+!
+      integer, intent(in) ::     &
+         ewn, nsn    ! number of cells in the x, y dimensions
+      integer, intent(in) ::     &
+         nlyr        ! number of vertical layers (layer centers)
+      real(dp), intent(in) :: &
+         dew, dsn    ! grid spacing in x, y (not assumed to be equal here), dimensional m
+      real(dp), dimension(:), intent(in) :: &
+         sigma       ! vertical coordinate spacing
+      real(dp), dimension(:,:), intent(in) :: &
+         stagthk     ! thickness on the staggered grid, dimensional m
+      real(dp), dimension(:,:), intent(in) :: &
+         dusrfdew, dusrfdns    ! slope in x,y directions on the staggered grid, dimensionless m/m
+      real(dp), dimension(:,:,:), intent(in) :: &
+         uvel, vvel  ! 3-d x,y velocity components on the staggered grid, dimensional m/yr
+      real(dp), intent(in) :: &
+         deltat      ! model deltat (yrs)
+
+      real(dp), intent(out) :: &
+         allowable_dt_adv     ! maximum allowable dt (yrs) based on advective CFL 
+      real(dp), intent(out) :: &
+         allowable_dt_diff    ! maximum allowable dt (yrs) based on diffusive CFL 
+
+!
+! === Locals
+      integer :: k
+      real(dp), dimension(nlyr, ewn, nsn) :: uvel_layer, vvel_layer  ! velocities at layer midpoints
+      real(dp), dimension(nlyr, ewn, nsn) :: flux_layer_ew, flux_layer_ns  ! flux for each layer
+      real(dp), dimension(ewn, nsn) :: flux_ew, flux_ns  ! flux for entire thickness
+      character(len=12)  :: dt_string
+      character(len=300) :: message
+      real(dp) :: allowable_dt_diff_here ! temporary calculation at each cell of allowable_dt_diff
+      integer :: i, j
+      integer :: diff_limiting_posx, diff_limiting_posy  ! the position where the DCFL is most restrictive
+      real(dp) :: slopemag  ! the magnitude of the surface slope
+      real(dp) :: slopedirx, slopediry  ! the unit vector of the slope direction
+      real(dp) :: flux_downslope  ! The component of the flux in the downslope direction
+      integer :: ierr ! flag for CFL violation
+
+      ierr = 0
+
+      ! ------------------------------------------------------------------------
+      ! Advective CFL
+      ! TODO use depth-averaged velocity or layer-by-layer (top layer only?), or something else (BB09)?
+      ! For now check all layers
+
+      ! Calculate depth-averaged flux and velocity on the B-grid
+      ! the IR code basically uses a B-grid, the FO-Upwind method uses a C-grid
+      ! The B-grid calculation should be more conservative because that is where the
+      ! velocities are calculated so there will be no averaging.
+      ! (Also, IR is the primary advection method, so make this check most appropriate for that.)
+
+      do k = 1, nlyr
+         ! Average velocities to the midpoint of the layer
+         uvel_layer(k,:,:) = 0.5d0 * (uvel(k,:,:) + uvel(k+1,:,:))
+         vvel_layer(k,:,:) = 0.5d0 * (vvel(k,:,:) + vvel(k+1,:,:))
+         ! calculate flux components for this layer
+         flux_layer_ew(k,:,:) = uvel_layer(k,:,:) * stagthk(:,:) * (sigma(k+1) - sigma(k))
+         flux_layer_ns(k,:,:) = vvel_layer(k,:,:) * stagthk(:,:) * (sigma(k+1) - sigma(k))
+      enddo
+      flux_ew(:,:) = sum(flux_layer_ew, 1)
+      flux_ns(:,:) = sum(flux_layer_ns, 1)
+
+      ! Advective CFL calculation - using all layers
+      allowable_dt_adv = dew / (maxval(abs(uvel_layer)) + 1.0d-20)   ! CFL limit in the x-direction
+      allowable_dt_adv = min(allowable_dt_adv, dsn / (maxval(abs(vvel_layer)) + 1.0d-20) )  ! check the y-direction separately, in case dew /= dns is ever allowed
+
+      ! ------------------------------------------------------------------------
+      ! Diffusive CFL
+      ! Estimate diffusivity using the relation that the 2-d flux Q=-D grad h and Q=UH, 
+      ! where h is surface elevation, D is diffusivity, U is 2-d velocity vector, and H is thickness
+      ! Solving for D = UH/-grad h
+      allowable_dt_diff = 1.0d20  ! start with a huge value
+      diff_limiting_posx = 1 ! Initialize these to something, on the off-chance they never get set... (e.g., no ice on this processor)
+      diff_limiting_posy = 1
+      do j = 1, nsn-1
+         do i = 1, ewn-1
+            if (stagthk(i,j) > 0.0d0) then  ! don't bother doing all this for non-ice cells
+                ! Find downslope vector
+                slopemag = dsqrt(dusrfdew(i,j)**2 + dusrfdns(i,j)**2 + 1.0d-20)
+                slopedirx = dusrfdew(i,j) / slopemag
+                slopediry = dusrfdns(i,j) / slopemag
+                ! Estimate flux in the downslope direction (Flux /dot -slopedir)
+                flux_downslope = flux_ew(i,j) * (-1.0d0) * slopedirx + flux_ns(i,j) * (-1.0d0) * slopediry  ! TODO check signs here - they seem ok
+                !!! Estimate diffusivity in the downslope direction only
+                !!diffu = flux_downslope / slopemag
+                !!allowable_dt_diff = 0.5d0 * dew**2 / (diffu + 1.0e-20)  ! Note: assuming diffu is isotropic here.
+                ! DCFL: dt = 0.5 * dx**2 / D = 0.5 * dx**2 * slopemag / flux_downslope
+                allowable_dt_diff_here = 0.5d0 * dew**2 * slopemag / (flux_downslope + 1.0e-20)  ! Note: assuming diffu is isotropic here.  assuming dx=dy
+                if (allowable_dt_diff_here < allowable_dt_diff) then
+                   allowable_dt_diff = min(allowable_dt_diff, allowable_dt_diff_here)
+                   diff_limiting_posx = i
+                   diff_limiting_posy = j
+                endif
+            endif
+         enddo
+      enddo
+      !print *, 'diffu dt', allowable_dt_diff, diff_limiting_posx, diff_limiting_posy  ! TODO make this x0(i), y0(j) since i,j don't mean much on multiple cores
+
+
+      ! ------------------------------------------------------------------------
+      ! Now check for errors
+
+      ! TODO GLOBAL REDUCE NEEDED
+      if (deltat > allowable_dt_adv) then
+          ierr = 1  ! Advective CFL violation is a fatal error
+          write(dt_string,'(f12.5)') allowable_dt_adv
+          write(message,*) 'Error: Advective CFL violation!  Maximum allowable time step for advective CFL condition is ' // trim(adjustl(dt_string)) // ' yr.  (Note: value may be incorrect for parallel jobs)'
+          call write_log(trim(message),GM_WARNING)      ! Write a warning first before throwing a fatal error so we can also check the diffusive CFL before aborting
+      endif
+
+      ! TODO GLOBAL REDUCE NEEDED!
+      if (deltat > allowable_dt_diff) then
+          write(dt_string,'(f12.5)') allowable_dt_diff
+          write(message,*) 'Diffusive CFL violation!  (The currently implemented diffusive CFL calculation may be overly restrictive so this is not fatal.)  Maximum allowable time step for diffusive CFL condition is ' // trim(adjustl(dt_string)) // ' yr.  (Note: value may be incorrect for parallel jobs)'
+          call write_log(trim(message),GM_WARNING)      ! Diffusive CFL violation is just a warning (because it may be overly restrictive as currently formulated)
+      endif
+
+      ! Now that we have checked both, throw a fatal error for an ACFL violation
+      if (ierr == 1) then
+         call write_log('Advective CFL violation is a fatal error.  See log for details.', GM_FATAL)
+      endif
+
+    end subroutine glissade_check_cfl
+
+
 
 !=======================================================================
 !

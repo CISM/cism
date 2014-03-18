@@ -373,7 +373,7 @@ contains
     use glide_grid_operators
     use isostasy
     use glissade_enthalpy
-    use glissade_transport, only: glissade_transport_driver
+    use glissade_transport, only: glissade_transport_driver, glissade_check_cfl
 
     implicit none
 
@@ -456,6 +456,7 @@ contains
     !      We now have EVOL_NO_THICKESS = 5 as a glam/glissade option.  It is used to hold the ice surface elevation fixed
     !       while allowing temperature to evolve, which can be useful for model spinup.  This option might need more testing.
 
+
     select case(model%options%whichevol)
 
        case(EVOL_INC_REMAP, EVOL_NO_THICKNESS) 
@@ -520,6 +521,7 @@ contains
 
       call t_startf('glissade_transport_driver')
 
+
        !TODO  It would be less confusing to just store the subcycling dt in a local/module variable - 
        !       really only needs to be calculated once on init
 
@@ -530,6 +532,17 @@ contains
        else                                                           ! do not include bmlt in continuity equation
           bmlt_continuity(:,:) = 0.d0
        endif
+
+      ! --- First determine CFL limits ---
+      ! Note we are using the subcycled dt here (if subcycling is on).
+      ! (see note above about the EVOL_NO_THICKNESS option and how it is affected by a CFL violation)
+      ! stagthck, dusrfdew/ns and u/vvel need to be from the previous time step (and are at this point)
+      call glissade_check_cfl(model%general%ewn, model%general%nsn, model%general%upn-1,       &
+                           model%numerics%dew * len0, model%numerics%dns * len0, model%numerics%sigma,     &
+                           model%geomderv%stagthck * thk0, model%geomderv%dusrfdew*thk0/len0, model%geomderv%dusrfdns*thk0/len0, &
+                           model%velocity%uvel * scyr * vel0, model%velocity%vvel * scyr * vel0, &
+                           model%numerics%dt * tim0 / scyr, &
+                           model%numerics%adv_cfl_dt, model%numerics%diff_cfl_dt )
 
        ! Call the transport driver.
        ! Note: This subroutine assumes SI units:

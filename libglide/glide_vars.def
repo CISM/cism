@@ -775,3 +775,18 @@ long_name:    dissipation divided by rhoi Ci
 data:         data%tempwk%dissip
 coordinates:  lon lat
 
+[adv_cfl_dt]
+dimensions:    time
+units:         years
+long_name:     advective CFL max time step
+data:          data%numerics%adv_cfl_dt
+standard_name: advec_CFL_max_timestep
+
+[diff_cfl_dt]
+dimensions:    time
+units:         years
+long_name:     diffusive CFL max time step
+data:          data%numerics%diff_cfl_dt
+standard_name: diffus_CFL_max_timestep
+
+
