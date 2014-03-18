@@ -76,6 +76,7 @@ contains
                        ewn,         nsn,           &
                        thisvel,     othervel,      &
                        bwat,        beta_const,    &
+                       mintauf,                    &
                        mask,        beta,          &
                        betafile)
 
@@ -94,14 +95,11 @@ contains
 
   real(dp), intent(in) :: dew, dns
   real(dp), intent(in), dimension(:,:) :: thisvel, othervel
-
-  real(dp), intent(in), dimension(:,:) :: bwat  ! basal water depth
-
+  real(dp), intent(in), dimension(:,:) :: bwat     ! basal water depth
+  real(dp), intent(in), dimension(:,:) :: mintauf  ! till yield stress 
   real(dp), intent(in) :: beta_const  ! spatially uniform beta (Pa yr/m)
-
   integer, intent(in), dimension(:,:) :: mask 
-
-  real(dp), intent(inout), dimension(ewn-1,nsn-1) :: beta
+  real(dp), intent(inout), dimension(:,:) :: beta
 
   character (len=30), intent(in), optional :: betafile
 
@@ -158,8 +156,8 @@ contains
       !!! NOTE: Eventually, this option will provide the till yield stress as calculate from the basal processes
       !!! submodel. Currently, to enable sliding over plastic till, simple specify the value of "beta" as 
       !!! if it were the till yield stress (in units of Pascals).
-
-      beta(:,:) = ( beta(:,:) * ( tau0 / vel0 / scyr ) ) &     ! Pa yr/m
+      
+      beta(:,:) = mintauf(:,:) * tau0  &     ! scale plastic yield stress back to dimensional units (Pa)
                          / dsqrt( (thisvel(:,:)*vel0*scyr)**2 + (othervel(:,:)*vel0*scyr)**2 + (smallnum)**2 )
 
     case(HO_BABC_BETA_BWAT)  ! set value of beta as proportional to value of bwat                                         

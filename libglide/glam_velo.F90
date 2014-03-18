@@ -58,7 +58,7 @@ contains
         use glimmer_log
         use glide_types
         use glam_strs2, only: glam_velo_solver, JFNK_velo_solver
-        use glissade_basal_traction, only: calcbeta
+!!sp        use glissade_basal_traction, only: calcbeta
         use glam_grid_operators,  only: glam_geometry_derivs, df_field_2d_staggered
         use glide_grid_operators, only: stagvarb    !TODO - Is this needed?  Seems redundant with df_field_2d_staggered
         use glide_mask
@@ -186,19 +186,20 @@ contains
         ! save the final mask to 'dynbcmask' for exporting to netCDF output file
         model%velocity%dynbcmask = geom_mask_stag
 
-        ! Compute or prescribe the basal traction field 'beta'
-        ! Note: The initial value of model%velocity%beta can change depending on
-        !       the value of model%options%which_ho_babc.
-
-        call calcbeta (model%options%which_ho_babc,                  & 
-                       model%numerics%dew,      model%numerics%dns,  &
-                       model%general%ewn,       model%general%nsn,   &
-                       model%velocity%uvel(model%general%upn,:,:),   &
-                       model%velocity%vvel(model%general%upn,:,:),   &
-                       model%temper%bwat,                            &
-                       model%paramets%ho_beta_const,                 &
-                       geom_mask_stag,                               &
-                       model%velocity%beta)
+!!sp
+!        ! Compute or prescribe the basal traction field 'beta'
+!        ! Note: The initial value of model%velocity%beta can change depending on
+!        !       the value of model%options%which_ho_babc.
+!
+!        call calcbeta (model%options%which_ho_babc,                  & 
+!                       model%numerics%dew,      model%numerics%dns,  &
+!                       model%general%ewn,       model%general%nsn,   &
+!                       model%velocity%uvel(model%general%upn,:,:),   &
+!                       model%velocity%vvel(model%general%upn,:,:),   &
+!                       model%temper%bwat,                            &
+!                       model%paramets%ho_beta_const,                 &
+!                       geom_mask_stag,                               &
+!                       model%velocity%beta)
 
         !-------------------------------------------------------------------
         ! Compute the velocity field
@@ -228,6 +229,9 @@ contains
                                   model%options%which_ho_nonlinear,                           &
                                   model%options%which_ho_sparse,                              &
                                   model%velocity%beta,                                        & 
+                                  model%paramets%ho_beta_const,                               &
+                                  model%basalproc%mintauf,                                    &
+                                  model%temper%bwat,                                          &
                                   model%velocity%uvel, model%velocity%vvel,                   &
                                   model%velocity%uflx, model%velocity%vflx,                   &
                                   model%stress%efvs )

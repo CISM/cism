@@ -105,6 +105,7 @@ contains
                      model%velocity%vvel(model%general%upn,:,:),   &
                      model%temper%bwat,                            &
                      model%paramets%ho_beta_const,                 &
+                     model%basalproc%mintauf,                      &
                      geom_mask_stag,                               &
                      model%velocity%beta)
 

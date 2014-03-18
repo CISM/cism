@@ -267,6 +267,9 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                             whichnonlinear,         &
                             whichsparse,            &
                             beta,                   &
+                            beta_const,             &
+                            mintauf,                &
+                            bwat,                   &
                             uvel,     vvel,         &
                             uflx,     vflx,         &
                             efvs )
@@ -295,7 +298,10 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
   real(dp), dimension(:,:,:), intent(inout) :: btraction            ! consistent basal traction array
   real(dp), dimension(:,:,:), intent(in)  :: flwa                   ! flow law rate factor
 
-  real(dp), dimension(:,:),   intent(in)  :: beta  ! basal traction coefficient, computed in calcbeta
+  real(dp), dimension(:,:),   intent(inout)  :: beta  ! basal traction coefficient, computed in calcbeta
+  real(dp), dimension(:,:),   intent(in)  :: mintauf  ! specified basal yield stress, used in calcbeta (if specified in config file)
+  real(dp), intent(in) :: beta_const            ! spatially uniform beta (Pa yr/m)
+  real(dp), intent(in), dimension(:,:) :: bwat  ! basal water depth
 
   integer, intent(in) :: whichbabc    ! options for beta basal boundary condition
   integer, intent(in) :: whichefvs    ! options for efvs calculation (calculate it or make it uniform)
@@ -552,7 +558,11 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      uindx,       umask,          &
                      lsrf,        topg,           &
                      flwa,                        &
-                     beta,        btraction,      &
+                     beta,                        &       
+                     beta_const,                  &
+                     mintauf,                     &       
+                     bwat,                        &
+                     btraction,                   &
                      0 )
  call t_stopf("PICARD_findcoefstr1")
 
@@ -626,7 +636,11 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      uindx,       umask,          &
                      lsrf,        topg,           &
                      flwa,                        &
-                     beta,        btraction,      &
+                     beta,                        &
+                     beta_const,                  &
+                     mintauf,                     &       
+                     bwat,                        &
+                     btraction,                   &
                      0 )
 
  call t_stopf("PICARD_findcoefstr2")
@@ -697,7 +711,11 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      uindx,       umask,          &
                      lsrf,        topg,           &
                      flwa,                        &
-                     beta,        btraction,      &
+                     beta,                        &        
+                     beta_const,                  &
+                     mintauf,                     &       
+                     bwat,                        &
+                     btraction,                   &
                      0 )
 
     call findcoefstr(ewn,  nsn,   upn,            &
@@ -715,7 +733,11 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      uindx,       umask,          &
                      lsrf,        topg,           &
                      flwa,                        &
-                     beta,        btraction,      &
+                     beta,                        &
+                     beta_const,                  &
+                     mintauf,                     &       
+                     bwat,                        &
+                     btraction,                   &
                      0 )
 
  call t_stopf("PICARD_findcoefstr3")
@@ -892,7 +914,11 @@ subroutine JFNK_velo_solver  (model,umask)
   real(dp), dimension(:,:)   ,pointer :: stagthck
   real(dp), dimension(:,:,:) ,pointer :: flwa
   real(dp), dimension(:,:,:) ,pointer :: btraction ! consistent basal traction array
+
   real(dp), dimension(:,:)  ,pointer :: beta       ! basal traction coefficient, computed in calcbeta 
+  real(dp)                  ,pointer :: beta_const ! spatially uniform beta (Pa yr/m)
+  real(dp), dimension(:,:)  ,pointer :: mintauf    ! basal yield stress used by calcbeta (if specified)
+  real(dp), dimension(:,:)  ,pointer :: bwat       ! basal water depth
 
   integer :: whichbabc
   integer :: whichefvs
@@ -950,8 +976,13 @@ subroutine JFNK_velo_solver  (model,umask)
   whichresid = model%options%which_ho_resid
   whichsparse = model%options%which_ho_sparse
   whichnonlinear = model%options%which_ho_nonlinear
+
   !Note: The beta passed into the solver is equal to model%velocity%beta
   beta => model%velocity%beta(:,:)   
+  beta_const => model%paramets%ho_beta_const
+  mintauf => model%basalproc%mintauf(:,:)   
+  bwat => model%temper%bwat(:,:)
+
   uvel => model%velocity%uvel(:,:,:)
   vvel => model%velocity%vvel(:,:,:)
   uflx => model%velocity%uflx(:,:)
@@ -1149,7 +1180,11 @@ end if
                      uindx,       umask,          &
                      lsrf,        topg,           &
                      flwa,                        &
-                     beta,        btraction,      &
+                     beta,                        &
+                     beta_const,                  &
+                     mintauf,                     &       
+                     bwat,                        &
+                     btraction,                   &
                      0 )
 
    call findcoefstr(ewn,  nsn,   upn,             &
@@ -1167,7 +1202,11 @@ end if
                      uindx,       umask,          &
                      lsrf,        topg,           &
                      flwa,                        &
-                     beta,        btraction,      &
+                     beta,                        &
+                     beta_const,                  &
+                     mintauf,                     &       
+                     bwat,                        &
+                     btraction,                   &
                      0 )
 
   inisoln = .true.
@@ -2221,7 +2260,11 @@ end subroutine reset_effstrmin
   real(dp) :: dew, dns
   real(dp), dimension(:)  ,pointer :: sigma, stagsigma
   real(dp), dimension(:,:) ,pointer :: thck, dusrfdew, dthckdew, dusrfdns, dthckdns, &
-                                         dlsrfdew, dlsrfdns, stagthck, lsrf, topg, beta
+                                         dlsrfdew, dlsrfdns, stagthck, lsrf, topg
+
+  real(dp), dimension(:,:) ,pointer :: beta, bwat, mintauf 
+  real(dp), pointer :: beta_const
+
   real(dp), dimension(:,:) ,pointer ::  d2usrfdew2, d2thckdew2, d2usrfdns2, d2thckdns2
   real(dp), dimension(:,:,:) ,pointer :: efvs, btraction
   real(dp), dimension(:,:,:) ,pointer :: uvel, vvel, flwa
@@ -2265,8 +2308,13 @@ end subroutine reset_effstrmin
   d2thckdns2 => fptr%geomderv%d2thckdns2(:,:)
   d2usrfdew2 => fptr%geomderv%d2usrfdew2(:,:)
   d2usrfdns2 => fptr%geomderv%d2usrfdns2(:,:)
+
   !Note: The beta passed into the solver is equal to model%velocity%beta
   beta => fptr%velocity%beta(:,:)
+  beta_const => fptr%paramets%ho_beta_const
+  mintauf => fptr%basalproc%mintauf(:,:)
+  bwat => fptr%temper%bwat(:,:)
+
 !intent (inout) terms
   btraction => fptr%velocity%btraction(:,:,:)
   flwa => fptr%temper%flwa(:,:,:)
@@ -2340,7 +2388,11 @@ end subroutine reset_effstrmin
                      ui,       um,          &
                      lsrf,        topg,           &
                      flwa,                        &
-                     beta,        btraction,      &
+                     beta,                        &
+                     beta_const,                  &
+                     mintauf,                     &       
+                     bwat,                        &
+                     btraction,                   &
                      0 )
 
  call t_stopf("Calc_F_findcoefstr1")
@@ -2391,7 +2443,11 @@ end subroutine reset_effstrmin
                      ui,          um,             &
                      lsrf,        topg,           &
                      flwa,                        &
-                     beta,        btraction,      &
+                     beta,                        &
+                     beta_const,                  &
+                     mintauf,                     &       
+                     bwat,                        &
+                     btraction,                   &
                      0 )
 
  call t_stopf("Calc_F_findcoefstr2")
@@ -3000,14 +3056,18 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                        uindx,       mask,           &
                        lsrf,        topg,           &
                        flwa,                        &
-                       beta,        btraction,      &
+                       beta,                        &        
+                       beta_const,                  &
+                       mintauf,                     &        
+                       bwat,                        &
+                       btraction,                   &
                        assembly )
 
   ! Main subroutine for determining coefficients that go into the LHS matrix A 
   ! in the expression Au = b. Calls numerous other subroutines, including boundary
   ! condition subroutines, which determine "b".
 
-!!  use glissade_basal_traction, only: calcbeta
+  use glissade_basal_traction, only: calcbeta
   use parallel
 !!  use glimmer_horiz_bcs, only: ghost_shift
 
@@ -3028,7 +3088,11 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                                                   dlsrfdew,   dlsrfdns,      &
                                                   thck, lsrf, topg
 
-  real(dp), dimension(:,:), intent(in) :: beta
+  real(dp), dimension(:,:), intent(inout) :: beta
+  real(dp), dimension(:,:), intent(in) :: mintauf
+  real(dp), intent(in) :: beta_const            ! spatially uniform beta (Pa yr/m)
+  real(dp), intent(in), dimension(:,:) :: bwat  ! basal water depth
+
   real(dp), dimension(:,:,:), intent(in) :: flwa
   real(dp), dimension(:,:,:), intent(inout) :: btraction
 
@@ -3054,10 +3118,6 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
   else
     up_start = 1
   end if
-
-  ! OLD CODE: calculate/specify the map of 'beta', for use in the basal boundary condition. 
-  !           Input to the subroutine 'bodyset' (below) ... 
-  ! WHL: beta is now computed outside the glam solver and passed to the solver with intent(in)
 
   ! Note loc2_array is defined only for non-halo ice grid points.
   ! JEFFLOC returns an array with starting indices into solution vector for each ice grid point.
@@ -3098,6 +3158,17 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
   
   ! Note: With nhalo = 2, efvs has been computed in a layer of halo cells, 
   !       so we have its value in all neighbors of locally owned velocity points.
+
+  ! Compute or prescribe the basal traction coefficient 'beta'
+  ! Note: The initial value of model%velocity%beta can change depending on
+  !       the value of model%options%which_ho_babc.
+  call calcbeta (whichbabc,                            & 
+               dew,      dns,                         &
+               ewn,      nsn,                         &
+               thisvel(upn,:,:),  othervel(upn,:,:),  &
+               bwat,     beta_const,                  &
+               mintauf,                               &
+               mask,     beta )
 
   do ns = 1+staggered_lhalo, size(mask,2)-staggered_uhalo
     do ew = 1+staggered_lhalo, size(mask,1)-staggered_uhalo

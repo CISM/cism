@@ -151,7 +151,7 @@ load:          1
 
 [beta]
 dimensions:    time, y0, x0
-units:         unknown
+units:         Pa yr/m  
 long_name:     higher-order bed stress coefficient
 data:          data%velocity%beta
 factor:        scale_beta
@@ -161,7 +161,7 @@ load:          1
 #      (unlike beta, which lives on the staggered velocity grid)
 [unstagbeta]
 dimensions:    time, y1, x1
-units:         unknown
+units:         Pa yr/m  
 long_name:     higher-order bed stress coefficient
 data:          data%velocity%unstagbeta
 factor:        scale_beta
@@ -171,7 +171,7 @@ load:          1
 dimensions:    time, y0, x0
 units:         Pa
 long_name:     higher-order basal yield stress
-data:          data%basalproc%minTauf
+data:          data%basalproc%mintauf
 factor:        scale_tau
 load:          1
 
