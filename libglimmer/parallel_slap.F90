@@ -251,43 +251,51 @@ module parallel
 
 contains
 
-  subroutine broadcast_character(c)
+  subroutine broadcast_character(c, proc)
     implicit none
     character(len=*) :: c
+    integer, intent(in), optional :: proc  ! optional argument indicating which processor to broadcast from - not relevant to serial version
   end subroutine broadcast_character
 
-  subroutine broadcast_integer(i)
+  subroutine broadcast_integer(i, proc)
     implicit none
     integer :: i
+    integer, intent(in), optional :: proc  ! optional argument indicating which processor to broadcast from - not relevant to serial version
   end subroutine broadcast_integer
 
-  subroutine broadcast_integer_1d(a)
+  subroutine broadcast_integer_1d(a, proc)
     implicit none
     integer,dimension(:) :: a
+    integer, intent(in), optional :: proc  ! optional argument indicating which processor to broadcast from - not relevant to serial version
   end subroutine broadcast_integer_1d
 
-  subroutine broadcast_logical(l)
+  subroutine broadcast_logical(l, proc)
     implicit none
     logical :: l
+    integer, intent(in), optional :: proc  ! optional argument indicating which processor to broadcast from - not relevant to serial version
   end subroutine broadcast_logical
 
-  subroutine broadcast_real4(r)
+  subroutine broadcast_real4(r, proc)
     implicit none
     real(4) :: r
+    integer, intent(in), optional :: proc  ! optional argument indicating which processor to broadcast from - not relevant to serial version
   end subroutine broadcast_real4
 
-  subroutine broadcast_real4_1d(a)
+  subroutine broadcast_real4_1d(a, proc)
     real(4),dimension(:) :: a
+    integer, intent(in), optional :: proc  ! optional argument indicating which processor to broadcast from - not relevant to serial version
   end subroutine broadcast_real4_1d
 
-  subroutine broadcast_real8(r)
+  subroutine broadcast_real8(r, proc)
     implicit none
     real(8) :: r
+    integer, intent(in), optional :: proc  ! optional argument indicating which processor to broadcast from - not relevant to serial version
   end subroutine broadcast_real8
 
-  subroutine broadcast_real8_1d(a)
+  subroutine broadcast_real8_1d(a, proc)
     implicit none
     real(8),dimension(:) :: a
+    integer, intent(in), optional :: proc  ! optional argument indicating which processor to broadcast from - not relevant to serial version
   end subroutine broadcast_real8_1d
 
   function distributed_get_var_integer_2d(ncid,varid,values,start)

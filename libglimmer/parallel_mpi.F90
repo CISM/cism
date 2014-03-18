@@ -281,76 +281,132 @@ module parallel
 
 contains
 
-  subroutine broadcast_character(c)
+  subroutine broadcast_character(c, proc)
     use mpi_mod
     implicit none
     character(len=*) :: c
+    integer, intent(in), optional :: proc  ! optional argument indicating which processor to broadcast from
     integer :: ierror,n
+    integer :: source ! local variable indicating which processor to broadcast from
     ! begin
+    if (present(proc)) then
+       source = proc
+    else
+       source = main_rank
+    endif
     n = len(c)
-    call mpi_bcast(c,n,mpi_character,main_rank,comm,ierror)
+    call mpi_bcast(c,n,mpi_character,source,comm,ierror)
   end subroutine broadcast_character
 
-  subroutine broadcast_integer(i)
+  subroutine broadcast_integer(i, proc)
     use mpi_mod
     implicit none
     integer :: i,ierror
+    integer, intent(in), optional :: proc  ! optional argument indicating which processor to broadcast from
+    integer :: source ! local variable indicating which processor to broadcast from
     ! begin
-    call mpi_bcast(i,1,mpi_integer,main_rank,comm,ierror)
+    if (present(proc)) then
+       source = proc
+    else
+       source = main_rank
+    endif
+    call mpi_bcast(i,1,mpi_integer,source,comm,ierror)
   end subroutine broadcast_integer
 
-  subroutine broadcast_integer_1d(a)
+  subroutine broadcast_integer_1d(a, proc)
     use mpi_mod
     implicit none
     integer,dimension(:) :: a
     integer :: ierror
+    integer, intent(in), optional :: proc  ! optional argument indicating which processor to broadcast from
+    integer :: source ! local variable indicating which processor to broadcast from
     ! begin
-    call mpi_bcast(a,size(a),mpi_integer,main_rank,comm,ierror)
+    if (present(proc)) then
+       source = proc
+    else
+       source = main_rank
+    endif
+    call mpi_bcast(a,size(a),mpi_integer,source,comm,ierror)
   end subroutine broadcast_integer_1d
 
-  subroutine broadcast_logical(l)
+  subroutine broadcast_logical(l, proc)
     use mpi_mod
     implicit none
     logical :: l
     integer :: ierror
+    integer, intent(in), optional :: proc  ! optional argument indicating which processor to broadcast from
+    integer :: source ! local variable indicating which processor to broadcast from
     ! begin
-    call mpi_bcast(l,1,mpi_logical,main_rank,comm,ierror)
+    if (present(proc)) then
+       source = proc
+    else
+       source = main_rank
+    endif
+    call mpi_bcast(l,1,mpi_logical,source,comm,ierror)
   end subroutine broadcast_logical
 
-  subroutine broadcast_real4(r)
+  subroutine broadcast_real4(r, proc)
     use mpi_mod
     implicit none
     integer :: ierror
     real(4) :: r
+    integer, intent(in), optional :: proc  ! optional argument indicating which processor to broadcast from
+    integer :: source ! local variable indicating which processor to broadcast from
     ! begin
-    call mpi_bcast(r,1,mpi_real4,main_rank,comm,ierror)
+    if (present(proc)) then
+       source = proc
+    else
+       source = main_rank
+    endif
+    call mpi_bcast(r,1,mpi_real4,source,comm,ierror)
   end subroutine broadcast_real4
 
-  subroutine broadcast_real4_1d(a)
+  subroutine broadcast_real4_1d(a, proc)
     use mpi_mod
     implicit none
     real(4),dimension(:) :: a
     integer :: ierror
+    integer, intent(in), optional :: proc  ! optional argument indicating which processor to broadcast from
+    integer :: source ! local variable indicating which processor to broadcast from
     ! begin
-    call mpi_bcast(a,size(a),mpi_real4,main_rank,comm,ierror)
+    if (present(proc)) then
+       source = proc
+    else
+       source = main_rank
+    endif
+    call mpi_bcast(a,size(a),mpi_real4,source,comm,ierror)
   end subroutine broadcast_real4_1d
 
-  subroutine broadcast_real8(r)
+  subroutine broadcast_real8(r, proc)
     use mpi_mod
     implicit none
     integer :: ierror
     real(8) :: r
+    integer, intent(in), optional :: proc  ! optional argument indicating which processor to broadcast from
+    integer :: source ! local variable indicating which processor to broadcast from
     ! begin
-    call mpi_bcast(r,1,mpi_real8,main_rank,comm,ierror)
+    if (present(proc)) then
+       source = proc
+    else
+       source = main_rank
+    endif
+    call mpi_bcast(r,1,mpi_real8,source,comm,ierror)
   end subroutine broadcast_real8
 
-  subroutine broadcast_real8_1d(a)
+  subroutine broadcast_real8_1d(a, proc)
     use mpi_mod
     implicit none
     real(8),dimension(:) :: a
     integer :: ierror
+    integer, intent(in), optional :: proc  ! optional argument indicating which processor to broadcast from
+    integer :: source ! local variable indicating which processor to broadcast from
     ! begin
-    call mpi_bcast(a,size(a),mpi_real8,main_rank,comm,ierror)
+    if (present(proc)) then
+       source = proc
+    else
+       source = main_rank
+    endif
+    call mpi_bcast(a,size(a),mpi_real8,source,comm,ierror)
   end subroutine broadcast_real8_1d
 
   function distributed_execution()
