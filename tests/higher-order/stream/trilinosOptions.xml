@@ -114,7 +114,7 @@
         </ParameterList>
         <ParameterList name="Test 1">
           <Parameter name="Test Type" type="string" value="MaxIters"/>
-          <Parameter name="Maximum Iterations" type="int" value="100"/>
+          <Parameter name="Maximum Iterations" type="int" value="200"/>
         </ParameterList>
       </ParameterList>
     </ParameterList>
