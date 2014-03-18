@@ -1,14 +1,14 @@
- # run this script by typing: source edison-intel-cmake
+# run this script by typing: source hopper-pgi-cmake
 # After thus script completes, type: make -j 8
 # If rebuilding, type 'make clean' before running 'make -j 8'
 
 # This cmake configuration script builds simple_glide and simple_bisicles
-# on edison using the INTEL compiler suite.  It no longer relies on a build
+# on hopper using the PGI compiler suite.  It no longer relies on a build
 # of Trilinos, but does need a BISICLES build located in BISICLES_INTERFACE_DIR
 # (currently set to /global/u2/d/dmartin/BISICLES/code/interface)
 
 
-# This script should be run from the builds/edison-intel subdirectory
+# This script should be run from the builds/hopper-pgi subdirectory
 # of the main seacism repository (reflected in the two instances
 # of "../.." below).
 
@@ -33,15 +33,15 @@
 # module unload modules
 
 echo
-echo Run this script by typing: source edison-bisicles-intel-cmake
+echo Run this script by typing: source eidson-petsc-bisicles-intel-cmake
 echo
-echo Warning: Python problem.  After the last edison system updates 1/28/13, in order to run simple_glide
-echo or simple_bisicles, you need to replace the python/2.7.3 module with the python/2.7.1 module.
-echo The easiest way to do this: In your .cshrc.ext or .bashrc.ext add the lines:
-echo module unload python 
-echo module load python/2.7.1
-echo
-#echo Warning: Python problem.  After the last edison system updates 1/28/13, in order to run simple_glide
+#echo Warning: Python problem.  After the last hopper system updates 1/28/13, in order to run simple_glide
+#echo or simple_bisicles, you need to replace the python/2.7.3 module with the python/2.7.1 module.
+#echo The easiest way to do this: In your .cshrc.ext or .bashrc.ext add the lines:
+#echo module unload python 
+#echo module load python/2.7.1
+#echo
+#echo Warning: Python problem.  After the last hopper system updates 1/28/13, in order to run simple_glide
 #echo or simple_bisicles, you need to replace the python/2.7.3 module with the python/2.7.1 module.
 #echo The easiest way to do this: In your .cshrc.ext or .bashrc.ext add the lines:
 #echo module unload python 
@@ -119,6 +119,7 @@ cmake \
 \
   -D CMAKE_CXX_FLAGS:STRING="-O2" \
   -D GLIMMER_Fortran_FLAGS:STRING="-O2 -DNO_RESCALE" \
+  -D GLIMMER_EXTRA_LIBS:STRING="-L$PETSC_DIR/$PETSC_ARCH/lib -lpetsc -lHYPRE -lparmetis -lmetis  -lpthread -ldl" \
   -D BISICLES_LIB_SUBDIR=libintel \
   -D BISICLES_INTERFACE_DIR=$PWD/../../../BISICLES/CISM-interface/interface \
   -D GLIMMER_MPI_LIBS:STRING="mpichf90" \
