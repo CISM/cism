@@ -4006,7 +4006,7 @@ contains
     ! begin
     sendbuf(1,1) = xin
     sendbuf(2,1) = this_rank  ! This is the processor number associated with the value x
-    call mpi_allreduce(sendbuf,recvbuf,1,mpi_integer,mpi_minloc,comm,ierror)
+    call mpi_allreduce(sendbuf,recvbuf,1,MPI_2INTEGER,mpi_minloc,comm,ierror)
     xout = recvbuf(1,1)
     xprocout = recvbuf(2,1)
   end subroutine parallel_reduce_minloc_integer
@@ -4023,7 +4023,7 @@ contains
     ! begin
     sendbuf(1,1) = xin
     sendbuf(2,1) = this_rank  ! This is the processor number associated with the value x (coerced to a real)
-    call mpi_allreduce(sendbuf,recvbuf,1,mpi_real4,mpi_minloc,comm,ierror)
+    call mpi_allreduce(sendbuf,recvbuf,1,MPI_2REAL,mpi_minloc,comm,ierror)
     xout = recvbuf(1,1)
     xprocout = recvbuf(2,1) ! coerced back to integer
   end subroutine parallel_reduce_minloc_real4
@@ -4040,7 +4040,7 @@ contains
     ! begin
     sendbuf(1,1) = xin
     sendbuf(2,1) = this_rank  ! This is the processor number associated with the value x (coerced to a real)
-    call mpi_allreduce(sendbuf,recvbuf,1,mpi_real4,mpi_minloc,comm,ierror)
+    call mpi_allreduce(sendbuf,recvbuf,1,MPI_2DOUBLE_PRECISION,mpi_minloc,comm,ierror)
     xout = recvbuf(1,1)
     xprocout = recvbuf(2,1) ! coerced back to integer
   end subroutine parallel_reduce_minloc_real8
