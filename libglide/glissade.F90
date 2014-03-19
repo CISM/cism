@@ -533,15 +533,17 @@ contains
           bmlt_continuity(:,:) = 0.d0
        endif
 
+
       ! --- First determine CFL limits ---
       ! Note we are using the subcycled dt here (if subcycling is on).
       ! (see note above about the EVOL_NO_THICKNESS option and how it is affected by a CFL violation)
       ! stagthck, dusrfdew/ns and u/vvel need to be from the previous time step (and are at this point)
-      call glissade_check_cfl(model%general%ewn, model%general%nsn, model%general%upn-1,       &
+      call glissade_check_cfl(model%general%ewn, model%general%nsn, model%general%upn-1,                   &
                            model%numerics%dew * len0, model%numerics%dns * len0, model%numerics%sigma,     &
+                           model%general%x1, model%general%y1,                                             &
                            model%geomderv%stagthck * thk0, model%geomderv%dusrfdew*thk0/len0, model%geomderv%dusrfdns*thk0/len0, &
-                           model%velocity%uvel * scyr * vel0, model%velocity%vvel * scyr * vel0, &
-                           model%numerics%dt * tim0 / scyr, &
+                           model%velocity%uvel * scyr * vel0, model%velocity%vvel * scyr * vel0,           &
+                           model%numerics%dt * tim0 / scyr,                                                &
                            model%numerics%adv_cfl_dt, model%numerics%diff_cfl_dt )
 
        ! Call the transport driver.
