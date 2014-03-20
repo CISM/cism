@@ -60,6 +60,7 @@ program simple_bisicles
   type(simple_climate) :: climate         ! climate
   type(ConfigSection), pointer :: config  ! configuration stuff
   real(kind=dp) time
+  real(kind=dp) time_eps    ! tolerance for deciding if two times are equal
   real(kind=dp) t1,t2
   integer clock,clock_rate,ret
 
@@ -103,6 +104,7 @@ program simple_bisicles
   time = model%numerics%tstart
   cur_time = time
   time_inc = model%numerics%tinc
+  time_eps = time_inc/1000.0d0
 
 !  call simple_massbalance(climate,model,time)
   call simple_surftemp(climate,model,time)
@@ -125,8 +127,8 @@ program simple_bisicles
   call glide_io_writeall(model, model, time=time)         
 
   print *,"Running external dycore. Dycore model index = ",dycore_model_index
-  do while (cur_time < model%numerics%tend)
-      if (cur_time + time_inc > model%numerics%tend) then
+  do while (cur_time + time_eps < model%numerics%tend)
+      if (cur_time + time_inc +time_eps > model%numerics%tend) then
          time_inc = model%numerics%tend - cur_time
       endif
       print *, "CISM timestep: time = ", cur_time, ", dt = ", time_inc

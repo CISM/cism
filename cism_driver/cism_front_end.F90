@@ -235,6 +235,7 @@ subroutine cism_run_dycore(model)
   type(ConfigSection), pointer :: config  ! configuration stuff
   real(kind=dp) :: time                   ! model time in years
   real(kind=dp) :: dt                     ! current time step to use
+  real(kind=dp) :: time_eps               ! tolerance within which times are equal 
   real(kind=dp) :: t1,t2
   integer :: clock,clock_rate,ret
   integer :: tstep_count
@@ -246,12 +247,12 @@ subroutine cism_run_dycore(model)
 
   time = model%numerics%tstart
   tstep_count = 0
-
+  time_eps = model%numerics%tinc/1000.0d0
 
   ! ------------- Begin time step loop -----------------
  
   ! run an internal or external dycore, depending on setting external_dycore_type
-  do while(time < model%numerics%tend)
+  do while(time + time_eps < model%numerics%tend)
 
     ! TODO: need to fix program to get initialized climate variable
     ! NOTE: these only do something when an EISMINT case is run
@@ -295,7 +296,8 @@ subroutine cism_run_dycore(model)
         print *,'Using External Dycore'
         ! The time variable gets incremented within this call:
         dt = model%numerics%tinc
-        if (time + dt > model%numerics%tend) then
+        
+        if (time + dt + time_eps > model%numerics%tend) then
            dt = model%numerics%tend - time
         endif
         call cism_run_external_dycore(model%options%external_dycore_model_index, &
