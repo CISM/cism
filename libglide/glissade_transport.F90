@@ -868,23 +868,27 @@
       indices_diff = indices_diff + staggered_lhalo  ! adjust to index the full dimensions including the halo
       print *, 'diffu dt', allowable_dt_diff, indices_diff(1), indices_diff(2)
 
+      ! Optional print of local limiting dt on each procesor
+      !print *,'LOCAL ADV DT, POSITION', allowable_dt_adv, indices_adv(2), indices_adv(3)
+      !print *,'LOCAL DIFF DT, POSITION', allowable_dt_diff, indices_diff(1), indices_diff(2)
+
+
       ! ------------------------------------------------------------------------
       ! Now check for errors
 
       ! Perform global reduce for advective time step and determine where in the domain it occurs
       call parallel_reduce_minloc(xin=allowable_dt_adv, xout=allowable_dt_adv, xprocout=procnum)
-      ! Get x,y position of the limiting location
-      ! TODO could put this in the if-statement since we don't need to do these additional MPI comms unless there is an error
-      call broadcast(indices_adv(2), proc=procnum)
-      call broadcast(indices_adv(3), proc=procnum)
-      ! indices_adv now has i,j on the limiting processor, not here
-      !print *,'ADV DT, POSITION', allowable_dt_adv, pos_adv(1), pos_adv(2)
-      ! Convert some processor's local indices to the global i,j indices
-      call parallel_globalindex(indices_adv(2), indices_adv(3), indices_adv(2), indices_adv(3), procnum=procnum)  ! Note: this subroutine assumes the scalar grid, but should work fine for the stag grid too
-      ! indices_adv now has i,j on the global grid, not here
 
       if (deltat > allowable_dt_adv) then
           ierr = 1  ! Advective CFL violation is a fatal error
+
+          ! Get position of the limiting location - do this only if an error message is needed to avoid 2 MPI comms
+          call parallel_globalindex(indices_adv(2), indices_adv(3), indices_adv(2), indices_adv(3))  ! Note: this subroutine assumes the scalar grid, but should work fine for 
+          ! indices_adv now has i,j on the global grid for this proc's location
+          call broadcast(indices_adv(2), proc=procnum)
+          call broadcast(indices_adv(3), proc=procnum)
+          ! indices_adv now has i,j on the global grid for the limiting proc's location
+
           write(dt_string,'(f12.5)') allowable_dt_adv
           write(xpos_string,'(i12)') indices_adv(2)
           write(ypos_string,'(i12)') indices_adv(3)
@@ -892,19 +896,18 @@
           call write_log(trim(message),GM_WARNING)      ! Write a warning first before throwing a fatal error so we can also check the diffusive CFL before aborting
       endif
 
+
       ! Perform global reduce for diffusive time step and determine where in the domain it occurs
       call parallel_reduce_minloc(xin=allowable_dt_diff, xout=allowable_dt_diff, xprocout=procnum)
-      ! Get x,y position of the limiting location
-      ! TODO could put this in the if-statement since we don't need to do these additional MPI comms unless there is an error
-      call broadcast(indices_diff(1), proc=procnum)
-      call broadcast(indices_diff(2), proc=procnum)
-      ! indices_diff now has i,j on the limiting processor, not here
-      !print *,'DIFF DT, POSITION', allowable_dt_diff, pos_diff(1), pos_diff(2)
-      ! Convert some processor's local indices to the global i,j indices
-      call parallel_globalindex(indices_diff(1), indices_diff(2), indices_diff(1), indices_diff(2), procnum=procnum)  ! Note: this subroutine assumes the scalar grid, but should work fine for the stag grid too
-      ! indices_diff now has i,j on the global grid, not here
 
       if (deltat > allowable_dt_diff) then
+          ! Get position of the limiting location - do this only if an error message is needed to avoid 2 MPI comms
+          call parallel_globalindex(indices_diff(1), indices_diff(2), indices_diff(1), indices_diff(2))  ! Note: this subroutine assumes the scalar grid, but should work fine for the stag grid too
+          ! indices_diff now has i,j on the global grid for this proc's location
+          call broadcast(indices_diff(1), proc=procnum)
+          call broadcast(indices_diff(2), proc=procnum)
+          ! indices_diff now has i,j on the global grid for the limiting proc's location
+
           write(dt_string,'(f12.5)') allowable_dt_diff
           write(xpos_string,'(i12)') indices_diff(1)
           write(ypos_string,'(i12)') indices_diff(2)

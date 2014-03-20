@@ -1440,11 +1440,10 @@ contains
   end function parallel_globalID_scalar
 
 
-  subroutine parallel_globalindex(ilocal, jlocal, iglobal, jglobal, procnum)
+  subroutine parallel_globalindex(ilocal, jlocal, iglobal, jglobal)
     ! Calculates the global i,j indices from the local i,j indices
     integer,intent(IN)  :: ilocal,  jlocal  ! These include the halos
     integer,intent(OUT) :: iglobal, jglobal ! These do NOT include halos
-    integer,intent(in), optional :: procnum  ! optional input of processor number that the ilocal,jlocal belong to.  If omitted, assumed to the local procesor.
 
     ! Return -1 indices if the local i,j is in a halo (and has no representation on the global grid)
     if ((ilocal <= lhalo) .or. (ilocal > lhalo + own_ewn)) then
