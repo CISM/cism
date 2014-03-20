@@ -911,7 +911,8 @@
           write(dt_string,'(f12.5)') allowable_dt_diff
           write(xpos_string,'(i12)') indices_diff(1)
           write(ypos_string,'(i12)') indices_diff(2)
-          write(message,*) 'Diffusive CFL violation!  (The currently implemented diffusive CFL calculation may be overly restrictive so this is not fatal.)  Maximum allowable time step for diffusive CFL condition is ' // trim(adjustl(dt_string)) // ' yr, limited by position i=' // trim(adjustl(xpos_string)) // ' j=' //trim(adjustl(ypos_string))
+          write(message,*) 'Diffusive CFL violation! (The currently implemented diffusive CFL calculation may be overly restrictive so this is not fatal.)'
+          write(message,*) 'Maximum allowable time step for diffusive CFL condition is ' // trim(adjustl(dt_string)) // ' yr, limited by position i=' // trim(adjustl(xpos_string)) // ' j=' //trim(adjustl(ypos_string))
           call write_log(trim(message),GM_WARNING)      ! Diffusive CFL violation is just a warning (because it may be overly restrictive as currently formulated)
       endif
 
