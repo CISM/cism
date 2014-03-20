@@ -134,39 +134,22 @@ contains
     character(len=100) :: message
 
     !-----------------------------------------------------------------
-    ! Determine whether global diagnostic point is on this processor.
+    ! Find the local rank and indices of the global diagnostic point
     !-----------------------------------------------------------------
 
-    model%numerics%rdiag_local = -999
-    model%numerics%idiag_local = -999
-    model%numerics%jdiag_local = -999
+    call parallel_localindex(model%numerics%idiag,       model%numerics%jdiag,       &
+                             model%numerics%idiag_local, model%numerics%jdiag_local, &
+                             model%numerics%rdiag_local)
 
-    ! loop over gridcells owned by this processor
-    do j = lhalo+1, model%general%nsn-uhalo
-       do i = lhalo+1, model%general%ewn-uhalo
-          global_row = (j - lhalo) + global_row_offset
-          global_col = (i - lhalo) + global_col_offset
-          if (global_col == model%numerics%idiag .and.   &
-              global_row == model%numerics%jdiag) then   ! diag point lives on this processor
-             model%numerics%rdiag_local = this_rank
-             model%numerics%idiag_local = i 
-             model%numerics%jdiag_local = j 
-          endif
-       enddo   ! i
-    enddo   ! j
-
-    !-----------------------------------------------------------------
-    ! Communicate this information to the main processor.
-    !-----------------------------------------------------------------
-    !NOTE: At present, the broadcast subroutines allow broadcasts only from main_task,
-    !       not from other processors.
-    !      So the way we get info to main_task is by parallel reductions.
-    !TODO: Allow global broadcasts from all processors.
-    !-----------------------------------------------------------------
-
-    model%numerics%rdiag_local = parallel_reduce_max(model%numerics%rdiag_local)
-    model%numerics%idiag_local = parallel_reduce_max(model%numerics%idiag_local)
-    model%numerics%jdiag_local = parallel_reduce_max(model%numerics%jdiag_local)
+    !WHL - debug
+    if (main_task) then
+       write(6,'(a25,2i6)') 'Global idiag, jdiag:     ',   &
+                             model%numerics%idiag, model%numerics%jdiag
+       write(6,'(a25,3i6)') 'Local idiag, jdiag, task:',   &
+                             model%numerics%idiag_local,  &
+                             model%numerics%jdiag_local,  &
+                             model%numerics%rdiag_local
+    endif
 
     if (main_task) then
 
@@ -179,14 +162,6 @@ contains
                                    model%numerics%jdiag_local,  &
                                    model%numerics%rdiag_local
        call write_log(trim(message), type = GM_DIAGNOSTIC)
-
-       !WHL - debug
-       write(6,'(a25,2i6)') 'Global idiag, jdiag:     ',   &
-                             model%numerics%idiag, model%numerics%jdiag
-       write(6,'(a25,3i6)') 'Local idiag, jdiag, task:',   &
-                             model%numerics%idiag_local,  &
-                             model%numerics%jdiag_local,  &
-                             model%numerics%rdiag_local
 
     endif  ! main_task
 

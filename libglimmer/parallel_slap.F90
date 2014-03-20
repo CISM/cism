@@ -256,13 +256,18 @@ module parallel
   end interface
 
   ! This reduce interface determines the global min value and the processor on which it occurs
+  interface parallel_reduce_maxloc
+     module procedure parallel_reduce_maxloc_integer
+     module procedure parallel_reduce_maxloc_real4
+     module procedure parallel_reduce_maxloc_real8
+  end interface
+
+  ! This reduce interface determines the global min value and the processor on which it occurs
   interface parallel_reduce_minloc
      module procedure parallel_reduce_minloc_integer
      module procedure parallel_reduce_minloc_real4
      module procedure parallel_reduce_minloc_real8
   end interface
-
-  ! (a similar interface could be added for maxloc if needed)
 
 contains
 
@@ -1458,6 +1463,27 @@ contains
     endif
   end subroutine parallel_globalindex
 
+  subroutine parallel_localindex(iglobal, jglobal, ilocal, jlocal, rlocal)
+    ! Calculates the local i,j indices and rank from the global i,j indices                                                                                               
+    integer,intent(IN) :: iglobal, jglobal 
+    integer,intent(OUT)  :: ilocal, jlocal, rlocal
+
+    ilocal = iglobal + lhalo 
+    jlocal = jglobal + lhalo 
+    rlocal = this_rank
+
+    ! Check whether these are valid values of ilocal and jlocal
+    if ( (ilocal > lhalo .and. ilocal <= lhalo + own_ewn)  &
+                         .and.                             &
+         (jlocal > lhalo .and. jlocal <= lhalo + own_nsn) ) then
+         ! global indices are valid
+    else ! global indices are invalid 
+       if (main_task) then
+          write(*,*) 'Invalid global indices: iglobal, jglobal =', iglobal, jglobal
+          call parallel_stop(__FILE__,__LINE__)
+       endif
+    endif
+  end subroutine parallel_localindex
 
 
   subroutine parallel_halo_integer_2d(a)
@@ -2095,6 +2121,45 @@ contains
     parallel_reduce_max_real8 = x
     return
   end function parallel_reduce_max_real8
+
+! ------------------------------------------
+! routines for parallel_reduce_maxloc interface
+! ------------------------------------------
+  subroutine parallel_reduce_maxloc_integer(xin, xout, xprocout)
+    ! Max x across all of the nodes and its proc number
+    ! In parallel_slap mode just return x.
+    implicit none
+    integer, intent(in) :: xin         ! variable to reduce
+    integer, intent(out) :: xout       ! value resulting from the reduction
+    integer, intent(out) :: xprocout   ! processor on which reduced value occurs
+
+    xout = xin
+    xprocout = this_rank
+  end subroutine parallel_reduce_maxloc_integer
+
+  subroutine parallel_reduce_maxloc_real4(xin, xout, xprocout)
+    ! Max x across all of the nodes and its proc number
+    ! In parallel_slap mode just return x.
+    implicit none
+    real(4), intent(in) :: xin         ! variable to reduce
+    real(4), intent(out) :: xout       ! value resulting from the reduction
+    integer, intent(out) :: xprocout   ! processor on which reduced value occurs
+
+    xout = xin
+    xprocout = this_rank
+  end subroutine parallel_reduce_maxloc_real4
+
+  subroutine parallel_reduce_maxloc_real8(xin, xout, xprocout)
+    ! Max x across all of the nodes and its proc number
+    ! In parallel_slap mode just return x.
+    implicit none
+    real(8), intent(in) :: xin         ! variable to reduce
+    real(8), intent(out) :: xout       ! value resulting from the reduction
+    integer, intent(out) :: xprocout   ! processor on which reduced value occurs
+
+    xout = xin
+    xprocout = this_rank
+  end subroutine parallel_reduce_maxloc_real8
 
 ! ------------------------------------------
 ! functions for parallel_reduce_min interface

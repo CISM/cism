@@ -285,14 +285,19 @@ module parallel
      module procedure parallel_reduce_sum_real8
   end interface
 
+  ! This reduce interface determines the global max value and the processor on which it occurs
+  interface parallel_reduce_maxloc
+     module procedure parallel_reduce_maxloc_integer
+     module procedure parallel_reduce_maxloc_real4
+     module procedure parallel_reduce_maxloc_real8
+  end interface
+
   ! This reduce interface determines the global min value and the processor on which it occurs
   interface parallel_reduce_minloc
      module procedure parallel_reduce_minloc_integer
      module procedure parallel_reduce_minloc_real4
      module procedure parallel_reduce_minloc_real8
   end interface
-
-  ! (a similar interface could be added for maxloc if needed)
 
 contains
 
@@ -1543,6 +1548,7 @@ contains
        end do
     end if
     ! automatic deallocation
+
   end subroutine distributed_print_grid
 
   subroutine distributed_print_integer_2d(name,values)
@@ -2925,6 +2931,36 @@ contains
     endif
   end subroutine parallel_globalindex
 
+  subroutine parallel_localindex(iglobal, jglobal, ilocal, jlocal, rlocal)
+    ! Calculates the local i,j indices and rank from the global i,j indices
+    integer,intent(IN) :: iglobal, jglobal 
+    integer,intent(OUT)  :: ilocal, jlocal, rlocal
+    integer :: flag 
+
+    flag = 0   ! This flag will be flipped on exactly one processor if the global point is valid
+    ilocal = iglobal + lhalo - global_col_offset
+    jlocal = jglobal + lhalo - global_row_offset
+
+    ! Check whether these are valid values of ilocal and jlocal
+    ! If so, then flip the flag and broadcast these values
+    if ( (ilocal > lhalo .and. ilocal <= lhalo + own_ewn)  &
+                         .and.                             &
+         (jlocal > lhalo .and. jlocal <= lhalo + own_nsn) ) then
+       flag = 1
+    endif
+
+    call parallel_reduce_maxloc(flag, flag, rlocal)
+
+    if (flag==1) then
+       call broadcast(ilocal, rlocal)
+       call broadcast(jlocal, rlocal)
+    else ! global indices are invalid
+       if (main_task) then
+          write(*,*) 'Invalid global indices: iglobal, jglobal =', iglobal, jglobal
+          call parallel_stop(__FILE__,__LINE__)       
+       endif
+    endif
+  end subroutine parallel_localindex
 
   subroutine parallel_halo_integer_2d(a)
     use mpi_mod
@@ -3965,6 +4001,60 @@ contains
     parallel_reduce_max_real8 = recvbuf
     return
   end function parallel_reduce_max_real8
+
+! ------------------------------------------
+! routines for parallel_reduce_maxloc interface
+! ------------------------------------------
+  subroutine parallel_reduce_maxloc_integer(xin, xout, xprocout)
+    use mpi_mod
+    implicit none
+    integer, intent(in) :: xin         ! variable to reduce
+    integer, intent(out) :: xout       ! value resulting from the reduction
+    integer, intent(out) :: xprocout   ! processor on which reduced value occurs
+
+    integer :: ierror
+    integer, dimension(2,1) :: recvbuf, sendbuf
+    ! begin
+    sendbuf(1,1) = xin
+    sendbuf(2,1) = this_rank  ! This is the processor number associated with the value x
+    call mpi_allreduce(sendbuf,recvbuf,1,MPI_2INTEGER,mpi_maxloc,comm,ierror)
+    xout = recvbuf(1,1)
+    xprocout = recvbuf(2,1)
+  end subroutine parallel_reduce_maxloc_integer
+
+  subroutine parallel_reduce_maxloc_real4(xin, xout, xprocout)
+    use mpi_mod
+    implicit none
+    real(4), intent(in) :: xin         ! variable to reduce
+    real(4), intent(out) :: xout       ! value resulting from the reduction
+    integer, intent(out) :: xprocout   ! processor on which reduced value occurs
+
+    integer :: ierror
+    real(4), dimension(2,1) :: recvbuf, sendbuf
+    ! begin
+    sendbuf(1,1) = xin
+    sendbuf(2,1) = this_rank  ! This is the processor number associated with the value x (coerced to a real)
+    call mpi_allreduce(sendbuf,recvbuf,1,MPI_2REAL,mpi_maxloc,comm,ierror)
+    xout = recvbuf(1,1)
+    xprocout = recvbuf(2,1) ! coerced back to integer
+  end subroutine parallel_reduce_maxloc_real4
+
+  subroutine parallel_reduce_maxloc_real8(xin, xout, xprocout)
+    use mpi_mod
+    implicit none
+    real(8), intent(in) :: xin         ! variable to reduce
+    real(8), intent(out) :: xout       ! value resulting from the reduction
+    integer, intent(out) :: xprocout   ! processor on which reduced value occurs
+
+    integer :: ierror
+    real(8), dimension(2,1) :: recvbuf, sendbuf
+    ! begin
+    sendbuf(1,1) = xin
+    sendbuf(2,1) = this_rank  ! This is the processor number associated with the value x (coerced to a real)
+    call mpi_allreduce(sendbuf,recvbuf,1,MPI_2DOUBLE_PRECISION,mpi_maxloc,comm,ierror)
+    xout = recvbuf(1,1)
+    xprocout = recvbuf(2,1) ! coerced back to integer
+  end subroutine parallel_reduce_maxloc_real8
 
 ! ------------------------------------------
 ! functions for parallel_reduce_min interface
