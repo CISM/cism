@@ -9,7 +9,7 @@ import sys, os, numpy
 # parameter values to use in this script and the post-processing plotting script.
 # =====================================
 
-analytic_solution = 'raymond'  # can be 'raymond' or 'schoof'
+analytic_solution = 'schoof'  # can be 'raymond' or 'schoof'
 kinflag = 1    # apply kinematic bc (analytic soln) at up/downstream ends
 #% kinflag = 0;    %% apply 0 vel bc at up/downstream ends
 
@@ -34,12 +34,15 @@ L = 1.4e4  # Schoof yield stress width parameter  ## TODO Steve is this correct?
 
 # -- Functions for analytic solutions --
 # Schoof yield stress distribution
-def schoof_tau(taud, yy):
-  return taud * numpy.absolute( yy / L )**m
+def schoof_tau(yy):
+  ny = len(yy)
+  dy = yy[1] - yy[0]
+  yy_centered = yy - ny * dy / 2.0
+  return taud * numpy.absolute( yy_centered / L )**m
 
 # yield stress (for Raymond solution only)
-def raymond_tau(x):
-  return 5.2e3*numpy.ones(x.shape)
+def raymond_tau(yy):
+  return 5.2e3*numpy.ones(yy.shape)
 
 
 # =====================================
@@ -73,6 +76,9 @@ if __name__ == '__main__':
         filename = configParser.get('CF input', 'name')
     except:
         sys.exit('Error parsing ' + options.configfile)
+
+    if (ny % 2) != 0:
+      sys.exit("Error: 'nsn' in the config file must be divisible by 2")
 
     print 'Writing', filename
     try:
