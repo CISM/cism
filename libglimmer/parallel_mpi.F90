@@ -2906,6 +2906,38 @@ contains
 
   end function parallel_globalID_scalar
 
+
+  subroutine parallel_globalindex(ilocal, jlocal, iglobal, jglobal, procnum)
+    ! Calculates the global i,j indices from the local i,j indices
+    integer,intent(IN)  :: ilocal,  jlocal  ! These include the halos
+    integer,intent(OUT) :: iglobal, jglobal ! These do NOT include halos
+    integer,intent(in), optional :: procnum  ! optional input of processor number that the ilocal,jlocal belong to.  If omitted, assumed to the local procesor.
+    ! Locals
+    integer :: offset_i, offset_j  ! the offset to the owned cells of the desired processor
+
+    offset_i = global_col_offset
+    offset_j = global_row_offset
+    if (present(procnum)) then
+        ! Need to determine the offset for the processor in question
+        ! There may be a more efficient way to do this, but have that processor broadcast it here.
+        call broadcast(offset_i, proc=procnum)
+        call broadcast(offset_j, proc=procnum)
+    endif
+
+    ! Return -1 indices if the local i,j is in a halo (and has no representation on the global grid)
+    if ((ilocal <= lhalo) .or. (ilocal > lhalo + own_ewn)) then
+       iglobal = -1
+    else
+       iglobal = (ilocal - lhalo) + offset_i
+    endif
+    if ((jlocal <= lhalo) .or. (jlocal > lhalo + own_nsn)) then
+       jglobal = -1
+    else
+       jglobal = (jlocal - lhalo) + offset_j
+    endif
+  end subroutine parallel_globalindex
+
+
   subroutine parallel_halo_integer_2d(a)
     use mpi_mod
     implicit none
