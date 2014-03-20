@@ -228,6 +228,7 @@ contains
                imax_global, imin_global,          &
                jmax_global, jmin_global,          &
                kmax_global, kmin_global,          &
+               procnum,                           &
                ewn, nsn, upn,                     &    ! model%numerics%ewn, etc.
                nlith,                             &    ! model%lithot%nlayer
                velo_ew_ubound, velo_ns_ubound          ! upper bounds for velocity variables
@@ -256,13 +257,6 @@ contains
        velo_ns_ubound = nsn-uhalo-1
        velo_ew_ubound = ewn-uhalo-1
     end if
-
-!NOTE: Some of the global reductions below may seem unnecessary.
-!      But at present, subroutine write_log permits writes only from main_task,
-!       and the broadcast subroutines allow broadcasts only from main_task,
-!       not from other processors.
-!      So the way we get info to main_task is by parallel reductions.
-!TODO: Support broadcasting from tasks other than main.
 
     !-----------------------------------------------------------------
     ! Compute and write global diagnostics
@@ -471,7 +465,7 @@ contains
     do j = lhalo+1, nsn-uhalo
        do i = lhalo+1, ewn-uhalo
           if (model%geometry%thck(i,j) * thk0 > minthick) then
-             do k = ktop, kbed
+            do k = ktop, kbed
                 if (model%temper%temp(k,i,j) > max_temp) then
                    max_temp = model%temper%temp(k,i,j)
                    imax = i
@@ -483,19 +477,17 @@ contains
        enddo
     enddo
 
-    imax_global = 0
-    jmax_global = 0
-    kmax_global = 0
-    max_temp_global = parallel_reduce_max(max_temp)
-    if (max_temp == max_temp_global) then  ! max_temp lives on this processor
-       imax_global = (imax - lhalo) + global_col_offset
-       jmax_global = (jmax - lhalo) + global_row_offset
-       kmax_global = kmax
-    endif
-    imax_global = parallel_reduce_max(imax_global)
-    jmax_global = parallel_reduce_max(jmax_global)
-    kmax_global = parallel_reduce_max(kmax_global)
+    call parallel_reduce_maxloc(xin=max_temp, xout=max_temp_global, xprocout=procnum)
+    call parallel_globalindex(imax, jmax, imax_global, jmax_global)
+    kmax_global = kmax
+    call broadcast(imax_global, procnum)
+    call broadcast(jmax_global, procnum)
+    call broadcast(kmax_global, procnum)
 
+    write(message,'(a25,f24.16,3i4)') 'Max temperature, i, j, k ',   &
+                    max_temp_global, imax_global, jmax_global, kmax_global
+    call write_log(trim(message), type = GM_DIAGNOSTIC)
+ 
     ! min temperature
 
     imin = 0
@@ -517,23 +509,13 @@ contains
        enddo
     enddo
 
-    imin_global = 0
-    jmin_global = 0
-    kmin_global = 0
-    min_temp_global = -parallel_reduce_max(-min_temp)
-    if (min_temp == min_temp_global) then  ! min_temp lives on this processor
-       imin_global = (imin - lhalo) + global_col_offset
-       jmin_global = (jmin - lhalo) + global_row_offset
-       kmin_global = kmin
-    endif
-    imin_global = parallel_reduce_max(imin_global)
-    jmin_global = parallel_reduce_max(jmin_global)
-    kmin_global = parallel_reduce_max(kmin_global)
- 
-    write(message,'(a25,f24.16,3i4)') 'Max temperature, i, j, k ',   &
-                    max_temp_global, imax_global, jmax_global, kmax_global
-    call write_log(trim(message), type = GM_DIAGNOSTIC)
- 
+    call parallel_reduce_minloc(xin=min_temp, xout=min_temp_global, xprocout=procnum)
+    call parallel_globalindex(imin, jmin, imin_global, jmin_global)
+    kmin_global = kmin
+    call broadcast(imin_global, procnum)
+    call broadcast(jmin_global, procnum)
+    call broadcast(kmin_global, procnum)
+
     write(message,'(a25,f24.16,3i4)') 'Min temperature, i, j, k ',   &
                     min_temp_global, imin_global, jmin_global, kmin_global
     call write_log(trim(message), type = GM_DIAGNOSTIC)
@@ -556,15 +538,10 @@ contains
        enddo
     enddo
 
-    imax_global = 0
-    jmax_global = 0
-    max_spd_sfc_global = parallel_reduce_max(max_spd_sfc)
-    if (max_spd_sfc == max_spd_sfc_global) then  ! max_spd_sfc lives on this processor
-       imax_global = (imax - lhalo) + global_col_offset
-       jmax_global = (jmax - lhalo) + global_row_offset
-    endif
-    imax_global = parallel_reduce_max(imax_global)
-    jmax_global = parallel_reduce_max(jmax_global)
+    call parallel_reduce_maxloc(xin=max_spd_sfc, xout=max_spd_sfc_global, xprocout=procnum)
+    call parallel_globalindex(imax, jmax, imax_global, jmax_global)
+    call broadcast(imax_global, procnum)
+    call broadcast(jmax_global, procnum)
 
     write(message,'(a25,f24.16,2i4)') 'Max sfc spd (m/yr), i, j ',   &
                     max_spd_sfc_global*vel0*scyr, imax_global, jmax_global
@@ -587,16 +564,11 @@ contains
        enddo
     enddo
 
-    imax_global = 0
-    jmax_global = 0
-    max_spd_bas_global = parallel_reduce_max(max_spd_bas)
-    if (max_spd_bas == max_spd_bas_global) then  ! max_spd_bas lives on this processor
-       imax_global = (imax - lhalo) + global_col_offset
-       jmax_global = (jmax - lhalo) + global_row_offset
-    endif
-    imax_global = parallel_reduce_max(imax_global)
-    jmax_global = parallel_reduce_max(jmax_global)
- 
+    call parallel_reduce_maxloc(xin=max_spd_bas, xout=max_spd_bas_global, xprocout=procnum)
+    call parallel_globalindex(imax, jmax, imax_global, jmax_global)
+    call broadcast(imax_global, procnum)
+    call broadcast(jmax_global, procnum)
+
     write(message,'(a25,f24.16,2i4)') 'Max base spd (m/yr), i, j',   &
                     max_spd_bas_global*vel0*scyr, imax_global, jmax_global
     call write_log(trim(message), type = GM_DIAGNOSTIC)
