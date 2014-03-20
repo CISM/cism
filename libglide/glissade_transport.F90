@@ -729,7 +729,7 @@
 
 
 !=======================================================================
-    subroutine glissade_check_cfl(ewn, nsn, nlyr, dew, dsn, sigma, x0, y0, &
+    subroutine glissade_check_cfl(ewn, nsn, nlyr, dew, dsn, sigma,         &
                      stagthk, dusrfdew, dusrfdns, uvel, vvel, deltat,      &
                      allowable_dt_adv, allowable_dt_diff)
 !
@@ -753,8 +753,6 @@
          dew, dsn    ! grid spacing in x, y (not assumed to be equal here), dimensional m
       real(dp), dimension(:), intent(in) :: &
          sigma       ! vertical coordinate spacing
-      real(dp), dimension(:), intent(in) :: &
-         x0, y0      ! coordinates of the staggered grid
       real(dp), dimension(:,:), intent(in) :: &
          stagthk     ! thickness on the staggered grid, dimensional m
       real(dp), dimension(:,:), intent(in) :: &
@@ -787,7 +785,6 @@
       integer :: procnum  ! processor on which minimum allowable time step occurs
       integer, dimension(3) :: indices_adv  ! z,x,y indices (stag. grid) of where the min. allow. time step occurs for the advective CFL
       integer, dimension(2) :: indices_diff  ! x and y indices (stag. grid) of where the min. allow. time step occurs for  the  diffusive CFL
-      real(dp), dimension(2) :: pos_adv, pos_diff  ! x and y indices (stag. grid) of where the min. allow. time step occurs for both the advective and diffusive CFLs
       character(len=12)  :: dt_string, xpos_string, ypos_string
       character(len=300) :: message
       ierr = 0
@@ -824,17 +821,15 @@
       maxvvel = maxval(abs(vvel_layer(:,xs:xe,ys:ye)))
       ! Determine in which direction the max velocity is - Assuming dx=dy here!
       if (maxuvel > maxvvel) then
+         print *, 'max vel is in uvel'
          maxvel = maxuvel
          indices_adv = maxloc(abs(uvel_layer(:,xs:xe,ys:ye)))
       else
+         print *, 'max vel is in vvel'
          maxvel = maxvvel
          indices_adv = maxloc(abs(vvel_layer(:,xs:xe,ys:ye)))
       endif
-      ! Determine location of fastest velocity
-      indices_adv(2:3) = indices_adv(2:3) + staggered_lhalo  ! adjust to index the full dimensions including the halo
-      pos_adv(1) = x0(indices_adv(2))
-      pos_adv(2) = y0(indices_adv(3))
-      !print *, 'local pos', pos_adv
+      indices_adv(2:3) = indices_adv(2:3) + staggered_lhalo  ! want the i,j coordinates WITH the halo present
       ! Finally, determine maximum allowable time step based on advectice CFL condition.
       allowable_dt_adv = dew / (maxvel + 1.0d-20)
 
@@ -871,9 +866,7 @@
       enddo
       ! Determine location limitng the DCFL
       indices_diff = indices_diff + staggered_lhalo  ! adjust to index the full dimensions including the halo
-      pos_diff(1) = x0(indices_diff(1))
-      pos_diff(2) = y0(indices_diff(2))
-      print *, 'diffu dt', allowable_dt_diff, indices_diff(1), indices_diff(2), pos_diff(1), pos_diff(2)
+      print *, 'diffu dt', allowable_dt_diff, indices_diff(1), indices_diff(2)
 
       ! ------------------------------------------------------------------------
       ! Now check for errors
@@ -882,16 +875,20 @@
       call parallel_reduce_minloc(xin=allowable_dt_adv, xout=allowable_dt_adv, xprocout=procnum)
       ! Get x,y position of the limiting location
       ! TODO could put this in the if-statement since we don't need to do these additional MPI comms unless there is an error
-      call broadcast(pos_adv(1), proc=procnum)
-      call broadcast(pos_adv(2), proc=procnum)
+      call broadcast(indices_adv(2), proc=procnum)
+      call broadcast(indices_adv(3), proc=procnum)
+      ! indices_adv now has i,j on the limiting processor, not here
       !print *,'ADV DT, POSITION', allowable_dt_adv, pos_adv(1), pos_adv(2)
+      ! Convert some processor's local indices to the global i,j indices
+      call parallel_globalindex(indices_adv(2), indices_adv(3), indices_adv(2), indices_adv(3), procnum=procnum)  ! Note: this subroutine assumes the scalar grid, but should work fine for the stag grid too
+      ! indices_adv now has i,j on the global grid, not here
 
       if (deltat > allowable_dt_adv) then
           ierr = 1  ! Advective CFL violation is a fatal error
           write(dt_string,'(f12.5)') allowable_dt_adv
-          write(xpos_string,'(f12.1)') pos_adv(1)
-          write(ypos_string,'(f12.1)') pos_adv(2)
-          write(message,*) 'Error: Advective CFL violation!  Maximum allowable time step for advective CFL condition is ' // trim(adjustl(dt_string)) // ' yr, limited by position x0=' // trim(adjustl(xpos_string)) // ' m, y0=' //trim(adjustl(ypos_string)) // ' m.'
+          write(xpos_string,'(i12)') indices_adv(2)
+          write(ypos_string,'(i12)') indices_adv(3)
+          write(message,*) 'Error: Advective CFL violation!  Maximum allowable time step for advective CFL condition is ' // trim(adjustl(dt_string)) // ' yr, limited by position i=' // trim(adjustl(xpos_string)) // ' j=' //trim(adjustl(ypos_string))
           call write_log(trim(message),GM_WARNING)      ! Write a warning first before throwing a fatal error so we can also check the diffusive CFL before aborting
       endif
 
@@ -899,15 +896,19 @@
       call parallel_reduce_minloc(xin=allowable_dt_diff, xout=allowable_dt_diff, xprocout=procnum)
       ! Get x,y position of the limiting location
       ! TODO could put this in the if-statement since we don't need to do these additional MPI comms unless there is an error
-      call broadcast(pos_diff(1), proc=procnum)
-      call broadcast(pos_diff(2), proc=procnum)
+      call broadcast(indices_diff(1), proc=procnum)
+      call broadcast(indices_diff(2), proc=procnum)
+      ! indices_diff now has i,j on the limiting processor, not here
       !print *,'DIFF DT, POSITION', allowable_dt_diff, pos_diff(1), pos_diff(2)
+      ! Convert some processor's local indices to the global i,j indices
+      call parallel_globalindex(indices_diff(1), indices_diff(2), indices_diff(1), indices_diff(2), procnum=procnum)  ! Note: this subroutine assumes the scalar grid, but should work fine for the stag grid too
+      ! indices_diff now has i,j on the global grid, not here
 
       if (deltat > allowable_dt_diff) then
           write(dt_string,'(f12.5)') allowable_dt_diff
-          write(xpos_string,'(f12.1)') pos_diff(1)
-          write(ypos_string,'(f12.1)') pos_diff(2)
-          write(message,*) 'Diffusive CFL violation!  (The currently implemented diffusive CFL calculation may be overly restrictive so this is not fatal.)  Maximum allowable time step for diffusive CFL condition is ' // trim(adjustl(dt_string)) // ' yr, limited by position x0=' // trim(adjustl(xpos_string)) // ' m, y0=' //trim(adjustl(ypos_string)) // ' m.'
+          write(xpos_string,'(i12)') indices_diff(1)
+          write(ypos_string,'(i12)') indices_diff(2)
+          write(message,*) 'Diffusive CFL violation!  (The currently implemented diffusive CFL calculation may be overly restrictive so this is not fatal.)  Maximum allowable time step for diffusive CFL condition is ' // trim(adjustl(dt_string)) // ' yr, limited by position i=' // trim(adjustl(xpos_string)) // ' j=' //trim(adjustl(ypos_string))
           call write_log(trim(message),GM_WARNING)      ! Diffusive CFL violation is just a warning (because it may be overly restrictive as currently formulated)
       endif
 

@@ -540,7 +540,6 @@ contains
       ! stagthck, dusrfdew/ns and u/vvel need to be from the previous time step (and are at this point)
       call glissade_check_cfl(model%general%ewn, model%general%nsn, model%general%upn-1,                   &
                            model%numerics%dew * len0, model%numerics%dns * len0, model%numerics%sigma,     &
-                           model%general%x1, model%general%y1,                                             &
                            model%geomderv%stagthck * thk0, model%geomderv%dusrfdew*thk0/len0, model%geomderv%dusrfdns*thk0/len0, &
                            model%velocity%uvel * scyr * vel0, model%velocity%vvel * scyr * vel0,           &
                            model%numerics%dt * tim0 / scyr,                                                &
