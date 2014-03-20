@@ -34,7 +34,7 @@
 module gcm_cism_interface
 
   use parallel
-  use glimmer_commandline
+  use glint_commandline
   use glide
   use cism_front_end
 
