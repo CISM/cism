@@ -9,7 +9,7 @@ import sys, os, numpy
 # parameter values to use in this script and the post-processing plotting script.
 # =====================================
 
-analytic_solution = 'schoof'  # can be 'raymond' or 'schoof'
+analytic_solution = 'raymond'  # can be 'raymond' or 'schoof'
 kinflag = 1    # apply kinematic bc (analytic soln) at up/downstream ends
 #% kinflag = 0;    %% apply 0 vel bc at up/downstream ends
 
@@ -33,16 +33,15 @@ m = 1.55  # Schoof exponent
 L = 1.4e4  # Schoof yield stress width parameter  ## TODO Steve is this correct?
 
 # -- Functions for analytic solutions --
-# Schoof yield stress distribution
-def schoof_tau(yy):
-  ny = len(yy)
-  dy = yy[1] - yy[0]
-  yy_centered = yy - ny * dy / 2.0
-  return taud * numpy.absolute( yy_centered / L )**m
 
-# yield stress (for Raymond solution only)
+# Raymond yield stress
 def raymond_tau(yy):
   return 5.2e3*numpy.ones(yy.shape)
+
+# Schoof yield stress distribution
+def schoof_tau(yy):
+  return taud * numpy.absolute( yy_centered / L )**m
+
 
 
 # =====================================
@@ -55,11 +54,13 @@ if __name__ == '__main__':
     optparser.add_option("-c", "--config", dest="configfile", type='string', default='stream.config', help="Name of .config file to use to setup and run the test case", metavar="FILE")
     optparser.add_option('-m','--parallel',dest='parallel',type='int', help='Number of processors to run the model with: if specified then execute run in parallel', metavar="NUMPROCS")
     optparser.add_option('-e','--exec',dest='executable',default='./simple_glide',help='Set path to the CISM executable (defaults to "./simple_glide")')
+    for option in optparser.option_list:
+        if option.default != ("NO", "DEFAULT"):
+            option.help += (" " if option.help else "") + "[default: %default]"
     options, args = optparser.parse_args()
 
 
     from netCDF import *
-    from math import sqrt
     import ConfigParser
 
 
@@ -116,10 +117,13 @@ if __name__ == '__main__':
     for j in range(ny):
       topg[0,j,:] = 1000.0 + dsdx * x1[:]   # sloped bed.  add 1000.0 to stay well above sea level
 
+
+    y0_centered = y0 - ny * dy / 2.0  # use y coord that are symmetrical about 0
+
     if analytic_solution == 'raymond':
-        tau0profile = raymond_tau(y0)
+        tau0profile = raymond_tau(y0_centered)
     elif analytic_solution == 'schoof':
-        tau0profile = schoof_tau(y0)
+        tau0profile = schoof_tau(y0_centered)
     else:
         sys.exit("Error: Invalid value for 'analytic_solution'.")
     for i in range(nx-1):
@@ -178,4 +182,73 @@ if __name__ == '__main__':
 
 
 
+##################################
+# old stuff from the .m script that may be useful in the future
 
+###if( flag == 0 )         % assign Raymond profile
+###    tauf_profile = tau0r*ones(r-7,1);        
+###    tauf = 0.7e5 * ones( r-1, c-1 );
+###    if( kinflag ~= 1 )
+###        tauf(4:end-3,3:end-2) = repmat( tauf_profile, 1, c-5 );     %% no slip at/near up/downstream ends
+###    else
+###        tauf(4:end-3,:) = repmat( tauf_profile, 1, c-1 );     %% use periodic bcs for cont. along flow
+###    end
+###    u_profile = repmat( [ 0 0 fliplr(ur) ur(2:end) 0 0 ], levels, 1 );     
+###else                    % assign Schoof
+###    
+###    tauf_profile = [ fliplr(tau0s(2:end)), tau0s ]';        
+###    tauf = 0.7e5 * ones( r-1, c-1 );
+###    if( kinflag ~= 1 )
+###        tauf(3:end-2,3:end-2) = repmat( tauf_profile, 1, c-5 );     %% no slip at/near up/downstream ends
+###    else
+###        tauf(3:end-2,:) = repmat( tauf_profile, 1, c-1 );     %% use periodic bcs for cont. along flow
+###    end
+###    u_profile = repmat( [ 0 0 fliplr(us) us(2:end) 0 0 ], levels, 1 );
+###end
+###%% use shear strain rate at up/downstream ends to calculate across-flow velocity profile
+###%% necessary to balance the shear
+###x = [0:dx:dx*length(u_profile)-1];
+###dudy = gradient( u_profile(1,:), dy );
+###v_profile = -dudy*dy;
+
+###figure(999), clf
+###subplot( 2,1,1 ),hold on
+###plot( x, dudy, 'bo-' ), box on
+###xlabel( 'dist (m)' ), ylabel( 'shear strain rate (1/a)' )
+###subplot( 2,1,2 ),hold on
+###plot( x, v_profile, 'bo-' ), box on
+###xlabel( 'dist (m)' ), ylabel( 'across-flow component of vel (m/a)' )
+
+###v_profile = repmat( v_profile, levels, 1 );
+
+###% figure(200),clf
+###% subplot(2,2,1),hold on
+###% imagesc( thck ), axis xy, axis equal, axis tight, colorbar, title( 'thickness (m)' )
+###% subplot(2,2,2),hold on
+###% imagesc( usrf ), axis xy, axis equal, axis tight, colorbar, title( 'surface (m)' )
+###% subplot(2,2,3),hold on
+###% imagesc( topg ), axis xy, axis equal, axis tight, colorbar, title( 'bed (m)' )
+###% subplot(2,2,4),hold on
+###% imagesc( tauf/1e3 ), axis xy, axis equal, axis tight, colorbar, title( 'yield stress (kPa)' )
+
+###%% optional: add analytic solution at up/downstream ends as kin vel bc
+###kinbcmask = zeros(size(tauf));
+###uvelhom = zeros( levels, r-1, c-1 );
+###vvelhom = zeros( levels, r-1, c-1 );
+
+###if( kinflag == 1)
+###    uvelhom( :, :, end ) = u_profile; uvelhom( :, :, 1 ) = u_profile; 
+###    vvelhom( :, :, end ) = v_profile; vvelhom( :, :, 1 ) = -v_profile; 
+###    kinbcmask(:,1) = 1; kinbcmask(:,end) = 1;
+###    ind = find( tauf <= 0 ); tauf(ind) = 1e-10;
+###end
+
+###%% for newer code, uvelhom = uvel, etc.
+###uvel = uvelhom; vvel = vvelhom;
+
+###save stream.mat usrf topg thck tauf levels 
+
+###%% spit out some other vars needed in the .config file
+###periodic_offset = dx*(c-0.5)*dsdx;
+###dx
+###periodic_offset
