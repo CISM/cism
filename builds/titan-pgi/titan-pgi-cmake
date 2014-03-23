@@ -39,7 +39,7 @@ module unload cray-hdf5-parallel
 module unload netcdf
 module unload python
 module unload cray-shmem
-module unload cray-mpich2
+module unload cray-mpich cray-mpich2
 module unload netcdf-hdf5parallel boost pgi
 module unload PrgEnv-cray PrgEnv-gnu PrgEnv-intel PrgEnv-pathscale PrgEnv-pgi
 
@@ -76,17 +76,18 @@ cmake \
   -D CISM_COUPLED:BOOL=OFF \
   -D CISM_MPI_MODE:BOOL=ON \
   -D CISM_SERIAL_MODE:BOOL=OFF \
-  -D CISM_USE_GPTL_INSTRUMENTATION:BOOL=OFF \
+  -D CISM_USE_GPTL_INSTRUMENTATION:BOOL=ON \
 \
   -D CISM_BUILD_SIMPLE_GLIDE:BOOL=ON \
   -D CISM_BUILD_SIMPLE_BISICLES:BOOL=OFF \
   -D CISM_BUILD_GLINT_EXAMPLE:BOOL=OFF \
   -D CISM_BUILD_CISM_DRIVER:BOOL=ON \
 \
-  -D GLIMMER_TRILINOS_DIR=/ccs/home/ranken/trilinos/trilinos-11.4.1-Source/titan-pgi-13.10/install \
-  -D GLIMMER_TRILINOS_GPTL_DIR= \
+  -D GLIMMER_TRILINOS_DIR=/ccs/proj/cli062/Trilinos/cism-standard/default-pgi/install \
+  -D GLIMMER_TRILINOS_GPTL_DIR=/ccs/proj/cli062/worley/Trilinos/titan-pgi-ci-nophal/install \
   -D GLIMMER_TRILINOS_ALBANY_DIR= \
 \
+  -D GLIMMER_GPTL_DIR=/ccs/proj/cli062/worley/libgptl/PGI \
   -D GLIMMER_NETCDF_DIR=/opt/cray/netcdf-hdf5parallel/4.3.0/pgi/121 \
   -D GLIMMER_FMAIN=/opt/pgi/13.10.0/linux86-64/13.10/lib/f90main.o \
 \
