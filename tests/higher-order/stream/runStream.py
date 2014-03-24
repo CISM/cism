@@ -10,8 +10,7 @@ import sys, os, numpy
 # =====================================
 
 analytic_solution = 'raymond'  # can be 'raymond' or 'schoof'
-kinflag = 1    # apply kinematic bc (analytic soln) at up/downstream ends
-#% kinflag = 0;    %% apply 0 vel bc at up/downstream ends
+kinflag = 1    # 1=apply kinematic bc (analytic soln) at up/downstream ends, 0=the run will be doubly periodic (preferred)
 
 # Physical parameters
 rho = 910.0   # ice density kg/m3
@@ -32,7 +31,9 @@ taud = rho * g * H * dsdx
 m = 1.55  # Schoof exponent
 L = 1.4e4  # Schoof yield stress width parameter  ## TODO Steve is this correct?
 
+# ======================================
 # -- Functions for analytic solutions --
+# ======================================
 
 # Raymond yield stress
 def raymond_tau(yy):
@@ -40,8 +41,22 @@ def raymond_tau(yy):
 
 # Schoof yield stress distribution
 def schoof_tau(yy):
-  return taud * numpy.absolute( yy_centered / L )**m
+  return taud * numpy.absolute( yy / L )**m
 
+# Raymond velocity solution
+def raymond_uvel(yy):
+  tau0r = raymond_tau(yy)
+  ur = 2.0 * A / (n+1.0) * ( (taud - tau0r)/H )**n * ( W**(n+1) - yy**(n+1) )
+  ur[ur<0.0] = 0.0
+  return ur
+
+# Schoof velocity solution
+def schoof_uvel(yy):
+  us = -2.0 * taud**3 * L**4 / (B**3 * H**3) * ( ((yy/L)**4 - (m+1.0)**(4.0/m))/4.0 - 3.0*( numpy.absolute(yy/L)**(m+4.0) \
+    - (m+1.0)**(1.0+4.0/m) )/((m+1.0)*(m+4.0)) + 3.0*( numpy.absolute(yy/L)**(2.0*m+4.0) - (m-1.0)**(2.0+4.0/m) )/((m+1.0)**2*(2.0*m+4.0)) \
+    - ( numpy.absolute(yy/L)**(3.0*m+4.0) - (m+1.0)**(3.0+4.0/m) )/ ( (m+1.0)**3.0*(3.0*m+4.0)) )
+  return us
+##sscale = 2*taud^3*L^4/(B^3*H^3);  # this was unused in .m script, but copying it over anyway
 
 
 # =====================================
@@ -117,17 +132,18 @@ if __name__ == '__main__':
     for j in range(ny):
       topg[0,j,:] = 1000.0 + dsdx * x1[:]   # sloped bed.  add 1000.0 to stay well above sea level
 
-
-    y0_centered = y0 - ny * dy / 2.0  # use y coord that are symmetrical about 0
+    y0_centered = y0 - (ny-1) * dy / 2.0  # use y coord that are symmetrical about 0
 
     if analytic_solution == 'raymond':
-        tau0profile = raymond_tau(y0_centered)
+        tau0Profile = raymond_tau(y0_centered)
+        uvelProfile = raymond_uvel(y0_centered)
     elif analytic_solution == 'schoof':
-        tau0profile = schoof_tau(y0_centered)
+        tau0Profile = schoof_tau(y0_centered)
+        uvelProfile = schooff_uvel(y0_centered)
     else:
         sys.exit("Error: Invalid value for 'analytic_solution'.")
     for i in range(nx-1):
-      tauf[0,:,i] = tau0profile
+      tauf[0,:,i] = tau0Profile
     # put no slip along lateral boundaries - 3 cells thick along north and south
     tauf[0,0:3,:] = 0.7e5
     tauf[0,-3:,:] = 0.7e5
@@ -138,15 +154,38 @@ if __name__ == '__main__':
     netCDFfile.createVariable('topg','f',('time','y1','x1'))[:] = topg
     netCDFfile.createVariable('tauf','f',('time','y0','x0'))[:] = tauf
 
+    if kinflag == 1:
+        # setup Dirichlet boundary conditions for uvel/vvel along east & west domain boundaries
+
+        dudy = numpy.gradient( uvelProfile, dy )
+        vvelProfile = -dudy*dy
+
+        kinbcmask = numpy.zeros([1,ny-1,nx-1],dtype='int32')
+        uvel = numpy.zeros([1,nz,ny-1,nx-1],dtype='float32')
+        vvel = numpy.zeros([1,nz,ny-1,nx-1],dtype='float32')
+
+        # Fill first column
+        i = 0
+        uvel[0,:,:,i] = numpy.tile(uvelProfile, [nz, 1])  # uniform in the vertical
+        vvel[0,:,:,i] = -numpy.tile(vvelProfile, [nz, 1])  # uniform in the vertical
+        kinbcmask[0,:,i] = 1
+
+        # Fill last column
+        i = nx-1 - 1
+        uvel[0,:,:,i] = numpy.tile(uvelProfile, [nz, 1])  # uniform in the vertical
+        vvel[0,:,:,i] = numpy.tile(vvelProfile, [nz, 1])  # uniform in the vertical
+        kinbcmask[0,:,i] = 1
+
+
+        netCDFfile.createVariable('uvel','f',('time','level','y0','x0'))[:] = uvel[:]
+        netCDFfile.createVariable('vvel','f',('time','level','y0','x0'))[:] = vvel[:]
+        netCDFfile.createVariable('kinbcmask','i',('time','y0','x0'))[:] = kinbcmask[:]
+
     netCDFfile.close()
 
-    # Note: To implement the kinematic bc mask, we will also need to add & populate these variables: 
-    #kinbcmask = nc.createVariable('kinbcmask','f',('time','y0','x0'))
-    #uvel   = nc.createVariable('uvel',  'f',('time','level','y0','x0'))
-    #vvel   = nc.createVariable('vvel',  'f',('time','level','y0','x0'))
 
     # =======================================
-    # Update offset in config file
+    # Update periodic offset in config file
     offset = -dsdx * dx * nx
     configParser.set('parameters', 'periodic_offset_ew', str(offset))
     configFile = open(options.configfile,'w')
@@ -181,74 +220,3 @@ if __name__ == '__main__':
           os.system(runstring)  # Here is where the parallel run is actually executed!
 
 
-
-##################################
-# old stuff from the .m script that may be useful in the future
-
-###if( flag == 0 )         % assign Raymond profile
-###    tauf_profile = tau0r*ones(r-7,1);        
-###    tauf = 0.7e5 * ones( r-1, c-1 );
-###    if( kinflag ~= 1 )
-###        tauf(4:end-3,3:end-2) = repmat( tauf_profile, 1, c-5 );     %% no slip at/near up/downstream ends
-###    else
-###        tauf(4:end-3,:) = repmat( tauf_profile, 1, c-1 );     %% use periodic bcs for cont. along flow
-###    end
-###    u_profile = repmat( [ 0 0 fliplr(ur) ur(2:end) 0 0 ], levels, 1 );     
-###else                    % assign Schoof
-###    
-###    tauf_profile = [ fliplr(tau0s(2:end)), tau0s ]';        
-###    tauf = 0.7e5 * ones( r-1, c-1 );
-###    if( kinflag ~= 1 )
-###        tauf(3:end-2,3:end-2) = repmat( tauf_profile, 1, c-5 );     %% no slip at/near up/downstream ends
-###    else
-###        tauf(3:end-2,:) = repmat( tauf_profile, 1, c-1 );     %% use periodic bcs for cont. along flow
-###    end
-###    u_profile = repmat( [ 0 0 fliplr(us) us(2:end) 0 0 ], levels, 1 );
-###end
-###%% use shear strain rate at up/downstream ends to calculate across-flow velocity profile
-###%% necessary to balance the shear
-###x = [0:dx:dx*length(u_profile)-1];
-###dudy = gradient( u_profile(1,:), dy );
-###v_profile = -dudy*dy;
-
-###figure(999), clf
-###subplot( 2,1,1 ),hold on
-###plot( x, dudy, 'bo-' ), box on
-###xlabel( 'dist (m)' ), ylabel( 'shear strain rate (1/a)' )
-###subplot( 2,1,2 ),hold on
-###plot( x, v_profile, 'bo-' ), box on
-###xlabel( 'dist (m)' ), ylabel( 'across-flow component of vel (m/a)' )
-
-###v_profile = repmat( v_profile, levels, 1 );
-
-###% figure(200),clf
-###% subplot(2,2,1),hold on
-###% imagesc( thck ), axis xy, axis equal, axis tight, colorbar, title( 'thickness (m)' )
-###% subplot(2,2,2),hold on
-###% imagesc( usrf ), axis xy, axis equal, axis tight, colorbar, title( 'surface (m)' )
-###% subplot(2,2,3),hold on
-###% imagesc( topg ), axis xy, axis equal, axis tight, colorbar, title( 'bed (m)' )
-###% subplot(2,2,4),hold on
-###% imagesc( tauf/1e3 ), axis xy, axis equal, axis tight, colorbar, title( 'yield stress (kPa)' )
-
-###%% optional: add analytic solution at up/downstream ends as kin vel bc
-###kinbcmask = zeros(size(tauf));
-###uvelhom = zeros( levels, r-1, c-1 );
-###vvelhom = zeros( levels, r-1, c-1 );
-
-###if( kinflag == 1)
-###    uvelhom( :, :, end ) = u_profile; uvelhom( :, :, 1 ) = u_profile; 
-###    vvelhom( :, :, end ) = v_profile; vvelhom( :, :, 1 ) = -v_profile; 
-###    kinbcmask(:,1) = 1; kinbcmask(:,end) = 1;
-###    ind = find( tauf <= 0 ); tauf(ind) = 1e-10;
-###end
-
-###%% for newer code, uvelhom = uvel, etc.
-###uvel = uvelhom; vvel = vvelhom;
-
-###save stream.mat usrf topg thck tauf levels 
-
-###%% spit out some other vars needed in the .config file
-###periodic_offset = dx*(c-0.5)*dsdx;
-###dx
-###periodic_offset

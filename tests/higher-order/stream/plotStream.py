@@ -17,24 +17,6 @@ for option in optparser.option_list:
 options, args = optparser.parse_args()
 
 
-################################
-# Define some functions
-
-# Raymond velocity solution
-def raymond_uvel(yy):
-  tau0r = raymond_tau(yy)
-  ur = 2.0 * A / (n+1.0) * ( (taud - tau0r)/H )**n * ( W**(n+1) - yy**(n+1) )
-  ur[ur<0.0] = 0.0
-  return ur
-
-# Schoof velocity solution
-def schoof_uvel(yy):
-  us = -2.0 * taud**3 * L**4 / (B**3 * H**3) * ( ((yy/L)**4 - (m+1.0)**(4.0/m))/4.0 - 3.0*( numpy.absolute(yy/L)**(m+4.0) \
-    - (m+1.0)**(1.0+4.0/m) )/((m+1.0)*(m+4.0)) + 3.0*( numpy.absolute(yy/L)**(2.0*m+4.0) - (m-1.0)**(2.0+4.0/m) )/((m+1.0)**2*(2.0*m+4.0)) \
-    - ( numpy.absolute(yy/L)**(3.0*m+4.0) - (m+1.0)**(3.0+4.0/m) )/ ( (m+1.0)**3.0*(3.0*m+4.0)) )
-  return us
-##sscale = 2*taud^3*L^4/(B^3*H^3);  # this was unused in .m script, but copying it over anyway
-
 
 ################################
 # Start actual script here.
@@ -42,18 +24,19 @@ def schoof_uvel(yy):
 # Open file and get needed vars
 f = NetCDFFile(options.filename, 'r')
 y0 = f.variables['y0'][:]
-ny = y0.shape[0]
+ny = y0.shape[0] + 1  # the actual ny dimension, not the size of y0
 dy = y0[1]-y0[0]
-y0_centered = y0 - ny * dy / 2.0  # use y coord that are symmetrical about 0
+y0_centered = y0 - (ny-1) * dy / 2.0  # use y coord that are symmetrical about 0
 
-uvel = f.variables['uvel'][0,0,:,:]  # get surface level at time 0
+uvel = f.variables['uvel'][0,:,:,:]  # get all levels at time 0
 if netCDF_module == 'Scientific.IO.NetCDF':
    uvel = uvel * f.variables['uvel'].scale_factor
 
-xpos = uvel.shape[1]/2   # integer division on x-length to get the middle column of the domain
-print 'x',xpos
+x0 = f.variables['x0'][:]
+xpos = x0.shape[0]/2   # integer division on x-length to get the middle column of the domain
+print 'Plotting uvel across-flow profile at x=',x0[xpos], ' (i=', xpos, ')'
 
-# Calculate analytic velocity profile
+# Calculate analytic velocity profile - the analytic functions are in runStream.py
 if analytic_solution == 'raymond':
     uvel_analytic_profile = raymond_uvel(y0_centered)
     analytic_name = 'Raymond analytic solution'
@@ -70,10 +53,11 @@ else:
 
 
 # Setup plot of uvel cross-section
-fig = plt.figure(1, facecolor='w', figsize=(10, 4), dpi=100)
+fig = plt.figure(1, facecolor='w', figsize=(10, 5), dpi=100)
 
 plt.plot(y0/1000.0, uvel_analytic_profile, '-or', label=analytic_name)
-plt.plot(y0/1000.0, uvel[:,xpos], '-xk', label='CISM')
+plt.plot(y0/1000.0, uvel[ 0,:,xpos], '-xk', label='CISM surface')
+plt.plot(y0/1000.0, uvel[-1,:,xpos], '-^k', label='CISM basal')
 
 plt.xlabel('distance across flow (km)')
 plt.ylabel('along flow velocity (m/a)')
