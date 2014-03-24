@@ -32,6 +32,7 @@
 #include "Teuchos_ParameterList.hpp"
 #include "Teuchos_XMLParameterListHelpers.hpp"
 #include "Teuchos_Time.hpp"
+//#include "Teuchos_TimeMonitor.hpp"
 #include "Teuchos_StandardCatchMacros.hpp"
 
 #include "Stratimikos_DefaultLinearSolverBuilder.hpp"
@@ -58,7 +59,7 @@ int solvecount=0;
 #endif
 
 // Turn this on to check validity of sparse matrix entries
-#define CHECK_FOR_ROGUE_COLUMNS
+//#define CHECK_FOR_ROGUE_COLUMNS
 
 // Define variables that are global to this file.
 // If this were a C++ class, these would be member data.
@@ -208,6 +209,8 @@ extern "C" {
     }
     TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, successFlag);
     if (!successFlag) exit(1);
+
+    //Teuchos::TimeMonitor::summarize(*tout,false,true,false/*zero timers*/);
   }
 
   //============================================================
@@ -223,11 +226,7 @@ extern "C" {
    // matrixValues[]: array with corresponding matrix entries
    // rhsValue: entry into "b" vector for that same row.
    //
- /* Verbose debugging: remove soon
-   std::cout << "Insert: row " << rowInd << "  num " << numColumns;
-   for (int i=0; i<numColumns; i++) std::cout << " c " << columns[i] << " m " << matrixValues[i];
-   std::cout << " rhs " << rhsValue << std::endl;;
-*/
+   //TEUCHOS_FUNC_TIME_MONITOR("> insertRowTGS");
 
   try {
     int ierr;
@@ -243,7 +242,7 @@ extern "C" {
 
     if (firstMatrixAssemblyForTimeStep) {
 
-#define ONE_PROC_DEBUG 
+//#define ONE_PROC_DEBUG 
 #ifdef ONE_PROC_DEBUG
       if (rowMap.Comm().NumProc()==1) 
         for (int col=0; col<numColumns; col++) {
@@ -260,7 +259,7 @@ extern "C" {
       else if (ierr>0) std::cout << "Warning Code for " << rowInd << "  = ("<< ierr <<")"<<std::endl;
     }
     else {
-#define ONE_ENTRY_DEBUG 
+//#define ONE_ENTRY_DEBUG 
 #ifdef ONE_ENTRY_DEBUG
       for (int col=0; col<numColumns; col++) {
       ierr = matrix->ReplaceGlobalValues(rowInd, 1, &matrixValues[col], &columns[col]);
@@ -292,13 +291,14 @@ extern "C" {
 	       (double* velocityResult) {
    // velocityResult[]: array of length mySize from initializetgs call, that
    //                   upon return will have the velocities from Au=b solve.
+   //TEUCHOS_FUNC_TIME_MONITOR("> solveVelocityTGS");
+
    try {
     //Teuchos::Time linearTime("LinearTime"); linearTime.start();
 
     // Lock in sparsity pattern of CrsMatrix -- first solve only
     if (firstMatrixAssemblyForTimeStep) {
-std::cout << "AGS: New matrix logic change #1!!\n" << std::endl;
-//      firstMatrixAssemblyForTimeStep = false;
+      firstMatrixAssemblyForTimeStep = false;
 
       matrix->FillComplete();
 #ifdef CHECK_FOR_ROGUE_COLUMNS
@@ -307,8 +307,9 @@ std::cout << "AGS: New matrix logic change #1!!\n" << std::endl;
 
       // Associate matrix with solver strategy layers
       thyraOp = Thyra::epetraLinearOp(matrix);
-      linOp = Thyra::linearOpWithSolve(*linOpFactory, thyraOp);
     }
+    // Need to do this call to invoke fresh preconditioner
+    linOp = Thyra::linearOpWithSolve(*linOpFactory, thyraOp);
 
     // Wrap velocity vector inside Epetra Vector data structure
     Teuchos::RCP<Epetra_Vector> solution 
@@ -331,11 +332,6 @@ std::cout << "AGS: New matrix logic change #1!!\n" << std::endl;
       status = Thyra::solve(*linOp, Thyra::NOTRANS, *thyraRhs, thyraSol.ptr());
 
     if (printLinSolDetails) linSolveDetails_tgs(status);
-
-std::cout << "AGS: New matrix logic change #2!!\n" << std::endl;
-const Epetra_Map&  rm = matrix->RowMap();
-const int bandwidth = 54;
-matrix = Teuchos::rcp(new Epetra_CrsMatrix(Copy, rm, bandwidth));
 
     //elapsedTime = linearTime.stop(); 
     //*tout << "Total time elapsed for calling Solve(): " << elapsedTime << std::endl;
