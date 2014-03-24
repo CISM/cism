@@ -139,7 +139,7 @@ if __name__ == '__main__':
         uvelProfile = raymond_uvel(y0_centered)
     elif analytic_solution == 'schoof':
         tau0Profile = schoof_tau(y0_centered)
-        uvelProfile = schooff_uvel(y0_centered)
+        uvelProfile = schoof_uvel(y0_centered)
     else:
         sys.exit("Error: Invalid value for 'analytic_solution'.")
     for i in range(nx-1):
