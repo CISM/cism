@@ -234,10 +234,21 @@ contains
                     (-1.0d0 * trpt) ) then    ! trpt = 273.15 K
                                               ! Default initial temps in glide_types are -999
 
-       ! Temperature has already been initialized from an input file.
-       ! (We know this because the default initial temps of -999 have been overwritten.)
+       if ( maxval(model%temper%temp(model%general%upn+1, &
+                    1+lhalo:model%general%ewn-lhalo, 1+uhalo:model%general%nsn-uhalo)) == &
+                    -999.0d0 ) then
+          ! Throw a fatal error if we think the user has supplied temp instead of tempstag
+          ! (We don't want to implicitly shift the vertical layers from one coordinate system
+          !  to another without the user knowing.)
+          ! This case will look like good data in all the layers except the top layer.
+          call write_log("The variable 'temp' has been read from an input file, but it only is appropriate " &
+             // "for the GLIDE dycore.  Use the 'tempstag' variable with higher-order dycores instead.", GM_FATAL)
+       else
+          ! Temperature has already been initialized from an input file.
+          ! (We know this because the default initial temps of -999 have been overwritten.)
 
-       call write_log('Initializing ice temperature from an input file')
+          call write_log('Initializing ice temperature from an input file')
+       endif
 
     else   ! not reading temperature from restart or input file
            ! initialize it here basee on model%options%temp_init
