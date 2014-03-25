@@ -1,6 +1,6 @@
 #[]
 #dimensions:    time, level, y1, x1
-#units:         
+#units:           The documentation will complain if units have LaTeX characters like ^
 #long_name:     
 #data:          
 #factor:        
@@ -613,7 +613,7 @@ load:          1
 
 [flwa]
 dimensions:    time, level, y1, x1
-units:         pascal^(-n) year^(-1)
+units:         pascal**(-n) year**(-1)
 long_name:     Pre-exponential flow law parameter
 data:          data%temper%flwa(up,:,:)
 factor:        scale_flwa
@@ -622,7 +622,7 @@ coordinates:   lon lat
 
 [flwastag]
 dimensions:    time, staglevel, y1, x1
-units:         pascal^(-n) year^(-1)
+units:         pascal**(-n) year**(-1)
 long_name:     Pre-exponential flow law parameter
 data:          data%temper%flwa(up,:,:)
 factor:        scale_flwa
@@ -722,7 +722,7 @@ coordinates:  lon f
 
 [rho_ice]
 dimensions:    time
-units:         kg/meter^3
+units:         kg/meter3
 long_name:     ice density
 data:          rhoi
 factor:        noscale
@@ -730,7 +730,7 @@ standard_name: rho_ice
 
 [rho_seawater]
 dimensions:    time
-units:         kg/meter^3
+units:         kg/meter3
 long_name:     seawater density
 data:          rhoo
 factor:        noscale
