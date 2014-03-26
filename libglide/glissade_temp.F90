@@ -234,13 +234,15 @@ contains
                     (-1.0d0 * trpt) ) then    ! trpt = 273.15 K
                                               ! Default initial temps in glide_types are -999
 
-       if ( maxval(model%temper%temp(model%general%upn+1, &
+       if ( (maxval(model%temper%temp(model%general%upn+1, &
                     1+lhalo:model%general%ewn-lhalo, 1+uhalo:model%general%nsn-uhalo)) == &
-                    -999.0d0 ) then
+                    -999.0d0 ) .and.    &
+                    (model%options%whichdycore /= DYCORE_BISICLES) )then
           ! Throw a fatal error if we think the user has supplied temp instead of tempstag
           ! (We don't want to implicitly shift the vertical layers from one coordinate system
           !  to another without the user knowing.)
           ! This case will look like good data in all the layers except the top layer.
+          ! MJH: Letting BISICLES run with this situation as per Dan Martin's request.
           call write_log("The variable 'temp' has been read from an input file, but it only is appropriate " &
              // "for the GLIDE dycore.  Use the 'tempstag' variable with higher-order dycores instead.", GM_FATAL)
        else
