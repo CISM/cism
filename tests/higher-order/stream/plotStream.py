@@ -34,7 +34,8 @@ if netCDF_module == 'Scientific.IO.NetCDF':
 
 x0 = f.variables['x0'][:]
 xpos = x0.shape[0]/2   # integer division on x-length to get the middle column of the domain
-print 'Plotting uvel across-flow profile at x=',x0[xpos], ' (i=', xpos, ')'
+
+ypos = y0.shape[0]/2   # integer division on y-length to get the middle row of the domain
 
 # Calculate analytic velocity profile - the analytic functions are in runStream.py
 if analytic_solution == 'raymond':
@@ -53,15 +54,27 @@ else:
 
 
 # Setup plot of uvel cross-section
-fig = plt.figure(1, facecolor='w', figsize=(10, 5), dpi=100)
+fig = plt.figure(1, facecolor='w', figsize=(12, 10), dpi=80)
 
+fig.add_subplot(2,1,1)
 plt.plot(y0/1000.0, uvel_analytic_profile, '-or', label=analytic_name)
 plt.plot(y0/1000.0, uvel[ 0,:,xpos], '-xk', label='CISM surface')
 plt.plot(y0/1000.0, uvel[-1,:,xpos], '-^k', label='CISM basal')
 
 plt.xlabel('distance across flow (km)')
 plt.ylabel('along flow velocity (m/a)')
-plt.title(analytic_name)
+plt.title(analytic_name +  ' at x=%.1f km'%(x0[xpos]/1000.0))
+plt.legend(loc='lower center')
+
+
+fig.add_subplot(2,1,2)
+#plt.plot(x0/1000.0, uvel_analytic_profile[ypos] * numpy.ones(x0.shape), '-or', label=analytic_name)
+plt.plot(x0/1000.0, uvel[ 0,ypos,:], '-xk', label='CISM surface')
+plt.plot(x0/1000.0, uvel[-1,ypos,:], '-^k', label='CISM basal')
+
+plt.xlabel('distance along flow (km)')
+plt.ylabel('along flow velocity (m/a)')
+plt.title('Longit. x-sect. of model vel. at y=%.1f km (should be constant-valued)'%(y0[ypos]/1000.0))
 plt.legend(loc='lower center')
 
 plt.draw()
