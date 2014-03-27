@@ -214,7 +214,7 @@ module parallel
 
   interface staggered_parallel_halo_extrapolate
      module procedure staggered_parallel_halo_extrapolate_integer_2d
-     ! *_real8_2d, etc. could be added here if needed     
+     module procedure staggered_parallel_halo_extrapolate_real8_2d
   end interface
 
   interface parallel_print
@@ -2312,6 +2312,50 @@ contains
     enddo
 
   end subroutine staggered_parallel_halo_extrapolate_integer_2d
+
+
+  subroutine staggered_parallel_halo_extrapolate_real8_2d(a)
+
+    implicit none
+    real(8),dimension(:,:) :: a
+    integer :: i, j
+
+    ! begin
+
+    ! Confirm staggered array
+    if (size(a,1)/=local_ewn-1 .or. size(a,2)/=local_nsn-1) then
+         write(*,*) "staggered_parallel_halo() requires staggered arrays."
+         call parallel_stop(__FILE__,__LINE__)
+    endif
+
+    ! Extrapolate the staggered field into halo cells along the global boundary.
+    ! Currently this is used only for kinbcmask.
+    ! Note: The extrapolation region includes locally owned cells along
+    !       the north and east boundaries of the global domain.
+
+    ! extrapolate westward
+    do i = 1, staggered_lhalo
+       a(i, staggered_lhalo+1:size(a,2)-staggered_uhalo-1) = &
+            a(staggered_lhalo+1, staggered_lhalo+1:size(a,2)-staggered_uhalo-1)
+    enddo
+
+    ! extrapolate eastward
+    do i = size(a,1)-staggered_uhalo, size(a,1)
+       a(i, staggered_lhalo+1:size(a,2)-staggered_uhalo-1) = &
+            a(size(a,1)-staggered_uhalo-1, staggered_lhalo+1:size(a,2)-staggered_uhalo-1)
+    enddo
+
+    ! extrapolate southward
+    do j = 1, staggered_lhalo
+       a(1:size(a,1), j) = a(1:size(a,1), staggered_lhalo+1)
+    enddo
+
+    ! extrapolate northward
+    do j = size(a,2)-staggered_uhalo, size(a,2)
+       a(1:size(a,1), j) = a(1:size(a,1), size(a,2)-staggered_uhalo-1)
+    enddo
+
+  end subroutine staggered_parallel_halo_extrapolate_real8_2d
 
 
   subroutine staggered_parallel_halo_integer_2d(a)
