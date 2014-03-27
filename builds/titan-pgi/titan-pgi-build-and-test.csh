@@ -19,7 +19,9 @@
 
 setenv TEST_DIR /lustre/atlas/scratch/$USER/cli062/higher-order
 
-setenv TEST_SUITE_TAR_FILES_DIR /lustre/na4_proj/cli062/test_suite
+if (! -d $TEST_DIR) mkdir -p $TEST_DIR
+
+setenv TEST_SUITE_DEFAULT_DIR /ccs/proj/cli062/test_suite
 
 setenv build_problem 0
 
@@ -50,8 +52,8 @@ echo
 #echo 'csh, tcsh:  setenv GLIMMER_TRILINOS_DIR "/Users/$USER/Trilinos/gcc-build/install"'
 #echo 'bash:       export GLIMMER_TRILINOS_DIR="/Users/$USER/Trilinos/gcc-build/install"'
 echo
-echo 'Setting TEST_DIR to the standard location (bash):'
-echo 'export TEST_DIR="/Users/$USER/work/modeling/cism/seacism-oceans11/tests/higher-order"'
+echo 'Setting TEST_DIR to the location: '
+echo 'TEST_DIR =' $TEST_DIR
 
 # PARALLEL BUILD WITH CMAKE
 
@@ -73,16 +75,30 @@ else
 endif
 
 if ($build_problem == 1 ) then
-  echo "No job sumbitted -- cmake build failed."
+  echo "No job submitted -- cmake build failed."
 else  # execute tests:
-  echo 'Submitting test jobs to compute nodes...'
+ 
+
+ # Make copy of test suite in $TEST_DIR:
+
+ echo "Copying default reg_test and LIVV to $TEST_DIR"
+ pushd . > /dev/null
+ cp $TEST_SUITE_DEFAULT_DIR/reg_test_default.tar $TEST_DIR/reg_test_default.tar
+ cd $TEST_DIR
+ tar xf reg_test_default.tar
+ rm reg_test_default.tar
+ popd > /dev/null
+
+ cp -rf ../../tests/higher-order/livv $TEST_DIR
+
+
+ echo 'Submitting test jobs to compute nodes.'
 
  setenv run_all_tests 1
  if ($1 == "quick-test") setenv run_all_tests 0 
 
  #diagnostic dome test case
  cd $TEST_DIR/reg_test/dome30/diagnostic
-"In dir: "$PWD
  qsub $CISM_RUN_SCRIPT
 
 
@@ -114,19 +130,56 @@ else  # execute tests:
  endif
 
  echo
- echo "Test Suite jobs started -- use qstat to monitor."
+ echo "Test Suite jobs started -- using qstat to monitor."
  echo 
 
+ set still_running = 1
+ set counter = 0
+ set timeout_error = 0
 
-echo "Call deactivated to: $CISM_VV_SCRIPT, which is located in:" 
-echo "$TEST_DIR/livv"
-echo
-echo "Perform this step manually after the Test Suite jobs have completed."
-# cd $TEST_DIR/livv
-# bash $CISM_VV_SCRIPT from-script $1
+ set run_list = "dome_30_test dome_30_evolve conf_shelf circ_shelf ishoma_80 ishoma_20"
+ while ($still_running)
+  set ls_out = `qstat | grep $USER`
+
+  set found = 0 
+  foreach cur ($run_list)
+   foreach elem ($ls_out)
+    if ("$cur" == "$elem") then
+     if (($counter % 5) == 0) echo "Still running: $cur" 
+     set found = 1
+    endif
+    # if ($found == 1) break 
+   end 
+  end
+  if ($found == 0) then 
+   echo "All jobs completed."
+   set still_running = 0
+  else 
+   sleep 60
+  endif
+  @ counter = $counter + 1
+  if ($counter == 120) then
+   set still_running = 0
+   set timeout_error = 1
+   echo "Timeout error -- jobs are taking too long. Exiting script."
+  endif
+  if (($counter % 5) == 0) echo "Minutes: $counter"
+ end
+
+ if ($timeout_error == 0) then
+  echo "Total minutes: $counter"
+  echo
+
+  echo "Call disabled to: $CISM_VV_SCRIPT, which is located in:" 
+  echo "$TEST_DIR/livv"
+  echo
+  echo "Perform this step on rhea after the Test Suite jobs have completed."
+  # cd $TEST_DIR/livv
+  # bash $CISM_VV_SCRIPT from-script $1
+ endif
 
  echo
-# echo "If there were errors finding ncl, add the ncl installation directory to your PATH in ~/.bashrc."
+ # echo "If there were errors finding ncl, add the ncl installation directory to your PATH in ~/.bashrc."
  echo
 
 endif
