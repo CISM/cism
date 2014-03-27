@@ -59,81 +59,29 @@ contains
       use glimmer_log
       use glide_types
       use glissade_velo_higher, only: glissade_velo_higher_solve
-      use glissade_basal_traction, only: calcbeta
       use glide_mask
 
       type(glide_global_type),intent(inout) :: model
-
-
-      !WHL - temporary velocity arrays to remove scaling
-      real(dp), dimension(model%general%upn, model%general%ewn-1, model%general%nsn-1) ::  &
-           uvel, vvel    ! uvel and vvel with scale factor (vel0) removed
-
-      !TODO - Replace with a different mask?
-      !       This is used for now as an input to subroutine calcbeta.
-      integer, dimension(model%general%ewn-1, model%general%nsn-1)  :: geom_mask_stag
 
 !WHL - debug
       integer :: i, j        
 
       real(dp) :: maxbeta, minbeta
-      !-------------------------------------------------------------------
-      ! Compute masks
-      ! These masks will not change even if we iterate on the velocity
-      !  multiple times while solving the thickness transport equation.
-      !-------------------------------------------------------------------
 
-      !TODO - This subroutine is used for now to compute geom_mask_stag,
-      !       an input to calcbeta.  Might replace later.
+      !-------------------------------------------------------------------
+      ! Compute mask for staggered grid. This is needed as an input to calcbeta
+      ! (which used to be called here but now is called from glissade_velo_higher_solve).
+      !-------------------------------------------------------------------
 
       call glide_set_mask(model%numerics,                                     &
                           model%geomderv%stagthck, model%geomderv%stagtopg,   &
                           model%general%ewn-1,     model%general%nsn-1,       &
-                          model%climate%eus,       geom_mask_stag)
-
-      !-------------------------------------------------------------------
-      ! Compute or prescribe the basal traction field 'beta'.                                                              
-      !
-      ! Note: The initial value of model%velocity%beta can change depending on
-      !       the value of model%options%which_ho_babc.     
-      !-------------------------------------------------------------------
-
-      call calcbeta (model%options%which_ho_babc,                  & 
-                     model%numerics%dew,      model%numerics%dns,  &
-                     model%general%ewn,       model%general%nsn,   &
-                     model%velocity%uvel(model%general%upn,:,:),   &
-                     model%velocity%vvel(model%general%upn,:,:),   &
-                     model%temper%bwat,                            &
-                     model%paramets%ho_beta_const,                 &
-                     model%basalproc%mintauf,                      &
-                     geom_mask_stag,                               &
-                     model%velocity%beta)
-
-      call staggered_parallel_halo(model%velocity%beta)
-
-      maxbeta = maxval(model%velocity%beta)
-      maxbeta = parallel_reduce_max(maxbeta)
-      minbeta = minval(model%velocity%beta)
-      minbeta = -parallel_reduce_max(-minbeta)
-
-      !WHL - debug
-      if (this_rank==model%numerics%rdiag_local) then
-!!         print*, ' '
-!!         print*, 'task, which_ho_babc =', this_rank, model%options%which_ho_babc
-!!         print*, 'After calcbeta: max, min of beta (Pa/(m/yr)) =', &
-!!              tau0/vel0/scyr * maxbeta, tau0/vel0/scyr * minbeta
-      endif
-
-      !----------------------------------------------------------------
-      ! Note: The glissade solver uses SI units.
-      ! Thus we have grid cell dimensions and ice thickness in meters,
-      !  velocity in m/s, and the rate factor in Pa^(-n) s(-1).
-      !----------------------------------------------------------------
+                          model%climate%eus,       model%geometry%stagmask)
 
       if (model%options%which_ho_nonlinear == HO_NONLIN_PICARD ) then ! Picard (standard solver)
 
          ! Note: The geometry fields (thck, topg, and usrf) must be updated in halos
-         !        before calling glissade_velo_higher-solver.
+         !        before calling glissade_velo_higher_solve.
          !       These updates are done in subroutine glissade_diagnostic_variable_solve
          !        in module glissade.F90.
 
@@ -158,6 +106,7 @@ contains
          !       the kinbcmask into the global halo region
          !       (and also into the north and east rows of the global domain,
          !       which are not included on the global staggered grid).
+         !TODO - Move this call to glissade_velo_higher_solve?
 
          call staggered_parallel_halo_extrapolate (model%velocity%kinbcmask)  ! = 1 for Dirichlet BCs
 

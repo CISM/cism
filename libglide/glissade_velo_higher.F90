@@ -147,9 +147,6 @@
     real(dp), parameter ::   &
        eps10 = 1.d-10           ! small number
 
-!    real(dp), parameter ::   &
-!       eps09 = 1.d-09           ! small number
-
     real(dp) :: vol0    ! volume scale = dx * dy * (1000 m)
 
     logical, parameter ::  &
@@ -187,6 +184,11 @@
 !    logical :: verbose_umc = .true.
     logical :: verbose_slapsolve = .false.
 !    logical :: verbose_slapsolve = .true.
+    logical :: verbose_trilinos = .false.
+!    logical :: verbose_trilinos = .true.
+    logical :: verbose_beta = .false.
+!    logical :: verbose_beta = .true.
+
 
     logical :: verbose_efvs = .false.
 !    logical :: verbose_efvs = .true.
@@ -557,8 +559,7 @@
 !TODO - Remove nx, ny, nz from argument list?
 !       Would then have to allocate many local arrays.
 
-!TODO - Something like this may be needed if building with Trilinos.
-!!    use glam_strs2, only: linearSolveTime, totalLinearSolveTime
+    use glissade_basal_traction, only: calcbeta
 
     !----------------------------------------------------------------
     ! Input-output arguments
@@ -598,14 +599,20 @@
 
     real(dp)  ::   & 
        thklim, &                ! minimum ice thickness for active cells (m)
-       eus                      ! eustatic sea level (m)
+       eus,  &                  ! eustatic sea level (m)
                                 ! = 0. by default
+       ho_beta_const            ! constant beta value (Pa/(m/yr)) for whichbabc = HO_BABC_CONSTANT
 
     real(dp), dimension(:,:), pointer ::  &
        thck,                 &  ! ice thickness (m)
        usrf,                 &  ! upper surface elevation (m)
        topg,                 &  ! elevation of topography (m)
+       bwat,                 &  ! basal water depth (m)
+       mintauf,              &  ! till yield stress (Pa)
        beta                     ! basal traction parameter (Pa/(m/yr))
+
+    integer, dimension(:,:), pointer ::   &
+       stagmask                 ! mask on staggered grid
 
     real(dp), dimension(:,:,:), pointer ::  &
        uvel, vvel,  &           ! velocity components (m/yr)
@@ -623,13 +630,13 @@
        whichresid, &            ! option for method of calculating residual
        whichsparse, &           ! option for method of doing elliptic solve
                                 ! (BiCG, GMRES, standalone Trilinos, etc.)
-       whichbabc,  &            ! option for basal boundary condition
        whichapprox, &           ! option for which Stokes approximation to use
                                 ! 0 = SIA, 1 = SSA, 2 = Blatter-Pattyn HO
                                 ! default = 2
-       whichprecond             ! option for which preconditioner to use with 
+       whichprecond, &          ! option for which preconditioner to use with 
                                 !  structured PCG solver
                                 ! 0 = none, 1 = diag, 2 = SIA
+       whichbabc                ! option for basal boundary condition
 
     !--------------------------------------------------------
     ! Local parameters
@@ -676,8 +683,12 @@
 
     real(dp), dimension(nz,nx-1,ny-1) ::   &
        usav, vsav,                 &! previous guess for velocity solution
-       bu, bv                       ! assembled load vector, divided into 2 parts
-
+       loadu, loadv,               &! assembled load vector, divided into 2 parts
+       bu, bv                       ! right-hand-side matrix vector, divided into 2 parts
+                                    ! Note: loadu and loadv are computed only once per nonlinear solve,
+                                    !       whereas bu and bv can be set each nonlinear iteration to account 
+                                    !       for inhomogeneous Dirichlet BC
+  
     logical, dimension(nz,nx-1,ny-1) ::    &
        umask_dirichlet    ! Dirichlet mask for velocity (if true, u = v = 0)
 
@@ -704,10 +715,6 @@
     real(dp) ::  &
        sia_factor,      & ! = 1. if SIA terms are included, else = 0.
        ssa_factor         ! = 1. if SSA terms are included, else = 0.
-
-!!    !Passed in as an argument instead
-!!    real(dp), dimension(nx-1,ny-1) ::  &
-!!       beta                   ! basal traction parameter
 
     ! The following are used for the SLAP and Trilinos solvers
 
@@ -761,6 +768,8 @@
     logical :: solve_flag         ! if false, skip solution and return
 
 !WHL - debug
+    real(dp) :: maxbeta, minbeta
+    real(dp) :: max_mintauf, min_mintauf
     integer :: i, j, k, m, n, r
     integer :: iA, jA, kA, colA
     real(dp) :: ds_dx, ds_dy
@@ -813,52 +822,62 @@
      dx = model%numerics%dew
      dy = model%numerics%dns
 
-     thklim = model%numerics%thklim
-     eus = model%climate%eus
- 
-     sigma => model%numerics%sigma(:)     
-     thck => model%geometry%thck(:,:)
-     usrf => model%geometry%usrf(:,:)
-     topg => model%geometry%topg(:,:)
+     sigma    => model%numerics%sigma(:)     
+     thck     => model%geometry%thck(:,:)
+     usrf     => model%geometry%usrf(:,:)
+     topg     => model%geometry%topg(:,:)
+     stagmask => model%geometry%stagmask(:,:)
 
-     flwa => model%temper%flwa(:,:,:)
-     efvs => model%stress%efvs(:,:,:)
-     beta => model%velocity%beta(:,:)
+     flwa     => model%temper%flwa(:,:,:)
+     efvs     => model%stress%efvs(:,:,:)
+     beta     => model%velocity%beta(:,:)
+     bwat     => model%temper%bwat(:,:)
+     mintauf  => model%basalproc%mintauf(:,:)
 
-     uvel => model%velocity%uvel(:,:,:)
-     vvel => model%velocity%vvel(:,:,:)
+     uvel     => model%velocity%uvel(:,:,:)
+     vvel     => model%velocity%vvel(:,:,:)
 
-     resid_u => model%velocity%resid_u(:,:,:)
-     resid_v => model%velocity%resid_v(:,:,:)
+     resid_u  => model%velocity%resid_u(:,:,:)
+     resid_v  => model%velocity%resid_v(:,:,:)
 
      kinbcmask => model%velocity%kinbcmask(:,:)
 
+     thklim = model%numerics%thklim
+     eus    = model%climate%eus
+     ho_beta_const = model%paramets%ho_beta_const
+ 
      whichefvs    = model%options%which_ho_efvs
      whichresid   = model%options%which_ho_resid
      whichsparse  = model%options%which_ho_sparse
-     whichbabc    = model%options%which_ho_babc
      whichapprox  = model%options%which_ho_approx
      whichprecond = model%options%which_ho_precond
-     
+     whichbabc    = model%options%which_ho_babc
+
     !--------------------------------------------------------
     ! Convert input variables to appropriate units for this solver
     !TODO - Add some comments about units for this module
     !--------------------------------------------------------
 
-!WHL - debug
-!    thck(:,:) = 0.d0
-!    usrf(:,:) = 0.d0
-!    topg(:,:) = 0.d0
-
 !pw call t_startf('glissade_velo_higher_scale_input')
-    call glissade_velo_higher_scale_input(dx,     dy,      &
-                                          thck,   usrf,    &
-                                          topg,            &
-                                          eus,    thklim,  &
-                                          flwa,   efvs,    &
-                                          beta,            &
+    call glissade_velo_higher_scale_input(dx,     dy,            &
+                                          thck,   usrf,          &
+                                          topg,                  &
+                                          eus,    thklim,        &
+                                          flwa,   efvs,          &
+                                          bwat,   mintauf,       &
+                                          beta,   ho_beta_const, &
                                           uvel,   vvel)
 !pw call t_stopf('glissade_velo_higher_scale_input')
+
+   !WHL - debug
+!    print*, ' '
+!    print*, 'After scale_input: uvel, rank =', rtest
+!    do j = ny-1, 1, -1
+!       do i = 1, nx-1
+!          write(6,'(f8.2)',advance='no') uvel(nz,i,j)
+!       enddo
+!       write(6,*) ' '
+!    enddo
 
 !WHL - hack for ishomC test
     if (trim(matrix_label) == 'ishomC_block') then
@@ -903,6 +922,12 @@
 !    call parallel_halo(topg)
 !    call parallel_halo(usrf)
 !    call parallel_halo(flwa)
+
+    ! Halo updates for staggered variables
+
+    if (whichbabc == HO_BABC_YIELD_PICARD) then
+       call staggered_parallel_halo_extrapolate(mintauf)
+    endif
 
     !------------------------------------------------------------------------------
     ! Setup for higher-order solver: Compute nodal geometry, allocate storage, etc.
@@ -991,7 +1016,7 @@
     enddo
 
 !WHL - debug
-    if (verbose_state .and. this_rank==rtest) then
+    if (verbose_beta .and. this_rank==rtest) then
 
        print*, ' '
        print*, 'beta:'
@@ -1022,7 +1047,7 @@
           print*, ' '
        enddo
 
-    endif   ! verbose_state
+    endif   ! verbose_beta
 
 !WHLt2 - If iterating on the velocity during the remapping transport calculation,
 !        we do not want these masks to change.
@@ -1335,8 +1360,8 @@
     !  does not change from one nonlinear iteration to the next.
     !------------------------------------------------------------------------------
 
-    bu(:,:,:) = 0.d0
-    bv(:,:,:) = 0.d0
+    loadu(:,:,:) = 0.d0
+    loadv(:,:,:) = 0.d0
 
     !------------------------------------------------------------------------------
     ! gravitational forcing
@@ -1349,17 +1374,17 @@
                              sigma,            active_cell,     &
                              xVertex,          yVertex,         &
                              stagusrf,         stagthck,        &
-                             bu,               bv)
+                             loadu,            loadv)
     call t_stopf('glissade_load_vector_gravity')
 
     !WHL - debug
 !    print*, ' '
-!    print*, 'After gravity, bv:'
+!    print*, 'After gravity, loadv:'
 !    do n = 1, nNodesSolve
 !       i = iNodeIndex(n)
 !       j = jNodeIndex(n)
 !       k = kNodeIndex(n) 
-!       print*, n, bv(k,i,j)
+!       print*, n, loadv(k,i,j)
 !    enddo
 
     !------------------------------------------------------------------------------
@@ -1375,22 +1400,19 @@
                                 active_cell,                       &
                                 xVertex,          yVertex,         &
                                 stagusrf,         stagthck,        &
-                                bu,               bv)
+                                loadu,            loadv)
     call t_stopf('glissade_load_vector_lateral_bc')
 
     !WHL - debug
 !    print*, ' '
-!    print*, 'After lateral BC, bv:'
+!    print*, 'After lateral BC, loadv:'
 !    do n = 1, nNodesSolve
 !       i = iNodeIndex(n)
 !       j = jNodeIndex(n)
 !       k = kNodeIndex(n) 
-!       print*, n, bv(k,i,j)
+!       print*, n, loadv(k,i,j)
 !    enddo
 
-!WHL - debug - adjust bu and bv.
-!!    bu(:,:,:) = bu(:,:,:) / 1.09d0
-!!    bv(:,:,:) = bv(:,:,:) / 1.09d0
     call t_stopf('glissade_vhs_init')
 
     !------------------------------------------------------------------------------
@@ -1403,6 +1425,18 @@
        ! Advance the iteration counter
 
        counter = counter + 1
+
+!WHL - debug
+!       if (verbose .and. counter==1 .and. main_task) then
+!          print*, ' '
+!          print*, 'Thickness field, rank =', rtest
+!          do j = ny, 1, -1
+!             do i = 1, nx
+!                write(6,'(f6.0)',advance='no') thck(i,j)
+!             enddo
+!             write(6,*) ' '
+!          enddo
+!       endif
 
        if (verbose .and. main_task) then
           print*, ' '
@@ -1470,9 +1504,106 @@
 
        if (whichbabc /= HO_BABC_NO_SLIP) then
 
-          if (verbose .and. counter==1 .and. this_rank==rtest) then
-             print*, 'rank, max, min beta (Pa/(m/yr)) =', this_rank, maxval(beta), minval(beta)
+         !-------------------------------------------------------------------
+         ! Compute or prescribe the basal traction field 'beta'.
+         ! Note: The initial value of model%velocity%beta can change depending on
+         !       the value of model%options%which_ho_babc.
+         !-------------------------------------------------------------------
+
+!WHL - debug
+          if (verbose_beta .and. counter==1 .and. main_task) then
+             print*, ' '
+             print*, 'After halo call: mintauf field, rank =', rtest
+             do j = ny-1, 1, -1
+                do i = 1, nx-1
+                   write(6,'(f6.0)',advance='no') mintauf(i,j)
+                enddo
+                write(6,*) ' '
+             enddo
           endif
+
+          ! convert calcbeta inputs to dimensionless units
+          !TODO - Change calcbeta to expect dimensional units
+
+          bwat = bwat / thk0
+          mintauf = mintauf / tau0
+          ho_beta_const = ho_beta_const / (tau0/(vel0*scyr))
+          beta = beta / (tau0/(vel0*scyr))
+          uvel = uvel / (vel0*scyr)
+          vvel = vvel / (vel0*scyr)
+
+          call calcbeta (whichbabc,                       &
+                         dx,           dy,                &
+                         nx,           ny,                &
+                         uvel(nz,:,:), vvel(nz,:,:),      &
+                         bwat,                            &
+                         ho_beta_const,                   &
+                         mintauf,                         &
+                         stagmask,                        &
+                         beta)
+
+          ! convert beta, etc. back to SI units
+          bwat = bwat * thk0
+          mintauf = mintauf * tau0
+          ho_beta_const = ho_beta_const * tau0/(vel0*scyr) 
+          beta = beta * tau0/(vel0*scyr)
+          uvel = uvel * (vel0*scyr)
+          vvel = vvel * (vel0*scyr)
+
+          call staggered_parallel_halo(beta)
+
+          !WHL - debug
+          if (verbose_beta .and. main_task) then
+
+             print*, ' '
+             print*, 'beta field, rank =', rtest
+             do j = ny-1, 1, -1
+                do i = 1, nx-1
+                   write(6,'(e10.3)',advance='no') beta(i,j)
+                enddo
+                write(6,*) ' '
+             enddo
+
+             print*, ' '
+             print*, 'uvel, rank =', rtest
+             do j = ny-1, 1, -1
+                do i = 1, nx-1
+                   write(6,'(f10.3)',advance='no') uvel(nz,i,j)
+                enddo
+                write(6,*) ' '
+             enddo
+
+          endif
+
+          !WHL - debug                                                                                                                                                        
+          maxbeta = maxval(beta(:,:))
+          maxbeta = parallel_reduce_max(maxbeta)
+          minbeta = minval(beta(:,:))
+          minbeta = parallel_reduce_min(minbeta)
+
+          if (verbose_beta) then
+             print*, 'max, min beta (Pa/(m/yr)) =', maxbeta, minbeta
+          endif
+
+          max_mintauf = maxval(mintauf(:,:))
+          max_mintauf = parallel_reduce_max(max_mintauf)
+          min_mintauf = minval(mintauf(:,:))
+          min_mintauf = parallel_reduce_min(min_mintauf)
+
+          if (verbose_beta) then
+             print*, 'max, min mintauf (Pa) =', max_mintauf, min_mintauf
+          endif
+
+!WHL - debug
+          if (verbose_beta .and. main_task) then
+             print*, ' '
+             i = 10
+             print*, 'mintauf, uvel(nz), vvel(nz), beta, i =', i
+             do j = ny-1, 1, -1
+                write(6,'(i3, 4f16.4)') j, mintauf(i,j), uvel(nz,i,j), vvel(nz,i,j), beta(i,j)
+             enddo
+          endif
+
 
 !          if (verbose .and. main_task) print*, 'Call basal_sliding_bc'
 
@@ -1505,17 +1636,30 @@
        endif
 
        !---------------------------------------------------------------------------
-       ! Incorporate Dirichlet (u = 0) boundary conditions
+       ! Set rhs to the load vector
+       ! The rhs can be adjusted below to account for inhomogeneous Dirichlet BC
+       !---------------------------------------------------------------------------
+
+       bu(:,:,:) = loadu(:,:,:)
+       bv(:,:,:) = loadv(:,:,:)
+
+       !---------------------------------------------------------------------------
+       ! Incorporate Dirichlet boundary conditions (prescribed uvel and vvel)
        !---------------------------------------------------------------------------
 
        if (verbose .and. main_task) then
 !          print*, 'Call Dirichlet_bc'
        endif
 
+!WHL - debug - prescribe basal velocity
+!!!       uvel(nz,:,:) = 1.d0
+!!!       vvel(nz,:,:) = 1.d0
+
 !pw    call t_startf('glissade_dirichlet_bcs')
        call dirichlet_boundary_conditions(nx,              ny,                &
                                           nz,              nhalo,             &
                                           active_vertex,   umask_dirichlet,   &
+                                          uvel,            vvel,              &
                                           Auu,             Auv,               &
                                           Avu,             Avv,               &
                                           bu,              bv)
@@ -1544,7 +1688,7 @@
         call t_stopf('glissade_halo_Axxs')
 
        !---------------------------------------------------------------------------
-       ! Halo updates for load vectors
+       ! Halo updates for rhs vectors
        !WHL - Not sure if these are necessary
        !---------------------------------------------------------------------------
 
@@ -1561,10 +1705,10 @@
 !WHL - debug
     if (verbose_matrix .and. this_rank==rtest) then
 !       print*, ' '
-!       print*, 'Before halo update, bu(1,:,:), rank =', rtest
+!       print*, 'Before halo update, bu(nz,:,:), rank =', rtest
 !       do j = ny-1, 1, -1
 !          do i = 1, nx-1
-!             write(6,'(e10.3)',advance='no') bu(1,:,j)
+!             write(6,'(e10.3)',advance='no') bu(nz,i,j)
 !          enddo
 !          print*, ' '
 !       enddo
@@ -1578,10 +1722,10 @@
 !WHL - debug
     if (verbose_matrix .and. this_rank==rtest) then
 !       print*, ' '
-!       print*, 'After halo update, bu(1,:,:), rank =', rtest
+!       print*, 'After halo update, bu(nz,:,:), rank =', rtest
 !       do j = ny-1, 1, -1
 !          do i = 1, nx-1
-!             write(6,'(e10.3)',advance='no') bu(1,:,j)
+!             write(6,'(e10.3)',advance='no') bu(nz,i,j)
 !          enddo
 !          print*, ' '
 !       enddo
@@ -1748,11 +1892,12 @@
           vvel(:,:,:) = 0.d0
 
           call t_startf('glissade_velo_higher_scale_outp')
-          call glissade_velo_higher_scale_output(thck,    usrf,    &
-                                                 topg,             &
-                                                 flwa,    efvs,    &
-                                                 beta,             &
-                                                 resid_u, resid_v, &
+          call glissade_velo_higher_scale_output(thck,    usrf,          &
+                                                 topg,                   &
+                                                 flwa,    efvs,          &
+                                                 bwat,    mintauf,       &
+                                                 beta,                   &
+                                                 resid_u, resid_v,       &
                                                  uvel,    vvel)
           call t_stopf('glissade_velo_higher_scale_outp')
 
@@ -2032,7 +2177,7 @@
        else   ! one-processor SLAP solve   
           
           !------------------------------------------------------------------------
-          ! Given the stiffness matrices (Auu, etc.) and load vector (bu, bv) in
+          ! Given the stiffness matrices (Auu, etc.) and rhs vector (bu, bv) in
           !  structured format, form the global matrix and rhs in SLAP format.
           !------------------------------------------------------------------------
 
@@ -2313,11 +2458,12 @@
     !------------------------------------------------------------------------------
 
 !pw call t_startf('glissade_velo_higher_scale_output')
-    call glissade_velo_higher_scale_output(thck,    usrf,    &
-                                           topg,             &
-                                           flwa,    efvs,    &
-                                           beta,             &
-                                           resid_u, resid_v, &
+    call glissade_velo_higher_scale_output(thck,    usrf,          &
+                                           topg,                   &
+                                           flwa,    efvs,          &
+                                           bwat,    mintauf,       &
+                                           beta,                   &
+                                           resid_u, resid_v,       &
                                            uvel,    vvel)
 !pw call t_stopf('glissade_velo_higher_scale_output')
     call t_stopf('glissade_vhs_cleanup')
@@ -2326,12 +2472,13 @@
 
 !****************************************************************************
 
-    subroutine glissade_velo_higher_scale_input(dx,     dy,     &
-                                                thck,   usrf,   &
-                                                topg,           &
-                                                eus,    thklim, &
-                                                flwa,   efvs,   &
-                                                beta,           &
+    subroutine glissade_velo_higher_scale_input(dx,     dy,             &
+                                                thck,   usrf,           &
+                                                topg,                   &
+                                                eus,    thklim,         &
+                                                flwa,   efvs,           &
+                                                bwat,   mintauf,        &
+                                                beta,   ho_beta_const,  &
                                                 uvel,   vvel)
 
     !--------------------------------------------------------
@@ -2349,13 +2496,16 @@
 
     real(dp), intent(inout) ::   &
        eus,  &                 ! eustatic sea level (= 0 by default)
-       thklim                  ! minimum cell thickness for active cells
+       thklim,  &              ! minimum cell thickness for active cells
+       ho_beta_const           ! constant beta value (Pa/(m/yr)) for whichbabc = HO_BABC_CONSTANT
 
     real(dp), dimension(:,:,:), intent(inout) ::  &
        flwa,   &               ! flow factor in units of Pa^(-n) yr^(-1)
        efvs                    ! effective viscosity (Pa yr)
 
     real(dp), dimension(:,:), intent(inout)  ::  &
+       bwat,  &                ! basal water depth (m)
+       mintauf, &              ! till yield stress (Pa)
        beta                    ! basal traction parameter (Pa/(m/yr))
 
     real(dp), dimension(:,:,:), intent(inout) ::  &
@@ -2378,8 +2528,15 @@
     ! effective viscosity: rescale from dimensionless to Pa yr
     efvs = efvs * (evs0/scyr)
 
+    ! bwat: rescale from dimensionless to m
+    bwat = bwat * thk0
+
+    ! mintauf: rescale from dimensionless to Pa
+    mintauf = mintauf * tau0
+
     ! beta: rescale from dimensionless to Pa/(m/yr)
     beta = beta * tau0/(vel0*scyr)
+    ho_beta_const = ho_beta_const * tau0/(vel0*scyr)
 
     ! ice velocity: rescale from dimensionless to m/yr
     uvel = uvel * (vel0*scyr)
@@ -2389,11 +2546,12 @@
 
 !****************************************************************************
 
-    subroutine glissade_velo_higher_scale_output(thck,    usrf,    &
-                                                 topg,             &
-                                                 flwa,    efvs,    &
-                                                 beta,             &
-                                                 resid_u, resid_v, &
+    subroutine glissade_velo_higher_scale_output(thck,    usrf,           &
+                                                 topg,                    &
+                                                 flwa,    efvs,           &                                       
+                                                 bwat,    mintauf,        &
+                                                 beta,                    &
+                                                 resid_u, resid_v,        &
                                                  uvel,    vvel)
 
     !--------------------------------------------------------
@@ -2411,6 +2569,8 @@
        efvs                     ! effective viscosity (Pa yr)
 
     real(dp), dimension(:,:), intent(inout)  ::  &
+       bwat,  &                 ! basal water depth (m)
+       mintauf,  &              ! till yield stress (Pa)
        beta                     ! basal traction parameter (Pa/(m/yr))
 
     real(dp), dimension(:,:,:), intent(inout) ::  &
@@ -2429,6 +2589,12 @@
 
     ! Convert effective viscosity from Pa yr to dimensionless units
     efvs = efvs / (evs0/scyr)
+
+    ! Convert bwat from m to dimensionless units
+    bwat = bwat / thk0
+
+    ! Convert mintauf from Pa to dimensionless units
+    mintauf = mintauf / tau0
 
     ! Convert beta from Pa/(m/yr) to dimensionless units
     beta = beta / (tau0/(vel0*scyr))
@@ -2667,7 +2833,7 @@
                                  sigma,            active_cell,     &
                                  xVertex,          yVertex,         &
                                  stagusrf,         stagthck,        &
-                                 bu,               bv)
+                                 loadu,            loadv)
 
     integer, intent(in) ::      &
        nx, ny,                  &    ! horizontal grid dimensions
@@ -2691,7 +2857,7 @@
        stagthck           ! ice thickness on staggered grid (m)
 
     real(dp), dimension(nz,nx-1,ny-1), intent(inout) ::  &
-       bu, bv             ! load vector, divided into u and v components
+       loadu, loadv       ! load vector, divided into u and v components
 
     !----------------------------------------------------------------
     ! Local variables
@@ -2803,12 +2969,12 @@
                    jNode = j + jshift(7,n)
                    kNode = k + kshift(7,n)
          
-                   bu(kNode,iNode,jNode) = bu(kNode,iNode,jNode) - rhoi*grav * wqp(p) * detJ/vol0 * ds_dx * phi(n,p)
-                   bv(kNode,iNode,jNode) = bv(kNode,iNode,jNode) - rhoi*grav * wqp(p) * detJ/vol0 * ds_dy * phi(n,p)
+                   loadu(kNode,iNode,jNode) = loadu(kNode,iNode,jNode) - rhoi*grav * wqp(p) * detJ/vol0 * ds_dx * phi(n,p)
+                   loadv(kNode,iNode,jNode) = loadv(kNode,iNode,jNode) - rhoi*grav * wqp(p) * detJ/vol0 * ds_dy * phi(n,p)
 
                    if (verbose_load .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest .and. p==ptest) then
 !                      print*, ' '
-                      print*, 'n, phi(n), delta(bu), delta(bv):', n, phi(n,p), &
+                      print*, 'n, phi(n), delta(loadu), delta(loadv):', n, phi(n,p), &
                                rhoi*grav*wqp(p)*detJ/vol0 * ds_dx * phi(n,p), &
                                rhoi*grav*wqp(p)*detJ/vol0 * ds_dy * phi(n,p)
                    endif
@@ -2836,7 +3002,7 @@
                                     active_cell,                       &
                                     xVertex,          yVertex,         &
                                     stagusrf,         stagthck,        &
-                                    bu,               bv)
+                                    loadu,            loadv)
 
     integer, intent(in) ::      &
        nx, ny,                  &    ! horizontal grid dimensions
@@ -2863,7 +3029,7 @@
        stagthck           ! ice thickness on staggered grid (m)
 
     real(dp), dimension(nz,nx-1,ny-1), intent(inout) ::  &
-       bu, bv             ! load vector, divided into u and v components
+       loadu, loadv       ! load vector, divided into u and v components
 
     !----------------------------------------------------------------
     ! Local variables
@@ -2917,7 +3083,7 @@
                                    i,                    j,           &
                                    stagusrf,             stagthck,    &
                                    xVertex,              yVertex,     &
-                                   bu,                   bv)
+                                   loadu,                loadv)
 
           endif
 
@@ -2933,7 +3099,7 @@
                                    i,                    j,           &
                                    stagusrf,             stagthck,    &
                                    xVertex,              yVertex,     &
-                                   bu,                   bv)
+                                   loadu,                loadv)
 
           endif
 
@@ -2949,7 +3115,7 @@
                                    i,                    j,           &
                                    stagusrf,             stagthck,    &
                                    xVertex,              yVertex,     &
-                                   bu,                   bv)
+                                   loadu,                loadv)
 
           endif
 
@@ -2970,7 +3136,7 @@
                                    i,                    j,           &
                                    stagusrf,             stagthck,    &
                                    xVertex,              yVertex,     &
-                                   bu,                   bv)
+                                   loadu,                loadv)
 
           endif
 
@@ -2989,10 +3155,7 @@
                               iCell,               jCell,        &
                               stagusrf,            stagthck,     &
                               xVertex,             yVertex,      &
-                              bu,                  bv)
-
-!TODO -  Verify that the sum of contributions to bu or bv over an entire column
-!        is equal to p_av times the surface area of the column.
+                              loadu,               loadv)
 
     !----------------------------------------------------------------------------------
     ! Determine the contribution to the load vector from ice and water pressure at the
@@ -3049,7 +3212,7 @@
        stagthck           ! ice thickness on staggered grid (m)
 
     real(dp), dimension(nz,nx-1,ny-1), intent(inout) ::  &
-       bu, bv             ! load vector, divided into u and v components
+       loadu, loadv          ! load vector, divided into u and v components
 
     !----------------------------------------------------------------
     ! Local variables
@@ -3242,7 +3405,7 @@
 
           ! Increment the load vector with the shelf water pressure contribution from 
           !  this quadrature point.
-          ! Increment bu for east/west faces and bv for north/south faces.
+          ! Increment loadu for east/west faces and loadv for north/south faces.
 
           ! This formula works for ice that either is floating or is partially submerged without floating
 !!          p_av = 0.5*rhoi*grav*hqp &     ! p_out
@@ -3255,11 +3418,11 @@
 
              do n = 1, nNodesPerElement_2d
 
-                bu(kNode(n),iNode(n),jNode(n)) = bu(kNode(n),iNode(n),jNode(n))    &
+                loadu(kNode(n),iNode(n),jNode(n)) = loadu(kNode(n),iNode(n),jNode(n))    &
                                                - p_av * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
 
                 if (verbose .and. this_rank==rtest .and. iCell==itest .and. jCell==jtest .and. k==ktest) then
-                   print*, 'n, p, phi(n), delta(bu):', n, p, phi_2d(n,p), &
+                   print*, 'n, p, phi(n), delta(loadu):', n, p, phi_2d(n,p), &
                            -p_av * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
                 endif
 
@@ -3268,11 +3431,11 @@
           elseif (trim(face) == 'east') then  ! net force in x direction
 
              do n = 1, nNodesPerElement_2d
-                bu(kNode(n),iNode(n),jNode(n)) = bu(kNode(n),iNode(n),jNode(n))    &
+                loadu(kNode(n),iNode(n),jNode(n)) = loadu(kNode(n),iNode(n),jNode(n))    &
                                                + p_av * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
 
                 if (verbose_shelf .and. this_rank==rtest .and. iCell==itest .and. jCell==jtest .and. k==ktest) then
-                   print*, 'n, p, phi(n), delta(bu):', n, p, phi_2d(n,p), &
+                   print*, 'n, p, phi(n), delta(loadu):', n, p, phi_2d(n,p), &
                             p_av * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
                 endif
 
@@ -3281,11 +3444,11 @@
           elseif (trim(face) == 'south') then  ! net force in -y direction
 
              do n = 1, nNodesPerElement_2d
-                bv(kNode(n),iNode(n),jNode(n)) = bv(kNode(n),iNode(n),jNode(n))    &
+                loadv(kNode(n),iNode(n),jNode(n)) = loadv(kNode(n),iNode(n),jNode(n))    &
                                                - p_av * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
 
                 if (verbose_shelf .and. this_rank==rtest .and. iCell==itest .and. jCell==jtest .and. k==ktest) then
-                   print*, 'n, p, phi(n), delta(bv):', n, p, phi_2d(n,p), &
+                   print*, 'n, p, phi(n), delta(loadv):', n, p, phi_2d(n,p), &
                            -p_av * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
                 endif
 
@@ -3294,15 +3457,15 @@
           elseif (trim(face) == 'north') then  ! net force in y direction
  
              do n = 1, nNodesPerElement_2d
-                bv(kNode(n),iNode(n),jNode(n)) = bv(kNode(n),iNode(n),jNode(n))    &
+                loadv(kNode(n),iNode(n),jNode(n)) = loadv(kNode(n),iNode(n),jNode(n))    &
                                                + p_av * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
 
                 if (verbose_shelf .and. this_rank==rtest .and. iCell==itest .and. jCell==jtest .and. k==ktest) then
-                   print*, 'n, p, phi_2d(n,p), p_av, detJ, delta(bv):', n, p, phi_2d(n,p), p_av, detJ, &
+                   print*, 'n, p, phi_2d(n,p), p_av, detJ, delta(loadv):', n, p, phi_2d(n,p), p_av, detJ, &
                             p_av * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
 !WHL - debug
 !!                if (verbose_shelf .and. this_rank==rtest .and. k==ktest) then
-!!                   print*, 'i, j, n, p, p_av, delta(bv):', iCell, jCell, n, p, p_av, &
+!!                   print*, 'i, j, n, p, p_av, delta(loadv):', iCell, jCell, n, p, p_av, &
 !!                            p_av * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
                 endif
 
@@ -3336,7 +3499,7 @@
                                        Avu,              Avv,             &
                                        sia_factor,       ssa_factor)
 
-    ! Assemble the stiffness matrix A and load vector b in the linear system Ax = b
+    ! Assemble the stiffness matrix A in the linear system Ax = b
  
     !----------------------------------------------------------------
     ! Input-output arguments
@@ -4817,18 +4980,19 @@
 
 !****************************************************************************
 
-  subroutine dirichlet_boundary_conditions(nx,  ny,  nz,    nhalo,            &
+  subroutine dirichlet_boundary_conditions(nx,              ny,               &
+                                           nz,              nhalo,            &
                                            active_vertex,   umask_dirichlet,  &
+                                           uvel,            vvel,             &
                                            Auu,             Auv,              &
                                            Avu,             Avv,              &
                                            bu,              bv)
 
     !----------------------------------------------------------------
-    ! Modify the global matrix and RHS for Dirichlet boundary conditions.
-    ! This subroutine assumes that u = v = 0 at Dirichlet points.
-    ! For each such point, we find the corresponding row and column of the global matrix.
-    ! We zero out each row and column, except for setting the diagonal term to 1.
-    ! We set the corresponding rhs to 0, so that the solution must be 0.
+    ! Modify the global matrix and RHS for Dirichlet boundary conditions,
+    !  where uvel and vvel are prescribed at certain nodes.
+    ! For each such node, we zero out the row, except for setting the diagonal term to 1.
+    ! We also zero out the column, moving terms containing uvel/vvel to the rhs.
     !----------------------------------------------------------------
 
     !----------------------------------------------------------------
@@ -4844,7 +5008,10 @@
        active_vertex       ! true for active vertices (vertices of active cells)
 
     logical, dimension(nz,nx-1,ny-1), intent(in) ::  &
-       umask_dirichlet     ! Dirichlet mask for velocity (if true, u = 0)
+       umask_dirichlet     ! Dirichlet mask for velocity (if true, u is prescribed)
+
+    real(dp), dimension(nz,nx-1,ny-1), intent(in) ::  &
+       uvel, vvel          ! velocity components
 
     real(dp), dimension(27,nz,nx-1,ny-1), intent(inout) ::   &
        Auu, Auv,    &      ! assembled stiffness matrix, divided into 4 parts
@@ -4866,7 +5033,8 @@
 
 ! Loop over all vertices that border locally owned vertices.
 ! Locally owned vertices are (nhalo+1:nx-nhalo, nhalo+1:ny-nhalo)
-!           
+!
+
      do j = nhalo, ny-nhalo+1
         do i = nhalo, nx-nhalo+1
           if (active_vertex(i,j)) then
@@ -4876,9 +5044,8 @@
                    !WHL - debug
 !!                   print*, 'umask_dirichlet: i, j, k =', i, j, k
 
-                   ! loop through potential nonzero matrix values in the row associated with this vertex
-                   ! Note: row = NodeID(k,i,j) if we were forming a matrix with one row per node
-
+                   ! loop through matrix values in the rows associated with this node
+                   ! (Auu/Auv contain one row, Avu/Avv contain a second row)
                    do kA = -1,1
                    do jA = -1,1
                    do iA = -1,1
@@ -4889,51 +5056,49 @@
                                       .and.                     &
                            (j+jA >= 1 .and. j+jA <= ny-1) ) then
 
-                         ! zero out A(row,col) and A(col,row)
-                         ! Note: col = NodeID(k+kA, i+iA, j+jA) if we were forming a matrix with one column per node
+                         if (iA==0 .and. jA==0 .and. kA==0) then  ! main diagonal
 
-                         ! Note: If we were setting (u,v) to something other than (0,0),
-                         !  we would have to move terms to the RHS instead of just zeroing them.
-
-!                            Auu( kA,  iA,  jA, row) = 0.d0
-!                            Auu(-kA, -iA, -jA, col) = 0.d0
-!                            Avv( kA,  iA,  jA, row) = 0.d0
-!                            Avv(-kA, -iA, -jA, col) = 0.d0
-!                            Auv( kA,  iA,  jA, row) = 0.d0
-!                            Auv(-kA, -iA, -jA, col) = 0.d0
-!                            Avu( kA,  iA,  jA, row) = 0.d0
-!                            Avu(-kA, -iA, -jA, col) = 0.d0
-
-                         if (iA==0 .and. jA==0 .and. kA==0) then
-                            !! uncomment to put 1 on the main diagonal
+                            ! Set Auu = Avv = 1 on the main diagonal
                             m = indxA(0,0,0)
                             Auu(m,k,i,j) = 1.d0
                             Auv(m,k,i,j) = 0.d0
                             Avu(m,k,i,j) = 0.d0
                             Avv(m,k,i,j) = 1.d0
 
-                            !else leave the diagonal term unchanged
-                            !WHL: For the dome problem, it seems to make no difference whether we put a '1'
-                            !     on the diagonal or leave the diagonal term unchanged. Answers are BFB
-                            !     for diagonal preconditioner, SIA preconditioner, and GMRES/ILU
+                            ! Set the rhs to the prescribed velocity
+                            ! This will force u = uvel, v = vvel for this node
+                            bu(k,i,j) = uvel(k,i,j)
+                            bv(k,i,j) = vvel(k,i,j)
 
-                         else
+                         else     ! not on the diagonal
 
-                            ! zero out the associated term in this row
+                            ! Zero out non-diagonal matrix terms in the rows associated with this node
                             m = indxA(iA,jA,kA)
                             Auu(m, k, i, j) = 0.d0
                             Auv(m, k, i, j) = 0.d0
                             Avu(m, k, i, j) = 0.d0
                             Avv(m, k, i, j) = 0.d0
 
-                            ! zero out the associated term in this column
+                            ! Shift terms associated with this velocity to the rhs
+                            m = indxA(-iA,-jA,-kA)
+
+                           if (.not. umask_dirichlet(k+kA, i+iA, j+jA)) then
+                            bu(k+kA, i+iA, j+jA) = bu(k+kA, i+iA, j+jA)   &
+                                                 - Auu(m, k+kA, i+iA, j+jA) * uvel(k,i,j)   &
+                                                 - Auv(m, k+kA, i+iA, j+jA) * vvel(k,i,j)
+                            bv(k+kA, i+iA, j+jA) = bv(k+kA, i+iA, j+jA)   &
+                                                 - Avu(m, k+kA, i+iA, j+jA) * uvel(k,i,j)   &
+                                                 - Avv(m, k+kA, i+iA, j+jA) * vvel(k,i,j)
+
+                            ! Zero out non-diagonal matrix terms in the columns associated with this node
                             m = indxA(-iA,-jA,-kA)
                             Auu(m, k+kA, i+iA, j+jA) = 0.d0
                             Auv(m, k+kA, i+iA, j+jA) = 0.d0
                             Avu(m, k+kA, i+iA, j+jA) = 0.d0
                             Avv(m, k+kA, i+iA, j+jA) = 0.d0
+                           endif
 
-                         endif   ! not on the diagonal
+                         endif
 
                       endif     ! i+iA, j+jA, and k+kA in bounds
 
@@ -4941,9 +5106,9 @@
                    enddo        ! iA
                    enddo        ! jA
 
-                   ! force u = v = 0 for this node by zeroing the rhs  
-                   bu(k,i,j) = 0.d0            
-                   bv(k,i,j) = 0.d0
+                   ! force u = v = prescribed value for this node by setting the rhs to this value  
+!                   bu(k,i,j) = uvel(k,i,j)
+!                   bv(k,i,j) = vvel(k,i,j)
 
                 endif    ! umask_dirichlet
              enddo       ! k
@@ -5607,7 +5772,6 @@
 
              colA = NodeID(k+kA, i+iA, j+jA)   ! ID for neighboring node
              m  = indxA( iA, jA, kA)
-             mm = indxA(-iA,-jA,-kA)
 
              ! Avu 
              val = Avu(m,k,i,j)
@@ -5619,6 +5783,7 @@
              endif
 
 !WHL - debug
+             mm = indxA(-iA,-jA,-kA)
              if (verbose_slapsolve .and. 2*rowA==rowtest .and. 2*colA-1==coltest) then
                print*, ' '
                print*, 'rowA, colA, i, j, k =', rowA, colA, i, j, k
@@ -6112,6 +6277,9 @@
 
     integer :: i, j, k, m, n, iA, jA, kA
 
+!WHL - debug
+    integer :: nc
+
     do n = 1, nNodesSolve
 
        i = iNodeIndex(n)
@@ -6121,7 +6289,12 @@
        ! uvel equation for this node
 
        global_row = 2*global_node_id(k,i,j) - 1
-       
+
+!WHL - debug
+!       print*, ' '
+!       print*, 'n, i, j, k', n, i, j, k
+!       print*, 'global_node_id, global_row:', global_node_id(k,i,j), global_row
+      
        ncol = 0
        global_column(:) = 0
        matrix_value(:) = 0.d0
@@ -6156,6 +6329,15 @@
        enddo    ! kA
 
        rhs_value = bu(k,i,j)
+
+!WHL - debug
+       if (verbose_trilinos) then
+          write(15,'(2i5)',advance='no') global_row, ncol
+          do nc = 1, ncol
+             write(15,'(i5)',advance='no') global_column(nc)
+          enddo
+          write(15,*) ' '
+       endif
 
        call insertrowtgs(global_row, ncol, global_column, matrix_value, rhs_value)
 
@@ -6197,6 +6379,15 @@
        enddo    ! kA
 
        rhs_value = bv(k,i,j)
+
+!WHL - debug
+       if (verbose_trilinos) then
+          write(15,'(2i5)',advance='no') global_row, ncol
+          do nc = 1, ncol
+             write(15,'(i5)',advance='no') global_column(nc)
+          enddo
+          write(15,*) ' '
+       endif
 
        call insertrowtgs(global_row, ncol, global_column, matrix_value, rhs_value)
 
@@ -6755,9 +6946,9 @@
 !!                            print*, 'Avu, i, j, k, iA, jA, kA, val1, val2:', i, j, k, iA, jA, kA, val1, val2
                          else
                             print*, ' '
-                            print*, 'Avu is not equal to (Auv)^T, i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
+                            print*, 'WARNING: Avu is not equal to (Auv)^T, i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
                             print*, 'Avu(row,col), Auv(col,row), diff:', val1, val2, val2 - val1
-                            stop  !TODO - Put in a proper abort
+!!                            stop  !TODO - Put in a proper abort
                          endif
 
                       endif  ! val2 /= val1

@@ -66,7 +66,6 @@ contains
         
         type(glide_global_type),intent(inout) :: model
 
-        integer, dimension(model%general%ewn-1, model%general%nsn-1)  :: geom_mask_stag
         real(dp), dimension(model%general%ewn-1, model%general%nsn-1) :: latbc_norms_stag
 
         !-------------------------------------------------------------------
@@ -174,17 +173,17 @@ contains
         call glide_set_mask(model%numerics,                                     &
                             model%geomderv%stagthck, model%geomderv%stagtopg,   &
                             model%general%ewn-1,     model%general%nsn-1,       &
-                            model%climate%eus,       geom_mask_stag)
+                            model%climate%eus,       model%geometry%stagmask)
 
-        !        call stag_parallel_halo ( geom_mask_stag )
-        !        call horiz_bcs_stag_scalar(geom_mask_stag)
+        !        call stag_parallel_halo (model%geometry%stagmask)
+        !        call horiz_bcs_stag_scalar (model%geometry%stagmask)
 
         !Augment masks with kinematic boundary condition info
         call augment_kinbc_mask(model%geometry%thkmask, model%velocity%kinbcmask)
-        call augment_kinbc_mask(geom_mask_stag, model%velocity%kinbcmask)
+        call augment_kinbc_mask(model%geometry%stagmask, model%velocity%kinbcmask)
 
         ! save the final mask to 'dynbcmask' for exporting to netCDF output file
-        model%velocity%dynbcmask = geom_mask_stag
+        model%velocity%dynbcmask = model%geometry%stagmask
 
         !-------------------------------------------------------------------
         ! Compute the velocity field
@@ -207,7 +206,7 @@ contains
                                   model%geomderv%dlsrfdew, model%geomderv%dlsrfdns,           & 
                                   model%geomderv%stagthck, model%temper%flwa,                 &
                                   model%velocity%btraction,                                   & 
-                                  geom_mask_stag,                                             &
+                                  model%geometry%stagmask,                                    &
                                   model%options%which_ho_babc,                                &
                                   model%options%which_ho_efvs,                                &
                                   model%options%which_ho_resid,                               &
@@ -227,9 +226,11 @@ contains
            !TODO - Create a JFNK solver that can work with an arbitrary calcF routine
            !       (e.g., variational as well as Payne-Price)
            ! noxsolve could eventually go here 
+           !TODO - Remove model%geometry%stagmask from argument list; just pass in model
+           !       (model%geometry%stagmask used to be called geom_mask_stag, which was not part of model derived type)
 
            call t_startf('JFNK_velo_solver')
-           call JFNK_velo_solver (model, geom_mask_stag) 
+           call JFNK_velo_solver (model, model%geometry%stagmask) 
            call t_stopf('JFNK_velo_solver')
 
         else   

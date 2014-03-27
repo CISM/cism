@@ -577,6 +577,9 @@ module glide_types
     integer, dimension(:,:),pointer :: thkmask => null()
     !*FD see glide_mask.f90 for possible values
 
+    integer, dimension(:,:),pointer :: stagmask => null()
+    !*FD see glide_mask.f90 for possible values
+
     !TODO
     !*SFP - consider moving these to their own type at some point?
     !* (DFM ----------------- added for BISICLES interface --------------)
@@ -1412,11 +1415,13 @@ contains
     call coordsystem_allocate(model%general%ice_grid, model%geometry%lsrf)
     call coordsystem_allocate(model%general%ice_grid, model%geometry%topg)
     call coordsystem_allocate(model%general%ice_grid, model%geometry%thkmask)
+    call coordsystem_allocate(model%general%velo_grid, model%geometry%stagmask)
+
+    call coordsystem_allocate(model%general%velo_grid, model%geomderv%stagthck)
     call coordsystem_allocate(model%general%velo_grid, model%geomderv%dthckdew)
     call coordsystem_allocate(model%general%velo_grid, model%geomderv%dthckdns)
     call coordsystem_allocate(model%general%velo_grid, model%geomderv%dusrfdew)
     call coordsystem_allocate(model%general%velo_grid, model%geomderv%dusrfdns)
-    call coordsystem_allocate(model%general%velo_grid, model%geomderv%stagthck)
 
 
     !TODO
@@ -1697,6 +1702,10 @@ contains
         deallocate(model%geometry%topg)
     if (associated(model%geometry%thkmask)) &
         deallocate(model%geometry%thkmask)
+    if (associated(model%geometry%stagmask)) &
+        deallocate(model%geometry%stagmask)
+    if (associated(model%geomderv%stagthck)) &
+        deallocate(model%geomderv%stagthck)
     if (associated(model%geomderv%dthckdew)) &
         deallocate(model%geomderv%dthckdew)
     if (associated(model%geomderv%dthckdns)) &
@@ -1705,8 +1714,6 @@ contains
         deallocate(model%geomderv%dusrfdew)
     if (associated(model%geomderv%dusrfdns)) &
         deallocate(model%geomderv%dusrfdns)
-    if (associated(model%geomderv%stagthck)) &
-        deallocate(model%geomderv%stagthck)
 !!    if (associated(model%geometry%marine_bc_normal)) &
 !!       deallocate(model%geometry%marine_bc_normal)
 

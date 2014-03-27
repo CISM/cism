@@ -162,12 +162,15 @@ contains
 
     case(HO_BABC_BETA_BWAT)  ! set value of beta as proportional to value of bwat                                         
 
-      C = 10.d0
+      !TODO - Test this parameterization, or add a comment that it is not scientifically tested.
+
+      !TODO - Where do these constants come from?
+      C = 10.d0   ! Does this assume that bwat is in units of m or dimensionless?
       m = 1.d0
 
       allocate(unstagbeta(ewn,nsn))
 
-      unstagbeta(:,:) = 200.d0       
+      unstagbeta(:,:) = 200.d0       ! This setting ensures that the parameterization does nothing.  Remove it?
 
       where ( bwat > 0.d0 .and. unstagbeta > 200.d0 )
           unstagbeta = C / ( bwat**m )
@@ -199,9 +202,6 @@ contains
        jlo = nhalo
        jhi = nsn-nhalo
        
-       print*, 'ilo, ihi =', ilo, ihi
-       print*, 'jlo, jhi =', jlo, jhi
-
        ! Prescribe beta as in Pattyn et al., The Cryosphere, 2008
        beta(:,:) = 0.d0
        do j = jlo, jhi
@@ -212,15 +212,17 @@ contains
           enddo
        enddo
 
-       print*, ' '
-       print*, 'In calcbeta: beta, Pa/(m/yr):'
-       do j = nsn-1, 1, -1
-          do i = 1, ewn-1
-             write(6,'(f8.0)',advance='no') beta(i,j)
-          enddo
-          print*, ' '
-       enddo
-
+       !WHL - debug
+!       print*, ' '
+!       print*, 'In calcbeta, ISHOM C: beta, Pa/(m/yr):'
+!       print*, 'ilo, ihi =', ilo, ihi
+!       print*, 'jlo, jhi =', jlo, jhi
+!       do j = nsn-1, 1, -1
+!          do i = 1, ewn-1
+!             write(6,'(f8.0)',advance='no') beta(i,j)
+!          enddo
+!          print*, ' '
+!       enddo
 
     case(HO_BABC_EXTERNAL_BETA)   ! use value passed in externally from CISM (NOTE not dimensional when passed in) 
 
