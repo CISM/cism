@@ -871,6 +871,8 @@ end subroutine glam_velo_solver
 
 !***********************************************************************
 
+!TODO - Remove umask from argument list; it's the same as model%geometry%stagmask
+
 subroutine JFNK_velo_solver  (model,umask)
 
   use parallel
@@ -3111,6 +3113,9 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
 
   logical :: comp_bound
 
+!WHL - debug
+  integer :: i, j
+
   ct_nonzero = 1        ! index to count the number of non-zero entries in the sparse matrix
 
   if( assembly == 1 )then   ! for normal assembly (assembly=0), start vert index at sfc and go to bed
@@ -3159,16 +3164,33 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
   ! Note: With nhalo = 2, efvs has been computed in a layer of halo cells, 
   !       so we have its value in all neighbors of locally owned velocity points.
 
+  !WHL - Make sure mintauf has the correct value in and near the halo region
+  call staggered_parallel_halo_extrapolate(mintauf)
+
   ! Compute or prescribe the basal traction coefficient 'beta'
   ! Note: The initial value of model%velocity%beta can change depending on
   !       the value of model%options%which_ho_babc.
-  call calcbeta (whichbabc,                            & 
-               dew,      dns,                         &
-               ewn,      nsn,                         &
-               thisvel(upn,:,:),  othervel(upn,:,:),  &
-               bwat,     beta_const,                  &
-               mintauf,                               &
-               mask,     beta )
+
+  ! Note: Arguments must be converted to dimensional units
+
+  beta(:,:) = beta(:,:) * tau0/(vel0*scyr)     ! convert to Pa yr/m
+
+  call calcbeta (whichbabc,                          & 
+                 dew * len0,    dns * len0,          &   ! m
+                 ewn,           nsn,                 &
+                 thisvel(upn,:,:)  * vel0*scyr,      &   ! m/yr
+                 othervel(upn,:,:) * vel0*scyr,      &
+                 bwat * thk0,                        &   ! m
+                 beta_const * tau0/(vel0*scyr),      &   ! Pa yr/m
+                 mintauf * tau0,                     &   ! Pa
+                 mask,                               &
+                 beta )
+
+  beta(:,:) = beta(:,:) / (tau0/(vel0*scyr))   ! convert to dimensionless
+
+  !WHL - added this halo call
+  call staggered_parallel_halo(beta)
+
 
   do ns = 1+staggered_lhalo, size(mask,2)-staggered_uhalo
     do ew = 1+staggered_lhalo, size(mask,1)-staggered_uhalo

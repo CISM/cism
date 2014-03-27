@@ -186,8 +186,8 @@
 !    logical :: verbose_slapsolve = .true.
     logical :: verbose_trilinos = .false.
 !    logical :: verbose_trilinos = .true.
-    logical :: verbose_beta = .false.
-!    logical :: verbose_beta = .true.
+!    logical :: verbose_beta = .false.
+    logical :: verbose_beta = .true.
 
 
     logical :: verbose_efvs = .false.
@@ -1508,6 +1508,8 @@
          ! Compute or prescribe the basal traction field 'beta'.
          ! Note: The initial value of model%velocity%beta can change depending on
          !       the value of model%options%which_ho_babc.
+         ! Note: The units of the input arguments in calcbeta are assumed to be the
+         !       same as the glissade units.
          !-------------------------------------------------------------------
 
 !WHL - debug
@@ -1522,16 +1524,6 @@
              enddo
           endif
 
-          ! convert calcbeta inputs to dimensionless units
-          !TODO - Change calcbeta to expect dimensional units
-
-          bwat = bwat / thk0
-          mintauf = mintauf / tau0
-          ho_beta_const = ho_beta_const / (tau0/(vel0*scyr))
-          beta = beta / (tau0/(vel0*scyr))
-          uvel = uvel / (vel0*scyr)
-          vvel = vvel / (vel0*scyr)
-
           call calcbeta (whichbabc,                       &
                          dx,           dy,                &
                          nx,           ny,                &
@@ -1541,14 +1533,6 @@
                          mintauf,                         &
                          stagmask,                        &
                          beta)
-
-          ! convert beta, etc. back to SI units
-          bwat = bwat * thk0
-          mintauf = mintauf * tau0
-          ho_beta_const = ho_beta_const * tau0/(vel0*scyr) 
-          beta = beta * tau0/(vel0*scyr)
-          uvel = uvel * (vel0*scyr)
-          vvel = vvel * (vel0*scyr)
 
           call staggered_parallel_halo(beta)
 
@@ -1600,7 +1584,7 @@
              i = 10
              print*, 'mintauf, uvel(nz), vvel(nz), beta, i =', i
              do j = ny-1, 1, -1
-                write(6,'(i3, 4f16.4)') j, mintauf(i,j), uvel(nz,i,j), vvel(nz,i,j), beta(i,j)
+                write(6,'(i3, 4f16.3)') j, mintauf(i,j), uvel(nz,i,j), vvel(nz,i,j), beta(i,j)
              enddo
           endif
 

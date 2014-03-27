@@ -166,7 +166,7 @@ contains
 
 !SCALING - Can delete the following when scaling is removed
     use glimmer_physcon,  only: gn
-    use glimmer_paramets, only: thk0,tim0,len0, vel0, vis0, acc0
+    use glimmer_paramets, only: thk0, tim0, len0, vel0, vis0, acc0, tau0
 
     implicit none
 
@@ -196,6 +196,8 @@ contains
     model%velowk%btrac_const = model%paramets%btrac_const/model%velowk%trc0/scyr  ! keep scyr? 
     model%velowk%btrac_max = model%paramets%btrac_max/model%velowk%trc0/scyr      ! keep scyr?
     model%velowk%btrac_slope = model%paramets%btrac_slope*acc0/model%velowk%trc0  ! remove scaling?
+
+    model%paramets%ho_beta_const = model%paramets%ho_beta_const / (tau0/(vel0*scyr))
 
   end subroutine glide_scale_params
 

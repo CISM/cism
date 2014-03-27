@@ -83,6 +83,11 @@ contains
   ! subroutine to calculate map of beta sliding parameter, based on 
   ! user input ("whichbabc" flag, from config file as "which_ho_babc").
 
+   
+  ! NOTE: Previously, the input arguments were assumed to be dimensionless
+  ! and were rescaled in this routine.  Now the input arguments are
+  ! assumed to have the units given below.
+     
   use glimmer_paramets, only: len0
   use parallel, only: nhalo
 
@@ -93,19 +98,19 @@ contains
   integer, intent(in) :: whichbabc
   integer, intent(in) :: ewn, nsn
 
-  real(dp), intent(in) :: dew, dns
-  real(dp), intent(in), dimension(:,:) :: thisvel, othervel
-  real(dp), intent(in), dimension(:,:) :: bwat     ! basal water depth
-  real(dp), intent(in), dimension(:,:) :: mintauf  ! till yield stress 
+  real(dp), intent(in) :: dew, dns                 ! m
+  real(dp), intent(in), dimension(:,:) :: thisvel, othervel  ! (m/yr)
+  real(dp), intent(in), dimension(:,:) :: bwat     ! basal water depth (m)
+  real(dp), intent(in), dimension(:,:) :: mintauf  ! till yield stress (Pa)
   real(dp), intent(in) :: beta_const  ! spatially uniform beta (Pa yr/m)
   integer, intent(in), dimension(:,:) :: mask 
-  real(dp), intent(inout), dimension(:,:) :: beta
+  real(dp), intent(inout), dimension(:,:) :: beta  ! (Pa yr/m)
 
   character (len=30), intent(in), optional :: betafile
 
   ! Local variables
 
-  real(dp) :: smallnum = 1.0d-2
+  real(dp) :: smallnum = 1.0d-2  ! m/yr
 
   integer :: ew, ns
 
@@ -118,15 +123,6 @@ contains
   real(dp) :: dx, dy
   integer :: ilo, ihi, jlo, jhi  ! limits of beta field for ISHOM C case
   integer :: i, j
-
-  ! Note that the dimensional scale (tau0 / vel0 / scyr ) is used here for making the basal traction coeff.
-  ! beta dimensional, within the subroutine (mainly for debugging purposes), and then non-dimensional 
-  ! again before being sent back out for use in the code. This scale is the same as "scale_beta" defined in 
-  ! libglimmer/glimmer_scales.F90. See additional notes where that scale is defined. In general, below, it is
-  ! assumed that values for beta being accessed from inside the code are already dimensionless and 
-  ! any hardwired values have units of Pa yr/m. 
-
-!TODO - Remove scaling here?
 
 
   select case(whichbabc)
@@ -157,8 +153,8 @@ contains
       !!! submodel. Currently, to enable sliding over plastic till, simple specify the value of "beta" as 
       !!! if it were the till yield stress (in units of Pascals).
       
-      beta(:,:) = mintauf(:,:) * tau0  &     ! scale plastic yield stress back to dimensional units (Pa)
-                         / dsqrt( (thisvel(:,:)*vel0*scyr)**2 + (othervel(:,:)*vel0*scyr)**2 + (smallnum)**2 )
+      beta(:,:) = mintauf(:,:) &                                                         ! plastic yield stress (Pa)
+                         / dsqrt( thisvel(:,:)**2 + othervel(:,:)**2 + (smallnum)**2 )   ! velocity components (m/yr)
 
     case(HO_BABC_BETA_BWAT)  ! set value of beta as proportional to value of bwat                                         
 
@@ -170,7 +166,8 @@ contains
 
       allocate(unstagbeta(ewn,nsn))
 
-      unstagbeta(:,:) = 200.d0       ! This setting ensures that the parameterization does nothing.  Remove it?
+      unstagbeta(:,:) = 200.d0   ! Pa yr/m
+                                 ! This setting ensures that the parameterization does nothing.  Remove it?
 
       where ( bwat > 0.d0 .and. unstagbeta > 200.d0 )
           unstagbeta = C / ( bwat**m )
@@ -184,7 +181,7 @@ contains
 
     case(HO_BABC_LARGE_BETA)      ! frozen (u=v=0) ice-bed interface
 
-      beta(:,:) = 1.d10       ! Pa yr/m
+      beta(:,:) = 1.d10           ! Pa yr/m
 
     case(HO_BABC_ISHOMC)          ! prescribe according to ISMIP-HOM test C
 
@@ -194,7 +191,7 @@ contains
        !      The following code sets beta on the full grid as prescribed by Pattyn et al. (2008).
 
        !TODO - Abort if domain is not square
-       Ldomain = (ewn-2*nhalo) * dew*len0   ! size of full domain (must be square)
+       Ldomain = (ewn-2*nhalo) * dew   ! size of full domain (must be square)
        omega = 2.d0*pi / Ldomain
 
        ilo = nhalo
@@ -206,8 +203,8 @@ contains
        beta(:,:) = 0.d0
        do j = jlo, jhi
           do i = ilo, ihi
-             dx = dew*len0 * (i-ilo)
-             dy = dns*len0 * (j-jlo)
+             dx = dew * (i-ilo)
+             dy = dns * (j-jlo)
              beta(i,j) = 1000.d0 + 1000.d0 * sin(omega*dx) * sin(omega*dy)
           enddo
        enddo
@@ -224,11 +221,11 @@ contains
 !          print*, ' '
 !       enddo
 
-    case(HO_BABC_EXTERNAL_BETA)   ! use value passed in externally from CISM (NOTE not dimensional when passed in) 
+    case(HO_BABC_EXTERNAL_BETA)   ! use value passed in externally from CISM
 
       ! scale CISM input value to dimensional units of (Pa yr/m)
 
-      beta(:,:) = beta(:,:) * ( tau0 / vel0 / scyr )
+!!      beta(:,:) = beta(:,:) * ( tau0 / vel0 / scyr )   ! already dimensional
 
       ! this is a check for NaNs, which indicate, and are replaced by no slip
       !TODO: Not sure I follow the logic of this ... keep/omit? Added by the UMT crew at some point
@@ -261,9 +258,6 @@ contains
     ! NOTE: cases (HO_BABC_NO_SLIP) and (HO_BABC_YIELD_NEWTON) are handled external to this subroutine
 
   end select
-
-  ! convert the dimensional value of beta to non-dimensional units by dividing by scale factor.
-  beta(:,:) = beta(:,:) / ( tau0 / vel0 / scyr )    !! scale in parentheses is: Pa * sec/m * yr/sec = Pa yr/m
 
 end subroutine calcbeta
 
