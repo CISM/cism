@@ -583,7 +583,7 @@ contains
 
       !print *, "Original varstring:", varstring
 
-      if (whichdycore==DYCORE_GLAM .or. whichdycore==DYCORE_GLISSADE) then 
+      if (whichdycore/=DYCORE_GLIDE) then 
           ! We want temp to become tempstag
           i = index(nc%vars, " temp ")
           if (i > 0) then
