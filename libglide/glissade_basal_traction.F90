@@ -60,7 +60,7 @@
   use glimmer_paramets, only : vel0, tau0
   use glimmer_log,      only : write_log
   use glide_types
-    
+  use parallel,         only : staggered_parallel_halo  
   !use glide_mask
 
   implicit none
@@ -155,6 +155,9 @@ contains
       
       beta(:,:) = mintauf(:,:) &                                                         ! plastic yield stress (Pa)
                          / dsqrt( thisvel(:,:)**2 + othervel(:,:)**2 + (smallnum)**2 )   ! velocity components (m/yr)
+
+      !!! since beta is updated here, communicate that info to halos
+      call staggered_parallel_halo(beta)
 
     case(HO_BABC_BETA_BWAT)  ! set value of beta as proportional to value of bwat                                         
 

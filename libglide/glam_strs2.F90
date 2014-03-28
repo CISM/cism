@@ -3188,10 +3188,6 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
 
   beta(:,:) = beta(:,:) / (tau0/(vel0*scyr))   ! convert to dimensionless
 
-  !WHL - added this halo call
-  call staggered_parallel_halo(beta)
-
-
   do ns = 1+staggered_lhalo, size(mask,2)-staggered_uhalo
     do ew = 1+staggered_lhalo, size(mask,1)-staggered_uhalo
 

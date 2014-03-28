@@ -978,6 +978,10 @@ contains
           print *, 'Compute higher-order ice velocities, time =', model%numerics%time
        endif
 
+       !! extrapolate value of mintauf into halos to enforce periodic lateral bcs (only if field covers entire domain)
+       if (model%options%which_ho_babc == HO_BABC_YIELD_PICARD) then
+          call staggered_parallel_halo_extrapolate(model%basalproc%mintauf)
+       endif
 
        !WHL - Broke up into separate calls to glam_velo_driver and glissade_velo_driver
        !      Previously had a single call to glissade_velo_driver

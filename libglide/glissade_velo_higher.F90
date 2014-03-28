@@ -925,10 +925,6 @@
 
     ! Halo updates for staggered variables
 
-    if (whichbabc == HO_BABC_YIELD_PICARD) then
-       call staggered_parallel_halo_extrapolate(mintauf)
-    endif
-
     !------------------------------------------------------------------------------
     ! Setup for higher-order solver: Compute nodal geometry, allocate storage, etc.
     ! These are quantities that do not change during the outer nonlinear loop. 
