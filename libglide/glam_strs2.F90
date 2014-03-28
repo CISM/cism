@@ -3164,9 +3164,6 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
   ! Note: With nhalo = 2, efvs has been computed in a layer of halo cells, 
   !       so we have its value in all neighbors of locally owned velocity points.
 
-  !WHL - Make sure mintauf has the correct value in and near the halo region
-  call staggered_parallel_halo_extrapolate(mintauf)
-
   ! Compute or prescribe the basal traction coefficient 'beta'
   ! Note: The initial value of model%velocity%beta can change depending on
   !       the value of model%options%which_ho_babc.
