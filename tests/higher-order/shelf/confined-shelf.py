@@ -79,7 +79,6 @@ topg  = numpy.zeros([1,ny,nx],dtype='float32')
 beta = numpy.empty([1,ny-1,nx-1],dtype='float32')
 kbc  = numpy.zeros([1,ny-1,nx-1],dtype='int')
 acab = numpy.zeros([1,ny,nx],dtype='float32') # *sfp* added acab field for prog. runs 
-temp = numpy.zeros([1,nz,ny,nx],dtype='float32') 
 zero = numpy.zeros([1,nz,ny-1,nx-1],dtype='float32')
 
 uvel = numpy.zeros([1,nz,ny-1,nx-1],dtype='float32')
@@ -135,8 +134,6 @@ acab[0,ny-3:,:]  = 0    # zero out accum at edges to avoid buildup where u=0
 acab[0,:,:3] = 0
 acab[0,:,nx-3:] = 0
 
-temp[:] = -10.0        
-
 # *SFP* calculate stream profile for upstream end
 for i in range(nx-2):
   x = float( i ) / (nx-2) - 0.5
@@ -145,7 +142,6 @@ for i in range(nx-2):
 # Create the required variables in the netCDF file.
 netCDFfile.createVariable('thk',      'f',('time','y1','x1'))[:] = thk.tolist()
 netCDFfile.createVariable('acab',     'f',('time','y1','x1'))[:] = acab.tolist()
-netCDFfile.createVariable('temp',     'f',('time','level','y1','x1'))[:] = temp.tolist()
 netCDFfile.createVariable('kinbcmask','i',('time','y0','x0'))[:] = kbc.tolist()
 netCDFfile.createVariable('topg',     'f',('time','y1','x1'))[:] = topg.tolist()
 netCDFfile.createVariable('beta',     'f',('time','y0','x0'))[:] = beta.tolist()
