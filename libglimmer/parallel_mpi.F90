@@ -4254,33 +4254,38 @@ contains
     ! Note: The extrapolation region includes locally owned cells along
     !       the north and east boundaries of the global domain.
 
+    ! MJH Note: Modified code to now copy entire east and west columns rather than
+    !  just the owned cells in those columns.  This avoids having the halos have
+    !  potentially wrong information (i.e., a few cells in the corner don't get extrapolated into)
+    !  I think a halo update after this subroutine would also solve the problem, 
+    !  but this avoids an MPI-communication (assuming the halos are up-to-date 
+    !  prior to this subroutine).
+
     if (this_rank >= east) then  ! at east edge of global domain
        ! extrapolate eastward
        do i = size(a,1)-staggered_uhalo, size(a,1)
-          a(i, staggered_lhalo+1:size(a,2)-staggered_uhalo-1) = &
-               a(size(a,1)-staggered_uhalo-1, staggered_lhalo+1:size(a,2)-staggered_uhalo-1)
+          a(i, :) = a(size(a,1)-staggered_uhalo-1, :)
        enddo
     endif
 
     if (this_rank <= west) then  ! at west edge of global domain
        ! extrapolate westward
        do i = 1, staggered_lhalo
-          a(i, staggered_lhalo+1:size(a,2)-staggered_uhalo-1) = &
-               a(staggered_lhalo+1, staggered_lhalo+1:size(a,2)-staggered_uhalo-1)
+          a(i, :) = a(staggered_lhalo+1, :)
        enddo
     endif
 
     if (this_rank >= north) then  ! at north edge of global domain
        ! extrapolate northward
        do j = size(a,2)-staggered_uhalo, size(a,2)
-          a(1:size(a,1), j) = a(1:size(a,1), size(a,2)-staggered_uhalo-1)
+          a(:, j) = a(:, size(a,2)-staggered_uhalo-1)
        enddo
     endif
 
     if (this_rank <= south) then  ! at south edge of global domain
        ! extrapolate southward
        do j = 1, staggered_lhalo
-          a(1:size(a,1), j) = a(1:size(a,1), staggered_lhalo+1)
+          a(:, j) = a(:, staggered_lhalo+1)
        enddo
     endif
 
@@ -4306,36 +4311,50 @@ contains
     ! Note: The extrapolation region includes locally owned cells along
     !       the north and east boundaries of the global domain.
 
+    ! MJH Note: Modified code to now copy entire east and west columns rather than
+    !  just the owned cells in those columns.  This avoids having the halos have
+    !  potentially wrong information (i.e., a few cells in the corner don't get extrapolated into)
+    !  I think a halo update after this subroutine would also solve the problem, 
+    !  but this avoids an MPI-communication (assuming the halos are up-to-date 
+    !  prior to this subroutine).
+
+! Useful for debugging small domains (the YYYY is just a tag for grepping the output, particularly if you prepend the processor number, e.g. "0YYYY")
+!  do j = 1, size(a,2)
+!     write(6, "(i3, 'YYYY BEFORE row ', i3, 1000e9.2)")  this_rank, j, a(:,j)
+!  enddo
+
     if (this_rank >= east) then  ! at east edge of global domain
        ! extrapolate eastward
        do i = size(a,1)-staggered_uhalo, size(a,1)
-          a(i, staggered_lhalo+1:size(a,2)-staggered_uhalo-1) = &
-               a(size(a,1)-staggered_uhalo-1, staggered_lhalo+1:size(a,2)-staggered_uhalo-1)
+          a(i, :) = a(size(a,1)-staggered_uhalo-1, :)
        enddo
     endif
 
     if (this_rank <= west) then  ! at west edge of global domain
        ! extrapolate westward
        do i = 1, staggered_lhalo
-          a(i, staggered_lhalo+1:size(a,2)-staggered_uhalo-1) = &
-               a(staggered_lhalo+1, staggered_lhalo+1:size(a,2)-staggered_uhalo-1)
+          a(i, :) = a(staggered_lhalo+1, :)
        enddo
     endif
 
     if (this_rank >= north) then  ! at north edge of global domain
        ! extrapolate northward
        do j = size(a,2)-staggered_uhalo, size(a,2)
-          a(1:size(a,1), j) = a(1:size(a,1), size(a,2)-staggered_uhalo-1)
+          a(:, j) = a(:, size(a,2)-staggered_uhalo-1)
        enddo
     endif
 
     if (this_rank <= south) then  ! at south edge of global domain
        ! extrapolate southward
        do j = 1, staggered_lhalo
-          a(1:size(a,1), j) = a(1:size(a,1), staggered_lhalo+1)
+          a(:, j) = a(:, staggered_lhalo+1)
        enddo
     endif
 
+! Useful for debugging small domains
+!  do j = 1, size(a,2)
+!     write(6, "(i3, 'YYYY AFTER  row ', i3, 1000e9.2)")  this_rank, j, a(:,j)
+!  enddo
   end subroutine staggered_parallel_halo_extrapolate_real8_2d
 
 
