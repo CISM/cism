@@ -51,10 +51,6 @@ if analytic_solution == 'raymond':
     analytic_name = 'Raymond analytic solution'
 elif analytic_solution == 'schoof':
     uvel_analytic_profile = schoof_uvel(y0)
-    # Some adjustments to the analytic profile - not entirely sure why these are needed.
-    ind = numpy.nonzero( numpy.absolute(y0) >= streamHalfWidth )
-    uvel_analytic_profile[ind] = uvel_analytic_profile.min()
-    uvel_analytic_profile = uvel_analytic_profile - uvel_analytic_profile.min()
     analytic_name = 'Schoof analytic solution'
 else:
     sys.exit("Error: Invalid value for 'analytic_solution'.")
@@ -72,13 +68,15 @@ plt.plot(y0/1000.0, uvel[-1,:,xpos], '-^k', label='CISM basal')
 plt.xlabel('distance across flow (km)')
 plt.ylabel('along flow velocity (m/a)')
 plt.title(analytic_name +  ' at x=%.1f km'%(x0[xpos]/1000.0))
-plt.legend(loc='lower center')
+plt.legend()
 
 fig.add_subplot(2,1,2)
 plt.plot(y0/1000.0, mintauf[:, xpos], '-bo', label='Yield stress')
+plt.plot(y0/1000.0, numpy.ones(y0.size) * taud, '-k', label='Driving stress')
 #plt.plot(y0/1000.0, btract[:, xpos], '-go', label='basal traction')
 plt.xlabel('distance across flow (km)')
-plt.ylabel('Yield stress (Pa)')
+plt.ylabel('stress (Pa)')
+plt.legend()
 
 # ===================
 # Plot other diagnostics

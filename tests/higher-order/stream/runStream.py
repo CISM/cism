@@ -12,12 +12,14 @@ import numpy
 # ==========================================================================
 # Parameters you might want to modify
 # ==========================================================================
-analytic_solution = 'raymond'  # can be 'raymond' or 'schoof'
+analytic_solution = 'schoof'  # can be 'raymond' or 'schoof'
 kinflag = 0    # 1=apply kinematic bc (analytic soln) at up/downstream ends, 0=the run will be doubly periodic (preferred)
+fillInitialGuess = 1  # 1=use the analytic solution as the initial guess for the velocity solver to speed convergence; 0=use the default 0-velocity initial guess
+
 
 # Domain parameters
 streamHalfWidth = 25000.0   # ice stream half-width, in m - used for both Raymond & Schoof formulations
-alongFlowLength = 50000.0   # the desired along-flow length of the domain, in m; set to -1 to get a square domain
+alongFlowLength = 30000.0   # the desired along-flow length of the domain, in m; set to -1 to get a square domain
 H = 1000.0       # ice thickness
 dsdx = -1.0e-3   # bed (and surface) slope in the x-direction (y-direction is flat)
 
@@ -37,7 +39,7 @@ A = 1e-16     # flow rate factor in Pa^-3 yr^-1
 # Raymond yield stress
 def raymond_tau(yy):
   tau0 = 5.2e3*numpy.ones(yy.shape)         # set the stream value everywhere
-  tau0[numpy.absolute(yy)>streamHalfWidth] = 0.7e5        # set a very large value  outside the stream
+  tau0[numpy.absolute(yy)>streamHalfWidth] = 0.3e5        # set a very large value  outside the stream
   return tau0
 
 # Raymond velocity solution
@@ -50,7 +52,7 @@ def raymond_uvel(yy):
 
 # Schoof solution parameters
 m = 1.55  # Schoof exponent
-L = streamHalfWidth
+L = streamHalfWidth / (m+1.0)**(1.0/m)  # This comes from the line above eq. 4.3 in Schoof (2006)
 
 # Schoof yield stress distribution
 def schoof_tau(yy):
@@ -60,10 +62,15 @@ def schoof_tau(yy):
 def schoof_uvel(yy):
   B = A**(-1.0/n)
   us = -2.0 * taud**3 * L**4 / (B**3 * H**3) * ( ((yy/L)**4 - (m+1.0)**(4.0/m))/4.0 - 3.0*( numpy.absolute(yy/L)**(m+4.0) \
-    - (m+1.0)**(1.0+4.0/m) )/((m+1.0)*(m+4.0)) + 3.0*( numpy.absolute(yy/L)**(2.0*m+4.0) - (m-1.0)**(2.0+4.0/m) )/((m+1.0)**2*(2.0*m+4.0)) \
-    - ( numpy.absolute(yy/L)**(3.0*m+4.0) - (m+1.0)**(3.0+4.0/m) )/ ( (m+1.0)**3.0*(3.0*m+4.0)) )
+    - (m+1.0)**(1.0+4.0/m) )/((m+1.0)*(m+4.0)) + 3.0*( numpy.absolute(yy/L)**(2.0*m+4.0) - (m+1.0)**(2.0+4.0/m) )/((m+1.0)**2*(2.0*m+4.0)) \
+    - ( numpy.absolute(yy/L)**(3.0*m+4.0) - (m+1.0)**(3.0+4.0/m) )/ ( (m+1.0)**3*(3.0*m+4.0)) )
+
+  # Some adjustments to the analytic profile - not entirely sure why these are needed.
+  ind = numpy.nonzero( numpy.absolute(yy) >= streamHalfWidth )
+  us[ind] = 0.0
+
   return us
-##sscale = 2*taud^3*L^4/(B^3*H^3);  # this was unused in .m script, but copying it over anyway
+
 
 
 # ======================================
@@ -74,11 +81,9 @@ taud = rho * g * H * dsdx  # Driving stress
 if analytic_solution == 'raymond':
   strongWidth = 5.0 * H  # 5 ice thicknesses should get us beyond the zone of lateral stress transfer.  Adjust as needed
 elif analytic_solution == 'schoof':
-  # These values are very roughly approximated from Figure 3 of Schoof (2006).  Adjust as needed
-  if m<10.0:
-    strongWidth = 1.5 * L
-  else:
-    strongWidth = 0.5 * L
+  # Schoof (2006) uses a domain size that is 3L on either side of the central axis
+  strongWidth = 3.0 * L - streamHalfWidth
+
 # Calculating the actual domain size will happen later after the config file is read
 
 
@@ -216,6 +221,10 @@ if __name__ == '__main__':
     netCDFfile.createVariable('topg','f',('time','y1','x1'))[:] = topg
     netCDFfile.createVariable('tauf','f',('time','y0','x0'))[:] = tauf
 
+    if kinflag == 1 or fillInitialGuess == 1:
+        netCDFfile.createVariable('uvel','f',('time','level','y0','x0'))
+        netCDFfile.createVariable('vvel','f',('time','level','y0','x0'))
+
     if kinflag == 1:
         # setup Dirichlet boundary conditions for uvel/vvel along east & west domain boundaries
 
@@ -238,10 +247,24 @@ if __name__ == '__main__':
         vvel[0,:,:,i] = numpy.tile(vvelProfile, [nz, 1])  # uniform in the vertical
         kinbcmask[0,:,i] = 1
 
-
-        netCDFfile.createVariable('uvel','f',('time','level','y0','x0'))[:] = uvel[:]
-        netCDFfile.createVariable('vvel','f',('time','level','y0','x0'))[:] = vvel[:]
+        netCDFfile.variables['uvel'][:] = uvel[:]
+        netCDFfile.variables['vvel'][:] = vvel[:]
         netCDFfile.createVariable('kinbcmask','i',('time','y0','x0'))[:] = kinbcmask[:]
+
+    if fillInitialGuess == 1:
+        # Fill the analytic solution into the initial guess to speed convergence
+        dudy = numpy.gradient( uvelProfile, dy )
+        vvelProfile = -dudy*dy
+
+        uvel = numpy.zeros([1,nz,ny-1,nx-1],dtype='float32')
+        vvel = numpy.zeros([1,nz,ny-1,nx-1],dtype='float32')
+
+        for i in range(nx-1):
+          uvel[0,:,:,i] = numpy.tile(uvelProfile, [nz, 1])  # uniform in the vertical
+          vvel[0,:,:,i] = numpy.tile(vvelProfile, [nz, 1])  # uniform in the vertical
+
+        netCDFfile.variables['uvel'][:] = uvel[:]
+        netCDFfile.variables['vvel'][:] = vvel[:]
 
     netCDFfile.close()
 
