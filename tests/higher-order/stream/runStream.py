@@ -14,7 +14,7 @@ import numpy
 # ==========================================================================
 analytic_solution = 'schoof'  # can be 'raymond' or 'schoof'
 kinflag = 0    # 1=apply kinematic bc (analytic soln) at up/downstream ends, 0=the run will be doubly periodic (preferred)
-fillInitialGuess = 1  # 1=use the analytic solution as the initial guess for the velocity solver to speed convergence; 0=use the default 0-velocity initial guess
+fillInitialGuess = 0  # 1=use the analytic solution as the initial guess for the velocity solver to speed convergence; 0=use the default 0-velocity initial guess
 
 
 # Domain parameters
@@ -39,7 +39,7 @@ A = 1e-16     # flow rate factor in Pa^-3 yr^-1
 # Raymond yield stress
 def raymond_tau(yy):
   tau0 = 5.2e3*numpy.ones(yy.shape)         # set the stream value everywhere
-  tau0[numpy.absolute(yy)>streamHalfWidth] = 0.3e5        # set a very large value  outside the stream
+  tau0[numpy.absolute(yy)>streamHalfWidth] = 0.7e5        # set a very large value  outside the stream
   return tau0
 
 # Raymond velocity solution
