@@ -2,18 +2,10 @@
 
 [grid]
 upn = 3
-#ewn = 20 
-#nsn = 20
-#dew = 3571.429 
-#dns = 3571.429 
-ewn = 40 
-nsn = 40
-dew = 1470.588 
-dns = 1470.588 
-#ewn = 80 
-#nsn = 80
-#dew = 675.6757 
-#dns = 675.6757 
+ewn = ?
+nsn = ?
+dew = ?
+dns = ?
 
 [time]
 tstart = 0.0
@@ -33,8 +25,7 @@ which_ho_nonlinear = 1  # 0=Picard, 1=JFNK
 
 [parameters]
 flow_factor = 1.
-periodic_offset_ew = 57.3529       # for c = 40
-#periodic_offset_ew = 53.3784       # for c = 80
+periodic_offset_ew = ?
 
 [CF default]
 comment = none
@@ -45,7 +36,8 @@ name = stream.nc
 time = 1
 
 [CF output]
-variables = usrf topg thk flwa uvel vvel velnorm beta dynbcmask  
+variables = usrf topg thk flwa uvel vvel velnorm beta dynbcmask tauf
 frequency = 100
 name = stream.out.nc
+xtype = double
 
