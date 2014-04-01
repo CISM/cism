@@ -12,7 +12,7 @@ import numpy
 # ==========================================================================
 # Parameters you might want to modify
 # ==========================================================================
-analytic_solution = 'schoof'  # can be 'raymond' or 'schoof'
+analytic_solution = 'raymond'  # can be 'raymond' or 'schoof'
 kinflag = 0    # 1=apply kinematic bc (analytic soln) at up/downstream ends, 0=the run will be doubly periodic (preferred)
 fillInitialGuess = 0  # 1=use the analytic solution as the initial guess for the velocity solver to speed convergence; 0=use the default 0-velocity initial guess
 
@@ -39,7 +39,7 @@ A = 1e-16     # flow rate factor in Pa^-3 yr^-1
 # Raymond yield stress
 def raymond_tau(yy):
   tau0 = 5.2e3*numpy.ones(yy.shape)         # set the stream value everywhere
-  tau0[numpy.absolute(yy)>streamHalfWidth] = 0.7e5        # set a very large value  outside the stream
+  tau0[numpy.absolute(yy)>=streamHalfWidth] = 0.7e5        # set a very large value  outside the stream
   return tau0
 
 # Raymond velocity solution
@@ -129,9 +129,9 @@ if __name__ == '__main__':
     # =====================================
     # Figure out domain size information
     nStream = int(options.stream_grid_size)
-    dy = streamHalfWidth * 2.0 / float(nStream)
+    dy = 2.0 * streamHalfWidth / float(nStream)
     nStrongStrip = int(round(strongWidth / dy))  # Figure out the number of cells we need to add to get as close the the desired width of the strong region as possible (note: may want to use ceil() instead of round() here)
-    ny = nStream + 2 * nStrongStrip + 1  # the +1 is to convert from y0 to y1
+    ny = nStream + 2 * nStrongStrip  # a +1 is needed to convert from y0 to y1 but we leaving it off lets the stream boundaries fall on the y0 grid, which is needed to best match the analytic solution
     dx = dy  # always want this
     print 'Number of cells for stream (N-S):', nStream
     print 'Number of cells for entire domain (N-S):', ny
@@ -176,9 +176,9 @@ if __name__ == '__main__':
     x0 = dx/2.0 + x1[:-1] # staggered grid
     y0 = dy/2.0 + y1[:-1]
 
-    # Make sure the edge of the stream lands on the edge of grid cells on the y0 grid - this is the cell centers on the y1 grid
-    if not streamHalfWidth in y1:
-      sys.exit('Error: the stream edge does not land on an edge of the y0 grid so the stream will not be resolved.  Adjust your domain size and/or stream size and/or horizontal resolution.  \nstream half width='+str(streamHalfWidth)+'\ny0 grid has edges at:\n '+str(y1[:]))
+    # Make sure the edge of the stream lands on the grid cells on the y0 grid.  This should always happen with the logic above, so this check should never be activated.
+    if (analytic_solution == 'raymond') and (not True in (numpy.absolute(streamHalfWidth-y0) < 0.0001)):
+      sys.exit('Error: the stream edge does not land on the y0 grid so the stream will not be resolved adequately for the Raymond case.  Adjust your domain size and/or stream size and/or horizontal resolution.  \nstream half width='+str(streamHalfWidth)+'\ny0 grid has values at:\n '+str(y0[:]))
 
     # Make sure we have at least two non-stream rows on each side
     if (numpy.absolute(y0[:])>streamHalfWidth).sum() < 4:

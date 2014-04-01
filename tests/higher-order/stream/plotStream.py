@@ -88,7 +88,7 @@ for j in range(len(y0)):
   plt.plot(x0/1000.0, uvel[ 0,j,:] - uvel[ 0,j,:].mean(), '.-', color=colors(j), label=str(j))
 plt.xlabel('distance along flow (km)')
 plt.ylabel('surface ALONG flow velocity, demeaned (m/a)')
-plt.title('Longit. x-sect. of model vel. for all rows (should be constant-valued)')
+plt.title('Longit. x-sect. of model vel. for all rows \n(should be constant-valued)')
 # kludgy code to get a colorbar for the lines
 sm = plt.cm.ScalarMappable(cmap=colors, norm=plt.normalize(vmin=0, vmax=len(y0)))
 sm._A = []; 
@@ -100,7 +100,7 @@ for j in range(len(y0)):
   plt.plot(x0/1000.0, uvel[ -1,j,:] - uvel[ -1,j,:].mean(), '.-', color=colors(j), label=str(j))
 plt.xlabel('distance along flow (km)')
 plt.ylabel('basal ALONG flow velocity, demeaned (m/a)')
-plt.title('Longit. x-sect. of model vel. for all rows (should be constant-valued)')
+#plt.title('Longit. x-sect. of model vel. for all rows (should be constant-valued)')
 # kludgy code to get a colorbar for the lines
 sm = plt.cm.ScalarMappable(cmap=colors, norm=plt.normalize(vmin=0, vmax=len(y0)))
 sm._A = []; 
@@ -112,7 +112,7 @@ for j in range(len(y0)):
   plt.plot(x0/1000.0, vvel[ 0,j,:] - vvel[ 0,j,:].mean(), '.-', color=colors(j), label=str(j))
 plt.xlabel('distance along flow (km)')
 plt.ylabel('surface ACROSS flow velocity, demeaned (m/a)')
-plt.title('Longit. x-sect. of model vel. for all rows (should be constant-valued)')
+#plt.title('Longit. x-sect. of model vel. for all rows (should be constant-valued)')
 # kludgy code to get a colorbar for the lines
 sm = plt.cm.ScalarMappable(cmap=colors, norm=plt.normalize(vmin=0, vmax=len(y0)))
 sm._A = []
@@ -124,7 +124,7 @@ for j in range(len(y0)):
   plt.plot(x0/1000.0, vvel[-1,j,:] - vvel[-1,j,:].mean(), '.-', color=colors(j), label=str(j))
 plt.xlabel('distance along flow (km)')
 plt.ylabel('basal ACROSS flow velocity, demeaned (m/a)')
-plt.title('Longit. x-sect. of model vel. for all rows (should be constant-valued)')
+#plt.title('Longit. x-sect. of model vel. for all rows (should be constant-valued)')
 # kludgy code to get a colorbar for the lines
 sm = plt.cm.ScalarMappable(cmap=colors, norm=plt.normalize(vmin=0, vmax=len(y0)))
 sm._A = []
@@ -140,42 +140,6 @@ plt.show()
 
 
 
-
-#ind = find( abs( yy ) >= W ); us(ind) = min( min( us ) );
-
-#us = us - min( us );
-
-
-#    subplot(2,1,2), hold on
-#    xlabel( 'dist across flow (m)'), ylabel( 'yield stress (kPa)')
-#    box on
-
-
-
-#uvel=permute(ncread(filename, 'uvel'), [ 2 1 3 ] );
-#vvel=permute(ncread(filename, 'vvel'), [ 2 1 3 ] );
-
-
-#yy2 = [ yy yy(end)+dx yy(end)+2*dx ];
-#yy2 = [ -fliplr(yy2(2:end)), yy2 ];
-
-#if( flag == 0 )
-#    figure(198)
-#    subplot(2,1,1), hold on
-#    plot( yy2/1e3, uvel(:,round(c/2),1), 'bo:' )
-#    plot( yy2/1e3, uvel(:,end,1), 'b*' )              %% boundary value
-#    legend( 'analytic', 'model', 'boundary' )
-#    subplot(2,1,2), hold on
-#    legend( 'specified', 'model' )
-#else
-#    figure(199)
-#    subplot(2,1,1), hold on
-#    plot( yy2/1e3, uvel(:,round(c/2),1), 'bo:' )
-#    plot( yy2/1e3, uvel(:,end,1), 'b*' )              %% boundary value
-#    legend( 'analytic', 'model', 'boundary' )
-#    subplot(2,1,2), hold on
-#    legend( 'specified', 'model' )
-#end
 
 
 
