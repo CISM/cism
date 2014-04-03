@@ -88,11 +88,20 @@ if __name__ == '__main__':
           offset = float(size)*1000.0 * tan(0.5 * pi/180.0)
         elif experiment in ('c','d'):
           offset = float(size)*1000.0 * tan(0.1 * pi/180.0) 
+        elif experiment in ('f'):
+          offset = float(size)*1000.0 * tan(3.0 * pi/180.0)
         configParser.set('parameters', 'periodic_offset_ew', str(offset))
 
 ##      #Optional: if doing experiment C, one can alternatively use the ho_babc option setup for this test case rather than passing in a beta
 ##      if experiment in ('c'):
 ##        configParser.set('ho_options', 'which_ho_babc', '8')
+
+      # For test case F we need to make a few additional adjustments to the config
+      if experiment in ('f'):
+        configParser.set('ho_options', 'which_ho_efvs', '1')  # Set to efvs to be the flow factor
+        configParser.set('time', 'dt', '5.0')  # this is the longest dt ok for diffusive CFL
+        configParser.set('time', 'tend', '800.0')  # Need to run to steady-state...
+        configParser.set('CF output', 'variables', 'uvel vvel uvel_icegrid vvel_icegrid topg thk usurf wvel adv_cfl_dt diff_cfl_dt')  # Include the CFL variables to the output file
 
 #     Make additional changes if requested on the command line
       if options.vertical_grid_size != None:
@@ -151,7 +160,7 @@ if __name__ == '__main__':
         zz = [1000-x1[i]*tan(alpha) for i in range(nx)]
       elif experiment == 'f':
         alpha = 3.0 * pi/180
-        zz = [6000-x1[i]*tan(alpha) for i in range(nx)]
+        zz = [7000-x1[i]*tan(alpha) for i in range(nx)]
         xc = (xx[0]+xx[-1])/2
         yc = (yy[0]+yy[-1])/2
         a0 = 100
@@ -249,22 +258,27 @@ if __name__ == '__main__':
               yy = np.concatenate(([0.0],yy,[1.0]))
               if experiment in ('b','d'):
                  yy = (yy[len(yy)/2],)  # for the 2-d experiments, just use the middle y-index
-
+              if experiment in ('f'):
+                 # experiment f uses dimensions in km, centered around 0, ugh!
+                 xx = xx * float(size) - 50.0
+                 yy = yy * float(size) - 50.0
 
               # Figure out u,v since all experiments needs at least one of them (avoids duplicate code in each case below
-              us = netCDFfile.variables['uvel_icegrid'][0,0,:,:] * velscale  # top level of first time
+              us = netCDFfile.variables['uvel_icegrid'][-1,0,:,:] * velscale  # top level of last time
               us = np.concatenate( (us[:,-1:], us), axis=1)  # copy the column at x=1.0 to x=0.0
               us = np.concatenate( (us[-1:,:], us), axis=0)  # copy the row at y=1.0 to y=0.0
-              vs = netCDFfile.variables['vvel_icegrid'][0,0,:,:] * velscale  # top level of first time
+              vs = netCDFfile.variables['vvel_icegrid'][-1,0,:,:] * velscale  # top level of last time
               vs = np.concatenate( (vs[:,-1:], vs), axis=1)  # copy the column at x=1.0 to x=0.0
               vs = np.concatenate( (vs[-1:,:], vs), axis=0)  # copy the row at y=1.0 to y=0.0
-              ub = netCDFfile.variables['uvel_icegrid'][0,-1,:,:] * velscale  # bottom level of first time
+              ub = netCDFfile.variables['uvel_icegrid'][-1,-1,:,:] * velscale  # bottom level of last time
               ub = np.concatenate( (ub[:,-1:], ub), axis=1)  # copy the column at x=1.0 to x=0.0
               ub = np.concatenate( (ub[-1:,:], ub), axis=0)  # copy the row at y=1.0 to y=0.0
-              vb = netCDFfile.variables['vvel_icegrid'][0,-1,:,:] * velscale  # bottom level of first time
+              vb = netCDFfile.variables['vvel_icegrid'][-1,-1,:,:] * velscale  # bottom level of last time
               vb = np.concatenate( (vb[:,-1:], vb), axis=1)  # copy the column at x=1.0 to x=0.0
               vb = np.concatenate( (vb[-1:,:], vb), axis=0)  # copy the row at y=1.0 to y=0.0
-              nan = ub*np.NaN  # create a dummy matrix for uncalculated values.
+              #nan = ub*np.NaN  # create a dummy matrix for uncalculated values.
+              nan = np.ones(ub.shape)*-999.0  # create a dummy matrix for uncalculated values.
+
 
               # make arrays of the variables needed for each experiment
               # the icegrid velocities have the periodic edge in the last x-position.  We also want it in the first x-position.

@@ -28,11 +28,18 @@ lmlaModels = ['ahu1','ahu2','bds1','fpa1','mbr1','rhi2','tpa1']
 # Function to read data files
 # Returns a list of tuples [(x0,|v0|),(x1,|v1|),...,(xm,|vm|)]
 def read(filename,experiment):
-  if experiment in ['b','d','e','f']:
+  if experiment in ['b','d','e']:
 #   Read two numbers, x and vx, from each line in the file
     n = 2 
     VX = 1  # VX is in 1 position for the 2d tests
     X = 0
+  elif experiment in ('f'):
+#   Read three numbers, x, y and vx,vy, from each line in the file
+    n = 5
+    VX,VY = 3,4  # VX is in position 3 for the F test
+    X = 0
+    Y = 1
+    target = 0.0  # y-position in km to get the profile from
   else:
 #   Read four numbers, x, y, vx, and vy, from each line in the file
     n = 4
@@ -52,21 +59,22 @@ def read(filename,experiment):
       data.append(tuple(row))
   inputfile.close()
 
-  if experiment in ['b','d','e','f']:
+  if experiment in ['b','d','e']:
     return [( row[X], abs(row[VX]) ) for row in data]  # use the absolute value of the x-velocity
   else:
     if target in [row[Y] for row in data]:
 #     Extract the points with the desired (target) y
       return [(row[X],sqrt(row[VX]**2+row[VY]**2)) for row in data if row[Y]==target]
     else:
-      #print "Note: Plotting model output data along profile at dimensionless y-position "+str(target)+" requires interpolation."+filename
+      #print "Note: Plotting model output data along profile at dimensionless y-position "+str(target)+" requires interpolation.  "+filename
 #     Interpolate to the desired (target) y value
-      below = 0
-      above = 1
+      below = -100000.0
+      above =  100000.0
       for row in data:
         y = row[Y]
         if  below < y < target: below = y
         if target < y < above:  above = y
+      #print 'got above=',above,' below=',below
 #     Extract the bracketing data
       dataA = [(row[X],sqrt(row[VX]**2+row[VY]**2)) for row in data if row[Y]==above]
       dataB = [(row[X],sqrt(row[VX]**2+row[VY]**2)) for row in data if row[Y]==below]
@@ -167,12 +175,19 @@ if __name__ == '__main__':
           modelName = filename[0:4]
           modelExperiment = filename[4]
           modelSize = filename[5:8]
+          #print 'name, exp, size', modelName, modelExperiment, modelSize
           if modelName == 'aas1':
               # Skip the 'aas1' model because its output files in the tc-2007-0019-sp2.zip file do not follow the proper naming convention.  MJH 11/5/13
               continue
-          if (modelExperiment != experiment) or (int(modelSize) != size) \
-            or (not options.allPS and not modelName in lmlaModels + fullStokesModels):
-              continue # continue next loop iteration if not the size or not the experiment desired or if we just want FO comparison and this model is not FO or FS.
+          if (modelExperiment != experiment) or (modelExperiment != 'f' and int(modelSize) != size) \
+                or (not options.allPS and not modelName in lmlaModels + fullStokesModels):
+                    continue # continue next loop iteration if not the size or not the experiment desired or if we just want FO comparison and this model is not FO or FS.
+          elif (modelExperiment == 'f'):
+                if (modelSize == '001'):
+                    continue # ignore the sliding version for now
+                if modelName == 'cma1':
+                    continue  # the cma1 'f' experiments made the x,y coords dimensionless instead of dimensional - ignore for convenience
+          print 'Using data from file:',os.path.join(path,filename)
           data = read(os.path.join(path,filename),experiment)
           if modelName in fullStokesModels:
             index = fullStokes
@@ -184,20 +199,20 @@ if __name__ == '__main__':
 
 #         Interpolate onto the x values from the Glimmer model run
           for (i,target) in enumerate([row[0] for row in glimmerData]):
-            below = -999
-            above =  999
+            below = -99999.0
+            above =  99999.0
             for (j,x) in enumerate([row[0] for row in data]):
               if  below <  x <= target: b,below = j,x
               if target <= x <  above:  a,above = j,x
             if above == below:
               v = data[a][1]
             else:
-              if below == -999: # Use the periodic boundary condition at x = 0
+              if below == -99999.0: # Use the periodic boundary condition at x = 0
                 xBelow = data[-1][0] - 1
                 vBelow = data[-1][1]
               else:
                 xBelow,vBelow = data[b]
-              if above ==  999: # Use the periodic boundary condition at x = 1
+              if above ==  99999.0: # Use the periodic boundary condition at x = 1
                 xAbove = data[0][0] + 1
                 vAbove = data[0][1]
               else:
