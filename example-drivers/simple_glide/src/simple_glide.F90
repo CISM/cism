@@ -65,6 +65,12 @@ program simple_glide
   integer :: clock,clock_rate,ret
 
   integer :: tstep_count
+!pw++
+   integer :: msize,mrss
+   integer :: mshare,mtext,mdatastack
+   integer :: ierr
+   integer :: GPTLget_memusage
+!pw--
 
   !TODO - call this only for parallel runs?
   call parallel_initialise     
@@ -191,6 +197,13 @@ program simple_glide
   ! ------------- Begin time step loop -----------------
 
   do while(time < model%numerics%tend)
+
+!pw++
+     ierr = GPTLget_memusage (msize, mrss, mshare, mtext, mdatastack)
+     write(6,*) "MEMUSAGE:", msize, mrss, mshare, mtext, mdatastack
+     call flush(6)
+     call GPTLprint_memusage("top of timestep loop")
+!pw--
 
      ! --- First assign forcings ----
      ! Because this is Forward Euler, the forcings should be from the previous time step (e.g. H1 = f(H0, V0, SMB0))

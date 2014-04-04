@@ -83,10 +83,10 @@ cmake \
   -D CISM_BUILD_CISM_DRIVER:BOOL=OFF \
 \
   -D GLIMMER_TRILINOS_DIR=/ccs/proj/cli062/Trilinos/cism-standard/default-gnu/install \
-  -D GLIMMER_TRILINOS_GPTL_DIR=/ccs/proj/cli062/worley/Trilinos/titan-gnu-albany-ci-nophal/install \
+  -D GLIMMER_TRILINOS_GPTL_DIR=/ccs/proj/cli062/cism_gptl/Trilinos/titan-gnu-cism-albany-ci-nophal/install \
   -D GLIMMER_TRILINOS_ALBANY_DIR= \
 \
-  -D GLIMMER_GPTL_DIR=/ccs/proj/cli062/worley/libgptl/GNU \
+  -D GLIMMER_GPTL_DIR=/ccs/proj/cli062/cism_gptl/libgptl/libgptl-titan-gnu \
   -D GLIMMER_NETCDF_DIR=/opt/cray/netcdf-hdf5parallel/4.3.0/GNU/48 \
 \
   -D CMAKE_INSTALL_PREFIX:PATH=$PWD/install \
