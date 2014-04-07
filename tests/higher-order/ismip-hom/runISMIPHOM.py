@@ -31,7 +31,6 @@ if __name__ == '__main__':
   from optparse import OptionParser
   from math import tan, sin, pi, exp
   from netCDF import *
-  import numpy as np
 
 # Parse the command line arguments
   parser = OptionParser()
@@ -228,91 +227,7 @@ if __name__ == '__main__':
         else:
            exitCode = os.system('echo '+filename+'.config'+' | '+options.executable)
 
-        if exitCode == 0:
-           try:
-    #         Extract the output data for comparison to the other models
-
-    #         NOTE: The script now assumes that uvel_icegrid & vvel_icegrid are ALWAYS present.
-    #         Those fields containthe ice velocity computed at the upper right corner of each grid cell.
-    #         They appear to be on the x1,y1 grid in their metadata but are actually on the x0,y0 grid.
-    #         The additional row/column include the first halo value past ewn/nsn.
-    #         That value is valid at both 0.0 and 1.0 on the nondimensional coordinate system.
-    #         Matrix manipulations for each test case below are done to create a larger matrix that goes from 0.0 to 1.0, inclusive.
-    #         NOTE: The cases below are only writing [x,y,u,v] to the text file.  This is the minimum needed to compare to other models.
-    #         In the future, the other additional fields specified in section 4 of http://homepages.ulb.ac.be/~fpattyn/ismip/ismiphom.pdf
-    #         can be added.  wvel and the stresses are on the x1,y1 grid, so they would need to be interpolated to the x0,y0 grid
-    #         since we are using that as the coordinate system in the text files.
-
-    #         Open the netCDF file that was written by CISM
-              netCDFfile = NetCDFFile(filename+'.out.nc','r')
-              if netCDF_module == 'Scientific.IO.NetCDF':
-                 velscale = netCDFfile.variables['uvel_icegrid'].scale_factor
-              else:
-                 velscale = 1.0
-
-              # Make x,y position arrays that can be used by all test cases.
-              #   Want x/y positions to include the periodic edge at both the beginning and end
-              xx = netCDFfile.variables['x0'][:]/(1000.0*float(size))
-              xx = np.concatenate(([0.0],xx,[1.0]))
-              yy = netCDFfile.variables['y0'][:]/(1000.0*float(size))
-              yy = np.concatenate(([0.0],yy,[1.0]))
-              if experiment in ('b','d'):
-                 yy = (yy[len(yy)/2],)  # for the 2-d experiments, just use the middle y-index
-              if experiment in ('f'):
-                 # experiment f uses dimensions in km, centered around 0, ugh!
-                 xx = xx * float(size) - 50.0
-                 yy = yy * float(size) - 50.0
-
-              # Figure out u,v since all experiments needs at least one of them (avoids duplicate code in each case below
-              us = netCDFfile.variables['uvel_icegrid'][-1,0,:,:] * velscale  # top level of last time
-              us = np.concatenate( (us[:,-1:], us), axis=1)  # copy the column at x=1.0 to x=0.0
-              us = np.concatenate( (us[-1:,:], us), axis=0)  # copy the row at y=1.0 to y=0.0
-              vs = netCDFfile.variables['vvel_icegrid'][-1,0,:,:] * velscale  # top level of last time
-              vs = np.concatenate( (vs[:,-1:], vs), axis=1)  # copy the column at x=1.0 to x=0.0
-              vs = np.concatenate( (vs[-1:,:], vs), axis=0)  # copy the row at y=1.0 to y=0.0
-              ub = netCDFfile.variables['uvel_icegrid'][-1,-1,:,:] * velscale  # bottom level of last time
-              ub = np.concatenate( (ub[:,-1:], ub), axis=1)  # copy the column at x=1.0 to x=0.0
-              ub = np.concatenate( (ub[-1:,:], ub), axis=0)  # copy the row at y=1.0 to y=0.0
-              vb = netCDFfile.variables['vvel_icegrid'][-1,-1,:,:] * velscale  # bottom level of last time
-              vb = np.concatenate( (vb[:,-1:], vb), axis=1)  # copy the column at x=1.0 to x=0.0
-              vb = np.concatenate( (vb[-1:,:], vb), axis=0)  # copy the row at y=1.0 to y=0.0
-              #nan = ub*np.NaN  # create a dummy matrix for uncalculated values.
-              nan = np.ones(ub.shape)*-999.0  # create a dummy matrix for uncalculated values.
-
-
-              # make arrays of the variables needed for each experiment
-              # the icegrid velocities have the periodic edge in the last x-position.  We also want it in the first x-position.
-              # After building the 2-d array as needed for each variable from the raw file data, then build a list called 'data'.
-              if experiment == 'a':
-                #  This is supposed to be: [('uvel',0),('vvel',0),('wvel',0),('tau_xz',-1),('tau_yz',-1),[deltap]]
-                data = (us, vs, nan, nan, nan, nan)
-              elif experiment == 'b':
-                #  This is supposed to be: uvel(0), wvel(0), tau_xz(-1), deltaP
-                data = (us, nan, nan, nan)
-              elif experiment == 'c':
-                #  This is supposed to be: [uvel',0),('vvel',0),('wvel',0),('uvel',-1),('vvel',-1),('tau_xz',-1),('tau_yz',-1), deltap]
-                data = (us, vs, nan, ub, vb, nan, nan, nan)
-              elif experiment == 'd':
-                #  This is supposed to be:  [('uvel',0),('wvel',0),('uvel',-1),('tau_xz',-1), deltap]
-                data = (us, nan, nan, nan, nan)
-              elif experiment == 'f':
-    #            variables = [('usurf',None),('uvel',0),('vvel',0),('wvel',0)]
-                data = (nan, us, vs, nan)
-
-    #         Write a "standard" ISMIP-HOM file (example file name: "cis1a020.txt") in the "output" subdirectory 
-              ISMIP_HOMfilename = os.path.join('output',options.prefix+experiment+'%03d'%size+'.txt')
-              ISMIP_HOMfile = open(ISMIP_HOMfilename,'w')
-              for i, x in enumerate(xx):
-                  for j, y in enumerate(yy):
-                      if experiment in ('a','c','f'):  # include x and y positions
-                        ISMIP_HOMfile.write('\t'.join(map(str,[x,y]+[v[j,i] for (v) in data]))+'\n')
-                      else:  # only include x position
-                        ISMIP_HOMfile.write('\t'.join(map(str,[x]+[v[j,i] for (v) in data]))+'\n')
-              ISMIP_HOMfile.close()
-              netCDFfile.close()
-           except:
-              print 'Error: The CISM output file for experiment '+experiment+' at size '+str(size)+' could NOT be read/post-processed successfully!'
-        else:
+        if exitCode != 0:
           print 'Error: The CISM run for experiment '+experiment+' at size '+str(size)+' did NOT complete successfully!'
 
 #     Experiment f should be run for one size (100 km) only
