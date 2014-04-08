@@ -177,16 +177,22 @@ if __name__ == '__main__':
                  yy = yy * float(size) - 50.0
 
               # Figure out u,v since all experiments needs at least one of them (avoids duplicate code in each case below
-              us = netCDFfile.variables['uvel_icegrid'][-1,0,:,:] * velscale  # top level of last time
+              #   Want to use last time level.  Most experiments should only have a single time level, but F may have many in the file.
+              #   Apparently some older versions of netCDF4 give an error when using the -1 dimension if the size is 1, hence this bit of seemingly unnecessary logic...
+              if netCDFfile.variables['uvel_icegrid'][:].shape[0] == 1:
+                t = 0
+              else:
+                t = -1
+              us = netCDFfile.variables['uvel_icegrid'][t,0,:,:] * velscale  # top level of last time
               us = np.concatenate( (us[:,-1:], us), axis=1)  # copy the column at x=1.0 to x=0.0
               us = np.concatenate( (us[-1:,:], us), axis=0)  # copy the row at y=1.0 to y=0.0
-              vs = netCDFfile.variables['vvel_icegrid'][-1,0,:,:] * velscale  # top level of last time
+              vs = netCDFfile.variables['vvel_icegrid'][t,0,:,:] * velscale  # top level of last time
               vs = np.concatenate( (vs[:,-1:], vs), axis=1)  # copy the column at x=1.0 to x=0.0
               vs = np.concatenate( (vs[-1:,:], vs), axis=0)  # copy the row at y=1.0 to y=0.0
-              ub = netCDFfile.variables['uvel_icegrid'][-1,-1,:,:] * velscale  # bottom level of last time
+              ub = netCDFfile.variables['uvel_icegrid'][t,-1,:,:] * velscale  # bottom level of last time
               ub = np.concatenate( (ub[:,-1:], ub), axis=1)  # copy the column at x=1.0 to x=0.0
               ub = np.concatenate( (ub[-1:,:], ub), axis=0)  # copy the row at y=1.0 to y=0.0
-              vb = netCDFfile.variables['vvel_icegrid'][-1,-1,:,:] * velscale  # bottom level of last time
+              vb = netCDFfile.variables['vvel_icegrid'][t,-1,:,:] * velscale  # bottom level of last time
               vb = np.concatenate( (vb[:,-1:], vb), axis=1)  # copy the column at x=1.0 to x=0.0
               vb = np.concatenate( (vb[-1:,:], vb), axis=0)  # copy the row at y=1.0 to y=0.0
               #nan = ub*np.NaN  # create a dummy matrix for uncalculated values.
