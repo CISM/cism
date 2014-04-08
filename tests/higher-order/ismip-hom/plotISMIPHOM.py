@@ -10,7 +10,7 @@ import matplotlib.figure
 from matplotlib import pyplot
 from optparse   import OptionParser
 from runISMIPHOM import appendToList, defaultExperiments, defaultSizes
-from math       import sqrt
+from math       import sqrt, sin, cos, pi
 from netCDF import *
 import numpy as np
 
@@ -42,12 +42,18 @@ def read(filename,experiment):
     n = 2 
     VX = 1  # VX is in 1 position for the 2d tests
     X = 0
-  elif experiment in ('f'):
-#   Read three numbers, x, y and vx,vy, from each line in the file
+  elif experiment in ['f',]:
+    #   Read three numbers, x, y and vx,vy, from each line in the file
     n = 5
     VX,VY = 3,4  # VX is in position 3 for the F test
     X = 0
     Y = 1
+    target = 0.0  # y-position in km to get the profile from
+  elif experiment in ['f-elevation',]:  # special case for returning the elevation data from the 'f' experiment
+    n = 3
+    X,Y = 0,1
+    # surface elevation is in position 2
+    ELEV = 2
     target = 0.0  # y-position in km to get the profile from
   else:
 #   Read four numbers, x, y, vx, and vy, from each line in the file
@@ -73,7 +79,11 @@ def read(filename,experiment):
   else:
     if target in [row[Y] for row in data]:
 #     Extract the points with the desired (target) y
-      return [(row[X],sqrt(row[VX]**2+row[VY]**2)) for row in data if row[Y]==target]
+      if experiment in ['f-elevation',]:
+        dataA = [(row[X], row[ELEV]) for row in data if row[Y]==target]
+      else:
+        dataA = [(row[X],sqrt(row[VX]**2+row[VY]**2)) for row in data if row[Y]==target]
+      return dataA
     else:
       #print "Note: Plotting model output data along profile at dimensionless y-position "+str(target)+" requires interpolation.  "+filename
 #     Interpolate to the desired (target) y value
@@ -85,8 +95,12 @@ def read(filename,experiment):
         if target < y < above:  above = y
       #print 'got above=',above,' below=',below
 #     Extract the bracketing data
-      dataA = [(row[X],sqrt(row[VX]**2+row[VY]**2)) for row in data if row[Y]==above]
-      dataB = [(row[X],sqrt(row[VX]**2+row[VY]**2)) for row in data if row[Y]==below]
+      if experiment in ['f-elevation',]:
+        dataA = [(row[X],row[ELEV]) for row in data if row[Y]==above]
+        dataB = [(row[X],row[ELEV]) for row in data if row[Y]==below]
+      else:
+        dataA = [(row[X],sqrt(row[VX]**2+row[VY]**2)) for row in data if row[Y]==above]
+        dataB = [(row[X],sqrt(row[VX]**2+row[VY]**2)) for row in data if row[Y]==below]
       if len(dataA) != len(dataB):
         print 'WARNING: unequal number of x values in file', filename
       for (a,b) in zip(dataA,dataB):
@@ -214,7 +228,7 @@ if __name__ == '__main__':
               elif experiment == 'd':
                 #  This is supposed to be:  [('uvel',0),('wvel',0),('uvel',-1),('tau_xz',-1), deltap]
                 data = (us, nan, nan, nan, nan)
-              elif experiment == 'f':
+              elif experiment == 'f':  # should be: x, y, zs, vx, vy, vz
     #            variables = [('usurf',None),('uvel',0),('vvel',0),('wvel',0)]
                 data = (nan, us, vs, nan)
 
@@ -397,6 +411,7 @@ if __name__ == '__main__':
             print '  Mean COD (stdev/mean) along flowline of mean of first-order models (excluding CISM)='+str(compare/float(n)*100.0)+'%'
             print '  Max. CISM percent error='+str(maximum)+'% at x-position '+str(position)
             print '  Max. CISM absolute error='+str(max(abserror))+' m/yr at x-position '+str(glimmerData[abserror.index(max(abserror))][0])
+
      except:
       print "Error in analyzing/plotting experiment ",experiment," at size ",size," km"
 
@@ -404,6 +419,154 @@ if __name__ == '__main__':
       filename = os.path.join('output','ISMIP-HOM-'+experiment.upper()+'-'+options.prefix+plotType)
       print 'Writing:', filename
       pyplot.savefig(filename)
+
+#   Experiment f can also have a surface profile plotted
+    if experiment == 'f':
+      # rather than getting the data from the text file, we are going to read it directly.
+      # this is because the velocities and usrf are on different grids, so it is difficult to inlude them
+      # both in the standard ISMIP-HOM text file format that has a single x,y coord. system
+      size = 100
+      filename = os.path.join('output','ishom.'+experiment+'.'+str(size)+'km')
+      netCDFfile = NetCDFFile(filename+'.out.nc','r')
+      if netCDF_module == 'Scientific.IO.NetCDF':
+         thkscale = netCDFfile.variables['thk'].scale_factor
+      else:
+         thkscale = 1.0
+      usurf = netCDFfile.variables['usurf'][-1,:,:] * thkscale  # get last time level
+      x1 = netCDFfile.variables['x1'][:]
+      y1 = netCDFfile.variables['y1'][:]
+
+      #  Create the usurf figure
+      ufigure = pyplot.figure(subplotpars=matplotlib.figure.SubplotParams(top=.85,bottom=.15))
+      ufigure.text(0.5,0.92,'ISMIP-HOM Experiment F: Surface elevation',horizontalalignment='center',size='large')
+      if options.subtitle:
+          ufigure.text(0.5,0.89,options.subtitle,horizontalalignment='center',size='small')
+      ufigure.text(0.5,0.1,'X coordinate',horizontalalignment='center',size='small')
+      ufigure.text(0.06,0.5,'upper surface (m)',rotation='vertical',verticalalignment='center')
+      # Create the (three column) legend
+      prop = matplotlib.font_manager.FontProperties(size='x-small')
+      Line2D = matplotlib.lines.Line2D([],[],color=(0,0,0))
+      ufigure.legend([Line2D],['Model Output'],loc=(0.1,0.05),prop=prop).draw_frame(False)
+      Line2D.set_linestyle(':')
+      Line2D.set_color((1,0,0))
+      Patch = matplotlib.patches.Patch(edgecolor=None,facecolor=(1,0,0),alpha=0.25)
+      ufigure.legend([Line2D,Patch],['Full Stokes Mean','Full Stokes Std. Dev.'],loc=(0.3,0.02),prop=prop).draw_frame(False)
+      Line2D.set_color((0,0,1))
+      Patch.set_facecolor((0,0,1))
+      ufigure.legend([Line2D,Patch],[nonFSmodelType+' Mean',nonFSmodelType+' Std. Dev.'],loc=(0.55,0.02),prop=prop).draw_frame(False)
+#     Create the plot axes 
+      axes2 = ufigure.add_subplot(111)
+      axes2.set_title('%d km' % size, size='medium')
+
+      # Convert CISM output data to the rotated coord system used by the problem setup
+      alpha = -3.0 * pi/180  # defined in run script
+      # use integer floor division operator to get an index close to the center  TODO should be interpolating if needed...
+      yp = len(y1)//2
+      # calculate rotated zprime coordinates for this column (we assume the solution truly is spatially uniform)
+      xprime =  x1 * cos(alpha) + (usurf[yp,:]-7000.0) * sin(alpha)
+      xprime = xprime/1000.0 - 50.0
+      zprime = -x1 * sin(alpha) + (usurf[yp,:]-7000.0) * cos(alpha)
+      # Plot CISM output
+      axes2.plot(xprime, zprime, color='black')
+
+      # create glimmerData so we can re-use the code from above
+      glimmerData = list()
+      for i in range(len(xprime)):
+        glimmerData.append(tuple([xprime[i], zprime[i]]))
+
+      # Now plot the other models - yucky code copied from above
+#     Get the data from other models for comparison
+      firstOrder = 0
+      fullStokes = 1
+      count = [0,0]
+      sumV  = [[0.0 for v in glimmerData],[0.0 for v in glimmerData]]
+      sumV2 = [[0.0 for v in glimmerData],[0.0 for v in glimmerData]]
+      for (path,directories,filenames) in os.walk('ismip_all'):
+        for filename in filenames:
+          modelName = filename[0:4]
+          modelExperiment = filename[4]
+          modelSize = filename[5:8]
+          #print 'name, exp, size', modelName, modelExperiment, modelSize
+          if modelName == 'aas1':
+              # Skip the 'aas1' model because its output files in the tc-2007-0019-sp2.zip file do not follow the proper naming convention.  MJH 11/5/13
+              continue
+          if (modelExperiment != experiment) or (modelExperiment != 'f' and int(modelSize) != size) \
+                or (not options.allPS and not modelName in lmlaModels + fullStokesModels):
+                    continue # continue next loop iteration if not the size or not the experiment desired or if we just want FO comparison and this model is not FO or FS.
+          elif (modelExperiment == 'f'):
+                if (modelSize == '001'):
+                    continue # ignore the sliding version for now
+                if modelName == 'cma1':
+                    continue  # the cma1 'f' experiments made the x,y coords dimensionless instead of dimensional - ignore for convenience
+          print 'Using data from file:',os.path.join(path,filename)
+          data = read(os.path.join(path,filename), experiment='f-elevation')
+          if modelName in fullStokesModels:
+            index = fullStokes
+          else:
+            index = firstOrder
+          count[index] += 1
+
+          #axes2.plot([row[0] for row in data], [row[1] for row in data] )   ## OPTIONAL: print out every individual model in its native x-coordinates.
+
+#         Interpolate onto the x values from the Glimmer model run
+          for (i,target) in enumerate([row[0] for row in glimmerData]):
+            below = -99999.0
+            above =  99999.0
+            for (j,x) in enumerate([row[0] for row in data]):
+              if  below <  x <= target: b,below = j,x
+              if target <= x <  above:  a,above = j,x
+            if above == below:
+              v = data[a][1]
+            else:
+              if below == -99999.0: # Use the periodic boundary condition at x = 0
+                xBelow = data[-1][0] - 1
+                vBelow = data[-1][1]
+              else:
+                xBelow,vBelow = data[b]
+              if above ==  99999.0: # Use the periodic boundary condition at x = 1
+                xAbove = data[0][0] + 1
+                vAbove = data[0][1]
+              else:
+                xAbove,vAbove = data[a]
+              if xAbove == xBelow:
+                print 'Surprise!',above,below,xAbove,xBelow,vAbove,vBelow
+                v = (vAbove+vBelow)/2
+              else:
+                alpha = (target-xBelow)/(xAbove-xBelow)
+                v = alpha*vAbove + (1-alpha)*vBelow
+            sumV [index][i] += v
+            sumV2[index][i] += v*v
+
+    #     Calculate statistics of the other model results
+          if sum(count) == 0:
+            print 'To compare with other models you need to download the ISMIP-HOM results from: http://www.the-cryosphere.net/2/95/2008/tc-2-95-2008-supplement.zip and unzip the contained file tc-2007-0019-sp2.zip into a directory named ismip_all.  The ismip_all directory must be in the directory from which you are running this script.'
+          else:
+    #       Find the mean and standard deviation of the velocities at each x
+            for index in (firstOrder,fullStokes):
+              if count[index] == 0:
+                continue
+              mean = list()
+              standardDeviation = list()
+              for i in range(len(glimmerData)):
+                mean.append(sumV[index][i]/count[index])
+                standardDeviation.append(sqrt(sumV2[index][i]/count[index]-mean[-1]**2))
+
+    #         Plot the mean using a dotted line
+              color = (index,0,1-index) # blue for first order (index=0); red for full Stokes (index=1)
+              x = [row[0] for row in glimmerData]
+              axes2.plot(x,mean,':',color=color)
+
+    #         Plot a filled polygon showing the mean plus and minus one standard deviation
+              meanMinusSD = [m-sd for (m,sd) in zip(mean,standardDeviation)]
+              meanPlusSD  = [m+sd for (m,sd) in zip(mean,standardDeviation)]
+              x = x + list(reversed(x))
+              y = meanPlusSD + list(reversed(meanMinusSD))
+              axes2.fill(x,y,facecolor=color,edgecolor=color,alpha=0.25)
+
+      if savePlotInFile:
+        filename = os.path.join('output','ISMIP-HOM-'+experiment.upper()+'-'+options.prefix+'-SurfaceElevation'+plotType)
+        print 'Writing:', filename
+        pyplot.savefig(filename)
 
 #   Experiment f should be run for one size (100 km) only
     if experiment == 'f': break
