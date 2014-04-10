@@ -1,6 +1,6 @@
 # CMAKE File for GLIMMER building against an installed Trilinos
 
-cmake_minimum_required(VERSION 2.8.6)
+cmake_minimum_required(VERSION 2.8.4)
 
 OPTION (NO_TRILINOS "Toggle to Not use Trilinos: defaults to OFF (Trilinos on by default)" OFF)
 IF (DEFINED CISM_USE_TRILINOS)
@@ -24,8 +24,6 @@ OPTION (CISM_SERIAL_MODE "Toggle to Configure in Serial mode: defaults to OFF " 
 OPTION (CISM_USE_MPI_WITH_SLAP "Toggle to use mpi when using SLAP solver, only relevant if CISM_SERIAL_MODE=ON: defaults to OFF" OFF)
 OPTION (CISM_BUILD_SIMPLE_GLIDE "Toggle to build simple_glide, ON by default" ON)
 OPTION (CISM_BUILD_SIMPLE_BISICLES "Toggle to build simple_bisicles, off by default" OFF)
-#IK, 8/6/13: added option to build simple_felix executable.  Off by default. 
-OPTION (CISM_BUILD_SIMPLE_FELIX "Toggle to build simple_felix, off by default" OFF)
 OPTION (CISM_BUILD_CISM_DRIVER "Toggle to build cism_driver, off by default" OFF)
 OPTION (CISM_BUILD_EXTRA_EXECUTABLES "Toggle to other executables, off by default" OFF)
 OPTION (CISM_USE_GPTL_INSTRUMENTATION "Toggle to use GPTL instrumentation, on by default " ON)
@@ -73,8 +71,6 @@ IF (CISM_COUPLED)
   SET(CISM_BUILD_SIMPLE_BISICLES "OFF")
   SET(CISM_BUILD_GLINT_EXAMPLE "OFF")
   SET(CISM_USE_CISM_FRONT_END "OFF")
-#IK, 8/6/13: simple_felix executable option
-  SET(CISM_BUILD_SIMPLE_FELIX "OFF")
   SET(CISM_BUILD_EXTRA_EXECUTABLES "OFF")
   SET(CISM_BUILD_GLINT "ON")  
   SET(CISM_USE_DEFAULT_IO "ON")
@@ -144,7 +140,7 @@ ENABLE_LANGUAGE(Fortran)
 # Only include C++ support if it's really needed, to avoid problems
 # caused by broken C++ compilers.
 #IK, 8/3/13: added simple_felix option 
-IF (CISM_USE_TRILINOS OR CISM_BUILD_SIMPLE_BISICLES OR CISM_BUILD_SIMPLE_FELIX)
+IF (CISM_USE_TRILINOS OR CISM_BUILD_SIMPLE_BISICLES)
   ENABLE_LANGUAGE(CXX)
 ENDIF()
 
@@ -290,20 +286,7 @@ IF (CISM_BUILD_SIMPLE_BISICLES)
   ADD_DEFINITIONS(-DCISM_HAS_BISICLES)
 ENDIF()
 
-#IK, 8/6/13: added the following rule for simple_felix 
-IF (CISM_BUILD_SIMPLE_FELIX)
-  MESSAGE("\nFELIX build configured.\n")  
 
-  SET(GLIMMER_DYCORE_DIR ${GLIMMER_SOURCE_DIR}/libdycore)
-  SET(GLIMMER_TO_DYCORE ${GLIMMER_DYCORE_DIR}/glimmer_to_dycore.F90) 
-  SET(GLIMMER_FELIX_DIR ${GLIMMER_DYCORE_DIR}/FELIX)
-  
-  INCLUDE_DIRECTORIES(${GLIMMER_DYCORE_DIR})
-  LINK_DIRECTORIES(${GLIMMER_DYCORE_DIR} ${FELIX_INTERFACE_DIR} )
-  ADD_DEFINITIONS(-DCISM_HAS_FELIX)
-ENDIF()
-
-#IK, 8/6/13: added simple_felix to the following logic 
 IF ( CISM_USE_GPTL_INSTRUMENTATION AND 
     (NOT CISM_BUILD_SIMPLE_BISICLES) AND
     (NOT CISM_SERIAL_MODE))
@@ -504,21 +487,6 @@ IF (CISM_BUILD_SIMPLE_BISICLES)
 
   message("glimmer src dir: ${GLIMMER_SOURCE_DIR}")
   message("glimmer extern dycore dir: ${GLIMMER_EXTERNAL_DYCORE_DIR}")
-  get_property(inc_dirs DIRECTORY PROPERTY INCLUDE_DIRECTORIES)
-  message("inc_dirs = ${inc_dirs}")
-
-ENDIF()
-
-#IK, 8/6/13: added the following for simple_felix.
-IF (CISM_BUILD_SIMPLE_FELIX)
-  add_subdirectory(example-drivers/simple_felix/src)
-  add_subdirectory(libdycore)
-
-  include_directories (${GLIMMER_DYCORE_DIR}
-                       ${GLIMMER_FELIX_DIR})
-
-  message("glimmer src dir: ${GLIMMER_SOURCE_DIR}")
-  message("glimmer extern dycore dir: ${GLIMMER_DYCORE_DIR}")
   get_property(inc_dirs DIRECTORY PROPERTY INCLUDE_DIRECTORIES)
   message("inc_dirs = ${inc_dirs}")
 

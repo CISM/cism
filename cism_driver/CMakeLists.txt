@@ -44,7 +44,7 @@ MESSAGE("CISM_HDF5_LIBS: " ${CISM_HDF5_LIBS})
 # Executable depends on several glimmer libraries and Trilinos,
 # and potentially an f90main.o file (on jaguar with PGI at least)
 
-IF (${CISM_BUILD_SIMPLE_BISICLES} OR ${CISM_BUILD_SIMPLE_FELIX})
+IF (${CISM_BUILD_SIMPLE_BISICLES})
   set(CISM_USE_EXTERNAL_DYCORE ON)
   ELSE()
   set(CISM_USE_EXTERNAL_DYCORE OFF)

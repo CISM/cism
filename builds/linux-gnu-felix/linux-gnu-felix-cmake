@@ -8,28 +8,33 @@
 #   make -j 8
 #   cp example-drivers/simple_glide/src/sgcmake .
 #
-# GLIMMER_ALBANY_DIR is the library directory in Albany/FELIX 
-# FELIX_INTERFACE_DIR is the include directory in Albany/FELIX 
-# To build SIMPLE_FELIX, both of these directories are needed, in contrast to just 
-# one directory for SIMPLE_BISICLES.  This is because the interface library in BISICLES 
-# is build in the same directory as the interface source code; the same is not the case in Albany. 
 
 rm ./CMakeCache.txt
 
 echo
 echo "Doing CMake Configuration step"
 
+TRILINOS_DIR=/home/ikalash/Trilinos_Albany/Trilinos/build/install 
+ALBANY_DIR=/home/ikalash/Desktop/clean/Albany/cism-build/install
+NETCDF_DIR=/home/ikalash/Install/netcdf-4.0.1
+
 cmake \
-  -D GLIMMER_TRILINOS_DIR="/home/ikalash/Trilinos_Albany/Trilinos/2013mar18_debug/install" \
+  -D GLIMMER_TRILINOS_DIR=$TRILINOS_DIR \
   -D CISM_BUILD_SIMPLE_GLIDE:BOOL=ON \
-  -D CISM_BUILD_SIMPLE_FELIX:BOOL=ON \
-  -D GLIMMER_ALBANY_DIR="/home/ikalash/Desktop/clean/Albany2/build/src/FELIX" \
-  -D FELIX_INTERFACE_DIR="/home/ikalash/Desktop/clean/Albany2/src/FELIX/interface_with_cism" \
-  -D GLIMMER_NETCDF_DIR="/home/ikalash/Install/netcdf-4.0.1" \
+  -D ALBANY_FELIX_DYCORE:BOOL=ON \
+  -D GLIMMER_ALBANY_DIR=$ALBANY_DIR \
+  -D GLIMMER_NETCDF_DIR=$NETCDF_DIR \
   -D GLIMMER_NETCDF_LIBS="netcdf" \
   -D CMAKE_Fortran_FLAGS="-g -O2 -ffree-line-length-none -fPIC -fno-range-check" \
   -D CMAKE_VERBOSE_MAKEFILE=OFF \
-  ..
+  ../..
 
 # Note: last argument above  ".."  is path to top seacism directory
+#  -D ALBANY_BUILD_DIR="/home/ikalash/Desktop/clean/Albany_clean/build_cism" \
+#  -D ALBANY_BASE_DIR="/home/ikalash/Desktop/clean/Albany_clean" \
 
+#About the DEBUG_OUTPUT_VERBOSITY: 
+#-D DEBUG_OUTPUT_VERBOSITY:INT=O \ No debug output
+#-D DEBUG_OUTPUT_VERBOSITY:INT=1 \ Minimal debug output
+#-D DEBUG_OUTPUT_VERBOSITY:INT=2 \ Maximal debug output
+#It is set to 1 by default.
