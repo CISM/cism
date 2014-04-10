@@ -306,7 +306,6 @@ ENDIF()
 #IK, 8/6/13: added simple_felix to the following logic 
 IF ( CISM_USE_GPTL_INSTRUMENTATION AND 
     (NOT CISM_BUILD_SIMPLE_BISICLES) AND
-    (NOT CISM_BUILD_SIMPLE_FELIX) AND
     (NOT CISM_SERIAL_MODE))
  OPTION(GLIMMER_GPTL_DIR "Optional path to installed gptl library")
  IF (GLIMMER_GPTL_DIR)
