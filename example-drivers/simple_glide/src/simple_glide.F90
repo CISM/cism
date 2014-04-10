@@ -138,7 +138,8 @@ program simple_glide
 
      call t_startf('glide_initial_diag_var_solve')
      ! disable further profiling in normal usage
-     if (time < model%numerics%tend) then
+!pw     if (time < model%numerics%tend) then
+     if (model%numerics%tstart < (model%numerics%tend - model%numerics%tinc)) then
         call t_adj_detailf(+10)
      endif
 
@@ -150,7 +151,8 @@ program simple_glide
      endif
 
      ! restore profiling to normal settings
-     if (time < model%numerics%tend) then
+!pw     if (time < model%numerics%tend) then
+     if (model%numerics%tstart < (model%numerics%tend - model%numerics%tinc)) then
         call t_adj_detailf(-10)
      endif
      call t_stopf('glide_initial_diag_var_solve')
@@ -159,7 +161,8 @@ program simple_glide
 
      call t_startf('glissade_initial_diag_var_solve')
      ! disable further profiling in normal usage
-     if (time < model%numerics%tend) then
+!pw     if (time < model%numerics%tend) then
+     if (model%numerics%tstart < (model%numerics%tend - model%numerics%tinc)) then
         call t_adj_detailf(+10)
      endif
 
@@ -167,7 +170,8 @@ program simple_glide
      call glissade_diagnostic_variable_solve(model)  !velocity, usrf, etc.
 
      ! restore profiling to normal settings
-     if (time < model%numerics%tend) then
+!pw     if (time < model%numerics%tend) then
+     if (model%numerics%tstart < (model%numerics%tend - model%numerics%tinc)) then
         call t_adj_detailf(-10)
      endif
      call t_stopf('glissade_initial_diag_var_solve')
