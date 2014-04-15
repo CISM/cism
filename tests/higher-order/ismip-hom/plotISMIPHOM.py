@@ -101,8 +101,8 @@ def read(filename,experiment):
       else:
         dataA = [(row[X],sqrt(row[VX]**2+row[VY]**2)) for row in data if row[Y]==above]
         dataB = [(row[X],sqrt(row[VX]**2+row[VY]**2)) for row in data if row[Y]==below]
-      if len(dataA) != len(dataB):
-        print 'WARNING: unequal number of x values in file', filename
+      #if len(dataA) != len(dataB):
+      #  print 'WARNING: unequal number of x values in file', filename
       for (a,b) in zip(dataA,dataB):
         if a[0]!=b[0]: 
           print 'WARNING: the x values are not the same in file', filename
@@ -177,41 +177,79 @@ if __name__ == '__main__':
               else:
                  velscale = 1.0
 
-              # Make x,y position arrays that can be used by all test cases.
-              #   Want x/y positions to include the periodic edge at both the beginning and end
-              xx = netCDFfile.variables['x0'][:]/(1000.0*float(size))
-              xx = np.concatenate(([0.0],xx,[1.0]))
-              yy = netCDFfile.variables['y0'][:]/(1000.0*float(size))
-              yy = np.concatenate(([0.0],yy,[1.0]))
-              if experiment in ('b','d'):
-                 yy = (yy[len(yy)/2],)  # for the 2-d experiments, just use the middle y-index
-              if experiment in ('f'):
-                 # experiment f uses dimensions in km, centered around 0, ugh!
-                 xx = xx * float(size) - 50.0
-                 yy = yy * float(size) - 50.0
 
-              # Figure out u,v since all experiments needs at least one of them (avoids duplicate code in each case below
-              #   Want to use last time level.  Most experiments should only have a single time level, but F may have many in the file.
-              #   Apparently some older versions of netCDF4 give an error when using the -1 dimension if the size is 1, hence this bit of seemingly unnecessary logic...
-              if netCDFfile.variables['uvel_icegrid'][:].shape[0] == 1:
-                t = 0
-              else:
-                t = -1
-              us = netCDFfile.variables['uvel_icegrid'][t,0,:,:] * velscale  # top level of last time
-              us = np.concatenate( (us[:,-1:], us), axis=1)  # copy the column at x=1.0 to x=0.0
-              us = np.concatenate( (us[-1:,:], us), axis=0)  # copy the row at y=1.0 to y=0.0
-              vs = netCDFfile.variables['vvel_icegrid'][t,0,:,:] * velscale  # top level of last time
-              vs = np.concatenate( (vs[:,-1:], vs), axis=1)  # copy the column at x=1.0 to x=0.0
-              vs = np.concatenate( (vs[-1:,:], vs), axis=0)  # copy the row at y=1.0 to y=0.0
-              ub = netCDFfile.variables['uvel_icegrid'][t,-1,:,:] * velscale  # bottom level of last time
-              ub = np.concatenate( (ub[:,-1:], ub), axis=1)  # copy the column at x=1.0 to x=0.0
-              ub = np.concatenate( (ub[-1:,:], ub), axis=0)  # copy the row at y=1.0 to y=0.0
-              vb = netCDFfile.variables['vvel_icegrid'][t,-1,:,:] * velscale  # bottom level of last time
-              vb = np.concatenate( (vb[:,-1:], vb), axis=1)  # copy the column at x=1.0 to x=0.0
-              vb = np.concatenate( (vb[-1:,:], vb), axis=0)  # copy the row at y=1.0 to y=0.0
-              #nan = ub*np.NaN  # create a dummy matrix for uncalculated values.
-              nan = np.ones(ub.shape)*-999.0  # create a dummy matrix for uncalculated values.
+              if experiment in ['f',]:
+                  # Convert CISM output data to the rotated coord system used by the problem setup
+                  alpha = -3.0 * pi/180  # defined in run script
+                  if netCDF_module == 'Scientific.IO.NetCDF':
+                     thkscale = netCDFfile.variables['thk'].scale_factor
+                     wvelscale = netCDFfile.variables['wvel'].scale_factor
+                  else:
+                     thkscale = 1.0
+                     wvelscale = 1.0
+                  usurf = netCDFfile.variables['usurf'][-1,:,:] * thkscale  # get last time level
+                  usurfStag = (usurf[1:,1:] + usurf[1:,:-1] + usurf[:-1,:-1] + usurf[:-1, :-1]) / 4.0
+                  uvelS = netCDFfile.variables['uvel'][-1,0,:,:] * velscale  # top level of last time
+                  vvelS = netCDFfile.variables['vvel'][-1,0,:,:] * velscale  # top level of last time
+                  wvelS = netCDFfile.variables['wvel'][-1,0,:,:] * wvelscale  # top level of last time
+                  wvelStag = (wvelS[1:,1:] + wvelS[1:,:-1] + wvelS[:-1,:-1] + wvelS[:-1, :-1]) / 4.0
+                  x0 = netCDFfile.variables['x0'][:]
+                  y0 = netCDFfile.variables['y0'][:]
+                  # calculate rotated xprime coordinates along the surface - xx, yy are used by code below to write the output
+                  xx = x0 * cos(alpha) + (usurfStag[20,:]-7000.0) * sin(alpha)
+                  xx = xx/1000.0 - 50.0
+                  yy = y0/1000.0 - 50.0
+                  # calculate rotated uvel/vvel at surface
+                  uvelSprime =  uvelS[:,:] * cos(alpha) + wvelStag[:,:] * sin(alpha)
+                  wvelSprime = -uvelS[:,:] * sin(alpha) + wvelStag[:,:] * cos(alpha)
 
+                  nan = np.ones(uvelSprime.shape)*-999.0  # create a dummy matrix for uncalculated values.
+
+                  # ===========================================
+                  # optional bit of code to plot out vertical velocity on the rotated grid.
+                  # This can be compared to Fig. 14b in the tc-2007-0019-sp3.pdf document
+#                  figure = pyplot.figure(subplotpars=matplotlib.figure.SubplotParams(top=.85,bottom=.15))
+#                  axes = figure.add_subplot(111)
+#                  pc = axes.pcolor(wvelSprime)
+#                  pyplot.colorbar(pc)
+#                  cntr=axes.contour(wvelSprime, [-0.5, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4],colors='k')
+#                  axes.clabel(cntr)
+#                  pyplot.draw()
+#                  pyplot.show()
+                  # ===========================================
+
+              else:  # all other tests
+
+                  # Make x,y position arrays that can be used by all test cases.
+                  #   Want x/y positions to include the periodic edge at both the beginning and end
+                  xx = netCDFfile.variables['x0'][:]/(1000.0*float(size))
+                  xx = np.concatenate(([0.0],xx,[1.0]))
+                  yy = netCDFfile.variables['y0'][:]/(1000.0*float(size))
+                  yy = np.concatenate(([0.0],yy,[1.0]))
+                  if experiment in ('b','d'):
+                     yy = (yy[len(yy)/2],)  # for the 2-d experiments, just use the middle y-index
+
+                  # Figure out u,v since all experiments needs at least one of them (avoids duplicate code in each case below
+                  #   Want to use last time level.  Most experiments should only have a single time level, but F may have many in the file.
+                  #   Apparently some older versions of netCDF4 give an error when using the -1 dimension if the size is 1, hence this bit of seemingly unnecessary logic...
+                  if netCDFfile.variables['uvel_icegrid'][:].shape[0] == 1:
+                    t = 0
+                  else:
+                    t = -1
+                  us = netCDFfile.variables['uvel_icegrid'][t,0,:,:] * velscale  # top level of last time
+                  us = np.concatenate( (us[:,-1:], us), axis=1)  # copy the column at x=1.0 to x=0.0
+                  us = np.concatenate( (us[-1:,:], us), axis=0)  # copy the row at y=1.0 to y=0.0
+                  vs = netCDFfile.variables['vvel_icegrid'][t,0,:,:] * velscale  # top level of last time
+                  vs = np.concatenate( (vs[:,-1:], vs), axis=1)  # copy the column at x=1.0 to x=0.0
+                  vs = np.concatenate( (vs[-1:,:], vs), axis=0)  # copy the row at y=1.0 to y=0.0
+                  ub = netCDFfile.variables['uvel_icegrid'][t,-1,:,:] * velscale  # bottom level of last time
+                  ub = np.concatenate( (ub[:,-1:], ub), axis=1)  # copy the column at x=1.0 to x=0.0
+                  ub = np.concatenate( (ub[-1:,:], ub), axis=0)  # copy the row at y=1.0 to y=0.0
+                  vb = netCDFfile.variables['vvel_icegrid'][t,-1,:,:] * velscale  # bottom level of last time
+                  vb = np.concatenate( (vb[:,-1:], vb), axis=1)  # copy the column at x=1.0 to x=0.0
+                  vb = np.concatenate( (vb[-1:,:], vb), axis=0)  # copy the row at y=1.0 to y=0.0
+                  #nan = ub*np.NaN  # create a dummy matrix for uncalculated values.
+                  nan = np.ones(ub.shape)*-999.0  # create a dummy matrix for uncalculated values.
 
               # make arrays of the variables needed for each experiment
               # the icegrid velocities have the periodic edge in the last x-position.  We also want it in the first x-position.
@@ -229,8 +267,8 @@ if __name__ == '__main__':
                 #  This is supposed to be:  [('uvel',0),('wvel',0),('uvel',-1),('tau_xz',-1), deltap]
                 data = (us, nan, nan, nan, nan)
               elif experiment == 'f':  # should be: x, y, zs, vx, vy, vz
-    #            variables = [('usurf',None),('uvel',0),('vvel',0),('wvel',0)]
-                data = (nan, us, vs, nan)
+                #  This is supposed to be: [('usurf',None),('uvel',0),('vvel',0),('wvel',0)]
+                data = (nan, uvelSprime, vvelS, nan)
 
     #         Write a "standard" ISMIP-HOM file (example file name: "cis1a020.txt") in the "output" subdirectory 
               ISMIP_HOMfilename = os.path.join('output',options.prefix+experiment+'%03d'%size+'.txt')
@@ -415,6 +453,7 @@ if __name__ == '__main__':
      except:
       print "Error in analyzing/plotting experiment ",experiment," at size ",size," km"
 
+
     if savePlotInFile:
       filename = os.path.join('output','ISMIP-HOM-'+experiment.upper()+'-'+options.prefix+plotType)
       print 'Writing:', filename
@@ -462,7 +501,7 @@ if __name__ == '__main__':
       alpha = -3.0 * pi/180  # defined in run script
       # use integer floor division operator to get an index close to the center  TODO should be interpolating if needed...
       yp = len(y1)//2
-      # calculate rotated zprime coordinates for this column (we assume the solution truly is spatially uniform)
+      # calculate rotated xprime, zprime coordinates along the surface (this is the coord. sys. used for this test case)
       xprime =  x1 * cos(alpha) + (usurf[yp,:]-7000.0) * sin(alpha)
       xprime = xprime/1000.0 - 50.0
       zprime = -x1 * sin(alpha) + (usurf[yp,:]-7000.0) * cos(alpha)
