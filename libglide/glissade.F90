@@ -839,6 +839,7 @@ contains
     use glam_velo, only: glam_velo_driver
     use glissade_velo, only: glissade_velo_driver
     use glide_stress, only : glide_calcstrsstr
+    use glide_velo, only: wvelintg
 !!    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar, horiz_bcs_stag_scalar, horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns
 
     use glam_grid_operators, only: glam_geometry_derivs
@@ -1042,6 +1043,22 @@ contains
        enddo
     enddo
         
+
+    ! Calculate wvel, assuming grid velocity is 0.
+    ! This calculated wvel relative to ice sheet base, rather than a fixed reference location
+    ! Note, this current implementation for wvel only supports whichwvel=VERTINT_STANDARD
+    call wvelintg(model%velocity%uvel,                            &
+                      model%velocity%vvel,                        &
+                      model%geomderv,                             &
+                      model%numerics,                             &
+                      model%velowk,                               &
+                      model%geometry%thck * 0.0d0,                &  ! Just need a 2d array of all 0's for wgrd
+                      model%geometry%thck,                        &
+                      model%temper%bmlt,                          &
+                      model%velocity%wvel_ho)
+    ! Note: halos may be wrong for wvel_ho, but since it is currently only used as an output diagnostic variable, that is fine.
+
+
 !TODO - Don't think we need to update ubas, vbas, or velnorm,
 !       because these can be derived directly from the 3D uvel and vvel arrays
 
@@ -1066,8 +1083,6 @@ contains
     !HALO TODO - If the stress%tau halo updates are needed, they should go here (in glissade.F90)
     !            But I think they are not needed.
 
-    ! --- A calculation of wvel could go here if we want to calculate it.
-    ! --- For now, such a calculation is not needed.
 
   end subroutine glissade_diagnostic_variable_solve
 

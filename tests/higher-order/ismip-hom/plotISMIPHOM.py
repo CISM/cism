@@ -183,7 +183,7 @@ if __name__ == '__main__':
                   alpha = -3.0 * pi/180  # defined in run script
                   if netCDF_module == 'Scientific.IO.NetCDF':
                      thkscale = netCDFfile.variables['thk'].scale_factor
-                     wvelscale = netCDFfile.variables['wvel'].scale_factor
+                     wvelscale = netCDFfile.variables['wvel_ho'].scale_factor
                   else:
                      thkscale = 1.0
                      wvelscale = 1.0
@@ -191,7 +191,7 @@ if __name__ == '__main__':
                   usurfStag = (usurf[1:,1:] + usurf[1:,:-1] + usurf[:-1,:-1] + usurf[:-1, :-1]) / 4.0
                   uvelS = netCDFfile.variables['uvel'][-1,0,:,:] * velscale  # top level of last time
                   vvelS = netCDFfile.variables['vvel'][-1,0,:,:] * velscale  # top level of last time
-                  wvelS = netCDFfile.variables['wvel'][-1,0,:,:] * wvelscale  # top level of last time
+                  wvelS = netCDFfile.variables['wvel_ho'][-1,0,:,:] * wvelscale  # top level of last time
                   wvelStag = (wvelS[1:,1:] + wvelS[1:,:-1] + wvelS[:-1,:-1] + wvelS[:-1, :-1]) / 4.0
                   x0 = netCDFfile.variables['x0'][:]
                   y0 = netCDFfile.variables['y0'][:]
@@ -208,14 +208,15 @@ if __name__ == '__main__':
                   # ===========================================
                   # optional bit of code to plot out vertical velocity on the rotated grid.
                   # This can be compared to Fig. 14b in the tc-2007-0019-sp3.pdf document
-#                  figure = pyplot.figure(subplotpars=matplotlib.figure.SubplotParams(top=.85,bottom=.15))
-#                  axes = figure.add_subplot(111)
-#                  pc = axes.pcolor(wvelSprime)
-#                  pyplot.colorbar(pc)
-#                  cntr=axes.contour(wvelSprime, [-0.5, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4],colors='k')
-#                  axes.clabel(cntr)
-#                  pyplot.draw()
-#                  pyplot.show()
+                  figure = pyplot.figure(subplotpars=matplotlib.figure.SubplotParams(top=.85,bottom=.15))
+                  axes = figure.add_subplot(111)
+                  pc = axes.pcolor(wvelSprime)
+                  pyplot.colorbar(pc)
+                  cntr=axes.contour(wvelSprime, [-0.5, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4],colors='k')
+                  axes.clabel(cntr)
+                  pyplot.title('Compare to Fig. 14b of tc-2007-0019-sp3.pdf')
+                  pyplot.draw()
+                  pyplot.show()
                   # ===========================================
 
               else:  # all other tests

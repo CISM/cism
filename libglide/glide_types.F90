@@ -684,6 +684,7 @@ module glide_types
     real(dp),dimension(:,:,:),pointer :: velnorm => null() ! horizontal ice speed
     real(dp),dimension(:,:,:),pointer :: wvel  => null()   !*FD 3D $z$-velocity.
     real(dp),dimension(:,:,:),pointer :: wgrd  => null()   !*FD 3D grid vertical velocity.
+    real(dp),dimension(:,:,:),pointer :: wvel_ho  => null()!*FD 3D $z$-velocity.from higher-order dycores
     real(dp),dimension(:,:)  ,pointer :: uflx  => null()   !*FD 
     real(dp),dimension(:,:)  ,pointer :: vflx  => null()   !*FD 
     real(dp),dimension(:,:)  ,pointer :: diffu => null()   !*FD 
@@ -1355,7 +1356,6 @@ contains
     call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%uvel)
     call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%vvel)
     call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%velnorm)
-    call coordsystem_allocate(model%general%ice_grid,  upn, model%velocity%wvel)
     call coordsystem_allocate(model%general%velo_grid, model%velocity%uflx)
     call coordsystem_allocate(model%general%velo_grid, model%velocity%vflx)
     call coordsystem_allocate(model%general%velo_grid, model%velocity%bed_softness)
@@ -1374,7 +1374,9 @@ contains
 
 !!    call coordsystem_allocate(model%general%velo_grid, model%velocity%velmask)    ! no longer used
 
+
     if (model%options%whichdycore == DYCORE_GLIDE) then
+       call coordsystem_allocate(model%general%ice_grid,  upn, model%velocity%wvel)
        call coordsystem_allocate(model%general%ice_grid,  upn, model%velocity%wgrd)
        call coordsystem_allocate(model%general%velo_grid, model%velocity%diffu)
        call coordsystem_allocate(model%general%velo_grid, model%velocity%diffu_x)
@@ -1389,6 +1391,7 @@ contains
        !       it was read correctly from an input file
        model%velocity%unstagbeta(:,:) = -999.0d0
 
+       call coordsystem_allocate(model%general%ice_grid,  upn, model%velocity%wvel_ho)
        call coordsystem_allocate(model%general%velo_grid, model%velocity%kinbcmask)
        call coordsystem_allocate(model%general%velo_grid, model%velocity%dynbcmask)
          ! next 3 used for output of residual fields (when relevant code in glam_strs2 is active)
@@ -1656,6 +1659,8 @@ contains
         deallocate(model%velocity%beta)
     if (associated(model%velocity%unstagbeta)) &
         deallocate(model%velocity%unstagbeta)
+    if (associated(model%velocity%wvel_ho)) &
+        deallocate(model%velocity%wvel_ho)
     if (associated(model%velocity%kinbcmask)) &
         deallocate(model%velocity%kinbcmask)
     if (associated(model%velocity%dynbcmask)) &

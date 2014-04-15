@@ -594,6 +594,15 @@ factor:        scale_wvel
 coordinates:   lon lat
 load:          1
 
+[wvel_ho]
+dimensions:    time, level, y1, x1
+units:         meter/year
+long_name:     vertical ice velocity relative to ice sheet base from higher-order model
+data:          data%velocity%wvel_ho(up,:,:)
+factor:        scale_wvel
+coordinates:   lon lat
+load:          1
+
 [wgrd]
 dimensions:    time, level, y1, x1
 units:         meter/year

@@ -904,6 +904,11 @@ contains
        call write_log('Error, vertical_integration out of range',GM_FATAL)
     end if
 
+    if (model%options%whichwvel /= VERTINT_STANDARD .and. model%options%whichdycore /= DYCORE_GLIDE) then
+       call write_log('Error, only standard vertical velocity calculation is supported for higher-order dycores.',GM_FATAL)
+    end if
+
+
     write(message,*) 'vertical_integration    : ',model%options%whichwvel,vertical_integration(model%options%whichwvel)
     call write_log(message)
 

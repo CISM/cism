@@ -101,8 +101,8 @@ if __name__ == '__main__':
         configParser.set('time', 'dt', '2.2')  # 2.4 yr is the longest dt ok for diffusive CFL, when using dx=dy=2500.0
         # Need to run to steady-state...  
         # It's close to SS by 400 years, but there are some long-period oscillations that still appear out to 1000 yrs.  Not sure yet how much longer than that to eliminate those.
-        configParser.set('time', 'tend', '400.0')
-        configParser.set('CF output', 'variables', 'uvel vvel uvel_icegrid vvel_icegrid topg thk usurf wvel velnorm efvs adv_cfl_dt diff_cfl_dt')  # Include flwa, efvs and the CFL variables to the output file
+        configParser.set('time', 'tend', '300.0')
+        configParser.set('CF output', 'variables', 'uvel vvel uvel_icegrid vvel_icegrid topg thk usurf wvel_ho velnorm efvs adv_cfl_dt diff_cfl_dt')  # Include flwa, efvs and the CFL variables to the output file
         configParser.set('CF output', 'frequency', '25.0')  # we don't want to output a whole lot of time levels, but want to be able to see we've reached SS.
 
 #     Make additional changes if requested on the command line
