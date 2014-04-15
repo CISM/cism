@@ -4254,12 +4254,12 @@ contains
     ! Note: The extrapolation region includes locally owned cells along
     !       the north and east boundaries of the global domain.
 
+    ! First update the halos so that we are sure the interior halos are correct
+    call staggered_parallel_halo(a)
+
     ! MJH Note: Modified code to now copy entire east and west columns rather than
     !  just the owned cells in those columns.  This avoids having the halos have
     !  potentially wrong information (i.e., a few cells in the corner don't get extrapolated into)
-    !  I think a halo update after this subroutine would also solve the problem, 
-    !  but this avoids an MPI-communication (assuming the halos are up-to-date 
-    !  prior to this subroutine).
 
     if (this_rank >= east) then  ! at east edge of global domain
        ! extrapolate eastward
@@ -4311,12 +4311,12 @@ contains
     ! Note: The extrapolation region includes locally owned cells along
     !       the north and east boundaries of the global domain.
 
+    ! First update the halos so that we are sure the interior halos are correct
+    call staggered_parallel_halo(a)
+
     ! MJH Note: Modified code to now copy entire east and west columns rather than
     !  just the owned cells in those columns.  This avoids having the halos have
     !  potentially wrong information (i.e., a few cells in the corner don't get extrapolated into)
-    !  I think a halo update after this subroutine would also solve the problem, 
-    !  but this avoids an MPI-communication (assuming the halos are up-to-date 
-    !  prior to this subroutine).
 
 ! Useful for debugging small domains (the YYYY is just a tag for grepping the output, particularly if you prepend the processor number, e.g. "0YYYY")
 !  do j = 1, size(a,2)
