@@ -21,7 +21,7 @@ grav = 9.1801 # m^2/s
 theta = 18  # basal inclination angle (degrees)  unpub. man. uses example with theta=18
 thickness = 1000.0  # m  thickness in the rotated coordinate system, not in CISM coordinates
 # =====================================================================
-efvs = 1.0e7      # hardcoded in CISM for constant viscosity setting (10^7 Pa yr)
+efvs = 2336041.42829      # hardcoded in CISM for constant viscosity setting (2336041.42829 Pa yr)
 # =====================================================================
 eta = 10.0   # unpub. man. uses example with eta=10.0
 beta = eta / thickness / efvs**-n / (rhoi * grav * thickness)**(n-1)  # Pa yr m^-1

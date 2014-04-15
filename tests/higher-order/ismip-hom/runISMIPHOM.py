@@ -86,7 +86,7 @@ if __name__ == '__main__':
         if experiment in ('a','b'):
           offset = float(size)*1000.0 * tan(0.5 * pi/180.0)
         elif experiment in ('c','d'):
-          offset = float(size)*1000.0 * tan(0.1 * pi/180.0) 
+          offset = float(size)*1000.0 * tan(0.1 * pi/180.0)
         elif experiment in ('f'):
           offset = float(size)*1000.0 * tan(3.0 * pi/180.0)
         configParser.set('parameters', 'periodic_offset_ew', str(offset))
@@ -97,10 +97,13 @@ if __name__ == '__main__':
 
       # For test case F we need to make a few additional adjustments to the config
       if experiment in ('f'):
-        configParser.set('ho_options', 'which_ho_efvs', '1')  # Set to efvs to be the flow factor
-        configParser.set('time', 'dt', '5.0')  # this is the longest dt ok for diffusive CFL
-        configParser.set('time', 'tend', '800.0')  # Need to run to steady-state...
-        configParser.set('CF output', 'variables', 'uvel vvel uvel_icegrid vvel_icegrid topg thk usurf wvel adv_cfl_dt diff_cfl_dt')  # Include the CFL variables to the output file
+        configParser.set('ho_options', 'which_ho_efvs', '0')  # Set to efvs to be the constant value of 2336041.42829 hardcoded for this option - this corresponds to the value needed for this test case
+        configParser.set('time', 'dt', '2.2')  # 2.4 yr is the longest dt ok for diffusive CFL, when using dx=dy=2500.0
+        # Need to run to steady-state...  
+        # It's close to SS by 400 years, but there are some long-period oscillations that still appear out to 1000 yrs.  Not sure yet how much longer than that to eliminate those.
+        configParser.set('time', 'tend', '400.0')
+        configParser.set('CF output', 'variables', 'uvel vvel uvel_icegrid vvel_icegrid topg thk usurf wvel velnorm efvs adv_cfl_dt diff_cfl_dt')  # Include flwa, efvs and the CFL variables to the output file
+        configParser.set('CF output', 'frequency', '25.0')  # we don't want to output a whole lot of time levels, but want to be able to see we've reached SS.
 
 #     Make additional changes if requested on the command line
       if options.vertical_grid_size != None:

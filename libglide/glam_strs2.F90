@@ -1421,7 +1421,8 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
      do ew = 2,ewn-1
         if (thck(ew,ns) > 0.d0) then
            ! Steve recommends 10^6 to 10^7 Pa yr
-           efvs(1:upn-1,ew,ns) = 1.d7  * scyr/tim0 / tau0    ! tau0 = rhoi*grav*thk0   
+           ! ISMIP-HOM Test F requires 2336041.42829 Pa yr, so use this as the typical value
+           efvs(1:upn-1,ew,ns) = 2336041.42829d0  * scyr/tim0 / tau0    ! tau0 = rhoi*grav*thk0
         else        
            efvs(:,ew,ns) = effstrminsq ! if the point is associated w/ no ice, set to min value
         endif

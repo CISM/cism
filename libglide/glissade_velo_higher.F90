@@ -4205,8 +4205,9 @@
        endif  ! trial_efvs
 !WHL - end debug (next the real thing)
 
-       efvs = 1.d7      ! Steve Price recommends 10^7 Pa yr
-                        ! (~3e14 Pa s)
+       ! Steve recommends 10^6 to 10^7 Pa yr
+       ! ISMIP-HOM Test F requires 2336041.42829 Pa yr, so use this as the typical value
+       efvs = 2336041.42829d0
 !WHL - This is the glam-type scaling
 !!       efvs = efvs * scyr/tim0 / tau0   ! tau0 = rhoi*grav*thk0
 
