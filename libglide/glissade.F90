@@ -401,6 +401,8 @@ contains
     real(dp), dimension(model%general%ewn,model%general%nsn) :: &
        bmlt_continuity  ! = bmlt if basal mass balance is included in continuity equation
                         ! else = 0
+
+    logical :: do_upwind_transport  ! Logical for whether transport code should do upwind transport or incremental remapping
     
     !WHL - debug
     integer :: j
@@ -459,7 +461,13 @@ contains
 
     select case(model%options%whichevol)
 
-       case(EVOL_INC_REMAP, EVOL_NO_THICKNESS) 
+       case(EVOL_INC_REMAP, EVOL_UPWIND, EVOL_NO_THICKNESS) 
+
+       if (model%options%whichevol == EVOL_UPWIND) then
+          do_upwind_transport = .true.
+       else
+          do_upwind_transport = .false.
+       endif
 
        ! Use incremental remapping scheme for advecting ice thickness ---
        ! (and temperature too, if whichtemp = TEMP_PROGNOSTIC)
@@ -574,7 +582,8 @@ contains
                                             thck_unscaled(:,:),                                   &
                                             dble(model%climate%acab(:,:)) * thk0/tim0,            &
                                             bmlt_continuity(:,:),                                 &
-                                            model%temper%temp(:,:,:) )
+                                            model%temper%temp(:,:,:),                             &
+                                            upwind_transport_in=do_upwind_transport )
 
              ! convert thck back to scaled units
              model%geometry%thck(:,:) = thck_unscaled(:,:) / thk0
@@ -601,7 +610,8 @@ contains
                                             dble(model%climate%acab(:,:)) * thk0/tim0,            &
                                             bmlt_continuity(:,:),                                 &
                                             model%temper%temp(:,:,:),                             & 
-                                            model%temper%waterfrac(:,:,:)  )
+                                            model%temper%waterfrac(:,:,:),                        &
+                                            upwind_transport_in=do_upwind_transport )
 
              ! convert thck back to scaled units
              model%geometry%thck(:,:) = thck_unscaled(:,:) / thk0
@@ -628,7 +638,8 @@ contains
                                             model%velocity%vvel(:,:,:) * vel0,                    &
                                             thck_unscaled(:,:),                                   &
                                             dble(model%climate%acab(:,:)) * thk0/tim0,            & 
-                                            bmlt_continuity(:,:) )
+                                            bmlt_continuity(:,:) ,                                &
+                                            upwind_transport_in=do_upwind_transport )
 
              ! convert thck back to scaled units
              model%geometry%thck(:,:) = thck_unscaled(:,:) / thk0
