@@ -145,7 +145,7 @@ function gci_finished(g2c) result(finished)
       call g2c_glint_check_finished(g2c,finished)
     case default
   end select
-print *,"In gci_finished, finished = ",finished  
+  !print *,"In gci_finished, finished = ",finished  
 
 end function gci_finished
 

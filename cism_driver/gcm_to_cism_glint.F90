@@ -212,6 +212,7 @@ subroutine g2c_glint_init(g2c)
 
   allocate(g2c%temp(g2c%nx,g2c%ny),g2c%precip(g2c%nx,g2c%ny),g2c%orog(g2c%nx,g2c%ny))
   allocate(g2c%coverage(g2c%nx,g2c%ny),g2c%orog_out(g2c%nxo,g2c%nyo),g2c%albedo(g2c%nx,g2c%ny))
+!!Check this:
   allocate(g2c%ice_frac(g2c%nx,g2c%ny),g2c%fw(g2c%nx,g2c%ny))
   allocate(g2c%lats_orog(g2c%nyo),g2c%lons_orog(g2c%nxo),g2c%cov_orog(g2c%nxo,g2c%nyo),g2c%fw_in(g2c%nx,g2c%ny))
 

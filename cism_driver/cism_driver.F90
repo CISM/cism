@@ -34,6 +34,15 @@ program cism_driver
   integer :: which_gcm = GCM_DATA_MODEL
   type(gcm_to_cism_type) :: g2c
 
+  if (command_argument_count() == 0) then
+     print *,""
+     print *,"Call cism_driver with either 1 or 2 arguments. Examples:"
+     print *,"cism_driver ice_sheet.config"
+     print *,"cism_driver ice_sheet.config climate.config"
+     print *,""
+     return      
+  end if
+
   call parallel_initialise
 
   call gci_init_interface(which_gcm,g2c)
