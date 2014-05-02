@@ -151,6 +151,8 @@ module glint_type
      !*FD \item[1] The ice sheet can evolve
 
      integer :: whichacab = 1
+     
+     logical :: test_coupling = .false.
 
      !*FD Which mass-balance scheme: 
      !*FD \begin{description}
@@ -390,6 +392,7 @@ contains
        call GetValue(section,'evolve_ice',instance%evolve_ice)
        call GetValue(section,'precip_mode',instance%whichprecip)
        call GetValue(section,'acab_mode',instance%whichacab)
+       call GetValue(section,'test_coupling',instance%test_coupling)       
        call GetValue(section,'ice_albedo',instance%ice_albedo)
        call GetValue(section,'lapse_rate',instance%lapse_rate)
        instance%data_lapse_rate=instance%lapse_rate
@@ -487,6 +490,8 @@ contains
     call write_log(message)
     write(message,*) 'acab_mode   ',instance%whichacab
     call write_log(message)
+    write(message,*) 'test_coupling ',instance%test_coupling
+    call write_log(message)    
 
     if (instance%evolve_ice == EVOLVE_ICE_FALSE) then
        call write_log('The ice sheet state will not evolve after initialization')

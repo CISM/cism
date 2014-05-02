@@ -3,7 +3,7 @@
 !   glint_constants.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-!
+! 
 !   Copyright (C) 2005-2013
 !   Glimmer-CISM contributors - see AUTHORS file for list of contributors
 !
@@ -32,19 +32,19 @@ module glint_constants
 
   use glimmer_global, only: dp
   use glimmer_physcon, only: pi
-
+  
   implicit none
-
+  
   ! ------------------------------------------------------------
   ! global parameters
   ! ------------------------------------------------------------
 
-!!  real(dp),parameter :: pi=3.141592654          ! defined in glimmer_physcon
+  real(dp), parameter :: lapse = 0.0065_dp   ! atm lapse rate, deg/m
   real(dp),parameter :: days2hours = 24.d0
   real(dp),parameter :: hours2seconds = 3600.d0   !*FD Hours to seconds conversion factor
 
-  integer, parameter :: default_diy = 360                    !*FD Default number of days in year
-  integer, parameter :: default_y2h = days2hours*default_diy !*FD Default years to hours conversion
+  real(dp), parameter :: default_diy = 360.d0                    !*FD Default number of days in year
+  real(dp), parameter :: default_y2h = days2hours*default_diy     !*FD Default years to hours conversion
 
   ! Constants set at run-time
 
@@ -53,7 +53,14 @@ module glint_constants
   real(dp) :: hours2years = 1.d0/default_y2h !*FD Hours to years conversion factor
 
   private :: default_diy, default_y2h
-
+  
+  ! Minimum thickness of ice, under which point is considered bare land for upscaling/
+  ! downscaling purposes. Values other than 0 can result in odd behavior - e.g., a value
+  ! greater than 0 means that CLM would consider a point to have become icesheet, and so
+  ! would send positive SMB, but if this SMB didn't reach the min_thck threshold, then
+  ! CISM would effectively tell CLM, "no, it's not actually icesheet yet - it's still
+  ! bare ground".
+  real(dp), parameter :: min_thck = 0.d0
 contains
 
   subroutine glint_set_year_length(daysinyear)

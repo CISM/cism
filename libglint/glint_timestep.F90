@@ -362,6 +362,7 @@ contains
        ! First water input (i.e. mass balance + ablation)
 
        if (out_f%water_in) then
+       
           call coordsystem_allocate(instance%lgrid, upscale_temp)
 
           where (thck_temp > 0.d0)
@@ -380,7 +381,8 @@ contains
 
        ! Now water output (i.e. ablation) - and do routing
 
-       if (out_f%water_out) then
+       if (out_f%water_out) then    
+       
           ! WJS (1-15-13): The flow_router routine (called bolew) currently seems to
           ! assume that it's working on the full (non-decomposed) domain. I'm not sure
           ! what the best way is to fix this, so for now we only allow this code to be
