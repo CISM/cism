@@ -17,6 +17,8 @@
 # !!! moved this to .bashrc !!!
 # setenv TEST_DIR "/USERS/$USER/work/modeling/cism/seacism-oceans11/tests/higher-order"
 
+
+
 setenv TEST_DIR /lustre/atlas/scratch/$USER/cli062/higher-order
 
 if (! -d $TEST_DIR) mkdir -p $TEST_DIR
@@ -43,6 +45,8 @@ echo
 echo 'To use this script, type: csh '$PLATFORM_NAME'-'$COMPILER_NAME'-build-and-test.csh'
 echo
 echo 'For a quick test (dome only), type: csh '$PLATFORM_NAME'-'$COMPILER_NAME'-build-and-test.csh quick-test'
+echo
+echo "Call with no-copy to prevent copying of the reg_test and livv defaults."
 
 echo
 echo 'See the LIVV documentation for instructions on setting up the test directory (TEST_DIR).'
@@ -79,8 +83,11 @@ if ($build_problem == 1 ) then
 else  # execute tests:
  
 
- # Make copy of test suite in $TEST_DIR:
 
+@ no_copy_set = (($1 == no-copy) || ($2 == no-copy))
+
+ # Make copy of test suite in $TEST_DIR:
+if (!($no_copy_set)) then
  echo "Copying default reg_test and LIVV to $TEST_DIR"
  pushd . > /dev/null
  cp $TEST_SUITE_DEFAULT_DIR/reg_test_default.tar $TEST_DIR/reg_test_default.tar
@@ -90,12 +97,12 @@ else  # execute tests:
  popd > /dev/null
 
  cp -rf ../../tests/higher-order/livv $TEST_DIR
-
+endif
 
  echo 'Submitting test jobs to compute nodes.'
 
  setenv run_all_tests 1
- if ($1 == "quick-test") setenv run_all_tests 0 
+ if (($1 == "quick-test") || ($2 == "quick-test")) setenv run_all_tests 0 
 
  #diagnostic dome test case
  cd $TEST_DIR/reg_test/dome30/diagnostic
