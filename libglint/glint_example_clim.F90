@@ -800,9 +800,10 @@ contains
      real(dp), dimension(:,:), intent(in) :: orog     ! global orography (m)
 
      ! output fields on global grid, with elevation class index
-     real(dp), dimension(:,:,:), intent(inout) :: qsmb    ! ice sfc mass balance (kg/m2/s)
-     real(dp), dimension(:,:,:), intent(inout) :: tsfc    ! ice sfc temp (deg C)
-     real(dp), dimension(:,:,:), intent(inout) :: topo    ! ice sfc elevation (m)
+     ! (note that elevation class 0 is bare land)
+     real(dp), dimension(:,:,0:), intent(inout) :: qsmb    ! ice sfc mass balance (kg/m2/s)
+     real(dp), dimension(:,:,0:), intent(inout) :: tsfc    ! ice sfc temp (deg C)
+     real(dp), dimension(:,:,0:), intent(inout) :: topo    ! ice sfc elevation (m)
 
      integer, intent(in) :: glc_nec                       ! number of elevation classes
 
@@ -856,6 +857,12 @@ contains
 
      enddo   ! i
      enddo   ! j
+
+     ! Fill elevation class 0 with arbitrary values. For now, assume no SMB in bare land
+     ! regions (which will mean no glacial inception).
+     topo(i,j,0) = 0.d0
+     tsfc(i,j,0) = 0.d0
+     qsmb(i,j,0) = 0.d0
 
   end subroutine compute_gcm_smb
 
