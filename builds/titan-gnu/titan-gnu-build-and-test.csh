@@ -17,6 +17,13 @@
 # !!! moved this to .bashrc !!!
 # setenv TEST_DIR "/USERS/$USER/work/modeling/cism/seacism-oceans11/tests/higher-order"
 
+# 5/7/2014 DMR -- added performance tests:
+setenv PERF_TEST 0
+
+@ run_perf_tests = (($1 == run-perf-tests) || ($2 == run-perf-tests) || ($3 == run-perf-tests))
+if ($run_perf_tests) then
+  setenv PERF_TEST 1
+endif
 
 
 setenv TEST_DIR /lustre/atlas/scratch/$USER/cli062/higher-order
@@ -47,6 +54,7 @@ echo
 echo 'For a quick test (dome only), type: csh '$PLATFORM_NAME'-'$COMPILER_NAME'-build-and-test.csh quick-test'
 echo
 echo "Call with no-copy to prevent copying of the reg_test and livv defaults."
+echo "Call with run-perf-tests to run the performance tests."
 
 echo
 echo 'See the LIVV documentation for instructions on setting up the test directory (TEST_DIR).'
@@ -84,7 +92,7 @@ else  # execute tests:
  
 
 
-@ no_copy_set = (($1 == no-copy) || ($2 == no-copy))
+@ no_copy_set = (($1 == no-copy) || ($2 == no-copy) || ($3 == no-copy))
 
  # Make copy of test suite in $TEST_DIR:
 if (!($no_copy_set)) then
@@ -96,13 +104,25 @@ if (!($no_copy_set)) then
  rm reg_test_default.tar
  popd > /dev/null
 
+ if ($PERF_TEST) then
+    echo "Copying default perf_test to $TEST_DIR"
+   pushd . > /dev/null
+   cp $TEST_SUITE_DEFAULT_DIR/perf_test_default.tar $TEST_DIR/perf_test_default.tar
+   cd $TEST_DIR
+   tar xf perf_test_default.tar
+   rm perf_test_default.tar
+   popd > /dev/null
+ endif
+
  cp -rf ../../tests/higher-order/livv $TEST_DIR
 endif
 
  echo 'Submitting test jobs to compute nodes.'
 
  setenv run_all_tests 1
- if (($1 == "quick-test") || ($2 == "quick-test")) setenv run_all_tests 0 
+ if (($1 == "quick-test") || ($2 == "quick-test") || ($2 == "quick-test")) then
+   setenv run_all_tests 0 
+ endif
 
  #diagnostic dome test case
  cd $TEST_DIR/reg_test/dome30/diagnostic
@@ -136,6 +156,39 @@ endif
   #qsub $CISM_RUN_SCRIPT
  endif
 
+  if ($PERF_TEST == 0 ) then
+    echo "No performance suite jobs were submitted."
+  else
+    echo 'Submitting performance jobs to compute nodes.'
+    echo 'Go to rhea.ccs.ornl.gov to complete Visualization and Verification (LIVV)'
+
+#  #dome 30 test case
+#    cd $TEST_DIR/perf_test/dome30
+#    qsub $CISM_RUN_SCRIPT
+
+  #dome 60 test case
+    cd $TEST_DIR/perf_test/dome60
+    qsub $CISM_RUN_SCRIPT
+
+  #dome 120 test case
+    cd $TEST_DIR/perf_test/dome120
+    qsub $CISM_RUN_SCRIPT
+
+  #dome 240 test case
+    cd $TEST_DIR/perf_test/dome240
+    qsub $CISM_RUN_SCRIPT
+
+  #dome 500 test case
+    cd $TEST_DIR/perf_test/dome500
+    qsub $CISM_RUN_SCRIPT
+
+  #dome 1000 test case
+    cd $TEST_DIR/perf_test/dome1000
+    qsub $CISM_RUN_SCRIPT
+  endif
+endif
+
+
  echo
  echo "Test Suite jobs started -- using qstat to monitor."
  echo 
@@ -144,7 +197,8 @@ endif
  set counter = 0
  set timeout_error = 0
 
- set run_list = "dome_30_test dome_30_evolve conf_shelf circ_shelf ishoma_80 ishoma_20"
+ set run_list = "dome_30_test dome_30_evolve conf_shelf circ_shelf ishoma_80 ishoma_20 dome_60_test dome_120_test dome_240_test dome_500_test dome_1000_test"
+
  while ($still_running)
   set ls_out = `qstat | grep $USER`
 
