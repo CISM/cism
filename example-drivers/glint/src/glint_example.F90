@@ -101,6 +101,10 @@ program glint_example
 
   ! fields passed to and from a GCM 
   ! (useful for testing the GCM subroutines in standalone mode)
+  !
+  ! Note that, for fields that possess a third dimension, this dimension is the elevation
+  ! class. Elevation class goes from 0 to glc_nec, where class 0 represents the bare land
+  ! "elevation class".
 
   real(dp),dimension(:,:,:), allocatable :: qsmb     ! surface mass balance (kg/m^2/s)
   real(dp),dimension(:,:,:), allocatable :: tsfc     ! surface temperature (degC) 
@@ -170,18 +174,18 @@ program glint_example
   if (climate%gcm_smb) then
 
      ! input from GCM
-     allocate(tsfc(nx,ny,glc_nec))
-     allocate(qsmb(nx,ny,glc_nec))
-     allocate(topo(nx,ny,glc_nec))
+     allocate(tsfc(nx,ny, 0:glc_nec))
+     allocate(qsmb(nx,ny, 0:glc_nec))
+     allocate(topo(nx,ny, 0:glc_nec))
 
      tsfc(:,:,:)   = 0.d0
      qsmb(:,:,:)   = 0.d0
      topo(:,:,:)   = 0.d0
 
      ! output to GCM
-     allocate(gfrac(nx,ny,glc_nec))
-     allocate(gtopo(nx,ny,glc_nec))
-     allocate(ghflx(nx,ny,glc_nec))
+     allocate(gfrac(nx,ny, 0:glc_nec))
+     allocate(gtopo(nx,ny, 0:glc_nec))
+     allocate(ghflx(nx,ny, 0:glc_nec))
      allocate(grofi(nx,ny))
      allocate(grofl(nx,ny))
 
@@ -301,7 +305,7 @@ program glint_example
         !     print*, orog(ig,jg), temp(ig,jg), precip(ig,jg)*scyr
         !     print*, ' '
         !     print*, 'topo (m), tsfc (C), qsmb (m/yr):'
-        !     do k = 1, glc_nec
+        !     do k = 0, glc_nec
         !        print*, topo(ig,jg,k), tsfc(ig,jg,k), qsmb(ig,jg,k)*scyr
         !     enddo
         !

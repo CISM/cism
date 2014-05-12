@@ -617,14 +617,17 @@ contains
 
     integer :: nxl_full,nyl_full,i,j
     real(dp),dimension(size(local,1),size(local,2)) :: tempmask
-
+    
     ! values of 'local' and 'tempmask' spanning full domain (all tasks)
     real(dp),dimension(:,:), allocatable            :: local_fulldomain
     real(dp),dimension(:,:), allocatable            :: tempmask_fulldomain
+    real(dp),dimension(:,:) ,allocatable            :: ncells
 
     ! Beginning of code
-
-    global = NaN
+    
+    allocate(ncells(size(global,1), size(global,2)))
+    
+    global(:,:) = NaN
 
     if (present(mask)) then
        tempmask = mask
@@ -643,26 +646,37 @@ contains
 
        nxl_full = size(local_fulldomain,1)
        nyl_full = size(local_fulldomain,2)
-       global = 0.d0
-
+       global(:,:) = 0.d0
+       ncells(:,:) = 0.d0
+       
        do i=1,nxl_full
           do j=1,nyl_full
-             global(ups%gboxx(i,j),ups%gboxy(i,j)) = global(ups%gboxx(i,j),ups%gboxy(i,j)) &
-                                                   + local_fulldomain(i,j)*tempmask_fulldomain(i,j)
+            if (tempmask_fulldomain(i,j) .gt. 0.) then
+               !accumulate values to be averaged
+               global(ups%gboxx(i,j),ups%gboxy(i,j)) = global(ups%gboxx(i,j),ups%gboxy(i,j)) &
+                                  + local_fulldomain(i,j)*tempmask_fulldomain(i,j)
+             
+               !accumulate counter that determines how many cells are being used in the average.
+               !This accumulator only counts points that are included in the mask, and as such
+               !avoids counting up points that are outside the 'area of interest'.        
+               ncells(ups%gboxx(i,j),ups%gboxy(i,j)) = ncells(ups%gboxx(i,j),ups%gboxy(i,j)) + 1.
+             end if
           enddo
        enddo
-
-       where (ups%gboxn /= 0)
-          global = global / real(ups%gboxn,dp)
+       
+       !Calculate average value.
+       where (ncells /= 0)            
+          global = global / ncells
        elsewhere
-          global = 0.d0
-       endwhere
+          global(:,:) = 0.d0
+       endwhere     
 
     end if  ! main_task
 
     if (allocated(local_fulldomain)) deallocate(local_fulldomain)
     if (allocated(tempmask_fulldomain)) deallocate(tempmask_fulldomain)
-
+    if (allocated(ncells)) deallocate(ncells)
+    
   end subroutine local_to_global_avg
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -688,23 +702,16 @@ contains
     type(upscale),          intent(in)  :: ups    !*FD Upscaling indexing data.
     real(dp),dimension(:,:),intent(in)  :: local  !*FD Data on projected grid (input).
     real(dp),dimension(:,:),intent(out) :: global !*FD Data on global grid (output).
-    integer, dimension(:,:),intent(in),optional :: mask !*FD Mask for upscaling
+    integer,dimension(:,:),intent(in),optional :: mask !*FD Mask for upscaling
 
     ! Internal variables
 
-    integer :: nxl_full,nyl_full,i,j
+    integer :: nxl_full,nyl_full,i,j,nxg,nyg
     real(dp),dimension(size(local,1),size(local,2)) :: tempmask
 
     ! values of 'local' and 'tempmask' spanning full domain (all tasks)
     real(dp),dimension(:,:), allocatable            :: local_fulldomain
     real(dp),dimension(:,:), allocatable            :: tempmask_fulldomain
-
-
-!WHL - debug
-!WHL - debug
-!!    use glint_type, only: iglint_global, jglint_global  ! circular
-    integer, parameter :: iglint_global = 56, jglint_global = 4
-    integer :: ig, jg, boxcount
 
     ! Beginning of code
 
@@ -722,14 +729,6 @@ contains
     call distributed_gather_var(tempmask, tempmask_fulldomain)
 
     ! Main task does regridding
-
-!WHL - debug
-!    print*, ' '
-!    print*, 'In local_to_global_sum'
-!    print*, 'count, ig, jg, il, jl:'
-!    print*, ' '
-    boxcount = 0
-
     if (main_task) then
 
        nxl_full = size(local_fulldomain,1)
@@ -740,30 +739,8 @@ contains
           do j=1,nyl_full
              global(ups%gboxx(i,j),ups%gboxy(i,j)) = global(ups%gboxx(i,j),ups%gboxy(i,j)) &
                                                    + local_fulldomain(i,j)*tempmask_fulldomain(i,j)
-
-!WHL - debug
-             ig = ups%gboxx(i,j)
-             jg = ups%gboxy(i,j)
-             if (ig==iglint_global .and. jg==jglint_global) then
-                boxcount = boxcount + 1
-!                print*, boxcount, ig, jg, i, j
-             endif
-          
           enddo
        enddo
-
-!WHL - debug
-       ig = iglint_global
-       jg = jglint_global
-!       print*, ' '
-!       print*, 'ig, jg, boxcount, gboxn:', ig, jg, boxcount, ups%gboxn(ig,jg)
-
-!WHL - Delete these lines because we are summing, not averaging.
-!       where (ups%gboxn /= 0)
-!          global = global / real(ups%gboxn,dp)
-!       elsewhere
-!          global = 0.d0
-!       endwhere
 
     end if  ! main_task
 
@@ -771,6 +748,89 @@ contains
     if (allocated(tempmask_fulldomain)) deallocate(tempmask_fulldomain)
 
   end subroutine local_to_global_sum
+  
+  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+  subroutine local_to_global_min(ups,local,global,mask)
+
+    !*FD Upscale to global domain by finding the minimum of the local field.
+    !*FD The result is an accumulated sum, not an average.
+    !*FD
+    !*FD Note that:
+    !*FD \begin{itemize}
+    !*FD \item \texttt{global} output is only valid on the main task
+    !*FD \item \texttt{ups} input only needs to be valid on the main task
+    !*FD \item \texttt{gboxx} and \texttt{gboxy} are the same size as \texttt{local_fulldomain}
+    !*FD \item \texttt{gboxn} is the same size as \texttt{global}
+    !*FD \end{itemize}
+
+    use parallel, only : main_task, distributed_gather_var
+    use nan_mod , only : NaN
+
+    ! Arguments
+
+    type(upscale),          intent(in)  :: ups    !*FD Upscaling indexing data.
+    real(dp),dimension(:,:),intent(in)  :: local  !*FD Data on projected grid (input).
+    real(dp),dimension(:,:),intent(out) :: global !*FD Data on global grid (output).
+    integer,dimension(:,:),intent(in),optional :: mask !*FD Mask for upscaling
+
+    ! Internal variables
+
+    integer :: nxl_full,nyl_full,i,j,nxg,nyg
+    real(dp),dimension(size(local,1),size(local,2)) :: tempmask
+
+    ! values of 'local' and 'tempmask' spanning full domain (all tasks)
+    real(dp),dimension(:,:), allocatable            :: local_fulldomain
+    real(dp),dimension(:,:), allocatable            :: tempmask_fulldomain
+
+    ! Beginning of code
+
+    global = NaN
+
+    if (present(mask)) then
+       tempmask = mask
+    else
+       tempmask = 1
+    endif
+
+    ! Gather 'local' and 'tempmask' onto main task, which is the only one that does the regridding
+
+    call distributed_gather_var(local, local_fulldomain)
+    call distributed_gather_var(tempmask, tempmask_fulldomain)
+
+    ! Main task does regridding
+    if (main_task) then
+
+       nxl_full = size(local_fulldomain,1)
+       nyl_full = size(local_fulldomain,2)
+       global(:,:) = 0.d0
+
+       !set topography value in global cells for which the mask exists, to a very high value.
+       !this should then be reduced on the next swing through the loop.
+       do i=1,nxl_full
+          do j=1,nyl_full    
+             if (tempmask_fulldomain(i,j) > 0.) then
+               global(ups%gboxx(i,j),ups%gboxy(i,j)) = huge(1.d0)
+             endif
+          enddo
+       enddo         
+
+       do i=1,nxl_full
+          do j=1,nyl_full
+             if (tempmask_fulldomain(i,j) > 0.) then
+               global(ups%gboxx(i,j),ups%gboxy(i,j)) = min ( &
+                 global(ups%gboxx(i,j),ups%gboxy(i,j)), &
+                 local_fulldomain(i,j))
+             end if
+          enddo
+       enddo
+
+    end if  ! main_task
+
+    if (allocated(local_fulldomain)) deallocate(local_fulldomain)
+    if (allocated(tempmask_fulldomain)) deallocate(tempmask_fulldomain)
+
+  end subroutine local_to_global_min  
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

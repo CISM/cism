@@ -105,6 +105,10 @@ type gcm_to_cism_type
 
   ! fields passed to and from a GCM 
   ! (useful for testing the GCM subroutines in standalone mode)
+  !
+  ! Note that, for fields that possess a third dimension, this dimension is the elevation
+  ! class. Elevation class goes from 0 to glc_nec, where class 0 represents the bare land
+  ! "elevation class".
 
   real(dp),dimension(:,:,:), allocatable :: qsmb     ! surface mass balance (kg/m^2/s)
   real(dp),dimension(:,:,:), allocatable :: tsfc     ! surface temperature (degC) 
@@ -229,18 +233,18 @@ subroutine g2c_glint_init(g2c)
   if (g2c%climate%gcm_smb) then
 
      ! input from GCM
-     allocate(g2c%tsfc(g2c%nx,g2c%ny,g2c%glc_nec))
-     allocate(g2c%qsmb(g2c%nx,g2c%ny,g2c%glc_nec))
-     allocate(g2c%topo(g2c%nx,g2c%ny,g2c%glc_nec))
+     allocate(g2c%tsfc(g2c%nx,g2c%ny, 0:g2c%glc_nec))
+     allocate(g2c%qsmb(g2c%nx,g2c%ny, 0:g2c%glc_nec))
+     allocate(g2c%topo(g2c%nx,g2c%ny, 0:g2c%glc_nec))
 
      g2c%tsfc(:,:,:)   = 0.d0
      g2c%qsmb(:,:,:)   = 0.d0
      g2c%topo(:,:,:)   = 0.d0
 
      ! output to GCM
-     allocate(g2c%gfrac(g2c%nx,g2c%ny,g2c%glc_nec))
-     allocate(g2c%gtopo(g2c%nx,g2c%ny,g2c%glc_nec))
-     allocate(g2c%ghflx(g2c%nx,g2c%ny,g2c%glc_nec))
+     allocate(g2c%gfrac(g2c%nx,g2c%ny, 0:g2c%glc_nec))
+     allocate(g2c%gtopo(g2c%nx,g2c%ny, 0:g2c%glc_nec))
+     allocate(g2c%ghflx(g2c%nx,g2c%ny, 0:g2c%glc_nec))
      allocate(g2c%grofi(g2c%nx,g2c%ny))
      allocate(g2c%grofl(g2c%nx,g2c%ny))
 
@@ -368,8 +372,8 @@ subroutine g2c_glint_run(g2c)
         !     print*, orog(ig,jg), temp(ig,jg), precip(ig,jg)*scyr
         !     print*, ' '
         !     print*, 'topo (m), tsfc (C), qsmb (m/yr):'
-        !     do k = 1, glc_nec
-        !        print*, topo(ig,jg,k), tsfc(ig,jg,k), qsmb(ig,jg,k)*scyr
+        !     do k = 0, glc_nec
+        !        print*, k, topo(ig,jg,k), tsfc(ig,jg,k), qsmb(ig,jg,k)*scyr
         !     enddo
         !
 

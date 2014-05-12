@@ -92,12 +92,12 @@ contains
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  subroutine glint_downscaling_gcm (instance,            &
+  subroutine glint_downscaling_gcm (instance,&
                                     qsmb_g,     tsfc_g,  &
                                     topo_g,     gmask)
  
     use glimmer_paramets, only: thk0, GLC_DEBUG
-
+    use glint_constants, only: lapse
     use glint_type
     use glint_interp, only: interp_to_local
     use parallel, only: tasks
@@ -107,19 +107,16 @@ contains
     ! 
     ! This routine is used for downscaling when the surface mass balance is
     ! computed in the GCM land surface model.
-
+    
     type(glint_instance), intent(inout) :: instance
-    real(dp),dimension(:,:,:),intent(in) :: qsmb_g       ! Surface mass balance (m)
-    real(dp),dimension(:,:,:),intent(in) :: tsfc_g       ! Surface temperature (C)
-    real(dp),dimension(:,:,:),intent(in) :: topo_g       ! Surface elevation (m)
-    integer ,dimension(:,:),  intent(in),optional :: gmask ! = 1 where global data are valid
-                                                           ! = 0 elsewhere
-
+    real(dp),dimension(:,:,0:),intent(in) :: qsmb_g       ! Surface mass balance (m)
+    real(dp),dimension(:,:,0:),intent(in) :: tsfc_g       ! Surface temperature (C)
+    real(dp),dimension(:,:,0:),intent(in) :: topo_g       ! Surface elevation (m)
+    integer ,dimension(:,:),   intent(in),optional :: gmask   ! = 1 where global data are valid
+                                                             ! = 0 elsewhere
     real(dp), parameter :: maskval = 0.0_dp    ! value written to masked out gridcells
 
-    integer ::       &
-       nec,          &      ! number of elevation classes
-       nxl, nyl             ! local grid dimensions
+    integer :: nxl, nyl, nec             ! local grid dimensions
 
     integer :: i, j, n, ig, jg
  
@@ -128,21 +125,17 @@ contains
        tsfc_l,    &! interpolation of global sfc temperature to local grid
        topo_l      ! interpolation of global topography in each elev class to local grid
 
-    real(dp) :: fact, usrf
-
-!TODO - Make this consistent with value in CLM?
-    real(dp), parameter :: lapse = 0.0065_dp   ! atm lapse rate, deg/m
-                                               ! used only for extrapolating temperature outside
-                                               !  the range provided by the climate model
-    nec = size(qsmb_g,3)
+    real(dp) :: fact, usrf, thck
+                                               
     nxl = instance%lgrid%size%pt(1)
     nyl = instance%lgrid%size%pt(2)
+    nec = ubound(qsmb_g,3)
 
-    allocate(qsmb_l(nxl,nyl,nec))
-    allocate(tsfc_l(nxl,nyl,nec))
-    allocate(topo_l(nxl,nyl,nec))
+    allocate(qsmb_l(nxl,nyl,0:nec))
+    allocate(tsfc_l(nxl,nyl,0:nec))
+    allocate(topo_l(nxl,nyl,0:nec))
 
-    !   Downscale global fields for each elevation class to local grid.
+    !   Downscale global fields for each elevation class to local grid (horizontal interpolation).
 
     if (present(gmask)) then   ! set local field = maskval where the global field is masked out
                                ! (i.e., where instance%downs%lmask = 0).
@@ -156,7 +149,6 @@ contains
        enddo
 
     else    ! global field values are assumed to be valid everywhere
-
        do n = 1, nec
           call interp_to_local(instance%lgrid_fulldomain, qsmb_g(:,:,n), instance%downs, localdp=qsmb_l(:,:,n))
           call interp_to_local(instance%lgrid_fulldomain, tsfc_g(:,:,n), instance%downs, localdp=tsfc_l(:,:,n))
@@ -165,90 +157,73 @@ contains
 
     endif
 
-    ! The following output only works correctly if running with a single task
-    if (GLC_DEBUG .and. tasks==1) then
-       ig = iglint_global   ! in glint_type; make sure values are appropriate
-       jg = jglint_global
-       write (stdout,*) ' ' 
-       write (stdout,*) 'Interpolate fields to local grid'
-       write (stdout,*) 'Global cell =', ig, jg
-       do n = 1, nec
-          write(stdout,*) n, topo_g(ig,jg, n)
-       enddo
-
-       do j = 1, nyl
-       do i = 1, nxl
-           if ( (instance%downs%xloc(i,j,1) == ig .and. instance%downs%yloc(i,j,1) == jg) .or.  &
-                (instance%downs%xloc(i,j,2) == ig .and. instance%downs%yloc(i,j,2) == jg) .or.  &
-                (instance%downs%xloc(i,j,3) == ig .and. instance%downs%yloc(i,j,3) == jg) .or.  &
-                (instance%downs%xloc(i,j,4) == ig .and. instance%downs%yloc(i,j,4) == jg) ) then
-               write(stdout,*) i, j, thk0 * instance%model%geometry%usrf(i,j)
-           endif
-       enddo
-       enddo
-    
-       i = instance%model%numerics%idiag
-       j = instance%model%numerics%jdiag
-       write (stdout,*) ' ' 
-       write (stdout,*) 'Interpolated to local cells: i, j =', i, j
-       do n = 1, nec
-          write (stdout,*) ' '
-          write (stdout,*) 'n =', n
-          write (stdout,*) 'qsmb_l =', qsmb_l(i,j,n)
-          write (stdout,*) 'tsfc_l =', tsfc_l(i,j,n)
-          write (stdout,*) 'topo_l =', topo_l(i,j,n)
-       enddo
-
-    end if ! GLC_DEBUG
-
 !   Interpolate tsfc and qsmb to local topography using values in the neighboring 
-!    elevation classes.
+!    elevation classes (vertical interpolation).
+
 !   If the local topography is outside the bounds of the global elevations classes,
 !    extrapolate the temperature using the prescribed lapse rate.
 
     do j = 1, nyl
-    do i = 1, nxl
+       do i = 1, nxl
 
-       usrf = instance%model%geometry%usrf(i,j) * thk0   ! actual sfc elevation (m)
+          usrf = instance%model%geometry%usrf(i,j) * thk0
+          thck = instance%model%geometry%thck(i,j) * thk0
 
-       if (usrf <= topo_l(i,j,1)) then
-          instance%acab(i,j) = qsmb_l(i,j,1)
-          instance%artm(i,j) = tsfc_l(i,j,1) + lapse*(topo_l(i,j,1)-usrf)
-       elseif (usrf > topo_l(i,j,nec)) then
-          instance%acab(i,j) = qsmb_l(i,j,nec)
-          instance%artm(i,j) = tsfc_l(i,j,nec) - lapse*(usrf-topo_l(i,j,nec))
-       else
-          do n = 2, nec
-             if (usrf > topo_l(i,j,n-1) .and. usrf <= topo_l(i,j,n)) then
-                fact = (topo_l(i,j,n) - usrf) / (topo_l(i,j,n) - topo_l(i,j,n-1)) 
-                instance%acab(i,j) = fact*qsmb_l(i,j,n-1) + (1._dp-fact)*qsmb_l(i,j,n)
-                instance%artm(i,j) = fact*tsfc_l(i,j,n-1) + (1._dp-fact)*tsfc_l(i,j,n)
-                exit
+          if (thck <= min_thck) then !if ice-free...
+             if (usrf > 0.) then !and on land (not ocean)...
+                ig=instance%downs%xin(i,j)
+                jg=instance%downs%yin(i,j)
+                !set these values to the values of global parent cell.
+                !No vertical/horizontal interpolation is used, since these elevation-
+                !dependent values are not constrained to a discrete elevation band.
+                instance%acab(i,j) = qsmb_g(ig,jg,0)
+                instance%artm(i,j) = tsfc_g(ig,jg,0)
+                if (instance%acab(i,j) < 0.d0) then
+                   write (stdout,*)'ERROR: SMB is negative over bare land point'
+                   write (stdout,*)'instance%acab(i,j) = ',instance%acab(i,j)
+                   write (stdout,*)'instance%artm(i,j) = ',instance%artm(i,j)          
+                   write (stdout,*)'qsmb_l(i,j,0) = ',qsmb_l(i,j,0)
+                   write (stdout,*)'usrf=',usrf
+                   write (stdout,*)'thck=',thck
+                   write (stdout,*)'Stopping in glint_downscale.'
+                   stop      
+                endif
+             else  ! usrf <= 0  -- assumed to be ocean
+                ! CISM assumes any point with usrf <= 0 is ocean, and thus can't form ice
+                ! (actually, this isn't exactly the cutoff used elsewhere in CISM - we may
+                ! want to change this conditional to use GLIDE_IS_OCEAN). So it makes no
+                ! sense to pass acab and artm there. However, this could lead to a loss of
+                ! conservation, e.g., if CLM thinks a grid cell is bare ground with some
+                ! positive SMB (glacial inception) yet CISM says it's ocean (so ignores
+                ! the SMB). We eventually want to handle this by keeping CLM consistent
+                ! with CISM in terms of its breakdown into land vs "ocean" (e.g., wetland
+                ! in CLM). In that case, if CISM says a point is ocean, then it would
+                ! tell CLM that that point is ocean, and so CLM wouldn't try to generate
+                ! SMB there.
+
+                instance%acab(i,j) = 0.d0
+                instance%artm(i,j) = 0.d0
              endif
-          enddo
-       endif   ! usrf
-
-       ! The following output only works correctly if running with a single task
-       if (GLC_DEBUG .and. tasks==1) then
-          if (i==instance%model%numerics%idiag .and. j==instance%model%numerics%jdiag) then
-             n = 4  
-             write (stdout,*) ' '
-             write (stdout,*) 'Interpolated values, i, j, n =', i, j, n
-             write (stdout,*) 'usrf =', usrf
-             write (stdout,*) 'acab =', instance%acab(i,j)
-             write (stdout,*) 'artm =', instance%artm(i,j)
-             write (stdout,*) 'topo(n-1) =', topo_l(i,j,n-1)
-             write (stdout,*) 'topo(n) =', topo_l(i,j,n)
-             write (stdout,*) 'qsmb(n-1) =', qsmb_l(i,j,n-1)
-             write (stdout,*) 'qsmb(n) =', qsmb_l(i,j,n)
-             write (stdout,*) 'tsfc(n-1) =', tsfc_l(i,j,n-1)
-             write (stdout,*) 'tsfc(n) =', tsfc_l(i,j,n)
-             write (stdout,*) 'fact = ', (topo_l(i,j,n) - usrf) / (topo_l(i,j,n) - topo_l(i,j,n-1)) 
-          endif
-       end if
-
-    enddo  ! i
-    enddo  ! j
+          else !if ice-covered...
+             if (usrf <= topo_l(i,j,1)) then
+                instance%acab(i,j) = qsmb_l(i,j,1)
+                instance%artm(i,j) = tsfc_l(i,j,1) + lapse*(topo_l(i,j,1)-usrf)
+             elseif (usrf > topo_l(i,j,nec)) then
+                instance%acab(i,j) = qsmb_l(i,j,nec)
+                instance%artm(i,j) = tsfc_l(i,j,nec) - lapse*(usrf-topo_l(i,j,nec))
+             else
+                do n = 2,nec
+                   if (usrf > topo_l(i,j,n-1) .and. usrf <= topo_l(i,j,n)) then
+                      fact = (topo_l(i,j,n) - usrf) / (topo_l(i,j,n) - topo_l(i,j,n-1)) 
+                      instance%acab(i,j) = fact*qsmb_l(i,j,n-1) + (1._dp-fact)*qsmb_l(i,j,n)
+                      instance%artm(i,j) = fact*tsfc_l(i,j,n-1) + (1._dp-fact)*tsfc_l(i,j,n)
+                      exit
+                   endif
+                enddo
+             endif ! usrf, inner
+          endif ! thck  
+       enddo ! i
+    enddo ! j
 
     deallocate(qsmb_l, tsfc_l, topo_l)
     

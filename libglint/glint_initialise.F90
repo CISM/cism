@@ -481,6 +481,14 @@ contains
                               instance%lgrid,      &
                               instance%whichacab)
 
+    !If flag set to force frequent coupling (for testing purposes)
+    !Decrease all coupling timesteps to very short intervals
+    if (instance%test_coupling) then
+       instance%mbal_accum%mbal%tstep = 24
+       instance%mbal_accum_time =       24
+       instance%ice_tstep =             24
+    endif
+
     !TODO - Do we need two copies of this tstep variable?
     instance%mbal_tstep = instance%mbal_accum%mbal%tstep
 

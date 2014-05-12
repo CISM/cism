@@ -179,58 +179,45 @@ contains
  
     type(glint_instance), intent(inout) :: instance      ! the model instance
     integer,              intent(in)    :: nec           ! number of elevation classes
-    integer,              intent(in)    :: nxl,nyl       ! local grid dimensions 
-    integer,              intent(in)    :: nxg,nyg       ! global grid dimensions 
-
-    real(dp),dimension(nxg,nyg),    intent(in)  :: box_areas ! global grid cell areas (m^2)
-    real(dp),dimension(nxg,nyg,nec),intent(out) :: gfrac   ! ice-covered fraction [0,1]
-    real(dp),dimension(nxg,nyg,nec),intent(out) :: gtopo   ! surface elevation (m)
-    real(dp),dimension(nxg,nyg,nec),intent(out) :: ghflx   ! heat flux (m)
-    real(dp),dimension(nxg,nyg),    intent(out) :: grofi   ! ice runoff (calving) flux (kg/m^2/s)
-    real(dp),dimension(nxg,nyg),    intent(out) :: grofl   ! liquid runoff (basal melt) flux (kg/m^2/s)
+    integer,              intent(in)    :: nxl,nyl       ! local grid dimensions
+    integer,              intent(in)    :: nxg,nyg       ! local grid dimensions    
+    real(dp),dimension(nxg,nyg),      intent(in)  :: box_areas ! global grid cell areas (m^2)
+    real(dp),dimension(nxg,nyg,0:nec),intent(out) :: gfrac   ! ice/land-covered fraction [0,1]
+    real(dp),dimension(nxg,nyg,0:nec),intent(out) :: gtopo   ! surface elevation (m)
+    real(dp),dimension(nxg,nyg,0:nec),intent(out) :: ghflx   ! heat flux (m)
+    real(dp),dimension(nxg,nyg),      intent(out) :: grofi   ! ice runoff (calving) flux (kg/m^2/s)
+    real(dp),dimension(nxg,nyg),      intent(out) :: grofl   ! liquid runoff (basal melt) flux (kg/m^2/s)
  
     logical, intent(in), optional :: init_call   ! true if called during initialization
 
     ! Internal variables ----------------------------------------------------------------------
- 
-    !TODO - Put this parameter elsewhere? 
-    real(dp), parameter :: min_thck = 0.d0    ! min thickness (m) for setting gfrac = 1
 
     integer :: i, j, n      ! indices
     integer :: il, jl, ig, jg
 
     character(len=100) :: message
-
     real(dp) :: dew, dns    ! gridcell dimensions
-
-    real(dp) ::   &
-       usrf,               &! surface elevation (m)
-       thck                 ! ice thickness (m)
+    real(dp) :: usrf, thck, topg  ! surface elevation, ice thickness, bed elevation (m)
 
     real(dp), dimension(nxl,nyl) ::  &
-       area_l               ! local gridcell area
-
-    real(dp), dimension(nxg,nyg) ::  &
-       area_g               ! global gridcell area
-
-    real(dp), dimension(nxl,nyl,nec) ::  &
-       area_frac_l,        &! area*frac per elevation class on local grid
-       area_topo_l,        &! area*topo per elevation class on local grid
-       area_hflx_l          ! area*hflx per elevation class on local grid
-
-    real(dp), dimension(nxl,nyl) ::  &
+       area_l,             &! local gridcell area
        area_rofi_l,        &! area*rofi on local grid
-       area_rofl_l          ! area*rofl on local grid
-
-    real(dp), dimension(nxg,nyg,nec) ::  &
-       area_frac_g,        &! area*frac per elevation class on global grid
-       area_topo_g,        &! area*topo per elevation class on global grid
-       area_hflx_g          ! area*hflx per elevation class on global grid
+       area_rofl_l          ! area*rofl on local grid       
 
     real(dp), dimension(nxg,nyg) ::  &
-       area_rofi_g,        &! area*rofi on global grid
-       area_rofl_g          ! area*rofl on global grid
+       area_g               ! global gridcell area (including ocean)
 
+    real(dp), dimension(nxl,nyl,0:nec) ::  &
+       area_frac_l,                        &! area*frac per elevation class on local grid
+       area_topo_l,                        &! area*topo per elevation class on local grid
+       area_hflx_l                          ! area*hflx per elevation class on local grid
+       
+    integer, dimension(nxl,nyl,0:nec) ::   &   
+       area_mask_l                          !binary mask, defined at all elevation classes,
+                                            !that defines whether some ice elevation is present.
+                                            !For the 0-indexed bed information, this is 1 
+                                            !for all land points (ice or ice-free).
+    
     !TODO - Pass in topomax as an argument instead of hardwiring it here
     real(dp), dimension(0:nec) :: topomax   ! upper elevation limit of each class
 
@@ -277,51 +264,22 @@ contains
        call write_log('ERROR: Current supported values of nec (no. of elevation classes) are 1, 3, 5, 10, or 36', &
                        GM_FATAL,__FILE__,__LINE__)
     endif
-
-    ! The following output only works correctly if running with a single task
-    ig = iglint_global    ! defined in glint_type
-    jg = jglint_global
-    il = instance%model%numerics%idiag
-    jl = instance%model%numerics%jdiag
-    if (GLC_DEBUG .and. tasks==1) then
-       write(stdout,*) 'In glint_upscaling_gcm'
-       write(stdout,*) 'il, jl =', il, jl
-       write(stdout,*) 'ig, jg =', ig, jg
-       write(stdout,*) 'nxl, nyl =', nxl,nyl
-       write(stdout,*) 'nxg, nyg =', nxg,nyg
-       write(stdout,*) 'av_count_output =', instance%av_count_output
-       write(stdout,*) 'local out_mask =', instance%out_mask(il,jl)
-       write(stdout,*) 'max, min out_mask =', maxval(instance%out_mask), minval(instance%out_mask)       
-    end if
-
-    ! Initialize some fields
-
-    gfrac(:,:,:) = 0.d0
-    gtopo(:,:,:) = 0.d0
-    ghflx(:,:,:) = 0.d0
+     
+    gfrac(:,:,0:nec) = 0.d0
+    gtopo(:,:,0:nec) = 0.d0
+    ghflx(:,:,0:nec) = 0.d0
     grofi(:,:)   = 0.d0
     grofl(:,:)   = 0.d0
-
-    area_l(:,:) = dew*dns   ! if all grid cells are identical rectangles
+    area_l(:,:) = 0.d0
     area_g(:,:) = 0.d0
-
-    area_frac_l(:,:,:) = 0.d0
-    area_frac_g(:,:,:) = 0.d0
-
-    area_topo_l(:,:,:) = 0.d0
-    area_topo_g(:,:,:) = 0.d0
-
-    area_hflx_l(:,:,:) = 0.d0
-    area_hflx_g(:,:,:) = 0.d0
-
+    area_frac_l(:,:,0:nec) = 0.d0
+    area_topo_l(:,:,0:nec) = 0.d0
+    area_hflx_l(:,:,0:nec) = 0.d0
+    area_mask_l(:,:,0:nec)   = 0
     area_rofi_l(:,:) = 0.d0
-    area_rofi_g(:,:) = 0.d0
-
     area_rofl_l(:,:) = 0.d0
-    area_rofl_g(:,:) = 0.d0
-
+    
     ! Compute time-average fluxes (unless called during initialization)
-
     if (first_call) then
        ! do nothing; use values from restart file if restarting
     else
@@ -339,215 +297,155 @@ contains
     ! Reset the logical variable for averaging output
 
     instance%new_tavg_output = .true.
-    
-    ! Loop over local grid cells
-    ! Note: The area calculation is not strictly needed on a uniform grid, but is included
-    !       to support the general case of spatially varying grid dimensions.
+
+    !To account for the potential for variable grid sizes, multiply all values by the area of each grid
+    !cell, upscale, then divide by the upscaled area afterwards.  Note that this is redundant for the current, constant-
+    !sized grid.  Also in this loop: bin ice sheet grid cell values by elevation.
 
     do j = 1, nyl
-    do i = 1, nxl
+      do i = 1, nxl
 
-       usrf = thk0 * instance%model%geometry%usrf(i,j)
-       thck = thk0 * instance%model%geometry%thck(i,j)
+         usrf = thk0 * instance%model%geometry%usrf(i,j)
+         thck = thk0 * instance%model%geometry%thck(i,j)
+         topg = thk0 * instance%model%geometry%topg(i,j)
+         
+         if (usrf > 0.d0) then!if not at sea level (assume a land point)...
+            if (thck <= min_thck) then !and is not ice covered...
+               area_frac_l(i,j,0) = dew*dns !accumulate bare land area fraction in 0-indexed cell.
+            else !and is ice covered...
+               do n = 1, nec       
+                  if (usrf >= topomax(n-1) .and. usrf < topomax(n)) then    !local cell is in elev class n
+                    area_frac_l(i,j,n) = dew*dns                            !accumulate ice area fraction
+                    area_topo_l(i,j,n) = dew*dns * usrf                     !accumulate topography
+                    ! Setting hflx to 0 for now to avoid giving the impression that it's
+                    ! being used, since currently CLM doesn't handle it
+!                    area_hflx_l(i,j,n) = dew*dns * instance%hflx_tavg(i,j) !accumulate heat flux
+                    area_hflx_l(i,j,n) = 0.d0
+                    area_mask_l(i,j,n) = 1                                  !accumulate ice area
+                    exit
+                  endif
+               enddo   ! nec       
+            endif  
+            !for upscaled bed topographies and heat fluxes, include values under ice.
+            ! The rationale for topography is that it gets hard to analyze / explain
+            ! results if bare land topography changes whenever ice expands or retreats - 
+            ! so we're using a formulation that results in bare land topography being
+            ! constant in time (as long as topg is constant - e.g., neglecting isostasy).
+            area_topo_l(i,j,0) = dew*dns * topg
+            ! Setting hflx to 0 for now to avoid giving the impression that it's
+            ! being used, since currently CLM doesn't handle it
+!           area_hflx_l(i,j,0) = dew*dns * instance%hflx_tavg(i,j)
+            area_hflx_l(i,j,0) = 0.d0
+            area_mask_l(i,j,0) = 1
+            area_l(i,j) = dew*dns            
+         else
+            !grid cell is presumed ocean point.    
+            ! Ocean points are unglaciated, so we treat this as a 0-area point. We
+            ! eventually want to handle this by keeping CLM consistent with CISm in terms
+            ! of its breakdown into land vs "ocean" (e.g., wetland in CLM). In that case,
+            ! if CISM says a point is ocean, then it would tell CLM that that point is
+            ! ocean, and so CLM wouldn't try to generate SMB there.
 
-!WHL - debug
-!       if (i==il .and. j==jl) then
-!          write(stdout,*) 'usrf =', usrf
-!          write(stdout,*) 'thck =', thck
-!          write(stdout,*) 'hflx =', instance%hflx_tavg(i,j)
-!          write(stdout,*) 'rofi =', instance%rofi_tavg(i,j)
-!          write(stdout,*) 'rofl =', instance%rofl_tavg(i,j)
-!       endif
+            area_l(i,j) = 0.d0
+         endif
 
-       if (thck > min_thck) then   ! this cell is ice-covered
+         ! Runoff fluxes (note, these fluxes can be nonzero for cells with no ice in current timestep)
+         area_rofi_l(i,j) = dew*dns * instance%rofi_tavg(i,j)
+         area_rofl_l(i,j) = dew*dns * instance%rofl_tavg(i,j)
+         
+      enddo
+    enddo
 
-          do n = 1, nec
-             if (usrf >= topomax(n-1) .and. usrf < topomax(n)) then  ! local cell is in elev class n
-                area_frac_l(i,j,n) = dew*dns           ! Assume fractional coverage = 1.0
-                area_topo_l(i,j,n) = dew*dns * usrf
-                area_hflx_l(i,j,n) = dew*dns * instance%hflx_tavg(i,j)
+    ! Map the area-weighted local values to the global grid.  Note that there are three ways to do this.
+    ! Ensure that your choice makes physical sense. 
+    ! 1) Sum up all values of 'children' ice sheet grid points, for each 'parent' climate grid cell.  
+    !    Example usage: get total volume of ice associated with each parent climate grid cell, 
+    ! 2) Average all values of 'children' ice sheet grid points, for each 'parent' climate grid cell.
+    !    Example: get average surface elevation of children ice sheet points, for each parent climate grid cell.
+    ! 3) Minimum of all values of 'children' ice sheet grid points, for each 'parent' climate grid cell.
 
-                !WHL - debug
-!                if (i==il .and. j==jl) then
-!                   print*, ' '
-!                   print*, 'n =', n
-!                   nloc = n
-!                   print*, 'dew*dns =', dew*dns
-!                   print*, 'dew*dns*usrf =', area_topo_l(i,j,n)
-!                   print*, 'dew*dns*hflx =', area_hflx_l(i,j,n)
-!                endif
-
-                exit
-             endif
-          enddo   ! nec
-       endif      ! thck > min_thck
-
-       ! Runoff fluxes, without nec loop
-       ! Note: These fluxes can be nonzero for cells that no longer have ice.
-
-       area_rofi_l(i,j) = dew*dns * instance%rofi_tavg(i,j)
-       area_rofl_l(i,j) = dew*dns * instance%rofl_tavg(i,j)
-
-       !WHL - debug
-!       if (i==il .and. j==jl) then
-!          print*, ' '
-!          print*, 'dew*dns*rofi =', area_rofi_l(i,j)
-!          print*, 'dew*dns*rofl =', area_rofl_l(i,j)
-!       endif
-
-    enddo         ! i
-    enddo         ! j
-
-    ! Map the area-weighted local values to the global grid.
-
-    ! Gridcell area
-
+    ! Total area of non-ocean ice cells within global grid cell
     call local_to_global_sum(instance%ups, &
                              area_l,       &
-                             area_g,       &
-                             instance%out_mask)
+                             area_g)
 
-!WHL - debug
-!    print*, ' '
-!    print*, 'il, jl, area_l:', il, jl, area_l(il,jl)
-!    print*, 'ig, jg, area_g:', ig, jg, area_g(ig,jg)
-!    print*, 'ig, jg, box_area:', ig, jg, box_areas(ig,jg)
-!    print*, 'area_g/area_l:', area_g(ig,jg)/area_l(il,jl)
+    !Total solid ice flux                            
+    call local_to_global_sum(instance%ups,       &
+                             area_rofi_l(:,:),   &
+                             grofi(:,:))
 
-    ! Loop over elevation classes for gfrac, gtopo, ghflx
-
-    do n = 1, nec
-
-!WHL - debug
-!       print*, ' '
-!       print*, 'n =', n
-
-       ! area-weighted gfrac
+    !Total basal runoff
+    call local_to_global_sum(instance%ups,       &
+                             area_rofl_l(:,:),   &
+                             grofl(:,:))
+                     
+    ! Loop over elevation classes to generate global-grid-based gfrac, gtopo, ghflx fields.
+    ! Note the values in the zero index refer to bare-land values.
+    do n = 0, nec
 
        call local_to_global_sum(instance%ups,         &
                                 area_frac_l(:,:,n),   &
-                                area_frac_g(:,:,n),   &
-                                instance%out_mask)
+                                gfrac(:,:,n))
 
-!WHL - debug
-!       if (n==nloc) then
-!          print*, ' '
-!          print*, 'il, jl, area_frac_l(il,jl,n):', il, jl, area_frac_l(il,jl,n)
-!          print*, 'ig, jg, area_frac_g(ig,jg,n):', ig, jg, area_frac_g(ig,jg,n)
-!          print*, 'area_frac_g/area_frac_l:', area_frac_g(ig,jg,n)/area_frac_l(il,jl,n)
-!       endif
-
-       ! area-weighted gtopo
-
-       call local_to_global_sum(instance%ups,         &
+       if (n==0) then !for bare land topography, use minimum elevation of child grid cell, as the value for the parent grid cell.
+       
+         call local_to_global_min(instance%ups,         &                                
                                 area_topo_l(:,:,n),   &
-                                area_topo_g(:,:,n),   &
-                                instance%out_mask)
+                                gtopo(:,:,n),   &
+                                area_mask_l(:,:,n))
+                                
+       else
 
-!WHL - debug
-!       if (n==nloc) then
-!          print*, ' '
-!          print*, 'il, jl, area_topo_l(il,jl,n):', il, jl, area_topo_l(il,jl,n)
-!          print*, 'ig, jg, area_topo_g(ig,jg,n):', ig, jg, area_topo_g(ig,jg,n)
-!          print*, 'area_topo_g/area_topo_l:', area_topo_g(ig,jg,n)/area_topo_l(il,jl,n)
-!       endif
+         call local_to_global_avg(instance%ups,         &
+                                area_topo_l(:,:,n),   &
+                                gtopo(:,:,n),   &
+                                area_mask_l(:,:,n))
+       endif
 
-       ! area-weighted ghflx
-
-       call local_to_global_sum(instance%ups,         &
+       call local_to_global_avg(instance%ups,         &
                                 area_hflx_l(:,:,n),   &
-                                area_hflx_g(:,:,n),   &
-                                instance%out_mask)
-
-       ! Compute the mean ice fraction, surface elevation, and surface heat flux in each global grid cell
+                                ghflx(:,:,n),   &
+                                area_mask_l(:,:,n))
 
        do j = 1, nyg
-       do i = 1, nxg
+          do i = 1, nxg
+             if (area_g(i,j) > 0.d0) then
+                gfrac(i,j,n) = gfrac(i,j,n) / area_g(i,j) !fraction of elevation class, relative to total land area 
+             else
+               gfrac(i,j,n) = 0.d0
+             endif
+             if (n==0) then !non-ice-class values: use model-derived ice-free topography/heat flux, regardless of whether ice exists.
+                gtopo(i,j,n) = gtopo(i,j,n) / (dew*dns)
+                gtopo(i,j,n) = max(0.d0,gtopo(i,j,n)) !Keep elevations to equal or greater than sea level.
+                ghflx(i,j,n) = ghflx(i,j,n) / (dew*dns)
+             else  !ice class values
+               if (gfrac(i,j,n) > 0.d0) then !ice ice area exists, use model-derived topography/heat flux values
+                  gtopo(i,j,n) = gtopo(i,j,n) / (dew*dns) 
+                  ghflx(i,j,n) = ghflx(i,j,n) / (dew*dns)              
+               else !use prescribed, idealized topography/heat flux values
+                  gtopo(i,j,n) = mean_elevation_virtual(n, nec, topomax)
+                  ghflx(i,j,n) = 0.d0
+               endif
+             endif
+          enddo
+       enddo
 
-          ! Find fraction of gridcell area covered by ice in this elevation class
-          if (area_g(i,j) > 0.d0) then      
-             gfrac(i,j,n) = area_frac_g(i,j,n) / area_g(i,j)
-          endif
-
-          ! Find mean surface elevation
-          if (area_frac_g(i,j,n) > 0.d0) then
-             gtopo(i,j,n) = area_topo_g(i,j,n) / area_frac_g(i,j,n)
-          endif
-
-          ! Find mean heat flux
-          if (area_frac_g(i,j,n) > 0.d0) then
-             ghflx(i,j,n) = area_hflx_g(i,j,n) / area_frac_g(i,j,n)
-          endif
-
-!WHL - debug
-!          if (i==ig .and. j==jg) then
-!             print*, ' '
-!             print*, 'ig, jg, n =', i, j, n
-!             print*, 'area_g =', area_g(i,j)
-!             print*, 'area_frac_g =', area_frac_g(i,j,n)
-!             print*, 'area_topo_g =', area_topo_g(i,j,n)
-!             print*, 'area_hflx_g =', area_hflx_g(i,j,n)
-!             print*, 'gfrac =', gfrac(i,j,n)
-!             print*, 'gtopo =', gtopo(i,j,n)
-!             print*, 'ghflx =', ghflx(i,j,n)
-!          endif
-
-       enddo  ! i
-       enddo  ! j
-
-    enddo     ! nec
-
-    ! area-weighted grofi
-
-    call local_to_global_sum(instance%ups,       &
-                             area_rofi_l(:,:),   &
-                             area_rofi_g(:,:),   &
-                             instance%out_mask)
-
-    ! area-weighted grofl
-
-    call local_to_global_sum(instance%ups,       &
-                             area_rofl_l(:,:),   &
-                             area_rofl_g(:,:),   &
-                             instance%out_mask)
-
-    ! Compute the mean ice and liquid runoff in each global grid cell
+    enddo
 
     do j = 1, nyg
-    do i = 1, nxg
-
-       ! Find mean ice runoff from calving 
-       ! Note: Here we divide by box_areas (the area of the global grid cell), which in general is not equal
-       !       to area_g (the sum over area of the local grid cells associated with the global cell).
-       !       We do this to ensure conservation of ice mass (=flux*area) when multiplying later by the
-       !       area of the global grid cell.
-
-       if (area_g(i,j) > 0.d0) then
-          grofi(i,j) = area_rofi_g(i,j) / box_areas(i,j)
-       endif
-
-       ! Find mean liquid runoff from internal/basal melting 
-       if (area_g(i,j) > 0.d0) then      
-          grofl(i,j) = area_rofl_g(i,j) / box_areas(i,j)
-       endif
-
-!WHL - debug
-!       if (i==ig .and. j==jg) then
-!          print*, ' '
-!          print*, 'i, j =', i, j
-!          print*, 'area_g =', area_g(i,j)
-!          print*, 'box_areas =', box_areas(i,j)
-!          print*, 'area_rofi_g =', area_rofi_g(i,j)
-!          print*, 'area_rofl_g =', area_rofl_g(i,j)
-!          print*, 'grofi(kg/m2/s) =', grofi(i,j)
-!          print*, 'grofi(m ice/yr) =', grofi(i,j)/rhoi*scyr
-!          print*, 'grofl(kg/m2/s) =', grofl(i,j)
-!          print*, 'grofl(m ice/yr) =', grofl(i,j)/rhoi*scyr
-!       endif
-
-    enddo   ! i
-    enddo   ! j
-
+       do i = 1, nxg
+          ! Find mean ice runoff from calving 
+          ! Note: Here we divide by box_areas (the area of the global grid cell), which in general is not equal
+          ! to area_g (the sum over area of the local grid cells associated with the global cell).
+          ! We do this to ensure conservation of ice mass (=flux*area) when multiplying later by the
+          ! area of the global grid cell.
+          if (box_areas(i,j) > 0.d0) then
+             grofi(i,j) = grofi(i,j) / box_areas(i,j)     
+             grofl(i,j) = grofl(i,j) / box_areas(i,j)
+          endif
+       enddo
+    enddo
+    
   end subroutine glint_upscaling_gcm
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -568,21 +466,12 @@ contains
 
 !WHL - debug - Set to inout if specifying the model fields for testing
     type(glide_global_type), intent(in)  :: model
-!    type(glide_global_type), intent(inout)  :: model
 
     integer,  intent(inout) :: av_count_output     ! step counter 
     logical,  intent(inout) :: new_tavg_output     ! if true, start new averaging
     real(dp), dimension(:,:), intent(inout) :: rofi_tavg    ! solid ice runoff (kg m-2 s-1)
     real(dp), dimension(:,:), intent(inout) :: rofl_tavg    ! liquid runoff from basal/interior melting (kg m-2 s-1)
     real(dp), dimension(:,:), intent(inout) :: hflx_tavg    ! conductive heat flux at top surface (W m-2)
-
-!WHL - debug - Uncomment if specifying the model fields for testing
-
-    ! calving field for testing (1 m, scaled to model units)
-!    model%climate%calving(:,:) = 1.0d0 / thk0
-          
-    ! bmlt field for testing (1 m/yr, scaled to model units)
-!    model%temper%bmlt(:,:) = 1.0d0 / scale_acab
 
     ! things to do the first time
 
@@ -637,6 +526,46 @@ contains
                    - model%temper%ucondflx(:,:)
 
   end subroutine glint_accumulate_output_gcm
+
+  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+  real(dp) function mean_elevation_virtual(ec, nec, topomax)
+    
+    ! For a "virtual" elevation class (that is, an elevation class that has 0 area),
+    ! return the "mean" elevation of the given elevation class.
+
+    use glimmer_log
+
+    ! Arguments ----------------------------------------------------------------------------
+    
+    integer  , intent(in) :: ec          ! elevation class
+    integer  , intent(in) :: nec         ! number of elevation classes
+    real(dp) , intent(in) :: topomax(0:) ! upper elevation limit of each class
+
+    ! TODO: replace this with a call to shr_assert, if/when glimmer-cism pulls in csm_share
+    if (ubound(topomax, 1) /= nec) then
+       call write_log('ERROR: upper bound of topomax does not match nec', &
+            GM_FATAL, __FILE__, __LINE__)
+    end if
+
+    if (ec < nec) then
+       mean_elevation_virtual = (topomax(ec-1) + topomax(ec))/2.0_dp
+    else if (ec == nec) then
+       ! In the top elevation class; in this case, assignment of a "mean" elevation is
+       ! somewhat arbitrary
+       
+       if (nec > 1) then
+          mean_elevation_virtual = 2.0_dp * topomax(ec-1) - topomax(ec-2)
+       else
+          ! entirely arbitrary
+          mean_elevation_virtual = 1000._dp
+       end if
+    else
+       call write_log('ERROR: class out of bounds', &
+            GM_FATAL, __FILE__, __LINE__)
+    end if
+
+  end function mean_elevation_virtual
 
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

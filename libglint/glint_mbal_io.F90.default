@@ -1,6 +1,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! WARNING: this file was automatically generated on
-! Thu, 12 Dec 2013 19:36:43 +0000
+! Mon, 28 Apr 2014 16:25:16 +0000
 ! from ncdf_template.F90.in
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -180,25 +180,25 @@ contains
     status = parallel_inq_dimid(NCO%id,'time',time_dimid)
     call nc_errorhandle(__FILE__,__LINE__,status)
     if (.not.outfile%append) then
-       status = parallel_def_dim(NCO%id,'x0',model%general%ewn-1,x0_dimid)
+       status = parallel_def_dim(NCO%id,'x0',global_ewn-1,x0_dimid)
     else
        status = parallel_inq_dimid(NCO%id,'x0',x0_dimid)
     endif
     call nc_errorhandle(__FILE__,__LINE__,status)
     if (.not.outfile%append) then
-       status = parallel_def_dim(NCO%id,'x1',data%model%general%ewn,x1_dimid)
+       status = parallel_def_dim(NCO%id,'x1',global_ewn,x1_dimid)
     else
        status = parallel_inq_dimid(NCO%id,'x1',x1_dimid)
     endif
     call nc_errorhandle(__FILE__,__LINE__,status)
     if (.not.outfile%append) then
-       status = parallel_def_dim(NCO%id,'y0',model%general%nsn-1,y0_dimid)
+       status = parallel_def_dim(NCO%id,'y0',global_nsn-1,y0_dimid)
     else
        status = parallel_inq_dimid(NCO%id,'y0',y0_dimid)
     endif
     call nc_errorhandle(__FILE__,__LINE__,status)
     if (.not.outfile%append) then
-       status = parallel_def_dim(NCO%id,'y1',data%model%general%nsn,y1_dimid)
+       status = parallel_def_dim(NCO%id,'y1',global_nsn,y1_dimid)
     else
        status = parallel_inq_dimid(NCO%id,'y1',y1_dimid)
     endif
@@ -876,36 +876,36 @@ contains
     status = parallel_inq_dimid(NCI%id,'x0',dimid)
     if (dimid.gt.0) then
        status = parallel_inquire_dimension(NCI%id,dimid,len=dimsize)
-       if (dimsize.ne.model%general%ewn-1) then
+       if (dimsize.ne.global_ewn-1) then
           write(message,*) 'Error, reading file ',trim(NCI%filename),' size x0 does not match: ', &
-               model%general%ewn-1
+               global_ewn-1
           call write_log(message,GM_FATAL)
        end if
     end if
     status = parallel_inq_dimid(NCI%id,'x1',dimid)
     if (dimid.gt.0) then
        status = parallel_inquire_dimension(NCI%id,dimid,len=dimsize)
-       if (dimsize.ne.data%model%general%ewn) then
+       if (dimsize.ne.global_ewn) then
           write(message,*) 'Error, reading file ',trim(NCI%filename),' size x1 does not match: ', &
-               data%model%general%ewn
+               global_ewn
           call write_log(message,GM_FATAL)
        end if
     end if
     status = parallel_inq_dimid(NCI%id,'y0',dimid)
     if (dimid.gt.0) then
        status = parallel_inquire_dimension(NCI%id,dimid,len=dimsize)
-       if (dimsize.ne.model%general%nsn-1) then
+       if (dimsize.ne.global_nsn-1) then
           write(message,*) 'Error, reading file ',trim(NCI%filename),' size y0 does not match: ', &
-               model%general%nsn-1
+               global_nsn-1
           call write_log(message,GM_FATAL)
        end if
     end if
     status = parallel_inq_dimid(NCI%id,'y1',dimid)
     if (dimid.gt.0) then
        status = parallel_inquire_dimension(NCI%id,dimid,len=dimsize)
-       if (dimsize.ne.data%model%general%nsn) then
+       if (dimsize.ne.global_nsn) then
           write(message,*) 'Error, reading file ',trim(NCI%filename),' size y1 does not match: ', &
-               data%model%general%nsn
+               global_nsn
           call write_log(message,GM_FATAL)
        end if
     end if
