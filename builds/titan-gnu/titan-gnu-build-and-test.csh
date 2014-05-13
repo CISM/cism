@@ -14,7 +14,6 @@
 
 # PARALLEL BUILD WITH CMAKE 
 
-# !!! moved this to .bashrc !!!
 # setenv TEST_DIR "/USERS/$USER/work/modeling/cism/seacism-oceans11/tests/higher-order"
 
 # 5/7/2014 DMR -- added performance tests:
@@ -25,7 +24,7 @@ if ($run_perf_tests) then
   setenv PERF_TEST 1
 endif
 
-
+#**!move this and source it to your .bashrc (wherever your higher-order directory is located)
 setenv TEST_DIR /lustre/atlas/scratch/$USER/cli062/higher-order
 
 if (! -d $TEST_DIR) mkdir -p $TEST_DIR
@@ -151,9 +150,9 @@ endif
   cd $TEST_DIR/reg_test/ismip-hom-a/20km
   qsub $CISM_RUN_SCRIPT
 
-  ## ISMIP test case C - not operational 
-  #cd $TEST_DIR/reg_test/ismip-hom-c/80km
-  #qsub $CISM_RUN_SCRIPT
+  ## ISMIP test case C - not operational for glide
+  cd $TEST_DIR/reg_test/ismip-hom-c/80km
+  qsub $CISM_RUN_SCRIPT
  endif
 
   if ($PERF_TEST == 0 ) then
@@ -161,10 +160,6 @@ endif
   else
     echo 'Submitting performance jobs to compute nodes.'
     echo 'Go to rhea.ccs.ornl.gov to complete Visualization and Verification (LIVV)'
-
-#  #dome 30 test case
-#    cd $TEST_DIR/perf_test/dome30
-#    qsub $CISM_RUN_SCRIPT
 
   #dome 60 test case
     cd $TEST_DIR/perf_test/dome60
@@ -182,8 +177,16 @@ endif
     cd $TEST_DIR/perf_test/dome500
     qsub $CISM_RUN_SCRIPT
 
-  #dome 1000 test case
-    cd $TEST_DIR/perf_test/dome1000
+  #dome 1000 test case - not operational currently
+  #  cd $TEST_DIR/perf_test/dome1000
+  #  qsub $CISM_RUN_SCRIPT
+  
+  #gis 4km test case
+    cd $TEST_DIR/perf_test/gis_4km
+    qsub $CISM_RUN_SCRIPT
+  
+  #gis 1km test case
+    cd $TEST_DIR/perf_test/gis_1km
     qsub $CISM_RUN_SCRIPT
   endif
 endif
