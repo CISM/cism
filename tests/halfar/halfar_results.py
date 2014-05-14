@@ -72,7 +72,9 @@ except:
 # open supplied file and get thickness slice needed
 filein = NetCDFFile(options.filename,'r')
 x1 = filein.variables['x1'][:]
+dx = x1[1]-x1[0]
 y1 = filein.variables['y1'][:]
+ny = y1.size
 time = filein.variables['time'][:]
 thk = filein.variables['thk'][:]
 if netCDF_module == 'Scientific.IO.NetCDF':
@@ -122,6 +124,29 @@ plt.colorbar()
 plt.axis('equal')
 plt.title('Modeled thickness - Analytic thickness \n at time ' + str(time[timelev]) ) 
 plt.xlabel('x (km)'); plt.ylabel('y (km)')
+
+
+# =========================
+# optional second figure - cross section through center of dome
+
+#fig = plt.figure(2, facecolor='w', figsize=(10, 4), dpi=100)
+#yind = ny//2
+#print yind, y1[yind]
+
+#x1dense = np.linspace(x1[0], x1[-1], 1000)
+#thkHalfarDense = halfarDome(time[timelev]-time[0], x1dense, y1[[0, yind, -1]], flwa, rhoi)
+
+#plt.step(x1/1000.0 + 0.5*dx/1000.0, thk[timelev,yind,:], '-r', label='model')
+#plt.plot(x1/1000.0, thk[timelev,yind,:], '.r')
+
+#plt.plot(x1dense/1000.0, thkHalfarDense[1,:], '-k', label='analytic')
+
+#plt.stem(x1/1000.0, (thk[timelev,yind,:] - thkHalfar[yind,:]) * 10.0, '-.b', label='error x10.0')
+
+#plt.xlabel('x (km)'); plt.ylabel('Elevation (m)')
+#plt.legend()
+
+
 
 plt.draw()
 plt.show()
