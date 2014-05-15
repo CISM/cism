@@ -1,14 +1,13 @@
-# run this script by typing: source hopper-pgi-cmake
+# run this script by typing: source edison-pgi-cmake
 # After thus script completes, type: make -j 8
 # If rebuilding, type 'make clean' before running 'make -j 8'
 
 # This cmake configuration script builds simple_glide and simple_bisicles
-# on hopper using the PGI compiler suite.  It no longer relies on a build
+# on edison using the INTEL compiler suite.  It no longer relies on a build
 # of Trilinos, but does need a BISICLES build located in BISICLES_INTERFACE_DIR
-# (currently set to /global/u2/d/dmartin/BISICLES/code/interface)
+# (currently set to ./../../../BISICLES/CISM-interface/interface )
 
-
-# This script should be run from the builds/hopper-pgi subdirectory
+# This script should be run from the builds/edison-intel subdirectory
 # of the main seacism repository (reflected in the two instances
 # of "../.." below).
 
@@ -33,15 +32,8 @@
 # module unload modules
 
 echo
-echo Run this script by typing: source eidson-petsc-bisicles-intel-cmake
-echo
-#echo Warning: Python problem.  After the last hopper system updates 1/28/13, in order to run simple_glide
-#echo or simple_bisicles, you need to replace the python/2.7.3 module with the python/2.7.1 module.
-#echo The easiest way to do this: In your .cshrc.ext or .bashrc.ext add the lines:
-#echo module unload python 
-#echo module load python/2.7.1
-#echo
-#echo Warning: Python problem.  After the last hopper system updates 1/28/13, in order to run simple_glide
+echo Run this script by typing: source edison-petsc-bisicles-intel-cmake
+#echo Warning: Python problem.  After the last edison system updates 1/28/13, in order to run simple_glide
 #echo or simple_bisicles, you need to replace the python/2.7.3 module with the python/2.7.1 module.
 #echo The easiest way to do this: In your .cshrc.ext or .bashrc.ext add the lines:
 #echo module unload python 
