@@ -374,6 +374,8 @@ contains
     use isostasy
     use glissade_enthalpy
     use glissade_transport, only: glissade_transport_driver, glissade_check_cfl
+    use glissade_grid_operators
+    use glide_thck, only: glide_calclsrf
 
     implicit none
 
@@ -403,10 +405,10 @@ contains
                         ! else = 0
 
     logical :: do_upwind_transport  ! Logical for whether transport code should do upwind transport or incremental remapping
-    
-    !WHL - debug
-    integer :: j
 
+    !WHL - debug
+    integer :: i, j
+ 
     ! ========================
 
     ! Update internal clock
@@ -457,7 +459,7 @@ contains
     !      This option has been replaced by a Glint option, evolve_ice.
     !      We now have EVOL_NO_THICKESS = 5 as a glam/glissade option.  It is used to hold the ice surface elevation fixed
     !       while allowing temperature to evolve, which can be useful for model spinup.  This option might need more testing.
-
+    !TODO - Is select case needed here?  There is only one case statement.
 
     select case(model%options%whichevol)
 
@@ -541,7 +543,6 @@ contains
           bmlt_continuity(:,:) = 0.d0
        endif
 
-
       ! --- First determine CFL limits ---
       ! Note we are using the subcycled dt here (if subcycling is on).
       ! (see note above about the EVOL_NO_THICKNESS option and how it is affected by a CFL violation)
@@ -569,7 +570,7 @@ contains
                                                                 ! (and other tracers, if present)
                                                                 ! Note: We are passing arrays in SI units.
 
-             ! temporary thickness array in SI units (m)                               
+             ! temporary in/out arrays in SI units (m)                               
              thck_unscaled(:,:) = model%geometry%thck(:,:) * thk0
 
              call glissade_transport_driver(model%numerics%dt * tim0,                             &
@@ -695,16 +696,22 @@ contains
 
     end select
 
-!HALO TODO - What halo updates needed here?
-!       We could put the various geometry halo updates here, after thickness and temperature evolution.
-!       This would include thck and tracer at a minimum.
-!       Also include topg if basal topography is evolving.
-!       
-!       TODO: Make sure a call to calc_flwa (based on post-remap temperature) 
-!             is not needed for glide_marinlim.  Should be based on post-remap temperature.
-
     call parallel_halo(model%geometry%topg)
 !    call horiz_bcs_unstag_scalar(model%geometry%topg)
+
+    ! ------------------------------------------------------------------------
+    ! Update the upper and lower ice surface
+    ! Note that glide_calclsrf loops over all cells, including halos,
+    !  so halo updates are not needed for lsrf and usrf.
+    ! ------------------------------------------------------------------------
+
+    call glide_calclsrf(model%geometry%thck, model%geometry%topg,       & 
+                        model%climate%eus,   model%geometry%lsrf)
+
+    model%geometry%usrf(:,:) = max(0.d0, model%geometry%thck(:,:) + model%geometry%lsrf(:,:))
+
+!       TODO: Make sure a call to calc_flwa (based on post-remap temperature) 
+!             is not needed for glide_marinlim.  Should be based on post-remap temperature.
 
     ! --- Calculate updated mask because marinlim calculation needs a mask.
 
@@ -712,7 +719,6 @@ contains
                         model%geometry%thck,  model%geometry%topg,     &
                         model%general%ewn,    model%general%nsn,       &
                         model%climate%eus,    model%geometry%thkmask)
-
 
     ! ------------------------------------------------------------------------ 
     ! Remove ice which is either floating, or is present below prescribed
@@ -864,6 +870,7 @@ contains
 
 !WHL - debug
     integer :: i, j
+    logical, parameter :: verbose_glissade = .false.
 
     ! ------------------------------------------------------------------------ 
     ! ------------------------------------------------------------------------ 
@@ -939,7 +946,6 @@ contains
 
     model%geometry%usrf(:,:) = max(0.d0, model%geometry%thck(:,:) + model%geometry%lsrf(:,:))
 
-
     ! ------------------------------------------------------------------------
     ! Update some geometry derivatives
     ! ------------------------------------------------------------------------
@@ -987,7 +993,7 @@ contains
 
        if (main_task) then
           print *, ' '
-          print *, 'Compute higher-order ice velocities, time =', model%numerics%time
+          print *, 'Compute ice velocities, time =', model%numerics%time
        endif
 
        !! extrapolate value of mintauf into halos to enforce periodic lateral bcs (only if field covers entire domain)
@@ -1021,6 +1027,39 @@ contains
 
        end select
  
+!WHL - debug
+       if (main_task .and. verbose_glissade) then
+
+          print*, ' '
+          print*, 'After glissade velocity solve: uvel, k = 1:'
+          do i = 1, model%general%ewn-1
+             write(6,'(i8)',advance='no') i
+          enddo
+          print*, ' '
+          do j = model%general%nsn-1, 1, -1
+             write(6,'(i4)',advance='no') j
+             do i = 1, model%general%ewn-1
+                write(6,'(f8.2)',advance='no') model%velocity%uvel(1,i,j) * (vel0*scyr)
+             enddo 
+             print*, ' '
+          enddo
+
+          print*, ' '
+          print*, 'After glissade velocity solve: vvel, k = 1:'
+          do i = 1, model%general%ewn-1
+             write(6,'(i8)',advance='no') i
+          enddo
+          print*, ' '
+          do j = model%general%nsn-1, 1, -1
+             write(6,'(i4)',advance='no') j
+             do i = 1, model%general%ewn-1
+                write(6,'(f8.2)',advance='no') model%velocity%vvel(1,i,j) * (vel0*scyr)
+             enddo 
+             print*, ' '
+          enddo
+
+       endif  ! main_task
+
     endif     ! is_restart
 
     ! ------------------------------------------------------------------------ 

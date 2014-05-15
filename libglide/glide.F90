@@ -60,6 +60,10 @@ module glide
 
   integer, private, parameter :: dummyunit=99
 
+
+!WHL - debug
+  logical, parameter :: verbose_glide = .false.
+
 contains
 
 !=======================================================================
@@ -139,13 +143,9 @@ contains
     use glimmer_map_init
     use glimmer_coordinates, only: coordsystem_new
     use glide_diagnostics, only: glide_init_diag
-!!    use fo_upwind_advect, only : fo_upwind_advect_init
 !!    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
 
     use parallel, only: distributed_grid
-
-!WHL - debug
-    use glimmer_paramets
 
     type(glide_global_type), intent(inout) :: model     ! model instance
 
@@ -399,7 +399,7 @@ contains
     use glimmer_physcon, only: scyr
     use glide_ground, only: glide_marinlim
     use glide_bwater, only: calcbwat
-    use glide_temp, only: glide_calcbmlt
+    use glide_temp, only: glide_calcbmlt, glide_calcbpmp
     use glide_grid_operators
 
 !WHL - Can we remove this one?
@@ -407,6 +407,8 @@ contains
 
     type(glide_global_type), intent(inout) :: model     ! model instance
 
+!WHL - debug
+    integer :: i, j
 
     if (model%options%is_restart == RESTART_TRUE) then
        ! On a restart, just assign the basal velocity from uvel/vvel (which are restart variables)
@@ -511,62 +513,105 @@ contains
     ! Part 3: Solve velocity
     ! ------------------------------------------------------------------------    
 
-    ! initial value for flwa should already be calculated as part of glide_init_temp()
-    ! calculate the part of the vertically averaged velocity field which solely depends on the temperature
+       ! initial value for flwa should already be calculated as part of glide_init_temp()
+       ! calculate the part of the vertically averaged velocity field which solely depends on the temperature
 
-        call velo_integrate_flwa(model%velowk,model%geomderv%stagthck,model%temper%flwa)
+        call velo_integrate_flwa(model%velowk,             &
+                                 model%geomderv%stagthck,  &
+                                 model%temper%flwa)
 
-    ! Calculate diffusivity
+        ! Calculate diffusivity
 
-       call velo_calc_diffu(model%velowk,model%geomderv%stagthck,model%geomderv%dusrfdew, &
-            model%geomderv%dusrfdns,model%velocity%diffu)
+       call velo_calc_diffu(model%velowk,              &
+                            model%geomderv%stagthck,   &
+                            model%geomderv%dusrfdew,   &
+                            model%geomderv%dusrfdns,   &
+                            model%velocity%diffu)
 
-!TODO - Remove the next two calls, assume bwat is in restart file.
+       ! If necessary, compute staggered variables required for basal traction calculation
 
-    ! Calculate basal melt rate --------------------------------------------------
-    ! Note: For the initial state, we won't have values for ubas/vbas (unless they were 
-    ! supplied in the input file) to get an initial guess of sliding heating.
-    ! We could iterate on this, but for simplicity that is not done.
+       if (model%options%whichbtrc == BTRC_CONSTANT_BWAT) then
 
-       call glide_calcbmlt(model, &
-!!                        model%options%which_bmelt, & 
-                        model%temper%temp, &
-                        model%geometry%thck, &
-                        model%geomderv%stagthck, &
-                        model%geomderv%dusrfdew, &
-                        model%geomderv%dusrfdns, &
-                        model%velocity%ubas, &
-                        model%velocity%vbas, &
+          !TODO - Remove the next two calls, given that bwat should be in restart file for this option.
+
+          ! Calculate basal melt rate --------------------------------------------------
+          ! Note: For the initial state, we won't have values for ubas/vbas (unless they were 
+          ! supplied in the input file) to get an initial guess of sliding heating.
+          ! We could iterate on this, but for simplicity that is not done.
+
+          call glide_calcbmlt(model, &
+!!                              model%options%which_bmelt, & 
+                              model%temper%temp, &
+                              model%geometry%thck, &
+                              model%geomderv%stagthck, &
+                              model%geomderv%dusrfdew, &
+                              model%geomderv%dusrfdns, &
+                              model%velocity%ubas, &
+                              model%velocity%vbas, &
+                              model%temper%bmlt, &
+                              GLIDE_IS_FLOAT(model%geometry%thkmask))
+
+          ! Note: calcbwat computes stagbwat
+          call calcbwat(model, &
+                        model%options%whichbwat, &
                         model%temper%bmlt, &
-                        GLIDE_IS_FLOAT(model%geometry%thkmask))
+                        model%temper%bwat, &
+                        model%temper%bwatflx, &
+                        model%geometry%thck, &
+                        model%geometry%topg, &
+                        model%temper%temp(model%general%upn,:,:), &
+                        GLIDE_IS_FLOAT(model%geometry%thkmask), &
+                        model%tempwk%wphi)
 
-    ! Calculate basal water depth ------------------------------------------------
 
-       call calcbwat(model, &
-                  model%options%whichbwat, &
-                  model%temper%bmlt, &
-                  model%temper%bwat, &
-                  model%temper%bwatflx, &
-                  model%geometry%thck, &
-                  model%geometry%topg, &
-                  model%temper%temp(model%general%upn,:,:), &
-                  GLIDE_IS_FLOAT(model%geometry%thkmask), &
-                  model%tempwk%wphi)
+          ! This call is redundant for now, but is needed if the call to calcbwat is removed
+          call stagvarb(model%temper%bwat, &
+                        model%temper%stagbwat ,&
+                        model%general%ewn, &
+                        model%general%nsn)
 
-    ! ------------------------------------------------------------------------ 
-    ! Calculate basal traction factor
-    ! ------------------------------------------------------------------------ 
+       elseif (model%options%whichbtrc == BTRC_CONSTANT_TPMP) then
+
+          call stagvarb(model%temper%temp(model%general%upn,1:model%general%ewn,1:model%general%nsn), &
+                        model%temper%stagbtemp ,&
+                        model%general%  ewn, &
+                        model%general%  nsn)
+       
+          call glide_calcbpmp(model,               &
+                              model%geometry%thck, &
+                              model%temper%bpmp)
+ 
+          call stagvarb(model%temper%bpmp, &
+                        model%temper%stagbpmp ,&
+                        model%general%  ewn, &
+                        model%general%  nsn)
+
+       endif   ! whichbtrc
+
+       !------------------------------------------------------------------------ 
+       ! Calculate basal traction factor
+       !------------------------------------------------------------------------ 
+
+       do j = 1, model%general%nsn-1
+          do i = 1, model%general%ewn-1
+             if (model%geomderv%stagthck(i,j)*thk0 < 1000.d0) then
+                model%temper%stagbtemp(i,j) = model%temper%stagbpmp(i,j)
+             else
+                model%temper%stagbtemp(i,j) = -20.d0
+             endif
+          enddo
+       enddo
 
        call calc_btrc(model,                    &
-                   model%options%whichbtrc,  &
-                   model%velocity%btrc)
+                      model%options%whichbtrc,  &
+                      model%velocity%btrc)
 
-       call slipvelo(model,                &
-                  0,                             &
-                  model%velocity% btrc,          &
-                  model%velocity% ubas,          &
-                  model%velocity% vbas)
-
+       call slipvelo(model,                     &
+                     0,                         &
+                     model%velocity%btrc,       &
+                     model%velocity%ubas,       &
+                     model%velocity%vbas)
+       
 
        ! Calculate velocity
        call velo_calc_velo(model%velowk,            model%geomderv%stagthck,  &
@@ -576,7 +621,6 @@ contains
                            model%velocity%uvel,     model%velocity%vvel,      &
                            model%velocity%uflx,     model%velocity%vflx,      &
                            model%velocity%velnorm)    
-
 
     endif  ! if a restart
 
@@ -598,6 +642,95 @@ contains
 
     ! velocity norm
     model%velocity%velnorm = sqrt(model%velocity%uvel**2 + model%velocity%vvel**2)
+
+!WHL - debug
+       if (verbose_glide) then
+
+          print*, ' '
+          print*, 'stagthck:'
+          do i = 1, model%general%ewn-1
+             write(6,'(i7)',advance='no') i
+          enddo
+          print*, ' '
+          do j = model%general%nsn-1, 1, -1
+             write(6,'(i3)',advance='no') j
+             do i = 1, model%general%ewn-1
+                write(6,'(f7.2)',advance='no') model%geomderv%stagthck(i,j)*thk0
+             enddo 
+             print*, ' '
+          enddo
+
+          print*, ' '
+          print*, 'diffu (m^2/yr):'
+          do i = 1, model%general%ewn-1
+             write(6,'(i8)',advance='no') i
+          enddo
+          print*, ' '
+          do j = model%general%nsn-1, 1, -1
+             write(6,'(i3)',advance='no') j
+             do i = 1, model%general%ewn-1
+                write(6,'(f8.0)',advance='no') -model%velocity%diffu(i,j) * vel0*len0*scyr
+             enddo
+             print*, ' '
+          enddo
+
+          print*, ' '
+          print*, 'ubas:'
+          do i = 1, model%general%ewn-1
+             write(6,'(i7)',advance='no') i
+          enddo
+          print*, ' '
+          do j = model%general%nsn-1, 1, -1
+             write(6,'(i4)',advance='no') j
+             do i = 1, model%general%ewn-1
+                write(6,'(f7.2)',advance='no') model%velocity%uvel(model%general%upn,i,j)*(vel0*scyr)
+             enddo
+             print*, ' '
+          enddo
+
+          print*, ' '
+          print*, 'vbas:'
+          do i = 1, model%general%ewn-1
+             write(6,'(i7)',advance='no') i
+          enddo
+          print*, ' '
+          do j = model%general%nsn-1, 1, -1
+             write(6,'(i4)',advance='no') j
+             do i = 1, model%general%ewn-1
+                write(6,'(f7.2)',advance='no') model%velocity%vvel(model%general%upn,i,j)*(vel0*scyr)
+             enddo
+             print*, ' '
+          enddo
+          
+          print*, ' '
+          print*, 'uvel, k = 1:'
+          do i = 1, model%general%ewn-1
+             write(6,'(i8)',advance='no') i
+          enddo
+          print*, ' '
+          do j = model%general%nsn-1, 1, -1
+             write(6,'(i4)',advance='no') j
+             do i = 1, model%general%ewn-1
+                write(6,'(f8.2)',advance='no') model%velocity%uvel(1,i,j) * (vel0*scyr)
+             enddo 
+             print*, ' '
+          enddo
+
+          print*, ' '
+          print*, 'u=vvel, k = 1:'
+          do i = 1, model%general%ewn-1
+             write(6,'(i8)',advance='no') i
+          enddo
+          print*, ' '
+          do j = model%general%nsn-1, 1, -1
+             write(6,'(i4)',advance='no') j
+             do i = 1, model%general%ewn-1
+                write(6,'(f8.2)',advance='no') model%velocity%vvel(1,i,j) * (vel0*scyr)
+             enddo 
+             print*, ' '
+          enddo
+
+       endif  ! verbose_glide
 
   end subroutine glide_init_state_diagnostic
 
@@ -734,7 +867,7 @@ contains
     type(glide_global_type), intent(inout) :: model    ! model instance
 
 !WHL - debug
-  integer :: i, j, k
+    integer :: i, j, k
 
     ! ------------------------------------------------------------------------ 
     ! Calculate flow evolution by various different methods

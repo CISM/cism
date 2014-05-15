@@ -858,7 +858,7 @@
 !
 ! !DESCRIPTION:
 !
-! Construct fields of ice area and tracers.
+! Construct fields of ice mass and tracers.
 !
 ! !REVISION HISTORY:
 !
@@ -1346,7 +1346,7 @@
       enddo
 
 !TODO - Write error message cleanly to the log file.
-!       I think this will require broadcasting istop and jstop to main_rank.
+!       I think this will require broadcasting istop and jstop to main_task.
 !       For now, just print an error message locally.
 
       if (l_stop) then

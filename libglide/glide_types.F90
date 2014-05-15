@@ -225,17 +225,17 @@ module glide_types
   integer, parameter :: HO_SPARSE_PCG_STRUC = 3
   integer, parameter :: HO_SPARSE_TRILINOS = 4
 
-!WHL - added options for different Stokes approximations
-!      (for glissade dycore only)
+  integer, parameter :: SIMPLE_APPROX_SIA = -1
   integer, parameter :: HO_APPROX_SIA = 0
   integer, parameter :: HO_APPROX_SSA = 1
   integer, parameter :: HO_APPROX_BP = 2
 
-!WHL - added options for different preconditioners
-!      (for glissade dycore only)
   integer, parameter :: HO_PRECOND_NONE = 0
   integer, parameter :: HO_PRECOND_DIAG = 1
   integer, parameter :: HO_PRECOND_SIA  = 2
+
+  integer, parameter :: HO_GRADIENT_CENTERED = 0
+  integer, parameter :: HO_GRADIENT_UPSTREAM = 1
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -513,18 +513,20 @@ module glide_types
     character(fname_length) :: dycore_input_file=''
     !FD Name of a file containing external dycore settings.
 
-!WHL - Added a glissade option to choose which Stokes approximation (SIA, SSA or Blatter-Pattyn HO)
-    ! Blatter-Pattyn HO by default
     integer :: which_ho_approx = 2    
-    !*FD Flag that indicates which Stokes approximation to use in the glissade dycore.
+    !*FD Flag that indicates which Stokes approximation to use with the glissade dycore.
     !*FD Not valid for other dycores 
+    !*FD Compute Blatter-Pattyn HO momentum balance by default.
+    !*FD Note: There are two SIA options:
+    !*FD       Option -1 uses module glissade_velo_sia to compute local SIA velocities, similar to Glide
+    !*FD       Option 0 uses module glissade_velo_higher to compute SIA velocities via an iterative solve
     !*FD \begin{description}
-    !*FD \item[0] Shallow-ice approximation, vertical shear stress only
-    !*FD \item[1] Shallow-shelf approximation, horizontal-plane stresses only
-    !*FD \item[2] Blatter-Pattyn with both vertical-shear and horizontal-plane stresses
+    !*FD \item[-1] Shallow-ice approximation, Glide-type calculation (uses glissade_velo_sia)
+    !*FD \item[0]  Shallow-ice approximation, vertical-shear stresses only (uses glissade_velo_higher)
+    !*FD \item[1]  Shallow-shelf approximation, horizontal-plane stresses only (uses glissade_velo_higher)
+    !*FD \item[2]  Blatter-Pattyn with both vertical-shear and horizontal-plane stresses (uses glissade_velo_higher)
     !*FD \end{description}
 
-!WHL - Added a glissade option to choose preconditioner (none, diagonal, or physics-based SIA)
     integer :: which_ho_precond = 2    
     !*FD Flag that indicates which Stokes preconditioner to use in the glissade dycore.
     !*FD Not valid for other dycores 
@@ -533,6 +535,14 @@ module glide_types
     !*FD \item[1] Diagonal preconditioner
     !*FD \item[2] Physics-based shallow-ice preconditioner
     !*FD \end{description}
+
+    integer :: which_ho_gradient = 0    
+    !*FD Flag that indicates which gradient operator to use in the glissade dycore.
+    !*FD Not valid for other dycores
+    !*FD TODO: Change the default to 1 after the upstream gradient has been sufficiently tested.
+    !*FD \begin{description}
+    !*FD \item[0] Centered gradient
+    !*FD \item[1] Upstream gradient
 
     ! The remaining options are not currently supported
 
@@ -692,7 +702,7 @@ module glide_types
     real(dp),dimension(:,:)  ,pointer :: diffu_y => null() 
     real(dp),dimension(:,:)  ,pointer :: total_diffu => null() !*FD total diffusivity
 
-    !TODO - Remove ubas and vbas (since basal velocities are included in uvel and vvel)
+    !TODO - Remove ubas and vbas? (since basal velocities are included in uvel and vvel)
     real(dp),dimension(:,:)  ,pointer :: ubas  => null()   !*FD 
     real(dp),dimension(:,:)  ,pointer :: ubas_tavg  => null()
     real(dp),dimension(:,:)  ,pointer :: vbas  => null()   !*FD 
@@ -1366,7 +1376,7 @@ contains
     call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%resid_u)
     call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%resid_v)
 
-    !TODO - Remove ubas and vbas (already contained in uvel and vvel)
+    !TODO - Remove ubas and vbas? (already contained in uvel and vvel)
     call coordsystem_allocate(model%general%velo_grid, model%velocity%ubas)
     call coordsystem_allocate(model%general%velo_grid, model%velocity%ubas_tavg)
     call coordsystem_allocate(model%general%velo_grid, model%velocity%vbas)

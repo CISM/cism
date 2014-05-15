@@ -142,8 +142,7 @@
                                 ! (defined at horiz cell corners, vertical interfaces)
 
       real(dp), intent(inout), dimension(nx,ny) :: &
-         thck                   ! ice thickness (m)
-                                ! (defined at horiz cell centers)
+         thck                   ! ice thickness (m), defined at horiz cell centers
 
       real(dp), intent(in), dimension(nx,ny) :: &
          acab                   ! surface mass balance (m/s)
@@ -664,9 +663,6 @@
 
       enddo
 
-
-      !WHL - Halo updates were here
-
       !-------------------------------------------------------------------
       ! Recompute thickness, temperature and other tracers.
       !-------------------------------------------------------------------
@@ -821,18 +817,17 @@
       maxvvel = maxval(abs(vvel_layer(:,xs:xe,ys:ye)))
       ! Determine in which direction the max velocity is - Assuming dx=dy here!
       if (maxuvel > maxvvel) then
-         print *, 'max vel is in uvel'
+!         print *, 'max vel is in uvel'
          maxvel = maxuvel
          indices_adv = maxloc(abs(uvel_layer(:,xs:xe,ys:ye)))
       else
-         print *, 'max vel is in vvel'
+!         print *, 'max vel is in vvel'
          maxvel = maxvvel
          indices_adv = maxloc(abs(vvel_layer(:,xs:xe,ys:ye)))
       endif
       indices_adv(2:3) = indices_adv(2:3) + staggered_lhalo  ! want the i,j coordinates WITH the halo present
       ! Finally, determine maximum allowable time step based on advectice CFL condition.
       allowable_dt_adv = dew / (maxvel + 1.0d-20)
-
 
       ! ------------------------------------------------------------------------
       ! Diffusive CFL
@@ -865,9 +860,10 @@
             endif
          enddo
       enddo
-      ! Determine location limitng the DCFL
+
+      ! Determine location limiting the DCFL
       indices_diff = indices_diff + staggered_lhalo  ! adjust to index the full dimensions including the halo
-      print *, 'diffu dt', allowable_dt_diff, indices_diff(1), indices_diff(2)
+!      print *, 'diffu dt', allowable_dt_diff, indices_diff(1), indices_diff(2)
 
       ! Optional print of local limiting dt on each procesor
       !print *,'LOCAL ADV DT, POSITION', allowable_dt_adv, indices_adv(2), indices_adv(3)
@@ -884,7 +880,8 @@
           ierr = 1  ! Advective CFL violation is a fatal error
 
           ! Get position of the limiting location - do this only if an error message is needed to avoid 2 MPI comms
-          call parallel_globalindex(indices_adv(2), indices_adv(3), indices_adv(2), indices_adv(3))  ! Note: this subroutine assumes the scalar grid, but should work fine for 
+          call parallel_globalindex(indices_adv(2), indices_adv(3), indices_adv(2), indices_adv(3))  
+          ! Note: This subroutine assumes the scalar grid, but should work fine for the stag grid too
           ! indices_adv now has i,j on the global grid for this proc's location
           call broadcast(indices_adv(2), proc=procnum)
           call broadcast(indices_adv(3), proc=procnum)
@@ -893,17 +890,18 @@
           write(dt_string,'(f12.5)') allowable_dt_adv
           write(xpos_string,'(i12)') indices_adv(2)
           write(ypos_string,'(i12)') indices_adv(3)
-          write(message,*) 'Error: Advective CFL violation!  Maximum allowable time step for advective CFL condition is ' // trim(adjustl(dt_string)) // ' yr, limited by position i=' // trim(adjustl(xpos_string)) // ' j=' //trim(adjustl(ypos_string))
+          write(message,*) 'Error: Advective CFL violation!  Maximum allowable time step for advective CFL condition is ' &
+               // trim(adjustl(dt_string)) // ' yr, limited by position i=' // trim(adjustl(xpos_string)) // ' j=' //trim(adjustl(ypos_string))
           call write_log(trim(message),GM_WARNING)      ! Write a warning first before throwing a fatal error so we can also check the diffusive CFL before aborting
       endif
-
 
       ! Perform global reduce for diffusive time step and determine where in the domain it occurs
       call parallel_reduce_minloc(xin=allowable_dt_diff, xout=allowable_dt_diff, xprocout=procnum)
 
       if (deltat > allowable_dt_diff) then
           ! Get position of the limiting location - do this only if an error message is needed to avoid 2 MPI comms
-          call parallel_globalindex(indices_diff(1), indices_diff(2), indices_diff(1), indices_diff(2))  ! Note: this subroutine assumes the scalar grid, but should work fine for the stag grid too
+          call parallel_globalindex(indices_diff(1), indices_diff(2), indices_diff(1), indices_diff(2))  
+          ! Note: this subroutine assumes the scalar grid, but should work fine for the stag grid too
           ! indices_diff now has i,j on the global grid for this proc's location
           call broadcast(indices_diff(1), proc=procnum)
           call broadcast(indices_diff(2), proc=procnum)
@@ -913,8 +911,9 @@
           write(xpos_string,'(i12)') indices_diff(1)
           write(ypos_string,'(i12)') indices_diff(2)
           write(message,*) 'Diffusive CFL violation! (The currently implemented diffusive CFL calculation may be overly restrictive so this is not fatal.)'
-          write(message,*) 'Maximum allowable time step for diffusive CFL condition is ' // trim(adjustl(dt_string)) // ' yr, limited by position i=' // trim(adjustl(xpos_string)) // ' j=' //trim(adjustl(ypos_string))
-          call write_log(trim(message),GM_WARNING)      ! Diffusive CFL violation is just a warning (because it may be overly restrictive as currently formulated)
+          write(message,*) 'Maximum allowable time step for diffusive CFL condition is ' &
+               // trim(adjustl(dt_string)) // ' yr, limited by position i=' // trim(adjustl(xpos_string)) // ' j=' //trim(adjustl(ypos_string))
+          call write_log(trim(message),GM_WARNING)    ! Diffusive CFL violation is just a warning (because it may be overly restrictive as currently formulated)
       endif
 
       ! TODO enable this fatal error after more testing!
@@ -924,7 +923,6 @@
       !endif
 
     end subroutine glissade_check_cfl
-
 
 
 !=======================================================================

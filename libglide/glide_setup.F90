@@ -444,8 +444,10 @@ contains
     call write_log(trim(message))
     if (model%general%global_bc==GLOBAL_BC_PERIODIC) then
        write(message,*) 'Periodic global boundary conditions'
+       call write_log(trim(message))
     elseif (model%general%global_bc==GLOBAL_BC_OUTFLOW) then
        write(message,*) 'Outflow global boundary conditions; scalars in global halo will be set to zero'
+       call write_log(trim(message))
     endif
 
     write(message,*) 'sigma file      : ',trim(model%funits%sigfile)
@@ -558,6 +560,7 @@ contains
     call GetValue(section,'temperature',model%options%whichtemp)
     call GetValue(section,'temp_init',model%options%temp_init)
     call GetValue(section,'flow_law',model%options%whichflwa)
+    !TODO - Change 'slip_coeff' to 'basal_tract' or something similar?
     call GetValue(section,'slip_coeff',model%options%whichbtrc)
     call GetValue(section,'basal_water',model%options%whichbwat)
     call GetValue(section,'basal_mass_balance',model%options%basal_mbal)
@@ -601,10 +604,9 @@ contains
     call GetValue(section, 'which_ho_resid',     model%options%which_ho_resid)
     call GetValue(section, 'which_ho_nonlinear', model%options%which_ho_nonlinear)
     call GetValue(section, 'which_ho_sparse',    model%options%which_ho_sparse)
-
-!WHL  - Added which_ho_approx and which_ho_precond options for glissade dycore.
     call GetValue(section, 'which_ho_approx',    model%options%which_ho_approx)
     call GetValue(section, 'which_ho_precond',   model%options%which_ho_precond)
+    call GetValue(section, 'which_ho_gradient',  model%options%which_ho_gradient)
 
   end subroutine handle_ho_options
 
@@ -768,17 +770,20 @@ contains
          'Standalone PCG solver (structured)         ', &
          'Standalone Trilinos interface              '/)
 
-!WHL - added glissade options for solving different Stokes approximations
-    character(len=*), dimension(0:2), parameter :: ho_whichapprox = (/ &
-         'SIA only (glissade dycore)         ', &
-         'SSA only (glissade dycore)         ', &
-         'Blatter-Pattyn HO (glissade dycore)' /)
+    character(len=*), dimension(-1:2), parameter :: ho_whichapprox = (/ &
+         'SIA only (glissade_velo_sia)            ', &
+         'SIA only (glissade_velo_higher          ', &
+         'SSA only (glissade_velo_higher)         ', &
+         'Blatter-Pattyn HO (glissade_velo_higher)' /)
 
-!WHL - added glissade options for different preconditioners
     character(len=*), dimension(0:2), parameter :: ho_whichprecond = (/ &
          'No preconditioner (glissade dycore)      ', &
          'Diagonal preconditioner (glissade dycore)', &
          'SIA preconditioner (glissade dycore)     ' /)
+
+    character(len=*), dimension(0:1), parameter :: ho_whichgradient = (/ &
+         'Centered gradient (glissade dycore)      ', &
+         'Upstream gradient (glissade dycore)      ' /)
 
     call write_log('GLIDE options')
     call write_log('-------------')
@@ -839,12 +844,12 @@ contains
     ! Forbidden options associated with Glam dycore
    
     if (model%options%whichdycore == DYCORE_GLAM) then
-       if (model%options%which_ho_approx == HO_APPROX_SIA .or.   &
+       if (model%options%which_ho_approx == SIMPLE_APPROX_SIA .or.   &
+           model%options%which_ho_approx == HO_APPROX_SIA     .or.   &
            model%options%which_ho_approx == HO_APPROX_SSA) then 
           call write_log('Error, Glam dycore must use higher-order Blatter-Pattyn approximation', GM_FATAL)
        endif
     endif
-
 
     ! Config specific to Albany-Felix dycore   
     if (model%options%whichdycore == DYCORE_ALBANYFELIX) then
@@ -890,6 +895,13 @@ contains
        call write_log('Error, slip_coeff out of range',GM_FATAL)
     end if
 
+    !WHL - Currently, not all basal traction options are supported for the Glissade SIA solver
+    if (model%options%whichdycore == DYCORE_GLISSADE .and. model%options%which_ho_approx == SIMPLE_APPROX_SIA) then
+       if (model%options%whichbtrc > BTRC_CONSTANT_TPMP) then
+          call write_log('Error, slip_coeff out of range for Glissade dycore',GM_FATAL)
+       end if
+    endif
+
     write(message,*) 'slip_coeff              : ', model%options%whichbtrc, slip_coeff(model%options%whichbtrc)
     call write_log(message)
 
@@ -907,7 +919,6 @@ contains
     if (model%options%whichwvel /= VERTINT_STANDARD .and. model%options%whichdycore /= DYCORE_GLIDE) then
        call write_log('Error, only standard vertical velocity calculation is supported for higher-order dycores.',GM_FATAL)
     end if
-
 
     write(message,*) 'vertical_integration    : ',model%options%whichwvel,vertical_integration(model%options%whichwvel)
     call write_log(message)
@@ -1009,12 +1020,21 @@ contains
        end if
 
        if (model%options%whichdycore == DYCORE_GLISSADE) then
+
           write(message,*) 'ho_whichapprox          : ',model%options%which_ho_approx,  &
                             ho_whichapprox(model%options%which_ho_approx)
           call write_log(message)
-          if (model%options%which_ho_approx < 0 .or. model%options%which_ho_approx >= size(ho_whichapprox)) then
-             call write_log('Error, Stokes approximation out of range', GM_FATAL)
+          if (model%options%which_ho_approx < -1 .or. model%options%which_ho_approx >= size(ho_whichapprox)-1) then
+             call write_log('Error, Stokes approximation out of range for glissade dycore', GM_FATAL)
           end if
+
+          write(message,*) 'ho_whichgradient        : ',model%options%which_ho_gradient,  &
+                            ho_whichgradient(model%options%which_ho_gradient)
+          call write_log(message)
+          if (model%options%which_ho_gradient < 0 .or. model%options%which_ho_gradient >= size(ho_whichgradient)) then
+             call write_log('Error, gradient option out of range for glissade dycore', GM_FATAL)
+          end if
+
        end if
 
        if (model%options%whichdycore == DYCORE_GLISSADE .and. &
@@ -1101,6 +1121,14 @@ contains
 
     write(message,*) 'ice limit for dynamics (m)    : ',model%numerics%thklim
     call write_log(message)
+
+    !Note: The Glissade dycore is known to crash for thklim = 0, but has not
+    !      been extensively tested for small values of thklim.
+    !      Values smaller than 1 mm may be OK, but no guarantees.
+    if (model%options%whichdycore == DYCORE_GLISSADE .and.   &
+        model%numerics%thklim < 1.d-3) then   ! 1 mm
+       call write_log('ice limit (thklim) is too small for Glissade dycore', GM_FATAL)
+    endif
 
     if (model%options%whichdycore /= DYCORE_GLIDE) then
        write(message,*) 'ice limit for temperature (m) : ',model%numerics%thklim_temp

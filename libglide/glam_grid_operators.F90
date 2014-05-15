@@ -26,7 +26,7 @@
 
 !TODO - Make sure all these subroutines are currently used, or might be in the future.
 
-! Various grid operators for glide dycore, including routines for computing gradients
+! Various grid operators for glam dycore, including routines for computing gradients
 ! and switching between staggered and unstaggered grids
 
 #ifdef HAVE_CONFIG_H

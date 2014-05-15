@@ -100,6 +100,8 @@ contains
   !      values are ignored when thickness is averaged over four adjacent grid cells.
   !      In stagvarb, zero-thickness values are included in the average.
   !      The glam approach works better for calving. 
+  !TODO: Implement a flag that allows zero-thickness values to be ignored.
+  !      This makes better sense for flwa and temp.
 
     implicit none 
 

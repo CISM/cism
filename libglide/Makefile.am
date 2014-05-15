@@ -24,10 +24,11 @@ libglide_la_SOURCES = glide.F90 glide_types.F90 glide_setup.F90 \
                       glide_stress.F90 glide_vertint.F90 xls.f90 \
 		      glide_mask.inc glide_nan.inc \
                       glimmer_restart_gcm.F90 \
-                      glissade.F90 glissade_velo.F90 glissade_basal_traction.F90 \
+                      glissade.F90 glissade_grid_operators.F90 \
+                      glissade_velo.F90 glissade_basal_traction.F90 \
                       glissade_temp.F90 glissade_enthalpy.F90 \
                       glissade_remap.F90 glissade_transport.F90 \ 
-                      glissade_velo_higher.F90 \
+                      glissade_velo_sia.F90 glissade_velo_higher.F90 \
 	              felix_dycore_interface.F90
 
 libglide_la_LDFLAGS=-all-static

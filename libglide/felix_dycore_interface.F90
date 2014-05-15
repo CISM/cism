@@ -32,7 +32,7 @@ module felix_dycore_interface
    use glide_types
    use glimmer_log
    use parallel
-   use glissade_velo_higher, only: staggered_scalar 
+   use glissade_grid_operators, only: glissade_stagger 
    !use glimmer_to_dycore
 
    implicit none
@@ -453,8 +453,8 @@ contains
       !
       !-----------------------------------------------------------------
       
-      real(dp), dimension(nx,ny) ::    &
-      rmask                  ! = 1. where ice is present, else = 0.
+      integer, dimension(nx,ny) ::    &
+      imask                  ! = 1 where ice is present, else = 0
 
       logical, dimension(nx,ny) ::     &
       active_cell            ! true for active cells (thck > thklim and border locally owned vertices)
@@ -554,15 +554,15 @@ contains
      !mesh in z-direction 
      !------------------------------------------------------------------------------
      ! Compute masks:
-     ! (1) real mask = 1.0 where ice is present, 0.0 elsewhere
+     ! mask = 1 where dynamically active ice is present, 0 elsewhere
      !------------------------------------------------------------------------------
 
      do j = 1, ny
         do i = 1, nx
            if (thck(i,j) > thklim) then
-              rmask(i,j) = 1.d0
+              imask(i,j) = 1
            else
-              rmask(i,j) = 0.d0
+              imask(i,j) = 0
            endif
         enddo
      enddo
@@ -572,13 +572,14 @@ contains
      ! (requires that thck and usrf are up to date in halo cells)
      !------------------------------------------------------------------------------
 
-     call staggered_scalar(nx,           ny,         &
-                           nhalo,        rmask,      &
-                           thck,         stagthck)
+     call glissade_stagger(nx,      ny,         &
+                           thck,    stagthck,   &
+                           imask,   stag_flag_in = 1)
 
-     call staggered_scalar(nx,           ny,         &
-                           nhalo,        rmask,      &
-                           usrf,         stagusrf)
+     call glissade_stagger(nx,      ny,         &
+                           usrf,    stagusrf,   &
+                           imask,   stag_flag_in = 1)
+
      !------------------------------------------------------------------------------
 
      nNodes2D = (global_ewn + 1)*(global_nsn + 1)

@@ -70,7 +70,7 @@ module glide_temp
   implicit none
 
   private
-  public :: glide_init_temp, glide_temp_driver, glide_calcbmlt
+  public :: glide_init_temp, glide_temp_driver, glide_calcbmlt, glide_calcbpmp
 
 contains
 
@@ -699,7 +699,7 @@ contains
                      model%general%  ewn, &
                      model%general%  nsn)
        
-       call calcbpmp(model,model%geometry%thck,model%temper%bpmp)
+       call glide_calcbpmp(model,model%geometry%thck,model%temper%bpmp)
 
        call stagvarb(model%temper%bpmp, &
                      model%temper%stagbpmp ,&
@@ -1221,7 +1221,7 @@ contains
 
   !-----------------------------------------------------------------------
 
-  subroutine calcbpmp(model,thck,bpmp)
+  subroutine glide_calcbpmp(model,thck,bpmp)
 
     ! Calculate the pressure melting point at the base of the ice sheet
 
@@ -1239,7 +1239,7 @@ contains
        end do
     end do
 
-  end subroutine calcbpmp
+  end subroutine glide_calcbpmp
 
 !-------------------------------------------------------------------
 

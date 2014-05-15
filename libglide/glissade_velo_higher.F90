@@ -58,7 +58,8 @@
     use glimmer_log, only: write_log
     use glimmer_sparse_type
     use glimmer_sparse
-     
+    use glissade_grid_operators     
+
     use glide_types  ! for HO_EFVS and other options
 
     use cism_sparse_pcg, only: pcg_solver_structured
@@ -70,7 +71,8 @@
     private
     !IK, 9/18/13: added staggered_scalar here so it can be called from
     !felix_dycore_interface.F90 
-    public :: glissade_velo_higher_init, glissade_velo_higher_solve, staggered_scalar
+    !WHL, 5/2/14: Moved staggered_scalar to glissade_grid_operators
+    public :: glissade_velo_higher_init, glissade_velo_higher_solve
 
     !----------------------------------------------------------------
     ! Here are some definitions:
@@ -145,7 +147,8 @@
        identity3                ! 3 x 3 identity matrix
 
     real(dp), parameter ::   &
-       eps10 = 1.d-10           ! small number
+       eps08 = 1.d-08,         &! small number
+       eps10 = 1.d-10           ! smaller number
 
     real(dp) :: vol0    ! volume scale = dx * dy * (1000 m)
 
@@ -186,15 +189,17 @@
 !    logical :: verbose_slapsolve = .true.
     logical :: verbose_trilinos = .false.
 !    logical :: verbose_trilinos = .true.
-!    logical :: verbose_beta = .false.
-    logical :: verbose_beta = .true.
-
-
+    logical :: verbose_beta = .false.
+!    logical :: verbose_beta = .true.
     logical :: verbose_efvs = .false.
 !    logical :: verbose_efvs = .true.
+    logical :: verbose_gridop = .false.
+!    logical :: verbose_gridop= .true.
 
 !WHL - debug
     logical :: trial_efvs = .false.   ! if true, compute what nonlinear efvs would be (if not constant)
+!    logical :: old_driving_stress = .true.  !TODO - remove after testing new driving stress
+    logical :: old_driving_stress = .false.  
 
     integer :: itest, jtest    ! coordinates of diagnostic point
     integer :: rtest           ! task number for processor containing diagnostic point
@@ -574,9 +579,9 @@
     !----------------------------------------------------------------
 
     !----------------------------------------------------------------
-    ! Note: nx and ny are the horizontal dimensions of scalar arrays (e.g., thck and temp)
-    !       The velocity arrays have horizontal dimensions (nx-1, ny-1)
-    !       nz is the number of levels at which uvel and vvel are computed
+    ! Note: nx and ny are the horizontal dimensions of scalar arrays (e.g., thck and temp).
+    !       The velocity arrays have horizontal dimensions (nx-1, ny-1).
+    !       nz is the number of levels at which uvel and vvel are computed.
     !       The scalar variables generally live at layer midpoints and have
     !         vertical dimension nz-1.
     !----------------------------------------------------------------
@@ -625,6 +630,7 @@
                                 ! = 0 elsewhere
 
     integer ::   &
+       whichbabc, &             ! option for basal boundary condition
        whichefvs, &             ! option for effective viscosity calculation 
                                 ! (calculate it or make it uniform)
        whichresid, &            ! option for method of calculating residual
@@ -636,13 +642,14 @@
        whichprecond, &          ! option for which preconditioner to use with 
                                 !  structured PCG solver
                                 ! 0 = none, 1 = diag, 2 = SIA
-       whichbabc                ! option for basal boundary condition
+       whichgradient            ! option for gradient operator when computing grad(s)
+                                ! 0 = centered, 1 = upstream
 
     !--------------------------------------------------------
     ! Local parameters
     !--------------------------------------------------------
 
-    integer, parameter :: cmax = 300          ! max number of outer iterations
+    integer, parameter :: cmax = 100          ! max number of outer iterations
 
     !WHL - What I call resid_target is called minresid in glam_strs2
 
@@ -659,14 +666,15 @@
     !--------------------------------------------------------
 
     real(dp), dimension(nx-1,ny-1) :: &
-       xVertex, yVertex       ! x and y coordinates of each vertex
+       xVertex, yVertex       ! x and y coordinates of each vertex (m)
 
     real(dp), dimension(nx-1,ny-1) ::   &
-       stagusrf,            & ! upper surface averaged to vertices
-       stagthck               ! ice thickness averaged to vertices
+       stagusrf,            & ! upper surface averaged to vertices (m)
+       stagthck,            & ! ice thickness averaged to vertices (m)
+       dusrf_dx, dusrf_dy     ! gradient of upper surface elevation (m/m)
 
-    real(dp), dimension(nx,ny) ::    &
-       rmask                  ! = 1. where ice is present, else = 0.
+    integer, dimension(nx,ny) ::     &
+       imask                  ! = 1 where ice is present, else = 0
 
     logical, dimension(nx,ny) ::     &
        active_cell,          &! true for active cells (thck > thklim and border locally owned vertices)
@@ -812,7 +820,7 @@
     endif
 
     !--------------------------------------------------------
-    ! Assign local pointers to derived type components
+    ! Assign local pointers and variables to derived type components
     !--------------------------------------------------------
 
 !    nx = model%general%ewn
@@ -846,16 +854,18 @@
      eus    = model%climate%eus
      ho_beta_const = model%paramets%ho_beta_const
  
-     whichefvs    = model%options%which_ho_efvs
-     whichresid   = model%options%which_ho_resid
-     whichsparse  = model%options%which_ho_sparse
-     whichapprox  = model%options%which_ho_approx
-     whichprecond = model%options%which_ho_precond
-     whichbabc    = model%options%which_ho_babc
+     whichbabc     = model%options%which_ho_babc
+     whichefvs     = model%options%which_ho_efvs
+     whichresid    = model%options%which_ho_resid
+     whichsparse   = model%options%which_ho_sparse
+     whichapprox   = model%options%which_ho_approx
+     whichprecond  = model%options%which_ho_precond
+     whichgradient = model%options%which_ho_gradient
 
     !--------------------------------------------------------
-    ! Convert input variables to appropriate units for this solver
-    !TODO - Add some comments about units for this module
+    ! Convert input variables to appropriate units for this solver.
+    ! (Mainly SI, except that time units in flwa, velocities,
+    !  and beta are years instead of seconds)
     !--------------------------------------------------------
 
 !pw call t_startf('glissade_velo_higher_scale_input')
@@ -924,6 +934,11 @@
 !    call parallel_halo(flwa)
 
     ! Halo updates for staggered variables
+
+    if (whichbabc == HO_BABC_YIELD_PICARD) then
+!!       call staggered_parallel_halo(mintauf)   !WHL - is this needed?
+!!       call staggered_parallel_halo_extrapolate(mintauf)
+    endif
 
     !------------------------------------------------------------------------------
     ! Setup for higher-order solver: Compute nodal geometry, allocate storage, etc.
@@ -1051,7 +1066,7 @@
 
     !------------------------------------------------------------------------------
     ! Compute masks: 
-    ! (1) real mask = 1.0 where ice is present, 0.0 elsewhere
+    ! (1) ice mask = 1 where ice is present, 0 elsewhere
     ! (2) floating mask = .true. where ice is present and is floating
     ! (3) ocean mask = .true. where topography is below sea level and ice is absent
     !------------------------------------------------------------------------------
@@ -1060,9 +1075,9 @@
        do i = 1, nx
 
           if (thck(i,j) > thklim) then
-	     rmask(i,j) = 1.d0
+	     imask(i,j) = 1
           else
-             rmask(i,j) = 0.d0
+             imask(i,j) = 0
           endif
 
           if (topg(i,j) - eus < (-rhoi/rhoo)*thck(i,j)) then
@@ -1108,29 +1123,114 @@
     !------------------------------------------------------------------------------
     ! Compute ice thickness and upper surface on staggered grid
     ! (requires that thck and usrf are up to date in halo cells)
+    ! For stag_flag_in = 0, all cells (including ice-free) are included in interpolation.
+    ! For stag_flag_in = 1, only ice-covered cells are included.
     !------------------------------------------------------------------------------
 
 !pw call t_startf('glissade_staggered_scalar')
-    call staggered_scalar(nx,           ny,         &
-                          nhalo,        rmask,      &
-                          thck,         stagthck)
+    call glissade_stagger(nx,       ny,         &
+                          thck,     stagthck,   &
+                          imask,    stag_flag_in = 1)
 
-    call staggered_scalar(nx,           ny,         &
-                          nhalo,        rmask,      &
-                          usrf,         stagusrf)
+    call glissade_stagger(nx,       ny,         &
+                          usrf,     stagusrf,   &
+                          imask,    stag_flag_in = 1)
 !pw call t_stopf('glissade_staggered_scalar')
 
+    !------------------------------------------------------------------------------
+    ! Compute surface gradient on staggered grid
+    ! (requires that usrf is up to date in halo cells)
+    !------------------------------------------------------------------------------
+
+!pw call t_startf('glissade_gradient')
+
+    if (whichgradient == HO_GRADIENT_CENTERED) then
+
+       call glissade_centered_gradient(nx,           ny,         &
+                                       dx,           dy,         &
+                                       usrf,                     &
+                                       dusrf_dx,     dusrf_dy,   &
+                                       imask,        grad_flag_in = 2)
+
+    else
+
+       ! 2nd order upstream
+       call glissade_upstream_gradient(nx,           ny,         &
+                                       dx,           dy,         &
+                                       usrf,                     &
+                                       dusrf_dx,     dusrf_dy,   &
+                                       imask,        grad_flag2_in = 0,  &
+                                       accuracy_flag_in = 2)
+
+    endif   ! whichgradient
+
+!pw call t_startf('glissade_gradient')
+
 !WHL - debug
-    if (verbose_state .and. this_rank==rtest) then
+!          print*, ' '
+!          print*, 'dusrf_dy:'
+!          do i = nhalo+1, nx-nhalo-1
+!             write(6,'(i8)',advance='no') i
+!          enddo
+!          print*, ' '
+!          do j = ny-nhalo-1, 1, -1
+!             write(6,'(i4)',advance='no') j
+!             do i = nhalo+1, nx-nhalo-1
+!                write(6,'(f7.3)',advance='no') dusrf_dy(i,j)
+!             enddo 
+!             print*, ' '
+!          enddo
+
+
+!WHL - debug
+    if (verbose_gridop .and. this_rank==rtest) then
+
        print*, ' '
-       print*, 'stagthck, rank =', rtest
-       do j = ny-1, 1, -1
-          do i = 1, nx-1
-             write(6,'(f6.0)',advance='no') stagthck(i,j)
+       print*, 'thck:'
+       do j = ny, 1, -1
+          do i = 1, nx
+             write(6,'(f7.0)',advance='no') thck(i,j)
           enddo
           print*, ' '
        enddo
-    endif
+
+       print*, ' '
+       print*, 'stagthck, rank =',rtest
+       do j = ny-1, 1, -1
+          do i = 1, nx-1
+             write(6,'(f7.0)',advance='no') stagthck(i,j)
+          enddo
+          print*, ' '
+       enddo
+
+       print*, ' '
+       print*, 'usrf:'
+       do j = ny, 1, -1
+          do i = 1, nx
+             write(6,'(f7.0)',advance='no') usrf(i,j)
+          enddo
+          print*, ' '
+       enddo
+
+       print*, ' '
+       print*, 'dusrf_dx:'
+       do j = ny-1, 1, -1
+          do i = 1, nx-1
+             write(6,'(f7.3)',advance='no') dusrf_dx(i,j)
+          enddo
+          print*, ' '
+       enddo
+
+       print*, ' '
+       print*, 'dusrf_dy:'
+       do j = ny-1, 1, -1
+          do i = 1, nx-1
+             write(6,'(f7.3)',advance='no') dusrf_dy(i,j)
+          enddo
+          print*, ' '
+       enddo
+    
+    endif  ! verbose_gridop
 
     !------------------------------------------------------------------------------
     ! Compute the vertices of each element.
@@ -1152,6 +1252,18 @@
                              nNodesSolve, NodeID,          &
                              iNodeIndex,  jNodeIndex,  kNodeIndex)
 !pw call t_stopf('glissade_get_vertex_geom')
+
+!WHL - debug
+!    if (verbose_id .and. main_task) then
+!       print*, ' '
+!       print*, 'Active vertices:'
+!       do j = ny-1, 1, -1
+!          do i = 1, nx-1
+!             write(6,'(l5)',advance='no') active_vertex(i,j)
+!          enddo
+!          print*, ' '
+!       enddo
+!    endif
 
 !WHL - debug
     if (verbose_id .and. this_rank==rtest) then
@@ -1363,14 +1475,33 @@
     ! gravitational forcing
     !------------------------------------------------------------------------------
 
-    call t_startf('glissade_load_vector_gravity')
-    call load_vector_gravity(nx,               ny,              &
+!TODO - Remove old call after testing new one
+
+    call t_startf('glissade_load_vcetor_gravity')
+
+    if (old_driving_stress) then
+
+       call load_vector_gravity_old(nx,               ny,              &
+                                 nz,               nhalo,           &
+                                 nNodesPerElement,                  &
+                                 sigma,            active_cell,     &
+                                 xVertex,          yVertex,         &
+                                 stagusrf,         stagthck,        &
+                                 loadu,            loadv)
+
+    else  ! new driving stress
+
+       call load_vector_gravity(nx,               ny,              &
                              nz,               nhalo,           &
                              nNodesPerElement,                  &
                              sigma,            active_cell,     &
                              xVertex,          yVertex,         &
                              stagusrf,         stagthck,        &
+                             dusrf_dx,         dusrf_dy,        &
                              loadu,            loadv)
+
+    endif  ! old_driving_stress
+
     call t_stopf('glissade_load_vector_gravity')
 
     !WHL - debug
@@ -2272,7 +2403,8 @@
                                       usav,   vsav,        &
                                       resid_velo)
        call t_stopf('glissade_resid_vec2')
-  
+
+
 !WHL - debug
        if (verbose_state .and. this_rank==rtest) then
 !!       if verbose_residual .and. this_rank==rtest) then
@@ -2411,6 +2543,18 @@
           print*, 'GLISSADE SOLUTION HAS CONVERGED, outer counter =', counter
        endif
 
+!WHL - debug
+!       if (this_rank == rtest) then
+!          print*, ' '
+!          print*, 'velnorm (m/yr), k = 1:'
+!          do j = ny-nhalo, nhalo+1, -1
+!             do i = nhalo+1, nx-nhalo
+!                write(6,'(f12.7)',advance='no') sqrt (uvel(1,i,j)**2 + vvel(1,i,j)**2)
+!             enddo 
+!             print*, ' '
+!         enddo
+!       endif
+
     endif
 
     !------------------------------------------------------------------------------
@@ -2476,7 +2620,7 @@
 
     real(dp), intent(inout) ::   &
        eus,  &                 ! eustatic sea level (= 0 by default)
-       thklim,  &              ! minimum cell thickness for active cells
+       thklim,  &              ! minimum ice thickness for active cells
        ho_beta_const           ! constant beta value (Pa/(m/yr)) for whichbabc = HO_BABC_CONSTANT
 
     real(dp), dimension(:,:,:), intent(inout) ::  &
@@ -2591,53 +2735,6 @@
 
 !****************************************************************************
 
-  subroutine staggered_scalar(nx,           ny,        &
-                              nhalo,        rmask,     &
-                              var,          stagvar)
-
-    !----------------------------------------------------------------
-    ! Input-output arguments
-    !----------------------------------------------------------------
-
-    integer, intent(in) ::   &
-       nx, ny,               &  ! horizontal grid dimensions
-       nhalo                    ! number of rows/columns of halo cells
-
-    real(dp), dimension(nx,ny), intent(in) ::        &
-       rmask                    ! = 1. where ice is present, else = 0.
-
-    real(dp), dimension(nx,ny), intent(in) ::    &
-       var                      ! scalar field defined at cell centers
-
-    real(dp), dimension(nx-1,ny-1), intent(out) ::    &
-       stagvar                  ! staggered field defined at cell corners
-
-    !--------------------------------------------------------
-    ! Local variables
-    !--------------------------------------------------------
-
-    integer :: i, j
-
-    real(dp) :: sumvar, summask
-
-    stagvar(:,:) = 0.d0
-
-    ! Loop over all vertices of locally owned cells
-    ! Average the input field over the neighboring cells with ice present (rmask = 1)
-
-    do j = 1, ny-1     ! all vertices
-       do i = 1, nx-1
-          sumvar = rmask(i,j+1)*var(i,j+1) + rmask(i+1,j+1)*var(i+1,j+1)  &
-                 + rmask(i,j)  *var(i,j)   + rmask(i+1,j)  *var(i+1,j)	  
-          summask = rmask(i,j+1) + rmask(i+1,j+1) + rmask(i,j) + rmask(i+1,j)
-          if (summask > 0.d0) stagvar(i,j) = sumvar / summask
-       enddo
-    enddo  
-
-  end subroutine staggered_scalar
-
-!****************************************************************************
-
   subroutine get_vertex_geometry(nx,          ny,          nz,      &   
                                  nhalo,       sigma,                &
                                  dx,          dy,                   &
@@ -2680,6 +2777,7 @@
     real(dp), intent(in) ::   & 
        thklim                 ! minimum ice thickness for active cells
 
+!TODO - These are no longer used in the subroutine
     real(dp), dimension(nx-1,ny-1), intent(in) ::  &
        stagusrf,            & ! upper surface averaged to vertices
        stagthck               ! ice thickness averaged to vertices
@@ -2807,13 +2905,15 @@
 
 !****************************************************************************
 
-  subroutine load_vector_gravity(nx,               ny,              &
-                                 nz,               nhalo,           &
-                                 nNodesPerElement,                  &
-                                 sigma,            active_cell,     &
-                                 xVertex,          yVertex,         &
-                                 stagusrf,         stagthck,        &
-                                 loadu,            loadv)
+!TODO - Remove this subroutine; it has been replaced by load_vector_gravity below.
+
+  subroutine load_vector_gravity_old(nx,               ny,              &
+                                     nz,               nhalo,           &
+                                     nNodesPerElement,                  &
+                                     sigma,            active_cell,     &
+                                     xVertex,          yVertex,         &
+                                     stagusrf,         stagthck,        &
+                                     loadu,            loadv)
 
     integer, intent(in) ::      &
        nx, ny,                  &    ! horizontal grid dimensions
@@ -2929,6 +3029,191 @@
                 do n = 1, nNodesPerElement
                    ds_dx = ds_dx + dphi_dx(n) * s(n)
                    ds_dy = ds_dy + dphi_dy(n) * s(n)
+                enddo
+
+                if (verbose_load .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+                   print*, ' '
+                   print*, 'Increment load vector, i, j, k, p =', i, j, k, p
+                   print*, 'ds/dx, ds/dy =', ds_dx, ds_dy
+                   print*, 'detJ/vol0 =', detJ/vol0
+                   print*, 'detJ/vol0* (ds/dx, ds/dy) =', detJ/vol0*ds_dx, detJ/vol0*ds_dy
+                endif
+
+                ! Increment the load vector with the gravitational contribution from
+                ! this quadrature point.
+
+                do n = 1, nNodesPerElement
+
+                   ! Determine (k,i,j) for this node
+                   iNode = i + ishift(7,n)
+                   jNode = j + jshift(7,n)
+                   kNode = k + kshift(7,n)
+         
+                   loadu(kNode,iNode,jNode) = loadu(kNode,iNode,jNode) - rhoi*grav * wqp(p) * detJ/vol0 * ds_dx * phi(n,p)
+                   loadv(kNode,iNode,jNode) = loadv(kNode,iNode,jNode) - rhoi*grav * wqp(p) * detJ/vol0 * ds_dy * phi(n,p)
+
+                   if (verbose_load .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest .and. p==ptest) then
+!                      print*, ' '
+                      print*, 'n, phi(n), delta(loadu), delta(loadv):', n, phi(n,p), &
+                               rhoi*grav*wqp(p)*detJ/vol0 * ds_dx * phi(n,p), &
+                               rhoi*grav*wqp(p)*detJ/vol0 * ds_dy * phi(n,p)
+                   endif
+
+                enddo   ! nNodesPerElement
+
+             enddo      ! nQuadPoints
+
+          enddo         ! k
+
+       endif            ! active cell
+
+    enddo               ! i
+    enddo               ! j
+
+  end subroutine load_vector_gravity_old
+
+!****************************************************************************
+
+  subroutine load_vector_gravity(nx,               ny,              &
+                                 nz,               nhalo,           &
+                                 nNodesPerElement,                  &
+                                 sigma,            active_cell,     &
+                                 xVertex,          yVertex,         &
+                                 stagusrf,         stagthck,        &
+                                 dusrf_dx,         dusrf_dy,        &
+                                 loadu,            loadv)
+
+    integer, intent(in) ::      &
+       nx, ny,                  &    ! horizontal grid dimensions
+       nz,                      &    ! number of vertical layers at which velocity is computed
+                                     ! Note: the number of elements per column is nz-1
+       nhalo                         ! number of halo layers
+
+    integer, intent(in) :: nNodesPerElement
+
+    real(dp), dimension(nz), intent(in) ::    &
+       sigma                         ! sigma vertical coordinate
+
+    logical, dimension(nx,ny), intent(in) ::  &
+       active_cell                   ! true if cell contains ice and borders a locally owned vertex
+
+    real(dp), dimension(nx-1,ny-1), intent(in) ::   &
+       xVertex, yVertex     ! x and y coordinates of vertices
+
+    real(dp), dimension(nx-1,ny-1), intent(in) ::  &
+       stagusrf,       &  ! upper surface elevation on staggered grid (m)
+       stagthck           ! ice thickness on staggered grid (m)
+
+    real(dp), dimension(nx-1,ny-1), intent(in) ::  &
+       dusrf_dx,       &  ! upper surface elevation gradient on staggered grid (m)
+       dusrf_dy
+
+    real(dp), dimension(nz,nx-1,ny-1), intent(inout) ::  &
+       loadu, loadv       ! load vector, divided into u and v components
+
+    !----------------------------------------------------------------
+    ! Local variables
+    !----------------------------------------------------------------
+
+    real(dp), dimension(nNodesPerElement) ::     &
+       x, y, z,         & ! Cartesian coordinates of nodes
+!!       s                  ! upper surface elevation at nodes
+       dsdx, dsdy         ! upper surface elevation gradient at nodes
+
+    real(dp)  ::   &
+       detJ               ! determinant of Jacobian for the transformation
+                          !  between the reference element and true element
+
+    !TODO - These are not currently used except as dummy arguments
+    real(dp), dimension(nNodesPerElement) ::   &
+       dphi_dx, dphi_dy, dphi_dz   ! derivatives of basis functions, evaluated at quad pts
+
+    real(dp) ::    &
+       ds_dx, ds_dy       ! upper surface elevation gradient at quad pt
+
+    integer :: i, j, k, n, p
+
+    integer :: iNode, jNode, kNode
+
+!WHL - debug
+    if (verbose_load) then
+       print*, ' '
+       print*, 'In load_vector_gravity: itest, jtest, ktest, rtest =', itest, jtest, ktest, rtest
+    endif
+                
+
+    ! Sum over elements in active cells 
+    ! Loop over all cells that border locally owned vertices
+
+    do j = nhalo+1, ny-nhalo+1
+    do i = nhalo+1, nx-nhalo+1
+       
+       if (active_cell(i,j)) then
+
+          do k = 1, nz-1    ! loop over elements in this column 
+                            ! assume k increases from upper surface to bed
+
+             if (verbose .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+                print*, 'i, j, k:', i, j, k
+                print*, ' '
+             endif
+
+             ! compute spatial coordinates, velocity, and upper surface elevation for each node
+
+             do n = 1, nNodesPerElement
+
+                ! Determine (k,i,j) for this node
+                ! The reason for the '7' is that node 7, in the NE corner of the upper layer, has index (k,i,j).
+                ! Indices for other nodes are computed relative to this node.
+                iNode = i + ishift(7,n)
+                jNode = j + jshift(7,n)
+                kNode = k + kshift(7,n)
+
+                x(n) = xVertex(iNode,jNode)
+                y(n) = yVertex(iNode,jNode)
+                z(n) = stagusrf(iNode,jNode) - sigma(kNode)*stagthck(iNode,jNode)
+!!                s(n) = stagusrf(iNode,jNode)
+                dsdx(n) = dusrf_dx(iNode,jNode)
+                dsdy(n) = dusrf_dy(iNode,jNode)
+
+                if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+!!                   print*, ' '
+                   print*, 'i, j, k, n, x, y, z, dsdx, dsdy:', i, j, k, n, x(n), y(n), z(n), dsdx(n), dsdy(n)
+!!                   print*, 'iNode, jNode, kNode, sigma:', iNode, jNode, kNode, sigma(kNode)
+                endif
+
+             enddo   ! nodes per element
+
+             ! Loop over quadrature points for this element
+   
+             do p = 1, nQuadPoints
+
+                ! Evaluate the derivatives of the element basis functions
+                ! at this quadrature point.
+
+!WHL - debug - Pass in i, j, k, and p for now
+
+                call get_basis_function_derivatives(nNodesPerElement,                             &
+                                                    x(:),          y(:),          z(:),           &
+                                                    dphi_dxr(:,p), dphi_dyr(:,p), dphi_dzr(:,p),  &
+                                                    dphi_dx(:),    dphi_dy(:),    dphi_dz(:),     &
+                                                    detJ , i, j, k, p                      )
+
+!WHL - debug
+                if (detJ < 0.d0) then
+                   print*, 'detJ < 0:, i, j, k, p, detJ =', i, j, k, p, detJ
+                endif
+
+                ! Evaluate ds_dx and ds_dy at this quadrature point
+ 
+                ds_dx = 0.d0
+                ds_dy = 0.d0
+
+                do n = 1, nNodesPerElement
+!!                   ds_dx = ds_dx + dphi_dx(n) * s(n)
+!!                   ds_dy = ds_dy + dphi_dy(n) * s(n)
+                   ds_dx = ds_dx + phi(n,p) * dsdx(n)
+                   ds_dy = ds_dy + phi(n,p) * dsdy(n)
                 enddo
 
                 if (verbose_load .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
@@ -3649,7 +3934,7 @@
           ! Loop over quadrature points for this element
    
           !TODO - Think about how often to compute things.  Geometric quantities need to be
-          !       computed only once per nonlinear solve, whereas efv smust be recomputed
+          !       computed only once per nonlinear solve, whereas efvs smust be recomputed
           !       after each linear solve.
 
              if (verbose_state .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
@@ -4361,9 +4646,9 @@
 !          print*, 'efvs, wqp, detJ/vol0 =', efvs, wqp, detJ/vol0
           print*, 'dphi_dx, dphi_dy, dphi_dz(irow) =', dphi_dx(i), dphi_dy(i), dphi_dz(i)
           print*, 'dphi_dx, dphi_dy, dphi_dz(jcol) =', dphi_dx(j), dphi_dy(j), dphi_dz(j)
-          print*, 'Kuu SSA increment(irow,jcol) =', efvs*wqp*detJ/vol0*(4.d0*dphi_dx(i)*dphi_dx(j) + dphi_dy(j)*dphi_dy(i))
-          print*, 'Kvv SSA increment(irow,jcol) =', efvs*wqp*detJ/vol0*(4.d0*dphi_dy(i)*dphi_dy(j) + dphi_dx(j)*dphi_dx(i))
-          print*, 'SIA increment(irow,jcol) =', efvs*wqp*detJ/vol0*dphi_dz(i)*dphi_dz(j)
+          print*, 'Kuu SSA increment(irow,jcol) =', ssa_factor * (efvs*wqp*detJ/vol0*(4.d0*dphi_dx(i)*dphi_dx(j) + dphi_dy(j)*dphi_dy(i)))
+          print*, 'Kvv SSA increment(irow,jcol) =', ssa_factor * (efvs*wqp*detJ/vol0*(4.d0*dphi_dy(i)*dphi_dy(j) + dphi_dx(j)*dphi_dx(i)))
+          print*, 'SIA increment(irow,jcol) =', sia_factor * (efvs*wqp*detJ/vol0*dphi_dz(i)*dphi_dz(j))
        endif
 
 
@@ -6822,7 +7107,7 @@
                          ! if difference is small, then fix the asymmetry by averaging values
                          ! else print a warning and abort
 
-                         if ( abs(val2-val1) < eps10*abs(diag_entry) ) then
+                         if ( abs(val2-val1) < eps08*abs(diag_entry) ) then
                             avg_val = 0.5d0 * (val1 + val2)
                             Auu( m, k,   i,   j   ) = avg_val
                             Auu(mm, k+kA,i+iA,j+jA) = avg_val
@@ -6830,7 +7115,7 @@
                          else
                             print*, ' '
                             print*, 'WARNING: Auu is not symmetric: i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
-                            print*, 'Auu(row,col), Auu(col,row), diff:', val1, val2, val2 - val1
+                            print*, 'Auu(row,col), Auu(col,row), diff/diag:', val1, val2, (val2 - val1)/diag_entry
 !!                            stop  !TODO - Put in a proper abort
                          endif
 
@@ -6848,7 +7133,7 @@
                          ! if difference is small, then fix the asymmetry by averaging values
                          ! else print a warning and abort
 
-                         if ( abs(val2-val1) < eps10*abs(diag_entry) ) then
+                         if ( abs(val2-val1) < eps08*abs(diag_entry) ) then
                             avg_val = 0.5d0 * (val1 + val2)
                             Auv( m, k,   i,   j   ) = avg_val
                             Avu(mm, k+kA,i+iA,j+jA) = avg_val
@@ -6856,7 +7141,7 @@
                          else
                             print*, ' '
                             print*, 'WARNING: Auv is not equal to (Avu)^T, i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
-                            print*, 'Auv(row,col), Avu(col,row), diff:', val1, val2, val2 - val1
+                            print*, 'Auv(row,col), Avu(col,row), diff/diag:', val1, val2, (val2 - val1)/diag_entry
 !!                            stop  !TODO - Put in a proper abort
                          endif
 
@@ -6894,7 +7179,7 @@
                          ! if difference is small, then fix the asymmetry by averaging values
                          ! else print a warning and abort
 
-                         if ( abs(val2-val1) < eps10*abs(diag_entry) ) then
+                         if ( abs(val2-val1) < eps08*abs(diag_entry) ) then
                             avg_val = 0.5d0 * (val1 + val2)
                             Avv( m, k,   i,   j   ) = avg_val
                             Avv(mm, k+kA,i+iA,j+jA) = avg_val
@@ -6902,7 +7187,7 @@
                          else
                             print*, ' '
                             print*, 'WARNING: Avv is not symmetric: i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
-                            print*, 'Avv(row,col), Avv(col,row), diff:', val1, val2, val2 - val1
+                            print*, 'Avv(row,col), Avv(col,row), diff/diag:', val1, val2, (val2 - val1)/diag_entry
 !!                            stop  !TODO - Put in a proper abort
                          endif
 
@@ -6920,7 +7205,7 @@
                          ! if difference is small, then fix the asymmetry by averaging values
                          ! else print a warning and abort
 
-                         if ( abs(val2-val1) < eps10*abs(diag_entry) ) then
+                         if ( abs(val2-val1) < eps08*abs(diag_entry) ) then
                             avg_val = 0.5d0 * (val1 + val2)
                             Avu( m, k,   i,   j   ) = avg_val
                             Auv(mm, k+kA,i+iA,j+jA) = avg_val
@@ -6928,7 +7213,7 @@
                          else
                             print*, ' '
                             print*, 'WARNING: Avu is not equal to (Auv)^T, i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
-                            print*, 'Avu(row,col), Auv(col,row), diff:', val1, val2, val2 - val1
+                            print*, 'Avu(row,col), Auv(col,row), diff/diag:', val1, val2, (val2 - val1)/diag_entry
 !!                            stop  !TODO - Put in a proper abort
                          endif
 

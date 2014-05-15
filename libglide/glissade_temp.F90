@@ -49,7 +49,7 @@ module glissade_temp
     implicit none
 
     private
-    public :: glissade_init_temp, glissade_temp_driver, glissade_calcflwa
+    public :: glissade_init_temp, glissade_temp_driver, glissade_calcflwa, glissade_calcbpmp
 
     ! time stepping scheme
     !WHL: I am setting this to false.  
@@ -735,7 +735,8 @@ contains
 !      We need stagbpmp for one of the basal traction cases.
 
 !TODO - Think about whether Glissade will support the same basal traction cases as Glide.
-!TODO - Use a staggered difference routine from glam_grid_operators?
+!TODO - Use staggered scalar routine from glissade_grid_operators?
+!       If so, stag_flag_in = 1?
 
        ! Transform basal temperature and pressure melting point onto velocity grid
 
@@ -744,7 +745,7 @@ contains
                      model%general%  ewn, &
                      model%general%  nsn)
        
-       call glissade_calcbpmp(model, &
+       call glissade_calcbpmp(model%general%ewn, model%general%nsn,  &
                               model%geometry%thck,  &
                               model%temper%bpmp)
 
@@ -913,7 +914,7 @@ contains
                     model%general%  ewn,                                                            &
                     model%general%  nsn)
        
-      call glissade_calcbpmp(model,                &
+      call glissade_calcbpmp(model%general%ewn, model%general%nsn,  &
                              model%geometry%thck,  &
                              model%temper%bpmp)
 
@@ -1464,20 +1465,22 @@ contains
 
   !-----------------------------------------------------------------------
 
-  subroutine glissade_calcbpmp(model,thck,bpmp)
+  subroutine glissade_calcbpmp(ewn,   nsn,  &
+                               thck,  bpmp)
 
     ! Calculate the pressure melting point at the base of the ice sheet
 
-    type(glide_global_type) :: model
-    real(dp), dimension(:,:), intent(in)  :: thck
-    real(dp), dimension(:,:), intent(out) :: bpmp
+    integer, intent(in) ::  ewn, nsn    ! grid dimensions
+
+    real(dp), dimension(:,:), intent(in)  :: thck  ! ice thickness (dimensionless)
+    real(dp), dimension(:,:), intent(out) :: bpmp  ! bed pressure melting point (deg C)
 
     integer :: ew,ns
 
-    bpmp = 0.d0
+    bpmp(:,:) = 0.d0
 
-    do ns = 2, model%general%nsn-1
-       do ew = 2, model%general%ewn-1
+    do ns = 1, nsn
+       do ew = 1, ewn
           !TODO - Inline this code?
           call glissade_calcpmpt_bed(bpmp(ew,ns),thck(ew,ns))
        end do
