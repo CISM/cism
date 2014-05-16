@@ -814,10 +814,12 @@
        print*, 'rank, itest, jtest, ktest =', rtest, itest, jtest, ktest
     endif
 
+#ifdef TRILINOS
     if (trilinos_test) then
        call test_trilinos
        stop
     endif
+#endif
 
     !--------------------------------------------------------
     ! Assign local pointers and variables to derived type components
