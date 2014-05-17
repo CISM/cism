@@ -825,7 +825,7 @@
          maxvel = maxvvel
          indices_adv = maxloc(abs(vvel_layer(:,xs:xe,ys:ye)))
       endif
-      indices_adv(2:3) = indices_adv(2:3) + staggered_lhalo  ! want the i,j coordinates WITH the halo present
+      indices_adv(2:3) = indices_adv(2:3) + staggered_lhalo  ! want the i,j coordinates WITH the halo present - we got indices into the slice of owned cells
       ! Finally, determine maximum allowable time step based on advectice CFL condition.
       allowable_dt_adv = dew / (maxvel + 1.0d-20)
 
@@ -853,7 +853,7 @@
                 allowable_dt_diff_here = 0.5d0 * dew**2 * slopemag / (flux_downslope + 1.0e-20)  ! Note: assuming diffu is isotropic here.  assuming dx=dy
                 if (allowable_dt_diff_here < 0.0d0) allowable_dt_diff_here = 1.0d20 ! ignore negative dt's (upgradient flow due to membrane stresses)
                 if (allowable_dt_diff_here < allowable_dt_diff) then
-                   allowable_dt_diff = min(allowable_dt_diff, allowable_dt_diff_here)
+                   allowable_dt_diff = allowable_dt_diff_here
                    indices_diff(1) = i
                    indices_diff(2) = j
                 endif
@@ -862,7 +862,6 @@
       enddo
 
       ! Determine location limiting the DCFL
-      indices_diff = indices_diff + staggered_lhalo  ! adjust to index the full dimensions including the halo
 !      print *, 'diffu dt', allowable_dt_diff, indices_diff(1), indices_diff(2)
 
       ! Optional print of local limiting dt on each procesor

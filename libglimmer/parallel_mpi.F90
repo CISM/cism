@@ -2918,17 +2918,12 @@ contains
     integer,intent(IN)  :: ilocal,  jlocal  ! These include the halos
     integer,intent(OUT) :: iglobal, jglobal ! These do NOT include halos
 
-    ! Return -1 indices if the local i,j is in a halo (and has no representation on the global grid)
-    if ((ilocal <= lhalo) .or. (ilocal > lhalo + own_ewn)) then
-       iglobal = -1
-    else
-       iglobal = (ilocal - lhalo) + global_col_offset
-    endif
-    if ((jlocal <= lhalo) .or. (jlocal > lhalo + own_nsn)) then
-       jglobal = -1
-    else
-       jglobal = (jlocal - lhalo) + global_row_offset
-    endif
+    ! Note: if the local index is in a halo, still convert that to its location
+    ! on the global grid (even though that location on the global grid is owned
+    ! by a different processor!)
+    ! No check is currently made for being located in the global (periodic) halo
+    iglobal = (ilocal - lhalo) + global_col_offset
+    jglobal = (jlocal - lhalo) + global_row_offset
   end subroutine parallel_globalindex
 
   subroutine parallel_localindex(iglobal, jglobal, ilocal, jlocal, rlocal)
