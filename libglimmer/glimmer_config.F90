@@ -50,6 +50,7 @@
 module glimmer_config
 
   use glimmer_global, only : sp, dp, msg_length
+  use glimmer_log
 
   implicit none
 
@@ -726,6 +727,8 @@ contains
     read(value,*,iostat=ios) temp
     if (ios==0) then
        val = temp
+    elseif (ios > 0) then
+       call write_log('Value for "' // trim( name) // '" specified in .config file was not used because of a read error (e.g. wrong data type used).  Default value has been used instead.', GM_WARNING)
     end if
   end subroutine GetValueReal
 
@@ -749,6 +752,8 @@ contains
     read(value,*,iostat=ios) temp
     if (ios==0) then
        val = temp
+    elseif (ios > 0) then
+       call write_log('Value for the option "' // trim( name) // '" specified in .config file was not used because of a read error (e.g. wrong data type used).  Default value has been used instead.', GM_WARNING)
     end if
   end subroutine GetValueDouble
 
@@ -770,6 +775,8 @@ contains
     read(value,*,iostat=ios) temp
     if (ios==0) then
        val = temp
+    elseif (ios > 0) then
+       call write_log('Value for the option "' // trim( name) // '" specified in .config file was not used because of a read error (e.g. wrong data type used).  Default value has been used instead.', GM_WARNING)
     end if
   end subroutine GetValueInt
 
@@ -809,18 +816,28 @@ contains
     integer itemp
     logical ltemp
     integer ios
+    integer ierr
 
+    ierr = 0
     value=''
     call GetValueChar(section,name,value)
 
     read(value,*,iostat=ios) itemp
     if (ios==0) then
        val = itemp == 1
+    elseif (ios > 0) then
+       ierr = 1
     end if
     read(value,*,iostat=ios) ltemp
     if (ios==0) then
        val = ltemp
+    elseif (ios > 0) then
+       ierr = ierr + 1
     end if
+    if (ierr == 2) then
+       call write_log('Value for the option "' // trim( name) // '" specified in .config file was not used because of a read error (e.g. wrong data type used).  Default value has been used instead.', GM_WARNING)
+    endif
+
   end subroutine GetValueLogical
 
   !==================================================================================
