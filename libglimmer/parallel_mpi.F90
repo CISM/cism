@@ -283,6 +283,7 @@ module parallel
      module procedure parallel_reduce_sum_integer
      module procedure parallel_reduce_sum_real4
      module procedure parallel_reduce_sum_real8
+     module procedure parallel_reduce_sum_real8_nvar
   end interface
 
   ! This reduce interface determines the global max value and the processor on which it occurs
@@ -3951,6 +3952,20 @@ contains
     parallel_reduce_sum_real8 = recvbuf
     return
   end function parallel_reduce_sum_real8
+
+  function parallel_reduce_sum_real8_nvar(x)
+    use mpi_mod
+    implicit none
+    real(8) :: x(:)
+    integer :: ierror, nvar
+    real(8), dimension(size(x)) :: recvbuf,sendbuf, parallel_reduce_sum_real8_nvar
+    ! begin
+    nvar = size(x)
+    sendbuf = x
+    call mpi_allreduce(sendbuf,recvbuf,nvar,mpi_real8,mpi_sum,comm,ierror)
+    parallel_reduce_sum_real8_nvar = recvbuf
+    return
+  end function parallel_reduce_sum_real8_nvar
 
 ! ------------------------------------------
 ! functions for parallel_reduce_max interface

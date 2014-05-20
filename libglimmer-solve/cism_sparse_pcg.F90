@@ -38,7 +38,10 @@ module cism_sparse_pcg
   implicit none
 
   private
-  public :: pcg_solver_structured
+  public :: pcg_solver_standard, pcg_solver_chrongear
+
+!WHL - debug
+  public :: solve_test_matrix_chrongear
 
   logical :: verbose_pcg
 
@@ -56,26 +59,31 @@ module cism_sparse_pcg
     integer, parameter :: SPARSE_PRECOND_DIAG = 1      ! diagonal preconditioner
     integer, parameter :: SPARSE_PRECOND_SIA  = 2      ! SIA preconditioner
 
+    interface global_sum_staggered
+       module procedure global_sum_staggered_real8
+       module procedure global_sum_staggered_real8_nvar       
+    end interface
+
 contains
 
 !****************************************************************************
 
-  subroutine pcg_solver_structured(nx,        ny,            &
-                                   nz,        nhalo,         &
-                                   indxA,     active_vertex, &
-                                   Auu,       Auv,           &
-                                   Avu,       Avv,           &
-                                   bu,        bv,            &
-                                   xu,        xv,            &
-                                   precond,   err,           &
-                                   niters,                   &
-                                   itest_in,  jtest_in,  rtest_in,   &
-                                   verbose) 
+  subroutine pcg_solver_standard(nx,        ny,            &
+                                 nz,        nhalo,         &
+                                 indxA,     active_vertex, &
+                                 Auu,       Auv,           &
+                                 Avu,       Avv,           &
+                                 bu,        bv,            &
+                                 xu,        xv,            &
+                                 precond,   err,           &
+                                 niters,                   &
+                                 itest_in,  jtest_in,  rtest_in,   &
+                                 verbose) 
 
     !---------------------------------------------------------------
-    !  This subroutine uses a preconditioned conjugate-gradient solver
+    !  This subroutine uses a standard preconditioned conjugate-gradient algorithm
     !  to solve the equation $Ax=b$.
-    !  Convergence is checked every {\em ncheck} steps.
+    !  Convergence is checked every {\em solv_ncheck} steps.
     !
     !  It is based on the barotropic solver in the POP ocean model 
     !  (author Phil Jones, LANL).  Input and output arrays are located
@@ -182,7 +190,7 @@ contains
 
     real(dp) ::           &
        eta0, eta1, eta2,  &! scalar inner product results
-       alpha,             &! eta1/eta2 = term in expression for new residual
+       alpha,             &! eta1/eta2 = term in expression for new residual and solution
        beta                ! eta1/eta0 = term in expression for new direction vector
 
     ! vectors (each of these is split into u and v components)
@@ -253,85 +261,18 @@ contains
     endif
 
     if (verbose_pcg .and. main_task) then
-       print*, ' '
-       print*, 'In structured pcg solver'
-       print*, 'tolerance, maxiters, precond =', tolerance, maxiters, precond
+       print*, 'Using native PCG solver (standard)'
+!       print*, 'tolerance, maxiters, precond =', tolerance, maxiters, precond
     endif
 
-    ! Set up preconditioning
+    ! Set up matrices for preconditioning
 
-    if (precond == SPARSE_PRECOND_DIAG) then    ! form diagonal matrix for preconditioning
-
-       m = indxA(0,0,0)
-       Adiagu(:,:,:) = Auu(m,:,:,:)
-       Adiagv(:,:,:) = Avv(m,:,:,:)
-
-       if (verbose_pcg .and. this_rank==rtest) then
-          print*, 'Using diagonal matrix for preconditioning'
-       endif  ! verbose_pcg
-
-    elseif (precond == SPARSE_PRECOND_SIA) then  ! form SIA matrices Muu and Mvv with vertical coupling only
-
-       Muu(:,:,:,:) = 0.d0
-       Mvv(:,:,:,:) = 0.d0
-
-       do j = 1, ny-1
-       do i = 1, nx-1
-       do k = 1, nz
-           ! Remove horizontal coupling by using only the iA=0, jA=0 term in each layer.
-
-            !WHL - Summing over the terms in each layer does not work for simple shelf problems
-            !      because the matrix can be singular.
-!           Muu(-1,k,i,j) = sum(Auu(1:9,k,i,j))
-!           Mvv(-1,k,i,j) = sum(Avv(1:9,k,i,j))
-
-!           Muu( 0,k,i,j) = sum(Auu(10:18,k,i,j))
-!           Mvv( 0,k,i,j) = sum(Avv(10:18,k,i,j))
-
-!           Muu( 1,k,i,j) = sum(Auu(19:27,k,i,j))
-!           Mvv( 1,k,i,j) = sum(Avv(19:27,k,i,j))
-
-           ! WHL: Taking the (0,0) term in each layer does not give singular matrices for
-           !       the confined-shelf and circular-shelf problems.
-           !      The solution converges even though the preconditioner is not expected
-           !       to be very good.
-           Muu(-1,k,i,j) = Auu(5,k,i,j)
-           Mvv(-1,k,i,j) = Avv(5,k,i,j)
-           Muu( 0,k,i,j) = Auu(14,k,i,j)
-           Mvv( 0,k,i,j) = Avv(14,k,i,j)
-           Muu( 1,k,i,j) = Auu(23,k,i,j)
-           Mvv( 1,k,i,j) = Avv(23,k,i,j)
-       enddo
-       enddo
-       enddo
-
-!WHL - debug
-       if (verbose_pcg .and. this_rank==rtest) then
-          print*, 'Using easy SIA solver for preconditioning'
-          i = itest
-          j = jtest
-!          print*, ' '
-!          print*, 'i, j =', i, j
-!          print*, ' '
-!          print*, 'k, Muu(-1:1):'
-!          do k = 1, nz
-!             print*, k, Muu(-1:1,k,i,j)
-!          enddo
-!          print*, ' '
-!          print*, 'k, Mvv(-1:1):'
-!          do k = 1, nz
-!             print*, k, Mvv(-1:1,k,i,j)
-!          enddo
-       endif
-
-    else   ! no preconditioning
-
-       if (verbose_pcg .and. this_rank==rtest) then
-          print*, 'Using no preconditioner'
-       endif
-
-
-    endif      ! precond
+    call setup_preconditioner(nx,         ny,       &
+                              nz,                   &
+                              precond,    indxA,    &
+                              Auu,        Avv,      &
+                              Adiagu,     Adiagv,   &
+                              Muu,        Mvv)
 
     ! Compute initial residual and initialize the direction vector d
     ! Note: The matrix A must be complete for all rows corresponding to locally 
@@ -402,7 +343,7 @@ contains
 
     iter_loop: do n = 1, maxiters
 
-       ! Compute (PC)r = solution z of Mz = r
+       ! Compute PC(r) = solution z of Mz = r
 
        if (precond == 0) then      ! no preconditioning
 
@@ -646,7 +587,7 @@ contains
 
     enddo iter_loop
 
-!WHL - Without good preconditioning, convergence is slow, but the solution after maxiters might be good enough.
+!WHL - Without good preconditioning, convergence can be slow, but the solution after maxiters might be good enough.
  
     if (niters == maxiters) then
        if (main_task) then
@@ -656,14 +597,784 @@ contains
 !!!     stop   ! TODO - Abort cleanly
     endif
 
-  end subroutine pcg_solver_structured
+  end subroutine pcg_solver_standard
 
 !****************************************************************************
 
-  subroutine global_sum_staggered(nx,     ny,      &
-                                  nz,     nhalo,   &
-                                  global_sum,      &
-                                  work1,  work2)
+  subroutine pcg_solver_chrongear(nx,        ny,            &
+                                  nz,        nhalo,         &
+                                  indxA,     active_vertex, &
+                                  Auu,       Auv,           &
+                                  Avu,       Avv,           &
+                                  bu,        bv,            &
+                                  xu,        xv,            &
+                                  precond,   err,           &
+                                  niters,                   &
+                                  itest_in,  jtest_in,  rtest_in,   &
+                                  verbose) 
+
+    !---------------------------------------------------------------
+    !  This subroutine uses a Chronopoulos-Gear preconditioned conjugate-gradient
+    !  algorithm to solve the equation $Ax=b$.
+    !
+    !  It is based on the Chronopoulos-Gear PCG solver in the POP ocean model 
+    !  (author Frank Bryan, NCAR). It is a rearranged conjugate gradient solver 
+    !  that reduces the number of global reductions per iteration from two to one 
+    !  (not counting the convergence check).  Convergence is checked every 
+    !  {\em solv_ncheck} steps.
+    !
+    !     References are:
+    !
+    !     Chronopoulos, A.T., and C.W. Gear. S-step iterative methods
+    !        for symmetric linear systems. J. Comput. Appl. Math., 25(2),
+    !        153-168, 1989.
+    !
+    !     Dongarra, J. and V. Eijkhout. LAPACK Working Note 159.
+    !        Finite-choice algorithm optimization in conjugate gradients.
+    !        Tech. Rep. ut-cs-03-502. Computer Science Department.
+    !        University of Tennessee, Knoxville. 2003.
+    !
+    !     D Azevedo, E.F., V.L. Eijkhout, and C.H. Romine. LAPACK Working
+    !        Note 56. Conjugate gradient algorithms with reduced
+    !        synchronization overhead on distributed memory multiprocessors.
+    !        Tech. Rep. CS-93-185.  Computer Science Department.
+    !        University of Tennessee, Knoxville. 1993.
+    !---------------------------------------------------------------
+    !
+    !  The input and output arrays are located on a structured (i,j,k) grid 
+    !  as defined in the glissade_velo_higher module.  
+    !  The global matrix is sparse, but its nonzero elements are stored in 
+    !  four dense matrices called Auu, Avv, Auv, and Avu.
+    !  Each matrix has 3x3x3 = 27 potential nonzero elements per node (i,j,k).
+    !
+    !  The current preconditioning options are
+    !  (0) no preconditioning
+    !  (1) diagonal preconditioning
+    !  (2) preconditioning using a physics-based SIA solver
+    ! 
+    !  For the dome test case with higher-order dynamics, option (2) is best. 
+    !
+    !  Here is a schematic of the method implemented below for solving Ax = b:
+    !
+    !  Set up preconditioner M
+    !  work0 = (b,b)
+    !  bb = global_sum(work0)
+    !
+    !  First pass of algorithm:
+    !  halo_update(x)
+    !  r = b - A*x
+    !  halo_update(r)
+    !  z = (Minv)r
+    !  work(1) = (r,z)
+    !  d = z
+    !  q = A*d
+    !  work(2) = (d,q)
+    !  halo_update(q)
+    !  rho_old = global_sum(work(1))
+    !  sigma = global_sum(work(2))
+    !  alpha = rho_old/sigma
+    !  x = x + alpha*d
+    !  r = r - alpha*q
+    !
+    !  Iterative loop:
+    !  while (not converged)
+    !     z = (Minv)r
+    !     Az = A*z
+    !     work(1) = (r,z)
+    !     work(2) = (Az,z)
+    !     halo_update(Az)
+    !     rho = global_sum(work(1))
+    !     delta = global_sum(work(2))
+    !     beta = rho/rho_old
+    !     sigma = delta - beta^2 * sigma
+    !     alpha = rho/sigma
+    !     rho_old = rho
+    !     d = z + beta*d
+    !     q = Az + beta*q
+    !     x = x + alpha*d
+    !     r = r - alpha*q
+    !     if (time to check convergence) then
+    !        r = b - A*x
+    !        work0 = (r,r)
+    !        halo_update(r)
+    !        rr = global_sum(work0)
+    !        if (sqrt(r,r)/sqrt(b,b) < tolerance) exit
+    !     endif
+    !  end while
+    !
+    !  where x = solution vector
+    !        d = conjugate direction vector
+    !        r = residual vector
+    !     Minv = inverse of preconditioning matrix M
+    !            (can be implemented by solving Mz = r without forming Minv)
+    !    (r,z) = dot product of vectors r and z
+    !            and similarly for (Az,z), etc.
+    !       
+    !---------------------------------------------------------------
+
+    !---------------------------------------------------------------
+    ! input-output arguments
+    !---------------------------------------------------------------
+
+    integer, intent(in) ::   &
+       nx, ny,               &  ! horizontal grid dimensions (for scalars)
+                                ! velocity grid has dimensions (nx-1,ny-1)
+       nz,                   &  ! number of vertical levels where velocity is computed
+       nhalo                    ! number of halo layers (for scalars)
+
+    integer, dimension(-1:1,-1:1,-1:1), intent(in) :: &
+       indxA                 ! maps relative (x,y,z) coordinates to an index between 1 and 27
+
+    logical, dimension(nx-1,ny-1), intent(in) ::   &
+       active_vertex          ! T for columns (i,j) where velocity is computed, else F
+ 
+    real(dp), dimension(27,nz,nx-1,ny-1), intent(in) ::   &
+       Auu, Auv, Avu, Avv     ! four components of assembled matrix
+                              ! 1st dimension = 27 (node and its nearest neighbors in x, y and z direction)
+                              ! other dimensions = (z,x,y) indices
+                              !
+                              !    Auu  | Auv
+                              !    _____|____
+                              !    Avu  | Avv
+                              !         |
+
+    real(dp), dimension(nz,nx-1,ny-1), intent(in) ::  &
+       bu, bv             ! assembled load (rhs) vector, divided into 2 parts
+
+    real(dp), dimension(nz,nx-1,ny-1), intent(inout) ::   &
+       xu, xv             ! u and v components of solution (i.e., uvel and vvel)
+
+    integer, intent(in)  ::   &
+       precond           ! = 0 for no preconditioning
+                         ! = 1 for diagonal preconditioning (best option for SSA-dominated flow)
+                         ! = 2 for preconditioning with SIA solver (works well for SIA-dominated flow)
+
+    real(dp), intent(out) ::  &
+       err                               ! error (L2 norm of residual) in final solution
+
+    integer, intent(out) ::   &
+       niters                            ! iterations needed to solution
+
+    integer, intent(in), optional :: &
+       itest_in, jtest_in, rtest_in      ! point for debugging diagnostics
+
+    logical, intent(in), optional :: &
+       verbose                           ! if true, print diagnostic output
+    
+    !---------------------------------------------------------------
+    ! Local variables and parameters   
+    !---------------------------------------------------------------
+
+    integer ::  i, j, k      ! grid indices
+    integer ::  iA, jA, kA   ! grid offsets ranging from -1 to 1
+    integer ::  m            ! matrix element index
+    integer ::  n            ! iteration counter
+
+    real(dp) ::           &
+       alpha,             &! rho/sigma = term in expression for new residual and solution
+       beta,              &! eta1/eta0 = term in expression for new direction vector
+       rho,               &! global sum of (r,z)
+       rho_old,           &! old value of rho
+       delta,             &! global sum of (s,z)
+       sigma               ! delta - beta^2 * sigma
+
+    real(dp), dimension(2) ::   &
+       gsum                ! result of global sum for dot products
+   
+    ! vectors (each of these is split into u and v components)
+    real(dp), dimension(nz,nx-1,ny-1) ::  &
+       Adiagu, Adiagv,    &! diagonal terms of matrices Auu and Avv
+       ru, rv,            &! residual vector (b-Ax)
+       du, dv,            &! conjugate direction vector
+       zu, zv,            &! solution of Mz = r
+       qu, qv,            &! vector used to adjust residual, r -> r - alpha*q
+       Azu, Azv,          &! result of matvec multiply A*z
+       worku, workv        ! intermediate results
+
+    real(dp), dimension(nz,nx-1,ny-1,2) ::  &
+       work2u, work2v      ! intermediate results
+
+    real(dp) ::  &
+       rr,                &! dot product (r,r)
+       bb,                &! dot product (b,b)
+       L2_resid,          &! L2 norm of residual = sqrt(r,r)
+       L2_rhs              ! L2 norm of rhs vector = sqrt(b,b)
+                           ! solver is converged when L2_resid/L2_rhs < tolerance
+
+    real(dp), dimension(-1:1,nz,nx-1,ny-1) ::  &
+       Muu, Mvv            ! simplified SIA matrices for preconditioning
+
+    !---------------------------------------------------------------
+    ! Solver parameters
+    ! TODO: Pass these in as arguments?
+    !---------------------------------------------------------------
+
+    real(dp), parameter ::   &
+       tolerance = 1.d-11    ! tolerance for linear solver
+
+    integer, parameter ::    &
+       maxiters = 200        ! max number of linear iterations before quitting
+                             
+    integer, parameter :: &
+       solv_ncheck = 1       ! check for convergence every solv_ncheck iterations
+                             !TODO - See if performance improves for less frequent checks
+
+!WHL - debug
+    integer :: itest, jtest, rtest
+
+    if (present(itest_in)) then
+       itest = itest_in
+    else
+       itest = nx/2
+    endif
+
+    if (present(itest_in)) then
+       jtest = jtest_in
+    else
+       jtest = ny/2
+    endif
+
+    if (present(itest_in)) then
+       rtest = rtest_in
+    else
+       rtest = 0
+    endif
+
+    if (present(verbose)) then
+       verbose_pcg = verbose
+    else
+       verbose_pcg = .true.   ! for debugging
+    endif
+
+    if (verbose_pcg .and. main_task) then
+       print*, 'Using native PCG solver (Chronopoulos-Gear)'
+!       print*, 'tolerance, maxiters, precond =', tolerance, maxiters, precond
+    endif
+
+    !---- Set up matrices for preconditioning
+
+    call setup_preconditioner(nx,         ny,       &
+                              nz,                   &
+                              precond,    indxA,    &
+                              Auu,        Avv,      &
+                              Adiagu,     Adiagv,   &
+                              Muu,        Mvv)
+
+    !---- Initialize scalars and vectors
+
+    niters = maxiters 
+    rho = 1.d0
+
+    ru(:,:,:) = 0.d0
+    rv(:,:,:) = 0.d0
+    du(:,:,:) = 0.d0
+    dv(:,:,:) = 0.d0
+    zu(:,:,:) = 0.d0
+    zv(:,:,:) = 0.d0
+    qu(:,:,:) = 0.d0
+    qv(:,:,:) = 0.d0
+    Azu(:,:,:) = 0.d0
+    Azv(:,:,:) = 0.d0
+    worku(:,:,:) = 0.d0
+    workv(:,:,:) = 0.d0
+    work2u(:,:,:,:) = 0.d0
+    work2v(:,:,:,:) = 0.d0
+
+    !---- Compute the L2 norm of the RHS vectors
+    !---- (Goal is to obtain L2_resid/L2_rhs < tolerance)
+
+    worku(:,:,:) = bu(:,:,:)*bu(:,:,:)    ! terms of dot product (b, b)
+    workv(:,:,:) = bv(:,:,:)*bv(:,:,:)
+
+    ! find global sum of the squared L2 norm
+
+    call t_startf("pcg_glbsum_l2norm")
+    call global_sum_staggered(nx,     ny,     &
+                              nz,     nhalo,  &
+                              bb,             &
+                              worku,  workv)
+    call t_stopf("pcg_glbsum_l2norm")
+
+    ! take square root
+
+    L2_rhs = sqrt(bb)       ! L2 norm of RHS
+!!    if (verbose_pcg .and. this_rank==rtest) print*, 'Global L2_rhs =', L2_rhs
+
+    !---------------------------------------------------------------
+    ! First pass of algorithm
+    !---------------------------------------------------------------
+
+    ! Note: The matrix A must be complete for all rows corresponding to locally 
+    !        owned vertices, and x must have the correct values in
+    !        halo vertices bordering the locally owned vertices.
+    !       Then z = Ax will be correct for locally owned vertices.
+
+    !---- Halo update for x (initial guess for velocity solution)
+
+    call t_startf("pcg_halo_init")
+    call staggered_parallel_halo(xu)
+    call staggered_parallel_halo(xv)
+    call t_stopf("pcg_halo_init")
+
+    !TODO - Could use active_vertex array to set up indirect addressing
+    !       and avoid an 'if' in the matvec subroutine
+
+    !---- Compute A*x   (use z as a temp vector for A*x)
+
+    call t_startf("pcg_matmult_init")
+    call matvec_multiply_structured(nx,        ny,            &
+                                    nz,        nhalo,         &
+                                    indxA,     active_vertex, &
+                                    Auu,       Auv,           &
+                                    Avu,       Avv,           &
+                                    xu,        xv,            &
+                                    zu,        zv)
+    call t_stopf("pcg_matmult_init")
+
+    !---- Compute the initial residual r = b - A*x
+    !---- This will be correct for locally owned vertices.
+
+    ru(:,:,:) = bu(:,:,:) - zu(:,:,:)
+    rv(:,:,:) = bv(:,:,:) - zv(:,:,:)
+
+    !---- Halo update for residual
+
+    call t_startf("pcg_halo_init")
+    call staggered_parallel_halo(ru)
+    call staggered_parallel_halo(rv)
+    call t_stopf("pcg_halo_init")
+
+    !---- Compute (PC)r = solution z of Mz = r
+    !---- Since r was just updated in halo, z will be correct in halo
+
+    if (precond == 0) then      ! no preconditioning
+
+       zu(:,:,:) = ru(:,:,:)         ! PC(r) = r     
+       zv(:,:,:) = rv(:,:,:)         ! PC(r) = r    
+
+    elseif (precond == 1 ) then  ! diagonal preconditioning
+
+       do j = 1, ny-1
+       do i = 1, nx-1
+       do k = 1, nz
+          if (Adiagu(k,i,j) /= 0.d0) then
+             zu(k,i,j) = ru(k,i,j) / Adiagu(k,i,j)   ! PC(r), where PC is formed from diagonal elements of A
+          else                                        
+             zu(k,i,j) = 0.d0
+          endif
+          if (Adiagv(k,i,j) /= 0.d0) then
+             zv(k,i,j) = rv(k,i,j) / Adiagv(k,i,j)  
+          else                                        
+             zv(k,i,j) = 0.d0
+          endif
+       enddo    ! k
+       enddo    ! i
+       enddo    ! j
+
+    elseif (precond == 2) then   ! local vertical shallow-ice solver for preconditioning
+
+       call t_startf("pcg_sia_solve1")
+       call easy_sia_solver(nx,   ny,   nz,        &
+                            active_vertex,         &
+                            Muu,  ru,   zu)      ! solve Muu*zu = ru for zu 
+       call t_stopf("pcg_sia_solve1")
+
+       call t_startf("pcg_sia_solve2")
+       call easy_sia_solver(nx,   ny,   nz,        &
+                            active_vertex,         &
+                            Mvv,  rv,   zv)      ! solve Mvv*zv = rv for zv
+       call t_stopf("pcg_sia_solve2")
+
+    endif    ! precond
+
+    !---- Compute intermediate result for dot product (r,z)
+
+    work2u(:,:,:,1) = ru(:,:,:) * zu(:,:,:)
+    work2v(:,:,:,1) = rv(:,:,:) * zv(:,:,:)
+
+    !---- Compute the conjugate direction vector d
+    !---- Since z is correct in halo, so is d
+
+    du(:,:,:) = zu(:,:,:)
+    dv(:,:,:) = zv(:,:,:)
+
+    !---- Compute q = A*d
+    !---- q is correct for locally owned vertices
+
+    call t_startf("pcg_matmult_init")
+    call matvec_multiply_structured(nx,        ny,            &
+                                    nz,        nhalo,         &
+                                    indxA,     active_vertex, &
+                                    Auu,       Auv,           &
+                                    Avu,       Avv,           &
+                                    du,        dv,            &
+                                    qu,        qv)
+    call t_stopf("pcg_matmult_init")
+
+    !---- Compute intermediate result for dot product (d,q) = (d,Ad)
+
+    work2u(:,:,:,2) = du(:,:,:) * qu(:,:,:)
+    work2v(:,:,:,2) = dv(:,:,:) * qv(:,:,:)
+    
+    !---- Halo update for q
+
+    call t_startf("pcg_halo_init")
+    call staggered_parallel_halo(qu)
+    call staggered_parallel_halo(qv)
+    call t_stopf("pcg_halo_init")
+
+    !---- Find global sums of (r,z) and (d,q)
+
+    call t_startf("pcg_glbsum_init")
+    call global_sum_staggered(nx,     ny,     &
+                              nz,     nhalo,  &
+                              gsum,           &
+                              work2u, work2v)
+    call t_stopf("pcg_glbsum_init")
+
+    rho_old = gsum(1)      ! (r,z) = (r, (PC)r)
+    sigma = gsum(2)        ! (d,q) = (d, Ad)
+    alpha = rho_old/sigma  !TODO - Check for divzero
+
+    !---- Update solution and residual
+    !---- These are correct in halo
+
+    xu(:,:,:) = xu(:,:,:) + alpha*du(:,:,:)
+    xv(:,:,:) = xv(:,:,:) + alpha*dv(:,:,:)
+
+    ru(:,:,:) = ru(:,:,:) - alpha*qu(:,:,:)
+    rv(:,:,:) = rv(:,:,:) - alpha*qv(:,:,:)
+
+    !---------------------------------------------------------------
+    ! Iterate to solution
+    !---------------------------------------------------------------
+
+    iter_loop: do n = 1, maxiters
+
+       !---- Compute PC(r) = solution z of Mz = r
+       !---- z is correct in halo
+
+       if (precond == 0) then      ! no preconditioning
+
+           zu(:,:,:) = ru(:,:,:)         ! PC(r) = r
+           zv(:,:,:) = rv(:,:,:)         ! PC(r) = r    
+
+       elseif (precond == 1 ) then  ! diagonal preconditioning
+
+          do j = 1, ny-1
+          do i = 1, nx-1
+          do k = 1, nz
+             if (Adiagu(k,i,j) /= 0.d0) then
+                zu(k,i,j) = ru(k,i,j) / Adiagu(k,i,j)   ! PC(r), where PC is formed from diagonal elements of A
+             else                                        
+                zu(k,i,j) = 0.d0
+             endif
+             if (Adiagv(k,i,j) /= 0.d0) then
+                zv(k,i,j) = rv(k,i,j) / Adiagv(k,i,j)  
+             else                                        
+                zv(k,i,j) = 0.d0
+             endif
+          enddo    ! k
+          enddo    ! i
+          enddo    ! j
+
+       elseif (precond == 2) then   ! local vertical shallow-ice solver for preconditioning
+
+          call t_startf("pcg_sia_solve1")
+          call easy_sia_solver(nx,   ny,   nz,        &
+                               active_vertex,         &
+                               Muu,  ru,   zu)      ! solve Muu*zu = ru for zu 
+          call t_stopf("pcg_sia_solve1")
+
+          call t_startf("pcg_sia_solve2")
+          call easy_sia_solver(nx,   ny,   nz,        &
+                               active_vertex,         &
+                               Mvv,  rv,   zv)      ! solve Mvv*zv = rv for zv
+          call t_stopf("pcg_sia_solve2")
+
+       endif    ! precond
+
+       !---- Compute Az = A*z
+       !---- This is the one matvec multiply required per iteration
+       !---- Az is correct for local vertices and needs a halo update (below)
+
+       call t_startf("pcg_matmult_iter")
+       call matvec_multiply_structured(nx,        ny,            &
+                                       nz,        nhalo,         &
+                                       indxA,     active_vertex, &
+                                       Auu,       Auv,           &
+                                       Avu,       Avv,           &
+                                       zu,        zv,            &
+                                       Azu,       Azv)
+       call t_stopf("pcg_matmult_iter")
+
+       !---- Compute intermediate results for the dot products (r,z) and (s,z)
+
+       work2u(:,:,:,1) = ru(:,:,:)*zu(:,:,:)    ! terms of dot product (r,z) = (r, PC(r))
+       work2v(:,:,:,1) = rv(:,:,:)*zv(:,:,:)    
+
+       work2u(:,:,:,2) = Azu(:,:,:)*zu(:,:,:)    ! terms of dot product (A*z,z) = (A*PC(r), PC(r))
+       work2v(:,:,:,2) = Azv(:,:,:)*zv(:,:,:)    
+
+       !---- Halo update for Az
+       !---- This is the one halo update required per iteration
+
+       call t_startf("pcg_halo_iter")
+       call staggered_parallel_halo(Azu)
+       call staggered_parallel_halo(Azv)
+       call t_stopf("pcg_halo_iter")
+
+       ! Take the global sums of (r,z) and (Az,z)
+       ! Two sums are combined here for efficiency; 
+       ! this is the one MPI global reduction per iteration.
+
+       call t_startf("pcg_glbsum_iter")
+       call global_sum_staggered(nx,     ny,     &
+                                 nz,     nhalo,  &
+                                 gsum,           &
+                                 work2u, work2v)
+       call t_stopf("pcg_glbsum_iter")
+
+       !---- Compute some scalars
+
+       rho = gsum(1)        ! (r, PC(r)
+       delta = gsum(2)      ! (A*PC(r), PC(r))
+       beta = rho / rho_old
+       sigma = delta - beta**2 * sigma
+       alpha = rho / sigma
+       rho_old = rho        ! (r_(i+1), PC(r_(i+1))) --> (r_i, PC(r_i))
+
+       !---- Update d and q
+       !---- These are correct in halo
+
+       du(:,:,:) = zu(:,:,:) + beta*du(:,:,:)       ! d_(i+1) = PC(r_(i+1)) + beta_(i+1)*d_i
+       dv(:,:,:) = zv(:,:,:) + beta*dv(:,:,:)       !
+                                                    !                    (r_(i+1), PC(r_(i+1)))
+                                                    ! where beta_(i+1) = --------------------  
+                                                    !                        (r_i, PC(r_i)) 
+       qu(:,:,:) = Azu(:,:,:) + beta*qu(:,:,:)
+       qv(:,:,:) = Azv(:,:,:) + beta*qv(:,:,:)
+
+       !---- Update solution and residual
+       !---- These are correct in halo
+
+       xu(:,:,:) = xu(:,:,:) + alpha*du(:,:,:)
+       xv(:,:,:) = xv(:,:,:) + alpha*dv(:,:,:)
+
+       ru(:,:,:) = ru(:,:,:) - alpha*qu(:,:,:)
+       rv(:,:,:) = rv(:,:,:) - alpha*qv(:,:,:)
+
+       !WHL - If sigma = 0, then alpha = NaN
+ 
+       if (alpha /= alpha) then  ! alpha is NaN
+          write(6,*) 'rho, sigma, alpha:', rho, sigma, alpha
+          write(6,*) 'Error, PCG solver has failed, alpha = NaN'
+          stop    !TODO - Put in a proper abort
+       endif
+
+       !---------------------------------------------------------------
+       ! Convergence check every solv_ncheck iterations
+       !---------------------------------------------------------------
+
+       ! The cheap way to compute the residual is to take r = r - alpha*q.
+       ! The expensive (and more accurate) way is to take r = b - A*x, which requires 
+       !  a new computation of A*x.
+       ! Usually we do things the cheap way, but we use the expensive way
+       !  when it's time to check for convergence.
+
+       if (mod(n,solv_ncheck) == 0) then    ! r = b - Ax every solv_ncheck iterations
+
+          !---- Compute z = A*x  (use z as a temp vector for A*x)
+           
+          call t_startf("pcg_matmult_resid")
+          call matvec_multiply_structured(nx,        ny,            &
+                                          nz,        nhalo,         &
+                                          indxA,     active_vertex, &
+                                          Auu,       Auv,           &
+                                          Avu,       Avv,           &
+                                          xu,        xv,            &
+                                          zu,        zv)
+          call t_stopf("pcg_matmult_resid")
+
+          !---- Compute residual r = b - A*x
+
+          ru(:,:,:) = bu(:,:,:) - zu(:,:,:)
+          rv(:,:,:) = bv(:,:,:) - zv(:,:,:)
+
+          !---- Update residual in halo for next iteration
+
+          call t_startf("pcg_halo_resid")
+          call staggered_parallel_halo(ru)
+          call staggered_parallel_halo(rv)
+          call t_stopf("pcg_halo_resid")
+
+          !---- Compute dot product (r, r)
+
+          worku(:,:,:) = ru(:,:,:)*ru(:,:,:)
+          workv(:,:,:) = rv(:,:,:)*rv(:,:,:)
+
+          call t_startf("pcg_glbsum_conv")
+          call global_sum_staggered(nx,     ny,       &
+                                    nz,     nhalo,    &
+                                    rr,               &
+                                    worku, workv)
+          call t_stopf("pcg_glbsum_conv")
+
+          ! take square root
+          L2_resid = sqrt(rr)          ! L2 norm of residual
+
+          err = L2_resid/L2_rhs        ! normalized error
+
+          if (verbose_pcg .and. main_task) then
+!             print*, ' '
+!             print*, 'iter, L2_resid, error =', n, L2_resid, err
+          endif
+
+          if (err < tolerance) then
+             niters = n
+             exit iter_loop
+          endif            
+
+       endif    ! solv_ncheck
+
+    enddo iter_loop
+
+    !WHL - Without good preconditioning, convergence can be slow, but the solution after maxiters might be good enough.
+ 
+    if (niters == maxiters) then
+       if (main_task) then
+          print*, 'Glissade PCG solver not converged'
+          print*, 'niters, err, tolerance:', niters, err, tolerance
+       endif
+    endif
+
+  end subroutine pcg_solver_chrongear
+
+!****************************************************************************
+
+  subroutine setup_preconditioner(nx,         ny,       &
+                                  nz,                   &
+                                  precond,    indxA,    &
+                                  Auu,        Avv,      &
+                                  Adiagu,     Adiagv,   &
+                                  Muu,        Mvv)
+
+    ! Set up preconditioning matrices using one of several options
+
+    !---------------------------------------------------------------
+    ! input-output arguments
+    !---------------------------------------------------------------
+
+    integer, intent(in) :: &
+       nx, ny,             &  ! horizontal grid dimensions (for scalars)
+                              ! velocity grid has dimensions (nx-1,ny-1)
+       nz                     ! number of vertical levels where velocity is computed
+
+    integer, intent(in)  ::   &
+       precond                ! = 0 for no preconditioning
+                              ! = 1 for diagonal preconditioning
+                              ! = 2 for preconditioning with SIA solver (works well for SIA-dominated flow)
+
+    integer, dimension(-1:1,-1:1,-1:1), intent(in) :: &
+       indxA                  ! maps relative (x,y,z) coordinates to an index between 1 and 27
+
+    real(dp), dimension(27,nz,nx-1,ny-1), intent(in) ::   &
+       Auu, Avv               ! two out of the four components of assembled matrix
+                              ! 1st dimension = 27 (node and its nearest neighbors in x, y and z direction)
+                              ! other dimensions = (z,x,y) indices
+                              !
+                              !    Auu  | Auv
+                              !    _____|____
+                              !    Avu  | Avv
+                              !         |
+
+    real(dp), dimension(nz,nx-1,ny-1), intent(out) ::   &
+       Adiagu, Adiagv         ! matrices for diagonal preconditioning 
+
+    real(dp), dimension(-1:1,nz,nx-1,ny-1), intent(out) ::   &
+       Muu, Mvv               ! preconditioning matrices based on shallow-ice approximation
+
+    !---------------------------------------------------------------
+    ! local variables
+    !---------------------------------------------------------------
+
+    integer :: i, j, k, m
+
+    ! Initialize
+
+    Adiagu(:,:,:) = 0.d0
+    Adiagv(:,:,:) = 0.d0
+    Muu (:,:,:,:) = 0.d0    
+    Mvv (:,:,:,:) = 0.d0    
+
+    if (precond == SPARSE_PRECOND_DIAG) then    ! form diagonal matrix for preconditioning
+
+       if (verbose_pcg .and. main_task) then
+          print*, 'Using diagonal matrix for preconditioning'
+       endif  ! verbose_pcg
+
+       m = indxA(0,0,0)
+       Adiagu(:,:,:) = Auu(m,:,:,:)
+       Adiagv(:,:,:) = Avv(m,:,:,:)
+
+    elseif (precond == SPARSE_PRECOND_SIA) then  ! form SIA matrices Muu and Mvv with vertical coupling only
+
+       if (verbose_pcg .and. main_task) then
+          print*, 'Using shallow-ice preconditioner'
+       endif  ! verbose_pcg
+
+       do j = 1, ny-1
+       do i = 1, nx-1
+       do k = 1, nz
+           ! Remove horizontal coupling by using only the iA=0, jA=0 term in each layer.
+
+            !WHL - Summing over the terms in each layer does not work for simple shelf problems
+            !      because the matrix can be singular.
+!           Muu(-1,k,i,j) = sum(Auu(1:9,k,i,j))
+!           Mvv(-1,k,i,j) = sum(Avv(1:9,k,i,j))
+
+!           Muu( 0,k,i,j) = sum(Auu(10:18,k,i,j))
+!           Mvv( 0,k,i,j) = sum(Avv(10:18,k,i,j))
+
+!           Muu( 1,k,i,j) = sum(Auu(19:27,k,i,j))
+!           Mvv( 1,k,i,j) = sum(Avv(19:27,k,i,j))
+
+           ! WHL: Taking the (0,0) term in each layer does not give singular matrices for
+           !       the confined-shelf and circular-shelf problems.
+           !      The solution converges for these problems even though the preconditioner 
+           !       is not expected to be very good.
+
+           m = indxA(0,0,-1)
+           Muu(-1,k,i,j) = Auu(m,k,i,j)
+           Mvv(-1,k,i,j) = Avv(m,k,i,j)
+
+           m = indxA(0,0,0)
+           Muu( 0,k,i,j) = Auu(m,k,i,j)
+           Mvv( 0,k,i,j) = Avv(m,k,i,j)
+
+           m = indxA(0,0,1)
+           Muu( 1,k,i,j) = Auu(m,k,i,j)
+           Mvv( 1,k,i,j) = Avv(m,k,i,j)
+       enddo
+       enddo
+       enddo
+
+    else   ! no preconditioning
+
+       if (verbose_pcg .and. main_task) then
+          print*, 'Using no preconditioner'
+       endif
+
+    endif      ! precond
+
+  end subroutine setup_preconditioner
+
+!****************************************************************************
+
+  subroutine global_sum_staggered_real8(nx,     ny,         &
+                                        nz,     nhalo,      &
+                                        global_sum,         &
+                                        work1,  work2)
 
      ! Sum one or two local arrays on the staggered grid, then take the global sum.
 
@@ -683,7 +1394,7 @@ contains
      local_sum = 0.d0
 
      ! sum over locally owned velocity points
-
+     
      if (present(work2)) then
         do j = nhalo+1, ny-nhalo
         do i = nhalo+1, nx-nhalo
@@ -706,7 +1417,63 @@ contains
 
      global_sum = parallel_reduce_sum(local_sum)
 
-    end subroutine global_sum_staggered
+    end subroutine global_sum_staggered_real8
+
+!****************************************************************************
+
+  subroutine global_sum_staggered_real8_nvar(nx,     ny,           &
+                                             nz,     nhalo,        &
+                                             global_sum,           &
+                                             work1,  work2)
+
+     ! Sum one or two local arrays on the staggered grid, then take the global sum.
+
+     integer, intent(in) :: &
+       nx, ny,             &  ! horizontal grid dimensions (for scalars)
+       nz,                 &  ! number of vertical layers at which velocity is computed
+       nhalo                  ! number of halo layers (for scalars)
+
+     real(dp), intent(out), dimension(:) :: global_sum   ! global sum
+
+     real(dp), intent(in), dimension(nz,nx-1,ny-1,size(global_sum)) :: work1            ! local array
+     real(dp), intent(in), dimension(nz,nx-1,ny-1,size(global_sum)), optional :: work2  ! local array
+
+     integer :: i, j, k, n, nvar
+     real(dp), dimension(size(global_sum)) :: local_sum
+
+     nvar = size(global_sum)
+
+     local_sum(:) = 0.d0
+
+     do n = 1, nvar
+
+        ! sum over locally owned velocity points
+
+        if (present(work2)) then
+           do j = nhalo+1, ny-nhalo
+           do i = nhalo+1, nx-nhalo
+           do k = 1, nz
+              local_sum(n) = local_sum(n) + work1(k,i,j,n) + work2(k,i,j,n)
+           enddo
+           enddo
+           enddo
+        else
+           do j = nhalo+1, ny-nhalo
+           do i = nhalo+1, nx-nhalo
+           do k = 1, nz
+              local_sum(n) = local_sum(n) + work1(k,i,j,n)    
+           enddo
+           enddo
+           enddo
+        endif
+
+     enddo   ! nvar
+
+     ! take the global sum
+
+     global_sum(:) = parallel_reduce_sum(local_sum(:))
+
+    end subroutine global_sum_staggered_real8_nvar
 
 !****************************************************************************
 
@@ -902,10 +1669,6 @@ contains
 
     integer :: i, j, k
 
-!WHL - debug
-    real(dp), dimension(nz) :: gamma
-    real(dp) :: beta 
-
     do j = 1, ny-1
     do i = 1, nx-1
 
@@ -943,15 +1706,6 @@ contains
           call tridiag_solver(nz,    sbdiag,   &
                               diag,  spdiag,   &
                               rhs,   soln)
-
-!          if (verbose_pcg .and. this_rank==rtest .and. i==itest .and. j==jtest) then
-!             print*, ' '
-!             print*, 'In easy SIA solver, i, j =', i, j
-!             print*, 'k, sbdiag, diag, spdiag, rhs, soln:'
-!             do k = 1, nz
-!                print*, k, sbdiag(k), diag(k), spdiag(k), rhs(k), soln(k)
-!             enddo
-!          endif
 
           x(:,i,j) = soln(:)
 
@@ -1017,6 +1771,654 @@ contains
     enddo
 
   end subroutine tridiag_solver
+
+!****************************************************************************
+
+!TODO - Remove this subroutine; it was written only to test the Chron-Gear algorithm
+
+  subroutine solve_test_matrix_chrongear (order)
+
+    ! solve a small test matrix using Chronopoulos-Gear algorithm
+
+    integer, intent(in) :: &
+       order       ! matrix order
+
+    !---------------------------------------------------------------
+    ! Local variables and parameters   
+    !---------------------------------------------------------------
+
+    real(dp), dimension(order, order) ::   &
+       Auu, Auv, Avu, Avv
+
+    real(dp), dimension(order) ::     &
+       bu, bv,             & ! right-hand-side (b) in Ax = b
+       xu, xv                ! answer (x) in Ax = b
+
+    real(dp) ::  &
+       err                               ! error (L2 norm of residual) in final solution
+
+    integer ::   &
+       niters                            ! iterations needed to solution
+
+    integer ::  m, n
+
+    real(dp) ::           &
+       alpha,             &! rho/sigma = term in expression for new residual and solution
+       beta,              &! eta1/eta0 = term in expression for new direction vector
+       rho,               &! global sum of (r,z)
+       rho_old,           &! old value of rho
+       delta,             &! global sum of (s,z)
+       sigma               ! delta - beta^2 * sigma
+
+    real(dp), dimension(2) ::   &
+       gsum                ! result of global sum for dot products
+   
+    ! vectors (each of these is split into u and v components)
+
+    real(dp), dimension(order) ::  &
+       Adiagu, Adiagv,    &! diagonal terms of matrices Auu and Avv
+       ru, rv,            &! residual vector (b-Ax)
+       du, dv,            &! conjugate direction vector
+       zu, zv,            &! solution of Mz = r
+       qu, qv,            &! vector used to adjust residual, r -> r - alpha*q
+       Azu, Azv,          &! result of matvec multiply A*z
+       worku, workv        ! intermediate results
+
+    real(dp), dimension(order,2) ::  &
+       work2u, work2v      ! intermediate results
+
+    real(dp) ::  &
+       rr,                &! dot product (r,r)
+       bb,                &! dot product (b,b)
+       L2_resid,          &! L2 norm of residual = sqrt(r,r)
+       L2_rhs              ! L2 norm of rhs vector = sqrt(b,b)
+                           ! solver is converged when L2_resid/L2_rhs < tolerance
+
+    !---------------------------------------------------------------
+    ! Solver parameters
+    !---------------------------------------------------------------
+
+    integer, parameter  ::   &
+       precond = 0           ! = 0 for no preconditioning
+                             ! = 1 for diagonal preconditioning
+
+    real(dp), parameter ::   &
+       tolerance = 1.d-11    ! tolerance for linear solver
+
+    integer, parameter ::    &
+       maxiters = 100        ! max number of linear iterations before quitting
+                             
+    integer, parameter :: &
+       solv_ncheck = 5       ! check for convergence every solv_ncheck iterations
+
+    logical, parameter :: verbose = .false.
+
+!    if (verbose) then
+       print*, 'Using Chron-Gear to solve test matrix, order =', order
+       print*, 'tolerance, maxiters, precond =', tolerance, maxiters, precond
+!    endif
+
+    ! initialize
+    Auu(:,:) = 0.d0
+    Auv(:,:) = 0.d0
+    Avu(:,:) = 0.d0
+    Avv(:,:) = 0.d0
+    bu(:) = 0.d0
+    bv(:) = 0.d0
+    xu(:) = 0.d0
+    xv(:) = 0.d0
+
+    ! Fill matrix (2 on diagonal, -1 on off-diagonal)
+    ! Note: answer = (1 1 1 ... 1 1 1)
+
+    do n = 1, order
+
+       Auu(n,n) = 2.d0
+       Avv(n,n) = 2.d0
+       if (n > 1) then
+          Auu(n,n-1) = -1.d0
+          Avv(n,n-1) = -1.d0
+       else
+          Avu(n,order) = -1.d0
+       endif
+       if (n < order) then
+          Auu(n,n+1) = -1.d0
+          Avv(n,n+1) = -1.d0
+       else
+          Auv(n,1) = -1.d0
+       endif
+       
+       bu(1) = 1.d0
+       bv(order) = 1.d0
+  
+    enddo
+
+    if (verbose) then
+       print*, ' '
+       print*, 'Auu:'
+       do m = 1, order
+          do n = 1, order
+             write(6,'(f4.0)',advance='no') Auu(m,n)
+          enddo
+          print*, ' '
+       enddo
+       print*, ' '
+       print*, 'Auv:'
+       do m = 1, order
+          do n = 1, order
+             write(6,'(f4.0)',advance='no') Auv(m,n)
+          enddo
+          print*, ' '
+       enddo
+       print*, 'Avu:'
+       do m = 1, order
+          do n = 1, order
+             write(6,'(f4.0)',advance='no') Avu(m,n)
+          enddo
+          print*, ' '
+       enddo
+       print*, 'Avv:'
+       do m = 1, order
+          do n = 1, order
+             write(6,'(f4.0)',advance='no') Avv(m,n)
+          enddo
+          print*, ' '
+       enddo
+       print*, 'bu:'
+       do m = 1, order
+          write(6,'(f4.0)',advance='no') bu(m)
+       enddo
+       print*, ' '
+       print*, 'bv:'
+       do m = 1, order
+          write(6,'(f4.0)',advance='no') bv(m)
+       enddo
+       print*, ' '
+       print*, 'xu:'
+       do m = 1, order
+          write(6,'(f4.0)',advance='no') xu(m)
+       enddo
+       print*, ' '
+       print*, 'xv:'
+       do m = 1, order
+          write(6,'(f4.0)',advance='no') xv(m)
+       enddo
+       print*, ' '
+    endif
+
+    if (precond == 1) then    ! form diagonal matrix for preconditioning
+
+       do n = 1, order
+          Adiagu(n) = Auu(n,n)
+          Adiagv(n) = Avv(n,n)
+       enddo
+       if (verbose) then
+          print*, 'Using diagonal matrix for preconditioning'
+       endif
+
+    else   ! no preconditioning
+
+       if (verbose) then
+          print*, 'Using no preconditioner'
+       endif
+
+    endif      ! precond
+
+    !---- Initialize scalars and vectors
+
+    niters = maxiters 
+    rho = 1.d0
+
+    ru(:) = 0.d0
+    rv(:) = 0.d0
+    du(:) = 0.d0
+    dv(:) = 0.d0
+    zu(:) = 0.d0
+    zv(:) = 0.d0
+    qu(:) = 0.d0
+    qv(:) = 0.d0
+    Azu(:) = 0.d0
+    Azv(:) = 0.d0
+    worku(:) = 0.d0
+    workv(:) = 0.d0
+    work2u(:,:) = 0.d0
+    work2v(:,:) = 0.d0
+
+    !---- Compute the L2 norm of the RHS vectors
+    !---- (Goal is to obtain L2_resid/L2_rhs < tolerance)
+
+    worku(:) = bu(:)*bu(:)    ! terms of dot product (b, b)
+    workv(:) = bv(:)*bv(:)
+
+    ! find global sum of the squared L2 norm
+
+    bb = sum(worku+workv)  ! in lieu of global sum
+
+    ! take square root
+
+    L2_rhs = sqrt(bb)       ! L2 norm of RHS
+    if (verbose) print*, 'Global L2_rhs =', L2_rhs
+
+    !---------------------------------------------------------------
+    ! First pass of algorithm
+    !---------------------------------------------------------------
+
+    ! Note: The matrix A must be complete for all rows corresponding to locally 
+    !        owned vertices, and x must have the correct values in
+    !        halo vertices bordering the locally owned vertices.
+    !       Then z = Ax will be correct for locally owned vertices.
+
+    !---- Halo update for x (skip)
+
+    !---- Compute A*x   (use z as a temp vector for A*x)
+
+    call  matvec_multiply_test(order,                    &
+                               Auu,       Auv,           &
+                               Avu,       Avv,           &
+                               xu,        xv,            &
+                               zu,        zv)
+
+    !---- Compute the initial residual r = b - A*x
+
+    ru(:) = bu(:) - zu(:)
+    rv(:) = bv(:) - zv(:)
+
+    print*, ' '
+    print*, 'Initial residual:'
+    print*, 'ru:'
+    do m = 1, order
+       write(6,'(f4.0)',advance='no') ru(m)
+    enddo
+    print*, ' '
+    print*, 'rv:'
+    do m = 1, order
+       write(6,'(f4.0)',advance='no') rv(m)
+    enddo
+    print*, ' '
+
+
+    !---- Halo update for r (skip)
+
+    !---- Compute (PC)r = solution z of Mz = r
+
+    if (precond == 0) then      ! no preconditioning
+
+       zu(:) = ru(:)         ! PC(r) = r     
+       zv(:) = rv(:)         ! PC(r) = r    
+
+    elseif (precond == 1 ) then  ! diagonal preconditioning
+
+       do m = 1, order
+          if (Adiagu(m) /= 0.d0) then
+             zu(m) = ru(m) / Adiagu(m)   ! PC(r), where PC is formed from diagonal elements of A
+          else                                        
+             zu(m) = 0.d0
+          endif
+          if (Adiagv(n) /= 0.d0) then
+             zv(m) = rv(m) / Adiagv(m)  
+          else                                        
+             zv(m) = 0.d0
+          endif
+       enddo    
+
+    endif    ! precond
+
+    !---- Compute intermediate result for dot product (r,z)
+
+    work2u(:,1) = ru(:) * zu(:)
+    work2v(:,1) = rv(:) * zv(:)
+
+    !---- Compute the conjugate direction vector d
+
+    du(:) = zu(:)
+    dv(:) = zv(:)
+
+    !---- Compute q = A*d
+
+    call  matvec_multiply_test(order,                    &
+                               Auu,       Auv,           &
+                               Avu,       Avv,           &
+                               du,        dv,            &
+                               qu,        qv)
+
+    !---- Compute intermediate result for dot product (d,q) = (d,Ad)
+
+    work2u(:,2) = du(:) * qu(:)
+    work2v(:,2) = dv(:) * qv(:)
+    
+    !---- Halo update for q (skip)
+
+    !---- Find global sums of (r,z) and (d,q)
+
+    gsum(1) = sum(work2u(:,1) + work2v(:,1))
+    gsum(2) = sum(work2u(:,2) + work2v(:,2))
+
+
+    rho_old = gsum(1)      ! (r,z) = (r, (PC)r)
+    sigma = gsum(2)        ! (d,q) = (d, Ad)
+    alpha = rho_old/sigma  !TODO - Check for divzero
+
+    if (verbose) then
+       print*, ' '
+       print*, 'After first pass:'
+       print*, ' '
+       print*, 'rho_old =', rho_old
+       print*, 'sigma =', sigma
+       print*, 'alpha =', alpha
+       print*, ' '
+       print*, 'du:'
+       do m = 1, order
+          write(6,'(f6.2)',advance='no') du(m)
+       enddo
+       print*, ' '
+       print*, 'dv:'
+       do m = 1, order
+          write(6,'(f6.2)',advance='no') dv(m)
+       enddo
+       print*, ' '
+       print*, 'qu:'
+       do m = 1, order
+          write(6,'(f6.2)',advance='no') qu(m)
+       enddo
+       print*, ' '
+       print*, 'qv:'
+       do m = 1, order
+          write(6,'(f6.2)',advance='no') qv(m)
+       enddo
+       print*, ' '
+       print*, 'old xu:'
+       do m = 1, order
+          write(6,'(f6.2)',advance='no') xu(m)
+       enddo
+       print*, ' '
+       print*, 'old xv:'
+       do m = 1, order
+          write(6,'(f6.2)',advance='no') xv(m)
+       enddo
+       print*, ' '
+       print*, 'old ru:'
+       do m = 1, order
+          write(6,'(f6.2)',advance='no') ru(m)
+       enddo
+       print*, ' '
+       print*, 'old rv:'
+       do m = 1, order
+          write(6,'(f6.2)',advance='no') rv(m)
+       enddo
+       print*, ' '
+    endif
+
+    !---- Update solution and residual
+
+    xu(:) = xu(:) + alpha*du(:)
+    xv(:) = xv(:) + alpha*dv(:)
+
+    ru(:) = ru(:) - alpha*qu(:)
+    rv(:) = rv(:) - alpha*qv(:)
+
+    if (verbose) then
+       print*, 'new xu:'
+       do m = 1, order
+          write(6,'(f6.2)',advance='no') xu(m)
+       enddo
+       print*, ' '
+       print*, 'new xv:'
+       do m = 1, order
+          write(6,'(f6.2)',advance='no') xv(m)
+       enddo
+       print*, ' '
+       print*, 'new ru:'
+       do m = 1, order
+          write(6,'(f6.2)',advance='no') ru(m)
+       enddo
+       print*, ' '
+       print*, 'new rv:'
+       do m = 1, order
+          write(6,'(f6.2)',advance='no') rv(m)
+       enddo
+       print*, ' '
+    endif
+
+    !---------------------------------------------------------------
+    ! Iterate to solution
+    !---------------------------------------------------------------
+
+    iter_loop: do n = 1, maxiters
+
+       ! Compute PC(r) = solution z of Mz = r
+
+       if (precond == 0) then      ! no preconditioning
+
+           zu(:) = ru(:)         ! PC(r) = r
+           zv(:) = rv(:)         ! PC(r) = r    
+
+       elseif (precond == 1 ) then  ! diagonal preconditioning
+
+          do m = 1, order
+             if (Adiagu(m) /= 0.d0) then
+                zu(m) = ru(m) / Adiagu(m)   ! PC(r), where PC is formed from diagonal elements of A
+             else                                        
+                zu(m) = 0.d0
+             endif
+             if (Adiagv(m) /= 0.d0) then
+                zv(m) = rv(m) / Adiagv(m)  
+             else                                        
+                zv(m) = 0.d0
+             endif
+          enddo
+
+       endif    ! precond
+
+       !---- Compute Az = A*z
+
+       call  matvec_multiply_test(order,                    &
+                                  Auu,       Auv,           &
+                                  Avu,       Avv,           &
+                                  zu,        zv,            &
+                                  Azu,       Azv)
+
+       !---- Compute intermediate results for the dot products (r,z) and (s,z)
+
+       work2u(:,1) = ru(:)*zu(:)    ! terms of dot product (r,z) = (r, PC(r))
+       work2v(:,1) = rv(:)*zv(:)    
+
+       work2u(:,2) = Azu(:)*zu(:)    ! terms of dot product (A*z,z) = (A*PC(r), PC(r))
+       work2v(:,2) = Azv(:)*zv(:)    
+
+       !---- Halo update for Az (skip)
+
+       ! Take the global sums of (r,z) and (Az,z)
+
+       gsum(1) = sum(work2u(:,1) + work2v(:,1))
+       gsum(2) = sum(work2u(:,2) + work2v(:,2))
+
+       !---- Compute some scalars
+
+       rho = gsum(1)        ! (r, PC(r)
+       delta = gsum(2)      ! (A*PC(r), PC(r))
+       beta = rho / rho_old
+       sigma = delta - beta**2 * sigma
+       alpha = rho / sigma
+       rho_old = rho        ! (r_(i+1), PC(r_(i+1))) --> (r_i, PC(r_i))
+
+       !---- Update d and q
+
+       du(:) = zu(:) + beta*du(:)       ! d_(i+1) = PC(r_(i+1)) + beta_(i+1)*d_i
+       dv(:) = zv(:) + beta*dv(:)       !
+
+       qu(:) = Azu(:) + beta*qu(:)
+       qv(:) = Azv(:) + beta*qv(:)
+
+       if (verbose) then
+          print*, ' '
+          print*, 'Update solution, iter =', n
+          print*, ' '
+          print*, 'alpha =', alpha
+          print*, ' '
+          print*, 'du:'
+          do m = 1, order
+             write(6,'(f6.2)',advance='no') du(m)
+          enddo
+          print*, ' '
+          print*, 'dv:'
+          do m = 1, order
+             write(6,'(f6.2)',advance='no') dv(m)
+          enddo        
+          print*, ' '
+          print*, 'old xu:'
+          do m = 1, order
+             write(6,'(f6.2)',advance='no') xu(m)
+          enddo
+          print*, ' '
+          print*, 'old xv:'
+          do m = 1, order
+             write(6,'(f6.2)',advance='no') xv(m)
+          enddo
+       endif
+
+       !---- Update solution and residual
+
+       xu(:) = xu(:) + alpha*du(:)
+       xv(:) = xv(:) + alpha*dv(:)
+
+       ru(:) = ru(:) - alpha*qu(:)
+       rv(:) = rv(:) - alpha*qv(:)
+
+       if (verbose) then
+          print*, ' '
+          print*, 'new xu:'
+          do m = 1, order
+             write(6,'(f6.2)',advance='no') xu(m)
+          enddo
+          print*, ' '
+          print*, 'new xv:'
+          do m = 1, order
+             write(6,'(f6.2)',advance='no') xv(m)
+          enddo
+       endif
+
+       !---------------------------------------------------------------
+       ! Convergence check every solv_ncheck iterations
+       !---------------------------------------------------------------
+
+       if (mod(n,solv_ncheck) == 0) then    ! r = b - Ax every solv_ncheck iterations
+
+          !---- Compute z = A*x  (use z as a temp vector for A*x)
+           
+          call  matvec_multiply_test(order,                    &
+                                     Auu,       Auv,           &
+                                     Avu,       Avv,           &
+                                     xu,        xv,            &
+                                     zu,        zv)
+
+          !---- Compute residual r = b - A*x
+
+          ru(:) = bu(:) - zu(:)
+          rv(:) = bv(:) - zv(:)
+
+          !---- Update residual in halo for next iteration (skip)
+
+          !---- Compute dot product (r, r)
+
+          worku(:) = ru(:)*ru(:)
+          workv(:) = rv(:)*rv(:)
+
+          rr = sum(worku + workv)
+
+          ! take square root
+          L2_resid = sqrt(rr)          ! L2 norm of residual
+
+          err = L2_resid/L2_rhs        ! normalized error
+
+          if (verbose) then
+             print*, ' '
+             print*, 'Checking residual, iter =', n
+             print*, ' '
+             print*, 'iter, L2_resid, error =', n, L2_resid, err
+             print*, ' '
+             print*, 'ru:'
+             do m = 1, order
+                write(6,'(f6.2)',advance='no') ru(m)
+             enddo
+             print*, ' '
+             print*, 'rv:'
+             do m = 1, order
+                write(6,'(f6.2)',advance='no') rv(m)
+             enddo
+             print*, ' '
+          endif
+
+          if (err < tolerance) then
+             niters = n
+             exit iter_loop
+          endif            
+
+       endif    ! solv_ncheck
+
+    enddo iter_loop
+
+     if (niters == maxiters) then
+        print*, 'Test PCG solver not converged'
+        print*, 'niters, err, tolerance:', niters, err, tolerance
+    endif
+
+    stop
+
+  end subroutine solve_test_matrix_chrongear
+
+!****************************************************************************
+
+!TODO - Remove this subroutine; it was written only to test the Chron-Gear algorithm
+
+  subroutine matvec_multiply_test(order,                    &
+                                  Auu,       Auv,           &
+                                  Avu,       Avv,           &
+                                  xu,        xv,            &
+                                  yu,        yv)
+
+    !---------------------------------------------------------------
+    ! Compute the matrix-vector product $y = Ax$.
+    !---------------------------------------------------------------
+
+    !---------------------------------------------------------------
+    ! input-output arguments
+    !---------------------------------------------------------------
+
+    integer, intent(in) ::     &
+       order                  ! matrix order
+
+    real(dp), dimension(order, order), intent(in) ::   &
+       Auu, Auv, Avu, Avv     
+
+    real(dp), dimension(order), intent(in) ::   &
+       xu, xv             ! current guess for solution
+
+    real(dp), dimension(order), intent(out) ::  &
+       yu, yv             ! y = Ax
+
+    !---------------------------------------------------------------
+    ! local variables
+    !---------------------------------------------------------------
+
+    integer :: m,n
+
+    yu(:) = 0.d0
+    yv(:) = 0.d0
+
+    ! Compute y = Ax
+
+    do m = 1, order
+       do n = 1, order
+          yu(m) = yu(m) + Auu(m,n)*xu(n)   &
+                        + Auv(m,n)*xv(n) 
+
+          yv(m) = yv(m) + Avu(m,n)*xu(n)   &
+                        + Avv(m,n)*xv(n)
+ 
+       enddo
+    enddo
+
+  end subroutine matvec_multiply_test
 
 !****************************************************************************
 

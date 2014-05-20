@@ -68,7 +68,7 @@ module glimmer_sparse
     integer, parameter :: SPARSE_SOLVER_BICG = 0          ! SLAP biconjugate gradient
     integer, parameter :: SPARSE_SOLVER_GMRES = 1         ! SLAP GMRES
     integer, parameter :: SPARSE_SOLVER_PCG_INCH = 2      ! SLAP PCG with incomplete Cholesky preconditioner
-    integer, parameter :: STANDALONE_PCG_STRUC = 3        ! PCG with structured (k,i,j) matrix storage
+    integer, parameter :: STANDALONE_PCG_NATIVE = 3       ! Native PCG with structured (k,i,j) matrix storage
                                                           ! Not SLAP; see cism_sparse_pcg.F90
     integer, parameter :: STANDALONE_TRILINOS_SOLVER = 4  ! Trilinos solver
                                                           ! Does not go through sparse_easy_solve because 

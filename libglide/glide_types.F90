@@ -222,7 +222,7 @@ module glide_types
   integer, parameter :: HO_SPARSE_BICG = 0
   integer, parameter :: HO_SPARSE_GMRES = 1
   integer, parameter :: HO_SPARSE_PCG_INCH = 2
-  integer, parameter :: HO_SPARSE_PCG_STRUC = 3
+  integer, parameter :: HO_SPARSE_PCG_NATIVE = 3
   integer, parameter :: HO_SPARSE_TRILINOS = 4
 
   integer, parameter :: SIMPLE_APPROX_SIA = -1
@@ -495,8 +495,8 @@ module glide_types
     !*FD \begin{description}
     !*FD \item[0] SLAP (serial): Biconjugate gradient, incomplete LU preconditioner
     !*FD \item[1] SLAP (serial): GMRES, incomplete LU preconditioner
-    !*FD \item[2] Conjugate gradient, incomplete LU preconditioner
-    !*FD \item[3] Conjugate gradient, structured grid, parallel-enabled
+    !*FD \item[2] SLAP (serial): Preconditioned conjugate gradient, incomplete Cholesky preconditioner
+    !*FD \item[3] Native PCG, structured grid, parallel-enabled
     !*FD \item[4] standalone interface to Trilinos
     !*FD \end{description}
 

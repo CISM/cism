@@ -62,7 +62,10 @@
 
     use glide_types  ! for HO_EFVS and other options
 
-    use cism_sparse_pcg, only: pcg_solver_structured
+    use cism_sparse_pcg, only: pcg_solver_standard, pcg_solver_chrongear
+
+!WHL - debug
+    use cism_sparse_pcg, only: solve_test_matrix_chrongear
 
     use parallel
 
@@ -649,6 +652,9 @@
     ! Local parameters
     !--------------------------------------------------------
 
+    logical, parameter :: pcg_chrongear = .true.  ! if true, use pcg_solver_chrongear
+                                                  ! if false, use pcg_solver_standard
+
     integer, parameter :: cmax = 100          ! max number of outer iterations
 
     !WHL - What I call resid_target is called minresid in glam_strs2
@@ -784,7 +790,7 @@
     real(dp) :: maxthck, maxusrf
     real(dp) :: sumuvel, sumvvel
     logical, parameter :: test_matrix = .false.
-    integer, parameter :: test_order = 20
+    integer, parameter :: test_order = 4
     integer :: rowi
     logical, parameter :: sia_test = .false.
 !    logical, parameter :: sia_test = .true.
@@ -921,9 +927,12 @@
        ssa_factor = 1.d0
     endif
 
-
     if (test_matrix) then
-       call solve_test_matrix(test_order, whichsparse)
+       if (whichsparse <= HO_SPARSE_PCG_INCH) then
+          call solve_test_matrix_slap(test_order, whichsparse)
+       elseif (whichsparse == HO_SPARSE_PCG_NATIVE) then
+          call solve_test_matrix_chrongear(test_order)
+       endif
     endif
 
     ! Make sure that the geometry and flow factor are correct in halo cells.
@@ -1305,7 +1314,7 @@
     !  and communicate this array to Trilinos
 
 #ifdef TRILINOS
-    if (whichsparse == STANDALONE_TRILINOS_SOLVER) then   
+    if (whichsparse == HO_SPARSE_TRILINOS) then   
 
        allocate(active_owned_unknown_map(2*nNodesSolve))
        allocate(velocityResult(2*nNodesSolve))
@@ -1407,8 +1416,8 @@
     !  answer (x), and residual vector (Ax-b).
     !------------------------------------------------------------------------------
 
-    if (whichsparse /= STANDALONE_PCG_STRUC .and.    &
-        whichsparse /= STANDALONE_TRILINOS_SOLVER) then   
+    if (whichsparse /= HO_SPARSE_PCG_NATIVE .and.    &
+        whichsparse /= HO_SPARSE_TRILINOS) then   
 
        matrix_order = 2*nNodesSolve    ! Is this exactly enough?
        max_nonzeros = matrix_order*54  ! 27 = node plus 26 nearest neighbors in hexahedral lattice   
@@ -1985,17 +1994,12 @@
        enddo        ! i
        enddo        ! j
 
-       if (verbose .and. this_rank==rtest) then
-!          print*, ' '
-!          print*, 'rank, nNonzeros (local) =', this_rank, nNonzeros
-       endif
-
        ! Count the total number of nonzero elements on all processors.
        ! If there are no such elements, then return.
 
        nNonzeros_global = parallel_reduce_sum(nNonzeros)
 
-       if (verbose .and. main_task) print*, 'nNonzeros (global) =', nNonzeros_global
+       if (verbose_matrix .and. main_task) print*, 'nNonzeros (global) =', nNonzeros_global
 
        if (nNonzeros_global == 0) then  ! clean up and return
 
@@ -2150,7 +2154,7 @@
 
        endif
 
-       if (whichsparse == STANDALONE_PCG_STRUC) then   ! standalone PCG for structured grid
+       if (whichsparse == HO_SPARSE_PCG_NATIVE) then   ! native PCG for structured grid
                                                        ! works for both serial and parallel runs
 
           !------------------------------------------------------------------------
@@ -2187,16 +2191,36 @@
           !WHL - Pass itest, jtest, rtest for debugging
 
           call t_startf('glissade_pcg_slv_struct')
-          call pcg_solver_structured(nx,           ny,            &
-                                     nz,           nhalo,         &
-                                     indxA,        active_vertex, &
-                                     Auu,          Auv,           &
-                                     Avu,          Avv,           &
-                                     bu,           bv,            &
-                                     uvel,         vvel,          &
-                                     whichprecond, err,           &
-                                     niters,                      &
-                                     itest, jtest, rtest)
+
+          if (pcg_chrongear) then   ! use Chronopoulos-Gear PCG algorithm
+                                    ! (better scaling for large problems)
+
+             call pcg_solver_chrongear(nx,           ny,            &
+                                       nz,           nhalo,         &
+                                       indxA,        active_vertex, &
+                                       Auu,          Auv,           &
+                                       Avu,          Avv,           &
+                                       bu,           bv,            &
+                                       uvel,         vvel,          &
+                                       whichprecond, err,           &
+                                       niters,                      &
+                                       itest, jtest, rtest)
+
+          else   ! use standard PCG algorithm
+             
+             call pcg_solver_standard(nx,           ny,            &
+                                      nz,           nhalo,         &
+                                      indxA,        active_vertex, &
+                                      Auu,          Auv,           &
+                                      Avu,          Avv,           &
+                                      bu,           bv,            &
+                                      uvel,         vvel,          &
+                                      whichprecond, err,           &
+                                      niters,                      &
+                                      itest, jtest, rtest)
+
+          endif  ! pcg_chrongear
+
           call t_stopf('glissade_pcg_slv_struct')
 
           if (verbose .and. main_task) then
@@ -2212,7 +2236,7 @@
           call t_stopf('glissade_halo_xvel')
 
 #ifdef TRILINOS
-       elseif (whichsparse == STANDALONE_TRILINOS_SOLVER) then   ! solve with Trilinos
+       elseif (whichsparse == HO_SPARSE_TRILINOS) then   ! solve with Trilinos
 
           !------------------------------------------------------------------------
           ! Compute the residual vector and its L2 norm
@@ -2378,7 +2402,7 @@
           call staggered_parallel_halo(vvel)
           call t_stopf('glissade_halo_xvel')
 
-       endif   ! whichsparse (STANDALONE_PCG_STRUC or not) 
+       endif   ! whichsparse (HO_SPARSE_PCG_NATIVE or not) 
 
 !WHL - bug check
        if (verbose_state .and. this_rank==rtest) then
@@ -2500,8 +2524,8 @@
        if (main_task) then
           if (whichresid == HO_RESID_L2NORM) then
              if (verbose) then
-                print*, ' '
-                print*, 'Using L2 norm convergence criterion'
+!                print*, ' '
+!                print*, 'Using L2 norm convergence criterion'
                 print*, 'iter#, L2 norm, L2 target:', counter, L2_norm, L2_target
              else   ! standard short message
                 print '(i4,2g20.6)', counter, L2_norm, L2_target
@@ -2510,8 +2534,8 @@
              !call write_log (message)
           else
              if (verbose) then
-                print*, ' '
-                print*, 'Using velocity residual convergence criterion'
+!                print*, ' '
+!                print*, 'Using velocity residual convergence criterion'
                 print*, 'iter#, resid velo, resid target:', counter, resid_velo, resid_target
              else
                 print '(i4,2g20.6)', counter, resid_velo, resid_target
@@ -2564,14 +2588,14 @@
     !------------------------------------------------------------------------------
 
     call t_startf('glissade_vhs_cleanup')
-    if (whichsparse /= STANDALONE_PCG_STRUC .and.   &
-        whichsparse /= STANDALONE_TRILINOS_SOLVER) then
+    if (whichsparse /= HO_SPARSE_PCG_NATIVE .and.   &
+        whichsparse /= HO_SPARSE_TRILINOS) then
        deallocate(matrix%row, matrix%col, matrix%val)
        deallocate(rhs, answer, resid_vec)
     endif
 
 #ifdef TRILINOS
-    if (whichsparse == STANDALONE_TRILINOS_SOLVER) then
+    if (whichsparse == HO_SPARSE_TRILINOS) then
        deallocate(active_owned_unknown_map)
        deallocate(velocityResult)
        deallocate(Afill)
@@ -3832,7 +3856,7 @@
     !  active nodes, but only 27 columns, corresponding to the 27 vertices that belong to
     !  the 8 elements sharing a given node.
     !
-    ! The homegrown structured PCG solver works with the dense A matrices in the form
+    ! The native structured PCG solver works with the dense A matrices in the form
     ! computed here.  For the SLAP solver, the terms of the A matrices are put
     ! in a sparse matrix during preprocessing.  For the Trilinos solver, the terms
     ! of the A matrices are passed to Trilinos one row at a time. 
@@ -7348,13 +7372,13 @@
 
 !****************************************************************************
 
-  subroutine solve_test_matrix (matrix_order, whichsparse)
+  subroutine solve_test_matrix_slap (matrix_order, whichsparse)
 
     ! solve a small test matrix
 
     integer, intent(in) :: &
        matrix_order,       & ! matrix order
-       whichsparse           ! solution method (0=BiCG, 1=GMRES, 2=PCG_DIAG, 3=PCG_INCH, 5 = STANDALONE_PCG)
+       whichsparse           ! solution method (0=BiCG, 1=GMRES, 2==PCG_INCH)
 
     logical :: verbose_test = .true.
 
@@ -7375,84 +7399,86 @@
 
     print*, 'Solving test matrix, order =', matrix_order
 
-    nNonzero_max = matrix_order*matrix_order    ! not sure how big this must be
+    if (whichsparse <= HO_SPARSE_PCG_INCH) then ! test SLAP solve
 
-    allocate(Atest(matrix_order,matrix_order))
-    Atest(:,:) = 0.d0
+       nNonzero_max = matrix_order*matrix_order    ! not sure how big this must be
 
-    allocate(matrix%row(nNonzero_max), matrix%col(nNonzero_max), matrix%val(nNonzero_max))
-    allocate(rhs(matrix_order), answer(matrix_order))
+       allocate(Atest(matrix_order,matrix_order))
+       Atest(:,:) = 0.d0
 
-    rhs(:) = 0.d0
-    answer(:) = 0.d0
-    matrix%row(:) = 0
-    matrix%col(:) = 0
-    matrix%val(:) = 0.d0
+       allocate(matrix%row(nNonzero_max), matrix%col(nNonzero_max), matrix%val(nNonzero_max))
+       allocate(rhs(matrix_order), answer(matrix_order))
 
-    matrix%order = matrix_order
-    matrix%symmetric = .false.
+       rhs(:) = 0.d0
+       answer(:) = 0.d0
+       matrix%row(:) = 0
+       matrix%col(:) = 0
+       matrix%val(:) = 0.d0
 
-    if (matrix%order == 2) then    ! symmetric 2x2
-       Atest(1,1:2) = (/3.d0, 2.d0 /)
-       Atest(2,1:2) = (/2.d0, 6.d0 /)
-       rhs(1:2) = (/2.d0, -8.d0 /)   ! answer = (2 -2) 
+       matrix%order = matrix_order
+       matrix%symmetric = .false.
 
-    elseif (matrix%order == 3) then
+       if (matrix%order == 2) then    ! symmetric 2x2
+          Atest(1,1:2) = (/3.d0, 2.d0 /)
+          Atest(2,1:2) = (/2.d0, 6.d0 /)
+          rhs(1:2) = (/2.d0, -8.d0 /)   ! answer = (2 -2) 
+          
+       elseif (matrix%order == 3) then
+          
+          ! symmetric
+          Atest(1,1:3) = (/ 7.d0, -2.d0,  0.d0 /)
+          Atest(2,1:3) = (/-2.d0,  6.d0, -2.d0 /)
+          Atest(3,1:3) = (/ 0.d0, -2.d0,  5.d0 /)
+          rhs(1:3)   =   (/ 3.d0,  8.d0,  1.d0 /)   ! answer = (1 2 1)
 
-       ! symmetric
-       Atest(1,1:3) = (/ 7.d0, -2.d0,  0.d0 /)
-       Atest(2,1:3) = (/-2.d0,  6.d0, -2.d0 /)
-       Atest(3,1:3) = (/ 0.d0, -2.d0,  5.d0 /)
-       rhs(1:3)   =   (/ 3.d0,  8.d0,  1.d0 /)   ! answer = (1 2 1)
-
-        ! non-symmetric
+          ! non-symmetric
 !       Atest(1,1:3) = (/3.d0,   1.d0,  1.d0 /)
 !       Atest(2,1:3) = (/2.d0,   2.d0,  5.d0 /)
 !       Atest(3,1:3) = (/1.d0,  -3.d0, -4.d0 /)
 !       rhs(1:3)   =  (/ 6.d0,  11.d0, -9.d0 /)   ! answer = (1 2 1)
 
-    else if (matrix%order == 4) then
+       else if (matrix%order == 4) then
 
-        ! symmetric
+          ! symmetric
 
-       Atest(1,1:4) = (/ 2.d0, -1.d0,  0.d0,  0.d0 /)
-       Atest(2,1:4) = (/-1.d0,  2.d0, -1.d0,  0.d0 /)
-       Atest(3,1:4) = (/ 0.d0, -1.d0,  2.d0, -1.d0 /)
-       Atest(4,1:4) = (/ 0.d0,  0.d0, -1.d0,  2.d0 /)
-       rhs(1:4)    = (/  0.d0,  1.d0, -1.d0,  4.d0 /)   ! answer = (1 2 2 3)
+          Atest(1,1:4) = (/ 2.d0, -1.d0,  0.d0,  0.d0 /)
+          Atest(2,1:4) = (/-1.d0,  2.d0, -1.d0,  0.d0 /)
+          Atest(3,1:4) = (/ 0.d0, -1.d0,  2.d0, -1.d0 /)
+          Atest(4,1:4) = (/ 0.d0,  0.d0, -1.d0,  2.d0 /)
+          rhs(1:4)    = (/  0.d0,  1.d0, -1.d0,  4.d0 /)   ! answer = (1 2 2 3)
 
-        ! non-symmetric
+          ! non-symmetric
 !       Atest(1,1:4) = (/3.d0,  0.d0,  2.d0, -1.d0 /)
 !       Atest(2,1:4) = (/1.d0,  2.d0,  0.d0,  2.d0 /)
 !       Atest(3,1:4) = (/4.d0,  0.d0,  6.d0, -3.d0 /)
 !       Atest(4,1:4) = (/5.d0,  0.d0,  2.d0,  0.d0 /)
 !       rhs(1:4)    = (/ 6.d0,  7.d0, 13.d0,  9.d0 /)   ! answer = (1 2 2 1)
 
-    elseif (matrix%order > 4) then
+       elseif (matrix%order > 4) then
   
-        Atest(:,:) = 0.d0
-        do n = 1, matrix%order 
-           Atest(n,n) = 2.d0
-           if (n > 1) Atest(n,n-1) = -1.d0
-           if (n < matrix%order) Atest(n,n+1) = -1.d0
-        enddo
+          Atest(:,:) = 0.d0
+          do n = 1, matrix%order 
+             Atest(n,n) = 2.d0
+             if (n > 1) Atest(n,n-1) = -1.d0
+             if (n < matrix%order) Atest(n,n+1) = -1.d0
+          enddo
 
-        rhs(1) = 1.d0
-        rhs(matrix%order) = 1.d0
-        rhs(2:matrix%order-1) = 0.d0              ! answer = (1 1 1 ... 1 1 1)
+          rhs(1) = 1.d0
+          rhs(matrix%order) = 1.d0
+          rhs(2:matrix%order-1) = 0.d0              ! answer = (1 1 1 ... 1 1 1)
         
-    endif
+       endif
 
-    if (verbose_test) then
-       print*, ' '
-       print*, 'Atest =', Atest
-       print*, 'rhs =', rhs
-    endif
+       if (verbose_test) then
+          print*, ' '
+          print*, 'Atest =', Atest
+          print*, 'rhs =', rhs
+       endif
 
-    ! Put in SLAP triad format (column ascending order)
+       ! Put in SLAP triad format (column ascending order)
 
-    n = 0
-    do j = 1, matrix%order
+       n = 0
+       do j = 1, matrix%order
        do i = 1, matrix%order
           if (Atest(i,j) /= 0.d0) then 
              n = n + 1
@@ -7461,38 +7487,45 @@
              matrix%val(n) = Atest(i,j)
           endif
        enddo
-    enddo
-
-    ! Set number of nonzero values
-    matrix%nonzeros = n
-
-    if (verbose_test) then
-       print*, ' '
-       print*, 'row,       col,       val:'
-       do n = 1, matrix%nonzeros
-          print*, matrix%row(n), matrix%col(n), matrix%val(n)
        enddo
-       print*, 'Call sparse_easy_solve, whichsparse =', whichsparse
-    endif
 
-    ! Solve the linear matrix problem
+       ! Set number of nonzero values
+       matrix%nonzeros = n
 
+       if (verbose_test) then
+          print*, ' '
+          print*, 'row,       col,       val:'
+          do n = 1, matrix%nonzeros
+             print*, matrix%row(n), matrix%col(n), matrix%val(n)
+          enddo
+          print*, 'Call sparse_easy_solve, whichsparse =', whichsparse
+       endif
 
-    call sparse_easy_solve(matrix, rhs,    answer,  &
-                           err,    niters, whichsparse)
+       ! Solve the linear matrix problem
 
-    if (verbose_test) then
-       print*, ' '
-       print*, 'answer =', answer
-       print*, 'err =', err       
-       print*, 'niters =', niters
-    endif
+       call sparse_easy_solve(matrix, rhs,    answer,  &
+                              err,    niters, whichsparse)
+
+       if (verbose_test) then
+          print*, ' '
+          print*, 'answer =', answer
+          print*, 'err =', err       
+          print*, 'niters =', niters
+       endif
+
+    else
+
+       print*, 'Invalid value of whichsparse; must use a slap option for solve_test_matrix'
+       stop
+
+    endif   ! whichsparse
 
     stop
 
-  end subroutine solve_test_matrix
+  end subroutine solve_test_matrix_slap
 
 !****************************************************************************
+
 
 !WHL - This subroutine is currently not called.
 !      It might be useful if the matrix contains many entries that are

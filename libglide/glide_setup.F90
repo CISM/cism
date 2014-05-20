@@ -767,8 +767,8 @@ contains
          'BiCG with LU preconditioner                ', &
          'GMRES with LU preconditioner               ', &
          'PCG with incomplete Cholesky preconditioner', &
-         'Standalone PCG solver (structured)         ', &
-         'Standalone Trilinos interface              '/)
+         'Native PCG solver                          ', &
+         'Trilinos interface                         '/)
 
     character(len=*), dimension(-1:2), parameter :: ho_whichapprox = (/ &
          'SIA only (glissade_velo_sia)            ', &
@@ -836,7 +836,7 @@ contains
     end if
 
     if (model%options%whichdycore /= DYCORE_GLISSADE) then 
-       if (model%options%which_ho_sparse == HO_SPARSE_PCG_STRUC) then
+       if (model%options%which_ho_sparse == HO_SPARSE_PCG_NATIVE) then
           call write_log('Error, structured PCG solver requires glissade dycore')
        endif
     endif
@@ -1038,7 +1038,7 @@ contains
        end if
 
        if (model%options%whichdycore == DYCORE_GLISSADE .and. &
-           model%options%which_ho_sparse == HO_SPARSE_PCG_STRUC) then 
+           model%options%which_ho_sparse == HO_SPARSE_PCG_NATIVE) then 
           write(message,*) 'ho_whichprecond         : ',model%options%which_ho_precond,  &
                             ho_whichprecond(model%options%which_ho_precond)
           call write_log(message)
