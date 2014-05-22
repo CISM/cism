@@ -150,8 +150,12 @@ endif
   cd $TEST_DIR/reg_test/ismip-hom-a/20km
   qsub $CISM_RUN_SCRIPT
 
-  ## ISMIP test case C - not operational for glide
+  ## ISMIP test case C, 80 km - not operational for glide
   cd $TEST_DIR/reg_test/ismip-hom-c/80km
+  qsub $CISM_RUN_SCRIPT
+  
+  ## ISMIP test case C, 20 km - not operational for glide
+  cd $TEST_DIR/reg_test/ismip-hom-c/20km
   qsub $CISM_RUN_SCRIPT
  endif
 
