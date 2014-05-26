@@ -41,7 +41,7 @@ module cism_sparse_pcg
   public :: pcg_solver_standard, pcg_solver_chrongear
 
 !WHL - debug
-  public :: solve_test_matrix_chrongear
+  public :: solve_test_matrix_chrongear, solve_test_matrix_standard
 
   logical :: verbose_pcg
 
@@ -458,6 +458,7 @@ contains
                                                     ! For n >=2, eta0 = old eta1
 
        ! Halo update for d
+       !TODO - Is this needed?
 
        call t_startf("pcg_halo_dx")
        call staggered_parallel_halo(du)
@@ -863,7 +864,7 @@ contains
     !---- Initialize scalars and vectors
 
     niters = maxiters 
-    rho = 1.d0
+    rho = 1.d0      !TODO - not needed?
 
     ru(:,:,:) = 0.d0
     rv(:,:,:) = 0.d0
@@ -1108,7 +1109,7 @@ contains
                                        Azu,       Azv)
        call t_stopf("pcg_matmult_iter")
 
-       !---- Compute intermediate results for the dot products (r,z) and (s,z)
+       !---- Compute intermediate results for the dot products (r,z) and (Az,z)
 
        work2u(:,:,:,1) = ru(:,:,:)*zu(:,:,:)    ! terms of dot product (r,z) = (r, PC(r))
        work2v(:,:,:,1) = rv(:,:,:)*zv(:,:,:)    
@@ -1320,7 +1321,7 @@ contains
     elseif (precond == SPARSE_PRECOND_SIA) then  ! form SIA matrices Muu and Mvv with vertical coupling only
 
        if (verbose_pcg .and. main_task) then
-          print*, 'Using shallow-ice preconditioner'
+!!          print*, 'Using shallow-ice preconditioner'
        endif  ! verbose_pcg
 
        do j = 1, ny-1
@@ -1848,10 +1849,11 @@ contains
     integer, parameter ::    &
        maxiters = 100        ! max number of linear iterations before quitting
                              
+    !TODO - Try solv_ncheck = 5
     integer, parameter :: &
-       solv_ncheck = 5       ! check for convergence every solv_ncheck iterations
+       solv_ncheck = 1       ! check for convergence every solv_ncheck iterations
 
-    logical, parameter :: verbose = .false.
+    logical, parameter :: verbose = .true.
 
 !    if (verbose) then
        print*, 'Using Chron-Gear to solve test matrix, order =', order
@@ -2274,6 +2276,7 @@ contains
           do m = 1, order
              write(6,'(f6.2)',advance='no') xv(m)
           enddo
+          print*, ' '
        endif
 
        !---- Update solution and residual
@@ -2350,6 +2353,7 @@ contains
 
           if (err < tolerance) then
              niters = n
+             print*, 'Exit, niters =', niters
              exit iter_loop
           endif            
 
@@ -2365,6 +2369,479 @@ contains
     stop
 
   end subroutine solve_test_matrix_chrongear
+
+!****************************************************************************
+
+!TODO - Remove this subroutine; it was written only to test the Chron-Gear algorithm
+
+  subroutine solve_test_matrix_standard (order)
+
+    ! solve a small test matrix using standard PCG algorithm
+
+    integer, intent(in) :: &
+       order       ! matrix order
+
+    !---------------------------------------------------------------
+    ! Local variables and parameters   
+    !---------------------------------------------------------------
+
+    real(dp), dimension(order, order) ::   &
+       Auu, Auv, Avu, Avv
+
+    real(dp), dimension(order) ::     &
+       bu, bv,             & ! right-hand-side (b) in Ax = b
+       xu, xv                ! answer (x) in Ax = b
+
+    integer ::  i, j, k      ! grid indices
+    integer ::  m, n
+
+    real(dp) ::  &
+       err                               ! error (L2 norm of residual) in final solution
+
+    integer ::   &
+       niters                            ! iterations needed to solution
+
+    real(dp) ::           &
+       eta0, eta1, eta2,  &! scalar inner product results
+       alpha,             &! eta1/eta2 = term in expression for new residual and solution
+       beta                ! eta1/eta0 = term in expression for new direction vector
+
+    ! vectors (each of these is split into u and v components)
+    real(dp), dimension(order) ::  &
+       Adiagu, Adiagv,    &! diagonal terms of matrices Auu and Avv
+       ru, rv,            &! residual vector (b-Ax)
+       du, dv,            &! conjugate direction vector
+       yu, yv,            &! result of a matvec multiply
+       zu, zv,            &! solution of Mz = r
+       work0u, work0v      ! cg intermediate results
+
+    real(dp) ::  &
+       L2_resid,          &! L2 norm of residual vector Ax-b
+       L2_rhs              ! L2 norm of rhs vector b
+                           ! solver converges when L2_resid/L2_rhs < tolerance
+    integer :: itest, jtest, rtest
+
+    !---------------------------------------------------------------
+    ! Solver parameters
+    !---------------------------------------------------------------
+
+    integer, parameter  ::   &
+       precond = 0           ! = 0 for no preconditioning
+                             ! = 1 for diagonal preconditioning
+
+    real(dp), parameter ::   &
+       tolerance = 1.d-11    ! tolerance for linear solver
+
+    integer, parameter ::    &
+       maxiters = 100        ! max number of linear iterations before quitting
+                
+    !TODO - Try with solv_ncheck = solv_resid = 5             
+    integer, parameter :: &
+       solv_ncheck = 1       ! check for convergence every solv_ncheck iterations
+
+    integer, parameter :: &
+       solv_resid = 50        ! check for convergence every solv_ncheck iterations
+
+    logical, parameter :: verbose = .true.
+
+!    if (verbose) then
+       print*, 'Using standard PCG to solve test matrix, order =', order
+       print*, 'tolerance, maxiters, precond =', tolerance, maxiters, precond
+!    endif
+
+    ! initialize
+    Auu(:,:) = 0.d0
+    Auv(:,:) = 0.d0
+    Avu(:,:) = 0.d0
+    Avv(:,:) = 0.d0
+    bu(:) = 0.d0
+    bv(:) = 0.d0
+    xu(:) = 0.d0
+    xv(:) = 0.d0
+
+    ! Fill matrix (2 on diagonal, -1 on off-diagonal)
+    ! Note: answer = (1 1 1 ... 1 1 1)
+
+    do n = 1, order
+
+       Auu(n,n) = 2.d0
+       Avv(n,n) = 2.d0
+       if (n > 1) then
+          Auu(n,n-1) = -1.d0
+          Avv(n,n-1) = -1.d0
+       else
+          Avu(n,order) = -1.d0
+       endif
+       if (n < order) then
+          Auu(n,n+1) = -1.d0
+          Avv(n,n+1) = -1.d0
+       else
+          Auv(n,1) = -1.d0
+       endif
+       
+       bu(1) = 1.d0
+       bv(order) = 1.d0
+  
+    enddo
+
+    if (verbose) then
+       print*, ' '
+       print*, 'Auu:'
+       do m = 1, order
+          do n = 1, order
+             write(6,'(f4.0)',advance='no') Auu(m,n)
+          enddo
+          print*, ' '
+       enddo
+       print*, ' '
+       print*, 'Auv:'
+       do m = 1, order
+          do n = 1, order
+             write(6,'(f4.0)',advance='no') Auv(m,n)
+          enddo
+          print*, ' '
+       enddo
+       print*, 'Avu:'
+       do m = 1, order
+          do n = 1, order
+             write(6,'(f4.0)',advance='no') Avu(m,n)
+          enddo
+          print*, ' '
+       enddo
+       print*, 'Avv:'
+       do m = 1, order
+          do n = 1, order
+             write(6,'(f4.0)',advance='no') Avv(m,n)
+          enddo
+          print*, ' '
+       enddo
+       print*, 'bu:'
+       do m = 1, order
+          write(6,'(f4.0)',advance='no') bu(m)
+       enddo
+       print*, ' '
+       print*, 'bv:'
+       do m = 1, order
+          write(6,'(f4.0)',advance='no') bv(m)
+       enddo
+       print*, ' '
+       print*, 'xu:'
+       do m = 1, order
+          write(6,'(f4.0)',advance='no') xu(m)
+       enddo
+       print*, ' '
+       print*, 'xv:'
+       do m = 1, order
+          write(6,'(f4.0)',advance='no') xv(m)
+       enddo
+       print*, ' '
+    endif
+
+    if (precond == 1) then    ! form diagonal matrix for preconditioning
+
+       do n = 1, order
+          Adiagu(n) = Auu(n,n)
+          Adiagv(n) = Avv(n,n)
+       enddo
+       if (verbose) then
+          print*, 'Using diagonal matrix for preconditioning'
+       endif
+
+    else   ! no preconditioning
+
+       if (verbose) then
+          print*, 'Using no preconditioner'
+       endif
+
+    endif      ! precond
+
+    ! Compute initial residual and initialize the direction vector d
+    ! Note: The matrix A must be complete for all rows corresponding to locally 
+    !        owned vertices, and x must have the correct values in
+    !        halo vertices bordering the locally owned vertices.
+    !       Then y = Ax will be correct for locally owned vertices.
+
+    ! Halo update for x (skip)
+
+    ! Compute y = Ax
+
+    call matvec_multiply_test(order,   &
+                              Auu,       Auv,           &
+                              Avu,       Avv,           &
+                              xu,        xv,            &
+                              yu,        yv)
+
+    ! Compute the initial residual r(0) = b - Ax(0)
+    ! This will be correct for locally owned vertices.
+
+    ru(:) = bu(:) - yu(:)
+    rv(:) = bv(:) - yv(:)
+
+    print*, ' '
+    print*, 'Initial residual:'
+    print*, 'ru:'
+    do m = 1, order
+       write(6,'(f4.0)',advance='no') ru(m)
+    enddo
+    print*, ' '
+    print*, 'rv:'
+    do m = 1, order
+       write(6,'(f4.0)',advance='no') rv(m)
+    enddo
+    print*, ' '
+
+
+    ! Initialize scalars and vectors
+
+    niters = maxiters 
+    eta0 = 1.d0
+
+    du(:) = 0.d0
+    dv(:) = 0.d0
+
+    zu(:) = 0.d0
+    zv(:) = 0.d0
+
+    ! Compute the L2 norm of the RHS vectors
+    ! (Goal is to obtain L2_resid/L2_rhs < tolerance)
+
+    work0u(:) = bu(:)*bu(:)    ! terms of dot product (b, b)
+    work0v(:) = bv(:)*bv(:)
+
+    ! find global sum of the squared L2 norm
+
+    L2_rhs = sum(work0u + work0v)
+
+    ! take square root
+    L2_rhs = sqrt(L2_rhs)       ! L2 norm of RHS
+!!    if (verbose_pcg .and. this_rank==rtest) print*, 'Global L2_rhs =', L2_rhs
+
+    ! Iterate to solution
+
+    iter_loop: do n = 1, maxiters
+
+       ! Compute PC(r) = solution z of Mz = r
+
+       if (precond == 0) then      ! no preconditioning
+
+           zu(:) = ru(:)         ! PC(r) = r     
+           zv(:) = rv(:)         ! PC(r) = r    
+
+       elseif (precond == 1 ) then  ! diagonal preconditioning
+
+          do m = 1, order
+             if (Adiagu(m) /= 0.d0) then
+                zu(m) = ru(m) / Adiagu(m)   ! PC(r), where PC is formed from diagonal elements of A
+             else                                        
+                zu(m) = 0.d0
+             endif
+             if (Adiagv(m) /= 0.d0) then
+                zv(m) = rv(m) / Adiagv(m)  
+             else                                        
+                zv(m) = 0.d0
+             endif
+          enddo
+
+       endif    ! precond
+
+       ! Compute the dot product eta1 = (r, PC(r))
+
+       work0u(:) = ru(:)*zu(:)    ! terms of dot product (r, PC(r))
+       work0v(:) = rv(:)*zv(:)    
+
+       eta1 = sum(work0u + work0v)
+ 
+       if (eta1 /= eta1) then  ! eta1 is NaN
+          write(6,*) 'Error, PCG solver has failed, eta1 = NaN'
+          stop    !TODO - Put in a proper abort
+       endif
+
+       ! Update the conjugate direction vector d
+
+       beta = eta1/eta0
+
+       du(:) = zu(:) + beta*du(:)       ! d_(i+1) = PC(r_(i+1)) + beta_(i+1)*d_i
+       dv(:) = zv(:) + beta*dv(:)       !
+
+       ! Halo update for d (skip)
+  
+       ! Compute y = A*d
+       ! This is the one matvec multiply required for each iteration
+
+       call matvec_multiply_test(order,   &
+                                 Auu,       Auv,           &
+                                 Avu,       Avv,           &
+                                 du,        dv,            &
+                                 yu,        yv)
+
+       ! Copy old eta1 = (r, PC(r)) to eta0
+
+       eta0 = eta1               ! (r_(i+1), PC(r_(i+1))) --> (r_i, PC(r_i)) 
+
+       ! Compute the dot product eta2 = (d, A*d)
+
+       work0u(:) = yu(:) * du(:)       ! terms of dot product (d, Ad)
+       work0v(:) = yv(:) * dv(:)
+
+       eta2 = sum(work0u + work0v)
+
+       ! Compute alpha
+
+       alpha = eta1/eta2
+       
+       !WHL - If eta2 = 0 (e.g., because all matrix entries are zero), then alpha = NaN
+ 
+       if (alpha /= alpha) then  ! alpha is NaN
+          write(6,*) 'eta1, eta2, alpha:', eta1, eta2, alpha
+          write(6,*) 'Error, PCG solver has failed, alpha = NaN'
+          stop    !TODO - Put in a proper abort
+       endif
+
+       if (verbose) then
+          print*, ' '
+          print*, 'Update solution, iter =', n
+          print*, ' '
+          print*, 'alpha =', alpha
+          print*, ' '
+          print*, 'du:'
+          do m = 1, order
+             write(6,'(f6.2)',advance='no') du(m)
+          enddo
+          print*, ' '
+          print*, 'dv:'
+          do m = 1, order
+             write(6,'(f6.2)',advance='no') dv(m)
+          enddo        
+          print*, ' '
+          print*, 'old xu:'
+          do m = 1, order
+             write(6,'(f6.2)',advance='no') xu(m)
+          enddo
+          print*, ' '
+          print*, 'old xv:'
+          do m = 1, order
+             write(6,'(f6.2)',advance='no') xv(m)
+          enddo
+          print*, ' '
+       endif
+
+       ! Compute the new solution
+
+       xu(:) = xu(:) + alpha * du(:)    ! new solution, x_(i+1) = x_i + alpha*d
+       xv(:) = xv(:) + alpha * dv(:)
+
+       ! Compute the new residual
+
+       ! The cheap way is to take r = r - alpha*(Ad), since Ad is already available.
+       ! The expensive way is to take r = b - Ax, which requires a new computation of Ax.
+       ! Most of the time we do things the cheap way, but occasionally we use the expensive way
+       !  to avoid cumulative loss of accuracy.
+
+       if (mod(n,solv_resid) == 0) then    ! r = b - Ax every solv_resid iterations
+
+          ! Halo update for x (skip)
+
+          ! Compute y = Ax
+           
+          call matvec_multiply_test(order,   &
+                                    Auu,       Auv,           &
+                                    Avu,       Avv,           &
+                                    xu,        xv,            &
+                                    yu,        yv)
+
+          ! Compute residual r = b - Ax
+
+          ru(:) = bu(:) - yu(:)
+          rv(:) = bv(:) - yv(:)
+
+       else    ! r = r - alpha*(Ad)
+
+          ru(:) = ru(:) - alpha * yu(:)    ! new residual, r_(i+1) = r_i - alpha*(Ad)
+          rv(:) = rv(:) - alpha * yv(:)
+
+       endif
+
+       if (verbose) then
+          print*, 'new xu:'
+          do m = 1, order
+             write(6,'(f6.2)',advance='no') xu(m)
+          enddo
+          print*, ' '
+          print*, 'new xv:'
+          do m = 1, order
+             write(6,'(f6.2)',advance='no') xv(m)
+          enddo
+          print*, ' '
+          print*, 'new ru:'
+          do m = 1, order
+             write(6,'(f6.2)',advance='no') ru(m)
+          enddo
+          print*, ' '
+          print*, 'new rv:'
+          do m = 1, order
+             write(6,'(f6.2)',advance='no') rv(m)
+          enddo
+          print*, ' '
+       endif
+       
+
+       ! Check for convergence
+
+       if (mod(n,solv_ncheck) == 0) then
+
+          ! Compute squared L2 norm of (r, r)
+
+          work0u(:) = ru(:)*ru(:)   ! terms of dot product (r, r)
+          work0v(:) = rv(:)*rv(:)
+
+          L2_resid = sum(work0u + work0v)
+
+          ! take square root
+          L2_resid = sqrt(L2_resid)       ! L2 norm of residual
+
+          err = L2_resid/L2_rhs           ! normalized error
+
+          if (verbose) then
+             print*, ' '
+             print*, 'Checking residual, iter =', n
+             print*, ' '
+             print*, 'iter, L2_resid, error =', n, L2_resid, err
+             print*, ' '
+             print*, 'ru:'
+             do m = 1, order
+                write(6,'(f6.2)',advance='no') ru(m)
+             enddo
+             print*, ' '
+             print*, 'rv:'
+             do m = 1, order
+                write(6,'(f6.2)',advance='no') rv(m)
+             enddo
+             print*, ' '
+          endif
+
+          if (verbose_pcg .and. main_task) then
+             print*, ' '
+             print*, 'iter, L2_resid, error =', n, L2_resid, err
+          endif
+
+          if (err < tolerance) then
+             niters = n
+             print*, 'Exit, niters =', niters
+             exit iter_loop
+          endif            
+
+       endif    ! solv_ncheck
+
+    enddo iter_loop
+
+    if (niters == maxiters) then
+       print*, 'Test PCG solver not converged'
+       print*, 'niters, err, tolerance:', niters, err, tolerance
+    endif
+
+    stop
+
+  end subroutine solve_test_matrix_standard
 
 !****************************************************************************
 

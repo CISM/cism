@@ -65,7 +65,7 @@
     use cism_sparse_pcg, only: pcg_solver_standard, pcg_solver_chrongear
 
 !WHL - debug
-    use cism_sparse_pcg, only: solve_test_matrix_chrongear
+    use cism_sparse_pcg, only: solve_test_matrix_chrongear, solve_test_matrix_standard
 
     use parallel
 
@@ -652,7 +652,7 @@
     ! Local parameters
     !--------------------------------------------------------
 
-    logical, parameter :: pcg_chrongear = .true.  ! if true, use pcg_solver_chrongear
+    logical, parameter :: pcg_chrongear = .false. ! if true, use pcg_solver_chrongear
                                                   ! if false, use pcg_solver_standard
 
     integer, parameter :: cmax = 100          ! max number of outer iterations
@@ -790,6 +790,7 @@
     real(dp) :: maxthck, maxusrf
     real(dp) :: sumuvel, sumvvel
     logical, parameter :: test_matrix = .false.
+!    logical, parameter :: test_matrix = .true.
     integer, parameter :: test_order = 4
     integer :: rowi
     logical, parameter :: sia_test = .false.
@@ -931,7 +932,11 @@
        if (whichsparse <= HO_SPARSE_PCG_INCH) then
           call solve_test_matrix_slap(test_order, whichsparse)
        elseif (whichsparse == HO_SPARSE_PCG_NATIVE) then
-          call solve_test_matrix_chrongear(test_order)
+          if (pcg_chrongear) then
+             call solve_test_matrix_chrongear(test_order)
+          else
+             call solve_test_matrix_standard(test_order)
+          endif
        endif
     endif
 
@@ -1488,7 +1493,7 @@
 
 !TODO - Remove old call after testing new one
 
-    call t_startf('glissade_load_vcetor_gravity')
+    call t_startf('glissade_load_vector_gravity')
 
     if (old_driving_stress) then
 
