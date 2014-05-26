@@ -71,6 +71,10 @@ module glissade
 
   integer, private, parameter :: dummyunit=99
 
+  !WHL - debug
+  logical, parameter :: test_transport = .false.   ! if true, call test_transport subroutine
+  real(dp), parameter :: thk_init = 500.d0         ! initial thickness (m) for test_transport
+
 contains
 
 !=======================================================================
@@ -104,7 +108,7 @@ contains
     use felix_dycore_interface, only: felix_velo_init
 
 !WHL - debug
-    use glimmer_paramets, only: tau0, vel0
+    use glimmer_paramets, only: tau0, vel0, thk0
     use glimmer_physcon, only: scyr
 
 !!    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
@@ -117,7 +121,8 @@ contains
     character(len=100), external :: glimmer_version_char
 
 !WHL - debug
-    logical, parameter :: test_parallel = .false.   ! if true, call test_parallel subroutine
+    logical, parameter :: test_halo = .false.   ! if true, call test_halo subroutine
+
     integer :: i, j, nx, ny
 
 !WHL - for artificial adjustment to ismip-hom surface elevation
@@ -347,11 +352,19 @@ contains
     call glide_init_diag(model)
 
      !WHL - debug
-    if (test_parallel) then
-       call glissade_test_parallel (model)
+    if (test_halo) then
+       call glissade_test_halo (model)
        call parallel_finalise
     endif
      
+    if (test_transport) then
+       where (model%geometry%thck > model%numerics%thklim)
+          model%geometry%thck = thk_init/thk0
+       elsewhere
+          model%geometry%thck = 0.d0
+       endwhere
+    endif
+
   end subroutine glissade_initialise
   
 !=======================================================================
@@ -408,13 +421,19 @@ contains
 
     !WHL - debug
     integer :: i, j
- 
+
     ! ========================
 
     ! Update internal clock
     model%numerics%time = time  
     model%numerics%timecounter = model%numerics%timecounter + 1
     model%temper%newtemps = .false.
+
+!WHL - debug     
+    if (test_transport) then
+       call glissade_test_transport (model)
+       return
+    endif
 
     ! ------------------------------------------------------------------------ 
     ! calculate geothermal heat flux
@@ -1202,56 +1221,38 @@ contains
 
 !=======================================================================
 
-    subroutine glissade_test_parallel(model)
+    subroutine glissade_test_halo(model)
 
     use parallel
-    use glissade_transport, only: glissade_transport_driver
-    use glimmer_paramets, only: len0
-    use glimmer_physcon, only: pi
 
-    ! various tests of parallel model
+    ! various tests of parallel halo updates
 
     type(glide_global_type), intent(inout) :: model      ! model instance
 
-    integer, dimension (:,:), allocatable ::  pgID       ! unique global ID for parallel runs  
-    real(dp), dimension (:,:), allocatable ::  pgIDr4    ! unique global ID for parallel runs  
-    real(dp), dimension (:,:), allocatable ::  pgIDr8    ! unique global ID for parallel runs  
-    real(dp), dimension (:,:,:), allocatable ::  pgIDr8_3d    ! unique global ID for parallel runs  
+    integer, dimension (:,:), allocatable    ::  pgID       ! unique global ID for parallel runs  
+    real(dp), dimension (:,:), allocatable   ::  pgIDr4     ! unique global ID for parallel runs  
+    real(dp), dimension (:,:), allocatable   ::  pgIDr8     ! unique global ID for parallel runs  
+    real(dp), dimension (:,:,:), allocatable ::  pgIDr8_3d  ! unique global ID for parallel runs  
 
-    integer, dimension (:,:), allocatable ::  pgIDstagi    ! unique global ID for parallel runs  
-    real(dp), dimension (:,:), allocatable ::  pgIDstagr    ! unique global ID for parallel runs  
-    real(dp), dimension (:,:,:), allocatable ::  pgIDstagr3    ! unique global ID for parallel runs  
+    integer, dimension (:,:), allocatable    ::  pgIDstagi  ! unique global ID for parallel runs  
+    real(dp), dimension (:,:), allocatable   ::  pgIDstagr  ! unique global ID for parallel runs  
+    real(dp), dimension (:,:,:), allocatable ::  pgIDstagr3 ! unique global ID for parallel runs  
 
-    real(dp), dimension(:,:,:), allocatable :: uvel, vvel   ! uniform velocity field
-
-    logical, dimension(:,:), allocatable :: logvar
-    integer, dimension(:,:), allocatable :: intvar
-    real, dimension(:,:), allocatable :: r4var
-    real(dp), dimension(:,:), allocatable :: r8var
+    logical, dimension(:,:), allocatable    :: logvar
+    integer, dimension(:,:), allocatable    :: intvar
+    real, dimension(:,:), allocatable       :: r4var
+    real(dp), dimension(:,:), allocatable   :: r8var
     real(dp), dimension(:,:,:), allocatable :: r8var_3d
 
     integer :: i, j, k, n
     integer :: nx, ny, nz
 
-    integer, parameter :: rdiag = 0    ! rank for diagnostic prints 
-
-    real(dp), parameter :: dt = 1.0       ! time step in yr
-    integer, parameter  :: ntstep = 20     ! run for this number of timesteps
-
-!    real(dp), parameter :: umag = 100.    ! uniform speed (m/yr)
-    real(dp), parameter :: umag = 1000.   ! uniform speed (m/yr)
-
-    !WHL - Tested all three of these angles (eastward, northward, and northeastward)
-!    real(dp), parameter :: theta = 0.d0     ! eastward
-!    real(dp), parameter :: theta = pi/4.d0   ! northeastward
-!    real(dp), parameter :: theta = pi/2.d0  ! northward
-    real(dp), parameter :: theta = pi     ! westward
-
+    integer, parameter :: rdiag = 0         ! rank for diagnostic prints 
 
 !    real(dp) :: global_row, global_col, global_ID
 
     print*, ' '
-    print*, 'In test_parallel, this_rank =', this_rank
+    print*, 'In glissade_test_halo, this_rank =', this_rank
 
     nx = model%general%ewn
     ny = model%general%nsn
@@ -1270,7 +1271,6 @@ contains
     allocate(pgIDstagi(nx-1,ny-1))
     allocate(pgIDstagr(nx-1,ny-1))
     allocate(pgIDstagr3(nz,nx-1,ny-1))
-    allocate(uvel(nz,nx-1,ny-1), vvel(nz,nx-1,ny-1))
 
     if (main_task) then
        print*, ' '
@@ -1313,6 +1313,7 @@ contains
     endif
 
 !WHL - Skip the next few sections since the global IDs aren't correct in parallel.
+!TODO - Fix this up or remove?
     go to 100
 
     ! integer 2D field
@@ -1643,85 +1644,6 @@ contains
        enddo
     endif
 
-    ! Run remapping routine
-
-    uvel(:,:,:) = 0.d0
-    vvel(:,:,:) = 0.d0
-
-    ! Set velocity in locally owned cells
-
-    do j = 1+lhalo, ny-uhalo
-    do i = 1+lhalo, nx-uhalo
-       do k = 1, nz
-          uvel(k,i,j) = umag * cos(theta)
-          vvel(k,i,j) = umag * sin(theta)
-       enddo
-    enddo
-    enddo
-
-       if (this_rank == rdiag) then
-          write(6,*) ' '
-          write(6,*) 'Before halo update:'
-          write(6,*) 'uvel, this_rank =', this_rank
-          do j = ny-1, 1, -1
-             write(6,'(34f6.0)') uvel(1,:,j)
-          enddo
-          write(6,*) ' '
-          write(6,*) 'vvel, this_rank =', this_rank
-          do j = ny-1, 1, -1
-             write(6,'(34f6.0)') vvel(1,:,j)
-          enddo
-       endif
-
-    ! staggered halo update
-
-    call staggered_parallel_halo(uvel)
-    call staggered_parallel_halo(vvel)
-
-       if (this_rank == rdiag) then
-          write(6,*) ' '
-          write(6,*) 'After halo update:'
-          write(6,*) 'uvel, this_rank =', this_rank
-          do j = ny-1, 1, -1
-             write(6,'(34f6.0)') uvel(1,:,j)
-          enddo
-          write(6,*) ' '
-          write(6,*) 'vvel, this_rank =', this_rank
-          do j = ny-1, 1, -1
-             write(6,'(34f6.0)') vvel(1,:,j)
-          enddo
-       endif
-
-    do n = 1, ntstep
-
-       call glissade_transport_driver(dt,                                                   &
-                                      model%numerics%dew * len0, model%numerics%dns * len0, &
-                                      model%general%ewn,         model%general%nsn,         &
-                                      model%general%upn-1,       model%numerics%sigma,      &
-                                      nhalo,                     ntracer,                   &
-                                      uvel(:,:,:),               vvel(:,:,:),               &
-                                      model%geometry%thck(:,:),                             &
-                                      dble(model%climate%acab(:,:)),                        &
-                                      model%temper%bmlt(:,:),                               &
-                                      model%temper%temp(:,:,:) )
-
-       if (this_rank == rdiag) then
-          write(6,*) ' '
-          write(6,*) 'New thck, n =', n
-          do j = ny, 1, -1
-             write(6,'(19e10.2)') model%geometry%thck(1:19,j)
-          enddo
-          write(6,*) ' '
-          write(6,*) 'New layer 1 temp, n =', n
-          do j = ny, 1, -1
-             write(6,'(19f10.2)') model%temper%temp(1,1:19,j)
-          enddo
-       endif
-
-    enddo  ! ntstep
-
-    if (main_task) print*, 'Done in parallel diagnostic test'
-
     deallocate(logvar)
     deallocate(intvar)
     deallocate(r4var)
@@ -1734,10 +1656,217 @@ contains
     deallocate(pgIDstagi)
     deallocate(pgIDstagr)
     deallocate(pgIDstagr3)
+
+    end subroutine glissade_test_halo
+
+!=======================================================================
+
+    subroutine glissade_test_transport(model)
+
+    use parallel
+    use glissade_transport, only: glissade_transport_driver
+    use glimmer_paramets, only: len0, thk0, tim0
+    use glimmer_physcon, only: pi, scyr
+
+    use glide_diagnostics
+
+    !-------------------------------------------------------------------
+    ! Test transport of a cylinder or block of ice once around the domain and
+    ! back to the starting point, assuming uniform motion in a straight line.
+    !
+    ! Instructions for use:
+    ! (1) At the top of this module, set test_transport = .true. and choose a
+    !     value for thk_init.
+    ! (2) Set the config file to run with the glissade dycore for one timestep, 
+    !     with CF output written every timestep. 
+    !     Note: Whatever the initial ice geometry in the config file
+    !     (e.g., the dome test case), the ice extent will be preserved, but
+    !     the thickness will be set everywhere to thk_init, giving a steep
+    !     front at the ice margin that is challenging for transport schemes.
+    ! (3) Comment out the call to glissade_diagnostic_variable_solve in
+    !     cism_driver or simple_glide.  (It probable won't hurt to
+    !     have it turned on, but will just use extra cycles.)
+    !
+    ! During the run, the following will happen:
+    ! (1) During glissade_initialise, the ice thickness will be set to
+    !     thk_init (everywhere there is ice).
+    ! (2) During the first call to glissade_tstep, this subroutine 
+    !     (glissade_test_transport) will be called.  The ice will be transported 
+    !     around to its initial starting point (assuming periodic BCs).  
+    ! (3) Then the model will return from glissade_tstep before doing any 
+    !     other computations. Output will be written to netCDF and the code 
+    !     will complete.
+    !
+    ! There should be two time slices in the output netCDF file.
+    ! Compare the ice geometry at these two slices to see how diffusive 
+    !  and/or dispersive the transport scheme is. A perfect scheme
+    !  would leave the geometry unchanged.  
+    !-------------------------------------------------------------------
+
+    type(glide_global_type), intent(inout) :: model      ! model instance
+
+    real(dp), dimension(:,:,:), allocatable :: uvel, vvel   ! uniform velocity field (m/yr)
+
+    integer :: i, j, k, n
+    integer :: nx, ny, nz
+    real(dp) :: dx, dy
+
+    integer, parameter :: rdiag = 0         ! rank for diagnostic prints 
+
+!    real(dp), parameter :: umag = 100.     ! uniform speed (m/yr)
+    real(dp), parameter :: umag = 1000.     ! uniform speed (m/yr)
+
+    ! Set angle of motion
+    !WHL - Tested all three of these angles (eastward, northward, and northeastward)
+!    real(dp), parameter :: theta = 0.d0      ! eastward
+!     real(dp), parameter :: theta = pi/4.d0   ! northeastward
+!    real(dp), parameter :: theta = pi/2.d0   ! northward
+    real(dp), parameter :: theta = pi         ! westward
+
+    real(dp), parameter :: thk = 500.d0
+
+    real(dp) :: dt          ! time step in yr
+
+    integer :: ntstep       ! run for this number of timesteps
+    real(dp) :: theta_c    ! angle dividing paths through EW walls from paths thru NS walls
+    real(dp) :: lenx       ! length of shortest path thru EW walls
+    real(dp) :: leny       ! length of shortest path thru NS walls
+    real(dp) :: len_path   ! length of path back to starting point
+    real(dp) :: adv_cfl    ! advective CFL number
+
+    logical :: do_upwind_transport  ! if true, do upwind transport
+
+    ! Initialize
+
+    dx = model%numerics%dew * len0
+    dy = model%numerics%dns * len0
+
+    nx = model%general%ewn
+    ny = model%general%nsn
+    nz = model%general%upn
+
+    allocate(uvel(nz,nx-1,ny-1))
+    allocate(vvel(nz,nx-1,ny-1))
+
+    ! Find the length of the path around the domain and back to the starting point
+
+    lenx = global_ewn * dx
+    leny = global_nsn * dy
+    theta_c = atan(leny/lenx)   ! 0 <= theta_c <= pi/2
+
+    if ( (theta >= -theta_c   .and. theta <= theta_c) .or.   &
+         (theta >= pi-theta_c .and. theta <= pi+theta_c) ) then
+       ! path will cross east/west wall
+       len_path = lenx / abs(cos(theta))
+    else
+       ! path will cross north/south wall
+       len_path = leny / abs(sin(theta))
+    endif
+
+    ! Choose the number of time steps such that the ice will travel
+    ! less than one grid cell per time step
+
+    ntstep = len_path/dx + 10   ! 10 is arbitrary
+
+    ! Choose the time step such that the ice will go around the domain
+    ! exactly once in the chosen number of time steps.
+
+    dt = len_path / (umag*ntstep)
+
+    ! CFL check, just to be sure
+
+    adv_cfl = max (dt*umag*cos(theta)/dx, dt*umag*sin(theta)/dy)
+    
+    if (adv_cfl >= 1.d0) then
+       print*, 'dt is too big for advective CFL; increase ntstep to', ntstep * adv_cfl
+       stop
+    endif
+
+    ! Print some diagnostics
+
+    if (main_task) then
+       print*, ' '
+       print*, 'In glissade_test_transport'
+       print*, 'nx, ny, nz =', nx, ny, nz
+       print*, 'len_path =', len_path
+       print*, 'umag (m/yr) =', umag
+       print*, 'dt (yr) =', dt
+       print*, 'ntstep =', ntstep
+       print*, 'theta (deg) =', theta * 180.d0/pi
+    endif
+
+    if (this_rank == rdiag) then
+       write(6,*) ' '
+       write(6,*) 'Initial thck'
+       do j = ny, 1, -1
+          write(6,'(19f7.2)') model%geometry%thck(1:19,j) * thk0
+       enddo
+!          write(6,*) ' '
+!          write(6,*) 'New layer 1 temp, n =', n
+!          do j = ny, 1, -1
+!             write(6,'(19f7.2)') model%temper%temp(1,1:19,j)
+!          enddo
+    endif
+
+    ! Set uniform ice speed everywhere
+
+    do j = 1, ny-1
+    do i = 1, nx-1
+       do k = 1, nz
+          uvel(k,i,j) = umag * cos(theta)
+          vvel(k,i,j) = umag * sin(theta)
+       enddo
+    enddo
+    enddo
+
+    ! Determine which transport scheme
+
+    if (model%options%whichevol == EVOL_UPWIND) then
+       do_upwind_transport = .true.
+    else
+       do_upwind_transport = .false.
+    endif
+
+    ! Transport the ice around the domain
+
+    do n = 1, ntstep
+
+       ! call transport scheme
+       ! Note: glissade_transport_driver expects dt in seconds, uvel/vvel in m/s
+
+       call glissade_transport_driver(dt*scyr,                                              &
+                                      dx,                        dy,                        &
+                                      nx,                        ny,                        &
+                                      nz-1,                      model%numerics%sigma,      &
+                                      nhalo,                     ntracer,                   &
+                                      uvel(:,:,:)/scyr,          vvel(:,:,:)/scyr,          &
+                                      model%geometry%thck(:,:),                             &
+                                      dble(model%climate%acab(:,:)),                        &
+                                      model%temper%bmlt(:,:),                               &
+                                      model%temper%temp(:,:,:),                             &
+                                      upwind_transport_in = do_upwind_transport)
+
+       if (this_rank == rdiag) then
+          write(6,*) ' '
+          write(6,*) 'New thck, n =', n
+          do j = ny, 1, -1
+             write(6,'(19f7.2)') model%geometry%thck(1:19,j) * thk0
+          enddo
+!          write(6,*) ' '
+!          write(6,*) 'New layer 1 temp, n =', n
+!          do j = ny, 1, -1
+!             write(6,'(19f7.2)') model%temper%temp(1,1:19,j)
+!          enddo
+       endif
+
+    enddo  ! ntstep
+
+    if (main_task) print*, 'Done in glissade_test_parallel'
+
     deallocate(uvel)
     deallocate(vvel)
 
-    end subroutine glissade_test_parallel
+    end subroutine glissade_test_transport
 
 !=======================================================================
 

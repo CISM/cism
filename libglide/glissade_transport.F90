@@ -63,10 +63,6 @@
 
 !TODO - Code uses Protex documenting.  Revise for doxygen
 
-!WHL = debug
-!!      integer, parameter :: idiag = 31, jdiag = 31
-
-
 !=======================================================================
 
   contains
@@ -251,7 +247,7 @@
       endif
 
 !---!-------------------------------------------------------------------
-!---! Prepare for remapping.
+!---! Prepare for transport.
 !---! Initialize, update halo cells, fill tracer arrays.
 !---!-------------------------------------------------------------------
 
@@ -260,9 +256,9 @@
 
 !TODO - Replace ilo with 1+nhalo, ihi with nx-nhalo, etc.?
 
-      ilo = 1 + nhalo
+      ilo = nhalo + 1
       ihi = nx - nhalo
-      jlo = 1 + nhalo
+      jlo = nhalo + 1
       jhi = ny - nhalo
 
       l_stop = .false.
@@ -489,16 +485,16 @@
       
             do j = jlo, jhi
             do i = ilo-1, ihi   ! include west edge of local domain
-               uee(i,j) = 0.5d0 * (uvel(k,  i,j) + uvel(k,  i,j-1)    &
-                                 + uvel(k+1,i,j) + uvel(k+1,i,j-1))
+               uee(i,j) = 0.25d0 * (uvel(k,  i,j) + uvel(k,  i,j-1)    &
+                                  + uvel(k+1,i,j) + uvel(k+1,i,j-1))
             enddo
             enddo
 
 
             do j = jlo-1, jhi   ! include south edge of local domain
             do i = ilo, ihi
-               vnn(i,j) = 0.5d0 * (vvel(k,  i,j) + vvel(k,  i-1,j)    &
-                                 + vvel(k+1,i,j) + vvel(k+1,i-1,j))
+               vnn(i,j) = 0.25d0 * (vvel(k,  i,j) + vvel(k,  i-1,j)    &
+                                  + vvel(k+1,i,j) + vvel(k+1,i-1,j))
             enddo
             enddo
 
