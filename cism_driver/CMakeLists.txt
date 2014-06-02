@@ -22,11 +22,15 @@ link_directories (${Trilinos_LIBRARY_DIRS} ${Trilinos_TPL_LIBRARY_DIRS}
 		  ${BISICLES_INTERFACE_DIR}/${BISICLES_LIB_SUBDIR}
                   ${CISM_HDF5_LIB_DIR} ${PYTHON_LIB_DIR} )
 
+# DMR 6/2/14 -- Moved simple_forcing.F90 and testsfg.F90 to the glimmercismfortran lib.
 # These are local source files needed to make the cism_driver executable and CISM front-end
+#add_executable(cism_driver cism_driver.F90 cism_front_end.F90 gcm_cism_interface.F90
+#               gcm_to_cism_glint.F90 cism_external_dycore_interface.F90
+#	       ../example-drivers/simple_glide/src/simple_forcing.F90
+#	       ../example-drivers/simple_glide/src/testsfg.F90)
+
 add_executable(cism_driver cism_driver.F90 cism_front_end.F90 gcm_cism_interface.F90
-               gcm_to_cism_glint.F90 cism_external_dycore_interface.F90
-	       ../example-drivers/simple_glide/src/simple_forcing.F90
-	       ../example-drivers/simple_glide/src/testsfg.F90)
+               gcm_to_cism_glint.F90 cism_external_dycore_interface.F90)
 
 #SET(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
 IF (CISM_STATIC_LINKING)

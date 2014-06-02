@@ -20,7 +20,11 @@ include_directories (${GLIMMER_BINARY_DIR}
 link_directories (${Trilinos_LIBRARY_DIRS} ${Trilinos_TPL_LIBRARY_DIRS})
 
 # These are local source files needed to make  simple_glide  executable
-add_executable(simple_glide  simple_glide.F90 simple_forcing.F90 testsfg.F90)
+
+# DMR 6/2/14 -- Moved simple_forcing.F90 and testsfg.F90 to the glimmercismfortran lib.
+# add_executable(simple_glide  simple_glide.F90 simple_forcing.F90 testsfg.F90)
+
+add_executable(simple_glide  simple_glide.F90)
 
 IF (CISM_STATIC_LINKING)
   SET_TARGET_PROPERTIES(simple_glide PROPERTIES LINK_SEARCH_START_STATIC 1)

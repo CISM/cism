@@ -285,7 +285,7 @@ subroutine cism_run_dycore(model)
 
         call t_stopf('glide_tstep')
 
-      case (DYCORE_GLAM)
+      case (DYCORE_GLISSADE)
         ! glam/glissade dycore
 
         call t_startf('glissade_tstep')

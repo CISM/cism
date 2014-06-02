@@ -308,13 +308,14 @@ IF (CISM_BUILD_GLINT OR CISM_BUILD_EXTRA_EXECUTABLES)
    file(GLOB GLINT_SOURCES libglint/*.F90) 
 ENDIF()
 
-
-
+# DMR 6/2/14 -- Added simple_forcing.F90 and testsfg.F90 to FORTRANSOURCES.
 file(GLOB FORTRANSOURCES
      libglimmer-solve/SLAP/*.f
      libglimmer-solve/*.F90
      libglimmer/*.F90 libglimmer/writestats.c
      libglide/*.F90
+     cism_driver/simple_forcing.F90
+     cism_driver/testsfg.F90
      ${GLINT_SOURCES}
      ${GLIMMER_TO_DYCORE})
 
