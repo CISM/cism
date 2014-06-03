@@ -221,8 +221,12 @@ module glide_types
 
   integer, parameter :: HO_SPARSE_BICG = 0
   integer, parameter :: HO_SPARSE_GMRES = 1
-  integer, parameter :: HO_SPARSE_PCG_INCH = 2
-  integer, parameter :: HO_SPARSE_PCG_NATIVE = 3
+!WHL - Redefined options 2 and 3
+!!  integer, parameter :: HO_SPARSE_PCG_INCH = 2
+!!  integer, parameter :: HO_SPARSE_PCG_NATIVE = 3
+  integer, parameter :: HO_SPARSE_PCG_INCH = -1
+  integer, parameter :: HO_SPARSE_PCG_STANDARD = 2
+  integer, parameter :: HO_SPARSE_PCG_CHRONGEAR = 3
   integer, parameter :: HO_SPARSE_TRILINOS = 4
 
   integer, parameter :: SIMPLE_APPROX_SIA = -1
@@ -493,10 +497,14 @@ module glide_types
     !*FD Flag that indicates method for solving the sparse linear system
     !*FD that arises from the higher-order solver
     !*FD \begin{description}
-    !*FD \item[0] SLAP (serial): Biconjugate gradient, incomplete LU preconditioner
-    !*FD \item[1] SLAP (serial): GMRES, incomplete LU preconditioner
-    !*FD \item[2] SLAP (serial): Preconditioned conjugate gradient, incomplete Cholesky preconditioner
-    !*FD \item[3] Native PCG, structured grid, parallel-enabled
+    !*FD \item[-1] SLAP (serial): Preconditioned conjugate gradient, incomplete Cholesky preconditioner
+    !*FD \item[0]  SLAP (serial): Biconjugate gradient, incomplete LU preconditioner
+    !*FD \item[1]  SLAP (serial): GMRES, incomplete LU preconditioner
+!WHL - Redefined options 2 and 3
+!!    !*FD \item[2] SLAP (serial): Preconditioned conjugate gradient, incomplete Cholesky preconditioner
+!!    !*FD \item[3] Native PCG, structured grid, parallel-enabled
+    !*FD \item[2] Native PCG, parallel-enabled, standard solver
+    !*FD \item[3] Native PCG, parallel-enabled, Chronopoulos-Gear solver
     !*FD \item[4] standalone interface to Trilinos
     !*FD \end{description}
 

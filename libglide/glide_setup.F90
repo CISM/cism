@@ -763,11 +763,12 @@ contains
          'mean value              ', &
          'L2 norm of Ax-b = resid ' /)
 
-    character(len=*), dimension(0:4), parameter :: ho_whichsparse = (/ &
+    character(len=*), dimension(-1:4), parameter :: ho_whichsparse = (/ &
+         'PCG with incomplete Cholesky preconditioner', &
          'BiCG with LU preconditioner                ', &
          'GMRES with LU preconditioner               ', &
-         'PCG with incomplete Cholesky preconditioner', &
-         'Native PCG solver                          ', &
+         'Native PCG solver, standard                ', &
+         'Native PCG solver, Chronopoulos-Gear       ', &
          'Trilinos interface                         '/)
 
     character(len=*), dimension(-1:2), parameter :: ho_whichapprox = (/ &
@@ -836,8 +837,9 @@ contains
     end if
 
     if (model%options%whichdycore /= DYCORE_GLISSADE) then 
-       if (model%options%which_ho_sparse == HO_SPARSE_PCG_NATIVE) then
-          call write_log('Error, structured PCG solver requires glissade dycore')
+       if (model%options%which_ho_sparse == HO_SPARSE_PCG_STANDARD .or.   &
+           model%options%which_ho_sparse == HO_SPARSE_PCG_CHRONGEAR) then
+          call write_log('Error, native PCG solver requires glissade dycore')
        endif
     endif
 
@@ -1015,7 +1017,7 @@ contains
        write(message,*) 'ho_whichsparse          : ',model%options%which_ho_sparse,  &
                          ho_whichsparse(model%options%which_ho_sparse)
        call write_log(message)
-       if (model%options%which_ho_sparse < 0 .or. model%options%which_ho_sparse >= size(ho_whichsparse)) then
+       if (model%options%which_ho_sparse < -1 .or. model%options%which_ho_sparse >= size(ho_whichsparse)) then
           call write_log('Error, HO sparse solver input out of range', GM_FATAL)
        end if
 
@@ -1037,8 +1039,9 @@ contains
 
        end if
 
-       if (model%options%whichdycore == DYCORE_GLISSADE .and. &
-           model%options%which_ho_sparse == HO_SPARSE_PCG_NATIVE) then 
+       if (model%options%whichdycore == DYCORE_GLISSADE .and.   &
+           (model%options%which_ho_sparse == HO_SPARSE_PCG_STANDARD .or.  &
+            model%options%which_ho_sparse == HO_SPARSE_PCG_CHRONGEAR) ) then 
           write(message,*) 'ho_whichprecond         : ',model%options%which_ho_precond,  &
                             ho_whichprecond(model%options%which_ho_precond)
           call write_log(message)

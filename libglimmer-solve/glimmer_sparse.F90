@@ -65,11 +65,11 @@ module glimmer_sparse
     integer, parameter :: SPARSE_HO_NONLIN_JFNK = 1
 
     ! The first three options use the SLAP solver and work only on one processor.
+    integer, parameter :: SPARSE_SOLVER_PCG_INCH = -1     ! SLAP PCG with incomplete Cholesky preconditioner
     integer, parameter :: SPARSE_SOLVER_BICG = 0          ! SLAP biconjugate gradient
     integer, parameter :: SPARSE_SOLVER_GMRES = 1         ! SLAP GMRES
-    integer, parameter :: SPARSE_SOLVER_PCG_INCH = 2      ! SLAP PCG with incomplete Cholesky preconditioner
-    integer, parameter :: STANDALONE_PCG_NATIVE = 3       ! Native PCG with structured (k,i,j) matrix storage
-                                                          ! Not SLAP; see cism_sparse_pcg.F90
+    integer, parameter :: STANDALONE_PCG_STANDARD = 2     ! Native PCG, parallel-enabled, standard solver
+    integer, parameter :: STANDALONE_PCG_CHRONGEAR = 3    ! Native PCG, parallel-enabled, Chronopoulos-Gear solver
     integer, parameter :: STANDALONE_TRILINOS_SOLVER = 4  ! Trilinos solver
                                                           ! Does not go through sparse_easy_solve because 
                                                           !  it has a different sparse matrix format  

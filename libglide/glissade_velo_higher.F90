@@ -64,9 +64,6 @@
 
     use cism_sparse_pcg, only: pcg_solver_standard, pcg_solver_chrongear
 
-!WHL - debug
-    use cism_sparse_pcg, only: solve_test_matrix_chrongear, solve_test_matrix_standard
-
     use parallel
 
     implicit none
@@ -652,9 +649,6 @@
     ! Local parameters
     !--------------------------------------------------------
 
-    logical, parameter :: pcg_chrongear = .false. ! if true, use pcg_solver_chrongear
-                                                  ! if false, use pcg_solver_standard
-
     integer, parameter :: cmax = 100          ! max number of outer iterations
 
     !WHL - What I call resid_target is called minresid in glam_strs2
@@ -663,7 +657,7 @@
     real(dp), parameter :: NL_tol   = 1.0d-06   ! to have same criterion as JFNK
 
 !WHL - UMC
-    logical, parameter ::  &                 !TODO - Make this an input argument?
+    logical, parameter ::  &                 !TODO - Remove this parameter
        unstable_manifold = .false. ! if true, do an unstable manifold correction
                                    ! (based on Hindmarsh & Payne, Ann Glac, 1996)
 
@@ -929,14 +923,11 @@
     endif
 
     if (test_matrix) then
-       if (whichsparse <= HO_SPARSE_PCG_INCH) then
+       if (whichsparse <= HO_SPARSE_GMRES) then
           call solve_test_matrix_slap(test_order, whichsparse)
-       elseif (whichsparse == HO_SPARSE_PCG_NATIVE) then
-          if (pcg_chrongear) then
-             call solve_test_matrix_chrongear(test_order)
-          else
-             call solve_test_matrix_standard(test_order)
-          endif
+       else
+          print*, 'Invalid value for whichsparse with test_matrix subroutine'
+          stop   ! TODO - Add proper abort
        endif
     endif
 
@@ -1421,8 +1412,7 @@
     !  answer (x), and residual vector (Ax-b).
     !------------------------------------------------------------------------------
 
-    if (whichsparse /= HO_SPARSE_PCG_NATIVE .and.    &
-        whichsparse /= HO_SPARSE_TRILINOS) then   
+    if (whichsparse <= HO_SPARSE_GMRES) then  ! using SLAP solver
 
        matrix_order = 2*nNodesSolve    ! Is this exactly enough?
        max_nonzeros = matrix_order*54  ! 27 = node plus 26 nearest neighbors in hexahedral lattice   
@@ -2159,8 +2149,40 @@
 
        endif
 
-       if (whichsparse == HO_SPARSE_PCG_NATIVE) then   ! native PCG for structured grid
-                                                       ! works for both serial and parallel runs
+!WHL - debug
+       if (verbose_matrix .and. this_rank==rtest) then
+          j = jtest
+          k = 1
+          m = indxA(0,0,0)  ! diag entry
+          print*, ' '
+          print*, 'Matrix row properties, j, k =', j, k
+          print*, ' '
+          print*, 'i, diag, max, min, sum:'
+          do i = 1, nx-1
+             print*, ' '
+             write(6,'(a4, i4, 4f16.2)') 'Auu:', i, Auu(m,k,i,j), maxval(Auu(:,k,i,j)), minval(Auu(:,k,i,j)), sum(Auu(:,k,i,j))
+             write(6,'(a4, i4, 4f16.2)') 'Auv:', i, Auv(m,k,i,j), maxval(Auv(:,k,i,j)), minval(Auv(:,k,i,j)), sum(Auv(:,k,i,j))
+          enddo
+
+          i = itest
+          k = 2
+          print*, 'i, j, k:', i, j, k
+          print*, 'iA, jA, kA, Auu, Auv:'
+          do kA = -1,1
+             print*, ' '
+             do iA = -1,1
+                do jA = -1,1
+                   m = indxA(iA,jA,kA)
+                   write(6,'(3i4, 2f16.2)') iA, jA, kA, Auu(m,k,i,j), Auv(m,k,i,j)
+                enddo
+             enddo
+          enddo
+
+       endif
+
+       if (whichsparse == HO_SPARSE_PCG_STANDARD .or.   &
+           whichsparse == HO_SPARSE_PCG_CHRONGEAR) then   ! native PCG for structured grid
+                                                          ! works for both serial and parallel runs
 
           !------------------------------------------------------------------------
           ! Compute the residual vector and its L2 norm
@@ -2197,8 +2219,8 @@
 
           call t_startf('glissade_pcg_slv_struct')
 
-          if (pcg_chrongear) then   ! use Chronopoulos-Gear PCG algorithm
-                                    ! (better scaling for large problems)
+          if (whichsparse == HO_SPARSE_PCG_CHRONGEAR) then   ! use Chronopoulos-Gear PCG algorithm
+                                                              ! (better scaling for large problems)
 
              call pcg_solver_chrongear(nx,           ny,            &
                                        nz,           nhalo,         &
@@ -2224,7 +2246,7 @@
                                       niters,                      &
                                       itest, jtest, rtest)
 
-          endif  ! pcg_chrongear
+          endif  ! ho_sparse_pcg_chrongear
 
           call t_stopf('glissade_pcg_slv_struct')
 
@@ -2407,7 +2429,7 @@
           call staggered_parallel_halo(vvel)
           call t_stopf('glissade_halo_xvel')
 
-       endif   ! whichsparse (HO_SPARSE_PCG_NATIVE or not) 
+       endif   ! whichsparse 
 
 !WHL - bug check
        if (verbose_state .and. this_rank==rtest) then
@@ -2593,8 +2615,7 @@
     !------------------------------------------------------------------------------
 
     call t_startf('glissade_vhs_cleanup')
-    if (whichsparse /= HO_SPARSE_PCG_NATIVE .and.   &
-        whichsparse /= HO_SPARSE_TRILINOS) then
+    if (whichsparse <= HO_SPARSE_GMRES) then  ! using SLAP solver
        deallocate(matrix%row, matrix%col, matrix%val)
        deallocate(rhs, answer, resid_vec)
     endif
@@ -7404,7 +7425,7 @@
 
     print*, 'Solving test matrix, order =', matrix_order
 
-    if (whichsparse <= HO_SPARSE_PCG_INCH) then ! test SLAP solve
+!TODO - Reduce indents
 
        nNonzero_max = matrix_order*matrix_order    ! not sure how big this must be
 
@@ -7517,13 +7538,6 @@
           print*, 'err =', err       
           print*, 'niters =', niters
        endif
-
-    else
-
-       print*, 'Invalid value of whichsparse; must use a slap option for solve_test_matrix'
-       stop
-
-    endif   ! whichsparse
 
     stop
 
