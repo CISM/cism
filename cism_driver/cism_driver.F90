@@ -40,7 +40,7 @@ program cism_driver
      print *,"cism_driver ice_sheet.config"
      print *,"cism_driver ice_sheet.config climate.config"
      print *,""
-     return      
+     stop
   end if
 
   call parallel_initialise
