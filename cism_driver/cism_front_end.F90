@@ -140,7 +140,7 @@ subroutine cism_init_dycore(model)
   call spinup_lithot(model)
   call t_stopf('glide initialization')
 
-  if ((model%options%whichdycore == DYCORE_BISICLES) .OR. (model%options%whichdycore == DYCORE_ALBANYFELIX)) then
+  if (model%options%whichdycore == DYCORE_BISICLES) then
     call cism_init_external_dycore(model%options%external_dycore_type,model)
   endif
 
@@ -154,7 +154,7 @@ subroutine cism_init_dycore(model)
   ! ------------- Calculate initial state and output it -----------------
 
     select case (model%options%whichdycore)
-      case (DYCORE_GLIDE,DYCORE_ALBANYFELIX)
+      case (DYCORE_GLIDE)
 
         call t_startf('glide_initial_diag_var_solve')
         ! disable further profiling in normal usage
@@ -170,7 +170,7 @@ subroutine cism_init_dycore(model)
         call t_adj_detailf(-10)
         call t_stopf('glide_initial_diag_var_solve')
 
-      case (DYCORE_GLAM)
+      case (DYCORE_GLAM, DYCORE_GLISSADE, DYCORE_ALBANYFELIX)
         call t_startf('glissade_initial_diag_var_solve')
         ! disable further profiling in normal usage
         call t_adj_detailf(+10)
@@ -285,14 +285,14 @@ subroutine cism_run_dycore(model)
 
         call t_stopf('glide_tstep')
 
-      case (DYCORE_GLISSADE)
+      case (DYCORE_GLAM, DYCORE_GLISSADE, DYCORE_ALBANYFELIX)
         ! glam/glissade dycore
 
         call t_startf('glissade_tstep')
         call glissade_tstep(model,time)
         call t_stopf('glissade_tstep')
 
-      case (DYCORE_BISICLES,DYCORE_ALBANYFELIX)
+      case (DYCORE_BISICLES)
         print *,'Using External Dycore'
         ! The time variable gets incremented within this call:
         dt = model%numerics%tinc
