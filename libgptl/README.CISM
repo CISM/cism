@@ -1,0 +1,9 @@
+GPTL is a third-party library (TPL) for performing timing.  It is included as an optional TPL that can be built into CISM.  
+
+To do so, one first must build the GPTL libraries, and then build CISM with the GPTL libraries linked.  
+
+Building GPTL is completely separate from the CISM build system.  To do so, use one of the included Makefiles.  Makefile.mac is a generic build for a Mac that may require some adjusting for your system.  It could also be modified to work with a Linux machine fairly easily.
+
+To build CISM with GPTL, add the following flag to your cmake build script:
+  -D CISM_USE_GPTL_INSTRUMENTATION:BOOL=ON
+
