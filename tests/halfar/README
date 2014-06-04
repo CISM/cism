@@ -44,10 +44,10 @@ The test should take a few minutes for the default run duration of 200 years.
 ========
 
 PREREQUISITES:
-* The simple_glide executable must be available to the halfar.py script, which 
+* The cism_driver executable must be available to the halfar.py script, which 
 assumes it is in the current directoy.  The easiest way to do this is to link it 
 into this directory, e.g.:
-ln -s ../../builds/mac-gnu/example-drivers/simple_glide/src/simple_glide .
+ln -s ../../builds/mac-gnu/cism_driver/cism_driver .
 but you can also use the -e commandline option with the script to specify another location.
 
 * In order to use the two scripts, you will need to have Python and one of the

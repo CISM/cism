@@ -36,13 +36,16 @@ if __name__ == '__main__':
   parser = OptionParser()
   parser.add_option('-e','--exp',dest='experiments',type='string',action='callback',callback=appendToList,help='Specify ISMIP-HOM experiments to run')
   parser.add_option('-s','--size',dest='sizes',type='string',action='callback',callback=appendToList,help='Specify domain sizes to run')
-  parser.add_option('-g','--grid-size',dest='horizontal_grid_size',type='int',help='(overrides ewn and nsn in config file)')
-  parser.add_option('-v','--vert-grid-size',dest='vertical_grid_size',type='int',help='(overrides upn in config file)')
-  parser.add_option('-r','--run',dest='executable',default='./simple_glide',help='Set path to the CISM executable (defaults to simple_glide)')
-  parser.add_option('-p','--prefix',dest='prefix',default='cis1',help='Prefix to use for model output files (defaults to cis1)')
+  parser.add_option('-g','--grid-size',dest='horizontal_grid_size',type='int',help='overrides ewn and nsn in config file')
+  parser.add_option('-v','--vert-grid-size',dest='vertical_grid_size',type='int',help='overrides upn in config file')
+  parser.add_option('-r','--run',dest='executable',default='./cism_driver',help='Set path to the CISM executable')
+  parser.add_option('-p','--prefix',dest='prefix',default='cis1',help='Prefix to use for model output files')
   parser.add_option('-f','--format-only',dest='format_only',action='store_true',help='Generate the config and NetCDF input files only')
   parser.add_option('-m','--parallel',dest='parallel',type='int',help='if specified then execute run in parallel')
   parser.add_option('-c','--cyclic',dest='cyclic',action='store_true',default=False,help='if specified then all fields, including scalars, are truly periodic across the domain (NOT true for ismip-hom)')
+  for option in optparser.option_list:
+    if option.default != ("NO", "DEFAULT"):
+        option.help += (" " if option.help else "") + "[default: %default]"
   options, args = parser.parse_args()
 # If the user didn't specify a list of experiments or domain sizes, run the whole suite
   if options.experiments == None: options.experiments = defaultExperiments
@@ -101,7 +104,7 @@ if __name__ == '__main__':
         configParser.set('time', 'dt', '2.2')  # 2.4 yr is the longest dt ok for diffusive CFL, when using dx=dy=2500.0
         # Need to run to steady-state...  
         # It's close to SS by 400 years, but there are some long-period oscillations that still appear out to 1000 yrs.  Not sure yet how much longer than that to eliminate those.
-        configParser.set('time', 'tend', '300.0')
+        configParser.set('time', 'tend', '400.0')
         configParser.set('CF output', 'variables', 'uvel vvel uvel_icegrid vvel_icegrid topg thk usurf wvel_ho velnorm efvs adv_cfl_dt diff_cfl_dt')  # Include flwa, efvs and the CFL variables to the output file
         configParser.set('CF output', 'frequency', '25.0')  # we don't want to output a whole lot of time levels, but want to be able to see we've reached SS.
 

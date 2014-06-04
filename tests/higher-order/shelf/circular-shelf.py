@@ -21,7 +21,7 @@ from optparse import OptionParser
 optparser = OptionParser()
 optparser.add_option("-c", "--config", dest="configfile", type='string', default='circular-shelf.config', help="Name of .config file to use for the run", metavar="FILE")
 optparser.add_option('-m','--parallel',dest='parallel',type='int', help='Number of processors to run the model with: if specified then execute run in parallel [default: perform a serial run]', metavar="NUMPROCS")
-optparser.add_option('-e','--exec',dest='executable',default='./simple_glide',help='Set path to the CISM executable')
+optparser.add_option('-e','--exec',dest='executable',default='./cism_driver',help='Set path to the CISM executable')
 optparser.add_option('-b','--smooth-beta',dest='smooth_beta',action='store_true',help='Use a Gaussian function for beta')
 optparser.add_option('-d','--dirichlet-center',dest='dirichlet_center',action='store_true',help='Apply Dirichlet boundary condition at the center')
 optparser.add_option('-s','--sloped',dest='sloped',action='store_true',help='Use a conically topped ice thickness')
@@ -140,7 +140,7 @@ else:
       elif os.system('which aprun > /dev/null') == 0:
          mpiexec = 'aprun -n '
       else:
-         sys.exit('Unable to execute parallel run.  Please edit the script to use your MPI run command, or run the model manually with something like: mpirun -np 4 ./simple_glide circular-shelf.config')
+         sys.exit('Unable to execute parallel run.  Please edit the script to use your MPI run command, or run the model manually with something like: mpirun -np 4 ./cism_driver circular-shelf.config')
       runstring = mpiexec + str(options.parallel) + ' ' + options.executable + ' ' + options.configfile
       print 'Executing parallel run with:  ' + runstring + '\n\n'
       os.system(runstring)  # Here is where the parallel run is actually executed!

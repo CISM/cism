@@ -39,7 +39,7 @@ if __name__ == '__main__':
   optparser = OptionParser()
   optparser.add_option("-c", "--config", dest="configfile", type='string', default='slab.config', help="Name of .config file to use for the run", metavar="FILE")
   optparser.add_option('-m','--parallel',dest='parallel',type='int', help='Number of processors to run the model with: if specified then execute run in parallel [default: perform a serial run]', metavar="NUMPROCS")
-  optparser.add_option('-e','--exec',dest='executable',default='./simple_glide',help='Set path to the CISM executable')
+  optparser.add_option('-e','--exec',dest='executable',default='./cism_driver',help='Set path to the CISM executable')
   for option in optparser.option_list:
       if option.default != ("NO", "DEFAULT"):
           option.help += (" " if option.help else "") + "[default: %default]"
@@ -127,7 +127,7 @@ if __name__ == '__main__':
         elif os.system('which aprun > /dev/null') == 0:
            mpiexec = 'aprun -n '
         else:
-           sys.exit('Unable to execute parallel run.  Please edit the script to use your MPI run command, or run the model manually with something like: mpirun -np 4 ./simple_glide slab.config')
+           sys.exit('Unable to execute parallel run.  Please edit the script to use your MPI run command, or run the model manually with something like: mpirun -np 4 ./cism_driver slab.config')
         runstring = mpiexec + str(options.parallel) + ' ' + options.executable + ' ' + options.configfile
         print 'Executing parallel run with:  ' + runstring + '\n\n'
         os.system(runstring)  # Here is where the parallel run is actually executed!

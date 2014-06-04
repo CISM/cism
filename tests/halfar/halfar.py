@@ -11,9 +11,13 @@
 # Parse options
 from optparse import OptionParser
 optparser = OptionParser()
-optparser.add_option("-c", "--config", dest="configfile", type='string', default='halfar.config', help="Name of .config file to use to setup and run the Halfar test case.  (Defaults to 'halfar.config')", metavar="FILE")
+optparser.add_option("-c", "--config", dest="configfile", type='string', default='halfar.config', help="Name of .config file to use to setup and run the Halfar test case.", metavar="FILE")
 optparser.add_option('-m','--parallel',dest='parallel',type='int', help='Number of processors to run the model with: if specified then execute run in parallel.  If absent, the run will be in serial (which is required for Glide SIA dycore).', metavar="NUMPROCS")
-optparser.add_option('-e','--exec',dest='executable',default='./simple_glide',help='Set path to the CISM executable (defaults to "./simple_glide")')
+optparser.add_option('-e','--exec',dest='executable',default='./cism_driver',help='Set path to the CISM executable')
+for option in optparser.option_list:
+    if option.default != ("NO", "DEFAULT"):
+        option.help += (" " if option.help else "") + "[default: %default]"
+options, args = optparser.parse_args()
 options, args = optparser.parse_args()
 
 import sys, os, numpy
