@@ -1,6 +1,3 @@
-# Get libraries for link line from Trilinos build information
-set(TRILINOS_LIBS ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES}
-   ${Trilinos_EXTRA_LD_FLAGS} ${CMAKE_Fortran_IMPLICIT_LINK_LIBRARIES} )
 
 message("")
 message("  CMake detected the following libraries for linking Fortran with C++ compiler:")
@@ -44,7 +41,7 @@ IF (NOT ${NO_TRILINOS})
                      glimmercismcpp 
                      ${GLIMMER_NETCDF_LIBS}
                      ${GLIMMER_GPTL_LIB}
-		     ${TRILINOS_LIBS}
+		     ${CISM_TRILINOS_LIBS}
 		     ${GLIMMER_EXTRA_LIBS}) 
 ELSE()
    SET(CISM_USE_LIBS glimmercismfortran

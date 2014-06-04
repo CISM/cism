@@ -37,6 +37,7 @@ OPTION (CISM_USE_DEFAULT_IO "Toggle to use default i/o files rather than running
 OPTION (CISM_GNU "Toggle to set compilation flags needed for the gnu compiler, off by default" OFF)
 OPTION (CISM_STATIC_LINKING "Toggle to set static linking for executables, off by default" OFF)
 OPTION (CISM_FORCE_FORTRAN_LINKER "Toggle to force using a fortran linker for building executables, off by default" OFF)
+OPTION (CISM_INCLUDE_IMPLICIT_LINK_LIBRARIES "Toggle to explicitly include the CMAKE_Fortran_IMPLICIT_LINK_LIBRARIES on the link line, on by default" ON)
 
 # override CISM_SERIAL_MODE setting, if it conflicts with CISM_MPI_MODE setting:
 IF (CISM_MPI_MODE)
@@ -125,6 +126,10 @@ IF (CISM_USE_TRILINOS)
   MESSAGE("   Trilinos_CXX_COMPILER_FLAGS = ${Trilinos_CXX_COMPILER_FLAGS}")
   MESSAGE("   Trilinos_Fortran_COMPILER_FLAGS = ${Trilinos_Fortran_COMPILER_FLAGS}")
   MESSAGE("End of Trilinos details\n")
+
+  # Get libraries for link line from Trilinos build information
+  set(CISM_TRILINOS_LIBS ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES} ${Trilinos_EXTRA_LD_FLAGS})
+
   IF (NOT DEFINED CMAKE_CXX_COMPILER AND NOT DEFINED ENV{CXX}) 
     SET(CMAKE_CXX_COMPILER ${Trilinos_CXX_COMPILER})
   ENDIF()
@@ -137,6 +142,26 @@ IF (CISM_USE_TRILINOS)
 ENDIF()
 
 ENABLE_LANGUAGE(Fortran) 
+
+IF (CISM_INCLUDE_IMPLICIT_LINK_LIBRARIES)
+  # WJS (6-3-14) Until now, these Fortran_IMPLICIT_LINK_LIBRARIES were always
+  # included. However, explicitly appending these implicit link libraries breaks
+  # the build on yellowstone, for some reason. It could be because the trilinos
+  # build is old. I suspect these implicit link libraries are needed when you're
+  # linking with a C++ linker, which is not the case for yellowstone-intel. In
+  # any case, I'm providing an option to exclude these from the build, to allow
+  # the yellowstone-intel build to work.
+  #
+  # Also, note that, although these are added to the variable CISM_TRILINOS_LIBS,
+  # this variable is used even when building without trilinos. I am merely
+  # maintaining the old behavior in this respect.
+  LIST(APPEND CISM_TRILINOS_LIBS ${CMAKE_Fortran_IMPLICIT_LINK_LIBRARIES})
+
+  #message("")
+  #message("  CMake detected the following libraries for linking Fortran with C++ compiler:")
+  #message("     ${CMAKE_Fortran_IMPLICIT_LINK_LIBRARIES} ")
+ENDIF()
+
 # Only include C++ support if it's really needed, to avoid problems
 # caused by broken C++ compilers.
 #IK, 8/3/13: added simple_felix option 
