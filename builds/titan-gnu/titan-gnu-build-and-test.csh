@@ -17,6 +17,10 @@
 # setenv TEST_DIR "/USERS/$USER/work/modeling/cism/seacism-oceans11/tests/higher-order"
 
 # 5/7/2014 DMR -- added performance tests:
+
+## This will automatically submit dome60-500 ijobs. gis_1km and gis_4km will not be submitted
+## automatically because you will have to build and run Felix/Albany on titan first. Once you do that,
+## you can go to lines #193-194, 197-198, 201-202, and uncomment them.
 setenv PERF_TEST 0
 
 @ run_perf_tests = (($1 == run-perf-tests) || ($2 == run-perf-tests) || ($3 == run-perf-tests))
@@ -186,12 +190,16 @@ endif
   #  qsub $CISM_RUN_SCRIPT
   
   #gis 4km test case
-    cd $TEST_DIR/perf_test/gis_4km
-    qsub $CISM_RUN_SCRIPT
+  #  cd $TEST_DIR/perf_test/gis_4km
+  #  qsub $CISM_RUN_SCRIPT
+  
+  #gis 2km test case
+  #  cd $TEST_DIR/perf_test/gis_2km
+  #  qsub $CISM_RUN_SCRIPT
   
   #gis 1km test case
-    cd $TEST_DIR/perf_test/gis_1km
-    qsub $CISM_RUN_SCRIPT
+  #  cd $TEST_DIR/perf_test/gis_1km
+  #  qsub $CISM_RUN_SCRIPT
   endif
 endif
 
