@@ -17,19 +17,19 @@ Four configuration files allow for the four possible combinations of modeling th
 See the documentation for more discussion of these different models. 
 
 
-To run a particular test case, first create a symbolic link (or copy of) your executable:
+To run a particular test case, first create a symbolic link (or copy of) your executable, e.g.:
 
-> ln -s ../../../example_drivers/simple_glide/src/simple_glide ./
+> ln -s ../../../builds/mac-gnu/cism_driver/cism_driver .
 
 For a serial build, the EISMINT-1, moving margin, test case 3 can be run using:
 
-> ./simple_glide isos.elra.config
+> ./cism_driver isos.elra.config
 
 and likewise for other test cases.
 
 For a parallel build, one would use:
 
-> mpirun -np 1 ./simple_glide isos.elra.config 
+> mpirun -np 1 ./cism_driver isos.elra.config 
 
 To view the results use ncview or another utility for viewing netCDF files.
 

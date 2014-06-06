@@ -2,17 +2,17 @@
 EISMINT-2 test cases
 --------------------
 
-To run a particular test case, first create a symbolic link (or copy of) your executable:
+To run a particular test case, first create a symbolic link (or copy of) your executable, e.g.:
 
-> ln -s ../../../example_drivers/simple_glide/src/simple_glide ./
+> ln -s ../../../builds/mac-gnu/cism_driver/cism_driver .
 
 For a serial build, EISMINT-2 test A can be run using:
 
-> ./simple_glide e2.a.config
+> ./cism_driver e2.a.config
 
 For a parallel build, one would use:
 
-> mpirun -np 1 ./simple_glide e2.a.config
+> mpirun -np 1 ./cism_driver e2.a.config
 
 and likewise for other test cases.
 
