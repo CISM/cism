@@ -216,15 +216,18 @@ if __name__ == '__main__':
            if options.parallel > 0:
               # These calls to os.system will return the exit status: 0 for success (the command exists), some other integer for failure
               if os.system('which openmpirun > /dev/null') == 0:
-                 mpiexec = 'openmpirun -np '
+                 mpiexec = 'openmpirun -np ' + str(options.parallel)
               elif os.system('which mpirun > /dev/null') == 0:
-                 mpiexec = 'mpirun -np '
+                 mpiexec = 'mpirun -np ' + str(options.parallel)
               elif os.system('which aprun > /dev/null') == 0:
-                 mpiexec = 'aprun -n '
+                 mpiexec = 'aprun -n ' + str(options.parallel)
+              elif os.system('which mpirun.lsf > /dev/null') == 0:
+                 # mpirun.lsf does NOT need the number of processors (options.parallel)
+                 mpiexec = 'mpirun.lsf'
               else:
                  sys.exit('Unable to execute parallel run.  Please edit the script to use your MPI run command.')
               # Now run the model
-              runstring = mpiexec + str(options.parallel) + ' ' + options.executable + ' ' + filename + '.config'
+              runstring = mpiexec + ' ' + options.executable + ' ' + filename + '.config'
               print 'Executing parallel run with:  ' + runstring + '\n\n'
               exitCode = os.system(runstring)
            else:
