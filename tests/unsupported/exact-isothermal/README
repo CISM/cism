@@ -7,8 +7,13 @@ agreement.
 
 Compilation
 -----------
-./configure --with-glimmer-prefix=DIR_WHERE_GLIMMER_IS_INSTALLED
-make
+As of 2014, compilation/automatically running these tests is no longer supported.  
+The instructions below for "Running the Test Suite" are left for
+reference only, but the instructions are no longer supported and likely no longer work.
+The Makefile.am files located in this directory and its subdirectories 
+were used by the Autotools build system which is
+no longer used by CISM.  The Makefile.am files have been left for 
+reference only.
 
 Running the Test Suite
 ----------------------
