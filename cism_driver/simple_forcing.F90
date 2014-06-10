@@ -311,6 +311,7 @@ contains
     !*FD print simple climate configuration
 
     use glimmer_log
+    use parallel, only: tasks
     implicit none
 
     type(simple_climate) :: climate   !*FD structure holding climate info
@@ -371,6 +372,10 @@ contains
        call write_log(message)
     end select
 
+    if ( (climate%eismint_type > 0) .and. (tasks > 1) ) then
+       call write_log('EISMINT tests are not supported for more than one processor', GM_FATAL)
+    end if
+
     call write_log('')
 
   end subroutine simple_printconfig
@@ -381,7 +386,6 @@ contains
 
 !TODO - Remove acc0
 
-    use parallel
     use glimmer_global, only : dp
     use glide_types
     use glimmer_paramets, only : len0, acc0, scyr
@@ -427,8 +431,6 @@ contains
           rel = climate%nmsb(3)
        end if
 
-!WHL - Commenting out this 'not_parallel' call to reduce screen output
-!!       call not_parallel(__FILE__,__LINE__)
        do ns = 1,model%general%nsn
           do ew = 1,model%general%ewn
              dist = grid * sqrt(periodic*(real(ew,kind=dp) - ewct)**2 + (real(ns,kind=dp) - nsct)**2)
@@ -440,8 +442,6 @@ contains
        ! EISMINT-2
        rel = climate%nmsb(3)
 
-!WHL - Commenting out this 'not_parallel' call to reduce screen output
-!!       call not_parallel(__FILE__,__LINE__)
        do ns = 1,model%general%nsn
           do ew = 1,model%general%ewn
              dist = grid * sqrt(periodic*(real(ew,kind=dp) - ewct)**2 + (real(ns,kind=dp) - nsct)**2)
@@ -455,7 +455,6 @@ contains
 
     case(5)
        !verification 
-       call not_parallel(__FILE__,__LINE__)
        call exact_surfmass(climate,model,time,1.d0,climate%airt(2))
 
     end select
@@ -466,7 +465,6 @@ contains
 
     !*FD calculate simple air surface temperature
 
-    use parallel
     use glide_types
     use glimmer_global, only: dp
     use glimmer_paramets, only : len0
@@ -495,7 +493,6 @@ contains
     select case(climate%eismint_type)
 
     case(1)
-       call not_parallel(__FILE__,__LINE__)
        ! EISMINT-1 fixed margin
        do ns = 1,model%general%nsn
           do ew = 1,model%general%ewn
@@ -515,8 +512,6 @@ contains
        end if
 
     case(3)
-!WHL - Commenting out this 'not_parallel' call to reduce screen output
-!!       call not_parallel(__FILE__,__LINE__)
        ! EISMINT-2
        do ns = 1,model%general%nsn
           do ew = 1,model%general%ewn
@@ -529,7 +524,6 @@ contains
        model%climate%artm = climate%airt(1)
 
     case(5)
-       call not_parallel(__FILE__,__LINE__)
        !call both massbalance and surftemp at the same time to save computing time. 
        call exact_surfmass(climate,model,time,0.d0,climate%airt(2))
     end select
