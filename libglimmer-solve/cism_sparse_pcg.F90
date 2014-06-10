@@ -257,12 +257,14 @@ contains
 
     ! Set up matrices for preconditioning
 
+    call t_startf("pcg_precond_init")
     call setup_preconditioner(nx,         ny,       &
                               nz,                   &
                               precond,    indxA,    &
                               Auu,        Avv,      &
                               Adiagu,     Adiagv,   &
                               Muu,        Mvv)
+    call t_stopf("pcg_precond_init")
 
     ! Compute initial residual and initialize the direction vector d
     ! Note: The matrix A must be complete for all rows corresponding to locally 
@@ -275,10 +277,10 @@ contains
 
     ! Halo update for x (initial guess for velocity solution)
 
-    call t_startf("pcg_halo_xx_init")
+    call t_startf("pcg_halo_init")
     call staggered_parallel_halo(xu)
     call staggered_parallel_halo(xv)
-    call t_stopf("pcg_halo_xx_init")
+    call t_stopf("pcg_halo_init")
 
     ! Compute A*x (use z as a temp vector for A*x)
 
@@ -295,8 +297,10 @@ contains
     ! Compute the initial residual r(0) = b - Ax(0)
     ! This will be correct for locally owned vertices.
 
+    call t_startf("pcg_vecupdate_init")
     ru(:,:,:) = bu(:,:,:) - zu(:,:,:)
     rv(:,:,:) = bv(:,:,:) - zv(:,:,:)
+    call t_stopf("pcg_vecupdate_init")
 
     ! Initialize scalars and vectors
 
@@ -312,17 +316,19 @@ contains
     ! Compute the L2 norm of the RHS vectors
     ! (Goal is to obtain L2_resid/L2_rhs < tolerance)
 
+    call t_startf("pcg_dotprod")
     work0u(:,:,:) = bu(:,:,:)*bu(:,:,:)    ! terms of dot product (b, b)
     work0v(:,:,:) = bv(:,:,:)*bv(:,:,:)
+    call t_stopf("pcg_dotprod")
 
     ! find global sum of the squared L2 norm
 
-    call t_startf("pcg_glbsum_l2norm")
+    call t_startf("pcg_glbsum_init")
     call global_sum_staggered(nx,     ny,     &
                               nz,     nhalo,  &
                               L2_rhs,         &
                               work0u, work0v)
-    call t_stopf("pcg_glbsum_l2norm")
+    call t_stopf("pcg_glbsum_init")
 
     ! take square root
 
@@ -331,6 +337,8 @@ contains
     ! iterate to solution
 
     iter_loop: do n = 1, maxiters
+
+       call t_startf("pcg_precond")
 
        ! Compute PC(r) = solution z of Mz = r
 
@@ -360,31 +368,31 @@ contains
 
        elseif (precond == 2) then   ! local vertical shallow-ice solver for preconditioning
 
-          call t_startf("pcg_sia_solve1")
           call easy_sia_solver(nx,   ny,   nz,        &
                                active_vertex,         &
                                Muu,  ru,   zu)      ! solve Muu*zu = ru for zu 
-          call t_stopf("pcg_sia_solve1")
 
-          call t_startf("pcg_sia_solve2")
           call easy_sia_solver(nx,   ny,   nz,        &
                                active_vertex,         &
                                Mvv,  rv,   zv)      ! solve Mvv*zv = rv for zv
-          call t_stopf("pcg_sia_solve2")
 
        endif    ! precond
 
+       call t_stopf("pcg_precond")
+
        ! Compute the dot product eta1 = (r, PC(r))
 
+       call t_startf("pcg_dotprod")
        work0u(:,:,:) = ru(:,:,:)*zu(:,:,:)    ! terms of dot product (r, PC(r))
        work0v(:,:,:) = rv(:,:,:)*zv(:,:,:)    
+       call t_stopf("pcg_dotprod")
 
-       call t_startf("pcg_glbsum_eta1")
+       call t_startf("pcg_glbsum_iter")
        call global_sum_staggered(nx,     ny,     &
                                  nz,     nhalo,  &
                                  eta1,           &
                                  work0u, work0v)
-       call t_stopf("pcg_glbsum_eta1")
+       call t_stopf("pcg_glbsum_iter")
 
        !WHL - If the SIA solver has failed due to singular matrices,
        !      then eta1 will be NaN.
@@ -398,6 +406,7 @@ contains
 
        beta = eta1/eta0
 
+       call t_startf("pcg_vecupdate")
        du(:,:,:) = zu(:,:,:) + beta*du(:,:,:)       ! d_(i+1) = PC(r_(i+1)) + beta_(i+1)*d_i
        dv(:,:,:) = zv(:,:,:) + beta*dv(:,:,:)       !
                                                     !                    (r_(i+1), PC(r_(i+1)))
@@ -405,13 +414,14 @@ contains
                                                     !                        (r_i, PC(r_i)) 
                                                     ! Initially eta0 = 1  
                                                     ! For n >=2, eta0 = old eta1
+       call t_stopf("pcg_vecupdate")
 
        ! Halo update for d
 
-       call t_startf("pcg_halo_dx")
+       call t_startf("pcg_halo_iter")
        call staggered_parallel_halo(du)
        call staggered_parallel_halo(dv)
-       call t_stopf("pcg_halo_dx")
+       call t_stopf("pcg_halo_iter")
   
        ! Compute q = A*d
        ! This is the one matvec multiply required for each iteration
@@ -432,18 +442,19 @@ contains
 
        ! Compute the dot product eta2 = (d, A*d)
 
+       call t_startf("pcg_dotprod")
        work0u(:,:,:) = du(:,:,:) * qu(:,:,:)       ! terms of dot product (d, Ad)
        work0v(:,:,:) = dv(:,:,:) * qv(:,:,:)
+       call t_stopf("pcg_dotprod")
 
-       call t_startf("pcg_glbsum_eta2")
+       call t_startf("pcg_glbsum_iter")
        call global_sum_staggered(nx,     ny,     &
                                  nz,     nhalo,  &
                                  eta2,           &
                                  work0u, work0v)
-       call t_stopf("pcg_glbsum_eta2")
+       call t_stopf("pcg_glbsum_iter")
 
        ! Compute alpha
-
                               !          (r, PC(r))
        alpha = eta1/eta2      ! alpha = ----------
                               !          (d, A*d)
@@ -463,11 +474,13 @@ contains
 
        ! Compute the new solution and residual
 
+       call t_startf("pcg_vecupdate")
        xu(:,:,:) = xu(:,:,:) + alpha * du(:,:,:)    ! new solution, x_(i+1) = x_i + alpha*d
        xv(:,:,:) = xv(:,:,:) + alpha * dv(:,:,:)
 
        ru(:,:,:) = ru(:,:,:) - alpha * qu(:,:,:)    ! new residual, r_(i+1) = r_i - alpha*(Ad)
        rv(:,:,:) = rv(:,:,:) - alpha * qv(:,:,:)
+       call t_stopf("pcg_vecupdate")
 
        ! Check for convergence every solv_ncheck iterations
        ! For convergence check, use r = b - Ax
@@ -476,10 +489,10 @@ contains
 
           ! Halo update for x
 
-          call t_startf("pcg_halo_xx_resid")
+          call t_startf("pcg_halo_resid")
           call staggered_parallel_halo(xu)
           call staggered_parallel_halo(xv)
-          call t_stopf("pcg_halo_xx_resid")
+          call t_stopf("pcg_halo_resid")
 
           ! Compute A*x (use z as a temp vector for A*x)
            
@@ -495,20 +508,24 @@ contains
 
           ! Compute residual r = b - Ax
 
+          call t_startf("pcg_vecupdate")
           ru(:,:,:) = bu(:,:,:) - zu(:,:,:)
           rv(:,:,:) = bv(:,:,:) - zv(:,:,:)
+          call t_stopf("pcg_vecupdate")
 
           ! Compute squared L2 norm of (r, r)
 
+          call t_startf("pcg_dotprod")
           work0u(:,:,:) = ru(:,:,:)*ru(:,:,:)   ! terms of dot product (r, r)
           work0v(:,:,:) = rv(:,:,:)*rv(:,:,:)
+          call t_stopf("pcg_dotprod")
 
-          call t_startf("pcg_glbsum_conv")
+          call t_startf("pcg_glbsum_resid")
           call global_sum_staggered(nx,     ny,       &
                                     nz,     nhalo,    &
                                     L2_resid,         &
                                     work0u, work0v)
-          call t_stopf("pcg_glbsum_conv")
+          call t_stopf("pcg_glbsum_resid")
 
           ! take square root
           L2_resid = sqrt(L2_resid)       ! L2 norm of residual
@@ -796,12 +813,14 @@ contains
 
     !---- Set up matrices for preconditioning
 
+    call t_startf("pcg_precond_init")
     call setup_preconditioner(nx,         ny,       &
                               nz,                   &
                               precond,    indxA,    &
                               Auu,        Avv,      &
                               Adiagu,     Adiagv,   &
                               Muu,        Mvv)
+    call t_stopf("pcg_precond_init")
 
     !---- Initialize scalars and vectors
 
@@ -826,22 +845,23 @@ contains
     !---- Compute the L2 norm of the RHS vectors
     !---- (Goal is to obtain L2_resid/L2_rhs < tolerance)
 
+    call t_startf("pcg_dotprod")
     worku(:,:,:) = bu(:,:,:)*bu(:,:,:)    ! terms of dot product (b, b)
     workv(:,:,:) = bv(:,:,:)*bv(:,:,:)
+    call t_stopf("pcg_dotprod")
 
     ! find global sum of the squared L2 norm
 
-    call t_startf("pcg_glbsum_l2norm")
+    call t_startf("pcg_glbsum_init")
     call global_sum_staggered(nx,     ny,     &
                               nz,     nhalo,  &
                               bb,             &
                               worku,  workv)
-    call t_stopf("pcg_glbsum_l2norm")
+    call t_stopf("pcg_glbsum_init")
 
     ! take square root
 
     L2_rhs = sqrt(bb)       ! L2 norm of RHS
-!!    if (verbose_pcg .and. this_rank==rtest) print*, 'Global L2_rhs =', L2_rhs
 
     !---------------------------------------------------------------
     ! First pass of algorithm
@@ -877,8 +897,10 @@ contains
     !---- Compute the initial residual r = b - A*x
     !---- This is correct for locally owned nodes.
 
+    call t_startf("pcg_vecupdate")
     ru(:,:,:) = bu(:,:,:) - zu(:,:,:)
     rv(:,:,:) = bv(:,:,:) - zv(:,:,:)
+    call t_stopf("pcg_vecupdate")
 
     !---- Halo update for residual
 
@@ -889,6 +911,9 @@ contains
 
     !---- Compute (PC)r = solution z of Mz = r
     !---- Since r was just updated in halo, z is correct in halo
+
+    ! From here on, call timers with 'iter' suffix because this can be considered the first iteration
+    call t_startf("pcg_precond_iter")
 
     if (precond == 0) then      ! no preconditioning
 
@@ -916,24 +941,24 @@ contains
 
     elseif (precond == 2) then   ! local vertical shallow-ice solver for preconditioning
 
-       call t_startf("pcg_sia_solve1")
        call easy_sia_solver(nx,   ny,   nz,        &
                             active_vertex,         &
                             Muu,  ru,   zu)      ! solve Muu*zu = ru for zu 
-       call t_stopf("pcg_sia_solve1")
 
-       call t_startf("pcg_sia_solve2")
        call easy_sia_solver(nx,   ny,   nz,        &
                             active_vertex,         &
                             Mvv,  rv,   zv)      ! solve Mvv*zv = rv for zv
-       call t_stopf("pcg_sia_solve2")
 
     endif    ! precond
 
+    call t_stopf("pcg_precond_iter")
+
     !---- Compute intermediate result for dot product (r,z)
 
+    call t_startf("pcg_dotprod")
     work2u(:,:,:,1) = ru(:,:,:) * zu(:,:,:)
     work2v(:,:,:,1) = rv(:,:,:) * zv(:,:,:)
+    call t_stopf("pcg_dotprod")
 
     !---- Compute the conjugate direction vector d
     !---- Since z is correct in halo, so is d
@@ -944,7 +969,7 @@ contains
     !---- Compute q = A*d
     !---- q is correct for locally owned nodes
 
-    call t_startf("pcg_matmult_init")
+    call t_startf("pcg_matmult_iter")
     call matvec_multiply_structured(nx,        ny,            &
                                     nz,        nhalo,         &
                                     indxA,     active_vertex, &
@@ -952,28 +977,30 @@ contains
                                     Avu,       Avv,           &
                                     du,        dv,            &
                                     qu,        qv)
-    call t_stopf("pcg_matmult_init")
+    call t_stopf("pcg_matmult_iter")
 
     !---- Compute intermediate result for dot product (d,q) = (d,Ad)
 
+    call t_startf("pcg_dotprod")
     work2u(:,:,:,2) = du(:,:,:) * qu(:,:,:)
     work2v(:,:,:,2) = dv(:,:,:) * qv(:,:,:)
-    
-    !---- Halo update for q
-
-    call t_startf("pcg_halo_init")
-    call staggered_parallel_halo(qu)
-    call staggered_parallel_halo(qv)
-    call t_stopf("pcg_halo_init")
+    call t_stopf("pcg_dotprod")
 
     !---- Find global sums of (r,z) and (d,q)
 
-    call t_startf("pcg_glbsum_init")
+    call t_startf("pcg_glbsum_iter")
     call global_sum_staggered(nx,     ny,     &
                               nz,     nhalo,  &
                               gsum,           &
                               work2u, work2v)
-    call t_stopf("pcg_glbsum_init")
+    call t_stopf("pcg_glbsum_iter")
+
+    !---- Halo update for q
+
+    call t_startf("pcg_halo_iter")
+    call staggered_parallel_halo(qu)
+    call staggered_parallel_halo(qv)
+    call t_stopf("pcg_halo_iter")
 
     rho_old = gsum(1)      ! (r,z) = (r, (PC)r)
     sigma = gsum(2)        ! (d,q) = (d, Ad)
@@ -994,11 +1021,13 @@ contains
     !---- Update solution and residual
     !---- These are correct in halo
 
+    call t_startf("pcg_vecupdate")
     xu(:,:,:) = xu(:,:,:) + alpha*du(:,:,:)
     xv(:,:,:) = xv(:,:,:) + alpha*dv(:,:,:)
 
     ru(:,:,:) = ru(:,:,:) - alpha*qu(:,:,:)     ! q = A*d
     rv(:,:,:) = rv(:,:,:) - alpha*qv(:,:,:)
+    call t_stopf("pcg_vecupdate")
 
     !---------------------------------------------------------------
     ! Iterate to solution
@@ -1008,6 +1037,8 @@ contains
 
        !---- Compute PC(r) = solution z of Mz = r
        !---- z is correct in halo
+
+       call t_startf("pcg_precond_iter")
 
        if (precond == 0) then      ! no preconditioning
 
@@ -1035,19 +1066,17 @@ contains
 
        elseif (precond == 2) then   ! local vertical shallow-ice solver for preconditioning
 
-          call t_startf("pcg_sia_solve1")
           call easy_sia_solver(nx,   ny,   nz,        &
                                active_vertex,         &
                                Muu,  ru,   zu)      ! solve Muu*zu = ru for zu 
-          call t_stopf("pcg_sia_solve1")
 
-          call t_startf("pcg_sia_solve2")
           call easy_sia_solver(nx,   ny,   nz,        &
                                active_vertex,         &
                                Mvv,  rv,   zv)      ! solve Mvv*zv = rv for zv
-          call t_stopf("pcg_sia_solve2")
 
        endif    ! precond
+
+       call t_stopf("pcg_precond_iter")
 
        !---- Compute Az = A*z
        !---- This is the one matvec multiply required per iteration
@@ -1065,19 +1094,13 @@ contains
 
        !---- Compute intermediate results for the dot products (r,z) and (Az,z)
 
+       call t_startf("pcg_dotprod")
        work2u(:,:,:,1) = ru(:,:,:)*zu(:,:,:)     ! terms of dot product (r,z)
        work2v(:,:,:,1) = rv(:,:,:)*zv(:,:,:)    
 
        work2u(:,:,:,2) = Azu(:,:,:)*zu(:,:,:)    ! terms of dot product (A*z,z)
        work2v(:,:,:,2) = Azv(:,:,:)*zv(:,:,:)    
-
-       !---- Halo update for Az
-       !---- This is the one halo update required per iteration
-
-       call t_startf("pcg_halo_iter")
-       call staggered_parallel_halo(Azu)
-       call staggered_parallel_halo(Azv)
-       call t_stopf("pcg_halo_iter")
+       call t_stopf("pcg_dotprod")
 
        ! Take the global sums of (r,z) and (Az,z)
        ! Two sums are combined here for efficiency;
@@ -1089,6 +1112,14 @@ contains
                                  gsum,           &
                                  work2u, work2v)
        call t_stopf("pcg_glbsum_iter")
+
+       !---- Halo update for Az
+       !---- This is the one halo update required per iteration
+
+       call t_startf("pcg_halo_iter")
+       call staggered_parallel_halo(Azu)
+       call staggered_parallel_halo(Azv)
+       call t_stopf("pcg_halo_iter")
 
        !---- Compute some scalars
 
@@ -1114,6 +1145,8 @@ contains
        !---- Update d and q
        !---- These are correct in halo
 
+       call t_startf("pcg_vecupdate")
+
        du(:,:,:) = zu(:,:,:) + beta*du(:,:,:)       ! d_(i+1) = PC(r_(i+1)) + beta_(i+1)*d_i
        dv(:,:,:) = zv(:,:,:) + beta*dv(:,:,:)       !
                                                     !                    (r_(i+1), PC(r_(i+1)))
@@ -1130,6 +1163,8 @@ contains
 
        ru(:,:,:) = ru(:,:,:) - alpha*qu(:,:,:)
        rv(:,:,:) = rv(:,:,:) - alpha*qv(:,:,:)
+
+       call t_stopf("pcg_vecupdate")
 
        !---------------------------------------------------------------
        ! Convergence check every solv_ncheck iterations
@@ -1151,31 +1186,26 @@ contains
 
           !---- Compute residual r = b - A*x
 
+          call t_startf("pcg_vecupdate")
           ru(:,:,:) = bu(:,:,:) - zu(:,:,:)
           rv(:,:,:) = bv(:,:,:) - zv(:,:,:)
-
-          !---- Update residual in halo for next iteration
-
-          call t_startf("pcg_halo_resid")
-          call staggered_parallel_halo(ru)
-          call staggered_parallel_halo(rv)
-          call t_stopf("pcg_halo_resid")
+          call t_stopf("pcg_vecupdate")
 
           !---- Compute dot product (r, r)
 
+          call t_startf("pcg_dotprod")
           worku(:,:,:) = ru(:,:,:)*ru(:,:,:)
           workv(:,:,:) = rv(:,:,:)*rv(:,:,:)
+          call t_stopf("pcg_dotprod")
 
-          call t_startf("pcg_glbsum_conv")
+          call t_startf("pcg_glbsum_resid")
           call global_sum_staggered(nx,     ny,       &
                                     nz,     nhalo,    &
                                     rr,               &
                                     worku, workv)
-          call t_stopf("pcg_glbsum_conv")
+          call t_stopf("pcg_glbsum_resid")
 
-          ! take square root
           L2_resid = sqrt(rr)          ! L2 norm of residual
-
           err = L2_resid/L2_rhs        ! normalized error
 
           if (verbose_pcg .and. main_task) then
@@ -1187,6 +1217,13 @@ contains
              niters = n
              exit iter_loop
           endif            
+
+          !---- Update residual in halo for next iteration
+
+          call t_startf("pcg_halo_resid")
+          call staggered_parallel_halo(ru)
+          call staggered_parallel_halo(rv)
+          call t_stopf("pcg_halo_resid")
 
        endif    ! solv_ncheck
 

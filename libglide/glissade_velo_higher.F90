@@ -744,7 +744,7 @@
        global_node_id      ! unique global ID for nodes on this processor
 
     integer, dimension(:), allocatable ::    &
-       active_owned_unknown_map    ! maps owned active nodes to global IDs
+       active_owned_unknown_map    ! maps owned active unknowns (u and v at each active node) to global IDs
 
     !WHL - For now these A**_fill arrays are set to true everywhere.
     !      Later they could be used to determine which columns in each row
@@ -952,21 +952,22 @@
     ! These are quantities that do not change during the outer nonlinear loop. 
     !------------------------------------------------------------------------------
 
-    maxthck = maxval(thck(:,:))
-    maxthck = parallel_reduce_max(maxthck)
-    maxusrf = maxval(usrf(:,:))
-    maxusrf = parallel_reduce_max(maxusrf)
+!WHL - debug
 
-    if (verbose .and. main_task) then
+    if (verbose_state) then
+       maxthck = maxval(thck(:,:))
+       maxthck = parallel_reduce_max(maxthck)
+       maxusrf = maxval(usrf(:,:))
+       maxusrf = parallel_reduce_max(maxusrf)
+    endif
+
+    if (verbose_state .and. this_rank==rtest) then
+
        print*, ' '
        print*, 'nx, ny, nz:', nx, ny, nz
        print*, 'vol0:', vol0
        print*, 'thklim:', thklim
        print*, 'max thck, usrf:', maxthck, maxusrf
-    endif
-
-!WHL - debug
-    if (verbose_state .and. this_rank==rtest) then
 
        print*, 'sigma coordinate:'
        do k = 1, nz
@@ -1670,8 +1671,19 @@
           call staggered_parallel_halo(beta)
 
           !WHL - debug
-          if (verbose_beta .and. main_task) then
 
+          if (verbose_beta) then
+             maxbeta = maxval(beta(:,:))
+             maxbeta = parallel_reduce_max(maxbeta)
+             minbeta = minval(beta(:,:))
+             minbeta = parallel_reduce_min(minbeta)
+             max_mintauf = maxval(mintauf(:,:))
+             max_mintauf = parallel_reduce_max(max_mintauf)
+             min_mintauf = minval(mintauf(:,:))
+             min_mintauf = parallel_reduce_min(min_mintauf)
+          endif
+
+          if (verbose_beta .and. main_task) then
              print*, ' '
              print*, 'beta field, rank =', rtest
              do j = ny-1, 1, -1
@@ -1682,38 +1694,8 @@
              enddo
 
              print*, ' '
-             print*, 'uvel, rank =', rtest
-             do j = ny-1, 1, -1
-                do i = 1, nx-1
-                   write(6,'(f10.3)',advance='no') uvel(nz,i,j)
-                enddo
-                write(6,*) ' '
-             enddo
-
-          endif
-
-          !WHL - debug                                                                                                                                                        
-          maxbeta = maxval(beta(:,:))
-          maxbeta = parallel_reduce_max(maxbeta)
-          minbeta = minval(beta(:,:))
-          minbeta = parallel_reduce_min(minbeta)
-
-          if (verbose_beta) then
              print*, 'max, min beta (Pa/(m/yr)) =', maxbeta, minbeta
-          endif
-
-          max_mintauf = maxval(mintauf(:,:))
-          max_mintauf = parallel_reduce_max(max_mintauf)
-          min_mintauf = minval(mintauf(:,:))
-          min_mintauf = parallel_reduce_min(min_mintauf)
-
-          if (verbose_beta) then
              print*, 'max, min mintauf (Pa) =', max_mintauf, min_mintauf
-          endif
-
-!WHL - debug
-          if (verbose_beta .and. main_task) then
-             print*, ' '
              i = 10
              print*, 'mintauf, uvel(nz), vvel(nz), beta, i =', i
              do j = ny-1, 1, -1
@@ -1797,12 +1779,12 @@
        !  they will be reconciled by the subroutine check_symmetry_assembled_matrix.
        !---------------------------------------------------------------------------
      
-        call t_startf('glissade_halo_Axxs')
-        call staggered_parallel_halo(Auu(:,:,:,:))
-        call staggered_parallel_halo(Auv(:,:,:,:))
-        call staggered_parallel_halo(Avu(:,:,:,:))
-        call staggered_parallel_halo(Avv(:,:,:,:))
-        call t_stopf('glissade_halo_Axxs')
+       call t_startf('glissade_halo_Axxs')
+       call staggered_parallel_halo(Auu(:,:,:,:))
+       call staggered_parallel_halo(Auv(:,:,:,:))
+       call staggered_parallel_halo(Avu(:,:,:,:))
+       call staggered_parallel_halo(Avv(:,:,:,:))
+       call t_stopf('glissade_halo_Axxs')
 
        !---------------------------------------------------------------------------
        ! Halo updates for rhs vectors
@@ -3911,6 +3893,10 @@
        efvs_avg           ! efvs averaged over quad pts
 
     logical, parameter ::   &
+       check_symmetry_element = .true.  ! if true, then check symmetry of element matrix
+                                        !TODO - set to false for production
+
+    logical, parameter ::   &
        efvs_element_avg = .false.   ! if true, then average efvs over quad pts
 
     integer :: i, j, k, n, p
@@ -3947,17 +3933,19 @@
        do k = 1, nz-1    ! loop over elements in this column 
                          ! assume k increases from upper surface to bed
 
-          if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
-             print*, 'i, j, k:', i, j, k
-             print*, ' '
-          endif
+!          if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+!             print*, 'i, j, k:', i, j, k
+!             print*, ' '
+!          endif
+
+!          call t_startf('glissade_element_init')
 
           ! Initialize element stiffness matrix
           Kuu(:,:) = 0.d0
           Kuv(:,:) = 0.d0
           Kvu(:,:) = 0.d0
           Kvv(:,:) = 0.d0
-    
+  
           ! compute spatial coordinates, velocity, and upper surface elevation for each node
 
           do n = 1, nNodesPerElement
@@ -3983,41 +3971,45 @@
 
           enddo   ! nodes per element
 
+!          call t_stopf('glissade_element_init')
+
           ! Loop over quadrature points for this element
    
           !TODO - Think about how often to compute things.  Geometric quantities need to be
           !       computed only once per nonlinear solve, whereas efvs smust be recomputed
           !       after each linear solve.
 
-             if (verbose_state .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
-                print*, ' '
-                print*, 'Current uvel (m/yr): i, k =', itest, ktest
-                do jj = jtest+1, jtest-1, -1
-                   write(6, '(i4, 5e15.8)') jj, uvel(ktest,itest-1:itest+1,jj)
-                enddo
-                print*, 'Current uvel (m/yr): i, k =', itest, ktest+1
-                do jj = jtest+1, jtest-1, -1
-                   write(6, '(i4, 5e15.8)') jj, uvel(ktest+1,itest-1:itest+1,jj)
-                enddo
-                print*, ' '
-                print*, 'Current vvel (m/yr): i, k =', itest, ktest
-                do jj = jtest+1, jtest-1, -1
-                   write(6, '(i4, 5e15.8)') jj, vvel(ktest,itest-1:itest+1,jj)
-                enddo
-                print*, 'Current vvel (m/yr): i, k =', itest, ktest+1
-                do jj = jtest+1, jtest-1, -1
-                   write(6, '(i4, 5e15.8)') jj, vvel(ktest+1,itest-1:itest+1,jj)
-                enddo
+!             if (verbose_state .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+!                print*, ' '
+!                print*, 'Current uvel (m/yr): i, k =', itest, ktest
+!                do jj = jtest+1, jtest-1, -1
+!                   write(6, '(i4, 5e15.8)') jj, uvel(ktest,itest-1:itest+1,jj)
+!                enddo
+!                print*, 'Current uvel (m/yr): i, k =', itest, ktest+1
+!                do jj = jtest+1, jtest-1, -1
+!                   write(6, '(i4, 5e15.8)') jj, uvel(ktest+1,itest-1:itest+1,jj)
+!                enddo
+!                print*, ' '
+!                print*, 'Current vvel (m/yr): i, k =', itest, ktest
+!                do jj = jtest+1, jtest-1, -1
+!                   write(6, '(i4, 5e15.8)') jj, vvel(ktest,itest-1:itest+1,jj)
+!                enddo
+!                print*, 'Current vvel (m/yr): i, k =', itest, ktest+1
+!                do jj = jtest+1, jtest-1, -1
+!                   write(6, '(i4, 5e15.8)') jj, vvel(ktest+1,itest-1:itest+1,jj)
+!                enddo
 
-                print*, ' '
-                print*, 'Current uvel(lower, upper, m/yr):'
-                write(6, '(2e15.8,a10,2e15.8)') u(4), u(3), '          ', u(8), u(7)
-                write(6, '(2e15.8,a10,2e15.8)') u(1), u(2), '          ', u(5), u(6)
-                print*, ' '
-                print*, 'Current vvel(lower, upper, m/yr):'
-                write(6, '(2e15.8,a10,2e15.8)') v(4), v(3), '          ', v(8), v(7)
-                write(6, '(2e15.8,a10,2e15.8)') v(1), v(2), '          ', v(5), v(6)
-             endif
+!                print*, ' '
+!                print*, 'Current uvel(lower, upper, m/yr):'
+!                write(6, '(2e15.8,a10,2e15.8)') u(4), u(3), '          ', u(8), u(7)
+!                write(6, '(2e15.8,a10,2e15.8)') u(1), u(2), '          ', u(5), u(6)
+!                print*, ' '
+!                print*, 'Current vvel(lower, upper, m/yr):'
+!                write(6, '(2e15.8,a10,2e15.8)') v(4), v(3), '          ', v(8), v(7)
+!                write(6, '(2e15.8,a10,2e15.8)') v(1), v(2), '          ', v(5), v(6)
+!             endif
+
+!          call t_startf('glissade_basis_function_derivs')
 
           do p = 1, nQuadPoints
 
@@ -4032,15 +4024,19 @@
                                                  dphi_dx(:,p),  dphi_dy(:,p),  dphi_dz(:,p),   &
                                                  detJ(p) , i, j, k, p                      )
 
-             if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+!             if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
 !                print*, ' '
 !                print*, 'Derivatives of basis functions, p =', p
 !                do n = 1, nNodesPerElement
 !                   print*, 'n, dphi_dx, dphi_dy, dphi_dz:', n, dphi_dx(n,p), dphi_dy(n,p), dphi_dz(n,p)
 !                enddo
-             endif
+!             endif
 
           enddo   ! nQuadPoints
+
+!          call t_stopf('glissade_basis_function_derivs')
+
+!          call t_startf('glissade_effective_viscosity')
 
           do p = 1, nQuadPoints
 
@@ -4059,7 +4055,6 @@
 
           enddo   ! nQuadPoints
 
-
           ! Compute average of effective viscosity over quad pts
           efvs_avg = 0.d0
           do p = 1, nQuadPoints
@@ -4070,20 +4065,12 @@
           ! Fill efvs array for output
           efvs(k,i,j) = efvs_avg
 
-          if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
-             print*, ' '
-             print*, 'i, j, k, efvs_avg (Pa yr):', i, j, k, efvs_avg
-          endif
-
-          if (efvs_element_avg) then  ! apply element-average efvs instead of a different efvs for each quad pt
-                                      ! less accurate but smoother?
-             ! Assign average to each quad pt
-             efvs_qp(:) = efvs_avg
-
-          endif   ! efvs_element_avg
+!          call t_stopf('glissade_effective_viscosity')
 
           ! Increment the element stiffness matrix with the contribution from
           ! each quadrature point.
+
+!          call t_startf('glissade_increment_element_stiffness')
 
           do p = 1, nQuadPoints
 
@@ -4098,61 +4085,71 @@
 
           enddo   ! nQuadPoints
 
+!          call t_stopf('glissade_increment_element_stiffness')
+
 !WHL - debug
-          if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
-             print*, ' '
-             print*, 'Kvv: i, j, k =', i, j, k 
-             do jj = 1, nNodesPerElement
-                write(6,'(i4,8e18.11)') jj, Kvv(1:8,jj)
-             enddo
-          endif
+!          if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+!             print*, ' '
+!             print*, 'Kvv: i, j, k =', i, j, k 
+!             do jj = 1, nNodesPerElement
+!                write(6,'(i4,8e18.11)') jj, Kvv(1:8,jj)
+!             enddo
+!          endif
 
-          if (check_symmetry) then
 
+          if (check_symmetry_element) then
+
+!             call t_startf('glissade_checksym_element_stiffness')
              call check_symmetry_element_matrix(nNodesPerElement,  &
                                                 Kuu, Kuv, Kvu, Kvv)
+!             call t_stopf('glissade_checksym_element_stiffness')
 
           endif
 
-          if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
-             print*, ' '
-             print*, 'Insert Kuu into Auu'
-          endif
+
+!          call t_startf('glissade_element_to_global')
+
+!          if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+!             print*, ' '
+!             print*, 'Insert Kuu into Auu'
+!          endif
 
           call element_to_global_matrix(nx,           ny,          nz,          &
                                         nNodesPerElement,                       &
                                         i,            j,           k,           &
                                         Kuu,          Auu)
 
-          if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
-             print*, ' '
-             print*, 'Insert Kuv into Auv'
-          endif
+!          if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+!             print*, ' '
+!             print*, 'Insert Kuv into Auv'
+!          endif
 
           call element_to_global_matrix(nx,           ny,          nz,          &
                                         nNodesPerElement,                       &
                                         i,            j,           k,           &
                                         Kuv,          Auv)
 
-          if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
-             print*, ' '
-             print*, 'Insert Kvu into Avu'
-          endif
+!          if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+!             print*, ' '
+!             print*, 'Insert Kvu into Avu'
+!          endif
 
           call element_to_global_matrix(nx,           ny,          nz,          &
                                         nNodesPerElement,                       &
                                         i,            j,           k,           &
                                         Kvu,          Avu)
 
-          if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
-             print*, ' '
-             print*, 'Insert Kvv into Avv'
-          endif
+!          if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+!             print*, ' '
+!             print*, 'Insert Kvv into Avv'
+!          endif
 
           call element_to_global_matrix(nx,           ny,          nz,          &
                                         nNodesPerElement,                       &
                                         i,            j,           k,           &
                                         Kvv,          Avv)
+
+!          call t_stopf('glissade_element_to_global')
 
        enddo   ! nz  (loop over elements in this column)
 
@@ -4207,6 +4204,7 @@
 
 !WHL - debug
     real(dp), dimension(3,3) :: prod     ! Jac * Jinv (should be identity matrix)
+    logical :: Jac_bug_check = .false.
 
     !------------------------------------------------------------------
     ! Compute the Jacobian for the transformation from the reference
@@ -4225,17 +4223,17 @@
     !       and sum_n denotes a sum over nodes.
     !------------------------------------------------------------------
 
+!    if (verbose_Jac .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+!       print*, ' '
+!       print*, 'In get_basis_function_derivatives: i, j, k, p =', i, j, k, p
+!    endif
+
     Jac(:,:) = 0.d0
 
-    if (verbose_Jac .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
-       print*, ' '
-       print*, 'In get_basis_function_derivatives: i, j, k, p =', i, j, k, p
-    endif
-
     do n = 1, nNodesPerElement
-       if (verbose_Jac .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
-          print*, 'n, dphi_d(xyz)r:', n, dphi_dxr(n), dphi_dyr(n), dphi_dzr(n) 
-       endif
+!       if (verbose_Jac .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+!          print*, 'n, dphi_d(xyz)r:', n, dphi_dxr(n), dphi_dyr(n), dphi_dzr(n) 
+!       endif
        Jac(1,1) = Jac(1,1) + dphi_dxr(n) * xNode(n)
        Jac(1,2) = Jac(1,2) + dphi_dxr(n) * yNode(n)
        Jac(1,3) = Jac(1,3) + dphi_dxr(n) * zNode(n)
@@ -4263,12 +4261,12 @@
 
     detJ = Jac(1,1)*cofactor(1,1) + Jac(1,2)*cofactor(1,2) + Jac(1,3)*cofactor(1,3)
 
-    if (verbose_Jac .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
-       print*, ' '
-       print*, 'detJ1:', Jac(1,1)*cofactor(1,1) + Jac(1,2)*cofactor(1,2) + Jac(1,3)*cofactor(1,3)
-       print*, 'detJ2:', Jac(2,1)*cofactor(2,1) + Jac(2,2)*cofactor(2,2) + Jac(2,3)*cofactor(2,3)
-       print*, 'detJ3:', Jac(3,1)*cofactor(3,1) + Jac(3,2)*cofactor(3,2) + Jac(3,3)*cofactor(3,3)
-    endif
+!    if (verbose_Jac .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+!       print*, ' '
+!       print*, 'detJ1:', Jac(1,1)*cofactor(1,1) + Jac(1,2)*cofactor(1,2) + Jac(1,3)*cofactor(1,3)
+!       print*, 'detJ2:', Jac(2,1)*cofactor(2,1) + Jac(2,2)*cofactor(2,2) + Jac(2,3)*cofactor(2,3)
+!       print*, 'detJ3:', Jac(3,1)*cofactor(3,1) + Jac(3,2)*cofactor(3,2) + Jac(3,3)*cofactor(3,3)
+!    endif
 
     if (abs(detJ) > 0.d0) then
        do col = 1, 3
@@ -4288,50 +4286,54 @@
        stop
     endif
 
-    if (verbose_Jac .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
-       print*, ' '
-       print*, 'Jacobian calc, p =', p
-       print*, 'det J =', detJ
-       print*, ' '
-       print*, 'Jacobian matrix:'
-       print*, Jac(1,:)
-       print*, Jac(2,:)
-       print*, Jac(3,:)
-       print*, ' '
-       print*, 'cofactor matrix:'
-       print*, cofactor(1,:)
-       print*, cofactor(2,:)
-       print*, cofactor(3,:)
-       print*, ' '
-       print*, 'Inverse matrix:'
-       print*, Jinv(1,:)
-       print*, Jinv(2,:)
-       print*, Jinv(3,:)
-       print*, ' '
-       prod = matmul(Jac, Jinv)
-       print*, 'Jac*Jinv:'
-       print*, prod(1,:)
-       print*, prod(2,:)
-       print*, prod(3,:)
-    endif
+    if (Jac_bug_check) then
 
-    ! bug check - Verify that J * Jinv = I
+       if (verbose_Jac .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+          print*, ' '
+          print*, 'Jacobian calc, p =', p
+          print*, 'det J =', detJ
+          print*, ' '
+          print*, 'Jacobian matrix:'
+          print*, Jac(1,:)
+          print*, Jac(2,:)
+          print*, Jac(3,:)
+          print*, ' '
+          print*, 'cofactor matrix:'
+          print*, cofactor(1,:)
+          print*, cofactor(2,:)
+          print*, cofactor(3,:)
+          print*, ' '
+          print*, 'Inverse matrix:'
+          print*, Jinv(1,:)
+          print*, Jinv(2,:)
+          print*, Jinv(3,:)
+          print*, ' '
+          prod = matmul(Jac, Jinv)
+          print*, 'Jac*Jinv:'
+          print*, prod(1,:)
+          print*, prod(2,:)
+          print*, prod(3,:)
+       endif
 
-    prod = matmul(Jac,Jinv)
-    do col = 1, 3
-       do row = 1, 3
-          if (abs(prod(row,col) - identity3(row,col)) > 1.d-11) then
-             !TODO - do a proper abort here 
-             print*, 'stopping, Jac * Jinv /= identity'
-             print*, 'i, j, k, p:', i, j, k, p
-             print*, 'Jac*Jinv:'
-             print*, prod(1,:)
-             print*, prod(2,:)
-             print*, prod(3,:)
-             stop
-          endif
+       ! Verify that J * Jinv = I
+
+       prod = matmul(Jac,Jinv)
+       do col = 1, 3
+          do row = 1, 3
+             if (abs(prod(row,col) - identity3(row,col)) > 1.d-11) then
+                !TODO - do a proper abort here 
+                print*, 'stopping, Jac * Jinv /= identity'
+                print*, 'i, j, k, p:', i, j, k, p
+                print*, 'Jac*Jinv:'
+                print*, prod(1,:)
+                print*, prod(2,:)
+                print*, prod(3,:)
+                stop
+             endif
+          enddo
        enddo
-    enddo
+
+    endif   ! Jac_bug_check
 
     !------------------------------------------------------------------
     ! Compute the contribution of this quadrature point to dphi/dx and dphi/dy
@@ -4361,39 +4363,42 @@
                                + Jinv(3,2)*dphi_dyr(n)  &
                                + Jinv(3,3)*dphi_dzr(n)
 
-       if (verbose_Jac .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
-          print*, 'n, dphi_d(xyz):', n, dphi_dx(n), dphi_dy(n), dphi_dz(n) 
-       endif
+!       if (verbose_Jac .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+!          print*, 'n, dphi_d(xyz):', n, dphi_dx(n), dphi_dy(n), dphi_dz(n) 
+!       endif
 
     enddo
 
-    ! debug - Check that the sum of dphi_dx, etc. is close to zero  
-    !TODO - Think about why this should be the case.
-    !       Use a relative rather than an absolute threshold?
+    if (Jac_bug_check) then
 
-    if (abs( sum(dphi_dx)/maxval(dphi_dx) ) > 1.d-11) then
-        print*, 'stopping, sum over basis functions of dphi_dx > 0'
-        print*, 'dphi_dx =', dphi_dx(:)
-        print*, 'sum =', sum(dphi_dx)
-        print*, 'i, j, k, p =', i, j, k, p
-        stop
-    endif
+       ! debug - Check that the sum of dphi_dx, etc. is close to zero  
+       !TODO - Use a relative rather than an absolute threshold?
 
-    if (abs( sum(dphi_dy)/maxval(dphi_dy) ) > 1.d-11) then
-        print*, 'stopping, sum over basis functions of dphi_dy > 0'
-        print*, 'dphi_dy =', dphi_dy(:)
-        print*, 'sum =', sum(dphi_dy)
-        print*, 'i, j, k, p =', i, j, k, p
-        stop
-    endif
+       if (abs( sum(dphi_dx)/maxval(dphi_dx) ) > 1.d-11) then
+          print*, 'stopping, sum over basis functions of dphi_dx > 0'
+          print*, 'dphi_dx =', dphi_dx(:)
+          print*, 'sum =', sum(dphi_dx)
+          print*, 'i, j, k, p =', i, j, k, p
+          stop
+       endif
 
-    if (abs( sum(dphi_dz)/maxval(dphi_dz) ) > 1.d-11) then
-        print*, 'stopping, sum over basis functions of dphi_dz > 0'
-        print*, 'dphi_dz =', dphi_dz(:)
-        print*, 'sum =', sum(dphi_dz)
-        print*, 'i, j, k, p =', i, j, k, p
-        stop
-    endif
+       if (abs( sum(dphi_dy)/maxval(dphi_dy) ) > 1.d-11) then
+          print*, 'stopping, sum over basis functions of dphi_dy > 0'
+          print*, 'dphi_dy =', dphi_dy(:)
+          print*, 'sum =', sum(dphi_dy)
+          print*, 'i, j, k, p =', i, j, k, p
+          stop
+       endif
+
+       if (abs( sum(dphi_dz)/maxval(dphi_dz) ) > 1.d-11) then
+          print*, 'stopping, sum over basis functions of dphi_dz > 0'
+          print*, 'dphi_dz =', dphi_dz(:)
+          print*, 'sum =', sum(dphi_dz)
+          print*, 'i, j, k, p =', i, j, k, p
+          stop
+       endif
+
+    endif  ! Jac_bug_check
 
   end subroutine get_basis_function_derivatives
 
@@ -4590,15 +4595,13 @@
 
        enddo   ! nNodesPerElement
 
-       ! Compute effective strain rate at this quadrature point (PGB 2012, eq. 3 and 9)
+       ! Compute effective strain rate (squared) at this quadrature point (PGB 2012, eq. 3 and 9)
        ! Units are yr^(-1)
 
        effstrainsq = effstrain_min**2                                      &
                    + ssa_factor * (du_dx**2 + dv_dy**2 + du_dx*dv_dy       &
                                    + 0.25d0 * (dv_dx + du_dy)**2)          &
                    + sia_factor * 0.25d0 * (du_dz**2 + dv_dz**2)
-
-       effstrain = sqrt(effstrainsq)
 
        ! Compute effective viscosity (PGB 2012, eq. 4)
        ! Units: flwafact has units Pa yr^{1/n}
@@ -4607,14 +4610,19 @@
        !                 = -2/3 for n=3
        ! Thus efvs has units Pa yr
  
+       effstrain = sqrt(effstrainsq)
        efvs = flwafact * effstrain**p_effstr
 
-       if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
+       !TODO - The following line, replacing the previous two lines, makes the code slightly faster
+       !       (and changes the answers at roundoff level)
+!       efvs = flwafact * effstrainsq**(0.5d0*p_effstr)
+
+!       if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
 !          print*, 'effstrain_min (yr-1)=', effstrain_min
-          print*, 'du/dx, du/dy, du/dz (yr-1) =', du_dx, du_dy, du_dz
-          print*, 'dv/dx, dv/dy, dv/dz (yr-1) =', dv_dx, dv_dy, dv_dz
-          print*, 'flwafact, effstrain (yr-1), efvs(Pa yr) =', flwafact, effstrain, efvs
-       endif
+!          print*, 'du/dx, du/dy, du/dz (yr-1) =', du_dx, du_dy, du_dz
+!          print*, 'dv/dx, dv/dy, dv/dz (yr-1) =', dv_dx, dv_dy, dv_dz
+!          print*, 'flwafact, effstrain (yr-1), efvs(Pa yr) =', flwafact, effstrain, efvs
+!       endif
 
     end select
 
@@ -4669,6 +4677,7 @@
     ! Local variables
     !----------------------------------------------------------------
 
+    real(dp) :: efvs_factor
     integer :: i, j
 
 !WHL - debug
@@ -4680,6 +4689,9 @@
     ! Increment the element stiffness matrices for the first-order Blatter-Pattyn equations.
     ! The terms in parentheses can be derived from PGB 2012, eq. 13 and 15.
     ! The factor of 2 in front of efvs has been absorbed into the quantities in parentheses.
+
+    !WHL - Note volume scaling such that detJ/vol0 is closer to unity
+    efvs_factor = efvs * wqp * detJ/vol0
     
     do j = 1, nNodesPerElement      ! columns of K
        do i = 1, nNodesPerElement   ! rows of K
@@ -4692,31 +4704,28 @@
 !          print*, 'Kuu dphi/dx increment(1,1) =', efvs*wqp*detJ/vol0*4.d0*dphi_dx(1)*dphi_dx(1)
 !       endif
 
-       if (verbose_matrix .and. this_rank==rtest .and. ii==itest .and. jj==jtest .and. k==ktest & !.and. p==ptest &
-                          .and. i==Krowtest .and. j==Kcoltest) then
-          print*, 'irow, jcol =', i, j
+!       if (verbose_matrix .and. this_rank==rtest .and. ii==itest .and. jj==jtest .and. k==ktest & !.and. p==ptest &
+!                          .and. i==Krowtest .and. j==Kcoltest) then
+!          print*, 'irow, jcol =', i, j
 !          print*, 'efvs, wqp, detJ/vol0 =', efvs, wqp, detJ/vol0
-          print*, 'dphi_dx, dphi_dy, dphi_dz(irow) =', dphi_dx(i), dphi_dy(i), dphi_dz(i)
-          print*, 'dphi_dx, dphi_dy, dphi_dz(jcol) =', dphi_dx(j), dphi_dy(j), dphi_dz(j)
-          print*, 'Kuu SSA increment(irow,jcol) =', ssa_factor * (efvs*wqp*detJ/vol0*(4.d0*dphi_dx(i)*dphi_dx(j) + dphi_dy(j)*dphi_dy(i)))
-          print*, 'Kvv SSA increment(irow,jcol) =', ssa_factor * (efvs*wqp*detJ/vol0*(4.d0*dphi_dy(i)*dphi_dy(j) + dphi_dx(j)*dphi_dx(i)))
-          print*, 'SIA increment(irow,jcol) =', sia_factor * (efvs*wqp*detJ/vol0*dphi_dz(i)*dphi_dz(j))
-       endif
+!          print*, 'dphi_dx, dphi_dy, dphi_dz(irow) =', dphi_dx(i), dphi_dy(i), dphi_dz(i)
+!          print*, 'dphi_dx, dphi_dy, dphi_dz(jcol) =', dphi_dx(j), dphi_dy(j), dphi_dz(j)
+!          print*, 'Kuu SSA increment(irow,jcol) =', ssa_factor * (efvs*wqp*detJ/vol0*(4.d0*dphi_dx(i)*dphi_dx(j) + dphi_dy(j)*dphi_dy(i)))
+!          print*, 'Kvv SSA increment(irow,jcol) =', ssa_factor * (efvs*wqp*detJ/vol0*(4.d0*dphi_dy(i)*dphi_dy(j) + dphi_dx(j)*dphi_dx(i)))
+!          print*, 'SIA increment(irow,jcol) =', sia_factor * (efvs*wqp*detJ/vol0*dphi_dz(i)*dphi_dz(j))
+!       endif
 
-
-          !WHL - Note volume scaling such that detJ/vol0 is closer to unity
-
-          Kuu(i,j) = Kuu(i,j) + efvs * wqp * detJ/vol0 *                                         &
+          Kuu(i,j) = Kuu(i,j) + efvs_factor *                                                      &
                               ( ssa_factor * (4.d0*dphi_dx(i)*dphi_dx(j) + dphi_dy(i)*dphi_dy(j))  &
                               + sia_factor * (dphi_dz(i)*dphi_dz(j)) )
 
-          Kuv(i,j) = Kuv(i,j) + efvs * wqp * detJ/vol0 *                                         &
+          Kuv(i,j) = Kuv(i,j) + efvs_factor *                                                   &
                                 ssa_factor * (2.d0*dphi_dx(i)*dphi_dy(j) + dphi_dy(i)*dphi_dx(j))
 
-          Kvu(i,j) = Kvu(i,j) + efvs * wqp * detJ/vol0 *                                         &
+          Kvu(i,j) = Kvu(i,j) + efvs_factor *                                                    &
                                 ssa_factor * (2.d0*dphi_dy(i)*dphi_dx(j) + dphi_dx(i)*dphi_dy(j))
 
-          Kvv(i,j) = Kvv(i,j) + efvs * wqp * detJ/vol0 *                                         &
+          Kvv(i,j) = Kvv(i,j) + efvs_factor *                                                       &
                               ( ssa_factor * (4.d0*dphi_dy(i)*dphi_dy(j) + dphi_dx(i)*dphi_dx(j))  &
                               + sia_factor * (dphi_dz(i)*dphi_dz(j)) )
 
@@ -4758,21 +4767,21 @@
     integer :: n, nr, nc
 
 !WHL - debug
-    if (verbose_matrix .and. this_rank==rtest .and. iElement==itest .and. jElement==jtest .and. kElement==ktest) then
-       print*, 'Element i, j, k:', iElement, jElement, kElement 
-       print*, 'Rows of K:'
-       do n = 1, nNodesPerElement
-          write(6, '(8e12.4)') Kmat(n,:)
-       enddo
-    endif
+!    if (verbose_matrix .and. this_rank==rtest .and. iElement==itest .and. jElement==jtest .and. kElement==ktest) then
+!       print*, 'Element i, j, k:', iElement, jElement, kElement 
+!       print*, 'Rows of K:'
+!       do n = 1, nNodesPerElement
+!          write(6, '(8e12.4)') Kmat(n,:)
+!       enddo
+!    endif
 
 
-!TODO - Switch loops or switch order of indices in K(nr,nc)?
-!       Inner index nr is currently the outer loop
+!TODO - Switch loops to put nc on the outside?
+!WHL - Tried both loops on a Mac, and the one with nr on the outside is faster.  Repeat on titan?
 
     do nr = 1, nNodesPerElement       ! rows of K
 
-       ! Determine (k,i,j) for this node
+       ! Determine row of A to be incremented by finding (k,i,j) for this node
        ! The reason for the '7' is that node 7, in the NE corner of the upper layer, has index (k,i,j).
        ! Indices for other nodes are computed relative to this node.
        i = iElement + ishift(7,nr)
@@ -4781,25 +4790,43 @@
       
        do nc = 1, nNodesPerElement    ! columns of K
 
+          ! Determine column of A to be incremented
           kA = kshift(nr,nc)           ! k index of A into which K(m,n) is summed
           iA = ishift(nr,nc)           ! similarly for i and j indices 
           jA = jshift(nr,nc)           ! these indices can take values -1, 0 and 1
-
           m = indxA(iA,jA,kA)
-          Amat(m,k,i,j) = Amat(m,k,i,j) + Kmat(nr,nc)
 
-!WHL - debug
-          if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest  &
-                      .and. iA == iAtest .and. jA==jAtest .and. kA==kAtest) then
-             print*, ' '
-             print*, 'i, j, k, iA, jA, kA:', i, j, k, iA, jA, kA
-             print*, 'i, j, k of element:', iElement, jElement, kElement
-             print*, 'nr, nc, Kmat, new Amat:', nr, nc, Kmat(nr,nc), Amat(m,k,i,j)
-          endif
+          ! Increment A
+          Amat(m,k,i,j) = Amat(m,k,i,j) + Kmat(nr,nc)
 
        enddo     ! nc
 
     enddo        ! nr
+
+!WHL - Alternate loop with nc on the outside
+
+!    do nc = 1, nNodesPerElement       ! columns of K
+!       do nr = 1, nNodesPerElement    ! rows of K
+
+          ! Determine row of A to be incremented by finding (k,i,j) for this node
+          ! The reason for the '7' is that node 7, in the NE corner of the upper layer, has index (k,i,j).
+          ! Indices for other nodes are computed relative to this node.
+!          i = iElement + ishift(7,nr)
+!          j = jElement + jshift(7,nr)
+!          k = kElement + kshift(7,nr)
+
+          ! Determine column of A to be incremented
+!          kA = kshift(nr,nc)           ! k index of A into which K(m,n) is summed
+!          iA = ishift(nr,nc)           ! similarly for i and j indices 
+!          jA = jshift(nr,nc)           ! these indices can take values -1, 0 and 1
+!          m = indxA(iA,jA,kA)
+
+          ! Increment A
+!          Amat(m,k,i,j) = Amat(m,k,i,j) + Kmat(nr,nc)
+
+!       enddo     ! nr
+!    enddo        ! nc
+
 
   end subroutine element_to_global_matrix
 
@@ -5498,14 +5525,11 @@
     resid_u(:,:,:) = 0.d0
     resid_v(:,:,:) = 0.d0
 
-!    do j = 1, ny-1
-!    do i = 1, nx-1
-
     ! Loop over locally owned vertices
 
     do j = nhalo+1, ny-nhalo
     do i = nhalo+1, nx-nhalo
-       !TODO - Use indirect addressing to avoid an 'if' here?
+
        if (active_vertex(i,j)) then
 
           do k = 1, nz
@@ -5514,19 +5538,19 @@
              do jA = -1,1
              do iA = -1,1
 
-                if ( (k+kA >= 1 .and. k+kA <= nz)     &
-                                .and.                     &
-                     (i+iA >= 1 .and. i+iA <= nx-1)         &
+                if ( (k+kA >= 1 .and. k+kA <= nz)      &
+                                .and.                  &
+                     (i+iA >= 1 .and. i+iA <= nx-1)    &
                              .and.                     &
                      (j+jA >= 1 .and. j+jA <= ny-1) ) then
 
                    m = indxA(iA,jA,kA)
 
-                   resid_u(k,i,j) = resid_u(k,i,j)                        & 
+                   resid_u(k,i,j) = resid_u(k,i,j)                     & 
                                   + Auu(m,k,i,j)*uvel(k+kA,i+iA,j+jA)  &
                                   + Auv(m,k,i,j)*vvel(k+kA,i+iA,j+jA)
 
-                   resid_v(k,i,j) = resid_v(k,i,j)                        &
+                   resid_v(k,i,j) = resid_v(k,i,j)                     &
                                   + Avu(m,k,i,j)*uvel(k+kA,i+iA,j+jA)  &
                                   + Avv(m,k,i,j)*vvel(k+kA,i+iA,j+jA)
 
@@ -5542,7 +5566,6 @@
 
     enddo   ! i
     enddo   ! j
-
 
     if (verbose_residual .and. this_rank==rtest) then
 !       print*, ' '
@@ -6511,8 +6534,8 @@
     endif
 
     !----------------------------------------------------------------
-    ! Associate a unique global index with each active node owned by
-    ! this processor.
+    ! Associate a unique global index with each unknown on the active nodes
+    ! owned by this processor.
     !----------------------------------------------------------------
 
     do n = 1, nNodesSolve
@@ -7005,9 +7028,6 @@
 #endif
 
 !****************************************************************************
-! The remaining subroutines are used for testing and bug-checking but might
-! not need to be called for production runs.
-!****************************************************************************
 
   subroutine check_symmetry_element_matrix(nNodesPerElement,  &
                                            Kuu, Kuv, Kvu, Kvv)
@@ -7282,7 +7302,8 @@
        enddo           ! i
     enddo              ! j
 
-    maxdiff = parallel_reduce_max(maxdiff)
+    if (verbose_matrix) maxdiff = parallel_reduce_max(maxdiff)
+
     if (verbose_matrix .and. main_task) then
        print*, ' '
        print*, 'Max difference from symmetry =', maxdiff
