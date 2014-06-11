@@ -1,3 +1,19 @@
+2014-6-15 CISM2 team (DRAFT by SFP - not sure if this stuff goes here or needs more/less detail)
+ * Addition of robust, parallel, 3d, 1st-order accurate Stokes momentum balance (Glissade)
+ * Addition of 3d, parallel, temperature solver
+ * Addition of software hooks to modern C++ based solver library (Trilinos)
+ * Replacement of Autotools-based build system with Cmake-based build system
+ * Addition of new test cases for higher-order momentum balance
+ * Re-ordering of time step to be consistent with explicit fwd Euler scheme (note that this changes answers slightly
+     relative to previous version of GLIMMER-CISM) 
+ * Re-arrangement of directory structure (Bill - should we move glissade out of 'libglide' and into (new)'libglissade'?)
+ * New and updated documentation
+ * Something about what has been done with glint? (Bill(s)? Jer?)
+ * Addition of new high level "cism_driver", which replaces & reproduces functionality of several old drivers 
+     (e.g. simple_glide and glint_example) and allows for more flexible integration of additional and/or external dycores
+ * other?
+ * See the documentation for a detailed list of all changes and new supported functionality in GLIMMER-CISM2
+
 2012-09-10 Bill Sacks
  * Shortened some long lines in glimmer_ncio.F90 to make some compilers happy (mod from Bill Lipscomb, previously implemented in cism1 repo within cesm)
  * Fixed memory leak in glint_climate.F90 (previously implemented in cism1 repo within cesm)
