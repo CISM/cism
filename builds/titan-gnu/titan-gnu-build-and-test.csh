@@ -101,8 +101,9 @@ else  # execute tests:
 if (!($no_copy_set)) then
  echo "Copying default reg_test and LIVV to $TEST_DIR"
  pushd . > /dev/null
- cp $TEST_SUITE_DEFAULT_DIR/reg_test_default.tar $TEST_DIR/reg_test_default.tar
+ cp $TEST_SUITE_DEFAULT_DIR/reg_test_default.tgz $TEST_DIR/reg_test_default.tgz
  cd $TEST_DIR
+ gunzip reg_test_default.tgz
  tar xf reg_test_default.tar
  rm reg_test_default.tar
  popd > /dev/null
@@ -110,8 +111,9 @@ if (!($no_copy_set)) then
  if ($PERF_TEST) then
     echo "Copying default perf_test to $TEST_DIR"
    pushd . > /dev/null
-   cp $TEST_SUITE_DEFAULT_DIR/perf_test_default.tar $TEST_DIR/perf_test_default.tar
+   cp $TEST_SUITE_DEFAULT_DIR/perf_test_default.tgz $TEST_DIR/perf_test_default.tgz
    cd $TEST_DIR
+   gunzip perf_test_default.tgz
    tar xf perf_test_default.tar
    rm perf_test_default.tar
    popd > /dev/null
