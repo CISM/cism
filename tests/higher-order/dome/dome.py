@@ -14,7 +14,10 @@ from optparse import OptionParser
 optparser = OptionParser()
 optparser.add_option("-c", "--config", dest="configfile", type='string', default='dome.config', help="Name of .config file to use to setup and run the dome test case", metavar="FILE")
 optparser.add_option('-m','--parallel',dest='parallel',type='int', help='Number of processors to run the model with: if specified then execute run in parallel', metavar="NUMPROCS")
-optparser.add_option('-e','--exec',dest='executable',default='./simple_glide',help='Set path to the CISM executable (defaults to "./simple_glide")')
+optparser.add_option('-e','--exec',dest='executable',default='./cism_driver',help='Set path to the CISM executable')
+for option in optparser.option_list:
+    if option.default != ("NO", "DEFAULT"):
+        option.help += (" " if option.help else "") + "[default: %default]"
 options, args = optparser.parse_args()
 
 import sys, os, numpy
@@ -49,6 +52,8 @@ netCDFfile.createDimension('time',1)
 netCDFfile.createDimension('x1',nx)
 netCDFfile.createDimension('y1',ny)
 netCDFfile.createDimension('level',nz)
+netCDFfile.createDimension('staglevel',nz-1)
+netCDFfile.createDimension('stagwbndlevel',nz+1)
 netCDFfile.createDimension('x0',nx-1) # staggered grid 
 netCDFfile.createDimension('y0',ny-1)
 
@@ -65,6 +70,8 @@ netCDFfile.createVariable('y0','f',('y0',))[:] = dy/2 + y[:-1]
 thk  = numpy.zeros([1,ny,nx],dtype='float32')
 topg = numpy.zeros([1,ny,nx],dtype='float32')
 artm = numpy.zeros([1,ny,nx],dtype='float32')
+tempstag = numpy.zeros([1,nz+1,ny,nx],dtype='float32')
+beta = numpy.zeros([1,ny-1,nx-1],dtype='float32')
 
 # Calculate the thickness of the (ellipsoidal) dome of ice
 for i in range(nx):
@@ -78,10 +85,19 @@ for i in range(nx):
 # specify a sfc temperature field so that temperature evol. can be calc. if desired
 artm[:] = -15.0
 
+# Calculate tempstag and beta values, if desired.  See lines below to enable them being written to file.
+tempstag[:] = -0.0
+beta[:] = 1.0e8
+
 # Create the required variables in the netCDF file.
 netCDFfile.createVariable('thk', 'f',('time','y1','x1'))[:] = thk
 netCDFfile.createVariable('topg','f',('time','y1','x1'))[:] = topg
 netCDFfile.createVariable('artm','f',('time','y1','x1'))[:] = artm 
+
+# Optional fields that could be added to the initial condition file.  
+# Uncomment these lines (and modify their values above), if you want to include them
+#netCDFfile.createVariable('tempstag','f',('time','stagwbndlevel','y1','x1'))[:] = tempstag 
+#netCDFfile.createVariable('beta','f',('time','y0','x0'))[:] = beta
 
 netCDFfile.close()
 
@@ -109,7 +125,7 @@ else:
          # mpirun.lsf does NOT need the number of processors (options.parallel)
          mpiexec = 'mpirun.lsf'
       else:
-         sys.exit('Unable to execute parallel run.  Please edit the script to use your MPI run command, or run the model manually with something like: mpirun -np 4 ./simple_glide dome.config')
+         sys.exit('Unable to execute parallel run.  Please edit the script to use your MPI run command, or run the model manually with something like: mpirun -np 4 ./cism_driver dome.config')
       runstring = mpiexec + ' ' + options.executable + ' ' + options.configfile
       print 'Executing parallel run with:  ' + runstring + '\n\n'
       os.system(runstring)  # Here is where the parallel run is actually executed!
