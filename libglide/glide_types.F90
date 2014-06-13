@@ -928,6 +928,8 @@ module glide_types
     character(fname_length) :: ncfile=''                       !*FD configuration file for netCDF I/O
     type(glimmer_nc_output),pointer :: out_first=>NULL()       !*FD first element of linked list defining netCDF outputs
     type(glimmer_nc_input), pointer :: in_first=>NULL()        !*FD first element of linked list defining netCDF inputs
+    type(glimmer_nc_input), pointer :: frc_first=>NULL()       !*FD first element of linked list defining netCDF forcings
+    ! Note: forcing files are of the same type as input files since they share a lot in common.
   end type glide_funits
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

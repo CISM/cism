@@ -216,7 +216,7 @@ subroutine cism_run_dycore(model)
   use glimmer_commandline
   use glimmer_writestats
   use glimmer_filenames, only : filenames_init
-  use glide_io, only: glide_io_writeall
+  use glide_io, only: glide_io_writeall, glide_io_writeall
 
   use cism_external_dycore_interface
   
@@ -258,7 +258,11 @@ subroutine cism_run_dycore(model)
     ! NOTE: these only do something when an EISMINT case is run
     ! call simple_massbalance(climate,model,time)
     ! call simple_surftemp(climate,model,time)
- 
+
+    ! read time slice if needed
+    call glide_read_forcing(model, model)
+
+
     if (model%options%whichdycore /= DYCORE_BISICLES) then
       time = time + model%numerics%tinc
       tstep_count = tstep_count + 1

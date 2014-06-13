@@ -295,7 +295,15 @@ contains
     ! local variables
     type(glimmer_nc_input), pointer :: ic
 
+    ! open input files
     ic=>model%funits%in_first
+    do while(associated(ic))
+       call glimmer_nc_openfile(ic,model)
+       ic=>ic%next
+    end do
+
+    ! open forcing files
+    ic=>model%funits%frc_first
     do while(associated(ic))
        call glimmer_nc_openfile(ic,model)
        ic=>ic%next
@@ -626,6 +634,7 @@ contains
     end subroutine check_for_tempstag
 
 !------------------------------------------------------------------------------
+
 
 end module glimmer_ncio
 

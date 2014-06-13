@@ -209,7 +209,7 @@ contains
     ! (if not already read from config file)
     call glide_load_sigma(model,dummyunit)
 
-    ! open all input files
+    ! open all input files and forcing files
     call openall_in(model)
 
     ! read first time slice
