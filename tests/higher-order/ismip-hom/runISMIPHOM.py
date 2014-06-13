@@ -43,7 +43,7 @@ if __name__ == '__main__':
   parser.add_option('-f','--format-only',dest='format_only',action='store_true',help='Generate the config and NetCDF input files only')
   parser.add_option('-m','--parallel',dest='parallel',type='int',help='if specified then execute run in parallel')
   parser.add_option('-c','--cyclic',dest='cyclic',action='store_true',default=False,help='if specified then all fields, including scalars, are truly periodic across the domain (NOT true for ismip-hom)')
-  for option in optparser.option_list:
+  for option in parser.option_list:
     if option.default != ("NO", "DEFAULT"):
         option.help += (" " if option.help else "") + "[default: %default]"
   options, args = parser.parse_args()
