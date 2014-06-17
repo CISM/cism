@@ -132,10 +132,12 @@ subroutine cism_init_dycore(model)
   model%numerics%time = time    ! MJH added 1/10/13 - the initial diagnostic glissade solve won't know 
                                 !                     the correct time on a restart unless we set it here.
 
-     ! These calls are needed only for the EISMINT test cases, and they are not needed
-     ! for initialization provided they are called at the start of each timestep.
-!### ! call simple_massbalance(climate,model,time)
-!### ! call simple_surftemp(climate,model,time)
+  ! These calls are needed only for the EISMINT test cases, and they are not needed
+  ! for initialization provided they are called at the start of each timestep.
+  ! MJH: Actually I think they may be needed so that these B.C. are available
+  ! on the initial time level.
+  call simple_massbalance(climate,model,time)
+  call simple_surftemp(climate,model,time)
 
   call spinup_lithot(model)
   call t_stopf('glide initialization')
@@ -256,8 +258,12 @@ subroutine cism_run_dycore(model)
 
     ! TODO: need to fix program to get initialized climate variable
     ! NOTE: these only do something when an EISMINT case is run
-    ! call simple_massbalance(climate,model,time)
-    ! call simple_surftemp(climate,model,time)
+    ! Some EISMINT-1 tests have a time-dependent forcing.  For that to 
+    ! to work properly, the climate variable needs to be passed from 
+    ! cism_init_dycore to this subroutine.  Until then, these calls 
+    ! will not work properly
+    call simple_massbalance(climate,model,time)
+    call simple_surftemp(climate,model,time)
  
     if (model%options%whichdycore /= DYCORE_BISICLES) then
       time = time + model%numerics%tinc
