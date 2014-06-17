@@ -410,6 +410,10 @@ contains
     ! Locals
     type(glimmer_nc_input), pointer :: ic
     integer :: t
+    real(dp) :: eps ! a tolerance to use for stepwise constant forcing
+
+    ! Make eps a fraction of the time step.
+    eps = model%numerics%tinc * 1.0d-4
 
     ! read forcing files
     ic=>model%funits%frc_first
@@ -419,18 +423,18 @@ contains
 
        ! Find the current time in the file
        do t = ic%nt, 1, -1  ! look through the time array backwards
+          if ( ic%times(t) <= model%numerics%time + eps) then
+            ! use the largest time that is smaller or equal to the current time (stepwise forcing)
 
-          if (model%numerics%time >= ic%times(t)) then
-            ! use the largest time that is smaller than the current time (stepwise forcing)
-            ! Set the desired time to be read 
+            ! Set the desired time to be read
             ic%current_time = t
             !print *, 'time, forcing index, forcing time', model%numerics%time, ic%current_time, ic%times(ic%current_time)
-
-            exit
+            exit  ! once we find the time, exit the loop
           endif
        end do
 
        ! read all forcing fields present in this file for the time specified above
+       ic%nc%just_processed = .false.  ! set this to false so it will be re-processed every time through - this ensures info gets written to the log, and that time levels don't get skipped.
        call NAME_io_readall(data, model, filetype=1)
 
        ! move on to the next forcing file
