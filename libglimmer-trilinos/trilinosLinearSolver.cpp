@@ -75,7 +75,7 @@ bool success = true;
 
 int linearSolveCount=0, linearSolveSuccessCount=0, linearSolveIters_last=0,  linearSolveIters_total=0;
 double linearSolveAchievedTol;
-bool printDetails=true; // Need to set in input file.
+bool printDetails=false; // Need to set in input file.
 
 extern "C" {
 
