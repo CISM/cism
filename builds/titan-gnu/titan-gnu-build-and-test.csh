@@ -103,9 +103,9 @@ if (!($no_copy_set)) then
  pushd . > /dev/null
  cp $TEST_SUITE_DEFAULT_DIR/reg_test_default.tgz $TEST_DIR/reg_test_default.tgz
  cd $TEST_DIR
- gunzip reg_test_default.tgz
- tar xf reg_test_default.tar
- rm reg_test_default.tar
+ tar xfz reg_test_default.tgz
+ #tar xf reg_test_default.tar
+ #rm reg_test_default.tar
  popd > /dev/null
 
  if ($PERF_TEST) then
@@ -113,9 +113,9 @@ if (!($no_copy_set)) then
    pushd . > /dev/null
    cp $TEST_SUITE_DEFAULT_DIR/perf_test_default.tgz $TEST_DIR/perf_test_default.tgz
    cd $TEST_DIR
-   gunzip perf_test_default.tgz
-   tar xf perf_test_default.tar
-   rm perf_test_default.tar
+   tar xfz perf_test_default.tgz
+   #tar xf perf_test_default.tar
+   #rm perf_test_default.tar
    popd > /dev/null
  endif
 
