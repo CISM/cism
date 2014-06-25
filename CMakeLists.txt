@@ -330,7 +330,7 @@ ENDIF()
 #####Build All Fortran Sources #####
 
 IF (CISM_BUILD_GLINT OR CISM_BUILD_EXTRA_EXECUTABLES)
-   file(GLOB GLINT_SOURCES libglint/*.F90) 
+   file(GLOB GLINT_SOURCES libglint/*.F90 libglissade/*.F90) 
 ENDIF()
 
 # DMR 6/2/14 -- Added simple_forcing.F90 and testsfg.F90 to FORTRANSOURCES.
