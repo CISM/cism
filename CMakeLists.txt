@@ -493,7 +493,7 @@ OPTION(GLIMMER_NO_EXECUTABLE "Set to  ON  to just build libraries (default:OFF)"
 
 
 IF (CISM_BUILD_SIMPLE_GLIDE AND (NOT GLIMMER_NO_EXECUTABLE))
-  #add_subdirectory(example-drivers/simple_glide/src)
+  add_subdirectory(example-drivers/simple_glide/src)
 ENDIF()
 
 IF (CISM_USE_CISM_FRONT_END)
