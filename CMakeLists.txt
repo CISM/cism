@@ -397,8 +397,8 @@ ENDIF()
      ${GLIMMER_SOURCE_DIR}/libglide/glide_lithot_io.F90
      ${GLIMMER_SOURCE_DIR}/libglint/glint_io.F90
      ${GLIMMER_SOURCE_DIR}/libglint/glint_mbal_io.F90
-     ${GLIMMER_SOURCE_DIR}/libglimmer/glimmer_vers.F90 
-     ${GLIMMER_SOURCE_DIR}/example_drivers/eis/src/eis_io.F90 )
+     ${GLIMMER_SOURCE_DIR}/libglimmer/glimmer_vers.F90 )
+     # ${GLIMMER_SOURCE_DIR}/example-drivers/eis/src/eis_io.F90
 #ENDIF()
 
 
@@ -493,7 +493,7 @@ OPTION(GLIMMER_NO_EXECUTABLE "Set to  ON  to just build libraries (default:OFF)"
 
 
 IF (CISM_BUILD_SIMPLE_GLIDE AND (NOT GLIMMER_NO_EXECUTABLE))
-  add_subdirectory(example-drivers/simple_glide/src)
+  #add_subdirectory(example-drivers/simple_glide/src)
 ENDIF()
 
 IF (CISM_USE_CISM_FRONT_END)
@@ -501,11 +501,11 @@ IF (CISM_USE_CISM_FRONT_END)
 ENDIF()
  
 IF (CISM_BUILD_GLINT_EXAMPLE)
-  add_subdirectory(example-drivers/glint/src)
+  #add_subdirectory(example-drivers/glint/src)
 ENDIF()
 
 IF (CISM_BUILD_SIMPLE_BISICLES)
-  add_subdirectory(example-drivers/simple_bisicles/src)
+  #add_subdirectory(example-drivers/simple_bisicles/src)
   add_subdirectory(libdycore)
 
   include_directories (${GLIMMER_EXTERNAL_DYCORE_DIR}
@@ -520,8 +520,8 @@ ENDIF()
 
 
 IF(CISM_BUILD_EXTRA_EXECUTABLES AND CISM_SERIAL_MODE)
-  add_subdirectory(example-drivers/eis/src)
-  add_subdirectory(example-drivers/glint/src)
+  #add_subdirectory(example-drivers/eis/src)
+  #add_subdirectory(example-drivers/glint/src)
   message("Building extra executables: ")
   MESSAGE(">> Calling utils/build/autogen-extras-in-build-dir")
   EXECUTE_PROCESS(COMMAND  ${GLIMMER_SOURCE_DIR}/utils/build/autogen-extras-in-build-dir
