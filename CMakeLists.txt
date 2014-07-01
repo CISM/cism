@@ -330,7 +330,8 @@ ENDIF()
 #####Build All Fortran Sources #####
 
 IF (CISM_BUILD_GLINT OR CISM_BUILD_EXTRA_EXECUTABLES)
-   file(GLOB GLINT_SOURCES libglint/*.F90 libglissade/*.F90) 
+   file(GLOB GLINT_SOURCES libglint/*.F90)
+   file(GLOB GLISSADE_SOURCES libglissade/*.F90)
 ENDIF()
 
 # DMR 6/2/14 -- Added simple_forcing.F90 and testsfg.F90 to FORTRANSOURCES.
@@ -342,6 +343,7 @@ file(GLOB FORTRANSOURCES
      cism_driver/simple_forcing.F90
      cism_driver/testsfg.F90
      ${GLINT_SOURCES}
+     ${GLISSADE_SOURCES}
      ${GLIMMER_TO_DYCORE})
 
 LIST(REMOVE_ITEM FORTRANSOURCES
@@ -497,11 +499,11 @@ IF (CISM_BUILD_SIMPLE_GLIDE AND (NOT GLIMMER_NO_EXECUTABLE))
 ENDIF()
 
 IF (CISM_USE_CISM_FRONT_END)
-  add_subdirectory(cism_driver)
+   add_subdirectory(cism_driver)
 ENDIF()
  
 IF (CISM_BUILD_GLINT_EXAMPLE)
-  #add_subdirectory(example-drivers/glint/src)
+  # add_subdirectory(example-drivers/glint/src)
 ENDIF()
 
 IF (CISM_BUILD_SIMPLE_BISICLES)
