@@ -29,19 +29,19 @@ popd
 # Use python scripts 
 pushd ../libglide
 echo "  --creating glide_io.F90"
- python ../scripts/generate_ncvars.py glide_vars.def ../libglimmer/ncdf_template.F90.in
+ python ../utils/build/generate_ncvars.py glide_vars.def ../libglimmer/ncdf_template.F90.in
 popd
 
 pushd ../libglint
 echo "  --creating glint_io.F90"
- python ../scripts/generate_ncvars.py glint_vars.def ../libglimmer/ncdf_template.F90.in
+ python ../utils/build/generate_ncvars.py glint_vars.def ../libglimmer/ncdf_template.F90.in
 echo "  --creating glint_mbal_io.F90"
- python ../scripts/generate_ncvars.py glint_mbal_vars.def ../libglimmer/ncdf_template.F90.in
+ python ../utils/build/generate_ncvars.py glint_mbal_vars.def ../libglimmer/ncdf_template.F90.in
 popd
 
 pushd ../example-drivers/eis/src
 echo "  --creating eis_io.F90"
- python ../../../scripts/generate_ncvars.py eis_vars.def ../../../libglimmer/ncdf_template.F90.in
+ python ../../../utils/build/generate_ncvars.py eis_vars.def ../../../libglimmer/ncdf_template.F90.in
 popd
 
 
