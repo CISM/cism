@@ -36,7 +36,7 @@ setenv TEST_SUITE_DEFAULT_DIR /project/projectdirs/piscees/test_suite
 
 setenv build_problem 0
 
-set COMPILER_NAME = gnu
+set COMPILER_NAME = pgi
 set PLATFORM_NAME = hopper
 
 # set PLATFORM_NAME = $1
