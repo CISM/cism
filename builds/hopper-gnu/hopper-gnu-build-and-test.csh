@@ -28,7 +28,7 @@ if ($run_perf_tests) then
 endif
 
 #**!move this and source it to your .bashrc (wherever your higher-order directory is located)
-setenv TEST_DIR /global/scratch2/sd/$USER/cism2/higher-order
+#setenv TEST_DIR /global/scratch2/sd/$USER/cism2/higher-order
 
 if (! -d $TEST_DIR) mkdir -p $TEST_DIR
 
