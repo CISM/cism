@@ -295,7 +295,15 @@ contains
     ! local variables
     type(glimmer_nc_input), pointer :: ic
 
+    ! open input files
     ic=>model%funits%in_first
+    do while(associated(ic))
+       call glimmer_nc_openfile(ic,model)
+       ic=>ic%next
+    end do
+
+    ! open forcing files
+    ic=>model%funits%frc_first
     do while(associated(ic))
        call glimmer_nc_openfile(ic,model)
        ic=>ic%next
@@ -312,11 +320,20 @@ contains
     ! local variables
     type(glimmer_nc_input), pointer :: ic
 
+    ! Input files
     ic=>model%funits%in_first
     do while(associated(ic))
        ic=>delete(ic)
     end do
     model%funits%in_first=>NULL()
+
+    ! Forcing files
+    ic=>model%funits%frc_first
+    do while(associated(ic))
+       ic=>delete(ic)
+    end do
+    model%funits%frc_first=>NULL()
+
   end subroutine closeall_in
 
   subroutine glimmer_nc_openfile(infile,model)
@@ -504,8 +521,8 @@ contains
           call write_log_div
           !EIB! added form gc2, needed?
           ! Reset model%numerics%tstart if reading a restart file
-          write(message,*) 'Check for restart:', trim(infile%nc%filename)
-          call write_log(message)
+          !write(message,*) 'Check for restart:', trim(infile%nc%filename)
+          !call write_log(message)
           pos = index(infile%nc%filename,'.r.')  ! use CESM naming convention for restart files
           if (pos /= 0) then   ! get the start time based on the current time slice
              restart_time = infile%times(infile%current_time)      ! years
@@ -626,6 +643,7 @@ contains
     end subroutine check_for_tempstag
 
 !------------------------------------------------------------------------------
+
 
 end module glimmer_ncio
 

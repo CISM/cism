@@ -151,6 +151,7 @@ module glimmer_ncdf
      !*FD previous element in list
   end type glimmer_nc_input
 
+
   interface delete
      module procedure delete_output, delete_input
   end interface

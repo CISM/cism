@@ -361,7 +361,7 @@ contains
   !*****************************************************************************
   ! netCDF input
   !*****************************************************************************  
-  subroutine NAME_io_readall(data,model)
+  subroutine NAME_io_readall(data, model, filetype)
     !*FD read from netCDF file
     use DATAMOD
     use glide_types
@@ -370,11 +370,23 @@ contains
     implicit none
     type(DATATYPE) :: data
     type(glide_global_type) :: model
+    integer, intent(in), optional :: filetype  ! 0 for input, 1 for forcing; defaults to input
 
     ! local variables
-    type(glimmer_nc_input), pointer :: ic    
+    type(glimmer_nc_input), pointer :: ic
+    integer :: filetype_local
 
-    ic=>model%funits%in_first
+    if (present(filetype)) then
+      filetype_local = filetype
+    else
+      filetype_local = 0 ! default to input type
+    end if
+
+    if (filetype_local == 0) then
+      ic=>model%funits%in_first
+    else
+      ic=>model%funits%frc_first
+    endif
     do while(associated(ic))
        call glimmer_nc_checkread(ic,model)
        if (ic%nc%just_processed) then
@@ -383,6 +395,57 @@ contains
        ic=>ic%next
     end do
   end subroutine NAME_io_readall
+
+
+  subroutine NAME_read_forcing(data, model)
+    ! Read data from forcing files
+    use glimmer_log
+    use glide_types
+    use glimmer_ncdf
+
+    implicit none
+    type(DATATYPE) :: data
+    type(glide_global_type), intent(inout) :: model
+
+    ! Locals
+    type(glimmer_nc_input), pointer :: ic
+    integer :: t
+    real(dp) :: eps ! a tolerance to use for stepwise constant forcing
+
+    ! Make eps a fraction of the time step.
+    eps = model%numerics%tinc * 1.0d-4
+
+    ! read forcing files
+    ic=>model%funits%frc_first
+    do while(associated(ic))
+
+       !print *, 'possible forcing times', ic%times
+
+       ! Find the current time in the file
+       do t = ic%nt, 1, -1  ! look through the time array backwards
+          if ( ic%times(t) <= model%numerics%time + eps) then
+            ! use the largest time that is smaller or equal to the current time (stepwise forcing)
+
+            ! Set the desired time to be read
+            ic%current_time = t
+            !print *, 'time, forcing index, forcing time', model%numerics%time, ic%current_time, ic%times(ic%current_time)
+            exit  ! once we find the time, exit the loop
+          endif
+       end do
+
+       ! read all forcing fields present in this file for the time specified above
+       ic%nc%just_processed = .false.  ! set this to false so it will be re-processed every time through - this ensures info gets written to the log, and that time levels don't get skipped.
+       call NAME_io_readall(data, model, filetype=1)
+
+       ! move on to the next forcing file
+       ic=>ic%next
+    end do
+
+  end subroutine NAME_read_forcing
+
+
+!------------------------------------------------------------------------------
+
 
   subroutine NAME_io_read(infile,data)
     !*FD read variables from a netCDF file

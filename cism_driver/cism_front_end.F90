@@ -139,6 +139,9 @@ subroutine cism_init_dycore(model)
   call simple_massbalance(climate,model,time)
   call simple_surftemp(climate,model,time)
 
+  ! read forcing time slice if needed - this will overwrite values from IC file if there is a conflict.
+  call glide_read_forcing(model, model)
+
   call spinup_lithot(model)
   call t_stopf('glide initialization')
 
@@ -218,7 +221,7 @@ subroutine cism_run_dycore(model)
   use glimmer_commandline
   use glimmer_writestats
   use glimmer_filenames, only : filenames_init
-  use glide_io, only: glide_io_writeall
+  use glide_io, only: glide_io_writeall, glide_io_writeall
 
   use cism_external_dycore_interface
   
@@ -256,20 +259,25 @@ subroutine cism_run_dycore(model)
   ! run an internal or external dycore, depending on setting external_dycore_type
   do while(time + time_eps < model%numerics%tend)
 
-    ! TODO: need to fix program to get initialized climate variable
-    ! NOTE: these only do something when an EISMINT case is run
-    ! Some EISMINT-1 tests have a time-dependent forcing.  For that to 
-    ! to work properly, the climate variable needs to be passed from 
-    ! cism_init_dycore to this subroutine.  Until then, these calls 
-    ! will not work properly
-    call simple_massbalance(climate,model,time)
-    call simple_surftemp(climate,model,time)
- 
+    ! Increment time step
     if (model%options%whichdycore /= DYCORE_BISICLES) then
       time = time + model%numerics%tinc
       tstep_count = tstep_count + 1
+      model%numerics%time = time  ! TODO This is redundant with what is happening in glide/glissade, but this is needed for forcing to work properly.
     endif
 ! print *,"external_dycore_type: ",model%options%external_dycore_type
+
+
+    ! --- Read forcing from EISMINT or from external data file ---
+
+    ! TODO: need to fix program to get initialized climate variable
+    ! NOTE: these only do something when an EISMINT case is run
+    ! call simple_massbalance(climate,model,time)
+    ! call simple_surftemp(climate,model,time)
+
+    ! read time slice if needed
+    call glide_read_forcing(model, model)
+
 
     !if (model%options%external_dycore_type .EQ. 0) then      ! NO_EXTERNAL_DYCORE) then
     !  if (model%options%whichdycore == DYCORE_GLIDE) then

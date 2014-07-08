@@ -60,6 +60,7 @@ contains
     type(ConfigSection), pointer :: section
     type(glimmer_nc_output), pointer :: output => null()
     type(glimmer_nc_input), pointer :: input => null()
+    type(glimmer_nc_input), pointer :: forcing => null()
 
     ! get config string
     call ConfigAsString(config,configstring)
@@ -89,9 +90,20 @@ contains
        end if
        call GetSection(section%next,section,'CF input')
     end do
+
+    ! setup forcings
+    call GetSection(config,section,'CF forcing')
+    do while(associated(section))
+       forcing => handle_forcing(section,forcing)
+       if (.not.associated(model%funits%frc_first)) then
+          model%funits%frc_first => forcing
+       end if
+       call GetSection(section%next,section,'CF input')
+    end do
     
     output => null()
     input => null()
+    forcing => null()
 
   end subroutine glimmer_nc_readparams
 
@@ -229,6 +241,33 @@ contains
     handle_input%nc%filename = trim(filenames_inputname(handle_input%nc%filename))
 
   end function handle_input
+
+
+  function handle_forcing(section, forcing)
+    use glimmer_ncdf
+    use glimmer_config
+    use glimmer_log
+    use glimmer_filenames, only : filenames_inputname
+    implicit none
+    type(ConfigSection), pointer :: section
+    type(glimmer_nc_input), pointer :: forcing
+    type(glimmer_nc_input), pointer :: handle_forcing
+
+    handle_forcing=>add(forcing)
+    
+    ! get filename
+    call GetValue(section,'name',handle_forcing%nc%filename)
+    call GetValue(section,'time',handle_forcing%get_time_slice)  ! MJH don't think we'll use 'time' keyword in the forcing config section
+    
+    handle_forcing%current_time = handle_forcing%get_time_slice
+
+    if (handle_forcing%nc%filename(1:1)==' ') then
+       call write_log('Error, no file name specified [netCDF forcing]',GM_FATAL)
+    end if
+
+    handle_forcing%nc%filename = trim(filenames_inputname(handle_forcing%nc%filename))
+
+  end function handle_forcing
 
 
 end module glimmer_ncparams
