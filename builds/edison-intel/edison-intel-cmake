@@ -1,12 +1,14 @@
-# run this script by typing: source titan-pgi-cmake
+# run this script by typing: source edison-intel-cmake
 # After thus script completes, type: make -j 8
 # If rebuilding, type 'make clean' before running 'make -j 8'
 
 # This cmake configuration script builds simple_glide and simple_bisicles
-# on titan using the PGI compiler suite.
+# on edison using the INTEL compiler suite.  It no longer relies on a build
+# of Trilinos, but does need a BISICLES build located in BISICLES_INTERFACE_DIR
+# (currently set to ./../../../BISICLES/CISM-interface/interface )
 
-# This script should be run from the builds/titan-pgi subdirectory
-# of the main CISM repository (reflected in the two instances
+# This script should be run from the builds/edison-intel subdirectory
+# of the main seacism repository (reflected in the two instances
 # of "../.." below).
 
 # BUILD OPTIONS:
@@ -30,33 +32,33 @@
 # module unload modules
 
 echo
-echo Run this script by typing: source titan-pgi-cmake
+echo Run this script by typing: source edison-intel-cmake
 echo
 
 module unload cmake
-module unload cray-hdf5 
+module unload PrgEnv-cray PrgEnv-gnu PrgEnv-intel PrgEnv-pathscale PrgEnv-pgi
+module unload hdf5 
+module unload hdf5-parallel
 module unload cray-hdf5-parallel
+module unload cray-netcdf-hdf5parallel
 module unload netcdf
 module unload python
 module unload cray-shmem
-module unload cray-mpich cray-mpich2
-module unload netcdf-hdf5parallel boost pgi
-module unload PrgEnv-cray PrgEnv-gnu PrgEnv-intel PrgEnv-pathscale PrgEnv-pgi
+module unload cray-mpich2
 
-# Commented out on titan, because of project path that get cleared
-# if you do this:
-# module --silent purge
+#module --silent purge
 
 module load modules
-module load cmake/2.8.10.2
-module load PrgEnv-pgi/4.1.40
-module load pgi/13.10.0
+module load cmake
+module load PrgEnv-intel
+module load cray-hdf5-parallel
+module load cray-netcdf-hdf5parallel
+module load python
 module load cray-shmem
 module load cray-mpich
-module load cray-hdf5-parallel/1.8.11
-module load cray-netcdf-hdf5parallel/4.3.0
-module load python
-module load boost/1.53.0
+
+# (hopefully) temporary fix for PKG_CONFIG_PATH problem
+source PKG_CONFIG_PATH_fix.csh
 
 # remove old build data:
 rm ./CMakeCache.txt
@@ -83,13 +85,12 @@ cmake \
   -D CISM_BUILD_GLINT_EXAMPLE:BOOL=OFF \
   -D CISM_BUILD_CISM_DRIVER:BOOL=ON \
 \
-  -D GLIMMER_TRILINOS_DIR=/ccs/proj/cli062/Trilinos/cism-standard/default-pgi/install \
-  -D GLIMMER_TRILINOS_GPTL_DIR=/ccs/proj/cli062/cism_gptl/Trilinos/titan-pgi-ci-nophal/install \
-  -D GLIMMER_TRILINOS_ALBANY_DIR= \
+  -D GLIMMER_TRILINOS_DIR=/project/projectdirs/piscees/trilinos-default/hopper-pgi/install \
+  -D GLIMMER_TRILINOS_GPTL_DIR=/project/projectdirs/piscees/cism_gptl/Trilinos/edison-intel-ci-nophal/install \
+  -D GLIMMER_TRILINOS_ALBANY_DIR=/project/projectdirs/piscees/trilinos-default/hopper-pgi-albany/install \
 \
-  -D GLIMMER_GPTL_DIR=/ccs/proj/cli062/cism_gptl/libgptl/libgptl-titan-pgi \
-  -D GLIMMER_NETCDF_DIR=/opt/cray/netcdf-hdf5parallel/4.3.0/pgi/121 \
-  -D GLIMMER_FMAIN=/opt/pgi/13.10.0/linux86-64/13.10/lib/f90main.o \
+  -D GLIMMER_NETCDF_DIR=$NETCDF_DIR \
+  -D GLIMMER_FMAIN=/opt/intel/composer_xe_2013.5.192/compiler/lib/intel64/for_main.o \
 \
   -D CMAKE_INSTALL_PREFIX:PATH=$PWD/install \
   -D CMAKE_VERBOSE_MAKEFILE:BOOL=ON \
@@ -99,32 +100,29 @@ cmake \
   -D CMAKE_C_COMPILER=cc \
   -D CMAKE_Fortran_COMPILER=ftn \
 \
-  -D CMAKE_CXX_FLAGS:STRING="-fast -Kieee --diag_suppress 554,111,611" \
-  -D GLIMMER_Fortran_FLAGS:STRING="-fast -Kieee" \
-  -D BISICLES_LIB_SUBDIR=libpgi \
+  -D CISM_MPI_BASE_DIR=$CRAY_MPICH2_DIR \
+  -D CISM_SCI_LIB_DIR=$CRAY_LIBSCI_PREFIX_DIR/lib \
+  -D GLIMMER_GPTL_DIR=/project/projectdirs/piscees/cism_gptl/libgptl/libgptl-edison-intel \
+\
+  -D CMAKE_CXX_FLAGS:STRING="-O2 -openmp" \
+  -D GLIMMER_Fortran_FLAGS:STRING="-O2 -DNO_RESCALE -openmp" \
+  -D BISICLES_LIB_SUBDIR=libintel \
   -D BISICLES_INTERFACE_DIR=$PWD/../../../BISICLES/CISM-interface/interface \
   -D GLIMMER_MPI_LIBS:STRING="mpichf90" \
-  -D CISM_USE_CXX_IMPLICIT_LIBS:BOOL=OFF \
   -D CISM_STATIC_LINKING:BOOL=ON \
   ../..
 
-
-#  -D GLIMMER_TRILINOS_DIR=/tmp/proj/cli054/trilinos-10.12/FEB2013_FAST_PGI/install \
-
-#  -D CMAKE_CXX_FLAGS:STRING="-O2 --diag_suppress 554,111,611 -DH5_USE_16_API" \
-#  -D GLIMMER_Fortran_FLAGS:STRING="-O2 -DNO_RESCALE" \
-
-
-#  -D GLIMMER_FMAIN=/opt/pgi/13.7.0/linux86-64/13.7/lib/f90main.o \
 
 # Note: last argument above  "../.."  is path to top seacism directory
 
 # ADD: 
 
-#  -D CMAKE_PREFIX_PATH="/opt/cray/hdf5/1.8.8/pgi/119;/opt/cray/hdf5-parallel/1.8.8/pgi/119" \
+#  -D CMAKE_PREFIX_PATH="$HDF5_DIR" \
 
 #  -D TPL_ENABLE_MPI:BOOL=ON \
 
 
-#  -D CISM_HDF5_LIB_DIR=/opt/cray/hdf5-parallel/1.8.8/pgi/119/lib \
-#  -D CISM_HDF5_LIBS="-lhdf5_pgi_parallel -lz" \
+#  -D CISM_HDF5_LIB_DIR=$HDF5_DIR/lib \
+#  -D CISM_HDF5_LIBS="-lhdf5_intel_parallel -lz" \
+
+#  -D GLIMMER_FMAIN=/opt/pgi/13.6.0/linux86-64/13.6/lib/f90main.o \

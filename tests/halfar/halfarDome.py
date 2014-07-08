@@ -1,5 +1,7 @@
-#!/usr/bin/python
 # Filename: halfarDome.py
+# This is a module used by both halfar.py and halfar_results.py for calculating 
+# the analytic solution for the Halfar dome.
+# It is not meant to be run on its own.
 
 # Written by Matt Hoffman, October 2013
 

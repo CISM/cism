@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # A script to compare CISM model output to the Halfar analytic solution of SIA evolution of a dome.
 # Matt Hoffman, LANL, October 2013
 

@@ -111,7 +111,7 @@ void FC_FUNC(noxinit,NOXINIT) ( int* nelems, double* statevector,
     }
   
   paramList->set("Lean Matrix Free",true); // Saves some GMRES steps
-  if (printProc) std::cout << "NOXInit: param list is: (delete this debug line)\n" << *paramList << std::endl;
+  //pw  if (printProc) std::cout << "NOXInit: param list is: (delete this debug line)\n" << *paramList << std::endl;
 
   model = rcp(new trilinosModelEvaluator(*nelems, statevector, Comm, blackbox_res));
     

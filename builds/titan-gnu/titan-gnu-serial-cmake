@@ -18,6 +18,7 @@
 # CISM_BUILD_SIMPLE_GLIDE -- ON by default, set to OFF to not build simple_glide
 # CISM_BUILD_SIMPLE_BISICLES -- OFF by default, set to ON to build simple_bisicles
 #      Setting NO_TRILINOS to ON will generate a much smaller executable for this build.
+# CISM_BUILD_CISM_DRIVER -- ON by default, set to OFF to not build cism_driver.
 # CISM_BUILD_EXTRA_EXECUTABLES -- OFF by default, set to ON to build eis_glide and others
 # CISM_USE_GPTL_INSTRUMENTATION -- OFF by default, set to ON to use GPTL instrumentation
 
@@ -33,15 +34,17 @@ echo
 echo Run this script by typing: source titan-gnu-cmake
 echo
 
-module unload cmake
-module unload cray-hdf5 
-module unload cray-hdf5-parallel
-module unload netcdf
-module unload python
-module unload cray-shmem
-module unload cray-mpich2
-module unload netcdf-hdf5parallel cray-netcdf-hdf5parallel boost gcc
-module unload PrgEnv-cray PrgEnv-gnu PrgEnv-intel PrgEnv-pathscale PrgEnv-pgi
+module --silent purge
+
+#module unload cmake
+#module unload cray-hdf5 
+#module unload cray-hdf5-parallel
+#module unload netcdf
+#module unload python
+#module unload cray-shmem
+#module unload cray-mpich2
+#module unload netcdf-hdf5parallel cray-netcdf-hdf5parallel boost gcc
+#module unload PrgEnv-cray PrgEnv-gnu PrgEnv-intel PrgEnv-pathscale PrgEnv-pgi
 
 # Commented out on titan, because of project path that get cleared
 # if you do this:
@@ -71,20 +74,20 @@ echo
 echo "Doing CMake Configuration step"
 
 cmake \
-  -D CISM_USE_TRILINOS:BOOL=ON \
+  -D CISM_USE_TRILINOS:BOOL=OFF \
   -D CISM_COUPLED:BOOL=OFF \
-  -D CISM_MPI_MODE:BOOL=ON \
-  -D CISM_SERIAL_MODE:BOOL=OFF \
-  -D CISM_USE_GPTL_INSTRUMENTATION:BOOL=ON \
+  -D CISM_MPI_MODE:BOOL=OFF \
+  -D CISM_SERIAL_MODE:BOOL=ON \
+  -D CISM_USE_GPTL_INSTRUMENTATION:BOOL=OFF \
 \
   -D CISM_BUILD_SIMPLE_GLIDE:BOOL=ON \
   -D CISM_BUILD_SIMPLE_BISICLES:BOOL=OFF \
   -D CISM_BUILD_GLINT_EXAMPLE:BOOL=OFF \
-  -D CISM_BUILD_CISM_DRIVER:BOOL=OFF \
+  -D CISM_BUILD_CISM_DRIVER:BOOL=ON \
 \
   -D GLIMMER_TRILINOS_DIR=/ccs/proj/cli062/Trilinos/cism-standard/default-gnu/install \
   -D GLIMMER_TRILINOS_GPTL_DIR=/ccs/proj/cli062/cism_gptl/Trilinos/titan-gnu-cism-albany-ci-nophal/install \
-  -D GLIMMER_TRILINOS_ALBANY_DIR= \
+  -D GLIMMER_TRILINOS_ALBANY_DIR=/ccs/proj/cli062/cism_gptl/Trilinos/titan-gnu-cism-albany-ci-nophal/install \
 \
   -D GLIMMER_GPTL_DIR=/ccs/proj/cli062/cism_gptl/libgptl/libgptl-titan-gnu \
   -D GLIMMER_NETCDF_DIR=/opt/cray/netcdf-hdf5parallel/4.3.0/GNU/48 \

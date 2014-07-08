@@ -1,6 +1,7 @@
 The subdirectories in this directory contain Python scripts to run various 
 "experiments" using Glimmer/CISM.  Some details about the experiments and how
-to run them are given in the README files found in each subdirectory.
+to run them are given in the README files found in each subdirectory
+and they are summarized in the documentation.
 
 This directory also contains two Python source files:
 
@@ -10,7 +11,8 @@ netCDF.py is a "module" (that is, code that is meant to be used by other Python
 programs, not run by itself) that allows the Python scripts in the 
 subdirectories to use whichever of the three python netCDF file packages,
 Scientific.IO.NetCDF, netCDF4, or pycdf, that the user has installed.  There 
-are links to this module in each of the subdirectories.
+are links to this module in each of the subdirectories, but is is also
+included in this directory for reference.
 
 Of the three python netCDF file packages, pycdf is NOT recommended.  There have
 been problems with some versions of this module on some computers.  If you run 

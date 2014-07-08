@@ -163,8 +163,8 @@
        zero_vvel = .false.             ! if true, zero out vvel everywhere
 
 !WHL - debug
-!    logical :: verbose = .false.      ! for debug print statements
-    logical :: verbose = .true.  
+    logical :: verbose = .false.      ! for debug print statements
+!    logical :: verbose = .true.  
     logical :: verbose_init = .false.   
 !    logical :: verbose_init = .true.   
     logical :: verbose_Jac = .false.

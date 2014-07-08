@@ -28,28 +28,27 @@ if ($run_perf_tests) then
 endif
 
 #**!move this and source it to your .bashrc (wherever your higher-order directory is located)
-#setenv TEST_DIR /global/scratch2/sd/$USER/cism2/higher-order
+#setenv TEST_DIR /global/scratch2/sd/$USER/higher-order
 
 if (! -d $TEST_DIR) mkdir -p $TEST_DIR
 
-setenv TEST_SUITE_DEFAULT_DIR /ccs/proj/cli062/test_suite
+setenv TEST_SUITE_DEFAULT_DIR /project/projectdirs/piscees/test_suite
 
 setenv build_problem 0
 
 set COMPILER_NAME = gnu
-set PLATFORM_NAME = titan
+set PLATFORM_NAME = hopper
 
 # set PLATFORM_NAME = $1
 # set COMPILER_NAME = $2
 
-set CMAKE_SCRIPT = $PLATFORM_NAME'-'$COMPILER_NAME'-cmake'
+set CMAKE_SCRIPT = $PLATFORM_NAME'-'$COMPILER_NAME'-serial-cmake'
 set CMAKE_CONF_OUT = 'conf_'$COMPILER_NAME'.out'
 set CMAKE_BUILD_OUT = 'cmake_'$COMPILER_NAME'_build.out'
 #set CISM_RUN_SCRIPT = $PLATFORM_NAME'job' 
-#set CISM_RUN_SCRIPT = 'hopjob'
-set CISM_RUN_SCRIPT = 'ijob' 
+set CISM_RUN_SCRIPT = 'hopjob' 
 #set CISM_VV_SCRIPT = $PLATFORM_NAME'_VV.bash'
-set CISM_VV_SCRIPT = 'rhea_VV.bash'
+set CISM_VV_SCRIPT = 'carver_VV.bash'
 
 echo
 echo 'To use this script, type: csh '$PLATFORM_NAME'-'$COMPILER_NAME'-build-and-test.csh'
@@ -87,16 +86,16 @@ echo 'Making parallel '$COMPILER_NAME'...'
 make -j 8 >& $CMAKE_BUILD_OUT
 
 if ( -e example-drivers/simple_glide/src/simple_glide ) then
- echo 'Copying '$COMPILER_NAME' parallel simple_glide_'$COMPILER_NAME' to test directory'
- cp -f example-drivers/simple_glide/src/simple_glide $TEST_DIR/simple_glide_$COMPILER_NAME
+ echo 'Copying '$COMPILER_NAME' simple_glide_serial to test directory'
+ cp -f example-drivers/simple_glide/src/simple_glide $TEST_DIR/simple_glide_serial
 else
  echo "cmake '$COMPILER_NAME' build failed, no executable"
  @ build_problem = 1
 endif
 
 if ( -e cism_driver/cism_driver ) then
- echo 'Copying '$COMPILER_NAME' parallel cism_driver_'$COMPILER_NAME' to test directory'
- cp -f cism_driver/cism_driver $TEST_DIR/cism_driver_$COMPILER_NAME
+ echo 'Copying '$COMPILER_NAME' cism_driver_serial to test directory'
+ cp -f cism_driver/cism_driver $TEST_DIR/cism_driver_serial
 else
  echo "cmake '$COMPILER_NAME' build failed, no executable"
  @ build_problem = 1

@@ -132,10 +132,12 @@ subroutine cism_init_dycore(model)
   model%numerics%time = time    ! MJH added 1/10/13 - the initial diagnostic glissade solve won't know 
                                 !                     the correct time on a restart unless we set it here.
 
-     ! These calls are needed only for the EISMINT test cases, and they are not needed
-     ! for initialization provided they are called at the start of each timestep.
-!### ! call simple_massbalance(climate,model,time)
-!### ! call simple_surftemp(climate,model,time)
+  ! These calls are needed only for the EISMINT test cases, and they are not needed
+  ! for initialization provided they are called at the start of each timestep.
+  ! MJH: Actually I think they may be needed so that these B.C. are available
+  ! on the initial time level.
+  call simple_massbalance(climate,model,time)
+  call simple_surftemp(climate,model,time)
 
   ! read forcing time slice if needed - this will overwrite values from IC file if there is a conflict.
   call glide_read_forcing(model, model)

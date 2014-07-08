@@ -1,11 +1,11 @@
-# run this script by typing: source titan-pgi-cmake
+# run this script by typing: source titan-gnu-cmake
 # After thus script completes, type: make -j 8
 # If rebuilding, type 'make clean' before running 'make -j 8'
 
 # This cmake configuration script builds simple_glide and simple_bisicles
-# on titan using the PGI compiler suite.
+# on titan using the GNU compiler suite.
 
-# This script should be run from the builds/titan-pgi subdirectory
+# This script should be run from the builds/titan-gnu subdirectory
 # of the main CISM repository (reflected in the two instances
 # of "../.." below).
 
@@ -18,6 +18,7 @@
 # CISM_BUILD_SIMPLE_GLIDE -- ON by default, set to OFF to not build simple_glide
 # CISM_BUILD_SIMPLE_BISICLES -- OFF by default, set to ON to build simple_bisicles
 #      Setting NO_TRILINOS to ON will generate a much smaller executable for this build.
+# CISM_BUILD_CISM_DRIVER -- ON by default, set to OFF to not build cism_driver.
 # CISM_BUILD_EXTRA_EXECUTABLES -- OFF by default, set to ON to build eis_glide and others
 # CISM_USE_GPTL_INSTRUMENTATION -- OFF by default, set to ON to use GPTL instrumentation
 
@@ -30,18 +31,20 @@
 # module unload modules
 
 echo
-echo Run this script by typing: source titan-pgi-cmake
+echo Run this script by typing: source titan-gnu-cmake
 echo
 
-module unload cmake
-module unload cray-hdf5 
-module unload cray-hdf5-parallel
-module unload netcdf
-module unload python
-module unload cray-shmem
-module unload cray-mpich cray-mpich2
-module unload netcdf-hdf5parallel boost pgi
-module unload PrgEnv-cray PrgEnv-gnu PrgEnv-intel PrgEnv-pathscale PrgEnv-pgi
+module --silent purge
+
+#module unload cmake
+#module unload cray-hdf5 
+#module unload cray-hdf5-parallel
+#module unload netcdf
+#module unload python
+#module unload cray-shmem
+#module unload cray-mpich2
+#module unload netcdf-hdf5parallel cray-netcdf-hdf5parallel boost gcc
+#module unload PrgEnv-cray PrgEnv-gnu PrgEnv-intel PrgEnv-pathscale PrgEnv-pgi
 
 # Commented out on titan, because of project path that get cleared
 # if you do this:
@@ -49,8 +52,14 @@ module unload PrgEnv-cray PrgEnv-gnu PrgEnv-intel PrgEnv-pathscale PrgEnv-pgi
 
 module load modules
 module load cmake/2.8.10.2
-module load PrgEnv-pgi/4.1.40
-module load pgi/13.10.0
+module load PrgEnv-pgi
+
+#module load cray-shmem
+#module load cray-mpich
+#module load netcdf-hdf5parallel/4.3.0
+#module load python
+#module load boost/1.54.0
+
 module load cray-shmem
 module load cray-mpich
 module load cray-hdf5-parallel/1.8.11
@@ -83,9 +92,9 @@ cmake \
   -D CISM_BUILD_GLINT_EXAMPLE:BOOL=OFF \
   -D CISM_BUILD_CISM_DRIVER:BOOL=ON \
 \
-  -D GLIMMER_TRILINOS_DIR=/ccs/proj/cli062/Trilinos/cism-standard/default-pgi/install \
+  -D GLIMMER_TRILINOS_DIR=/ccs/proj/cli062/Trilinos/cism-standard/default-gnu/install \
   -D GLIMMER_TRILINOS_GPTL_DIR=/ccs/proj/cli062/cism_gptl/Trilinos/titan-pgi-ci-nophal/install \
-  -D GLIMMER_TRILINOS_ALBANY_DIR= \
+  -D GLIMMER_TRILINOS_ALBANY_DIR=/ccs/proj/cli062/cism_gptl/Trilinos/titan-gnu-cism-albany-ci-nophal/install \
 \
   -D GLIMMER_GPTL_DIR=/ccs/proj/cli062/cism_gptl/libgptl/libgptl-titan-pgi \
   -D GLIMMER_NETCDF_DIR=/opt/cray/netcdf-hdf5parallel/4.3.0/pgi/121 \

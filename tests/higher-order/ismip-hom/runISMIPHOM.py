@@ -1,4 +1,4 @@
-#)!/usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # This script runs ISMIP-HOM experiments using Glimmer-CISM.
 # Output files are written in the "output" subdirectory.

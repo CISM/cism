@@ -212,8 +212,8 @@ PROJECT(GLIMMER Fortran C)
 
 IF (NOT CISM_USE_DEFAULT_IO)
   # Auto-generate the *_io.F90 files in the build directory:
-  MESSAGE(">> Calling cmake-scripts/autogenerate-in-build-dir")
-  EXECUTE_PROCESS(COMMAND  ${GLIMMER_SOURCE_DIR}/cmake-scripts/autogenerate-in-build-dir
+  MESSAGE(">> Calling utils/build/autogenerate-in-build-dir")
+  EXECUTE_PROCESS(COMMAND  ${GLIMMER_SOURCE_DIR}/utils/build/autogenerate-in-build-dir
                   ${GLIMMER_SOURCE_DIR} 
                   WORKING_DIRECTORY ${CISM_BINARY_DIR}
                   OUTPUT_FILE ${CISM_BINARY_DIR}/autogenerate.log)
@@ -222,8 +222,8 @@ IF (NOT CISM_USE_DEFAULT_IO)
 
   IF (CISM_BUILD_GLINT_EXAMPLE OR CISM_USE_CISM_FRONT_END)
     # Auto-generate the *_io.F90 files in the build directory:
-    MESSAGE(">> Calling cmake-scripts/autogenerate-in-build-dir")
-    EXECUTE_PROCESS(COMMAND  ${GLIMMER_SOURCE_DIR}/cmake-scripts/autogen-for-glint-in-build-dir
+    MESSAGE(">> Calling utils/build/autogenerate-in-build-dir")
+    EXECUTE_PROCESS(COMMAND  ${GLIMMER_SOURCE_DIR}/utils/build/autogen-for-glint-in-build-dir
                     ${GLIMMER_SOURCE_DIR} 
                     WORKING_DIRECTORY ${CISM_BINARY_DIR}
                     OUTPUT_FILE ${CISM_BINARY_DIR}/autogen-for-glint.log)
@@ -233,8 +233,8 @@ IF (NOT CISM_USE_DEFAULT_IO)
 
 ELSE()
   # Simply copy the default io files into the build directory
-  MESSAGE(">> Calling cmake-scripts/autocopy-io-to-build-dir")
-  EXECUTE_PROCESS(COMMAND  ${GLIMMER_SOURCE_DIR}/cmake-scripts/autocopy-io-to-build-dir
+  MESSAGE(">> Calling utils/build/autocopy-io-to-build-dir")
+  EXECUTE_PROCESS(COMMAND  ${GLIMMER_SOURCE_DIR}/utils/build/autocopy-io-to-build-dir
                   ${GLIMMER_SOURCE_DIR}
                   WORKING_DIRECTORY ${CISM_BINARY_DIR}
                   OUTPUT_FILE ${CISM_BINARY_DIR}/autocopy-io.log)
@@ -243,8 +243,8 @@ ELSE()
 ENDIF()
 
 # Copy a few needed files to the build directory:
-MESSAGE(">> Calling cmake-scripts/autocopy-to-build-dir")
-EXECUTE_PROCESS(COMMAND  ${GLIMMER_SOURCE_DIR}/cmake-scripts/autocopy-to-build-dir
+MESSAGE(">> Calling utils/build/autocopy-to-build-dir")
+EXECUTE_PROCESS(COMMAND  ${GLIMMER_SOURCE_DIR}/utils/build/autocopy-to-build-dir
                 ${GLIMMER_SOURCE_DIR}
                 WORKING_DIRECTORY ${CISM_BINARY_DIR}
                 OUTPUT_FILE ${CISM_BINARY_DIR}/autocopy.log)
@@ -330,7 +330,8 @@ ENDIF()
 #####Build All Fortran Sources #####
 
 IF (CISM_BUILD_GLINT OR CISM_BUILD_EXTRA_EXECUTABLES)
-   file(GLOB GLINT_SOURCES libglint/*.F90) 
+   file(GLOB GLINT_SOURCES libglint/*.F90)
+   file(GLOB GLISSADE_SOURCES libglissade/*.F90)
 ENDIF()
 
 # DMR 6/2/14 -- Added simple_forcing.F90 and testsfg.F90 to FORTRANSOURCES.
@@ -342,6 +343,7 @@ file(GLOB FORTRANSOURCES
      cism_driver/simple_forcing.F90
      cism_driver/testsfg.F90
      ${GLINT_SOURCES}
+     ${GLISSADE_SOURCES}
      ${GLIMMER_TO_DYCORE})
 
 LIST(REMOVE_ITEM FORTRANSOURCES
@@ -397,8 +399,8 @@ ENDIF()
      ${GLIMMER_SOURCE_DIR}/libglide/glide_lithot_io.F90
      ${GLIMMER_SOURCE_DIR}/libglint/glint_io.F90
      ${GLIMMER_SOURCE_DIR}/libglint/glint_mbal_io.F90
-     ${GLIMMER_SOURCE_DIR}/libglimmer/glimmer_vers.F90 
-     ${GLIMMER_SOURCE_DIR}/example_drivers/eis/src/eis_io.F90 )
+     ${GLIMMER_SOURCE_DIR}/libglimmer/glimmer_vers.F90 )
+     # ${GLIMMER_SOURCE_DIR}/example-drivers/eis/src/eis_io.F90
 #ENDIF()
 
 
@@ -497,15 +499,15 @@ IF (CISM_BUILD_SIMPLE_GLIDE AND (NOT GLIMMER_NO_EXECUTABLE))
 ENDIF()
 
 IF (CISM_USE_CISM_FRONT_END)
-  add_subdirectory(cism_driver)
+   add_subdirectory(cism_driver)
 ENDIF()
  
 IF (CISM_BUILD_GLINT_EXAMPLE)
-  add_subdirectory(example-drivers/glint/src)
+  # add_subdirectory(example-drivers/glint/src)
 ENDIF()
 
 IF (CISM_BUILD_SIMPLE_BISICLES)
-  add_subdirectory(example-drivers/simple_bisicles/src)
+  #add_subdirectory(example-drivers/simple_bisicles/src)
   add_subdirectory(libdycore)
 
   include_directories (${GLIMMER_EXTERNAL_DYCORE_DIR}
@@ -520,11 +522,11 @@ ENDIF()
 
 
 IF(CISM_BUILD_EXTRA_EXECUTABLES AND CISM_SERIAL_MODE)
-  add_subdirectory(example-drivers/eis/src)
-  add_subdirectory(example-drivers/glint/src)
+  #add_subdirectory(example-drivers/eis/src)
+  #add_subdirectory(example-drivers/glint/src)
   message("Building extra executables: ")
-  MESSAGE(">> Calling cmake-scripts/autogen-extras-in-build-dir")
-  EXECUTE_PROCESS(COMMAND  ${GLIMMER_SOURCE_DIR}/cmake-scripts/autogen-extras-in-build-dir
+  MESSAGE(">> Calling utils/build/autogen-extras-in-build-dir")
+  EXECUTE_PROCESS(COMMAND  ${GLIMMER_SOURCE_DIR}/utils/build/autogen-extras-in-build-dir
                   ${GLIMMER_SOURCE_DIR} 
                   WORKING_DIRECTORY ${CISM_BINARY_DIR}
                   OUTPUT_FILE ${CISM_BINARY_DIR}/autogen-extras.log)
