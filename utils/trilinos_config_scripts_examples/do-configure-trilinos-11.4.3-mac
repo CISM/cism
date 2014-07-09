@@ -5,8 +5,8 @@
 # Trilinos for use with CISM.
 #
 # Modify these lines below to point to the appropriate places on your system:
-# -D CMAKE_INSTALL_PREFIX:PATH=/Users/mhoffman/software/trilinos/trilinos-11.4.3-Install \   # <-- this is where you want Trilinos to be installed
-# /Users/mhoffman/software/trilinos/trilinos-11.4.3-Source      # <-- this is the location of the Trilinos source code (where you unarchived it after downloading it from http://trilinos.sandia.gov/)
+# -D CMAKE_INSTALL_PREFIX:PATH=/usr/local/trilinos-11.4.3-Install \   # <-- this is where you want Trilinos to be installed
+# /usr/local/trilinos-11.4.3-Source      # <-- this is the location of the Trilinos source code (where you unarchived it after downloading it from http://trilinos.sandia.gov/)
 #
 # Also, you may need to modify your compiler locations and flags.  
 # The values below will likely work for a 'typical' Mac installation using Macports, 
@@ -14,7 +14,7 @@
 #
 # This script should be executed from a build directory that is separate
 # from the source and install directories, e.g., in this example:
-# /Users/mhoffman/software/trilinos/trilinos-11.4.3-Build
+# /usr/local/trilinos-11.4.3-Build
 # (Do NOT run it from its present location!)
 # The script can be run with "source do-configure-trilinos-11.4.3-mac"
 # Then run "make -j 4" (or specify a different number of processors after the -j)
@@ -66,12 +66,12 @@ cmake \
 -D CMAKE_Fortran_FLAGS:STRING="-m64" \
 -D CMAKE_CXX_FLAGS:STRING="-m64" \
 -D CMAKE_C_FLAGS:STRING="-m64" \
--D CMAKE_INSTALL_PREFIX:PATH=/Users/mhoffman/software/trilinos/trilinos-11.4.3-Install \
+-D CMAKE_INSTALL_PREFIX:PATH=/usr/local/trilinos-11.4.3-Install \
 \
 \
 -D Trilinos_EXTRA_LINK_FLAGS:STRING="-L/opt/local/lib -L/opt/local/lib/openmpi  -lmpi -lmpi_f77 -lmpi_f90 -lmpi_cxx  -L/usr/lib -llapack -lblas -lpthread" \
 \
 \
 $EXTRA_ARGS \
-/Users/mhoffman/software/trilinos/trilinos-11.4.3-Source
+/usr/local/trilinos-11.4.3-Source
 
