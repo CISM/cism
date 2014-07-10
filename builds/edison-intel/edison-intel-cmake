@@ -57,6 +57,8 @@ module load python
 module load cray-shmem
 module load cray-mpich
 
+module unload darshan
+
 # (hopefully) temporary fix for PKG_CONFIG_PATH problem
 source PKG_CONFIG_PATH_fix.csh
 
