@@ -49,7 +49,8 @@ def cmap_discretize(cmap, N):
 filename = os.path.join('output','ross.out.nc')
 inputfile1 = NetCDFFile(filename,'r')
 #velnorm = numpy.array(inputfile1.variables['velnorm'][0,0,2:-2,2:-2])
-velnorm = numpy.array(inputfile1.variables['velnorm'][0,0,:,:])
+#velnorm = numpy.array(inputfile1.variables['velnorm'][0,0,:,:])
+velnorm = numpy.array(inputfile1.variables['velnorm'][0,0,1:-1,1:-1])
 inputfile1.close()
 
 if options.use_mask:
@@ -84,7 +85,7 @@ for line in inputfile4:
 # Convert from degrees, minutes and seconds
   lat = -(tokens[3] + tokens[4]/60 + tokens[5]/60**2)
   lon = -(tokens[6] + tokens[7]/60 + tokens[8]/60**2)*tokens[9]
-  if y[0] < lat < y[-1] and x[0] < lon < x[-1]:
+  if y[1] < lat < y[-2] and x[1] < lon < x[-2]:
 #   Interpolate the Glimmer data onto this point
     for i in range(nx):
       if lon < x[i+1]: break

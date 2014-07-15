@@ -64,22 +64,3 @@ directory with minimal modification.  This file is really not necessary.
 information to CISM.
 3. ross.out.nc is an output file created by CISM.
 
-
-TO DO / KNOWN ISSUES
-
-Note that this test case can take a long time to converge. For example, it may need to go 
-through several hundred nonlinear iterations before a converged solution is reached. In 
-addition, the residual may not appear to be coverging anymore after some point. This is due 
-to several grid points in uninteresting/unimportant parts of the domain which have trouble
-converging. However, if one compares the results after several hundred iterations (e.g. 500, 
-iterations, the max value for which can be set for the PP core using "cmax" in glam_strs2.F90)
-with those from the other tests cases (using the plotResults script), it is clear that the 
-results are consistent with the other models that participated in the benchmarking studies. 
-The failure to converge is thought to be a function of (1) poor linear solvers or preconditioning 
-and (2) a simplified residual calculation. Both of these are currently being upgraded and will
-be improved in future releases of the code. 
-
-For the Payne/Price core (diagnostic_scheme = 3), the "which_sparse" option must
-be set to 1 (use GMRES for the linear solver) in order for the solution to converge.
-Future releases will include the capability to use additional linear solvers.
-
