@@ -234,7 +234,8 @@ if __name__ == '__main__':
               print 'Number of processors specified for parallel run is <=0.  Skipping the running of the model.'
               exitCode = 0
         else:
-           exitCode = os.system('echo '+filename+'.config'+' | '+options.executable)
+           # Perform a serial run
+           exitCode = os.system(options.executable + ' ' + filename + '.config')
 
         if exitCode != 0:
           print 'Error: The CISM run for experiment '+experiment+' at size '+str(size)+' did NOT complete successfully!'
