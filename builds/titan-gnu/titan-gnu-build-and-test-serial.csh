@@ -191,7 +191,7 @@ endif
     echo "No performance suite jobs were submitted."
   else
     echo 'Submitting performance jobs to compute nodes.'
-    echo 'Go to carver.nersc.gov to complete Visualization and Verification (LIVV)'
+    echo 'Go to rhea to complete Visualization and Verification (LIVV)'
 
   #dome 60 test case
     cd $TEST_DIR/perf_test/dome60
@@ -273,7 +273,7 @@ endif
   echo "Call disabled to: $CISM_VV_SCRIPT, which is located in:" 
   echo "$TEST_DIR/livv"
   echo
-  echo "Perform this step on carver after the Test Suite jobs have completed."
+  echo "Perform this step on rhea after the Test Suite jobs have completed."
   # cd $TEST_DIR/livv
   # bash $CISM_VV_SCRIPT from-script $1
  endif

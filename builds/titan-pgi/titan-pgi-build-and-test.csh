@@ -1,17 +1,6 @@
 #!/bin/csh
 
-
-
-# Master build script for mac laptops. Last updated 2/28/2013 by SFP.
-# This is a hacked version of Kate's original script for use on Hopper.
-# For now, only supports parallel build with Trilinos using gnu and cmake. 
-# Only a subset of the small, standard tests are run, on both 1 and 4 procs.
- 
-# (1) execute from the builds/mac-gnu subdirectory of CISM
-
-#add logic at the top to decide which versions to build 
-
-# PARALLEL BUILD WITH CMAKE 
+# PARALLEL BUILD WITH CMAKE  using PGI
 
 # setenv TEST_DIR "/USERS/$USER/work/modeling/cism/seacism-oceans11/tests/higher-order"
 
@@ -24,9 +13,9 @@ setenv PERF_TEST 0
 
 @ run_perf_tests = (($1 == run-perf-tests) || ($2 == run-perf-tests) || ($3 == run-perf-tests) || ($4 == run-perf-tests) || ($5 == run-perf-tests))
 
-#if ($run_perf_tests) then
-#  setenv PERF_TEST 1
-#endif
+if ($run_perf_tests) then
+  setenv PERF_TEST 1
+endif
 
 @ skip_build_set = (($1 == skip-build) || ($2 == skip-build) || ($3 == skip-build) || ($4 == skip-build) || ($5 == skip-build))
 

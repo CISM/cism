@@ -7,7 +7,7 @@
 # For now, only supports parallel build with Trilinos using gnu and cmake. 
 # Only a subset of the small, standard tests are run, on both 1 and 4 procs.
  
-# (1) execute from the builds/mac-gnu subdirectory of CISM
+# (1) execute from the builds/titan-gnu subdirectory of CISM
 
 #add logic at the top to decide which versions to build 
 
@@ -24,9 +24,9 @@ setenv PERF_TEST 0
 
 @ run_perf_tests = (($1 == run-perf-tests) || ($2 == run-perf-tests) || ($3 == run-perf-tests) || ($4 == run-perf-tests) || ($5 == run-perf-tests))
 
-#if ($run_perf_tests) then
-#  setenv PERF_TEST 1
-#endif
+if ($run_perf_tests) then
+  setenv PERF_TEST 1
+endif
 
 @ skip_build_set = (($1 == skip-build) || ($2 == skip-build) || ($3 == skip-build) || ($4 == skip-build) || ($5 == skip-build))
 
@@ -35,7 +35,7 @@ setenv PERF_TEST 0
 @ skip_tests_set = (($1 == skip-tests) || ($2 == skip-tests) || ($3 == skip-tests) || ($4 == skip-tests) || ($5 == skip-tests))
 
 #**!move this and source it to your .bashrc (wherever your higher-order directory is located)
-#setenv TEST_DIR /global/scratch2/sd/$USER/cism2/higher-order
+#setenv TEST_DIR /lustre/atlas/scratch/$USER/cli062/higher-order
 
 if (! -d $TEST_DIR) mkdir -p $TEST_DIR
 
