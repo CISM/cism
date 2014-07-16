@@ -98,7 +98,7 @@ contains
        if (.not.associated(model%funits%frc_first)) then
           model%funits%frc_first => forcing
        end if
-       call GetSection(section%next,section,'CF input')
+       call GetSection(section%next,section,'CF forcing')
     end do
     
     output => null()
