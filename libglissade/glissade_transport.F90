@@ -645,7 +645,7 @@
       !-------------------------------------------------------------------
       ! Halo updates for thickness and tracer arrays
       !
-      ! Note: Cannot pass the full 3D array to parallel_halo, because this
+      ! Note: Cannot pass the full 3D array to parallel_halo, because that
       !       subroutine assumes that k is the first rather than third index. 
       !-------------------------------------------------------------------
 
@@ -718,9 +718,8 @@
 
     end subroutine glissade_transport_driver
 
-
-
 !=======================================================================
+
     subroutine glissade_check_cfl(ewn, nsn, nlyr, dew, dsn, sigma,         &
                      stagthk, dusrfdew, dusrfdns, uvel, vvel, deltat,      &
                      allowable_dt_adv, allowable_dt_diff)
@@ -1223,10 +1222,15 @@
 
 !----------------------------------------------------------------------
 
-    subroutine glissade_vertical_remap(nx,       ny,        &
-                                       nlyr,     ntracer,   &
-                                       sigma,    hlyr,      &
-                                       trcr)
+!WHL - This is an older version of the vertical remap subroutine.
+!      The cost scales as nlyr^2, so it is less efficient than the new version
+!       as the number of layers increases.
+!TODO - Remove this subroutine
+
+    subroutine glissade_vertical_remap_old(nx,       ny,        &
+                                           nlyr,     ntracer,   &
+                                           sigma,    hlyr,      &
+                                           trcr)
  
     ! Conservative remapping of tracer fields from one set of vertical 
     ! coordinates to another.  The remapping is first-order accurate.
@@ -1276,6 +1280,14 @@
 
     real(dp) :: zlo, zhi, hovlp
 
+!WHL - debug
+!    integer, parameter :: rtest = 0, itest = 10, jtest = 10
+
+!    if (this_rank==rtest) then
+!       print*, 'In glissade_vertical_remap'
+!       print*, 'rank, itest, jtest =', rtest, itest, jtest
+!    endif
+
        !-----------------------------------------------------------------
        ! Compute total thickness and reciprocal thickness
        !-----------------------------------------------------------------
@@ -1317,6 +1329,19 @@
        enddo
        zi2(:,:,nlyr+1) = 1.d0
 
+!WHL - debug
+!       if (this_rank == rtest) then
+!          i = itest
+!          j = jtest
+!          print*, ' '
+!          print*, 'thck =', thck(i,j)
+!          print*, ' '
+!          print*, 'k, zi1, zi2:'
+!          do k = 1, nlyr+1
+!             print*, k, zi1(i,j,k), zi2(i,j,k)
+!          enddo
+!       endif
+           
        !-----------------------------------------------------------------
        ! Compute new layer thicknesses (zi2 coordinates)
        !-----------------------------------------------------------------
@@ -1345,6 +1370,12 @@
                       hovlp = max (zhi-zlo, 0.d0) * thck(i,j)
                       htsum(i,j,nt,k2) = htsum(i,j,nt,k2)    &
                                        +  trcr(i,j,nt,k1) * hovlp
+
+!WHL - debug
+!                      if (this_rank==rtest .and. i==itest .and. j==jtest .and. nt==1 .and. hovlp > 0.d0) then
+!                         print*, 'k1, k2, hovlp:', k1, k2, hovlp 
+!                      endif
+
                    enddo   ! i
                 enddo      ! j
              enddo         ! nt
@@ -1368,6 +1399,144 @@
              enddo      ! j
           enddo         ! nt
        enddo            ! k
+
+
+    end subroutine glissade_vertical_remap_old
+
+!----------------------------------------------------------------------
+
+    !WHL - new subroutine whose cost scales as nlyr instead of nlyr^2
+    !      tested and show to be BFB for the dome evolution problem
+
+    subroutine glissade_vertical_remap(nx,       ny,        &
+                                       nlyr,     ntracer,   &
+                                       sigma,    hlyr,      &
+                                       trcr)
+ 
+    ! Conservative remapping of tracer fields from one set of vertical 
+    ! coordinates to another.  The remapping is first-order accurate.
+    !
+    ! TODO - Add a 2nd-order accurate vertical remapping scheme.
+    !
+    ! Author: William Lipscomb, LANL
+
+    implicit none
+ 
+    ! in-out arguments
+ 
+    integer, intent(in) ::  &
+         nx, ny,     &! number of cells in EW and NS directions
+         nlyr,       &! number of vertical layers
+         ntracer      ! number of tracer fields
+
+    real(dp), dimension (nx, ny, nlyr), intent(inout) ::  &
+         hlyr         ! layer thickness
+
+    real(dp), dimension (nlyr+1), intent(in) ::  &
+         sigma        ! sigma vertical coordinate (at layer interfaces)
+
+    real(dp), dimension (nx, ny, ntracer, nlyr), intent(inout) ::   &
+         trcr         ! tracer field to be remapped
+                      ! tracer(k) = value at midpoint of layer k
+ 
+    ! local variables
+ 
+    integer :: i, j, k, k1, k2, nt
+ 
+    real(dp), dimension (nlyr+1) ::  &
+         z1,        &! layer interfaces in old coordinate system
+                     ! z1(1) = 0. = value at top surface
+                     ! z1(k) = value at top of layer k
+                     ! z1(nlyr+1) = value at bottom surface (= 1 in sigma coordinates)
+         z2          ! layer interfaces in new coordinate system
+
+    real(dp) ::        &
+         thck,      &! total thickness
+         rthck       ! reciprocal of total thickness
+ 
+    real(dp), dimension(ntracer,nlyr) ::       &
+         htsum        ! sum of thickness*tracer in a layer         
+
+    real(dp) :: zlo, zhi, hovlp
+
+    do j = 1, ny
+       do i = 1, nx
+
+          !-----------------------------------------------------------------
+          ! Compute total thickness and reciprocal thickness
+          !-----------------------------------------------------------------
+
+          thck = 0.d0
+          do k = 1, nlyr
+             thck = thck + hlyr(i,j,k)
+          enddo
+
+          if (thck > 0.d0) then
+             rthck = 1.d0/thck
+          else
+             rthck = 0.d0
+          endif
+
+          !-----------------------------------------------------------------
+          ! Determine vertical coordinate z1, given input layer thicknesses.
+          ! These are the coordinates from which we start.
+          !-----------------------------------------------------------------
+
+          z1(1) = 0.d0
+          do k = 2, nlyr
+             z1(k) = z1(k-1) +  hlyr(i,j,k-1)*rthck 
+          enddo
+          z1(nlyr+1) = 1.d0
+                       
+          !-----------------------------------------------------------------
+          ! Set vertical coordinate z2, given sigma.
+          ! These are the coordinates to which we remap in the vertical.
+          !-----------------------------------------------------------------
+
+          z2(1) = 0.d0
+          do k = 2, nlyr
+             z2(k) = sigma(k)
+          enddo
+          z2(nlyr+1) = 1.d0
+
+          !-----------------------------------------------------------------
+          ! Compute new layer thicknesses (z2 coordinates)
+          !-----------------------------------------------------------------
+
+          do k = 1, nlyr
+             hlyr(i,j,k) = (z2(k+1) - z2(k)) * thck
+          enddo
+
+          !-----------------------------------------------------------------
+          ! Compute sum of h*T for each new layer (k2) by integrating
+          ! over the regions of overlap with old layers (k1).
+          !-----------------------------------------------------------------
+             
+          htsum(:,:) = 0.d0
+          k1 = 1
+          k2 = 1
+          do while (k1 <= nlyr .and. k2 <= nlyr)
+             zhi = min (z1(k1+1), z2(k2+1)) 
+             zlo = max (z1(k1),   z2(k2))
+             hovlp = max (zhi-zlo, 0.d0) * thck
+             htsum(:,k2) = htsum(:,k2) +  trcr(i,j,:,k1) * hovlp
+             if (z1(k1+1) > z2(k2+1)) then
+                k2 = k2 + 1
+             else
+                k1 = k1 + 1
+             endif
+          enddo
+
+          do k = 1, nlyr
+             if (hlyr(i,j,k) > 0.d0) then
+                trcr(i,j,:,k) = htsum(:,k) / hlyr(i,j,k)
+             else
+                trcr(i,j,:,k) = 0.d0
+             endif
+          enddo    ! k
+          
+       enddo       ! i
+    enddo          ! j
 
     end subroutine glissade_vertical_remap
 
