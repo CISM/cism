@@ -1081,28 +1081,18 @@
 
     do j = 1, ny
        do i = 1, nx
-
           if (thck(i,j) > thklim) then
 	     imask(i,j) = 1
           else
              imask(i,j) = 0
           endif
-
-          if (topg(i,j) - eus < (-rhoi/rhoo)*thck(i,j)) then
-             if (thck(i,j) > thklim) then
-                floating_cell(i,j) = .true.
-                ocean_cell(i,j) = .false.
-             else
-                floating_cell(i,j) = .false.
-                ocean_cell(i,j) = .true.
-             endif
-          else
-             floating_cell(i,j) = .false.
-             ocean_cell(i,j) = .false.
-          endif
-
        enddo
     enddo
+
+    call ocean_mask(nx,         ny,      &
+                    thck,       topg,    &
+                    eus,        thklim,  &
+                    ocean_cell, floating_cell)
 
 !WHL - debug
     if (verbose_state .and. this_rank==rtest) then
@@ -2171,7 +2161,7 @@
           !------------------------------------------------------------------------
 
           if (verbose .and. main_task) then
-!!             print*, 'Compute residual vector'
+             print*, 'Compute residual vector'
           endif
 
           call t_startf('glissade_resid_vec')
@@ -2769,6 +2759,69 @@
 
 !****************************************************************************
 
+    subroutine ocean_mask(nx,         ny,        &
+                          thck,       topg,      &
+                          eus,        thklim,    &
+                          ocean_cell, floating_cell)
+
+    !----------------------------------------------------------------
+    ! Compute masks for ocean cells and floating cells.
+    !----------------------------------------------------------------
+    
+    !----------------------------------------------------------------
+    ! Input-output arguments
+    !----------------------------------------------------------------
+
+    integer, intent(in) ::   &
+       nx,  ny                ! number of grid cells in each direction
+
+    ! Default dimensions are meters, but this subroutine will work for
+    ! any units as long as thck, topg, eus and thklim have the same units.
+
+    real(dp), dimension(nx,ny), intent(in) ::  &
+       thck,                 &! ice thickness (m)
+       topg                   ! elevation of topography (m)
+
+    real(dp), intent(in) ::  &
+       eus,                  &! eustatic sea level (m), = 0. by default
+       thklim                 ! minimum ice thickness for active cells (m)
+
+    logical, dimension(nx,ny), intent(out) ::  &
+       ocean_cell,           &! true if topg is below sea level and thk <= thklim
+       floating_cell          ! true if thk > thklim and ice is floating
+      
+    !----------------------------------------------------------------
+    ! Local arguments
+    !----------------------------------------------------------------
+
+    integer :: i, j
+
+    !----------------------------------------------------------------
+    ! Compute masks
+    !----------------------------------------------------------------
+
+    do j = 1, ny
+       do i = 1, nx
+
+          if (topg(i,j) < eus .and. thck(i,j) <= thklim) then
+             ocean_cell(i,j) = .true.
+          else
+             ocean_cell(i,j) = .false.
+          endif
+
+          if (topg(i,j) - eus < (-rhoi/rhoo)*thck(i,j) .and. thck(i,j) > thklim) then
+             floating_cell(i,j) = .true.
+          else
+             floating_cell(i,j) = .false.
+          endif
+
+       enddo
+    enddo
+
+    end subroutine ocean_mask
+
+!****************************************************************************
+
   subroutine get_vertex_geometry(nx,          ny,          nz,      &   
                                  nhalo,       sigma,                &
                                  dx,          dy,                   &
@@ -3314,7 +3367,6 @@
     real(dp), dimension(nz), intent(in) ::    &
        sigma                         ! sigma vertical coordinate
 
-    !TODO - Use active_cell and not floating/ocean?
     logical, dimension(nx,ny), intent(in) ::  &
        active_cell,                 &! true if cell contains ice and borders a locally owned vertex
        floating_cell,               &! true if ice is present and is floating
