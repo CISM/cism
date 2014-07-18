@@ -819,7 +819,7 @@ contains
           call write_log('Warning, exact restarts are not currently possible with ADI evolution', GM_WARNING)
        endif
 
-    else   ! glam/glissade dycore
+    else   ! forbidden evolution options with dycores other than Glide
 
        if (model%options%whichevol==EVOL_PSEUDO_DIFF .or.  &
            model%options%whichevol==EVOL_ADI         .or.  &
@@ -829,13 +829,19 @@ contains
 
     endif
 
-
+    ! Forbidden options for running in parallel
     if (tasks > 1 .and. (model%options%which_ho_sparse==HO_SPARSE_BICG  .or.  &
                          model%options%which_ho_sparse==HO_SPARSE_GMRES .or.  &
                          model%options%which_ho_sparse==HO_SPARSE_PCG_INCH) ) then
        call write_log('Error, SLAP solver not supported for more than one processor', GM_FATAL)
     end if
 
+    if (tasks > 1 .and. model%options%which_ho_babc==HO_BABC_ISHOMC) then
+       call write_log('Error, ISHOM basal BCs not supported for more than one processor', GM_FATAL)
+    endif
+
+    ! Forbidden options associated with Glam and Glissade dycores
+   
     if (model%options%whichdycore /= DYCORE_GLISSADE) then 
        if (model%options%which_ho_sparse == HO_SPARSE_PCG_STANDARD .or.   &
            model%options%which_ho_sparse == HO_SPARSE_PCG_CHRONGEAR) then
@@ -843,8 +849,6 @@ contains
        endif
     endif
 
-    ! Forbidden options associated with Glam dycore
-   
     if (model%options%whichdycore == DYCORE_GLAM) then
        if (model%options%which_ho_approx == SIMPLE_APPROX_SIA .or.   &
            model%options%which_ho_approx == HO_APPROX_SIA     .or.   &

@@ -2950,10 +2950,6 @@
 
       elseif (integral_order == 2) then ! quadratic (3-point formula)
 
-!DIR$ CONCURRENT !Cray
-!cdir nodep      !NEC
-!ocl novrec      !Fujitsu
-
          do ng = 1, ngroups
          do ij = 1, icells(ng)
             i = indxi(ij,ng)
@@ -3099,9 +3095,6 @@
 
          if (integral_order == 1) then  ! linear (1-point formula)
 
-!DIR$ CONCURRENT !Cray
-!cdir nodep      !NEC
-!ocl novrec      !Fujitsu
             do ij = 1, icells(ng)
                i = indxi(ij,ng)
                j = indxj(ij,ng)
@@ -3127,9 +3120,6 @@
 
          elseif (integral_order == 2) then  ! quadratic (3-point formula)
 
-!DIR$ CONCURRENT !Cray
-!cdir nodep      !NEC
-!ocl novrec      !Fujitsu
             do ij = 1, icells(ng)
                i = indxi(ij,ng)
                j = indxj(ij,ng)
@@ -3180,9 +3170,6 @@
 
             do nt = 1, ntracer
 
-!DIR$ CONCURRENT !Cray
-!cdir nodep      !NEC
-!ocl novrec      !Fujitsu
                do ij = 1, icells(ng)
                   i = indxi(ij,ng)
                   j = indxj(ij,ng)

@@ -474,8 +474,8 @@ module glide_types
     !*FD \item[4] very large value for beta to enforce no slip everywhere 
     !*FD \item[5] beta field passed in from .nc input file as part of standard i/o
     !*FD \item[6] no slip everywhere (using Dirichlet BC rather than large beta)
-    !*FD \item[7] treat beta value as till yield stress (in Pa) using Newton-type iteration (in devel.)
-    !*FD \item[8] beta field as prescribed for ISMIP-HOM test C
+    !*FD \item[7] treat beta value as till yield stress (in Pa) using Newton-type iteration (in development)
+    !*FD \item[8] beta field as prescribed for ISMIP-HOM test C (serial only)
     !*FD \end{description}
 
     integer :: which_ho_nonlinear = 0
