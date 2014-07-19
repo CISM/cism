@@ -1089,13 +1089,13 @@
        enddo
     enddo
 
-    call ocean_mask(nx,         ny,      &
-                    thck,       topg,    &
-                    eus,        thklim,  &
-                    ocean_cell, floating_cell)
+    call ocean_mask(nx,            ny,      &
+                    thck,          topg,    &
+                    eus,           thklim,  &
+                    floating_cell, ocean_cell)
 
 !WHL - debug
-    if (verbose_state .and. this_rank==rtest) then
+!!    if (verbose_state .and. this_rank==rtest) then
        print*, ' '
        print*, 'ocean_cell, rank =', rtest
        do j = ny, 1, -1
@@ -1104,10 +1104,10 @@
           enddo
           print*, ' '
        enddo
-    endif
+!!    endif
 
 !WHL - debug
-    if (verbose_state .and. this_rank==rtest) then
+!!    if (verbose_state .and. this_rank==rtest) then
        print*, ' '
        print*, 'floating_cell, rank =', rtest
        do j = ny, 1, -1
@@ -1116,7 +1116,7 @@
           enddo
           print*, ' '
        enddo
-    endif
+!!    endif
 
     !------------------------------------------------------------------------------
     ! Compute ice thickness and upper surface on staggered grid
@@ -1648,15 +1648,14 @@
              enddo
           endif
 
-          call calcbeta (whichbabc,                       &
-                         dx,           dy,                &
-                         nx,           ny,                &
-                         uvel(nz,:,:), vvel(nz,:,:),      &
-                         bwat,                            &
-                         ho_beta_const,                   &
-                         mintauf,                         &
-                         stagmask,                        &
-                         beta)
+          call calcbeta (whichbabc,                        &
+                         dx,            dy,                &
+                         nx,            ny,                &
+                         uvel(nz,:,:),  vvel(nz,:,:),      &
+                         bwat,          ho_beta_const,     &
+                         mintauf,                          &
+                         stagmask,      beta,              &
+                         floating_cell, ocean_cell)
 
           call staggered_parallel_halo(beta)
 
@@ -2759,10 +2758,10 @@
 
 !****************************************************************************
 
-    subroutine ocean_mask(nx,         ny,        &
-                          thck,       topg,      &
-                          eus,        thklim,    &
-                          ocean_cell, floating_cell)
+    subroutine ocean_mask(nx,            ny,        &
+                          thck,          topg,      &
+                          eus,           thklim,    &
+                          floating_cell, ocean_cell)
 
     !----------------------------------------------------------------
     ! Compute masks for ocean cells and floating cells.
@@ -2787,8 +2786,8 @@
        thklim                 ! minimum ice thickness for active cells (m)
 
     logical, dimension(nx,ny), intent(out) ::  &
-       ocean_cell,           &! true if topg is below sea level and thk <= thklim
-       floating_cell          ! true if thk > thklim and ice is floating
+       floating_cell,        &! true if thk > thklim and ice is floating
+       ocean_cell             ! true if topg is below sea level and thk <= thklim
       
     !----------------------------------------------------------------
     ! Local arguments

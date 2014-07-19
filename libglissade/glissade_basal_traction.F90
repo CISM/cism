@@ -71,14 +71,14 @@ contains
 
 !***********************************************************************
 
-  subroutine calcbeta (whichbabc,                  &
-                       dew,         dns,           &
-                       ewn,         nsn,           &
-                       thisvel,     othervel,      &
-                       bwat,        beta_const,    &
-                       mintauf,                    &
-                       mask,        beta,          &
-                       betafile)
+  subroutine calcbeta (whichbabc,                    &
+                       dew,           dns,           &
+                       ewn,           nsn,           &
+                       thisvel,       othervel,      &
+                       bwat,          beta_const,    &
+                       mintauf,                      &
+                       mask,          beta,          &
+                       floating_cell, ocean_cell)
 
   ! subroutine to calculate map of beta sliding parameter, based on 
   ! user input ("whichbabc" flag, from config file as "which_ho_babc").
@@ -98,16 +98,19 @@ contains
   integer, intent(in) :: whichbabc
   integer, intent(in) :: ewn, nsn
 
-  real(dp), intent(in) :: dew, dns                 ! m
-  real(dp), intent(in), dimension(:,:) :: thisvel, othervel  ! (m/yr)
-  real(dp), intent(in), dimension(:,:) :: bwat     ! basal water depth (m)
-  real(dp), intent(in), dimension(:,:) :: mintauf  ! till yield stress (Pa)
-  real(dp), intent(in) :: beta_const  ! spatially uniform beta (Pa yr/m)
-  integer, intent(in), dimension(:,:) :: mask 
+  real(dp), intent(in)                    :: dew, dns           ! m
+  real(dp), intent(in), dimension(:,:)    :: thisvel, othervel  ! (m/yr)
+  real(dp), intent(in), dimension(:,:)    :: bwat     ! basal water depth (m)
+  real(dp), intent(in), dimension(:,:)    :: mintauf  ! till yield stress (Pa)
+  real(dp), intent(in)                    :: beta_const  ! spatially uniform beta (Pa yr/m)
+  integer, intent(in), dimension(:,:)     :: mask 
   real(dp), intent(inout), dimension(:,:) :: beta  ! (Pa yr/m)
 
-  character (len=30), intent(in), optional :: betafile
-
+  logical, intent(in), dimension(:,:), optional ::  &
+     floating_cell,   &! true for cells where ice is present and is floating
+     ocean_cell        ! true for cells where topography is below sea level and ice is absent
+                       ! Note: These masks live on the scalar grid; beta lives on the staggered grid
+   
   ! Local variables
 
   real(dp) :: smallnum = 1.0d-2  ! m/yr
@@ -131,6 +134,29 @@ contains
 
 !      beta(:,:) = 10.d0       ! This is the default value (Pa yr/m)
       beta(:,:) = beta_const   ! Pa yr/m
+
+      ! If floating and ocean masks are passed in, then set beta to zero for shelf/ocean nodes,
+      ! overriding the constant value set above. This allows us to model large regions
+      ! (e.g., a whole ice sheet) in a simple but physically sensible way without specifying 
+      ! a 2D beta field.
+      !
+      ! Note: A node must be surrounded by four floating or ocean cells to be considered
+      !       a shelf/ocean node.  Nodes along the grounding line retain previous values of beta.
+      !
+      !TODO - Apply this correction to other beta options, e.g. HO_BABC_EXTERNAL_BETA?
+
+      if (present(floating_cell) .and. present(ocean_cell)) then
+         do ns = 1, nsn-1
+            do ew = 1, ewn-1
+               if ( (floating_cell(ew,ns  )   .or. ocean_cell(ew,ns))       .and.  &
+                    (floating_cell(ew,ns+1)   .or. ocean_cell(ew,ns+1))     .and.  &
+                    (floating_cell(ew+1,ns)   .or. ocean_cell(ew+1,ns))     .and.  &
+                    (floating_cell(ew+1,ns+1) .or. ocean_cell(ew+1,ns+1)) ) then
+                  beta(ew,ns) = 0.d0
+               endif
+            enddo
+         enddo
+      endif
 
     case(HO_BABC_SIMPLE)    ! simple pattern; also useful for debugging and test cases
                             ! (here, a strip of weak bed surrounded by stronger bed to simulate an ice stream)
@@ -182,6 +208,9 @@ contains
    
       deallocate(unstagbeta) 
 
+    !Note: This is redundant in that it could be implemented by using HO_BETA_CONST with beta_const = 1.d10
+    !      But keeping it for historical reasons since many config files use it
+
     case(HO_BABC_LARGE_BETA)      ! frozen (u=v=0) ice-bed interface
 
       beta(:,:) = 1.d10           ! Pa yr/m
@@ -192,6 +221,7 @@ contains
        !      However, this is not possible given that the global velocity grid is smaller
        !       than the ice grid and hence not able to fit the full beta field.
        !      The following code sets beta on the full grid as prescribed by Pattyn et al. (2008).
+       !NOTE: This works only in serial!
 
        !TODO - Abort if domain is not square
        Ldomain = (ewn-2*nhalo) * dew   ! size of full domain (must be square)
@@ -244,7 +274,8 @@ contains
       ! check for areas where ice is floating (or grounding line?) and make sure beta in these regions is 0  
 
       !TODO: Ideally, these mask values should not be hardwired, but keeping it this way for now until
-      ! we decide which mask values to keep/remove
+      !       we decide which mask values to keep/remove
+      !      Could handle this using the ocean_cell and floating_cell masks as for HO_BABC_CONSTANT
 
       do ns=1, nsn-1
       do ew=1, ewn-1 
