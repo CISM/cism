@@ -1095,7 +1095,7 @@
                     floating_cell, ocean_cell)
 
 !WHL - debug
-!!    if (verbose_state .and. this_rank==rtest) then
+    if (verbose_state .and. this_rank==rtest) then
        print*, ' '
        print*, 'ocean_cell, rank =', rtest
        do j = ny, 1, -1
@@ -1104,10 +1104,10 @@
           enddo
           print*, ' '
        enddo
-!!    endif
+    endif
 
 !WHL - debug
-!!    if (verbose_state .and. this_rank==rtest) then
+    if (verbose_state .and. this_rank==rtest) then
        print*, ' '
        print*, 'floating_cell, rank =', rtest
        do j = ny, 1, -1
@@ -1116,7 +1116,7 @@
           enddo
           print*, ' '
        enddo
-!!    endif
+    endif
 
     !------------------------------------------------------------------------------
     ! Compute ice thickness and upper surface on staggered grid
