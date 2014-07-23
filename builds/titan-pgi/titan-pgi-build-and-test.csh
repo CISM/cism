@@ -111,7 +111,8 @@ else  # execute tests:
 if (! ($no_copy_set)) then
  echo "Copying default reg_test and LIVV to $TEST_DIR"
  pushd . > /dev/null
- cp $TEST_SUITE_DEFAULT_DIR/reg_test_default.tgz $TEST_DIR/reg_test_default.tgz
+wget http://oceans11.lanl.gov/cism/livv/reg_test_default.tgz
+# cp $TEST_SUITE_DEFAULT_DIR/reg_test_default.tgz $TEST_DIR/reg_test_default.tgz
  cd $TEST_DIR
  tar xfz reg_test_default.tgz
  #tar xf reg_test_default.tar
