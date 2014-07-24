@@ -86,8 +86,9 @@ subroutine cism_init_dycore(model)
 
   call glimmer_GetCommandline()
 
+  ! DMR -- open_log call commented out, since called in gci_init_interface()
   ! start logging
-  call open_log(unit=50, fname=logname(commandline_configname))
+  ! call open_log(unit=50, fname=logname(commandline_configname))
   
   ! setup paths
   call filenames_init(commandline_configname)
