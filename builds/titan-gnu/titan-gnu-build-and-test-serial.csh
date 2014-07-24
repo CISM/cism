@@ -115,9 +115,10 @@ else  # execute tests:
 if (!($no_copy_set)) then
  echo "Copying default reg_test and LIVV to $TEST_DIR"
  pushd . > /dev/null
+ cd $TEST_DIR
  wget http://oceans11.lanl.gov/cism/livv/reg_test_default.tgz
 # cp $TEST_SUITE_DEFAULT_DIR/reg_test_default.tgz $TEST_DIR/reg_test_default.tgz
- cd $TEST_DIR
+
  tar xfz reg_test_default.tgz
  #tar xf reg_test_default.tar
  #rm reg_test_default.tar
@@ -126,8 +127,9 @@ if (!($no_copy_set)) then
  if ($PERF_TEST) then
     echo "Copying default perf_test to $TEST_DIR"
    pushd . > /dev/null
-   cp $TEST_SUITE_DEFAULT_DIR/perf_test_default.tgz $TEST_DIR/perf_test_default.tgz
+   #cp $TEST_SUITE_DEFAULT_DIR/perf_test_default.tgz $TEST_DIR/perf_test_default.tgz
    cd $TEST_DIR
+   wget http://oceans11.lanl.gov/cism/livv/perf_test_default.tgz
    tar xfz perf_test_default.tgz
    #tar xf perf_test_default.tar
    #rm perf_test_default.tar
