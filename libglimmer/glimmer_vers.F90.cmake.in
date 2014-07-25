@@ -29,7 +29,9 @@
 function glimmer_version_char()
   implicit none
   character(len=100) :: glimmer_version_char
-  glimmer_version_char = 'GLIMMER v. ??: (CMake build does not get version)'
+
+  !glimmer_version_char = 'GLIMMER v. ??: (CMake build does not get version)'
+  glimmer_version_char = 'Glimmer-CISM 2.0'
 end function glimmer_version_char
 
 !> the glimmer version as an integer
