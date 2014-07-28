@@ -21,11 +21,8 @@ from netCDF import *
 # === Manually set these options as desired ===
 # =============================================
 create_files = True
-fake_shelf   = False
 verbose      = False
 use_inlets   = (False, True, 'reverse')[1]
-mask_llc     = False # The previous script (makerossnc.py) masked the lower left corner  -- MJH: I don't see the "previous script" anywhere...
-offset_error = 1     # offset_error should be 1 
 # =============================================
 # Developer Note: some of these could become command line options below.
 
@@ -43,12 +40,13 @@ for option in optparser.option_list:
 options, args = optparser.parse_args()
 
 
-
-
-def addBorder(data,dtype,value=0):
-  field = numpy.empty((ny,nx),dtype)
-  field[:] = value
-  field[2:-2,2:-2] = data
+def createArray(data,dtype):
+  # nx and ny dimensions are one more than the raw data, 
+  # because we are choosing to use the raw data on the velocity grid.
+  field = numpy.empty((ny-1,nx-1),dtype=dtype)
+  for i in range(nx-1):
+    for j in range(ny-1):
+      field[j,i] = data[j][i]
   return field
 
 def plot(variable): # used for debugging only
@@ -96,8 +94,7 @@ if create_files:
   print '\nReading',filename
   for line in inputfile:
     i,j = map(int,line.split())
-    if offset_error != 0: (i,j) = (i-offset_error,j-offset_error)
-    kbc_mask[i,j] = 1
+    kbc_mask[i,j] = 1   # 1=where we have Dirichlet; 0=otherwise
   inputfile.close()
   print numpy.sum(kbc_mask),'points were read from kbc.dat'
 
@@ -109,7 +106,6 @@ if create_files:
   for line in inputfile:
     i, j, azimuth, magnitude = line.split()
     i,j = map(int,(i,j))
-    if offset_error != 0: (i,j) = (i-offset_error,j-offset_error)
     if use_inlets == 'reverse':
       magnitude,azimuth = map(float,(azimuth,magnitude))
     else:
@@ -122,6 +118,7 @@ if create_files:
       data['ice velocity azimuth grid'][i][j] = azimuth
       data['ice velocity magnitude'][i][j] = magnitude
     counter[kbc_mask[i,j]] += 1
+    print i, j, kbc_mask[i,j] 
     kbc_mask[i,j] += 2
   inputfile.close()
   print 'inlets.dat contains',counter[0],'points that are not in kbc.dat'
@@ -129,31 +126,33 @@ if create_files:
 
 ########## PART II: CREATE A NETCDF FILE CONTAINING THE RAW DATA ##########
 
-  filename = os.path.join('output','raw.nc')
-  print '\nWriting', filename
-  if netCDF_module == 'netCDF4':
-    netCDFfile = NetCDFFile(filename,'w',format='NETCDF3_CLASSIC')
-  else:
-    netCDFfile = NetCDFFile(filename,'w')
-  
-  netCDFfile.createDimension('x',data['rows columns number of sub parameters'][0][1])
-  netCDFfile.createDimension('y', data['rows columns number of sub parameters'][0][0])
-  netCDFfile.createVariable('x','f',('x',))[:] = [x[0] for x in data['columns position'][:-1]]
-  netCDFfile.createVariable('y','f',('y',))[:] = [x[0] for x in data['rows position'][:-1]]
-  netCDFfile.createVariable('mask1',    'i',('y','x'))[:] = data['existency table:']
-  netCDFfile.createVariable('azimuth',  'f',('y','x'))[:] = data['ice velocity azimuth grid']
-  netCDFfile.createVariable('velocity', 'f',('y','x'))[:] = data['ice velocity magnitude']
-  netCDFfile.createVariable('thickness','f',('y','x'))[:] = data['thickness']
-  netCDFfile.createVariable('mask2',    'i',('y','x'))[:] = data['reliable velocity obs']
-  netCDFfile.createVariable('seabed',   'f',('y','x'))[:] = data['seabed depth']
-  netCDFfile.createVariable('mask3',    'i',('y','x'))[:] = data['fake ice shelf region']
-  netCDFfile.createVariable('accumulation','f',('y','x'))[:] = data['surface accumulation']
-  netCDFfile.createVariable('bbar',        'f',('y','x'))[:] = data['flowlaw']
-  netCDFfile.createVariable('temperature', 'f',('y','x'))[:] = data['surface temperature']
-  netCDFfile.createVariable('kbc',         'i',('y','x'))[:] = kbc_mask
+# This is not necessary, but can be useful to debug the rest of the script, if needed.
 
-  netCDFfile.close()
-  del(netCDFfile) # remove this variable from the name-space (pycdf might fail if we don't)
+#  filename = os.path.join('output','raw.nc')
+#  print '\nWriting', filename
+#  if netCDF_module == 'netCDF4':
+#    netCDFfile = NetCDFFile(filename,'w',format='NETCDF3_CLASSIC')
+#  else:
+#    netCDFfile = NetCDFFile(filename,'w')
+#  
+#  netCDFfile.createDimension('x',data['rows columns number of sub parameters'][0][1])
+#  netCDFfile.createDimension('y', data['rows columns number of sub parameters'][0][0])
+#  netCDFfile.createVariable('x','f',('x',))[:] = [x[0] for x in data['columns position'][:-1]]
+#  netCDFfile.createVariable('y','f',('y',))[:] = [x[0] for x in data['rows position'][:-1]]
+#  netCDFfile.createVariable('mask1',    'i',('y','x'))[:] = data['existency table:']
+#  netCDFfile.createVariable('azimuth',  'f',('y','x'))[:] = data['ice velocity azimuth grid']
+#  netCDFfile.createVariable('velocity', 'f',('y','x'))[:] = data['ice velocity magnitude']
+#  netCDFfile.createVariable('thickness','f',('y','x'))[:] = data['thickness']
+#  netCDFfile.createVariable('mask2',    'i',('y','x'))[:] = data['reliable velocity obs']
+#  netCDFfile.createVariable('seabed',   'f',('y','x'))[:] = data['seabed depth']
+#  netCDFfile.createVariable('mask3',    'i',('y','x'))[:] = data['fake ice shelf region']
+#  netCDFfile.createVariable('accumulation','f',('y','x'))[:] = data['surface accumulation']
+#  netCDFfile.createVariable('bbar',        'f',('y','x'))[:] = data['flowlaw']
+#  netCDFfile.createVariable('temperature', 'f',('y','x'))[:] = data['surface temperature']
+#  numpy.set_printoptions(threshold='nan')
+#  netCDFfile.createVariable('kbc',         'i',('y','x'))[:] = kbc_mask
+#  netCDFfile.close()
+#  del(netCDFfile) # remove this variable from the name-space (pycdf might fail if we don't)
 
 ########## PART III: CREATE THE NETCDF FILE NEEDED BY GLIMMER ##########
 
@@ -168,57 +167,38 @@ if create_files:
   dx = int(configParser.get('grid','dew'))
   dy = int(configParser.get('grid','dns'))
 
-  if nx != 151:
-    print 'WARNING: ewn should be set to 151 in ross.config'
-  if ny != 115:
-    print 'WARNING: nsn should be set to 115 in ross.config'
+# nx and ny dimensions are one more than the raw data, 
+# because we are choosing to use the raw data on the velocity grid.
+  if nx != 147+1:
+    print 'WARNING: ewn should be set to 148 in ross.config'
+  if ny != 111+1:
+    print 'WARNING: nsn should be set to 112 in ross.config'
   if dx != 6822 or dy !=6822:
     print 'WARNING: dew and dns should be set to 6822 in ross.config'
 
 # Put the data into numpy arrays with two extra rows and columns all around
 # This reproduces a previous script's output (makerossnc.py)
-  mask1        = addBorder(data['existency table:'],dtype='i')
-  azimuth      = addBorder(data['ice velocity azimuth grid'],dtype='f')
-  velocity     = addBorder(data['ice velocity magnitude'],dtype='f')
-  thickness    = addBorder(data['thickness'],dtype='f')
-#  mask2        = addBorder(data['reliable velocity obs'],dtype='i')
-  seabed       = addBorder(data['seabed depth'],dtype='f',value=5000.0)
-  mask3        = addBorder(data['fake ice shelf region'],dtype='i')
-#  accumulation = addBorder(data['surface accumulation'],dtype='f')
-#  bbar         = addBorder(data['flowlaw'],dtype='f')
-#  temperature  = addBorder(data['surface temperature'],dtype='f')
-  kbc          = addBorder(kbc_mask,dtype='i')
+  mask1        = createArray(data['existency table:'],dtype='i')
+  azimuth      = createArray(data['ice velocity azimuth grid'],dtype='f')
+  velocity     = createArray(data['ice velocity magnitude'],dtype='f')
+  thickness    = createArray(data['thickness'],dtype='f')
+#  mask2        = createArray(data['reliable velocity obs'],dtype='i')
+  seabed       = createArray(data['seabed depth'],dtype='f')
+  mask3        = createArray(data['fake ice shelf region'],dtype='i')
+#  accumulation = createArray(data['surface accumulation'],dtype='f')
+#  bbar         = createArray(data['flowlaw'],dtype='f')
+#  temperature  = createArray(data['surface temperature'],dtype='f')
+  kbc          = createArray(kbc_mask,dtype='i')
 
 # Remove any parts of the "fake shelf" that are not in the "existency table"
   if verbose:
     print 'Removing',numpy.sum(numpy.logical_and(mask1==0,mask3!=0)),'points from mask3'
   mask3[mask1==0] = 0
 
-  if mask_llc:
-#   Modify mask3 (the "fake shelf") to cut off the lower left corner of the domain
-    for ii in range(nx):
-      if mask3[2,ii] == 1: break
-    if fake_shelf:
-      mask3[:,:] = 0
-      jj = 0
-    else:    
-      for jj in range(2,ny):
-        if mask3[jj,ii] == 0: break
-      jj = jj-2
-    for i in range(1,ii):
-      for j in range(1,ii+jj-i):
-        mask3[j,i] = 1
-    for i in range(ii,nx):
-      mask3[1,i] = mask1[2,i]
-  elif fake_shelf:
-    mask3[:,:] = 0
-
-  thickness[mask3==1] = 0
-
 # Set the velocity to zero except where needed as a kinematic boundary condition.
-  velocity[kbc == 0] = 0
+  velocity[kbc == 0] = 0.0
 # Get the components of the velocity vector
-  azimuth *= numpy.pi/180
+  azimuth *= numpy.pi/180.0
   velocity1 = velocity * numpy.cos(azimuth)
   velocity2 = velocity * numpy.sin(azimuth)
 
@@ -243,11 +223,9 @@ if create_files:
   thk   = netCDFfile.createVariable('thk' ,'f',('time','y1','x1'))
   topg  = netCDFfile.createVariable('topg','f',('time','y1','x1'))
   beta  = netCDFfile.createVariable('beta','f',('time','y0','x0'))
-  uvelbc = netCDFfile.createVariable('uvelbc','f',('time','level','y0','x0'))
-  vvelbc = netCDFfile.createVariable('vvelbc','f',('time','level','y0','x0'))
   uvel = netCDFfile.createVariable('uvel','f',('time','level','y0','x0'))
   vvel = netCDFfile.createVariable('vvel','f',('time','level','y0','x0'))
-  kinbcmask = netCDFfile.createVariable('kinbcmask','i',('time','y1','x1'))
+  kinbcmask = netCDFfile.createVariable('kinbcmask','i',('time','y0','x0'))
   
   time[0] = 0
   x = dx*numpy.arange(nx,dtype='float32')
@@ -256,18 +234,30 @@ if create_files:
   y1[:] = y
   x0[:] = dx/2 + x[:-1] # staggered grid
   y0[:] = dy/2 + y[:-1]
-  thk [:] = thickness
-  topg[:] = -seabed
+  # interpolate thk and topg from the staggered grid onto the scalar grid
+  thk[:] = 0.0
+  topg[:] = 0.0
+  for i in range(1, nx-1):
+    for j in range(1, ny-1):
+      #assert False
+      if numpy.count_nonzero(mask3[j-1:j+1, i-1:i+1]) == 0:
+        thk[0,j,i] = thickness[j-1:j+1, i-1:i+1].mean()
+      else:
+        thk[0,j,i] = 0.0
+      topg[0,j,i] = -seabed[j-1:j+1, i-1:i+j].mean()
+  # extrapolate the edges
+  topg[0,0,:] = topg[0,1,:]
+  topg[0,-1,:] = topg[0,-2,:]
+  topg[0,:,0] = topg[0,:,1]
+  topg[0,:,-1] = topg[0,:,-2]
+  thk[0,0,:] = 0.0  # no ice along bottom of domain to ensure ice shelf front extends to Ross Island side.
+  thk[0,-1,:] = thk[0,-2,:]
+  thk[0,:,0] = thk[0,:,1]
+  thk[0,:,-1] = thk[0,:,-2]
   beta[:] = numpy.zeros((ny-1,nx-1),dtype='float32')
-  uvel[:] = numpy.array(nz*[velocity2[:-1,:-1]])
-  vvel[:] = numpy.array(nz*[velocity1[:-1,:-1]])
+  uvel[:] = numpy.array(nz*[velocity2])
+  vvel[:] = numpy.array(nz*[velocity1])
   mask = numpy.logical_and(velocity==0,numpy.logical_or(mask1==1,mask3==1))
-  mask[0,:-1] = True
-  mask[:-1,0] = True
-  velocity2[mask] = float('NaN')
-  velocity1[mask] = float('NaN')
-  uvelbc[:] = numpy.array(nz*[velocity2[:-1,:-1]])
-  vvelbc[:] = numpy.array(nz*[velocity1[:-1,:-1]])
   kinbcmask[:] = numpy.int32(numpy.where(mask, 0, 1))
 
   netCDFfile.close()
