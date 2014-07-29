@@ -167,4 +167,28 @@ print 'the circles (which represent the RIGGS velocities) would be the same as'
 print 'the color of the background (which represents the velocities calculated'
 print 'by Glimmer/CISM).'
 print
+
+
+# Create a contour plot of Glimmer to compare to paper Figure 3.
+pyplot.figure(3, facecolor='w', figsize=(12, 4), dpi=72)
+pyplot.clf()
+pyplot.subplot(1,2,1)
+pyplot.contour(velnorm, numpy.linspace(0.0, 5000.0, num=51, endpoint=True) ) 
+pyplot.axis('equal')
+
+pyplot.subplot(1,4,3)
+pyplot.contour(velnorm, numpy.concatenate((numpy.linspace(0.0, 175.0, num=8, endpoint=True), numpy.linspace(200.0, 2000.0, num=10, endpoint=True))) ) 
+pyplot.axis('equal')
+pyplot.xlim((110,147))
+pyplot.ylim((1,58))
+
+print
+print 'FIGURE 3:'
+print 'Compare this plot to Figure 3 in the EISMINT paper: '
+print 'MacAyeal, et al.: An ice-shelf model test based on the Ross Ice Shelf, Antarctica, Ann. Glaciol., 23, 46-51, 1996'
+print 'Try URL: http://www.igsoc.org/annals.old/23/igs_annals_vol23_year1996_pg46-51.pdf'
+print
+
 pyplot.show()
+
+
