@@ -158,9 +158,9 @@ if create_files:
 
 # Read the configuration file to get the number of levels to be used
 # Also check that ewn, nsn, dew, and dns are correct
-  print '\nReading ross.config'
+  print '\nReading', options.configfile
   configParser = ConfigParser.SafeConfigParser()
-  configParser.read('ross.config')
+  configParser.read(options.configfile)
   nx = int(configParser.get('grid','ewn'))
   ny = int(configParser.get('grid','nsn'))
   nz = int(configParser.get('grid','upn'))
@@ -250,7 +250,7 @@ if create_files:
   topg[0,-1,:] = topg[0,-2,:]
   topg[0,:,0] = topg[0,:,1]
   topg[0,:,-1] = topg[0,:,-2]
-  thk[0,0,:] = 0.0  # no ice along bottom of domain to ensure ice shelf front extends to Ross Island side.
+  thk[0,0:2,:] = 0.0  # no ice along bottom two rows of domain to ensure ice shelf front extends to Ross Island side.
   thk[0,-1,:] = thk[0,-2,:]
   thk[0,:,0] = thk[0,:,1]
   thk[0,:,-1] = thk[0,:,-2]
