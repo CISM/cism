@@ -113,7 +113,7 @@ if (! ($no_copy_set)) then
  echo "Copying default reg_test and LIVV to $TEST_DIR"
  pushd . > /dev/null
  cd $TEST_DIR
- if ( -e reg_test_default.tgz ) rm -f /reg_test_default.tgz 
+ if ( -e reg_test_default.tgz ) rm -f reg_test_default.tgz 
  wget $TEST_SUITE_DEFAULT_LOC/reg_test_default.tgz
  tar xfz reg_test_default.tgz
  popd > /dev/null
@@ -122,7 +122,7 @@ if (! ($no_copy_set)) then
     echo "Copying default perf_test to $TEST_DIR"
    pushd . > /dev/null
    cd $TEST_DIR
-   if ( -e perf_test_default.tgz ) rm -f /perf_test_default.tgz 
+   if ( -e perf_test_default.tgz ) rm -f perf_test_default.tgz 
    wget $TEST_SUITE_DEFAULT_LOC/perf_test_default.tgz
    tar xfz perf_test_default.tgz
    popd > /dev/null
