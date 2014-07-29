@@ -34,6 +34,8 @@ echo
 echo Run this script by typing: source titan-gnu-cmake
 echo
 
+# this unload reduces purge spurious error messages:
+module unload PrgEnv-gnu PrgEnv-pgi
 module --silent purge
 
 #module unload cmake
@@ -45,10 +47,6 @@ module --silent purge
 #module unload cray-mpich2
 #module unload netcdf-hdf5parallel cray-netcdf-hdf5parallel boost gcc
 #module unload PrgEnv-cray PrgEnv-gnu PrgEnv-intel PrgEnv-pathscale PrgEnv-pgi
-
-# Commented out on titan, because of project path that get cleared
-# if you do this:
-# module --silent purge
 
 module load modules
 module load cmake/2.8.10.2
@@ -68,8 +66,8 @@ module load python
 module load boost/1.53.0
 
 # remove old build data:
-rm ./CMakeCache.txt
-rm -r ./CMakeFiles
+rm -f ./CMakeCache.txt
+rm -rf ./CMakeFiles
 
 # run a script that creates some CISM source files:
 #pushd .
