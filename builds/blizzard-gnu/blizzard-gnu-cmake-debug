@@ -20,10 +20,19 @@ echo
 echo "Doing CMake Configuration step"
 
 cmake \
-  -D GLIMMER_TRILINOS_DIR=/opt/trilinos-11.4.1_GNU \
+  -D CISM_USE_TRILINOS:BOOL=ON \
+  -D CISM_COUPLED:BOOL=OFF \
+  -D CISM_MPI_MODE:BOOL=ON \
+  -D CISM_SERIAL_MODE:BOOL=OFF \
+  -D CISM_BUILD_SIMPLE_GLIDE:BOOL=ON \
+  -D CISM_BUILD_SIMPLE_BISICLES:BOOL=OFF \
+  -D CISM_BUILD_GLINT_EXAMPLE:BOOL=ON \
+  -D CISM_BUILD_CISM_DRIVER:BOOL=ON \
+  -D GLIMMER_TRILINOS_DIR=/opt/trilinos-11.4.1_GNU4.8.3 \
   -D GLIMMER_NETCDF_DIR=$NETCDF_DIR \
   -D CMAKE_VERBOSE_MAKEFILE:BOOL=OFF \
   -D GLIMMER_Fortran_FLAGS="-g -fbounds-check -fcheck-array-temporaries  -ffree-line-length-none" \
+  -D GLIMMER_NETCDF_LIBS="netcdff;netcdf;curl" \
   -D CISM_GNU:BOOL=ON \
  ..
 

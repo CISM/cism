@@ -28,11 +28,11 @@ cmake \
   -D CISM_BUILD_SIMPLE_BISICLES:BOOL=OFF \
   -D CISM_BUILD_GLINT_EXAMPLE:BOOL=ON \
   -D CISM_BUILD_CISM_DRIVER:BOOL=ON \
-\
-  -D GLIMMER_TRILINOS_DIR=/opt/trilinos-11.4.1_GNU \
+  -D GLIMMER_TRILINOS_DIR=/opt/trilinos-11.4.1_GNU4.8.3 \
   -D GLIMMER_NETCDF_DIR=$NETCDF_DIR \
   -D CMAKE_VERBOSE_MAKEFILE:BOOL=OFF \
   -D GLIMMER_Fortran_FLAGS="-O3 -msse4.2 -mfpmath=sse -ffree-line-length-none" \
+  -D GLIMMER_NETCDF_LIBS="netcdff;netcdf;curl" \
   -D CISM_GNU:BOOL=ON \
  ..
 
