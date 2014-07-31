@@ -85,6 +85,23 @@ if create_files:
 
   print 'The',len(data.keys()),'data fields read from 111by147Grid.dat are:\n',data.keys()
 
+
+  # === Optional ===
+  # Manually edit the existency mask so that it extends to be connected to the inlets in inlets.dat 
+  data['existency table:'][109][80]=1
+  data['existency table:'][97][101]=1
+  data['existency table:'][98][100]=1
+  data['existency table:'][96][102]=1
+  data['existency table:'][96][103]=1
+  data['existency table:'][78][121]=1
+  data['existency table:'][77][123]=1
+  data['existency table:'][79][120]=1
+  data['existency table:'][80][120]=1
+  data['existency table:'][80][119]=1
+  data['existency table:'][51][140]=1
+  data['existency table:'][53][138]=1
+
+
 # Read the kinematic boundary conditions (kbc) mask file.  
 # This is a set of (i,j) coordinates specifying where the velocity read from
 # the data file should be used as a boundary condition for the model.
@@ -153,6 +170,24 @@ if create_files:
 #  netCDFfile.createVariable('kbc',         'i',('y','x'))[:] = kbc_mask
 #  netCDFfile.close()
 #  del(netCDFfile) # remove this variable from the name-space (pycdf might fail if we don't)
+
+
+######### Part II.2  optional plot of kinematic bc positions #######
+#  import matplotlib.pyplot as plt
+#  plt.imshow(kbc_mask, interpolation='nearest', origin='lower')
+#  #plt.imshow(mask1[:,:], interpolation='nearest', origin='lower')
+#  for i in range(kbc_mask.shape[1]):
+#      for j in range(kbc_mask.shape[0]):
+#        if kbc_mask[j,i] == 1:
+#          plt.plot(i,j,'og')  # big inlets
+#        if kbc_mask[j,i] == 2:
+#          plt.plot(i,j,'oc')  # data inlets
+#        if data['ice velocity magnitude'][j][i] != 0.0:
+#          plt.plot(i,j,'xk')  # nonzero velo
+#  plt.colorbar()
+#  plt.axis('equal')
+#  plt.show()
+
 
 ########## PART III: CREATE THE NETCDF FILE NEEDED BY GLIMMER ##########
 
@@ -259,6 +294,24 @@ if create_files:
   vvel[:] = numpy.array(nz*[velocity1])
   mask = numpy.logical_and(velocity==0,numpy.logical_or(mask1==1,mask3==1))
   kinbcmask[:] = numpy.int32(numpy.where(mask, 0, 1))
+
+######## Part III.2  optional plot of kinematic bc positions #######
+  import matplotlib.pyplot as plt
+  fig = plt.figure(2, facecolor='w', figsize=(10, 4), dpi=100)
+
+  #plt.imshow(kinbcmask[0,:,:], interpolation='nearest', origin='lower')
+  plt.imshow(mask1[:,:], interpolation='nearest', origin='lower')
+  for i in range(kbc.shape[1]):
+      for j in range(kbc.shape[0]):
+        if kbc[j,i] == 1:
+          plt.plot(i,j,'og')  # big inlets
+        if kbc[j,i] == 2:
+          plt.plot(i,j,'oc')  # data inlets
+        if velocity[j,i] != 0.0:
+          plt.plot(i,j,'xk')  # nonzero velo
+  plt.colorbar()
+  plt.axis('equal')
+  plt.show()
 
   netCDFfile.close()
 
