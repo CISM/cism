@@ -39,7 +39,8 @@ endif
 
 if (! -d $TEST_DIR) mkdir -p $TEST_DIR
 
-setenv TEST_SUITE_DEFAULT_DIR /project/projectdirs/piscees/test_suite
+setenv TEST_SUITE_DEFAULT_LOC  http://oceans11.lanl.gov/cism/livv
+#setenv TEST_SUITE_DEFAULT_LOC /ccs/proj/cli062/test_suite
 
 setenv build_problem 0
 
@@ -57,6 +58,7 @@ set CISM_RUN_SCRIPT = 'hopjob'
 #set CISM_RUN_SCRIPT = 'ijob' 
 #set CISM_VV_SCRIPT = $PLATFORM_NAME'_VV.bash'
 set CISM_VV_SCRIPT = 'carver_VV.bash'
+#set CISM_VV_SCRIPT = 'rhea_VV.bash'
 
 echo
 echo 'To use this script, type: csh '$PLATFORM_NAME'-'$COMPILER_NAME'-build-and-test.csh'
@@ -122,21 +124,19 @@ else  # execute tests:
 if (! ($no_copy_set)) then
  echo "Copying default reg_test and LIVV to $TEST_DIR"
  pushd . > /dev/null
- cp $TEST_SUITE_DEFAULT_DIR/reg_test_default.tgz $TEST_DIR/reg_test_default.tgz
  cd $TEST_DIR
+ if ( -e reg_test_default.tgz ) rm -f reg_test_default.tgz 
+ wget $TEST_SUITE_DEFAULT_LOC/reg_test_default.tgz
  tar xfz reg_test_default.tgz
- #tar xf reg_test_default.tar
- #rm reg_test_default.tar
  popd > /dev/null
 
  if ($PERF_TEST) then
     echo "Copying default perf_test to $TEST_DIR"
    pushd . > /dev/null
-   cp $TEST_SUITE_DEFAULT_DIR/perf_test_default.tgz $TEST_DIR/perf_test_default.tgz
    cd $TEST_DIR
+   if ( -e perf_test_default.tgz ) rm -f perf_test_default.tgz 
+   wget $TEST_SUITE_DEFAULT_LOC/perf_test_default.tgz
    tar xfz perf_test_default.tgz
-   #tar xf perf_test_default.tar
-   #rm perf_test_default.tar
    popd > /dev/null
  endif
 
