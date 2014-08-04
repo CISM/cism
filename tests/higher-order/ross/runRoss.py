@@ -279,7 +279,18 @@ if create_files:
         thk[0,j,i] = thickness[j-1:j+1, i-1:i+1].mean()
       else:
         thk[0,j,i] = 0.0
-      topg[0,j,i] = -seabed[j-1:j+1, i-1:i+j].mean()
+      topg[0,j,i] = -seabed[j-1:j+1, i-1:i+1].mean()
+  # The above line averages the supplied topography from the staggered grid to the unstaggered grid.
+  # However, it results in a grounded cell (or maybe cells) in the region specified as the ice shelf.
+  # This occurs in a little region just downstream of Roosevelt Island and causes very rapid velocities
+  # in that region because it creates a grounded region with a steep slope and beta of 0.
+  # Because the test case is only solved for the shelf itself, and there are Dirichlet velocity b.c.
+  # at all grounding lines, the topography is not technically needed.  
+  # Therefore it is easier to simpy specify a really deep basal topography everywhere to avoid
+  # any inadvertent groundings of the ice.
+  #topg[:] = -5000.0    
+  topg[0,22:42,24:47] -= 500.0
+
   # extrapolate the edges
   topg[0,0,:] = topg[0,1,:]
   topg[0,-1,:] = topg[0,-2,:]
@@ -296,22 +307,22 @@ if create_files:
   kinbcmask[:] = numpy.int32(numpy.where(mask, 0, 1))
 
 ######## Part III.2  optional plot of kinematic bc positions #######
-  import matplotlib.pyplot as plt
-  fig = plt.figure(2, facecolor='w', figsize=(10, 4), dpi=100)
-
-  #plt.imshow(kinbcmask[0,:,:], interpolation='nearest', origin='lower')
-  plt.imshow(mask1[:,:], interpolation='nearest', origin='lower')
-  for i in range(kbc.shape[1]):
-      for j in range(kbc.shape[0]):
-        if kbc[j,i] == 1:
-          plt.plot(i,j,'og')  # big inlets
-        if kbc[j,i] == 2:
-          plt.plot(i,j,'oc')  # data inlets
-        if velocity[j,i] != 0.0:
-          plt.plot(i,j,'xk')  # nonzero velo
-  plt.colorbar()
-  plt.axis('equal')
-  plt.show()
+#  import matplotlib.pyplot as plt
+#  fig = plt.figure(2, facecolor='w', figsize=(10, 4), dpi=100)
+#
+#  #plt.imshow(kinbcmask[0,:,:], interpolation='nearest', origin='lower')
+#  plt.imshow(mask1[:,:], interpolation='nearest', origin='lower')
+#  for i in range(kbc.shape[1]):
+#      for j in range(kbc.shape[0]):
+#        if kbc[j,i] == 1:
+#          plt.plot(i,j,'og')  # big inlets
+#        if kbc[j,i] == 2:
+#          plt.plot(i,j,'oc')  # data inlets
+#        if velocity[j,i] != 0.0:
+#          plt.plot(i,j,'xk')  # nonzero velo
+#  plt.colorbar()
+#  plt.axis('equal')
+#  plt.show()
 
   netCDFfile.close()
 
