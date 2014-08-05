@@ -132,6 +132,8 @@ contains
 
     case(MARINE_HUYBRECHTS)   ! used to be case(7)
 
+      !TODO - This case assumes eus has units of meters, when in fact it is scaled
+      !       Change to eus*thk0?  Also check units of relx.
       if(eus > -80.d0) then
         where (relx <= 2.d0*eus)
           calving_field = thck

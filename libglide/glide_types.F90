@@ -241,6 +241,10 @@ module glide_types
   integer, parameter :: HO_GRADIENT_CENTERED = 0
   integer, parameter :: HO_GRADIENT_UPSTREAM = 1
 
+  integer, parameter :: HO_GROUND_NO_GLP = 0
+  integer, parameter :: HO_GROUND_GLP = 1
+  integer, parameter :: HO_GROUND_ALL = 2
+
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   type glide_general
@@ -552,6 +556,14 @@ module glide_types
     !*FD \item[0] Centered gradient
     !*FD \item[1] Upstream gradient
 
+    integer :: which_ho_ground = 0    
+    !*FD Flag that indicates how to compute the grounded fraction of each gridcell in the glissade dycore.
+    !*FD Not valid for other dycores
+    !*FD \begin{description}
+    !*FD \item[0] fground = 0 in floating cells (based on flotation condition), else fground = 1 
+    !*FD \item[1] fground = 1 in all cells
+    !*FD \item[2] 0 <= fground <= 1, based on a grounding line parameterization
+
     ! The remaining options are not currently supported
 
     !integer :: which_bproc = 0
@@ -588,6 +600,10 @@ module glide_types
 
     real(dp),dimension(:,:),pointer :: topg => null() 
     !*FD The elevation of the topography, divided by \texttt{thk0}.
+
+    real(dp),dimension(:,:),pointer :: f_ground => null() 
+    !*FD The fractional area at each vertex which is grounded 
+    !    (computed by glissade dycore only)
 
     real(dp),dimension(:,:,:),pointer :: age => null()
     !*FD The age of a given ice layer, divided by \texttt{tim0}.
@@ -748,6 +764,10 @@ module glide_types
     !WHL - for viewing the spatial pattern of residuals
     real(dp),dimension(:,:,:),pointer :: resid_u => null()     ! u component of residual Ax - b where x is the velocity
     real(dp),dimension(:,:,:),pointer :: resid_v => null()     ! v component of residual Ax - b where x is the velocity
+
+    !WHL - for viewing the driving stress on the RHS
+    real(dp),dimension(:,:,:),pointer :: rhs_u => null()     ! u component of b in Ax = b
+    real(dp),dimension(:,:,:),pointer :: rhs_v => null()     ! v component of b in Ax = b
 
   end type glide_velocity
 
@@ -1266,13 +1286,14 @@ contains
     !*FD \item \texttt{usrf(ewn,nsn))}
     !*FD \item \texttt{lsrf(ewn,nsn))}
     !*FD \item \texttt{topg(ewn,nsn))}
+    !*FD \item \texttt{mask(ewn,nsn))}
+    !*FD \item \texttt{age(ewn,nsn))}
+    !*FD \item \texttt{f_ground(ewn-1,nsn-1)}
     !* (DFM) added floating_mask, ice_mask, lower_cell_loc, and lower_cell_temp
     !*FD \item \texttt{floating_mask(ewn,nsn))}
     !*FD \item \texttt{ice_mask(ewn,nsn))}
     !*FD \item \texttt{lower_cell_loc(ewn,nsn))}
     !*FD \item \texttt{lower_cell_temp(ewn,nsn))}
-    !*FD \item \texttt{mask(ewn,nsn))}
-    !*FD \item \texttt{age(ewn,nsn))}
     !*FD \end{itemize}
 
     !*FD In \texttt{model\%thckwk}:
@@ -1385,6 +1406,8 @@ contains
     call coordsystem_allocate(model%general%ice_grid,  upn, model%velocity%vvel_icegrid)
     call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%resid_u)
     call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%resid_v)
+    call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%rhs_u)
+    call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%rhs_v)
 
     !TODO - Remove ubas and vbas? (already contained in uvel and vvel)
     call coordsystem_allocate(model%general%velo_grid, model%velocity%ubas)
@@ -1456,8 +1479,6 @@ contains
     call coordsystem_allocate(model%general%ice_grid, model%geometry%lower_cell_loc)
     call coordsystem_allocate(model%general%ice_grid, model%geometry%lower_cell_temp)
 
-
-
 !!    call coordsystem_allocate(model%general%ice_grid, model%geometry%marine_bc_normal)   ! no longer used
 
     if (model%options%whichdycore == DYCORE_GLIDE) then
@@ -1471,6 +1492,7 @@ contains
 !!       call coordsystem_allocate(model%general%ice_grid, model%thckwk%float)  ! no loger used
     else   ! glam/glissade dycore
        call coordsystem_allocate(model%general%ice_grid, upn-1, model%geometry%age)
+       call coordsystem_allocate(model%general%velo_grid, model%geometry%f_ground)
        call coordsystem_allocate(model%general%velo_grid, model%geomderv%dlsrfdew)
        call coordsystem_allocate(model%general%velo_grid, model%geomderv%dlsrfdns)
        call coordsystem_allocate(model%general%velo_grid, model%geomderv%staglsrf)
@@ -1646,6 +1668,10 @@ contains
         deallocate(model%velocity%resid_u)
     if (associated(model%velocity%resid_v)) &
         deallocate(model%velocity%resid_v)
+    if (associated(model%velocity%rhs_u)) &
+        deallocate(model%velocity%rhs_u)
+    if (associated(model%velocity%rhs_v)) &
+        deallocate(model%velocity%rhs_v)
 
     !TODO - Remove ubas and vbas
     if (associated(model%velocity%ubas)) &
@@ -1770,6 +1796,8 @@ contains
 
     if (associated(model%geometry%age)) &
         deallocate(model%geometry%age)
+    if (associated(model%geometry%f_ground)) &
+        deallocate(model%geometry%f_ground)
     if (associated(model%geomderv%dlsrfdew)) &
         deallocate(model%geomderv%dlsrfdew)
     if (associated(model%geomderv%dlsrfdns)) &

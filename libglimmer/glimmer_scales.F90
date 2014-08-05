@@ -49,7 +49,7 @@ module glimmer_scales
  
 contains
 
-!TODO - CCan simplify these if thk0, etc. are removed from code.
+!TODO - Can simplify these if thk0, etc. are removed from code.
 !       If the dycore variables are stricly in SI units, we will probably
 !        want to retain the scale factor scyr to convert m/s to m/yr, etc.
 !TODO - Use the same scale for btrc (SIA) and beta (HO)?

@@ -195,6 +195,8 @@
 !    logical :: verbose_efvs = .true.
     logical :: verbose_gridop = .false.
 !    logical :: verbose_gridop= .true.
+    logical :: verbose_dirichlet = .false.
+!    logical :: verbose_dirichlet= .true.
 
 !WHL - debug
     logical :: trial_efvs = .false.   ! if true, compute what nonlinear efvs would be (if not constant)
@@ -614,7 +616,8 @@
        topg,                 &  ! elevation of topography (m)
        bwat,                 &  ! basal water depth (m)
        mintauf,              &  ! till yield stress (Pa)
-       beta                     ! basal traction parameter (Pa/(m/yr))
+       beta,                 &  ! basal traction parameter (Pa/(m/yr))
+       f_ground                 ! grounded ice fraction, 0 <= f_ground <= 1
 
     integer, dimension(:,:), pointer ::   &
        stagmask                 ! mask on staggered grid
@@ -623,7 +626,8 @@
        uvel, vvel,  &           ! velocity components (m/yr)
        flwa,   &                ! flow factor in units of Pa^(-n) yr^(-1)
        efvs,   &                ! effective viscosity (Pa yr)
-       resid_u, resid_v         ! u and v components of residual Ax - b (Pa/m)
+       resid_u, resid_v,   &    ! u and v components of residual Ax - b (Pa/m)
+       bu, bv                   ! right-hand-side vector b, divided into 2 parts
 
     integer,  dimension(:,:), pointer ::   &
        kinbcmask                ! = 1 at vertices where u = v = 0 (Dirichlet BC)
@@ -641,9 +645,10 @@
                                 ! default = 2
        whichprecond, &          ! option for which preconditioner to use with 
                                 !  structured PCG solver
-                                ! 0 = none, 1 = diag, 2 = SIA
-       whichgradient            ! option for gradient operator when computing grad(s)
+                                ! 0 = none, 1 = diag, 2 = SIA-based
+       whichgradient, &         ! option for gradient operator when computing grad(s)
                                 ! 0 = centered, 1 = upstream
+       whichground              ! option for computing grounded fraction of each cell
 
     !--------------------------------------------------------
     ! Local parameters
@@ -674,7 +679,10 @@
        dusrf_dx, dusrf_dy     ! gradient of upper surface elevation (m/m)
 
     integer, dimension(nx,ny) ::     &
-       imask                  ! = 1 where ice is present, else = 0
+       cmask                  ! = 1 for cells where ice is present (thk > thklim), else = 0
+
+    integer, dimension(nx-1,ny-1) ::     &
+       vmask                  ! = 1 at vertices of cells with ice present, else = 0
 
     logical, dimension(nx,ny) ::     &
        active_cell,          &! true for active cells (thck > thklim and border locally owned vertices)
@@ -691,8 +699,7 @@
 
     real(dp), dimension(nz,nx-1,ny-1) ::   &
        usav, vsav,                 &! previous guess for velocity solution
-       loadu, loadv,               &! assembled load vector, divided into 2 parts
-       bu, bv                       ! right-hand-side matrix vector, divided into 2 parts
+       loadu, loadv                 ! assembled load vector, divided into 2 parts
                                     ! Note: loadu and loadv are computed only once per nonlinear solve,
                                     !       whereas bu and bv can be set each nonlinear iteration to account 
                                     !       for inhomogeneous Dirichlet BC
@@ -837,6 +844,7 @@
      thck     => model%geometry%thck(:,:)
      usrf     => model%geometry%usrf(:,:)
      topg     => model%geometry%topg(:,:)
+     f_ground => model%geometry%f_ground(:,:)
      stagmask => model%geometry%stagmask(:,:)
 
      flwa     => model%temper%flwa(:,:,:)
@@ -850,6 +858,8 @@
 
      resid_u  => model%velocity%resid_u(:,:,:)
      resid_v  => model%velocity%resid_v(:,:,:)
+     bu       => model%velocity%rhs_u(:,:,:)
+     bv       => model%velocity%rhs_v(:,:,:)
 
      kinbcmask => model%velocity%kinbcmask(:,:)
 
@@ -864,6 +874,7 @@
      whichapprox   = model%options%which_ho_approx
      whichprecond  = model%options%which_ho_precond
      whichgradient = model%options%which_ho_gradient
+     whichground   = model%options%which_ho_ground
 
     !--------------------------------------------------------
     ! Convert input variables to appropriate units for this solver.
@@ -1013,7 +1024,7 @@
     endif
  
     !------------------------------------------------------------------------------
-    ! Specify Dirichlet (u = 0) boundary conditions
+    ! Specify Dirichlet boundary conditions (prescribed uvel and vvel)
     !------------------------------------------------------------------------------
 
     ! initialize
@@ -1025,7 +1036,6 @@
     endif
 
     ! use kinbcmask, typically read from file at initialization
-    ! zero out entire column where kinbcmask = 1
     do j = 1,ny-1
        do i = 1, nx-1
           if (kinbcmask(i,j) == 1) then
@@ -1033,6 +1043,30 @@
           endif
        enddo
     enddo
+
+!WHL - debug
+    if (verbose_dirichlet .and. this_rank==rtest) then
+       print*, ' '
+       print*, 'umask_dirichlet, k = 1:'
+       k = 1
+       do j = ny-1, 1, -1
+          do i = 1, nx-1
+             write(6,'(L3)',advance='no') umask_dirichlet(k,i,j)
+          enddo
+          print*, ' '
+       enddo
+
+       print*, 'Dirichlet points: j, i, velnorm:'
+       k = 1
+       do j = ny-1, 1, -1
+          do i = 1, nx-1
+             if (umask_dirichlet(k,i,j) .and. sqrt(uvel(k,i,j)**2 + vvel(k,i,j)**2) > eps10) then
+                print*, j-nhalo, i-nhalo, sqrt(uvel(k,i,j)**2 + vvel(k,i,j)**2)
+             endif
+          enddo
+       enddo
+
+    endif   ! verbose_dirichlet
 
 !WHL - debug
     if (verbose_beta .and. this_rank==rtest) then
@@ -1046,48 +1080,39 @@
           print*, ' '
        enddo
 
-       print*, ' '
-       print*, 'umask_dirichlet, k = 1:'
-       k = 1
-       do j = ny-1, 1, -1
-          do i = 1, nx-1
-             write(6,'(L3)',advance='no') umask_dirichlet(k,i,j)
-          enddo
-          print*, ' '
-       enddo
-
-       print*, ' '
-       print*, 'umask_dirichlet, k =', nz
-       k = nz
-       do j = ny-1, 1, -1
-          do i = 1, nx-1
-             write(6,'(L3)',advance='no') umask_dirichlet(k,i,j)
-          enddo
-          print*, ' '
-       enddo
-
     endif   ! verbose_beta
 
-!WHLt2 - If iterating on the velocity during the remapping transport calculation,
-!        we do not want these masks to change.
-!TODO - Pull these out into a separate subroutine?
-
+    !TODO - Move these to a separate module?
     !------------------------------------------------------------------------------
     ! Compute masks: 
-    ! (1) ice mask = 1 where ice is present, 0 elsewhere
-    ! (2) floating mask = .true. where ice is present and is floating
-    ! (3) ocean mask = .true. where topography is below sea level and ice is absent
+    ! (1) cell center mask = 1 where ice is present (thck > thklim), = 0 elsewhere
+    ! (2) vertex mask = 1 if bordering a cell where ice is present (thck > thklim), = 0 elsewhere
+    ! (3) floating mask = .true. where ice is present and is floating
+    ! (4) ocean mask = .true. where topography is below sea level and ice is absent
     !------------------------------------------------------------------------------
 
     do j = 1, ny
        do i = 1, nx
           if (thck(i,j) > thklim) then
-	     imask(i,j) = 1
+	     cmask(i,j) = 1
           else
-             imask(i,j) = 0
+             cmask(i,j) = 0
           endif
        enddo
     enddo
+
+    do j = 1, ny-1
+       do i = 1, nx-1
+          if (cmask(i,j+1) == 1 .or. cmask(i+1,j+1)==1 .or.   &
+              cmask(i,j)   == 1 .or. cmask(i+1,j)  ==1 ) then
+	     vmask(i,j) = 1
+          else
+             vmask(i,j) = 0
+          endif
+       enddo
+    enddo
+
+    !TODO - Use cmask instead of thklim?
 
     call ocean_mask(nx,            ny,      &
                     thck,          topg,    &
@@ -1095,6 +1120,7 @@
                     floating_cell, ocean_cell)
 
 !WHL - debug
+
     if (verbose_state .and. this_rank==rtest) then
        print*, ' '
        print*, 'ocean_cell, rank =', rtest
@@ -1106,7 +1132,6 @@
        enddo
     endif
 
-!WHL - debug
     if (verbose_state .and. this_rank==rtest) then
        print*, ' '
        print*, 'floating_cell, rank =', rtest
@@ -1119,8 +1144,39 @@
     endif
 
     !------------------------------------------------------------------------------
+    ! Compute fraction of grounded ice in each cell
+    ! (requires that thck and topg are up to date in halo cells).
+    ! This is used below to compute the basal stress BC.
+    !
+    ! Three cases for whichground:
+    ! (0) HO_GROUND_NO_GLP: f_ground = 0 or 1 based on flotation criterion
+    ! (1) HO_GROUND_GLP: 0 <= f_ground <= 1 based on grounding-line parameterization
+    ! (2) HO_GROUND_ALL: f_ground = 1 for all cells with ice
+    !
+    ! f_ground is set to a non-physical value of -1 in cells without ice
+    !------------------------------------------------------------------------------
+
+    call grounded_fraction(nx,          ny,           &
+                           thck,        topg,         &
+                           eus,                       &
+                           cmask,       vmask,        &
+                           whichground, f_ground)
+
+!WHL - debug
+    if (verbose_state .and. this_rank==rtest) then
+       print*, ' '
+       print*, 'f_ground, rank =', rtest
+       do j = ny, 1, -1
+          do i = 1, nx
+             write(6,'(f5.2)',advance='no') f_ground(i,j)
+          enddo
+          print*, ' '
+       enddo
+    endif
+
+    !------------------------------------------------------------------------------
     ! Compute ice thickness and upper surface on staggered grid
-    ! (requires that thck and usrf are up to date in halo cells)
+    ! (requires that thck and usrf are up to date in halo cells).
     ! For stag_flag_in = 0, all cells (including ice-free) are included in interpolation.
     ! For stag_flag_in = 1, only ice-covered cells are included.
     !------------------------------------------------------------------------------
@@ -1128,11 +1184,11 @@
 !pw call t_startf('glissade_staggered_scalar')
     call glissade_stagger(nx,       ny,         &
                           thck,     stagthck,   &
-                          imask,    stag_flag_in = 1)
+                          cmask,    stag_flag_in = 1)
 
     call glissade_stagger(nx,       ny,         &
                           usrf,     stagusrf,   &
-                          imask,    stag_flag_in = 1)
+                          cmask,    stag_flag_in = 1)
 !pw call t_stopf('glissade_staggered_scalar')
 
     !------------------------------------------------------------------------------
@@ -1148,7 +1204,7 @@
                                        dx,           dy,         &
                                        usrf,                     &
                                        dusrf_dx,     dusrf_dy,   &
-                                       imask,        grad_flag_in = 2)
+                                       cmask,        grad_flag_in = 2)
 
     else
 
@@ -1157,7 +1213,7 @@
                                        dx,           dy,         &
                                        usrf,                     &
                                        dusrf_dx,     dusrf_dy,   &
-                                       imask,        grad_flag2_in = 0,  &
+                                       cmask,        grad_flag2_in = 0,  &
                                        accuracy_flag_in = 2)
 
     endif   ! whichgradient
@@ -1441,14 +1497,9 @@
        print *, ' '
     endif
 
-    !TODO - Any ghost preprocessing needed, as in glam_strs2?
-
     !------------------------------------------------------------------------------
     ! set initial values 
     !------------------------------------------------------------------------------
-
-!WHL - UMC
-!TODO - Replace usav, vsav with uvel_old, vvel_old?
 
     counter = 0
     resid_velo = 1.d0
@@ -1692,7 +1743,6 @@
              enddo
           endif
 
-
 !          if (verbose .and. main_task) print*, 'Call basal_sliding_bc'
 
 !pw       call t_startf('glissade_basal_sliding_bc')
@@ -1735,8 +1785,8 @@
        ! Incorporate Dirichlet boundary conditions (prescribed uvel and vvel)
        !---------------------------------------------------------------------------
 
-       if (verbose .and. main_task) then
-!          print*, 'Call Dirichlet_bc'
+       if (verbose_dirichlet .and. main_task) then
+          print*, 'Call Dirichlet_bc'
        endif
 
 !WHL - debug - prescribe basal velocity
@@ -1752,6 +1802,20 @@
                                           Avu,             Avv,               &
                                           bu,              bv)
 !pw    call t_stopf('glissade_dirichlet_bcs')
+
+    !WHL - debug
+       if (verbose_dirichlet .and. this_rank==rtest) then
+          print*, ' '
+          print*, 'After Dirichlet conditions:'
+          do n = 1, nNodesSolve
+             i = iNodeIndex(n)
+             j = jNodeIndex(n)
+             k = kNodeIndex(n)
+             if (k==1 .and. bu(k,i,j)==uvel(k,i,j) .and. abs(bu(k,i,j)) > eps10) then
+                print*, 'k, i, j, bu:', k, i, j, bu(k,i,j)
+             endif
+          enddo
+       endif
 
        !---------------------------------------------------------------------------
        ! Halo updates for matrices
@@ -1775,21 +1839,6 @@
        call staggered_parallel_halo(Avv(:,:,:,:))
        call t_stopf('glissade_halo_Axxs')
 
-       !---------------------------------------------------------------------------
-       ! Halo updates for rhs vectors
-       !WHL - Not sure if these are necessary
-       !---------------------------------------------------------------------------
-
-    !WHL - debug
-!    print*, ' '
-!    print*, 'After Dirichlet conditions, bv:'
-!    do n = 1, nNodesSolve
-!       i = iNodeIndex(n)
-!       j = jNodeIndex(n)
-!       k = kNodeIndex(n) 
-!       print*, n, bv(k,i,j)
-!    enddo
-
 !WHL - debug
     if (verbose_matrix .and. this_rank==rtest) then
 !       print*, ' '
@@ -1801,6 +1850,11 @@
 !          print*, ' '
 !       enddo
     endif
+
+       !---------------------------------------------------------------------------
+       ! Halo updates for rhs vectors
+       !WHL - Not sure if these are necessary
+       !---------------------------------------------------------------------------
 
         call t_startf('glissade_halo_bxxs')
         call staggered_parallel_halo(bu(:,:,:))
@@ -1971,6 +2025,8 @@
 
           resid_u(:,:,:) = 0.d0
           resid_v(:,:,:) = 0.d0
+          bu(:,:,:) = 0.d0
+          bv(:,:,:) = 0.d0
           uvel(:,:,:) = 0.d0
           vvel(:,:,:) = 0.d0
 
@@ -1981,6 +2037,7 @@
                                                  bwat,    mintauf,       &
                                                  beta,                   &
                                                  resid_u, resid_v,       &
+                                                 bu,      bv,            &
                                                  uvel,    vvel)
           call t_stopf('glissade_velo_higher_scale_outp')
 
@@ -2611,6 +2668,7 @@
                                            bwat,    mintauf,       &
                                            beta,                   &
                                            resid_u, resid_v,       &
+                                           bu,      bv,            &
                                            uvel,    vvel)
 !pw call t_stopf('glissade_velo_higher_scale_output')
     call t_stopf('glissade_vhs_cleanup')
@@ -2699,6 +2757,7 @@
                                                  bwat,    mintauf,        &
                                                  beta,                    &
                                                  resid_u, resid_v,        &
+                                                 bu,      bv,             &
                                                  uvel,    vvel)
 
     !--------------------------------------------------------
@@ -2721,10 +2780,9 @@
        beta                     ! basal traction parameter (Pa/(m/yr))
 
     real(dp), dimension(:,:,:), intent(inout) ::  &
-       uvel, vvel               ! velocity components (m/yr)
-
-    real(dp), dimension(:,:,:), intent(inout) ::  &
-       resid_u, resid_v         ! components of residual Ax - b (Pa/m)
+       uvel, vvel,    &         ! velocity components (m/yr)
+       resid_u, resid_v,  &     ! components of residual Ax - b (Pa/m)
+       bu, bv                   ! components of b in Ax = b (Pa/m)
 
     ! Convert geometry variables from m to dimensionless units
     thck = thck / thk0
@@ -2750,9 +2808,11 @@
     uvel = uvel / (vel0*scyr)
     vvel = vvel / (vel0*scyr)
 
-    ! Convert residual from Pa/m to dimensionless units
+    ! Convert residual and rhs from Pa/m to dimensionless units
     resid_u = resid_u / (tau0/len0)
     resid_v = resid_v / (tau0/len0)
+    bu = bu / (tau0/len0)
+    bv = bv / (tau0/len0)
 
     end subroutine glissade_velo_higher_scale_output
 
@@ -2810,6 +2870,7 @@
 
           if (topg(i,j) - eus < (-rhoi/rhoo)*thck(i,j) .and. thck(i,j) > thklim) then
              floating_cell(i,j) = .true.
+!             print*, 'float: this_rank, i, j, topg, thck', this_rank, i, j, topg(i,j), thck(i,j)
           else
              floating_cell(i,j) = .false.
           endif
@@ -2818,6 +2879,540 @@
     enddo
 
     end subroutine ocean_mask
+
+!****************************************************************************
+
+    subroutine grounded_fraction(nx,          ny,        &
+                                 thck,        topg,      &
+                                 eus,                    &
+                                 cmask,       vmask,     &
+                                 whichground, f_ground)
+
+    !----------------------------------------------------------------
+    ! Compute fraction of ice that is grounded.
+    ! This fraction is computed at vertices based on the thickness and
+    !  topography of the four neighboring cell centers.
+    !
+    ! Three cases, based on the value of whichground:
+    ! (0) HO_GROUND_NO_GLP: f_ground = 0 or 1 based on flotation criterion
+    ! (1) HO_GROUND_GLP: 0 <= f_ground <= 1 based on grounding-line parameterization
+    !                    (similar to that of Pattyn 2006)
+    ! (2) HO_GROUND_ALL: f_ground = 1 for all cells with ice
+    !----------------------------------------------------------------
+    
+    !----------------------------------------------------------------
+    ! Input-output arguments
+    !----------------------------------------------------------------
+
+    integer, intent(in) ::   &
+       nx,  ny                ! number of grid cells in each direction
+
+    ! Default dimensions are meters, but this subroutine will work for
+    ! any units as long as thck and topg have the same units.
+
+    real(dp), dimension(nx,ny), intent(in) ::  &
+       thck,                 &! ice thickness (m)
+       topg                   ! elevation of topography (m)
+
+    real(dp), intent(in) :: &
+       eus                    ! eustatic sea level (= 0 by default)
+
+    integer, dimension(nx,ny), intent(in) ::   &
+       cmask                  ! = 1 for cells where ice is present (thk > thklim), else = 0
+
+    integer, dimension(nx-1,ny-1), intent(in) ::   &
+       vmask                  ! = 1 for vertices of cells where ice is present (thk > thklim), else = 0
+
+    integer, intent(in) ::   &
+       whichground            ! option for computing f_ground
+
+    real(dp), dimension(nx-1,ny-1), intent(out) ::  &
+       f_ground               ! grounded ice fraction at vertex, 0 <= f_ground <= 1
+                              ! set to -1 where vmask = 0
+
+    !----------------------------------------------------------------
+    ! Local arguments
+    !----------------------------------------------------------------
+           
+    integer :: i, j
+
+    real(dp), dimension(nx,ny) :: &
+       fpat           ! Pattyn function, -rhoo*(topg-eus) / (rhoi*thck)
+
+    real(dp), dimension(nx-1,ny-1) :: &
+       stagfpat       ! fpat interpolated to staggered grid
+
+    real(dp) :: a, b, c, d       ! coefficients in bilinear interpolation
+                                 ! f(x,y) = a + b*x + c*y + d*x*y
+
+    real(dp) :: f1, f2, f3, f4   ! fpat at different cell centers
+
+    real(dp) ::  &
+       var,     &! combination of fpat terms that determines regions to be integrated
+       fpat_v    ! fpat interpolated to vertex
+
+    integer :: nfloat     ! number of grounded vertices of a cell (0 to 4)
+
+    logical, dimension(nx,ny) :: &
+       cfloat              ! true if fpat > 1 at cell center, else = false
+
+    logical, dimension(2,2) ::   &
+       logvar              ! set locally to float or .not.float, depending on nfloat
+
+    real(dp) ::   &
+       f_corner, &         ! fractional area in a corner region of the cell
+       f_corner1, f_corner2,  &
+       f_trapezoid         ! fractional area in a trapezoidal region of the cell
+
+    logical :: adjacent   ! true if two grounded vertices are adjacent (rather than opposite)
+
+!WHL - debug
+    integer, parameter :: it = 15, jt = 15
+
+!    print*, 'In grounded_fraction, whichground =', whichground
+
+    ! initialize f_ground
+    ! Choose a non-physical value; this value will be overwritten in all cells with ice
+
+!    f_ground(:,:) = -1.d0
+    f_ground(:,:) = 9.d0
+
+    select case(whichground)
+
+    case(HO_GROUND_NO_GLP)   ! default: no grounding-line parameterization
+                             ! f_ground = 1 if fpat <=1, f_ground = 0 if fpat > 1
+                             ! Note: Ice is considered grounded at the GL.
+
+       ! Compute Pattyn function at cell centers
+
+       do j = 1, ny
+          do i = 1, nx
+             if (cmask(i,j) == 1) then
+                fpat(i,j) = -rhoo*(topg(i,j) - eus) / (rhoi*thck(i,j))
+             else
+                fpat(i,j) = 0.d0
+             endif
+          enddo
+       enddo
+
+       ! Interpolate to staggered mesh
+
+       ! For stag_flag_in = 1, only ice-covered cells are included in the interpolation.
+       ! Will return stagfpat = 0. in ice-free regions
+
+       call glissade_stagger(nx,       ny,         &
+                             fpat,     stagfpat,   &
+                             cmask,    stag_flag_in = 1)
+
+       ! Assume grounded if stagfpat <= 1, else floating
+
+       do j = 1, ny-1
+          do i = 1, nx-1
+             if (vmask(i,j)==1) then
+                if (stagfpat(i,j) <= 1.d0) then
+                   f_ground(i,j) = 1.d0
+                else
+                   f_ground(i,j) = 0.d0
+                endif
+             endif
+          enddo
+       enddo
+
+    case(HO_GROUND_GLP)      ! grounding-line parameterization based on Pattyn (2006, JGR)
+
+       ! Compute Pattyn function at grid cell centers
+
+       do j = 1, ny
+          do i = 1, nx
+             if (cmask(i,j) == 1) then  ! thck > thklim
+                fpat(i,j) = -rhoo*(topg(i,j) - eus) / (rhoi*thck(i,j))
+             else
+                fpat(i,j) = 0.d0  ! this value is never used
+             endif
+          enddo
+       enddo
+
+!WHL - debug
+       
+!       fpat(it,jt+1) = 1.9999d0; fpat(it+1,jt+1) = 0.d0
+!       fpat(it,jt)   = 0.d0; fpat(it+1,jt) = 2.d0
+
+       ! Interpolate Pattyn function to staggered mesh
+       ! For stag_flag_in = 1, only ice-covered cells are included in the interpolation.
+       ! Returns stagfpat = 0. in ice-free regions
+
+       call glissade_stagger(nx,       ny,         &
+                             fpat,     stagfpat,   &
+                             cmask,    stag_flag_in = 1)
+
+       ! Identify cell centers that are floating
+
+       do j = 1, ny
+          do i = 1, nx
+             if (fpat(i,j) > 1.d0) then
+                cfloat(i,j) = .true.
+             else
+                cfloat(i,j) = .false.
+             endif
+          enddo
+       enddo
+
+!WHL - debug
+       i = it; j = jt
+       print*, 'i, j =', i, j
+       print*, 'fpat(i:i+1,j+1):', fpat(i:i+1,j+1)
+       print*, 'fpat(i:i+1,j)  :', fpat(i:i+1,j)
+       print*, 'cfloat(i:i+1,j+1):', cfloat(i:i+1,j+1)
+       print*, 'cfloat(i:i+1,j)  :', cfloat(i:i+1,j)
+
+       ! Loop over vertices, computing f_ground for each vertex with vmask = 1
+
+       do j = 1, ny-1
+          do i = 1, nx-1
+
+             if (vmask(i,j) == 1) then  ! ice is present in at least one neighboring cell
+
+                if (cmask(i,j+1)==1 .and. cmask(i+1,j+1)==1 .and.  &
+                    cmask(i,j)  ==1 .and. cmask(i+1,j)  ==1) then
+
+                   ! ice is present in all 4 neighboring cells; interpolate fpat to find f_ground
+
+                   ! Count the number of floating cells surrounding this vertex
+
+                   nfloat = 0
+                   if (cfloat(i,j))     nfloat = nfloat + 1
+                   if (cfloat(i+1,j))   nfloat = nfloat + 1
+                   if (cfloat(i+1,j+1)) nfloat = nfloat + 1
+                   if (cfloat(i,j+1))   nfloat = nfloat + 1
+
+!WHL - debug
+                   if (i==it .and. j==jt) then
+                      print*, ' '
+                      print*, 'nfloat =', nfloat
+                   endif
+
+                   ! Given nfloat, compute f_ground for each vertex
+                   ! First the easy cases...
+                
+                   if (nfloat == 0) then
+
+                      f_ground(i,j) = 1.d0    ! fully grounded
+
+                   elseif (nfloat == 4) then
+
+                      f_ground(i,j) = 0.d0    ! fully floating
+
+                   ! For the other cases the grounding line runs through the rectangular region 
+                   !  around this vertex.
+                   ! Using the values at the 4 neighboring cells, we approximate fpat(x,y) as
+                   !  a bilinear function f(x,y) = a + bx + cy + dxy over the region.
+                   ! To find f_ground, we integrate over the region with f(x,y) <= 1
+                   !  (or alternatively, we find f_float = 1 - f_ground by integrating
+                   !  over the region with f(x,y) > 1).
+                   !  
+                   ! There are 3 patterns to consider:
+                   ! (1) nfloat = 1 or nfloat = 3 (one cell neighbor is not like the others)
+                   ! (2) nfloat = 2 and adjacent cells are floating
+                   ! (3) nfloat = 2 and diagonally opposite cells are floating
+
+                   elseif (nfloat == 1 .or. nfloat == 3) then
+ 
+                      if (nfloat==1) then
+                         logvar(1:2,1:2) = cfloat(i:i+1,j:j+1)
+                      else  ! nfloat = 3
+                         logvar(1:2,1:2) = .not.cfloat(i:i+1,j:j+1)
+                      endif
+                      
+                      ! Identify the cell that is not like the others
+                      ! (i.e., the only floating cell if nfloat = 1, or the only
+                      !  grounded cell if nfloat = 3)
+                      !
+                      ! Diagrams below are for the case nfloat = 1.
+                      ! If nfloat = 3, the F and G labels are switched.
+
+                      if (logvar(1,1)) then      ! no rotation
+                         f1 = fpat(i,j)          !   G-----G
+                         f2 = fpat(i+1,j)        !   |     |
+                         f3 = fpat(i+1,j+1)      !   |     |
+                         f4 = fpat(i,j+1)        !   F-----G
+
+                      elseif (logvar(2,1)) then  ! rotate by 90 degrees
+                         f4 = fpat(i,j)          !   G-----G
+                         f1 = fpat(i+1,j)        !   |     |
+                         f2 = fpat(i+1,j+1)      !   |     |
+                         f3 = fpat(i,j+1)        !   G-----F
+
+                      elseif (logvar(2,2)) then  ! rotate by 180 degrees
+                         f3 = fpat(i,j)          !   G-----F
+                         f4 = fpat(i+1,j)        !   |     |
+                         f1 = fpat(i+1,j+1)      !   |     |
+                         f2 = fpat(i,j+1)        !   G-----G
+
+                      elseif (logvar(1,2)) then  ! rotate by 270 degrees
+                         f2 = fpat(i,j)          !   F-----G
+                         f3 = fpat(i+1,j)        !   |     |
+                         f4 = fpat(i+1,j+1)      !   |     |
+                         f1 = fpat(i,j+1)        !   G-----G
+                      endif
+                      
+                      ! Compute coefficients in f(x,y) = a + b*x + c*y + d*x*y
+                      ! Note: x is to the right and y is up if the southwest cell is not like the others.
+                      !       For the other cases we solve the same problem with x and y rotated.
+                      !       The rotations are handled by rotating f1, f2, f3 and f4 above.
+
+                      a = f1
+                      b = f2 - f1
+                      c = f4 - f1
+                      d = f1 + f3 - f2 - f4
+!WHL - debug
+                      if (i==it .and. j==jt) then
+                         print*, 'f1, f2, f3, f4 =', f1, f2, f3, f4
+                         print*, 'a, b, c, d =', a, b, c, d
+                      endif
+
+                      ! Compute the fractional area of the corner region 
+                      ! (floating if nfloat = 1, grounded if nfloat = 3)
+                      !
+                      ! Here are the relevant integrals:
+                      !
+                      ! (1) d /= 0:
+                      !     integral_0^x0 {y(x) dx}, where x0   = (1-a)/b
+                      !                                    y(x) = (1 - (a+b*x)) / (c+d*x)
+                      !     = [bc - ad + d) ln(1 + d(1-a)/(bc)) - (1-a)d] / d^2
+                      !
+                      ! (2) d = 0:
+                      !     integral_0^x0 {y(x) dx}, where x0   = (1-a)/b
+                      !                                    y(x) = (1 - (a+b*x)) / c
+                      !     = (a-1)(a-1) / (2bc)
+                      !
+                      ! Note: We cannot have bc = 0, because fpat varies in both x and y
+
+                      if (abs(d) > eps10) then
+                         f_corner = ((b*c - a*d + d) * log(1.d0 + d*(1.d0 - a)/(b*c)) - (1.d0 - a)*d) / (d*d)
+                      else
+                         f_corner = (a - 1.d0)*(a - 1.d0) / (2.d0*b*c)
+                      endif
+
+                      if (nfloat==1) then  ! f_corner is the floating area
+                         f_ground(i,j) = 1.d0 - f_corner
+                      else                 ! f_corner is the grounded area
+                         f_ground(i,j) = f_corner
+                      endif
+!WHL - debug
+                      if (i==it .and. j==jt) then
+                         print*, 'f_corner =', f_corner
+                         print*, 'f_ground =', f_ground(i,j)
+                      endif
+
+                   elseif (nfloat == 2) then
+
+                      ! first the 4 cases where the 2 grounded cells are adjacent
+                      ! We integrate over the trapezoid in the floating part of the cell
+
+                      if (cfloat(i,j) .and. cfloat(i+1,j)) then  ! no rotation
+                         adjacent = .true.       !   G-----G
+                         f1 = fpat(i,j)          !   |     |
+                         f2 = fpat(i+1,j)        !   |     |
+                         f3 = fpat(i+1,j+1)      !   |     |
+                         f4 = fpat(i,j+1)        !   F-----F
+
+                      elseif (cfloat(i+1,j) .and. cfloat(i+1,j+1)) then  ! rotate by 90 degrees
+                         adjacent = .true.       !   G-----F
+                         f4 = fpat(i,j)          !   |     |
+                         f1 = fpat(i+1,j)        !   |     |
+                         f2 = fpat(i+1,j+1)      !   |     |
+                         f3 = fpat(i,j+1)        !   G-----F
+
+                      elseif (cfloat(i+1,j+1) .and. cfloat(i,j+1)) then  ! rotate by 180 degrees
+                         adjacent = .true.       !   F-----F
+                         f3 = fpat(i,j)          !   |     |
+                         f4 = fpat(i+1,j)        !   |     |
+                         f1 = fpat(i+1,j+1)      !   |     |
+                         f2 = fpat(i,j+1)        !   G-----G
+
+                      elseif (cfloat(i,j+1) .and. cfloat(i,j)) then   ! rotate by 270 degrees
+                         adjacent = .true.       !   F-----G
+                         f2 = fpat(i,j)          !   |     |
+                         f3 = fpat(i+1,j)        !   |     |
+                         f4 = fpat(i+1,j+1)      !   |     |
+                         f1 = fpat(i,j+1)        !   F-----G
+
+                      else   ! the 2 grounded cells are diagonally opposite
+                         
+                         ! We will integrate assuming the two corner regions lie in the lower left
+                         ! and upper right, i.e. one of these patterns:
+                         !
+                         !   F-----G       G-----F
+                         !   |     |       |     |
+                         !   |  F  |       |  G  |
+                         !   |     |       |     |
+                         !   G-----F       F-----G
+                         !
+                         ! Two other patterns are possible, with corner regions in the lower right
+                         ! and upper left; these require a rotation before integrating: 
+                         
+                         !   G-----F       F-----G
+                         !   |     |       |     |
+                         !   |  F  |       |  G  |
+                         !   |     |       |     |
+                         !   F-----G       G-----F
+                         !   
+                         var = fpat(i+1,j)*fpat(i,j+1) - fpat(i,j)*fpat(i+1,j+1)   &
+                             + fpat(i,j) + fpat(i+1,j+1) - fpat(i+1,j) - fpat(i,j+1)
+                         if (var >= 0.d0) then   ! we have one of the top two patterns
+                            f1 = fpat(i,j)
+                            f2 = fpat(i+1,j)
+                            f3 = fpat(i+1,j+1)
+                            f4 = fpat(i,j+1)
+                         else   ! we have one of the bottom two patterns; rotate coordinates by 90 degrees
+                            f4 = fpat(i,j)
+                            f1 = fpat(i+1,j)
+                            f2 = fpat(i+1,j+1)
+                            f3 = fpat(i,j+1)
+                         endif
+                      endif  ! grounded cells are adjacent
+
+                      ! Compute coefficients in f(x,y) = a + b*x + c*y + d*x*y
+                      a = f1
+                      b = f2 - f1
+                      c = f4 - f1
+                      d = f1 + f3 - f2 - f4
+
+                      ! Integrate the corner areas
+!WHL - debug
+                      if (i==it .and. j==jt) then
+                         print*, 'adjacent =', adjacent
+                         print*, 'f1, f2, f3, f4 =', f1, f2, f3, f4
+                         print*, 'a, b, c, d =', a, b, c, d
+                      endif
+
+                      if (adjacent) then
+
+                         ! Compute the area of the floating part of the cell
+                         ! Here are the relevant integrals:
+                         !
+                         ! (1) d /= 0:
+                         !     integral_0^1 {y(x) dx}, where y(x) = (1 - (a+b*x)) / (c+d*x)
+                         !                                  
+                         !     = [bc - ad + d) ln(1 + d/c) - bd] / d^2
+                         !
+                         ! (2) d = 0:
+                         !     integral_0^1 {y(x) dx}, where y(x) = (1 - (a+b*x)) / c
+                         !                                 
+                         !     = -(2a + b - 2) / (2c)
+                         !
+                         ! Note: We cannot have c = 0, because the passage of the GL
+                         !       through the region from left to right implies variation in y.
+                         
+                         if (abs(d) > eps10) then
+                            f_trapezoid = ((b*c - a*d + d) * log(1 + d/c) - b*d) / (d*d)
+                         else
+                            f_trapezoid = -(2.d0*a + b - 2.d0) / (2.d0*c)
+                         endif
+
+                         f_ground(i,j) = 1.d0 - f_trapezoid
+
+!WHL - debug
+                         if (i==it .and. j==jt) then
+                            print*, 'f_trapezoid =', f_trapezoid
+                            print*, 'f_ground =', f_ground(i,j)
+                         endif
+
+                      else   ! grounded vertices are diagonally opposite
+
+                         ! bug check: make sure some signs are positive as required by the formulas
+                         if (b*c - d*(1.d0-a) < 0.d0) then
+                            print*, 'Grounding line error: bc - d(1-a) < 0'
+                            stop
+                         elseif (b*c < 0.d0) then
+                            print*, 'Grounding line error: bc < 0'
+                            stop
+                         elseif ((b+d)*(c+d) < 0.d0) then
+                            print*, 'Grounding line error: (b+d)(c+d) < 0'
+                            stop
+                         endif
+
+                         ! Compute the combined areas of the two corner regions.
+                         ! For the lower left region, the integral is the same as above
+                         ! (for the case nfloat = 1 or nfloat = 3, with d /= 0).
+                         ! For the upper right region, here is the integral:
+                         !
+                         !     integral_x1^1 {(1-y(x)) dx}, where x1  = (1-a-c)/(b+d)
+                         !                                       y(x) = (1 - (a+b*x)) / (c+d*x)
+                         !     = {(bc - ad + d) ln[(bc + d(1-a))/((b+d)(c+d))] + d(a + b + c + d - 1)} / d^2
+                         !
+                         ! The above integral is valid only if (bc + d(1-a)) > 0.
+                         ! If this quantity = 0, then the grounding line lies along two lines,
+                         ! x0 = (1-a)/b and y0 = (1-a)/c.
+                         ! The lower left area is x0*y0 = (1-a)^2 / (bc).
+                         ! The upper right area is (1-x0)*(1-y0) = (a+b-1)(a+c-1) / (bc)
+                         !
+                         ! Note that this pattern is not possible with d = 0
+
+                         !WHL - debug
+                         print*, 'Pattern 3: i, j, bc + d(1-a) =', i, j, b*c + d*(1.d0-a)
+
+                         if (abs(b*c + d*(1.d0-a)) > eps10) then  ! the usual case
+                            f_corner1 = ((b*c - a*d + d) * log(1.d0 + d*(1.d0-a)/(b*c)) - (1.d0-a)*d) / (d*d)
+                            f_corner2 = ((b*c - a*d + d) * log((b*c + d*(1.d0-a))/((b+d)*(c+d)))  &
+                                      + d*(a + b + c + d - 1)) / (d*d)
+                         else 
+                            f_corner1 = (1.d0 - a)*(1.d0 - a) / (b*c)
+                            f_corner2 = (a + b - 1.d0)*(a + c - 1.d0) / (b*c)
+                         endif
+                         
+                         ! Determine whether the central point (1/2,1/2) is grounded or floating.
+                         ! (Note: fpat_v /= stagfpat(i,j))
+                         ! Then compute the grounded area.
+                         ! If the central point is floating, the corner regions are grounded;
+                         ! if the central point is grounded, the corner regions are floating.
+
+                         fpat_v = a + 0.5d0*b + 0.5d0*c + 0.25d0*d
+                         if (fpat_v > 1.d0) then  ! the central point is floating; corners are grounded
+                            f_ground(i,j) = f_corner1 + f_corner2
+                         else                     ! the central point is grounded; corners are floating
+                            f_ground(i,j) = 1.d0 - (f_corner1 + f_corner2)
+                         endif
+!WHL - debug
+                         if (i==it .and. j==jt) then
+                            print*, 'fpat_v =', fpat_v
+                            print*, 'f_corner1 =', f_corner1
+                            print*, 'f_corner2 =', f_corner2
+                            print*, 'f_ground =', f_ground(i,j)
+                         endif
+
+                      endif  ! adjacent or opposite
+
+                   endif     ! nfloat
+
+                else   ! one or more neighboring cells is ice-free, so bilinear interpolation is not possible
+                       ! In this case, set f_ground = 0 or 1 based on stagfpat at vertex
+
+                   if (stagfpat(i,j) <= 1.d0) then
+                      f_ground(i,j) = 1.d0
+                   else
+                      f_ground(i,j) = 0.d0
+                   endif
+
+                endif     ! cmask = 1 in all 4 neighboring cells
+             endif        ! vmask = 1
+          enddo           ! i
+       enddo              ! j
+
+    case(HO_GROUND_ALL)   ! all vertices with ice-covered neighbors are assumed grounded, 
+                          ! regardless of thck and topg
+
+       do j = 1, ny-1
+          do i = 1, nx-1
+             if (vmask(i,j) == 1) then
+                f_ground(i,j) = 1.d0
+             endif
+          enddo
+       enddo
+
+    end select
+
+    end subroutine grounded_fraction
 
 !****************************************************************************
 
@@ -3761,6 +4356,7 @@
 !!          p_av = 0.5*rhoi*grav*hqp &     ! p_out
 !!               - 0.5*rhoo*grav*hqp * (1.d0 - min(sqp/hqp,1.d0))**2   ! p_in
 
+          !TODO - Change to 0.5d0 (may change answer at roundoff level)
           ! This formula works for floating ice.
           p_av = 0.5*rhoi*grav*hqp * (1.d0 - rhoi/rhoo)
 
@@ -4983,7 +5579,8 @@
           y(3) = yVertex(i,j)
           y(4) = yVertex(i-1,j)
 
-          b(1) = beta(i-1,j-1)          
+          !TODO - For GLP, let b = beta * fground, where fground is the fractional area for the node in question
+          b(1) = beta(i-1,j-1)
           b(2) = beta(i,j-1)
           b(3) = beta(i,j)
           b(4) = beta(i-1,j)
@@ -5465,7 +6062,13 @@
                             ! This will force u = uvel, v = vvel for this node
                             bu(k,i,j) = uvel(k,i,j)
                             bv(k,i,j) = vvel(k,i,j)
-
+                            
+                            if (verbose_dirichlet .and. this_rank==rtest .and. k==1) then
+                               if (abs(bu(k,i,j)) > eps10) then
+                                  print*, 'Fix vel: k, i, j, uvel:', k, i, j, bu(k,i,j)
+                               endif
+                            endif
+                               
                          else     ! not on the diagonal
 
                             ! Zero out non-diagonal matrix terms in the rows associated with this node
@@ -5475,32 +6078,33 @@
                             Avu(m, k, i, j) = 0.d0
                             Avv(m, k, i, j) = 0.d0
 
+                            ! Note: The remaining operations do not change the answer, but do restore symmetry to the matrix.
                             ! Shift terms associated with this velocity to the rhs
                             m = indxA(-iA,-jA,-kA)
 
-                           if (.not. umask_dirichlet(k+kA, i+iA, j+jA)) then
-                            bu(k+kA, i+iA, j+jA) = bu(k+kA, i+iA, j+jA)   &
-                                                 - Auu(m, k+kA, i+iA, j+jA) * uvel(k,i,j)   &
-                                                 - Auv(m, k+kA, i+iA, j+jA) * vvel(k,i,j)
-                            bv(k+kA, i+iA, j+jA) = bv(k+kA, i+iA, j+jA)   &
-                                                 - Avu(m, k+kA, i+iA, j+jA) * uvel(k,i,j)   &
-                                                 - Avv(m, k+kA, i+iA, j+jA) * vvel(k,i,j)
+                            if (.not. umask_dirichlet(k+kA, i+iA, j+jA)) then
+                               bu(k+kA, i+iA, j+jA) = bu(k+kA, i+iA, j+jA)   &
+                                                    - Auu(m, k+kA, i+iA, j+jA) * uvel(k,i,j)   &
+                                                    - Auv(m, k+kA, i+iA, j+jA) * vvel(k,i,j)
+                               bv(k+kA, i+iA, j+jA) = bv(k+kA, i+iA, j+jA)   &
+                                                    - Avu(m, k+kA, i+iA, j+jA) * uvel(k,i,j)   &
+                                                    - Avv(m, k+kA, i+iA, j+jA) * vvel(k,i,j)
 
-                            ! Zero out non-diagonal matrix terms in the columns associated with this node
-                            m = indxA(-iA,-jA,-kA)
-                            Auu(m, k+kA, i+iA, j+jA) = 0.d0
-                            Auv(m, k+kA, i+iA, j+jA) = 0.d0
-                            Avu(m, k+kA, i+iA, j+jA) = 0.d0
-                            Avv(m, k+kA, i+iA, j+jA) = 0.d0
-                           endif
+                               ! Zero out non-diagonal matrix terms in the columns associated with this node
+                               m = indxA(-iA,-jA,-kA)
+                               Auu(m, k+kA, i+iA, j+jA) = 0.d0
+                               Auv(m, k+kA, i+iA, j+jA) = 0.d0
+                               Avu(m, k+kA, i+iA, j+jA) = 0.d0
+                               Avv(m, k+kA, i+iA, j+jA) = 0.d0
+                            endif
 
-                         endif
+                         endif  ! on the diagonal
 
-                      endif     ! i+iA, j+jA, and k+kA in bounds
+                     endif     ! i+iA, j+jA, and k+kA in bounds
 
-                   enddo        ! kA
-                   enddo        ! iA
-                   enddo        ! jA
+                  enddo        ! kA
+                  enddo        ! iA
+                  enddo        ! jA
 
                    ! force u = v = prescribed value for this node by setting the rhs to this value  
 !                   bu(k,i,j) = uvel(k,i,j)
@@ -5511,6 +6115,10 @@
           endif          ! active_vertex
        enddo             ! i
     enddo                ! j
+
+    if (verbose_dirichlet .and. this_rank==rtest) then
+       print*, 'Set Dirichlet BCs'
+    endif
 
   end subroutine dirichlet_boundary_conditions
 
@@ -7236,7 +7844,7 @@
                             Auu(mm, k+kA,i+iA,j+jA) = avg_val
 !!                            print*, 'Auu, i, j, k, iA, jA, kA, val1, val2:', i, j, k, iA, jA, kA, val1, val2
                          else
-                            print*, ' '
+!!                            print*, ' '
                             print*, 'WARNING: Auu is not symmetric: i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
                             print*, 'Auu(row,col), Auu(col,row), diff/diag:', val1, val2, (val2 - val1)/diag_entry
 !!                            stop  !TODO - Put in a proper abort
@@ -7262,7 +7870,7 @@
                             Avu(mm, k+kA,i+iA,j+jA) = avg_val
 !!                            print*, 'Auv, i, j, k, iA, jA, kA, val1, val2:', i, j, k, iA, jA, kA, val1, val2
                          else
-                            print*, ' '
+!!                            print*, ' '
                             print*, 'WARNING: Auv is not equal to (Avu)^T, i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
                             print*, 'Auv(row,col), Avu(col,row), diff/diag:', val1, val2, (val2 - val1)/diag_entry
 !!                            stop  !TODO - Put in a proper abort
@@ -7308,7 +7916,7 @@
                             Avv(mm, k+kA,i+iA,j+jA) = avg_val
 !!                            print*, 'Avv, i, j, k, iA, jA, kA, val1, val2:', i, j, k, iA, jA, kA, val1, val2
                          else
-                            print*, ' '
+!!                            print*, ' '
                             print*, 'WARNING: Avv is not symmetric: i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
                             print*, 'Avv(row,col), Avv(col,row), diff/diag:', val1, val2, (val2 - val1)/diag_entry
 !!                            stop  !TODO - Put in a proper abort
@@ -7334,7 +7942,7 @@
                             Auv(mm, k+kA,i+iA,j+jA) = avg_val
 !!                            print*, 'Avu, i, j, k, iA, jA, kA, val1, val2:', i, j, k, iA, jA, kA, val1, val2
                          else
-                            print*, ' '
+!!                            print*, ' '
                             print*, 'WARNING: Avu is not equal to (Auv)^T, i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
                             print*, 'Avu(row,col), Auv(col,row), diff/diag:', val1, val2, (val2 - val1)/diag_entry
 !!                            stop  !TODO - Put in a proper abort

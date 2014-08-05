@@ -184,18 +184,18 @@ contains
     model%numerics%thklim = model%numerics%thklim  / thk0       ! can remove scaling here
     model%numerics%thklim_temp = model%numerics%thklim_temp  / thk0       ! can remove scaling here
 
-    model%numerics%dew = model%numerics%dew / len0         ! remove scaling
-    model%numerics%dns = model%numerics%dns / len0         ! remove scaling
+    model%numerics%dew = model%numerics%dew / len0         ! remove scaling later?
+    model%numerics%dns = model%numerics%dns / len0         ! remove scaling later?
 
-    model%numerics%mlimit = model%numerics%mlimit / thk0   ! remove scaling
+    model%numerics%mlimit = model%numerics%mlimit / thk0   ! remove scaling later?
 
-    model%numerics%periodic_offset_ew = model%numerics%periodic_offset_ew / thk0  ! remove scaling
-    model%numerics%periodic_offset_ns = model%numerics%periodic_offset_ns / thk0  ! remove scaling
+    model%numerics%periodic_offset_ew = model%numerics%periodic_offset_ew / thk0  ! remove scaling later?
+    model%numerics%periodic_offset_ns = model%numerics%periodic_offset_ns / thk0  ! remove scaling later?
 
     model%velowk%trc0   = vel0 * len0 / (thk0**2)          ! keep scyr?
     model%velowk%btrac_const = model%paramets%btrac_const/model%velowk%trc0/scyr  ! keep scyr? 
     model%velowk%btrac_max = model%paramets%btrac_max/model%velowk%trc0/scyr      ! keep scyr?
-    model%velowk%btrac_slope = model%paramets%btrac_slope*acc0/model%velowk%trc0  ! remove scaling?
+    model%velowk%btrac_slope = model%paramets%btrac_slope*acc0/model%velowk%trc0  ! remove scaling later?
 
     model%paramets%ho_beta_const = model%paramets%ho_beta_const / (tau0/(vel0*scyr))
 
@@ -607,6 +607,7 @@ contains
     call GetValue(section, 'which_ho_approx',    model%options%which_ho_approx)
     call GetValue(section, 'which_ho_precond',   model%options%which_ho_precond)
     call GetValue(section, 'which_ho_gradient',  model%options%which_ho_gradient)
+    call GetValue(section, 'which_ho_ground',    model%options%which_ho_ground)
 
   end subroutine handle_ho_options
 
@@ -785,6 +786,11 @@ contains
     character(len=*), dimension(0:1), parameter :: ho_whichgradient = (/ &
          'Centered gradient (glissade dycore)      ', &
          'Upstream gradient (glissade dycore)      ' /)
+
+    character(len=*), dimension(0:2), parameter :: ho_whichground = (/ &
+         'f_ground = 0 or 1; no GLP  (glissade dycore)       ', &
+         'f_ground = 1 for all active cells (glissade dycore)', &
+         '0 <= f_ground <= 1, based on GLP (glissade dycore) ' /)
 
     call write_log('GLIDE options')
     call write_log('-------------')
@@ -1041,6 +1047,13 @@ contains
              call write_log('Error, gradient option out of range for glissade dycore', GM_FATAL)
           end if
 
+          write(message,*) 'ho_whichground          : ',model%options%which_ho_ground,  &
+                            ho_whichground(model%options%which_ho_ground)
+          call write_log(message)
+          if (model%options%which_ho_ground < 0 .or. model%options%which_ho_ground >= size(ho_whichground)) then
+             call write_log('Error, ground option out of range for glissade dycore', GM_FATAL)
+          end if
+
        end if
 
        if (model%options%whichdycore == DYCORE_GLISSADE .and.   &
@@ -1214,7 +1227,7 @@ contains
        write(message,*) 'periodic offset_ns (m)  :  ',model%numerics%periodic_offset_ns
        call write_log(message)
     endif
-   
+
     call write_log('')
 
   end subroutine print_parameters

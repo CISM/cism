@@ -498,6 +498,20 @@ long_name:      v component of residual Ax - b
 data:           data%velocity%resid_v(up,:,:)
 factor:         scale_resid
 
+[rhs_u]
+dimensions:     time, level, y0, x0
+units:          Pa/m          
+long_name:      u component of b in Ax = b
+data:           data%velocity%rhs_u(up,:,:)
+factor:         scale_resid
+
+[rhs_v]
+dimensions:     time, level, y0, x0
+units:          Pa/m          
+long_name:      v component of b in Ax = b
+data:           data%velocity%rhs_v(up,:,:)
+factor:         scale_resid
+
 # used for output of res fields
 #[ures]
 #dimensions:    time, level, y0, x0
@@ -684,27 +698,17 @@ long_name:     ice age
 data:          data%geometry%age(up,:,:)
 standard_name: land_ice_age
 factor:        tim0/scyr
-load:           0
+load:          0
 coordinates:   lon lat
 
-##TODO - What is phaml?
-#[init_phaml]
-#dimensions:    time, y1, x1
-#units:         meter
-#long_name:     phaml initial conditions
-#data:          data%phaml%init_phaml
-#standard_name: phaml_initial_conditions
-#load:          1
-#coordinates:   lon lat
-
-#[phaml]
-#dimensions:    time, y1, x1
-#units:         meter
-#long_name:     phaml true solution
-#data:          data%phaml%uphaml
-#standard_name: phaml_solution
-#load:          1
-#coordinates:   lon lat
+[f_ground]
+dimensions:    time, y0, x0
+units:         unitless [0,1]
+long_name:     grounded ice fraction
+data:          data%geometry%f_ground
+standard_name: grounded_fraction
+load:          0
+coordinates:   lon lat
 
 #TODO - Are these gline fields needed?
 [gl_ew]
@@ -727,7 +731,6 @@ units:        meter2/year
 long_name:    grounding line fluxu
 data:         data%ground%gline_flux
 coordinates:  lon f
-
 
 [rho_ice]
 dimensions:    time
