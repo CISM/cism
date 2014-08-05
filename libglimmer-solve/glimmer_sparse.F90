@@ -98,7 +98,8 @@ contains
         type(sparse_solver_options) :: opt            !TODO - intent inout or out?
 
         opt%base%method = method
-        opt%base%tolerance  = 1e-11
+!!        opt%base%tolerance  = 1e-11
+        opt%base%tolerance  = 1e-08
         opt%base%maxiters = 200
 
         if ( present(nonlinear) )then
