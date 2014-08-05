@@ -141,12 +141,12 @@ extern "C" {
            if ("ML" == paramList->sublist("Stratimikos").get<std::string>("Preconditioner Type")) {
              *tout << "\nNOTE: ML preconditioner can work much better when interface is extended\n"
                   << "\tto include Nodal XYZ coordinates.\n" << std::endl;
-             //Teuchos::ParameterList& mlList =
-             //   paramList->sublist("Stratimikos").sublist("Preconditioner Types").sublist("ML").sublist("ML Settings");
+             Teuchos::ParameterList& mlList =
+                paramList->sublist("Stratimikos").sublist("Preconditioner Types").sublist("ML").sublist("ML Settings");
              //mlList.set("x-coordinates",myX);
              //mlList.set("y-coordinates",myY);
              //mlList.set("z-coordinates",myZ);
-             //mlList.set("PDE equations", 2);
+             mlList.set("PDE equations", 2);
            }
         }
 
@@ -184,7 +184,7 @@ extern "C" {
 
       TEUCHOS_TEST_FOR_EXCEPTION(!rowMap->UniqueGIDs(), std::logic_error,
          "Error: initializetgs, myIndicies array needs to have unique entries" 
-          << " across all processor.");
+          << " across all processors.");
 
       // Diagnostic output for partitioning
       int minSize, maxSize;
@@ -402,7 +402,7 @@ extern "C" {
        exit(-3);
     }
     else {
-      *tout << "Debugging check for rogue Column indices passed." 
+      *tout << "Debugging check for rogue column indices passed." 
            << " Turn off for production runs.\n" << std::endl;
     }
   }
