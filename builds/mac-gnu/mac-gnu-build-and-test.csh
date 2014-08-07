@@ -22,6 +22,12 @@
 ## you can go to lines #193-194, 197-198, 201-202, and uncomment them.
 setenv PERF_TEST 0
 
+
+setenv QUICK_TEST nope
+if (($1 == quick-test) || ($2 == quick-test) || ($3 == quick-test) || ($4 == quick-test) || ($5 == quick-test)) then
+  setenv QUICK_TEST quick-test
+endif
+
 @ run_perf_tests = (($1 == run-perf-tests) || ($2 == run-perf-tests) || ($3 == run-perf-tests) || ($4 == run-perf-tests) || ($5 == run-perf-tests))
 
 if ($run_perf_tests) then
@@ -150,6 +156,5 @@ if ($skip_tests_set) then
    exit
 endif
 
-csh $TEST_DIR/livv/run_livv_default_tests.csh $TEST_DIR $CISM_RUN_SCRIPT $PERF_TEST $CISM_VV_SCRIPT
-echo "Back in build-and-test script, exiting."
-exit
+csh $TEST_DIR/livv/run_livv_default_tests.csh $TEST_DIR $CISM_RUN_SCRIPT $PERF_TEST $CISM_VV_SCRIPT $QUICK_TEST
+
