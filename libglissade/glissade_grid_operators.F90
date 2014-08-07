@@ -65,7 +65,8 @@ contains
        stagvar                  ! staggered field, defined at cell vertices
 
     integer, dimension(nx,ny), intent(in) ::        &
-       imask                    ! = 1 where ice is present, else = 0
+       imask                    ! = 1 where values are included in the average, else = 0
+                                ! Typically imask = 1 where ice is present (or thck > thklim), else = 0
 
     integer, intent(in), optional ::   &
        stag_flag_in             ! 0 = use all values when interpolating (including zeroes where ice is absent)
@@ -118,12 +119,12 @@ contains
 
   subroutine glissade_unstagger(nx,           ny,          &
                                 stagvar,      unstagvar,   &
-                                imask,        stag_flag_in)
+                                vmask,        stag_flag_in)
 
     ! Given a variable on the unstaggered grid (dimension nx, ny), interpolate
     ! to find values on the staggered grid (dimension nx-1, ny-1).
 
-    use parallel, only: staggered_parallel_halo
+    use parallel, only: parallel_halo
 
     !----------------------------------------------------------------
     ! Input-output arguments
@@ -139,11 +140,13 @@ contains
        unstagvar                ! unstaggered field, defined at cell centers
 
     integer, dimension(nx-1,ny-1), intent(in) ::        &
-       imask                    ! = 1 where ice is present, else = 0
+       vmask                    ! = 1 for vertices where the value is used in the average, else = 0
+                                ! Note: The user needs to compute this mask in the calling subroutine.
+                                !       It will likely be based on the scalar ice mask, but the details are left open.
 
     integer, intent(in), optional ::   &
-       stag_flag_in             ! 0 = use all values when interpolating (including zeroes where ice is absent)
-                                ! 1 = use only values where ice is present
+       stag_flag_in             ! 0 = use all values when interpolating
+                                ! 1 = use only values where vmask = 1
 
     !--------------------------------------------------------
     ! Local variables
@@ -156,7 +159,7 @@ contains
     if (present(stag_flag_in)) then
        stag_flag = stag_flag_in
     else
-       stag_flag = 1  ! default is to average over cells with ice present
+       stag_flag = 1  ! default is to average over cells where vmask = 1
     endif
 
     unstagvar(:,:) = 0.d0
@@ -165,21 +168,21 @@ contains
 
        ! Average over all four neighboring cells
 
-       do j = 1, ny-2
-       do i = 1, nx-2
+       do j = 2, ny-1   ! loop does not include outer row of cells
+       do i = 2, nx-1
           unstagvar(i,j) = (stagvar(i,j) + stagvar(i-1,j) + stagvar(i,j-1) + stagvar(i-1,j-1)) / 4.d0	  
        enddo
        enddo  
 
     elseif (stag_flag==1) then
 
-       ! Average over cells with ice present (imask = 1)
+       ! Average over cells with vmask = 1
 
-       do j = 1, ny-2
-       do i = 1, nx-2
-          sumvar = imask(i-1,j)  *stagvar(i-1,j)   + imask(i,j)  *stagvar(i,j)  &
-                 + imask(i-1,j-1)*stagvar(i-1,j-1) + imask(i,j-1)*stagvar(i,j-1)	  
-          summask = real(imask(i-1,j) + imask(i,j) + imask(i-1,j-1) + imask(i,j-1), dp)
+       do j = 2, ny-1   ! loop does not include outer row of cells
+       do i = 2, nx-1
+          sumvar = vmask(i-1,j)  *stagvar(i-1,j)   + vmask(i,j)  *stagvar(i,j)  &
+                 + vmask(i-1,j-1)*stagvar(i-1,j-1) + vmask(i,j-1)*stagvar(i,j-1)  
+          summask = real(vmask(i-1,j) + vmask(i,j) + vmask(i-1,j-1) + vmask(i,j-1), dp)
           if (summask > 0.d0) unstagvar(i,j) = sumvar / summask
        enddo
        enddo  
@@ -187,7 +190,7 @@ contains
     endif
 
     ! Fill in halo values
-    call staggered_parallel_halo(unstagvar)
+    call parallel_halo(unstagvar)
 
   end subroutine glissade_unstagger
 
