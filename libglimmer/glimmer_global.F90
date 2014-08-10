@@ -84,4 +84,6 @@ module glimmer_global
   !*FD ASCII linefeed and carriage-return characters,
   !*FD and set up default newline appropriate for UNIX-type systems
 
+  real(kind=dp) :: wall_start_time, wall_stop_time
+
 end module glimmer_global

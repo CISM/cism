@@ -68,7 +68,6 @@ subroutine cism_init_dycore(model)
   type(simple_climate) :: climate         ! climate
   type(ConfigSection), pointer :: config  ! configuration stuff
   real(kind=dp) :: time                   ! model time in years
-  real(kind=dp) :: t1,t2
   integer :: clock,clock_rate,ret
 
   integer*4 external_dycore_model_index
@@ -96,17 +95,22 @@ subroutine cism_init_dycore(model)
   ! read configuration
   call ConfigRead(commandline_configname,config)
 
+#if (! defined CCSMCOUPLED && ! defined CESMTIMERS)
   ! start timing
   call system_clock(clock,clock_rate)
-  t1 = real(clock,kind=dp)/real(clock_rate,kind=dp)
+  wall_start_time = real(clock,kind=dp)/real(clock_rate,kind=dp)
+#else
+  wall_start_time = 0.0
+  wall_stop_time = 0.0
+#endif
 
   ! initialise profiling
   call profile_init(model%profile,'glide.profile')
 
-  call t_startf('simple glide')
+  call t_startf('cism')
  
   ! initialise GLIDE
-    call t_startf('glide initialization')
+  call t_startf('glide initialization')
 
   call glide_config(model,config)
 
@@ -147,7 +151,9 @@ subroutine cism_init_dycore(model)
   call t_stopf('glide initialization')
 
   if (model%options%whichdycore == DYCORE_BISICLES) then
+    call t_startf('bisicles_initial')
     call cism_init_external_dycore(model%options%external_dycore_type,model)
+    call t_stopf('bisicles_initial')
   endif
 
   if (model%options%whichdycore .ne. DYCORE_BISICLES) then
@@ -163,8 +169,10 @@ subroutine cism_init_dycore(model)
       case (DYCORE_GLIDE)
 
         call t_startf('glide_initial_diag_var_solve')
-        ! disable further profiling in normal usage
-        call t_adj_detailf(+10)
+        if (model%numerics%tstart < (model%numerics%tend - model%numerics%tinc)) then
+          ! disable further profiling in normal usage
+          call t_adj_detailf(+10)
+        endif
 
         ! Don't call glide_init_state_diagnostic when running old glide
         ! Instead, start with zero velocity
@@ -172,20 +180,26 @@ subroutine cism_init_dycore(model)
           call glide_init_state_diagnostic(model)
         endif
 
-        ! restore profiling to normal settings
-        call t_adj_detailf(-10)
+        if (model%numerics%tstart < (model%numerics%tend - model%numerics%tinc)) then
+          ! restore profiling to normal settings
+          call t_adj_detailf(-10)
+        endif
         call t_stopf('glide_initial_diag_var_solve')
 
       case (DYCORE_GLAM, DYCORE_GLISSADE, DYCORE_ALBANYFELIX)
         call t_startf('glissade_initial_diag_var_solve')
-        ! disable further profiling in normal usage
-        call t_adj_detailf(+10)
+        if (model%numerics%tstart < (model%numerics%tend - model%numerics%tinc)) then
+          ! disable further profiling in normal usage
+          call t_adj_detailf(+10)
+        endif
 
         ! solve the remaining diagnostic variables for the initial state
         call glissade_diagnostic_variable_solve(model)  !velocity, usrf, etc.
 
-        ! restore profiling to normal settings
-        call t_adj_detailf(-10)
+        if (model%numerics%tstart < (model%numerics%tend - model%numerics%tinc)) then
+          ! restore profiling to normal settings
+          call t_adj_detailf(-10)
+        endif
         call t_stopf('glissade_initial_diag_var_solve')
 
         case default
@@ -242,7 +256,6 @@ subroutine cism_run_dycore(model)
   real(kind=dp) :: time                   ! model time in years
   real(kind=dp) :: dt                     ! current time step to use
   real(kind=dp) :: time_eps               ! tolerance within which times are equal 
-  real(kind=dp) :: t1,t2
   integer :: clock,clock_rate,ret
   integer :: tstep_count
 
@@ -277,8 +290,9 @@ subroutine cism_run_dycore(model)
     ! call simple_surftemp(climate,model,time)
 
     ! read time slice if needed
+    call t_startf('glide_read_forcing')
     call glide_read_forcing(model, model)
-
+    call t_stopf('glide_read_forcing')
 
     !if (model%options%external_dycore_type .EQ. 0) then      ! NO_EXTERNAL_DYCORE) then
     !  if (model%options%whichdycore == DYCORE_GLIDE) then
@@ -315,8 +329,10 @@ subroutine cism_run_dycore(model)
         if (time + dt + time_eps > model%numerics%tend) then
            dt = model%numerics%tend - time
         endif
+        call t_startf('bisicles_tstep')
         call cism_run_external_dycore(model%options%external_dycore_model_index, &
                                       time,dt)
+        call t_stopf('bisicles_tstep')
         ! time = time + model%numerics%tinc
       case default
     end select
@@ -325,8 +341,10 @@ subroutine cism_run_dycore(model)
 
     ! write ice sheet diagnostics to log file at desired interval (model%numerics%dt_diag)
 
+    call t_startf('glide_write_diagnostics')
     call glide_write_diagnostics(model,        time,       &
                                   tstep_count = tstep_count)
+    call t_stopf('glide_write_diagnostics')
 
     ! Write to output netCDF files at desired intervals
 
@@ -366,17 +384,15 @@ subroutine cism_finalize_dycore(model)
   type(glide_global_type) :: model        ! model instance
   integer :: clock,clock_rate,ret
 
-
-  call t_stopf('simple glide')
+  call t_stopf('cism')
 
   ! finalise GLIDE
   call glide_finalise(model)
 
-  call system_clock(clock,clock_rate)
-!  t2 = real(clock,kind=dp)/real(clock_rate,kind=dp)
-
 #if (! defined CCSMCOUPLED && ! defined CESMTIMERS)
-!  call glimmer_write_stats(commandline_resultsname,commandline_configname,t2-t1)
+  call system_clock(clock,clock_rate)
+  wall_stop_time = real(clock,kind=dp)/real(clock_rate,kind=dp)
+  call glimmer_write_stats(commandline_resultsname,commandline_configname,wall_stop_time-wall_start_time)
 #endif
 
   call close_log
