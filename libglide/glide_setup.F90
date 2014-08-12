@@ -774,14 +774,14 @@ contains
 
     character(len=*), dimension(-1:2), parameter :: ho_whichapprox = (/ &
          'SIA only (glissade_velo_sia)            ', &
-         'SIA only (glissade_velo_higher          ', &
+         'SIA only (glissade_velo_higher)         ', &
          'SSA only (glissade_velo_higher)         ', &
          'Blatter-Pattyn HO (glissade_velo_higher)' /)
 
     character(len=*), dimension(0:2), parameter :: ho_whichprecond = (/ &
-         'No preconditioner (glissade dycore)      ', &
-         'Diagonal preconditioner (glissade dycore)', &
-         'SIA preconditioner (glissade dycore)     ' /)
+         'No preconditioner (glissade PCG)        ', &
+         'Diagonal preconditioner (glissade PCG)  ', &
+         'SIA preconditioner (glissade PCG)       ' /)
 
     character(len=*), dimension(0:1), parameter :: ho_whichgradient = (/ &
          'Centered gradient (glissade dycore)      ', &
@@ -804,7 +804,7 @@ contains
     write(message,*) 'Dycore                  : ',model%options%whichdycore,dycore(model%options%whichdycore)
     call write_log(message)
 
-    ! Forbidden options to use with the Glide dycore
+    ! Forbidden options associated with the Glide dycore
     if (model%options%whichdycore == DYCORE_GLIDE) then
 
        if (model%options%whichevol==EVOL_INC_REMAP     .or.  &
@@ -848,10 +848,20 @@ contains
 
     ! Forbidden options associated with Glam and Glissade dycores
    
+    if (model%options%whichdycore == DYCORE_GLISSADE) then 
+       if (model%options%which_ho_approx == HO_APPROX_SSA .and.                  &
+                (model%options%which_ho_sparse == HO_SPARSE_PCG_STANDARD .or.    &
+                 model%options%which_ho_sparse == HO_SPARSE_PCG_CHRONGEAR) ) then
+          if (model%options%which_ho_precond == HO_PRECOND_SIA) then
+             call write_log('Error, cannot use SIA preconditioning for SSA solve', GM_FATAL)
+          endif
+       endif
+    endif
+
     if (model%options%whichdycore /= DYCORE_GLISSADE) then 
        if (model%options%which_ho_sparse == HO_SPARSE_PCG_STANDARD .or.   &
            model%options%which_ho_sparse == HO_SPARSE_PCG_CHRONGEAR) then
-          call write_log('Error, native PCG solver requires glissade dycore')
+          call write_log('Error, native PCG solver requires glissade dycore', GM_FATAL)
        endif
     endif
 
@@ -867,7 +877,6 @@ contains
     if (model%options%whichdycore == DYCORE_ALBANYFELIX) then
        call write_log('Warning, Albany-FELIX dycore requires external libraries, and it is still in development!!!', GM_WARNING)
     endif
-
 
     !NOTE : Old option 3 (TEMP_REMAP_ADV) has been removed.
     ! If this has been set, then change to option 1 (TEMP_PROGNOSTIC), which applies to any dycore.

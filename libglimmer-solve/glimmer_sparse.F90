@@ -97,16 +97,16 @@ contains
         integer, optional, intent(in) :: nonlinear    ! Picard vs. JFNK flag 
         type(sparse_solver_options) :: opt            !TODO - intent inout or out?
 
+        !TODO - Change 1e-08 to 1.e-08
         opt%base%method = method
-!!        opt%base%tolerance  = 1e-11
-        opt%base%tolerance  = 1e-08
+        opt%base%tolerance  = 1e-08   !WHL - used to be 1e-11
         opt%base%maxiters = 200
 
         if ( present(nonlinear) )then
-            if (nonlinear .eq. SPARSE_HO_NONLIN_PICARD) opt%base%tolerance  = 1e-11 ! Picard
+            if (nonlinear .eq. SPARSE_HO_NONLIN_PICARD) opt%base%tolerance  = 1e-08 ! Picard
             if (nonlinear .eq. SPARSE_HO_NONLIN_JFNK) opt%base%tolerance  = 1e-03 ! JFNK
-        else
-            opt%base%tolerance  = 1e-11 ! Picard
+        else   ! Picard
+            opt%base%tolerance  = 1e-08
         end if
 
         !TODO - Remove calls to not_parallel?
