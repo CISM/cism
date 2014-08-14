@@ -127,8 +127,8 @@ pyplot.axis('equal')
 pyplot.axis([0,1800,0,1800])
 pyplot.xticks(numpy.linspace(0.0, 1800.0, num=10, endpoint=True))
 pyplot.yticks(numpy.linspace(0.0, 1800.0, num=10, endpoint=True))
-pyplot.xlabel('Measured velocity from RIGGS (meters/year)')
-pyplot.ylabel('Model velocity from Glimmer/CISM (meters/year)')
+pyplot.ylabel('Measured velocity from RIGGS (meters/year)')
+pyplot.xlabel('Model velocity from Glimmer/CISM (meters/year)')
 pyplot.title('Ross Ice Shelf Experiment')
 
 # Create a color plot of Glimmer and RIGGS velocities
