@@ -278,7 +278,7 @@ module glide_types
     ! standard options
     !-----------------------------------------------------------------------
 
-    integer :: whichdycore = 1
+    integer :: whichdycore = 2
 
     ! Choice of two Glimmer dycores:
     !*FD \begin{description} 
