@@ -61,7 +61,7 @@ set CMAKE_CONF_OUT = 'conf_'$COMPILER_NAME'.out'
 set CMAKE_BUILD_OUT = 'cmake_'$COMPILER_NAME'_build.out'
 #set CISM_RUN_SCRIPT = $PLATFORM_NAME'job' 
 #set CISM_RUN_SCRIPT = 'hopjob'
-set CISM_RUN_SCRIPT = 'macjob' 
+set CISM_RUN_SCRIPT = './macjob' 
 #set CISM_VV_SCRIPT = $PLATFORM_NAME'_VV.bash'
 set CISM_VV_SCRIPT = 'mac_VV.bash'
 
