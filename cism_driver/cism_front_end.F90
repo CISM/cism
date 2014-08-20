@@ -346,6 +346,9 @@ subroutine cism_run_dycore(model)
                                   tstep_count = tstep_count)
     call t_stopf('glide_write_diagnostics')
 
+    ! update time from dycore advance
+    model%numerics%time = time
+
     ! Write to output netCDF files at desired intervals
 
     call t_startf('glide_io_writeall')
