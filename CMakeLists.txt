@@ -1,4 +1,4 @@
-# CMAKE File for GLIMMER building against an installed Trilinos
+# CMAKE File for CISM building against an installed Trilinos
 
 cmake_minimum_required(VERSION 2.8.4)
 
@@ -18,20 +18,19 @@ ENDIF()
 
 MESSAGE("CISM_USE_TRILINOS = ${CISM_USE_TRILINOS}")
 
-
+OPTION (CISM_BUILD_CISM_DRIVER "Toggle to build cism_driver, on by default" ON)
 OPTION (CISM_MPI_MODE "Toggle to Configure with MPI: defaults to ON" ON)
 OPTION (CISM_SERIAL_MODE "Toggle to Configure in Serial mode: defaults to OFF " OFF)
 OPTION (CISM_USE_MPI_WITH_SLAP "Toggle to use mpi when using SLAP solver, only relevant if CISM_SERIAL_MODE=ON: defaults to OFF" OFF)
-OPTION (CISM_BUILD_SIMPLE_GLIDE "Toggle to build simple_glide, ON by default" ON)
-OPTION (CISM_BUILD_SIMPLE_BISICLES "Toggle to build simple_bisicles, off by default" OFF)
-OPTION (CISM_BUILD_CISM_DRIVER "Toggle to build cism_driver, off by default" OFF)
+OPTION (CISM_BUILD_SIMPLE_GLIDE "Toggle to build simple_glide, OFF by default" OFF)
+OPTION (CISM_ENABLE_BISICLES "Toggle to build a BISICLES-capable cism_driver, off by default" OFF)
+
 OPTION (CISM_BUILD_EXTRA_EXECUTABLES "Toggle to other executables, off by default" OFF)
 OPTION (CISM_USE_GPTL_INSTRUMENTATION "Toggle to use GPTL instrumentation, on by default " ON)
-OPTION (CISM_BUILD_GLINT "Toggle to build glint, off by default" OFF)
-OPTION (CISM_BUILD_GLINT_EXAMPLE "Toggle to build glint_example, off by default" OFF)
 OPTION (CISM_COUPLED "Toggle to build CISM for use with CESM, off by default" OFF)
-OPTION (CISM_USE_CISM_FRONT_END "Toggle to use cism_driver or cism_cesm_interface with cism_front_end, off by default" OFF)
 OPTION (CISM_USE_DEFAULT_IO "Toggle to use default i/o files rather than running python script, off by default" OFF)
+# OPTION (CISM_USE_CISM_FRONT_END "Toggle to use cism_driver or cism_cesm_interface with cism_front_end, off by default" OFF)
+
 # WJS (1-3-13): We could avoid CISM_GNU by using something like CMAKE_Fortran_COMPILER_ID or CMAKE_COMPILER_IS_GNUCC, 
 # but it's not clear to me if those work consistently
 OPTION (CISM_GNU "Toggle to set compilation flags needed for the gnu compiler, off by default" OFF)
@@ -53,27 +52,12 @@ IF (CISM_BUILD_CISM_DRIVER)
   SET(CISM_USE_CISM_FRONT_END "ON")
 ENDIF()
 
-IF (CISM_USE_CISM_FRONT_END)
-  SET(CISM_BUILD_GLINT "ON")
-ENDIF()
-
-IF (CISM_BUILD_GLINT_EXAMPLE)
-  SET(CISM_BUILD_GLINT "ON")
-ENDIF()
-
-#MESSAGE("CISM MPI Mode Setting:    ${CISM_MPI_MODE}")
-#MESSAGE("CISM Serial Mode Setting: ${CISM_SERIAL_MODE}")
-
-
 # set (or override) other options, if CISM_COUPLED is ON:
 IF (CISM_COUPLED)
-  SET(GLIMMER_NO_EXECUTABLE "ON")
+  SET(CISM_NO_EXECUTABLE "ON")
   SET(CISM_BUILD_SIMPLE_GLIDE "OFF")
-  SET(CISM_BUILD_SIMPLE_BISICLES "OFF")
-  SET(CISM_BUILD_GLINT_EXAMPLE "OFF")
+  SET(CISM_ENABLE_BISICLES "OFF")
   SET(CISM_USE_CISM_FRONT_END "OFF")
-  SET(CISM_BUILD_EXTRA_EXECUTABLES "OFF")
-  SET(CISM_BUILD_GLINT "ON")  
   SET(CISM_USE_DEFAULT_IO "ON")
   ADD_DEFINITIONS(-DCCSMCOUPLED)
 ENDIF()
@@ -86,25 +70,25 @@ ENDIF()
 MESSAGE("Building in: ${CISM_BINARY_DIR}")
 
 IF (CISM_USE_TRILINOS)
-  OPTION(GLIMMER_TRILINOS_DIR "Required path to installed Trilinos")
-  OPTION(GLIMMER_NETCDF_DIR "Required path to installed Netcdf")
+  OPTION(CISM_TRILINOS_DIR "Required path to installed Trilinos")
+  OPTION(CISM_NETCDF_DIR "Required path to installed Netcdf")
 
 
   IF (CISM_USE_GPTL_INSTRUMENTATION)
-     IF (DEFINED GLIMMER_TRILINOS_GPTL_DIR)
-       SET(GLIMMER_TRILINOS_DIR ${GLIMMER_TRILINOS_GPTL_DIR})
+     IF (DEFINED CISM_TRILINOS_GPTL_DIR)
+       SET(CISM_TRILINOS_DIR ${CISM_TRILINOS_GPTL_DIR})
      ENDIF()
   ENDIF()
 
   
   # Error check up front
-  IF (NOT DEFINED GLIMMER_TRILINOS_DIR)
-    MESSAGE(FATAL_ERROR "\nGLIMMER Error: cmake must define GLIMMER_TRILINOS_DIR:
-    (-D GLIMMER_TRILINOS_DIR=<trilinos_install_prefix>)!")
+  IF (NOT DEFINED CISM_TRILINOS_DIR)
+    MESSAGE(FATAL_ERROR "\nCISM Error: cmake must define CISM_TRILINOS_DIR:
+    (-D CISM_TRILINOS_DIR=<trilinos_install_prefix>)!")
   ENDIF()
 
   # Get Trilinos as one entity
-  SET(CMAKE_PREFIX_PATH ${GLIMMER_TRILINOS_DIR} ${CMAKE_PREFIX_PATH})
+  SET(CMAKE_PREFIX_PATH ${CISM_TRILINOS_DIR} ${CMAKE_PREFIX_PATH})
   FIND_PACKAGE(Trilinos REQUIRED)
 
   IF (${Trilinos_VERSION} VERSION_LESS  10.8.0)
@@ -169,23 +153,22 @@ IF (CISM_USE_TRILINOS OR CISM_BUILD_SIMPLE_BISICLES)
   ENABLE_LANGUAGE(CXX)
 ENDIF()
 
-MESSAGE(">> GLIMMER_NETCDF_DIR set to : ${GLIMMER_NETCDF_DIR}")
+MESSAGE(">> CISM_NETCDF_DIR set to : ${CISM_NETCDF_DIR}")
 
-IF (NOT DEFINED GLIMMER_NETCDF_DIR)
-  MESSAGE(FATAL_ERROR "\nGLIMMER Error: cmake must define GLIMMER_NETCDF_DIR:
-  (-D GLIMMER_NETCDF_DIR=<netcdf_install_prefix>)!")
+IF (NOT DEFINED CISM_NETCDF_DIR)
+  MESSAGE(FATAL_ERROR "\nCISM Error: cmake must define CISM_NETCDF_DIR:
+  (-D CISM_NETCDF_DIR=<netcdf_install_prefix>)!")
 ENDIF()
 
-
-FIND_PATH(CISM_NETCDFF_FOUND libnetcdff.a ${GLIMMER_NETCDF_DIR}/lib)
-
+FIND_PATH(CISM_NETCDFF_FOUND libnetcdff.a ${CISM_NETCDF_DIR}/lib)
 #MESSAGE(" CISM_NETCDFF_FOUND = ${CISM_NETCDFF_FOUND}")
-IF (${CISM_NETCDFF_FOUND} STREQUAL ${GLIMMER_NETCDF_DIR}/lib )
-   SET(GLIMMER_NETCDF_LIBS "netcdff;netcdf" CACHE STRING "Netcdf Library Names(s)")
+
+IF (${CISM_NETCDFF_FOUND} STREQUAL ${CISM_NETCDF_DIR}/lib )
+   SET(CISM_NETCDF_LIBS "netcdff;netcdf" CACHE STRING "Netcdf Library Names(s)")
 ELSE()
-   SET(GLIMMER_NETCDF_LIBS "netcdf" CACHE STRING "Netcdf Library Names(s)") 
+   SET(CISM_NETCDF_LIBS "netcdf" CACHE STRING "Netcdf Library Names(s)") 
 ENDIF()
-MESSAGE(">> GLIMMER_NETCDF_LIBS Library(s) set to : ${GLIMMER_NETCDF_LIBS}")
+MESSAGE(">> CISM_NETCDF_LIBS Library(s) set to : ${CISM_NETCDF_LIBS}")
 
 IF (DEFINED CISM_MPI_BASE_DIR)
   IF (NOT DEFINED CISM_MPI_LIB_DIR)
@@ -207,24 +190,24 @@ INCLUDE_DIRECTORIES(${CMAKE_Fortran_MODULE_DIRECTORY})
 
 # Note that C++ is excluded here -- we only include C++ support if
 # it's really needed (see ENABLE_LANGUAGE(CXX) command above)
-PROJECT(GLIMMER Fortran C)
+PROJECT(CISM Fortran C)
 
 
 IF (NOT CISM_USE_DEFAULT_IO)
   # Auto-generate the *_io.F90 files in the build directory:
   MESSAGE(">> Calling utils/build/autogenerate-in-build-dir")
-  EXECUTE_PROCESS(COMMAND  ${GLIMMER_SOURCE_DIR}/utils/build/autogenerate-in-build-dir
-                  ${GLIMMER_SOURCE_DIR} 
+  EXECUTE_PROCESS(COMMAND  ${CISM_SOURCE_DIR}/utils/build/autogenerate-in-build-dir
+                  ${CISM_SOURCE_DIR} 
                   WORKING_DIRECTORY ${CISM_BINARY_DIR}
                   OUTPUT_FILE ${CISM_BINARY_DIR}/autogenerate.log)
  
   MESSAGE(">> see ${CISM_BINARY_DIR}/autogenerate.log")
 
-  IF (CISM_BUILD_GLINT_EXAMPLE OR CISM_USE_CISM_FRONT_END)
+  IF (CISM_USE_CISM_FRONT_END)
     # Auto-generate the *_io.F90 files in the build directory:
     MESSAGE(">> Calling utils/build/autogenerate-in-build-dir")
-    EXECUTE_PROCESS(COMMAND  ${GLIMMER_SOURCE_DIR}/utils/build/autogen-for-glint-in-build-dir
-                    ${GLIMMER_SOURCE_DIR} 
+    EXECUTE_PROCESS(COMMAND  ${CISM_SOURCE_DIR}/utils/build/autogen-for-glint-in-build-dir
+                    ${CISM_SOURCE_DIR} 
                     WORKING_DIRECTORY ${CISM_BINARY_DIR}
                     OUTPUT_FILE ${CISM_BINARY_DIR}/autogen-for-glint.log)
  
@@ -234,8 +217,8 @@ IF (NOT CISM_USE_DEFAULT_IO)
 ELSE()
   # Simply copy the default io files into the build directory
   MESSAGE(">> Calling utils/build/autocopy-io-to-build-dir")
-  EXECUTE_PROCESS(COMMAND  ${GLIMMER_SOURCE_DIR}/utils/build/autocopy-io-to-build-dir
-                  ${GLIMMER_SOURCE_DIR}
+  EXECUTE_PROCESS(COMMAND  ${CISM_SOURCE_DIR}/utils/build/autocopy-io-to-build-dir
+                  ${CISM_SOURCE_DIR}
                   WORKING_DIRECTORY ${CISM_BINARY_DIR}
                   OUTPUT_FILE ${CISM_BINARY_DIR}/autocopy-io.log)
 		
@@ -244,8 +227,8 @@ ENDIF()
 
 # Copy a few needed files to the build directory:
 MESSAGE(">> Calling utils/build/autocopy-to-build-dir")
-EXECUTE_PROCESS(COMMAND  ${GLIMMER_SOURCE_DIR}/utils/build/autocopy-to-build-dir
-                ${GLIMMER_SOURCE_DIR}
+EXECUTE_PROCESS(COMMAND  ${CISM_SOURCE_DIR}/utils/build/autocopy-to-build-dir
+                ${CISM_SOURCE_DIR}
                 WORKING_DIRECTORY ${CISM_BINARY_DIR}
                 OUTPUT_FILE ${CISM_BINARY_DIR}/autocopy.log)
 
@@ -257,20 +240,20 @@ INCLUDE_DIRECTORIES(${CISM_BINARY_DIR}/fortran_autocopy_includes)
 #        is moved AFTER setting CMAKE_CXX_COMPILER from Trilinos
 
 ## Use CMAKE_CXX_FLAGS   CMAKE_Fortran_FLAGS   to override  Trilinos flags
-## USe GLIMMER_CXX_FLAGS GLIMMER_Fortran_FLAGS to append to Trilinos flags
+## USe CISM_CXX_FLAGS CISM_Fortran_FLAGS to append to Trilinos flags
 
 IF (NOT CMAKE_CXX_FLAGS)
   SET(CMAKE_CXX_FLAGS ${Trilinos_CXX_COMPILER_FLAGS} )
 ENDIF()
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GLIMMER_CXX_FLAGS}")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CISM_CXX_FLAGS}")
 
 IF (NOT CMAKE_Fortran_FLAGS)
   SET(CMAKE_Fortran_FLAGS ${Trilinos_Fortran_COMPILER_FLAGS} )
 ENDIF()
-SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${GLIMMER_Fortran_FLAGS}")
+SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${CISM_Fortran_FLAGS}")
 
 IF (CISM_USE_TRILINOS) 
-   ## GLIMMER requires Trilinos to include the Piro build 
+   ## CISM requires Trilinos to include the Piro build 
    MESSAGE("-- Looking for Piro within Trilinos:")
    MESSAGE("Trilinos pkg list: " ${Trilinos_PACKAGE_LIST})
    LIST(FIND Trilinos_PACKAGE_LIST  Piro Piro_List_ID)
@@ -280,34 +263,32 @@ IF (CISM_USE_TRILINOS)
      MESSAGE(FATAL_ERROR "-- Looking for Piro: -- not found! Rebuild Trilinos with Piro package.")
    ENDIF()
 
-   ADD_DEFINITIONS(-DGLIMMER_MPI -DTRILINOS)
+   ADD_DEFINITIONS(-DCISM_MPI -DTRILINOS)
    MESSAGE(">> Trilinos build: adding  -DTRILINOS  to compile lines")
 
-   include_directories(${GLIMMER_NETCDF_DIR}/include)
-   link_directories(${GLIMMER_NETCDF_DIR}/lib) 
+   include_directories(${CISM_NETCDF_DIR}/include)
+   link_directories(${CISM_NETCDF_DIR}/lib) 
 
 ELSE()
 
    IF (${CISM_MPI_MODE})
-      ADD_DEFINITIONS(-DGLIMMER_MPI)
+      ADD_DEFINITIONS(-DCISM_MPI)
    ENDIF()
-   include_directories(${GLIMMER_NETCDF_DIR}/include ${CISM_MPI_INC_DIR})
+   include_directories(${CISM_NETCDF_DIR}/include ${CISM_MPI_INC_DIR})
 
-#   link_directories(${GLIMMER_NETCDF_DIR}/lib )
-   link_directories(${GLIMMER_NETCDF_DIR}/lib ${CISM_MPI_LIB_DIR} ${CISM_SCI_LIB_DIR} 
+   link_directories(${CISM_NETCDF_DIR}/lib ${CISM_MPI_LIB_DIR} ${CISM_SCI_LIB_DIR} 
         		 ${CISM_HDF5_LIB_DIR} ) 
-
 ENDIF()
 
-IF (CISM_BUILD_SIMPLE_BISICLES)
+IF (CISM_ENABLE_BISICLES)
   MESSAGE("\nBISICLES build configured.\n")  
 
-  SET(GLIMMER_DYCORE_DIR ${GLIMMER_SOURCE_DIR}/libdycore)
-  SET(GLIMMER_TO_DYCORE ${GLIMMER_DYCORE_DIR}/glimmer_to_dycore.F90) 
-  SET(GLIMMER_BISICLES_DIR ${GLIMMER_DYCORE_DIR}/BISICLES)
+  SET(CISM_DYCORE_DIR ${CISM_SOURCE_DIR}/libdycore)
+  SET(CISM_TO_DYCORE ${CISM_DYCORE_DIR}/glimmer_to_dycore.F90) 
+  SET(CISM_BISICLES_DIR ${CISM_DYCORE_DIR}/BISICLES)
   
-  INCLUDE_DIRECTORIES(${GLIMMER_DYCORE_DIR})
-  LINK_DIRECTORIES(${GLIMMER_DYCORE_DIR} ${BISICLES_INTERFACE_DIR} )
+  INCLUDE_DIRECTORIES(${CISM_DYCORE_DIR})
+  LINK_DIRECTORIES(${CISM_DYCORE_DIR} ${BISICLES_INTERFACE_DIR} )
   ADD_DEFINITIONS(-DCISM_HAS_BISICLES)
 ENDIF()
 
@@ -315,26 +296,26 @@ ENDIF()
 IF ( CISM_USE_GPTL_INSTRUMENTATION AND 
     (NOT CISM_BUILD_SIMPLE_BISICLES) AND
     (NOT CISM_SERIAL_MODE))
- OPTION(GLIMMER_GPTL_DIR "Optional path to installed gptl library")
- IF (GLIMMER_GPTL_DIR)
-   message(">> GPTL Library reqested, installed in ${GLIMMER_GPTL_DIR}")
+ OPTION(CISM_GPTL_DIR "Optional path to installed gptl library")
+ IF (CISM_GPTL_DIR)
+   message(">> GPTL Library reqested, installed in ${CISM_GPTL_DIR}")
    ADD_DEFINITIONS(-DCESMTIMERS)
-   include_directories(${GLIMMER_GPTL_DIR})
-   link_directories(${GLIMMER_GPTL_DIR})
-   SET(GLIMMER_GPTL_LIB gptl)
+   include_directories(${CISM_GPTL_DIR})
+   link_directories(${CISM_GPTL_DIR})
+   SET(CISM_GPTL_LIB gptl)
  ELSE()
-   message(">>GPTL Library not requested: can set GLIMMER_GPTL_DIR to enable")
+   message(">>GPTL Library not requested: can set CISM_GPTL_DIR to enable")
  ENDIF()
 ENDIF()
 
 #####Build All Fortran Sources #####
 
-IF (CISM_BUILD_GLINT OR CISM_BUILD_EXTRA_EXECUTABLES)
+IF (CISM_USE_CISM_FRONT_END)
    file(GLOB GLINT_SOURCES libglint/*.F90)
    file(GLOB GLISSADE_SOURCES libglissade/*.F90)
 ENDIF()
 
-# DMR 6/2/14 -- Added simple_forcing.F90 and testsfg.F90 to FORTRANSOURCES.
+
 file(GLOB FORTRANSOURCES
      libglimmer-solve/SLAP/*.f
      libglimmer-solve/*.F90
@@ -344,37 +325,37 @@ file(GLOB FORTRANSOURCES
      cism_driver/testsfg.F90
      ${GLINT_SOURCES}
      ${GLISSADE_SOURCES}
-     ${GLIMMER_TO_DYCORE})
+     ${CISM_TO_DYCORE})
 
 LIST(REMOVE_ITEM FORTRANSOURCES
-   ${GLIMMER_SOURCE_DIR}/libglimmer-solve/SLAP/dlapqc.f
-   ${GLIMMER_SOURCE_DIR}/libglimmer/unittest_glimmer_deriv.F90 
-   ${GLIMMER_SOURCE_DIR}/libglide/relaxed.F90
-   ${GLIMMER_SOURCE_DIR}/libglide/test_setup.F90
-   ${GLIMMER_SOURCE_DIR}/libglimmer/test_commandline.F90
-   ${GLIMMER_SOURCE_DIR}/libglimmer/test_config.F90
-   ${GLIMMER_SOURCE_DIR}/libglimmer/test_filenames.F90
-   ${GLIMMER_SOURCE_DIR}/libglimmer/test_integrate.F90
-   ${GLIMMER_SOURCE_DIR}/libglimmer/test_ts.F90
-   ${GLIMMER_SOURCE_DIR}/libglimmer/test_writestats.F90
-   ${GLIMMER_SOURCE_DIR}/libglimmer/nc2config.F90 )
+   ${CISM_SOURCE_DIR}/libglimmer-solve/SLAP/dlapqc.f
+   ${CISM_SOURCE_DIR}/libglimmer/unittest_glimmer_deriv.F90 
+   ${CISM_SOURCE_DIR}/libglide/relaxed.F90
+   ${CISM_SOURCE_DIR}/libglide/test_setup.F90
+   ${CISM_SOURCE_DIR}/libglimmer/test_commandline.F90
+   ${CISM_SOURCE_DIR}/libglimmer/test_config.F90
+   ${CISM_SOURCE_DIR}/libglimmer/test_filenames.F90
+   ${CISM_SOURCE_DIR}/libglimmer/test_integrate.F90
+   ${CISM_SOURCE_DIR}/libglimmer/test_ts.F90
+   ${CISM_SOURCE_DIR}/libglimmer/test_writestats.F90
+   ${CISM_SOURCE_DIR}/libglimmer/nc2config.F90 )
 
 
 IF (CISM_USE_TRILINOS OR CISM_MPI_MODE)
    LIST(REMOVE_ITEM FORTRANSOURCES
-      ${GLIMMER_SOURCE_DIR}/libglimmer/parallel_slap.F90   
-      ${GLIMMER_SOURCE_DIR}/libglimmer/glimmer_horiz_bcs_serial.F90)
+      ${CISM_SOURCE_DIR}/libglimmer/parallel_slap.F90   
+      ${CISM_SOURCE_DIR}/libglimmer/glimmer_horiz_bcs_serial.F90)
 
 ELSE(${CISM_SERIAL_MODE})
    LIST(REMOVE_ITEM FORTRANSOURCES
-      ${GLIMMER_SOURCE_DIR}/libglimmer/parallel_mpi.F90
-      ${GLIMMER_SOURCE_DIR}/libglimmer/glimmer_horiz_bcs_parallel.F90)
+      ${CISM_SOURCE_DIR}/libglimmer/parallel_mpi.F90
+      ${CISM_SOURCE_DIR}/libglimmer/glimmer_horiz_bcs_parallel.F90)
 
    IF (CISM_USE_MPI_WITH_SLAP)
      ADD_DEFINITIONS(-D_USE_MPI_WITH_SLAP)
    ELSE()
      LIST(REMOVE_ITEM FORTRANSOURCES
-       ${GLIMMER_SOURCE_DIR}/libglimmer/mpi_mod.F90)
+       ${CISM_SOURCE_DIR}/libglimmer/mpi_mod.F90)
    ENDIF()
 ENDIF()
 
@@ -395,17 +376,16 @@ ENDIF()
 # This can be removed once we switch to consistently using this new
 # cmake-based build.
   LIST(REMOVE_ITEM FORTRANSOURCES
-     ${GLIMMER_SOURCE_DIR}/libglide/glide_io.F90
-     ${GLIMMER_SOURCE_DIR}/libglide/glide_lithot_io.F90
-     ${GLIMMER_SOURCE_DIR}/libglint/glint_io.F90
-     ${GLIMMER_SOURCE_DIR}/libglint/glint_mbal_io.F90
-     ${GLIMMER_SOURCE_DIR}/libglimmer/glimmer_vers.F90 )
-     # ${GLIMMER_SOURCE_DIR}/example-drivers/eis/src/eis_io.F90
+     ${CISM_SOURCE_DIR}/libglide/glide_io.F90
+     ${CISM_SOURCE_DIR}/libglide/glide_lithot_io.F90
+     ${CISM_SOURCE_DIR}/libglint/glint_io.F90
+     ${CISM_SOURCE_DIR}/libglint/glint_mbal_io.F90
+     ${CISM_SOURCE_DIR}/libglimmer/glimmer_vers.F90 )
 #ENDIF()
 
 
-### (For CESM) Remove source files with names already in GLIMMER_SOURCEMOD_DIR
-OPTION(GLIMMER_SOURCEMOD_DIR 
+### (For CESM) Remove source files with names already in CISM_SOURCEMOD_DIR
+OPTION(CISM_SOURCEMOD_DIR 
       "Path to SourceMod directory of F90 files to replace Glimmer files")
 
 #MESSAGE("Fortran Source Files: ${FORTRANSOURCES}")
@@ -414,13 +394,13 @@ OPTION(GLIMMER_SOURCEMOD_DIR
 # those are built in a separate library - so for now, you can't put
 # .cpp files in your sourceMod directory.
 FILE(GLOB SOURCEMODFILES 
-     ${GLIMMER_SOURCEMOD_DIR}/*.F90
-     ${GLIMMER_SOURCEMOD_DIR}/*.F
-     ${GLIMMER_SOURCEMOD_DIR}/*.f90
-     ${GLIMMER_SOURCEMOD_DIR}/*.f
-     ${GLIMMER_SOURCEMOD_DIR}/*.c)
+     ${CISM_SOURCEMOD_DIR}/*.F90
+     ${CISM_SOURCEMOD_DIR}/*.F
+     ${CISM_SOURCEMOD_DIR}/*.f90
+     ${CISM_SOURCEMOD_DIR}/*.f
+     ${CISM_SOURCEMOD_DIR}/*.c)
 
-# MESSAGE("glimmer_sourcemod_dir: " ${GLIMMER_SOURCEMOD_DIR})
+# MESSAGE("glimmer_sourcemod_dir: " ${CISM_SOURCEMOD_DIR})
 # MESSAGE("Fortran Mod Files: ${SOURCEMODFILES}")
 
 FOREACH( MODFILE ${SOURCEMODFILES})
@@ -446,7 +426,7 @@ IF (CISM_GNU)
   # Allow explicit NaN values in gfortran compiler
   # Note that this won't work if the user has put nan_mod.F90 in their
   # SourceMods directory, since it assumes a particular path
-  SET_PROPERTY(SOURCE ${GLIMMER_SOURCE_DIR}/libglimmer/nan_mod.F90 
+  SET_PROPERTY(SOURCE ${CISM_SOURCE_DIR}/libglimmer/nan_mod.F90 
                APPEND PROPERTY COMPILE_FLAGS -fno-range-check)
 ENDIF()
 
@@ -465,8 +445,8 @@ SET(CMAKE_INCLUDE_PATH ${CISM_BINARY_DIR}/include)
 # include-dirs: Binary: all the .mod files; SOURCE: config.inc; 
 #               libglide: glide_mask.inc
 
-include_directories (${CISM_BINARY_DIR} ${GLIMMER_SOURCE_DIR}
-                     ${GLIMMER_SOURCE_DIR}/libglide)
+include_directories (${CISM_BINARY_DIR} ${CISM_SOURCE_DIR}
+                     ${CISM_SOURCE_DIR}/libglide)
 
 
 SET(LIBRARY_OUTPUT_PATH ${CISM_BINARY_DIR}/lib)
@@ -491,48 +471,28 @@ IF (CISM_USE_TRILINOS)
 ENDIF()
 
 #####Build simple_glide executable (unless turned off) #####
-OPTION(GLIMMER_NO_EXECUTABLE "Set to  ON  to just build libraries (default:OFF)"  OFF)
+OPTION(CISM_NO_EXECUTABLE "Set to  ON  to just build libraries (default:OFF)"  OFF)
 
 
-IF (CISM_BUILD_SIMPLE_GLIDE AND (NOT GLIMMER_NO_EXECUTABLE))
-  add_subdirectory(example-drivers/simple_glide/src)
-ENDIF()
+#IF (CISM_BUILD_SIMPLE_GLIDE AND (NOT CISM_NO_EXECUTABLE))
+#   add_subdirectory(example-drivers/simple_glide/src)
+#ENDIF()
 
 IF (CISM_USE_CISM_FRONT_END)
    add_subdirectory(cism_driver)
 ENDIF()
  
-IF (CISM_BUILD_GLINT_EXAMPLE)
-  # add_subdirectory(example-drivers/glint/src)
-ENDIF()
 
-IF (CISM_BUILD_SIMPLE_BISICLES)
-  #add_subdirectory(example-drivers/simple_bisicles/src)
+IF (CISM_ENABLE_BISICLES)
   add_subdirectory(libdycore)
 
-  include_directories (${GLIMMER_EXTERNAL_DYCORE_DIR}
-                       ${GLIMMER_BISICLES_DIR})
+  include_directories (${CISM_EXTERNAL_DYCORE_DIR}
+                       ${CISM_BISICLES_DIR})
 
-  message("glimmer src dir: ${GLIMMER_SOURCE_DIR}")
-  message("glimmer extern dycore dir: ${GLIMMER_EXTERNAL_DYCORE_DIR}")
+  message("glimmer src dir: ${CISM_SOURCE_DIR}")
+  message("glimmer extern dycore dir: ${CISM_EXTERNAL_DYCORE_DIR}")
   get_property(inc_dirs DIRECTORY PROPERTY INCLUDE_DIRECTORIES)
   message("inc_dirs = ${inc_dirs}")
-
 ENDIF()
-
-
-IF(CISM_BUILD_EXTRA_EXECUTABLES AND CISM_SERIAL_MODE)
-  #add_subdirectory(example-drivers/eis/src)
-  #add_subdirectory(example-drivers/glint/src)
-  message("Building extra executables: ")
-  MESSAGE(">> Calling utils/build/autogen-extras-in-build-dir")
-  EXECUTE_PROCESS(COMMAND  ${GLIMMER_SOURCE_DIR}/utils/build/autogen-extras-in-build-dir
-                  ${GLIMMER_SOURCE_DIR} 
-                  WORKING_DIRECTORY ${CISM_BINARY_DIR}
-                  OUTPUT_FILE ${CISM_BINARY_DIR}/autogen-extras.log)
-  MESSAGE(">> see ${CISM_BINARY_DIR}/autogen-extras.log")
-ENDIF()
-
-#COMMAND (environment)
 
 

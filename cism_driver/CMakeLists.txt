@@ -5,11 +5,11 @@ IF (${CISM_USE_TRILINOS})
 ENDIF()
 
 # Need include directories from Trilinos but also mod files from glimmer
-include_directories (${GLIMMER_BINARY_DIR}/include  ${PYTHON_INC_DIR}
+include_directories (${CISM_BINARY_DIR}/include  ${PYTHON_INC_DIR}
                      ${Trilinos_INCLUDE_DIRS} ${Trilinos_TPL_INCLUDE_DIRS})
 
 link_directories (${Trilinos_LIBRARY_DIRS} ${Trilinos_TPL_LIBRARY_DIRS}
-                  ${GLIMMER_DYCORE_DIR}
+                  ${CISM_DYCORE_DIR}
 		  ${BISICLES_INTERFACE_DIR}/${BISICLES_LIB_SUBDIR}
                   ${CISM_HDF5_LIB_DIR} ${PYTHON_LIB_DIR} )
 
@@ -33,13 +33,13 @@ IF (CISM_FORCE_FORTRAN_LINKER)
   SET_PROPERTY(TARGET cism_driver PROPERTY LINKER_LANGUAGE Fortran)
 ENDIF()
 
-MESSAGE("GLIMMER_BISICLES_DIR: " ${GLIMMER_BISICLES_DIR})
+MESSAGE("CISM_BISICLES_DIR: " ${CISM_BISICLES_DIR})
 MESSAGE("CISM_HDF5_LIBS: " ${CISM_HDF5_LIBS})
 
 # Executable depends on several glimmer libraries and Trilinos,
 # and potentially an f90main.o file (on jaguar with PGI at least)
 
-IF (${CISM_BUILD_SIMPLE_BISICLES})
+IF (${CISM_ENABLE_BISICLES})
   set(CISM_USE_EXTERNAL_DYCORE ON)
   ELSE()
   set(CISM_USE_EXTERNAL_DYCORE OFF)
@@ -50,35 +50,35 @@ IF (NOT ${CISM_USE_EXTERNAL_DYCORE})
                   ${CISM_HDF5_LIB_DIR} ${PYTHON_LIB_DIR} )
 
   target_link_libraries(cism_driver
-      ${GLIMMER_FMAIN}
+      ${CISM_FMAIN}
       glimmercismfortran
       ${PYTHON_LIBS}
-      ${GLIMMER_NETCDF_LIBS}
+      ${CISM_NETCDF_LIBS}
       ${CISM_HDF5_LIBS}
-      ${GLIMMER_MPI_LIBS}
+      ${CISM_MPI_LIBS}
       ${CISM_TRILINOS_LIBS}
-      ${GLIMMER_EXTRA_LIBS}
-      ${GLIMMER_GPTL_LIB}
+      ${CISM_EXTRA_LIBS}
+      ${CISM_GPTL_LIB}
   )
-ELSEIF (${CISM_BUILD_SIMPLE_BISICLES})
-MESSAGE("GLIMMER_DYCORE_DIR: " ${GLIMMER_DYCORE_DIR})
+ELSEIF (${CISM_ENABLE_BISICLES})
+MESSAGE("CISM_DYCORE_DIR: " ${CISM_DYCORE_DIR})
   link_directories (${Trilinos_LIBRARY_DIRS} ${Trilinos_TPL_LIBRARY_DIRS}
-                  ${GLIMMER_DYCORE_DIR}
+                  ${CISM_DYCORE_DIR}
 		  ${BISICLES_INTERFACE_DIR}/${BISICLES_LIB_SUBDIR}
                   ${CISM_HDF5_LIB_DIR} ${PYTHON_LIB_DIR} )
   target_link_libraries(cism_driver
-      ${GLIMMER_FMAIN}
+      ${CISM_FMAIN}
       glimmercismfortran
       DyCoreToGlimmer
       libBisicles.a
       libChomboLibs.a
       ${PYTHON_LIBS}
-      ${GLIMMER_NETCDF_LIBS}
+      ${CISM_NETCDF_LIBS}
       ${CISM_HDF5_LIBS}
-      ${GLIMMER_MPI_LIBS}
+      ${CISM_MPI_LIBS}
       ${CISM_TRILINOS_LIBS}
-      ${GLIMMER_EXTRA_LIBS}
-      ${GLIMMER_GPTL_LIB}
+      ${CISM_EXTRA_LIBS}
+      ${CISM_GPTL_LIB}
       )
 ENDIF()
 
