@@ -19,13 +19,13 @@
 # CISM_MPI_MODE -- ON by default, only set to OFF for serial builds
 # CISM_SERIAL_MODE -- OFF by default, set to ON for serial builds.
 # CISM_BUILD_SIMPLE_GLIDE -- ON by default, set to OFF to not build simple_glide
-# CISM_BUILD_SIMPLE_BISICLES -- OFF by default, set to ON to build simple_bisicles
+# CISM_ENABLE_BISICLES -- OFF by default, set to ON to build simple_bisicles
 #      Setting NO_TRILINOS to ON will generate a much smaller executable for this build.
 # CISM_BUILD_EXTRA_EXECUTABLES -- OFF by default, set to ON to build eis_glide and others
 # CISM_USE_GPTL_INSTRUMENTATION -- OFF by default, set to ON to use GPTL instrumentation
 
 # NOTE: There is currently an incompatibility between simple_bisicles and GPTL.  If
-# the CISM_BUILD_SIMPLE_BISICLES is ON, the GPTL instrumentation is turned OFF.
+# the CISM_ENABLE_BISICLES is ON, the GPTL instrumentation is turned OFF.
 
 # help user get the correct modules loaded:
 
@@ -91,16 +91,16 @@ cmake \
   -D CISM_USE_GPTL_INSTRUMENTATION:BOOL=OFF \
 \
   -D CISM_BUILD_SIMPLE_GLIDE:BOOL=OFF \
-  -D CISM_BUILD_SIMPLE_BISICLES:BOOL=ON \
+  -D CISM_ENABLE_BISICLES:BOOL=ON \
   -D CISM_BUILD_GLINT_EXAMPLE:BOOL=OFF \
   -D CISM_BUILD_CISM_DRIVER:BOOL=ON \
 \
-  -D GLIMMER_TRILINOS_DIR=/project/projectdirs/piscees/trilinos-default/hopper-pgi/install \
-  -D GLIMMER_TRILINOS_GPTL_DIR=/project/projectdirs/piscees/trilinos-default/hopper-pgi-gptl/install \
-  -D GLIMMER_TRILINOS_ALBANY_DIR=/project/projectdirs/piscees/trilinos-default/hopper-pgi-albany/install \
+  -D CISM_TRILINOS_DIR=/project/projectdirs/piscees/trilinos-default/hopper-pgi/install \
+  -D CISM_TRILINOS_GPTL_DIR=/project/projectdirs/piscees/trilinos-default/hopper-pgi-gptl/install \
+  -D CISM_TRILINOS_ALBANY_DIR=/project/projectdirs/piscees/trilinos-default/hopper-pgi-albany/install \
 \
-  -D GLIMMER_NETCDF_DIR=$NETCDF_DIR \
-  -D GLIMMER_FMAIN=/opt/pgi/13.6.0/linux86-64/13.6/lib/f90main.o \
+  -D CISM_NETCDF_DIR=$NETCDF_DIR \
+  -D CISM_FMAIN=/opt/pgi/13.6.0/linux86-64/13.6/lib/f90main.o \
 \
   -D CMAKE_INSTALL_PREFIX:PATH=$PWD/install \
   -D CMAKE_VERBOSE_MAKEFILE:BOOL=ON \
@@ -112,13 +112,13 @@ cmake \
 \
   -D CISM_MPI_BASE_DIR=$CRAY_MPICH2_DIR \
   -D CISM_SCI_LIB_DIR=$CRAY_LIBSCI_PREFIX_DIR/lib \
-  -D GLIMMER_GPTL_DIR=/project/projectdirs/ccsm1/libgptl/libgptl-pgi \
+  -D CISM_GPTL_DIR=/project/projectdirs/ccsm1/libgptl/libgptl-pgi \
 \
   -D CMAKE_CXX_FLAGS:STRING="-O2 --diag_suppress 554,111,611 -DH5_USE_16_API" \
-  -D GLIMMER_Fortran_FLAGS:STRING="-O2 -DNO_RESCALE" \
+  -D CISM_Fortran_FLAGS:STRING="-O2 -DNO_RESCALE" \
   -D BISICLES_LIB_SUBDIR=libpgi \
   -D BISICLES_INTERFACE_DIR=$PWD/../../../BISICLES/CISM-interface/interface \
-  -D GLIMMER_MPI_LIBS:STRING="mpichf90" \
+  -D CISM_MPI_LIBS:STRING="mpichf90" \
   -D CISM_STATIC_LINKING:BOOL=OFF \
   ../..
 

@@ -9,7 +9,7 @@
 # CISM_MPI_MODE -- ON by default, only set to OFF for serial builds
 # CISM_SERIAL_MODE -- OFF by default, set to ON for serial builds.
 # CISM_BUILD_SIMPLE_GLIDE -- ON by default, set to OFF to not build simple_glide
-# CISM_BUILD_SIMPLE_BISICLES -- OFF by default, set to ON to build simple_bisicles
+# CISM_ENABLE_BISICLES -- OFF by default, set to ON to build simple_bisicles
 #      Setting NO_TRILINOS to ON will generate a much smaller executable for this build.
 # CISM_BUILD_EXTRA_EXECUTABLES -- OFF by default, set to ON to build eis_glide and others
 # CISM_USE_GPTL_INSTRUMENTATION -- OFF by default, set to ON to use GPTL instrumentation
@@ -20,7 +20,7 @@
 # set the serial compilers directly.)
 
 # NOTE: There is currently an incompatibility between simple_bisicles and GPTL.  If
-# the CISM_BUILD_SIMPLE_BISICLES is ON, the GPTL instrumentation is turned OFF.
+# the CISM_ENABLE_BISICLES is ON, the GPTL instrumentation is turned OFF.
 
 
 # After this executes, do:
@@ -30,7 +30,7 @@
 echo
 echo Run this script by typing: source linux-gnu-cism-cmake
 echo
-echo Set GLIMMER_TRILINOS_DIR to your Trilinos installation directory.
+echo Set CISM_TRILINOS_DIR to your Trilinos installation directory.
 echo
 
 # remove old build data:
@@ -46,7 +46,7 @@ cmake \
   -D CISM_MPI_MODE:BOOL=ON \
   -D CISM_SERIAL_MODE:BOOL=OFF \
   -D CISM_BUILD_SIMPLE_GLIDE:BOOL=ON \
-  -D CISM_BUILD_SIMPLE_BISICLES:BOOL=OFF \
+  -D CISM_ENABLE_BISICLES:BOOL=OFF \
   -D CISM_BUILD_GLINT_EXAMPLE:BOOL=OFF \
   -D CISM_USE_GPTL_INSTRUMENTATION:BOOL=OFF \
   -D CISM_USE_DEFAULT_IO:BOOL=OFF \
@@ -54,9 +54,9 @@ cmake \
 \
   -D CISM_GNU=ON \
 \
-  -D GLIMMER_TRILINOS_DIR=$GLIMMER_TRILINOS_DIR \
-  -D GLIMMER_NETCDF_DIR="/usr" \
-  -D GLIMMER_NETCDF_LIBS="netcdff" \
+  -D CISM_TRILINOS_DIR=$CISM_TRILINOS_DIR \
+  -D CISM_NETCDF_DIR="/usr" \
+  -D CISM_NETCDF_LIBS="netcdff" \
 \
   -D CMAKE_Fortran_FLAGS="-g -O2 -ffree-line-length-none -fPIC -fno-range-check" \
 \
@@ -64,7 +64,7 @@ cmake \
   -D CMAKE_C_COMPILER=mpicc \
   -D CMAKE_Fortran_COMPILER=mpif90 \
 \
-  -D GLIMMER_EXTRA_LIBS:STRING="-lblas" \
+  -D CISM_EXTRA_LIBS:STRING="-lblas" \
 \
   -D CISM_MPI_INC_DIR=/usr/lib/openmpi/lib \
   -D CISM_MPI_LIB_DIR=/usr/lib/openmpi/lib \

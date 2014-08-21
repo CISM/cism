@@ -16,7 +16,7 @@
 # CISM_MPI_MODE -- ON by default, only set to OFF for serial builds
 # CISM_SERIAL_MODE -- OFF by default, set to ON for serial builds.
 # CISM_BUILD_SIMPLE_GLIDE -- ON by default, set to OFF to not build simple_glide
-# CISM_BUILD_SIMPLE_BISICLES -- OFF by default, set to ON to build simple_bisicles
+# CISM_ENABLE_BISICLES -- OFF by default, set to ON to build simple_bisicles
 #      Setting NO_TRILINOS to ON will generate a much smaller executable for this build.
 # CISM_BUILD_EXTRA_EXECUTABLES -- OFF by default, set to ON to build eis_glide and others
 # CISM_USE_GPTL_INSTRUMENTATION -- OFF by default, set to ON to use GPTL instrumentation
@@ -45,12 +45,12 @@ cmake \
   -D CISM_MPI_MODE:BOOL=ON \
   -D CISM_SERIAL_MODE:BOOL=OFF \
   -D CISM_BUILD_SIMPLE_GLIDE:BOOL=OFF \
-  -D CISM_BUILD_SIMPLE_BISICLES:BOOL=ON \
+  -D CISM_ENABLE_BISICLES:BOOL=ON \
   -D CISM_BUILD_EXTRA_EXECUTABLES:BOOL=OFF \
   -D CISM_USE_GPTL_INSTRUMENTATION:BOOL=OFF \
   -D CISM_USE_CISM_FRONT_END:BOOL=ON \
 \
-  -D GLIMMER_NETCDF_DIR=${NETCDF_HOME} \
+  -D CISM_NETCDF_DIR=${NETCDF_HOME} \
   -D CMAKE_INSTALL_PREFIX:PATH=$PWD/install \
   -D CMAKE_VERBOSE_MAKEFILE:BOOL=ON \
 \
@@ -63,8 +63,8 @@ cmake \
   -D CMAKE_PREFIX_PATH="${ANAG_HDF5_DIR}" \
 \
   -D CMAKE_CXX_FLAGS:STRING="-g -DH5_USE_16_API" \
-  -D GLIMMER_Fortran_FLAGS:STRING="-g  -ffree-line-length-none -fno-range-check -DNO_RESCALE" \
-  -D GLIMMER_EXTRA_LIBS:STRING="-L$PETSC_DIR/$PETSC_ARCH/lib -lpetsc -llapack -lblas" \
+  -D CISM_Fortran_FLAGS:STRING="-g  -ffree-line-length-none -fno-range-check -DNO_RESCALE" \
+  -D CISM_EXTRA_LIBS:STRING="-L$PETSC_DIR/$PETSC_ARCH/lib -lpetsc -llapack -lblas" \
   -D BISICLES_INTERFACE_DIR=$PWD/../../../BISICLES/CISM-interface/interface \
   -D BISICLES_LIB_SUBDIR=libgnu \
  ../..

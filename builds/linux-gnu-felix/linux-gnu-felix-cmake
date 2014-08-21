@@ -19,12 +19,12 @@ ALBANY_DIR=/home/ikalash/Desktop/clean/Albany/cism-build/install
 NETCDF_DIR=/home/ikalash/Install/netcdf-4.0.1
 
 cmake \
-  -D GLIMMER_TRILINOS_DIR=$TRILINOS_DIR \
+  -D CISM_TRILINOS_DIR=$TRILINOS_DIR \
   -D CISM_BUILD_SIMPLE_GLIDE:BOOL=ON \
   -D ALBANY_FELIX_DYCORE:BOOL=ON \
-  -D GLIMMER_ALBANY_DIR=$ALBANY_DIR \
-  -D GLIMMER_NETCDF_DIR=$NETCDF_DIR \
-  -D GLIMMER_NETCDF_LIBS="netcdf" \
+  -D CISM_ALBANY_DIR=$ALBANY_DIR \
+  -D CISM_NETCDF_DIR=$NETCDF_DIR \
+  -D CISM_NETCDF_LIBS="netcdf" \
   -D CMAKE_Fortran_FLAGS="-g -O2 -ffree-line-length-none -fPIC -fno-range-check" \
   -D CMAKE_VERBOSE_MAKEFILE=OFF \
   ../..
