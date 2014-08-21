@@ -2,25 +2,12 @@
 
 cmake_minimum_required(VERSION 2.8.4)
 
-OPTION (NO_TRILINOS "Toggle to Not use Trilinos: defaults to OFF (Trilinos on by default)" OFF)
-IF (DEFINED CISM_USE_TRILINOS)
-  IF (CISM_USE_TRILINOS)
-    SET(NO_TRILINOS "OFF")
-    ELSE()
-    SET(NO_TRILINOS "ON")
-  ENDIF()
-ENDIF()
-IF (NOT NO_TRILINOS)
-  SET(CISM_USE_TRILINOS "ON")
-  ELSE()
-  SET(CISM_USE_TRILINOS "OFF")
-ENDIF()
-
-MESSAGE("CISM_USE_TRILINOS = ${CISM_USE_TRILINOS}")
-
 OPTION (CISM_BUILD_CISM_DRIVER "Toggle to build cism_driver, on by default" ON)
+
+OPTION (USE_TRILINOS "Toggle to use Trilinos: defaults to OFF" OFF)
 OPTION (CISM_MPI_MODE "Toggle to Configure with MPI: defaults to ON" ON)
 OPTION (CISM_SERIAL_MODE "Toggle to Configure in Serial mode: defaults to OFF " OFF)
+
 OPTION (CISM_USE_MPI_WITH_SLAP "Toggle to use mpi when using SLAP solver, only relevant if CISM_SERIAL_MODE=ON: defaults to OFF" OFF)
 OPTION (CISM_BUILD_SIMPLE_GLIDE "Toggle to build simple_glide, OFF by default" OFF)
 OPTION (CISM_ENABLE_BISICLES "Toggle to build a BISICLES-capable cism_driver, off by default" OFF)
@@ -37,6 +24,8 @@ OPTION (CISM_GNU "Toggle to set compilation flags needed for the gnu compiler, o
 OPTION (CISM_STATIC_LINKING "Toggle to set static linking for executables, off by default" OFF)
 OPTION (CISM_FORCE_FORTRAN_LINKER "Toggle to force using a fortran linker for building executables, off by default" OFF)
 OPTION (CISM_INCLUDE_IMPLICIT_LINK_LIBRARIES "Toggle to explicitly include the CMAKE_Fortran_IMPLICIT_LINK_LIBRARIES on the link line, on by default" ON)
+
+MESSAGE("CISM_USE_TRILINOS = ${CISM_USE_TRILINOS}")
 
 # override CISM_SERIAL_MODE setting, if it conflicts with CISM_MPI_MODE setting:
 IF (CISM_MPI_MODE)

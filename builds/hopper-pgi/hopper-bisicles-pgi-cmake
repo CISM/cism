@@ -15,12 +15,12 @@
 # BUILD OPTIONS:
 # The call to cmake below include several input ON/OFF switch parameters, to
 # provide a simple way to select different build options.  These are:
-# NO_TRILINOS -- OFF by default, set to on for builds without Trilinos
+# USE_TRILINOS -- OFF by default, set to on for builds without Trilinos
 # CISM_MPI_MODE -- ON by default, only set to OFF for serial builds
 # CISM_SERIAL_MODE -- OFF by default, set to ON for serial builds.
 # CISM_BUILD_SIMPLE_GLIDE -- ON by default, set to OFF to not build simple_glide
 # CISM_ENABLE_BISICLES -- OFF by default, set to ON to build simple_bisicles
-#      Setting NO_TRILINOS to ON will generate a much smaller executable for this build.
+#      Setting USE_TRILINOS to OFF will generate a much smaller executable for this build.
 # CISM_BUILD_EXTRA_EXECUTABLES -- OFF by default, set to ON to build eis_glide and others
 # CISM_USE_GPTL_INSTRUMENTATION -- OFF by default, set to ON to use GPTL instrumentation
 
