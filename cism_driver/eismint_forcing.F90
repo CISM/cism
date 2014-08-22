@@ -1,6 +1,6 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   simple_forcing.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   eismint_forcing.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
@@ -28,85 +28,46 @@
 #include "config.inc"
 #endif
 
-module simple_forcing
+module eismint_forcing
 
-  !*FD read configuration and generate simple mass balance and 
+  !*FD read configuration and generate eismint mass balance and 
   !*FD temperature fields
 
   use glimmer_global, only : dp
-
-  type simple_climate
-
-     ! holds parameters for the simple climate
-
-     ! For EISMINT2:
-     ! airt(1) = Tmin = summit surface temperature (K)
-     ! airt(2) = S_T = horizontal temperature gradient (K/m)
-     ! nmsb(1) = M_max = max accumulation (m/yr)
-     ! nmsb(2) = S_b = horizontal smb gradient (m/yr/m)
-     ! nmsb(3) = R_el = radial distance from summit where mass balance = 0 (m)   
-     !
-
-     integer :: eismint_type = 0
-     !*FD select EISMINT experiment
-     !*FD \begin{description}
-     !*FD \item[{\bf 1}] EISMINT-1 fixed margin
-     !*FD \item[{\bf 2}] EISMINT-1 moving margin
-     !*FD \item[{\bf 3}] EISMINT-2
-     !*FD \item[{\bf 4}] MISMIP-1 (not EISMINT but has similar climate parameters)
-     !*FD \item[{\bf 5}] Exact verification (not EISMINT but has similar climate parameters)
-     !*FD \end{description}
-
-     ! Note: The initial nmsb values in the declarations below are appropriate
-     !       for EISMINT-2, but the initial airt values are not.
-     ! TODO: Change default airt to be consistent with EISMINT-2, while allowing for
-     !       correct EISMINT-1 values to be filled in below.
-
-     !*FD air temperature parameterisation K, K km$^{-3}$
-     real(dp), dimension(2) :: airt = (/ -3.15d0, 1.d-2 /)  
-
-     !*FD mass balance parameterisation:
-     real(dp), dimension(3) :: nmsb = (/ 0.5d0, 1.05d-5, 450.0d3 /)
-
-     !*FD EISMINT time-dep climate forcing period, switched off when set to 0
-     real(dp) :: period = 0.d0
-
-     !*FD EISMINT amplitude of mass balance time-dep climate forcing
-     real(dp) :: mb_amplitude = 0.2d0
-
-  end type simple_climate
+  use glide_types, only : eismint_climate_type
 
   !MAKE_RESTART
 #ifdef RESTARTS
-#define RST_SIMPLE_FORCING
+#define RST_EISMINT_FORCING
 !JCC - no restarts yet
 !#include "glimmer_rst_head.inc"
-#undef RST_SIMPLE_FORCING
+#undef RST_EISMINT_FORCING
 #endif
 
 contains
 
 #ifdef RESTARTS
-#define RST_SIMPLE_FORCING
+#define RST_EISMINT_FORCING
 !JCC - no restarts yet
 !#include "glimmer_rst_body.inc"
-#undef RST_SIMPLE_FORCING
+#undef RST_EISMINT_FORCING
 #endif
 
-  subroutine simple_initialise(climate,config)
+  subroutine eismint_initialise(eismint_climate,config)
 
-    !*FD initialise simple climate model
+    !*FD initialise eismint_climate model
 
     use glimmer_global, only: dp
     use glimmer_paramets, only: thk0, scyr, tim0
     use glimmer_physcon, only: scyr
     use glimmer_config
+    use glide_types
     implicit none
 
-    type(simple_climate) :: climate         !*FD structure holding climate info
+    type(eismint_climate_type) :: eismint_climate         !*FD structure holding climate info
     type(ConfigSection), pointer :: config  !*FD structure holding sections of configuration file   
 
-!WHL - The old scaling looked like this: climate%nmsb(1) = climate%nmsb(1) / (acc0 * scyr)
+!WHL - The old scaling looked like this: eismint_climate%nmsb(1) = eismint_climate%nmsb(1) / (acc0 * scyr)
 !       where acc0 = thk0*vel0/len0.
 !      I replaced (acc0 * scyr) with acab_scale = scyr*thk0/tim0, where tim0 = len0/vel0.  
 !      This is the scaling used in other parts of the code, including Glint.
@@ -118,34 +79,34 @@ contains
 
     real(dp), parameter :: acab_scale = scyr*thk0/tim0
 
-    call simple_readconfig(climate,config)
-    call simple_printconfig(climate)
+    call eismint_readconfig(eismint_climate,config)
+    call eismint_printconfig(eismint_climate)
 
     ! scale parameters
-    ! assumes that climate%nmsb starts with units of m/yr
+    ! assumes that eismint_climate%nmsb starts with units of m/yr
  
-    select case(climate%eismint_type)
+    select case(eismint_climate%eismint_type)
 
     case(1)   ! EISMINT-1 fixed margin
-       climate%nmsb(1) = climate%nmsb(1) / acab_scale
+       eismint_climate%nmsb(1) = eismint_climate%nmsb(1) / acab_scale
 
     case(2)   ! EISMINT-1 moving margin
-       climate%airt(2) = climate%airt(2) * thk0
-       climate%nmsb(1) = climate%nmsb(1) / acab_scale
-       climate%nmsb(2) = climate%nmsb(2) / acab_scale
+       eismint_climate%airt(2) = eismint_climate%airt(2) * thk0
+       eismint_climate%nmsb(1) = eismint_climate%nmsb(1) / acab_scale
+       eismint_climate%nmsb(2) = eismint_climate%nmsb(2) / acab_scale
 
     case(3)   ! EISMINT-2
-       climate%nmsb(1) = climate%nmsb(1) / acab_scale
-       climate%nmsb(2) = climate%nmsb(2) / acab_scale
+       eismint_climate%nmsb(1) = eismint_climate%nmsb(1) / acab_scale
+       eismint_climate%nmsb(2) = eismint_climate%nmsb(2) / acab_scale
 
     case(4)   ! MISMIP-1
-       climate%nmsb(1) = climate%nmsb(1) / acab_scale
+       eismint_climate%nmsb(1) = eismint_climate%nmsb(1) / acab_scale
 
     end select
        
-  end subroutine simple_initialise
+  end subroutine eismint_initialise
 
-  subroutine simple_readconfig(climate, config)
+  subroutine eismint_readconfig(eismint_climate, config)
 
     !*FD read configuration
 
@@ -153,7 +114,7 @@ contains
     use glimmer_config
     implicit none
 
-    type(simple_climate) :: climate         !*FD structure holding climate info
+    type(eismint_climate_type) :: eismint_climate         !*FD structure holding climate info
     type(ConfigSection), pointer :: config  !*FD structure holding sections of configuration file   
 
     ! local variables
@@ -162,22 +123,22 @@ contains
 
     call GetSection(config,section,'EISMINT-1 fixed margin')
     if (associated(section)) then
-       climate%eismint_type = 1
+       eismint_climate%eismint_type = 1
        dummy=>NULL()
        call GetValue(section,'temperature',dummy,2)
-       climate%airt = (/-34.15d0, 8.d-8/)
+       eismint_climate%airt = (/-34.15d0, 8.d-8/)
        if (associated(dummy)) then
-          climate%airt = dummy
+          eismint_climate%airt = dummy
           deallocate(dummy)
           dummy=>NULL()
        end if
        call GetValue(section,'massbalance',dummy,1)
-       climate%nmsb = (/0.3d0, 0.d0, 0.d0/)
+       eismint_climate%nmsb = (/0.3d0, 0.d0, 0.d0/)
        if (associated(dummy)) then
-          climate%nmsb(1) = dummy(1)
+          eismint_climate%nmsb(1) = dummy(1)
        end if
-       call GetValue(section,'period',climate%period)
-       call GetValue(section,'mb_amplitude',climate%mb_amplitude)
+       call GetValue(section,'period',eismint_climate%period)
+       call GetValue(section,'mb_amplitude',eismint_climate%mb_amplitude)
        return       
     end if
 
@@ -186,41 +147,41 @@ contains
 
     call GetSection(config,section,'EISMINT-1 moving margin')
     if (associated(section)) then
-       climate%eismint_type = 2
+       eismint_climate%eismint_type = 2
        dummy=>NULL()
        call GetValue(section,'temperature',dummy,2)
        if (associated(dummy)) then
-          climate%airt = dummy
+          eismint_climate%airt = dummy
           deallocate(dummy)
           dummy=>NULL()
        end if
        call GetValue(section,'massbalance',dummy,3)
        if (associated(dummy)) then
-          climate%nmsb = dummy
+          eismint_climate%nmsb = dummy
           deallocate(dummy)
           dummy=>NULL()
        end if
-       call GetValue(section,'period',climate%period)
-       climate%mb_amplitude = 100000.d0
-       call GetValue(section,'mb_amplitude',climate%mb_amplitude)
+       call GetValue(section,'period',eismint_climate%period)
+       eismint_climate%mb_amplitude = 100000.d0
+       call GetValue(section,'mb_amplitude',eismint_climate%mb_amplitude)
        return
     end if
 
     call GetSection(config,section,'EISMINT-2')
     if (associated(section)) then
-       climate%eismint_type = 3
+       eismint_climate%eismint_type = 3
        dummy=>NULL()
        call GetValue(section,'temperature',dummy,2)
        if (associated(dummy)) then
-          climate%airt = dummy
+          eismint_climate%airt = dummy
           deallocate(dummy)
           dummy=>NULL()
        else
-          climate%airt = (/-35.d0, 1.67d-5/)
+          eismint_climate%airt = (/-35.d0, 1.67d-5/)
        end if
        call GetValue(section,'massbalance',dummy,3)
        if (associated(dummy)) then
-          climate%nmsb = dummy
+          eismint_climate%nmsb = dummy
           deallocate(dummy)
           dummy=>NULL()
        end if
@@ -233,17 +194,17 @@ contains
 
     call GetSection(config,section,'MISMIP-1')
     if (associated(section)) then
-       climate%eismint_type = 4
+       eismint_climate%eismint_type = 4
        dummy=>NULL()
        call GetValue(section,'temperature',dummy,2)
        if (associated(dummy)) then
-           climate%airt = dummy
+           eismint_climate%airt = dummy
            deallocate(dummy)
            dummy=>NULL()
        end if
        call GetValue(section,'massbalance',dummy,3)
        if (associated(dummy)) then
-           climate%nmsb = dummy
+           eismint_climate%nmsb = dummy
            deallocate(dummy)
            dummy=>NULL()
        end if
@@ -255,11 +216,11 @@ contains
 
     call GetSection(config,section,'EXACT')
     if (associated(section)) then
-       climate%eismint_type = 5
+       eismint_climate%eismint_type = 5
        dummy=>NULL()
        call GetValue(section,'temperature',dummy,2)
        if (associated(dummy)) then
-           climate%airt = dummy
+           eismint_climate%airt = dummy
            deallocate(dummy)
            dummy=>NULL()
        end if
@@ -304,85 +265,85 @@ contains
     ! Abort if one of the above cases has not been specified.
     call write_log('No EISMINT forcing selected',GM_FATAL)
 
-  end subroutine simple_readconfig
+  end subroutine eismint_readconfig
 
-  subroutine simple_printconfig(climate)
+  subroutine eismint_printconfig(eismint_climate)
 
-    !*FD print simple climate configuration
+    !*FD print eismint_climate configuration
 
     use glimmer_log
     use parallel, only: tasks
     implicit none
 
-    type(simple_climate) :: climate   !*FD structure holding climate info
+    type(eismint_climate_type) :: eismint_climate   !*FD structure holding climate info
     character(len=100) :: message
 
     call write_log_div
 
-    select case(climate%eismint_type)
+    select case(eismint_climate%eismint_type)
 
     case(1)
        call write_log('EISMINT-1 fixed margin configuration')
        call write_log('------------------------------------')
-       write(message,*) 'temperature  : ',climate%airt(1)
+       write(message,*) 'temperature  : ',eismint_climate%airt(1)
        call write_log(message)
-       write(message,*) '               ',climate%airt(2)
+       write(message,*) '               ',eismint_climate%airt(2)
        call write_log(message)
-       write(message,*) 'massbalance  : ',climate%nmsb(1)
+       write(message,*) 'massbalance  : ',eismint_climate%nmsb(1)
        call write_log(message)
-       write(message,*) 'period       : ',climate%period
+       write(message,*) 'period       : ',eismint_climate%period
        call write_log(message)
-       if (climate%period .gt. 0.d0) then
-          write(message,*) 'mb amplitude : ',climate%mb_amplitude
+       if (eismint_climate%period .gt. 0.d0) then
+          write(message,*) 'mb amplitude : ',eismint_climate%mb_amplitude
           call write_log(message)
        end if
 
     case(2)
        call write_log('EISMINT-1 moving margin configuration')
        call write_log('-------------------------------------')
-       write(message,*) 'temperature  : ',climate%airt(1)
+       write(message,*) 'temperature  : ',eismint_climate%airt(1)
        call write_log(message)
-       write(message,*) '               ',climate%airt(2)
+       write(message,*) '               ',eismint_climate%airt(2)
        call write_log(message)
-       write(message,*) 'massbalance  : ',climate%nmsb(1)
+       write(message,*) 'massbalance  : ',eismint_climate%nmsb(1)
        call write_log(message)
-       write(message,*) '               ',climate%nmsb(2)
+       write(message,*) '               ',eismint_climate%nmsb(2)
        call write_log(message)
-       write(message,*) '               ',climate%nmsb(3)
+       write(message,*) '               ',eismint_climate%nmsb(3)
        call write_log(message)
-       write(message,*) 'period       : ',climate%period
+       write(message,*) 'period       : ',eismint_climate%period
        call write_log(message)
-       if (climate%period .gt. 0.d0) then
-          write(message,*) 'mb amplitude : ',climate%mb_amplitude
+       if (eismint_climate%period .gt. 0.d0) then
+          write(message,*) 'mb amplitude : ',eismint_climate%mb_amplitude
           call write_log(message)
        end if
 
     case(3)
        call write_log('EISMINT-2')
        call write_log('---------')
-       write(message,*) 'temperature  : ',climate%airt(1)
+       write(message,*) 'temperature  : ',eismint_climate%airt(1)
        call write_log(message)
-       write(message,*) '               ',climate%airt(2)
+       write(message,*) '               ',eismint_climate%airt(2)
        call write_log(message)
-       write(message,*) 'massbalance  : ',climate%nmsb(1)
+       write(message,*) 'massbalance  : ',eismint_climate%nmsb(1)
        call write_log(message)
-       write(message,*) '               ',climate%nmsb(2)
+       write(message,*) '               ',eismint_climate%nmsb(2)
        call write_log(message)
-       write(message,*) '               ',climate%nmsb(3)
+       write(message,*) '               ',eismint_climate%nmsb(3)
        call write_log(message)
     end select
 
-    if ( (climate%eismint_type > 0) .and. (tasks > 1) ) then
+    if ( (eismint_climate%eismint_type > 0) .and. (tasks > 1) ) then
        call write_log('EISMINT tests are not supported for more than one processor', GM_FATAL)
     end if
 
     call write_log('')
 
-  end subroutine simple_printconfig
+  end subroutine eismint_printconfig
 
-  subroutine simple_massbalance(climate,model,time)
+  subroutine eismint_massbalance(eismint_climate,model,time)
 
-    !*FD calculate simple mass balance
+    !*FD calculate eismint mass balance
 
 !TODO - Remove acc0
 
@@ -393,7 +354,7 @@ contains
     use glimmer_scales, only : scale_acab
     implicit none
 
-    type(simple_climate) :: climate         !*FD structure holding climate info
+    type(eismint_climate_type) :: eismint_climate         !*FD structure holding climate info
     type(glide_global_type) :: model        !*FD model instance
     real(dp), intent(in) :: time            !*FD current time
 
@@ -413,57 +374,57 @@ contains
         periodic = 1.d0
     end if
 
-    select case(climate%eismint_type)
+    select case(eismint_climate%eismint_type)
 
     case(1)
        ! EISMINT-1 fixed margin
-       model%climate%acab(:,:) = climate%nmsb(1)
-       if (climate%period .ne. 0.d0) then
-          model%climate%acab(:,:) = model%climate%acab(:,:) + climate%mb_amplitude * sin(2.d0*pi*time/climate%period)/ (acc0 * scyr)
+       model%climate%acab(:,:) = eismint_climate%nmsb(1)
+       if (eismint_climate%period .ne. 0.d0) then
+          model%climate%acab(:,:) = model%climate%acab(:,:) + eismint_climate%mb_amplitude * sin(2.d0*pi*time/eismint_climate%period)/ (acc0 * scyr)
 !          model%climate%acab(:,:) = model%climate%acab(:,:) + climate%mb_amplitude * sin(2.d0*pi*time/climate%period) / scale_acab
        end if
 
     case(2)
        ! EISMINT-1 moving margin       
-       if (climate%period .ne. 0.d0) then
-          rel = climate%nmsb(3) + climate%mb_amplitude*sin(2.d0*pi*time/climate%period)
+       if (eismint_climate%period .ne. 0.d0) then
+          rel = eismint_climate%nmsb(3) + eismint_climate%mb_amplitude*sin(2.d0*pi*time/eismint_climate%period)
        else
-          rel = climate%nmsb(3)
+          rel = eismint_climate%nmsb(3)
        end if
 
        do ns = 1,model%general%nsn
           do ew = 1,model%general%ewn
              dist = grid * sqrt(periodic*(real(ew,kind=dp) - ewct)**2 + (real(ns,kind=dp) - nsct)**2)
-             model%climate%acab(ew,ns) = min(climate%nmsb(1), climate%nmsb(2) * (rel - dist))
+             model%climate%acab(ew,ns) = min(eismint_climate%nmsb(1), eismint_climate%nmsb(2) * (rel - dist))
           end do
        end do
 
     case(3)
        ! EISMINT-2
-       rel = climate%nmsb(3)
+       rel = eismint_climate%nmsb(3)
 
        do ns = 1,model%general%nsn
           do ew = 1,model%general%ewn
              dist = grid * sqrt(periodic*(real(ew,kind=dp) - ewct)**2 + (real(ns,kind=dp) - nsct)**2)
-             model%climate%acab(ew,ns) = min(climate%nmsb(1), climate%nmsb(2) * (rel - dist))
+             model%climate%acab(ew,ns) = min(eismint_climate%nmsb(1), eismint_climate%nmsb(2) * (rel - dist))
           end do
        end do
 
     case(4)
        !mismip 1
-       model%climate%acab = climate%nmsb(1)
+       model%climate%acab = eismint_climate%nmsb(1)
 
     case(5)
        !verification 
-       call exact_surfmass(climate,model,time,1.d0,climate%airt(2))
+       call exact_surfmass(eismint_climate,model,time,1.d0,eismint_climate%airt(2))
 
     end select
 
-  end subroutine simple_massbalance
+  end subroutine eismint_massbalance
 
-  subroutine simple_surftemp(climate,model,time)
+  subroutine eismint_surftemp(eismint_climate,model,time)
 
-    !*FD calculate simple air surface temperature
+    !*FD calculate eismint air surface temperature
 
     use glide_types
     use glimmer_global, only: dp
@@ -471,7 +432,7 @@ contains
     use glimmer_physcon, only : pi
     implicit none
 
-    type(simple_climate) :: climate         !*FD structure holding climate info
+    type(eismint_climate_type) :: eismint_climate         !*FD structure holding climate info
     type(glide_global_type) :: model        !*FD model instance
     real(dp), intent(in) :: time            !*FD current time
 
@@ -490,25 +451,25 @@ contains
         periodic = 1.d0
     end if
 
-    select case(climate%eismint_type)
+    select case(eismint_climate%eismint_type)
 
     case(1)
        ! EISMINT-1 fixed margin
        do ns = 1,model%general%nsn
           do ew = 1,model%general%ewn
              dist = grid * max(periodic*abs(real(ew,kind=dp) - ewct),abs(real(ns,kind=dp) - nsct))*1d-3
-             model%climate%artm(ew,ns) = climate%airt(1) + climate%airt(2) * dist*dist*dist
+             model%climate%artm(ew,ns) = eismint_climate%airt(1) + eismint_climate%airt(2) * dist*dist*dist
           end do
        end do
-       if (climate%period .ne. 0.d0) then
-          model%climate%artm(:,:) = model%climate%artm(:,:) + 10.d0*sin(2.d0*pi*time/climate%period)
+       if (eismint_climate%period .ne. 0.d0) then
+          model%climate%artm(:,:) = model%climate%artm(:,:) + 10.d0*sin(2.d0*pi*time/eismint_climate%period)
        end if
 
     case(2)
        ! EISMINT-1 moving margin
-       model%climate%artm(:,:) = climate%airt(1) - model%geometry%thck(:,:) * climate%airt(2)
-       if (climate%period .ne. 0.d0) then
-          model%climate%artm(:,:) = model%climate%artm(:,:) + 10.d0*sin(2.d0*pi*time/climate%period)
+       model%climate%artm(:,:) = eismint_climate%airt(1) - model%geometry%thck(:,:) * eismint_climate%airt(2)
+       if (eismint_climate%period .ne. 0.d0) then
+          model%climate%artm(:,:) = model%climate%artm(:,:) + 10.d0*sin(2.d0*pi*time/eismint_climate%period)
        end if
 
     case(3)
@@ -516,30 +477,30 @@ contains
        do ns = 1,model%general%nsn
           do ew = 1,model%general%ewn
              dist = grid * sqrt(periodic*(real(ew,kind=dp) - ewct)**2 + (real(ns,kind=dp) - nsct)**2)
-             model%climate%artm(ew,ns) = climate%airt(1)+climate%airt(2) * dist
+             model%climate%artm(ew,ns) = eismint_climate%airt(1)+eismint_climate%airt(2) * dist
           end do
        end do
 
     case(4)
-       model%climate%artm = climate%airt(1)
+       model%climate%artm = eismint_climate%airt(1)
 
     case(5)
        !call both massbalance and surftemp at the same time to save computing time. 
-       call exact_surfmass(climate,model,time,0.d0,climate%airt(2))
+       call exact_surfmass(eismint_climate,model,time,0.d0,eismint_climate%airt(2))
     end select
 
-  end subroutine simple_surftemp
+  end subroutine eismint_surftemp
   
-  !which_call - simple_surftemp(0)/simple_massbalance(1)/both(2)
+  !which_call - eismint_surftemp(0)/eismint_massbalance(1)/both(2)
   !which_test - test f(0)/test g(1)/exact(2)
 
-  subroutine exact_surfmass(climate,model,time,which_call,which_test)
+  subroutine exact_surfmass(eismint_climate,model,time,which_call,which_test)
 
     use glide_types
     use testsFG
     implicit none
 
-    type(simple_climate) :: climate             !*FD structure holding climate info
+    type(eismint_climate_type) :: eismint_climate             !*FD structure holding climate info
     type(glide_global_type) :: model            !*FD model instance
     real(dp), intent(in) :: time                !*FD current time
     real(dp), intent(in) :: which_test          !*FD  Which exact test (F=0, G=1)
@@ -619,4 +580,4 @@ contains
 
   end subroutine exact_surfmass
   
-end module simple_forcing
+end module eismint_forcing

@@ -806,6 +806,49 @@ module glide_types
 !!     real(dp) :: slidconst = 0.d0     ! not currently used
   end type glide_climate
 
+
+  type eismint_climate_type
+
+     ! holds parameters for the eismint climate
+
+     ! For EISMINT2:
+     ! airt(1) = Tmin = summit surface temperature (K)
+     ! airt(2) = S_T = horizontal temperature gradient (K/m)
+     ! nmsb(1) = M_max = max accumulation (m/yr)
+     ! nmsb(2) = S_b = horizontal smb gradient (m/yr/m)
+     ! nmsb(3) = R_el = radial distance from summit where mass balance = 0 (m)   
+     !
+
+     integer :: eismint_type = 0
+     !*FD select EISMINT experiment
+     !*FD \begin{description}
+     !*FD \item[{\bf 1}] EISMINT-1 fixed margin
+     !*FD \item[{\bf 2}] EISMINT-1 moving margin
+     !*FD \item[{\bf 3}] EISMINT-2
+     !*FD \item[{\bf 4}] MISMIP-1 (not EISMINT but has similar climate parameters)
+     !*FD \item[{\bf 5}] Exact verification (not EISMINT but has similar climate parameters)
+     !*FD \end{description}
+
+     ! Note: The initial nmsb values in the declarations below are appropriate
+     !       for EISMINT-2, but the initial airt values are not.
+     ! TODO: Change default airt to be consistent with EISMINT-2, while allowing for
+     !       correct EISMINT-1 values to be filled in below.
+
+     !*FD air temperature parameterisation K, K km$^{-3}$
+     real(dp), dimension(2) :: airt = (/ -3.15d0, 1.d-2 /)  
+
+     !*FD mass balance parameterisation:
+     real(dp), dimension(3) :: nmsb = (/ 0.5d0, 1.05d-5, 450.0d3 /)
+
+     !*FD EISMINT time-dep climate forcing period, switched off when set to 0
+     real(dp) :: period = 0.d0
+
+     !*FD EISMINT amplitude of mass balance time-dep climate forcing
+     real(dp) :: mb_amplitude = 0.2d0
+
+  end type eismint_climate_type
+
+
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   type glide_temper
@@ -1201,6 +1244,7 @@ module glide_types
     type(glide_velocity) :: velocity
     type(glide_stress_t) :: stress   
     type(glide_climate)  :: climate
+    type(eismint_climate_type) :: eismint_climate
     type(glide_temper)   :: temper
     type(glide_lithot_type) :: lithot
     type(glide_funits)   :: funits

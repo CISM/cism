@@ -34,7 +34,7 @@ subroutine cism_init_external_dycore(external_dycore_type,model)
   use glimmer_global
   use glide
   use glissade
-  use simple_forcing
+  use eismint_forcing
   use glimmer_log
   use glimmer_config
   use glimmer_commandline
@@ -88,7 +88,7 @@ subroutine cism_run_external_dycore(external_dycore_model_index,cur_time,time_in
   use glimmer_global
   use glide
   use glissade
-  use simple_forcing
+  use eismint_forcing
   use glimmer_log
   use glimmer_config
   use glimmer_commandline

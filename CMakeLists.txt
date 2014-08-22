@@ -310,7 +310,7 @@ file(GLOB FORTRANSOURCES
      libglimmer-solve/*.F90
      libglimmer/*.F90 libglimmer/writestats.c
      libglide/*.F90
-     cism_driver/simple_forcing.F90
+     cism_driver/eismint_forcing.F90
      cism_driver/testsfg.F90
      ${GLINT_SOURCES}
      ${GLISSADE_SOURCES}
