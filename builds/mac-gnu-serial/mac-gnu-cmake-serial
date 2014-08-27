@@ -42,8 +42,8 @@ echo Run this script by typing: source mac-cmake
 echo
 
 # remove old build data:
-rm ./CMakeCache.txt
-rm -r ./CMakeFiles
+rm -f ./CMakeCache.txt
+rm -rf ./CMakeFiles
 
 echo
 echo "Doing CMake Configuration step"
@@ -65,7 +65,7 @@ cmake \
 \
   -D CISM_GNU=ON \
 \
-  -D GLIMMER_NETCDF_DIR=$NETCDF_PATH \
+  -D CISM_NETCDF_DIR=$NETCDF_PATH \
 \
   -D CMAKE_INSTALL_PREFIX:PATH=$PWD/install \
   -D CMAKE_VERBOSE_MAKEFILE:BOOL=ON \
