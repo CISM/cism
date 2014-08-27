@@ -19,16 +19,16 @@ ALBANY_DIR=/home/ikalash/Desktop/clean/Albany/cism-build/install
 NETCDF_DIR=/home/ikalash/Install/netcdf-4.0.1
 
 cmake \
-  -D CISM_TRILINOS_DIR=$TRILINOS_DIR \
-  -D CISM_BUILD_SIMPLE_GLIDE:BOOL=ON \
-  -D ALBANY_FELIX_DYCORE:BOOL=ON \
-  -D CISM_ALBANY_DIR=$ALBANY_DIR \
-  -D CISM_NETCDF_DIR=$NETCDF_DIR \
-  -D CISM_NETCDF_LIBS="netcdf" \
-  -D CMAKE_Fortran_FLAGS="-g -O2 -ffree-line-length-none -fPIC -fno-range-check" \
-  -D CMAKE_VERBOSE_MAKEFILE=OFF \
-  ../..
-
+  -D CISM_BUILD_CISM_DRIVER:BOOL=ON \
+  -D CISM_ENABLE_BISICLES=OFF \
+  -D CISM_ENABLE_FELIX=OFF \
+\
+  -D CISM_USE_TRILINOS:BOOL=OFF \
+  -D CISM_MPI_MODE:BOOL=ON \
+  -D CISM_SERIAL_MODE:BOOL=OFF \
+\
+  -D CISM_USE_GPTL_INSTRUMENTATION:BOOL=OFF \
+  -D CISM_COUPLED:BOOL=OFF \
 # Note: last argument above  ".."  is path to top seacism directory
 #  -D ALBANY_BUILD_DIR="/home/ikalash/Desktop/clean/Albany_clean/build_cism" \
 #  -D ALBANY_BASE_DIR="/home/ikalash/Desktop/clean/Albany_clean" \
@@ -37,4 +37,5 @@ cmake \
 #-D DEBUG_OUTPUT_VERBOSITY:INT=O \ No debug output
 #-D DEBUG_OUTPUT_VERBOSITY:INT=1 \ Minimal debug output
 #-D DEBUG_OUTPUT_VERBOSITY:INT=2 \ Maximal debug output
+#It is set to 1 by default.
 #It is set to 1 by default.
