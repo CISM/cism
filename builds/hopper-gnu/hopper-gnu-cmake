@@ -2,7 +2,7 @@
 # After thus script completes, type: make -j 8
 # If rebuilding, type 'make clean' before running 'make -j 8'
 
-# This cmake configuration script builds simple_glide and simple_bisicles
+# This cmake configuration script builds cism_driver
 # on hopper using the gnu compiler suite.  It no longer relies on a build
 # of Trilinos, but does need a BISICLES build located in BISICLES_INTERFACE_DIR
 # (currently set to /global/u2/d/dmartin/BISICLES/code/interface)
@@ -18,30 +18,20 @@
 # USE_TRILINOS -- OFF by default, set to on for builds without Trilinos
 # CISM_MPI_MODE -- ON by default, only set to OFF for serial builds
 # CISM_SERIAL_MODE -- OFF by default, set to ON for serial builds.
-# CISM_BUILD_SIMPLE_GLIDE -- ON by default, set to OFF to not build simple_glide
-# CISM_ENABLE_BISICLES -- OFF by default, set to ON to build simple_bisicles
+#
+# CISM_ENABLE_BISICLES -- OFF by default, set to ON to build a bisicles-enabled cism_driver.
 #      Setting USE_TRILINOS to OFF will generate a much smaller executable for this build.
 # CISM_BUILD_EXTRA_EXECUTABLES -- OFF by default, set to ON to build eis_glide and others
 # CISM_USE_GPTL_INSTRUMENTATION -- OFF by default, set to ON to use GPTL instrumentation
 
-# NOTE: There is currently an incompatibility between simple_bisicles and GPTL.  If
-# the CISM_ENABLE_BISICLES is ON, the GPTL instrumentation is turned OFF.
+
+
 
 # help user get the correct modules loaded:
-
-
-# module unload modules
 
 echo
 echo Run this script by typing: source hopper-gnu-cmake
 echo
-
-# echo Warning: Python problem.  After the last hopper system updates 1/28/13, in order to run simple_glide
-# echo or simple_bisicles, you need to replace the python/2.7.3 module with the python/2.7.1 module.
-# echo The easiest way to do this: In your .cshrc.ext or .bashrc.ext add the lines:
-# echo module unload python 
-# echo module load python/2.7.1
-# echo
 
 module unload cmake
 module unload hdf5 
