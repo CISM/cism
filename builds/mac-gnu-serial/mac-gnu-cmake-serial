@@ -79,7 +79,7 @@ cmake \
   -D CMAKE_CXX_FLAGS:STRING="-g " \
   -D CMAKE_Fortran_FLAGS="-g -O3 -ffree-line-length-none -fbacktrace" \
 \
-  -D GLIMMER_EXTRA_LIBS="-lblas" \
+  -D CISM_EXTRA_LIBS="-lblas" \
 \
 \
   ../..
