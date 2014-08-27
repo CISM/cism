@@ -1,59 +1,64 @@
 
-CISM README file:
+GLIMMER README file:
 ===================
 
-CISM is a land ice model designed to be used as part of an earth-system model 
-or as a stand-alone model. Full documentation can be found at:
-http://oceans11.lanl.gov/cism/download.html
-
+Glimmer-CISM is a land ice model designed to be used as part of 
+an earth-system model or stand-alone model. Full documentation can 
+be found in the doc directory. 
 
 Licensing:
 =========
 
-CISM is issued under the Lesser GNU General Public Licence (see LICENSE in the main directory).
+Glimmer-CISM is issued under the GNU General Public Licence. 
+See LICENCE in the main directory.
 
-Note that this licence DOES NOT APPLY to the SLAP linear algebra library, used by the serial
-code, which is included here in its own directory (./libglimmer-solve/SLAP), and is in the public 
-domain.
+Note that this licence DOES NOT APPLY to the SLAP linear algebra library, 
+which is contained in its own directory, and is in the public domain.
 
+Mailing list
+============
+There are two mailing lists:
+1. the general user mailing list
+   archive:   https://lists.berlios.de/pipermail/glimmer-cism-user/
+   subscribe: https://lists.berlios.de/mailman/listinfo/glimmer-cism-user
 
-Mailing list:
+2. the developer mailing list
+   archive:   https://lists.berlios.de/pipermail/glimmer-cism-devel/
+   subscribe: https://lists.berlios.de/mailman/listinfo/glimmer-cism-devel
+
+3. the commit mailing list
+   archive:   https://lists.berlios.de/mailman/private/glimmer-cism-commit/
+   subscribe: https://lists.berlios.de/mailman/listinfo/glimmer-cism-commit
+
+Bugs:
+====
+
+Please send all bug reports (preferably with fixes!) to the glimmer mailing list:
+glimmer-cism-devel@lists.berlios.de
+
+Compiling:
+=========
+
+The model should build reasonably straightforwardly using make. 
+Additional notes are provided in COMPILE in the main directory.
+
+Documentation
 =============
+The doc directory contains the LaTeX sources for the documentation. When
+configuring the build system you can enable the documentation build by
+supplying the --enable-doc-pdf and/or --enable-doc-ps. If you have doxygen
+installed you can build the API documentation by running make doxygen-doc
+in the doc directory.
 
-There are two mailing lists, once for general users and one for developers:
+Running make www will produce a tar ball containing html versions of the
+manual and the API documentation.
 
-1. The general user mailing list can be signed up for by sending an email to:
-   cism-users+subscribe@googlegroups.com
+References:
+==========
 
-1. The developers mailing list can be signed up for by sending an email to:
-   cism-devel+subscribe@googlegroups.com
+The ice model which froms the core of Glimmer-CISM is described in:
+Rutt, I. C., M. Hagdorn, N. R. J. Hulton, and A. J. Payne (2009), 
+The Glimmer community ice sheet model, J. Geophys. Res., 114, F02004, 
+doi:10.1029/2008JF001015. 
 
-Note that because these lists are managed by GoogleGroups, they will *always* attempt to associate
-you with a Google email address. To insure that the email you would like to use is associated with the
-list, please make sure you entirely log out of any Google services before attempting to sign up for the
-mailing list. The sign-up process will require you to authenticate the email address you wish to use by
-taking you to a website where you will be prompted to enter that information.  
-
-
-Discussion Board:
-=================
-
-A discussion board for getting help with running CISM, either in stand-alone mode or as part of CESM, can
-be found at: http://bb.cgd.ucar.edu/forums/ice-sheet-modeling-cism  
-
-
-Bug Reporting:
-==============
-
-Pleae report unresolved problems using the bug reporting facility at the CISM Github website 
-(under "Issues"): https://github.com/CISM/CISM-release/issues
-
-
-Building / Installing CISM:
-===========================
-
-For detailed instructions on how to install and build CISM, please see Chapter 2 of the users
-guide (available at: http://oceans11.lanl.gov/cism/documentation.html)
-
-
-last updated: 8/26/2014
+Please cite this paper in any publication arising from using Glimmer-CISM.

@@ -100,7 +100,7 @@ for line in inputfile4:
       riggs_velocity.append(tokens[10])
       glimmer_velocity.append(v)
     else:
-      print 'CISM velocity is zero at (%g, %g); RIGGS velocity is %g' % (lon,lat,tokens[10])
+      print 'Glimmer velocity is zero at (%g, %g); RIGGS velocity is %g' % (lon,lat,tokens[10])
       lat0.append(lat)
       lon0.append(lon)
       vel0.append(tokens[10])
@@ -115,7 +115,7 @@ sigma = 30
 X2 = sum([((v1-v2)/sigma)**2 for v1,v2 in zip(riggs_velocity,glimmer_velocity)])
 print
 print 'Chi-squared for',len(riggs_velocity),'points is', X2
-print 'The maximum velocity from CISM is', numpy.max(velnorm)
+print 'The maximum velocity from Glimmer/CISM is', numpy.max(velnorm)
 print 'The maximum velocity from the RIGGS data is', max(riggs_velocity)
 
 # Create a scatter plot
@@ -128,7 +128,7 @@ pyplot.axis([0,1800,0,1800])
 pyplot.xticks(numpy.linspace(0.0, 1800.0, num=10, endpoint=True))
 pyplot.yticks(numpy.linspace(0.0, 1800.0, num=10, endpoint=True))
 pyplot.ylabel('Measured velocity from RIGGS (meters/year)')
-pyplot.xlabel('Model velocity from CISM (meters/year)')
+pyplot.xlabel('Model velocity from Glimmer/CISM (meters/year)')
 pyplot.title('Ross Ice Shelf Experiment')
 
 # Create a color plot of Glimmer and RIGGS velocities
@@ -164,11 +164,11 @@ pyplot.colorbar(orientation='vertical',fraction=0.05,pad=0.01,shrink=0.93,ticks=
 pyplot.title('Ross Ice Shelf Experiment - Velocity (meters/year)')
 print
 print 'FIGURE 2:'
-print 'If CISM perfectly predicted the velocities measured by the Ross'
+print 'If Glimmer/CISM perfectly predicted the velocities measured by the Ross'
 print 'Ice Shelf Geophysical and Glaciological Survey (RIGGS), the colors in'
 print 'the circles (which represent the RIGGS velocities) would be the same as'
 print 'the color of the background (which represents the velocities calculated'
-print 'by CISM).'
+print 'by Glimmer/CISM).'
 print
 
 
