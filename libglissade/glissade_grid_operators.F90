@@ -36,7 +36,8 @@ module glissade_grid_operators
 
     private
     public :: glissade_stagger, glissade_unstagger,  &
-              glissade_centered_gradient, glissade_upstream_gradient
+              glissade_centered_gradient, glissade_upstream_gradient,  &
+              glissade_vertical_average
 
     logical, parameter :: verbose_gradient = .false.
 
@@ -795,6 +796,63 @@ contains
 
 
   end subroutine glissade_upstream_gradient
+
+!----------------------------------------------------------------------------
+
+  subroutine glissade_vertical_average(nx,         ny,        &
+                                       nz,         sigma,     &
+                                       mask,                  &
+                                       var,        var_2d)
+
+    !----------------------------------------------------------------
+    ! Compute the vertical average of a given variable.
+    ! Note: It is assumed that the variable is defined at layer midpoints,
+    !       and hence has vertical dimension (nz-1).
+    ! Note: This subroutine will work for variables on the staggered
+    !       horizontal grid if stagthck is passed in place of thck.
+    !----------------------------------------------------------------
+
+    !----------------------------------------------------------------
+    ! Input-output arguments
+    !----------------------------------------------------------------
+
+    integer, intent(in) ::   &
+       nx, ny,            &     ! horizontal grid dimensions
+       nz                       ! number of vertical levels
+
+    real(dp), dimension(nz), intent(in) ::    &
+       sigma                    ! sigma vertical coordinate
+
+    logical, dimension(nx, ny), intent(in) ::    &
+       mask                     ! compute var_2d where mask = .true.
+
+    real(dp), dimension(nz-1,nx, ny), intent(in) ::    &
+       var                      ! 3D field to be averaged vertically
+
+    real(dp), dimension(nx, ny), intent(out) ::    &
+       var_2d                   ! 2D vertically averaged field
+
+    !--------------------------------------------------------
+    ! Local variables
+    !--------------------------------------------------------
+
+    integer :: i, j, k
+
+    do j = 1, ny
+       do i = 1, nx
+
+          var_2d(i,j) = 0.d0
+
+          if (mask(i,j)) then
+             do k = 1, nz-1
+                var_2d(i,j) = var_2d(i,j) + var(k,i,j) * (sigma(k+1) - sigma(k))
+             enddo
+          endif
+
+       enddo
+    enddo
+
+  end subroutine glissade_vertical_average
 
 !****************************************************************************
 

@@ -289,11 +289,15 @@ contains
       end do
       end do
 
-    ! NOTE: cases (HO_BABC_NO_SLIP) and (HO_BABC_YIELD_NEWTON) are handled external to this subroutine
+    ! NOTE: case (HO_BABC_YIELD_NEWTON) is handled external to this subroutine
 
-  end select
+   case(HO_BABC_NO_SLIP)   ! In this case we have a Dirichlet basal BC, and the value of beta is not used
 
-end subroutine calcbeta
+      beta(:,:) = 0.d0
+
+   end select
+
+ end subroutine calcbeta
 
 !***********************************************************************
 
