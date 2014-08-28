@@ -18,7 +18,7 @@ Input and output .nc files are written into the directory from which the script 
 > python halfar_results.py
 Once again, advanced options are available and can be listed with:
 > python halfar_results.py --help
-This script will generate some basic statistics about te error in the model relative 
+This script will generate some basic statistics about the error in the model relative 
 to the analytic solution and display maps of the modeled and analytic thickness and the model error.
 For example, the defaults halfar.config settings will run the model for 200 years, 
 giving the following error statistics on my Mac:

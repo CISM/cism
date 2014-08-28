@@ -233,6 +233,7 @@ if create_files:
 # Set the velocity to zero except where needed as a kinematic boundary condition.
   velocity[kbc == 0] = 0.0
 # Get the components of the velocity vector
+# Note: velocity1 is vvel, velocity 2 is uvel
   azimuth *= numpy.pi/180.0
   velocity1 = velocity * numpy.cos(azimuth)
   velocity2 = velocity * numpy.sin(azimuth)

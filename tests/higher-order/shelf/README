@@ -93,8 +93,8 @@ This script has a few more options:
 
 --smooth-beta (or the short version, -b) specifies that a Gaussian function
 will be used for beta.  The default is that there is a small square region
-in the center of the domain where beta is large; Beta is one over the rest of
-the domain.  There is an abrupt step from the large value (1.0e10) to one (1.0)
+in the center of the domain where beta is large; Beta is zero over the rest of
+the domain.  There is an abrupt step from the large value (1.0e10) to zero (0.0)
 when using the default.
 
 --dirichlet-center (or the short version, -d) specifies that a Dirichlet 
