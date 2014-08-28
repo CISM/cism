@@ -136,12 +136,9 @@ subroutine cism_init_dycore(model)
   model%numerics%time = time    ! MJH added 1/10/13 - the initial diagnostic glissade solve won't know 
                                 !                     the correct time on a restart unless we set it here.
 
-  ! These calls are needed only for the EISMINT test cases, and they are not needed
-  ! for initialization provided they are called at the start of each timestep.
-  ! MJH: Actually I think they may be needed so that these B.C. are available
-  ! on the initial time level.
-!  call eismint_massbalance(model%eismint_climate,model,time)
-!  call eismint_surftemp(model%eismint_climate,model,time)
+  ! Set EISMINT forcing for initial time
+  call eismint_massbalance(model%eismint_climate,model,time)
+  call eismint_surftemp(model%eismint_climate,model,time)
 
   ! read forcing time slice if needed - this will overwrite values from IC file if there is a conflict.
   call glide_read_forcing(model, model)
@@ -271,13 +268,6 @@ subroutine cism_run_dycore(model)
   ! run an internal or external dycore, depending on setting external_dycore_type
   do while(time + time_eps < model%numerics%tend)
 
-    ! MJH To match old implementation in simple_glide, EISMINT forcing needs to 
-    !  appear here.  However this is probably not the best place for it.
-    ! TODO: need to fix program to get initialized eismint_climate variable
-    ! NOTE: these only do something when an EISMINT case is run
-    call eismint_massbalance(model%eismint_climate,model,time)
-    call eismint_surftemp(model%eismint_climate,model,time)
-
     ! Increment time step
     if (model%options%whichdycore /= DYCORE_BISICLES) then
       time = time + model%numerics%tinc
@@ -286,13 +276,6 @@ subroutine cism_run_dycore(model)
     endif
 ! print *,"external_dycore_type: ",model%options%external_dycore_type
 
-
-    ! --- Read forcing from EISMINT or from external data file ---
-
-    ! read time slice if needed
-    call t_startf('glide_read_forcing')
-    call glide_read_forcing(model, model)
-    call t_stopf('glide_read_forcing')
 
     !if (model%options%external_dycore_type .EQ. 0) then      ! NO_EXTERNAL_DYCORE) then
     !  if (model%options%whichdycore == DYCORE_GLIDE) then
@@ -349,8 +332,27 @@ subroutine cism_run_dycore(model)
     ! update time from dycore advance
     model%numerics%time = time
 
-    ! Write to output netCDF files at desired intervals
+    ! --- Set forcing ---
+    ! Setting forcing at the end of the time step maintains consistency
+    ! with a forward Euler time step and ensures consistency of the time stamp
+    ! to fields in input and output files.  
+    ! For forward Euler time stepping we want S^n+1 = g(S^n, F^n)
+    ! where S is the model state, F is forcing, and n, n+1 are time levels
+    ! We also want a forcing field in the output file to have a time stamp
+    ! that matches its time stamp in the input file or the EISMINT analytic function.
+    ! The simplest way to ensure both of these criteria is to set forcing at the
+    ! end of each time step.
+    ! EISMINT forcing
+    ! NOTE: these only do something when an EISMINT case is run
+    call eismint_massbalance(model%eismint_climate,model,time)
+    call eismint_surftemp(model%eismint_climate,model,time)
+    ! Forcing from a 'forcing' data file - will read time slice if needed
+    call t_startf('glide_read_forcing')
+    call glide_read_forcing(model, model)
+    call t_stopf('glide_read_forcing')
 
+
+    ! Write to output netCDF files at desired intervals
     call t_startf('glide_io_writeall')
     call glide_io_writeall(model,model)
     call t_stopf('glide_io_writeall')
