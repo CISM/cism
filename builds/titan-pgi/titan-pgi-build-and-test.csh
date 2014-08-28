@@ -51,7 +51,7 @@ set CISM_VV_SCRIPT = 'rhea_VV.bash'
 echo
 echo 'To use this script, type: csh '$PLATFORM_NAME'-'$COMPILER_NAME'-build-and-test.csh'
 echo
-echo 'For a quick test (dome only), type: csh '$PLATFORM_NAME'-'$COMPILER_NAME'-build-and-test.csh quick-test'
+#echo 'For a quick test (dome only), type: csh '$PLATFORM_NAME'-'$COMPILER_NAME'-build-and-test.csh quick-test'
 echo
 echo "Call with no-copy to prevent copying of the reg_test and livv defaults."
 echo "Call with run-perf-tests to run the performance tests."
