@@ -65,7 +65,6 @@ subroutine cism_init_dycore(model)
 
 
   type(glide_global_type) :: model        ! model instance
-  type(eismint_climate_type) :: eismint_climate         ! climate
   type(ConfigSection), pointer :: config  ! configuration stuff
   real(kind=dp) :: time                   ! model time in years
   integer :: clock,clock_rate,ret
@@ -141,8 +140,8 @@ subroutine cism_init_dycore(model)
   ! for initialization provided they are called at the start of each timestep.
   ! MJH: Actually I think they may be needed so that these B.C. are available
   ! on the initial time level.
-  call eismint_massbalance(eismint_climate,model,time)
-  call eismint_surftemp(eismint_climate,model,time)
+!  call eismint_massbalance(model%eismint_climate,model,time)
+!  call eismint_surftemp(model%eismint_climate,model,time)
 
   ! read forcing time slice if needed - this will overwrite values from IC file if there is a conflict.
   call glide_read_forcing(model, model)
@@ -251,7 +250,6 @@ subroutine cism_run_dycore(model)
 
 
   type(glide_global_type) :: model        ! model instance
-  type(eismint_climate_type) :: eismint_climate         ! climate
   type(ConfigSection), pointer :: config  ! configuration stuff
   real(kind=dp) :: time                   ! model time in years
   real(kind=dp) :: dt                     ! current time step to use
@@ -273,6 +271,13 @@ subroutine cism_run_dycore(model)
   ! run an internal or external dycore, depending on setting external_dycore_type
   do while(time + time_eps < model%numerics%tend)
 
+    ! MJH To match old implementation in simple_glide, EISMINT forcing needs to 
+    !  appear here.  However this is probably not the best place for it.
+    ! TODO: need to fix program to get initialized eismint_climate variable
+    ! NOTE: these only do something when an EISMINT case is run
+    call eismint_massbalance(model%eismint_climate,model,time)
+    call eismint_surftemp(model%eismint_climate,model,time)
+
     ! Increment time step
     if (model%options%whichdycore /= DYCORE_BISICLES) then
       time = time + model%numerics%tinc
@@ -283,11 +288,6 @@ subroutine cism_run_dycore(model)
 
 
     ! --- Read forcing from EISMINT or from external data file ---
-
-    ! TODO: need to fix program to get initialized eismint_climate variable
-    ! NOTE: these only do something when an EISMINT case is run
-    call eismint_massbalance(model%eismint_climate,model,time)
-    call eismint_surftemp(model%eismint_climate,model,time)
 
     ! read time slice if needed
     call t_startf('glide_read_forcing')
@@ -364,7 +364,6 @@ subroutine cism_finalize_dycore(model)
   use glimmer_global
   use glide
   use glissade
-  use eismint_forcing
   use glimmer_log
   use glimmer_config
   use glide_nc_custom, only: glide_nc_fillall
