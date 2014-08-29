@@ -1153,6 +1153,8 @@ module glide_types
     real(dp) :: bwat_smooth = 0.01d0   ! basal water field smoothing strength
     real(dp) :: default_flwa = 1.0d-16 ! Glen's A to use in isothermal case, in units Pa^{-n} yr^{-1} 
                                        ! (would change to e.g. 4.6e-18 in EISMINT-ROSS case)
+    real(dp) :: efvs_constant = 2336041.42829d0  ! value of efvs to use in constant efvs case, in units Pa yr
+                                                 ! this is the value prescribed in ISMIP-HOM Test F
     real(dp) :: ho_beta_const = 10.d0  ! spatially uniform beta for HO dycores, Pa yr m^{-1} (gets scaled during init)
 
   end type glide_paramets

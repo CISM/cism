@@ -649,7 +649,8 @@
        thklim, &                ! minimum ice thickness for active cells (m)
        eus,  &                  ! eustatic sea level (m)
                                 ! = 0. by default
-       ho_beta_const            ! constant beta value (Pa/(m/yr)) for whichbabc = HO_BABC_CONSTANT
+       ho_beta_const,  &        ! constant beta value (Pa/(m/yr)) for whichbabc = HO_BABC_CONSTANT
+       efvs_constant            ! constant efvs value (Pa yr) for whichefvs = HO_EFVS_CONSTANT
 
     real(dp), dimension(:,:), pointer ::  &
        thck,                 &  ! ice thickness (m)
@@ -919,6 +920,7 @@
      thklim = model%numerics%thklim
      eus    = model%climate%eus
      ho_beta_const = model%paramets%ho_beta_const
+     efvs_constant = model%paramets%efvs_constant
  
      whichbabc     = model%options%which_ho_babc
      whichefvs     = model%options%which_ho_efvs
@@ -1781,6 +1783,7 @@
                                          stagusrf,         stagthck,        &
                                          flwafact,         whichapprox,     &
                                          efvs,             whichefvs,       &
+                                         efvs_constant,                     &
                                          Auu_2d,           Auv_2d,          &
                                          Avu_2d,           Avv_2d)
 
@@ -1968,6 +1971,7 @@
                                          stagusrf,         stagthck,        &
                                          flwafact,         whichapprox,     &
                                          efvs,             whichefvs,       &
+                                         efvs_constant,                     &
                                          Auu,              Auv,             &
                                          Avu,              Avv)
 
@@ -3772,6 +3776,7 @@
                                           stagusrf,         stagthck,        &
                                           flwafact,         whichapprox,     &
                                           efvs,             whichefvs,       &
+                                          efvs_constant,                     &       
                                           Auu,              Auv,             &
                                           Avu,              Avv)
 
@@ -3811,6 +3816,9 @@
     integer, intent(in) ::   &
        whichapprox,     & ! option for Stokes approximation (BP, SSA, SIA)
        whichefvs          ! option for effective viscosity calculation 
+
+    real(dp), intent(in) :: &
+       efvs_constant      ! constant value of effective viscosity (Pa yr)
 
     real(dp), dimension(nz-1,nx,ny), intent(out) ::  &
        efvs               ! effective viscosity (Pa yr)
@@ -3961,7 +3969,7 @@
 
 !          call t_startf('glissade_effective_viscosity')
                 call compute_effective_viscosity(whichefvs,        whichapprox,                       &
-                                                 nNodesPerElement_3d,                                 &
+                                                 efvs_constant,    nNodesPerElement_3d,               &
                                                  dphi_dx_3d(:,p),  dphi_dy_3d(:,p),  dphi_dz_3d(:,p), &
                                                  u(:),             v(:),                              & 
                                                  flwafact(k,i,j),  efvs_qp(p),                        &
@@ -4036,6 +4044,7 @@
                                           stagusrf,         stagthck,        &
                                           flwafact,         whichapprox,     &
                                           efvs,             whichefvs,       &
+                                          efvs_constant,                     &
                                           Auu,              Auv,             &
                                           Avu,              Avv)
 
@@ -4075,6 +4084,9 @@
     integer, intent(in) ::   &
        whichapprox,     & ! option for Stokes approximation (BP, SSA, SIA)
        whichefvs          ! option for effective viscosity calculation 
+
+    real(dp), intent(in) :: &
+       efvs_constant      ! constant value of effective viscosity (Pa yr)
 
     real(dp), dimension(nz-1,nx,ny), intent(out) ::  &
        efvs               ! effective viscosity (Pa yr)
@@ -4235,7 +4247,7 @@
 
 !          call t_startf('glissade_effective_viscosity')
              call compute_effective_viscosity(whichefvs,         whichapprox,                       &
-                                              nNodesPerElement_2d,                                  &
+                                              efvs_constant,     nNodesPerElement_3d,               &
                                               dphi_dx_2d(:,p),   dphi_dy_2d(:,p),  dphi_dz_2d(:,p), &
                                               u(:),              v(:),                              & 
                                               flwafact_2d(i,j),  efvs_qp(p),                        &
@@ -4727,11 +4739,11 @@
 
 !WHL - Pass i, j, k, and p for now
 
-  subroutine compute_effective_viscosity (whichefvs,   whichapprox,            &
-                                          nNodesPerElement,                    &
-                                          dphi_dx,     dphi_dy,  dphi_dz,      &
-                                          uvel,        vvel,                   &
-                                          flwafact,    efvs,                   &
+  subroutine compute_effective_viscosity (whichefvs,     whichapprox,            &
+                                          efvs_constant, nNodesPerElement,       &
+                                          dphi_dx,       dphi_dy,    dphi_dz,    &
+                                          uvel,          vvel,                   &
+                                          flwafact,      efvs,                   &
                                           i, j, k, p )
 
     ! Compute effective viscosity at a quadrature point, based on the latest
@@ -4752,6 +4764,9 @@
 
     integer, intent(in) :: &
        whichapprox     ! option for Stokes approximation (BP, SSA, SIA)
+
+    real(dp), intent(in) :: &
+       efvs_constant   ! constant value of effective viscosity (Pa yr)
 
     integer, intent(in) :: nNodesPerElement   ! number of nodes per element
                                               ! = 4 for 2D, = 8 for 3D
@@ -4806,10 +4821,9 @@
 
     case(HO_EFVS_CONSTANT)
 
-       !TODO - Set this default value in glimmer_paramets.F90
        ! Steve recommends 10^6 to 10^7 Pa yr
-       ! ISMIP-HOM Test F requires 2336041.42829 Pa yr, so use this as the typical value
-       efvs = 2336041.42829d0
+       ! ISMIP-HOM Test F requires 2336041.42829 Pa yr; this is the default value set in glide_types.F90
+       efvs = efvs_constant
 
        if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
           print*, 'Set efvs = constant (Pa yr):', efvs

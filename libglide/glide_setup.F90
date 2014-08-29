@@ -1096,6 +1096,8 @@ contains
 
     loglevel = GM_levels-GM_ERROR
 
+    !TODO - Change default_flwa to flwa_constant?
+    !       Would have to change config files too
     call GetValue(section,'log_level',loglevel)
     call glimmer_set_msg_level(loglevel)
     call GetValue(section,'ice_limit',        model%numerics%thklim)
@@ -1105,6 +1107,7 @@ contains
     call GetValue(section,'geothermal',       model%paramets%geot)
     call GetValue(section,'flow_factor',      model%paramets%flow_factor)
     call GetValue(section,'default_flwa',     model%paramets%default_flwa)
+    call GetValue(section,'efvs_constant',    model%paramets%efvs_constant)
     call GetValue(section,'hydro_time',       model%paramets%hydtim)
 
     ! NOTE: bpar is used only for BTRC_TANH_BWAT
@@ -1180,6 +1183,16 @@ contains
 
     write(message,*) 'basal hydro time constant (yr): ', model%paramets%hydtim
     call write_log(message)
+
+    if (model%options%whichflwa == FLWA_CONST_FLWA) then
+       write(message,*) 'constant flow factor (Pa^-n yr^-1):', model%paramets%default_flwa
+       call write_log(message)
+    end if
+
+    if (model%options%which_ho_efvs == HO_EFVS_CONSTANT) then
+       write(message,*) 'constant effec viscosity (Pa yr):  ', model%paramets%efvs_constant
+       call write_log(message)
+    end if
 
     if (model%options%whichbtrc == BTRC_CONSTANT      .or.  &
         model%options%whichbtrc == BTRC_CONSTANT_BWAT .or.  &
