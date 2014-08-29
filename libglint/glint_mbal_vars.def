@@ -42,6 +42,12 @@ long_name:     Cartesian y-coordinate
 standard_name: projection_y_coordinate
 dimlen:        global_nsn
 
+# --- MJH  8/29/2014 -----------------------------------------------
+# Because glint is calling glide_nc_fillall() these glide dimension variables
+# need to be included here even though they are not used by glint, otherwise
+# a fatal error occurs (at least on some builds).
+# A more appropriate fix might be to create a glint_nc_fillall() that would not
+# try to write these variables to the output file.
 [level]
 dimensions:    level
 units:         1
@@ -50,12 +56,28 @@ standard_name: land_ice_sigma_coordinate
 formula_terms: sigma: level topo: topg thick: thk
 dimlen:        model%general%upn
 
-#WHL - Removed [lithoz], since not relevant for glint
-#[lithoz]
-#dimensions:    lithoz
-#units:         meter
-#long_name:     vertical coordinate of lithosphere layer
-#dimlen:        model%lithot%nlayer
+[staglevel]
+dimensions:    staglevel
+units:         1
+long_name:     stag sigma layers
+standard_name: land_ice_stag_sigma_coordinate
+positive:      down
+dimlen:        model%general%upn-1
+
+[stagwbndlevel]
+dimensions:    stagwbndlevel
+units:         1
+long_name:     stag sigma layers with boundaries
+standard_name: land_ice_stag_sigma_coordinate_with_bnd
+positive:      down
+dimlen:        model%general%upn+1
+
+[lithoz]
+dimensions:    lithoz
+units:         meter
+long_name:     vertical coordinate of lithosphere layer
+dimlen:        model%lithot%nlayer
+# ------------------------------------------------------------------
 
 [instant_snowd]
 dimensions:    time, y1, x1
