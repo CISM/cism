@@ -4809,8 +4809,7 @@
        !TODO - Set this default value in glimmer_paramets.F90
        ! Steve recommends 10^6 to 10^7 Pa yr
        ! ISMIP-HOM Test F requires 2336041.42829 Pa yr, so use this as the typical value
-!!!       efvs = 2336041.42829d0
-       efvs = 2000000.d0
+       efvs = 2336041.42829d0
 
        if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
           print*, 'Set efvs = constant (Pa yr):', efvs
