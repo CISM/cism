@@ -87,13 +87,13 @@ source ./$CMAKE_SCRIPT >& $CMAKE_CONF_OUT
 echo 'Making serial '$COMPILER_NAME'...'
 make -j 8 >& $CMAKE_BUILD_OUT
 
-if ( -e example-drivers/simple_glide/src/simple_glide ) then
- echo 'Copying '$COMPILER_NAME' simple_glide_serial to test directory'
- cp -f example-drivers/simple_glide/src/simple_glide $TEST_DIR/simple_glide_serial
-else
- echo "cmake '$COMPILER_NAME' build failed, no executable"
- @ build_problem = 1
-endif
+#if ( -e example-drivers/simple_glide/src/simple_glide ) then
+# echo 'Copying '$COMPILER_NAME' simple_glide_serial to test directory'
+# cp -f example-drivers/simple_glide/src/simple_glide $TEST_DIR/simple_glide_serial
+#else
+# echo "cmake '$COMPILER_NAME' build failed, no executable"
+# @ build_problem = 1
+#endif
 
 if ( -e cism_driver/cism_driver ) then
  echo 'Copying '$COMPILER_NAME' cism_driver_serial to test directory'

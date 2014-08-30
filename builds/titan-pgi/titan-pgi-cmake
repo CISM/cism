@@ -87,7 +87,6 @@ cmake \
 \
   -D CISM_GPTL_DIR=/ccs/proj/cli062/cism_gptl/libgptl/libgptl-titan-pgi \
   -D CISM_NETCDF_DIR=/opt/cray/netcdf-hdf5parallel/4.3.0/pgi/121 \
-  -D CISM_FMAIN=/opt/pgi/13.10.0/linux86-64/13.10/lib/f90main.o \
 \
   -D CMAKE_INSTALL_PREFIX:PATH=$PWD/install \
   -D CMAKE_VERBOSE_MAKEFILE:BOOL=ON \
@@ -106,6 +105,7 @@ cmake \
   -D CISM_STATIC_LINKING:BOOL=ON \
   ../..
 
+#  -D CISM_FMAIN=/opt/pgi/13.10.0/linux86-64/13.10/lib/f90main.o \
 
 #  -D CISM_TRILINOS_DIR=/tmp/proj/cli054/trilinos-10.12/FEB2013_FAST_PGI/install \
 
