@@ -174,18 +174,7 @@ contains
 
     call define_glint_restart_variables(instance)
  
-    ! create glint variables for the glide output files
-    call glint_io_createall(instance%model, data=instance)
 
-    ! create instantaneous glint variables
-
-    call openall_out(instance%model, outfiles=instance%out_first)
-    call glint_mbal_io_createall(instance%model, data=instance, outfiles=instance%out_first)
-
-    ! fill dimension variables
-
-    call glide_nc_fillall(instance%model)
-    call glide_nc_fillall(instance%model, outfiles=instance%out_first)
 
     ! Check we've used all the config sections
 
@@ -240,6 +229,21 @@ contains
        write (6,*) 'next_time =', instance%next_time
        write (6,*) 'start_time =', instance%mbal_accum%start_time
     end if
+
+
+    ! -- Do all the netCDF output setup operations now that the model config has been finalized --
+    !    (We can't do these operations until all needed model variables are allocated)
+    ! create glint variables for the glide output files
+    call glint_io_createall(instance%model, data=instance)
+
+    ! create instantaneous glint variables
+    call openall_out(instance%model, outfiles=instance%out_first)
+    call glint_mbal_io_createall(instance%model, data=instance, outfiles=instance%out_first)  !
+
+    ! fill dimension variables
+    call glide_nc_fillall(instance%model)
+    call glide_nc_fillall(instance%model, outfiles=instance%out_first)
+
 
     ! Mass-balance accumulation length
 
