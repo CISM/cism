@@ -253,6 +253,7 @@ IF (CISM_USE_TRILINOS)
    ENDIF()
 
    ADD_DEFINITIONS(-DCISM_MPI -DTRILINOS)
+    ADD_DEFINITIONS(-DGLIMMER_MPI)
    MESSAGE(">> Trilinos build: adding  -DTRILINOS  to compile lines")
 
    include_directories(${CISM_NETCDF_DIR}/include)
@@ -262,6 +263,7 @@ ELSE()
 
    IF (${CISM_MPI_MODE})
       ADD_DEFINITIONS(-DCISM_MPI)
+      ADD_DEFINITIONS(-DGLIMMER_MPI)
    ENDIF()
    include_directories(${CISM_NETCDF_DIR}/include ${CISM_MPI_INC_DIR})
 
