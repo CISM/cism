@@ -149,7 +149,7 @@ contains
 
        ! initialise the model
        call glissade_initialise(instance%model)
-
+ 
        ! compute the initial diagnostic state
        call glissade_diagnostic_variable_solve(instance%model)
 
@@ -485,8 +485,8 @@ contains
                               instance%lgrid,      &
                               instance%whichacab)
 
-    !If flag set to force frequent coupling (for testing purposes)
-    !Decrease all coupling timesteps to very short intervals
+    ! If flag set to force frequent coupling (for testing purposes),
+    ! then decrease all coupling timesteps to very short intervals
     if (instance%test_coupling) then
        instance%mbal_accum%mbal%tstep = 24
        instance%mbal_accum_time =       24

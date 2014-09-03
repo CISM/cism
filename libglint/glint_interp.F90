@@ -805,22 +805,21 @@ contains
        nyl_full = size(local_fulldomain,2)
        global(:,:) = 0.d0
 
-       !set topography value in global cells for which the mask exists, to a very high value.
-       !this should then be reduced on the next swing through the loop.
+       ! Set topography value in global cells for which the mask exists, to a very high value.
+       ! This should be reduced on the next swing through the loop.
        do i=1,nxl_full
           do j=1,nyl_full    
-             if (tempmask_fulldomain(i,j) > 0.) then
-               global(ups%gboxx(i,j),ups%gboxy(i,j)) = huge(1.d0)
+             if (tempmask_fulldomain(i,j) > 0.d0) then
+                global(ups%gboxx(i,j),ups%gboxy(i,j)) = huge(1.d0)
              endif
           enddo
        enddo         
 
        do i=1,nxl_full
           do j=1,nyl_full
-             if (tempmask_fulldomain(i,j) > 0.) then
-               global(ups%gboxx(i,j),ups%gboxy(i,j)) = min ( &
-                 global(ups%gboxx(i,j),ups%gboxy(i,j)), &
-                 local_fulldomain(i,j))
+             if (tempmask_fulldomain(i,j) > 0.d0) then
+                global(ups%gboxx(i,j),ups%gboxy(i,j)) = min ( &
+                     global(ups%gboxx(i,j),ups%gboxy(i,j)), local_fulldomain(i,j))
              end if
           enddo
        enddo
@@ -836,11 +835,11 @@ contains
 
   real(dp) function bilinear_interp(xp,yp,f)
 
-    !*FD Performs bilinear interpolation 
-    !*FD in a rectangular domain. Note that the bilinear interpolation formula is:
-    !*FD  \[f_{\mathtt{x},\mathtt{y}}=(1-X')(1-Y')f_{1}+X'(1-Y')f_{2}+X'Y'f_{3}+(1-X')Y'f_{4}\]
-    !*FD where $X'$ and $Y'$ are the fractional displacements of the target point within the domain.
-    !*RV The value of \texttt{f} at \texttt{x,y}
+    ! Performs bilinear interpolation in a rectangular domain. 
+    ! Note that the bilinear interpolation formula is:
+    !  \[f_{\mathtt{x},\mathtt{y}} = (1-X')(1-Y')f_{1} + X'(1-Y')f_{2} + X'Y'f_{3} + (1-X')Y'f_{4}\]
+    ! where $X'$ and $Y'$ are the fractional displacements of the target point within the domain.
+    ! The value of \texttt{f} at \texttt{x,y}
 
     ! Argument declarations
 
@@ -852,7 +851,7 @@ contains
                                               !*FD left 
     ! Apply bilinear interpolation formula
 
-    bilinear_interp=(1-xp)*(1-yp)*f(1)+xp*(1-yp)*f(2)+xp*yp*f(3)+(1-xp)*yp*f(4)
+    bilinear_interp = (1.d0-xp)*(1.d0-yp)*f(1) + xp*(1.d0-yp)*f(2) + xp*yp*f(3) + (1.d0-xp)*yp*f(4)
 
   end function bilinear_interp
 

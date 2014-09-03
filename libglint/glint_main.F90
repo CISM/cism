@@ -1533,11 +1533,11 @@ contains
 
              ! Add the contribution from this instance to the global output
 
-             call splice_fields_gcm(gfrac_temp, gtopo_temp,    & !gfrac_temp here is fractional area, for each elevation level, of the total land+ice area.
-                                    grofi_temp, grofl_temp,    &
+             call splice_fields_gcm(gfrac_temp, gtopo_temp,    & !gfrac_temp here is fractional area, for each elevation level,
+                                    grofi_temp, grofl_temp,    & !  of the total land+ice area
                                     ghflx_temp,                &
-                                    gfrac,      gtopo,         & !gfrac here is the fractional area, for each elevation level, of the fractional area of the total grid cell that is covered by CISM-owned land.
-                                    grofi,      grofl,         &
+                                    gfrac,      gtopo,         & !gfrac here is the fractional area, for each elevation level, 
+                                    grofi,      grofl,         & ! of the fractional area of the total grid cell that is covered by CISM-owned land
                                     ghflx,                     &
                                     params%g_grid%nec,         &
                                     params%instances(i)%frac_coverage)

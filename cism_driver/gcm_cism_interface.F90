@@ -59,7 +59,7 @@ subroutine gci_init_interface(which_gcm,g2c)
   use cism_front_end 
 
   integer, intent(in) :: which_gcm
-  type(gcm_to_cism_type) :: g2c   ! holds everthing
+  type(gcm_to_cism_type) :: g2c   ! holds everything
 
   integer :: whichdycore, precip_mode=-10, assoc_flag
   type(ConfigSection), pointer :: config  ! configuration stuff
@@ -112,7 +112,7 @@ subroutine gci_run_model(g2c)
   logical :: finished = .false.
 
   print *,'which_gcm = ',g2c%which_gcm
-
+  
   do while (.not. finished)
     select case (g2c%which_gcm)
       case (GCM_MINIMAL_MODEL)

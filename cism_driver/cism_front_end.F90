@@ -190,7 +190,7 @@ subroutine cism_init_dycore(model)
         endif
 
         ! solve the remaining diagnostic variables for the initial state
-        call glissade_diagnostic_variable_solve(model)  !velocity, usrf, etc.
+        call glissade_diagnostic_variable_solve(model)  ! velocity, usrf, etc.
 
         if (model%numerics%tstart < (model%numerics%tend - model%numerics%tinc)) then
           ! restore profiling to normal settings

@@ -36,6 +36,7 @@
   use glint_type
   use glint_constants
   use glimmer_global, only: dp
+
   implicit none
 
   private
@@ -46,6 +47,8 @@
   !      in glint_mbal_coupling.F90.
 
 contains
+
+!++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   subroutine glint_downscaling(instance,                  &
                                g_temp,     g_temp_range,  &
@@ -72,27 +75,27 @@ contains
     real(dp),dimension(:,:),intent(in)   :: g_airpress   !*FD Global surface air pressure (Pa)
     logical,                intent(in)   :: orogflag
 
-    call interp_to_local(instance%lgrid_fulldomain,g_temp,      instance%downs,localdp=instance%artm)
-    call interp_to_local(instance%lgrid_fulldomain,g_temp_range,instance%downs,localdp=instance%arng,z_constrain=.true.)
-    call interp_to_local(instance%lgrid_fulldomain,g_precip,    instance%downs,localdp=instance%prcp,z_constrain=.true.)
+    call interp_to_local(instance%lgrid_fulldomain, g_temp,       instance%downs, localdp=instance%artm)
+    call interp_to_local(instance%lgrid_fulldomain, g_temp_range, instance%downs, localdp=instance%arng,z_constrain=.true.)
+    call interp_to_local(instance%lgrid_fulldomain, g_precip,     instance%downs, localdp=instance%prcp,z_constrain=.true.)
 
     if (instance%whichacab==MASS_BALANCE_EBM) then
-       call interp_to_local(instance%lgrid_fulldomain,g_humid,   instance%downs,localdp=instance%humid,z_constrain=.true.)
-       call interp_to_local(instance%lgrid_fulldomain,g_lwdown,  instance%downs,localdp=instance%lwdown)
-       call interp_to_local(instance%lgrid_fulldomain,g_swdown,  instance%downs,localdp=instance%swdown)
-       call interp_to_local(instance%lgrid_fulldomain,g_airpress,instance%downs,localdp=instance%airpress,z_constrain=.true.)
+       call interp_to_local(instance%lgrid_fulldomain, g_humid,   instance%downs, localdp=instance%humid,z_constrain=.true.)
+       call interp_to_local(instance%lgrid_fulldomain, g_lwdown,  instance%downs, localdp=instance%lwdown)
+       call interp_to_local(instance%lgrid_fulldomain, g_swdown,  instance%downs, localdp=instance%swdown)
+       call interp_to_local(instance%lgrid_fulldomain, g_airpress,instance%downs, localdp=instance%airpress,z_constrain=.true.)
     end if
 
-    if (orogflag) call interp_to_local(instance%lgrid_fulldomain,g_orog,instance%downs,localdp=instance%global_orog,z_constrain=.true.)
+    if (orogflag) call interp_to_local(instance%lgrid_fulldomain, g_orog, instance%downs, localdp=instance%global_orog, z_constrain=.true.)
 
     if (instance%whichprecip==PRECIP_RL .or. instance%whichacab==MASS_BALANCE_EBM) &
-         call interp_wind_to_local(instance%lgrid_fulldomain,g_zonwind,g_merwind,instance%downs,instance%xwind,instance%ywind)
+         call interp_wind_to_local(instance%lgrid_fulldomain, g_zonwind, g_merwind, instance%downs, instance%xwind, instance%ywind)
 
   end subroutine glint_downscaling
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  subroutine glint_downscaling_gcm (instance,&
+  subroutine glint_downscaling_gcm (instance,            &
                                     qsmb_g,     tsfc_g,  &
                                     topo_g,     gmask)
  
@@ -100,6 +103,7 @@ contains
     use glint_constants, only: lapse
     use glint_type
     use glint_interp, only: interp_to_local
+    use glimmer_log
     use parallel, only: tasks
 
     ! Downscale global input fields from the global grid (with multiple elevation classes)
@@ -112,11 +116,11 @@ contains
     real(dp),dimension(:,:,0:),intent(in) :: qsmb_g       ! Surface mass balance (m)
     real(dp),dimension(:,:,0:),intent(in) :: tsfc_g       ! Surface temperature (C)
     real(dp),dimension(:,:,0:),intent(in) :: topo_g       ! Surface elevation (m)
-    integer ,dimension(:,:),   intent(in),optional :: gmask   ! = 1 where global data are valid
+    integer ,dimension(:,:),   intent(in),optional :: gmask  ! = 1 where global data are valid
                                                              ! = 0 elsewhere
-    real(dp), parameter :: maskval = 0.0_dp    ! value written to masked out gridcells
+    real(dp), parameter :: maskval = 0.d0  ! value written to masked out gridcells
 
-    integer :: nxl, nyl, nec             ! local grid dimensions
+    integer :: nxl, nyl, nec               ! local grid dimensions
 
     integer :: i, j, n, ig, jg
  
@@ -138,7 +142,7 @@ contains
     !   Downscale global fields for each elevation class to local grid (horizontal interpolation).
 
     if (present(gmask)) then   ! set local field = maskval where the global field is masked out
-                               ! (i.e., where instance%downs%lmask = 0).
+                               ! (i.e., where instance%downs%lmask = 0)
        do n = 1, nec
           call interp_to_local(instance%lgrid_fulldomain, qsmb_g(:,:,n), instance%downs, localdp=qsmb_l(:,:,n), &
                                gmask = gmask, maskval=maskval)
@@ -169,26 +173,30 @@ contains
           usrf = instance%model%geometry%usrf(i,j) * thk0
           thck = instance%model%geometry%thck(i,j) * thk0
 
-          if (thck <= min_thck) then !if ice-free...
-             if (usrf > 0.) then !and on land (not ocean)...
-                ig=instance%downs%xin(i,j)
-                jg=instance%downs%yin(i,j)
-                !set these values to the values of global parent cell.
-                !No vertical/horizontal interpolation is used, since these elevation-
-                !dependent values are not constrained to a discrete elevation band.
+          if (thck <= min_thck) then ! if ice-free...
+
+             if (usrf > 0.d0) then   ! and on land (not ocean)...
+
+                ! Set these values to the bare-land values of global parent cell.
+                ! No vertical/horizontal interpolation is used, since these elevation-
+                !  dependent values are not constrained to a discrete elevation band.
+                ig = instance%downs%xin(i,j)
+                jg = instance%downs%yin(i,j)
                 instance%acab(i,j) = qsmb_g(ig,jg,0)
                 instance%artm(i,j) = tsfc_g(ig,jg,0)
+
                 if (instance%acab(i,j) < 0.d0) then
-                   write (stdout,*)'ERROR: SMB is negative over bare land point'
-                   write (stdout,*)'instance%acab(i,j) = ',instance%acab(i,j)
-                   write (stdout,*)'instance%artm(i,j) = ',instance%artm(i,j)          
-                   write (stdout,*)'qsmb_l(i,j,0) = ',qsmb_l(i,j,0)
-                   write (stdout,*)'usrf=',usrf
-                   write (stdout,*)'thck=',thck
-                   write (stdout,*)'Stopping in glint_downscale.'
-                   stop      
+                   write (stdout,*)'ERROR: SMB is negative over bare-land point'
+                   write (stdout,*)'i, j, instance%acab(i,j) = ', i, j, instance%acab(i,j)
+                   write (stdout,*)'instance%artm(i,j) = ', instance%artm(i,j)          
+                   write (stdout,*)'qsmb_l(i,j,0) = ', qsmb_l(i,j,0)
+                   write (stdout,*)'usrf=', usrf
+                   write (stdout,*)'thck=', thck
+                   call write_log('ERROR: SMB is negative over bare-land point',GM_FATAL,__FILE__,__LINE__)
                 endif
+
              else  ! usrf <= 0  -- assumed to be ocean
+
                 ! CISM assumes any point with usrf <= 0 is ocean, and thus can't form ice
                 ! (actually, this isn't exactly the cutoff used elsewhere in CISM - we may
                 ! want to change this conditional to use GLIDE_IS_OCEAN). So it makes no
@@ -204,24 +212,26 @@ contains
                 instance%acab(i,j) = 0.d0
                 instance%artm(i,j) = 0.d0
              endif
+
           else !if ice-covered...
+
              if (usrf <= topo_l(i,j,1)) then
                 instance%acab(i,j) = qsmb_l(i,j,1)
-                instance%artm(i,j) = tsfc_l(i,j,1) + lapse*(topo_l(i,j,1)-usrf)
+                instance%artm(i,j) = tsfc_l(i,j,1) + lapse*(topo_l(i,j,1) - usrf)
              elseif (usrf > topo_l(i,j,nec)) then
                 instance%acab(i,j) = qsmb_l(i,j,nec)
-                instance%artm(i,j) = tsfc_l(i,j,nec) - lapse*(usrf-topo_l(i,j,nec))
+                instance%artm(i,j) = tsfc_l(i,j,nec) - lapse*(usrf - topo_l(i,j,nec))
              else
                 do n = 2,nec
                    if (usrf > topo_l(i,j,n-1) .and. usrf <= topo_l(i,j,n)) then
                       fact = (topo_l(i,j,n) - usrf) / (topo_l(i,j,n) - topo_l(i,j,n-1)) 
-                      instance%acab(i,j) = fact*qsmb_l(i,j,n-1) + (1._dp-fact)*qsmb_l(i,j,n)
-                      instance%artm(i,j) = fact*tsfc_l(i,j,n-1) + (1._dp-fact)*tsfc_l(i,j,n)
+                      instance%acab(i,j) = fact*qsmb_l(i,j,n-1) + (1.d0-fact)*qsmb_l(i,j,n)
+                      instance%artm(i,j) = fact*tsfc_l(i,j,n-1) + (1.d0-fact)*tsfc_l(i,j,n)
                       exit
                    endif
                 enddo
              endif ! usrf, inner
-          endif ! thck  
+          endif ! thck
        enddo ! i
     enddo ! j
 
@@ -229,7 +239,7 @@ contains
     
   end subroutine glint_downscaling_gcm
 
-  ! +++++++++++++++++++++++++++++++++++++++++++++++++
+  !+++++++++++++++++++++++++++++++++++++++++++++++++
 
   subroutine glint_init_input_gcm(params,  &
                                   lgrid,   &
@@ -267,7 +277,7 @@ contains
 
   end subroutine glint_init_input_gcm
 
-  ! +++++++++++++++++++++++++++++++++++++++++++++++++
+  !+++++++++++++++++++++++++++++++++++++++++++++++++
 
   subroutine glint_accumulate_input_gcm(params, time, acab, artm)
 
@@ -306,7 +316,7 @@ contains
 
   end subroutine glint_accumulate_input_gcm
 
-  ! +++++++++++++++++++++++++++++++++++++++++++++++++
+  !+++++++++++++++++++++++++++++++++++++++++++++++++
 
   subroutine glint_average_input_gcm(params, dt, acab, artm)
 
@@ -329,8 +339,8 @@ contains
 
   end subroutine glint_average_input_gcm
 
-  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   end module glint_downscale
 
-  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

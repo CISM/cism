@@ -30,9 +30,12 @@
 
 module gcm_to_cism_glint
 
-  !*FD This program demonstrates the use of GLIMMER. It loads in
-  !*FD some example global fields and associated grid data,
-  !*FD initialises the model, and then runs it for 1000 years.
+  ! This module demonstrates the use of the Glint interface. 
+  ! It loads in some example global fields and associated grid data,
+  !  initialises the model, and then runs it for a user-prescribed period.
+  ! The surface mass balance can be computed either with a PDD scheme
+  !  (as in the original Glimmer code), or with a crude scheme 
+  !  that imitates SMB input from a climate model.
 
   use glimmer_global, only: dp
   use glint_main
@@ -43,10 +46,6 @@ module gcm_to_cism_glint
   use glimmer_writestats
 !  use glimmer_commandline
   use glimmer_paramets, only: GLC_DEBUG
-
-!WHL - debug
-!  use glimmer_physcon, only: scyr
-!  use glint_type, only: iglint_global, jglint_global
 
 type gcm_to_cism_type
 
@@ -59,7 +58,7 @@ type gcm_to_cism_type
                                          ! domains of the ice model
   type(glex_climate)      :: climate     ! Climate parameters and fields
 
-  ! Arrays which hold the global fields used as input to GLIMMER ------------------------
+  ! Arrays which hold the global fields used as input to Glint ------------------------
 
   real(dp),dimension(:,:),pointer :: temp => null()     ! Temperature     (degC)
   real(dp),dimension(:,:),allocatable :: precip    ! Precipitation   (mm/s)
@@ -138,26 +137,13 @@ type gcm_to_cism_type
 
 end type gcm_to_cism_type
 
+   logical, parameter :: verbose_glint = .true.  ! set to true for debugging
+
 contains
 
 subroutine g2c_glint_init(g2c)
 
-  !*FD This program demonstrates the use of GLIMMER. It loads in
-  !*FD some example global fields and associated grid data,
-  !*FD initialises the model, and then runs it for 1000 years.
-
-!  use glimmer_global, only: dp
-!  use glint_main
-!  use glimmer_log
-!  use glint_global_interp
-!  use glint_example_clim
-!  use glint_commandline
-!  use glimmer_writestats
-!  use glimmer_paramets, only: GLC_DEBUG
-
-!WHL - debug
-!  use glimmer_physcon, only: scyr
-!  use glint_type, only: iglint_global, jglint_global
+  ! Initialise glint
 
   implicit none
 
@@ -167,6 +153,7 @@ subroutine g2c_glint_init(g2c)
 
   integer :: i,j    ! Array index counters
   real(dp):: t1,t2
+
   ! -------------------------------------------------------------------------------------
   ! Executable code starts here - Basic initialisation
   ! -------------------------------------------------------------------------------------
@@ -206,11 +193,14 @@ subroutine g2c_glint_init(g2c)
   ! start logging
 !  call open_log(unit=101, fname=logname(g2c%commandline_configname))  
 
-  print*, 'Starting program glint_example'
-  print*, 'climatename = ', trim(g2c%commandline_climate_fname)
-  print*, 'configname = ', trim(g2c%commandline_configname)
-  print*, 'climate%gcm_smb =', g2c%climate%gcm_smb
-  print*, ' '
+  if (verbose_glint) then
+     print*, ' '
+     print*, 'Starting glint_example:'
+     print*, 'climatename = ', trim(g2c%commandline_climate_fname)
+     print*, 'configname = ', trim(g2c%commandline_configname)
+     print*, 'climate%gcm_smb:', g2c%climate%gcm_smb
+     print*, ' '
+  endif
 
   ! Allocate global arrays
 
@@ -421,7 +411,12 @@ subroutine g2c_glint_check_finished(g2c,finished)
    type(gcm_to_cism_type) :: g2c
    logical :: finished
 
-   if (g2c%time > g2c%climate%total_years*g2c%climate%hours_in_year) finished = .true.
+   if (g2c%time > g2c%climate%total_years*g2c%climate%hours_in_year) then
+      finished = .true.
+   else
+      finished = .false.
+   endif
+
 end subroutine g2c_glint_check_finished
 
 
