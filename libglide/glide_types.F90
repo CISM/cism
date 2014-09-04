@@ -210,6 +210,8 @@ module glide_types
   integer, parameter :: HO_BABC_NO_SLIP = 6
   integer, parameter :: HO_BABC_YIELD_NEWTON = 7
   integer, parameter :: HO_BABC_ISHOMC = 8
+  integer, parameter :: HO_BABC_POWERLAW = 9
+  integer, parameter :: HO_BABC_COULOMB_FRICTION = 10
 
   integer, parameter :: HO_NONLIN_PICARD = 0
   integer, parameter :: HO_NONLIN_JFNK = 1
@@ -480,6 +482,8 @@ module glide_types
     !*FD \item[6] no slip everywhere (using Dirichlet BC rather than large beta)
     !*FD \item[7] treat beta value as till yield stress (in Pa) using Newton-type iteration (in development)
     !*FD \item[8] beta field as prescribed for ISMIP-HOM test C (serial only)
+    !*FD \item[9] power law based using effective pressure
+    !*FD \item[10] Coulomb friction law using effective pressure
     !*FD \end{description}
 
     integer :: which_ho_nonlinear = 0
@@ -899,6 +903,21 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  type glide_basal_physics
+      !< Holds variables related to basal physics associated with ice dynamics
+
+      ! see glissade_basal_traction.F90 for usage details
+      real(dp), dimension(:,:), pointer :: effecpress_stag => null() !< effective pressure staggered grid
+      ! paramter for friction law
+      real(dp) :: friction_powerlaw_roughness_slope = 0.5  !< the limiting roughness slope for the power-law friction law
+      ! Parameters for Coulomb friction sliding law (default values from Pimentel&al. 2010)
+      real(dp) :: Coulomb_C = 0.84d0*0.5d0        !< basal stress constant (no dimesion)
+      real(dp) :: Coulomb_Bump_Wavelength = 2.0d0 !< GL: bed rock wavelength at subgrid scale precision (m)
+      real(dp) :: Coulomb_Bump_max_slope = 0.84d0 !< GL: maximum bed bump slope at subgrid scale precision (no dimension) 
+  end type glide_basal_physics
+
+  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
   type glide_lithot_type
      !*FD holds variables for temperature calculations in the lithosphere
 
@@ -1248,6 +1267,7 @@ module glide_types
     type(glide_climate)  :: climate
     type(eismint_climate_type) :: eismint_climate
     type(glide_temper)   :: temper
+    type(glide_basal_physics)  :: basal_physics
     type(glide_lithot_type) :: lithot
     type(glide_funits)   :: funits
     type(glide_numerics) :: numerics
@@ -1548,6 +1568,12 @@ contains
        call coordsystem_allocate(model%general%velo_grid, model%geomderv%d2usrfdns2)
        call coordsystem_allocate(model%general%velo_grid, model%geomderv%d2thckdew2)
        call coordsystem_allocate(model%general%velo_grid, model%geomderv%d2thckdns2)
+    endif
+
+    ! Basal Physics
+    if ( (model%options%which_ho_babc == HO_BABC_POWERLAW) .or. &
+         (model%options%which_ho_babc == HO_BABC_COULOMB_FRICTION) ) then
+       call coordsystem_allocate(model%general%velo_grid, model%basal_physics%effecpress_stag)
     endif
 
     ! climate arrays

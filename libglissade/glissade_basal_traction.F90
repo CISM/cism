@@ -76,7 +76,8 @@ contains
                        ewn,           nsn,           &
                        thisvel,       othervel,      &
                        bwat,          beta_const,    &
-                       mintauf,                      &
+                       mintauf,       basal_physics, &
+                       flwa_basal,                   &
                        mask,          beta,          &
                        floating_cell, ocean_cell)
 
@@ -89,6 +90,7 @@ contains
   ! assumed to have the units given below.
      
   use glimmer_paramets, only: len0
+  use glimmer_physcon, only: gn
   use parallel, only: nhalo
 
   implicit none
@@ -103,6 +105,8 @@ contains
   real(dp), intent(in), dimension(:,:)    :: bwat     ! basal water depth (m)
   real(dp), intent(in), dimension(:,:)    :: mintauf  ! till yield stress (Pa)
   real(dp), intent(in)                    :: beta_const  ! spatially uniform beta (Pa yr/m)
+  type(glide_basal_physics), intent(in) :: basal_physics  ! basal physics object
+  real(dp), intent(in), dimension(:,:) :: flwa_basal  ! flwa for the basal ice layer
   integer, intent(in), dimension(:,:)     :: mask 
   real(dp), intent(inout), dimension(:,:) :: beta  ! (Pa yr/m)
 
@@ -126,6 +130,15 @@ contains
   real(dp) :: dx, dy
   integer :: ilo, ihi, jlo, jhi  ! limits of beta field for ISHOM C case
   integer :: i, j
+
+  ! variables for power law
+  real(dp) :: p, q
+
+  ! variables for Coulomb friction law
+  real(dp) :: lambda_max  ! wavelength of bedrock bumps at subgrid scale
+  real(dp) :: m_max       ! maximum bed obstacle slope
+  real(dp), dimension(size(beta,1), size(beta,2)) :: kappa       ! bed rock characteristics
+  real(dp) :: n           ! Glen's flaw law exponent
 
 
   select case(whichbabc)
@@ -291,9 +304,41 @@ contains
 
     ! NOTE: case (HO_BABC_YIELD_NEWTON) is handled external to this subroutine
 
-   case(HO_BABC_NO_SLIP)   ! In this case we have a Dirichlet basal BC, and the value of beta is not used
+    case(HO_BABC_NO_SLIP)   ! In this case we have a Dirichlet basal BC, and the value of beta is not used
 
       beta(:,:) = 0.d0
+
+    case(HO_BABC_POWERLAW)   ! A power law that uses effective pressure, of the form: Taub = C N^p ub^q
+       ! p and q are positive exponents
+       p = 1; q = 1
+
+       ! If q>1, this is nonlinear in velocity
+       beta = basal_physics%friction_powerlaw_roughness_slope * basal_physics%effecpress_stag**p    &
+              * dsqrt( (thisvel(:,:)*vel0*scyr)**2 + (othervel(:,:)*vel0*scyr)**2 )**(q-1)
+
+    case(HO_BABC_COULOMB_FRICTION)
+
+      ! Basal stress representation using coulomb friction law
+
+      m_max = basal_physics%Coulomb_Bump_max_slope  !maximum bed obstacle slope(unitless)
+      lambda_max = basal_physics%Coulomb_bump_wavelength ! wavelength of bedrock bumps (m)
+
+      kappa = m_max / (lambda_max * flwa_basal)  ! bed rock characteristic
+      C = basal_physics%Coulomb_C    ! Basal shear stress factor (Pa (m^-1 y)^1/3)
+      n = gn                         ! Glen's flaw law
+
+      beta = C * basal_physics%effecpress_stag * &
+             (dsqrt( (thisvel*vel0*scyr)**2 + (othervel*vel0*scyr)**2 ))**(1.0d0/n - 1.0d0) * &
+             (kappa*dsqrt( (thisvel*vel0*scyr)**2 + (othervel*vel0*scyr)**2 ) + &
+             basal_physics%effecpress_stag**n )**(-1.0d0/n)
+
+      ! for numerical stability purposes
+      where (beta>1.0d8)
+              beta = 1.0d8
+      end where
+
+    case default
+
 
    end select
 

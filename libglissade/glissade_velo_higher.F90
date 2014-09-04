@@ -1724,6 +1724,8 @@
                       uvel(nz,:,:),  vvel(nz,:,:),      &
                       bwat,          ho_beta_const,     &
                       mintauf,                          &
+                      model%basal_physics,              &
+                      model%temper%flwa(nz,:,:),        &
                       stagmask,      beta,              &
                       floating_cell, ocean_cell)
 

@@ -270,6 +270,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                             beta_const,             &
                             mintauf,                &
                             bwat,                   &
+                            basal_physics,          &
                             uvel,     vvel,         &
                             uflx,     vflx,         &
                             efvs )
@@ -302,6 +303,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
   real(dp), dimension(:,:),   intent(in)  :: mintauf  ! specified basal yield stress, used in calcbeta (if specified in config file)
   real(dp), intent(in) :: beta_const            ! spatially uniform beta (Pa yr/m)
   real(dp), intent(in), dimension(:,:) :: bwat  ! basal water depth
+  type(glide_basal_physics), intent(inout) :: basal_physics  ! basal physics object
 
   integer, intent(in) :: whichbabc    ! options for beta basal boundary condition
   integer, intent(in) :: whichefvs    ! options for efvs calculation (calculate it or make it uniform)
@@ -562,6 +564,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      beta_const,                  &
                      mintauf,                     &       
                      bwat,                        &
+                     basal_physics,               &
                      btraction,                   &
                      0 )
  call t_stopf("PICARD_findcoefstr1")
@@ -640,6 +643,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      beta_const,                  &
                      mintauf,                     &       
                      bwat,                        &
+                     basal_physics,               &
                      btraction,                   &
                      0 )
 
@@ -715,6 +719,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      beta_const,                  &
                      mintauf,                     &       
                      bwat,                        &
+                     basal_physics,               &
                      btraction,                   &
                      0 )
 
@@ -737,6 +742,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      beta_const,                  &
                      mintauf,                     &       
                      bwat,                        &
+                     basal_physics,               &
                      btraction,                   &
                      0 )
 
@@ -921,6 +927,7 @@ subroutine JFNK_velo_solver  (model,umask)
   real(dp)                  ,pointer :: beta_const ! spatially uniform beta (Pa yr/m)
   real(dp), dimension(:,:)  ,pointer :: mintauf    ! basal yield stress used by calcbeta (if specified)
   real(dp), dimension(:,:)  ,pointer :: bwat       ! basal water depth
+  type(glide_basal_physics) :: basal_physics  ! basal physics object
 
   integer :: whichbabc
   integer :: whichefvs
@@ -984,6 +991,7 @@ subroutine JFNK_velo_solver  (model,umask)
   beta_const => model%paramets%ho_beta_const
   mintauf => model%basalproc%mintauf(:,:)   
   bwat => model%temper%bwat(:,:)
+  basal_physics = model%basal_physics
 
   uvel => model%velocity%uvel(:,:,:)
   vvel => model%velocity%vvel(:,:,:)
@@ -1186,6 +1194,7 @@ end if
                      beta_const,                  &
                      mintauf,                     &       
                      bwat,                        &
+                     basal_physics,               &
                      btraction,                   &
                      0 )
 
@@ -1208,6 +1217,7 @@ end if
                      beta_const,                  &
                      mintauf,                     &       
                      bwat,                        &
+                     basal_physics,               &
                      btraction,                   &
                      0 )
 
@@ -2266,6 +2276,7 @@ end subroutine reset_effstrmin
                                          dlsrfdew, dlsrfdns, stagthck, lsrf, topg
 
   real(dp), dimension(:,:) ,pointer :: beta, bwat, mintauf 
+  type(glide_basal_physics) :: basal_physics
   real(dp), pointer :: beta_const
 
   real(dp), dimension(:,:) ,pointer ::  d2usrfdew2, d2thckdew2, d2usrfdns2, d2thckdns2
@@ -2317,6 +2328,7 @@ end subroutine reset_effstrmin
   beta_const => fptr%paramets%ho_beta_const
   mintauf => fptr%basalproc%mintauf(:,:)
   bwat => fptr%temper%bwat(:,:)
+  basal_physics = fptr%basal_physics
 
 !intent (inout) terms
   btraction => fptr%velocity%btraction(:,:,:)
@@ -2395,6 +2407,7 @@ end subroutine reset_effstrmin
                      beta_const,                  &
                      mintauf,                     &       
                      bwat,                        &
+                     basal_physics,               &
                      btraction,                   &
                      0 )
 
@@ -2450,6 +2463,7 @@ end subroutine reset_effstrmin
                      beta_const,                  &
                      mintauf,                     &       
                      bwat,                        &
+                     basal_physics,               &
                      btraction,                   &
                      0 )
 
@@ -3063,6 +3077,7 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                        beta_const,                  &
                        mintauf,                     &        
                        bwat,                        &
+                       basal_physics,               &
                        btraction,                   &
                        assembly )
 
@@ -3095,6 +3110,7 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
   real(dp), dimension(:,:), intent(in) :: mintauf
   real(dp), intent(in) :: beta_const            ! spatially uniform beta (Pa yr/m)
   real(dp), intent(in), dimension(:,:) :: bwat  ! basal water depth
+  type(glide_basal_physics), intent(inout) :: basal_physics  ! basal_physics object
 
   real(dp), dimension(:,:,:), intent(in) :: flwa
   real(dp), dimension(:,:,:), intent(inout) :: btraction
@@ -3181,6 +3197,8 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                  bwat * thk0,                        &   ! m
                  beta_const * tau0/(vel0*scyr),      &   ! Pa yr/m
                  mintauf * tau0,                     &   ! Pa
+                 basal_physics,                      &
+                 flwa(upn,:,:),                      &
                  mask,                               &
                  beta )
 
@@ -3467,7 +3485,8 @@ subroutine bodyset(ew,  ns,  up,           &
                                              ! better to specify very large value for beta below
            elseif( whichbabc == HO_BABC_CONSTANT     .or. whichbabc == HO_BABC_SIMPLE         .or.  &
                    whichbabc == HO_BABC_YIELD_PICARD .or. whichbabc == HO_BABC_BETA_BWAT .or.  &
-                   whichbabc == HO_BABC_LARGE_BETA   .or. whichbabc == HO_BABC_EXTERNAL_BETA) then
+                   whichbabc == HO_BABC_LARGE_BETA   .or. whichbabc == HO_BABC_EXTERNAL_BETA .or. &
+                   whichbabc == HO_BABC_POWERLAW     .or. whichbabc == HO_BABC_COULOMB_FRICTION) then
                 bcflag = (/1,1/)              ! flag for specififed stress at bed: Tau_zx = beta * u_bed,
                                               ! where beta is MacAyeal-type traction parameter
            end if   
@@ -3680,7 +3699,8 @@ subroutine bodyset(ew,  ns,  up,           &
 
            elseif( whichbabc == HO_BABC_CONSTANT     .or. whichbabc == HO_BABC_SIMPLE         .or.  &
                    whichbabc == HO_BABC_YIELD_PICARD .or. whichbabc == HO_BABC_BETA_BWAT .or.  &
-                   whichbabc == HO_BABC_LARGE_BETA   .or. whichbabc == HO_BABC_EXTERNAL_BETA) then
+                   whichbabc == HO_BABC_LARGE_BETA   .or. whichbabc == HO_BABC_EXTERNAL_BETA .or. &
+                   whichbabc == HO_BABC_POWERLAW     .or. whichbabc == HO_BABC_COULOMB_FRICTION) then
                 bcflag = (/1,1/)              ! flag for specififed stress at bed: Tau_zx = beta * u_bed,
                                               ! where beta is MacAyeal-type traction parameter
            end if

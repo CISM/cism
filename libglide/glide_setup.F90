@@ -743,7 +743,7 @@ contains
          '1st order model (Blatter-Pattyn)  ' /)
 !!         '1-st order depth-integrated (SSA) ' /)  ! not supported
 
-    character(len=*), dimension(0:8), parameter :: ho_whichbabc = (/ &
+    character(len=*), dimension(0:10), parameter :: ho_whichbabc = (/ &
          'constant beta                          ', &
          'simple pattern of beta                 ', &
          'till yield stress (Picard)             ', &
@@ -752,7 +752,9 @@ contains
          'beta passed from CISM                  ', &
          'no slip (Dirichlet implementation)     ', &
          'till yield stress (Newton)             ', &
-         'beta as in ISMIP-HOM test C            '/)
+         'beta as in ISMIP-HOM test C            ', &
+         'power law using effective pressure     ', &
+         'Coulomb friction law using effec press ' /)
 
     character(len=*), dimension(0:1), parameter :: which_ho_nonlinear = (/ &
          'use standard Picard iteration  ', &
@@ -1131,6 +1133,11 @@ contains
 
     call GetValue(section,'ho_beta_const',     model%paramets%ho_beta_const)
 
+    call GetValue(section, 'friction_powerlaw_roughness_slope', model%basal_physics%friction_powerlaw_roughness_slope)
+    call GetValue(section, 'coulomb_c', model%basal_physics%Coulomb_C)
+    call GetValue(section, 'coulomb_bump_max_slope', model%basal_physics%Coulomb_Bump_max_slope)
+    call GetValue(section, 'coulomb_bump_wavelength', model%basal_physics%Coulomb_bump_wavelength)
+
     ! added for ismip-hom
     call GetValue(section,'periodic_offset_ew',model%numerics%periodic_offset_ew)
     call GetValue(section,'periodic_offset_ns',model%numerics%periodic_offset_ns)
@@ -1232,6 +1239,18 @@ contains
           call write_log('Error, must have ewn = nsn for ISMIP-HOM test C', GM_FATAL)
        endif
     endif
+
+    if (model%options%which_ho_babc == HO_BABC_POWERLAW) then
+       write(message,*) 'roughness slope for power-law friction law : ',model%basal_physics%friction_powerlaw_roughness_slope
+       call write_log(message)
+    end if
+
+    if (model%options%which_ho_babc == HO_BABC_COULOMB_FRICTION) then
+       write(message,*) 'C coefficient for Coulomb friction law : ', model%basal_physics%Coulomb_C
+       write(message,*) 'bed bump max. slope for Coulomb friction law : ', model%basal_physics%Coulomb_Bump_max_slope
+       write(message,*) 'bed bump wavelength for Coulomb friction law : ', model%basal_physics%Coulomb_bump_wavelength
+       call write_log(message)
+    end if
 
     if (model%numerics%idiag < 1 .or. model%numerics%idiag > model%general%ewn     &
                                         .or.                                                     &
