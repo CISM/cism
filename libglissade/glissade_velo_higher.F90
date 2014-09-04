@@ -271,7 +271,6 @@
 
     logical, parameter :: write_matrix = .false.
 !    logical, parameter :: write_matrix = .true.
-!    character(*), parameter :: matrix_label = 'ishomC_block'   ! Change depending on the case we're running
 !    character(*), parameter :: matrix_label = 'block'   ! Change depending on the case we're running
 !    character(*), parameter :: matrix_label = 'ishomC_periodic'   ! Change depending on the case we're running
     character(*), parameter :: matrix_label = 'shelf'   ! Change depending on the case we're running
@@ -947,13 +946,6 @@
                                           beta,   ho_beta_const, &
                                           uvel,   vvel)
 !pw call t_stopf('glissade_velo_higher_scale_input')
-
-!WHL - hack for ishomC test
-    if (trim(matrix_label) == 'ishomC_block') then
-       print*, ' '
-       print*, 'Re-initializing for ishomC block'
-       call ishomC_block_init(model, dx, dy, thck, usrf, topg, beta)
-    endif
 
     ! Set volume scale
     ! This is not strictly necessary, but dividing by this scale gives matrix coefficients 
@@ -4304,12 +4296,12 @@
 
           ! Sum terms of element matrix K into dense assembled matrix A
 
-             call element_to_global_matrix(nx,           ny,        &
-                                           i,            j,         &
-                                           Kuu,          Kuv,       &
-                                           Kvu,          Kvv,       &
-                                           Auu,          Auv,       &
-                                           Avu,          Avv)
+          call element_to_global_matrix(nx,           ny,        &
+                                        i,            j,         &
+                                        Kuu,          Kuv,       &
+                                        Kvu,          Kvv,       &
+                                        Auu,          Auv,       &
+                                        Avu,          Avv)
 
 !          call t_stopf('glissade_element_to_global')
 
