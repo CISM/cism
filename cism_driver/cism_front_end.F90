@@ -109,7 +109,7 @@ subroutine cism_init_dycore(model)
   call t_startf('cism')
  
   ! initialise GLIDE
-  call t_startf('glide initialization')
+  call t_startf('initialization')
 
   call glide_config(model,config)
 
@@ -144,13 +144,14 @@ subroutine cism_init_dycore(model)
   call glide_read_forcing(model, model)
 
   call spinup_lithot(model)
-  call t_stopf('glide initialization')
 
   if (model%options%whichdycore == DYCORE_BISICLES) then
-    call t_startf('bisicles_initial')
+    call t_startf('init_external_dycore')
     call cism_init_external_dycore(model%options%external_dycore_type,model)
-    call t_stopf('bisicles_initial')
+    call t_stopf('init_external_dycore')
   endif
+
+  call t_stopf('initialization')
 
   if (model%options%whichdycore .ne. DYCORE_BISICLES) then
   !MJH Created this block here to fill out initial state without needing to enter time stepping loop.  This allows
@@ -161,10 +162,11 @@ subroutine cism_init_dycore(model)
 
   ! ------------- Calculate initial state and output it -----------------
 
+    call t_startf('initial_diag_var_solve')
+
     select case (model%options%whichdycore)
       case (DYCORE_GLIDE)
 
-        call t_startf('glide_initial_diag_var_solve')
         if (model%numerics%tstart < (model%numerics%tend - model%numerics%tinc)) then
           ! disable further profiling in normal usage
           call t_adj_detailf(+10)
@@ -180,10 +182,9 @@ subroutine cism_init_dycore(model)
           ! restore profiling to normal settings
           call t_adj_detailf(-10)
         endif
-        call t_stopf('glide_initial_diag_var_solve')
 
       case (DYCORE_GLAM, DYCORE_GLISSADE, DYCORE_ALBANYFELIX)
-        call t_startf('glissade_initial_diag_var_solve')
+
         if (model%numerics%tstart < (model%numerics%tend - model%numerics%tinc)) then
           ! disable further profiling in normal usage
           call t_adj_detailf(+10)
@@ -196,24 +197,27 @@ subroutine cism_init_dycore(model)
           ! restore profiling to normal settings
           call t_adj_detailf(-10)
         endif
-        call t_stopf('glissade_initial_diag_var_solve')
 
         case default
 
     end select
 
+    call t_stopf('initial_diag_var_solve')
+
     ! Write initial diagnostic output to log file
 
+    call t_startf('initial_write_diagnostics')
     call glide_write_diagnostics(model,        time,       &
                                  tstep_count = tstep_count)
+    call t_stopf('initial_write_diagnostics')
 
     ! --- Output the initial state -------------
 
-    call t_startf('glide_io_writeall')                                                          
+    call t_startf('initial_io_writeall')                                                          
     call glide_io_writeall(model, model, time=time)          ! MJH The optional time argument needs to be supplied 
                                                              !     since we have not yet set model%numerics%time
                                                              !WHL - model%numerics%time is now set above
-    call t_stopf('glide_io_writeall')
+    call t_stopf('initial_io_writeall')
   end if ! whichdycore .ne. DYCORE_BISICLES
 
 end subroutine cism_init_dycore
@@ -279,9 +283,10 @@ subroutine cism_run_dycore(model)
 
     !if (model%options%external_dycore_type .EQ. 0) then      ! NO_EXTERNAL_DYCORE) then
     !  if (model%options%whichdycore == DYCORE_GLIDE) then
+    call t_startf('tstep')
+
     select case (model%options%whichdycore)
       case (DYCORE_GLIDE)
-        call t_startf('glide_tstep')
 
         call t_startf('glide_tstep_p1')
         call glide_tstep_p1(model,time)
@@ -295,14 +300,10 @@ subroutine cism_run_dycore(model)
         call glide_tstep_p3(model)
         call t_stopf('glide_tstep_p3')
 
-        call t_stopf('glide_tstep')
-
       case (DYCORE_GLAM, DYCORE_GLISSADE, DYCORE_ALBANYFELIX)
         ! glam/glissade dycore
 
-        call t_startf('glissade_tstep')
         call glissade_tstep(model,time)
-        call t_stopf('glissade_tstep')
 
       case (DYCORE_BISICLES)
         print *,'Using External Dycore'
@@ -312,22 +313,21 @@ subroutine cism_run_dycore(model)
         if (time + dt + time_eps > model%numerics%tend) then
            dt = model%numerics%tend - time
         endif
-        call t_startf('bisicles_tstep')
         call cism_run_external_dycore(model%options%external_dycore_model_index, &
                                       time,dt)
-        call t_stopf('bisicles_tstep')
         ! time = time + model%numerics%tinc
       case default
     end select
-    !endif
 
+    call t_stopf('tstep')
+    !endif
 
     ! write ice sheet diagnostics to log file at desired interval (model%numerics%dt_diag)
 
-    call t_startf('glide_write_diagnostics')
+    call t_startf('write_diagnostics')
     call glide_write_diagnostics(model,        time,       &
                                   tstep_count = tstep_count)
-    call t_stopf('glide_write_diagnostics')
+    call t_stopf('write_diagnostics')
 
     ! update time from dycore advance
     model%numerics%time = time
@@ -344,18 +344,20 @@ subroutine cism_run_dycore(model)
     ! end of each time step.
     ! EISMINT forcing
     ! NOTE: these only do something when an EISMINT case is run
+    call t_startf('set_forcing')
     call eismint_massbalance(model%eismint_climate,model,time)
     call eismint_surftemp(model%eismint_climate,model,time)
-    ! Forcing from a 'forcing' data file - will read time slice if needed
-    call t_startf('glide_read_forcing')
-    call glide_read_forcing(model, model)
-    call t_stopf('glide_read_forcing')
+    call t_stopf('set_forcing')
 
+    ! Forcing from a 'forcing' data file - will read time slice if needed
+    call t_startf('read_forcing')
+    call glide_read_forcing(model, model)
+    call t_stopf('read_forcing')
 
     ! Write to output netCDF files at desired intervals
-    call t_startf('glide_io_writeall')
+    call t_startf('io_writeall')
     call glide_io_writeall(model,model)
-    call t_stopf('glide_io_writeall')
+    call t_stopf('io_writeall')
   
   end do   ! time < model%numerics%tend
 end subroutine cism_run_dycore
