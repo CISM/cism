@@ -978,6 +978,18 @@ contains
 
     call glam_geometry_derivs(model)
 
+    if ( (model%options%which_ho_babc == HO_BABC_POWERLAW) .or. &
+         (model%options%which_ho_babc == HO_BABC_COULOMB_FRICTION) ) then
+        call stagthickness(model%basal_physics%effec_press,  &
+                               model%basal_physics%effec_press_stag,  &
+                               model%general%ewn, model%general%nsn,  &
+                               model%geometry%usrf,  &
+                               model%numerics%thklim,  &
+                               model%geometry%thkmask) 
+    endif
+
+
+
     !WHL - Moved glam-specific geometry calculations to glam_velo_driver in glam_velo.F90.
 
     ! ------------------------------------------------------------------------ 

@@ -907,6 +907,8 @@ module glide_types
       !< Holds variables related to basal physics associated with ice dynamics
 
       ! see glissade_basal_traction.F90 for usage details
+      ! Note: It may make sense to move effecpress to a hydrology model when one is available.
+      real(dp), dimension(:,:), pointer :: effecpress => null()  !< effective pressure  
       real(dp), dimension(:,:), pointer :: effecpress_stag => null() !< effective pressure staggered grid
       ! paramter for friction law
       real(dp) :: friction_powerlaw_roughness_slope = 0.5  !< the limiting roughness slope for the power-law friction law
@@ -1572,7 +1574,9 @@ contains
 
     ! Basal Physics
     if ( (model%options%which_ho_babc == HO_BABC_POWERLAW) .or. &
-         (model%options%which_ho_babc == HO_BABC_COULOMB_FRICTION) ) then
+         (model%options%which_ho_babc == HO_BABC_COULOMB_FRICTION) .or. &
+         (model%options%whichbwat == BWATER_OCEAN_PENETRATION)     ) then
+       call coordsystem_allocate(model%general%ice_grid, model%basal_physics%effecpress)
        call coordsystem_allocate(model%general%velo_grid, model%basal_physics%effecpress_stag)
     endif
 

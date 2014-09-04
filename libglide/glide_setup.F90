@@ -1598,7 +1598,7 @@ contains
         ! beta - b.c. needed for runs with sliding - could add logic to only include in that case
         ! flwa is not needed for glissade.
         ! TODO not sure if thkmask is needed for HO
-        call glide_add_to_restart_variable_list('uvel vvel beta thkmask')
+        call glide_add_to_restart_variable_list('uvel vvel thkmask')
 
     end select
 
@@ -1620,6 +1620,15 @@ contains
         call glide_add_to_restart_variable_list('waterfrac')
       case default
         ! no restart variables needed
+    end select
+
+    select case (options%which_bo_babc)
+      case (HO_BABC_POWERLAW, HO_BABC_COULOMB_FRICTION)
+        ! These friction laws need effective pressure
+        call glide_add_to_restart_variable_list('effecpress')
+      case default
+        ! Most other HO basal boundary conditions need the beta field  (although there are a few that don't)
+        call glide_add_to_restart_variable_list('beta')
     end select
 
     ! geothermal heat flux option
