@@ -878,7 +878,7 @@ contains
     use glide_velo, only: wvelintg
 !!    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar, horiz_bcs_stag_scalar, horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns
 
-    use glam_grid_operators, only: glam_geometry_derivs
+    use glam_grid_operators, only: glam_geometry_derivs, stagthickness
     use felix_dycore_interface, only: felix_velo_driver
 
     implicit none
@@ -980,8 +980,8 @@ contains
 
     if ( (model%options%which_ho_babc == HO_BABC_POWERLAW) .or. &
          (model%options%which_ho_babc == HO_BABC_COULOMB_FRICTION) ) then
-        call stagthickness(model%basal_physics%effec_press,  &
-                               model%basal_physics%effec_press_stag,  &
+        call stagthickness(model%basal_physics%effecpress,  &
+                               model%basal_physics%effecpress_stag,  &
                                model%general%ewn, model%general%nsn,  &
                                model%geometry%usrf,  &
                                model%numerics%thklim,  &

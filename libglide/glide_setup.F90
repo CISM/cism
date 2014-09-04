@@ -687,11 +687,12 @@ contains
          'linear function of bmlt', &
          'tanh function of bwat  ' /)
 
-    character(len=*), dimension(0:3), parameter :: basal_water = (/ &
+    character(len=*), dimension(0:4), parameter :: basal_water = (/ &
          'none                     ', &
          'local water balance      ', &
          'local + steady-state flux', &
-         'Constant value (= 10 m)  ' /)
+         'Constant value (= 10 m)  ', &
+         'ocean penetration        ' /)
 !!         'From basal proc model    '/) ! not supported
 
       ! basal proc model is disabled for now.
@@ -1138,6 +1139,8 @@ contains
     call GetValue(section, 'coulomb_bump_max_slope', model%basal_physics%Coulomb_Bump_max_slope)
     call GetValue(section, 'coulomb_bump_wavelength', model%basal_physics%Coulomb_bump_wavelength)
 
+    call GetValue(section,'p_ocean_penetration', model%paramets%p_ocean_penetration)
+
     ! added for ismip-hom
     call GetValue(section,'periodic_offset_ew',model%numerics%periodic_offset_ew)
     call GetValue(section,'periodic_offset_ns',model%numerics%periodic_offset_ns)
@@ -1251,6 +1254,11 @@ contains
        write(message,*) 'bed bump wavelength for Coulomb friction law : ', model%basal_physics%Coulomb_bump_wavelength
        call write_log(message)
     end if
+
+    if (model%options%whichbwat == BWATER_OCEAN_PENETRATION) then
+      write(message,*) 'p_ocean_penetration : ', model%paramets%p_ocean_penetration
+      call write_log(message)
+    endif
 
     if (model%numerics%idiag < 1 .or. model%numerics%idiag > model%general%ewn     &
                                         .or.                                                     &
@@ -1622,7 +1630,7 @@ contains
         ! no restart variables needed
     end select
 
-    select case (options%which_bo_babc)
+    select case (options%which_ho_babc)
       case (HO_BABC_POWERLAW, HO_BABC_COULOMB_FRICTION)
         ! These friction laws need effective pressure
         call glide_add_to_restart_variable_list('effecpress')

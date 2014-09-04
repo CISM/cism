@@ -131,6 +131,7 @@ module glide_types
   integer, parameter :: BWATER_LOCAL = 1
   integer, parameter :: BWATER_FLUX  = 2
   integer, parameter :: BWATER_CONST = 3
+  integer, parameter :: BWATER_OCEAN_PENETRATION = 4   ! effective pressure calculation with pw=ocean pressure for grounding line parameterisation (Leguy, et al., TC, 2014)
   !integer, parameter :: BWATER_BASAL_PROC = 4  ! not currently supported
 
   integer, parameter :: BASAL_MBAL_NO_CONTINUITY = 0
@@ -1177,6 +1178,7 @@ module glide_types
     real(dp) :: efvs_constant = 2336041.d0  ! value of efvs to use in constant efvs case, in units Pa yr
                                        ! = 0.5*A^(-1), where A = 2.140373 Pa^(-1) yr^(1) is the value used in ISMIP-HOM Test F
     real(dp) :: ho_beta_const = 10.d0  ! spatially uniform beta for HO dycores, Pa yr m^{-1} (gets scaled during init)
+    real(dp) :: p_ocean_penetration = 0.0d0  ! p-exponent parameter for ocean penetration parameterization
 
   end type glide_paramets
 
