@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 2.8.4)
 
 OPTION (CISM_BUILD_CISM_DRIVER "Toggle to build cism_driver, on by default" ON)
 
-OPTION (USE_TRILINOS "Toggle to use Trilinos: defaults to OFF" OFF)
+OPTION (CISM_USE_TRILINOS "Toggle to use Trilinos: defaults to OFF" OFF)
 OPTION (CISM_MPI_MODE "Toggle to Configure with MPI: defaults to ON" ON)
 OPTION (CISM_SERIAL_MODE "Toggle to Configure in Serial mode: defaults to OFF " OFF)
 
@@ -301,10 +301,10 @@ ENDIF()
 
 #####Build All Fortran Sources #####
 
-IF (CISM_USE_CISM_FRONT_END)
+#IF (CISM_USE_CISM_FRONT_END)
    file(GLOB GLINT_SOURCES libglint/*.F90)
    file(GLOB GLISSADE_SOURCES libglissade/*.F90)
-ENDIF()
+#ENDIF()
 
 
 file(GLOB FORTRANSOURCES
