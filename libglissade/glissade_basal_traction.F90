@@ -61,6 +61,7 @@
   use glimmer_log,      only : write_log
   use glide_types
   use parallel,         only : staggered_parallel_halo  
+  use glissade_grid_operators
   !use glide_mask
 
   implicit none
@@ -77,7 +78,7 @@ contains
                        thisvel,       othervel,      &
                        bwat,          beta_const,    &
                        mintauf,       basal_physics, &
-                       flwa_basal,                   &
+                       flwa_basal,    thck,          &
                        mask,          beta,          &
                        floating_cell, ocean_cell)
 
@@ -107,7 +108,8 @@ contains
   real(dp), intent(in)                    :: beta_const  ! spatially uniform beta (Pa yr/m)
   type(glide_basal_physics), intent(in) :: basal_physics  ! basal physics object
   real(dp), intent(in), dimension(:,:) :: flwa_basal  ! flwa for the basal ice layer
-  integer, intent(in), dimension(:,:)     :: mask 
+  real(dp), intent(in), dimension(:,:) :: thck  ! ice thickness
+  integer, intent(in), dimension(:,:)     :: mask ! staggered grid mask
   real(dp), intent(inout), dimension(:,:) :: beta  ! (Pa yr/m)
 
   logical, intent(in), dimension(:,:), optional ::  &
@@ -138,6 +140,8 @@ contains
   real(dp) :: lambda_max  ! wavelength of bedrock bumps at subgrid scale
   real(dp) :: m_max       ! maximum bed obstacle slope
   real(dp), dimension(size(beta,1), size(beta,2)) :: kappa       ! bed rock characteristics
+  integer, dimension(size(thck,1), size(thck,2))  :: imask ! ice grid mask  1=ice, 0=no ice
+  real(dp), dimension(size(beta,1), size(beta,2)) :: flwa_basal_stag  ! flwa for the basal ice layer on the staggered grid
   real(dp) :: n           ! Glen's flaw law exponent
 
 
@@ -323,13 +327,23 @@ contains
       m_max = basal_physics%Coulomb_Bump_max_slope  !maximum bed obstacle slope(unitless)
       lambda_max = basal_physics%Coulomb_bump_wavelength ! wavelength of bedrock bumps (m)
 
-      kappa = m_max / (lambda_max * flwa_basal)  ! bed rock characteristic
+      where (thck > 0.0)
+        imask = 1
+      elsewhere
+        imask = 0
+      end where
+
+      call glissade_stagger(ewn,        nsn,               &
+                           flwa_basal,  flwa_basal_stag,   &
+                           imask,       stag_flag_in = 1)
+
+      kappa = m_max / (lambda_max * flwa_basal_stag)  ! bed rock characteristic
       C = basal_physics%Coulomb_C    ! Basal shear stress factor (Pa (m^-1 y)^1/3)
       n = gn                         ! Glen's flaw law
 
       beta = C * basal_physics%effecpress_stag * &
-             (dsqrt( (thisvel*vel0*scyr)**2 + (othervel*vel0*scyr)**2 ))**(1.0d0/n - 1.0d0) * &
-             (kappa*dsqrt( (thisvel*vel0*scyr)**2 + (othervel*vel0*scyr)**2 ) + &
+             (dsqrt( (thisvel*vel0*scyr)**2 + (othervel*vel0*scyr)**2 + (smallnum)**2))**(1.0d0/n - 1.0d0) * &
+             (kappa*dsqrt( (thisvel*vel0*scyr)**2 + (othervel*vel0*scyr)**2 + (smallnum)**2) + &
              basal_physics%effecpress_stag**n )**(-1.0d0/n)
 
       ! for numerical stability purposes

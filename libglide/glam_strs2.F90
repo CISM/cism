@@ -3198,7 +3198,8 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                  beta_const * tau0/(vel0*scyr),      &   ! Pa yr/m
                  mintauf * tau0,                     &   ! Pa
                  basal_physics,                      &
-                 flwa(upn,:,:),                      &
+                 flwa(upn,:,:) * vis0*scyr,          &
+                 thck,                               &
                  mask,                               &
                  beta )
 

@@ -1725,7 +1725,8 @@
                       bwat,          ho_beta_const,     &
                       mintauf,                          &
                       model%basal_physics,              &
-                      model%temper%flwa(nz,:,:),        &
+                      flwa(nz-1,:,:),                   &  ! basal flwa layer
+                      thck,                             &
                       stagmask,      beta,              &
                       floating_cell, ocean_cell)
 
