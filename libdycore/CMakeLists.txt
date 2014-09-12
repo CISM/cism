@@ -14,6 +14,8 @@ ENDIF()
 add_library(DyCoreToGlimmer ${DYCORE_SOURCES} ${DYCORE_HEADERS} 
                             ${BISICLES_SOURCES} ${BISICLES_HEADERS})
 
+SET_TARGET_PROPERTIES(DyCoreToGlimmer PROPERTIES LINKER_LANGUAGE Fortran)
+
 # Need include directories from Trilinos but also mod files from glimmer
 
 include_directories (${BISICLES_INTERFACE_DIR})
