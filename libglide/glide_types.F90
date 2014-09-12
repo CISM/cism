@@ -913,10 +913,10 @@ module glide_types
       real(dp), dimension(:,:), pointer :: effecpress_stag => null() !< effective pressure staggered grid
       ! paramter for friction law
       real(dp) :: friction_powerlaw_roughness_slope = 0.5  !< the limiting roughness slope for the power-law friction law
-      ! Parameters for Coulomb friction sliding law (default values from Pimentel&al. 2010)
-      real(dp) :: Coulomb_C = 0.84d0*0.5d0        !< basal stress constant (no dimesion)
-      real(dp) :: Coulomb_Bump_Wavelength = 2.0d0 !< GL: bed rock wavelength at subgrid scale precision (m)
-      real(dp) :: Coulomb_Bump_max_slope = 0.84d0 !< GL: maximum bed bump slope at subgrid scale precision (no dimension) 
+      ! Parameters for Coulomb friction sliding law (default values from Pimentel et al. 2010)
+      real(dp) :: Coulomb_C = 0.84d0*0.5d0        !< basal stress constant (no dimension)
+      real(dp) :: Coulomb_Bump_Wavelength = 2.0d0 !< bed rock wavelength at subgrid scale precision (m)
+      real(dp) :: Coulomb_Bump_max_slope = 0.5d0  !< maximum bed bump slope at subgrid scale precision (no dimension) 
   end type glide_basal_physics
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

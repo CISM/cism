@@ -407,7 +407,6 @@ dimensions:    time, y1, x1
 units:         meter
 long_name:     effective pressure
 data:          data%basal_physics%effecpress
-factor:        thk0
 load:          1
 coordinates:   lon lat
 

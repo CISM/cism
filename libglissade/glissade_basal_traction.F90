@@ -102,7 +102,7 @@ contains
   integer, intent(in) :: ewn, nsn
 
   real(dp), intent(in)                    :: dew, dns           ! m
-  real(dp), intent(in), dimension(:,:)    :: thisvel, othervel  ! (m/yr)
+  real(dp), intent(in), dimension(:,:)    :: thisvel, othervel  ! basal velocity components (m/yr)
   real(dp), intent(in), dimension(:,:)    :: bwat     ! basal water depth (m)
   real(dp), intent(in), dimension(:,:)    :: mintauf  ! till yield stress (Pa)
   real(dp), intent(in)                    :: beta_const  ! spatially uniform beta (Pa yr/m)
@@ -137,12 +137,12 @@ contains
   real(dp) :: p, q
 
   ! variables for Coulomb friction law
+  real(dp) :: Coulomb_C   ! friction coefficient
   real(dp) :: lambda_max  ! wavelength of bedrock bumps at subgrid scale
   real(dp) :: m_max       ! maximum bed obstacle slope
-  real(dp), dimension(size(beta,1), size(beta,2)) :: kappa       ! bed rock characteristics
-  integer, dimension(size(thck,1), size(thck,2))  :: imask ! ice grid mask  1=ice, 0=no ice
+  real(dp), dimension(size(beta,1), size(beta,2)) :: big_lambda       ! bed rock characteristics
+  integer, dimension(size(thck,1), size(thck,2))  :: imask            ! ice grid mask  1=ice, 0=no ice
   real(dp), dimension(size(beta,1), size(beta,2)) :: flwa_basal_stag  ! flwa for the basal ice layer on the staggered grid
-  real(dp) :: n           ! Glen's flaw law exponent
 
 
   select case(whichbabc)
@@ -313,43 +313,49 @@ contains
       beta(:,:) = 0.d0
 
     case(HO_BABC_POWERLAW)   ! A power law that uses effective pressure, of the form: Taub = C N^p ub^q
-       ! p and q are positive exponents
+       ! p and q should be _positive_ exponents
        p = 1; q = 1
 
        ! If q>1, this is nonlinear in velocity
        beta = basal_physics%friction_powerlaw_roughness_slope * basal_physics%effecpress_stag**p    &
-              * dsqrt( (thisvel(:,:)*vel0*scyr)**2 + (othervel(:,:)*vel0*scyr)**2 )**(q-1)
+              * dsqrt( thisvel(:,:)**2 + othervel(:,:)**2 )**(q-1)
 
     case(HO_BABC_COULOMB_FRICTION)
 
       ! Basal stress representation using coulomb friction law
+      ! Coulomb sliding law: Schoof 2005 PRS, eqn. 6.2  (see also Pimental, Flowers & Schoof 2010 JGR)
 
-      m_max = basal_physics%Coulomb_Bump_max_slope  !maximum bed obstacle slope(unitless)
-      lambda_max = basal_physics%Coulomb_bump_wavelength ! wavelength of bedrock bumps (m)
-
+      ! Need flwa of the basal layer on the staggered grid
       where (thck > 0.0)
         imask = 1
       elsewhere
         imask = 0
       end where
-
       call glissade_stagger(ewn,        nsn,               &
                            flwa_basal,  flwa_basal_stag,   &
                            imask,       stag_flag_in = 1)
+      ! TODO Not sure if a halo update is needed on flwa_basal_stag!  I don't think so if nhalo>=2.
 
-      kappa = m_max / (lambda_max * flwa_basal_stag)  ! bed rock characteristic
-      C = basal_physics%Coulomb_C    ! Basal shear stress factor (Pa (m^-1 y)^1/3)
-      n = gn                         ! Glen's flaw law
+      ! Setup parameters needed for the friction law
+      m_max = basal_physics%Coulomb_Bump_max_slope  !maximum bed obstacle slope(unitless)
+      lambda_max = basal_physics%Coulomb_bump_wavelength ! wavelength of bedrock bumps (m)
+      ! biglambda = wavelength of bedrock bumps [m] * flwa [Pa^-n yr^-1] / max bed obstacle slope [dimensionless]
+      big_lambda = lambda_max / m_max * flwa_basal_stag
+      Coulomb_C = basal_physics%Coulomb_C    ! Basal shear stress factor (Pa (m^-1 y)^1/3)
+      !gn                         ! Glen's flaw law from parameter module
 
-      beta = C * basal_physics%effecpress_stag * &
-             (dsqrt( (thisvel*vel0*scyr)**2 + (othervel*vel0*scyr)**2 + (smallnum)**2))**(1.0d0/n - 1.0d0) * &
-             (kappa*dsqrt( (thisvel*vel0*scyr)**2 + (othervel*vel0*scyr)**2 + (smallnum)**2) + &
-             basal_physics%effecpress_stag**n )**(-1.0d0/n)
+      beta = Coulomb_C * basal_physics%effecpress_stag * &
+             (dsqrt(thisvel**2 + othervel**2 + smallnum**2))**(1.0d0/gn - 1.0d0) * &
+             (                                                                     &
+              dsqrt(thisvel**2 + othervel**2 + smallnum**2) +                      &
+             basal_physics%effecpress_stag**gn * big_lambda                        &
+             )**(-1.0d0/gn)
 
       ! for numerical stability purposes
       where (beta>1.0d8)
               beta = 1.0d8
       end where
+
 
     case default
 
