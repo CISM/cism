@@ -138,7 +138,7 @@ ENDIF()
 # Only include C++ support if it's really needed, to avoid problems
 # caused by broken C++ compilers.
 #IK, 8/3/13: added simple_felix option 
-IF (CISM_USE_TRILINOS OR CISM_BUILD_SIMPLE_BISICLES)
+IF (CISM_USE_TRILINOS OR CISM_ENABLE_BISICLES)
   ENABLE_LANGUAGE(CXX)
 ENDIF()
 
@@ -285,7 +285,7 @@ ENDIF()
 
 
 IF ( CISM_USE_GPTL_INSTRUMENTATION AND 
-    (NOT CISM_BUILD_SIMPLE_BISICLES) AND
+    (NOT CISM_ENABLE_BISICLES) AND
     (NOT CISM_SERIAL_MODE))
  OPTION(CISM_GPTL_DIR "Optional path to installed gptl library")
  IF (CISM_GPTL_DIR)
@@ -477,11 +477,11 @@ ENDIF()
 IF (CISM_ENABLE_BISICLES)
   add_subdirectory(libdycore)
 
-  include_directories (${CISM_EXTERNAL_DYCORE_DIR}
+  include_directories (${CISM_DYCORE_DIR}
                        ${CISM_BISICLES_DIR})
 
   message("glimmer src dir: ${CISM_SOURCE_DIR}")
-  message("glimmer extern dycore dir: ${CISM_EXTERNAL_DYCORE_DIR}")
+  message("glimmer dycore dir: ${CISM_DYCORE_DIR}")
   get_property(inc_dirs DIRECTORY PROPERTY INCLUDE_DIRECTORIES)
   message("inc_dirs = ${inc_dirs}")
 ENDIF()
