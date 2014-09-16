@@ -270,96 +270,104 @@ subroutine cism_run_dycore(model)
   ! ------------- Begin time step loop -----------------
  
   ! run an internal or external dycore, depending on setting external_dycore_type
-  do while(time + time_eps < model%numerics%tend)
 
-    ! Increment time step
-    if (model%options%whichdycore /= DYCORE_BISICLES) then
-      time = time + model%numerics%tinc
-      tstep_count = tstep_count + 1
-      model%numerics%time = time  ! TODO This is redundant with what is happening in glide/glissade, but this is needed for forcing to work properly.
-    endif
+  ! check if we're doing any evolution
+  if (time < model%numerics%tend) then
+    do while(time + time_eps < model%numerics%tend)
+
+      ! Increment time step
+      if (model%options%whichdycore /= DYCORE_BISICLES) then
+        time = time + model%numerics%tinc
+        tstep_count = tstep_count + 1
+        model%numerics%time = time  ! TODO This is redundant with what is happening in glide/glissade, but this is needed for forcing to work properly.
+      endif
 ! print *,"external_dycore_type: ",model%options%external_dycore_type
 
 
-    !if (model%options%external_dycore_type .EQ. 0) then      ! NO_EXTERNAL_DYCORE) then
-    !  if (model%options%whichdycore == DYCORE_GLIDE) then
-    call t_startf('tstep')
+      !if (model%options%external_dycore_type .EQ. 0) then      ! NO_EXTERNAL_DYCORE) then
+      !  if (model%options%whichdycore == DYCORE_GLIDE) then
+      call t_startf('tstep')
 
-    select case (model%options%whichdycore)
-      case (DYCORE_GLIDE)
+      select case (model%options%whichdycore)
+        case (DYCORE_GLIDE)
 
-        call t_startf('glide_tstep_p1')
-        call glide_tstep_p1(model,time)
-        call t_stopf('glide_tstep_p1')
+          call t_startf('glide_tstep_p1')
+          call glide_tstep_p1(model,time)
+          call t_stopf('glide_tstep_p1')
 
-        call t_startf('glide_tstep_p2')
-        call glide_tstep_p2(model)
-        call t_stopf('glide_tstep_p2')
+          call t_startf('glide_tstep_p2')
+          call glide_tstep_p2(model)
+          call t_stopf('glide_tstep_p2')
 
-        call t_startf('glide_tstep_p3')
-        call glide_tstep_p3(model)
-        call t_stopf('glide_tstep_p3')
+          call t_startf('glide_tstep_p3')
+          call glide_tstep_p3(model)
+          call t_stopf('glide_tstep_p3')
 
-      case (DYCORE_GLAM, DYCORE_GLISSADE, DYCORE_ALBANYFELIX)
-        ! glam/glissade dycore
+        case (DYCORE_GLAM, DYCORE_GLISSADE, DYCORE_ALBANYFELIX)
+          ! glam/glissade dycore
 
-        call glissade_tstep(model,time)
+          call glissade_tstep(model,time)
 
-      case (DYCORE_BISICLES)
-        print *,'Using External Dycore'
-        ! The time variable gets incremented within this call:
-        dt = model%numerics%tinc
+        case (DYCORE_BISICLES)
+          print *,'Using External Dycore'
+          ! The time variable gets incremented within this call:
+          dt = model%numerics%tinc
         
-        if (time + dt + time_eps > model%numerics%tend) then
-           dt = model%numerics%tend - time
-        endif
-        call cism_run_external_dycore(model%options%external_dycore_model_index, &
-                                      time,dt)
-        ! time = time + model%numerics%tinc
-      case default
-    end select
+          if (time + dt + time_eps > model%numerics%tend) then
+             dt = model%numerics%tend - time
+          endif
+          call cism_run_external_dycore(model%options%external_dycore_model_index, &
+                                        time,dt)
+          ! time = time + model%numerics%tinc
+        case default
+      end select
 
-    call t_stopf('tstep')
-    !endif
+      call t_stopf('tstep')
+      !endif
 
-    ! write ice sheet diagnostics to log file at desired interval (model%numerics%dt_diag)
+      ! write ice sheet diagnostics to log file at desired interval (model%numerics%dt_diag)
 
-    call t_startf('write_diagnostics')
-    call glide_write_diagnostics(model,        time,       &
+      call t_startf('write_diagnostics')
+      call glide_write_diagnostics(model,        time,       &
                                   tstep_count = tstep_count)
-    call t_stopf('write_diagnostics')
+      call t_stopf('write_diagnostics')
 
-    ! update time from dycore advance
-    model%numerics%time = time
+      ! update time from dycore advance
+      model%numerics%time = time
 
-    ! --- Set forcing ---
-    ! Setting forcing at the end of the time step maintains consistency
-    ! with a forward Euler time step and ensures consistency of the time stamp
-    ! to fields in input and output files.  
-    ! For forward Euler time stepping we want S^n+1 = g(S^n, F^n)
-    ! where S is the model state, F is forcing, and n, n+1 are time levels
-    ! We also want a forcing field in the output file to have a time stamp
-    ! that matches its time stamp in the input file or the EISMINT analytic function.
-    ! The simplest way to ensure both of these criteria is to set forcing at the
-    ! end of each time step.
-    ! EISMINT forcing
-    ! NOTE: these only do something when an EISMINT case is run
-    call t_startf('set_forcing')
-    call eismint_massbalance(model%eismint_climate,model,time)
-    call eismint_surftemp(model%eismint_climate,model,time)
-    call t_stopf('set_forcing')
+      ! --- Set forcing ---
+      ! Setting forcing at the end of the time step maintains consistency
+      ! with a forward Euler time step and ensures consistency of the time stamp
+      ! to fields in input and output files.  
+      ! For forward Euler time stepping we want S^n+1 = g(S^n, F^n)
+      ! where S is the model state, F is forcing, and n, n+1 are time levels
+      ! We also want a forcing field in the output file to have a time stamp
+      ! that matches its time stamp in the input file or the EISMINT analytic function.
+      ! The simplest way to ensure both of these criteria is to set forcing at the
+      ! end of each time step.
+      ! EISMINT forcing
+      ! NOTE: these only do something when an EISMINT case is run
+      call t_startf('set_forcing')
+      call eismint_massbalance(model%eismint_climate,model,time)
+      call eismint_surftemp(model%eismint_climate,model,time)
+      call t_stopf('set_forcing')
 
-    ! Forcing from a 'forcing' data file - will read time slice if needed
-    call t_startf('read_forcing')
-    call glide_read_forcing(model, model)
-    call t_stopf('read_forcing')
+      ! Forcing from a 'forcing' data file - will read time slice if needed
+      call t_startf('read_forcing')
+      call glide_read_forcing(model, model)
+      call t_stopf('read_forcing')
 
-    ! Write to output netCDF files at desired intervals
-    call t_startf('io_writeall')
-    call glide_io_writeall(model,model)
-    call t_stopf('io_writeall')
+      ! Write to output netCDF files at desired intervals
+      call t_startf('io_writeall')
+      call glide_io_writeall(model,model)
+      call t_stopf('io_writeall')
+    end do   ! time < model%numerics%tend
+  else ! no evolution -- diagnostic run, still want to do IO
+      call t_startf('glide_io_writeall')
+      call glide_io_writeall(model,model)
+      call t_stopf('glide_io_writeall')  
+  endif    
   
-  end do   ! time < model%numerics%tend
 end subroutine cism_run_dycore
 
 subroutine cism_finalize_dycore(model)
