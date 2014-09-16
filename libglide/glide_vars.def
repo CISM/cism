@@ -550,7 +550,7 @@ load:         1
 [dynbcmask]
 dimensions:   time, y0, x0
 units:        1
-long_name:    2d array of higher-order model boundary condition mask values
+long_name:    2d array of higher-order model boundary condition mask values (NOTE: For Glam dycore ONLY)
 data:         data%velocity%dynbcmask
 type:         int
 load:         0
