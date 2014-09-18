@@ -716,7 +716,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      mintauf,                     &       
                      bwat,                        &
                      btraction,                   &
-                     0 )
+                     1 )
 
     call findcoefstr(ewn,  nsn,   upn,            &
                      dew,  dns,   sigma,          &
@@ -738,7 +738,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      mintauf,                     &       
                      bwat,                        &
                      btraction,                   &
-                     0 )
+                     1 )
 
  call t_stopf("PICARD_findcoefstr3")
 
@@ -1187,7 +1187,7 @@ end if
                      mintauf,                     &       
                      bwat,                        &
                      btraction,                   &
-                     0 )
+                     1 )
 
    call findcoefstr(ewn,  nsn,   upn,             &
                      dew,  dns,   sigma,          &
@@ -1209,7 +1209,7 @@ end if
                      mintauf,                     &       
                      bwat,                        &
                      btraction,                   &
-                     0 )
+                     1 )
 
   inisoln = .true.
 
