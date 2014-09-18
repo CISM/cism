@@ -2498,16 +2498,6 @@ end subroutine reset_effstrmin
 !  call resvect_postprocess_jfnk( ewn, nsn, upn, ui, pcgsize(1), Ft, vres, ures, magres )
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  fptr%velocity%btraction => btraction(:,:,:)
-  fptr%temper%flwa => flwa(:,:,:)
-  fptr%stress%efvs => efvs(:,:,:)
-  fptr%velocity%uvel => uvel(:,:,:)
-  fptr%velocity%vvel => vvel(:,:,:)
-
-!  fptr%velocity%ures => ures(:,:,:)     !! used for output of residual fields 
-!  fptr%velocity%vres => vres(:,:,:)     !! used for output of residual fields
-!  fptr%velocity%magres => magres(:,:,:) !! used for output of residual fields
-
   fptr%solver_data%L2norm = L2norm
   fptr%solver_data%matrixA = matrixA
   fptr%solver_data%matrixC = matrixC

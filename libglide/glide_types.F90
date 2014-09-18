@@ -1671,20 +1671,8 @@ contains
         deallocate(model%temper%dissipcol)
     if (associated(model%temper%waterfrac)) &
         deallocate(model%temper%waterfrac)
-
-    !WHL - For reasons that are unclear, the intel compiler on yellowstone
-    !      (version 13.1.2) generates an error message if we try to deallocate
-    !      either flwa or efvs when running with the Glam dycore.  Here is the
-    !      message:
-    !      forrtl: severe (173): A pointer passed to DEALLOCATE points to an object
-    !                            that cannot be deallocated
-    !      For now I'm just commenting out the lines that generate the error.
-    !      TODO: Find out whether this is a code issue or a compiler bug.
-
-    if (model%options%whichdycore /= DYCORE_GLAM) then
-       if (associated(model%temper%flwa)) &
-           deallocate(model%temper%flwa)
-    endif
+    if (associated(model%temper%flwa)) &
+        deallocate(model%temper%flwa)
 
     ! velocity arrays
 
@@ -1768,12 +1756,8 @@ contains
 
     ! higher-order stress arrays
 
-    !WHL - See comment above with regard to flwa.
-    if (model%options%whichdycore /= DYCORE_GLAM) then
-       if (associated(model%stress%efvs)) &
-           deallocate(model%stress%efvs)
-    endif
-
+    if (associated(model%stress%efvs)) &
+        deallocate(model%stress%efvs)
     if (associated(model%stress%tau%scalar)) &
         deallocate(model%stress%tau%scalar)
     if (associated(model%stress%tau%xz)) &
