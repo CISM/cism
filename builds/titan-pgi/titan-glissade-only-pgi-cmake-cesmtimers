@@ -88,7 +88,7 @@ cmake \
   -D GLIMMER_TRILINOS_ALBANY_DIR= \
 \
   -D GLIMMER_GPTL_DIR=/ccs/proj/cli062/cism_gptl/libgptl/libgptl-titan-pgi \
-  -D CISM_NETCDF_DIR=/opt/cray/netcdf-hdf5parallel/4.3.0/pgi/121 \
+  -D GLIMMER_NETCDF_DIR=/opt/cray/netcdf-hdf5parallel/4.3.0/pgi/121 \
 \
   -D CMAKE_INSTALL_PREFIX:PATH=$PWD/install \
   -D CMAKE_VERBOSE_MAKEFILE:BOOL=ON \
