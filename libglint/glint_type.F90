@@ -466,6 +466,7 @@ contains
 
     use glimmer_log
     use glint_constants, only: hours2years
+    use parallel, only: tasks
 
     implicit none
 
@@ -498,6 +499,12 @@ contains
     endif
 
     if (instance%whichacab /= MASS_BALANCE_GCM) then  ! not getting SMB from GCM
+
+       !TODO - Get the PDD scheme to work on multiple processors?
+       if (tasks > 1) then
+          call write_log('GLINT: Must use GCM mass balance option to run on more than one processor', GM_FATAL)
+       endif
+
        write(message,*) 'ice_albedo  ',instance%ice_albedo
        call write_log(message)
        write(message,*) 'lapse_rate  ',instance%lapse_rate

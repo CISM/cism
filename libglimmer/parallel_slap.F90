@@ -184,6 +184,11 @@ module parallel
      module procedure distributed_scatter_var_real8_3d
   end interface
 
+  interface global_sum
+     module procedure global_sum_real8_scalar
+     module procedure global_sum_real8_1d
+  end interface
+
   interface parallel_get_var
      module procedure parallel_get_var_integer_1d
      module procedure parallel_get_var_real4_1d
@@ -202,19 +207,6 @@ module parallel
      module procedure parallel_halo_verify_integer_2d
      module procedure parallel_halo_verify_real8_2d
      module procedure parallel_halo_verify_real8_3d
-  end interface
-
-  interface staggered_parallel_halo
-     module procedure staggered_parallel_halo_integer_2d
-     module procedure staggered_parallel_halo_integer_3d
-     module procedure staggered_parallel_halo_real8_2d
-     module procedure staggered_parallel_halo_real8_3d
-     module procedure staggered_parallel_halo_real8_4d
-  end interface
-
-  interface staggered_parallel_halo_extrapolate
-     module procedure staggered_parallel_halo_extrapolate_integer_2d
-     module procedure staggered_parallel_halo_extrapolate_real8_2d
   end interface
 
   interface parallel_print
@@ -268,6 +260,19 @@ module parallel
      module procedure parallel_reduce_minloc_integer
      module procedure parallel_reduce_minloc_real4
      module procedure parallel_reduce_minloc_real8
+  end interface
+
+  interface staggered_parallel_halo
+     module procedure staggered_parallel_halo_integer_2d
+     module procedure staggered_parallel_halo_integer_3d
+     module procedure staggered_parallel_halo_real8_2d
+     module procedure staggered_parallel_halo_real8_3d
+     module procedure staggered_parallel_halo_real8_4d
+  end interface
+
+  interface staggered_parallel_halo_extrapolate
+     module procedure staggered_parallel_halo_extrapolate_integer_2d
+     module procedure staggered_parallel_halo_extrapolate_real8_2d
   end interface
 
 contains
@@ -644,6 +649,7 @@ contains
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task will store the variable.
     ! If global_values is allocated, then it will be deallocated and reallocated.  It will be unused on other nodes.
+    ! Variables are assumed to lie on the scalar grid (at cell centers).
     implicit none
     integer,dimension(:,:),intent(in) :: values
     integer,dimension(:,:),allocatable,intent(inout) :: global_values
@@ -652,9 +658,12 @@ contains
        deallocate(global_values)
     endif
 
-    allocate(global_values(size(values,1), size(values,2)))
+      !WHL - Commented code will not work if the local arrays include halo cells
+!!    allocate(global_values(size(values,1), size(values,2)))
+!!    global_values(:,:) = values(:,:)
+    allocate(global_values(size(values,1)-uhalo-lhalo, size(values,2)-uhalo-lhalo))
+    global_values(:,:) = values(1+lhalo:local_ewn-uhalo, 1+lhalo:local_nsn-uhalo)
 
-    global_values(:,:) = values(:,:)
   end subroutine distributed_gather_var_integer_2d
 
   subroutine distributed_gather_var_logical_2d(values, global_values)
@@ -662,6 +671,7 @@ contains
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task will store the variable.
     ! If global_values is allocated, then it will be deallocated and reallocated.  It will be unused on other nodes.
+    ! Variables are assumed to lie on the scalar grid (at cell centers).
     implicit none
     logical,dimension(:,:),intent(in) :: values
     logical,dimension(:,:),allocatable,intent(inout) :: global_values
@@ -670,9 +680,12 @@ contains
        deallocate(global_values)
     endif
 
-    allocate(global_values(size(values,1), size(values,2)))
+      !WHL - Commented code will not work if the local arrays include halo cells
+!!    allocate(global_values(size(values,1), size(values,2)))
+!!    global_values(:,:) = values(:,:)
+    allocate(global_values(size(values,1)-uhalo-lhalo, size(values,2)-uhalo-lhalo))
+    global_values(:,:) = values(1+lhalo:local_ewn-uhalo, 1+lhalo:local_nsn-uhalo)
 
-    global_values(:,:) = values(:,:)
   end subroutine distributed_gather_var_logical_2d
 
   subroutine distributed_gather_var_real4_2d(values, global_values)
@@ -680,6 +693,7 @@ contains
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task will store the variable.
     ! If global_values is allocated, then it will be deallocated and reallocated.  It will be unused on other nodes.
+    ! Variables are assumed to lie on the scalar grid (at cell centers).
     implicit none
     real(4),dimension(:,:),intent(in) :: values
     real(4),dimension(:,:),allocatable,intent(inout) :: global_values
@@ -688,9 +702,12 @@ contains
        deallocate(global_values)
     endif
 
-    allocate(global_values(size(values,1), size(values,2)))
+      !WHL - Commented code will not work if the local arrays include halo cells
+!!    allocate(global_values(size(values,1), size(values,2)))
+!!    global_values(:,:) = values(:,:)
+    allocate(global_values(size(values,1)-uhalo-lhalo, size(values,2)-uhalo-lhalo))
+    global_values(:,:) = values(1+lhalo:local_ewn-uhalo, 1+lhalo:local_nsn-uhalo)
 
-    global_values(:,:) = values(:,:)
   end subroutine distributed_gather_var_real4_2d
 
   subroutine distributed_gather_var_real4_3d(values, global_values, ld1, ud1)
@@ -698,6 +715,7 @@ contains
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task will store the variable.
     ! If global_values is allocated, then it will be deallocated and reallocated.  It will be unused on other nodes.
+    ! Variables are assumed to lie on the scalar grid (at cell centers).
     implicit none
     real(4),dimension(:,:,:),intent(in) :: values
     real(4),dimension(:,:,:),allocatable,intent(inout) :: global_values
@@ -723,9 +741,12 @@ contains
        call parallel_stop(__FILE__, __LINE__)
     endif
 
-    allocate(global_values(d1l:d1u, size(values,2), size(values,3)))
+    !WHL - Commented code will not work if the local arrays include halo cells
+!!    allocate(global_values(d1l:d1u, size(values,2), size(values,3)))
+!!    global_values(d1l:d1u,:,:) = values(1:size(values,1),:,:)
+    allocate(global_values(d1l:d1u, size(values,2)-uhalo-lhalo, size(values,3)-uhalo-lhalo))
+    global_values(d1l:d1u,:,:) = values(1:size(values,1), 1+lhalo:local_ewn-uhalo, 1+lhalo:local_nsn-uhalo)
 
-    global_values(d1l:d1u,:,:) = values(1:size(values,1),:,:)
   end subroutine distributed_gather_var_real4_3d
 
   subroutine distributed_gather_var_real8_2d(values, global_values)
@@ -733,6 +754,7 @@ contains
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task will store the variable.
     ! If global_values is allocated, then it will be deallocated and reallocated.  It will be unused on other nodes.
+    ! Variables are assumed to lie on the scalar grid (at cell centers).
     implicit none
     real(8),dimension(:,:),intent(in) :: values
     real(8),dimension(:,:),allocatable,intent(inout) :: global_values
@@ -741,9 +763,12 @@ contains
        deallocate(global_values)
     endif
 
-    allocate(global_values(size(values,1), size(values,2)))
+      !WHL - Commented code will not work if the local arrays include halo cells
+!!    allocate(global_values(size(values,1), size(values,2)))
+!!    global_values(:,:) = values(:,:)
+    allocate(global_values(size(values,1)-uhalo-lhalo, size(values,2)-uhalo-lhalo))
+    global_values(:,:) = values(1+lhalo:local_ewn-uhalo, 1+lhalo:local_nsn-uhalo)
 
-    global_values(:,:) = values(:,:)
   end subroutine distributed_gather_var_real8_2d
 
   subroutine distributed_gather_var_real8_3d(values, global_values, ld1, ud1)
@@ -751,6 +776,7 @@ contains
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task will store the variable.
     ! If global_values is allocated, then it will be deallocated and reallocated.  It will be unused on other nodes.
+    ! Variables are assumed to lie on the scalar grid (at cell centers).
     implicit none
     real(8),dimension(:,:,:),intent(in) :: values
     real(8),dimension(:,:,:),allocatable,intent(inout) :: global_values
@@ -776,9 +802,12 @@ contains
        call parallel_stop(__FILE__, __LINE__)
     endif
 
-    allocate(global_values(d1l:d1u, size(values,2), size(values,3)))
+    !WHL - Commented code will not work if the local arrays include halo cells
+!!    allocate(global_values(d1l:d1u, size(values,2), size(values,3)))
+!!    global_values(d1l:d1u,:,:) = values(1:size(values,1),:,:)
+    allocate(global_values(d1l:d1u, size(values,2)-uhalo-lhalo, size(values,3)-uhalo-lhalo))
+    global_values(d1l:d1u,:,:) = values(1:size(values,1), 1+lhalo:local_ewn-uhalo, 1+lhalo:local_nsn-uhalo)
 
-    global_values(d1l:d1u,:,:) = values(1:size(values,1),:,:)
   end subroutine distributed_gather_var_real8_3d
 
   function distributed_isparallel()
@@ -1114,14 +1143,14 @@ contains
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task holds the variable.
     ! global_values is deallocated at the end.
+    ! Variables are assumed to lie on the scalar grid (at cell centers).
     implicit none
     integer,dimension(:,:),intent(inout) :: values  ! populated from values on main_task
     integer,dimension(:,:),allocatable,intent(inout) :: global_values  ! only used on main_task
 
-    values(:,:) = global_values(:,:)
+    values(1+lhalo:local_ewn-uhalo, 1+lhalo:local_nsn-uhalo) = global_values(:,:)
 
-    deallocate(global_values)
-    ! automatic deallocation
+    deallocate(global_values)  ! automatic deallocation
   end subroutine distributed_scatter_var_integer_2d
 
   subroutine distributed_scatter_var_logical_2d(values, global_values)
@@ -1129,14 +1158,14 @@ contains
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task holds the variable.
     ! global_values is deallocated at the end.
+    ! Variables are assumed to lie on the scalar grid (at cell centers).
     implicit none
     logical,dimension(:,:),intent(inout) :: values  ! populated from values on main_task
     logical,dimension(:,:),allocatable,intent(inout) :: global_values  ! only used on main_task
 
-    values(:,:) = global_values(:,:)
+    values(1+lhalo:local_ewn-uhalo, 1+lhalo:local_nsn-uhalo) = global_values(:,:)
 
-    deallocate(global_values)
-    ! automatic deallocation
+    deallocate(global_values)  ! automatic deallocation
   end subroutine distributed_scatter_var_logical_2d
 
   subroutine distributed_scatter_var_real4_2d(values, global_values)
@@ -1148,10 +1177,9 @@ contains
     real(4),dimension(:,:),intent(inout) :: values  ! populated from values on main_task
     real(4),dimension(:,:),allocatable,intent(inout) :: global_values  ! only used on main_task
 
-    values(:,:) = global_values(:,:)
+    values(1+lhalo:local_ewn-uhalo, 1+lhalo:local_nsn-uhalo) = global_values(:,:)
 
-    deallocate(global_values)
-    ! automatic deallocation
+    deallocate(global_values)  ! automatic deallocation
   end subroutine distributed_scatter_var_real4_2d
 
   subroutine distributed_scatter_var_real4_3d(values, global_values)
@@ -1159,14 +1187,15 @@ contains
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task holds the variable.
     ! global_values is deallocated at the end.
+    ! NOTE: The horizontal dimensions are assumed to be the second and third dimensions.
+    !       Variables are assumed to lie on the scalar grid (at cell centers).
     implicit none
     real(4),dimension(:,:,:),intent(inout) :: values  ! populated from values on main_task
     real(4),dimension(:,:,:),allocatable,intent(inout) :: global_values  ! only used on main_task
 
-    values(:,:,:) = global_values(:,:,:)
+    values(:, 1+lhalo:local_ewn-uhalo, 1+lhalo:local_nsn-uhalo) = global_values(:,:,:)
 
-    deallocate(global_values)
-    ! automatic deallocation
+    deallocate(global_values)  ! automatic deallocation
   end subroutine distributed_scatter_var_real4_3d
 
   subroutine distributed_scatter_var_real8_2d(values, global_values)
@@ -1174,14 +1203,14 @@ contains
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task holds the variable.
     ! global_values is deallocated at the end.
+    ! Variables are assumed to lie on the scalar grid (at cell centers).
     implicit none
     real(8),dimension(:,:),intent(inout) :: values  ! populated from values on main_task
     real(8),dimension(:,:),allocatable,intent(inout) :: global_values  ! only used on main_task
 
-    values(:,:) = global_values(:,:)
+    values(1+lhalo:local_ewn-uhalo, 1+lhalo:local_nsn-uhalo) = global_values(:,:)
 
-    deallocate(global_values)
-    ! automatic deallocation
+    deallocate(global_values)  ! automatic deallocation
   end subroutine distributed_scatter_var_real8_2d
 
   subroutine distributed_scatter_var_real8_3d(values, global_values, deallocflag)
@@ -1189,12 +1218,15 @@ contains
     ! values = local portion of distributed variable
     ! global_values = reference to allocateable array into which the main_task holds the variable.
     ! global_values is deallocated at the end.
+    ! NOTE: The horizontal dimensions are assumed to be the second and third dimensions.
+    !       Variables are assumed to lie on the scalar grid (at cell centers).
     implicit none
     real(8),dimension(:,:,:),intent(inout) :: values  ! populated from values on main_task
     real(8),dimension(:,:,:),allocatable,intent(inout) :: global_values  ! only used on main_task
     logical,optional :: deallocflag
     logical :: deallocmem
 
+    !TODO - Why does this scatter subroutine have a deallocmem flag, but not the others?
     if (present(deallocflag)) then
        deallocmem = deallocflag
     else
@@ -1202,16 +1234,20 @@ contains
     endif
 
     ! begin
-    values(:,:,:) = global_values(:,:,:)
+    values(:, 1+lhalo:local_ewn-uhalo, 1+lhalo:local_nsn-uhalo) = global_values(:,:,:)
 
-    if (deallocmem) deallocate(global_values)
-    ! automatic deallocation
+    if (deallocmem) deallocate(global_values) ! automatic deallocation
   end subroutine distributed_scatter_var_real8_3d
 
-  subroutine global_sum(x)
+  subroutine global_sum_real8_scalar(x)
+    implicit none
+    real(8) :: x
+  end subroutine global_sum_real8_scalar
+
+  subroutine global_sum_real8_1d(x)
     implicit none
     real(8),dimension(:) :: x
-  end subroutine global_sum
+  end subroutine global_sum_real8_1d
 
   subroutine not_parallel(file,line)
     implicit none

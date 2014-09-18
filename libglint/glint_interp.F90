@@ -167,8 +167,9 @@ contains
 
   subroutine interp_wind_to_local(lgrid_fulldomain,zonwind,merwind,downs,xwind,ywind)
 
-    !*FD Interpolates a global wind field 
-    !*FD (or any vector field) onto a given projected grid.
+    ! Interpolate a global wind field (or any vector field) onto a given projected grid.
+    !
+    ! Currently doesn't work with multiple tasks
 
     use glimmer_utils
     use glimmer_coordinates
@@ -242,7 +243,7 @@ contains
     use glimmer_utils
     use glimmer_coordinates
     use glimmer_log
-    use parallel, only : main_task, distributed_scatter_var
+    use parallel, only : main_task, distributed_scatter_var, parallel_halo
 
     ! Argument declarations
 
@@ -278,9 +279,9 @@ contains
     integer :: y1, y2, y3, y4
 
     if (present(z_constrain)) then
-       zc=z_constrain
+       zc = z_constrain
     else
-       zc=.false.
+       zc = .false.
     end if
 
     ! check we have one output at least...
@@ -310,6 +311,10 @@ contains
           allocate(localdp_fulldomain(0,0))
        end if
     end if
+
+!WHL - debug
+!!    print*, ' '
+!!    print*, 'In interp_to_local, local nx, ny =', lgrid_fulldomain%size%pt(1), lgrid_fulldomain%size%pt(2)
 
     ! Do main interpolation work, just on main task
 
@@ -426,35 +431,119 @@ contains
              ! Apply the bilinear interpolation
 
              if (zc.and.zeros(downs%xin(i,j),downs%yin(i,j)).and.downs%use_mpint) then
-                if (present(localsp)) localsp_fulldomain(i,j)=0.0_sp
-                if (present(localdp)) localdp_fulldomain(i,j)=0.0_dp
+                if (present(localsp)) localsp_fulldomain(i,j) = 0.0_sp
+                if (present(localdp)) localdp_fulldomain(i,j) = 0.0_dp
              else
-                if (present(localsp)) localsp_fulldomain(i,j)=bilinear_interp(downs%xfrac(i,j),downs%yfrac(i,j),f)
-                if (present(localdp)) localdp_fulldomain(i,j)=bilinear_interp(downs%xfrac(i,j),downs%yfrac(i,j),f)
+                if (present(localsp)) localsp_fulldomain(i,j) = bilinear_interp(downs%xfrac(i,j),downs%yfrac(i,j),f)
+                if (present(localdp)) localdp_fulldomain(i,j) = bilinear_interp(downs%xfrac(i,j),downs%yfrac(i,j),f)
              end if
 
           enddo
        enddo
     end if  ! main_task
 
+!WHL - debug
+!!    print*, 'Before scatter: max/min(localdp) =', maxval(localdp_fulldomain), minval(localdp_fulldomain)
+ 
     ! Main task scatters interpolated data from the full domain to the task owning each point
+    ! Note that distributed_scatter_var doesn't set halo values, so we need to do a halo
+    !  update if it's important to have correct values in the halo cells.
+    ! Although it's not strictly necessary to have the halo values, we compute them just in
+    !  case another part of the code (e.g., glissade_temp) assumes they are available.
 
-    if (present(localsp)) call distributed_scatter_var(localsp, localsp_fulldomain)
-    if (present(localdp)) call distributed_scatter_var(localdp, localdp_fulldomain)
+    if (present(localsp)) then
+       localsp(:,:) = 0.d0
+       call distributed_scatter_var(localsp, localsp_fulldomain)
+       call parallel_halo(localsp)
+    endif
+
+    if (present(localdp)) then
+       localdp(:,:) = 0.d0
+       call distributed_scatter_var(localdp, localdp_fulldomain)
+       call parallel_halo(localdp)
+    endif
+
+!WHL - debug
+!!    print*, 'After scatter: max/min(localdp) =', maxval(localdp), minval(localdp)
 
     ! We do NOT deallocate the local*_fulldomain variables here, because the
     ! distributed_scatter_var routines do this deallocation
 
   end subroutine interp_to_local
 
+  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+  subroutine copy_to_local (lgrid_fulldomain, global, downs, local)
+
+    ! Do a simple copy of a global scalar field onto a projected grid.
+    ! 
+    ! This copies the value from each global cell into all local cells contained
+    ! within it.
+    !
+    ! Note that, in contrast to interp_to_local, this routine does not support a gmask.
+    !
+    ! Variables referring to the global domain (global, downs) only need to be valid
+    ! on the main task.
+
+    use glimmer_coordinates
+    use parallel, only : main_task, distributed_scatter_var, parallel_halo
+
+    ! Argument declarations
+
+    type(coordsystem_type),  intent(in)  :: lgrid_fulldomain !*FD Local grid, spanning the full domain (across all tasks)
+    real(dp), dimension(:,:),intent(in)  :: global           !*FD Global field (input)
+    type(downscale),         intent(in)  :: downs            !*FD Downscaling parameters
+    real(dp),dimension(:,:), intent(out) :: local            !*FD Local field on projected grid (output)
+    
+    ! Local variable declarations
+
+    real(dp), dimension(:,:), allocatable :: local_fulldomain  ! local spanning full domain (all tasks)
+    integer :: i,j    ! local indices
+    integer :: ig,jg  ! global indices
+
+    if (main_task) then
+       allocate(local_fulldomain(lgrid_fulldomain%size%pt(1), lgrid_fulldomain%size%pt(2)))
+    else
+       allocate(local_fulldomain(0,0))
+    end if
+
+    ! Do main copying work, just on main task
+
+    if (main_task) then
+       do j=1,lgrid_fulldomain%size%pt(2)
+          do i=1,lgrid_fulldomain%size%pt(1)
+             ig = downs%xin(i,j)
+             jg = downs%yin(i,j)
+             local_fulldomain(i,j) = global(ig,jg)
+          end do
+       end do
+    end if
+
+    ! Main task scatters interpolated data from the full domain to the task owning each point
+    ! Note that distributed_scatter_var doesn't set halo values, so we need to do a halo
+    !  update if it's important to have correct values in the halo cells.
+    ! Although it's not strictly necessary to have the halo values, we compute them just in
+    !  case another part of the code (e.g., glissade_temp) assumes they are available.
+
+    local(:,:) = 0.d0
+    call distributed_scatter_var(local, local_fulldomain)
+    call parallel_halo(local)
+
+    ! We do NOT deallocate local_fulldomain here, because the distributed_scatter_var
+    ! routine does this deallocation
+
+  end subroutine copy_to_local
+
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   subroutine mean_to_local(proj,lgrid,ggrid,global,localsp,localdp,global_fn)
 
-    !*FD Average a high-resolution global field onto the projected grid
-    !*FD This assumes that the global field is sufficiently high-resolution 
-    !*FD compared with the local grid - it just averages the points contained 
-    !*FD in each local grid-box.
+    ! Average a high-resolution global field onto the projected grid.
+    ! This assumes that the global field is sufficiently high-resolution 
+    ! compared with the local grid - it just averages the points contained 
+    ! in each local grid-box.
+    !
+    ! This may not work properly with multiple tasks.
 
     use glimmer_map_types
     use glimmer_map_trans
@@ -542,11 +631,12 @@ contains
 
   subroutine pointwise_to_global(proj,lgrid,local,lons,lats,global)
 
-    !*FD Upscale to global domain by
-    !*FD pointwise sampling.
-    !*FD
-    !*FD Note that this is the mathematically inverse process of the 
-    !*FD \texttt{interp\_to\_local} routine.
+    ! Upscale to global domain by pointwise sampling.
+    !
+    ! Note that this is the mathematically inverse process of the 
+    !  \texttt{interp\_to\_local} routine.
+    !
+    ! This probably doesn't work correctly with multiple tasks.
 
     use glimmer_coordinates
     use glimmer_map_trans
@@ -573,12 +663,13 @@ contains
     do i=1,nxg
        do j=1,nyg
           call glimmap_ll_to_xy(lons(i),lats(j),x,y,proj,lgrid)
-          xx=int(x) ; yy=int(y)
-          if (nint(x)<=1.or.nint(x)>nxl-1.or.nint(y)<=1.or.nint(y)>nyl-1) then
-             global(i,j)=0.0
+          xx = int(x) 
+          yy = int(y)
+          if (nint(x)<=1 .or. nint(x)>nxl-1 .or. nint(y)<=1 .or. nint(y)>nyl-1) then
+             global(i,j) = 0.d0
           else
-             f=local(xx:xx+1,yy:yy+1)*tempmask(xx:xx+1,yy:yy+1)
-             global(i,j)=bilinear_interp((x-real(xx))/real(1.0,dp),(y-real(yy))/real(1.0,dp),f)
+             f = local(xx:xx+1,yy:yy+1)*tempmask(xx:xx+1,yy:yy+1)
+             global(i,j) = bilinear_interp((x-real(xx))/1.d0,(y-real(yy))/1.d0,f)
           endif
        enddo
     enddo
@@ -586,8 +677,6 @@ contains
   end subroutine pointwise_to_global
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-  !WHL - Changed name from mean_to_global to local_to_global_avg
 
   subroutine local_to_global_avg(ups,local,global,mask)
 

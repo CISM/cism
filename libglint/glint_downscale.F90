@@ -102,9 +102,9 @@ contains
     use glimmer_paramets, only: thk0, GLC_DEBUG
     use glint_constants, only: lapse
     use glint_type
-    use glint_interp, only: interp_to_local
+    use glint_interp, only: interp_to_local, copy_to_local
     use glimmer_log
-    use parallel, only: tasks
+    use parallel, only: tasks, main_task, this_rank
 
     ! Downscale global input fields from the global grid (with multiple elevation classes)
     ! to the local ice sheet grid.
@@ -122,7 +122,7 @@ contains
 
     integer :: nxl, nyl, nec               ! local grid dimensions
 
-    integer :: i, j, n, ig, jg
+    integer :: i, j, n
  
     real(dp), dimension(:,:,:), allocatable ::   &
        qsmb_l,    &! interpolation of global mass balance to local grid
@@ -159,12 +159,23 @@ contains
           call interp_to_local(instance%lgrid_fulldomain, topo_g(:,:,n), instance%downs, localdp=topo_l(:,:,n))
        enddo
 
-    endif
+    endif   ! gmask
+
+    ! For elevation class 0 (bare land), simply set the values to the values of the
+    ! global parent cell. No vertical/horizontal interpolation is used, since these
+    ! elevation-dependent values are not constrained to a discrete elevation band. Also
+    ! note that we do not consider gmask here.
+
+    call copy_to_local(instance%lgrid_fulldomain, qsmb_g(:,:,0), instance%downs, qsmb_l(:,:,0))
+    call copy_to_local(instance%lgrid_fulldomain, tsfc_g(:,:,0), instance%downs, tsfc_l(:,:,0))
+
+    ! topo_l(:,:,0) isn't used right now, but compute it anyway for consistency
+    call copy_to_local(instance%lgrid_fulldomain, topo_g(:,:,0), instance%downs, topo_l(:,:,0))
 
 !   Interpolate tsfc and qsmb to local topography using values in the neighboring 
 !    elevation classes (vertical interpolation).
 
-!   If the local topography is outside the bounds of the global elevations classes,
+!   If the local topography is outside the bounds of the global elevation classes,
 !    extrapolate the temperature using the prescribed lapse rate.
 
     do j = 1, nyl
@@ -177,13 +188,9 @@ contains
 
              if (usrf > 0.d0) then   ! and on land (not ocean)...
 
-                ! Set these values to the bare-land values of global parent cell.
-                ! No vertical/horizontal interpolation is used, since these elevation-
-                !  dependent values are not constrained to a discrete elevation band.
-                ig = instance%downs%xin(i,j)
-                jg = instance%downs%yin(i,j)
-                instance%acab(i,j) = qsmb_g(ig,jg,0)
-                instance%artm(i,j) = tsfc_g(ig,jg,0)
+                ! As noted above, no vertical interpolation is done for ice-free land
+                instance%acab(i,j) = qsmb_l(i,j,0)
+                instance%artm(i,j) = tsfc_l(i,j,0)
 
                 if (instance%acab(i,j) < 0.d0) then
                    write (stdout,*)'ERROR: SMB is negative over bare-land point'
@@ -213,7 +220,7 @@ contains
                 instance%artm(i,j) = 0.d0
              endif
 
-          else !if ice-covered...
+          else ! if ice-covered...
 
              if (usrf <= topo_l(i,j,1)) then
                 instance%acab(i,j) = qsmb_l(i,j,1)
@@ -234,6 +241,20 @@ contains
           endif ! thck
        enddo ! i
     enddo ! j
+
+    if (GLC_DEBUG .and. main_task) then
+       print*, 'glint_downscaling_gcm, max/min qsmb_g, this_rank =', this_rank
+       do n = 0, nec
+          print*, n, maxval(qsmb_g(:,:,n)), minval(qsmb_g(:,:,n))
+       enddo
+       print*, ' '
+       print*, 'glint_downscaling_gcm, max/min qsmb_l, this_rank =', this_rank
+       do n = 0, nec
+          print*, n, maxval(qsmb_l(:,:,n)), minval(qsmb_l(:,:,n))
+       enddo
+       print*, ' '
+       print*, 'glint_downscaling_gcm, this_rank, max/min acab:', this_rank, maxval(instance%acab), minval(instance%acab)
+    endif
 
     deallocate(qsmb_l, tsfc_l, topo_l)
     

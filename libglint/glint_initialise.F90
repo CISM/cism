@@ -662,7 +662,7 @@ contains
                              instance%frac_cov_orog)
        endif
 
-    end if
+    end if  ! main_task
 
   end subroutine setup_lgrid_fulldomain
 

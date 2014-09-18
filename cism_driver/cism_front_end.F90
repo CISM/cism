@@ -403,6 +403,7 @@ subroutine cism_finalize_dycore(model)
   ! finalise GLIDE
   call glide_finalise(model)
 
+  !TODO - Do we need to call glimmer_write_stats?
 #if (! defined CCSMCOUPLED && ! defined CESMTIMERS)
   call system_clock(clock,clock_rate)
   wall_stop_time = real(clock,kind=dp)/real(clock_rate,kind=dp)
