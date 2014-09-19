@@ -211,14 +211,16 @@ subroutine cism_init_dycore(model)
                                  tstep_count = tstep_count)
     call t_stopf('initial_write_diagnostics')
 
-    ! --- Output the initial state -------------
-
-    call t_startf('initial_io_writeall')                                                          
-    call glide_io_writeall(model, model, time=time)          ! MJH The optional time argument needs to be supplied 
-                                                             !     since we have not yet set model%numerics%time
-                                                             !WHL - model%numerics%time is now set above
-    call t_stopf('initial_io_writeall')
   end if ! whichdycore .ne. DYCORE_BISICLES
+
+
+  ! --- Output the initial state -------------
+
+  call t_startf('initial_io_writeall')                                                          
+  call glide_io_writeall(model, model, time=time)          ! MJH The optional time argument needs to be supplied 
+                                                           !     since we have not yet set model%numerics%time
+                                                           !WHL - model%numerics%time is now set above
+  call t_stopf('initial_io_writeall')
 
 end subroutine cism_init_dycore
 
@@ -363,9 +365,10 @@ subroutine cism_run_dycore(model)
       call t_stopf('io_writeall')
     end do   ! time < model%numerics%tend
   else ! no evolution -- diagnostic run, still want to do IO
-      call t_startf('glide_io_writeall')
-      call glide_io_writeall(model,model)
-      call t_stopf('glide_io_writeall')  
+      ! (DFM) uncomment this if we want to do an I/O step even if no evoloution 
+      !call t_startf('glide_io_writeall')
+      !call glide_io_writeall(model,model)
+      !call t_stopf('glide_io_writeall')  
   endif    
   
 end subroutine cism_run_dycore
