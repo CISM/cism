@@ -14,7 +14,6 @@ dt = 1.0
 
 [options]
 dycore = 2              # 1 = glam, 2 = glissade
-dycore = 1
 flow_law = 0            # isothermal
 evolution = 3
 

@@ -12,8 +12,8 @@ import numpy
 # ==========================================================================
 # Parameters you might want to modify
 # ==========================================================================
-analytic_solution = 'raymond'  # can be 'raymond' or 'schoof'
-kinflag = 0    # 1=apply kinematic bc (analytic soln) at up/downstream ends, 0=the run will be doubly periodic (preferred)
+analytic_solution = 'schoof'  # can be 'raymond' or 'schoof'
+kinflag = 1    # 1=apply kinematic bc (analytic soln) at points in the domain (discussed further below); 0=the run will be doubly periodic (preferred)
 fillInitialGuess = 0  # 1=use the analytic solution as the initial guess for the velocity solver to speed convergence; 0=use the default 0-velocity initial guess
 
 
@@ -29,7 +29,6 @@ g = -9.81     # gravity m/s2
 n = 3         # flow law exponent
 A = 1e-16     # flow rate factor in Pa^-3 yr^-1
 # ==========================================================================
-
 
 
 # ======================================
@@ -72,7 +71,6 @@ def schoof_uvel(yy):
   return us
 
 
-
 # ======================================
 # -- Values derived from things above --
 # ======================================
@@ -85,7 +83,6 @@ elif analytic_solution == 'schoof':
   strongWidth = 3.0 * L - streamHalfWidth
 
 # Calculating the actual domain size will happen later after the config file is read
-
 
 
 
@@ -226,7 +223,7 @@ if __name__ == '__main__':
         netCDFfile.createVariable('vvel','f',('time','level','y0','x0'))
 
     if kinflag == 1:
-        # setup Dirichlet boundary conditions for uvel/vvel along east & west domain boundaries
+        # setup Dirichlet boundary conditions for uvel and/or vvel at points in the domain
 
         dudy = numpy.gradient( uvelProfile, dy )
         vvelProfile = -dudy*dy
@@ -235,16 +232,28 @@ if __name__ == '__main__':
         uvel = numpy.zeros([1,nz,ny-1,nx-1],dtype='float32')
         vvel = numpy.zeros([1,nz,ny-1,nx-1],dtype='float32')
 
+
+    # =================================================================
+    # fill both uvel and vvel at the upstrean and downstream domain ends
+
         # Fill first column
-        i = 0
-        uvel[0,:,:,i] = numpy.tile(uvelProfile, [nz, 1])  # uniform in the vertical
-        vvel[0,:,:,i] = -numpy.tile(vvelProfile, [nz, 1])  # uniform in the vertical
-        kinbcmask[0,:,i] = 1
+#        i = 0
+#        uvel[0,:,:,i] = numpy.tile(uvelProfile, [nz, 1])  # uniform in the vertical
+#        vvel[0,:,:,i] = -numpy.tile(vvelProfile, [nz, 1])  # uniform in the vertical
+#        kinbcmask[0,:,i] = 1
 
         # Fill last column
-        i = nx-1 - 1
+#        i = nx-1 - 1
+#        uvel[0,:,:,i] = numpy.tile(uvelProfile, [nz, 1])  # uniform in the vertical
+#        vvel[0,:,:,i] = numpy.tile(vvelProfile, [nz, 1])  # uniform in the vertical
+#        kinbcmask[0,:,i] = 1
+
+    # =================================================================
+    # fill both uvel and vvel at the upstrean and downstream domain ends
+        # Fill just a single across-flow profile in domain interior
+        i = 2
         uvel[0,:,:,i] = numpy.tile(uvelProfile, [nz, 1])  # uniform in the vertical
-        vvel[0,:,:,i] = numpy.tile(vvelProfile, [nz, 1])  # uniform in the vertical
+#        vvel[0,:,:,i] = -numpy.tile(vvelProfile, [nz, 1])  # uniform in the vertical
         kinbcmask[0,:,i] = 1
 
         netCDFfile.variables['uvel'][:] = uvel[:]
