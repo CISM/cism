@@ -267,15 +267,13 @@ contains
     if (maxval(model%velocity%unstagbeta) > 0.d0 .and.   &
                model%options%which_ho_babc /= HO_BABC_ISHOMC) then  ! interpolate to staggered grid
        call write_log('Interpolating beta from unstaggered to staggered grid')
+       call write_log('Warning: "beta" (if present) will be overwritten with values from "unstagbeta"')
 
        call parallel_halo(model%velocity%unstagbeta)    ! fill in halo values
        call stagvarb(model%velocity%unstagbeta,  &      ! interpolate
                      model%velocity%beta,        &
                      model%general%ewn,          &
                      model%general%nsn)
-
-       !NOTE: The following will override any other value of which_ho_babc set in the config file
-       model%options%which_ho_babc = HO_BABC_EXTERNAL_BETA  
 
        !WHL - debug
        print*, ' '
