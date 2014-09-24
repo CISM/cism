@@ -1,12 +1,12 @@
-# This do-configure script is an example for configuring Trilinos 11.4.3
+# This do-configure script is an example for configuring Trilinos 11.10.2
 # on a 'typical' Mac OSX setup.  This script is also likely to work for other
 # versions of Trilinos, but minor adjustments may be needed.
 # See CISM documentation for details of how to obtain, configure, and build
 # Trilinos for use with CISM.
 #
 # Modify these lines below to point to the appropriate places on your system:
-# -D CMAKE_INSTALL_PREFIX:PATH=/usr/local/trilinos-11.4.3-Install \   # <-- this is where you want Trilinos to be installed
-# /usr/local/trilinos-11.4.3-Source      # <-- this is the location of the Trilinos source code (where you unarchived it after downloading it from http://trilinos.sandia.gov/)
+# -D CMAKE_INSTALL_PREFIX:PATH=/usr/local/trilinos-11.10.2-Install \   # <-- this is where you want Trilinos to be installed
+# /usr/local/trilinos-11.10.2-Source      # <-- this is the location of the Trilinos source code (where you unarchived it after downloading it from http://trilinos.sandia.gov/)
 #
 # Also, you may need to modify your compiler locations and flags.  
 # The values below will likely work for a 'typical' Mac installation using Macports, 
@@ -14,12 +14,19 @@
 #
 # This script should be executed from a build directory that is separate
 # from the source and install directories, e.g., in this example:
-# /usr/local/trilinos-11.4.3-Build
+# /usr/local/trilinos-11.10.2-Build
 # (Do NOT run it from its present location!)
-# The script can be run with "source do-configure-trilinos-11.4.3-mac"
+# The script can be run with "source do-configure-trilinos-11.10.2-mac"
 # Then run "make -j 4" (or specify a different number of processors after the -j)
+#
+# Note that this particular script has been designed to work directly with the current Mac OS X
+# build instructions provide in the CISM2.0 documentation (Chapter 2). For example, following 
+# those instructions, the only information below that should need to be altered are the paths to
+# your Trilinos source code and installation directories.
 
 
+rm CMakeCache.txt  
+rm –rf CMakeFiles
 
 EXTRA_ARGS=$@
 cmake \
@@ -28,17 +35,18 @@ cmake \
 \
 -D MPI_BASE_DIR:PATH="/opt/local" \
 -D MPI_BIN_DIR:PATH="/opt/local/bin" \
--D MPI_C_COMPILER:FILEPATH="/opt/local/bin/openmpicc" \
--D MPI_CXX_COMPILER:FILEPATH="/opt/local/bin/openmpic++" \
--D MPI_Fortran_COMPILER:FILEPATH="/opt/local/bin/openmpif90" \
--D MPI_EXEC:FILEPATH="/opt/local/bin/openmpirun" \
--D TPL_MPI_INCLUDE_DIRS:PATH=/opt/local/include/openmpi \
+-D MPI_C_COMPILER:FILEPATH="/opt/local/bin/mpicc" \
+-D MPI_CXX_COMPILER:FILEPATH="/opt/local/bin/mpicxx" \
+-D MPI_Fortran_COMPILER:FILEPATH="/opt/local/bin/mpif90" \
+-D MPI_EXEC:FILEPATH="/opt/local/bin/mpirun" \
+-D TPL_MPI_INCLUDE_DIRS:PATH="/opt/local/include/mpich-devel-gcc46" \
 \
--D BUILD_SHARED_LIBS:BOOL=ON \
+-D BUILD_SHARED_LIBS:BOOL=OFF \
 \
 \
 -D Trilinos_ENABLE_ALL_PACKAGES:BOOL=OFF \
 \
+      -D Trilinos_ENABLE_Fortran:BOOL=OFF \
       -D Trilinos_ENABLE_Teuchos:BOOL=ON \
       -D Trilinos_ENABLE_Epetra:BOOL=ON \
       -D Trilinos_ENABLE_EpetraExt:BOOL=ON \
@@ -66,12 +74,12 @@ cmake \
 -D CMAKE_Fortran_FLAGS:STRING="-m64" \
 -D CMAKE_CXX_FLAGS:STRING="-m64" \
 -D CMAKE_C_FLAGS:STRING="-m64" \
--D CMAKE_INSTALL_PREFIX:PATH=/usr/local/trilinos-11.4.3-Install \
+-D CMAKE_INSTALL_PREFIX:PATH=/path/to/your/trilinos-11.10.2-Install \
 \
 \
--D Trilinos_EXTRA_LINK_FLAGS:STRING="-L/opt/local/lib -L/opt/local/lib/openmpi  -lmpi -lmpi_f77 -lmpi_f90 -lmpi_cxx  -L/usr/lib -llapack -lblas -lpthread" \
+-D Trilinos_EXTRA_LINK_FLAGS:STRING="-L/opt/local/lib -L/opt/local/lib/mpich-devel-gcc46 -lmpi -lmpicxx -L/usr/lib -llapack -lblas -lpthread" \
 \
 \
 $EXTRA_ARGS \
-/usr/local/trilinos-11.4.3-Source
+/path/to/your/trilinos-11.10.2-Source
 
