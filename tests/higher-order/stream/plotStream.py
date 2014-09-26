@@ -48,39 +48,17 @@ ypos = y0.shape[0]/2   # integer division on y-length to get the middle row of t
 # Calculate analytic velocity profile - the analytic functions are in runStream.py
 if analytic_solution == 'raymond':
     uvel_analytic_profile = raymond_uvel(y0)
-    analytic_name = 'Raymond analytic solution'
+    analytic_name = 'raymond analytic solution'
 elif analytic_solution == 'schoof':
     uvel_analytic_profile = schoof_uvel(y0)
-    analytic_name = 'Schoof analytic solution'
+    analytic_name = 'schoof analytic solution'
 else:
     sys.exit("Error: Invalid value for 'analytic_solution'.")
 
-
 # ===================
-# Setup plot of uvel cross-section
-fig = plt.figure(1, facecolor='w', figsize=(12, 10), dpi=80)
-
-fig.add_subplot(2,1,1)
-plt.plot(y0/1000.0, uvel_analytic_profile, '-or', label=analytic_name)
-plt.plot(y0/1000.0, uvel[ 0,:,xpos], '-xk', label='CISM surface')
-plt.plot(y0/1000.0, uvel[-1,:,xpos], '-^k', label='CISM basal')
-
-plt.xlabel('distance across flow (km)')
-plt.ylabel('along flow velocity (m/a)')
-plt.title(analytic_name +  ' at x=%.1f km'%(x0[xpos]/1000.0))
-plt.legend()
-
-fig.add_subplot(2,1,2)
-plt.plot(y0/1000.0, mintauf[:, xpos], '-bo', label='Yield stress')
-plt.plot(y0/1000.0, numpy.ones(y0.size) * taud, '-k', label='Driving stress')
-#plt.plot(y0/1000.0, btract[:, xpos], '-go', label='basal traction')
-plt.xlabel('distance across flow (km)')
-plt.ylabel('stress (Pa)')
-plt.legend()
-
-# ===================
-# Plot other diagnostics
-fig = plt.figure(2, facecolor='w', figsize=(16, 10), dpi=80)
+# Plot other diagnostics 
+# SP: moved this to Fig. 1 so that it lies on bottom)
+fig = plt.figure(1, facecolor='w', figsize=(16, 10), dpi=80)
 
 fig.add_subplot(2,2,1)
 colors = plt.cm.get_cmap('jet',len(y0))
@@ -131,6 +109,28 @@ sm._A = []
 cb=plt.colorbar(sm)
 cb.set_label('y-index')
 
+# ===================
+# Setup plot of uvel cross-section 
+# SP: moved this to Fig. 2 so that it lies on top)
+fig = plt.figure(2, facecolor='w', figsize=(12, 10), dpi=80)
+
+fig.add_subplot(2,1,1)
+plt.plot(y0/1000.0, uvel_analytic_profile, '-or', label=analytic_name)
+plt.plot(y0/1000.0, uvel[ 0,:,xpos], '-xk', label='CISM surface')
+plt.plot(y0/1000.0, uvel[-1,:,xpos], '-^k', label='CISM basal')
+
+plt.xlabel('distance across flow (km)')
+plt.ylabel('along flow velocity (m/a)')
+plt.title(analytic_name +  ' at x=%.1f km'%(x0[xpos]/1000.0))
+plt.legend()
+
+fig.add_subplot(2,1,2)
+plt.plot(y0/1000.0, mintauf[:, xpos], '-bo', label='Yield stress')
+plt.plot(y0/1000.0, numpy.ones(y0.size) * taud, '-k', label='Driving stress')
+#plt.plot(y0/1000.0, btract[:, xpos], '-go', label='basal traction')
+plt.xlabel('distance across flow (km)')
+plt.ylabel('stress (Pa)')
+plt.legend()
 
 plt.draw()
 plt.show()
