@@ -50,7 +50,7 @@ set PLATFORM_NAME = titan
 # set PLATFORM_NAME = $1
 # set COMPILER_NAME = $2
 
-set CMAKE_SCRIPT = $PLATFORM_NAME'-'$COMPILER_NAME'-cmake-cesmtimers'
+set CMAKE_SCRIPT = $PLATFORM_NAME'-'$COMPILER_NAME'-cmake'
 set CMAKE_CONF_OUT = 'conf_'$COMPILER_NAME'.out'
 set CMAKE_BUILD_OUT = 'cmake_'$COMPILER_NAME'_build.out'
 #set CISM_RUN_SCRIPT = $PLATFORM_NAME'job' 

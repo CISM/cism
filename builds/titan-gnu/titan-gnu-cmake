@@ -78,9 +78,9 @@ cmake \
   -D CISM_USE_GPTL_INSTRUMENTATION:BOOL=ON \
   -D CISM_COUPLED:BOOL=OFF \
 \
-  -D CISM_TRILINOS_DIR=/ccs/proj/cli062/Trilinos/cism-standard/default-gnu/install \
-  -D CISM_TRILINOS_GPTL_DIR=/ccs/proj/cli062/cism_gptl/Trilinos/titan-gnu-cism-albany-ci-nophal/install \
-  -D CISM_TRILINOS_ALBANY_DIR=/ccs/proj/cli062/cism_gptl/Trilinos/titan-gnu-cism-albany-ci-nophal/install \
+  -D GLIMMER_TRILINOS_DIR=/lustre/atlas/world-shared/cli900/cesm/software/trilinos/Trilinos-11.10.2_gptl/titan-gnu-ci-nophal \
+  -D GLIMMER_TRILINOS_GPTL_DIR=/lustre/atlas/world-shared/cli900/cesm/software/trilinos/Trilinos-11.10.2_gptl/titan-gnu-ci-nophal \
+  -D GLIMMER_TRILINOS_ALBANY_DIR=/lustre/atlas/world-shared/cli900/cesm/software/trilinos/Trilinos-11.10.2_gptl/titan-gnu-ci-nophal \
 \
   -D CISM_GPTL_DIR=/ccs/proj/cli062/cism_gptl/libgptl/libgptl-titan-gnu \
   -D CISM_NETCDF_DIR=/opt/cray/netcdf-hdf5parallel/4.3.0/GNU/48 \
