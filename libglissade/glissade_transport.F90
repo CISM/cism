@@ -813,8 +813,8 @@
           write(dt_string,'(f12.5)') allowable_dt_adv
           write(xpos_string,'(i12)') indices_adv(2)
           write(ypos_string,'(i12)') indices_adv(3)
-          write(message,*) 'Error: Advective CFL violation!  Maximum allowable time step for advective CFL condition is ' &
-               // trim(adjustl(dt_string)) // ' yr, limited by position i=' // trim(adjustl(xpos_string)) // ' j=' //trim(adjustl(ypos_string))
+          write(message,*) 'Advective CFL violation!  Maximum allowable time step for advective CFL condition is ' &
+               // trim(adjustl(dt_string)) // ' yr, limited by global position i=' // trim(adjustl(xpos_string)) // ' j=' //trim(adjustl(ypos_string))
           call write_log(trim(message),GM_WARNING)      ! Write a warning first before throwing a fatal error so we can also check the diffusive CFL before aborting
       endif
 
@@ -833,10 +833,11 @@
           write(dt_string,'(f12.5)') allowable_dt_diff
           write(xpos_string,'(i12)') indices_diff(1)
           write(ypos_string,'(i12)') indices_diff(2)
-          write(message,*) 'Diffusive CFL violation! (The currently implemented diffusive CFL calculation may be overly restrictive so this is not fatal.)'
-          write(message,*) 'Maximum allowable time step for diffusive CFL condition is ' &
-               // trim(adjustl(dt_string)) // ' yr, limited by position i=' // trim(adjustl(xpos_string)) // ' j=' //trim(adjustl(ypos_string))
+          write(message,*) 'Diffusive CFL violation!  Maximum allowable time step for diffusive CFL condition is ' &
+               // trim(adjustl(dt_string)) // ' yr, limited by global position i=' // trim(adjustl(xpos_string)) // ' j=' //trim(adjustl(ypos_string))
           call write_log(trim(message),GM_WARNING)    ! Diffusive CFL violation is just a warning (because it may be overly restrictive as currently formulated)
+          write(message,*) '(Note the currently implemented diffusive CFL calculation may be overly restrictive for higher-order dycores.)'
+          call write_log(trim(message))
       endif
 
       ! TODO enable this fatal error after more testing!
