@@ -162,7 +162,7 @@ load:          1
 [unstagbeta]
 dimensions:    time, y1, x1
 units:         Pa yr/m  
-long_name:     higher-order bed stress coefficient on the unstaggered grid (NOTE: this will overwrite 'beta' if both are input)
+long_name:     higher-order bed stress coefficient on the unstaggered grid (NOTE: this will overwrite beta if both are input)
 data:          data%velocity%unstagbeta
 factor:        scale_beta
 load:          1
