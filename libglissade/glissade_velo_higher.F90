@@ -59,18 +59,26 @@
     use glimmer_sparse_type
     use glimmer_sparse
     use glissade_grid_operators     
-    use glissade_masks, only: glissade_ocean_mask, glissade_grounded_fraction
+    use glissade_masks, only: glissade_get_masks, glissade_grounded_fraction
 
     use glide_types  ! for HO_EFVS and other options
 
-    use glissade_velo_higher_slap, only: slap_preprocess, slap_postprocess,     &
-                            slap_compute_residual_vector, slap_solve_test_matrix
-    use glissade_velo_higher_pcg, only: pcg_solver_standard, pcg_solver_chrongear
+    use glissade_velo_higher_slap, only:   &
+         slap_preprocess_3d,   slap_preprocess_2d,   &
+         slap_postprocess_3d,  slap_postprocess_2d,  &
+         slap_compute_residual_vector, slap_solve_test_matrix
+
+    use glissade_velo_higher_pcg, only:   &
+         pcg_solver_standard_3d,   pcg_solver_standard_2d,  &
+         pcg_solver_chrongear_3d,  pcg_solver_chrongear_2d
 
 #ifdef TRILINOS
     use glissade_velo_higher_trilinos, only: &
-         trilinos_fill_pattern, trilinos_global_id, trilinos_assemble,  &
-         trilinos_postprocess, trilinos_test
+         trilinos_fill_pattern_3d, trilinos_fill_pattern_2d, &
+         trilinos_global_id_3d,    trilinos_global_id_2d,    &
+         trilinos_assemble_3d,     trilinos_assemble_2d,     &
+         trilinos_postprocess_3d,  trilinos_postprocess_2d,  &
+         trilinos_test
 #endif
 
     use parallel
@@ -79,46 +87,6 @@
 
     private
     public :: glissade_velo_higher_init, glissade_velo_higher_solve
-
-    interface assemble_stiffness_matrix
-       module procedure assemble_stiffness_matrix_3d
-       module procedure assemble_stiffness_matrix_2d
-    end interface
-
-    interface compute_residual_vector
-       module procedure compute_residual_vector_3d
-       module procedure compute_residual_vector_2d
-    end interface
-
-    interface get_basis_function_derivatives
-       module procedure get_basis_function_derivatives_3d
-       module procedure get_basis_function_derivatives_2d
-    end interface
-
-    interface element_to_global_matrix
-       module procedure element_to_global_matrix_3d
-       module procedure element_to_global_matrix_2d
-    end interface
-
-    interface dirichlet_boundary_conditions
-       module procedure dirichlet_boundary_conditions_3d
-       module procedure dirichlet_boundary_conditions_2d
-    end interface
-
-    interface check_symmetry_assembled_matrix
-       module procedure check_symmetry_assembled_matrix_3d
-       module procedure check_symmetry_assembled_matrix_2d
-    end interface
-
-    interface count_nonzeros
-       module procedure count_nonzeros_3d
-       module procedure count_nonzeros_2d
-    end interface
-
-    interface write_matrix_elements
-       module procedure write_matrix_elements_3d
-       module procedure write_matrix_elements_2d
-    end interface
 
     !----------------------------------------------------------------
     ! Here are some definitions:
@@ -184,6 +152,11 @@
        dphi_dxr_2d,    &    ! dphi/dx for reference rectangular element, evaluated at quad pts
        dphi_dyr_2d          ! dphi/dy for reference rectangular element, evaluated at quad pts
 
+    real(dp), dimension(nNodesPerElement_2d) ::   & 
+       phi_2d_ctr,         &! bilinear basis function, evaluated at cell ctr
+       dphi_dxr_2d_ctr,    &! dphi/dx for reference rectangular element, evaluated at cell ctr
+       dphi_dyr_2d_ctr      ! dphi/dy for reference rectangular element, evaluated at cell ctr
+
     real(dp), dimension(nQuadPoints_2d) ::  &
        xqp_2d, yqp_2d, &    ! quad pt coordinates in reference square
        wqp_2d               ! quad pt weights
@@ -191,6 +164,7 @@
     integer, dimension(nNodesPerElement_3d, nNodesPerElement_3d) ::  &
        ishift, jshift, kshift   ! matrices describing relative indices of nodes in an element
 
+    !TODO - Change to indxA_3d
     integer, dimension(-1:1,-1:1,-1:1) :: &
        indxA                 ! maps relative (x,y,z) coordinates to an index between 1 and 27
                              ! index order is (i,j,k)
@@ -248,6 +222,8 @@
 !    logical :: verbose_gridop= .true.
     logical :: verbose_dirichlet = .false.
 !    logical :: verbose_dirichlet= .true.
+!    logical :: verbose_L1L2 = .false.
+    logical :: verbose_L1L2 = .true.
 
 !WHL - debug
     logical :: trial_efvs = .false.   ! if true, compute what nonlinear efvs would be (if not constant)
@@ -256,7 +232,6 @@
     integer :: rtest           ! task number for processor containing diagnostic point
 
     integer, parameter :: ktest = 1     ! vertical level of diagnostic point
-!!    integer, parameter :: ktest = 3     ! vertical level of diagnostic point
     integer, parameter :: ptest = 1     ! diagnostic quadrature point
 
     !TODO - Compute ntest on the fly.
@@ -286,6 +261,7 @@
     !----------------------------------------------------------------
 
     integer :: i, j, k, m, n, p
+    real(dp) :: xctr, yctr
 
 !WHL - debug
     real(dp) :: sumx, sumy, sumz
@@ -544,6 +520,27 @@
 
     enddo   ! nQuadPoints_2d
 
+    ! Evaluate bilinear basis functions and their derivatives at cell center
+    ! Full formulas are not really needed at (x,y) = (0,0), but are included for completeness
+
+    xctr = 0.d0
+    yctr = 0.d0
+
+    phi_2d_ctr(1) = (1.d0 - xctr) * (1.d0 - yctr) / 4.d0 
+    phi_2d_ctr(2) = (1.d0 + xctr) * (1.d0 - yctr) / 4.d0
+    phi_2d_ctr(3) = (1.d0 + xctr) * (1.d0 + yctr) / 4.d0 
+    phi_2d_ctr(4) = (1.d0 - xctr) * (1.d0 + yctr) / 4.d0
+    
+    dphi_dxr_2d_ctr(1) = -(1.d0 - yctr) / 4.d0 
+    dphi_dxr_2d_ctr(2) =  (1.d0 - yctr) / 4.d0 
+    dphi_dxr_2d_ctr(3) =  (1.d0 + yctr) / 4.d0 
+    dphi_dxr_2d_ctr(4) = -(1.d0 + yctr) / 4.d0
+
+    dphi_dyr_2d_ctr(1) = -(1.d0 - xctr) / 4.d0 
+    dphi_dyr_2d_ctr(2) = -(1.d0 + xctr) / 4.d0 
+    dphi_dyr_2d_ctr(3) =  (1.d0 + xctr) / 4.d0 
+    dphi_dyr_2d_ctr(4) =  (1.d0 - xctr) / 4.d0 
+
     !----------------------------------------------------------------
     ! Compute indxA; maps displacements i,j,k = (-1,0,1) onto an index from 1 to 27
     ! Numbering starts in SW corner of layers k-1, finishes in NE corner of layer k+1
@@ -596,14 +593,10 @@
     !  of Stokes flow (which_ho_approx = HO_APPROX_BP).
     ! There are also options to solve the shallow-ice equations (HO_APPROX_SIA)
     !  or the shallow-shelf equations (HO_APPROX_SIA).
+    ! An option to solve depth-integrated higher-order equations (L1L2)
+    !  is under construction.
     ! Note: The SIA solver does a full matrix solution and is much slower than
-    !       the local SIA solver (SIMPLE_APPROX_SIA) in glissade_velo_sia.F90.
-    ! Note: The SSA solver assembles the matrix for the full 3D solve
-    !       (using an SSA expression for the effective viscosity) and then
-    !       compresses the matrix to 2D based on the assumption of no
-    !       vertical shear.  Thus the assembly is less efficient than 2D assembly,
-    !       but I decided not to write the extra code required for 2D assembly.
-    !       The result should be the same.
+    !       the local SIA solver (HO_APPROX_LOCAL_SIA) in glissade_velo_sia.F90.
     !----------------------------------------------------------------
 
     use glissade_basal_traction, only: calcbeta
@@ -646,8 +639,7 @@
 
     real(dp)  ::   & 
        thklim, &                ! minimum ice thickness for active cells (m)
-       eus,  &                  ! eustatic sea level (m)
-                                ! = 0. by default
+       eus,  &                  ! eustatic sea level (m), = 0. by default
        ho_beta_const,  &        ! constant beta value (Pa/(m/yr)) for whichbabc = HO_BABC_CONSTANT
        efvs_constant            ! constant efvs value (Pa yr) for whichefvs = HO_EFVS_CONSTANT
 
@@ -682,20 +674,27 @@
        whichsparse, &           ! option for method of doing elliptic solve
                                 ! (BiCG, GMRES, standalone Trilinos, etc.)
        whichapprox, &           ! option for which Stokes approximation to use
-                                ! 0 = SIA, 1 = SSA, 2 = Blatter-Pattyn HO
+                                ! 0 = SIA, 1 = SSA, 2 = Blatter-Pattyn HO, 3 = L1L2
                                 ! default = 2
        whichprecond, &          ! option for which preconditioner to use with 
                                 !  structured PCG solver
                                 ! 0 = none, 1 = diag, 2 = SIA-based
        whichgradient, &         ! option for gradient operator when computing grad(s)
                                 ! 0 = centered, 1 = upstream
-       whichground              ! option for computing grounded fraction of each cell
+       whichgradient_margin, &  ! option for computing gradient at ice margin
+                                ! 0 = include all neighbor cells in gradient calculation
+                                ! 1 = include ice-covered and/or land cells
+                                ! 2 = include ice-covered cells only
+       whichassemble_beta,  &   ! 0 = standard finite element assembly
+                                ! 1 = apply local beta value at each vertex 
+       whichground,  &          ! option for computing grounded fraction of each cell
+       maxiter_nonlinear        ! maximum number of nonlinear iterations
 
     !--------------------------------------------------------
     ! Local parameters
     !--------------------------------------------------------
 
-    integer, parameter :: cmax = 100          ! max number of outer iterations
+!!    integer, parameter :: cmax = 100          ! max number of outer iterations
 
     !WHL - What I call resid_target is called minresid in glam_strs2
 
@@ -715,15 +714,13 @@
        dusrf_dx, dusrf_dy     ! gradient of upper surface elevation (m/m)
 
     integer, dimension(nx,ny) ::     &
-       imask                  ! = 1 for cells where ice is present (thk > thklim), else = 0
-
-    integer, dimension(nx-1,ny-1) ::     &
-       vmask                  ! = 1 at vertices of cells with ice present, else = 0
+       ice_mask,             &! = 1 for cells where ice is present (thk > thklim), else = 0
+       floating_mask,        &! = 1 for cells where ice is present and is floating
+       ocean_mask,           &! = 1 for cells where topography is below sea level and ice is absent
+       land_mask              ! = 1 for cells where topography is above sea level
 
     logical, dimension(nx,ny) ::     &
-       active_cell,          &! true for active cells (thck > thklim and border locally owned vertices)
-       floating_cell,        &! true for cells where ice is present and is floating
-       ocean_cell             ! true for cells where topography is below sea level and ice is absent
+       active_cell            ! true for active cells (thck > thklim and border locally owned vertices)
 
     logical, dimension(nx-1,ny-1) :: &
        active_vertex          ! true for vertices of active cells
@@ -813,7 +810,12 @@
        matrix_order,    & ! order of matrix = number of rows
        max_nonzeros       ! upper bound for number of nonzero entries in sparse matrix
 
-    ! The following arrays are used for a 2D SSA solve (which_ho_approx = HO_APPROX_SSA)
+    ! The following arrays are used for a 2D matrix solve 
+    ! (which_ho_approx = HO_APPROX_SSA or HO_APPROX_L1L2)
+
+    logical ::  &
+       solve_2d           ! if true, solve 2D matrix (SSA or L1L2)
+                          ! else solve 3D matrix (SIA or BP)
 
     integer ::            &
        nVerticesSolve     ! number of vertices where we solve for velocity
@@ -830,11 +832,12 @@
                           ! other dimensions = (i,j)
 
     real(dp), dimension(:,:), allocatable ::  &
-       bu_2d, bv_2d,       &! right-hand-side vector b, divided into 2 parts
-       loadu_2d, loadv_2d   ! assembled load vector, divided into 2 parts
+       bu_2d, bv_2d,     &! right-hand-side vector b, divided into 2 parts
+       loadu_2d, loadv_2d ! assembled load vector, divided into 2 parts
 
     real(dp), dimension(:,:), allocatable ::  &
-       uvel_2d, vvel_2d   ! components of 2D velocity solution
+       uvel_2d, vvel_2d, &! components of 2D velocity solution
+       usav_2d, vsav_2d
 
     real(dp), dimension(:,:), allocatable ::  &
        resid_u_2d, resid_v_2d   ! components of 2D solution residual
@@ -842,6 +845,12 @@
     logical, dimension(:,:,:), allocatable ::  &
        Afill_2d           ! true wherever the matrix value is potentially nonzero
                           ! 2D Trilinos only
+
+    ! This array is used for an L1L2 solve
+    real(dp), dimension(:,:,:), allocatable ::  &
+       tau_parallel       ! norm of tau_parallel at each layer in a cell column, 
+                          !  where |tau_parallel|^2 = tau_xx^2 + tau_yy^2 + tau_xx*tau_yy + tau_xy^2
+                          !  See PGB(2012), eq. 17 and 20
 
 !WHL - debug
     real(dp) :: maxbeta, minbeta
@@ -921,14 +930,17 @@
      ho_beta_const = model%paramets%ho_beta_const
      efvs_constant = model%paramets%efvs_constant
  
-     whichbabc     = model%options%which_ho_babc
-     whichefvs     = model%options%which_ho_efvs
-     whichresid    = model%options%which_ho_resid
-     whichsparse   = model%options%which_ho_sparse
-     whichapprox   = model%options%which_ho_approx
-     whichprecond  = model%options%which_ho_precond
-     whichgradient = model%options%which_ho_gradient
-     whichground   = model%options%which_ho_ground
+     whichbabc            = model%options%which_ho_babc
+     whichefvs            = model%options%which_ho_efvs
+     whichresid           = model%options%which_ho_resid
+     whichsparse          = model%options%which_ho_sparse
+     whichapprox          = model%options%which_ho_approx
+     whichprecond         = model%options%which_ho_precond
+     whichgradient        = model%options%which_ho_gradient
+     whichgradient_margin = model%options%which_ho_gradient_margin
+     whichassemble_beta   = model%options%which_ho_assemble_beta
+     whichground          = model%options%which_ho_ground
+     maxiter_nonlinear    = model%options%glissade_maxiter
 
     !--------------------------------------------------------
     ! Convert input variables to appropriate units for this solver.
@@ -961,14 +973,28 @@
 !!       if (verbose .and. main_task) print*, 'Solving shallow-shelf approximation'
        if (main_task) print*, 'Solving shallow-shelf approximation'
 
+    elseif (whichapprox == HO_APPROX_L1L2) then  ! L1L2
+!!       if (verbose .and. main_task) print*, 'Solving shallow-shelf approximation'
+       if (main_task) print*, 'Solving depth-integrated L1L2 approximation'
+
     else   ! Blatter-Pattyn higher-order 
 !!       if (verbose .and. main_task) print*, 'Solving Blatter-Pattyn higher-order approximation'
        if (main_task) print*, 'Solving Blatter-Pattyn higher-order approximation'
     endif
 
-    if (whichapprox == HO_APPROX_SSA) then  ! SSA
+    if (whichapprox == HO_APPROX_SSA .or. whichapprox == HO_APPROX_L1L2) then  ! 2D solve
+       solve_2d = .true.
+    else   ! 3D assemble and solve
+       solve_2d = .false.
+    endif
 
-       ! allocate 2D arrays needed for the SSA solve
+    ! temporary compressed_ssa solve
+    if (compressed_ssa .and. whichapprox /= HO_APPROX_SSA) then
+       call write_log('Compressed_ssa solve requires whichapprox = HO_APPROX_SSA', GM_FATAL)
+    endif
+
+    if (solve_2d) then
+       ! allocate 2D arrays needed for the SSA or L1L2 solve
        allocate(Auu_2d(nNodeNeighbors_2d,nx-1,ny-1))
        allocate(Auv_2d(nNodeNeighbors_2d,nx-1,ny-1))
        allocate(Avu_2d(nNodeNeighbors_2d,nx-1,ny-1))
@@ -979,24 +1005,24 @@
        allocate(loadv_2d(nx-1,ny-1))
        allocate(uvel_2d(nx-1,ny-1))
        allocate(vvel_2d(nx-1,ny-1))
+       allocate(usav_2d(nx-1,ny-1))
+       allocate(vsav_2d(nx-1,ny-1))
        allocate(resid_u_2d(nx-1,ny-1))
        allocate(resid_v_2d(nx-1,ny-1))
+       allocate(tau_parallel(nz-1,nx,ny))
 
        ! initialize 2D velocity to basal 3D velocity
        uvel_2d(:,:) = uvel(nz,:,:)
        vvel_2d(:,:) = vvel(nz,:,:)
-
     endif
 
-    if (whichapprox /= HO_APPROX_SSA .or. compressed_ssa) then
+    if (.not.solve_2d .or. compressed_ssa) then 
 
        ! These are big, so do not allocate them for a 2D solve
-
        allocate(Auu(nNodeNeighbors_3d,nz,nx-1,ny-1))
        allocate(Auv(nNodeNeighbors_3d,nz,nx-1,ny-1))
        allocate(Avu(nNodeNeighbors_3d,nz,nx-1,ny-1))
        allocate(Avv(nNodeNeighbors_3d,nz,nx-1,ny-1))
-
     endif
 
     if (test_matrix) then
@@ -1029,7 +1055,6 @@
     ! These are quantities that do not change during the outer nonlinear loop. 
     !------------------------------------------------------------------------------
 
-!WHL - debug
     if (verbose_state) then
        maxthck = maxval(thck(:,:))
        maxthck = parallel_reduce_max(maxthck)
@@ -1132,66 +1157,19 @@
 
     endif   ! verbose_dirichlet
 
-    !TODO - Move these masks to a separate module?
     !------------------------------------------------------------------------------
     ! Compute masks: 
-    ! (1) cell center mask = 1 where ice is present (thck > thklim), = 0 elsewhere
-    ! (2) vertex mask = 1 if bordering a cell where ice is present (thck > thklim), = 0 elsewhere
-    ! (3) floating mask = .true. where ice is present and is floating
-    ! (4) ocean mask = .true. where topography is below sea level and ice is absent
+    ! (1) ice mask = 1 in cells where ice is present (thck > thklim), = 0 elsewhere
+    ! (2) floating mask = 1 in cells where ice is present and is floating
+    ! (3) ocean mask = = 1 in cells where topography is below sea level and ice is absent
+    ! (4) land mask = 1 in cells where topography is at or above sea level
     !------------------------------------------------------------------------------
 
-    do j = 1, ny
-       do i = 1, nx
-          if (thck(i,j) > thklim) then
-	     imask(i,j) = 1
-          else
-             imask(i,j) = 0
-          endif
-       enddo
-    enddo
-
-    do j = 1, ny-1
-       do i = 1, nx-1
-          if (imask(i,j+1) == 1 .or. imask(i+1,j+1)==1 .or.   &
-              imask(i,j)   == 1 .or. imask(i+1,j)  ==1 ) then
-	     vmask(i,j) = 1
-          else
-             vmask(i,j) = 0
-          endif
-       enddo
-    enddo
-
-    !TODO - Use imask instead of thklim?
-
-    call glissade_ocean_mask(nx,            ny,      &
-                             thck,          topg,    &
-                             eus,           thklim,  &
-                             floating_cell, ocean_cell)
-
-!WHL - debug
-
-    if (verbose_state .and. this_rank==rtest) then
-       print*, ' '
-       print*, 'ocean_cell, rank =', rtest
-       do j = ny, 1, -1
-          do i = 1, nx
-             write(6,'(L3)',advance='no') ocean_cell(i,j)
-          enddo
-          print*, ' '
-       enddo
-    endif
-
-    if (verbose_state .and. this_rank==rtest) then
-       print*, ' '
-       print*, 'floating_cell, rank =', rtest
-       do j = ny, 1, -1
-          do i = 1, nx
-             write(6,'(L3)',advance='no') floating_cell(i,j)
-          enddo
-          print*, ' '
-       enddo
-    endif
+    call glissade_get_masks(nx,          ny,         &
+                            thck,        topg,       &
+                            eus,         thklim,     &
+                            ice_mask,    floating_mask, &
+                            ocean_mask,  land_mask)
 
     !------------------------------------------------------------------------------
     ! Compute fraction of grounded ice in each cell
@@ -1208,8 +1186,7 @@
 
     call glissade_grounded_fraction(nx,          ny,           &
                                     thck,        topg,         &
-                                    eus,                       &
-                                    imask,       vmask,        &
+                                    eus,         ice_mask,     &
                                     whichground, f_ground)
 
 !WHL - debug
@@ -1227,44 +1204,74 @@
     !------------------------------------------------------------------------------
     ! Compute ice thickness and upper surface on staggered grid
     ! (requires that thck and usrf are up to date in halo cells).
-    ! For stag_flag_in = 0, all cells (including ice-free) are included in interpolation.
-    ! For stag_flag_in = 1, only ice-covered cells are included.
+    ! For stagger_margin_in = 0, all cells (including ice-free) are included in interpolation.
+    ! For stagger_margin_in = 1, only ice-covered cells are included.
     !------------------------------------------------------------------------------
 
-!pw call t_startf('glissade_staggered_scalar')
+!pw call t_startf('glissade_stagger')
     call glissade_stagger(nx,       ny,         &
                           thck,     stagthck,   &
-                          imask,    stag_flag_in = 1)
+                          ice_mask, stagger_margin_in = 1)
 
     call glissade_stagger(nx,       ny,         &
                           usrf,     stagusrf,   &
-                          imask,    stag_flag_in = 1)
-!pw call t_stopf('glissade_staggered_scalar')
+                          ice_mask, stagger_margin_in = 1)
+!pw call t_stopf('glissade_stagger')
 
     !------------------------------------------------------------------------------
     ! Compute surface gradient on staggered grid
     ! (requires that usrf is up to date in halo cells)
+    !
+    ! Setting gradient_margin_in = 0 takes the gradient over all neighboring cells,
+    !  including ice-free cells.  This is what Glide does, but is not appropriate
+    !  if we have ice-covered floating cells next to ice-free ocean cells,
+    !  because the gradient will be too big.
+    ! Setting gradient_margin_in = 1 uses any available ice-covered cells
+    !  and/or land cells to compute the gradient.  Requires a land mask.
+    !  This is appropriate for both land-based problems and problems
+    !  with ice shelves.
+    ! Setting gradient_margin_in = 2 uses any available ice-covered cells to
+    !  compute the gradient.  This is appropriate for problems with ice shelves,
+    !  but is less accurate than 0 or 1 for land-based problems (e.g., Halfar SIA).
+    !
+    ! Both the centered and upstream gradients are 2nd order accurate in space.
+    ! The upstream gradient is preferable for evolution problems using 
+    !  whichapprox = HO_APPROX_BP or HO_APPROX_SIA, because in these cases
+    !  the centered gradient fails to cancel checkerboard noise.
+    ! The L1L2 solver computes 3D velocities in a way that damps checkerboard noise,
+    !  so a centered difference works well (and for the Halfar problem is more 
+    !  accurate than upstream).
     !------------------------------------------------------------------------------
 
 !pw call t_startf('glissade_gradient')
 
-    if (whichgradient == HO_GRADIENT_CENTERED) then
+    if (whichgradient == HO_GRADIENT_CENTERED) then     ! 2nd order centered
 
-       call glissade_centered_gradient(nx,           ny,         &
-                                       dx,           dy,         &
-                                       usrf,                     &
-                                       dusrf_dx,     dusrf_dy,   &
-                                       imask,        grad_flag_in = 2)
+       !TODO - The default is 2 for now, but should be set to 1.
+       !       This will be answer-changing. 
 
-    else
+          call glissade_centered_gradient(nx,               ny,         &
+                                          dx,               dy,         &
+                                          usrf,                         &
+                                          dusrf_dx,         dusrf_dy,   &
+                                          ice_mask,                     &
+                                          gradient_margin_in = whichgradient_margin, &
+                                          land_mask = land_mask)
 
-       ! 2nd order upstream
-       call glissade_upstream_gradient(nx,           ny,         &
-                                       dx,           dy,         &
-                                       usrf,                     &
-                                       dusrf_dx,     dusrf_dy,   &
-                                       imask,        grad_flag2_in = 0,  &
-                                       accuracy_flag_in = 2)
+    else          ! 2nd order upstream
+
+       !TODO - This is hardwired to 0 for now, but should be set to the default value.
+       !       This will be answer-changing. 
+
+       call glissade_upstream_gradient(nx,             ny,         &
+                                       dx,             dy,         &
+                                       usrf,                       &
+                                       dusrf_dx,       dusrf_dy,   &
+                                       ice_mask,                   &
+                                       accuracy_flag_in = 2,       &
+                                       gradient_margin_in = HO_GRADIENT_MARGIN_ALL, &
+!!                                       gradient_margin_in = whichgradient_margin, &
+                                       land_mask = land_mask)
 
     endif   ! whichgradient
 
@@ -1316,7 +1323,6 @@
           enddo
           print*, ' '
        enddo
-    
 
     endif  ! verbose_gridop
 
@@ -1327,6 +1333,7 @@
     !  of active cells).
     ! Count the number of owned active nodes on this processor, and assign a 
     !  unique local ID to each such node.
+    !TODO - Move Trilinos- and SLAP-specific computations to a different subroutine?
     !------------------------------------------------------------------------------
 
 !pw call t_startf('glissade_get_vertex_geom')
@@ -1356,6 +1363,14 @@
 
 !WHL - debug
     if (verbose_id .and. this_rank==rtest) then
+       print*, ' '
+       print*, 'vertexID before halo update:'
+       do j = ny-1, 1, -1
+          do i = 1, nx-1
+             write(6,'(i5)',advance='no') vertexID(i,j)
+          enddo
+          print*, ' '
+       enddo
        print*, ' '
        print*, 'nodeID before halo update, k = 1:'
        do j = ny-1, 1, -1
@@ -1389,13 +1404,13 @@
 
     ! Initialization for the Trilinos solver
     ! Allocate arrays, initialize the velocity solution, compute an array 
-    !  that maps the local index for owned active nodes to a unique global ID, 
+    !  that maps the local index for owned active nodes to a unique global ID,
     !  and communicate this array to Trilinos
 
 #ifdef TRILINOS
     if (whichsparse == HO_SPARSE_TRILINOS) then   
 
-       if (whichapprox == HO_APPROX_SSA) then
+       if (solve_2d) then
 
           allocate(active_owned_unknown_map(2*nVerticesSolve))
           allocate(velocityResult(2*nVerticesSolve))
@@ -1406,11 +1421,11 @@
           !----------------------------------------------------------------
 
           call t_startf('glissade_trilinos_glbid')
-          call trilinos_global_id(nx,         ny,             &
-                                  nVerticesSolve,             &
-                                  iVertexIndex, jVertexIndex, &
-                                  global_vertex_id,           &
-                                  active_owned_unknown_map)
+          call trilinos_global_id_2d(nx,             ny,           &
+                                     nVerticesSolve,               &
+                                     iVertexIndex,   jVertexIndex, &
+                                     global_vertex_id,             &
+                                     active_owned_unknown_map)
           call t_stopf('glissade_trilinos_glbid')
 
           !TODO - Set velocityResult to combination of uvel/vvel
@@ -1431,10 +1446,10 @@
           !----------------------------------------------------------------
 
           call t_startf('glissade_trilinos_fill_pattern')
-          call trilinos_fill_pattern(nx,            ny,              &
-                                     active_vertex, nVerticesSolve,  &
-                                     iVertexIndex,  jVertexIndex,    &
-                                     indxA_2d,      Afill_2d)
+          call trilinos_fill_pattern_2d(nx,            ny,              &
+                                        active_vertex, nVerticesSolve,  &
+                                        iVertexIndex,  jVertexIndex,    &
+                                        indxA_2d,      Afill_2d)
           call t_stopf('glissade_trilinos_fill_pattern')
 
        else   ! 3D solve
@@ -1448,11 +1463,11 @@
           !----------------------------------------------------------------
 
           call t_startf('glissade_trilinos_glbid')
-          call trilinos_global_id(nx,         ny,         nz,   &
-                                  nNodesSolve,                  &
-                                  iNodeIndex, jNodeIndex, kNodeIndex,  &
-                                  global_node_id,               &
-                                  active_owned_unknown_map)
+          call trilinos_global_id_3d(nx,         ny,         nz,   &
+                                     nNodesSolve,                  &
+                                     iNodeIndex, jNodeIndex, kNodeIndex,  &
+                                     global_node_id,               &
+                                     active_owned_unknown_map)
           call t_stopf('glissade_trilinos_glbid')
 
           !TODO - Set velocityResult to combination of uvel/vvel
@@ -1473,10 +1488,10 @@
           !----------------------------------------------------------------
 
           call t_startf('glissade_trilinos_fill_pattern')
-          call trilinos_fill_pattern(nx,            ny,           nz,   &
-                                     active_vertex, nNodesSolve,        &
-                                     iNodeIndex,    jNodeIndex,   kNodeIndex,  &
-                                     indxA,         Afill)
+          call trilinos_fill_pattern_3d(nx,            ny,           nz,   &
+                                        active_vertex, nNodesSolve,        &
+                                        iNodeIndex,    jNodeIndex,   kNodeIndex,  &
+                                        indxA,         Afill)
                                      
           call t_stopf('glissade_trilinos_fill_pattern')
 
@@ -1484,7 +1499,7 @@
     endif      ! whichsparse
 #endif
 
-    !------------------------------------------------------------------------------
+   !------------------------------------------------------------------------------
     ! Compute the factor A^(-1/n) appearing in the expression for effective viscosity.
     ! This factor is often denoted as B in the literature.
     ! Note: The rate factor (flwa = A) is assumed to have units of Pa^(-n) yr^(-1).
@@ -1534,7 +1549,7 @@
 
     if (whichsparse <= HO_SPARSE_GMRES) then  ! using SLAP solver
 
-       if (whichapprox == HO_APPROX_SSA) then   ! 2D SSA solve
+       if (solve_2d) then
           matrix_order = 2*nVerticesSolve
           max_nonzeros = matrix_order*2*nNodeNeighbors_2d  ! nNodeNeighbors_2d = 9
                                                            ! 18 = 2 * 9 (since solving for both u and v)
@@ -1547,7 +1562,7 @@
        allocate(matrix%row(max_nonzeros), matrix%col(max_nonzeros), matrix%val(max_nonzeros))
        allocate(rhs(matrix_order), answer(matrix_order), resid_vec(matrix_order))
 
-       !WHL - Is this necessary?
+       !WHL - Is this initialization necessary?
        answer(:) = 0.d0
        rhs(:) = 0.d0
        resid_vec(:) = 0.d0
@@ -1559,17 +1574,11 @@
 
     endif   ! SLAP solver
  
-    if (verbose .and. this_rank==rtest) then
-       print*, 'size(uvel, vvel) =', size(uvel), size(vvel)
-!       print*, 'size(usav, vsav) =', size(usav), size(vsav)
-    endif
-
     !---------------------------------------------------------------
-    ! Form and solve Ax = b
+    ! Print some diagnostic info
     !---------------------------------------------------------------
 
     if (main_task) then
-       ! print some info to the screen to update on iteration progress
        print *, ' '
        print *, 'Running Glissade higher-order dynamics solver'
        print *, ' '
@@ -1582,7 +1591,7 @@
     endif
 
     !------------------------------------------------------------------------------
-    ! set initial values 
+    ! Set initial solver values 
     !------------------------------------------------------------------------------
 
     counter = 0
@@ -1604,7 +1613,7 @@
     loadv(:,:,:) = 0.d0
 
     !------------------------------------------------------------------------------
-    ! gravitational forcing
+    ! Gravitational forcing
     !------------------------------------------------------------------------------
 
     call t_startf('glissade_load_vector_gravity')
@@ -1620,14 +1629,14 @@
     call t_stopf('glissade_load_vector_gravity')
 
     !------------------------------------------------------------------------------
-    ! lateral pressure at vertical ice edge
+    ! Lateral pressure at vertical ice edge
     !------------------------------------------------------------------------------
 
     call t_startf('glissade_load_vector_lateral_bc')
     call load_vector_lateral_bc(nx,               ny,              &
                                 nz,               sigma,           &
                                 nhalo,                             &
-                                floating_cell,    ocean_cell,      &
+                                floating_mask,    ocean_mask,      &
                                 active_cell,                       &
                                 xVertex,          yVertex,         &
                                 stagusrf,         stagthck,        &
@@ -1643,7 +1652,7 @@
     !       save little work, since the load vector is computed only once per timestep.
     !------------------------------------------------------------------------------
 
-    if (whichapprox == HO_APPROX_SSA .and. .not.compressed_ssa) then
+    if (solve_2d .and. .not.compressed_ssa) then
 
        loadu_2d(:,:) = 0.d0
        loadv_2d(:,:) = 0.d0
@@ -1664,7 +1673,7 @@
     !------------------------------------------------------------------------------
 
     call t_startf('glissade_vhs_nonlinear_loop')
-    do while (outer_it_criterion >= outer_it_target .and. counter < cmax)
+    do while (outer_it_criterion >= outer_it_target .and. counter < maxiter_nonlinear)
 
        ! Advance the iteration counter
 
@@ -1689,10 +1698,6 @@
 !          print*, 'L2_norm, L2_target =', L2_norm, L2_target
 !          print*, 'resid_velo, resid_target =', resid_velo, resid_target
        endif
-
-       ! save current velocity
-       usav(:,:,:) = uvel(:,:,:)
-       vsav(:,:,:) = vvel(:,:,:)
 
        !---------------------------------------------------------------------------
        ! Compute or prescribe the basal traction field 'beta'.
@@ -1724,8 +1729,7 @@
                       uvel(nz,:,:),  vvel(nz,:,:),      &
                       bwat,          ho_beta_const,     &
                       mintauf,                          &
-                      stagmask,      beta,              &
-                      floating_cell, ocean_cell)
+                      stagmask,      beta)
 
        call staggered_parallel_halo(beta)
 
@@ -1765,20 +1769,26 @@
        !  uvel and vvel at all levels).
        !-------------------------------------------------------------------
        
-       if (whichapprox == HO_APPROX_SSA .and. .not.compressed_ssa) then  ! assemble 2D matrix
+       if (solve_2d .and. .not.compressed_ssa) then  ! assemble 2D matrix
 
-          call assemble_stiffness_matrix(nx,               ny,              &
-                                         nz,               sigma,           &
-                                         nhalo,            active_cell,     &
-                                         xVertex,          yVertex,         &
-                                         uvel_2d,          vvel_2d,         &
-                                         stagusrf,         stagthck,        &
-                                         flwafact,         whichapprox,     &
-                                         efvs,             whichefvs,       &
-                                         efvs_constant,                     &
-                                         Auu_2d,           Auv_2d,          &
-                                         Avu_2d,           Avv_2d)
+          ! save current velocity
+          usav_2d(:,:) = uvel_2d(:,:)
+          vsav_2d(:,:) = vvel_2d(:,:)
 
+          call assemble_stiffness_matrix_2d(nx,               ny,              &
+                                            nz,               sigma,           &
+                                            nhalo,            active_cell,     &
+                                            xVertex,          yVertex,         &
+                                            uvel_2d,          vvel_2d,         &
+                                            stagusrf,         stagthck,        &
+                                            dusrf_dx,         dusrf_dy,        &
+                                            flwa,             flwafact,        &
+                                            whichapprox,                       &
+                                            whichefvs,        efvs_constant,   &
+                                            efvs,             tau_parallel,    &
+                                            Auu_2d,           Auv_2d,          &
+                                            Avu_2d,           Avv_2d)
+             
           if (verbose_matrix .and. this_rank==rtest) print*, 'Assembled the stiffness matrix'
 
           !---------------------------------------------------------------------------
@@ -1789,6 +1799,7 @@
                                 nNodeNeighbors_2d, nhalo,           &
                                 active_cell,       beta,            &
                                 xVertex,           yVertex,         &
+                                whichassemble_beta,                 &
                                 Auu_2d,            Avv_2d)
 
           !---------------------------------------------------------------------------
@@ -1808,13 +1819,13 @@
           endif
 
 !pw    call t_startf('glissade_dirichlet_bcs')
-          call dirichlet_boundary_conditions(nx,              ny,                      &
-                                             nhalo,                                    &
-                                             active_vertex,   umask_dirichlet(nz,:,:), &
-                                             uvel_2d,         vvel_2d,                 &
-                                             Auu_2d,          Auv_2d,                  &
-                                             Avu_2d,          Avv_2d,                  &
-                                             bu_2d,           bv_2d)
+          call dirichlet_boundary_conditions_2d(nx,              ny,                      &
+                                                nhalo,                                    &
+                                                active_vertex,   umask_dirichlet(nz,:,:), &
+                                                uvel_2d,         vvel_2d,                 &
+                                                Auu_2d,          Auv_2d,                  &
+                                                Avu_2d,          Avv_2d,                  &
+                                                bu_2d,           bv_2d)
 !pw    call t_stopf('glissade_dirichlet_bcs')
 
           !---------------------------------------------------------------------------
@@ -1852,11 +1863,11 @@
           if (check_symmetry) then
 
              call t_startf('glissade_chk_symmetry')
-             call check_symmetry_assembled_matrix(nx,          ny,      &
-                                                  nhalo,                &
-                                                  active_vertex,        &
-                                                  Auu_2d,      Auv_2d,  &
-                                                  Avu_2d,      Avv_2d)
+             call check_symmetry_assembled_matrix_2d(nx,          ny,      &
+                                                     nhalo,                &
+                                                     active_vertex,        &
+                                                     Auu_2d,      Auv_2d,  &
+                                                     Avu_2d,      Avv_2d)
              call t_stopf('glissade_chk_symmetry')
 
           endif
@@ -1865,23 +1876,23 @@
           ! Count the total number of nonzero entries on all processors.
           !---------------------------------------------------------------------------
 
-          call count_nonzeros(nx,      ny,     &
-                              nhalo,           &
-                              Auu_2d,  Auv_2d, &
-                              Avu_2d,  Avv_2d, &
-                              active_vertex,   &
-                              nNonzeros)
+          call count_nonzeros_2d(nx,      ny,     &
+                                 nhalo,           &
+                                 Auu_2d,  Auv_2d, &
+                                 Avu_2d,  Avv_2d, &
+                                 active_vertex,   &
+                                 nNonzeros)
 
           if (write_matrix) then
              if (counter == 1) then    ! first outer iteration only
  
                 call t_startf('glissade_wrt_mat')
-                call write_matrix_elements(nx,             ny,            &
-                                           nVerticesSolve, vertexID,      &
-                                           iVertexIndex,   jVertexIndex,  &
-                                           Auu_2d,         Auv_2d,        &
-                                           Avu_2d,         Avv_2d,        &
-                                           bu_2d,          bv_2d)
+                call write_matrix_elements_2d(nx,             ny,            &
+                                              nVerticesSolve, vertexID,      &
+                                              iVertexIndex,   jVertexIndex,  &
+                                              Auu_2d,         Auv_2d,        &
+                                              Avu_2d,         Avv_2d,        &
+                                              bu_2d,          bv_2d)
                 call t_stopf('glissade_wrt_mat')
 
              endif
@@ -1940,14 +1951,18 @@
              do i = 1, nx-1
                 print*, ' '
                 write(6,'(a4, i4, 4f16.8)') 'Auu_2d:', i, Auu_2d(m,i,j), maxval(Auu_2d(:,i,j)), &
-                                                     minval(Auu_2d(:,i,j)), sum(Auu_2d(:,i,j))
+                                                   minval(Auu_2d(:,i,j)),   sum(Auu_2d(:,i,j))
                 write(6,'(a4, i4, 4f16.8)') 'Auv_2d:', i, Auv_2d(m,i,j), maxval(Auv_2d(:,i,j)), &
-                                                     minval(Auv_2d(:,i,j)), sum(Auv_2d(:,i,j))
+                                                   minval(Auv_2d(:,i,j)),   sum(Auv_2d(:,i,j))
              enddo
              
           endif  ! verbose_matrix
 
        else  ! assemble 3D matrix
+
+          ! save current velocity
+          usav(:,:,:) = uvel(:,:,:)
+          vsav(:,:,:) = vvel(:,:,:)
 
           !---------------------------------------------------------------------------
           ! Assemble the stiffness matrix A
@@ -1955,18 +1970,18 @@
 
           call t_startf('glissade_assemble_stiffness_mat')
 
-          call assemble_stiffness_matrix(nx,               ny,              &
-                                         nz,               sigma,           &
-                                         nhalo,            active_cell,     &
-                                         xVertex,          yVertex,         &
-                                         uvel,             vvel,            &
-                                         stagusrf,         stagthck,        &
-                                         flwafact,         whichapprox,     &
-                                         efvs,             whichefvs,       &
-                                         efvs_constant,                     &
-                                         Auu,              Auv,             &
-                                         Avu,              Avv)
-
+          call assemble_stiffness_matrix_3d(nx,               ny,              &
+                                            nz,               sigma,           &
+                                            nhalo,            active_cell,     &
+                                            xVertex,          yVertex,         &
+                                            uvel,             vvel,            &
+                                            stagusrf,         stagthck,        &
+                                            flwafact,         whichapprox,     &
+                                            efvs,             whichefvs,       &
+                                            efvs_constant,                     &
+                                            Auu,              Auv,             &
+                                            Avu,              Avv)
+          
           call t_stopf('glissade_assemble_stiffness_mat')
        
           if (verbose_matrix .and. this_rank==rtest) print*, 'Assembled the stiffness matrix'
@@ -1982,6 +1997,7 @@
                                    nNodeNeighbors_3d,   nhalo,           &
                                    active_cell,         beta,            &
                                    xVertex,             yVertex,         &
+                                   whichassemble_beta,                   &
                                    Auu(:,nz,:,:),       Avv(:,nz,:,:))
 !pw       call t_stopf('glissade_basal_sliding_bc')
 
@@ -2002,13 +2018,13 @@
           if (verbose_dirichlet .and. main_task) print*, 'Call Dirichlet_bc'
 
 !pw    call t_startf('glissade_dirichlet_bcs')
-          call dirichlet_boundary_conditions(nx,              ny,                &
-                                             nz,              nhalo,             &
-                                             active_vertex,   umask_dirichlet,   &
-                                             uvel,            vvel,              &
-                                             Auu,             Auv,               &
-                                             Avu,             Avv,               &
-                                             bu,              bv)
+          call dirichlet_boundary_conditions_3d(nx,              ny,                &
+                                                nz,              nhalo,             &
+                                                active_vertex,   umask_dirichlet,   &
+                                                uvel,            vvel,              &
+                                                Auu,             Auv,               &
+                                                Avu,             Avv,               &
+                                                bu,              bv)
 !pw    call t_stopf('glissade_dirichlet_bcs')
 
           !---------------------------------------------------------------------------
@@ -2059,11 +2075,11 @@
           if (check_symmetry) then
 
              call t_startf('glissade_chk_symmetry')
-             call check_symmetry_assembled_matrix(nx,          ny,      &
-                                                  nz,          nhalo,   &
-                                                  active_vertex,        &
-                                                  Auu,         Auv,     &
-                                                  Avu,         Avv)
+             call check_symmetry_assembled_matrix_3d(nx,          ny,      &
+                                                     nz,          nhalo,   &
+                                                     active_vertex,        &
+                                                     Auu,         Auv,     &
+                                                     Avu,         Avv)
              call t_stopf('glissade_chk_symmetry')
 
           endif
@@ -2072,23 +2088,23 @@
           ! Count the total number of nonzero entries on all processors.
           !---------------------------------------------------------------------------
 
-          call count_nonzeros(nx,      ny,     &
-                              nz,      nhalo,  &
-                              Auu,     Auv,    &
-                              Avu,     Avv,    &
-                              active_vertex,   &
-                              nNonzeros)
+          call count_nonzeros_3d(nx,      ny,     &
+                                 nz,      nhalo,  &
+                                 Auu,     Auv,    &
+                                 Avu,     Avv,    &
+                                 active_vertex,   &
+                                 nNonzeros)
 
           if (write_matrix) then
              if (counter == 1) then    ! first outer iteration only
  
                 call t_startf('glissade_wrt_mat')
-                call write_matrix_elements(nx,          ny,         nz,         &
-                                           nNodesSolve, nodeID,                 &
-                                           iNodeIndex,  jNodeIndex, kNodeIndex, &
-                                           Auu,         Auv,                    &
-                                           Avu,         Avv,                    &
-                                           bu,          bv)
+                call write_matrix_elements_3d(nx,          ny,         nz,         &
+                                              nNodesSolve, nodeID,                 &
+                                              iNodeIndex,  jNodeIndex, kNodeIndex, &
+                                              Auu,         Auv,                    &
+                                              Avu,         Avv,                    &
+                                              bu,          bv)
                 call t_stopf('glissade_wrt_mat')
 
              endif
@@ -2199,7 +2215,7 @@
        ! Combine the rhs terms as well.
        !---------------------------------------------------------------------------
 
-       if (whichapprox == HO_APPROX_SSA .and. compressed_ssa) then
+       if (compressed_ssa) then
 
           call compress_3d_to_2d(nx,        ny,      nz,  &
                                  Auu,       Auv,          &
@@ -2274,9 +2290,26 @@
        ! Solve the linear system using the native PCG solver, SLAP solver, or Trilinos.
        !---------------------------------------------------------------------------
 
-       if (whichsparse == HO_SPARSE_PCG_STANDARD .or.   &
-           whichsparse == HO_SPARSE_PCG_CHRONGEAR) then   ! native PCG solver
-                                                          ! works for both serial and parallel runs
+       !---------------------------------------------------------------------------
+       ! First handle a possible problem case: 
+       ! Set uvel_2d = vvel_2d = 0 for the case of a Dirichlet no-slip basal BC and a 2D solve.
+       ! (This could be the case if solving a no-slip problem with L1L2.)
+       !---------------------------------------------------------------------------
+
+       if (whichbabc == HO_BABC_NO_SLIP .and. solve_2d) then
+
+          print*, 'No slip; setting u = v = 0 at bed'
+
+          ! zero out
+          uvel_2d(:,:) = 0.d0
+          vvel_2d(:,:) = 0.d0
+          resid_u_2d(:,:) = 0.d0
+          resid_v_2d(:,:) = 0.d0
+          L2_norm = 0.d0   ! to force convergence on first step
+
+       elseif (whichsparse == HO_SPARSE_PCG_STANDARD .or.   &
+               whichsparse == HO_SPARSE_PCG_CHRONGEAR) then   ! native PCG solver
+                                                              ! works for both serial and parallel runs
 
           !------------------------------------------------------------------------
           ! Compute the residual vector and its L2 norm
@@ -2286,18 +2319,18 @@
              print*, 'Compute residual vector'
           endif
 
-          if (whichapprox == HO_APPROX_SSA) then  ! 2D SSA solve
+          if (solve_2d) then
 
              call t_startf('glissade_resid_vec')
-             call compute_residual_vector(nx,          ny,            &
-                                          nhalo,                      &
-                                          active_vertex,              &
-                                          Auu_2d,      Auv_2d,        &
-                                          Avu_2d,      Avv_2d,        &
-                                          bu_2d,       bv_2d,         &
-                                          uvel_2d,     vvel_2d,       &
-                                          resid_u_2d,  resid_v_2d,    &
-                                          L2_norm)
+             call compute_residual_vector_2d(nx,          ny,            &
+                                             nhalo,                      &
+                                             active_vertex,              &
+                                             Auu_2d,      Auv_2d,        &
+                                             Avu_2d,      Avv_2d,        &
+                                             bu_2d,       bv_2d,         &
+                                             uvel_2d,     vvel_2d,       &
+                                             resid_u_2d,  resid_v_2d,    &
+                                             L2_norm)
              call t_stopf('glissade_resid_vec')
 
              if (verbose .and. main_task) then
@@ -2314,44 +2347,44 @@
 
              if (whichsparse == HO_SPARSE_PCG_CHRONGEAR) then   ! use Chronopoulos-Gear PCG algorithm
                                                                 ! (better scaling for large problems)
-                call pcg_solver_chrongear(nx,           ny,            &
-                                          nhalo,                       &
-                                          indxA_2d,     active_vertex, &
-                                          Auu_2d,       Auv_2d,        &
-                                          Avu_2d,       Avv_2d,        &
-                                          bu_2d,        bv_2d,         &
-                                          uvel_2d,      vvel_2d,       &
-                                          whichprecond, err,           &
-                                          niters,                      &
-                                          itest, jtest, rtest)
+                call pcg_solver_chrongear_2d(nx,           ny,            &
+                                             nhalo,                       &
+                                             indxA_2d,     active_vertex, &
+                                             Auu_2d,       Auv_2d,        &
+                                             Avu_2d,       Avv_2d,        &
+                                             bu_2d,        bv_2d,         &
+                                             uvel_2d,      vvel_2d,       &
+                                             whichprecond, err,           &
+                                             niters,                      &
+                                             itest, jtest, rtest)
 
              else   ! use standard PCG algorithm
              
-                call pcg_solver_standard(nx,           ny,            &
-                                         nhalo,                       &
-                                         indxA_2d,     active_vertex, &
-                                         Auu_2d,       Auv_2d,        &
-                                         Avu_2d,       Avv_2d,        &
-                                         bu_2d,        bv_2d,         &
-                                         uvel_2d,      vvel_2d,       &
-                                         whichprecond, err,           &
-                                         niters,                      &
-                                         itest, jtest, rtest)
+                call pcg_solver_standard_2d(nx,           ny,            &
+                                            nhalo,                       &
+                                            indxA_2d,     active_vertex, &
+                                            Auu_2d,       Auv_2d,        &
+                                            Avu_2d,       Avv_2d,        &
+                                            bu_2d,        bv_2d,         &
+                                            uvel_2d,      vvel_2d,       &
+                                            whichprecond, err,           &
+                                            niters,                      &
+                                            itest, jtest, rtest)
 
              endif  ! whichsparse
 
           else   ! 3D solve
 
              call t_startf('glissade_resid_vec')
-             call compute_residual_vector(nx,          ny,            &
-                                          nz,          nhalo,         &
-                                          active_vertex,              &
-                                          Auu,         Auv,           &
-                                          Avu,         Avv,           &
-                                          bu,          bv,            &
-                                          uvel,        vvel,          &
-                                          resid_u,     resid_v,       &
-                                          L2_norm)
+             call compute_residual_vector_3d(nx,          ny,            &
+                                             nz,          nhalo,         &
+                                             active_vertex,              &
+                                             Auu,         Auv,           &
+                                             Avu,         Avv,           &
+                                             bu,          bv,            &
+                                             uvel,        vvel,          &
+                                             resid_u,     resid_v,       &
+                                             L2_norm)
              call t_stopf('glissade_resid_vec')
 
              !------------------------------------------------------------------------
@@ -2365,29 +2398,29 @@
              if (whichsparse == HO_SPARSE_PCG_CHRONGEAR) then   ! use Chronopoulos-Gear PCG algorithm
                                                                 ! (better scaling for large problems)
 
-                call pcg_solver_chrongear(nx,           ny,            &
-                                          nz,           nhalo,         &
-                                          indxA,        active_vertex, &
-                                          Auu,          Auv,           &
-                                          Avu,          Avv,           &
-                                          bu,           bv,            &
-                                          uvel,         vvel,          &
-                                          whichprecond, err,           &
-                                          niters,                      &
-                                          itest, jtest, rtest)
+                call pcg_solver_chrongear_3d(nx,           ny,            &
+                                             nz,           nhalo,         &
+                                             indxA,        active_vertex, &
+                                             Auu,          Auv,           &
+                                             Avu,          Avv,           &
+                                             bu,           bv,            &
+                                             uvel,         vvel,          &
+                                             whichprecond, err,           &
+                                             niters,                      &
+                                             itest, jtest, rtest)
 
              else   ! use standard PCG algorithm
              
-                call pcg_solver_standard(nx,           ny,            &
-                                         nz,           nhalo,         &
-                                         indxA,        active_vertex, &
-                                         Auu,          Auv,           &
-                                         Avu,          Avv,           &
-                                         bu,           bv,            &
-                                         uvel,         vvel,          &
-                                         whichprecond, err,           &
-                                         niters,                      &
-                                         itest, jtest, rtest)
+                call pcg_solver_standard_3d(nx,           ny,            &
+                                            nz,           nhalo,         &
+                                            indxA,        active_vertex, &
+                                            Auu,          Auv,           &
+                                            Avu,          Avv,           &
+                                            bu,           bv,            &
+                                            uvel,         vvel,          &
+                                            whichprecond, err,           &
+                                            niters,                      &
+                                            itest, jtest, rtest)
 
              endif   ! whichsparse
 
@@ -2406,20 +2439,20 @@
           ! Compute the residual vector and its L2 norm
           !------------------------------------------------------------------------
 
-          if (whichapprox == HO_APPROX_SSA) then
+          if (solve_2d) then
 
              if (verbose_residual .and. main_task) print*, 'Compute 2D residual vector'
 
              call t_startf('glissade_resid_vec')
-             call compute_residual_vector(nx,          ny,            &
-                                          nhalo,                      &
-                                          active_vertex,              &
-                                          Auu_2d,      Auv_2d,        &
-                                          Avu_2d,      Avv_2d,        &
-                                          bu_2d,       bv_2d,         &
-                                          uvel_2d,     vvel_2d,       &
-                                          resid_u_2d,  resid_v_2d,    &
-                                          L2_norm)
+             call compute_residual_vector_2d(nx,          ny,            &
+                                             nhalo,                      &
+                                             active_vertex,              &
+                                             Auu_2d,      Auv_2d,        &
+                                             Avu_2d,      Avv_2d,        &
+                                             bu_2d,       bv_2d,         &
+                                             uvel_2d,     vvel_2d,       &
+                                             resid_u_2d,  resid_v_2d,    &
+                                             L2_norm)
              call t_stopf('glissade_resid_vec')
 
              !------------------------------------------------------------------------
@@ -2433,13 +2466,13 @@
              endif
 
              call t_startf('glissade_trilinos_assemble')
-             call trilinos_assemble(nx,             ny,               &   
-                                    nVerticesSolve, global_vertex_id, &
-                                    iVertexIndex,   jVertexIndex,     &
-                                    indxA_2d,       Afill_2d,         &
-                                    Auu_2d,         Auv_2d,           &
-                                    Avu_2d,         Avv_2d,           &
-                                    bu_2d,          bv_2d)
+             call trilinos_assemble_2d(nx,             ny,               &   
+                                       nVerticesSolve, global_vertex_id, &
+                                       iVertexIndex,   jVertexIndex,     &
+                                       indxA_2d,       Afill_2d,         &
+                                       Auu_2d,         Auv_2d,           &
+                                       Avu_2d,         Avv_2d,           &
+                                       bu_2d,          bv_2d)
              call t_stopf('glissade_trilinos_assemble')
 
              !------------------------------------------------------------------------
@@ -2453,31 +2486,31 @@
              call t_stopf('glissade_vel_tgs')
 
              !------------------------------------------------------------------------
-             ! Put the velocity solution back into 3D arrays
+             ! Put the velocity solution back into 2D arrays
              !------------------------------------------------------------------------
 
              call t_startf('glissade_trilinos_post')
-             call trilinos_postprocess(nx,            ny,           &
-                                       nVerticesSolve,              &
-                                       iVertexIndex,  jVertexIndex, &
-                                       velocityResult,              &
-                                       uvel_2d,       vvel_2d)
+             call trilinos_postprocess_2d(nx,            ny,           &
+                                          nVerticesSolve,              &
+                                          iVertexIndex,  jVertexIndex, &
+                                          velocityResult,              &
+                                          uvel_2d,       vvel_2d)
              call t_stopf('glissade_trilinos_post')
 
-          else
+          else   ! 3D solve
 
              if (verbose_residual .and. main_task) print*, 'Compute 3D residual vector'
 
              call t_startf('glissade_resid_vec')
-             call compute_residual_vector(nx,          ny,            &
-                                          nz,          nhalo,         &
-                                          active_vertex,              &
-                                          Auu,         Auv,           &
-                                          Avu,         Avv,           &
-                                          bu,          bv,            &
-                                          uvel,        vvel,          &
-                                          resid_u,     resid_v,       &
-                                          L2_norm)
+             call compute_residual_vector_3d(nx,          ny,            &
+                                             nz,          nhalo,         &
+                                             active_vertex,              &
+                                             Auu,         Auv,           &
+                                             Avu,         Avv,           &
+                                             bu,          bv,            &
+                                             uvel,        vvel,          &
+                                             resid_u,     resid_v,       &
+                                             L2_norm)
              call t_stopf('glissade_resid_vec')
 
              !------------------------------------------------------------------------
@@ -2491,13 +2524,13 @@
              endif
 
              call t_startf('glissade_trilinos_assemble')
-             call trilinos_assemble(nx,           ny,            nz,  &   
-                                    nNodesSolve,  global_node_id,     &
-                                    iNodeIndex,   jNodeIndex,    kNodeIndex,  &
-                                    indxA,        Afill,              &
-                                    Auu,          Auv,                &
-                                    Avu,          Avv,                &
-                                    bu,           bv)
+             call trilinos_assemble_3d(nx,           ny,            nz,  &   
+                                       nNodesSolve,  global_node_id,     &
+                                       iNodeIndex,   jNodeIndex,    kNodeIndex,  &
+                                       indxA,        Afill,              &
+                                       Auu,          Auv,                &
+                                       Avu,          Avv,                &
+                                       bu,           bv)
              call t_stopf('glissade_trilinos_assemble')
 
              !------------------------------------------------------------------------
@@ -2515,11 +2548,11 @@
              !------------------------------------------------------------------------
 
              call t_startf('glissade_trilinos_post')
-             call trilinos_postprocess(nx,          ny,         nz,  &
-                                       nNodesSolve,                  &
-                                       iNodeIndex,  jNodeIndex, kNodeIndex, &
-                                       velocityResult,               &
-                                       uvel,        vvel)
+             call trilinos_postprocess_3d(nx,          ny,         nz,  &
+                                          nNodesSolve,                  &
+                                          iNodeIndex,  jNodeIndex, kNodeIndex, &
+                                          velocityResult,               &
+                                          uvel,        vvel)
              call t_stopf('glissade_trilinos_post')
 
           endif  ! whichapprox
@@ -2539,33 +2572,33 @@
           matrix%symmetric = .false.   ! Although the matrix is symmetric, we don't pass it to SLAP in symmetric form
 
           call t_startf('glissade_slap_preprocess')
-          if (whichapprox == HO_APPROX_SSA) then  ! 2D SSA solve
+          if (solve_2d) then
 
-             call slap_preprocess(nx,             ny,           &   
-                                  nVerticesSolve, vertexID,     &
-                                  iVertexIndex,   jVertexIndex, &
-                                  indxA_2d,                     &
-                                  Auu_2d,         Auv_2d,       &
-                                  Avu_2d,         Avv_2d,       &
-                                  bu_2d,          bv_2d,        &
-                                  uvel_2d,        vvel_2d,      &
-                                  matrix_order,   max_nonzeros, &
-                                  matrix,         rhs,          &
-                                  answer)
+             call slap_preprocess_2d(nx,             ny,           &   
+                                     nVerticesSolve, vertexID,     &
+                                     iVertexIndex,   jVertexIndex, &
+                                     indxA_2d,                     &
+                                     Auu_2d,         Auv_2d,       &
+                                     Avu_2d,         Avv_2d,       &
+                                     bu_2d,          bv_2d,        &
+                                     uvel_2d,        vvel_2d,      &
+                                     matrix_order,   max_nonzeros, &
+                                     matrix,         rhs,          &
+                                     answer)
 
-          else
+          else   ! 3D solve
 
-             call slap_preprocess(nx,           ny,          nz, &   
-                                  nNodesSolve,  nodeID,      &
-                                  iNodeIndex,   jNodeIndex,  &
-                                  kNodeIndex,   indxA,       &
-                                  Auu,          Auv,         &
-                                  Avu,          Avv,         &
-                                  bu,           bv,          &
-                                  uvel,         vvel,        &
-                                  matrix_order, max_nonzeros,&
-                                  matrix,       rhs,         &
-                                  answer)
+             call slap_preprocess_3d(nx,           ny,          nz, &   
+                                     nNodesSolve,  nodeID,      &
+                                     iNodeIndex,   jNodeIndex,  &
+                                     kNodeIndex,   indxA,       &
+                                     Auu,          Auv,         &
+                                     Avu,          Avv,         &
+                                     bu,           bv,          &
+                                     uvel,         vvel,        &
+                                     matrix_order, max_nonzeros,&
+                                     matrix,       rhs,         &
+                                     answer)
 
           endif  ! whichapprox
           call t_stopf('glissade_slap_preprocess')
@@ -2602,21 +2635,21 @@
 
           call t_startf('glissade_slap_post')
 
-          if (whichapprox == HO_APPROX_SSA) then
+          if (solve_2d) then
 
-             call slap_postprocess(nVerticesSolve,              &
-                                   iVertexIndex, jVertexIndex,  &
-                                   answer,       resid_vec,     &
-                                   uvel_2d,      vvel_2d,       &
-                                   resid_u_2d,   resid_v_2d)
+             call slap_postprocess_2d(nVerticesSolve,              &
+                                      iVertexIndex, jVertexIndex,  &
+                                      answer,       resid_vec,     &
+                                      uvel_2d,      vvel_2d,       &
+                                      resid_u_2d,   resid_v_2d)
 
-          else
+          else   ! 3D solve
 
-             call slap_postprocess(nNodesSolve,                            &
-                                   iNodeIndex,   jNodeIndex,  kNodeIndex,  &
-                                   answer,       resid_vec,                &
-                                   uvel,         vvel,                     &
-                                   resid_u,      resid_v)
+             call slap_postprocess_3d(nNodesSolve,                            &
+                                      iNodeIndex,   jNodeIndex,  kNodeIndex,  &
+                                      answer,       resid_vec,                &
+                                      uvel,         vvel,                     &
+                                      resid_u,      resid_v)
 
           endif   ! whichapprox
 
@@ -2624,107 +2657,79 @@
 
        endif   ! whichsparse 
 
-       !------------------------------------------------------------------------
-       ! For 2D case, fill the 3D velocity and residual arrays with the 2D values
-       !------------------------------------------------------------------------
+       !TODO - For 2D case, check the 2D residual velocity; move 3D velocity fill
+       !       after the outer loop.
 
-       if (whichapprox == HO_APPROX_SSA) then
-          do k = 1, nz
-             uvel(k,:,:) = uvel_2d(:,:)
-             vvel(k,:,:) = vvel_2d(:,:)
-             resid_u(k,:,:) = resid_u_2d(:,:)
-             resid_v(k,:,:) = resid_v_2d(:,:)
-          enddo
-       endif   ! whichapprox
+       if (solve_2d) then
 
-       !------------------------------------------------------------------------
-       ! Halo updates for uvel and vvel
-       !------------------------------------------------------------------------
+          !------------------------------------------------------------------------
+          ! Halo updates for uvel and vvel
+          !------------------------------------------------------------------------
 
-       call t_startf('glissade_halo_xvel')
-       call staggered_parallel_halo(uvel)
-       call staggered_parallel_halo(vvel)
-       call t_stopf('glissade_halo_xvel')
+          call t_startf('glissade_halo_xvel')
+          call staggered_parallel_halo(uvel_2d)
+          call staggered_parallel_halo(vvel_2d)
+          call t_stopf('glissade_halo_xvel')
 
-!WHL - bug check
-       if (verbose_state .and. this_rank==rtest) then
-!!       if (this_rank==rtest) then
-
-          i = itest
-          j = jtest
-          print*, ' '
-          print*, 'After postprocess: rank, i, j =', this_rank, i, j
-          print*, 'k, uvel, vvel (m/yr):'
-          do k = 1, nz
-             print*, k, uvel(k,i,j), vvel(k,i,j)               
-          enddo
-
-       endif
-
-       !---------------------------------------------------------------------------
-       ! Compute residual quantities based on the velocity solution
-       !---------------------------------------------------------------------------
-
-       call t_startf('glissade_resid_vec2')
-       call compute_residual_velocity(nhalo,  whichresid,   &
-                                      uvel,   vvel,        &
-                                      usav,   vsav,        &
-                                      resid_velo)
-       call t_stopf('glissade_resid_vec2')
-
-
-!WHL - debug
-       if (verbose_state .and. this_rank==rtest) then
-!!       if (verbose_residual .and. this_rank==rtest) then
-
-          print*, ' '
-          print*, 'whichresid, resid_velo =', whichresid, resid_velo
-
-!          print*, ' '
-!          print*, 'uvel - usav, k = 1:'
-          do j = ny-1, 1, -1
-             do i = 1, nx-1
-!                write(6,'(f6.2)',advance='no') (uvel(1,i,j) - usav(1,i,j))
-             enddo 
-!         print*, ' '
-          enddo
-
-!          print*, ' '
-!          print*, 'vvel - vsav, k = 1:'
-          do j = ny-1, 1, -1
-             do i = 1, nx-1
-!                write(6,'(f6.2)',advance='no') (vvel(1,i,j) - vsav(1,i,j))
-             enddo 
-!             print*, ' '
-          enddo
-
-          print*, ' '
-          print*, 'uvel (m/yr), k = 1:'
-          do j = ny-nhalo, nhalo+1, -1
-             do i = nhalo+1, nx-nhalo
-                write(6,'(f12.7)',advance='no') uvel(1,i,j)
-             enddo 
+          if (verbose_state .and. this_rank==rtest) then
+             i = itest
+             j = jtest
              print*, ' '
-          enddo
-          print*, ' '
-          print*, 'vvel (m/yr), k = 1:'
-          do j = ny-nhalo, nhalo+1, -1
-             do i = nhalo+1, nx-nhalo
-                write(6,'(f12.7)',advance='no') vvel(1,i,j)
-             enddo 
-             print*, ' '
-          enddo
+             print*, 'rank, i, j, uvel_2d, vvel_2d (m/yr):', &
+                      this_rank, i, j, uvel_2d(i,j), vvel_2d(i,j)               
+          endif
 
-          print*, 'max(uvel, vvel) =', maxval(uvel), maxval(vvel)
-       endif
+          !---------------------------------------------------------------------------
+          ! Compute residual quantities based on the velocity solution
+          !---------------------------------------------------------------------------
+
+          call t_startf('glissade_resid_vec2')
+          call compute_residual_velocity_2d(nhalo,    whichresid,   &
+                                            uvel_2d,  vvel_2d,      &
+                                            usav_2d,  vsav_2d,      &
+                                            resid_velo)
+          call t_stopf('glissade_resid_vec2')
+
+       else   ! 3D solve
+
+          !------------------------------------------------------------------------
+          ! Halo updates for uvel and vvel
+          !------------------------------------------------------------------------
+
+          call t_startf('glissade_halo_xvel')
+          call staggered_parallel_halo(uvel)
+          call staggered_parallel_halo(vvel)
+          call t_stopf('glissade_halo_xvel')
+          
+          if (verbose_state .and. this_rank==rtest) then
+             i = itest
+             j = jtest
+             print*, ' '
+             print*, 'rank, i, j:', this_rank, i, j
+             print*, 'k, uvel, vvel:'
+             do k = 1, nz
+                print*, uvel(k,i,j), vvel(k,i,j)
+             enddo
+             print*, ' '
+          endif
+
+          !---------------------------------------------------------------------------
+          ! Compute residual quantities based on the velocity solution
+          !---------------------------------------------------------------------------
+
+          call t_startf('glissade_resid_vec2')
+          call compute_residual_velocity_3d(nhalo,  whichresid,   &
+                                            uvel,   vvel,        &
+                                            usav,   vsav,        &
+                                            resid_velo)
+          call t_stopf('glissade_resid_vec2')
+
+       endif ! 2D or 3D solve
 
        !---------------------------------------------------------------------------
        ! Write diagnostics (iteration number, max residual, and location of max residual
        ! (send output to the screen or to the log file, per whichever line is commented out) 
        !---------------------------------------------------------------------------
-
-       !TODO - Find out if this note from glam_strs2 still applies:
-       ! "Can't use main_task flag because main_task is true for all processors in case of parallel_single"
 
        if (main_task) then
           if (whichresid == HO_RESID_L2NORM) then
@@ -2762,31 +2767,95 @@
           outer_it_target = resid_target   ! resid_target is currently a parameter = 1.d-4  
        end if
 
-    enddo  ! while (outer_it_criterion >= outer_it_target .and. counter < cmax)
+    enddo  ! while (outer_it_criterion >= outer_it_target .and. counter < maxiter_nonlinear)
 
     call t_stopf('glissade_vhs_nonlinear_loop')
 
-    if (counter < cmax) converged_soln = .true.
+    if (counter < maxiter_nonlinear) converged_soln = .true.
 
     if (verbose .and. converged_soln) then
-
        if (main_task) then
           print*, ' '
           print*, 'GLISSADE SOLUTION HAS CONVERGED, outer counter =', counter
        endif
+    endif
+
+    !------------------------------------------------------------------------------
+    ! After a 2D solve, fill in the full 3D velocity arrays.
+    ! This is a simple copy for SSA, but a fairly complex calculation for L1L2. 
+    ! Note: We store redundant 3D residual info rather than creating a separate 2D array.
+    !------------------------------------------------------------------------------
+
+    if (whichapprox == HO_APPROX_SSA) then ! fill the 3D velocity and residual arrays with the 2D values
+
+       do k = 1, nz
+          uvel(k,:,:) = uvel_2d(:,:)
+          vvel(k,:,:) = vvel_2d(:,:)
+          resid_u(k,:,:) = resid_u_2d(:,:)
+          resid_v(k,:,:) = resid_v_2d(:,:)
+       enddo
+
+    elseif (whichapprox == HO_APPROX_L1L2) then
+
+       if (verbose_L1L2 .and. main_task) print*, 'Compute 3D velocity, L1L2'
+
+       uvel(nz,:,:) = uvel_2d(:,:)
+       vvel(nz,:,:) = vvel_2d(:,:)
+       do k = 1, nz
+          resid_u(k,:,:) = resid_u_2d(:,:)
+          resid_v(k,:,:) = resid_v_2d(:,:)
+       enddo
+
+       call compute_3d_velocity_L1L2(nx,               ny,              &
+                                     nz,               sigma,           &
+                                     dx,               dy,              &
+                                     nhalo,                             &
+                                     ice_mask,         land_mask,       &
+                                     active_cell,      active_vertex,   &
+                                     xVertex,          yVertex,         &
+                                     thck,             stagthck,        &
+                                     usrf,                              &
+                                     dusrf_dx,         dusrf_dy,        &
+                                     flwa,             efvs,            &
+                                     tau_parallel,                      &
+                                     whichgradient_margin,              &
+                                     uvel,             vvel)
+
+       call staggered_parallel_halo(uvel)
+       call staggered_parallel_halo(vvel)
+
+    endif   ! whichapprox
 
 !WHL - debug
-!       if (this_rank == rtest) then
-!          print*, ' '
-!          print*, 'velnorm (m/yr), k = 1:'
-!          do j = ny-nhalo, nhalo+1, -1
-!             do i = nhalo+1, nx-nhalo
-!                write(6,'(f12.7)',advance='no') sqrt (uvel(1,i,j)**2 + vvel(1,i,j)**2)
-!             enddo 
-!             print*, ' '
-!         enddo
-!       endif
-
+    if (verbose_state .and. this_rank==rtest) then
+       print*, ' '
+       print*, 'uvel, k=1 (m/yr):'
+       do j = ny-nhalo, nhalo+1, -1
+!!          do i = nhalo+1, nx-nhalo
+          do i = nx/2, nx-nhalo
+             write(6,'(f12.7)',advance='no') uvel(1,i,j)
+          enddo
+          print*, ' '
+       enddo
+       print*, ' '
+       print*, 'vvel, k=1 (m/yr):'
+       do j = ny-nhalo, nhalo+1, -1
+!!          do i = nhalo+1, nx-nhalo
+          do i = nx/2, nx-nhalo
+             write(6,'(f12.7)',advance='no') vvel(1,i,j)
+          enddo
+          print*, ' '
+       enddo       
+       print*, ' '
+       print*, 'max(uvel, vvel) =', maxval(uvel), maxval(vvel)
+       print*, ' '
+       i = itest
+       j = jtest
+       print*, 'New velocity: rank, i, j =', this_rank, i, j    
+       print*, 'k, uvel, vvel:'
+       do k = 1, nz
+          print*, k, uvel(k,i,j), vvel(k,i,j)
+       enddo
     endif
 
     !------------------------------------------------------------------------------
@@ -2803,7 +2872,7 @@
     if (whichsparse == HO_SPARSE_TRILINOS) then
        deallocate(active_owned_unknown_map)
        deallocate(velocityResult)
-       if (whichapprox == HO_APPROX_SSA) then
+       if (solve_2d) then
           deallocate(Afill_2d)
        else
           deallocate(Afill)
@@ -2811,13 +2880,16 @@
     endif
 #endif
 
-    if (whichapprox == HO_APPROX_SSA) then
+    if (solve_2d) then
        deallocate(Auu_2d, Auv_2d, Avu_2d, Avv_2d)
        deallocate(bu_2d, bv_2d)
        deallocate(loadu_2d, loadv_2d)
        deallocate(uvel_2d, vvel_2d)
+       deallocate(usav_2d, vsav_2d)
        deallocate(resid_u_2d, resid_v_2d)
-    else
+    endif
+
+    if (.not.solve_2d .or. compressed_ssa) then
        deallocate(Auu, Auv, Avu, Avv)
     endif
 
@@ -3155,7 +3227,7 @@
 
     integer, intent(in) ::      &
        nx, ny,                  &    ! horizontal grid dimensions
-       nz,                      &    ! number of vertical layers at which velocity is computed
+       nz,                      &    ! number of vertical levels at which velocity is computed
                                      ! Note: the number of elements per column is nz-1
        nhalo                         ! number of halo layers
 
@@ -3173,7 +3245,7 @@
        stagthck           ! ice thickness on staggered grid (m)
 
     real(dp), dimension(nx-1,ny-1), intent(in) ::  &
-       dusrf_dx,       &  ! upper surface elevation gradient on staggered grid (m)
+       dusrf_dx,       &  ! upper surface elevation gradient on staggered grid (m/m)
        dusrf_dy
 
     real(dp), dimension(nz,nx-1,ny-1), intent(inout) ::  &
@@ -3251,10 +3323,10 @@
                 ! TODO: The derivatives are not used.  Make these optional arguments?
                 !WHL - debug - Pass in i, j, k, and p for now
 
-                call get_basis_function_derivatives(x(:),          y(:),          z(:),           &
-                                                    dphi_dxr_3d(:,p), dphi_dyr_3d(:,p), dphi_dzr_3d(:,p),  &
-                                                    dphi_dx_3d(:),    dphi_dy_3d(:),    dphi_dz_3d(:),     &
-                                                    detJ , i, j, k, p   )
+                call get_basis_function_derivatives_3d(x(:),          y(:),          z(:),           &
+                                                       dphi_dxr_3d(:,p), dphi_dyr_3d(:,p), dphi_dzr_3d(:,p),  &
+                                                       dphi_dx_3d(:),    dphi_dy_3d(:),    dphi_dz_3d(:),     &
+                                                       detJ , i, j, k, p   )
 
 !WHL - debug
                 if (detJ < 0.d0) then
@@ -3316,7 +3388,7 @@
   subroutine load_vector_lateral_bc(nx,               ny,              &
                                     nz,               sigma,           &
                                     nhalo,                             &
-                                    floating_cell,    ocean_cell,      &
+                                    floating_mask,    ocean_mask,      &
                                     active_cell,                       &
                                     xVertex,          yVertex,         &
                                     stagusrf,         stagthck,        &
@@ -3324,7 +3396,7 @@
 
     integer, intent(in) ::      &
        nx, ny,                  &    ! horizontal grid dimensions
-       nz,                      &    ! number of vertical layers at which velocity is computed
+       nz,                      &    ! number of vertical levels at which velocity is computed
                                      ! Note: the number of elements per column is nz-1
        nhalo                         ! number of halo layers
 
@@ -3332,9 +3404,11 @@
        sigma                         ! sigma vertical coordinate
 
     logical, dimension(nx,ny), intent(in) ::  &
-       active_cell,                 &! true if cell contains ice and borders a locally owned vertex
-       floating_cell,               &! true if ice is present and is floating
-       ocean_cell                    ! true if topography is below sea level and ice is absent
+       active_cell                   ! true if cell contains ice and borders a locally owned vertex
+
+    integer, dimension(nx,ny), intent(in) ::  &
+       floating_mask,               &! = 1 if ice is present and is floating
+       ocean_mask                    ! = 1 if topography is below sea level and ice is absent
 
     real(dp), dimension(nx-1,ny-1), intent(in) ::   &
        xVertex, yVertex     ! x and y coordinates of vertices
@@ -3371,13 +3445,13 @@
        if (verbose_shelf .and. i==itest .and. j==jtest .and. this_rank==rtest) then
           print*, 'i, j =', i, j
           print*, 'active =', active_cell(i,j)
-          print*, 'floating =', floating_cell(i,j)
-          print*, 'ocean (i-1:i,j)  =', ocean_cell(i-1:i, j) 
-          print*, 'ocean (i-1:i,j-1)=', ocean_cell(i-1:i, j-1) 
+          print*, 'floating_mask =', floating_mask(i,j)
+          print*, 'ocean_mask (i-1:i,j)  =', ocean_mask(i-1:i, j) 
+          print*, 'ocean_mask (i-1:i,j-1)=', ocean_mask(i-1:i, j-1) 
        endif
 
 !!       if (active_cell(i,j)) then    ! ice is present
-       if (floating_cell(i,j)) then   ! ice is present and is floating
+       if (floating_mask(i,j) == 1) then   ! ice is present and is floating
 
 !WHL - debug
 !          print*, 'Floating:', i, j
@@ -3387,7 +3461,7 @@
           !TODO - Make the BC more general.
 
 !!          if (.not. active_cell(i-1,j)) then  ! compute lateral BC for west face
-          if (ocean_cell(i-1,j)) then ! compute lateral BC for west face
+          if (ocean_mask(i-1,j) == 1) then ! compute lateral BC for west face
 
 !WHL - debug
 !          print*, '   Ocean west:', i-1, j
@@ -3402,7 +3476,7 @@
           endif
 
 !!          if (.not. active_cell(i+1,j)) then  ! compute lateral BC for east face
-          if (ocean_cell(i+1,j)) then ! compute lateral BC for east face
+          if (ocean_mask(i+1,j) == 1) then ! compute lateral BC for east face
 
 !WHL - debug
 !          print*, '   Ocean east:', i+1, j
@@ -3417,7 +3491,7 @@
           endif
 
 !!          if (.not. active_cell(i,j-1)) then  ! compute lateral BC for south face
-          if (ocean_cell(i,j-1)) then ! compute lateral BC for south face
+          if (ocean_mask(i,j-1) == 1) then ! compute lateral BC for south face
 
 !WHL - debug
 !          print*, '   Ocean south:', i, j-1
@@ -3432,7 +3506,7 @@
           endif
 
 !!          if (.not. active_cell(i,j+1)) then  ! compute lateral BC for north face
-          if (ocean_cell(i,j+1)) then ! compute lateral BC for north face
+          if (ocean_mask(i,j+1) == 1) then ! compute lateral BC for north face
 
 !WHL - debug
 !          print*, '   Ocean north:', i, j+1
@@ -3446,7 +3520,7 @@
                                    loadu,         loadv)
           endif
 
-       endif      ! floating_cell
+       endif      ! floating_mask
 
     enddo         ! i
     enddo         ! j
@@ -3483,9 +3557,9 @@
     ! The two pressure terms are opposite in sign, so the net vertically averaged pressure,
     !  directed toward the ocean (or air), is given by
     ! 
-    !                    p_av = 0.5*rhoi*grav*H 
-    !                         - 0.5*rhoo*grav*H * (1 - min((s/H),1)^2
-    ! 
+    !                    p_av = 0.5*rhoi*grav*H*(1 - rhoi/rhoo) for a floating shelf
+    !                           0.5*rhoi*grav*H - 0.5*rhoo*grav*H * (1 - min((s/H),1)^2 for ice not necessarily afloat
+    !
     ! Here we sum over quadrature points for each ocean-bordering face of each element.
     ! The contribution from each quadrature point to node N is proportional to the product
     !
@@ -3499,7 +3573,7 @@
 
     integer, intent(in) ::      &
        nx, ny,                  &    ! horizontal grid dimensions
-       nz,                      &    ! number of vertical layers at which velocity is computed
+       nz,                      &    ! number of vertical levels at which velocity is computed
                                      ! Note: the number of elements per column is nz-1
        iCell, jCell                  ! i and j indices for this cell
 
@@ -3671,10 +3745,10 @@
              print*, 'dphi_dyr_2d =', dphi_dyr_2d(:,p)
           endif
 
-          call get_basis_function_derivatives(x(:),              y(:),               & 
-                                              dphi_dxr_2d(:,p),  dphi_dyr_2d(:,p),   &
-                                              dphi_dx_2d(:),     dphi_dy_2d(:),      &
-                                              detJ, iCell, jCell, p)
+          call get_basis_function_derivatives_2d(x(:),              y(:),               & 
+                                                 dphi_dxr_2d(:,p),  dphi_dyr_2d(:,p),   &
+                                                 dphi_dx_2d(:),     dphi_dy_2d(:),      &
+                                                 detJ, iCell, jCell, p)
 
           ! For some faces, detJ is computed to be a negative number because the face is
           ! oriented opposite the x or y axis.  Fix this by taking the absolute value.
@@ -3780,7 +3854,7 @@
 
     integer, intent(in) ::      &
        nx, ny,                  &    ! horizontal grid dimensions
-       nz,                      &    ! number of vertical layers at which velocity is computed
+       nz,                      &    ! number of vertical levels at which velocity is computed
                                      ! Note: the number of elements per column is nz-1
        nhalo                         ! number of halo layers
 
@@ -3950,10 +4024,10 @@
                 !WHL - debug - Pass in i, j, k, and p for now
 
 !          call t_startf('glissade_basis_function_derivs')
-                call get_basis_function_derivatives(x(:),             y(:),             z(:),              &          
-                                                    dphi_dxr_3d(:,p), dphi_dyr_3d(:,p), dphi_dzr_3d(:,p),  &
-                                                    dphi_dx_3d(:,p),  dphi_dy_3d(:,p),  dphi_dz_3d(:,p),   &
-                                                    detJ(p) , i, j, k, p  )
+                call get_basis_function_derivatives_3d(x(:),             y(:),             z(:),              &          
+                                                       dphi_dxr_3d(:,p), dphi_dyr_3d(:,p), dphi_dzr_3d(:,p),  &
+                                                       dphi_dx_3d(:,p),  dphi_dy_3d(:,p),  dphi_dz_3d(:,p),   &
+                                                       detJ(p) , i, j, k, p  )
 !          call t_stopf('glissade_basis_function_derivs')
 
 
@@ -3968,8 +4042,7 @@
                                                  i, j, k, p )
 !          call t_stopf('glissade_effective_viscosity')
 
-                if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
-                   print*, ' '
+                if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. p==ptest) then
                    print*, 'i, j, k, p, efvs (Pa yr):', i, j, k, p, efvs_qp(p)
                 endif
 
@@ -4004,14 +4077,22 @@
 
              ! Sum terms of element matrix K into dense assembled matrix A
 
-             call element_to_global_matrix(nx,           ny,          nz, &
-                                           i,            j,           k,  &
-                                           Kuu,          Kuv,             &
-                                           Kvu,          Kvv,             &
-                                           Auu,          Auv,             &
-                                           Avu,          Avv)
+             call element_to_global_matrix_3d(nx,           ny,          nz, &
+                                              i,            j,           k,  &
+                                              Kuu,          Kuv,             &
+                                              Kvu,          Kvv,             &
+                                              Auu,          Auv,             &
+                                              Avu,          Avv)
 
           enddo   ! nz  (loop over elements in this column)
+
+          if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest) then
+             print*, 'i, j =', i, j
+             print*, 'k, efvs:'
+             do k = 1, nz-1
+                print*, k, efvs(k,i,j)
+             enddo
+          endif
 
        endif   ! active cell
 
@@ -4034,13 +4115,21 @@
                                           xVertex,          yVertex,         &
                                           uvel,             vvel,            &
                                           stagusrf,         stagthck,        &
-                                          flwafact,         whichapprox,     &
-                                          efvs,             whichefvs,       &
-                                          efvs_constant,                     &
+                                          dusrf_dx,         dusrf_dy,        &
+                                          flwa,             flwafact,        &
+                                          whichapprox,                       &
+                                          whichefvs,        efvs_constant,   &
+                                          efvs,             tau_parallel,    &
                                           Auu,              Auv,             &
                                           Avu,              Avv)
 
-    ! Assemble the stiffness matrix A in the linear system Ax = b
+    !----------------------------------------------------------------
+    ! Assemble the stiffness matrix A in the linear system Ax = b,
+    !  where A can be based on either the shallow-shelf approximation or 
+    !  the higher-order, vertically integrated L1L2 approximation 
+    !  (Schoof and Hindmarsh, 2010).  The main difference between SSA and
+    !  L1L2 is in the computation of the effective viscosity.
+    !----------------------------------------------------------------
  
     !----------------------------------------------------------------
     ! Input-output arguments
@@ -4048,7 +4137,7 @@
 
     integer, intent(in) ::      &
        nx, ny,                  &    ! horizontal grid dimensions
-       nz,                      &    ! number of vertical layers at which velocity is computed
+       nz,                      &    ! number of vertical levels at which velocity is computed
                                      ! (used for flwafact)
        nhalo                         ! number of halo layers
 
@@ -4068,20 +4157,28 @@
        stagusrf,       &  ! upper surface elevation on staggered grid (m)
        stagthck           ! ice thickness on staggered grid (m)
 
+    real(dp), dimension(nx-1,ny-1), intent(in) ::  &
+       dusrf_dx,       &  ! upper surface elevation gradient on staggered grid (m/m)
+       dusrf_dy           ! needed for L1L2 only
+
+    !TODO - Pass in flwa and compute flwafact here?
     real(dp), dimension(nz-1,nx,ny), intent(in) ::  &
-       flwafact           ! vertically averaged temperature-based flow factor, 0.5 * A^(-1/n), 
+       flwa,             &! temperature-based flow factor A, Pa^{-n} yr^{-1}
+       flwafact           ! temperature-based flow factor, 0.5 * A^(-1/n), Pa yr^(1/n)
                           ! used to compute the effective viscosity
-                          ! units: Pa yr^(1/n)
 
     integer, intent(in) ::   &
-       whichapprox,     & ! option for Stokes approximation (BP, SSA, SIA)
+       whichapprox,     & ! option for Stokes approximation (BP, L1L2, SSA, SIA)
        whichefvs          ! option for effective viscosity calculation 
 
     real(dp), intent(in) :: &
        efvs_constant      ! constant value of effective viscosity (Pa yr)
 
     real(dp), dimension(nz-1,nx,ny), intent(out) ::  &
-       efvs               ! effective viscosity (Pa yr)
+       efvs,             &! effective viscosity (Pa yr)
+       tau_parallel       ! norm of tau_parallel at each layer in a cell column, 
+                          !  where |tau_parallel|^2 = tau_xx^2 + tau_yy^2 + tau_xx*tau_yy + tau_xy^2
+                          !  needed for L1L2; see PGB(2012), eq. 17 and 20
 
     real(dp), dimension(nNodeNeighbors_2d,nx-1,ny-1), intent(out) ::  &
        Auu, Auv,    &     ! assembled stiffness matrix, divided into 4 parts
@@ -4096,21 +4193,21 @@
 
     real(dp), dimension(nNodesPerElement_2d, nQuadPoints_2d) ::   &
        dphi_dx_2d, dphi_dy_2d, dphi_dz_2d  ! derivatives of basis function, evaluated at quad pts
-                                           ! assume dphi_dz_2d = 0 for 2D SSA
+                                           ! set dphi_dz = 0 for 2D problem
 
     !----------------------------------------------------------------
     ! Note: Kuu, Kuv, Kvu, and Kvv are 4x4 components of the stiffness matrix
     !       for the local element.  (The combined stiffness matrix is 8x8.)
     !
-    ! Once these matrices are formed, their coefficients are summed into the assembled
-    !  matrices Auu, Auv, Avu, Avv.  The A matrices each have as many rows as there are
-    !  active vertices, but only 9 columns, corresponding to the 9 vertices that belong to
-    !  the 4 elements sharing a given node.
+    ! Once these matrices are formed, their coefficients are summed into the global
+    !  matrices Auu_2d, Auv_2d, Avu_2d, Avv_2d.  The global matrices each have as 
+    !  many rows as there are active vertices, but only 9 columns, corresponding to 
+    !  the 9 vertices of the 4 elements sharing a given node.
     !
     ! The native structured PCG solver works with the dense A matrices in the form
     ! computed here.  For the SLAP solver, the terms of the A matrices are put
-    ! in a sparse matrix during preprocessing.  For the Trilinos solver, the terms
-    ! of the A matrices are passed to Trilinos one row at a time. 
+    ! in a sparse matrix format during preprocessing.  For the Trilinos solver, 
+    ! the terms of the A matrices are passed to Trilinos one row at a time. 
     !----------------------------------------------------------------
 
     real(dp), dimension(nNodesPerElement_2d, nNodesPerElement_2d) ::   &   !
@@ -4124,56 +4221,61 @@
                           !         
                           ! Kvu may not be needed if matrix is symmetric, but is included for now
 
-    !TODO - Remove z?
     real(dp), dimension(nNodesPerElement_2d) ::     &
-       x, y, z,         & ! Cartesian coordinates of nodes
+       x, y,            & ! Cartesian coordinates of nodes
        u, v,            & ! u and v at nodes
        h,               & ! thickness at nodes
-       s                  ! upper surface elevation at nodes
+       s,               & ! upper surface elevation at nodes
+       dsdx, dsdy         ! upper surface elevation gradient at nodes (L1L2 only)
   
     real(dp), dimension(nQuadPoints_2d) ::    &
-       efvs_qp            ! effective viscosity at a quad pt
+       efvs_qp_vertavg    ! vertically averaged effective viscosity at a quad pt
+
+    ! these are for L1L2 only
+    real(dp), dimension(nz-1,nQuadPoints_2d) ::    &
+       tau_parallel_qp,  &! norm of tau_parallel at each layer in a cell column, 
+                          !  where |tau_parallel|^2 = tau_xx^2 + tau_yy^2 + tau_xx*tau_yy + tau_xy^2
+                          !  See PGB(2012), eq. 17 and 20
+       efvs_qp            ! effective viscosity at each layer in a cell column
+                          ! corresponding to a quad pt
 
     real(dp) ::         &
-       h_qp,            & ! thickness at a quad pt
-       efvs_avg           ! efvs averaged over quad pts
+       h_qp               ! thickness at a quad pt
 
     logical, parameter ::   &
        check_symmetry_element = .true.  ! if true, then check symmetry of element matrix
-                                        !TODO - set to false for production
 
     real(dp), dimension(nx,ny) ::  &
-       flwafact_2d          ! vertically averaged flow factor
+       flwafact_2d        ! vertically averaged flow factor
 
-    integer :: i, j, n, p
+    integer :: i, j, k, n, p
     integer :: iA, jA
 
     integer :: iVertex, jVertex
-
-    integer :: jj
 
     if (verbose_matrix .and. main_task) then
        print*, ' '
        print*, 'In assemble_stiffness_matrix_2d'
     endif
 
-    ! Initialize effective viscosity (vertically averaged)
+    ! Initialize effective viscosity and tau_parallel
     efvs(:,:,:) = 0.d0
+    tau_parallel(:,:,:) = 0.d0
 
     ! Initialize global stiffness matrix
-    !TODO - Initialize at higher level and pass as inout?
 
     Auu(:,:,:) = 0.d0
     Auv(:,:,:) = 0.d0
     Avu(:,:,:) = 0.d0
     Avv(:,:,:) = 0.d0
 
-    ! Compute vertical average of flow factor (used for SSA computation)
-
-    call glissade_vertical_average(nx,       ny,      &
-                                   nz,       sigma,   &
-                                   active_cell,       &
-                                   flwafact, flwafact_2d)
+    ! Compute vertical average of flow factor (SSA only)
+    if (whichapprox == HO_APPROX_SSA) then
+       call glissade_vertical_average(nx,       ny,      &
+                                      nz,       sigma,   &
+                                      active_cell,       &
+                                      flwafact, flwafact_2d)
+    endif
 
     ! Sum over elements in active cells 
     ! Loop over all cells that border locally owned vertices.
@@ -4203,14 +4305,15 @@
 
              x(n) = xVertex(iVertex,jVertex)
              y(n) = yVertex(iVertex,jVertex)
-             z(n) = stagusrf(iVertex,jVertex) - stagthck(iVertex,jVertex)
              u(n) = uvel(iVertex,jVertex)
              v(n) = vvel(iVertex,jVertex)
              s(n) = stagusrf(iVertex,jVertex)
              h(n) = stagthck(iVertex,jVertex)
+             dsdx(n) = dusrf_dx(iVertex,jVertex)
+             dsdy(n) = dusrf_dy(iVertex,jVertex)
 
              if (verbose_matrix .and. this_rank==rtest .and. i==itest .and. j==jtest) then
-                print*, 'i, j, n, x, y, z:', i, j, n, x(n), y(n), z(n)
+                print*, 'i, j, n, x, y:', i, j, n, x(n), y(n)
                 print*, 's, u, v:', s(n), u(n), v(n)
              endif
 
@@ -4227,30 +4330,55 @@
              !WHL - debug - Pass in i, j and p for now
 
 !          call t_startf('glissade_basis_function_derivs')
-             call get_basis_function_derivatives(x(:),             y(:),          &
-                                                 dphi_dxr_2d(:,p), dphi_dyr_2d(:,p), &
-                                                 dphi_dx_2d(:,p),  dphi_dy_2d(:,p),  &
-                                                 detJ(p) , i, j, p)
+             call get_basis_function_derivatives_2d(x(:),             y(:),          &
+                                                    dphi_dxr_2d(:,p), dphi_dyr_2d(:,p), &
+                                                    dphi_dx_2d(:,p),  dphi_dy_2d(:,p),  &
+                                                    detJ(p) , i, j, p)
+             dphi_dz_2d(:,p) = 0.d0
 !          call t_stopf('glissade_basis_function_derivs')
 
-             dphi_dz_2d(:,p) = 0.d0  ! set to zero for 2D SSA
-
-             !WHL - debug - Pass in i, j, k and p for now (setting k = 1)
-
 !          call t_startf('glissade_effective_viscosity')
-             call compute_effective_viscosity(whichefvs,         whichapprox,                       &
-                                              efvs_constant,     nNodesPerElement_3d,               &
-                                              dphi_dx_2d(:,p),   dphi_dy_2d(:,p),  dphi_dz_2d(:,p), &
-                                              u(:),              v(:),                              & 
-                                              flwafact_2d(i,j),  efvs_qp(p),                        &
-                                              i, j, 1, p)
+
+             if (whichapprox == HO_APPROX_L1L2) then
+
+                !WHL - debug - Pass in i, j and p for now
+
+                ! Compute effective viscosity for each layer at this quadrature point
+                call compute_effective_viscosity_L1L2(whichefvs,            efvs_constant,     &
+                                                      nz,                   sigma,             &
+                                                      nNodesPerElement_2d,  phi_2d(:,p),       &
+                                                      dphi_dx_2d(:,p),      dphi_dy_2d(:,p),   &
+                                                      u(:),                 v(:),              & 
+                                                      h(:),                                    &
+                                                      dsdx(:),              dsdy(:),           &
+                                                      flwa(:,i,j),          flwafact(:,i,j),   &
+                                                      tau_parallel_qp(:,p), efvs_qp(:,p),      &
+                                                      i, j, p)
+
+                ! Compute vertical average of effective viscosity
+                efvs_qp_vertavg(p) = 0.d0
+                do k = 1, nz-1
+                   efvs_qp_vertavg(p) = efvs_qp_vertavg(p) + efvs_qp(k,p) * (sigma(k+1) - sigma(k))
+                enddo
+
+             else     ! SSA
+
+                !WHL - debug - Pass in i, j, k and p for now (setting k = 1)
+
+                ! Compute vertically averaged effective viscosity at this quadrature point
+                call compute_effective_viscosity(whichefvs,         whichapprox,                       &
+                                                 efvs_constant,     nNodesPerElement_2d,               &
+                                                 dphi_dx_2d(:,p),   dphi_dy_2d(:,p),  dphi_dz_2d(:,p), &
+                                                 u(:),              v(:),                              & 
+                                                 flwafact_2d(i,j),  efvs_qp_vertavg(p),                &
+                                                 i, j, 1, p)
+
+                ! Copy vertically averaged value to all levels
+                efvs_qp(:,p) = efvs_qp_vertavg(p)
+
+             endif    ! whichapprox
 
 !          call t_stopf('glissade_effective_viscosity')
-
-             if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest) then
-                print*, ' '
-                print*, 'i, j, p, efvs (Pa yr):', i, j, p, efvs_qp(p)
-             endif
 
              ! Compute ice thickness at this quadrature point
 
@@ -4268,7 +4396,7 @@
 !          call t_startf('glissade_increment_element_stiffness')
              call compute_element_matrix(whichapprox,     nNodesPerElement_2d,               & 
                                          wqp_2d(p),       detJ(p),                           &
-                                         h_qp*efvs_qp(p),                                    &
+                                         h_qp*efvs_qp_vertavg(p),                            &
                                          dphi_dx_2d(:,p), dphi_dy_2d(:,p),  dphi_dz_2d(:,p), &
                                          Kuu(:,:),        Kuv(:,:),                          &
                                          Kvu(:,:),        Kvv(:,:),                          &
@@ -4277,15 +4405,26 @@
 
           enddo   ! nQuadPoints_2d
 
-          ! Compute average of effective viscosity over quad pts
-          efvs_avg = 0.d0
-          do p = 1, nQuadPoints_2d
-             efvs_avg = efvs_avg + efvs_qp(p)
-          enddo
-          efvs_avg = efvs_avg / nQuadPoints_2d
+          !TODO - Initialize efvs and tau_parallel above
+          !       Single loop for both SSA and L1L2
 
-          ! Fill efvs array for output (insert the vertically averaged value at all vertical levels)
-          efvs(:,i,j) = efvs_avg
+          ! Compute horizontal average of effective viscosity and tau_parallel over quad pts
+
+          do p = 1, nQuadPoints_2d
+             do k = 1, nz-1
+                efvs(k,i,j) = efvs(k,i,j) + efvs_qp(k,p)
+             enddo
+          enddo
+          efvs(:,i,j) = efvs(:,i,j) / nQuadPoints_2d
+
+          if (whichapprox == HO_APPROX_L1L2) then
+             do p = 1, nQuadPoints_2d
+                do k = 1, nz-1
+                   tau_parallel(k,i,j) = tau_parallel(k,i,j) + tau_parallel_qp(k,p)
+                enddo
+             enddo
+             tau_parallel(:,i,j) = tau_parallel(:,i,j) / nQuadPoints_2d
+          endif
 
           if (check_symmetry_element) then
              call check_symmetry_element_matrix(nNodesPerElement_2d,   &
@@ -4296,14 +4435,22 @@
 
           ! Sum terms of element matrix K into dense assembled matrix A
 
-          call element_to_global_matrix(nx,           ny,        &
-                                        i,            j,         &
-                                        Kuu,          Kuv,       &
-                                        Kvu,          Kvv,       &
-                                        Auu,          Auv,       &
-                                        Avu,          Avv)
+          call element_to_global_matrix_2d(nx,           ny,        &
+                                           i,            j,         &
+                                           Kuu,          Kuv,       &
+                                           Kvu,          Kvv,       &
+                                           Auu,          Auv,       &
+                                           Avu,          Avv)
 
 !          call t_stopf('glissade_element_to_global')
+
+          if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest) then
+             print*, 'i, j =', i, j
+             print*, 'k, efvs:'
+             do k = 1, nz-1
+                print*, k, efvs(k,i,j)
+             enddo
+          endif
 
        endif   ! active cell
 
@@ -4311,6 +4458,520 @@
     enddo      ! j
 
   end subroutine assemble_stiffness_matrix_2d
+
+!****************************************************************************
+
+  subroutine compute_3d_velocity_L1L2(nx,               ny,              &
+                                      nz,               sigma,           &
+                                      dx,               dy,              &
+                                      nhalo,                             &
+                                      ice_mask,         land_mask,       &
+                                      active_cell,      active_vertex,   &
+                                      xVertex,          yVertex,         &
+                                      thck,             stagthck,        &
+                                      usrf,                              &
+                                      dusrf_dx,         dusrf_dy,        &
+                                      flwa,             efvs,            &
+                                      tau_parallel,                      &
+                                      whichgradient_margin,              &
+                                      uvel,             vvel)
+
+    !----------------------------------------------------------------
+    ! Given the basal velocity and the 3D profile of effective viscosity
+    !  and horizontal-plane stresses, construct the 3D stress and velocity
+    !  profiles for the L1L2 approximation.
+    !----------------------------------------------------------------
+
+    !----------------------------------------------------------------
+    ! Input-output arguments
+    !----------------------------------------------------------------
+
+    integer, intent(in) ::      &
+       nx, ny,                  &    ! horizontal grid dimensions
+       nz,                      &    ! number of vertical levels at which velocity is computed
+       nhalo                         ! number of halo layers
+
+    real(dp), intent(in) ::     &
+       dx, dy             ! grid cell length and width 
+
+    real(dp), dimension(nz), intent(in) ::    &
+       sigma              ! sigma vertical coordinate
+
+    integer, dimension(nx,ny), intent(in) ::  &
+       ice_mask,        & ! = 1 for cells where ice is present (thk > thklim), else = 0
+       land_mask          ! = 1 for cells where topography is above sea level
+
+    logical, dimension(nx,ny), intent(in) ::  &
+       active_cell        ! true if cell contains ice and borders a locally owned vertex
+
+    !TODO - Make sure we have all the required info at these vertices
+    logical, dimension(nx-1,ny-1), intent(in) ::  &
+       active_vertex      ! true for vertices of active cells
+
+    real(dp), dimension(nx-1,ny-1), intent(in) ::   &
+       xVertex, yVertex   ! x and y coordinates of vertices
+
+    real(dp), dimension(nx,ny), intent(in) ::  &
+       thck,             &! ice thickness at cell centers (m)
+       usrf               ! upper surface elevation at cell centers (m)
+
+    real(dp), dimension(nx-1,ny-1), intent(in) ::  &
+       stagthck,       &  ! ice thickness at vertices (m)
+       dusrf_dx,       &  ! upper surface elevation gradient at cell vertices (m/m)
+       dusrf_dy
+
+    real(dp), dimension(nz-1,nx,ny), intent(in) ::  &
+       flwa,           &  ! temperature-based flow factor A, Pa^{-n} yr^{-1}
+       efvs,           &  ! effective viscosity, Pa yr
+       tau_parallel       ! sqrt(tau_xx^2 + tau_yy^2 + tau_xx*tau_yy + tau_xy**2)
+                          ! appears in L1L2 expression for the effective stress
+
+    !NOTE: Currently this option is overridden, and the value is set to 1.
+    integer, intent(in) ::  &
+       whichgradient_margin     ! option for computing gradient at ice margin
+                                ! 0 = include all neighbor cells in gradient calculation
+                                ! 1 = include ice-covered and/or land cells
+                                ! 2 = include ice-covered cells only
+
+    real(dp), dimension(nz,nx-1,ny-1), intent(inout) ::  &
+       uvel, vvel         ! velocity components (m/yr)
+                          ! on input, only the basal component (index nz) is known
+                          ! on output, the full 3D velocity field is known
+
+    !----------------------------------------------------------------
+    ! Local variables
+    !----------------------------------------------------------------
+
+    integer :: iVertex, jVertex  ! indices of element vertices
+
+    real(dp), dimension(nNodesPerElement_2d) ::   &
+       x, y,                    &! x and y coordinates of element vertices 
+       u, v,                    &! basal velocity components at element vertices
+       dphi_dx_2d, dphi_dy_2d    ! derivatives of basis functions, evaluated at cell center
+
+    real(dp) ::   &
+       detJ                      ! determinant of J (never used in calculation)
+
+    !TODO - Allocate some of these arrays at runtime since needed only for L1L2?
+
+    real(dp), dimension(nx,ny) ::  &
+       du_dx, du_dy,            &! basal strain rate components, evaluated at cell centers
+       dv_dx, dv_dy,            &!
+       work1, work2, work3       ! work arrays for computing tau_xz and tau_yz; located at cell centers
+
+    real(dp), dimension(nz-1,nx,ny) ::   &
+       efvs_integral_z_to_s      ! integral of effective viscosity from base of layer k
+                                 ! to the upper surface (Pa yr m)
+
+    real(dp), dimension(nz-1,nx-1,ny-1) ::   &
+       tau_xz, tau_yz            ! vertical shear stress components at layer midpoints for each vertex
+       
+    real(dp), dimension(nx-1,ny-1) ::   &
+       dwork1_dx, dwork1_dy,    &! derivatives of work arrays; located at vertices
+       dwork2_dx, dwork2_dy,    &!
+       dwork3_dx, dwork3_dy,    &!
+       stagtau_parallel_sq,     &! tau_parallel^2, interpolated to staggered grid
+       stagflwa                  ! flwa, interpolated to staggered grid
+
+    real(dp) ::   &
+       depth,                   &! distance from upper surface to midpoint of a given layer
+       tau_eff_sq,              &! square of effective stress (Pa^2)
+                                 ! = tau_parallel^2 + tau_perp^2 for L1L2
+       fact                      ! factor in velocity integral
+
+    real(dp), dimension(nx-1,ny-1) ::  &
+       dusrf_dx_edge,         &  ! upper surface elevation gradient at cell edges (m/m)
+       dusrf_dy_edge
+
+    integer :: i, j, k, n
+
+    !-----------------------------------------------------------------------------------------------
+    !WHL: I tried two ways to compute the 3D velocity, given tau_perp, tau_xz and tau_yz in each layer:
+    ! (1) Compute velocity at vertices using     
+    !          u(z) = u_b + 2 * integral_b_to_z [A*tau_eff^(n-1)*tau_xz dz]
+    !          v(z) = v_b + 2 * integral_b_to_z [A*tau_eff^(n-1)*tau_yz dz]
+    ! (2) Compute velocity at edges using 
+    !          uedge(z) =  (vintfact(i,j) + vintfact(i,j-1))/2.d0 * dsdx_edge 
+    !          vedge(z) =  (vintfact(i,j) + vintfact(i-1,j))/2.d0 * dsdy_edge 
+    !     where vintfact = 2*A*tau_eff^(n-1)*(rho*g*|grad(s)|
+    !     Average uedge and vedge to vertices and add to u_b to get 3D uvel and vvel.
+    !
+    ! The second method resembles the methods used by Glide and by the Glissade local SIA solver.
+    ! For the no-slip case, method 2 gives the same answers (within roundoff) as the local SIA solver.
+    ! For the Halfar test, method 1 is slightly more accurate but can give rise to checkerboard noise.
+    !   Checkerboard noise can be damped by using an upstream gradient for grad(s), but this
+    !   reduces the accuracy for the Halfar test. (Method 1 with centered gradients is more
+    !   accurate than method 2 with upstream gradients.)
+    !-----------------------------------------------------------------------------------------------
+
+    logical, parameter :: edge_velocity = .true.
+!!    logical, parameter :: edge_velocity = .false.
+
+    real(dp), dimension(nx,ny) ::   &
+       uedge, vedge        ! velocity components at edges of a layer, relative to bed (m/yr)
+                           ! u on E edge, v on N edge (C grid)
+
+    real(dp), dimension(nz-1,nx-1,ny-1) ::   &
+       vintfact            ! vertical integration factor at vertices
+
+    ! Initialize
+    efvs_integral_z_to_s(:,:,:) = 0.d0
+    du_dx(:,:) = 0.d0
+    du_dy(:,:) = 0.d0
+    dv_dx(:,:) = 0.d0
+    dv_dy(:,:) = 0.d0
+
+    ! Compute viscosity integral and strain rates in elements.
+    ! Loop over all cells that border locally owned vertices.
+
+    do j = 1+nhalo, ny-nhalo+1
+       do i = 1+nhalo, nx-nhalo+1
+       
+          if (active_cell(i,j)) then
+
+             ! Load x and y coordinates and basal velocity at cell vertices
+
+             do n = 1, nNodesPerElement_2d
+
+                ! Determine (i,j) for this vertex
+                ! The reason for the '3' is that node 3, in the NE corner of the grid cell, has index (i,j).
+                ! Indices for other nodes are computed relative to this vertex.
+                iVertex = i + ishift(3,n)
+                jVertex = j + jshift(3,n)
+
+                x(n) = xVertex(iVertex,jVertex)
+                y(n) = yVertex(iVertex,jVertex)
+
+                u(n) = uvel(nz,iVertex,jVertex)   ! basal velocity
+                v(n) = vvel(nz,iVertex,jVertex)
+
+             enddo
+
+             ! Compute dphi_dx and dphi_dy at cell center
+
+             call get_basis_function_derivatives_2d(x(:),               y(:),               &
+                                                    dphi_dxr_2d_ctr(:), dphi_dyr_2d_ctr(:), &
+                                                    dphi_dx_2d(:),      dphi_dy_2d(:),      &
+                                                    detJ, i, j, 1)
+
+             ! Compute basal strain rate components at cell center
+             
+             do n = 1, nNodesPerElement_2d
+                du_dx(i,j) = du_dx(i,j) + dphi_dx_2d(n)*u(n)
+                du_dy(i,j) = du_dy(i,j) + dphi_dy_2d(n)*u(n)
+                
+                dv_dx(i,j) = dv_dx(i,j) + dphi_dx_2d(n)*v(n)
+                dv_dy(i,j) = dv_dy(i,j) + dphi_dy_2d(n)*v(n)
+             enddo
+
+             ! For each layer k, compute the integral of the effective viscosity from
+             ! the base of layer k to the upper surface.
+ 
+             efvs_integral_z_to_s(1,i,j) = efvs(1,i,j) * (sigma(2) - sigma(1))*thck(i,j)
+
+             do k = 2, nz-1
+                efvs_integral_z_to_s(k,i,j) = efvs_integral_z_to_s(k-1,i,j)  &
+                                            + efvs(k,i,j) * (sigma(k+1) - sigma(k))*thck(i,j)
+             enddo   ! k
+
+          endif   ! active_cell
+
+       enddo      ! i
+    enddo         ! j
+
+    !--------------------------------------------------------------------------------
+    ! For each active vertex, compute the vertical shear stresses tau_xz and tau_yz
+    ! at each level of the column.
+    !
+    ! These stresses are given by (PGB eq. 27)
+    !
+    !   tau_xz(z) = -rhoi*grav*ds_dx*(s-z) + 2*d/dx[efvs_int(z) * (2*du_dx + dv_dy)]
+    !                                      + 2*d/dy[efvs_int(z) *   (du_dy + dv_dx)] 
+    !
+    !   tau_yz(z) = -rhoi*grav*ds_dy*(s-z) + 2*d/dx[efvs_int(z) *   (du_dy + dv_dx)] 
+    !                                      + 2*d/dy[efvs_int(z) * (2*dv_dy + du_dx)]
+    !
+    ! where efvs_int is the integral of efvs from z to s computed above;
+    ! the strain rate components of basal velocity are also as computed above.
+    !
+    ! There is not a clean way to compute these stresses using finite-element techniques,
+    ! because strain rates are discontinuous at cell edges and vertices.  Instead, we use
+    ! a standard centered finite difference method to evaluate d/dx and d/dy of the
+    ! bracketed terms.
+    !--------------------------------------------------------------------------------
+
+    tau_xz(:,:,:) = 0.d0
+    tau_yz(:,:,:) = 0.d0
+
+    do k = 1, nz-1   ! loop over layers
+
+       ! Evaluate centered finite differences of bracketed terms above.
+       ! We need dwork1_dx, dwork2_dx, dwork2_dy and dwork3_dx.
+       ! The calls to glissade_centered_gradient compute a couple of extraneous derivatives,
+       !  but these calls are simpler than inlining the gradient code.
+       ! Setting gradient_margin_in = 0 takes the gradient over all neighboring cells,
+       !  including ice-free cells.
+       ! Setting gradient_margin_in = 1 uses any available ice-covered cells
+       !  and/or land cells to compute the gradient.  Requires a land mask.
+       ! Setting gradient_margin_in = 2 uses any available ice-covered cells to
+       !  compute the gradient.  This is the appropriate flag for these
+       !  calls, because efvs and strain rates have no meaning in ice-free cells.
+
+       work1(:,:) = efvs_integral_z_to_s(k,:,:) * (2.d0*du_dx(:,:) + dv_dy(:,:)) 
+       work2(:,:) = efvs_integral_z_to_s(k,:,:) *      (du_dy(:,:) + dv_dx(:,:))
+       work3(:,:) = efvs_integral_z_to_s(k,:,:) * (2.d0*dv_dy(:,:) + du_dx(:,:)) 
+
+       call glissade_centered_gradient(nx,               ny,         &
+                                       dx,               dy,         &
+                                       work1,                        &
+                                       dwork1_dx,        dwork1_dy,  &
+                                       ice_mask,                     &
+                                       gradient_margin_in = HO_GRADIENT_MARGIN_ICE_ONLY)
+
+       call glissade_centered_gradient(nx,               ny,         &
+                                       dx,               dy,         &
+                                       work2,                        &
+                                       dwork2_dx,        dwork2_dy,  &
+                                       ice_mask,                     &
+                                       gradient_margin_in = HO_GRADIENT_MARGIN_ICE_ONLY)
+ 
+       call glissade_centered_gradient(nx,               ny,         &
+                                       dx,               dy,         &
+                                       work3,                        &
+                                       dwork3_dx,        dwork3_dy,  &
+                                       ice_mask,                     &
+                                       gradient_margin_in = HO_GRADIENT_MARGIN_ICE_ONLY)
+!WHL - debug                                                                                                                                                                  
+!!       if (verbose_L1L2 .and. main_task .and. k==nz-1) then
+       if (verbose_L1L2 .and. main_task .and. k==999) then
+          print*, ' '
+          print*, 'Centered gradient, k =', k
+          print*, 'dwork1_dx:'
+          do j = ny-1, 1, -1
+!             do i = 1, nx-1
+             do i = nx/2, nx-1
+                write(6,'(f8.0)',advance='no') dwork1_dx(i,j)
+             enddo
+             print*, ' '
+          enddo
+          print*, ' '
+          print*, 'dwork2_dy:'
+          do j = ny-1, 1, -1
+!             do i = 1, nx-1
+             do i = nx/2, nx-1
+                write(6,'(f8.0)',advance='no') dwork2_dy(i,j)
+             enddo
+             print*, ' '
+          enddo
+       endif
+
+       ! Loop over locally owned active vertices, evaluating tau_xz and tau_yz for this layer
+       do j = 1+nhalo, ny-nhalo
+          do i = 1+nhalo, nx-nhalo
+             if (active_vertex(i,j)) then
+                depth = 0.5d0*(sigma(k) + sigma(k+1)) * stagthck(i,j)   ! depth at layer midpoint
+                tau_xz(k,i,j) = -rhoi*grav*depth*dusrf_dx(i,j)   &
+                               + 2.d0*dwork1_dx(i,j) + dwork2_dy(i,j)
+                tau_yz(k,i,j) = -rhoi*grav*depth*dusrf_dy(i,j)   &
+                               + dwork2_dx(i,j) + 2.d0*dwork3_dy(i,j)
+             endif
+          enddo   ! i
+       enddo      ! j
+
+    enddo         ! k
+      
+!WHL - debug
+    if (verbose_L1L2 .and. this_rank==rtest) then
+       i = itest
+       j = jtest
+       print*, ' '
+       print*, 'k, -rho*g*(s-z)*ds/dx, -rho*g*(s-z)*ds/dy:'
+       do k = 1, nz-1
+          depth = 0.5d0*(sigma(k) + sigma(k+1)) * stagthck(i,j)
+          print*, k, -rhoi*grav*depth*dusrf_dx(i,j), -rhoi*grav*depth*dusrf_dy(i,j)
+       enddo
+       print*, ' '
+       print*, 'k, tau_xz, tau_yz:'
+       do k = 1, nz-1
+          print*, k, tau_xz(k,i,j), tau_yz(k,i,j)
+       enddo
+    endif
+
+    !--------------------------------------------------------------------------------
+    ! Given the vertical shear stresses tau_xz and tau_yz for each layer k,
+    !  compute the velocity components at each level.
+    !
+    ! These are given by (PGB eq. 30)
+    ! 
+    !    u(z) = u_b + 2 * integral_b_to_z [A*tau_eff^(n-1)*tau_xz dz]
+    !    v(z) = v_b + 2 * integral_b_to_z [A*tau_eff^(n-1)*tau_yz dz]
+    ! 
+    ! where tau_eff^2 = tau_parallel^2 + tau_perp^2
+    !
+    !    tau_parallel was computed at cell centers during matrix assembly
+    !    tau_perp ^2 = tau_xz^2 + tau_yz^2 
+    !--------------------------------------------------------------------------------
+
+    ! initialize uvel = vvel = 0 except at bed
+       
+    uvel(1:nz-1,:,:) = 0.d0
+    vvel(1:nz-1,:,:) = 0.d0
+
+    uedge(:,:) = 0.d0
+    vedge(:,:) = 0.d0
+    vintfact(:,:,:) = 0.d0
+
+    ! Compute surface elevation gradient on cell edges.
+    ! Setting gradient_margin_in = 0 takes the gradient over both neighboring cells,
+    !  including ice-free cells.
+    ! Setting gradient_margin_in = 1 computes a gradient if both neighbor cells are
+    !  either ice-covered cells or land cells; else gradient = 0.
+    ! Setting gradient_margin_in = 2 computes a gradient only if both neighbor cells
+    !  are ice-covered.
+    ! At a land margin, either 0 or 1 is appropriate, but 2 is inaccurate.
+    ! At a shelf margin, either 1 or 2 is appropriate, but 0 is inaccurate.
+    ! So HO_GRADIENT_MARGIN_ICE_LAND = 1 is the safest value.
+
+    if (edge_velocity) then
+       call glissade_edge_gradient(nx,               ny,                &
+                                   dx,               dy,                &
+                                   usrf,                                &
+                                   dusrf_dx_edge,    dusrf_dy_edge,     &
+                                   gradient_margin_in = whichgradient_margin, &
+!!                                   gradient_margin_in = HO_GRADIENT_MARGIN_ICE_LAND, &
+                                   ice_mask = ice_mask,                 &
+                                   land_mask = land_mask)
+
+       if (verbose_L1L2 .and. this_rank==rtest) then
+          print*, ' '
+          print*, 'i, j =', itest, jtest
+          print*, 'k, vintfact, uvel, vvel:'
+       endif
+
+    else
+
+       if (verbose_L1L2 .and. this_rank==rtest) then
+          print*, ' '
+          print*, 'i, j =', itest, jtest
+          print*, 'k, uvel, vvel:'
+       endif
+
+    endif
+
+
+    do k = nz-1, 1, -1   ! loop over velocity levels above the bed
+       
+       ! Average tau_parallel^2 and flwa to vertices
+       ! With stagger_margin_in = 1, only cells with ice are included in the average.
+
+!       call glissade_stagger(nx,                     ny,                         &
+!                             tau_parallel(k,:,:)**2, stagtau_parallel_sq(:,:),   &
+!                             ice_mask,               stagger_margin_in = 1)
+       call glissade_stagger(nx,                     ny,                         &
+                             tau_parallel(k,:,:),    stagtau_parallel_sq(:,:),   &
+                             ice_mask,               stagger_margin_in = 1)
+       stagtau_parallel_sq(:,:) = stagtau_parallel_sq(:,:)**2
+
+
+       call glissade_stagger(nx,          ny,              &
+                             flwa(k,:,:), stagflwa(:,:),   &
+                             ice_mask,    stagger_margin_in = 1)
+       
+       if (edge_velocity) then  ! compute velocity at edges and interpolate to vertices
+
+          ! ompute vertical integration factor at each active vertex
+          ! This is int_b_to_z{-2 * A * tau^2 * rho*g*(s-z) * dz},
+          !  similar to the factor computed in Glide and glissade_velo_sia..
+          ! Note: tau_xz = rho*g*(s-z)*ds_dx; ds_dx term is computed on edges below
+
+          do j = 1, ny-1
+          do i = 1, nx-1
+             if (active_vertex(i,j)) then
+
+                tau_eff_sq = stagtau_parallel_sq(i,j)   &
+                           + tau_xz(k,i,j)**2 + tau_yz(k,i,j)**2
+
+                depth = 0.5d0*(sigma(k) + sigma(k+1)) * stagthck(i,j)
+
+                vintfact(k,i,j) = vintfact(k+1,i,j)     &
+                     - 2.d0 * stagflwa(i,j) * tau_eff_sq * rhoi*grav*depth  &
+                                  * (sigma(k+1) - sigma(k))*stagthck(i,j)
+
+             endif
+          enddo
+          enddo
+
+          ! Need to have vintfact at halo nodes to compute uvel/vvel at locally owned nodes  
+          call staggered_parallel_halo(vintfact(k,:,:))
+
+          ! loop over cells, skipping outer halo rows
+
+          ! u at east edges
+          do j = 2, ny-1
+          do i = 1, nx-1
+             if (active_vertex(i,j) .and. active_vertex(i,j-1)) then
+                uedge(i,j) = (vintfact(k,i,j) + vintfact(k,i,j-1))/2.d0 * dusrf_dx_edge(i,j)
+             endif
+          enddo
+          enddo
+
+          ! v at north edges
+          do j = 1, ny-1
+          do i = 2, nx-1
+             if (active_vertex(i,j) .and. active_vertex(i-1,j)) then
+                vedge(i,j) = (vintfact(k,i,j) + vintfact(k,i-1,j))/2.d0 * dusrf_dy_edge(i,j)
+             endif
+          enddo
+          enddo
+
+          ! Average edge velocities to vertices and add to ubas                                                                                                   
+          ! Do this for locally owned vertices only
+          ! (Halo update is done at a higher level after returning)
+
+          do j = nhalo+1, ny-nhalo
+          do i = nhalo+1, nx-nhalo
+
+             uvel(k,i,j) = uvel(nz,i,j) + (uedge(i,j) + uedge(i,j+1)) / 2.d0
+             vvel(k,i,j) = vvel(nz,i,j) + (vedge(i,j) + vedge(i+1,j)) / 2.d0
+
+             if (verbose_L1L2 .and. this_rank==rtest .and. i==itest .and. j==jtest) then
+                print*, k, vintfact(k,i,j), uvel(k,i,j), vvel(k,i,j)
+             endif
+          enddo
+          enddo
+
+       else   ! compute velocity at vertices
+
+          ! loop over locally owned active vertices
+          do j = 1+nhalo, ny-nhalo  
+          do i = 1+nhalo, nx-nhalo
+
+             if (active_vertex(i,j)) then
+
+                ! compute velocity components at this level
+
+                tau_eff_sq = stagtau_parallel_sq(i,j)   &
+                           + tau_xz(k,i,j)**2 + tau_yz(k,i,j)**2
+
+                fact = 2.d0 * stagflwa(i,j) * tau_eff_sq * (sigma(k+1) - sigma(k))*stagthck(i,j)
+
+                uvel(k,i,j) = uvel(k+1,i,j) + fact * tau_xz(k,i,j)
+                vvel(k,i,j) = vvel(k+1,i,j) + fact * tau_yz(k,i,j)
+
+                if (verbose_L1L2 .and. this_rank==rtest .and. i==itest .and. j==jtest) then
+                   print*, k, uvel(k,i,j), vvel(k,i,j)
+                endif
+
+             endif
+
+          enddo   ! i
+          enddo   ! j
+
+       endif      ! edge_velocity
+
+    enddo         ! k
+
+  end subroutine compute_3d_velocity_L1L2
 
 !****************************************************************************
 
@@ -4794,20 +5455,13 @@
     ! Local variables
     !----------------------------------------------------------------
 
-    real(dp) ::            &
-       du_dx, dv_dx,       & ! strain rate components
-       du_dy, dv_dy,       &
-       du_dz, dv_dz,       &
-       effstrain,          & ! effective strain rate, s^{-1}
-       effstrainsq           ! square of effective strain rate
+    real(dp) ::               &
+       du_dx, du_dy, du_dz,   & ! strain rate components
+       dv_dx, dv_dy, dv_dz,   &
+       effstrain,             & ! effective strain rate, yr^{-1}
+       effstrainsq              ! square of effective strain rate
         
     integer :: n
-
-!WHL - debug
-    if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
-       print*, ' '
-       print*, 'Compute efvs, i, j, k, p =', i, j, k, p
-    endif
 
     select case(whichefvs)
 
@@ -4823,9 +5477,15 @@
 
     case(HO_EFVS_FLOWFACT)      ! set the effective viscosity to a multiple of the flow factor, 0.5*A^(-1/n)
                  
-       ! Set the effective strain rate (s^{-1}) based on typical velocity and length scales
-  
-       effstrain = vel_scale/len_scale   ! typical strain rate, s^{-1}
+       ! Units: flwafact has units Pa yr^{1/n}
+       !        effstrain has units yr^{-1}
+       !        p_effstr = (1-n)/n 
+       !                 = -2/3 for n=3
+       ! Thus efvs has units Pa yr
+ 
+       !TODO - Test this option and make sure the units and scales are OK
+
+       effstrain = vel_scale/len_scale * scyr  ! typical strain rate, yr^{-1}
        efvs = flwafact * effstrain**p_effstr  
 
        if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
@@ -4835,10 +5495,10 @@
     case(HO_EFVS_NONLINEAR)    ! compute effective viscosity based on effective strain rate
 
        du_dx = 0.d0
-       dv_dx = 0.d0
        du_dy = 0.d0
-       dv_dy = 0.d0
        du_dz = 0.d0
+       dv_dx = 0.d0
+       dv_dy = 0.d0
        dv_dz = 0.d0
 
        ! Compute effective strain rate (squared) at this quadrature point (PGB 2012, eq. 3 and 9)
@@ -4861,9 +5521,9 @@
           do n = 1, nNodesPerElement
 
              du_dx = du_dx + dphi_dx(n)*uvel(n)
-             dv_dx = dv_dx + dphi_dx(n)*vvel(n)
-
              du_dy = du_dy + dphi_dy(n)*uvel(n)
+
+             dv_dx = dv_dx + dphi_dx(n)*vvel(n)
              dv_dy = dv_dy + dphi_dy(n)*vvel(n)
 
           enddo
@@ -4876,12 +5536,11 @@
           do n = 1, nNodesPerElement
 
              du_dx = du_dx + dphi_dx(n)*uvel(n)
-             dv_dx = dv_dx + dphi_dx(n)*vvel(n)
-
              du_dy = du_dy + dphi_dy(n)*uvel(n)
-             dv_dy = dv_dy + dphi_dy(n)*vvel(n)
-
              du_dz = du_dz + dphi_dz(n)*uvel(n)
+
+             dv_dx = dv_dx + dphi_dx(n)*vvel(n)
+             dv_dy = dv_dy + dphi_dy(n)*vvel(n)
              dv_dz = dv_dz + dphi_dz(n)*vvel(n)
 
           enddo
@@ -4906,16 +5565,257 @@
        !       (and changes the answers at roundoff level)
 !       efvs = flwafact * effstrainsq**(0.5d0*p_effstr)
 
-!       if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest) then
-!          print*, 'effstrain_min (yr-1)=', effstrain_min
-!          print*, 'du/dx, du/dy, du/dz (yr-1) =', du_dx, du_dy, du_dz
-!          print*, 'dv/dx, dv/dy, dv/dz (yr-1) =', dv_dx, dv_dy, dv_dz
-!          print*, 'flwafact, effstrain (yr-1), efvs(Pa yr) =', flwafact, effstrain, efvs
-!       endif
+       !TODO - Write out tau_xz and tau_yz also
+       if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest .and. p==ptest) then
+          print*, ' '
+          print*, 'i, j, k, p =', i, j, k, p
+!!          print*, 'flwa =', (2.d0*flwafact)**(-3)
+          print*, 'flwafact, effstrain (yr-1), efvs(Pa yr) =', flwafact, effstrain, efvs
+       endif
 
     end select
 
   end subroutine compute_effective_viscosity
+
+!****************************************************************************
+
+!WHL - Pass i, j and p for now
+
+  subroutine compute_effective_viscosity_L1L2(whichefvs,        efvs_constant,      &
+                                              nz,               sigma,              &
+                                              nNodesPerElement, phi,                &
+                                              dphi_dx,          dphi_dy,            &
+                                              uvel,             vvel,               &
+                                              stagthck,                             &
+                                              dsdx,             dsdy,               &
+                                              flwa,             flwafact,           &
+                                              tau_parallel,     efvs,               &
+                                              i, j, p )
+
+    ! Compute effective viscosity at each layer of an ice column corresponding
+    !  to a particular quadrature point, based on the L1L2 formulation.
+    ! See PGB(2012), section 2.3
+
+    integer, intent(in) :: i, j, p
+
+    !----------------------------------------------------------------
+    ! Input-output arguments
+    !----------------------------------------------------------------
+
+    integer, intent(in) :: &
+       whichefvs          ! method for computing effective viscosity
+                          ! 0 = constant value
+                          ! 1 = proportional to flow factor
+                          ! 2 = nonlinear function of effective strain rate 
+
+    real(dp), intent(in) :: &
+       efvs_constant      ! constant value of effective viscosity (Pa yr)
+                          ! (used for option HO_EFVS_CONSTANT)
+
+    integer, intent(in) ::  &
+       nz,               &! number of vertical levels at which velocity is computed
+                          ! Note: The number of layers (or elements in a column) is nz-1
+       nNodesPerElement   ! number of nodes per element, = 4 for 2D rectangular faces
+
+    real(dp), dimension(nz), intent(in) ::    &
+       sigma              ! sigma vertical coordinate
+
+    real(dp), dimension(nNodesPerElement), intent(in) ::  &
+       phi,           &   ! basic functions at this quadrature point
+       dphi_dx, dphi_dy   ! derivatives of basis functions at this quadrature point
+
+    real(dp), dimension(nNodesPerElement), intent(in) ::  &
+       uvel, vvel,       &! current guess for basal velocity at cell vertices (m/yr)
+       dsdx, dsdy,       &! upper surface elevation gradient at vertices (m/m)
+       stagthck           ! ice thickness at vertices
+
+    real(dp), dimension(nz-1), intent(in) ::  &
+       flwa,             &! temperature-based flow factor A at each layer of this cell column
+                          ! units: Pa^{-n} yr^{-1}
+       flwafact           ! temperature-based flow factor for this element, 0.5 * A^{-1/n}
+                          ! units: Pa yr^{1/n}  (used for option HO_EFVS_FLOWFACT)
+
+    real(dp), dimension(nz-1), intent(out) ::   &
+       tau_parallel,     &! norm of tau_parallel at each layer of this cell column, 
+                          !  where |tau_parallel|^2 = tau_xx^2 + tau_yy^2 + tau_xx*tau_yy + tau_xy^2
+                          !  See PGB(2012), eq. 17 and 20
+       efvs               ! effective viscosity of each layer corresponding to this quadrature point (Pa yr)
+                          ! computed as 1 / (2*A*tau_eff^{(n-1)/2})
+                          !           = 1 / (2*A*tau_eff^2) given n = 3
+                          ! where tau_eff^2 = tau_parallel^2 + tau_perp^2
+ 
+    !----------------------------------------------------------------
+    ! Local parameters
+    !----------------------------------------------------------------
+
+    real(dp), parameter ::   &
+!!       effstrain_min = 1.d-20*scyr,     &! minimum value of effective strain rate, yr^{-1}
+                                           ! GLAM uses 1.d-20 s^{-1} for minimum effective strain rate
+       effstrain_min = 1.d-8,     &! minimum value of effective strain rate, yr^{-1}
+                                   ! Mauro Perego suggests 1.d-8 yr^{-1}
+       p_effstr = (1.d0 - real(gn,dp)) / real(gn,dp)    ! exponent (1-n)/n in effective viscosity relation
+                                                               
+    !----------------------------------------------------------------
+    ! Local variables
+    !----------------------------------------------------------------
+
+    real(dp) ::            &
+       du_dx, du_dy,       & ! horizontal strain rate components at this quadrature point, yr^{-1}
+       dv_dx, dv_dy,       &
+       ds_dx, ds_dy,       & ! gradient of upper surface elevation at this QP (m/m)
+       thck,               & ! ice thickness (m) at this QP
+       effstrain,          & ! effective strain rate at QP, yr^{-1}
+       effstrainsq,        & ! square of effective strain rate
+       tau_perp,           & ! norm of tau_perp at a given layer of a cell column,
+                             !  where |tau_perp|^2 = [rhoi*grav*(s-z)*|grad(s)|]^2
+       grads,              & ! norm of sfc elevation gradient at this QP, sqrt(ds_dx^2 + ds_dy^2)
+       depth                 ! distance (m) from surface to level k at this QP 
+
+    real(dp) :: a, b, c, rootA, rootB   ! terms in cubic equation
+
+    integer :: n, k, r
+
+    select case(whichefvs)
+
+    case(HO_EFVS_CONSTANT)
+
+       ! Steve recommends 10^6 to 10^7 Pa yr
+       ! ISMIP-HOM Test F requires 2336041.42829 Pa yr; this is the default value set in glide_types.F90
+       efvs(:) = efvs_constant
+
+       if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest) then
+          print*, 'Set efvs = constant (Pa yr):', efvs
+       endif
+
+    case(HO_EFVS_FLOWFACT)      ! set the effective viscosity to a multiple of the flow factor, 0.5*A^(-1/n)
+                
+       ! Set the effective strain rate (s^{-1}) based on typical velocity and length scales
+       !
+       ! Units: flwafact has units Pa yr^{1/n}
+       !        effstrain has units yr^{-1}
+       !        p_effstr = (1-n)/n 
+       !                 = -2/3 for n=3
+       ! Thus efvs has units Pa yr
+   
+       effstrain = vel_scale/len_scale * scyr  ! typical strain rate, yr^{-1}
+       efvs(:) = flwafact(:) * effstrain**p_effstr  
+
+       if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest) then
+          print*, 'flwafact, effstrain (yr-1), efvs (Pa yr)=', flwafact, effstrain, efvs
+       endif
+
+    case(HO_EFVS_NONLINEAR)    ! compute effective viscosity based on effective strain rate
+
+       du_dx = 0.d0
+       du_dy = 0.d0
+       dv_dx = 0.d0
+       dv_dy = 0.d0
+       ds_dx = 0.d0
+       ds_dy = 0.d0
+       thck  = 0.d0
+
+       do n = 1, nNodesPerElement
+
+          du_dx = du_dx + dphi_dx(n)*uvel(n)
+          du_dy = du_dy + dphi_dy(n)*uvel(n)
+
+          dv_dx = dv_dx + dphi_dx(n)*vvel(n)
+          dv_dy = dv_dy + dphi_dy(n)*vvel(n)
+
+          ds_dx = ds_dx + phi(n)*dsdx(n)
+          ds_dy = ds_dy + phi(n)*dsdy(n)
+
+          thck = thck + phi(n)*stagthck(n)
+
+       enddo
+
+       ! Compute effective strain rate at this quadrature point (PGB 2012, eq. 17)
+
+       effstrainsq = effstrain_min**2          &
+                   + du_dx**2 + dv_dy**2 + du_dx*dv_dy + 0.25d0*(dv_dx + du_dy)**2
+       effstrain = sqrt(effstrainsq)
+
+       if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. p==ptest) then
+!          print*, 'effstrain (yr-1) =', effstrain
+!          print*, 'du_dx, du_dy =', du_dx, du_dy
+!          print*, 'dv_dx, dv_dy =', dv_dx, dv_dy
+!          print*, 'ds_dx, ds_dy =', ds_dx, ds_dy
+!          print*, 'n, phi, dphi_dx, dphi_dy:'
+!          do n = 1, nNodesPerElement_2d
+!             print*, n, phi(n), dphi_dx(n), dphi_dy(n)
+!          enddo
+       endif
+
+       !---------------------------------------------------------------------------
+       ! Solve for tau_parallel in the relation (PGB 2012, eq. 22)
+       !
+       !     effstrain = A * (tau_parallel^2 + tau_perp^2)^{(n-1)/2} * tau_parallel
+       !
+       !     where tau_perp^2 = [(pg)*(s-z)*|grad(s)|]^2 = SIA stress
+       !              grad(s) = sqrt(ds_dx^2 + ds_dy^2)
+       !                    n = 3, so we have a cubic equation
+       !
+       ! This relation can be written as a cubic equation of the form
+       !
+       !            x^3 + a*x + b = 0,
+       !
+       ! where for this problem, x = tau_parallel > 0,
+       !                         a = tau_perp^2 >= 0,
+       !                         b = -effstrain/A < 0.
+       !
+       ! If (b^2)/4 + (a^3)/27 > 0, then there is one real root A + B, where
+       ! 
+       !     A = [-b/2 + sqrt((b^2)/4 + (a^3)/27)]^(1/3)
+       !     B = -[b/2 + sqrt((b^2)/4 + (a^3)/27)]^(1/3)
+       !  
+       ! There is also a pair of complex conjugate roots that are not of interest here.
+       !
+       ! Note: If a^3/27 << b^2/4 (as can happen if |grad(s)| is small), then the
+       !       bracketed term in B is given to a good approximation by 
+       !
+       !       b/2 + (|b|/2)*(1 + 2a^3/(27b^2)) = a^3 / (27|b|).
+       !
+       ! Hence B = -a / (3 * |b|^(1/3)).
+       !
+       ! We use the alternate expression for B when a^3/27 < 1.d-6 * b^2/4,
+       !  so as to avoid roundoff error from subtracting two large numbers of nearly
+       !  the same size. 
+       !---------------------------------------------------------------------------
+       !TODO - Code an iterative solution for general values of n.
+
+       do k = 1, nz-1   ! loop over layers
+          depth = thck * sigma(k+1)
+          grads = sqrt(ds_dx**2 + ds_dy**2)
+          tau_perp = rhoi*grav*depth*grads
+          a = tau_perp**2
+          b = -effstrain / flwa(k)
+          c = sqrt(b**2/4.d0 + a**3/27.d0)   !TODO - Check b^2/4 + a^3/27 > 0
+          rootA = (-b/2.d0 + c)**(1.d0/3.d0)
+          if (a**3/(27.d0) > 1.d-6 * (b**2/4.d0)) then
+             rootB = -(b/2.d0 + c)**(1.d0/3.d0)
+          else    ! b/2 + c is small; compute solution to first order without subtracting two large, nearly equal numbers
+             rootB = -a / (3.d0*(abs(b))**(1.d0/3.d0))
+          endif
+          tau_parallel(k) = rootA + rootB
+          efvs(k) = 1.d0 / (2.d0 * flwa(k) * (tau_parallel(k)**2 + tau_perp**2))  ! given n = 3
+
+          !WHL - debug
+          if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest .and. p==ptest) then
+             print*, 'i, j, k, p =', i, j, k, p
+!             print*, 'a, b, c:', a, b, c
+!             print*, '-b/2 + c, -b/2 - c:', -b/2 + c, -b/2 - c
+!             print*, 'roots A, B:', rootA, rootB
+!             print*, 'tau_perp, tau_parallel:', tau_perp, tau_parallel(k)
+!             print*, 'flwa:', flwa(k)
+             print*, 'flwafact, effstrain, efvs_BP, efvs:', 0.5d0*flwa(k)**(-1.d0/3.d0), effstrain,  &
+                                                            0.5d0*flwa(k)**(-1.d0/3.d0) * effstrain**(-2.d0/3.d0), efvs(k)
+          endif
+
+       enddo   ! k
+
+    end select
+
+  end subroutine compute_effective_viscosity_L1L2
 
 !****************************************************************************
 
@@ -5020,6 +5920,7 @@
            ! The terms in parentheses can be derived from PGB 2012, eq. 13 and 15.
            ! The factor of 2 in front of efvs has been absorbed into the quantities in parentheses.
 
+       !TODO - Change to nr, nc and pass in (i,j)
        do j = 1, nNodesPerElement      ! columns of K
           do i = 1, nNodesPerElement   ! rows of K
 
@@ -5175,7 +6076,6 @@
           Avv(m,i,j) = Avv(m,i,j) + Kvv(nr,nc)
 
        enddo     ! nc
-
     enddo        ! nr
 
   end subroutine element_to_global_matrix_2d
@@ -5186,6 +6086,7 @@
                               nNeighbors,       nhalo,           &
                               active_cell,      beta,            &
                               xVertex,          yVertex,         &
+                              whichassemble_beta,                &
                               Auu,              Avv)
 
     !------------------------------------------------------------------------
@@ -5216,6 +6117,10 @@
     real(dp), dimension(nx-1,ny-1), intent(in) ::   &
        xVertex, yVertex     ! x and y coordinates of vertices
 
+    integer, intent(in) :: &
+       whichassemble_beta   ! = 0 for standard finite element computation of basal forcing terms
+                            ! = 1 for computation that uses only the local value of beta at each node
+
     real(dp), dimension(nNeighbors,nx-1,ny-1), intent(inout) ::  &
        Auu, Avv             ! parts of stiffness matrix (basal layer only)
 
@@ -5240,7 +6145,7 @@
 
     real(dp), dimension(nNodesPerElement_2d, nNodesPerElement_2d) ::   &
        Kuu, Kvv       ! components of element matrix associated with basal sliding
-        
+
     ! Sum over elements in active cells 
     ! Loop over all cells that contain locally owned vertices
     !TODO - Make sure we don't step out of bounds
@@ -5249,6 +6154,17 @@
     !WHL- debug
     if (verbose_basal .and. this_rank==rtest) then 
        print*, 'In basal_sliding_bc: itest, jtest, rank =', itest, jtest, rtest
+    endif
+
+    !WHL - debug
+    if (verbose_basal .and. this_rank==rtest) then
+       i = itest
+       j = jtest
+       if (nNeighbors == nNodeNeighbors_3d) then  ! 3D problem
+          m = indxA(0,0,0)
+       else
+          m = indxA_2d(0,0)
+       endif
     endif
 
     do j = nhalo+1, ny-nhalo+1
@@ -5283,24 +6199,31 @@
 
           ! loop over quadrature points
 
-          do p = 1, nQuadPoints_2d  
+          do p = 1, nQuadPoints_2d
 
              ! Compute basis function derivatives and det(J) for this quadrature point
              ! For now, pass in i, j, k, p for debugging
              !TODO - We don't actually need the derivatives, just detJ.  
              !       Should we modify the subroutine so that derivatives are optional?
 
-             call get_basis_function_derivatives(x(:),             y(:),               & 
-                                                 dphi_dxr_2d(:,p), dphi_dyr_2d(:,p),   &   
-                                                 dphi_dx_2d(:),    dphi_dy_2d(:),      &
-                                                 detJ, i, j, p)
+             call get_basis_function_derivatives_2d(x(:),             y(:),               & 
+                                                    dphi_dxr_2d(:,p), dphi_dyr_2d(:,p),   &   
+                                                    dphi_dx_2d(:),    dphi_dy_2d(:),      &
+                                                    detJ, i, j, p)
           
              ! Evaluate beta at this quadrature point
+             ! Standard finite-element treatment is to take a phi-weighted sum over neighboring vertices.
+             ! For local beta, use the value at the nearest vertex.
+             !  (Note that vertex numbering is the same as QP numbering, CCW from 1 to 4 starting at SW corner.)
  
-             beta_qp = 0.d0
-             do n = 1, nNodesPerElement_2d
-                beta_qp = beta_qp + phi_2d(n,p) * b(n)
-             enddo
+             if (whichassemble_beta == HO_ASSEMBLE_BETA_LOCAL) then
+                beta_qp = b(p)
+             else
+                beta_qp = 0.d0
+                do n = 1, nNodesPerElement_2d
+                   beta_qp = beta_qp + phi_2d(n,p) * b(n)
+                enddo
+             endif
 
              if (verbose_basal .and. this_rank==rtest .and. i==itest .and. j==jtest) then
                 print*, ' '
@@ -5314,13 +6237,19 @@
 
              Kuu(:,:) = 0.d0
 
-             do nc = 1, nNodesPerElement_2d      ! columns of K
-                do nr = 1, nNodesPerElement_2d   ! rows of K
+             if (whichassemble_beta == HO_ASSEMBLE_BETA_LOCAL) then  ! Use the value at the nearest vertex
+                                                   ! Then Kuu is diagonal, so friction at a vertex depends only on beta at that vertex
+                Kuu(p,p) = beta_qp * (detJ/vol0)   
 
-                   Kuu(nr,nc) = Kuu(nr,nc) + beta_qp * wqp_2d(p) * detJ/vol0 * phi_2d(nr,p)*phi_2d(nc,p)
+             else
 
-                enddo  ! m (rows)
-             enddo     ! n (columns)
+                do nc = 1, nNodesPerElement_2d      ! columns of K
+                   do nr = 1, nNodesPerElement_2d   ! rows of K
+                      Kuu(nr,nc) = Kuu(nr,nc) + beta_qp * wqp_2d(p) * detJ/vol0 * phi_2d(nr,p)*phi_2d(nc,p)
+                   enddo  ! m (rows)
+                enddo     ! n (columns)
+
+             endif        ! local beta
 
              Kvv(:,:) = Kuu(:,:)   ! TODO: Is this true for more general sliding laws?
 
@@ -5350,8 +6279,28 @@
                    Auu(m,ii,jj) = Auu(m,ii,jj) + Kuu(nr,nc)
                    Avv(m,ii,jj) = Avv(m,ii,jj) + Kvv(nr,nc)
 
+                   if (verbose_basal .and. this_rank==rtest .and. ii==itest .and. jj==jtest .and. Kuu(nr,nc)>0.d0) then
+                      print*, 'Increment Auu: i, j, p, nr, nc, ii, jj, Kuu:', i, j, p, nr, nc, ii, jj, Kuu(nr,nc)
+                   endif
+
                 enddo     ! nc
              enddo        ! nr
+
+             if (verbose_basal .and. this_rank==rtest .and. i==itest .and. j==jtest) then
+                print*, ' '
+                print*, 'i, j =', i, j
+                print*, 'Kuu:'
+                do nr = 1, nNodesPerElement_2d
+                   print*, nr, Kuu(nr,:)
+                enddo
+                print*, ' '
+                print*, 'rowsum(Kuu):'
+                do nr = 1, nNodesPerElement_2d
+                   print*, nr, sum(Kuu(nr,:))
+                enddo
+                print*, ' '
+                print*, 'sum(Kuu):', sum(Kuu(:,:))
+             endif
 
           enddo   ! nQuadPoints_2d
 
@@ -5359,6 +6308,21 @@
 
     enddo         ! i
     enddo         ! j
+
+    if (verbose_basal .and. this_rank==rtest) then
+       i = itest
+       j = jtest
+       if (nNeighbors == nNodeNeighbors_3d) then  ! 3D problem
+          m = indxA(0,0,0)
+          print*, 'Diagonal index =', m
+       else
+          m = indxA_2d(0,0)
+          print*, 'Diagonal index =', m
+       endif
+       print*, ' '
+       print*, 'New Auu diagonal:', Auu(m,i,j)
+       print*, 'New Avv diagonal:', Avv(m,i,j)
+    endif
 
   end subroutine basal_sliding_bc
 
@@ -5882,10 +6846,10 @@
 
 !****************************************************************************
 
-  subroutine compute_residual_velocity(nhalo,  whichresid, &
-                                       uvel,   vvel,        &
-                                       usav,   vsav,        &
-                                       resid_velo)
+  subroutine compute_residual_velocity_3d(nhalo,  whichresid, &
+                                          uvel,   vvel,        &
+                                          usav,   vsav,        &
+                                          resid_velo)
 
     integer, intent(in) ::   &
        nhalo,           & ! number of layers of halo cells
@@ -6008,7 +6972,128 @@
        
     end select
 
-  end subroutine compute_residual_velocity
+  end subroutine compute_residual_velocity_3d
+
+!****************************************************************************
+
+  subroutine compute_residual_velocity_2d(nhalo,  whichresid, &
+                                          uvel,   vvel,        &
+                                          usav,   vsav,        &
+                                          resid_velo)
+
+    integer, intent(in) ::   &
+       nhalo,           & ! number of layers of halo cells
+       whichresid         ! option for method to use when calculating residual
+
+!TODO - Specify dimensions?
+    real(dp), dimension(:,:), intent(in) ::  &
+       uvel, vvel,      & ! current guess for velocity
+       usav, vsav         ! previous guess for velocity
+
+    real(dp), intent(out) ::    &
+       resid_velo         ! quantity related to velocity convergence
+
+
+    integer ::   &
+       imaxdiff, jmaxdiff, kmaxdiff   ! location of maximum speed difference
+                                      ! currently computed but not used
+ 
+    integer :: i, j, k, count
+
+    real(dp) ::   &
+       speed,      &   ! current guess for ice speed
+       oldspeed,   &   ! previous guess for ice speed
+       diffspeed       ! abs(speed-oldspeed)
+
+
+  ! Compute a residual quantity based on convergence of the velocity field.
+  !TODO - Are all of these methods needed?
+
+  ! options for residual calculation method, as specified in configuration file
+  ! (see additional notes in "higher-order options" section of documentation)
+  ! case(0): use max of abs( vel_old - vel ) / vel )
+  ! case(1): use max of abs( vel_old - vel ) / vel ) but ignore basal vels
+  ! case(2): use mean of abs( vel_old - vel ) / vel )
+  ! case(3): use max of abs( vel_old - vel ) / vel ) (in addition to L2 norm)
+
+    resid_velo = 0.d0
+    imaxdiff = 0
+    jmaxdiff = 0
+
+    select case (whichresid)
+
+    case(HO_RESID_MAXU_NO_UBAS)   ! max speed difference, excluding the bed
+
+       ! Loop over locally owned vertices
+
+       do j = 1+nhalo, size(uvel,2)-nhalo
+          do i = 1+nhalo, size(uvel,1)-nhalo
+             speed = sqrt(uvel(i,j)**2 + vvel(i,j)**2)
+             if (speed /= 0.d0) then
+                oldspeed = sqrt(usav(i,j)**2 + vsav(i,j)**2)
+                diffspeed = abs((oldspeed - speed)/speed)
+                if (diffspeed > resid_velo) then
+                   resid_velo = diffspeed
+                   imaxdiff = i
+                   jmaxdiff = j
+                endif
+             endif
+          enddo
+       enddo
+       
+       ! take global max
+       resid_velo = parallel_reduce_max(resid_velo)
+
+    case(HO_RESID_MEANU)   ! mean relative speed difference
+
+       count = 0
+
+       ! Loop over locally owned vertices
+
+       do j = 1+nhalo, size(uvel,2)-nhalo
+          do i = 1+nhalo, size(uvel,1)-nhalo
+             speed = sqrt(uvel(i,j)**2 + vvel(i,j)**2)
+             if (speed /= 0.d0) then
+                count = count+1
+                oldspeed = sqrt(usav(i,j)**2 + vsav(i,j)**2)
+                diffspeed = abs((oldspeed - speed)/speed)                
+                resid_velo = resid_velo + diffspeed
+             endif
+          enddo
+       enddo
+
+       if (count > 0) resid_velo = resid_velo / count
+
+!TODO - How to convert this to a global value?
+!       Maybe remove this case
+       call not_parallel(__FILE__, __LINE__)
+
+
+   case default    ! max speed difference, including basal speeds
+                   ! (case HO_RESID_MAXU or HO_RESID_L2NORM)
+
+       ! Loop over locally owned vertices
+
+       do j = 1+nhalo, size(uvel,2)-nhalo
+          do i = 1+nhalo, size(uvel,1)-nhalo
+             speed = sqrt(uvel(i,j)**2 + vvel(i,j)**2)
+             if (speed /= 0.d0) then
+                oldspeed = sqrt(usav(i,j)**2 + vsav(i,j)**2)
+                diffspeed = abs((oldspeed - speed)/speed)
+                if (diffspeed > resid_velo) then
+                   resid_velo = diffspeed
+                   imaxdiff = i
+                   jmaxdiff = j
+                endif
+             endif
+          enddo
+       enddo
+
+       resid_velo = parallel_reduce_max(resid_velo)
+       
+    end select
+
+  end subroutine compute_residual_velocity_2d
 
 !****************************************************************************
 
@@ -6578,7 +7663,7 @@
 !!                      print*, 'Auu, i, j, iA, jA, val1, val2:', i, j, iA, jA, val1, val2
                    else
 !!                      print*, ' '
-                      print*, 'WARNING: Auu is not symmetric: i, j, iA, jA =', i, j, iA, jA
+                      print*, 'WARNING: Auu is not symmetric: this_rank, i, j, iA, jA =', this_rank, i, j, iA, jA
                       print*, 'Auu(row,col), Auu(col,row), diff/diag:', val1, val2, (val2 - val1)/diag_entry
 !!                      stop  !TODO - Put in a proper abort
                    endif

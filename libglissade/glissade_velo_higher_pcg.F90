@@ -38,7 +38,8 @@
     implicit none
     
     private
-    public :: pcg_solver_standard, pcg_solver_chrongear
+    public :: pcg_solver_standard_3d,  pcg_solver_standard_2d,  &
+              pcg_solver_chrongear_3d, pcg_solver_chrongear_2d
     
     logical :: verbose_pcg
 
@@ -46,20 +47,20 @@
     integer, parameter :: &
         ndiagmax = 10      ! number of values to print out for debugging
 
-    interface pcg_solver_standard
-       module procedure pcg_solver_standard_3d
-       module procedure pcg_solver_standard_2d
-    end interface
+!    interface pcg_solver_standard
+!       module procedure pcg_solver_standard_3d
+!       module procedure pcg_solver_standard_2d
+!    end interface
 
-    interface pcg_solver_chrongear
-       module procedure pcg_solver_chrongear_3d
-       module procedure pcg_solver_chrongear_2d
-    end interface
+!    interface pcg_solver_chrongear
+!       module procedure pcg_solver_chrongear_3d
+!       module procedure pcg_solver_chrongear_2d
+!    end interface
 
-    interface setup_preconditioner
-       module procedure setup_preconditioner_3d
-       module procedure setup_preconditioner_2d
-    end interface
+!    interface setup_preconditioner
+!       module procedure setup_preconditioner_3d
+!       module procedure setup_preconditioner_2d
+!    end interface
 
     interface global_sum_staggered
        module procedure global_sum_staggered_3d_real8
@@ -68,10 +69,10 @@
        module procedure global_sum_staggered_2d_real8_nvar       
     end interface
 
-    interface matvec_multiply_structured
-       module procedure matvec_multiply_structured_3d
-       module procedure matvec_multiply_structured_2d
-    end interface
+!    interface matvec_multiply_structured
+!       module procedure matvec_multiply_structured_3d
+!       module procedure matvec_multiply_structured_2d
+!    end interface
 
 
   contains
@@ -260,23 +261,23 @@
     if (present(verbose)) then
        verbose_pcg = verbose
     else
-       verbose_pcg = .true.   ! for debugging
+       verbose_pcg = .false.   ! for debugging
     endif
 
     if (verbose_pcg .and. main_task) then
        print*, 'Using native PCG solver (standard)'
-!       print*, 'tolerance, maxiters, precond =', tolerance, maxiters, precond
+       print*, 'tolerance, maxiters, precond =', tolerance, maxiters, precond
     endif
 
     ! Set up matrices for preconditioning
 
     call t_startf("pcg_precond_init")
-    call setup_preconditioner(nx,         ny,       &
-                              nz,                   &
-                              precond,    indxA,    &
-                              Auu,        Avv,      &
-                              Adiagu,     Adiagv,   &
-                              Muu,        Mvv)
+    call setup_preconditioner_3d(nx,         ny,       &
+                                 nz,                   &
+                                 precond,    indxA,    &
+                                 Auu,        Avv,      &
+                                 Adiagu,     Adiagv,   &
+                                 Muu,        Mvv)
     call t_stopf("pcg_precond_init")
 
     ! Compute initial residual and initialize the direction vector d
@@ -298,13 +299,13 @@
     ! Compute A*x (use z as a temp vector for A*x)
 
     call t_startf("pcg_matmult_init")
-    call matvec_multiply_structured(nx,        ny,            &
-                                    nz,        nhalo,         &
-                                    indxA,     active_vertex, &
-                                    Auu,       Auv,           &
-                                    Avu,       Avv,           &
-                                    xu,        xv,            &
-                                    zu,        zv)
+    call matvec_multiply_structured_3d(nx,        ny,            &
+                                       nz,        nhalo,         &
+                                       indxA,     active_vertex, &
+                                       Auu,       Auv,           &
+                                       Avu,       Avv,           &
+                                       xu,        xv,            &
+                                       zu,        zv)
     call t_stopf("pcg_matmult_init")
 
     ! Compute the initial residual r(0) = b - Ax(0)
@@ -440,13 +441,13 @@
        ! This is the one matvec multiply required for each iteration
 
        call t_startf("pcg_matmult_iter")
-       call matvec_multiply_structured(nx,        ny,            &
-                                       nz,        nhalo,         &
-                                       indxA,     active_vertex, &
-                                       Auu,       Auv,           &
-                                       Avu,       Avv,           &
-                                       du,        dv,            &
-                                       qu,        qv)
+       call matvec_multiply_structured_3d(nx,        ny,            &
+                                          nz,        nhalo,         &
+                                          indxA,     active_vertex, &
+                                          Auu,       Auv,           &
+                                          Avu,       Avv,           &
+                                          du,        dv,            &
+                                          qu,        qv)
        call t_stopf("pcg_matmult_iter")
 
        ! Copy old eta1 = (r, PC(r)) to eta0
@@ -510,13 +511,13 @@
           ! Compute A*x (use z as a temp vector for A*x)
            
           call t_startf("pcg_matmult_resid")
-          call matvec_multiply_structured(nx,        ny,            &
-                                          nz,        nhalo,         &
-                                          indxA,     active_vertex, &
-                                          Auu,       Auv,           &
-                                          Avu,       Avv,           &
-                                          xu,        xv,            &
-                                          zu,        zv)
+          call matvec_multiply_structured_3d(nx,        ny,            &
+                                             nz,        nhalo,         &
+                                             indxA,     active_vertex, &
+                                             Auu,       Auv,           &
+                                             Avu,       Avv,           &
+                                             xu,        xv,            &
+                                             zu,        zv)
           call t_stopf("pcg_matmult_resid")
 
           ! Compute residual r = b - Ax
@@ -724,21 +725,21 @@
     if (present(verbose)) then
        verbose_pcg = verbose
     else
-       verbose_pcg = .true.   ! for debugging
+       verbose_pcg = .false.   ! for debugging
     endif
 
     if (verbose_pcg .and. main_task) then
        print*, 'Using native PCG solver (standard)'
-!       print*, 'tolerance, maxiters, precond =', tolerance, maxiters, precond
+       print*, 'tolerance, maxiters, precond =', tolerance, maxiters, precond
     endif
 
     ! Set up matrices for preconditioning
 
     call t_startf("pcg_precond_init")
-    call setup_preconditioner(nx,         ny,       &
-                              precond,    indxA,    &
-                              Auu,        Avv,      &
-                              Adiagu,     Adiagv)
+    call setup_preconditioner_2d(nx,         ny,       &
+                                 precond,    indxA,    &
+                                 Auu,        Avv,      &
+                                 Adiagu,     Adiagv)
     call t_stopf("pcg_precond_init")
 
     ! Compute initial residual and initialize the direction vector d
@@ -760,13 +761,13 @@
     ! Compute A*x (use z as a temp vector for A*x)
 
     call t_startf("pcg_matmult_init")
-    call matvec_multiply_structured(nx,        ny,            &
-                                    nhalo,                    &
-                                    indxA,     active_vertex, &
-                                    Auu,       Auv,           &
-                                    Avu,       Avv,           &
-                                    xu,        xv,            &
-                                    zu,        zv)
+    call matvec_multiply_structured_2d(nx,        ny,            &
+                                       nhalo,                    &
+                                       indxA,     active_vertex, &
+                                       Auu,       Auv,           &
+                                       Avu,       Avv,           &
+                                       xu,        xv,            &
+                                       zu,        zv)
     call t_stopf("pcg_matmult_init")
 
     ! Compute the initial residual r(0) = b - Ax(0)
@@ -888,13 +889,13 @@
        ! This is the one matvec multiply required for each iteration
 
        call t_startf("pcg_matmult_iter")
-       call matvec_multiply_structured(nx,        ny,            &
-                                       nhalo,                    &
-                                       indxA,     active_vertex, &
-                                       Auu,       Auv,           &
-                                       Avu,       Avv,           &
-                                       du,        dv,            &
-                                       qu,        qv)
+       call matvec_multiply_structured_2d(nx,        ny,            &
+                                          nhalo,                    &
+                                          indxA,     active_vertex, &
+                                          Auu,       Auv,           &
+                                          Avu,       Avv,           &
+                                          du,        dv,            &
+                                          qu,        qv)
        call t_stopf("pcg_matmult_iter")
 
        ! Copy old eta1 = (r, PC(r)) to eta0
@@ -952,13 +953,13 @@
           ! Compute A*x (use z as a temp vector for A*x)
            
           call t_startf("pcg_matmult_resid")
-          call matvec_multiply_structured(nx,        ny,            &
-                                          nhalo,                    &
-                                          indxA,     active_vertex, &
-                                          Auu,       Auv,           &
-                                          Avu,       Avv,           &
-                                          xu,        xv,            &
-                                          zu,        zv)
+          call matvec_multiply_structured_2d(nx,        ny,            &
+                                             nhalo,                    &
+                                             indxA,     active_vertex, &
+                                             Auu,       Auv,           &
+                                             Avu,       Avv,           &
+                                             xu,        xv,            &
+                                             zu,        zv)
           call t_stopf("pcg_matmult_resid")
 
           ! Compute residual r = b - Ax
@@ -1251,23 +1252,23 @@
     if (present(verbose)) then
        verbose_pcg = verbose
     else
-       verbose_pcg = .true.   ! for debugging
+       verbose_pcg = .false.   ! for debugging
     endif
 
     if (verbose_pcg .and. main_task) then
        print*, 'Using native PCG solver (Chronopoulos-Gear)'
-!       print*, 'tolerance, maxiters, precond =', tolerance, maxiters, precond
+       print*, 'tolerance, maxiters, precond =', tolerance, maxiters, precond
     endif
 
     !---- Set up matrices for preconditioning
 
     call t_startf("pcg_precond_init")
-    call setup_preconditioner(nx,         ny,       &
-                              nz,                   &
-                              precond,    indxA,    &
-                              Auu,        Avv,      &
-                              Adiagu,     Adiagv,   &
-                              Muu,        Mvv)
+    call setup_preconditioner_3d(nx,         ny,       &
+                                 nz,                   &
+                                 precond,    indxA,    &
+                                 Auu,        Avv,      &
+                                 Adiagu,     Adiagv,   &
+                                 Muu,        Mvv)
     call t_stopf("pcg_precond_init")
 
     !---- Initialize scalars and vectors
@@ -1333,13 +1334,13 @@
     !---- Compute A*x   (use z as a temp vector for A*x)
 
     call t_startf("pcg_matmult_init")
-    call matvec_multiply_structured(nx,        ny,            &
-                                    nz,        nhalo,         &
-                                    indxA,     active_vertex, &
-                                    Auu,       Auv,           &
-                                    Avu,       Avv,           &
-                                    xu,        xv,            &
-                                    zu,        zv)
+    call matvec_multiply_structured_3d(nx,        ny,            &
+                                       nz,        nhalo,         &
+                                       indxA,     active_vertex, &
+                                       Auu,       Auv,           &
+                                       Avu,       Avv,           &
+                                       xu,        xv,            &
+                                       zu,        zv)
     call t_stopf("pcg_matmult_init")
 
     !---- Compute the initial residual r = b - A*x
@@ -1418,13 +1419,13 @@
     !---- q is correct for locally owned nodes
 
     call t_startf("pcg_matmult_iter")
-    call matvec_multiply_structured(nx,        ny,            &
-                                    nz,        nhalo,         &
-                                    indxA,     active_vertex, &
-                                    Auu,       Auv,           &
-                                    Avu,       Avv,           &
-                                    du,        dv,            &
-                                    qu,        qv)
+    call matvec_multiply_structured_3d(nx,        ny,            &
+                                       nz,        nhalo,         &
+                                       indxA,     active_vertex, &
+                                       Auu,       Auv,           &
+                                       Avu,       Avv,           &
+                                       du,        dv,            &
+                                       qu,        qv)
     call t_stopf("pcg_matmult_iter")
 
     !---- Compute intermediate result for dot product (d,q) = (d,Ad)
@@ -1531,13 +1532,13 @@
        !---- Az is correct for local owned nodes and needs a halo update (below)
 
        call t_startf("pcg_matmult_iter")
-       call matvec_multiply_structured(nx,        ny,            &
-                                       nz,        nhalo,         &
-                                       indxA,     active_vertex, &
-                                       Auu,       Auv,           &
-                                       Avu,       Avv,           &
-                                       zu,        zv,            &
-                                       Azu,       Azv)
+       call matvec_multiply_structured_3d(nx,        ny,            &
+                                          nz,        nhalo,         &
+                                          indxA,     active_vertex, &
+                                          Auu,       Auv,           &
+                                          Avu,       Avv,           &
+                                          zu,        zv,            &
+                                          Azu,       Azv)
        call t_stopf("pcg_matmult_iter")
 
        !---- Compute intermediate results for the dot products (r,z) and (Az,z)
@@ -1623,13 +1624,13 @@
           !---- Compute z = A*x  (use z as a temp vector for A*x)
            
           call t_startf("pcg_matmult_resid")
-          call matvec_multiply_structured(nx,        ny,            &
-                                          nz,        nhalo,         &
-                                          indxA,     active_vertex, &
-                                          Auu,       Auv,           &
-                                          Avu,       Avv,           &
-                                          xu,        xv,            &
-                                          zu,        zv)
+          call matvec_multiply_structured_3d(nx,        ny,            &
+                                             nz,        nhalo,         &
+                                             indxA,     active_vertex, &
+                                             Auu,       Auv,           &
+                                             Avu,       Avv,           &
+                                             xu,        xv,            &
+                                             zu,        zv)
           call t_stopf("pcg_matmult_resid")
 
           !---- Compute residual r = b - A*x
@@ -1851,21 +1852,21 @@
     if (present(verbose)) then
        verbose_pcg = verbose
     else
-       verbose_pcg = .true.   ! for debugging
+       verbose_pcg = .false.   ! for debugging
     endif
 
     if (verbose_pcg .and. main_task) then
        print*, 'Using native PCG solver (Chronopoulos-Gear)'
-!       print*, 'tolerance, maxiters, precond =', tolerance, maxiters, precond
+       print*, 'tolerance, maxiters, precond =', tolerance, maxiters, precond
     endif
 
     !---- Set up matrices for preconditioning
 
     call t_startf("pcg_precond_init")
-    call setup_preconditioner(nx,         ny,       &
-                              precond,    indxA,    &
-                              Auu,        Avv,      &
-                              Adiagu,     Adiagv)
+    call setup_preconditioner_2d(nx,         ny,       &
+                                 precond,    indxA,    &
+                                 Auu,        Avv,      &
+                                 Adiagu,     Adiagv)
     call t_stopf("pcg_precond_init")
 
     !---- Initialize scalars and vectors
@@ -1930,13 +1931,13 @@
     !---- Compute A*x   (use z as a temp vector for A*x)
 
     call t_startf("pcg_matmult_init")
-    call matvec_multiply_structured(nx,        ny,            &
-                                    nhalo,                    &
-                                    indxA,     active_vertex, &
-                                    Auu,       Auv,           &
-                                    Avu,       Avv,           &
-                                    xu,        xv,            &
-                                    zu,        zv)
+    call matvec_multiply_structured_2d(nx,        ny,            &
+                                       nhalo,                    &
+                                       indxA,     active_vertex, &
+                                       Auu,       Auv,           &
+                                       Avu,       Avv,           &
+                                       xu,        xv,            &
+                                       zu,        zv)
     call t_stopf("pcg_matmult_init")
 
     !---- Compute the initial residual r = b - A*x
@@ -2003,13 +2004,13 @@
     !---- q is correct for locally owned nodes
 
     call t_startf("pcg_matmult_iter")
-    call matvec_multiply_structured(nx,        ny,            &
-                                    nhalo,                    &
-                                    indxA,     active_vertex, &
-                                    Auu,       Auv,           &
-                                    Avu,       Avv,           &
-                                    du,        dv,            &
-                                    qu,        qv)
+    call matvec_multiply_structured_2d(nx,        ny,            &
+                                       nhalo,                    &
+                                       indxA,     active_vertex, &
+                                       Auu,       Auv,           &
+                                       Avu,       Avv,           &
+                                       du,        dv,            &
+                                       qu,        qv)
     call t_stopf("pcg_matmult_iter")
 
     !---- Compute intermediate result for dot product (d,q) = (d,Ad)
@@ -2098,13 +2099,13 @@
        !---- Az is correct for local owned nodes and needs a halo update (below)
 
        call t_startf("pcg_matmult_iter")
-       call matvec_multiply_structured(nx,        ny,            &
-                                       nhalo,                    &
-                                       indxA,     active_vertex, &
-                                       Auu,       Auv,           &
-                                       Avu,       Avv,           &
-                                       zu,        zv,            &
-                                       Azu,       Azv)
+       call matvec_multiply_structured_2d(nx,        ny,            &
+                                          nhalo,                    &
+                                          indxA,     active_vertex, &
+                                          Auu,       Auv,           &
+                                          Avu,       Avv,           &
+                                          zu,        zv,            &
+                                          Azu,       Azv)
        call t_stopf("pcg_matmult_iter")
 
        !---- Compute intermediate results for the dot products (r,z) and (Az,z)
@@ -2184,13 +2185,13 @@
           !---- Compute z = A*x  (use z as a temp vector for A*x)
            
           call t_startf("pcg_matmult_resid")
-          call matvec_multiply_structured(nx,        ny,            &
-                                          nhalo,                    &
-                                          indxA,     active_vertex, &
-                                          Auu,       Auv,           &
-                                          Avu,       Avv,           &
-                                          xu,        xv,            &
-                                          zu,        zv)
+          call matvec_multiply_structured_2d(nx,        ny,            &
+                                             nhalo,                    &
+                                             indxA,     active_vertex, &
+                                             Auu,       Auv,           &
+                                             Avu,       Avv,           &
+                                             xu,        xv,            &
+                                             zu,        zv)
           call t_stopf("pcg_matmult_resid")
 
           !---- Compute residual r = b - A*x
@@ -2318,7 +2319,7 @@
     elseif (precond == HO_PRECOND_SIA) then  ! form SIA matrices Muu and Mvv with vertical coupling only
 
        if (verbose_pcg .and. main_task) then
-!!          print*, 'Using shallow-ice preconditioner'
+          print*, 'Using shallow-ice preconditioner'
        endif  ! verbose_pcg
 
        do j = 1, ny-1

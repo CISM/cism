@@ -77,8 +77,7 @@ contains
                        thisvel,       othervel,      &
                        bwat,          beta_const,    &
                        mintauf,                      &
-                       mask,          beta,          &
-                       floating_cell, ocean_cell)
+                       mask,          beta)
 
   ! subroutine to calculate map of beta sliding parameter, based on 
   ! user input ("whichbabc" flag, from config file as "which_ho_babc").
@@ -106,10 +105,11 @@ contains
   integer, intent(in), dimension(:,:)     :: mask 
   real(dp), intent(inout), dimension(:,:) :: beta  ! (Pa yr/m)
 
-  logical, intent(in), dimension(:,:), optional ::  &
-     floating_cell,   &! true for cells where ice is present and is floating
-     ocean_cell        ! true for cells where topography is below sea level and ice is absent
-                       ! Note: These masks live on the scalar grid; beta lives on the staggered grid
+!WHL - These masks are no longer used
+!  logical, intent(in), dimension(:,:), optional ::  &
+!     floating_mask,   &! = 1 for cells where ice is present and is floating
+!     ocean_mask        ! = 1 for cells where topography is below sea level and ice is absent
+!                       ! Note: These masks live on the scalar grid; beta lives on the staggered grid
    
   ! Local variables
 
@@ -143,13 +143,13 @@ contains
       ! Note: A node must be surrounded by four floating or ocean cells to be considered
       !       a shelf/ocean node.  Nodes along the grounding line retain previous values of beta.
 
-      !if (present(floating_cell) .and. present(ocean_cell)) then
+      !if (present(floating_mask) .and. present(ocean_mask)) then
       !   do ns = 1, nsn-1
       !      do ew = 1, ewn-1
-      !         if ( (floating_cell(ew,ns  )   .or. ocean_cell(ew,ns))       .and.  &
-      !              (floating_cell(ew,ns+1)   .or. ocean_cell(ew,ns+1))     .and.  &
-      !              (floating_cell(ew+1,ns)   .or. ocean_cell(ew+1,ns))     .and.  &
-      !              (floating_cell(ew+1,ns+1) .or. ocean_cell(ew+1,ns+1)) ) then
+      !         if ( (floating_mask(ew,ns  )  ==1 .or. ocean_mask(ew,ns)    ==1)   .and.  &
+      !              (floating_mask(ew,ns+1)  ==1 .or. ocean_mask(ew,ns+1)  ==1)   .and.  &
+      !              (floating_mask(ew+1,ns)  ==1 .or. ocean_mask(ew+1,ns)  ==1)   .and.  &
+      !              (floating_mask(ew+1,ns+1)==1 .or. ocean_mask(ew+1,ns+1)==1) ) then
       !            beta(ew,ns) = 0.d0
       !         endif
       !      enddo

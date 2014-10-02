@@ -30,15 +30,18 @@
 module glissade_grid_operators
 
     use glimmer_global, only: dp
-    use parallel  ! for debugging only
+    use glimmer_log
+    use glide_types  ! HO_GRADIENT_MARGIN_*
+    use parallel
 
     implicit none
 
     private
     public :: glissade_stagger, glissade_unstagger,  &
               glissade_centered_gradient, glissade_upstream_gradient,  &
-              glissade_vertical_average
+              glissade_edge_gradient, glissade_vertical_average
 
+!!    logical, parameter :: verbose_gradient = .true.
     logical, parameter :: verbose_gradient = .false.
 
 contains
@@ -47,7 +50,7 @@ contains
 
   subroutine glissade_stagger(nx,           ny,        &
                               var,          stagvar,   &
-                              imask,        stag_flag_in)
+                              ice_mask,     stagger_margin_in)
 
     ! Given a variable on the unstaggered grid (dimension nx, ny), interpolate
     ! to find values on the staggered grid (dimension nx-1, ny-1).
@@ -66,12 +69,14 @@ contains
        stagvar                  ! staggered field, defined at cell vertices
 
     integer, dimension(nx,ny), intent(in) ::        &
-       imask                    ! = 1 where values are included in the average, else = 0
-                                ! Typically imask = 1 where ice is present (or thck > thklim), else = 0
+       ice_mask                 ! = 1 where values are included in the average, else = 0
+                                ! Typically ice_mask = 1 where ice is present (or thck > thklim), else = 0
 
     integer, intent(in), optional ::   &
-       stag_flag_in             ! 0 = use all values when interpolating (including zeroes where ice is absent)
+       stagger_margin_in        ! 0 = use all values when interpolating (including zeroes where ice is absent)
+                                !   may be appropriate when computing stagusrf and stagthck on land
                                 ! 1 = use only values where ice is present
+                                !   preferable for tracers (e.g., temperature, flwa) and ocean margins
 
     !--------------------------------------------------------
     ! Local variables
@@ -79,17 +84,17 @@ contains
 
     integer :: i, j
     real(dp) :: sumvar, summask
-    integer :: stag_flag
+    integer :: stagger_margin
 
-    if (present(stag_flag_in)) then
-       stag_flag = stag_flag_in
+    if (present(stagger_margin_in)) then
+       stagger_margin = stagger_margin_in
     else
-       stag_flag = 1  ! default is to average only over the cells with ice present
+       stagger_margin = 1  ! default is to average only over the cells with ice present
     endif
 
     stagvar(:,:) = 0.d0
 
-    if (stag_flag == 0) then
+    if (stagger_margin == 0) then
 
        ! Average over all four neighboring cells
 
@@ -99,15 +104,15 @@ contains
        enddo
        enddo  
 
-    elseif (stag_flag==1) then
+    elseif (stagger_margin == 1) then
 
-       ! Average over cells with ice present (imask = 1)
+       ! Average over cells with ice present (ice_mask = 1)
 
        do j = 1, ny-1     ! all vertices
        do i = 1, nx-1
-          sumvar = imask(i,j+1)*var(i,j+1) + imask(i+1,j+1)*var(i+1,j+1)  &
-                 + imask(i,j)  *var(i,j)   + imask(i+1,j)  *var(i+1,j)	  
-          summask = real(imask(i,j+1) + imask(i+1,j+1) + imask(i,j) + imask(i+1,j), dp)
+          sumvar = ice_mask(i,j+1)*var(i,j+1) + ice_mask(i+1,j+1)*var(i+1,j+1)  &
+                 + ice_mask(i,j)  *var(i,j)   + ice_mask(i+1,j)  *var(i+1,j)	  
+          summask = real(ice_mask(i,j+1) + ice_mask(i+1,j+1) + ice_mask(i,j) + ice_mask(i+1,j), dp)
           if (summask > 0.d0) stagvar(i,j) = sumvar / summask
        enddo
        enddo  
@@ -120,12 +125,10 @@ contains
 
   subroutine glissade_unstagger(nx,           ny,          &
                                 stagvar,      unstagvar,   &
-                                vmask,        stag_flag_in)
+                                vmask,        stagger_margin_in)
 
     ! Given a variable on the unstaggered grid (dimension nx, ny), interpolate
     ! to find values on the staggered grid (dimension nx-1, ny-1).
-
-    use parallel, only: parallel_halo
 
     !----------------------------------------------------------------
     ! Input-output arguments
@@ -146,7 +149,7 @@ contains
                                 !       It will likely be based on the scalar ice mask, but the details are left open.
 
     integer, intent(in), optional ::   &
-       stag_flag_in             ! 0 = use all values when interpolating
+       stagger_margin_in        ! 0 = use all values when interpolating
                                 ! 1 = use only values where vmask = 1
 
     !--------------------------------------------------------
@@ -155,17 +158,17 @@ contains
 
     integer :: i, j
     real(dp) :: sumvar, summask
-    integer :: stag_flag
+    integer :: stagger_margin
 
-    if (present(stag_flag_in)) then
-       stag_flag = stag_flag_in
+    if (present(stagger_margin_in)) then
+       stagger_margin = stagger_margin_in
     else
-       stag_flag = 1  ! default is to average over cells where vmask = 1
+       stagger_margin = 1  ! default is to average over cells where vmask = 1
     endif
 
     unstagvar(:,:) = 0.d0
 
-    if (stag_flag == 0) then
+    if (stagger_margin == 0) then
 
        ! Average over all four neighboring cells
 
@@ -175,9 +178,9 @@ contains
        enddo
        enddo  
 
-    elseif (stag_flag==1) then
+    elseif (stagger_margin == 1) then
 
-       ! Average over cells with vmask = 1
+       ! Average over vertices with vmask = 1
 
        do j = 2, ny-1   ! loop does not include outer row of cells
        do i = 2, nx-1
@@ -201,11 +204,28 @@ contains
                                         dx,           dy,        &
                                         f,                       &
                                         df_dx,        df_dy,     &
-                                        imask,        grad_flag_in)
+                                        ice_mask,                &
+                                        gradient_margin_in,      &
+                                        land_mask)
 
+    !----------------------------------------------------------------
     ! Given a scalar variable f on the unstaggered grid (dimension nx, ny),
     ! compute its gradient (df_dx, df_dy) on the staggered grid (dimension nx-1, ny-1).
     ! The gradient is evaluated at the four neighboring points and is second-order accurate.
+    !
+    ! There are several choices for computing gradients at the ice margin:
+    ! HO_MARGIN_GRADIENT_ALL = 0: All neighbor values are used to compute the gradient, including 
+    !  values in ice-free cells.  This convention is used by Glide, but performs poorly for 
+    !  ice shelves with a sudden drop in ice thickness and surface elevation at the margin.
+    ! HO_MARGIN_GRADIENT_ICE_LAND = 1: Values in ice-covered and/or land cells are used to compute 
+    !  the gradient, but values in ice-free ocean cells are ignored.  Where required values are 
+    !  missing, the gradient is set to zero.  This reduces to option (0) for land-based problems 
+    !  and (2) for ocean-based problems.
+    ! HO_MARGIN_GRADIENT_ICE_ONLY = 2: Only values in ice-covered cells (i.e., cells with thck > thklim) 
+    !  are used to compute gradients.  Where required values are missing, the gradient is set to zero.
+    !  This option works well at shelf margins but less well for land margins (e.g., the Halfar test case).
+    ! Since option (1) generally works well at both land and shelf boundaries, it is the default.
+    !----------------------------------------------------------------
 
     !----------------------------------------------------------------
     ! Input-output arguments
@@ -224,20 +244,26 @@ contains
     real(dp), dimension(nx-1,ny-1), intent(out) ::    &
        df_dx, df_dy             ! gradient components, defined at cell vertices
 
-    integer, dimension(nx,ny), intent(in) ::        &
-       imask                    ! = 1 where ice is present, else = 0
-
     integer, intent(in), optional ::    &
-       grad_flag_in             ! 0: use all values when computing gradient (including zeroes where ice is absent)
-                                ! 1: if one or more values is masked out, construct df_fx and df_dy from the others
-                                ! 2: if one or more values is masked out, set df_dx = df_dy = 0
+       gradient_margin_in       ! 0: use all values when computing gradient (including zeroes where ice is absent)
+                                ! 1: use values in ice-covered and/or land cells (but not ocean cells)
+                                !    if one or more values is masked out, construct df_fx and df_dy from the others
+                                ! 2: use values in ice-covered cells only
+                                !    if one or more values is masked out, construct df_fx and df_dy from the others
+
+    integer, dimension(nx,ny), intent(in) ::        &
+       ice_mask                 ! = 1 where ice is present, else = 0
+
+    integer, dimension(nx,ny), intent(in), optional ::        &
+       land_mask                ! = 1 for land cells, else = 0
 
     !--------------------------------------------------------
     ! Local variables
     !--------------------------------------------------------
 
+    integer, dimension(nx,ny) :: mask
+    integer :: summask, gradient_margin
     integer :: i, j
-    integer :: summask, grad_flag
 
     !   Gradient at vertex(i,j) is based on f(i:i+1,j:j+1)
     ! 
@@ -246,92 +272,68 @@ contains
     !   (i,j)    |  (i+1,j)
 
 
-    if (present(grad_flag_in)) then
-       grad_flag = grad_flag_in
+    if (present(gradient_margin_in)) then
+       gradient_margin = gradient_margin_in
     else
-       grad_flag = 2  ! TODO - Think about the best default
+       gradient_margin = HO_GRADIENT_MARGIN_ICE_LAND
     endif
 
-    if (grad_flag == 0) then
+    ! Initialize gradients to zero
+    df_dx(:,:) = 0.d0
+    df_dy(:,:) = 0.d0
 
-       ! compute gradient as in Glide, using all four scalar values
-       ! (provided ice is present in at least one cell)
+    ! Set integer mask based on gradient_margin.
 
-       do j = 1, ny-1
+    if (gradient_margin == HO_GRADIENT_MARGIN_ALL) then
+
+       mask(:,:) = 1             ! = 1 for all cells
+
+    elseif (gradient_margin == HO_GRADIENT_MARGIN_ICE_LAND) then
+
+       if (present(land_mask)) then
+          mask(:,:) = max(ice_mask(:,:),land_mask(:,:))    ! = 1 if ice_mask = 1 .or. land_mask = 1 
+       else
+          call write_log('Must pass in land mask to compute centered gradient with gradient_margin = 1', GM_FATAL)
+       endif
+
+    elseif (gradient_margin == HO_GRADIENT_MARGIN_ICE_ONLY) then
+
+          mask(:,:) = ice_mask(:,:)    ! = 1 for ice-covered cells
+    endif
+
+    ! Compute the gradients using info in cells with mask = 1
+
+    do j = 1, ny-1
        do i = 1, nx-1
 
-          summask = imask(i,j) + imask(i+1,j) + imask(i,j+1) + imask(i+1,j+1)
+          summask = mask(i,j) + mask(i+1,j) + mask(i,j+1) + mask(i+1,j+1)
 
-          if (summask >= 1) then
+          if (summask == 4) then  ! use info in all four neighbor cells
              df_dx(i,j) = (f(i+1,j) + f(i+1,j+1) - f(i,j) - f(i,j+1)) / (2.d0 * dx)
              df_dy(i,j) = (f(i,j+1) + f(i+1,j+1) - f(i,j) - f(i+1,j)) / (2.d0 * dy)
-          else
-             df_dx(i,j) = 0.d0
-             df_dy(i,j) = 0.d0
-          endif
 
-       enddo     ! i
-       enddo     ! j
+          else  ! use info only in cells with mask = 1
+                ! if info is not available, gradient component = 0
 
-    elseif (grad_flag==1) then
-
-       ! set gradient to zero at ice margin
-
-       do j = 1, ny-1
-       do i = 1, nx-1
-
-          summask = imask(i,j) + imask(i+1,j) + imask(i,j+1) + imask(i+1,j+1)
-
-          if (summask == 4) then
-             df_dx(i,j) = (f(i+1,j) + f(i+1,j+1) - f(i,j) - f(i,j+1)) / (2.d0 * dx)
-             df_dy(i,j) = (f(i,j+1) + f(i+1,j+1) - f(i,j) - f(i+1,j)) / (2.d0 * dy)
-          else
-             df_dx(i,j) = 0.d0
-             df_dy(i,j) = 0.d0
-          endif
-
-       enddo     ! i
-       enddo     ! j
-
-    elseif (grad_flag==2) then
-
-       ! compute gradient using neighbor values that are available
-
-       do j = 1, ny-1
-       do i = 1, nx-1
-
-          summask = imask(i,j) + imask(i+1,j) + imask(i,j+1) + imask(i+1,j+1)
-
-          if (summask == 4) then
-             df_dx(i,j) = (f(i+1,j) + f(i+1,j+1) - f(i,j) - f(i,j+1)) / (2.d0 * dx)
-             df_dy(i,j) = (f(i,j+1) + f(i+1,j+1) - f(i,j) - f(i+1,j)) / (2.d0 * dy)
-          else
              ! df_dx
-             if (imask(i,j)==1 .and. imask(i+1,j)==1) then
+             if (mask(i,j)==1 .and. mask(i+1,j)==1) then
                 df_dx(i,j) = (f(i+1,j) - f(i,j)) / dx
-             elseif (imask(i,j+1)==1 .and. imask(i+1,j+1)==1) then
+             elseif (mask(i,j+1)==1 .and. mask(i+1,j+1)==1) then
                 df_dx(i,j) = (f(i+1,j+1) - f(i,j+1)) / dx
-             else
-                df_dx(i,j) = 0.d0
              endif
 
              ! df_dy
-             if (imask(i,j)==1 .and. imask(i,j+1)==1) then
+             if (mask(i,j)==1 .and. mask(i,j+1)==1) then
                 df_dy(i,j) = (f(i,j+1) - f(i,j)) / dy
-             elseif (imask(i+1,j)==1 .and. imask(i+1,j+1)==1) then
+             elseif (mask(i+1,j)==1 .and. mask(i+1,j+1)==1) then
                 df_dy(i,j) = (f(i+1,j+1) - f(i+1,j)) / dy
-             else
-                df_dy(i,j) = 0.d0
              endif
 
           endif
 
        enddo    ! i
-       enddo    ! j
+    enddo       ! j
 
-    endif        ! grad_flag
-
-!WHL - debug
     if (verbose_gradient .and. main_task) then
        print*, ' '
        print*, 'Centered gradient:'
@@ -339,7 +341,7 @@ contains
        print*, 'df_dx:'
        do j = ny-1, 1, -1
           do i = 1, nx-1
-             write(6,'(f6.0)',advance='no') df_dx(i,j)
+             write(6,'(f8.4)',advance='no') df_dx(i,j)
           enddo
           print*, ' '
        enddo
@@ -348,7 +350,7 @@ contains
        print*, 'df_dy:'
        do j = ny-1, 1, -1
           do i = 1, nx-1
-             write(6,'(f6.0)',advance='no') df_dy(i,j)
+             write(6,'(f8.4)',advance='no') df_dy(i,j)
           enddo
           print*, ' '
        enddo
@@ -362,10 +364,10 @@ contains
                                         dx,           dy,        &
                                         f,                       &
                                         df_dx,        df_dy,     &
-                                        imask,                   &
+                                        ice_mask,                &
+                                        gradient_margin_in,      &
                                         accuracy_flag_in,        &
-                                        grad_flag1_in,           & 
-                                        grad_flag2_in)
+                                        land_mask)
 
     ! Given a scalar variable f on the unstaggered grid (dimension nx, ny),
     !  compute its gradient (df_dx, df_dy) on the staggered grid (dimension nx-1, ny-1).
@@ -393,41 +395,37 @@ contains
        df_dx, df_dy             ! gradient components, defined at cell vertices
 
     integer, dimension(nx,ny), intent(in) ::        &
-       imask                    ! = 1 where ice is present, else = 0
+       ice_mask                 ! = 1 where ice is present, else = 0
 
     integer, intent(in), optional ::    &
        accuracy_flag_in         ! = 1 for 1st order, 2 for 2nd order
 
     integer, intent(in), optional ::    &
-       grad_flag1_in            ! options for 1st order upstream (2 upstream points) 
-                                ! 0: use all values when computing gradient (including zeroes where ice is absent)
-                                ! 1: if one or more values is masked out, set df_dx = df_dy = 0
-                                ! 2: use values that are available, else set gradient components to 0
+       gradient_margin_in       ! 0: use all values when computing gradient (including zeroes where ice is absent)
+                                ! 1: use values in ice-covered and/or land cells (but not ocean cells)
+                                !    if one or more values is masked out, construct df_fx and df_dy from the others
+                                ! 2: use values in ice-covered cells only
+                                !    if one or more values is masked out, construct df_fx and df_dy from the others
 
-    integer, intent(in), optional ::    &
-       grad_flag2_in            ! options for 2nd order upstream (4 upstream points)
-                                ! 0: 2nd order gradient using all values
-                                ! 1: mix 1st order and 2nd order based on relative magnitude of terms
-                                ! 2: mix 1st order and 2nd order based on agreement with centered difference
+    integer, dimension(nx,ny), intent(in), optional ::        &
+       land_mask                ! = 1 for land cells, else = 0
 
     !--------------------------------------------------------
     ! Local variables
     !--------------------------------------------------------
 
+    integer, dimension(nx,ny) :: mask
     integer :: i, j
     real(dp) :: sum1, sum2
-    real(dp) :: diff1, diff2
-    integer :: grad_flag1, grad_flag2, accuracy_flag, summask
+    integer :: gradient_margin, accuracy_flag, summask
 
-    real(dp) :: dfdx_c, dfdx_1, dfdx_2
-    real(dp) :: dfdy_c, dfdy_1, dfdy_2
-
-    !   Gradient at vertex(i,j) is based on two points out of f(i:i+1,j:j+1)
+    !   First-order upstream gradient at vertex(i,j) is based on two points out of f(i:i+1,j:j+1)
     ! 
     !   (i,j+1)  |  (i+1,j+1)
     !   -------(i,j)----------
     !   (i,j)    |  (i+1,j)
-
+    !
+    !   Second-order gradient is based on four points in the upstream direction
 
     if (present(accuracy_flag_in)) then
        accuracy_flag = accuracy_flag_in
@@ -435,347 +433,165 @@ contains
        accuracy_flag = 2   ! default to second-order
     endif
 
-    if (present(grad_flag1_in)) then
-       grad_flag1 = grad_flag1_in
+    if (present(gradient_margin_in)) then
+       gradient_margin = gradient_margin_in
     else
-       grad_flag1 = 0   ! default is to include all cells in gradient, including ice-free cells
+       gradient_margin = HO_GRADIENT_MARGIN_ICE_LAND
     endif
 
-    if (present(grad_flag2_in)) then
-       grad_flag2 = grad_flag2_in
-    else
-       grad_flag2 = 0   ! default is to use 2nd order gradient everywhere
-    endif
-
+    ! Initialize gradients to zero
     df_dx(:,:) = 0.d0
     df_dy(:,:) = 0.d0
 
+    ! Set integer mask based on gradient_margin.
+
+    if (gradient_margin == HO_GRADIENT_MARGIN_ALL) then
+
+       mask(:,:) = 1             ! = 1 for all cells
+
+    elseif (gradient_margin == HO_GRADIENT_MARGIN_ICE_LAND) then
+
+       if (present(land_mask)) then
+          mask(:,:) = max(ice_mask(:,:),land_mask(:,:))    ! = 1 if ice_mask = 1 .or. land_mask = 1 
+       else
+          call write_log('Must pass in land mask to compute upstream gradient with gradient_margin = 1', GM_FATAL)
+       endif
+
+    elseif (gradient_margin == HO_GRADIENT_MARGIN_ICE_ONLY) then
+
+       mask(:,:) = ice_mask(:,:)    ! = 1 for ice-covered cells
+
+    endif
+
     if (accuracy_flag == 1) then   ! first-order accurate
 
-       !WHL - For the Halfar SIA test, none of the first-order options
-       !      are as accurate as the second-order options.
-       !      But I've kept the first-order options for completeness.
-
-       if (grad_flag1 == 0) then  ! use all points, including ice-free points
-
-          do j = 1, ny-1
+       do j = 1, ny-1
           do i = 1, nx-1
 
-             ! Compute df_dx by taking upstream gradient
-
-             sum1 = f(i+1,j+1) + f(i,j+1)
-             sum2 = f(i+1,j) + f(i,j)
-             
-             if (sum1 > sum2) then
-                df_dx(i,j) = (f(i+1,j+1) - f(i,j+1)) / dx
-             else
-                df_dx(i,j) = (f(i+1,j) - f(i,j)) / dx
-             endif
-
-             ! Compute df_dy by taking upstream gradient
-
-             sum1 = f(i+1,j+1) + f(i+1,j)
-             sum2 = f(i,j+1) + f(i,j)
-
-             if (sum1 > sum2) then
-                df_dy(i,j) = (f(i+1,j+1) - f(i+1,j)) / dy
-             else
-                df_dy(i,j) = (f(i,j+1) - f(i,j)) / dy
-             endif
-
-          enddo     ! i
-          enddo     ! j
-
-       elseif (grad_flag1 == 1) then  ! gradient = 0 if any neighbor cell is ice-free
-
-          do j = 1, ny-1
-          do i = 1, nx-1
-
-             summask = imask(i,j) + imask(i+1,j) + imask(i,j+1) + imask(i+1,j+1)
-
-             if (summask == 4) then
+             ! Compute gradient only if at least one neighbor is ice-covered
+             summask = ice_mask(i,j) + ice_mask(i+1,j) + ice_mask(i,j+1) + ice_mask(i+1,j+1)
+           
+             if (summask > 0) then
 
                 ! Compute df_dx by taking upstream gradient
 
                 sum1 = f(i+1,j+1) + f(i,j+1)
                 sum2 = f(i+1,j) + f(i,j)
 
-                if (sum1 > sum2) then
+                if (sum1 > sum2 .and. mask(i+1,j+1)==1 .and. mask(i,j+1)==1) then
                    df_dx(i,j) = (f(i+1,j+1) - f(i,j+1)) / dx
-                else
+                elseif (sum1 <= sum2 .and. mask(i+1,j)==1 .and. mask(i,j)==1) then
                    df_dx(i,j) = (f(i+1,j) - f(i,j)) / dx
                 endif
 
                 ! Compute df_dy by taking upstream gradient
-                
+             
                 sum1 = f(i+1,j+1) + f(i+1,j)
                 sum2 = f(i,j+1) + f(i,j)
-
-                if (sum1 > sum2) then
+             
+                if (sum1 > sum2 .and. mask(i+1,j+1)==1 .and. mask(i+1,j)==1) then
                    df_dy(i,j) = (f(i+1,j+1) - f(i+1,j)) / dy
-                else
+                elseif (sum1 <= sum2 .and. mask(i,j+1)==1 .and. mask(i,j)==1) then
                    df_dy(i,j) = (f(i,j+1) - f(i,j)) / dy
+                else
+                   df_dy(i,j) = 0.d0
                 endif
 
-             else
+             endif  ! summask > 0 (mask = 1 in at least one neighbor cell)
 
-                df_dx(i,j) = 0.d0
-                df_dy(i,j) = 0.d0
-
-             endif
-
-          enddo    ! i
-          enddo    ! j
-
-       elseif (grad_flag1 == 2) then  ! gradient = 0 if either or both upstream points are ice-free
-
-          do j = 1, ny-1
-          do i = 1, nx-1
-
-             ! Compute df_dx by taking upstream gradient
-
-             sum1 = f(i+1,j+1) + f(i,j+1)
-             sum2 = f(i+1,j) + f(i,j)
-
-             if (sum1 > sum2 .and. imask(i+1,j+1)==1 .and. imask(i,j+1)==1) then
-                df_dx(i,j) = (f(i+1,j+1) - f(i,j+1)) / dx
-             elseif (sum1 <= sum2 .and. imask(i+1,j)==1 .and. imask(i,j)==1) then
-                df_dx(i,j) = (f(i+1,j) - f(i,j)) / dx
-             else
-                df_dx(i,j) = 0.d0
-             endif
-
-             ! Compute df_dy by taking upstream gradient
-
-             sum1 = f(i+1,j+1) + f(i+1,j)
-             sum2 = f(i,j+1) + f(i,j)
-             
-             if (sum1 > sum2 .and. imask(i+1,j+1)==1 .and. imask(i+1,j)==1) then
-                df_dy(i,j) = (f(i+1,j+1) - f(i+1,j)) / dy
-             elseif (sum1 <= sum2 .and. imask(i,j+1)==1 .and. imask(i,j)==1) then
-                df_dy(i,j) = (f(i,j+1) - f(i,j)) / dy
-             else
-                df_dy(i,j) = 0.d0
-             endif
-
-          enddo     ! i
-          enddo     ! j
-
-       endif   ! grad_flag1
+          enddo
+       enddo
 
     else    ! second-order accurate
 
-       !WHL: I tested all three values of grad_flag2 for the Halfar SIA test
-       !     problem.  Results were similar for all three, but I opted for
-       !     grad_flag2 = 0 as the default because it is simplest.
-
-       if (grad_flag2 == 0) then  ! use all points, including ice-free points
-
-          do j = 2, ny-2
+       do j = 2, ny-2   ! loop does not include all of halo
           do i = 2, nx-2
 
-             summask = imask(i,j) + imask(i+1,j) + imask(i,j+1) + imask(i+1,j+1)
+             ! Compute gradient only if at least one neighbor is ice-covered
+             summask = ice_mask(i,j) + ice_mask(i+1,j) + ice_mask(i,j+1) + ice_mask(i+1,j+1)
            
              if (summask > 0) then
+
                 ! Compute df_dx by taking upstream gradient
+             
+                ! determine upstream direction
 
                 sum1 = f(i+1,j+1) + f(i,j+1) + f(i+1,j+2) + f(i,j+2)
                 sum2 = f(i+1,j) + f(i,j) + f(i+1,j-1) + f(i,j-1)
-             
+
                 if (sum1 > sum2) then
-                   df_dx(i,j) = (1.5d0 * (f(i+1,j+1) - f(i,j+1))     &
-                               - 0.5d0 * (f(i+1,j+2) - f(i,j+2))) / dx
-                else
-                   df_dx(i,j) = (1.5d0 * (f(i+1,j) - f(i,j))         &
-                               - 0.5d0 * (f(i+1,j-1) - f(i,j-1))) / dx
-                endif
+
+                   summask = mask(i+1,j+1) + mask(i,j+1) + mask(i+1,j+2) + mask(i,j+2)
+
+                   if (summask == 4) then ! use info in all four upstream neighbor cells
+                      df_dx(i,j) = (1.5d0 * (f(i+1,j+1) - f(i,j+1))     &
+                                  - 0.5d0 * (f(i+1,j+2) - f(i,j+2))) / dx
+                   elseif (mask(i+1,j+1)==1 .and. mask(i,j+1)==1) then   ! revert to 1st order, using upstream info
+                      print*, 'df_dx: i, j, summask =', i, j, summask
+                      df_dx(i,j) = (f(i+1,j+1) - f(i,j+1)) / dx
+                   endif
+
+                else  ! sum1 <= sum2
+
+                   summask = mask(i+1,j) + mask(i,j) + mask(i+1,j-1) + mask(i,j-1)
+
+                   if (summask == 4) then ! use info in all four upstream neighbor cells
+                      df_dx(i,j) = (1.5d0 * (f(i+1,j)   - f(i,j))     &
+                                  - 0.5d0 * (f(i+1,j-1) - f(i,j-1))) / dx
+                   elseif (mask(i+1,j)==1 .and. mask(i,j)==1) then   ! revert to 1st order, using upstream info
+                      print*, 'df_dx: i, j, summask =', i, j, summask
+                      df_dx(i,j) = (f(i+1,j) - f(i,j)) / dx
+                   endif
+                   
+                endif   ! sum1 > sum2
 
                 ! Compute df_dy by taking upstream gradient
+
+                ! determine upstream direction
 
                 sum1 = f(i+1,j+1) + f(i+1,j) + f(i+2,j+1) + f(i+2,j)
                 sum2 = f(i,j+1) + f(i,j) + f(i-1,j+1) + f(i-1,j)
              
                 if (sum1 > sum2) then
-                   df_dy(i,j) = (1.5d0 * (f(i+1,j+1) - f(i+1,j))     &
-                               - 0.5d0 * (f(i+2,j+1) - f(i+2,j))) / dy
-                else
-                   df_dy(i,j) = (1.5d0 * (f(i,j+1) - f(i,j))         &
-                               - 0.5d0 * (f(i-1,j+1) - f(i-1,j))) / dy
-                endif
 
-             endif  ! summask
+                   summask = mask(i+1,j+1) + mask(i+1,j) + mask(i+2,j+1) + mask(i+2,j)
 
-          enddo     ! i
-          enddo     ! j
-
-       elseif (grad_flag2 == 1) then  ! second order in most places, reduces to first order in regions of strong curvature
-
-          do j = 2, ny-2   ! loop does not include all of halo
-          do i = 2, nx-2
-
-             summask = imask(i,j) + imask(i+1,j) + imask(i,j+1) + imask(i+1,j+1)
-
-             if (summask > 0) then
-
-                ! Compute df_dx
-
-                sum1 = f(i+1,j+1) + f(i,j+1)
-                sum2 = f(i+1,j) + f(i,j)
-             
-                if (sum1 > sum2) then  ! increasing j is upstream
-                   diff1 = f(i+1,j+1) - f(i,j+1)
-                   diff2 = f(i+1,j+2) - f(i,j+2)
-                   if (abs(diff2) < 3.d0*abs(diff1)) then   ! second-order
-                      df_dx(i,j) = (1.5d0 * (f(i+1,j+1) - f(i,j+1))     &
-                                  - 0.5d0 * (f(i+1,j+2) - f(i,j+2))) / dx
-                   else  ! first-order
-                      df_dx(i,j) = (f(i+1,j+1) - f(i,j+1)) / dx
-                   endif
-                else  ! decreasing j is upstream
-                   diff1 = f(i+1,j) - f(i,j)
-                   diff2 = f(i+1,j-1) - f(i,j-1)
-                   if (abs(diff2) < 3.d0*abs(diff1)) then   ! second-order
-                      df_dx(i,j) = (1.5d0 * (f(i+1,j) - f(i,j))         &
-                                  - 0.5d0 * (f(i+1,j-1) - f(i,j-1))) / dx
-                   else  ! first-order
-                      df_dx(i,j) = (f(i+1,j) - f(i,j)) / dx
-                   endif
-                endif    ! sum1 > sum2
-
-                ! Compute df_dy
-
-                sum1 = f(i+1,j+1) + f(i+1,j)
-                sum2 = f(i,j+1) + f(i,j)
-             
-                if (sum1 > sum2) then  ! increasing i is upstream
-                   diff1 = f(i+1,j+1) - f(i+1,j)
-                   diff2 = f(i+2,j+1) - f(i+2,j)
-                   if (abs(diff2) < 3.d0*abs(diff1)) then   ! second-order
+                   if (summask == 4) then ! use info in all four upstream neighbor cells
                       df_dy(i,j) = (1.5d0 * (f(i+1,j+1) - f(i+1,j))     &
                                   - 0.5d0 * (f(i+2,j+1) - f(i+2,j))) / dy
-                   else  ! first-order
+                   elseif (mask(i+1,j+1)==1 .and. mask(i+1,j)==1) then   ! revert to 1st order, using upstream info
+                      print*, 'df_dy: i, j, summask =', i, j, summask
                       df_dy(i,j) = (f(i+1,j+1) - f(i+1,j)) / dy
                    endif
-                else  ! decreasing i is upstream
-                   diff1 = f(i,j+1) - f(i,j)
-                   diff2 = f(i-1,j+1) - f(i-1,j)
-                   if (abs(diff2) < 3.d0*abs(diff1)) then   ! second-order
-                      df_dy(i,j) = (1.5d0 * (f(i,j+1) - f(i,j))         &
+
+                else   ! sum1 <= sum2
+
+                   summask = mask(i,j+1) + mask(i,j) + mask(i-1,j+1) + mask(i-1,j)
+                   
+                   if (summask == 4) then ! use info in all four upstream neighbor cells
+                      df_dy(i,j) = (1.5d0 * (f(i,j+1)   - f(i,j))     &
                                   - 0.5d0 * (f(i-1,j+1) - f(i-1,j))) / dy
-                   else  ! first-order
+                   elseif (mask(i+1,j+1)==1 .and. mask(i+1,j)==1) then   ! revert to 1st order, using upstream info
+                      print*, 'df_dy: i, j, summask =', i, j, summask
                       df_dy(i,j) = (f(i,j+1) - f(i,j)) / dy
                    endif
-                endif    ! sum1 > sum2
 
-             endif    ! summask
+                endif   ! sum1 > sum2
+
+             endif      ! summask > 0 (mask = 1 in at least one neighbor cell)
 
           enddo     ! i
-          enddo     ! j
-
-       elseif (grad_flag2 == 2) then  ! second order, except where first order is closer to (centered) benchmark
-
-          do j = 2, ny-2   ! loop does not include all of halo
-          do i = 2, nx-2
-
-             summask = imask(i,j) + imask(i+1,j) + imask(i,j+1) + imask(i+1,j+1)
-
-             if (summask > 0) then
-
-                ! Compute df_dx
-
-                ! centered difference
-                dfdx_c = (f(i+1,j+1) - f(i,j+1) + f(i+1,j) - f(i,j)) / (2.d0*dx)
-
-                ! identify upstream direction
-
-                sum1 = f(i+1,j+1) + f(i,j+1)
-                sum2 = f(i+1,j) + f(i,j)
-
-                if (sum1 > sum2) then  ! increasing j is upstream
-
-                   ! first-order difference 
-                   dfdx_1 = (f(i+1,j+1) - f(i,j+1)) / dx
-
-                   ! second-order difference
-                   dfdx_2 = (1.5d0 * (f(i+1,j+1) - f(i,j+1))     &
-                                - 0.5d0 * (f(i+1,j+2) - f(i,j+2))) / dx
-
-                else   ! decreasing j is upstream
-                   
-                   ! first-order difference
-                   dfdx_1 = (f(i+1,j) - f(i,j)) / dx
-
-                   ! second-order difference
-                   dfdx_2 = (1.5d0 * (f(i+1,j) - f(i,j))         &
-                                - 0.5d0 * (f(i+1,j-1) - f(i,j-1))) / dx
-
-                endif   ! sum1 > sum2
-
-                diff1 = abs(dfdx_1 - dfdx_c)
-                diff2 = abs(dfdx_2 - dfdx_c)
-
-                if (diff2 < 2.d0*diff1) then  ! use second-order difference
-                   df_dx(i,j) = dfdx_2
-                else  ! use first-order difference
-                   df_dx(i,j) = dfdx_1
-                endif
-
-                ! Compute df_dy
-
-                ! centered difference
-                dfdy_c = (f(i+1,j+1) - f(i+1,j) + f(i,j+1) - f(i,j)) / (2.d0*dy)
-
-                ! identify upstream direction
-
-                sum1 = f(i+1,j+1) + f(i+1,j)
-                sum2 = f(i,j+1) + f(i,j)
-
-                if (sum1 > sum2) then  ! increasing i is upstream
-
-                   ! first-order difference 
-                   dfdy_1 = (f(i+1,j+1) - f(i+1,j)) / dy
-
-                   ! second-order difference
-                   dfdy_2 = (1.5d0 * (f(i+1,j+1) - f(i+1,j))     &
-                           - 0.5d0 * (f(i+2,j+1) - f(i+2,j))) / dy
-
-                else   ! decreasing j is upstream
-                   
-                   ! first-order difference
-                   dfdy_1 = (f(i,j+1) - f(i,j)) / dy
-
-                   ! second-order difference
-                   dfdy_2 = (1.5d0 * (f(i,j+1) - f(i,j))         &
-                           - 0.5d0 * (f(i-1,j+1) - f(i-1,j))) / dy
-
-                endif   ! sum1 > sum2
-
-                diff1 = abs(dfdy_1 - dfdy_c)
-                diff2 = abs(dfdy_2 - dfdy_c)
-
-                if (diff2 < 2.0*diff1) then  ! use second-order difference
-                   df_dy(i,j) = dfdy_2
-                else  ! use first-order difference
-                   df_dy(i,j) = dfdy_1
-                endif
-
-             endif  ! summask
-
-          enddo   ! i
-          enddo   ! j
-
-       endif   ! grad_flag2
+       enddo        ! j
 
        ! fill in halo values
        call staggered_parallel_halo(df_dx)
        call staggered_parallel_halo(df_dy)
 
-    endif  ! accuracy_flag
+    endif   ! 1st or 2nd order accurate
 
-!WHL - debug
     if (verbose_gradient .and. main_task) then
        print*, ' '
-       print*, 'df_dx:'
+       print*, 'upstream df_dx:'
        do j = ny-2, 2, -1
           do i = 1, nx-1
              write(6,'(f7.4)',advance='no') df_dx(i,j)
@@ -784,7 +600,7 @@ contains
        enddo
 
        print*, ' '
-       print*, 'df_dy:'
+       print*, 'upstream df_dy:'
        do j = ny-2, 2, -1
           do i = 1, nx-1
              write(6,'(f7.4)',advance='no') df_dy(i,j)
@@ -794,8 +610,151 @@ contains
 
     endif
 
-
   end subroutine glissade_upstream_gradient
+
+!****************************************************************************
+
+  subroutine glissade_edge_gradient(nx,           ny,        &
+                                    dx,           dy,        &
+                                    f,                       &
+                                    df_dx,        df_dy,     &
+                                    gradient_margin_in,      &
+                                    ice_mask,     land_mask)
+
+    ! Given a scalar variable f on the unstaggered grid (dimension nx, ny),
+    ! compute its gradient (df_dx, df_dy) at cell edges (i.e., the C grid):
+    ! df_dx at the midpoint of the east edge and df_dy at the midpoint of
+    ! the north edge.
+
+    !----------------------------------------------------------------
+    ! Input-output arguments
+    !----------------------------------------------------------------
+
+    integer, intent(in) ::      &
+       nx, ny                   ! horizontal grid dimensions
+
+    real(dp), intent(in) ::     &
+       dx, dy                   ! grid cell length and width                                           
+                                ! assumed to have the same value for each grid cell  
+
+    real(dp), dimension(nx,ny), intent(in) ::       &
+       f                        ! scalar field, defined at cell centers
+
+    real(dp), dimension(nx-1,ny-1), intent(out) ::    &
+       df_dx, df_dy             ! gradient components, defined at cell edges
+
+    integer, intent(in), optional ::    &
+       gradient_margin_in       ! 0: use all values when computing gradient (including zeroes where ice is absent)
+                                ! 1: use values in ice-covered and/or land cells (but not ocean cells)
+                                !    if one or more values is masked out, set gradient to zero
+                                ! 2: use values in ice-covered cells only
+                                !    if one or more values is masked out, set gradient to zero
+
+    integer, dimension(nx,ny), intent(in), optional ::        &
+       ice_mask,     &          ! = 1 where ice is present, else = 0
+       land_mask                ! = 1 for land cells, else = 0
+
+    !--------------------------------------------------------
+    ! Local variables
+    !--------------------------------------------------------
+
+    integer, dimension(nx,ny) :: mask
+    integer :: gradient_margin
+    integer :: i, j
+
+    !   Gradient at east edge(i,j) is based on f(i:i+1,j)
+    !   Gradient at north edge(i,j) is based on f(i,j:j+1)
+    ! 
+    !   |             |
+    !   |   (i,j+1)   |
+    !   |             |
+    !   |             |
+    !   ----df_dy------------------
+    !   |             |  
+    !   |             |
+    !   |   (i,j)   df_dx   (i+1,j)
+    !   |             |
+    !   |             |
+    !   |--------------
+
+    if (present(gradient_margin_in)) then
+       gradient_margin = gradient_margin_in
+    else
+       gradient_margin = HO_GRADIENT_MARGIN_ICE_LAND
+    endif
+
+    ! Initialize gradients to zero
+    df_dx(:,:) = 0.d0
+    df_dy(:,:) = 0.d0
+
+    ! Set integer mask based on gradient_margin.
+
+    if (gradient_margin == HO_GRADIENT_MARGIN_ALL) then
+
+       mask(:,:) = 1             ! = 1 for all cells
+
+    elseif (gradient_margin == HO_GRADIENT_MARGIN_ICE_LAND) then
+
+       if (present(land_mask) .and. present(ice_mask)) then
+          mask(:,:) = max(ice_mask(:,:),land_mask(:,:))    ! = 1 if ice_mask = 1 .or. land_mask = 1 
+       else
+          call write_log('Must pass in land and ice masks to compute edge gradient with gradient_margin = 1', GM_FATAL)
+       endif
+
+    elseif (gradient_margin == HO_GRADIENT_MARGIN_ICE_ONLY) then
+
+       if (present(ice_mask)) then
+          mask(:,:) = ice_mask(:,:)    ! = 1 for ice-covered cells
+       else
+          call write_log('Must pass in ice mask to compute edge gradient with gradient_margin = 2', GM_FATAL)
+       endif
+
+    endif
+
+    ! Compute the gradients using info in cells with mask = 1
+
+    do j = 1, ny-1
+       do i = 1, nx-1
+
+          ! df_dx
+
+          if (mask(i,j)==1 .and. mask(i+1,j)==1) then
+             df_dx(i,j) = (f(i+1,j) - f(i,j)) / dx
+          endif
+
+          ! df_dy
+
+          if (mask(i,j)==1 .and. mask(i,j+1)==1) then
+             df_dy(i,j) = (f(i,j+1) - f(i,j)) / dy
+          endif
+
+       enddo    ! i
+    enddo       ! j
+
+    if (verbose_gradient .and. main_task) then
+       print*, ' '
+       print*, 'Edge gradient:'
+       print*, ' '
+       print*, 'df_dx:'
+       do j = ny-1, 1, -1
+!!          do i = 1, nx-1
+          do i = nx/2, nx-1
+             write(6,'(f8.4)',advance='no') df_dx(i,j)
+          enddo
+          print*, ' '
+       enddo
+       print*, ' '
+       print*, 'df_dy:'
+       do j = ny-1, 1, -1
+!!          do i = 1, nx-1
+          do i = nx/2, nx-1
+             write(6,'(f8.4)',advance='no') df_dy(i,j)
+          enddo
+          print*, ' '
+       enddo
+    endif
+
+  end subroutine glissade_edge_gradient
 
 !----------------------------------------------------------------------------
 

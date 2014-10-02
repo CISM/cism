@@ -31,11 +31,11 @@
 !
 ! It is roughly based on module glissade_velo_higher but is much simpler, 
 !  computing only the SIA velocities. 
-! It is called with whichdycore = DYCORE_GLISSADE, which_ho_approx = SIMPLE_APPROX_SIA. 
+! It is called with whichdycore = DYCORE_GLISSADE, which_ho_approx = HO_APPROX_LOCAL_SIA. 
 !
 ! The calculation is similar to the one in Glide, except that it
 !  computes only the SIA velocity profile and does not evolve thickness.  
-! Thickness must be evolved separately using the glissade_transport module.
+! Thickness evolves separately using the glissade_transport module.
 !
 ! Unlike the Glide SIA calculation, this calculation is fully parallel.
 !
@@ -43,7 +43,7 @@
 !  explicit transport scheme, instead of an implicit diffusion calculation as in Glide.
 ! This can also be done using glissade_velo_higher, setting which_ho_approx = HO_APPROX_SIA.
 !  This uses the same numerical techniques as the higher-order solve but with only the
-!  SIA matrix elements.  However, HO_APPROX_SIA is more expensive than SIMPLE_APPROX_SIA, 
+!  SIA matrix elements.  However, HO_APPROX_SIA is more expensive than HO_APPROX_LOCAL_SIA, 
 !  and is somewhat less accurate for the Halfar test problem.
 !
 ! Author: William Lipscomb
@@ -59,7 +59,8 @@
 !    use glimmer_log, only: write_log
 
     use glide_types
-
+    use glissade_grid_operators, only: glissade_stagger, glissade_centered_gradient, &
+                                       glissade_edge_gradient
     use parallel
 
     implicit none
@@ -71,7 +72,11 @@
     logical, parameter :: verbose = .false.
     logical, parameter :: verbose_geom = .false.
     logical, parameter :: verbose_bed = .false.
-    logical, parameter :: verbose_interior = .false.
+!!    logical, parameter :: verbose_interior = .false.
+    logical, parameter :: verbose_interior = .true.
+
+    integer :: itest, jtest    ! coordinates of diagnostic point                                                                                    
+    integer :: rtest           ! task number for processor containing diagnostic point
 
   contains
 
@@ -80,9 +85,9 @@
   subroutine glissade_velo_sia_solve(model,                &
                                      nx,     ny,     nz)
 
-    use glissade_grid_operators, only: glissade_stagger, glissade_centered_gradient
     use glissade_temp, only: glissade_calcbpmp
-    
+    use glissade_masks, only: glissade_get_masks
+
 !TODO - Remove nx, ny, nz from argument list?
 !       Would then have to allocate some local arrays.
 
@@ -124,15 +129,21 @@
 
     real(dp)  ::   & 
        thklim, &                ! minimum ice thickness for active cells (m)
+       eus,  &                  ! eustatic sea level (m), = 0. by default
        btrc_const               ! constant basal traction ((m/yr)/Pa) for whichbtrc options
 
     integer :: &
-       whichbtrc                ! basal traction option for SIA
+       whichbtrc,              &! basal traction option for SIA
                                 ! Note: Several, but not all, of the Glide options are supported
+       whichgradient_margin     ! option for computing gradient at ice margin
+                                ! 0 = include all neighbor cells in gradient calculation
+                                ! 1 = include ice-covered and/or land cells
+                                ! 2 = include ice-covered cells only
 
     real(dp), dimension(:,:), pointer ::  &
        thck,                 &  ! ice thickness (m)
        usrf,                 &  ! upper surface elevation (m)
+       topg,                 &  ! elevation of topography (m) 
        bwat,                 &  ! basal water depth (m)
        btrc                     ! basal traction parameter (m/yr)/Pa), = 1/beta
 
@@ -160,7 +171,8 @@
        stagflwa               ! flwa averaged to staggered grid, Pa^(-n) yr^(-1)
 
     integer, dimension(nx,ny) ::     &
-       imask                  ! = 1 where ice is present, else = 0
+       ice_mask,            & ! = 1 where ice is present, else = 0
+       land_mask              ! = 1 for cells where topography is above sea level
 
     integer :: k
 
@@ -179,18 +191,39 @@
      dy = model%numerics%dns
 
      thklim = model%numerics%thklim
+     eus    = model%climate%eus
      btrc_const = model%velowk%btrac_const
      whichbtrc = model%options%whichbtrc
+     whichgradient_margin = model%options%which_ho_gradient_margin
 
      sigma    => model%numerics%sigma(:)
      thck     => model%geometry%thck(:,:)
      usrf     => model%geometry%usrf(:,:)
+     topg     => model%geometry%topg(:,:)
+
      bwat     => model%temper%bwat(:,:)
      btrc     => model%velocity%btrc(:,:)
      temp     => model%temper%temp(:,:,:)
      flwa     => model%temper%flwa(:,:,:)
+
      uvel     => model%velocity%uvel(:,:,:)
      vvel     => model%velocity%vvel(:,:,:)
+
+!WHL - debug
+     rtest = -999
+     itest = 1
+     jtest = 1
+     if (this_rank == model%numerics%rdiag_local) then
+        rtest = model%numerics%rdiag_local
+        itest = model%numerics%idiag_local
+        jtest = model%numerics%jdiag_local
+     endif
+
+    if (verbose .and. this_rank==rtest) then
+       print*, 'In glissade_velo_sia_solve'
+       print*, 'rank, itest, jtest =', rtest, itest, jtest
+    endif
+
 
     !--------------------------------------------------------
     ! Convert input variables to appropriate units for this solver.
@@ -200,59 +233,68 @@
 
     call glissade_velo_sia_scale_input(dx,     dy,            &
                                        thck,   usrf,          &
-                                       thklim, flwa,          &
+                                       topg,                  &
+                                       eus,    thklim,        &
+                                       flwa,                  &
                                        bwat,   btrc_const,    &
                                        uvel,   vvel)
 
 
-    ! WHL: Here we follow Glide in computing stagthck and stagflwa at cell vertices
-    !      (where Glide computes the diffusivity).  It would be possible to stagger
-    !      these quantities to cell edges instead.  I do not know if this would
-    !      make much difference in terms of accuracy and stability.
-    !       
+    !------------------------------------------------------------------------------
+    ! Compute masks: 
+    ! (1) ice mask = 1 in cells where ice is present (thck > thklim), = 0 elsewhere
+    ! (2) land mask = 1 in cells where topography is at or above sea level
+    !------------------------------------------------------------------------------
 
-    where (model%geometry%thck > model%numerics%thklim)
-       imask = 1
-    elsewhere
-       imask = 0
-    endwhere
+    call glissade_get_masks(nx,          ny,         &
+                            thck,        topg,       &
+                            eus,         thklim,     &
+                            ice_mask,                &
+                            land_mask = land_mask)
 
+!    where (thck > thklim)
+!       ice_mask = 1
+!    elsewhere
+!       ice_mask = 0
+!    endwhere
 
+    !------------------------------------------------------------------------------
     ! Compute staggered variables
     !
-    ! stag_flag_in = 0 gives Glide-style averaging
+    ! stagger_margin_in = 0 gives Glide-style averaging
     !  (ice-free cells are included in the average)
-    ! stag_flag_in = 1 omits ice-free cells from the average
+    ! stagger_margin_in = 1 omits ice-free cells from the average
     !
-    ! Setting stag_flag = 1 for stagthck gives slightly more accurate results 
-    !  for the Halfar SIA test than does stag_flag = 0.
+    ! Setting stagger_margin = 1 for stagthck gives slightly more accurate results 
+    !  for the Halfar SIA test than does stagger_margin = 0.
     !
-    ! Note: Glide in effect has stag_flag_in = 0 for all staggered variables.
+    ! Note: Glide in effect has stagger_margin_in = 0 for all staggered variables.
     ! This seems wrong for temp, bwat, bpmp and flwa.
+    !------------------------------------------------------------------------------
 
-    call glissade_stagger(nx,      ny,       &
-                          thck,    stagthck, &
-                          imask,   stag_flag_in = 1)
+    call glissade_stagger(nx,       ny,       &
+                          thck,     stagthck, &
+                          ice_mask, stagger_margin_in = 1)
 
     do k = 1, nz-1
        call glissade_stagger(nx,          ny,               &
                              flwa(k,:,:), stagflwa(k,:,:),  &
-                             imask,       stag_flag_in = 1)
+                             ice_mask,    stagger_margin_in = 1)
     enddo
 
     if (whichbtrc == BTRC_CONSTANT_BWAT) then
 
-       ! stag_flag_in = 1 omits empty cells from the average
+       ! stagger_margin_in = 1 omits empty cells from the average
 
        call glissade_stagger(nx,           ny,              &
                              bwat(:,:),    stagbwat(:,:),   &
-                             imask,        stag_flag_in = 1)
+                             ice_mask,     stagger_margin_in = 1)
 
     elseif (whichbtrc == BTRC_CONSTANT_TPMP) then
 
        call glissade_stagger(nx,           ny,         &
                              temp(nz,:,:), stagbtemp,  &
-                             imask,        stag_flag_in = 1)
+                             ice_mask,     stagger_margin_in = 1)
        
        ! Note: glissade_calcbpmp expects dimensionless thickness
 
@@ -261,20 +303,32 @@
 
        call glissade_stagger(nx,           ny,           &
                              bpmp(:,:),    stagbpmp(:,:), &
-                             imask,        stag_flag_in = 1)
+                             ice_mask,     stagger_margin_in = 1)
 
     endif    ! whichbtrc
 
     ! Compute surface elevation gradient
     !
-    ! grad_flag_in = 0 gives Glide-style gradient
-    !  (ice-free cells included in the gradient)
+    ! Here a centered gradient is OK because the interior velocities
+    !  are computed along cell edges, so checkerboard noise is damped
+    !  (unlike Glissade finite-element calculations).
+    ! gradient_margin_in = 0 (HO_GRADIENT_MARGIN_ALL) gives a Glide-style gradient
+    !  (ice-free cells included in the gradient).  This works well for shallow-ice problems.
+    ! gradient_margin_in = 1 (HO_GRADIENT_MARGIN_ICE_LAND) computes the gradient
+    !  using ice-covered and/or land points.  It is equivalent to HO_GRADIENT_MARGIN_ALL
+    !  for the land-based problems where an SIA solver would usually be applied, and is the
+    !  default value.
+    ! gradient_margin_in = 2 (HO_GRADIENT_MARGIN_ICE) computes the gradient
+    !  using ice-covered points only.  This scheme is very inaccurate for the
+    !  Halfar problem because it underestimates margin velocities.
 
-    call glissade_centered_gradient(nx,       ny,         &
-                                    dx,       dy,         &
-                                    usrf,                 &
-                                    dusrf_dx, dusrf_dy,   &
-                                    imask,    grad_flag_in = 0)
+    call glissade_centered_gradient(nx,        ny,          &
+                                    dx,        dy,          &
+                                    usrf,                   &
+                                    dusrf_dx,  dusrf_dy,    &
+                                    ice_mask,               &
+                                    gradient_margin_in = whichgradient_margin, &
+                                    land_mask = land_mask)
 
 !WHL - debug
     if (verbose .and. main_task) then
@@ -392,50 +446,81 @@
     call glissade_velo_sia_interior(nx,       ny,       nz,  &
                                     dx,       dy,            &
                                     sigma,    thklim,        &
-                                    usrf,     stagthck,     &
-                                    dusrf_dx, dusrf_dy,     &
-                                    stagflwa,               &
+                                    usrf,     stagthck,      &
+                                    dusrf_dx, dusrf_dy,      &
+                                    stagflwa,                &
+                                    ice_mask, land_mask,     &
+                                    whichgradient_margin,    &
                                     ubas,     vbas,          &
                                     uvel,     vvel)
 
     if (verbose_interior .and. main_task) then
 
-       k = 1
-
        print*, ' '
-       print*, 'uvel, k = 1:'
-       do i = 1, nx-1
-          write(6,'(i7)',advance='no') i
+       print*, 'stagthck:'
+!       do i = 1, nx-1
+       do i = nx/2, nx-1
+          write(6,'(i8)',advance='no') i
        enddo
        print*, ' '
        do j = ny-1, 1, -1
           write(6,'(i4)',advance='no') j
-          do i = 1, nx-1
-             write(6,'(f7.2)',advance='no') uvel(k,i,j)
+!          do i = 1, nx-1
+          do i = nx/2, nx-1
+             write(6,'(f8.2)',advance='no') stagthck(i,j)
+          enddo
+          print*, ' '
+       enddo
+
+       k = 1
+       print*, ' '
+       print*, 'uvel, k = 1:'
+!       do i = 1, nx-1
+       do i = nx/2, nx-1
+          write(6,'(i8)',advance='no') i
+       enddo
+       print*, ' '
+       do j = ny-1, 1, -1
+          write(6,'(i4)',advance='no') j
+!          do i = 1, nx-1
+          do i = nx/2, nx-1
+             write(6,'(f8.0)',advance='no') uvel(k,i,j)
           enddo
           print*, ' '
        enddo
 
        print*, ' '
        print*, 'vvel, k = 1:'
-       do i = 1, nx-1
-          write(6,'(i7)',advance='no') i
+!       do i = 1, nx-1
+       do i = nx/2, nx-1
+          write(6,'(i8)',advance='no') i
        enddo
        print*, ' '
        do j = ny-1, 1, -1
           write(6,'(i4)',advance='no') j
-          do i = 1, nx-1
-             write(6,'(f7.2)',advance='no') vvel(k,i,j)
+!          do i = 1, nx-1
+          do i = nx/2, nx-1
+             write(6,'(f8.0)',advance='no') vvel(k,i,j)
           enddo
           print*, ' '
        enddo
 
+       !WHL - debug                                                                                                                                                              
+       print*, 'Computed new velocity'
+       i = itest
+       j = jtest
+       print*, 'i, j =', i, j
+       print*, 'k, uvel, vvel:'
+       do k = 1, nz
+          print*, k, uvel(k,i,j), vvel(k,i,j)
+       enddo
+       
     endif   ! verbose_interior
 
     ! Convert back to dimensionless units before returning
 
     call glissade_velo_sia_scale_output(thck,    usrf,       &
-                                        flwa,                &
+                                        topg,    flwa,       &
                                         bwat,    btrc,       &
                                         uvel,    vvel)
 
@@ -445,7 +530,9 @@
 
   subroutine glissade_velo_sia_scale_input(dx,     dy,            &
                                            thck,   usrf,          &
-                                           thklim, flwa,          &
+                                           topg,                  &
+                                           eus,    thklim,        &
+                                           flwa,                  &
                                            bwat,   btrc_const,    &
                                            uvel,   vvel)
 
@@ -459,9 +546,11 @@
 
     real(dp), dimension(:,:), intent(inout) ::   &
        thck,                &  ! ice thickness
-       usrf                    ! upper surface elevation
+       usrf,                &  ! upper surface elevation
+       topg                    ! elevation of topography 
 
     real(dp), intent(inout) ::   &
+       eus,  &                 ! eustatic sea level (= 0 by default)
        thklim,  &              ! minimum ice thickness for active cells
        btrc_const              ! constant basal traction ((m/yr)/Pa) for whichbtrc options
 
@@ -481,6 +570,8 @@
     ! ice geometry: rescale from dimensionless to m
     thck = thck * thk0
     usrf = usrf * thk0
+    topg = topg * thk0
+    eus  = eus  * thk0
     thklim = thklim * thk0
 
     ! rate factor: rescale from dimensionless to Pa^(-n) yr^(-1)
@@ -502,7 +593,7 @@
 !*********************************************************************
 
     subroutine glissade_velo_sia_scale_output(thck,    usrf,     &
-                                              flwa,              &
+                                              topg,    flwa,     &
                                               bwat,    btrc,     &
                                               uvel,    vvel)
 
@@ -513,7 +604,8 @@
 
     real(dp), dimension(:,:), intent(inout) ::  &
        thck,                 &  ! ice thickness
-       usrf                     ! upper surface elevation
+       usrf,                 &  ! upper surface elevation
+       topg                     ! elevation of topography
 
     real(dp), dimension(:,:,:), intent(inout) ::  &
        flwa                     ! flow factor in units of Pa^(-n) yr^(-1)
@@ -528,6 +620,7 @@
     ! Convert geometry variables from m to dimensionless units
     thck = thck / thk0
     usrf = usrf / thk0
+    topg = topg / thk0
 
     ! Convert flow factor from Pa^(-n) yr^(-1) to dimensionless units
     flwa = flwa / (vis0*scyr)
@@ -673,6 +766,8 @@
                                         usrf,     stagthck,     &
                                         dusrf_dx, dusrf_dy,     &
                                         stagflwa,               &
+                                        ice_mask, land_mask,    &
+                                        whichgradient_margin,   &
                                         ubas,     vbas,         &
                                         uvel,     vvel)
 
@@ -704,6 +799,16 @@
     real(dp), dimension(nz-1, nx-1,ny-1), intent(in) ::   &
        stagflwa                 ! flwa averaged to vertices (Pa^(-n) yr^(-1))
 
+    integer, dimension(nx,ny), intent(in) ::     &
+       ice_mask,              & ! = 1 where ice is present, else = 0
+       land_mask                ! = 1 for cells where topography is above sea level
+
+    integer, intent(in) ::   &
+       whichgradient_margin     ! option for computing gradient at ice margin
+                                ! 0 = include all neighbor cells in gradient calculation
+                                ! 1 = include ice-covered and/or land cells
+                                ! 2 = include ice-covered cells only
+
     real(dp), dimension(nz, nx-1,ny-1), intent(out) ::   &
        uvel, vvel               ! velocity components at vertices (m/yr)
 
@@ -714,34 +819,45 @@
     integer :: i, j, k
 
     real(dp) ::   &
-       siafact,               & ! SIA premultiply factor
-       dsdx_edge, dsdy_edge     ! surface elevation gradient at cell edges
+       siafact                  ! factor in SIA velocity calculation
 
     real(dp), dimension(nz,nx-1,ny-1) ::   &
-       vintfact,              & ! vertically integrated SIA factor
-       uedge, vedge             ! velocity components at edges (m/yr)
+       vintfact                 ! vertically integrated SIA factor at vertices
+
+    real(dp), dimension(nx,ny) ::   &
+       uedge, vedge             ! velocity components at cell edges (m/yr)
                                 ! u on E edge, v on N edge (C grid)
+    real(dp), dimension(nx-1,ny-1) ::  &
+       dusrf_dx_edge,         &  ! upper surface elevation gradient at cell edges (m/m)
+       dusrf_dy_edge
 
 !WHL - debug
-    real(dp), dimension(nx-1,ny-1) :: diffu, uflx, vflx
+    real(dp), dimension(nx-1,ny-1) :: diffu
+
+    ! Initialize
+    uvel(nz,:,:) = ubas(:,:)
+    vvel(nz,:,:) = vbas(:,:)
+    uvel(1:nz-1,:,:) = 0.d0
+    vvel(1:nz-1,:,:) = 0.d0
 
     ! Compute vertically integrated factor for velocity calculation.
-    ! As in Glide, this factor is located at cell vertices.
-    ! TODO: Try putting this factor on cell edges?
+    ! As in Glide, this factor is located at cell vertices and is < 0 by definition.
 
+    ! Loop over all vertices
+    !TODO - Make sure stagthck, stagflwa, and dusrf_dx/dy are correct in halos
     do j = 1, ny-1
        do i = 1, nx-1
           
           if (stagthck(i,j) > thklim) then
 
-             siafact = 2.d0 * (rhoi*grav)**gn * stagthck(i,j)**(gn+1)       &
-                            * (dusrf_dx(i,j)**2 + dusrf_dy(i,j)**2) ** ((gn-1)/2)
+             siafact = 2.d0 * (rhoi*grav)**gn * stagthck(i,j)**(gn+1)             &
+                             * (dusrf_dx(i,j)**2 + dusrf_dy(i,j)**2) ** ((gn-1)/2)
 
              vintfact(nz,i,j) = 0.d0
 
              do k = nz-1, 1, -1
 
-                vintfact(k,i,j) = vintfact(k+1,i,j) -                              &
+                vintfact(k,i,j) = vintfact(k+1,i,j) -                             &
                                   siafact * stagflwa(k,i,j)                       &
                                           * ((sigma(k) + sigma(k+1))/2.d0) ** gn  &
                                           * (sigma(k+1) - sigma(k))
@@ -757,90 +873,92 @@
        enddo      ! i
     enddo         ! j
 
-    ! Compute ice velocity components at cell edges
-    ! (u at E edge, v at N edge)
+!WHL - debug
+    if (verbose_interior .and. this_rank==rtest) then
+       i = itest
+       j = jtest
+       print*, ' '
+       print*, 'i, j =', itest, jtest
+       print*, 'k, vintfact, stagthck, dusrf_dx:'
+       do k = nz-1, 1, -1
+          print*, k, vintfact(k,i,j), stagthck(i,j), dusrf_dx(i,j)
+       enddo
+    endif
 
-    do j = 1, ny-1
-       do i = 1, nx-1
-
-          ! east edges
-
-          if (stagthck(i,j) > thklim .and. stagthck(i,j-1) > thklim) then
-
-             uedge(nz,i,j) = (ubas(i,j) + ubas(i,j-1)) / 2.d0
-
-             dsdx_edge = (usrf(i+1,j) - usrf(i,j)) / dx
-
-             do k = nz-1, 1, -1
-
-                uedge(k,i,j) = uedge(nz,i,j) +                                  &
-                                (vintfact(k,i,j) + vintfact(k,i,j-1))/2.d0  * dsdx_edge
-
-             enddo   ! k
-
-          else  ! stagthck < thklim
-
-             uedge(:,i,j) = 0.d0
-
-          endif
-
-          ! north edges
-
-          if (stagthck(i,j) > thklim .and. stagthck(i-1,j) > thklim) then
-
-             vedge(nz,i,j) = (vbas(i,j) + vbas(i-1,j)) / 2.d0
-
-             dsdy_edge = (usrf(i,j+1) - usrf(i,j)) / dy
-
-             do k = nz-1, 1, -1
-
-                vedge(k,i,j) = vedge(nz,i,j) +                                  &
-                                (vintfact(k,i,j) + vintfact(k,i-1,j))/2.d0 * dsdy_edge
-
-             enddo   ! k
-
-          else  ! stagthck < thklim
-
-             vedge(:,i,j) = 0.d0
-
-          endif
-
-          if (verbose_interior .and. main_task) then
-             !WHL - debug - Compute diffusivitity (as defined by Glide) at vertex(i,j)
+    !WHL - debug - Compute diffusivitity (as defined by Glide) at vertex(i,j)
+    if (verbose_interior .and. main_task) then
+       do j = 1, ny-1
+          do i = 1, nx-1
              diffu(i,j) = 0.d0
              do k = 1, nz-1
                 diffu(i,j) = diffu(i,j) - (vintfact(k,i,j) + vintfact(k+1,i,j))/2.d0 * (sigma(k+1) - sigma(k)) * stagthck(i,j)
              enddo
+          enddo     ! i
+       enddo        ! j
+    endif
 
-             !WHL - debug - Compute uflx and vflx that would be associated with uedge and vedge
-             uflx(i,j) = 0.d0 !uedge(nz,i,j)*stagthck(i,j)
-             vflx(i,j) = 0.d0 !uedge(nz,i,j)*stagthck(i,j)
-             do k = 1, nz-1
-                uflx(i,j) = uflx(i,j) + uedge(k,i,j) * (sigma(k+1) - sigma(k)) * stagthck(i,j)
-                vflx(i,j) = vflx(i,j) + vedge(k,i,j) * (sigma(k+1) - sigma(k)) * stagthck(i,j)
-             enddo
-          endif
+    ! Compute ice velocity components at cell edges (u at E edge, v at N edge; relative to bed).
+    ! Then interpolate the edge velocities to cell vertices.
+    ! Note: By default, whichgradient_margin = HO_GRADIENT_MARGIN_ICE_LAND = 1, which generally
+    !       works well for shallow-ice problems.  Using HO_GRADIENT_MARGIN_ALL = 0 gives
+    !       identical results for land-based problems.  Using HO_GRADIENT_MARGIN_ICE_ONLY = 2
+    !       is likely to give less accurate results.
+    ! See comments above the call to glissade_centered_gradient.
 
-       enddo     ! i
-    enddo        ! j
+    call glissade_edge_gradient(nx,               ny,             &
+                                dx,               dy,             &
+                                usrf,                             &
+                                dusrf_dx_edge,    dusrf_dy_edge,  &
+                                gradient_margin_in = whichgradient_margin, &
+                                ice_mask = ice_mask,              &
+                                land_mask = land_mask)
+    
+    do k = nz-1, 1, -1
 
-    ! Average edge velocities to vertices
-    ! Do this for locally owned vertices only, then do halo update
+       uedge(:,:) = 0.d0
+       vedge(:,:) = 0.d0
 
-    do j = nhalo+1, ny-nhalo
-       do i = nhalo+1, nx-nhalo
+       ! Loop over cells, skipping outer halo rows to stay in bounds
+          
+       ! east edges
+       do j = 2, ny-1
+          do i = 1, nx-1
+             if (stagthck(i,j) > thklim .and. stagthck(i,j-1) > thklim) then
+                uedge(i,j) = (vintfact(k,i,j) + vintfact(k,i,j-1))/2.d0 * dusrf_dx_edge(i,j)
+             endif
+          enddo     ! i
+       enddo        ! j
+       
+       ! north edges
+       do j = 1, ny-1
+          do i = 2, nx-1
+             if (stagthck(i,j) > thklim .and. stagthck(i-1,j) > thklim) then
+                vedge(i,j) = (vintfact(k,i,j) + vintfact(k,i-1,j))/2.d0 * dusrf_dy_edge(i,j)
+             endif
+          enddo     ! i
+       enddo        ! j
+       
+          ! halo update not needed provided nhalo >= 2
+!       call parallel_halo(uedge)
+!       call parallel_halo(vedge)
 
-          uvel(:,i,j) = (uedge(:,i,j) + uedge(:,i,j+1)) / 2.d0 
-          vvel(:,i,j) = (vedge(:,i,j) + vedge(:,i+1,j)) / 2.d0 
- 
+       ! Do this for locally owned vertices only, then do halo update
+       
+       do j = nhalo+1, ny-nhalo
+          do i = nhalo+1, nx-nhalo
+             uvel(k,i,j) = ubas(i,j) + (uedge(i,j) + uedge(i,j+1)) / 2.d0 
+             vvel(k,i,j) = vbas(i,j) + (vedge(i,j) + vedge(i+1,j)) / 2.d0 
+          enddo
        enddo
-    enddo
+       
+    enddo           ! k
 
     call staggered_parallel_halo(uvel)
     call staggered_parallel_halo(vvel)
 
 !WHL - debug
-    if (verbose_interior .and. main_task) then
+!!    if (verbose_interior .and. main_task) then
+    if (verbose_interior .and. main_task .and. 0==1) then
        print*, ' '
        print*, 'diffu (m^2/yr):'
        do i = 1, nx-1
@@ -851,20 +969,6 @@
           write(6,'(i3)',advance='no') j
           do i = 1, nx-1
              write(6,'(f8.0)',advance='no') diffu(i,j)
-          enddo
-          print*, ' '
-       enddo
-
-       print*, ' '
-       print*, 'uflx (m^2/yr):'
-       do i = 1, nx-1
-          write(6,'(i8)',advance='no') i
-       enddo
-       print*, ' '
-       do j = ny-1, 1, -1
-          write(6,'(i3)',advance='no') j
-          do i = 1, nx-1
-             write(6,'(f8.0)',advance='no') uflx(i,j)
           enddo
           print*, ' '
        enddo

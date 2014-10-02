@@ -47,18 +47,19 @@
     implicit none
 
     private
-    public :: slap_preprocess, slap_postprocess,    &
+    public :: slap_preprocess_3d,  slap_preprocess_2d,   &
+              slap_postprocess_3d, slap_postprocess_2d,  &
               slap_compute_residual_vector, slap_solve_test_matrix
 
-    interface slap_preprocess
-       module procedure slap_preprocess_3d
-       module procedure slap_preprocess_2d
-    end interface
+!    interface slap_preprocess
+!       module procedure slap_preprocess_3d
+!       module procedure slap_preprocess_2d
+!    end interface
 
-    interface slap_postprocess
-       module procedure slap_postprocess_3d
-       module procedure slap_postprocess_2d
-    end interface
+!    interface slap_postprocess
+!       module procedure slap_postprocess_3d
+!       module procedure slap_postprocess_2d
+!    end interface
 
   contains
 

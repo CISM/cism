@@ -76,7 +76,7 @@ contains
       !  which compute shallow-ice velocities instead.
       !-------------------------------------------------------------------
       
-      if (model%options%which_ho_approx == SIMPLE_APPROX_SIA) then
+      if (model%options%which_ho_approx == HO_APPROX_LOCAL_SIA) then
  
          call glissade_velo_sia_solve (model,                                       &
                                        model%general%ewn,      model%general%nsn,   &

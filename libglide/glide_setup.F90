@@ -607,7 +607,10 @@ contains
     call GetValue(section, 'which_ho_approx',    model%options%which_ho_approx)
     call GetValue(section, 'which_ho_precond',   model%options%which_ho_precond)
     call GetValue(section, 'which_ho_gradient',  model%options%which_ho_gradient)
+    call GetValue(section, 'which_ho_gradient_margin', model%options%which_ho_gradient_margin)
+    call GetValue(section, 'which_ho_assemble_beta',   model%options%which_ho_assemble_beta)
     call GetValue(section, 'which_ho_ground',    model%options%which_ho_ground)
+    call GetValue(section, 'glissade_maxiter',   model%options%glissade_maxiter)
 
   end subroutine handle_ho_options
 
@@ -772,11 +775,12 @@ contains
          'Native PCG solver, Chronopoulos-Gear       ', &
          'Trilinos interface                         '/)
 
-    character(len=*), dimension(-1:2), parameter :: ho_whichapprox = (/ &
-         'SIA only (glissade_velo_sia)            ', &
-         'SIA only (glissade_velo_higher)         ', &
-         'SSA only (glissade_velo_higher)         ', &
-         'Blatter-Pattyn HO (glissade_velo_higher)' /)
+    character(len=*), dimension(-1:3), parameter :: ho_whichapprox = (/ &
+         'SIA only (glissade_velo_sia)                ', &
+         'SIA only (glissade_velo_higher)             ', &
+         'SSA only (glissade_velo_higher)             ', &
+         'Blatter-Pattyn HO (glissade_velo_higher)    ', &
+         'Depth-integrated L1L2 (glissade_velo_higher)' /)
 
     character(len=*), dimension(0:2), parameter :: ho_whichprecond = (/ &
          'No preconditioner (glissade PCG)        ', &
@@ -784,8 +788,17 @@ contains
          'SIA preconditioner (glissade PCG)       ' /)
 
     character(len=*), dimension(0:1), parameter :: ho_whichgradient = (/ &
-         'Centered gradient (glissade dycore)      ', &
-         'Upstream gradient (glissade dycore)      ' /)
+         'centered gradient (glissade dycore)      ', &
+         'upstream gradient (glissade dycore)      ' /)
+
+    character(len=*), dimension(0:2), parameter :: ho_whichgradient_margin = (/ &
+         'all neighbor cells in gradient (glissade dycore)         ', &
+         'ice-covered &/or land cells in gradient (glissade dycore)', &
+         'only ice-covered cells in gradient (glissade dycore)     ' /)
+
+    character(len=*), dimension(0:1), parameter :: ho_whichassemble_beta = (/ &
+         'standard finite-element assembly (glissade dycore) ', &
+         'use local beta for assembly (glissade dycore)      '  /)
 
     character(len=*), dimension(0:2), parameter :: ho_whichground = (/ &
          'f_ground = 0 or 1; no GLP  (glissade dycore)       ', &
@@ -849,11 +862,13 @@ contains
     ! Forbidden options associated with Glam and Glissade dycores
    
     if (model%options%whichdycore == DYCORE_GLISSADE) then 
-       if (model%options%which_ho_approx == HO_APPROX_SSA .and.                  &
-                (model%options%which_ho_sparse == HO_SPARSE_PCG_STANDARD .or.    &
-                 model%options%which_ho_sparse == HO_SPARSE_PCG_CHRONGEAR) ) then
+       if ( (model%options%which_ho_approx == HO_APPROX_SSA .or. &
+             model%options%which_ho_approx == HO_APPROX_L1L2)    &
+                                .and.                            &
+             (model%options%which_ho_sparse == HO_SPARSE_PCG_STANDARD .or.    &
+              model%options%which_ho_sparse == HO_SPARSE_PCG_CHRONGEAR) ) then
           if (model%options%which_ho_precond == HO_PRECOND_SIA) then
-             call write_log('Error, cannot use SIA preconditioning for SSA solve', GM_FATAL)
+             call write_log('Error, cannot use SIA preconditioning for 2D solve', GM_FATAL)
           endif
        endif
     endif
@@ -866,9 +881,10 @@ contains
     endif
 
     if (model%options%whichdycore == DYCORE_GLAM) then
-       if (model%options%which_ho_approx == SIMPLE_APPROX_SIA .or.   &
-           model%options%which_ho_approx == HO_APPROX_SIA     .or.   &
-           model%options%which_ho_approx == HO_APPROX_SSA) then 
+       if (model%options%which_ho_approx == HO_APPROX_LOCAL_SIA .or.   &
+           model%options%which_ho_approx == HO_APPROX_SIA       .or.   &
+           model%options%which_ho_approx == HO_APPROX_SSA       .or.   &
+           model%options%which_ho_approx == HO_APPROX_L1L2) then 
           call write_log('Error, Glam dycore must use higher-order Blatter-Pattyn approximation', GM_FATAL)
        endif
     endif
@@ -917,7 +933,7 @@ contains
     end if
 
     !WHL - Currently, not all basal traction options are supported for the Glissade SIA solver
-    if (model%options%whichdycore == DYCORE_GLISSADE .and. model%options%which_ho_approx == SIMPLE_APPROX_SIA) then
+    if (model%options%whichdycore == DYCORE_GLISSADE .and. model%options%which_ho_approx == HO_APPROX_LOCAL_SIA) then
        if (model%options%whichbtrc > BTRC_CONSTANT_TPMP) then
           call write_log('Error, slip_coeff out of range for Glissade dycore',GM_FATAL)
        end if
@@ -1056,12 +1072,31 @@ contains
              call write_log('Error, gradient option out of range for glissade dycore', GM_FATAL)
           end if
 
+          write(message,*) 'ho_whichgradient_margin : ',model%options%which_ho_gradient_margin,  &
+                            ho_whichgradient_margin(model%options%which_ho_gradient_margin)
+          call write_log(message)
+          if (model%options%which_ho_gradient_margin < 0 .or. &
+              model%options%which_ho_gradient_margin >= size(ho_whichgradient_margin)) then
+             call write_log('Error, gradient margin option out of range for glissade dycore', GM_FATAL)
+          end if
+
+          write(message,*) 'ho_whichassemble_beta   : ',model%options%which_ho_assemble_beta,  &
+                            ho_whichground(model%options%which_ho_assemble_beta)
+          call write_log(message)
+          if (model%options%which_ho_assemble_beta < 0 .or. &
+              model%options%which_ho_assemble_beta >= size(ho_whichassemble_beta)) then
+             call write_log('Error, beta assembly option out of range for glissade dycore', GM_FATAL)
+          end if
+
           write(message,*) 'ho_whichground          : ',model%options%which_ho_ground,  &
                             ho_whichground(model%options%which_ho_ground)
           call write_log(message)
           if (model%options%which_ho_ground < 0 .or. model%options%which_ho_ground >= size(ho_whichground)) then
              call write_log('Error, ground option out of range for glissade dycore', GM_FATAL)
           end if
+
+          write(message,*) 'glissade_maxiter        : ',model%options%glissade_maxiter
+          call write_log(message)
 
        end if
 
