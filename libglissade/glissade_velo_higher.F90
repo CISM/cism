@@ -222,8 +222,8 @@
 !    logical :: verbose_gridop= .true.
     logical :: verbose_dirichlet = .false.
 !    logical :: verbose_dirichlet= .true.
-!    logical :: verbose_L1L2 = .false.
-    logical :: verbose_L1L2 = .true.
+    logical :: verbose_L1L2 = .false.
+!    logical :: verbose_L1L2 = .true.
 
 !WHL - debug
     logical :: trial_efvs = .false.   ! if true, compute what nonlinear efvs would be (if not constant)
