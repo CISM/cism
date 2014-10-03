@@ -185,7 +185,7 @@
     logical, parameter ::  &
        check_symmetry = .true.   ! if true, then check symmetry of assembled matrix
 
-!WHL - debug - compressed_ssa option to be removed later
+!TODO - compressed_ssa option to be removed
     logical, parameter ::   &
 !       compressed_ssa = .true.  ! temporary SSA solve where assembled 3D matrix is compressed to 2D
        compressed_ssa = .false.  ! if false, then solve SSA with an assembled 2D matrix
@@ -826,6 +826,10 @@
     integer, dimension((nx-1)*(ny-1)) ::   &
        iVertexIndex, jVertexIndex   ! i and j indices of vertices
 
+    real(dp), dimension(nx-1,ny-1) ::  &
+       uvel_2d, vvel_2d   ! components of 2D velocity solution
+                          ! (= basal velocity, for the 3D solution)
+
     real(dp), dimension(:,:,:), allocatable ::  &
        Auu_2d, Auv_2d,   &! assembled stiffness matrix, divided into 4 parts
        Avu_2d, Avv_2d     ! 1st dimension = 9 (node and its nearest neighbors in x and y direction) 
@@ -836,7 +840,6 @@
        loadu_2d, loadv_2d ! assembled load vector, divided into 2 parts
 
     real(dp), dimension(:,:), allocatable ::  &
-       uvel_2d, vvel_2d, &! components of 2D velocity solution
        usav_2d, vsav_2d
 
     real(dp), dimension(:,:), allocatable ::  &
@@ -982,9 +985,13 @@
        if (main_task) print*, 'Solving Blatter-Pattyn higher-order approximation'
     endif
 
-    if (whichapprox == HO_APPROX_SSA .or. whichapprox == HO_APPROX_L1L2) then  ! 2D solve
+    ! initialize 2D velocity to basal 3D velocity
+    uvel_2d(:,:) = uvel(nz,:,:)
+    vvel_2d(:,:) = vvel(nz,:,:)
+
+    if (whichapprox == HO_APPROX_SSA .or. whichapprox == HO_APPROX_L1L2) then  ! 2D assemble/solve
        solve_2d = .true.
-    else   ! 3D assemble and solve
+    else   ! 3D assemble/solve
        solve_2d = .false.
     endif
 
@@ -1003,17 +1010,11 @@
        allocate(bv_2d(nx-1,ny-1))
        allocate(loadu_2d(nx-1,ny-1))
        allocate(loadv_2d(nx-1,ny-1))
-       allocate(uvel_2d(nx-1,ny-1))
-       allocate(vvel_2d(nx-1,ny-1))
        allocate(usav_2d(nx-1,ny-1))
        allocate(vsav_2d(nx-1,ny-1))
        allocate(resid_u_2d(nx-1,ny-1))
        allocate(resid_v_2d(nx-1,ny-1))
        allocate(tau_parallel(nz-1,nx,ny))
-
-       ! initialize 2D velocity to basal 3D velocity
-       uvel_2d(:,:) = uvel(nz,:,:)
-       vvel_2d(:,:) = vvel(nz,:,:)
     endif
 
     if (.not.solve_2d .or. compressed_ssa) then 
@@ -1723,18 +1724,22 @@
           enddo
        endif
        
+       ! For 3D solve, copy basal velocity into uvel_2d and vvel_2d
+       if (.not. solve_2d) then
+          uvel_2d(:,:) = uvel(nz,:,:)
+          vvel_2d(:,:) = vvel(nz,:,:)
+       endif
+
        call calcbeta (whichbabc,                        &
                       dx,            dy,                &
                       nx,            ny,                &
-                      uvel(nz,:,:),  vvel(nz,:,:),      &
+                      uvel_2d,       vvel_2d,           &
                       bwat,          ho_beta_const,     &
                       mintauf,                          &
                       stagmask,      beta)
 
        call staggered_parallel_halo(beta)
 
-       !WHL - debug
-       
        if (verbose_beta) then
           maxbeta = maxval(beta(:,:))
           maxbeta = parallel_reduce_max(maxbeta)
@@ -1750,15 +1755,9 @@
                 write(6,'(e10.3)',advance='no') beta(i,j)
              enddo
              write(6,*) ' '
-          enddo
-          
+          enddo          
           print*, ' '
           print*, 'max, min beta (Pa/(m/yr)) =', maxbeta, minbeta
-          i = 10
-          print*, 'uvel(nz), vvel(nz), beta, i =', i
-          do j = ny-1, 1, -1
-             write(6,'(i3, 3f16.3)') j, uvel(nz,i,j), vvel(nz,i,j), beta(i,j)
-          enddo
        endif
 
        !-------------------------------------------------------------------
@@ -2884,7 +2883,6 @@
        deallocate(Auu_2d, Auv_2d, Avu_2d, Avv_2d)
        deallocate(bu_2d, bv_2d)
        deallocate(loadu_2d, loadv_2d)
-       deallocate(uvel_2d, vvel_2d)
        deallocate(usav_2d, vsav_2d)
        deallocate(resid_u_2d, resid_v_2d)
     endif
