@@ -574,7 +574,7 @@ module glide_types
     !*FD \item[1] Use info from ice-covered and/or land cells, not ice-free ocean
     !*FD \item[2] Use info from ice-covered cells only
 
-    integer :: which_ho_assemble_beta = 0
+    integer :: which_ho_assemble_beta = 1
 
     !*FD Flag that describes how beta terms are assembled in the glissade finite-element calculation
     !*FD \begin{description}
