@@ -1134,11 +1134,13 @@ contains
 
     call GetValue(section,'ho_beta_const',     model%paramets%ho_beta_const)
 
+    ! Friction law parameters
     call GetValue(section, 'friction_powerlaw_roughness_slope', model%basal_physics%friction_powerlaw_roughness_slope)
     call GetValue(section, 'coulomb_c', model%basal_physics%Coulomb_C)
     call GetValue(section, 'coulomb_bump_max_slope', model%basal_physics%Coulomb_Bump_max_slope)
     call GetValue(section, 'coulomb_bump_wavelength', model%basal_physics%Coulomb_bump_wavelength)
 
+    ! ocean penetration parameterization parameter
     call GetValue(section,'p_ocean_penetration', model%paramets%p_ocean_penetration)
 
     ! added for ismip-hom
@@ -1250,7 +1252,9 @@ contains
 
     if (model%options%which_ho_babc == HO_BABC_COULOMB_FRICTION) then
        write(message,*) 'C coefficient for Coulomb friction law : ', model%basal_physics%Coulomb_C
+       call write_log(message)
        write(message,*) 'bed bump max. slope for Coulomb friction law : ', model%basal_physics%Coulomb_Bump_max_slope
+       call write_log(message)
        write(message,*) 'bed bump wavelength for Coulomb friction law : ', model%basal_physics%Coulomb_bump_wavelength
        call write_log(message)
     end if
