@@ -112,8 +112,6 @@ contains
     use glimmer_paramets, only: tau0, vel0, thk0
     use glimmer_physcon, only: scyr
 
-!!    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
-
     implicit none
 
     type(glide_global_type), intent(inout) :: model   ! model instance
@@ -392,8 +390,6 @@ contains
     !TODO - Reorganize to put isostasy and calving at start of step?
 
     use parallel
-!!    use glimmer_horiz_bcs, only: horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns, &
-!!                                 horiz_bcs_unstag_scalar
 
     use glimmer_paramets, only: tim0, len0, vel0, thk0
     use glimmer_physcon, only: scyr
@@ -559,24 +555,17 @@ contains
       call t_startf('new_remap_halo_upds')
 
        call staggered_parallel_halo(model%velocity%uvel)
-!       call horiz_bcs_stag_vector_ew(model%velocity%uvel)
-
        call staggered_parallel_halo(model%velocity%vvel)
-!       call horiz_bcs_stag_vector_ns(model%velocity%vvel)
 
        call parallel_halo(model%geometry%thck)
-!       call horiz_bcs_unstag_scalar(model%geometry%thck)
 
        if (model%options%whichtemp == TEMP_PROGNOSTIC) then
           call parallel_halo(model%temper%temp)
-!          call horiz_bcs_unstag_scalar(model%temper%temp)
        endif
 
        if (model%options%whichtemp == TEMP_ENTHALPY) then
           call parallel_halo(model%temper%temp)
           call parallel_halo(model%temper%waterfrac)
-!          call horiz_bcs_unstag_scalar(model%temper%temp)
-!          call horiz_bcs_unstag_scalar(model%temper%waterfrac)
        endif
 
       call t_stopf('new_remap_halo_upds')
@@ -710,15 +699,11 @@ contains
          call t_startf('after_remap_haloupds')
 
          call parallel_halo(model%geometry%thck)
-!         call horiz_bcs_unstag_scalar(model%geometry%thck)
-
          call parallel_halo(model%temper%temp)
-!         call horiz_bcs_unstag_scalar(model%temper%temp)
 
           ! Halo updates of other tracers, if present, would need to go here
          if (model%options%whichtemp == TEMP_ENTHALPY) then
             call parallel_halo(model%temper%waterfrac)
-!            call horiz_bcs_unstag_scalar(model%temper%waterfrac)
          endif
 
          call t_stopf('after_remap_haloupds')
@@ -741,7 +726,6 @@ contains
     end select
 
     call parallel_halo(model%geometry%topg)
-!    call horiz_bcs_unstag_scalar(model%geometry%topg)
 
     ! ------------------------------------------------------------------------
     ! Update the upper and lower ice surface
@@ -775,10 +759,7 @@ contains
 
     ! TODO: glide_set_mask includes a halo update of model%geometry%thkmask; move it here?
     call parallel_halo(model%geometry%thkmask) 
-!    call horiz_bcs_unstag_scalar(model%geometry%thkmask)
-
     call parallel_halo(model%isostasy%relx)
-!    call horiz_bcs_unstag_scalar(model%isostasy%relx)
 
     call glide_marinlim(model%options%whichmarn, &
          model%geometry%thck,  &
@@ -801,7 +782,6 @@ contains
     ! halo updates
 
     call parallel_halo(model%geometry%thck)    ! Updated halo values of thck are needed below in calc_lsrf
-!    call horiz_bcs_unstag_scalar(model%geometry%thck)   
 
 !TODO - Remove this call to glide_set_mask?
 !      This subroutine is called at the beginning of glissade_velo_driver,
@@ -823,7 +803,6 @@ contains
 !       That update should be moved here if needed later (but may not be needed).
 
     ! call parallel_halo(model%geometry%thkmask) in previous glide_set_mask call
-    ! call horiz_bcs_unstag_scalar(model%geometry%thkmask)
 
     ! --- Calculate area of ice that is floating and grounded.
     !TODO This subroutine does not use iarea - remove from the call/subroutine.
@@ -899,9 +878,7 @@ contains
     use glissade_temp, only: glissade_calcflwa
     use glam_velo, only: glam_velo_driver
     use glissade_velo, only: glissade_velo_driver
-!!    use glide_stress, only : glide_calcstrsstr
     use glide_velo, only: wvelintg
-!!    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar, horiz_bcs_stag_scalar, horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns
 
     use glam_grid_operators, only: glam_geometry_derivs, stagthickness
     use felix_dycore_interface, only: felix_velo_driver
@@ -1156,14 +1133,9 @@ contains
 !       because these can be derived directly from the 3D uvel and vvel arrays
 
     call staggered_parallel_halo(model%velocity%velnorm)
-    !       call horiz_bcs_stag_scalar(model%velocity%velnorm)
     call staggered_parallel_halo(model%velocity%ubas)
-    !       call horiz_bcs_stag_vector_ew(model%velocity%ubas)
     call staggered_parallel_halo(model%velocity%vbas)
-    !       call horiz_bcs_stag_vector_ns(model%velocity%vbas)
-
     call parallel_halo(model%stress%efvs)
-    !       call horiz_bcs_unstag_scalar(model%stress%efvs)
 
      !WHL - Removed this call because tau is now computed more accurately in glissade_velo_higher.F90.
 !!    call glide_calcstrsstr( model )       !*sfp* added for populating stress tensor w/ HO fields
@@ -1172,7 +1144,7 @@ contains
 
 !=======================================================================
 
-  ! Not currently called; may not be worth having a separate subroutine for this
+  !TODO: Not currently called; may not be worth having a separate subroutine for this
 
   subroutine parallel_halo_scalars(thck,     temp,   &
                                    lsrf,     usrf,   &
@@ -1195,31 +1167,21 @@ contains
     integer :: nt   ! tracer index
 
     call parallel_halo(thck)
-!    call horiz_bcs_unstag_scalar(thck)
-
     call parallel_halo(temp)
-!!   call horiz_bcs_unstag_scalar(temp)
 
     ! optional updates for geometry variables
 
-    if (present(lsrf)) then
-       call parallel_halo(lsrf)
-!       call horiz_bcs_unstag_scalar(lsrf)
-    endif
+    if (present(lsrf)) call parallel_halo(lsrf)
 
     if (present(usrf)) then
        if (present(lsrf)) then   ! compute usrf = lsrf + thck; no halo call needed
           usrf(:,:) = lsrf(:,:) + thck(:,:)
        else
           call parallel_halo(usrf)
-!          call horiz_bcs_unstag_scalar(usrf)
        endif
     endif
 
-    if (present(topg)) then
-       call parallel_halo(topg)
-!       call horiz_bcs_unstag_scalar(topg)
-    endif
+    if (present(topg)) call parallel_halo(topg)
 
     ! optional update for 3D tracers (e.g., ice age)
 
@@ -1227,7 +1189,6 @@ contains
 
        do nt = 1, ntracer
           call parallel_halo(tracers(:,:,:,nt))
-!          call horiz_bcs_unstag_scalar(tracers(:,:,:,nt))
        enddo
 
     endif

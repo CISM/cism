@@ -318,7 +318,6 @@ contains
 
       use parallel
         use glimmer_physcon, only:pi
-!!        use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
         implicit none
         !*FD This subroutine derives from the given mask the normal to an ice shelf
         !*FD each point on the marine margin.
@@ -402,7 +401,6 @@ contains
         end do
         if (.NOT. exec_serial_flag) then
            call parallel_halo(marine_bc_normal)
-!           call horiz_bcs_unstag_scalar(marine_bc_normal)
         endif
     end subroutine
 
@@ -507,7 +505,6 @@ contains
 
     subroutine upwind_from_mask(mask, direction_x, direction_y, exec_serial)
       use parallel
-!!        use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
         integer, dimension(:,:), intent(in) :: mask
         double precision, dimension(:,:), intent(out) :: direction_x, direction_y
         logical, optional :: exec_serial  !JEFF If executing in serial in MPI program.
@@ -596,10 +593,9 @@ contains
 
         if (.NOT. exec_serial_flag) then
             call parallel_halo(direction_x)
-!            call horiz_bcs_unstag_scalar(direction_x)
             call parallel_halo(direction_y)
-!            call horiz_bcs_unstag_scalar(direction_y)
         endif
+
     end subroutine upwind_from_mask
 
 end module glide_mask

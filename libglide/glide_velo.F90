@@ -761,8 +761,7 @@ contains
 
     !TODO The name of this subroutine is confusing.  It is called wvel but it does not calculate wvel, only wgrd.
 
-    use parallel
-!!    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
+    use parallel  !TODO - Remove?
     implicit none 
 
     !------------------------------------------------------------------------------------
@@ -815,7 +814,6 @@ contains
 
 !TODO - Remove halo call? wgrd is needed only for the old temperature code, which is not supported in parallel.
     call parallel_halo(wgrd)
-!    call horiz_bcs_unstag_scalar(wgrd)
 
   end subroutine gridwvel
 
@@ -832,8 +830,7 @@ contains
     !*FD \]
     !*FD (This is equation 13 in {\em Payne and Dongelmans}.) Note that this is only 
     !*FD done if the thickness is greater than the threshold given by \texttt{numerics\%thklim}.
-    use parallel
-!!    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
+    use parallel  !TODO - Remove?
     implicit none
 
     !------------------------------------------------------------------------------------
@@ -933,7 +930,6 @@ contains
 
 !TODO - Remove halo call? wvel is needed only for the old temperature code, which is not supported in parallel.
     call parallel_halo(wvel)
-!    call horiz_bcs_unstag_scalar(wvel)
 
   end subroutine wvelintg
 
@@ -1013,7 +1009,6 @@ contains
 
 !TODO - Remove halo call?  wvel is needed only for the old temperature code, which is not supported in parallel.
     call parallel_halo(wvel)
-!    call horiz_bcs_unstag_scalar(wvel)
 
   end subroutine chckwvel
 

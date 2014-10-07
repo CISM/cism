@@ -29,8 +29,7 @@ module parallel
   use netcdf
   implicit none
 
-!PW - Repeat from glimmer_horiz_bcs_parallel.F90; needs to be set some place
-!     which can be 'used' by both the parallel and glimmer_horiz_bcs modules
+!PW - Repeat from glimmer_horiz_bcs_parallel.F90
   integer, parameter, private :: HORIZ_BCS_WALL_SLIP = 0
   integer, parameter, private :: HORIZ_BCS_CYCLIC = 1
 

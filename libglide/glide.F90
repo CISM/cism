@@ -144,7 +144,6 @@ contains
     use glimmer_coordinates, only: coordsystem_new
     use glide_diagnostics, only: glide_init_diag
     use glide_bwater
-!!    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
 
     use parallel, only: distributed_grid
 

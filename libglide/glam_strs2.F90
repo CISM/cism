@@ -276,7 +276,6 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                             efvs )
 
   use parallel
-!!  use glimmer_horiz_bcs, only: horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns, horiz_bcs_unstag_scalar
   use glimmer_paramets, only: GLC_DEBUG
 
   implicit none
@@ -764,9 +763,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
  call t_startf("PICARD_halo_upds")
     ! coordinate halos for updated uvel and vvel
     call staggered_parallel_halo(uvel)
-!    call horiz_bcs_stag_vector_ew(uvel)
     call staggered_parallel_halo(vvel)
-!    call horiz_bcs_stag_vector_ns(vvel)
  call t_stopf("PICARD_halo_upds")
 
     !call dumpvels("After mindcrsh", uvel, vvel)
@@ -832,16 +829,11 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
 !        locally owned velocity points.
 
   call parallel_halo(efvs)
-!  call horiz_bcs_unstag_scalar(efvs)
-
   call staggered_parallel_halo(btraction)
 
   !TODO - Pretty sure we don't need these updates; uflx and vflx are not used elsewhere.
   call staggered_parallel_halo(uflx)
-!  call horiz_bcs_stag_vector_ew(uflx)
-
   call staggered_parallel_halo(vflx)
-!  call horiz_bcs_stag_vector_ns(vflx)
 
   if (GLC_DEBUG) then
      !JEFF Debugging Output to see what differences in final vvel and tvel.
@@ -882,7 +874,6 @@ end subroutine glam_velo_solver
 subroutine JFNK_velo_solver  (model,umask)
 
   use parallel
-!!  use glimmer_horiz_bcs, only: horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns,  horiz_bcs_unstag_scalar
   use glimmer_paramets, only: GLC_DEBUG
 
   use iso_c_binding 
@@ -1269,9 +1260,7 @@ end if
  !PW following are needed for glam_velo_fordsiapstr - putting here until can be convinced
  !   that they are not needed (or that they should be delayed until later)
   call staggered_parallel_halo(uvel)
-!  call horiz_bcs_stag_vector_ew(uvel)
   call staggered_parallel_halo(vvel)
-!  call horiz_bcs_stag_vector_ns(vvel)
 
 !TODO - Not sure we need these two updates
 !       I think we do not need an update for efvs, because it is already computed in a layer of halo cells.
@@ -1279,15 +1268,11 @@ end if
 !        locally owned velocity points.
 
   call parallel_halo(efvs)
-!  call horiz_bcs_unstag_scalar(efvs)
-
   call staggered_parallel_halo(btraction)
 
 !TODO - Probably do not need these two updates
   call staggered_parallel_halo(uflx)
-!  call horiz_bcs_stag_vector_ew(uflx)
   call staggered_parallel_halo(vflx)
-!  call horiz_bcs_stag_vector_ns(vflx)
 
  call t_stopf("JFNK_post")
 
@@ -2254,7 +2239,6 @@ end subroutine reset_effstrmin
   use iso_c_binding  
   use glide_types ,only : glide_global_type
   use parallel
-!!  use glimmer_horiz_bcs, only: horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns
 
   implicit none
 
@@ -2366,9 +2350,7 @@ end subroutine reset_effstrmin
     ! coordinate halos for updated uvel and vvel
  call t_startf("Calc_F_uvhalo_upd")
     call staggered_parallel_halo(uvel)
-!    call horiz_bcs_stag_vector_ew(uvel)
     call staggered_parallel_halo(vvel)
-!    call horiz_bcs_stag_vector_ns(vvel)
  call t_stopf("Calc_F_uvhalo_upd")
 
  call t_startf("Calc_F_findefvsstr")
@@ -3077,7 +3059,6 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
 
   use glissade_basal_traction, only: calcbeta
   use parallel
-!!  use glimmer_horiz_bcs, only: ghost_shift
 
   implicit none
 

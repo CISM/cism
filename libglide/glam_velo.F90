@@ -63,7 +63,6 @@ contains
         use glide_grid_operators, only: stagvarb    !TODO - Is this needed?  Seems redundant with df_field_2d_staggered
         use glide_mask
         use glide_stress
-!!        use glimmer_horiz_bcs, only: horiz_bcs_stag_scalar
 
         use glimmer_paramets, only: tau0, vel0
         use glimmer_physcon, only: scyr
@@ -145,17 +144,9 @@ contains
         !TODO - Not sure these are needed.
         !Halo updates required for inputs to glide_stress?
         call staggered_parallel_halo (model%geomderv%dusrfdew)
-        !       call horiz_bcs_stag_vector_ew(model%geomderv%dusrfdew)
-
         call staggered_parallel_halo (model%geomderv%dusrfdns)
-        !       call horiz_bcs_stag_vector_ns(model%geomderv%dusrfdns)
-
         call staggered_parallel_halo (model%geomderv%dthckdew)
-        !       call horiz_bcs_stag_vector_ew(model%geomderv%dthckdew)
-
         call staggered_parallel_halo (model%geomderv%dthckdns)
-        !       call horiz_bcs_stag_vector_ns(model%geomderv%dthckdns)
-
         ! call parallel_halo(model%geometry%thkmask) in earlier glide_set_mask call
 
         ! Compute the new geometry derivatives for this time step
@@ -183,7 +174,6 @@ contains
                             model%climate%eus,       model%geometry%stagmask)
 
         !        call stag_parallel_halo (model%geometry%stagmask)
-        !        call horiz_bcs_stag_scalar (model%geometry%stagmask)
 
         !Augment masks with kinematic boundary condition info
         call augment_kinbc_mask(model%geometry%thkmask, model%velocity%kinbcmask)

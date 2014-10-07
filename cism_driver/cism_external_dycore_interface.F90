@@ -40,8 +40,6 @@ subroutine cism_init_external_dycore(external_dycore_type,model)
   use glimmer_commandline
   use glimmer_writestats
   use glimmer_filenames, only : filenames_init
-  use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar, horiz_bcs_stag_vector_ew, &
-                                horiz_bcs_stag_vector_ns, horiz_bcs_stag_scalar
 
   use glide_diagnostics
 
@@ -94,8 +92,6 @@ subroutine cism_run_external_dycore(external_dycore_model_index,cur_time,time_in
   use glimmer_commandline
   use glimmer_writestats
   use glimmer_filenames, only : filenames_init
-  use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar, horiz_bcs_stag_vector_ew, &
-                                horiz_bcs_stag_vector_ns, horiz_bcs_stag_scalar
 
   use glide_diagnostics
 

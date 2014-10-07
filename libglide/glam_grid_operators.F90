@@ -1166,7 +1166,6 @@ contains
     subroutine d2f_field(f, deltax, deltay, d2fdx2, d2fdy2, direction_x, direction_y)
 
         use parallel
-!!        use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
         implicit none 
 
         real(dp), intent(out), dimension(:,:) :: d2fdx2, d2fdy2
@@ -1223,9 +1222,7 @@ contains
 !TODO:  If halo updates are needed, they should be done at a higher level.
 
         call parallel_halo(d2fdx2)
-!        call horiz_bcs_unstag_scalar(d2fdx2)
         call parallel_halo(d2fdy2)
-!        call horiz_bcs_unstag_scalar(d2fdy2)
 
     end subroutine d2f_field
 

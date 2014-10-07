@@ -171,7 +171,6 @@ contains
 
     ! simple subroutine to calculate the flux at the grounding line
 
-    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
     implicit none
 
     !JEFF removing pointer attribute integer, dimension(:,:),pointer       :: mask    !*FD grid type mask
@@ -197,7 +196,6 @@ contains
 
     !TODO - Pretty sure this is not needed.  gline_flux is just a diagnostic.
     call parallel_halo(gline_flux)
-    call horiz_bcs_unstag_scalar(gline_flux)
 
   end subroutine calc_gline_flux
 
