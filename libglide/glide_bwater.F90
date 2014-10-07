@@ -63,6 +63,10 @@ contains
 
     real(dp), parameter :: const_bwat = 10.d0   ! constant value for basal water depth (m)
 
+    ! Variables used by BWATER_OCEAN_PENETRATION
+    real(dp), allocatable, dimension(:,:) :: Haf
+    real(dp) :: ocean_p
+
 ! TODO: move these declarations into a parameters derived type?
     c_effective_pressure = 0.0d0       ! For now estimated with c/w
     c_flux_to_depth = 1./(1.8d-3*12.0d0)  ! 
@@ -145,6 +149,14 @@ contains
        ! Normalized basal water 
 
 !!     bwat = model%basalproc%Hwater / thk0
+
+    case(BWATER_OCEAN_PENETRATION)
+
+            allocate(Haf(model%general%ewn,model%general%nsn))
+            ocean_p = model%paramets%p_ocean_penetration
+            Haf = max(-f*(topg-model%climate%eus),0.d0) 
+            model%basal_physics%effecpress = rhoi*grav*thck*(1.0d0-thck/Haf)**ocean_p
+            deallocate(Haf)
 
     case default   ! includes BWATER_NONE
 

@@ -690,11 +690,12 @@ contains
          'linear function of bmlt', &
          'tanh function of bwat  ' /)
 
-    character(len=*), dimension(0:3), parameter :: basal_water = (/ &
+    character(len=*), dimension(0:4), parameter :: basal_water = (/ &
          'none                     ', &
          'local water balance      ', &
          'local + steady-state flux', &
-         'Constant value (= 10 m)  ' /)
+         'Constant value (= 10 m)  ', &
+         'ocean penetration        ' /)
 !!         'From basal proc model    '/) ! not supported
 
       ! basal proc model is disabled for now.
@@ -746,7 +747,7 @@ contains
          '1st order model (Blatter-Pattyn)  ' /)
 !!         '1-st order depth-integrated (SSA) ' /)  ! not supported
 
-    character(len=*), dimension(0:8), parameter :: ho_whichbabc = (/ &
+    character(len=*), dimension(0:10), parameter :: ho_whichbabc = (/ &
          'constant beta                          ', &
          'simple pattern of beta                 ', &
          'till yield stress (Picard)             ', &
@@ -755,7 +756,9 @@ contains
          'beta passed from CISM                  ', &
          'no slip (Dirichlet implementation)     ', &
          'till yield stress (Newton)             ', &
-         'beta as in ISMIP-HOM test C            '/)
+         'beta as in ISMIP-HOM test C            ', &
+         'power law using effective pressure     ', &
+         'Coulomb friction law using effec press ' /)
 
     character(len=*), dimension(0:1), parameter :: which_ho_nonlinear = (/ &
          'use standard Picard iteration  ', &
@@ -1166,6 +1169,15 @@ contains
 
     call GetValue(section,'ho_beta_const',     model%paramets%ho_beta_const)
 
+    ! Friction law parameters
+    call GetValue(section, 'friction_powerlaw_roughness_slope', model%basal_physics%friction_powerlaw_roughness_slope)
+    call GetValue(section, 'coulomb_c', model%basal_physics%Coulomb_C)
+    call GetValue(section, 'coulomb_bump_max_slope', model%basal_physics%Coulomb_Bump_max_slope)
+    call GetValue(section, 'coulomb_bump_wavelength', model%basal_physics%Coulomb_bump_wavelength)
+
+    ! ocean penetration parameterization parameter
+    call GetValue(section,'p_ocean_penetration', model%paramets%p_ocean_penetration)
+
     ! added for ismip-hom
     call GetValue(section,'periodic_offset_ew',model%numerics%periodic_offset_ew)
     call GetValue(section,'periodic_offset_ns',model%numerics%periodic_offset_ns)
@@ -1266,6 +1278,25 @@ contains
        if (model%general%ewn /= model%general%nsn) then
           call write_log('Error, must have ewn = nsn for ISMIP-HOM test C', GM_FATAL)
        endif
+    endif
+
+    if (model%options%which_ho_babc == HO_BABC_POWERLAW) then
+       write(message,*) 'roughness slope for power-law friction law : ',model%basal_physics%friction_powerlaw_roughness_slope
+       call write_log(message)
+    end if
+
+    if (model%options%which_ho_babc == HO_BABC_COULOMB_FRICTION) then
+       write(message,*) 'C coefficient for Coulomb friction law : ', model%basal_physics%Coulomb_C
+       call write_log(message)
+       write(message,*) 'bed bump max. slope for Coulomb friction law : ', model%basal_physics%Coulomb_Bump_max_slope
+       call write_log(message)
+       write(message,*) 'bed bump wavelength for Coulomb friction law : ', model%basal_physics%Coulomb_bump_wavelength
+       call write_log(message)
+    end if
+
+    if (model%options%whichbwat == BWATER_OCEAN_PENETRATION) then
+      write(message,*) 'p_ocean_penetration : ', model%paramets%p_ocean_penetration
+      call write_log(message)
     endif
 
     if (model%numerics%idiag < 1 .or. model%numerics%idiag > model%general%ewn     &
@@ -1614,7 +1645,7 @@ contains
         ! beta - b.c. needed for runs with sliding - could add logic to only include in that case
         ! flwa is not needed for glissade.
         ! TODO not sure if thkmask is needed for HO
-        call glide_add_to_restart_variable_list('uvel vvel beta thkmask')
+        call glide_add_to_restart_variable_list('uvel vvel thkmask')
 
     end select
 
@@ -1636,6 +1667,15 @@ contains
         call glide_add_to_restart_variable_list('waterfrac')
       case default
         ! no restart variables needed
+    end select
+
+    select case (options%which_ho_babc)
+      case (HO_BABC_POWERLAW, HO_BABC_COULOMB_FRICTION)
+        ! These friction laws need effective pressure
+        call glide_add_to_restart_variable_list('effecpress')
+      case default
+        ! Most other HO basal boundary conditions need the beta field  (although there are a few that don't)
+        call glide_add_to_restart_variable_list('beta')
     end select
 
     ! geothermal heat flux option

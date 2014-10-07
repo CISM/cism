@@ -1750,6 +1750,9 @@
                       uvel_2d,       vvel_2d,           &
                       bwat,          ho_beta_const,     &
                       mintauf,                          &
+                      model%basal_physics,              &
+                      flwa(nz-1,:,:),                   &  ! basal flwa layer
+                      thck,                             &
                       stagmask,      beta)
 
        call staggered_parallel_halo(beta)

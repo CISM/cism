@@ -61,6 +61,7 @@
   use glimmer_log,      only : write_log
   use glide_types
   use parallel,         only : staggered_parallel_halo  
+  use glissade_grid_operators
   !use glide_mask
 
   implicit none
@@ -76,7 +77,8 @@ contains
                        ewn,           nsn,           &
                        thisvel,       othervel,      &
                        bwat,          beta_const,    &
-                       mintauf,                      &
+                       mintauf,       basal_physics, &
+                       flwa_basal,    thck,          &
                        mask,          beta)
 
   ! subroutine to calculate map of beta sliding parameter, based on 
@@ -88,6 +90,7 @@ contains
   ! assumed to have the units given below.
      
   use glimmer_paramets, only: len0
+  use glimmer_physcon, only: gn
   use parallel, only: nhalo
 
   implicit none
@@ -98,11 +101,14 @@ contains
   integer, intent(in) :: ewn, nsn
 
   real(dp), intent(in)                    :: dew, dns           ! m
-  real(dp), intent(in), dimension(:,:)    :: thisvel, othervel  ! (m/yr)
+  real(dp), intent(in), dimension(:,:)    :: thisvel, othervel  ! basal velocity components (m/yr)
   real(dp), intent(in), dimension(:,:)    :: bwat     ! basal water depth (m)
   real(dp), intent(in), dimension(:,:)    :: mintauf  ! till yield stress (Pa)
   real(dp), intent(in)                    :: beta_const  ! spatially uniform beta (Pa yr/m)
-  integer, intent(in), dimension(:,:)     :: mask 
+  type(glide_basal_physics), intent(in) :: basal_physics  ! basal physics object
+  real(dp), intent(in), dimension(:,:) :: flwa_basal  ! flwa for the basal ice layer
+  real(dp), intent(in), dimension(:,:) :: thck  ! ice thickness
+  integer, intent(in), dimension(:,:)     :: mask ! staggered grid mask
   real(dp), intent(inout), dimension(:,:) :: beta  ! (Pa yr/m)
 
 !WHL - These masks are no longer used
@@ -126,6 +132,17 @@ contains
   real(dp) :: dx, dy
   integer :: ilo, ihi, jlo, jhi  ! limits of beta field for ISHOM C case
   integer :: i, j
+
+  ! variables for power law
+  real(dp) :: p, q
+
+  ! variables for Coulomb friction law
+  real(dp) :: Coulomb_C   ! friction coefficient
+  real(dp) :: lambda_max  ! wavelength of bedrock bumps at subgrid scale
+  real(dp) :: m_max       ! maximum bed obstacle slope
+  real(dp), dimension(size(beta,1), size(beta,2)) :: big_lambda       ! bed rock characteristics
+  integer, dimension(size(thck,1), size(thck,2))  :: imask            ! ice grid mask  1=ice, 0=no ice
+  real(dp), dimension(size(beta,1), size(beta,2)) :: flwa_basal_stag  ! flwa for the basal ice layer on the staggered grid
 
 
   select case(whichbabc)
@@ -271,9 +288,57 @@ contains
 
     ! NOTE: case (HO_BABC_YIELD_NEWTON) is handled external to this subroutine
 
-   case(HO_BABC_NO_SLIP)   ! In this case we have a Dirichlet basal BC, and the value of beta is not used
+    case(HO_BABC_NO_SLIP)   ! In this case we have a Dirichlet basal BC, and the value of beta is not used
 
       beta(:,:) = 0.d0
+
+    case(HO_BABC_POWERLAW)   ! A power law that uses effective pressure, of the form: Taub = C N^p ub^q
+       ! p and q should be _positive_ exponents
+       p = 1; q = 1
+
+       ! If q>1, this is nonlinear in velocity
+       beta = basal_physics%friction_powerlaw_roughness_slope * basal_physics%effecpress_stag**p    &
+              * dsqrt( thisvel(:,:)**2 + othervel(:,:)**2 )**(q-1)
+
+    case(HO_BABC_COULOMB_FRICTION)
+
+      ! Basal stress representation using coulomb friction law
+      ! Coulomb sliding law: Schoof 2005 PRS, eqn. 6.2  (see also Pimental, Flowers & Schoof 2010 JGR)
+
+      ! Need flwa of the basal layer on the staggered grid
+      where (thck > 0.0)
+        imask = 1
+      elsewhere
+        imask = 0
+      end where
+      call glissade_stagger(ewn,        nsn,               &
+                           flwa_basal,  flwa_basal_stag,   &
+                           imask,       stagger_margin_in = 1)
+      ! TODO Not sure if a halo update is needed on flwa_basal_stag!  I don't think so if nhalo>=2.
+
+      ! Setup parameters needed for the friction law
+      m_max = basal_physics%Coulomb_Bump_max_slope  !maximum bed obstacle slope(unitless)
+      lambda_max = basal_physics%Coulomb_bump_wavelength ! wavelength of bedrock bumps (m)
+      ! biglambda = wavelength of bedrock bumps [m] * flwa [Pa^-n yr^-1] / max bed obstacle slope [dimensionless]
+      big_lambda = lambda_max / m_max * flwa_basal_stag
+      Coulomb_C = basal_physics%Coulomb_C    ! Basal shear stress factor (Pa (m^-1 y)^1/3)
+      !gn                         ! Glen's flaw law from parameter module
+
+      beta = Coulomb_C * basal_physics%effecpress_stag * &
+             (dsqrt(thisvel**2 + othervel**2 + smallnum**2))**(1.0d0/gn - 1.0d0) * &
+             (                                                                     &
+              dsqrt(thisvel**2 + othervel**2 + smallnum**2) +                      &
+             basal_physics%effecpress_stag**gn * big_lambda                        &
+             )**(-1.0d0/gn)
+
+      ! for numerical stability purposes
+      where (beta>1.0d8)
+              beta = 1.0d8
+      end where
+
+
+    case default
+
 
    end select
 

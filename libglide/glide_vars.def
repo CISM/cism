@@ -402,6 +402,14 @@ data:          data%temper%bwatflx
 factor:        thk0
 coordinates:   lon lat
 
+[effecpress]
+dimensions:    time, y1, x1
+units:         Pa
+long_name:     effective pressure
+data:          data%basal_physics%effecpress
+load:          1
+coordinates:   lon lat
+
 [artm]
 dimensions:    time, y1, x1
 units:         degree_Celsius

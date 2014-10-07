@@ -223,6 +223,7 @@ contains
                                   model%paramets%ho_beta_const,                               &
                                   model%basalproc%mintauf,                                    &
                                   model%temper%bwat,                                          &
+                                  model%basal_physics,                                        &
                                   model%velocity%uvel, model%velocity%vvel,                   &
                                   model%velocity%uflx, model%velocity%vflx,                   &
                                   model%stress%efvs )

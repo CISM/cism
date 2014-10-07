@@ -131,6 +131,7 @@ module glide_types
   integer, parameter :: BWATER_LOCAL = 1
   integer, parameter :: BWATER_FLUX  = 2
   integer, parameter :: BWATER_CONST = 3
+  integer, parameter :: BWATER_OCEAN_PENETRATION = 4   ! effective pressure calculation with pw=ocean pressure for grounding line parameterisation (Leguy, et al., TC, 2014)
   !integer, parameter :: BWATER_BASAL_PROC = 4  ! not currently supported
 
   integer, parameter :: BASAL_MBAL_NO_CONTINUITY = 0
@@ -210,6 +211,8 @@ module glide_types
   integer, parameter :: HO_BABC_NO_SLIP = 6
   integer, parameter :: HO_BABC_YIELD_NEWTON = 7
   integer, parameter :: HO_BABC_ISHOMC = 8
+  integer, parameter :: HO_BABC_POWERLAW = 9
+  integer, parameter :: HO_BABC_COULOMB_FRICTION = 10
 
   integer, parameter :: HO_NONLIN_PICARD = 0
   integer, parameter :: HO_NONLIN_JFNK = 1
@@ -489,6 +492,8 @@ module glide_types
     !*FD \item[6] no slip everywhere (using Dirichlet BC rather than large beta)
     !*FD \item[7] treat beta value as till yield stress (in Pa) using Newton-type iteration (in development)
     !*FD \item[8] beta field as prescribed for ISMIP-HOM test C (serial only)
+    !*FD \item[9] power law based using effective pressure
+    !*FD \item[10] Coulomb friction law using effective pressure
     !*FD \end{description}
 
     integer :: which_ho_nonlinear = 0
@@ -928,6 +933,23 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  type glide_basal_physics
+      !< Holds variables related to basal physics associated with ice dynamics
+
+      ! see glissade_basal_traction.F90 for usage details
+      ! Note: It may make sense to move effecpress to a hydrology model when one is available.
+      real(dp), dimension(:,:), pointer :: effecpress => null()  !< effective pressure  
+      real(dp), dimension(:,:), pointer :: effecpress_stag => null() !< effective pressure staggered grid
+      ! paramter for friction law
+      real(dp) :: friction_powerlaw_roughness_slope = 0.5  !< the limiting roughness slope for the power-law friction law
+      ! Parameters for Coulomb friction sliding law (default values from Pimentel et al. 2010)
+      real(dp) :: Coulomb_C = 0.84d0*0.5d0        !< basal stress constant (no dimension)
+      real(dp) :: Coulomb_Bump_Wavelength = 2.0d0 !< bed rock wavelength at subgrid scale precision (m)
+      real(dp) :: Coulomb_Bump_max_slope = 0.5d0  !< maximum bed bump slope at subgrid scale precision (no dimension) 
+  end type glide_basal_physics
+
+  !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
   type glide_lithot_type
      !*FD holds variables for temperature calculations in the lithosphere
 
@@ -1185,6 +1207,7 @@ module glide_types
     real(dp) :: efvs_constant = 2336041.d0  ! value of efvs to use in constant efvs case, in units Pa yr
                                        ! = 0.5*A^(-1), where A = 2.140373 Pa^(-1) yr^(1) is the value used in ISMIP-HOM Test F
     real(dp) :: ho_beta_const = 10.d0  ! spatially uniform beta for HO dycores, Pa yr m^{-1} (gets scaled during init)
+    real(dp) :: p_ocean_penetration = 0.0d0  ! p-exponent parameter for ocean penetration parameterization
 
   end type glide_paramets
 
@@ -1277,6 +1300,7 @@ module glide_types
     type(glide_climate)  :: climate
     type(eismint_climate_type) :: eismint_climate
     type(glide_temper)   :: temper
+    type(glide_basal_physics)  :: basal_physics
     type(glide_lithot_type) :: lithot
     type(glide_funits)   :: funits
     type(glide_numerics) :: numerics
@@ -1577,6 +1601,14 @@ contains
        call coordsystem_allocate(model%general%velo_grid, model%geomderv%d2usrfdns2)
        call coordsystem_allocate(model%general%velo_grid, model%geomderv%d2thckdew2)
        call coordsystem_allocate(model%general%velo_grid, model%geomderv%d2thckdns2)
+    endif
+
+    ! Basal Physics
+    if ( (model%options%which_ho_babc == HO_BABC_POWERLAW) .or. &
+         (model%options%which_ho_babc == HO_BABC_COULOMB_FRICTION) .or. &
+         (model%options%whichbwat == BWATER_OCEAN_PENETRATION)     ) then
+       call coordsystem_allocate(model%general%ice_grid, model%basal_physics%effecpress)
+       call coordsystem_allocate(model%general%velo_grid, model%basal_physics%effecpress_stag)
     endif
 
     ! climate arrays
