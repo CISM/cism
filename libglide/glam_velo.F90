@@ -62,11 +62,18 @@ contains
         use glam_grid_operators,  only: glam_geometry_derivs, df_field_2d_staggered
         use glide_grid_operators, only: stagvarb    !TODO - Is this needed?  Seems redundant with df_field_2d_staggered
         use glide_mask
+        use glide_stress
 !!        use glimmer_horiz_bcs, only: horiz_bcs_stag_scalar
-        
+
+        use glimmer_paramets, only: tau0, vel0
+        use glimmer_physcon, only: scyr
+
         type(glide_global_type),intent(inout) :: model
 
         real(dp), dimension(model%general%ewn-1, model%general%nsn-1) :: latbc_norms_stag
+
+        logical, parameter :: verbose_glam_velo = .false.
+        integer :: i, j, k
 
         !-------------------------------------------------------------------
         ! Velocity prep; compute geometry info.
@@ -221,6 +228,29 @@ contains
                                   model%velocity%uflx, model%velocity%vflx,                   &
                                   model%stress%efvs )
            call t_stopf('glam_velo_solver')
+
+           ! Compute internal stresses
+           call glide_calcstrsstr(model)
+
+           !WHL - debug - output internal stresses and velocity at a diagnostic point
+           if (verbose_glam_velo .and. this_rank==model%numerics%rdiag_local) then
+              i = model%numerics%idiag_local
+              j = model%numerics%jdiag_local
+              print*, 
+              print*, ' '
+              print*, 'i, j =', i, j
+              print*, 'k, tau_xz, tau_yz, tau_xx, tau_yy, tau_xy, tau_eff:'
+              do k = 1, model%general%upn-1
+                 print*, k, tau0*model%stress%tau%xz(k,i,j), tau0*model%stress%tau%yz(k,i,j), &
+                            tau0*model%stress%tau%xx(k,i,j), tau0*model%stress%tau%yy(k,i,j), &
+                            tau0*model%stress%tau%xy(k,i,j), tau0*model%stress%tau%scalar(k,i,j) 
+              enddo
+              print*, 'New velocity: rank, i, j =', this_rank, i, j
+              print*, 'k, uvel, vvel:'
+              do k = 1, model%general%upn
+                 print*, k, vel0*scyr*model%velocity%uvel(k,i,j), vel0*scyr*model%velocity%vvel(k,i,j)
+              enddo
+           endif
 
         else if ( model%options%which_ho_nonlinear == HO_NONLIN_JFNK ) then ! JFNK
 

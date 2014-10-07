@@ -470,6 +470,7 @@ module glide_types
     !*FD \item[1] multiple of flow factor
     !*FD \item[2] compute from effective strain rate
 
+    !TODO - Change default to 1 for glissade?
     integer :: which_disp = 0
 
     !*FD Flag that indicates method for computing the dissipation during the temperature calc.
@@ -579,7 +580,7 @@ module glide_types
     !*FD \item[1] Use info from ice-covered and/or land cells, not ice-free ocean
     !*FD \item[2] Use info from ice-covered cells only
 
-    integer :: which_ho_assemble_beta = 1
+    integer :: which_ho_assemble_beta = 0
 
     !*FD Flag that describes how beta terms are assembled in the glissade finite-element calculation
     !*FD \begin{description}

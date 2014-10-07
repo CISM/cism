@@ -869,7 +869,7 @@ contains
     use glissade_temp, only: glissade_calcflwa
     use glam_velo, only: glam_velo_driver
     use glissade_velo, only: glissade_velo_driver
-    use glide_stress, only : glide_calcstrsstr
+!!    use glide_stress, only : glide_calcstrsstr
     use glide_velo, only: wvelintg
 !!    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar, horiz_bcs_stag_scalar, horiz_bcs_stag_vector_ew, horiz_bcs_stag_vector_ns
 
@@ -1118,8 +1118,7 @@ contains
           model%velocity%vvel_icegrid(:,i,j) = model%velocity%vvel(:,i,j)             
        enddo
     enddo
-        
-
+ 
     ! Calculate wvel, assuming grid velocity is 0.
     ! This calculated wvel relative to ice sheet base, rather than a fixed reference location
     ! Note, this current implementation for wvel only supports whichwvel=VERTINT_STANDARD
@@ -1134,7 +1133,6 @@ contains
                       model%velocity%wvel_ho)
     ! Note: halos may be wrong for wvel_ho, but since it is currently only used as an output diagnostic variable, that is fine.
 
-
 !TODO - Don't think we need to update ubas, vbas, or velnorm,
 !       because these can be derived directly from the 3D uvel and vvel arrays
 
@@ -1148,17 +1146,8 @@ contains
     call parallel_halo(model%stress%efvs)
     !       call horiz_bcs_unstag_scalar(model%stress%efvs)
 
-    !Tau is calculated in glide_stress and initialized in glide_types.
-
-    call glide_calcstrsstr( model )       !*sfp* added for populating stress tensor w/ HO fields
-
-    ! Includes halo updates of 
-    ! model%stress%tau%xx, model%stress%tau%yy, model%stress%tau%xy,
-    ! model%stress%tau%scalar, model%stress%tau%xz, model%stress%tau%yz
-
-    !HALO TODO - If the stress%tau halo updates are needed, they should go here (in glissade.F90)
-    !            But I think they are not needed.
-
+     !WHL - Removed this call because tau is now computed more accurately in glissade_velo_higher.F90.
+!!    call glide_calcstrsstr( model )       !*sfp* added for populating stress tensor w/ HO fields
 
   end subroutine glissade_diagnostic_variable_solve
 

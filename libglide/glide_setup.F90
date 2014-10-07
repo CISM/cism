@@ -1084,7 +1084,7 @@ contains
           end if
 
           write(message,*) 'ho_whichassemble_beta   : ',model%options%which_ho_assemble_beta,  &
-                            ho_whichground(model%options%which_ho_assemble_beta)
+                            ho_whichassemble_beta(model%options%which_ho_assemble_beta)
           call write_log(message)
           if (model%options%which_ho_assemble_beta < 0 .or. &
               model%options%which_ho_assemble_beta >= size(ho_whichassemble_beta)) then
