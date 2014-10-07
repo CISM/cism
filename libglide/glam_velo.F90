@@ -236,7 +236,7 @@ contains
            if (verbose_glam_velo .and. this_rank==model%numerics%rdiag_local) then
               i = model%numerics%idiag_local
               j = model%numerics%jdiag_local
-              print*, 
+              print*, ' '
               print*, ' '
               print*, 'i, j =', i, j
               print*, 'k, tau_xz, tau_yz, tau_xx, tau_yy, tau_xy, tau_eff:'
