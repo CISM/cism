@@ -563,7 +563,13 @@ data:          data%velocity%velnorm(up,:,:)
 factor:        scale_uvel
 coordinates:   lon lat
 
-# higher-order vertical shear stresses, required for ISMIP-HOM intercomparison
+[tau_eff]
+dimensions: time, staglevel, y1, x1
+units:      Pa
+long_name:  effective stress
+data:       data%stress%tau%scalar(up,:,:)
+factor:     scale_tau
+
 [tau_xz]
 dimensions: time, staglevel, y1, x1
 units:      Pa
