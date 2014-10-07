@@ -862,6 +862,10 @@ contains
        call write_log('Error, ISHOM basal BCs not supported for more than one processor', GM_FATAL)
     endif
 
+    if (tasks > 1 .and. model%options%whichbwat==BWATER_FLUX) then
+       call write_log('Error, flux-based basal water option not supported for more than one processor', GM_FATAL)
+    endif
+
     ! Forbidden options associated with Glam and Glissade dycores
    
     if (model%options%whichdycore == DYCORE_GLISSADE) then 

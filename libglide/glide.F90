@@ -143,6 +143,7 @@ contains
     use glimmer_map_init
     use glimmer_coordinates, only: coordsystem_new
     use glide_diagnostics, only: glide_init_diag
+    use glide_bwater
 !!    use glimmer_horiz_bcs, only: horiz_bcs_unstag_scalar
 
     use parallel, only: distributed_grid
@@ -292,6 +293,9 @@ contains
     !       If the temperature has been read already, this subroutine will *not* overwrite it.
   
     call glide_init_temp(model)
+
+    ! Initialize basal hydrology model, if enabled
+    call bwater_init(model)
 
     ! initialise thickness evolution calc
     call init_thck(model)
@@ -748,6 +752,7 @@ contains
     use glimmer_paramets, only: tim0
     use glimmer_physcon, only: scyr
     use glide_grid_operators
+    use glide_bwater
 
     type(glide_global_type), intent(inout) :: model     ! model instance
     real(dp),  intent(in)   :: time                     ! current time in years
@@ -820,6 +825,18 @@ contains
        model%temper%newtemps = .true.
 
        call glide_prof_stop(model,model%glide_prof%temperature)
+
+       ! Update hydrology, if needed ------------------------------------------------
+       call calcbwat(model, &
+                     model%options%whichbwat, &
+                     model%temper%bmlt, &
+                     model%temper%bwat, &
+                     model%temper%bwatflx, &
+                     model%geometry%thck, &
+                     model%geometry%topg, &
+                     model%temper%temp(model%general%upn,:,:), &
+                     GLIDE_IS_FLOAT(model%geometry%thkmask), &
+                     model%tempwk%wphi)
 
     end if
 

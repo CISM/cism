@@ -83,7 +83,6 @@ contains
 
     use glimmer_physcon, only : rhoi, shci, coni, scyr, grav, gn, lhci, rhow, trpt
     use glimmer_paramets, only : tim0, thk0, len0, vis0, vel0, tau0
-    use glide_bwater, only: find_dt_wat
     use parallel, only: lhalo, uhalo
     use glissade_enthalpy, only: glissade_init_enthalpy
 
@@ -91,7 +90,6 @@ contains
 
     integer, parameter :: p1 = gn + 1  
     integer up, ns, ew
-    real(dp) :: estimate
 
     !TODO - Should these allocations be done in glide_allocarr?
     !TODO -  Make sure the arrays allocated here are deallocated at the end of the run.
@@ -110,11 +108,6 @@ contains
     allocate(model%tempwk%dupa(model%general%upn))
     allocate(model%tempwk%dupb(model%general%upn))
     allocate(model%tempwk%dupc(model%general%upn))
-
-    allocate(model%tempwk%smth(model%general%ewn,model%general%nsn))  !TODO - Is this used for glissade?
-    allocate(model%tempwk%wphi(model%general%ewn,model%general%nsn))
-    allocate(model%tempwk%bwatu(model%general%ewn,model%general%nsn))
-    allocate(model%tempwk%bwatv(model%general%ewn,model%general%nsn))
 
     model%tempwk%dups = 0.0d0
 
@@ -173,34 +166,7 @@ contains
                         tim0 * vel0 * tau0 / (4.0d0 * thk0 * rhoi * lhci) /)      
                         !*sfp* added the last term in the vect above for HO and SSA dissip. calc. 
 
-    select case(model%options%whichbwat)
 
-       case(BWATER_LOCAL)
-          model%paramets%hydtim = tim0 / (model%paramets%hydtim * scyr)
-          estimate = 0.2d0 / model%paramets%hydtim
-          
-          model%tempwk%c = (/ model%tempwk%dt_wat,   &
-                              1.0d0 - 0.5d0 * model%tempwk%dt_wat * model%paramets%hydtim, &
-                              1.0d0 + 0.5d0 * model%tempwk%dt_wat * model%paramets%hydtim, &
-                              0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0 /) 
-
-       case(BWATER_FLUX) ! steady-state routing using flux calculation
-
-         !TODO - Test this option for one-processor runs.
-         !       It has not been parallelized.
-
-          model%tempwk%watvel = model%paramets%hydtim * tim0 / (scyr * len0)
-          estimate = (0.2d0 * model%tempwk%watvel) / min(model%numerics%dew,model%numerics%dns)
-          call find_dt_wat(model%numerics%dttem,estimate,model%tempwk%dt_wat,model%tempwk%nwat)
-
-          !print *, model%numerics%dttem*tim0/scyr, model%tempwk%dt_wat*tim0/scyr, model%tempwk%nwat
-
-          model%tempwk%c = (/ rhow * grav, rhoi * grav, 2.0d0 * model%numerics%dew, 2.0d0 * model%numerics%dns, &
-	         0.25d0 * model%tempwk%dt_wat / model%numerics%dew, 0.25d0 * model%tempwk%dt_wat / model%numerics%dns, &
-               0.5d0 * model%tempwk%dt_wat / model%numerics%dew, 0.5d0 * model%tempwk%dt_wat / model%numerics%dns /)
-          
-    end select
- 
       !==== Initialize ice temperature.============
       !This block of code is similar to that in glide_init_temp
 
@@ -412,7 +378,6 @@ contains
     use glimmer_paramets, only : thk0, tim0
     use glimmer_physcon, only: shci, coni, rhoi
     use glide_mask
-    use glide_bwater
     use glissade_enthalpy
 
     !TODO - Use glam_grid_operators instead?
@@ -716,21 +681,6 @@ contains
                                model%temper%bmlt,         &
                                GLIDE_IS_FLOAT(model%geometry%thkmask))
 
-       ! Calculate basal water depth ------------------------------------------------
-
-       !TODO - Is it necessary to pass 'model'?
-
-       call calcbwat( model,                     &
-                      model%options%whichbwat,   &
-                      model%temper%bmlt,         &
-                      model%temper%bwat,         &
-                      model%temper%bwatflx,      &
-                      model%geometry%thck,       &
-                      model%geometry%topg,       &
-                      model%temper%temp(model%general%upn,:,:), &
-                      GLIDE_IS_FLOAT(model%geometry%thkmask),   &
-                      model%tempwk%wphi)
-
 !WHL - Here I restored some Glimmer calls that were removed earlier.
 !      We need stagbpmp for one of the basal traction cases.
 
@@ -889,17 +839,6 @@ contains
                                       model%geomderv%stagthck,   &
                                       model%temper%bmlt,         &
                                       GLIDE_IS_FLOAT(model%geometry%thkmask))
-
-      call calcbwat( model,                                    &
-                     model%options%whichbwat,                  &
-                     model%temper%bmlt,                        &
-                     model%temper%bwat,                        &
-                     model%temper%bwatflx,                     &
-                     model%geometry%thck,                      &
-                     model%geometry%topg,                      &
-                     model%temper%temp(model%general%upn,:,:), &
-                     GLIDE_IS_FLOAT(model%geometry%thkmask),   &
-                     model%tempwk%wphi)
 
 !WHL - Here I restored some Glimmer calls that were removed earlier.
 !      We need stagbpmp for one of the basal traction cases.

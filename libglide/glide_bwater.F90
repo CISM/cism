@@ -37,11 +37,60 @@ module glide_bwater
 
 contains
 
+  subroutine bwater_init(model)
+    ! Driver for initializing basal hydrology
+    use glimmer_paramets
+
+    implicit none
+
+    type(glide_global_type),intent(inout) :: model
+    real(dp) :: estimate
+
+
+    select case(model%options%whichbwat)
+       case(BWATER_LOCAL)
+
+          allocate(model%tempwk%smth(model%general%ewn,model%general%nsn))
+
+          model%paramets%hydtim = tim0 / (model%paramets%hydtim * scyr)
+          estimate = 0.2d0 / model%paramets%hydtim
+          !EIB! following not in lanl glide_temp
+          call find_dt_wat(model%numerics%dttem,estimate,model%tempwk%dt_wat,model%tempwk%nwat) 
+          
+          model%tempwk%c = (/ model%tempwk%dt_wat, 1.0d0 - 0.5d0 * model%tempwk%dt_wat * model%paramets%hydtim, &
+               1.0d0 + 0.5d0 * model%tempwk%dt_wat * model%paramets%hydtim, 0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0 /) 
+
+       !TODO - Test this option.
+
+       case(BWATER_FLUX)    ! steady-state routing using flux calculation
+
+         !TODO - Test this option for one-processor runs.
+         !       It has not been parallelized.
+
+          allocate(model%tempwk%wphi(model%general%ewn,model%general%nsn))
+
+          model%tempwk%watvel = model%paramets%hydtim * tim0 / (scyr * len0)
+          estimate = (0.2d0 * model%tempwk%watvel) / min(model%numerics%dew,model%numerics%dns)
+          call find_dt_wat(model%numerics%dttem,estimate,model%tempwk%dt_wat,model%tempwk%nwat) 
+          
+          !print *, model%numerics%dttem*tim0/scyr, model%tempwk%dt_wat*tim0/scyr, model%tempwk%nwat
+
+          model%tempwk%c = (/ rhow * grav, rhoi * grav, 2.0d0 * model%numerics%dew, 2.0d0 * model%numerics%dns, &
+               0.25d0 * model%tempwk%dt_wat / model%numerics%dew, 0.25d0 * model%tempwk%dt_wat / model%numerics%dns, &
+               0.5d0 * model%tempwk%dt_wat / model%numerics%dew, 0.5d0 * model%tempwk%dt_wat / model%numerics%dns /)
+    end select
+
+  end subroutine bwater_init
+
+
+
   subroutine calcbwat(model, which, bmlt, bwat, bwatflx, thck, topg, btem, floater, wphi)
+    ! Driver for updating basal hydrology
 
     use parallel
     use glimmer_paramets, only : thk0
     use glide_grid_operators, only: stagvarb
+    use glam_grid_operators, only: stagthickness
 
     implicit none
 
@@ -67,6 +116,8 @@ contains
     real(dp), allocatable, dimension(:,:) :: Haf
     real(dp) :: ocean_p
 
+    real(dp),  dimension(:,:), allocatable :: N_capped  ! version of effective pressure capped at 0x and 1x overburden
+
 ! TODO: move these declarations into a parameters derived type?
     c_effective_pressure = 0.0d0       ! For now estimated with c/w
     c_flux_to_depth = 1./(1.8d-3*12.0d0)  ! 
@@ -79,6 +130,7 @@ contains
     ! which = BWATER_LOCAL Completely local, bwat_new = c1 * melt_rate + c2 * bwat_old
     ! which = BWATER_FLUX Flux based calculation
     ! which = BWATER_BASAL_PROC, till water content in the basal processes module
+    ! which = BWATER_OCEAN_PENETRATION, effective pressure from ocean penetration parameterization (Leguy et al 2014)
 
     case(BWATER_LOCAL)
 
@@ -132,8 +184,6 @@ contains
 
        !TODO - Test this option
 
-       call not_parallel(__FILE__,__LINE__)
-
        call effective_pressure(bwat,c_effective_pressure,N)
        call pressure_wphi(thck,topg,N,wphi,model%numerics%thklim,floater)
        call route_basal_water(wphi,bmlt,model%numerics%dew,model%numerics%dns,bwatflx,lakes)
@@ -169,6 +219,28 @@ contains
                   model%temper%stagbwat ,&
                   model%general%ewn, &
                   model%general%nsn)
+
+    ! Stagger effective pressure if a friction law will need it.  cases BWATER_OCEAN_PENETRATION, BWATER_SHEET calculate it, but it may also be passed in as data or forcing.
+    ! cap the staggered effective pressure at 0x and 1x overburden pressure to avoid strange values going to the friction laws
+    if ( (model%options%which_ho_babc == HO_BABC_POWERLAW) .or. &
+         (model%options%which_ho_babc == HO_BABC_COULOMB_FRICTION) ) then
+
+        allocate(N_capped(model%general%ewn,model%general%nsn))
+
+        where (model%basal_physics%effecpress < 0.0d0)
+              N_capped = 0.0d0
+        else where (model%basal_physics%effecpress > rhoi * grav * model%geometry%thck * thk0)
+              N_capped = rhoi * grav * model%geometry%thck * thk0
+        else where
+              N_capped = model%basal_physics%effecpress
+        end where
+        call stagthickness(N_capped, model%basal_physics%effecpress_stag,           &
+             model%general%ewn, model%general%nsn,                                  &
+             model%geometry%usrf*thk0, model%numerics%thklim, model%geometry%thkmask)
+
+        deallocate(N_capped)
+    endif
+
 
   contains
 

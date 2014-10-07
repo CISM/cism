@@ -106,6 +106,7 @@ contains
     use glissade_velo_higher, only: glissade_velo_higher_init
     use glide_diagnostics, only: glide_init_diag
     use felix_dycore_interface, only: felix_velo_init
+    use glide_bwater
 
 !WHL - debug
     use glimmer_paramets, only: tau0, vel0, thk0
@@ -229,8 +230,10 @@ contains
 
     !BDM - Just call glissade_init_temp, which will call glissade_init_enthalpy
     !      if necessary
-
     call glissade_init_temp(model) 
+
+    ! Initialize basal hydrology model, if enabled
+    call bwater_init(model)
 
     if (model%options%gthf == GTHF_COMPUTE) then
        call not_parallel(__FILE__,__LINE__)
@@ -365,6 +368,20 @@ contains
        endwhere
     endif
 
+
+    ! Initial solve of calcbwat
+    ! TODO sort out if this should go here or in diagnostic solve routine, and make sure consistent with glide.
+    call calcbwat(model, &
+                  model%options%whichbwat, &
+                  model%temper%bmlt, &
+                  model%temper%bwat, &
+                  model%temper%bwatflx, &
+                  model%geometry%thck, &
+                  model%geometry%topg, &
+                  model%temper%temp(model%general%upn,:,:), &
+                  GLIDE_IS_FLOAT(model%geometry%thkmask), &
+                  model%tempwk%wphi)
+
   end subroutine glissade_initialise
   
 !=======================================================================
@@ -389,6 +406,7 @@ contains
     use glissade_transport, only: glissade_transport_driver, glissade_check_cfl
     use glissade_grid_operators
     use glide_thck, only: glide_calclsrf
+    use glide_bwater
 
     implicit none
 
@@ -464,6 +482,18 @@ contains
       call t_stopf('glissade_temp_driver')
 
        model%temper%newtemps = .true.
+
+      ! Update hydrology, if needed
+      call calcbwat( model,                                    &
+                     model%options%whichbwat,                  &
+                     model%temper%bmlt,                        &
+                     model%temper%bwat,                        &
+                     model%temper%bwatflx,                     &
+                     model%geometry%thck,                      &
+                     model%geometry%topg,                      &
+                     model%temper%temp(model%general%upn,:,:), &
+                     GLIDE_IS_FLOAT(model%geometry%thkmask),   &
+                     model%tempwk%wphi)
 
     end if
 
@@ -972,17 +1002,6 @@ contains
     !       (The glam_velo driver includes its own call to glam_geometry_derivs.) 
 
     call glam_geometry_derivs(model)
-
-    if ( (model%options%which_ho_babc == HO_BABC_POWERLAW) .or. &
-         (model%options%which_ho_babc == HO_BABC_COULOMB_FRICTION) ) then
-        call stagthickness(model%basal_physics%effecpress,  &
-                               model%basal_physics%effecpress_stag,  &
-                               model%general%ewn, model%general%nsn,  &
-                               model%geometry%usrf,  &
-                               model%numerics%thklim,  &
-                               model%geometry%thkmask) 
-    endif
-
 
 
     !WHL - Moved glam-specific geometry calculations to glam_velo_driver in glam_velo.F90.

@@ -83,14 +83,12 @@ contains
     use glimmer_physcon, only : rhoi, shci, coni, scyr, grav, gn, lhci, rhow, trpt
     use glimmer_paramets, only : tim0, thk0, acc0, len0, vis0, vel0
     use glimmer_log
-    use glide_bwater, only : find_dt_wat
     use parallel, only: lhalo, uhalo
 
     type(glide_global_type), intent(inout) :: model       ! model instance
 
     integer, parameter :: p1 = gn + 1  
     integer up, ns, ew
-    real(dp) :: estimate
 
     !TODO - Change VERT_DIFF, etc. to integers?
     if (VERT_DIFF==0.)   call write_log('Vertical diffusion is switched off')
@@ -117,14 +115,6 @@ contains
 
     allocate(model%tempwk%dupa(model%general%upn),model%tempwk%dupb(model%general%upn))
     allocate(model%tempwk%dupc(model%general%upn))
-
-    allocate(model%tempwk%smth(model%general%ewn,model%general%nsn))
-    allocate(model%tempwk%wphi(model%general%ewn,model%general%nsn))
-    allocate(model%tempwk%bwatu(model%general%ewn,model%general%nsn))
-    allocate(model%tempwk%bwatv(model%general%ewn,model%general%nsn))
-    allocate(model%tempwk%fluxew(model%general%ewn,model%general%nsn))
-    allocate(model%tempwk%fluxns(model%general%ewn,model%general%nsn))
-    allocate(model%tempwk%bint(model%general%ewn-1,model%general%nsn-1))
 
     model%tempwk%advconst(1) = HORIZ_ADV*model%numerics%dttem / (16.0d0 * model%numerics%dew)
     model%tempwk%advconst(2) = HORIZ_ADV*model%numerics%dttem / (16.0d0 * model%numerics%dns)
@@ -187,32 +177,7 @@ contains
     model%tempwk%slide_f = (/ VERT_DIFF * grav * thk0 * model%numerics%dttem/ shci, & ! vert diffusion
          VERT_ADV * rhoi*grav*acc0*thk0*thk0*model%numerics%dttem/coni /)             ! vert advection
 
-    select case(model%options%whichbwat)
 
-       case(BWATER_LOCAL)
-          model%paramets%hydtim = tim0 / (model%paramets%hydtim * scyr)
-          estimate = 0.2d0 / model%paramets%hydtim
-          !EIB! following not in lanl glide_temp
-          call find_dt_wat(model%numerics%dttem,estimate,model%tempwk%dt_wat,model%tempwk%nwat) 
-          
-          model%tempwk%c = (/ model%tempwk%dt_wat, 1.0d0 - 0.5d0 * model%tempwk%dt_wat * model%paramets%hydtim, &
-               1.0d0 + 0.5d0 * model%tempwk%dt_wat * model%paramets%hydtim, 0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0 /) 
-
-       !TODO - Test this option.
-
-       case(BWATER_FLUX)    ! steady-state routing using flux calculation
-
-          model%tempwk%watvel = model%paramets%hydtim * tim0 / (scyr * len0)
-          estimate = (0.2d0 * model%tempwk%watvel) / min(model%numerics%dew,model%numerics%dns)
-          call find_dt_wat(model%numerics%dttem,estimate,model%tempwk%dt_wat,model%tempwk%nwat) 
-          
-          !print *, model%numerics%dttem*tim0/scyr, model%tempwk%dt_wat*tim0/scyr, model%tempwk%nwat
-
-          model%tempwk%c = (/ rhow * grav, rhoi * grav, 2.0d0 * model%numerics%dew, 2.0d0 * model%numerics%dns, &
-               0.25d0 * model%tempwk%dt_wat / model%numerics%dew, 0.25d0 * model%tempwk%dt_wat / model%numerics%dns, &
-               0.5d0 * model%tempwk%dt_wat / model%numerics%dew, 0.5d0 * model%tempwk%dt_wat / model%numerics%dns /)
-          
-    end select
 
     !==== Initialize ice temperature.============
 
@@ -409,7 +374,6 @@ contains
 
     use glimmer_utils, only: tridiag
     use glimmer_paramets, only : thk0, GLC_DEBUG
-    use glide_bwater
     use glide_grid_operators, only: stagvarb
 
     !------------------------------------------------------------------------------------
@@ -677,19 +641,6 @@ contains
                            model%velocity%vbas, &
                            model%temper%bmlt, &
                            GLIDE_IS_FLOAT(model%geometry%thkmask))
-
-       ! Calculate basal water depth ------------------------------------------------
-
-       call calcbwat(model, &
-                     model%options%whichbwat, &
-                     model%temper%bmlt, &
-                     model%temper%bwat, &
-                     model%temper%bwatflx, &
-                     model%geometry%thck, &
-                     model%geometry%topg, &
-                     model%temper%temp(model%general%upn,:,:), &
-                     GLIDE_IS_FLOAT(model%geometry%thkmask), &
-                     model%tempwk%wphi)
 
        ! Transform basal temperature and pressure melting point onto velocity grid
        ! We need stagbpmp for one of the basal traction cases.
