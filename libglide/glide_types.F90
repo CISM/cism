@@ -232,10 +232,11 @@ module glide_types
   integer, parameter :: HO_SPARSE_PCG_CHRONGEAR = 3
   integer, parameter :: HO_SPARSE_TRILINOS = 4
 
-  integer, parameter :: SIMPLE_APPROX_SIA = -1
+  integer, parameter :: HO_APPROX_LOCAL_SIA = -1
   integer, parameter :: HO_APPROX_SIA = 0
   integer, parameter :: HO_APPROX_SSA = 1
   integer, parameter :: HO_APPROX_BP = 2
+  integer, parameter :: HO_APPROX_L1L2 = 3
 
   integer, parameter :: HO_PRECOND_NONE = 0
   integer, parameter :: HO_PRECOND_DIAG = 1
@@ -243,6 +244,13 @@ module glide_types
 
   integer, parameter :: HO_GRADIENT_CENTERED = 0
   integer, parameter :: HO_GRADIENT_UPSTREAM = 1
+
+  integer, parameter :: HO_GRADIENT_MARGIN_ALL = 0
+  integer, parameter :: HO_GRADIENT_MARGIN_ICE_LAND = 1
+  integer, parameter :: HO_GRADIENT_MARGIN_ICE_ONLY = 2
+
+  integer, parameter :: HO_ASSEMBLE_BETA_STANDARD = 0
+  integer, parameter :: HO_ASSEMBLE_BETA_LOCAL = 1
 
   integer, parameter :: HO_GROUND_NO_GLP = 0
   integer, parameter :: HO_GROUND_GLP = 1
@@ -541,7 +549,8 @@ module glide_types
     !*FD \item[-1] Shallow-ice approximation, Glide-type calculation (uses glissade_velo_sia)
     !*FD \item[0]  Shallow-ice approximation, vertical-shear stresses only (uses glissade_velo_higher)
     !*FD \item[1]  Shallow-shelf approximation, horizontal-plane stresses only (uses glissade_velo_higher)
-    !*FD \item[2]  Blatter-Pattyn with both vertical-shear and horizontal-plane stresses (uses glissade_velo_higher)
+    !*FD \item[2]  Blatter-Pattyn approximation with both vertical-shear and horizontal-plane stresses (uses glissade_velo_higher)
+    !*FD \item[3]  Vertically integrated 'L1L2' approximation with vertical-shear and horizontal-plane stresses (uses glissade_velo_higher)
     !*FD \end{description}
 
     integer :: which_ho_precond = 2    
@@ -561,6 +570,22 @@ module glide_types
     !*FD \item[0] Centered gradient
     !*FD \item[1] Upstream gradient
 
+    !TODO - Change default to 1 after the next commit. (Answers will change.)
+    integer :: which_ho_gradient_margin = 2
+    !*FD Flag that indicates how to compute the gradient at the ice margin in the glissade dycore.
+    !*FD Not valid for other dycores
+    !*FD \begin{description}
+    !*FD \item[0] Use info from all neighbor cells, ice-covered or ice-free
+    !*FD \item[1] Use info from ice-covered and/or land cells, not ice-free ocean
+    !*FD \item[2] Use info from ice-covered cells only
+
+    integer :: which_ho_assemble_beta = 1
+
+    !*FD Flag that describes how beta terms are assembled in the glissade finite-element calculation
+    !*FD \begin{description}
+    !*FD \item[0] standard finite-element calculation (which effectively smooths beta)
+    !*FD \item[1] apply local beta value at each vertex
+
     integer :: which_ho_ground = 0    
     !*FD Flag that indicates how to compute the grounded fraction of each gridcell in the glissade dycore.
     !*FD Not valid for other dycores
@@ -568,6 +593,9 @@ module glide_types
     !*FD \item[0] fground = 0 in floating cells (based on flotation condition), else fground = 1 
     !*FD \item[1] fground = 1 in all cells
     !*FD \item[2] 0 <= fground <= 1, based on a grounding line parameterization
+
+    integer :: glissade_maxiter = 100    
+    !*FD maximum number of nonlinear iterations to be used by the Glissade velocity solver
 
     ! The remaining options are not currently supported
 
@@ -1703,20 +1731,8 @@ contains
         deallocate(model%temper%dissipcol)
     if (associated(model%temper%waterfrac)) &
         deallocate(model%temper%waterfrac)
-
-    !WHL - For reasons that are unclear, the intel compiler on yellowstone
-    !      (version 13.1.2) generates an error message if we try to deallocate
-    !      either flwa or efvs when running with the Glam dycore.  Here is the
-    !      message:
-    !      forrtl: severe (173): A pointer passed to DEALLOCATE points to an object
-    !                            that cannot be deallocated
-    !      For now I'm just commenting out the lines that generate the error.
-    !      TODO: Find out whether this is a code issue or a compiler bug.
-
-    if (model%options%whichdycore /= DYCORE_GLAM) then
-       if (associated(model%temper%flwa)) &
-           deallocate(model%temper%flwa)
-    endif
+    if (associated(model%temper%flwa)) &
+        deallocate(model%temper%flwa)
 
     ! velocity arrays
 
@@ -1800,12 +1816,8 @@ contains
 
     ! higher-order stress arrays
 
-    !WHL - See comment above with regard to flwa.
-    if (model%options%whichdycore /= DYCORE_GLAM) then
-       if (associated(model%stress%efvs)) &
-           deallocate(model%stress%efvs)
-    endif
-
+    if (associated(model%stress%efvs)) &
+        deallocate(model%stress%efvs)
     if (associated(model%stress%tau%scalar)) &
         deallocate(model%stress%tau%scalar)
     if (associated(model%stress%tau%xz)) &

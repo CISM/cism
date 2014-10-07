@@ -42,20 +42,21 @@
     implicit none
 
     private
-    public :: glissade_ocean_mask, glissade_grounded_fraction
+    public :: glissade_get_masks, glissade_grounded_fraction
 
   contains
 
-!TODO - Add imask/vmask subroutines?
 !****************************************************************************
 
-    subroutine glissade_ocean_mask(nx,            ny,        &
-                                   thck,          topg,      &
-                                   eus,           thklim,    &
-                                   floating_cell, ocean_cell)
+    subroutine glissade_get_masks(nx,          ny,         &
+                                  thck,        topg,       &
+                                  eus,         thklim,     &
+                                  ice_mask,    floating_mask, &
+                                  ocean_mask,  land_mask)
+                                  
 
     !----------------------------------------------------------------
-    ! Compute masks for ocean cells and floating cells.
+    ! Compute various masks for Glissade dycore.
     !----------------------------------------------------------------
     
     !----------------------------------------------------------------
@@ -76,10 +77,14 @@
        eus,                  &! eustatic sea level (m), = 0. by default
        thklim                 ! minimum ice thickness for active cells (m)
 
-    logical, dimension(nx,ny), intent(out) ::  &
-       floating_cell,        &! true if thk > thklim and ice is floating
-       ocean_cell             ! true if topg is below sea level and thk <= thklim
-      
+    integer, dimension(nx,ny), intent(out) ::  &
+       ice_mask               ! = 1 if thck > thklim, else = 0  
+
+    integer, dimension(nx,ny), intent(out), optional ::  &
+       floating_mask,        &! = 1 if thck > thklim and ice is floating, else = 0
+       ocean_mask,           &! = 1 if topg is below sea level and thk <= thklim, else = 0
+       land_mask              ! = 1 if topg is at or above sea level
+
     !----------------------------------------------------------------
     ! Local arguments
     !----------------------------------------------------------------
@@ -87,36 +92,52 @@
     integer :: i, j
 
     !----------------------------------------------------------------
-    ! Compute masks
+    ! Compute masks in cells
     !----------------------------------------------------------------
 
     do j = 1, ny
        do i = 1, nx
 
-          if (topg(i,j) < eus .and. thck(i,j) <= thklim) then
-             ocean_cell(i,j) = .true.
+          if (thck(i,j) > thklim) then
+	     ice_mask(i,j) = 1
           else
-             ocean_cell(i,j) = .false.
+             ice_mask(i,j) = 0
           endif
 
-          if (topg(i,j) - eus < (-rhoi/rhoo)*thck(i,j) .and. thck(i,j) > thklim) then
-             floating_cell(i,j) = .true.
-!             print*, 'float: this_rank, i, j, topg, thck', this_rank, i, j, topg(i,j), thck(i,j)
-          else
-             floating_cell(i,j) = .false.
+          if (present(ocean_mask)) then
+             if (topg(i,j) < eus .and. thck(i,j) <= thklim) then
+                ocean_mask(i,j) = 1
+             else
+                ocean_mask(i,j) = 0
+             endif
+          endif
+
+          if (present(floating_mask)) then
+             if (topg(i,j) - eus < (-rhoi/rhoo)*thck(i,j) .and. thck(i,j) > thklim) then
+                floating_mask(i,j) = 1
+             else
+                floating_mask(i,j) = 0
+             endif
+          endif
+
+          if (present(land_mask)) then
+             if (topg(i,j) >= eus) then
+                land_mask(i,j) = 1
+             else
+                land_mask(i,j) = 0
+             endif
           endif
 
        enddo
     enddo
 
-    end subroutine glissade_ocean_mask
+  end subroutine glissade_get_masks
 
 !****************************************************************************
 
     subroutine glissade_grounded_fraction(nx,          ny,        &
                                           thck,        topg,      &
-                                          eus,                    &
-                                          imask,       vmask,     &
+                                          eus,         ice_mask,  &
                                           whichground, f_ground)
 
     !----------------------------------------------------------------
@@ -149,10 +170,7 @@
        eus                    ! eustatic sea level (= 0 by default)
 
     integer, dimension(nx,ny), intent(in) ::   &
-       imask                  ! = 1 for cells where ice is present (thk > thklim), else = 0
-
-    integer, dimension(nx-1,ny-1), intent(in) ::   &
-       vmask                  ! = 1 for vertices of cells where ice is present (thk > thklim), else = 0
+       ice_mask               ! = 1 for cells where ice is present (thk > thklim), else = 0
 
     integer, intent(in) ::   &
        whichground            ! option for computing f_ground
@@ -166,6 +184,9 @@
     !----------------------------------------------------------------
            
     integer :: i, j
+
+    integer, dimension(nx-1,ny-1) ::   &
+       vmask                  ! = 1 for vertices of cells where ice is present (thk > thklim), else = 0
 
     real(dp), dimension(nx,ny) :: &
        fpat           ! Pattyn function, -rhoo*(topg-eus) / (rhoi*thck)
@@ -205,9 +226,25 @@
 
 !    print*, 'In grounded_fraction, whichground =', whichground
 
-    ! initialize f_ground
-    ! Choose a non-physical value; this value will be overwritten in all cells with ice
+    !----------------------------------------------------------------
+    ! Compute ice mask at vertices (= 1 if any surrounding cells have ice)
+    !----------------------------------------------------------------
 
+    do j = 1, ny-1
+       do i = 1, nx-1
+          if (ice_mask(i,j+1) == 1 .or. ice_mask(i+1,j+1)==1 .or.   &
+              ice_mask(i,j)   == 1 .or. ice_mask(i+1,j)  ==1 ) then
+	     vmask(i,j) = 1
+          else
+             vmask(i,j) = 0
+          endif
+       enddo
+    enddo
+
+
+    ! initialize f_ground
+    ! Choose a special non-physical value; this value will be overwritten in all cells with ice
+    !TODO Choose a different special value?
 !    f_ground(:,:) = -1.d0
     f_ground(:,:) = 9.d0
 
@@ -221,7 +258,7 @@
 
        do j = 1, ny
           do i = 1, nx
-             if (imask(i,j) == 1) then
+             if (ice_mask(i,j) == 1) then
                 fpat(i,j) = -rhoo*(topg(i,j) - eus) / (rhoi*thck(i,j))
              else
                 fpat(i,j) = 0.d0
@@ -231,12 +268,12 @@
 
        ! Interpolate to staggered mesh
 
-       ! For stag_flag_in = 1, only ice-covered cells are included in the interpolation.
+       ! For stagger_margin_in = 1, only ice-covered cells are included in the interpolation.
        ! Will return stagfpat = 0. in ice-free regions
 
        call glissade_stagger(nx,       ny,         &
                              fpat,     stagfpat,   &
-                             imask,    stag_flag_in = 1)
+                             ice_mask, stagger_margin_in = 1)
 
        ! Assume grounded if stagfpat <= 1, else floating
 
@@ -258,7 +295,7 @@
 
        do j = 1, ny
           do i = 1, nx
-             if (imask(i,j) == 1) then  ! thck > thklim
+             if (ice_mask(i,j) == 1) then  ! thck > thklim
                 fpat(i,j) = -rhoo*(topg(i,j) - eus) / (rhoi*thck(i,j))
              else
                 fpat(i,j) = 0.d0  ! this value is never used
@@ -272,12 +309,12 @@
 !       fpat(it,jt)   = 0.d0; fpat(it+1,jt) = 2.d0
 
        ! Interpolate Pattyn function to staggered mesh
-       ! For stag_flag_in = 1, only ice-covered cells are included in the interpolation.
+       ! For stagger_margin_in = 1, only ice-covered cells are included in the interpolation.
        ! Returns stagfpat = 0. in ice-free regions
 
        call glissade_stagger(nx,       ny,         &
                              fpat,     stagfpat,   &
-                             imask,    stag_flag_in = 1)
+                             ice_mask, stagger_margin_in = 1)
 
        ! Identify cell centers that are floating
 
@@ -306,8 +343,8 @@
 
              if (vmask(i,j) == 1) then  ! ice is present in at least one neighboring cell
 
-                if (imask(i,j+1)==1 .and. imask(i+1,j+1)==1 .and.  &
-                    imask(i,j)  ==1 .and. imask(i+1,j)  ==1) then
+                if (ice_mask(i,j+1)==1 .and. ice_mask(i+1,j+1)==1 .and.  &
+                    ice_mask(i,j)  ==1 .and. ice_mask(i+1,j)  ==1) then
 
                    ! ice is present in all 4 neighboring cells; interpolate fpat to find f_ground
 
@@ -628,7 +665,7 @@
                       f_ground(i,j) = 0.d0
                    endif
 
-                endif     ! imask = 1 in all 4 neighboring cells
+                endif     ! ice_mask = 1 in all 4 neighboring cells
              endif        ! vmask = 1
           enddo           ! i
        enddo              ! j

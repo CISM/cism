@@ -25,10 +25,8 @@ echo
 echo Run this script by typing: source titan-gnu-cmake
 echo
 
-
-# do this to reduce spurious errors reported purge below:
+# this unload reduces purge spurious error messages:
 module unload PrgEnv-gnu PrgEnv-pgi
-
 module --silent purge
 
 #module unload cmake
@@ -43,18 +41,23 @@ module --silent purge
 
 module load modules
 module load cmake/2.8.10.2
-module load PrgEnv-gnu
-module load gcc/4.8.2
+module load PrgEnv-pgi
+
+#module load cray-shmem
+#module load cray-mpich
+#module load netcdf-hdf5parallel/4.3.0
+#module load python
+#module load boost/1.54.0
+
 module load cray-shmem
 module load cray-mpich
+module load cray-hdf5-parallel/1.8.11
 module load cray-netcdf-hdf5parallel/4.3.0
 module load python
 module load boost/1.54.0
 
-echo module list
-
 # remove old build data:
-rm -rf ./CMakeCache.txt
+rm -f ./CMakeCache.txt
 rm -rf ./CMakeFiles
 
 # run a script that creates some CISM source files:
@@ -78,12 +81,12 @@ cmake \
   -D CISM_USE_GPTL_INSTRUMENTATION:BOOL=ON \
   -D CISM_COUPLED:BOOL=OFF \
 \
-  -D CISM_TRILINOS_DIR=/ccs/proj/cli062/Trilinos/cism-standard/default-gnu/install \
-  -D CISM_TRILINOS_GPTL_DIR=/ccs/proj/cli062/cism_gptl/Trilinos/titan-gnu-cism-albany-ci-nophal/install \
-  -D CISM_TRILINOS_ALBANY_DIR=/ccs/proj/cli062/cism_gptl/Trilinos/titan-gnu-cism-albany-ci-nophal/install \
+  -D CISM_TRILINOS_DIR=/ccs/proj/cli101/software/Trilinos/Trilinos_gptl/titan-pgi-ci-nophal/install \
+  -D CISM_TRILINOS_GPTL_DIR=/ccs/proj/cli101/software/Trilinos/Trilinos_gptl/titan-pgi-ci-nophal/install \
+  -D CISM_TRILINOS_ALBANY_DIR=/ccs/proj/cli101/software/Trilinos/Trilinos_gptl/titan-pgi-ci-nophal/install \
 \
-  -D CISM_GPTL_DIR=/ccs/proj/cli062/cism_gptl/libgptl/libgptl-titan-gnu \
-  -D CISM_NETCDF_DIR=/opt/cray/netcdf-hdf5parallel/4.3.0/GNU/48 \
+  -D CISM_GPTL_DIR=/ccs/proj/cli062/cism_gptl/libgptl/libgptl-titan-pgi \
+  -D CISM_NETCDF_DIR=/opt/cray/netcdf-hdf5parallel/4.3.0/pgi/121 \
 \
   -D CMAKE_INSTALL_PREFIX:PATH=$PWD/install \
   -D CMAKE_VERBOSE_MAKEFILE:BOOL=ON \
@@ -93,15 +96,17 @@ cmake \
   -D CMAKE_C_COMPILER=cc \
   -D CMAKE_Fortran_COMPILER=ftn \
 \
-  -D CMAKE_CXX_FLAGS:STRING="-O2" \
-  -D CISM_Fortran_FLAGS:STRING="-O2 -ffree-line-length-none -fno-range-check" \
-  -D BISICLES_LIB_SUBDIR=libgnu \
+  -D CMAKE_CXX_FLAGS:STRING="-fast -Kieee --diag_suppress 554,111,611" \
+  -D CISM_Fortran_FLAGS:STRING="-fast -Kieee" \
+  -D CISM_FMAIN=/opt/pgi/13.10.0/linux86-64/13.10/lib/f90main.o \
+  -D BISICLES_LIB_SUBDIR=libpgi \
   -D BISICLES_INTERFACE_DIR=$PWD/../../../BISICLES/CISM-interface/interface \
   -D CISM_MPI_LIBS:STRING="mpichf90" \
   -D CISM_USE_CXX_IMPLICIT_LIBS:BOOL=OFF \
   -D CISM_STATIC_LINKING:BOOL=ON \
   ../..
 
+#  -D CISM_FMAIN=/opt/pgi/13.10.0/linux86-64/13.10/lib/f90main.o \
 
 #  -D CISM_TRILINOS_DIR=/tmp/proj/cli054/trilinos-10.12/FEB2013_FAST_PGI/install \
 

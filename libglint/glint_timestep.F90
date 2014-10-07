@@ -115,8 +115,6 @@ contains
 
     logical :: gcm_smb   ! true if getting sfc mass balance from a GCM
 
-    !WHL - Moved glint_downscaling call up to glint_main
-
     ice_tstep = .false.
 
     ! Assume we always need this, as it's too complicated to work out when we do and don't
@@ -184,10 +182,6 @@ contains
 
        if (instance%mbal_accum_time < instance%ice_tstep) then 
           instance%next_time = instance%next_time + instance%ice_tstep - instance%mbal_tstep
-
-          !WHL - debug
-          print*, 'Adjust next_time:', instance%next_time
-
        end if
 
        ice_tstep = .true.
@@ -511,7 +505,7 @@ contains
     use glint_io
     use glint_mbal_io
     use glide_diagnostics
-    use parallel, only: tasks, main_task
+    use parallel, only: tasks, main_task, this_rank
 
     implicit none
 
@@ -531,8 +525,6 @@ contains
     real(dp),dimension(:,:),pointer :: thck_temp    => null() ! temporary array for volume calcs
 
     integer :: i, j, k, nx, ny, il, jl, ig, jg
-
-    !WHL - Moved glint_downscaling call up to glint_main
 
     ice_tstep = .false.
 
@@ -714,6 +706,10 @@ contains
        thck_temp => null()
     endif
 
+    if (GLC_DEBUG .and. main_task) then
+       write(stdout,*) 'Done in glint_i_tstep_gcm'
+    endif
+
   end subroutine glint_i_tstep_gcm
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -778,8 +774,6 @@ contains
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!WHL - This used to be called glint_lapserate_dp
-
   subroutine glint_lapserate(temp,topo,lr)
 
     !*FD Corrects the temperature field
@@ -802,10 +796,6 @@ contains
   end subroutine glint_lapserate
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-!WHL - Removed subroutine glint_lapserate_sp
-
-  !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   subroutine glint_calc_precip(instance)
 

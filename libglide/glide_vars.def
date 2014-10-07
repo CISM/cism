@@ -162,7 +162,7 @@ load:          1
 [unstagbeta]
 dimensions:    time, y1, x1
 units:         Pa yr/m  
-long_name:     higher-order bed stress coefficient
+long_name:     higher-order bed stress coefficient on the unstaggered grid (NOTE: this will overwrite beta if both are input)
 data:          data%velocity%unstagbeta
 factor:        scale_beta
 load:          1
@@ -558,7 +558,7 @@ load:         1
 [dynbcmask]
 dimensions:   time, y0, x0
 units:        1
-long_name:    2d array of higher-order model boundary condition mask values
+long_name:    2d array of higher-order model boundary condition mask values (NOTE: For Glam dycore ONLY)
 data:         data%velocity%dynbcmask
 type:         int
 load:         0
@@ -798,15 +798,13 @@ coordinates:  lon lat
 [adv_cfl_dt]
 dimensions:    time
 units:         years
-long_name:     advective CFL max time step
+long_name:     advective CFL maximum time step
 data:          data%numerics%adv_cfl_dt
-standard_name: advec_CFL_max_timestep
 
 [diff_cfl_dt]
 dimensions:    time
 units:         years
-long_name:     diffusive CFL max time step
+long_name:     diffusive CFL maximum time step
 data:          data%numerics%diff_cfl_dt
-standard_name: diffus_CFL_max_timestep
 
 

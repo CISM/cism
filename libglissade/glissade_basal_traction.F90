@@ -24,7 +24,7 @@
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!!#include "glide_mask.inc"
+#include "glide_mask.inc"
 #include "config.inc"
 
   module glissade_basal_traction
@@ -79,8 +79,7 @@ contains
                        bwat,          beta_const,    &
                        mintauf,       basal_physics, &
                        flwa_basal,    thck,          &
-                       mask,          beta,          &
-                       floating_cell, ocean_cell)
+                       mask,          beta)
 
   ! subroutine to calculate map of beta sliding parameter, based on 
   ! user input ("whichbabc" flag, from config file as "which_ho_babc").
@@ -112,10 +111,11 @@ contains
   integer, intent(in), dimension(:,:)     :: mask ! staggered grid mask
   real(dp), intent(inout), dimension(:,:) :: beta  ! (Pa yr/m)
 
-  logical, intent(in), dimension(:,:), optional ::  &
-     floating_cell,   &! true for cells where ice is present and is floating
-     ocean_cell        ! true for cells where topography is below sea level and ice is absent
-                       ! Note: These masks live on the scalar grid; beta lives on the staggered grid
+!WHL - These masks are no longer used
+!  logical, intent(in), dimension(:,:), optional ::  &
+!     floating_mask,   &! = 1 for cells where ice is present and is floating
+!     ocean_mask        ! = 1 for cells where topography is below sea level and ice is absent
+!                       ! Note: These masks live on the scalar grid; beta lives on the staggered grid
    
   ! Local variables
 
@@ -159,21 +159,19 @@ contains
       !
       ! Note: A node must be surrounded by four floating or ocean cells to be considered
       !       a shelf/ocean node.  Nodes along the grounding line retain previous values of beta.
-      !
-      !TODO - Apply this correction to other beta options, e.g. HO_BABC_EXTERNAL_BETA?
 
-      if (present(floating_cell) .and. present(ocean_cell)) then
-         do ns = 1, nsn-1
-            do ew = 1, ewn-1
-               if ( (floating_cell(ew,ns  )   .or. ocean_cell(ew,ns))       .and.  &
-                    (floating_cell(ew,ns+1)   .or. ocean_cell(ew,ns+1))     .and.  &
-                    (floating_cell(ew+1,ns)   .or. ocean_cell(ew+1,ns))     .and.  &
-                    (floating_cell(ew+1,ns+1) .or. ocean_cell(ew+1,ns+1)) ) then
-                  beta(ew,ns) = 0.d0
-               endif
-            enddo
-         enddo
-      endif
+      !if (present(floating_mask) .and. present(ocean_mask)) then
+      !   do ns = 1, nsn-1
+      !      do ew = 1, ewn-1
+      !         if ( (floating_mask(ew,ns  )  ==1 .or. ocean_mask(ew,ns)    ==1)   .and.  &
+      !              (floating_mask(ew,ns+1)  ==1 .or. ocean_mask(ew,ns+1)  ==1)   .and.  &
+      !              (floating_mask(ew+1,ns)  ==1 .or. ocean_mask(ew+1,ns)  ==1)   .and.  &
+      !              (floating_mask(ew+1,ns+1)==1 .or. ocean_mask(ew+1,ns+1)==1) ) then
+      !            beta(ew,ns) = 0.d0
+      !         endif
+      !      enddo
+      !   enddo
+      !endif
 
     case(HO_BABC_SIMPLE)    ! simple pattern; also useful for debugging and test cases
                             ! (here, a strip of weak bed surrounded by stronger bed to simulate an ice stream)
@@ -281,29 +279,11 @@ contains
       !TODO: Not sure I follow the logic of this ... keep/omit? Added by the UMT crew at some point
 
       do ns=1, nsn-1
-      do ew=1, ewn-1 
-        if( beta(ew,ns) /= beta(ew,ns) )then
-          beta(ew,ns) = 1.d10     ! Pa yr/m
-        endif 
-      end do
-      end do
-
-      ! check for areas where ice is floating (or grounding line?) and make sure beta in these regions is 0  
-
-      !TODO: Ideally, these mask values should not be hardwired, but keeping it this way for now until
-      !       we decide which mask values to keep/remove
-      !      Could handle this using the ocean_cell and floating_cell masks as for HO_BABC_CONSTANT
-
-      do ns=1, nsn-1
-      do ew=1, ewn-1 
-        !if( ( mask(ew,ns) >= 21 .and. mask(ew,ns) <= 23 ) .or. ( mask(ew,ns) >= 41 .and. mask(ew,ns) <= 57 ) &
-        !! less agressive than apply beta = 0 at g.l., which will make some test cases fail (e.g. circ. shelf)
-        !! because of lack of fully grounded area.
-        if( ( mask(ew,ns) >= 41 .and. mask(ew,ns) <= 43 ) &     
-             .or. mask(ew,ns) == 9 .or. mask(ew,ns) == 11 )then
-           beta(ew,ns) = 0.d0
-        endif
-      end do
+        do ew=1, ewn-1 
+          if( beta(ew,ns) /= beta(ew,ns) )then
+            beta(ew,ns) = 1.d10     ! Pa yr/m
+          endif 
+        end do
       end do
 
     ! NOTE: case (HO_BABC_YIELD_NEWTON) is handled external to this subroutine
@@ -333,7 +313,7 @@ contains
       end where
       call glissade_stagger(ewn,        nsn,               &
                            flwa_basal,  flwa_basal_stag,   &
-                           imask,       stag_flag_in = 1)
+                           imask,       stagger_margin_in = 1)
       ! TODO Not sure if a halo update is needed on flwa_basal_stag!  I don't think so if nhalo>=2.
 
       ! Setup parameters needed for the friction law
@@ -361,6 +341,15 @@ contains
 
 
    end select
+
+   ! check for areas where ice is floating and make sure beta in these regions is 0  
+   do ns=1, nsn-1
+     do ew=1, ewn-1 
+       if( GLIDE_IS_FLOAT( mask(ew,ns) ) )then
+         beta(ew,ns) = 0.d0
+       endif
+     end do
+   end do
 
  end subroutine calcbeta
 

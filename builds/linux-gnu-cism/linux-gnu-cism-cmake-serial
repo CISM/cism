@@ -53,8 +53,8 @@ cmake \
 \
   -D CISM_GNU=ON \
 \
-  -D GLIMMER_NETCDF_DIR="/usr" \
-  -D GLIMMER_NETCDF_LIBS="netcdff" \
+  -D CISM_NETCDF_DIR="/usr" \
+  -D CISM_NETCDF_LIBS="netcdff" \
 \
   -D CMAKE_Fortran_FLAGS="-g -O2 -ffree-line-length-none -fPIC -fno-range-check" \
 \
@@ -62,7 +62,7 @@ cmake \
   -D CMAKE_C_COMPILER=gcc \
   -D CMAKE_Fortran_COMPILER=gfortran \
 \
-  -D GLIMMER_EXTRA_LIBS:STRING="-lblas" \
+  -D CISM_EXTRA_LIBS:STRING="-lblas" \
 \
   -D CMAKE_VERBOSE_MAKEFILE=OFF \
   ../..

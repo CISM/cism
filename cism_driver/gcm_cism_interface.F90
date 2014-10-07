@@ -73,7 +73,7 @@ subroutine gci_init_interface(which_gcm,g2c)
   call ConfigRead(commandline_configname,config)
   call GetSection(config,section,'options')
   call GetValue(section,'dycore',whichdycore)
-  print *,'CISM dycore type = ',whichdycore  
+  if (main_task) print *,'CISM dycore type (0=Glide, 1=Glam, 2=Glissade, 3=AlbanyFelix, 4 = BISICLES) = ', whichdycore  
 
   ! check to see if running minimal GCM or data GCM.  Still need to add CESM GCM:
   call GetSection(config,section,'GLINT climate')
@@ -83,16 +83,18 @@ subroutine gci_init_interface(which_gcm,g2c)
   else 
     g2c%which_gcm = GCM_MINIMAL_MODEL
   end if
-  print *,'g2c%which_gcm = ',g2c%which_gcm
+  if (main_task) print *,'g2c%which_gcm (1 = data, 2 = minimal) = ',g2c%which_gcm
 
 !  call GetValue(section,'precip_mode',precip_mode)
-!  print *,'precip_mode = ',precip_mode
+!  if (main_task) print *,'precip_mode = ',precip_mode
 
   select case (g2c%which_gcm)
     case (GCM_MINIMAL_MODEL)
+      if (main_task) print*, 'call cism_init_dycore'
       call cism_init_dycore(g2c%glide_model)
  
     case (GCM_DATA_MODEL)
+      if (main_task) print*, 'call g2c_glint_init'
       call g2c_glint_init(g2c)
 
     case (GCM_CESM)
@@ -100,7 +102,7 @@ subroutine gci_init_interface(which_gcm,g2c)
       ! call g2c_glint_init(g2c) 
 
     case default
-      print *,"Error -- unknown GCM type."
+      if (main_task) print *,"Error -- unknown GCM type."
   end select
 
 end subroutine gci_init_interface   
@@ -111,17 +113,15 @@ subroutine gci_run_model(g2c)
 
   logical :: finished = .false.
 
-  print *,'which_gcm = ',g2c%which_gcm
-  
   do while (.not. finished)
     select case (g2c%which_gcm)
       case (GCM_MINIMAL_MODEL)
         ! call gcm_update_model(gcm_model,cism_model)
-        print *,"In gci_run_model, calling cism_run_dycore"
+!        if (main_task) print *,"In gci_run_model, calling cism_run_dycore"
         call cism_run_dycore(g2c%glide_model)
 
       case (GCM_DATA_MODEL,GCM_CESM)
-        ! print *,"In gci_run_model, calling g2c_glint_run"
+!        if (main_task) print *,"In gci_run_model, calling g2c_glint_run"
         call g2c_glint_run(g2c)
         call g2c_glint_climate_time_step(g2c)
       case default
@@ -145,7 +145,7 @@ function gci_finished(g2c) result(finished)
       call g2c_glint_check_finished(g2c,finished)
     case default
   end select
-  !print *,"In gci_finished, finished = ",finished  
+  !if (main_task) print *,"In gci_finished, finished = ",finished  
 
 end function gci_finished
 

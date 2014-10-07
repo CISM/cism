@@ -574,11 +574,11 @@ contains
 
      call glissade_stagger(nx,      ny,         &
                            thck,    stagthck,   &
-                           imask,   stag_flag_in = 1)
+                           imask,   stagger_margin_in = 1)
 
      call glissade_stagger(nx,      ny,         &
                            usrf,    stagusrf,   &
-                           imask,   stag_flag_in = 1)
+                           imask,   stagger_margin_in = 1)
 
      !------------------------------------------------------------------------------
 

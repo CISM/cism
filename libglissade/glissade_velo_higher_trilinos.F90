@@ -50,28 +50,31 @@
 
 #ifdef TRILINOS
 
-    public :: trilinos_global_id, trilinos_fill_pattern, trilinos_assemble,  &
-              trilinos_postprocess, trilinos_test
+    public :: trilinos_global_id_3d,    trilinos_global_id_2d,     &
+              trilinos_fill_pattern_3d, trilinos_fill_pattern_2d,  &
+              trilinos_assemble_3d,     trilinos_assemble_2d,      &
+              trilinos_postprocess_3d,  trilinos_postprocess_2d,  &
+              trilinos_test
 
-    interface trilinos_global_id
-       module procedure trilinos_global_id_3d
-       module procedure trilinos_global_id_2d
-    end interface
+!    interface trilinos_global_id
+!       module procedure trilinos_global_id_3d
+!       module procedure trilinos_global_id_2d
+!    end interface
 
-    interface trilinos_fill_pattern
-       module procedure trilinos_fill_pattern_3d
-       module procedure trilinos_fill_pattern_2d
-    end interface
+!    interface trilinos_fill_pattern
+!       module procedure trilinos_fill_pattern_3d
+!       module procedure trilinos_fill_pattern_2d
+!    end interface
 
-    interface trilinos_assemble
-       module procedure trilinos_assemble_3d
-       module procedure trilinos_assemble_2d
-    end interface
+!    interface trilinos_assemble
+!       module procedure trilinos_assemble_3d
+!       module procedure trilinos_assemble_2d
+!    end interface
 
-    interface trilinos_postprocess
-       module procedure trilinos_postprocess_3d
-       module procedure trilinos_postprocess_2d
-    end interface
+!    interface trilinos_postprocess
+!       module procedure trilinos_postprocess_3d
+!       module procedure trilinos_postprocess_2d
+!    end interface
 
   contains
 

@@ -266,7 +266,10 @@ contains
 
     if (maxval(model%velocity%unstagbeta) > 0.d0 .and.   &
                model%options%which_ho_babc /= HO_BABC_ISHOMC) then  ! interpolate to staggered grid
-       call write_log('Interpolating beta from unstaggered to staggered grid')
+       call write_log('Interpolating beta from unstaggered (unstagbeta) to staggered grid (beta)')
+       if (maxval(model%velocity%beta) > 0.0d0 ) then
+         call write_log('Warning: the input "beta" field will be overwritten with values interpolated from the input "unstagbeta" field!')
+       endif
 
        call parallel_halo(model%velocity%unstagbeta)    ! fill in halo values
        call stagvarb(model%velocity%unstagbeta,  &      ! interpolate
@@ -274,29 +277,26 @@ contains
                      model%general%ewn,          &
                      model%general%nsn)
 
-       !NOTE: The following will override any other value of which_ho_babc set in the config file
-       model%options%which_ho_babc = HO_BABC_EXTERNAL_BETA  
-
        !WHL - debug
        print*, ' '
        print*, 'Interpolating beta from unstaggered to staggered grid'
        print*, ' '
-       print*, 'unstagbeta, Pa/(m/yr):'
-       do j = model%general%nsn, 1, -1
-          do i = 1, model%general%ewn
-             write(6,'(f8.0)',advance='no') model%velocity%unstagbeta(i,j) * tau0/vel0/scyr
-          enddo
-          print*, ' '
-       enddo
+!       print*, 'unstagbeta, Pa/(m/yr):'
+!       do j = model%general%nsn, 1, -1
+!          do i = 1, model%general%ewn
+!             write(6,'(f8.0)',advance='no') model%velocity%unstagbeta(i,j) * tau0/vel0/scyr
+!          enddo
+!          print*, ' '
+!       enddo
 
-       print*, ' '
-       print*, 'beta, Pa/(m/yr):'
-       do j = model%general%nsn-1, 1, -1
-          do i = 1, model%general%ewn-1
-             write(6,'(f8.0)',advance='no') model%velocity%beta(i,j) * tau0/vel0/scyr
-          enddo
-          print*, ' '
-       enddo
+!       print*, ' '
+!       print*, 'beta, Pa/(m/yr):'
+!       do j = model%general%nsn-1, 1, -1
+!          do i = 1, model%general%ewn-1
+!             write(6,'(f8.0)',advance='no') model%velocity%beta(i,j) * tau0/vel0/scyr
+!          enddo
+!          print*, ' '
+!       enddo
 
     endif  ! unstagbeta > 0
 
@@ -407,6 +407,9 @@ contains
     ! temporary thck array in SI units (m)
     !TODO - SCALING - Remove if and when scaling is removed
     real(dp), dimension(model%general%ewn,model%general%nsn) :: thck_unscaled
+
+    ! temporary acab array in SI units (m/s)
+    real(dp), dimension(model%general%ewn,model%general%nsn) :: acab_unscaled
 
     ! temporary variables needed to reset geometry for the EVOL_NO_THICKNESS option
     real(dp), dimension(model%general%ewn,model%general%nsn) :: thck_old
@@ -585,35 +588,34 @@ contains
        do sc = 1 , model%numerics%subcyc
           if (model%numerics%subcyc > 1) write(*,*) 'Subcycling transport: Cycle ',sc
 
+          ! temporary in/out arrays in SI units (m)                               
+          thck_unscaled(:,:) = model%geometry%thck(:,:) * thk0
+          acab_unscaled(:,:) = model%climate%acab(:,:) * thk0/tim0
+
           if (model%options%whichtemp == TEMP_PROGNOSTIC) then  ! Use IR to transport thickness, temperature
                                                                 ! (and other tracers, if present)
                                                                 ! Note: We are passing arrays in SI units.
-
-             ! temporary in/out arrays in SI units (m)                               
-             thck_unscaled(:,:) = model%geometry%thck(:,:) * thk0
 
              call glissade_transport_driver(model%numerics%dt * tim0,                             &
                                             model%numerics%dew * len0, model%numerics%dns * len0, &
                                             model%general%ewn,         model%general%nsn,         &
                                             model%general%upn-1,       model%numerics%sigma,      &
-                                            nhalo,                     ntracer,                   &
+                                            ntracer,                                              &
                                             model%velocity%uvel(:,:,:) * vel0,                    &
                                             model%velocity%vvel(:,:,:) * vel0,                    &
                                             thck_unscaled(:,:),                                   &
-                                            dble(model%climate%acab(:,:)) * thk0/tim0,            &
+                                            acab_unscaled(:,:),                                   &
                                             bmlt_continuity(:,:),                                 &
                                             model%temper%temp(:,:,:),                             &
-                                            upwind_transport_in=do_upwind_transport )
+                                            upwind_transport_in = do_upwind_transport )
 
-             ! convert thck back to scaled units
+             ! convert thck and acab back to scaled units
              model%geometry%thck(:,:) = thck_unscaled(:,:) / thk0
+             model%climate%acab(:,:) = acab_unscaled(:,:) / (thk0/tim0)
 
           elseif (model%options%whichtemp == TEMP_ENTHALPY) then  ! Use IR to transport thickness, temperature,
                                                                 ! and waterfrac.  Also set ntracer = 3
                                                                 ! Note: We are passing arrays in SI units.
-
-             ! temporary thickness array in SI units (m)                               
-             thck_unscaled(:,:) = model%geometry%thck(:,:) * thk0
 
              ! BDM Set ntracer = 3 since temp and waterfrac need to be passed (and maybe ice age).
              !     If no ice age is present, a dummy array will be passed for tracer = 2
@@ -622,50 +624,43 @@ contains
              call glissade_transport_driver(model%numerics%dt * tim0,                             &
                                             model%numerics%dew * len0, model%numerics%dns * len0, &
                                             model%general%ewn,         model%general%nsn,         &
-                                            model%general%upn-1,       model%numerics%sigma,      &
-                                            nhalo,                     ntracer,                 &
+                                            model%general%upn-1,       model%numerics%sigma,      & 
+                                            ntracer,                                              &
                                             model%velocity%uvel(:,:,:) * vel0,                    &
                                             model%velocity%vvel(:,:,:) * vel0,                    &
                                             thck_unscaled(:,:),                                   &
-                                            dble(model%climate%acab(:,:)) * thk0/tim0,            &
+                                            acab_unscaled(:,:),                                   &
                                             bmlt_continuity(:,:),                                 &
                                             model%temper%temp(:,:,:),                             & 
                                             model%temper%waterfrac(:,:,:),                        &
-                                            upwind_transport_in=do_upwind_transport )
-
-             ! convert thck back to scaled units
-             model%geometry%thck(:,:) = thck_unscaled(:,:) / thk0
-         
-          !TODO - Will we continue to support this option?  May not be needed.
+                                            upwind_transport_in = do_upwind_transport )
 
           else  ! Use IR to transport thickness only
                 ! Note: In glissade_transport_driver, the ice thickness is transported layer by layer,
                 !       which is inefficient if no tracers are being transported.  (It would be more
                 !       efficient to transport thickness in one layer only, using a vertically
-                !       averaged velocity.)  But this option probably will not be used in practice;
-                !       it is left in the code just to ensure backward compatibility with an
-                !       older remapping scheme for transporting thickness only.
+                !       averaged velocity.)  Not sure if this option will be used in practice.
 
-             ! temporary thickness array in SI units (m)                               
-             thck_unscaled(:,:) = model%geometry%thck(:,:) * thk0
+             !TODO - Will we continue to support this option?
 
              call glissade_transport_driver(model%numerics%dt * tim0,                             &
                                             model%numerics%dew * len0, model%numerics%dns * len0, &
                                             model%general%ewn,         model%general%nsn,         &
                                             model%general%upn-1,       model%numerics%sigma,      &
-                                            nhalo,                     ntracer,                   &
+                                            ntracer,                                              &
                                             model%velocity%uvel(:,:,:) * vel0,                    & 
                                             model%velocity%vvel(:,:,:) * vel0,                    &
                                             thck_unscaled(:,:),                                   &
-                                            dble(model%climate%acab(:,:)) * thk0/tim0,            & 
+                                            acab_unscaled(:,:),                                   &
                                             bmlt_continuity(:,:) ,                                &
-                                            upwind_transport_in=do_upwind_transport )
-
-             ! convert thck back to scaled units
-             model%geometry%thck(:,:) = thck_unscaled(:,:) / thk0
+                                            upwind_transport_in = do_upwind_transport )
 
           endif  ! whichtemp
 
+          ! convert thck and acab back to scaled units
+          model%geometry%thck(:,:) = thck_unscaled(:,:) / thk0
+          model%climate%acab(:,:) = acab_unscaled(:,:) / (thk0/tim0)
+         
 !WHL - debug
 !    print*, ' '
 !    print*, 'After glissade_transport_driver:'
@@ -1850,10 +1845,10 @@ contains
                                       dx,                        dy,                        &
                                       nx,                        ny,                        &
                                       nz-1,                      model%numerics%sigma,      &
-                                      nhalo,                     ntracer,                   &
+                                      ntracer,                                              &
                                       uvel(:,:,:)/scyr,          vvel(:,:,:)/scyr,          &
                                       model%geometry%thck(:,:),                             &
-                                      dble(model%climate%acab(:,:)),                        &
+                                      model%climate%acab(:,:),                              &
                                       model%temper%bmlt(:,:),                               &
                                       model%temper%temp(:,:,:),                             &
                                       upwind_transport_in = do_upwind_transport)

@@ -721,7 +721,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      bwat,                        &
                      basal_physics,               &
                      btraction,                   &
-                     0 )
+                     1 )
 
     call findcoefstr(ewn,  nsn,   upn,            &
                      dew,  dns,   sigma,          &
@@ -744,7 +744,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
                      bwat,                        &
                      basal_physics,               &
                      btraction,                   &
-                     0 )
+                     1 )
 
  call t_stopf("PICARD_findcoefstr3")
 
@@ -1196,7 +1196,7 @@ end if
                      bwat,                        &
                      basal_physics,               &
                      btraction,                   &
-                     0 )
+                     1 )
 
    call findcoefstr(ewn,  nsn,   upn,             &
                      dew,  dns,   sigma,          &
@@ -1219,7 +1219,7 @@ end if
                      bwat,                        &
                      basal_physics,               &
                      btraction,                   &
-                     0 )
+                     1 )
 
   inisoln = .true.
 
@@ -2511,16 +2511,6 @@ end subroutine reset_effstrmin
 !  call res_vect_jfnk(matrixA, matrixC, Ft, rhsx, pcgsize(1), 2*pcgsize(1), gxf, L2square, whatsparse)
 !  call resvect_postprocess_jfnk( ewn, nsn, upn, ui, pcgsize(1), Ft, vres, ures, magres )
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-  fptr%velocity%btraction => btraction(:,:,:)
-  fptr%temper%flwa => flwa(:,:,:)
-  fptr%stress%efvs => efvs(:,:,:)
-  fptr%velocity%uvel => uvel(:,:,:)
-  fptr%velocity%vvel => vvel(:,:,:)
-
-!  fptr%velocity%ures => ures(:,:,:)     !! used for output of residual fields 
-!  fptr%velocity%vres => vres(:,:,:)     !! used for output of residual fields
-!  fptr%velocity%magres => magres(:,:,:) !! used for output of residual fields
 
   fptr%solver_data%L2norm = L2norm
   fptr%solver_data%matrixA = matrixA

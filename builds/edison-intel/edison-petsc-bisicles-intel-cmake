@@ -42,8 +42,8 @@ module unload cray-mpich2
 module load modules
 module load cmake
 module load PrgEnv-intel
-module load cray-hdf5-parallel
-module load cray-netcdf-hdf5parallel
+module load cray-hdf5-parallel/1.8.12
+module load cray-netcdf-hdf5parallel/4.3.1
 module load python
 module load cray-shmem
 module load cray-mpich
@@ -67,7 +67,7 @@ echo "Doing CMake Configuration step"
 
 cmake \
   -D CISM_BUILD_CISM_DRIVER:BOOL=ON \
-  -D CISM_ENABLE_BISICLES=OFF \
+  -D CISM_ENABLE_BISICLES=ON \
   -D CISM_ENABLE_FELIX=OFF \
 \
   -D CISM_USE_TRILINOS:BOOL=OFF \

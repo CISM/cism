@@ -13,12 +13,12 @@ import numpy
 # Parameters you might want to modify
 # ==========================================================================
 analytic_solution = 'raymond'  # can be 'raymond' or 'schoof'
-kinflag = 0    # 1=apply kinematic bc (analytic soln) at up/downstream ends, 0=the run will be doubly periodic (preferred)
+kinflag = 1    # 1=apply kinematic bc (analytic soln) at points in the domain (discussed further below); 0=the run will be doubly periodic (preferred)
 fillInitialGuess = 0  # 1=use the analytic solution as the initial guess for the velocity solver to speed convergence; 0=use the default 0-velocity initial guess
 
 
 # Domain parameters
-streamHalfWidth = 25000.0   # ice stream half-width, in m - used for both Raymond & Schoof formulations
+streamHalfWidth = 25000.0   # ice stream half-width, in m - used for both raymond & schoof formulations
 alongFlowLength = 30000.0   # the desired along-flow length of the domain, in m; set to -1 to get a square domain
 H = 1000.0       # ice thickness
 dsdx = -1.0e-3   # bed (and surface) slope in the x-direction (y-direction is flat)
@@ -31,18 +31,17 @@ A = 1e-16     # flow rate factor in Pa^-3 yr^-1
 # ==========================================================================
 
 
-
 # ======================================
 # -- Functions for analytic solutions --
 # ======================================
 
-# Raymond yield stress
+# raymond yield stress
 def raymond_tau(yy):
   tau0 = 5.2e3*numpy.ones(yy.shape)         # set the stream value everywhere
   tau0[numpy.absolute(yy)>=streamHalfWidth] = 0.7e5        # set a very large value  outside the stream
   return tau0
 
-# Raymond velocity solution
+# raymond velocity solution
 def raymond_uvel(yy):
   tau0r = raymond_tau(yy)
   tau0r[tau0r>taud] = taud
@@ -50,15 +49,15 @@ def raymond_uvel(yy):
   ur[ur<0.0] = 0.0
   return ur
 
-# Schoof solution parameters
-m = 1.55  # Schoof exponent
-L = streamHalfWidth / (m+1.0)**(1.0/m)  # This comes from the line above eq. 4.3 in Schoof (2006)
+# schoof solution parameters
+m = 1.55  # schoof exponent
+L = streamHalfWidth / (m+1.0)**(1.0/m)  # This comes from the line above eq. 4.3 in schoof (2006)
 
-# Schoof yield stress distribution
+# schoof yield stress distribution
 def schoof_tau(yy):
   return taud * numpy.absolute( yy / L )**m
 
-# Schoof velocity solution
+# schoof velocity solution
 def schoof_uvel(yy):
   B = A**(-1.0/n)
   us = -2.0 * taud**3 * L**4 / (B**3 * H**3) * ( ((yy/L)**4 - (m+1.0)**(4.0/m))/4.0 - 3.0*( numpy.absolute(yy/L)**(m+4.0) \
@@ -72,7 +71,6 @@ def schoof_uvel(yy):
   return us
 
 
-
 # ======================================
 # -- Values derived from things above --
 # ======================================
@@ -81,11 +79,10 @@ taud = rho * g * H * dsdx  # Driving stress
 if analytic_solution == 'raymond':
   strongWidth = 5.0 * H  # 5 ice thicknesses should get us beyond the zone of lateral stress transfer.  Adjust as needed
 elif analytic_solution == 'schoof':
-  # Schoof (2006) uses a domain size that is 3L on either side of the central axis
+  # schoof (2006) uses a domain size that is 3L on either side of the central axis
   strongWidth = 3.0 * L - streamHalfWidth
 
 # Calculating the actual domain size will happen later after the config file is read
-
 
 
 
@@ -103,8 +100,8 @@ if __name__ == '__main__':
     optparser.add_option("-c", "--config", dest="configfile", type='string', default='stream.config.in', help="Name of .config file to use to setup and run the test case", metavar="FILE")
     optparser.add_option('-m','--parallel',dest='parallel',type='int', help='Number of processors to run the model with: if specified then execute run in parallel', metavar="NUMPROCS")
     optparser.add_option('-e','--exec',dest='executable',default='./cism_driver',help='Set path to the CISM executable')
-    optparser.add_option('-s','--stream-size',dest='stream_grid_size',default=25,type='int',help='Number of cells to use to model the ice stream portion of the domain.')
-    optparser.add_option('-v','--vert-grid-size',dest='vertical_grid_size',type='int',help='Number of vertical layers to use (upn)')
+    optparser.add_option('-s','--stream-size',dest='stream_grid_size',default=25,type='int',help='Number of cells to use to model the ice stream portion of the domain (values <19 may not work properly for all problems).')
+    optparser.add_option('-v','--vert-grid-size',dest='vertical_grid_size',default=2,type='int',help='Number of vertical layers to use (upn); minimum value = 2')
 
     for option in optparser.option_list:
         if option.default != ("NO", "DEFAULT"):
@@ -156,7 +153,7 @@ if __name__ == '__main__':
 
     # Check domain sizes for usefulness
     if (nStream % 2) == 0 and analytic_solution == 'schoof':
-      print "Warning: For the Schoof version, you might want the number of cells in the stream to be an odd number."
+      print "Warning: For the schoof version, you might want the number of cells in the stream to be an odd number."
 
     print 'Writing', filename
     try:
@@ -178,7 +175,7 @@ if __name__ == '__main__':
 
     # Make sure the edge of the stream lands on the grid cells on the y0 grid.  This should always happen with the logic above, so this check should never be activated.
     if (analytic_solution == 'raymond') and (not True in (numpy.absolute(streamHalfWidth-y0) < 0.0001)):
-      sys.exit('Error: the stream edge does not land on the y0 grid so the stream will not be resolved adequately for the Raymond case.  Adjust your domain size and/or stream size and/or horizontal resolution.  \nstream half width='+str(streamHalfWidth)+'\ny0 grid has values at:\n '+str(y0[:]))
+      sys.exit('Error: the stream edge does not land on the y0 grid so the stream will not be resolved adequately for the raymond case.  Adjust your domain size and/or stream size and/or horizontal resolution.  \nstream half width='+str(streamHalfWidth)+'\ny0 grid has values at:\n '+str(y0[:]))
 
     # Make sure we have at least two non-stream rows on each side
     if (numpy.absolute(y0[:])>streamHalfWidth).sum() < 4:
@@ -226,7 +223,7 @@ if __name__ == '__main__':
         netCDFfile.createVariable('vvel','f',('time','level','y0','x0'))
 
     if kinflag == 1:
-        # setup Dirichlet boundary conditions for uvel/vvel along east & west domain boundaries
+        # setup Dirichlet boundary conditions for uvel and/or vvel at points in the domain
 
         dudy = numpy.gradient( uvelProfile, dy )
         vvelProfile = -dudy*dy
@@ -235,16 +232,28 @@ if __name__ == '__main__':
         uvel = numpy.zeros([1,nz,ny-1,nx-1],dtype='float32')
         vvel = numpy.zeros([1,nz,ny-1,nx-1],dtype='float32')
 
+
+    # =================================================================
+    # fill both uvel and vvel at the upstrean and downstream domain ends
+
         # Fill first column
-        i = 0
-        uvel[0,:,:,i] = numpy.tile(uvelProfile, [nz, 1])  # uniform in the vertical
-        vvel[0,:,:,i] = -numpy.tile(vvelProfile, [nz, 1])  # uniform in the vertical
-        kinbcmask[0,:,i] = 1
+#        i = 0
+#        uvel[0,:,:,i] = numpy.tile(uvelProfile, [nz, 1])  # uniform in the vertical
+#        vvel[0,:,:,i] = -numpy.tile(vvelProfile, [nz, 1])  # uniform in the vertical
+#        kinbcmask[0,:,i] = 1
 
         # Fill last column
-        i = nx-1 - 1
+#        i = nx-1 - 1
+#        uvel[0,:,:,i] = numpy.tile(uvelProfile, [nz, 1])  # uniform in the vertical
+#        vvel[0,:,:,i] = numpy.tile(vvelProfile, [nz, 1])  # uniform in the vertical
+#        kinbcmask[0,:,i] = 1
+
+    # =================================================================
+    # fill both uvel and vvel at the upstrean and downstream domain ends
+        # Fill just a single across-flow profile in domain interior
+        i = 2
         uvel[0,:,:,i] = numpy.tile(uvelProfile, [nz, 1])  # uniform in the vertical
-        vvel[0,:,:,i] = numpy.tile(vvelProfile, [nz, 1])  # uniform in the vertical
+#        vvel[0,:,:,i] = -numpy.tile(vvelProfile, [nz, 1])  # uniform in the vertical
         kinbcmask[0,:,i] = 1
 
         netCDFfile.variables['uvel'][:] = uvel[:]

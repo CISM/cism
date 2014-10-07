@@ -200,6 +200,11 @@ module parallel
      module procedure distributed_scatter_var_real8_3d
   end interface
 
+  interface global_sum
+     module procedure global_sum_real8_scalar
+     module procedure global_sum_real8_1d
+  end interface
+
   interface parallel_def_var
      module procedure parallel_def_var_dimids
      module procedure parallel_def_var_nodimids
@@ -2627,7 +2632,19 @@ contains
     ! automatic deallocation
   end subroutine distributed_scatter_var_real8_3d
 
-  subroutine global_sum(x)
+  subroutine global_sum_real8_scalar(x)
+    use mpi_mod
+    implicit none
+    real(8) :: x
+    
+    integer :: ierror
+    real(8) :: sum
+    ! begin
+    call mpi_allreduce(x,sum,1,mpi_real8,mpi_sum,comm,ierror)
+    x = sum
+  end subroutine global_sum_real8_scalar
+
+  subroutine global_sum_real8_1d(x)
     use mpi_mod
     implicit none
     real(8),dimension(:) :: x
@@ -2637,7 +2654,7 @@ contains
     ! begin
     call mpi_allreduce(x,sum,size(x),mpi_real8,mpi_sum,comm,ierror)
     x(:) = sum(:)
-  end subroutine global_sum
+  end subroutine global_sum_real8_1d
 
   subroutine not_parallel(file,line)
     implicit none

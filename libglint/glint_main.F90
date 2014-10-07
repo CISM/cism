@@ -923,9 +923,9 @@ contains
     ! Set output flag       !TODO - Is this ever used?
     if (present(output_flag)) output_flag = .true.
 
-!    if (GLC_DEBUG .and. main_task) then
-       print*, 'Done in initialise_glint_gcm'
-!    endif
+    if (GLC_DEBUG .and. main_task) then
+       write(stdout,*) 'Done in initialise_glint_gcm'
+    endif
 
   end subroutine initialise_glint_gcm
 
@@ -1501,20 +1501,19 @@ contains
              ! Downscale input fields from global to local grid
              ! This subroutine computes instance%acab and instance%artm, the key inputs to Glide.
 
-             write(stdout,*) 'Downscale fields to local grid, time (hr) =', time
-
+             if (GLC_DEBUG .and. main_task) write(stdout,*) 'Downscale fields to local grid, time (hr) =', time
              call glint_downscaling_gcm (params%instances(i),   &
                                          params%g_av_qsmb,      &
                                          params%g_av_tsfc,      &
                                          params%g_av_topo,      &
                                          params%g_grid%mask)
 
-             write(stdout,*) 'Take a glint time step, instance', i
+             if (GLC_DEBUG .and. main_task) write(stdout,*) 'Take a glint time step, instance', i
              call glint_i_tstep_gcm(time,                  &
                                     params%instances(i),   &
                                     icets)
 
-             write(stdout,*) 'Upscale fields to global grid, time(hr) =', time
+
              ! Set flag
              if (present(ice_tstep)) then
                 ice_tstep = (ice_tstep .or. icets)
@@ -1522,6 +1521,7 @@ contains
 
              ! Upscale the output to elevation classes on the global grid
 
+             if (GLC_DEBUG .and. main_task) write(stdout,*) 'Upscale fields to global grid, time(hr) =', time
              call glint_upscaling_gcm(params%instances(i), params%g_grid%nec, &
                                       params%instances(i)%lgrid%size%pt(1),   &
                                       params%instances(i)%lgrid%size%pt(2),   &
@@ -1564,7 +1564,9 @@ contains
 
        deallocate(gfrac_temp, gtopo_temp, grofi_temp, grofl_temp, ghflx_temp)
 
-       write(stdout,*) 'Done in glint_gcm'
+       if (GLC_DEBUG .and. main_task) then
+          write(stdout,*) 'Done in glint_gcm'
+       endif
 
    endif    ! time - params%av_start_time + params%time_step > params%tstep_mbal
 

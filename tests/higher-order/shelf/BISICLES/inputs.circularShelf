@@ -140,6 +140,8 @@ JFNKSolver.mgProlongType = 1
 
 # 0 = relax, 1 = BiCGStab, 2 = GMRES, 3 = MultiGrid, 4 = petsc
 JFNKSolver.solverType = 0
+#JFNKSolver.solverType = 4
+#JFNKSolver.bottom_solver_type = 1 # petsc
 JFNKSolver.maxBiCGStabIter = 50
 JFNKSolver.MGtol = 1.0e-5
 JFNKSolver.RelaxTol = 1.0e-5

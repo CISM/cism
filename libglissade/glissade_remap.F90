@@ -476,7 +476,7 @@
          xav, yav          ,&! gridcell avg values of x, y
          xxav, xyav, yyav    ! gridcell avg values of xx, xy, yy
 
-      character(len=100) :: message
+      character(len=200) :: message
 
     !------------------------------------------------------------------- 
     ! Initialize various grid quantities and code options
@@ -597,6 +597,8 @@
 
       if (l_stop) then
          write(message,*) 'Aborting (task = ',this_rank,')'
+         call write_log(message)
+         write(message,*) 'Incremental remapping advection scheme failed. A CFL violation has likely occurred. If so, the log file will contain more information.'
          call write_log(message,GM_FATAL)
       endif
 
@@ -1365,7 +1367,7 @@
 !         write (message,*) 'hte(i,j), hte(i,j+1) =', hte(i,j), hte(i,j+1)
 !         call write_log(message)
          write (6,*) 'Process:', this_rank
-         write (6,*) 'Remap, departure points out of bounds:, i, j =', i, j
+         write (6,*) 'Remap, departure points out of bounds:, local i, j =', i, j
          write (6,*) 'dpx, dpy =', dpx(i,j), dpy(i,j)
          write (6,*) 'uvel, vvel =', uvel(i,j), vvel(i,j)
          write (6,*) 'htn(i,j), htn(i+1,j) =', htn(i,j), htn(i+1,j)

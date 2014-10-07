@@ -46,6 +46,7 @@ module gcm_to_cism_glint
   use glimmer_writestats
 !  use glimmer_commandline
   use glimmer_paramets, only: GLC_DEBUG
+  use parallel, only: main_task
 
 type gcm_to_cism_type
 
@@ -179,6 +180,8 @@ subroutine g2c_glint_init(g2c)
   g2c%t1 = real(g2c%clock,kind=dp)/real(g2c%clock_rate,kind=dp)
   !print *,"g2c%clock, g2c%clock_rate, t1",g2c%clock,g2c%clock_rate,g2c%t1
 
+  if (verbose_glint .and. main_task) print*, 'call glex_clim_init'
+
   ! Initialise climate
 
   call glex_clim_init(g2c%climate,g2c%commandline_climate_fname)
@@ -193,7 +196,7 @@ subroutine g2c_glint_init(g2c)
   ! start logging
 !  call open_log(unit=101, fname=logname(g2c%commandline_configname))  
 
-  if (verbose_glint) then
+  if (verbose_glint .and. main_task) then
      print*, ' '
      print*, 'Starting glint_example:'
      print*, 'climatename = ', trim(g2c%commandline_climate_fname)
@@ -314,7 +317,7 @@ subroutine g2c_glint_init(g2c)
 
   g2c%time = g2c%climate%climate_tstep     ! time in integer hours
                                  
-  print*, 'g2c_glint_init is done'
+!  if (main_task) print*, 'Done in g2c_glint_init'
 
 end subroutine g2c_glint_init
 

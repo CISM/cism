@@ -95,8 +95,8 @@ amr.blockFactor = 2           # block factor used in grid generation
 amr.fill_ratio = 0.8          # how efficient are the grids
 amr.nestingRadius = 3         # proper nesting radius required
 amr.tags_grow = 2             # amount to buffer tags
-amr.max_box_size = 4         # largest box length allowed
-#amr.max_box_size = 10000         # largest box length allowed
+amr.max_box_size = 32          # largest box length allowed
+#amr.max_box_size = 10000     # largest box length allowed
 
 amr.tag_on_grad_velocity = 0
 amr.tag_on_laplacian_velocity = 1
