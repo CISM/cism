@@ -404,7 +404,7 @@ coordinates:   lon lat
 
 [effecpress]
 dimensions:    time, y1, x1
-units:         meter
+units:         Pa
 long_name:     effective pressure
 data:          data%basal_physics%effecpress
 load:          1
