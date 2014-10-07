@@ -599,7 +599,7 @@ contains
     type(glide_global_type) :: model
     
     call GetValue(section, 'which_ho_efvs',      model%options%which_ho_efvs)
-    call GetValue(section, 'which_disp',         model%options%which_disp)
+    call GetValue(section, 'which_ho_disp',      model%options%which_ho_disp)
     call GetValue(section, 'which_ho_babc',      model%options%which_ho_babc)
     call GetValue(section, 'which_ho_resid',     model%options%which_ho_resid)
     call GetValue(section, 'which_ho_nonlinear', model%options%which_ho_nonlinear)
@@ -742,10 +742,10 @@ contains
          'multiple of flow factor        ', &
          'nonlinear, from eff strain rate' /)
 
-    character(len=*), dimension(0:1), parameter :: dispwhich = (/ &
+    character(len=*), dimension(-1:1), parameter :: ho_whichdisp = (/ &
+         'no dissipation                    ', &
          '0-order SIA                       ', &
-         '1st order model (Blatter-Pattyn)  ' /)
-!!         '1-st order depth-integrated (SSA) ' /)  ! not supported
+         'first-order model (Blatter-Pattyn)' /)
 
     character(len=*), dimension(0:10), parameter :: ho_whichbabc = (/ &
          'constant beta                          ', &
@@ -877,6 +877,13 @@ contains
           if (model%options%which_ho_precond == HO_PRECOND_SIA) then
              call write_log('Error, cannot use SIA preconditioning for 2D solve', GM_FATAL)
           endif
+       endif
+    endif
+
+    if (model%options%whichdycore == DYCORE_GLISSADE) then 
+       if ( model%options%which_ho_approx == HO_APPROX_LOCAL_SIA .and. &
+            model%options%which_ho_disp   == HO_DISP_FIRSTORDER ) then
+          call write_log('Error, cannot use first-order dissipation with local SIA solver', GM_FATAL)
        endif
     endif
 
@@ -1028,11 +1035,11 @@ contains
           call write_log('Error, HO effective viscosity input out of range', GM_FATAL)
        end if
 
-       write(message,*) 'dispwhich               : ',model%options%which_disp,  &
-                         dispwhich(model%options%which_disp)
+       write(message,*) 'ho_whichdisp            : ',model%options%which_ho_disp,  &
+                         ho_whichdisp(model%options%which_ho_disp)
        call write_log(message)
-       if (model%options%which_disp < 0 .or. model%options%which_disp >= size(dispwhich)) then
-          call write_log('Error, which dissipation input out of range', GM_FATAL)
+       if (model%options%which_ho_disp < -1 .or. model%options%which_ho_disp >= size(ho_whichdisp)-1) then
+          call write_log('Error, HO dissipation input out of range', GM_FATAL)
        end if
 
        write(message,*) 'ho_whichbabc            : ',model%options%which_ho_babc,  &

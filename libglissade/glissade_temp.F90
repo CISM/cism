@@ -447,13 +447,13 @@ contains
 
        ! Calculate interior heat dissipation -------------------------------------
 
-       call glissade_finddisp( model,                   &
-                               model%geometry%thck,     &
-                               model%options%which_disp,&
-                               model%stress%efvs,       &
-                               model%geomderv%stagthck, &
-                               model%geomderv%dusrfdew, &
-                               model%geomderv%dusrfdns, &
+       call glissade_finddisp( model,                      &
+                               model%geometry%thck,        &
+                               model%options%which_ho_disp,&
+                               model%stress%efvs,          &
+                               model%geomderv%stagthck,    &
+                               model%geomderv%dusrfdew,    &
+                               model%geomderv%dusrfdns,    &
                                model%temper%flwa)
 
        ! Calculate heating from basal friction -----------------------------------
@@ -730,13 +730,13 @@ contains
 
       ! Calculate interior heat dissipation -------------------------------------
 
-      call glissade_finddisp(  model,                   &
-                               model%geometry%thck,     &
-                               model%options%which_disp,&
-                               model%stress%efvs,       &
-                               model%geomderv%stagthck, &
-                               model%geomderv%dusrfdew, &
-                               model%geomderv%dusrfdns, &
+      call glissade_finddisp(  model,                      &
+                               model%geometry%thck,        &
+                               model%options%which_ho_disp,&
+                               model%stress%efvs,          &
+                               model%geomderv%stagthck,    &
+                               model%geomderv%dusrfdew,    &
+                               model%geomderv%dusrfdns,    &
                                model%temper%flwa)
 
       ! Calculate heating from basal friction -----------------------------------
@@ -1231,15 +1231,13 @@ contains
 
 !-------------------------------------------------------------------
  
-!TODO - The HO version does not need dusrfdew, dusrfdns as inputs.
-!       Since the HO version always computes temp on a staggered vertical grid, can remove some code.
-
   subroutine glissade_finddisp (model,     &
                                 thck,      &
                                 whichdisp, &
                                 efvs,      &
                                 stagthck,  &
-                                dusrfdew,dusrfdns,  &
+                                dusrfdew,  &
+                                dusrfdns,  &
                                 flwa)
 
     ! Compute the dissipation source term associated with strain heating.
@@ -1257,34 +1255,27 @@ contains
 
     integer, parameter :: p1 = gn + 1  
     integer :: ew, ns
-    integer :: iew, ins    !*sfp* for HO and SSA dissip. calc.
 
     real(dp) :: c2 
+    real(dp), dimension(model%general%upn-1) :: c5     
 
-    !*sfp* The next 2 declarations needed for HO and SSA dissip. calc. ... only needed 
-    ! for internal work, so not clear if it is necessary to declare/allocate them elsewhere 
-    real(dp) :: c4                         
-    real(dp), dimension(model%general%upn) :: c5     
+    model%tempwk%dissip(:,:,:) = 0.0d0
     
     select case( whichdisp ) 
 
-!TODO - Do we need to support SIA dissipation for glissade code?
-!       I am leaving this for now, because the standard dome config files do not specify whichdisp,
-!        and therefore it uses the default SIA value (whichdisp = 0).
-!       I think it would be better to remove the whichdisp option, and simply use the option
-!        appropriate to the dycore.
+    case(HO_DISP_NONE)
 
-    case( SIA_DISP )
+       ! do nothing; return dissip = 0 everywhere
+
+    case(HO_DISP_SIA)   ! required for whichapprox = HO_APPROX_LOCAL_SIA
 
     !*sfp* 0-order SIA case only 
     ! two methods of doing this. 
     ! 1. find dissipation at u-pts and then average
     ! 2. find dissipation at H-pts by averaging quantities from u-pts
-    ! 2. works best for eismint divide (symmetry) but 1 likely to be better for full expts
+    ! (2) works best for eismint divide (symmetry) but I likely to be better for full expts
 
-    model%tempwk%dissip(:,:,:) = 0.0d0
-
-    !LOOP TODO: Locally owned cells only
+    !TODO (ROUNDOFF) - Change 0.25 to 0.25d0
     do ns = 2, model%general%nsn-1
        do ew = 2, model%general%ewn-1
 
@@ -1293,7 +1284,7 @@ contains
           if (thck(ew,ns) > model%numerics%thklim) then
              
              c2 = (0.25*sum(stagthck(ew-1:ew,ns-1:ns)) * dsqrt((0.25*sum(dusrfdew(ew-1:ew,ns-1:ns)))**2 &
-                  + (0.25*sum(dusrfdns(ew-1:ew,ns-1:ns)))**2))**p1
+                + (0.25*sum(dusrfdns(ew-1:ew,ns-1:ns)))**2))**p1
              
              model%tempwk%dissip(:,ew,ns) = c2 * model%tempwk%c1(:) * ( &
                   flwa(:,ew-1,ns-1) + flwa(:,ew-1,ns+1) + flwa(:,ew+1,ns+1) + flwa(:,ew+1,ns-1) + &
@@ -1304,26 +1295,24 @@ contains
        end do
     end do
 
-    !the compensatory heating(compheat) is initialized to zero and allows
-    !for modifying the calculated dissip.  This is needed for exact verification tests,
-    !model%tempwk%dissip = model%tempwk%dissip + model%tempwk%compheat 
+    case(HO_DISP_FIRSTORDER)
 
-    case( FIRSTORDER_DISP )
-
-    !*sfp* 1st-order, NON-depth integrated SIA case only (Pattyn, Payne-Price models) 
-    ! NOTE: this needs tau and efvs (3d arrays), which are the eff. stress and the eff. visc. calculated
-    ! from and/or consistent with the HO model. For simplicity, tau can be calculated from: tau = 2*efvs*eps_eff,
+    ! 3D, 1st-order case
+    ! Typically this is used for Blatter-Pattyn, but Glissade computes efvs and tau%scalar
+    !  using only the strain rate terms appropriate for the approximation.
+    ! E.g, the SIA quantities are computed based on (du_dz, dv_dz) only, and the SSA quantities
+    !  are computed based on (du_dx, du_dy, dv_dx, dv_dy) only.
+    ! So this computation should give the appropriate heating for whichapprox = HO_APPROX_SIA,
+    !  HO_APPROX_SSA, HO_APPROX_L1L2 or HO_APPROX_BP.
+    !
+    ! NOTE (SFP): For simplicity, tau can be calculated from: tau = 2*efvs*eps_eff,
     ! where eps_eff is the eff. strain rate. Further, eps_eff can be calculated from the efvs according to a 
     ! re-arrangement of: efvs = 1/2 * ( 1 / A(T) )^(1/n) * eps_eff^((1-n)/n), in which case only the efvs and rate
     ! factor arrays need to be passed in for this calculation.
 
-    model%tempwk%dissip(:,:,:) = 0.0d0
-
     if (size(model%tempwk%dissip,1) /= model%general%upn-1) then  ! staggered vertical grid
         !TODO - Write an error message and exit gracefully
     endif
-
-    !LOOP TODO: Locally owned cells only
 
     do ns = 1, model%general%nsn
        do ew = 1, model%general%ewn
@@ -1340,9 +1329,10 @@ contains
                 ! (i.e. on staggered vertical grid).  No vertical averaging is needed, since
                 ! temp and dissip are colocated with eff stress and eff viscosity.
 
-                 c5(1:model%general%upn-1) = c5(1:model%general%upn-1)                      &
-                                            +  model%stress%tau%scalar(:,ew,ns)**2 /  &
-                                                efvs(1:model%general%upn-1,ew,ns)
+!                 c5(1:model%general%upn-1) = c5(1:model%general%upn-1)                      &
+!                                            +  model%stress%tau%scalar(:,ew,ns)**2 /  &
+!                                                efvs(1:model%general%upn-1,ew,ns)
+                 c5(:) = model%stress%tau%scalar(:,ew,ns)**2 / efvs(:,ew,ns)
              endif
 
              !Note: model%tempwk%cons(5) = (tau0*vel0/len0) / (rhoi*shci) * (model%numerics%dttem*tim0)
@@ -1352,27 +1342,6 @@ contains
           endif
        enddo
     enddo
-
-!   case( SSA_DISP )     !!! Waiting for an SSA solver !!!
-!    !*sfp* 1st-order, depth-integrated case only (SSA model) 
-!    ! NOTE: this needs taus and efvss (2d arrays), which are depth-integrated and averaged 
-!    ! effective stress and effective viscosity fields calculated from and/or consistent
-!    ! with the SSA model.
-!
-!    model%tempwk%dissip = 0.0d0
-!    do ns = 2, model%general%nsn-1
-!       do ew = 2, model%general%ewn-1
-!          if (thck(ew,ns) > model%numerics%thklim) then
-!            c4 = 0.0d0
-!            do ins = ns-1,ns; do iew = ew-1,ew; 
-!                if (efvss(iew,ins)  /=  0.0d0) then                     
-!                    c4 = c4 + taus(iew,ins)**2 / efvss(iew,ins)
-!                end if; 
-!            end do; end do
-!            model%tempwk%dissip(:,ew,ns) = c4 * model%tempwk%cons(5)
-!          end if
-!       end do
-!    end do
 
     end select
 

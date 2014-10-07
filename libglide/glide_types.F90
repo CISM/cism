@@ -198,9 +198,9 @@ module glide_types
   integer, parameter :: HO_EFVS_FLOWFACT = 1
   integer, parameter :: HO_EFVS_NONLINEAR = 2
 
-  integer, parameter :: SIA_DISP = 0
-  integer, parameter :: FIRSTORDER_DISP = 1
-!!  integer, parameter :: SSA_DISP = 2  ! not supported
+  integer, parameter :: HO_DISP_NONE = -1
+  integer, parameter :: HO_DISP_SIA = 0
+  integer, parameter :: HO_DISP_FIRSTORDER = 1
 
   integer, parameter :: HO_BABC_CONSTANT = 0
   integer, parameter :: HO_BABC_SIMPLE = 1
@@ -470,13 +470,15 @@ module glide_types
     !*FD \item[1] multiple of flow factor
     !*FD \item[2] compute from effective strain rate
 
-    !TODO - Change default to 1 for glissade?
-    integer :: which_disp = 0
+    !TODO - Change default to 1 for glissade
+    integer :: which_ho_disp = 0
 
     !*FD Flag that indicates method for computing the dissipation during the temperature calc.
     !*FD \begin{description}
+    !*FD \item[-1] for no dissipation
     !*FD \item[0] for 0-order SIA approx
-    !*FD \item[1] for 1-st order solution (e.g. Blatter-Pattyn)
+    !*FD \item[1] for first-order solution (Blatter-Pattyn)
+    !*FD      
     !*FD \end{description}
 
     integer :: which_ho_babc = 4

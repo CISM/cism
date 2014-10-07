@@ -435,7 +435,6 @@ contains
 
        call glide_finddisp(model,          &
                            model%geometry%thck,     &
-                           model%options%which_disp,&
                            model%geomderv%stagthck, &
                            model%geomderv%dusrfdew, &
                            model%geomderv%dusrfdns, &
@@ -1043,11 +1042,12 @@ contains
 
 !-------------------------------------------------------------------
 
-  subroutine glide_finddisp(model,thck,whichdisp,stagthck,dusrfdew,dusrfdns,flwa)
+  subroutine glide_finddisp(model,    &
+                            thck ,    stagthck,  &
+                            dusrfdew, dusrfdns,  &
+                            flwa)
 
     ! Compute the dissipation source term associated with strain heating.
-    ! Note that the dissipation is computed in the same way on either a staggered or an
-    !  unstaggered vertical grid.  
     ! Note also that dissip and flwa must have the same vertical dimension 
     !  (1:upn on an unstaggered vertical grid, or 1:upn-1 on a staggered vertical grid).
     
@@ -1056,22 +1056,17 @@ contains
     type(glide_global_type) :: model
     real(dp), dimension(:,:), intent(in) :: thck, stagthck, dusrfdew, dusrfdns
     real(dp), dimension(:,:,:), intent(in) :: flwa
-    integer, intent(in) :: whichdisp
 
-    integer, parameter :: p1 = gn + 1  
+    integer, parameter :: p1 = gn + 1
     integer :: ew, ns
-    integer :: iew, ins    !*sfp* for HO and SSA dissip. calc.
 
     real(dp) :: c2 
 
-    !*sfp* The next 2 declarations needed for HO and SSA dissip. calc. ... only needed 
-    ! for internal work, so not clear if it is necessary to declare/allocate them elsewhere 
-    real(dp) :: c4                         
-    real(dp), dimension(model%general%upn) :: c5     
-    
-    select case( whichdisp ) 
+    !WHL - Previously, this subroutine computed dissipation using either an SIA 
+    !      or 1st-order expression, based on the value of which_disp.
+    !      Now only the SIA expression is used for Glide.
+    !      (Glissade can use either one, depending on which_ho_disp.)
 
-    case( SIA_DISP )
     !*sfp* 0-order SIA case only 
     ! two methods of doing this. 
     ! 1. find dissipation at u-pts and then average
@@ -1095,37 +1090,6 @@ contains
           end if
        end do
     end do
-
-    !the compensatory heating(compheat) is initialized to zero and allows
-    !for modifying the calculated dissip.  This is needed for exact verification tests,
-    !model%tempwk%dissip = model%tempwk%dissip + model%tempwk%compheat 
-
-    case( FIRSTORDER_DISP )
-
-        !TODO - Print an error message and exit gracefully
-
-!   case( SSA_DISP )     !!! Waiting for an SSA solver !!!
-!    !*sfp* 1st-order, depth-integrated case only (SSA model) 
-!    ! NOTE: this needs taus and efvss (2d arrays), which are depth-integrated and averaged 
-!    ! effective stress and effective viscosity fields calculated from and/or consistent
-!    ! with the SSA model.
-!
-!    model%tempwk%dissip = 0.0d0
-!    do ns = 2, model%general%nsn-1
-!       do ew = 2, model%general%ewn-1
-!          if (thck(ew,ns) > model%numerics%thklim) then
-!            c4 = 0.0d0
-!            do ins = ns-1,ns; do iew = ew-1,ew; 
-!                if (efvss(iew,ins)  /=  0.0d0) then                     
-!                    c4 = c4 + taus(iew,ins)**2 / efvss(iew,ins)
-!                end if; 
-!            end do; end do
-!            model%tempwk%dissip(:,ew,ns) = c4 * model%tempwk%cons(5)
-!          end if
-!       end do
-!    end do
-
-    end select
 
   end subroutine glide_finddisp
 
