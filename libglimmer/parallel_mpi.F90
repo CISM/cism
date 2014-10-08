@@ -29,6 +29,29 @@ module parallel
   use netcdf
   implicit none
 
+  ! Information on the local & global bounds of an array
+  ! This is used to distinguish between arrays on the staggered vs. unstaggered grids
+  type, private :: bounds_info_type
+     ! Global number of points in each dimension
+     integer :: global_ewn
+     integer :: global_nsn
+
+     ! Range of indices that this proc is responsible for (excludes halo cells)
+     ! These are the indices in global index space
+     integer :: mybounds_ew_lb
+     integer :: mybounds_ew_ub
+     integer :: mybounds_ns_lb
+     integer :: mybounds_ns_ub
+
+     ! Local indices that this proc is responsible for (excludes halo cells)
+     ! These are the indices in local index space
+     integer :: ilo
+     integer :: ihi
+     integer :: jlo
+     integer :: jhi
+  end type bounds_info_type
+
+
 !PW - Repeat from glimmer_horiz_bcs_parallel.F90
   integer, parameter, private :: HORIZ_BCS_WALL_SLIP = 0
   integer, parameter, private :: HORIZ_BCS_CYCLIC = 1
@@ -2629,6 +2652,47 @@ contains
     if (deallocmem) deallocate(global_values)
     ! automatic deallocation
   end subroutine distributed_scatter_var_real8_3d
+
+  function get_bounds_info(array_ew_size) result(bounds_info)
+    ! Determines information on the local & global bounds of an array
+    ! This is used to distinguish between arrays on the staggered vs. unstaggered grids
+    
+    type(bounds_info_type) :: bounds_info
+    integer, intent(in) :: array_ew_size  ! size of the array of interest in the EW direction
+
+    if (array_ew_size == local_ewn) then
+       bounds_info%global_ewn = global_ewn
+       bounds_info%global_nsn = global_nsn
+
+       bounds_info%mybounds_ew_lb = ewlb + lhalo
+       bounds_info%mybounds_ew_ub = ewub - uhalo
+       bounds_info%mybounds_ns_lb = nslb + lhalo
+       bounds_info%mybounds_ns_ub = nsub - uhalo
+
+       bounds_info%ilo = 1 + lhalo
+       bounds_info%ihi = local_ewn - uhalo
+       bounds_info%jlo = 1 + lhalo
+       bounds_info%jhi = local_nsn - uhalo
+
+    else if (array_ew_size == (local_ewn - 1)) then
+       bounds_info%global_ewn = global_ewn - 1
+       bounds_info%global_nsn = global_nsn - 1
+
+       bounds_info%mybounds_ew_lb = ewlb + staggered_lhalo
+       bounds_info%mybounds_ew_ub = (ewub - 1) - staggered_uhalo
+       bounds_info%mybounds_ns_lb = nslb + staggered_lhalo
+       bounds_info%mybounds_ns_ub = (nsub - 1) - staggered_uhalo
+
+       bounds_info%ilo = 1 + staggered_lhalo
+       bounds_info%ihi = (local_ewn - 1) - staggered_uhalo
+       bounds_info%jlo = 1 + staggered_lhalo
+       bounds_info%jhi = (local_nsn - 1) - staggered_uhalo
+
+    else
+       call parallel_stop(__FILE__, __LINE__)
+    end if
+
+  end function get_bounds_info
 
   subroutine global_sum_real8_scalar(x)
     use mpi_mod
