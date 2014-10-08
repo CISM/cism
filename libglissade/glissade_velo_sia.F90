@@ -72,8 +72,7 @@
     logical, parameter :: verbose = .false.
     logical, parameter :: verbose_geom = .false.
     logical, parameter :: verbose_bed = .false.
-!!    logical, parameter :: verbose_interior = .false.
-    logical, parameter :: verbose_interior = .true.
+    logical, parameter :: verbose_interior = .false.
 
     integer :: itest, jtest    ! coordinates of diagnostic point                                                                                    
     integer :: rtest           ! task number for processor containing diagnostic point
