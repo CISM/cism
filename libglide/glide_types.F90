@@ -943,7 +943,7 @@ module glide_types
       real(dp), dimension(:,:), pointer :: effecpress => null()  !< effective pressure  
       real(dp), dimension(:,:), pointer :: effecpress_stag => null() !< effective pressure staggered grid
       ! paramter for friction law
-      real(dp) :: friction_powerlaw_roughness_slope = 0.5  !< the limiting roughness slope for the power-law friction law
+      real(dp) :: friction_powerlaw_roughness_slope = 8.4e-9  !< the friction coefficient for the power-law friction law (m y^-1 Pa^-2).  The default value is that given in Bindschadler (1983) based on fits to observations, converted to CISM units.
       ! Parameters for Coulomb friction sliding law (default values from Pimentel et al. 2010)
       real(dp) :: Coulomb_C = 0.84d0*0.5d0        !< basal stress constant (no dimension)
       real(dp) :: Coulomb_Bump_Wavelength = 2.0d0 !< bed rock wavelength at subgrid scale precision (m)
