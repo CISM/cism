@@ -119,6 +119,8 @@ type gcm_to_cism_type
   real(dp),dimension(:,:,:), allocatable :: ghflx    ! heat flux from glacier interior, positive down (W/m^2)
   real(dp),dimension(:,:),   allocatable :: grofi    ! ice runoff (calving) flux (kg/m^2/s)
   real(dp),dimension(:,:),   allocatable :: grofl    ! ice runoff (liquid) flux (kg/m^2/s)
+  real(dp),dimension(:,:),   allocatable :: ice_sheet_grid_mask    ! mask of ice sheet grid coverage
+  real(dp),dimension(:,:),   allocatable :: icemask_coupled_fluxes ! mask of ice sheet grid coverage where we are potentially sending non-zero fluxes
 
   integer :: glc_nec ! , parameter :: glc_nec = 10               ! number of elevation classes
 
@@ -240,12 +242,16 @@ subroutine g2c_glint_init(g2c)
      allocate(g2c%ghflx(g2c%nx,g2c%ny, 0:g2c%glc_nec))
      allocate(g2c%grofi(g2c%nx,g2c%ny))
      allocate(g2c%grofl(g2c%nx,g2c%ny))
+     allocate(g2c%ice_sheet_grid_mask(g2c%nx,g2c%ny))
+     allocate(g2c%icemask_coupled_fluxes(g2c%nx,g2c%ny))
 
      g2c%gfrac(:,:,:) = 0.d0
      g2c%gtopo(:,:,:) = 0.d0
      g2c%ghflx(:,:,:) = 0.d0
      g2c%grofi(:,:)   = 0.d0
      g2c%grofl(:,:)   = 0.d0
+     g2c%ice_sheet_grid_mask(:,:)    = 0.d0
+     g2c%icemask_coupled_fluxes(:,:) = 0.d0
 
   endif
 
@@ -278,7 +284,9 @@ subroutine g2c_glint_init(g2c)
                                gtopo = g2c%gtopo,                   &
                                grofi = g2c%grofi,                   &
                                grofl = g2c%grofl,                   &
-                               ghflx = g2c%ghflx)
+                               ghflx = g2c%ghflx,                   &
+                               ice_sheet_grid_mask    = g2c%ice_sheet_grid_mask, &
+                               icemask_coupled_fluxes = g2c%icemask_coupled_fluxes)
 
   else   ! standard Glint initialization
 
@@ -381,7 +389,9 @@ subroutine g2c_glint_run(g2c)
                         gtopo = g2c%gtopo,    &
                         grofi = g2c%grofi,    &
                         grofl = g2c%grofl,    &
-                        ghflx = g2c%ghflx)
+                        ghflx = g2c%ghflx,    &
+                        ice_sheet_grid_mask    = g2c%ice_sheet_grid_mask, &
+                        icemask_coupled_fluxes = g2c%icemask_coupled_fluxes)
 
      else    ! standard Glint timestepping 
 
