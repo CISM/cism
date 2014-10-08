@@ -286,24 +286,26 @@ contains
         end do
       end do
 
-    ! NOTE: case (HO_BABC_YIELD_NEWTON) is handled external to this subroutine
+    case(HO_BABC_POWERLAW)   ! A power law that uses effective pressure
+       ! See Cuffey & Paterson, Physics of Glaciers, 4th Ed. (2010), p. 240, eq. 7.17
+       ! This is based on Weertman's classic sliding relation (1957) augmented by the bed-separation index described by Bindschadler (1983)
+       !   ub = k Taub^p N^-q
+       ! rearranging for Taub gives:
+       !   Taub = k^(-1/p) ub^(1/p) N^(q/p)
 
-    case(HO_BABC_NO_SLIP)   ! In this case we have a Dirichlet basal BC, and the value of beta is not used
-
-      beta(:,:) = 0.d0
-
-    case(HO_BABC_POWERLAW)   ! A power law that uses effective pressure, of the form: Taub = C N^p ub^q
        ! p and q should be _positive_ exponents
-       p = 1; q = 1
+       ! TODO: p, q could be turned into config parameters instead of hard-coded
+       ! If p/=1, this is nonlinear in velocity
+       ! Cuffey & Paterson recommend p=3 and q=1, and k dependent on thermal & mechanical properties of ice and inversely on bed roughness.   
+       p = 3.0d0; q = 1.0d0
 
-       ! If q>1, this is nonlinear in velocity
-       beta = basal_physics%friction_powerlaw_roughness_slope * basal_physics%effecpress_stag**p    &
-              * dsqrt( thisvel(:,:)**2 + othervel(:,:)**2 )**(q-1)
+       beta = basal_physics%friction_powerlaw_roughness_slope**(-1.0d0/p) * basal_physics%effecpress_stag**(q/p)    &
+              * dsqrt( thisvel(:,:)**2 + othervel(:,:)**2 )**(1.0d0/p-1.0d0)
 
     case(HO_BABC_COULOMB_FRICTION)
 
       ! Basal stress representation using coulomb friction law
-      ! Coulomb sliding law: Schoof 2005 PRS, eqn. 6.2  (see also Pimental, Flowers & Schoof 2010 JGR)
+      ! Coulomb sliding law: Schoof 2005 PRS, eqn. 6.2  (see also Pimentel, Flowers & Schoof 2010 JGR)
 
       ! Need flwa of the basal layer on the staggered grid
       where (thck > 0.0)
