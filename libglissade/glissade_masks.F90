@@ -180,7 +180,7 @@
                               ! set to -1 where vmask = 0
 
     !----------------------------------------------------------------
-    ! Local arguments
+    ! Local variables
     !----------------------------------------------------------------
            
     integer :: i, j
@@ -232,8 +232,8 @@
 
     do j = 1, ny-1
        do i = 1, nx-1
-          if (ice_mask(i,j+1) == 1 .or. ice_mask(i+1,j+1)==1 .or.   &
-              ice_mask(i,j)   == 1 .or. ice_mask(i+1,j)  ==1 ) then
+          if (ice_mask(i,j+1)==1 .or. ice_mask(i+1,j+1)==1 .or.   &
+              ice_mask(i,j)  ==1 .or. ice_mask(i+1,j)  ==1 ) then
 	     vmask(i,j) = 1
           else
              vmask(i,j) = 0

@@ -210,8 +210,8 @@
 !    logical :: verbose_matrix = .true.
     logical :: verbose_basal = .false.
 !    logical :: verbose_basal = .true.
-    logical :: verbose_umc = .false.
-!    logical :: verbose_umc = .true.
+    logical :: verbose_bfric = .false.
+!    logical :: verbose_bfric = .true.
     logical :: verbose_trilinos = .false.
 !    logical :: verbose_trilinos = .true.
     logical :: verbose_beta = .false.
@@ -652,6 +652,7 @@
        bwat,                 &  ! basal water depth (m)
        mintauf,              &  ! till yield stress (Pa)
        beta,                 &  ! basal traction parameter (Pa/(m/yr))
+       bfricflx,             &  ! basal heat flux from friction (W/m^2) 
        f_ground                 ! grounded ice fraction, 0 <= f_ground <= 1
 
     integer, dimension(:,:), pointer ::   &
@@ -922,6 +923,7 @@
      flwa     => model%temper%flwa(:,:,:)
      efvs     => model%stress%efvs(:,:,:)
      beta     => model%velocity%beta(:,:)
+     bfricflx => model%temper%bfricflx(:,:)
      bwat     => model%temper%bwat(:,:)
      mintauf  => model%basalproc%mintauf(:,:)
 
@@ -2859,6 +2861,17 @@
                                  tau_xz,        tau_yz,        &
                                  tau_xx,        tau_yy,        &
                                  tau_xy,        tau_eff)
+
+    !------------------------------------------------------------------------------
+    ! Compute the heat flux due to basal friction for each grid cell.
+    !------------------------------------------------------------------------------
+
+    call compute_basal_friction_heatflx(nx,            ny,            &
+                                        nhalo,         active_cell,   &
+                                        xVertex,       yVertex,       &
+                                        uvel(nz,:,:),  vvel(nz,:,:),  &
+                                        beta,          bfricflx)
+                                        
     !WHL - debug
     if (verbose_state .and. this_rank==rtest) then
        print*, ' '
@@ -2930,7 +2943,8 @@
 
     !------------------------------------------------------------------------------
     ! Convert output variables to appropriate units for Glimmer-CISM
-    ! (generally dimensionless)
+    ! (generally dimensionless).
+    ! Note: bfricflx already has the desired units (W/m^2).
     !------------------------------------------------------------------------------
 
 !pw call t_startf('glissade_velo_higher_scale_output')
@@ -5432,6 +5446,144 @@
 
 !****************************************************************************
 
+  subroutine compute_basal_friction_heatflx(nx,            ny,            &
+                                            nhalo,         active_cell,   &
+                                            xVertex,       yVertex,       &
+                                            uvel,          vvel,          &
+                                            beta,          bfricflx)
+
+    !----------------------------------------------------------------
+    ! Compute the heat flux due to basal friction, given the 2D basal
+    !  velocity and beta fields.
+    !
+    ! Assume a sliding law of the form:
+    !   tau_x = -beta*u
+    !   tau_y = -beta*v
+    ! where beta and (u,v) are defined at vertices.
+    ! 
+    ! The frictional heat flux (W/m^2) is given by q_b = tau_b * u_b,
+    ! where tau_b and u_b are the magnitudes of the basal stress
+    ! and velocity (e.g., Cuffey & Paterson, p. 418).
+    !----------------------------------------------------------------
+
+    !----------------------------------------------------------------
+    ! Input-output arguments
+    !----------------------------------------------------------------
+
+    integer, intent(in) ::      &
+       nx, ny,                  &    ! horizontal grid dimensions
+       nhalo                         ! number of halo layers
+
+    logical, dimension(nx,ny), intent(in) ::  &
+       active_cell            ! true if cell contains ice and borders a locally owned vertex
+
+    real(dp), dimension(nx-1,ny-1), intent(in) :: &
+       xVertex, yVertex       ! x and y coordinates of each vertex (m)
+
+    real(dp), dimension(nx-1,ny-1), intent(in) :: &
+       uvel, vvel,          & ! basal velocity components at each vertex (m/yr)
+       beta                   ! basal traction parameter (Pa/(m/yr))
+
+    real(dp), dimension(nx,ny), intent(out) :: &
+       bfricflx               ! basal heat flux from friction (W/m^2)
+
+    !----------------------------------------------------------------
+    ! Local variables
+    !----------------------------------------------------------------
+
+    integer :: i, j, n, p
+    integer :: iVertex, jVertex
+
+    real(dp), dimension(nNodesPerElement_2d) ::   &
+       x, y, z,         & ! spatial coordinates of nodes
+       u, v,            & ! velocity components at nodes
+       b                  ! beta at nodes
+
+    real(dp) ::         &
+       u_qp, v_qp,      & ! u and v at quadrature points
+       beta_qp,         & ! beta at quadrature points
+       sum_wqp            ! sum of weighting factors
+
+    ! initialize
+    bfricflx(:,:) = 0.d0
+
+    ! Loop over local cells
+    do j = nhalo+1, ny-nhalo
+    do i = nhalo+1, nx-nhalo
+       
+       if (active_cell(i,j)) then   ! ice is present
+
+          ! Load x and y coordinates, basal velocity, and beta at cell vertices
+
+          do n = 1, nNodesPerElement_2d
+
+             ! Determine (i,j) for this vertex
+             ! The reason for the '3' is that node 3, in the NE corner of the grid cell, has index (i,j).
+             ! Indices for other nodes are computed relative to this vertex.
+             iVertex = i + ishift(3,n)
+             jVertex = j + jshift(3,n)
+
+             x(n) = xVertex(iVertex,jVertex)
+             y(n) = yVertex(iVertex,jVertex)
+             u(n) = uvel(iVertex,jVertex)
+             v(n) = vvel(iVertex,jVertex)
+             b(n) = beta(iVertex,jVertex)
+
+          enddo
+
+          sum_wqp = 0.d0
+
+          ! loop over quadrature points
+          do p = 1, nQuadPoints_2d
+
+             ! Evaluate u, v and beta at this quadrature point
+
+             u_qp = 0.d0
+             v_qp = 0.d0
+             beta_qp = 0.d0
+             do n = 1, nNodesPerElement_2d
+                u_qp = u_qp + phi_2d(n,p) * u(n)
+                v_qp = v_qp + phi_2d(n,p) * v(n)
+                beta_qp = beta_qp + phi_2d(n,p) * b(n)
+             enddo
+
+             ! Increment basal frictional heating
+
+             bfricflx(i,j) = bfricflx(i,j) + wqp_2d(p) * beta_qp * (u_qp**2 + v_qp**2)
+             sum_wqp = sum_wqp + wqp_2d(p)
+
+             if (verbose_bfric .and. this_rank==rtest .and. i==itest .and. j==jtest) then
+                print*, ' '
+                print*, 'Increment basal friction heating, i, j, p =', i, j, p
+                print*, 'u, v, beta_qp =', u_qp, v_qp, beta_qp
+                print*, 'local increment =', beta_qp * (u_qp**2 + v_qp**2) / scyr
+             endif
+
+          enddo   ! nQuadPoints_2d
+
+          ! Scale the result:
+          ! Divide by sum_wqp to get average of beta*(u^2 + v^2) over cell
+          ! Divide by scyr to convert Pa m/yr to Pa m/s = W/m^2
+
+          bfricflx(i,j) = bfricflx(i,j) / (sum_wqp * scyr) 
+
+          if (verbose_bfric .and. this_rank==rtest .and. i==itest .and. j==jtest) then
+             print*, ' '
+             print*, 'i, j, bfricflx:', i, j, bfricflx(i,j)
+          endif
+
+       endif      ! active_cell
+
+    enddo         ! i
+    enddo         ! j
+
+    ! halo update
+    call parallel_halo(bfricflx)
+
+  end subroutine compute_basal_friction_heatflx
+
+!****************************************************************************
+
   subroutine compute_internal_stress (nx,            ny,            &
                                       nz,            sigma,         &
                                       nhalo,         active_cell,   &
@@ -5447,7 +5599,7 @@
 
     !----------------------------------------------------------------
     ! Compute internal ice stresses at the center of each element,
-    !  given the 3D velocity field.
+    !  given the 3D velocity field and flow factor.
     !----------------------------------------------------------------
 
     !----------------------------------------------------------------
@@ -6363,7 +6515,6 @@
     ! Assume a sliding law of the form:
     !   tau_x = -beta*u
     !   tau_y = -beta*v
-    ! 
     ! where beta is defined at vertices.
     !------------------------------------------------------------------------
 
@@ -6432,6 +6583,7 @@
        endif
     endif
 
+    ! Loop over all cells that border active vertices
     do j = nhalo+1, ny-nhalo+1
     do i = nhalo+1, nx-nhalo+1
        
@@ -6439,6 +6591,7 @@
 
        if (active_cell(i,j)) then   ! ice is present
 
+          !TODO - Can this be done using the ishift approach, looping over vertices
           ! Set x and y for each node
 
           !     4-----3       y
@@ -6545,7 +6698,7 @@
                    Avv(m,ii,jj) = Avv(m,ii,jj) + Kvv(nr,nc)
 
                    if (verbose_basal .and. this_rank==rtest .and. ii==itest .and. jj==jtest .and. Kuu(nr,nc)>0.d0) then
-                      print*, 'Increment Auu: i, j, p, nr, nc, ii, jj, Kuu:', i, j, p, nr, nc, ii, jj, Kuu(nr,nc)
+!!                      print*, 'Increment Auu: i, j, p, nr, nc, ii, jj, Kuu:', i, j, p, nr, nc, ii, jj, Kuu(nr,nc)
                    endif
 
                 enddo     ! nc

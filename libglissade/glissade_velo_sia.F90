@@ -73,6 +73,7 @@
     logical, parameter :: verbose_geom = .false.
     logical, parameter :: verbose_bed = .false.
     logical, parameter :: verbose_interior = .false.
+    logical, parameter :: verbose_bfric = .false.
 
     integer :: itest, jtest    ! coordinates of diagnostic point                                                                                    
     integer :: rtest           ! task number for processor containing diagnostic point
@@ -144,7 +145,8 @@
        usrf,                 &  ! upper surface elevation (m)
        topg,                 &  ! elevation of topography (m) 
        bwat,                 &  ! basal water depth (m)
-       btrc                     ! basal traction parameter (m/yr)/Pa), = 1/beta
+       btrc,                 &  ! basal traction parameter (m/yr)/Pa), = 1/beta
+       bfricflx                 ! basal heat flux from friction (W/m^2)
 
     real(dp), dimension(:,:,:), pointer ::  &
        uvel, vvel,  &           ! velocity components (m/yr)
@@ -202,6 +204,7 @@
 
      bwat     => model%temper%bwat(:,:)
      btrc     => model%velocity%btrc(:,:)
+     bfricflx => model%temper%bfricflx(:,:)
      temp     => model%temper%temp(:,:,:)
      flwa     => model%temper%flwa(:,:,:)
 
@@ -250,12 +253,6 @@
                             eus,         thklim,     &
                             ice_mask,                &
                             land_mask = land_mask)
-
-!    where (thck > thklim)
-!       ice_mask = 1
-!    elsewhere
-!       ice_mask = 0
-!    endwhere
 
     !------------------------------------------------------------------------------
     ! Compute staggered variables
@@ -516,7 +513,17 @@
        
     endif   ! verbose_interior
 
+    !------------------------------------------------------------------------------
+    ! Compute the heat flux due to basal friction for each grid cell.
+    !------------------------------------------------------------------------------
+
+    call glissade_velo_sia_bfricflx(nx,           ny,            &
+                                    nhalo,        ice_mask,      &
+                                    uvel(nz,:,:), vvel(nz,:,:),  &
+                                    btrc,         bfricflx)
+
     ! Convert back to dimensionless units before returning
+    ! Note: bfricflx already has the desired units (W/m^2).
 
     call glissade_velo_sia_scale_output(thck,    usrf,       &
                                         topg,    flwa,       &
@@ -974,6 +981,107 @@
     endif   ! verbose_interior
 
   end subroutine glissade_velo_sia_interior
+
+!****************************************************************************
+
+  subroutine glissade_velo_sia_bfricflx(nx,            ny,            &
+                                        nhalo,         ice_mask,      &
+                                        uvel,          vvel,          &
+                                        btrc,          bfricflx)
+
+    !----------------------------------------------------------------
+    ! Compute the heat flux due to basal friction, given the 2D basal
+    ! velocity and traction fields.
+    !
+    ! Assume a sliding law of the form:
+    !   tau_x = -u / btrc (assuming btrc > 0)
+    !   tau_y = -v / btrc
+    ! where btrc and (u,v) are defined at vertices.
+    ! 
+    ! The frictional heat flux (W/m^2) is given by q_b = tau_b * u_b,
+    ! where tau_b and u_b are the magnitudes of the basal stress
+    ! and velocity (e.g., Cuffey & Paterson, p. 418).
+    !----------------------------------------------------------------
+
+    !----------------------------------------------------------------
+    ! Input-output arguments
+    !----------------------------------------------------------------
+
+    integer, intent(in) ::      &
+       nx, ny,                  &    ! horizontal grid dimensions
+       nhalo                         ! number of halo layers
+
+    integer, dimension(nx,ny), intent(in) ::     &
+       ice_mask               ! = 1 where ice is present, else = 0
+
+    real(dp), dimension(nx-1,ny-1), intent(in) :: &
+       uvel, vvel,          & ! basal velocity components at each vertex (m/yr)
+       btrc                   ! basal traction parameter ((m/yr)/Pa), = 1/beta
+
+    real(dp), dimension(nx,ny), intent(out) :: &
+       bfricflx               ! basal heat flux from friction (W/m^2)
+
+    !----------------------------------------------------------------
+    ! Local variables
+    !----------------------------------------------------------------
+
+    real(dp), dimension(nx-1,ny-1) ::  &
+       stagbfricflx           ! basal heat flux on staggered mesh
+
+    integer :: i, j
+
+    ! initialize
+    bfricflx(:,:) = 0.d0
+
+    ! Compute basal frictional heating at each vertex
+    ! Divide by scyr to convert Pa m/yr to Pa m/s = W/m^2
+    do j = 1, ny-1
+       do i = 1, nx-1
+          if (btrc(i,j) > 0.d0) then
+             stagbfricflx(i,j) = (uvel(i,j)**2 + vvel(i,j)**2) / btrc(i,j) / scyr
+          else
+             stagbfricflx(i,j) = 0.d0
+          endif
+       enddo   ! i
+    enddo      ! j
+
+!WHL - debug
+    if (verbose_bfric .and. this_rank==rtest) then
+       i = itest
+       j = jtest
+       print*, 'i, j:', i, j
+       print*, ' '
+       print*, 'speed:'
+       do j = jtest+1, jtest, -1
+          print*, j, sqrt(uvel(i:i+1,j)**2 + vvel(i:i+1,j)**2)
+       enddo
+       print*, 'stagbfricflx:'
+       do j = jtest+1, jtest, -1
+          print*, j, stagbfricflx(i:i+1,j)
+       enddo
+    endif
+
+    ! Compute basal frictional heating in cells.
+    do j = 1+nhalo, ny-nhalo
+       do i = 1+nhalo, nx-nhalo
+          if (ice_mask(i,j)==1) then
+             bfricflx(i,j) = 0.25d0 * (stagbfricflx(i,j+1) + stagbfricflx(i+1,j+1)  &
+                                     + stagbfricflx(i,j)   + stagbfricflx(i+1,j))
+          endif
+       enddo
+    enddo
+
+    call parallel_halo(bfricflx)
+
+!WHL - debug
+    if (verbose_bfric .and. this_rank==rtest) then
+       i = itest
+       j = jtest
+       print*, ' '
+       print*, 'i, j, bfricflx:', i, j, bfricflx(i,j)
+    endif
+
+  end subroutine glissade_velo_sia_bfricflx
 
 !*********************************************************************
 

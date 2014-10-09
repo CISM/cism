@@ -907,7 +907,7 @@ module glide_types
     !TODO: Create separate fields for basal melt beneath grounded and floating ice.
 
     real(dp),dimension(:,:,:),pointer :: temp => null()      !*FD 3D temperature field.
-    real(dp),dimension(:,:),  pointer :: bheatflx => null()  !*FD basal heat flux (geothermal, positive down)
+    real(dp),dimension(:,:),  pointer :: bheatflx => null()  !*FD basal heat flux (W/m^2) (geothermal, positive down)
     real(dp),dimension(:,:,:),pointer :: flwa => null()      !*FD Glen's flow factor $A$.
     real(dp),dimension(:,:),  pointer :: bwat => null()      !*FD Basal water depth
     real(dp),dimension(:,:),  pointer :: bwatflx => null()   !*FD Basal water flux 
@@ -917,9 +917,9 @@ module glide_types
     real(dp),dimension(:,:),  pointer :: stagbtemp => null() !*FD Basal temperature on velo grid
     real(dp),dimension(:,:),  pointer :: bpmp => null()      !*FD Basal pressure melting point
     real(dp),dimension(:,:),  pointer :: stagbpmp => null()  !*FD Basal pressure melting point on velo grid
-    real(dp),dimension(:,:),  pointer :: bfricflx => null()  !*FD basal heat flux from friction (>= 0)
-    real(dp),dimension(:,:),  pointer :: ucondflx => null()  !*FD conductive heat flux at upper sfc (positive down)
-    real(dp),dimension(:,:),  pointer :: lcondflx => null()  !*FD conductive heat flux at lower sfc (positive down)
+    real(dp),dimension(:,:),  pointer :: bfricflx => null()  !*FD basal heat flux (W/m^2) from friction (>= 0)
+    real(dp),dimension(:,:),  pointer :: ucondflx => null()  !*FD conductive heat flux (W/m^2) at upper sfc (positive down)
+    real(dp),dimension(:,:),  pointer :: lcondflx => null()  !*FD conductive heat flux (W/m^2) at lower sfc (positive down)
     real(dp),dimension(:,:),  pointer :: dissipcol => null() !*FD total heat dissipation in column (>= 0)
 
     ! for enthalpy scheme under construction

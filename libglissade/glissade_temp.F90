@@ -459,11 +459,19 @@ contains
        ! Calculate heating from basal friction -----------------------------------
 
        call glissade_calcbfric( model,                        &
+                                model%options%whichdycore,    &
                                 model%geometry%thck,          &
                                 model%velocity%btraction,     &
                                 model%velocity%ubas,          &
                                 model%velocity%vbas,          &
-                                GLIDE_IS_FLOAT(model%geometry%thkmask) )
+                                GLIDE_IS_FLOAT(model%geometry%thkmask), &
+                                model%temper%bfricflx)
+
+       !WHL - debug
+!       ew = model%numerics%idiag_local
+!       ns = model%numerics%jdiag_local
+!       print*, ' '
+!       print*, 'ew, ns, bfricflx:', ew, ns, model%temper%bfricflx(ew,ns)
 
        ! Note: No iteration is needed here since we are doing a local tridiagonal solve without advection.
 
@@ -742,11 +750,13 @@ contains
       ! Calculate heating from basal friction -----------------------------------
 
       call glissade_calcbfric( model,                        &
+                               model%options%whichdycore,    &
                                model%geometry%thck,          &
                                model%velocity%btraction,     &
                                model%velocity%ubas,          &
                                model%velocity%vbas,          &
-                               GLIDE_IS_FLOAT(model%geometry%thkmask) )
+                               GLIDE_IS_FLOAT(model%geometry%thkmask), &
+                               model%temper%bfricflx)
 
       ! Note: No iteration is needed here since we are doing a local tridiagonal solve without advection.
 
@@ -1054,10 +1064,10 @@ contains
 
   !-----------------------------------------------------------------------
 
-  subroutine glissade_calcbfric (model,                 &
+  subroutine glissade_calcbfric (model,    whichdycore, &
                                  thck,     btraction,   &
                                  ubas,     vbas,        &
-                                 float)
+                                 float,    bfricflx)
 
     ! compute frictional heat source due to sliding at the bed
 
@@ -1065,27 +1075,37 @@ contains
     use glimmer_paramets, only: thk0, vel0, vel_scale
 
     type(glide_global_type) :: model
+    integer, intent(in) :: whichdycore   ! 1 = Glam, 2 = Glissade
     real(dp), dimension(:,:), intent(in) :: thck
     real(dp), dimension(:,:), intent(in) :: ubas, vbas
     real(dp), dimension(:,:,:), intent(in) :: btraction
     logical, dimension(:,:), intent(in) :: float
+
+    ! Note: This needs to be inout because it may already have been computed by Glissade.
+    real(dp), dimension(:,:), intent(inout) :: bfricflx
 
     real(dp) :: slterm       ! sliding friction
  
     integer :: ewp, nsp, ew, ns
     integer :: slide_count   ! number of neighbor cells with nonzero sliding
 
+!WHL TODO - Use Glam heat flux for now (to avoid answer changes), but switch soon.
+!           Note: Glissade does not compute btraction, so bfricflx = 0 if using Glam logic
+
+!!!!!    if (whichdycore == DYCORE_GLISSADE) then
+       ! basal friction heat flux (model%temper%bfricflx) already computed in velocity solver
+       ! do nothing and return
+
+!!!!!    else   ! Glam dycore
+
        ! compute heat source due to basal friction
        ! Note: slterm and bfricflx are defined to be >= 0
 
-       !LOOP TODO - This loop should be over locally owned cells? (ilo:ihi,jlo:jhi)
- 
        do ns = 2, model%general%nsn-1
        do ew = 2, model%general%ewn-1
 
           slterm = 0.d0
           slide_count = 0
-
 
              !WHL - copied Steve Price's formulation from calcbmlt
              ! btraction is computed in glam_strs2.F90
@@ -1128,10 +1148,12 @@ contains
              slterm = 0.0d0
           end if
 
-          model%temper%bfricflx(ew,ns) = slterm
+          bfricflx(ew,ns) = slterm
 
        enddo    ! ns
        enddo    ! ew
+
+!!!!!    endif       ! whichdycore
 
   end subroutine glissade_calcbfric
 

@@ -127,8 +127,8 @@ contains
                                 stagvar,      unstagvar,   &
                                 vmask,        stagger_margin_in)
 
-    ! Given a variable on the unstaggered grid (dimension nx, ny), interpolate
-    ! to find values on the staggered grid (dimension nx-1, ny-1).
+    ! Given a variable on the staggered grid (dimension nx-1, ny-1), interpolate
+    ! to find values on the staggered grid (dimension nx, ny).
 
     !----------------------------------------------------------------
     ! Input-output arguments
