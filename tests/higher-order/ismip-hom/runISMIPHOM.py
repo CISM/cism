@@ -94,6 +94,10 @@ if __name__ == '__main__':
           offset = float(size)*1000.0 * tan(3.0 * pi/180.0)
         configParser.set('parameters', 'periodic_offset_ew', str(offset))
 
+      if experiment in ('c','d'):
+        # These tests have beta passed in from the input file, so change option accordingly.
+        configParser.set('ho_options', 'which_ho_babc', '5')
+
 ##      #Optional: if doing experiment C, one can alternatively use the ho_babc option setup for this test case rather than passing in a beta
 ##      if experiment in ('c'):
 ##        configParser.set('ho_options', 'which_ho_babc', '8')
