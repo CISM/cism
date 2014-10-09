@@ -4654,6 +4654,7 @@
     !   accurate than method 1 with upstream gradients.)
     !-----------------------------------------------------------------------------------------------
 
+    !TODO - Set edge_velocity = false for L1L2
     logical, parameter :: edge_velocity = .true.
 !!    logical, parameter :: edge_velocity = .false.
 
@@ -4661,7 +4662,7 @@
        uedge, vedge        ! velocity components at edges of a layer, relative to bed (m/yr)
                            ! u on E edge, v on N edge (C grid)
 
-    real(dp), dimension(nz-1,nx-1,ny-1) ::   &
+    real(dp), dimension(nz,nx-1,ny-1) ::   &
        vintfact            ! vertical integration factor at vertices
 
     ! Initialize
@@ -4881,9 +4882,6 @@
        
     uvel(1:nz-1,:,:) = 0.d0
     vvel(1:nz-1,:,:) = 0.d0
-
-    uedge(:,:) = 0.d0
-    vedge(:,:) = 0.d0
     vintfact(:,:,:) = 0.d0
 
     ! Compute surface elevation gradient on cell edges.
@@ -4898,6 +4896,10 @@
     ! So HO_GRADIENT_MARGIN_ICE_LAND = 1 is the safest value.
 
     if (edge_velocity) then
+
+       uedge(:,:) = 0.d0
+       vedge(:,:) = 0.d0
+
        call glissade_edge_gradient(nx,               ny,                &
                                    dx,               dy,                &
                                    usrf,                                &
