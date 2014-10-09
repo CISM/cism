@@ -820,6 +820,17 @@ contains
     write(message,*) 'Dycore                  : ',model%options%whichdycore,dycore(model%options%whichdycore)
     call write_log(message)
 
+    ! unsupported dycore options
+    if (model%options%whichdycore == DYCORE_GLAM) then
+      call write_log('Glam dycore is not currently scientifically supported.  USE AT YOUR OWN RISK.', GM_WARNING)
+    endif
+    if (model%options%whichdycore == DYCORE_ALBANYFELIX) then
+      call write_log('Albany-FELIX dycore is not currently scientifically supported.  USE AT YOUR OWN RISK.', GM_WARNING)
+    endif
+    if (model%options%whichdycore == DYCORE_BISICLES) then
+      call write_log('BISICLES dycore is not currently scientifically supported.  USE AT YOUR OWN RISK.', GM_WARNING)
+    endif
+
     ! Forbidden options associated with the Glide dycore
     if (model%options%whichdycore == DYCORE_GLIDE) then
 
@@ -916,6 +927,11 @@ contains
     end if
     write(message,*) 'temperature calculation : ',model%options%whichtemp,temperature(model%options%whichtemp)
     call write_log(message)
+
+    ! unsupported temperature options
+    if (model%options%whichtemp == TEMP_ENTHALPY) then
+      call write_log('Enthalpy-based formulation for solving temperature evolution is not currently scientifically supported.  USE AT YOUR OWN RISK.', GM_WARNING)
+    endif
 
     if (model%options%temp_init < 0 .or. model%options%temp_init >= size(temp_init)) then
        call write_log('Error, temp_init option out of range',GM_FATAL)
@@ -1048,6 +1064,16 @@ contains
        if (model%options%which_ho_babc < 0 .or. model%options%which_ho_babc >= size(ho_whichbabc)) then
           call write_log('Error, HO basal BC input out of range', GM_FATAL)
        end if
+       ! unsupported ho-babc options
+       if (model%options%which_ho_babc == HO_BABC_YIELD_NEWTON) then
+         call write_log('Yield stress higher-order basal boundary condition is not currently scientifically supported.  USE AT YOUR OWN RISK.', GM_WARNING)
+       endif
+       if (model%options%which_ho_babc == HO_BABC_POWERLAW) then
+         call write_log('Weertman-style power law higher-order basal boundary condition is not currently scientifically supported.  USE AT YOUR OWN RISK.', GM_WARNING)
+       endif
+       if (model%options%which_ho_babc == HO_BABC_COULOMB_FRICTION) then
+         call write_log('Coulomb friction law higher-order basal boundary condition is not currently scientifically supported.  USE AT YOUR OWN RISK.', GM_WARNING)
+       endif
 
        write(message,*) 'which_ho_nonlinear      : ',model%options%which_ho_nonlinear,  &
                          which_ho_nonlinear(model%options%which_ho_nonlinear)
@@ -1055,6 +1081,10 @@ contains
        if (model%options%which_ho_nonlinear < 0 .or. model%options%which_ho_nonlinear >= size(which_ho_nonlinear)) then
           call write_log('Error, HO nonlinear solution input out of range', GM_FATAL)
        end if
+       ! unsupported nonlinear options
+       if (model%options%which_ho_nonlinear == HO_NONLIN_JFNK) then
+         call write_log('JFNK treatment of nonlinearity in momentum balance is not currently scientifically supported.  USE AT YOUR OWN RISK.', GM_WARNING)
+       endif
 
        write(message,*) 'ho_whichresid           : ',model%options%which_ho_resid,  &
                          ho_whichresid(model%options%which_ho_resid)
@@ -1062,6 +1092,16 @@ contains
        if (model%options%which_ho_resid < 0 .or. model%options%which_ho_resid >= size(ho_whichresid)) then
           call write_log('Error, HO residual input out of range', GM_FATAL)
        end if
+       ! unsupported resid options
+       if (model%options%which_ho_resid == HO_RESID_MAXU) then
+         call write_log('Residual as max. value of normalized velocity vector update is not currently scientifically supported.  USE AT YOUR OWN RISK.', GM_WARNING)
+       endif
+       if (model%options%which_ho_resid == HO_RESID_MAXU_NO_UBAS) then
+         call write_log('Residual as max. value of normalized velocity vector update with basal velocity omitted is not currently scientifically supported.  USE AT YOUR OWN RISK.', GM_WARNING)
+       endif
+       if (model%options%which_ho_resid == HO_RESID_MEANU) then
+         call write_log('Residual as mean value of normalized velocity vector update is not currently scientifically supported.  USE AT YOUR OWN RISK.', GM_WARNING)
+       endif
 
        write(message,*) 'ho_whichsparse          : ',model%options%which_ho_sparse,  &
                          ho_whichsparse(model%options%which_ho_sparse)
