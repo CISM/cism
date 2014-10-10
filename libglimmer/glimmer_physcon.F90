@@ -1,27 +1,27 @@
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glimmer_physcon.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glimmer_physcon.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -67,7 +67,7 @@ module glimmer_physcon
 
   real(dp),parameter :: scyr = 31536000.d0       ! Number of seconds in a year of exactly 365 days
   real(dp),parameter :: rhom = 3300.0d0          !< The density of magma(?) (kg m<SUP>-3</SUP>) 
-  real(dp),parameter :: rhos = 2600.0d0          !*FD The density of solid till (kg m$^{-3}$) 
+  real(dp),parameter :: rhos = 2600.0d0          ! The density of solid till (kg m$^{-3}$) 
   real(dp),parameter :: f = - rhoo / rhoi    
   integer, parameter :: gn = 3                   !< The power dependency of Glenn's flow law.
   real(dp),parameter :: actenh = 139.0d3         !< Activation energy in Glenn's flow law for \f$T^{*}\geq263\f$K. (J mol<SUP>-1</SUP>)

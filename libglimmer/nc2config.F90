@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   nc2config.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   nc2config.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -40,10 +40,10 @@
 
 program nc2config
 
-  !*FD Program to extract the config file data from a
-  !*FD glimmer netcdf output file, and write it out, either
-  !*FD to file or the screen. Command-line argument and 
-  !*FD option support is provided, where available
+  ! Program to extract the config file data from a
+  ! glimmer netcdf output file, and write it out, either
+  ! to file or the screen. Command-line argument and 
+  ! option support is provided, where available
 
   use netcdf
   use glimmer_global, only: endline

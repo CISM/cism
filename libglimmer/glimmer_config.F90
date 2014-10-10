@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glimmer_config.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glimmer_config.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -102,7 +102,7 @@ contains
 
   !> read a configuration file
   subroutine ConfigRead(fname,config,fileunit)
-    !*FD read configuration file
+    ! read configuration file
     use parallel
     use glimmer_log
     implicit none
@@ -593,7 +593,7 @@ contains
 
   !> get integer value array
   subroutine GetValueIntArray(section,name,val,numval)
-    !*FD get integer array value
+    ! get integer array value
     use glimmer_log
     implicit none
     type(ConfigSection), pointer :: section !< the section from which the value is loaded
@@ -895,7 +895,7 @@ contains
 
   !> add a new section
   subroutine InsertSection(name,section)
-    !*FD add a new section
+    ! add a new section
     implicit none
     character(len=*), intent(in) :: name    !< name of new section
     type(ConfigSection), pointer :: section !< on entry the element of linked list after which the new element is inserted, on exit: the new element

@@ -77,7 +77,7 @@ end module test_integ
 
 program test_integrate
 
-  !*FD test numerical integration schemes
+  ! test numerical integration schemes
   !WHL - Leaving the sp variables for now since they are used to test
   !      single-precision Romberg integration subroutines
 

@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   parallel_slap.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   parallel_slap.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -36,8 +36,7 @@ module parallel
 
   integer, save :: nhalo = 2
 
-  !TODO - If we will always have lhalo = uhalo = nhalo, then we should 
-  !       define lhalo and uhalo in terms of nhalo.
+  !TODO - Define lhalo and uhalo in terms of nhalo.
 
   integer, save :: lhalo = 2
   integer, save :: uhalo = 2
@@ -71,7 +70,7 @@ module parallel
   ! global IDs
   integer,parameter :: ProcsEW = 1
 
-  !TODO - Remove these declarations.
+  !TODO - Remove these gathered_* declarations.  No longer used.
 
   ! JEFF Declarations for undistributed variables on main_task.
   ! Later move to separate module?  These are only temporary until code is completely distributed.
@@ -1226,7 +1225,7 @@ contains
     logical,optional :: deallocflag
     logical :: deallocmem
 
-    !TODO - Why does this scatter subroutine have a deallocmem flag, but not the others?
+    !TODO - Why does this distributed_scatter subroutine have a deallocmem flag, but not the others?
     if (present(deallocflag)) then
        deallocmem = deallocflag
     else
@@ -1421,8 +1420,7 @@ contains
          nf90_get_var(ncid,varid,values)
   end function parallel_get_var_real8_1d
 
-  !TODO - Pass locew in first position and locns in second position?
-  !TODO - Remove his function if no longer needed?
+  !TODO - Is function parallel_globalID still needed?
 
   function parallel_globalID(locns, locew, upstride)
     ! Returns a unique ID for a given row and column reference that is identical across all processors.

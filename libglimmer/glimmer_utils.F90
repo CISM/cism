@@ -1,27 +1,27 @@
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glimmer_utils.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glimmer_utils.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -29,20 +29,19 @@
 #include "config.inc"
 #endif
 
-!TODO - Is there any other utility code to put in this module?
 !> Module containing utility code for GLIMMER.
+  !TODO - Move check_conformal and fix_bcs2d to Glint?  Used by glint_interp only.
+
 module glimmer_utils
 
   use glimmer_global, only: dp
 
   implicit none
 
-  !TODO - Remove these array_bcs functions?  I can't find where they are used
   interface array_bcs
     module procedure array_bcs1d,array_bcs2d
   end interface
 
-  !TODO - Move check_conformal to glint?  Used by glint_interp only.
   interface check_conformal
     module procedure check_conformal_2d_real
   end interface
@@ -173,8 +172,6 @@ contains
 
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  !TODO - Move to glint?  Used by glint_interp only.
-
   subroutine fix_bcs2d(i,j,nx,ny)
 
   !> Adjusts array location indices
@@ -258,7 +255,6 @@ contains
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  !TODO - Move lsum to glint?  Used by glint_interp only.
   !> Calculates the sum of a given two-dimensional field along one axis.
   !! Within GLIMMER, this function calculates the mean vertical profile
   !! in a 2D vertical slice. 

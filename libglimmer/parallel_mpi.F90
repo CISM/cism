@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   parallel_mpi.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   parallel_mpi.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -50,8 +50,7 @@ module parallel
 
   integer, save :: nhalo = 2
 
-  !TODO - If we will always have lhalo = uhalo = nhalo, then we should 
-  !       define lhalo and uhalo in terms of nhalo.
+  !TODO - Define lhalo and uhalo in terms of nhalo.
 
   integer, save :: lhalo = 2
   integer, save :: uhalo = 2
@@ -99,7 +98,7 @@ module parallel
   ! global IDs
   integer,save :: ProcsEW
 
-  !TODO - Remove these declarations
+  !TODO - Remove these gathered_* declarations.  No longer used.
 
   ! JEFF Declarations for undistributed variables on main_task.
   ! Later move to separate module?  These are only temporary until code is completely distributed.
@@ -2842,8 +2841,7 @@ contains
     call broadcast(values)
   end function parallel_get_var_real8_1d
 
-  !TODO - Pass locew in first position and locns in second position?
-  !TODO - Remove this function if no longer needed?
+  !TODO - Is function parallel_globalID still needed?  No longer called except from glissade_test_halo.
 
   function parallel_globalID(locns, locew, upstride)
     ! Returns a unique ID for a given row and column reference that is identical across all processors.
@@ -4227,8 +4225,8 @@ contains
     call broadcast(parallel_sync)
   end function parallel_sync
 
-  !TODO - This subroutine is called only from periodic_boundaries subroutine, which is not
-  !       currently used.  Remove it?
+  !TODO - Remove subroutine parallel_velo_halo?
+  !       This subroutine is called only from periodic_boundaries subroutine, which is no longer used.
 
   subroutine parallel_velo_halo(a)
     use mpi_mod
@@ -4416,7 +4414,7 @@ contains
     !WHL - I defined a logical variable to determine whether or not to fill halo cells
     !      at the edge of the global domain.  I am setting it to true by default to support
     !      cyclic global BCs.
-    !TODO: Assume true in all cases and remove the if's?
+    !TODO: Assume fill_global_halos is true in all cases?  (Here and below)
 
     logical :: fill_global_halos = .true.
 
@@ -4545,8 +4543,6 @@ contains
     !      at the edge of the global domain.  I am setting it to true by default to support
     !      cyclic global BCs.
 
-    !TODO - Set to true in all cases? (Or simply remove the 'if's?)  
-
     logical :: fill_global_halos = .true.
 
     ! begin
@@ -4664,8 +4660,6 @@ contains
     !WHL - I defined a logical variable to determine whether or not to fill halo cells
     !      at the edge of the global domain.  I am setting it to true by default to support
     !      cyclic global BCs.
-
-    !TODO - Set to true in all cases? (Or simply remove the 'if's?)  
 
     logical :: fill_global_halos = .true.
 
@@ -4802,8 +4796,6 @@ contains
     !      at the edge of the global domain.  I am setting it to true by default to support
     !      cyclic global BCs.
 
-    !TODO - Set to true in all cases? (Or simply remove the 'if's?)  
-
     logical :: fill_global_halos = .true.
 
     ! begin
@@ -4938,8 +4930,6 @@ contains
     !      at the edge of the global domain.  I am setting it to true by default to support
     !      cyclic global BCs.
 
-    !TODO - Set to true in all cases? (Or simply remove the 'if's?)  
-
     logical :: fill_global_halos = .true.
 
     ! begin
@@ -5028,7 +5018,7 @@ contains
 !
 ! !DESCRIPTION:
 ! This routine gathers a {\em distributed} array of type {\em integer} 
-! to the {\tt root} process. Explicit handshaking messages are uesd
+! to the {\tt root} process. Explicit handshaking messages are used
 ! to control the number of processes communicating with the root
 ! at any one time.
 !

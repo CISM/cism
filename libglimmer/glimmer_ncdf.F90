@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glimmer_ncdf.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glimmer_ncdf.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -43,71 +43,71 @@ module glimmer_ncdf
   implicit none
 
   integer, parameter :: glimmer_nc_meta_len = 100
-  !*FD maximum length for meta data
+  ! maximum length for meta data
 
   character(len=*), parameter :: glimmer_nc_mapvarname = 'mapping'
-  !*FD name of the grid mapping variable
+  ! name of the grid mapping variable
 
   real(dp), parameter :: glimmer_nc_max_time=1.d10
-  !*FD maximum time that can be written
+  ! maximum time that can be written
 
   !> Data structure holding netCDF file description
   type glimmer_nc_stat
-     !*FD Data structure holding netCDF file description
+     ! Data structure holding netCDF file description
 
      logical :: define_mode = .TRUE.
-     !*FD set to .TRUE. when we are in define mode
+     ! set to .TRUE. when we are in define mode
      logical :: just_processed = .FALSE.
-     !*FD set to .TRUE. if the file was used during the last time step
+     ! set to .TRUE. if the file was used during the last time step
      real(dp) :: processsed_time = 0.d0
-     !*FD the time when the file was last processed
+     ! the time when the file was last processed
      character(len=fname_length) :: filename = " "
-     !*FD name of netCDF file
+     ! name of netCDF file
      integer id
-     !*FD id of netCDF file
+     ! id of netCDF file
 
      integer :: nlevel = 0
      integer :: nstaglevel = 0
      integer :: nstagwbndlevel = 0
-     !*FD size of vertical and stag vertical coordinate
+     ! size of vertical and stag vertical coordinate
 
      integer timedim
-     !*FD id of time dimension
+     ! id of time dimension
      integer timevar
-     !*FD id of time variable 
+     ! id of time variable 
 
      ! TODO - Create a variable for vars length so it can be made longer
      !        Apply it here for vars, vars_copy and to restart_variable_list in glimmer_ncparams.F90
 
      character(len=310) vars
-     !*FD string containing variables to be processed
+     ! string containing variables to be processed
      logical :: restartfile = .false.
-     !*FD Set to true if we're writing a restart file
+     ! Set to true if we're writing a restart file
      character(len=310) vars_copy
-     !*FD string containing variables to be processed (retained copy)
+     ! string containing variables to be processed (retained copy)
   end type glimmer_nc_stat     
 
   type glimmer_nc_meta
-     !*FD Data structure holding netCDF meta data, see CF user guide
+     ! Data structure holding netCDF meta data, see CF user guide
      
      character(len=glimmer_nc_meta_len) :: title = ''
-     !*FD title of netCDF file
+     ! title of netCDF file
      character(len=glimmer_nc_meta_len) :: institution = ''
-     !*FD where the data was produced
+     ! where the data was produced
      character(len=glimmer_nc_meta_len) :: references = ''
-     !*FD list of references
+     ! list of references
      character(len=glimmer_nc_meta_len) :: source = ''
-     !*FD this string will hold the GLIMMER version
+     ! this string will hold the GLIMMER version
      character(len=glimmer_nc_meta_len) :: history = ''
-     !*FD netCDF file history string
+     ! netCDF file history string
      character(len=glimmer_nc_meta_len) :: comment = ''
-     !*FD some comments
+     ! some comments
      character(len=10000) :: config = ''
-     !*FD the contents of the glide config file
+     ! the contents of the glide config file
   end type glimmer_nc_meta
 
   type glimmer_nc_output
-     !*FD element of linked list describing netCDF output file
+     ! element of linked list describing netCDF output file
      !NO_RESTART previous
 
      type(glimmer_nc_stat) :: nc                          !< structure containg file info
@@ -123,32 +123,32 @@ module glimmer_ncdf
      logical :: do_averages = .false.                     !< set to .true. if we need to handle averages
 
      type(glimmer_nc_meta) :: metadata
-     !*FD structure holding metadata
+     ! structure holding metadata
 
      type(glimmer_nc_output), pointer :: next=>NULL()
-     !*FD next element in list
+     ! next element in list
      type(glimmer_nc_output), pointer :: previous=>NULL()
-     !*FD previous element in list
+     ! previous element in list
      logical :: append = .false.
-     !*FD Set to true if we are appending onto an existing file.
+     ! Set to true if we are appending onto an existing file.
   end type glimmer_nc_output
 
   type glimmer_nc_input
-     !*FD element of linked list describing netCDF input file
+     ! element of linked list describing netCDF input file
      !NO_RESTART previous
      type(glimmer_nc_stat) :: nc
-     !*FD structure containg file info
+     ! structure containg file info
      real(dp), pointer, dimension(:) :: times => NULL()     
-     !*FD pointer to array holding times
+     ! pointer to array holding times
      integer                        :: nt, current_time=1
-     !*FDnumber of elements in times and current time index
+     !number of elements in times and current time index
      integer                        :: get_time_slice = 1     
-     !*FD -1 if all times should be loaded, > 0 to load particular slice and then close file
+     ! -1 if all times should be loaded, > 0 to load particular slice and then close file
 
      type(glimmer_nc_input), pointer :: next=>NULL()
-     !*FD next element in list
+     ! next element in list
      type(glimmer_nc_input), pointer :: previous=>NULL()
-     !*FD previous element in list
+     ! previous element in list
   end type glimmer_nc_input
 
 
@@ -163,7 +163,7 @@ module glimmer_ncdf
 contains
 
   function delete_output(oc, cf)
-    !*FD remove element from linked list
+    ! remove element from linked list
     use glimmer_log
     implicit none
     type(glimmer_nc_output), pointer :: delete_output
@@ -202,7 +202,7 @@ contains
   !!
   !! \return the next input file or NULL()
   function delete_input(ic,cf)
-    !*FD remove element from linked list
+    ! remove element from linked list
     use glimmer_log
     implicit none
     type(glimmer_nc_input), pointer :: delete_input
@@ -282,7 +282,7 @@ contains
   !> for debugging print all output files in linked list
   recursive subroutine nc_print_output(output)
 
-    !*FD For debugging
+    ! For debugging
 
     type(glimmer_nc_output),pointer :: output
 
@@ -349,9 +349,9 @@ contains
 
     implicit none
 
-    !*FD Sets up previous points in the linked list correctly
-    !*FD This is needed after a restart, as trying to save both
-    !*FD next and previous pointers would cause problems
+    ! Sets up previous points in the linked list correctly
+    ! This is needed after a restart, as trying to save both
+    ! next and previous pointers would cause problems
 
     type(glimmer_nc_input),pointer :: input
     type(glimmer_nc_input),pointer :: most_recent
@@ -372,8 +372,8 @@ contains
 
   subroutine nc_prefix_outfiles(output,prefix)
 
-    !*FD Adds a prefix to all the filenames stored in the linked list.
-    !*FD Used for restarts.
+    ! Adds a prefix to all the filenames stored in the linked list.
+    ! Used for restarts.
 
     type(glimmer_nc_output),pointer :: output
     character(*) :: prefix
@@ -390,16 +390,16 @@ contains
   end subroutine nc_prefix_outfiles
 
    subroutine nc_errorhandle(file,line,status)
-        !*FD handle netCDF error
+        ! handle netCDF error
         use netcdf
         use glimmer_log
         implicit none
         character(len=*), intent(in) :: file
-        !*FD name of f90 file error occured in
+        ! name of f90 file error occured in
         integer, intent(in) :: line
-        !*FD line number error occured at
+        ! line number error occured at
         integer, intent(in) :: status
-        !*FD netCDF return value
+        ! netCDF return value
   
         if (status /= NF90_NOERR) then
             call write_log(nf90_strerror(status),type=GM_FATAL,file=file,line=line)

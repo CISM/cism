@@ -1,27 +1,27 @@
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glimmer_paramets.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glimmer_paramets.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -43,11 +43,11 @@ module glimmer_paramets
 !      (within roundoff error) the results
 !      of Glimmer 1.0.18 for the dome and EISMINT-2 test cases.
 
-  !TODO - Remove this parameter when comparisons are done
+  !TODO - Remove oldglide parameter when comparisons to old Glide are no longer desired
   logical, parameter :: oldglide = .false.
 !  logical, parameter :: oldglide = .true.
 
-!TODO - redundant output units  
+!TODO - redundant output units (stdout and glimmer_unit) 
 !           It is redundant to define both stdout (which is public) and 
 !            glimmer_unit (which is private to glimmer_log.F90).
 !           However, it is sometimes convenient to write to stdout in Glimmer
@@ -61,16 +61,12 @@ module glimmer_paramets
 
   logical :: GLC_DEBUG = .false.
 
-!TODO: Remove these scaling parameters, here and elsewhere in the code.
-!      Would like to have all dycore variables and parameters in SI units.
-
-!          Note: If tau0 is redefined in the code in terms of rhoi and grav,
-!          then all the scaling parameters can be written in terms of scyr.
+!TODO: Redefine scaling parameters to have SI or similar units?
+!      Considered removing these parameters from the code, but may be too much work.
 !
-!          If we have velocity units of m/s instead of m/y, 
-!          we can get rid of scyr too and set all parameters to 1.0, then 
-!          remove them from the code.
-!          
+!          Note: If tau0 is redefined in the code in terms of rhoi and grav,
+!          then all the scaling parameters could be written in terms of scyr.
+!
 !          See comments below for details.
 
 ! scaling parameters
@@ -82,7 +78,7 @@ module glimmer_paramets
 ! (necessary to be compatible with alternate dycores) 
 
 #ifndef NO_RESCALE
-! The following are the old Glimmer scaling parameters. These are to be deprecated.
+! The following are the old Glimmer scaling parameters.
   real(dp), parameter :: thk0 = 2000.0d0        ! m 
   real(dp), parameter :: len0 = 200.0d3         ! m 
   real(dp), parameter :: vel0 = 500.d0 / scyr   ! m yr^{-1} converted to S.I. units
@@ -92,17 +88,18 @@ module glimmer_paramets
   real(dp), parameter :: thk0 = 1.d0        ! no scaling of thickness
   real(dp), parameter :: len0 = 1.d0        ! no scaling of length
   real(dp), parameter :: vel0 = 1.d0 / scyr ! yr * s^{-1}  
-!TODO - With the new value of vel0, the serial JFNK solver barely converges
+!Note - With the new value of vel0, the serial JFNK solver barely converges
 !       for the first time step of the dome test.  The Picard solver does fine.
+!       Safer to use old scaling for now.
 ! end (no rescaling)
 #endif
 
   !Note: Both the SIA and HO solvers fail unless tim0 = len0/vel0. Not sure if this can be changed.
-  !      With the above scaling, tim0 = scyr.
+  !      With the revised scaling, tim0 = scyr.
   real(dp), parameter :: tim0 = len0 / vel0          ! s
   real(dp), parameter :: acc0 = thk0 * vel0 / len0   ! m s^{-1}
 
-!TODO - With thk0 = 1, can replace tau0 by rhoi*grav in code and remove stress scaling.
+!Note - With thk0 = 1, can replace tau0 by rhoi*grav in code and remove stress scaling.
 !       Similarly can redefine vis0 and evs0
 
   ! GLAM scaling parameters; units are correct if thk0 has units of meters
@@ -110,7 +107,7 @@ module glimmer_paramets
   real(dp), parameter :: evs0 = tau0 / (vel0/len0)          ! eff. visc. scale in GLAM ( Pa s )
   real(dp), parameter :: vis0 = tau0**(-gn) * (vel0/len0)   ! rate factor scale in GLAM ( Pa^-3 s^-1 )
 
-!SCALING - This is the scaling we would use if we had velocity in m/yr and thk0 = len0 = 0.
+!SCALING - This is the scaling we would use if we had velocity in m/yr and thk0 = len0 = 1.
 !  real(dp), parameter :: thk0 = 1.d0
 !  real(dp), parameter :: len0 = 1.d0
 !  real(dp), parameter :: vel0 = 1.d0 / scyr
@@ -127,7 +124,7 @@ module glimmer_paramets
 !          residual = maxval(abs(model%geometry%thck-model%thckwk%oldthck2))
 !
 !      In old Glimmer, thk0 = 2000 m and thck = O(1)
-!      In new Glimmer-CISM, thk0 = 1 and thck = true thickness in meters
+!      In new CISM, thk0 = 1 and thck = true thickness in meters
 !      With thk0 = 1, we need to divide the rhs by 2000 m to reproduce the results of old Glimmer.
 !      The following code satisfies either of the two conventions:
 !

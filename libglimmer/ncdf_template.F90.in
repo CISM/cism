@@ -6,27 +6,27 @@
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   ncdf_template.F90.in - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   ncdf_template.F90.in - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -36,8 +36,8 @@
 !GENVAR_HAVE_AVG!
 
 module NAME_io
-  !*FD template for creating subsystem specific I/O routines
-  !*FD written by Magnus Hagdorn, 2004
+  ! template for creating subsystem specific I/O routines
+  ! written by Magnus Hagdorn, 2004
 
   use DATAMOD
 
@@ -45,7 +45,7 @@ module NAME_io
 
   private :: get_xtype, is_enabled, is_enabled_0dint, is_enabled_1dint, is_enabled_2dint, is_enabled_0dreal, is_enabled_1dreal, is_enabled_2dreal, is_enabled_3dreal
 
-  character(310), save :: restart_variable_list=''    !*FD list of variables needed for a restart
+  character(310), save :: restart_variable_list=''    ! list of variables needed for a restart
 !TODO change 310 to a variable - see glimmer_ncdf.F90 in the definition for type glimmer_nc_stat for other instances of this value.
 
   interface is_enabled  ! MJH 10/21/13: Interface needed for determining if arrays have been enabled.  See notes below in NAME_io_create.
@@ -64,7 +64,7 @@ contains
   ! netCDF output
   !*****************************************************************************
   subroutine NAME_io_createall(model,data,outfiles)
-    !*FD open all netCDF files for output
+    ! open all netCDF files for output
     use DATAMOD
     use glide_types
     use glimmer_ncdf
@@ -90,7 +90,7 @@ contains
   end subroutine NAME_io_createall
 
   subroutine NAME_io_writeall(data,model,atend,outfiles,time)
-    !*FD if necessary write to netCDF files
+    ! if necessary write to netCDF files
     use DATAMOD
     use glide_types
     use glimmer_ncdf
@@ -235,9 +235,9 @@ contains
     use glimmer_scales
     implicit none
     type(glimmer_nc_output), pointer :: outfile
-    !*FD structure containg output netCDF descriptor
+    ! structure containg output netCDF descriptor
     type(DATATYPE) :: data
-    !*FD the model instance
+    ! the model instance
 
     ! local variables
     real(dp) :: tavgf
@@ -255,9 +255,9 @@ contains
 
 
   subroutine NAME_add_to_restart_variable_list(vars_to_add)
-    !*FD This subroutine adds variables to the list of variables needed for a restart.
-    !*FD It is a public subroutine that allows other parts of the model to modify the list, 
-    !*FD which is a module level variable.   MJH 1/17/2013
+    ! This subroutine adds variables to the list of variables needed for a restart.
+    ! It is a public subroutine that allows other parts of the model to modify the list, 
+    ! which is a module level variable.   MJH 1/17/2013
 
     use glimmer_log
     implicit none
@@ -265,7 +265,7 @@ contains
     !------------------------------------------------------------------------------------
     ! Subroutine arguments
     !------------------------------------------------------------------------------------
-    character(len=*), intent (in) :: vars_to_add  !*FD list of variable(s) to be added to the list of restart variables 
+    character(len=*), intent (in) :: vars_to_add  ! list of variable(s) to be added to the list of restart variables 
     !character(*), intent (inout) :: restart_variable_list  ! list of variables needed to perform an exact restart - module variable
 
     !------------------------------------------------------------------------------------
@@ -362,7 +362,7 @@ contains
   ! netCDF input
   !*****************************************************************************  
   subroutine NAME_io_readall(data, model, filetype)
-    !*FD read from netCDF file
+    ! read from netCDF file
     use DATAMOD
     use glide_types
     use glimmer_ncdf
@@ -448,7 +448,7 @@ contains
 
 
   subroutine NAME_io_read(infile,data)
-    !*FD read variables from a netCDF file
+    ! read variables from a netCDF file
     use parallel
     use glimmer_log
     use glimmer_ncdf
@@ -457,9 +457,9 @@ contains
     use glimmer_scales
     implicit none
     type(glimmer_nc_input), pointer :: infile
-    !*FD structure containg output netCDF descriptor
+    ! structure containg output netCDF descriptor
     type(DATATYPE) :: data
-    !*FD the model instance
+    ! the model instance
 
     ! local variables
     integer status,varid
@@ -471,7 +471,7 @@ contains
   end subroutine NAME_io_read
 
   subroutine NAME_io_checkdim(infile,model,data)
-    !*FD check if dimension sizes in file match dims of model
+    ! check if dimension sizes in file match dims of model
     use parallel
     use glimmer_log
     use glimmer_ncdf
@@ -479,7 +479,7 @@ contains
     use DATAMOD
     implicit none
     type(glimmer_nc_input), pointer :: infile
-    !*FD structure containg output netCDF descriptor
+    ! structure containg output netCDF descriptor
     type(glide_global_type) :: model
     type(DATATYPE), optional :: data
 
@@ -501,7 +501,7 @@ contains
     use glimmer_ncdf
     implicit none
     type(glimmer_nc_output), pointer :: outfile
-    !*FD structure containg output netCDF descriptor
+    ! structure containg output netCDF descriptor
     type(glide_global_type) :: model
     type(DATATYPE) :: data
 
@@ -522,7 +522,7 @@ contains
     use glimmer_ncdf
     implicit none
     type(glimmer_nc_output), pointer :: outfile
-    !*FD structure containg output netCDF descriptor
+    ! structure containg output netCDF descriptor
     type(DATATYPE) :: data
 
     ! local variables

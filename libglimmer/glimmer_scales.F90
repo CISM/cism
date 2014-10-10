@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glimmer_scales.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glimmer_scales.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -39,20 +39,14 @@ module glimmer_scales
   real(dp) :: scale_uvel, scale_uflx, scale_diffu, scale_acab, scale_wvel, scale_btrc 
   real(dp) :: scale_beta, scale_flwa, scale_tau, scale_efvs, scale_resid
 
-  !WHL - Added this factor simply to flip the sign of bheatflx.  Typically, this flux has
-  !      a sign convention of positive up in input data, but the Glimmer-CISM convention
-  !      is positive down.
-  !TODO - Change the sign convention of bheatflx to positive up?
-  !       This would require changes in several modules.
-
+  !WHL - Added scale_blfx to flip the sign of bheatflx.  Typically, this flux has
+  !       a sign convention of positive up in input data, but the CISM convention
+  !       is positive down.
+  !      Considered changing the sign convention to positive up, but this would require
+  !       changes in several modules.
   real(dp) :: scale_bflx
  
 contains
-
-!TODO - Can simplify these if thk0, etc. are removed from code.
-!       If the dycore variables are stricly in SI units, we will probably
-!        want to retain the scale factor scyr to convert m/s to m/yr, etc.
-!TODO - Use the same scale for btrc (SIA) and beta (HO)?
 
   subroutine glimmer_init_scales
 
@@ -81,7 +75,7 @@ contains
     scale_tau   = tau0                            ! tauf, tauxz, btractx
     scale_efvs  = evs0 / scyr                     ! efvs
     scale_resid=  tau0 / len0                     ! resid_u, resid_v
-    scale_bflx  = -1.d0                           ! bheatflx (Glimmer-CISM sign convention is positive down,
+    scale_bflx  = -1.d0                           ! bheatflx (CISM sign convention is positive down,
                                                   !           whereas input data usually assumes positive up)
 #else
 ! (no rescaling)
@@ -97,7 +91,7 @@ contains
     scale_tau   = 1.0d0              ! tauf, tauxz, btractx
     scale_efvs  = 1.0d0              ! efvs
     scale_resid = 1.0d0              ! resid_u, resid_v
-    scale_bflx  = -1.d0              ! bheatflx (keeping this one -- Glimmer-CISM sign convention is 
+    scale_bflx  = -1.d0              ! bheatflx (keeping this one -- CISM sign convention is 
                                      !           positive down, whereas input data usually assumes positive up)
 #endif
  
