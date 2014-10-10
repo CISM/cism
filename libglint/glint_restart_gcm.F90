@@ -1,6 +1,6 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glimmer_restart_gcm.F90 - part of the Community Ice Sheet Model (CISM)  
+!   glint_restart_gcm.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
@@ -26,15 +26,13 @@
 
 !|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
- module glimmer_restart_gcm
-
- !TODO - Should glimmer_restart_gcm be moved to libglint?  Used only by glint_initialise.
+ module glint_restart_gcm
 
 !BOP
-! !MODULE: glimmer_restart_gcm
+! !MODULE: glint_restart_gcm
 
 ! !DESCRIPTION:
-!  Contains routines for specialized glimmer restarts called by GCMs
+!  Contains routines for specialized restarts called by GCMs
 !
 ! !REVISION HISTORY:
 !
@@ -46,7 +44,7 @@
 
 ! !PUBLIC MEMBER FUNCTIONS:
 
-   public :: glimmer_read_restart_gcm
+   public :: glint_read_restart_gcm
 
 !----------------------------------------------------------------------
 !
@@ -63,10 +61,10 @@
 
 !***********************************************************************
 !BOP
-! !IROUTINE: glimmer_read_restart_gcm
+! !IROUTINE: glint_read_restart_gcm
 ! !INTERFACE:
 
-   subroutine glimmer_read_restart_gcm(model, restart_filename)
+   subroutine glint_read_restart_gcm(model, restart_filename)
 
     use glide_types
     implicit none
@@ -88,10 +86,10 @@
     ! note that the model will do the actual reading of data
     model%funits%in_first => ic
 
-  end subroutine glimmer_read_restart_gcm
+  end subroutine glint_read_restart_gcm
 
 !-----------------------------------------------------------------------
 
-end module glimmer_restart_gcm
+end module glint_restart_gcm
 
 !-----------------------------------------------------------------------
