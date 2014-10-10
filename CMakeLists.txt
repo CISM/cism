@@ -324,13 +324,11 @@ LIST(REMOVE_ITEM FORTRANSOURCES
 
 IF (CISM_USE_TRILINOS OR CISM_MPI_MODE)
    LIST(REMOVE_ITEM FORTRANSOURCES
-      ${CISM_SOURCE_DIR}/libglimmer/parallel_slap.F90   
-      ${CISM_SOURCE_DIR}/libglimmer/glimmer_horiz_bcs_serial.F90)
+      ${CISM_SOURCE_DIR}/libglimmer/parallel_slap.F90)   
 
 ELSE(${CISM_SERIAL_MODE})
    LIST(REMOVE_ITEM FORTRANSOURCES
-      ${CISM_SOURCE_DIR}/libglimmer/parallel_mpi.F90
-      ${CISM_SOURCE_DIR}/libglimmer/glimmer_horiz_bcs_parallel.F90)
+      ${CISM_SOURCE_DIR}/libglimmer/parallel_mpi.F90)
 
    IF (CISM_USE_MPI_WITH_SLAP)
      ADD_DEFINITIONS(-D_USE_MPI_WITH_SLAP)
