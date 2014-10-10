@@ -164,7 +164,7 @@ contains
     !> initialise elastic lithosphere calculations
     use glimmer_paramets, only: len0
     use glimmer_physcon, only: rhom,grav
-    use kelvin
+    use isostasy_kelvin
     implicit none
     type(isos_elastic) :: rbel        !> structure holding elastic litho data
     real(dp), intent(in) :: a             !> radius of disk
@@ -188,7 +188,7 @@ contains
 !-------------------------------------------------------------------------
 
   function rbel_ow(rbel,r)
-    use kelvin
+    use isostasy_kelvin
     !> calculating deflection outside disk
     implicit none
     real(dp) :: rbel_ow
@@ -201,7 +201,7 @@ contains
 !-------------------------------------------------------------------------
 
   function rbel_iw(rbel,r)
-    use kelvin
+    use isostasy_kelvin
     !> calculating deflection inside disk
     implicit none
     real(dp) :: rbel_iw

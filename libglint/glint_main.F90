@@ -37,7 +37,7 @@ module glint_main
   use glint_type
   use glint_global_grid
   use glint_constants
-  use glimmer_anomcouple
+  use glint_anomcouple
 
   use glimmer_paramets, only: stdout, GLC_DEBUG
 

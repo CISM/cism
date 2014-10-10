@@ -1,6 +1,6 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   kelvin.F90 - part of the Community Ice Sheet Model (CISM)  
+!   isostasy_kelvin.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
@@ -24,8 +24,6 @@
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - Move this module to libglide?  Only used by isostasy_elastic.F90.
-
 #ifdef HAVE_CONFIG_H
 #include "config.inc"
 #endif
@@ -36,7 +34,7 @@
 !! \author Magnus Hagdorn
 !! \date June 2000
 
-module kelvin
+module isostasy_kelvin
 
   use glimmer_global, only: sp, dp
   use glimmer_physcon, only: pi
@@ -410,7 +408,7 @@ contains
     s_dkei = real(d_dkei(real(x,kind=dp)),kind=sp)
   end function s_dkei
 
-end module kelvin
+end module isostasy_kelvin
 
 
 

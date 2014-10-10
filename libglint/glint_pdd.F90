@@ -326,8 +326,8 @@ contains
 
     use glimmer_global, only: dp
     use glimmer_physcon, only: pi
-    use glimmer_integrate
     use glimmer_log
+    use glint_integrate
 
     implicit none
 
@@ -391,7 +391,7 @@ contains
     ! \int^{T_{a}'+2.5\sigma}_{0}T_{a}\times
     ! \exp\left(\frac{-(T_a-T_{a}')^2}{2\sigma^2}\right)\,dT
     ! \end{equation}
-    use glimmer_integrate
+    use glint_integrate
 
     implicit none
 

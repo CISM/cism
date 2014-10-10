@@ -1,6 +1,6 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glimmer_integrate.F90 - part of the Community Ice Sheet Model (CISM)  
+!   glint_integrate.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
@@ -23,14 +23,13 @@
 !   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-!TODO - Move module to libglint?  (Only used by Glint)
 
 #ifdef HAVE_CONFIG_H
 #include "config.inc"
 #endif
 
 !> integration of functions using Romberg integration
-module glimmer_integrate
+module glint_integrate
 
   use glimmer_global, only : dp, sp
 
@@ -294,6 +293,6 @@ contains
 
 !-------------------------------------------------------------
 
-end module glimmer_integrate
+end module glint_integrate
 
 !-------------------------------------------------------------

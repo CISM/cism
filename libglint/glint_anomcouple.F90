@@ -1,6 +1,6 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glimmer_anomcouple.F90 - part of the Community Ice Sheet Model (CISM)  
+!   glint_anomcouple.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
@@ -23,13 +23,12 @@
 !   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-!TODO - Move this module to libglint?  (Only used by Glint)
 
 #ifdef HAVE_CONFIG_H
 #include "config.inc"
 #endif
 
-module glimmer_anomcouple
+module glint_anomcouple
 
   !> This module provides code to handle anomaly coupling. Although
   !> written for use with GLINT, it has general applicability. Temperature coupling
@@ -369,4 +368,4 @@ contains
 
   end subroutine anomaly_index
 
-end module glimmer_anomcouple
+end module glint_anomcouple
