@@ -1,6 +1,6 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   relaxed.F90 - part of the Community Ice Sheet Model (CISM)  
+!   relaxed_topo.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
@@ -31,11 +31,9 @@
 #define NCI infile%nc
 #define NCO outfile%nc
 
-!TODO - This is a program.  Move to a utilities directory?
+program relaxed_topo
 
-program relaxed
-
-  ! utility to add relaxed bedrock topography to GLIMMER netcdf input files
+  ! utility to add relaxed bedrock topography to netcdf input files
 
   use glimmer_global, only: dp
   use glimmer_ncdf
@@ -76,8 +74,7 @@ program relaxed
 
   ! Get some input parameters
 
-  Print*,'RELAXED - utility to add relaxed bedrock topography'
-  print*,'to GLIMMER netcdf input files'
+  Print*,'relaxed_topo - utility to add relaxed bedrock topography to netcdf input files'
   Print*,'Name of input file:'
   Read*,NCI%filename
   Print*,'Name of output file:'
@@ -379,4 +376,4 @@ contains
 
   end subroutine flextopg
 
-end program relaxed
+end program relaxed_topo
