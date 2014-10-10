@@ -25,9 +25,9 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 module glimmer_sparse_slap
-    ! This module builds on the glimmer_slap module to provide an easy
-    ! interface to SLAP.  The SLAP interface is intended to be both
-    ! usable and a guide to implementing other interfaces
+    !> This module builds on the glimmer_slap module to provide an easy
+    !> interface to SLAP.  The SLAP interface is intended to be both
+    !> usable and a guide to implementing other interfaces
     
     use glimmer_sparse_type
     use glimmer_global, only: dp, size_t
@@ -35,38 +35,38 @@ module glimmer_sparse_slap
     implicit none
 
     type slap_solver_workspace
-        ! This type contains any working memory needed for the slap solver.
-        ! It is used to store states between calls to the solver
-        ! In the SLAP implementation, it is used to store the SLAP workspace
-        ! This module must have this type, but its contents should be opaque
-        ! to the user (e.g. client code should only manipulate the
-        ! slap_solver_workspace as a whole and should never touch its members)
+        !> This type contains any working memory needed for the slap solver.
+        !> It is used to store states between calls to the solver
+        !> In the SLAP implementation, it is used to store the SLAP workspace
+        !> This module must have this type, but its contents should be opaque
+        !> to the user (e.g. client code should only manipulate the
+        !> slap_solver_workspace as a whole and should never touch its members)
         real(kind=dp), dimension(:), pointer :: rwork => NULL()
         integer, dimension(:), pointer :: iwork => NULL()
-        integer :: max_nelt ! Maximum number of nonzeroes allowed given the allocated workspace
+        integer :: max_nelt !> Maximum number of nonzeroes allowed given the allocated workspace
     end type slap_solver_workspace
 
     type slap_solver_options
-        ! This type holds options that are passed to the slap solver, such
-        ! as preconditioner type, error tolerances, etc.  At a minimum, it
-        ! must define the tolerance and maxiters field, as these will be
-        ! common to any iterative slap linear solver.  Other options
-        ! can be defined as necessary.
-        !
-        ! Design note: the options are separated from the workspace because
-        ! one set of options could apply to multiple matrices, and the
-        ! lifecycles for each could be different (a workspace need only
-        ! exist as long as the matrix does, the options could persist
-        ! throughout the entire program)
+        !> This type holds options that are passed to the slap solver, such
+        !> as preconditioner type, error tolerances, etc.  At a minimum, it
+        !> must define the tolerance and maxiters field, as these will be
+        !> common to any iterative slap linear solver.  Other options
+        !> can be defined as necessary.
+        !>
+        !> Design note: the options are separated from the workspace because
+        !> one set of options could apply to multiple matrices, and the
+        !> lifecycles for each could be different (a workspace need only
+        !> exist as long as the matrix does, the options could persist
+        !> throughout the entire program)
 
-        integer :: itol                ! Tolerance code, see SLAP documentation
-        integer :: gmres_saved_vectors ! How many vectors to save while performing GMRES iteration
-        type(sparse_solver_options_base), pointer :: base => null() ! Pointer to basic options
+        integer :: itol                !> Tolerance code, see SLAP documentation
+        integer :: gmres_saved_vectors !> How many vectors to save while performing GMRES iteration
+        type(sparse_solver_options_base), pointer :: base => null() !> Pointer to basic options
 
     end type slap_solver_options
 
     !WHL - debug
-    logical, parameter :: verbose_slap = .false.
+    logical, parameter :: verbose_slap = .true.
     integer, parameter :: ndiagmax = 10
 
 contains
@@ -75,11 +75,11 @@ contains
 
     subroutine slap_default_options(opt, base)
 
-        ! Populates a slap_solver_options (defined above) with default
-        ! options.  This is necessary because different solvers may define
-        ! different options beyond the required fields defined above.
-        ! Filling them in this function allows client code to pick "good"
-        ! values in a generic way.
+        !> Populates a slap_solver_options (defined above) with default
+        !> options.  This is necessary because different solvers may define
+        !> different options beyond the required fields defined above.
+        !> Filling them in this function allows client code to pick "good"
+        !> values in a generic way.
 
         type(slap_solver_options), intent(out) :: opt
         type(sparse_solver_options_base), intent(in), target :: base
@@ -93,12 +93,12 @@ contains
     end subroutine slap_default_options
 
     subroutine slap_allocate_workspace(matrix, options, workspace, max_nonzeros_arg)
-        ! Allocate solver workspace.  This needs to be done once
-        ! (when the maximum number of nonzero entries is first known)
-        ! This function need not be safe to call on already allocated memory
-        !
-        ! Note that the max_nonzeros argument must be optional, and if
-        ! it is not supplied the current number of nonzeroes must be used.
+        !> Allocate solver workspace.  This needs to be done once
+        !> (when the maximum number of nonzero entries is first known)
+        !> This function need not be safe to call on already allocated memory
+        !>
+        !> Note that the max_nonzeros argument must be optional, and if
+        !> it is not supplied the current number of nonzeroes must be used.
 
         type(sparse_matrix_type), intent(in) :: matrix
         type(slap_solver_options) :: options
@@ -149,17 +149,17 @@ contains
 
     subroutine slap_solver_preprocess(matrix, options, workspace)
 
-        ! Performs any preprocessing needed for the slap solver.
-        ! Workspace must have already been allocated. 
-        ! This function should be safe to call more than once.
-        !
-        ! It is an error to call this function on a workspace without
-        ! allocated memory
-        !
-        ! In general slap_allocate_workspace should perform any actions
-        ! that depend on the *size* of the slap matrix, and
-        ! sparse_solver_preprocess should perform any actions that depend
-        ! upon the *contents* of the slap matrix.
+        !> Performs any preprocessing needed for the slap solver.
+        !> Workspace must have already been allocated. 
+        !> This function should be safe to call more than once.
+        !>
+        !> It is an error to call this function on a workspace without
+        !> allocated memory
+        !>
+        !> In general slap_allocate_workspace should perform any actions
+        !> that depend on the *size* of the slap matrix, and
+        !> sparse_solver_preprocess should perform any actions that depend
+        !> upon the *contents* of the slap matrix.
 
         type(sparse_matrix_type), intent(in) :: matrix
         type(slap_solver_options) :: options
@@ -171,40 +171,40 @@ contains
 
     function slap_solve (matrix, rhs, solution, options, workspace,err,niters, verbose)
 
-        ! Solves the slap linear system, and reports status information.
-        ! This function returns an error code that should be zero if the
-        ! call succeeded and nonzero if it failed.  No additional error codes
-        ! are defined.  Although this function reports back the final error
-        ! and the number of iterations needed to converge, these should *not*
-        ! be relied upon as not every slap linear solver may report them.
+        !> Solves the slap linear system, and reports status information.
+        !> This function returns an error code that should be zero if the
+        !> call succeeded and nonzero if it failed.  No additional error codes
+        !> are defined.  Although this function reports back the final error
+        !> and the number of iterations needed to converge, these should *not*
+        !> be relied upon as not every slap linear solver may report them.
 
        !Note: The matrix should be intent(in) rather than (inout).
        !      This requires making a local copy of some data.
 
         type(sparse_matrix_type), intent(in) :: matrix 
-        ! Sparse matrix to solve.  
+        !> Sparse matrix to solve.  
         
         real(kind=dp), dimension(:), intent(in) :: rhs 
-        ! Right hand side of the solution vector
+        !> Right hand side of the solution vector
         
         real(kind=dp), dimension(:), intent(inout) :: solution 
-        ! Solution vector, containing an initial guess.
+        !> Solution vector, containing an initial guess.
 
         type(slap_solver_options), intent(in) :: options
-        ! Options such as convergence criteria
+        !> Options such as convergence criteria
         
         type(slap_solver_workspace), intent(inout) :: workspace
-        ! Internal solver workspace
+        !> Internal solver workspace
         
         real(kind=dp), intent(out) :: err
-        ! Final solution error
+        !> Final solution error
         
         integer, intent(out) :: niters
-        ! Number of iterations required to reach the solution
+        !> Number of iterations required to reach the solution
 
         logical, optional, intent(in) :: verbose
-        ! If present and true, this argument may cause diagnostic information
-        ! to be printed by the solver (not every solver may implement this).
+        !> If present and true, this argument may cause diagnostic information
+        !> to be printed by the solver (not every solver may implement this).
         
         integer, dimension(matrix%nonzeros) ::  &
            matrix_row,      &! local copy of matrix%row
@@ -432,9 +432,9 @@ contains
     end subroutine
 
     subroutine slap_destroy_workspace(matrix, options, workspace)
-        ! Deallocates all working memory for the slap linear solver.
-        ! This need *not* be safe to call of an unallocated workspace
-        ! No slap solver should call this automatically.
+        !> Deallocates all working memory for the slap linear solver.
+        !> This need *not* be safe to call of an unallocated workspace
+        !> No slap solver should call this automatically.
         type(sparse_matrix_type), intent(in) :: matrix
         type(slap_solver_options) :: options
         type(slap_solver_workspace) :: workspace
@@ -444,10 +444,10 @@ contains
     end subroutine slap_destroy_workspace
 
     subroutine slap_interpret_error(error_code, error_string)
-        ! takes an error code output from slap_solve and interprets it.
-        ! error_string must be an optional argument.
-        ! If it is not provided, the error is printed to standard out
-        ! instead of being put in the string
+        !> takes an error code output from slap_solve and interprets it.
+        !> error_string must be an optional argument.
+        !> If it is not provided, the error is printed to standard out
+        !> instead of being put in the string
         integer :: error_code
         character(*), optional, intent(out) :: error_string
         character(256) :: tmp_error_string
