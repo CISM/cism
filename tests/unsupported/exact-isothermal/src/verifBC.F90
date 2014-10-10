@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   verifBC.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   verifBC.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -44,10 +44,10 @@ module verifBC
 
   type verifBC_type
      real(dp) :: gamma
-     real(dp) :: lambda = 0.   !*FD accumulation paramter ($M_\lambda = \lambda t^{-1} H$)
-     real(dp) :: H0 = 3600.    !*FD central thickness at $t_0$ (m)
-     real(dp) :: R0 = 750.     !*FD radius of magin at t0 (m)
-     real(dp) :: tDel = 25000. !*FD time to advance from $t_0$ ($t_f = t_0+\Delta t$) (secs) if tDel<0 run from t=0 to $t_0$
+     real(dp) :: lambda = 0.   !> accumulation paramter ($M_\lambda = \lambda t^{-1} H$)
+     real(dp) :: H0 = 3600.    !> central thickness at $t_0$ (m)
+     real(dp) :: R0 = 750.     !> radius of magin at t0 (m)
+     real(dp) :: tDel = 25000. !> time to advance from $t_0$ ($t_f = t_0+\Delta t$) (secs) if tDel<0 run from t=0 to $t_0$
      real(dp) :: t0
      real(dp) :: centre
      real(dp) :: alf,bet
@@ -56,11 +56,11 @@ module verifBC
 
 contains
   subroutine verifBC_config(section,veri)
-    !*FD read configuration
+    !> read configuration
     use glimmer_config
     implicit none
-    type(verifBC_type)           :: veri    !*FD structure holding test setup
-    type(ConfigSection), pointer :: section !*FD structure holding configuration section
+    type(verifBC_type)           :: veri    !> structure holding test setup
+    type(ConfigSection), pointer :: section !> structure holding configuration section
 
     call GetValue(section,'lambda',veri%lambda)
     call GetValue(section,'H0',veri%H0)
@@ -70,10 +70,10 @@ contains
   end subroutine verifBC_config
 
   subroutine verifBC_printconfig(veri)
-    !*FD print configuration to log
+    !> print configuration to log
     use glimmer_log
     implicit none
-    type(verifBC_type)           :: veri    !*FD structure holding test setup
+    type(verifBC_type)           :: veri    !> structure holding test setup
     ! local variables
     character(len=100) :: message
     call write_log('VerifBC test')
@@ -90,15 +90,15 @@ contains
   end subroutine verifBC_printconfig
 
   subroutine verifBC_init(model, veri)
-    !*FD initialise test cases B and C
+    !> initialise test cases B and C
     use glide_types
     use glimmer_physcon
     use glimmer_paramets
     use glimmer_log
     implicit none
     
-    type(glide_global_type) :: model !*FD model instance
-    type(verifBC_type)      :: veri  !*FD structure holding test setup
+    type(glide_global_type) :: model !> model instance
+    type(verifBC_type)      :: veri  !> structure holding test setup
 
     ! local variables
     real(dp) :: ts,tf
@@ -162,13 +162,13 @@ contains
   end subroutine verifBC_init
 
   subroutine verifBC_update(model, veri, time, exact_h, mb)
-    !*FD calculate exact ice thickness and mass balance
+    !> calculate exact ice thickness and mass balance
     use glide_types
     use glimmer_paramets, only: scyr, len0
     implicit none
-    type(glide_global_type)   :: model !*FD model instance
-    type(verifBC_type)        :: veri  !*FD structure holding test setup
-    real(dp), intent(in) :: time  !*FD current time
+    type(glide_global_type)   :: model !> model instance
+    type(verifBC_type)        :: veri  !> structure holding test setup
+    real(dp), intent(in) :: time  !> current time
     real(dp), dimension(:,:), intent(out) :: exact_h
     real(dp), dimension(:,:), intent(out) :: mb
 
@@ -197,11 +197,11 @@ contains
   end subroutine verifBC_update
 
   function calc_h(veri,r,t)
-    !*FD calculate exact ice thickness
+    !> calculate exact ice thickness
     implicit none
-    type(verifBC_type)   :: veri !*FD structure holding test setup
-    real(dp), intent(in) :: r    !*FD radius (m)
-    real(dp), intent(in) :: t    !*FD time   (s)
+    type(verifBC_type)   :: veri !> structure holding test setup
+    real(dp), intent(in) :: r    !> radius (m)
+    real(dp), intent(in) :: t    !> time   (s)
 
     real(dp) :: calc_h
 

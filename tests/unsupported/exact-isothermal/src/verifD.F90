@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   verifD.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   verifD.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -46,26 +46,26 @@ module verifD
   real(dp), parameter, private :: eps =  2.2204d-16
 
   type verifD_type
-     real(dp) :: Cp = 200.d0   !*FD magnitude of perturbation (meters)
-     real(dp) :: Tp = 5000.d0  !*FD period of perturbation (years)
-     real(dp) :: H0 = 3600.d0  !*FD central thickness at $t_0$ (m)
-     real(dp) :: R0 = 750.d0   !*FD margin radius (km)
-     real(dp) :: tf = 25000.d0 !*FD run from 0 to tf years
+     real(dp) :: Cp = 200.d0   !> magnitude of perturbation (meters)
+     real(dp) :: Tp = 5000.d0  !> period of perturbation (years)
+     real(dp) :: H0 = 3600.d0  !> central thickness at $t_0$ (m)
+     real(dp) :: R0 = 750.d0   !> margin radius (km)
+     real(dp) :: tf = 25000.d0 !> run from 0 to tf years
      real(dp) :: gamma
      real(dp) :: C,c1
      real(dp) :: gn
      real(dp) :: centre
 
-     real(dp), dimension(:,:), pointer :: mb_steady => NULL() !*FD steady state mass balance
+     real(dp), dimension(:,:), pointer :: mb_steady => NULL() !> steady state mass balance
   end type verifD_type
 
 contains
   subroutine verifD_config(section,veri)
-    !*FD read configuration
+    !> read configuration
     use glimmer_config
     implicit none
-    type(verifD_type)            :: veri    !*FD structure holding test setup
-    type(ConfigSection), pointer :: section !*FD structure holding configuration section
+    type(verifD_type)            :: veri    !> structure holding test setup
+    type(ConfigSection), pointer :: section !> structure holding configuration section
 
     call GetValue(section,'Cp',veri%Cp)
     call GetValue(section,'Tp',veri%Tp)
@@ -75,10 +75,10 @@ contains
   end subroutine verifD_config
 
   subroutine verifD_printconfig(veri)
-    !*FD print configuration to log
+    !> print configuration to log
     use glimmer_log
     implicit none
-    type(verifD_type)           :: veri    !*FD structure holding test setup
+    type(verifD_type)           :: veri    !> structure holding test setup
     ! local variables
     character(len=100) :: message
     call write_log('VerifD test')
@@ -97,15 +97,15 @@ contains
   end subroutine verifD_printconfig
   
   subroutine verifD_init(model, veri)
-    !*FD initialise test case D
+    !> initialise test case D
     use glide_types
     use glimmer_physcon
     use glimmer_paramets
     use glimmer_log
     implicit none
     
-    type(glide_global_type) :: model !*FD model instance
-    type(verifD_type)      :: veri  !*FD structure holding test setup
+    type(glide_global_type) :: model !> model instance
+    type(verifD_type)      :: veri  !> structure holding test setup
 
     ! local variables
     integer num, i, j
@@ -168,13 +168,13 @@ contains
   end subroutine verifD_init
 
   subroutine verifD_update(model, veri, time, exact_h, mb)
-    !*FD calculate exact ice thickness and mass balance
+    !> calculate exact ice thickness and mass balance
     use glide_types
     use glimmer_paramets, only: scyr, len0
     implicit none
-    type(glide_global_type)   :: model !*FD model instance
-    type(verifD_type)        :: veri  !*FD structure holding test setup
-    real(dp), intent(in) :: time  !*FD current time
+    type(glide_global_type)   :: model !> model instance
+    type(verifD_type)        :: veri  !> structure holding test setup
+    real(dp), intent(in) :: time  !> current time
     real(dp), dimension(:,:), intent(out) :: exact_h
     real(dp), dimension(:,:), intent(out) :: mb
 
@@ -199,12 +199,12 @@ contains
   end subroutine verifD_update
 
   function calc_hp(veri,r,t)
-    !*FD calculate perturbed ice thickness
+    !> calculate perturbed ice thickness
     use glimmer_physcon, only : pi
     implicit none
-    type(verifD_type)    :: veri !*FD structure holding test setup
-    real(dp), intent(in) :: r    !*FD radius (m)
-    real(dp), intent(in) :: t    !*FD time
+    type(verifD_type)    :: veri !> structure holding test setup
+    real(dp), intent(in) :: r    !> radius (m)
+    real(dp), intent(in) :: t    !> time
 
     real(dp) :: calc_hp
 
@@ -212,10 +212,10 @@ contains
   end function calc_hp
 
   function calc_hs(veri,r)
-    !*FD calculate steady state ice thickness
+    !> calculate steady state ice thickness
     implicit none
-    type(verifD_type)    :: veri !*FD structure holding test setup
-    real(dp), intent(in) :: r    !*FD radius (m)
+    type(verifD_type)    :: veri !> structure holding test setup
+    real(dp), intent(in) :: r    !> radius (m)
 
     real(dp) :: calc_hs
 
@@ -232,12 +232,12 @@ contains
   end function calc_hs
 
   function calc_mc(veri,r,t)
-    !*FD massbalance 1
+    !> massbalance 1
     use glimmer_physcon, only : pi
     implicit none
-    type(verifD_type)    :: veri !*FD structure holding test setup
-    real(dp), intent(in) :: r    !*FD radius (m)
-    real(dp), intent(in) :: t    !*FD time   (s)
+    type(verifD_type)    :: veri !> structure holding test setup
+    real(dp), intent(in) :: r    !> radius (m)
+    real(dp), intent(in) :: t    !> time   (s)
 
     real(dp) :: calc_mc
 
@@ -255,11 +255,11 @@ contains
   end function calc_mc
 
   function calc_ms(veri,r)
-    !*FD steady state mass balance
+    !> steady state mass balance
     use glimmer_physcon, only : scyr
     implicit none
-    type(verifD_type)    :: veri !*FD structure holding test setup
-    real(dp), intent(in) :: r    !*FD radius (m)
+    type(verifD_type)    :: veri !> structure holding test setup
+    real(dp), intent(in) :: r    !> radius (m)
 
     real(dp) :: calc_ms
 
@@ -279,11 +279,11 @@ contains
   end function calc_ms
 
   function getgp(veri,r)
-    !*FD helper routine
+    !> helper routine
     use glimmer_physcon, only : pi
     implicit none
-    type(verifD_type)    :: veri !*FD structure holding test setup
-    real(dp), intent(in) :: r    !*FD radius (m)
+    type(verifD_type)    :: veri !> structure holding test setup
+    real(dp), intent(in) :: r    !> radius (m)
     
     real(dp) :: getgp
 
@@ -295,12 +295,12 @@ contains
   end function getgp
 
   function getddr(veri,r,t)
-    !*FD calculate derivatives
+    !> calculate derivatives
     use glimmer_physcon, only : pi
     implicit none
-    type(verifD_type)    :: veri !*FD structure holding test setup
-    real(dp), intent(in) :: r    !*FD radius (m)
-    real(dp), intent(in) :: t    !*FD time   (s)
+    type(verifD_type)    :: veri !> structure holding test setup
+    real(dp), intent(in) :: r    !> radius (m)
+    real(dp), intent(in) :: t    !> time   (s)
 
     real(dp), dimension(2) :: getddr
 
