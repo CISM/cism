@@ -86,7 +86,7 @@ contains
     use parallel, only: lhalo, uhalo
     use glissade_enthalpy, only: glissade_init_enthalpy
 
-    type(glide_global_type),intent(inout) :: model       ! Ice model parameters.
+    type(glide_global_type),intent(inout) :: model       !*FD Ice model parameters.
 
     integer, parameter :: p1 = gn + 1  
     integer up, ns, ew
@@ -459,19 +459,11 @@ contains
        ! Calculate heating from basal friction -----------------------------------
 
        call glissade_calcbfric( model,                        &
-                                model%options%whichdycore,    &
                                 model%geometry%thck,          &
                                 model%velocity%btraction,     &
                                 model%velocity%ubas,          &
                                 model%velocity%vbas,          &
-                                GLIDE_IS_FLOAT(model%geometry%thkmask), &
-                                model%temper%bfricflx)
-
-       !WHL - debug
-!       ew = model%numerics%idiag_local
-!       ns = model%numerics%jdiag_local
-!       print*, ' '
-!       print*, 'ew, ns, bfricflx:', ew, ns, model%temper%bfricflx(ew,ns)
+                                GLIDE_IS_FLOAT(model%geometry%thkmask) )
 
        ! Note: No iteration is needed here since we are doing a local tridiagonal solve without advection.
 
@@ -750,13 +742,11 @@ contains
       ! Calculate heating from basal friction -----------------------------------
 
       call glissade_calcbfric( model,                        &
-                               model%options%whichdycore,    &
                                model%geometry%thck,          &
                                model%velocity%btraction,     &
                                model%velocity%ubas,          &
                                model%velocity%vbas,          &
-                               GLIDE_IS_FLOAT(model%geometry%thkmask), &
-                               model%temper%bfricflx)
+                               GLIDE_IS_FLOAT(model%geometry%thkmask) )
 
       ! Note: No iteration is needed here since we are doing a local tridiagonal solve without advection.
 
@@ -1064,10 +1054,10 @@ contains
 
   !-----------------------------------------------------------------------
 
-  subroutine glissade_calcbfric (model,    whichdycore, &
+  subroutine glissade_calcbfric (model,                 &
                                  thck,     btraction,   &
                                  ubas,     vbas,        &
-                                 float,    bfricflx)
+                                 float)
 
     ! compute frictional heat source due to sliding at the bed
 
@@ -1075,37 +1065,27 @@ contains
     use glimmer_paramets, only: thk0, vel0, vel_scale
 
     type(glide_global_type) :: model
-    integer, intent(in) :: whichdycore   ! 1 = Glam, 2 = Glissade
     real(dp), dimension(:,:), intent(in) :: thck
     real(dp), dimension(:,:), intent(in) :: ubas, vbas
     real(dp), dimension(:,:,:), intent(in) :: btraction
     logical, dimension(:,:), intent(in) :: float
-
-    ! Note: This needs to be inout because it may already have been computed by Glissade.
-    real(dp), dimension(:,:), intent(inout) :: bfricflx
 
     real(dp) :: slterm       ! sliding friction
  
     integer :: ewp, nsp, ew, ns
     integer :: slide_count   ! number of neighbor cells with nonzero sliding
 
-!WHL TODO - Use Glam heat flux for now (to avoid answer changes), but switch soon.
-!           Note: Glissade does not compute btraction, so bfricflx = 0 if using Glam logic
-
-!!!!!    if (whichdycore == DYCORE_GLISSADE) then
-       ! basal friction heat flux (model%temper%bfricflx) already computed in velocity solver
-       ! do nothing and return
-
-!!!!!    else   ! Glam dycore
-
        ! compute heat source due to basal friction
        ! Note: slterm and bfricflx are defined to be >= 0
 
+       !LOOP TODO - This loop should be over locally owned cells? (ilo:ihi,jlo:jhi)
+ 
        do ns = 2, model%general%nsn-1
        do ew = 2, model%general%ewn-1
 
           slterm = 0.d0
           slide_count = 0
+
 
              !WHL - copied Steve Price's formulation from calcbmlt
              ! btraction is computed in glam_strs2.F90
@@ -1148,12 +1128,10 @@ contains
              slterm = 0.0d0
           end if
 
-          bfricflx(ew,ns) = slterm
+          model%temper%bfricflx(ew,ns) = slterm
 
        enddo    ! ns
        enddo    ! ew
-
-!!!!!    endif       ! whichdycore
 
   end subroutine glissade_calcbfric
 
@@ -1439,25 +1417,25 @@ contains
   subroutine glissade_calcflwa(stagsigma, thklim, flwa, temp, thck, flow_factor, &
                                default_flwa_arg, flag, waterfrac)
 
-    ! Calculates Glen's $A$ over the three-dimensional domain,
-    ! using one of three possible methods.
-    !
-    ! The primary method is to use this equation from \emph{Paterson and Budd} [1982]:
-    ! \[
-    ! A(T^{*})=a \exp \left(\frac{-Q}{RT^{*}}\right)
-    ! \]
-    ! This is equation 9 in {\em Payne and Dongelmans}. $a$ is a constant of proportionality,
-    ! $Q$ is the activation energy for for ice creep, and $R$ is the universal gas constant.
-    ! The pressure-corrected temperature, $T^{*}$ is given by:
-    ! \[
-    ! T^{*}=T-T_{\mathrm{pmp}}+T_0
-    ! \] 
-    ! \[
-    ! T_{\mathrm{pmp}}=T_0-\sigma \rho g H \Phi
-    ! \]
-    ! $T$ is the ice temperature, $T_{\mathrm{pmp}}$ is the pressure melting point 
-    ! temperature, $T_0$ is the triple point of water, $\rho$ is the ice density, and 
-    ! $\Phi$ is the (constant) rate of change of melting point temperature with pressure.
+    !*FD Calculates Glen's $A$ over the three-dimensional domain,
+    !*FD using one of three possible methods.
+    !*FD
+    !*FD The primary method is to use this equation from \emph{Paterson and Budd} [1982]:
+    !*FD \[
+    !*FD A(T^{*})=a \exp \left(\frac{-Q}{RT^{*}}\right)
+    !*FD \]
+    !*FD This is equation 9 in {\em Payne and Dongelmans}. $a$ is a constant of proportionality,
+    !*FD $Q$ is the activation energy for for ice creep, and $R$ is the universal gas constant.
+    !*FD The pressure-corrected temperature, $T^{*}$ is given by:
+    !*FD \[
+    !*FD T^{*}=T-T_{\mathrm{pmp}}+T_0
+    !*FD \] 
+    !*FD \[
+    !*FD T_{\mathrm{pmp}}=T_0-\sigma \rho g H \Phi
+    !*FD \]
+    !*FD $T$ is the ice temperature, $T_{\mathrm{pmp}}$ is the pressure melting point 
+    !*FD temperature, $T_0$ is the triple point of water, $\rho$ is the ice density, and 
+    !*FD $\Phi$ is the (constant) rate of change of melting point temperature with pressure.
 
     use glimmer_physcon
     use glimmer_paramets, only : thk0, vis0
@@ -1476,16 +1454,16 @@ contains
     real(dp)                                  :: flow_factor ! fudge factor in Arrhenius relationship
     real(dp),                   intent(in)    :: default_flwa_arg ! Glen's A to use in isothermal case 
                                                                   ! Units: Pa^{-n} yr^{-1} 
-    integer,                    intent(in)    :: flag      ! Flag to select the method
-                                                           ! of calculation
-    real(dp),dimension(:,:,:),  intent(out)   :: flwa      ! The calculated values of $A$
+    integer,                    intent(in)    :: flag      !*FD Flag to select the method
+                                                           !*FD of calculation
+    real(dp),dimension(:,:,:),  intent(out)   :: flwa      !*FD The calculated values of $A$
     real(dp),dimension(:,:,:),  intent(in), optional :: waterfrac!internal water content fraction, 0 to 1
 
-    ! \begin{description}
-    ! \item[0] {\em Paterson and Budd} relationship.
-    ! \item[1] {\em Paterson and Budd} relationship, with temperature set to -5$^{\circ}$C.
-    ! \item[2] Set to prescribed constant value.
-    ! \end{description}
+    !*FD \begin{description}
+    !*FD \item[0] {\em Paterson and Budd} relationship.
+    !*FD \item[1] {\em Paterson and Budd} relationship, with temperature set to -5$^{\circ}$C.
+    !*FD \item[2] Set to prescribed constant value.
+    !*FD \end{description}
 
     !------------------------------------------------------------------------------------
     ! Internal variables
