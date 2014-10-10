@@ -319,17 +319,7 @@ file(GLOB FORTRANSOURCES
      ${CISM_TO_DYCORE})
 
 LIST(REMOVE_ITEM FORTRANSOURCES
-   ${CISM_SOURCE_DIR}/libglimmer-solve/SLAP/dlapqc.f
-   ${CISM_SOURCE_DIR}/libglimmer/unittest_glimmer_deriv.F90 
-   ${CISM_SOURCE_DIR}/libglide/relaxed.F90
-   ${CISM_SOURCE_DIR}/libglide/test_setup.F90
-   ${CISM_SOURCE_DIR}/libglimmer/test_commandline.F90
-   ${CISM_SOURCE_DIR}/libglimmer/test_config.F90
-   ${CISM_SOURCE_DIR}/libglimmer/test_filenames.F90
-   ${CISM_SOURCE_DIR}/libglimmer/test_integrate.F90
-   ${CISM_SOURCE_DIR}/libglimmer/test_ts.F90
-   ${CISM_SOURCE_DIR}/libglimmer/test_writestats.F90
-   ${CISM_SOURCE_DIR}/libglimmer/nc2config.F90 )
+   ${CISM_SOURCE_DIR}/libglimmer-solve/SLAP/dlapqc.f )
 
 
 IF (CISM_USE_TRILINOS OR CISM_MPI_MODE)
