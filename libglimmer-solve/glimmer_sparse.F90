@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glimmer_sparse.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glimmer_sparse.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -146,12 +146,12 @@ contains
     subroutine sparse_allocate_workspace(matrix, options, workspace, max_nonzeros_arg)
 
         use parallel
-        !*FD Allocate solver workspace.  This needs to be done once
-        !*FD (when the maximum number of nonzero entries is first known)
-        !*FD This function need not be safe to call on already allocated memory
-        !*FD
-        !*FD Note that the max_nonzeros argument must be optional, and if
-        !*FD it is not supplied the current number of nonzeroes must be used.
+        ! Allocate solver workspace.  This needs to be done once
+        ! (when the maximum number of nonzero entries is first known)
+        ! This function need not be safe to call on already allocated memory
+        !
+        ! Note that the max_nonzeros argument must be optional, and if
+        ! it is not supplied the current number of nonzeroes must be used.
         type(sparse_matrix_type), intent(in) :: matrix
         type(sparse_solver_options) :: options
         type(sparse_solver_workspace) :: workspace
@@ -177,17 +177,17 @@ contains
     end subroutine sparse_allocate_workspace
 
     subroutine sparse_solver_preprocess(matrix, options, workspace)
-        !*FD Performs any preprocessing needed to be performed on the slap
-        !*FD matrix.  Workspace must have already been allocated. 
-        !*FD This function should be safe to call more than once.
-        !*FD
-        !*FD It is an error to call this function on a workspace without
-        !*FD allocated memory
-        !*FD
-        !*FD In general slap_allocate_workspace should perform any actions
-        !*FD that depend on the *size* of the slap matrix, and
-        !*FD sprase_solver_preprocess should perform any actions that depend
-        !*FD upon the *contents* of the slap matrix.
+        ! Performs any preprocessing needed to be performed on the slap
+        ! matrix.  Workspace must have already been allocated. 
+        ! This function should be safe to call more than once.
+        !
+        ! It is an error to call this function on a workspace without
+        ! allocated memory
+        !
+        ! In general slap_allocate_workspace should perform any actions
+        ! that depend on the *size* of the slap matrix, and
+        ! sprase_solver_preprocess should perform any actions that depend
+        ! upon the *contents* of the slap matrix.
         type(sparse_matrix_type), intent(in) :: matrix
         type(sparse_solver_options) :: options
         type(sparse_solver_workspace) :: workspace
@@ -206,41 +206,41 @@ contains
                           options, workspace,     &
                           err, niters, verbose)
 
-        !*FD Solves the linear system, and reports status information.
-        !*FD This function returns an error code that should be zero if the
-        !*FD call succeeded and nonzero if it failed.  No additional error codes
-        !*FD are defined.  Although this function reports back the final error
-        !*FD and the number of iterations needed to converge, these should *not*
-        !*FD be relied upon as not every slap linear solver may report them.
+        ! Solves the linear system, and reports status information.
+        ! This function returns an error code that should be zero if the
+        ! call succeeded and nonzero if it failed.  No additional error codes
+        ! are defined.  Although this function reports back the final error
+        ! and the number of iterations needed to converge, these should *not*
+        ! be relied upon as not every slap linear solver may report them.
 
         ! Note: The matrix needs to be intent(in), not (inout).
         !      If the matrix is modified, then the residual will be computed incorrectly
         !       in the higher-level subroutine that calls sparse_solve.
 
         type(sparse_matrix_type), intent(in) :: matrix 
-        !*FD Sparse matrix to solve  
+        ! Sparse matrix to solve  
         
         real(kind=dp), dimension(:), intent(in) :: rhs 
-        !*FD Right hand side of the solution vector
+        ! Right hand side of the solution vector
         
         real(kind=dp), dimension(:), intent(inout) :: solution 
-        !*FD Solution vector, containing an initial guess
+        ! Solution vector, containing an initial guess
 
         type(sparse_solver_options), intent(in) :: options
-        !*FD Options such as convergence criteria
+        ! Options such as convergence criteria
         
         type(sparse_solver_workspace), intent(inout) :: workspace
-        !*FD Internal solver workspace
+        ! Internal solver workspace
         
         real(kind=dp), intent(out) :: err
-        !*FD Final solution error
+        ! Final solution error
         
         integer, intent(out) :: niters
-        !*FD Number of iterations required to reach the solution
+        ! Number of iterations required to reach the solution
 
         logical, optional, intent(in) :: verbose
-        !*FD If present and true, this argument may cause diagnostic information
-        !*FD to be printed by the solver (not every solver may implement this).
+        ! If present and true, this argument may cause diagnostic information
+        ! to be printed by the solver (not every solver may implement this).
         
         integer :: sparse_solve
 
@@ -281,9 +281,9 @@ contains
 
     subroutine sparse_destroy_workspace(matrix, options, workspace)
 
-        !*FD Deallocates all working memory for the slap linear solver.
-        !*FD This need *not* be safe to call of an unallocated workspace
-        !*FD No slap solver should call this automatically.
+        ! Deallocates all working memory for the slap linear solver.
+        ! This need *not* be safe to call of an unallocated workspace
+        ! No slap solver should call this automatically.
 
         type(sparse_matrix_type), intent(in) :: matrix
         type(sparse_solver_options) :: options
@@ -303,10 +303,10 @@ contains
 
     subroutine sparse_interpret_error(options, error_code, error_string)
 
-        !*FD takes an error code output from slap_solve and interprets it.
-        !*FD error_string must be an optional argument.
-        !*FD If it is not provided, the error is printed to standard out
-        !*FD instead of being put in the string
+        ! takes an error code output from slap_solve and interprets it.
+        ! error_string must be an optional argument.
+        ! If it is not provided, the error is printed to standard out
+        ! instead of being put in the string
 
         type(sparse_solver_options) :: options
         integer :: error_code

@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glimmer_sparse_type.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glimmer_sparse_type.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -33,19 +33,19 @@ module glimmer_sparse_type
   use glimmer_global, only:dp
   implicit none
   
-  !*FD sparse matrix type
+  ! sparse matrix type
   type sparse_matrix_type
-     integer :: nonzeros  !*FD number of nonzero elements currently stored
-     integer :: order     !*FD order of the matrix (e.g. number of rows)
-     logical :: symmetric !*FD True only if triangle of the symmetric matrix stored
-     integer, dimension(:), pointer :: col => NULL()        !*FD column index
-     integer, dimension(:), pointer :: row => NULL()        !*FD row index
-     real(kind=dp), dimension(:), pointer :: val => NULL()  !*FD values
+     integer :: nonzeros  ! number of nonzero elements currently stored
+     integer :: order     ! order of the matrix (e.g. number of rows)
+     logical :: symmetric ! True only if triangle of the symmetric matrix stored
+     integer, dimension(:), pointer :: col => NULL()        ! column index
+     integer, dimension(:), pointer :: row => NULL()        ! row index
+     real(kind=dp), dimension(:), pointer :: val => NULL()  ! values
   end type sparse_matrix_type
 
   type sparse_solver_options_base
-        real(kind=dp) :: tolerance !*FD Error tolerance
-        integer :: maxiters        !*FD Max iterations before giving up
+        real(kind=dp) :: tolerance ! Error tolerance
+        integer :: maxiters        ! Max iterations before giving up
         integer :: method
   end type
 
@@ -68,11 +68,11 @@ contains
 !EIB!#endif
 
   subroutine new_sparse_matrix(order,n,mat)
-    !*FD create a new sparse matrix
+    ! create a new sparse matrix
     implicit none
-    integer, intent(in) :: n          !*FD initial size of matrix (non-zeros)
-    type(sparse_matrix_type) :: mat   !*FD matrix
-    integer, intent(in) :: order      !*FD Order (number of rows and columns) of the matrix
+    integer, intent(in) :: n          ! initial size of matrix (non-zeros)
+    type(sparse_matrix_type) :: mat   ! matrix
+    integer, intent(in) :: order      ! Order (number of rows and columns) of the matrix
     
     if (.not.associated(mat%col)) then
        allocate(mat%row(n))
@@ -96,12 +96,12 @@ contains
   end subroutine new_sparse_matrix
 
   subroutine copy_sparse_matrix(inmat,outmat)
-    !*FD copy a sparse matrix.
-    !*FD Slap workspace allocation on the new
-    !*FD matrix is *not* done.
+    ! copy a sparse matrix.
+    ! Slap workspace allocation on the new
+    ! matrix is *not* done.
     implicit none
-    type(sparse_matrix_type) :: inmat  !*FD matrix to be copied
-    type(sparse_matrix_type) :: outmat !*FD result matrix
+    type(sparse_matrix_type) :: inmat  ! matrix to be copied
+    type(sparse_matrix_type) :: outmat ! result matrix
 
     call new_sparse_matrix(inmat%order,inmat%nonzeros,outmat)
     outmat%row(:) = inmat%row(:)
@@ -112,9 +112,9 @@ contains
   end subroutine copy_sparse_matrix
 
   subroutine grow_sparse_matrix(matrix)
-    !*FD grow sparse matrix
+    ! grow sparse matrix
     implicit none
-    type(sparse_matrix_type) :: matrix !*FD matrix
+    type(sparse_matrix_type) :: matrix ! matrix
 
     integer, dimension(:), pointer :: newrow,newcol
     real(kind=dp), dimension(:), pointer :: newval
@@ -141,9 +141,9 @@ contains
   end subroutine grow_sparse_matrix
 
   subroutine del_sparse_matrix(matrix)
-    !*FD delete sparse matrix
+    ! delete sparse matrix
     implicit none
-    type(sparse_matrix_type) :: matrix !*FD matrix
+    type(sparse_matrix_type) :: matrix ! matrix
 
     if (associated(matrix%col)) then
        deallocate(matrix%col)
@@ -154,10 +154,10 @@ contains
   end subroutine del_sparse_matrix
 
   subroutine print_sparse(matrix, unit)
-    !*FD print sparse matrix
+    ! print sparse matrix
     implicit none
-    type(sparse_matrix_type) :: matrix !*FD matrix
-    integer, intent(in) :: unit        !*FD unit to be printed to
+    type(sparse_matrix_type) :: matrix ! matrix
+    integer, intent(in) :: unit        ! unit to be printed to
 
     integer i
     do i = 1, matrix%nonzeros
@@ -166,11 +166,11 @@ contains
   end subroutine print_sparse
 
   subroutine sparse_matrix_vec_prod(matrix, vec, res)
-    !*FD sparse matrix vector product
+    ! sparse matrix vector product
     implicit none
-    type(sparse_matrix_type) :: matrix                !*FD matrix
-    real(kind=dp), intent(in), dimension(:) :: vec    !*FD input vector
-    real(kind=dp), intent(out), dimension(:) :: res   !*FD result vector
+    type(sparse_matrix_type) :: matrix                ! matrix
+    real(kind=dp), intent(in), dimension(:) :: vec    ! input vector
+    real(kind=dp), intent(out), dimension(:) :: res   ! result vector
 
     integer i
 
@@ -181,11 +181,11 @@ contains
   end subroutine sparse_matrix_vec_prod
 
   subroutine sparse_insert_val(matrix, i, j, val)
-    !*FD insert value into sparse matrix.  This is safe to call even if val=0
+    ! insert value into sparse matrix.  This is safe to call even if val=0
     implicit none
-    type(sparse_matrix_type) :: matrix !*FD matrix
-    integer, intent(in) :: i,j         !*FD column and row
-    real(kind=dp), intent(in) :: val   !*FD value
+    type(sparse_matrix_type) :: matrix ! matrix
+    integer, intent(in) :: i,j         ! column and row
+    real(kind=dp), intent(in) :: val   ! value
     if (val /= 0.d0 .and. i > 0 .and. j > 0 .and. i <= matrix%order .and. j <= matrix%order) then
         matrix%nonzeros =  matrix%nonzeros + 1
         matrix%row(matrix%nonzeros) = i
@@ -199,8 +199,8 @@ contains
   end subroutine sparse_insert_val
 
   subroutine sparse_clear(matrix)
-    !*FD Clears the sparse matrix, without deallocating any of the
-    !*FD previously used memory
+    ! Clears the sparse matrix, without deallocating any of the
+    ! previously used memory
     type(sparse_matrix_type) :: matrix
     
     matrix%nonzeros = 0
@@ -425,11 +425,11 @@ contains
   end subroutine
 
   subroutine sort_column_format(matrix)
-    !*FD Takes a column format matrix and sorts the row indices within each column
-    !*FD This is not strictly needed in some compressed-column matrices
-    !*FD (e.g. those used in SLAP), but it *is* necessary in some other libraries
-    !*FD (e.g. UMFPACK).  For this reason, it is not done automatically in
-    !*FD to_column_format.
+    ! Takes a column format matrix and sorts the row indices within each column
+    ! This is not strictly needed in some compressed-column matrices
+    ! (e.g. those used in SLAP), but it *is* necessary in some other libraries
+    ! (e.g. UMFPACK).  For this reason, it is not done automatically in
+    ! to_column_format.
     implicit none
     type(sparse_matrix_type) :: matrix
     integer :: i
@@ -440,10 +440,10 @@ contains
   end subroutine
 
   subroutine sort_row_format(matrix)
-    !*FD Takes a row format matrix and sorts the column indices within each row
-    !*FD This is not strictly needed in some compressed-row matrices
-    !*FD (e.g. those used in SLAP), but it *is* necessary in some other libraries
-    !*FD (e.g. PARDISO).  
+    ! Takes a row format matrix and sorts the column indices within each row
+    ! This is not strictly needed in some compressed-row matrices
+    ! (e.g. those used in SLAP), but it *is* necessary in some other libraries
+    ! (e.g. PARDISO).  
     implicit none
     type(sparse_matrix_type),intent(inout) :: matrix
     integer :: i
