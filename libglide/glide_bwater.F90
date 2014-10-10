@@ -268,30 +268,30 @@ contains
   ! Note: This routing is supported in serial code only.
 
   subroutine route_basal_water(wphi,melt,dx,dy,flux,lakes)
-    ! Routes water from melt field to its destination, recording flux
-    ! of water along the route. Water flow direction is determined according
-    ! to the gradient of a wphi elevation field. For the algorithm to 
-    ! function properly depressions in the wphi surface must be filled.
-    ! this results in the lakes field, which is the difference between the
-    ! filled surface and the original wphi.
-    ! The method used is by Quinn et. al. (1991).
-    !
-    ! 12/9/05 Jesse Johnson based on code from the glimmer_routing file
-    ! by Ian Rutt.
+    !> Routes water from melt field to its destination, recording flux
+    !> of water along the route. Water flow direction is determined according
+    !> to the gradient of a wphi elevation field. For the algorithm to 
+    !> function properly depressions in the wphi surface must be filled.
+    !> this results in the lakes field, which is the difference between the
+    !> filled surface and the original wphi.
+    !> The method used is by Quinn et. al. (1991).
+    !>
+    !> 12/9/05 Jesse Johnson based on code from the glimmer_routing file
+    !> by Ian Rutt.
 
     implicit none
 
-    real(dp),dimension(:,:),intent(in)  :: wphi    ! Input potential surface
-    real(dp),dimension(:,:),intent(in)  :: melt    ! Input melting field
-    real(dp),               intent(in)  :: dx      ! Input $x$ grid-spacing
-    real(dp),               intent(in)  :: dy      ! Input $y$ grid-spacing
-    real(dp),dimension(:,:),intent(out) :: flux    ! Output flux field
-    real(dp),dimension(:,:),intent(out) :: lakes   ! Output lakes field
+    real(dp),dimension(:,:),intent(in)  :: wphi    !> Input potential surface
+    real(dp),dimension(:,:),intent(in)  :: melt    !> Input melting field
+    real(dp),               intent(in)  :: dx      !> Input $x$ grid-spacing
+    real(dp),               intent(in)  :: dy      !> Input $y$ grid-spacing
+    real(dp),dimension(:,:),intent(out) :: flux    !> Output flux field
+    real(dp),dimension(:,:),intent(out) :: lakes   !> Output lakes field
 
     ! Internal variables --------------------------------------
 
     integer :: nx,ny,k,nn,cx,cy,px,py,x,y
-    integer, dimension(:,:),allocatable :: mask    ! Masked points
+    integer, dimension(:,:),allocatable :: mask    !> Masked points
     integer, dimension(:,:),allocatable :: sorted
     real(dp),dimension(:,:),allocatable :: flats,potcopy
     real(dp),dimension(-1:1,-1:1) :: slopes
@@ -398,12 +398,12 @@ contains
 
   subroutine flux_to_depth(flux,wphi,c,p,q,dew,dns,bwat)
 
-  ! Assuming that the flow is steady state, this function simply solves
-  !              flux = depth * velocity
-  ! for the depth, assuming that the velocity is a function of depth,
-  ! and pressure potential. This amounts to assuming a Weertman film,
-  ! or Manning flow, both of which take the form of a constant times water
-  ! depth to a power, times pressure wphi to a power.
+  !> Assuming that the flow is steady state, this function simply solves
+  !>              flux = depth * velocity
+  !> for the depth, assuming that the velocity is a function of depth,
+  !> and pressure potential. This amounts to assuming a Weertman film,
+  !> or Manning flow, both of which take the form of a constant times water
+  !> depth to a power, times pressure wphi to a power.
 
     use glam_grid_operators, only: df_field_2d      ! Find grad_wphi
     use glimmer_physcon, only : scyr                ! Seconds per year
@@ -460,10 +460,10 @@ contains
 !==============================================================
 
   subroutine pressure_wphi(thck,topg,N,wphi,thicklim,floater)
-  ! Compute the pressure wphi at the base of the ice sheet according to
-  ! ice overburden plus bed height minus effective pressure.
-  !
-  ! whpi/(rhow*g) = topg + bwat * rhoi / rhow * thick - N / (rhow * g)
+  !> Compute the pressure wphi at the base of the ice sheet according to
+  !> ice overburden plus bed height minus effective pressure.
+  !>
+  !> whpi/(rhow*g) = topg + bwat * rhoi / rhow * thick - N / (rhow * g)
 
     use glimmer_physcon, only : rhoi,rhow,grav
     implicit none
@@ -622,17 +622,17 @@ contains
 
     use glimmer_log
 
-    ! Performs an index sort of \texttt{array} and returns the result in
-    ! \texttt{index}. The order of elements in \texttt{array} is unchanged.
-    !
-    ! This is a GPL-licenced replacement for the Numerical Recipes routine indexx. 
-    ! It is not derived from any NR code, but are based on a quicksort routine by
-    ! Michael Lamont (http://linux.wku.edu/~lamonml/kb.html), originally written
-    ! in C, and issued under the GNU General Public License. The conversion to 
-    ! Fortran 90, and modification to do an index sort was done by Ian Rutt.
+    !> Performs an index sort of \texttt{array} and returns the result in
+    !> \texttt{index}. The order of elements in \texttt{array} is unchanged.
+    !>
+    !> This is a GPL-licenced replacement for the Numerical Recipes routine indexx. 
+    !> It is not derived from any NR code, but are based on a quicksort routine by
+    !> Michael Lamont (http://linux.wku.edu/~lamonml/kb.html), originally written
+    !> in C, and issued under the GNU General Public License. The conversion to 
+    !> Fortran 90, and modification to do an index sort was done by Ian Rutt.
 
-    real(dp),dimension(:) :: array ! Array to be indexed.
-    integer, dimension(:) :: index ! Index of elements of \texttt{array}.
+    real(dp),dimension(:) :: array !> Array to be indexed.
+    integer, dimension(:) :: index !> Index of elements of \texttt{array}.
     integer :: i
 
     if (size(array) /= size(index)) then
@@ -651,19 +651,19 @@ contains
 
   recursive subroutine q_sort_index(numbers,index,left,right)
 
-    ! This is the recursive subroutine actually used by \texttt{indexx}. 
-    !
-    ! This is a GPL-licenced replacement for the Numerical Recipes routine indexx. 
-    ! It is not derived from any NR code, but are based on a quicksort routine by
-    ! Michael Lamont (http://linux.wku.edu/~lamonml/kb.html), originally written
-    ! in C, and issued under the GNU General Public License. The conversion to 
-    ! Fortran 90, and modification to do an index sort was done by Ian Rutt.
+    !> This is the recursive subroutine actually used by \texttt{indexx}. 
+    !>
+    !> This is a GPL-licenced replacement for the Numerical Recipes routine indexx. 
+    !> It is not derived from any NR code, but are based on a quicksort routine by
+    !> Michael Lamont (http://linux.wku.edu/~lamonml/kb.html), originally written
+    !> in C, and issued under the GNU General Public License. The conversion to 
+    !> Fortran 90, and modification to do an index sort was done by Ian Rutt.
 
     implicit none
 
-    real(dp),dimension(:) :: numbers ! Numbers being sorted
-    integer, dimension(:) :: index   ! Returned index
-    integer :: left, right           ! Limit of sort region
+    real(dp),dimension(:) :: numbers !> Numbers being sorted
+    integer, dimension(:) :: index   !> Returned index
+    integer :: left, right           !> Limit of sort region
 
     integer :: ll,rr
     integer :: pv_int,l_hold, r_hold,pivpos

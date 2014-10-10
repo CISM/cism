@@ -35,23 +35,23 @@ module glide_stop
 
   implicit none
 
-  ! module containing finalisation of glide
-  ! this subroutine had to be split out from glide.f90 to avoid circular dependencies
+  !> module containing finalisation of glide
+  !> this subroutine had to be split out from glide.f90 to avoid circular dependencies
 
-  ! Updated by Tim Bocek to allow for several models to be
-  ! registered and finalized with a single call without needing
-  ! the model at call time
+  !> Updated by Tim Bocek to allow for several models to be
+  !> registered and finalized with a single call without needing
+  !> the model at call time
 
   integer, parameter :: max_models = 32
 
   type pmodel_type
-    ! Contains a pointer to a model
-    ! This is a hack to get around Fortran's lack of arrays of pointers
+    !> Contains a pointer to a model
+    !> This is a hack to get around Fortran's lack of arrays of pointers
     type(glide_global_type), pointer :: p => null()
   end type pmodel_type
 
-  ! Pointers to all registered models
-  ! This has a fixed size at compile time
+  !> Pointers to all registered models
+  !> This has a fixed size at compile time
   type(pmodel_type), dimension(max_models), save :: registered_models
 
 contains
@@ -59,7 +59,7 @@ contains
 !EIB! register and finalise_all not present in gc2, are present in lanl, therefore added here
 
   subroutine register_model(model)
-    ! Registers a model, ensuring that it is finalised in the case of an error
+    !> Registers a model, ensuring that it is finalised in the case of an error
     type(glide_global_type), target :: model
     integer :: i
 
@@ -74,9 +74,9 @@ contains
   end subroutine
 
   subroutine deregister_model(model)
-    ! Removes a model from the registry.  Normally this should only be done
-    ! glide_finalise is called on the model, and is done automatically by
-    ! that function
+    !> Removes a model from the registry.  Normally this should only be done
+    !> glide_finalise is called on the model, and is done automatically by
+    !> that function
     type(glide_global_type) :: model
 
     if (model%model_id < 1 .or. model%model_id > max_models) then
@@ -90,7 +90,7 @@ contains
   !Note: Currently, glide_finalise_all is never called. (glide_finalise is called from cism_driver) 
 
   subroutine glide_finalise_all(crash_arg)
-    ! Finalises all models in the model registry
+    !> Finalises all models in the model registry
     logical, optional :: crash_arg
     
     logical :: crash
@@ -112,7 +112,7 @@ contains
 
   subroutine glide_finalise(model,crash)
 
-    ! finalise model instance
+    !> finalise model instance
 
     use glimmer_ncio
     use glimmer_log
@@ -120,8 +120,8 @@ contains
     use glide_io
     use profile
     implicit none
-    type(glide_global_type) :: model        ! model instance
-    logical, optional :: crash              ! set to true if the model died unexpectedly
+    type(glide_global_type) :: model        !> model instance
+    logical, optional :: crash              !> set to true if the model died unexpectedly
     character(len=100) :: message
 
     ! force last write if crashed

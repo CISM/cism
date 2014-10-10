@@ -31,8 +31,8 @@
 !TODO - This is a program.  Move to a test or utilities directory?
 
 program testsetup
-  ! testing setup module
-  ! written by Magnus Hagdorn, June 2004
+  !> testing setup module
+  !> written by Magnus Hagdorn, June 2004
   use glide_types
   use glide_setup
   use glimmer_config

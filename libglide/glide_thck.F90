@@ -65,7 +65,7 @@ contains
 
   subroutine init_thck(model)
 
-    ! initialise work data for ice thickness evolution
+    !> initialise work data for ice thickness evolution
     use glimmer_log
     use glimmer_paramets, only: GLC_DEBUG
     implicit none
@@ -106,8 +106,8 @@ contains
 
   subroutine thck_lin_evolve(model,newtemps)
 
-    ! this subroutine solves the linearised ice thickness equation by computing the
-    ! diffusivity from quantities of the previous time step
+    !> this subroutine solves the linearised ice thickness equation by computing the
+    !> diffusivity from quantities of the previous time step
 
     use glide_velo
     use glimmer_paramets, only: GLC_DEBUG
@@ -117,7 +117,7 @@ contains
 
     ! subroutine arguments
     type(glide_global_type) :: model
-    logical, intent(in) :: newtemps                     ! true when we should recalculate Glen's A
+    logical, intent(in) :: newtemps                     !> true when we should recalculate Glen's A
 
     if (model%geometry%empty) then
 
@@ -212,9 +212,9 @@ contains
 
   subroutine thck_nonlin_evolve(model,newtemps)
 
-    ! this subroutine solves the ice thickness equation by doing an outer, 
-    ! non-linear iteration to update the diffusivities and in inner, linear
-    ! iteration to calculate the new ice thickness distrib
+    !> this subroutine solves the ice thickness equation by doing an outer, 
+    !> non-linear iteration to update the diffusivities and in inner, linear
+    !> iteration to calculate the new ice thickness distrib
 
     use glide_velo
     use glide_setup
@@ -226,10 +226,10 @@ contains
     implicit none
     ! subroutine arguments
     type(glide_global_type) :: model
-    logical, intent(in) :: newtemps                     ! true when we should recalculate Glen's A
+    logical, intent(in) :: newtemps                     !> true when we should recalculate Glen's A
 
     ! local variables
-    integer, parameter :: pmax=50                       ! maximum Picard iterations
+    integer, parameter :: pmax=50                       !> maximum Picard iterations
 
     real(dp), parameter :: tol=1.0d-6
     real(dp) :: residual
@@ -409,8 +409,8 @@ contains
 
   subroutine thck_evolve(model, diffu_x, diffu_y, calc_rhs, old_thck, new_thck)
 
-    ! set up sparse matrix and solve matrix equation to find new ice thickness distribution
-    ! this routine does not override the old thickness distribution
+    !> set up sparse matrix and solve matrix equation to find new ice thickness distribution
+    !> this routine does not override the old thickness distribution
 
     use glimmer_log
     use glimmer_paramets, only: vel0, thk0, GLC_DEBUG
@@ -420,13 +420,13 @@ contains
     ! subroutine arguments -------------------------------------------------------------
 
     type(glide_global_type) :: model
-    logical,intent(in) :: calc_rhs                      ! set to true when rhs should be calculated 
-                                                        ! i.e. when doing lin solution or first picard iteration
+    logical,intent(in) :: calc_rhs                      !> set to true when rhs should be calculated 
+                                                        !> i.e. when doing lin solution or first picard iteration
     real(dp), intent(in), dimension(:,:) :: diffu_x
     real(dp), intent(in), dimension(:,:) :: diffu_y
-    real(dp), intent(in), dimension(:,:) :: old_thck    ! contains ice thicknesses from previous time step
-    real(dp), intent(inout), dimension(:,:) :: new_thck ! on entry contains first guess for new ice thicknesses
-                                                        ! on exit contains ice thicknesses of new time step
+    real(dp), intent(in), dimension(:,:) :: old_thck    !> contains ice thicknesses from previous time step
+    real(dp), intent(inout), dimension(:,:) :: new_thck !> on entry contains first guess for new ice thicknesses
+                                                        !> on exit contains ice thicknesses of new time step
 
     ! local variables ------------------------------------------------------------------
 
@@ -704,13 +704,13 @@ contains
     ! Subroutine arguments
     !-------------------------------------------------------------------------
 
-    real(dp),dimension(:,:),intent(in)  :: thck       ! Ice thickness
-    real(dp),dimension(:,:),intent(in)  :: acab       ! Mass balance
-    integer, dimension(:,:),intent(out) :: thck_index ! integer index (1, 2, 3, ..., totpts)
-    integer,                intent(out) :: totpts     ! Total number of points in mask
+    real(dp),dimension(:,:),intent(in)  :: thck       !> Ice thickness
+    real(dp),dimension(:,:),intent(in)  :: acab       !> Mass balance
+    integer, dimension(:,:),intent(out) :: thck_index !> integer index (1, 2, 3, ..., totpts)
+    integer,                intent(out) :: totpts     !> Total number of points in mask
     logical, intent(in)       :: include_adjacent     ! If true, points with no ice but that are adjacent
                                                       ! to points with ice are included in the mask
-    logical,                intent(out) :: empty      ! true if no points in mask
+    logical,                intent(out) :: empty      !> true if no points in mask
 
     !-------------------------------------------------------------------------
     ! Internal variables
@@ -824,8 +824,8 @@ contains
 
   subroutine stagleapthck(model,newtemps)
     
-    ! this subroutine solves the ice sheet thickness equation using the ADI scheme
-    ! diffusivities are updated for each half time step
+    !> this subroutine solves the ice sheet thickness equation using the ADI scheme
+    !> diffusivities are updated for each half time step
 
     !TODO The ADI scheme has not been checked for consistency with the new time-stepping convention.  
 
@@ -837,7 +837,7 @@ contains
 
     ! subroutine arguments
     type(glide_global_type) :: model
-    logical, intent(in) :: newtemps                     ! true when we should recalculate Glen's A
+    logical, intent(in) :: newtemps                     !> true when we should recalculate Glen's A
 
     ! local variables
     integer ew,ns, n
@@ -982,25 +982,25 @@ contains
 
   subroutine adi_tri(a,b,c,d,thk,tpg,mb,flx_p,flx_m,dif_p,dif_m,dt,ds1, ds2)
 
-    ! construct tri-diagonal matrix system for a column/row
+    !> construct tri-diagonal matrix system for a column/row
 
     implicit none
     
-    real(dp), dimension(:), intent(out) :: a ! alpha (subdiagonal)
-    real(dp), dimension(:), intent(out) :: b ! alpha (diagonal)
-    real(dp), dimension(:), intent(out) :: c ! alpha (superdiagonal)
-    real(dp), dimension(:), intent(out) :: d ! right-hand side
+    real(dp), dimension(:), intent(out) :: a !> alpha (subdiagonal)
+    real(dp), dimension(:), intent(out) :: b !> alpha (diagonal)
+    real(dp), dimension(:), intent(out) :: c !> alpha (superdiagonal)
+    real(dp), dimension(:), intent(out) :: d !> right-hand side
     
-    real(dp), dimension(:), intent(in) :: thk   ! ice thickness
-    real(dp), dimension(:), intent(in) :: tpg   ! lower surface of ice
-    real(dp), dimension(:), intent(in) :: mb    ! mass balance
-    real(dp), dimension(:), intent(in) :: flx_p ! flux +1/2
-    real(dp), dimension(:), intent(in) :: flx_m ! flux -1/2
-    real(dp), dimension(:), intent(in) :: dif_p ! diffusivity +1/2
-    real(dp), dimension(:), intent(in) :: dif_m ! diffusivity -1/2
+    real(dp), dimension(:), intent(in) :: thk   !> ice thickness
+    real(dp), dimension(:), intent(in) :: tpg   !> lower surface of ice
+    real(dp), dimension(:), intent(in) :: mb    !> mass balance
+    real(dp), dimension(:), intent(in) :: flx_p !> flux +1/2
+    real(dp), dimension(:), intent(in) :: flx_m !> flux -1/2
+    real(dp), dimension(:), intent(in) :: dif_p !> diffusivity +1/2
+    real(dp), dimension(:), intent(in) :: dif_m !> diffusivity -1/2
     
-    real(dp), intent(in) :: dt ! time step
-    real(dp), intent(in) :: ds1, ds2 ! spatial steps inline and transversal
+    real(dp), intent(in) :: dt !> time step
+    real(dp), intent(in) :: ds1, ds2 !> spatial steps inline and transversal
 
     ! local variables
     real(dp) :: f1, f2, f3
@@ -1053,10 +1053,10 @@ contains
 
     implicit none
 
-    real(dp), intent(in),  dimension(:,:) :: thck ! Ice thickness
-    real(dp), intent(in),  dimension(:,:) :: topg ! Bedrock topography elevation
-    real(dp), intent(in)                  :: eus  ! global sea level
-    real(dp), intent(out), dimension(:,:) :: lsrf ! Lower ice surface elevation
+    real(dp), intent(in),  dimension(:,:) :: thck !> Ice thickness
+    real(dp), intent(in),  dimension(:,:) :: topg !> Bedrock topography elevation
+    real(dp), intent(in)                  :: eus  !> global sea level
+    real(dp), intent(out), dimension(:,:) :: lsrf !> Lower ice surface elevation
 
     real(dp), parameter :: con = - rhoi / rhoo
 

@@ -47,7 +47,7 @@ contains
     use glide_lithot1d
     use glide_lithot3d
     implicit none
-    type(glide_global_type),intent(inout) :: model       ! model instance
+    type(glide_global_type),intent(inout) :: model       !> model instance
 
     ! local variables
     integer k
@@ -106,7 +106,7 @@ contains
     use glimmer_log
     use glide_mask
     implicit none
-    type(glide_global_type),intent(inout) :: model       ! model instance
+    type(glide_global_type),intent(inout) :: model       !> model instance
 
     integer t
 
@@ -126,7 +126,7 @@ contains
     use glide_lithot1d
     use glide_lithot3d
     implicit none
-    type(glide_global_type),intent(inout) :: model       ! model instance
+    type(glide_global_type),intent(inout) :: model       !> model instance
 
     if (model%lithot%num_dim==1) then
        call calc_lithot1d(model)
@@ -141,10 +141,10 @@ contains
   end subroutine calc_lithot
 
   subroutine calc_geoth(model)
-    ! calculate geothermal heat flux
+    !> calculate geothermal heat flux
     use glide_types
     implicit none
-    type(glide_global_type),intent(inout) :: model       ! model instance
+    type(glide_global_type),intent(inout) :: model       !> model instance
 
     real(dp) factor
 
@@ -159,7 +159,7 @@ contains
     use glimmer_log
     use glide_lithot3d
     implicit none
-    type(glide_global_type),intent(inout) :: model       ! model instance
+    type(glide_global_type),intent(inout) :: model       !> model instance
 
     deallocate(model%lithot%deltaz)
     deallocate(model%lithot%zfactors)

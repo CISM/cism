@@ -56,8 +56,8 @@ contains
     use glide_types
     use glimmer_config
     implicit none
-    type(glide_global_type) :: model        ! model instance
-    type(ConfigSection), pointer :: config  ! structure holding sections of configuration file
+    type(glide_global_type) :: model        !> model instance
+    type(ConfigSection), pointer :: config  !> structure holding sections of configuration file
     
     ! local variables
     type(ConfigSection), pointer :: section
@@ -137,11 +137,11 @@ contains
 
   subroutine glide_printconfig(model)
 
-    ! print model configuration to log
+    !> print model configuration to log
     use glimmer_log
     use glide_types
     implicit none
-    type(glide_global_type)  :: model ! model instance
+    type(glide_global_type)  :: model !> model instance
 
     call write_log_div
     call print_grid(model)
@@ -157,7 +157,7 @@ contains
 !-------------------------------------------------------------------------
     
   subroutine glide_scale_params(model)
-    ! scale parameters
+    !> scale parameters
     use glide_types
     use glimmer_physcon,  only: scyr
 
@@ -166,7 +166,7 @@ contains
 
     implicit none
 
-    type(glide_global_type)  :: model ! model instance
+    type(glide_global_type)  :: model !> model instance
 
     !TODO - Change ntem and nvel to dttem and dtvel.  Is nvel used?
     model%numerics%ntem = model%numerics%ntem * model%numerics%tinc   
@@ -206,8 +206,8 @@ contains
     use glimmer_log
     implicit none
 
-    type(glide_global_type) :: model        ! model instance
-    type(ConfigSection), pointer :: config  ! structure holding sections of configuration file
+    type(glide_global_type) :: model        !> model instance
+    type(ConfigSection), pointer :: config  !> structure holding sections of configuration file
         
     ! local variables
     type(ConfigSection), pointer :: section
@@ -245,9 +245,9 @@ contains
     implicit none
 
     ! Arguments
-    type(glide_global_type),intent(inout) :: model ! Ice model to use
-    integer,               intent(in)    :: unit   ! Logical file unit to use. 
-                                                   ! (Must not already be in use)
+    type(glide_global_type),intent(inout) :: model !> Ice model to use
+    integer,               intent(in)    :: unit   !> Logical file unit to use. 
+                                                   !> (Must not already be in use)
 
     ! Internal variables
 
@@ -1602,8 +1602,8 @@ contains
 !--------------------------------------------------------------------------------
 
   subroutine define_glide_restart_variables(options)
-    ! This subroutine analyzes the glide/glissade options input by the user in the config file
-    ! and determines which variables are necessary for an exact restart.  MJH 1/11/2013
+    !> This subroutine analyzes the glide/glissade options input by the user in the config file
+    !> and determines which variables are necessary for an exact restart.  MJH 1/11/2013
 
     ! Please comment thoroughly the reasons why a particular variable needs to be a restart variable for a given config.
     ! Note: this subroutine assumes that any restart variables you add you loadable.  Check glide_vars.def to make sure any variables you add have load: 1
@@ -1616,7 +1616,7 @@ contains
     !------------------------------------------------------------------------------------
     ! Subroutine arguments
     !------------------------------------------------------------------------------------
-    type(glide_options), intent (in) :: options  ! Derived type holding all model options
+    type(glide_options), intent (in) :: options  !> Derived type holding all model options
 
     !------------------------------------------------------------------------------------
     ! Internal variables

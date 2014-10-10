@@ -28,29 +28,29 @@
 
 module glide_vertint
 
-    ! This module contains routines to vertically integrate fields
-    ! All 3d fields are assumed to use the (z,x,y) coordinate system,
-    ! where the top is the minimum z and the bottom is the maximum z.
+    !> This module contains routines to vertically integrate fields
+    !> All 3d fields are assumed to use the (z,x,y) coordinate system,
+    !> where the top is the minimum z and the bottom is the maximum z.
 
     use glimmer_global , only: dp
     implicit none
 
 contains
 
-    ! Performs vertical integration, places the result on a 3d field
-    ! where each level in the 3d field is the integral of all levels
-    ! above it
+    !> Performs vertical integration, places the result on a 3d field
+    !> where each level in the 3d field is the integral of all levels
+    !> above it
 
     subroutine vertint_output3d(infield, outfield, levels, topdown, initial_value)
         real(dp), dimension(:,:,:), intent(in) :: infield
         real(dp), dimension(:,:,:), intent(out) :: outfield
         real(dp), dimension(:), intent(in) :: levels
-        logical :: topdown ! Controls the direction of integration.  If true,
-                           ! outfield(1,:,:) contains zeros and each level
-                           ! below it accumulates another part of the
-                           ! integral.  If false, outfield(upn,:,:) contains
-                           ! zeros and each level above it accumulates
-                           ! another part of the integral
+        logical :: topdown !> Controls the direction of integration.  If true,
+                           !> outfield(1,:,:) contains zeros and each level
+                           !> below it accumulates another part of the
+                           !> integral.  If false, outfield(upn,:,:) contains
+                           !> zeros and each level above it accumulates
+                           !> another part of the integral
         real(dp), dimension(:,:), intent(in), optional :: initial_value
 
         integer :: upn
@@ -86,8 +86,8 @@ contains
     end subroutine vertint_output3d
 
     subroutine vertint_output2d(infield, outfield, levels, initial_value)
-        ! Vertically integrates the 3D field and places the result of the
-        ! integral on a 2D field
+        !> Vertically integrates the 3D field and places the result of the
+        !> integral on a 2D field
         real(dp), dimension(:,:,:), intent(in)  :: infield
         real(dp), dimension(:,:),   intent(out) :: outfield
         real(dp), dimension(:),     intent(in)  :: levels

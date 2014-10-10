@@ -30,7 +30,7 @@
 
 module isostasy_elastic
 
-  ! handle elastic lithosphere
+  !> handle elastic lithosphere
 
   !NOTE: This works for serial simulations only.
 
@@ -51,11 +51,11 @@ contains
   
   subroutine init_elastic(rbel, deltax)
 
-    ! initialise elastic lithosphere calculations
+    !> initialise elastic lithosphere calculations
     use glimmer_physcon, only : pi
     implicit none
-    type(isos_elastic) :: rbel     ! structure holding elastic litho data    
-    real(dp), intent(in) :: deltax        ! grid spacing
+    type(isos_elastic) :: rbel     !> structure holding elastic litho data    
+    real(dp), intent(in) :: deltax        !> grid spacing
 
     ! local variables
     real(dp) :: a     ! radius of disk
@@ -118,11 +118,11 @@ contains
 
   subroutine calc_elastic(rbel,load,load_factors)
 
-    ! calculate surface loading effect using elastic lithosphere approximation
+    !> calculate surface loading effect using elastic lithosphere approximation
     implicit none
-    type(isos_elastic) :: rbel                     ! structure holding elastic litho data
-    real(dp), dimension(:,:), intent(out) :: load ! loading effect due to load_factors
-    real(dp), dimension(:,:), intent(in)  :: load_factors ! load mass divided by mantle density
+    type(isos_elastic) :: rbel                     !> structure holding elastic litho data
+    real(dp), dimension(:,:), intent(out) :: load !> loading effect due to load_factors
+    real(dp), dimension(:,:), intent(in)  :: load_factors !> load mass divided by mantle density
 
     integer ewn,nsn
     integer i,j,n,m
@@ -146,9 +146,9 @@ contains
 !-------------------------------------------------------------------------
 
   subroutine finalise_elastic(rbel)
-    ! clean-up data structure
+    !> clean-up data structure
     implicit none
-    type(isos_elastic) :: rbel     ! structure holding elastic litho data    
+    type(isos_elastic) :: rbel     !> structure holding elastic litho data    
 
     deallocate(rbel%w)
   end subroutine finalise_elastic
@@ -161,13 +161,13 @@ contains
 
   subroutine init_rbel(rbel, a)
 
-    ! initialise elastic lithosphere calculations
+    !> initialise elastic lithosphere calculations
     use glimmer_paramets, only: len0
     use glimmer_physcon, only: rhom,grav
     use kelvin
     implicit none
-    type(isos_elastic) :: rbel        ! structure holding elastic litho data
-    real(dp), intent(in) :: a             ! radius of disk
+    type(isos_elastic) :: rbel        !> structure holding elastic litho data
+    real(dp), intent(in) :: a             !> radius of disk
 
     real(dp) :: dummy_a
 
@@ -189,11 +189,11 @@ contains
 
   function rbel_ow(rbel,r)
     use kelvin
-    ! calculating deflection outside disk
+    !> calculating deflection outside disk
     implicit none
     real(dp) :: rbel_ow
-    real(dp), intent(in) :: r          ! radius, r should be scaled with lr
-    type(isos_elastic) :: rbel     ! structure holding elastic litho data
+    real(dp), intent(in) :: r          !> radius, r should be scaled with lr
+    type(isos_elastic) :: rbel     !> structure holding elastic litho data
     
     rbel_ow = rbel%cd3*ker(r) + rbel%cd4*kei(r)
   end function rbel_ow
@@ -202,11 +202,11 @@ contains
 
   function rbel_iw(rbel,r)
     use kelvin
-    ! calculating deflection inside disk
+    !> calculating deflection inside disk
     implicit none
     real(dp) :: rbel_iw
-    real(dp), intent(in) :: r          ! radius, r should be scaled with lr
-    type(isos_elastic) :: rbel         ! structure holding elastic litho data
+    real(dp), intent(in) :: r          !> radius, r should be scaled with lr
+    type(isos_elastic) :: rbel         !> structure holding elastic litho data
     
     rbel_iw = 1.d0 + rbel%c1*ber(r) + rbel%c2*bei(r)
   end function rbel_iw

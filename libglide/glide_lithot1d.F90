@@ -44,7 +44,7 @@ contains
 
     use glide_types
     implicit none
-    type(glide_global_type),intent(inout) :: model       ! model instance
+    type(glide_global_type),intent(inout) :: model       !> model instance
 
     ! allocate memory for 1D code
     allocate(model%lithot%rhs(model%lithot%nlayer))
@@ -74,7 +74,7 @@ contains
     use glimmer_utils, only: tridiag
     !use glide_mask
     implicit none
-    type(glide_global_type),intent(inout) :: model       ! model instance
+    type(glide_global_type),intent(inout) :: model       !> model instance
 
     integer i,j,k
 
@@ -121,7 +121,7 @@ contains
   subroutine finalise_lithot1d(model)
     use glide_types
     implicit none
-    type(glide_global_type),intent(inout) :: model       ! model instance
+    type(glide_global_type),intent(inout) :: model       !> model instance
 
     deallocate(model%lithot%rhs)
     deallocate(model%lithot%subd)

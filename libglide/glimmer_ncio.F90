@@ -32,8 +32,8 @@
 #define NCI infile%nc
 
 module glimmer_ncio
-  ! module for common netCDF I/O
-  ! written by Magnus Hagdorn, 2004
+  !> module for common netCDF I/O
+  !> written by Magnus Hagdorn, 2004
 
   use glimmer_ncdf
 
@@ -46,7 +46,7 @@ contains
   ! netCDF output
   !*****************************************************************************  
   subroutine openall_out(model,outfiles)
-    ! open all netCDF files for output
+    !> open all netCDF files for output
     use glide_types
     use glimmer_ncdf
     implicit none
@@ -73,7 +73,7 @@ contains
   end subroutine openall_out
 
   subroutine closeall_out(model,outfiles)
-    ! close all netCDF files for output
+    !> close all netCDF files for output
     use glide_types
     use glimmer_ncdf
     implicit none
@@ -96,7 +96,7 @@ contains
   end subroutine closeall_out
 
   subroutine glimmer_nc_openappend(outfile,model)
-    ! open netCDF file for appending
+    !> open netCDF file for appending
     use parallel
     use glimmer_log
     use glide_types
@@ -105,9 +105,9 @@ contains
     use glimmer_filenames
     implicit none
     type(glimmer_nc_output), pointer :: outfile
-    ! structure containg output netCDF descriptor
+    !> structure containg output netCDF descriptor
     type(glide_global_type) :: model
-    ! the model instance
+    !> the model instance
 
     ! local variables
     integer :: status,timedimid,ntime,timeid
@@ -141,7 +141,7 @@ contains
   end subroutine glimmer_nc_openappend
 
   subroutine glimmer_nc_createfile(outfile,model)
-    ! create a new netCDF file
+    !> create a new netCDF file
     use parallel
     use glimmer_log
     use glide_types
@@ -150,9 +150,9 @@ contains
     use glimmer_filenames
     implicit none
     type(glimmer_nc_output), pointer :: outfile
-    ! structure containg output netCDF descriptor
+    !> structure containg output netCDF descriptor
     type(glide_global_type) :: model
-    ! the model instance
+    !> the model instance
 
     ! local variables
     integer status
@@ -223,7 +223,7 @@ contains
   end subroutine glimmer_nc_createfile
 
   subroutine glimmer_nc_checkwrite(outfile,model,forcewrite,time)
-    ! check if we should write to file
+    !> check if we should write to file
     use parallel
     use glimmer_log
     use glide_types
@@ -288,7 +288,7 @@ contains
   ! netCDF input
   !*****************************************************************************  
   subroutine openall_in(model)
-    ! open all netCDF files for input
+    !> open all netCDF files for input
     use glide_types
     use glimmer_ncdf
     implicit none
@@ -313,7 +313,7 @@ contains
   end subroutine openall_in
 
   subroutine closeall_in(model)
-    ! close all netCDF files for input
+    !> close all netCDF files for input
     use glide_types
     use glimmer_ncdf
     implicit none
@@ -339,7 +339,7 @@ contains
   end subroutine closeall_in
 
   subroutine glimmer_nc_openfile(infile,model)
-    ! open an existing netCDF file
+    !> open an existing netCDF file
     use glide_types
     use glimmer_map_CFproj
     use glimmer_map_types
@@ -349,9 +349,9 @@ contains
     use parallel
     implicit none
     type(glimmer_nc_input), pointer :: infile
-    ! structure containg input netCDF descriptor
+    !> structure containg input netCDF descriptor
     type(glide_global_type) :: model
-    ! the model instance
+    !> the model instance
 
     ! local variables
     integer dimsize, dimid, varid
@@ -503,14 +503,14 @@ contains
   end subroutine glimmer_nc_openfile
 
   subroutine glimmer_nc_checkread(infile,model,time)
-    ! check if we should read from file
+    !> check if we should read from file
     use glimmer_log
     use glide_types
     use glimmer_filenames
     implicit none
-    type(glimmer_nc_input), pointer :: infile  ! structure containg output netCDF descriptor
-    type(glide_global_type) :: model    ! the model instance
-    real(dp),optional :: time           ! Optional alternative time
+    type(glimmer_nc_input), pointer :: infile  !> structure containg output netCDF descriptor
+    type(glide_global_type) :: model    !> the model instance
+    real(dp),optional :: time           !> Optional alternative time
 
     character(len=msglen) :: message
 
@@ -561,8 +561,8 @@ contains
       ! determine sub_time when it's actually needed, with this function.
       use glide_types
       implicit none
-      type(glide_global_type) :: model    ! the model instance
-      real(dp),optional :: time           ! Optional alternative time
+      type(glide_global_type) :: model    !> the model instance
+      real(dp),optional :: time           !> Optional alternative time
 
       if (present(time)) then
          sub_time = time

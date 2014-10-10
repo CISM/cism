@@ -62,21 +62,21 @@ contains
 
     !TODO: Change mask to thkmask?  The argument passed in is model%geometry%thkmask.
 
-    integer,                intent(in)    :: which   ! Calving method option
-    real(dp),dimension(:,:),intent(inout) :: thck    ! Ice thickness
-    real(dp),dimension(:,:),intent(in)    :: relx    ! Relaxed topography
-    real(dp),dimension(:,:),intent(in)    :: topg    ! Present bedrock topography
-    integer, dimension(:,:), intent(in)   :: mask    ! grid type mask
-    real(dp), intent(in)                  :: mlimit  ! Lower limit on topography elevation for
-                                                     ! ice to be present. 
-    real(dp), intent(in) :: calving_fraction         ! fraction of ice lost when calving; used with 
-                                                     ! $\mathtt{which}=3$.
-    real(dp), intent(in) :: eus                      ! eustatic sea level
+    integer,                intent(in)    :: which   !> Calving method option
+    real(dp),dimension(:,:),intent(inout) :: thck    !> Ice thickness
+    real(dp),dimension(:,:),intent(in)    :: relx    !> Relaxed topography
+    real(dp),dimension(:,:),intent(in)    :: topg    !> Present bedrock topography
+    integer, dimension(:,:), intent(in)   :: mask    !> grid type mask
+    real(dp), intent(in)                  :: mlimit  !> Lower limit on topography elevation for
+                                                     !> ice to be present. 
+    real(dp), intent(in) :: calving_fraction         !> fraction of ice lost when calving; used with 
+                                                     !> $\mathtt{which}=3$.
+    real(dp), intent(in) :: eus                      !> eustatic sea level
     real(dp),dimension(:,:),intent(out) :: calving_field ! thickness lost due to calving
     real(dp), intent(in) :: dew,dns
     integer, intent(in) ::  nsn,ewn
 
-    type(glide_grnd), intent(inout) :: ground        ! ground instance
+    type(glide_grnd), intent(inout) :: ground        !> ground instance
 
     integer :: ew,ns
     !---------------------------------------------------------------------
@@ -171,7 +171,7 @@ contains
 
     implicit none
 
-    !JEFF removing pointer attribute integer, dimension(:,:),pointer       :: mask    ! grid type mask
+    !JEFF removing pointer attribute integer, dimension(:,:),pointer       :: mask    !> grid type mask
     integer, dimension(:,:)       :: mask                ! grid type mask
     real(dp),dimension(:,:),intent(in) :: stagthk        ! Ice thickness (scaled)
     real(dp),dimension(:,:,:), intent(in) :: velnorm     ! horizontal ice speed
@@ -204,14 +204,14 @@ contains
   subroutine update_ground_line(ground, topg, thck, eus, dew, dns, ewn, nsn, mask)
 
      implicit none
-     type(glide_grnd) :: ground        ! ground instance
-     real(dp),dimension(:,:),intent(in)    :: topg    ! Present bedrock topography (scaled)
-     real(dp),dimension(:,:),intent(in)    :: thck    ! Present thickness (scaled)
-     real(dp),intent(in) :: eus                       ! eustatic sea level
+     type(glide_grnd) :: ground        !> ground instance
+     real(dp),dimension(:,:),intent(in)    :: topg    !> Present bedrock topography (scaled)
+     real(dp),dimension(:,:),intent(in)    :: thck    !> Present thickness (scaled)
+     real(dp),intent(in) :: eus                       !> eustatic sea level
      real(dp),intent(in) ::  dew, dns
      integer, intent(in) ::  ewn, nsn
-     !JEFF remove pointer attribute integer, dimension(:,:),pointer :: mask    ! grid type mask
-     integer, dimension(:,:) :: mask    ! grid type mask
+     !JEFF remove pointer attribute integer, dimension(:,:),pointer :: mask    !> grid type mask
+     integer, dimension(:,:) :: mask    !> grid type mask
      integer ew,ns,jns,jew,j1ns,j1ew
      real(dp) :: xg                        !grounding line
      !this is assuming the grounding line is the last grounded pt on the mask
@@ -258,7 +258,7 @@ contains
      use glide_types
      implicit none
 
-     type(glide_grnd) :: ground        ! model instance
+     type(glide_grnd) :: ground        !> model instance
      integer, intent(in) :: ns1 !grounding line in ns direction
      integer, intent(in) :: ew1 !grounding line in ew direction
      integer, intent(in) :: ns2 !grounding line in ns direction
@@ -285,9 +285,9 @@ contains
      use glide_types
      use glimmer_physcon, only : rhoi, rhoo
      real(dp) :: lin_reg_xg
-     real(dp),dimension(:,:),intent(in)    :: topg    ! Present bedrock topography (scaled)
-     real(dp),dimension(:,:),intent(in)    :: thck    ! Present thickness (scaled)
-     real(dp), intent(in) :: eus                      ! eustatic sea level
+     real(dp),dimension(:,:),intent(in)    :: topg    !> Present bedrock topography (scaled)
+     real(dp),dimension(:,:),intent(in)    :: thck    !> Present thickness (scaled)
+     real(dp), intent(in) :: eus                      !> eustatic sea level
      real(dp), intent(in) ::  dew, dns
      integer, intent(in) :: ns !grounding line in ns direction
      integer, intent(in) :: ew !grounding line in ew direction
@@ -331,9 +331,9 @@ contains
      use glide_types
      implicit none
      real(dp) :: get_ground_thck
-     type(glide_grnd) :: ground        ! ground instance
-     real(dp),dimension(:,:),intent(in)    :: topg    ! Present bedrock topography (scaled)
-     real(dp),dimension(:,:),intent(in)    :: usrf    ! surface height
+     type(glide_grnd) :: ground        !> ground instance
+     real(dp),dimension(:,:),intent(in)    :: topg    !> Present bedrock topography (scaled)
+     real(dp),dimension(:,:),intent(in)    :: usrf    !> surface height
      real(dp), intent(in) ::  dew, dns
      integer ns1,ew1,ns2,ew2,min_ns,min_ew,max_ns,max_ew !grounding line in ns/ew direction
      real(dp) ::  xg                        !grounding line
@@ -389,7 +389,7 @@ contains
      use glide_types
      implicit none
      real(dp) :: get_ground_line
-     type(glide_grnd) :: ground       ! glide ground instance
+     type(glide_grnd) :: ground       !> glide ground instance
      integer ns1,ew1,ns2,ew2,slot_ns,slot_ew !grounding line in ns/ew direction
      real(dp) :: appr_ground !grounding line
      

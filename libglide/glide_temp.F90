@@ -78,7 +78,7 @@ contains
 
   subroutine glide_init_temp(model)
 
-    ! initialise temperature module
+    !> initialise temperature module
     use glimmer_physcon, only : rhoi, shci, coni, scyr, grav, gn, lhci, rhow, trpt
     use glimmer_paramets, only : tim0, thk0, acc0, len0, vis0, vel0
     use glimmer_log
@@ -363,8 +363,8 @@ contains
 
   subroutine glide_temp_driver(model,whichtemp)
 
-    ! Calculates the ice temperature, according to one
-    ! of several alternative methods.
+    !> Calculates the ice temperature, according to one
+    !> of several alternative methods.
 
     use glimmer_utils, only: tridiag
     use glimmer_paramets, only : thk0, GLC_DEBUG
@@ -831,7 +831,7 @@ contains
   !-------------------------------------------------------------------------
 
   subroutine findvtri_init(model,ew,ns,subd,diag,supd,weff,temp,thck,float)
-    ! called during first iteration to set inittemp
+    !> called during first iteration to set inittemp
 
     use glimmer_paramets, only: vel0, vel_scale
 
@@ -906,7 +906,7 @@ contains
 
   subroutine findvtri_rhs(model,ew,ns,artm,iteradvt,rhsd,float)
 
-    ! RHS of temperature tri-diag system
+    !> RHS of temperature tri-diag system
 
     type(glide_global_type) :: model
     integer, intent(in) :: ew, ns
@@ -1169,8 +1169,8 @@ contains
 
   subroutine glide_calcflwa(sigma, thklim, flwa, temp, thck, flow_factor, default_flwa_arg, flag)
 
-    ! Calculates Glen's $A$ over the three-dimensional domain,
-    ! using one of three possible methods.
+    !> Calculates Glen's $A$ over the three-dimensional domain,
+    !> using one of three possible methods.
 
     use glimmer_physcon
     use glimmer_paramets, only : thk0, vis0
@@ -1186,20 +1186,21 @@ contains
        ! These quantities are defined at layer interfaces (not layer midpoints as in the
        !  glam/glissade dycore).
 
-    real(dp),dimension(:),      intent(in)    :: sigma     ! Vertical coordinate
-    real(dp),                   intent(in)    :: thklim    ! thickness threshold
-    real(dp),dimension(:,:,:),  intent(out)   :: flwa      ! calculated values of $A$
-    real(dp),dimension(:,:,:),  intent(in)    :: temp      ! 3D temperature field
-    real(dp),dimension(:,:),    intent(in)    :: thck      ! ice thickness
-    real(dp)                                  :: flow_factor ! Fudge factor in arrhenius relationship
-    real(dp),                   intent(in)    :: default_flwa_arg ! Glen's A to use in isothermal case 
-    integer,                    intent(in)    :: flag      ! Flag to select the method of calculation:
-    ! \begin{description}
-    ! \item[0] {\em Paterson and Budd} relationship.
-    ! \item[1] {\em Paterson and Budd} relationship, with temperature set to
-    ! -5$^{\circ}$C.
-    ! \item[2] Set constant, {\em but not sure how this works at the moment\ldots}
-    ! \end{description}
+    real(dp),dimension(:),      intent(in)    :: sigma     !> Vertical coordinate
+    real(dp),                   intent(in)    :: thklim    !> thickness threshold
+    real(dp),dimension(:,:,:),  intent(out)   :: flwa      !> The calculated values of $A$
+    real(dp),dimension(:,:,:),  intent(in)    :: temp      !> The 3D temperature field
+    real(dp),dimension(:,:),    intent(in)    :: thck      !> The ice thickness
+    real(dp)                                  :: flow_factor !> Fudge factor in arrhenius relationship
+    real(dp),                   intent(in)    :: default_flwa_arg !> Glen's A to use in isothermal case 
+    integer,                    intent(in)    :: flag      !> Flag to select the method
+                                                           !> of calculation:
+    !> \begin{description}
+    !> \item[0] {\em Paterson and Budd} relationship.
+    !> \item[1] {\em Paterson and Budd} relationship, with temperature set to
+    !> -5$^{\circ}$C.
+    !> \item[2] Set constant, {\em but not sure how this works at the moment\ldots}
+    !> \end{description}
 
     !------------------------------------------------------------------------------------
     ! Internal variables
@@ -1296,24 +1297,24 @@ contains
 
   subroutine patebudd(tempcor,calcga,arrfact)
 
-    ! Calculates the value of Glen's $A$ for the temperature values in a one-dimensional
-    ! array. The input array is usually a vertical temperature profile. The equation used
-    ! is from \emph{Paterson and Budd} [1982]:
-    ! \[
-    ! A(T^{*})=a \exp \left(\frac{-Q}{RT^{*}}\right)
-    ! \]
-    ! This is equation 9 in {\em Payne and Dongelmans}. $a$ is a constant of proportionality,
-    ! $Q$ is the activation energy for for ice creep, and $R$ is the universal gas constant.
-    ! The pressure-corrected temperature, $T^{*}$ is given by:
-    ! \[
-    ! T^{*}=T-T_{\mathrm{pmp}}+T_0
-    ! \] 
-    ! \[
-    ! T_{\mathrm{pmp}}=T_0-\sigma \rho g H \Phi
-    ! \]
-    ! $T$ is the ice temperature, $T_{\mathrm{pmp}}$ is the pressure melting point 
-    ! temperature, $T_0$ is the triple point of water, $\rho$ is the ice density, and 
-    ! $\Phi$ is the (constant) rate of change of melting point temperature with pressure.
+    !> Calculates the value of Glen's $A$ for the temperature values in a one-dimensional
+    !> array. The input array is usually a vertical temperature profile. The equation used
+    !> is from \emph{Paterson and Budd} [1982]:
+    !> \[
+    !> A(T^{*})=a \exp \left(\frac{-Q}{RT^{*}}\right)
+    !> \]
+    !> This is equation 9 in {\em Payne and Dongelmans}. $a$ is a constant of proportionality,
+    !> $Q$ is the activation energy for for ice creep, and $R$ is the universal gas constant.
+    !> The pressure-corrected temperature, $T^{*}$ is given by:
+    !> \[
+    !> T^{*}=T-T_{\mathrm{pmp}}+T_0
+    !> \] 
+    !> \[
+    !> T_{\mathrm{pmp}}=T_0-\sigma \rho g H \Phi
+    !> \]
+    !> $T$ is the ice temperature, $T_{\mathrm{pmp}}$ is the pressure melting point 
+    !> temperature, $T_0$ is the triple point of water, $\rho$ is the ice density, and 
+    !> $\Phi$ is the (constant) rate of change of melting point temperature with pressure.
 
     use glimmer_physcon, only : trpt
 
@@ -1321,13 +1322,13 @@ contains
     ! Subroutine arguments
     !------------------------------------------------------------------------------------
 
-    real(dp),dimension(:), intent(in)    :: tempcor  ! Input temperature profile. This is 
-                                                     ! {\em not} $T^{*}$, as it has $T_0$
-                                                     ! added to it later on; rather it is
-                                                     ! $T-T_{\mathrm{pmp}}$.
-    real(dp),dimension(:), intent(out)   :: calcga   ! The output values of Glen's $A$.
-    real(dp),dimension(4), intent(in)    :: arrfact  ! Constants for the calculation. These
-                                                     ! are set when the velo module is initialised
+    real(dp),dimension(:), intent(in)    :: tempcor  !> Input temperature profile. This is 
+                                                     !> {\em not} $T^{*}$, as it has $T_0$
+                                                     !> added to it later on; rather it is
+                                                     !> $T-T_{\mathrm{pmp}}$.
+    real(dp),dimension(:), intent(out)   :: calcga   !> The output values of Glen's $A$.
+    real(dp),dimension(4), intent(in)    :: arrfact  !> Constants for the calculation. These
+                                                     !> are set when the velo module is initialised
 
     !------------------------------------------------------------------------------------
 

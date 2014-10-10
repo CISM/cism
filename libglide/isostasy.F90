@@ -33,7 +33,7 @@ module isostasy
   !TODO - Test the isostasy for parallel simulations.
   !       Elastic lithosphere will not easily parallelize, but local lithosphere should be OK.
   
-  ! calculate isostatic adjustment due to changing surface loads
+  !> calculate isostatic adjustment due to changing surface loads
 
   use glimmer_global, only : dp
   use isostasy_elastic
@@ -50,7 +50,7 @@ contains
 
   subroutine init_isostasy(model)
 
-    ! initialise isostasy calculations
+    !> initialise isostasy calculations
     use parallel
     use glide_types
     use glimmer_physcon,  only: scyr
@@ -73,7 +73,7 @@ contains
   
   subroutine isos_icewaterload(model)
 
-    ! calculate surface load factors due to water and ice distribution
+    !> calculate surface load factors due to water and ice distribution
 
     use glimmer_physcon
     use glide_types
@@ -116,7 +116,7 @@ contains
 
   subroutine isos_compute(model)
 
-    ! calculate isostatic adjustment due to changing surface loads
+    !> calculate isostatic adjustment due to changing surface loads
 
     use glide_types
     implicit none
@@ -147,8 +147,8 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: model
-    real(dp), dimension(:,:), intent(out) :: load ! loading effect due to load_factors
-    real(dp), dimension(:,:), intent(in)  :: load_factors ! load mass divided by mantle density
+    real(dp), dimension(:,:), intent(out) :: load !> loading effect due to load_factors
+    real(dp), dimension(:,:), intent(in)  :: load_factors !> load mass divided by mantle density
 
     if (model%isostasy%lithosphere == LITHOSPHERE_LOCAL) then
        load = load_factors
@@ -162,8 +162,8 @@ contains
 
   subroutine isos_relaxed(model)
 
-    ! Calculate the relaxed topography, assuming the isostatic depression
-    ! is the equilibrium state for the current topography.
+    !> Calculate the relaxed topography, assuming the isostatic depression
+    !> is the equilibrium state for the current topography.
 
     use glide_types
     implicit none
@@ -186,7 +186,7 @@ contains
 
   subroutine relaxing_mantle(model)
 
-    ! approximate mantle with a relaxing half-space: dh/dt=-1/tau*(w-h)
+    !> approximate mantle with a relaxing half-space: dh/dt=-1/tau*(w-h)
     use glide_types
     implicit none
     type(glide_global_type) :: model

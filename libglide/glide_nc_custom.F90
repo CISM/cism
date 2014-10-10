@@ -41,7 +41,7 @@ contains
 
   subroutine glide_nc_fillall(model, outfiles)
 
-    ! fill dimension variables of all files
+    !> fill dimension variables of all files
     use glide_types
     use glimmer_ncdf
     use glimmer_ncio

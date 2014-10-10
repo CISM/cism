@@ -45,7 +45,7 @@ contains
     use glide_types
     implicit none
 
-    type(glide_global_type) :: model        ! model instance
+    type(glide_global_type) :: model        !> model instance
 
     if (model%profile%profile_unit == 0) then
        call profile_init(model%profile,'glide.profile')
@@ -66,23 +66,23 @@ contains
   end subroutine glide_prof_init
   
   subroutine glide_prof_start(model,profn)
-    ! start logging profile
+    !> start logging profile
     use profile
     use glide_types
     implicit none
-    type(glide_global_type) :: model        ! model instance
-    integer, intent(in)     :: profn        ! profile number
+    type(glide_global_type) :: model        !> model instance
+    integer, intent(in)     :: profn        !> profile number
 
     call profile_start(model%profile,profn)
   end subroutine glide_prof_start
 
   subroutine glide_prof_stop(model,profn)
-    ! write message to profile
+    !> write message to profile
     use profile
     use glide_types
     implicit none
-    type(glide_global_type) :: model        ! model instance
-    integer, intent(in)     :: profn        ! profile number
+    type(glide_global_type) :: model        !> model instance
+    integer, intent(in)     :: profn        !> profile number
     
     !local variables
     character (len=20) :: timestring

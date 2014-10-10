@@ -353,7 +353,7 @@ contains
     subroutine periodic_boundaries(m, apply_to_x, apply_to_y, nlayers_arg)
 
       use parallel
-        ! Applies periodic boundary conditions to a 2D array
+        !> Applies periodic boundary conditions to a 2D array
         real(dp), dimension(:,:), intent(inout) :: m
         integer :: maxx, maxy
         logical :: apply_to_x, apply_to_y
@@ -397,7 +397,7 @@ contains
     
     subroutine periodic_boundaries_3d(m, apply_to_x, apply_to_y, nlayers_arg)
 
-        ! Applies periodic boundary conditions to a 3D array
+        !> Applies periodic boundary conditions to a 3D array
         real(dp), dimension(:,:,:), intent(inout) :: m
         logical :: apply_to_x, apply_to_y
         integer, optional :: nlayers_arg

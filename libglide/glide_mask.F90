@@ -313,8 +313,8 @@ contains
       use parallel
         use glimmer_physcon, only:pi
         implicit none
-        ! This subroutine derives from the given mask the normal to an ice shelf
-        ! each point on the marine margin.
+        !> This subroutine derives from the given mask the normal to an ice shelf
+        !> each point on the marine margin.
         real(dp), dimension(:,:), intent(in) :: thck
         integer, dimension(:,:), intent(in) :: mask
         real(dp), dimension(:,:), intent(out) :: marine_bc_normal
@@ -401,12 +401,12 @@ contains
     function calc_normal_45deg(thck3x3)
         use glimmer_physcon, only: pi
         
-        ! Computes the angle of the normal vector, in radians, for the given
-        ! 3x3 segment of ice geometry.
-        ! The normal is given in increments of 45 degrees (no nicer
-        ! interpolation is currently done)
-        ! This is based on the Payne and Price GLAM code, if/when this is
-        ! integrated into CISM it should probably be refactored to use this.
+        !> Computes the angle of the normal vector, in radians, for the given
+        !> 3x3 segment of ice geometry.
+        !> The normal is given in increments of 45 degrees (no nicer
+        !> interpolation is currently done)
+        !> This is based on the Payne and Price GLAM code, if/when this is
+        !> integrated into CISM it should probably be refactored to use this.
         real(dp), dimension(3,3) :: thck3x3
 
         real(dp) :: calc_normal_45deg

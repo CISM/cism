@@ -30,9 +30,9 @@
 
 module glide_velo
 
-  ! Contains routines which handle various aspects of velocity in the model,
-  ! not only the bulk ice velocity, but also basal sliding, and vertical grid 
-  ! velocities, etc.
+  !> Contains routines which handle various aspects of velocity in the model,
+  !> not only the bulk ice velocity, but also basal sliding, and vertical grid 
+  !> velocities, etc.
 
   use glide_types
   use glimmer_global, only : dp
@@ -59,7 +59,7 @@ contains
 !       Some velowk arrays are used in wvelintg, but could rewrite wvelintg without these arrays.
 
   subroutine init_velo(model)
-    ! initialise velocity module
+    !> initialise velocity module
     use glimmer_physcon, only : arrmll, arrmlh, gascon, actenl, actenh, scyr, pi 
     implicit none
     type(glide_global_type) :: model
@@ -123,9 +123,9 @@ contains
                                        stagthck, dusrfdew, dusrfdns, sigma, 
                                        flwa, ho_stress_zx, ho_stress_zy)
 
-    ! Computes the strain rates \epsilon_{zx} and \epsilon{zy} using the formula:
-    ! \epsilon_{zi}(\sigma) = A(\sigma)(-\rho g H \sigma \frac{\partial s}{\partial i} - HO_i)^n
-    ! No vertical integration is done at this point
+    !> Computes the strain rates \epsilon_{zx} and \epsilon{zy} using the formula:
+    !> \epsilon_{zi}(\sigma) = A(\sigma)(-\rho g H \sigma \frac{\partial s}{\partial i} - HO_i)^n
+    !> No vertical integration is done at this point
     
     ewn = size(strain_zx, 2)
     nsn = size(strain_zx, 3)
@@ -182,9 +182,9 @@ contains
 
   subroutine velo_integrate_flwa(velowk,stagthck,flwa)
     
-    ! this routine calculates the part of the vertically averaged velocity 
-    ! field which solely depends on the temperature
-    ! (The integral in eq. 3.22d)
+    !> this routine calculates the part of the vertically averaged velocity 
+    !> field which solely depends on the temperature
+    !> (The integral in eq. 3.22d)
 
     implicit none
 
@@ -192,8 +192,8 @@ contains
     ! Subroutine arguments
     !------------------------------------------------------------------------------------
     type(glide_velowk),     intent(inout) :: velowk           
-    real(dp),dimension(:,:),  intent(in)    :: stagthck       ! ice thickness on staggered grid
-    real(dp),dimension(:,:,:),intent(in)    :: flwa           ! ice flow factor
+    real(dp),dimension(:,:),  intent(in)    :: stagthck       !> ice thickness on staggered grid
+    real(dp),dimension(:,:,:),intent(in)    :: flwa           !> ice flow factor
 
     !------------------------------------------------------------------------------------
     ! Internal variables
@@ -230,7 +230,7 @@ contains
 
   subroutine velo_calc_diffu(velowk,stagthck,dusrfdew,dusrfdns,diffu)
 
-    ! calculate diffusivities
+    !> calculate diffusivities
 
     implicit none
     
@@ -262,7 +262,7 @@ contains
                             uflx,     vflx,        &
                             velnorm)
 
-    ! calculate 3D horizontal velocity field and 2D flux field from diffusivity
+    !> calculate 3D horizontal velocity field and 2D flux field from diffusivity
     implicit none
 
     !------------------------------------------------------------------------------------
@@ -348,8 +348,9 @@ contains
 
   subroutine slipvelo(model,flag1,btrc,ubas,vbas)
 
-    ! Calculate the basal slip velocity and the value of $B$, the free parameter
-    ! in the basal velocity equation (though I'm not sure that $B$ is used anywhere else).
+    !> Calculate the basal slip velocity and the value of $B$, the free parameter
+    !> in the basal velocity equation (though I'm not sure that $B$ is used anywhere 
+    !> else).
 
     implicit none
 
@@ -357,14 +358,14 @@ contains
     ! Subroutine arguments
     !------------------------------------------------------------------------------------
 
-    type(glide_global_type) :: model                  ! model instance
-    integer, intent(in)                 :: flag1      ! \texttt{flag1} sets the calculation
-                                                      ! method to use for the basal velocity
-                                                      ! (corresponded to \texttt{whichslip} in the
-                                                      ! old model. 
-    real(dp),dimension(:,:),intent(in)   :: btrc      ! basal slip coefficient.
-    real(dp),dimension(:,:),intent(out)   :: ubas     ! $x$ basal velocity (scaled)
-    real(dp),dimension(:,:),intent(out)   :: vbas     ! $y$ basal velocity (scaled)
+    type(glide_global_type) :: model                  !> model instance
+    integer, intent(in)                 :: flag1      !> \texttt{flag1} sets the calculation
+                                                      !> method to use for the basal velocity
+                                                      !> (corresponded to \texttt{whichslip} in the
+                                                      !> old model. 
+    real(dp),dimension(:,:),intent(in)   :: btrc     !> The basal slip coefficient.
+    real(dp),dimension(:,:),intent(out)   :: ubas     !> The $x$ basal velocity (scaled)
+    real(dp),dimension(:,:),intent(out)   :: vbas     !> The $y$ basal velocity (scaled)
 
     !------------------------------------------------------------------------------------
     ! Internal variables
@@ -437,8 +438,8 @@ contains
 
   subroutine zerovelo(velowk,sigma,flag,stagthck,dusrfdew,dusrfdns,flwa,ubas,vbas,uvel,vvel,uflx,vflx,diffu)
 
-    ! Performs the velocity calculation. This subroutine is called with
-    ! different values of \texttt{flag}, depending on exactly what we want to calculate.
+    !> Performs the velocity calculation. This subroutine is called with
+    !> different values of \texttt{flag}, depending on exactly what we want to calculate.
 
     implicit none
 
@@ -700,20 +701,20 @@ contains
 
   subroutine timeders(thckwk,ipvr,opvr,mask,time,which)
 
-    ! Calculates the time-derivative of a field. This subroutine is used by 
-    ! the Glimmer temperature solver only.
+    !> Calculates the time-derivative of a field. This subroutine is used by 
+    !> the Glimmer temperature solver only.
 
     use glimmer_paramets, only : tim0
     use glimmer_physcon, only: scyr
 
     implicit none 
 
-    type(glide_thckwk) :: thckwk    ! Derived-type containing work data
-    real(dp), intent(out), dimension(:,:) :: opvr  ! output (time derivative) field
-    real(dp), intent(in),  dimension(:,:) :: ipvr  ! input field
-    real(dp), intent(in)                  :: time  ! current time
-    integer,  intent(in),  dimension(:,:) :: mask  ! mask for calculation
-    integer,  intent(in)                  :: which ! selector for stored field
+    type(glide_thckwk) :: thckwk    !> Derived-type containing work data
+    real(dp), intent(out), dimension(:,:) :: opvr  !> output (time derivative) field
+    real(dp), intent(in),  dimension(:,:) :: ipvr  !> input field
+    real(dp), intent(in)                  :: time  !> current time
+    integer,  intent(in),  dimension(:,:) :: mask  !> mask for calculation
+    integer,  intent(in)                  :: which !> selector for stored field
 
     real(dp) :: factor
 
@@ -741,14 +742,14 @@ contains
 
   subroutine gridwvel(sigma,thklim,uvel,vvel,geomderv,thck,wgrd)
 
-    ! Calculates the vertical velocity of the grid, and returns it in \texttt{wgrd}. This
-    ! is necessary because the model uses a sigma coordinate system.
-    ! The equation for grid velocity is:
-    ! \[
-    ! \mathtt{wgrd}(x,y,\sigma)=\frac{\partial s}{\partial t}+\mathbf{U}\cdot\nabla s
-    ! -\sigma\left(\frac{\partial H}{\partial t}+\mathbf{U}\cdot\nabla H\right)
-    ! \]
-    ! Compare this with equation A1 in {\em Payne and Dongelmans}.
+    !> Calculates the vertical velocity of the grid, and returns it in \texttt{wgrd}. This
+    !> is necessary because the model uses a sigma coordinate system.
+    !> The equation for grid velocity is:
+    !> \[
+    !> \mathtt{wgrd}(x,y,\sigma)=\frac{\partial s}{\partial t}+\mathbf{U}\cdot\nabla s
+    !> -\sigma\left(\frac{\partial H}{\partial t}+\mathbf{U}\cdot\nabla H\right)
+    !> \]
+    !> Compare this with equation A1 in {\em Payne and Dongelmans}.
 
     !TODO Change the name of subroutine gridwvel?  It computes wgrd but not wvel.
 
@@ -759,23 +760,23 @@ contains
     ! Subroutine arguments
     !------------------------------------------------------------------------------------
 
-    real(dp),dimension(:),    intent(in)  :: sigma     ! Array holding values of sigma
-                                                       ! at each vertical level
-    real(dp),                 intent(in)  :: thklim    ! Minimum thickness to be considered
-                                                       ! when calculating the grid velocity.
-                                                       ! This is in m, divided by \texttt{thk0}.
-    real(dp),dimension(:,:,:),intent(in)  :: uvel      ! The $x$-velocity field (scaled). Velocity
-                                                       ! is on the staggered grid
-    real(dp),dimension(:,:,:),intent(in)  :: vvel      ! The $y$-velocity field (scaled). Velocity
-                                                       ! is on the staggered grid
-    type(glide_geomderv),   intent(in)  :: geomderv  ! Derived type holding temporal
-                                                       ! and horizontal derivatives of
-                                                       ! ice-sheet thickness and upper
-                                                       ! surface elevation
-    real(dp),dimension(:,:),  intent(in)  :: thck      ! Ice-sheet thickness (divided by 
-                                                       ! \texttt{thk0})
-    real(dp),dimension(:,:,:),intent(out) :: wgrd      ! The grid velocity at each point. This
-                                                       ! is the output.
+    real(dp),dimension(:),    intent(in)  :: sigma     !> Array holding values of sigma
+                                                       !> at each vertical level
+    real(dp),                 intent(in)  :: thklim    !> Minimum thickness to be considered
+                                                       !> when calculating the grid velocity.
+                                                       !> This is in m, divided by \texttt{thk0}.
+    real(dp),dimension(:,:,:),intent(in)  :: uvel      !> The $x$-velocity field (scaled). Velocity
+                                                       !> is on the staggered grid
+    real(dp),dimension(:,:,:),intent(in)  :: vvel      !> The $y$-velocity field (scaled). Velocity
+                                                       !> is on the staggered grid
+    type(glide_geomderv),   intent(in)  :: geomderv  !> Derived type holding temporal
+                                                       !> and horizontal derivatives of
+                                                       !> ice-sheet thickness and upper
+                                                       !> surface elevation
+    real(dp),dimension(:,:),  intent(in)  :: thck      !> Ice-sheet thickness (divided by 
+                                                       !> \texttt{thk0})
+    real(dp),dimension(:,:,:),intent(out) :: wgrd      !> The grid velocity at each point. This
+                                                       !> is the output.
 
     !------------------------------------------------------------------------------------
     ! Internal variables
@@ -812,15 +813,15 @@ contains
 
   subroutine wvelintg(uvel,vvel,geomderv,numerics,velowk,wgrd,thck,bmlt,wvel)
 
-    ! Calculates the vertical velocity field, which is returned in \texttt{wvel}.
-    ! This is found by doing this integration:
-    ! \[
-    ! w(\sigma)=-\int_{1}^{\sigma}\left[\frac{\partial \mathbf{U}}{\partial \sigma}
-    ! (\sigma) \cdot (\nabla s - \sigma \nabla H) +H\nabla \cdot \mathbf{U}(\sigma)\right]d\sigma
-    ! + w(1)
-    ! \]
-    ! (This is equation 13 in {\em Payne and Dongelmans}.) Note that this is only 
-    ! done if the thickness is greater than the threshold given by \texttt{numerics\%thklim}.
+    !> Calculates the vertical velocity field, which is returned in \texttt{wvel}.
+    !> This is found by doing this integration:
+    !> \[
+    !> w(\sigma)=-\int_{1}^{\sigma}\left[\frac{\partial \mathbf{U}}{\partial \sigma}
+    !> (\sigma) \cdot (\nabla s - \sigma \nabla H) +H\nabla \cdot \mathbf{U}(\sigma)\right]d\sigma
+    !> + w(1)
+    !> \]
+    !> (This is equation 13 in {\em Payne and Dongelmans}.) Note that this is only 
+    !> done if the thickness is greater than the threshold given by \texttt{numerics\%thklim}.
 
 !!    use parallel
     implicit none
@@ -829,27 +830,27 @@ contains
     ! Subroutine arguments
     !------------------------------------------------------------------------------------
 
-    real(dp),dimension(:,:,:), intent(in)    :: uvel      ! The $x$-velocity on the
-                                                          ! staggered grid (scaled)
-    real(dp),dimension(:,:,:), intent(in)    :: vvel      ! The $y$-velocity on the
-                                                          ! staggered grid (scaled)
-    real(dp),dimension(:,:),   intent(in)    :: thck      ! The ice thickness, divided
-                                                          ! by \texttt{thk0}
-    type(glide_geomderv),    intent(in)    :: geomderv  ! Derived type holding the
-                                                          ! horizontal and temporal derivatives
-                                                          ! of the thickness and upper surface
-                                                          ! elevation.
-    type(glide_numerics),    intent(in)    :: numerics  ! Derived type holding numerical
-                                                          ! parameters, including sigma values.
-    type(glide_velowk),      intent(inout) :: velowk    ! Derived type holding working arrays
-                                                          ! used by the subroutine
-    real(dp),dimension(:,:),   intent(in)    :: wgrd      ! The grid vertical velocity at
-                                                          ! the lowest model level.
-    real(dp),dimension(:,:),   intent(in)    :: bmlt      ! Basal melt-rate (scaled?) This
-                                                          ! is required in the basal boundary
-                                                          ! condition. See {\em Payne and Dongelmans}
-                                                          ! equation 14.
-    real(dp),dimension(:,:,:), intent(out)   :: wvel      ! The vertical velocity field.
+    real(dp),dimension(:,:,:), intent(in)    :: uvel      !> The $x$-velocity on the
+                                                          !> staggered grid (scaled)
+    real(dp),dimension(:,:,:), intent(in)    :: vvel      !> The $y$-velocity on the
+                                                          !> staggered grid (scaled)
+    real(dp),dimension(:,:),   intent(in)    :: thck      !> The ice thickness, divided
+                                                          !> by \texttt{thk0}
+    type(glide_geomderv),    intent(in)    :: geomderv  !> Derived type holding the
+                                                          !> horizontal and temporal derivatives
+                                                          !> of the thickness and upper surface
+                                                          !> elevation.
+    type(glide_numerics),    intent(in)    :: numerics  !> Derived type holding numerical
+                                                          !> parameters, including sigma values.
+    type(glide_velowk),      intent(inout) :: velowk    !> Derived type holding working arrays
+                                                          !> used by the subroutine
+    real(dp),dimension(:,:),   intent(in)    :: wgrd      !> The grid vertical velocity at
+                                                          !> the lowest model level.
+    real(dp),dimension(:,:),   intent(in)    :: bmlt      !> Basal melt-rate (scaled?) This
+                                                          !> is required in the basal boundary
+                                                          !> condition. See {\em Payne and Dongelmans}
+                                                          !> equation 14.
+    real(dp),dimension(:,:,:), intent(out)   :: wvel      !> The vertical velocity field.
 
     !------------------------------------------------------------------------------------
     ! Internal variables
@@ -927,9 +928,9 @@ contains
 
   subroutine wvel_ew(model)
 
-    ! set periodic EW boundary conditions
+    !> set periodic EW boundary conditions
     implicit none
-    type(glide_global_type),intent(inout) :: model       ! Ice model parameters.
+    type(glide_global_type),intent(inout) :: model       !> Ice model parameters.
 
     model%velocity%wgrd(:,1,:)                  = model%velocity%wgrd(:,model%general%ewn-1,:)
     model%velocity%wgrd(:,model%general%ewn,:) = model%velocity%wgrd(:,2,:)
@@ -942,8 +943,8 @@ contains
 
   subroutine chckwvel(numerics,geomderv,uvel,vvel,wvel,thck,acab)
 
-    ! Constrain the vertical velocity field to obey a kinematic upper boundary 
-    ! condition.
+    !> Constrain the vertical velocity field to obey a kinematic upper boundary 
+    !> condition.
 
 !!    use parallel
     implicit none
@@ -952,17 +953,17 @@ contains
     ! Subroutine arguments
     !------------------------------------------------------------------------------------
 
-    type(glide_numerics),   intent(in)    :: numerics ! Numerical parameters of model
-    type(glide_geomderv),   intent(in)    :: geomderv ! Temporal and horizontal derivatives
-                                                        ! of thickness and upper ice surface
-                                                        ! elevation.
-    real(dp),dimension(:,:),  intent(in)    :: uvel     ! $x$ velocity field at top model
-                                                        ! level (scaled, on staggered grid).
-    real(dp),dimension(:,:),  intent(in)    :: vvel     ! $y$ velocity field at top model
-                                                        ! level (scaled, on staggered grid).
-    real(dp),dimension(:,:,:),intent(inout) :: wvel     ! Vertical velocity field, 
-    real(dp),dimension(:,:),  intent(in)    :: thck     ! Ice thickness (scaled)
-    real(dp),dimension(:,:),  intent(in)    :: acab     ! Mass-balance (scaled)
+    type(glide_numerics),   intent(in)    :: numerics !> Numerical parameters of model
+    type(glide_geomderv),   intent(in)    :: geomderv !> Temporal and horizontal derivatives
+                                                        !> of thickness and upper ice surface
+                                                        !> elevation.
+    real(dp),dimension(:,:),  intent(in)    :: uvel     !> $x$ velocity field at top model
+                                                        !> level (scaled, on staggered grid).
+    real(dp),dimension(:,:),  intent(in)    :: vvel     !> $y$ velocity field at top model
+                                                        !> level (scaled, on staggered grid).
+    real(dp),dimension(:,:,:),intent(inout) :: wvel     !> Vertical velocity field, 
+    real(dp),dimension(:,:),  intent(in)    :: thck     !> Ice thickness (scaled)
+    real(dp),dimension(:,:),  intent(in)    :: acab     !> Mass-balance (scaled)
 
     !------------------------------------------------------------------------------------
     ! Internal variables
@@ -1012,7 +1013,7 @@ contains
  
   function vertintg(velowk,in)
 
-    ! Performs a depth integral using the trapezium rule.
+    !> Performs a depth integral using the trapezium rule.
     !*RV The value of in integrated over depth.
 
     implicit none
@@ -1021,8 +1022,8 @@ contains
     ! Subroutine arguments
     !------------------------------------------------------------------------------------
 
-    type(glide_velowk), intent(inout) :: velowk ! Work arrays and things for this module
-    real(dp),dimension(:),intent(in)    :: in     ! Input array of vertical velocities (size = upn)
+    type(glide_velowk), intent(inout) :: velowk !> Work arrays and things for this module
+    real(dp),dimension(:),intent(in)    :: in     !> Input array of vertical velocities (size = upn)
     real(dp) :: vertintg
 
     !------------------------------------------------------------------------------------
@@ -1051,15 +1052,15 @@ contains
 
   subroutine calc_btrc(model,flag,btrc)
 
-    ! Calculate the value of $B$ used for basal sliding calculations.
+    !> Calculate the value of $B$ used for basal sliding calculations.
 
     use glimmer_physcon, only : rhoo, rhoi
     use glimmer_paramets, only : len0, thk0, scyr, vel0
     implicit none
 
-    type(glide_global_type) :: model        ! model instance
-    integer,                intent(in)    :: flag     ! Flag to select method of
-    real(dp),dimension(:,:),intent(out)   :: btrc     ! Array of values of $B$.
+    type(glide_global_type) :: model        !> model instance
+    integer,                intent(in)    :: flag     !> Flag to select method of
+    real(dp),dimension(:,:),intent(out)   :: btrc     !> Array of values of $B$.
 
     !------------------------------------------------------------------------------------
     ! Internal variables
@@ -1198,10 +1199,10 @@ contains
 
 #ifdef JEFFORIG
   subroutine calc_basal_shear(model)
-    ! calculate basal shear stress: tau_{x,y} = -rho_i*g*H*d(H+h)/d{x,y}
+    !> calculate basal shear stress: tau_{x,y} = -rho_i*g*H*d(H+h)/d{x,y}
     use glimmer_physcon, only : rhoi,grav
     implicit none
-    type(glide_global_type) :: model        ! model instance
+    type(glide_global_type) :: model        !> model instance
 
 
     model%velocity%tau_x = -rhoi*grav*model%geomderv%stagthck
@@ -1216,7 +1217,7 @@ contains
     use glimmer_physcon, only : rhoi,grav
 
     implicit none
-    real(dp),dimension(:,:),intent(in) :: stagthck    ! Ice thickness (scaled)
+    real(dp),dimension(:,:),intent(in) :: stagthck    !> Ice thickness (scaled)
     real(dp),dimension(:,:),intent(in) :: dusrfdew, dusrfdns
     real(dp),dimension(:,:),intent(out) :: tau_x
     real(dp),dimension(:,:),intent(out) :: tau_y
