@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glimmer_ncparams.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glimmer_ncparams.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -33,8 +33,8 @@
 
 module glimmer_ncparams
 
-  !*FD read netCDF I/O related configuration files
-  !*FD written by Magnus Hagdorn, May 2004
+  ! read netCDF I/O related configuration files
+  ! written by Magnus Hagdorn, May 2004
 
   use glimmer_ncdf, only: glimmer_nc_meta
 
@@ -49,12 +49,12 @@ module glimmer_ncparams
 
 contains
     subroutine glimmer_nc_readparams(model,config)
-    !*FD read netCDF I/O related configuration file
+    ! read netCDF I/O related configuration file
     use glide_types
     use glimmer_config
     implicit none
-    type(glide_global_type)      :: model  !*FD model instance
-    type(ConfigSection), pointer :: config !*FD structure holding sections of configuration file
+    type(glide_global_type)      :: model  ! model instance
+    type(ConfigSection), pointer :: config ! structure holding sections of configuration file
     
     ! local variables
     type(ConfigSection), pointer :: section

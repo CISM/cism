@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   isostasy.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   isostasy.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -31,10 +31,9 @@
 module isostasy
 
   !TODO - Test the isostasy for parallel simulations.
-  !       Elastic lithosphere take some work to parallelize, but local calculations
-  !        should be OK.
+  !       Elastic lithosphere will not easily parallelize, but local lithosphere should be OK.
   
-  !*FD calculate isostatic adjustment due to changing surface loads
+  ! calculate isostatic adjustment due to changing surface loads
 
   use glimmer_global, only : dp
   use isostasy_elastic
@@ -51,7 +50,7 @@ contains
 
   subroutine init_isostasy(model)
 
-    !*FD initialise isostasy calculations
+    ! initialise isostasy calculations
     use parallel
     use glide_types
     use glimmer_physcon,  only: scyr
@@ -74,7 +73,7 @@ contains
   
   subroutine isos_icewaterload(model)
 
-    !*FD calculate surface load factors due to water and ice distribution
+    ! calculate surface load factors due to water and ice distribution
 
     use glimmer_physcon
     use glide_types
@@ -117,7 +116,7 @@ contains
 
   subroutine isos_compute(model)
 
-    !*FD calculate isostatic adjustment due to changing surface loads
+    ! calculate isostatic adjustment due to changing surface loads
 
     use glide_types
     implicit none
@@ -148,8 +147,8 @@ contains
     use glide_types
     implicit none
     type(glide_global_type) :: model
-    real(dp), dimension(:,:), intent(out) :: load !*FD loading effect due to load_factors
-    real(dp), dimension(:,:), intent(in)  :: load_factors !*FD load mass divided by mantle density
+    real(dp), dimension(:,:), intent(out) :: load ! loading effect due to load_factors
+    real(dp), dimension(:,:), intent(in)  :: load_factors ! load mass divided by mantle density
 
     if (model%isostasy%lithosphere == LITHOSPHERE_LOCAL) then
        load = load_factors
@@ -163,8 +162,8 @@ contains
 
   subroutine isos_relaxed(model)
 
-    !*FD Calculate the relaxed topography, assuming the isostatic depression
-    !*FD is the equilibrium state for the current topography.
+    ! Calculate the relaxed topography, assuming the isostatic depression
+    ! is the equilibrium state for the current topography.
 
     use glide_types
     implicit none
@@ -187,7 +186,7 @@ contains
 
   subroutine relaxing_mantle(model)
 
-    !*FD approximate mantle with a relaxing half-space: dh/dt=-1/tau*(w-h)
+    ! approximate mantle with a relaxing half-space: dh/dt=-1/tau*(w-h)
     use glide_types
     implicit none
     type(glide_global_type) :: model
@@ -196,7 +195,7 @@ contains
     real(dp) :: ft1, ft2
 
     ft1 = exp(-model%numerics%dt/model%isostasy%relaxed_tau)
-    ft2 = 1. - ft1  !TODO - 1.d0
+    ft2 = 1.d0 - ft1
 
     do ns=1,model%general%nsn
        do ew=1,model%general%ewn

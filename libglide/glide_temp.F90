@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glide_temp.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glide_temp.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -75,11 +75,10 @@ module glide_temp
 contains
 
 !------------------------------------------------------------------------------------
-!TODO - Get rid of some ugly tempwk constants
 
   subroutine glide_init_temp(model)
 
-    !*FD initialise temperature module
+    ! initialise temperature module
     use glimmer_physcon, only : rhoi, shci, coni, scyr, grav, gn, lhci, rhow, trpt
     use glimmer_paramets, only : tim0, thk0, acc0, len0, vis0, vel0
     use glimmer_log
@@ -96,9 +95,8 @@ contains
     if (VERT_ADV==0.)    call write_log('Vertical advection is switched off')
     if (STRAIN_HEAT==0.) call write_log('Strain heating is switched off')
 
-    !TODO - Should these allocations be done in glide_allocarr?
-    !TODO -  Make sure the arrays allocated here are deallocated at the end of the run.
-    !        Might want to move allocation/deallocation to subroutines in glide_types.
+    !TODO - Should these tempwk allocations be done in glide_allocarr, called from glide_types?
+    !       Should the arrays be deallocated here at the end of the run?
 
     ! horizontal advection stuff
     allocate(model%tempwk%hadv_u(model%general%upn,model%general%ewn,model%general%nsn))
@@ -197,10 +195,9 @@ contains
     ! Otherwise, the initial temperature is controlled by model%options%temp_init,
     !  which can be read from the config file.
     !
-    !TODO - Remove halo parameters below, since uhalo = lhalo = 0 for glide.
-    !TODO - For reading from restart or input file, make sure that cells in
-    !       the Glide temperature halo are initialized to reasonable values
-    !       (preferably not -999).
+    !TODO - Remove halo parameters below, since uhalo = lhalo = 0 for Glide.
+    !TODO - Make sure cells in the Glide temperature halo are initialized to reasonable values
+    !       (preferably not -999), e.g. if reading temps from input or restart file.
 
     if (model%options%is_restart == RESTART_TRUE) then
 
@@ -237,8 +234,6 @@ contains
           ! Loop over physical cells where artm is defined (not temperature halo cells).
 
           !Note: Old glide sets temp = artm everywhere without regard to whether ice exists in a column.
-          !TODO - Verify that this makes no difference for model results.
-          !TODO - Change dmin1 to min?
 
           call write_log('Initializing ice temperature to the surface air temperature')
 
@@ -247,7 +242,7 @@ contains
 
                 call glide_init_temp_column(model%options%temp_init,         &
                                             model%numerics%sigma(:),         &
-                                            dble(model%climate%artm(ew,ns)), &
+                                            dble(model%climate%artm(ew,ns)), &  !TODO - Remove 'dble' (artm is dp)
                                             model%geometry%thck(ew,ns),      &
                                             model%temper%temp(:,ew,ns) )
              end do
@@ -342,14 +337,14 @@ contains
   case(TEMP_INIT_ARTM)     ! initialize ice-covered areas to the min of artm and 0 C
 
      if (thck > 0.0d0) then
-        temp(:) = dmin1(0.0d0, artm)  !TODO - dmin1 --> min?
+        temp(:) = dmin1(0.0d0, artm)
      else
         temp(:) = 0.d0
      endif
 
   case(TEMP_INIT_LINEAR)
 
-     ! Tsfc = artm, Tbed = Tpmp = pmpt_offset, linear profile in between 
+     ! Tsfc = artm, Tbed = Tpmp - pmpt_offset, linear profile in between 
 
      call calcpmptb (pmptb, thck)
      tbed = pmptb - pmpt_offset
@@ -357,7 +352,6 @@ contains
      temp(:) = artm + (tbed - artm)*sigma(:) 
                                
      ! Make sure T <= Tpmp - pmpt_offset throughout column
-     ! TODO: Change condition to T <= Tpmp?
 
      call calcpmpt(pmpt(:), thck, sigma(:))
      temp(:) = min(temp(:), pmpt(:) - pmpt_offset)
@@ -369,8 +363,8 @@ contains
 
   subroutine glide_temp_driver(model,whichtemp)
 
-    !*FD Calculates the ice temperature, according to one
-    !*FD of several alternative methods.
+    ! Calculates the ice temperature, according to one
+    ! of several alternative methods.
 
     use glimmer_utils, only: tridiag
     use glimmer_paramets, only : thk0, GLC_DEBUG
@@ -470,7 +464,7 @@ contains
 
                 weff = model%velocity%wvel(:,ew,ns) - model%velocity%wgrd(:,ew,ns)
 
-!TODO - It seems odd to zero out weff when it's big.  Why not set to wmax?
+                !TODO - It seems odd to zero out weff when it's big.  Why not set to wmax?
                 if (maxval(abs(weff)) > model%tempwk%wmax) then
                    weff = 0.0d0
                 end if
@@ -788,7 +782,7 @@ contains
     real(dp), dimension(:), intent(out) :: subd, diag, supd
     logical, intent(in) :: float
 
-    real(dp) :: fact(3)  !TODO - fact(2)?
+    real(dp) :: fact(2)
 
 ! These constants are precomputed:
 ! model%tempwk%cons(1) = 2.0d0 * tim0 * model%numerics%dttem * coni / (2.0d0 * rhoi * shci * thk0**2)
@@ -837,7 +831,7 @@ contains
   !-------------------------------------------------------------------------
 
   subroutine findvtri_init(model,ew,ns,subd,diag,supd,weff,temp,thck,float)
-    !*FD called during first iteration to set inittemp
+    ! called during first iteration to set inittemp
 
     use glimmer_paramets, only: vel0, vel_scale
 
@@ -876,7 +870,7 @@ contains
 
 !SCALING - WHL: Multiply ubas by vel0/vel_scale so we get the same result in these two cases:
 !           (1) Old Glimmer with scaling:         vel0 = vel_scale = 500/scyr, and ubas is non-dimensional.
-!           (2) New Glimmer-CISM without scaling: vel0 = 1/scyr, vel_scale = 500/scyr, and ubas is in m/yr.
+!           (2) New CISM without scaling: vel0 = 1/scyr, vel_scale = 500/scyr, and ubas is in m/yr.
 
 !!!             if ( abs(model%velocity%ubas(ewp,nsp)) > 0.000001 .or. &
 !!!                  abs(model%velocity%vbas(ewp,nsp)) > 0.000001 ) then
@@ -912,7 +906,7 @@ contains
 
   subroutine findvtri_rhs(model,ew,ns,artm,iteradvt,rhsd,float)
 
-    !*FD RHS of temperature tri-diag system
+    ! RHS of temperature tri-diag system
 
     type(glide_global_type) :: model
     integer, intent(in) :: ew, ns
@@ -980,7 +974,6 @@ contains
 
                 !*sfp* changed this so that 'slterm' is multiplied by f(4) const. above ONLY for the 0-order SIA case,
                 ! since for the HO and SSA cases a diff. const. needs to be used
-                !TODO - Could go back to old version since HO case is no longer treated here
 
                 ! OLD version
 !                newmlt = model%tempwk%f(4) * slterm - model%tempwk%f(2)*model%temper%bheatflx(ew,ns) + model%tempwk%f(3) * &
@@ -1176,8 +1169,8 @@ contains
 
   subroutine glide_calcflwa(sigma, thklim, flwa, temp, thck, flow_factor, default_flwa_arg, flag)
 
-    !*FD Calculates Glen's $A$ over the three-dimensional domain,
-    !*FD using one of three possible methods.
+    ! Calculates Glen's $A$ over the three-dimensional domain,
+    ! using one of three possible methods.
 
     use glimmer_physcon
     use glimmer_paramets, only : thk0, vis0
@@ -1193,21 +1186,20 @@ contains
        ! These quantities are defined at layer interfaces (not layer midpoints as in the
        !  glam/glissade dycore).
 
-    real(dp),dimension(:),      intent(in)    :: sigma     !*FD Vertical coordinate
-    real(dp),                   intent(in)    :: thklim    !*FD thickness threshold
-    real(dp),dimension(:,:,:),  intent(out)   :: flwa      !*FD The calculated values of $A$
-    real(dp),dimension(:,:,:),  intent(in)    :: temp      !*FD The 3D temperature field
-    real(dp),dimension(:,:),    intent(in)    :: thck      !*FD The ice thickness
-    real(dp)                                  :: flow_factor !*FD Fudge factor in arrhenius relationship
-    real(dp),                   intent(in)    :: default_flwa_arg !*FD Glen's A to use in isothermal case 
-    integer,                    intent(in)    :: flag      !*FD Flag to select the method
-                                                           !*FD of calculation:
-    !*FD \begin{description}
-    !*FD \item[0] {\em Paterson and Budd} relationship.
-    !*FD \item[1] {\em Paterson and Budd} relationship, with temperature set to
-    !*FD -5$^{\circ}$C.
-    !*FD \item[2] Set constant, {\em but not sure how this works at the moment\ldots}
-    !*FD \end{description}
+    real(dp),dimension(:),      intent(in)    :: sigma     ! Vertical coordinate
+    real(dp),                   intent(in)    :: thklim    ! thickness threshold
+    real(dp),dimension(:,:,:),  intent(out)   :: flwa      ! calculated values of $A$
+    real(dp),dimension(:,:,:),  intent(in)    :: temp      ! 3D temperature field
+    real(dp),dimension(:,:),    intent(in)    :: thck      ! ice thickness
+    real(dp)                                  :: flow_factor ! Fudge factor in arrhenius relationship
+    real(dp),                   intent(in)    :: default_flwa_arg ! Glen's A to use in isothermal case 
+    integer,                    intent(in)    :: flag      ! Flag to select the method of calculation:
+    ! \begin{description}
+    ! \item[0] {\em Paterson and Budd} relationship.
+    ! \item[1] {\em Paterson and Budd} relationship, with temperature set to
+    ! -5$^{\circ}$C.
+    ! \item[2] Set constant, {\em but not sure how this works at the moment\ldots}
+    ! \end{description}
 
     !------------------------------------------------------------------------------------
     ! Internal variables
@@ -1304,24 +1296,24 @@ contains
 
   subroutine patebudd(tempcor,calcga,arrfact)
 
-    !*FD Calculates the value of Glen's $A$ for the temperature values in a one-dimensional
-    !*FD array. The input array is usually a vertical temperature profile. The equation used
-    !*FD is from \emph{Paterson and Budd} [1982]:
-    !*FD \[
-    !*FD A(T^{*})=a \exp \left(\frac{-Q}{RT^{*}}\right)
-    !*FD \]
-    !*FD This is equation 9 in {\em Payne and Dongelmans}. $a$ is a constant of proportionality,
-    !*FD $Q$ is the activation energy for for ice creep, and $R$ is the universal gas constant.
-    !*FD The pressure-corrected temperature, $T^{*}$ is given by:
-    !*FD \[
-    !*FD T^{*}=T-T_{\mathrm{pmp}}+T_0
-    !*FD \] 
-    !*FD \[
-    !*FD T_{\mathrm{pmp}}=T_0-\sigma \rho g H \Phi
-    !*FD \]
-    !*FD $T$ is the ice temperature, $T_{\mathrm{pmp}}$ is the pressure melting point 
-    !*FD temperature, $T_0$ is the triple point of water, $\rho$ is the ice density, and 
-    !*FD $\Phi$ is the (constant) rate of change of melting point temperature with pressure.
+    ! Calculates the value of Glen's $A$ for the temperature values in a one-dimensional
+    ! array. The input array is usually a vertical temperature profile. The equation used
+    ! is from \emph{Paterson and Budd} [1982]:
+    ! \[
+    ! A(T^{*})=a \exp \left(\frac{-Q}{RT^{*}}\right)
+    ! \]
+    ! This is equation 9 in {\em Payne and Dongelmans}. $a$ is a constant of proportionality,
+    ! $Q$ is the activation energy for for ice creep, and $R$ is the universal gas constant.
+    ! The pressure-corrected temperature, $T^{*}$ is given by:
+    ! \[
+    ! T^{*}=T-T_{\mathrm{pmp}}+T_0
+    ! \] 
+    ! \[
+    ! T_{\mathrm{pmp}}=T_0-\sigma \rho g H \Phi
+    ! \]
+    ! $T$ is the ice temperature, $T_{\mathrm{pmp}}$ is the pressure melting point 
+    ! temperature, $T_0$ is the triple point of water, $\rho$ is the ice density, and 
+    ! $\Phi$ is the (constant) rate of change of melting point temperature with pressure.
 
     use glimmer_physcon, only : trpt
 
@@ -1329,13 +1321,13 @@ contains
     ! Subroutine arguments
     !------------------------------------------------------------------------------------
 
-    real(dp),dimension(:), intent(in)    :: tempcor  !*FD Input temperature profile. This is 
-                                                     !*FD {\em not} $T^{*}$, as it has $T_0$
-                                                     !*FD added to it later on; rather it is
-                                                     !*FD $T-T_{\mathrm{pmp}}$.
-    real(dp),dimension(:), intent(out)   :: calcga   !*FD The output values of Glen's $A$.
-    real(dp),dimension(4), intent(in)    :: arrfact  !*FD Constants for the calculation. These
-                                                     !*FD are set when the velo module is initialised
+    real(dp),dimension(:), intent(in)    :: tempcor  ! Input temperature profile. This is 
+                                                     ! {\em not} $T^{*}$, as it has $T_0$
+                                                     ! added to it later on; rather it is
+                                                     ! $T-T_{\mathrm{pmp}}$.
+    real(dp),dimension(:), intent(out)   :: calcga   ! The output values of Glen's $A$.
+    real(dp),dimension(4), intent(in)    :: arrfact  ! Constants for the calculation. These
+                                                     ! are set when the velo module is initialised
 
     !------------------------------------------------------------------------------------
 

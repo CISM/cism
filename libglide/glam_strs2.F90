@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glam_strs2.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glam_strs2.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -56,9 +56,6 @@ use iso_c_binding
 use glimmer_paramets, only : dp
 use glimmer_physcon,  only : gn, rhoi, rhoo, grav, pi, scyr
 
-!TODO:     Remove scaling parameters tau0, vis0, evs0, etc. from this module.
-!          Note: if thk0 = 1, then tau0 = rhoi*grav
-          
 use glimmer_paramets, only : thk0, len0, vel0, vis0, tim0, evs0, tau0
 
 use glimmer_log,      only : write_log
@@ -899,8 +896,6 @@ subroutine JFNK_velo_solver  (model,umask)
 
 ! split off of derived types
 
-!TODO - Should the following be passed in explicitly?
-
 ! intent(in)
   integer :: ewn, nsn, upn
   real(dp) :: dew, dns
@@ -926,7 +921,6 @@ subroutine JFNK_velo_solver  (model,umask)
   integer :: whichsparse
   integer :: whichnonlinear
 
-!TODO - Should the following be passed out explicitly?
 ! intent(out)
   real(dp), dimension(:,:,:) ,pointer :: uvel, vvel
   real(dp), dimension(:,:)   ,pointer :: uflx, vflx
@@ -949,7 +943,6 @@ subroutine JFNK_velo_solver  (model,umask)
   type(sparse_matrix_type) :: matrixA, matrixC, matrixtp, matrixAuv, matrixAvu
   real(dp) :: L2norm
 
-!TODO - Could eliminate pointers if arguments are passed in explicitly.
  call t_startf("JFNK_pre")
   ewn = model%general%ewn
   nsn = model%general%nsn
@@ -1008,7 +1001,6 @@ subroutine JFNK_velo_solver  (model,umask)
   call geom2derscros(ewn, nsn, dew, dns, thck, stagthck, d2thckdewdns)
   call geom2derscros(ewn, nsn, dew, dns, usrf, stagthck, d2usrfdewdns)
 
-!TODO - Do these derivatives have to go in the model derived type and the residual object?
   model%geomderv%d2thckdew2 = d2thckdew2
   model%geomderv%d2thckdns2 = d2thckdns2
   model%geomderv%d2usrfdew2 = d2usrfdew2
@@ -1128,12 +1120,9 @@ end if
   call noxfinish()
  call t_stopf("JFNK_noxfinish")
 
-!TODO remove since not needed?
 ! k = 0
 
 #else
-
-!TODO Is the slapsolve code still used? 
 
 !==============================================================================
 ! SLAP JFNK loop: calculate F(u^k-1,v^k-1)
@@ -1221,9 +1210,9 @@ end if
 !TODO - The remaining code in this subroutine is cut and pasted from above.
 !       Can we encapsulate this repeated code in a subroutine?
 
-!TODO - I don't think uflx and vflux are needed.
+!       I don't think uflx and vflux are needed.
 
-!LOOP - Locally owned velocity points
+  !  Locally owned velocity points
   do ns = 1+staggered_lhalo, size(umask,2)-staggered_uhalo
       do ew = 1+staggered_lhalo, size(umask,1)-staggered_uhalo
       ! *SFP* calc. fluxes from converged vel. fields (for input to thickness evolution subroutine)
@@ -1255,22 +1244,18 @@ end if
   deallocate(model%solver_data%d2usrfcross)
   deallocate(model%solver_data%gxf)
   
-!TODO - Not sure whether these are needed.  Where does JFNK do its parallel halo updates for uvel, vvel?
-
  !PW following are needed for glam_velo_fordsiapstr - putting here until can be convinced
  !   that they are not needed (or that they should be delayed until later)
   call staggered_parallel_halo(uvel)
   call staggered_parallel_halo(vvel)
 
-!TODO - Not sure we need these two updates
+!TODO - Not sure we need halo updates for efvs, btraction, uflx, vflx
 !       I think we do not need an update for efvs, because it is already computed in a layer of halo cells.
 !       And I think we don't need an update for btraction, because it is computed in bodyset for all
 !        locally owned velocity points.
 
   call parallel_halo(efvs)
   call staggered_parallel_halo(btraction)
-
-!TODO - Probably do not need these two updates
   call staggered_parallel_halo(uflx)
   call staggered_parallel_halo(vflx)
 
@@ -1372,8 +1357,7 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
 
      end if
 
-!TODO - If we are not supporting glam_strs2 together with the old Glimmer temperature routines,
-!       then we can assume that temp and flwa live on the staggered vertical grid.
+!TODO - Can remove the 'if' becuase Glam required temp and flwa on staggered vertical grid.
 
      if (size(flwa,1)==upn-1) then   ! temperature and flwa live on staggered vertical grid
 
@@ -1443,7 +1427,7 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
 
   case(HO_EFVS_NONLINEAR)      ! calculate eff. visc. using eff. strain rate
 
-!TODO - This code may not work correctly if nhalo = 1.  
+!Note - This code may not work correctly if nhalo = 1.  
 !       In that case we would need a halo update of efvs to make sure we have the correct value
 !        in all neighbors of locally owned velocity cells.
  
@@ -1752,8 +1736,7 @@ function getlocationarray(ewn, nsn, upn, mask, indxmask, return_global_IDs)
 end function getlocationarray
 
 !***********************************************************************
-
-!TODO - Remove this function?  I don't think it is called anywhere.
+!TODO - Remove function slapsolvstr?  I think it's no longer used.
 
 function slapsolvstr(ewn, nsn, upn, &
                      vel, uindx, its, answer )
@@ -1813,8 +1796,6 @@ function slapsolvstr(ewn, nsn, upn, &
 !**     rwork ... workspace for SLAP routines (in)
 !**     mxnelt ... maximum array and vector sizes (in)
 !**     iwork ... workspace for SLAP routines (in)
-
-!LOOP TODO - Are loop bounds OK? Since this is for the serial SLAP solver, I think so.
 
 ! *sp* initial estimate for vel. field?
   do ns = 1,nsn-1
@@ -2226,9 +2207,7 @@ end subroutine reset_effstrmin
 
 !***********************************************************************
 
-!TODO - There is more repeated code here, making code maintenance difficult.
-!       Would it be possible to package the repeated code into a subroutine called
-!        from multiple places?
+!TODO - There is more repeated code here.
 
  subroutine calc_F (xtp, F, xk_size, c_ptr_to_object, ispert) bind(C, name='calc_F')
 
@@ -2710,8 +2689,6 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
 
   ! RESIDUAL CALCULATION
 
-  !TODO - Remove hardwired numbers for whichresid (see glide_types.F90)
-
   select case (whichresid)
   ! options for residual calculation method, as specified in configuration file
   ! (see additional notes in "higher-order options" section of documentation)
@@ -2862,8 +2839,6 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
 
   ! UPDATE POINTERS
 
-! TODO take out the older one?
-
   !*SFP* Old version
   ! if (new(pt) == 1) then; old(pt) = 1; new(pt) = 2; else; old(pt) = 1; new(pt) = 2; end if
 
@@ -2876,7 +2851,7 @@ end subroutine mindcrshstr
 
 !***********************************************************************
 
-!TODO - Why are there two of these subroutines?  Can we remove one of them?
+!TODO - There are two mindcrshstr subroutines.  Remove one of them?
 
 function mindcrshstr2(pt,whichresid,vel,counter,resid)
 
@@ -2887,7 +2862,6 @@ function mindcrshstr2(pt,whichresid,vel,counter,resid)
   ! Alternate unstable manifold scheme, based on DeSmedt, Pattyn, and De Goen, J. Glaciology 2010
   ! Written by Carl Gladdish
   
-!TODO - something to do here?
   use parallel  ! Use of WHERE statements is causing inconsistencies on the halos in parallel.  Rewrite like mindcrshstr()
   implicit none
   
@@ -3120,7 +3094,6 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
 !WHL - Using a different procedure depending on whether or not we are using trilinos.
 !      This is needed to avoid an error when using the SLAP solver in a
 !        single-processor parallel run.
-!TODO: Find a more elegant solution?
                
   loc2_array = getlocationarray(ewn, nsn, upn, mask, uindx)
 
@@ -3211,8 +3184,6 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
       loc2(1,:) = loc2_array(ew,ns,:)
 
       ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-      !TODO - Sometimes we may want to solve for the velocity at the domain boundary,
-      !       or at a land margin.  Can we allow this?
       if ( GLIDE_HAS_ICE(mask(ew,ns)) .and. .not. &
            comp_bound .and. .not. &
            GLIDE_IS_MARGIN(mask(ew,ns)) .and. .not. &
@@ -5133,7 +5104,7 @@ function indshift( which, ew, ns, up, ewn, nsn, upn, loc_array, thck )
   ! extracted near domain boundaries. NOTE that this contains duplication of some of the code in the 
   ! subroutine "getlatboundinfo", and the two could be combined at some point.
 
-!TODO: This function does not use loc_array.  Remove from argument list?
+!TODO: Function indshift does not use loc_array.  Remove from argument list?
 
   implicit none
 
@@ -5324,10 +5295,6 @@ subroutine geom2ders(ewn,    nsn,  &
   dewsq4 = 4.d0 * dew * dew
   dnssq4 = 4.d0 * dns * dns
 
-
-!LOOP TODO - Please confirm that these are the right boundaries
-! Note: Provided nhalo >= 2, we should have enough points to compute a centered difference.
-!       Not sure what happens if nhalo = 1
   do ns = 2, nsn-2
   do ew = 2, ewn-2
     if (stagthck(ew,ns) > 0.d0) then
@@ -5365,9 +5332,6 @@ subroutine geom2ders(ewn,    nsn,  &
 
   end do
 
-!TODO - If nhalo = 2, then I'm not clear on why upwinding is needed.
-!       Where are these values used in the computation?
-
   do ns = 1, nsn-1, nsn-2
 
     pt = whichway(ns)
@@ -5383,9 +5347,6 @@ subroutine geom2ders(ewn,    nsn,  &
     end do
 
   end do
-
-!TODO - If nhalo = 2, then I'm not clear on why upwinding is needed.
-!       Where are these values used in the computation?
 
   do ns = 1, nsn-1, nsn-2
     do ew = 1, ewn-1, ewn-2
@@ -5665,7 +5626,7 @@ end subroutine putpcgc
           integer :: curdiff, mindiff
           integer :: lindex
 
-!LOOP TODO: Please confirm that these are the correct loop bounds.
+          !LOOP TODO: Please confirm that these are the correct loop bounds.
          ! loc2_array-based search
           minew = 1
           minns = 1
@@ -5806,9 +5767,6 @@ subroutine assign_resid(model, uindx, umask, &
   real(dp)          ,intent(in) :: L2norm
   real(dp)          ,intent(in) :: d2thckdewdns(ewn-1,nsn-1), d2usrfdewdns(ewn-1,nsn-1)
   
-!LOOP TODO: Would it be sufficient to loop only over locally owned velocity points?      
-!LOOP TODO - Switch i and j to reduce strides?
-
   do i = 1, ewn-1 
    do j = 1, nsn-1 
     model%solver_data%ui(i,j)  = uindx(i,j)
@@ -6014,8 +5972,6 @@ end subroutine res_vect_jfnk
 
 !-------------------------------------------------------------------
 
-!TODO - Is this subroutine still needed?
-
 subroutine slapsolve(xk_1, xk_size, c_ptr_to_object, NL_tol, pcgsize)
 
   use iso_c_binding  
@@ -6147,8 +6103,6 @@ subroutine slapsolve(xk_1, xk_size, c_ptr_to_object, NL_tol, pcgsize)
 end subroutine slapsolve
 
 !-----------------------------------------------------------------------
-
-!TODO - Is this subroutine still needed?  It's called from slapsolve above.
 
   subroutine fgmres (n,im,rhs,sol,i,vv,w,wk1, wk2, &
                      eps,maxits,iout,icode,its) 

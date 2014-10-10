@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glide_setup.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glide_setup.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -56,8 +56,8 @@ contains
     use glide_types
     use glimmer_config
     implicit none
-    type(glide_global_type) :: model        !*FD model instance
-    type(ConfigSection), pointer :: config  !*FD structure holding sections of configuration file
+    type(glide_global_type) :: model        ! model instance
+    type(ConfigSection), pointer :: config  ! structure holding sections of configuration file
     
     ! local variables
     type(ConfigSection), pointer :: section
@@ -137,11 +137,11 @@ contains
 
   subroutine glide_printconfig(model)
 
-    !*FD print model configuration to log
+    ! print model configuration to log
     use glimmer_log
     use glide_types
     implicit none
-    type(glide_global_type)  :: model !*FD model instance
+    type(glide_global_type)  :: model ! model instance
 
     call write_log_div
     call print_grid(model)
@@ -156,46 +156,39 @@ contains
 
 !-------------------------------------------------------------------------
     
-!TODO - Remove most of the scaling?
-!       (Will need to keep scyr)
-
   subroutine glide_scale_params(model)
-    !*FD scale parameters
+    ! scale parameters
     use glide_types
     use glimmer_physcon,  only: scyr
 
-!SCALING - Can delete the following when scaling is removed
     use glimmer_physcon,  only: gn
     use glimmer_paramets, only: thk0, tim0, len0, vel0, vis0, acc0, tau0
 
     implicit none
 
-    type(glide_global_type)  :: model !*FD model instance
+    type(glide_global_type)  :: model ! model instance
 
-!SCALING - Some of this code is still needed, even after thk0, len0, etc. are set to 1.0.
-!          In particular, keep the conversions with scyr.
+    !TODO - Change ntem and nvel to dttem and dtvel.  Is nvel used?
+    model%numerics%ntem = model%numerics%ntem * model%numerics%tinc   
+    model%numerics%nvel = model%numerics%nvel * model%numerics%tinc   
 
-!TODO - Change ntem and nvel to dttem and dtvel?  Is nvel used?
-    model%numerics%ntem = model%numerics%ntem * model%numerics%tinc   ! keep
-    model%numerics%nvel = model%numerics%nvel * model%numerics%tinc   ! keep
+    model%numerics%dt     = model%numerics%tinc * scyr / tim0   
+    model%numerics%dttem  = model%numerics%ntem * scyr / tim0   
+    model%numerics%thklim = model%numerics%thklim  / thk0       
+    model%numerics%thklim_temp = model%numerics%thklim_temp  / thk0
 
-    model%numerics%dt     = model%numerics%tinc * scyr / tim0   ! keep scyr?
-    model%numerics%dttem  = model%numerics%ntem * scyr / tim0   ! keep scyr?
-    model%numerics%thklim = model%numerics%thklim  / thk0       ! can remove scaling here
-    model%numerics%thklim_temp = model%numerics%thklim_temp  / thk0       ! can remove scaling here
+    model%numerics%dew = model%numerics%dew / len0
+    model%numerics%dns = model%numerics%dns / len0
 
-    model%numerics%dew = model%numerics%dew / len0         ! remove scaling later?
-    model%numerics%dns = model%numerics%dns / len0         ! remove scaling later?
+    model%numerics%mlimit = model%numerics%mlimit / thk0
 
-    model%numerics%mlimit = model%numerics%mlimit / thk0   ! remove scaling later?
-
-    model%numerics%periodic_offset_ew = model%numerics%periodic_offset_ew / thk0  ! remove scaling later?
-    model%numerics%periodic_offset_ns = model%numerics%periodic_offset_ns / thk0  ! remove scaling later?
+    model%numerics%periodic_offset_ew = model%numerics%periodic_offset_ew / thk0
+    model%numerics%periodic_offset_ns = model%numerics%periodic_offset_ns / thk0
 
     model%velowk%trc0   = vel0 * len0 / (thk0**2)          ! keep scyr?
-    model%velowk%btrac_const = model%paramets%btrac_const/model%velowk%trc0/scyr  ! keep scyr? 
-    model%velowk%btrac_max = model%paramets%btrac_max/model%velowk%trc0/scyr      ! keep scyr?
-    model%velowk%btrac_slope = model%paramets%btrac_slope*acc0/model%velowk%trc0  ! remove scaling later?
+    model%velowk%btrac_const = model%paramets%btrac_const/model%velowk%trc0/scyr
+    model%velowk%btrac_max = model%paramets%btrac_max/model%velowk%trc0/scyr    
+    model%velowk%btrac_slope = model%paramets%btrac_slope*acc0/model%velowk%trc0
 
     model%paramets%ho_beta_const = model%paramets%ho_beta_const / (tau0/(vel0*scyr))
 
@@ -207,15 +200,14 @@ contains
 
     ! read sigma levels from configuration file, if present
     ! called immediately after glide_readconfig
-    !TODO - Combine with glide_readconfig?
 
     use glide_types
     use glimmer_config
     use glimmer_log
     implicit none
 
-    type(glide_global_type) :: model        !*FD model instance
-    type(ConfigSection), pointer :: config  !*FD structure holding sections of configuration file
+    type(glide_global_type) :: model        ! model instance
+    type(ConfigSection), pointer :: config  ! structure holding sections of configuration file
         
     ! local variables
     type(ConfigSection), pointer :: section
@@ -253,9 +245,9 @@ contains
     implicit none
 
     ! Arguments
-    type(glide_global_type),intent(inout) :: model !*FD Ice model to use
-    integer,               intent(in)    :: unit   !*FD Logical file unit to use. 
-                                                   !*FD (Must not already be in use)
+    type(glide_global_type),intent(inout) :: model ! Ice model to use
+    integer,               intent(in)    :: unit   ! Logical file unit to use. 
+                                                   ! (Must not already be in use)
 
     ! Internal variables
 
@@ -466,7 +458,8 @@ contains
     type(ConfigSection), pointer :: section
     type(glide_global_type)  :: model
 
-!TODO - To handle timesteps both greater and less than one year, we may want to
+!TODO - Make the ice dynamic timestep more flexible.
+!       To handle timesteps both greater and less than one year, we may want to
 !        define ice_dt_option and ice_dt_count in place of the current dt.
 !       For instance, ice_dt_option could be either 'nyears' or 'steps_per_year'.
 !       For timesteps < 1 year, we would use ice_dt_option = 'steps_per_year'.
@@ -484,7 +477,7 @@ contains
     call GetValue(section,'idiag',model%numerics%idiag)
     call GetValue(section,'jdiag',model%numerics%jdiag)
 
-    !WHL - ndiag replaced by dt_diag, but retained (for now) for backward compatibility
+    !WHL - ndiag replaced by dt_diag, but retained for backward compatibility
     call GetValue(section,'ndiag',model%numerics%ndiag)
 
   end subroutine handle_time
@@ -527,7 +520,7 @@ contains
        endif
     endif
 
-    !WHL - ndiag replaced by dt_diag, but retained (for now) for backward compatibility
+    !WHL - ndiag replaced by dt_diag, but retained for backward compatibility
     if (model%numerics%ndiag > 0) then
        write(message,*) 'diag time (steps)   : ',model%numerics%ndiag
        call write_log(message)
@@ -560,7 +553,6 @@ contains
     call GetValue(section,'temperature',model%options%whichtemp)
     call GetValue(section,'temp_init',model%options%temp_init)
     call GetValue(section,'flow_law',model%options%whichflwa)
-    !TODO - Change 'slip_coeff' to 'basal_tract' or something similar?
     call GetValue(section,'slip_coeff',model%options%whichbtrc)
     call GetValue(section,'basal_water',model%options%whichbwat)
     call GetValue(section,'basal_mass_balance',model%options%basal_mbal)
@@ -572,7 +564,7 @@ contains
     call GetValue(section,'periodic_ew',model%options%periodic_ew)
     call GetValue(section,'sigma',model%options%which_sigma)
 
-    !TODO - Not sure if this is still needed
+    !TODO - Not sure if model%funits%ncfile is still needed
     call GetValue(section,'ioparams',model%funits%ncfile)
 
     ! Both terms 'hotstart' and 'restart' are supported in the config file, 
@@ -681,7 +673,7 @@ contains
          'Paterson and Budd (T = -5 C)', &
          'Paterson and Budd           ' /)
 
-    !TODO - Rename to something like which_btrc?
+    !TODO - Rename slip_coeff to something like which_btrc?
     character(len=*), dimension(0:5), parameter :: slip_coeff = (/ &
          'no basal sliding       ', &
          'constant basal traction', &
@@ -1185,8 +1177,7 @@ contains
 
     loglevel = GM_levels-GM_ERROR
 
-    !TODO - Change default_flwa to flwa_constant?
-    !       Would have to change config files too
+    !TODO - Change default_flwa to flwa_constant?  Would have to change config files.
     call GetValue(section,'log_level',loglevel)
     call glimmer_set_msg_level(loglevel)
     call GetValue(section,'ice_limit',        model%numerics%thklim)
@@ -1611,8 +1602,8 @@ contains
 !--------------------------------------------------------------------------------
 
   subroutine define_glide_restart_variables(options)
-    !*FD This subroutine analyzes the glide/glissade options input by the user in the config file
-    !*FD and determines which variables are necessary for an exact restart.  MJH 1/11/2013
+    ! This subroutine analyzes the glide/glissade options input by the user in the config file
+    ! and determines which variables are necessary for an exact restart.  MJH 1/11/2013
 
     ! Please comment thoroughly the reasons why a particular variable needs to be a restart variable for a given config.
     ! Note: this subroutine assumes that any restart variables you add you loadable.  Check glide_vars.def to make sure any variables you add have load: 1
@@ -1625,7 +1616,7 @@ contains
     !------------------------------------------------------------------------------------
     ! Subroutine arguments
     !------------------------------------------------------------------------------------
-    type(glide_options), intent (in) :: options  !*FD Derived type holding all model options
+    type(glide_options), intent (in) :: options  ! Derived type holding all model options
 
     !------------------------------------------------------------------------------------
     ! Internal variables
@@ -1764,7 +1755,7 @@ contains
     ! To do this, this subroutine would have to be moved to after where input files are read,
     ! glide_io_readall(), but before the output files are created, glide_io_createall()
 
-    ! TODO lat is only needed for some climate drivers.  It is not needed for simple_glide.
+    ! TODO lat is only needed for some climate drivers.  It is not needed for cism_driver.
     ! Need to add logic that will add it only when those drivers are used.
 
   end subroutine define_glide_restart_variables

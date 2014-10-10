@@ -269,14 +269,14 @@ data:          data%geometry%iarea
 [iareag]
 dimensions:    time
 units:         km2
-long_name:     area covered by ice 
+long_name:     area covered by grounded ice 
 factor:        len0*len0*1.e-6
 data:          data%geometry%iareag
 
 [iareaf]
 dimensions:    time
 units:         km2
-long_name:     area covered by ice 
+long_name:     area covered by floating ice 
 factor:        len0*len0*1.e-6
 data:          data%geometry%iareaf
 
@@ -520,7 +520,7 @@ long_name:      v component of b in Ax = b
 data:           data%velocity%rhs_v(up,:,:)
 factor:         scale_resid
 
-# used for output of res fields
+# used for output of residual
 #[ures]
 #dimensions:    time, level, y0, x0
 #units:         meter/year
@@ -529,7 +529,7 @@ factor:         scale_resid
 #factor:        scale_uvel
 #standard_name: land_ice_x_velocity_resid
 
-# used for output of res fields
+# used for output of residual
 #[vres]
 #dimensions:    time, level, y0, x0
 #units:         meter/year
@@ -812,5 +812,3 @@ dimensions:    time
 units:         years
 long_name:     diffusive CFL maximum time step
 data:          data%numerics%diff_cfl_dt
-
-

@@ -1,32 +1,31 @@
-!TODO - May want to eliminate calculations of iarea, iareaf, and areag in calc_iareaf_iareag() and glide_set_mask().  
-!       Instead just use the calculations made here.  These should be saved to the model derived type 
-!        (model%geometry%iarea, etc.) for output.
-
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glide_diagnostics.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glide_diagnostics.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+!TODO - Calculations of iarea, iareaf and areag in calc_iareaf_iareag() and glide_set_mask() could be replaced by values computed here.  
+!       These could be saved to the model derived type (model%geometry%iarea, etc.) for output.
 
 module glide_diagnostics
 
@@ -83,11 +82,10 @@ contains
 !      print*, 'ndiag =', model%numerics%ndiag
 !      print*, 'tstep_count =', tstep_count
 
-    !TODO - Make this method more robust (i.e., less prone to accumulated roundoff errors).
-    !       Might want to derive ndiag from dt_diag at initialization.
+    !TODO - Make the write_diag criterion more robust; e.g., derive ndiag from dt_diag at initialization.
     !       Then we would work with integers (tstep_count and ndiag) and avoid roundoff errors.
 
-    if (model%numerics%dt_diag > 0.d0) then                            ! usual case
+    if (model%numerics%dt_diag > 0.d0) then                    ! usual case
 
 !!       if (mod(time,model%numerics%dt_diag)) < eps) then  ! not robust because of roundoff error
 
@@ -177,7 +175,6 @@ contains
  
     use parallel
 
-    !TODO - Remove scaling
     use glimmer_paramets, only: thk0, len0, vel0, tim0
     use glimmer_physcon, only: scyr, rhoi, shci
  

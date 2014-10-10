@@ -1,32 +1,30 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glide_bwater.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glide_bwater.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - Much of this module consists of Jesse's water-routing code,
-!        which is serial only.
-!       Add a subroutine that is supported for parallel code?
+!TODO - Support Jesse's water-routing code (or something similar) in parallel?  Currently serial only.
 
 module glide_bwater
 
@@ -60,12 +58,9 @@ contains
           model%tempwk%c = (/ model%tempwk%dt_wat, 1.0d0 - 0.5d0 * model%tempwk%dt_wat * model%paramets%hydtim, &
                1.0d0 + 0.5d0 * model%tempwk%dt_wat * model%paramets%hydtim, 0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0 /) 
 
-       !TODO - Test this option.
+       !TODO - Test option BWATER_FLUX.  Note: It has not been parallelized.
 
        case(BWATER_FLUX)    ! steady-state routing using flux calculation
-
-         !TODO - Test this option for one-processor runs.
-         !       It has not been parallelized.
 
           allocate(model%tempwk%wphi(model%general%ewn,model%general%nsn))
 
@@ -118,7 +113,6 @@ contains
 
     real(dp),  dimension(:,:), allocatable :: N_capped  ! version of effective pressure capped at 0x and 1x overburden
 
-! TODO: move these declarations into a parameters derived type?
     c_effective_pressure = 0.0d0       ! For now estimated with c/w
     c_flux_to_depth = 1./(1.8d-3*12.0d0)  ! 
     p_flux_to_depth = 2.0d0            ! exponent on the depth
@@ -181,8 +175,6 @@ contains
     ! Steady state routing of basal water using flux calculation
 
     case(BWATER_FLUX)
-
-       !TODO - Test this option
 
        call effective_pressure(bwat,c_effective_pressure,N)
        call pressure_wphi(thck,topg,N,wphi,model%numerics%thklim,floater)
@@ -276,30 +268,30 @@ contains
   ! Note: This routing is supported in serial code only.
 
   subroutine route_basal_water(wphi,melt,dx,dy,flux,lakes)
-    !*FD Routes water from melt field to its destination, recording flux
-    !*FD of water along the route. Water flow direction is determined according
-    !*FD to the gradient of a wphi elevation field. For the algorithm to 
-    !*FD function properly depressions in the wphi surface must be filled.
-    !*FD this results in the lakes field, which is the difference between the
-    !*FD filled surface and the original wphi.
-    !*FD The method used is by Quinn et. al. (1991).
-    !*FD
-    !*FD 12/9/05 Jesse Johnson based on code from the glimmer_routing file
-    !*FD by Ian Rutt.
+    ! Routes water from melt field to its destination, recording flux
+    ! of water along the route. Water flow direction is determined according
+    ! to the gradient of a wphi elevation field. For the algorithm to 
+    ! function properly depressions in the wphi surface must be filled.
+    ! this results in the lakes field, which is the difference between the
+    ! filled surface and the original wphi.
+    ! The method used is by Quinn et. al. (1991).
+    !
+    ! 12/9/05 Jesse Johnson based on code from the glimmer_routing file
+    ! by Ian Rutt.
 
     implicit none
 
-    real(dp),dimension(:,:),intent(in)  :: wphi    !*FD Input potential surface
-    real(dp),dimension(:,:),intent(in)  :: melt    !*FD Input melting field
-    real(dp),               intent(in)  :: dx      !*FD Input $x$ grid-spacing
-    real(dp),               intent(in)  :: dy      !*FD Input $y$ grid-spacing
-    real(dp),dimension(:,:),intent(out) :: flux    !*FD Output flux field
-    real(dp),dimension(:,:),intent(out) :: lakes   !*FD Output lakes field
+    real(dp),dimension(:,:),intent(in)  :: wphi    ! Input potential surface
+    real(dp),dimension(:,:),intent(in)  :: melt    ! Input melting field
+    real(dp),               intent(in)  :: dx      ! Input $x$ grid-spacing
+    real(dp),               intent(in)  :: dy      ! Input $y$ grid-spacing
+    real(dp),dimension(:,:),intent(out) :: flux    ! Output flux field
+    real(dp),dimension(:,:),intent(out) :: lakes   ! Output lakes field
 
     ! Internal variables --------------------------------------
 
     integer :: nx,ny,k,nn,cx,cy,px,py,x,y
-    integer, dimension(:,:),allocatable :: mask    !*FD Masked points
+    integer, dimension(:,:),allocatable :: mask    ! Masked points
     integer, dimension(:,:),allocatable :: sorted
     real(dp),dimension(:,:),allocatable :: flats,potcopy
     real(dp),dimension(-1:1,-1:1) :: slopes
@@ -406,12 +398,12 @@ contains
 
   subroutine flux_to_depth(flux,wphi,c,p,q,dew,dns,bwat)
 
-  !*FD Assuming that the flow is steady state, this function simply solves
-  !*FD              flux = depth * velocity
-  !*FD for the depth, assuming that the velocity is a function of depth,
-  !*FD and pressure potential. This amounts to assuming a Weertman film,
-  !*FD or Manning flow, both of which take the form of a constant times water
-  !*FD depth to a power, times pressure wphi to a power.
+  ! Assuming that the flow is steady state, this function simply solves
+  !              flux = depth * velocity
+  ! for the depth, assuming that the velocity is a function of depth,
+  ! and pressure potential. This amounts to assuming a Weertman film,
+  ! or Manning flow, both of which take the form of a constant times water
+  ! depth to a power, times pressure wphi to a power.
 
     use glam_grid_operators, only: df_field_2d      ! Find grad_wphi
     use glimmer_physcon, only : scyr                ! Seconds per year
@@ -468,10 +460,10 @@ contains
 !==============================================================
 
   subroutine pressure_wphi(thck,topg,N,wphi,thicklim,floater)
-  !*FD Compute the pressure wphi at the base of the ice sheet according to
-  !*FD ice overburden plus bed height minus effective pressure.
-  !*FD
-  !*FD whpi/(rhow*g) = topg + bwat * rhoi / rhow * thick - N / (rhow * g)
+  ! Compute the pressure wphi at the base of the ice sheet according to
+  ! ice overburden plus bed height minus effective pressure.
+  !
+  ! whpi/(rhow*g) = topg + bwat * rhoi / rhow * thick - N / (rhow * g)
 
     use glimmer_physcon, only : rhoi,rhow,grav
     implicit none
@@ -630,17 +622,17 @@ contains
 
     use glimmer_log
 
-    !*FD Performs an index sort of \texttt{array} and returns the result in
-    !*FD \texttt{index}. The order of elements in \texttt{array} is unchanged.
-    !*FD
-    !*FD This is a GPL-licenced replacement for the Numerical Recipes routine indexx. 
-    !*FD It is not derived from any NR code, but are based on a quicksort routine by
-    !*FD Michael Lamont (http://linux.wku.edu/~lamonml/kb.html), originally written
-    !*FD in C, and issued under the GNU General Public License. The conversion to 
-    !*FD Fortran 90, and modification to do an index sort was done by Ian Rutt.
+    ! Performs an index sort of \texttt{array} and returns the result in
+    ! \texttt{index}. The order of elements in \texttt{array} is unchanged.
+    !
+    ! This is a GPL-licenced replacement for the Numerical Recipes routine indexx. 
+    ! It is not derived from any NR code, but are based on a quicksort routine by
+    ! Michael Lamont (http://linux.wku.edu/~lamonml/kb.html), originally written
+    ! in C, and issued under the GNU General Public License. The conversion to 
+    ! Fortran 90, and modification to do an index sort was done by Ian Rutt.
 
-    real(dp),dimension(:) :: array !*FD Array to be indexed.
-    integer, dimension(:) :: index !*FD Index of elements of \texttt{array}.
+    real(dp),dimension(:) :: array ! Array to be indexed.
+    integer, dimension(:) :: index ! Index of elements of \texttt{array}.
     integer :: i
 
     if (size(array) /= size(index)) then
@@ -659,19 +651,19 @@ contains
 
   recursive subroutine q_sort_index(numbers,index,left,right)
 
-    !*FD This is the recursive subroutine actually used by \texttt{indexx}. 
-    !*FD
-    !*FD This is a GPL-licenced replacement for the Numerical Recipes routine indexx. 
-    !*FD It is not derived from any NR code, but are based on a quicksort routine by
-    !*FD Michael Lamont (http://linux.wku.edu/~lamonml/kb.html), originally written
-    !*FD in C, and issued under the GNU General Public License. The conversion to 
-    !*FD Fortran 90, and modification to do an index sort was done by Ian Rutt.
+    ! This is the recursive subroutine actually used by \texttt{indexx}. 
+    !
+    ! This is a GPL-licenced replacement for the Numerical Recipes routine indexx. 
+    ! It is not derived from any NR code, but are based on a quicksort routine by
+    ! Michael Lamont (http://linux.wku.edu/~lamonml/kb.html), originally written
+    ! in C, and issued under the GNU General Public License. The conversion to 
+    ! Fortran 90, and modification to do an index sort was done by Ian Rutt.
 
     implicit none
 
-    real(dp),dimension(:) :: numbers !*FD Numbers being sorted
-    integer, dimension(:) :: index   !*FD Returned index
-    integer :: left, right           !*FD Limit of sort region
+    real(dp),dimension(:) :: numbers ! Numbers being sorted
+    integer, dimension(:) :: index   ! Returned index
+    integer :: left, right           ! Limit of sort region
 
     integer :: ll,rr
     integer :: pv_int,l_hold, r_hold,pivpos

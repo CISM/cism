@@ -1,31 +1,31 @@
-!TODO - Change module name to something more appropriate (glide_marine?)
-!       Make glide_marinlim fully parallel.
-!       Implement a better calving scheme.
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glide_ground.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glide_ground.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+!TODO - Change module name to something more appropriate (glide_marine?)
+!TODO - Make glide_marinlim fully parallel?
 
 #ifdef HAVE_CONFIG_H
 #include "config.inc"
@@ -60,23 +60,23 @@ contains
     ! Subroutine arguments
     !---------------------------------------------------------------------
 
-!TODO: Change mask to thkmask?
+    !TODO: Change mask to thkmask?  The argument passed in is model%geometry%thkmask.
 
-    integer,                intent(in)    :: which   !*FD Calving method option
-    real(dp),dimension(:,:),intent(inout) :: thck    !*FD Ice thickness
-    real(dp),dimension(:,:),intent(in)    :: relx    !*FD Relaxed topography
-    real(dp),dimension(:,:),intent(in)    :: topg    !*FD Present bedrock topography
-    integer, dimension(:,:), intent(in)   :: mask    !*FD grid type mask
-    real(dp), intent(in)                  :: mlimit  !*FD Lower limit on topography elevation for
-                                                     !*FD ice to be present. 
-    real(dp), intent(in) :: calving_fraction         !*FD fraction of ice lost when calving; used with 
-                                                     !*FD $\mathtt{which}=3$.
-    real(dp), intent(in) :: eus                      !*FD eustatic sea level
+    integer,                intent(in)    :: which   ! Calving method option
+    real(dp),dimension(:,:),intent(inout) :: thck    ! Ice thickness
+    real(dp),dimension(:,:),intent(in)    :: relx    ! Relaxed topography
+    real(dp),dimension(:,:),intent(in)    :: topg    ! Present bedrock topography
+    integer, dimension(:,:), intent(in)   :: mask    ! grid type mask
+    real(dp), intent(in)                  :: mlimit  ! Lower limit on topography elevation for
+                                                     ! ice to be present. 
+    real(dp), intent(in) :: calving_fraction         ! fraction of ice lost when calving; used with 
+                                                     ! $\mathtt{which}=3$.
+    real(dp), intent(in) :: eus                      ! eustatic sea level
     real(dp),dimension(:,:),intent(out) :: calving_field ! thickness lost due to calving
     real(dp), intent(in) :: dew,dns
     integer, intent(in) ::  nsn,ewn
 
-    type(glide_grnd), intent(inout) :: ground        !*FD ground instance
+    type(glide_grnd), intent(inout) :: ground        ! ground instance
 
     integer :: ew,ns
     !---------------------------------------------------------------------
@@ -96,8 +96,6 @@ contains
       end where
 
     case(MARINE_FLOAT_FRACTION) ! remove fraction of ice when floating
-
-      ! TODO - Why is the outer row of cells skipped here?
 
       do ns = 2,size(thck,2)-1
         do ew = 2,size(thck,1)-1
@@ -126,14 +124,14 @@ contains
       end where
 
 !WHL - Removed old case (5) based on recommendation from Jesse Johnson
-!      Then changed old case(7) to new case(5) to avoid having a gap in the case numbering.
+!      Then changed old case(7) to new case(5) to avoid a gap in the case numbering.
 
     ! Huybrechts grounding line scheme for Greenland initialization
 
     case(MARINE_HUYBRECHTS)   ! used to be case(7)
 
-      !TODO - This case assumes eus has units of meters, when in fact it is scaled
-      !       Change to eus*thk0?  Also check units of relx.
+      !TODO - MARINE_HUYBRECHTS case assumes eus has units of meters. Change to eus*thk0?  
+      !       Also check units of relx.
       if(eus > -80.d0) then
         where (relx <= 2.d0*eus)
           calving_field = thck
@@ -173,7 +171,7 @@ contains
 
     implicit none
 
-    !JEFF removing pointer attribute integer, dimension(:,:),pointer       :: mask    !*FD grid type mask
+    !JEFF removing pointer attribute integer, dimension(:,:),pointer       :: mask    ! grid type mask
     integer, dimension(:,:)       :: mask                ! grid type mask
     real(dp),dimension(:,:),intent(in) :: stagthk        ! Ice thickness (scaled)
     real(dp),dimension(:,:,:), intent(in) :: velnorm     ! horizontal ice speed
@@ -183,39 +181,37 @@ contains
     real(dp),intent(in)                 :: dew           ! grid spacing  
     integer :: ewn, nsn
 
-    !TODO: get the grounding line flux on the velo grid - right now it seems
-    !to be using both the ice grid and the velo grid.
+    !TODO: get the grounding line flux on the velo grid; currently using both the ice grid and the velo grid.
 
     ewn = size(gline_flux, 1)
     nsn = size(gline_flux, 2)
        
     where (GLIDE_IS_GROUNDING_LINE(mask))
-         gline_flux = stagthk * ((4.0/5.0)* velnorm(1,:,:) + &
-         (ubas**2.0 + vbas**2.0)**(1.0/2.0))  * dew  
+         gline_flux = stagthk * ((4.d0/5.d0)* velnorm(1,:,:) + &
+         (ubas**2.d0 + vbas**2.d0)**(1.d0/2.d0))  * dew  
     end where
 
-    !TODO - Pretty sure this is not needed.  gline_flux is just a diagnostic.
+    !Note: - This update may not be needed.  gline_flux is just a diagnostic.
     call parallel_halo(gline_flux)
 
   end subroutine calc_gline_flux
 
-!TODO - The next few subroutines are associated with case 6, which is not currently supported.
-!       Remove them?
 !-------------------------------------------------------------------------
+  !TODO - The next few subroutines are associated with case 6, which is not supported. Remove them?
 
   !Loops through the mask and does the interpolation for all the grounding lines
 
   subroutine update_ground_line(ground, topg, thck, eus, dew, dns, ewn, nsn, mask)
 
      implicit none
-     type(glide_grnd) :: ground        !*FD ground instance
-     real(dp),dimension(:,:),intent(in)    :: topg    !*FD Present bedrock topography (scaled)
-     real(dp),dimension(:,:),intent(in)    :: thck    !*FD Present thickness (scaled)
-     real(dp),intent(in) :: eus                       !*FD eustatic sea level
+     type(glide_grnd) :: ground        ! ground instance
+     real(dp),dimension(:,:),intent(in)    :: topg    ! Present bedrock topography (scaled)
+     real(dp),dimension(:,:),intent(in)    :: thck    ! Present thickness (scaled)
+     real(dp),intent(in) :: eus                       ! eustatic sea level
      real(dp),intent(in) ::  dew, dns
      integer, intent(in) ::  ewn, nsn
-     !JEFF remove pointer attribute integer, dimension(:,:),pointer :: mask    !*FD grid type mask
-     integer, dimension(:,:) :: mask    !*FD grid type mask
+     !JEFF remove pointer attribute integer, dimension(:,:),pointer :: mask    ! grid type mask
+     integer, dimension(:,:) :: mask    ! grid type mask
      integer ew,ns,jns,jew,j1ns,j1ew
      real(dp) :: xg                        !grounding line
      !this is assuming the grounding line is the last grounded pt on the mask
@@ -262,7 +258,7 @@ contains
      use glide_types
      implicit none
 
-     type(glide_grnd) :: ground        !*FD model instance
+     type(glide_grnd) :: ground        ! model instance
      integer, intent(in) :: ns1 !grounding line in ns direction
      integer, intent(in) :: ew1 !grounding line in ew direction
      integer, intent(in) :: ns2 !grounding line in ns direction
@@ -289,9 +285,9 @@ contains
      use glide_types
      use glimmer_physcon, only : rhoi, rhoo
      real(dp) :: lin_reg_xg
-     real(dp),dimension(:,:),intent(in)    :: topg    !*FD Present bedrock topography (scaled)
-     real(dp),dimension(:,:),intent(in)    :: thck    !*FD Present thickness (scaled)
-     real(dp), intent(in) :: eus                      !*FD eustatic sea level
+     real(dp),dimension(:,:),intent(in)    :: topg    ! Present bedrock topography (scaled)
+     real(dp),dimension(:,:),intent(in)    :: thck    ! Present thickness (scaled)
+     real(dp), intent(in) :: eus                      ! eustatic sea level
      real(dp), intent(in) ::  dew, dns
      integer, intent(in) :: ns !grounding line in ns direction
      integer, intent(in) :: ew !grounding line in ew direction
@@ -327,7 +323,7 @@ contains
 
 !-------------------------------------------------------------------------
 
-!TODO - Is this needed?  Currently not called.
+  !TODO - Remove function get_ground_thck?  Currently not called.
 
 !!  real function get_ground_thck(ground,topg,usrf,dew,dns,ew1,ns1,ew2,ns2)
   function get_ground_thck(ground,topg,usrf,dew,dns,ew1,ns1,ew2,ns2)
@@ -335,9 +331,9 @@ contains
      use glide_types
      implicit none
      real(dp) :: get_ground_thck
-     type(glide_grnd) :: ground        !*FD ground instance
-     real(dp),dimension(:,:),intent(in)    :: topg    !*FD Present bedrock topography (scaled)
-     real(dp),dimension(:,:),intent(in)    :: usrf    !*FD surface height
+     type(glide_grnd) :: ground        ! ground instance
+     real(dp),dimension(:,:),intent(in)    :: topg    ! Present bedrock topography (scaled)
+     real(dp),dimension(:,:),intent(in)    :: usrf    ! surface height
      real(dp), intent(in) ::  dew, dns
      integer ns1,ew1,ns2,ew2,min_ns,min_ew,max_ns,max_ew !grounding line in ns/ew direction
      real(dp) ::  xg                        !grounding line
@@ -381,8 +377,7 @@ contains
   end function get_ground_thck
 
 !-------------------------------------------------------------------------
-
-!TODO - Is this function needed? Currently not called.
+  !TODO -  Remove function get_ground_line?  Currently not called.
 
   !This function returns the correct grounding line using the data given 
   ! the mask reference point.  dir is specifying 'ew' or 'ns', but can be 
@@ -394,7 +389,7 @@ contains
      use glide_types
      implicit none
      real(dp) :: get_ground_line
-     type(glide_grnd) :: ground       !*FD glide ground instance
+     type(glide_grnd) :: ground       ! glide ground instance
      integer ns1,ew1,ns2,ew2,slot_ns,slot_ew !grounding line in ns/ew direction
      real(dp) :: appr_ground !grounding line
      

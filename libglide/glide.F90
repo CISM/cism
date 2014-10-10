@@ -10,27 +10,27 @@
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glide.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glide.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -59,7 +59,6 @@ module glide
   implicit none
 
   integer, private, parameter :: dummyunit=99
-
 
 !WHL - debug
   logical, parameter :: verbose_glide = .false.
@@ -149,7 +148,7 @@ contains
 
     type(glide_global_type), intent(inout) :: model     ! model instance
 
-!TODO - build glimmer_vers file or put this character elsewhere?
+!TODO - Is glimmer_version_char still used?
 !       Old Glide does not include this variable.
     character(len=100), external :: glimmer_version_char
 
@@ -190,8 +189,7 @@ contains
     ! allocate arrays
     call glide_allocarr(model)
 
-!TODO - May be able to eliminate the bed softness parameter 
-!       and set btrc to model%velowo%btrac_const in glide_velo
+!TODO - Eliminate the bed softness parameter and set btrc to model%velowo%btrac_const in glide_velo?
     ! initialise bed softness to uniform parameter
     model%velocity%bed_softness = model%velowk%btrac_const
 
@@ -199,11 +197,6 @@ contains
     !NOTE: This value will be overridden if we read bheatflx from an input file 
     !      (model%options%gthf = 1) or compute it (model%options%gthf = 2)
     model%temper%bheatflx = model%paramets%geot
-
-!WHL - debug
-!    print*, ' '
-!    print*, 'In glide_initialise, geot =:', model%paramets%geot
-!    print*, 'max, min bheatflx (W/m2)=', maxval(model%temper%bheatflx), minval(model%temper%bheatflx)
 
     ! compute sigma levels or load from external file
     ! (if not already read from config file)
@@ -229,13 +222,12 @@ contains
     ! Initialise isostasy first
     call init_isostasy(model)
 
-    !TODO - Should we do anything for default case 0?
     select case(model%options%whichrelaxed)
 
     case(RELAXED_TOPO_INPUT)   ! Supplied topography is relaxed
        model%isostasy%relx = model%geometry%topg
     case(RELAXED_TOPO_COMPUTE) ! Supplied topography is in equilibrium
-                               !TODO - test this case
+                               !TODO - test case RELAXED_TOPO_COMPUTE
        call isos_relaxed(model)
     end select
 
@@ -275,7 +267,7 @@ contains
 
     endif
  
-!TODO - Change names to glide_init_velo, glide_init_thck
+    !TODO - Change subroutine names to glide_init_velo, glide_init_thck
 
     ! initialise velocity calc
     call init_velo(model)
@@ -329,12 +321,6 @@ contains
                         model%climate%eus,    model%geometry%thkmask,  &
                         model%geometry%iarea, model%geometry%ivol)
  
-!TODO Do calc_iareaf_areag, lsrf, and usrf need to be calc'ed here if they are now calc'ed as part of glide_init_state_diagnostic?
-!TODO- Remove this call.
-!!    call calc_iareaf_iareag(model%numerics%dew,model%numerics%dns, &
-!!                            model%geometry%iarea, model%geometry%thkmask, &
-!!                            model%geometry%iareaf, model%geometry%iareag)
-
     ! calculate lower and upper ice surface
     call glide_calclsrf(model%geometry%thck, model%geometry%topg, model%climate%eus,model%geometry%lsrf)
 
@@ -347,7 +333,7 @@ contains
     ! initialise standard glide profiling
     call glide_prof_init(model)
 
-!TODO - Unclear on how this is used - Is it needed for serial code?
+    !TODO - Unclear on how subroutine register_model is used - Is it needed for serial code?
     ! register the newly created model so that it can be finalised in the case
     ! of an error without needing to pass the whole thing around to every
     ! function that might cause an error
@@ -458,7 +444,7 @@ contains
                                 model%geometry%iarea, model%geometry%ivol)
 
 
-!TODO - Remove this call?
+       !TODO - Remove call to calc_iareaf_areag?
        call calc_iareaf_iareag(model%numerics%dew,    model%numerics%dns,     &
                             model%geometry%iarea,  model%geometry%thkmask, &
                             model%geometry%iareaf, model%geometry%iareag)
@@ -467,9 +453,6 @@ contains
     ! ------------------------------------------------------------------------ 
     ! ***Part 2: Calculate geometry related fields
     ! ------------------------------------------------------------------------    
-
-!TODO Update ice/water load here?
-!TODO Calculate isostasy here instead of in tstep_p3?
 
     ! ------------------------------------------------------------------------
     ! calculate upper and lower ice surface
@@ -535,7 +518,7 @@ contains
 
        if (model%options%whichbtrc == BTRC_CONSTANT_BWAT) then
 
-          !TODO - Remove the next two calls, given that bwat should be in restart file for this option.
+          !TODO - I think the next two calls are not needed, given that bwat should be in restart file for this option.
 
           ! Calculate basal melt rate --------------------------------------------------
           ! Note: For the initial state, we won't have values for ubas/vbas (unless they were 
@@ -763,7 +746,6 @@ contains
     model%numerics%time = time  
     model%temper%newtemps = .false.
 
-!TODO - Check this--not in old Glide
     model%thckwk%oldtime = model%numerics%time - (model%numerics%dt * tim0/scyr)
 
     call glide_prof_start(model,model%glide_prof%geomderv)
@@ -776,8 +758,8 @@ contains
 
     call glide_prof_start(model,model%glide_prof%ice_mask1)
 
-!WHL - Modified this subroutine so that ice can accumulate in regions with
-!      a small positive mass balance.
+    !WHL - Modified this subroutine so that ice can accumulate in regions with
+    !      a small positive mass balance.
 
     call glide_thck_index(model%geometry% thck,        &
                           model%climate%  acab,        &
@@ -916,9 +898,7 @@ contains
 
     call glide_prof_start(model,model%glide_prof%ice_mask2)
 
-!TODO - Calculate area and vol separately from glide_set_mask?
-
-!Old glide just passes 'model'
+    !TODO - Calculate area and vol separately from glide_set_mask?
 
     call glide_set_mask(model%numerics,                                &
                         model%geometry%thck,  model%geometry%topg,     &
@@ -933,8 +913,8 @@ contains
     ! depth, depending on value of whichmarn
     ! ------------------------------------------------------------------------ 
 
-!TODO - Are all these arguments needed?
-!       Old glide includes only arguments through model%climate%calving.
+    !TODO - Some arguments for glide_marinlim may not be needed.
+    !       Old glide includes only arguments through model%climate%calving.
 
     call glide_marinlim(model%options%whichmarn, &
                         model%geometry%thck,      &
@@ -952,7 +932,7 @@ contains
                         model%general%ewn)
 
     ! Recalculate the mask following calving
-    ! Note - This call is not in old Glide (but should have been).
+    ! Note - This call to glide_set_mask is not in old Glide, but should have been.
 
  if (.not. oldglide) then   ! recalculate the thickness mask after calving
     call glide_set_mask(model%numerics,                                &
@@ -961,8 +941,6 @@ contains
                         model%climate%eus,    model%geometry%thkmask,  &
                         model%geometry%iarea, model%geometry%ivol)
  endif   ! oldglide = F
-
-!TODO - Is this call needed?  Not in old glide.
 
  if (.not. oldglide) then   ! calculate area of floating and grounded ice
     call calc_iareaf_iareag(model%numerics%dew,    model%numerics%dns,     &
@@ -1039,10 +1017,9 @@ contains
 
     type(glide_global_type), intent(inout) :: model     ! model instance
     
-!TODO - Change no_write to write?  Double negatives (if .not.nw) are confusing.
+    !TODO - Remove no_write argument? It is no longer used.
 
     logical, optional, intent(in) :: no_write
-    logical nw
 
     ! ------------------------------------------------------------------------ 
     ! Calculate isostasy
@@ -1065,13 +1042,13 @@ contains
 
     model%geometry%usrf = max(0.d0,model%geometry%thck + model%geometry%lsrf)
 
-!TODO - Move timecounter to simple_glide/glint driver?
-!CESM Glimmer code has this after the netCDF write.
+    !TODO - Move timecounter to a driver routine?
+    !CESM Glimmer code has this after the netCDF write.
 
     ! increment time counter
     model%numerics%timecounter = model%numerics%timecounter + 1
 
-!TODO - Combine these timeders and vert velo calls into a subroutine?
+    !TODO - Combine these timeders and vert velo calls into a subroutine?
 
     ! For exact restart, compute wgrd here and write it to the restart file.
     ! (This is easier than writing thckwk quantities to the restart file.)
@@ -1088,9 +1065,8 @@ contains
 
  endif  ! oldglide = F
 
-!WHL - Moved netCDF output to simple_glide
-!      Might have to do the same for other drivers
-!!       call glide_io_writeall(model,model)
+ !WHL - Moved netCDF output to simple_glide
+ !!       call glide_io_writeall(model,model)
 
   end subroutine glide_tstep_p3
 

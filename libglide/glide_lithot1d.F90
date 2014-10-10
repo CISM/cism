@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glide_lithot1d.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glide_lithot1d.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -32,8 +32,7 @@
 
 ! module for 1D temperature calculations in the upper lithosphere
 
-!TODO - This is a local calculation and should be parallel-friendly,
-!       but has not yet been tested in parallel.
+!TODO - Test glide_lithot1d in parallel.  It is local and should be parallel-friendly.
 
 module glide_lithot1d
 
@@ -45,7 +44,7 @@ contains
 
     use glide_types
     implicit none
-    type(glide_global_type),intent(inout) :: model       !*FD model instance
+    type(glide_global_type),intent(inout) :: model       ! model instance
 
     ! allocate memory for 1D code
     allocate(model%lithot%rhs(model%lithot%nlayer))
@@ -75,12 +74,12 @@ contains
     use glimmer_utils, only: tridiag
     !use glide_mask
     implicit none
-    type(glide_global_type),intent(inout) :: model       !*FD model instance
+    type(glide_global_type),intent(inout) :: model       ! model instance
 
     integer i,j,k
 
-!TODO - I think these loops can be left as is for parallel code.
-!       Local calculation, so no issues with computing in halo cells.
+    !Note - I think these loops can be left as is for parallel code.
+    !       Local calculation, so no issues with computing in halo cells.
 
     ! loop over grid
     do j=1,model%general%nsn
@@ -122,7 +121,7 @@ contains
   subroutine finalise_lithot1d(model)
     use glide_types
     implicit none
-    type(glide_global_type),intent(inout) :: model       !*FD model instance
+    type(glide_global_type),intent(inout) :: model       ! model instance
 
     deallocate(model%lithot%rhs)
     deallocate(model%lithot%subd)

@@ -1,43 +1,38 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glam_velo.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glam_velo.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 !
-!TODO - Are all these includes needed?
 #ifdef HAVE_CONFIG_H 
 #include "config.inc" 
 #endif
 #include "glide_nan.inc"
 #include "glide_mask.inc"
 
-!TODO - What is this?
+!TODO - What is shapedbg?
 #define shapedbg(x) write(*,*) "x", shape(x)
-
-!WHL - This code used to be part of glissade_velo.F90, which contained calls to both the glam
-!      and glissade velo solvers. I moved the glam part to this module, leaving just the
-!      glissade part in glissade_velo.F90.
 
 module glam_velo
 
@@ -52,7 +47,6 @@ contains
       subroutine glam_velo_driver(model)
 
         ! Glissade higher-order velocity driver
-        !TODO - Determine how much of the following is needed by glam solver only.
 
         use glimmer_global, only : dp
         use glimmer_log
@@ -60,7 +54,7 @@ contains
         use glam_strs2, only: glam_velo_solver, JFNK_velo_solver
 !!sp        use glissade_basal_traction, only: calcbeta
         use glam_grid_operators,  only: glam_geometry_derivs, df_field_2d_staggered
-        use glide_grid_operators, only: stagvarb    !TODO - Is this needed?  Seems redundant with df_field_2d_staggered
+        use glide_grid_operators, only: stagvarb
         use glide_mask
         use glide_stress
 
@@ -78,7 +72,6 @@ contains
         ! Velocity prep; compute geometry info.
         !-------------------------------------------------------------------
 
-
         !TODO - The next chunk of code needs work.  Several calls are repeated.
         !       We should work out which calls are actually needed.
 
@@ -87,7 +80,7 @@ contains
         ! calculate derivatives that may be needed for the velocity solve.
         ! ------------------------------------------------------------------------     
 
-        !HALO TODO - Make sure these geometry derivs are computed everywhere they are needed
+        !TODO - Make sure these geometry derivs are computed everywhere they are needed
         !       (all locally owned velocity points?)
 
 
@@ -141,7 +134,7 @@ contains
         !you are not populating the stag field global halos with bad information that may have been sitting in the 
         !associated non-stag field halos in the case that you forgot to update them. Maybe?
 
-        !TODO - Not sure these are needed.
+        !TODO - Not sure halo updates are needed for dusrfdew, etc.
         !Halo updates required for inputs to glide_stress?
         call staggered_parallel_halo (model%geomderv%dusrfdew)
         call staggered_parallel_halo (model%geomderv%dusrfdns)
@@ -187,9 +180,6 @@ contains
         !-------------------------------------------------------------------
 
         if (model%options%which_ho_nonlinear == HO_NONLIN_PICARD ) then ! Picard (standard solver)
-
-           !TODO - Are all these options still supported?
-           !WHL - Removed periodic_ew, periodic_ns
 
            call t_startf('glam_velo_solver')
            call glam_velo_solver( model%general%ewn,       model%general%nsn,                 &
@@ -244,8 +234,6 @@ contains
 
         else if ( model%options%which_ho_nonlinear == HO_NONLIN_JFNK ) then ! JFNK
 
-           !TODO - Create a JFNK solver that can work with an arbitrary calcF routine
-           !       (e.g., variational as well as Payne-Price)
            ! noxsolve could eventually go here 
            !TODO - Remove model%geometry%stagmask from argument list; just pass in model
            !       (model%geometry%stagmask used to be called geom_mask_stag, which was not part of model derived type)

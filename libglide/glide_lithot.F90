@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glide_lithot.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glide_lithot.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -30,7 +30,8 @@
 
 ! module for temperature calculations in the upper lithosphere
 
-!TODO - Any changes needed for parallel code?
+  !TODO - Test module glide_lithot (1D version) in parallel code.
+  !       3D version probably will not work in parallel
 
 module glide_lithot
 
@@ -46,7 +47,7 @@ contains
     use glide_lithot1d
     use glide_lithot3d
     implicit none
-    type(glide_global_type),intent(inout) :: model       !*FD model instance
+    type(glide_global_type),intent(inout) :: model       ! model instance
 
     ! local variables
     integer k
@@ -78,8 +79,8 @@ contains
     model%lithot%zfactors(:,k) = 0.5*model%lithot%diffu*tim0*model%numerics%dt / &
          (model%lithot%deltaz(k)-model%lithot%deltaz(k-1))**2
 
-    !TODO - Make sure the sign is correct here.
-    !NOTE: Glimmer-CISM convention is that geot is positive down, so geot < 0 for upward geothermal flux
+    !TODO - Make sure the sign is correct for the geothermal flux.
+    !NOTE: CISM convention is that geot is positive down, so geot < 0 for upward geothermal flux
 
     if (model%options%is_restart == RESTART_FALSE) then
        ! set initial temp distribution to thermal gradient
@@ -105,7 +106,7 @@ contains
     use glimmer_log
     use glide_mask
     implicit none
-    type(glide_global_type),intent(inout) :: model       !*FD model instance
+    type(glide_global_type),intent(inout) :: model       ! model instance
 
     integer t
 
@@ -119,15 +120,13 @@ contains
     end if
   end subroutine spinup_lithot
 
-  !TODO - Pretty sure that calc_lithot3d is not parallel.  What about 1d?
-
   subroutine calc_lithot(model)
     use glide_types
     use glimmer_log
     use glide_lithot1d
     use glide_lithot3d
     implicit none
-    type(glide_global_type),intent(inout) :: model       !*FD model instance
+    type(glide_global_type),intent(inout) :: model       ! model instance
 
     if (model%lithot%num_dim==1) then
        call calc_lithot1d(model)
@@ -142,10 +141,10 @@ contains
   end subroutine calc_lithot
 
   subroutine calc_geoth(model)
-    !*FD calculate geothermal heat flux
+    ! calculate geothermal heat flux
     use glide_types
     implicit none
-    type(glide_global_type),intent(inout) :: model       !*FD model instance
+    type(glide_global_type),intent(inout) :: model       ! model instance
 
     real(dp) factor
 
@@ -160,7 +159,7 @@ contains
     use glimmer_log
     use glide_lithot3d
     implicit none
-    type(glide_global_type),intent(inout) :: model       !*FD model instance
+    type(glide_global_type),intent(inout) :: model       ! model instance
 
     deallocate(model%lithot%deltaz)
     deallocate(model%lithot%zfactors)

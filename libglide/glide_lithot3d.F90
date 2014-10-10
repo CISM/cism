@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glide_lithot3d.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glide_lithot3d.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -33,7 +33,7 @@
 ! module for 3D temperature calculations in the upper lithosphere
 ! (serial only)
 
-!TODO - Is this something we want to support in parallel?
+  !TODO - Support a 3D lithosphere calculation in parallel? Not easy to do.
 
 module glide_lithot3d
 
@@ -50,7 +50,7 @@ contains
     use glide_types
     use glimmer_paramets, only: len0,tim0
     implicit none
-    type(glide_global_type),intent(inout) :: model       !*FD model instance
+    type(glide_global_type),intent(inout) :: model       ! model instance
 
     ! local variables
     integer i,j,k,r,icount,jcount,ewn,nsn
@@ -156,7 +156,7 @@ contains
     use glide_stop
     use glimmer_log
     implicit none
-    type(glide_global_type),intent(inout) :: model       !*FD model instance
+    type(glide_global_type),intent(inout) :: model       ! model instance
 
     integer i,j,k,r
     integer iter
@@ -216,7 +216,7 @@ contains
   subroutine finalise_lithot3d(model)
     use glide_types
     implicit none
-    type(glide_global_type),intent(inout) :: model       !*FD model instance
+    type(glide_global_type),intent(inout) :: model       ! model instance
 
     call del_sparse_matrix(model%lithot%fd_coeff)
     call del_sparse_matrix(model%lithot%fd_coeff_slap)

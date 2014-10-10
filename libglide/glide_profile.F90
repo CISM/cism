@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glide_profile.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glide_profile.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -28,8 +28,7 @@
 #include "config.inc"
 #endif
 
-!TODO - We have more than one method of timing different parts of the code.
-!       Should we remove this method?
+  !TODO - Are we still supporting profiling using the glide_profile module?
 
 module glide_profile
 
@@ -46,7 +45,7 @@ contains
     use glide_types
     implicit none
 
-    type(glide_global_type) :: model        !*FD model instance
+    type(glide_global_type) :: model        ! model instance
 
     if (model%profile%profile_unit == 0) then
        call profile_init(model%profile,'glide.profile')
@@ -67,23 +66,23 @@ contains
   end subroutine glide_prof_init
   
   subroutine glide_prof_start(model,profn)
-    !*FD start logging profile
+    ! start logging profile
     use profile
     use glide_types
     implicit none
-    type(glide_global_type) :: model        !*FD model instance
-    integer, intent(in)     :: profn        !*FD profile number
+    type(glide_global_type) :: model        ! model instance
+    integer, intent(in)     :: profn        ! profile number
 
     call profile_start(model%profile,profn)
   end subroutine glide_prof_start
 
   subroutine glide_prof_stop(model,profn)
-    !*FD write message to profile
+    ! write message to profile
     use profile
     use glide_types
     implicit none
-    type(glide_global_type) :: model        !*FD model instance
-    integer, intent(in)     :: profn        !*FD profile number
+    type(glide_global_type) :: model        ! model instance
+    integer, intent(in)     :: profn        ! profile number
     
     !local variables
     character (len=20) :: timestring

@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glide_types.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glide_types.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -30,26 +30,21 @@
 
 module glide_types
 
-  !*FD Holds type definitions for the derived types used by each 
-  !*FD instance of the ice model. Originally, each of these types
-  !*FD was a module containing variables, which were used as containers
-  !*FD for global variables. However, the need to allow for multiple
-  !*FD ice model instances meant that the nested derived types were instituted
-  !*FD instead. However, there is probably one too many levels in this scheme. 
-  !*FD It would be better if the different types here were contained in the 
-  !*FD higher-level instance type (\texttt{glint\_instance}), rather than 
-  !*FD the intermediate model type (\texttt{glide\_global\_type}). 
-  !*FD 
-  !*FD Note that this \emph{is} now where the defaults are defined for these
-  !*FD variables.
+  ! Holds type definitions for the derived types used by each 
+  ! instance of the ice model. Originally, each of these types
+  ! was a module containing variables, which were used as containers
+  ! for global variables. However, the need to allow for multiple
+  ! ice model instances meant that the nested derived types were instituted
+  ! instead. However, there is probably one too many levels in this scheme. 
+  ! It would be better if the different types here were contained in the 
+  ! higher-level instance type (\texttt{glint\_instance}), rather than 
+  ! the intermediate model type (\texttt{glide\_global\_type}). 
+  ! 
+  ! Note that this \emph{is} now where the defaults are defined for these
+  ! variables.
 
-!TODO - Reorganize the types, as suggested above?
-!       The higher-level glint_instance type is defined in glint_type.F90.
-!       The various instances are contained in the highest-level type, glint_params.
-
-!TODO - We might consider cleaning up the glide_global type so that it doesn't
-!        include as many subtypes.  For example, we might be able to remove
-!        replace some work types (tempwk, velowk) with local arrays and parameters.
+!TODO - Clean up the glide_global type so it holds fewer subtypes?
+!       For example, we could replace some work types (tempwk, velowk) with local arrays and parameters.
 
   use glimmer_sparse_type
   use glimmer_global, only: sp, dp
@@ -178,7 +173,6 @@ module glide_types
   integer, parameter :: SIGMA_COMPUTE_EVEN = 3
   integer, parameter :: SIGMA_COMPUTE_PATTYN = 4
 
-  !TODO - Make this a logical variable?
   integer, parameter :: RESTART_FALSE = 0
   integer, parameter :: RESTART_TRUE = 1
 
@@ -260,14 +254,14 @@ module glide_types
 
   type glide_general
 
-    !*FD Holds fundamental parameters of the ice model geometry.
+    ! Holds fundamental parameters of the ice model geometry.
 
-    integer :: ewn = 0  !*FD The number of grid-points in the E-W direction.
-    integer :: nsn = 0  !*FD The number of grid-points in the N-S direction.
-    integer :: upn = 1  !*FD The number of vertical levels in the model.
+    integer :: ewn = 0  ! The number of grid-points in the E-W direction.
+    integer :: nsn = 0  ! The number of grid-points in the N-S direction.
+    integer :: upn = 1  ! The number of vertical levels in the model.
 
-    type(coordsystem_type) :: ice_grid  !*FD coordinate system of the ice grid
-    type(coordsystem_type) :: velo_grid !*FD coordinate system of the velocity grid
+    type(coordsystem_type) :: ice_grid  ! coordinate system of the ice grid
+    type(coordsystem_type) :: velo_grid ! coordinate system of the velocity grid
 
     real(dp), dimension(:),pointer :: x0 => null() !original x0 grid 
     real(dp), dimension(:),pointer :: y0 => null() !original y0 grid
@@ -283,7 +277,7 @@ module glide_types
 
   type glide_options
 
-    !*FD Holds user options controlling the methods used in the ice-model integration.
+    ! Holds user options controlling the methods used in the ice-model integration.
 
     !-----------------------------------------------------------------------
     ! standard options
@@ -292,170 +286,169 @@ module glide_types
     integer :: whichdycore = 2
 
     ! Choice of two Glimmer dycores:
-    !*FD \begin{description} 
-    !*FD \item[0] Glide dycore (SIA, serial (SLAP) only)
-    !*FD \item[1] SEACISM/Glam dycore (1st-order, FDM, serial (SLAP) or parallel (Trilinos))
-    !*FD \item[2] Glissade dycore (1st-order, FEM, serial (SLAP) or parallel (F90 native PCG solver) )
-    !*FD \item[3] FELIX-Albany dycore (1st-order, FEM, using Trilino/Albany, mesh information from Glissade)
-    !*FD \item[4] BISICLES dycore (L1L2, FVM, parallel using Chombo AMR)
-    !*FD \end{description}
+    ! \begin{description} 
+    ! \item[0] Glide dycore (SIA, serial (SLAP) only)
+    ! \item[1] SEACISM/Glam dycore (1st-order, FDM, serial (SLAP) or parallel (Trilinos))
+    ! \item[2] Glissade dycore (1st-order, FEM, serial (SLAP) or parallel (F90 native PCG solver) )
+    ! \item[3] FELIX-Albany dycore (1st-order, FEM, using Trilino/Albany, mesh information from Glissade)
+    ! \item[4] BISICLES dycore (L1L2, FVM, parallel using Chombo AMR)
+    ! \end{description}
 
     integer :: whichevol = 0
 
-    !*FD Thickness evolution method:
-    !*FD \begin{description}
-    !*FD \item[0] Pseudo-diffusion 
-    !*FD \item[1] Alternating direction implicit (ADI)
-    !*FD \item[2] Diffusion (also calculates velocities) 
-    !*FD \item[3] Incremental remapping
-    !*FD \item[4] 1st-order upwind scheme
-    !*FD \item[5] Temperature evolves but thickness does not
-    !*FD \end{description}
+    ! Thickness evolution method:
+    ! \begin{description}
+    ! \item[0] Pseudo-diffusion 
+    ! \item[1] Alternating direction implicit (ADI)
+    ! \item[2] Diffusion (also calculates velocities) 
+    ! \item[3] Incremental remapping
+    ! \item[4] 1st-order upwind scheme
+    ! \item[5] Temperature evolves but thickness does not
+    ! \end{description}
 
     integer :: whichtemp = 1
 
-    !*FD Method of ice temperature calculation:
-    !*FD \begin{description} 
-    !*FD \item[0] Set column to surface air temperature
-    !*FD \item[1] Prognostic temperature solution 
-    !*FD \item[2] Do NOTHING - hold temperatures steady at initial value  
-    !*FD \item[3] Prognostic enthalpy solution
-    !*FD \end{description}
+    ! Method of ice temperature calculation:
+    ! \begin{description} 
+    ! \item[0] Set column to surface air temperature
+    ! \item[1] Prognostic temperature solution 
+    ! \item[2] Do NOTHING - hold temperatures steady at initial value  
+    ! \item[3] Prognostic enthalpy solution
+    ! \end{description}
 
-    !TODO: At some point, change the default to temp_init = 2.
+    !TODO: Change the default to temp_init = 2?
     !      Setting default = 1 for now so that existing config files will get the same results.
 
     integer :: temp_init = 1
 
     ! Temperature initialization:
-    !*FD \begin{description} 
-    !*FD \item[0] Initialize temperature to 0 C
-    !*FD \item[1] Initialize temperature to surface air temperature
-    !*FD \item[2] Initialize temperature with a linear profile in each column
-    !*FD \end{description}
+    ! \begin{description} 
+    ! \item[0] Initialize temperature to 0 C
+    ! \item[1] Initialize temperature to surface air temperature
+    ! \item[2] Initialize temperature with a linear profile in each column
+    ! \end{description}
 
-    !*FD Method for calculating flow factor $A$:
+    ! Method for calculating flow factor $A$:
 
     integer :: whichflwa = 2
 
-    !*FD \begin{description} 
-    !*FD \item[0] Set equal to $1\times 10^{-16}\,\mathrm{yr}^{-1}
-    !*FD \item[1] \emph{Paterson and Budd} relationship, 
-    !*FD with temperature set to $-5^{\circ}\mathrm{C}$ 
-    !*FD \item[2] \emph{Paterson and Budd} relationship 
-    !*FD \,\mathrm{Pa}^{-n}$
-    !*FD \end{description}
+    ! \begin{description} 
+    ! \item[0] Set equal to $1\times 10^{-16}\,\mathrm{yr}^{-1}
+    ! \item[1] \emph{Paterson and Budd} relationship, 
+    ! with temperature set to $-5^{\circ}\mathrm{C}$ 
+    ! \item[2] \emph{Paterson and Budd} relationship 
+    ! \,\mathrm{Pa}^{-n}$
+    ! \end{description}
 
     integer :: whichbtrc = 0
 
-    !*FD Basal slip coefficient:
-    !*FD \begin{description}
-    !*FD \item[0] Set equal to zero everywhere
-    !*FD \item[1] Set to (non--zero) constant
-    !*FD \item[2] Set to (non--zero) constant where basal water is present, otherwise to zero
-    !*FD \item[3] Set to (non--zero) constant where temperature is at pressure melting point of ice, otherwise to zero
-    !*FD \item[4] linear function of basal melt rate
-    !*FD \item[5] \texttt{tanh} function of basal water depth 
-    !*FD \end{description}
+    ! Basal slip coefficient:
+    ! \begin{description}
+    ! \item[0] Set equal to zero everywhere
+    ! \item[1] Set to (non--zero) constant
+    ! \item[2] Set to (non--zero) constant where basal water is present, otherwise to zero
+    ! \item[3] Set to (non--zero) constant where temperature is at pressure melting point of ice, otherwise to zero
+    ! \item[4] linear function of basal melt rate
+    ! \item[5] \texttt{tanh} function of basal water depth 
+    ! \end{description}
 
     integer :: whichbwat = 0
 
-    !*FD Basal water depth: 
-    !*FD \begin{description} 
-    !*FD \item[0] Set to zero everywhere 
-    !*FD \item[1] Compute from local basal water balance 
-    !*FD \item[2] Compute the basal water flux, then find depth via calculation
-    !*FD \item[3] Set to constant (10 m) everywhere, to force T = Tpmp.
-    !*FD \item[4] Calculated from till water content, in the basal processes module
-    !*FD \end{description}
+    ! Basal water depth: 
+    ! \begin{description} 
+    ! \item[0] Set to zero everywhere 
+    ! \item[1] Compute from local basal water balance 
+    ! \item[2] Compute the basal water flux, then find depth via calculation
+    ! \item[3] Set to constant (10 m) everywhere, to force T = Tpmp.
+    ! \item[4] Calculated from till water content, in the basal processes module
+    ! \end{description}
 
     integer :: basal_mbal = 0
 
-    !*FD basal melt rate:
-    !*FD \begin{description}
-    !*FD \item[0] Basal melt rate not included in continuity equation
-    !*FD \item[1] Basal melt rate included in continuity equation
-    !*FD \end{description}
+    ! basal melt rate:
+    ! \begin{description}
+    ! \item[0] Basal melt rate not included in continuity equation
+    ! \item[1] Basal melt rate included in continuity equation
+    ! \end{description}
 
     integer :: gthf = 0
 
-    !*FD geothermal heat flux:
-    !*FD \begin{description}
-    !*FD \item[0] prescribed uniform geothermal heat flux
-    !*FD \item[1] read 2D geothermal flux field from input file (if present)
-    !*FD \item[2] calculate geothermal flux using 3d diffusion
-    !*FD \end{description}
+    ! geothermal heat flux:
+    ! \begin{description}
+    ! \item[0] prescribed uniform geothermal heat flux
+    ! \item[1] read 2D geothermal flux field from input file (if present)
+    ! \item[2] calculate geothermal flux using 3d diffusion
+    ! \end{description}
 
-    !WHL - new isostasy option; replaces model%isos%do_isos
+    ! This replaces model%isos%do_isos
     integer :: isostasy = 0
 
-    !*FD isostasy:
-    !*FD \begin{description}
-    !*FD \item[0] no isostatic adjustment
-    !*FD \item[1] compute isostatic adjustment using lithosphere/asthenosphere model
-    !*FD \end{description}
+    ! isostasy:
+    ! \begin{description}
+    ! \item[0] no isostatic adjustment
+    ! \item[1] compute isostatic adjustment using lithosphere/asthenosphere model
+    ! \end{description}
 
-    !TODO - Should this move from the options to the isostasy section?
-    !TODO - Should the default be = 1?  Nothing happens for case 0.
+    !TODO - Should whichrelaxed move from the options to the isostasy section?
     integer :: whichrelaxed = 0
 
-    !*FD relaxed topography:
-    !*FD \begin{description}
-    !*FD \item[0] get relaxed topo from separate variable (in practice, do nothing)
-    !*FD \item[1] first time slice of input topo is relaxed
-    !*FD \item[2] first time slice of input topo is in isostatic equilibrium
-    !*FD \end{description}
+    ! relaxed topography:
+    ! \begin{description}
+    ! \item[0] get relaxed topo from separate variable (in practice, do nothing)
+    ! \item[1] first time slice of input topo is relaxed
+    ! \item[2] first time slice of input topo is in isostatic equilibrium
+    ! \end{description}
 
     integer :: whichmarn = 1
 
-    !*FD Marine limit: 
-    !*FD \begin{description} 
-    !*FD \item[0] No action 
-    !*FD \item[1] Set thickness to zero if floating 
-    !*FD \item[2] Lose fraction of ice when edge cell
-    !*FD \item[3] Set thickness to zero if relaxed bedrock is more than
-    !*FD          certain water depth (variable "mlimit" in glide_types)  
-    !*FD \item[4] Set thickness to zero if present bedrock is more than
-    !*FD          certain water depth (variable "mlimit" in glide_types)  
-    !*FD \item[5] Huybrechts grounding line scheme for Greenland initialization
-    !*FD \end{description}
+    ! Marine limit: 
+    ! \begin{description} 
+    ! \item[0] No action 
+    ! \item[1] Set thickness to zero if floating 
+    ! \item[2] Lose fraction of ice when edge cell
+    ! \item[3] Set thickness to zero if relaxed bedrock is more than
+    !          certain water depth (variable "mlimit" in glide_types)  
+    ! \item[4] Set thickness to zero if present bedrock is more than
+    !          certain water depth (variable "mlimit" in glide_types)  
+    ! \item[5] Huybrechts grounding line scheme for Greenland initialization
+    ! \end{description}
 
     integer :: whichwvel = 0
 
-    !*FD Vertical velocities: 
-    !*FD \begin{description}
-    !*FD \item[0] Usual vertical integration 
-    !*FD \item[1] Vertical integration constrained so that 
-    !*FD upper kinematic B.C. obeyed 
-    !*FD \end{description}
+    ! Vertical velocities: 
+    ! \begin{description}
+    ! \item[0] Usual vertical integration 
+    ! \item[1] Vertical integration constrained so that 
+    ! upper kinematic B.C. obeyed 
+    ! \end{description}
 
     integer :: which_sigma = 0
 
-    !*FD \begin{description}
-    !*FD \item[0] compute standard Glimmer sigma coordinates
-    !*FD \item[1] sigma coordinates are given in external file
-    !*FD \item[2] sigma coordinates are given in configuration file
-    !*FD \item[3] evenly spaced levels, as required for glam dycore
-    !*FD \item[4] compute Pattyn sigma coordinates
-    !*FD \end{description}
+    ! \begin{description}
+    ! \item[0] compute standard Glimmer sigma coordinates
+    ! \item[1] sigma coordinates are given in external file
+    ! \item[2] sigma coordinates are given in configuration file
+    ! \item[3] evenly spaced levels, as required for glam dycore
+    ! \item[4] compute Pattyn sigma coordinates
+    ! \end{description}
 
     !TODO - Make is_restart a logical variable?
 
     integer :: is_restart = 0
-    !*FD if the run is a restart of a previous run
-    !*FD \begin{description}
-    !*FD \item[0] normal start-up (take init fields from .nc input file OR if absent, use default options)
-    !*FD \item[1] restart model from previous run (do not calc. temp, rate factor, or vel)
-    !*FD \end{description}
+    ! if the run is a restart of a previous run
+    ! \begin{description}
+    ! \item[0] normal start-up (take init fields from .nc input file OR if absent, use default options)
+    ! \item[1] restart model from previous run (do not calc. temp, rate factor, or vel)
+    ! \end{description}
 
     ! This is a Glimmer serial option
     ! The parallel code enforces periodic EW and NS boundary conditions by default
     logical :: periodic_ew = .false.
 
-    !*FD \begin{description}
-    !*FD \item[0] no periodic EW boundary conditions
-    !*FD \item[1] periodic EW boundary conditions
-    !*FD \end{description}
+    ! \begin{description}
+    ! \item[0] no periodic EW boundary conditions
+    ! \item[1] periodic EW boundary conditions
+    ! \end{description}
 
     !-----------------------------------------------------------------------
     ! Higher-order options
@@ -464,157 +457,154 @@ module glide_types
 
     integer :: which_ho_efvs = 2
 
-    !*FD Flag that indicates how effective viscosity is computed
-    !*FD \begin{description}
-    !*FD \item[0] constant value
-    !*FD \item[1] multiple of flow factor
-    !*FD \item[2] compute from effective strain rate
+    ! Flag that indicates how effective viscosity is computed
+    ! \begin{description}
+    ! \item[0] constant value
+    ! \item[1] multiple of flow factor
+    ! \item[2] compute from effective strain rate
 
-    !TODO - Change default to 1 for glissade
+    !TODO - Change default which_ho_disp to 1
     integer :: which_ho_disp = 0
 
-    !*FD Flag that indicates method for computing the dissipation during the temperature calc.
-    !*FD \begin{description}
-    !*FD \item[-1] for no dissipation
-    !*FD \item[0] for 0-order SIA approx
-    !*FD \item[1] for first-order solution (Blatter-Pattyn)
-    !*FD      
-    !*FD \end{description}
+    ! Flag that indicates method for computing the dissipation during the temperature calc.
+    ! \begin{description}
+    ! \item[-1] for no dissipation
+    ! \item[0] for 0-order SIA approx
+    ! \item[1] for first-order solution (Blatter-Pattyn)
+    !      
+    ! \end{description}
 
     integer :: which_ho_babc = 4
 
-    !*FD Flag that describes basal boundary condition for HO dyn core: 
-    !*FD \begin{description}
-    !*FD \item[0] spatially uniform value (low value of 10 Pa/yr by default)
-    !*FD \item[1] simple hard-coded pattern (useful for debugging)
-    !*FD \item[2] treat beta value as a till yield stress (in Pa) using Picard iteration 
-    !*FD \item[3] linear (inverse) function of bwat 
-    !*FD \item[4] very large value for beta to enforce no slip everywhere 
-    !*FD \item[5] beta field passed in from .nc input file as part of standard i/o
-    !*FD \item[6] no slip everywhere (using Dirichlet BC rather than large beta)
-    !*FD \item[7] treat beta value as till yield stress (in Pa) using Newton-type iteration (in development)
-    !*FD \item[8] beta field as prescribed for ISMIP-HOM test C (serial only)
-    !*FD \item[9] power law based using effective pressure
-    !*FD \item[10] Coulomb friction law using effective pressure
-    !*FD \end{description}
+    ! Flag that describes basal boundary condition for HO dyn core: 
+    ! \begin{description}
+    ! \item[0] spatially uniform value (low value of 10 Pa/yr by default)
+    ! \item[1] simple hard-coded pattern (useful for debugging)
+    ! \item[2] treat beta value as a till yield stress (in Pa) using Picard iteration 
+    ! \item[3] linear (inverse) function of bwat 
+    ! \item[4] very large value for beta to enforce no slip everywhere 
+    ! \item[5] beta field passed in from .nc input file as part of standard i/o
+    ! \item[6] no slip everywhere (using Dirichlet BC rather than large beta)
+    ! \item[7] treat beta value as till yield stress (in Pa) using Newton-type iteration (in development)
+    ! \item[8] beta field as prescribed for ISMIP-HOM test C (serial only)
+    ! \item[9] power law based using effective pressure
+    ! \item[10] Coulomb friction law using effective pressure
+    ! \end{description}
 
     integer :: which_ho_nonlinear = 0
-    !*FD Flag that indicates method for solving the nonlinear iteration when solving 
-    !*FD the first-order momentum balance
-    !*FD \item[0] use the standard Picard iteration
-    !*FD \item[1] use Jacobian Free Newton Krylov (JFNK) method
+    ! Flag that indicates method for solving the nonlinear iteration when solving 
+    ! the first-order momentum balance
+    ! \item[0] use the standard Picard iteration
+    ! \item[1] use Jacobian Free Newton Krylov (JFNK) method
 
     integer :: which_ho_resid = 3
-    !*FD Flag that indicates method for computing residual in PP dyn core: 
-    !*FD \begin{description}
-    !*FD \item[0] maxval 
-    !*FD \item[1] maxval ignoring basal velocity 
-    !*FD \item[2] mean value
-    !*FD \item[3] L2 norm of system residual, Ax-b=resid
-    !*FD \begin{description}
+    ! Flag that indicates method for computing residual in PP dyn core: 
+    ! \begin{description}
+    ! \item[0] maxval 
+    ! \item[1] maxval ignoring basal velocity 
+    ! \item[2] mean value
+    ! \item[3] L2 norm of system residual, Ax-b=resid
+    ! \begin{description}
 
     integer :: which_ho_sparse = 0
-    !*FD Flag that indicates method for solving the sparse linear system
-    !*FD that arises from the higher-order solver
-    !*FD \begin{description}
-    !*FD \item[-1] SLAP (serial): Preconditioned conjugate gradient, incomplete Cholesky preconditioner
-    !*FD \item[0]  SLAP (serial): Biconjugate gradient, incomplete LU preconditioner
-    !*FD \item[1]  SLAP (serial): GMRES, incomplete LU preconditioner
-!WHL - Redefined options 2 and 3
-!!    !*FD \item[2] SLAP (serial): Preconditioned conjugate gradient, incomplete Cholesky preconditioner
-!!    !*FD \item[3] Native PCG, structured grid, parallel-enabled
-    !*FD \item[2] Native PCG, parallel-enabled, standard solver
-    !*FD \item[3] Native PCG, parallel-enabled, Chronopoulos-Gear solver
-    !*FD \item[4] standalone interface to Trilinos
-    !*FD \end{description}
+    ! Flag that indicates method for solving the sparse linear system
+    ! that arises from the higher-order solver
+    ! \begin{description}
+    ! \item[-1] SLAP (serial): Preconditioned conjugate gradient, incomplete Cholesky preconditioner
+    ! \item[0]  SLAP (serial): Biconjugate gradient, incomplete LU preconditioner
+    ! \item[1]  SLAP (serial): GMRES, incomplete LU preconditioner
+    ! \item[2] Native PCG, parallel-enabled, standard solver
+    ! \item[3] Native PCG, parallel-enabled, Chronopoulos-Gear solver
+    ! \item[4] standalone interface to Trilinos
+    ! \end{description}
 
     ! parameters to store external dycore options/information -- Doug Ranken 04/20/12
     integer*4 :: external_dycore_type = 0
     integer*4 :: external_dycore_model_index = -1  
-    !*FD Flag to select an external dynamic core.
-    !*FD \begin{description}
-    !*FD \item[0] Do not use an external dynamic core
-    !*FD \item[1] Use the BISICLES external dynamic core
-    !*FD \item[2] Use the ALBANY_FELIX external dynamic core
-    !*FD \end{description}
+    ! Flag to select an external dynamic core.
+    ! \begin{description}
+    ! \item[0] Do not use an external dynamic core
+    ! \item[1] Use the BISICLES external dynamic core
+    ! \item[2] Use the ALBANY_FELIX external dynamic core
+    ! \end{description}
 
     character(fname_length) :: dycore_input_file=''
-    !FD Name of a file containing external dycore settings.
+    ! Name of a file containing external dycore settings.
 
     integer :: which_ho_approx = 2    
-    !*FD Flag that indicates which Stokes approximation to use with the glissade dycore.
-    !*FD Not valid for other dycores 
-    !*FD Compute Blatter-Pattyn HO momentum balance by default.
-    !*FD Note: There are two SIA options:
-    !*FD       Option -1 uses module glissade_velo_sia to compute local SIA velocities, similar to Glide
-    !*FD       Option 0 uses module glissade_velo_higher to compute SIA velocities via an iterative solve
-    !*FD \begin{description}
-    !*FD \item[-1] Shallow-ice approximation, Glide-type calculation (uses glissade_velo_sia)
-    !*FD \item[0]  Shallow-ice approximation, vertical-shear stresses only (uses glissade_velo_higher)
-    !*FD \item[1]  Shallow-shelf approximation, horizontal-plane stresses only (uses glissade_velo_higher)
-    !*FD \item[2]  Blatter-Pattyn approximation with both vertical-shear and horizontal-plane stresses (uses glissade_velo_higher)
-    !*FD \item[3]  Vertically integrated 'L1L2' approximation with vertical-shear and horizontal-plane stresses (uses glissade_velo_higher)
-    !*FD \end{description}
+    ! Flag that indicates which Stokes approximation to use with the glissade dycore.
+    ! Not valid for other dycores 
+    ! Compute Blatter-Pattyn HO momentum balance by default.
+    ! Note: There are two SIA options:
+    !       Option -1 uses module glissade_velo_sia to compute local SIA velocities, similar to Glide
+    !       Option 0 uses module glissade_velo_higher to compute SIA velocities via an iterative solve
+    ! \begin{description}
+    ! \item[-1] Shallow-ice approximation, Glide-type calculation (uses glissade_velo_sia)
+    ! \item[0]  Shallow-ice approximation, vertical-shear stresses only (uses glissade_velo_higher)
+    ! \item[1]  Shallow-shelf approximation, horizontal-plane stresses only (uses glissade_velo_higher)
+    ! \item[2]  Blatter-Pattyn approximation with both vertical-shear and horizontal-plane stresses (uses glissade_velo_higher)
+    ! \item[3]  Vertically integrated 'L1L2' approximation with vertical-shear and horizontal-plane stresses (uses glissade_velo_higher)
+    ! \end{description}
 
     integer :: which_ho_precond = 2    
-    !*FD Flag that indicates which Stokes preconditioner to use in the glissade dycore.
-    !*FD Not valid for other dycores 
-    !*FD \begin{description}
-    !*FD \item[0] No preconditioner
-    !*FD \item[1] Diagonal preconditioner
-    !*FD \item[2] Physics-based shallow-ice preconditioner
-    !*FD \end{description}
+    ! Flag that indicates which Stokes preconditioner to use in the glissade dycore.
+    ! Not valid for other dycores 
+    ! \begin{description}
+    ! \item[0] No preconditioner
+    ! \item[1] Diagonal preconditioner
+    ! \item[2] Physics-based shallow-ice preconditioner
+    ! \end{description}
 
     integer :: which_ho_gradient = 0    
-    !*FD Flag that indicates which gradient operator to use in the glissade dycore.
-    !*FD Not valid for other dycores
-    !*FD TODO: Change the default to 1 after the upstream gradient has been sufficiently tested.
-    !*FD \begin{description}
-    !*FD \item[0] Centered gradient
-    !*FD \item[1] Upstream gradient
+    ! Flag that indicates which gradient operator to use in the glissade dycore.
+    ! Not valid for other dycores
+    ! NOTE: Option 1 may be better for ice evolution because it damps checkerboard noise.
+    ! \begin{description}
+    ! \item[0] Centered gradient
+    ! \item[1] Upstream gradient
 
-    !TODO - Change default to 1 after the next commit. (Answers will change.)
+    !TODO - Change default which_ho_gradient_margin to 1
     integer :: which_ho_gradient_margin = 2
-    !*FD Flag that indicates how to compute the gradient at the ice margin in the glissade dycore.
-    !*FD Not valid for other dycores
-    !*FD \begin{description}
-    !*FD \item[0] Use info from all neighbor cells, ice-covered or ice-free
-    !*FD \item[1] Use info from ice-covered and/or land cells, not ice-free ocean
-    !*FD \item[2] Use info from ice-covered cells only
+    ! Flag that indicates how to compute the gradient at the ice margin in the glissade dycore.
+    ! Not valid for other dycores
+    ! \begin{description}
+    ! \item[0] Use info from all neighbor cells, ice-covered or ice-free
+    ! \item[1] Use info from ice-covered and/or land cells, not ice-free ocean
+    ! \item[2] Use info from ice-covered cells only
 
     integer :: which_ho_assemble_beta = 0
 
-    !*FD Flag that describes how beta terms are assembled in the glissade finite-element calculation
-    !*FD \begin{description}
-    !*FD \item[0] standard finite-element calculation (which effectively smooths beta)
-    !*FD \item[1] apply local beta value at each vertex
+    ! Flag that describes how beta terms are assembled in the glissade finite-element calculation
+    ! \begin{description}
+    ! \item[0] standard finite-element calculation (which effectively smooths beta)
+    ! \item[1] apply local beta value at each vertex
 
     integer :: which_ho_ground = 0    
-    !*FD Flag that indicates how to compute the grounded fraction of each gridcell in the glissade dycore.
-    !*FD Not valid for other dycores
-    !*FD \begin{description}
-    !*FD \item[0] fground = 0 in floating cells (based on flotation condition), else fground = 1 
-    !*FD \item[1] fground = 1 in all cells
-    !*FD \item[2] 0 <= fground <= 1, based on a grounding line parameterization
+    ! Flag that indicates how to compute the grounded fraction of each gridcell in the glissade dycore.
+    ! Not valid for other dycores
+    ! \begin{description}
+    ! \item[0] fground = 0 in floating cells (based on flotation condition), else fground = 1 
+    ! \item[1] fground = 1 in all cells
+    ! \item[2] 0 <= fground <= 1, based on a grounding line parameterization
 
     integer :: glissade_maxiter = 100    
-    !*FD maximum number of nonlinear iterations to be used by the Glissade velocity solver
+    ! maximum number of nonlinear iterations to be used by the Glissade velocity solver
 
     ! The remaining options are not currently supported
 
     !integer :: which_bproc = 0
     !Options for the basal processes code
-    !*FD \begin{description}
-    !*FD \item[0] Disabled
-    !*FD \item[1] Full calculation, with at least 3 nodes to represent the till layer
-    !*FD \item[2] Fast calculation, using Tulaczyk empirical parametrization
-    !*FD \end{description}
+    ! \begin{description}
+    ! \item[0] Disabled
+    ! \item[1] Full calculation, with at least 3 nodes to represent the till layer
+    ! \item[2] Fast calculation, using Tulaczyk empirical parametrization
+    ! \end{description}
 
     !integer :: use_plume = 0   !! Option to be supported in future releases
-    !*FD \begin{description}
-    !*FD \item[0] standard bmlt calculation
-    !*FD \item[1] use plume to calculate bmlt
-    !*FD \end{description}
+    ! \begin{description}
+    ! \item[0] standard bmlt calculation
+    ! \item[1] use plume to calculate bmlt
+    ! \end{description}
 
   end type glide_options
 
@@ -622,36 +612,35 @@ module glide_types
 
   type glide_geometry
 
-    !*FD Holds fields and other information relating to the
-    !*FD geometry of the ice sheet and bedrock.
+    ! Holds fields and other information relating to the
+    ! geometry of the ice sheet and bedrock.
 
     real(dp),dimension(:,:),pointer :: thck => null()
-    !*FD The thickness of the ice, divided by \texttt{thk0}.
+    ! The thickness of the ice, divided by \texttt{thk0}.
 
     real(dp),dimension(:,:),pointer :: usrf => null()
-    !*FD The elevation of the upper ice surface, divided by \texttt{thk0}.
+    ! The elevation of the upper ice surface, divided by \texttt{thk0}.
 
     real(dp),dimension(:,:),pointer :: lsrf => null() 
-    !*FD The elevation of the lower ice surface, divided by \texttt{thk0}.
+    ! The elevation of the lower ice surface, divided by \texttt{thk0}.
 
     real(dp),dimension(:,:),pointer :: topg => null() 
-    !*FD The elevation of the topography, divided by \texttt{thk0}.
+    ! The elevation of the topography, divided by \texttt{thk0}.
 
     real(dp),dimension(:,:),pointer :: f_ground => null() 
-    !*FD The fractional area at each vertex which is grounded 
+    ! The fractional area at each vertex which is grounded 
     !    (computed by glissade dycore only)
 
     real(dp),dimension(:,:,:),pointer :: age => null()
-    !*FD The age of a given ice layer, divided by \texttt{tim0}.
+    ! The age of a given ice layer, divided by \texttt{tim0}.
 
     integer, dimension(:,:),pointer :: thkmask => null()
-    !*FD see glide_mask.f90 for possible values
+    ! see glide_mask.f90 for possible values
 
     integer, dimension(:,:),pointer :: stagmask => null()
-    !*FD see glide_mask.f90 for possible values
+    ! see glide_mask.f90 for possible values
 
-    !TODO
-    !*SFP - consider moving these to their own type at some point?
+    !TODO - Consider moving BISICLES variables to their own type at some point
     !* (DFM ----------------- added for BISICLES interface --------------)
     real(dp),dimension(:,:),pointer :: floating_mask => null()
     !*(DFM) Real-valued mask indicated where ice is grounded or floating
@@ -672,9 +661,9 @@ module glide_types
 
     !WHL - no longer used
 !!    real(dp),dimension(:,:),pointer :: marine_bc_normal => null()
-    !*FD NaN for all points except those that occur on the marine
-    !*FD margin of an ice shelf, in which case contains the angle
-    !*FD of the normal to the ice front. 
+    ! NaN for all points except those that occur on the marine
+    ! margin of an ice shelf, in which case contains the angle
+    ! of the normal to the ice front. 
 
     integer, dimension(:,:),pointer :: thck_index => null()
     ! Set to nonzero integer for ice-covered cells (thck > 0), cells adjacent to ice-covered cells,
@@ -684,18 +673,16 @@ module glide_types
     integer :: totpts = 0       ! total number of points with nonzero thck_index
     logical :: empty = .true.   ! true if totpts = 0
 
-    real(dp) :: ivol, iarea,iareag, iareaf !*FD ice volume and ice area
+    real(dp) :: ivol, iarea,iareag, iareaf ! ice volume and ice area
 
   end type glide_geometry
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  !TODO - Some of these are PBJ variables that can be removed.
-
   type glide_geomderv
 
-    !*FD Holds the horizontal and temporal derivatives of the thickness and
-    !*FD upper surface elevation, as well as the thickness on the staggered grid.
+    ! Holds the horizontal and temporal derivatives of the thickness and
+    ! upper surface elevation, as well as the thickness on the staggered grid.
 
     !*tb* Added a bunch of stuff here to clean up the higher order code that
     !I've been writing.  Might be worth it to add a mechanism to conditionally
@@ -703,10 +690,10 @@ module glide_types
     !the higher-order extensions
 
     !First derivatives on a staggered grid
-    real(dp),dimension(:,:),pointer :: dthckdew => null() !*FD E-W derivative of thickness.
-    real(dp),dimension(:,:),pointer :: dusrfdew => null() !*FD E-W derivative of upper surface elevation.
-    real(dp),dimension(:,:),pointer :: dthckdns => null() !*FD N-S derivative of thickness.
-    real(dp),dimension(:,:),pointer :: dusrfdns => null() !*FD N-S derivative of upper surface elevation.
+    real(dp),dimension(:,:),pointer :: dthckdew => null() ! E-W derivative of thickness.
+    real(dp),dimension(:,:),pointer :: dusrfdew => null() ! E-W derivative of upper surface elevation.
+    real(dp),dimension(:,:),pointer :: dthckdns => null() ! N-S derivative of thickness.
+    real(dp),dimension(:,:),pointer :: dusrfdns => null() ! N-S derivative of upper surface elevation.
     real(dp),dimension(:,:),pointer :: dlsrfdew => null() !*tb* added
     real(dp),dimension(:,:),pointer :: dlsrfdns => null() !*tb* added
 
@@ -719,17 +706,16 @@ module glide_types
     real(dp),dimension(:,:),pointer :: d2thckdns2 => null()
 
     !Time derivatives
-    real(dp),dimension(:,:),pointer :: dthckdtm => null() !*FD Temporal derivative of thickness.
-    real(dp),dimension(:,:),pointer :: dusrfdtm => null() !*FD Temporal derivative of upper surface elevation.
+    real(dp),dimension(:,:),pointer :: dthckdtm => null() ! Temporal derivative of thickness.
+    real(dp),dimension(:,:),pointer :: dusrfdtm => null() ! Temporal derivative of upper surface elevation.
 
-    !TODO - These staggered variables are not derivatives.
-    !       Should they be part of the glide_geometry type instead?
+    !TODO - Move staggered variables from glide_geomderv type to glide_geometry?
 
     !Staggered grid versions of geometry variables
-    real(dp),dimension(:,:),pointer :: stagthck => null() !*FD Thickness averaged onto the staggered grid.
-    real(dp),dimension(:,:),pointer :: stagusrf => null() !*FD Upper surface averaged onto the staggered grid
-    real(dp),dimension(:,:),pointer :: staglsrf => null() !*FD Lower surface averaged onto the staggered grid
-    real(dp),dimension(:,:),pointer :: stagtopg => null() !*FD Bedrock topography averaged onto the staggered grid
+    real(dp),dimension(:,:),pointer :: stagthck => null() ! Thickness averaged onto the staggered grid.
+    real(dp),dimension(:,:),pointer :: stagusrf => null() ! Upper surface averaged onto the staggered grid
+    real(dp),dimension(:,:),pointer :: staglsrf => null() ! Lower surface averaged onto the staggered grid
+    real(dp),dimension(:,:),pointer :: stagtopg => null() ! Bedrock topography averaged onto the staggered grid
 
   end type glide_geomderv
 
@@ -748,50 +734,51 @@ module glide_types
 
   type glide_velocity
 
-    !*FD Holds the velocity fields in 2D and 3D. At least some of these fields
-    real(dp),dimension(:,:,:),pointer :: uvel  => null()   !*FD 3D $x$-velocity.
-    real(dp),dimension(:,:,:),pointer :: vvel  => null()   !*FD 3D $y$-velocity.
+    ! Holds the velocity fields in 2D and 3D. At least some of these fields
+    real(dp),dimension(:,:,:),pointer :: uvel  => null()   ! 3D $x$-velocity.
+    real(dp),dimension(:,:,:),pointer :: vvel  => null()   ! 3D $y$-velocity.
     real(dp),dimension(:,:,:),pointer :: velnorm => null() ! horizontal ice speed
-    real(dp),dimension(:,:,:),pointer :: wvel  => null()   !*FD 3D $z$-velocity.
-    real(dp),dimension(:,:,:),pointer :: wgrd  => null()   !*FD 3D grid vertical velocity.
-    real(dp),dimension(:,:,:),pointer :: wvel_ho  => null()!*FD 3D $z$-velocity.from higher-order dycores
-    real(dp),dimension(:,:)  ,pointer :: uflx  => null()   !*FD 
-    real(dp),dimension(:,:)  ,pointer :: vflx  => null()   !*FD 
-    real(dp),dimension(:,:)  ,pointer :: diffu => null()   !*FD 
+    real(dp),dimension(:,:,:),pointer :: wvel  => null()   ! 3D $z$-velocity.
+    real(dp),dimension(:,:,:),pointer :: wgrd  => null()   ! 3D grid vertical velocity.
+    real(dp),dimension(:,:,:),pointer :: wvel_ho  => null()! 3D $z$-velocity.from higher-order dycores
+    real(dp),dimension(:,:)  ,pointer :: uflx  => null()   ! 
+    real(dp),dimension(:,:)  ,pointer :: vflx  => null()   ! 
+    real(dp),dimension(:,:)  ,pointer :: diffu => null()   ! 
     real(dp),dimension(:,:)  ,pointer :: diffu_x => null() !*sfp* moved from velocity_hom deriv type
     real(dp),dimension(:,:)  ,pointer :: diffu_y => null() 
-    real(dp),dimension(:,:)  ,pointer :: total_diffu => null() !*FD total diffusivity
+    real(dp),dimension(:,:)  ,pointer :: total_diffu => null() ! total diffusivity
 
     !TODO - Remove ubas and vbas? (since basal velocities are included in uvel and vvel)
-    real(dp),dimension(:,:)  ,pointer :: ubas  => null()   !*FD 
+    real(dp),dimension(:,:)  ,pointer :: ubas  => null()   ! 
     real(dp),dimension(:,:)  ,pointer :: ubas_tavg  => null()
-    real(dp),dimension(:,:)  ,pointer :: vbas  => null()   !*FD 
+    real(dp),dimension(:,:)  ,pointer :: vbas  => null()   ! 
     real(dp),dimension(:,:)  ,pointer :: vbas_tavg  => null() 
 
     !! next 3 used for output of residual fields (when relevant code in glam_strs2 is active)
-!    real(dp),dimension(:,:,:),pointer :: ures => null() !*FD 3D $x$-residual.
-!    real(dp),dimension(:,:,:),pointer :: vres  => null() !*FD 3D $y$-residual.
-!    real(dp),dimension(:,:,:),pointer :: magres  => null() !*FD 3D $magnitude$-residual.
+!    real(dp),dimension(:,:,:),pointer :: ures => null() ! 3D $x$-residual.
+!    real(dp),dimension(:,:,:),pointer :: vres  => null() ! 3D $y$-residual.
+!    real(dp),dimension(:,:,:),pointer :: magres  => null() ! 3D $magnitude$-residual.
 
-    !! WHL - next 2 used for output of uvel, vvel on ice grid 
+    !TODO - Change '_icegrid' suffix to something less confusing?
+    !! WHL - next 2 used for output of uvel, vvel on a staggered grid that is the same size as the unstaggered grid
     !! (e.g., for problems with periodic BC, where the number of velocity points is
     !!  equal to the number of grid cells)
-    real(dp),dimension(:,:,:),pointer :: uvel_icegrid => null() !*FD 3D $x$-velocity
-    real(dp),dimension(:,:,:),pointer :: vvel_icegrid => null() !*FD 3D $x$-velocity
+    real(dp),dimension(:,:,:),pointer :: uvel_icegrid => null() ! 3D $x$-velocity
+    real(dp),dimension(:,:,:),pointer :: vvel_icegrid => null() ! 3D $x$-velocity
 
-    real(dp),dimension(:,:)  ,pointer :: bed_softness => null() !*FD bed softness parameter
-    real(dp),dimension(:,:)  ,pointer :: btrc  => null()        !*FD  basal traction (scaler field)
-    real(dp),dimension(:,:,:),pointer :: btraction => null()    !*FD x(1,:,:) and y(2,:,:) "consistent" basal traction fields 
-    real(dp),dimension(:,:)  ,pointer :: beta  => null()        !*FD basal shear coefficient on velo grid (Pa yr/m by default)
-    real(dp),dimension(:,:)  ,pointer :: unstagbeta  => null()  !*FD basal shear coefficient on ice grid (Pa yr/m by default)
-    real(dp),dimension(:,:)  ,pointer :: tau_x => null()        !*FD SIA basal shear stress, x-dir
-    real(dp),dimension(:,:)  ,pointer :: tau_y => null()        !*FD SIA basal shear stress, y-dir
+    real(dp),dimension(:,:)  ,pointer :: bed_softness => null() ! bed softness parameter
+    real(dp),dimension(:,:)  ,pointer :: btrc  => null()        !  basal traction (scaler field)
+    real(dp),dimension(:,:,:),pointer :: btraction => null()    ! x(1,:,:) and y(2,:,:) "consistent" basal traction fields 
+    real(dp),dimension(:,:)  ,pointer :: beta  => null()        ! basal shear coefficient on velo grid (Pa yr/m by default)
+    real(dp),dimension(:,:)  ,pointer :: unstagbeta  => null()  ! basal shear coefficient on ice grid (Pa yr/m by default)
+    real(dp),dimension(:,:)  ,pointer :: tau_x => null()        ! SIA basal shear stress, x-dir
+    real(dp),dimension(:,:)  ,pointer :: tau_y => null()        ! SIA basal shear stress, y-dir
 
-    !*FD A mask similar to glide_geometry%thck_index, but on the velocity grid instead of the
-    !*FD ice grid.  This is to aid in converging higher-order velocities
+    ! A mask similar to glide_geometry%thck_index, but on the velocity grid instead of the
+    ! ice grid.  This is to aid in converging higher-order velocities
 !!    integer, dimension(:,:), pointer    :: velmask => null()    ! No longer used
 
-    !*FD A mask that specifies where the velocity being read in should be held constant as a dirichlet condition
+    ! A mask that specifies where the velocity being read in should be held constant as a dirichlet condition
     integer, dimension(:,:), pointer    :: kinbcmask => null()    
 
     !*sfp* mask on vel grid showing which dyn bc is applied at each grid cell (mainly for debugging)
@@ -814,32 +801,30 @@ module glide_types
     type(glide_tensor) :: tau    ! HO only
     real(dp),dimension(:,:,:),pointer :: efvs => null()
 !*sfp* neither of the next two are currently used anywhere in the code (moved here from velocity_hom)
-!    real(dp),dimension(:,:,:)  ,pointer :: gdsx => null() !*FD basal shear stress, x-dir
-!    real(dp),dimension(:,:,:)  ,pointer :: gdsy => null() !*FD basal shear stress, y-dir
+!    real(dp),dimension(:,:,:)  ,pointer :: gdsx => null() ! basal shear stress, x-dir
+!    real(dp),dimension(:,:,:)  ,pointer :: gdsy => null() ! basal shear stress, y-dir
 
   end type glide_stress_t      
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - Should calving and eus be part of some other type?
-!      Commented out slidconst, used by unsupported Huybrechts basal traction option
+!TODO - Should calving and eus be part of some type other than glide_climate?
 
-!TODO - Here, acab has units of m/y ice, whereas in Glint, acab has units of m/y water equiv.
-!       Consider renaming acab here to avoid confusion (e.g., acab_ice?)
+!TODO - Rename acab in glide_climate type to avoid confusion over units? (e.g., acab_ice?)
+!       Here, acab has units of m/y ice, whereas in Glint, acab has units of m/y water equiv.
 
   type glide_climate
-     !*FD Holds fields used to drive the model
-     real(dp),dimension(:,:),pointer :: acab      => null() !*FD Annual mass balance (m/y ice)
-     real(dp),dimension(:,:),pointer :: acab_tavg => null() !*FD Annual mass balance (time average).
-     real(dp),dimension(:,:),pointer :: artm      => null() !*FD Annual mean air temperature (degC)
-     real(dp),dimension(:,:),pointer :: calving   => null() !*FD Calving flux 
+     ! Holds fields used to drive the model
+     real(dp),dimension(:,:),pointer :: acab      => null() ! Annual mass balance (m/y ice)
+     real(dp),dimension(:,:),pointer :: acab_tavg => null() ! Annual mass balance (time average).
+     real(dp),dimension(:,:),pointer :: artm      => null() ! Annual mean air temperature (degC)
+     real(dp),dimension(:,:),pointer :: calving   => null() ! Calving flux 
                                                             !    (scaled as mass balance, thickness, etc)
 
      !TODO - lati and loni are not currently used.  Are they needed?
-     real(dp),dimension(:,:),pointer :: lati     => null() !*FD Latitudes of model grid points 
-     real(dp),dimension(:,:),pointer :: loni     => null() !*FD Longitudes of model grid points
-     real(dp) :: eus = 0.d0                                 !*FD eustatic sea level
-!!     real(dp) :: slidconst = 0.d0     ! not currently used
+     real(dp),dimension(:,:),pointer :: lati     => null() ! Latitudes of model grid points 
+     real(dp),dimension(:,:),pointer :: loni     => null() ! Longitudes of model grid points
+     real(dp) :: eus = 0.d0                                ! eustatic sea level
   end type glide_climate
 
 
@@ -856,30 +841,29 @@ module glide_types
      !
 
      integer :: eismint_type = 0
-     !*FD select EISMINT experiment
-     !*FD \begin{description}
-     !*FD \item[{\bf 1}] EISMINT-1 fixed margin
-     !*FD \item[{\bf 2}] EISMINT-1 moving margin
-     !*FD \item[{\bf 3}] EISMINT-2
-     !*FD \item[{\bf 4}] MISMIP-1 (not EISMINT but has similar climate parameters)
-     !*FD \item[{\bf 5}] Exact verification (not EISMINT but has similar climate parameters)
-     !*FD \end{description}
+     ! select EISMINT experiment
+     ! \begin{description}
+     ! \item[{\bf 1}] EISMINT-1 fixed margin
+     ! \item[{\bf 2}] EISMINT-1 moving margin
+     ! \item[{\bf 3}] EISMINT-2
+     ! \item[{\bf 4}] MISMIP-1 (not EISMINT but has similar climate parameters)
+     ! \item[{\bf 5}] Exact verification (not EISMINT but has similar climate parameters)
+     ! \end{description}
 
-     ! Note: The initial nmsb values in the declarations below are appropriate
+     ! NOTE: The initial nmsb values in the declarations below are appropriate
      !       for EISMINT-2, but the initial airt values are not.
-     ! TODO: Change default airt to be consistent with EISMINT-2, while allowing for
-     !       correct EISMINT-1 values to be filled in below.
+     ! TODO: Change default airt values in eismint_type to be consistent with EISMINT-2?
 
-     !*FD air temperature parameterisation K, K km$^{-3}$
+     ! air temperature parameterisation K, K km$^{-3}$
      real(dp), dimension(2) :: airt = (/ -3.15d0, 1.d-2 /)  
 
-     !*FD mass balance parameterisation:
+     ! mass balance parameterisation:
      real(dp), dimension(3) :: nmsb = (/ 0.5d0, 1.05d-5, 450.0d3 /)
 
-     !*FD EISMINT time-dep climate forcing period, switched off when set to 0
+     ! EISMINT time-dep climate forcing period, switched off when set to 0
      real(dp) :: period = 0.d0
 
-     !*FD EISMINT amplitude of mass balance time-dep climate forcing
+     ! EISMINT amplitude of mass balance time-dep climate forcing
      real(dp) :: mb_amplitude = 0.2d0
 
   end type eismint_climate_type
@@ -889,7 +873,7 @@ module glide_types
 
   type glide_temper
 
-    !*FD Holds fields relating to temperature.
+    ! Holds fields relating to temperature.
 
     !Note: In the glide dycore, temp and flwa live on the unstaggered vertical grid
     !       at layer interfaces and have vertical dimension (1:upn).
@@ -906,31 +890,31 @@ module glide_types
     !
     !TODO: Create separate fields for basal melt beneath grounded and floating ice.
 
-    real(dp),dimension(:,:,:),pointer :: temp => null()      !*FD 3D temperature field.
-    real(dp),dimension(:,:),  pointer :: bheatflx => null()  !*FD basal heat flux (W/m^2) (geothermal, positive down)
-    real(dp),dimension(:,:,:),pointer :: flwa => null()      !*FD Glen's flow factor $A$.
-    real(dp),dimension(:,:),  pointer :: bwat => null()      !*FD Basal water depth
-    real(dp),dimension(:,:),  pointer :: bwatflx => null()   !*FD Basal water flux 
-    real(dp),dimension(:,:),  pointer :: stagbwat => null()  !*FD Basal water depth on velo grid
-    real(dp),dimension(:,:),  pointer :: bmlt => null()      !*FD Basal melt-rate (> 0 for melt, < 0 for freeze-on)
-    real(dp),dimension(:,:),  pointer :: bmlt_tavg => null() !*FD Basal melt-rate
-    real(dp),dimension(:,:),  pointer :: stagbtemp => null() !*FD Basal temperature on velo grid
-    real(dp),dimension(:,:),  pointer :: bpmp => null()      !*FD Basal pressure melting point
-    real(dp),dimension(:,:),  pointer :: stagbpmp => null()  !*FD Basal pressure melting point on velo grid
-    real(dp),dimension(:,:),  pointer :: bfricflx => null()  !*FD basal heat flux (W/m^2) from friction (>= 0)
-    real(dp),dimension(:,:),  pointer :: ucondflx => null()  !*FD conductive heat flux (W/m^2) at upper sfc (positive down)
-    real(dp),dimension(:,:),  pointer :: lcondflx => null()  !*FD conductive heat flux (W/m^2) at lower sfc (positive down)
-    real(dp),dimension(:,:),  pointer :: dissipcol => null() !*FD total heat dissipation in column (>= 0)
+    real(dp),dimension(:,:,:),pointer :: temp => null()      ! 3D temperature field.
+    real(dp),dimension(:,:),  pointer :: bheatflx => null()  ! basal heat flux (W/m^2) (geothermal, positive down)
+    real(dp),dimension(:,:,:),pointer :: flwa => null()      ! Glen's flow factor $A$.
+    real(dp),dimension(:,:),  pointer :: bwat => null()      ! Basal water depth
+    real(dp),dimension(:,:),  pointer :: bwatflx => null()   ! Basal water flux 
+    real(dp),dimension(:,:),  pointer :: stagbwat => null()  ! Basal water depth on velo grid
+    real(dp),dimension(:,:),  pointer :: bmlt => null()      ! Basal melt-rate (> 0 for melt, < 0 for freeze-on)
+    real(dp),dimension(:,:),  pointer :: bmlt_tavg => null() ! Basal melt-rate
+    real(dp),dimension(:,:),  pointer :: stagbtemp => null() ! Basal temperature on velo grid
+    real(dp),dimension(:,:),  pointer :: bpmp => null()      ! Basal pressure melting point
+    real(dp),dimension(:,:),  pointer :: stagbpmp => null()  ! Basal pressure melting point on velo grid
+    real(dp),dimension(:,:),  pointer :: bfricflx => null()  ! basal heat flux (W/m^2) from friction (>= 0)
+    real(dp),dimension(:,:),  pointer :: ucondflx => null()  ! conductive heat flux (W/m^2) at upper sfc (positive down)
+    real(dp),dimension(:,:),  pointer :: lcondflx => null()  ! conductive heat flux (W/m^2) at lower sfc (positive down)
+    real(dp),dimension(:,:),  pointer :: dissipcol => null() ! total heat dissipation in column (>= 0)
 
     ! for enthalpy scheme under construction
-    real(dp),dimension(:,:,:),pointer :: waterfrac => null() !*FD fractional water content in layer (0 <= waterfrac <= 1)
+    real(dp),dimension(:,:,:),pointer :: waterfrac => null() ! fractional water content in layer (0 <= waterfrac <= 1)
     
     integer  :: niter   = 0   
     real(dp) :: perturb = 0.d0
     real(dp) :: grid    = 0.d0 
-    integer  :: tpt     = 0      !*FD Pointer to time series data
-    logical  :: first1  = .true. !*FD
-    logical  :: newtemps = .false. !*FD new temperatures
+    integer  :: tpt     = 0      ! Pointer to time series data
+    logical  :: first1  = .true. !
+    logical  :: newtemps = .false. ! new temperatures
   end type glide_temper
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -953,12 +937,12 @@ module glide_types
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   type glide_lithot_type
-     !*FD holds variables for temperature calculations in the lithosphere
+     ! holds variables for temperature calculations in the lithosphere
 
-     real(dp),dimension(:,:,:),pointer :: temp => null()    !*FD Three-dimensional temperature field.
-     logical, dimension(:,:), pointer :: mask => null()     !*FD whether the point has been ice covered at some time
+     real(dp),dimension(:,:,:),pointer :: temp => null()    ! Three-dimensional temperature field.
+     logical, dimension(:,:), pointer :: mask => null()     ! whether the point has been ice covered at some time
 
-     integer :: num_dim = 1                                 !*FD either 1 or 3 for 1D/3D calculations
+     integer :: num_dim = 1                                 ! either 1 or 3 for 1D/3D calculations
 
      ! The sparse matrix and linearised arrays
      type(sparse_matrix_type) :: fd_coeff, fd_coeff_slap
@@ -972,58 +956,55 @@ module glide_types
      integer, dimension(:), pointer :: iwork
      integer mxnelt
 
-     real(dp), dimension(:), pointer :: deltaz => null()    !*FD array holding grid spacing in z
-     real(dp), dimension(:,:), pointer :: zfactors => null()!*FD array holding factors for finite differences of vertical diffu
-     real(dp) :: xfactor,yfactor !*FD factors for finite differences of horizontal diffu
+     real(dp), dimension(:), pointer :: deltaz => null()    ! array holding grid spacing in z
+     real(dp), dimension(:,:), pointer :: zfactors => null()! array holding factors for finite differences of vertical diffu
+     real(dp) :: xfactor,yfactor ! factors for finite differences of horizontal diffu
 
 
-     real(dp) :: surft = 2.d0          !*FD surface temperature, used for calculating initial temperature distribution
-     real(dp) :: mart  = 2.d0          !*FD sea floor temperature 
-     integer  :: nlayer = 20           !*FD number of layers in lithosphere
-     real(dp) :: rock_base = -5000.d0  !*FD depth below sea-level at which geothermal heat gradient is applied
+     real(dp) :: surft = 2.d0          ! surface temperature, used for calculating initial temperature distribution
+     real(dp) :: mart  = 2.d0          ! sea floor temperature 
+     integer  :: nlayer = 20           ! number of layers in lithosphere
+     real(dp) :: rock_base = -5000.d0  ! depth below sea-level at which geothermal heat gradient is applied
      
-     integer :: numt = 0        !*FD number time steps for spinning up GTHF calculations
+     integer :: numt = 0        ! number time steps for spinning up GTHF calculations
 
-     real(dp) :: rho_r = 3300.0d0 !*FD The density of lithosphere (kg m$^{-3}$)
-     real(dp) :: shc_r = 1000.0d0 !*FD specific heat capcity of lithosphere (J kg$^{-1}$ K$^{-1}$)
-     real(dp) :: con_r = 3.3d0    !*FD thermal conductivity of lithosphere (W m$^{-1}$ K$^{-1}$)
+     real(dp) :: rho_r = 3300.0d0 ! The density of lithosphere (kg m$^{-3}$)
+     real(dp) :: shc_r = 1000.0d0 ! specific heat capcity of lithosphere (J kg$^{-1}$ K$^{-1}$)
+     real(dp) :: con_r = 3.3d0    ! thermal conductivity of lithosphere (W m$^{-1}$ K$^{-1}$)
 
-     real(dp) :: diffu = 0. !*FD diffusion coefficient
+     real(dp) :: diffu = 0. ! diffusion coefficient
 
   end type glide_lithot_type
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   type isos_elastic
-     !*FD Holds data used by isostatic adjustment calculations
+     ! Holds data used by isostatic adjustment calculations
 
-     real(dp) :: d = 0.24d25                !*FD flexural rigidity  !TODO - Units?
-     real(dp) :: lr                         !*FD radius of relative stiffness
-     real(dp) :: a                          !*FD radius of disk
-     real(dp) :: c1,c2,cd3,cd4              !*FD coefficients
-     real(dp), dimension(:,:), pointer :: w !*FD matrix operator for lithosphere deformation
-     integer :: wsize                       !*FD size of operator (0:rbel_wsize, 0:rbel_wsize), operator is axis symmetric
+     real(dp) :: d = 0.24d25                ! flexural rigidity  !TODO - What are units of d?
+     real(dp) :: lr                         ! radius of relative stiffness
+     real(dp) :: a                          ! radius of disk
+     real(dp) :: c1,c2,cd3,cd4              ! coefficients
+     real(dp), dimension(:,:), pointer :: w ! matrix operator for lithosphere deformation
+     integer :: wsize                       ! size of operator (0:rbel_wsize, 0:rbel_wsize), operator is axis symmetric
   end type isos_elastic
 
   type isostasy_type
-     !*FD contains isostasy configuration
-
-     ! do_isos has been replaced by model%options%isostasy
-!!     logical :: do_isos = .false.    ! set to .true. if isostatic adjustment should be handled
+     ! contains isostasy configuration
 
      integer :: lithosphere = 0
-     !*FD method for calculating equilibrium bedrock depression
-     !*FD \begin{description}
-     !*FD \item[0] local lithosphere, equilibrium bedrock depression is found using Archimedes' principle
-     !*FD \item[1] elastic lithosphere, flexural rigidity is taken into account
-     !*FD \end{description}
+     ! method for calculating equilibrium bedrock depression
+     ! \begin{description}
+     ! \item[0] local lithosphere, equilibrium bedrock depression is found using Archimedes' principle
+     ! \item[1] elastic lithosphere, flexural rigidity is taken into account
+     ! \end{description}
 
      integer :: asthenosphere = 0
-     !*FD method for approximating the mantle
-     !*FD \begin{description}
-     !*FD \item[0] fluid mantle, isostatic adjustment happens instantaneously
-     !*FD \item[1] relaxing mantle, mantle is approximated by a half-space
-     !*FD \end{description}
+     ! method for approximating the mantle
+     ! \begin{description}
+     ! \item[0] fluid mantle, isostatic adjustment happens instantaneously
+     ! \item[1] relaxing mantle, mantle is approximated by a half-space
+     ! \end{description}
 
      real(dp) :: relaxed_tau = 4000.d0    ! characteristic time constant of relaxing mantle (yr)
      real(dp) :: period = 500.d0          ! lithosphere update period (yr)
@@ -1040,11 +1021,11 @@ module glide_types
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   type glide_funits
-    character(fname_length) :: sigfile=''                      !*FD sigma coordinates file
-    character(fname_length) :: ncfile=''                       !*FD configuration file for netCDF I/O
-    type(glimmer_nc_output),pointer :: out_first=>NULL()       !*FD first element of linked list defining netCDF outputs
-    type(glimmer_nc_input), pointer :: in_first=>NULL()        !*FD first element of linked list defining netCDF inputs
-    type(glimmer_nc_input), pointer :: frc_first=>NULL()       !*FD first element of linked list defining netCDF forcings
+    character(fname_length) :: sigfile=''                      ! sigma coordinates file
+    character(fname_length) :: ncfile=''                       ! configuration file for netCDF I/O
+    type(glimmer_nc_output),pointer :: out_first=>NULL()       ! first element of linked list defining netCDF outputs
+    type(glimmer_nc_input), pointer :: in_first=>NULL()        ! first element of linked list defining netCDF inputs
+    type(glimmer_nc_input), pointer :: frc_first=>NULL()       ! first element of linked list defining netCDF forcings
     ! Note: forcing files are of the same type as input files since they share a lot in common.
   end type glide_funits
 
@@ -1052,15 +1033,15 @@ module glide_types
 
   type glide_numerics
 
-    !*FD Parameters relating to the model numerics
-    real(dp) :: tstart =     0.d0 !*FD starting time
-    real(dp) :: tend   =  1000.d0 !*FD end time
-    real(dp) :: time   =     0.d0 !*FD main loop counter in years
-    real(dp) :: tinc   =     1.d0 !*FD time step of main loop in years 
-    real(dp) :: ntem   =     1.d0 !*FD temperature time step (multiplier of main time step)
-    real(dp) :: nvel   =     1.d0 !*FD velocity time step (multiplier of main time step)
-    real(dp) :: alpha  =    0.5d0 !*FD richard suggests 1.5 - was a parameter in original
-    real(dp) :: alphas =    0.5d0 !*FD was a parameter in the original
+    ! Parameters relating to the model numerics
+    real(dp) :: tstart =     0.d0 ! starting time
+    real(dp) :: tend   =  1000.d0 ! end time
+    real(dp) :: time   =     0.d0 ! main loop counter in years
+    real(dp) :: tinc   =     1.d0 ! time step of main loop in years 
+    real(dp) :: ntem   =     1.d0 ! temperature time step (multiplier of main time step)
+    real(dp) :: nvel   =     1.d0 ! velocity time step (multiplier of main time step)
+    real(dp) :: alpha  =    0.5d0 ! richard suggests 1.5 - was a parameter in original
+    real(dp) :: alphas =    0.5d0 ! was a parameter in the original
     real(dp) :: thklim =   100.d0 ! min thickness for computing ice dynamics (m) 
     real(dp) :: thklim_temp =   1.d0 ! min thickness for computing vertical temperature (m) (higher-order only)
     real(dp) :: mlimit =  -200.d0
@@ -1075,14 +1056,14 @@ module glide_types
     real(dp) :: periodic_offset_ns = 0.d0 ! These may be needed to ensure continuous ice geometry at
                                           !  the edges of the global domain.
 
-    integer  :: timecounter = 0   !*FD count time steps
+    integer  :: timecounter = 0   ! count time steps
     
     ! Vertical coordinate ---------------------------------------------------
                                                                
-    real(dp),dimension(:),pointer :: sigma => null() !*FD Sigma values for vertical spacing of 
-                                                     !*FD model levels
-    real(dp),dimension(:),pointer :: stagsigma => null() !*FD Staggered values of sigma (layer midpts)
-    real(dp),dimension(:),pointer :: stagwbndsigma => null() !*FD Staggered values of sigma (layer midpts) with boundaries
+    real(dp),dimension(:),pointer :: sigma => null() ! Sigma values for vertical spacing of 
+                                                     ! model levels
+    real(dp),dimension(:),pointer :: stagsigma => null() ! Staggered values of sigma (layer midpts)
+    real(dp),dimension(:),pointer :: stagwbndsigma => null() ! Staggered values of sigma (layer midpts) with boundaries
 
     integer :: profile_period = 100            ! profile frequency
 
@@ -1102,12 +1083,12 @@ module glide_types
   end type glide_numerics
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  !TODO - Are these still needed?
+  !TODO - Is the glide_grnd type still needed?
   type glide_grnd
     ! variables for tracking the grounding line    
     real(dp),dimension(:,:),pointer :: gl_ew => null()
     real(dp),dimension(:,:),pointer :: gl_ns => null()
-    real(dp),dimension(:,:),pointer :: gline_flux => null() !*FD flux at the
+    real(dp),dimension(:,:),pointer :: gline_flux => null() ! flux at the
                                                             !grounding line
   end type glide_grnd
 
@@ -1130,7 +1111,7 @@ module glide_types
     real(dp) :: trcmin = 0.0d0
     real(dp) :: marine = 1.0d0
     real(dp) :: trcmax = 10.0d0
-    real(dp) :: btrac_const = 0.0d0  !TODO - Do we need two of these?  Also in glide_paramets below.
+    real(dp) :: btrac_const = 0.0d0  !TODO - Remove from glide_velowk type; already in glide_paramets type.
     real(dp) :: btrac_slope = 0.0d0
     real(dp) :: btrac_max = 0.d0
   end type glide_velowk
@@ -1170,7 +1151,6 @@ module glide_types
     real(dp),dimension(:,:,:),pointer :: hadv_u   => null()
     real(dp),dimension(:,:,:),pointer :: hadv_v   => null()
 
-    !TODO - Do we need these?
     !*sfp** added space to the next 2 (cons, f) for use w/ HO and SSA dissip. calc. 
     real(dp),dimension(5)             :: cons     = 0.d0
     real(dp),dimension(5)             :: f        = 0.d0
@@ -1210,7 +1190,7 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  !TODO - Should this type be removed?
+  !TODO - Should the glide_basalproc type be removed?
   !       Keeping it for now because glam_strs2 uses mintauf (but this could be moved to another type).
   type glide_basalproc
     !Tuneables, set in the config file 
@@ -1252,7 +1232,7 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - Is this type used?  Commented out for now
+!TODO - Remove the glide_phaml type?  Commented out for now
 !!  type glide_phaml
 !!    real(dp),dimension(:,:),pointer :: uphaml => null()
 !!    real(dp),dimension(:,:),pointer :: init_phaml => null()
@@ -1279,7 +1259,7 @@ module glide_types
     real(dp),dimension(:),pointer :: answ    => null()
     integer :: ct     = 0
 
-!TODO - KJE - remove once new glide_global_type is working and we can use those ewn and nsn
+    !TODO - KJE - Remove ewn/nsn from glissade_solver type once new glide_global_type is working and we can use those ewn/nsn
     integer :: ewn
     integer :: nsn
 
@@ -1287,7 +1267,7 @@ module glide_types
 
        
   type glide_global_type    ! type containing all of the above for an ice sheet model instance
-    integer              :: model_id !*FD Used in the global model list for error handling purposes
+    integer              :: model_id ! Used in the global model list for error handling purposes
     type(glide_general)  :: general
     type(glide_options)  :: options
     type(glide_geometry) :: geometry
@@ -1306,7 +1286,7 @@ module glide_types
     type(glide_tempwk)   :: tempwk
     type(glide_paramets) :: paramets
     type(glimmap_proj)   :: projection
-    type(glide_basalproc):: basalproc   !TODO - Remove?
+    type(glide_basalproc):: basalproc
     type(profile_type)   :: profile
     type(glide_prof_type):: glide_prof
     type(isostasy_type)  :: isostasy
@@ -1320,92 +1300,91 @@ contains
 
   subroutine glide_allocarr(model)    
 
-    !*FD Allocates the model arrays, and initialises some of them to zero.
-    !*FD These are the arrays allocated, and their dimensions:
-    !*FD
+    ! Allocates the model arrays, and initialises some of them to zero.
+    ! These are the arrays allocated, and their dimensions:
 
     !WHL - Modified this subroutine to allocate memory for arrays only
     !      as needed for particular options (e.g., model%options%dycore)
 
-    !TODO - Make sure these itemized lists are complete.
+    !TODO - Make sure the itemized lists in subroutine glide_allocarr are complete.
 
-    !*FD In \texttt{model\%temper}:
-    !*FD \begin{itemize}
-    !*FD \item \texttt{temp(upn,0:ewn+1,0:nsn+1))}   !WHL - 2 choices
-    !*FD \item \texttt{bheatflx(ewn,nsn))}
-    !*FD \item \texttt{flwa(upn,ewn,nsn))}           !WHL - 2 choices
-    !*FD \item \texttt{bwat(ewn,nsn))}
-    !*FD \item \texttt{bmlt(ewn,nsn))}
-    !*FD \item \texttt{bfricflx(ewn,nsn))}
-    !*FD \item \texttt{ucondflx(ewn,nsn))}
-    !*FD \item \texttt{lcondflx(ewn,nsn))}
-    !*FD \item \texttt{dissipcol(ewn,nsn))}
-    !*FD \item \texttt{waterfrac(ewn,nsn))}   ! for enthalpy scheme under construction
-    !*FD \end{itemize}
+    ! In \texttt{model\%temper}:
+    ! \begin{itemize}
+    ! \item \texttt{temp(upn,0:ewn+1,0:nsn+1))}   !WHL - 2 choices
+    ! \item \texttt{bheatflx(ewn,nsn))}
+    ! \item \texttt{flwa(upn,ewn,nsn))}           !WHL - 2 choices
+    ! \item \texttt{bwat(ewn,nsn))}
+    ! \item \texttt{bmlt(ewn,nsn))}
+    ! \item \texttt{bfricflx(ewn,nsn))}
+    ! \item \texttt{ucondflx(ewn,nsn))}
+    ! \item \texttt{lcondflx(ewn,nsn))}
+    ! \item \texttt{dissipcol(ewn,nsn))}
+    ! \item \texttt{waterfrac(ewn,nsn))}   ! for enthalpy scheme under construction
+    ! \end{itemize}
 
-    !*FD In \texttt{model\%velocity}:
-    !*FD \begin{itemize}
-    !*FD \item \texttt{uvel(upn,ewn-1,nsn-1))}
-    !*FD \item \texttt{vvel(upn,ewn-1,nsn-1))}
-    !*FD \item \texttt{wvel(upn,ewn,nsn))}
-    !*FD \item \texttt{wgrd(upn,ewn,nsn))}
-    !*FD \item \texttt{uflx(ewn-1,nsn-1))}
-    !*FD \item \texttt{vflx(ewn-1,nsn-1))}
-    !*FD \item \texttt{diffu(ewn,nsn))}
-    !*FD \item \texttt{btrc(ewn,nsn))}
-    !*FD \item \texttt{ubas(ewn,nsn))}
-    !*FD \item \texttt{vbas(ewn,nsn))}
-    !*FD \end{itemize}
+    ! In \texttt{model\%velocity}:
+    ! \begin{itemize}
+    ! \item \texttt{uvel(upn,ewn-1,nsn-1))}
+    ! \item \texttt{vvel(upn,ewn-1,nsn-1))}
+    ! \item \texttt{wvel(upn,ewn,nsn))}
+    ! \item \texttt{wgrd(upn,ewn,nsn))}
+    ! \item \texttt{uflx(ewn-1,nsn-1))}
+    ! \item \texttt{vflx(ewn-1,nsn-1))}
+    ! \item \texttt{diffu(ewn,nsn))}
+    ! \item \texttt{btrc(ewn,nsn))}
+    ! \item \texttt{ubas(ewn,nsn))}
+    ! \item \texttt{vbas(ewn,nsn))}
+    ! \end{itemize}
 
-    !*FD In \texttt{model\%climate}:
-    !*FD \begin{itemize}
-    !*FD \item \texttt{acab(ewn,nsn))}
-    !*FD \item \texttt{artm(ewn,nsn))}
-    !*FD \item \texttt{lati(ewn,nsn))}
-    !*FD \item \texttt{loni(ewn,nsn))}
-    !*FD \end{itemize}
+    ! In \texttt{model\%climate}:
+    ! \begin{itemize}
+    ! \item \texttt{acab(ewn,nsn))}
+    ! \item \texttt{artm(ewn,nsn))}
+    ! \item \texttt{lati(ewn,nsn))}
+    ! \item \texttt{loni(ewn,nsn))}
+    ! \end{itemize}
 
-    !*FD In \texttt{model\%geomderv}:
-    !*FD \begin{itemize}
-    !*FD \item \texttt{dthckdew(ewn,nsn))}
-    !*FD \item \texttt{dusrfdew(ewn,nsn))}
-    !*FD \item \texttt{dthckdns(ewn,nsn))}
-    !*FD \item \texttt{dusrfdns(ewn,nsn))}
-    !*FD \item \texttt{dthckdtm(ewn,nsn))}
-    !*FD \item \texttt{dusrfdtm(ewn,nsn))}
-    !*FD \item \texttt{stagthck(ewn-1,nsn-1))}
-    !*FD \end{itemize}
+    ! In \texttt{model\%geomderv}:
+    ! \begin{itemize}
+    ! \item \texttt{dthckdew(ewn,nsn))}
+    ! \item \texttt{dusrfdew(ewn,nsn))}
+    ! \item \texttt{dthckdns(ewn,nsn))}
+    ! \item \texttt{dusrfdns(ewn,nsn))}
+    ! \item \texttt{dthckdtm(ewn,nsn))}
+    ! \item \texttt{dusrfdtm(ewn,nsn))}
+    ! \item \texttt{stagthck(ewn-1,nsn-1))}
+    ! \end{itemize}
   
-    !*FD In \texttt{model\%geometry}:
-    !*FD \begin{itemize}
-    !*FD \item \texttt{thck(ewn,nsn))}
-    !*FD \item \texttt{usrf(ewn,nsn))}
-    !*FD \item \texttt{lsrf(ewn,nsn))}
-    !*FD \item \texttt{topg(ewn,nsn))}
-    !*FD \item \texttt{mask(ewn,nsn))}
-    !*FD \item \texttt{age(ewn,nsn))}
-    !*FD \item \texttt{f_ground(ewn-1,nsn-1)}
+    ! In \texttt{model\%geometry}:
+    ! \begin{itemize}
+    ! \item \texttt{thck(ewn,nsn))}
+    ! \item \texttt{usrf(ewn,nsn))}
+    ! \item \texttt{lsrf(ewn,nsn))}
+    ! \item \texttt{topg(ewn,nsn))}
+    ! \item \texttt{mask(ewn,nsn))}
+    ! \item \texttt{age(ewn,nsn))}
+    ! \item \texttt{f_ground(ewn-1,nsn-1)}
     !* (DFM) added floating_mask, ice_mask, lower_cell_loc, and lower_cell_temp
-    !*FD \item \texttt{floating_mask(ewn,nsn))}
-    !*FD \item \texttt{ice_mask(ewn,nsn))}
-    !*FD \item \texttt{lower_cell_loc(ewn,nsn))}
-    !*FD \item \texttt{lower_cell_temp(ewn,nsn))}
-    !*FD \end{itemize}
+    ! \item \texttt{floating_mask(ewn,nsn))}
+    ! \item \texttt{ice_mask(ewn,nsn))}
+    ! \item \texttt{lower_cell_loc(ewn,nsn))}
+    ! \item \texttt{lower_cell_temp(ewn,nsn))}
+    ! \end{itemize}
 
-    !*FD In \texttt{model\%thckwk}:
-    !*FD \begin{itemize}
-    !*FD \item \texttt{olds(ewn,nsn,thckwk\%nwhich))}
-    !*FD \end{itemize}
+    ! In \texttt{model\%thckwk}:
+    ! \begin{itemize}
+    ! \item \texttt{olds(ewn,nsn,thckwk\%nwhich))}
+    ! \end{itemize}
 
-    !*FD In \texttt{model\%numerics}:
-    !*FD \begin{itemize}
-    !*FD \item \texttt{sigma(upn))}
-    !*FD \end{itemize}
+    ! In \texttt{model\%numerics}:
+    ! \begin{itemize}
+    ! \item \texttt{sigma(upn))}
+    ! \end{itemize}
 
-    !*FD In \texttt{model\%numerics}:
-    !*FD \begin{itemize}
-    !*FD \item \texttt{stagsigma(upn-1))}
-    !*FD \end{itemize}
+    ! In \texttt{model\%numerics}:
+    ! \begin{itemize}
+    ! \item \texttt{stagsigma(upn-1))}
+    ! \end{itemize}
 
     use glimmer_log
     use glimmer_coordinates, only: coordsystem_allocate
@@ -1505,14 +1484,10 @@ contains
     call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%rhs_u)
     call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%rhs_v)
 
-    !TODO - Remove ubas and vbas? (already contained in uvel and vvel)
     call coordsystem_allocate(model%general%velo_grid, model%velocity%ubas)
     call coordsystem_allocate(model%general%velo_grid, model%velocity%ubas_tavg)
     call coordsystem_allocate(model%general%velo_grid, model%velocity%vbas)
     call coordsystem_allocate(model%general%velo_grid, model%velocity%vbas_tavg)
-
-!!    call coordsystem_allocate(model%general%velo_grid, model%velocity%velmask)    ! no longer used
-
 
     if (model%options%whichdycore == DYCORE_GLIDE) then
        call coordsystem_allocate(model%general%ice_grid,  upn, model%velocity%wvel)
@@ -1565,17 +1540,11 @@ contains
     call coordsystem_allocate(model%general%velo_grid, model%geomderv%dusrfdew)
     call coordsystem_allocate(model%general%velo_grid, model%geomderv%dusrfdns)
 
-
-    !TODO
-    !*SFP: These will need to be wrapped in their own logic at some point. For now, we 
-    !      are just commenting them out by default.
     !* (DFM) -- added floating_mask, ice_mask, lower_cell_loc, and lower_cell_temp here
     call coordsystem_allocate(model%general%ice_grid, model%geometry%floating_mask)
     call coordsystem_allocate(model%general%ice_grid, model%geometry%ice_mask)
     call coordsystem_allocate(model%general%ice_grid, model%geometry%lower_cell_loc)
     call coordsystem_allocate(model%general%ice_grid, model%geometry%lower_cell_temp)
-
-!!    call coordsystem_allocate(model%general%ice_grid, model%geometry%marine_bc_normal)   ! no longer used
 
     if (model%options%whichdycore == DYCORE_GLIDE) then
        call coordsystem_allocate(model%general%ice_grid, model%geometry%thck_index)
@@ -1585,7 +1554,6 @@ contains
        model%thckwk%olds = 0.d0
        call coordsystem_allocate(model%general%ice_grid, model%thckwk%oldthck)
        call coordsystem_allocate(model%general%ice_grid, model%thckwk%oldthck2)
-!!       call coordsystem_allocate(model%general%ice_grid, model%thckwk%float)  ! no loger used
     else   ! glam/glissade dycore
        call coordsystem_allocate(model%general%ice_grid, upn-1, model%geometry%age)
        call coordsystem_allocate(model%general%velo_grid, model%geometry%f_ground)
@@ -1613,7 +1581,7 @@ contains
     call coordsystem_allocate(model%general%ice_grid, model%climate%acab_tavg)
     call coordsystem_allocate(model%general%ice_grid, model%climate%artm)
     call coordsystem_allocate(model%general%ice_grid, model%climate%calving)
-    call coordsystem_allocate(model%general%ice_grid, model%climate%lati)     !TODO - Are lati and loni needed? 
+    call coordsystem_allocate(model%general%ice_grid, model%climate%lati)     
     call coordsystem_allocate(model%general%ice_grid, model%climate%loni)
 
     ! matrix solver arrays
@@ -1623,9 +1591,7 @@ contains
 
     call new_sparse_matrix(ewn*nsn, 5*ewn*nsn, model%solver_data%matrix)
 
-    !TODO - The lithosphere temperature has the vertical layer as the 3rd index,
-    !        whereas the ice temperature has the vertical layer as the 1st index.
-    !       Should we switch to the ice temperature convention?
+    !TODO - In model%lithot%temp, put the vertical index 3rd as in model%temper%temp?
 
     ! lithosphere arrays
 
@@ -1642,7 +1608,7 @@ contains
        call coordsystem_allocate(model%general%ice_grid, model%isostasy%load_factors)
     endif
 
-    !TODO - Are these needed?  Commented out for now
+    ! The remaining arrays are not currently used (except mintauf)
     ! phaml arrays
 !!    call coordsystem_allocate(model%general%ice_grid, model%phaml%init_phaml)
 !!    call coordsystem_allocate(model%general%ice_grid, model%phaml%rs_phaml)
@@ -1671,8 +1637,8 @@ contains
 
   subroutine glide_deallocarr(model)
 
-    !*FD deallocate model arrays
-    !TODO - Verify that all arrays allocated above are deallocated here.
+    ! deallocate model arrays
+    !TODO - Check that all arrays allocated above are deallocated here.
 
     implicit none
     type(glide_global_type),intent(inout) :: model
@@ -1765,7 +1731,6 @@ contains
     if (associated(model%velocity%rhs_v)) &
         deallocate(model%velocity%rhs_v)
 
-    !TODO - Remove ubas and vbas
     if (associated(model%velocity%ubas)) &
         deallocate(model%velocity%ubas)
     if (associated(model%velocity%ubas_tavg)) &
@@ -1946,7 +1911,7 @@ contains
     if (associated(model%isostasy%load_factors)) &
         deallocate(model%isostasy%load_factors)
 
-    ! TODO - Are these needed?  Commented out for now
+    ! The remaining arrays are not currently used (except mintauf)
     ! phaml arrays
 
 !!    if (associated(model%phaml%init_phaml)) &
@@ -1958,12 +1923,12 @@ contains
 
     ! grounding line arrays (not currently supported)
 
-    if (associated(model%ground%gl_ns)) &
-        deallocate(model%ground%gl_ns)
-    if (associated(model%ground%gl_ew)) &
-        deallocate(model%ground%gl_ew)
-    if (associated(model%ground%gline_flux)) &
-        deallocate(model%ground%gline_flux)
+!!    if (associated(model%ground%gl_ns)) &
+!!        deallocate(model%ground%gl_ns)
+!!    if (associated(model%ground%gl_ew)) &
+!!        deallocate(model%ground%gl_ew)
+!!    if (associated(model%ground%gline_flux)) &
+!!        deallocate(model%ground%gline_flux)
 
     ! basal process arrays
     ! not currently supported, except that glam_strs2 uses mintauf
@@ -1982,7 +1947,7 @@ contains
 
   ! some accessor functions
   function get_dew(model)
-    !*FD return scaled x node spacing
+    ! return scaled x node spacing
     use glimmer_paramets, only : len0
     implicit none
     real(dp) :: get_dew
@@ -1992,7 +1957,7 @@ contains
   end function get_dew
 
   function get_dns(model)
-    !*FD return scaled y node spacing
+    ! return scaled y node spacing
     use glimmer_paramets, only : len0
     implicit none
     real(dp) :: get_dns
@@ -2002,7 +1967,7 @@ contains
   end function get_dns
 
   function get_tstart(model)
-    !*FD return start time
+    ! return start time
     implicit none
     real(dp) :: get_tstart
     type(glide_global_type) :: model
@@ -2011,7 +1976,7 @@ contains
   end function get_tstart
 
   function get_tend(model)
-    !*FD return end time
+    ! return end time
     implicit none
     real(dp) :: get_tend
     type(glide_global_type) :: model
@@ -2020,7 +1985,7 @@ contains
   end function get_tend
 
   function get_tinc(model)
-    !*FD return time increment
+    ! return time increment
     implicit none
     real(dp) :: get_tinc
     type(glide_global_type) :: model
@@ -2029,7 +1994,7 @@ contains
   end function get_tinc
 
   function get_ewn(model)
-    !*FD get number of nodes in x dir
+    ! get number of nodes in x dir
     implicit none
     integer get_ewn
     type(glide_global_type) :: model
@@ -2038,7 +2003,7 @@ contains
   end function get_ewn
 
   function get_nsn(model)
-    !*FD get number of nodes in y dir
+    ! get number of nodes in y dir
     implicit none
     integer get_nsn
     type(glide_global_type) :: model
@@ -2047,8 +2012,8 @@ contains
   end function get_nsn
   
   subroutine set_time(model,time)
-    !*FD Set the model time counter --- useful for
-    !*FD fractional year output
+    ! Set the model time counter --- useful for
+    ! fractional year output
     implicit none
     type(glide_global_type) :: model
     real(dp) :: time

@@ -3546,7 +3546,7 @@ subroutine bodyset(ew,  ns,  up,           &
 !SCALING - Units of efvs are evs0 = tau0 / (vel0/len0)
 !          Multiply efvs by evs0/evs_scale so we get the same result in these two cases:
 !           (1) Old Glimmer with scaling:         evs0 = evs_scale = tau0/(vel0/len0), and efvs is non-dimensional
-!           (2) New Glimmer-CISM without scaling: evs0 = 1, evs_scale = tau0/(vel0/len0), and efvs is in Pa s
+!           (2) New CISM without scaling: evs0 = 1, evs_scale = tau0/(vel0/len0), and efvs is in Pa s
 
 !!!    source = source / ( sum(local_efvs, local_efvs > 1.0d-12) / &
 !!!             sum( (local_efvs/local_efvs), local_efvs > 1.0d-12 ) )

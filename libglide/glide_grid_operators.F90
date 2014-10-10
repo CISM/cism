@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glide_grid_operators.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glide_grid_operators.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -76,10 +76,7 @@ contains
                   model%geomderv% dthckdew, &
                   model%geomderv% dthckdns)
 
-!TODO - Should the following code, which is in stagthickness, be added?
-
-    ! Make sure the derivatives are 0 where stagthck = 0
-
+    !NOTE: The following commented-out code is included in stagthickness.
 !     where (model%geomderv%stagthck == 0.d0)
 !            model%geomderv%dusrfdew = 0.d0
 !            model%geomderv%dusrfdns = 0.d0
@@ -100,8 +97,7 @@ contains
   !      values are ignored when thickness is averaged over four adjacent grid cells.
   !      In stagvarb, zero-thickness values are included in the average.
   !      The glam approach works better for calving. 
-  !TODO: Implement a flag that allows zero-thickness values to be ignored.
-  !      This makes better sense for flwa and temp.
+  !TODO: Add a flag that allows zero-thickness values to be omitted from the gradient (e.g., for flwa and temp).
 
     implicit none 
 
@@ -240,7 +236,7 @@ contains
 
 !----------------------------------------------------------------------------
 
-    !TODO - This subroutine is not currently used.  Remove it?
+    !TODO - Remove subroutines unstagger_field_2d/3d?  Not currently used.
 
     subroutine unstagger_field_2d(f_stag, f, periodic_x, periodic_y)
 
@@ -337,8 +333,6 @@ contains
 
 !----------------------------------------------------------------------------
 
-    !TODO - This subroutine is not used.  Remove it?
-
     subroutine unstagger_field_3d(f, f_stag, periodic_x, periodic_y)
 
         real(dp), dimension(:,:,:) :: f, f_stag
@@ -354,12 +348,12 @@ contains
 
 !----------------------------------------------------------------------------
 
-    !TODO - This is not used.  Remove it?
+    !TODO - Remove subroutines periodic_boundaries and periodic_boundaries_3d? Not currently used.
 
     subroutine periodic_boundaries(m, apply_to_x, apply_to_y, nlayers_arg)
 
       use parallel
-        !*FD Applies periodic boundary conditions to a 2D array
+        ! Applies periodic boundary conditions to a 2D array
         real(dp), dimension(:,:), intent(inout) :: m
         integer :: maxx, maxy
         logical :: apply_to_x, apply_to_y
@@ -401,11 +395,9 @@ contains
 
 !----------------------------------------------------------------------------
     
-    !TODO - This is not used.  Remove it?
-
     subroutine periodic_boundaries_3d(m, apply_to_x, apply_to_y, nlayers_arg)
 
-        !*FD Applies periodic boundary conditions to a 3D array
+        ! Applies periodic boundary conditions to a 3D array
         real(dp), dimension(:,:,:), intent(inout) :: m
         logical :: apply_to_x, apply_to_y
         integer, optional :: nlayers_arg

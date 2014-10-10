@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glide_mask.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glide_mask.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -41,12 +41,11 @@ module glide_mask
 
 contains
 
-!TODO - Remove iarea, ivol, and exec_serial?
-!       If iarea and ivol are desired, they can be computed elsewhere.
+!TODO - Remove iarea and ivol calculation?  They can be computed elsewhere.
 
-!TODO - This subroutine is called from glissade_velo_driver with stagthck and stagtopg
-!       as input arguments.  Might be safer to have a difference mask subroutine to
-!       compute the staggered mask.
+!TODO - Write a new subroutine (in addition to glide_set_mask) to compute mask for staggered grid?
+!       This subroutine is now called from glissade_velo_driver with stagthck and stagtopg
+!       as input arguments.
 
   subroutine glide_set_mask(numerics, thck, topg, ewn, nsn, eus, mask, iarea, ivol, exec_serial)
 
@@ -69,14 +68,15 @@ contains
     real(dp), parameter :: con = - rhoi / rhoo
     logical :: exec_serial_flag
 
-!TODO - This array may not be needed, at least in parallel.
+    !Note - This array may not be needed, at least in parallel.
 
     ! Create an array to "fake" the boundaries of the mask so that boundary
     ! finding can work even on the boundaries of the real mask.
 
     integer, dimension(0:ewn+1,0:nsn+1) :: maskWithBounds;
 
-!TODO - What is the exec_serial option?  Is it still needed?
+    !TODO - What is the exec_serial option?  Is it still needed?
+
     !JEFF Handle exec_serial optional parameter
     if ( present(exec_serial) ) then
        exec_serial_flag = exec_serial
@@ -90,7 +90,7 @@ contains
     if (present(iarea)) iarea = 0.d0
     if (present(ivol)) ivol = 0.d0
 
-!TODO - This mask is confusing.  Wondering if we should replace it by a series of logical masks.
+!Note - This mask is confusing.  Wondering if we should replace it by a series of logical masks.
 
 ! Would need the following:
 ! glide_mask_has_ice = 1
@@ -115,13 +115,10 @@ contains
 ! glide_is_dirichlet_boundary 
 ! glide_is_comp_domain_bnd (may not be needed with new global BC?)
 ! 
-!TODO - Even if we keep the present structure, could change glide_is_land to glide_icefree_land,
-!                                                           glide_is_ocean to glide_icefree_ocean
+!       If we keep the present structure, could change glide_is_land to glide_icefree_land,
+!                                                      glide_is_ocean to glide_icefree_ocean
 !       Could get by with fewer masks in the code by removing some combinations
 !       Could remove *BITS
-
-!TODO - Combine the following into one do loop with ifs?
-!       Probably should loop over locally owned cells only, then do a halo update.
 
     !Identify points with any ice
     where (thck > 0.d0)
@@ -144,8 +141,8 @@ contains
         call get_area_vol(thck, numerics%dew, numerics%dns, numerics%thklim, iarea, ivol, exec_serial_flag)
     end if
 
-!TODO - The following could be accomplished by a halo call for 'mask' with appropriate global BC.
-!       
+    !TODO - Replace the following with a halo call for 'mask', with appropriate global BC?
+    
     maskWithBounds = 0
     maskWithBounds(1:ewn, 1:nsn) = MASK
     maskWithBounds(0,1:nsn) = mask(1,:)
@@ -159,9 +156,8 @@ contains
 
     ! finding boundaries
 
-!TODO - For parallel glissade code, this loop should be only over locally owned scalars.
-!       If halo cells are present, maskWithBounds array may not be needed; can replace with mask array.
-!TODO - Not sure what happens here when we're computing a mask on the velocity grid.
+    !Note: If halo cells are present, maskWithBounds array may not be needed; can replace with mask array.
+    !      Not sure what happens here when we're computing a mask on the velocity grid.
 
     do ns = 1,nsn
        do ew = 1,ewn
@@ -185,7 +181,6 @@ contains
              MASK(ew,ns) = ior(MASK(ew,ns),GLIDE_MASK_MARGIN)
           end if
 
-!TODO - Not sure if this will be needed when global boundaries are handled correctly.
 !       The GLIDE_MASK_COMP_DOMAIN_BND condition is currently used in glam_strs2.F90.
 
          !Mark domain boundaries
@@ -197,9 +192,8 @@ contains
        end do
     end do
 
-!TODO - This halo update should be moved to a higher level.
-
     !JEFF Don't call halo update if running in serial mode
+    !WHL - I think the halo update will now work in serial mode.
     if (.NOT. exec_serial_flag) then
        call parallel_halo(mask)
     endif
@@ -208,10 +202,9 @@ contains
 
   subroutine augment_kinbc_mask(mask, kinbcmask)
 
-    !TODO adding the kinematic bc to the unstaggered mask no longer needs to be supported.  That functionality can be removed.
-    !*FD Augments the Glide mask with the location of kinematic (dirichlet) boundary
-    !*FD conditions.  These locations cannot be determined by the model a priori, and
-    !*FD must be specified through a field in a NetCDF file.
+    !  Augments the Glide mask with the location of kinematic (dirichlet) boundary
+    !   conditions.  These locations cannot be determined by the model a priori, and
+    !   must be specified through a field in a NetCDF file.
     integer, dimension(:,:), target :: mask
     integer, dimension(:,:) :: kinbcmask
 
@@ -266,7 +259,7 @@ contains
   subroutine calc_iareaf_iareag(dew, dns, iarea, mask, iareaf, iareag, exec_serial)
     
     use parallel
-    !TODO - remove iarea from the call since it is not used
+    !TODO - remove iarea from the argument list since it is not used
 
     implicit none
     real(dp), intent(in) :: dew, dns
@@ -279,7 +272,7 @@ contains
     logical :: exec_serial_flag
     real(dp) :: sum(2)
  
-    !TODO - Is this exec_serial option needed?
+    !Note - exec_serial option may not be needed
     ! Handle exec_serial optional parameter
     if ( present(exec_serial) ) then
       exec_serial_flag = exec_serial
@@ -314,13 +307,14 @@ contains
 
     subroutine glide_marine_margin_normal(thck, mask, marine_bc_normal, exec_serial)
 
-      !TODO - Steve thinks this is a PBJ routine that could be removed.
+      !TODO - Remove subroutine glide_marine_margin_normal?  Old PBJ routine.
+      !       Also can remove calc_normal_45deg
 
       use parallel
         use glimmer_physcon, only:pi
         implicit none
-        !*FD This subroutine derives from the given mask the normal to an ice shelf
-        !*FD each point on the marine margin.
+        ! This subroutine derives from the given mask the normal to an ice shelf
+        ! each point on the marine margin.
         real(dp), dimension(:,:), intent(in) :: thck
         integer, dimension(:,:), intent(in) :: mask
         real(dp), dimension(:,:), intent(out) :: marine_bc_normal
@@ -404,16 +398,15 @@ contains
         endif
     end subroutine
 
-    !TODO - This is a PBJ function and could be removed.
     function calc_normal_45deg(thck3x3)
         use glimmer_physcon, only: pi
         
-        !*FD Computes the angle of the normal vector, in radians, for the given
-        !*FD 3x3 segment of ice geometry.
-        !*FD The normal is given in increments of 45 degrees (no nicer
-        !*FD interpolation is currently done)
-        !*FD This is based on the Payne and Price GLAM code, if/when this is
-        !*FD integrated into CISM it should probably be refactored to use this.
+        ! Computes the angle of the normal vector, in radians, for the given
+        ! 3x3 segment of ice geometry.
+        ! The normal is given in increments of 45 degrees (no nicer
+        ! interpolation is currently done)
+        ! This is based on the Payne and Price GLAM code, if/when this is
+        ! integrated into CISM it should probably be refactored to use this.
         real(dp), dimension(3,3) :: thck3x3
 
         real(dp) :: calc_normal_45deg
@@ -489,14 +482,12 @@ contains
         !to Glimmer's coordinate system.  90 deg. is still 3 O'clock.
         !I'm going to correct for this here rather than dig through the code
         !above
-        !(TODO: correct it in the code above!)
         calc_normal_45deg = pi - calc_normal_45deg 
         if (calc_normal_45deg < 0) calc_normal_45deg = calc_normal_45deg + 2*pi
 
     end function
 
-!TODO - This subroutine may not be needed.
-!       It is not currently called from anywhere.
+!TODO - Remove subroutine upwind_from_mask?  Not currently used.
 
     !Fills a field of differencing directions suitable to give a field
     !derivative routine.  Uses centered differencing everywhere except for the
@@ -567,7 +558,7 @@ contains
                     !We can think of this operation as avoiding calving points where there is 
                     !a non-calving point to upwind into.
                     !
-                    !TODO: We need a better way to detect interior points.  Right now I am just using
+                    !NOTE: We need a better way to detect interior points.  Right now I am just using
                     !points that are floating, and that works, but this doesn't work for two reasons:
                     !1. Boundary points are also floating
                     !2. Could fail for a very thin ice shelf

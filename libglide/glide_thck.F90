@@ -6,27 +6,27 @@
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glide_thck.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glide_thck.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -65,7 +65,7 @@ contains
 
   subroutine init_thck(model)
 
-    !*FD initialise work data for ice thickness evolution
+    ! initialise work data for ice thickness evolution
     use glimmer_log
     use glimmer_paramets, only: GLC_DEBUG
     implicit none
@@ -106,8 +106,8 @@ contains
 
   subroutine thck_lin_evolve(model,newtemps)
 
-    !*FD this subroutine solves the linearised ice thickness equation by computing the
-    !*FD diffusivity from quantities of the previous time step
+    ! this subroutine solves the linearised ice thickness equation by computing the
+    ! diffusivity from quantities of the previous time step
 
     use glide_velo
     use glimmer_paramets, only: GLC_DEBUG
@@ -117,7 +117,7 @@ contains
 
     ! subroutine arguments
     type(glide_global_type) :: model
-    logical, intent(in) :: newtemps                     !*FD true when we should recalculate Glen's A
+    logical, intent(in) :: newtemps                     ! true when we should recalculate Glen's A
 
     if (model%geometry%empty) then
 
@@ -212,9 +212,9 @@ contains
 
   subroutine thck_nonlin_evolve(model,newtemps)
 
-    !*FD this subroutine solves the ice thickness equation by doing an outer, 
-    !*FD non-linear iteration to update the diffusivities and in inner, linear
-    !*FD iteration to calculate the new ice thickness distrib
+    ! this subroutine solves the ice thickness equation by doing an outer, 
+    ! non-linear iteration to update the diffusivities and in inner, linear
+    ! iteration to calculate the new ice thickness distrib
 
     use glide_velo
     use glide_setup
@@ -226,10 +226,10 @@ contains
     implicit none
     ! subroutine arguments
     type(glide_global_type) :: model
-    logical, intent(in) :: newtemps                     !*FD true when we should recalculate Glen's A
+    logical, intent(in) :: newtemps                     ! true when we should recalculate Glen's A
 
     ! local variables
-    integer, parameter :: pmax=50                       !*FD maximum Picard iterations
+    integer, parameter :: pmax=50                       ! maximum Picard iterations
 
     real(dp), parameter :: tol=1.0d-6
     real(dp) :: residual
@@ -331,7 +331,7 @@ contains
 #else
 !SCALING - Multiply thickness residual by thk0/thk_scale so we get the same result in these two cases:
 !           (1) Old Glimmer with scaling:         thk0 = thk_scale = 2000 m, and thck is non-dimensional
-!           (2) New Glimmer-CISM without scaling: thk0 = 1, thk_scale = 2000 m, and thck is in true meters.
+!           (2) New CISM without scaling: thk0 = 1, thk_scale = 2000 m, and thck is in true meters.
 
 !!!          residual = maxval(abs(model%geometry%thck-model%thckwk%oldthck2))
           residual = maxval( abs(model%geometry%thck-model%thckwk%oldthck2) * (thk0/thk_scale) )
@@ -409,8 +409,8 @@ contains
 
   subroutine thck_evolve(model, diffu_x, diffu_y, calc_rhs, old_thck, new_thck)
 
-    !*FD set up sparse matrix and solve matrix equation to find new ice thickness distribution
-    !*FD this routine does not override the old thickness distribution
+    ! set up sparse matrix and solve matrix equation to find new ice thickness distribution
+    ! this routine does not override the old thickness distribution
 
     use glimmer_log
     use glimmer_paramets, only: vel0, thk0, GLC_DEBUG
@@ -420,13 +420,13 @@ contains
     ! subroutine arguments -------------------------------------------------------------
 
     type(glide_global_type) :: model
-    logical,intent(in) :: calc_rhs                      !*FD set to true when rhs should be calculated 
-                                                        !*FD i.e. when doing lin solution or first picard iteration
+    logical,intent(in) :: calc_rhs                      ! set to true when rhs should be calculated 
+                                                        ! i.e. when doing lin solution or first picard iteration
     real(dp), intent(in), dimension(:,:) :: diffu_x
     real(dp), intent(in), dimension(:,:) :: diffu_y
-    real(dp), intent(in), dimension(:,:) :: old_thck    !*FD contains ice thicknesses from previous time step
-    real(dp), intent(inout), dimension(:,:) :: new_thck !*FD on entry contains first guess for new ice thicknesses
-                                                        !*FD on exit contains ice thicknesses of new time step
+    real(dp), intent(in), dimension(:,:) :: old_thck    ! contains ice thicknesses from previous time step
+    real(dp), intent(inout), dimension(:,:) :: new_thck ! on entry contains first guess for new ice thicknesses
+                                                        ! on exit contains ice thicknesses of new time step
 
     ! local variables ------------------------------------------------------------------
 
@@ -704,13 +704,13 @@ contains
     ! Subroutine arguments
     !-------------------------------------------------------------------------
 
-    real(dp),dimension(:,:),intent(in)  :: thck       !*FD Ice thickness
-    real(dp),dimension(:,:),intent(in)  :: acab       !*FD Mass balance
-    integer, dimension(:,:),intent(out) :: thck_index !*FD integer index (1, 2, 3, ..., totpts)
-    integer,                intent(out) :: totpts     !*FD Total number of points in mask
+    real(dp),dimension(:,:),intent(in)  :: thck       ! Ice thickness
+    real(dp),dimension(:,:),intent(in)  :: acab       ! Mass balance
+    integer, dimension(:,:),intent(out) :: thck_index ! integer index (1, 2, 3, ..., totpts)
+    integer,                intent(out) :: totpts     ! Total number of points in mask
     logical, intent(in)       :: include_adjacent     ! If true, points with no ice but that are adjacent
                                                       ! to points with ice are included in the mask
-    logical,                intent(out) :: empty      !*FD true if no points in mask
+    logical,                intent(out) :: empty      ! true if no points in mask
 
     !-------------------------------------------------------------------------
     ! Internal variables
@@ -824,8 +824,8 @@ contains
 
   subroutine stagleapthck(model,newtemps)
     
-    !*FD this subroutine solves the ice sheet thickness equation using the ADI scheme
-    !*FD diffusivities are updated for each half time step
+    ! this subroutine solves the ice sheet thickness equation using the ADI scheme
+    ! diffusivities are updated for each half time step
 
     !TODO The ADI scheme has not been checked for consistency with the new time-stepping convention.  
 
@@ -837,7 +837,7 @@ contains
 
     ! subroutine arguments
     type(glide_global_type) :: model
-    logical, intent(in) :: newtemps                     !*FD true when we should recalculate Glen's A
+    logical, intent(in) :: newtemps                     ! true when we should recalculate Glen's A
 
     ! local variables
     integer ew,ns, n
@@ -982,25 +982,25 @@ contains
 
   subroutine adi_tri(a,b,c,d,thk,tpg,mb,flx_p,flx_m,dif_p,dif_m,dt,ds1, ds2)
 
-    !*FD construct tri-diagonal matrix system for a column/row
+    ! construct tri-diagonal matrix system for a column/row
 
     implicit none
     
-    real(dp), dimension(:), intent(out) :: a !*FD alpha (subdiagonal)
-    real(dp), dimension(:), intent(out) :: b !*FD alpha (diagonal)
-    real(dp), dimension(:), intent(out) :: c !*FD alpha (superdiagonal)
-    real(dp), dimension(:), intent(out) :: d !*FD right-hand side
+    real(dp), dimension(:), intent(out) :: a ! alpha (subdiagonal)
+    real(dp), dimension(:), intent(out) :: b ! alpha (diagonal)
+    real(dp), dimension(:), intent(out) :: c ! alpha (superdiagonal)
+    real(dp), dimension(:), intent(out) :: d ! right-hand side
     
-    real(dp), dimension(:), intent(in) :: thk   !*FD ice thickness
-    real(dp), dimension(:), intent(in) :: tpg   !*FD lower surface of ice
-    real(dp), dimension(:), intent(in) :: mb    !*FD mass balance
-    real(dp), dimension(:), intent(in) :: flx_p !*FD flux +1/2
-    real(dp), dimension(:), intent(in) :: flx_m !*FD flux -1/2
-    real(dp), dimension(:), intent(in) :: dif_p !*FD diffusivity +1/2
-    real(dp), dimension(:), intent(in) :: dif_m !*FD diffusivity -1/2
+    real(dp), dimension(:), intent(in) :: thk   ! ice thickness
+    real(dp), dimension(:), intent(in) :: tpg   ! lower surface of ice
+    real(dp), dimension(:), intent(in) :: mb    ! mass balance
+    real(dp), dimension(:), intent(in) :: flx_p ! flux +1/2
+    real(dp), dimension(:), intent(in) :: flx_m ! flux -1/2
+    real(dp), dimension(:), intent(in) :: dif_p ! diffusivity +1/2
+    real(dp), dimension(:), intent(in) :: dif_m ! diffusivity -1/2
     
-    real(dp), intent(in) :: dt !*FD time step
-    real(dp), intent(in) :: ds1, ds2 !*FD spatial steps inline and transversal
+    real(dp), intent(in) :: dt ! time step
+    real(dp), intent(in) :: ds1, ds2 ! spatial steps inline and transversal
 
     ! local variables
     real(dp) :: f1, f2, f3
@@ -1053,10 +1053,10 @@ contains
 
     implicit none
 
-    real(dp), intent(in),  dimension(:,:) :: thck !*FD Ice thickness
-    real(dp), intent(in),  dimension(:,:) :: topg !*FD Bedrock topography elevation
-    real(dp), intent(in)                  :: eus  !*FD global sea level
-    real(dp), intent(out), dimension(:,:) :: lsrf !*FD Lower ice surface elevation
+    real(dp), intent(in),  dimension(:,:) :: thck ! Ice thickness
+    real(dp), intent(in),  dimension(:,:) :: topg ! Bedrock topography elevation
+    real(dp), intent(in)                  :: eus  ! global sea level
+    real(dp), intent(out), dimension(:,:) :: lsrf ! Lower ice surface elevation
 
     real(dp), parameter :: con = - rhoi / rhoo
 

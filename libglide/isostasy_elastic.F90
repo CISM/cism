@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   isostasy_elastic.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   isostasy_elastic.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -30,7 +30,7 @@
 
 module isostasy_elastic
 
-  !*FD handle elastic lithosphere
+  ! handle elastic lithosphere
 
   !NOTE: This works for serial simulations only.
 
@@ -51,11 +51,11 @@ contains
   
   subroutine init_elastic(rbel, deltax)
 
-    !*FD initialise elastic lithosphere calculations
+    ! initialise elastic lithosphere calculations
     use glimmer_physcon, only : pi
     implicit none
-    type(isos_elastic) :: rbel     !*FD structure holding elastic litho data    
-    real(dp), intent(in) :: deltax        !*FD grid spacing
+    type(isos_elastic) :: rbel     ! structure holding elastic litho data    
+    real(dp), intent(in) :: deltax        ! grid spacing
 
     ! local variables
     real(dp) :: a     ! radius of disk
@@ -118,11 +118,11 @@ contains
 
   subroutine calc_elastic(rbel,load,load_factors)
 
-    !*FD calculate surface loading effect using elastic lithosphere approximation
+    ! calculate surface loading effect using elastic lithosphere approximation
     implicit none
-    type(isos_elastic) :: rbel                     !*FD structure holding elastic litho data
-    real(dp), dimension(:,:), intent(out) :: load !*FD loading effect due to load_factors
-    real(dp), dimension(:,:), intent(in)  :: load_factors !*FD load mass divided by mantle density
+    type(isos_elastic) :: rbel                     ! structure holding elastic litho data
+    real(dp), dimension(:,:), intent(out) :: load ! loading effect due to load_factors
+    real(dp), dimension(:,:), intent(in)  :: load_factors ! load mass divided by mantle density
 
     integer ewn,nsn
     integer i,j,n,m
@@ -146,9 +146,9 @@ contains
 !-------------------------------------------------------------------------
 
   subroutine finalise_elastic(rbel)
-    !*FD clean-up data structure
+    ! clean-up data structure
     implicit none
-    type(isos_elastic) :: rbel     !*FD structure holding elastic litho data    
+    type(isos_elastic) :: rbel     ! structure holding elastic litho data    
 
     deallocate(rbel%w)
   end subroutine finalise_elastic
@@ -161,13 +161,13 @@ contains
 
   subroutine init_rbel(rbel, a)
 
-    !*FD initialise elastic lithosphere calculations
+    ! initialise elastic lithosphere calculations
     use glimmer_paramets, only: len0
     use glimmer_physcon, only: rhom,grav
     use kelvin
     implicit none
-    type(isos_elastic) :: rbel        !*FD structure holding elastic litho data
-    real(dp), intent(in) :: a             !*FD radius of disk
+    type(isos_elastic) :: rbel        ! structure holding elastic litho data
+    real(dp), intent(in) :: a             ! radius of disk
 
     real(dp) :: dummy_a
 
@@ -189,11 +189,11 @@ contains
 
   function rbel_ow(rbel,r)
     use kelvin
-    !*FD calculating deflection outside disk
+    ! calculating deflection outside disk
     implicit none
     real(dp) :: rbel_ow
-    real(dp), intent(in) :: r          !*FD radius, r should be scaled with lr
-    type(isos_elastic) :: rbel     !*FD structure holding elastic litho data
+    real(dp), intent(in) :: r          ! radius, r should be scaled with lr
+    type(isos_elastic) :: rbel     ! structure holding elastic litho data
     
     rbel_ow = rbel%cd3*ker(r) + rbel%cd4*kei(r)
   end function rbel_ow
@@ -202,11 +202,11 @@ contains
 
   function rbel_iw(rbel,r)
     use kelvin
-    !*FD calculating deflection inside disk
+    ! calculating deflection inside disk
     implicit none
     real(dp) :: rbel_iw
-    real(dp), intent(in) :: r          !*FD radius, r should be scaled with lr
-    type(isos_elastic) :: rbel         !*FD structure holding elastic litho data
+    real(dp), intent(in) :: r          ! radius, r should be scaled with lr
+    type(isos_elastic) :: rbel         ! structure holding elastic litho data
     
     rbel_iw = 1.d0 + rbel%c1*ber(r) + rbel%c2*bei(r)
   end function rbel_iw

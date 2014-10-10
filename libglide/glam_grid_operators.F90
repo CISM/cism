@@ -1,30 +1,28 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glam_grid_operators.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glam_grid_operators.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-!TODO - Make sure all these subroutines are currently used, or might be in the future.
 
 ! Various grid operators for glam dycore, including routines for computing gradients
 ! and switching between staggered and unstaggered grids
@@ -35,13 +33,13 @@
 
 #include "glide_mask.inc"
 
-!*FD This module contains functions for computing derivatives numerically, both
-!*FD for a single value and for an entire field.
-!*FD Note that this module is written with the first index in a matrix corresponding
-!*FD to the x (east-west) coordinate.  If this is not the case (i.e. if the first
-!*FD index corresponds to the y (north-south) coordinate), then transposition
-!*FD will be necessary.  Simply ask for the y-derivative when you mean to ask for
-!*FD the x-derivative, and vice versa.
+! This module contains functions for computing derivatives numerically, both
+! for a single value and for an entire field.
+! Note that this module is written with the first index in a matrix corresponding
+! to the x (east-west) coordinate.  If this is not the case (i.e. if the first
+! index corresponds to the y (north-south) coordinate), then transposition
+! will be necessary.  Simply ask for the y-derivative when you mean to ask for
+! the x-derivative, and vice versa.
 
 module glam_grid_operators
 
@@ -226,7 +224,7 @@ contains
     !First Derivative Estimates, Second Order, 2D
     !------------------------------------------------------------------
 
-    !*FD Computes derivative fields of the given function.
+    ! Computes derivative fields of the given function.
     subroutine df_field_2d(f,  &
                            deltax,      deltay,      &
                            out_dfdx,    out_dfdy,    &
@@ -304,14 +302,10 @@ contains
 
 !----------------------------------------------------------------------------
 
-    !*FD Computes derivative fields of the given function.  Places the result
-    !*FD on a staggered grid.  If periodic in one dimension is set, that 
-    !*FD dimension for derivatives must be the same size as the value's dimension.
-    !*FD Otherwise, it should be one less
-
-!TODO - This is the subroutine used to compute dusrfdew/ns, dthkdew/ns.
-!       Not sure if mods are needed for parallel code.
-!TODO - thck and thklim are no longer used in this subroutine.  Remove from argument list.
+    ! Computes derivative fields of the given function.  Places the result
+    ! on a staggered grid.  If periodic in one dimension is set, that 
+    ! dimension for derivatives must be the same size as the value's dimension.
+    ! Otherwise, it should be one less
 
     subroutine df_field_2d_staggered(f,                  &
                                      deltax,   deltay,   &
@@ -340,7 +334,7 @@ contains
         ! subroutines which attempt to correct for this if/when possible using approx., first-order
         ! accurate one-sided diffs.
 
-!TODO - Use old calls or new calls?
+        !Note - Can remove thck and thklim from argument list if not using new calls
 
         do x = 1, nx - 1  ! We go to nx - 1 because we're using a staggered grid
             do y = 1, ny - 1
@@ -351,7 +345,7 @@ contains
             end do
         end do
 
-!TODO - Remove this chunk of code
+        !TODO - Remove this chunk of commented-out code
 !               !Deal with periodic boundary conditions.  We will do so by
 !               !providing another set of values at the end of each dimension
 !               !that contains the derivative of the value off the edge of the
@@ -381,15 +375,15 @@ contains
 
 !----------------------------------------------------------------------------
 
-!TODO - This 3D subroutine is never called.  Remove it?
+        !TODO - Remove subroutine df_field_3d?  It is never called.
  
     subroutine df_field_3d(f,                                  &
                            deltax,      deltay,      deltaz,   &
                            out_dfdx,    out_dfdy,    out_dfdz, &
                            direction_x, direction_y)
 
-    !*FD Computes derivative fields of the given function.
-    !*FD The z axis is computed on an irregular grid.
+    ! Computes derivative fields of the given function.
+    ! The z axis is computed on an irregular grid.
 
         implicit none
         real(dp), dimension(:, :, :), intent(in) :: f
@@ -476,17 +470,17 @@ contains
 
 !----------------------------------------------------------------------------
 
-!TODO - This 3D subroutine is never called.  Remove it?
+    !TODO - Remove subroutine df_field_3d_stag?  It is never called.
 
     subroutine df_field_3d_stag(f,                                  &
                                 deltax,      deltay,      deltaz,   &
                                 out_dfdx,    out_dfdy,    out_dfdz)
 
-        !*FD Computes the derivative fields of the given function.  The X and Y
-        !*FD derivatives are computed on a staggered grid.  The Z derivative
-        !*FD is computed on a nonstaggered but irregular grid.  This means that,
-        !*FD if an array of dimensions (n1, n2, n3), the output arrays should
-        !*FD be of size (n1 - 1, n2 - 1, n3)
+        ! Computes the derivative fields of the given function.  The X and Y
+        ! derivatives are computed on a staggered grid.  The Z derivative
+        ! is computed on a nonstaggered but irregular grid.  This means that,
+        ! if an array of dimensions (n1, n2, n3), the output arrays should
+        ! be of size (n1 - 1, n2 - 1, n3)
 
         implicit none
         real(dp), dimension(:, :, :), intent(in) :: f
@@ -544,10 +538,10 @@ contains
 
 !----------------------------------------------------------------------------
 
-!TODO - Check the rest of this module for unused functions we might want to remove
+    !TODO - Check the rest of this module for unused functions we might want to remove
 
-    !*FD Computes derivative with respect to x at a given point.
-    !*FD Applies periodic boundary conditions if needed.
+    ! Computes derivative with respect to x at a given point.
+    ! Applies periodic boundary conditions if needed.
 
     function dfdx_2d(f, i, j, delta)
         implicit none
@@ -562,7 +556,7 @@ contains
 
 !----------------------------------------------------------------------------
 
-    !*FD Computes derivative with respect to y at a given point
+    ! Computes derivative with respect to y at a given point
 
     function dfdy_2d(f, i, j, delta)
         implicit none
@@ -582,8 +576,8 @@ contains
 
 !----------------------------------------------------------------------------
 
-    !*FD Computes derivative with respect to x at the equivalent
-    !*FD point on a staggered grid.
+    ! Computes derivative with respect to x at the equivalent
+    ! point on a staggered grid.
 
     function dfdx_2d_stag(f, i, j, delta)
         implicit none
@@ -596,8 +590,8 @@ contains
 
 !----------------------------------------------------------------------------
 
-    !*FD Computes derivative with respect to y at the equivalent
-    !*FD point on a staggered grid.
+    ! Computes derivative with respect to y at the equivalent
+    ! point on a staggered grid.
 
     function dfdy_2d_stag(f, i, j, delta)
         implicit none
@@ -773,8 +767,8 @@ contains
 
 !----------------------------------------------------------------------------
 
-    !*FD Computes derivative with respect to x at the given point
-    !*FD using an upwind method (suitable for maximum boundaries)
+    ! Computes derivative with respect to x at the given point
+    ! using an upwind method (suitable for maximum boundaries)
 
     function dfdx_2d_upwind(f, i, j, delta)
         implicit none
@@ -787,8 +781,8 @@ contains
 
 !----------------------------------------------------------------------------
 
-    !*FD Computes derivative with respect to y at the given point
-    !*FD using an upwind method (suitable for maximum boundaries)
+    ! Computes derivative with respect to y at the given point
+    ! using an upwind method (suitable for maximum boundaries)
 
     function dfdy_2d_upwind(f, i, j, delta)
         implicit none
@@ -801,8 +795,8 @@ contains
 
 !----------------------------------------------------------------------------
 
-    !*FD Computes derivative with respect to x at the given point
-    !*FD using a downwind method (suitable for minimum boundaries)
+    ! Computes derivative with respect to x at the given point
+    ! using a downwind method (suitable for minimum boundaries)
 
     function dfdx_2d_downwind(f, i, j, delta)
         implicit none
@@ -815,8 +809,8 @@ contains
 
 !----------------------------------------------------------------------------
 
-    !*FD Computes derivative with respect to y at the given point
-    !*FD using a downwind method (suitable for minimum boundaries)
+    ! Computes derivative with respect to y at the given point
+    ! using a downwind method (suitable for minimum boundaries)
 
     function dfdy_2d_downwind(f, i, j, delta)
         implicit none
@@ -833,7 +827,7 @@ contains
     !First Derivative Estimates, Second Order, 3D
     !------------------------------------------------------------------
 
-    !*FD Computes derivative with respect to x at a given point
+    ! Computes derivative with respect to x at a given point
 
     function dfdx_3d(f, i, j, k, delta)
         implicit none
@@ -846,7 +840,7 @@ contains
 
 !----------------------------------------------------------------------------
 
-    !*FD Computes derivative with respect to y at a given point
+    ! Computes derivative with respect to y at a given point
 
     function dfdy_3d(f, i, j, k, delta)
         implicit none
@@ -859,9 +853,9 @@ contains
     
 !----------------------------------------------------------------------------
 
-    !*FD Computes derivative with respect to z at a given point
-    !*FD where the Z axis uses an irregular grid defined by \ittext{deltas}.
-    !*FD This derivative is given by the formula:
+    ! Computes derivative with respect to z at a given point
+    ! where the Z axis uses an irregular grid defined by \ittext{deltas}.
+    ! This derivative is given by the formula:
 
     function dfdz_3d_irregular(f, i, j, k, dz)
         implicit none
@@ -877,8 +871,8 @@ contains
     
 !----------------------------------------------------------------------------
 
-    !*FD Computes derivative with respect to z at a given point using an upwinding
-    !*FD scheme.  The Z axis uses an irregular grid defined by \iittext{deltas}.
+    ! Computes derivative with respect to z at a given point using an upwinding
+    ! scheme.  The Z axis uses an irregular grid defined by \iittext{deltas}.
 
     function dfdz_3d_upwind_irregular(f, i, j, k, deltas)
         implicit none
@@ -898,8 +892,8 @@ contains
     
 !----------------------------------------------------------------------------
 
-    !*FD Computes derivative with respect to z at a given point using a downwinding
-    !*FD scheme.  The Z axis uses an irregular grid defined by \iittext{deltas}.
+    ! Computes derivative with respect to z at a given point using a downwinding
+    ! scheme.  The Z axis uses an irregular grid defined by \iittext{deltas}.
 
     function dfdz_3d_downwind_irregular(f, i, j, k, deltas)
         implicit none
@@ -919,8 +913,8 @@ contains
     
 !----------------------------------------------------------------------------
 
-    !*FD Computes derivative with respect to x at the equivalent
-    !*FD point on a staggered grid.
+    ! Computes derivative with respect to x at the equivalent
+    ! point on a staggered grid.
 
     function dfdx_3d_stag(f, i, j, k, delta)
         implicit none
@@ -933,8 +927,8 @@ contains
 
 !----------------------------------------------------------------------------
 
-    !*FD Computes derivative with respect to y at the equivalent
-    !*FD point on a staggered grid.
+    ! Computes derivative with respect to y at the equivalent
+    ! point on a staggered grid.
 
     function dfdy_3d_stag(f, i, j, k, delta)
         implicit none
@@ -947,8 +941,8 @@ contains
 
 !----------------------------------------------------------------------------
 
-    !*FD Computes derivative with respect to x at the given point
-    !*FD using an upwind method (suitable for maximum boundaries)
+    ! Computes derivative with respect to x at the given point
+    ! using an upwind method (suitable for maximum boundaries)
 
     function dfdx_3d_upwind(f, i, j, k, delta)
         implicit none
@@ -961,8 +955,8 @@ contains
 
 !----------------------------------------------------------------------------
 
-    !*FD Computes derivative with respect to y at the given point
-    !*FD using an upwind method (suitable for maximum boundaries)
+    ! Computes derivative with respect to y at the given point
+    ! using an upwind method (suitable for maximum boundaries)
 
     function dfdy_3d_upwind(f, i, j, k, delta)
         implicit none
@@ -975,8 +969,8 @@ contains
 
 !----------------------------------------------------------------------------
 
-    !*FD Computes derivative with respect to x at the given point
-    !*FD using a downwind method (suitable for minimum boundaries)
+    ! Computes derivative with respect to x at the given point
+    ! using a downwind method (suitable for minimum boundaries)
 
     function dfdx_3d_downwind(f, i, j, k, delta)
         implicit none
@@ -989,8 +983,8 @@ contains
 
 !----------------------------------------------------------------------------
 
-    !*FD Computes derivative with respect to y at the given point
-    !*FD using a downwind method (suitable for minimum boundaries)
+    ! Computes derivative with respect to y at the given point
+    ! using a downwind method (suitable for minimum boundaries)
 
     function dfdy_3d_downwind(f, i, j, k, delta)
         implicit none
@@ -1007,7 +1001,7 @@ contains
     !Second Derivative Estimates, Second Order
     !------------------------------------------------------------------
     
-    !*FD Computes 2nd derivative with respect to x at the given point
+    ! Computes 2nd derivative with respect to x at the given point
 
     function d2fdx2_2d(f, i, j, delta)
         implicit none
@@ -1110,7 +1104,7 @@ contains
 
 !----------------------------------------------------------------------------
 
-    !*FD Computes 2nd derivative with respect to y at the given point
+    ! Computes 2nd derivative with respect to y at the given point
 
     function d2fdy2_2d(f, i, j, delta)
         implicit none
@@ -1219,16 +1213,12 @@ contains
             end do
         end do
 
-!TODO:  If halo updates are needed, they should be done at a higher level.
-
         call parallel_halo(d2fdx2)
         call parallel_halo(d2fdy2)
 
     end subroutine d2f_field
 
 !----------------------------------------------------------------------------
-
-!TODO: Rewrite this using the existing derivative machinery?
 
     subroutine d2f_field_stag(f, deltax, deltay, d2fdx2, d2fdy2, periodic_x, periodic_y)
 
@@ -1255,7 +1245,7 @@ contains
     d2fdx2 = 0.d0
     d2fdy2 = 0.d0
  
-!LOOP - not sure what bounds should be in this subroutine
+    !LOOP - not sure what bounds should be in this subroutine
 
     do ns = 2, nsn-2
       do ew = 2, ewn-2
@@ -1375,7 +1365,7 @@ contains
     end function whichway
 
 !----------------------------------------------------------------------------
-!TODO: Not sure what this code is doing here.
+    !TODO: Remove this commented-out code?
 
 !       real(dp), dimension(:,:), intent(in) :: f
 !       real(dp), dimension(:,:), intent(out) :: d2fdx2, d2fdy2
@@ -1455,7 +1445,7 @@ contains
 !       end do
 !       
 !       
-!       !TODO: Change this to use the scheme above
+!       !To do: Change this to use the scheme above
 !       !We have neglected so far to take care of the four points that occur at the
 !       !maximum two indices in x and y.  If no periodic boundaries are being used,
 !       !we compute the value zt (nx-1, ny-1) using upwinding schemes.
@@ -1505,7 +1495,7 @@ contains
     
 !----------------------------------------------------------------------------
 
-    !*FD Computes derivative taken first w.r.t x, then to y at the given point.
+    ! Computes derivative taken first w.r.t x, then to y at the given point.
 
     function d2fdxy_3d(f, i, j, k, delta_x, delta_y)
         implicit none
@@ -1549,8 +1539,8 @@ contains
         
 !----------------------------------------------------------------------------
 
-    !*FD Computes derivative with respect to z at a given point
-    !*FD where the Z axis uses an irregular grid defined by \ittext{deltas}.
+    ! Computes derivative with respect to z at a given point
+    ! where the Z axis uses an irregular grid defined by \ittext{deltas}.
 
     function d2fdz2_3d_irregular(f, i, j, k, deltas)
         implicit none
