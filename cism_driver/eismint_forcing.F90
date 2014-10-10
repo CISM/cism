@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   eismint_forcing.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   eismint_forcing.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -30,8 +30,8 @@
 
 module eismint_forcing
 
-  !*FD read configuration and generate eismint mass balance and 
-  !*FD temperature fields
+  ! read configuration and generate eismint mass balance and 
+  ! temperature fields
 
   use glimmer_global, only : dp
   use glide_types, only : eismint_climate_type
@@ -55,7 +55,7 @@ contains
 
   subroutine eismint_initialise(eismint_climate,config)
 
-    !*FD initialise eismint_climate model
+    ! initialise eismint_climate model
 
     use glimmer_global, only: dp
     use glimmer_paramets, only: thk0, scyr, tim0
@@ -64,8 +64,8 @@ contains
     use glide_types
     implicit none
 
-    type(eismint_climate_type) :: eismint_climate         !*FD structure holding climate info
-    type(ConfigSection), pointer :: config  !*FD structure holding sections of configuration file   
+    type(eismint_climate_type) :: eismint_climate         ! structure holding climate info
+    type(ConfigSection), pointer :: config  ! structure holding sections of configuration file   
 
 !WHL - The old scaling looked like this: eismint_climate%nmsb(1) = eismint_climate%nmsb(1) / (acc0 * scyr)
 !       where acc0 = thk0*vel0/len0.
@@ -108,14 +108,14 @@ contains
 
   subroutine eismint_readconfig(eismint_climate, config)
 
-    !*FD read configuration
+    ! read configuration
 
     use glimmer_log
     use glimmer_config
     implicit none
 
-    type(eismint_climate_type) :: eismint_climate         !*FD structure holding climate info
-    type(ConfigSection), pointer :: config  !*FD structure holding sections of configuration file   
+    type(eismint_climate_type) :: eismint_climate         ! structure holding climate info
+    type(ConfigSection), pointer :: config  ! structure holding sections of configuration file   
 
     ! local variables
     type(ConfigSection), pointer :: section
@@ -269,13 +269,13 @@ contains
 
   subroutine eismint_printconfig(eismint_climate)
 
-    !*FD print eismint_climate configuration
+    ! print eismint_climate configuration
 
     use glimmer_log
     use parallel, only: tasks
     implicit none
 
-    type(eismint_climate_type) :: eismint_climate   !*FD structure holding climate info
+    type(eismint_climate_type) :: eismint_climate   ! structure holding climate info
     character(len=100) :: message
 
     call write_log_div
@@ -343,7 +343,7 @@ contains
 
   subroutine eismint_massbalance(eismint_climate,model,time)
 
-    !*FD calculate eismint mass balance
+    ! calculate eismint mass balance
 
 !TODO - Remove acc0
 
@@ -354,9 +354,9 @@ contains
     use glimmer_scales, only : scale_acab
     implicit none
 
-    type(eismint_climate_type) :: eismint_climate         !*FD structure holding climate info
-    type(glide_global_type) :: model        !*FD model instance
-    real(dp), intent(in) :: time            !*FD current time
+    type(eismint_climate_type) :: eismint_climate         ! structure holding climate info
+    type(glide_global_type) :: model        ! model instance
+    real(dp), intent(in) :: time            ! current time
 
     !WHL - Changed 'periodic_bc' to 'periodic' to avoid a name conflict with parallel modules
     ! local variables
@@ -424,7 +424,7 @@ contains
 
   subroutine eismint_surftemp(eismint_climate,model,time)
 
-    !*FD calculate eismint air surface temperature
+    ! calculate eismint air surface temperature
 
     use glide_types
     use glimmer_global, only: dp
@@ -432,9 +432,9 @@ contains
     use glimmer_physcon, only : pi
     implicit none
 
-    type(eismint_climate_type) :: eismint_climate         !*FD structure holding climate info
-    type(glide_global_type) :: model        !*FD model instance
-    real(dp), intent(in) :: time            !*FD current time
+    type(eismint_climate_type) :: eismint_climate         ! structure holding climate info
+    type(glide_global_type) :: model        ! model instance
+    real(dp), intent(in) :: time            ! current time
 
     ! local variables
     integer  :: ns,ew
@@ -500,11 +500,11 @@ contains
     use testsFG
     implicit none
 
-    type(eismint_climate_type) :: eismint_climate             !*FD structure holding climate info
-    type(glide_global_type) :: model            !*FD model instance
-    real(dp), intent(in) :: time                !*FD current time
-    real(dp), intent(in) :: which_test          !*FD  Which exact test (F=0, G=1)
-    real(dp), intent(in) :: which_call          !*FD  0 = surface temp, 1 = mass balance
+    type(eismint_climate_type) :: eismint_climate             ! structure holding climate info
+    type(glide_global_type) :: model            ! model instance
+    real(dp), intent(in) :: time                ! current time
+    real(dp), intent(in) :: which_test          !  Which exact test (F=0, G=1)
+    real(dp), intent(in) :: which_call          !  0 = surface temp, 1 = mass balance
     integer  :: ns,ew,lev,center
 
     !verification
