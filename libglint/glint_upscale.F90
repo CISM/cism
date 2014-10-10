@@ -167,6 +167,8 @@ contains
     ! Output fields are only valid on the main task.
     ! The upscaled fields are passed to the GCM land surface model, which has the option
     !  of updating the fractional area and surface elevation of glaciated gridcells.
+    ! If instance%zero_gcm_fluxes is true, then the upscaled versions of grofi, grofl and
+    ! ghflx are zeroed out
 
     use glimmer_paramets, only: thk0, GLC_DEBUG
     use glimmer_log
@@ -212,8 +214,8 @@ contains
     integer, dimension(nxl,nyl,0:nec) ::   &   
        area_mask_l                          ! binary mask, defined at all elevation classes,
                                             !  that defines whether some ice elevation is present.
-                                            ! For the 0-indexed bed information, this is 1 
-                                            ! for all land points (ice or ice-free).
+                                            ! For the 0-indexed bed information, area_mask_l = 1
+                                            !  for all land points (ice or ice-free).
     
     !TODO - Pass in topomax as an argument instead of hardwiring it here?
     real(dp), dimension(0:nec) :: topomax   ! upper elevation limit of each class
@@ -442,6 +444,12 @@ contains
           endif
        enddo
     enddo
+
+    if (instance%zero_gcm_fluxes == ZERO_GCM_FLUXES_TRUE) then
+       ghflx(:,:,0:nec) = 0.d0
+       grofi(:,:)   = 0.d0
+       grofl(:,:)   = 0.d0
+    end if
     
   end subroutine glint_upscaling_gcm
 
